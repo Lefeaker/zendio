@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ConnectionTestResult } from '../../../src/shared/types/connection';
 import type { CaptureVisibleTabScreenshotResponse } from '../../../src/shared/types/videoScreenshotMessages';
+import type { VideoScreenshotCacheResponse } from '../../../src/content/video/videoScreenshotCacheMessages';
 import type { TabsService } from '../../../src/platform/interfaces/tabs';
 import { asType } from '../../utils/typeHelpers';
 
@@ -25,16 +26,38 @@ const handleErrorMock = vi.hoisted(() => vi.fn(() => Promise.resolve(undefined))
 const processClipPayloadMock = vi.hoisted(() =>
   vi.fn(() => Promise.resolve({ filePath: 'Video/example.md' }))
 );
+type UntrustedValue = Parameters<typeof asType>[0];
+type FailureCarrier = { failureCategory?: UntrustedValue };
+type TabContextSuccess = {
+  success: true;
+  tabId?: number;
+  frameId?: number;
+  windowId?: number;
+};
+
+function hasFailureCategory(error: object): error is FailureCarrier {
+  return 'failureCategory' in error;
+}
+
+function readMockFailureCategory(error: UntrustedValue): UntrustedValue {
+  return typeof error === 'object' && error !== null && hasFailureCategory(error)
+    ? error.failureCategory
+    : undefined;
+}
+
+const readClipProcessingFailureCategoryMock = vi.hoisted(() =>
+  vi.fn((error: UntrustedValue) => readMockFailureCategory(error))
+);
 const isAppErrorMock = vi.hoisted(() => vi.fn(() => false));
 const normalizeToAppErrorMock = vi.hoisted(() =>
-  vi.fn((error: unknown) => ({
+  vi.fn((error: UntrustedValue) => ({
     message: String(error),
     userMessage: 'normalized user',
     code: 'CONTENT_CLIP_FAILURE'
   }))
 );
 const dispatchFailedMock = vi.hoisted(() =>
-  vi.fn((_message: string, _meta: unknown, options: { cause?: unknown }) => ({
+  vi.fn((_message: string, _meta: UntrustedValue, options: { cause?: UntrustedValue }) => ({
     message: 'dispatch failed',
     cause: options.cause
   }))
@@ -55,7 +78,8 @@ vi.mock('../../../src/background/services/analyticsEvents', () => ({
   trackUsageEvent: trackUsageEventMock
 }));
 vi.mock('../../../src/background/application/clipProcessor', () => ({
-  processClipPayload: processClipPayloadMock
+  processClipPayload: processClipPayloadMock,
+  readClipProcessingFailureCategory: readClipProcessingFailureCategoryMock
 }));
 vi.mock('../../../src/shared/errors', () => ({
   errorHandler: { handle: handleErrorMock },
@@ -76,6 +100,9 @@ describe('runtime message listener', () => {
     vi.resetModules();
     vi.clearAllMocks();
     processClipPayloadMock.mockResolvedValue({ filePath: 'Video/example.md' });
+    readClipProcessingFailureCategoryMock.mockImplementation((error: UntrustedValue) =>
+      readMockFailureCategory(error)
+    );
     listener = undefined;
     addListenerMock.mockImplementation((cb: typeof listener) => {
       listener = cb;
@@ -89,22 +116,41 @@ describe('runtime message listener', () => {
       clipPipeline: { sendSupportPrompt: vi.fn(() => Promise.resolve(undefined)) },
       openOptionsPage: vi.fn(() => Promise.resolve(undefined)),
       getTabContext: vi.fn(
-        async (sender: { tabId?: number; frameId?: number; windowId?: number }) => ({
-          success: true as const,
-          ...(sender.tabId !== undefined ? { tabId: sender.tabId } : {}),
-          ...(sender.windowId !== undefined ? { windowId: sender.windowId } : {}),
-          ...(sender.frameId !== undefined ? { frameId: sender.frameId } : {})
-        })
+        (sender: {
+          tabId?: number;
+          frameId?: number;
+          windowId?: number;
+        }): Promise<TabContextSuccess> =>
+          Promise.resolve({
+            success: true,
+            ...(sender.tabId !== undefined ? { tabId: sender.tabId } : {}),
+            ...(sender.windowId !== undefined ? { windowId: sender.windowId } : {}),
+            ...(sender.frameId !== undefined ? { frameId: sender.frameId } : {})
+          })
       ),
-      isTabContextActive: vi.fn(async (ownerContext: { tabId?: number }) => ({
-        success: true as const,
-        active: ownerContext.tabId === 12
-      })),
-      captureVisibleTabScreenshot: vi.fn<() => Promise<CaptureVisibleTabScreenshotResponse>>(
-        async () => ({
+      isTabContextActive: vi.fn(
+        (ownerContext: { tabId?: number }): Promise<{ success: true; active: boolean }> =>
+          Promise.resolve({
+            success: true,
+            active: ownerContext.tabId === 12
+          })
+      ),
+      captureVisibleTabScreenshot: vi.fn<() => Promise<CaptureVisibleTabScreenshotResponse>>(() =>
+        Promise.resolve({
           success: true,
           dataUrl: 'data:image/jpeg;base64,dmlkZW8='
         })
+      ),
+      handleVideoScreenshotCacheMessage: vi.fn(
+        (message: unknown): Promise<VideoScreenshotCacheResponse | undefined> =>
+          Promise.resolve(
+            typeof message === 'object' &&
+              message !== null &&
+              'type' in message &&
+              message.type === 'AIIOB_VIDEO_SCREENSHOT_CACHE'
+              ? { success: true, operation: 'pruneExpired' }
+              : undefined
+          )
       )
     };
   }
@@ -226,7 +272,7 @@ describe('runtime message listener', () => {
 
     await listener?.({ type: 'CLIP_RESULT', payload: { markdown: '# hello' } }, { tabId: 12 });
     await listener?.(
-      { type: 'TRACK_USAGE_EVENT', event: 'support_like_clicked', params: { variant: 'first' } },
+      { type: 'ANALYTICS_EVENT', event: 'support_like_clicked', params: { variant: 'first' } },
       { tabId: 12 }
     );
 
@@ -236,6 +282,32 @@ describe('runtime message listener', () => {
       expect.any(Object)
     );
     expect(trackUsageEventMock).toHaveBeenCalledWith('support_like_clicked', { variant: 'first' });
+  });
+
+  it('keeps legacy analytics runtime message types accepted for one release boundary', async () => {
+    const { registerRuntimeMessageListener } =
+      await import('../../../src/background/listeners/runtimeMessages');
+    registerRuntimeMessageListener(createDependencies());
+
+    await listener?.(
+      { type: 'TRACK_USAGE_EVENT', event: 'support_dislike_clicked' },
+      { tabId: 12 }
+    );
+    await listener?.(
+      {
+        type: 'track',
+        event: 'usage_dashboard_increment',
+        params: { category: 'ai_chat', increment: 1, total_after: 5 }
+      },
+      { tabId: 12 }
+    );
+
+    expect(trackUsageEventMock).toHaveBeenNthCalledWith(1, 'support_dislike_clicked', undefined);
+    expect(trackUsageEventMock).toHaveBeenNthCalledWith(2, 'usage_dashboard_increment', {
+      category: 'ai_chat',
+      increment: 1,
+      total_after: 5
+    });
   });
 
   it('returns sender tab context metadata for content-side owner resolution', async () => {
@@ -325,6 +397,24 @@ describe('runtime message listener', () => {
     });
   });
 
+  it('routes video screenshot cache messages through the background cache owner', async () => {
+    const dependencies = createDependencies();
+    const { registerRuntimeMessageListener } =
+      await import('../../../src/background/listeners/runtimeMessages');
+    registerRuntimeMessageListener(dependencies);
+
+    await expect(
+      listener?.({ type: 'AIIOB_VIDEO_SCREENSHOT_CACHE', operation: 'pruneExpired' }, {})
+    ).resolves.toEqual({
+      success: true,
+      operation: 'pruneExpired'
+    });
+    expect(dependencies.handleVideoScreenshotCacheMessage).toHaveBeenCalledWith({
+      type: 'AIIOB_VIDEO_SCREENSHOT_CACHE',
+      operation: 'pruneExpired'
+    });
+  });
+
   it('routes visible-tab screenshot runtime messages through the concrete sender-window capture dependency', async () => {
     const tabs = {
       create: vi.fn(),
@@ -340,7 +430,8 @@ describe('runtime message listener', () => {
     const dependencies = createRuntimeMessageListenerDependencies(
       { addListener: addListenerMock },
       asType<Pick<TabsService, 'create' | 'get' | 'sendMessage' | 'captureVisibleTab'>>(tabs),
-      runtime
+      runtime,
+      asType({ local: {} })
     );
     registerRuntimeMessageListener(dependencies);
 
@@ -595,6 +686,40 @@ describe('runtime message listener', () => {
           }
         ]
       }
+    });
+  });
+
+  it('preserves structured failure categories for repository video export failures', async () => {
+    const failure = new Error('vault write failed');
+    Object.defineProperty(failure, 'failureCategory', {
+      configurable: true,
+      enumerable: false,
+      value: 'write'
+    });
+    processClipPayloadMock.mockRejectedValueOnce(failure);
+    const { registerRuntimeMessageListener } =
+      await import('../../../src/background/listeners/runtimeMessages');
+    registerRuntimeMessageListener(createDependencies());
+
+    const result = await listener?.(
+      {
+        type: 'videoClip',
+        data: {
+          content: '# video',
+          title: 'Video title',
+          url: 'https://youtube.com/watch?v=1',
+          videoUrl: 'https://youtube.com/watch?v=1',
+          timestamp: 1,
+          platform: 'youtube'
+        }
+      },
+      { tabId: 12 }
+    );
+
+    expect(result).toEqual({
+      success: false,
+      error: 'vault write failed',
+      failureCategory: 'write'
     });
   });
 

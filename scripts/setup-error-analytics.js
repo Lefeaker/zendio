@@ -18,6 +18,11 @@ import ts from 'typescript';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const rootDir = path.join(__dirname, '..');
+const GOOGLE_ANALYTICS_HOST_PARTS = ['google-analytics', 'com'];
+const GOOGLE_MEASUREMENT_PROTOCOL_PATH_PARTS = [
+  ['mp', 'collect'],
+  ['debug', 'mp', 'collect']
+];
 
 const COLORS = {
   reset: '\x1b[0m',
@@ -32,6 +37,10 @@ let warnings = 0;
 
 function readFromRoot(projectRoot, filePath) {
   return fs.readFileSync(path.join(projectRoot, filePath), 'utf8');
+}
+
+function existsFromRoot(projectRoot, filePath) {
+  return fs.existsSync(path.join(projectRoot, filePath));
 }
 
 export function extractAnalyticsTransportModes(sourceText, sourcePath = 'analyticsEnvironment.ts') {
@@ -55,11 +64,97 @@ export function extractAnalyticsTransportModes(sourceText, sourcePath = 'analyti
   return [];
 }
 
+function extractNamedExports(sourceText, sourcePath = 'module.ts') {
+  const sourceFile = ts.createSourceFile(sourcePath, sourceText, ts.ScriptTarget.Latest, true);
+  const exportNames = new Set();
+
+  for (const statement of sourceFile.statements) {
+    if (ts.isExportDeclaration(statement)) {
+      if (statement.exportClause && ts.isNamedExports(statement.exportClause)) {
+        for (const element of statement.exportClause.elements) {
+          exportNames.add(element.name.text);
+        }
+      }
+      continue;
+    }
+
+    if (!hasExportModifier(statement)) {
+      continue;
+    }
+
+    if (ts.isVariableStatement(statement)) {
+      for (const declaration of statement.declarationList.declarations) {
+        collectExportedBindingNames(declaration.name, exportNames);
+      }
+      continue;
+    }
+
+    if (
+      (ts.isFunctionDeclaration(statement) ||
+        ts.isInterfaceDeclaration(statement) ||
+        ts.isTypeAliasDeclaration(statement) ||
+        ts.isClassDeclaration(statement) ||
+        ts.isEnumDeclaration(statement)) &&
+      statement.name
+    ) {
+      exportNames.add(statement.name.text);
+    }
+  }
+
+  return exportNames;
+}
+
+function hasExportModifier(statement) {
+  return (
+    Array.isArray(statement.modifiers) &&
+    statement.modifiers.some((modifier) => modifier.kind === ts.SyntaxKind.ExportKeyword)
+  );
+}
+
+function collectExportedBindingNames(bindingName, exportNames) {
+  if (ts.isIdentifier(bindingName)) {
+    exportNames.add(bindingName.text);
+    return;
+  }
+
+  if (ts.isObjectBindingPattern(bindingName) || ts.isArrayBindingPattern(bindingName)) {
+    for (const element of bindingName.elements) {
+      if (!ts.isBindingElement(element)) {
+        continue;
+      }
+      collectExportedBindingNames(element.name, exportNames);
+    }
+  }
+}
+
+function hasAllExportedNames(exportNames, expectedNames) {
+  return expectedNames.every((name) => exportNames.has(name));
+}
+
 export function collectTrackedAnalyticsSourceContract(projectRoot = rootDir) {
+  const analyticsEventMessage = readFromRoot(
+    projectRoot,
+    'src/shared/analytics/analyticsEventMessage.ts'
+  );
+  const analyticsIndex = readFromRoot(projectRoot, 'src/shared/analytics/index.ts');
   const analyticsEnvironment = readFromRoot(projectRoot, 'src/shared/analytics/analyticsEnvironment.ts');
   const analyticsConsent = readFromRoot(projectRoot, 'src/shared/analytics/analyticsConsent.ts');
   const analyticsQueue = readFromRoot(projectRoot, 'src/shared/analytics/analyticsQueue.ts');
   const analyticsTransport = readFromRoot(projectRoot, 'src/shared/analytics/analyticsTransport.ts');
+  const analyticsProxyContractPath = 'src/shared/analytics/analyticsProxyContract.ts';
+  const analyticsProxyContractExists = existsFromRoot(projectRoot, analyticsProxyContractPath);
+  const analyticsProxyContract = analyticsProxyContractExists
+    ? readFromRoot(projectRoot, analyticsProxyContractPath)
+    : '';
+  const analyticsProxyContractReportPath = 'tools/report-ga-proxy-contract.mjs';
+  const analyticsProxyContractReportExists = existsFromRoot(
+    projectRoot,
+    analyticsProxyContractReportPath
+  );
+  const analyticsProxyContractReport = analyticsProxyContractReportExists
+    ? readFromRoot(projectRoot, analyticsProxyContractReportPath)
+    : '';
+  const analyticsTypes = readFromRoot(projectRoot, 'src/shared/types/analytics.ts');
   const analyticsConfig = readFromRoot(
     projectRoot,
     'src/shared/errors/analytics/analyticsConfig.ts'
@@ -86,9 +181,25 @@ export function collectTrackedAnalyticsSourceContract(projectRoot = rootDir) {
     'function buildAnalyticsTransportLogSummary(',
     'function logAnalyticsTransportResult('
   );
+  const analyticsBarrelExports = extractNamedExports(analyticsIndex, 'index.ts');
+  const analyticsProxyContractExports = extractNamedExports(
+    analyticsProxyContract,
+    'analyticsProxyContract.ts'
+  );
 
   return {
     transportModes: extractAnalyticsTransportModes(analyticsEnvironment),
+    typedAnalyticsEventMessageApiPresent:
+      hasAll(analyticsEventMessage, [
+        'ANALYTICS_EVENT_MESSAGE',
+        'createAnalyticsEventMessage',
+        'isAnalyticsRuntimeEventMessage'
+      ]) &&
+      hasAll(analyticsTypes, [
+        'ANALYTICS_EVENT_MESSAGE',
+        'createAnalyticsEventMessage',
+        'isAnalyticsRuntimeEventMessage'
+      ]),
     clientRuntimeContainsApiSecret:
       /\bapi_secret\b/i.test(clientRuntimeSource) || /\bapiSecret\b/.test(clientRuntimeSource),
     trackedConfigUsesPublicBuildConfigOnly: hasAll(analyticsConfig, [
@@ -138,7 +249,43 @@ export function collectTrackedAnalyticsSourceContract(projectRoot = rootDir) {
       !hasAny(analyticsLogSummaryBlock, ['params', 'payload', 'client_id', 'measurement_id']),
     successLoggingScopedToDirectDebug: analyticsEvents.includes(
       "if (result.transportMode !== 'directDebug')"
-    )
+    ),
+    proxyContractSourcePresent: analyticsProxyContractExists,
+    proxyContractBarrelExportPresent: hasAllExportedNames(analyticsBarrelExports, [
+      'analyticsProxyContract',
+      'buildAnalyticsProxyContract',
+      'AnalyticsProxyContract',
+      'AnalyticsProxyEventContract'
+    ]),
+    proxyContractPublicAllowlistContractPresent:
+      analyticsProxyContractExists &&
+      hasAllExportedNames(analyticsProxyContractExports, [
+        'ANALYTICS_PROXY_CONTRACT',
+        'buildAnalyticsProxyContract',
+        'AnalyticsProxyContract',
+        'AnalyticsProxyEventContract'
+      ]) &&
+      hasAll(analyticsProxyContract, [
+        "generatedAtSource: 'extension-schema'",
+        'transports: ANALYTICS_PROXY_CONTRACT_TRANSPORTS',
+        'measurementIdPattern: ANALYTICS_PROXY_MEASUREMENT_ID_PATTERN',
+        'allowedParams',
+        'paramValidators',
+        'events'
+      ]),
+    proxyContractSourceLeaksSensitiveAnchors:
+      /\bproxyEndpoint\b|\bclientId\b|\bsessionId\b|\bapi_secret\b|\bapiSecret\b|\bAPI_SECRET\b/.test(
+        analyticsProxyContract
+      ) || /(?:\bmeasurementId\b|['"]measurementId['"])\s*:/.test(analyticsProxyContract),
+    proxyContractReportSourceAnchorsPresent:
+      analyticsProxyContractReportExists &&
+      hasAll(analyticsProxyContractReport, [
+        "CONTRACT_ENTRYPOINT = 'src/shared/analytics/analyticsProxyContract.ts'",
+        'SOURCE_FILES_TO_SCAN = [',
+        "'src/shared/analytics/analyticsProxyContract.ts'",
+        'contractModule.ANALYTICS_PROXY_CONTRACT',
+        'contractModule.buildAnalyticsProxyContract'
+      ])
   };
 }
 
@@ -198,17 +345,21 @@ function validateRequiredFiles() {
   info('Checking required analytics files');
 
   const requiredFiles = [
+    'src/shared/analytics/analyticsEventMessage.ts',
+    'src/shared/analytics/index.ts',
     'src/shared/analytics/analyticsEnvironment.ts',
     'src/shared/analytics/analyticsConsent.ts',
     'src/shared/analytics/analyticsQueue.ts',
     'src/shared/analytics/analyticsTransport.ts',
+    'src/shared/analytics/analyticsProxyContract.ts',
     'src/shared/errors/analytics/analyticsConfig.ts',
     'src/shared/errors/analytics/googleAnalyticsReporter.ts',
     'src/background/services/analyticsEvents.ts',
     'src/options/app/productionStitchPersistence.ts',
     'src/options/app/productionStitchFinalAnalyticsEvent.ts',
     'src/options/app/productionStitchShellActionRuntime.ts',
-    'scripts/build.mjs'
+    'scripts/build.mjs',
+    'tools/report-ga-proxy-contract.mjs'
   ];
 
   for (const file of requiredFiles) {
@@ -254,6 +405,42 @@ function validateTrackedConfig() {
     ok('tracked analytics config reads only public build analytics config');
   } else {
     fail('tracked analytics config no longer matches the public build config contract');
+  }
+
+  if (trackedContract.typedAnalyticsEventMessageApiPresent) {
+    ok('typed analytics runtime message facade is present');
+  } else {
+    fail('typed analytics runtime message facade is missing');
+  }
+
+  if (
+    trackedContract.proxyContractSourcePresent &&
+    trackedContract.proxyContractBarrelExportPresent &&
+    trackedContract.proxyContractPublicAllowlistContractPresent &&
+    !trackedContract.proxyContractSourceLeaksSensitiveAnchors &&
+    trackedContract.proxyContractReportSourceAnchorsPresent
+  ) {
+    ok('analytics proxy contract source/barrel/report anchors stay wired to the public allowlist contract');
+  } else {
+    if (!trackedContract.proxyContractSourcePresent) {
+      fail('analytics proxy contract source is missing');
+    }
+
+    if (!trackedContract.proxyContractBarrelExportPresent) {
+      fail('analytics barrel is missing the public analyticsProxyContract export contract');
+    }
+
+    if (!trackedContract.proxyContractPublicAllowlistContractPresent) {
+      fail('analytics proxy contract source drifted from the public allowlist contract anchors');
+    }
+
+    if (trackedContract.proxyContractSourceLeaksSensitiveAnchors) {
+      fail('analytics proxy contract source must not expose endpoint/id/secret-like anchors');
+    }
+
+    if (!trackedContract.proxyContractReportSourceAnchorsPresent) {
+      fail('proxy contract report tool drifted from the proxy contract source anchors');
+    }
   }
 
   if (
@@ -375,7 +562,7 @@ function validatePrivacyWiring() {
 
   if (
     hasAll(persistence, [
-      "createTrackUsageEventMessage('privacy_consent_changed'",
+      "createAnalyticsEventMessage('privacy_consent_changed'",
       'persistPrivacyConsentAction',
       'setAnalyticsConsent',
       'updateErrorAnalyticsConfig'
@@ -403,6 +590,48 @@ function validatePrivacyWiring() {
 
 function resolvePublicEnv(newName, oldName) {
   return (process.env[newName] || process.env[oldName] || '').trim();
+}
+
+function isGoogleMeasurementProtocolEndpointUrl(url) {
+  const hostname = canonicalizeEndpointHostname(url.hostname);
+  if (!isGoogleAnalyticsHost(hostname)) {
+    return false;
+  }
+
+  const pathParts = canonicalizeEndpointPathParts(url.pathname);
+  if (!pathParts) {
+    return true;
+  }
+
+  return (
+    pathParts.length > 0 &&
+    GOOGLE_MEASUREMENT_PROTOCOL_PATH_PARTS.some(
+      (parts) => pathParts.join('/') === parts.join('/')
+    )
+  );
+}
+
+function canonicalizeEndpointHostname(hostname) {
+  return hostname.toLowerCase().replace(/\.+$/, '');
+}
+
+function canonicalizeEndpointPathParts(pathname) {
+  const parts = pathname
+    .replace(/\/+$/, '')
+    .split('/')
+    .map((part) => part.trim())
+    .filter(Boolean);
+
+  try {
+    return parts.map((part) => decodeURIComponent(part).toLowerCase());
+  } catch {
+    return undefined;
+  }
+}
+
+function isGoogleAnalyticsHost(hostname) {
+  const googleAnalyticsHost = GOOGLE_ANALYTICS_HOST_PARTS.join('.');
+  return hostname === googleAnalyticsHost || hostname.endsWith(`.${googleAnalyticsHost}`);
 }
 
 function validateEnvironmentVariables() {
@@ -462,6 +691,10 @@ function validateEnvironmentVariables() {
         fail(`proxy endpoint must be https or localhost http: ${proxyEndpoint}`);
       } else if (secretLikePattern.test(proxyEndpoint)) {
         fail('proxy endpoint looks like it embeds a secret-like value');
+      } else if (isGoogleMeasurementProtocolEndpointUrl(url)) {
+        fail(
+          'proxy endpoint must be an owner proxy endpoint, not a Google Measurement Protocol endpoint'
+        );
       } else {
         ok(`proxy endpoint format looks valid: ${proxyEndpoint}`);
       }

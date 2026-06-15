@@ -61,8 +61,8 @@ import { VideoCommentEditorPlaybackController } from './videoCommentEditorPlayba
 import { VideoScreenshotPreparationCoordinator } from './videoScreenshotPreparationCoordinator';
 import { applyVideoSessionCommentDrafts } from './videoSessionDraftSync';
 import { createVideoSessionDestinationPayload } from './videoSessionDestinationPayload';
+import { setTimestampScreenshotRef } from './screenshotIntent';
 import type { VideoTimestampCapture } from './types';
-import { VideoSessionDraftController } from './videoSessionDraftController';
 import { VideoSessionMutationCoordinator } from './videoSessionMutationCoordinator';
 
 export class VideoSession {
@@ -82,7 +82,10 @@ export class VideoSession {
   private readonly destinationState: ContentExportDestinationState;
   private readonly commentEditorPlayback: VideoCommentEditorPlaybackController;
   private readonly screenshotPreparation: VideoScreenshotPreparationCoordinator;
-  private draftController!: VideoSessionDraftController;
+  private draftController!: VideoSessionControllers['draftController'];
+  private persistPreparedScreenshotCache:
+    | VideoSessionControllers['persistPreparedScreenshot']
+    | null = null;
   private readonly mutationCoordinator: VideoSessionMutationCoordinator;
   private controllersReadyPromise: Promise<void> | null = null;
   private isCleaningUp = false;
@@ -138,6 +141,9 @@ export class VideoSession {
       getCaptures: () => this.getTimestampCaptures(),
       getVisibleVideo: () => this.state.videoElement,
       captureVisibleFrame: this.dependencies.captureVisibleVideoFrameScreenshot,
+      onScreenshotPrepared: (capture, screenshot) => {
+        void this.persistPreparedScreenshot(capture, screenshot);
+      },
       syncPanel: () => this.syncPanel()
     });
   }
@@ -153,7 +159,15 @@ export class VideoSession {
           doc: this.doc,
           dependencies: this.dependencies,
           state: this.state,
+          destinationState: this.destinationState,
           getMessages: () => this.messages,
+          applyHint: (state) => this.applyHint(state),
+          readCleanupState: () => ({
+            isCleaningUp: this.isCleaningUp,
+            shouldTrackSavingState: !this.mutationCoordinator.hasPendingMutations()
+          }),
+          onDraftRestored: () => this.screenshotPreparation.requestPendingScreenshots(),
+          onDraftScreenshotHydrated: () => this.syncPanel(),
           createPlatformContext: () =>
             createVideoSessionPlatformContext({
               doc: this.doc,
@@ -167,21 +181,12 @@ export class VideoSession {
           onSelectionAccepted: ({ selectedHtml, selectedText, range }) => {
             this.ingestTextCapture(selectedHtml, selectedText, '', range ?? undefined);
           },
-          restoreDraftState: async () => {
-            const restored = await this.draftController.restoreDraftState();
-            if (restored) {
-              this.screenshotPreparation.requestPendingScreenshots();
-            }
-            return restored;
-          },
-          onLegacyRestore: (storageKey) => this.draftController.handleLegacyRestore(storageKey),
           findVideoElement: () => this.doc.querySelector('video'),
           handleUrlChange: () => {
             void this.handleUrlChange();
           },
           handleVideoElementChange: (element) => this.handleVideoElementChange(element)
         });
-
         this.fragmentHighlighter = controllers.fragmentHighlighter;
         this.hintManager = controllers.hintManager;
         this.pendingSelection = controllers.pendingSelection;
@@ -193,18 +198,8 @@ export class VideoSession {
         this.exporter = controllers.exporter;
         this.platformController = controllers.platformController;
         this.dom = controllers.dom;
-        this.draftController = new VideoSessionDraftController({
-          doc: this.doc,
-          state: this.state,
-          destinationState: this.destinationState,
-          storageArea: this.dependencies.storage.local,
-          dom: this.dom,
-          applyHint: (state) => this.applyHint(state),
-          readCleanupState: () => ({
-            isCleaningUp: this.isCleaningUp,
-            shouldTrackSavingState: !this.mutationCoordinator.hasPendingMutations()
-          })
-        });
+        this.draftController = controllers.draftController;
+        this.persistPreparedScreenshotCache = controllers.persistPreparedScreenshot;
       })
       .finally(() => {
         this.controllersReadyPromise = null;
@@ -379,6 +374,37 @@ export class VideoSession {
 
   private createDestinationPayload(): ClipPayload {
     return createVideoSessionDestinationPayload(this.state, this.doc.location.href, this.doc.title);
+  }
+
+  private async persistPreparedScreenshot(
+    capture: VideoTimestampCapture,
+    screenshot: NonNullable<VideoTimestampCapture['screenshot']>
+  ): Promise<void> {
+    const persistPreparedScreenshotCache = this.persistPreparedScreenshotCache;
+    if (!persistPreparedScreenshotCache) {
+      return;
+    }
+
+    let saveResult;
+    try {
+      saveResult = await persistPreparedScreenshotCache(capture.id, screenshot);
+    } catch (error) {
+      console.warn('[VideoSession] Failed to persist prepared screenshot:', error);
+      return;
+    }
+    if (saveResult.status !== 'saved') {
+      console.debug('[VideoSession] Skipped prepared screenshot cache persistence:', saveResult);
+      return;
+    }
+
+    if (capture.screenshot !== screenshot) {
+      return;
+    }
+
+    setTimestampScreenshotRef(capture, saveResult.ref);
+    void this.draftController.scheduleSave().catch((error) => {
+      console.warn('[VideoSession] Failed to schedule screenshot ref draft save:', error);
+    });
   }
 
   ingestTextCapture(

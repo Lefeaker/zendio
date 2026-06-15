@@ -2,9 +2,9 @@ import { resolveRepository } from '../di/serviceRegistry';
 import { DI_TOKENS } from '../di/tokens';
 import type { IMessagingRepository } from '../repositories';
 import {
-  createTrackUsageEventMessage,
+  createAnalyticsEventMessage,
   parseUsageEventParams,
-  type TrackUsageEventPayload
+  type AnalyticsRuntimeEventPayload
 } from '../types/analytics';
 import type { AdaptiveTextResult } from './textAdaptationTypes';
 
@@ -65,7 +65,7 @@ export function logTextOverflowEvent(element: HTMLElement, result: AdaptiveTextR
     return;
   }
 
-  const payload: TrackUsageEventPayload = createTrackUsageEventMessage(
+  const payload: AnalyticsRuntimeEventPayload = createAnalyticsEventMessage(
     'i18n_text_overflow',
     params
   );

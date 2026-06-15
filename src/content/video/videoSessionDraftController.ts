@@ -2,7 +2,6 @@ import {
   createSessionDraftPersister,
   createSessionDraftRepository,
   finalizeTerminalSessionDraft,
-  type SessionDraftEnvelope,
   type SessionDraftPersister,
   type SessionDraftStatus,
   type SessionDraftTerminalStatus,
@@ -17,17 +16,21 @@ import {
   pickVideoSessionDraftCandidate,
   type VideoSessionDraftPayloadShape
 } from './sessionDrafts';
+import type {
+  VideoSessionDraftControllerOptions,
+  VideoSessionDraftRuntimePort
+} from './videoSessionRuntimePorts';
+import type { VideoCapture } from './types';
+import type { VideoHintState } from './videoHintManager';
 import {
   applyVideoSessionCommentDrafts,
   bindVideoSessionDraftPersistence,
   flushVideoSessionDraftNow,
   syncVideoSessionCommentDraftsFromDom
 } from './videoSessionDraftSync';
-import type {
-  VideoSessionDraftControllerOptions,
-  VideoSessionDraftRuntimePort
-} from './videoSessionRuntimePorts';
-import type { VideoHintState } from './videoHintManager';
+import { cleanupVideoDraftTerminalArtifacts } from './videoSessionDraftScreenshotCache';
+import { scheduleRestoredVideoDraftScreenshotHydration } from './videoSessionDraftScreenshotHydration';
+import { buildVideoTerminalEnvelopeForExactKey } from './videoSessionDraftTerminal';
 
 export class VideoSessionDraftController implements VideoSessionDraftRuntimePort {
   private readonly draftRepository = createSessionDraftRepository(this.options.storageArea);
@@ -38,6 +41,7 @@ export class VideoSessionDraftController implements VideoSessionDraftRuntimePort
   private restoredDraftKey: string | null = null;
   private legacyCaptureStorageKey: string | null = null;
   private stopDraftPersistence: (() => void) | null = null;
+  private screenshotHydrationGeneration = 0;
 
   constructor(private readonly options: VideoSessionDraftControllerOptions) {
     this.activeDraftPageUrl = this.options.doc.location.href;
@@ -46,23 +50,18 @@ export class VideoSessionDraftController implements VideoSessionDraftRuntimePort
       buildEnvelope: () => this.buildDraftEnvelope()
     });
   }
-
   isTrackingPageUrl(url: string): boolean {
     return this.activeDraftPageUrl === url;
   }
-
   updateActivePageUrl(url: string): void {
     this.activeDraftPageUrl = url;
   }
-
   clearRestoredDraftKey(): void {
     this.restoredDraftKey = null;
   }
-
   syncCommentDrafts(): Record<string, string> {
     return syncVideoSessionCommentDraftsFromDom(this.options.state, this.options.dom);
   }
-
   bindPersistence(): void {
     this.stopDraftPersistence?.();
     const view = this.options.doc.defaultView;
@@ -81,6 +80,7 @@ export class VideoSessionDraftController implements VideoSessionDraftRuntimePort
 
   async dispose(options: { flush?: boolean } = {}): Promise<void> {
     this.stopDraftPersistence?.();
+    this.screenshotHydrationGeneration += 1;
     await this.draftPersister.dispose(options);
   }
 
@@ -92,6 +92,7 @@ export class VideoSessionDraftController implements VideoSessionDraftRuntimePort
     const draft = pickVideoSessionDraftCandidate(candidates);
     if (!draft) {
       this.restoredDraftKey = null;
+      this.screenshotHydrationGeneration += 1;
       return false;
     }
 
@@ -113,19 +114,14 @@ export class VideoSessionDraftController implements VideoSessionDraftRuntimePort
     this.options.destinationState.applyMetadata(hydrated.destination);
     this.restoredDraftKey = createVideoSessionDraftStorageKey(draft.pageUrl, draft.draftId);
     this.legacyCaptureStorageKey = null;
+    this.scheduleRestoredScreenshotHydration(this.options.state.captures);
     return true;
   }
 
   handleLegacyRestore(storageKey: string): void {
     this.legacyCaptureStorageKey = storageKey;
-    applyVideoSessionCommentDrafts(
-      this.options.state,
-      {},
-      {
-        hydrateDom: true,
-        dom: this.options.dom
-      }
-    );
+    const dom = this.options.dom;
+    applyVideoSessionCommentDrafts(this.options.state, {}, { hydrateDom: true, dom });
   }
 
   async scheduleSave(): Promise<void> {
@@ -176,6 +172,7 @@ export class VideoSessionDraftController implements VideoSessionDraftRuntimePort
     }
     this.restoredDraftKey = null;
     this.legacyCaptureStorageKey = null;
+    this.screenshotHydrationGeneration += 1;
   }
 
   async finalizeTerminal(status: SessionDraftTerminalStatus): Promise<boolean> {
@@ -205,9 +202,11 @@ export class VideoSessionDraftController implements VideoSessionDraftRuntimePort
     }
 
     if (this.restoredDraftKey) {
-      const restoredEnvelope = await this.buildTerminalEnvelopeForExactKey(
+      const restoredEnvelope = await buildVideoTerminalEnvelopeForExactKey(
+        this.options.storageArea,
         this.restoredDraftKey,
-        status
+        status,
+        (options) => this.buildDraftEnvelope(options)
       );
       if (restoredEnvelope) {
         terminalEnvelopes.set(this.restoredDraftKey, restoredEnvelope);
@@ -217,7 +216,12 @@ export class VideoSessionDraftController implements VideoSessionDraftRuntimePort
     return finalizeTerminalSessionDraft<VideoSessionDraftEnvelope>({
       repository: this.draftRepository,
       buildTerminalEnvelopes: () => terminalEnvelopes.values(),
-      cleanupTerminalDrafts: () => this.remove(),
+      cleanupTerminalDrafts: () =>
+        cleanupVideoDraftTerminalArtifacts({
+          removeDraft: () => this.remove(),
+          captures: this.options.state.captures,
+          screenshotCache: this.options.screenshotCache
+        }),
       onSaveError: (error) => {
         console.warn('[VideoSession] Failed to finalize terminal session draft:', error);
       },
@@ -271,23 +275,6 @@ export class VideoSessionDraftController implements VideoSessionDraftRuntimePort
     });
   }
 
-  private async buildTerminalEnvelopeForExactKey(
-    storageKey: string,
-    status: SessionDraftTerminalStatus
-  ): Promise<VideoSessionDraftEnvelope | null> {
-    const stored = await this.options.storageArea.get<SessionDraftEnvelope>(storageKey);
-    if (!stored || stored.mode !== 'video') {
-      return null;
-    }
-
-    return this.buildDraftEnvelope({
-      draftId: stored.draftId,
-      pageUrl: stored.pageUrl,
-      status,
-      allowEmpty: true
-    });
-  }
-
   private async clearSupersededDurableSources(): Promise<void> {
     const currentDraftKey = createVideoSessionDraftStorageKey(
       this.activeDraftPageUrl,
@@ -305,5 +292,18 @@ export class VideoSessionDraftController implements VideoSessionDraftRuntimePort
 
   private logSupersededDurableCleanupError(error: unknown): void {
     console.warn('[VideoSession] Failed to clear superseded durable draft sources:', error);
+  }
+
+  private scheduleRestoredScreenshotHydration(captures: VideoCapture[]): void {
+    const generation = ++this.screenshotHydrationGeneration;
+    scheduleRestoredVideoDraftScreenshotHydration({
+      captures,
+      screenshotCache: this.options.screenshotCache,
+      isCurrent: () =>
+        generation === this.screenshotHydrationGeneration &&
+        this.options.state.captures === captures,
+      onScreenshotHydrationChange: this.options.onScreenshotHydrationChange,
+      scheduleSave: () => this.scheduleSave()
+    });
   }
 }

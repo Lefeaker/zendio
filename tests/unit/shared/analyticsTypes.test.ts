@@ -1,33 +1,60 @@
 import { describe, expect, it } from 'vitest';
 import {
   ANALYTICS_EVENT_CATALOG,
+  ANALYTICS_EVENT_MESSAGE,
   CONTRACT_ONLY_EVENT_NAMES,
-  isTrackUsageEventMessage,
+  createAnalyticsEventMessage,
+  isAnalyticsRuntimeEventMessage,
   sanitizeUsageEventParams
 } from '../../../src/shared/types/analytics';
 
 describe('usage telemetry contract', () => {
-  it('accepts allowlisted events with allowlisted params', () => {
+  it('creates typed analytics event messages with the canonical runtime type', () => {
+    expect(createAnalyticsEventMessage('support_like_clicked', { variant: 'first' })).toEqual({
+      type: ANALYTICS_EVENT_MESSAGE,
+      event: 'support_like_clicked',
+      params: { variant: 'first' }
+    });
+  });
+
+  it('accepts allowlisted analytics runtime events with allowlisted params', () => {
     expect(
-      isTrackUsageEventMessage({
-        type: 'TRACK_USAGE_EVENT',
+      isAnalyticsRuntimeEventMessage({
+        type: ANALYTICS_EVENT_MESSAGE,
         event: 'support_like_clicked',
         params: { variant: 'first' }
       })
     ).toBe(true);
   });
 
+  it('keeps legacy runtime message types accepted for the compatibility boundary', () => {
+    expect(
+      isAnalyticsRuntimeEventMessage({
+        type: 'TRACK_USAGE_EVENT',
+        event: 'support_dislike_clicked'
+      })
+    ).toBe(true);
+
+    expect(
+      isAnalyticsRuntimeEventMessage({
+        type: 'track',
+        event: 'usage_dashboard_increment',
+        params: { category: 'ai_chat', increment: 1, total_after: 5 }
+      })
+    ).toBe(true);
+  });
+
   it('rejects unknown events and raw support URLs', () => {
     expect(
-      isTrackUsageEventMessage({
-        type: 'TRACK_USAGE_EVENT',
+      isAnalyticsRuntimeEventMessage({
+        type: ANALYTICS_EVENT_MESSAGE,
         event: 'arbitrary_event',
         params: { source: 'toolbar' }
       })
     ).toBe(false);
 
     expect(
-      isTrackUsageEventMessage({
+      isAnalyticsRuntimeEventMessage({
         type: 'track',
         event: 'support_link_clicked',
         params: { url: 'https://ko-fi.com/xiannian?user=reader' }
@@ -37,45 +64,28 @@ describe('usage telemetry contract', () => {
 
   it('rejects object and array params', () => {
     expect(
-      isTrackUsageEventMessage({
-        type: 'TRACK_USAGE_EVENT',
+      isAnalyticsRuntimeEventMessage({
+        type: ANALYTICS_EVENT_MESSAGE,
         event: 'support_like_clicked',
         params: { variant: ['first'] }
       })
     ).toBe(false);
 
     expect(
-      isTrackUsageEventMessage({
-        type: 'TRACK_USAGE_EVENT',
+      isAnalyticsRuntimeEventMessage({
+        type: ANALYTICS_EVENT_MESSAGE,
         event: 'support_like_clicked',
         params: { variant: { value: 'first' } }
       })
     ).toBe(false);
   });
 
-  it('keeps legacy track messages accepted for current runtime events', () => {
-    expect(
-      isTrackUsageEventMessage({
-        type: 'track',
-        event: 'support_dislike_clicked'
-      })
-    ).toBe(true);
-
-    expect(
-      isTrackUsageEventMessage({
-        type: 'track',
-        event: 'usage_dashboard_increment',
-        params: { category: 'ai_chat', increment: 1, total_after: 5 }
-      })
-    ).toBe(true);
-  });
-
   it('classifies contract-only video_started without claiming a production emitter', () => {
     expect(CONTRACT_ONLY_EVENT_NAMES).toEqual(['video_started']);
     expect(ANALYTICS_EVENT_CATALOG.video_started.classification).toBe('contract-only');
     expect(
-      isTrackUsageEventMessage({
-        type: 'TRACK_USAGE_EVENT',
+      isAnalyticsRuntimeEventMessage({
+        type: ANALYTICS_EVENT_MESSAGE,
         event: 'video_started',
         params: { source: 'menu' }
       })
@@ -84,8 +94,8 @@ describe('usage telemetry contract', () => {
 
   it('accepts sanitized runtime product-event messages', () => {
     expect(
-      isTrackUsageEventMessage({
-        type: 'TRACK_USAGE_EVENT',
+      isAnalyticsRuntimeEventMessage({
+        type: ANALYTICS_EVENT_MESSAGE,
         event: 'clip_started',
         params: {
           operation_id: 'op_abcdef',
@@ -96,8 +106,8 @@ describe('usage telemetry contract', () => {
     ).toBe(true);
 
     expect(
-      isTrackUsageEventMessage({
-        type: 'TRACK_USAGE_EVENT',
+      isAnalyticsRuntimeEventMessage({
+        type: ANALYTICS_EVENT_MESSAGE,
         event: 'reader_session_started',
         params: { source: 'unknown' }
       })
@@ -106,8 +116,8 @@ describe('usage telemetry contract', () => {
 
   it('rejects unsafe runtime product-event params', () => {
     expect(
-      isTrackUsageEventMessage({
-        type: 'TRACK_USAGE_EVENT',
+      isAnalyticsRuntimeEventMessage({
+        type: ANALYTICS_EVENT_MESSAGE,
         event: 'clip_started',
         params: {
           operation_id: 'op_abcdef',
@@ -119,8 +129,8 @@ describe('usage telemetry contract', () => {
     ).toBe(false);
 
     expect(
-      isTrackUsageEventMessage({
-        type: 'TRACK_USAGE_EVENT',
+      isAnalyticsRuntimeEventMessage({
+        type: ANALYTICS_EVENT_MESSAGE,
         event: 'video_session_started',
         params: {
           platform: 'youtube',

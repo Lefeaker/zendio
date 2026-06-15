@@ -63,10 +63,16 @@ describe('createVideoSessionControllers', () => {
         }
       }),
       state,
+      destinationState: asType({
+        metadata: undefined,
+        applyMetadata: vi.fn()
+      }),
       getMessages: () =>
         asType({
           ready: 'ready'
         }),
+      applyHint: vi.fn(),
+      readCleanupState: () => ({ isCleaningUp: false, shouldTrackSavingState: true }),
       createPlatformContext: () =>
         asType({
           doc: document

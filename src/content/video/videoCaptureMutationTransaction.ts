@@ -2,9 +2,10 @@ import { createFeatureTimer } from '../../shared/analytics';
 import type { AnalyticsPlatform } from '../../shared/analytics';
 import { resolveRepository } from '../../shared/di/serviceRegistry';
 import { DI_TOKENS } from '../../shared/di/tokens';
+import { isAppError } from '../../shared/errors';
 import type { IMessagingRepository } from '../../shared/repositories';
 import {
-  createTrackUsageEventMessage,
+  createAnalyticsEventMessage,
   type ExportDestination,
   type FailureCategory,
   type UsageEventName,
@@ -19,6 +20,13 @@ import type { VideoSessionState } from './sessionState';
 import type { VideoPlatform } from './utils';
 import type { VideoSessionOperationContext } from './videoSessionOperationContext';
 import type { VideoCaptureMutationTransaction } from './videoCaptureMutationTypes';
+
+export {
+  restoreTimestampScreenshotState,
+  snapshotTimestampScreenshotState
+} from './videoTimestampScreenshotStateSnapshot';
+
+type UntrustedValue = unknown;
 
 export type {
   VideoCaptureMutationFailure,
@@ -38,9 +46,7 @@ export async function saveVideoSessionCaptures(
   context: VideoSessionOperationContext
 ): Promise<VideoHintState | null> {
   const hintState = await context.drafts.flushNow('active');
-  if (hintState) {
-    context.applyHint(hintState);
-  }
+  if (hintState) context.applyHint(hintState);
   return hintState;
 }
 
@@ -48,9 +54,9 @@ export function requestRequestedScreenshotPreparation(
   context: VideoSessionOperationContext,
   captureId: string
 ): void {
-  void Promise.resolve(context.screenshots.prepareRequested(captureId)).catch((error) => {
-    console.warn('[VideoSession] Failed to prepare requested screenshot:', error);
-  });
+  void Promise.resolve(context.screenshots.prepareRequested(captureId)).catch((error) =>
+    console.warn('[VideoSession] Failed to prepare requested screenshot:', error)
+  );
 }
 
 export function rollbackVideoSessionFragmentAdd(
@@ -87,78 +93,6 @@ export function restoreRemovedFragmentHighlight(
   context.fragmentHighlightCoordinator.scheduleRestore();
 }
 
-interface TimestampScreenshotStateSnapshot {
-  hasScreenshotRequested: boolean;
-  screenshotRequested: VideoTimestampCapture['screenshotRequested'];
-  hasScreenshot: boolean;
-  screenshot: VideoTimestampCapture['screenshot'];
-}
-
-function restoreTimestampScreenshotRequestedProperty(
-  capture: VideoTimestampCapture,
-  snapshot: TimestampScreenshotStateSnapshot
-): void {
-  if (!snapshot.hasScreenshotRequested) {
-    delete capture.screenshotRequested;
-    return;
-  }
-  if (snapshot.screenshotRequested !== undefined) {
-    capture.screenshotRequested = snapshot.screenshotRequested;
-    return;
-  }
-  // Preserve legacy own-property presence without assigning undefined to an exact-optional field.
-  Object.defineProperty(capture, 'screenshotRequested', {
-    configurable: true,
-    enumerable: true,
-    writable: true,
-    value: undefined
-  });
-}
-
-function restoreTimestampScreenshotProperty(
-  capture: VideoTimestampCapture,
-  snapshot: TimestampScreenshotStateSnapshot
-): void {
-  if (!snapshot.hasScreenshot) {
-    delete capture.screenshot;
-    return;
-  }
-  if (snapshot.screenshot !== undefined) {
-    capture.screenshot = snapshot.screenshot;
-    return;
-  }
-  // Preserve legacy own-property presence without assigning undefined to an exact-optional field.
-  Object.defineProperty(capture, 'screenshot', {
-    configurable: true,
-    enumerable: true,
-    writable: true,
-    value: undefined
-  });
-}
-
-export function snapshotTimestampScreenshotState(
-  capture: VideoTimestampCapture
-): TimestampScreenshotStateSnapshot {
-  return {
-    hasScreenshotRequested: Object.prototype.hasOwnProperty.call(capture, 'screenshotRequested'),
-    screenshotRequested: capture.screenshotRequested,
-    hasScreenshot: Object.prototype.hasOwnProperty.call(capture, 'screenshot'),
-    screenshot: capture.screenshot
-  };
-}
-
-export function restoreTimestampScreenshotState(
-  capture: VideoTimestampCapture,
-  snapshot: ReturnType<typeof snapshotTimestampScreenshotState>
-): void {
-  restoreTimestampScreenshotRequestedProperty(capture, snapshot);
-  restoreTimestampScreenshotProperty(capture, snapshot);
-}
-
-function debugVideoAnalyticsFailure(error: unknown): void {
-  console.debug('[VideoSession] Failed to send analytics event:', error);
-}
-
 async function sendVideoUsageEvent<EventName extends UsageEventName>(
   dependencies: VideoSessionDependencies,
   event: EventName,
@@ -170,7 +104,7 @@ async function sendVideoUsageEvent<EventName extends UsageEventName>(
   }
 
   const messaging = resolveRepository<IMessagingRepository>(DI_TOKENS.IMessagingRepository);
-  const payload = createTrackUsageEventMessage(event, params);
+  const payload = createAnalyticsEventMessage(event, params);
   await messaging.send(payload);
 }
 
@@ -179,28 +113,130 @@ export function emitVideoUsageEvent<EventName extends UsageEventName>(
   event: EventName,
   params?: UsageEventParamMap[EventName]
 ): void {
-  void Promise.resolve(sendVideoUsageEvent(dependencies, event, params)).catch(
-    debugVideoAnalyticsFailure
+  void Promise.resolve(sendVideoUsageEvent(dependencies, event, params)).catch((error) =>
+    console.debug('[VideoSession] Failed to send analytics event:', error)
   );
 }
 
 export function mapVideoAnalyticsPlatform(platform: VideoPlatform): AnalyticsPlatform {
-  if (platform === 'youtube' || platform === 'bilibili') {
-    return platform;
-  }
-  return 'unknown';
+  return platform === 'youtube' || platform === 'bilibili' ? platform : 'unknown';
 }
 
 export function resolveVideoExportDestination(
   exportDestination?: ExportDestinationMetadata
 ): ExportDestination {
-  if (exportDestination?.kind === 'downloads') {
-    return 'downloads';
-  }
-  return 'unknown';
+  return exportDestination?.kind === 'downloads' ? 'downloads' : 'unknown';
 }
 
-export function resolveVideoFailureCategory(_error: unknown): FailureCategory {
+const FAILURE_CATEGORIES: ReadonlySet<string> = new Set(
+  'permission connection validation classification extraction write timeout unsupported unknown'.split(
+    ' '
+  )
+);
+
+const FAILURE_HINTS = {
+  timeout: 'timeout|timed out|message timeout|aborterror|aborted'.split('|'),
+  unsupported: 'unsupported|not supported|unavailable in this runtime'.split('|'),
+  permission:
+    'permission denied|permission-denied|access denied|not granted|forbidden|denied'.split('|'),
+  validation:
+    'invalid video export response|invalid clip payload received|invalid|missing|malformed|expected|not configured|no image|payload'.split(
+      '|'
+    ),
+  write: 'local_vault_write_failed|write failed|write-preflight-failed|save failed'.split('|'),
+  connection:
+    'offline|network|connection|failed to send message to background|rest |could not establish connection|receiving end does not exist|extension context invalidated|message port closed|runtime.lasterror|failed to fetch|networkerror'.split(
+      '|'
+    )
+} as const;
+
+function isFailureCategory(value: UntrustedValue): value is FailureCategory {
+  return typeof value === 'string' && FAILURE_CATEGORIES.has(value);
+}
+
+interface VideoExportFailureLike {
+  name?: string;
+  message?: string;
+  code?: string;
+  domain?: string;
+  userMessage?: string;
+  context?: unknown;
+  cause?: unknown;
+  failureCategory?: UntrustedValue;
+}
+
+function isVideoExportFailureLike(error: UntrustedValue): error is VideoExportFailureLike {
+  return typeof error === 'object' && error !== null;
+}
+
+function collectFailureHints(error: UntrustedValue, seen = new Set<UntrustedValue>()): string {
+  if (error == null || seen.has(error)) return '';
+  seen.add(error);
+
+  const hints: string[] = [];
+  const push = (value: unknown) => {
+    if (typeof value === 'string' && value.trim()) hints.push(value.trim().toLowerCase());
+  };
+
+  if (typeof error === 'string') {
+    push(error);
+  } else if (error instanceof Error) {
+    push(error.name);
+    push(error.message);
+    push(collectFailureHints((error as Error & { cause?: unknown }).cause, seen));
+  } else if (isVideoExportFailureLike(error)) {
+    push(error.code);
+    push(error.domain);
+    push(error.name);
+    push(error.message);
+    push(error.userMessage);
+    if (typeof error.context === 'object' && error.context !== null) {
+      const context = error.context as Record<string, unknown>;
+      [context.fallbackReason, context.error, context.message].forEach(push);
+    }
+    push(collectFailureHints(error.cause, seen));
+  }
+
+  return hints.join('\n');
+}
+
+function hasFailureHint(text: string, candidates: readonly string[]): boolean {
+  return candidates.some((candidate) => text.includes(candidate));
+}
+
+export function createVideoExportFailure(message: string, failureCategory?: UntrustedValue): Error {
+  const error = new Error(message);
+  if (isFailureCategory(failureCategory)) {
+    Object.defineProperty(error, 'failureCategory', {
+      configurable: true,
+      enumerable: false,
+      value: failureCategory,
+      writable: false
+    });
+  }
+  return error;
+}
+
+export function resolveVideoFailureCategory(error: UntrustedValue): FailureCategory {
+  if (isVideoExportFailureLike(error) && isFailureCategory(error.failureCategory)) {
+    return error.failureCategory;
+  }
+
+  const failureHints = collectFailureHints(error);
+
+  if (isAppError(error)) {
+    if (error.domain === 'classifier') return 'classification';
+    if (error.code === 'LOCAL_VAULT_WRITE_FAILED') return 'write';
+    if (error.code.includes('TIMEOUT')) return 'timeout';
+    if (error.domain === 'rest')
+      return hasFailureHint(failureHints, FAILURE_HINTS.timeout) ? 'timeout' : 'connection';
+  }
+  if (hasFailureHint(failureHints, FAILURE_HINTS.timeout)) return 'timeout';
+  if (hasFailureHint(failureHints, FAILURE_HINTS.unsupported)) return 'unsupported';
+  if (hasFailureHint(failureHints, FAILURE_HINTS.permission)) return 'permission';
+  if (hasFailureHint(failureHints, FAILURE_HINTS.validation)) return 'validation';
+  if (hasFailureHint(failureHints, FAILURE_HINTS.write)) return 'write';
+  if (hasFailureHint(failureHints, FAILURE_HINTS.connection)) return 'connection';
   return 'unknown';
 }
 

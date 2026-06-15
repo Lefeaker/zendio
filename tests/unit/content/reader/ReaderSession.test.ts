@@ -255,7 +255,7 @@ type TabContextProbeResponse = {
 };
 
 type TelemetryMessage = {
-  type: 'TRACK_USAGE_EVENT';
+  type: 'ANALYTICS_EVENT';
   event: string;
   params?: Record<string, unknown>;
 };
@@ -275,12 +275,12 @@ function getTelemetryMessages(context: { messaging: { send: Mock } }): Telemetry
       return [];
     }
     const candidate = message as { type?: unknown; event?: unknown; params?: unknown };
-    if (candidate.type !== 'TRACK_USAGE_EVENT' || typeof candidate.event !== 'string') {
+    if (candidate.type !== 'ANALYTICS_EVENT' || typeof candidate.event !== 'string') {
       return [];
     }
     return [
       {
-        type: 'TRACK_USAGE_EVENT',
+        type: 'ANALYTICS_EVENT',
         event: candidate.event,
         ...(candidate.params && typeof candidate.params === 'object'
           ? { params: candidate.params as Record<string, unknown> }
@@ -595,7 +595,7 @@ describe('ReaderSession', () => {
 
     expect(getTelemetryMessages(context)).toEqual([
       {
-        type: 'TRACK_USAGE_EVENT',
+        type: 'ANALYTICS_EVENT',
         event: 'reader_session_started',
         params: { source: 'unknown' }
       }
@@ -1026,7 +1026,7 @@ describe('ReaderSession', () => {
     expect(
       getTelemetryMessages(context).find((message) => message.event === 'reader_highlight_added')
     ).toEqual({
-      type: 'TRACK_USAGE_EVENT',
+      type: 'ANALYTICS_EVENT',
       event: 'reader_highlight_added',
       params: {
         selection_length_bucket: 'twenty_one_to_fifty',
@@ -1373,7 +1373,7 @@ describe('ReaderSession', () => {
       (message) => message.event === 'reader_highlight_added'
     );
     expect(highlightEvent).toEqual({
-      type: 'TRACK_USAGE_EVENT',
+      type: 'ANALYTICS_EVENT',
       event: 'reader_highlight_added',
       params: {
         selection_length_bucket: 'twenty_one_to_fifty',
@@ -1877,7 +1877,7 @@ describe('ReaderSession', () => {
       (message) => message.event === 'reader_exported'
     );
     expect(exportedEvent).toEqual({
-      type: 'TRACK_USAGE_EVENT',
+      type: 'ANALYTICS_EVENT',
       event: 'reader_exported',
       params: {
         destination: 'downloads',
@@ -2432,7 +2432,7 @@ describe('ReaderSession', () => {
       (message) => message.event === 'reader_export_failed'
     );
     expect(failedEvent).toEqual({
-      type: 'TRACK_USAGE_EVENT',
+      type: 'ANALYTICS_EVENT',
       event: 'reader_export_failed',
       params: {
         destination: 'downloads',
@@ -2521,7 +2521,7 @@ describe('ReaderSession', () => {
       (message) => message.event === 'reader_session_cancelled'
     );
     expect(cancelledEvent).toEqual({
-      type: 'TRACK_USAGE_EVENT',
+      type: 'ANALYTICS_EVENT',
       event: 'reader_session_cancelled',
       params: {
         duration_bucket: '30s_to_119s'

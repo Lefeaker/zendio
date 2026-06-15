@@ -1,12 +1,14 @@
 import { setTimestampScreenshot } from './screenshotIntent';
 import type { VideoCaptureScreenshot, VideoTimestampCapture } from './types';
 import type { VideoVisibleFrameScreenshotCapture } from './videoVisibleTabScreenshot';
+import type { VideoScreenshotPreparedCallback } from './videoScreenshotPreparationCallbacks';
 
 interface VideoScreenshotPreparationCoordinatorArgs {
   doc: Document;
   getCaptures: () => VideoTimestampCapture[];
   getVisibleVideo: () => HTMLVideoElement | null;
   syncPanel: () => void;
+  onScreenshotPrepared?: VideoScreenshotPreparedCallback;
   captureVisibleFrame?: VideoVisibleFrameScreenshotCapture | undefined;
 }
 
@@ -109,6 +111,8 @@ export class VideoScreenshotPreparationCoordinator {
           getCaptures: this.args.getCaptures,
           getVisibleVideo: this.args.getVisibleVideo,
           captureVisibleFrame: this.args.captureVisibleFrame,
+          onScreenshotPrepared: (capture, screenshot, source) =>
+            this.args.onScreenshotPrepared?.(capture, screenshot, source),
           syncPanel: this.args.syncPanel
         });
 
@@ -142,6 +146,6 @@ export class VideoScreenshotPreparationCoordinator {
   }
 
   private isPendingCapture(capture: VideoTimestampCapture): boolean {
-    return !capture.screenshot;
+    return !capture.screenshot && capture.screenshotPreparationFailed !== true;
   }
 }

@@ -1,6 +1,6 @@
 # 工程命令与入口
 
-最后更新：2026-06-13
+最后更新：2026-06-14
 
 ## 推荐运行环境
 
@@ -15,7 +15,9 @@
   - 显式包含 `typecheck:app`
   - 显式包含 `typecheck:tests`
   - 显式包含 `typecheck:strict`
+  - 显式包含 `audit:ga:proxy-contract`、`audit:ga:docs` 与 `audit:ga:legacy-api`
   - 显式执行 production `build:fast` 后运行 `audit:release-surface:report`
+  - 显式在 production `build:fast` 后运行 `audit:ga:client-secret` 与 `audit:ga:release-surface`
   - 显式包含 `audit:locales:report`，在 i18n lint 与字符预算通过后校验 config、locale loaders、catalog runtime/static/schema source、generated locale modules 与 public `_locales` 一致
   - i18n 产品范围决策为 `release-13-languages`：release-supported human UI locales 为 `en`、`zh-CN`、`ja`、`de`、`fr`、`es-ES`、`es-419`、`it`、`ko`、`pt-BR`、`ru`、`zh-TW`
   - `qps-ploc` 分类为 `dev-test-only`；production build/package output 与 release-surface audit 不允许出现 `qps-ploc` loader/chunk 或 `_locales/qps-ploc/messages.json`
@@ -33,7 +35,8 @@
   - 显式包含 `typecheck:tests`
   - 显式包含 `typecheck:strict`
   - 显式包含 `i18n:catalog:check`
-  - 串行继续执行 `lint -- --quiet`、`build:dev`、`audit:*` 报告
+  - 显式包含 `audit:ga:proxy-contract`、`audit:ga:docs` 与 `audit:ga:legacy-api`
+  - 串行继续执行 `lint -- --quiet`、`build:dev`、`audit:ga:client-secret`、`audit:ga:release-surface` 与其他 `audit:*` 报告
 - `npm run test*` 与 `npm run visual*`
   - 每个 npm script entrypoint 显式前置 `verify:runtime`
   - 本地 PATH 指向不受支持 Node 版本时，先在 runtime guard 失败，不启动 Vitest / Playwright
@@ -53,6 +56,7 @@
 - 2026-06-09 video screenshot/session stability final truth：`codex/aiiinob-video-asset-stability-2026-06-08-integration` 在 `fbc24294` 通过 `quality`、`verify:preflight`、P01 attachment + 视频专项 Vitest `11` 文件 / `201` tests、`videoListenerScope.browser.test.ts` Chromium `11` tests。截图准备队列已从 session runtime 静态路径拆为 lazy chunk，`audit:build:report` 当前 dev build chunk count 为 `116`；只同步 chunk count gate，不放宽 entry、single chunk、shared chunk、locale chunk 或 YAML chunk size budget。
 - 2026-06-13 final combined integration 真值：当前 integration dev build exact stop gate 为 `content/runtime.js` raw `57,386` bytes、`onboarding/index.js` raw `16,459` bytes、`chunk count <= 118`；本次只同步结构债分支与 visible-tab screenshot/export 分支合并后的 dev chunk count，没有放宽 locale/single/shared/YAML budgets。P06 历史修复仍只在 `tests/unit/content/video/VideoSession.test.ts` 内收口 inherited full-file restored screenshot async wait 与 same-page owner-context harness race。
 - 2026-06-13 final integration dependency-cycle truth：`audit:deps:report` 发现并阻塞了截图准备 queue/coordinator 循环与 i18n pseudo/runtime type 循环。最终修复将截图请求状态迁入 `videoScreenshotPreparationRequestStore.ts`，让 coordinator 只持有 queue interface；i18n `RuntimeMessages` 类型改由 `localeDefinition.ts` 从 generated messages 导出，pseudo locale/runtime service 不再从 `messages.ts` 回拉入口。复核后 `audit:deps:report` 为 `violations=0`，`audit:performance:report` 覆盖 `sourceFiles=755`、`hotspotsOver250=93`、`registeredLineBudgets=117`。
+- 2026-06-15 post GA/video reconciliation performance 真值：`audit:performance:report` 输出 `sourceFiles=783`、`hotspotsOver250=95`、`registeredLineBudgets=120`。`videoCaptureMutationTransaction.ts` 合并后降至 `245` 行，不再是 >250 LOC hotspot；`runtimeMessages.ts` 当前为 `322` 行。预算以 `tools/report-performance-hotspots.mjs` 为准，本次未放宽 locale/single/shared/YAML budgets。
 - 2026-05-26 M10 source-of-truth sync 真值：maintainability-debt M0-M10 合入后的 integration branch 上，`quality`、`verify:preflight`、`lint:type-any`、`audit:performance:report`、`audit:build:report`、`audit:compatibility-duplicates:check` 与 `audit:non-production-source:report` 均已重新采集；当前 type/warning/non-production source 数值见下文
 - 2026-05-26 M10 budget ratchet 真值：`quality` 显式包含 `lint:type-any:ratchet`；`verify:preflight` 继续包含 `audit:performance:report`，且 performance report 覆盖当前全部 `src` >250 LOC 文件
 - 2026-06-01 Plan 09 compatibility duplicate 真值：`quality` 显式包含 `audit:compatibility-duplicates:check`；当前 usage/rest compatibility candidate files 为 `0`，exact duplicate groups 为 `0`，allowlist entries 为 `0`，因此没有生产 allowlist。工具中的旧 `src/options/components/sections/usage*.ts` / `src/options/widgets/shared/usage/**` scope 是 retired compatibility reintroduction guard，只用于防止已退役 usage compatibility shells 被重新引入并复制，不代表当前生产 owner。
@@ -125,10 +129,13 @@ GA production release public config is loaded from ignored
 
 ```bash
 npm run analytics:validate:prod
+npm run analytics:smoke:delivery
 npm run build:prod:ga
 npm run package:prod:ga
 npm run package:firefox:prod:ga
 npm run release:prod:ga
+node scripts/run-ga-owner-smoke.mjs --mode proxy --event runtime_harness_open
+node scripts/run-ga-owner-smoke.mjs --mode directDebug --event runtime_harness_open
 ```
 
 The file must only contain public build config (`measurementId`,
@@ -145,6 +152,22 @@ and public env shape, but it still does not prove real GA property delivery,
 DebugView visibility, or server-side `api_secret` injection. If
 `.env.production.local` is absent, the validator still runs and reports missing
 public values as warnings.
+`audit:ga:proxy-contract` / `audit:ga:docs` / `audit:ga:legacy-api` are
+deterministic static gates and are wired into `quality` and `verify:preflight`.
+`audit:ga:client-secret` scans client runtime `src/**` plus the current
+`build/dist` for secret-like GA tokens and direct Google Measurement Protocol
+endpoints. `audit:ga:release-surface` scans the same `build/dist` surface and
+can additionally check Chrome ZIP / Firefox XPI archives via repeated
+`--archive <path>` arguments for secret/direct-endpoint leaks and debug success
+log payload exposure. Neither gate requires live proxy success or owner-only
+credentials.
+`analytics:smoke:delivery` is an opt-in owner-run proxy acceptance smoke. It is
+not wired into `quality`, `verify:preflight`, build, package, release, or CI.
+By default it skips cleanly when the public env is incomplete; `--require-env`
+turns incomplete env into failure; `--dry-run` prints only a redacted summary;
+`--event-name` is limited to allowlisted synthetic events. It never accepts
+`api_secret`, never prints event params, and refuses direct Google Measurement
+Protocol hosts.
 Successful production proxy sends are intentionally silent in the console. Only
 `directDebug` emits `[analytics-events] Event sent (debug):` with a summary
 (`eventName`, `transportMode`, `responseStatus`, validation message count) and
@@ -157,29 +180,58 @@ until the relevant event-class consent and public config make a send possible;
 
 ```bash
 npm run analytics:validate:prod
+npm run analytics:smoke:delivery -- --dry-run
+npm run audit:ga:proxy-contract
+npm run audit:ga:docs
+npm run audit:ga:legacy-api
+npm run audit:ga:client-secret
+npm run audit:ga:release-surface
+node scripts/run-ga-owner-smoke.mjs --mode proxy --event runtime_harness_open
+node scripts/run-ga-owner-smoke.mjs --mode directDebug --event runtime_harness_open
+node scripts/run-ga-owner-smoke.mjs --help
+npx vitest run --config vitest.unit.config.ts tests/unit/scripts/runGaOwnerSmoke.test.ts tests/unit/scripts/analyticsDeliverySmoke.test.ts
 npx vitest run tests/unit/background/analyticsEvents.test.ts tests/unit/shared/errors/analytics/index.test.ts tests/unit/shared/errors/analyticsConfig.test.ts
-npx vitest run tests/unit/content/video/videoScreenshotPreparationQueue.test.ts tests/unit/content/video/VideoSession.test.ts
+npx vitest run tests/unit/content/video/videoScreenshotCacheRepository.test.ts tests/unit/content/video/VideoSession.test.ts
 node scripts/run-playwright.mjs test tests/e2e/videoPanelFlow.test.ts tests/e2e/videoListenerScope.browser.test.ts --project=chromium-desktop
 ```
 
 Use these commands to validate the settled GA consent/transport contract and the
-video screenshot intent-to-attachment path. Screenshot attachment templates plan
-only export-time output paths / Markdown URLs; durable state persists
-`screenshotRequested`, while runtime screenshot bytes stay `Blob` / binary until
-background write/download boundaries.
+video screenshot intent-to-attachment path. `report-ga-docs-contract` binds
+`ga4-telemetry-reference.md` and `google-analytics-dashboard-setup.md` to the
+current schema / proxy contract; it does not prove real GA property delivery,
+DebugView visibility, or server-side `api_secret` injection.
+`analytics:validate:prod` remains the static/public-config contract check, and
+`analytics:smoke:delivery` only proves that an owner proxy accepted a synthetic
+event under the current public env. For package/release surfaces, run
+`npm run package:prod:ga` or `npm run package:firefox:prod:ga` first, then pass
+the produced archive path(s) to
+`npm run audit:ga:release-surface -- --archive <zip-or-xpi>`. Chrome ZIP and
+Firefox XPI must be scanned against their own artifacts; do not reuse the wrong
+browser target output. `run-ga-owner-smoke.mjs` is an owner CLI harness: it
+rejects client-side secret env vars, sends only to the configured proxy endpoint,
+and prints a redacted summary. Its local output proves request shape and local
+proxy behavior only; it does not prove real GA property delivery, DebugView
+visibility, or server-side `api_secret` injection unless the owner adds external
+evidence. Screenshot attachment templates plan only export-time output paths /
+Markdown URLs; durable draft state persists `screenshotRequested` plus
+metadata-only `screenshotRef`, while screenshot bytes live in the expiring
+browser storage cache and runtime `Blob` / binary flow until background
+write/download boundaries. Cache hits restore without immediate visible-video
+seek; legacy ref-less drafts and missing/expired cache entries fall back to
+low-concurrency screenshot preparation.
 
 ## 当前 Lint / Type 债务真值
 
 2026-05-29 post-remediation governance truth:
 
 - `npm run lint -- --quiet`：通过，当前没有 ESLint error。
-- `npm run lint:warnings-guard`：通过；当前 video screenshot/session stability integration fresh warning count 为 `141`，gate 输出为 `Warning 总量下降 6 条（现在 141 条）`。
+- `npm run lint:warnings-guard`：2026-06-14 P09 final verification isolated worktree fresh run 通过；checked-in baseline 仍为 `147`，当前 warning 总数为 `131`，gate 输出为 `Warning 总量下降 16 条（现在 131 条）`。当前规则族为 `@typescript-eslint/require-await: 100`、`@typescript-eslint/no-unsafe-assignment: 19`、`@typescript-eslint/no-unsafe-return: 6`、`@typescript-eslint/no-unsafe-argument: 2`、`@typescript-eslint/no-unsafe-member-access: 3`、`@typescript-eslint/no-unsafe-call: 1`。
 - `npm run lint:warnings-report`：会重写 `tools/baselines/lint-warnings.json`，不得在普通里程碑中随手运行后遗留 diff；只在有意同步 warning truth 时运行。
-- 当前 fresh warning 主要规则族：`require-await`（`99`）与 unsafe type warnings（`no-unsafe-assignment: 27`、`no-unsafe-return: 6`、`no-unsafe-argument: 2`、`no-unsafe-member-access: 3`、`no-unsafe-call: 1`）。
+- 当前 fresh warning 主要规则族：`require-await`（`100`）与 unsafe type warnings（`no-unsafe-assignment: 19`、`no-unsafe-return: 6`、`no-unsafe-argument: 2`、`no-unsafe-member-access: 3`、`no-unsafe-call: 1`）。
 - `npm run lint:hardcoded`：通过；当前为 `0` hardcoded findings，且已接入 `quality` 与 CI。
-- `npm run lint:type-any`：扫描当前 final integration worktree `1178` files；fresh overall 为 `any: 0`、`unknown: 1122`、assertions `1867`、non-null assertions `45`、`ts-expect-error: 3`；src 为 `0/609/630/9/0`；tests 为 `0/513/1237/36/3`。
+- `npm run lint:type-any`：2026-06-14 P09 final verification isolated worktree fresh run 扫描 `1193` files；fresh overall 为 `any: 0`、`unknown: 1119`、assertions `1861`、non-null assertions `47`、`ts-expect-error: 3`；src 为 `0/606/630/9/0`；tests 为 `0/513/1231/38/3`。
 - `scripts/audit-types.mjs` 支持 overall 阈值参数 `--max-any`、`--max-unknown`、`--max-assertions`、`--max-non-null`、`--max-ts-expect-error`，并支持 scoped 阈值参数 `--max-src-*` / `--max-tests-*`。
-- `npm run lint:type-any:ratchet`：当前 checked-in 上限为 overall `0/1125/1869/53/4`、src `0/613/630/9/0`、tests `0/513/1239/46/4`，并已接入 `quality` 作为 type-debt hard gate；当前实测为 overall `0/1122/1867/45/3`、src `0/609/630/9/0`、tests `0/513/1237/36/3`。最终合并通过消除局部新增 type assertions 留在既有上限内；`any` 继续保持 `0`，`ts-expect-error` 没有放宽，unknown/non-null ceilings 继续守住更高历史上限。
+- `npm run lint:type-any:ratchet`：checked-in 上限仍为 overall `0/1125/1869/53/4`、src `0/613/630/9/0`、tests `0/513/1239/46/4`，并已接入 `quality` 作为 type-debt hard gate；2026-06-14 P09 final verification isolated worktree fresh run 通过，fresh 实测为 overall `0/1119/1861/47/3`、src `0/606/630/9/0`、tests `0/513/1231/38/3`。本次未放宽 `any`、`ts-expect-error`、warning baseline 或 type ratchet 上限。
 - `npm run audit:platform-boundary:report`：通过，当前为 `148` findings（composition-root `11`、offscreen-local-vault-permission-root `1`、platform-adapter `93`、shared-runtime-helper `23`、type-only `20`）；仍是 report-only，不得表述为 hard gate。
 - `npm run audit:non-production-source:report`：在先运行 `npm run audit:production-build-graph:report` 后通过。P01 修复了 `resolveSourceImport()` 对 `?inline` / `#hash` specifier 的 owner 解析，`src/content/video/video-control-bar.css` 不再误报为 `migrate-test-owner`。当前 decision counts 为 `retain-production: 628`、`migrate-import-owner: 134`、`retain-production-facade: 17`。
 
@@ -188,15 +240,15 @@ background write/download boundaries.
 `npm run audit:build:report` 当前执行以下预算：
 
 - `content/index.js <= 1 KB`
-- `content/runtime.js <= 56 KB`（raw `57,386` bytes）
+- `content/runtime.js`: warning target `57,209` raw bytes；hard stop `57,386` raw bytes
 - `options/index.js <= 12 KB`
-- `onboarding/index.js <= 16 KB`（raw `16,459` bytes）
+- `onboarding/index.js`: warning target `16,459` raw bytes；hard stop `16,715` raw bytes
 - 任一 chunk `<= 320 KB`
 - 最大 shared chunk `<= 190 KB`
 - 第二大 shared chunk `<= 136 KB`
 - 第三大 shared chunk `<= 96 KB`
 - `yaml-config <= 70 KB`
-- `chunk count <= 118`
+- `chunk count`: warning target `118`；hard stop `120`
 - 当前 `M4` 口径以“保住已验真的 retained set”为准，不再强制证明旧版单批文件数预算
 
 2026-05-29 Plan 11 G3 dev build truth:
@@ -256,8 +308,9 @@ background write/download boundaries.
 - dev chunks: `118`
 - `chunks/messages-*.js`: `202.4 KB`
 - `chunks/videoScreenshotPreparationQueue-*.js`: `21.1 KB`
-- `lint:type-any` 扫描 `1178` files；fresh overall `0/1122/1867/45/3`、src `0/609/630/9/0`、tests `0/513/1237/36/3`
-- `lint:type-any:ratchet` checked-in 上限为 overall `0/1125/1869/53/4`、src `0/613/630/9/0`、tests `0/513/1239/46/4`；本次只同步 assertions gate，`any` 继续保持 `0`，`ts-expect-error` 未放宽
+- `lint:type-any` 扫描 `1193` files；fresh overall `0/1138/1934/45/3`、src `0/623/678/9/0`、tests `0/515/1256/36/3`
+- `lint:type-any:ratchet` checked-in 上限为 overall `0/1138/1934/53/4`、src `0/623/678/9/0`、tests `0/515/1256/46/4`；本次只同步 GA production rewrite integration current truth，`any` 继续保持 `0`，`ts-expect-error` 未放宽
+- `lint:warnings-guard` checked-in baseline 与 fresh warning count 均为 `160`（`src: 27`、`tests: 133`）；本次同步只反映 P01-P09 集成后的 warning truth，并先清掉可机械修复的 production lint warning
 
 ## 核心命令
 

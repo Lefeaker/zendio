@@ -287,7 +287,7 @@ describe('SupportPrompt', () => {
     await flushMicrotasks();
 
     expect(messagingSendMock).toHaveBeenCalledWith({
-      type: 'TRACK_USAGE_EVENT',
+      type: 'ANALYTICS_EVENT',
       event: 'support_link_clicked',
       params: { target: 'ko-fi' }
     });

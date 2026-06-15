@@ -98,6 +98,67 @@ describe('content dependency factories', () => {
     expect(getPlatformServicesMock).not.toHaveBeenCalled();
   });
 
+  it('wires video screenshot cache through runtime messaging when available', async () => {
+    const send = vi.fn(() =>
+      Promise.resolve({
+        success: true,
+        operation: 'save',
+        result: {
+          status: 'skipped',
+          reason: 'invalid-metadata',
+          field: 'pageKey'
+        }
+      })
+    );
+    const platform = {
+      optionsRepository: {
+        get: vi.fn().mockResolvedValue({}),
+        set: vi.fn(),
+        onChange: vi.fn(() => () => undefined)
+      },
+      storage: {
+        sync: {},
+        local: {
+          get: vi.fn(),
+          set: vi.fn(),
+          setMany: vi.fn(),
+          remove: vi.fn()
+        },
+        session: {}
+      },
+      messaging: { send }
+    };
+    const dependencies = createVideoSessionDependencies(platform as never);
+
+    expect(dependencies.screenshotCacheRepository).toBeDefined();
+    const blob = new Blob(['frame'], { type: 'image/jpeg' });
+    await dependencies.screenshotCacheRepository?.save({
+      pageKey: 'unsafe url',
+      captureId: 'capture-a',
+      screenshot: {
+        id: 'shot-a',
+        fileName: 'shot-a.jpg',
+        mimeType: 'image/jpeg',
+        capturedAt: 1,
+        content: {
+          kind: 'blob',
+          blob,
+          byteLength: blob.size
+        }
+      }
+    });
+
+    expect(send).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: 'AIIOB_VIDEO_SCREENSHOT_CACHE',
+        operation: 'save'
+      })
+    );
+    expect(platform.storage.local.set).not.toHaveBeenCalled();
+    expect(platform.storage.local.setMany).not.toHaveBeenCalled();
+    expect(platform.storage.local.remove).not.toHaveBeenCalled();
+  });
+
   it('does not call getPlatformServices inside video prompt factory', () => {
     const platform = {
       storage: { sync: {}, local: {}, session: {} },

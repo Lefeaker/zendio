@@ -1,6 +1,8 @@
 import type { VideoPlatformContext } from './platforms';
 import type { VideoFragmentCapture } from './types';
 import type { VideoSessionDependencies } from './sessionTypes';
+import { createSessionDraftPageKey } from '../sessionDrafts';
+import type { ContentExportDestinationState } from '../shared/exportDestinationState';
 import { FragmentHighlighter } from './fragmentHighlighter';
 import { PendingSelectionTracker } from './pendingSelectionTracker';
 import { ShadowSelectionBridge } from './shadowSelectionBridge';
@@ -14,6 +16,13 @@ import { VideoFragmentSelectionController } from './videoFragmentSelectionContro
 import { VideoSessionState } from './sessionState';
 import { VideoSessionPlatformController } from './sessionPlatformController';
 import { VideoSessionDomController } from './sessionDom';
+import { VideoSessionDraftController } from './videoSessionDraftController';
+import type { VideoHintState } from './videoHintManager';
+import type { VideoCaptureScreenshot } from './types';
+import type {
+  VideoScreenshotCacheRepository,
+  VideoScreenshotCacheSaveResult
+} from './videoScreenshotCacheRepository';
 
 export interface VideoSessionControllers {
   fragmentHighlighter: FragmentHighlighter;
@@ -27,13 +36,40 @@ export interface VideoSessionControllers {
   exporter: VideoSessionExporter;
   platformController: VideoSessionPlatformController;
   dom: VideoSessionDomController;
+  draftController: VideoSessionDraftController;
+  persistPreparedScreenshot: (
+    captureId: string,
+    screenshot: VideoCaptureScreenshot
+  ) => Promise<VideoScreenshotCacheSaveResult>;
+}
+
+const SCREENSHOT_CACHE_UNAVAILABLE_RESULT: VideoScreenshotCacheSaveResult = {
+  status: 'skipped',
+  reason: 'serialize-failed',
+  error: 'Video screenshot cache repository is unavailable.'
+};
+
+function createUnavailableVideoScreenshotCacheRepository(): VideoScreenshotCacheRepository {
+  return {
+    save: () => Promise.resolve(SCREENSHOT_CACHE_UNAVAILABLE_RESULT),
+    load: () => Promise.resolve(null),
+    remove: () => Promise.resolve(undefined),
+    removeMany: () => Promise.resolve(undefined),
+    pruneExpired: () => Promise.resolve(undefined),
+    pruneToLimits: () => Promise.resolve(undefined)
+  };
 }
 
 export function createVideoSessionControllers(args: {
   doc: Document;
   dependencies: VideoSessionDependencies;
   state: VideoSessionState;
+  destinationState: Pick<ContentExportDestinationState, 'metadata' | 'applyMetadata'>;
   getMessages: () => VideoSessionMessages;
+  applyHint: (state: VideoHintState) => void;
+  readCleanupState: () => { isCleaningUp: boolean; shouldTrackSavingState: boolean };
+  onDraftRestored?: () => void;
+  onDraftScreenshotHydrated?: () => void;
   createPlatformContext: () => VideoPlatformContext;
   getDocumentSelection: () => Selection | null;
   isRangeInsideUi: (range: Range | null) => boolean;
@@ -43,8 +79,6 @@ export function createVideoSessionControllers(args: {
     selectedText: string;
     range?: Range | null;
   }) => void;
-  restoreDraftState?: () => Promise<boolean>;
-  onLegacyRestore?: (storageKey: string) => void;
   findVideoElement: () => HTMLVideoElement | null;
   handleUrlChange: () => void;
   handleVideoElementChange: (element: HTMLVideoElement | null) => void;
@@ -53,14 +87,17 @@ export function createVideoSessionControllers(args: {
     doc,
     dependencies,
     state,
+    destinationState,
     getMessages,
+    applyHint,
+    readCleanupState,
+    onDraftRestored,
+    onDraftScreenshotHydrated,
     createPlatformContext,
     getDocumentSelection,
     isRangeInsideUi,
     ensureCaptureHighlight,
     onSelectionAccepted,
-    restoreDraftState,
-    onLegacyRestore,
     findVideoElement,
     handleUrlChange,
     handleVideoElementChange
@@ -121,6 +158,31 @@ export function createVideoSessionControllers(args: {
     }
   );
   const exporter = new VideoSessionExporter(dependencies.videoRepository);
+  // Production content sessions inject the background-owned client. No-messaging harnesses that
+  // need durable screenshot cache behavior must inject a repository explicitly.
+  const screenshotCache =
+    dependencies.screenshotCacheRepository ?? createUnavailableVideoScreenshotCacheRepository();
+  const persistPreparedScreenshot = (
+    captureId: string,
+    screenshot: VideoCaptureScreenshot
+  ): Promise<VideoScreenshotCacheSaveResult> =>
+    screenshotCache.save({
+      pageKey: createSessionDraftPageKey('video', doc.location.href),
+      captureId,
+      screenshot
+    });
+  const dom = new VideoSessionDomController(doc, dependencies.viewFactory, hintManager);
+  const draftController = new VideoSessionDraftController({
+    doc,
+    state,
+    destinationState,
+    storageArea: dependencies.storage.local,
+    screenshotCache,
+    dom,
+    applyHint,
+    onScreenshotHydrationChange: onDraftScreenshotHydrated,
+    readCleanupState
+  });
   const platformController = new VideoSessionPlatformController({
     doc,
     storage: dependencies.storage.local,
@@ -128,10 +190,15 @@ export function createVideoSessionControllers(args: {
     createPlatformContext,
     onAdapterChange: (adapter) => fragmentHighlightCoordinator.updateAdapter(adapter),
     ensureCaptureHighlight,
-    ...(restoreDraftState ? { restoreDraftState } : {}),
-    ...(onLegacyRestore ? { onLegacyRestore } : {})
+    restoreDraftState: async () => {
+      const restored = await draftController.restoreDraftState();
+      if (restored) {
+        onDraftRestored?.();
+      }
+      return restored;
+    },
+    onLegacyRestore: (storageKey) => draftController.handleLegacyRestore(storageKey)
   });
-  const dom = new VideoSessionDomController(doc, dependencies.viewFactory, hintManager);
 
   return {
     fragmentHighlighter,
@@ -144,6 +211,8 @@ export function createVideoSessionControllers(args: {
     lifecycle,
     exporter,
     platformController,
-    dom
+    dom,
+    draftController,
+    persistPreparedScreenshot
   };
 }

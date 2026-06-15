@@ -11,6 +11,11 @@ export const ANALYTICS_TRANSPORT_MODES = ['disabled', 'proxy', 'directDebug'] as
 
 const FORBIDDEN_PUBLIC_CONFIG_PATTERN =
   /(api[_-]?key|api[_-]?secret|bearer\s+[a-z0-9._-]+|sk-[a-z0-9_-]+|secret|token|password)/i;
+const GOOGLE_ANALYTICS_HOST_PARTS = ['google-analytics', 'com'];
+const GOOGLE_MEASUREMENT_PROTOCOL_PATH_PARTS = [
+  ['mp', 'collect'],
+  ['debug', 'mp', 'collect']
+] as const;
 
 export function readAnalyticsPublicBuildConfig(): AnalyticsPublicBuildConfig {
   const measurementId = normalizeMeasurementId(
@@ -102,11 +107,54 @@ export function normalizeProxyEndpoint(value: unknown): string | undefined {
     if (!isHttps && !isLocalHttp) {
       return undefined;
     }
+    if (isGoogleMeasurementProtocolEndpoint(url)) {
+      return undefined;
+    }
     url.hash = '';
     return url.toString();
   } catch {
     return undefined;
   }
+}
+
+function isGoogleMeasurementProtocolEndpoint(url: URL): boolean {
+  const hostname = canonicalizeEndpointHostname(url.hostname);
+  if (!isGoogleAnalyticsHost(hostname)) {
+    return false;
+  }
+
+  const pathParts = canonicalizeEndpointPathParts(url.pathname);
+  if (!pathParts) {
+    return true;
+  }
+
+  return (
+    pathParts.length > 0 &&
+    GOOGLE_MEASUREMENT_PROTOCOL_PATH_PARTS.some((parts) => pathParts.join('/') === parts.join('/'))
+  );
+}
+
+function canonicalizeEndpointHostname(hostname: string): string {
+  return hostname.toLowerCase().replace(/\.+$/, '');
+}
+
+function canonicalizeEndpointPathParts(pathname: string): string[] | undefined {
+  const parts = pathname
+    .replace(/\/+$/, '')
+    .split('/')
+    .map((part) => part.trim())
+    .filter(Boolean);
+
+  try {
+    return parts.map((part) => decodeURIComponent(part).toLowerCase());
+  } catch {
+    return undefined;
+  }
+}
+
+function isGoogleAnalyticsHost(hostname: string): boolean {
+  const googleAnalyticsHost = GOOGLE_ANALYTICS_HOST_PARTS.join('.');
+  return hostname === googleAnalyticsHost || hostname.endsWith(`.${googleAnalyticsHost}`);
 }
 
 function readBuildString(name: string): string | undefined {

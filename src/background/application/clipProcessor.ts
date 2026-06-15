@@ -48,6 +48,7 @@ export interface ClipProcessingResult {
 }
 
 type ClipPayload = NonNullable<ClipResultMessage['payload']>;
+type UntrustedValue = Parameters<typeof isAppError>[0];
 
 export interface ClipProcessingProgress {
   value: number;
@@ -75,6 +76,68 @@ interface AiChatTelemetryMetadata {
 }
 
 const BACKGROUND_OPERATION_ID_PATTERN = /^op_[a-z0-9]{6,24}$/u;
+export interface ClipProcessingFailure extends Error {
+  readonly failureCategory?: FailureCategory;
+}
+
+function isFailureCategory(value: UntrustedValue): value is FailureCategory {
+  switch (value) {
+    case 'permission':
+    case 'connection':
+    case 'validation':
+    case 'classification':
+    case 'extraction':
+    case 'write':
+    case 'timeout':
+    case 'unsupported':
+    case 'unknown':
+      return true;
+    default:
+      return false;
+  }
+}
+
+function hasFailureCategory(error: object): error is { failureCategory?: UntrustedValue } {
+  return 'failureCategory' in error;
+}
+
+function defineClipProcessingFailureCategory(
+  failure: Error,
+  failureCategory: FailureCategory
+): asserts failure is ClipProcessingFailure {
+  Object.defineProperty(failure, 'failureCategory', {
+    configurable: true,
+    enumerable: false,
+    value: failureCategory,
+    writable: false
+  });
+}
+
+export function readClipProcessingFailureCategory(
+  error: UntrustedValue
+): FailureCategory | undefined {
+  if (typeof error !== 'object' || error === null || !hasFailureCategory(error)) {
+    return undefined;
+  }
+  const category = error.failureCategory;
+  return isFailureCategory(category) ? category : undefined;
+}
+
+function withClipProcessingFailureCategory(
+  error: UntrustedValue,
+  failureCategory: FailureCategory
+): ClipProcessingFailure {
+  const failure =
+    error instanceof Error ? error : new Error(typeof error === 'string' ? error : String(error));
+  try {
+    defineClipProcessingFailureCategory(failure, failureCategory);
+    return failure;
+  } catch {
+    const fallback = new Error(failure.message);
+    defineClipProcessingFailureCategory(fallback, failureCategory);
+    return fallback;
+  }
+}
 
 function getDownloadsService(): PlatformServices['downloads'] {
   return getService<PlatformServices>(TOKENS.platformServices).downloads;
@@ -301,12 +364,13 @@ export async function processClipPayload(
 
     return result;
   } catch (error) {
+    const failureCategory = resolveFailureCategory(error, currentStage, storageTarget);
     trackClipTelemetryEvent('clip_save_failed', {
       operation_id: operationId,
       storage_target: storageTarget,
-      failure_category: resolveFailureCategory(error, currentStage, storageTarget)
+      failure_category: failureCategory
     });
-    throw error;
+    throw withClipProcessingFailureCategory(error, failureCategory);
   }
 }
 
@@ -334,7 +398,7 @@ function resolveAiChatTelemetry(payload: ClipPayload): AiChatTelemetryMetadata |
   };
 }
 
-function toAnalyticsPlatform(value: unknown): AnalyticsPlatform {
+function toAnalyticsPlatform(value: UntrustedValue): AnalyticsPlatform {
   if (typeof value !== 'string' || value.trim().length === 0) {
     return 'unknown';
   }
@@ -362,7 +426,7 @@ function toAnalyticsStorageTarget(
 }
 
 function resolveFailureCategory(
-  error: unknown,
+  error: UntrustedValue,
   stage: BackgroundStage | null,
   storageTarget: StorageTarget
 ): FailureCategory {

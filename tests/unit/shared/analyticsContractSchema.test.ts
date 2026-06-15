@@ -4,6 +4,7 @@ import {
   ANALYTICS_EVENT_CATALOG,
   ANALYTICS_OPTIONAL_PARAMS,
   ANALYTICS_REQUIRED_PARAMS,
+  EMITTED_PRODUCT_EVENT_NAMES,
   FUTURE_PRODUCT_EVENT_NAMES,
   hasConsentForAnalyticsEvent,
   sanitizeAnalyticsEventParams
@@ -15,6 +16,7 @@ import type {
   AnalyticsEventName,
   AnalyticsEventParamMap
 } from '../../../src/shared/analytics/eventCatalog';
+import { ANALYTICS_SCHEMA } from '../../../src/shared/analytics/schema/analyticsSchema';
 
 type CatalogCoverageAssertion =
   Exclude<AnalyticsEventName, keyof typeof ANALYTICS_EVENT_CATALOG> extends never ? true : never;
@@ -62,51 +64,6 @@ const ANALYTICS_VALIDATOR_MODULE_URL = new URL(
   '../../../scripts/setup-error-analytics.js',
   import.meta.url
 );
-
-const ACTIVE_EMITTED_PRODUCT_EVENT_NAMES = [
-  'onboarding_started',
-  'onboarding_step_completed',
-  'onboarding_skipped',
-  'onboarding_support_action',
-  'onboarding_completed',
-  'privacy_consent_changed',
-  'analytics_data_cleared',
-  'options_opened',
-  'options_section_viewed',
-  'options_action_completed',
-  'options_theme_changed',
-  'options_language_changed',
-  'config_export_completed',
-  'config_import_completed',
-  'experimental_feature_toggled',
-  'clip_started',
-  'clip_prompt_opened',
-  'clip_prompt_submitted',
-  'clip_prompt_cancelled',
-  'extraction_completed',
-  'background_stage_completed',
-  'clip_save_completed',
-  'clip_save_failed',
-  'ai_chat_detected',
-  'ai_chat_exported',
-  'connection_test_completed',
-  'local_vault_permission_prompted',
-  'local_vault_permission_resolved',
-  'vault_write_completed',
-  'vault_write_failed',
-  'reader_session_started',
-  'reader_highlight_added',
-  'reader_exported',
-  'reader_export_failed',
-  'reader_session_cancelled',
-  'video_session_started',
-  'video_timestamp_added',
-  'video_fragment_added',
-  'video_capture_removed',
-  'video_exported',
-  'video_export_failed',
-  'video_session_cancelled'
-] as const satisfies readonly AnalyticsEventName[];
 
 function sampleValueForParam(paramName: string): unknown {
   switch (paramName) {
@@ -260,7 +217,7 @@ describe('analytics contract schema', () => {
   });
 
   it('keeps actively emitted product events out of the future bucket', () => {
-    for (const eventName of ACTIVE_EMITTED_PRODUCT_EVENT_NAMES) {
+    for (const eventName of EMITTED_PRODUCT_EVENT_NAMES) {
       expect(FUTURE_PRODUCT_EVENT_NAMES).not.toContain(eventName);
       expect(ANALYTICS_EVENT_CATALOG[eventName].classification).toBe('emitted');
       expect(ANALYTICS_EVENT_CATALOG[eventName].runtimeAllowed).toBe(true);
@@ -324,6 +281,23 @@ describe('analytics contract schema', () => {
     expect(hasConsentForAnalyticsEvent(analyticsOnlyConfig, 'extension_error')).toBe(false);
     expect(hasConsentForAnalyticsEvent(errorOnlyConfig, 'video_session_started')).toBe(false);
     expect(hasConsentForAnalyticsEvent(errorOnlyConfig, 'extension_error')).toBe(true);
+  });
+
+  it('keeps required and optional params derived directly from the schema rows', () => {
+    for (const eventName of Object.keys(ANALYTICS_SCHEMA) as AnalyticsEventName[]) {
+      const schemaDefinition = ANALYTICS_SCHEMA[eventName];
+      const requiredParams = Object.entries(schemaDefinition.params)
+        .filter(([, paramDefinition]) => paramDefinition.required)
+        .map(([paramName]) => paramName);
+      const optionalParams = Object.entries(schemaDefinition.params)
+        .filter(([, paramDefinition]) => !paramDefinition.required)
+        .map(([paramName]) => paramName);
+
+      expect(ANALYTICS_REQUIRED_PARAMS[eventName]).toEqual(requiredParams);
+      expect(ANALYTICS_OPTIONAL_PARAMS[eventName]).toEqual(optionalParams);
+    }
+
+    expect(getConsentScopeForAnalyticsEvent('video_session_started')).toBe('analytics');
   });
 
   it('keeps the production validator aligned with the tracked transport contract', async () => {

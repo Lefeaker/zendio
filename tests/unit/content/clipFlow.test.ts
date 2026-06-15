@@ -7,7 +7,7 @@ import type { ContentSelectionTracker } from '@content/runtime/contentSelectionT
 import type { SelectionPromptLifecycleHandlers } from '@content/runtime/clipFlowTypes';
 
 type TrackUsageEventMessage = {
-  type: 'TRACK_USAGE_EVENT';
+  type: 'ANALYTICS_EVENT';
   event: string;
   params?: Record<string, unknown>;
 };
@@ -86,9 +86,7 @@ function getTrackEvents(send: SendMock): TrackUsageEventMessage[] {
     .map(([message]) => message)
     .filter(
       (message): message is TrackUsageEventMessage =>
-        isRecord(message) &&
-        message.type === 'TRACK_USAGE_EVENT' &&
-        typeof message.event === 'string'
+        isRecord(message) && message.type === 'ANALYTICS_EVENT' && typeof message.event === 'string'
     );
 }
 
@@ -325,7 +323,7 @@ describe('clipFlow support progress', () => {
 
   it('does not let analytics transport failures block clip result dispatch', async () => {
     const send = createSendMock((message) => {
-      if (hasMessageType(message, 'TRACK_USAGE_EVENT')) {
+      if (hasMessageType(message, 'ANALYTICS_EVENT')) {
         return Promise.reject(new Error('analytics offline'));
       }
       return Promise.resolve();

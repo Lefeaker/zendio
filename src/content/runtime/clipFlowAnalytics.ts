@@ -1,8 +1,8 @@
 import { bucketCount, createFeatureTimer } from '../../shared/analytics/featureTimer';
 import type { ContentType, CountBucket } from '../../shared/analytics/eventCatalog';
 import {
-  createTrackUsageEventMessage,
-  type TrackUsageEventPayload,
+  createAnalyticsEventMessage,
+  type AnalyticsRuntimeEventPayload,
   type UsageEventParamMap
 } from '../../shared/types/analytics';
 import { isAIChat } from '../detect';
@@ -127,6 +127,8 @@ function emitClipAnalyticsEvent<EventName extends ClipAnalyticsEventName>(
   event: EventName,
   params: UsageEventParamMap[EventName]
 ): void {
-  const payload = createTrackUsageEventMessage(event, params);
-  void Promise.resolve(messaging.send(payload as TrackUsageEventPayload)).catch(() => undefined);
+  const payload = createAnalyticsEventMessage(event, params);
+  void Promise.resolve(messaging.send(payload as AnalyticsRuntimeEventPayload)).catch(
+    () => undefined
+  );
 }

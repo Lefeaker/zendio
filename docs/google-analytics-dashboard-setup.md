@@ -1,6 +1,6 @@
 # Google Analytics Dashboard Setup
 
-最后更新：2026-06-05
+最后更新：2026-06-14
 
 本文说明如何基于当前 AiiinOB telemetry contract 建立 GA4 自定义定义、Exploration 与 owner dashboard。
 
@@ -15,7 +15,12 @@
 
 - 所有时长分析只使用 `duration_bucket`
 - 不要求、不假设、不回填产品侧 `duration_ms`
+- 不把原始正文、原始 URL、vault path、file path、screenshot bytes 作为 dimension
+  或 metric
 - `dev-only`、contract-only、inventory-only、docs-only 行不进入生产 KPI
+- 推荐事件必须来自 `ga4-telemetry-reference.md` 中当前 active emitted / error
+  rows；`runtime_harness_open`、`video_started`、`video_screenshot_captured` 只能留在
+  dev-only / contract-only / future 说明里，不能作为 KPI 事件
 - owner 若需要精确服务端耗时，应查看 proxy / backend logs，不要把要求转嫁给扩展产品遥测
 
 ## 推荐自定义定义
@@ -49,7 +54,6 @@ GA4 definition quota 有上限。先注册会被正式 dashboard 使用的字段
 | `message_count_bucket`      | AI chat 消息量 bucket                                       |
 | `attachment_count_bucket`   | clip 附件量 bucket                                          |
 | `capture_count_bucket`      | video capture 量级                                          |
-| `screenshot_count_bucket`   | video screenshot 量级                                       |
 | `selection_length_bucket`   | reader 高亮长度 bucket                                      |
 | `highlight_count_bucket`    | reader 高亮数 bucket                                        |
 | `error_domain`              | 错误域趋势                                                  |
@@ -187,7 +191,6 @@ Video 事件：
 - `video_session_started`
 - `video_timestamp_added`
 - `video_fragment_added`
-- `video_screenshot_captured`
 - `video_capture_removed`
 - `video_exported`
 - `video_export_failed`
@@ -201,6 +204,11 @@ Video 事件：
 - `selection_length_bucket`
 - `highlight_count_bucket`
 - `duration_bucket`
+
+当前不进入生产 KPI 的 video contract rows 仍包括 `video_started` 与
+`video_screenshot_captured`。它们在 schema / proxy contract 中仍保留为
+contract-only / future catalog rows；最终 active status 由 P09 收口之前不得放进
+正式 dashboard。
 
 ### 7. Connection / Local Vault friction
 
@@ -253,15 +261,20 @@ Video 事件：
 
 仅本地使用 `directDebug`，并配置 owner debug proxy endpoint：
 
+- 先运行 `node scripts/run-ga-owner-smoke.mjs --mode directDebug --event runtime_harness_open`
 - 打开 consent
 - 触发一个 options 事件、一个 clip 事件、一个错误事件
 - 确认请求只发往 owner debug proxy
 - 确认 debug proxy 服务端注入 `api_secret` 后，DebugView 中看到事件名与自定义字段
 
+本地 harness command 只证明 request shape、validation intent 与 proxy-only 路径；
+它本身不证明真实 property delivery 或 DebugView 可见性。
+
 ### Proxy log validation
 
 生产与 staging 以 proxy log 为主：
 
+- 可先运行 `node scripts/run-ga-owner-smoke.mjs --mode proxy --event runtime_harness_open`
 - 确认请求打到 owner proxy，而不是由扩展 / 客户端直接请求 Google endpoint
 - 确认 event name、response code、version、transport mode 正常
 - 确认 payload 中没有正文、路径、token、secret

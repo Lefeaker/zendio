@@ -3,7 +3,7 @@ import type { VaultConfig } from '../../shared/types';
 import type { RestOptions } from '../../shared/types/options';
 import type { IMessagingRepository } from '../../shared/repositories';
 import {
-  createTrackUsageEventMessage,
+  createAnalyticsEventMessage,
   type FailureCategory,
   type StorageTarget
 } from '../../shared/types/analytics';
@@ -36,7 +36,7 @@ type RuntimeConnectionMessage = ConnectionTestMessage | VaultConnectionTestMessa
 type PermissionPromptSource = 'clip' | 'options';
 type PermissionPromptOutcome = 'completed' | 'failed' | 'cancelled';
 type ConnectionTestOutcome = 'completed' | 'failed';
-type TrackUsageMessage = ReturnType<typeof createTrackUsageEventMessage>;
+type TrackUsageMessage = ReturnType<typeof createAnalyticsEventMessage>;
 type AnalyticsMessagingRepository = { send(message: TrackUsageMessage): void };
 interface ConnectionMessagingRepository {
   send(
@@ -244,7 +244,7 @@ export function emitLocalVaultPermissionPrompted(
 ): void {
   sendUsageEvent(
     messagingRepository,
-    createTrackUsageEventMessage('local_vault_permission_prompted', { source })
+    createAnalyticsEventMessage('local_vault_permission_prompted', { source })
   );
 }
 
@@ -254,7 +254,7 @@ export function emitLocalVaultPermissionResolved(
 ): void {
   sendUsageEvent(
     messagingRepository,
-    createTrackUsageEventMessage('local_vault_permission_resolved', { outcome })
+    createAnalyticsEventMessage('local_vault_permission_resolved', { outcome })
   );
 }
 
@@ -270,7 +270,7 @@ export function emitConnectionTestCompleted(
   const durationBucket = bucketDurationMs(Date.now() - args.startedAt);
   sendUsageEvent(
     messagingRepository,
-    createTrackUsageEventMessage('connection_test_completed', {
+    createAnalyticsEventMessage('connection_test_completed', {
       storage_target: args.storageTarget,
       outcome: args.outcome,
       duration_bucket: durationBucket,

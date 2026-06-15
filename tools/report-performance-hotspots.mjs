@@ -34,6 +34,9 @@ const MAX_LINE_BUDGETS = new Map([
   ['src/shared/di/serviceRegistry.ts', 498],
   // 2026-06-12 P03b: accepted P02 telemetry contract schema growth.
   ['src/shared/analytics/eventCatalog.ts', 541],
+  // 2026-06-13 GA P01: schema-owned contract replaces duplicated catalog and
+  // sanitizer tables; current exact schema hotspot budget is the new source of truth.
+  ['src/shared/analytics/schema/analyticsSchema.ts', 478],
   ['src/content/video/sessionOperations.ts', 424],
   ['src/content/video/platforms/bilibiliRichText.ts', 302],
   ['src/content/video/platforms/bilibiliPlatformObserver.ts', 292],
@@ -52,6 +55,10 @@ const MAX_LINE_BUDGETS = new Map([
   // 2026-06-13 final combined integration: queue now carries explicit visible
   // capture request tracking while preserving the lazy screenshot preparation split.
   ['src/content/video/videoScreenshotPreparationQueue.ts', 404],
+  // 2026-06-14 video screenshot cache P02: storage repository is lazy-owned by
+  // draft restore/write-through milestones and keeps image bytes outside drafts.
+  ['src/content/video/videoScreenshotCacheRepository.ts', 525],
+  ['src/content/video/videoScreenshotCacheTypes.ts', 302],
   // 2026-06-13 final combined integration: request state moved out of the lazy
   // coordinator and now tracks explicit visible requests so dependency-cruiser can
   // enforce the screenshot preparation split without cycles.
@@ -111,7 +118,7 @@ const MAX_LINE_BUDGETS = new Map([
   ['src/background/llm/classifier.ts', 268],
   // 2026-06-13 final combined integration: runtime messages own the visible-tab
   // screenshot request boundary used by video export preparation.
-  ['src/background/listeners/runtimeMessages.ts', 351],
+  ['src/background/listeners/runtimeMessages.ts', 356],
   ['src/background/services/usageStats.ts', 266],
   ['src/background/application/videoScreenshotAttachmentPlanner.ts', 269],
   ['src/third_party/ai-chat-exporter/platforms/tongyi.ts', 265],

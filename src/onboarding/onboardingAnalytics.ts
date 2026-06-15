@@ -1,7 +1,7 @@
 import { bucketDurationMs } from '../shared/analytics/featureTimer';
 import {
-  createTrackUsageEventMessage,
-  type TrackUsageEventPayload
+  createAnalyticsEventMessage,
+  type AnalyticsRuntimeEventPayload
 } from '../shared/types/analytics';
 import type { IMessagingRepository } from '../shared/repositories/IMessagingRepository';
 
@@ -37,16 +37,16 @@ export async function sendOnboardingTrackingEvent(
 
 function createOnboardingTrackingMessage(
   request: OnboardingTrackingRequest
-): TrackUsageEventPayload | null {
+): AnalyticsRuntimeEventPayload | null {
   switch (request.name) {
     case 'onboarding_started':
-      return createTrackUsageEventMessage('onboarding_started', { source: request.source });
+      return createAnalyticsEventMessage('onboarding_started', { source: request.source });
     case 'onboarding_step_completed': {
       const step = resolveOnboardingStep(request.stepNumber);
       if (!step) {
         return null;
       }
-      return createTrackUsageEventMessage('onboarding_step_completed', {
+      return createAnalyticsEventMessage('onboarding_step_completed', {
         step,
         duration_bucket: bucketDurationMs(request.durationMs)
       });
@@ -56,14 +56,14 @@ function createOnboardingTrackingMessage(
       if (!step) {
         return null;
       }
-      return createTrackUsageEventMessage('onboarding_skipped', { step });
+      return createAnalyticsEventMessage('onboarding_skipped', { step });
     }
     case 'onboarding_support_action':
-      return createTrackUsageEventMessage('onboarding_support_action', {
+      return createAnalyticsEventMessage('onboarding_support_action', {
         action: request.action
       });
     case 'onboarding_completed':
-      return createTrackUsageEventMessage('onboarding_completed', {
+      return createAnalyticsEventMessage('onboarding_completed', {
         duration_bucket: bucketDurationMs(request.durationMs)
       });
     default:

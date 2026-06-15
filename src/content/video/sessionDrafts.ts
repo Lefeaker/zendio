@@ -11,6 +11,10 @@ import {
 import type { ExportDestinationMetadata } from '../../shared/exportDestination';
 import type { VideoCapture } from './types';
 import type { VideoPlatform } from './utils';
+import {
+  normalizeVideoScreenshotCacheRef,
+  type VideoScreenshotCacheRef
+} from './videoScreenshotCacheTypes';
 
 export interface VideoSessionDraftTimestampCaptureDraft {
   kind: 'timestamp';
@@ -20,6 +24,7 @@ export interface VideoSessionDraftTimestampCaptureDraft {
   comment: string;
   createdAt: number;
   screenshotRequested?: boolean;
+  screenshotRef?: VideoScreenshotCacheRef;
 }
 
 export interface VideoSessionDraftFragmentCaptureDraft {
@@ -179,6 +184,8 @@ function serializeVideoDraftCapture(capture: VideoCapture): VideoSessionDraftCap
     };
   }
 
+  const screenshotRef = normalizeVideoScreenshotCacheRef(capture.screenshotRef);
+
   return {
     kind: 'timestamp',
     id: capture.id,
@@ -186,7 +193,8 @@ function serializeVideoDraftCapture(capture: VideoCapture): VideoSessionDraftCap
     url: capture.url,
     comment: capture.comment,
     createdAt: capture.createdAt,
-    ...(capture.screenshotRequested ? { screenshotRequested: true } : {})
+    ...(capture.screenshotRequested ? { screenshotRequested: true } : {}),
+    ...(screenshotRef ? { screenshotRef } : {})
   };
 }
 
@@ -208,6 +216,8 @@ function deserializeVideoDraftCapture(
     };
   }
 
+  const screenshotRef = normalizeVideoScreenshotCacheRef(capture.screenshotRef);
+
   return {
     kind: 'timestamp',
     id: capture.id,
@@ -215,6 +225,7 @@ function deserializeVideoDraftCapture(
     url: capture.url || fallbackUrl,
     comment: capture.comment,
     createdAt: capture.createdAt,
-    ...(capture.screenshotRequested ? { screenshotRequested: true } : {})
+    ...(capture.screenshotRequested ? { screenshotRequested: true } : {}),
+    ...(screenshotRef ? { screenshotRef } : {})
   };
 }

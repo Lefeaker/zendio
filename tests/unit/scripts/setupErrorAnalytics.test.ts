@@ -17,6 +17,12 @@ type TrackedAnalyticsSourceContract = {
   directDebugValidationIntent: boolean;
   debugSuccessSummaryRedacted: boolean;
   successLoggingScopedToDirectDebug: boolean;
+  proxyContractSourcePresent: boolean;
+  proxyContractBarrelExportPresent: boolean;
+  proxyContractPublicAllowlistContractPresent: boolean;
+  proxyContractSourceLeaksSensitiveAnchors: boolean;
+  proxyContractReportSourceAnchorsPresent: boolean;
+  typedAnalyticsEventMessageApiPresent: boolean;
 };
 
 type SetupErrorAnalyticsModule = {
@@ -35,6 +41,7 @@ async function collectTrackedContract(): Promise<TrackedAnalyticsSourceContract>
 describe('setup-error-analytics script', () => {
   it('accepts the current proxy-first production analytics contracts without public env vars', () => {
     const result = spawnSync(process.execPath, [setupErrorAnalyticsScript], {
+      cwd: PROJECT_ROOT,
       encoding: 'utf8',
       env: {
         ...process.env,
@@ -52,6 +59,64 @@ describe('setup-error-analytics script', () => {
     expect(result.status).toBe(0);
     expect(output).toContain('Validation finished with 0 failures');
     expect(output).toContain('proxy-first');
+    expect(output).toContain(
+      'analytics proxy contract source/barrel/report anchors stay wired to the public allowlist contract'
+    );
+    expect(output).toContain('typed analytics runtime message facade is present');
+  });
+
+  it('rejects Google Measurement Protocol endpoints as public proxy endpoint env', () => {
+    const endpoints = [
+      'https://www.google-analytics.com/mp/collect',
+      'https://www.google-analytics.com./mp/collect',
+      'https://google-analytics.com./debug/mp/collect',
+      'https://www.google-analytics.com/%6d%70/collect',
+      'https://www.google-analytics.com/mp/%63ollect',
+      'https://www.google-analytics.com/debug/%6d%70/collect'
+    ];
+
+    for (const endpoint of endpoints) {
+      const result = spawnSync(process.execPath, [setupErrorAnalyticsScript], {
+        cwd: PROJECT_ROOT,
+        encoding: 'utf8',
+        env: {
+          ...process.env,
+          ZENDIO_GA_MEASUREMENT_ID: '',
+          ZENDIO_GA_TRANSPORT_MODE: '',
+          ZENDIO_GA_PROXY_ENDPOINT: '',
+          AIIINOB_GA_MEASUREMENT_ID: 'G-ABCD1234',
+          AIIINOB_GA_TRANSPORT_MODE: 'proxy',
+          AIIINOB_GA_PROXY_ENDPOINT: endpoint
+        }
+      });
+
+      const output = stripAnsi(`${result.stdout}${result.stderr}`);
+
+      expect(result.status).not.toBe(0);
+      expect(output).toContain('Google Measurement Protocol endpoint');
+      expect(output).toContain('proxy endpoint');
+    }
+  });
+
+  it('accepts owner proxy endpoint paths that resemble Measurement Protocol on non-Google hosts', () => {
+    const result = spawnSync(process.execPath, [setupErrorAnalyticsScript], {
+      cwd: PROJECT_ROOT,
+      encoding: 'utf8',
+      env: {
+        ...process.env,
+        ZENDIO_GA_MEASUREMENT_ID: '',
+        ZENDIO_GA_TRANSPORT_MODE: '',
+        ZENDIO_GA_PROXY_ENDPOINT: '',
+        AIIINOB_GA_MEASUREMENT_ID: 'G-ABCD1234',
+        AIIINOB_GA_TRANSPORT_MODE: 'proxy',
+        AIIINOB_GA_PROXY_ENDPOINT: 'https://analytics.example.test/debug/mp/collect'
+      }
+    });
+
+    const output = stripAnsi(`${result.stdout}${result.stderr}`);
+
+    expect(result.status).toBe(0);
+    expect(output).toContain('proxy endpoint format looks valid');
   });
 
   it('keeps client runtime free of server-only GA secrets', async () => {
@@ -73,5 +138,21 @@ describe('setup-error-analytics script', () => {
 
     expect(contract.debugSuccessSummaryRedacted).toBe(true);
     expect(contract.successLoggingScopedToDirectDebug).toBe(true);
+  });
+
+  it('requires the proxy contract source, barrel export, and report anchors in tracked production wiring', async () => {
+    const contract = await collectTrackedContract();
+
+    expect(contract.proxyContractSourcePresent).toBe(true);
+    expect(contract.proxyContractBarrelExportPresent).toBe(true);
+    expect(contract.proxyContractPublicAllowlistContractPresent).toBe(true);
+    expect(contract.proxyContractSourceLeaksSensitiveAnchors).toBe(false);
+    expect(contract.proxyContractReportSourceAnchorsPresent).toBe(true);
+  });
+
+  it('requires the typed analytics event message facade in tracked production wiring', async () => {
+    const contract = await collectTrackedContract();
+
+    expect(contract.typedAnalyticsEventMessageApiPresent).toBe(true);
   });
 });

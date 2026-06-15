@@ -15,6 +15,7 @@ import {
 import type { VideoSessionOperationContext } from './videoSessionOperationContext';
 import {
   emitVideoUsageEvent,
+  createVideoExportFailure,
   mapVideoAnalyticsPlatform,
   requestRequestedScreenshotPreparation,
   resolveVideoExportDestination,
@@ -270,10 +271,10 @@ export async function finishVideoSession(
       ...(exportDestination ? { exportDestination } : {})
     });
     if (typeof result !== 'object' || result === null || typeof result.success !== 'boolean') {
-      throw new Error('Invalid video export response');
+      throw createVideoExportFailure('Invalid video export response', 'validation');
     }
     if (!result.success) {
-      throw new Error(result.error ?? 'Video clip failed');
+      throw createVideoExportFailure(result.error ?? 'Video clip failed', result.failureCategory);
     }
     const terminalized = await context.drafts.finalizeTerminal('exported');
     if (!terminalized) {

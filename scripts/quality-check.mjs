@@ -15,6 +15,9 @@ const checks = [
   { name: 'TypeScript 类型检查（测试代码）', cmd: ['npm', 'run', 'typecheck:tests'] },
   { name: 'TypeScript 类型检查（strict 基线）', cmd: ['npm', 'run', 'typecheck:strict'] },
   { name: 'TypeScript 类型债务预算守卫', cmd: ['npm', 'run', 'lint:type-any:ratchet'] },
+  { name: 'GA proxy contract 守卫', cmd: ['npm', 'run', 'audit:ga:proxy-contract'] },
+  { name: 'GA docs contract 守卫', cmd: ['npm', 'run', 'audit:ga:docs'] },
+  { name: 'GA legacy API 守卫', cmd: ['npm', 'run', 'audit:ga:legacy-api'] },
   { name: '平台调用 allowlist 审计', cmd: ['npm', 'run', 'audit:platform-services:report'] },
   { name: '深层导入边界审计', cmd: ['npm', 'run', 'audit:imports:report'] },
   { name: 'Retired code 回归守卫', cmd: ['npm', 'run', 'audit:retired-code:report'] },
@@ -22,6 +25,8 @@ const checks = [
   { name: 'Production build graph 守卫', cmd: ['npm', 'run', 'audit:build-graph:report'] },
   { name: 'Release surface 生产构建', cmd: ['npm', 'run', 'build:fast'] },
   { name: 'Release surface 守卫', cmd: ['npm', 'run', 'audit:release-surface:report'] },
+  { name: 'GA client secret 守卫', cmd: ['npm', 'run', 'audit:ga:client-secret'] },
+  { name: 'GA release surface 守卫', cmd: ['npm', 'run', 'audit:ga:release-surface'] },
   {
     name: 'Non-production source 安全守卫',
     cmd: ['npm', 'run', 'audit:non-production-source:check']

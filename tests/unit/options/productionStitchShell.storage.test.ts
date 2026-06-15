@@ -830,13 +830,13 @@ function expectAnalyticsMessage(
 ): void {
   const analyticsCall = calls.find((call) => {
     const message = call[0] as { type?: string; event?: string } | undefined;
-    return message?.type === 'TRACK_USAGE_EVENT' && message.event === expectedEvent;
+    return message?.type === 'ANALYTICS_EVENT' && message.event === expectedEvent;
   });
   expect(analyticsCall).toBeDefined();
   const message = analyticsCall?.[0] as {
     event: string;
     params?: Record<string, unknown>;
-    type: 'TRACK_USAGE_EVENT';
+    type: 'ANALYTICS_EVENT';
   };
   expect(message.params).toEqual(expect.objectContaining(expectedParams));
   const params = message.params ?? {};

@@ -1,14 +1,14 @@
 import type { AnalyticsConfig } from '../errors/analytics/analyticsConfig';
-import { ERROR_EVENT_NAMES, type AnalyticsEventName } from './eventCatalog';
+import type { AnalyticsConsentScope } from './schema/analyticsSchema';
+import { getAnalyticsConsentScope } from './schema/analyticsSchemaDerived';
+import type { AnalyticsEventName } from './eventCatalog';
 
-export type AnalyticsConsentScope = 'analytics' | 'errorReporting';
-
-const ERROR_EVENT_NAME_SET = new Set<AnalyticsEventName>(ERROR_EVENT_NAMES);
+export type { AnalyticsConsentScope } from './schema/analyticsSchema';
 
 export function getConsentScopeForAnalyticsEvent(
   eventName: AnalyticsEventName
 ): AnalyticsConsentScope {
-  return ERROR_EVENT_NAME_SET.has(eventName) ? 'errorReporting' : 'analytics';
+  return getAnalyticsConsentScope(eventName);
 }
 
 export function hasConsentForAnalyticsEvent(
@@ -24,7 +24,11 @@ export function hasConsentForAnalyticsEvent(
     return false;
   }
 
-  return getConsentScopeForAnalyticsEvent(eventName) === 'errorReporting'
+  const consentScope = getConsentScopeForAnalyticsEvent(eventName);
+  if (consentScope === 'none') {
+    return true;
+  }
+  return consentScope === 'errorReporting'
     ? consent.errorReporting === true
     : consent.analytics === true;
 }

@@ -23,6 +23,7 @@ import {
   initializeAnalyticsConfig,
   shouldReportErrors
 } from './analyticsConfig';
+import { createAnalyticsTransportConfig } from '../../analytics/analyticsRuntimeConfig';
 import { ErrorSeverity } from '../types';
 import { getErrorHandlerInstance } from '../index';
 import type { ErrorHandler } from '../errorHandler';
@@ -66,7 +67,7 @@ export async function initializeErrorAnalytics(
 ): Promise<void> {
   try {
     // 初始化配置
-    const config = await initializeAnalyticsConfig();
+    const config = createAnalyticsTransportConfig(await initializeAnalyticsConfig());
 
     if (config.enabled && shouldReportErrors()) {
       const gaReporter = createGoogleAnalyticsReporter({
@@ -77,8 +78,6 @@ export async function initializeErrorAnalytics(
         reportingInterval: config.reportingInterval,
         batchSize: config.batchSize,
         ...(config.proxyEndpoint ? { proxyEndpoint: config.proxyEndpoint } : {}),
-        ...(config.clientId !== undefined && { clientId: config.clientId }),
-        ...(config.sessionId !== undefined && { sessionId: config.sessionId }),
         ...(config.userConsent ? { userConsent: config.userConsent } : {}),
         resolveAnalyticsConfig: () => getAnalyticsConfigManager().getConfig()
       });
@@ -160,7 +159,7 @@ export function getErrorAnalyticsStatus(): {
   reporters: string[];
 } {
   const configManager = getAnalyticsConfigManager();
-  const config = configManager.getConfig();
+  const config = createAnalyticsTransportConfig(configManager.getConfig());
   const reporters = Object.keys(getReporterRegistry());
 
   return {

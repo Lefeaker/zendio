@@ -12,10 +12,18 @@ import { DEFAULT_ANALYTICS_CONFIG, type AnalyticsConfig } from './analyticsConfi
 import { extractSafeAnalyticsContext, resolveBrowserInfo } from './googleAnalyticsReporterContext';
 import {
   createAnalyticsEventQueue,
-  hasConsentForAnalyticsEvent,
   sendAnalyticsTransportEvent,
   type AnalyticsEventQueue
 } from '../../analytics';
+import type { AnalyticsIdentity } from '../../analytics/analyticsIdentity';
+import {
+  createAnalyticsSessionId,
+  redactAnalyticsIdentity
+} from '../../analytics/analyticsIdentity';
+import {
+  createAnalyticsTransportConfig,
+  hasAnalyticsSendConsent
+} from '../../analytics/analyticsRuntimeConfig';
 import { getService } from '../../di';
 import { TOKENS } from '../../di/tokens';
 import type { PlatformServices } from '@platform/types';
@@ -46,22 +54,23 @@ type ErrorEventParams = {
 
 export class GoogleAnalyticsReporter implements ErrorReporter {
   private config: GoogleAnalyticsConfig;
-  private clientId: string;
-  private sessionId: string;
+  private fallbackIdentity: Partial<AnalyticsIdentity>;
   private extensionVersion: string;
   private eventQueue: AnalyticsEventQueue;
   private browserInfo: { name?: string; version?: string } = {};
 
   constructor(config: GoogleAnalyticsConfig) {
-    this.clientId = config.clientId || this.generateClientId();
-    this.sessionId = config.sessionId || this.generateSessionId();
+    this.fallbackIdentity = {
+      ...(config.clientId ? { clientId: config.clientId } : {}),
+      ...(config.sessionId ? { sessionId: config.sessionId } : {})
+    };
     this.config = {
       ...config,
       debugMode: config.debugMode ?? DEFAULT_ANALYTICS_CONFIG.debugMode,
       transportMode: config.transportMode ?? DEFAULT_ANALYTICS_CONFIG.transportMode,
       ...(config.proxyEndpoint ? { proxyEndpoint: config.proxyEndpoint } : {}),
-      clientId: this.clientId,
-      sessionId: this.sessionId,
+      ...(config.clientId ? { clientId: config.clientId } : {}),
+      ...(config.sessionId ? { sessionId: config.sessionId } : {}),
       reportingInterval: config.reportingInterval ?? DEFAULT_ANALYTICS_CONFIG.reportingInterval,
       batchSize: config.batchSize ?? DEFAULT_ANALYTICS_CONFIG.batchSize
     };
@@ -78,8 +87,8 @@ export class GoogleAnalyticsReporter implements ErrorReporter {
 
   async report(error: AppError): Promise<void> {
     const transportConfig = this.createTransportConfig();
-    if (!hasConsentForAnalyticsEvent(transportConfig, 'extension_error')) {
-      this.eventQueue.clear();
+    if (!hasAnalyticsSendConsent(transportConfig, 'extension_error')) {
+      await this.eventQueue.clear();
       return;
     }
 
@@ -131,7 +140,12 @@ export class GoogleAnalyticsReporter implements ErrorReporter {
 
   private createTransportConfig(): AnalyticsConfig {
     const liveConfig = this.resolveLiveAnalyticsConfig();
-    return {
+    const liveConsent = liveConfig?.userConsent ?? this.config.userConsent;
+    const clientId = liveConfig?.clientId ?? this.fallbackIdentity.clientId ?? this.config.clientId;
+    const sessionId =
+      liveConfig?.sessionId ?? this.fallbackIdentity.sessionId ?? this.config.sessionId;
+
+    return createAnalyticsTransportConfig(liveConfig ?? this.config, {
       enabled: liveConfig?.enabled ?? this.config.enabled,
       debugMode:
         liveConfig?.debugMode ?? this.config.debugMode ?? DEFAULT_ANALYTICS_CONFIG.debugMode,
@@ -143,8 +157,8 @@ export class GoogleAnalyticsReporter implements ErrorReporter {
       ...((liveConfig?.proxyEndpoint ?? this.config.proxyEndpoint)
         ? { proxyEndpoint: liveConfig?.proxyEndpoint ?? this.config.proxyEndpoint }
         : {}),
-      clientId: this.clientId,
-      sessionId: this.sessionId,
+      ...(clientId ? { clientId } : {}),
+      ...(sessionId ? { sessionId } : {}),
       reportingInterval:
         liveConfig?.reportingInterval ??
         this.config.reportingInterval ??
@@ -153,29 +167,20 @@ export class GoogleAnalyticsReporter implements ErrorReporter {
         liveConfig?.maxErrorsPerSession ?? DEFAULT_ANALYTICS_CONFIG.maxErrorsPerSession,
       batchSize:
         liveConfig?.batchSize ?? this.config.batchSize ?? DEFAULT_ANALYTICS_CONFIG.batchSize,
-      ...((liveConfig?.userConsent ?? this.config.userConsent)
-        ? { userConsent: liveConfig?.userConsent ?? this.config.userConsent }
-        : {})
-    };
+      ...(liveConsent ? { userConsent: liveConsent } : {})
+    });
   }
 
   private resolveLiveAnalyticsConfig(): AnalyticsConfig | null {
     try {
       return this.config.resolveAnalyticsConfig?.() ?? null;
     } catch (error) {
-      console.warn('[GA Reporter] Failed to resolve live analytics config:', error);
+      console.warn('[GA Reporter] Failed to resolve live analytics config:', error, {
+        clientId: redactAnalyticsIdentity(this.fallbackIdentity.clientId),
+        sessionId: redactAnalyticsIdentity(this.fallbackIdentity.sessionId)
+      });
       return null;
     }
-  }
-
-  private generateClientId(): string {
-    // 生成符合 GA4 要求的客户端 ID（不包含个人信息）
-    return 'ext-' + Date.now().toString(36) + '-' + Math.random().toString(36).substr(2, 9);
-  }
-
-  private generateSessionId(): string {
-    // 生成会话 ID
-    return Date.now().toString(36) + '-' + Math.random().toString(36).substr(2, 5);
   }
 
   private getExtensionVersion(): string {
@@ -205,10 +210,10 @@ export class GoogleAnalyticsReporter implements ErrorReporter {
   updateConfig(newConfig: Partial<GoogleAnalyticsConfig>): void {
     this.config = { ...this.config, ...newConfig };
     if (newConfig.clientId) {
-      this.clientId = newConfig.clientId;
+      this.fallbackIdentity.clientId = newConfig.clientId;
     }
     if (newConfig.sessionId) {
-      this.sessionId = newConfig.sessionId;
+      this.fallbackIdentity.sessionId = newConfig.sessionId;
     }
   }
 
@@ -222,13 +227,21 @@ export class GoogleAnalyticsReporter implements ErrorReporter {
 
   // 检查是否启用
   isEnabled(): boolean {
-    return this.config.enabled;
+    return this.createTransportConfig().enabled;
   }
 
   // 生成新的会话 ID（用于新的使用会话）
   renewSession(): void {
-    this.sessionId = this.generateSessionId();
-    this.config.sessionId = this.sessionId;
+    if (
+      !this.fallbackIdentity.clientId &&
+      !this.fallbackIdentity.sessionId &&
+      !this.config.clientId
+    ) {
+      return;
+    }
+    const sessionId = createAnalyticsSessionId();
+    this.fallbackIdentity.sessionId = sessionId;
+    this.config.sessionId = sessionId;
   }
 }
 
