@@ -25,16 +25,24 @@ export class VideoScreenshotPreparationCoordinator {
   private generation = 0;
   private disposed = false;
   private pendingRequestSuspendCount = 0;
+  private pendingRequestAfterResume = false;
   private readonly cache = new Map<string, VideoCaptureScreenshot>();
 
   constructor(private readonly args: VideoScreenshotPreparationCoordinatorArgs) {}
 
   handleVideoElementChange(element: HTMLVideoElement | null): void {
-    if (this.queue) {
-      this.queue.handleVideoElementChange(element);
+    if (this.disposed) {
       return;
     }
     if (this.hasSuspendedPendingRequests()) {
+      this.deferPendingRequestAfterResume();
+      if (this.queue) {
+        this.queue.handleVideoElementChange(element);
+      }
+      return;
+    }
+    if (this.queue) {
+      this.queue.handleVideoElementChange(element);
       return;
     }
     this.requestPendingScreenshots();
@@ -46,6 +54,10 @@ export class VideoScreenshotPreparationCoordinator {
 
   resumePendingRequests(): void {
     this.pendingRequestSuspendCount = Math.max(0, this.pendingRequestSuspendCount - 1);
+    if (!this.disposed && !this.hasSuspendedPendingRequests() && this.pendingRequestAfterResume) {
+      this.pendingRequestAfterResume = false;
+      this.requestPendingScreenshots();
+    }
   }
 
   cacheRequestedScreenshot(id: string): void {
@@ -75,7 +87,11 @@ export class VideoScreenshotPreparationCoordinator {
   }
 
   requestPendingScreenshots(): void {
+    if (this.disposed) {
+      return;
+    }
     if (this.hasSuspendedPendingRequests()) {
+      this.deferPendingRequestAfterResume();
       return;
     }
     if (!this.hasPendingCaptures()) {
@@ -92,6 +108,8 @@ export class VideoScreenshotPreparationCoordinator {
     this.queue?.dispose();
     this.queue = null;
     this.queuePromise = null;
+    this.pendingRequestAfterResume = false;
+    this.pendingRequestSuspendCount = 0;
     this.cache.clear();
   }
 
@@ -149,6 +167,12 @@ export class VideoScreenshotPreparationCoordinator {
 
   private hasPendingCaptures(): boolean {
     return this.args.getCaptures().some((capture) => this.isPendingCapture(capture));
+  }
+
+  private deferPendingRequestAfterResume(): void {
+    if (!this.disposed && this.hasPendingCaptures()) {
+      this.pendingRequestAfterResume = true;
+    }
   }
 
   private hasSuspendedPendingRequests(): boolean {
