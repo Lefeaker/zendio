@@ -221,23 +221,25 @@ describe('mountProductionStitchShell renderLifecycle', () => {
 
     const card = findCardByTitle('Video Prompt & Entry');
     const header = card.querySelector<HTMLElement>('.card-header');
-    expect(header?.textContent).not.toContain('在视频网站显示笔记按钮');
-    expect(header?.textContent).not.toContain('编辑批注时自动暂停视频播放');
+    expect(header?.textContent).not.toContain('Show note button on video sites');
+    expect(header?.textContent).not.toContain('Pause video while editing notes');
 
     const videoEntryRow = requireElement(
       card.querySelector<HTMLElement>('.video-entry-toggle-row'),
       'video entry toggle row'
     );
-    expect(videoEntryRow.textContent).toContain('在视频网站显示笔记按钮');
-    expect(videoEntryRow.textContent).toContain('编辑批注时自动暂停视频播放');
+    expect(videoEntryRow.textContent).toContain('Show note button on video sites');
+    expect(videoEntryRow.textContent).toContain('Pause video while editing notes');
     const [promptSwitch, autoPauseSwitch] = Array.from(
       videoEntryRow.querySelectorAll<HTMLInputElement>('input[type="checkbox"]')
     );
     expect([promptSwitch, autoPauseSwitch]).toHaveLength(2);
     expect(promptSwitch?.checked).toBe(true);
     expect(autoPauseSwitch?.checked).toBe(true);
-    expect(card.textContent).toContain('灰色圆点表示该时间戳尚未保存截图');
-    expect(card.textContent).toContain('绿色圆点表示该时间戳已有截图');
+    expect(card.textContent).toContain(
+      'Grey dots mean no screenshot has been saved for that timestamp yet.'
+    );
+    expect(card.textContent).toContain('Green dots mean a screenshot is already attached.');
   });
 
   it('renders video screenshot attachment inputs, hydrates merged values, and preserves string writes', () => {
@@ -259,7 +261,7 @@ describe('mountProductionStitchShell renderLifecycle', () => {
     });
 
     const card = findCardByTitle('Video Prompt & Entry');
-    expect(card.textContent).toContain('附件路径配置');
+    expect(card.textContent).toContain('Attachment path configuration');
     expect(card.textContent).toContain('Custom Attachment Location');
     expect(
       card.querySelector<HTMLAnchorElement>(
@@ -268,21 +270,25 @@ describe('mountProductionStitchShell renderLifecycle', () => {
     ).toBeTruthy();
 
     const rows = Array.from(card.querySelectorAll<HTMLElement>('.row'));
-    const locationRow = rows.find((row) => row.textContent?.includes('附件位置模板'));
-    const fileNameRow = rows.find((row) => row.textContent?.includes('附件文件名模板'));
-    const markdownRow = rows.find((row) => row.textContent?.includes('Markdown URL 格式'));
+    const locationRow = rows.find((row) =>
+      row.textContent?.includes('Attachment location template')
+    );
+    const fileNameRow = rows.find((row) =>
+      row.textContent?.includes('Attachment filename template')
+    );
+    const markdownRow = rows.find((row) => row.textContent?.includes('Markdown URL format'));
 
     const locationInput = queryRequired<HTMLInputElement>(
       'input',
-      requireElement(locationRow, '附件位置模板 row')
+      requireElement(locationRow, 'Attachment location template row')
     );
     const fileNameInput = queryRequired<HTMLInputElement>(
       'input',
-      requireElement(fileNameRow, '附件文件名模板 row')
+      requireElement(fileNameRow, 'Attachment filename template row')
     );
     const markdownInput = queryRequired<HTMLInputElement>(
       'input',
-      requireElement(markdownRow, 'Markdown URL 格式 row')
+      requireElement(markdownRow, 'Markdown URL format row')
     );
 
     expect(locationInput.value).toBe('VideoShots/${noteFileName}');
@@ -362,7 +368,7 @@ describe('mountProductionStitchShell renderLifecycle', () => {
       main.scrollTop = 520;
       main.style.removeProperty('scroll-behavior');
 
-      const addVaultButton = findButton('添加仓库');
+      const addVaultButton = findButton('Add Vault');
       const pointerEvent = new MouseEvent('mousedown', { bubbles: true, cancelable: true });
       addVaultButton.dispatchEvent(pointerEvent);
       document.getElementById('optionsShellRoot')?.addEventListener(
@@ -384,7 +390,7 @@ describe('mountProductionStitchShell renderLifecycle', () => {
       currentMain.style.scrollBehavior = 'auto';
       currentMain.scrollTop = 520;
       currentMain.style.removeProperty('scroll-behavior');
-      findButton('删除').click();
+      findButton('Delete').click();
       await flushPromises();
       expect(document.querySelector<HTMLElement>('.main')?.scrollTop).toBe(520);
 
@@ -392,7 +398,7 @@ describe('mountProductionStitchShell renderLifecycle', () => {
       finalMain.style.scrollBehavior = 'auto';
       finalMain.scrollTop = 520;
       finalMain.style.removeProperty('scroll-behavior');
-      findButton('测试连接').click();
+      findButton('Test Connection').click();
       await flushPromises();
       expect(document.querySelector<HTMLElement>('.main')?.scrollTop).toBe(520);
     } finally {
@@ -502,7 +508,7 @@ describe('mountProductionStitchShell renderLifecycle', () => {
     authorArticleToggle.checked = true;
     authorArticleToggle.dispatchEvent(new Event('change', { bubbles: true }));
 
-    findButton('测试连接').click();
+    findButton('Test Connection').click();
     await flushPromises();
 
     expect(mounted.collectDraft().yamlConfig?.contentTypes?.article?.fields?.[0]).toEqual(
@@ -560,16 +566,16 @@ describe('mountProductionStitchShell renderLifecycle', () => {
     expect(text).not.toContain('Advanced Video Schema');
     expect(text).not.toContain('提示文案与快捷键');
     expect(text).not.toContain('promptPosition');
-    expect(text).toContain('在视频网站显示笔记按钮');
-    expect(text).toContain('编辑批注时自动暂停视频播放');
+    expect(text).toContain('Show note button on video sites');
+    expect(text).toContain('Pause video while editing notes');
 
     const videoCard = findCardByTitle('Video Prompt & Entry');
     const videoEntryRow = requireElement(
       videoCard.querySelector<HTMLElement>('.video-entry-toggle-row'),
       'video entry toggle row'
     );
-    expect(videoEntryRow.textContent).toContain('在视频网站显示笔记按钮');
-    expect(videoEntryRow.textContent).toContain('编辑批注时自动暂停视频播放');
+    expect(videoEntryRow.textContent).toContain('Show note button on video sites');
+    expect(videoEntryRow.textContent).toContain('Pause video while editing notes');
     const videoEntrySwitches = Array.from(
       videoEntryRow.querySelectorAll<HTMLInputElement>('input[type="checkbox"]')
     );
@@ -620,7 +626,9 @@ describe('mountProductionStitchShell renderLifecycle', () => {
     const shiftChip = queryRequired<HTMLButtonElement>(
       '.modifier-key-inline .chip[data-value="shift"]'
     );
-    expect(document.body.textContent).toContain('Alt 可能与系统、浏览器或网页快捷键冲突');
+    expect(document.body.textContent).toContain(
+      'Alt may conflict with system, browser, or page shortcuts. If it is unstable, use Shift.'
+    );
 
     shiftChip.click();
 
@@ -798,7 +806,7 @@ describe('mountProductionStitchShell renderLifecycle', () => {
       language: 'en'
     });
 
-    const privacyPolicy = findButton('隐私政策');
+    const privacyPolicy = findButton('Privacy policy');
     expect(privacyPolicy.disabled).toBe(false);
     privacyPolicy.click();
     expect(document.querySelector('[role="dialog"]')?.textContent).toContain('Privacy Policy');
@@ -806,7 +814,7 @@ describe('mountProductionStitchShell renderLifecycle', () => {
 
     document.querySelector<HTMLElement>('.resource-modal-overlay')?.click();
 
-    const dataUsage = findButton('数据用途说明');
+    const dataUsage = findButton('Data usage details');
     expect(dataUsage.disabled).toBe(false);
     dataUsage.click();
     expect(document.querySelector('[role="dialog"]')?.textContent).toContain('Data Usage');
@@ -824,14 +832,14 @@ describe('mountProductionStitchShell renderLifecycle', () => {
       messagingRepository: messagingRepository as never
     });
 
-    findButton('隐私政策').click();
+    findButton('Privacy policy').click();
     expect(document.querySelector('[role="dialog"]')?.textContent).toContain('Privacy Policy');
     document.querySelector<HTMLElement>('.resource-modal-overlay')?.click();
 
     findButton('Plugin Setup').click();
-    expect(document.querySelector('[role="dialog"]')?.textContent).toContain('Plugin Setup Guide');
+    expect(document.querySelector('[role="dialog"]')?.textContent).toContain('Plugin Setup');
 
-    findButton('跳到 Storage').click();
+    findButton('Go To Storage').click();
 
     expect(document.querySelector('[role="dialog"]')).toBeFalsy();
     expect(

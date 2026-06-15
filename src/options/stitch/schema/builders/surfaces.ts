@@ -9,6 +9,7 @@ import type {
   SurfaceAction,
   VideoSurfaceCapture
 } from '../../types';
+import { DEFAULT_PRODUCTION_ENGLISH_MESSAGES } from '../i18n';
 import { buttonNode, div, element, span, strong } from './primitives';
 import { classNames } from './classNames';
 import {
@@ -212,8 +213,8 @@ export function exportDestinationRow(
     saveToLabel: string;
     configureVaultLabel: string;
   } = {
-    saveToLabel: '保存到',
-    configureVaultLabel: '配置仓库'
+    saveToLabel: DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaRuntimeSurfaceSaveToLabel,
+    configureVaultLabel: DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaRuntimeSurfaceConfigureVaultLabel
   }
 ): NodeSchema | null {
   if (!destination) {

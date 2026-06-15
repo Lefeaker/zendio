@@ -2,6 +2,7 @@ import type { GroupNode, SchemaContext } from '../../types';
 import type { SchemaMessageKey, SchemaMessageValues } from '../i18n';
 import { boundInput, boundSwitch } from '../builders/controls';
 import { element, emptyState, grid, stack } from '../builders/primitives';
+import { DEFAULT_PRODUCTION_ENGLISH_MESSAGES } from '../i18n';
 
 function translate(
   current: SchemaContext,
@@ -23,7 +24,7 @@ export function createVideoCaptureSourcesGroup(ctx: SchemaContext): GroupNode {
         description: translate(
           ctx,
           'schemaCaptureSourcesVideoPromptEntryDescription',
-          '配置视频站点控制栏笔记入口。'
+          DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaCaptureSourcesVideoPromptEntryDescription
         ),
         body: [
           {
@@ -34,12 +35,12 @@ export function createVideoCaptureSourcesGroup(ctx: SchemaContext): GroupNode {
                 title: translate(
                   ctx,
                   'schemaCaptureSourcesVideoEntryBehaviorTitle',
-                  '视频入口与编辑行为'
+                  DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaCaptureSourcesVideoEntryBehaviorTitle
                 ),
                 description: translate(
                   ctx,
                   'schemaCaptureSourcesVideoEntryBehaviorDescription',
-                  '控制视频网站笔记入口，以及编辑批注时的视频播放状态。'
+                  DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaCaptureSourcesVideoEntryBehaviorDescription
                 ),
                 control: grid(
                   2,
@@ -50,7 +51,7 @@ export function createVideoCaptureSourcesGroup(ctx: SchemaContext): GroupNode {
                           translate(
                             current,
                             'schemaCaptureSourcesVideoNoteButtonLabel',
-                            '在视频网站显示笔记按钮'
+                            DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaCaptureSourcesVideoNoteButtonLabel
                           )
                       }),
                       boundSwitch({
@@ -58,8 +59,16 @@ export function createVideoCaptureSourcesGroup(ctx: SchemaContext): GroupNode {
                         compact: true,
                         stateText: (current) =>
                           current.state.videoFloatingPromptEnabled
-                            ? translate(current, 'schemaCommonEnabledState', '已开启')
-                            : translate(current, 'schemaCommonDisabledState', '已关闭'),
+                            ? translate(
+                                current,
+                                'schemaCommonEnabledState',
+                                DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaCommonEnabledState
+                              )
+                            : translate(
+                                current,
+                                'schemaCommonDisabledState',
+                                DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaCommonDisabledState
+                              ),
                         onChange: {
                           id: 'options:updateField',
                           args: ['video.floatingPromptEnabled'],
@@ -73,7 +82,7 @@ export function createVideoCaptureSourcesGroup(ctx: SchemaContext): GroupNode {
                           translate(
                             current,
                             'schemaCaptureSourcesAutoPauseTitle',
-                            '编辑批注时自动暂停视频播放'
+                            DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaCaptureSourcesAutoPauseTitle
                           )
                       }),
                       boundSwitch({
@@ -81,8 +90,16 @@ export function createVideoCaptureSourcesGroup(ctx: SchemaContext): GroupNode {
                         compact: true,
                         stateText: (current) =>
                           current.state.videoCommentEditorAutoPause
-                            ? translate(current, 'schemaCommonEnabledState', '已开启')
-                            : translate(current, 'schemaCommonDisabledState', '已关闭'),
+                            ? translate(
+                                current,
+                                'schemaCommonEnabledState',
+                                DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaCommonEnabledState
+                              )
+                            : translate(
+                                current,
+                                'schemaCommonDisabledState',
+                                DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaCommonDisabledState
+                              ),
                         onChange: {
                           id: 'options:updateField',
                           args: ['video.commentEditorAutoPause'],
@@ -100,7 +117,7 @@ export function createVideoCaptureSourcesGroup(ctx: SchemaContext): GroupNode {
             translate(
               ctx,
               'schemaCaptureSourcesVideoPromptHelper',
-              '控制 YouTube / 哔哩哔哩视频控制栏里的笔记入口。灰色圆点表示该时间戳尚未保存截图，绿色圆点表示该时间戳已有截图。'
+              DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaCaptureSourcesVideoPromptHelper
             )
           ),
           stack(
@@ -111,7 +128,7 @@ export function createVideoCaptureSourcesGroup(ctx: SchemaContext): GroupNode {
                     translate(
                       current,
                       'schemaCaptureSourcesAttachmentPathGroupTitle',
-                      '附件路径配置'
+                      DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaCaptureSourcesAttachmentPathGroupTitle
                     )
                 })
               ]),
@@ -124,13 +141,13 @@ export function createVideoCaptureSourcesGroup(ctx: SchemaContext): GroupNode {
                       translate(
                         current,
                         'schemaCaptureSourcesScreenshotLocationTitle',
-                        '附件位置模板'
+                        DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaCaptureSourcesScreenshotLocationTitle
                       ),
                     description: (current) =>
                       translate(
                         current,
                         'schemaCaptureSourcesScreenshotLocationDescription',
-                        '例如 `./assets/${noteFileName}`，用于截图附件保存目录。'
+                        DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaCaptureSourcesScreenshotLocationDescription
                       ),
                     control: boundInput({
                       bind: 'videoScreenshotAttachmentLocationTemplate',
@@ -148,13 +165,13 @@ export function createVideoCaptureSourcesGroup(ctx: SchemaContext): GroupNode {
                       translate(
                         current,
                         'schemaCaptureSourcesScreenshotFilenameTitle',
-                        '附件文件名模板'
+                        DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaCaptureSourcesScreenshotFilenameTitle
                       ),
                     description: (current) =>
                       translate(
                         current,
                         'schemaCaptureSourcesScreenshotFilenameDescription',
-                        "例如 `file-${date:{momentJsFormat:'YYYYMMDDHHmmssSSS'}}.jpg`，用于截图文件名。"
+                        DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaCaptureSourcesScreenshotFilenameDescription
                       ),
                     control: boundInput({
                       bind: 'videoScreenshotAttachmentFileNameTemplate',
@@ -172,13 +189,13 @@ export function createVideoCaptureSourcesGroup(ctx: SchemaContext): GroupNode {
                       translate(
                         current,
                         'schemaCaptureSourcesMarkdownUrlTitle',
-                        'Markdown URL 格式'
+                        DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaCaptureSourcesMarkdownUrlTitle
                       ),
                     description: (current) =>
                       translate(
                         current,
                         'schemaCaptureSourcesMarkdownUrlDescription',
-                        '留空时使用默认写法，可按当前导出链路填写 Markdown 链接模板。'
+                        DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaCaptureSourcesMarkdownUrlDescription
                       ),
                     control: boundInput({
                       bind: 'videoScreenshotAttachmentMarkdownUrlFormat',
@@ -198,7 +215,7 @@ export function createVideoCaptureSourcesGroup(ctx: SchemaContext): GroupNode {
                     translate(
                       current,
                       'schemaCaptureSourcesAttachmentGuidancePrefix',
-                      '附件内容配置与 Obsidian 插件 '
+                      DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaCaptureSourcesAttachmentGuidancePrefix
                     )
                 }),
                 element('a', {
@@ -217,7 +234,7 @@ export function createVideoCaptureSourcesGroup(ctx: SchemaContext): GroupNode {
                     translate(
                       current,
                       'schemaCaptureSourcesAttachmentGuidanceSuffix',
-                      ' 配合使用更佳，保持 Obsidian 内该插件配置与此处一致。'
+                      DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaCaptureSourcesAttachmentGuidanceSuffix
                     )
                 })
               ])

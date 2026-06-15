@@ -183,6 +183,31 @@ describe('mountProductionStitchShell English residual coverage', () => {
     }
   });
 
+  it('keeps production settings panels free of Chinese when selected catalog keys are missing', async () => {
+    const baseMessages = await createEnglishPageMessages();
+    const messages: Messages = {
+      ...baseMessages,
+      schemaOverviewUsageGroupTitle: '',
+      clearAllAnalyticsData: '',
+      schemaStorageTestConnectionButton: '',
+      schemaCaptureBehaviorModifierConflictBrowser: '',
+      readingExportModeLabel: ''
+    };
+
+    mountProductionStitchShell({
+      controller: asOptionsController(createController()),
+      initialOptions: null,
+      messages,
+      language: 'en'
+    });
+
+    for (const panelId of ['overview', 'storage', 'capture-behavior'] as const) {
+      queryRequired<HTMLButtonElement>(`[data-nav-panel="${panelId}"]`).click();
+      await flushPromises();
+      expectNoChineseSettingsCopy(queryRequired<HTMLElement>(`[data-panel-id="${panelId}"]`));
+    }
+  });
+
   it('keeps the onboarding page free of residual Chinese in English mode', async () => {
     expectNoChineseSettingsCopy(renderOnboardingPage(await createEnglishPageMessages()));
   });

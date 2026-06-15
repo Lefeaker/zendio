@@ -10,6 +10,7 @@ import {
 } from '../builders/surfaces';
 import { div } from '../builders/primitives';
 import { classNames } from '../builders/classNames';
+import { DEFAULT_PRODUCTION_ENGLISH_MESSAGES } from '../i18n';
 
 const schema: ResourceSchema = {
   openMode: 'modal',
@@ -53,8 +54,16 @@ const schema: ResourceSchema = {
         : (t?.('videoPanelCounter', surface.counter, { count: surface.counter }) ??
           surface.counter);
     const destinationLabels = {
-      saveToLabel: t?.('schemaRuntimeSurfaceSaveToLabel', '保存到') ?? '保存到',
-      configureVaultLabel: t?.('schemaRuntimeSurfaceConfigureVaultLabel', '配置仓库') ?? '配置仓库'
+      saveToLabel:
+        t?.(
+          'schemaRuntimeSurfaceSaveToLabel',
+          DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaRuntimeSurfaceSaveToLabel
+        ) ?? DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaRuntimeSurfaceSaveToLabel,
+      configureVaultLabel:
+        t?.(
+          'schemaRuntimeSurfaceConfigureVaultLabel',
+          DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaRuntimeSurfaceConfigureVaultLabel
+        ) ?? DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaRuntimeSurfaceConfigureVaultLabel
     };
     const screenshotLabels = {
       capture:
@@ -71,8 +80,8 @@ const schema: ResourceSchema = {
       description:
         t?.(
           'schemaRuntimeVideoDescription',
-          '视频记录面板，围绕时间点、字幕片段和批注建立视频笔记。'
-        ) ?? '视频记录面板，围绕时间点、字幕片段和批注建立视频笔记。',
+          DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaRuntimeVideoDescription
+        ) ?? DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaRuntimeVideoDescription,
       surfacePlacement: 'floating-bottom-right',
       surfaceSkin: 'session',
       children: [

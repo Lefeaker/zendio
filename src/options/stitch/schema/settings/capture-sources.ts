@@ -4,6 +4,7 @@ import { emptyState, grid } from '../builders/primitives';
 import { aiPlatformLinks } from '../builders/settings';
 import { boundInput } from '../builders/controls';
 import { createVideoCaptureSourcesGroup } from './capture-sources-video';
+import { DEFAULT_PRODUCTION_ENGLISH_MESSAGES } from '../i18n';
 
 function translate(
   current: SchemaContext,
@@ -41,7 +42,7 @@ const schema: SettingsSchema = {
               description: translate(
                 ctx,
                 'schemaCaptureSourcesAiConversationDescription',
-                '配置 AI 对话导出时的来源和显示行为。'
+                DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaCaptureSourcesAiConversationDescription
               ),
               actions: [
                 {
@@ -60,21 +61,29 @@ const schema: SettingsSchema = {
                   items: [
                     {
                       kind: 'row',
-                      title: translate(ctx, 'videoSupportedPlatformsTitle', '支持平台'),
+                      title: translate(
+                        ctx,
+                        'videoSupportedPlatformsTitle',
+                        DEFAULT_PRODUCTION_ENGLISH_MESSAGES.videoSupportedPlatformsTitle
+                      ),
                       description: translate(
                         ctx,
                         'schemaCaptureSourcesSupportedPlatformsDescription',
-                        '当前已适配的 AI 网站应可见，方便用户理解功能覆盖范围。'
+                        DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaCaptureSourcesSupportedPlatformsDescription
                       ),
                       control: aiPlatformLinks()
                     },
                     {
                       kind: 'row',
-                      title: translate(ctx, 'aiSummaryUserName', '用户显示名'),
+                      title: translate(
+                        ctx,
+                        'aiSummaryUserName',
+                        DEFAULT_PRODUCTION_ENGLISH_MESSAGES.aiSummaryUserName
+                      ),
                       description: translate(
                         ctx,
                         'schemaCaptureSourcesUserDisplayNameDescription',
-                        '控制 AI 对话导出时用户消息的显示名称。'
+                        DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaCaptureSourcesUserDisplayNameDescription
                       ),
                       control: grid(
                         2,
@@ -102,7 +111,7 @@ const schema: SettingsSchema = {
                               translate(
                                 current,
                                 'schemaCaptureSourcesUserDisplayNamePreview',
-                                '默认显示为 `{label}`。',
+                                DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaCaptureSourcesUserDisplayNamePreview,
                                 { label: current.state.aiUserName ?? 'USER' }
                               )
                             )

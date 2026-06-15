@@ -26,13 +26,13 @@ const schema: ResourceSchema = {
       kind: 'modal',
       title: shouldLocalize
         ? (ctx.t?.('schemaResourcePluginSetupTitle', 'Plugin Setup') ?? 'Plugin Setup')
-        : 'Plugin Setup Guide',
+        : 'Plugin Setup',
       description: shouldLocalize
         ? (ctx.t?.(
             'schemaResourcePluginSetupDescription',
             'Configure Obsidian Local REST API before editing advanced storage rules.'
           ) ?? 'Configure Obsidian Local REST API before editing advanced storage rules.')
-        : '围绕 Obsidian Local REST API 的真实配置流程整理。',
+        : 'Configure Obsidian Local REST API before editing advanced storage rules.',
       size: 'large',
       children: [
         resourceModalStack([
@@ -88,7 +88,7 @@ const schema: ResourceSchema = {
                 label: shouldLocalize
                   ? (ctx.t?.('schemaResourcePluginSetupGoToStorageButton', 'Go To Storage') ??
                     'Go To Storage')
-                  : '跳到 Storage',
+                  : 'Go To Storage',
                 variant: 'primary',
                 action: { id: 'navigation:closeResourceAndScrollToPanel', args: ['storage'] }
               }

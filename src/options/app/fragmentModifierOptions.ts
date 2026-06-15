@@ -1,6 +1,7 @@
 import { formatMessage, type Messages } from '@i18n';
 import type { FragmentModifierKey } from '@shared/types/options';
 import type { ChipItem, PreviewStoreState } from '@options/stitch/types';
+import { DEFAULT_PRODUCTION_ENGLISH_MESSAGES } from '@options/stitch/schema/i18n';
 import { getMessage } from './productionStitchPersistenceUi';
 
 export const DEFAULT_FRAGMENT_MODIFIER_KEY: FragmentModifierKey = 'shift';
@@ -156,7 +157,7 @@ export function fragmentModifierConflictWarning(
       getMessage(
         messages,
         'schemaCaptureBehaviorModifierConflictSystem',
-        '{label} 可能与系统、浏览器或网页快捷键冲突；如果触发不稳定，请改用 Shift。'
+        DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaCaptureBehaviorModifierConflictSystem
       ),
       { label: localizedModifierKeyLabel('alt', messages, isApple) }
     );
@@ -165,7 +166,7 @@ export function fragmentModifierConflictWarning(
     getMessage(
       messages,
       'schemaCaptureBehaviorModifierConflictBrowser',
-      '{label} 可能与浏览器或网页快捷键冲突；如果触发不稳定，请改用 Shift。'
+      DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaCaptureBehaviorModifierConflictBrowser
     ),
     { label: localizedModifierKeyLabel(key, messages, isApple) }
   );

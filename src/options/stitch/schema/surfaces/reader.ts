@@ -9,6 +9,7 @@ import {
 } from '../builders/surfaces';
 import { div } from '../builders/primitives';
 import { classNames } from '../builders/classNames';
+import { DEFAULT_PRODUCTION_ENGLISH_MESSAGES } from '../i18n';
 
 const schema: ResourceSchema = {
   openMode: 'modal',
@@ -42,8 +43,16 @@ const schema: ResourceSchema = {
             : action.label
     }));
     const destinationLabels = {
-      saveToLabel: t?.('schemaRuntimeSurfaceSaveToLabel', '保存到') ?? '保存到',
-      configureVaultLabel: t?.('schemaRuntimeSurfaceConfigureVaultLabel', '配置仓库') ?? '配置仓库'
+      saveToLabel:
+        t?.(
+          'schemaRuntimeSurfaceSaveToLabel',
+          DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaRuntimeSurfaceSaveToLabel
+        ) ?? DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaRuntimeSurfaceSaveToLabel,
+      configureVaultLabel:
+        t?.(
+          'schemaRuntimeSurfaceConfigureVaultLabel',
+          DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaRuntimeSurfaceConfigureVaultLabel
+        ) ?? DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaRuntimeSurfaceConfigureVaultLabel
     };
 
     return {
@@ -53,8 +62,8 @@ const schema: ResourceSchema = {
       description:
         t?.(
           'schemaRuntimeReaderDescription',
-          '阅读模式悬浮面板，保留真实的高亮列表与行内批注编辑节奏。'
-        ) ?? '阅读模式悬浮面板，保留真实的高亮列表与行内批注编辑节奏。',
+          DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaRuntimeReaderDescription
+        ) ?? DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaRuntimeReaderDescription,
       surfacePlacement: 'floating-bottom-right',
       surfaceSkin: 'session',
       children: [

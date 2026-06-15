@@ -1,4 +1,5 @@
 import type { NodeSchema, SchemaContext } from '../../types';
+import { DEFAULT_PRODUCTION_ENGLISH_MESSAGES } from '../i18n';
 import { div, element } from './primitives';
 import { classNames } from './classNames';
 
@@ -17,10 +18,11 @@ export function themeSegmentedSwitch(): NodeSchema {
   return {
     kind: 'segmentedNav',
     items: (current) => {
-      const fallback =
-        current.state.previewLanguage === 'en'
-          ? { system: 'System', dark: 'Dark', light: 'Light' }
-          : { system: '跟随系统', dark: '暗色', light: '亮色' };
+      const fallback = {
+        system: DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaOverviewThemeSystemOption,
+        dark: DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaOverviewThemeDarkOption,
+        light: DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaOverviewThemeLightOption
+      };
 
       return [
         {

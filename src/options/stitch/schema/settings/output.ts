@@ -4,7 +4,7 @@ import { boundInput } from '../builders/controls';
 import { sectionHelper } from '../builders/chrome';
 import { buttonCell, textCell } from '../builders/table';
 import { templateInput, templateTokenBlock, yamlPreviewBlock } from '../builders/output';
-import type { SchemaMessageKey } from '../i18n';
+import { DEFAULT_PRODUCTION_ENGLISH_MESSAGES, type SchemaMessageKey } from '../i18n';
 
 function translate(
   current: Pick<SchemaContext, 't'>,
@@ -41,7 +41,11 @@ const schema: SettingsSchema = {
               kind: 'card',
               title: (current) => translate(current, 'templateConfigTitle', 'Path Templates'),
               description: (current) =>
-                translate(current, 'templateConfigHint', '配置不同内容类型的保存路径。'),
+                translate(
+                  current,
+                  'templateConfigHint',
+                  DEFAULT_PRODUCTION_ENGLISH_MESSAGES.templateConfigHint
+                ),
               body: [
                 {
                   kind: 'rows',
@@ -49,32 +53,48 @@ const schema: SettingsSchema = {
                     {
                       kind: 'row',
                       title: (current) =>
-                        translate(current, 'articleTemplateLabel', '文章 / 视频路径模板'),
+                        translate(
+                          current,
+                          'articleTemplateLabel',
+                          DEFAULT_PRODUCTION_ENGLISH_MESSAGES.articleTemplateLabel
+                        ),
                       description: (current) =>
                         translate(
                           current,
                           'articleTemplateHint',
-                          'article 与 video 当前共用一个路径模板。'
+                          DEFAULT_PRODUCTION_ENGLISH_MESSAGES.articleTemplateHint
                         ),
                       control: templateInput('articleVideo')
                     },
                     {
                       kind: 'row',
                       title: (current) =>
-                        translate(current, 'fragmentTemplateLabel', '片段路径模板'),
+                        translate(
+                          current,
+                          'fragmentTemplateLabel',
+                          DEFAULT_PRODUCTION_ENGLISH_MESSAGES.fragmentTemplateLabel
+                        ),
                       description: (current) =>
-                        translate(current, 'fragmentTemplateHint', 'Fragment clipper 的落盘路径。'),
+                        translate(
+                          current,
+                          'fragmentTemplateHint',
+                          DEFAULT_PRODUCTION_ENGLISH_MESSAGES.fragmentTemplateHint
+                        ),
                       control: templateInput('fragment')
                     },
                     {
                       kind: 'row',
                       title: (current) =>
-                        translate(current, 'readingTemplateLabel', '阅读模式路径模板'),
+                        translate(
+                          current,
+                          'readingTemplateLabel',
+                          DEFAULT_PRODUCTION_ENGLISH_MESSAGES.readingTemplateLabel
+                        ),
                       description: (current) =>
                         translate(
                           current,
                           'readingTemplateHint',
-                          '可以继承文章路径、片段路径，或切换到自定义模板。'
+                          DEFAULT_PRODUCTION_ENGLISH_MESSAGES.readingTemplateHint
                         ),
                       control: stack(
                         [
@@ -88,7 +108,7 @@ const schema: SettingsSchema = {
                                 label: translate(
                                   current,
                                   'readingTemplateOptionArticle',
-                                  '与文章路径相同'
+                                  DEFAULT_PRODUCTION_ENGLISH_MESSAGES.readingTemplateOptionArticle
                                 )
                               },
                               {
@@ -96,12 +116,16 @@ const schema: SettingsSchema = {
                                 label: translate(
                                   current,
                                   'readingTemplateOptionFragment',
-                                  '与片段路径相同'
+                                  DEFAULT_PRODUCTION_ENGLISH_MESSAGES.readingTemplateOptionFragment
                                 )
                               },
                               {
                                 value: 'custom',
-                                label: translate(current, 'readingTemplateOptionCustom', '自定义')
+                                label: translate(
+                                  current,
+                                  'readingTemplateOptionCustom',
+                                  DEFAULT_PRODUCTION_ENGLISH_MESSAGES.readingTemplateOptionCustom
+                                )
                               }
                             ],
                             onChange: { id: 'output:setReadingPathMode', valueFrom: 'target.value' }
@@ -116,12 +140,17 @@ const schema: SettingsSchema = {
                     },
                     {
                       kind: 'row',
-                      title: (current) => translate(current, 'aiTemplateLabel', 'AI 对话路径模板'),
+                      title: (current) =>
+                        translate(
+                          current,
+                          'aiTemplateLabel',
+                          DEFAULT_PRODUCTION_ENGLISH_MESSAGES.aiTemplateLabel
+                        ),
                       description: (current) =>
                         translate(
                           current,
                           'aiTemplateHint',
-                          'AI 导出单独保存，避免混入普通文章目录。'
+                          DEFAULT_PRODUCTION_ENGLISH_MESSAGES.aiTemplateHint
                         ),
                       control: templateInput('aiChat')
                     }
@@ -131,7 +160,7 @@ const schema: SettingsSchema = {
                   translate(
                     current,
                     'schemaOutputTemplateHelperText',
-                    '将鼠标放到上方任一路径输入框，再点击下方字段快速插入。'
+                    DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaOutputTemplateHelperText
                   )
                 )
               ]
@@ -147,12 +176,20 @@ const schema: SettingsSchema = {
               kind: 'card',
               title: (current) => translate(current, 'domainMappingTitle', 'Domain Mappings'),
               description: (current) =>
-                translate(current, 'domainMappingHint', '将域名映射为更易读的目录名。'),
+                translate(
+                  current,
+                  'domainMappingHint',
+                  DEFAULT_PRODUCTION_ENGLISH_MESSAGES.domainMappingHint
+                ),
               actions: [
                 {
                   kind: 'button',
                   label: (current) =>
-                    translate(current, 'schemaOutputAddMappingButton', '添加映射'),
+                    translate(
+                      current,
+                      'schemaOutputAddMappingButton',
+                      DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaOutputAddMappingButton
+                    ),
                   variant: 'primary',
                   action: { id: 'domain:add' }
                 }
@@ -204,7 +241,12 @@ const schema: SettingsSchema = {
                         },
                         textCell(notes),
                         buttonCell(
-                          (renderCtx) => translate(renderCtx, 'domainMappingDeleteButton', '删除'),
+                          (renderCtx) =>
+                            translate(
+                              renderCtx,
+                              'domainMappingDeleteButton',
+                              DEFAULT_PRODUCTION_ENGLISH_MESSAGES.domainMappingDeleteButton
+                            ),
                           'ghost',
                           { id: 'domain:remove', args: [index] }
                         )
@@ -227,7 +269,7 @@ const schema: SettingsSchema = {
                 translate(
                   current,
                   'yamlConfigHint',
-                  '按当前导出配置方式管理字段、域名覆盖和自定义字段。'
+                  DEFAULT_PRODUCTION_ENGLISH_MESSAGES.yamlConfigHint
                 ),
               actions: [
                 {

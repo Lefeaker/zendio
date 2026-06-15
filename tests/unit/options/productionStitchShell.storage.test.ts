@@ -62,7 +62,7 @@ describe('mountProductionStitchShell storage', () => {
       },
       messages: null,
       language: 'en'
-    } as never);
+    });
 
     const defaultRow = findInputByValue('Research Vault').closest<HTMLElement>('tr');
     const toggle = defaultRow?.querySelector<HTMLInputElement>('input[type="checkbox"]');
@@ -77,17 +77,19 @@ describe('mountProductionStitchShell storage', () => {
       initialOptions: null,
       messages: null,
       language: 'en'
-    } as never);
+    });
 
     const vaultList = findCardByTitle('Vault List');
-    expect(vaultList.textContent).toContain('推荐优先使用 Local Folder 通道');
+    expect(vaultList.textContent).toContain('Local Folder is recommended first.');
     const restLink = vaultList.querySelector<HTMLAnchorElement>(
       'a[href="https://github.com/coddingtonbear/obsidian-local-rest-api"]'
     );
     expect(restLink?.textContent).toBe('Local REST API with MCP');
 
     const readingExport = findCardByTitle('Reading Export');
-    expect(readingExport.textContent).toContain('存储内容高亮与 Obsidian 插件');
+    expect(readingExport.textContent).toContain(
+      'Saved highlights work best with the Obsidian plugin'
+    );
     const highlightsLink = readingExport.querySelector<HTMLAnchorElement>(
       'a[href="https://github.com/trevware/obsidian-sidebar-highlights"]'
     );
@@ -326,7 +328,7 @@ describe('mountProductionStitchShell storage', () => {
     ).toEqual(['Enabled', 'Vault', 'Local Folder', 'HTTPS URL', 'HTTP URL', 'API Key', 'Actions']);
 
     const chooseButton = Array.from(vaultList.querySelectorAll<HTMLButtonElement>('button')).find(
-      (button) => button.textContent?.trim() === '选择目录'
+      (button) => button.textContent?.trim() === 'Choose Local Folder'
     );
     expect(chooseButton).toBeTruthy();
     chooseButton?.click();
@@ -344,7 +346,7 @@ describe('mountProductionStitchShell storage', () => {
     );
 
     const refreshedVaultList = findCardByTitle('Vault List');
-    expect(refreshedVaultList.textContent).not.toContain('删除本地目录');
+    expect(refreshedVaultList.textContent).not.toContain('Delete Local Folder');
     const selectedFolderButton = Array.from(
       refreshedVaultList.querySelectorAll<HTMLButtonElement>('button')
     ).find((button) => button.textContent?.trim() === 'Local Vault');
@@ -358,12 +360,12 @@ describe('mountProductionStitchShell storage', () => {
     const confirmingCell =
       findCardByTitle('Vault List').querySelector<HTMLElement>('.local-folder-cell');
     expect(confirmingCell?.querySelector('.local-folder-popover')).toBeNull();
-    expect(confirmingCell?.textContent?.trim()).toBe('删除本地目录');
+    expect(confirmingCell?.textContent?.trim()).toBe('Delete Local Folder');
 
     const restoredByOutsideClick = queryRequired<HTMLElement>('.main');
     restoredByOutsideClick.click();
     await flushPromises();
-    expect(findCardByTitle('Vault List').textContent).not.toContain('删除本地目录');
+    expect(findCardByTitle('Vault List').textContent).not.toContain('Delete Local Folder');
     expect(
       Array.from(findCardByTitle('Vault List').querySelectorAll<HTMLButtonElement>('button')).some(
         (button) => button.textContent?.trim() === 'Local Vault'
@@ -378,7 +380,7 @@ describe('mountProductionStitchShell storage', () => {
 
     const deleteButton = Array.from(
       findCardByTitle('Vault List').querySelectorAll<HTMLButtonElement>('.local-folder-cell button')
-    ).find((button) => button.textContent?.trim() === '删除本地目录');
+    ).find((button) => button.textContent?.trim() === 'Delete Local Folder');
     expect(deleteButton).toBeTruthy();
     deleteButton?.click();
     await flushPromises();
@@ -471,7 +473,7 @@ describe('mountProductionStitchShell storage', () => {
     expect(vaultList.querySelector('.local-folder-popover')).toBeNull();
     const deleteButton = Array.from(
       vaultList.querySelectorAll<HTMLButtonElement>('.local-folder-cell button')
-    ).find((button) => button.textContent?.trim() === '删除本地目录');
+    ).find((button) => button.textContent?.trim() === 'Delete Local Folder');
     expect(deleteButton).toBeTruthy();
     expect(document.body.textContent).toMatch(
       /Local Folder needs permission again|本地目录需要重新授权/
@@ -523,7 +525,7 @@ describe('mountProductionStitchShell storage', () => {
       'new.example': 'new-folder'
     });
 
-    findButton('删除').click();
+    findButton('Remove').click();
     expect(mounted.collectDraft().domainMappings).toEqual({});
   });
 
@@ -563,7 +565,7 @@ describe('mountProductionStitchShell storage', () => {
       language: 'en'
     });
 
-    findButton('删除').click();
+    findButton('Remove').click();
     const card = findCardByTitle('Domain Mappings');
 
     const inputs = Array.from(card.querySelectorAll<HTMLInputElement>('tbody input'));
@@ -760,7 +762,7 @@ describe('mountProductionStitchShell storage', () => {
       messagingRepository
     } as never);
 
-    findButton('测试连接').click();
+    findButton('Test Connection').click();
     await flushPromises();
     await flushPromises();
 
