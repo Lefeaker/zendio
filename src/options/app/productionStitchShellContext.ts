@@ -1,6 +1,9 @@
 import type { Language, Messages } from '@i18n';
 import type { CompleteOptions } from '@shared/types/options';
-import { createSchemaTranslator } from '@options/stitch/schema/i18n';
+import {
+  createSchemaTranslator,
+  DEFAULT_PRODUCTION_ENGLISH_MESSAGES
+} from '@options/stitch/schema/i18n';
 import type { PreviewContent, PreviewStoreState, SchemaContext } from '@options/stitch/types';
 import {
   createProductionContent,
@@ -59,9 +62,10 @@ export function createProductionStitchSchemaContext(options: {
   messages: Messages | null;
   state: PreviewStoreState;
 }): SchemaContext {
+  const effectiveMessages = options.messages ?? DEFAULT_PRODUCTION_ENGLISH_MESSAGES;
   const localizedAppData = localizeStitchContent(options.appData, {
     language: options.language,
-    messages: options.messages,
+    messages: effectiveMessages,
     previewContent: options.previewContent ?? options.appData
   });
   return {
@@ -75,9 +79,9 @@ export function createProductionStitchSchemaContext(options: {
       }
     },
     language: options.language,
-    messages: options.messages,
+    messages: effectiveMessages,
     state: options.state,
-    t: createSchemaTranslator(options.messages)
+    t: createSchemaTranslator(effectiveMessages)
   };
 }
 

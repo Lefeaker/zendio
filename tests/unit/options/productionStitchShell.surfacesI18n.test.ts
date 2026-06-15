@@ -40,7 +40,10 @@ const ENGLISH_SENTINEL_MESSAGES = {
   schemaRuntimeReaderTitle: 'Reader Mode Sentinel',
   schemaRuntimeReaderDescription: 'Reader Description Sentinel',
   schemaRuntimeReaderHighlightOneExcerpt: 'Reader Highlight One Excerpt Sentinel',
+  schemaRuntimeReaderHighlightOneComment: 'Reader Highlight One Comment Sentinel',
+  schemaRuntimeReaderHighlightTwoComment: 'Reader Highlight Two Comment Sentinel',
   schemaRuntimeReaderHighlightThreeFullText: 'Reader Highlight Three Full Text Sentinel',
+  schemaRuntimeReaderHighlightThreeDraft: 'Reader Highlight Three Draft Sentinel',
   readerPanelTitle: 'Reader Panel Title Sentinel',
   readerPanelStatus: 'Reader Status Sentinel',
   readerPanelCounter: 'Reader Counter Sentinel {count}',
@@ -50,7 +53,10 @@ const ENGLISH_SENTINEL_MESSAGES = {
   readerPanelCancel: 'Reader Cancel Sentinel',
   schemaRuntimeVideoTitle: 'Video Mode Sentinel',
   schemaRuntimeVideoDescription: 'Video Description Sentinel',
+  schemaRuntimeVideoCaptureOneComment: 'Video Capture One Comment Sentinel',
   schemaRuntimeVideoCaptureTwoFullText: 'Video Capture Two Full Text Sentinel',
+  schemaRuntimeVideoCaptureTwoComment: 'Video Capture Two Comment Sentinel',
+  schemaRuntimeVideoCaptureThreeDraft: 'Video Capture Three Draft Sentinel',
   videoPanelTitle: 'Video Panel Title Sentinel',
   videoPanelStatus: 'Video Status Sentinel',
   videoPanelCounter: 'Video Counter Sentinel {count}',
@@ -189,6 +195,15 @@ describe('mountProductionStitchShell runtime surface i18n', () => {
       queryRequired<HTMLInputElement>('input[data-highlight-input="reader-1"]', reader).placeholder
     ).toBe('Reader Note Placeholder Sentinel');
     expect(
+      queryRequired<HTMLInputElement>('input[data-highlight-input="reader-1"]', reader).value
+    ).toBe('Reader Highlight One Comment Sentinel');
+    expect(
+      queryRequired<HTMLInputElement>('input[data-highlight-input="reader-2"]', reader).value
+    ).toBe('Reader Highlight Two Comment Sentinel');
+    expect(
+      queryRequired<HTMLInputElement>('input[data-highlight-input="reader-3"]', reader).value
+    ).toBe('Reader Highlight Three Draft Sentinel');
+    expect(
       queryRequired<HTMLButtonElement>(
         'button[data-action-id="reader:delete"]',
         reader
@@ -222,6 +237,15 @@ describe('mountProductionStitchShell runtime surface i18n', () => {
     expect(
       queryRequired<HTMLInputElement>('input[data-capture-input="video-1"]', video).placeholder
     ).toBe('Video Note Placeholder Sentinel');
+    expect(
+      queryRequired<HTMLInputElement>('input[data-capture-input="video-1"]', video).value
+    ).toBe('Video Capture One Comment Sentinel');
+    expect(
+      queryRequired<HTMLInputElement>('input[data-capture-input="video-2"]', video).value
+    ).toBe('Video Capture Two Comment Sentinel');
+    expect(
+      queryRequired<HTMLInputElement>('input[data-capture-input="video-3"]', video).value
+    ).toBe('Video Capture Three Draft Sentinel');
     expect(
       queryRequired<HTMLButtonElement>('button[data-action-id="video:add"]', video).getAttribute(
         'aria-label'
