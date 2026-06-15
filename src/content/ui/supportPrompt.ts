@@ -23,7 +23,8 @@ import {
   type SupportPromptDependencies
 } from './supportPromptServices';
 import { createSupportPromptToastLifecycle } from './supportPromptToastLifecycle';
-import { getContentI18nResource } from '../i18n/context';
+import { getContentI18nResource, getContentMessages } from '../i18n/context';
+import type { UserVisibleMessageDescriptor } from '../../shared/i18n/userVisibleMessageDescriptor';
 
 const REVIEW_BASE_URL =
   'https://chromewebstore.google.com/detail/all-in-ob/eoohmbhdepgknfemajanfaejmonckgmo';
@@ -72,15 +73,23 @@ export class SupportPrompt implements UiMountable<
       options?.status ?? (resolvedError ? mapSeverityToStatus(resolvedError.severity) : 'success');
     const reason = resolveSupportPromptReason(resolvedError, options?.errorMessage);
     const vaultLabel = options?.vaultName?.trim();
+    const runtimeMessages = getContentI18nResource()?.messages ?? (await getContentMessages());
+    const progress = options?.progress as
+      | (NonNullable<SupportPromptOptions['progress']> & {
+          message?: UserVisibleMessageDescriptor;
+        })
+      | undefined;
     const statusMessage = resolveStatusMessage({
       status: promptStatus,
       ...(vaultLabel ? { vaultLabel } : {}),
       ...(reason !== undefined && { reason }),
       messages,
+      runtimeMessages,
       ...(resolvedError !== undefined && { error: resolvedError }),
-      ...(options?.progress?.label ? { progressLabel: options.progress.label } : {})
+      ...(progress?.message !== undefined ? { progressMessage: progress.message } : {}),
+      ...(progress?.label ? { progressLabel: progress.label } : {})
     });
-    const progress = resolveSupportPromptProgress(options, promptStatus);
+    const resolvedProgress = resolveSupportPromptProgress(options, promptStatus);
 
     const links = [
       {
@@ -101,9 +110,9 @@ export class SupportPrompt implements UiMountable<
     appData.surfaces.taskSuccess = {
       ...appData.surfaces.taskSuccess,
       status: promptStatus,
-      statusMessage: statusMessage.text,
+      statusMessage: statusMessage.text + (statusMessage.codeSuffix ?? ''),
       statusDetail: statusMessage.extraLine ?? '',
-      progress,
+      progress: resolvedProgress,
       feedbackLabel: messages.feedbackGroupLabel,
       likeLabel: messages.likeLabel,
       dislikeLabel: messages.dislikeLabel,

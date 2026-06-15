@@ -67,6 +67,9 @@ const getContentMessagesMock = vi.hoisted(() =>
       supportPromptStatusWarningWithReason: 'Saved with warning: {reason}',
       supportPromptStatusFailure: 'Failed',
       supportPromptStatusFailureWithReason: 'Failed: {reason}',
+      supportProgressWritingNote: 'Writing note',
+      supportProgressSendingToObsidian: 'Sending to Obsidian',
+      supportProgressErrorCodeSuffix: ' (code: {code})',
       supportPromptLikeThankYou: 'Thanks!',
       supportPromptReviewLinkLabel: 'Write review',
       supportPromptReviewAcknowledgedLabel: 'I already reviewed',
@@ -155,24 +158,35 @@ describe('SupportPrompt', () => {
   it('renders an in-flight progress strip before the support links', async () => {
     const { SupportPrompt } = await import('../../../src/content/ui/supportPrompt');
     const prompt = new SupportPrompt(document);
+    const progress = {
+      value: 42,
+      label: '正在写入笔记',
+      message: {
+        key: 'supportProgressWritingNote',
+        fallback: 'Writing note'
+      }
+    };
     await prompt.show({
       status: 'progress',
-      progress: { value: 42, label: '正在写入笔记' }
+      progress
     });
 
     const shadow = getPromptHost().shadowRoot;
     const header = shadow?.querySelector('.task-success-header');
-    const progress = shadow?.querySelector<HTMLElement>('[data-role="task-progress"]');
+    const progressBar = shadow?.querySelector<HTMLElement>('[data-role="task-progress"]');
     const supportStrip = shadow?.querySelector('.task-support-strip');
 
-    expect(shadow?.querySelector('[data-role="status-text"]')?.textContent).toBe('正在写入笔记');
-    expect(progress).toBeTruthy();
-    expect(progress?.style.getPropertyValue('--task-progress-value')).toBe('42%');
-    expect(progress?.classList.contains('is-progress')).toBe(true);
-    expect(header?.compareDocumentPosition(progress as Node)).toBe(
+    expect(shadow?.querySelector('[data-role="status-text"]')?.textContent).toBe('Writing note');
+    expect(shadow?.querySelector('[data-role="status-text"]')?.textContent).not.toMatch(
+      /[\u3400-\u9fff]/u
+    );
+    expect(progressBar).toBeTruthy();
+    expect(progressBar?.style.getPropertyValue('--task-progress-value')).toBe('42%');
+    expect(progressBar?.classList.contains('is-progress')).toBe(true);
+    expect(header?.compareDocumentPosition(progressBar as Node)).toBe(
       Node.DOCUMENT_POSITION_FOLLOWING
     );
-    expect(progress?.compareDocumentPosition(supportStrip as Node)).toBe(
+    expect(progressBar?.compareDocumentPosition(supportStrip as Node)).toBe(
       Node.DOCUMENT_POSITION_FOLLOWING
     );
   });
@@ -246,6 +260,9 @@ describe('SupportPrompt', () => {
     shadow = getPromptHost().shadowRoot;
     expect(shadow?.querySelector('[data-role="status-text"]')?.textContent).toContain(
       'send failed'
+    );
+    expect(shadow?.querySelector('[data-role="status-text"]')?.textContent).toContain(
+      '(code: FAIL_X)'
     );
     expect(shadow?.querySelector('[data-role="status-detail"]')?.textContent).toBe('extra detail');
   });

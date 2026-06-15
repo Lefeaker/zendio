@@ -133,7 +133,13 @@ describe('background clipPipeline', () => {
   it('emits progress updates while processing clip results', async () => {
     processClipPayloadMock.mockImplementation(
       (_payload, hooks: ClipProcessingHooksWithProgress) => {
-        hooks.onProgress({ value: 82, label: '正在写入笔记' });
+        hooks.onProgress({
+          value: 82,
+          message: {
+            key: 'supportProgressWritingNote',
+            fallback: 'Writing note'
+          }
+        });
         return Promise.resolve({
           filePath: 'Articles/foo.md',
           vaultName: 'Secondary Vault',
@@ -160,23 +166,28 @@ describe('background clipPipeline', () => {
       expect.objectContaining({
         type: SHOW_SUPPORT_PROMPT,
         status: 'progress',
-        progress: expect.objectContaining({
+        progress: {
           value: 40,
-          label: '正在接收剪藏内容'
-        })
+          message: {
+            key: 'supportProgressReceivingClipContent',
+            fallback: 'Receiving clip content'
+          },
+          variant: 'progress'
+        }
       })
     );
-    expect(sendMessageMock).toHaveBeenCalledWith(
-      11,
-      expect.objectContaining({
-        type: SHOW_SUPPORT_PROMPT,
-        status: 'progress',
-        progress: expect.objectContaining({
-          value: 82,
-          label: '正在写入笔记'
-        })
-      })
-    );
+    expect(sendMessageMock).toHaveBeenCalledWith(11, {
+      type: SHOW_SUPPORT_PROMPT,
+      status: 'progress',
+      progress: {
+        value: 82,
+        message: {
+          key: 'supportProgressWritingNote',
+          fallback: 'Writing note'
+        },
+        variant: 'progress'
+      }
+    });
     expect(sendMessageMock).toHaveBeenLastCalledWith(
       11,
       expect.objectContaining({
@@ -422,6 +433,22 @@ describe('background clipPipeline', () => {
     const { handleClipResult, dependencies } = await loadPipeline();
     await handleClipResult(createMessage(), 23, dependencies);
 
+    expect(sendMessageMock).toHaveBeenCalledWith(
+      23,
+      expect.objectContaining({
+        type: SHOW_SUPPORT_PROMPT,
+        status: 'progress',
+        progress: {
+          value: 60,
+          message: {
+            key: 'supportProgressLocalVaultPermissionRequest',
+            values: { folderName: 'Blog' },
+            fallback: 'Requesting local folder access: Blog'
+          },
+          variant: 'progress'
+        }
+      })
+    );
     expect(sendMessageMock).toHaveBeenCalledWith(
       23,
       expect.objectContaining({

@@ -4401,19 +4401,27 @@ describe('VideoSession', () => {
     );
     expect(dependencies.showSupportProgress).toHaveBeenCalledWith({
       value: 10,
-      label: '正在准备视频导出'
+      message: {
+        key: 'supportProgressVideoPreparing',
+        fallback: 'Preparing video export'
+      }
     });
     expect(dependencies.showSupportProgress).toHaveBeenCalledWith({
       value: 34,
-      label: '正在生成视频笔记'
+      message: {
+        key: 'supportProgressVideoGenerating',
+        fallback: 'Generating video note'
+      }
     });
     expect(dependencies.showSupportProgress).toHaveBeenCalledWith({
       value: 70,
-      label: '正在写入 Obsidian'
+      message: {
+        key: 'supportProgressVideoWriting',
+        fallback: 'Writing to Obsidian'
+      }
     });
     expect(dependencies.showSupportProgress).toHaveBeenCalledWith({
       value: 100,
-      label: '成功发送到 Obsidian',
       variant: 'success'
     });
     expect(cleanupSpy).toHaveBeenCalled();
@@ -4705,7 +4713,6 @@ describe('VideoSession', () => {
     expect(applyHintSpy).toHaveBeenCalledWith('failure');
     expect(deps.showSupportProgress).toHaveBeenCalledWith({
       value: 100,
-      label: '发送失败',
       variant: 'failure'
     });
     expect(isVideoSessionActive(document)).toBe(true);
@@ -4860,7 +4867,6 @@ describe('VideoSession', () => {
     expect(applyHintSpy).toHaveBeenCalledWith('failure');
     expect(deps.showSupportProgress).toHaveBeenCalledWith({
       value: 100,
-      label: '发送失败',
       variant: 'failure'
     });
     expect(consoleErrorSpy).toHaveBeenCalledWith(

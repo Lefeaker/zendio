@@ -51,7 +51,10 @@ export function initClipFlow(options: InitClipFlowOptions): ClipFlowHandlers {
     if (clipMode !== 'selection') {
       showSupportProgress?.({
         value: 8,
-        label: '正在准备网页剪藏'
+        message: {
+          key: 'supportProgressPreparingPageClip',
+          fallback: 'Preparing page clip'
+        }
       });
     }
     analytics?.emitStarted();
