@@ -1,4 +1,14 @@
+import {
+  DEFAULT_LANGUAGE,
+  DEFAULT_RUNTIME_MESSAGES,
+  formatMessage,
+  getMessagesForLanguage,
+  resolveLanguage,
+  type Language,
+  type Messages
+} from '@i18n';
 import type { LocalVaultPermissionPromptResponse } from '../../shared/types';
+import { LANGUAGE_CONFIG } from '../../i18n/config';
 import {
   resolveLocalVaultPermissionService,
   type LocalVaultPermissionService
@@ -8,10 +18,83 @@ export interface LocalVaultPermissionFrameOptions {
   document?: Document;
   window?: Window;
   permissionService?: LocalVaultPermissionService;
+  language?: string;
+}
+
+type LocalVaultPermissionMessageSet = Pick<
+  Messages,
+  | 'localVaultPermissionAuthorizeButton'
+  | 'localVaultPermissionChromeReconfirm'
+  | 'localVaultPermissionDescription'
+  | 'localVaultPermissionFolderFallback'
+  | 'localVaultPermissionFrameTitle'
+  | 'localVaultPermissionOpeningStatus'
+  | 'localVaultPermissionTitle'
+  | 'localVaultPermissionUseRestAlwaysButton'
+  | 'localVaultPermissionUseRestOnceButton'
+>;
+
+interface LocalVaultPermissionLocalization {
+  language: Language;
+  messages: LocalVaultPermissionMessageSet;
 }
 
 function getParam(frameWindow: Window, name: string): string {
   return new URL(frameWindow.location.href).searchParams.get(name)?.trim() ?? '';
+}
+
+function selectPermissionMessages(
+  messages: LocalVaultPermissionMessageSet
+): LocalVaultPermissionMessageSet {
+  return {
+    localVaultPermissionAuthorizeButton: messages.localVaultPermissionAuthorizeButton,
+    localVaultPermissionChromeReconfirm: messages.localVaultPermissionChromeReconfirm,
+    localVaultPermissionDescription: messages.localVaultPermissionDescription,
+    localVaultPermissionFolderFallback: messages.localVaultPermissionFolderFallback,
+    localVaultPermissionFrameTitle: messages.localVaultPermissionFrameTitle,
+    localVaultPermissionOpeningStatus: messages.localVaultPermissionOpeningStatus,
+    localVaultPermissionTitle: messages.localVaultPermissionTitle,
+    localVaultPermissionUseRestAlwaysButton: messages.localVaultPermissionUseRestAlwaysButton,
+    localVaultPermissionUseRestOnceButton: messages.localVaultPermissionUseRestOnceButton
+  };
+}
+
+function readRuntimeLanguage(): string | undefined {
+  try {
+    if (typeof chrome !== 'undefined' && typeof chrome.i18n?.getUILanguage === 'function') {
+      const chromeLanguage = chrome.i18n.getUILanguage();
+      if (chromeLanguage) {
+        return chromeLanguage;
+      }
+    }
+  } catch {
+    // Ignore missing WebExtension runtime access and continue to navigator fallback.
+  }
+
+  return typeof navigator === 'undefined' ? undefined : navigator.language;
+}
+
+async function resolveLocalization(
+  frameWindow: Window,
+  explicitLanguage?: string
+): Promise<LocalVaultPermissionLocalization> {
+  const requestedLanguage = explicitLanguage || getParam(frameWindow, 'language');
+
+  try {
+    const language = resolveLanguage(requestedLanguage || readRuntimeLanguage());
+    const messages = selectPermissionMessages(await getMessagesForLanguage(language));
+    return { language, messages };
+  } catch {
+    try {
+      const messages = selectPermissionMessages(await getMessagesForLanguage(DEFAULT_LANGUAGE));
+      return { language: DEFAULT_LANGUAGE, messages };
+    } catch {
+      return {
+        language: DEFAULT_LANGUAGE,
+        messages: selectPermissionMessages(DEFAULT_RUNTIME_MESSAGES)
+      };
+    }
+  }
 }
 
 function postResult(frameWindow: Window, response: LocalVaultPermissionPromptResponse): void {
@@ -27,39 +110,68 @@ function postResult(frameWindow: Window, response: LocalVaultPermissionPromptRes
 function render(
   doc: Document,
   frameWindow: Window,
-  permissionService: LocalVaultPermissionService
+  permissionService: LocalVaultPermissionService,
+  localization: LocalVaultPermissionLocalization
 ): void {
   const folderId = getParam(frameWindow, 'folderId');
+  const { language, messages } = localization;
   const folderName =
-    getParam(frameWindow, 'folderName') || getParam(frameWindow, 'vaultName') || '本地仓库目录';
+    getParam(frameWindow, 'folderName') ||
+    getParam(frameWindow, 'vaultName') ||
+    messages.localVaultPermissionFolderFallback;
+
+  const dir = LANGUAGE_CONFIG[language]?.dir ?? LANGUAGE_CONFIG[DEFAULT_LANGUAGE]?.dir ?? 'ltr';
+  doc.documentElement.setAttribute('lang', language);
+  doc.documentElement.setAttribute('dir', dir);
+  doc.title = messages.localVaultPermissionTitle;
 
   doc.body.innerHTML = `
     <main class="permission-card">
       <div class="permission-heading">
         <span class="permission-kicker">Zendio</span>
-        <h1>允许写入本地仓库目录</h1>
+        <h1 data-role="frame-title"></h1>
       </div>
-      <p class="permission-copy">
-        Chrome 需要重新确认 <strong></strong> 的目录读写权限。允许后，本次保存会继续写入本地目录。
-      </p>
-      <p class="permission-status" data-role="status"></p>
+      <p class="permission-copy" data-role="description"></p>
+      <p class="permission-copy" data-role="reconfirm"></p>
+      <p class="permission-status" data-role="status" aria-live="polite" aria-atomic="true"></p>
       <div class="permission-actions">
-        <button type="button" class="primary" data-action="authorize">授权并继续</button>
-        <button type="button" class="secondary" data-action="rest-once">本次改用 REST</button>
-        <button type="button" class="ghost" data-action="rest-always">不再询问</button>
+        <button type="button" class="primary" data-action="authorize"></button>
+        <button type="button" class="secondary" data-action="rest-once"></button>
+        <button type="button" class="ghost" data-action="rest-always"></button>
       </div>
     </main>
   `;
 
-  const strong = doc.querySelector('strong');
-  if (strong) {
-    strong.textContent = folderName;
-  }
-
+  const frameTitle = doc.querySelector<HTMLElement>('[data-role="frame-title"]');
+  const description = doc.querySelector<HTMLElement>('[data-role="description"]');
+  const reconfirm = doc.querySelector<HTMLElement>('[data-role="reconfirm"]');
   const status = doc.querySelector<HTMLElement>('[data-role="status"]');
   const authorize = doc.querySelector<HTMLButtonElement>('[data-action="authorize"]');
   const restOnce = doc.querySelector<HTMLButtonElement>('[data-action="rest-once"]');
   const restAlways = doc.querySelector<HTMLButtonElement>('[data-action="rest-always"]');
+
+  if (frameTitle) {
+    frameTitle.textContent = messages.localVaultPermissionFrameTitle;
+  }
+  if (description) {
+    description.textContent = formatMessage(
+      messages.localVaultPermissionDescription,
+      { folderName },
+      language
+    );
+  }
+  if (reconfirm) {
+    reconfirm.textContent = messages.localVaultPermissionChromeReconfirm;
+  }
+  if (authorize) {
+    authorize.textContent = messages.localVaultPermissionAuthorizeButton;
+  }
+  if (restOnce) {
+    restOnce.textContent = messages.localVaultPermissionUseRestOnceButton;
+  }
+  if (restAlways) {
+    restAlways.textContent = messages.localVaultPermissionUseRestAlwaysButton;
+  }
 
   authorize?.addEventListener('click', () => {
     void (async () => {
@@ -72,7 +184,7 @@ function render(
         return;
       }
       if (status) {
-        status.textContent = '正在打开 Chrome 权限确认...';
+        status.textContent = messages.localVaultPermissionOpeningStatus;
       }
       authorize.disabled = true;
       restOnce?.setAttribute('disabled', 'true');
@@ -224,7 +336,9 @@ export function mountLocalVaultPermissionFrame(
   const frameWindow = options.window ?? window;
   const permissionService = options.permissionService ?? resolveLocalVaultPermissionService();
   ensureStyles(frameDocument);
-  render(frameDocument, frameWindow, permissionService);
+  void resolveLocalization(frameWindow, options.language).then((localization) => {
+    render(frameDocument, frameWindow, permissionService, localization);
+  });
 }
 
 mountLocalVaultPermissionFrame();
