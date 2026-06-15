@@ -29,6 +29,7 @@ import {
   analyticsMocks,
   asOptionsController,
   createController,
+  createEnglishPageMessages,
   createMessaging,
   createRepository,
   createStorage,
@@ -465,8 +466,15 @@ describe('mountProductionStitchShell actions', () => {
     expect(document.body.textContent).not.toContain('Copied config');
   });
 
-  it('runs the full production diagnostics report instead of a simplified JSON dump', () => {
+  it('runs the full production diagnostics report instead of a simplified JSON dump', async () => {
     const controller = createController();
+    const englishMessages = await createEnglishPageMessages({
+      diagnosticsRestApiKeyMissing: 'Missing API key sentinel',
+      diagnosticsSectionFragmentClipperTitle: 'Fragment clipping sentinel',
+      diagnosticsFragmentContextLengthShort: 'Context length sentinel {value}',
+      diagnosticsSectionVideoModeTitle: 'Video diagnostics sentinel',
+      diagnosticsSectionPortChecksTitle: 'Port checks sentinel'
+    });
     mountProductionStitchShell({
       controller: asOptionsController(controller),
       initialOptions: {
@@ -488,17 +496,18 @@ describe('mountProductionStitchShell actions', () => {
           floatingPromptEnabled: false
         }
       },
-      messages: null,
+      messages: englishMessages,
       language: 'en'
     });
 
     findButton('Diagnose Configuration').click();
+    await flushPromises();
 
-    expect(document.body.textContent).toContain('未配置 API Key');
-    expect(document.body.textContent).toContain('片段剪藏配置');
-    expect(document.body.textContent).toContain('上下文长度较短');
-    expect(document.body.textContent).toContain('视频模式');
-    expect(document.body.textContent).toContain('端口检查');
+    expect(document.body.textContent).toContain('Missing API key sentinel');
+    expect(document.body.textContent).toContain('Fragment clipping sentinel');
+    expect(document.body.textContent).toContain('Context length sentinel 10');
+    expect(document.body.textContent).toContain('Video diagnostics sentinel');
+    expect(document.body.textContent).toContain('Port checks sentinel');
   });
 
   it('persists privacy consent switches through the production options repository', async () => {

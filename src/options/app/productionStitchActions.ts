@@ -280,7 +280,9 @@ export function createProductionStitchActions(
       void context.copyConfigurationToClipboard(context.eventButton(value));
     },
     'maintenance:diagnose': () => {
-      context.setMaintenanceLog(buildDiagnosticsReport(context.collectDraftWithWidgets()));
+      context.setMaintenanceLog(
+        buildDiagnosticsReport(context.collectDraftWithWidgets(), context.getMessages())
+      );
       context.refreshAppData();
       context.render();
     },
