@@ -4,6 +4,7 @@ import {
   type SchemaMessageKey,
   type SchemaTranslator
 } from '@options/stitch/schema/i18n';
+import { createReleaseLanguageOptions } from '@options/stitch/languageOptions';
 import type { PreviewContent } from '@options/stitch/types';
 
 const NAV_LABEL_KEYS = {
@@ -58,6 +59,97 @@ const SURFACE_HINT_KEYS = {
   'task-success': 'schemaRuntimeTaskSuccessHint'
 } satisfies Record<string, SchemaMessageKey>;
 
+const OVERVIEW_HERO_PILL_KEYS = [
+  'schemaOverviewHeroPillDefaultVaultReady',
+  'schemaOverviewHeroPillRoutingActive',
+  'schemaOverviewHeroPillYamlConfigured'
+] as const satisfies readonly SchemaMessageKey[];
+
+const STORAGE_HERO_PILL_KEYS = [
+  'schemaStorageVaultListTitle',
+  'schemaStorageRoutingGroupTitle'
+] as const satisfies readonly SchemaMessageKey[];
+
+const CAPTURE_SOURCES_HERO_PILL_KEYS = [
+  'schemaCaptureSourcesAiChatGroupTitle',
+  'schemaCaptureSourcesVideoGroupTitle'
+] as const satisfies readonly SchemaMessageKey[];
+
+const CAPTURE_BEHAVIOR_HERO_PILL_KEYS = [
+  'schemaCaptureBehaviorReadingGroupTitle',
+  'schemaCaptureBehaviorFragmentGroupTitle'
+] as const satisfies readonly SchemaMessageKey[];
+
+const LANGUAGE_OPTION_KEYS: Record<string, SchemaMessageKey> = {
+  en: 'schemaOverviewLanguageOptionEn',
+  'zh-CN': 'schemaOverviewLanguageOptionZhCn',
+  ja: 'schemaOverviewLanguageOptionJa',
+  de: 'schemaOverviewLanguageOptionDe',
+  fr: 'schemaOverviewLanguageOptionFr',
+  'es-ES': 'schemaOverviewLanguageOptionEsEs',
+  'es-419': 'schemaOverviewLanguageOptionEs419',
+  it: 'schemaOverviewLanguageOptionIt',
+  ko: 'schemaOverviewLanguageOptionKo',
+  'pt-BR': 'schemaOverviewLanguageOptionPtBr',
+  ru: 'schemaOverviewLanguageOptionRu',
+  'zh-TW': 'schemaOverviewLanguageOptionZhTw'
+};
+
+const SUBTITLE_LANGUAGE_KEYS: Record<string, SchemaMessageKey> = {
+  'zh-CN': 'schemaOverviewLanguageOptionZhCn',
+  en: 'schemaOverviewLanguageOptionEn',
+  ja: 'schemaOverviewLanguageOptionJa',
+  ko: 'schemaOverviewLanguageOptionKo',
+  de: 'schemaOverviewLanguageOptionDe',
+  es: 'schemaOverviewLanguageOptionEsEs'
+};
+
+const YAML_FILTER_KEYS: Record<string, SchemaMessageKey> = {
+  all: 'schemaYamlFilterAllLabel',
+  article: 'schemaYamlFilterArticleLabel',
+  clipper: 'schemaYamlFilterClipperLabel',
+  video: 'schemaYamlFilterVideoLabel',
+  ai_chat: 'schemaYamlFilterAiChatLabel'
+};
+
+const DOMAIN_MAPPING_NOTE_KEYS = [
+  'schemaOutputDomainMappingNoteWeChat',
+  'schemaOutputDomainMappingNoteArxiv',
+  'schemaOutputDomainMappingNoteChatGpt'
+] as const satisfies readonly SchemaMessageKey[];
+
+function localizePills(
+  pills: string[],
+  keys: readonly SchemaMessageKey[],
+  t: SchemaTranslator
+): string[] {
+  return pills.map((pill, index) => {
+    const key = keys[index];
+    return key ? t(key, pill) : pill;
+  });
+}
+
+function localizeSelectOptions(
+  options: PreviewContent['experimental']['subtitleLanguages'],
+  keys: Partial<Record<string, SchemaMessageKey>>,
+  t: SchemaTranslator
+): PreviewContent['experimental']['subtitleLanguages'] {
+  return options.map((option) => {
+    const key = keys[option.value];
+    return {
+      ...option,
+      label: key ? t(key, option.label) : option.label
+    };
+  });
+}
+
+function localizeLanguageOptions(t: SchemaTranslator): PreviewContent['languageOptions'] {
+  return createReleaseLanguageOptions((code, metadata) => {
+    const key = LANGUAGE_OPTION_KEYS[code];
+    return key ? t(key, metadata.englishName) : metadata.englishName;
+  });
+}
+
 function localizeNavItems(
   items: PreviewContent['nav'],
   labelKeys: Partial<Record<string, SchemaMessageKey>>,
@@ -95,21 +187,36 @@ function localizeReaderSurface(
       if (index === 0) {
         return {
           ...highlight,
-          excerpt: t('schemaRuntimeReaderHighlightOneExcerpt', highlight.excerpt)
+          excerpt: t('schemaRuntimeReaderHighlightOneExcerpt', highlight.excerpt),
+          commentPreview: highlight.commentPreview
+            ? t('schemaRuntimeReaderHighlightOneComment', highlight.commentPreview)
+            : highlight.commentPreview,
+          comment: highlight.comment
+            ? t('schemaRuntimeReaderHighlightOneComment', highlight.comment)
+            : highlight.comment
         };
       }
 
       if (index === 1) {
         return {
           ...highlight,
-          excerpt: t('schemaRuntimeReaderHighlightTwoExcerpt', highlight.excerpt)
+          excerpt: t('schemaRuntimeReaderHighlightTwoExcerpt', highlight.excerpt),
+          commentPreview: highlight.commentPreview
+            ? t('schemaRuntimeReaderHighlightTwoComment', highlight.commentPreview)
+            : highlight.commentPreview,
+          comment: highlight.comment
+            ? t('schemaRuntimeReaderHighlightTwoComment', highlight.comment)
+            : highlight.comment
         };
       }
 
       if (index === 2) {
         return {
           ...highlight,
-          fullText: t('schemaRuntimeReaderHighlightThreeFullText', highlight.fullText)
+          fullText: t('schemaRuntimeReaderHighlightThreeFullText', highlight.fullText),
+          draft: highlight.draft
+            ? t('schemaRuntimeReaderHighlightThreeDraft', highlight.draft)
+            : highlight.draft
         };
       }
 
@@ -128,11 +235,62 @@ function localizeVideoSurface(
       if (index === 1 && capture.fullText) {
         return {
           ...capture,
-          fullText: t('schemaRuntimeVideoCaptureTwoFullText', capture.fullText)
+          fullText: t('schemaRuntimeVideoCaptureTwoFullText', capture.fullText),
+          commentPreview: capture.commentPreview
+            ? t('schemaRuntimeVideoCaptureTwoComment', capture.commentPreview)
+            : capture.commentPreview,
+          comment: capture.comment
+            ? t('schemaRuntimeVideoCaptureTwoComment', capture.comment)
+            : capture.comment
+        };
+      }
+
+      if (index === 0) {
+        return {
+          ...capture,
+          commentPreview: capture.commentPreview
+            ? t('schemaRuntimeVideoCaptureOneComment', capture.commentPreview)
+            : capture.commentPreview,
+          comment: capture.comment
+            ? t('schemaRuntimeVideoCaptureOneComment', capture.comment)
+            : capture.comment
+        };
+      }
+
+      if (index === 2) {
+        return {
+          ...capture,
+          draft: capture.draft
+            ? t('schemaRuntimeVideoCaptureThreeDraft', capture.draft)
+            : capture.draft
         };
       }
 
       return capture;
+    })
+  };
+}
+
+function localizeOutput(
+  output: PreviewContent['output'],
+  t: SchemaTranslator
+): PreviewContent['output'] {
+  return {
+    ...output,
+    domainMappings: output.domainMappings.map(([domain, alias, note], index) => {
+      const noteKey = DOMAIN_MAPPING_NOTE_KEYS[index];
+      return [
+        domain,
+        alias,
+        noteKey ? t(noteKey, note) : note
+      ] as (typeof output.domainMappings)[number];
+    }),
+    yamlFilters: output.yamlFilters.map((filter) => {
+      const key = YAML_FILTER_KEYS[filter.value];
+      return {
+        ...filter,
+        label: key ? t(key, filter.label) : filter.label
+      };
     })
   };
 }
@@ -177,6 +335,44 @@ export function localizeStitchContent(
       SURFACE_HINT_KEYS,
       t
     ),
+    overview: {
+      ...content.overview,
+      hero: {
+        ...content.overview.hero,
+        pills: localizePills(content.overview.hero.pills, OVERVIEW_HERO_PILL_KEYS, t)
+      }
+    },
+    languageOptions: localizeLanguageOptions(t),
+    storage: {
+      ...content.storage,
+      hero: {
+        ...content.storage.hero,
+        pills: localizePills(content.storage.hero.pills, STORAGE_HERO_PILL_KEYS, t)
+      }
+    },
+    captureSources: {
+      ...content.captureSources,
+      hero: {
+        ...content.captureSources.hero,
+        pills: localizePills(content.captureSources.hero.pills, CAPTURE_SOURCES_HERO_PILL_KEYS, t)
+      }
+    },
+    captureBehavior: {
+      ...content.captureBehavior,
+      hero: {
+        ...content.captureBehavior.hero,
+        pills: localizePills(content.captureBehavior.hero.pills, CAPTURE_BEHAVIOR_HERO_PILL_KEYS, t)
+      }
+    },
+    output: localizeOutput(content.output, t),
+    experimental: {
+      ...content.experimental,
+      subtitleLanguages: localizeSelectOptions(
+        content.experimental.subtitleLanguages,
+        SUBTITLE_LANGUAGE_KEYS,
+        t
+      )
+    },
     surfaces: {
       ...content.surfaces,
       clipper: localizeClipperSurface(content.surfaces.clipper, t),

@@ -38,6 +38,9 @@ const ENGLISH_SENTINEL_MESSAGES = {
   schemaOutputDomainColumnLabel: 'Domain Column Sentinel',
   schemaOutputFolderAliasColumnLabel: 'Alias Column Sentinel',
   schemaOutputDomainNotesColumnLabel: 'Notes Column Sentinel',
+  schemaOutputDomainMappingNoteWeChat: 'WeChat Note Sentinel',
+  schemaOutputDomainMappingNoteArxiv: 'Arxiv Note Sentinel',
+  schemaOutputDomainMappingNoteChatGpt: 'ChatGPT Note Sentinel',
   domainMappingDomainPlaceholder: 'domain placeholder sentinel',
   domainMappingNamePlaceholder: 'alias placeholder sentinel',
   schemaOutputYamlGroupTitle: 'YAML Group Sentinel',
@@ -124,6 +127,9 @@ describe('mountProductionStitchShell output i18n', () => {
 
     const removeButton = queryRequired<HTMLButtonElement>('[data-action-id="domain:remove"]');
     expect(removeButton.textContent?.trim()).toBe('Remove Mapping Sentinel');
+    expect(domainCard.textContent).toContain('WeChat Note Sentinel');
+    expect(domainCard.textContent).toContain('Arxiv Note Sentinel');
+    expect(domainCard.textContent).toContain('ChatGPT Note Sentinel');
 
     const yamlCard = findCardByTitle('YAML Card Sentinel');
     expect(yamlCard.textContent).toContain('YAML card hint sentinel.');

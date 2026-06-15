@@ -810,7 +810,9 @@ describe('mountProductionStitchShell renderLifecycle', () => {
     expect(privacyPolicy.disabled).toBe(false);
     privacyPolicy.click();
     expect(document.querySelector('[role="dialog"]')?.textContent).toContain('Privacy Policy');
-    expect(document.querySelector('[role="dialog"]')?.textContent).toContain('页面正文与剪藏内容');
+    expect(document.querySelector('[role="dialog"]')?.textContent).toContain(
+      'Page content and clipped text'
+    );
 
     document.querySelector<HTMLElement>('.resource-modal-overlay')?.click();
 
@@ -818,7 +820,9 @@ describe('mountProductionStitchShell renderLifecycle', () => {
     expect(dataUsage.disabled).toBe(false);
     dataUsage.click();
     expect(document.querySelector('[role="dialog"]')?.textContent).toContain('Data Usage');
-    expect(document.querySelector('[role="dialog"]')?.textContent).toContain('匿名功能使用次数');
+    expect(document.querySelector('[role="dialog"]')?.textContent).toContain(
+      'Anonymous feature usage'
+    );
   });
 
   it('handles resource navigation actions by closing the modal and activating the target panel', () => {

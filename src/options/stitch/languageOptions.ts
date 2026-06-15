@@ -1,9 +1,21 @@
-import { RELEASE_LANGUAGE_CONFIG, RELEASE_LANGUAGE_ORDER } from '@i18n/catalog/languages';
+import {
+  RELEASE_LANGUAGE_CONFIG,
+  RELEASE_LANGUAGE_ORDER,
+  type LanguageMetadata,
+  type ReleaseLangCode
+} from '@i18n/catalog/languages';
 import type { SelectOption } from './types';
 
-export function createReleaseLanguageOptions(): SelectOption[] {
-  return RELEASE_LANGUAGE_ORDER.map((code) => ({
-    value: code,
-    label: RELEASE_LANGUAGE_CONFIG[code].nativeName
-  }));
+type ReleaseLanguageLabelResolver = (code: ReleaseLangCode, metadata: LanguageMetadata) => string;
+
+export function createReleaseLanguageOptions(
+  resolveLabel?: ReleaseLanguageLabelResolver
+): SelectOption[] {
+  return RELEASE_LANGUAGE_ORDER.map((code) => {
+    const metadata = RELEASE_LANGUAGE_CONFIG[code];
+    return {
+      value: code,
+      label: resolveLabel ? resolveLabel(code, metadata) : metadata.nativeName
+    };
+  });
 }
