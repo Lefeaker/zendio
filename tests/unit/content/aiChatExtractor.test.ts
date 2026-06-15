@@ -111,13 +111,21 @@ describe('extractAIChat', () => {
 
     const module = await import('@content/extractors/aiChatExtractor');
     await module.extractAIChat(document, 'https://www.kimi.com/chat/123', {
-      optionsRepository: createOptionsRepository()
+      optionsRepository: createOptionsRepository(),
+      getMessages: vi.fn(async () => ({
+        exportAiChatFallbackTitleDeepseek: 'DeepSeek Chat',
+        exportAiChatFallbackTitleKimi: 'Kimi Chat',
+        exportAiChatFallbackTitleTongyi: 'Tongyi Chat'
+      }))
     });
 
     expect(mockParseChatDOMAsync).toHaveBeenCalledWith(
       'kimi',
       document,
-      expect.objectContaining({ deepResearch: { pureMode: true } })
+      expect.objectContaining({
+        deepResearch: { pureMode: true },
+        fallbackTitle: 'Kimi Chat'
+      })
     );
 
     const lastCall = mockBuildChatMarkdown.mock.calls.at(-1);

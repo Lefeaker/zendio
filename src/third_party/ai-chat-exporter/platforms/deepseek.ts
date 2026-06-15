@@ -1,6 +1,6 @@
 import { DEFAULT_CHAT_TITLE } from '../shared/constants';
 import { chatHtmlToMarkdown } from '../shared/markdown';
-import type { ChatPlatformParser, ParsedMessage, ParsedResult } from '../types';
+import type { ChatPlatformParser, ParseConfig, ParsedMessage, ParsedResult } from '../types';
 
 const DEEPSEEK_MESSAGE_CONTAINER_SELECTOR = '[class*="message"], [class*="Message"]';
 const DEEPSEEK_USER_MESSAGE_SELECTOR = '[class*="user"], [class*="User"]';
@@ -8,7 +8,7 @@ const DEEPSEEK_ASSISTANT_MESSAGE_SELECTOR =
   '[class*="assistant"], [class*="Assistant"], [class*="bot"]';
 const DEEPSEEK_TITLE_REPLACE_TEXT = ' - DeepSeek';
 
-function extractDeepSeekChatData(doc: Document): ParsedResult {
+function extractDeepSeekChatData(doc: Document, config?: ParseConfig): ParsedResult {
   const messageContainers = Array.from(doc.querySelectorAll(DEEPSEEK_MESSAGE_CONTAINER_SELECTOR));
   if (messageContainers.length === 0) {
     return { title: DEFAULT_CHAT_TITLE, messages: [], assets: [] };
@@ -22,7 +22,7 @@ function extractDeepSeekChatData(doc: Document): ParsedResult {
     }
   }
   if (!title) {
-    title = 'DeepSeek 对话';
+    title = config?.fallbackTitle?.trim() || 'DeepSeek Chat';
   }
 
   let model = '';
@@ -104,5 +104,5 @@ function extractDeepSeekChatData(doc: Document): ParsedResult {
 
 export const deepseekParser: ChatPlatformParser = {
   id: 'deepseek',
-  parse: (doc) => extractDeepSeekChatData(doc)
+  parse: (doc, config) => extractDeepSeekChatData(doc, config)
 };

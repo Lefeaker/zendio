@@ -22,6 +22,7 @@ export interface FragmentMarkdownParams {
   clippedAt: string;
   selectedHtml: string;
   userComment?: string;
+  commentHeading?: string;
   config: FragmentClipperOptions;
   turndown: TurndownService;
   context?: ContextSegments | null;
@@ -36,6 +37,7 @@ export function buildFragmentMarkdown(params: FragmentMarkdownParams): string {
     clippedAt,
     selectedHtml,
     userComment,
+    commentHeading,
     config,
     turndown,
     context,
@@ -145,10 +147,11 @@ export function buildFragmentMarkdown(params: FragmentMarkdownParams): string {
   }
 
   if (!config.useFootnoteFormat && userComment?.trim()) {
+    const resolvedCommentHeading = commentHeading?.trim() || 'My Comment';
     markdown += `
 ---
 
-## 💭 我的评论
+## 💭 ${resolvedCommentHeading}
 
 ${userComment.trim()}
 `;

@@ -1,6 +1,6 @@
 import { DEFAULT_CHAT_TITLE } from '../shared/constants';
 import { chatHtmlToMarkdown } from '../shared/markdown';
-import type { ChatPlatformParser, ParsedMessage, ParsedResult } from '../types';
+import type { ChatPlatformParser, ParseConfig, ParsedMessage, ParsedResult } from '../types';
 
 const TONGYI_MESSAGE_CONTAINER_SELECTOR =
   '[class*="message-item"], [class*="questionItem--"], [class*="answerItem"], [class*="contentBox--"]';
@@ -19,7 +19,7 @@ const LANGUAGE_ALIASES: Record<string, string> = {
   shell: 'bash'
 };
 
-function extractTongyiChatData(doc: Document): ParsedResult {
+function extractTongyiChatData(doc: Document, config?: ParseConfig): ParsedResult {
   const questionItems = Array.from(doc.querySelectorAll('[class*="questionItem"]'));
   const answerItems = Array.from(doc.querySelectorAll('[class*="answerItem"]'));
 
@@ -38,7 +38,7 @@ function extractTongyiChatData(doc: Document): ParsedResult {
       const firstQuestion = questionItems[0].textContent?.trim() || '';
       title = firstQuestion.substring(0, 50) + (firstQuestion.length > 50 ? '...' : '');
     } else {
-      title = '通义千问对话';
+      title = config?.fallbackTitle?.trim() || 'Tongyi Chat';
     }
   }
 
@@ -260,5 +260,5 @@ function sanitizeTongyiContent(element: HTMLElement): HTMLElement {
 
 export const tongyiParser: ChatPlatformParser = {
   id: 'tongyi',
-  parse: (doc) => extractTongyiChatData(doc)
+  parse: (doc, config) => extractTongyiChatData(doc, config)
 };

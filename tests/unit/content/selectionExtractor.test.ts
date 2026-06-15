@@ -210,4 +210,37 @@ describe('selectionExtractor', () => {
     expect(result.meta.hasComment).toBe(false);
     expect(result.markdown).toContain('List context');
   });
+
+  it('uses a caller-provided localized comment heading', async () => {
+    document.body.innerHTML = `<p id="target">Localized text</p>`;
+    const target = document.getElementById('target');
+    if (!target) throw new Error('missing test element');
+
+    const range = document.createRange();
+    range.selectNodeContents(target);
+    const container = document.createElement('div');
+    container.appendChild(range.cloneContents());
+
+    const result = await extractSelectionClip({
+      doc: document,
+      url: 'https://example.com/post',
+      selectedHtml: container.innerHTML,
+      selectedText: target.textContent || '',
+      userComment: 'remember this',
+      commentHeading: 'My Comment',
+      config: {
+        useFootnoteFormat: false,
+        captureContext: false,
+        contextLength: 200,
+        contextMode: 'chars',
+        selectionModifierEnabled: false,
+        selectionModifierKeys: [],
+        keyboardShortcutsEnabled: false
+      },
+      selectionRange: range
+    });
+
+    expect(result.markdown).toContain('## 💭 My Comment');
+    expect(result.markdown).not.toContain('我的评论');
+  });
 });
