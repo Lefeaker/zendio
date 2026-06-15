@@ -1,7 +1,6 @@
 /* @vitest-environment jsdom */
 
-import type { Messages } from '@i18n';
-import { DEFAULT_RUNTIME_MESSAGES } from '@i18n';
+import { DEFAULT_RUNTIME_MESSAGES, getMessagesForLanguage, type Messages } from '@i18n';
 import { mountProductionStitchShell } from '@options/app/productionStitchShell';
 import { createProductionStitchSchemaContext } from '@options/app/productionStitchShellContext';
 import { renderPreviewView, type RendererContext } from '@options/stitch/render/renderStitchView';
@@ -134,21 +133,29 @@ const ENGLISH_SENTINEL_MESSAGES = {
   schemaResourceDataUsageConfigMigrationBody: 'Data Usage Config Migration Body Sentinel'
 } as Messages;
 
-function createLocalizedSchemaContext() {
+type ResourceRenderOptions = {
+  language?: 'en' | 'zh-CN';
+  messages?: Messages;
+  mutateAppData?: (appData: ReturnType<typeof createBaseSchemaContext>['appData']) => void;
+};
+
+function createLocalizedSchemaContext(options: ResourceRenderOptions = {}) {
   const base = createBaseSchemaContext();
+  options.mutateAppData?.(base.appData);
+  const language = options.language ?? 'en';
   return createProductionStitchSchemaContext({
     appData: base.appData,
     state: {
       ...base.state,
-      previewLanguage: 'en'
+      previewLanguage: language
     },
-    language: 'en',
-    messages: ENGLISH_SENTINEL_MESSAGES
+    language,
+    messages: options.messages ?? ENGLISH_SENTINEL_MESSAGES
   });
 }
 
-function renderResourcePage(resourceId: string): HTMLElement {
-  const schemaContext = createLocalizedSchemaContext();
+function renderResourcePage(resourceId: string, options: ResourceRenderOptions = {}): HTMLElement {
+  const schemaContext = createLocalizedSchemaContext(options);
   const view = getResourceView(resourceId, schemaContext);
   expect(view).toBeTruthy();
 
@@ -332,6 +339,12 @@ describe('mountProductionStitchShell resource i18n', () => {
       'Changelog v0.1.0 Bullet 5 Sentinel',
       'Changelog v0.1.0 Bullet 6 Sentinel'
     );
+    expectNoText(
+      changelog,
+      '重构选项页为新的设置中心',
+      '这里直接使用项目中的更新日志重点内容，保持和真实版本记录一致。',
+      '使用建议'
+    );
   });
 
   it('renders privacy and data usage resources from sentinel English messages', async () => {
@@ -377,13 +390,53 @@ describe('mountProductionStitchShell resource i18n', () => {
     expectNoText(dataUsage, '匿名功能使用次数');
   });
 
+  it('renders zh-CN changelog copy from the active catalog instead of raw appData text', async () => {
+    const zhMessages = await getMessagesForLanguage('zh-CN');
+
+    const changelog = renderResourcePage('changelog', {
+      language: 'zh-CN',
+      messages: zhMessages,
+      mutateAppData(appData) {
+        appData.resources.changelog.hero.title = 'RAW CHANGELOG TITLE SENTINEL';
+        appData.resources.changelog.hero.description = 'RAW CHANGELOG DESCRIPTION SENTINEL';
+        appData.resources.changelog.entries[0].bullets[0] = 'RAW CHANGELOG BULLET SENTINEL';
+        appData.resources.changelog.entries[0].notes = [
+          {
+            title: 'RAW CHANGELOG NOTES TITLE SENTINEL',
+            items: ['RAW CHANGELOG NOTE ITEM SENTINEL']
+          }
+        ];
+      }
+    });
+
+    expectText(
+      changelog,
+      zhMessages.schemaResourceChangelogTitle,
+      zhMessages.schemaResourceChangelogDescription,
+      zhMessages.schemaResourceChangelogV020Bullet1,
+      zhMessages.schemaResourceChangelogUsageAdviceTitle,
+      zhMessages.schemaResourceChangelogUsageAdvice1
+    );
+    expectNoText(
+      changelog,
+      'RAW CHANGELOG TITLE SENTINEL',
+      'RAW CHANGELOG DESCRIPTION SENTINEL',
+      'RAW CHANGELOG BULLET SENTINEL',
+      'RAW CHANGELOG NOTES TITLE SENTINEL',
+      'RAW CHANGELOG NOTE ITEM SENTINEL'
+    );
+  });
+
   it('falls back to English resource copy when selected catalog keys are missing', async () => {
     const fallbackProbeMessages: Messages = {
       ...ENGLISH_SENTINEL_MESSAGES,
       schemaResourceSupportTitle: '',
       schemaResourceSupportDescription: '',
       schemaResourceChangelogTitle: '',
-      schemaResourceChangelogDescription: ''
+      schemaResourceChangelogDescription: '',
+      schemaResourceChangelogV020Bullet1: '',
+      schemaResourceChangelogUsageAdviceTitle: '',
+      schemaResourceChangelogUsageAdvice1: ''
     };
 
     mountProductionStitchShell({
@@ -402,8 +455,17 @@ describe('mountProductionStitchShell resource i18n', () => {
     expectText(
       changelog,
       'Changelog',
-      'This modal highlights the latest shipped updates from the project changelog.'
+      'This modal highlights the latest shipped updates from the project changelog.',
+      'Rebuilt Options as a new settings center for overview, language, privacy, storage, capture, output, and maintenance workflows.',
+      'Notes',
+      'Configure the default vault first, then add extra vaults and routing rules as needed.'
     );
-    expectNoText(changelog, '更新日志', '这里直接使用项目中的更新日志重点内容。');
+    expectNoText(
+      changelog,
+      '更新日志',
+      '重构选项页为新的设置中心',
+      '先在 Storage 中配置默认仓库',
+      '这里直接使用项目中的更新日志重点内容。'
+    );
   });
 });
