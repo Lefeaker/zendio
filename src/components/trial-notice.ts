@@ -1,9 +1,51 @@
 /**
- * 试用版本提醒组件
- * 在用户界面中显示试用状态和过期提醒
+ * Trial notice component.
+ * Displays trial status and expiration reminders in the UI.
  */
 
-import { checkTrialStatus, formatRemainingTime, type TrialStatus } from '../utils/trial-manager.js';
+import {
+  DEFAULT_LANGUAGE,
+  DEFAULT_RUNTIME_MESSAGES,
+  formatMessage,
+  getCurrentLanguage,
+  getMessages,
+  type Messages
+} from '@i18n';
+import {
+  checkTrialStatus,
+  formatRemainingTime,
+  formatTrialDate,
+  formatTrialSummaryMessage,
+  type TrialStatus
+} from '../utils/trial-manager.js';
+
+type TrialNoticeMessageKey =
+  | 'trialNoticeCloseButton'
+  | 'trialNoticeTitleActive'
+  | 'trialNoticeTitleExpired'
+  | 'trialNoticeTitleExpiringSoon'
+  | 'trialNotificationExpiredMessage'
+  | 'trialNotificationExpiredTitle'
+  | 'trialNotificationExpiringSoonMessage'
+  | 'trialNotificationExpiringSoonTitle'
+  | 'trialSummaryExpired'
+  | 'trialSummaryRemaining';
+
+type TrialNoticeMessages = Pick<Messages, TrialNoticeMessageKey>;
+
+const DEFAULT_NOTICE_MESSAGES: TrialNoticeMessages = {
+  trialNoticeCloseButton: DEFAULT_RUNTIME_MESSAGES.trialNoticeCloseButton,
+  trialNoticeTitleActive: DEFAULT_RUNTIME_MESSAGES.trialNoticeTitleActive,
+  trialNoticeTitleExpired: DEFAULT_RUNTIME_MESSAGES.trialNoticeTitleExpired,
+  trialNoticeTitleExpiringSoon: DEFAULT_RUNTIME_MESSAGES.trialNoticeTitleExpiringSoon,
+  trialNotificationExpiredMessage: DEFAULT_RUNTIME_MESSAGES.trialNotificationExpiredMessage,
+  trialNotificationExpiredTitle: DEFAULT_RUNTIME_MESSAGES.trialNotificationExpiredTitle,
+  trialNotificationExpiringSoonMessage:
+    DEFAULT_RUNTIME_MESSAGES.trialNotificationExpiringSoonMessage,
+  trialNotificationExpiringSoonTitle: DEFAULT_RUNTIME_MESSAGES.trialNotificationExpiringSoonTitle,
+  trialSummaryExpired: DEFAULT_RUNTIME_MESSAGES.trialSummaryExpired,
+  trialSummaryRemaining: DEFAULT_RUNTIME_MESSAGES.trialSummaryRemaining
+};
 
 const STYLE_ID = 'trial-notice-style';
 const STYLE_SELECTOR = 'style[data-trial-notice-style]';
@@ -13,13 +55,42 @@ const NOTICE_STATE_CLASSES = [
   'trial-notice--expired'
 ];
 
+function selectTrialNoticeMessages(messages: Messages): TrialNoticeMessages {
+  return {
+    trialNoticeCloseButton:
+      messages.trialNoticeCloseButton ?? DEFAULT_NOTICE_MESSAGES.trialNoticeCloseButton,
+    trialNoticeTitleActive:
+      messages.trialNoticeTitleActive ?? DEFAULT_NOTICE_MESSAGES.trialNoticeTitleActive,
+    trialNoticeTitleExpired:
+      messages.trialNoticeTitleExpired ?? DEFAULT_NOTICE_MESSAGES.trialNoticeTitleExpired,
+    trialNoticeTitleExpiringSoon:
+      messages.trialNoticeTitleExpiringSoon ?? DEFAULT_NOTICE_MESSAGES.trialNoticeTitleExpiringSoon,
+    trialNotificationExpiredMessage:
+      messages.trialNotificationExpiredMessage ??
+      DEFAULT_NOTICE_MESSAGES.trialNotificationExpiredMessage,
+    trialNotificationExpiredTitle:
+      messages.trialNotificationExpiredTitle ??
+      DEFAULT_NOTICE_MESSAGES.trialNotificationExpiredTitle,
+    trialNotificationExpiringSoonMessage:
+      messages.trialNotificationExpiringSoonMessage ??
+      DEFAULT_NOTICE_MESSAGES.trialNotificationExpiringSoonMessage,
+    trialNotificationExpiringSoonTitle:
+      messages.trialNotificationExpiringSoonTitle ??
+      DEFAULT_NOTICE_MESSAGES.trialNotificationExpiringSoonTitle,
+    trialSummaryExpired:
+      messages.trialSummaryExpired ?? DEFAULT_NOTICE_MESSAGES.trialSummaryExpired,
+    trialSummaryRemaining:
+      messages.trialSummaryRemaining ?? DEFAULT_NOTICE_MESSAGES.trialSummaryRemaining
+  };
+}
+
 function ensureStyles(): void {
   if (document.getElementById(STYLE_ID)) return;
   const style = document.createElement('style');
   style.id = STYLE_ID;
   style.dataset.trialNoticeStyle = 'base';
   style.textContent =
-    '.trial-notice{position:fixed;top:10px;right:10px;color:white;padding:12px 16px;border-radius:8px;font-size:14px;font-weight:500;box-shadow:0 4px 12px rgba(0,0,0,.15);z-index:10000;max-width:300px;cursor:pointer;transition:all .3s ease}.trial-notice:hover{transform:translateY(-2px);box-shadow:0 6px 16px rgba(0,0,0,.2)}.trial-notice--active{background:#3742fa}.trial-notice--expiring{background:#ffa502}.trial-notice--expired{background:#ff4757;animation:trial-blink 2s infinite}.trial-notice__row{display:flex;align-items:center;gap:8px}.trial-notice__title{font-weight:bold}.trial-notice__detail{font-size:12px;opacity:.9}.trial-notice-modal{position:fixed;inset:0;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;z-index:10001}.trial-notice-modal__content{background:white;padding:24px;border-radius:12px;max-width:400px;width:90%;box-shadow:0 8px 32px rgba(0,0,0,.3)}.trial-notice-modal__summary{text-align:center;margin-bottom:20px}.trial-notice-modal__title{margin:0 0 16px 0;color:#333}.trial-notice-modal__body{color:#666;line-height:1.6}.trial-notice-modal__restricted{color:#ff4757}.trial-notice-modal__available{color:#2ed573}.trial-notice-modal__actions{text-align:center}.trial-notice-modal__close{background:#3742fa;color:white;border:none;padding:10px 20px;border-radius:6px;cursor:pointer;font-size:14px}@keyframes trial-blink{0%,50%{opacity:1}25%,75%{opacity:.7}}';
+    '.trial-notice{position:fixed;top:10px;right:10px;color:white;padding:12px 16px;border-radius:8px;font-size:14px;font-weight:500;box-shadow:0 4px 12px rgba(0,0,0,.15);z-index:10000;max-width:300px;cursor:pointer;transition:all .3s ease}.trial-notice:hover{transform:translateY(-2px);box-shadow:0 6px 16px rgba(0,0,0,.2)}.trial-notice--active{background:#3742fa}.trial-notice--expiring{background:#ffa502}.trial-notice--expired{background:#ff4757;animation:trial-blink 2s infinite}.trial-notice__row{display:flex;align-items:center;gap:8px}.trial-notice__title{font-weight:bold}.trial-notice__detail{font-size:12px;opacity:.9}.trial-notice-modal{position:fixed;inset:0;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;z-index:10001}.trial-notice-modal__content{background:white;padding:24px;border-radius:12px;max-width:400px;width:90%;box-shadow:0 8px 32px rgba(0,0,0,.3)}.trial-notice-modal__summary{text-align:center;margin-bottom:20px}.trial-notice-modal__title{margin:0 0 16px 0;color:#333}.trial-notice-modal__body{color:#666;line-height:1.6}.trial-notice-modal__message{margin-top:12px}.trial-notice-modal__actions{text-align:center}.trial-notice-modal__close{background:#3742fa;color:white;border:none;padding:10px 20px;border-radius:6px;cursor:pointer;font-size:14px}@keyframes trial-blink{0%,50%{opacity:1}25%,75%{opacity:.7}}';
   document.head.appendChild(style);
 }
 
@@ -38,59 +109,81 @@ export class TrialNotice {
   private container: HTMLElement | null = null;
   private status: TrialStatus | null = null;
   private checkInterval: number | null = null;
+  private language = DEFAULT_LANGUAGE;
+  private messages: TrialNoticeMessages = DEFAULT_NOTICE_MESSAGES;
 
   /**
-   * 初始化试用提醒组件
+   * Initialize the trial notice component.
    */
   async initialize(): Promise<void> {
+    await this.refreshLocalization();
     this.applyStatus(await checkTrialStatus());
   }
 
+  private async refreshLocalization(): Promise<void> {
+    try {
+      const [language, messages] = await Promise.all([getCurrentLanguage(), getMessages()]);
+      this.language = language;
+      this.messages = selectTrialNoticeMessages(messages);
+    } catch {
+      this.language = DEFAULT_LANGUAGE;
+      this.messages = DEFAULT_NOTICE_MESSAGES;
+    }
+  }
+
   /**
-   * 创建提醒元素
+   * Create the notice container.
    */
   private createNoticeElement(): void {
     if (!this.status || !this.status.isTrial) {
       return;
     }
 
-    // 创建容器
     ensureStyles();
     this.container = document.createElement('div');
     this.container.className = 'trial-notice';
 
-    // 添加点击事件
     this.container.addEventListener('click', () => {
       this.showDetailedInfo();
     });
 
-    // 添加到页面
     document.body.appendChild(this.container);
   }
 
   /**
-   * 更新提醒内容
+   * Update the visible notice copy.
    */
   private updateNoticeContent(): void {
     if (!this.container || !this.status) {
       return;
     }
 
-    const timeStr = formatRemainingTime(this.status);
     this.container.classList.remove(...NOTICE_STATE_CLASSES);
 
     if (this.status.isExpired) {
+      const detail = this.status.expirationDate
+        ? formatTrialDate(this.status.expirationDate, this.language)
+        : '';
       this.container.classList.add('trial-notice--expired');
       this.container.replaceChildren(
-        this.createNoticeContent('⚠️', '试用版已过期', '点击查看详情')
+        this.createNoticeContent('⚠️', this.messages.trialNoticeTitleExpired, detail)
       );
-    } else if (this.status.isExpiringSoon) {
-      this.container.classList.add('trial-notice--expiring');
-      this.container.replaceChildren(this.createNoticeContent('⏰', '试用版即将过期', timeStr));
-    } else {
-      this.container.classList.add('trial-notice--active');
-      this.container.replaceChildren(this.createNoticeContent('🔄', '试用版', timeStr));
+      return;
     }
+
+    const remaining = formatRemainingTime(this.status, this.language);
+    if (this.status.isExpiringSoon) {
+      this.container.classList.add('trial-notice--expiring');
+      this.container.replaceChildren(
+        this.createNoticeContent('⏰', this.messages.trialNoticeTitleExpiringSoon, remaining)
+      );
+      return;
+    }
+
+    this.container.classList.add('trial-notice--active');
+    this.container.replaceChildren(
+      this.createNoticeContent('🔄', this.messages.trialNoticeTitleActive, remaining)
+    );
   }
 
   private createNoticeContent(icon: string, titleText: string, detailText: string): HTMLElement {
@@ -112,7 +205,7 @@ export class TrialNotice {
   }
 
   /**
-   * 显示详细信息弹窗
+   * Show the detail modal.
    */
   private showDetailedInfo(): void {
     if (!this.status) {
@@ -125,25 +218,28 @@ export class TrialNotice {
     const content = document.createElement('div');
     content.className = 'trial-notice-modal__content';
 
-    const timeStr = formatRemainingTime(this.status);
-    const expirationStr = this.status.expirationDate
-      ? this.status.expirationDate.toLocaleString('zh-CN')
-      : '未知';
+    const title = this.status.isExpired
+      ? this.messages.trialNoticeTitleExpired
+      : this.status.isExpiringSoon
+        ? this.messages.trialNoticeTitleExpiringSoon
+        : this.messages.trialNoticeTitleActive;
+    const remaining = formatRemainingTime(this.status, this.language);
+    const summaryText = formatTrialSummaryMessage(this.status, this.messages, this.language);
+
     const summary = document.createElement('div');
     summary.className = 'trial-notice-modal__summary';
-
     summary.append(
-      createTextElement(
-        'h3',
-        this.status.isExpired ? '⚠️ 试用版已过期' : '🔄 试用版信息',
-        'trial-notice-modal__title'
-      ),
-      this.createModalBody(timeStr, expirationStr)
+      createTextElement('h3', title, 'trial-notice-modal__title'),
+      this.createModalBody(summaryText, remaining)
     );
 
     const actions = document.createElement('div');
     actions.className = 'trial-notice-modal__actions';
-    const closeButton = createTextElement('button', '确定', 'trial-notice-modal__close');
+    const closeButton = createTextElement(
+      'button',
+      this.messages.trialNoticeCloseButton,
+      'trial-notice-modal__close'
+    );
     closeButton.id = 'trial-close-btn';
     closeButton.type = 'button';
     actions.append(closeButton);
@@ -152,7 +248,6 @@ export class TrialNotice {
     modal.appendChild(content);
     document.body.appendChild(modal);
 
-    // 关闭按钮事件
     const closeModal = () => {
       modal.remove();
     };
@@ -165,37 +260,41 @@ export class TrialNotice {
     });
   }
 
-  private createModalBody(timeStr: string, expirationStr: string): HTMLElement {
+  private createModalBody(summaryText: string, remaining: string): HTMLElement {
     const body = document.createElement('div');
     body.className = 'trial-notice-modal__body';
-    body.append(
-      this.createLabelParagraph('状态', timeStr),
-      this.createLabelParagraph('过期时间', expirationStr)
-    );
+    body.append(createTextElement('p', summaryText));
 
     if (this.status?.isExpired) {
-      const restricted = document.createElement('p');
-      restricted.className = 'trial-notice-modal__restricted';
-      restricted.append(createTextElement('strong', '功能已被限制，请联系开发者获取正式版本。'));
-      body.append(restricted);
-    } else {
-      body.append(createTextElement('p', '扩展功能正常可用。', 'trial-notice-modal__available'));
+      body.append(
+        createTextElement(
+          'p',
+          this.messages.trialNotificationExpiredMessage,
+          'trial-notice-modal__message'
+        )
+      );
+      return body;
+    }
+
+    if (this.status?.isExpiringSoon) {
+      body.append(
+        createTextElement(
+          'p',
+          formatMessage(
+            this.messages.trialNotificationExpiringSoonMessage,
+            { remaining },
+            this.language
+          ),
+          'trial-notice-modal__message'
+        )
+      );
     }
 
     return body;
   }
 
-  private createLabelParagraph(label: string, value: string): HTMLParagraphElement {
-    const paragraph = document.createElement('p');
-    paragraph.append(
-      createTextElement('strong', `${label}:`),
-      document.createTextNode(` ${value}`)
-    );
-    return paragraph;
-  }
-
   /**
-   * 开始定期检查
+   * Start periodic status checks.
    */
   private startPeriodicCheck(): void {
     if (this.checkInterval !== null) {
@@ -205,10 +304,11 @@ export class TrialNotice {
     const runCheck = (): void => {
       void this.refreshTrialStatus();
     };
-    this.checkInterval = window.setInterval(runCheck, 60000); // 60秒
+    this.checkInterval = window.setInterval(runCheck, 60000);
   }
 
   private async refreshTrialStatus(): Promise<void> {
+    await this.refreshLocalization();
     this.applyStatus(await checkTrialStatus());
   }
 
@@ -242,7 +342,7 @@ export class TrialNotice {
   }
 
   /**
-   * 销毁组件
+   * Destroy the component.
    */
   destroy(): void {
     this.removeNoticeElement();
@@ -251,19 +351,16 @@ export class TrialNotice {
   }
 
   /**
-   * 手动更新状态
+   * Manually refresh the status.
    */
   async refresh(): Promise<void> {
+    await this.refreshLocalization();
     this.applyStatus(await checkTrialStatus());
   }
 }
 
-// 全局实例
 let globalTrialNotice: TrialNotice | null = null;
 
-/**
- * 初始化全局试用提醒
- */
 export async function initializeTrialNotice(): Promise<void> {
   if (globalTrialNotice) {
     globalTrialNotice.destroy();
@@ -273,9 +370,6 @@ export async function initializeTrialNotice(): Promise<void> {
   await globalTrialNotice.initialize();
 }
 
-/**
- * 获取全局试用提醒实例
- */
 export function getTrialNotice(): TrialNotice | null {
   return globalTrialNotice;
 }
