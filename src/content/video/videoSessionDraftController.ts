@@ -120,8 +120,6 @@ export class VideoSessionDraftController implements VideoSessionDraftRuntimePort
 
   handleLegacyRestore(storageKey: string): void {
     this.legacyCaptureStorageKey = storageKey;
-    const dom = this.options.dom;
-    applyVideoSessionCommentDrafts(this.options.state, {}, { hydrateDom: true, dom });
   }
 
   async scheduleSave(): Promise<void> {
@@ -242,11 +240,10 @@ export class VideoSessionDraftController implements VideoSessionDraftRuntimePort
       allowEmpty?: boolean;
     } = {}
   ): VideoSessionDraftEnvelope | null {
-    const commentDrafts = this.options.state.commentDrafts;
     if (
       !options.allowEmpty &&
       this.options.state.captures.length === 0 &&
-      Object.keys(commentDrafts).length === 0 &&
+      Object.keys(this.options.state.commentDrafts).length === 0 &&
       this.options.destinationState.metadata === undefined
     ) {
       return null;
@@ -262,7 +259,7 @@ export class VideoSessionDraftController implements VideoSessionDraftRuntimePort
       status: options.status ?? this.pendingDraftStatus,
       payload: buildVideoSessionDraftPayload({
         captures: this.options.state.captures,
-        commentDrafts,
+        commentDrafts: this.options.state.commentDrafts,
         ...(this.options.destinationState.metadata
           ? { destination: this.options.destinationState.metadata }
           : {}),

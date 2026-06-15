@@ -154,7 +154,6 @@ function createHarness(
     destinationState,
     storageArea: storage,
     dom,
-    applyHint: vi.fn(),
     onScreenshotHydrationChange: options.onScreenshotHydrationChange,
     readCleanupState: () => ({ ...cleanupState }),
     ...(options.screenshotCache ? { screenshotCache: options.screenshotCache } : {})
