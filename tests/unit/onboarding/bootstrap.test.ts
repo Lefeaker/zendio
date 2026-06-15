@@ -2,15 +2,35 @@
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const createDefaultPageI18nControllerMock = vi.hoisted(() =>
-  vi.fn(() => ({
-    load: vi.fn(() => Promise.resolve(undefined)),
-    mount: vi.fn(),
-    getCurrentResource: vi.fn(() => ({
-      messages: { supportModalTitle: 'Support', supportModalDescription: 'Help us' }
-    }))
-  }))
-);
+type OnboardingRuntimeMessagesMock = Partial<{
+  onboardingDocumentTitle: string;
+  onboardingSupportModalTitle: string;
+  onboardingSupportModalDescription: string;
+  onboardingSupportModalCloseButton: string;
+  onboardingSupportModalAfdianLabel: string;
+}>;
+
+const currentResourceMock = vi.hoisted<{
+  value: { language: string; messages: OnboardingRuntimeMessagesMock };
+}>(() => ({
+  value: {
+    language: 'en',
+    messages: {
+      onboardingDocumentTitle: 'Zendio',
+      onboardingSupportModalTitle: 'Thank You for Your Support',
+      onboardingSupportModalDescription:
+        'Development is not easy. If this plugin helps you, welcome to support through the following ways:',
+      onboardingSupportModalCloseButton: 'Close',
+      onboardingSupportModalAfdianLabel: 'Afdian'
+    }
+  }
+}));
+const pageI18nControllerMock = vi.hoisted(() => ({
+  load: vi.fn(() => Promise.resolve(undefined)),
+  mount: vi.fn(),
+  getCurrentResource: vi.fn(() => currentResourceMock.value)
+}));
+const createDefaultPageI18nControllerMock = vi.hoisted(() => vi.fn(() => pageI18nControllerMock));
 const configureI18nStorageMock = vi.hoisted(() => vi.fn());
 const resolveRepositoryMock = vi.hoisted(() => vi.fn());
 const getServiceMock = vi.hoisted(() => vi.fn());
@@ -46,6 +66,8 @@ function installLocalStorageMock(): void {
 }
 
 function buildOnboardingDom(): void {
+  document.documentElement.lang = 'zh-CN';
+  document.title = 'Zendio - 欢迎使用';
   document.body.innerHTML = `
     <button id="openVault"></button>
     <button id="configureApiBtn"></button>
@@ -79,10 +101,71 @@ async function waitForSentMessage(
   });
 }
 
+function createStorageAreaMock() {
+  return {
+    get: vi.fn(() => Promise.resolve(undefined)),
+    set: vi.fn(() => Promise.resolve(undefined)),
+    getMany: vi.fn(() => Promise.resolve({})),
+    setMany: vi.fn(() => Promise.resolve(undefined)),
+    remove: vi.fn(() => Promise.resolve(undefined)),
+    clear: vi.fn(() => Promise.resolve(undefined)),
+    watchKey: vi.fn(() => () => {}),
+    watchAll: vi.fn(() => () => {})
+  };
+}
+
+async function createSupportModalTestController() {
+  const { OnboardingController } = await import('../../../src/onboarding/bootstrap');
+  type ModalTestDependencies = NonNullable<ConstructorParameters<typeof OnboardingController>[1]>;
+  type ModalTestTabs = ModalTestDependencies['tabs'];
+  const syncArea = createStorageAreaMock();
+  const localArea = createStorageAreaMock();
+  const sendMessage: ModalTestTabs['sendMessage'] = (
+    _tabId: Parameters<ModalTestTabs['sendMessage']>[0],
+    _message: Parameters<ModalTestTabs['sendMessage']>[1],
+    _options?: Parameters<ModalTestTabs['sendMessage']>[2]
+  ) => new Promise<never>(() => {});
+  const navigationRepo = {
+    openVault: vi.fn(() => Promise.resolve(undefined)),
+    openOptions: vi.fn(() => Promise.resolve(undefined)),
+    openExternalLink: vi.fn(() => Promise.resolve(undefined))
+  } satisfies ConstructorParameters<typeof OnboardingController>[0];
+  const dependencies = {
+    storage: {
+      sync: syncArea,
+      local: localArea
+    },
+    tabs: {
+      create: vi.fn(() => Promise.resolve(undefined)),
+      getCurrent: vi.fn(() => Promise.resolve(undefined)),
+      remove: vi.fn(() => Promise.resolve(undefined)),
+      get: vi.fn(() => Promise.resolve(undefined)),
+      query: vi.fn(() => Promise.resolve([])),
+      sendMessage,
+      onActivated: vi.fn(() => () => {}),
+      onUpdated: vi.fn(() => () => {}),
+      onRemoved: vi.fn(() => () => {})
+    }
+  } satisfies ConstructorParameters<typeof OnboardingController>[1];
+
+  return new OnboardingController(navigationRepo, dependencies);
+}
+
 describe('onboarding bootstrap', () => {
   beforeEach(() => {
     vi.resetModules();
     vi.clearAllMocks();
+    currentResourceMock.value = {
+      language: 'en',
+      messages: {
+        onboardingDocumentTitle: 'Zendio',
+        onboardingSupportModalTitle: 'Thank You for Your Support',
+        onboardingSupportModalDescription:
+          'Development is not easy. If this plugin helps you, welcome to support through the following ways:',
+        onboardingSupportModalCloseButton: 'Close',
+        onboardingSupportModalAfdianLabel: 'Afdian'
+      }
+    };
     installLocalStorageMock();
     Object.defineProperty(window, 'matchMedia', {
       configurable: true,
@@ -96,6 +179,30 @@ describe('onboarding bootstrap', () => {
     } as never);
     localStorage.clear();
     buildOnboardingDom();
+  });
+
+  it('sets document lang and title from the active onboarding runtime resource', async () => {
+    currentResourceMock.value = {
+      language: 'zh-CN',
+      messages: {
+        onboardingDocumentTitle: '欢迎使用 Zendio',
+        onboardingSupportModalTitle: '感谢支持',
+        onboardingSupportModalDescription: '如果这个插件对您有帮助，欢迎支持。',
+        onboardingSupportModalCloseButton: '关闭',
+        onboardingSupportModalAfdianLabel: '爱发电'
+      }
+    };
+    resolveRepositoryMock.mockReturnValue({
+      openVault: vi.fn(() => Promise.resolve(undefined)),
+      openOptions: vi.fn(() => Promise.resolve(undefined)),
+      openExternalLink: vi.fn(() => Promise.resolve(undefined))
+    });
+
+    const { bootstrapOnboardingApp } = await import('../../../src/onboarding/bootstrap');
+    await bootstrapOnboardingApp();
+
+    expect(document.documentElement.lang).toBe('zh-CN');
+    expect(document.title).toBe('欢迎使用 Zendio');
   });
 
   it('restores completed steps and updates progress on initialize', async () => {
@@ -169,6 +276,65 @@ describe('onboarding bootstrap', () => {
     await Promise.resolve();
     await Promise.resolve();
     expect(storageSet).toHaveBeenCalledWith('onboardingCompleted', true);
+  });
+
+  it('renders the support modal from onboarding catalog messages', async () => {
+    currentResourceMock.value = {
+      language: 'en',
+      messages: {
+        onboardingDocumentTitle: 'Zendio',
+        onboardingSupportModalTitle: 'Support Title Sentinel',
+        onboardingSupportModalDescription: 'Support Description Sentinel',
+        onboardingSupportModalCloseButton: 'Dismiss Support Sentinel',
+        onboardingSupportModalAfdianLabel: 'Afdian Label Sentinel'
+      }
+    };
+
+    const controller = await createSupportModalTestController();
+
+    controller.initialize();
+    document
+      .getElementById('supportLink')
+      ?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    const modal = document.querySelector('.support-modal');
+    expect(modal).not.toBeNull();
+    expect(modal?.textContent).toContain('Support Title Sentinel');
+    expect(modal?.textContent).toContain('Support Description Sentinel');
+    expect(modal?.textContent).toContain('Afdian Label Sentinel');
+    expect(modal?.textContent).not.toContain('感谢支持');
+    expect(modal?.textContent).not.toContain('爱发电');
+    expect(
+      modal?.querySelector<HTMLButtonElement>('.support-modal-close')?.getAttribute('aria-label')
+    ).toBe('Dismiss Support Sentinel');
+  });
+
+  it('uses English-only support modal fallback before onboarding messages are available', async () => {
+    currentResourceMock.value = {
+      language: 'en',
+      messages: {}
+    };
+
+    const controller = await createSupportModalTestController();
+
+    controller.initialize();
+    document
+      .getElementById('supportLink')
+      ?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    const modal = document.querySelector('.support-modal');
+    const modalText = modal?.textContent ?? '';
+    expect(document.documentElement.lang).toBe('en');
+    expect(document.title).toBe('Zendio');
+    expect(modalText).toContain('Thank You for Your Support');
+    expect(modalText).toContain('Development is not easy.');
+    expect(modalText).toContain('Afdian');
+    expect(modalText).not.toMatch(/\p{Script=Han}/u);
+    expect(
+      modal?.querySelector<HTMLButtonElement>('.support-modal-close')?.getAttribute('aria-label')
+    ).toBe('Close');
   });
 
   it('emits catalog-safe onboarding lifecycle telemetry for consented users', async () => {

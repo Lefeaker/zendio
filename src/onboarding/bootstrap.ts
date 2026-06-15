@@ -20,9 +20,29 @@ let declarativeI18nController: PageI18nController | null = null;
 
 type BrowserStorageLike = Partial<Pick<Storage, 'getItem' | 'setItem'>> & Record<string, unknown>;
 
+const DEFAULT_ONBOARDING_DOCUMENT_TITLE = 'Zendio';
+const ENGLISH_SUPPORT_MODAL_FALLBACK = {
+  title: 'Thank You for Your Support',
+  description:
+    'Development is not easy. If this plugin helps you, welcome to support through the following ways:',
+  closeButton: 'Close',
+  afdianLabel: 'Afdian'
+};
+
 function getBrowserLocalStorage(): BrowserStorageLike | null {
   const storage = globalThis.localStorage as BrowserStorageLike | undefined;
   return storage ?? null;
+}
+
+function applyOnboardingDocumentResource(
+  resource: ReturnType<PageI18nController['getCurrentResource']>
+): void {
+  if (typeof document === 'undefined' || !resource) {
+    return;
+  }
+
+  document.documentElement.lang = resource.language;
+  document.title = resource.messages.onboardingDocumentTitle || DEFAULT_ONBOARDING_DOCUMENT_TITLE;
 }
 
 async function ensureDeclarativeI18nController(): Promise<PageI18nController> {
@@ -37,6 +57,7 @@ async function ensureDeclarativeI18nController(): Promise<PageI18nController> {
     declarativeI18nController = controller;
   }
 
+  applyOnboardingDocumentResource(declarativeI18nController.getCurrentResource());
   return declarativeI18nController;
 }
 
@@ -512,6 +533,14 @@ async function showSupportModal(): Promise<void> {
   const controller = await ensureDeclarativeI18nController();
   const resource = controller.getCurrentResource();
   const messages = resource?.messages;
+  // If a key is missing we still need a non-CJK fallback before declarative i18n resolves.
+  const title = messages?.onboardingSupportModalTitle || ENGLISH_SUPPORT_MODAL_FALLBACK.title;
+  const description =
+    messages?.onboardingSupportModalDescription || ENGLISH_SUPPORT_MODAL_FALLBACK.description;
+  const closeButtonLabel =
+    messages?.onboardingSupportModalCloseButton || ENGLISH_SUPPORT_MODAL_FALLBACK.closeButton;
+  const afdianLabel =
+    messages?.onboardingSupportModalAfdianLabel || ENGLISH_SUPPORT_MODAL_FALLBACK.afdianLabel;
 
   const modal = document.createElement('div');
   modal.className = 'support-modal';
@@ -519,11 +548,11 @@ async function showSupportModal(): Promise<void> {
   modal.innerHTML = `
     <div class="support-modal-content">
       <div class="support-modal-header">
-        <h3>${messages?.supportModalTitle || '感谢支持'}</h3>
-        <button type="button" class="support-modal-close" aria-label="${messages?.contactModalCloseButton || '关闭'}">&times;</button>
+        <h3>${title}</h3>
+        <button type="button" class="support-modal-close" aria-label="${closeButtonLabel}">&times;</button>
       </div>
       <div class="support-modal-body">
-        <p>${messages?.supportModalDescription || '开发不易，如果这个插件对您有帮助，欢迎通过以下方式支持：'}</p>
+        <p>${description}</p>
         <div class="support-options">
           <a href="https://ko-fi.com/xiannian" target="_blank" rel="noopener noreferrer" class="support-link">
             <span class="support-icon" data-icon="ko-fi"></span>
@@ -531,7 +560,7 @@ async function showSupportModal(): Promise<void> {
           </a>
           <a href="https://afdian.com/a/LefShi" target="_blank" rel="noopener noreferrer" class="support-link">
             <span class="support-icon" data-icon="afdian"></span>
-            <span>爱发电</span>
+            <span>${afdianLabel}</span>
           </a>
         </div>
       </div>
