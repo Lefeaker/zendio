@@ -1,4 +1,4 @@
-import { DEFAULT_RUNTIME_MESSAGES, type Messages } from '@i18n/locales';
+import type { Messages } from '@i18n/messages';
 import type { YamlContentType, YamlFieldType } from '@shared/types/yamlConfig';
 
 export const YAML_EDITOR_FIELD_TYPES: YamlFieldType[] = [
@@ -40,17 +40,97 @@ export interface YamlEditorLabels {
   errors: Record<string, string>;
 }
 
-function readMessage<K extends keyof Messages>(
-  messages: Messages | null | undefined,
-  key: K
-): string {
+type YamlEditorMessageKey =
+  | 'yamlFieldArticleLabel'
+  | 'yamlFieldClipperLabel'
+  | 'yamlFieldVideoLabel'
+  | 'yamlFieldAiLabel'
+  | 'yamlFieldErrorValueInvalid'
+  | 'yamlDomainErrorValueInvalid'
+  | 'yamlFilterAllLabel'
+  | 'schemaYamlFilterAllLabel'
+  | 'yamlFieldSaveBlockedWarning'
+  | 'yamlDomainWarningUnresolved'
+  | 'schemaYamlFilterArticleLabel'
+  | 'schemaYamlFilterClipperLabel'
+  | 'schemaYamlFilterVideoLabel'
+  | 'schemaYamlFilterAiChatLabel'
+  | 'yamlFieldNameLabel'
+  | 'yamlFieldTypeLabel'
+  | 'yamlFieldDefaultValueLabel'
+  | 'yamlFieldValuePathLabel'
+  | 'yamlFieldActionsLabel'
+  | 'yamlFieldDeleteButton'
+  | 'yamlFieldValuePathPlaceholder'
+  | 'yamlFieldAddButton'
+  | 'yamlDomainAddField'
+  | 'yamlDomainAddRule'
+  | 'yamlDomainEmpty'
+  | 'yamlDomainPlaceholder'
+  | 'yamlDomainRemoveRule'
+  | 'yamlDomainFieldRemove'
+  | 'yamlFieldAvailabilityNote'
+  | 'yamlFieldErrorNameRequired'
+  | 'yamlFieldErrorNamePattern'
+  | 'yamlFieldErrorNameDuplicate'
+  | 'yamlFieldErrorValuePathInvalid'
+  | 'yamlDomainErrorDomainRequired'
+  | 'yamlDomainErrorDomainDuplicate'
+  | 'yamlDomainErrorFieldRequired'
+  | 'yamlDomainErrorFieldDuplicate'
+  | 'yamlDomainErrorFieldUnsupported';
+
+// Keep YAML editor fallback copy local so preview builds do not pull in the full locale service.
+const YAML_EDITOR_FALLBACK_MESSAGES: Record<YamlEditorMessageKey, string> = {
+  yamlFieldArticleLabel: 'Article',
+  yamlFieldClipperLabel: 'Clipper',
+  yamlFieldVideoLabel: 'Video',
+  yamlFieldAiLabel: 'AI',
+  yamlFieldErrorValueInvalid: 'Default value does not match the field type.',
+  yamlDomainErrorValueInvalid: 'Default value does not match the field type:',
+  yamlFilterAllLabel: 'All',
+  schemaYamlFilterAllLabel: '',
+  yamlFieldSaveBlockedWarning: 'Please fix YAML configuration errors before saving.',
+  yamlDomainWarningUnresolved: 'Fix the highlighted errors before saving.',
+  schemaYamlFilterArticleLabel: '',
+  schemaYamlFilterClipperLabel: '',
+  schemaYamlFilterVideoLabel: '',
+  schemaYamlFilterAiChatLabel: '',
+  yamlFieldNameLabel: 'Field',
+  yamlFieldTypeLabel: 'Type',
+  yamlFieldDefaultValueLabel: 'Value',
+  yamlFieldValuePathLabel: 'Value path',
+  yamlFieldActionsLabel: 'Actions',
+  yamlFieldDeleteButton: 'Delete',
+  yamlFieldValuePathPlaceholder: 'e.g. meta.author or extra.notes[0]',
+  yamlFieldAddButton: '+ Add field',
+  yamlDomainAddField: '+ Add field',
+  yamlDomainAddRule: '+ Add domain rule',
+  yamlDomainEmpty: 'No domain-specific rules yet.',
+  yamlDomainPlaceholder: 'e.g., example.com or *.example.com',
+  yamlDomainRemoveRule: 'Remove rule',
+  yamlDomainFieldRemove: 'Remove',
+  yamlFieldAvailabilityNote:
+    'Disable a switch to hide a field. Newly added fields apply to the selected export types.',
+  yamlFieldErrorNameRequired: 'Field name is required.',
+  yamlFieldErrorNamePattern:
+    'Field name must start with a letter or underscore and use letters, numbers, underscores, or hyphens.',
+  yamlFieldErrorNameDuplicate: 'Duplicate field name.',
+  yamlFieldErrorValuePathInvalid: 'Value path cannot contain spaces.',
+  yamlDomainErrorDomainRequired: 'Domain is required.',
+  yamlDomainErrorDomainDuplicate: 'Duplicate domain found for this content type.',
+  yamlDomainErrorFieldRequired: 'Add at least one field.',
+  yamlDomainErrorFieldDuplicate: 'Duplicate field detected in the same rule.',
+  yamlDomainErrorFieldUnsupported: 'Field is not available for this content type:'
+};
+
+function readMessage(messages: Messages | null | undefined, key: YamlEditorMessageKey): string {
   const value = messages?.[key];
   if (typeof value === 'string' && value.length > 0) {
     return value;
   }
 
-  const fallback = DEFAULT_RUNTIME_MESSAGES[key];
-  return typeof fallback === 'string' ? fallback : '';
+  return YAML_EDITOR_FALLBACK_MESSAGES[key];
 }
 
 export function createYamlEditorLabels(messages?: Messages | null): YamlEditorLabels {
