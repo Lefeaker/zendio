@@ -18,6 +18,7 @@
     "lint:type-any": "node scripts/audit-types.mjs --format summary",
     "lint:type-any:ratchet": "node scripts/audit-types.mjs --format summary --max-any 0 --max-unknown 1138 --max-assertions 1934 --max-non-null 53 --max-ts-expect-error 4 --max-src-any 0 --max-src-unknown 623 --max-src-assertions 678 --max-src-non-null 9 --max-src-ts-expect-error 0 --max-tests-any 0 --max-tests-unknown 515 --max-tests-assertions 1256 --max-tests-non-null 46 --max-tests-ts-expect-error 4",
     "lint:hardcoded": "node scripts/lint-hardcoded-values.mjs",
+    "audit:i18n-hardcoded-user-copy": "node tools/report-production-build-graph.mjs --write-json build/reports/production-build-graph.json >/dev/null && node scripts/audit-i18n-hardcoded-user-copy.mjs",
     "lint:options-css": "stylelint \"src/options/**/*.css\"",
     "lint:warnings-report": "node scripts/lint-warnings-report.mjs",
     "lint:warnings-guard": "node scripts/lint-warnings-guard.mjs",
