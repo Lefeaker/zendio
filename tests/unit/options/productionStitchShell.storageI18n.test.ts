@@ -157,17 +157,23 @@ describe('mountProductionStitchShell storage i18n', () => {
       expect.objectContaining({
         channel: 'localFolder',
         label: 'Local Folder Label Sentinel',
-        message: 'Local Folder Missing Sentinel'
+        labelDescriptor: { key: 'connectionChannelLocalFolderLabel' },
+        message: 'Local Folder not configured',
+        messageDescriptor: { key: 'connectionLocalFolderNotConfigured' }
       }),
       expect.objectContaining({
         channel: 'https',
         label: 'HTTPS',
-        message: 'Missing HTTPS URL Sentinel'
+        labelDescriptor: { key: 'connectionChannelRestLabel' },
+        message: 'No HTTPS URL configured',
+        messageDescriptor: { key: 'connectionRestUrlMissing', values: { label: 'HTTPS' } }
       }),
       expect.objectContaining({
         channel: 'http',
         label: 'HTTP',
-        message: 'Missing HTTP URL Sentinel'
+        labelDescriptor: { key: 'connectionChannelRestLabel' },
+        message: 'No HTTP URL configured',
+        messageDescriptor: { key: 'connectionRestUrlMissing', values: { label: 'HTTP' } }
       })
     ]);
     expect(JSON.stringify(result)).not.toContain('本地目录');
@@ -198,7 +204,9 @@ describe('mountProductionStitchShell storage i18n', () => {
     expect(result).toEqual({
       success: false,
       message: 'No Enabled Vaults Sentinel',
-      error: 'No Enabled Vaults Sentinel'
+      messageDescriptor: { key: 'schemaStorageNoEnabledVaults' },
+      error: 'No Enabled Vaults Sentinel',
+      errorDescriptor: { key: 'schemaStorageNoEnabledVaults' }
     });
   });
 

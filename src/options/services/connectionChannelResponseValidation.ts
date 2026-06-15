@@ -1,4 +1,8 @@
 import type { ConnectionChannel, ConnectionChannelResult } from '../../shared/types/connection';
+import {
+  isUserVisibleMessageDescriptor,
+  type UserVisibleMessageDescriptor
+} from '../../shared/i18n/userVisibleMessageDescriptor';
 import { optionsErrors } from '../../shared/errors';
 
 type ConnectionContext = Parameters<typeof optionsErrors.connectionInProgress>[0];
@@ -66,20 +70,62 @@ export function validateChannelResult(
     );
   }
 
+  const labelDescriptor = validateDescriptorField(
+    channel.labelDescriptor,
+    `Channel ${index} field "labelDescriptor"`,
+    context,
+    channel
+  );
+  const messageDescriptor = validateDescriptorField(
+    channel.messageDescriptor,
+    `Channel ${index} field "messageDescriptor"`,
+    context,
+    channel
+  );
+  const errorDescriptor = validateDescriptorField(
+    channel.errorDescriptor,
+    `Channel ${index} field "errorDescriptor"`,
+    context,
+    channel
+  );
+
   return {
     channel: channel.channel,
     label: channel.label,
+    ...(labelDescriptor ? { labelDescriptor } : {}),
     configured: channel.configured,
     success: channel.success,
     message: channel.message,
+    ...(messageDescriptor ? { messageDescriptor } : {}),
     ...(channel.url !== undefined ? { url: channel.url } : {}),
     ...(channel.status !== undefined ? { status: channel.status } : {}),
     ...(channel.response !== undefined ? { response: channel.response } : {}),
     ...(channel.error !== undefined ? { error: channel.error } : {}),
+    ...(errorDescriptor ? { errorDescriptor } : {}),
     ...(channel.certificateUrl !== undefined ? { certificateUrl: channel.certificateUrl } : {})
   };
 }
 
 function isConnectionChannel(channel: string | undefined): channel is ConnectionChannel {
   return channel === 'localFolder' || channel === 'https' || channel === 'http';
+}
+
+function validateDescriptorField(
+  descriptor: unknown,
+  fieldName: string,
+  context: ConnectionContext,
+  response: unknown
+): UserVisibleMessageDescriptor | undefined {
+  if (descriptor === undefined) {
+    return undefined;
+  }
+
+  if (!isUserVisibleMessageDescriptor(descriptor)) {
+    throw optionsErrors.responseInvalid(`${fieldName} must be a valid descriptor.`, {
+      ...context,
+      response
+    });
+  }
+
+  return descriptor;
 }

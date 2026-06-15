@@ -173,8 +173,32 @@ describe('runtime message listener', () => {
       {}
     );
 
-    expect(connection).toEqual({ success: false, error: 'offline', message: '连接失败: offline' });
-    expect(vault).toEqual({ success: false, error: 'vault down', message: '连接失败: vault down' });
+    expect(connection).toEqual({
+      success: false,
+      error: 'offline',
+      errorDescriptor: {
+        key: 'connectionRestFailure',
+        values: { reason: 'offline' }
+      },
+      message: '',
+      messageDescriptor: {
+        key: 'connectionFailureWithReason',
+        values: { reason: 'offline' }
+      }
+    });
+    expect(vault).toEqual({
+      success: false,
+      error: 'vault down',
+      errorDescriptor: {
+        key: 'connectionRestFailure',
+        values: { reason: 'vault down' }
+      },
+      message: '',
+      messageDescriptor: {
+        key: 'connectionFailureWithReason',
+        values: { reason: 'vault down' }
+      }
+    });
   });
 
   it('preserves vault connection channel results across the runtime listener boundary', async () => {

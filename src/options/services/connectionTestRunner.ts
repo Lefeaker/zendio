@@ -1,40 +1,30 @@
 import type { ConnectionTestResult } from '../../shared/types/connection';
 import type { Messages } from '@i18n';
 import { isAppError, normalizeToAppError } from '../../shared/errors';
+import { formatUserVisibleMessage } from '../../i18n/userVisibleMessageFormatter';
 
 export interface ConnectionTestRunnerConfig {
-  /** 执行连接测试的函数 */
   exec: () => Promise<ConnectionTestResult>;
-  /** 获取本地化消息的函数 */
   getMessages: () => Promise<Messages>;
-  /** 测试前钩子 */
   onBeforeRun?: () => void | Promise<void>;
-  /** 测试后钩子 */
   onAfterRun?: (result: ConnectionTestResult | undefined, error?: Error) => void | Promise<void>;
-  /** 自定义结果渲染器 */
   renderResult?: (host: HTMLDivElement, type: ConnectionResultType, text: string) => void;
-  /** 自定义结果重置逻辑 */
   resetResult?: (host: HTMLDivElement) => void;
 }
 
 export interface ConnectionTestElements {
-  /** 测试按钮 */
   button: HTMLButtonElement;
-  /** 结果显示容器 */
   result: HTMLDivElement;
 }
 
-/** 按钮状态类型 */
 export type ButtonState = 'idle' | 'running' | 'done';
 
-/** 按钮状态到 CSS 类的映射 */
 const BUTTON_STATE_CLASSES: Record<ButtonState, string> = {
   idle: '',
   running: 'loading',
   done: 'completed'
 };
 
-/** 结果类型到 CSS 类的映射 */
 const RESULT_TYPE_CLASSES = {
   info: 'aobx-connection-result rounded-md border border-accent/70 bg-accent/18 p-3 text-sm text-base-content flex gap-2 leading-relaxed items-start',
   success:
@@ -45,9 +35,6 @@ const RESULT_TYPE_CLASSES = {
 
 export type ConnectionResultType = keyof typeof RESULT_TYPE_CLASSES;
 
-/**
- * 运行连接测试并管理 UI 状态
- */
 export async function runConnectionTest(
   config: ConnectionTestRunnerConfig,
   elements: ConnectionTestElements
@@ -58,30 +45,24 @@ export async function runConnectionTest(
 
   const msgs = await getMessages();
 
-  // 设置按钮为运行状态
   setButtonState(button, 'running');
 
-  // 显示测试中状态
   renderResult(result, 'info', msgs.connectionTesting);
 
   let testResult: ConnectionTestResult | undefined;
   let testError: Error | undefined;
 
   try {
-    // 执行测试前钩子
     await onBeforeRun?.();
 
-    // 执行连接测试
     testResult = await exec();
 
-    // 渲染测试结果
     const resultType = testResult.success ? 'success' : 'error';
     const resultText = renderConnectionResult(testResult, msgs);
     renderResult(result, resultType, resultText);
   } catch (error) {
     testError = error instanceof Error ? error : new Error(String(error));
 
-    // 标准化错误处理
     const appError = isAppError(error)
       ? error
       : normalizeToAppError(error, {
@@ -92,49 +73,40 @@ export async function runConnectionTest(
           context: { source: 'connection-test' }
         });
 
-    const detail = appError.userMessage ?? appError.message;
-    const effectiveReason =
-      detail === msgs.connectionFailed && testError?.message ? testError.message : detail;
-    renderResult(result, 'error', formatFailureMessage(effectiveReason, undefined, msgs));
+    const effectiveReason = resolveAppErrorReason(appError, msgs);
+    renderResult(
+      result,
+      'error',
+      effectiveReason
+        ? formatFailureMessage(effectiveReason, undefined, msgs)
+        : formatGenericFailureMessage(msgs)
+    );
   } finally {
-    // 恢复按钮状态
     setButtonState(button, 'idle');
 
-    // 执行测试后钩子
     if (testResult || testError) {
       await onAfterRun?.(testResult, testError);
     }
   }
 }
 
-/**
- * 设置按钮状态
- */
 function setButtonState(button: HTMLButtonElement, state: ButtonState): void {
-  // 更新 dataset.state
   button.dataset.state = state;
 
-  // 更新 disabled 状态
   button.disabled = state === 'running';
 
-  // 更新 CSS 类
-  // 移除所有状态类
   Object.values(BUTTON_STATE_CLASSES).forEach((className) => {
     if (className) {
       button.classList.remove(className);
     }
   });
 
-  // 添加当前状态类
   const stateClass = BUTTON_STATE_CLASSES[state];
   if (stateClass) {
     button.classList.add(stateClass);
   }
 }
 
-/**
- * 默认的结果渲染器
- */
 function defaultRenderResult(
   result: HTMLDivElement,
   type: ConnectionResultType,
@@ -145,15 +117,24 @@ function defaultRenderResult(
   result.textContent = text;
 }
 
-/**
- * 渲染连接测试结果为统一格式的文本
- */
 export function renderConnectionResult(response: ConnectionTestResult, msgs: Messages): string {
+  if (response.channels?.length) {
+    return renderChannelSummary(response, msgs);
+  }
+
   if (response.success) {
-    const customMessage = (response.message ?? '').trim();
+    const resolvedMessage = resolveMessageDescriptor(
+      response.messageDescriptor,
+      response.message,
+      msgs
+    );
+    const customMessage = resolvedMessage.trim();
     const hasAdditionalPayload =
       typeof response.status !== 'undefined' || typeof response.response !== 'undefined';
     if (customMessage && hasAdditionalPayload) {
+      return customMessage;
+    }
+    if (response.messageDescriptor && customMessage) {
       return customMessage;
     }
     return msgs.connectionSuccessShort;
@@ -163,18 +144,12 @@ export function renderConnectionResult(response: ConnectionTestResult, msgs: Mes
   return composeFailureOutput(reason, response.status, msgs);
 }
 
-/**
- * 隐藏测试结果
- */
 export function hideResult(result: HTMLDivElement): void {
   result.hidden = true;
   result.textContent = '';
   result.className = RESULT_TYPE_CLASSES.info;
 }
 
-/**
- * 初始化连接测试元素的默认状态
- */
 export function initializeConnectionTestElements(
   elements: ConnectionTestElements,
   resetResult?: (host: HTMLDivElement) => void
@@ -188,13 +163,22 @@ export function initializeConnectionTestElements(
     hideResult(result);
   }
 
-  // 确保结果容器有 aria-live 属性
   if (!result.getAttribute('aria-live')) {
     result.setAttribute('aria-live', 'polite');
   }
 }
 
 function extractFailureReason(response: ConnectionTestResult, msgs: Messages): string {
+  const descriptorText = resolveMessageDescriptor(
+    response.errorDescriptor,
+    undefined,
+    msgs,
+    response.error
+  ).trim();
+  if (descriptorText) {
+    return descriptorText;
+  }
+
   const raw = (response.error ?? response.message ?? '').trim();
   if (!raw) {
     return msgsFallbackFailure(msgs);
@@ -218,15 +202,34 @@ function composeFailureOutput(reason: string, status: number | undefined, msgs: 
   return lines.join('\n');
 }
 
+function formatGenericFailureMessage(msgs: Messages): string {
+  return [
+    msgs.connectionFailed,
+    `${msgs.connectionFailureHintsTitle}${msgs.connectionFailureHintGeneric}`
+  ].join('\n');
+}
+
 function stripFailurePrefix(text: string): string {
   const trimmed = text.trim();
-  const patterns = [/^连接失败[:：]?\s*/i, /^connection failed[:：]?\s*/i];
+  const patterns = [/^connection failed[:：]?\s*/i];
   for (const pattern of patterns) {
     if (pattern.test(trimmed)) {
       return trimmed.replace(pattern, '').trim();
     }
   }
   return trimmed;
+}
+
+function resolveAppErrorReason(
+  error: { userMessageDescriptor?: ConnectionTestResult['messageDescriptor'] },
+  msgs: Messages
+): string | undefined {
+  if (!error.userMessageDescriptor) {
+    return undefined;
+  }
+
+  const resolved = resolveMessageDescriptor(error.userMessageDescriptor, undefined, msgs).trim();
+  return resolved && resolved !== msgs.connectionFailed ? resolved : undefined;
 }
 
 function buildFailureHints(reason: string, status: number | undefined, msgs: Messages): string {
@@ -242,7 +245,7 @@ function buildFailureHints(reason: string, status: number | undefined, msgs: Mes
   }
 
   if (
-    /failed to fetch|networkerror|timeout|refused|reset|unreachable|无法连接|未配置可用的地址|未配置 api key/i.test(
+    /failed to fetch|networkerror|timeout|refused|reset|unreachable|api_key_missing|no_usable_address|network_error/i.test(
       lower
     )
   ) {
@@ -258,4 +261,77 @@ function buildFailureHints(reason: string, status: number | undefined, msgs: Mes
 
 function msgsFallbackFailure(msgs: Messages): string {
   return msgs.connectionFailed;
+}
+
+function renderChannelSummary(response: ConnectionTestResult, msgs: Messages): string {
+  const header = resolveResultHeader(response, msgs);
+  const channelTemplate = msgs.connectionChannelLine || '{channel}: {message}';
+  const lines = response.channels?.map((channel) => {
+    const label = resolveChannelLabel(channel, msgs);
+    const message = resolveChannelMessage(channel, msgs);
+    return channelTemplate.replace('{channel}', label).replace('{message}', message);
+  });
+
+  return [header, ...(lines ?? [])].filter((line) => line && line.trim().length > 0).join('\n');
+}
+
+function resolveResultHeader(response: ConnectionTestResult, msgs: Messages): string {
+  const resolved = response.messageDescriptor
+    ? resolveMessageDescriptor(response.messageDescriptor, undefined, msgs).trim()
+    : '';
+  if (resolved) {
+    return resolved;
+  }
+
+  return response.success ? msgs.connectionSuccessShort : msgs.connectionFailed;
+}
+
+function resolveChannelLabel(
+  channel: NonNullable<ConnectionTestResult['channels']>[number],
+  msgs: Messages
+): string {
+  const resolved = channel.labelDescriptor
+    ? resolveMessageDescriptor(channel.labelDescriptor, undefined, msgs).trim()
+    : '';
+  if (channel.channel === 'localFolder') {
+    return resolved || msgs.connectionChannelLocalFolderLabel || channel.channel;
+  }
+
+  const restLabel = resolved || msgs.connectionChannelRestLabel || 'rest';
+  return `${restLabel} (${channel.channel.toUpperCase()})`;
+}
+
+function resolveChannelMessage(
+  channel: NonNullable<ConnectionTestResult['channels']>[number],
+  msgs: Messages
+): string {
+  if (channel.messageDescriptor) {
+    const resolved = resolveMessageDescriptor(channel.messageDescriptor, undefined, msgs).trim();
+    if (resolved) {
+      return resolved;
+    }
+  }
+
+  if (channel.error?.trim()) {
+    return channel.error.trim();
+  }
+
+  if (channel.channel === 'localFolder' && !channel.configured) {
+    return msgs.connectionLocalFolderSkipped || msgs.connectionFailed;
+  }
+
+  if (!channel.configured) {
+    return msgs.connectionFailed;
+  }
+
+  return channel.success ? msgs.connectionSuccessShort : msgs.connectionFailed;
+}
+
+function resolveMessageDescriptor(
+  descriptor: ConnectionTestResult['messageDescriptor'],
+  legacy: string | undefined,
+  msgs: Messages,
+  fallback?: string
+): string {
+  return formatUserVisibleMessage(descriptor, msgs, fallback ?? legacy ?? '');
 }
