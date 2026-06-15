@@ -16,8 +16,10 @@ export function createProductionStitchStorageFeedback(
   options: ProductionStitchStorageControllerOptions,
   load: ProductionStitchStorageLoad
 ): ProductionStitchStorageFeedback {
+  let resolvedMessages: Messages | null = null;
+
   function resolveCurrentMessages(): Messages {
-    return options.getMessages?.() ?? DEFAULT_RUNTIME_MESSAGES;
+    return options.getMessages?.() ?? resolvedMessages ?? DEFAULT_RUNTIME_MESSAGES;
   }
 
   function getMessage(messages: Messages | null, key: keyof Messages, fallback: string): string {
@@ -40,6 +42,7 @@ export function createProductionStitchStorageFeedback(
     const messages = await import('@i18n').then(({ getMessagesForLanguage }) =>
       getMessagesForLanguage(options.getState().previewLanguage)
     );
+    resolvedMessages = messages;
     return runVaultListConnectionTestHelper(
       load.ensureVaultRouter(),
       options.getMessagingRepository(),
@@ -96,11 +99,12 @@ function renderVaultConnectionResults(
         const emoji = channel.success ? '✅' : '❌';
         const label = resolveChannelLabel(channel, messages);
         const message = resolveChannelMessage(channel, messages);
-        const certificateLink = channel.certificateUrl
-          ? ` <a href="${escapeAttribute(channel.certificateUrl)}" target="_blank" rel="noopener noreferrer">${escapeHtml(
-              certificateLinkLabel
-            )}</a>`
-          : '';
+        const certificateLink =
+          channel.certificateUrl && certificateLinkLabel.trim().length > 0
+            ? ` <a href="${escapeAttribute(channel.certificateUrl)}" target="_blank" rel="noopener noreferrer">${escapeHtml(
+                certificateLinkLabel
+              )}</a>`
+            : '';
         return `<li><span class="vault-connection-channel">${emoji} ${escapeHtml(
           label
         )}</span><span>${escapeHtml(message)}${certificateLink}</span></li>`;

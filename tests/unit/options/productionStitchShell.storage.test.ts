@@ -780,9 +780,9 @@ describe('mountProductionStitchShell storage', () => {
     const notice = vaultList.querySelector<HTMLElement>('.notice');
     expect(notice?.className).toContain('warning');
     expect(notice?.textContent).toContain('Research Vault');
-    expect(notice?.textContent).toContain('✅ 本地目录');
-    expect(notice?.textContent).toContain('❌ HTTPS');
-    expect(notice?.textContent).toContain('✅ HTTP');
+    expect(notice?.textContent).toContain('✅ Local Folder');
+    expect(notice?.textContent).toContain('❌ REST API (HTTPS)');
+    expect(notice?.textContent).toContain('✅ REST API (HTTP)');
     const certificateLink = notice?.querySelector<HTMLAnchorElement>(
       `a[href="${LOCAL_HTTPS_URL}/obsidian-local-rest-api.crt"]`
     );

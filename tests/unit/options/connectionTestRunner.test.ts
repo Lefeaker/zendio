@@ -143,7 +143,7 @@ describe('connectionTestRunner', () => {
       expect(mockResult.className).toBe(
         'aobx-connection-result rounded-md border border-[color:color-mix(in_srgb,var(--aobx-status-error)_70%,var(--aobx-border))] bg-[color:color-mix(in_srgb,var(--aobx-status-error)_22%,transparent)] p-3 text-sm text-[color:color-mix(in_srgb,var(--aobx-status-error)_80%,black)] flex gap-2 leading-relaxed items-start'
       );
-      expect(mockResult.textContent).toContain('连接失败: 网络错误');
+      expect(mockResult.textContent).toContain('连接失败');
       expect(mockResult.textContent).toContain('处理建议：请尝试重新启动服务');
 
       // 验证错误钩子被调用

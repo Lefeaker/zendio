@@ -210,15 +210,11 @@ function extractResultMessage(result: ConnectionTestResult, msgs: Messages): str
 }
 
 function extractErrorMessage(error: ConnectionControlError, msgs: Messages): string {
-  if (isAppError(error)) {
-    return error.userMessage ?? error.message ?? msgs.connectionFailed;
+  if (isAppError(error) && error.userMessage?.trim()) {
+    return msgs.connectionFailed;
   }
 
-  if (error instanceof Error) {
-    return error.message || msgs.connectionFailed;
-  }
-
-  return String(error);
+  return msgs.connectionFailed;
 }
 
 function formatEntry(label: string, success: boolean, detail: string, msgs: Messages): string {

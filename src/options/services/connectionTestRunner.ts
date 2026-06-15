@@ -74,9 +74,14 @@ export async function runConnectionTest(
         });
 
     const detail = appError.userMessage ?? appError.message;
-    const effectiveReason =
-      detail === msgs.connectionFailed && testError?.message ? testError.message : detail;
-    renderResult(result, 'error', formatFailureMessage(effectiveReason, undefined, msgs));
+    const effectiveReason = detail.trim() && detail !== msgs.connectionFailed ? detail : undefined;
+    renderResult(
+      result,
+      'error',
+      effectiveReason
+        ? formatFailureMessage(effectiveReason, undefined, msgs)
+        : formatGenericFailureMessage(msgs)
+    );
   } finally {
     setButtonState(button, 'idle');
 
@@ -196,6 +201,13 @@ function composeFailureOutput(reason: string, status: number | undefined, msgs: 
     lines.push(`${msgs.connectionFailureHintsTitle}${hints}`);
   }
   return lines.join('\n');
+}
+
+function formatGenericFailureMessage(msgs: Messages): string {
+  return [
+    msgs.connectionFailed,
+    `${msgs.connectionFailureHintsTitle}${msgs.connectionFailureHintGeneric}`
+  ].join('\n');
 }
 
 function stripFailurePrefix(text: string): string {
