@@ -1,0 +1,70 @@
+{
+  "rules": [
+    {
+      "id": "p12-kimi-site-native-action-tokens",
+      "path": "src/third_party/ai-chat-exporter/platforms/kimi.ts",
+      "line": 46,
+      "category": "site-native-parser-token",
+      "reason": "Kimi DOM extraction filters native page action labels, not product-authored extension UI copy.",
+      "ownerPlan": "P12",
+      "revisit": "Recheck when ai-chat-exporter parser tokens move to structured platform fixtures.",
+      "literalIncludes": ["分享", "复制", "预览", "重试", "编辑"],
+      "findingKinds": ["cjk-literal"]
+    },
+    {
+      "id": "p12-tongyi-title-native-suffix",
+      "path": "src/third_party/ai-chat-exporter/platforms/tongyi.ts",
+      "line": 11,
+      "category": "site-native-parser-token",
+      "reason": "Tongyi title cleanup removes site-native title suffix text from the source page.",
+      "ownerPlan": "P12",
+      "revisit": "Recheck when ai-chat-exporter platform adapters centralize native title patterns.",
+      "literalIncludes": [" - 通义"],
+      "findingKinds": ["cjk-literal"]
+    },
+    {
+      "id": "p12-tongyi-native-title-replace-personal-assistant",
+      "path": "src/third_party/ai-chat-exporter/platforms/tongyi.ts",
+      "line": 32,
+      "category": "site-native-parser-token",
+      "reason": "Tongyi parser strips native browser title marketing suffix; it is not extension UI copy.",
+      "ownerPlan": "P12",
+      "revisit": "Recheck when platform parser fixtures own page-native title text.",
+      "literalIncludes": [" - 你的超级个人助理"],
+      "findingKinds": ["cjk-literal"]
+    },
+    {
+      "id": "p12-tongyi-native-title-replace-brand",
+      "path": "src/third_party/ai-chat-exporter/platforms/tongyi.ts",
+      "line": 33,
+      "category": "site-native-parser-token",
+      "reason": "Tongyi parser strips native browser title brand suffix; it is not extension UI copy.",
+      "ownerPlan": "P12",
+      "revisit": "Recheck when platform parser fixtures own page-native title text.",
+      "literalIncludes": [" - 通义千问"],
+      "findingKinds": ["cjk-literal"]
+    },
+    {
+      "id": "p12-tongyi-native-empty-title-guard",
+      "path": "src/third_party/ai-chat-exporter/platforms/tongyi.ts",
+      "line": 36,
+      "category": "site-native-parser-token",
+      "reason": "Tongyi parser compares against a native site title placeholder before deriving export metadata.",
+      "ownerPlan": "P12",
+      "revisit": "Recheck when platform parser fixtures own page-native title text.",
+      "literalIncludes": ["通义"],
+      "findingKinds": ["cjk-literal"]
+    },
+    {
+      "id": "p12-stitch-changelog-zh-release-notes",
+      "path": "src/options/stitch/changelogResourceData.ts",
+      "line": 15,
+      "category": "retained-static-release-note-content",
+      "reason": "Release note resource data intentionally retains historical zh-CN changelog content until it is moved into catalog-owned static resources.",
+      "ownerPlan": "P12",
+      "revisit": "Move changelog resource data to catalog/static messages before enabling --check as a hard gate.",
+      "literalIncludes": ["重构选项页为新的设置中心"],
+      "findingKinds": ["cjk-literal"]
+    }
+  ]
+}
