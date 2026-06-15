@@ -68,9 +68,7 @@ export class VideoSessionDraftController implements VideoSessionDraftRuntimePort
     if (!view) {
       return;
     }
-    const flush = () => {
-      void this.flushNow('restorable');
-    };
+    const flush = () => void this.flushNow('restorable');
     const stop = bindVideoSessionDraftPersistence(view, flush);
     this.stopDraftPersistence = () => {
       stop();
@@ -120,8 +118,11 @@ export class VideoSessionDraftController implements VideoSessionDraftRuntimePort
 
   handleLegacyRestore(storageKey: string): void {
     this.legacyCaptureStorageKey = storageKey;
-    const dom = this.options.dom;
-    applyVideoSessionCommentDrafts(this.options.state, {}, { hydrateDom: true, dom });
+    applyVideoSessionCommentDrafts(
+      this.options.state,
+      {},
+      { hydrateDom: true, dom: this.options.dom }
+    );
   }
 
   async scheduleSave(): Promise<void> {
@@ -208,9 +209,7 @@ export class VideoSessionDraftController implements VideoSessionDraftRuntimePort
         status,
         (options) => this.buildDraftEnvelope(options)
       );
-      if (restoredEnvelope) {
-        terminalEnvelopes.set(this.restoredDraftKey, restoredEnvelope);
-      }
+      if (restoredEnvelope) terminalEnvelopes.set(this.restoredDraftKey, restoredEnvelope);
     }
 
     return finalizeTerminalSessionDraft<VideoSessionDraftEnvelope>({
@@ -222,15 +221,13 @@ export class VideoSessionDraftController implements VideoSessionDraftRuntimePort
           captures: this.options.state.captures,
           screenshotCache: this.options.screenshotCache
         }),
-      onSaveError: (error) => {
-        console.warn('[VideoSession] Failed to finalize terminal session draft:', error);
-      },
-      onCleanupError: (error) => {
+      onSaveError: (error) =>
+        console.warn('[VideoSession] Failed to finalize terminal session draft:', error),
+      onCleanupError: (error) =>
         console.warn(
           '[VideoSession] Failed to remove terminal session draft after finalization:',
           error
-        );
-      }
+        )
     });
   }
 
@@ -242,11 +239,10 @@ export class VideoSessionDraftController implements VideoSessionDraftRuntimePort
       allowEmpty?: boolean;
     } = {}
   ): VideoSessionDraftEnvelope | null {
-    const commentDrafts = this.options.state.commentDrafts;
     if (
       !options.allowEmpty &&
       this.options.state.captures.length === 0 &&
-      Object.keys(commentDrafts).length === 0 &&
+      Object.keys(this.options.state.commentDrafts).length === 0 &&
       this.options.destinationState.metadata === undefined
     ) {
       return null;
@@ -262,7 +258,7 @@ export class VideoSessionDraftController implements VideoSessionDraftRuntimePort
       status: options.status ?? this.pendingDraftStatus,
       payload: buildVideoSessionDraftPayload({
         captures: this.options.state.captures,
-        commentDrafts,
+        commentDrafts: this.options.state.commentDrafts,
         ...(this.options.destinationState.metadata
           ? { destination: this.options.destinationState.metadata }
           : {}),

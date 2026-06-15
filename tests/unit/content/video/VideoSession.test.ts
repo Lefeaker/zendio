@@ -1211,7 +1211,7 @@ describe('VideoSession', () => {
     await repository.save(envelope);
     const session = new VideoSession(document, deps);
     const sessionApi = toSessionTestApi(session);
-    const requestPendingSpy = vi.spyOn(
+    vi.spyOn(
       (
         session as unknown as {
           screenshotPreparation: { requestPendingScreenshots(): void };
