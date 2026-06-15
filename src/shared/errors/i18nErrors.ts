@@ -13,7 +13,7 @@ export const i18nErrors = {
       message: 'Failed to load language preference from storage.',
       severity: ErrorSeverity.WARNING,
       recoverable: true,
-      userMessage: '语言配置加载失败，已回退至默认语言。',
+      userMessageDescriptor: { key: 'errorI18nLanguageLoadFailed' },
       context,
       cause
     };
@@ -26,7 +26,7 @@ export const i18nErrors = {
       message: `Failed to persist language preference (${language}).`,
       severity: ErrorSeverity.WARNING,
       recoverable: true,
-      userMessage: '语言设置暂时无法保存，请稍后重试。',
+      userMessageDescriptor: { key: 'errorI18nLanguageSaveFailed' },
       context: {
         ...context,
         language

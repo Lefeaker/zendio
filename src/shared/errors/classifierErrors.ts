@@ -19,7 +19,7 @@ export const classifierErrors = {
       message,
       severity: ErrorSeverity.ERROR,
       recoverable: true,
-      userMessage: '分类服务暂时不可用，我们会继续使用默认分类。',
+      userMessageDescriptor: { key: 'errorClassifierTransportFailure' },
       context,
       cause: options.cause
     };
@@ -36,7 +36,7 @@ export const classifierErrors = {
       message,
       severity: ErrorSeverity.ERROR,
       recoverable: true,
-      userMessage: '分类结果异常，已切换到备用策略。',
+      userMessageDescriptor: { key: 'errorClassifierInvalidPayload' },
       context,
       cause: options.cause
     };
@@ -49,7 +49,7 @@ export const classifierErrors = {
       message: 'Classifier request timed out.',
       severity: ErrorSeverity.WARNING,
       recoverable: true,
-      userMessage: '分类请求超时，已继续保存内容。',
+      userMessageDescriptor: { key: 'errorClassifierTimeout' },
       context,
       cause: options.cause
     };

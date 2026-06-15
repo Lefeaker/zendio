@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
+import { restErrors } from '@shared/errors';
 
 vi.mock('@content/sessionDrafts', async () => {
   const actual =
@@ -223,5 +224,13 @@ describe('videoCaptureMutationTransaction', () => {
     expect(resolveVideoFailureCategory(new Error('Could not establish connection.'))).toBe(
       'connection'
     );
+  });
+
+  it('keeps shared rest export failures classifiable without legacy userMessage text', () => {
+    const error = restErrors.requestFailed('Failed to fetch', { endpoint: 'https://api.example' });
+
+    expect(error.userMessage).toBeUndefined();
+    expect(error.userMessageDescriptor).toEqual({ key: 'errorRestRequestFailed' });
+    expect(resolveVideoFailureCategory(error)).toBe('connection');
   });
 });

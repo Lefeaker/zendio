@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { ErrorSeverity } from '@shared/errors';
+import { ErrorSeverity, optionsErrors } from '@shared/errors';
 import type { NormalizedNotification } from '@shared/notifications/types';
 import type { NotificationsService } from '../../../src/platform/interfaces/notifications';
 import type { RuntimeService } from '../../../src/platform/interfaces/runtime';
@@ -56,6 +56,8 @@ describe('notifications service', () => {
     classificationFallbackTitle: 'Classification Fallback',
     classificationFallbackMessage: 'Fallback because: {reason}',
     classificationFallbackDefaultReason: 'Automatic fallback',
+    errorOptionsVaultConfigInvalid:
+      'Vault configuration is missing required information. Check settings and try again.',
     localVaultWriteFailed: 'Failed to write to the local folder: {folderName}',
     localVaultWriteReauthorizationRequired:
       'Local folder needs to be reauthorized. Reauthorize "{folderName}" in Settings.'
@@ -479,6 +481,32 @@ it('routes options-domain errors through the notification bridge as user-facing 
 
   setNotificationAdapter(null);
   nowSpy.mockRestore();
+});
+
+it('prefers descriptor-backed copy from shared options factories for user-facing notifications', async () => {
+  const { setNotificationAdapter } = await import('../../../src/background/services/notifications');
+  const { getErrorHandler } = await import('../../../src/shared/errors');
+  const createMock = vi.fn<(...args: [string, NormalizedNotification]) => void>();
+  getMessagesMock.mockResolvedValue({
+    errorOptionsVaultConfigInvalid:
+      'Vault configuration is missing required information. Check settings and try again.'
+  });
+
+  setNotificationAdapter(createMock);
+  await getErrorHandler().handle(optionsErrors.invalidVaultConfig({ scope: 'vault' }), {
+    suppressConsole: true,
+    suppressReporters: true
+  });
+
+  expect(createMock.mock.calls[0]?.[1]).toMatchObject({
+    channel: 'system.user',
+    severity: 'error',
+    message: 'Vault configuration is missing required information. Check settings and try again.',
+    contextMessage: 'Vault configuration is missing required identifier.'
+  });
+  expect(createMock.mock.calls[0]?.[1].message).not.toMatch(/[\u3400-\u9fff]/u);
+
+  setNotificationAdapter(null);
 });
 
 it('falls back to app icon and about-page runtime url when generic notifications omit optional fields', async () => {

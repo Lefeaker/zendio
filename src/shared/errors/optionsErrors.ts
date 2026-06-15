@@ -22,7 +22,7 @@ export const optionsErrors = {
       message: 'Connection test is already running.',
       severity: ErrorSeverity.WARNING,
       recoverable: true,
-      userMessage: '连接测试正在进行，请稍候完成后再试。',
+      userMessageDescriptor: { key: 'errorOptionsConnectionInProgress' },
       context
     };
   },
@@ -34,7 +34,7 @@ export const optionsErrors = {
       message: 'Vault configuration is missing required identifier.',
       severity: ErrorSeverity.ERROR,
       recoverable: false,
-      userMessage: '仓库配置缺少必要信息，请检查后重试。',
+      userMessageDescriptor: { key: 'errorOptionsVaultConfigInvalid' },
       context
     };
   },
@@ -47,7 +47,7 @@ export const optionsErrors = {
       message: `Failed to dispatch connection test request: ${message}`,
       severity: ErrorSeverity.ERROR,
       recoverable: true,
-      userMessage: '连接测试请求发送失败，请检查网络后重试。',
+      userMessageDescriptor: { key: 'errorOptionsConnectionRequestFailed' },
       context,
       cause: error
     };
@@ -60,7 +60,7 @@ export const optionsErrors = {
       message: `Connection test response is invalid: ${reason}`,
       severity: ErrorSeverity.ERROR,
       recoverable: false,
-      userMessage: '连接测试返回数据异常，请稍后重试或反馈给我们。',
+      userMessageDescriptor: { key: 'errorOptionsConnectionResponseInvalid' },
       context
     };
   }
