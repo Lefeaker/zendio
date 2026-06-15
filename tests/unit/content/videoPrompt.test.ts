@@ -2,6 +2,15 @@
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import type { VideoPromptDependencies } from '@content/video/videoPromptDependencies';
+import type { RuntimeService } from '@platform/interfaces/runtime';
+import type {
+  StorageAreaService,
+  StorageChange,
+  StorageService
+} from '@platform/interfaces/storage';
+import type { IVideoRepository } from '@shared/repositories/IVideoRepository';
+import type { VideoOptions } from '@shared/types/options';
+import { intervalId } from '../../utils/typeHelpers';
 
 type Deferred<T> = {
   promise: Promise<T>;
@@ -41,59 +50,12 @@ type PromptPosition = {
   y: number;
 };
 
-type VideoOptionsStub = {
-  floatingPromptEnabled: boolean;
-  promptButtonLabel: string;
-  promptShortcut: string;
-  promptPosition: PromptPosition;
-  controlBarAutoPause: boolean;
-  controlBarScreenshot: boolean;
-  commentEditorAutoPause: boolean;
-};
+type VideoOptionsStub = VideoOptions;
 
-type StorageChangeSnapshot = {
-  oldValue?: unknown;
-  newValue?: unknown;
-};
-
-type StorageAreaStub = {
-  get: (key: string) => Promise<unknown>;
-  set: (key: string, value: unknown) => Promise<void>;
-  getMany: (keys: string[]) => Promise<Record<string, unknown>>;
-  setMany: (entries: Record<string, unknown>) => Promise<void>;
-  remove: (key: string | string[]) => Promise<void>;
-  clear: () => Promise<void>;
-  watchKey: (
-    key: string,
-    callback: (value: unknown, change: StorageChangeSnapshot) => void
-  ) => () => void;
-  watchAll: (callback: (changes: Record<string, StorageChangeSnapshot>) => void) => () => void;
-};
-
-type StorageServiceStub = {
-  sync: StorageAreaStub;
-  local: StorageAreaStub;
-  session: StorageAreaStub;
-};
-
-type RuntimeStub = {
-  getURL: (path: string) => string;
-  openOptionsPage: () => Promise<void>;
-  onInstalled: () => () => void;
-  onStartup: () => () => void;
-  getManifest: () => { version: string };
-};
-
-type VideoRepositoryStub = {
-  getVideoConfig: () => Promise<VideoOptionsStub>;
-  savePromptPosition: (position: PromptPosition) => Promise<void>;
-  saveControlBarPreferences: (preferences: {
-    autoPauseEnabled: boolean;
-    captureScreenshotEnabled: boolean;
-  }) => Promise<void>;
-  getPromptPosition: () => Promise<PromptPosition | null>;
-  sendVideoClip: ReturnType<typeof vi.fn>;
-  onConfigChange: (callback: (config: VideoOptionsStub) => void) => () => void;
+const DEFAULT_SCREENSHOT_ATTACHMENT: VideoOptions['screenshotAttachment'] = {
+  locationTemplate: 'Videos/{title}/assets',
+  fileNameTemplate: '{title}-{timestamp}',
+  markdownUrlFormat: './assets/{fileName}'
 };
 
 const loadExtensionStyleMock = vi.hoisted(() =>
@@ -268,7 +230,7 @@ vi.mock('../../../src/content/video/session', () => ({
   VideoSession: videoSessionFactoryMock
 }));
 
-const setIntervalSpy = vi.hoisted(() => vi.fn());
+const setIntervalSpy = vi.hoisted(() => vi.fn<typeof window.setInterval>());
 
 const flushMicrotasks = () => new Promise((resolve) => setTimeout(resolve, 0));
 
@@ -323,57 +285,64 @@ async function loadPromptModule(): Promise<LoadedVideoPromptTestModule> {
 }
 
 type TestDeps = {
-  storage: StorageServiceStub;
-  runtime: RuntimeStub;
-  videoRepo: VideoRepositoryStub;
+  storage: StorageService & { session: StorageAreaService };
+  runtime: RuntimeService;
+  videoRepo: IVideoRepository;
   createVideoSession: typeof videoSessionFactoryMock;
   getRuntimeTheme: ReturnType<typeof vi.fn<(...args: []) => Promise<null>>>;
   emitConfigChange: (config: VideoOptionsStub) => void;
   triggerLanguageChange: () => void;
 };
 
-const createStorageAreaStub = (): StorageAreaStub => ({
-  get: vi.fn(() => Promise.resolve(undefined)),
-  set: vi.fn(() => Promise.resolve(undefined)),
-  getMany: vi.fn(() => Promise.resolve({})),
-  setMany: vi.fn(() => Promise.resolve(undefined)),
-  remove: vi.fn(() => Promise.resolve(undefined)),
-  clear: vi.fn(() => Promise.resolve(undefined)),
-  watchKey: vi.fn(
-    (key: string, callback: (value: unknown, change: StorageChangeSnapshot) => void) => {
-      return vi.fn(() => callback(undefined, {}));
-    }
-  ),
-  watchAll: vi.fn(() => vi.fn())
-});
+const createStorageAreaStub = (): StorageAreaService => {
+  const get: StorageAreaService['get'] = () => Promise.resolve(undefined);
+  const set: StorageAreaService['set'] = () => Promise.resolve(undefined);
+  const getMany: StorageAreaService['getMany'] = () => Promise.resolve({});
+  const setMany: StorageAreaService['setMany'] = () => Promise.resolve(undefined);
+  const remove: StorageAreaService['remove'] = () => Promise.resolve(undefined);
+  const clear: StorageAreaService['clear'] = () => Promise.resolve(undefined);
+  const watchKey: StorageAreaService['watchKey'] = <T = unknown>(
+    _key: string,
+    callback: (value: T | undefined, change: StorageChange<T>) => void
+  ) => {
+    const dispose = vi.fn();
+    const initialChange: StorageChange<T> = { oldValue: undefined, newValue: undefined };
+    void callback(undefined, initialChange);
+    return dispose;
+  };
+  const watchAll: StorageAreaService['watchAll'] = () => vi.fn();
+
+  return { get, set, getMany, setMany, remove, clear, watchKey, watchAll };
+};
 
 function createTestDependencies(): TestDeps & VideoPromptDependencies {
   let configListener: ((config: VideoOptionsStub) => void) | null = null;
   let languageWatcher: (() => void) | null = null;
 
-  const storage: StorageServiceStub = {
+  const storage: StorageService & { session: StorageAreaService } = {
     sync: createStorageAreaStub(),
     local: createStorageAreaStub(),
     session: createStorageAreaStub()
   };
-  storage.sync.watchKey = vi.fn(
-    (key: string, callback: (value: unknown, change: StorageChangeSnapshot) => void) => {
-      if (key === 'language') {
-        languageWatcher = () => callback(undefined, { oldValue: undefined, newValue: undefined });
-      }
-      return vi.fn();
+  storage.sync.watchKey = <T = unknown>(
+    key: string,
+    callback: (value: T | undefined, change: StorageChange<T>) => void
+  ) => {
+    if (key === 'language') {
+      languageWatcher = () => callback(undefined, { oldValue: undefined, newValue: undefined });
     }
-  );
+    return vi.fn();
+  };
 
-  const runtime: RuntimeStub = {
+  const runtime: RuntimeService = {
     getURL: vi.fn<(...args: [string]) => string>((path) => `chrome-extension://mock/${path}`),
     openOptionsPage: vi.fn<(...args: []) => Promise<void>>(() => Promise.resolve()),
-    onInstalled: vi.fn<(...args: []) => () => void>(() => vi.fn()),
-    onStartup: vi.fn<(...args: []) => () => void>(() => vi.fn()),
+    onInstalled: vi.fn<RuntimeService['onInstalled']>(() => vi.fn()),
+    onStartup: vi.fn<RuntimeService['onStartup']>(() => vi.fn()),
     getManifest: vi.fn<(...args: []) => { version: string }>(() => ({ version: 'test' }))
   };
 
-  const videoRepo: VideoRepositoryStub = {
+  const videoRepo: IVideoRepository = {
     getVideoConfig: vi.fn<(...args: []) => Promise<VideoOptionsStub>>().mockResolvedValue({
       floatingPromptEnabled: true,
       promptButtonLabel: 'Clip video',
@@ -381,7 +350,8 @@ function createTestDependencies(): TestDeps & VideoPromptDependencies {
       promptPosition: { x: 90, y: 150 },
       controlBarAutoPause: true,
       controlBarScreenshot: false,
-      commentEditorAutoPause: false
+      commentEditorAutoPause: false,
+      screenshotAttachment: DEFAULT_SCREENSHOT_ATTACHMENT
     }),
     savePromptPosition: vi.fn<(...args: [PromptPosition]) => Promise<void>>(() =>
       Promise.resolve()
@@ -399,16 +369,16 @@ function createTestDependencies(): TestDeps & VideoPromptDependencies {
     getPromptPosition: vi
       .fn<(...args: []) => Promise<PromptPosition | null>>()
       .mockResolvedValue({ x: 120, y: 200 }),
-    sendVideoClip: vi.fn(),
-    onConfigChange: vi.fn<(...args: [(config: VideoOptionsStub) => void]) => () => void>(
-      (callback) => {
-        configListener = callback;
-        return vi.fn();
-      }
-    )
+    sendVideoClip: vi.fn<IVideoRepository['sendVideoClip']>(() =>
+      Promise.resolve({ success: true })
+    ),
+    onConfigChange: vi.fn<IVideoRepository['onConfigChange']>((callback) => {
+      configListener = callback;
+      return vi.fn();
+    })
   };
 
-  return {
+  const deps: TestDeps & VideoPromptDependencies = {
     storage,
     runtime,
     videoRepo,
@@ -416,7 +386,9 @@ function createTestDependencies(): TestDeps & VideoPromptDependencies {
     getRuntimeTheme: vi.fn<(...args: []) => Promise<null>>(() => Promise.resolve(null)),
     emitConfigChange: (config) => configListener?.(config),
     triggerLanguageChange: () => languageWatcher?.()
-  } as TestDeps & VideoPromptDependencies;
+  };
+
+  return deps;
 }
 
 describe('video prompt', () => {
@@ -451,7 +423,7 @@ describe('video prompt', () => {
     videoSessionFactoryMock.mockClear();
     setIntervalSpy.mockImplementation((callback: () => void) => {
       callback();
-      return 0 as unknown as number;
+      return intervalId(0);
     });
     vi.spyOn(window, 'setInterval').mockImplementation(setIntervalSpy);
   });
@@ -504,7 +476,7 @@ describe('video prompt', () => {
     const module = await loadPromptModule();
     currentTestUtils = module.__videoPromptTestUtils;
     const deps = createTestDependencies();
-    currentTestUtils.setDependenciesForTests(deps as unknown as VideoPromptDependencies);
+    currentTestUtils.setDependenciesForTests(deps);
 
     await module.initVideoPrompt();
 
@@ -519,7 +491,7 @@ describe('video prompt', () => {
     const module = await loadPromptModule();
     currentTestUtils = module.__videoPromptTestUtils;
     const deps = createTestDependencies();
-    currentTestUtils.setDependenciesForTests(deps as unknown as VideoPromptDependencies);
+    currentTestUtils.setDependenciesForTests(deps);
 
     await module.initVideoPrompt();
     await flushMicrotasks();
@@ -537,7 +509,7 @@ describe('video prompt', () => {
     const module = await loadPromptModule();
     currentTestUtils = module.__videoPromptTestUtils;
     const deps = createTestDependencies();
-    currentTestUtils.setDependenciesForTests(deps as unknown as VideoPromptDependencies);
+    currentTestUtils.setDependenciesForTests(deps);
     const video = document.createElement('video');
     document.body.appendChild(video);
     let paused = false;
@@ -606,7 +578,7 @@ describe('video prompt', () => {
     const module = await loadPromptModule();
     currentTestUtils = module.__videoPromptTestUtils;
     const deps = createTestDependencies();
-    currentTestUtils.setDependenciesForTests(deps as unknown as VideoPromptDependencies);
+    currentTestUtils.setDependenciesForTests(deps);
 
     await module.initVideoPrompt();
     await flushMicrotasks();
@@ -649,7 +621,7 @@ describe('video prompt', () => {
     const module = await loadPromptModule();
     currentTestUtils = module.__videoPromptTestUtils;
     const deps = createTestDependencies();
-    currentTestUtils.setDependenciesForTests(deps as unknown as VideoPromptDependencies);
+    currentTestUtils.setDependenciesForTests(deps);
     const video = document.createElement('video');
     document.body.appendChild(video);
     let paused = false;
@@ -709,7 +681,7 @@ describe('video prompt', () => {
     const module = await loadPromptModule();
     currentTestUtils = module.__videoPromptTestUtils;
     const deps = createTestDependencies();
-    currentTestUtils.setDependenciesForTests(deps as unknown as VideoPromptDependencies);
+    currentTestUtils.setDependenciesForTests(deps);
     const video = document.createElement('video');
     document.body.appendChild(video);
     let paused = false;
@@ -751,7 +723,7 @@ describe('video prompt', () => {
     const module = await loadPromptModule();
     currentTestUtils = module.__videoPromptTestUtils;
     const deps = createTestDependencies();
-    currentTestUtils.setDependenciesForTests(deps as unknown as VideoPromptDependencies);
+    currentTestUtils.setDependenciesForTests(deps);
 
     await module.initVideoPrompt();
     await flushMicrotasks();
@@ -777,7 +749,7 @@ describe('video prompt', () => {
     const module = await loadPromptModule();
     currentTestUtils = module.__videoPromptTestUtils;
     const deps = createTestDependencies();
-    currentTestUtils.setDependenciesForTests(deps as unknown as VideoPromptDependencies);
+    currentTestUtils.setDependenciesForTests(deps);
 
     await module.initVideoPrompt();
     await flushMicrotasks();
@@ -793,7 +765,7 @@ describe('video prompt', () => {
     const module = await loadPromptModule();
     currentTestUtils = module.__videoPromptTestUtils;
     const deps = createTestDependencies();
-    currentTestUtils.setDependenciesForTests(deps as unknown as VideoPromptDependencies);
+    currentTestUtils.setDependenciesForTests(deps);
 
     await module.initVideoPrompt();
     await flushMicrotasks();
@@ -816,7 +788,7 @@ describe('video prompt', () => {
     const module = await loadPromptModule();
     currentTestUtils = module.__videoPromptTestUtils;
     const deps = createTestDependencies();
-    currentTestUtils.setDependenciesForTests(deps as unknown as VideoPromptDependencies);
+    currentTestUtils.setDependenciesForTests(deps);
 
     await module.initVideoPrompt();
     observerCallbacks.forEach((callback) => callback());
@@ -829,7 +801,8 @@ describe('video prompt', () => {
       promptPosition: { x: 40, y: 80 },
       controlBarAutoPause: true,
       controlBarScreenshot: false,
-      commentEditorAutoPause: false
+      commentEditorAutoPause: false,
+      screenshotAttachment: DEFAULT_SCREENSHOT_ATTACHMENT
     };
     deps.emitConfigChange(updatedConfig);
     await flushMicrotasks();
@@ -844,7 +817,8 @@ describe('video prompt', () => {
       promptPosition: { x: 0, y: 0 },
       controlBarAutoPause: true,
       controlBarScreenshot: false,
-      commentEditorAutoPause: false
+      commentEditorAutoPause: false,
+      screenshotAttachment: DEFAULT_SCREENSHOT_ATTACHMENT
     };
     deps.emitConfigChange(disabledConfig);
     await flushMicrotasks();
@@ -880,7 +854,7 @@ describe('video prompt', () => {
     const module = await loadPromptModule();
     currentTestUtils = module.__videoPromptTestUtils;
     const deps = createTestDependencies();
-    currentTestUtils.setDependenciesForTests(deps as unknown as VideoPromptDependencies);
+    currentTestUtils.setDependenciesForTests(deps);
 
     await module.initVideoPrompt();
     await flushMicrotasks();
@@ -908,7 +882,7 @@ describe('video prompt', () => {
     const module = await loadPromptModule();
     currentTestUtils = module.__videoPromptTestUtils;
     const deps = createTestDependencies();
-    currentTestUtils.setDependenciesForTests(deps as unknown as VideoPromptDependencies);
+    currentTestUtils.setDependenciesForTests(deps);
 
     await module.initVideoPrompt();
     await flushMicrotasks();
@@ -936,7 +910,7 @@ describe('video prompt', () => {
     const module = await loadPromptModule();
     currentTestUtils = module.__videoPromptTestUtils;
     const deps = createTestDependencies();
-    currentTestUtils.setDependenciesForTests(deps as unknown as VideoPromptDependencies);
+    currentTestUtils.setDependenciesForTests(deps);
 
     const initPromise = module.initVideoPrompt();
     stitchDeferred.resolve('.stitch-ready{opacity:1;}');
@@ -964,7 +938,7 @@ describe('video prompt', () => {
     const module = await loadPromptModule();
     currentTestUtils = module.__videoPromptTestUtils;
     const deps = createTestDependencies();
-    currentTestUtils.setDependenciesForTests(deps as unknown as VideoPromptDependencies);
+    currentTestUtils.setDependenciesForTests(deps);
 
     await module.initVideoPrompt();
     observerCallbacks.forEach((callback) => callback());
