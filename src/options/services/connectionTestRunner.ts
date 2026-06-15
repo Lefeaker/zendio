@@ -73,8 +73,7 @@ export async function runConnectionTest(
           context: { source: 'connection-test' }
         });
 
-    const detail = appError.userMessage ?? appError.message;
-    const effectiveReason = detail.trim() && detail !== msgs.connectionFailed ? detail : undefined;
+    const effectiveReason = resolveAppErrorReason(appError, msgs);
     renderResult(
       result,
       'error',
@@ -219,6 +218,18 @@ function stripFailurePrefix(text: string): string {
     }
   }
   return trimmed;
+}
+
+function resolveAppErrorReason(
+  error: { userMessageDescriptor?: ConnectionTestResult['messageDescriptor'] },
+  msgs: Messages
+): string | undefined {
+  if (!error.userMessageDescriptor) {
+    return undefined;
+  }
+
+  const resolved = resolveMessageDescriptor(error.userMessageDescriptor, undefined, msgs).trim();
+  return resolved && resolved !== msgs.connectionFailed ? resolved : undefined;
 }
 
 function buildFailureHints(reason: string, status: number | undefined, msgs: Messages): string {

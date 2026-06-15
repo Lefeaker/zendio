@@ -10,6 +10,7 @@ import {
   type ConnectionTestElements
 } from '@options/services/connectionTestRunner';
 import type { ConnectionTestResult } from '@shared/types/connection';
+import { ErrorSeverity, type AppError } from '@shared/errors';
 import type { Messages } from '../../../src/i18n';
 
 describe('connectionTestRunner', () => {
@@ -148,6 +149,34 @@ describe('connectionTestRunner', () => {
 
       // 验证错误钩子被调用
       expect(onAfterRun).toHaveBeenCalledWith(undefined, testError);
+    });
+
+    it('does not render appError userMessage or raw message without a descriptor', async () => {
+      const appError: AppError = {
+        code: 'OPTIONS_CONNECTION_REQUEST_FAILED',
+        domain: 'options',
+        message: 'raw transport failure',
+        severity: ErrorSeverity.ERROR,
+        recoverable: true,
+        userMessage: '连接测试请求发送失败，请检查网络后重试。'
+      };
+      const mockExec = vi.fn().mockRejectedValue(appError);
+      const mockGetMessages = vi.fn().mockResolvedValue(mockMessages);
+      const onAfterRun = vi.fn();
+
+      const config: ConnectionTestRunnerConfig = {
+        exec: mockExec,
+        getMessages: mockGetMessages,
+        onAfterRun
+      };
+
+      await runConnectionTest(config, elements);
+
+      expect(mockResult.textContent).toContain('连接失败');
+      expect(mockResult.textContent).toContain('处理建议：请尝试重新启动服务');
+      expect(mockResult.textContent).not.toContain('连接测试请求发送失败，请检查网络后重试。');
+      expect(mockResult.textContent).not.toContain('raw transport failure');
+      expect(onAfterRun).toHaveBeenCalledWith(undefined, expect.any(Error));
     });
 
     it('sets button to running state during test', async () => {
