@@ -137,7 +137,7 @@ export async function initializeTrialSystem(
 
     if (status.isTrial) {
       console.log(
-        `[trial] 试用版本状态: ${status.isExpired ? '已过期' : `剩余${status.remainingDays}天`}`
+        `[trial] Trial status: ${status.isExpired ? 'expired' : `${status.remainingDays} days remaining`}`
       );
 
       if (status.isExpiringSoon || status.isExpired) {
@@ -166,7 +166,7 @@ export async function initializeTrialSystem(
       );
     }
   } catch (error) {
-    console.error('[trial] 初始化试用系统失败:', error);
+    console.error('[trial] Failed to initialize trial system:', error);
   }
 }
 
@@ -193,11 +193,13 @@ export async function initializeTrialOnInstall(deps: {
       console.warn('[trial] trial-config.json is invalid, skipping trial initialization');
       return;
     }
-    console.log('[trial] 检测到试用版本配置，正在初始化...');
+    console.log('[trial] Trial config detected, initializing...');
     await deps.initializeTrial(trialConfig.trialDays);
-    console.log(`[trial] 试用版本已激活，试用期 ${trialConfig.trialDays} 天`);
+    console.log(
+      `[trial] Trial activated for ${trialConfig.trialDays} ${trialConfig.trialDays === 1 ? 'day' : 'days'}`
+    );
   } catch {
-    console.log('[trial] 未检测到试用配置，使用正式版本');
+    console.log('[trial] Trial config not found, using the full version');
   }
 }
 

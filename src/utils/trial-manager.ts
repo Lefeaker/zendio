@@ -1,4 +1,12 @@
 import {
+  DEFAULT_LANGUAGE,
+  DEFAULT_RUNTIME_MESSAGES,
+  formatMessage,
+  getCurrentLanguage,
+  getMessages,
+  type Messages
+} from '@i18n';
+import {
   resolveTrialManagerPorts,
   type TrialManagerNotificationOptions,
   type TrialManagerPorts
@@ -20,9 +28,29 @@ export interface TrialStatus {
   isExpiringSoon: boolean;
 }
 
+type TrialMessageKey =
+  | 'trialNotificationExpiredMessage'
+  | 'trialNotificationExpiredTitle'
+  | 'trialNotificationExpiringSoonMessage'
+  | 'trialNotificationExpiringSoonTitle'
+  | 'trialSummaryExpired'
+  | 'trialSummaryRemaining';
+
+type TrialMessages = Pick<Messages, TrialMessageKey>;
+
 const TRIAL_CONFIG_KEY = 'trial_config';
 const TRIAL_STATUS_KEY = 'trial_status';
 const DEFAULT_TRIAL_DAYS = 7;
+
+const DEFAULT_TRIAL_MESSAGES: TrialMessages = {
+  trialNotificationExpiredMessage: DEFAULT_RUNTIME_MESSAGES.trialNotificationExpiredMessage,
+  trialNotificationExpiredTitle: DEFAULT_RUNTIME_MESSAGES.trialNotificationExpiredTitle,
+  trialNotificationExpiringSoonMessage:
+    DEFAULT_RUNTIME_MESSAGES.trialNotificationExpiringSoonMessage,
+  trialNotificationExpiringSoonTitle: DEFAULT_RUNTIME_MESSAGES.trialNotificationExpiringSoonTitle,
+  trialSummaryExpired: DEFAULT_RUNTIME_MESSAGES.trialSummaryExpired,
+  trialSummaryRemaining: DEFAULT_RUNTIME_MESSAGES.trialSummaryRemaining
+};
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null;
@@ -36,9 +64,57 @@ const isTrialConfig = (value: unknown): value is TrialConfig =>
 
 const missingStorageError = (): Error => new Error('chrome.storage.local is unavailable');
 
+function selectTrialMessages(messages: Messages): TrialMessages {
+  return {
+    trialNotificationExpiredMessage:
+      messages.trialNotificationExpiredMessage ??
+      DEFAULT_TRIAL_MESSAGES.trialNotificationExpiredMessage,
+    trialNotificationExpiredTitle:
+      messages.trialNotificationExpiredTitle ??
+      DEFAULT_TRIAL_MESSAGES.trialNotificationExpiredTitle,
+    trialNotificationExpiringSoonMessage:
+      messages.trialNotificationExpiringSoonMessage ??
+      DEFAULT_TRIAL_MESSAGES.trialNotificationExpiringSoonMessage,
+    trialNotificationExpiringSoonTitle:
+      messages.trialNotificationExpiringSoonTitle ??
+      DEFAULT_TRIAL_MESSAGES.trialNotificationExpiringSoonTitle,
+    trialSummaryExpired: messages.trialSummaryExpired ?? DEFAULT_TRIAL_MESSAGES.trialSummaryExpired,
+    trialSummaryRemaining:
+      messages.trialSummaryRemaining ?? DEFAULT_TRIAL_MESSAGES.trialSummaryRemaining
+  };
+}
+
+function formatDuration(value: number, unit: 'day' | 'hour', language: string): string {
+  return new Intl.NumberFormat(language, {
+    style: 'unit',
+    unit,
+    unitDisplay: 'long'
+  }).format(Math.max(0, value));
+}
+
+async function getTrialLocalizationContext(): Promise<{
+  language: string;
+  messages: TrialMessages;
+}> {
+  try {
+    const [language, messages] = await Promise.all([getCurrentLanguage(), getMessages()]);
+    return {
+      language,
+      messages: selectTrialMessages(messages)
+    };
+  } catch {
+    return {
+      language: DEFAULT_LANGUAGE,
+      messages: DEFAULT_TRIAL_MESSAGES
+    };
+  }
+}
+
 async function getTrialConfigWithPorts(ports: TrialManagerPorts): Promise<TrialConfig | null> {
   if (!ports.storage) {
-    ports.logger.warn('[trial-manager] 获取试用配置失败: chrome.storage.local is unavailable');
+    ports.logger.warn(
+      '[trial-manager] Failed to read trial config: chrome.storage.local is unavailable'
+    );
     return null;
   }
 
@@ -49,7 +125,7 @@ async function getTrialConfigWithPorts(ports: TrialManagerPorts): Promise<TrialC
     return isTrialConfig(storedConfig) ? storedConfig : null;
   } catch (error) {
     ports.logger.warn(
-      '[trial-manager] 获取试用配置失败:',
+      '[trial-manager] Failed to read trial config:',
       error instanceof Error ? error : String(error)
     );
     return null;
@@ -62,7 +138,7 @@ async function setTrialConfigWithPorts(
 ): Promise<void> {
   if (!ports.storage) {
     const error = missingStorageError();
-    ports.logger.error('[trial-manager] 设置试用配置失败:', error);
+    ports.logger.error('[trial-manager] Failed to persist trial config:', error);
     throw error;
   }
 
@@ -70,7 +146,7 @@ async function setTrialConfigWithPorts(
     await ports.storage.set({ [TRIAL_CONFIG_KEY]: config });
   } catch (error) {
     ports.logger.error(
-      '[trial-manager] 设置试用配置失败:',
+      '[trial-manager] Failed to persist trial config:',
       error instanceof Error ? error : String(error)
     );
     throw error;
@@ -120,7 +196,7 @@ async function maybeCreateNotification(
     await ports.createNotification(options);
   } catch (error) {
     ports.logger.warn(
-      '[trial-manager] 试用通知创建失败:',
+      '[trial-manager] Failed to create trial notification:',
       error instanceof Error ? error : String(error)
     );
   }
@@ -149,7 +225,9 @@ export async function initializeTrial(
   };
 
   await setTrialConfigWithPorts(config, ports);
-  ports.logger.log(`试用版本已初始化，将在 ${trialDays} 天后过期`);
+  ports.logger.log(
+    `[trial-manager] Trial initialized, expires in ${trialDays} ${trialDays === 1 ? 'day' : 'days'}`
+  );
 
   return config;
 }
@@ -158,22 +236,58 @@ export async function checkTrialStatus(): Promise<TrialStatus> {
   return checkTrialStatusWithPorts(resolveTrialManagerPorts());
 }
 
-export function formatRemainingTime(status: TrialStatus): string {
-  if (!status.isTrial) {
-    return '正式版本';
-  }
-
-  if (status.isExpired) {
-    return '已过期';
+export function formatRemainingTime(
+  status: TrialStatus,
+  language: string = DEFAULT_LANGUAGE
+): string {
+  if (!status.isTrial || status.isExpired) {
+    return '';
   }
 
   if (status.remainingDays > 1) {
-    return `剩余 ${status.remainingDays} 天`;
-  } else if (status.remainingHours > 1) {
-    return `剩余 ${status.remainingHours} 小时`;
-  } else {
-    return '即将过期';
+    return formatDuration(status.remainingDays, 'day', language);
   }
+
+  if (status.remainingHours > 1) {
+    return formatDuration(status.remainingHours, 'hour', language);
+  }
+
+  return formatDuration(1, 'hour', language);
+}
+
+export function formatTrialDate(date: Date, language: string = DEFAULT_LANGUAGE): string {
+  return new Intl.DateTimeFormat(language, { dateStyle: 'long' }).format(date);
+}
+
+export function formatTrialDateTime(date: Date, language: string = DEFAULT_LANGUAGE): string {
+  return new Intl.DateTimeFormat(language, {
+    dateStyle: 'long',
+    timeStyle: 'short'
+  }).format(date);
+}
+
+export function formatTrialSummaryMessage(
+  status: TrialStatus,
+  messages: TrialMessages,
+  language: string = DEFAULT_LANGUAGE
+): string {
+  if (!status.isTrial) {
+    return '';
+  }
+
+  const date = status.expirationDate ? formatTrialDate(status.expirationDate, language) : '';
+  if (status.isExpired) {
+    return formatMessage(messages.trialSummaryExpired, { date }, language);
+  }
+
+  return formatMessage(
+    messages.trialSummaryRemaining,
+    {
+      remaining: formatRemainingTime(status, language),
+      date
+    },
+    language
+  );
 }
 
 export async function isFeatureAvailable(): Promise<boolean> {
@@ -189,19 +303,30 @@ export async function showExpirationNotice(): Promise<void> {
     return;
   }
 
+  const { language, messages } = await getTrialLocalizationContext();
+
   if (status.isExpired) {
     await maybeCreateNotification(ports, {
       type: 'basic',
       iconUrl: 'icons/icon-48.png',
-      title: 'Zendio 试用版已过期',
-      message: '感谢您试用 Zendio！试用期已结束，请联系开发者获取正式版本。'
+      title: messages.trialNotificationExpiredTitle,
+      message: messages.trialNotificationExpiredMessage
     });
-  } else if (status.isExpiringSoon) {
+    return;
+  }
+
+  if (status.isExpiringSoon) {
     await maybeCreateNotification(ports, {
       type: 'basic',
       iconUrl: 'icons/icon-48.png',
-      title: 'Zendio 试用版即将过期',
-      message: `试用版将在 ${formatRemainingTime(status)} 后过期，请及时联系开发者。`
+      title: messages.trialNotificationExpiringSoonTitle,
+      message: formatMessage(
+        messages.trialNotificationExpiringSoonMessage,
+        {
+          remaining: formatRemainingTime(status, language)
+        },
+        language
+      )
     });
   }
 }
@@ -209,16 +334,18 @@ export async function showExpirationNotice(): Promise<void> {
 export async function clearTrialConfig(): Promise<void> {
   const ports = resolveTrialManagerPorts();
   if (!ports.storage) {
-    ports.logger.warn('[trial-manager] 清除试用配置失败: chrome.storage.local is unavailable');
+    ports.logger.warn(
+      '[trial-manager] Failed to clear trial config: chrome.storage.local is unavailable'
+    );
     return;
   }
 
   try {
     await ports.storage.remove([TRIAL_CONFIG_KEY, TRIAL_STATUS_KEY]);
-    ports.logger.log('试用配置已清除');
+    ports.logger.log('[trial-manager] Trial configuration cleared');
   } catch (error) {
     ports.logger.warn(
-      '[trial-manager] 清除试用配置失败:',
+      '[trial-manager] Failed to clear trial config:',
       error instanceof Error ? error : String(error)
     );
   }
@@ -226,15 +353,10 @@ export async function clearTrialConfig(): Promise<void> {
 
 export async function getTrialSummary(): Promise<string> {
   const status = await checkTrialStatus();
-
   if (!status.isTrial) {
-    return '正式版本';
+    return '';
   }
 
-  const timeStr = formatRemainingTime(status);
-  const expirationStr = status.expirationDate
-    ? status.expirationDate.toLocaleDateString('zh-CN')
-    : '未知';
-
-  return `试用版本 - ${timeStr} (到期日期: ${expirationStr})`;
+  const { language, messages } = await getTrialLocalizationContext();
+  return formatTrialSummaryMessage(status, messages, language);
 }
