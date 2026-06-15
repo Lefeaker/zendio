@@ -232,9 +232,9 @@ low-concurrency screenshot preparation.
 - `npm run lint:warnings-report`：会重写 `tools/baselines/lint-warnings.json`，不得在普通里程碑中随手运行后遗留 diff；只在有意同步 warning truth 时运行。
 - 当前 warning 仍主要集中在 `@typescript-eslint/require-await` 与 `@typescript-eslint/no-unsafe-*` 规则族；精确基线快照以 checked-in `tools/baselines/lint-warnings.json` 为准，普通里程碑不得通过 `lint:warnings-report` 随意重写它。
 - `npm run lint:hardcoded`：通过；当前为 `0` hardcoded findings，且已接入 `quality` 与 CI。
-- `npm run lint:type-any`：fresh run 扫描 `1223` files；fresh overall 为 `any: 0`、`unknown: 1127`、assertions `1925`、non-null assertions `47`、`ts-expect-error: 3`；src 为 `0/621/677/9/0`；tests 为 `0/506/1248/38/3`。
+- `npm run lint:type-any`：fresh run 扫描 `1225` files；fresh overall 为 `any: 0`、`unknown: 1127`、assertions `1926`、non-null assertions `47`、`ts-expect-error: 3`；src 为 `0/621/677/9/0`；tests 为 `0/506/1249/38/3`。
 - `scripts/audit-types.mjs` 支持 overall 阈值参数 `--max-any`、`--max-unknown`、`--max-assertions`、`--max-non-null`、`--max-ts-expect-error`，并支持 scoped 阈值参数 `--max-src-*` / `--max-tests-*`。
-- `npm run lint:type-any:ratchet`：checked-in 上限当前为 overall `0/1138/1934/53/4`、src `0/623/678/9/0`、tests `0/515/1256/46/4`，并已接入 `quality` 作为 type-debt hard gate；fresh run 通过，实测为 overall `0/1127/1925/47/3`、src `0/621/677/9/0`、tests `0/506/1248/38/3`。`verify:preflight` 当前不执行该 gate；本次没有放宽 `any`、`ts-expect-error`、warning baseline 或 checked-in type ratchet 上限。
+- `npm run lint:type-any:ratchet`：checked-in 上限当前为 overall `0/1138/1934/53/4`、src `0/623/678/9/0`、tests `0/515/1256/46/4`，并已接入 `quality` 作为 type-debt hard gate；fresh run 通过，实测为 overall `0/1127/1926/47/3`、src `0/621/677/9/0`、tests `0/506/1249/38/3`。`verify:preflight` 当前不执行该 gate；本次没有放宽 `any`、`ts-expect-error`、warning baseline 或 checked-in type ratchet 上限。
 - `npm run audit:platform-boundary:report`：通过，当前为 `148` findings（composition-root `11`、offscreen-local-vault-permission-root `1`、platform-adapter `93`、shared-runtime-helper `23`、type-only `20`）；仍是 report-only，不得表述为 hard gate。
 - `npm run audit:non-production-source:report`：在先运行 `npm run audit:production-build-graph:report` 后通过。P01 修复了 `resolveSourceImport()` 对 `?inline` / `#hash` specifier 的 owner 解析，`src/content/video/video-control-bar.css` 不再误报为 `migrate-test-owner`。当前 decision counts 为 `retain-production: 628`、`migrate-import-owner: 134`、`retain-production-facade: 17`。
 
@@ -307,11 +307,11 @@ low-concurrency screenshot preparation.
 
 - `node scripts/run-playwright.mjs test tests/e2e/videoPanelFlow.test.ts tests/e2e/videoListenerScope.browser.test.ts --project=chromium-desktop` 已在 P06 final ledger 中通过 `19` tests；isolated reload/cache-hit browser proof 也已通过。P06 最终只有一处 production 修复：restored screenshot hydration 期间阻止过早 fallback screenshot recapture。
 - `node scripts/run-playwright.mjs test tests/e2e/readerPanelFlow.test.ts --project=chromium-desktop` 已在 P07 final ledger 中通过；reader unit / ratchet / typecheck gates 也已通过。
-- production `audit:build:report`：`build/dist/content/runtime.js = 48.2 KB`（raw `49,317` bytes）、`build/dist/onboarding/index.js = 9.3 KB`（raw `9,559` bytes）、`chunks = 103`
-- production `audit:release-surface:report`：`Files = 170`，forbidden harness members `none`，forbidden dev/test pseudo-locale members `none`
-- dev `audit:build:report`：`build/dist/content/runtime.js = 55.9 KB`（raw `57,209` bytes；warning target `57,209`；hard stop `57,386`）、`build/dist/onboarding/index.js = 16.1 KB`（raw `16,459` bytes；warning target `16,459`；hard stop `16,715`）、`chunks = 118`（warning target `118`；hard stop `120`）
+- production `audit:build:report`：`build/dist/content/runtime.js = 48.2 KB`（raw `49,389` bytes）、`build/dist/onboarding/index.js = 9.4 KB`（raw `9,631` bytes）、`chunks = 105`
+- production `audit:release-surface:report`：`Files = 172`，forbidden harness members `none`，forbidden dev/test pseudo-locale members `none`；`package` / `package:firefox` extracted archive audit 均为 `Files = 179`
+- dev `audit:build:report`：`build/dist/content/runtime.js = 55.9 KB`（raw `57,285` bytes；warning target `57,209`；hard stop `57,386`）、`build/dist/onboarding/index.js = 16.1 KB`（raw `16,535` bytes；warning target `16,459`；hard stop `16,715`）、`chunks = 120`（warning target `118`；hard stop `120`）
 - fresh dev chunk truth：`chunks/messages-*.js = 202.4 KB`、`chunks/videoSessionControllers-*.js = 111.7 KB`、`chunks/videoLazyRuntime-*.js = 55.6 KB`、`chunks/videoScreenshotPreparationQueue-*.js = 29.3 KB`
-- fresh current type/warning truth：`lint:type-any` 扫描 `1223` files，overall `0/1127/1925/47/3`、src `0/621/677/9/0`、tests `0/506/1248/38/3`；`lint:type-any:ratchet` checked-in 上限为 overall `0/1138/1934/53/4`、src `0/623/678/9/0`、tests `0/515/1256/46/4`；`lint:warnings-guard` checked-in baseline `160`，fresh warning count `158`
+- fresh current type/warning truth：`lint:type-any` 扫描 `1225` files，overall `0/1127/1926/47/3`、src `0/621/677/9/0`、tests `0/506/1249/38/3`；`lint:type-any:ratchet` checked-in 上限为 overall `0/1138/1934/53/4`、src `0/623/678/9/0`、tests `0/515/1256/46/4`；`lint:warnings-guard` checked-in baseline `160`，fresh warning count `158`
 
 ## 核心命令
 

@@ -48,15 +48,15 @@ npm run audit:build:report
 
 2026-06-14 P06 performance budget guard 复核重新采集 `build:dev`、`audit:build:report` 与 `audit:performance:report`。`report-build-splitting` 现在对 tight dev-build gates 同时输出 observed、warning target 与 hard stop：`content/runtime.js` observed/warning `57,209` raw bytes、hard stop `57,386`；`onboarding/index.js` observed/warning `16,459` raw bytes、hard stop `16,715`；chunk count observed/warning `118`、hard stop `120`。本次没有放宽 locale、single/shared chunk 或 YAML chunk size budgets。`audit:performance:report` 当前为 sourceFiles=`764`、hotspotsOver250=`96`、registeredLineBudgets=`120`，并补齐 `videoCaptureMutationTransaction.ts <= 283` 与 `runtimeMessages.ts <= 356` exact owner budgets。
 
-2026-06-15 0.2.0 release-debt source-of-truth sync 复核重新采集 `build`、`build:dev`、`audit:build:report`、`audit:performance:report` 与 `audit:release-surface:report`。当前 production build report 为 `content/runtime.js = 49,317` bytes、`onboarding/index.js = 9,559` bytes、`chunks = 103`；`audit:release-surface:report` 当前为 `Files = 170`、forbidden harness members `none`、forbidden dev/test pseudo-locale members `none`。当前 dev build hard gates 继续守住 `content/runtime.js = 57,209 / 57,386`、`onboarding/index.js = 16,459 / 16,715`、`chunk count = 118 / 120`，同时 `audit:performance:report` 当前为 `sourceFiles=783`、`hotspotsOver250=95`、`registeredLineBudgets=120`。本次未放宽 locale、single/shared chunk 或 YAML chunk size budgets；`videoSessionDraftController.ts` 当前为 `309` 行，继续低于其 `<= 310` 预算。
+2026-06-15 0.2.0 release-debt source-of-truth sync 复核重新采集 `build`、`build:dev`、`audit:build:report`、`audit:performance:report` 与 `audit:release-surface:report`。当前 production build report 为 `content/runtime.js = 49,389` bytes、`onboarding/index.js = 9,631` bytes、`chunks = 105`；`audit:release-surface:report` 当前为 `Files = 172`、forbidden harness members `none`、forbidden dev/test pseudo-locale members `none`。当前 dev build report 为 `content/runtime.js = 57,285` bytes（warning/hard `57,209 / 57,386`）、`onboarding/index.js = 16,535` bytes（warning/hard `16,459 / 16,715`）、`chunk count = 120`（warning/hard `118 / 120`）；size 仍低于 hard stop，chunk count 位于 hard stop。同时 `audit:performance:report` 当前为 `sourceFiles=783`、`hotspotsOver250=95`、`registeredLineBudgets=120`。本次未放宽 locale、single/shared chunk 或 YAML chunk size budgets；`videoSessionDraftController.ts` 当前为 `309` 行，继续低于其 `<= 310` 预算。
 
 当前 production build 真值：
 
 - `build/dist/content/index.js`: `561 B`
-- `build/dist/content/runtime.js`: `48.2 KB`（raw `49,317` bytes）
-- `build/dist/options/index.js`: `993 B`
-- `build/dist/onboarding/index.js`: `9.3 KB`（raw `9,559` bytes）
-- 总 chunk 数：`103`
+- `build/dist/content/runtime.js`: `48.2 KB`（raw `49,389` bytes）
+- `build/dist/options/index.js`: `1.0 KB`（raw `1,065` bytes）
+- `build/dist/onboarding/index.js`: `9.4 KB`（raw `9,631` bytes）
+- 总 chunk 数：`105`
 - `chunks/runtimeEntry-*.js`: `120.3 KB`
 - `chunks/videoLazyRuntime-*.js`: `78.8 KB`
 - `chunks/videoSessionControllers-*.js`: `58.5 KB`
@@ -64,10 +64,10 @@ npm run audit:build:report
 当前 dev build 真值：
 
 - `build/dist/content/index.js`: `561 B`
-- `build/dist/content/runtime.js`: `55.9 KB`（raw `57,209` bytes；warning target `57,209` raw bytes；hard stop `57,386` raw bytes）
+- `build/dist/content/runtime.js`: `55.9 KB`（raw `57,285` bytes；warning target `57,209` raw bytes；hard stop `57,386` raw bytes）
 - `build/dist/options/index.js`: `1.4 KB`（raw `1,384` bytes）
-- `build/dist/onboarding/index.js`: `16.1 KB`（raw `16,459` bytes；warning target `16,459` raw bytes；hard stop `16,715` raw bytes）
-- 总 chunk 数：`118`（warning target `118`；hard stop `120`）
+- `build/dist/onboarding/index.js`: `16.1 KB`（raw `16,535` bytes；warning target `16,459` raw bytes；hard stop `16,715` raw bytes）
+- 总 chunk 数：`120`（warning target `118`；hard stop `120`）
 - `chunks/runtimeEntry-*.js`: `239.9 KB`
 - `chunks/videoSessionControllers-*.js`: `111.7 KB`
 - `chunks/videoLazyRuntime-*.js`: `55.6 KB`
