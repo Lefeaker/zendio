@@ -91,9 +91,6 @@ const MAX_LINE_BUDGETS = new Map([
   ['src/content/video/platforms/baseVideoPlatform.ts', 317],
   ['src/shared/errors/analytics/dataSanitizer.ts', 316],
   ['src/content/video/videoPromptMountLifecycle.ts', 313],
-  // 2026-06-14 P06: the accepted P07 video mutation transaction split is a
-  // current >250 LOC owner and must stay registered in the hotspot guard.
-  ['src/content/video/videoCaptureMutationTransaction.ts', 283],
   ['src/options/components/diagnostics.ts', 322],
   ['src/options/state/vaultRouterStore.ts', 308],
   ['src/components/trial-notice.ts', 305],

@@ -116,37 +116,41 @@ describe('runtime message listener', () => {
       clipPipeline: { sendSupportPrompt: vi.fn(() => Promise.resolve(undefined)) },
       openOptionsPage: vi.fn(() => Promise.resolve(undefined)),
       getTabContext: vi.fn(
-        async (sender: {
+        (sender: {
           tabId?: number;
           frameId?: number;
           windowId?: number;
-        }): Promise<TabContextSuccess> => ({
-          success: true,
-          ...(sender.tabId !== undefined ? { tabId: sender.tabId } : {}),
-          ...(sender.windowId !== undefined ? { windowId: sender.windowId } : {}),
-          ...(sender.frameId !== undefined ? { frameId: sender.frameId } : {})
-        })
+        }): Promise<TabContextSuccess> =>
+          Promise.resolve({
+            success: true,
+            ...(sender.tabId !== undefined ? { tabId: sender.tabId } : {}),
+            ...(sender.windowId !== undefined ? { windowId: sender.windowId } : {}),
+            ...(sender.frameId !== undefined ? { frameId: sender.frameId } : {})
+          })
       ),
       isTabContextActive: vi.fn(
-        async (ownerContext: { tabId?: number }): Promise<{ success: true; active: boolean }> => ({
-          success: true,
-          active: ownerContext.tabId === 12
-        })
+        (ownerContext: { tabId?: number }): Promise<{ success: true; active: boolean }> =>
+          Promise.resolve({
+            success: true,
+            active: ownerContext.tabId === 12
+          })
       ),
-      captureVisibleTabScreenshot: vi.fn<() => Promise<CaptureVisibleTabScreenshotResponse>>(
-        async () => ({
+      captureVisibleTabScreenshot: vi.fn<() => Promise<CaptureVisibleTabScreenshotResponse>>(() =>
+        Promise.resolve({
           success: true,
           dataUrl: 'data:image/jpeg;base64,dmlkZW8='
         })
       ),
       handleVideoScreenshotCacheMessage: vi.fn(
-        async (message: unknown): Promise<VideoScreenshotCacheResponse | undefined> =>
-          typeof message === 'object' &&
-          message !== null &&
-          'type' in message &&
-          message.type === 'AIIOB_VIDEO_SCREENSHOT_CACHE'
-            ? { success: true, operation: 'pruneExpired' }
-            : undefined
+        (message: unknown): Promise<VideoScreenshotCacheResponse | undefined> =>
+          Promise.resolve(
+            typeof message === 'object' &&
+              message !== null &&
+              'type' in message &&
+              message.type === 'AIIOB_VIDEO_SCREENSHOT_CACHE'
+              ? { success: true, operation: 'pruneExpired' }
+              : undefined
+          )
       )
     };
   }

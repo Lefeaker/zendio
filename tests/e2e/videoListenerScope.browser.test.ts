@@ -705,23 +705,28 @@ async function removeDraftScreenshotRefs(extensionPage: Page, pageUrl: string): 
       throw new Error(`Missing stored draft for ${targetPageUrl}`);
     }
     const [draftKey, rawDraftValue] = draftEntry;
+    const isRecord = (value: unknown): value is Record<string, unknown> =>
+      typeof value === 'object' && value !== null;
     if (
-      typeof rawDraftValue !== 'object' ||
-      rawDraftValue === null ||
+      !isRecord(rawDraftValue) ||
       !('payload' in rawDraftValue) ||
-      typeof rawDraftValue.payload !== 'object' ||
-      rawDraftValue.payload === null
+      !isRecord(rawDraftValue.payload)
     ) {
       throw new Error(`Stored draft for ${targetPageUrl} is not a video draft envelope.`);
     }
 
     const payload = rawDraftValue.payload;
-    const captures =
-      'captures' in payload && Array.isArray(payload.captures) ? payload.captures : [];
+    const rawCaptures = 'captures' in payload ? payload.captures : undefined;
+    const captures: unknown[] = Array.isArray(rawCaptures) ? rawCaptures : [];
     const screenshotPayloadKeys = new Set(['screenshotRef', 'screenshot', 'dataUrl', 'content']);
-    const nextCaptures = captures.map((capture) =>
-      Object.fromEntries(Object.entries(capture).filter(([key]) => !screenshotPayloadKeys.has(key)))
-    );
+    const nextCaptures = captures.map((capture) => {
+      if (!isRecord(capture)) {
+        return capture;
+      }
+      return Object.fromEntries(
+        Object.entries(capture).filter(([key]) => !screenshotPayloadKeys.has(key))
+      );
+    });
 
     await chrome.storage.local.set({
       [draftKey]: {

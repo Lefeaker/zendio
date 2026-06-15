@@ -99,15 +99,17 @@ describe('content dependency factories', () => {
   });
 
   it('wires video screenshot cache through runtime messaging when available', async () => {
-    const send = vi.fn(async () => ({
-      success: true,
-      operation: 'save',
-      result: {
-        status: 'skipped',
-        reason: 'invalid-metadata',
-        field: 'pageKey'
-      }
-    }));
+    const send = vi.fn(() =>
+      Promise.resolve({
+        success: true,
+        operation: 'save',
+        result: {
+          status: 'skipped',
+          reason: 'invalid-metadata',
+          field: 'pageKey'
+        }
+      })
+    );
     const platform = {
       optionsRepository: {
         get: vi.fn().mockResolvedValue({}),

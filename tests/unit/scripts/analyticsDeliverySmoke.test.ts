@@ -264,17 +264,16 @@ describe('analytics-delivery-smoke script', () => {
     expect(payload.validation_behavior).toBeUndefined();
     expect(payload.client_id).toMatch(/^owner-smoke-/);
     expect(payload.measurement_id).toBe('G-SMOKE1234');
-    expect(payload.events).toEqual([
-      {
-        name: 'options_action_completed',
-        params: expect.objectContaining({
-          action: 'owner_smoke',
-          outcome: 'completed',
-          section: 'privacy',
-          engagement_time_msec: 1
-        })
+    expect(payload.events).toHaveLength(1);
+    expect(payload.events[0]).toMatchObject({
+      name: 'options_action_completed',
+      params: {
+        action: 'owner_smoke',
+        outcome: 'completed',
+        section: 'privacy',
+        engagement_time_msec: 1
       }
-    ]);
+    });
     expect(payload.events[0]?.params).not.toHaveProperty('url');
     expect(payload.events[0]?.params).not.toHaveProperty('title');
     expect(payload.events[0]?.params).not.toHaveProperty('vault_path');

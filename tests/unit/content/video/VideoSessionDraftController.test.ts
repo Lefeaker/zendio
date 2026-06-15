@@ -610,15 +610,12 @@ describe('VideoSessionDraftController', () => {
     expect(maxActiveLoads).toBeLessThanOrEqual(4);
     expect(screenshotCache.load).toHaveBeenCalledTimes(6);
     for (const capture of harness.state.captures) {
-      expect(capture).toEqual(
-        expect.objectContaining({
-          kind: 'timestamp',
-          screenshotRequested: true,
-          screenshot: expect.objectContaining({
-            content: expect.objectContaining({ kind: 'blob' })
-          })
-        })
-      );
+      const hydratedCapture = capture as TimestampDraftCapture & {
+        screenshot?: VideoCaptureScreenshot;
+      };
+      expect(hydratedCapture.kind).toBe('timestamp');
+      expect(hydratedCapture.screenshotRequested).toBe(true);
+      expect(hydratedCapture.screenshot?.content).toMatchObject({ kind: 'blob' });
     }
   });
 
