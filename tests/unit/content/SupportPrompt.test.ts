@@ -298,7 +298,7 @@ describe('SupportPrompt', () => {
     expect(shadow?.querySelector('[data-role="status-detail"]')?.textContent).toBe('disk full');
   });
 
-  it('falls back to technical error text when descriptor exists but runtime messages are unavailable', async () => {
+  it('uses generic failure copy when descriptor exists but runtime messages are unavailable', async () => {
     const { resolveStatusMessage, resolveSupportPromptMessages } =
       await import('../../../src/content/ui/supportPromptMessages');
     const messages = await resolveSupportPromptMessages(document);
@@ -322,7 +322,8 @@ describe('SupportPrompt', () => {
       }
     });
 
-    expect(statusMessage.text).toBe(`Failed: ${technicalMessage}`);
+    expect(statusMessage.text).toBe('Failed');
+    expect(statusMessage.text).not.toContain(technicalMessage);
     expect(statusMessage.text).not.toContain('Failed to write to the local folder: Main');
     expect(statusMessage.text).not.toMatch(/[\u3400-\u9fff]/u);
   });
