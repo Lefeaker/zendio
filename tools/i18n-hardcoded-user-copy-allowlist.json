@@ -54,17 +54,6 @@
       "revisit": "Recheck when platform parser fixtures own page-native title text.",
       "literalIncludes": ["通义"],
       "findingKinds": ["cjk-literal"]
-    },
-    {
-      "id": "p12-stitch-changelog-zh-release-notes",
-      "path": "src/options/stitch/changelogResourceData.ts",
-      "line": 15,
-      "category": "retained-static-release-note-content",
-      "reason": "Release note resource data intentionally retains historical zh-CN changelog content until it is moved into catalog-owned static resources.",
-      "ownerPlan": "P12",
-      "revisit": "Move changelog resource data to catalog/static messages before enabling --check as a hard gate.",
-      "literalIncludes": ["重构选项页为新的设置中心"],
-      "findingKinds": ["cjk-literal"]
     }
   ]
 }
