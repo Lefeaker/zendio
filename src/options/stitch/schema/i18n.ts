@@ -1,4 +1,5 @@
-import { formatMessage, type Messages } from '@i18n';
+import { formatMessage } from '@i18n/messageFormatter';
+import type { Messages } from '@i18n/messages';
 
 export type SchemaMessageKey = keyof Messages;
 
