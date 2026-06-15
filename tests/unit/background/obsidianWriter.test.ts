@@ -420,14 +420,13 @@ describe('obsidianWriter', () => {
     );
     expect(writeError).toMatchObject({
       code: 'LOCAL_VAULT_WRITE_FAILED',
-      userMessage: 'Failed to write to the local folder: Main',
       userMessageDescriptor: {
         key: 'localVaultWriteFailed',
-        values: { folderName: 'Main' },
-        fallback: 'Failed to write to the local folder: Main'
+        values: { folderName: 'Main' }
       }
     });
-    expect(writeError?.userMessage).not.toMatch(/[\u3400-\u9fff]/u);
+    expect(writeError?.userMessage).toBeUndefined();
+    expect(writeError?.userMessageDescriptor?.fallback).toBeUndefined();
     expect(writeFileMock).not.toHaveBeenCalled();
     expectAnalyticsEvent(
       trackUsageEventMock.mock.calls[0],
@@ -562,14 +561,13 @@ describe('obsidianWriter', () => {
     );
     expect(writeError).toMatchObject({
       code: 'LOCAL_VAULT_REAUTH_REQUIRED',
-      userMessage: 'Local folder needs to be reauthorized. Reauthorize "Main" in Settings.',
       userMessageDescriptor: {
         key: 'localVaultWriteReauthorizationRequired',
-        values: { folderName: 'Main' },
-        fallback: 'Local folder needs to be reauthorized. Reauthorize "Main" in Settings.'
+        values: { folderName: 'Main' }
       }
     });
-    expect(writeError?.userMessage).not.toMatch(/[\u3400-\u9fff]/u);
+    expect(writeError?.userMessage).toBeUndefined();
+    expect(writeError?.userMessageDescriptor?.fallback).toBeUndefined();
     expect(writeFileMock).toHaveBeenCalled();
     expectAnalyticsEvent(
       trackUsageEventMock.mock.calls[0],

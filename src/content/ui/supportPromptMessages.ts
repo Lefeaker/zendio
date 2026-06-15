@@ -242,17 +242,14 @@ function resolveProgressText(
 function resolveDescriptorErrorText(
   error: AppError | undefined,
   runtimeMessages: Messages | undefined,
-  fallbackReason: string | undefined
+  _fallbackReason: string | undefined
 ): string | undefined {
   const descriptor = error?.userMessageDescriptor;
-  if (!descriptor) {
+  if (!descriptor || !runtimeMessages) {
     return undefined;
   }
 
-  const fallback = error.userMessage ?? descriptor.fallback ?? fallbackReason ?? '';
-  const resolved = runtimeMessages
-    ? formatUserVisibleMessage(descriptor, runtimeMessages, fallback)
-    : fallback;
+  const resolved = formatUserVisibleMessage(descriptor, runtimeMessages);
 
   if (resolved.trim().length > 0) {
     return resolved.trim();

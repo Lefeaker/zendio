@@ -278,11 +278,9 @@ describe('SupportPrompt', () => {
       error: {
         code: 'LOCAL_VAULT_WRITE_FAILED',
         message: 'Local vault write failed: Articles/test.md',
-        userMessage: 'Legacy local write failure',
         userMessageDescriptor: {
           key: 'localVaultWriteFailed',
-          values: { folderName: 'Main' },
-          fallback: 'Legacy local write failure'
+          values: { folderName: 'Main' }
         },
         severity: ErrorSeverity.ERROR,
         domain: 'background',
@@ -296,9 +294,37 @@ describe('SupportPrompt', () => {
     const statusText = shadow?.querySelector('[data-role="status-text"]')?.textContent ?? '';
     expect(statusText).toContain('Failed to write to the local folder: Main');
     expect(statusText).toContain('(code: LOCAL_VAULT_WRITE_FAILED)');
-    expect(statusText).not.toContain('Legacy local write failure');
     expect(statusText).not.toMatch(/[\u3400-\u9fff]/u);
     expect(shadow?.querySelector('[data-role="status-detail"]')?.textContent).toBe('disk full');
+  });
+
+  it('falls back to technical error text when descriptor exists but runtime messages are unavailable', async () => {
+    const { resolveStatusMessage, resolveSupportPromptMessages } =
+      await import('../../../src/content/ui/supportPromptMessages');
+    const messages = await resolveSupportPromptMessages(document);
+    const technicalMessage = 'Local vault write failed: Articles/test.md';
+
+    const statusMessage = resolveStatusMessage({
+      status: 'failure',
+      reason: technicalMessage,
+      messages,
+      error: {
+        code: 'LOCAL_VAULT_WRITE_FAILED',
+        message: technicalMessage,
+        userMessageDescriptor: {
+          key: 'localVaultWriteFailed',
+          values: { folderName: 'Main' }
+        },
+        severity: ErrorSeverity.ERROR,
+        domain: 'background',
+        recoverable: true,
+        timestamp: Date.now()
+      }
+    });
+
+    expect(statusMessage.text).toBe(`Failed: ${technicalMessage}`);
+    expect(statusMessage.text).not.toContain('Failed to write to the local folder: Main');
+    expect(statusMessage.text).not.toMatch(/[\u3400-\u9fff]/u);
   });
 
   it('shows like toast and review actions', async () => {

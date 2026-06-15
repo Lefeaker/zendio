@@ -55,7 +55,7 @@ async function handleClipFailure(
 ): Promise<void> {
   await errorHandler.handle(appError, { suppressNotifications: true });
 
-  await safeNotify(() => notifyClipFailure(appError.userMessage ?? appError.message), {
+  await safeNotify(() => notifyClipFailure(appError), {
     channel: 'clipper.failure',
     title: 'notifyClipFailure'
   });
@@ -198,7 +198,7 @@ export async function handleClipResult(
       supportStatus = 'warning';
       supportError = warningError;
       await errorHandler.handle(warningError, { suppressNotifications: true });
-      await safeNotify(() => notifyClipWarning(warningError.userMessage ?? warningError.message), {
+      await safeNotify(() => notifyClipWarning(warningError), {
         channel: 'clipper.warning',
         title: 'notifyClipWarning'
       });

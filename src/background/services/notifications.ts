@@ -1,4 +1,4 @@
-import { getMessages, formatMessage } from '@i18n';
+import { getMessages, formatMessage, formatUserVisibleMessage } from '@i18n';
 import { APP_ICON_PATH } from '../../shared/constants';
 import type { NotificationOptions as PlatformNotificationOptions } from '../../platform/interfaces/notifications';
 import type { PlatformServices } from '../../platform/types';
@@ -160,9 +160,35 @@ function createNotificationMetadata(error: AppError): Record<string, unknown> {
   return metadata;
 }
 
+type RuntimeMessages = Awaited<ReturnType<typeof getMessages>>;
+
+function resolveDescriptorMessage(error: AppError, messages: RuntimeMessages): string | undefined {
+  const descriptor = error.userMessageDescriptor;
+  if (!descriptor) {
+    return undefined;
+  }
+
+  const resolved = formatUserVisibleMessage(descriptor, messages);
+  return resolved.trim().length > 0 ? resolved.trim() : undefined;
+}
+
+function resolveAppErrorMessage(error: AppError, messages?: RuntimeMessages): string {
+  const descriptorMessage = messages ? resolveDescriptorMessage(error, messages) : undefined;
+  if (descriptorMessage) {
+    return descriptorMessage;
+  }
+
+  if (typeof error.userMessage === 'string' && error.userMessage.trim().length > 0) {
+    return error.userMessage.trim();
+  }
+
+  return error.message;
+}
+
 async function mapErrorToNotification(error: AppError): Promise<AppNotification | null> {
   const severity = ERROR_SEVERITY_TO_NOTIFICATION[error.severity] ?? 'error';
-  const message = error.userMessage ?? error.message;
+  const descriptorBackedMessages = error.userMessageDescriptor ? await getMessages() : undefined;
+  const message = resolveAppErrorMessage(error, descriptorBackedMessages);
   const metadata = createNotificationMetadata(error);
 
   if (
@@ -348,15 +374,16 @@ function formatClipSuccessMessage(
   return String(filePath);
 }
 
-export async function notifyClipFailure(error: string): Promise<void> {
+export async function notifyClipFailure(error: string | AppError): Promise<void> {
   const msgs = await getMessages();
+  const message = typeof error === 'string' ? error : resolveAppErrorMessage(error, msgs);
   await notifyAppEvent({
     channel: mapChannelForClipper(NOTIFICATION_CHANNELS.clipFailure),
     severity: ErrorSeverity.ERROR,
     iconUrl: APP_ICON_PATH,
     title: msgs.clipFailed,
-    message: error,
-    metadata: { error }
+    message,
+    metadata: { error: message }
   });
 }
 
@@ -384,11 +411,14 @@ export async function notifyInjectionFailure(errorMessage: string): Promise<void
   });
 }
 
-export async function notifyClipWarning(reason?: string): Promise<void> {
+export async function notifyClipWarning(reason?: string | AppError): Promise<void> {
   const msgs = await getMessages();
-  const normalizedReason = reason?.trim()
-    ? reason.trim()
-    : msgs.classificationFallbackDefaultReason;
+  const resolvedReason =
+    typeof reason === 'string' ? reason : reason ? resolveAppErrorMessage(reason, msgs) : undefined;
+  const normalizedReason =
+    typeof resolvedReason === 'string' && resolvedReason.trim().length > 0
+      ? resolvedReason.trim()
+      : msgs.classificationFallbackDefaultReason;
   await notifyAppEvent({
     channel: mapChannelForClipper(NOTIFICATION_CHANNELS.clipWarning),
     severity: ErrorSeverity.WARNING,

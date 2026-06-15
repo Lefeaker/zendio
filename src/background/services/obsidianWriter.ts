@@ -292,20 +292,12 @@ function createLocalVaultUserMessage(
   key: LocalVaultUserMessageKey,
   folderName: string
 ): {
-  userMessage: string;
   userMessageDescriptor: UserVisibleMessageDescriptor<LocalVaultUserMessageKey>;
 } {
-  const userMessage =
-    key === 'localVaultWriteReauthorizationRequired'
-      ? `Local folder needs to be reauthorized. Reauthorize "${folderName}" in Settings.`
-      : `Failed to write to the local folder: ${folderName}`;
-
   return {
-    userMessage,
     userMessageDescriptor: {
       key,
-      values: { folderName },
-      fallback: userMessage
+      values: { folderName }
     }
   };
 }

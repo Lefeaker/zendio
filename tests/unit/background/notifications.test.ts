@@ -55,7 +55,10 @@ describe('notifications service', () => {
     scriptInjectionFailed: 'Script inject failed',
     classificationFallbackTitle: 'Classification Fallback',
     classificationFallbackMessage: 'Fallback because: {reason}',
-    classificationFallbackDefaultReason: 'Automatic fallback'
+    classificationFallbackDefaultReason: 'Automatic fallback',
+    localVaultWriteFailed: 'Failed to write to the local folder: {folderName}',
+    localVaultWriteReauthorizationRequired:
+      'Local folder needs to be reauthorized. Reauthorize "{folderName}" in Settings.'
   };
 
   beforeEach(() => {
@@ -199,6 +202,37 @@ describe('notifications service', () => {
     setNotificationAdapter(null);
   });
 
+  it('formats descriptor-based clip failure notifications without relying on userMessage or fallback', async () => {
+    const { notifyClipFailure, setNotificationAdapter } =
+      await import('../../../src/background/services/notifications');
+    const createMock = vi.fn<(...args: [string, NormalizedNotification]) => void>();
+
+    setNotificationAdapter(createMock);
+    await notifyClipFailure({
+      code: 'LOCAL_VAULT_WRITE_FAILED',
+      domain: 'background',
+      message: 'Local vault write failed: Articles/test.md',
+      severity: ErrorSeverity.ERROR,
+      recoverable: true,
+      userMessageDescriptor: {
+        key: 'localVaultWriteFailed',
+        values: { folderName: 'Main' }
+      }
+    });
+
+    expect(createMock.mock.calls[0]?.[1]).toMatchObject({
+      channel: 'clipper.failure',
+      severity: 'error',
+      title: 'Clip Failed',
+      message: 'Failed to write to the local folder: Main'
+    });
+    expect(createMock.mock.calls[0]?.[1].message).not.toContain(
+      'Local vault write failed: Articles/test.md'
+    );
+
+    setNotificationAdapter(null);
+  });
+
   it('sends warning notification with trimmed or default fallback reason', async () => {
     const { notifyClipWarning, setNotificationAdapter } =
       await import('../../../src/background/services/notifications');
@@ -218,6 +252,38 @@ describe('notifications service', () => {
     expect(createMock.mock.calls[1]?.[1]).toMatchObject({
       message: 'Fallback because: Automatic fallback',
       metadata: { reason: 'Automatic fallback' }
+    });
+
+    setNotificationAdapter(null);
+  });
+
+  it('formats descriptor-based clip warning reasons before applying the warning template', async () => {
+    const { notifyClipWarning, setNotificationAdapter } =
+      await import('../../../src/background/services/notifications');
+    const createMock = vi.fn<(...args: [string, NormalizedNotification]) => void>();
+
+    setNotificationAdapter(createMock);
+    await notifyClipWarning({
+      code: 'LOCAL_VAULT_REAUTH_REQUIRED',
+      domain: 'background',
+      message: 'Local vault permission is not granted and REST fallback failed: Articles/test.md',
+      severity: ErrorSeverity.WARNING,
+      recoverable: true,
+      userMessageDescriptor: {
+        key: 'localVaultWriteReauthorizationRequired',
+        values: { folderName: 'Main' }
+      }
+    });
+
+    expect(createMock.mock.calls[0]?.[1]).toMatchObject({
+      channel: 'clipper.warning',
+      severity: 'warning',
+      title: 'Classification Fallback',
+      message:
+        'Fallback because: Local folder needs to be reauthorized. Reauthorize "Main" in Settings.',
+      metadata: {
+        reason: 'Local folder needs to be reauthorized. Reauthorize "Main" in Settings.'
+      }
     });
 
     setNotificationAdapter(null);
