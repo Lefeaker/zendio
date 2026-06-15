@@ -190,4 +190,24 @@ describe('audit-i18n-hardcoded-user-copy', () => {
       )
     ).toBe(true);
   });
+
+  it('has no unexpected legacy-user-message-fallback findings in the current tree', async () => {
+    await execFileAsync(
+      'node',
+      [
+        'tools/report-production-build-graph.mjs',
+        '--write-json',
+        'build/reports/production-build-graph.json'
+      ],
+      { cwd: repoRoot }
+    );
+    const { scanI18nHardcodedUserCopy } = await loadAuditModule();
+    const result = await scanI18nHardcodedUserCopy({ root: repoRoot });
+
+    expect(
+      result.unexpectedFindings.filter(
+        (finding) => finding.category === 'legacy-user-message-fallback'
+      )
+    ).toEqual([]);
+  });
 });

@@ -30,7 +30,7 @@ export const contentErrors = {
       message: `Storage ${operation} operation failed for key: ${key}`,
       severity: 'warning' as ErrorSeverity,
       recoverable: true,
-      userMessage: '数据保存失败，将使用默认设置继续',
+      userMessageDescriptor: { key: 'errorContentStorageOperationFailed' },
       context: {
         operation,
         key,
@@ -54,7 +54,7 @@ export const contentErrors = {
       message: 'Failed to track shortcut usage statistics',
       severity: 'info' as ErrorSeverity,
       recoverable: true,
-      userMessage: '使用统计记录失败，不影响功能使用',
+      userMessageDescriptor: { key: 'errorContentShortcutUsageTrackingFailed' },
       context,
       cause: options.cause,
       timestamp: Date.now()
@@ -75,7 +75,7 @@ export const contentErrors = {
       message: `Failed to initialize component: ${componentName}`,
       severity: 'error' as ErrorSeverity,
       recoverable: false,
-      userMessage: '组件初始化失败，请刷新页面重试',
+      userMessageDescriptor: { key: 'errorContentComponentInitializationFailed' },
       context: {
         component: componentName,
         ...context
@@ -99,7 +99,7 @@ export const contentErrors = {
       message: `Failed to send message: ${messageType}`,
       severity: 'warning' as ErrorSeverity,
       recoverable: true,
-      userMessage: '通信失败，请重试操作',
+      userMessageDescriptor: { key: 'errorContentMessagingFailed' },
       context: {
         messageType,
         ...context

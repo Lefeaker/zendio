@@ -1,6 +1,7 @@
 /* @vitest-environment jsdom */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { restErrors } from '@shared/errors';
 import { ErrorSeverity } from '@shared/errors/types';
 
 const flushMicrotasks = () => new Promise((resolve) => setTimeout(resolve, 0));
@@ -70,6 +71,8 @@ const getContentMessagesMock = vi.hoisted(() =>
       supportProgressWritingNote: 'Writing note',
       supportProgressSendingToObsidian: 'Sending to Obsidian',
       supportProgressErrorCodeSuffix: ' (code: {code})',
+      errorRestRequestFailed:
+        'Request failed. We will retry shortly, or check the network and try again.',
       localVaultWriteFailed: 'Failed to write to the local folder: {folderName}',
       localVaultWriteReauthorizationRequired:
         'Local folder needs to be reauthorized. Reauthorize "{folderName}" in Settings.',
@@ -296,6 +299,24 @@ describe('SupportPrompt', () => {
     expect(statusText).toContain('(code: LOCAL_VAULT_WRITE_FAILED)');
     expect(statusText).not.toMatch(/[\u3400-\u9fff]/u);
     expect(shadow?.querySelector('[data-role="status-detail"]')?.textContent).toBe('disk full');
+  });
+
+  it('renders shared rest errors through descriptor-based failure copy', async () => {
+    const { SupportPrompt } = await import('../../../src/content/ui/supportPrompt');
+    const prompt = new SupportPrompt(document);
+    const error = restErrors.requestFailed('Failed to fetch', { endpoint: 'https://api.example' });
+    await prompt.show({
+      status: 'failure',
+      error
+    });
+
+    const shadow = getPromptHost().shadowRoot;
+    const statusText = shadow?.querySelector('[data-role="status-text"]')?.textContent ?? '';
+    expect(statusText).toContain(
+      'Request failed. We will retry shortly, or check the network and try again.'
+    );
+    expect(statusText).toContain('(code: REST_NETWORK_REQUEST_FAILED)');
+    expect(statusText).not.toMatch(/[\u3400-\u9fff]/u);
   });
 
   it('uses generic failure copy when descriptor exists but runtime messages are unavailable', async () => {

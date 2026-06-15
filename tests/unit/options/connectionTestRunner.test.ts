@@ -10,7 +10,7 @@ import {
   type ConnectionTestElements
 } from '@options/services/connectionTestRunner';
 import type { ConnectionTestResult } from '@shared/types/connection';
-import { ErrorSeverity, type AppError } from '@shared/errors';
+import { optionsErrors } from '@shared/errors';
 import type { Messages } from '../../../src/i18n';
 
 describe('connectionTestRunner', () => {
@@ -46,7 +46,9 @@ describe('connectionTestRunner', () => {
       connectionFailureHintCheckApiKey: '请检查 API Key 是否正确',
       connectionFailureHintCheckVault: '请确认 Vault 名称与 Obsidian 设置一致',
       connectionFailureHintCheckService: '请确认 Obsidian Local REST API 插件已启动',
-      connectionFailureHintGeneric: '请尝试重新启动服务'
+      connectionFailureHintGeneric: '请尝试重新启动服务',
+      errorOptionsConnectionRequestFailed:
+        'Connection test request failed. Check the network and try again.'
     } as Messages;
   });
 
@@ -151,15 +153,10 @@ describe('connectionTestRunner', () => {
       expect(onAfterRun).toHaveBeenCalledWith(undefined, testError);
     });
 
-    it('does not render appError userMessage or raw message without a descriptor', async () => {
-      const appError: AppError = {
-        code: 'OPTIONS_CONNECTION_REQUEST_FAILED',
-        domain: 'options',
-        message: 'raw transport failure',
-        severity: ErrorSeverity.ERROR,
-        recoverable: true,
-        userMessage: '连接测试请求发送失败，请检查网络后重试。'
-      };
+    it('renders descriptor-backed shared options errors without falling back to legacy userMessage copy', async () => {
+      const appError = optionsErrors.requestDispatchFailed(new Error('network timeout'), {
+        scope: 'global'
+      });
       const mockExec = vi.fn().mockRejectedValue(appError);
       const mockGetMessages = vi.fn().mockResolvedValue(mockMessages);
       const onAfterRun = vi.fn();
@@ -172,10 +169,12 @@ describe('connectionTestRunner', () => {
 
       await runConnectionTest(config, elements);
 
-      expect(mockResult.textContent).toContain('连接失败');
+      expect(mockResult.textContent).toContain(
+        '连接失败: Connection test request failed. Check the network and try again.'
+      );
       expect(mockResult.textContent).toContain('处理建议：请尝试重新启动服务');
       expect(mockResult.textContent).not.toContain('连接测试请求发送失败，请检查网络后重试。');
-      expect(mockResult.textContent).not.toContain('raw transport failure');
+      expect(mockResult.textContent).not.toContain(appError.message);
       expect(onAfterRun).toHaveBeenCalledWith(undefined, expect.any(Error));
     });
 

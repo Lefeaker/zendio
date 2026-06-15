@@ -18,7 +18,7 @@ export const notificationErrors = {
       message,
       severity: ErrorSeverity.WARNING,
       recoverable: true,
-      userMessage: '通知发送失败，已记录日志。',
+      userMessageDescriptor: { key: 'errorNotificationDispatchFailed' },
       context,
       cause: options.cause
     };
