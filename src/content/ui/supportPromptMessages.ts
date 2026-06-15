@@ -56,6 +56,9 @@ export function resolveSupportPromptReason(
   error?: AppError,
   fallback?: string
 ): string | undefined {
+  if (error?.userMessageDescriptor) {
+    return undefined;
+  }
   const candidate = error?.userMessage ?? error?.message ?? fallback;
   if (typeof candidate === 'string' && candidate.trim().length > 0) {
     return candidate.trim();
@@ -94,19 +97,25 @@ export function resolveStatusMessage(input: {
   };
 
   const resolvedProgressText = resolveProgressText(progressMessage, runtimeMessages, progressLabel);
+  const resolvedErrorText = resolveDescriptorErrorText(error, runtimeMessages, reason);
+  const descriptorReasonAllowed = error?.userMessageDescriptor === undefined;
 
   if (resolvedProgressText) {
     text = resolvedProgressText;
   } else if (status === 'progress') {
     text = resolveProgressFallback(runtimeMessages);
+  } else if (resolvedErrorText) {
+    text = resolvedErrorText;
   } else if (status === 'failure') {
-    text = reason
-      ? fill(messages.statusFailureWithReason, 'reason', reason)
-      : messages.statusFailure;
+    text =
+      descriptorReasonAllowed && reason
+        ? fill(messages.statusFailureWithReason, 'reason', reason)
+        : messages.statusFailure;
   } else if (status === 'warning') {
-    text = reason
-      ? fill(messages.statusWarningWithReason, 'reason', reason)
-      : messages.statusWarning;
+    text =
+      descriptorReasonAllowed && reason
+        ? fill(messages.statusWarningWithReason, 'reason', reason)
+        : messages.statusWarning;
   } else {
     text = vaultLabel
       ? fill(messages.statusSuccessWithVault, 'vault', vaultLabel)
@@ -231,6 +240,25 @@ function resolveProgressText(
 
   if (legacyLabel?.trim()) {
     return legacyLabel.trim();
+  }
+
+  return undefined;
+}
+
+function resolveDescriptorErrorText(
+  error: AppError | undefined,
+  runtimeMessages: Messages | undefined,
+  _fallbackReason: string | undefined
+): string | undefined {
+  const descriptor = error?.userMessageDescriptor;
+  if (!descriptor || !runtimeMessages) {
+    return undefined;
+  }
+
+  const resolved = formatUserVisibleMessage(descriptor, runtimeMessages);
+
+  if (resolved.trim().length > 0) {
+    return resolved.trim();
   }
 
   return undefined;

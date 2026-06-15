@@ -6,6 +6,7 @@ import { TOKENS } from '../../shared/di/tokens';
 import type { PlatformServices } from '../../platform/types';
 import { ErrorSeverity, handleError, type AppError } from '../../shared/errors';
 import { restErrors } from '../../shared/errors/restErrors';
+import type { UserVisibleMessageDescriptor } from '../../shared/i18n/userVisibleMessageDescriptor';
 import type { LocalVaultPermissionState } from '../../platform/interfaces/fileSystemAccess';
 import { trackUsageEvent } from './analyticsEvents';
 import type { DurationBucket, StorageTarget } from '../../shared/types/analytics';
@@ -47,6 +48,8 @@ export interface VaultWriteSessionOptions {
     request: LocalVaultPermissionPromptRequest
   ) => Promise<LocalVaultPermissionPromptResult>;
 }
+
+type LocalVaultUserMessageKey = 'localVaultWriteFailed' | 'localVaultWriteReauthorizationRequired';
 
 function getObsidianRestClient(): RestClient {
   return getService<PlatformServices>(TOKENS.platformServices).restClient;
@@ -285,6 +288,20 @@ function mapPermissionFallbackReason(
   return 'permission-denied';
 }
 
+function createLocalVaultUserMessage(
+  key: LocalVaultUserMessageKey,
+  folderName: string
+): {
+  userMessageDescriptor: UserVisibleMessageDescriptor<LocalVaultUserMessageKey>;
+} {
+  return {
+    userMessageDescriptor: {
+      key,
+      values: { folderName }
+    }
+  };
+}
+
 function createLocalFallbackRestFailedError(
   connection: RestConnection,
   target: VaultWriteTargetInfo,
@@ -292,11 +309,15 @@ function createLocalFallbackRestFailedError(
   cause: unknown
 ): AppError {
   const folderName = target.localFolderName ?? connection.vault;
+  const userVisibleMessage = createLocalVaultUserMessage(
+    'localVaultWriteReauthorizationRequired',
+    folderName
+  );
   return {
     code: 'LOCAL_VAULT_REAUTH_REQUIRED',
     domain: 'background',
     message: `Local vault permission is not granted and REST fallback failed: ${filePath}`,
-    userMessage: `本地目录需要重新授权，且 REST API 保存失败。请到设置页点击本地目录“${folderName}”重新授权。`,
+    ...userVisibleMessage,
     severity: ErrorSeverity.ERROR,
     recoverable: true,
     context: {
@@ -315,11 +336,12 @@ function createLocalWriteFailedError(
   cause: unknown
 ): AppError {
   const folderName = rest.localFolderName ?? rest.vault;
+  const userVisibleMessage = createLocalVaultUserMessage('localVaultWriteFailed', folderName);
   return {
     code: 'LOCAL_VAULT_WRITE_FAILED',
     domain: 'background',
     message: `Local vault write failed: ${filePath}`,
-    userMessage: `本地目录写入失败：${folderName}`,
+    ...userVisibleMessage,
     severity: ErrorSeverity.ERROR,
     recoverable: true,
     context: {

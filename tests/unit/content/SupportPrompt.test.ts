@@ -70,6 +70,9 @@ const getContentMessagesMock = vi.hoisted(() =>
       supportProgressWritingNote: 'Writing note',
       supportProgressSendingToObsidian: 'Sending to Obsidian',
       supportProgressErrorCodeSuffix: ' (code: {code})',
+      localVaultWriteFailed: 'Failed to write to the local folder: {folderName}',
+      localVaultWriteReauthorizationRequired:
+        'Local folder needs to be reauthorized. Reauthorize "{folderName}" in Settings.',
       supportPromptLikeThankYou: 'Thanks!',
       supportPromptReviewLinkLabel: 'Write review',
       supportPromptReviewAcknowledgedLabel: 'I already reviewed',
@@ -265,6 +268,64 @@ describe('SupportPrompt', () => {
       '(code: FAIL_X)'
     );
     expect(shadow?.querySelector('[data-role="status-detail"]')?.textContent).toBe('extra detail');
+  });
+
+  it('prefers descriptor-based failure copy over legacy error strings', async () => {
+    const { SupportPrompt } = await import('../../../src/content/ui/supportPrompt');
+    const prompt = new SupportPrompt(document);
+    await prompt.show({
+      status: 'failure',
+      error: {
+        code: 'LOCAL_VAULT_WRITE_FAILED',
+        message: 'Local vault write failed: Articles/test.md',
+        userMessageDescriptor: {
+          key: 'localVaultWriteFailed',
+          values: { folderName: 'Main' }
+        },
+        severity: ErrorSeverity.ERROR,
+        domain: 'background',
+        recoverable: true,
+        timestamp: Date.now(),
+        context: { contextMessage: 'disk full' }
+      }
+    });
+
+    const shadow = getPromptHost().shadowRoot;
+    const statusText = shadow?.querySelector('[data-role="status-text"]')?.textContent ?? '';
+    expect(statusText).toContain('Failed to write to the local folder: Main');
+    expect(statusText).toContain('(code: LOCAL_VAULT_WRITE_FAILED)');
+    expect(statusText).not.toMatch(/[\u3400-\u9fff]/u);
+    expect(shadow?.querySelector('[data-role="status-detail"]')?.textContent).toBe('disk full');
+  });
+
+  it('uses generic failure copy when descriptor exists but runtime messages are unavailable', async () => {
+    const { resolveStatusMessage, resolveSupportPromptMessages } =
+      await import('../../../src/content/ui/supportPromptMessages');
+    const messages = await resolveSupportPromptMessages(document);
+    const technicalMessage = 'Local vault write failed: Articles/test.md';
+
+    const statusMessage = resolveStatusMessage({
+      status: 'failure',
+      reason: technicalMessage,
+      messages,
+      error: {
+        code: 'LOCAL_VAULT_WRITE_FAILED',
+        message: technicalMessage,
+        userMessageDescriptor: {
+          key: 'localVaultWriteFailed',
+          values: { folderName: 'Main' }
+        },
+        severity: ErrorSeverity.ERROR,
+        domain: 'background',
+        recoverable: true,
+        timestamp: Date.now()
+      }
+    });
+
+    expect(statusMessage.text).toBe('Failed');
+    expect(statusMessage.text).not.toContain(technicalMessage);
+    expect(statusMessage.text).not.toContain('Failed to write to the local folder: Main');
+    expect(statusMessage.text).not.toMatch(/[\u3400-\u9fff]/u);
   });
 
   it('shows like toast and review actions', async () => {

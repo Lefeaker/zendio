@@ -202,7 +202,12 @@ describe('background clipPipeline', () => {
     const { handleClipResult, dependencies } = await loadPipeline();
     await handleClipResult(createMessage({ markdown: undefined }), undefined, dependencies);
 
-    expect(notifyFailureMock).toHaveBeenCalledWith('内容解析失败，请刷新页面或稍后重试。');
+    expect(notifyFailureMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        code: 'EXTRACTION_CONTENT_NO_MARKDOWN',
+        domain: 'extraction'
+      })
+    );
     expect(processClipPayloadMock).not.toHaveBeenCalled();
   });
 
@@ -254,7 +259,7 @@ describe('background clipPipeline', () => {
       localFolderName: undefined,
       fallbackReason: undefined
     });
-    expect(notifyWarningMock).toHaveBeenCalledWith('Classifier degraded');
+    expect(notifyWarningMock).toHaveBeenCalledWith(warning);
     expect(sendMessageMock).toHaveBeenCalledWith(
       7,
       expect.objectContaining({
@@ -262,6 +267,43 @@ describe('background clipPipeline', () => {
         status: 'warning',
         vaultName: 'Secondary Vault',
         errorMessage: 'Classifier degraded'
+      })
+    );
+  });
+
+  it('passes descriptor-bearing local-vault failures to downstream consumers without rebuilding user copy', async () => {
+    const localVaultError: AppError = {
+      code: 'LOCAL_VAULT_WRITE_FAILED',
+      domain: 'background',
+      message: 'Local vault write failed: Articles/test.md',
+      severity: ErrorSeverity.ERROR,
+      recoverable: true,
+      userMessageDescriptor: {
+        key: 'localVaultWriteFailed',
+        values: { folderName: 'Main' }
+      }
+    };
+    processClipPayloadMock.mockRejectedValue(localVaultError);
+    getOptionsMock.mockResolvedValue({
+      rest: { vault: 'FallbackVault' }
+    });
+
+    const { handleClipResult, dependencies } = await loadPipeline();
+    await handleClipResult(createMessage(), 52, dependencies);
+
+    expect(notifyFailureMock).toHaveBeenCalledWith(localVaultError);
+    expect(sendMessageMock).toHaveBeenCalledWith(
+      52,
+      expect.objectContaining({
+        type: SHOW_SUPPORT_PROMPT,
+        status: 'failure',
+        error: expect.objectContaining({
+          code: 'LOCAL_VAULT_WRITE_FAILED',
+          userMessageDescriptor: {
+            key: 'localVaultWriteFailed',
+            values: { folderName: 'Main' }
+          }
+        })
       })
     );
   });
