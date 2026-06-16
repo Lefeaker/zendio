@@ -1,6 +1,6 @@
 # 工程命令与入口
 
-最后更新：2026-06-14
+最后更新：2026-06-16
 
 ## 推荐运行环境
 
@@ -25,6 +25,7 @@
   - `npm run test:i18n` 包含 `layout:report`；clean worktree 中需先运行 `npm run build:dev` 或 `npm run build` 生成 `build/dist`
   - `lint:options-css` 的当前有效规则覆盖 `src/options/**/*.css`；`src/options/stitch/styles/**` 的 `--print-config` 必须包含非空 `selector-class-pattern`
   - 显式包含 `lint:hardcoded`；当前 standalone 输出为 `0` hardcoded findings
+  - 显式包含 `audit:i18n-hardcoded-user-copy:check`；生产用户可见文案只能来自 i18n catalog 或 `UserVisibleMessageDescriptor` key，background/content 边界只传 descriptor/code/params。当前 hard gate 输出为 `scanned=577 findings=19 unexpected=0 staleAllowlist=0`，治理细节见 [`i18n-production-copy-governance.md`](./i18n-production-copy-governance.md)
   - 显式包含 `i18n:catalog:check`；catalog/generated artifact drift 会在 `quality`、`verify:preflight` 与 CI 中阻塞
   - `audit:design-system-doc:report` 只检查 tracked / non-ignored 的 active style guidance；被 `.gitignore` 标记的本地过程 archive 不进入当前样式真值口径
   - `i18n:catalog:generate` 当前从 `src/i18n/catalog/messages/<lang>/{runtime,static,schema}.json` 生成 `src/i18n/generated/*`、`src/i18n/generated/locales/*.generated.ts` 与 `public/_locales/**`；`npm run i18n:generate` 保持原命令名，但现在只是兼容包装层，实际委托给 catalog generator
@@ -64,6 +65,7 @@
 - 2026-05-25 post-gap runtime guard 真值：本轮验证使用 Node `v20.20.2` / npm `10.8.2`；`package.json` 与 `package-lock.json` root engines 要求 Node `>=20.19 <21`，`verify:runtime` 会读取 `package.json` 的 `engines.node` 并已接入 `quality` 与 `verify:preflight`
 - 2026-06-09 dependency-audit 真值：Node `v20.20.2` / npm `10.8.2` 下，`npm audit --omit=dev` 当前为 `0` vulnerabilities，production runtime release gate 仍为 green；`npm audit --audit-level=low` 当前因 dev tooling dependency `vitest <3.2.6` / `@vitest/coverage-v8 <=3.2.5` 返回 `2` critical findings，未接入 `quality` / `verify:preflight`，不得表述为当前全量 green。
 - 2026-06-16 i18n hardcoded P22/post-strict-gap type-ratchet 真值：P16-P22 与 post-P22 strict gap 合入 integration 后，`lint:type-any` 扫描 `1231` files，fresh overall `0/1148/1973/47/3`、src `0/628/695/9/0`、tests `0/520/1278/38/3`；`lint:type-any:ratchet` checked-in 上限同步为 overall `0/1148/1973/53/4`、src `0/628/695/9/0`、tests `0/520/1278/46/4`。本次只同步 accepted integration current truth，`any` 继续保持 `0`，`ts-expect-error` 未增加，non-null 上限未放宽。
+- 2026-06-16 i18n hardcoded production-copy 真值：`audit:i18n-hardcoded-user-copy` 为报告命令；`audit:i18n-hardcoded-user-copy:check` 会先生成 `build/reports/production-build-graph.json`，再以 `--check` 运行 hardcoded user-copy audit，并已接入 `quality`。当前保留 allowlist 仅限 P21 site-native AI parser tokens；P13 regression matrix `tests/unit/i18n/hardcodedSurfaceCoverage.test.ts` 绑定 P03-P22 migrated surfaces 到 executable evidence，integration full `npm run test` 已通过 `391` files / `2477` tests。
 - 2026-05-29 Plan 11 G2/G3 governance 真值：`lint:hardcoded` 已接入 `quality` 与 CI；`audit:platform-boundary:report` 仍是 report-only standalone evidence，当前报告 `148` findings（composition-root `11`、offscreen-local-vault-permission-root `1`、platform-adapter `93`、shared-runtime-helper `23`、type-only `20`），不得当作 hard gate；全量 `npm audit --audit-level=low` 不是 `quality` hard gate，当前 dev tooling advisory 见上一条。
 - 2026-05-29 Plan 11 G4 preflight 真值：`audit:imports:check` 已恢复为 green，当前输出 `No deep relative imports found.`；`verify:preflight` 不再因 `src/content/shared/panels/sessionPanelResizeAdapter.ts` 的深层相对导入失败
 - 2026-06-01 Plan 09 final verification 真值：Node `v20.20.2` / npm `10.8.2` 下，YAML editor / Stitch host 的 `exactOptionalPropertyTypes` gap 已用窄范围类型安全修复收口；`typecheck:strict`、`quality`、`verify:preflight`、`build`、`verify:stitch-secondary` 均已重新通过。该修复未放宽门禁，preview freeze JS allowlist 仅刷新为精确 hash。
@@ -85,6 +87,18 @@ npm run quality
 npm run verify:preflight
 npm run typecheck:strict
 ```
+
+i18n production copy 守门：
+
+```bash
+npm run build:dev
+npm run test:i18n
+npm run audit:i18n-hardcoded-user-copy
+npm run audit:i18n-hardcoded-user-copy:check
+npx vitest run --config vitest.unit.config.ts tests/unit/i18n/hardcodedSurfaceCoverage.test.ts
+```
+
+`audit:i18n-hardcoded-user-copy` 只打印当前报告；`audit:i18n-hardcoded-user-copy:check` 是 hard gate 并由 `quality` 调用。直接运行 `node scripts/audit-i18n-hardcoded-user-copy.mjs --check` 不会刷新 `build/reports/production-build-graph.json`；优先使用 npm script，避免用过期 graph 审计。
 
 浏览器与交互验真：
 
