@@ -16,7 +16,6 @@ import {
   createProductionStorageActions,
   updateExperimentalBoolean
 } from './productionStitchActionGroups';
-
 export interface ProductionStitchActionContext {
   getAppData(): PreviewContent;
   getCurrentLanguage(): Language;
