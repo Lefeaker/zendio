@@ -20,6 +20,15 @@ describe('runtime AI chat parser registry', () => {
     expect(source).not.toMatch(/import\(['"]\.\/platforms\//);
   });
 
+  it('keeps the AI chat extractor off the parser-bound public parse entrypoint', () => {
+    const source = readFileSync(
+      resolve(process.cwd(), 'src/content/extractors/aiChatExtractor.ts'),
+      'utf8'
+    );
+
+    expect(source).not.toContain('../../third_party/ai-chat-exporter/parse');
+  });
+
   it('resolves direct platform ids and aliases through the runtime registry', async () => {
     await expect(resolveParserAsync('chatgpt')).resolves.toMatchObject({ id: 'chatgpt' });
     await expect(resolveParserAsync('moonshot')).resolves.toMatchObject({ id: 'kimi' });

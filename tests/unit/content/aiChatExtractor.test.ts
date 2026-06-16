@@ -38,7 +38,7 @@ vi.mock('../../../src/third_party/ai-chat-exporter/runtimeRegistry', () => ({
   parseChatDOMAsync: mockParseChatDOMAsync
 }));
 
-vi.mock('../../../src/third_party/ai-chat-exporter/parse', () => ({
+vi.mock('../../../src/third_party/ai-chat-exporter/shared/markdown', () => ({
   chatHtmlToMarkdown: mockChatHtmlToMarkdown
 }));
 

@@ -69,7 +69,7 @@
 - 2026-06-16 i18n hardcoded production-copy 真值：`audit:i18n-hardcoded-user-copy` 为报告命令；`audit:i18n-hardcoded-user-copy:check` 会先生成 `build/reports/production-build-graph.json`，再以 `--check` 运行 hardcoded user-copy audit，并已接入 `quality`。当前保留 allowlist 仅限 P21 site-native AI parser tokens；P13 regression matrix `tests/unit/i18n/hardcodedSurfaceCoverage.test.ts` 绑定 P03-P22 migrated surfaces 到 executable evidence，integration full `npm run test` 已通过 `391` files / `2477` tests。
 - 2026-06-16 English uncatalogued-copy report 真值：`audit:i18n-uncatalogued-user-copy` 会先刷新 production build graph，再扫描 production-reachable `src/**` 与 relevant `public/**` 中疑似英文 UI copy、translation fallback、descriptor-boundary payload、HTML/DOM text。当前 standalone report-only 输出 `scanned=574 findings=407 unexpected=407 staleAllowlist=0`；top owners 为 Options/Stitch content 与 schema resources。该 audit 未接入 hard gate，后续 gate 化必须先完成迁移/窄 allowlist/误报评估并记录 ledger，不得直接加入 `quality`。
 - 2026-06-16 i18n hardcoded P15 preflight build-budget follow-up 前风险状态：`audit:build:report` 在 integration `ca8be48e` 上复现 post-P14 dev-build drift 后，同步 gates 为 `content/runtime.js` warning `58,564` raw bytes / hard stop `58,752`、`onboarding/index.js` warning `17,377` / hard stop `17,633`、release locale chunk hard stop `64 KB`、shared `chunk-*` top-three hard stops `213 KB` / `136 KB` / `133 KB`；当时 chunk count hard stop 为 `120`，single chunk `320 KB`、YAML `70 KB` 未变。该条保留风险来源，不再代表 follow-up 后当前 chunk count gate。
-- 2026-06-16 i18n hardcoded follow-up build-budget 真值：AI chat runtime parser loaders 合并为一个 lazy `runtimePlatformParsers-*` boundary 后，dev `audit:build:report` chunk count 从 `120` 降为 `101`；chunk count gate 收紧为 warning target `108` / hard stop `118`。本次没有提高任何 hard stop，也没有改变 entry/shared/locale/YAML size hard stops。
+- 2026-06-16 i18n hardcoded follow-up build-budget 真值：AI chat runtime parser loaders 合并为一个 lazy `runtimePlatformParsers-*` boundary，并在 P3 follow-up 切断 `aiChatExtractor.ts -> parse.ts -> registry.ts -> platform parsers` 静态路径后，dev `audit:build:report` chunk count 从 `120` 降为 `101`；chunk count gate 收紧为 warning target `108` / hard stop `118`。`aiChatExtractor-*` 静态 import 图不再包含 platform parser implementation markers，platform parsers 只通过 `runtimeRegistry-*` 动态加载唯一 `runtimePlatformParsers-*`。本次没有提高任何 hard stop，也没有改变 entry/shared/locale/YAML size hard stops。
 - 2026-05-29 Plan 11 G2/G3 governance 真值：`lint:hardcoded` 已接入 `quality` 与 CI；`audit:platform-boundary:report` 仍是 report-only standalone evidence，当前报告 `148` findings（composition-root `11`、offscreen-local-vault-permission-root `1`、platform-adapter `93`、shared-runtime-helper `23`、type-only `20`），不得当作 hard gate；全量 `npm audit --audit-level=low` 不是 `quality` hard gate，当前 dev tooling advisory 见上一条。
 - 2026-05-29 Plan 11 G4 preflight 真值：`audit:imports:check` 已恢复为 green，当前输出 `No deep relative imports found.`；`verify:preflight` 不再因 `src/content/shared/panels/sessionPanelResizeAdapter.ts` 的深层相对导入失败
 - 2026-06-01 Plan 09 final verification 真值：Node `v20.20.2` / npm `10.8.2` 下，YAML editor / Stitch host 的 `exactOptionalPropertyTypes` gap 已用窄范围类型安全修复收口；`typecheck:strict`、`quality`、`verify:preflight`、`build`、`verify:stitch-secondary` 均已重新通过。该修复未放宽门禁，preview freeze JS allowlist 仅刷新为精确 hash。
@@ -261,9 +261,10 @@ low-concurrency screenshot preparation.
 
 `npm run audit:build:report` 当前执行以下预算。2026-06-16 i18n hardcoded
 follow-up 将 AI chat runtime parser per-platform wrapper chunks 合并到一个
-lazy `runtimePlatformParsers-*` boundary 后，chunk count gate 已从 P15 的
-warning `118` / hard stop `120` 收紧为 warning `108` / hard stop `118`；
-entry/shared/locale/YAML size gates 未放宽。
+lazy `runtimePlatformParsers-*` boundary，并在 P3 follow-up 切断
+`aiChatExtractor.ts -> parse.ts -> registry.ts -> platform parsers` 静态路径
+后，chunk count gate 已从 P15 的 warning `118` / hard stop `120` 收紧为
+warning `108` / hard stop `118`；entry/shared/locale/YAML size gates 未放宽。
 
 - `content/index.js <= 1 KB`
 - `content/runtime.js`: warning target `58,564` raw bytes；hard stop `58,752` raw bytes

@@ -50,18 +50,20 @@ npm run audit:build:report
 
 2026-06-16 i18n hardcoded P15 preflight build-budget sync 在 integration `ca8be48e` 上复现了与 import-boundary gap branch 相同的 dev-build budget drift。follow-up 前风险状态为 `content/runtime.js` raw `58,564` bytes（hard stop `58,752`）、`onboarding/index.js` raw `17,377` bytes（hard stop `17,633`）、chunk count `120`（warning `118` / hard stop `120`）、Russian release locale chunk raw `64,525` bytes（locale chunk hard stop `64 KB`），shared `chunk-*` top three 为 raw `217,959`、`138,187`、`135,188` bytes。本次只同步 accepted P16-P22/P13/P14 i18n hardcoded integration risk state；不改变生产代码、single chunk、YAML 或 chunk count hard stop。当前 follow-up 后 chunk count gate 见下一条。
 
-2026-06-16 i18n hardcoded follow-up build-budget risk reduction 将 AI chat runtime parser platform loaders 从 10 个 per-platform dynamic-import wrapper chunks 合并为一个 lazy `runtimePlatformParsers-*` boundary。`build:dev` 后 `audit:build:report` 当前 dev chunk count 从 `120` 降至 `101`，chunk count gate 收紧为 warning target `108` / hard stop `118`。本次不改变 `content/runtime.js`、`onboarding/index.js`、single chunk、shared chunk、locale chunk 或 YAML size hard stops；`ru.generated-*` 与 shared Top 3 仍按 P15 current truth 继续观察。
+2026-06-16 i18n hardcoded follow-up build-budget risk reduction 将 AI chat runtime parser platform loaders 从 10 个 per-platform dynamic-import wrapper chunks 合并为一个 lazy `runtimePlatformParsers-*` boundary，并在 P3 follow-up 中切断 `aiChatExtractor.ts -> parse.ts -> registry.ts -> platform parsers` 静态路径。`build:dev` 后 `audit:build:report` 当前 dev chunk count 从 `120` 降至 `101`，chunk count gate 收紧为 warning target `108` / hard stop `118`；`aiChatExtractor-*` 静态 import 图不再包含 platform parser implementation markers，platform parsers 只通过 `runtimeRegistry-*` 动态加载唯一 `runtimePlatformParsers-*`。本次不改变 `content/runtime.js`、`onboarding/index.js`、single chunk、shared chunk、locale chunk 或 YAML size hard stops；`ru.generated-*` 与 shared Top 3 仍按 P15 current truth 继续观察。
 
 当前 production fast build 真值：
 
 - `build/dist/content/index.js`: `561 B`
-- `build/dist/content/runtime.js`: `48.2 KB`（raw `49,347` bytes）
-- `build/dist/options/index.js`: `813 B`
-- `build/dist/onboarding/index.js`: `9.3 KB`（raw `9,476` bytes）
-- 总 chunk 数：`97`
-- `chunks/runtimeEntry-*.js`: `121.0 KB`
-- `chunks/videoLazyRuntime-*.js`: `77.1 KB`
-- `chunks/videoSessionControllers-*.js`: `43.9 KB`
+- `build/dist/content/runtime.js`: `48.9 KB`（raw `50,063` bytes）
+- `build/dist/options/index.js`: `993 B`
+- `build/dist/onboarding/index.js`: `9.7 KB`（raw `9,934` bytes）
+- 总 chunk 数：`87`
+- `chunks/runtimeEntry-*.js`: `127.6 KB`（raw `130,630` bytes）
+- `chunks/runtimePlatformParsers-*.js`: `25.7 KB`（raw `26,354` bytes；唯一 AI parser implementation lazy boundary）
+- `chunks/productionStitchAssets-*.js`: `77.4 KB`（raw `79,303` bytes）
+- `chunks/videoLazyRuntime-*.js`: `78.5 KB`（raw `80,335` bytes）
+- `chunks/videoSessionControllers-*.js`: `58.2 KB`（raw `59,589` bytes）
 
 当前 dev build 真值：
 
@@ -71,7 +73,7 @@ npm run audit:build:report
 - `build/dist/onboarding/index.js`: `17.0 KB`（raw `17,377` bytes；warning target `17,377` raw bytes；hard stop `17,633` raw bytes）
 - 总 chunk 数：`101`（warning target `108`；hard stop `118`）
 - `chunks/runtimeEntry-*.js`: `256.3 KB`
-- `chunks/runtimePlatformParsers-*.js`: `802 B`
+- `chunks/runtimePlatformParsers-*.js`: `54.2 KB`（raw `55,514` bytes；唯一 AI parser implementation lazy boundary）
 - `chunks/productionStitchAssets-*.js`: `149.3 KB`
 - `chunks/videoSessionControllers-*.js`: `111.2 KB`
 - `chunks/videoLazyRuntime-*.js`: `55.6 KB`

@@ -1,5 +1,5 @@
 import { buildChatMarkdown } from '../formatters/markdown';
-import { chatHtmlToMarkdown } from '../../third_party/ai-chat-exporter/parse';
+import { chatHtmlToMarkdown } from '../../third_party/ai-chat-exporter/shared/markdown';
 import { formatDateTime } from '../clipper/utils/datetime';
 import { isAIChat } from '../detect';
 import type { StoredOptions, OptionsState } from '../../shared/types/options';
