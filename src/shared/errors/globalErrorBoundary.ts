@@ -16,7 +16,10 @@ export interface GlobalErrorBoundaryOptions {
   target?: ErrorBoundaryTarget;
 }
 
-function normalizeThrownError(reason: unknown): Pick<AppError, 'message' | 'cause'> {
+function normalizeThrownError(
+  reason: unknown,
+  fallbackMessage: string
+): Pick<AppError, 'message' | 'cause'> {
   if (reason instanceof Error) {
     return {
       message: reason.message,
@@ -32,7 +35,7 @@ function normalizeThrownError(reason: unknown): Pick<AppError, 'message' | 'caus
   }
 
   return {
-    message: 'Unknown unhandled error',
+    message: fallbackMessage,
     cause: reason
   };
 }
@@ -43,7 +46,7 @@ function buildUnhandledError(
   reason: unknown,
   metadata?: Record<string, unknown>
 ): AppError {
-  const normalized = normalizeThrownError(reason);
+  const normalized = normalizeThrownError(reason, code);
 
   return {
     code,

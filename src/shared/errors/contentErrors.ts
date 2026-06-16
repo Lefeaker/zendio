@@ -51,7 +51,7 @@ export const contentErrors = {
     return {
       code: 'CONTENT_SHORTCUT_USAGE_TRACKING_FAILED',
       domain: 'content',
-      message: 'Failed to track shortcut usage statistics',
+      message: 'CONTENT_SHORTCUT_USAGE_TRACKING_FAILED',
       severity: 'info' as ErrorSeverity,
       recoverable: true,
       userMessageDescriptor: { key: 'errorContentShortcutUsageTrackingFailed' },

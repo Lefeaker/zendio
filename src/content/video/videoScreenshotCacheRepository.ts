@@ -268,7 +268,7 @@ export function createVideoScreenshotCacheRepository(
         return {
           status: 'skipped',
           reason: 'serialize-failed',
-          error: error instanceof Error ? error.message : 'Unknown serialization failure.'
+          error: 'VIDEO_SCREENSHOT_CACHE_SERIALIZE_FAILED'
         };
       }
 
@@ -308,7 +308,7 @@ export function createVideoScreenshotCacheRepository(
         return {
           status: 'skipped',
           reason: 'serialize-failed',
-          error: 'Repository rejected the normalized cache entry.'
+          error: 'VIDEO_SCREENSHOT_CACHE_ENTRY_REJECTED'
         };
       }
 

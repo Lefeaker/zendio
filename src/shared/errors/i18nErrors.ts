@@ -10,7 +10,7 @@ export const i18nErrors = {
     return {
       code: 'I18N_LANGUAGE_LOAD_FAILED',
       domain: 'i18n',
-      message: 'Failed to load language preference from storage.',
+      message: 'I18N_LANGUAGE_LOAD_FAILED',
       severity: ErrorSeverity.WARNING,
       recoverable: true,
       userMessageDescriptor: { key: 'errorI18nLanguageLoadFailed' },

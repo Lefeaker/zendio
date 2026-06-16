@@ -130,4 +130,50 @@ describe('shared AppError factories', () => {
       expect(error.userMessageDescriptor).toEqual({ key });
     }
   });
+
+  it('keeps the current P06 shared error messages on technical codes when a descriptor exists', () => {
+    const cause = new Error('boom');
+    const cases = [
+      {
+        error: classifierErrors.timeout({ provider: 'openai' }, { cause }),
+        message: 'CLASSIFIER_TIMEOUT'
+      },
+      {
+        error: contentErrors.shortcutUsageTrackingFailed({}, { cause }),
+        message: 'CONTENT_SHORTCUT_USAGE_TRACKING_FAILED'
+      },
+      {
+        error: extractionErrors.noSelection(),
+        message: 'EXTRACTION_SELECTION_NO_SELECTION'
+      },
+      {
+        error: extractionErrors.noMarkdown(),
+        message: 'EXTRACTION_CONTENT_NO_MARKDOWN'
+      },
+      {
+        error: extractionErrors.unsupportedContent(),
+        message: 'EXTRACTION_CONTENT_UNSUPPORTED'
+      },
+      {
+        error: i18nErrors.languageLoadFailed(cause),
+        message: 'I18N_LANGUAGE_LOAD_FAILED'
+      },
+      {
+        error: optionsErrors.connectionInProgress({ scope: 'global' }),
+        message: 'OPTIONS_CONNECTION_IN_PROGRESS'
+      },
+      {
+        error: optionsErrors.invalidVaultConfig({ scope: 'vault', vaultId: 'main' }),
+        message: 'OPTIONS_VAULT_CONFIG_INVALID'
+      },
+      {
+        error: restErrors.vaultUnavailable({}, { cause }),
+        message: 'REST_VAULT_UNAVAILABLE'
+      }
+    ] as const;
+
+    for (const { error, message } of cases) {
+      expect(error.message).toBe(message);
+    }
+  });
 });

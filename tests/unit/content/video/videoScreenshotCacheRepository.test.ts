@@ -302,6 +302,73 @@ describe('videoScreenshotCacheRepository', () => {
     });
   });
 
+  it('returns a technical code when screenshot serialization fails before storage write', async () => {
+    const area = new MemoryStorageArea();
+    const repository = createVideoScreenshotCacheRepository(area, {
+      now: () => BASE_TIME
+    });
+    const brokenBlob = {
+      async arrayBuffer(): Promise<ArrayBuffer> {
+        throw new Error('blob exploded');
+      },
+      size: 1,
+      type: 'image/jpeg'
+    } as unknown as Blob;
+
+    const result = await repository.save({
+      pageKey: 'page-a',
+      captureId: 'capture-a',
+      screenshot: {
+        id: 'shot-broken',
+        fileName: 'shot-broken.jpg',
+        mimeType: 'image/jpeg',
+        capturedAt: BASE_TIME,
+        content: {
+          kind: 'blob',
+          blob: brokenBlob,
+          byteLength: 1
+        }
+      }
+    });
+
+    expect(result).toEqual({
+      status: 'skipped',
+      reason: 'serialize-failed',
+      error: 'VIDEO_SCREENSHOT_CACHE_SERIALIZE_FAILED'
+    });
+    expect(area.snapshotKeys()).toEqual([]);
+  });
+
+  it('returns a technical code when the normalized cache entry is rejected', async () => {
+    const area = new MemoryStorageArea();
+    const repository = createVideoScreenshotCacheRepository(area, {
+      now: () => BASE_TIME
+    });
+
+    const result = await repository.save({
+      pageKey: 'page-a',
+      captureId: 'capture-a',
+      screenshot: {
+        id: '',
+        fileName: 'broken.jpg',
+        mimeType: 'image/jpeg',
+        capturedAt: BASE_TIME,
+        content: {
+          kind: 'blob',
+          blob: new Blob(['x'], { type: 'image/jpeg' }),
+          byteLength: 1
+        }
+      } as VideoCaptureScreenshot
+    });
+
+    expect(result).toEqual({
+      status: 'skipped',
+      reason: 'serialize-failed',
+      error: 'VIDEO_SCREENSHOT_CACHE_ENTRY_REJECTED'
+    });
+    expect(area.snapshotKeys()).toEqual([]);
+  });
+
   it('returns null and opportunistically cleans missing cache entries on load', async () => {
     const area = new MemoryStorageArea();
     const repository = createVideoScreenshotCacheRepository(area, {

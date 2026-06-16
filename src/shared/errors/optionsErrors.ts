@@ -19,7 +19,7 @@ export const optionsErrors = {
     return {
       code: 'OPTIONS_CONNECTION_IN_PROGRESS',
       domain: 'options',
-      message: 'Connection test is already running.',
+      message: 'OPTIONS_CONNECTION_IN_PROGRESS',
       severity: ErrorSeverity.WARNING,
       recoverable: true,
       userMessageDescriptor: { key: 'errorOptionsConnectionInProgress' },
@@ -31,7 +31,7 @@ export const optionsErrors = {
     return {
       code: 'OPTIONS_VAULT_CONFIG_INVALID',
       domain: 'options',
-      message: 'Vault configuration is missing required identifier.',
+      message: 'OPTIONS_VAULT_CONFIG_INVALID',
       severity: ErrorSeverity.ERROR,
       recoverable: false,
       userMessageDescriptor: { key: 'errorOptionsVaultConfigInvalid' },

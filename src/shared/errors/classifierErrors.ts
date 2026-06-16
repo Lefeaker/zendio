@@ -46,7 +46,7 @@ export const classifierErrors = {
     return {
       code: 'CLASSIFIER_TIMEOUT',
       domain: 'classifier',
-      message: 'Classifier request timed out.',
+      message: 'CLASSIFIER_TIMEOUT',
       severity: ErrorSeverity.WARNING,
       recoverable: true,
       userMessageDescriptor: { key: 'errorClassifierTimeout' },

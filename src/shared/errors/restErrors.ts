@@ -65,7 +65,7 @@ export const restErrors = {
     return {
       code: 'REST_VAULT_UNAVAILABLE', // 保持现有错误码，因为这是特定于项目的错误
       domain: 'rest',
-      message: 'Target vault is not reachable or misconfigured.',
+      message: 'REST_VAULT_UNAVAILABLE',
       severity: ErrorSeverity.WARNING,
       recoverable: true,
       userMessageDescriptor: { key: 'errorRestVaultUnavailable' },

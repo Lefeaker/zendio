@@ -140,6 +140,7 @@ describe('classifier', () => {
     expect(result.ok).toBe(false);
     if (result.ok === false) {
       expect(result.error.code).toBe('CLASSIFIER_INVALID_PAYLOAD');
+      expect(result.error.message).toBe('CLASSIFIER_RESPONSE_INVALID_JSON');
       expect(result.error.context).toMatchObject({ provider: 'openai' });
     }
   });

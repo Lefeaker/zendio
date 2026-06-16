@@ -399,6 +399,24 @@ describe('background-owned video screenshot cache client', () => {
     await expect(client.removeMany([createRef()])).rejects.toThrow('background cleanup failed');
   });
 
+  it('returns a technical save error code when the background response shape is invalid', async () => {
+    const client = createVideoScreenshotCacheClientRepository({
+      messaging: createStaticMessaging({} as VideoScreenshotCacheResponse)
+    });
+
+    await expect(
+      client.save({
+        pageKey: 'page-a',
+        captureId: 'capture-a',
+        screenshot: createScreenshot('shot-invalid', 'frame-invalid')
+      })
+    ).resolves.toEqual({
+      status: 'skipped',
+      reason: 'serialize-failed',
+      error: 'VIDEO_SCREENSHOT_CACHE_INVALID_RESPONSE'
+    });
+  });
+
   it('rejects pruneExpired when the background mutation operation mismatches', async () => {
     const client = createVideoScreenshotCacheClientRepository({
       messaging: createStaticMessaging({

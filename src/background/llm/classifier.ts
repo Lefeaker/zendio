@@ -163,7 +163,7 @@ async function postJson<T>(
       return {
         ok: false,
         error: classifierErrors.invalidPayload(
-          'Classifier response is not valid JSON',
+          'CLASSIFIER_RESPONSE_INVALID_JSON',
           {
             provider,
             endpoint
@@ -217,13 +217,10 @@ function parseClassifierPayload(
   if (!payload) {
     return {
       ok: false,
-      error: classifierErrors.invalidPayload(
-        `Classifier response from ${provider} did not include content`,
-        {
-          provider,
-          endpoint
-        }
-      )
+      error: classifierErrors.invalidPayload('CLASSIFIER_RESPONSE_MISSING_CONTENT', {
+        provider,
+        endpoint
+      })
     };
   }
 
@@ -232,14 +229,11 @@ function parseClassifierPayload(
     if (!isRecord(parsed)) {
       return {
         ok: false,
-        error: classifierErrors.invalidPayload(
-          `Classifier response from ${provider} is not a JSON object`,
-          {
-            provider,
-            endpoint,
-            payloadSample: payload
-          }
-        )
+        error: classifierErrors.invalidPayload('CLASSIFIER_RESPONSE_NOT_OBJECT', {
+          provider,
+          endpoint,
+          payloadSample: payload
+        })
       };
     }
     return {
@@ -250,7 +244,7 @@ function parseClassifierPayload(
     return {
       ok: false,
       error: classifierErrors.invalidPayload(
-        `Classifier response from ${provider} is not valid JSON`,
+        'CLASSIFIER_RESPONSE_INVALID_JSON',
         {
           provider,
           endpoint,

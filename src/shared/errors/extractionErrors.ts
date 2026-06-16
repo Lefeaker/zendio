@@ -28,7 +28,7 @@ export const extractionErrors = {
     return {
       code: STANDARDIZED_ERROR_CODES.EXTRACTION_SELECTION_NO_SELECTION,
       domain: 'extraction',
-      message: 'No valid selection found for clipping.',
+      message: STANDARDIZED_ERROR_CODES.EXTRACTION_SELECTION_NO_SELECTION,
       severity: ErrorSeverity.WARNING,
       recoverable: true,
       userMessageDescriptor: { key: 'errorExtractionNoSelection' },
@@ -43,7 +43,7 @@ export const extractionErrors = {
     return {
       code: STANDARDIZED_ERROR_CODES.EXTRACTION_CONTENT_NO_MARKDOWN,
       domain: 'extraction',
-      message: 'Extraction completed without markdown content.',
+      message: STANDARDIZED_ERROR_CODES.EXTRACTION_CONTENT_NO_MARKDOWN,
       severity: ErrorSeverity.ERROR,
       recoverable: false,
       userMessageDescriptor: { key: 'errorExtractionNoMarkdown' },
@@ -58,7 +58,7 @@ export const extractionErrors = {
     return {
       code: STANDARDIZED_ERROR_CODES.EXTRACTION_CONTENT_UNSUPPORTED,
       domain: 'extraction',
-      message: 'No extractor was able to handle the current page.',
+      message: STANDARDIZED_ERROR_CODES.EXTRACTION_CONTENT_UNSUPPORTED,
       severity: ErrorSeverity.ERROR,
       recoverable: false,
       userMessageDescriptor: { key: 'errorExtractionUnsupportedContent' },
