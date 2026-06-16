@@ -1,0 +1,441 @@
+/* @vitest-environment node */
+
+import { describe, expect, it } from 'vitest';
+import { createVideoScreenshotCacheStorageKey } from '@content/video/videoScreenshotCacheTypes';
+import {
+  VIDEO_SCREENSHOT_CACHE_BLOB_STORE_DB_NAME,
+  VIDEO_SCREENSHOT_CACHE_BLOB_STORE_DB_VERSION,
+  VIDEO_SCREENSHOT_CACHE_BLOB_STORE_EXPIRES_AT_INDEX_NAME,
+  VIDEO_SCREENSHOT_CACHE_BLOB_STORE_OBJECT_STORE_NAME,
+  VIDEO_SCREENSHOT_CACHE_BLOB_STORE_PAGE_CAPTURE_INDEX_NAME,
+  VIDEO_SCREENSHOT_CACHE_BLOB_STORE_PAGE_KEY_INDEX_NAME,
+  VIDEO_SCREENSHOT_CACHE_BLOB_STORE_UPDATED_AT_INDEX_NAME,
+  type VideoScreenshotCacheBlobEntry,
+  type VideoScreenshotCacheBlobMetadata
+} from '@content/video/videoScreenshotCacheStore';
+import { createVideoScreenshotCacheIndexedDbStore } from '../../../src/background/services/videoScreenshotCacheIndexedDbStore';
+
+const BASE_TIME = 2_000_000_000_000;
+
+type RawRecord = Record<string, unknown>;
+
+class FakeIndexedDbFactory {
+  private readonly state = new FakeDatabaseState();
+
+  open = (name: string, version?: number): IDBOpenDBRequest => {
+    const request = {
+      result: undefined as unknown as IDBDatabase,
+      error: null,
+      onsuccess: null as ((event: Event) => void) | null,
+      onerror: null as ((event: Event) => void) | null,
+      onupgradeneeded: null as ((event: IDBVersionChangeEvent) => void) | null
+    };
+
+    queueMicrotask(() => {
+      const shouldUpgrade = !this.state.initialized;
+      this.state.initialize(name, version ?? 1);
+      request.result = new FakeDatabase(this.state) as unknown as IDBDatabase;
+      if (shouldUpgrade) {
+        request.onupgradeneeded?.(new Event('upgradeneeded') as IDBVersionChangeEvent);
+      }
+      request.onsuccess?.(new Event('success'));
+    });
+
+    return request as IDBOpenDBRequest;
+  };
+
+  seed(value: RawRecord): void {
+    const key = value.key;
+    if (typeof key !== 'string' || key.length === 0) {
+      throw new Error('FakeIndexedDbFactory seed requires a string key.');
+    }
+    this.state.records.set(key, value);
+  }
+
+  getRaw(key: string): RawRecord | undefined {
+    return this.state.records.get(key);
+  }
+
+  snapshotSchema() {
+    return {
+      name: this.state.name,
+      version: this.state.version,
+      objectStore: this.state.objectStoreName,
+      keyPath: this.state.keyPath,
+      indexes: Array.from(this.state.indexes.entries()).sort(([left], [right]) =>
+        left.localeCompare(right)
+      )
+    };
+  }
+}
+
+class FakeDatabaseState {
+  initialized = false;
+  name = '';
+  version = 0;
+  objectStoreName = '';
+  keyPath = '';
+  readonly indexes = new Map<string, string | string[]>();
+  readonly records = new Map<string, RawRecord>();
+
+  initialize(name: string, version: number): void {
+    this.initialized = true;
+    this.name = name;
+    this.version = version;
+  }
+}
+
+class FakeDatabase {
+  readonly objectStoreNames = {
+    contains: (name: string) => this.state.objectStoreName === name
+  };
+
+  constructor(private readonly state: FakeDatabaseState) {}
+
+  createObjectStore(name: string, options?: { keyPath?: string | string[] | null }): FakeObjectStore {
+    this.state.objectStoreName = name;
+    this.state.keyPath = typeof options?.keyPath === 'string' ? options.keyPath : '';
+    return new FakeObjectStore(this.state, null);
+  }
+
+  transaction(name: string): IDBTransaction {
+    if (name !== this.state.objectStoreName) {
+      throw new Error(`Unknown object store: ${name}`);
+    }
+    return new FakeTransaction(this.state) as unknown as IDBTransaction;
+  }
+
+  close(): void {}
+}
+
+class FakeTransaction {
+  error: DOMException | null = null;
+  oncomplete: ((event: Event) => void) | null = null;
+  onerror: ((event: Event) => void) | null = null;
+  onabort: ((event: Event) => void) | null = null;
+
+  private completionScheduled = false;
+  private finished = false;
+
+  constructor(private readonly state: FakeDatabaseState) {}
+
+  objectStore(name: string): IDBObjectStore {
+    if (name !== this.state.objectStoreName) {
+      throw new Error(`Unknown object store: ${name}`);
+    }
+    return new FakeObjectStore(this.state, this) as unknown as IDBObjectStore;
+  }
+
+  abort(): void {
+    if (this.finished) {
+      return;
+    }
+    this.finished = true;
+    this.error = new DOMException('Transaction aborted.', 'AbortError');
+    queueMicrotask(() => this.onabort?.(new Event('abort')));
+  }
+
+  touch(): void {
+    if (this.completionScheduled || this.finished) {
+      return;
+    }
+    this.completionScheduled = true;
+    setTimeout(() => {
+      if (this.finished) {
+        return;
+      }
+      this.finished = true;
+      this.oncomplete?.(new Event('complete'));
+    }, 0);
+  }
+}
+
+class FakeObjectStore {
+  constructor(
+    private readonly state: FakeDatabaseState,
+    private readonly transaction: FakeTransaction | null
+  ) {}
+
+  createIndex(name: string, keyPath: string | string[]): IDBIndex {
+    this.state.indexes.set(name, keyPath);
+    return new FakeIndex(this.state, keyPath, this.transaction) as unknown as IDBIndex;
+  }
+
+  index(name: string): IDBIndex {
+    const keyPath = this.state.indexes.get(name);
+    if (!keyPath) {
+      throw new Error(`Unknown index: ${name}`);
+    }
+    return new FakeIndex(this.state, keyPath, this.transaction) as unknown as IDBIndex;
+  }
+
+  put(value: RawRecord): IDBRequest<undefined> {
+    const key = value[this.state.keyPath];
+    if (typeof key !== 'string' || key.length === 0) {
+      throw new Error('FakeObjectStore put requires a string key.');
+    }
+    this.state.records.set(key, value);
+    return createRequest(undefined, this.transaction);
+  }
+
+  get(key: string): IDBRequest<RawRecord | undefined> {
+    return createRequest(this.state.records.get(key), this.transaction);
+  }
+
+  delete(key: string): IDBRequest<undefined> {
+    this.state.records.delete(key);
+    return createRequest(undefined, this.transaction);
+  }
+
+  getAll(): IDBRequest<RawRecord[]> {
+    return createRequest(Array.from(this.state.records.values()), this.transaction);
+  }
+}
+
+class FakeIndex {
+  constructor(
+    private readonly state: FakeDatabaseState,
+    private readonly keyPath: string | string[],
+    private readonly transaction: FakeTransaction | null
+  ) {}
+
+  getAll(query?: IDBValidKey | IDBKeyRange | null): IDBRequest<RawRecord[]> {
+    const filtered = Array.from(this.state.records.values()).filter((value) =>
+      matchesQuery(resolveKeyPathValue(value, this.keyPath), query)
+    );
+    return createRequest(filtered, this.transaction);
+  }
+}
+
+function createRequest<T>(result: T, transaction: FakeTransaction | null): IDBRequest<T> {
+  const request = {
+    result,
+    error: null,
+    onsuccess: null as ((event: Event) => void) | null,
+    onerror: null as ((event: Event) => void) | null
+  };
+
+  queueMicrotask(() => {
+    request.onsuccess?.(new Event('success'));
+    transaction?.touch();
+  });
+
+  return request as IDBRequest<T>;
+}
+
+function resolveKeyPathValue(value: RawRecord, keyPath: string | string[]): unknown {
+  if (Array.isArray(keyPath)) {
+    return keyPath.map((part) => value[part]);
+  }
+  return value[keyPath];
+}
+
+function matchesQuery(value: unknown, query: IDBValidKey | IDBKeyRange | null | undefined): boolean {
+  if (query == null) {
+    return true;
+  }
+  const keyRangeCtor = globalThis.IDBKeyRange;
+  if (typeof keyRangeCtor !== 'undefined' && query instanceof keyRangeCtor) {
+    throw new Error('FakeIndexedDbFactory does not support IDBKeyRange queries.');
+  }
+  if (Array.isArray(value)) {
+    return JSON.stringify(value) === JSON.stringify(query);
+  }
+  return value === query;
+}
+
+function createMetadata(
+  overrides: Partial<VideoScreenshotCacheBlobMetadata> = {}
+): VideoScreenshotCacheBlobMetadata {
+  const pageKey = overrides.pageKey ?? 'page-a';
+  const captureId = overrides.captureId ?? 'capture-a';
+  const id = overrides.id ?? 'shot-a';
+  const capturedAt = overrides.capturedAt ?? BASE_TIME;
+  const createdAt = overrides.createdAt ?? capturedAt + 10;
+  const updatedAt = overrides.updatedAt ?? createdAt + 10;
+  const expiresAt = overrides.expiresAt ?? updatedAt + 10_000;
+  const byteLength = overrides.byteLength ?? 7;
+
+  return {
+    schemaVersion: 1,
+    key:
+      overrides.key ??
+      createVideoScreenshotCacheStorageKey({
+        pageKey,
+        captureId,
+        screenshotId: id
+      }),
+    pageKey,
+    captureId,
+    id,
+    fileName: overrides.fileName ?? `${id}.jpg`,
+    mimeType: overrides.mimeType ?? 'image/jpeg',
+    byteLength,
+    capturedAt,
+    createdAt,
+    updatedAt,
+    expiresAt
+  };
+}
+
+function createEntry(
+  overrides: Partial<VideoScreenshotCacheBlobMetadata> = {},
+  content = 'frame-a'
+): VideoScreenshotCacheBlobEntry {
+  const blob = new Blob([content], { type: 'image/jpeg' });
+  return {
+    ...createMetadata({ ...overrides, byteLength: blob.size }),
+    blob
+  };
+}
+
+describe('videoScreenshotCacheIndexedDbStore', () => {
+  it('stores entries in the expected database schema and lists page entries newest first', async () => {
+    const indexedDb = new FakeIndexedDbFactory();
+    const store = createVideoScreenshotCacheIndexedDbStore({ indexedDb });
+    const older = createEntry(
+      {
+        pageKey: 'page-a',
+        captureId: 'capture-a',
+        id: 'shot-a',
+        capturedAt: BASE_TIME + 10,
+        createdAt: BASE_TIME + 20,
+        updatedAt: BASE_TIME + 30
+      },
+      'older'
+    );
+    const newer = createEntry(
+      {
+        pageKey: 'page-a',
+        captureId: 'capture-b',
+        id: 'shot-b',
+        capturedAt: BASE_TIME + 40,
+        createdAt: BASE_TIME + 50,
+        updatedAt: BASE_TIME + 60
+      },
+      'newer'
+    );
+    const otherPage = createEntry(
+      {
+        pageKey: 'page-b',
+        captureId: 'capture-c',
+        id: 'shot-c',
+        capturedAt: BASE_TIME + 70,
+        createdAt: BASE_TIME + 80,
+        updatedAt: BASE_TIME + 90
+      },
+      'other'
+    );
+
+    await store.put(older);
+    await store.put(newer);
+    await store.put(otherPage);
+
+    expect(indexedDb.snapshotSchema()).toEqual({
+      name: VIDEO_SCREENSHOT_CACHE_BLOB_STORE_DB_NAME,
+      version: VIDEO_SCREENSHOT_CACHE_BLOB_STORE_DB_VERSION,
+      objectStore: VIDEO_SCREENSHOT_CACHE_BLOB_STORE_OBJECT_STORE_NAME,
+      keyPath: 'key',
+      indexes: [
+        [VIDEO_SCREENSHOT_CACHE_BLOB_STORE_EXPIRES_AT_INDEX_NAME, 'expiresAt'],
+        [VIDEO_SCREENSHOT_CACHE_BLOB_STORE_PAGE_CAPTURE_INDEX_NAME, ['pageKey', 'captureId']],
+        [VIDEO_SCREENSHOT_CACHE_BLOB_STORE_PAGE_KEY_INDEX_NAME, 'pageKey'],
+        [VIDEO_SCREENSHOT_CACHE_BLOB_STORE_UPDATED_AT_INDEX_NAME, 'updatedAt']
+      ]
+    });
+
+    const loaded = await store.get(newer.key);
+    expect(loaded?.key).toBe(newer.key);
+    await expect(loaded?.blob.text()).resolves.toBe('newer');
+
+    const pageEntries = await store.listByPageKey('page-a');
+    expect(pageEntries.map((entry) => entry.key)).toEqual([newer.key, older.key]);
+
+    await store.delete(older.key);
+    await store.deleteMany([otherPage.key, otherPage.key]);
+
+    expect((await store.listAllMetadata()).map((entry) => entry.key)).toEqual([newer.key]);
+  });
+
+  it('prunes expired and over-limit entries while removing deleted keys from IndexedDB', async () => {
+    const indexedDb = new FakeIndexedDbFactory();
+    const store = createVideoScreenshotCacheIndexedDbStore({ indexedDb });
+    const keepNewest = createEntry({
+      pageKey: 'page-a',
+      captureId: 'capture-new',
+      id: 'shot-new',
+      capturedAt: BASE_TIME + 200,
+      createdAt: BASE_TIME + 210,
+      updatedAt: BASE_TIME + 220,
+      expiresAt: BASE_TIME + 20_000
+    });
+    const pageOverflow = createEntry({
+      pageKey: 'page-a',
+      captureId: 'capture-old',
+      id: 'shot-old',
+      capturedAt: BASE_TIME + 120,
+      createdAt: BASE_TIME + 130,
+      updatedAt: BASE_TIME + 140,
+      expiresAt: BASE_TIME + 20_000
+    });
+    const keepGlobal = createEntry({
+      pageKey: 'page-b',
+      captureId: 'capture-b',
+      id: 'shot-b',
+      capturedAt: BASE_TIME + 180,
+      createdAt: BASE_TIME + 190,
+      updatedAt: BASE_TIME + 200,
+      expiresAt: BASE_TIME + 20_000
+    });
+    const expired = createEntry({
+      pageKey: 'page-c',
+      captureId: 'capture-expired',
+      id: 'shot-expired',
+      capturedAt: BASE_TIME + 20,
+      createdAt: BASE_TIME + 30,
+      updatedAt: BASE_TIME + 40,
+      expiresAt: BASE_TIME + 50
+    });
+
+    await store.put(pageOverflow);
+    await store.put(expired);
+    await store.put(keepNewest);
+    await store.put(keepGlobal);
+
+    const result = await store.prune({
+      now: BASE_TIME + 100,
+      maxGlobalEntries: 2,
+      maxPageEntries: 1,
+      applyLimits: true
+    });
+
+    expect(result.entries.map((entry) => entry.key)).toEqual([keepNewest.key, keepGlobal.key]);
+    expect(new Set(result.removedKeys)).toEqual(new Set([expired.key, pageOverflow.key]));
+    expect(await store.get(expired.key)).toBeNull();
+    expect(await store.get(pageOverflow.key)).toBeNull();
+    expect((await store.listAllMetadata()).map((entry) => entry.key)).toEqual([
+      keepNewest.key,
+      keepGlobal.key
+    ]);
+  });
+
+  it('treats corrupt rows as missing and deletes them on read', async () => {
+    const indexedDb = new FakeIndexedDbFactory();
+    const corrupt = createEntry(
+      {
+        pageKey: 'page-z',
+        captureId: 'capture-z',
+        id: 'shot-z'
+      },
+      'broken'
+    );
+    indexedDb.seed({
+      ...corrupt,
+      byteLength: corrupt.byteLength + 1
+    });
+
+    const store = createVideoScreenshotCacheIndexedDbStore({ indexedDb });
+    expect(await store.get(corrupt.key)).toBeNull();
+    expect(indexedDb.getRaw(corrupt.key)).toBeUndefined();
+  });
+});
