@@ -103,13 +103,13 @@ function createOptionsProviderFromRepository(
 
 function createEmptyOptionsProvider(): OptionsProvider {
   return {
-    get: async () => ({}) as StoredOptions,
+    get: () => Promise.resolve({} as StoredOptions),
     reset: () => undefined
   };
 }
 
 function createMessagesProvider(): () => Promise<AIChatFallbackMessages> {
-  return async () => getContentI18nResource()?.messages ?? getContentMessages();
+  return () => Promise.resolve(getContentI18nResource()?.messages ?? getContentMessages());
 }
 
 function defaultDetectPlatform(url: string): string {
