@@ -199,10 +199,10 @@ export async function reportTestError(): Promise<void> {
   await handleError({
     code: 'TEST_ERROR',
     domain: 'unknown',
-    message: 'This is a test error for analytics verification',
+    message: 'TEST_ERROR_ANALYTICS_VERIFICATION',
     severity: ErrorSeverity.INFO,
     recoverable: true,
-    userMessage: 'Test error - please ignore',
+    userMessage: 'TEST_ERROR_ANALYTICS_VERIFICATION_USER_MESSAGE',
     context: {
       test: true,
       timestamp: Date.now()

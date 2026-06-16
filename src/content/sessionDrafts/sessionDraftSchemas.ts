@@ -26,7 +26,7 @@ export const SessionDraftOwnerContextSchema = z
   .refine(
     (value) =>
       value.tabId !== undefined || value.windowId !== undefined || value.frameId !== undefined,
-    { message: 'Session draft owner context requires at least one runtime identifier.' }
+    { message: 'SESSION_DRAFT_OWNER_CONTEXT_MISSING_RUNTIME_IDENTIFIER' }
   );
 export const ExportDestinationMetadataSchema = z.object({
   kind: z.enum(['vault', 'downloads']),

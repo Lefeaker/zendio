@@ -70,6 +70,10 @@ describe('Taxonomy Types', () => {
     it('should have a valid default taxonomy config', () => {
       expect(isTaxonomyConfig(DEFAULT_TAXONOMY_CONFIG)).toBe(true);
       expect(DEFAULT_TAXONOMY_CONFIG.version).toBe('1.0.0');
+      expect(DEFAULT_TAXONOMY_CONFIG.descriptionKey).toBe('taxonomy.default.description');
+      expect(DEFAULT_TAXONOMY_CONFIG.classificationHint).toBe(
+        'Default content classification taxonomy'
+      );
       expect(DEFAULT_TAXONOMY_CONFIG.categories.length).toBeGreaterThan(0);
       expect(DEFAULT_TAXONOMY_CONFIG.tags.length).toBeGreaterThan(0);
     });
@@ -79,6 +83,9 @@ describe('Taxonomy Types', () => {
         expect(isTaxonomyCategory(category)).toBe(true);
         expect(category.id).toBeTruthy();
         expect(category.name).toBeTruthy();
+        expect(category.description).toBeUndefined();
+        expect(category.descriptionKey).toMatch(/^taxonomy\.category\.[a-z]+\.description$/);
+        expect(category.classificationHint).toBeTruthy();
       }
     });
 
@@ -87,6 +94,9 @@ describe('Taxonomy Types', () => {
         expect(isTaxonomyTag(tag)).toBe(true);
         expect(tag.id).toBeTruthy();
         expect(tag.name).toBeTruthy();
+        expect(tag.description).toBeUndefined();
+        expect(tag.descriptionKey).toMatch(/^taxonomy\.tag\.[a-z]+\.description$/);
+        expect(tag.classificationHint).toBeTruthy();
       }
     });
   });
@@ -151,6 +161,11 @@ describe('Taxonomy Migration', () => {
       expect(migrated.categories.length).toBe(2);
       expect(migrated.categories[0].id).toBe('article');
       expect(migrated.categories[0].name).toBe('Article');
+      expect(migrated.categories[0].description).toBeUndefined();
+      expect(migrated.categories[0].descriptionKey).toBe(
+        'taxonomy.legacy.type.article.description'
+      );
+      expect(migrated.categories[0].classificationHint).toBe('Content type: article');
       expect(migrated.categories[1].id).toBe('ai_chat');
       expect(migrated.categories[1].name).toBe('Ai chat');
     });
@@ -165,7 +180,12 @@ describe('Taxonomy Migration', () => {
       expect(migrated.categories.length).toBe(4); // 3 topics + 1 parent
       expect(migrated.categories[0].id).toBe('topics');
       expect(migrated.categories[0].name).toBe('Topics');
+      expect(migrated.categories[0].descriptionKey).toBe('taxonomy.legacy.topics.description');
+      expect(migrated.categories[0].classificationHint).toBe('Content topics and subjects');
       expect(migrated.categories[1].id).toBe('topic_cs');
+      expect(migrated.categories[1].description).toBeUndefined();
+      expect(migrated.categories[1].descriptionKey).toBe('taxonomy.legacy.topic.cs.description');
+      expect(migrated.categories[1].classificationHint).toBe('Topic: cs');
       expect(migrated.categories[1].parent).toBe('topics');
     });
 
@@ -179,6 +199,9 @@ describe('Taxonomy Migration', () => {
       expect(migrated.tags.length).toBe(3);
       expect(migrated.tags[0].id).toBe('platform_chatgpt');
       expect(migrated.tags[0].name).toBe('Chatgpt');
+      expect(migrated.tags[0].description).toBeUndefined();
+      expect(migrated.tags[0].descriptionKey).toBe('taxonomy.legacy.platform.chatgpt.description');
+      expect(migrated.tags[0].classificationHint).toBe('AI Platform: chatgpt');
       expect(migrated.tags[0].category).toBe('platform');
     });
 
@@ -196,6 +219,9 @@ describe('Taxonomy Migration', () => {
       expect(migrated.tags.length).toBe(2); // 2 platforms
       expect(migrated.version).toBe('1.0.0');
       expect(migrated.name).toBe('Migrated Taxonomy');
+      expect(migrated.description).toBeUndefined();
+      expect(migrated.descriptionKey).toBe('taxonomy.legacy.migrated.description');
+      expect(migrated.classificationHint).toBe('Taxonomy migrated from legacy format');
     });
 
     it('should handle empty legacy format', () => {

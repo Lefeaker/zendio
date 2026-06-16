@@ -19,6 +19,8 @@ export interface TaxonomyCategory {
   readonly id: string;
   readonly name: string;
   readonly description?: string;
+  readonly descriptionKey?: string;
+  readonly classificationHint?: string;
   readonly parent?: string;
   readonly keywords?: readonly string[];
   readonly weight?: number;
@@ -28,6 +30,8 @@ export interface TaxonomyTag {
   readonly id: string;
   readonly name: string;
   readonly description?: string;
+  readonly descriptionKey?: string;
+  readonly classificationHint?: string;
   readonly category?: string;
   readonly color?: string;
   readonly aliases?: readonly string[];
@@ -62,6 +66,8 @@ export interface TaxonomyConfig {
   readonly version: string;
   readonly name?: string;
   readonly description?: string;
+  readonly descriptionKey?: string;
+  readonly classificationHint?: string;
   readonly categories: ReadonlyDeep<TaxonomyCategory[]>;
   readonly tags: ReadonlyDeep<TaxonomyTag[]>;
   readonly rules: ReadonlyDeep<TaxonomyRule[]>;
@@ -162,30 +168,35 @@ export function isTaxonomyTag(value: unknown): value is TaxonomyTag {
 export const DEFAULT_TAXONOMY_CONFIG: ReadonlyDeep<TaxonomyConfig> = {
   version: '1.0.0',
   name: 'Default Taxonomy',
-  description: 'Default content classification taxonomy',
+  descriptionKey: 'taxonomy.default.description',
+  classificationHint: 'Default content classification taxonomy',
   categories: [
     {
       id: 'article',
       name: 'Article',
-      description: 'News articles, blog posts, and editorial content',
+      descriptionKey: 'taxonomy.category.article.description',
+      classificationHint: 'News articles, blog posts, and editorial content',
       keywords: ['article', 'blog', 'news', 'post']
     },
     {
       id: 'research',
       name: 'Research',
-      description: 'Academic papers, research documents, and studies',
+      descriptionKey: 'taxonomy.category.research.description',
+      classificationHint: 'Academic papers, research documents, and studies',
       keywords: ['research', 'paper', 'study', 'academic']
     },
     {
       id: 'reference',
       name: 'Reference',
-      description: 'Documentation, guides, and reference materials',
+      descriptionKey: 'taxonomy.category.reference.description',
+      classificationHint: 'Documentation, guides, and reference materials',
       keywords: ['docs', 'guide', 'manual', 'reference']
     },
     {
       id: 'discussion',
       name: 'Discussion',
-      description: 'Forum posts, comments, and discussions',
+      descriptionKey: 'taxonomy.category.discussion.description',
+      classificationHint: 'Forum posts, comments, and discussions',
       keywords: ['forum', 'discussion', 'comment', 'thread']
     }
   ],
@@ -193,19 +204,22 @@ export const DEFAULT_TAXONOMY_CONFIG: ReadonlyDeep<TaxonomyConfig> = {
     {
       id: 'important',
       name: 'Important',
-      description: 'High priority content',
+      descriptionKey: 'taxonomy.tag.important.description',
+      classificationHint: 'High priority content',
       color: '#ff4444'
     },
     {
       id: 'todo',
       name: 'To Do',
-      description: 'Content requiring action',
+      descriptionKey: 'taxonomy.tag.todo.description',
+      classificationHint: 'Content requiring action',
       color: '#ffaa00'
     },
     {
       id: 'archived',
       name: 'Archived',
-      description: 'Archived content',
+      descriptionKey: 'taxonomy.tag.archived.description',
+      classificationHint: 'Archived content',
       color: '#888888'
     }
   ],

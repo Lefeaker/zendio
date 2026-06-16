@@ -68,6 +68,31 @@ describe('sessionDraftSchemas', () => {
     ).toBe(true);
   });
 
+  it('returns a stable owner context validation code when runtime identifiers are missing', () => {
+    const result = SessionDraftIndexSchema.safeParse({
+      schemaVersion: 1,
+      entries: [
+        {
+          key: 'aiob.sessionDraft.v1.reader.page.draft',
+          draftId: 'reader-1',
+          mode: 'reader',
+          pageKey: 'reader-page',
+          updatedAt: 2,
+          expiresAt: 3,
+          status: 'active',
+          ownerContext: {}
+        }
+      ]
+    });
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.issues[0]?.message).toBe(
+        'SESSION_DRAFT_OWNER_CONTEXT_MISSING_RUNTIME_IDENTIFIER'
+      );
+    }
+  });
+
   it('keeps owner context optional so pre-P06 drafts still parse and restore', () => {
     expect(
       SessionDraftEnvelopeSchema.safeParse({

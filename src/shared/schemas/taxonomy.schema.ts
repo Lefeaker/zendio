@@ -29,6 +29,8 @@ export const TaxonomyCategorySchema = z.object({
   id: z.string().min(1),
   name: z.string().min(1),
   description: z.string().optional(),
+  descriptionKey: z.string().optional(),
+  classificationHint: z.string().optional(),
   parent: z.string().optional(),
   keywords: z.array(z.string()).optional(),
   weight: z.number().optional()
@@ -38,6 +40,8 @@ export const TaxonomyTagSchema = z.object({
   id: z.string().min(1),
   name: z.string().min(1),
   description: z.string().optional(),
+  descriptionKey: z.string().optional(),
+  classificationHint: z.string().optional(),
   category: z.string().optional(),
   color: z.string().optional(),
   aliases: z.array(z.string()).optional()
@@ -66,6 +70,8 @@ export const TaxonomyConfigSchema = z.object({
   version: z.string().min(1),
   name: z.string().optional(),
   description: z.string().optional(),
+  descriptionKey: z.string().optional(),
+  classificationHint: z.string().optional(),
   categories: z.array(TaxonomyCategorySchema),
   tags: z.array(TaxonomyTagSchema),
   rules: z.array(TaxonomyRuleSchema),
