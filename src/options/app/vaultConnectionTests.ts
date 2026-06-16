@@ -1,4 +1,4 @@
-import { formatMessage, type Messages } from '@i18n';
+import type { Messages } from '@i18n';
 import { DEFAULT_RUNTIME_MESSAGES } from '@i18n';
 import type {
   ConnectionChannelResult,
@@ -33,17 +33,6 @@ interface VaultListMessagingRepository {
     message: RuntimeConnectionMessage
   ): Promise<Partial<ConnectionTestResult> | null | undefined>;
   send(message: TrackUsageEventPayload): void;
-}
-
-function getStorageMessage(
-  messages: Messages | null,
-  key: keyof Messages,
-  fallback: string,
-  values: Record<string, string | number | boolean> = {}
-): string {
-  const value = messages?.[key];
-  const template = typeof value === 'string' && value.length > 0 ? value : fallback;
-  return Object.keys(values).length > 0 ? formatMessage(template, values) : template;
 }
 
 export async function runVaultListConnectionTest(

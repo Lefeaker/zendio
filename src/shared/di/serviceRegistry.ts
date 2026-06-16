@@ -281,8 +281,8 @@ function createFallbackOptionsRepository(): IOptionsRepository {
   };
 
   return {
-    async get() {
-      return snapshot;
+    get() {
+      return Promise.resolve(snapshot);
     },
     async set(options) {
       snapshot = mergeOptions({ ...snapshot, ...options }) as CompleteOptions;

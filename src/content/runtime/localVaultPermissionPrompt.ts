@@ -140,7 +140,8 @@ export function createLocalVaultPermissionPrompt(params: {
             if (event.origin !== extensionOrigin || event.source !== frame.contentWindow) {
               return;
             }
-            const data = event.data;
+            const data: object | null | undefined =
+              typeof event.data === 'object' ? event.data : undefined;
             if (!isLocalVaultPermissionFrameMessage(data)) {
               return;
             }
