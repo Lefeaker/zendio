@@ -1,13 +1,14 @@
 # 选项页多语言适配真值说明
 
-更新时间：2026-06-07
-适用范围：`src/options/**`
+更新时间：2026-06-16
+适用范围：`src/options/**`。跨 Options、content、background、export、onboarding、trial 与 parser 的 production copy 总规则见 [`i18n-production-copy-governance.md`](./i18n-production-copy-governance.md)。
 
 ## 当前真值
 
 - `Options` production 路径的可见文案必须走 `Messages` -> `src/i18n/catalog/messages/<lang>/runtime.json` / `schema.json` -> `src/i18n/generated/locales/*.generated.ts` 链路。
 - production Stitch schema、builder 与 setting/resource/runtime surface copy 现在以 `SchemaContext.messages` / `SchemaContext.t(key, fallback)` 为主消费面；`src/options/app/**` 中的 shell/runtime helper 也必须读取当前语言 `Messages`，不能再把中文 preview copy 当 English fallback。
 - `src/options/stitch/content.ts` 仍承载结构性 content truth，但 production body copy 不得靠手写中文默认值维持；native language labels 仅允许保留在语言选择器 option 文本中。
+- Options 若消费 background/content 返回的 user-visible 状态，必须解析 `messageDescriptor`、`errorDescriptor`、`labelDescriptor` 或 `userMessageDescriptor`，并用当前 `Messages` 格式化；不要把 legacy `message` / `userMessage` 字段当成新的中文生产 fallback。
 - Options production language selector 当前真值固定为 12 个 release human UI locales，顺序与 `RELEASE_LANGUAGE_ORDER` 一致：
   - `en`
   - `zh-CN`
@@ -58,6 +59,8 @@
    - `npm run audit:locales:report`
    - `npm run build:dev`
    - `npm run test:i18n`
+   - `npm run audit:i18n-hardcoded-user-copy:check`
+   - `npx vitest run --config vitest.unit.config.ts tests/unit/i18n/hardcodedSurfaceCoverage.test.ts`
    - `npx vitest run --config vitest.unit.config.ts tests/unit/options/productionStitchShell*.test.ts tests/unit/options/schemaI18nParity.test.ts tests/unit/options/productionStitchSchemaPresence.test.ts`
    - `npx vitest run --config vitest.e2e.config.ts tests/e2e/optionsLanguageSwitch.test.ts tests/e2e/multilingualExpansion.test.ts`
    - `npm run verify:stitch-secondary`
@@ -70,3 +73,4 @@
 
 - 旧 preview HTML、历史归档文档与 compatibility-only 模块里仍可能保留示例性硬编码文本，但它们不构成 `Options` production truth。
 - 若未来只补 catalog source、不补 English residual 测试或 `SchemaContext.t()`/`Messages` 消费链验证，中文回流仍可能在 selector 之外复发。
+- 若未来 connection/storage/error 等跨边界 payload 新增可见字段，但没有 descriptor sibling，会被 `audit:i18n-hardcoded-user-copy:check` 作为 descriptor-boundary regression 阻塞。
