@@ -443,6 +443,125 @@ describe('mountProductionStitchShell English residual coverage', () => {
     clipper.remove();
   });
 
+  it('keeps P03 resource views catalog-backed when messages is null', () => {
+    const poisonedAppData = structuredClone(previewContent);
+    poisonedAppData.resources.onboarding.hero.title = 'RAW ONBOARDING TITLE SENTINEL';
+    poisonedAppData.resources.onboarding.hero.description = 'RAW ONBOARDING DESCRIPTION SENTINEL';
+    poisonedAppData.resources.onboarding.steps[0] = {
+      ...poisonedAppData.resources.onboarding.steps[0],
+      title: 'RAW ONBOARDING STEP TITLE SENTINEL',
+      description: 'RAW ONBOARDING STEP DESCRIPTION SENTINEL',
+      bullets: ['RAW ONBOARDING BULLET SENTINEL']
+    };
+    poisonedAppData.resources.pluginSetup.hero.pills[0] = 'RAW PLUGIN PILL SENTINEL';
+    poisonedAppData.resources.pluginSetup.ports[0] = [
+      'RAW PLUGIN FIELD SENTINEL',
+      'RAW PLUGIN VALUE SENTINEL'
+    ];
+    poisonedAppData.resources.pluginSetup.steps[0] = {
+      ...poisonedAppData.resources.pluginSetup.steps[0],
+      title: 'RAW PLUGIN STEP TITLE SENTINEL',
+      body: 'RAW PLUGIN STEP BODY SENTINEL'
+    };
+    poisonedAppData.resources.pluginSetup.checks[0] = 'RAW PLUGIN CHECK SENTINEL';
+    poisonedAppData.resources.support.channels[0] = {
+      ...poisonedAppData.resources.support.channels[0],
+      title: 'RAW SUPPORT TITLE SENTINEL',
+      subtitle: 'RAW SUPPORT SUBTITLE SENTINEL'
+    };
+    poisonedAppData.resources.suggestions.channels[0] = {
+      ...poisonedAppData.resources.suggestions.channels[0],
+      title: 'RAW SUGGESTION TITLE SENTINEL',
+      subtitle: 'RAW SUGGESTION SUBTITLE SENTINEL'
+    };
+    poisonedAppData.resources.contact.entries[0] = {
+      ...poisonedAppData.resources.contact.entries[0],
+      title: 'RAW CONTACT TITLE SENTINEL',
+      subtitle: 'RAW CONTACT SUBTITLE SENTINEL'
+    };
+    poisonedAppData.resources.changelog.hero.title = 'RAW CHANGELOG TITLE SENTINEL';
+    poisonedAppData.resources.changelog.hero.description = 'RAW CHANGELOG DESCRIPTION SENTINEL';
+    poisonedAppData.resources.changelog.entries[0] = {
+      ...poisonedAppData.resources.changelog.entries[0],
+      bullets: ['RAW CHANGELOG BULLET SENTINEL']
+    };
+
+    const onboarding = renderResourceModal('onboarding', poisonedAppData, null);
+    expect(onboarding.textContent).toContain(
+      DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaResourceOnboardingTitle
+    );
+    expect(onboarding.textContent).toContain(DEFAULT_PRODUCTION_ENGLISH_MESSAGES.step1Title);
+    expect(onboarding.textContent).not.toContain('RAW ONBOARDING TITLE SENTINEL');
+    expect(onboarding.textContent).not.toContain('RAW ONBOARDING DESCRIPTION SENTINEL');
+    expect(onboarding.textContent).not.toContain('RAW ONBOARDING STEP TITLE SENTINEL');
+    expect(onboarding.textContent).not.toContain('RAW ONBOARDING STEP DESCRIPTION SENTINEL');
+    expect(onboarding.textContent).not.toContain('RAW ONBOARDING BULLET SENTINEL');
+    onboarding.remove();
+
+    const pluginSetup = renderResourceModal('plugin-setup', poisonedAppData, null);
+    expect(pluginSetup.textContent).toContain(
+      DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaResourcePluginSetupTitle
+    );
+    expect(pluginSetup.textContent).toContain(
+      DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaResourcePluginSetupStep1
+    );
+    expect(pluginSetup.textContent).toContain(
+      DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaResourcePluginSetupChecklist1
+    );
+    expect(pluginSetup.textContent).not.toContain('RAW PLUGIN PILL SENTINEL');
+    expect(pluginSetup.textContent).not.toContain('RAW PLUGIN FIELD SENTINEL');
+    expect(pluginSetup.textContent).not.toContain('RAW PLUGIN VALUE SENTINEL');
+    expect(pluginSetup.textContent).not.toContain('RAW PLUGIN STEP TITLE SENTINEL');
+    expect(pluginSetup.textContent).not.toContain('RAW PLUGIN STEP BODY SENTINEL');
+    expect(pluginSetup.textContent).not.toContain('RAW PLUGIN CHECK SENTINEL');
+    pluginSetup.remove();
+
+    const support = renderResourceModal('support', poisonedAppData, null);
+    expect(support.textContent).toContain(
+      DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaResourceSupportTitle
+    );
+    expect(support.textContent).toContain(
+      DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaResourceSupportKoFiDescription
+    );
+    expect(support.textContent).not.toContain('RAW SUPPORT TITLE SENTINEL');
+    expect(support.textContent).not.toContain('RAW SUPPORT SUBTITLE SENTINEL');
+    support.remove();
+
+    const suggestions = renderResourceModal('suggestions', poisonedAppData, null);
+    expect(suggestions.textContent).toContain(
+      DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaResourceSuggestionsTitle
+    );
+    expect(suggestions.textContent).toContain(
+      DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaResourceSuggestionsGithubDescription
+    );
+    expect(suggestions.textContent).not.toContain('RAW SUGGESTION TITLE SENTINEL');
+    expect(suggestions.textContent).not.toContain('RAW SUGGESTION SUBTITLE SENTINEL');
+    suggestions.remove();
+
+    const contact = renderResourceModal('contact', poisonedAppData, null);
+    expect(contact.textContent).toContain(
+      DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaResourceContactTitle
+    );
+    expect(contact.textContent).toContain(
+      DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaResourceContactRedditDescription
+    );
+    expect(contact.textContent).not.toContain('RAW CONTACT TITLE SENTINEL');
+    expect(contact.textContent).not.toContain('RAW CONTACT SUBTITLE SENTINEL');
+    contact.remove();
+
+    const changelog = renderResourceModal('changelog', poisonedAppData, null);
+    expect(changelog.textContent).toContain(
+      DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaResourceChangelogTitle
+    );
+    expect(changelog.textContent).toContain(
+      DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaResourceChangelogV020Bullet1
+    );
+    expect(changelog.textContent).not.toContain('RAW CHANGELOG TITLE SENTINEL');
+    expect(changelog.textContent).not.toContain('RAW CHANGELOG DESCRIPTION SENTINEL');
+    expect(changelog.textContent).not.toContain('RAW CHANGELOG BULLET SENTINEL');
+    changelog.remove();
+  });
+
   it('localizes sample preview metadata through catalog keys for zh-CN', async () => {
     const zhMessages = await getMessagesForLanguage('zh-CN');
     const context = createSchemaContextFromAppData(structuredClone(previewContent), zhMessages);
