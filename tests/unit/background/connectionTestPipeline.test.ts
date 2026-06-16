@@ -362,6 +362,47 @@ describe('connectionTest pipeline', () => {
     expect(getAuthorizationHeader(init)).toBe('Bearer secret');
   });
 
+  it('reports unsupported local-folder failures without relying on localized text heuristics', async () => {
+    const { handleVaultConnectionTest } =
+      await import('../../../src/background/pipelines/connectionTest');
+
+    getOptionsMock.mockResolvedValue(createOptions({ baseUrl: 'https://default.example/' }));
+    queryPermissionMock.mockResolvedValue('unsupported');
+
+    const result = await handleVaultConnectionTest({
+      type: 'TEST_VAULT_CONNECTION',
+      vaultId: 'vault-local',
+      vault: {
+        id: 'vault-local',
+        name: 'Local Vault',
+        httpsUrl: 'https://api.example.com',
+        httpUrl: '',
+        vault: 'LocalVault',
+        apiKey: 'secret',
+        localFolderId: 'folder-local',
+        localFolderName: 'LocalFolder',
+        isDefault: false
+      }
+    });
+
+    expect(result.success).toBe(false);
+    expect(result.messageDescriptor).toEqual({ key: 'connectionResultHeaderFailure' });
+    expect(result.errorDescriptor).toEqual({
+      key: 'connectionLocalFolderUnsupported'
+    });
+    expect(result.error).toContain('local_folder_unsupported');
+    expectAnalyticsEvent(
+      trackUsageEventMock.mock.calls[0],
+      'connection_test_completed',
+      {
+        failure_category: 'unsupported',
+        outcome: 'failed',
+        storage_target: 'local_folder'
+      },
+      ['duration_bucket', 'failure_category', 'outcome', 'storage_target']
+    );
+  });
+
   it('returns separate local folder, HTTPS, and HTTP channel results for vault tests', async () => {
     const { handleVaultConnectionTest } =
       await import('../../../src/background/pipelines/connectionTest');

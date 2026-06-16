@@ -4,6 +4,15 @@ import type {
   StorageTarget
 } from '../../shared/types/analytics';
 
+const LOCAL_FOLDER_UNSUPPORTED_KEYS = new Set(['connectionLocalFolderUnsupported']);
+const VALIDATION_KEYS = new Set([
+  'connectionNoUsableAddress',
+  'connectionRestApiKeyMissing',
+  'connectionRestVaultNameMissing',
+  'connectionRestUrlMissing',
+  'schemaStorageNoEnabledVaults'
+]);
+
 export type ConnectionTestAnalyticsSummary = {
   result: ConnectionTestResult;
   storageTarget: StorageTarget;
@@ -29,6 +38,31 @@ function inferChannelFailureCategory(result: ConnectionTestResult): AnalyticsFai
   const failedLocalFolder = failedConfiguredChannels.find(
     (channel) => channel.channel === 'localFolder'
   );
+  if (failedLocalFolder) {
+    const descriptorKey =
+      failedLocalFolder.errorDescriptor?.key ?? failedLocalFolder.messageDescriptor?.key;
+    if (
+      (typeof descriptorKey === 'string' && LOCAL_FOLDER_UNSUPPORTED_KEYS.has(descriptorKey)) ||
+      failedLocalFolder.error?.startsWith('local_folder_unsupported')
+    ) {
+      return 'unsupported';
+    }
+    return 'permission';
+  }
+
+  const descriptorKeys = [
+    result.errorDescriptor?.key,
+    result.messageDescriptor?.key,
+    ...failedConfiguredChannels.flatMap((channel) => [
+      channel.errorDescriptor?.key,
+      channel.messageDescriptor?.key
+    ])
+  ].filter((key): key is string => typeof key === 'string');
+
+  if (descriptorKeys.some((key) => VALIDATION_KEYS.has(key))) {
+    return 'validation';
+  }
+
   const failureText = [
     result.error,
     result.message,
@@ -38,13 +72,5 @@ function inferChannelFailureCategory(result: ConnectionTestResult): AnalyticsFai
     .join('\n')
     .toLowerCase();
 
-  if (failedLocalFolder) {
-    return failureText.includes('unsupported') || failureText.includes('不支持')
-      ? 'unsupported'
-      : 'permission';
-  }
-  if (failureText.includes('未配置') || failureText.includes('config error')) {
-    return 'validation';
-  }
   return failureText.includes('timeout') ? 'timeout' : 'connection';
 }

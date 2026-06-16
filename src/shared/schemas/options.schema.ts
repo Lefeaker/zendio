@@ -7,11 +7,11 @@ import { YamlConfigOverridesSchema } from './yamlConfig.schema';
  * 替换 src/shared/types/options.ts 中的 RestOptions 接口
  */
 export const RestOptionsSchema = z.object({
-  baseUrl: z.string().url('必须是有效的 URL'),
+  baseUrl: z.string().url('Must be a valid URL'),
   httpsUrl: z.string().url().optional(),
   httpUrl: z.string().url().optional(),
-  vault: z.string().min(1, 'Vault 名称不能为空'),
-  apiKey: z.string().min(10, 'API Key 至少需要 10 个字符'),
+  vault: z.string().min(1, 'Vault name is required'),
+  apiKey: z.string().min(10, 'API key must be at least 10 characters'),
   rootDir: z.string().optional(),
   localFolderId: z.string().optional(),
   localFolderName: z.string().optional()

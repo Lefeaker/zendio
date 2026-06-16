@@ -15,6 +15,9 @@ export interface RestCandidate {
 
 const LOCAL_HOST_PATTERN = /^https?:\/\/(127\.0\.0\.1|localhost)/;
 const REST_DEFAULTS = configProvider.getRestDefaults();
+const CONFIGURED_HTTPS_LABEL = 'HTTPS (configured)';
+const CONFIGURED_HTTP_LABEL = 'HTTP (configured)';
+const ALTERNATE_HTTP_LABEL = 'HTTP (alternate port)';
 
 export function buildVaultUrl(baseUrl: string, vault: string, encodedPath: string): string {
   const trimmed = baseUrl.trim();
@@ -86,8 +89,8 @@ export function createRestCandidates(
   const hasExplicit = Boolean(config.httpsUrl?.trim() || config.httpUrl?.trim());
 
   if (hasExplicit) {
-    pushCandidate(httpsUrl, 'HTTPS (用户配置)');
-    pushCandidate(httpUrl, 'HTTP (用户配置)');
+    pushCandidate(httpsUrl, CONFIGURED_HTTPS_LABEL);
+    pushCandidate(httpUrl, CONFIGURED_HTTP_LABEL);
 
     if (httpsUrl && httpUrl && isLocalAddress(httpsUrl)) {
       const httpAltPort = httpUrl.replace(
@@ -95,7 +98,7 @@ export function createRestCandidates(
         `:${REST_DEFAULTS.httpsPort}`
       );
       if (httpAltPort !== httpUrl) {
-        pushCandidate(httpAltPort, 'HTTP (备用端口)');
+        pushCandidate(httpAltPort, ALTERNATE_HTTP_LABEL);
       }
     }
     return urlsToTry;

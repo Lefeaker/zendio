@@ -54,7 +54,7 @@ export function mergeVideoOptions(source?: StoredOptions['video']): VideoOptions
     promptButtonLabel:
       (base.promptButtonLabel ?? defaults?.promptButtonLabel ?? '').trim() ||
       defaults?.promptButtonLabel ||
-      '开启视频笔记',
+      'Clip video',
     promptShortcut:
       (base.promptShortcut ?? defaults?.promptShortcut ?? '').trim() ||
       defaults?.promptShortcut ||
