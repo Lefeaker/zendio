@@ -9,7 +9,7 @@ import {
 } from '../builders/surfaces';
 import { div } from '../builders/primitives';
 import { classNames } from '../builders/classNames';
-import { DEFAULT_PRODUCTION_ENGLISH_MESSAGES } from '../i18n';
+import { RUNTIME_SURFACE_FALLBACK_MESSAGES } from '../../../../i18n/catalog/runtimeSurfaceFallbackMessages';
 
 const schema: ResourceSchema = {
   openMode: 'modal',
@@ -46,25 +46,25 @@ const schema: ResourceSchema = {
       saveToLabel:
         t?.(
           'schemaRuntimeSurfaceSaveToLabel',
-          DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaRuntimeSurfaceSaveToLabel
-        ) ?? DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaRuntimeSurfaceSaveToLabel,
+          RUNTIME_SURFACE_FALLBACK_MESSAGES.schemaRuntimeSurfaceSaveToLabel
+        ) ?? RUNTIME_SURFACE_FALLBACK_MESSAGES.schemaRuntimeSurfaceSaveToLabel,
       configureVaultLabel:
         t?.(
           'schemaRuntimeSurfaceConfigureVaultLabel',
-          DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaRuntimeSurfaceConfigureVaultLabel
-        ) ?? DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaRuntimeSurfaceConfigureVaultLabel
+          RUNTIME_SURFACE_FALLBACK_MESSAGES.schemaRuntimeSurfaceConfigureVaultLabel
+        ) ?? RUNTIME_SURFACE_FALLBACK_MESSAGES.schemaRuntimeSurfaceConfigureVaultLabel
     };
     const panelAriaLabels = {
       resizeHeight:
         t?.(
           'schemaRuntimeSurfaceResizePanelHeightAriaLabel',
-          DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaRuntimeSurfaceResizePanelHeightAriaLabel
-        ) ?? DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaRuntimeSurfaceResizePanelHeightAriaLabel,
+          RUNTIME_SURFACE_FALLBACK_MESSAGES.schemaRuntimeSurfaceResizePanelHeightAriaLabel
+        ) ?? RUNTIME_SURFACE_FALLBACK_MESSAGES.schemaRuntimeSurfaceResizePanelHeightAriaLabel,
       resizePanel:
         t?.(
           'schemaRuntimeSurfaceResizePanelAriaLabel',
-          DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaRuntimeSurfaceResizePanelAriaLabel
-        ) ?? DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaRuntimeSurfaceResizePanelAriaLabel
+          RUNTIME_SURFACE_FALLBACK_MESSAGES.schemaRuntimeSurfaceResizePanelAriaLabel
+        ) ?? RUNTIME_SURFACE_FALLBACK_MESSAGES.schemaRuntimeSurfaceResizePanelAriaLabel
     };
 
     return {
@@ -73,13 +73,13 @@ const schema: ResourceSchema = {
       title:
         t?.(
           'schemaRuntimeReaderTitle',
-          DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaRuntimeReaderTitle
-        ) ?? DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaRuntimeReaderTitle,
+          RUNTIME_SURFACE_FALLBACK_MESSAGES.schemaRuntimeReaderTitle
+        ) ?? RUNTIME_SURFACE_FALLBACK_MESSAGES.schemaRuntimeReaderTitle,
       description:
         t?.(
           'schemaRuntimeReaderDescription',
-          DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaRuntimeReaderDescription
-        ) ?? DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaRuntimeReaderDescription,
+          RUNTIME_SURFACE_FALLBACK_MESSAGES.schemaRuntimeReaderDescription
+        ) ?? RUNTIME_SURFACE_FALLBACK_MESSAGES.schemaRuntimeReaderDescription,
       surfacePlacement: 'floating-bottom-right',
       surfaceSkin: 'session',
       children: [
@@ -93,8 +93,8 @@ const schema: ResourceSchema = {
                 surface.iconUrl,
                 t?.(
                   'schemaRuntimeSurfaceCollapsePanelAriaLabel',
-                  DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaRuntimeSurfaceCollapsePanelAriaLabel
-                ) ?? DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaRuntimeSurfaceCollapsePanelAriaLabel
+                  RUNTIME_SURFACE_FALLBACK_MESSAGES.schemaRuntimeSurfaceCollapsePanelAriaLabel
+                ) ?? RUNTIME_SURFACE_FALLBACK_MESSAGES.schemaRuntimeSurfaceCollapsePanelAriaLabel
               ),
               surfaceBody(classNames.session.bodyReader, [
                 sessionItemList(
