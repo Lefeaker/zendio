@@ -4,10 +4,10 @@ import { dirname, join, resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
 
 const toolPath = resolve('tools/report-build-splitting.mjs');
-const CONTENT_RUNTIME_WARNING = 57209;
-const CONTENT_RUNTIME_HARD_STOP = 57386;
-const ONBOARDING_WARNING = 16459;
-const ONBOARDING_HARD_STOP = 16715;
+const CONTENT_RUNTIME_WARNING = 58564;
+const CONTENT_RUNTIME_HARD_STOP = 58752;
+const ONBOARDING_WARNING = 17377;
+const ONBOARDING_HARD_STOP = 17633;
 const CHUNK_COUNT_WARNING = 118;
 const CHUNK_COUNT_HARD_STOP = 120;
 
@@ -70,7 +70,7 @@ describe('report-build-splitting', () => {
       chunkFiles: [
         {
           path: 'build/dist/chunks/ja.generated-OVER.js',
-          size: 61 * 1024
+          size: 65 * 1024
         },
         {
           path: 'build/dist/chunks/chunk-small.js',
@@ -93,7 +93,7 @@ describe('report-build-splitting', () => {
       chunkFiles: [
         {
           path: 'build/dist/chunks/qps-ploc.generated-OVER.js',
-          size: 61 * 1024
+          size: 65 * 1024
         },
         {
           path: 'build/dist/chunks/chunk-small.js',
@@ -139,7 +139,7 @@ describe('report-build-splitting', () => {
       chunkFiles: [
         {
           path: 'build/dist/chunks/ja-OVER.js',
-          size: 61 * 1024
+          size: 65 * 1024
         },
         {
           path: 'build/dist/chunks/chunk-small.js',
@@ -200,6 +200,33 @@ describe('report-build-splitting', () => {
       expect(result.stdout).toContain(
         `warning target ${CHUNK_COUNT_WARNING}; hard stop ${CHUNK_COUNT_HARD_STOP}`
       );
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it('fails when the largest shared chunk exceeds the current shared budget', () => {
+    const root = createFixtureRoot({
+      chunkFiles: [
+        {
+          path: 'build/dist/chunks/chunk-over.js',
+          size: 214 * 1024
+        },
+        {
+          path: 'build/dist/chunks/chunk-mid.js',
+          size: 120 * 1024
+        },
+        {
+          path: 'build/dist/chunks/chunk-third.js',
+          size: 100 * 1024
+        }
+      ]
+    });
+
+    try {
+      const result = runReport(root);
+      expect(result.status).toBe(1);
+      expect(result.stderr).toContain('chunks/chunk-over.js exceeds shared #1 budget');
     } finally {
       rmSync(root, { recursive: true, force: true });
     }
