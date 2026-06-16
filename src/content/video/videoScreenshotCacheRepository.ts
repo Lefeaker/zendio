@@ -162,6 +162,24 @@ function buildEntryMetadata(
   });
 }
 
+function tryBuildEntryMetadata(
+  pageKey: string,
+  captureId: string,
+  screenshot: Pick<
+    VideoCaptureScreenshot,
+    'id' | 'fileName' | 'mimeType' | 'capturedAt'
+  >,
+  byteLength: number,
+  options: ResolvedOptions,
+  operationTime: number
+): VideoScreenshotCacheIndexEntry | null {
+  try {
+    return buildEntryMetadata(pageKey, captureId, screenshot, byteLength, options, operationTime);
+  } catch {
+    return null;
+  }
+}
+
 function toScreenshot(
   entry: Pick<
     VideoScreenshotCacheIndexEntry,
@@ -315,6 +333,15 @@ export function createVideoScreenshotCacheRepository(
 
       const operationTime = resolved.now();
       if (legacyMode) {
+        if (screenshot.content.byteLength > resolved.maxContentBytes) {
+          return {
+            status: 'skipped',
+            reason: 'content-too-large',
+            byteLength: screenshot.content.byteLength,
+            maxContentBytes: resolved.maxContentBytes
+          };
+        }
+
         let serializedContent;
         try {
           serializedContent = await serializeBlobAttachmentContent(screenshot.content.blob);
@@ -335,10 +362,21 @@ export function createVideoScreenshotCacheRepository(
           };
         }
 
-        const entry = normalizeVideoScreenshotCacheEntry({
-          ...buildEntryMetadata(pageKey, captureId, screenshot, serializedContent.byteLength, resolved, operationTime),
-          content: serializedContent
-        });
+        const metadata = tryBuildEntryMetadata(
+          pageKey,
+          captureId,
+          screenshot,
+          serializedContent.byteLength,
+          resolved,
+          operationTime
+        );
+        const entry =
+          metadata === null
+            ? null
+            : normalizeVideoScreenshotCacheEntry({
+                ...metadata,
+                content: serializedContent
+              });
         if (entry === null || !legacyStore) {
           return {
             status: 'skipped',
@@ -401,7 +439,21 @@ export function createVideoScreenshotCacheRepository(
         };
       }
 
-      const entry = buildEntryMetadata(pageKey, captureId, screenshot, byteLength, resolved, operationTime);
+      const entry = tryBuildEntryMetadata(
+        pageKey,
+        captureId,
+        screenshot,
+        byteLength,
+        resolved,
+        operationTime
+      );
+      if (entry === null) {
+        return {
+          status: 'skipped',
+          reason: 'serialize-failed',
+          error: 'Repository rejected the normalized cache entry.'
+        };
+      }
       const ref = buildVideoScreenshotCacheRef(entry);
 
       await runBlobMutation(async () => {

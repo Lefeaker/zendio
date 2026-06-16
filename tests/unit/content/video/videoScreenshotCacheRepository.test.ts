@@ -228,6 +228,34 @@ function createDataUrlOnlyScreenshot(id: string, capturedAt = BASE_TIME): VideoC
   };
 }
 
+function createMalformedMetadataScreenshot(): VideoCaptureScreenshot {
+  const screenshot = createScreenshot('shot-invalid-metadata', 'frame-invalid-metadata');
+  return {
+    ...screenshot,
+    mimeType: 'image/png'
+  } as unknown as VideoCaptureScreenshot;
+}
+
+function createDeclaredByteLengthScreenshot(
+  id: string,
+  content: string,
+  declaredByteLength: number,
+  capturedAt = BASE_TIME
+): VideoCaptureScreenshot {
+  const screenshot = createScreenshot(id, content, capturedAt);
+  if (!screenshot.content) {
+    throw new Error('expected blob screenshot content');
+  }
+  return {
+    ...screenshot,
+    content: {
+      kind: 'blob',
+      blob: screenshot.content.blob,
+      byteLength: declaredByteLength
+    }
+  };
+}
+
 async function readLegacyIndex(area: Pick<StorageAreaService, 'get'>) {
   return normalizeVideoScreenshotCacheIndex(await area.get(VIDEO_SCREENSHOT_CACHE_INDEX_KEY));
 }
@@ -334,6 +362,28 @@ describe('videoScreenshotCacheRepository', () => {
       reason: 'content-too-large',
       byteLength: 5,
       maxContentBytes: 4
+    });
+    expect(blobStore.snapshotKeys()).toEqual([]);
+    expect(legacyArea.snapshotKeys()).toEqual([]);
+  });
+
+  it('structured save returns a typed serialize-failed skip for invalid screenshot metadata', async () => {
+    const blobStore = new MemoryBlobStore();
+    const legacyArea = new MemoryStorageArea();
+    const repository = createStructuredRepository(blobStore, legacyArea, {
+      now: () => BASE_TIME
+    });
+
+    const result = await repository.save({
+      pageKey: 'page-a',
+      captureId: 'capture-a',
+      screenshot: createMalformedMetadataScreenshot()
+    });
+
+    expect(result).toEqual({
+      status: 'skipped',
+      reason: 'serialize-failed',
+      error: 'Repository rejected the normalized cache entry.'
     });
     expect(blobStore.snapshotKeys()).toEqual([]);
     expect(legacyArea.snapshotKeys()).toEqual([]);
@@ -713,5 +763,47 @@ describe('videoScreenshotCacheRepository', () => {
 
     const loaded = await repository.load(ref);
     await expectLoadedText(loaded, 'frame-compat');
+  });
+
+  it('legacy compatibility save returns a typed serialize-failed skip for invalid screenshot metadata', async () => {
+    const legacyArea = new MemoryStorageArea();
+    const repository = createVideoScreenshotCacheRepository(legacyArea, {
+      now: () => BASE_TIME
+    });
+
+    const result = await repository.save({
+      pageKey: 'page-a',
+      captureId: 'capture-a',
+      screenshot: createMalformedMetadataScreenshot()
+    });
+
+    expect(result).toEqual({
+      status: 'skipped',
+      reason: 'serialize-failed',
+      error: 'Repository rejected the normalized cache entry.'
+    });
+    expect(legacyArea.snapshotKeys()).toEqual([]);
+  });
+
+  it('legacy compatibility save enforces the declared byteLength before serialization', async () => {
+    const legacyArea = new MemoryStorageArea();
+    const repository = createVideoScreenshotCacheRepository(legacyArea, {
+      maxContentBytes: 5,
+      now: () => BASE_TIME
+    });
+
+    const result = await repository.save({
+      pageKey: 'page-a',
+      captureId: 'capture-a',
+      screenshot: createDeclaredByteLengthScreenshot('shot-declared-big', '1234', 6)
+    });
+
+    expect(result).toEqual({
+      status: 'skipped',
+      reason: 'content-too-large',
+      byteLength: 6,
+      maxContentBytes: 5
+    });
+    expect(legacyArea.snapshotKeys()).toEqual([]);
   });
 });
