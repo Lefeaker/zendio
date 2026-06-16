@@ -8,7 +8,9 @@ const TONGYI_USER_MESSAGE_SELECTOR =
   '[class*="user-message"], [class*="userMessage"], [class*="questionItem--"]';
 const TONGYI_ASSISTANT_MESSAGE_SELECTOR =
   '[class*="assistant-message"], [class*="assistantMessage"], [class*="bot-message"], [class*="contentBox--"]';
-const TONGYI_TITLE_REPLACE_TEXT = ' - 通义';
+// Native Tongyi browser-title suffixes/placeholders. These are source-site parser tokens.
+const TONGYI_NATIVE_TITLE_SUFFIXES = [' - 通义', ' - 你的超级个人助理', ' - 通义千问'] as const;
+const TONGYI_NATIVE_TITLE_PLACEHOLDER = '通义';
 
 const TONGYI_CODE_CONTAINER_SELECTOR = '[class*="contain-layout-style"]';
 
@@ -19,6 +21,13 @@ const LANGUAGE_ALIASES: Record<string, string> = {
   shell: 'bash'
 };
 
+function stripTongyiNativeTitle(rawTitle: string): string {
+  return TONGYI_NATIVE_TITLE_SUFFIXES.reduce(
+    (title, suffix) => title.replace(suffix, ''),
+    rawTitle
+  ).trim();
+}
+
 function extractTongyiChatData(doc: Document, config?: ParseConfig): ParsedResult {
   const questionItems = Array.from(doc.querySelectorAll('[class*="questionItem"]'));
   const answerItems = Array.from(doc.querySelectorAll('[class*="answerItem"]'));
@@ -27,13 +36,9 @@ function extractTongyiChatData(doc: Document, config?: ParseConfig): ParsedResul
     return { title: DEFAULT_CHAT_TITLE, messages: [], assets: [] };
   }
 
-  let title = doc.title
-    .replace(TONGYI_TITLE_REPLACE_TEXT, '')
-    .replace(' - 你的超级个人助理', '')
-    .replace(' - 通义千问', '')
-    .trim();
+  let title = stripTongyiNativeTitle(doc.title);
 
-  if (!title || title === '通义') {
+  if (!title || title === TONGYI_NATIVE_TITLE_PLACEHOLDER) {
     if (questionItems.length > 0) {
       const firstQuestion = questionItems[0].textContent?.trim() || '';
       title = firstQuestion.substring(0, 50) + (firstQuestion.length > 50 ? '...' : '');

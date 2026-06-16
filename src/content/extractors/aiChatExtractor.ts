@@ -22,6 +22,11 @@ type AIChatFallbackMessages = Pick<
   | 'exportAiChatFallbackTitleTongyi'
 >;
 
+const ENGLISH_NEUTRAL_AI_CHAT_FALLBACK_TITLES = {
+  doubao: 'Doubao Chat',
+  monica: 'Monica Chat'
+} as const;
+
 export interface AIChatExtractorDeps {
   optionsRepository?: OptionsRepository | IOptionsRepository;
   optionsProvider?: OptionsProvider;
@@ -172,12 +177,19 @@ function resolveFallbackTitle(
       return messages.exportAiChatFallbackTitleKimi;
     case 'tongyi':
       return messages.exportAiChatFallbackTitleTongyi;
+    case 'doubao':
+      return ENGLISH_NEUTRAL_AI_CHAT_FALLBACK_TITLES.doubao;
+    case 'monica':
+      return ENGLISH_NEUTRAL_AI_CHAT_FALLBACK_TITLES.monica;
     default:
       return undefined;
   }
 }
 
-function requireFallbackTitle(platform: string, messages: AIChatFallbackMessages): string | undefined {
+function requireFallbackTitle(
+  platform: string,
+  messages: AIChatFallbackMessages
+): string | undefined {
   const fallbackTitle = resolveFallbackTitle(platform, messages)?.trim();
   if (fallbackTitle) {
     return fallbackTitle;
@@ -217,9 +229,8 @@ export const createAIChatExtractor = (deps?: Partial<AIChatExtractorDeps>): Cont
       ...(fallbackTitle ? { fallbackTitle } : {})
     };
 
-    const { parseChatDOMAsync } = await import(
-      '../../third_party/ai-chat-exporter/runtimeRegistry'
-    );
+    const { parseChatDOMAsync } =
+      await import('../../third_party/ai-chat-exporter/runtimeRegistry');
     const { title, messages, assets, model, createdAt } = await parseChatDOMAsync(
       platform,
       document,

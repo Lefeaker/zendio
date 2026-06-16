@@ -5,6 +5,35 @@ import type { ChatPlatformParser, ParsedMessage, ParsedResult } from '../types';
 const CHATGPT_ARTICLE_SELECTOR = 'article';
 const CHATGPT_HEADER_SELECTOR = 'h5';
 const CHATGPT_TITLE_REPLACE_TEXT = ' - ChatGPT';
+// Native role labels rendered by ChatGPT's own DOM. These are source-site parser tokens.
+const CHATGPT_NATIVE_USER_ROLE_LABELS = ['You said', 'You', '您说', '您'] as const;
+const CHATGPT_NATIVE_ASSISTANT_ROLE_LABELS = ['ChatGPT said', 'ChatGPT 说'] as const;
+const CHATGPT_NATIVE_ROLE_LABELS = [
+  ...CHATGPT_NATIVE_USER_ROLE_LABELS,
+  ...CHATGPT_NATIVE_ASSISTANT_ROLE_LABELS
+] as const;
+const CHATGPT_NATIVE_USER_ROLE_LOOKUP = new Set(
+  CHATGPT_NATIVE_USER_ROLE_LABELS.map((label) => normalizeHeaderLabel(label))
+);
+
+function normalizeHeaderLabel(text: string): string {
+  return text
+    .toLowerCase()
+    .replace(/[：:]\s*$/u, '')
+    .trim();
+}
+
+function escapeRegExp(text: string): string {
+  return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function stripNativeRoleLabels(markdown: string): string {
+  const labelPattern = CHATGPT_NATIVE_ROLE_LABELS.map(escapeRegExp).join('|');
+  return markdown
+    .replace(new RegExp(`^(${labelPattern})[：:]\\s*`, 'gimu'), '')
+    .replace(new RegExp(`(${labelPattern})[：:]\\s*`, 'giu'), '')
+    .trim();
+}
 
 function extractChatGPTChatData(doc: Document): ParsedResult {
   const articles = Array.from(doc.querySelectorAll(CHATGPT_ARTICLE_SELECTOR));
@@ -76,28 +105,16 @@ function extractChatGPTChatData(doc: Document): ParsedResult {
 
     if (!markdown.trim()) continue;
 
-    const headerLower = header.toLowerCase();
+    const normalizedHeader = normalizeHeaderLabel(header);
     const isUser =
-      headerLower.includes('you said') ||
-      headerLower.includes('you') ||
-      headerLower.includes('您说') ||
-      headerLower.includes('您') ||
+      CHATGPT_NATIVE_USER_ROLE_LOOKUP.has(normalizedHeader) ||
       article.classList.contains('user') ||
       article.getAttribute('data-message-author-role') === 'user' ||
       article.querySelector('[data-message-author-role="user"]') !== null;
 
     const role = isUser ? 'user' : 'assistant';
 
-    markdown = markdown
-      .replace(/^您说[：:]\s*/gm, '')
-      .replace(/^ChatGPT\s*说[：:]\s*/gm, '')
-      .replace(/^You\s+said[：:]\s*/gim, '')
-      .replace(/^ChatGPT\s+said[：:]\s*/gim, '')
-      .replace(/您说[：:]\s*/g, '')
-      .replace(/ChatGPT\s*说[：:]\s*/g, '')
-      .replace(/You\s+said[：:]\s*/gi, '')
-      .replace(/ChatGPT\s+said[：:]\s*/gi, '')
-      .trim();
+    markdown = stripNativeRoleLabels(markdown);
 
     messages.push({
       id: `msg-${chatIndex++}`,

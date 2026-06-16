@@ -210,4 +210,28 @@ describe('audit-i18n-hardcoded-user-copy', () => {
       )
     ).toEqual([]);
   });
+
+  it('has no unexpected P21 parser/support-link findings in the current tree', async () => {
+    await execFileAsync(
+      'node',
+      [
+        'tools/report-production-build-graph.mjs',
+        '--write-json',
+        'build/reports/production-build-graph.json'
+      ],
+      { cwd: repoRoot }
+    );
+    const { scanI18nHardcodedUserCopy } = await loadAuditModule();
+    const result = await scanI18nHardcodedUserCopy({ root: repoRoot });
+    const ownedPaths = new Set([
+      'src/options/stitch/schema/surfaces/task-success.ts',
+      'src/third_party/ai-chat-exporter/platforms/chatgpt.ts',
+      'src/third_party/ai-chat-exporter/platforms/doubao.ts',
+      'src/third_party/ai-chat-exporter/platforms/kimi.ts',
+      'src/third_party/ai-chat-exporter/platforms/monica.ts',
+      'src/third_party/ai-chat-exporter/platforms/tongyi.ts'
+    ]);
+
+    expect(result.unexpectedFindings.filter((finding) => ownedPaths.has(finding.file))).toEqual([]);
+  });
 });

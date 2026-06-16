@@ -195,7 +195,7 @@ function resolveSupportKeys(item: SupportChannel): {
     };
   }
 
-  if (title.includes('afdian') || title.includes('爱发电') || href.includes('afdian.com')) {
+  if (href.includes('afdian.com') || title.includes('afdian')) {
     return {
       title: 'supportPromptAfdianTitle',
       subtitle: 'supportPromptAfdianDescription'
