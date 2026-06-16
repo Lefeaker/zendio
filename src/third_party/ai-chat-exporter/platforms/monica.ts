@@ -6,6 +6,11 @@ const MONICA_MESSAGE_SELECTOR = '[class*="chat-message--"]';
 const USER_CLASS_HINT = 'chat-question';
 const ASSISTANT_CLASS_HINT = 'chat-reply';
 const MONICA_NEUTRAL_FALLBACK_TITLE = 'Monica Chat';
+// Native Monica browser-title tokens from the source site. These are parser tokens, not extension UI copy.
+const MONICA_NATIVE_TITLE_TOKENS = ['Monica', '莫妮卡'] as const;
+const MONICA_NATIVE_TITLE_LOOKUP = new Set(
+  MONICA_NATIVE_TITLE_TOKENS.map((token) => token.toLowerCase())
+);
 const MONICA_MODEL_CANDIDATE_SELECTORS = [
   '[class*="reply-header"] span',
   '[class*="header"] span',
@@ -14,13 +19,30 @@ const MONICA_MODEL_CANDIDATE_SELECTORS = [
   'header span'
 ];
 
+function escapeRegExp(text: string): string {
+  return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function buildMonicaNativeTitlePattern(): string {
+  return MONICA_NATIVE_TITLE_TOKENS.map(escapeRegExp).join('|');
+}
+
+const MONICA_NATIVE_TITLE_SUFFIX_RE = new RegExp(
+  `\\s*-\\s*(${buildMonicaNativeTitlePattern()})\\s*$`,
+  'iu'
+);
+
 function resolveFallbackTitle(config?: ParseConfig): string {
   return config?.fallbackTitle?.trim() || MONICA_NEUTRAL_FALLBACK_TITLE;
 }
 
+function isMonicaNativeTitlePlaceholder(title: string): boolean {
+  return MONICA_NATIVE_TITLE_LOOKUP.has(title.toLowerCase());
+}
+
 function normaliseTitle(rawTitle: string, config?: ParseConfig): string {
-  const cleaned = rawTitle.replace(/\s*-\s*(Monica|莫妮卡)\s*$/i, '').trim();
-  if (!cleaned || /^(Monica|莫妮卡)$/iu.test(cleaned)) {
+  const cleaned = rawTitle.replace(MONICA_NATIVE_TITLE_SUFFIX_RE, '').trim();
+  if (!cleaned || isMonicaNativeTitlePlaceholder(cleaned)) {
     return resolveFallbackTitle(config);
   }
   return cleaned;

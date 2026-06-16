@@ -56,6 +56,17 @@
       "findingKinds": ["cjk-literal"]
     },
     {
+      "id": "p21-monica-native-title-token",
+      "path": "src/third_party/ai-chat-exporter/platforms/monica.ts",
+      "line": 10,
+      "category": "site-native-title-token",
+      "reason": "Monica parser strips or recognizes the source site's native browser-title token before applying product fallback titles.",
+      "ownerPlan": "P21",
+      "revisit": "Recheck if Monica title parsing stops using the source site's native browser-title token.",
+      "literalIncludes": ["莫妮卡"],
+      "findingKinds": ["cjk-literal"]
+    },
+    {
       "id": "p21-tongyi-native-title-suffixes",
       "path": "src/third_party/ai-chat-exporter/platforms/tongyi.ts",
       "line": 12,
