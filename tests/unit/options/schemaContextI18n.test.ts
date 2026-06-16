@@ -3,8 +3,8 @@ import { describe, expect, it } from 'vitest';
 import { createSchemaTranslator } from '@options/stitch/schema/i18n';
 
 describe('createSchemaTranslator', () => {
-  it('returns the fallback when messages are missing', () => {
-    expect(createSchemaTranslator(null)('schemaOverviewTitle', 'Fallback')).toBe('Fallback');
+  it('returns the default English catalog when messages are missing', () => {
+    expect(createSchemaTranslator(null)('schemaOverviewTitle', 'Fallback')).toBe('Overview');
   });
 
   it('returns the catalog-backed message when one exists', () => {

@@ -22,6 +22,7 @@ import {
   type ChromeStorageSet,
   type ChromeChangeListener
 } from '../utils/chromeMocks';
+import { createE2eOptionsRepository } from '../utils/e2eOptionsRepository';
 
 describe('claude ai chat integration', () => {
   const claudeUrl = 'https://claude.ai/chat/session-42';
@@ -69,10 +70,14 @@ describe('claude ai chat integration', () => {
     const dom = new JSDOM(html, { url: claudeUrl });
     installJsdom(dom, { includeLocalStorage: false });
 
-    const { createDefaultExtractorRegistry } = await import(
-      '../../src/content/extractors/registry'
-    );
-    const registry = createDefaultExtractorRegistry();
+    const { createDefaultExtractorRegistry } =
+      await import('../../src/content/extractors/registry');
+    const registry = createDefaultExtractorRegistry({
+      optionsRepository: createE2eOptionsRepository({
+        aiChat: { includeTimestamps: false, userName: 'Reviewer' },
+        deepResearch: { pureMode: false }
+      })
+    });
     const clip = await registry.extract({ document: dom.window.document, url: claudeUrl });
 
     expect(clip.type).toBe('ai_chat');

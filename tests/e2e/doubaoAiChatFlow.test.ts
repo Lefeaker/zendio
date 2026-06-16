@@ -22,6 +22,7 @@ import {
   type ChromeStorageSet,
   type ChromeChangeListener
 } from '../utils/chromeMocks';
+import { createE2eOptionsRepository } from '../utils/e2eOptionsRepository';
 
 describe('doubao ai chat integration', () => {
   const doubaoUrl = 'https://www.doubao.com/chat/room-123';
@@ -69,10 +70,14 @@ describe('doubao ai chat integration', () => {
     const dom = new JSDOM(html, { url: doubaoUrl });
     installJsdom(dom, { includeLocalStorage: false });
 
-    const { createDefaultExtractorRegistry } = await import(
-      '../../src/content/extractors/registry'
-    );
-    const registry = createDefaultExtractorRegistry();
+    const { createDefaultExtractorRegistry } =
+      await import('../../src/content/extractors/registry');
+    const registry = createDefaultExtractorRegistry({
+      optionsRepository: createE2eOptionsRepository({
+        aiChat: { includeTimestamps: true, userName: 'E2E User' },
+        deepResearch: { pureMode: false }
+      })
+    });
     const clip = await registry.extract({ document: dom.window.document, url: doubaoUrl });
 
     expect(clip.type).toBe('ai_chat');
