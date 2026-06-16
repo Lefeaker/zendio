@@ -56,14 +56,6 @@ const ERROR_SEVERITY_TO_NOTIFICATION: Record<ErrorSeverity, NotificationSeverity
   [ErrorSeverity.CRITICAL]: 'critical'
 };
 
-const SEVERITY_TITLE_MAP: Record<NotificationSeverity, string> = {
-  success: 'Zendio - Success',
-  info: 'Zendio - Info',
-  warning: 'Zendio - Warning',
-  error: 'Zendio - Error',
-  critical: 'Zendio - Critical'
-};
-
 export { NOTIFICATION_CHANNELS };
 export const CHANNEL_USER_FACING = NOTIFICATION_CHANNELS.userFacing;
 export const CHANNEL_DEVELOPER = NOTIFICATION_CHANNELS.developer;
@@ -162,6 +154,14 @@ function createNotificationMetadata(error: AppError): Record<string, unknown> {
 
 type RuntimeMessages = Awaited<ReturnType<typeof getMessages>>;
 
+const NOTIFICATION_TITLE_KEY_MAP = {
+  success: 'notificationTitleSuccess',
+  info: 'notificationTitleInfo',
+  warning: 'notificationTitleWarning',
+  error: 'notificationTitleError',
+  critical: 'notificationTitleCritical'
+} as const satisfies Record<NotificationSeverity, keyof RuntimeMessages>;
+
 function resolveDescriptorMessage(error: AppError, messages: RuntimeMessages): string | undefined {
   const descriptor = error.userMessageDescriptor;
   if (!descriptor) {
@@ -187,8 +187,8 @@ function resolveAppErrorMessage(error: AppError, messages?: RuntimeMessages): st
 
 async function mapErrorToNotification(error: AppError): Promise<AppNotification | null> {
   const severity = ERROR_SEVERITY_TO_NOTIFICATION[error.severity] ?? 'error';
-  const descriptorBackedMessages = error.userMessageDescriptor ? await getMessages() : undefined;
-  const message = resolveAppErrorMessage(error, descriptorBackedMessages);
+  const runtimeMessages = await getMessages();
+  const message = resolveAppErrorMessage(error, runtimeMessages);
   const metadata = createNotificationMetadata(error);
 
   if (
@@ -245,7 +245,7 @@ async function mapErrorToNotification(error: AppError): Promise<AppNotification 
       channel: NOTIFICATION_CHANNELS.userFacing,
       severity,
       iconUrl: APP_ICON_PATH,
-      title: SEVERITY_TITLE_MAP[severity],
+      title: runtimeMessages[NOTIFICATION_TITLE_KEY_MAP[severity]],
       message,
       requireInteraction: severity === 'error' || severity === 'critical',
       tag: error.code,
@@ -271,7 +271,7 @@ async function mapErrorToNotification(error: AppError): Promise<AppNotification 
     channel,
     severity,
     iconUrl: APP_ICON_PATH,
-    title: SEVERITY_TITLE_MAP[severity],
+    title: runtimeMessages[NOTIFICATION_TITLE_KEY_MAP[severity]],
     message,
     requireInteraction: severity === 'error' || severity === 'critical',
     tag: error.code,

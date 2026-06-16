@@ -1,4 +1,5 @@
 import { getOptions } from '../store';
+import { RUNTIME_FALLBACK_MESSAGES } from '../../i18n/catalog/runtimeFallbackMessages';
 import { resolvePath } from '../pathResolver';
 import { selectVaultForClip } from '../services/vaultRouterService';
 import { classifyClip } from '../services/classificationService';
@@ -82,11 +83,19 @@ export interface ClipProcessingFailure extends Error {
   readonly failureCategory?: FailureCategory;
 }
 
-function createClipProgressMessage(
-  key: UserVisibleMessageDescriptor['key'],
-  fallback: string
-): UserVisibleMessageDescriptor {
-  return { key, fallback };
+const CLIP_PROGRESS_FALLBACKS = {
+  supportProgressReadingSettings: RUNTIME_FALLBACK_MESSAGES.supportProgressReadingSettings,
+  supportProgressSelectingVault: RUNTIME_FALLBACK_MESSAGES.supportProgressSelectingVault,
+  supportProgressSavingDownloads: RUNTIME_FALLBACK_MESSAGES.supportProgressSavingDownloads,
+  supportProgressRecordingResult: RUNTIME_FALLBACK_MESSAGES.supportProgressRecordingResult,
+  supportProgressWritingAttachments: RUNTIME_FALLBACK_MESSAGES.supportProgressWritingAttachments,
+  supportProgressWritingNote: RUNTIME_FALLBACK_MESSAGES.supportProgressWritingNote
+} as const;
+
+type ClipProgressMessageKey = keyof typeof CLIP_PROGRESS_FALLBACKS;
+
+function createClipProgressMessage(key: ClipProgressMessageKey): UserVisibleMessageDescriptor {
+  return { key, fallback: CLIP_PROGRESS_FALLBACKS[key] };
 }
 
 function isFailureCategory(value: UntrustedValue): value is FailureCategory {
@@ -185,10 +194,7 @@ export async function processClipPayload(
   try {
     hooks.onProgress?.({
       value: 48,
-      message: createClipProgressMessage(
-        'supportProgressReadingSettings',
-        'Reading settings and categories'
-      )
+      message: createClipProgressMessage('supportProgressReadingSettings')
     });
     const options = await getOptions();
     const classification = await completeStage('classify', () => classifyClip(options, payload));
@@ -222,10 +228,7 @@ export async function processClipPayload(
 
       hooks.onProgress?.({
         value: 56,
-        message: createClipProgressMessage(
-          'supportProgressSelectingVault',
-          'Selecting Obsidian vault'
-        )
+        message: createClipProgressMessage('supportProgressSelectingVault')
       });
       const { vault, restConfig } = selectVaultForClip(options, payload);
       const prepared = prepareVideoClipAttachments({
@@ -256,7 +259,7 @@ export async function processClipPayload(
     if (routed.destination === 'downloads') {
       hooks.onProgress?.({
         value: 74,
-        message: createClipProgressMessage('supportProgressSavingDownloads', 'Saving to Downloads')
+        message: createClipProgressMessage('supportProgressSavingDownloads')
       });
       const downloads = getDownloadsService();
       if (routed.prepared.attachments.length > 0) {
@@ -281,7 +284,7 @@ export async function processClipPayload(
 
       hooks.onProgress?.({
         value: 94,
-        message: createClipProgressMessage('supportProgressRecordingResult', 'Recording result')
+        message: createClipProgressMessage('supportProgressRecordingResult')
       });
       await completeStage('record_usage', async () => {
         try {
@@ -318,10 +321,7 @@ export async function processClipPayload(
     if (routed.prepared.attachments.length) {
       hooks.onProgress?.({
         value: 68,
-        message: createClipProgressMessage(
-          'supportProgressWritingAttachments',
-          'Writing attachments'
-        )
+        message: createClipProgressMessage('supportProgressWritingAttachments')
       });
       await completeStage('write_attachments', async () => {
         for (const attachment of routed.prepared.attachments) {
@@ -337,7 +337,7 @@ export async function processClipPayload(
 
     hooks.onProgress?.({
       value: 82,
-      message: createClipProgressMessage('supportProgressWritingNote', 'Writing note')
+      message: createClipProgressMessage('supportProgressWritingNote')
     });
     await completeStage('write_markdown', () =>
       routed.writeSession.writeMarkdown(routed.filePath, routed.prepared.markdown)
@@ -345,7 +345,7 @@ export async function processClipPayload(
 
     hooks.onProgress?.({
       value: 94,
-      message: createClipProgressMessage('supportProgressRecordingResult', 'Recording result')
+      message: createClipProgressMessage('supportProgressRecordingResult')
     });
     await completeStage('record_usage', async () => {
       try {

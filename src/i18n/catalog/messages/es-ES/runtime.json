@@ -663,5 +663,14 @@
   "trialNotificationExpiringSoonMessage": "La versión de prueba caduca en {remaining}. Ponte en contacto con el desarrollador a tiempo.",
   "trialSummaryExpired": "Versión de prueba - caducada (fecha de caducidad: {date})",
   "trialSummaryRemaining": "Versión de prueba - {remaining} (fecha de caducidad: {date})",
-  "vaultDefaultName": "Nueva bóveda"
+  "vaultDefaultName": "Nueva bóveda",
+  "notificationTitleSuccess": "Zendio - Success",
+  "notificationTitleInfo": "Zendio - Info",
+  "notificationTitleWarning": "Zendio - Warning",
+  "notificationTitleError": "Zendio - Error",
+  "notificationTitleCritical": "Zendio - Critical",
+  "visibleTabScreenshotMissingSenderWindow": "Missing sender window for visible tab screenshot.",
+  "visibleTabScreenshotUnsupported": "Visible tab screenshot capture is unsupported.",
+  "visibleTabScreenshotMissingImage": "Visible tab screenshot capture returned no image.",
+  "videoSessionDraftTitleFallback": "Video Capture"
 }

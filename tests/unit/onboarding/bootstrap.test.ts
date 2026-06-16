@@ -10,6 +10,15 @@ type OnboardingRuntimeMessagesMock = Partial<{
   onboardingSupportModalAfdianLabel: string;
 }>;
 
+const defaultRuntimeMessagesMock = vi.hoisted<Required<OnboardingRuntimeMessagesMock>>(() => ({
+  onboardingDocumentTitle: 'Zendio',
+  onboardingSupportModalTitle: 'Thank You for Your Support',
+  onboardingSupportModalDescription:
+    'Development is not easy. If this plugin helps you, welcome to support through the following ways:',
+  onboardingSupportModalCloseButton: 'Close',
+  onboardingSupportModalAfdianLabel: 'Afdian'
+}));
+
 const currentResourceMock = vi.hoisted<{
   value: { language: string; messages: OnboardingRuntimeMessagesMock };
 }>(() => ({
@@ -34,10 +43,17 @@ const createDefaultPageI18nControllerMock = vi.hoisted(() => vi.fn(() => pageI18
 const configureI18nStorageMock = vi.hoisted(() => vi.fn());
 const resolveRepositoryMock = vi.hoisted(() => vi.fn());
 const getServiceMock = vi.hoisted(() => vi.fn());
+vi.mock('../../../src/i18n/locales', () => ({
+  DEFAULT_RUNTIME_MESSAGES: defaultRuntimeMessagesMock
+}));
+vi.mock('../../../src/i18n/catalog/runtimeFallbackMessages', () => ({
+  RUNTIME_FALLBACK_MESSAGES: defaultRuntimeMessagesMock
+}));
 
 vi.mock('../../../src/i18n', () => ({
   createDefaultPageI18nController: createDefaultPageI18nControllerMock,
-  configureI18nStorage: configureI18nStorageMock
+  configureI18nStorage: configureI18nStorageMock,
+  DEFAULT_RUNTIME_MESSAGES: defaultRuntimeMessagesMock
 }));
 vi.mock('../../../src/shared/di/serviceRegistry', () => ({
   resolveRepository: resolveRepositoryMock
@@ -155,6 +171,14 @@ describe('onboarding bootstrap', () => {
   beforeEach(() => {
     vi.resetModules();
     vi.clearAllMocks();
+    Object.assign(defaultRuntimeMessagesMock, {
+      onboardingDocumentTitle: 'Zendio',
+      onboardingSupportModalTitle: 'Thank You for Your Support',
+      onboardingSupportModalDescription:
+        'Development is not easy. If this plugin helps you, welcome to support through the following ways:',
+      onboardingSupportModalCloseButton: 'Close',
+      onboardingSupportModalAfdianLabel: 'Afdian'
+    });
     currentResourceMock.value = {
       language: 'en',
       messages: {
@@ -310,7 +334,13 @@ describe('onboarding bootstrap', () => {
     ).toBe('Dismiss Support Sentinel');
   });
 
-  it('uses English-only support modal fallback before onboarding messages are available', async () => {
+  it('uses default onboarding runtime messages when page resources are unavailable', async () => {
+    Object.assign(defaultRuntimeMessagesMock, {
+      onboardingSupportModalTitle: 'Default Support Title Sentinel',
+      onboardingSupportModalDescription: 'Default Support Description Sentinel',
+      onboardingSupportModalCloseButton: 'Default Close Sentinel',
+      onboardingSupportModalAfdianLabel: 'Default Afdian Sentinel'
+    });
     currentResourceMock.value = {
       language: 'en',
       messages: {}
@@ -328,13 +358,13 @@ describe('onboarding bootstrap', () => {
     const modalText = modal?.textContent ?? '';
     expect(document.documentElement.lang).toBe('en');
     expect(document.title).toBe('Zendio');
-    expect(modalText).toContain('Thank You for Your Support');
-    expect(modalText).toContain('Development is not easy.');
-    expect(modalText).toContain('Afdian');
+    expect(modalText).toContain('Default Support Title Sentinel');
+    expect(modalText).toContain('Default Support Description Sentinel');
+    expect(modalText).toContain('Default Afdian Sentinel');
     expect(modalText).not.toMatch(/\p{Script=Han}/u);
     expect(
       modal?.querySelector<HTMLButtonElement>('.support-modal-close')?.getAttribute('aria-label')
-    ).toBe('Close');
+    ).toBe('Default Close Sentinel');
   });
 
   it('emits catalog-safe onboarding lifecycle telemetry for consented users', async () => {

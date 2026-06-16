@@ -54,6 +54,8 @@ npm run audit:build:report
 
 2026-06-17 English uncatalogued-copy P07 build-budget stabilization 将 generated schema catalog 从单一 `schemaMessages.generated.ts` 聚合模块拆为 `schemaCore.generated.ts` + `src/i18n/generated/schema/<locale>.generated.ts` per-locale chunks，并让 `@i18n/messages` 按语言动态加载 schema catalog。`build:dev` + `audit:build:report` 当前通过 hard gate：`content/runtime.js` raw `58,488` bytes、`onboarding/index.js` raw `17,377` bytes、chunk count `113`（warning `108` / hard stop `118`），最大 shared top three 为 `134.9 KB` / `132.0 KB` / `118.5 KB`；旧 `schemaMessages.generated.ts` `219.5 KB` shared chunk 不再出现。本次不提高 build hard stop；仅同步前序 Options/i18n 迁移后的 exact hotspot line budgets 与新增 `schemaCore.generated.ts <= 369` generated hotspot budget。
 
+2026-06-17 English uncatalogued-copy P05 runtime/public boundary pass 将 public HTML title、runtime progress/status/session fallback 与 onboarding/support copy 迁入 runtime catalog fallback table。`build:dev` + `audit:build:report` 当前通过 hard gate：`content/runtime.js` raw `58,488` bytes、`onboarding/index.js` raw `17,540` bytes（warning `17,377` / hard stop `17,633`）、chunk count `114`（warning `108` / hard stop `118`）。本次不提高 build hard stop；仅同步 `videoSessionDraftController.ts <= 311` exact line budget 来反映 catalog fallback constant 接入。
+
 当前 production fast build 真值：
 
 - `build/dist/content/index.js`: `561 B`
@@ -70,23 +72,23 @@ npm run audit:build:report
 当前 dev build 真值：
 
 - `build/dist/content/index.js`: `561 B`
-- `build/dist/content/runtime.js`: `57.2 KB`（raw `58,564` bytes；warning target `58,564` raw bytes；hard stop `58,752` raw bytes）
+- `build/dist/content/runtime.js`: `57.1 KB`（raw `58,488` bytes；warning target `58,564` raw bytes；hard stop `58,752` raw bytes）
 - `build/dist/options/index.js`: `1.4 KB`（raw `1,384` bytes）
-- `build/dist/onboarding/index.js`: `17.0 KB`（raw `17,377` bytes；warning target `17,377` raw bytes；hard stop `17,633` raw bytes）
-- 总 chunk 数：`101`（warning target `108`；hard stop `118`）
-- `chunks/runtimeEntry-*.js`: `256.3 KB`
+- `build/dist/onboarding/index.js`: `17.1 KB`（raw `17,540` bytes；warning target `17,377` raw bytes；hard stop `17,633` raw bytes）
+- 总 chunk 数：`114`（warning target `108`；hard stop `118`）
+- `chunks/runtimeEntry-*.js`: `258.7 KB`
 - `chunks/runtimePlatformParsers-*.js`: `54.2 KB`（raw `55,514` bytes；唯一 AI parser implementation lazy boundary）
-- `chunks/productionStitchAssets-*.js`: `149.3 KB`
-- `chunks/videoSessionControllers-*.js`: `111.2 KB`
+- `chunks/productionStitchAssets-*.js`: `118.5 KB`
+- `chunks/videoSessionControllers-*.js`: `111.3 KB`
 - `chunks/videoLazyRuntime-*.js`: `55.6 KB`
-- `chunks/ru.generated-*.js`: `63.0 KB`（raw `64,525` bytes；locale chunk hard stop `64 KB`）
+- `chunks/ru.generated-*.js`: `63.5 KB`（locale chunk hard stop `64 KB`）
 - `chunks/videoScreenshotPreparationQueue-*.js`: `29.3 KB`
 
 当前 shared chunk Top 3（`chunk-*`，按 `tools/report-build-splitting.mjs` 口径，以 dev build 为更高值）：
 
-- 最大 shared chunk：`212.9 KB`（raw `217,959` bytes；hard stop `213 KB`）
-- 第二大 shared chunk：`134.9 KB`（raw `138,187` bytes；hard stop `136 KB`）
-- 第三大 shared chunk：`132.0 KB`（raw `135,188` bytes；hard stop `133 KB`）
+- 最大 shared chunk：`134.9 KB`（hard stop `213 KB`）
+- 第二大 shared chunk：`132.0 KB`（hard stop `136 KB`）
+- 第三大 shared chunk：`96.1 KB`（hard stop `133 KB`）
 
 当前重点功能 chunk：
 
@@ -158,10 +160,10 @@ npm run audit:performance:report
 
 当前 hotspot line budget 口径：
 
-- 全部当前 `src` >250 LOC 文件均有 guarded line budget；2026-06-17 English uncatalogued-copy P07 `audit:performance:report` 输出 sourceFiles=`800`、hotspotsOver250=`100`、registeredLineBudgets=`128`，预算以 `tools/report-performance-hotspots.mjs` 为准。
+- 全部当前 `src` >250 LOC 文件均有 guarded line budget；2026-06-17 English uncatalogued-copy P05 `audit:performance:report` 输出 sourceFiles=`801`、hotspotsOver250=`100`、registeredLineBudgets=`128`，预算以 `tools/report-performance-hotspots.mjs` 为准。
 - 2026-06-06 video screenshot attachment verification 已补齐 `src/shared/attachments/videoScreenshotAttachmentTemplates.ts <= 523` 与 `src/background/application/videoScreenshotAttachmentPlanner.ts <= 269`；2026-06-09 当前 performance coverage 见上一条。
 - 当前高信号热点实测：`stitch/content.ts = 941`、`messages.generated.ts = 1024`、`schemaCore.generated.ts = 369`、`stitch/types.ts = 759`、`productionStitchLocalization.ts = 553`、`videoPromptLifecycle.ts = 490`、`runtimeSurfaceContent.ts = 407`、`videoSessionRuntime.ts = 505`、`videoScreenshotPreparationQueue.ts = 401`、`videoScreenshotPreparationRequestStore.ts = 294`、`videoScreenshotCacheRepository.ts = 438`、`runtimeMessages.ts = 337`、`analyticsSchema.ts = 478`、`stitch/ui/components.ts = 592`、`yaml-config-editor/view.ts = 586`。`tools/report-performance-hotspots.mjs` 中的 line budgets 是当前 upper-bound hard gate；进一步收紧必须 standalone 通过后再同步。
-- M12/P01 current truth：`src/i18n/messages.ts` 已演进为 runtime/schema message split entrypoint；P07 后 generated i18n 当前实测包括 `messages.generated.ts = 1024` 与 `schemaCore.generated.ts = 369`，`schemaMessages.generated.ts` 仅作为兼容 registry/alias，不再承载全量多语言 schema literal hotspot。
+- M12/P01 current truth：`src/i18n/messages.ts` 已演进为 runtime/schema message split entrypoint；P05 后 generated i18n 当前实测包括 `messages.generated.ts = 1033` 与 `schemaCore.generated.ts = 369`，`schemaMessages.generated.ts` 仅作为兼容 registry/alias，不再承载全量多语言 schema literal hotspot。
 - 当前业务/运行时/GA 重点实测：`videoSessionRuntime.ts = 505`、`videoScreenshotPreparationQueue.ts = 401`、`videoScreenshotPreparationRequestStore.ts = 294`、`videoScreenshotCacheRepository.ts = 438`、`videoCaptureMutationTransaction.ts = 245`、`VideoDialogPanel.ts = 425`、`videoControlBarButton.ts = 299`、`sessionDraftRepository.ts = 399`、`runtimeMessages.ts = 322`、`bilibiliRichText.ts = 302`、`bilibiliPlatformObserver.ts = 286`、`markdownBuilder.ts = 288`、`PrivacySettingsView.ts = 255`、`yaml-config-editor/rowModel.ts = 254`、`analyticsSchema.ts = 478`、`eventCatalog.ts = 78`、`analyticsSanitizers.ts = 95`、`analyticsConfig.ts = 368`、`analyticsConfig.template.ts = 364`、`googleAnalyticsReporter.ts = 260`。
 - 2026-06-01 YAML i18n repair only raised release-locale line budgets by the exact newly added YAML field error/save-blocked message keys; runtime owner budgets are tracked by `tools/report-performance-hotspots.mjs` and must not be loosened without fresh evidence.
 
