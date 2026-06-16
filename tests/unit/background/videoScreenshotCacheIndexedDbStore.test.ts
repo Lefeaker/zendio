@@ -13,35 +13,45 @@ import {
   type VideoScreenshotCacheBlobEntry,
   type VideoScreenshotCacheBlobMetadata
 } from '@content/video/videoScreenshotCacheStore';
+import type { ObjectRecord } from '@shared/guards/object';
 import { createVideoScreenshotCacheIndexedDbStore } from '../../../src/background/services/videoScreenshotCacheIndexedDbStore';
 
 const BASE_TIME = 2_000_000_000_000;
 
-type RawRecord = Record<string, unknown>;
+type RawRecord = ObjectRecord;
+type FakeRequest<T> = {
+  result: T;
+  error: DOMException | Error | null;
+  onsuccess: ((event: Event) => void) | null;
+  onerror: ((event: Event) => void) | null;
+};
+type FakeOpenRequest = FakeRequest<FakeDatabase | undefined> & {
+  onupgradeneeded: ((event: Event) => void) | null;
+};
 
 class FakeIndexedDbFactory {
   private readonly state = new FakeDatabaseState();
 
-  open = (name: string, version?: number): IDBOpenDBRequest => {
-    const request = {
-      result: undefined as unknown as IDBDatabase,
+  open = (name: string, version?: number) => {
+    const request: FakeOpenRequest = {
+      result: undefined,
       error: null,
-      onsuccess: null as ((event: Event) => void) | null,
-      onerror: null as ((event: Event) => void) | null,
-      onupgradeneeded: null as ((event: IDBVersionChangeEvent) => void) | null
+      onsuccess: null,
+      onerror: null,
+      onupgradeneeded: null
     };
 
     queueMicrotask(() => {
       const shouldUpgrade = !this.state.initialized;
       this.state.initialize(name, version ?? 1);
-      request.result = new FakeDatabase(this.state) as unknown as IDBDatabase;
+      request.result = new FakeDatabase(this.state);
       if (shouldUpgrade) {
-        request.onupgradeneeded?.(new Event('upgradeneeded') as IDBVersionChangeEvent);
+        request.onupgradeneeded?.(new Event('upgradeneeded'));
       }
       request.onsuccess?.(new Event('success'));
     });
 
-    return request as IDBOpenDBRequest;
+    return request;
   };
 
   seed(value: RawRecord): void {
@@ -98,11 +108,11 @@ class FakeDatabase {
     return new FakeObjectStore(this.state, null);
   }
 
-  transaction(name: string): IDBTransaction {
+  transaction(name: string): FakeTransaction {
     if (name !== this.state.objectStoreName) {
       throw new Error(`Unknown object store: ${name}`);
     }
-    return new FakeTransaction(this.state) as unknown as IDBTransaction;
+    return new FakeTransaction(this.state);
   }
 
   close(): void {}
@@ -119,11 +129,11 @@ class FakeTransaction {
 
   constructor(private readonly state: FakeDatabaseState) {}
 
-  objectStore(name: string): IDBObjectStore {
+  objectStore(name: string): FakeObjectStore {
     if (name !== this.state.objectStoreName) {
       throw new Error(`Unknown object store: ${name}`);
     }
-    return new FakeObjectStore(this.state, this) as unknown as IDBObjectStore;
+    return new FakeObjectStore(this.state, this);
   }
 
   abort(): void {
@@ -156,20 +166,20 @@ class FakeObjectStore {
     private readonly transaction: FakeTransaction | null
   ) {}
 
-  createIndex(name: string, keyPath: string | string[]): IDBIndex {
+  createIndex(name: string, keyPath: string | string[]): FakeIndex {
     this.state.indexes.set(name, keyPath);
-    return new FakeIndex(this.state, keyPath, this.transaction) as unknown as IDBIndex;
+    return new FakeIndex(this.state, keyPath, this.transaction);
   }
 
-  index(name: string): IDBIndex {
+  index(name: string): FakeIndex {
     const keyPath = this.state.indexes.get(name);
     if (!keyPath) {
       throw new Error(`Unknown index: ${name}`);
     }
-    return new FakeIndex(this.state, keyPath, this.transaction) as unknown as IDBIndex;
+    return new FakeIndex(this.state, keyPath, this.transaction);
   }
 
-  put(value: RawRecord): IDBRequest<undefined> {
+  put(value: RawRecord): FakeRequest<undefined> {
     const key = value[this.state.keyPath];
     if (typeof key !== 'string' || key.length === 0) {
       throw new Error('FakeObjectStore put requires a string key.');
@@ -178,16 +188,16 @@ class FakeObjectStore {
     return createRequest(undefined, this.transaction);
   }
 
-  get(key: string): IDBRequest<RawRecord | undefined> {
+  get(key: string): FakeRequest<RawRecord | undefined> {
     return createRequest(this.state.records.get(key), this.transaction);
   }
 
-  delete(key: string): IDBRequest<undefined> {
+  delete(key: string): FakeRequest<undefined> {
     this.state.records.delete(key);
     return createRequest(undefined, this.transaction);
   }
 
-  getAll(): IDBRequest<RawRecord[]> {
+  getAll(): FakeRequest<RawRecord[]> {
     return createRequest(Array.from(this.state.records.values()), this.transaction);
   }
 }
@@ -199,7 +209,7 @@ class FakeIndex {
     private readonly transaction: FakeTransaction | null
   ) {}
 
-  getAll(query?: IDBValidKey | IDBKeyRange | null): IDBRequest<RawRecord[]> {
+  getAll(query?: IDBValidKey | IDBKeyRange | null): FakeRequest<RawRecord[]> {
     const filtered = Array.from(this.state.records.values()).filter((value) =>
       matchesQuery(resolveKeyPathValue(value, this.keyPath), query)
     );
@@ -207,12 +217,12 @@ class FakeIndex {
   }
 }
 
-function createRequest<T>(result: T, transaction: FakeTransaction | null): IDBRequest<T> {
-  const request = {
+function createRequest<T>(result: T, transaction: FakeTransaction | null): FakeRequest<T> {
+  const request: FakeRequest<T> = {
     result,
     error: null,
-    onsuccess: null as ((event: Event) => void) | null,
-    onerror: null as ((event: Event) => void) | null
+    onsuccess: null,
+    onerror: null
   };
 
   queueMicrotask(() => {
@@ -220,7 +230,7 @@ function createRequest<T>(result: T, transaction: FakeTransaction | null): IDBRe
     transaction?.touch();
   });
 
-  return request as IDBRequest<T>;
+  return request;
 }
 
 function resolveKeyPathValue(value: RawRecord, keyPath: string | string[]): unknown {

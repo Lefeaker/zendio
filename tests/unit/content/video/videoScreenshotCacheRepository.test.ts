@@ -19,13 +19,17 @@ import {
 import type { VideoCaptureScreenshot } from '@content/video/types';
 
 const BASE_TIME = 2_000_000_000_000;
-type StoredValue = Parameters<StorageAreaService['set']>[1];
+type StoredValue = unknown;
+
+function castStoredValue<T>(value: StoredValue): T | undefined {
+  return value as T | undefined;
+}
 
 class MemoryStorageArea implements StorageAreaService {
   private readonly values = new Map<string, StoredValue>();
 
   get<T = StoredValue>(key: string): Promise<T | undefined> {
-    return Promise.resolve(this.values.get(key) as T | undefined);
+    return Promise.resolve(castStoredValue<T>(this.values.get(key)));
   }
 
   set<T = StoredValue>(key: string, value: T): Promise<void> {
@@ -35,7 +39,7 @@ class MemoryStorageArea implements StorageAreaService {
 
   getMany<T = StoredValue>(keys: string[]): Promise<Record<string, T | undefined>> {
     return Promise.resolve(
-      Object.fromEntries(keys.map((key) => [key, this.values.get(key) as T | undefined]))
+      Object.fromEntries(keys.map((key) => [key, castStoredValue<T>(this.values.get(key))]))
     );
   }
 
@@ -81,27 +85,30 @@ class MemoryBlobStore implements VideoScreenshotCacheBlobStore {
     this.delayPageReads = options.delayPageReads === true;
   }
 
-  async put(entry: VideoScreenshotCacheBlobEntry): Promise<void> {
+  put(entry: VideoScreenshotCacheBlobEntry): Promise<void> {
     const normalizedEntry = normalizeVideoScreenshotCacheBlobEntry(entry);
     if (normalizedEntry === null) {
       throw new Error('MemoryBlobStore rejected an invalid blob entry.');
     }
     this.values.set(normalizedEntry.key, cloneBlobEntry(normalizedEntry));
+    return Promise.resolve();
   }
 
-  async get(key: string): Promise<VideoScreenshotCacheBlobEntry | null> {
+  get(key: string): Promise<VideoScreenshotCacheBlobEntry | null> {
     const entry = this.values.get(key);
-    return entry ? cloneBlobEntry(entry) : null;
+    return Promise.resolve(entry ? cloneBlobEntry(entry) : null);
   }
 
-  async delete(key: string): Promise<void> {
+  delete(key: string): Promise<void> {
     this.values.delete(key);
+    return Promise.resolve();
   }
 
-  async deleteMany(keys: readonly string[]): Promise<void> {
+  deleteMany(keys: readonly string[]): Promise<void> {
     for (const key of keys) {
       this.values.delete(key);
     }
+    return Promise.resolve();
   }
 
   async listByPageKey(pageKey: string): Promise<VideoScreenshotCacheBlobEntry[]> {
@@ -111,8 +118,8 @@ class MemoryBlobStore implements VideoScreenshotCacheBlobStore {
     return this.sortedEntries().filter((entry) => entry.pageKey === pageKey);
   }
 
-  async listAllMetadata() {
-    return this.sortedEntries().map(toMetadata);
+  listAllMetadata(): Promise<ReturnType<typeof toMetadata>[]> {
+    return Promise.resolve(this.sortedEntries().map(toMetadata));
   }
 
   async prune(options: Parameters<VideoScreenshotCacheBlobStore['prune']>[0]) {
@@ -135,9 +142,7 @@ class MemoryBlobStore implements VideoScreenshotCacheBlobStore {
   }
 
   private sortedEntries(): VideoScreenshotCacheBlobEntry[] {
-    return sortVideoScreenshotCacheBlobMetadataNewestFirst(
-      [...this.values.values()].map(cloneBlobEntry)
-    ) as VideoScreenshotCacheBlobEntry[];
+    return sortVideoScreenshotCacheBlobMetadataNewestFirst([...this.values.values()].map(cloneBlobEntry));
   }
 
   private waitForPageReadTurn(): Promise<void> {
@@ -171,7 +176,8 @@ function cloneBlobEntry(entry: VideoScreenshotCacheBlobEntry): VideoScreenshotCa
 }
 
 function toMetadata(entry: VideoScreenshotCacheBlobEntry) {
-  const { blob: _blob, ...metadata } = entry;
+  const { blob, ...metadata } = entry;
+  void blob;
   return metadata;
 }
 
@@ -230,10 +236,11 @@ function createDataUrlOnlyScreenshot(id: string, capturedAt = BASE_TIME): VideoC
 
 function createMalformedMetadataScreenshot(): VideoCaptureScreenshot {
   const screenshot = createScreenshot('shot-invalid-metadata', 'frame-invalid-metadata');
-  return {
-    ...screenshot,
-    mimeType: 'image/png'
-  } as unknown as VideoCaptureScreenshot;
+  Object.defineProperty(screenshot, 'mimeType', {
+    value: 'image/png',
+    configurable: true
+  });
+  return screenshot;
 }
 
 function createDeclaredByteLengthScreenshot(
@@ -525,9 +532,14 @@ describe('videoScreenshotCacheRepository', () => {
         label: 'expired',
         ttlMs: 20,
         advanceMs: 25,
-        mutate: async () => undefined
+        mutate: () => Promise.resolve(undefined)
       }
-    ] as const;
+    ] satisfies ReadonlyArray<{
+      label: string;
+      ttlMs: number;
+      advanceMs: number;
+      mutate: (area: MemoryStorageArea, ref: VideoScreenshotCacheRef) => Promise<void>;
+    }>;
 
     for (const scenario of scenarios) {
       const legacyArea = new MemoryStorageArea();
@@ -668,12 +680,13 @@ describe('videoScreenshotCacheRepository', () => {
       maxGlobalEntries: 10
     });
 
-    for (const [pageKey, shotId] of [
+    const globalPruneCases = [
       ['page-a', 'shot-1'],
       ['page-b', 'shot-2'],
       ['page-c', 'shot-3'],
       ['page-d', 'shot-4']
-    ] as const) {
+    ] satisfies ReadonlyArray<readonly [string, string]>;
+    for (const [pageKey, shotId] of globalPruneCases) {
       requireSaved(
         await writer.save({
           pageKey,

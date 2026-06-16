@@ -24,22 +24,21 @@ export async function readVideoScreenshotCacheIndexedDbSummary(
         cacheKeys: []
       };
 
+      const isRecord = (value: object | null): value is Record<string, unknown> => value !== null;
       const hasDatabase = async (): Promise<boolean> => {
-        const databaseApi = indexedDB as IDBFactory & {
-          databases?: () => Promise<Array<{ name?: string }>>;
-        };
-        if (typeof databaseApi.databases !== 'function') {
+        const maybeDatabases = Reflect.get(indexedDB, 'databases');
+        if (typeof maybeDatabases !== 'function') {
           return true;
         }
-        const knownDatabases = await databaseApi.databases().catch(() => []);
+        const knownDatabases = await maybeDatabases.call(indexedDB).catch(() => []);
         return knownDatabases.some((database) => database?.name === dbName);
       };
 
       const isValidMetadataEntry = (key: string, value: unknown): boolean => {
-        if (typeof value !== 'object' || value === null) {
+        if (typeof value !== 'object' || !isRecord(value)) {
           return false;
         }
-        const record = value as Record<string, unknown>;
+        const record = value;
         return (
           record.key === key &&
           typeof record.schemaVersion === 'number' &&
@@ -170,11 +169,9 @@ export async function readVideoScreenshotCacheIndexedDbSummary(
 export async function clearVideoScreenshotCacheIndexedDb(extensionPage: Page): Promise<void> {
   await extensionPage.evaluate(
     async ({ dbName, objectStoreName }) => {
-      const databaseApi = indexedDB as IDBFactory & {
-        databases?: () => Promise<Array<{ name?: string }>>;
-      };
-      if (typeof databaseApi.databases === 'function') {
-        const knownDatabases = await databaseApi.databases().catch(() => []);
+      const maybeDatabases = Reflect.get(indexedDB, 'databases');
+      if (typeof maybeDatabases === 'function') {
+        const knownDatabases = await maybeDatabases.call(indexedDB).catch(() => []);
         if (!knownDatabases.some((database) => database?.name === dbName)) {
           return;
         }
