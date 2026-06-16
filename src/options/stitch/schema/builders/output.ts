@@ -62,7 +62,12 @@ export function yamlFilterTabs(): NodeSchema {
     {
       className: classNames.yaml.filterRow,
       role: 'tablist',
-      ariaLabel: 'YAML filter'
+      ariaLabel: (current: SchemaContext) =>
+        translate(
+          current,
+          'schemaOutputYamlFilterAriaLabel',
+          DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaOutputYamlFilterAriaLabel
+        )
     },
     (current: SchemaContext) =>
       current.appData.output.yamlFilters.map((filter) =>
@@ -110,15 +115,35 @@ export function yamlDomainRule(rule: YamlDomainRule): NodeSchema {
     ]),
     element('strong', {
       text: (current: SchemaContext) =>
-        translate(current, 'schemaOutputDomainOverrideLabel', 'Domain Override')
+        translate(
+          current,
+          'schemaOutputDomainOverrideLabel',
+          DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaOutputDomainOverrideLabel
+        )
     }),
     {
       kind: 'table',
       columns: (current: SchemaContext) => [
-        translate(current, 'yamlFieldNameLabel', 'Field'),
-        translate(current, 'yamlDomainFieldEnabled', 'Enabled'),
-        translate(current, 'yamlFieldValuePathLabel', 'Value Path'),
-        translate(current, 'yamlFieldDefaultValueLabel', 'Default')
+        translate(
+          current,
+          'yamlFieldNameLabel',
+          DEFAULT_PRODUCTION_ENGLISH_MESSAGES.yamlFieldNameLabel
+        ),
+        translate(
+          current,
+          'yamlDomainFieldEnabled',
+          DEFAULT_PRODUCTION_ENGLISH_MESSAGES.yamlDomainFieldEnabled
+        ),
+        translate(
+          current,
+          'yamlFieldValuePathLabel',
+          DEFAULT_PRODUCTION_ENGLISH_MESSAGES.yamlFieldValuePathLabel
+        ),
+        translate(
+          current,
+          'yamlFieldDefaultValueLabel',
+          DEFAULT_PRODUCTION_ENGLISH_MESSAGES.yamlFieldDefaultValueLabel
+        )
       ],
       rows: rule.rows.map((row) => ({
         cells: [
@@ -138,7 +163,11 @@ export function yamlDomainRule(rule: YamlDomainRule): NodeSchema {
 }
 
 export function yamlPreviewBlock(
-  summary: string | ((ctx: SchemaContext) => string) = 'Preview'
+  summary:
+    | string
+    | ((
+        ctx: SchemaContext
+      ) => string) = DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaOutputYamlPreviewSummaryLabel
 ): NodeSchema {
   return {
     kind: 'details',

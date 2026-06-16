@@ -2,7 +2,7 @@ import type { SettingsSchema } from '../../types';
 import type { Messages } from '@i18n';
 import { grid, htmlParagraph, paragraph, stack } from '../builders/primitives';
 import { boundInput, boundSelect, boundSwitch } from '../builders/controls';
-import { DEFAULT_PRODUCTION_ENGLISH_MESSAGES } from '../i18n';
+import { translateSchemaMessage } from '../i18n';
 import {
   fragmentModifierChipItems,
   fragmentModifierStateWarning
@@ -10,63 +10,45 @@ import {
 
 const schema: SettingsSchema = {
   createView(ctx) {
-    const t = (key: keyof Messages, fallback: string) => ctx.t?.(key, fallback) ?? fallback;
-    const translate = (current: typeof ctx, key: keyof Messages, fallback: string) =>
-      current.t?.(key, fallback) ?? fallback;
+    const t = (key: keyof Messages) => translateSchemaMessage(ctx.t, key);
+    const translate = (current: typeof ctx, key: keyof Messages) =>
+      translateSchemaMessage(current.t, key);
 
     return {
       id: 'capture-behavior',
       kind: 'page',
       hero: {
         ...ctx.appData.captureBehavior.hero,
-        title: t('schemaCaptureBehaviorTitle', ctx.appData.captureBehavior.hero.title),
-        description: t(
-          'schemaCaptureBehaviorHeroDescription',
-          ctx.appData.captureBehavior.hero.description
-        )
+        title: t('schemaCaptureBehaviorTitle'),
+        description: t('schemaCaptureBehaviorHeroDescription')
       },
       children: [
         {
           kind: 'group',
-          title: t('schemaCaptureBehaviorReadingGroupTitle', 'Reading Mode'),
+          title: t('schemaCaptureBehaviorReadingGroupTitle'),
           children: [
             {
               kind: 'card',
-              title: t('readingConfigTitle', 'Reading Export'),
-              description: t(
-                'readingConfigHint',
-                DEFAULT_PRODUCTION_ENGLISH_MESSAGES.readingConfigHint
-              ),
+              title: t('readingConfigTitle'),
+              description: t('readingConfigHint'),
               body: [
                 {
                   kind: 'rows',
                   items: [
                     {
                       kind: 'row',
-                      title: t(
-                        'readingExportModeLabel',
-                        DEFAULT_PRODUCTION_ENGLISH_MESSAGES.readingExportModeLabel
-                      ),
-                      description: t(
-                        'readingExportModeDescription',
-                        DEFAULT_PRODUCTION_ENGLISH_MESSAGES.readingExportModeDescription
-                      ),
+                      title: t('readingExportModeLabel'),
+                      description: t('readingExportModeDescription'),
                       control: {
                         kind: 'select',
                         options: [
                           {
                             value: 'highlights',
-                            label: t(
-                              'readingExportModeHighlights',
-                              DEFAULT_PRODUCTION_ENGLISH_MESSAGES.readingExportModeHighlights
-                            )
+                            label: t('readingExportModeHighlights')
                           },
                           {
                             value: 'full',
-                            label: t(
-                              'readingExportModeFull',
-                              DEFAULT_PRODUCTION_ENGLISH_MESSAGES.readingExportModeFull
-                            )
+                            label: t('readingExportModeFull')
                           }
                         ],
                         bind: 'readingExportMode',
@@ -79,34 +61,28 @@ const schema: SettingsSchema = {
                     },
                     {
                       kind: 'row',
-                      title: t(
-                        'readingHighlightThemeLabel',
-                        DEFAULT_PRODUCTION_ENGLISH_MESSAGES.readingHighlightThemeLabel
-                      ),
-                      description: t(
-                        'readingHighlightThemeDescription',
-                        DEFAULT_PRODUCTION_ENGLISH_MESSAGES.readingHighlightThemeDescription
-                      ),
+                      title: t('readingHighlightThemeLabel'),
+                      description: t('readingHighlightThemeDescription'),
                       control: stack([
                         {
                           kind: 'segmentedNav',
                           items: [
                             {
                               value: 'gradient',
-                              label: t('readingHighlightThemeGradient', 'Gradient')
+                              label: t('readingHighlightThemeGradient')
                             },
-                            { value: 'purple', label: t('readingHighlightThemePurple', 'Purple') },
+                            { value: 'purple', label: t('readingHighlightThemePurple') },
                             {
                               value: 'neonYellow',
-                              label: t('readingHighlightThemeNeonYellow', 'Neon Yellow')
+                              label: t('readingHighlightThemeNeonYellow')
                             },
                             {
                               value: 'neonGreen',
-                              label: t('readingHighlightThemeNeonGreen', 'Neon Green')
+                              label: t('readingHighlightThemeNeonGreen')
                             },
                             {
                               value: 'neonOrange',
-                              label: t('readingHighlightThemeNeonOrange', 'Neon Orange')
+                              label: t('readingHighlightThemeNeonOrange')
                             }
                           ],
                           bind: 'highlightTheme',
@@ -118,10 +94,7 @@ const schema: SettingsSchema = {
                   ]
                 },
                 htmlParagraph(
-                  t(
-                    'schemaCaptureBehaviorSidebarHighlightsNote',
-                    DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaCaptureBehaviorSidebarHighlightsNote
-                  ).replace(
+                  t('schemaCaptureBehaviorSidebarHighlightsNote').replace(
                     'Sidebar Highlights',
                     '<a href="https://github.com/trevware/obsidian-sidebar-highlights" target="_blank" rel="noopener noreferrer">Sidebar Highlights</a>'
                   ),
@@ -133,29 +106,20 @@ const schema: SettingsSchema = {
         },
         {
           kind: 'group',
-          title: t('schemaCaptureBehaviorFragmentGroupTitle', 'Fragment Clipper'),
+          title: t('schemaCaptureBehaviorFragmentGroupTitle'),
           children: [
             {
               kind: 'card',
-              title: t('fragmentConfigTitle', 'Fragment Interaction Model'),
-              description: t(
-                'fragmentConfigHint',
-                DEFAULT_PRODUCTION_ENGLISH_MESSAGES.fragmentConfigHint
-              ),
+              title: t('fragmentConfigTitle'),
+              description: t('fragmentConfigHint'),
               body: [
                 {
                   kind: 'rows',
                   items: [
                     {
                       kind: 'row',
-                      title: t(
-                        'schemaCaptureBehaviorCaptureContextTitle',
-                        DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaCaptureBehaviorCaptureContextTitle
-                      ),
-                      description: t(
-                        'fragmentCaptureContextHint',
-                        DEFAULT_PRODUCTION_ENGLISH_MESSAGES.fragmentCaptureContextHint
-                      ),
+                      title: t('schemaCaptureBehaviorCaptureContextTitle'),
+                      description: t('fragmentCaptureContextHint'),
                       control: grid(
                         3,
                         [
@@ -170,10 +134,7 @@ const schema: SettingsSchema = {
                           }),
                           {
                             kind: 'field',
-                            label: t(
-                              'schemaCaptureBehaviorContextLengthFieldLabel',
-                              'contextLength'
-                            ),
+                            label: t('schemaCaptureBehaviorContextLengthFieldLabel'),
                             control: boundInput({
                               bind: 'fragmentContextLength',
                               mono: true,
@@ -187,20 +148,17 @@ const schema: SettingsSchema = {
                           },
                           {
                             kind: 'field',
-                            label: t('schemaCaptureBehaviorContextModeFieldLabel', 'contextMode'),
+                            label: t('schemaCaptureBehaviorContextModeFieldLabel'),
                             control: boundSelect({
                               bind: 'fragmentContextMode',
                               options: [
                                 {
                                   value: 'chars',
-                                  label: t('schemaCaptureBehaviorContextModeCharsOption', 'chars')
+                                  label: t('schemaCaptureBehaviorContextModeCharsOption')
                                 },
                                 {
                                   value: 'sentences',
-                                  label: t(
-                                    'schemaCaptureBehaviorContextModeSentencesOption',
-                                    'sentences'
-                                  )
+                                  label: t('schemaCaptureBehaviorContextModeSentencesOption')
                                 }
                               ],
                               onChange: {
@@ -216,14 +174,8 @@ const schema: SettingsSchema = {
                     },
                     {
                       kind: 'row',
-                      title: t(
-                        'fragmentModifierToggleLabel',
-                        DEFAULT_PRODUCTION_ENGLISH_MESSAGES.fragmentModifierToggleLabel
-                      ),
-                      description: t(
-                        'fragmentModifierToggleDescription',
-                        DEFAULT_PRODUCTION_ENGLISH_MESSAGES.fragmentModifierToggleDescription
-                      ),
+                      title: t('fragmentModifierToggleLabel'),
+                      description: t('fragmentModifierToggleDescription'),
                       control: stack(
                         (current) => [
                           boundSwitch({
@@ -252,28 +204,14 @@ const schema: SettingsSchema = {
                     },
                     {
                       kind: 'row',
-                      title: t(
-                        'fragmentKeyboardShortcutsLabel',
-                        DEFAULT_PRODUCTION_ENGLISH_MESSAGES.fragmentKeyboardShortcutsLabel
-                      ),
-                      description: t(
-                        'fragmentKeyboardShortcutsHint',
-                        DEFAULT_PRODUCTION_ENGLISH_MESSAGES.fragmentKeyboardShortcutsHint
-                      ),
+                      title: t('fragmentKeyboardShortcutsLabel'),
+                      description: t('fragmentKeyboardShortcutsHint'),
                       control: boundSwitch({
                         bind: 'fragmentKeyboardShortcutsEnabled',
                         stateText: (current) =>
                           current.state.fragmentKeyboardShortcutsEnabled
-                            ? translate(
-                                current,
-                                'schemaCommonEnabledState',
-                                DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaCommonEnabledState
-                              )
-                            : translate(
-                                current,
-                                'schemaCommonDisabledState',
-                                DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaCommonDisabledState
-                              ),
+                            ? translate(current, 'schemaCommonEnabledState')
+                            : translate(current, 'schemaCommonDisabledState'),
                         onChange: {
                           id: 'options:updateField',
                           args: ['fragmentClipper.keyboardShortcutsEnabled'],
@@ -288,34 +226,18 @@ const schema: SettingsSchema = {
                   [
                     {
                       kind: 'miniCard',
-                      title: t(
-                        'fragmentFootnoteExampleTitle',
-                        DEFAULT_PRODUCTION_ENGLISH_MESSAGES.fragmentFootnoteExampleTitle
-                      ),
+                      title: t('fragmentFootnoteExampleTitle'),
                       content: htmlParagraph(
-                        `${t(
-                          'fragmentFootnoteExampleContent',
-                          DEFAULT_PRODUCTION_ENGLISH_MESSAGES.fragmentFootnoteExampleContent
-                        )}[^1]<br><br>[^1]: ${t(
-                          'fragmentFootnoteExampleComment',
-                          DEFAULT_PRODUCTION_ENGLISH_MESSAGES.fragmentFootnoteExampleComment
+                        `${t('fragmentFootnoteExampleContent')}[^1]<br><br>[^1]: ${t(
+                          'fragmentFootnoteExampleComment'
                         )}`,
                         'mono'
                       )
                     },
                     {
                       kind: 'miniCard',
-                      title: t(
-                        'fragmentContextHighlightExampleTitle',
-                        DEFAULT_PRODUCTION_ENGLISH_MESSAGES.fragmentContextHighlightExampleTitle
-                      ),
-                      content: paragraph(
-                        t(
-                          'fragmentContextHighlightExampleContent',
-                          DEFAULT_PRODUCTION_ENGLISH_MESSAGES.fragmentContextHighlightExampleContent
-                        ),
-                        'mono'
-                      )
+                      title: t('fragmentContextHighlightExampleTitle'),
+                      content: paragraph(t('fragmentContextHighlightExampleContent'), 'mono')
                     }
                   ],
                   'u-mt-block'

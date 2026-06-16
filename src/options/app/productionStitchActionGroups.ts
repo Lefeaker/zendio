@@ -1,6 +1,7 @@
 import type { ActionRegistry } from '@options/schema-runtime/actionRuntime';
 import type { PreviewContent, PreviewStoreState } from '@options/stitch/types';
 import type { Messages } from '@i18n';
+import { resolveSchemaMessage } from '@options/stitch/schema/i18n';
 import type { ConnectionTestResult } from '@shared/types/connection';
 import type { CompleteOptions } from '@shared/types/options';
 import type { VaultRouterConfig } from '@shared/types/vault';
@@ -140,8 +141,10 @@ export function createProductionStorageActions(
           context.applyConnectionNotice(await context.runVaultListConnectionTest());
         } catch (error) {
           context.setConnectionNotice({
-            title:
-              context.getMessages()?.schemaStorageConnectionNoticeTitle ?? 'Connection Test Result',
+            title: resolveSchemaMessage(
+              context.getMessages(),
+              'schemaStorageConnectionNoticeTitle'
+            ),
             body: error instanceof Error ? error.message : String(error),
             variant: 'danger'
           });

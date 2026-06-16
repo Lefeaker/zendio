@@ -1,28 +1,17 @@
 import type { SchemaContext, SettingsSchema } from '../../types';
-import type { SchemaMessageKey } from '../i18n';
+import { getDefaultProductionEnglishMessage, type SchemaMessageKey } from '../i18n';
 import { codeOutputBox, infoBox } from '../builders/chrome';
 
-function translate(
-  key: SchemaMessageKey,
-  fallback: string,
-  translateFn?: SchemaContext['t']
-): string {
+function translate(key: SchemaMessageKey, translateFn?: SchemaContext['t']): string {
+  const fallback = getDefaultProductionEnglishMessage(key);
   return translateFn?.(key, fallback) ?? fallback;
 }
 
 function resolveMaintenanceLogTitle(current: SchemaContext): string {
   const log = current.appData.maintenanceLog.trim();
-  const copySuccess = translate(
-    'copyConfigSuccess',
-    '✅ Configuration copied to clipboard',
-    current.t
-  );
-  const importSuccess = translate(
-    'importSuccess',
-    '✅ Configuration imported and saved',
-    current.t
-  );
-  const repairSuccess = translate('configFixed', '✅ Configuration fixed and saved', current.t);
+  const copySuccess = translate('copyConfigSuccess', current.t);
+  const importSuccess = translate('importSuccess', current.t);
+  const repairSuccess = translate('configFixed', current.t);
 
   if (
     log === copySuccess ||
@@ -30,18 +19,14 @@ function resolveMaintenanceLogTitle(current: SchemaContext): string {
     log.startsWith('Copy failed:') ||
     log.startsWith('Import failed:')
   ) {
-    return translate(
-      'schemaMaintenanceTransferLastActionNoticeTitle',
-      'Last transfer action',
-      current.t
-    );
+    return translate('schemaMaintenanceTransferLastActionNoticeTitle', current.t);
   }
 
   if (log.startsWith(repairSuccess)) {
-    return translate('schemaMaintenanceRepairLogTitle', 'Repair Configuration', current.t);
+    return translate('schemaMaintenanceRepairLogTitle', current.t);
   }
 
-  return translate('diagnosisResultTitle', 'Diagnosis Results', current.t);
+  return translate('diagnosisTitle', current.t);
 }
 
 const schema: SettingsSchema = {
@@ -52,53 +37,41 @@ const schema: SettingsSchema = {
       id: 'maintenance',
       kind: 'page',
       hero: {
-        title: translate('schemaMaintenanceTitle', 'Maintenance', t),
-        description: translate(
-          'schemaMaintenanceHeroDescription',
-          'Transfer configuration and run diagnostics.',
-          t
-        ),
-        pills: ['Transfer', 'Diagnosis', 'Repair']
+        title: translate('schemaMaintenanceTitle', t),
+        description: translate('schemaMaintenanceHeroDescription', t),
+        pills: [
+          translate('schemaMaintenanceTransferGroupTitle', t),
+          translate('schemaMaintenanceDiagnosisGroupTitle', t),
+          translate('schemaMaintenanceRepairPillLabel', t)
+        ]
       },
       children: [
         {
           kind: 'group',
-          title: translate('schemaMaintenanceTransferGroupTitle', 'Transfer', t),
+          title: translate('schemaMaintenanceTransferGroupTitle', t),
           children: [
             {
               kind: 'card',
-              title: translate(
-                'schemaMaintenanceConfigurationTransferTitle',
-                'Configuration Transfer',
-                t
-              ),
-              description: translate(
-                'schemaMaintenanceConfigurationTransferDescription',
-                'Copy and import configuration between browsers.',
-                t
-              ),
+              title: translate('schemaMaintenanceConfigurationTransferTitle', t),
+              description: translate('schemaMaintenanceConfigurationTransferDescription', t),
               actions: [
                 {
                   kind: 'button',
-                  label: translate('schemaMaintenanceTransferCopyButton', 'Copy Configuration', t),
+                  label: translate('schemaMaintenanceTransferCopyButton', t),
                   variant: 'primary',
                   action: { id: 'maintenance:copyConfig' }
                 },
                 {
                   kind: 'button',
-                  label: translate('schemaMaintenanceTransferImportButton', 'Import and Save', t),
+                  label: translate('schemaMaintenanceTransferImportButton', t),
                   variant: 'secondary',
                   action: { id: 'maintenance:importConfig' }
                 }
               ],
               body: [
                 infoBox(
-                  translate('schemaMaintenanceTransferHelperTitle', 'Transfer Method', t),
-                  translate(
-                    'schemaMaintenanceTransferHelperDescription',
-                    'Copy exports the current configuration. Import reads configuration JSON from the clipboard, validates it, and saves it.',
-                    t
-                  )
+                  translate('schemaMaintenanceTransferHelperTitle', t),
+                  translate('schemaMaintenanceTransferHelperDescription', t)
                 )
               ]
             }
@@ -106,44 +79,36 @@ const schema: SettingsSchema = {
         },
         {
           kind: 'group',
-          title: translate('schemaMaintenanceDiagnosisGroupTitle', 'Diagnosis', t),
+          title: translate('schemaMaintenanceDiagnosisGroupTitle', t),
           children: [
             {
               kind: 'card',
-              title: translate('diagnosisTitle', 'Configuration Diagnosis', t),
-              description: translate(
-                'schemaMaintenanceConfigurationDiagnosisDescription',
-                'Check connections, templates, routing, and capture settings.',
-                t
-              ),
+              title: translate('diagnosisTitle', t),
+              description: translate('schemaMaintenanceConfigurationDiagnosisDescription', t),
               actions: [
                 {
                   kind: 'button',
-                  label: translate('schemaMaintenanceDiagnosisButton', 'Diagnose Configuration', t),
+                  label: translate('schemaMaintenanceDiagnosisButton', t),
                   variant: 'primary',
                   action: { id: 'maintenance:diagnose' }
                 },
                 {
                   kind: 'button',
-                  label: translate('schemaMaintenanceFixButton', 'Fix Configuration', t),
+                  label: translate('schemaMaintenanceFixButton', t),
                   variant: 'warning',
                   action: { id: 'maintenance:repair' }
                 },
                 {
                   kind: 'button',
-                  label: translate('schemaMaintenanceReloadButton', 'Reload', t),
+                  label: translate('schemaMaintenanceReloadButton', t),
                   variant: 'ghost',
                   action: { id: 'maintenance:reload' }
                 }
               ],
               body: [
                 infoBox(
-                  translate('schemaMaintenanceDiagnosisScopeTitle', 'Diagnosis Scope', t),
-                  translate(
-                    'schemaMaintenanceDiagnosisScopeDescription',
-                    'REST API, path templates, domain mappings, multi-vault routing, fragment context settings, and video prompts should all appear in the report.',
-                    t
-                  )
+                  translate('schemaMaintenanceDiagnosisScopeTitle', t),
+                  translate('schemaMaintenanceDiagnosisScopeDescription', t)
                 ),
                 infoBox(
                   (current) => resolveMaintenanceLogTitle(current),

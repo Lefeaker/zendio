@@ -67,16 +67,37 @@ const schema: ResourceSchema = {
     };
     const screenshotLabels = {
       capture:
-        t?.('schemaRuntimeVideoCaptureScreenshotLabel', 'Capture screenshot') ??
-        'Capture screenshot',
+        t?.(
+          'schemaRuntimeVideoCaptureScreenshotLabel',
+          DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaRuntimeVideoCaptureScreenshotLabel
+        ) ?? DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaRuntimeVideoCaptureScreenshotLabel,
       remove:
-        t?.('schemaRuntimeVideoRemoveScreenshotLabel', 'Remove screenshot') ?? 'Remove screenshot'
+        t?.(
+          'schemaRuntimeVideoRemoveScreenshotLabel',
+          DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaRuntimeVideoRemoveScreenshotLabel
+        ) ?? DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaRuntimeVideoRemoveScreenshotLabel
+    };
+    const panelAriaLabels = {
+      resizeHeight:
+        t?.(
+          'schemaRuntimeSurfaceResizePanelHeightAriaLabel',
+          DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaRuntimeSurfaceResizePanelHeightAriaLabel
+        ) ?? DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaRuntimeSurfaceResizePanelHeightAriaLabel,
+      resizePanel:
+        t?.(
+          'schemaRuntimeSurfaceResizePanelAriaLabel',
+          DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaRuntimeSurfaceResizePanelAriaLabel
+        ) ?? DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaRuntimeSurfaceResizePanelAriaLabel
     };
 
     return {
       id: 'video',
       kind: 'modal',
-      title: t?.('schemaRuntimeVideoTitle', 'Video Mode') ?? 'Video Mode',
+      title:
+        t?.(
+          'schemaRuntimeVideoTitle',
+          DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaRuntimeVideoTitle
+        ) ?? DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaRuntimeVideoTitle,
       description:
         t?.(
           'schemaRuntimeVideoDescription',
@@ -86,18 +107,30 @@ const schema: ResourceSchema = {
       surfaceSkin: 'session',
       children: [
         div('resource-modal-stack', [
-          sessionPanelShell('video-surface-window', [
-            sessionHeader(labels, '▶'),
-            surfaceBody(classNames.session.bodyVideo, [
-              sessionItemList([
-                ...surface.captures.map((capture) =>
-                  videoCaptureItem(capture, labels, screenshotLabels)
-                ),
-                videoAddCaptureItem(labels.addLabel, labels.emptyCapturePlaceholder)
-              ])
-            ]),
-            videoFooterBar(counter, actions, null, surface.destination, destinationLabels)
-          ])
+          sessionPanelShell(
+            'video-surface-window',
+            [
+              sessionHeader(
+                labels,
+                '▶',
+                undefined,
+                t?.(
+                  'schemaRuntimeSurfaceCollapsePanelAriaLabel',
+                  DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaRuntimeSurfaceCollapsePanelAriaLabel
+                ) ?? DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaRuntimeSurfaceCollapsePanelAriaLabel
+              ),
+              surfaceBody(classNames.session.bodyVideo, [
+                sessionItemList([
+                  ...surface.captures.map((capture) =>
+                    videoCaptureItem(capture, labels, screenshotLabels)
+                  ),
+                  videoAddCaptureItem(labels.addLabel, labels.emptyCapturePlaceholder)
+                ])
+              ]),
+              videoFooterBar(counter, actions, null, surface.destination, destinationLabels)
+            ],
+            panelAriaLabels
+          )
         ])
       ]
     };

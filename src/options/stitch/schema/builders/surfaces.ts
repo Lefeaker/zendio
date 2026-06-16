@@ -31,18 +31,29 @@ export function surfaceWindow(className: string, children: NodeSchema[]): NodeSc
   );
 }
 
-export function sessionPanelShell(windowClassName: string, children: NodeSchema[]): NodeSchema {
+export function sessionPanelShell(
+  windowClassName: string,
+  children: NodeSchema[],
+  ariaLabels: {
+    resizeHeight: string;
+    resizePanel: string;
+  } = {
+    resizeHeight:
+      DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaRuntimeSurfaceResizePanelHeightAriaLabel,
+    resizePanel: DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaRuntimeSurfaceResizePanelAriaLabel
+  }
+): NodeSchema {
   return div(classNames.session.panelRail, [
     element('div', {
       className: classNames.session.heightResizeHandle,
       role: 'separator',
-      ariaLabel: 'Resize panel height',
+      ariaLabel: ariaLabels.resizeHeight,
       dataset: { role: 'session-panel-height-resize-handle' }
     }),
     element('div', {
       className: classNames.session.resizeHandle,
       role: 'separator',
-      ariaLabel: 'Resize panel',
+      ariaLabel: ariaLabels.resizePanel,
       dataset: { role: 'session-panel-resize-handle' }
     }),
     surfaceWindow(windowClassName, children)
@@ -104,7 +115,8 @@ export function clipperHeader(
 export function sessionHeader(
   labels: RuntimeSessionLabels,
   iconGlyph: string,
-  iconSrc?: string
+  iconSrc?: string,
+  collapseAriaLabel = DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaRuntimeSurfaceCollapsePanelAriaLabel
 ): NodeSchema {
   return div(classNames.surface.windowHeader, [
     surfaceBrand(iconGlyph, labels.title, labels.subtitle, iconSrc),
@@ -112,7 +124,7 @@ export function sessionHeader(
       className: classNames.session.collapseTrigger,
       type: 'button',
       text: '⌄',
-      ariaLabel: 'Collapse panel',
+      ariaLabel: collapseAriaLabel,
       dataset: { actionId: 'session:toggleCollapse' },
       onClick: { id: 'session:toggleCollapse' }
     })
@@ -294,7 +306,13 @@ export function sessionStatusStrip(
   return div(
     type === 'summary' ? classNames.surface.summaryStrip : classNames.surface.statusStrip,
     [
-      type === 'summary' ? { kind: 'badge', label: 'AI Summary', variant: 'violet' } : null,
+      type === 'summary'
+        ? {
+            kind: 'badge',
+            label: DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaRuntimeAiSummaryBadge,
+            variant: 'violet'
+          }
+        : null,
       span(
         type === 'summary' ? classNames.surface.summaryText : classNames.surface.summaryText,
         text
