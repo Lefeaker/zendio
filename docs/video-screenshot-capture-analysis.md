@@ -18,6 +18,12 @@
 
 - manifest 当前权限：`activeTab`、`scripting`、`storage` 等，无 `unlimitedStorage`。
 
+> 2026-06-16 P07 权限策略当前真值：
+>
+> - Chrome 源 manifest 继续只在现有权限基础上追加 `offscreen`；不新增 `unlimitedStorage`，也不引入 `message_serialization`。
+> - Chrome 官方扩展文档当前将 `storage.local` 默认额度记为 `10 MB`，不是历史文档中的 `~5MB`。
+> - 当前混合缓存方案继续保持 JSON-safe 传输：draft 仅持久化 `screenshotRequested` 与 metadata-only `screenshotRef`，截图字节通过受限缓存与 base64 序列化边界流转。
+
 ## 3. 功能需求拆解
 
 1. **截图能力**：在用户触发打点时获取当前视频画面，支持至少 720p，失败时需降级不阻塞打点。
@@ -49,7 +55,7 @@
 ### 4.3 数据存储与同步
 
 - **结构调整**：为 `VideoTimestampCapture` 增加可选字段 `screenshot?: { dataUrl: string; width: number; height: number; capturedAt: number }`；序列化结构需同步更新。
-- **存储配额**：Chrome `storage.local` 默认总额度 ~5MB；无 `unlimitedStorage` 时，5 张 720p PNG（~800KB/张）就可能触顶。需评估：
+- **存储配额**：Chrome 官方扩展文档当前将 `storage.local` 默认总额度记为 `10 MB`。P07 当前决策仍是不请求 `unlimitedStorage`；第一版混合缓存继续依赖 metadata-only draft、受限截图缓存、TTL、最大条目数、每页面上限、字节上限与 best-effort pruning。若后续真实用户证据表明这些上限仍不足，再单独评估权限升级：
   - 请求 `unlimitedStorage` 权限；
   - 或仅缓存文件名与元信息，将图片落盘后不再保存在 storage 中；
   - 或限制截图分辨率（例如 480p）并压缩为 JPEG/WebP。
