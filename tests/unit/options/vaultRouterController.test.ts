@@ -1,3 +1,5 @@
+/* @vitest-environment jsdom */
+
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import type { VaultConfig, RoutingRule } from '@shared/types/vault';
 import { VaultRouterController } from '@options/components/controls/vaultRouterController';

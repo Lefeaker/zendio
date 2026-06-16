@@ -151,7 +151,7 @@ describe('generateYamlFrontMatter', () => {
     ).toBe(true);
   });
 
-  it('当 valuePath 未命中时输出警告并跳过字段', () => {
+  it('logs an English warning and skips the field when valuePath misses', () => {
     const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
 
     setYamlConfigOverrides({
@@ -174,7 +174,7 @@ describe('generateYamlFrontMatter', () => {
 
     expect(yaml.includes('source_author')).toBe(false);
     expect(warnSpy).toHaveBeenCalledWith(
-      '[yamlGenerator] 未能从 valuePath 获取字段值',
+      '[yamlGenerator] Could not resolve field value from valuePath',
       expect.objectContaining({
         field: 'source_author',
         valuePath: 'meta.author',

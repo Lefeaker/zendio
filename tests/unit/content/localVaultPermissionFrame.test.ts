@@ -12,6 +12,12 @@ async function loadPermissionMessages(language: string) {
   return getMessagesForLanguage(language);
 }
 
+async function loadPermissionFrameModule() {
+  const module = await import('../../../src/content/runtime/localVaultPermissionFrame');
+  await flushMicrotasks();
+  return module;
+}
+
 describe('localVaultPermissionFrame', () => {
   beforeEach(() => {
     document.documentElement.lang = '';
@@ -41,8 +47,7 @@ describe('localVaultPermissionFrame', () => {
       '',
       '/permission.html?folderId=folder-main&folderName=Main%20Vault&language=zh-CN'
     );
-    const { mountLocalVaultPermissionFrame } =
-      await import('../../../src/content/runtime/localVaultPermissionFrame');
+    const { mountLocalVaultPermissionFrame } = await loadPermissionFrameModule();
 
     mountLocalVaultPermissionFrame({
       document,
@@ -95,8 +100,7 @@ describe('localVaultPermissionFrame', () => {
       )
     };
     window.history.replaceState(null, '', '/permission.html?folderId=folder-main&language=en');
-    const { mountLocalVaultPermissionFrame } =
-      await import('../../../src/content/runtime/localVaultPermissionFrame');
+    const { mountLocalVaultPermissionFrame } = await loadPermissionFrameModule();
 
     mountLocalVaultPermissionFrame({
       document,
@@ -121,8 +125,7 @@ describe('localVaultPermissionFrame', () => {
         Promise.resolve('prompt')
       )
     };
-    const { mountLocalVaultPermissionFrame } =
-      await import('../../../src/content/runtime/localVaultPermissionFrame');
+    const { mountLocalVaultPermissionFrame } = await loadPermissionFrameModule();
 
     mountLocalVaultPermissionFrame({
       document,

@@ -22,6 +22,7 @@ import {
   type ChromeStorageGet,
   type ChromeStorageSet
 } from '../utils/chromeMocks';
+import { createE2eOptionsRepository } from '../utils/e2eOptionsRepository';
 
 describe('monica ai chat integration', () => {
   const monicaUrl = 'https://monica.im/chat/flow-456';
@@ -67,10 +68,14 @@ describe('monica ai chat integration', () => {
 
     installJsdom(dom);
 
-    const { createDefaultExtractorRegistry } = await import(
-      '../../src/content/extractors/registry'
-    );
-    const registry = createDefaultExtractorRegistry();
+    const { createDefaultExtractorRegistry } =
+      await import('../../src/content/extractors/registry');
+    const registry = createDefaultExtractorRegistry({
+      optionsRepository: createE2eOptionsRepository({
+        aiChat: { includeTimestamps: true, userName: 'E2E User' },
+        deepResearch: { pureMode: false }
+      })
+    });
     const clip = await registry.extract({ document: dom.window.document, url: monicaUrl });
 
     expect(clip.type).toBe('ai_chat');
