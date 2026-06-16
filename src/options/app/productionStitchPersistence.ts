@@ -29,6 +29,14 @@ import type { PreviewContent, PreviewStoreState } from '@options/stitch/types';
 import type { OptionsController } from './optionsController';
 import { getMessage, setButtonBusy } from './productionStitchPersistenceUi';
 
+type PrivacyPreferenceField = 'analytics' | 'errorReporting' | 'debugMode';
+
+interface PrivacySnapshot {
+  analytics: boolean;
+  errorReporting: boolean;
+  debugMode: boolean;
+}
+
 interface ProductionStitchPersistenceOptions {
   controller: OptionsController;
   optionsRepository: Pick<IOptionsRepository, 'get' | 'set' | 'onChange'>;
@@ -54,10 +62,7 @@ export interface ProductionStitchPersistence {
   copyConfigurationToClipboard(button: HTMLButtonElement | null): Promise<void>;
   importConfigurationWithStatus(button: HTMLButtonElement | null): Promise<void>;
   loadUsageStatsFromStorage(): Promise<void>;
-  persistPrivacyPreference(
-    field: 'analytics' | 'errorReporting' | 'debugMode',
-    value: boolean
-  ): Promise<void>;
+  persistPrivacyPreference(field: PrivacyPreferenceField, value: boolean): Promise<void>;
   repairConfiguration(): Promise<void>;
   resetUsageData(): Promise<void>;
   trackUsageEvent(message: AnalyticsRuntimeEventPayload): Promise<void>;
@@ -76,14 +81,10 @@ export function createProductionStitchPersistence(
     }
   }
 
-  function getPrivacySnapshot(): {
-    analytics: boolean;
-    errorReporting: boolean;
-    debugMode: boolean;
-  } {
+  function getPrivacySnapshot(): PrivacySnapshot {
     const current = (
       options.getDraft() as {
-        privacyPreferences?: { analytics?: boolean; errorReporting?: boolean; debugMode?: boolean };
+        privacyPreferences?: Partial<Record<PrivacyPreferenceField, boolean>>;
       }
     ).privacyPreferences;
     return {
@@ -93,11 +94,7 @@ export function createProductionStitchPersistence(
     };
   }
 
-  function syncPrivacySnapshotToState(nextSnapshot: {
-    analytics: boolean;
-    errorReporting: boolean;
-    debugMode: boolean;
-  }): void {
+  function syncPrivacySnapshotToState(nextSnapshot: PrivacySnapshot): void {
     const draft = options.getDraft();
     const state = options.getState();
     (draft as Record<string, unknown>).privacyPreferences = nextSnapshot;
@@ -107,12 +104,8 @@ export function createProductionStitchPersistence(
   }
 
   async function applyRuntimePrivacySnapshot(
-    nextSnapshot: {
-      analytics: boolean;
-      errorReporting: boolean;
-      debugMode: boolean;
-    },
-    field: 'analytics' | 'errorReporting' | 'debugMode'
+    nextSnapshot: PrivacySnapshot,
+    field: PrivacyPreferenceField
   ): Promise<void> {
     const runtimeDebugMode =
       nextSnapshot.analytics || nextSnapshot.errorReporting ? nextSnapshot.debugMode : false;
@@ -128,7 +121,7 @@ export function createProductionStitchPersistence(
   }
 
   async function persistPrivacyPreference(
-    field: 'analytics' | 'errorReporting' | 'debugMode',
+    field: PrivacyPreferenceField,
     value: boolean
   ): Promise<void> {
     const nextSnapshot = {
