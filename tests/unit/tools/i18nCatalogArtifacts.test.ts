@@ -10,7 +10,10 @@ import {
   diffGeneratedArtifacts
 } from '../../../tools/i18n/generatedArtifacts';
 import { compileCatalog } from '../../../tools/i18n/compileCatalog';
-import { emitGeneratedSchemaMessages } from '../../../tools/i18n/emitGeneratedSchemaMessages';
+import {
+  emitGeneratedSchemaCore,
+  emitGeneratedSchemaMessages
+} from '../../../tools/i18n/emitGeneratedSchemaMessages';
 
 function createLocaleCatalog(
   language: string,
@@ -229,19 +232,33 @@ describe('i18n generated artifact drift checks', () => {
       schema: schemaCompiled
     });
 
+    const schemaCoreArtifact = artifacts.get('src/i18n/generated/schemaCore.generated.ts');
     const schemaArtifact = artifacts.get('src/i18n/generated/schemaMessages.generated.ts');
+    const schemaEnArtifact = artifacts.get('src/i18n/generated/schema/en.generated.ts');
+    const schemaDeArtifact = artifacts.get('src/i18n/generated/schema/de.generated.ts');
     const localeArtifact = artifacts.get('src/i18n/generated/locales/en.generated.ts');
     const rawSchemaArtifact = emitGeneratedSchemaMessages(schemaCompiled);
+    const rawSchemaCoreArtifact = emitGeneratedSchemaCore(schemaCompiled);
     const schemaArtifactPath = resolve(
       process.cwd(),
       'src/i18n/generated/schemaMessages.generated.ts'
     );
+    const schemaCoreArtifactPath = resolve(
+      process.cwd(),
+      'src/i18n/generated/schemaCore.generated.ts'
+    );
     const schemaPrettierOptions = await prettier.resolveConfig(schemaArtifactPath);
+    const schemaCorePrettierOptions = await prettier.resolveConfig(schemaCoreArtifactPath);
     const formattedSchemaArtifact = await prettier.format(rawSchemaArtifact, {
       ...schemaPrettierOptions,
       filepath: schemaArtifactPath
     });
+    const formattedSchemaCoreArtifact = await prettier.format(rawSchemaCoreArtifact, {
+      ...schemaCorePrettierOptions,
+      filepath: schemaCoreArtifactPath
+    });
 
+    expect(schemaCoreArtifact).toBe(formattedSchemaCoreArtifact);
     expect(schemaArtifact).toBe(formattedSchemaArtifact);
     expect(schemaArtifact).toContain(
       'export const schemaShellMessagesEn = GENERATED_RELEASE_SCHEMA_MESSAGES_EN;'
@@ -249,17 +266,26 @@ describe('i18n generated artifact drift checks', () => {
     expect(schemaArtifact).toContain(
       'export const schemaShellMessagesDe = GENERATED_RELEASE_SCHEMA_MESSAGES_DE;'
     );
-    expect(schemaArtifact).toContain(
+    expect(schemaCoreArtifact).toContain(
       'export type GeneratedSchemaMessageKey = (typeof GENERATED_SCHEMA_MESSAGE_KEYS)[number];'
     );
     expect(schemaArtifact).toContain(
+      "import { GENERATED_RELEASE_SCHEMA_MESSAGES_EN } from './schema/en.generated';"
+    );
+    expect(schemaArtifact).toContain(
+      "export type { GeneratedSchemaMessageKey, GeneratedSchemaMessages } from './schemaCore.generated';"
+    );
+    expect(schemaEnArtifact).toContain(
       'const GENERATED_RELEASE_SCHEMA_MESSAGES_EN_VALUES = parseSchemaMessageValues('
+    );
+    expect(schemaDeArtifact).toContain(
+      'const GENERATED_RELEASE_SCHEMA_MESSAGES_DE_VALUES = parseSchemaMessageValues('
     );
     expect(schemaArtifact).not.toContain(
       "import type { SchemaMessageKey } from '../catalog/schemaKeys';"
     );
     expect(schemaArtifact).not.toContain('parseGeneratedSchemaMessages');
-    expect(schemaArtifact).toContain('["Overview"]');
+    expect(schemaEnArtifact).toContain('["Overview"]');
     expect(localeArtifact).toContain(`'{"extensionName":"Alpha"}'`);
     expect(localeArtifact).not.toContain('schemaOverviewTitle');
   });

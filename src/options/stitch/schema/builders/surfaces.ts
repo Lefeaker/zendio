@@ -9,7 +9,7 @@ import type {
   SurfaceAction,
   VideoSurfaceCapture
 } from '../../types';
-import { DEFAULT_PRODUCTION_ENGLISH_MESSAGES } from '../i18n';
+import { RUNTIME_SURFACE_FALLBACK_MESSAGES } from '../../../../i18n/catalog/runtimeSurfaceFallbackMessages';
 import { buttonNode, div, element, span, strong } from './primitives';
 import { classNames } from './classNames';
 import {
@@ -38,9 +38,8 @@ export function sessionPanelShell(
     resizeHeight: string;
     resizePanel: string;
   } = {
-    resizeHeight:
-      DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaRuntimeSurfaceResizePanelHeightAriaLabel,
-    resizePanel: DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaRuntimeSurfaceResizePanelAriaLabel
+    resizeHeight: RUNTIME_SURFACE_FALLBACK_MESSAGES.schemaRuntimeSurfaceResizePanelHeightAriaLabel,
+    resizePanel: RUNTIME_SURFACE_FALLBACK_MESSAGES.schemaRuntimeSurfaceResizePanelAriaLabel
   }
 ): NodeSchema {
   return div(classNames.session.panelRail, [
@@ -116,7 +115,7 @@ export function sessionHeader(
   labels: RuntimeSessionLabels,
   iconGlyph: string,
   iconSrc?: string,
-  collapseAriaLabel = DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaRuntimeSurfaceCollapsePanelAriaLabel
+  collapseAriaLabel = RUNTIME_SURFACE_FALLBACK_MESSAGES.schemaRuntimeSurfaceCollapsePanelAriaLabel
 ): NodeSchema {
   return div(classNames.surface.windowHeader, [
     surfaceBrand(iconGlyph, labels.title, labels.subtitle, iconSrc),
@@ -225,8 +224,8 @@ export function exportDestinationRow(
     saveToLabel: string;
     configureVaultLabel: string;
   } = {
-    saveToLabel: DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaRuntimeSurfaceSaveToLabel,
-    configureVaultLabel: DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaRuntimeSurfaceConfigureVaultLabel
+    saveToLabel: RUNTIME_SURFACE_FALLBACK_MESSAGES.schemaRuntimeSurfaceSaveToLabel,
+    configureVaultLabel: RUNTIME_SURFACE_FALLBACK_MESSAGES.schemaRuntimeSurfaceConfigureVaultLabel
   }
 ): NodeSchema | null {
   if (!destination) {
@@ -309,7 +308,7 @@ export function sessionStatusStrip(
       type === 'summary'
         ? {
             kind: 'badge',
-            label: DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaRuntimeAiSummaryBadge,
+            label: RUNTIME_SURFACE_FALLBACK_MESSAGES.schemaRuntimeAiSummaryBadge,
             variant: 'violet'
           }
         : null,

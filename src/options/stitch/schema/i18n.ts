@@ -1,5 +1,5 @@
 import { DEFAULT_RUNTIME_MESSAGES, formatMessage, type Messages } from '@i18n';
-import { schemaShellMessagesEnglish } from '@i18n/generated/schemaMessages.generated';
+import { GENERATED_RELEASE_SCHEMA_MESSAGES_EN } from '@i18n/generated/schema/en.generated';
 
 export type SchemaMessageKey = keyof Messages;
 
@@ -51,5 +51,5 @@ export function createSchemaTranslator(messages: Messages | null): SchemaTransla
 
 export const DEFAULT_PRODUCTION_ENGLISH_MESSAGES: Messages = {
   ...DEFAULT_RUNTIME_MESSAGES,
-  ...schemaShellMessagesEnglish
+  ...GENERATED_RELEASE_SCHEMA_MESSAGES_EN
 };

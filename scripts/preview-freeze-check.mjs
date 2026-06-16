@@ -74,11 +74,12 @@ const ALLOWED_PREVIEW_DRIFT = new Map([
         'P02 refreshes the generated preview JS hash again because catalogizing Options/Stitch preview schema and sample copy adds the new schema-backed preview message keys and regenerated schema messages while preserving the frozen reference and preview runtime contract.',
         'The follow-up P02 stat-label preservation keeps the historical preview copy `Total saved` via the narrow schemaPreviewUsageTotalLabel key, which changes only the generated preview/schema message bundle while preserving the frozen reference and production runtime contract.',
         'P03 refreshes the generated preview JS hash after replacing Options resource schema inline English fallback prose with typed catalog-backed fallback resolution. This changes the generated preview bundle while preserving the frozen reference and keeping the Stitch runtime contract under verify:stitch-secondary.',
-        'P04 refreshes the generated preview JS hash after removing the remaining Options settings/surfaces catalog fallback literals, including the controller-audited overview consent fallback, while preserving the frozen reference and Stitch runtime contract.'
+        'P04 refreshes the generated preview JS hash after removing the remaining Options settings/surfaces catalog fallback literals, including the controller-audited overview consent fallback, while preserving the frozen reference and Stitch runtime contract.',
+        'P07 refreshes the generated preview JS hash after splitting generated schema messages into schemaCore plus per-locale schema modules and keeping the preview path on the English schema fallback only, while preserving the frozen reference and Stitch runtime contract.'
       ].join(' '),
       leftSha256: '9020ccbd91acd691eccd3fdf568b9a90efbddf0a35d79f36ef1caba702fa0c07',
-      // 2026-06-16 P04 post-pre-commit stable preview JS hash refresh after settings/surfaces catalog fallback cleanup.
-      rightSha256: 'e6f48931b14daaaafd00543cfa21f27ee3b9f1522389d93aa8c4aa994a52f781'
+      // 2026-06-17 P07 stable preview JS hash refresh after generated schema message module split.
+      rightSha256: '16e362931f14c612153c2b136d3b5211d33a04458215e02877fcb2760d3a6675'
     }
   ]
 ]);
