@@ -76,9 +76,11 @@ describe('article extraction hardening e2e', () => {
     installJsdom(dom, { includeLocalStorage: false });
 
     vi.doMock('@mozilla/readability', () => ({
-      Readability: vi.fn().mockImplementation(() => ({
-        parse: () => null
-      }))
+      Readability: vi.fn(function MockReadability() {
+        return {
+          parse: () => null
+        };
+      })
     }));
 
     const { extractArticle } = await import('../../src/content/extractors/articleExtractor');

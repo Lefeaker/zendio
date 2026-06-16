@@ -633,7 +633,12 @@ function getTrackUsageEventMock(
     params?: UsageEventParamMap[EventName]
   ) => Promise<void>
 > {
-  return deps.trackUsageEvent as ReturnType<typeof vi.fn>;
+  return deps.trackUsageEvent as Mock<
+    <EventName extends UsageEventName>(
+      event: EventName,
+      params?: UsageEventParamMap[EventName]
+    ) => Promise<void>
+  >;
 }
 
 type VideoScreenshotCacheSaveMock = Mock<

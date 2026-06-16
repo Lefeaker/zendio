@@ -1,17 +1,23 @@
 import { describe, expect, it, vi } from 'vitest';
+import type { Mock } from 'vitest';
 import { SessionCommentDraftController } from '@content/shared/panels/sessionCommentDrafts';
+
+type SubmitDraftMock = Mock<(id: string, draft: string) => void | Promise<void>>;
+type DraftChangeMock = Mock<(drafts: Record<string, string>) => void>;
 
 function createController(
   overrides: {
     getRoot?: () => ParentNode | null;
     items?: Array<{ id: string; comment: string }>;
-    onChange?: ReturnType<typeof vi.fn>;
-    submitDraft?: ReturnType<typeof vi.fn>;
+    onChange?: DraftChangeMock;
+    submitDraft?: SubmitDraftMock;
   } = {}
 ) {
   const items = overrides.items ?? [{ id: 'capture-1', comment: 'Saved comment' }];
-  const submitDraft = overrides.submitDraft ?? vi.fn(() => Promise.resolve(undefined));
-  const onChange = overrides.onChange ?? vi.fn();
+  const submitDraft =
+    overrides.submitDraft ??
+    vi.fn<(id: string, draft: string) => Promise<void>>(() => Promise.resolve());
+  const onChange = overrides.onChange ?? vi.fn<(drafts: Record<string, string>) => void>();
   const controller = new SessionCommentDraftController({
     datasetKey: 'captureInput',
     inputSelector: '[data-capture-input]',

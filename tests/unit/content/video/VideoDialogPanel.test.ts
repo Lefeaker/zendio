@@ -1,6 +1,7 @@
 /* @vitest-environment jsdom */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import type { Mock } from 'vitest';
 import type {
   VideoPanelCallbacks,
   VideoPanelTexts,
@@ -39,6 +40,9 @@ const texts: VideoPanelTexts = {
   fragmentEditPlaceholder: 'Annotate selected text',
   captureFocusLabel: 'Focus {index}'
 };
+
+type CaptureEditorFocusMock = Mock<NonNullable<VideoPanelCallbacks['onCaptureEditorFocus']>>;
+type CaptureEditorBlurMock = Mock<NonNullable<VideoPanelCallbacks['onCaptureEditorBlur']>>;
 
 function createCapture(overrides: Partial<VideoPanelCapture> = {}): VideoPanelCapture {
   return {
@@ -345,12 +349,12 @@ describe('VideoDialogPanel', () => {
 
   it('reports capture editor focus and blur lifecycle events', async () => {
     const lifecycleCallbacks: VideoPanelCallbacks & {
-      onCaptureEditorFocus: ReturnType<typeof vi.fn>;
-      onCaptureEditorBlur: ReturnType<typeof vi.fn>;
+      onCaptureEditorFocus: CaptureEditorFocusMock;
+      onCaptureEditorBlur: CaptureEditorBlurMock;
     } = {
       ...callbacks,
-      onCaptureEditorFocus: vi.fn(),
-      onCaptureEditorBlur: vi.fn()
+      onCaptureEditorFocus: vi.fn<NonNullable<VideoPanelCallbacks['onCaptureEditorFocus']>>(),
+      onCaptureEditorBlur: vi.fn<NonNullable<VideoPanelCallbacks['onCaptureEditorBlur']>>()
     };
     const panel = new VideoDialogPanel({ callbacks: lifecycleCallbacks, texts });
     panel.show();
@@ -394,12 +398,12 @@ describe('VideoDialogPanel', () => {
 
   it('does not report outside blur when internal rerender replaces the active editor', async () => {
     const lifecycleCallbacks: VideoPanelCallbacks & {
-      onCaptureEditorBlur: ReturnType<typeof vi.fn>;
-      onCaptureEditorFocus: ReturnType<typeof vi.fn>;
+      onCaptureEditorBlur: CaptureEditorBlurMock;
+      onCaptureEditorFocus: CaptureEditorFocusMock;
     } = {
       ...callbacks,
-      onCaptureEditorBlur: vi.fn(),
-      onCaptureEditorFocus: vi.fn()
+      onCaptureEditorBlur: vi.fn<NonNullable<VideoPanelCallbacks['onCaptureEditorBlur']>>(),
+      onCaptureEditorFocus: vi.fn<NonNullable<VideoPanelCallbacks['onCaptureEditorFocus']>>()
     };
     const panel = new VideoDialogPanel({ callbacks: lifecycleCallbacks, texts });
     panel.show();
