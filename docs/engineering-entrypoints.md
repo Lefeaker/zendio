@@ -25,8 +25,8 @@
   - `npm run test:i18n` 包含 `layout:report`；clean worktree 中需先运行 `npm run build:dev` 或 `npm run build` 生成 `build/dist`
   - `lint:options-css` 的当前有效规则覆盖 `src/options/**/*.css`；`src/options/stitch/styles/**` 的 `--print-config` 必须包含非空 `selector-class-pattern`
   - 显式包含 `lint:hardcoded`；当前 standalone 输出为 `0` hardcoded findings
-  - 显式包含 `audit:i18n-hardcoded-user-copy:check`；生产用户可见文案只能来自 i18n catalog 或 `UserVisibleMessageDescriptor` key，background/content 边界只传 descriptor/code/params。当前 hard gate 输出为 `scanned=577 findings=19 unexpected=0 staleAllowlist=0`，治理细节见 [`i18n-production-copy-governance.md`](./i18n-production-copy-governance.md)
-  - `audit:i18n-uncatalogued-user-copy` 是英文 uncatalogued-copy standalone report-only；当前未接入 `quality`、`verify:preflight`、CI、build、package 或 release。当前 report 输出 `scanned=573 findings=407 unexpected=407 staleAllowlist=0`，分类为 `translation-fallback=253`、`english-literal=134`、`descriptor-boundary=20`；不要把它表述为 hard gate。
+  - 显式包含 `audit:i18n-hardcoded-user-copy:check`；生产用户可见文案只能来自 i18n catalog 或 `UserVisibleMessageDescriptor` key，background/content 边界只传 descriptor/code/params。当前 hard gate 输出为 `scanned=578 findings=19 unexpected=0 staleAllowlist=0`，治理细节见 [`i18n-production-copy-governance.md`](./i18n-production-copy-governance.md)
+  - `audit:i18n-uncatalogued-user-copy` 是英文 uncatalogued-copy standalone report-only；当前未接入 `quality`、`verify:preflight`、CI、build、package 或 release。当前 report 输出 `scanned=574 findings=407 unexpected=407 staleAllowlist=0`，分类为 `translation-fallback=253`、`english-literal=134`、`descriptor-boundary=20`；不要把它表述为 hard gate。
   - 显式包含 `i18n:catalog:check`；catalog/generated artifact drift 会在 `quality`、`verify:preflight` 与 CI 中阻塞
   - `audit:design-system-doc:report` 只检查 tracked / non-ignored 的 active style guidance；被 `.gitignore` 标记的本地过程 archive 不进入当前样式真值口径
   - `i18n:catalog:generate` 当前从 `src/i18n/catalog/messages/<lang>/{runtime,static,schema}.json` 生成 `src/i18n/generated/*`、`src/i18n/generated/locales/*.generated.ts` 与 `public/_locales/**`；`npm run i18n:generate` 保持原命令名，但现在只是兼容包装层，实际委托给 catalog generator
@@ -67,8 +67,9 @@
 - 2026-06-09 dependency-audit 真值：Node `v20.20.2` / npm `10.8.2` 下，`npm audit --omit=dev` 当前为 `0` vulnerabilities，production runtime release gate 仍为 green；`npm audit --audit-level=low` 当前因 dev tooling dependency `vitest <3.2.6` / `@vitest/coverage-v8 <=3.2.5` 返回 `2` critical findings，未接入 `quality` / `verify:preflight`，不得表述为当前全量 green。
 - 2026-06-16 i18n hardcoded P22/post-strict-gap type-ratchet 真值：P16-P22 与 post-P22 strict gap 合入 integration 后，`lint:type-any` 扫描 `1231` files，fresh overall `0/1148/1973/47/3`、src `0/628/695/9/0`、tests `0/520/1278/38/3`；`lint:type-any:ratchet` checked-in 上限同步为 overall `0/1148/1973/53/4`、src `0/628/695/9/0`、tests `0/520/1278/46/4`。本次只同步 accepted integration current truth，`any` 继续保持 `0`，`ts-expect-error` 未增加，non-null 上限未放宽。
 - 2026-06-16 i18n hardcoded production-copy 真值：`audit:i18n-hardcoded-user-copy` 为报告命令；`audit:i18n-hardcoded-user-copy:check` 会先生成 `build/reports/production-build-graph.json`，再以 `--check` 运行 hardcoded user-copy audit，并已接入 `quality`。当前保留 allowlist 仅限 P21 site-native AI parser tokens；P13 regression matrix `tests/unit/i18n/hardcodedSurfaceCoverage.test.ts` 绑定 P03-P22 migrated surfaces 到 executable evidence，integration full `npm run test` 已通过 `391` files / `2477` tests。
-- 2026-06-16 English uncatalogued-copy report 真值：`audit:i18n-uncatalogued-user-copy` 会先刷新 production build graph，再扫描 production-reachable `src/**` 与 relevant `public/**` 中疑似英文 UI copy、translation fallback、descriptor-boundary payload、HTML/DOM text。当前 standalone report-only 输出 `scanned=573 findings=407 unexpected=407 staleAllowlist=0`；top owners 为 Options/Stitch content 与 schema resources。该 audit 未接入 hard gate，后续 gate 化必须先完成迁移/窄 allowlist/误报评估并记录 ledger，不得直接加入 `quality`。
-- 2026-06-16 i18n hardcoded P15 preflight build-budget 真值：`audit:build:report` 在 integration `ca8be48e` 上复现 post-P14 dev-build drift 后，同步 current gates 为 `content/runtime.js` warning `58,564` raw bytes / hard stop `58,752`、`onboarding/index.js` warning `17,377` / hard stop `17,633`、release locale chunk hard stop `64 KB`、shared `chunk-*` top-three hard stops `213 KB` / `136 KB` / `133 KB`；chunk count hard stop 仍为 `120`，single chunk `320 KB`、YAML `70 KB` 未变。本次只同步 accepted P16-P22/P13/P14 integration current truth，不改变生产代码。
+- 2026-06-16 English uncatalogued-copy report 真值：`audit:i18n-uncatalogued-user-copy` 会先刷新 production build graph，再扫描 production-reachable `src/**` 与 relevant `public/**` 中疑似英文 UI copy、translation fallback、descriptor-boundary payload、HTML/DOM text。当前 standalone report-only 输出 `scanned=574 findings=407 unexpected=407 staleAllowlist=0`；top owners 为 Options/Stitch content 与 schema resources。该 audit 未接入 hard gate，后续 gate 化必须先完成迁移/窄 allowlist/误报评估并记录 ledger，不得直接加入 `quality`。
+- 2026-06-16 i18n hardcoded P15 preflight build-budget follow-up 前风险状态：`audit:build:report` 在 integration `ca8be48e` 上复现 post-P14 dev-build drift 后，同步 gates 为 `content/runtime.js` warning `58,564` raw bytes / hard stop `58,752`、`onboarding/index.js` warning `17,377` / hard stop `17,633`、release locale chunk hard stop `64 KB`、shared `chunk-*` top-three hard stops `213 KB` / `136 KB` / `133 KB`；当时 chunk count hard stop 为 `120`，single chunk `320 KB`、YAML `70 KB` 未变。该条保留风险来源，不再代表 follow-up 后当前 chunk count gate。
+- 2026-06-16 i18n hardcoded follow-up build-budget 真值：AI chat runtime parser loaders 合并为一个 lazy `runtimePlatformParsers-*` boundary 后，dev `audit:build:report` chunk count 从 `120` 降为 `101`；chunk count gate 收紧为 warning target `108` / hard stop `118`。本次没有提高任何 hard stop，也没有改变 entry/shared/locale/YAML size hard stops。
 - 2026-05-29 Plan 11 G2/G3 governance 真值：`lint:hardcoded` 已接入 `quality` 与 CI；`audit:platform-boundary:report` 仍是 report-only standalone evidence，当前报告 `148` findings（composition-root `11`、offscreen-local-vault-permission-root `1`、platform-adapter `93`、shared-runtime-helper `23`、type-only `20`），不得当作 hard gate；全量 `npm audit --audit-level=low` 不是 `quality` hard gate，当前 dev tooling advisory 见上一条。
 - 2026-05-29 Plan 11 G4 preflight 真值：`audit:imports:check` 已恢复为 green，当前输出 `No deep relative imports found.`；`verify:preflight` 不再因 `src/content/shared/panels/sessionPanelResizeAdapter.ts` 的深层相对导入失败
 - 2026-06-01 Plan 09 final verification 真值：Node `v20.20.2` / npm `10.8.2` 下，YAML editor / Stitch host 的 `exactOptionalPropertyTypes` gap 已用窄范围类型安全修复收口；`typecheck:strict`、`quality`、`verify:preflight`、`build`、`verify:stitch-secondary` 均已重新通过。该修复未放宽门禁，preview freeze JS allowlist 仅刷新为精确 hash。
@@ -259,9 +260,10 @@ low-concurrency screenshot preparation.
 ## 当前构建预算真值
 
 `npm run audit:build:report` 当前执行以下预算。2026-06-16 i18n hardcoded
-P15 preflight 在 integration `ca8be48e` 上复现同一 dev-build budget drift
-后，同步以下 current-truth gate；本次不改变生产代码、chunk count hard stop、
-single chunk 或 YAML 预算。
+follow-up 将 AI chat runtime parser per-platform wrapper chunks 合并到一个
+lazy `runtimePlatformParsers-*` boundary 后，chunk count gate 已从 P15 的
+warning `118` / hard stop `120` 收紧为 warning `108` / hard stop `118`；
+entry/shared/locale/YAML size gates 未放宽。
 
 - `content/index.js <= 1 KB`
 - `content/runtime.js`: warning target `58,564` raw bytes；hard stop `58,752` raw bytes
@@ -273,7 +275,7 @@ single chunk 或 YAML 预算。
 - 第三大 shared chunk `<= 133 KB`
 - locale chunk `<= 64 KB`
 - `yaml-config <= 70 KB`
-- `chunk count`: warning target `118`；hard stop `120`
+- `chunk count`: warning target `108`；hard stop `118`
 - 当前 `M4` 口径以“保住已验真的 retained set”为准，不再强制证明旧版单批文件数预算
 
 2026-05-29 Plan 11 G3 dev build truth:

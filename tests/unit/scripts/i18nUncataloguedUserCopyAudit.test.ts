@@ -47,17 +47,19 @@ type ScanFn = (options: {
   allowlist?: { rules: AllowlistRule[] };
   productionGraphPath?: string;
 }) => Promise<AuditResult>;
+interface AuditModule {
+  scanI18nUncataloguedUserCopy: ScanFn;
+}
 
 const tempDirs: string[] = [];
 const execFileAsync = promisify(execFile);
 const repoRoot = fileURLToPath(new URL('../../../', import.meta.url));
 
-async function loadAuditModule(): Promise<{ scanI18nUncataloguedUserCopy: ScanFn }> {
-  const moduleUrl = new URL(
-    '../../../scripts/audit-i18n-uncatalogued-user-copy.mjs',
-    import.meta.url
-  ).href;
-  return (await import(moduleUrl)) as { scanI18nUncataloguedUserCopy: ScanFn };
+async function loadAuditModule(): Promise<AuditModule> {
+  const auditModule = await import('../../../scripts/audit-i18n-uncatalogued-user-copy.mjs');
+  return {
+    scanI18nUncataloguedUserCopy: auditModule.scanI18nUncataloguedUserCopy
+  };
 }
 
 async function createProject(files: Record<string, string>): Promise<string> {

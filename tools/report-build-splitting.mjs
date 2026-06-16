@@ -40,13 +40,13 @@ const ENTRY_BUDGETS = new Map([
 // esbuild also extracts the tiny shared screenshot-intent bridge used by both the
 // session runtime and screenshot queue. Keep size budgets strict while allowing
 // the two intentional chunks created by that split.
-// 2026-06-13 final combined integration budget. The current branch combines the
-// structural-debt split with the visible-tab screenshot export path; only the
-// dev chunk count needs a warning target plus hard stop, while
-// entry/shared/locale/YAML size budgets stay unchanged.
+// 2026-06-16 follow-up: AI chat runtime parser loaders now share one lazy
+// runtimePlatformParsers boundary instead of emitting one tiny dynamic-import
+// wrapper per platform. Ratchet chunk count back below the P15 danger zone
+// without changing entry/shared/locale/YAML size budgets.
 const CHUNK_COUNT_BUDGET = {
-  warningTarget: 118,
-  hardStop: 120
+  warningTarget: 108,
+  hardStop: 118
 };
 const MAX_SINGLE_CHUNK_SIZE = 320 * 1024;
 // Shared #1 carries the cross-entry options/repository schema. The first budget

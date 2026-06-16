@@ -1,6 +1,6 @@
 # 性能优化与热点基线
 
-日期：2026-06-13
+日期：2026-06-16
 
 ## 1. 构建真值
 
@@ -48,7 +48,9 @@ npm run audit:build:report
 
 2026-06-14 P06 performance budget guard 复核重新采集 `build:dev`、`audit:build:report` 与 `audit:performance:report`。`report-build-splitting` 现在对 tight dev-build gates 同时输出 observed、warning target 与 hard stop：`content/runtime.js` observed/warning `57,209` raw bytes、hard stop `57,386`；`onboarding/index.js` observed/warning `16,459` raw bytes、hard stop `16,715`；chunk count observed/warning `118`、hard stop `120`。本次没有放宽 locale、single/shared chunk 或 YAML chunk size budgets。`audit:performance:report` 当前为 sourceFiles=`764`、hotspotsOver250=`96`、registeredLineBudgets=`120`，并补齐 `videoCaptureMutationTransaction.ts <= 283` 与 `runtimeMessages.ts <= 356` exact owner budgets。
 
-2026-06-16 i18n hardcoded P15 preflight build-budget sync 在 integration `ca8be48e` 上复现了与 import-boundary gap branch 相同的 dev-build budget drift。当前 truth 为 `content/runtime.js` raw `58,564` bytes（hard stop `58,752`）、`onboarding/index.js` raw `17,377` bytes（hard stop `17,633`）、chunk count `120`（warning `118` / hard stop `120`）、Russian release locale chunk raw `64,525` bytes（locale chunk hard stop `64 KB`），shared `chunk-*` top three 为 raw `217,959`、`138,187`、`135,188` bytes。本次只同步 accepted P16-P22/P13/P14 i18n hardcoded integration current truth；不改变生产代码、single chunk、YAML 或 chunk count hard stop。
+2026-06-16 i18n hardcoded P15 preflight build-budget sync 在 integration `ca8be48e` 上复现了与 import-boundary gap branch 相同的 dev-build budget drift。follow-up 前风险状态为 `content/runtime.js` raw `58,564` bytes（hard stop `58,752`）、`onboarding/index.js` raw `17,377` bytes（hard stop `17,633`）、chunk count `120`（warning `118` / hard stop `120`）、Russian release locale chunk raw `64,525` bytes（locale chunk hard stop `64 KB`），shared `chunk-*` top three 为 raw `217,959`、`138,187`、`135,188` bytes。本次只同步 accepted P16-P22/P13/P14 i18n hardcoded integration risk state；不改变生产代码、single chunk、YAML 或 chunk count hard stop。当前 follow-up 后 chunk count gate 见下一条。
+
+2026-06-16 i18n hardcoded follow-up build-budget risk reduction 将 AI chat runtime parser platform loaders 从 10 个 per-platform dynamic-import wrapper chunks 合并为一个 lazy `runtimePlatformParsers-*` boundary。`build:dev` 后 `audit:build:report` 当前 dev chunk count 从 `120` 降至 `101`，chunk count gate 收紧为 warning target `108` / hard stop `118`。本次不改变 `content/runtime.js`、`onboarding/index.js`、single chunk、shared chunk、locale chunk 或 YAML size hard stops；`ru.generated-*` 与 shared Top 3 仍按 P15 current truth 继续观察。
 
 当前 production fast build 真值：
 
@@ -67,8 +69,9 @@ npm run audit:build:report
 - `build/dist/content/runtime.js`: `57.2 KB`（raw `58,564` bytes；warning target `58,564` raw bytes；hard stop `58,752` raw bytes）
 - `build/dist/options/index.js`: `1.4 KB`（raw `1,384` bytes）
 - `build/dist/onboarding/index.js`: `17.0 KB`（raw `17,377` bytes；warning target `17,377` raw bytes；hard stop `17,633` raw bytes）
-- 总 chunk 数：`120`（warning target `118`；hard stop `120`）
+- 总 chunk 数：`101`（warning target `108`；hard stop `118`）
 - `chunks/runtimeEntry-*.js`: `256.3 KB`
+- `chunks/runtimePlatformParsers-*.js`: `802 B`
 - `chunks/productionStitchAssets-*.js`: `149.3 KB`
 - `chunks/videoSessionControllers-*.js`: `111.2 KB`
 - `chunks/videoLazyRuntime-*.js`: `55.6 KB`
@@ -103,7 +106,7 @@ npm run audit:build:report
 - 第三大 shared chunk `<= 133 KB`
 - locale chunk `<= 64 KB`
 - `yaml-config <= 70 KB`
-- `chunk count`: warning target `118`；hard stop `120`
+- `chunk count`: warning target `108`；hard stop `118`
 
 ## 2. 热点真值
 

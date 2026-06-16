@@ -100,7 +100,7 @@ The report currently classifies:
 - `descriptor-boundary`: English user-visible payload fields under background/content/runtime/error boundaries without a descriptor sibling.
 - `html-uncatalogued-copy` and `dom-text-copy`: text nodes or DOM text assignment outside the catalog.
 
-Current tree truth on 2026-06-16: `scanned=573 findings=407 unexpected=407 staleAllowlist=0`, grouped as `translation-fallback=253`, `english-literal=134`, `descriptor-boundary=20`. Top owners are `src/options/stitch/content.ts`, `src/options/stitch/schema/resources/onboarding.ts`, `src/options/stitch/schema/resources/plugin-setup.ts`, `src/options/stitch/schema/resources/data-usage.ts`, `src/options/stitch/schema/resources/privacy-policy.ts`, and `src/options/stitch/schema/settings/maintenance.ts`.
+Current tree truth on 2026-06-16: `scanned=574 findings=407 unexpected=407 staleAllowlist=0`, grouped as `translation-fallback=253`, `english-literal=134`, `descriptor-boundary=20`. Top owners are `src/options/stitch/content.ts`, `src/options/stitch/schema/resources/onboarding.ts`, `src/options/stitch/schema/resources/plugin-setup.ts`, `src/options/stitch/schema/resources/data-usage.ts`, `src/options/stitch/schema/resources/privacy-policy.ts`, and `src/options/stitch/schema/settings/maintenance.ts`.
 
 Because the current report still contains hundreds of real migration candidates, it is not wired into `quality`, `verify:preflight`, CI, build, package, or release gates. The CLI supports `--check`, but that mode is reserved for local ratchet experiments until the current findings are migrated or narrowly classified. Do not add a broad path-only allowlist to force `--check` green.
 
