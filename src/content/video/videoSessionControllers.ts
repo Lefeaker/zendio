@@ -17,7 +17,6 @@ import { VideoSessionState } from './sessionState';
 import { VideoSessionPlatformController } from './sessionPlatformController';
 import { VideoSessionDomController } from './sessionDom';
 import { VideoSessionDraftController } from './videoSessionDraftController';
-import type { VideoHintState } from './videoHintManager';
 import type { VideoCaptureScreenshot } from './types';
 import type {
   VideoScreenshotCacheRepository,
@@ -66,10 +65,11 @@ export function createVideoSessionControllers(args: {
   state: VideoSessionState;
   destinationState: Pick<ContentExportDestinationState, 'metadata' | 'applyMetadata'>;
   getMessages: () => VideoSessionMessages;
-  applyHint: (state: VideoHintState) => void;
   readCleanupState: () => { isCleaningUp: boolean; shouldTrackSavingState: boolean };
   onDraftRestored?: () => void;
+  onDraftScreenshotHydrationStart?: () => void;
   onDraftScreenshotHydrated?: () => void;
+  onDraftScreenshotHydrationSettled?: ((result: { isCurrent: boolean }) => void) | undefined;
   createPlatformContext: () => VideoPlatformContext;
   getDocumentSelection: () => Selection | null;
   isRangeInsideUi: (range: Range | null) => boolean;
@@ -89,10 +89,11 @@ export function createVideoSessionControllers(args: {
     state,
     destinationState,
     getMessages,
-    applyHint,
     readCleanupState,
     onDraftRestored,
+    onDraftScreenshotHydrationStart,
     onDraftScreenshotHydrated,
+    onDraftScreenshotHydrationSettled,
     createPlatformContext,
     getDocumentSelection,
     isRangeInsideUi,
@@ -179,8 +180,9 @@ export function createVideoSessionControllers(args: {
     storageArea: dependencies.storage.local,
     screenshotCache,
     dom,
-    applyHint,
+    onScreenshotHydrationStart: onDraftScreenshotHydrationStart,
     onScreenshotHydrationChange: onDraftScreenshotHydrated,
+    onScreenshotHydrationSettled: onDraftScreenshotHydrationSettled,
     readCleanupState
   });
   const platformController = new VideoSessionPlatformController({

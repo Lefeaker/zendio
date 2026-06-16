@@ -36,6 +36,57 @@ function createScreenshot(timeSec: number): VideoCaptureScreenshot {
   } as unknown as VideoCaptureScreenshot;
 }
 
+function createPendingTimestampCapture(id: string, timeSec: number): VideoTimestampCapture {
+  return {
+    kind: 'timestamp',
+    id,
+    timeSec,
+    url: `https://video.example/watch?t=${timeSec}`,
+    comment: '',
+    createdAt: timeSec,
+    screenshotRequested: true
+  };
+}
+
+function createVisibleVideo(currentTime = 42): HTMLVideoElement {
+  const video = document.createElement('video');
+  Object.defineProperty(video, 'currentTime', {
+    get: () => currentTime,
+    set: () => undefined,
+    configurable: true
+  });
+  Object.defineProperty(video, 'readyState', {
+    value: 4,
+    configurable: true
+  });
+  Object.defineProperty(video, 'videoWidth', {
+    value: 640,
+    configurable: true
+  });
+  Object.defineProperty(video, 'videoHeight', {
+    value: 360,
+    configurable: true
+  });
+  Object.defineProperty(video, 'currentSrc', {
+    value: 'https://cdn.example/video.mp4',
+    configurable: true
+  });
+  Object.defineProperty(video, 'src', {
+    value: 'https://cdn.example/video.mp4',
+    configurable: true
+  });
+  return video;
+}
+
+async function flushAsyncWork(turns = 8): Promise<void> {
+  for (let index = 0; index < turns; index += 1) {
+    await Promise.resolve();
+  }
+  await new Promise<void>((resolve) => {
+    globalThis.setTimeout(resolve, 0);
+  });
+}
+
 describe('VideoScreenshotPreparationCoordinator', () => {
   it('restores same-session cached screenshots without repeating durable write-through', async () => {
     const screenshot = createScreenshot(42);
@@ -57,5 +108,104 @@ describe('VideoScreenshotPreparationCoordinator', () => {
     expect(capture.screenshot).toBe(screenshot);
     expect(syncPanel).toHaveBeenCalledTimes(1);
     expect(onScreenshotPrepared).not.toHaveBeenCalled();
+  });
+
+  it('requires matching resume calls before suspended pending screenshots can prepare', async () => {
+    const capture = createPendingTimestampCapture('ts-1', 42);
+    const visibleVideo = createVisibleVideo(42);
+    document.body.append(visibleVideo);
+    const captureVisibleFrame = vi.fn(async () => createScreenshot(42));
+    const syncPanel = vi.fn();
+    const coordinator = new VideoScreenshotPreparationCoordinator({
+      doc: document,
+      getCaptures: () => [capture],
+      getVisibleVideo: () => visibleVideo,
+      captureVisibleFrame,
+      syncPanel
+    });
+
+    coordinator.suspendPendingRequests();
+    coordinator.suspendPendingRequests();
+    coordinator.handleVideoElementChange(visibleVideo);
+    coordinator.requestPendingScreenshots();
+    await flushAsyncWork();
+
+    expect(captureVisibleFrame).not.toHaveBeenCalled();
+    expect(capture.screenshot).toBeUndefined();
+
+    coordinator.resumePendingRequests();
+    coordinator.requestPendingScreenshots();
+    await flushAsyncWork();
+
+    expect(captureVisibleFrame).not.toHaveBeenCalled();
+    expect(capture.screenshot).toBeUndefined();
+
+    coordinator.resumePendingRequests();
+    coordinator.requestPendingScreenshots();
+    await vi.waitFor(() => {
+      expect(captureVisibleFrame).toHaveBeenCalledTimes(1);
+    });
+
+    expect(capture.screenshot).toMatchObject({ id: 'shot-42' });
+    expect(syncPanel).toHaveBeenCalledTimes(1);
+  });
+
+  it('runs a deferred pending request after out-of-order restored screenshot hydration settles', async () => {
+    const capture = createPendingTimestampCapture('ts-1', 42);
+    const visibleVideo = createVisibleVideo(42);
+    document.body.append(visibleVideo);
+    const captureVisibleFrame = vi.fn(async () => createScreenshot(42));
+    const coordinator = new VideoScreenshotPreparationCoordinator({
+      doc: document,
+      getCaptures: () => [capture],
+      getVisibleVideo: () => visibleVideo,
+      captureVisibleFrame,
+      syncPanel: vi.fn()
+    });
+
+    coordinator.suspendPendingRequests(); // hydration A
+    coordinator.suspendPendingRequests(); // hydration B
+
+    coordinator.resumePendingRequests(); // hydration B settles first and is current
+    coordinator.requestPendingScreenshots();
+    await flushAsyncWork();
+
+    expect(captureVisibleFrame).not.toHaveBeenCalled();
+    expect(capture.screenshot).toBeUndefined();
+
+    coordinator.resumePendingRequests(); // hydration A settles later and is stale
+    await vi.waitFor(() => {
+      expect(captureVisibleFrame).toHaveBeenCalledTimes(1);
+    });
+
+    expect(capture.screenshot).toMatchObject({ id: 'shot-42' });
+  });
+
+  it('runs a deferred video element change request after suspended hydration resumes', async () => {
+    const capture = createPendingTimestampCapture('ts-1', 42);
+    const visibleVideo = createVisibleVideo(42);
+    document.body.append(visibleVideo);
+    const captureVisibleFrame = vi.fn(async () => createScreenshot(42));
+    const coordinator = new VideoScreenshotPreparationCoordinator({
+      doc: document,
+      getCaptures: () => [capture],
+      getVisibleVideo: () => visibleVideo,
+      captureVisibleFrame,
+      syncPanel: vi.fn()
+    });
+
+    coordinator.suspendPendingRequests();
+    coordinator.handleVideoElementChange(visibleVideo);
+    await flushAsyncWork();
+
+    expect(captureVisibleFrame).not.toHaveBeenCalled();
+    expect(capture.screenshot).toBeUndefined();
+
+    coordinator.resumePendingRequests();
+    await vi.waitFor(() => {
+      expect(captureVisibleFrame).toHaveBeenCalledTimes(1);
+    });
+
+    expect(capture.screenshot).toMatchObject({ id: 'shot-42' });
   });
 });

@@ -1,4 +1,5 @@
-import { formatMessage, type Messages } from '@i18n';
+import { formatMessage } from '@i18n/messageFormatter';
+import type { Messages } from '@i18n/messages';
 import type { FragmentModifierKey } from '@shared/types/options';
 import type { ChipItem, PreviewStoreState } from '@options/stitch/types';
 import { getMessage } from './productionStitchPersistenceUi';

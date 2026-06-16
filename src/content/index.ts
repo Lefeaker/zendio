@@ -35,15 +35,15 @@ if (markContentRuntimeInitialized(document)) {
 
 function initializeClipperRuntime(): void {
   const platform = getPlatformServices();
+  const { storage, messaging, tabs, runtime: extensionRuntime } = platform;
   registerRepositories({
-    storage: platform.storage,
-    messaging: platform.messaging,
-    tabs: platform.tabs,
-    runtime: platform.runtime
+    storage,
+    messaging,
+    tabs,
+    runtime: extensionRuntime
   });
-  configureContentBootstrapStorage(platform.storage);
+  configureContentBootstrapStorage(storage);
   bootstrapContentScript();
-  const { messaging } = platform;
   const primaryOptionsRepository = resolveRepository<IOptionsRepository>(
     DI_TOKENS.IOptionsRepository
   );
@@ -57,7 +57,7 @@ function initializeClipperRuntime(): void {
   const localVaultPermissionPrompt = createLazyLocalVaultPermissionPrompt({
     document,
     window,
-    runtime: platform.runtime
+    runtime: extensionRuntime
   });
   const showSupportProgress = (progress: SupportProgressUpdate): void => {
     const variant = progress.variant ?? 'progress';
@@ -73,18 +73,18 @@ function initializeClipperRuntime(): void {
   const createReaderSession = createLazyReaderSessionFactory({
     document,
     optionsRepository: primaryOptionsRepository,
-    storage: platform.storage,
-    messaging: platform.messaging,
-    runtime: platform.runtime,
+    storage,
+    messaging,
+    runtime: extensionRuntime,
     promptGateway: clipPromptGateway,
     showSupportProgress
   });
   const createVideoSession = createLazyVideoSessionFactory({
     document,
     optionsRepository: primaryOptionsRepository,
-    storage: platform.storage,
-    messaging: platform.messaging,
-    runtime: platform.runtime,
+    storage,
+    messaging,
+    runtime: extensionRuntime,
     showSupportProgress
   });
   const selectionController = createSelectionController({
@@ -107,9 +107,9 @@ function initializeClipperRuntime(): void {
   void initializeVideoPromptOnDemand(
     {
       optionsRepository: primaryOptionsRepository,
-      storage: platform.storage,
-      messaging: platform.messaging,
-      runtime: platform.runtime,
+      storage,
+      messaging,
+      runtime: extensionRuntime,
       showSupportProgress
     },
     window.location.href
@@ -150,7 +150,7 @@ function initializeClipperRuntime(): void {
     {
       document,
       window,
-      storage: platform.storage,
+      storage,
       currentUrl: () => window.location.href,
       createReaderSession: () => createReaderSession(document, window.location.href),
       createVideoSession: () => createVideoSession(document),

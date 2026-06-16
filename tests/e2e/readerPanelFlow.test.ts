@@ -52,8 +52,17 @@ type ReaderDraftEntry = {
 type ReaderClipPayload = {
   title?: string;
   url?: string;
+  markdown?: string;
   meta?: Record<string, unknown>;
 } | null;
+
+type ReaderDraftIndexEntry = {
+  key: string;
+  draftId: string | null;
+  mode: string | null;
+  pageKey: string | null;
+  status: string | null;
+};
 
 const testWithExtension = test.extend<{
   context: BrowserContext;
@@ -573,6 +582,36 @@ async function readReaderDraftEntries(extensionPage: Page): Promise<ReaderDraftE
   );
 }
 
+async function readReaderDraftIndexEntries(extensionPage: Page): Promise<ReaderDraftIndexEntry[]> {
+  return extensionPage.evaluate(async (indexKey) => {
+    const stored = await chrome.storage.local.get(indexKey);
+    const rawIndex =
+      typeof stored === 'object' && stored !== null
+        ? (stored as Record<string, unknown>)[indexKey]
+        : null;
+    const entries =
+      rawIndex &&
+      typeof rawIndex === 'object' &&
+      Array.isArray((rawIndex as { entries?: unknown }).entries)
+        ? (rawIndex as { entries: unknown[] }).entries
+        : [];
+
+    return entries
+      .map((entry) => {
+        const record =
+          typeof entry === 'object' && entry !== null ? (entry as Record<string, unknown>) : {};
+        return {
+          key: typeof record.key === 'string' ? record.key : '',
+          draftId: typeof record.draftId === 'string' ? record.draftId : null,
+          mode: typeof record.mode === 'string' ? record.mode : null,
+          pageKey: typeof record.pageKey === 'string' ? record.pageKey : null,
+          status: typeof record.status === 'string' ? record.status : null
+        };
+      })
+      .filter((entry) => entry.key.length > 0);
+  }, SESSION_DRAFT_INDEX_KEY);
+}
+
 testWithExtension.describe('Reader Panel E2E Flow', () => {
   let diagnostics: ReturnType<typeof attachBrowserDiagnostics> | null = null;
 
@@ -646,6 +685,73 @@ testWithExtension.describe('Reader Panel E2E Flow', () => {
 
       await runStage(testInfo, 'press Escape', () => page.keyboard.press('Escape'));
       await waitForDialogClosed(page, testInfo);
+    }
+  );
+
+  testWithExtension(
+    'cancels a drafted reader session without leaving an active draft behind',
+    async ({ page, context, extensionPage }, testInfo) => {
+      await seedOptions(extensionPage, testInfo);
+      await installReaderExportCaptureListener(extensionPage, testInfo);
+      const tabId = await openReaderFixtureWithRuntime(
+        page,
+        context,
+        extensionPage,
+        testInfo,
+        REAL_READER_FIXTURE_URL
+      );
+      await openReaderFromSelection(
+        page,
+        extensionPage,
+        tabId,
+        { elementId: 'p1', endOffset: 10 },
+        testInfo
+      );
+
+      const input = page
+        .locator('[data-stitch-surface="reader"] input[data-highlight-input]')
+        .first();
+      const unsavedDraft = 'cancelled reader note';
+      await runStage(testInfo, 'fill real reader note before cancel', async () => {
+        await input.fill(unsavedDraft);
+        await expect(input).toHaveValue(unsavedDraft);
+      });
+
+      await expect
+        .poll(
+          async () => {
+            const entries = await readReaderDraftEntries(extensionPage);
+            return {
+              count: entries.length,
+              hasDraft: entries.some((entry) =>
+                Object.values(entry.commentDrafts).includes(unsavedDraft)
+              )
+            };
+          },
+          {
+            timeout: 10000,
+            message: 'reader draft did not persist before cancel'
+          }
+        )
+        .toEqual({ count: 1, hasDraft: true });
+
+      const cancelBtn = page.locator('[data-role="close-btn"]');
+      await runStage(testInfo, 'click cancel button', () => cancelBtn.click());
+      await waitForDialogClosed(page, testInfo);
+
+      await expect
+        .poll(() => readReaderDraftEntries(extensionPage).then((entries) => entries.length), {
+          timeout: 10000,
+          message: 'reader active draft was not cleared after cancel'
+        })
+        .toBe(0);
+      await expect
+        .poll(() => readReaderDraftIndexEntries(extensionPage).then((entries) => entries.length), {
+          timeout: 10000,
+          message: 'reader draft index kept a stale terminal entry after cancel'
+        })
+        .toBe(0);
+      expect(await readCapturedReaderClip(extensionPage)).toBeNull();
     }
   );
 
@@ -811,6 +917,86 @@ testWithExtension.describe('Reader Panel E2E Flow', () => {
         .poll(() => readReaderDraftEntries(extensionPage).then((entries) => entries.length), {
           timeout: 10000,
           message: 'reader draft storage was not cleared after export'
+        })
+        .toBe(0);
+    }
+  );
+
+  testWithExtension(
+    'exports an edited reader note and clears active draft state',
+    async ({ page, context, extensionPage }, testInfo) => {
+      await seedOptions(extensionPage, testInfo);
+      await installReaderExportCaptureListener(extensionPage, testInfo);
+
+      const tabId = await openReaderFixtureWithRuntime(
+        page,
+        context,
+        extensionPage,
+        testInfo,
+        REAL_READER_FIXTURE_URL
+      );
+      await openReaderFromSelection(
+        page,
+        extensionPage,
+        tabId,
+        { elementId: 'p1', endOffset: 10 },
+        testInfo
+      );
+
+      const firstInput = page
+        .locator('[data-stitch-surface="reader"] input[data-highlight-input]')
+        .first();
+      const editedComment = 'exported reader note';
+      await runStage(testInfo, 'fill real reader note before export', async () => {
+        await firstInput.fill(editedComment);
+        await expect(firstInput).toHaveValue(editedComment);
+      });
+
+      await expect
+        .poll(
+          async () => {
+            const entries = await readReaderDraftEntries(extensionPage);
+            return {
+              count: entries.length,
+              hasDraft: entries.some(
+                (entry) =>
+                  entry.highlightTexts.includes('Alpha Beta') &&
+                  Object.values(entry.commentDrafts).includes(editedComment)
+              )
+            };
+          },
+          {
+            timeout: 10000,
+            message: 'reader draft did not persist edited comment before export'
+          }
+        )
+        .toEqual({ count: 1, hasDraft: true });
+
+      const exportBtn = page.locator('[data-role="export-btn"]');
+      await runStage(testInfo, 'export edited reader session', () => exportBtn.click());
+
+      await expect
+        .poll(() => readCapturedReaderClip(extensionPage), {
+          timeout: 10000,
+          message: 'reader export payload was not captured for edited note export'
+        })
+        .not.toBeNull();
+
+      const capturedClip = await readCapturedReaderClip(extensionPage);
+      expect(capturedClip?.markdown).toContain('Alpha Beta');
+      expect(capturedClip?.markdown).toContain(editedComment);
+
+      await waitForDialogClosed(page, testInfo);
+      await expect
+        .poll(() => readReaderDraftEntries(extensionPage).then((entries) => entries.length), {
+          timeout: 10000,
+          message: 'reader active draft was not cleared after export'
+        })
+        .toBe(0);
+      await expect
+        .poll(() => readReaderDraftIndexEntries(extensionPage).then((entries) => entries.length), {
+          timeout: 10000,
+          message: 'reader draft index kept a stale terminal entry after export'
         })
         .toBe(0);
     }

@@ -161,13 +161,20 @@ export class VideoSession {
           state: this.state,
           destinationState: this.destinationState,
           getMessages: () => this.messages,
-          applyHint: (state) => this.applyHint(state),
           readCleanupState: () => ({
             isCleaningUp: this.isCleaningUp,
             shouldTrackSavingState: !this.mutationCoordinator.hasPendingMutations()
           }),
-          onDraftRestored: () => this.screenshotPreparation.requestPendingScreenshots(),
+          onDraftRestored: () => undefined,
+          onDraftScreenshotHydrationStart: () =>
+            this.screenshotPreparation.suspendPendingRequests(),
           onDraftScreenshotHydrated: () => this.syncPanel(),
+          onDraftScreenshotHydrationSettled: ({ isCurrent }) => {
+            this.screenshotPreparation.resumePendingRequests();
+            if (isCurrent) {
+              this.screenshotPreparation.requestPendingScreenshots();
+            }
+          },
           createPlatformContext: () =>
             createVideoSessionPlatformContext({
               doc: this.doc,

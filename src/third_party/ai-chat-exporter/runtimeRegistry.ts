@@ -10,16 +10,16 @@ const EMPTY_RESULT: ParsedResult = {
 type ParserLoader = () => Promise<ChatPlatformParser>;
 
 const parserLoaders = new Map<string, ParserLoader>([
-  ['chatgpt', () => import('./platforms/chatgpt').then((m) => m.chatgptParser)],
-  ['claude', () => import('./platforms/claude').then((m) => m.claudeParser)],
-  ['copilot', () => import('./platforms/copilot').then((m) => m.copilotParser)],
+  ['chatgpt', () => import('./platforms/openaiFamily').then((m) => m.chatgptParser)],
+  ['claude', () => import('./platforms/openaiFamily').then((m) => m.claudeParser)],
+  ['copilot', () => import('./platforms/openaiFamily').then((m) => m.copilotParser)],
   ['gemini', () => import('./platforms/gemini').then((m) => m.geminiParser)],
-  ['tongyi', () => import('./platforms/tongyi').then((m) => m.tongyiParser)],
-  ['deepseek', () => import('./platforms/deepseek').then((m) => m.deepseekParser)],
-  ['kimi', () => import('./platforms/kimi').then((m) => m.kimiParser)],
-  ['doubao', () => import('./platforms/doubao').then((m) => m.doubaoParser)],
-  ['monica', () => import('./platforms/monica').then((m) => m.monicaParser)],
-  ['perplexity', () => import('./platforms/perplexity').then((m) => m.perplexityParser)]
+  ['tongyi', () => import('./platforms/chineseFamily').then((m) => m.tongyiParser)],
+  ['deepseek', () => import('./platforms/chineseFamily').then((m) => m.deepseekParser)],
+  ['kimi', () => import('./platforms/chineseFamily').then((m) => m.kimiParser)],
+  ['doubao', () => import('./platforms/chineseFamily').then((m) => m.doubaoParser)],
+  ['monica', () => import('./platforms/assistantFamily').then((m) => m.monicaParser)],
+  ['perplexity', () => import('./platforms/assistantFamily').then((m) => m.perplexityParser)]
 ]);
 
 const parserAliases: Partial<Record<PlatformId, string[]>> = {

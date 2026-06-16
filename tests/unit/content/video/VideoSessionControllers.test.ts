@@ -71,7 +71,6 @@ describe('createVideoSessionControllers', () => {
         asType({
           ready: 'ready'
         }),
-      applyHint: vi.fn(),
       readCleanupState: () => ({ isCleaningUp: false, shouldTrackSavingState: true }),
       createPlatformContext: () =>
         asType({

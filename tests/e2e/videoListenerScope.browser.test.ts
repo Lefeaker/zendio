@@ -1,4 +1,13 @@
-import { chromium, expect, test, type BrowserContext, type Page } from '@playwright/test';
+import { promises as fs } from 'node:fs';
+import { tmpdir } from 'node:os';
+import {
+  chromium,
+  expect,
+  test,
+  type BrowserContext,
+  type Locator,
+  type Page
+} from '@playwright/test';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
@@ -112,7 +121,7 @@ const testWithExtension = test.extend<{
 }>({
   context: async ({ browserName: _browserName }, use) => {
     void _browserName;
-    const userDataDir = `/tmp/video-listener-scope-${Date.now()}-${Math.random()}`;
+    const userDataDir = await fs.mkdtemp(path.join(tmpdir(), 'video-listener-scope-'));
     const context = await chromium.launchPersistentContext(userDataDir, {
       headless: true,
       channel: 'chromium',
@@ -122,7 +131,10 @@ const testWithExtension = test.extend<{
     try {
       await use(context);
     } finally {
-      await context.close();
+      const openPages = context.pages().filter((page) => !page.isClosed());
+      await Promise.all(openPages.map((page) => page.close().catch(() => undefined)));
+      await context.close().catch(() => undefined);
+      await fs.rm(userDataDir, { recursive: true, force: true });
     }
   },
   extensionPage: async ({ context }, use) => {
@@ -922,6 +934,29 @@ async function openVideoPanelFromControlBar(
   await expect(page.locator('[data-stitch-surface="video"]')).toBeVisible({ timeout: 10000 });
 }
 
+async function waitForPanelCaptureInputReady(input: Locator): Promise<void> {
+  await expect(input).toBeVisible();
+  await expect(input).toBeEditable();
+  await expect
+    .poll(
+      async () =>
+        await input.evaluate((element) => {
+          if (!(element instanceof HTMLInputElement)) {
+            return { connected: false, active: false };
+          }
+          return {
+            connected: element.isConnected,
+            active: document.activeElement === element
+          };
+        }),
+      {
+        timeout: 10000,
+        message: 'panel capture input never settled into an editable, focusable state'
+      }
+    )
+    .toMatchObject({ connected: true });
+}
+
 async function readControlBarGeometry(page: Page, targetSelector: string) {
   return await page.evaluate(readVideoControlBarGeometry, { targetSelector });
 }
@@ -1260,8 +1295,7 @@ testWithExtension.describe('video listener scope browser runtime', () => {
 
       await playingPage.locator('[data-action-id="video:add-note"]').click();
       const playingInput = playingPage.locator('[data-capture-input]').last();
-      await expect(playingInput).toBeVisible();
-      await expect(playingInput).toBeFocused();
+      await waitForPanelCaptureInputReady(playingInput);
       await expect
         .poll(() =>
           readPlaybackCounters(extensionPage, playingTabId).then((counters) => counters.pause)
@@ -1306,14 +1340,15 @@ testWithExtension.describe('video listener scope browser runtime', () => {
 
       await pausedPage.locator('[data-action-id="video:add-note"]').click();
       const pausedInput = pausedPage.locator('[data-capture-input]').last();
-      await expect(pausedInput).toBeVisible();
+      await waitForPanelCaptureInputReady(pausedInput);
       await pausedInput.fill('Paused panel note');
       await pausedInput.press('Enter');
-      await pausedPage.waitForTimeout(100);
-
-      const pausedCounters = await readPlaybackCounters(extensionPage, pausedTabId);
-      expect(pausedCounters.pause).toBe(0);
-      expect(pausedCounters.play).toBe(0);
+      await expect
+        .poll(() => readPlaybackCounters(extensionPage, pausedTabId), {
+          timeout: 10000,
+          message: 'paused panel add-note unexpectedly changed playback counters'
+        })
+        .toMatchObject({ pause: 0, play: 0 });
     }
   );
 
