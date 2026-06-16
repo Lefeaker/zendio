@@ -20,6 +20,7 @@
     "lint:hardcoded": "node scripts/lint-hardcoded-values.mjs",
     "audit:i18n-hardcoded-user-copy": "node tools/report-production-build-graph.mjs --write-json build/reports/production-build-graph.json >/dev/null && node scripts/audit-i18n-hardcoded-user-copy.mjs",
     "audit:i18n-hardcoded-user-copy:check": "node tools/report-production-build-graph.mjs --write-json build/reports/production-build-graph.json >/dev/null && node scripts/audit-i18n-hardcoded-user-copy.mjs --check",
+    "audit:i18n-uncatalogued-user-copy": "node tools/report-production-build-graph.mjs --write-json build/reports/production-build-graph.json >/dev/null && node scripts/audit-i18n-uncatalogued-user-copy.mjs",
     "lint:options-css": "stylelint \"src/options/**/*.css\"",
     "lint:warnings-report": "node scripts/lint-warnings-report.mjs",
     "lint:warnings-guard": "node scripts/lint-warnings-guard.mjs",

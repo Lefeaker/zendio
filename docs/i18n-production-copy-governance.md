@@ -4,12 +4,14 @@
 
 ## 当前不变量
 
-Production user-visible copy 必须满足以下规则：
+Production user-visible copy 的长期治理目标必须满足以下规则：
 
 - 产品自有可见文案只能来自 i18n catalog，或来自 `UserVisibleMessageDescriptor` 这类 typed descriptor 的 key。
 - Background/content 边界只传递 descriptor、message code 与 params；不要跨边界传递新写的中文产品文案。
 - UI owner 在拥有当前 `Messages` 的位置格式化 descriptor；shared error factory、pipeline payload builder、content message guard 不负责拼接最终可见句子。
 - 技术日志、站点原生 token、用户提供内容、诊断数据与产品自有 UI copy 必须分开分类。只有产品自有 UI copy 必须 catalogize；非产品文本必须有 allowlist proof。
+
+当前 hard gate 与 report 的覆盖范围不同：`audit:i18n-hardcoded-user-copy:check` 是已接入 `quality` 的中文/CJK 与 descriptor-boundary hard gate；`audit:i18n-uncatalogued-user-copy` 是英文 uncatalogued-copy 的第一阶段 report-only 审计，用于把新增英文 UI copy、translation fallback 与 descriptor payload 迁移候选显性化。不要把第一阶段英文 report 表述为 hard gate。
 
 ## Catalog Source
 
@@ -75,6 +77,38 @@ The audit excludes catalog/generated locale sources and scans production-reachab
 - Stale or invalid allowlist entries.
 
 Valid allowlist entries must include `id`, `path`, `category`, `reason`, `ownerPlan`, `revisit`, a stable locator (`line`, `pattern`, or `literalIncludes`), and applicable `findingKinds`. Broad path-only allowlists are invalid. The current retained allowlist is limited to P21 site-native AI parser tokens and must be revisited if parser ownership changes.
+
+## English Uncatalogued-Copy Report
+
+Audit owner:
+
+- Script: `scripts/audit-i18n-uncatalogued-user-copy.mjs`
+- Allowlist: `tools/i18n-uncatalogued-user-copy-allowlist.json`
+
+Npm entrypoint:
+
+```bash
+npm run audit:i18n-uncatalogued-user-copy
+```
+
+This command first refreshes `build/reports/production-build-graph.json`, then scans production-reachable `src/**` plus relevant `public/**`. It excludes catalog/generated locale sources, `public/_locales/**`, dev harness public HTML, tests/docs/fixtures/generated files, technical identifiers, URLs, event names, class/icon tokens, CSS text, and site-native AI parser token arrays.
+
+The report currently classifies:
+
+- `english-translation-fallback`: English fallback text in translation helper calls. Existing findings are migration candidates unless a future narrow allowlist classifies a specific retained fallback as `acceptable-fallback`.
+- `uncatalogued-ui-copy`: English product-authored UI copy in user-visible object fields such as `label`, `title`, `message`, `description`, `placeholder`, and `ariaLabel`.
+- `descriptor-boundary`: English user-visible payload fields under background/content/runtime/error boundaries without a descriptor sibling.
+- `html-uncatalogued-copy` and `dom-text-copy`: text nodes or DOM text assignment outside the catalog.
+
+Current tree truth on 2026-06-16: `scanned=573 findings=407 unexpected=407 staleAllowlist=0`, grouped as `translation-fallback=253`, `english-literal=134`, `descriptor-boundary=20`. Top owners are `src/options/stitch/content.ts`, `src/options/stitch/schema/resources/onboarding.ts`, `src/options/stitch/schema/resources/plugin-setup.ts`, `src/options/stitch/schema/resources/data-usage.ts`, `src/options/stitch/schema/resources/privacy-policy.ts`, and `src/options/stitch/schema/settings/maintenance.ts`.
+
+Because the current report still contains hundreds of real migration candidates, it is not wired into `quality`, `verify:preflight`, CI, build, package, or release gates. The CLI supports `--check`, but that mode is reserved for local ratchet experiments until the current findings are migrated or narrowly classified. Do not add a broad path-only allowlist to force `--check` green.
+
+Gate-readiness criteria:
+
+- Current findings are migrated to catalog/descriptor or covered by narrow allowlist entries with `id`, `path`, `category`, `reason`, `ownerPlan`, `revisit`, and a stable locator.
+- `npm run audit:i18n-uncatalogued-user-copy` is standalone green in report mode and `node scripts/audit-i18n-uncatalogued-user-copy.mjs --check` has been evaluated against the intended allowlist without stale entries.
+- The owner records false-positive analysis in the execution ledger before wiring any check mode into `quality`, `verify:preflight`, CI, build, package, or release scripts.
 
 ## Surface Ownership
 
