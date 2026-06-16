@@ -167,6 +167,21 @@ function localizeNavItems(
   });
 }
 
+function localizeOptionalSurfaceText<K extends 'commentPreview' | 'comment' | 'draft'>(
+  key: K,
+  value: string | undefined,
+  messageKey: SchemaMessageKey,
+  t: SchemaTranslator
+): Partial<Record<K, string>> {
+  if (value === undefined) {
+    return {};
+  }
+
+  const localizedText: Partial<Record<K, string>> = {};
+  localizedText[key] = value ? t(messageKey, value) : value;
+  return localizedText;
+}
+
 function localizeClipperSurface(
   surface: PreviewContent['surfaces']['clipper'],
   t: SchemaTranslator
@@ -188,12 +203,18 @@ function localizeReaderSurface(
         return {
           ...highlight,
           excerpt: t('schemaRuntimeReaderHighlightOneExcerpt', highlight.excerpt),
-          commentPreview: highlight.commentPreview
-            ? t('schemaRuntimeReaderHighlightOneComment', highlight.commentPreview)
-            : highlight.commentPreview,
-          comment: highlight.comment
-            ? t('schemaRuntimeReaderHighlightOneComment', highlight.comment)
-            : highlight.comment
+          ...localizeOptionalSurfaceText(
+            'commentPreview',
+            highlight.commentPreview,
+            'schemaRuntimeReaderHighlightOneComment',
+            t
+          ),
+          ...localizeOptionalSurfaceText(
+            'comment',
+            highlight.comment,
+            'schemaRuntimeReaderHighlightOneComment',
+            t
+          )
         };
       }
 
@@ -201,12 +222,18 @@ function localizeReaderSurface(
         return {
           ...highlight,
           excerpt: t('schemaRuntimeReaderHighlightTwoExcerpt', highlight.excerpt),
-          commentPreview: highlight.commentPreview
-            ? t('schemaRuntimeReaderHighlightTwoComment', highlight.commentPreview)
-            : highlight.commentPreview,
-          comment: highlight.comment
-            ? t('schemaRuntimeReaderHighlightTwoComment', highlight.comment)
-            : highlight.comment
+          ...localizeOptionalSurfaceText(
+            'commentPreview',
+            highlight.commentPreview,
+            'schemaRuntimeReaderHighlightTwoComment',
+            t
+          ),
+          ...localizeOptionalSurfaceText(
+            'comment',
+            highlight.comment,
+            'schemaRuntimeReaderHighlightTwoComment',
+            t
+          )
         };
       }
 
@@ -214,9 +241,12 @@ function localizeReaderSurface(
         return {
           ...highlight,
           fullText: t('schemaRuntimeReaderHighlightThreeFullText', highlight.fullText),
-          draft: highlight.draft
-            ? t('schemaRuntimeReaderHighlightThreeDraft', highlight.draft)
-            : highlight.draft
+          ...localizeOptionalSurfaceText(
+            'draft',
+            highlight.draft,
+            'schemaRuntimeReaderHighlightThreeDraft',
+            t
+          )
         };
       }
 
@@ -236,33 +266,48 @@ function localizeVideoSurface(
         return {
           ...capture,
           fullText: t('schemaRuntimeVideoCaptureTwoFullText', capture.fullText),
-          commentPreview: capture.commentPreview
-            ? t('schemaRuntimeVideoCaptureTwoComment', capture.commentPreview)
-            : capture.commentPreview,
-          comment: capture.comment
-            ? t('schemaRuntimeVideoCaptureTwoComment', capture.comment)
-            : capture.comment
+          ...localizeOptionalSurfaceText(
+            'commentPreview',
+            capture.commentPreview,
+            'schemaRuntimeVideoCaptureTwoComment',
+            t
+          ),
+          ...localizeOptionalSurfaceText(
+            'comment',
+            capture.comment,
+            'schemaRuntimeVideoCaptureTwoComment',
+            t
+          )
         };
       }
 
       if (index === 0) {
         return {
           ...capture,
-          commentPreview: capture.commentPreview
-            ? t('schemaRuntimeVideoCaptureOneComment', capture.commentPreview)
-            : capture.commentPreview,
-          comment: capture.comment
-            ? t('schemaRuntimeVideoCaptureOneComment', capture.comment)
-            : capture.comment
+          ...localizeOptionalSurfaceText(
+            'commentPreview',
+            capture.commentPreview,
+            'schemaRuntimeVideoCaptureOneComment',
+            t
+          ),
+          ...localizeOptionalSurfaceText(
+            'comment',
+            capture.comment,
+            'schemaRuntimeVideoCaptureOneComment',
+            t
+          )
         };
       }
 
       if (index === 2) {
         return {
           ...capture,
-          draft: capture.draft
-            ? t('schemaRuntimeVideoCaptureThreeDraft', capture.draft)
-            : capture.draft
+          ...localizeOptionalSurfaceText(
+            'draft',
+            capture.draft,
+            'schemaRuntimeVideoCaptureThreeDraft',
+            t
+          )
         };
       }
 
