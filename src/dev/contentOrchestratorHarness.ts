@@ -25,6 +25,7 @@ import type { ErrorHandler as SharedErrorHandler } from '../shared/errors/errorH
 import { registerService, TOKENS } from '../shared/di';
 import { registerFallbackRepositories } from '../shared/di/serviceRegistry';
 import { createPreviewPlatformServices } from '../platform/preview/services';
+import { DEFAULT_RUNTIME_MESSAGES } from '@i18n';
 
 type HarnessStorageValue = Parameters<StorageAreaService['set']>[1];
 const status = document.getElementById('status');
@@ -80,9 +81,11 @@ const storage: StorageService = {
 const configuredInterfaceTheme =
   new URLSearchParams(window.location.search).get('interfaceTheme') === 'light' ? 'light' : 'dark';
 setControlledRuntimeTheme(window, configuredInterfaceTheme);
+const HARNESS_VIDEO_PROMPT_LABEL = DEFAULT_RUNTIME_MESSAGES.videoPromptAction;
+const HARNESS_VIDEO_PROMPT_DISMISS = DEFAULT_RUNTIME_MESSAGES.videoPromptDismiss;
 const HARNESS_VIDEO_OPTIONS = {
   floatingPromptEnabled: true,
-  promptButtonLabel: '开启视频笔记',
+  promptButtonLabel: HARNESS_VIDEO_PROMPT_LABEL,
   promptShortcut: 'Alt+V',
   controlBarAutoPause: true,
   controlBarScreenshot: true,
@@ -273,11 +276,11 @@ async function showVideoFloatingPrompt(): Promise<void> {
   panelStyleSheetManager.applyStitchRuntimeStyles(shadow);
   const { container } = createPromptElement({
     id: 'aiob-video-floating-prompt',
-    label: '开启视频笔记',
+    label: HARNESS_VIDEO_PROMPT_LABEL,
     shortcut: 'Alt+V',
     previewTheme: configuredInterfaceTheme,
     messages: {
-      videoPromptDismiss: '关闭视频笔记提示'
+      videoPromptDismiss: HARNESS_VIDEO_PROMPT_DISMISS
     } as never,
     getIconUrl: () => runtime.getURL('icons/bannerlogo-48.png'),
     onPrimaryAction: () => {

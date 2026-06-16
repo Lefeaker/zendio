@@ -1,7 +1,21 @@
 import { changelogResource } from './changelogResourceData';
 import { createReleaseLanguageOptions } from './languageOptions';
+import { DEFAULT_PRODUCTION_ENGLISH_MESSAGES } from './schema/i18n';
 import { getPreviewTemplateDefaults } from '@shared/config';
 import type { PreviewContent } from './types';
+
+function message(key: keyof typeof DEFAULT_PRODUCTION_ENGLISH_MESSAGES, fallback = key): string {
+  const value = DEFAULT_PRODUCTION_ENGLISH_MESSAGES[key];
+  return typeof value === 'string' && value.length > 0 ? value : fallback;
+}
+
+const SAMPLE_RESEARCH_VAULT = message('schemaPreviewSampleVaultResearch');
+const SAMPLE_INBOX_VAULT = message('schemaPreviewSampleVaultInbox');
+const SAMPLE_ARCHIVE_VAULT = message('schemaPreviewSampleVaultArchive');
+const SAMPLE_VIDEO_VAULT = message('schemaPreviewSampleVaultVideo');
+const SAMPLE_ARTICLE_TITLE = message('schemaPreviewClipperSourceArticleTitle');
+const SAMPLE_VIDEO_CAPTURE_QUOTE = message('schemaPreviewVideoCaptureTwoSummary');
+const SAMPLE_USAGE_TOTAL_LABEL = message('schemaPreviewUsageTotalLabel');
 
 const usageHistoryValues = [
   24, 28, 31, 36, 33, 39, 44, 41, 48, 53, 58, 55, 62, 67, 61, 57, 52, 49, 54, 60, 66, 72, 78, 74,
@@ -40,7 +54,7 @@ export const previewContent: PreviewContent = {
     },
     {
       id: 'plugin-setup',
-      label: 'Plugin Setup',
+      label: message('schemaResourcePluginSetupTitle'),
       hint: 'Local REST API setup guide',
       icon: 'extension'
     },
@@ -62,26 +76,31 @@ export const previewContent: PreviewContent = {
   surfaceLinks: [
     {
       id: 'clipper',
-      label: 'Clipper Dialog',
+      label: message('schemaRuntimeClipperTitle'),
       hint: 'Selection dialog after highlighting text',
       icon: 'content_cut'
     },
     {
       id: 'reader',
-      label: 'Reader Mode',
+      label: message('schemaRuntimeReaderTitle'),
       hint: 'Floating Reader Mode panel',
       icon: 'auto_stories'
     },
-    { id: 'video', label: 'Video Mode', hint: 'Video note panel', icon: 'smart_display' },
+    {
+      id: 'video',
+      label: message('schemaRuntimeVideoTitle'),
+      hint: 'Video note panel',
+      icon: 'smart_display'
+    },
     {
       id: 'video-floating-prompt',
-      label: 'Video Floating Prompt',
+      label: message('schemaRuntimeVideoFloatingPromptTitle'),
       hint: 'Entry bubble on video pages',
       icon: 'ads_click'
     },
     {
       id: 'task-success',
-      label: 'Task Success',
+      label: message('schemaRuntimeTaskSuccessTitle'),
       hint: 'Success prompt and feedback modal',
       icon: 'celebration'
     }
@@ -101,19 +120,19 @@ export const previewContent: PreviewContent = {
     },
     {
       id: 'capture-sources',
-      label: 'Capture Sources',
+      label: message('schemaCaptureSourcesTitle'),
       hint: 'AI Chat and Video',
       icon: 'ads_click'
     },
     {
       id: 'capture-behavior',
-      label: 'Capture Behavior',
+      label: message('schemaCaptureBehaviorTitle'),
       hint: 'Reading and Fragment behavior',
       icon: 'menu_book'
     },
     {
       id: 'output',
-      label: 'Output & Metadata',
+      label: message('schemaOutputTitle'),
       hint: 'Templates, mappings, and YAML',
       icon: 'output'
     },
@@ -127,14 +146,14 @@ export const previewContent: PreviewContent = {
   overview: {
     hero: {
       title: 'Overview',
-      description: 'Review current usage and manage language, privacy, and data controls.',
+      description: message('schemaOverviewHeroDescription'),
       pills: ['Default vault ready', 'Routing active', 'YAML configured'],
       icon: 'dashboard'
     },
     stats: [
-      { label: 'Total saved', value: 1284 },
-      { label: 'AI conversations', value: 436 },
-      { label: 'Reading + Video + Fragment', value: 406 },
+      { label: SAMPLE_USAGE_TOTAL_LABEL, value: 1284 },
+      { label: message('usageAiLabel'), value: 436 },
+      { label: message('usageFragmentLabel'), value: 406 },
       { label: 'Articles', value: 442 }
     ],
     history: usageHistory
@@ -155,14 +174,14 @@ export const previewContent: PreviewContent = {
   storage: {
     hero: {
       title: 'Storage',
-      description: 'Manage vault lists, connection settings, and routing rules.',
+      description: message('schemaStorageHeroDescription'),
       pills: ['Vault List', 'Routing Engine'],
       icon: 'storage'
     },
     routingTypeOptions: [
       { value: 'Domain', label: 'Domain' },
       { value: 'Keyword', label: 'Keyword' },
-      { value: 'URL Pattern', label: 'URL Pattern' }
+      { value: 'URL Pattern', label: message('ruleTypeUrlPattern') }
     ],
     vaults: [
       {
@@ -174,7 +193,7 @@ export const previewContent: PreviewContent = {
         isDefault: true
       },
       {
-        name: 'Research Vault',
+        name: SAMPLE_RESEARCH_VAULT,
         https: 'https://127.0.0.1:27124/',
         http: 'http://127.0.0.1:27123/',
         key: 'research-key',
@@ -182,7 +201,7 @@ export const previewContent: PreviewContent = {
         isDefault: false
       },
       {
-        name: 'Inbox Vault',
+        name: SAMPLE_INBOX_VAULT,
         https: 'https://127.0.0.1:27130/',
         http: 'http://127.0.0.1:27129/',
         key: 'inbox-key',
@@ -190,7 +209,7 @@ export const previewContent: PreviewContent = {
         isDefault: false
       },
       {
-        name: 'Archive Vault',
+        name: SAMPLE_ARCHIVE_VAULT,
         https: 'https://127.0.0.1:27136/',
         http: 'http://127.0.0.1:27135/',
         key: 'archive-key',
@@ -202,21 +221,21 @@ export const previewContent: PreviewContent = {
       {
         type: 'Domain',
         pattern: 'youtube.com; bilibili.com',
-        target: 'Research Vault',
+        target: SAMPLE_RESEARCH_VAULT,
         priority: 100,
         enabled: true
       },
       {
         type: 'Keyword',
         pattern: 'paper, survey, report',
-        target: 'Research Vault',
+        target: SAMPLE_RESEARCH_VAULT,
         priority: 80,
         enabled: true
       },
       {
         type: 'URL Pattern',
         pattern: 'https://*.weixin.qq.com/*',
-        target: 'Inbox Vault',
+        target: SAMPLE_INBOX_VAULT,
         priority: 60,
         enabled: true
       }
@@ -224,7 +243,7 @@ export const previewContent: PreviewContent = {
   },
   captureSources: {
     hero: {
-      title: 'Capture Sources',
+      title: message('schemaCaptureSourcesTitle'),
       description: 'Configure source-based capture capabilities for AI and video.',
       pills: ['AI Chat', 'Video'],
       icon: 'ads_click'
@@ -233,16 +252,16 @@ export const previewContent: PreviewContent = {
   },
   captureBehavior: {
     hero: {
-      title: 'Capture Behavior',
-      description: 'Configure reading exports and fragment interactions.',
+      title: message('schemaCaptureBehaviorTitle'),
+      description: message('schemaCaptureBehaviorHeroDescription'),
       pills: ['Reading Session', 'Fragment Clipper'],
       icon: 'menu_book'
     }
   },
   output: {
     hero: {
-      title: 'Output & Metadata',
-      description: 'Configure output paths, domain naming, and YAML fields.',
+      title: message('schemaOutputTitle'),
+      description: message('schemaOutputHeroDescription'),
       pills: ['Templates', 'Domain Naming', 'YAML Schema'],
       icon: 'output'
     },
@@ -270,7 +289,7 @@ export const previewContent: PreviewContent = {
       { value: 'article', label: 'Article' },
       { value: 'clipper', label: 'Fragment' },
       { value: 'video', label: 'Video' },
-      { value: 'ai_chat', label: 'AI Chat' }
+      { value: 'ai_chat', label: message('schemaYamlFilterAiChatLabel') }
     ],
     yamlRows: [
       {
@@ -366,8 +385,7 @@ export const previewContent: PreviewContent = {
   experimental: {
     hero: {
       title: 'Experimental',
-      description:
-        'Planned AI-assisted capabilities. Disabled by default until real implementations land.',
+      description: message('schemaExperimentalHeroDescription'),
       pills: [
         'Shared AI Service',
         'Page Summary',
@@ -378,7 +396,10 @@ export const previewContent: PreviewContent = {
     },
     providerOptions: [
       { value: 'openai', label: 'OpenAI' },
-      { value: 'compatible', label: 'OpenAI Compatible' },
+      {
+        value: 'compatible',
+        label: message('schemaExperimentalProviderCompatibleOption')
+      },
       { value: 'siliconflow', label: 'SiliconFlow' },
       { value: 'ollama', label: 'Ollama' }
     ],
@@ -389,7 +410,10 @@ export const previewContent: PreviewContent = {
       apiKey: ''
     },
     subtitleLanguages: [
-      { value: 'zh-CN', label: 'Simplified Chinese' },
+      {
+        value: 'zh-CN',
+        label: message('schemaOverviewLanguageOptionZhCn')
+      },
       { value: 'en', label: 'English' },
       { value: 'ja', label: 'Japanese' },
       { value: 'ko', label: 'Korean' },
@@ -400,15 +424,14 @@ export const previewContent: PreviewContent = {
   resources: {
     privacyPolicy: {
       hero: {
-        title: 'Privacy Policy',
-        description:
-          'Explains what data the extension processes, what it does not collect, and how users can turn related features off.',
+        title: message('schemaResourcePrivacyPolicyTitle'),
+        description: message('schemaResourcePrivacyPolicyDescription'),
         pills: ['Local first', 'No page content analytics', 'User controlled'],
         icon: 'privacy_tip'
       },
       sections: [
         {
-          title: 'Not collected',
+          title: message('errorReportingNotCollectedTitle'),
           body: 'The extension does not upload, sell, or analyze your personal identity or clipped page content.',
           bullets: [
             'Page content and clipped text',
@@ -418,34 +441,33 @@ export const previewContent: PreviewContent = {
           ]
         },
         {
-          title: 'Optional analytics',
+          title: message('analyticsConsentTitle'),
           body: 'Anonymous usage statistics and error reporting are controlled by toggles in Settings. When disabled, runtime analytics and error-reporting consent are disabled as well.'
         },
         {
-          title: 'Local configuration',
+          title: message('schemaResourcePrivacyLocalConfigTitle'),
           body: 'Vault settings, REST API details, path templates, YAML fields, and runtime configuration are stored in extension storage and can be exported or cleared through Maintenance.'
         }
       ]
     },
     dataUsage: {
       hero: {
-        title: 'Data Usage',
-        description:
-          'Explains how the Usage Dashboard, error reporting, and diagnostic actions use local or anonymous data.',
+        title: message('schemaResourceDataUsageTitle'),
+        description: message('schemaResourceDataUsageDescription'),
         pills: ['Usage dashboard', 'Diagnostics', 'Transfer'],
         icon: 'analytics'
       },
       sections: [
         {
-          title: 'Anonymous feature usage',
+          title: message('schemaResourceDataUsageAnonymousUsageTitle'),
           body: 'The Usage Dashboard only counts saves, feature types, and recent trends so users can understand their own workflow.'
         },
         {
-          title: 'Error reporting',
+          title: message('errorReportingConsentTitle'),
           body: 'When error reporting is enabled, the extension records error type and call site, browser and extension version, and the failure timestamp.'
         },
         {
-          title: 'Configuration transfer',
+          title: message('schemaResourceDataUsageConfigMigrationTitle'),
           body: 'Configuration exported from Maintenance supports same-device or cross-browser transfer; imported JSON is parsed and saved through the real Options controller path.'
         }
       ]
@@ -467,9 +489,8 @@ export const previewContent: PreviewContent = {
       steps: [
         {
           number: '1',
-          title: 'Set up Obsidian Local REST API',
-          description:
-            'Finish the Obsidian-side plugin setup and record the connection details first. This is required before the extension can write to Obsidian.',
+          title: message('step1Title'),
+          description: message('step1Description'),
           bullets: [
             'Install and enable the Local REST API plugin in Obsidian',
             'Turn on Enable Non-encrypted (HTTP) Server',
@@ -480,9 +501,8 @@ export const previewContent: PreviewContent = {
         },
         {
           number: '2',
-          title: 'Set up additional vaults and routing',
-          description:
-            'If you use multiple vaults, route content automatically by domain, keywords, or URL pattern.',
+          title: message('step2Title'),
+          description: message('step2Description'),
           bullets: [
             'Additional vaults use the same HTTPS / HTTP / API key setup as the default vault',
             'Route rules can match by domain, keyword, or URL pattern',
@@ -491,9 +511,8 @@ export const previewContent: PreviewContent = {
         },
         {
           number: '3',
-          title: 'Understand the main workflows',
-          description:
-            'The current core flows include full-page clipping, AI chat export, Reader Mode, and Video Mode.',
+          title: message('step3Title'),
+          description: message('step3Description'),
           bullets: [
             'Click blank space on a webpage to save the full page',
             'Auto-detect and export content from mainstream AI chat platforms',
@@ -503,9 +522,8 @@ export const previewContent: PreviewContent = {
         },
         {
           number: '4',
-          title: 'Review the supporting tools',
-          description:
-            'This section covers configuration transfer, domain mappings, custom templates, and diagnostics.',
+          title: message('step4Title'),
+          description: message('step4Description'),
           bullets: [
             'Copy configuration between browsers on the same device',
             'Map domains to friendlier folder names',
@@ -515,9 +533,8 @@ export const previewContent: PreviewContent = {
         },
         {
           number: '5',
-          title: 'Keep iterating and sharing feedback',
-          description:
-            'The project keeps adding smarter capabilities and encourages feedback through the community and issue tracker.',
+          title: message('step5Title'),
+          description: message('step5Description'),
           bullets: [
             'More AI capabilities will continue to land over time',
             'The long-term goal is a two-way workflow between the browser and Obsidian',
@@ -528,9 +545,8 @@ export const previewContent: PreviewContent = {
     },
     pluginSetup: {
       hero: {
-        title: 'Plugin Setup Guide',
-        description:
-          'A setup guide based on the current real product flow, focused on Obsidian Local REST API and extension connectivity.',
+        title: message('schemaResourcePluginSetupTitle'),
+        description: message('schemaResourcePluginSetupDescription'),
         pills: ['Obsidian Plugin', 'Dual URL', 'Vault Name', 'Connection Test'],
         icon: 'extension'
       },
@@ -569,8 +585,7 @@ export const previewContent: PreviewContent = {
     support: {
       hero: {
         title: 'Support',
-        description:
-          'Reflects the project’s current support entry points and support expectations instead of empty placeholders.',
+        description: message('schemaResourceSupportDescription'),
         pills: ['Ko-fi', 'Afdian'],
         icon: 'favorite'
       },
@@ -603,18 +618,18 @@ export const previewContent: PreviewContent = {
     suggestions: {
       hero: {
         title: 'Suggestions',
-        description: 'Uses the existing project feedback channels instead of blank placeholders.',
+        description: message('schemaResourceSuggestionsDescription'),
         pills: ['GitHub Issue', 'Reddit'],
         icon: 'lightbulb'
       },
       channels: [
         {
-          title: 'GitHub Issue',
+          title: message('schemaResourceSuggestionsGithubTitle'),
           subtitle: 'Submit feature requests or bug reports',
           href: 'https://github.com/Lefeaker/AllinOB/issues/new?labels=enhancement&title=%5BFeature%20Request%5D%20'
         },
         {
-          title: 'Reddit Community',
+          title: message('schemaResourceSuggestionsRedditTitle'),
           subtitle: 'Discuss ideas directly with the author',
           href: 'https://www.reddit.com/user/sxnian/'
         }
@@ -635,12 +650,12 @@ export const previewContent: PreviewContent = {
           href: 'https://www.reddit.com/user/sxnian/'
         },
         {
-          title: 'GitHub Repository',
+          title: message('schemaResourceContactGithubTitle'),
           subtitle: 'Browse the project and open issues',
           href: 'https://github.com/Lefeaker/AllinOB'
         },
         {
-          title: 'Support Email',
+          title: message('schemaResourceContactEmailTitle'),
           subtitle: 'Reach support by email',
           href: 'mailto:allinobsidian@outlook.com'
         }
@@ -652,20 +667,19 @@ export const previewContent: PreviewContent = {
   surfaces: {
     clipper: {
       hero: {
-        title: 'Clipper Dialog',
-        description:
-          'The first interaction layer after selecting text on a webpage, responsible for notes, direct save, Reader Mode entry, or Video Mode entry.',
+        title: message('schemaRuntimeClipperTitle'),
+        description: message('schemaRuntimeClipperDescription'),
         pills: ['Clip Selection', 'Reader Entry', 'Video Entry', 'Shortcuts'],
         icon: 'content_cut'
       },
       iconUrl: '../../AiiinOB/public/icons/60x60/zendio_icon_clipt.png',
       labels: {
-        title: 'Clip Selection',
+        title: message('clipDialogTitle'),
         selectionPreview: 'Selection Preview',
         commentLabel: 'Comment'
       },
       source: {
-        title: 'macOS update preview article',
+        title: SAMPLE_ARTICLE_TITLE,
         host: 'macworld.com/article/2024-macos-update',
         initials: 'MW',
         verifiedLabel: 'Verified source'
@@ -673,14 +687,14 @@ export const previewContent: PreviewContent = {
       destination: {
         id: 'vault-research',
         kind: 'vault',
-        label: 'Research Vault',
+        label: SAMPLE_RESEARCH_VAULT,
         path: 'Clippings/macOS update preview article.md',
         hasConfiguredVault: true,
         options: [
           {
             id: 'vault-research',
             kind: 'vault',
-            label: 'Research Vault',
+            label: SAMPLE_RESEARCH_VAULT,
             path: 'Clippings/macOS update preview article.md',
             selected: true
           },
@@ -705,22 +719,21 @@ export const previewContent: PreviewContent = {
         'Alt + arrow keys to move the dialog'
       ],
       actions: [
-        { id: 'reader', label: 'Open Reader Mode', variant: 'ghost' },
-        { id: 'video', label: 'Open Video Mode', variant: 'ghost' },
-        { id: 'clip', label: 'Save Clip', variant: 'primary' }
+        { id: 'reader', label: message('addToReaderButton'), variant: 'ghost' },
+        { id: 'video', label: message('openVideoModeButton'), variant: 'ghost' },
+        { id: 'clip', label: message('clipButton'), variant: 'primary' }
       ]
     },
     reader: {
       hero: {
-        title: 'Reader Mode',
-        description:
-          'Accumulate highlights and notes on the same page, then save them to Obsidian in one step. The layout also reserves the top summary slot for Reader Mode AI summaries.',
+        title: message('schemaRuntimeReaderTitle'),
+        description: message('schemaRuntimeReaderDescription'),
         pills: ['Non-modal Panel', 'Highlight List', 'Inline Comment Edit', 'AI Summary Slot'],
         icon: 'auto_stories'
       },
       iconUrl: '../../AiiinOB/public/icons/60x60/zendio_icon_readingt.png',
       labels: {
-        title: 'Reader Mode',
+        title: message('schemaRuntimeReaderTitle'),
         subtitle: 'Reading session',
         exitTriggerLabel: 'Exit',
         exitTitle: 'Leave this panel?',
@@ -735,14 +748,14 @@ export const previewContent: PreviewContent = {
       destination: {
         id: 'vault-research',
         kind: 'vault',
-        label: 'Research Vault',
+        label: SAMPLE_RESEARCH_VAULT,
         path: 'Reading/macOS update preview article.md',
         hasConfiguredVault: true,
         options: [
           {
             id: 'vault-research',
             kind: 'vault',
-            label: 'Research Vault',
+            label: SAMPLE_RESEARCH_VAULT,
             path: 'Reading/macOS update preview article.md',
             selected: true
           },
@@ -797,20 +810,19 @@ export const previewContent: PreviewContent = {
         }
       ],
       actions: [
-        { id: 'reader:finish', label: 'Finish and Save', variant: 'primary' },
+        { id: 'reader:finish', label: message('readerPanelFinish'), variant: 'primary' },
         { id: 'reader:cancel', label: 'Cancel', variant: 'ghost' }
       ]
     },
     video: {
       hero: {
-        title: 'Video Mode',
-        description:
-          'Build video notes around timestamps and subtitle or comment fragments. The panel keeps the real workflow of add note -> edit comment -> finish and save.',
+        title: message('schemaRuntimeVideoTitle'),
+        description: message('schemaRuntimeVideoDescription'),
         pills: ['Timestamp Notes', 'Fragment Capture', 'Inline Edit', 'YouTube / Bilibili'],
         icon: 'smart_display'
       },
       labels: {
-        title: 'Video Mode',
+        title: message('schemaRuntimeVideoTitle'),
         subtitle: 'Video session active',
         exitTriggerLabel: 'Exit',
         exitTitle: 'Leave this panel?',
@@ -828,14 +840,14 @@ export const previewContent: PreviewContent = {
       destination: {
         id: 'vault-video',
         kind: 'vault',
-        label: 'Video Vault',
+        label: SAMPLE_VIDEO_VAULT,
         path: 'Videos/demo-video-notes.md',
         hasConfiguredVault: true,
         options: [
           {
             id: 'vault-video',
             kind: 'vault',
-            label: 'Video Vault',
+            label: SAMPLE_VIDEO_VAULT,
             path: 'Videos/demo-video-notes.md',
             selected: true
           },
@@ -866,7 +878,7 @@ export const previewContent: PreviewContent = {
           index: 2,
           kind: 'fragment',
           markerLabel: '08:12',
-          summary: '"What creates understanding is the judgment you make while watching."',
+          summary: SAMPLE_VIDEO_CAPTURE_QUOTE,
           fullText:
             'What creates understanding is the judgment you make while watching. The timestamp only helps you return to the moment; the explanation still comes from your comment and the surrounding context.',
           commentPreview:
@@ -887,20 +899,19 @@ export const previewContent: PreviewContent = {
         }
       ],
       actions: [
-        { id: 'video:finish', label: 'Finish and Save', variant: 'primary' },
+        { id: 'video:finish', label: message('videoPanelFinish'), variant: 'primary' },
         { id: 'video:cancel', label: 'Cancel', variant: 'ghost' }
       ]
     },
     videoFloatingPrompt: {
-      label: 'Start video notes',
+      label: message('videoPromptAction'),
       shortcut: 'Alt+V',
       dismissLabel: 'Dismiss video-note prompt'
     },
     taskSuccess: {
       hero: {
-        title: 'Task Success',
-        description:
-          'A post-save feedback layer with status copy, support links, like/dislike actions, and preview states for the follow-up toasts.',
+        title: message('schemaRuntimeTaskSuccessTitle'),
+        description: message('schemaRuntimeTaskSuccessDescription'),
         pills: ['Success Prompt', 'Support Links', 'Like / Dislike', 'Toast States'],
         icon: 'celebration'
       },
@@ -914,13 +925,13 @@ export const previewContent: PreviewContent = {
       dislikeLabel: 'Dislike',
       dismissLabel: 'Click anywhere else to close',
       likeToast: {
-        title: 'Thanks for the encouragement!',
-        detail: 'If you want to help more people discover Zendio, feel free to leave a review.',
+        title: message('supportPromptLikeThankYou'),
+        detail: message('schemaPreviewTaskSuccessLikeToastDetail'),
         actions: ['Write a review', 'I already left one']
       },
       dislikeToast: {
-        title: 'Report an issue',
-        detail: 'Continue the discussion on Reddit or file an issue on GitHub.',
+        title: message('supportPromptDislikeToastTitle'),
+        detail: message('schemaPreviewTaskSuccessDislikeToastDetail'),
         actions: ['Discuss on Reddit', 'GitHub']
       }
     }
