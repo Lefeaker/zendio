@@ -4,11 +4,19 @@ import {
 } from '../../shared/attachments/clipAttachmentBinary';
 import type { StorageAreaService } from '../../platform/interfaces/storage';
 import type { VideoCaptureScreenshot } from './types';
-import {
-  pruneVideoScreenshotCacheIndexEntries,
-  type VideoScreenshotCacheIndexState
-} from './videoScreenshotCacheIndex';
 import { runSerializedVideoScreenshotCacheIndexMutation } from './videoScreenshotCacheIndexMutationQueue';
+import {
+  buildVideoScreenshotCacheRef,
+  matchesVideoScreenshotCacheRef,
+  pruneVideoScreenshotCacheIndexEntries,
+  persistVideoScreenshotCacheIndex,
+  readVideoScreenshotCacheIndexState,
+  requireVideoScreenshotCacheIndexEntry
+} from './videoScreenshotCacheIndex';
+import type {
+  VideoScreenshotCacheBlobEntry,
+  VideoScreenshotCacheBlobStore
+} from './videoScreenshotCacheStore';
 import {
   VIDEO_SCREENSHOT_CACHE_INDEX_KEY,
   VIDEO_SCREENSHOT_CACHE_MAX_CONTENT_BYTES,
@@ -19,8 +27,6 @@ import {
   createVideoScreenshotCacheStorageKey,
   isVideoScreenshotCachePageKey,
   normalizeVideoScreenshotCacheEntry,
-  normalizeVideoScreenshotCacheIndex,
-  normalizeVideoScreenshotCacheIndexEntry,
   normalizeVideoScreenshotCacheRef,
   type VideoScreenshotCacheEntry,
   type VideoScreenshotCacheIndexEntry,
@@ -35,6 +41,11 @@ export interface VideoScreenshotCacheRepositoryOptions {
   now?: () => number;
 }
 
+export interface VideoScreenshotCacheRepositoryDependencies {
+  blobStore: VideoScreenshotCacheBlobStore;
+  legacyArea?: StorageAreaService;
+}
+
 export interface VideoScreenshotCacheSaveInput {
   pageKey: string;
   captureId: string;
@@ -42,30 +53,16 @@ export interface VideoScreenshotCacheSaveInput {
 }
 
 export type VideoScreenshotCacheSaveResult =
-  | {
-      status: 'saved';
-      ref: VideoScreenshotCacheRef;
-    }
-  | {
-      status: 'skipped';
-      reason: 'missing-blob-content';
-    }
-  | {
-      status: 'skipped';
-      reason: 'invalid-metadata';
-      field: 'pageKey';
-    }
+  | { status: 'saved'; ref: VideoScreenshotCacheRef }
+  | { status: 'skipped'; reason: 'missing-blob-content' }
+  | { status: 'skipped'; reason: 'invalid-metadata'; field: 'pageKey' }
   | {
       status: 'skipped';
       reason: 'content-too-large';
       byteLength: number;
       maxContentBytes: number;
     }
-  | {
-      status: 'skipped';
-      reason: 'serialize-failed';
-      error: string;
-    };
+  | { status: 'skipped'; reason: 'serialize-failed'; error: string };
 
 export interface VideoScreenshotCacheRepository {
   save(input: VideoScreenshotCacheSaveInput): Promise<VideoScreenshotCacheSaveResult>;
@@ -76,8 +73,35 @@ export interface VideoScreenshotCacheRepository {
   pruneToLimits(): Promise<void>;
 }
 
+interface ResolvedOptions {
+  ttlMs: number;
+  maxGlobalEntries: number;
+  maxPageEntries: number;
+  maxContentBytes: number;
+  now: () => number;
+}
+
 function normalizePositiveInteger(value: number | undefined, fallback: number): number {
   return typeof value === 'number' && Number.isInteger(value) && value > 0 ? value : fallback;
+}
+
+function resolveOptions(options: VideoScreenshotCacheRepositoryOptions): ResolvedOptions {
+  return {
+    ttlMs: normalizePositiveInteger(options.ttlMs, VIDEO_SCREENSHOT_CACHE_TTL_MS),
+    maxGlobalEntries: normalizePositiveInteger(
+      options.maxGlobalEntries,
+      VIDEO_SCREENSHOT_CACHE_MAX_GLOBAL_ENTRIES
+    ),
+    maxPageEntries: normalizePositiveInteger(
+      options.maxPageEntries,
+      VIDEO_SCREENSHOT_CACHE_MAX_PAGE_ENTRIES
+    ),
+    maxContentBytes: normalizePositiveInteger(
+      options.maxContentBytes,
+      VIDEO_SCREENSHOT_CACHE_MAX_CONTENT_BYTES
+    ),
+    now: options.now ?? (() => Date.now())
+  };
 }
 
 function hasBlobContent(
@@ -88,149 +112,194 @@ function hasBlobContent(
   return screenshot.content?.kind === 'blob';
 }
 
-function buildRef(entry: VideoScreenshotCacheEntry): VideoScreenshotCacheRef {
-  const ref = normalizeVideoScreenshotCacheRef({
-    schemaVersion: entry.schemaVersion,
-    key: entry.key,
-    pageKey: entry.pageKey,
-    captureId: entry.captureId,
+function isStorageAreaService(
+  value: StorageAreaService | VideoScreenshotCacheRepositoryDependencies
+): value is StorageAreaService {
+  return typeof (value as StorageAreaService).get === 'function';
+}
+
+function createMutationSerializer() {
+  let chain = Promise.resolve();
+  return async function runSerialized<T>(operation: () => Promise<T>): Promise<T> {
+    const current = chain.then(operation, operation);
+    chain = current.then(
+      () => undefined,
+      () => undefined
+    );
+    return current;
+  };
+}
+
+function buildEntryMetadata(
+  pageKey: string,
+  captureId: string,
+  screenshot: Pick<
+    VideoCaptureScreenshot,
+    'id' | 'fileName' | 'mimeType' | 'capturedAt'
+  >,
+  byteLength: number,
+  options: ResolvedOptions,
+  operationTime: number
+): VideoScreenshotCacheIndexEntry {
+  const writeTime = Math.max(operationTime, screenshot.capturedAt);
+  return requireVideoScreenshotCacheIndexEntry({
+    schemaVersion: 1,
+    key: createVideoScreenshotCacheStorageKey({
+      pageKey,
+      captureId,
+      screenshotId: screenshot.id
+    }),
+    pageKey,
+    captureId,
+    id: screenshot.id,
+    fileName: screenshot.fileName,
+    mimeType: screenshot.mimeType,
+    byteLength,
+    capturedAt: screenshot.capturedAt,
+    createdAt: writeTime,
+    updatedAt: writeTime,
+    expiresAt: writeTime + options.ttlMs
+  });
+}
+
+function toScreenshot(
+  entry: Pick<
+    VideoScreenshotCacheIndexEntry,
+    'id' | 'fileName' | 'mimeType' | 'capturedAt' | 'byteLength'
+  >,
+  blob: Blob
+): VideoCaptureScreenshot {
+  return {
     id: entry.id,
     fileName: entry.fileName,
     mimeType: entry.mimeType,
-    byteLength: entry.byteLength,
     capturedAt: entry.capturedAt,
-    expiresAt: entry.expiresAt
-  });
-  if (ref === null) {
-    throw new Error('Invalid video screenshot cache ref.');
-  }
-  return ref;
+    content: {
+      kind: 'blob',
+      blob,
+      byteLength: entry.byteLength
+    }
+  };
 }
 
-function buildIndexEntry(entry: VideoScreenshotCacheEntry): VideoScreenshotCacheIndexEntry {
-  const indexEntry = normalizeVideoScreenshotCacheIndexEntry({
-    schemaVersion: entry.schemaVersion,
-    key: entry.key,
-    pageKey: entry.pageKey,
-    captureId: entry.captureId,
-    id: entry.id,
-    fileName: entry.fileName,
-    mimeType: entry.mimeType,
-    byteLength: entry.byteLength,
-    capturedAt: entry.capturedAt,
-    createdAt: entry.createdAt,
-    updatedAt: entry.updatedAt,
-    expiresAt: entry.expiresAt
-  });
-  if (indexEntry === null) {
-    throw new Error('Invalid video screenshot cache index entry.');
+async function removeLegacyKeys(
+  area: StorageAreaService | undefined,
+  keys: Iterable<string>
+): Promise<void> {
+  if (!area) {
+    return;
   }
-  return indexEntry;
+  const keySet = new Set([...keys].filter((key) => typeof key === 'string' && key.length > 0));
+  if (keySet.size === 0) {
+    return;
+  }
+
+  await runSerializedVideoScreenshotCacheIndexMutation(area, async () => {
+    const indexState = await readVideoScreenshotCacheIndexState(area);
+    const nextEntries = indexState.entries.filter((entry) => !keySet.has(entry.key));
+    await persistVideoScreenshotCacheIndex(
+      area,
+      nextEntries,
+      [...keySet],
+      indexState.dirty || nextEntries.length !== indexState.entries.length
+    );
+  });
 }
 
-function matchesRef(entry: VideoScreenshotCacheEntry, ref: VideoScreenshotCacheRef): boolean {
-  return (
-    entry.schemaVersion === ref.schemaVersion &&
-    entry.key === ref.key &&
-    entry.pageKey === ref.pageKey &&
-    entry.captureId === ref.captureId &&
-    entry.id === ref.id &&
-    entry.fileName === ref.fileName &&
-    entry.mimeType === ref.mimeType &&
-    entry.byteLength === ref.byteLength &&
-    entry.capturedAt === ref.capturedAt &&
-    entry.expiresAt === ref.expiresAt
-  );
+function pruneLegacyEntries(
+  entries: readonly VideoScreenshotCacheIndexEntry[],
+  options: ResolvedOptions,
+  applyLimits: boolean,
+  now = options.now()
+) {
+  return pruneVideoScreenshotCacheIndexEntries(entries, {
+    now,
+    maxGlobalEntries: options.maxGlobalEntries,
+    maxPageEntries: options.maxPageEntries,
+    applyLimits
+  });
+}
+
+async function loadLegacyEntry(
+  area: StorageAreaService | undefined,
+  ref: VideoScreenshotCacheRef,
+  operationTime: number
+): Promise<{ entry: VideoScreenshotCacheEntry; blob: Blob } | null> {
+  if (!area) {
+    return null;
+  }
+
+  const rawEntry = await area.get(ref.key);
+  if (rawEntry === undefined) {
+    await removeLegacyKeys(area, [ref.key]);
+    return null;
+  }
+
+  const entry = normalizeVideoScreenshotCacheEntry(rawEntry);
+  if (entry === null || entry.expiresAt <= operationTime || !matchesVideoScreenshotCacheRef(entry, ref)) {
+    await removeLegacyKeys(area, [ref.key]);
+    return null;
+  }
+
+  try {
+    return {
+      entry,
+      blob: serializedAttachmentContentToBlob(
+        {
+          kind: 'base64',
+          binary: entry.content
+        },
+        entry.mimeType
+      )
+    };
+  } catch {
+    await removeLegacyKeys(area, [ref.key]);
+    return null;
+  }
 }
 
 export function createVideoScreenshotCacheRepository(
   area: StorageAreaService,
+  options?: VideoScreenshotCacheRepositoryOptions
+): VideoScreenshotCacheRepository;
+export function createVideoScreenshotCacheRepository(
+  dependencies: VideoScreenshotCacheRepositoryDependencies,
+  options?: VideoScreenshotCacheRepositoryOptions
+): VideoScreenshotCacheRepository;
+export function createVideoScreenshotCacheRepository(
+  target: StorageAreaService | VideoScreenshotCacheRepositoryDependencies,
   options: VideoScreenshotCacheRepositoryOptions = {}
 ): VideoScreenshotCacheRepository {
-  const ttlMs = normalizePositiveInteger(options.ttlMs, VIDEO_SCREENSHOT_CACHE_TTL_MS);
-  const maxGlobalEntries = normalizePositiveInteger(
-    options.maxGlobalEntries,
-    VIDEO_SCREENSHOT_CACHE_MAX_GLOBAL_ENTRIES
-  );
-  const maxPageEntries = normalizePositiveInteger(
-    options.maxPageEntries,
-    VIDEO_SCREENSHOT_CACHE_MAX_PAGE_ENTRIES
-  );
-  const maxContentBytes = normalizePositiveInteger(
-    options.maxContentBytes,
-    VIDEO_SCREENSHOT_CACHE_MAX_CONTENT_BYTES
-  );
-  const now = options.now ?? (() => Date.now());
-
-  async function readIndexState(): Promise<VideoScreenshotCacheIndexState> {
-    const raw = await area.get(VIDEO_SCREENSHOT_CACHE_INDEX_KEY);
-    if (raw === undefined) {
-      return {
-        entries: [],
-        dirty: false
-      };
-    }
-
-    const parsed = normalizeVideoScreenshotCacheIndex(raw);
-    if (parsed === null) {
-      return {
-        entries: [],
-        dirty: true
-      };
-    }
-
-    return {
-      entries: parsed.entries,
-      dirty: false
-    };
-  }
-
-  async function persistIndex(
-    entries: VideoScreenshotCacheIndexEntry[],
-    removedKeys: readonly string[],
-    dirty: boolean
-  ): Promise<void> {
-    const uniqueRemovedKeys = Array.from(new Set(removedKeys));
-    if (uniqueRemovedKeys.length > 0) {
-      await area.remove(uniqueRemovedKeys);
-    }
-    if (dirty || uniqueRemovedKeys.length > 0) {
-      await area.set(VIDEO_SCREENSHOT_CACHE_INDEX_KEY, createVideoScreenshotCacheIndex(entries));
-    }
-  }
-
-  async function removeKeys(keys: Iterable<string>): Promise<void> {
-    const keySet = new Set([...keys].filter((key) => typeof key === 'string' && key.length > 0));
-    if (keySet.size === 0) {
-      return;
-    }
-
-    await runSerializedVideoScreenshotCacheIndexMutation(area, async () => {
-      const indexState = await readIndexState();
-      const nextEntries = indexState.entries.filter((entry) => !keySet.has(entry.key));
-      await persistIndex(
-        nextEntries,
-        [...keySet],
-        indexState.dirty || nextEntries.length !== indexState.entries.length
-      );
-    });
-  }
+  const resolved = resolveOptions(options);
+  const legacyMode = isStorageAreaService(target);
+  const legacyArea = legacyMode ? target : target.legacyArea;
+  const legacyStore = legacyMode ? target : undefined;
+  const blobStore = legacyMode ? undefined : target.blobStore;
+  const runBlobMutation = legacyMode ? undefined : createMutationSerializer();
 
   async function prune(applyLimits: boolean): Promise<void> {
-    await runSerializedVideoScreenshotCacheIndexMutation(area, async () => {
-      const indexState = await readIndexState();
-      const nextState = pruneVideoScreenshotCacheIndexEntries(indexState.entries, {
-        now: now(),
-        maxGlobalEntries,
-        maxPageEntries,
-        applyLimits
+    if (blobStore && runBlobMutation) {
+      await runBlobMutation(async () => {
+        const result = await blobStore.prune({
+          now: resolved.now(),
+          maxGlobalEntries: resolved.maxGlobalEntries,
+          maxPageEntries: resolved.maxPageEntries,
+          applyLimits
+        });
+        await removeLegacyKeys(legacyArea, result.removedKeys);
       });
-
+      return;
+    }
+    if (!legacyStore) {
+      return;
+    }
+    await runSerializedVideoScreenshotCacheIndexMutation(legacyStore, async () => {
+      const indexState = await readVideoScreenshotCacheIndexState(legacyStore);
+      const nextState = pruneLegacyEntries(indexState.entries, resolved, applyLimits);
       if (!indexState.dirty && !nextState.dirty && nextState.removedKeys.length === 0) {
         return;
       }
-
-      await persistIndex(nextState.entries, nextState.removedKeys, true);
+      await persistVideoScreenshotCacheIndex(legacyStore, nextState.entries, nextState.removedKeys, true);
     });
   }
 
@@ -238,130 +307,131 @@ export function createVideoScreenshotCacheRepository(
     async save(input) {
       const { pageKey, captureId, screenshot } = input;
       if (!isVideoScreenshotCachePageKey(pageKey)) {
-        return {
-          status: 'skipped',
-          reason: 'invalid-metadata',
-          field: 'pageKey'
-        };
+        return { status: 'skipped', reason: 'invalid-metadata', field: 'pageKey' };
       }
-
       if (!hasBlobContent(screenshot)) {
-        return {
-          status: 'skipped',
-          reason: 'missing-blob-content'
-        };
+        return { status: 'skipped', reason: 'missing-blob-content' };
       }
 
-      if (screenshot.content.byteLength > maxContentBytes) {
+      const operationTime = resolved.now();
+      if (legacyMode) {
+        let serializedContent;
+        try {
+          serializedContent = await serializeBlobAttachmentContent(screenshot.content.blob);
+        } catch (error) {
+          return {
+            status: 'skipped',
+            reason: 'serialize-failed',
+            error: error instanceof Error ? error.message : 'Unknown serialization failure.'
+          };
+        }
+
+        if (serializedContent.byteLength > resolved.maxContentBytes) {
+          return {
+            status: 'skipped',
+            reason: 'content-too-large',
+            byteLength: serializedContent.byteLength,
+            maxContentBytes: resolved.maxContentBytes
+          };
+        }
+
+        const entry = normalizeVideoScreenshotCacheEntry({
+          ...buildEntryMetadata(pageKey, captureId, screenshot, serializedContent.byteLength, resolved, operationTime),
+          content: serializedContent
+        });
+        if (entry === null || !legacyStore) {
+          return {
+            status: 'skipped',
+            reason: 'serialize-failed',
+            error: 'Repository rejected the normalized cache entry.'
+          };
+        }
+
+        const ref = buildVideoScreenshotCacheRef(entry);
+        await runSerializedVideoScreenshotCacheIndexMutation(legacyStore, async () => {
+          const indexState = await readVideoScreenshotCacheIndexState(legacyStore);
+          const replacedKeys = indexState.entries
+            .filter(
+              (currentEntry) =>
+                currentEntry.key !== entry.key &&
+                currentEntry.pageKey === entry.pageKey &&
+                currentEntry.captureId === entry.captureId
+            )
+            .map((currentEntry) => currentEntry.key);
+          const nextState = pruneLegacyEntries(
+            [
+              entry,
+              ...indexState.entries.filter(
+                (currentEntry) =>
+                  currentEntry.key !== entry.key &&
+                  !(
+                    currentEntry.pageKey === entry.pageKey &&
+                    currentEntry.captureId === entry.captureId
+                  )
+              )
+            ],
+            resolved,
+            true,
+            operationTime
+          );
+
+          await legacyStore.setMany({
+            [entry.key]: entry,
+            [VIDEO_SCREENSHOT_CACHE_INDEX_KEY]: createVideoScreenshotCacheIndex(nextState.entries)
+          });
+
+          const removedKeys = Array.from(
+            new Set([...replacedKeys, ...nextState.removedKeys.filter((key) => key !== entry.key)])
+          );
+          if (removedKeys.length > 0) {
+            await legacyStore.remove(removedKeys);
+          }
+        });
+
+        return { status: 'saved', ref };
+      }
+
+      const byteLength = screenshot.content.blob.size;
+      if (byteLength > resolved.maxContentBytes || !blobStore || !runBlobMutation) {
         return {
           status: 'skipped',
           reason: 'content-too-large',
-          byteLength: screenshot.content.byteLength,
-          maxContentBytes
+          byteLength,
+          maxContentBytes: resolved.maxContentBytes
         };
       }
 
-      let serializedContent;
-      try {
-        serializedContent = await serializeBlobAttachmentContent(screenshot.content.blob);
-      } catch (error) {
-        return {
-          status: 'skipped',
-          reason: 'serialize-failed',
-          error: error instanceof Error ? error.message : 'Unknown serialization failure.'
-        };
-      }
+      const entry = buildEntryMetadata(pageKey, captureId, screenshot, byteLength, resolved, operationTime);
+      const ref = buildVideoScreenshotCacheRef(entry);
 
-      if (serializedContent.byteLength > maxContentBytes) {
-        return {
-          status: 'skipped',
-          reason: 'content-too-large',
-          byteLength: serializedContent.byteLength,
-          maxContentBytes
-        };
-      }
-
-      const operationTime = now();
-      const writeTime = Math.max(operationTime, screenshot.capturedAt);
-      const expiresAt = writeTime + ttlMs;
-      const entry = normalizeVideoScreenshotCacheEntry({
-        schemaVersion: 1,
-        key: createVideoScreenshotCacheStorageKey({
-          pageKey,
-          captureId,
-          screenshotId: screenshot.id
-        }),
-        pageKey,
-        captureId,
-        id: screenshot.id,
-        fileName: screenshot.fileName,
-        mimeType: screenshot.mimeType,
-        byteLength: serializedContent.byteLength,
-        capturedAt: screenshot.capturedAt,
-        createdAt: writeTime,
-        updatedAt: writeTime,
-        expiresAt,
-        content: serializedContent
-      });
-
-      if (entry === null) {
-        return {
-          status: 'skipped',
-          reason: 'serialize-failed',
-          error: 'Repository rejected the normalized cache entry.'
-        };
-      }
-
-      const ref = buildRef(entry);
-      const nextIndexEntry = buildIndexEntry(entry);
-      await runSerializedVideoScreenshotCacheIndexMutation(area, async () => {
-        const indexState = await readIndexState();
-        const replacedKeys = indexState.entries
+      await runBlobMutation(async () => {
+        const replacedKeys = (await blobStore.listByPageKey(entry.pageKey))
           .filter(
             (currentEntry) =>
-              currentEntry.key !== nextIndexEntry.key &&
-              currentEntry.pageKey === nextIndexEntry.pageKey &&
-              currentEntry.captureId === nextIndexEntry.captureId
+              currentEntry.key !== entry.key && currentEntry.captureId === entry.captureId
           )
           .map((currentEntry) => currentEntry.key);
 
-        const nextState = pruneVideoScreenshotCacheIndexEntries(
-          [
-            nextIndexEntry,
-            ...indexState.entries.filter(
-              (currentEntry) =>
-                currentEntry.key !== nextIndexEntry.key &&
-                !(
-                  currentEntry.pageKey === nextIndexEntry.pageKey &&
-                  currentEntry.captureId === nextIndexEntry.captureId
-                )
-            )
-          ],
-          {
-            now: operationTime,
-            maxGlobalEntries,
-            maxPageEntries,
-            applyLimits: true
-          }
-        );
+        await blobStore.put({
+          ...entry,
+          blob: screenshot.content.blob
+        } satisfies VideoScreenshotCacheBlobEntry);
 
-        await area.setMany({
-          [entry.key]: entry,
-          [VIDEO_SCREENSHOT_CACHE_INDEX_KEY]: createVideoScreenshotCacheIndex(nextState.entries)
+        if (replacedKeys.length > 0) {
+          await blobStore.deleteMany(replacedKeys);
+        }
+
+        const pruneResult = await blobStore.prune({
+          now: operationTime,
+          maxGlobalEntries: resolved.maxGlobalEntries,
+          maxPageEntries: resolved.maxPageEntries,
+          applyLimits: true
         });
 
-        const removedKeys = Array.from(
-          new Set([...replacedKeys, ...nextState.removedKeys.filter((key) => key !== entry.key)])
-        );
-        if (removedKeys.length > 0) {
-          await area.remove(removedKeys);
-        }
+        await removeLegacyKeys(legacyArea, [...replacedKeys, ...pruneResult.removedKeys]);
       });
 
-      return {
-        status: 'saved',
-        ref
-      };
+      return { status: 'saved', ref };
     },
 
     async load(ref) {
@@ -370,44 +440,39 @@ export function createVideoScreenshotCacheRepository(
         return null;
       }
 
-      const operationTime = now();
-      const rawEntry = await area.get(normalizedRef.key);
-      if (rawEntry === undefined) {
-        await removeKeys([normalizedRef.key]);
-        return null;
-      }
-
-      const entry = normalizeVideoScreenshotCacheEntry(rawEntry);
-      if (entry === null || entry.expiresAt <= operationTime || !matchesRef(entry, normalizedRef)) {
-        await removeKeys([normalizedRef.key]);
-        return null;
-      }
-
-      let blob: Blob;
-      try {
-        blob = serializedAttachmentContentToBlob(
-          {
-            kind: 'base64',
-            binary: entry.content
-          },
-          entry.mimeType
-        );
-      } catch {
-        await removeKeys([normalizedRef.key]);
-        return null;
-      }
-
-      return {
-        id: entry.id,
-        fileName: entry.fileName,
-        mimeType: entry.mimeType,
-        capturedAt: entry.capturedAt,
-        content: {
-          kind: 'blob',
-          blob,
-          byteLength: entry.byteLength
+      const operationTime = resolved.now();
+      if (blobStore) {
+        const blobEntry = await blobStore.get(normalizedRef.key);
+        if (
+          blobEntry &&
+          blobEntry.expiresAt > operationTime &&
+          matchesVideoScreenshotCacheRef(blobEntry, normalizedRef)
+        ) {
+          return toScreenshot(blobEntry, blobEntry.blob);
         }
-      };
+        if (blobEntry) {
+          await blobStore.delete(normalizedRef.key);
+        }
+      }
+
+      const legacyLoaded = await loadLegacyEntry(legacyArea, normalizedRef, operationTime);
+      if (!legacyLoaded) {
+        return null;
+      }
+
+      if (blobStore) {
+        try {
+          await blobStore.put({
+            ...legacyLoaded.entry,
+            blob: legacyLoaded.blob
+          } satisfies VideoScreenshotCacheBlobEntry);
+          await removeLegacyKeys(legacyArea, [normalizedRef.key]);
+        } catch {
+          // Best-effort migration. A valid legacy load still returns the screenshot.
+        }
+      }
+
+      return toScreenshot(legacyLoaded.entry, legacyLoaded.blob);
     },
 
     async remove(ref) {
@@ -415,7 +480,16 @@ export function createVideoScreenshotCacheRepository(
       if (normalizedRef === null) {
         return;
       }
-      await removeKeys([normalizedRef.key]);
+
+      if (blobStore && runBlobMutation) {
+        await runBlobMutation(async () => {
+          await blobStore.delete(normalizedRef.key);
+          await removeLegacyKeys(legacyArea, [normalizedRef.key]);
+        });
+        return;
+      }
+
+      await removeLegacyKeys(legacyStore, [normalizedRef.key]);
     },
 
     async removeMany(refs) {
@@ -423,7 +497,19 @@ export function createVideoScreenshotCacheRepository(
         .map((ref) => normalizeVideoScreenshotCacheRef(ref))
         .filter((ref): ref is VideoScreenshotCacheRef => ref !== null)
         .map((ref) => ref.key);
-      await removeKeys(keys);
+      if (keys.length === 0) {
+        return;
+      }
+
+      if (blobStore && runBlobMutation) {
+        await runBlobMutation(async () => {
+          await blobStore.deleteMany(keys);
+          await removeLegacyKeys(legacyArea, keys);
+        });
+        return;
+      }
+
+      await removeLegacyKeys(legacyStore, keys);
     },
 
     async pruneExpired() {

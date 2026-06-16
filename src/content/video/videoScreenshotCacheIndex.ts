@@ -1,3 +1,12 @@
+import type { StorageAreaService } from '../../platform/interfaces/storage';
+import {
+  createVideoScreenshotCacheIndex,
+  normalizeVideoScreenshotCacheIndex,
+  normalizeVideoScreenshotCacheIndexEntry,
+  normalizeVideoScreenshotCacheRef,
+  VIDEO_SCREENSHOT_CACHE_INDEX_KEY,
+  type VideoScreenshotCacheRef
+} from './videoScreenshotCacheTypes';
 import type { VideoScreenshotCacheIndexEntry } from './videoScreenshotCacheTypes';
 
 export interface VideoScreenshotCacheIndexState {
@@ -102,4 +111,82 @@ export function pruneVideoScreenshotCacheIndexEntries(
     removedKeys: Array.from(new Set(removedKeys)),
     dirty
   };
+}
+
+export function requireVideoScreenshotCacheIndexEntry(value: {
+  schemaVersion: 1;
+  key: string;
+  pageKey: string;
+  captureId: string;
+  id: string;
+  fileName: string;
+  mimeType: 'image/jpeg';
+  byteLength: number;
+  capturedAt: number;
+  createdAt: number;
+  updatedAt: number;
+  expiresAt: number;
+}): VideoScreenshotCacheIndexEntry {
+  const entry = normalizeVideoScreenshotCacheIndexEntry(value);
+  if (entry === null) {
+    throw new Error('Invalid video screenshot cache index entry.');
+  }
+  return entry;
+}
+
+export function buildVideoScreenshotCacheRef(
+  entry: VideoScreenshotCacheIndexEntry
+): VideoScreenshotCacheRef {
+  const ref = normalizeVideoScreenshotCacheRef(entry);
+  if (ref === null) {
+    throw new Error('Invalid video screenshot cache ref.');
+  }
+  return ref;
+}
+
+export function matchesVideoScreenshotCacheRef(
+  entry: VideoScreenshotCacheIndexEntry,
+  ref: VideoScreenshotCacheRef
+): boolean {
+  return (
+    entry.schemaVersion === ref.schemaVersion &&
+    entry.key === ref.key &&
+    entry.pageKey === ref.pageKey &&
+    entry.captureId === ref.captureId &&
+    entry.id === ref.id &&
+    entry.fileName === ref.fileName &&
+    entry.mimeType === ref.mimeType &&
+    entry.byteLength === ref.byteLength &&
+    entry.capturedAt === ref.capturedAt &&
+    entry.expiresAt === ref.expiresAt
+  );
+}
+
+export async function readVideoScreenshotCacheIndexState(
+  area: Pick<StorageAreaService, 'get'>
+): Promise<VideoScreenshotCacheIndexState> {
+  const raw = await area.get(VIDEO_SCREENSHOT_CACHE_INDEX_KEY);
+  if (raw === undefined) {
+    return { entries: [], dirty: false };
+  }
+  const parsed = normalizeVideoScreenshotCacheIndex(raw);
+  if (parsed === null) {
+    return { entries: [], dirty: true };
+  }
+  return { entries: parsed.entries, dirty: false };
+}
+
+export async function persistVideoScreenshotCacheIndex(
+  area: Pick<StorageAreaService, 'set' | 'remove'>,
+  entries: VideoScreenshotCacheIndexEntry[],
+  removedKeys: readonly string[],
+  dirty: boolean
+): Promise<void> {
+  const uniqueRemovedKeys = Array.from(new Set(removedKeys));
+  if (uniqueRemovedKeys.length > 0) {
+    await area.remove(uniqueRemovedKeys);
+  }
+  if (dirty || uniqueRemovedKeys.length > 0) {
+    await area.set(VIDEO_SCREENSHOT_CACHE_INDEX_KEY, createVideoScreenshotCacheIndex(entries));
+  }
 }
