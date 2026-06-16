@@ -1,7 +1,12 @@
 import type { VideoCaptureScreenshot, VideoCaptureScreenshotContent } from './types';
+import {
+  encodeCanvasToBudgetedBlob,
+  resizeCanvasToMaxEdge,
+  SCREENSHOT_MIME_TYPE,
+  VIDEO_SCREENSHOT_ENCODING_MAX_EDGE_LADDER,
+  VIDEO_SCREENSHOT_ENCODING_QUALITY_LADDER
+} from './videoScreenshotEncoding';
 
-const SCREENSHOT_MIME_TYPE = 'image/jpeg';
-const SCREENSHOT_QUALITY = 0.88;
 const SCREENSHOT_DATA_URL_PREFIX = `data:${SCREENSHOT_MIME_TYPE};base64,`;
 
 export function captureVideoFrameScreenshot(
@@ -35,7 +40,7 @@ export async function captureVideoFrameScreenshotAsync(
     if (!canvas) {
       return null;
     }
-    return createScreenshotRecord(await encodeCanvasToBlobAsync(canvas), now);
+    return createScreenshotRecord(createBlobContent(await encodeCanvasToBudgetedBlob(canvas)), now);
   } catch (error) {
     console.warn('[VideoSession] Failed to capture video frame screenshot:', error);
     return null;
@@ -68,7 +73,14 @@ function renderVideoFrameToCanvas(video: HTMLVideoElement): HTMLCanvasElement | 
 }
 
 function encodeCanvasToDataUrl(canvas: HTMLCanvasElement): string | null {
-  const dataUrl = canvas.toDataURL(SCREENSHOT_MIME_TYPE, SCREENSHOT_QUALITY);
+  const resizedCanvas = resizeCanvasToMaxEdge(canvas, VIDEO_SCREENSHOT_ENCODING_MAX_EDGE_LADDER[0]);
+  if (!resizedCanvas) {
+    return null;
+  }
+  const dataUrl = resizedCanvas.toDataURL(
+    SCREENSHOT_MIME_TYPE,
+    VIDEO_SCREENSHOT_ENCODING_QUALITY_LADDER[0]
+  );
   return isJpegDataUrl(dataUrl) ? dataUrl : null;
 }
 
@@ -76,18 +88,6 @@ function encodeCanvasToLegacyBlobContent(
   canvas: HTMLCanvasElement
 ): VideoCaptureScreenshotContent | null {
   return createBlobContentFromDataUrl(encodeCanvasToDataUrl(canvas));
-}
-
-async function encodeCanvasToBlobAsync(
-  canvas: HTMLCanvasElement
-): Promise<VideoCaptureScreenshotContent | null> {
-  if (typeof canvas.toBlob !== 'function') {
-    return null;
-  }
-  const blob = await new Promise<Blob | null>((resolve) => {
-    canvas.toBlob(resolve, SCREENSHOT_MIME_TYPE, SCREENSHOT_QUALITY);
-  });
-  return createBlobContent(blob);
 }
 
 function createBlobContent(blob: Blob | null): VideoCaptureScreenshotContent | null {
