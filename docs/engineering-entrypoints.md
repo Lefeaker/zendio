@@ -1,6 +1,6 @@
 # 工程命令与入口
 
-最后更新：2026-06-16
+最后更新：2026-06-17
 
 ## 推荐运行环境
 
@@ -59,7 +59,7 @@
 - 2026-06-09 video screenshot/session stability final truth：`codex/aiiinob-video-asset-stability-2026-06-08-integration` 在 `fbc24294` 通过 `quality`、`verify:preflight`、P01 attachment + 视频专项 Vitest `11` 文件 / `201` tests、`videoListenerScope.browser.test.ts` Chromium `11` tests。截图准备队列已从 session runtime 静态路径拆为 lazy chunk，`audit:build:report` 当前 dev build chunk count 为 `116`；只同步 chunk count gate，不放宽 entry、single chunk、shared chunk、locale chunk 或 YAML chunk size budget。
 - 2026-06-13 final combined integration 真值：当前 integration dev build exact stop gate 为 `content/runtime.js` raw `57,386` bytes、`onboarding/index.js` raw `16,459` bytes、`chunk count <= 118`；本次只同步结构债分支与 visible-tab screenshot/export 分支合并后的 dev chunk count，没有放宽 locale/single/shared/YAML budgets。P06 历史修复仍只在 `tests/unit/content/video/VideoSession.test.ts` 内收口 inherited full-file restored screenshot async wait 与 same-page owner-context harness race。
 - 2026-06-13 final integration dependency-cycle truth：`audit:deps:report` 发现并阻塞了截图准备 queue/coordinator 循环与 i18n pseudo/runtime type 循环。最终修复将截图请求状态迁入 `videoScreenshotPreparationRequestStore.ts`，让 coordinator 只持有 queue interface；i18n `RuntimeMessages` 类型改由 `localeDefinition.ts` 从 generated messages 导出，pseudo locale/runtime service 不再从 `messages.ts` 回拉入口。复核后 `audit:deps:report` 为 `violations=0`，`audit:performance:report` 覆盖 `sourceFiles=755`、`hotspotsOver250=93`、`registeredLineBudgets=117`。
-- 2026-06-15 post GA/video reconciliation performance 真值：P09 final gap fix 后 `audit:performance:report` 输出 `sourceFiles=786`、`hotspotsOver250=95`、`registeredLineBudgets=120`。`videoCaptureMutationTransaction.ts` 合并后降至 `245` 行，不再是 >250 LOC hotspot；`runtimeMessages.ts` 当前为 `322` 行。预算以 `tools/report-performance-hotspots.mjs` 为准，本次未放宽 locale/single/shared/YAML budgets。
+- 2026-06-17 P08 performance/docs sync 真值：在 Node `v20.20.2` / npm `10.8.2` 下，`verify:runtime`、`build:dev`、`audit:build:report`、`audit:performance:report`、`audit:deps:report`、`audit:imports:check`、`build:fast` 与 `audit:release-surface:report` 已重新采集。fresh `audit:performance:report` 输出 `sourceFiles=790`、`hotspotsOver250=95`、`registeredLineBudgets=120`；`runtimeMessages.ts` 当前为 `322` 行，`videoCaptureMutationTransaction.ts` 保持 `245` 行且不再是 >250 LOC hotspot。fresh production build report 当前为 `content/runtime.js = 49,325 B`、`onboarding/index.js = 9,606 B`、`chunks = 95`；fresh dev build report 当前为 `content/runtime.js = 57,179 B`（warning/hard `57,209 / 57,386`）、`onboarding/index.js = 16,485 B`（warning/hard `16,459 / 16,715`）、`chunks = 111`（warning/hard `118 / 120`）。当前只出现 dev onboarding warning，未触发 hard stop，也没有放宽任何 build/performance gate。
 - 2026-05-26 M10 source-of-truth sync 真值：maintainability-debt M0-M10 合入后的 integration branch 上，`quality`、`verify:preflight`、`lint:type-any`、`audit:performance:report`、`audit:build:report`、`audit:compatibility-duplicates:check` 与 `audit:non-production-source:report` 均已重新采集；当前 type/warning/non-production source 数值见下文
 - 2026-05-26 M10 budget ratchet 真值：`quality` 显式包含 `lint:type-any:ratchet`；`verify:preflight` 继续包含 `audit:performance:report`，且 performance report 覆盖当前全部 `src` >250 LOC 文件
 - 2026-06-01 Plan 09 compatibility duplicate 真值：`quality` 显式包含 `audit:compatibility-duplicates:check`；当前 usage/rest compatibility candidate files 为 `0`，exact duplicate groups 为 `0`，allowlist entries 为 `0`，因此没有生产 allowlist。工具中的旧 `src/options/components/sections/usage*.ts` / `src/options/widgets/shared/usage/**` scope 是 retired compatibility reintroduction guard，只用于防止已退役 usage compatibility shells 被重新引入并复制，不代表当前生产 owner。
@@ -194,7 +194,7 @@ node scripts/run-ga-owner-smoke.mjs --mode directDebug --event runtime_harness_o
 node scripts/run-ga-owner-smoke.mjs --help
 npx vitest run --config vitest.unit.config.ts tests/unit/scripts/runGaOwnerSmoke.test.ts tests/unit/scripts/analyticsDeliverySmoke.test.ts
 npx vitest run tests/unit/background/analyticsEvents.test.ts tests/unit/shared/errors/analytics/index.test.ts tests/unit/shared/errors/analyticsConfig.test.ts
-npx vitest run tests/unit/content/video/videoScreenshotCacheRepository.test.ts tests/unit/content/video/VideoSession.test.ts
+npx vitest run tests/unit/content/video/videoScreenshotCacheRepository.test.ts tests/unit/content/video/videoScreenshotCacheBackgroundClient.test.ts tests/unit/content/video/VideoSession.test.ts tests/unit/content/video/videoFrameScreenshot.test.ts tests/unit/background/visibleTabScreenshot.test.ts tests/unit/background/runtimeMessages.test.ts
 node scripts/run-playwright.mjs test tests/e2e/videoPanelFlow.test.ts tests/e2e/videoListenerScope.browser.test.ts --project=chromium-desktop
 ```
 
@@ -215,13 +215,15 @@ rejects client-side secret env vars, sends only to the configured proxy endpoint
 and prints a redacted summary. Its local output proves request shape and local
 proxy behavior only; it does not prove real GA property delivery, DebugView
 visibility, or server-side `api_secret` injection unless the owner adds external
-evidence. Screenshot attachment templates plan only export-time output paths /
-Markdown URLs; durable draft state persists `screenshotRequested` plus
-metadata-only `screenshotRef`, while screenshot bytes live in the expiring
-browser storage cache and runtime `Blob` / binary flow until background
-write/download boundaries. Cache hits restore without immediate visible-video
-seek; legacy ref-less drafts and missing/expired cache entries fall back to
-low-concurrency screenshot preparation.
+evidence. Screenshot attachment templates still plan only export-time output
+paths / Markdown URLs; durable draft state persists `screenshotRequested` plus
+metadata-only `screenshotRef`, while screenshot bytes now live in the
+background-owned extension IndexedDB Blob cache. Legacy `storage.local` base64
+cache rows are compatibility-only and are best-effort migrated/cleaned on valid
+loads. Runtime message boundaries remain JSON-safe via serialized binary
+content; cache hits restore without immediate visible-video seek; legacy
+ref-less drafts plus missing/expired/corrupt refs fall back to low-concurrency
+screenshot preparation. No idle zip/archive packing is implemented.
 
 ## 当前 Lint / Type 债务真值
 
@@ -303,15 +305,14 @@ low-concurrency screenshot preparation.
 - performance coverage: sourceFiles=`733`、hotspotsOver250=`94`、registeredLineBudgets=`113`
 - `videoScreenshotPreparationQueue-*` 是截图准备实现的显式 lazy split；chunk count gate 只为该 split 与小型 shared screenshot-intent bridge 同步，entry/shared/locale/YAML size gates 未放宽
 
-2026-06-15 final release-debt build/type/regression truth:
+2026-06-17 P08 build/type/regression truth:
 
-- `node scripts/run-playwright.mjs test tests/e2e/videoPanelFlow.test.ts tests/e2e/videoListenerScope.browser.test.ts --project=chromium-desktop` 已在 P06 final ledger 中通过 `19` tests；isolated reload/cache-hit browser proof 也已通过。P06 最终只有一处 production 修复：restored screenshot hydration 期间阻止过早 fallback screenshot recapture。
-- P09 final gap fix 已重新执行同一 Chromium focused browser flow，`19` tests 通过；覆盖 restored legacy fallback、missing screenshot cache fallback、reload screenshot intent 与 multi-timestamp draft stability。
+- `node scripts/run-playwright.mjs test tests/e2e/videoPanelFlow.test.ts tests/e2e/videoListenerScope.browser.test.ts --project=chromium-desktop` 的 `19` tests 仍是当前视频截图混合缓存 focused browser truth；P06 的 isolated reload/cache-hit browser proof 与 P07 的 reader focused browser proof 继续作为历史补充证据保留。
 - `node scripts/run-playwright.mjs test tests/e2e/readerPanelFlow.test.ts --project=chromium-desktop` 已在 P07 final ledger 中通过；reader unit / ratchet / typecheck gates 也已通过。
-- 2026-06-15 P09 final gap fix production `audit:build:report`：`build/dist/content/runtime.js = 48.1 KB`（raw `49,284` bytes）、`build/dist/onboarding/index.js = 9.3 KB`（raw `9,570` bytes）、`chunks = 93`
-- 2026-06-15 P09 final gap fix production `audit:release-surface:report`：`Files = 160`，forbidden harness members `none`，forbidden dev/test pseudo-locale members `none`
-- 2026-06-15 P09 final gap fix dev `audit:build:report`：`build/dist/content/runtime.js = 55.8 KB`（raw `57,133` bytes；warning target `57,209`；hard stop `57,386`）、`build/dist/onboarding/index.js = 16.1 KB`（raw `16,447` bytes；warning target `16,459`；hard stop `16,715`）、`chunks = 108`（warning target `118`；hard stop `120`）。本轮通过合并 AI parser lazy wrapper chunk family、移除 onboarding 入口冗余 route guard、收窄 content 入口 platform service reachability 释放余量，没有放宽 build gate。
-- fresh dev chunk truth：`chunks/messages-*.js = 202.4 KB`、`chunks/videoSessionControllers-*.js = 111.7 KB`、`chunks/videoLazyRuntime-*.js = 55.6 KB`、`chunks/videoScreenshotPreparationQueue-*.js = 29.3 KB`；AI parser lazy wrapper 现在按 `openaiFamily-*` / `chineseFamily-*` / `assistantFamily-*` 分组，dev size 分别为 `289 B` / `318 B` / `264 B`。
+- fresh production `audit:build:report`：`build/dist/content/runtime.js = 48.2 KB`（raw `49,325` bytes）、`build/dist/onboarding/index.js = 9.4 KB`（raw `9,606` bytes）、`chunks = 95`
+- fresh production `audit:release-surface:report`：`Files = 162`，forbidden harness members `none`，forbidden dev/test pseudo-locale members `none`
+- fresh dev `audit:build:report`：`build/dist/content/runtime.js = 55.8 KB`（raw `57,179` bytes；warning target `57,209`；hard stop `57,386`）、`build/dist/onboarding/index.js = 16.1 KB`（raw `16,485` bytes；warning target `16,459`；hard stop `16,715`）、`chunks = 111`（warning target `118`；hard stop `120`）。本轮没有放宽 build gate；当前只多出 onboarding warning target `+26 B`，hard stop 仍有余量。
+- fresh dev chunk truth：`chunks/messages-*.js = 202.4 KB`、`chunks/videoSessionControllers-*.js = 109.7 KB`、`chunks/videoLazyRuntime-*.js = 55.5 KB`、`chunks/videoScreenshotPreparationQueue-*.js = 29.4 KB`；AI parser lazy wrapper 现在按 `openaiFamily-*` / `chineseFamily-*` / `assistantFamily-*` 分组，dev size 分别为 `289 B` / `318 B` / `264 B`。
 - fresh current type/warning truth：`lint:type-any` 扫描 `1231` files，overall `0/1127/1930/47/3`、src `0/621/677/9/0`、tests `0/506/1253/38/3`；`lint:type-any:ratchet` checked-in 上限为 overall `0/1138/1934/53/4`、src `0/623/678/9/0`、tests `0/515/1256/46/4`；`lint:warnings-guard` checked-in baseline `160`，fresh warning count `160`
 
 ## 核心命令
