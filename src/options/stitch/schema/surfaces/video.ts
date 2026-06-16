@@ -10,7 +10,7 @@ import {
 } from '../builders/surfaces';
 import { div } from '../builders/primitives';
 import { classNames } from '../builders/classNames';
-import { DEFAULT_PRODUCTION_ENGLISH_MESSAGES } from '../i18n';
+import { RUNTIME_SURFACE_FALLBACK_MESSAGES } from '../../../../i18n/catalog/runtimeSurfaceFallbackMessages';
 
 const schema: ResourceSchema = {
   openMode: 'modal',
@@ -57,47 +57,78 @@ const schema: ResourceSchema = {
       saveToLabel:
         t?.(
           'schemaRuntimeSurfaceSaveToLabel',
-          DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaRuntimeSurfaceSaveToLabel
-        ) ?? DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaRuntimeSurfaceSaveToLabel,
+          RUNTIME_SURFACE_FALLBACK_MESSAGES.schemaRuntimeSurfaceSaveToLabel
+        ) ?? RUNTIME_SURFACE_FALLBACK_MESSAGES.schemaRuntimeSurfaceSaveToLabel,
       configureVaultLabel:
         t?.(
           'schemaRuntimeSurfaceConfigureVaultLabel',
-          DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaRuntimeSurfaceConfigureVaultLabel
-        ) ?? DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaRuntimeSurfaceConfigureVaultLabel
+          RUNTIME_SURFACE_FALLBACK_MESSAGES.schemaRuntimeSurfaceConfigureVaultLabel
+        ) ?? RUNTIME_SURFACE_FALLBACK_MESSAGES.schemaRuntimeSurfaceConfigureVaultLabel
     };
     const screenshotLabels = {
       capture:
-        t?.('schemaRuntimeVideoCaptureScreenshotLabel', 'Capture screenshot') ??
-        'Capture screenshot',
+        t?.(
+          'schemaRuntimeVideoCaptureScreenshotLabel',
+          RUNTIME_SURFACE_FALLBACK_MESSAGES.schemaRuntimeVideoCaptureScreenshotLabel
+        ) ?? RUNTIME_SURFACE_FALLBACK_MESSAGES.schemaRuntimeVideoCaptureScreenshotLabel,
       remove:
-        t?.('schemaRuntimeVideoRemoveScreenshotLabel', 'Remove screenshot') ?? 'Remove screenshot'
+        t?.(
+          'schemaRuntimeVideoRemoveScreenshotLabel',
+          RUNTIME_SURFACE_FALLBACK_MESSAGES.schemaRuntimeVideoRemoveScreenshotLabel
+        ) ?? RUNTIME_SURFACE_FALLBACK_MESSAGES.schemaRuntimeVideoRemoveScreenshotLabel
+    };
+    const panelAriaLabels = {
+      resizeHeight:
+        t?.(
+          'schemaRuntimeSurfaceResizePanelHeightAriaLabel',
+          RUNTIME_SURFACE_FALLBACK_MESSAGES.schemaRuntimeSurfaceResizePanelHeightAriaLabel
+        ) ?? RUNTIME_SURFACE_FALLBACK_MESSAGES.schemaRuntimeSurfaceResizePanelHeightAriaLabel,
+      resizePanel:
+        t?.(
+          'schemaRuntimeSurfaceResizePanelAriaLabel',
+          RUNTIME_SURFACE_FALLBACK_MESSAGES.schemaRuntimeSurfaceResizePanelAriaLabel
+        ) ?? RUNTIME_SURFACE_FALLBACK_MESSAGES.schemaRuntimeSurfaceResizePanelAriaLabel
     };
 
     return {
       id: 'video',
       kind: 'modal',
-      title: t?.('schemaRuntimeVideoTitle', 'Video Mode') ?? 'Video Mode',
+      title:
+        t?.('schemaRuntimeVideoTitle', RUNTIME_SURFACE_FALLBACK_MESSAGES.schemaRuntimeVideoTitle) ??
+        RUNTIME_SURFACE_FALLBACK_MESSAGES.schemaRuntimeVideoTitle,
       description:
         t?.(
           'schemaRuntimeVideoDescription',
-          DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaRuntimeVideoDescription
-        ) ?? DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaRuntimeVideoDescription,
+          RUNTIME_SURFACE_FALLBACK_MESSAGES.schemaRuntimeVideoDescription
+        ) ?? RUNTIME_SURFACE_FALLBACK_MESSAGES.schemaRuntimeVideoDescription,
       surfacePlacement: 'floating-bottom-right',
       surfaceSkin: 'session',
       children: [
         div('resource-modal-stack', [
-          sessionPanelShell('video-surface-window', [
-            sessionHeader(labels, '▶'),
-            surfaceBody(classNames.session.bodyVideo, [
-              sessionItemList([
-                ...surface.captures.map((capture) =>
-                  videoCaptureItem(capture, labels, screenshotLabels)
-                ),
-                videoAddCaptureItem(labels.addLabel, labels.emptyCapturePlaceholder)
-              ])
-            ]),
-            videoFooterBar(counter, actions, null, surface.destination, destinationLabels)
-          ])
+          sessionPanelShell(
+            'video-surface-window',
+            [
+              sessionHeader(
+                labels,
+                '▶',
+                undefined,
+                t?.(
+                  'schemaRuntimeSurfaceCollapsePanelAriaLabel',
+                  RUNTIME_SURFACE_FALLBACK_MESSAGES.schemaRuntimeSurfaceCollapsePanelAriaLabel
+                ) ?? RUNTIME_SURFACE_FALLBACK_MESSAGES.schemaRuntimeSurfaceCollapsePanelAriaLabel
+              ),
+              surfaceBody(classNames.session.bodyVideo, [
+                sessionItemList([
+                  ...surface.captures.map((capture) =>
+                    videoCaptureItem(capture, labels, screenshotLabels)
+                  ),
+                  videoAddCaptureItem(labels.addLabel, labels.emptyCapturePlaceholder)
+                ])
+              ]),
+              videoFooterBar(counter, actions, null, surface.destination, destinationLabels)
+            ],
+            panelAriaLabels
+          )
         ])
       ]
     };

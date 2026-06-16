@@ -1,3 +1,4 @@
+import { RUNTIME_FALLBACK_MESSAGES } from '../../i18n/catalog/runtimeFallbackMessages';
 import type { ReaderPanelTexts } from './application/readerPanelModel';
 
 export type ReaderHintState =
@@ -17,23 +18,23 @@ export interface ReaderSessionMessages {
 
 export const DEFAULT_SESSION_MESSAGES: ReaderSessionMessages = {
   panel: {
-    title: 'Reading session active',
-    status: 'Select text to highlight and annotate',
-    counter: 'Collected {count} highlights',
-    counterZero: 'Collected 0 highlights',
-    finish: 'Finish & export',
-    cancel: 'Cancel',
-    hint: 'Tip: release the mouse to open the annotation dialog; leave it blank to save highlight only.',
-    highlightEditLabel: 'Edit note',
-    highlightDeleteLabel: 'Remove highlight',
-    highlightNoComment: 'No note yet',
-    highlightSaveLabel: 'Save note',
-    highlightCancelLabel: 'Cancel',
-    highlightEditPlaceholder: 'Update the note here...',
-    highlightFocusLabel: 'Jump to highlight {index}'
+    title: RUNTIME_FALLBACK_MESSAGES.readerPanelTitle,
+    status: RUNTIME_FALLBACK_MESSAGES.readerPanelStatus,
+    counter: RUNTIME_FALLBACK_MESSAGES.readerPanelCounter,
+    counterZero: RUNTIME_FALLBACK_MESSAGES.readerPanelCounterZero,
+    finish: RUNTIME_FALLBACK_MESSAGES.readerPanelFinish,
+    cancel: RUNTIME_FALLBACK_MESSAGES.readerPanelCancel,
+    hint: RUNTIME_FALLBACK_MESSAGES.readerPanelHint,
+    highlightEditLabel: RUNTIME_FALLBACK_MESSAGES.readerHighlightEditLabel,
+    highlightDeleteLabel: RUNTIME_FALLBACK_MESSAGES.readerHighlightDeleteLabel,
+    highlightNoComment: RUNTIME_FALLBACK_MESSAGES.readerHighlightNoComment,
+    highlightSaveLabel: RUNTIME_FALLBACK_MESSAGES.readerHighlightSaveLabel,
+    highlightCancelLabel: RUNTIME_FALLBACK_MESSAGES.readerHighlightCancelLabel,
+    highlightEditPlaceholder: RUNTIME_FALLBACK_MESSAGES.readerHighlightEditPlaceholder,
+    highlightFocusLabel: RUNTIME_FALLBACK_MESSAGES.readerHighlightFocusLabel
   },
-  hintNoHighlights: 'No highlights yet. Select some text first.',
-  hintExporting: 'Generating Markdown...',
-  hintFailure: 'Export failed, please try again later.',
-  hintSelectionFailure: 'Failed to highlight, please try again.'
+  hintNoHighlights: RUNTIME_FALLBACK_MESSAGES.readerHintNoHighlights,
+  hintExporting: RUNTIME_FALLBACK_MESSAGES.readerHintExporting,
+  hintFailure: RUNTIME_FALLBACK_MESSAGES.readerHintFailure,
+  hintSelectionFailure: RUNTIME_FALLBACK_MESSAGES.readerHintSelectionFailure
 };

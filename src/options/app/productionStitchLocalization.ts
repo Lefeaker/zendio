@@ -112,6 +112,19 @@ const YAML_FILTER_KEYS: Record<string, SchemaMessageKey> = {
   ai_chat: 'schemaYamlFilterAiChatLabel'
 };
 
+const ROUTING_TYPE_OPTION_KEYS: Record<string, SchemaMessageKey> = {
+  Domain: 'domainLabel',
+  Keyword: 'ruleTypeKeyword',
+  'URL Pattern': 'ruleTypeUrlPattern'
+};
+
+const SAMPLE_VAULT_KEYS: Record<string, SchemaMessageKey> = {
+  'Research Vault': 'schemaPreviewSampleVaultResearch',
+  'Inbox Vault': 'schemaPreviewSampleVaultInbox',
+  'Archive Vault': 'schemaPreviewSampleVaultArchive',
+  'Video Vault': 'schemaPreviewSampleVaultVideo'
+};
+
 const DOMAIN_MAPPING_NOTE_KEYS = [
   'schemaOutputDomainMappingNoteWeChat',
   'schemaOutputDomainMappingNoteArxiv',
@@ -167,6 +180,78 @@ function localizeNavItems(
   });
 }
 
+function localizeSampleValue(
+  value: string,
+  previewValue: string,
+  key: SchemaMessageKey | undefined,
+  t: SchemaTranslator
+): string {
+  return value === previewValue && key ? t(key, previewValue) : value;
+}
+
+function localizeSampleVaultLabel(label: string, t: SchemaTranslator): string {
+  const key = SAMPLE_VAULT_KEYS[label];
+  return key ? t(key, label) : label;
+}
+
+function localizeStorage(
+  storage: PreviewContent['storage'],
+  previewStorage: PreviewContent['storage'],
+  t: SchemaTranslator
+): PreviewContent['storage'] {
+  return {
+    ...storage,
+    hero: {
+      ...storage.hero,
+      pills: localizePills(storage.hero.pills, STORAGE_HERO_PILL_KEYS, t)
+    },
+    routingTypeOptions: storage.routingTypeOptions.map((option) => ({
+      ...option,
+      label: ROUTING_TYPE_OPTION_KEYS[option.value]
+        ? t(ROUTING_TYPE_OPTION_KEYS[option.value], option.label)
+        : option.label
+    })),
+    vaults: storage.vaults.map((vault, index) => ({
+      ...vault,
+      name: localizeSampleValue(
+        vault.name,
+        previewStorage.vaults[index]?.name ?? vault.name,
+        SAMPLE_VAULT_KEYS[vault.name] ??
+          SAMPLE_VAULT_KEYS[previewStorage.vaults[index]?.name ?? ''],
+        t
+      )
+    })),
+    routingRules: storage.routingRules.map((rule, index) => ({
+      ...rule,
+      target: localizeSampleValue(
+        rule.target,
+        previewStorage.routingRules[index]?.target ?? rule.target,
+        SAMPLE_VAULT_KEYS[rule.target] ??
+          SAMPLE_VAULT_KEYS[previewStorage.routingRules[index]?.target ?? ''],
+        t
+      )
+    }))
+  };
+}
+
+function localizeSurfaceDestination(
+  destination: PreviewContent['surfaces']['clipper']['destination'],
+  t: SchemaTranslator
+): PreviewContent['surfaces']['clipper']['destination'] {
+  if (!destination) {
+    return destination;
+  }
+
+  return {
+    ...destination,
+    label: localizeSampleVaultLabel(destination.label, t),
+    options: destination.options.map((option) => ({
+      ...option,
+      label: localizeSampleVaultLabel(option.label, t)
+    }))
+  };
+}
+
 function localizeOptionalSurfaceText<K extends 'commentPreview' | 'comment' | 'draft'>(
   key: K,
   value: string | undefined,
@@ -184,20 +269,33 @@ function localizeOptionalSurfaceText<K extends 'commentPreview' | 'comment' | 'd
 
 function localizeClipperSurface(
   surface: PreviewContent['surfaces']['clipper'],
+  previewSurface: PreviewContent['surfaces']['clipper'],
   t: SchemaTranslator
 ): PreviewContent['surfaces']['clipper'] {
   return {
     ...surface,
+    source: {
+      ...surface.source,
+      title: localizeSampleValue(
+        surface.source.title,
+        previewSurface.source.title,
+        'schemaPreviewClipperSourceArticleTitle',
+        t
+      )
+    },
+    destination: localizeSurfaceDestination(surface.destination, t),
     selectedText: t('schemaRuntimeClipperSelectedText', surface.selectedText)
   };
 }
 
 function localizeReaderSurface(
   surface: PreviewContent['surfaces']['reader'],
+  _previewSurface: PreviewContent['surfaces']['reader'],
   t: SchemaTranslator
 ): PreviewContent['surfaces']['reader'] {
   return {
     ...surface,
+    destination: localizeSurfaceDestination(surface.destination, t),
     highlights: surface.highlights.map((highlight, index) => {
       if (index === 0) {
         return {
@@ -257,14 +355,22 @@ function localizeReaderSurface(
 
 function localizeVideoSurface(
   surface: PreviewContent['surfaces']['video'],
+  previewSurface: PreviewContent['surfaces']['video'],
   t: SchemaTranslator
 ): PreviewContent['surfaces']['video'] {
   return {
     ...surface,
+    destination: localizeSurfaceDestination(surface.destination, t),
     captures: surface.captures.map((capture, index) => {
       if (index === 1 && capture.fullText) {
         return {
           ...capture,
+          summary: localizeSampleValue(
+            capture.summary,
+            previewSurface.captures[index]?.summary ?? capture.summary,
+            'schemaPreviewVideoCaptureTwoSummary',
+            t
+          ),
           fullText: t('schemaRuntimeVideoCaptureTwoFullText', capture.fullText),
           ...localizeOptionalSurfaceText(
             'commentPreview',
@@ -313,6 +419,23 @@ function localizeVideoSurface(
 
       return capture;
     })
+  };
+}
+
+function localizeTaskSuccessSurface(
+  surface: PreviewContent['surfaces']['taskSuccess'],
+  t: SchemaTranslator
+): PreviewContent['surfaces']['taskSuccess'] {
+  return {
+    ...surface,
+    likeToast: {
+      ...surface.likeToast,
+      detail: t('schemaPreviewTaskSuccessLikeToastDetail', surface.likeToast.detail)
+    },
+    dislikeToast: {
+      ...surface.dislikeToast,
+      detail: t('schemaPreviewTaskSuccessDislikeToastDetail', surface.dislikeToast.detail)
+    }
   };
 }
 
@@ -389,11 +512,7 @@ export function localizeStitchContent(
     },
     languageOptions: localizeLanguageOptions(t),
     storage: {
-      ...content.storage,
-      hero: {
-        ...content.storage.hero,
-        pills: localizePills(content.storage.hero.pills, STORAGE_HERO_PILL_KEYS, t)
-      }
+      ...localizeStorage(content.storage, previewContent.storage, t)
     },
     captureSources: {
       ...content.captureSources,
@@ -420,9 +539,10 @@ export function localizeStitchContent(
     },
     surfaces: {
       ...content.surfaces,
-      clipper: localizeClipperSurface(content.surfaces.clipper, t),
-      reader: localizeReaderSurface(content.surfaces.reader, t),
-      video: localizeVideoSurface(content.surfaces.video, t)
+      clipper: localizeClipperSurface(content.surfaces.clipper, previewContent.surfaces.clipper, t),
+      reader: localizeReaderSurface(content.surfaces.reader, previewContent.surfaces.reader, t),
+      video: localizeVideoSurface(content.surfaces.video, previewContent.surfaces.video, t),
+      taskSuccess: localizeTaskSuccessSurface(content.surfaces.taskSuccess, t)
     },
     maintenanceLog:
       content.maintenanceLog === previewContent.maintenanceLog

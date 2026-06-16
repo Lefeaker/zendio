@@ -1,5 +1,9 @@
 import type { Messages } from '@i18n';
-import { DEFAULT_PRODUCTION_ENGLISH_MESSAGES, type SchemaMessageKey } from './schema/i18n';
+import {
+  DEFAULT_PRODUCTION_ENGLISH_MESSAGES,
+  resolveSchemaMessage,
+  type SchemaMessageKey
+} from './schema/i18n';
 import type { PreviewContent } from './types';
 
 type ChangelogNoteSectionDefinition = {
@@ -65,35 +69,13 @@ const CHANGELOG_ENTRY_DEFINITIONS: readonly ChangelogEntryDefinition[] = [
   }
 ];
 
-function resolveSchemaMessage(
-  messages: Messages | null | undefined,
-  key: SchemaMessageKey,
-  fallback?: string
-): string {
-  const localized = messages?.[key];
-  if (typeof localized === 'string' && localized.length > 0) {
-    return localized;
-  }
-
-  const english = DEFAULT_PRODUCTION_ENGLISH_MESSAGES[key];
-  if (typeof english === 'string' && english.length > 0) {
-    return english;
-  }
-
-  return fallback ?? key;
-}
-
 export function createChangelogResource(
   messages: Messages | null = DEFAULT_PRODUCTION_ENGLISH_MESSAGES
 ): PreviewContent['resources']['changelog'] {
   return {
     hero: {
-      title: resolveSchemaMessage(messages, CHANGELOG_TITLE_KEY, 'Changelog'),
-      description: resolveSchemaMessage(
-        messages,
-        CHANGELOG_DESCRIPTION_KEY,
-        'This modal highlights the latest shipped updates from the project changelog.'
-      ),
+      title: resolveSchemaMessage(messages, CHANGELOG_TITLE_KEY),
+      description: resolveSchemaMessage(messages, CHANGELOG_DESCRIPTION_KEY),
       pills: [...CHANGELOG_HERO_PILLS],
       icon: 'history'
     },

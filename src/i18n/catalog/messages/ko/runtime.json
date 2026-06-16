@@ -663,5 +663,14 @@
   "trialNotificationExpiringSoonMessage": "체험판이 {remaining} 후에 만료됩니다. 제때 개발자에게 문의하세요.",
   "trialSummaryExpired": "체험판 - 만료됨 (만료일: {date})",
   "trialSummaryRemaining": "체험판 - {remaining} (만료일: {date})",
-  "vaultDefaultName": "새 보관함"
+  "vaultDefaultName": "새 보관함",
+  "notificationTitleSuccess": "Zendio - Success",
+  "notificationTitleInfo": "Zendio - Info",
+  "notificationTitleWarning": "Zendio - Warning",
+  "notificationTitleError": "Zendio - Error",
+  "notificationTitleCritical": "Zendio - Critical",
+  "visibleTabScreenshotMissingSenderWindow": "Missing sender window for visible tab screenshot.",
+  "visibleTabScreenshotUnsupported": "Visible tab screenshot capture is unsupported.",
+  "visibleTabScreenshotMissingImage": "Visible tab screenshot capture returned no image.",
+  "videoSessionDraftTitleFallback": "Video Capture"
 }

@@ -1,74 +1,53 @@
 import type { GroupNode, SchemaContext } from '../../types';
-import type { SchemaMessageKey, SchemaMessageValues } from '../i18n';
+import {
+  getDefaultProductionEnglishMessage,
+  type SchemaMessageKey,
+  type SchemaMessageValues
+} from '../i18n';
 import { boundInput, boundSwitch } from '../builders/controls';
 import { element, emptyState, grid, stack } from '../builders/primitives';
-import { DEFAULT_PRODUCTION_ENGLISH_MESSAGES } from '../i18n';
 
 function translate(
   current: SchemaContext,
   key: SchemaMessageKey,
-  fallback: string,
   values?: SchemaMessageValues
 ): string {
+  const fallback = getDefaultProductionEnglishMessage(key, values);
   return current.t ? current.t(key, fallback, values) : fallback;
 }
 
 export function createVideoCaptureSourcesGroup(ctx: SchemaContext): GroupNode {
   return {
     kind: 'group',
-    title: translate(ctx, 'schemaCaptureSourcesVideoGroupTitle', 'Video'),
+    title: translate(ctx, 'schemaCaptureSourcesVideoGroupTitle'),
     children: [
       {
         kind: 'card',
-        title: translate(ctx, 'schemaCaptureSourcesVideoPromptEntryTitle', 'Video Prompt & Entry'),
-        description: translate(
-          ctx,
-          'schemaCaptureSourcesVideoPromptEntryDescription',
-          DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaCaptureSourcesVideoPromptEntryDescription
-        ),
+        title: translate(ctx, 'schemaCaptureSourcesVideoPromptEntryTitle'),
+        description: translate(ctx, 'schemaCaptureSourcesVideoPromptEntryDescription'),
         body: [
           {
             kind: 'rows',
             items: [
               {
                 kind: 'row',
-                title: translate(
-                  ctx,
-                  'schemaCaptureSourcesVideoEntryBehaviorTitle',
-                  DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaCaptureSourcesVideoEntryBehaviorTitle
-                ),
-                description: translate(
-                  ctx,
-                  'schemaCaptureSourcesVideoEntryBehaviorDescription',
-                  DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaCaptureSourcesVideoEntryBehaviorDescription
-                ),
+                title: translate(ctx, 'schemaCaptureSourcesVideoEntryBehaviorTitle'),
+                description: translate(ctx, 'schemaCaptureSourcesVideoEntryBehaviorDescription'),
                 control: grid(
                   2,
                   [
                     element('div', { className: 'video-entry-toggle' }, [
                       element('span', {
                         text: (current) =>
-                          translate(
-                            current,
-                            'schemaCaptureSourcesVideoNoteButtonLabel',
-                            DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaCaptureSourcesVideoNoteButtonLabel
-                          )
+                          translate(current, 'schemaCaptureSourcesVideoNoteButtonLabel')
                       }),
                       boundSwitch({
                         bind: 'videoFloatingPromptEnabled',
                         compact: true,
                         stateText: (current) =>
                           current.state.videoFloatingPromptEnabled
-                            ? translate(
-                                current,
-                                'schemaCommonEnabledState',
-                                DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaCommonEnabledState
-                              )
-                            : translate(
-                                current,
-                                'schemaCommonDisabledState',
-                                DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaCommonDisabledState
-                              ),
+                            ? translate(current, 'schemaCommonEnabledState')
+                            : translate(current, 'schemaCommonDisabledState'),
                         onChange: {
                           id: 'options:updateField',
                           args: ['video.floatingPromptEnabled'],
@@ -78,28 +57,15 @@ export function createVideoCaptureSourcesGroup(ctx: SchemaContext): GroupNode {
                     ]),
                     element('div', { className: 'video-entry-toggle' }, [
                       element('span', {
-                        text: (current) =>
-                          translate(
-                            current,
-                            'schemaCaptureSourcesAutoPauseTitle',
-                            DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaCaptureSourcesAutoPauseTitle
-                          )
+                        text: (current) => translate(current, 'schemaCaptureSourcesAutoPauseTitle')
                       }),
                       boundSwitch({
                         bind: 'videoCommentEditorAutoPause',
                         compact: true,
                         stateText: (current) =>
                           current.state.videoCommentEditorAutoPause
-                            ? translate(
-                                current,
-                                'schemaCommonEnabledState',
-                                DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaCommonEnabledState
-                              )
-                            : translate(
-                                current,
-                                'schemaCommonDisabledState',
-                                DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaCommonDisabledState
-                              ),
+                            ? translate(current, 'schemaCommonEnabledState')
+                            : translate(current, 'schemaCommonDisabledState'),
                         onChange: {
                           id: 'options:updateField',
                           args: ['video.commentEditorAutoPause'],
@@ -113,23 +79,13 @@ export function createVideoCaptureSourcesGroup(ctx: SchemaContext): GroupNode {
               }
             ]
           },
-          emptyState(
-            translate(
-              ctx,
-              'schemaCaptureSourcesVideoPromptHelper',
-              DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaCaptureSourcesVideoPromptHelper
-            )
-          ),
+          emptyState(translate(ctx, 'schemaCaptureSourcesVideoPromptHelper')),
           stack(
             [
               element('div', { className: 'path-template-section-title' }, [
                 element('h3', {
                   text: (current) =>
-                    translate(
-                      current,
-                      'schemaCaptureSourcesAttachmentPathGroupTitle',
-                      DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaCaptureSourcesAttachmentPathGroupTitle
-                    )
+                    translate(current, 'schemaCaptureSourcesAttachmentPathGroupTitle')
                 })
               ]),
               {
@@ -138,17 +94,9 @@ export function createVideoCaptureSourcesGroup(ctx: SchemaContext): GroupNode {
                   {
                     kind: 'row',
                     title: (current) =>
-                      translate(
-                        current,
-                        'schemaCaptureSourcesScreenshotLocationTitle',
-                        DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaCaptureSourcesScreenshotLocationTitle
-                      ),
+                      translate(current, 'schemaCaptureSourcesScreenshotLocationTitle'),
                     description: (current) =>
-                      translate(
-                        current,
-                        'schemaCaptureSourcesScreenshotLocationDescription',
-                        DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaCaptureSourcesScreenshotLocationDescription
-                      ),
+                      translate(current, 'schemaCaptureSourcesScreenshotLocationDescription'),
                     control: boundInput({
                       bind: 'videoScreenshotAttachmentLocationTemplate',
                       mono: true,
@@ -162,17 +110,9 @@ export function createVideoCaptureSourcesGroup(ctx: SchemaContext): GroupNode {
                   {
                     kind: 'row',
                     title: (current) =>
-                      translate(
-                        current,
-                        'schemaCaptureSourcesScreenshotFilenameTitle',
-                        DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaCaptureSourcesScreenshotFilenameTitle
-                      ),
+                      translate(current, 'schemaCaptureSourcesScreenshotFilenameTitle'),
                     description: (current) =>
-                      translate(
-                        current,
-                        'schemaCaptureSourcesScreenshotFilenameDescription',
-                        DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaCaptureSourcesScreenshotFilenameDescription
-                      ),
+                      translate(current, 'schemaCaptureSourcesScreenshotFilenameDescription'),
                     control: boundInput({
                       bind: 'videoScreenshotAttachmentFileNameTemplate',
                       mono: true,
@@ -185,18 +125,9 @@ export function createVideoCaptureSourcesGroup(ctx: SchemaContext): GroupNode {
                   },
                   {
                     kind: 'row',
-                    title: (current) =>
-                      translate(
-                        current,
-                        'schemaCaptureSourcesMarkdownUrlTitle',
-                        DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaCaptureSourcesMarkdownUrlTitle
-                      ),
+                    title: (current) => translate(current, 'schemaCaptureSourcesMarkdownUrlTitle'),
                     description: (current) =>
-                      translate(
-                        current,
-                        'schemaCaptureSourcesMarkdownUrlDescription',
-                        DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaCaptureSourcesMarkdownUrlDescription
-                      ),
+                      translate(current, 'schemaCaptureSourcesMarkdownUrlDescription'),
                     control: boundInput({
                       bind: 'videoScreenshotAttachmentMarkdownUrlFormat',
                       mono: true,
@@ -212,30 +143,18 @@ export function createVideoCaptureSourcesGroup(ctx: SchemaContext): GroupNode {
               element('p', { className: 'template-helper attachment-path-guidance' }, [
                 element('span', {
                   text: (current) =>
-                    translate(
-                      current,
-                      'schemaCaptureSourcesAttachmentGuidancePrefix',
-                      DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaCaptureSourcesAttachmentGuidancePrefix
-                    )
+                    translate(current, 'schemaCaptureSourcesAttachmentGuidancePrefix')
                 }),
                 element('a', {
                   text: (current) =>
-                    translate(
-                      current,
-                      'schemaCaptureSourcesAttachmentGuidanceLink',
-                      'Custom Attachment Location'
-                    ),
+                    translate(current, 'schemaCaptureSourcesAttachmentGuidanceLink'),
                   href: 'https://github.com/mnaoumov/obsidian-custom-attachment-location',
                   target: '_blank',
                   rel: 'noopener noreferrer'
                 }),
                 element('span', {
                   text: (current) =>
-                    translate(
-                      current,
-                      'schemaCaptureSourcesAttachmentGuidanceSuffix',
-                      DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaCaptureSourcesAttachmentGuidanceSuffix
-                    )
+                    translate(current, 'schemaCaptureSourcesAttachmentGuidanceSuffix')
                 })
               ])
             ],

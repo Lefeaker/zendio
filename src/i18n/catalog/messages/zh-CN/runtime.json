@@ -663,5 +663,14 @@
   "trialNotificationExpiringSoonMessage": "试用版将在 {remaining} 后过期，请及时联系开发者。",
   "trialSummaryExpired": "试用版本 - 已过期 (到期日期: {date})",
   "trialSummaryRemaining": "试用版本 - {remaining} (到期日期: {date})",
-  "vaultDefaultName": "新仓库"
+  "vaultDefaultName": "新仓库",
+  "notificationTitleSuccess": "Zendio - Success",
+  "notificationTitleInfo": "Zendio - Info",
+  "notificationTitleWarning": "Zendio - Warning",
+  "notificationTitleError": "Zendio - Error",
+  "notificationTitleCritical": "Zendio - Critical",
+  "visibleTabScreenshotMissingSenderWindow": "Missing sender window for visible tab screenshot.",
+  "visibleTabScreenshotUnsupported": "Visible tab screenshot capture is unsupported.",
+  "visibleTabScreenshotMissingImage": "Visible tab screenshot capture returned no image.",
+  "videoSessionDraftTitleFallback": "Video Capture"
 }

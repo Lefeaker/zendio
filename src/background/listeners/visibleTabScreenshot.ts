@@ -6,6 +6,12 @@ export type VisibleTabScreenshotSender = {
   windowId?: number;
 };
 
+const VISIBLE_TAB_SCREENSHOT_ERRORS = {
+  missingSenderWindow: 'visible_tab_screenshot_missing_sender_window',
+  unsupported: 'visible_tab_screenshot_unsupported',
+  noImage: 'visible_tab_screenshot_missing_image'
+} as const;
+
 export async function captureVisibleTabScreenshotForSender(
   tabs: Pick<TabsService, 'get' | 'captureVisibleTab'>,
   sender: VisibleTabScreenshotSender
@@ -19,15 +25,15 @@ export async function captureVisibleTabScreenshotForSender(
     }
   }
   if (windowId === undefined) {
-    return { success: false, error: 'Missing sender window for visible tab screenshot.' };
+    return { success: false, error: VISIBLE_TAB_SCREENSHOT_ERRORS.missingSenderWindow };
   }
   if (typeof tabs.captureVisibleTab !== 'function') {
-    return { success: false, error: 'Visible tab screenshot capture is unsupported.' };
+    return { success: false, error: VISIBLE_TAB_SCREENSHOT_ERRORS.unsupported };
   }
   try {
     const dataUrl = await tabs.captureVisibleTab(windowId, { format: 'jpeg', quality: 88 });
     if (typeof dataUrl !== 'string' || !dataUrl.startsWith('data:image/')) {
-      return { success: false, error: 'Visible tab screenshot capture returned no image.' };
+      return { success: false, error: VISIBLE_TAB_SCREENSHOT_ERRORS.noImage };
     }
     return { success: true, dataUrl };
   } catch (error) {

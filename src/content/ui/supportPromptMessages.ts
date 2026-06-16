@@ -1,5 +1,5 @@
-import { formatUserVisibleMessage } from '../../i18n';
-import type { Messages } from '../../i18n/messages';
+import { formatUserVisibleMessage, type Messages } from '../../i18n';
+import { RUNTIME_FALLBACK_MESSAGES } from '../../i18n/catalog/runtimeFallbackMessages';
 import type { AppError } from '../../shared/errors';
 import { ErrorSeverity } from '../../shared/errors';
 import type { UserVisibleMessageDescriptor } from '../../shared/i18n/userVisibleMessageDescriptor';
@@ -12,34 +12,34 @@ import type {
 } from './supportPrompt/types';
 
 const FALLBACK_SUPPORT_PROMPT_MESSAGES: SupportPromptMessages = {
-  dialogLabel: 'Support Zendio',
-  title: 'Support Zendio',
-  koFiTitle: 'Ko-fi',
-  koFiDescription: 'Buy me a coffee',
-  afdianTitle: 'Afdian',
-  afdianDescription: 'CN sponsor',
-  githubTitle: 'GitHub',
-  githubDescription: 'File feedback',
-  feedbackGroupLabel: 'Quick feedback',
-  likeLabel: 'Thumbs up',
-  dislikeLabel: 'Thumbs down',
-  dismiss: 'Click outside to close',
-  statusSuccess: 'Send succeeded',
-  statusSuccessWithVault: 'Successfully sent to {vault}',
-  statusWarning: 'Saved, but classification fell back',
-  statusWarningWithReason: 'Saved, but classification failed: {reason}',
-  statusFailure: 'Send failed',
-  statusFailureWithReason: 'Send failed, {reason}',
-  likeThankYou: 'Thanks!',
-  reviewLinkLabel: 'Write review',
-  reviewAcknowledgedLabel: 'I already reviewed',
-  dislikeToastTitle: 'Share feedback',
-  dislikeRedditLinkLabel: 'Discuss on Reddit',
-  dislikeQrLinkLabel: 'Join Xiaohongshu',
-  dislikeQrPlaceholder: 'QR soon'
+  dialogLabel: RUNTIME_FALLBACK_MESSAGES.supportPromptDialogLabel,
+  title: RUNTIME_FALLBACK_MESSAGES.supportPromptTitle,
+  koFiTitle: RUNTIME_FALLBACK_MESSAGES.supportPromptKoFiTitle,
+  koFiDescription: RUNTIME_FALLBACK_MESSAGES.supportPromptKoFiDescription,
+  afdianTitle: RUNTIME_FALLBACK_MESSAGES.supportPromptAfdianTitle,
+  afdianDescription: RUNTIME_FALLBACK_MESSAGES.supportPromptAfdianDescription,
+  githubTitle: RUNTIME_FALLBACK_MESSAGES.supportPromptGithubTitle,
+  githubDescription: RUNTIME_FALLBACK_MESSAGES.supportPromptGithubDescription,
+  feedbackGroupLabel: RUNTIME_FALLBACK_MESSAGES.supportPromptFeedbackGroupLabel,
+  likeLabel: RUNTIME_FALLBACK_MESSAGES.supportPromptLikeLabel,
+  dislikeLabel: RUNTIME_FALLBACK_MESSAGES.supportPromptDislikeLabel,
+  dismiss: RUNTIME_FALLBACK_MESSAGES.supportPromptDismiss,
+  statusSuccess: RUNTIME_FALLBACK_MESSAGES.supportPromptStatusSuccess,
+  statusSuccessWithVault: RUNTIME_FALLBACK_MESSAGES.supportPromptStatusSuccessWithVault,
+  statusWarning: RUNTIME_FALLBACK_MESSAGES.supportPromptStatusWarning,
+  statusWarningWithReason: RUNTIME_FALLBACK_MESSAGES.supportPromptStatusWarningWithReason,
+  statusFailure: RUNTIME_FALLBACK_MESSAGES.supportPromptStatusFailure,
+  statusFailureWithReason: RUNTIME_FALLBACK_MESSAGES.supportPromptStatusFailureWithReason,
+  likeThankYou: RUNTIME_FALLBACK_MESSAGES.supportPromptLikeThankYou,
+  reviewLinkLabel: RUNTIME_FALLBACK_MESSAGES.supportPromptReviewLinkLabel,
+  reviewAcknowledgedLabel: RUNTIME_FALLBACK_MESSAGES.supportPromptReviewAcknowledgedLabel,
+  dislikeToastTitle: RUNTIME_FALLBACK_MESSAGES.supportPromptDislikeToastTitle,
+  dislikeRedditLinkLabel: RUNTIME_FALLBACK_MESSAGES.supportPromptDislikeRedditLinkLabel,
+  dislikeQrLinkLabel: RUNTIME_FALLBACK_MESSAGES.supportPromptDislikeQrLinkLabel,
+  dislikeQrPlaceholder: RUNTIME_FALLBACK_MESSAGES.supportPromptDislikeQrPlaceholder
 };
 
-const DEFAULT_PROGRESS_FALLBACK = 'Sending to Obsidian';
+const DEFAULT_PROGRESS_FALLBACK = RUNTIME_FALLBACK_MESSAGES.supportProgressSendingToObsidian;
 
 const SEVERITY_STATUS_MAP: Record<ErrorSeverity, PromptStatus> = {
   [ErrorSeverity.INFO]: 'success',

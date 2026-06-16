@@ -9,7 +9,7 @@ import {
 } from '../builders/surfaces';
 import { div } from '../builders/primitives';
 import { classNames } from '../builders/classNames';
-import { DEFAULT_PRODUCTION_ENGLISH_MESSAGES } from '../i18n';
+import { RUNTIME_SURFACE_FALLBACK_MESSAGES } from '../../../../i18n/catalog/runtimeSurfaceFallbackMessages';
 
 const schema: ResourceSchema = {
   openMode: 'modal',
@@ -46,37 +46,65 @@ const schema: ResourceSchema = {
       saveToLabel:
         t?.(
           'schemaRuntimeSurfaceSaveToLabel',
-          DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaRuntimeSurfaceSaveToLabel
-        ) ?? DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaRuntimeSurfaceSaveToLabel,
+          RUNTIME_SURFACE_FALLBACK_MESSAGES.schemaRuntimeSurfaceSaveToLabel
+        ) ?? RUNTIME_SURFACE_FALLBACK_MESSAGES.schemaRuntimeSurfaceSaveToLabel,
       configureVaultLabel:
         t?.(
           'schemaRuntimeSurfaceConfigureVaultLabel',
-          DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaRuntimeSurfaceConfigureVaultLabel
-        ) ?? DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaRuntimeSurfaceConfigureVaultLabel
+          RUNTIME_SURFACE_FALLBACK_MESSAGES.schemaRuntimeSurfaceConfigureVaultLabel
+        ) ?? RUNTIME_SURFACE_FALLBACK_MESSAGES.schemaRuntimeSurfaceConfigureVaultLabel
+    };
+    const panelAriaLabels = {
+      resizeHeight:
+        t?.(
+          'schemaRuntimeSurfaceResizePanelHeightAriaLabel',
+          RUNTIME_SURFACE_FALLBACK_MESSAGES.schemaRuntimeSurfaceResizePanelHeightAriaLabel
+        ) ?? RUNTIME_SURFACE_FALLBACK_MESSAGES.schemaRuntimeSurfaceResizePanelHeightAriaLabel,
+      resizePanel:
+        t?.(
+          'schemaRuntimeSurfaceResizePanelAriaLabel',
+          RUNTIME_SURFACE_FALLBACK_MESSAGES.schemaRuntimeSurfaceResizePanelAriaLabel
+        ) ?? RUNTIME_SURFACE_FALLBACK_MESSAGES.schemaRuntimeSurfaceResizePanelAriaLabel
     };
 
     return {
       id: 'reader',
       kind: 'modal',
-      title: t?.('schemaRuntimeReaderTitle', 'Reader Mode') ?? 'Reader Mode',
+      title:
+        t?.(
+          'schemaRuntimeReaderTitle',
+          RUNTIME_SURFACE_FALLBACK_MESSAGES.schemaRuntimeReaderTitle
+        ) ?? RUNTIME_SURFACE_FALLBACK_MESSAGES.schemaRuntimeReaderTitle,
       description:
         t?.(
           'schemaRuntimeReaderDescription',
-          DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaRuntimeReaderDescription
-        ) ?? DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaRuntimeReaderDescription,
+          RUNTIME_SURFACE_FALLBACK_MESSAGES.schemaRuntimeReaderDescription
+        ) ?? RUNTIME_SURFACE_FALLBACK_MESSAGES.schemaRuntimeReaderDescription,
       surfacePlacement: 'floating-bottom-right',
       surfaceSkin: 'session',
       children: [
         div('resource-modal-stack', [
-          sessionPanelShell('reader-surface-window', [
-            sessionHeader(labels, '✦', surface.iconUrl),
-            surfaceBody(classNames.session.bodyReader, [
-              sessionItemList(
-                surface.highlights.map((highlight) => readerHighlightItem(highlight, labels))
-              )
-            ]),
-            sessionFooterBar(counter, actions, null, surface.destination, destinationLabels)
-          ])
+          sessionPanelShell(
+            'reader-surface-window',
+            [
+              sessionHeader(
+                labels,
+                '✦',
+                surface.iconUrl,
+                t?.(
+                  'schemaRuntimeSurfaceCollapsePanelAriaLabel',
+                  RUNTIME_SURFACE_FALLBACK_MESSAGES.schemaRuntimeSurfaceCollapsePanelAriaLabel
+                ) ?? RUNTIME_SURFACE_FALLBACK_MESSAGES.schemaRuntimeSurfaceCollapsePanelAriaLabel
+              ),
+              surfaceBody(classNames.session.bodyReader, [
+                sessionItemList(
+                  surface.highlights.map((highlight) => readerHighlightItem(highlight, labels))
+                )
+              ]),
+              sessionFooterBar(counter, actions, null, surface.destination, destinationLabels)
+            ],
+            panelAriaLabels
+          )
         ])
       ]
     };

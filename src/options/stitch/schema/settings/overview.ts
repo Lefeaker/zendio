@@ -114,7 +114,11 @@ const schema: SettingsSchema = {
           children: [
             {
               kind: 'card',
-              title: translate(ctx, 'usageDashboardTitle', 'Usage Dashboard'),
+              title: translate(
+                ctx,
+                'usageDashboardTitle',
+                DEFAULT_PRODUCTION_ENGLISH_MESSAGES.usageDashboardTitle
+              ),
               description: translate(
                 ctx,
                 'usageDashboardSubtitle',
@@ -202,7 +206,11 @@ const schema: SettingsSchema = {
           children: [
             {
               kind: 'card',
-              title: translate(ctx, 'privacySettingsNote', 'Consent'),
+              title: translate(
+                ctx,
+                'privacySettingsNote',
+                DEFAULT_PRODUCTION_ENGLISH_MESSAGES.privacySettingsNote
+              ),
               description: translate(
                 ctx,
                 'privacySettingsDescription',

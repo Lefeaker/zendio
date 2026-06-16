@@ -663,5 +663,14 @@
   "trialNotificationExpiringSoonMessage": "試用版は {remaining} 後に期限切れになります。早めに開発者へお問い合わせください。",
   "trialSummaryExpired": "試用版 - 期限切れ (期限日: {date})",
   "trialSummaryRemaining": "試用版 - {remaining} (期限日: {date})",
-  "vaultDefaultName": "新しい Vault"
+  "vaultDefaultName": "新しい Vault",
+  "notificationTitleSuccess": "Zendio - Success",
+  "notificationTitleInfo": "Zendio - Info",
+  "notificationTitleWarning": "Zendio - Warning",
+  "notificationTitleError": "Zendio - Error",
+  "notificationTitleCritical": "Zendio - Critical",
+  "visibleTabScreenshotMissingSenderWindow": "Missing sender window for visible tab screenshot.",
+  "visibleTabScreenshotUnsupported": "Visible tab screenshot capture is unsupported.",
+  "visibleTabScreenshotMissingImage": "Visible tab screenshot capture returned no image.",
+  "videoSessionDraftTitleFallback": "Video Capture"
 }

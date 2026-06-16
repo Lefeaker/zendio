@@ -1,7 +1,8 @@
 import type { SettingsSchema } from '../../types';
+import type { Messages } from '@i18n';
 import { element, htmlParagraph } from '../builders/primitives';
 import { routingRuleRow, vaultRow } from '../builders/storage';
-import { DEFAULT_PRODUCTION_ENGLISH_MESSAGES } from '../i18n';
+import { translateSchemaMessage } from '../i18n';
 
 function linkLocalRestApiRecommendation(value: string): string {
   return value.replace(
@@ -12,44 +13,35 @@ function linkLocalRestApiRecommendation(value: string): string {
 
 const schema: SettingsSchema = {
   createView(ctx) {
-    const t = ctx.t ?? ((_key, fallback: string) => fallback);
+    const t = (key: keyof Messages) => translateSchemaMessage(ctx.t, key);
 
     return {
       id: 'storage',
       kind: 'page',
       hero: {
         ...ctx.appData.storage.hero,
-        title: t('schemaStorageTitle', ctx.appData.storage.hero.title),
-        description: t('schemaStorageHeroDescription', ctx.appData.storage.hero.description)
+        title: t('schemaStorageTitle'),
+        description: t('schemaStorageHeroDescription')
       },
       children: [
         {
           kind: 'group',
-          title: t('schemaStorageVaultsGroupTitle', 'Vaults'),
+          title: t('schemaStorageVaultsGroupTitle'),
           children: [
             {
               kind: 'card',
-              title: t('schemaStorageVaultListTitle', 'Vault List'),
-              description: t(
-                'schemaStorageVaultListDescription',
-                DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaStorageVaultListDescription
-              ),
+              title: t('schemaStorageVaultListTitle'),
+              description: t('schemaStorageVaultListDescription'),
               actions: [
                 {
                   kind: 'button',
-                  label: t(
-                    'schemaStorageTestConnectionButton',
-                    DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaStorageTestConnectionButton
-                  ),
+                  label: t('schemaStorageTestConnectionButton'),
                   variant: 'primary',
                   action: { id: 'storage:testConnection' }
                 },
                 {
                   kind: 'button',
-                  label: t(
-                    'schemaStorageAddVaultButton',
-                    DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaStorageAddVaultButton
-                  ),
+                  label: t('schemaStorageAddVaultButton'),
                   variant: 'secondary',
                   action: { id: 'storage:addVault' }
                 }
@@ -58,13 +50,13 @@ const schema: SettingsSchema = {
                 {
                   kind: 'table',
                   columns: [
-                    t('schemaStorageVaultEnabledColumnLabel', 'Enabled'),
-                    t('schemaStorageVaultNameColumnLabel', 'Vault'),
-                    t('schemaStorageVaultLocalFolderColumnLabel', 'Local Folder'),
-                    t('schemaStorageVaultHttpsUrlColumnLabel', 'HTTPS URL'),
-                    t('schemaStorageVaultHttpUrlColumnLabel', 'HTTP URL'),
-                    t('schemaStorageVaultApiKeyColumnLabel', 'API Key'),
-                    t('schemaStorageVaultActionsColumnLabel', 'Actions')
+                    t('schemaStorageVaultEnabledColumnLabel'),
+                    t('schemaStorageVaultNameColumnLabel'),
+                    t('schemaStorageVaultLocalFolderColumnLabel'),
+                    t('schemaStorageVaultHttpsUrlColumnLabel'),
+                    t('schemaStorageVaultHttpUrlColumnLabel'),
+                    t('schemaStorageVaultApiKeyColumnLabel'),
+                    t('schemaStorageVaultActionsColumnLabel')
                   ],
                   rows: (current) =>
                     current.appData.storage.vaults.map((vault, index) =>
@@ -80,11 +72,7 @@ const schema: SettingsSchema = {
                   kind: 'notice',
                   title: (current) =>
                     current.appData.storage.connectionNotice?.title ||
-                    (current.t?.(
-                      'schemaStorageConnectionNoticeTitle',
-                      DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaStorageConnectionNoticeTitle
-                    ) ??
-                      DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaStorageConnectionNoticeTitle),
+                    translateSchemaMessage(current.t, 'schemaStorageConnectionNoticeTitle'),
                   body: (current) => {
                     const notice = current.appData.storage.connectionNotice;
                     if (notice?.html) {
@@ -97,37 +85,17 @@ const schema: SettingsSchema = {
                       return notice.body;
                     }
                     if (notice?.variant === 'success') {
-                      return (
-                        current.t?.(
-                          'connectionSuccessShort',
-                          DEFAULT_PRODUCTION_ENGLISH_MESSAGES.connectionSuccessShort
-                        ) ?? DEFAULT_PRODUCTION_ENGLISH_MESSAGES.connectionSuccessShort
-                      );
+                      return translateSchemaMessage(current.t, 'connectionSuccessShort');
                     }
                     if (notice?.variant && notice.variant !== 'info') {
-                      return (
-                        current.t?.(
-                          'connectionFailed',
-                          DEFAULT_PRODUCTION_ENGLISH_MESSAGES.connectionFailed
-                        ) ?? DEFAULT_PRODUCTION_ENGLISH_MESSAGES.connectionFailed
-                      );
+                      return translateSchemaMessage(current.t, 'connectionFailed');
                     }
-                    return (
-                      current.t?.(
-                        'schemaStorageConnectionNotRun',
-                        DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaStorageConnectionNotRun
-                      ) ?? DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaStorageConnectionNotRun
-                    );
+                    return translateSchemaMessage(current.t, 'schemaStorageConnectionNotRun');
                   },
                   variant: (current) => current.appData.storage.connectionNotice?.variant ?? 'info'
                 },
                 htmlParagraph(
-                  linkLocalRestApiRecommendation(
-                    t(
-                      'schemaStorageLocalFolderRecommendation',
-                      DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaStorageLocalFolderRecommendation
-                    )
-                  ),
+                  linkLocalRestApiRecommendation(t('schemaStorageLocalFolderRecommendation')),
                   'option-support-note'
                 )
               ]
@@ -136,22 +104,16 @@ const schema: SettingsSchema = {
         },
         {
           kind: 'group',
-          title: t('schemaStorageRoutingGroupTitle', 'Routing Engine'),
+          title: t('schemaStorageRoutingGroupTitle'),
           children: [
             {
               kind: 'card',
-              title: t('routingRulesTitle', 'Routing Rules'),
-              description: t(
-                'routingRulesHint',
-                DEFAULT_PRODUCTION_ENGLISH_MESSAGES.routingRulesHint
-              ),
+              title: t('routingRulesTitle'),
+              description: t('routingRulesHint'),
               actions: [
                 {
                   kind: 'button',
-                  label: t(
-                    'schemaStorageAddRuleButton',
-                    DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaStorageAddRuleButton
-                  ),
+                  label: t('schemaStorageAddRuleButton'),
                   variant: 'primary',
                   action: { id: 'routing:add' }
                 }
@@ -159,25 +121,19 @@ const schema: SettingsSchema = {
               body: [
                 {
                   kind: 'notice',
-                  title: t(
-                    'schemaStorageRoutingTipTitle',
-                    DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaStorageRoutingTipTitle
-                  ),
-                  body: t(
-                    'schemaStorageRoutingTipBody',
-                    DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaStorageRoutingTipBody
-                  ),
+                  title: t('schemaStorageRoutingTipTitle'),
+                  body: t('schemaStorageRoutingTipBody'),
                   variant: 'warning'
                 },
                 {
                   kind: 'table',
                   columns: [
-                    t('schemaStorageRoutingEnabledColumnLabel', 'Enabled'),
-                    t('schemaStorageRoutingTypeColumnLabel', 'Type'),
-                    t('schemaStorageRoutingPatternColumnLabel', 'Pattern'),
-                    t('schemaStorageRoutingTargetVaultColumnLabel', 'Target Vault'),
-                    t('schemaStorageRoutingPriorityColumnLabel', 'Priority'),
-                    t('schemaStorageRoutingActionsColumnLabel', 'Actions')
+                    t('schemaStorageRoutingEnabledColumnLabel'),
+                    t('schemaStorageRoutingTypeColumnLabel'),
+                    t('schemaStorageRoutingPatternColumnLabel'),
+                    t('schemaStorageRoutingTargetVaultColumnLabel'),
+                    t('schemaStorageRoutingPriorityColumnLabel'),
+                    t('schemaStorageRoutingActionsColumnLabel')
                   ],
                   rows: (current) =>
                     current.state.routingRules.map((rule, index) =>

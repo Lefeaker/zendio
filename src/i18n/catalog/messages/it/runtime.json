@@ -663,5 +663,14 @@
   "trialNotificationExpiringSoonMessage": "La versione di prova scade tra {remaining}. Contatta lo sviluppatore in tempo.",
   "trialSummaryExpired": "Versione di prova - scaduta (data di scadenza: {date})",
   "trialSummaryRemaining": "Versione di prova - {remaining} (data di scadenza: {date})",
-  "vaultDefaultName": "Nuovo vault"
+  "vaultDefaultName": "Nuovo vault",
+  "notificationTitleSuccess": "Zendio - Success",
+  "notificationTitleInfo": "Zendio - Info",
+  "notificationTitleWarning": "Zendio - Warning",
+  "notificationTitleError": "Zendio - Error",
+  "notificationTitleCritical": "Zendio - Critical",
+  "visibleTabScreenshotMissingSenderWindow": "Missing sender window for visible tab screenshot.",
+  "visibleTabScreenshotUnsupported": "Visible tab screenshot capture is unsupported.",
+  "visibleTabScreenshotMissingImage": "Visible tab screenshot capture returned no image.",
+  "videoSessionDraftTitleFallback": "Video Capture"
 }

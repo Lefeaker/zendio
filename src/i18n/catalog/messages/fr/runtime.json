@@ -663,5 +663,14 @@
   "trialNotificationExpiringSoonMessage": "La version d’essai expire dans {remaining}. Veuillez contacter le développeur à temps.",
   "trialSummaryExpired": "Version d’essai - expirée (date d’expiration : {date})",
   "trialSummaryRemaining": "Version d’essai - {remaining} (date d’expiration : {date})",
-  "vaultDefaultName": "Nouveau coffre"
+  "vaultDefaultName": "Nouveau coffre",
+  "notificationTitleSuccess": "Zendio - Success",
+  "notificationTitleInfo": "Zendio - Info",
+  "notificationTitleWarning": "Zendio - Warning",
+  "notificationTitleError": "Zendio - Error",
+  "notificationTitleCritical": "Zendio - Critical",
+  "visibleTabScreenshotMissingSenderWindow": "Missing sender window for visible tab screenshot.",
+  "visibleTabScreenshotUnsupported": "Visible tab screenshot capture is unsupported.",
+  "visibleTabScreenshotMissingImage": "Visible tab screenshot capture returned no image.",
+  "videoSessionDraftTitleFallback": "Video Capture"
 }
