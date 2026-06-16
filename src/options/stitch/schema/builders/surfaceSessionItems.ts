@@ -1,4 +1,5 @@
 import type { NodeChild, NodeSchema, VideoSurfaceCapture } from '../../types';
+import { DEFAULT_PRODUCTION_ENGLISH_MESSAGES } from '../i18n';
 import { classNames } from './classNames';
 import { div, element } from './primitives';
 
@@ -14,8 +15,8 @@ export function sessionItemMarker(label: string, kind: 'index' | 'time' = 'index
 export function videoTimestampMarker(
   capture: VideoSurfaceCapture,
   screenshotLabels: { capture: string; remove: string } = {
-    capture: 'Capture screenshot',
-    remove: 'Remove screenshot'
+    capture: DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaRuntimeVideoCaptureScreenshotLabel,
+    remove: DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaRuntimeVideoRemoveScreenshotLabel
   }
 ): NodeSchema {
   const screenshotState = capture.screenshotState ?? (capture.hasScreenshot ? 'on' : 'off');

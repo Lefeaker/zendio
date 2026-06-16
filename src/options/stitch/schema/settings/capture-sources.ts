@@ -1,17 +1,20 @@
 import type { SettingsSchema, SchemaContext } from '../../types';
-import type { SchemaMessageKey, SchemaMessageValues } from '../i18n';
+import {
+  getDefaultProductionEnglishMessage,
+  type SchemaMessageKey,
+  type SchemaMessageValues
+} from '../i18n';
 import { emptyState, grid } from '../builders/primitives';
 import { aiPlatformLinks } from '../builders/settings';
 import { boundInput } from '../builders/controls';
 import { createVideoCaptureSourcesGroup } from './capture-sources-video';
-import { DEFAULT_PRODUCTION_ENGLISH_MESSAGES } from '../i18n';
 
 function translate(
   current: SchemaContext,
   key: SchemaMessageKey,
-  fallback: string,
   values?: SchemaMessageValues
 ): string {
+  const fallback = getDefaultProductionEnglishMessage(key, values);
   return current.t ? current.t(key, fallback, values) : fallback;
 }
 
@@ -24,34 +27,22 @@ const schema: SettingsSchema = {
       kind: 'page',
       hero: {
         ...hero,
-        title: translate(ctx, 'schemaCaptureSourcesTitle', hero.title),
-        description: translate(ctx, 'schemaCaptureSourcesHeroDescription', hero.description)
+        title: translate(ctx, 'schemaCaptureSourcesTitle'),
+        description: translate(ctx, 'schemaCaptureSourcesHeroDescription')
       },
       children: [
         {
           kind: 'group',
-          title: translate(ctx, 'schemaCaptureSourcesAiChatGroupTitle', 'AI Chat'),
+          title: translate(ctx, 'schemaCaptureSourcesAiChatGroupTitle'),
           children: [
             {
               kind: 'card',
-              title: translate(
-                ctx,
-                'schemaCaptureSourcesAiConversationTitle',
-                'AI Conversation Capture'
-              ),
-              description: translate(
-                ctx,
-                'schemaCaptureSourcesAiConversationDescription',
-                DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaCaptureSourcesAiConversationDescription
-              ),
+              title: translate(ctx, 'schemaCaptureSourcesAiConversationTitle'),
+              description: translate(ctx, 'schemaCaptureSourcesAiConversationDescription'),
               actions: [
                 {
                   kind: 'badge',
-                  label: translate(
-                    ctx,
-                    'schemaCaptureSourcesAiSupportedPlatformsBadge',
-                    '8 supported platforms'
-                  ),
+                  label: translate(ctx, 'schemaCaptureSourcesAiSupportedPlatformsBadge'),
                   variant: 'success'
                 }
               ],
@@ -61,36 +52,23 @@ const schema: SettingsSchema = {
                   items: [
                     {
                       kind: 'row',
-                      title: translate(
-                        ctx,
-                        'videoSupportedPlatformsTitle',
-                        DEFAULT_PRODUCTION_ENGLISH_MESSAGES.videoSupportedPlatformsTitle
-                      ),
+                      title: translate(ctx, 'videoSupportedPlatformsTitle'),
                       description: translate(
                         ctx,
-                        'schemaCaptureSourcesSupportedPlatformsDescription',
-                        DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaCaptureSourcesSupportedPlatformsDescription
+                        'schemaCaptureSourcesSupportedPlatformsDescription'
                       ),
                       control: aiPlatformLinks()
                     },
                     {
                       kind: 'row',
-                      title: translate(
-                        ctx,
-                        'aiSummaryUserName',
-                        DEFAULT_PRODUCTION_ENGLISH_MESSAGES.aiSummaryUserName
-                      ),
-                      description: translate(
-                        ctx,
-                        'schemaCaptureSourcesUserDisplayNameDescription',
-                        DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaCaptureSourcesUserDisplayNameDescription
-                      ),
+                      title: translate(ctx, 'aiSummaryUserName'),
+                      description: translate(ctx, 'schemaCaptureSourcesUserDisplayNameDescription'),
                       control: grid(
                         2,
                         [
                           {
                             kind: 'field',
-                            label: translate(ctx, 'userNameLabel', 'userName'),
+                            label: translate(ctx, 'userNameLabel'),
                             control: boundInput({
                               bind: 'aiUserName',
                               onInput: {
@@ -102,18 +80,11 @@ const schema: SettingsSchema = {
                           },
                           {
                             kind: 'field',
-                            label: translate(
-                              ctx,
-                              'schemaCaptureSourcesPreviewFieldLabel',
-                              'Preview'
-                            ),
+                            label: translate(ctx, 'schemaCaptureSourcesPreviewFieldLabel'),
                             control: emptyState((current) =>
-                              translate(
-                                current,
-                                'schemaCaptureSourcesUserDisplayNamePreview',
-                                DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaCaptureSourcesUserDisplayNamePreview,
-                                { label: current.state.aiUserName ?? 'USER' }
-                              )
+                              translate(current, 'schemaCaptureSourcesUserDisplayNamePreview', {
+                                label: current.state.aiUserName ?? 'USER'
+                              })
                             )
                           }
                         ],

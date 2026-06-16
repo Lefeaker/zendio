@@ -4,98 +4,59 @@ import { boundInput } from '../builders/controls';
 import { sectionHelper } from '../builders/chrome';
 import { buttonCell, textCell } from '../builders/table';
 import { templateInput, templateTokenBlock, yamlPreviewBlock } from '../builders/output';
-import { DEFAULT_PRODUCTION_ENGLISH_MESSAGES, type SchemaMessageKey } from '../i18n';
+import { getDefaultProductionEnglishMessage, type SchemaMessageKey } from '../i18n';
 
-function translate(
-  current: Pick<SchemaContext, 't'>,
-  key: SchemaMessageKey,
-  fallback: string
-): string {
+function translate(current: Pick<SchemaContext, 't'>, key: SchemaMessageKey): string {
+  const fallback = getDefaultProductionEnglishMessage(key);
   return current.t ? current.t(key, fallback) : fallback;
 }
 
 const schema: SettingsSchema = {
   createView(ctx) {
     const hero = ctx.appData.output.hero;
-    const heroPills = hero.pills;
 
     return {
       id: 'output',
       kind: 'page',
       hero: {
         ...hero,
-        title: translate(ctx, 'schemaOutputTitle', hero.title),
-        description: translate(ctx, 'schemaOutputHeroDescription', hero.description),
+        title: translate(ctx, 'schemaOutputTitle'),
+        description: translate(ctx, 'schemaOutputHeroDescription'),
         pills: [
-          translate(ctx, 'schemaOutputTemplatesGroupTitle', heroPills[0] ?? 'Templates'),
-          translate(ctx, 'schemaOutputDomainMappingsGroupTitle', heroPills[1] ?? 'Domain Naming'),
-          translate(ctx, 'schemaOutputYamlGroupTitle', heroPills[2] ?? 'YAML Schema')
+          translate(ctx, 'schemaOutputTemplatesGroupTitle'),
+          translate(ctx, 'schemaOutputDomainMappingsGroupTitle'),
+          translate(ctx, 'schemaOutputYamlGroupTitle')
         ]
       },
       children: [
         {
           kind: 'group',
-          title: (current) => translate(current, 'schemaOutputTemplatesGroupTitle', 'Templates'),
+          title: (current) => translate(current, 'schemaOutputTemplatesGroupTitle'),
           children: [
             {
               kind: 'card',
-              title: (current) => translate(current, 'templateConfigTitle', 'Path Templates'),
-              description: (current) =>
-                translate(
-                  current,
-                  'templateConfigHint',
-                  DEFAULT_PRODUCTION_ENGLISH_MESSAGES.templateConfigHint
-                ),
+              title: (current) => translate(current, 'templateConfigTitle'),
+              description: (current) => translate(current, 'templateConfigHint'),
               body: [
                 {
                   kind: 'rows',
                   items: [
                     {
                       kind: 'row',
-                      title: (current) =>
-                        translate(
-                          current,
-                          'articleTemplateLabel',
-                          DEFAULT_PRODUCTION_ENGLISH_MESSAGES.articleTemplateLabel
-                        ),
-                      description: (current) =>
-                        translate(
-                          current,
-                          'articleTemplateHint',
-                          DEFAULT_PRODUCTION_ENGLISH_MESSAGES.articleTemplateHint
-                        ),
+                      title: (current) => translate(current, 'articleTemplateLabel'),
+                      description: (current) => translate(current, 'articleTemplateHint'),
                       control: templateInput('articleVideo')
                     },
                     {
                       kind: 'row',
-                      title: (current) =>
-                        translate(
-                          current,
-                          'fragmentTemplateLabel',
-                          DEFAULT_PRODUCTION_ENGLISH_MESSAGES.fragmentTemplateLabel
-                        ),
-                      description: (current) =>
-                        translate(
-                          current,
-                          'fragmentTemplateHint',
-                          DEFAULT_PRODUCTION_ENGLISH_MESSAGES.fragmentTemplateHint
-                        ),
+                      title: (current) => translate(current, 'fragmentTemplateLabel'),
+                      description: (current) => translate(current, 'fragmentTemplateHint'),
                       control: templateInput('fragment')
                     },
                     {
                       kind: 'row',
-                      title: (current) =>
-                        translate(
-                          current,
-                          'readingTemplateLabel',
-                          DEFAULT_PRODUCTION_ENGLISH_MESSAGES.readingTemplateLabel
-                        ),
-                      description: (current) =>
-                        translate(
-                          current,
-                          'readingTemplateHint',
-                          DEFAULT_PRODUCTION_ENGLISH_MESSAGES.readingTemplateHint
-                        ),
+                      title: (current) => translate(current, 'readingTemplateLabel'),
+                      description: (current) => translate(current, 'readingTemplateHint'),
                       control: stack(
                         [
                           {
@@ -105,27 +66,15 @@ const schema: SettingsSchema = {
                             options: (current) => [
                               {
                                 value: 'article',
-                                label: translate(
-                                  current,
-                                  'readingTemplateOptionArticle',
-                                  DEFAULT_PRODUCTION_ENGLISH_MESSAGES.readingTemplateOptionArticle
-                                )
+                                label: translate(current, 'readingTemplateOptionArticle')
                               },
                               {
                                 value: 'fragment',
-                                label: translate(
-                                  current,
-                                  'readingTemplateOptionFragment',
-                                  DEFAULT_PRODUCTION_ENGLISH_MESSAGES.readingTemplateOptionFragment
-                                )
+                                label: translate(current, 'readingTemplateOptionFragment')
                               },
                               {
                                 value: 'custom',
-                                label: translate(
-                                  current,
-                                  'readingTemplateOptionCustom',
-                                  DEFAULT_PRODUCTION_ENGLISH_MESSAGES.readingTemplateOptionCustom
-                                )
+                                label: translate(current, 'readingTemplateOptionCustom')
                               }
                             ],
                             onChange: { id: 'output:setReadingPathMode', valueFrom: 'target.value' }
@@ -140,28 +89,14 @@ const schema: SettingsSchema = {
                     },
                     {
                       kind: 'row',
-                      title: (current) =>
-                        translate(
-                          current,
-                          'aiTemplateLabel',
-                          DEFAULT_PRODUCTION_ENGLISH_MESSAGES.aiTemplateLabel
-                        ),
-                      description: (current) =>
-                        translate(
-                          current,
-                          'aiTemplateHint',
-                          DEFAULT_PRODUCTION_ENGLISH_MESSAGES.aiTemplateHint
-                        ),
+                      title: (current) => translate(current, 'aiTemplateLabel'),
+                      description: (current) => translate(current, 'aiTemplateHint'),
                       control: templateInput('aiChat')
                     }
                   ]
                 },
                 templateTokenBlock((current) =>
-                  translate(
-                    current,
-                    'schemaOutputTemplateHelperText',
-                    DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaOutputTemplateHelperText
-                  )
+                  translate(current, 'schemaOutputTemplateHelperText')
                 )
               ]
             }
@@ -169,27 +104,16 @@ const schema: SettingsSchema = {
         },
         {
           kind: 'group',
-          title: (current) =>
-            translate(current, 'schemaOutputDomainMappingsGroupTitle', 'Domain Naming'),
+          title: (current) => translate(current, 'schemaOutputDomainMappingsGroupTitle'),
           children: [
             {
               kind: 'card',
-              title: (current) => translate(current, 'domainMappingTitle', 'Domain Mappings'),
-              description: (current) =>
-                translate(
-                  current,
-                  'domainMappingHint',
-                  DEFAULT_PRODUCTION_ENGLISH_MESSAGES.domainMappingHint
-                ),
+              title: (current) => translate(current, 'domainMappingTitle'),
+              description: (current) => translate(current, 'domainMappingHint'),
               actions: [
                 {
                   kind: 'button',
-                  label: (current) =>
-                    translate(
-                      current,
-                      'schemaOutputAddMappingButton',
-                      DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaOutputAddMappingButton
-                    ),
+                  label: (current) => translate(current, 'schemaOutputAddMappingButton'),
                   variant: 'primary',
                   action: { id: 'domain:add' }
                 }
@@ -199,10 +123,10 @@ const schema: SettingsSchema = {
                   kind: 'table',
                   rowClassName: 'domain-mapping-table-scroll',
                   columns: (current) => [
-                    translate(current, 'schemaOutputDomainColumnLabel', 'Domain'),
-                    translate(current, 'schemaOutputFolderAliasColumnLabel', 'Folder Alias'),
-                    translate(current, 'schemaOutputDomainNotesColumnLabel', 'Notes'),
-                    translate(current, 'yamlFieldActionsLabel', 'Actions')
+                    translate(current, 'schemaOutputDomainColumnLabel'),
+                    translate(current, 'schemaOutputFolderAliasColumnLabel'),
+                    translate(current, 'schemaOutputDomainNotesColumnLabel'),
+                    translate(current, 'yamlFieldActionsLabel')
                   ],
                   rows: (current) => {
                     const mappings = current.appData.output.domainMappings.length
@@ -215,11 +139,7 @@ const schema: SettingsSchema = {
                             value: domain,
                             mono: true,
                             placeholder: (renderCtx) =>
-                              translate(
-                                renderCtx,
-                                'domainMappingDomainPlaceholder',
-                                'e.g., medium.com'
-                              ),
+                              translate(renderCtx, 'domainMappingDomainPlaceholder'),
                             onInput: {
                               id: 'domain:update',
                               args: [index, 'domain'],
@@ -231,7 +151,7 @@ const schema: SettingsSchema = {
                           node: boundInput({
                             value: alias,
                             placeholder: (renderCtx) =>
-                              translate(renderCtx, 'domainMappingNamePlaceholder', 'e.g., Medium'),
+                              translate(renderCtx, 'domainMappingNamePlaceholder'),
                             onInput: {
                               id: 'domain:update',
                               args: [index, 'alias'],
@@ -241,12 +161,7 @@ const schema: SettingsSchema = {
                         },
                         textCell(notes),
                         buttonCell(
-                          (renderCtx) =>
-                            translate(
-                              renderCtx,
-                              'domainMappingDeleteButton',
-                              DEFAULT_PRODUCTION_ENGLISH_MESSAGES.domainMappingDeleteButton
-                            ),
+                          (renderCtx) => translate(renderCtx, 'domainMappingDeleteButton'),
                           'ghost',
                           { id: 'domain:remove', args: [index] }
                         )
@@ -260,40 +175,31 @@ const schema: SettingsSchema = {
         },
         {
           kind: 'group',
-          title: (current) => translate(current, 'schemaOutputYamlGroupTitle', 'YAML Schema'),
+          title: (current) => translate(current, 'schemaOutputYamlGroupTitle'),
           children: [
             {
               kind: 'card',
-              title: (current) => translate(current, 'yamlConfigTitle', 'YAML Configuration'),
-              description: (current) =>
-                translate(
-                  current,
-                  'yamlConfigHint',
-                  DEFAULT_PRODUCTION_ENGLISH_MESSAGES.yamlConfigHint
-                ),
+              title: (current) => translate(current, 'yamlConfigTitle'),
+              description: (current) => translate(current, 'yamlConfigHint'),
               actions: [
                 {
                   kind: 'badge',
-                  label: (current) =>
-                    `${translate(current, 'schemaYamlFilterArticleLabel', 'Article')}: 8`,
+                  label: (current) => `${translate(current, 'schemaYamlFilterArticleLabel')}: 8`,
                   variant: 'success'
                 },
                 {
                   kind: 'badge',
-                  label: (current) =>
-                    `${translate(current, 'schemaYamlFilterClipperLabel', 'Clipper')}: 7`,
+                  label: (current) => `${translate(current, 'schemaYamlFilterClipperLabel')}: 7`,
                   variant: 'success'
                 },
                 {
                   kind: 'badge',
-                  label: (current) =>
-                    `${translate(current, 'schemaYamlFilterVideoLabel', 'Video')}: 9`,
+                  label: (current) => `${translate(current, 'schemaYamlFilterVideoLabel')}: 9`,
                   variant: 'success'
                 },
                 {
                   kind: 'badge',
-                  label: (current) =>
-                    `${translate(current, 'schemaYamlFilterAiChatLabel', 'AI Chat')}: 7`,
+                  label: (current) => `${translate(current, 'schemaYamlFilterAiChatLabel')}: 7`,
                   variant: 'success'
                 }
               ],
@@ -304,16 +210,11 @@ const schema: SettingsSchema = {
                   props: { optionsKey: 'draft' }
                 },
                 sectionHelper(
-                  (current) =>
-                    translate(
-                      current,
-                      'schemaOutputYamlHelperText',
-                      'Use the structured editor above as the single writer for fields, content type switches, custom fields, and domain overrides.'
-                    ),
+                  (current) => translate(current, 'schemaOutputYamlHelperText'),
                   'yaml-helper'
                 ),
                 yamlPreviewBlock((current) =>
-                  translate(current, 'schemaOutputYamlPreviewSummaryLabel', 'Preview')
+                  translate(current, 'schemaOutputYamlPreviewSummaryLabel')
                 )
               ]
             }

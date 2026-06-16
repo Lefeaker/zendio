@@ -31,12 +31,19 @@ const schema: ResourceSchema = {
         surface.statusDetail)
       : null;
     const progressAriaLabel =
-      ctx.t?.('schemaRuntimeTaskSuccessProgressAriaLabel', 'Send progress') ?? 'Send progress';
+      ctx.t?.(
+        'schemaRuntimeTaskSuccessProgressAriaLabel',
+        DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaRuntimeTaskSuccessProgressAriaLabel
+      ) ?? DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaRuntimeTaskSuccessProgressAriaLabel;
 
     return {
       id: 'task-success',
       kind: 'modal',
-      title: ctx.t?.('schemaRuntimeTaskSuccessTitle', 'Task Success') ?? 'Task Success',
+      title:
+        ctx.t?.(
+          'schemaRuntimeTaskSuccessTitle',
+          DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaRuntimeTaskSuccessTitle
+        ) ?? DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaRuntimeTaskSuccessTitle,
       description:
         ctx.t?.(
           'schemaRuntimeTaskSuccessDescription',

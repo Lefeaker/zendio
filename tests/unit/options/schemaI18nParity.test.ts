@@ -182,6 +182,46 @@ describe('schema i18n parity', () => {
     expect(source).not.toContain('Support the project through the available public channels.');
   });
 
+  it('keeps P04 settings/surfaces source files free of representative English fallback literals', () => {
+    const representativeP04Files = [
+      {
+        file: 'src/options/app/productionStitchRenderLifecycle.ts',
+        banned: ['Runtime UI']
+      },
+      {
+        file: 'src/options/app/productionStitchActionGroups.ts',
+        banned: ['Connection Test Result']
+      },
+      {
+        file: 'src/options/app/productionStitchStorageSubscriptions.ts',
+        banned: ['Local Folder needs permission again']
+      },
+      {
+        file: 'src/options/stitch/schema/settings/maintenance.ts',
+        banned: ['Configuration Transfer']
+      },
+      {
+        file: 'src/options/stitch/schema/settings/output.ts',
+        banned: ['Path Templates']
+      },
+      {
+        file: 'src/options/stitch/schema/settings/overview.ts',
+        banned: ["privacySettingsNote', 'Consent'"]
+      },
+      {
+        file: 'src/options/stitch/schema/builders/output.ts',
+        banned: ['YAML filter']
+      }
+    ] as const;
+
+    for (const { file, banned } of representativeP04Files) {
+      const source = readFileSync(resolve(process.cwd(), file), 'utf8');
+      for (const literal of banned) {
+        expect(source).not.toContain(literal);
+      }
+    }
+  });
+
   it('keeps P03 resource source files free of representative legacy English fallback prose', () => {
     const resourceSources = [
       {

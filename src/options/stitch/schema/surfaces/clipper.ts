@@ -46,7 +46,11 @@ const schema: ResourceSchema = {
     return {
       id: 'clipper',
       kind: 'modal',
-      title: t?.('schemaRuntimeClipperTitle', 'Clipper Dialog') ?? 'Clipper Dialog',
+      title:
+        t?.(
+          'schemaRuntimeClipperTitle',
+          DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaRuntimeClipperTitle
+        ) ?? DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaRuntimeClipperTitle,
       description:
         t?.(
           'schemaRuntimeClipperDescription',

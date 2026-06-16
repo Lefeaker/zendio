@@ -37,6 +37,9 @@ const ENGLISH_SENTINEL_MESSAGES = {
   commentPlaceholder: 'Comment Placeholder Sentinel',
   schemaRuntimeSurfaceSaveToLabel: 'Save To Sentinel',
   schemaRuntimeSurfaceConfigureVaultLabel: 'Configure Vault Sentinel',
+  schemaRuntimeSurfaceResizePanelHeightAriaLabel: 'Resize Height Sentinel',
+  schemaRuntimeSurfaceResizePanelAriaLabel: 'Resize Panel Sentinel',
+  schemaRuntimeSurfaceCollapsePanelAriaLabel: 'Collapse Panel Sentinel',
   schemaRuntimeReaderTitle: 'Reader Mode Sentinel',
   schemaRuntimeReaderDescription: 'Reader Description Sentinel',
   schemaRuntimeReaderHighlightOneExcerpt: 'Reader Highlight One Excerpt Sentinel',
@@ -182,6 +185,23 @@ describe('mountProductionStitchShell runtime surface i18n', () => {
     expect(reader.querySelector('.resource-modal-headings p')?.textContent).toBe(
       'Reader Description Sentinel'
     );
+    expect(
+      queryRequired<HTMLElement>(
+        '[data-role="session-panel-height-resize-handle"]',
+        reader
+      ).getAttribute('aria-label')
+    ).toBe('Resize Height Sentinel');
+    expect(
+      queryRequired<HTMLElement>('[data-role="session-panel-resize-handle"]', reader).getAttribute(
+        'aria-label'
+      )
+    ).toBe('Resize Panel Sentinel');
+    expect(
+      queryRequired<HTMLButtonElement>(
+        'button[data-action-id="session:toggleCollapse"]',
+        reader
+      ).getAttribute('aria-label')
+    ).toBe('Collapse Panel Sentinel');
     expect(reader.querySelector('.reader-surface-window .surface-window-title')?.textContent).toBe(
       'Reader Panel Title Sentinel'
     );
@@ -225,6 +245,23 @@ describe('mountProductionStitchShell runtime surface i18n', () => {
     expect(video.querySelector('.resource-modal-headings p')?.textContent).toBe(
       'Video Description Sentinel'
     );
+    expect(
+      queryRequired<HTMLElement>(
+        '[data-role="session-panel-height-resize-handle"]',
+        video
+      ).getAttribute('aria-label')
+    ).toBe('Resize Height Sentinel');
+    expect(
+      queryRequired<HTMLElement>('[data-role="session-panel-resize-handle"]', video).getAttribute(
+        'aria-label'
+      )
+    ).toBe('Resize Panel Sentinel');
+    expect(
+      queryRequired<HTMLButtonElement>(
+        'button[data-action-id="session:toggleCollapse"]',
+        video
+      ).getAttribute('aria-label')
+    ).toBe('Collapse Panel Sentinel');
     expect(video.querySelector('.video-surface-window .surface-window-title')?.textContent).toBe(
       'Video Panel Title Sentinel'
     );

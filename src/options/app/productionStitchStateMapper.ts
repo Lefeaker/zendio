@@ -10,6 +10,7 @@ import type {
   RoutingRule,
   VaultRecord
 } from '@options/stitch/types';
+import { DEFAULT_PRODUCTION_ENGLISH_MESSAGES } from '@options/stitch/schema/i18n';
 import { normalizeFragmentModifierKeys } from './fragmentModifierOptions';
 
 export { resolveExtensionVersionLabel } from './productionStitchVersion';
@@ -374,10 +375,19 @@ function usageStatsToOverview(
   return {
     ...overview,
     stats: [
-      { label: 'Total saved', value: total },
-      { label: 'AI conversations', value: usageStats.aiChatSaves },
-      { label: 'Reading + Video + Fragment', value: usageStats.fragmentSaves },
-      { label: 'Articles', value: usageStats.articleSaves }
+      { label: DEFAULT_PRODUCTION_ENGLISH_MESSAGES.usageTotalLabel, value: total },
+      {
+        label: DEFAULT_PRODUCTION_ENGLISH_MESSAGES.usageAiLabel,
+        value: usageStats.aiChatSaves
+      },
+      {
+        label: DEFAULT_PRODUCTION_ENGLISH_MESSAGES.usageFragmentLabel,
+        value: usageStats.fragmentSaves
+      },
+      {
+        label: DEFAULT_PRODUCTION_ENGLISH_MESSAGES.usageArticleLabel,
+        value: usageStats.articleSaves
+      }
     ],
     history: prepareUsageHistory(usageStats).map((entry) => ({
       label: usageHistoryLabel(entry.date),

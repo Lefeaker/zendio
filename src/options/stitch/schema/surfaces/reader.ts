@@ -54,11 +54,27 @@ const schema: ResourceSchema = {
           DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaRuntimeSurfaceConfigureVaultLabel
         ) ?? DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaRuntimeSurfaceConfigureVaultLabel
     };
+    const panelAriaLabels = {
+      resizeHeight:
+        t?.(
+          'schemaRuntimeSurfaceResizePanelHeightAriaLabel',
+          DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaRuntimeSurfaceResizePanelHeightAriaLabel
+        ) ?? DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaRuntimeSurfaceResizePanelHeightAriaLabel,
+      resizePanel:
+        t?.(
+          'schemaRuntimeSurfaceResizePanelAriaLabel',
+          DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaRuntimeSurfaceResizePanelAriaLabel
+        ) ?? DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaRuntimeSurfaceResizePanelAriaLabel
+    };
 
     return {
       id: 'reader',
       kind: 'modal',
-      title: t?.('schemaRuntimeReaderTitle', 'Reader Mode') ?? 'Reader Mode',
+      title:
+        t?.(
+          'schemaRuntimeReaderTitle',
+          DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaRuntimeReaderTitle
+        ) ?? DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaRuntimeReaderTitle,
       description:
         t?.(
           'schemaRuntimeReaderDescription',
@@ -68,15 +84,27 @@ const schema: ResourceSchema = {
       surfaceSkin: 'session',
       children: [
         div('resource-modal-stack', [
-          sessionPanelShell('reader-surface-window', [
-            sessionHeader(labels, '✦', surface.iconUrl),
-            surfaceBody(classNames.session.bodyReader, [
-              sessionItemList(
-                surface.highlights.map((highlight) => readerHighlightItem(highlight, labels))
-              )
-            ]),
-            sessionFooterBar(counter, actions, null, surface.destination, destinationLabels)
-          ])
+          sessionPanelShell(
+            'reader-surface-window',
+            [
+              sessionHeader(
+                labels,
+                '✦',
+                surface.iconUrl,
+                t?.(
+                  'schemaRuntimeSurfaceCollapsePanelAriaLabel',
+                  DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaRuntimeSurfaceCollapsePanelAriaLabel
+                ) ?? DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaRuntimeSurfaceCollapsePanelAriaLabel
+              ),
+              surfaceBody(classNames.session.bodyReader, [
+                sessionItemList(
+                  surface.highlights.map((highlight) => readerHighlightItem(highlight, labels))
+                )
+              ]),
+              sessionFooterBar(counter, actions, null, surface.destination, destinationLabels)
+            ],
+            panelAriaLabels
+          )
         ])
       ]
     };

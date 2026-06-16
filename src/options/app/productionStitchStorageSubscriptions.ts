@@ -1,4 +1,5 @@
-import { formatMessage, getMessagesForLanguage, type Messages } from '@i18n';
+import { getMessagesForLanguage, type Messages } from '@i18n';
+import { resolveSchemaMessage } from '@options/stitch/schema/i18n';
 import { getService } from '@shared/di';
 import { TOKENS } from '@shared/di/tokens';
 import type { PlatformServices } from '@platform/types';
@@ -33,12 +34,9 @@ export function createProductionStitchStorageSubscriptions(
   function getMessage(
     messages: Messages | null,
     key: keyof Messages,
-    fallback: string,
     values: Record<string, string | number | boolean> = {}
   ): string {
-    const value = messages?.[key];
-    const template = typeof value === 'string' && value.length > 0 ? value : fallback;
-    return Object.keys(values).length > 0 ? formatMessage(template, values) : template;
+    return resolveSchemaMessage(messages, key, values);
   }
 
   async function removeStoredLocalFolder(folderId: string | undefined): Promise<void> {
@@ -91,16 +89,8 @@ export function createProductionStitchStorageSubscriptions(
       );
       console.warn('[Options] Failed to choose local vault folder:', error);
       options.setConnectionNotice({
-        title: getMessage(
-          messages,
-          'schemaStorageLocalFolderAuthorizeWarningTitle',
-          'Local Folder'
-        ),
-        body: getMessage(
-          messages,
-          'schemaStorageLocalFolderAuthorizeWarningBody',
-          'Could not authorize a local folder. Chromium supports this feature. Until permission is granted, Zendio continues to use the REST API.'
-        ),
+        title: getMessage(messages, 'schemaStorageLocalFolderAuthorizeWarningTitle'),
+        body: getMessage(messages, 'schemaStorageLocalFolderAuthorizeWarningBody'),
         variant: 'warning'
       });
       options.refreshAppData();
@@ -156,17 +146,10 @@ export function createProductionStitchStorageSubscriptions(
       );
       if (permission !== 'granted') {
         options.setConnectionNotice({
-          title: getMessage(
-            messages,
-            'schemaStorageLocalFolderReauthorizeTitle',
-            'Local Folder needs permission again'
-          ),
-          body: getMessage(
-            messages,
-            'schemaStorageLocalFolderReauthorizeBody',
-            'Chrome reset the local-folder permission for "{vaultName}". Click the folder again and allow read/write access in the browser prompt. Until then, sending falls back to the REST API.',
-            { vaultName: vault.localFolderName ?? vault.name ?? vault.vault }
-          ),
+          title: getMessage(messages, 'schemaStorageLocalFolderReauthorizeTitle'),
+          body: getMessage(messages, 'schemaStorageLocalFolderReauthorizeBody', {
+            vaultName: vault.localFolderName ?? vault.name ?? vault.vault
+          }),
           variant: 'warning'
         });
         options.refreshAppData();
@@ -174,17 +157,10 @@ export function createProductionStitchStorageSubscriptions(
         return;
       }
       options.setConnectionNotice({
-        title: getMessage(
-          messages,
-          'schemaStorageLocalFolderPermissionConfirmedTitle',
-          'Local Folder permission confirmed'
-        ),
-        body: getMessage(
-          messages,
-          'schemaStorageLocalFolderPermissionConfirmedBody',
-          '"{vaultName}" is ready for local writes.',
-          { vaultName: vault.localFolderName ?? vault.name ?? vault.vault }
-        ),
+        title: getMessage(messages, 'schemaStorageLocalFolderPermissionConfirmedTitle'),
+        body: getMessage(messages, 'schemaStorageLocalFolderPermissionConfirmedBody', {
+          vaultName: vault.localFolderName ?? vault.name ?? vault.vault
+        }),
         variant: 'success'
       });
     } catch (error) {
@@ -195,16 +171,8 @@ export function createProductionStitchStorageSubscriptions(
       );
       console.warn('[Options] Failed to refresh local vault folder permission:', error);
       options.setConnectionNotice({
-        title: getMessage(
-          messages,
-          'schemaStorageLocalFolderReauthorizeTitle',
-          'Local Folder needs permission again'
-        ),
-        body: getMessage(
-          messages,
-          'schemaStorageLocalFolderReauthorizeFallbackBody',
-          'Chrome could not restore this local-folder permission right now. Re-select the folder or continue with the REST API.'
-        ),
+        title: getMessage(messages, 'schemaStorageLocalFolderReauthorizeTitle'),
+        body: getMessage(messages, 'schemaStorageLocalFolderReauthorizeFallbackBody'),
         variant: 'warning'
       });
       options.refreshAppData();

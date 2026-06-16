@@ -27,6 +27,7 @@ const ENGLISH_SENTINEL_MESSAGE_OVERRIDES = {
   schemaOverviewLanguageOptionZhCn: 'Chinese Option Sentinel',
   schemaOverviewThemeRowTitle: 'Theme Row Sentinel',
   schemaOverviewThemeSystemOption: 'System Theme Sentinel',
+  privacySettingsNote: 'Consent Section Sentinel',
   analyticsConsentTitle: 'Analytics Sentinel',
   analyticsConsentDescription: 'Analytics Description Sentinel',
   errorReportingConsentTitle: 'Error Reporting Sentinel',
@@ -60,6 +61,7 @@ describe('mountProductionStitchShell overview i18n', () => {
     expect(text).toContain('Interface Sentinel');
     expect(text).toContain('Language Row Sentinel');
     expect(text).toContain('System Theme Sentinel');
+    expect(text).toContain('Consent Section Sentinel');
     expect(text).toContain('Analytics Sentinel');
     expect(text).toContain('Clear Data Sentinel');
 
