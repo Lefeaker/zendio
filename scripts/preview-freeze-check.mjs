@@ -72,11 +72,13 @@ const ALLOWED_PREVIEW_DRIFT = new Map([
         'The video control-bar UI debt migration refreshes the generated preview JS hash after adding the schema-registered video-control-bar popover runtime surface, moving static video panel role attributes into Stitch-owned schema output, and threading optional ButtonNode datasets through the existing Stitch button renderer while preserving the frozen reference, control-bar geometry contract, and Stitch runtime behavior.',
         'This accepted cumulative hash refresh also includes P01 runtime/schema i18n split, P02 analytics contract bundling, P05 shared template-default owner plus platform runtime-port import graph changes, and the video screenshot export-state repair with explicit off/pending/on screenshot state through the Video runtime surface and Stitch timestamp marker schema while preserving the frozen reference, existing toggle geometry, export-without-recapture contract, control-bar geometry contract, and Stitch runtime behavior.',
         'P02 refreshes the generated preview JS hash again because catalogizing Options/Stitch preview schema and sample copy adds the new schema-backed preview message keys and regenerated schema messages while preserving the frozen reference and preview runtime contract.',
-        'The follow-up P02 stat-label preservation keeps the historical preview copy `Total saved` via the narrow schemaPreviewUsageTotalLabel key, which changes only the generated preview/schema message bundle while preserving the frozen reference and production runtime contract.'
+        'The follow-up P02 stat-label preservation keeps the historical preview copy `Total saved` via the narrow schemaPreviewUsageTotalLabel key, which changes only the generated preview/schema message bundle while preserving the frozen reference and production runtime contract.',
+        'P03 refreshes the generated preview JS hash after replacing Options resource schema inline English fallback prose with typed catalog-backed fallback resolution. This changes the generated preview bundle while preserving the frozen reference and keeping the Stitch runtime contract under verify:stitch-secondary.',
+        'The post-commit/current-HEAD stable preview JS hash refreshes this same allowlist entry again without changing the frozen reference or the Stitch runtime contract.'
       ].join(' '),
       leftSha256: '9020ccbd91acd691eccd3fdf568b9a90efbddf0a35d79f36ef1caba702fa0c07',
-      // 2026-06-13 final integration: hash sampled from a standard per-worktree npm ci install; symlinked node_modules changes esbuild path comments and is not an allowlist source.
-      rightSha256: '6a01b1e8fcecdd62dcd3901fc9507a4ccbae84a7b6aa6fff5543ba97d2d727ab'
+      // 2026-06-16 P03 post-commit/current-HEAD stable preview JS hash refresh after the resource schema catalog fallback cleanup.
+      rightSha256: 'cbba11d192532775274e060f2e6d45d60dbc6899a8819686f877fe5180de20c3'
     }
   ]
 ]);

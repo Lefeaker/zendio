@@ -27,14 +27,38 @@ const ENGLISH_SENTINEL_MESSAGES = {
   step1Title: 'Onboarding Step 1 Title Sentinel',
   step1Description: 'Onboarding Step 1 Description Sentinel',
   step1Detail1: 'Onboarding Step 1 Detail 1 Sentinel',
+  step1Detail2: 'Onboarding Step 1 Detail 2 Sentinel',
+  step1Detail3: 'Onboarding Step 1 Detail 3 Sentinel',
+  step1Detail4: 'Onboarding Step 1 Detail 4 Sentinel',
+  step1Detail5: 'Onboarding Step 1 Detail 5 Sentinel',
+  step1Detail6: 'Onboarding Step 1 Detail 6 Sentinel',
   step2Title: 'Onboarding Step 2 Title Sentinel',
   step2Description: 'Onboarding Step 2 Description Sentinel',
+  step2Detail1: 'Onboarding Step 2 Detail 1 Sentinel',
+  step2Detail2: 'Onboarding Step 2 Detail 2 Sentinel',
+  step2Detail3: 'Onboarding Step 2 Detail 3 Sentinel',
+  step2Detail4: 'Onboarding Step 2 Detail 4 Sentinel',
   step3Title: 'Onboarding Step 3 Title Sentinel',
   step3Description: 'Onboarding Step 3 Description Sentinel',
   step3Section1Title: 'Onboarding Step 3 Section 1 Sentinel',
+  step3Section1Detail1: 'Onboarding Step 3 Section 1 Detail 1 Sentinel',
+  step3Section1Detail2: 'Onboarding Step 3 Section 1 Detail 2 Sentinel',
+  step3Section2Title: 'Onboarding Step 3 Section 2 Sentinel',
+  step3Section2Detail1: 'Onboarding Step 3 Section 2 Detail 1 Sentinel',
+  step3Section2Detail4: 'Onboarding Step 3 Section 2 Detail 4 Sentinel',
+  step3Section3Title: 'Onboarding Step 3 Section 3 Sentinel',
+  step3Section3Detail1: 'Onboarding Step 3 Section 3 Detail 1 Sentinel',
+  step3Section3Detail4: 'Onboarding Step 3 Section 3 Detail 4 Sentinel',
   step4Title: 'Onboarding Step 4 Title Sentinel',
+  step4Description: 'Onboarding Step 4 Description Sentinel',
+  step4Detail1: 'Onboarding Step 4 Detail 1 Sentinel',
+  step4Detail2: 'Onboarding Step 4 Detail 2 Sentinel',
+  step4Detail3: 'Onboarding Step 4 Detail 3 Sentinel',
   step4Detail4: 'Onboarding Step 4 Detail 4 Sentinel',
   step5Title: 'Onboarding Step 5 Title Sentinel',
+  step5Description: 'Onboarding Step 5 Description Sentinel',
+  step5Detail1: 'Onboarding Step 5 Detail 1 Sentinel',
+  step5Detail2: 'Onboarding Step 5 Detail 2 Sentinel',
   step5Detail3: 'Onboarding Step 5 Detail 3 Sentinel',
   footerSuggestionsLink: 'Onboarding Suggestions Link Sentinel',
   footerSupportLink: 'Onboarding Support Link Sentinel',
@@ -48,6 +72,8 @@ const ENGLISH_SENTINEL_MESSAGES = {
   schemaResourcePluginSetupFieldHttpUrl: 'Plugin HTTP Field Sentinel',
   schemaResourcePluginSetupFieldVault: 'Plugin Vault Field Sentinel',
   schemaResourcePluginSetupFieldApiKey: 'Plugin API Key Field Sentinel',
+  apiConfigTitle: 'Plugin API Config Sentinel',
+  testConnectionButton_short: 'Plugin Test Button Sentinel',
   schemaResourcePluginSetupGoToStorageButton: 'Plugin Go Storage Sentinel',
   schemaResourcePluginSetupStep1: 'Plugin Setup Step 1 Sentinel',
   schemaResourcePluginSetupStep2: 'Plugin Setup Step 2 Sentinel',
@@ -63,7 +89,9 @@ const ENGLISH_SENTINEL_MESSAGES = {
   schemaResourceSupportDescription: 'Support Description Sentinel',
   schemaResourceSupportChannelsGroupTitle: 'Support Channels Sentinel',
   schemaResourceSupportScopeGroupTitle: 'Support Scope Sentinel',
+  schemaResourceSupportKoFiTitle: 'Support Ko-fi Title Sentinel',
   schemaResourceSupportKoFiDescription: 'Support Ko-fi Description Sentinel',
+  schemaResourceSupportAfdianTitle: 'Support Afdian Title Sentinel',
   schemaResourceSupportAfdianDescription: 'Support Afdian Description Sentinel',
   schemaResourceSupportScope1: 'Support Scope 1 Sentinel',
   schemaResourceSupportScope2: 'Support Scope 2 Sentinel',
@@ -72,7 +100,9 @@ const ENGLISH_SENTINEL_MESSAGES = {
   schemaResourceSuggestionsTitle: 'Suggestions Title Sentinel',
   schemaResourceSuggestionsDescription: 'Suggestions Description Sentinel',
   schemaResourceSuggestionsChannelsGroupTitle: 'Suggestions Channels Sentinel',
+  schemaResourceSuggestionsGithubTitle: 'Suggestions GitHub Title Sentinel',
   schemaResourceSuggestionsGithubDescription: 'Suggestions GitHub Description Sentinel',
+  schemaResourceSuggestionsRedditTitle: 'Suggestions Reddit Title Sentinel',
   schemaResourceSuggestionsRedditDescription: 'Suggestions Reddit Description Sentinel',
   schemaResourceContactTitle: 'Contact Title Sentinel',
   schemaResourceContactHint: 'Contact Hint Sentinel',
@@ -80,8 +110,11 @@ const ENGLISH_SENTINEL_MESSAGES = {
     'Contact Body Sentinel <a href="https://www.reddit.com/user/sxnian/" target="_blank" rel="noopener noreferrer">Reddit</a> Contact HTML Sentinel',
   schemaResourceContactChannelsGroupTitle: 'Contact Channels Sentinel',
   schemaResourceContactRedditTitle: 'Contact Reddit Title Sentinel',
+  schemaResourceContactRedditDescription: 'Contact Reddit Description Sentinel',
   schemaResourceContactGithubTitle: 'Contact GitHub Title Sentinel',
+  schemaResourceContactGithubDescription: 'Contact GitHub Description Sentinel',
   schemaResourceContactEmailTitle: 'Contact Email Title Sentinel',
+  schemaResourceContactEmailDescription: 'Contact Email Description Sentinel',
   schemaResourceChangelogTitle: 'Changelog Title Sentinel',
   schemaResourceChangelogDescription: 'Changelog Description Sentinel',
   schemaResourceChangelogV020Bullet1: 'Changelog v0.2.0 Bullet 1 Sentinel',
@@ -224,20 +257,50 @@ describe('mountProductionStitchShell resource i18n', () => {
       'Onboarding Description Sentinel',
       'Onboarding Flow Sentinel',
       'Onboarding Steps Sentinel',
+      'Plugin Go Storage Sentinel',
       'Onboarding Step 1 Title Sentinel',
       'Onboarding Step 1 Description Sentinel',
       'Onboarding Step 1 Detail 1 Sentinel',
+      'Onboarding Step 1 Detail 2 Sentinel',
+      'Onboarding Step 1 Detail 3 Sentinel',
+      'Onboarding Step 1 Detail 4 Sentinel',
+      'Onboarding Step 1 Detail 5 Sentinel',
+      'Onboarding Step 1 Detail 6 Sentinel',
       'Onboarding Step 2 Title Sentinel',
       'Onboarding Step 2 Description Sentinel',
+      'Onboarding Step 2 Detail 1 Sentinel',
+      'Onboarding Step 2 Detail 2 Sentinel',
+      'Onboarding Step 2 Detail 3 Sentinel',
+      'Onboarding Step 2 Detail 4 Sentinel',
       'Onboarding Step 3 Title Sentinel',
+      'Onboarding Step 3 Description Sentinel',
       'Onboarding Step 3 Section 1 Sentinel',
+      'Onboarding Step 3 Section 1 Detail 1 Sentinel',
+      'Onboarding Step 3 Section 1 Detail 2 Sentinel',
+      'Onboarding Step 3 Section 2 Sentinel',
+      'Onboarding Step 3 Section 2 Detail 1 Sentinel',
+      'Onboarding Step 3 Section 2 Detail 4 Sentinel',
+      'Onboarding Step 3 Section 3 Sentinel',
+      'Onboarding Step 3 Section 3 Detail 1 Sentinel',
+      'Onboarding Step 3 Section 3 Detail 4 Sentinel',
       'Onboarding Step 4 Title Sentinel',
+      'Onboarding Step 4 Description Sentinel',
+      'Onboarding Step 4 Detail 1 Sentinel',
+      'Onboarding Step 4 Detail 2 Sentinel',
+      'Onboarding Step 4 Detail 3 Sentinel',
       'Onboarding Step 4 Detail 4 Sentinel',
       'Onboarding Step 5 Title Sentinel',
+      'Onboarding Step 5 Description Sentinel',
+      'Onboarding Step 5 Detail 1 Sentinel',
+      'Onboarding Step 5 Detail 2 Sentinel',
       'Onboarding Step 5 Detail 3 Sentinel'
     );
     expectNoText(
       onboardingPage,
+      'Guide Flow',
+      'Go To Storage',
+      'Configure Obsidian Local REST API (Required)',
+      'More Exciting Features, Continuous Iteration',
       '配置 Obsidian Local REST API',
       '欢迎提出建议，开发不易，感谢支持'
     );
@@ -256,6 +319,7 @@ describe('mountProductionStitchShell resource i18n', () => {
       pluginSetup,
       'Plugin Setup Title Sentinel',
       'Plugin Setup Description Sentinel',
+      'Plugin API Config Sentinel',
       'Plugin Recommended Values Sentinel',
       'Plugin Setup Flow Sentinel',
       'Plugin Checklist Sentinel',
@@ -263,13 +327,20 @@ describe('mountProductionStitchShell resource i18n', () => {
       'Plugin HTTP Field Sentinel',
       'Plugin Vault Field Sentinel',
       'Plugin API Key Field Sentinel',
+      'Plugin Test Button Sentinel',
       'Plugin Go Storage Sentinel',
       'Plugin Setup Step 1 Sentinel',
       'Plugin Setup Step 5 Sentinel',
       'Plugin Checklist Item 1 Sentinel',
       'Plugin Checklist Item 5 Sentinel'
     );
-    expectNoText(pluginSetup, '跳到 Storage');
+    expectNoText(
+      pluginSetup,
+      'Configure Obsidian Local REST API before editing advanced storage rules.',
+      'Install and enable Obsidian Local REST API in Community Plugins.',
+      'Run the connection test before saving more routing rules.',
+      '跳到 Storage'
+    );
     await closeResource();
 
     const support = await openResource('Support Title Sentinel');
@@ -279,12 +350,20 @@ describe('mountProductionStitchShell resource i18n', () => {
       'Support Description Sentinel',
       'Support Channels Sentinel',
       'Support Scope Sentinel',
+      'Support Ko-fi Title Sentinel',
       'Support Ko-fi Description Sentinel',
+      'Support Afdian Title Sentinel',
       'Support Afdian Description Sentinel',
       'Support Scope 1 Sentinel',
       'Support Scope 4 Sentinel'
     );
-    expectNoText(support, '感谢支持');
+    expectNoText(
+      support,
+      'Support the project through the available public channels.',
+      'Buy me a coffee',
+      'Support the project in Chinese',
+      '感谢支持'
+    );
     await closeResource();
 
     const suggestions = await openResource('Suggestions Title Sentinel');
@@ -293,8 +372,16 @@ describe('mountProductionStitchShell resource i18n', () => {
       'Suggestions Title Sentinel',
       'Suggestions Description Sentinel',
       'Suggestions Channels Sentinel',
+      'Suggestions GitHub Title Sentinel',
       'Suggestions GitHub Description Sentinel',
+      'Suggestions Reddit Title Sentinel',
       'Suggestions Reddit Description Sentinel'
+    );
+    expectNoText(
+      suggestions,
+      'Send feedback through the currently supported public channels.',
+      'Feature requests and bug reports',
+      'Direct public discussion with the author'
     );
     await closeResource();
 
@@ -302,14 +389,31 @@ describe('mountProductionStitchShell resource i18n', () => {
     expectText(
       contact,
       'Contact Title Sentinel',
+      'Contact Hint Sentinel',
       'Contact Body Sentinel',
       'Contact Channels Sentinel',
       'Contact Reddit Title Sentinel',
+      'Contact Reddit Description Sentinel',
       'Contact GitHub Title Sentinel',
+      'Contact GitHub Description Sentinel',
       'Contact Email Title Sentinel',
-      'https://www.reddit.com/user/sxnian/',
-      'https://github.com/Lefeaker/AllinOB',
-      'allinobsidian@outlook.com'
+      'Contact Email Description Sentinel'
+    );
+    expect(
+      contact.querySelector<HTMLAnchorElement>('a[href="https://www.reddit.com/user/sxnian/"]')
+    ).toBeTruthy();
+    expect(
+      contact.querySelector<HTMLAnchorElement>('a[href="https://github.com/Lefeaker/AllinOB"]')
+    ).toBeTruthy();
+    expect(
+      contact.querySelector<HTMLAnchorElement>('a[href="mailto:allinobsidian@outlook.com"]')
+    ).toBeTruthy();
+    expectNoText(
+      contact,
+      'Contact the author',
+      'Public Channels',
+      'GitHub Repository',
+      'Support Email'
     );
     await closeResource();
 
@@ -370,7 +474,12 @@ describe('mountProductionStitchShell resource i18n', () => {
       'Privacy Local Config Title Sentinel',
       'Privacy Local Config Body Sentinel'
     );
-    expectNoText(privacyPolicy, '页面正文与剪藏内容');
+    expectNoText(
+      privacyPolicy,
+      'Learn what the extension processes, what it never collects, and how to disable related capabilities.',
+      'Local Configuration',
+      '页面正文与剪藏内容'
+    );
     await closeResource();
 
     const dataUsage = await openResource('Data Usage Link Sentinel');
@@ -387,7 +496,13 @@ describe('mountProductionStitchShell resource i18n', () => {
       'Data Usage Config Migration Title Sentinel',
       'Data Usage Config Migration Body Sentinel'
     );
-    expectNoText(dataUsage, '匿名功能使用次数');
+    expectNoText(
+      dataUsage,
+      'Understand how usage metrics, error reports, and configuration transfer features use local or anonymous data.',
+      'Anonymous Usage Counts',
+      'Configuration Migration',
+      '匿名功能使用次数'
+    );
   });
 
   it('renders zh-CN changelog copy from the active catalog instead of raw appData text', async () => {
