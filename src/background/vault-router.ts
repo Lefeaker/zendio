@@ -308,7 +308,18 @@ export class VaultRouter {
    * 获取合并后的规则列表，兼容旧版配置结构
    */
   private getActiveRules(): RoutingRule[] {
-    const merged = this.getConfiguredRules();
+    const legacyRules = Array.isArray(this.config.rules) ? this.config.rules : [];
+
+    const rulesFromEnabledVaults = this.config.vaults
+      .filter((vault) => vault.enabled !== false)
+      .flatMap((vault) =>
+        (vault.rules ?? []).map((rule) => ({
+          ...rule,
+          vaultId: rule.vaultId ?? vault.id
+        }))
+      );
+
+    const merged = [...legacyRules, ...rulesFromEnabledVaults];
     const seen = new Set<string>();
 
     return merged.filter((rule) => {

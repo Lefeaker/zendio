@@ -262,6 +262,43 @@ describe('VaultRouter', () => {
     expect(router.selectVault(context)?.id).toBe('tech');
   });
 
+  it('does not route through a rule declared under a disabled vault', () => {
+    const config: VaultRouterConfig = {
+      vaults: [
+        { ...baseVaults[0], rules: [] },
+        {
+          ...baseVaults[1],
+          enabled: true,
+          rules: []
+        },
+        {
+          id: 'disabled-parent',
+          name: 'Disabled Parent',
+          httpsUrl: `https://disabled:${restDefaults.httpsPort}/`,
+          httpUrl: `http://disabled:${restDefaults.httpPort}/`,
+          vault: 'DisabledParent',
+          apiKey: 'disabled-key',
+          enabled: false,
+          rules: [
+            {
+              id: 'disabled-parent-rule',
+              vaultId: 'tech',
+              type: 'domain',
+              pattern: 'example.com',
+              enabled: true,
+              priority: 100
+            }
+          ]
+        }
+      ],
+      defaultVaultId: 'default'
+    };
+
+    const router = new VaultRouter(config);
+    expect(router.selectVault(context)).toBeNull();
+    expect(router.getAllRules()).toEqual([]);
+  });
+
   it('returns English compatibility errors plus typed issues from validate()', () => {
     const router = new VaultRouter({
       vaults: [
