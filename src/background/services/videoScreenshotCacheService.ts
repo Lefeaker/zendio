@@ -13,10 +13,16 @@ import {
   type VideoScreenshotCacheMessage,
   type VideoScreenshotCacheResponse
 } from '../../content/video/videoScreenshotCacheMessages';
+import type { VideoScreenshotCacheBlobStore } from '../../content/video/videoScreenshotCacheStore';
 import type { VideoCaptureScreenshot } from '../../content/video/types';
+import { createVideoScreenshotCacheIndexedDbStore } from './videoScreenshotCacheIndexedDbStore';
 
 export interface BackgroundVideoScreenshotCacheStorage {
   local: StorageAreaService;
+}
+
+export interface BackgroundVideoScreenshotCacheHandlerDependencies {
+  blobStore?: VideoScreenshotCacheBlobStore;
 }
 
 export type BackgroundVideoScreenshotCacheHandler = (
@@ -31,6 +37,26 @@ function toMessageError(error: Error | string): VideoScreenshotCacheResponse {
   return {
     success: false,
     error: errorMessage(error)
+  };
+}
+
+function toSaveSkip(error: Error | string): VideoScreenshotCacheResponse {
+  return {
+    success: true,
+    operation: 'save',
+    result: {
+      status: 'skipped',
+      reason: 'serialize-failed',
+      error: errorMessage(error)
+    }
+  };
+}
+
+function toLoadMissing(): VideoScreenshotCacheResponse {
+  return {
+    success: true,
+    operation: 'load',
+    status: 'missing'
   };
 }
 
@@ -76,9 +102,16 @@ async function serializeScreenshot(
 
 export function createBackgroundVideoScreenshotCacheHandler(
   storage: BackgroundVideoScreenshotCacheStorage,
-  options: VideoScreenshotCacheRepositoryOptions = {}
+  options: VideoScreenshotCacheRepositoryOptions = {},
+  dependencies: BackgroundVideoScreenshotCacheHandlerDependencies = {}
 ): BackgroundVideoScreenshotCacheHandler {
-  const repository = createVideoScreenshotCacheRepository(storage.local, options);
+  const repository = createVideoScreenshotCacheRepository(
+    {
+      blobStore: dependencies.blobStore ?? createVideoScreenshotCacheIndexedDbStore(),
+      legacyArea: storage.local
+    },
+    options
+  );
   let queue: Promise<void> = Promise.resolve();
 
   function enqueue<Result>(operation: () => Promise<Result>): Promise<Result> {
@@ -97,22 +130,19 @@ export function createBackgroundVideoScreenshotCacheHandler(
     try {
       screenshot = deserializeScreenshot(message.input.screenshot);
     } catch (error) {
-      return {
-        success: true,
-        operation: 'save',
-        result: {
-          status: 'skipped',
-          reason: 'serialize-failed',
-          error: error instanceof Error ? error.message : String(error)
-        }
-      };
+      return toSaveSkip(error instanceof Error ? error : String(error));
     }
 
-    const result = await repository.save({
-      pageKey: message.input.pageKey,
-      captureId: message.input.captureId,
-      screenshot
-    });
+    let result;
+    try {
+      result = await repository.save({
+        pageKey: message.input.pageKey,
+        captureId: message.input.captureId,
+        screenshot
+      });
+    } catch (error) {
+      return toSaveSkip(error instanceof Error ? error : String(error));
+    }
     return {
       success: true,
       operation: 'save',
@@ -123,21 +153,26 @@ export function createBackgroundVideoScreenshotCacheHandler(
   async function handleLoad(
     message: Extract<VideoScreenshotCacheMessage, { operation: 'load' }>
   ): Promise<VideoScreenshotCacheResponse> {
-    const screenshot = await repository.load(message.ref);
+    let screenshot: VideoCaptureScreenshot | null;
+    try {
+      screenshot = await repository.load(message.ref);
+    } catch {
+      return toLoadMissing();
+    }
     if (!screenshot) {
+      return toLoadMissing();
+    }
+
+    try {
       return {
         success: true,
         operation: 'load',
-        status: 'missing'
+        status: 'loaded',
+        screenshot: await serializeScreenshot(screenshot)
       };
+    } catch {
+      return toLoadMissing();
     }
-
-    return {
-      success: true,
-      operation: 'load',
-      status: 'loaded',
-      screenshot: await serializeScreenshot(screenshot)
-    };
   }
 
   async function handleMessage(
