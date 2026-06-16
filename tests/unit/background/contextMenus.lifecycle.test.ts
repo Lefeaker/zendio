@@ -145,19 +145,23 @@ describe('context menu listeners', () => {
       removeAll: vi.fn(() => Promise.reject(new PlatformError('CHROME_UNAVAILABLE', 'no chrome')))
     });
     vi.resetModules();
-    vi.doMock('../../../src/i18n', () => ({
-      getMessages: vi.fn(
-        () =>
-          new Promise<{
-            clipSelection: string;
-            clipSelectionVideo: string;
-            clipFullPage: string;
-            contextMenuVideoMode: string;
-          }>((resolve) => {
-            resolveMessages = resolve;
-          })
-      )
-    }));
+    vi.doMock('../../../src/i18n', async () => {
+      const actual = await vi.importActual<typeof import('../../../src/i18n')>('../../../src/i18n');
+      return {
+        ...actual,
+        getMessages: vi.fn(
+          () =>
+            new Promise<{
+              clipSelection: string;
+              clipSelectionVideo: string;
+              clipFullPage: string;
+              contextMenuVideoMode: string;
+            }>((resolve) => {
+              resolveMessages = resolve;
+            })
+        )
+      };
+    });
     vi.doMock('../../../src/background/store', () => ({ getOptions: rig.getOptions }));
     vi.doMock('../../../src/background/services/notifications', () => ({
       notifyInjectionFailure: rig.notifyInjectionFailure

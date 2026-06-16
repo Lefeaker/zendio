@@ -35,10 +35,14 @@ const configureI18nStorageMock = vi.hoisted(() => vi.fn());
 const resolveRepositoryMock = vi.hoisted(() => vi.fn());
 const getServiceMock = vi.hoisted(() => vi.fn());
 
-vi.mock('../../../src/i18n', () => ({
-  createDefaultPageI18nController: createDefaultPageI18nControllerMock,
-  configureI18nStorage: configureI18nStorageMock
-}));
+vi.mock('../../../src/i18n', async () => {
+  const actual = await vi.importActual<typeof import('../../../src/i18n')>('../../../src/i18n');
+  return {
+    ...actual,
+    createDefaultPageI18nController: createDefaultPageI18nControllerMock,
+    configureI18nStorage: configureI18nStorageMock
+  };
+});
 vi.mock('../../../src/shared/di/serviceRegistry', () => ({
   resolveRepository: resolveRepositoryMock
 }));

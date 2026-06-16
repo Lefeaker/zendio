@@ -82,7 +82,7 @@ const configuredInterfaceTheme =
 setControlledRuntimeTheme(window, configuredInterfaceTheme);
 const HARNESS_VIDEO_OPTIONS = {
   floatingPromptEnabled: true,
-  promptButtonLabel: '开启视频笔记',
+  promptButtonLabel: 'Start video notes',
   promptShortcut: 'Alt+V',
   controlBarAutoPause: true,
   controlBarScreenshot: true,
@@ -273,11 +273,11 @@ async function showVideoFloatingPrompt(): Promise<void> {
   panelStyleSheetManager.applyStitchRuntimeStyles(shadow);
   const { container } = createPromptElement({
     id: 'aiob-video-floating-prompt',
-    label: '开启视频笔记',
+    label: 'Start video notes',
     shortcut: 'Alt+V',
     previewTheme: configuredInterfaceTheme,
     messages: {
-      videoPromptDismiss: '关闭视频笔记提示'
+      videoPromptDismiss: 'Dismiss video prompt'
     } as never,
     getIconUrl: () => runtime.getURL('icons/bannerlogo-48.png'),
     onPrimaryAction: () => {

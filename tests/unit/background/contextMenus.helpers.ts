@@ -102,16 +102,20 @@ export async function loadModule(
     ...(rigOverrides as Partial<ContextMenusTestRig> | undefined)
   };
 
-  vi.doMock('../../../src/i18n', () => ({
-    getMessages: vi.fn(() =>
-      Promise.resolve({
-        clipSelection: 'Clip selection',
-        clipSelectionVideo: 'Clip to video capture panel',
-        clipFullPage: 'Clip full page',
-        contextMenuVideoMode: 'Enter video capture mode'
-      })
-    )
-  }));
+  vi.doMock('../../../src/i18n', async () => {
+    const actual = await vi.importActual<typeof import('../../../src/i18n')>('../../../src/i18n');
+    return {
+      ...actual,
+      getMessages: vi.fn(() =>
+        Promise.resolve({
+          clipSelection: 'Clip selection',
+          clipSelectionVideo: 'Clip to video capture panel',
+          clipFullPage: 'Clip full page',
+          contextMenuVideoMode: 'Enter video capture mode'
+        })
+      )
+    };
+  });
 
   vi.doMock('../../../src/background/store', () => ({
     getOptions: rig.getOptions

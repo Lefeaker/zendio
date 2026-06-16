@@ -92,9 +92,13 @@ vi.mock('../../../src/shared/state/globalStateManager', () => ({
   createGlobalStateManager: createGlobalStateManagerMock,
   configureGlobalStateManagerStorage: configureGlobalStateManagerStorageMock
 }));
-vi.mock('../../../src/i18n', () => ({
-  configureI18nStorage: configureI18nStorageMock
-}));
+vi.mock('../../../src/i18n', async () => {
+  const actual = await vi.importActual<typeof import('../../../src/i18n')>('../../../src/i18n');
+  return {
+    ...actual,
+    configureI18nStorage: configureI18nStorageMock
+  };
+});
 vi.mock('../../../src/background/services/usageStats', () => ({
   createUsageStatsStore: createUsageStatsStoreMock,
   configureUsageStatsStorage: configureUsageStatsStorageMock
