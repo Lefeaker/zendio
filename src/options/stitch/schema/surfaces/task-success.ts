@@ -8,7 +8,7 @@ import type {
 import { actionRow, surfaceBody, surfaceStage, surfaceWindow } from '../builders/surfaces';
 import { div, element, strong } from '../builders/primitives';
 import { classNames } from '../builders/classNames';
-import { DEFAULT_PRODUCTION_ENGLISH_MESSAGES } from '../i18n';
+import { RUNTIME_SURFACE_FALLBACK_MESSAGES } from '../../../../i18n/catalog/runtimeSurfaceFallbackMessages';
 
 type TaskSuccessSurface = PreviewContent['surfaces']['taskSuccess'];
 
@@ -18,8 +18,8 @@ const schema: ResourceSchema = {
     const surface = ctx.appData.surfaces.taskSuccess;
     const supportLinks = localizeSupportLinks(ctx.appData.resources.support.channels, ctx);
     const supportTitle =
-      ctx.t?.('supportPromptTitle', DEFAULT_PRODUCTION_ENGLISH_MESSAGES.supportPromptTitle) ??
-      DEFAULT_PRODUCTION_ENGLISH_MESSAGES.supportPromptTitle;
+      ctx.t?.('supportPromptTitle', RUNTIME_SURFACE_FALLBACK_MESSAGES.supportPromptTitle) ??
+      RUNTIME_SURFACE_FALLBACK_MESSAGES.supportPromptTitle;
     const statusMessage = resolveStatusMessage(surface, ctx);
     const likeLabel = ctx.t?.('supportPromptLikeLabel', surface.likeLabel) ?? surface.likeLabel;
     const dislikeLabel =
@@ -33,8 +33,8 @@ const schema: ResourceSchema = {
     const progressAriaLabel =
       ctx.t?.(
         'schemaRuntimeTaskSuccessProgressAriaLabel',
-        DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaRuntimeTaskSuccessProgressAriaLabel
-      ) ?? DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaRuntimeTaskSuccessProgressAriaLabel;
+        RUNTIME_SURFACE_FALLBACK_MESSAGES.schemaRuntimeTaskSuccessProgressAriaLabel
+      ) ?? RUNTIME_SURFACE_FALLBACK_MESSAGES.schemaRuntimeTaskSuccessProgressAriaLabel;
 
     return {
       id: 'task-success',
@@ -42,13 +42,13 @@ const schema: ResourceSchema = {
       title:
         ctx.t?.(
           'schemaRuntimeTaskSuccessTitle',
-          DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaRuntimeTaskSuccessTitle
-        ) ?? DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaRuntimeTaskSuccessTitle,
+          RUNTIME_SURFACE_FALLBACK_MESSAGES.schemaRuntimeTaskSuccessTitle
+        ) ?? RUNTIME_SURFACE_FALLBACK_MESSAGES.schemaRuntimeTaskSuccessTitle,
       description:
         ctx.t?.(
           'schemaRuntimeTaskSuccessDescription',
-          DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaRuntimeTaskSuccessDescription
-        ) ?? DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaRuntimeTaskSuccessDescription,
+          RUNTIME_SURFACE_FALLBACK_MESSAGES.schemaRuntimeTaskSuccessDescription
+        ) ?? RUNTIME_SURFACE_FALLBACK_MESSAGES.schemaRuntimeTaskSuccessDescription,
       surfacePlacement: 'floating-bottom-right',
       surfaceSkin: 'task-success',
       children: [

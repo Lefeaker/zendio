@@ -8,7 +8,11 @@ import {
   emitGeneratedPseudoLocaleModule
 } from './emitGeneratedLocaleModules';
 import { emitGeneratedLocales } from './emitGeneratedLocales';
-import { emitGeneratedSchemaMessages } from './emitGeneratedSchemaMessages';
+import {
+  emitGeneratedSchemaCore,
+  emitGeneratedSchemaLocaleModules,
+  emitGeneratedSchemaMessages
+} from './emitGeneratedSchemaMessages';
 import { emitGeneratedStaticRegistry } from './emitGeneratedStaticRegistry';
 import { emitGeneratedTypes } from './emitGeneratedTypes';
 
@@ -55,6 +59,13 @@ export async function buildGeneratedArtifacts(
   ]);
 
   if (schema) {
+    rawArtifacts.set(
+      'src/i18n/generated/schemaCore.generated.ts',
+      emitGeneratedSchemaCore(schema)
+    );
+    for (const entry of emitGeneratedSchemaLocaleModules(schema)) {
+      rawArtifacts.set(entry.path, entry.content);
+    }
     rawArtifacts.set(
       'src/i18n/generated/schemaMessages.generated.ts',
       emitGeneratedSchemaMessages(schema)

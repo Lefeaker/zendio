@@ -12,7 +12,7 @@ import {
 } from '../builders/surfaces';
 import { div } from '../builders/primitives';
 import { classNames } from '../builders/classNames';
-import { DEFAULT_PRODUCTION_ENGLISH_MESSAGES } from '../i18n';
+import { RUNTIME_SURFACE_FALLBACK_MESSAGES } from '../../../../i18n/catalog/runtimeSurfaceFallbackMessages';
 
 const schema: ResourceSchema = {
   openMode: 'modal',
@@ -23,13 +23,13 @@ const schema: ResourceSchema = {
       saveToLabel:
         t?.(
           'schemaRuntimeSurfaceSaveToLabel',
-          DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaRuntimeSurfaceSaveToLabel
-        ) ?? DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaRuntimeSurfaceSaveToLabel,
+          RUNTIME_SURFACE_FALLBACK_MESSAGES.schemaRuntimeSurfaceSaveToLabel
+        ) ?? RUNTIME_SURFACE_FALLBACK_MESSAGES.schemaRuntimeSurfaceSaveToLabel,
       configureVaultLabel:
         t?.(
           'schemaRuntimeSurfaceConfigureVaultLabel',
-          DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaRuntimeSurfaceConfigureVaultLabel
-        ) ?? DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaRuntimeSurfaceConfigureVaultLabel
+          RUNTIME_SURFACE_FALLBACK_MESSAGES.schemaRuntimeSurfaceConfigureVaultLabel
+        ) ?? RUNTIME_SURFACE_FALLBACK_MESSAGES.schemaRuntimeSurfaceConfigureVaultLabel
     };
     const actions = surface.actions.map((action) => ({
       ...action,
@@ -49,13 +49,13 @@ const schema: ResourceSchema = {
       title:
         t?.(
           'schemaRuntimeClipperTitle',
-          DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaRuntimeClipperTitle
-        ) ?? DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaRuntimeClipperTitle,
+          RUNTIME_SURFACE_FALLBACK_MESSAGES.schemaRuntimeClipperTitle
+        ) ?? RUNTIME_SURFACE_FALLBACK_MESSAGES.schemaRuntimeClipperTitle,
       description:
         t?.(
           'schemaRuntimeClipperDescription',
-          DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaRuntimeClipperDescription
-        ) ?? DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaRuntimeClipperDescription,
+          RUNTIME_SURFACE_FALLBACK_MESSAGES.schemaRuntimeClipperDescription
+        ) ?? RUNTIME_SURFACE_FALLBACK_MESSAGES.schemaRuntimeClipperDescription,
       surfacePlacement: 'dialog',
       surfaceSkin: 'clipper',
       children: [
