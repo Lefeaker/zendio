@@ -8,6 +8,11 @@ import {
 } from '@playwright/test';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import {
+  VIDEO_SCREENSHOT_CACHE_LEGACY_STORAGE_INDEX_KEY,
+  VIDEO_SCREENSHOT_CACHE_LEGACY_STORAGE_KEY_PREFIX,
+  readVideoScreenshotCacheIndexedDbSummary
+} from './utils/videoScreenshotCacheIndexedDb';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -15,8 +20,6 @@ const EXTENSION_PATH = path.resolve(__dirname, '../../build/dist');
 const EXTENSION_HARNESS_PATH = 'content-orchestrator-harness.html';
 const SESSION_DRAFT_STORAGE_PREFIX = 'aiob.sessionDraft';
 const SESSION_DRAFT_INDEX_KEY = `${SESSION_DRAFT_STORAGE_PREFIX}.index.v1`;
-const VIDEO_SCREENSHOT_CACHE_KEY_PREFIX = 'aiob.videoScreenshotCache';
-const VIDEO_SCREENSHOT_CACHE_INDEX_KEY = `${VIDEO_SCREENSHOT_CACHE_KEY_PREFIX}.index.v1`;
 const YOUTUBE_URL = 'https://www.youtube.com/watch?v=p07BrowserVideoFlow';
 
 type ServiceWorker = ReturnType<BrowserContext['serviceWorkers']>[number];
@@ -58,6 +61,8 @@ type VideoStorageSummary = {
   drafts: VideoDraftEntry[];
   cacheEntryCount: number;
   cacheIndexEntryCount: number;
+  cacheKeys: string[];
+  legacyStorageCacheEntryCount: number;
 };
 
 type VideoProbeState = {
@@ -532,68 +537,69 @@ async function simulateVisibilityRoundTrip(
 }
 
 async function readVideoStorageSummary(extensionPage: Page): Promise<VideoStorageSummary> {
-  return extensionPage.evaluate(
-    async ({ storageKeyPrefix, indexKey, cacheKeyPrefix, cacheIndexKey }) => {
-      const storage = await chrome.storage.local.get(null);
-      const drafts = Object.entries(storage)
-        .filter(([key]) => key.startsWith(storageKeyPrefix) && key !== indexKey)
-        .map(([key, value]) => {
-          const envelope: VideoDraftEnvelope | undefined =
-            typeof value === 'object' && value !== null ? (value as VideoDraftEnvelope) : undefined;
-          const captures = envelope?.payload?.captures ?? [];
-          const captureComments = captures
-            .map((capture) => capture.comment ?? '')
-            .filter((comment) => comment.length > 0);
-          const commentDrafts = envelope?.payload?.commentDrafts ?? {};
-          return {
-            key,
-            pageUrl: envelope?.pageUrl ?? null,
-            captureCount: captures.length,
-            requestedScreenshotCount: captures.filter(
-              (capture) => capture.screenshotRequested === true
-            ).length,
-            screenshotRefCount: captures.filter(
-              (capture) =>
-                typeof capture.screenshotRef === 'object' && capture.screenshotRef !== null
-            ).length,
-            containsInlineScreenshotPayload: captures.some((capture) => {
-              return (
-                capture.screenshot !== undefined ||
-                capture.dataUrl !== undefined ||
-                capture.content !== undefined ||
-                Object.values(capture).some(
-                  (field) => typeof field === 'string' && field.startsWith('data:image')
-                )
-              );
-            }),
-            captureComments,
-            commentDrafts
-          };
-        });
-      const cacheKeys = Object.keys(storage).filter(
-        (key) => key.startsWith(cacheKeyPrefix) && key !== cacheIndexKey
-      );
-      const cacheIndexValue = storage[cacheIndexKey];
-      const cacheIndexEntries =
-        typeof cacheIndexValue === 'object' &&
-        cacheIndexValue !== null &&
-        'entries' in cacheIndexValue &&
-        Array.isArray(cacheIndexValue.entries)
-          ? cacheIndexValue.entries
-          : [];
-      return {
-        drafts,
-        cacheEntryCount: cacheKeys.length,
-        cacheIndexEntryCount: cacheIndexEntries.length
-      };
-    },
-    {
-      storageKeyPrefix: SESSION_DRAFT_STORAGE_PREFIX,
-      indexKey: SESSION_DRAFT_INDEX_KEY,
-      cacheKeyPrefix: VIDEO_SCREENSHOT_CACHE_KEY_PREFIX,
-      cacheIndexKey: VIDEO_SCREENSHOT_CACHE_INDEX_KEY
-    }
-  );
+  const [cacheSummary, storageSummary] = await Promise.all([
+    readVideoScreenshotCacheIndexedDbSummary(extensionPage),
+    extensionPage.evaluate(
+      async ({ storageKeyPrefix, indexKey, legacyCacheKeyPrefix, legacyCacheIndexKey }) => {
+        const storage = await chrome.storage.local.get(null);
+        const drafts = Object.entries(storage)
+          .filter(([key]) => key.startsWith(storageKeyPrefix) && key !== indexKey)
+          .map(([key, value]) => {
+            const envelope: VideoDraftEnvelope | undefined =
+              typeof value === 'object' && value !== null
+                ? (value as VideoDraftEnvelope)
+                : undefined;
+            const captures = envelope?.payload?.captures ?? [];
+            const captureComments = captures
+              .map((capture) => capture.comment ?? '')
+              .filter((comment) => comment.length > 0);
+            const commentDrafts = envelope?.payload?.commentDrafts ?? {};
+            return {
+              key,
+              pageUrl: envelope?.pageUrl ?? null,
+              captureCount: captures.length,
+              requestedScreenshotCount: captures.filter(
+                (capture) => capture.screenshotRequested === true
+              ).length,
+              screenshotRefCount: captures.filter(
+                (capture) =>
+                  typeof capture.screenshotRef === 'object' && capture.screenshotRef !== null
+              ).length,
+              containsInlineScreenshotPayload: captures.some((capture) => {
+                return (
+                  capture.screenshot !== undefined ||
+                  capture.dataUrl !== undefined ||
+                  capture.content !== undefined ||
+                  Object.values(capture).some(
+                    (field) => typeof field === 'string' && field.startsWith('data:image')
+                  )
+                );
+              }),
+              captureComments,
+              commentDrafts
+            };
+          });
+        const legacyStorageCacheEntryCount = Object.keys(storage).filter(
+          (key) => key.startsWith(legacyCacheKeyPrefix) && key !== legacyCacheIndexKey
+        ).length;
+        return {
+          drafts,
+          legacyStorageCacheEntryCount
+        };
+      },
+      {
+        storageKeyPrefix: SESSION_DRAFT_STORAGE_PREFIX,
+        indexKey: SESSION_DRAFT_INDEX_KEY,
+        legacyCacheKeyPrefix: VIDEO_SCREENSHOT_CACHE_LEGACY_STORAGE_KEY_PREFIX,
+        legacyCacheIndexKey: VIDEO_SCREENSHOT_CACHE_LEGACY_STORAGE_INDEX_KEY
+      }
+    )
+  ]);
+
+  return {
+    ...storageSummary,
+    ...cacheSummary
+  };
 }
 
 async function readVideoDraftEntries(extensionPage: Page): Promise<VideoDraftEntry[]> {
@@ -801,7 +807,8 @@ testWithExtension.describe('Video Panel browser flow', () => {
                 containsInlineScreenshotPayload:
                   matchingDraft?.containsInlineScreenshotPayload ?? false,
                 cacheEntryCount: summary.cacheEntryCount,
-                cacheIndexEntryCount: summary.cacheIndexEntryCount
+                cacheIndexEntryCount: summary.cacheIndexEntryCount,
+                legacyStorageCacheEntryCount: summary.legacyStorageCacheEntryCount
               };
             },
             {
@@ -815,7 +822,8 @@ testWithExtension.describe('Video Panel browser flow', () => {
             screenshotRefCount: 1,
             containsInlineScreenshotPayload: false,
             cacheEntryCount: 1,
-            cacheIndexEntryCount: 1
+            cacheIndexEntryCount: 1,
+            legacyStorageCacheEntryCount: 0
           });
 
         await simulateVisibilityRoundTrip(extensionPage, tabId, testInfo);
@@ -888,7 +896,8 @@ testWithExtension.describe('Video Panel browser flow', () => {
                 screenshotRefCount: matchingDraft?.screenshotRefCount ?? 0,
                 containsInlineScreenshotPayload:
                   matchingDraft?.containsInlineScreenshotPayload ?? false,
-                cacheEntryCount: summary.cacheEntryCount
+                cacheEntryCount: summary.cacheEntryCount,
+                legacyStorageCacheEntryCount: summary.legacyStorageCacheEntryCount
               };
             },
             {
@@ -900,7 +909,8 @@ testWithExtension.describe('Video Panel browser flow', () => {
             requestedScreenshotCount: 0,
             screenshotRefCount: 1,
             containsInlineScreenshotPayload: false,
-            cacheEntryCount: 1
+            cacheEntryCount: 1,
+            legacyStorageCacheEntryCount: 0
           });
 
         await resetVideoProbe(extensionPage, reloadedTabId, testInfo);
@@ -939,11 +949,29 @@ testWithExtension.describe('Video Panel browser flow', () => {
         expect(resolvedClip.attachments ?? []).toHaveLength(0);
 
         await expect
-          .poll(() => readVideoDraftEntries(extensionPage).then((entries) => entries.length), {
-            timeout: 10000,
-            message: 'video draft storage was not cleared after export'
-          })
-          .toBe(0);
+          .poll(
+            async () => {
+              const summary = await readVideoStorageSummary(extensionPage);
+              return {
+                draftCount: summary.drafts.length,
+                cacheEntryCount: summary.cacheEntryCount,
+                cacheIndexEntryCount: summary.cacheIndexEntryCount,
+                cacheKeyCount: summary.cacheKeys.length,
+                legacyStorageCacheEntryCount: summary.legacyStorageCacheEntryCount
+              };
+            },
+            {
+              timeout: 10000,
+              message: 'video draft and screenshot cache storage were not cleared after export'
+            }
+          )
+          .toEqual({
+            draftCount: 0,
+            cacheEntryCount: 0,
+            cacheIndexEntryCount: 0,
+            cacheKeyCount: 0,
+            legacyStorageCacheEntryCount: 0
+          });
       } finally {
         await runStage(testInfo, 'close video fixture page', () => page.close());
       }
