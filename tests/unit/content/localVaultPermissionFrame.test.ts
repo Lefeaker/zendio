@@ -18,6 +18,17 @@ async function loadPermissionFrameModule() {
   return module;
 }
 
+async function waitForActionButton(action: string): Promise<HTMLButtonElement> {
+  for (let attempt = 0; attempt < 10; attempt += 1) {
+    const button = document.querySelector<HTMLButtonElement>(`[data-action="${action}"]`);
+    if (button) {
+      return button;
+    }
+    await flushMicrotasks();
+  }
+  throw new Error(`Expected local vault permission button to render: ${action}`);
+}
+
 describe('localVaultPermissionFrame', () => {
   beforeEach(() => {
     document.documentElement.lang = '';
@@ -132,8 +143,8 @@ describe('localVaultPermissionFrame', () => {
       window,
       permissionService
     });
-    await flushMicrotasks();
-    document.querySelector<HTMLButtonElement>('[data-action="rest-always"]')?.click();
+    const restAlways = await waitForActionButton('rest-always');
+    restAlways.click();
 
     expect(permissionService.ensurePermission).not.toHaveBeenCalled();
     expect(postMessage).toHaveBeenCalledWith(
