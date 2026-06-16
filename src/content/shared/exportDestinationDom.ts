@@ -20,25 +20,19 @@ function syncText(row: HTMLElement, selector: string, value: string): boolean {
   return true;
 }
 
-function syncSetupLink(row: HTMLElement, destination: ExportDestinationSurfacePreview): void {
+function syncSetupLink(row: HTMLElement, destination: ExportDestinationSurfacePreview): boolean {
   const existing = row.querySelector<HTMLAnchorElement>('.export-destination-setup-link');
   if (destination.hasConfiguredVault || !destination.setupUrl) {
     existing?.remove();
-    return;
+    return true;
   }
 
   if (existing) {
     existing.href = destination.setupUrl;
-    return;
+    return existing.textContent?.trim().length !== 0;
   }
 
-  const link = document.createElement('a');
-  link.className = 'export-destination-setup-link';
-  link.textContent = '配置仓库';
-  link.href = destination.setupUrl;
-  link.target = '_blank';
-  link.rel = 'noopener noreferrer';
-  row.append(link);
+  return false;
 }
 
 export function patchExportDestinationRow(
@@ -82,6 +76,5 @@ export function patchExportDestinationRow(
   }
 
   row.querySelector<HTMLDetailsElement>('.export-destination-menu')?.removeAttribute('open');
-  syncSetupLink(row, destination);
-  return true;
+  return syncSetupLink(row, destination);
 }

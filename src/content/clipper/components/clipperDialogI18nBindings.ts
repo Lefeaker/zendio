@@ -12,14 +12,15 @@ const FALLBACK_MESSAGES: Partial<Messages> = {
   openVideoModeButton: 'Enter video mode',
   commentLabel: 'Comment',
   commentPlaceholder: 'Add a note',
-  clipperCommentEditCompleted: '批注编辑已完成，可以使用快捷键来完成以下操作：',
-  clipperShortcutHintDoubleEnter: '双击回车',
-  clipperShortcutDoubleEnter: '双击 ↵',
-  clipperShortcutHintModifierEnter: '直接剪藏',
+  clipperCommentEditCompleted:
+    'Comment editing completed, you can use keyboard shortcuts to complete the following actions:',
+  clipperShortcutHintDoubleEnter: 'Double-Enter',
+  clipperShortcutDoubleEnter: 'Double ↵',
+  clipperShortcutHintModifierEnter: 'Clip directly',
   clipperShortcutModifierEnter: 'Cmd ↵',
-  clipperShortcutHintEscape: '取消',
+  clipperShortcutHintEscape: 'Cancel',
   clipperShortcutEsc: 'Esc',
-  clipperShortcutSetupLink: '设置快捷键，使用更丝滑'
+  clipperShortcutSetupLink: 'Set up shortcuts for smoother experience'
 };
 
 interface PrepareClipperDialogI18nSurfaceOptions {

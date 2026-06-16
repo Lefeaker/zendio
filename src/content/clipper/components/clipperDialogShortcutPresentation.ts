@@ -84,7 +84,7 @@ export function addClipperButtonShortcutHints(
       'clipperShortcutDoubleEnter',
       resolver.getFallback('clipperShortcutDoubleEnter')
     ),
-    modifierAction: resolver.getMessage('clipperShortcutModifierEnter', getModifierLabel('button')),
+    modifierAction: getModifierLabel('button'),
     escapeAction: resolver.getMessage(
       'clipperShortcutEsc',
       resolver.getFallback('clipperShortcutEsc')
