@@ -5,9 +5,8 @@ import {
 import type { RestOptions } from '@shared/types/options';
 import type { VaultConfig } from '@shared/types/vault';
 import type { ConnectionTestResult } from '@shared/types/connection';
-import type { Messages } from '@i18n';
+import { formatUserVisibleMessage, type Messages } from '@i18n';
 import { isAppError } from '@shared/errors';
-import { formatUserVisibleMessage } from '../../../i18n/userVisibleMessageFormatter';
 
 export interface ConnectionTesterConfig {
   button: HTMLButtonElement;
