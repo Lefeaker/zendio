@@ -14,7 +14,7 @@ interface SurfaceCoverage {
   evidence: CoverageEvidence[];
 }
 
-const COVERAGE: SurfaceCoverage[] = [
+const COVERAGE: readonly SurfaceCoverage[] = [
   {
     milestone: 'P03',
     surface: 'support prompt progress and descriptor failure copy',
@@ -415,9 +415,9 @@ const COVERAGE: SurfaceCoverage[] = [
       }
     ]
   }
-] as const;
+];
 
-const expectedMilestones = [
+const expectedMilestones: readonly string[] = [
   'P03',
   'P04',
   'P05',
@@ -435,7 +435,7 @@ const expectedMilestones = [
   'P20',
   'P21',
   'P22'
-] as const;
+];
 
 const cjkRegex = /[\u3040-\u30ff\u3400-\u9fff\uf900-\ufaff]/u;
 
