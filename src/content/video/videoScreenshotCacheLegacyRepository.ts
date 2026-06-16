@@ -20,7 +20,18 @@ import {
   type VideoScreenshotCacheIndexEntry,
   type VideoScreenshotCacheRef
 } from './videoScreenshotCacheTypes';
-import type { VideoScreenshotCacheSaveResult } from './videoScreenshotCacheRepository';
+
+export type VideoScreenshotCacheLegacySaveResult =
+  | { status: 'saved'; ref: VideoScreenshotCacheRef }
+  | { status: 'skipped'; reason: 'missing-blob-content' }
+  | { status: 'skipped'; reason: 'invalid-metadata'; field: 'pageKey' }
+  | {
+      status: 'skipped';
+      reason: 'content-too-large';
+      byteLength: number;
+      maxContentBytes: number;
+    }
+  | { status: 'skipped'; reason: 'serialize-failed'; error: string };
 
 export interface VideoScreenshotCacheLegacyRepositoryOptions {
   ttlMs: number;
@@ -130,7 +141,7 @@ export async function saveLegacyVideoScreenshotCacheEntry(
   options: VideoScreenshotCacheLegacyRepositoryOptions,
   operationTime: number,
   buildEntryMetadata: (byteLength: number) => VideoScreenshotCacheIndexEntry | null
-): Promise<VideoScreenshotCacheSaveResult> {
+): Promise<VideoScreenshotCacheLegacySaveResult> {
   if (input.screenshot.content.byteLength > options.maxContentBytes) {
     return {
       status: 'skipped',
