@@ -40,7 +40,7 @@ const stringifyFieldValue = (field: YamlFieldConfig, value: unknown): string | n
       const asNumber = typeof value === 'number' ? value : Number(value);
       if (!Number.isFinite(asNumber)) {
         throw new Error(
-          `[yamlGenerator] 字段 ${field.name} 需要数字类型，当前值: ${String(value)}`
+          `[yamlGenerator] Field ${field.name} requires a numeric value. Received: ${String(value)}`
         );
       }
       return String(asNumber);
@@ -206,7 +206,7 @@ export const generateYamlFrontMatter = (
           field.valuePath.trim() &&
           field.defaultValue === undefined
         ) {
-          console.warn('[yamlGenerator] 未能从 valuePath 获取字段值', {
+          console.warn('[yamlGenerator] Could not resolve field value from valuePath', {
             field: field.name,
             valuePath: field.valuePath,
             contentType,
@@ -214,7 +214,7 @@ export const generateYamlFrontMatter = (
           });
         }
         if (field.required) {
-          throw new Error(`[yamlGenerator] 字段 ${field.name} 缺少值`);
+          throw new Error(`[yamlGenerator] Field ${field.name} is missing a value`);
         }
         continue;
       }
@@ -227,7 +227,7 @@ export const generateYamlFrontMatter = (
       if (field.required) {
         throw error;
       }
-      console.warn(`[yamlGenerator] 生成字段 ${field.name} 失败:`, error);
+      console.warn(`[yamlGenerator] Failed to generate field ${field.name}:`, error);
     }
   }
   lines.push('---');

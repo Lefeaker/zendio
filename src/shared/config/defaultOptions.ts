@@ -53,7 +53,7 @@ export const DEFAULT_OPTIONS: CompleteOptions = {
   },
   video: {
     floatingPromptEnabled: true,
-    promptButtonLabel: '开启视频笔记',
+    promptButtonLabel: 'Clip video',
     promptShortcut: 'Alt+V',
     controlBarAutoPause: true,
     controlBarScreenshot: true,

@@ -49,7 +49,7 @@ const OUTPUT_TEMPLATE_PRESETS: Record<OutputTemplatePresetName, OutputTemplatePr
       }),
       domainMappings: Object.freeze({
         'arxiv.org': 'Arxiv',
-        'mp.weixin.qq.com': '公众号',
+        'mp.weixin.qq.com': 'WeChat',
         'scholar.google.com': 'Scholar'
       })
     }),

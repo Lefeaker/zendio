@@ -1,6 +1,41 @@
 import type { ClipContext, RoutingRule, VaultConfig, VaultRouterConfig } from '../shared/types';
 import type { RestOptions } from '../shared/types/options';
+import type { UserVisibleMessageDescriptor } from '../shared/i18n/userVisibleMessageDescriptor';
 import { configProvider } from '../shared/config';
+
+const DEFAULT_VAULT_NAME = 'New Vault';
+
+export type VaultRouterValidationIssueCode =
+  | 'missing_vaults'
+  | 'missing_enabled_vault'
+  | 'duplicate_vault_ids'
+  | 'missing_rule_vault'
+  | 'missing_default_vault'
+  | 'disabled_default_vault';
+
+export interface VaultRouterValidationIssue {
+  code: VaultRouterValidationIssueCode;
+  message: string;
+  messageDescriptor?: UserVisibleMessageDescriptor;
+}
+
+export interface VaultRouterValidationResult {
+  valid: boolean;
+  errors: string[];
+  issues: VaultRouterValidationIssue[];
+}
+
+function createValidationIssue(
+  code: VaultRouterValidationIssueCode,
+  message: string,
+  messageDescriptor?: UserVisibleMessageDescriptor
+): VaultRouterValidationIssue {
+  return {
+    code,
+    message,
+    ...(messageDescriptor ? { messageDescriptor } : {})
+  };
+}
 
 /**
  * Vault Router - 智能路由系统，根据规则自动选择目标仓库
@@ -206,29 +241,43 @@ export class VaultRouter {
   /**
    * 验证配置
    */
-  validate(): { valid: boolean; errors: string[] } {
-    const errors: string[] = [];
+  validate(): VaultRouterValidationResult {
+    const issues: VaultRouterValidationIssue[] = [];
 
     // 检查是否有仓库
     if (this.config.vaults.length === 0) {
-      errors.push('至少需要配置一个仓库');
+      issues.push(
+        createValidationIssue('missing_vaults', 'At least one vault must be configured.')
+      );
     }
 
     if (!this.config.vaults.some((vault) => vault.enabled !== false)) {
-      errors.push('至少需要启用一个仓库');
+      issues.push(
+        createValidationIssue('missing_enabled_vault', 'At least one vault must be enabled.')
+      );
     }
 
     // 检查仓库 ID 唯一性
     const vaultIds = this.config.vaults.map((v) => v.id);
     const duplicateVaultIds = vaultIds.filter((id, index) => vaultIds.indexOf(id) !== index);
     if (duplicateVaultIds.length > 0) {
-      errors.push(`仓库 ID 重复: ${duplicateVaultIds.join(', ')}`);
+      issues.push(
+        createValidationIssue(
+          'duplicate_vault_ids',
+          `Duplicate vault ID(s): ${duplicateVaultIds.join(', ')}`
+        )
+      );
     }
 
     // 检查规则引用的仓库是否存在
-    for (const rule of this.getActiveRules()) {
+    for (const rule of this.getConfiguredRules()) {
       if (!this.config.vaults.find((v) => v.id === rule.vaultId)) {
-        errors.push(`规则 "${rule.description || rule.id}" 引用了不存在的仓库: ${rule.vaultId}`);
+        issues.push(
+          createValidationIssue(
+            'missing_rule_vault',
+            `Rule "${rule.description || rule.id}" references a missing vault: ${rule.vaultId}`
+          )
+        );
       }
     }
 
@@ -236,33 +285,30 @@ export class VaultRouter {
     if (this.config.defaultVaultId) {
       const defaultVault = this.config.vaults.find((v) => v.id === this.config.defaultVaultId);
       if (!defaultVault) {
-        errors.push(`默认仓库不存在: ${this.config.defaultVaultId}`);
+        issues.push(
+          createValidationIssue(
+            'missing_default_vault',
+            `Default vault not found: ${this.config.defaultVaultId}`
+          )
+        );
       } else if (defaultVault.enabled === false) {
-        errors.push('默认仓库已被禁用');
+        issues.push(createValidationIssue('disabled_default_vault', 'Default vault is disabled.'));
       }
     }
 
+    const errors = issues.map((issue) => issue.message);
+
     return {
       valid: errors.length === 0,
-      errors
+      errors,
+      issues
     };
   }
   /**
    * 获取合并后的规则列表，兼容旧版配置结构
    */
   private getActiveRules(): RoutingRule[] {
-    const legacyRules = Array.isArray(this.config.rules) ? this.config.rules : [];
-
-    const rulesFromVaults = this.config.vaults
-      .filter((vault) => vault.enabled !== false)
-      .flatMap((vault) =>
-        (vault.rules ?? []).map((rule) => ({
-          ...rule,
-          vaultId: rule.vaultId ?? vault.id
-        }))
-      );
-
-    const merged = [...legacyRules, ...rulesFromVaults];
+    const merged = this.getConfiguredRules();
     const seen = new Set<string>();
 
     return merged.filter((rule) => {
@@ -282,6 +328,19 @@ export class VaultRouter {
       }
       return true;
     });
+  }
+
+  private getConfiguredRules(): RoutingRule[] {
+    const legacyRules = Array.isArray(this.config.rules) ? this.config.rules : [];
+
+    const rulesFromVaults = this.config.vaults.flatMap((vault) =>
+      (vault.rules ?? []).map((rule) => ({
+        ...rule,
+        vaultId: rule.vaultId ?? vault.id
+      }))
+    );
+
+    return [...legacyRules, ...rulesFromVaults];
   }
 }
 
@@ -303,7 +362,7 @@ export function createDefaultVaultRouterConfig(): VaultRouterConfig {
     vaults: [
       {
         id: defaultVaultId,
-        name: '默认仓库',
+        name: DEFAULT_VAULT_NAME,
         httpsUrl: restDefaults.httpsUrl,
         httpUrl: restDefaults.httpUrl,
         vault: restDefaults.vault,
@@ -326,7 +385,7 @@ export function migrateFromLegacyConfig(
   const vaultId = generateId();
   const restDefaults = configProvider.getRestDefaults();
   const legacy = legacyRest ?? {};
-  const name = legacy.vault?.trim() || '默认仓库';
+  const name = legacy.vault?.trim() || DEFAULT_VAULT_NAME;
   const httpsUrl = legacy.httpsUrl?.trim() || restDefaults.httpsUrl;
   const httpUrl = legacy.httpUrl?.trim() || restDefaults.httpUrl;
   const vault = legacy.vault?.trim() || restDefaults.vault;

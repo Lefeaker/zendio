@@ -187,6 +187,8 @@ describe('validation', () => {
       expect(result.success).toBe(false);
       if (!result.success) {
         expect(result.error.issues[0].path).toContain('baseUrl');
+        expect(result.error.issues[0]?.message).toBe('Must be a valid URL');
+        expect(result.error.issues[0]?.message).not.toMatch(/[\u4e00-\u9fff]/u);
       }
     });
 
@@ -201,6 +203,8 @@ describe('validation', () => {
       expect(result.success).toBe(false);
       if (!result.success) {
         expect(result.error.issues[0].path).toContain('vault');
+        expect(result.error.issues[0]?.message).toBe('Vault name is required');
+        expect(result.error.issues[0]?.message).not.toMatch(/[\u4e00-\u9fff]/u);
       }
     });
 
@@ -215,6 +219,8 @@ describe('validation', () => {
       expect(result.success).toBe(false);
       if (!result.success) {
         expect(result.error.issues[0].path).toContain('apiKey');
+        expect(result.error.issues[0]?.message).toBe('API key must be at least 10 characters');
+        expect(result.error.issues[0]?.message).not.toMatch(/[\u4e00-\u9fff]/u);
       }
     });
 
