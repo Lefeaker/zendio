@@ -23,7 +23,40 @@ interface VideoDraftCachedScreenshotRestoreCandidate {
   ref: VideoScreenshotCacheRef;
 }
 
+export interface VideoSessionDraftScreenshotCacheMaintenance {
+  pruneExpiredOnce(): void;
+  pruneToLimitsBestEffort(): void;
+}
+
 const DEFAULT_DRAFT_SCREENSHOT_RESTORE_CONCURRENCY = 4;
+
+export function createVideoSessionDraftScreenshotCacheMaintenance(
+  screenshotCache?: unknown
+): VideoSessionDraftScreenshotCacheMaintenance {
+  let didScheduleExpiredPrune = false;
+
+  return {
+    pruneExpiredOnce() {
+      const pruneExpired = readMaintenanceMethod(screenshotCache, 'pruneExpired');
+      if (didScheduleExpiredPrune || !pruneExpired) {
+        return;
+      }
+      didScheduleExpiredPrune = true;
+      void pruneExpired().catch((error) => {
+        console.warn('[VideoSession] Failed to prune expired cached screenshots:', error);
+      });
+    },
+    pruneToLimitsBestEffort() {
+      const pruneToLimits = readMaintenanceMethod(screenshotCache, 'pruneToLimits');
+      if (!pruneToLimits) {
+        return;
+      }
+      void pruneToLimits().catch((error) => {
+        console.warn('[VideoSession] Failed to prune cached screenshots to limits:', error);
+      });
+    }
+  };
+}
 
 export async function restoreVideoDraftCachedScreenshots(
   captures: VideoCapture[],
@@ -168,4 +201,16 @@ async function runBounded<T>(
       }
     })
   );
+}
+
+function readMaintenanceMethod(
+  screenshotCache: unknown,
+  key: 'pruneExpired' | 'pruneToLimits'
+): (() => Promise<void>) | null {
+  if (typeof screenshotCache !== 'object' || screenshotCache === null) {
+    return null;
+  }
+
+  const candidate = screenshotCache as Record<string, unknown>;
+  return typeof candidate[key] === 'function' ? (candidate[key] as () => Promise<void>) : null;
 }

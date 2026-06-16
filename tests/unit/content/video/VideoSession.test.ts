@@ -1330,6 +1330,91 @@ describe('VideoSession', () => {
     }
   });
 
+  it('keeps cache-hit restore non-fatal when session-start pruneExpired maintenance fails', async () => {
+    const deps = createDependencies();
+    const repository = createSessionDraftRepository(deps.storage.local);
+    const cacheTypesModule =
+      await import('../../../../src/content/video/videoScreenshotCacheTypes');
+    const restoredScreenshot = createBlobScreenshotFixture('cached-frame', 2_000_000_000_101, {
+      id: 'shot-cached',
+      fileName: 'video-0m42s.jpg'
+    });
+    const savedRef: VideoScreenshotCacheRef = {
+      schemaVersion: 1,
+      pageKey: 'video-example',
+      captureId: 'ts-1',
+      id: 'shot-cached',
+      key: cacheTypesModule.createVideoScreenshotCacheStorageKey({
+        pageKey: 'video-example',
+        captureId: 'ts-1',
+        screenshotId: 'shot-cached'
+      }),
+      fileName: 'video-0m42s.jpg',
+      mimeType: 'image/jpeg',
+      byteLength: restoredScreenshot.content.byteLength,
+      capturedAt: restoredScreenshot.capturedAt,
+      expiresAt: restoredScreenshot.capturedAt + 60_000
+    };
+    const loadSpy = vi.fn(() => Promise.resolve(restoredScreenshot));
+    const pruneExpired = vi.fn().mockRejectedValue(new Error('pruneExpired failed'));
+    deps.screenshotCacheRepository = createScreenshotCacheRepositoryMock({
+      load: loadSpy,
+      pruneExpired
+    });
+    const envelope = createVideoSessionDraftEnvelope({
+      draftId: 'draft-cache-hit-prune-expired-failure',
+      pageUrl: document.location.href,
+      pageTitle: 'Draft title',
+      updatedAt: 2_000_000_000_100,
+      status: 'restorable',
+      payload: buildVideoSessionDraftPayload({
+        captures: [
+          {
+            kind: 'timestamp',
+            id: 'ts-1',
+            timeSec: 42,
+            url: 'https://video.example/watch?t=42',
+            comment: 'Restored marker',
+            createdAt: 2_000_000_000_100,
+            screenshotRequested: true,
+            screenshotRef: savedRef
+          }
+        ],
+        commentDrafts: { 'ts-1': 'draft note' },
+        platform: 'bilibili',
+        videoId: 'BV1xx411c7mD',
+        videoTitle: 'Draft title',
+        videoUrl: document.location.href,
+        canonicalUrl: document.location.href
+      })
+    });
+    await repository.save(envelope);
+    const session = new VideoSession(document, deps);
+    const sessionApi = toSessionTestApi(session);
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+
+    try {
+      await session.start();
+
+      expect(pruneExpired).toHaveBeenCalledTimes(1);
+      const restoredTimestamp = sessionApi.state.captures[0];
+      if (!restoredTimestamp || restoredTimestamp.kind !== 'timestamp') {
+        throw new Error('expected restored timestamp capture');
+      }
+
+      const hydratedScreenshot = await waitForTimestampScreenshot(restoredTimestamp);
+      expect(hydratedScreenshot).toBe(restoredScreenshot);
+      expect(loadSpy).toHaveBeenCalledWith(savedRef);
+      expect(warnSpy).toHaveBeenCalledWith(
+        '[VideoSession] Failed to prune expired cached screenshots:',
+        expect.any(Error)
+      );
+    } finally {
+      warnSpy.mockRestore();
+      sessionApi.cleanup();
+    }
+  });
+
   it('removes the current video draft after successful export but keeps it after export failure', async () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2026-03-14T10:00:00Z'));
