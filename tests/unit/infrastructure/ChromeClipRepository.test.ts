@@ -169,7 +169,7 @@ describe('ChromeClipRepository', () => {
 
       expect(result).toEqual({
         success: false,
-        error: 'Unknown error'
+        error: 'CLIP_REPOSITORY_UNKNOWN_ERROR'
       });
     });
   });

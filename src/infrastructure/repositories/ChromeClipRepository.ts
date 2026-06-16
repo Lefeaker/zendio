@@ -55,7 +55,7 @@ export class ChromeClipRepository implements IClipRepository {
     } catch (error) {
       return {
         success: false,
-        error: error instanceof Error ? error.message : 'Unknown error'
+        error: error instanceof Error ? error.message : 'CLIP_REPOSITORY_UNKNOWN_ERROR'
       };
     }
   }

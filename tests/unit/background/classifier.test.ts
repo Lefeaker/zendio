@@ -53,6 +53,15 @@ describe('classifier', () => {
     if (result.ok) {
       expect(result.payload).toEqual({ type: 'article', topics: ['tech'] });
     }
+    const requestBody = JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body)) as {
+      messages: { role: string; content: string }[];
+    };
+    expect(requestBody.messages[0].content).toContain(
+      '"classificationHint":"News articles, blog posts, and editorial content"'
+    );
+    expect(requestBody.messages[0].content).not.toContain(
+      '"description":"News articles, blog posts, and editorial content"'
+    );
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
