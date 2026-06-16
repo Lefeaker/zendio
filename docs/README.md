@@ -28,7 +28,7 @@
 ## 当前口径
 
 - `quality` / `verify:preflight` / CI 对三项 typecheck 口径已经对齐
-- `lint:type-any` 当前 GA/i18n PR merge 口径为扫描 `1071` files，实测 overall `0/1084/1776/41/4`、src `0/588/606/5/0`、tests `0/496/1170/36/4`；`lint:type-any:ratchet` 守住 checked-in 上限 overall `0/1084/1776/41/4`、src `0/588/606/5/0`、tests `0/496/1170/36/4`，`any` 保持 `0`，`non-null` 与 `ts-expect-error` 上限未放宽
+- `lint:type-any` 当前 i18n hardcoded P22/post-strict-gap integration 口径为扫描 `1231` files，实测 overall `0/1148/1973/47/3`、src `0/628/695/9/0`、tests `0/520/1278/38/3`；`lint:type-any:ratchet` 守住 checked-in 上限 overall `0/1148/1973/53/4`、src `0/628/695/9/0`、tests `0/520/1278/46/4`，`any` 保持 `0`，`ts-expect-error` 未增加，non-null 上限未放宽
 - `quality` 与 CI 已包含 `lint:hardcoded`；当前 hardcoded config 守卫是 `0` errors / `8` warning-only findings
 - i18n 当前由 `src/i18n/catalog/messages/<lang>/{runtime,static,schema}.json` 驱动生成 `src/i18n/generated/**` 与 `public/_locales/**`；root `_locales/**` 已退役，不再作为 compatibility duplicate 保留
 - Chrome ZIP 与 Firefox XPI 在 package 脚本中会解包后执行 release-surface 审计，最终包不得包含 `qps-ploc` loader/chunk 或 `_locales/qps-ploc/messages.json`
