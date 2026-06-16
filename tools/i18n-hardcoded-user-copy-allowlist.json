@@ -56,42 +56,20 @@
       "findingKinds": ["cjk-literal"]
     },
     {
-      "id": "p21-tongyi-native-title-suffix-brand",
+      "id": "p21-tongyi-native-title-suffixes",
       "path": "src/third_party/ai-chat-exporter/platforms/tongyi.ts",
-      "line": 13,
+      "line": 12,
       "category": "site-native-title-suffix",
       "reason": "Tongyi parser strips browser-title suffixes that belong to the source site, not to Zendio UI copy.",
       "ownerPlan": "P21",
       "revisit": "Recheck if Tongyi title parsing stops using native browser-title suffixes.",
-      "literalIncludes": [" - 通义"],
-      "findingKinds": ["cjk-literal"]
-    },
-    {
-      "id": "p21-tongyi-native-title-suffix-marketing",
-      "path": "src/third_party/ai-chat-exporter/platforms/tongyi.ts",
-      "line": 14,
-      "category": "site-native-title-suffix",
-      "reason": "Tongyi parser strips the source site's marketing browser-title suffix, not extension-authored UI copy.",
-      "ownerPlan": "P21",
-      "revisit": "Recheck if Tongyi title parsing stops using native marketing suffixes.",
-      "literalIncludes": [" - 你的超级个人助理"],
-      "findingKinds": ["cjk-literal"]
-    },
-    {
-      "id": "p21-tongyi-native-title-suffix-qianwen",
-      "path": "src/third_party/ai-chat-exporter/platforms/tongyi.ts",
-      "line": 15,
-      "category": "site-native-title-suffix",
-      "reason": "Tongyi parser strips the source site's browser-title product suffix, not extension-authored UI copy.",
-      "ownerPlan": "P21",
-      "revisit": "Recheck if Tongyi title parsing stops using native product suffixes.",
-      "literalIncludes": [" - 通义千问"],
+      "literalIncludes": [" - 通义", " - 你的超级个人助理", " - 通义千问"],
       "findingKinds": ["cjk-literal"]
     },
     {
       "id": "p21-tongyi-native-title-placeholder",
       "path": "src/third_party/ai-chat-exporter/platforms/tongyi.ts",
-      "line": 17,
+      "line": 13,
       "category": "site-native-title-placeholder",
       "reason": "Tongyi parser checks the source site's browser-title placeholder before falling back to a derived export title.",
       "ownerPlan": "P21",
