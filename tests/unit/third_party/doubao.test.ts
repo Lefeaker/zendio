@@ -8,9 +8,8 @@ describe('doubao parser', () => {
   });
 
   it('returns empty result when no Doubao messages exist', async () => {
-    const { doubaoParser } = await import(
-      '../../../src/third_party/ai-chat-exporter/platforms/doubao'
-    );
+    const { doubaoParser } =
+      await import('../../../src/third_party/ai-chat-exporter/platforms/doubao');
     const doc = new DOMParser().parseFromString(
       '<html><head><title>豆包</title></head><body></body></html>',
       'text/html'
@@ -20,9 +19,8 @@ describe('doubao parser', () => {
   });
 
   it('parses assistant and user Doubao containers and extracts model text', async () => {
-    const { doubaoParser } = await import(
-      '../../../src/third_party/ai-chat-exporter/platforms/doubao'
-    );
+    const { doubaoParser } =
+      await import('../../../src/third_party/ai-chat-exporter/platforms/doubao');
     const doc = new DOMParser().parseFromString(
       `
       <html>
@@ -43,5 +41,27 @@ describe('doubao parser', () => {
     expect(result.messages[0]?.role).toBe('user');
     expect(result.messages[1]?.role).toBe('assistant');
     expect(result.messages[1]?.md).toContain('已收到');
+  });
+
+  it('uses the injected fallback title and neutral model when only native Doubao placeholders exist', async () => {
+    const { doubaoParser } =
+      await import('../../../src/third_party/ai-chat-exporter/platforms/doubao');
+    const doc = new DOMParser().parseFromString(
+      `
+      <html>
+        <head><title>豆包</title></head>
+        <body>
+          <div class="message-block-container"><div class="send-text">你好</div></div>
+          <div class="message-block-container"><img alt="豆包助手" /><div class="flow-markdown-body"><p>已收到</p></div></div>
+        </body>
+      </html>
+    `,
+      'text/html'
+    );
+    const result = doubaoParser.parse(doc, { fallbackTitle: 'Doubao Chat' });
+
+    expect(result.title).toBe('Doubao Chat');
+    expect(result.model).toBe('Doubao');
+    expect(result.messages).toHaveLength(2);
   });
 });

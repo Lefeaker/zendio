@@ -43,7 +43,9 @@ const KIMI_REMOVABLE_SECTION_SELECTORS = [
 const KIMI_ACTION_CONTAINER_SELECTOR =
   '[class*="segment-code-header"], [class*="table-actions"], [class*="segment-assistant-actions"], [class*="segment-actions"], header[class*="table"]';
 
+// Native Kimi action labels rendered by the source site. These are parser tokens.
 const KIMI_ACTION_TEXTS = new Set(['分享', '复制', '预览', '重试', '编辑']);
+const KIMI_INLINE_ACTION_TEXT_RE = /分享|复制/gi;
 
 const KIMI_BLOCK_HEADER_SELECTOR =
   '[class*="segment-block-header"], header[class*="table"], [class*="table-actions"]';
@@ -141,16 +143,16 @@ function extractHeaderLabel(header: Element): string | undefined {
 
   for (const selector of labelSelectors) {
     const candidate = header.querySelector(selector);
-    const text = candidate?.textContent?.replace(/分享|复制/gi, '').trim();
+    const text = candidate?.textContent?.replace(KIMI_INLINE_ACTION_TEXT_RE, '').trim();
     if (text) return text;
   }
 
   for (const child of Array.from(header.childNodes)) {
     if (child.nodeType === Node.TEXT_NODE) {
-      const text = child.textContent?.replace(/分享|复制/gi, '').trim();
+      const text = child.textContent?.replace(KIMI_INLINE_ACTION_TEXT_RE, '').trim();
       if (text) return text.split(/\s+/)[0];
     } else if (child instanceof HTMLElement) {
-      const text = child.textContent?.replace(/分享|复制/gi, '').trim();
+      const text = child.textContent?.replace(KIMI_INLINE_ACTION_TEXT_RE, '').trim();
       if (text) return text;
     }
   }

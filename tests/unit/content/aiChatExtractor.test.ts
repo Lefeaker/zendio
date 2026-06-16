@@ -24,6 +24,11 @@ const mockParseChatDOMAsync = vi.fn(
 const mockChatHtmlToMarkdown = vi.fn((_html: string) => 'Hi there');
 type BuildChatMarkdownInput = Parameters<typeof buildChatMarkdown>[0];
 const mockBuildChatMarkdown = vi.fn((_args: BuildChatMarkdownInput) => '# Chat transcript');
+const baseFallbackMessages = {
+  exportAiChatFallbackTitleDeepseek: 'Catalog DeepSeek Title',
+  exportAiChatFallbackTitleKimi: 'Catalog Kimi Title',
+  exportAiChatFallbackTitleTongyi: 'Catalog Tongyi Title'
+};
 
 vi.mock('@content/formatters/markdown', () => ({
   buildChatMarkdown: mockBuildChatMarkdown
@@ -113,9 +118,7 @@ describe('extractAIChat', () => {
     await module.extractAIChat(document, 'https://www.kimi.com/chat/123', {
       optionsRepository: createOptionsRepository(),
       getMessages: vi.fn(async () => ({
-        exportAiChatFallbackTitleDeepseek: 'Catalog DeepSeek Title',
-        exportAiChatFallbackTitleKimi: 'Catalog Kimi Title',
-        exportAiChatFallbackTitleTongyi: 'Catalog Tongyi Title'
+        ...baseFallbackMessages
       }))
     });
 
@@ -144,6 +147,7 @@ describe('extractAIChat', () => {
       module.extractAIChat(document, 'https://www.kimi.com/chat/123', {
         optionsRepository: createOptionsRepository(),
         getMessages: vi.fn(async () => ({
+          ...baseFallbackMessages,
           exportAiChatFallbackTitleDeepseek: 'Catalog DeepSeek Title',
           exportAiChatFallbackTitleKimi: '',
           exportAiChatFallbackTitleTongyi: 'Catalog Tongyi Title'
@@ -152,6 +156,38 @@ describe('extractAIChat', () => {
     ).rejects.toThrow('Missing localized AI chat fallback title for kimi');
 
     expect(mockParseChatDOMAsync).not.toHaveBeenCalled();
+  });
+
+  it('injects English-neutral fallback titles for Doubao and Monica exports', async () => {
+    const module = await import('@content/extractors/aiChatExtractor');
+
+    await module.extractAIChat(document, 'https://www.doubao.com/chat/abc', {
+      optionsRepository: createOptionsRepository(),
+      getMessages: vi.fn(async () => ({ ...baseFallbackMessages }))
+    });
+    await module.extractAIChat(document, 'https://monica.im/chat/abc', {
+      optionsRepository: createOptionsRepository(),
+      getMessages: vi.fn(async () => ({ ...baseFallbackMessages }))
+    });
+
+    expect(mockParseChatDOMAsync).toHaveBeenNthCalledWith(
+      1,
+      'doubao',
+      document,
+      expect.objectContaining({
+        deepResearch: { pureMode: true },
+        fallbackTitle: 'Doubao Chat'
+      })
+    );
+    expect(mockParseChatDOMAsync).toHaveBeenNthCalledWith(
+      2,
+      'monica',
+      document,
+      expect.objectContaining({
+        deepResearch: { pureMode: true },
+        fallbackTitle: 'Monica Chat'
+      })
+    );
   });
 
   it('canHandle filters requests by AI chat hostname', async () => {

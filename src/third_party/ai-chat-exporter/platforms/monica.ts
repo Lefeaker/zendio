@@ -1,10 +1,11 @@
 import { DEFAULT_CHAT_TITLE } from '../shared/constants';
 import { chatHtmlToMarkdown } from '../shared/markdown';
-import type { ChatPlatformParser, ParsedMessage, ParsedResult } from '../types';
+import type { ChatPlatformParser, ParseConfig, ParsedMessage, ParsedResult } from '../types';
 
 const MONICA_MESSAGE_SELECTOR = '[class*="chat-message--"]';
 const USER_CLASS_HINT = 'chat-question';
 const ASSISTANT_CLASS_HINT = 'chat-reply';
+const MONICA_NEUTRAL_FALLBACK_TITLE = 'Monica Chat';
 const MONICA_MODEL_CANDIDATE_SELECTORS = [
   '[class*="reply-header"] span',
   '[class*="header"] span',
@@ -13,9 +14,16 @@ const MONICA_MODEL_CANDIDATE_SELECTORS = [
   'header span'
 ];
 
-function normaliseTitle(rawTitle: string): string {
+function resolveFallbackTitle(config?: ParseConfig): string {
+  return config?.fallbackTitle?.trim() || MONICA_NEUTRAL_FALLBACK_TITLE;
+}
+
+function normaliseTitle(rawTitle: string, config?: ParseConfig): string {
   const cleaned = rawTitle.replace(/\s*-\s*(Monica|莫妮卡)\s*$/i, '').trim();
-  return cleaned || DEFAULT_CHAT_TITLE;
+  if (!cleaned || /^(Monica|莫妮卡)$/iu.test(cleaned)) {
+    return resolveFallbackTitle(config);
+  }
+  return cleaned;
 }
 
 function determineRole(node: HTMLElement): 'user' | 'assistant' {
@@ -91,13 +99,13 @@ function extractModel(doc: Document): string {
   return 'Monica';
 }
 
-function extractMonicaChat(doc: Document): ParsedResult {
+function extractMonicaChat(doc: Document, config?: ParseConfig): ParsedResult {
   const nodes = Array.from(doc.querySelectorAll<HTMLElement>(MONICA_MESSAGE_SELECTOR));
   if (nodes.length === 0) {
     return { title: DEFAULT_CHAT_TITLE, messages: [], assets: [] };
   }
 
-  const title = normaliseTitle(doc.title || '') || 'Monica 对话';
+  const title = normaliseTitle(doc.title || '', config);
   const model = extractModel(doc);
 
   const messages: ParsedMessage[] = [];
@@ -133,7 +141,7 @@ function extractMonicaChat(doc: Document): ParsedResult {
   }
 
   return {
-    title: title || 'Monica 对话',
+    title,
     messages,
     assets: [],
     model: model || 'Monica'
@@ -142,5 +150,5 @@ function extractMonicaChat(doc: Document): ParsedResult {
 
 export const monicaParser: ChatPlatformParser = {
   id: 'monica',
-  parse: (doc) => extractMonicaChat(doc)
+  parse: (doc, config) => extractMonicaChat(doc, config)
 };

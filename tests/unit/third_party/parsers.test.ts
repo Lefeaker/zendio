@@ -26,6 +26,34 @@ describe('ai chat platform parsers', () => {
     expect(result.messages[1].md).toContain('How can I help you today');
   });
 
+  it('strips native Chinese ChatGPT role labels without changing message roles', () => {
+    const doc = new DOMParser().parseFromString(
+      `
+      <html>
+        <head><title>测试会话 - ChatGPT</title></head>
+        <body>
+          <article data-message-author-role="user" class="user">
+            <h5>您说：</h5>
+            <div class="markdown prose"><p>你好</p></div>
+          </article>
+          <article data-message-author-role="assistant">
+            <h5>ChatGPT 说：</h5>
+            <div class="markdown prose"><p>当然可以帮你。</p></div>
+          </article>
+        </body>
+      </html>
+    `,
+      'text/html'
+    );
+    const result = parseChatDOM('chatgpt', doc);
+
+    expect(result.messages).toHaveLength(2);
+    expect(result.messages[0]).toMatchObject({ role: 'user', md: '你好' });
+    expect(result.messages[1]).toMatchObject({ role: 'assistant' });
+    expect(result.messages[1]?.md).toContain('当然可以帮你。');
+    expect(result.messages.some((message) => /您说|ChatGPT 说/.test(message.md ?? ''))).toBe(false);
+  });
+
   it('parses Claude conversations with model metadata', () => {
     const doc = loadFixture('claude.html');
     const result = parseChatDOM('claude', doc);
@@ -139,7 +167,7 @@ describe('ai chat platform parsers', () => {
     const result = parseChatDOM('doubao', doc);
 
     expect(result.title).toBe('示例会话');
-    expect(result.model).toBe('豆包');
+    expect(result.model).toBe('Doubao');
     expect(result.messages).toHaveLength(2);
 
     const [userMessage, assistantMessage] = result.messages;
