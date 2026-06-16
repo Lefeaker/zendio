@@ -1,7 +1,6 @@
-import { isObjectRecord } from '../../shared/guards/object';
+import { isObjectRecord, type RuntimePropertyValue } from '../../shared/guards/object';
 import {
   pruneVideoScreenshotCacheIndexEntries,
-  sortVideoScreenshotCacheEntriesNewestFirst,
   type VideoScreenshotCachePruneOptions,
   type VideoScreenshotCachePruneResult
 } from './videoScreenshotCacheIndex';
@@ -45,13 +44,13 @@ export interface VideoScreenshotCacheBlobStore {
 }
 
 export function normalizeVideoScreenshotCacheBlobMetadata(
-  value: unknown
+  value: RuntimePropertyValue
 ): VideoScreenshotCacheBlobMetadata | null {
   return normalizeVideoScreenshotCacheIndexEntry(value);
 }
 
 export function normalizeVideoScreenshotCacheBlobEntry(
-  value: unknown
+  value: RuntimePropertyValue
 ): VideoScreenshotCacheBlobEntry | null {
   const metadata = normalizeVideoScreenshotCacheBlobMetadata(value);
   if (metadata === null || !isObjectRecord(value)) {
@@ -72,7 +71,15 @@ export function normalizeVideoScreenshotCacheBlobEntry(
 export function sortVideoScreenshotCacheBlobMetadataNewestFirst<
   T extends VideoScreenshotCacheBlobMetadata
 >(entries: readonly T[]): T[] {
-  return sortVideoScreenshotCacheEntriesNewestFirst(entries) as T[];
+  return [...entries].sort((left, right) => {
+    if (right.updatedAt !== left.updatedAt) {
+      return right.updatedAt - left.updatedAt;
+    }
+    if (right.createdAt !== left.createdAt) {
+      return right.createdAt - left.createdAt;
+    }
+    return right.capturedAt - left.capturedAt;
+  });
 }
 
 export function pruneVideoScreenshotCacheBlobMetadataEntries(
@@ -82,7 +89,7 @@ export function pruneVideoScreenshotCacheBlobMetadataEntries(
   return pruneVideoScreenshotCacheIndexEntries(entries, options);
 }
 
-function normalizeBlob(value: unknown, metadata: VideoScreenshotCacheBlobMetadata): Blob | null {
+function normalizeBlob(value: RuntimePropertyValue, metadata: VideoScreenshotCacheBlobMetadata): Blob | null {
   if (!(value instanceof Blob) || value.size !== metadata.byteLength) {
     return null;
   }

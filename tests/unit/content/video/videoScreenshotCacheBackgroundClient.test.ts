@@ -33,13 +33,21 @@ import {
 
 const BASE_TIME = 2_000_000_000_000;
 
-type StoredValue = Parameters<StorageAreaService['set']>[1];
+type StoredValue = unknown;
+
+function castStoredValue<T>(value: StoredValue): T | undefined {
+  return value as T | undefined;
+}
+
+function castMessageResult<TResult>(value: VideoScreenshotCacheResponse | undefined): TResult {
+  return value as TResult;
+}
 
 class MemoryStorageArea implements StorageAreaService {
   private readonly values = new Map<string, StoredValue>();
 
   get<T = StoredValue>(key: string): Promise<T | undefined> {
-    return Promise.resolve(this.values.get(key) as T | undefined);
+    return Promise.resolve(castStoredValue<T>(this.values.get(key)));
   }
 
   set<T = StoredValue>(key: string, value: T): Promise<void> {
@@ -49,7 +57,7 @@ class MemoryStorageArea implements StorageAreaService {
 
   getMany<T = StoredValue>(keys: string[]): Promise<Record<string, T | undefined>> {
     return Promise.resolve(
-      Object.fromEntries(keys.map((key) => [key, this.values.get(key) as T | undefined]))
+      Object.fromEntries(keys.map((key) => [key, castStoredValue<T>(this.values.get(key))]))
     );
   }
 
@@ -95,27 +103,30 @@ class MemoryBlobStore implements VideoScreenshotCacheBlobStore {
     this.delayPageReads = options.delayPageReads === true;
   }
 
-  async put(entry: VideoScreenshotCacheBlobEntry): Promise<void> {
+  put(entry: VideoScreenshotCacheBlobEntry): Promise<void> {
     const normalizedEntry = normalizeVideoScreenshotCacheBlobEntry(entry);
     if (normalizedEntry === null) {
       throw new Error('MemoryBlobStore rejected an invalid blob entry.');
     }
     this.values.set(normalizedEntry.key, cloneBlobEntry(normalizedEntry));
+    return Promise.resolve();
   }
 
-  async get(key: string): Promise<VideoScreenshotCacheBlobEntry | null> {
+  get(key: string): Promise<VideoScreenshotCacheBlobEntry | null> {
     const entry = this.values.get(key);
-    return entry ? cloneBlobEntry(entry) : null;
+    return Promise.resolve(entry ? cloneBlobEntry(entry) : null);
   }
 
-  async delete(key: string): Promise<void> {
+  delete(key: string): Promise<void> {
     this.values.delete(key);
+    return Promise.resolve();
   }
 
-  async deleteMany(keys: readonly string[]): Promise<void> {
+  deleteMany(keys: readonly string[]): Promise<void> {
     for (const key of keys) {
       this.values.delete(key);
     }
+    return Promise.resolve();
   }
 
   async listByPageKey(pageKey: string): Promise<VideoScreenshotCacheBlobEntry[]> {
@@ -125,8 +136,8 @@ class MemoryBlobStore implements VideoScreenshotCacheBlobStore {
     return this.sortedEntries().filter((entry) => entry.pageKey === pageKey);
   }
 
-  async listAllMetadata(): Promise<VideoScreenshotCacheBlobMetadata[]> {
-    return this.sortedEntries().map(toMetadata);
+  listAllMetadata(): Promise<VideoScreenshotCacheBlobMetadata[]> {
+    return Promise.resolve(this.sortedEntries().map(toMetadata));
   }
 
   async prune(options: Parameters<VideoScreenshotCacheBlobStore['prune']>[0]) {
@@ -152,9 +163,7 @@ class MemoryBlobStore implements VideoScreenshotCacheBlobStore {
   }
 
   private sortedEntries(): VideoScreenshotCacheBlobEntry[] {
-    return sortVideoScreenshotCacheBlobMetadataNewestFirst(
-      [...this.values.values()].map(cloneBlobEntry)
-    ) as VideoScreenshotCacheBlobEntry[];
+    return sortVideoScreenshotCacheBlobMetadataNewestFirst([...this.values.values()].map(cloneBlobEntry));
   }
 
   private waitForPageReadTurn(): Promise<void> {
@@ -229,7 +238,8 @@ function cloneBlobEntry(entry: VideoScreenshotCacheBlobEntry): VideoScreenshotCa
 }
 
 function toMetadata(entry: VideoScreenshotCacheBlobEntry): VideoScreenshotCacheBlobMetadata {
-  const { blob: _blob, ...metadata } = entry;
+  const { blob, ...metadata } = entry;
+  void blob;
   return metadata;
 }
 
@@ -268,7 +278,7 @@ function createClientMessaging(
 ): Pick<MessagingService, 'send'> {
   return {
     async send<TResult>(message: Parameters<MessagingService['send']>[0]): Promise<TResult> {
-      return (await handleMessage(message)) as TResult;
+      return castMessageResult<TResult>(await handleMessage(message));
     }
   };
 }
@@ -278,7 +288,7 @@ function createStaticMessaging(
 ): Pick<MessagingService, 'send'> {
   return {
     send<TResult>(): Promise<TResult> {
-      return Promise.resolve(response as TResult);
+      return Promise.resolve(castMessageResult<TResult>(response));
     }
   };
 }
