@@ -20,12 +20,19 @@ interface AuditResult {
   usedProductionBuildGraph: boolean;
   findings: AuditFinding[];
   unexpectedFindings: AuditFinding[];
-  staleAllowlistEntries: Array<{ id: string; path: string }>;
+  staleAllowlistEntries: Array<{
+    id: string;
+    path: string;
+    missingRequiredMetadata?: boolean;
+    missingLocator?: boolean;
+  }>;
 }
 
 interface AllowlistRule {
   id: string;
   path: string;
+  line?: number;
+  pattern?: string;
   category: string;
   reason: string;
   ownerPlan: string;
@@ -159,6 +166,63 @@ describe('audit-i18n-hardcoded-user-copy', () => {
     expect(result.staleAllowlistEntries[0]).toMatchObject({
       id: 'stale-entry',
       path: 'src/content/runtime/clipPrompt.ts'
+    });
+  });
+
+  it('fails on allowlist entries with missing required metadata', async () => {
+    const result = await scanProject(
+      {
+        'src/content/runtime/clipPrompt.ts': `export const prompt = { label: '立即保存' };\n`
+      },
+      [
+        {
+          id: 'missing-reason',
+          path: 'src/content/runtime/clipPrompt.ts',
+          category: 'compatibility-copy',
+          reason: '',
+          ownerPlan: 'P22',
+          revisit: 'fill in the missing reason',
+          line: 1,
+          literalIncludes: ['立即保存'],
+          findingKinds: ['cjk-literal']
+        }
+      ]
+    );
+
+    expect(result.ok).toBe(false);
+    expect(result.unexpectedFindings).toHaveLength(1);
+    expect(result.staleAllowlistEntries).toHaveLength(1);
+    expect(result.staleAllowlistEntries[0]).toMatchObject({
+      id: 'missing-reason',
+      missingRequiredMetadata: true,
+      missingLocator: false
+    });
+  });
+
+  it('fails on broad allowlist entries without a stable locator', async () => {
+    const result = await scanProject(
+      {
+        'src/content/runtime/clipPrompt.ts': `export const prompt = { label: '立即保存' };\n`
+      },
+      [
+        {
+          id: 'broad-path-only',
+          path: 'src/content/runtime/clipPrompt.ts',
+          category: 'compatibility-copy',
+          reason: 'path-only allowlists are too broad for this audit',
+          ownerPlan: 'P22',
+          revisit: 'replace with an exact locator'
+        }
+      ]
+    );
+
+    expect(result.ok).toBe(false);
+    expect(result.unexpectedFindings).toHaveLength(1);
+    expect(result.staleAllowlistEntries).toHaveLength(1);
+    expect(result.staleAllowlistEntries[0]).toMatchObject({
+      id: 'broad-path-only',
+      missingRequiredMetadata: false,
+      missingLocator: true
     });
   });
 

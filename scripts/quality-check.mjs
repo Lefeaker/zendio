@@ -11,6 +11,10 @@ const checks = [
   { name: 'Options 旧前缀扫描', cmd: ['npm', 'run', 'report:options-legacy'] },
   { name: 'Options CSS 命名校验', cmd: ['npm', 'run', 'lint:options-css'] },
   { name: 'Hardcoded config 守卫', cmd: ['npm', 'run', 'lint:hardcoded'] },
+  {
+    name: 'i18n hardcoded user-copy 守卫',
+    cmd: ['npm', 'run', 'audit:i18n-hardcoded-user-copy:check']
+  },
   { name: 'TypeScript 类型检查（应用代码）', cmd: ['npm', 'run', 'typecheck:app'] },
   { name: 'TypeScript 类型检查（测试代码）', cmd: ['npm', 'run', 'typecheck:tests'] },
   { name: 'TypeScript 类型检查（strict 基线）', cmd: ['npm', 'run', 'typecheck:strict'] },
