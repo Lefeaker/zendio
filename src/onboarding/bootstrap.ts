@@ -3,6 +3,7 @@ import {
   type PageI18nController,
   configureI18nStorage
 } from '@i18n';
+import { RUNTIME_FALLBACK_MESSAGES } from '../i18n/catalog/runtimeFallbackMessages';
 import { getService } from '../shared/di';
 import { resolveRepository } from '../shared/di/serviceRegistry';
 import { DI_TOKENS, TOKENS } from '../shared/di/tokens';
@@ -21,12 +22,11 @@ let declarativeI18nController: PageI18nController | null = null;
 type BrowserStorageLike = Partial<Pick<Storage, 'getItem' | 'setItem'>> & Record<string, unknown>;
 
 const DEFAULT_ONBOARDING_DOCUMENT_TITLE = 'Zendio';
-const ENGLISH_SUPPORT_MODAL_FALLBACK = {
-  title: 'Thank You for Your Support',
-  description:
-    'Development is not easy. If this plugin helps you, welcome to support through the following ways:',
-  closeButton: 'Close',
-  afdianLabel: 'Afdian'
+const DEFAULT_SUPPORT_MODAL_MESSAGES = {
+  title: RUNTIME_FALLBACK_MESSAGES.onboardingSupportModalTitle,
+  description: RUNTIME_FALLBACK_MESSAGES.onboardingSupportModalDescription,
+  closeButton: RUNTIME_FALLBACK_MESSAGES.onboardingSupportModalCloseButton,
+  afdianLabel: RUNTIME_FALLBACK_MESSAGES.onboardingSupportModalAfdianLabel
 };
 
 function getBrowserLocalStorage(): BrowserStorageLike | null {
@@ -533,14 +533,13 @@ async function showSupportModal(): Promise<void> {
   const controller = await ensureDeclarativeI18nController();
   const resource = controller.getCurrentResource();
   const messages = resource?.messages;
-  // If a key is missing we still need a non-CJK fallback before declarative i18n resolves.
-  const title = messages?.onboardingSupportModalTitle || ENGLISH_SUPPORT_MODAL_FALLBACK.title;
+  const title = messages?.onboardingSupportModalTitle || DEFAULT_SUPPORT_MODAL_MESSAGES.title;
   const description =
-    messages?.onboardingSupportModalDescription || ENGLISH_SUPPORT_MODAL_FALLBACK.description;
+    messages?.onboardingSupportModalDescription || DEFAULT_SUPPORT_MODAL_MESSAGES.description;
   const closeButtonLabel =
-    messages?.onboardingSupportModalCloseButton || ENGLISH_SUPPORT_MODAL_FALLBACK.closeButton;
+    messages?.onboardingSupportModalCloseButton || DEFAULT_SUPPORT_MODAL_MESSAGES.closeButton;
   const afdianLabel =
-    messages?.onboardingSupportModalAfdianLabel || ENGLISH_SUPPORT_MODAL_FALLBACK.afdianLabel;
+    messages?.onboardingSupportModalAfdianLabel || DEFAULT_SUPPORT_MODAL_MESSAGES.afdianLabel;
 
   const modal = document.createElement('div');
   modal.className = 'support-modal';

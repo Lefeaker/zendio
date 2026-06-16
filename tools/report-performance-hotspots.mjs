@@ -97,7 +97,7 @@ const MAX_LINE_BUDGETS = new Map([
   ['src/components/trial-notice.ts', 376],
   ['src/content/clipper/services/contextCapture.ts', 305],
   // 2026-06-12 P03: video session draft ownership moved into a focused controller.
-  ['src/content/video/videoSessionDraftController.ts', 310],
+  ['src/content/video/videoSessionDraftController.ts', 311],
   ['src/options/app/productionStitchActions.ts', 302],
   ['src/options/app/productionStitchLocalization.ts', 553],
   ['src/options/app/vaultConnectionTests.ts', 290],

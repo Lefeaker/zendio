@@ -1,6 +1,6 @@
 /* @vitest-environment jsdom */
 
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { restErrors } from '@shared/errors';
 import { ErrorSeverity } from '@shared/errors/types';
 
@@ -144,6 +144,10 @@ describe('SupportPrompt', () => {
     );
   });
 
+  afterEach(() => {
+    vi.doUnmock('../../../src/i18n/catalog/runtimeFallbackMessages');
+  });
+
   it('renders success state with Stitch task-success content', async () => {
     const { SupportPrompt } = await import('../../../src/content/ui/supportPrompt');
     const prompt = new SupportPrompt(document);
@@ -271,6 +275,35 @@ describe('SupportPrompt', () => {
       '(code: FAIL_X)'
     );
     expect(shadow?.querySelector('[data-role="status-detail"]')?.textContent).toBe('extra detail');
+  });
+
+  it('uses catalog-derived fallback messages when content i18n fails before loading', async () => {
+    ensureContentI18nMock.mockRejectedValueOnce(new Error('content i18n unavailable'));
+    const actualFallbacks = await vi.importActual<
+      typeof import('../../../src/i18n/catalog/runtimeFallbackMessages')
+    >('../../../src/i18n/catalog/runtimeFallbackMessages');
+    vi.doMock('../../../src/i18n/catalog/runtimeFallbackMessages', () => ({
+      ...actualFallbacks,
+      RUNTIME_FALLBACK_MESSAGES: {
+        ...actualFallbacks.RUNTIME_FALLBACK_MESSAGES,
+        supportPromptDialogLabel: 'Dialog sentinel',
+        supportPromptTitle: 'Title sentinel',
+        supportProgressSendingToObsidian: 'Progress sentinel'
+      }
+    }));
+
+    const { resolveStatusMessage, resolveSupportPromptMessages } =
+      await import('../../../src/content/ui/supportPromptMessages');
+    const messages = await resolveSupportPromptMessages(document);
+    const resolved = resolveStatusMessage({
+      status: 'progress',
+      messages,
+      runtimeMessages: undefined
+    });
+
+    expect(messages.dialogLabel).toBe('Dialog sentinel');
+    expect(messages.title).toBe('Title sentinel');
+    expect(resolved.text).toBe('Progress sentinel');
   });
 
   it('prefers descriptor-based failure copy over legacy error strings', async () => {

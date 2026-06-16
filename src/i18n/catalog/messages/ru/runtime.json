@@ -663,5 +663,14 @@
   "trialNotificationExpiringSoonMessage": "Пробная версия истечёт через {remaining}. Пожалуйста, свяжитесь с разработчиком заранее.",
   "trialSummaryExpired": "Пробная версия - истекла (дата окончания: {date})",
   "trialSummaryRemaining": "Пробная версия - {remaining} (дата окончания: {date})",
-  "vaultDefaultName": "Новое хранилище"
+  "vaultDefaultName": "Новое хранилище",
+  "notificationTitleSuccess": "Zendio - Success",
+  "notificationTitleInfo": "Zendio - Info",
+  "notificationTitleWarning": "Zendio - Warning",
+  "notificationTitleError": "Zendio - Error",
+  "notificationTitleCritical": "Zendio - Critical",
+  "visibleTabScreenshotMissingSenderWindow": "Missing sender window for visible tab screenshot.",
+  "visibleTabScreenshotUnsupported": "Visible tab screenshot capture is unsupported.",
+  "visibleTabScreenshotMissingImage": "Visible tab screenshot capture returned no image.",
+  "videoSessionDraftTitleFallback": "Video Capture"
 }
