@@ -5,9 +5,7 @@ import {
 } from '../../shared/types/videoScreenshotMessages';
 import { createVideoFrameScreenshotFromBlob } from './videoFrameScreenshot';
 import type { VideoCaptureScreenshot } from './types';
-
-const FALLBACK_SCREENSHOT_MIME_TYPE = 'image/jpeg';
-const FALLBACK_SCREENSHOT_QUALITY = 0.88;
+import { encodeCanvasToBudgetedBlob } from './videoScreenshotEncoding';
 
 export type VideoVisibleFrameScreenshotCapture = (
   video: HTMLVideoElement,
@@ -47,8 +45,7 @@ async function cropVisibleTabScreenshotToVideo(
   video: HTMLVideoElement
 ): Promise<Blob | null> {
   const doc = video.ownerDocument;
-  const view = doc.defaultView;
-  if (!view || !dataUrl.startsWith('data:image/')) {
+  if (!doc.defaultView || !dataUrl.startsWith('data:image/')) {
     return null;
   }
 
@@ -68,7 +65,7 @@ async function cropVisibleTabScreenshotToVideo(
   canvas.width = crop.width;
   canvas.height = crop.height;
   const context = canvas.getContext('2d');
-  if (!context || typeof canvas.toBlob !== 'function') {
+  if (!context) {
     return null;
   }
   context.drawImage(
@@ -82,9 +79,7 @@ async function cropVisibleTabScreenshotToVideo(
     crop.width,
     crop.height
   );
-  return await new Promise<Blob | null>((resolve) => {
-    canvas.toBlob(resolve, FALLBACK_SCREENSHOT_MIME_TYPE, FALLBACK_SCREENSHOT_QUALITY);
-  });
+  return await encodeCanvasToBudgetedBlob(canvas);
 }
 
 function loadImage(doc: Document, dataUrl: string): Promise<HTMLImageElement> {
