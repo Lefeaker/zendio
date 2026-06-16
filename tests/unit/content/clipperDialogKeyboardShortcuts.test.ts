@@ -175,26 +175,25 @@ describe('ClipperDialog Keyboard Shortcuts', () => {
   });
 
   it('renders shortcut hints with modifier labels from dialogShortcuts', async () => {
-    const { renderShortcutHint } = await import(
-      '../../../src/content/clipper/components/dialogPresenterEvents'
-    );
+    const { renderShortcutHint } =
+      await import('../../../src/content/clipper/components/dialogPresenterEvents');
     const hint = document.createElement('div');
 
     renderShortcutHint(
       hint,
       {
-        header: '批注编辑已完成，可以使用快捷键来完成以下操作：',
-        doubleEnterLabel: '双击回车',
-        doubleEnterAction: '双击 ↵',
-        modifierAction: '直接剪藏',
-        escapeAction: '取消'
+        header: 'Comment editing completed. Use shortcuts to finish:',
+        doubleEnterLabel: 'Double-Enter',
+        doubleEnterAction: 'Double ↵',
+        modifierAction: 'Clip directly',
+        escapeAction: 'Cancel'
       },
       'MacIntel'
     );
 
     expect(hint.hidden).toBe(false);
-    expect(hint.innerHTML).toContain('Cmd+回车');
-    expect(hint.textContent).toContain('直接剪藏');
+    expect(hint.innerHTML).toContain('Cmd+Enter');
+    expect(hint.textContent).toContain('Clip directly');
   });
 
   describe('when keyboard shortcuts are enabled', () => {
@@ -372,7 +371,9 @@ describe('ClipperDialog Keyboard Shortcuts', () => {
       // Check that hint is displayed
       const hint = getDialogRoot()?.querySelector('.clipper-comment-completed-hint');
       expect(hint).not.toBeNull();
-      expect(hint?.textContent).toContain('批注编辑已完成，可以使用快捷键来完成以下操作');
+      expect(hint?.textContent).toContain(
+        'Comment editing completed, you can use keyboard shortcuts to complete the following actions:'
+      );
     });
 
     it('shows correct modifier key in hint based on platform', async () => {
@@ -403,7 +404,7 @@ describe('ClipperDialog Keyboard Shortcuts', () => {
 
       const hint = getDialogRoot()?.querySelector('.clipper-comment-completed-hint');
       expect(hint).not.toBeNull();
-      expect(hint?.innerHTML).toContain('Cmd+回车');
+      expect(hint?.innerHTML).toContain('Cmd+Enter');
     });
 
     it('temporarily activated shortcuts work after double-enter', async () => {

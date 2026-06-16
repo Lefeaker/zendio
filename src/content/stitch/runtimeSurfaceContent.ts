@@ -31,10 +31,10 @@ function createRuntimeContent(): PreviewContent {
     },
     rendererLabels: {
       resourcePendingBadge: 'Pending',
-      resourceOpenAction: '打开',
-      highlightExamplePrefix: '导出后的示例会像这样 ',
-      highlightExampleText: '标出重点内容',
-      highlightExampleSuffix: '，方便回看。'
+      resourceOpenAction: 'Open',
+      highlightExamplePrefix: 'An exported example can look like ',
+      highlightExampleText: 'highlighted text',
+      highlightExampleSuffix: ' for easier review.'
     },
     sidebarLinks: [],
     surfaceLinks: [],

@@ -165,7 +165,14 @@ export function buildDialogPresenter(options: DialogPresenterOptions): DialogPre
     });
     videoIcon.setAttribute('aria-hidden', 'true');
     actions.appendChild(
-      createGhostButton(binder, 'openVideoModeButton', '进入视频模式', videoIcon, bindings, onVideo)
+      createGhostButton(
+        binder,
+        'openVideoModeButton',
+        getFallback('openVideoModeButton'),
+        videoIcon,
+        bindings,
+        onVideo
+      )
     );
   }
 

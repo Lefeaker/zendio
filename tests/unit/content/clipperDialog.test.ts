@@ -81,7 +81,8 @@ const dialogMessages = {
   commentLabel: 'Comment',
   commentPlaceholder: 'Add a note',
   openReaderButton: 'Open reader',
-  addToReaderButton: 'Add to reader'
+  addToReaderButton: 'Add to reader',
+  openVideoModeButton: 'Enter video mode'
 };
 
 const flushPromises = () => new Promise((resolve) => setTimeout(resolve, 0));
@@ -262,9 +263,8 @@ describe('ClipperDialog UI', () => {
   });
 
   it('builds presenter command buttons and comment hooks from element helpers', async () => {
-    const { buildDialogPresenter } = await import(
-      '../../../src/content/clipper/components/dialogPresenterElements'
-    );
+    const { buildDialogPresenter } =
+      await import('../../../src/content/clipper/components/dialogPresenterElements');
     const handlers = {
       reader: vi.fn(),
       video: vi.fn(),
@@ -312,7 +312,7 @@ describe('ClipperDialog UI', () => {
     const buttons = Array.from(presenter.content.querySelectorAll<HTMLButtonElement>('button'));
     expect(buttons.map((button) => button.textContent?.trim())).toEqual([
       'Open reader',
-      '进入视频模式',
+      'Enter video mode',
       'Cancel',
       'Save'
     ]);
