@@ -130,4 +130,34 @@ describe('videoSessionDraftScreenshotHydration', () => {
     expect(onSettled).toHaveBeenCalledWith({ isCurrent: true });
     expect(capture.screenshot).toBeUndefined();
   });
+
+  it('clears invalid screenshot refs, keeps screenshot intent, and schedules a draft save', async () => {
+    const capture = createRestoredCapture();
+    capture.screenshotRef = { ...createScreenshotRef(), key: 'invalid-ref' };
+    const onChange = vi.fn();
+    const onSettled = vi.fn();
+    const scheduleSave = vi.fn().mockResolvedValue(undefined);
+    const load = vi.fn();
+
+    scheduleRestoredVideoDraftScreenshotHydration({
+      captures: [capture],
+      screenshotCache: {
+        load,
+        removeMany: vi.fn()
+      },
+      isCurrent: () => true,
+      onScreenshotHydrationChange: onChange,
+      onScreenshotHydrationSettled: onSettled,
+      scheduleSave
+    });
+
+    await flushAsyncWork();
+
+    expect(load).not.toHaveBeenCalled();
+    expect(capture.screenshotRequested).toBe(true);
+    expect(capture).not.toHaveProperty('screenshotRef');
+    expect(onChange).toHaveBeenCalledTimes(1);
+    expect(scheduleSave).toHaveBeenCalledTimes(1);
+    expect(onSettled).toHaveBeenCalledWith({ isCurrent: true });
+  });
 });
