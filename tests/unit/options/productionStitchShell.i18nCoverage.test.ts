@@ -1,7 +1,7 @@
 /* @vitest-environment jsdom */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import type { Messages } from '@i18n';
+import { getMessagesForLanguage, type Messages } from '@i18n';
 import { mountProductionStitchShell } from '@options/app/productionStitchShell';
 import {
   createProductionStitchAppData,
@@ -222,6 +222,20 @@ function renderResourceModal(
   return rendered;
 }
 
+function createSchemaContextFromAppData(appData: typeof previewContent, messages: Messages | null) {
+  const draft = createCompleteOptions(SURFACE_INITIAL_OPTIONS);
+  const state = applyOptionsToState(createInitialStitchState(appData), draft, appData);
+  state.previewLanguage = 'en';
+
+  return createProductionStitchSchemaContext({
+    appData,
+    previewContent,
+    language: 'en',
+    messages,
+    state
+  });
+}
+
 function renderRuntimeSurfaceFromAppData(
   surfaceId: RuntimeSurfaceId,
   appData: typeof previewContent,
@@ -427,5 +441,35 @@ describe('mountProductionStitchShell English residual coverage', () => {
     );
     expect(clipper.textContent).not.toContain('RAW RUNTIME SENTINEL');
     clipper.remove();
+  });
+
+  it('localizes sample preview metadata through catalog keys for zh-CN', async () => {
+    const zhMessages = await getMessagesForLanguage('zh-CN');
+    const context = createSchemaContextFromAppData(structuredClone(previewContent), zhMessages);
+
+    expect(context.appData.storage.routingTypeOptions[2]?.label).toBe(
+      zhMessages.ruleTypeUrlPattern
+    );
+    expect(context.appData.storage.vaults[1]?.name).toBe(
+      zhMessages.schemaPreviewSampleVaultResearch
+    );
+    expect(context.appData.surfaces.clipper.source.title).toBe(
+      zhMessages.schemaPreviewClipperSourceArticleTitle
+    );
+    expect(context.appData.surfaces.clipper.destination?.label).toBe(
+      zhMessages.schemaPreviewSampleVaultResearch
+    );
+    expect(context.appData.surfaces.clipper.destination?.options[0]?.label).toBe(
+      zhMessages.schemaPreviewSampleVaultResearch
+    );
+    expect(context.appData.surfaces.video.captures[1]?.summary).toBe(
+      zhMessages.schemaPreviewVideoCaptureTwoSummary
+    );
+    expect(context.appData.surfaces.taskSuccess.likeToast.detail).toBe(
+      zhMessages.schemaPreviewTaskSuccessLikeToastDetail
+    );
+    expect(context.appData.surfaces.taskSuccess.dislikeToast.detail).toBe(
+      zhMessages.schemaPreviewTaskSuccessDislikeToastDetail
+    );
   });
 });
