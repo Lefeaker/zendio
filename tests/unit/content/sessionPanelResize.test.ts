@@ -1,6 +1,7 @@
 /* @vitest-environment jsdom */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import type { Mock } from 'vitest';
 import { asType } from '../../utils/typeHelpers';
 
 type SessionPanelStorageItems = Partial<
@@ -14,8 +15,8 @@ type SessionPanelStorageItems = Partial<
 >;
 
 interface MockStorage {
-  load: ReturnType<typeof vi.fn>;
-  save: ReturnType<typeof vi.fn>;
+  load: Mock<() => Promise<SessionPanelStorageItems>>;
+  save: Mock<(items: SessionPanelStorageItems) => void | Promise<void>>;
 }
 
 interface SurfaceFixture {
@@ -30,7 +31,7 @@ function createSessionPanelStorage(
 ): MockStorage {
   return {
     load: vi.fn(loadImplementation),
-    save: vi.fn()
+    save: vi.fn<(items: SessionPanelStorageItems) => void | Promise<void>>()
   };
 }
 
