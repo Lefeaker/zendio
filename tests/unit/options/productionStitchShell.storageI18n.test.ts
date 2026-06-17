@@ -100,8 +100,7 @@ describe('mountProductionStitchShell storage i18n', () => {
     const vaultList = findCardByTitle('Vault List Sentinel');
     expect(findButton('Test Connection Sentinel')).toBeTruthy();
     expect(findButton('Choose Folder Sentinel')).toBeTruthy();
-    expect(document.body.textContent).toContain('Routing Tip Title Sentinel');
-    expect(document.body.textContent).toContain('Routing Tip Body Sentinel');
+    expect(document.body.textContent).not.toContain('Routing Tip Title Sentinel');
     expect(
       Array.from(vaultList.querySelectorAll('th')).map((cell) => cell.textContent?.trim())
     ).toEqual([
@@ -115,6 +114,7 @@ describe('mountProductionStitchShell storage i18n', () => {
     ]);
 
     const routingCard = findCardByTitle('Routing Rules Sentinel');
+    expect(routingCard.textContent).toContain('Routing Tip Body Sentinel');
     expect(
       Array.from(routingCard.querySelectorAll('th')).map((cell) => cell.textContent?.trim())
     ).toEqual([
@@ -125,6 +125,9 @@ describe('mountProductionStitchShell storage i18n', () => {
       'Routing Priority Column Sentinel',
       'Routing Actions Column Sentinel'
     ]);
+    expect((routingCard.textContent ?? '').indexOf('Routing Actions Column Sentinel')).toBeLessThan(
+      (routingCard.textContent ?? '').indexOf('Routing Tip Body Sentinel')
+    );
   });
 
   it('resolves localized storage fallback messages without Chinese defaults', async () => {

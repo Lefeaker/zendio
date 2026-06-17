@@ -8,7 +8,6 @@ import { renderPreviewView } from '@options/stitch/render/renderStitchView';
 import { clear, el } from '@options/stitch/ui/dom';
 import { previewUi } from '@options/stitch/ui/components';
 import type { PreviewStoreState } from '@options/stitch/types';
-import { DEFAULT_PRODUCTION_ENGLISH_MESSAGES } from '@options/stitch/schema/i18n';
 import { RUNTIME_SURFACE_RESOURCE_IDS } from './productionStitchStateMapper';
 import { setScrollTopImmediately } from './productionStitchScrollGuard';
 import { createProductionStitchRenderControls } from './productionStitchRenderControls';
@@ -67,14 +66,14 @@ export function createProductionStitchRenderLifecycle(
       brand: context.appData.brand,
       settingsTitle: '',
       resourcesTitle: '',
-      runtimeTitle:
-        context.t?.(
-          'schemaRuntimeUiGroupTitle',
-          DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaRuntimeUiGroupTitle
-        ) ?? DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaRuntimeUiGroupTitle,
+      /*
+       * Runtime surface previews remain available to tests and preview harnesses,
+       * but the production Options sidebar must not expose them as release UI.
+       */
+      runtimeTitle: '',
       navItems: context.appData.nav,
       sidebarLinks: context.appData.sidebarLinks,
-      surfaceLinks: context.appData.surfaceLinks,
+      surfaceLinks: [],
       activePanel: state.activePanel,
       activeResource: state.activeResource,
       onPanelClick: scrollToPanel,

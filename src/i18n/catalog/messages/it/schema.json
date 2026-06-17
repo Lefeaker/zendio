@@ -329,7 +329,7 @@
   "schemaStorageRoutingPatternColumnLabel": "Pattern",
   "schemaStorageRoutingPriorityColumnLabel": "Priorità",
   "schemaStorageRoutingTargetVaultColumnLabel": "Vault destinazione",
-  "schemaStorageRoutingTipBody": "Le regole con priorità più alta vengono applicate per prime. Ogni regola può essere modificata in linea senza eliminarla.",
+  "schemaStorageRoutingTipBody": "Le regole con priorità più alta vengono applicate per prime.",
   "schemaStorageRoutingTipTitle": "Suggerimenti di instradamento",
   "schemaStorageRoutingTypeColumnLabel": "Tipo",
   "schemaStorageTestConnectionButton": "Prova connessione",

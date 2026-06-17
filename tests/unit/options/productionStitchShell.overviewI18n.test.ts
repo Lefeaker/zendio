@@ -1,6 +1,7 @@
 /* @vitest-environment jsdom */
 
 import type { Messages } from '@i18n';
+import { RELEASE_LANGUAGE_CONFIG, RELEASE_LANGUAGE_ORDER } from '@i18n/catalog/languages';
 import { mountProductionStitchShell } from '@options/app/productionStitchShell';
 import { beforeEach, describe, expect, it } from 'vitest';
 import {
@@ -23,8 +24,6 @@ const ENGLISH_SENTINEL_MESSAGE_OVERRIDES = {
   schemaOverviewClearUsageDataButton: 'Clear Usage Sentinel',
   schemaOverviewInterfaceGroupTitle: 'Interface Sentinel',
   schemaOverviewLanguageRowTitle: 'Language Row Sentinel',
-  schemaOverviewLanguageOptionEn: 'English Option Sentinel',
-  schemaOverviewLanguageOptionZhCn: 'Chinese Option Sentinel',
   schemaOverviewThemeRowTitle: 'Theme Row Sentinel',
   schemaOverviewThemeSystemOption: 'System Theme Sentinel',
   privacySettingsNote: 'Consent Section Sentinel',
@@ -80,7 +79,8 @@ describe('mountProductionStitchShell overview i18n', () => {
     const languageSelect = document.querySelector<HTMLSelectElement>('select');
     expect(languageSelect).not.toBeNull();
     const optionTexts = Array.from(languageSelect?.options ?? []).map((option) => option.text);
-    expect(optionTexts).toContain('English Option Sentinel');
-    expect(optionTexts).toContain('Chinese Option Sentinel');
+    expect(optionTexts).toEqual(
+      RELEASE_LANGUAGE_ORDER.map((code) => RELEASE_LANGUAGE_CONFIG[code].nativeName)
+    );
   });
 });

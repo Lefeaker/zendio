@@ -329,7 +329,7 @@
   "schemaStorageRoutingPatternColumnLabel": "匹配模式",
   "schemaStorageRoutingPriorityColumnLabel": "優先級",
   "schemaStorageRoutingTargetVaultColumnLabel": "目標倉庫",
-  "schemaStorageRoutingTipBody": "優先級越高越先匹配；每條規則都支援行內修改，不需要先刪除再重建。",
+  "schemaStorageRoutingTipBody": "優先級越高越先匹配",
   "schemaStorageRoutingTipTitle": "路由提示",
   "schemaStorageRoutingTypeColumnLabel": "類型",
   "schemaStorageTestConnectionButton": "測試連線",

@@ -329,7 +329,7 @@
   "schemaStorageRoutingPatternColumnLabel": "Patrón",
   "schemaStorageRoutingPriorityColumnLabel": "Prioridad",
   "schemaStorageRoutingTargetVaultColumnLabel": "Bóveda objetivo",
-  "schemaStorageRoutingTipBody": "Las reglas con mayor prioridad se aplican primero. Cada regla puede editarse en línea sin eliminarla antes.",
+  "schemaStorageRoutingTipBody": "Las reglas con mayor prioridad se aplican primero.",
   "schemaStorageRoutingTipTitle": "Consejos de enrutado",
   "schemaStorageRoutingTypeColumnLabel": "Tipo",
   "schemaStorageTestConnectionButton": "Probar conexión",

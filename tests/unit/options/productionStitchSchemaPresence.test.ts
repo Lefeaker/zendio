@@ -15,7 +15,7 @@ import {
 
 const EXPECTED_LANGUAGE_VALUES = [...RELEASE_LANGUAGE_ORDER];
 const EXPECTED_LANGUAGE_LABELS = EXPECTED_LANGUAGE_VALUES.map(
-  (code) => RELEASE_LANGUAGE_CONFIG[code].englishName
+  (code) => RELEASE_LANGUAGE_CONFIG[code].nativeName
 );
 
 function findLanguageSelect(): HTMLSelectElement {

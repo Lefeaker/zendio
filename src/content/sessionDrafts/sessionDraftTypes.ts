@@ -1,9 +1,19 @@
 import type { ExportDestinationMetadata } from '../../shared/exportDestination';
-import type { SessionDraftRetentionPolicy } from './sessionDraftRetentionPolicy';
 
 export const SESSION_DRAFT_SCHEMA_VERSION = 1 as const;
 export const SESSION_DRAFT_MAX_ENTRIES = 100;
 export const SESSION_DRAFT_MAX_ENVELOPE_BYTES = 512 * 1024;
+
+export interface SessionDraftRetentionPolicy {
+  retentionMs: number;
+  maxRestorablePages: number | null;
+  maxItemsPerPage: number | null;
+}
+
+export interface SessionDraftStoragePolicy {
+  retentionPolicy: SessionDraftRetentionPolicy;
+  videoScreenshotCacheTtlMs: number;
+}
 
 export type SessionDraftMode = 'reader' | 'video';
 export type SessionDraftActiveStatus = 'active' | 'restorable';

@@ -107,7 +107,7 @@ describe('storage settings', () => {
     expect(storageViewText).toContain('Schema Vault API Key Column Sentinel');
     expect(storageViewText).toContain('Schema Vault Actions Column Sentinel');
     expect(storageViewText).toContain('Schema Routing Rules Sentinel');
-    expect(storageViewText).toContain('Schema Routing Tip Title Sentinel');
+    expect(storageViewText).not.toContain('Schema Routing Tip Title Sentinel');
     expect(storageViewText).toContain('Schema Routing Tip Body Sentinel');
     expect(storageViewText).toContain('Schema Routing Enabled Column Sentinel');
     expect(storageViewText).toContain('Schema Routing Type Column Sentinel');

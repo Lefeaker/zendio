@@ -120,12 +120,6 @@ const schema: SettingsSchema = {
               ],
               body: [
                 {
-                  kind: 'notice',
-                  title: t('schemaStorageRoutingTipTitle'),
-                  body: t('schemaStorageRoutingTipBody'),
-                  variant: 'warning'
-                },
-                {
                   kind: 'table',
                   columns: [
                     t('schemaStorageRoutingEnabledColumnLabel'),
@@ -139,7 +133,8 @@ const schema: SettingsSchema = {
                     current.state.routingRules.map((rule, index) =>
                       routingRuleRow(rule, index, current)
                     )
-                }
+                },
+                htmlParagraph(t('schemaStorageRoutingTipBody'), 'option-support-note')
               ]
             }
           ]

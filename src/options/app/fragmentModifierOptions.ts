@@ -18,7 +18,9 @@ interface NavigatorWithUserAgentData extends Navigator {
   };
 }
 
-type ModifierMessagesOrPlatform = Messages | null | boolean | undefined;
+type FragmentModifierPlatform = 'apple' | 'standard' | 'unknown';
+type ModifierPlatformInput = boolean | FragmentModifierPlatform | undefined;
+type ModifierMessagesOrPlatform = Messages | null | ModifierPlatformInput;
 
 const VALID_FRAGMENT_MODIFIER_KEYS = new Set<string>(['alt', 'meta', 'ctrl', 'shift']);
 
@@ -42,11 +44,47 @@ function currentPlatformLabel(): string {
 }
 
 export function isApplePlatform(platform = currentPlatformLabel()): boolean {
-  return /\b(Mac|iPhone|iPad|iPod)\b/i.test(platform);
+  return detectFragmentModifierPlatform(platform) === 'apple';
 }
 
-export function platformCommandModifierKey(isApple = isApplePlatform()): FragmentModifierKey {
-  return isApple ? 'meta' : 'ctrl';
+export function detectFragmentModifierPlatform(
+  platform = currentPlatformLabel()
+): FragmentModifierPlatform {
+  const normalizedPlatform = platform.trim();
+  if (!normalizedPlatform) {
+    return 'unknown';
+  }
+  if (
+    /(^|[\s(;])(?:macOS|Macintosh|MacIntel|MacPPC|Mac68K|Mac OS|Mac|iPhone|iPad|iPod)/i.test(
+      normalizedPlatform
+    )
+  ) {
+    return 'apple';
+  }
+  if (
+    /(^|[\s(;])(?:Win32|Win64|Windows|Win|Linux|Android|CrOS|Chrome OS|X11)/i.test(
+      normalizedPlatform
+    )
+  ) {
+    return 'standard';
+  }
+  return 'unknown';
+}
+
+function resolveModifierPlatform(platform?: ModifierPlatformInput): FragmentModifierPlatform {
+  if (platform === true) {
+    return 'apple';
+  }
+  if (platform === false) {
+    return 'standard';
+  }
+  return platform ?? detectFragmentModifierPlatform();
+}
+
+export function platformCommandModifierKey(
+  platform: ModifierPlatformInput = detectFragmentModifierPlatform()
+): FragmentModifierKey {
+  return resolveModifierPlatform(platform) === 'apple' ? 'meta' : 'ctrl';
 }
 
 function isFragmentModifierKey(value: string | undefined): value is FragmentModifierKey {
@@ -64,42 +102,52 @@ function isKnownFragmentModifierValue(value: string): boolean {
 function resolveModifierLocalization(
   messagesOrIsApple?: ModifierMessagesOrPlatform,
   maybeIsApple?: boolean
-): { isApple: boolean; messages: Messages | null } {
+): { platform: FragmentModifierPlatform; messages: Messages | null } {
   if (typeof messagesOrIsApple === 'boolean') {
-    return { isApple: messagesOrIsApple, messages: null };
+    return { platform: resolveModifierPlatform(messagesOrIsApple), messages: null };
+  }
+  if (
+    messagesOrIsApple === 'apple' ||
+    messagesOrIsApple === 'standard' ||
+    messagesOrIsApple === 'unknown'
+  ) {
+    return { platform: messagesOrIsApple, messages: null };
   }
 
   return {
-    isApple: maybeIsApple ?? isApplePlatform(),
+    platform: resolveModifierPlatform(maybeIsApple),
     messages: messagesOrIsApple ?? null
   };
 }
 
 function localizedModifierKeyLabel(
   key: FragmentModifierKey,
-  messages: Messages | null,
-  isApple: boolean
+  platform: FragmentModifierPlatform
 ): string {
   switch (key) {
     case 'meta':
-      return getMessage(messages, 'fragmentModifierKeyMeta', 'Cmd');
+      return platform === 'apple' ? 'cmd' : 'Control/cmd';
     case 'ctrl':
-      return getMessage(messages, 'fragmentModifierKeyCtrl', 'Ctrl');
+      return platform === 'unknown' ? 'Control/cmd' : 'Control';
     case 'alt':
-      return getMessage(messages, 'fragmentModifierKeyAlt', isApple ? 'Option' : 'Alt');
+      if (platform === 'apple') {
+        return 'option';
+      }
+      return platform === 'unknown' ? 'Option/Alt' : 'Alt';
     case 'shift':
     default:
-      return getMessage(messages, 'fragmentModifierKeyShift', 'Shift');
+      return 'Shift';
   }
 }
 
 export function normalizeFragmentModifierKey(
   value: string | undefined,
-  isApple = isApplePlatform()
+  platform: ModifierPlatformInput = detectFragmentModifierPlatform()
 ): FragmentModifierKey {
+  const resolvedPlatform = resolveModifierPlatform(platform);
   const normalizedValue = coerceFragmentModifierValue(value);
   if (normalizedValue === 'meta' || normalizedValue === 'ctrl') {
-    return platformCommandModifierKey(isApple);
+    return platformCommandModifierKey(resolvedPlatform);
   }
   if (isFragmentModifierKey(normalizedValue)) {
     return normalizedValue;
@@ -109,23 +157,26 @@ export function normalizeFragmentModifierKey(
 
 export function normalizeFragmentModifierKeys(
   values: readonly string[] | undefined,
-  isApple = isApplePlatform()
+  platform: ModifierPlatformInput = detectFragmentModifierPlatform()
 ): FragmentModifierKey[] {
   const first = values?.find(isKnownFragmentModifierValue);
-  return [normalizeFragmentModifierKey(first, isApple)];
+  return [normalizeFragmentModifierKey(first, platform)];
 }
 
 export function fragmentModifierChoices(
-  isApple = isApplePlatform(),
+  platform: ModifierPlatformInput = detectFragmentModifierPlatform(),
   messages: Messages | null = null
 ): FragmentModifierChoice[] {
+  void messages;
+  const resolvedPlatform = resolveModifierPlatform(platform);
+  const commandKey = platformCommandModifierKey(resolvedPlatform);
   return [
-    { value: 'shift', label: localizedModifierKeyLabel('shift', messages, isApple) },
+    { value: 'shift', label: localizedModifierKeyLabel('shift', resolvedPlatform) },
     {
-      value: platformCommandModifierKey(isApple),
-      label: localizedModifierKeyLabel(platformCommandModifierKey(isApple), messages, isApple)
+      value: commandKey,
+      label: localizedModifierKeyLabel(commandKey, resolvedPlatform)
     },
-    { value: 'alt', label: localizedModifierKeyLabel('alt', messages, isApple) }
+    { value: 'alt', label: localizedModifierKeyLabel('alt', resolvedPlatform) }
   ];
 }
 
@@ -134,9 +185,9 @@ export function fragmentModifierChipItems(
   messagesOrIsApple?: ModifierMessagesOrPlatform,
   maybeIsApple?: boolean
 ): ChipItem[] {
-  const { isApple, messages } = resolveModifierLocalization(messagesOrIsApple, maybeIsApple);
-  const selectedKey = normalizeFragmentModifierKeys(selectedKeys, isApple)[0];
-  return fragmentModifierChoices(isApple, messages).map((choice) => ({
+  const { platform, messages } = resolveModifierLocalization(messagesOrIsApple, maybeIsApple);
+  const selectedKey = normalizeFragmentModifierKeys(selectedKeys, platform)[0];
+  return fragmentModifierChoices(platform, messages).map((choice) => ({
     value: choice.value,
     label: choice.label,
     pressed: choice.value === selectedKey
@@ -148,8 +199,8 @@ export function fragmentModifierConflictWarning(
   messagesOrIsApple?: ModifierMessagesOrPlatform,
   maybeIsApple?: boolean
 ): string {
-  const { isApple, messages } = resolveModifierLocalization(messagesOrIsApple, maybeIsApple);
-  const key = normalizeFragmentModifierKey(selectedKey, isApple);
+  const { platform, messages } = resolveModifierLocalization(messagesOrIsApple, maybeIsApple);
+  const key = normalizeFragmentModifierKey(selectedKey, platform);
   if (key === 'shift') {
     return '';
   }
@@ -160,7 +211,7 @@ export function fragmentModifierConflictWarning(
         'schemaCaptureBehaviorModifierConflictSystem',
         DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaCaptureBehaviorModifierConflictSystem
       ),
-      { label: localizedModifierKeyLabel('alt', messages, isApple) }
+      { label: localizedModifierKeyLabel('alt', platform) }
     );
   }
   return formatMessage(
@@ -169,7 +220,7 @@ export function fragmentModifierConflictWarning(
       'schemaCaptureBehaviorModifierConflictBrowser',
       DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaCaptureBehaviorModifierConflictBrowser
     ),
-    { label: localizedModifierKeyLabel(key, messages, isApple) }
+    { label: localizedModifierKeyLabel(key, platform) }
   );
 }
 

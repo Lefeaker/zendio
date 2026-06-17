@@ -1,7 +1,7 @@
 /* @vitest-environment jsdom */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { RELEASE_LANGUAGE_ORDER } from '@i18n/catalog/languages';
+import { RELEASE_LANGUAGE_CONFIG, RELEASE_LANGUAGE_ORDER } from '@i18n/catalog/languages';
 import { mountProductionStitchShell } from '@options/app/productionStitchShell';
 import type { MountedProductionStitchShell } from '@options/app/productionStitchShell';
 import type { OptionsController } from '@options/app/optionsController';
@@ -31,6 +31,9 @@ async function installProductionStitchTestAssets(): Promise<void> {
 }
 
 const EXPECTED_LANGUAGE_VALUES = [...RELEASE_LANGUAGE_ORDER];
+const EXPECTED_LANGUAGE_LABELS = EXPECTED_LANGUAGE_VALUES.map(
+  (code) => RELEASE_LANGUAGE_CONFIG[code].nativeName
+);
 const POST_SWITCH_PANEL_EXPECTATIONS = [
   { panelId: 'overview', text: schemaShellMessagesEnglish.schemaOverviewTitle },
   { panelId: 'storage', text: schemaShellMessagesEnglish.schemaStorageVaultListTitle },
@@ -78,7 +81,9 @@ function findLanguageSelect(): HTMLSelectElement {
   }
 
   const values = Array.from(select.options).map((option) => option.value);
+  const labels = Array.from(select.options).map((option) => option.textContent?.trim());
   expect(values).toEqual(EXPECTED_LANGUAGE_VALUES);
+  expect(labels).toEqual(EXPECTED_LANGUAGE_LABELS);
   expect(values).not.toContain('es');
   expect(values).not.toContain('qps-ploc');
   return select;

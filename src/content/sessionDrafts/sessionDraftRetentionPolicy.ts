@@ -1,15 +1,11 @@
-import type { SessionCommentDraftSnapshot, SessionDraftIndexEntry } from './sessionDraftTypes';
+import type {
+  SessionCommentDraftSnapshot,
+  SessionDraftIndexEntry,
+  SessionDraftRetentionPolicy,
+  SessionDraftStoragePolicy
+} from './sessionDraftTypes';
 
-export interface SessionDraftRetentionPolicy {
-  retentionMs: number;
-  maxRestorablePages: number | null;
-  maxItemsPerPage: number | null;
-}
-
-export interface SessionDraftStoragePolicy {
-  retentionPolicy: SessionDraftRetentionPolicy;
-  videoScreenshotCacheTtlMs: number;
-}
+export type { SessionDraftRetentionPolicy, SessionDraftStoragePolicy } from './sessionDraftTypes';
 
 export const FREE_SESSION_DRAFT_RETENTION_MS = 48 * 60 * 60 * 1000;
 export const FREE_SESSION_DRAFT_MAX_RESTORABLE_PAGES = 5;

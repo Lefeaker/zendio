@@ -329,7 +329,7 @@
   "schemaStorageRoutingPatternColumnLabel": "パターン",
   "schemaStorageRoutingPriorityColumnLabel": "優先度",
   "schemaStorageRoutingTargetVaultColumnLabel": "ターゲット Vault",
-  "schemaStorageRoutingTipBody": "優先度が高いルールほど先に一致します。各ルールは削除せずにその場で編集できます。",
+  "schemaStorageRoutingTipBody": "優先度が高いルールほど先に一致します。",
   "schemaStorageRoutingTipTitle": "ルーティングのヒント",
   "schemaStorageRoutingTypeColumnLabel": "タイプ",
   "schemaStorageTestConnectionButton": "接続をテスト",

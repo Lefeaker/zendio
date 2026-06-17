@@ -329,7 +329,7 @@
   "schemaStorageRoutingPatternColumnLabel": "Muster",
   "schemaStorageRoutingPriorityColumnLabel": "Priorität",
   "schemaStorageRoutingTargetVaultColumnLabel": "Ziel-Tresor",
-  "schemaStorageRoutingTipBody": "Regeln mit höherer Priorität werden zuerst abgeglichen. Jede Regel kann inline bearbeitet werden, ohne sie vorher zu löschen.",
+  "schemaStorageRoutingTipBody": "Regeln mit höherer Priorität werden zuerst abgeglichen.",
   "schemaStorageRoutingTipTitle": "Routing-Hinweise",
   "schemaStorageRoutingTypeColumnLabel": "Typ",
   "schemaStorageTestConnectionButton": "Verbindung testen",

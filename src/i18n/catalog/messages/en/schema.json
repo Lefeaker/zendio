@@ -329,7 +329,7 @@
   "schemaStorageRoutingPatternColumnLabel": "Pattern",
   "schemaStorageRoutingPriorityColumnLabel": "Priority",
   "schemaStorageRoutingTargetVaultColumnLabel": "Target Vault",
-  "schemaStorageRoutingTipBody": "Higher-priority rules match first. Each rule can be edited inline without deleting it first.",
+  "schemaStorageRoutingTipBody": "Higher-priority rules match first.",
   "schemaStorageRoutingTipTitle": "Routing Tips",
   "schemaStorageRoutingTypeColumnLabel": "Type",
   "schemaStorageTestConnectionButton": "Test Connection",
