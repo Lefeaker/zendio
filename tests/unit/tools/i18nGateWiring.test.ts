@@ -11,11 +11,35 @@ describe('i18n gate wiring', () => {
     expect(lintIndex).toBeGreaterThan(catalogCheckIndex);
   });
 
+  it('runs English uncatalogued-copy checks from quality after the CJK user-copy gate', () => {
+    const source = readFileSync(resolve('scripts/quality-check.mjs'), 'utf8');
+    const hardcodedCheckIndex = source.indexOf(
+      "cmd: ['npm', 'run', 'audit:i18n-hardcoded-user-copy:check']"
+    );
+    const englishCheckIndex = source.indexOf(
+      "cmd: ['npm', 'run', 'audit:i18n-uncatalogued-user-copy:check']"
+    );
+
+    expect(hardcodedCheckIndex).toBeGreaterThan(-1);
+    expect(englishCheckIndex).toBeGreaterThan(hardcodedCheckIndex);
+  });
+
   it('runs catalog drift checks from verify:preflight', () => {
     const packageJson = readFileSync(resolve('package.json'), 'utf8');
 
     expect(packageJson).toContain('"verify:preflight":');
     expect(packageJson).toContain('npm run i18n:catalog:check');
+  });
+
+  it('runs English uncatalogued-copy checks from verify:preflight after catalog drift checks', () => {
+    const packageJson = readFileSync(resolve('package.json'), 'utf8');
+    const catalogCheckIndex = packageJson.indexOf('npm run i18n:catalog:check');
+    const englishCheckIndex = packageJson.indexOf(
+      'npm run audit:i18n-uncatalogued-user-copy:check'
+    );
+
+    expect(catalogCheckIndex).toBeGreaterThan(-1);
+    expect(englishCheckIndex).toBeGreaterThan(catalogCheckIndex);
   });
 
   it('runs catalog drift checks from CI before verify:preflight', () => {

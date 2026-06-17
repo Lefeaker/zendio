@@ -1,6 +1,6 @@
 # I18n Production Copy Governance
 
-最后更新：2026-06-16
+最后更新：2026-06-17
 
 ## 当前不变量
 
@@ -11,7 +11,7 @@ Production user-visible copy 的长期治理目标必须满足以下规则：
 - UI owner 在拥有当前 `Messages` 的位置格式化 descriptor；shared error factory、pipeline payload builder、content message guard 不负责拼接最终可见句子。
 - 技术日志、站点原生 token、用户提供内容、诊断数据与产品自有 UI copy 必须分开分类。只有产品自有 UI copy 必须 catalogize；非产品文本必须有 allowlist proof。
 
-当前 hard gate 与 report 的覆盖范围不同：`audit:i18n-hardcoded-user-copy:check` 是已接入 `quality` 的中文/CJK 与 descriptor-boundary hard gate；`audit:i18n-uncatalogued-user-copy` 是英文 uncatalogued-copy 的第一阶段 report-only 审计，用于把新增英文 UI copy、translation fallback 与 descriptor payload 迁移候选显性化。不要把第一阶段英文 report 表述为 hard gate。
+当前 hard gate 覆盖两条互补审计：`audit:i18n-hardcoded-user-copy:check` 是已接入 `quality` 的中文/CJK 与 descriptor-boundary hard gate；`audit:i18n-uncatalogued-user-copy:check` 是已接入 `quality` 与 `verify:preflight` 的英文 uncatalogued-copy hard gate，用于阻止新增英文 UI copy、translation fallback 与 descriptor payload 绕过 catalog/descriptor。
 
 ## Catalog Source
 
@@ -78,20 +78,23 @@ The audit excludes catalog/generated locale sources and scans production-reachab
 
 Valid allowlist entries must include `id`, `path`, `category`, `reason`, `ownerPlan`, `revisit`, a stable locator (`line`, `pattern`, or `literalIncludes`), and applicable `findingKinds`. Broad path-only allowlists are invalid. The current retained allowlist is limited to P21 site-native AI parser tokens and must be revisited if parser ownership changes.
 
-## English Uncatalogued-Copy Report
+## English Uncatalogued-Copy Hard Gate
 
 Audit owner:
 
 - Script: `scripts/audit-i18n-uncatalogued-user-copy.mjs`
 - Allowlist: `tools/i18n-uncatalogued-user-copy-allowlist.json`
 
-Npm entrypoint:
+Npm entrypoints:
 
 ```bash
 npm run audit:i18n-uncatalogued-user-copy
+npm run audit:i18n-uncatalogued-user-copy:check
 ```
 
-This command first refreshes `build/reports/production-build-graph.json`, then scans production-reachable `src/**` plus relevant `public/**`. It excludes catalog/generated locale sources, `public/_locales/**`, dev harness public HTML, tests/docs/fixtures/generated files, technical identifiers, URLs, event names, class/icon tokens, CSS text, and site-native AI parser token arrays.
+Both npm entrypoints first refresh `build/reports/production-build-graph.json`, then scan production-reachable `src/**` plus relevant `public/**`. `audit:i18n-uncatalogued-user-copy` prints the report; `audit:i18n-uncatalogued-user-copy:check` is the hard gate and is wired into `quality` and `verify:preflight`. Directly running `node scripts/audit-i18n-uncatalogued-user-copy.mjs --check` is lower-level because it does not refresh the production build graph, so prefer the npm script for gate evidence.
+
+The audit excludes catalog/generated locale sources, `public/_locales/**`, dev harness public HTML, tests/docs/fixtures/generated files, technical identifiers, URLs, event names, class/icon tokens, CSS text, and site-native AI parser token arrays.
 
 The report currently classifies:
 
@@ -100,15 +103,15 @@ The report currently classifies:
 - `descriptor-boundary`: English user-visible payload fields under background/content/runtime/error boundaries without a descriptor sibling.
 - `html-uncatalogued-copy` and `dom-text-copy`: text nodes or DOM text assignment outside the catalog.
 
-Current tree truth on 2026-06-16 after the AI parser graph cleanup: `scanned=573 findings=407 unexpected=407 staleAllowlist=0`, grouped as `translation-fallback=253`, `english-literal=134`, `descriptor-boundary=20`. Top owners are `src/options/stitch/content.ts`, `src/options/stitch/schema/resources/onboarding.ts`, `src/options/stitch/schema/resources/plugin-setup.ts`, `src/options/stitch/schema/resources/data-usage.ts`, `src/options/stitch/schema/resources/privacy-policy.ts`, and `src/options/stitch/schema/settings/maintenance.ts`.
+Current tree truth on 2026-06-17 after P01-P07 English copy governance, P07d surface-localization owner split, and P08 gate wiring: `scanned=574 findings=0 unexpected=0 staleAllowlist=0`. The English allowlist currently has `0` rules, so the gate is not masking retained product UI copy.
 
-Because the current report still contains hundreds of real migration candidates, it is not wired into `quality`, `verify:preflight`, CI, build, package, or release gates. The CLI supports `--check`, but that mode is reserved for local ratchet experiments until the current findings are migrated or narrowly classified. Do not add a broad path-only allowlist to force `--check` green.
+Valid future allowlist entries must include `id`, `path`, `category`, `reason`, `ownerPlan`, `revisit`, a stable locator (`line`, `pattern`, or `literalIncludes`), and applicable `findingKinds`. Broad path-only allowlists are invalid. Do not add an allowlist rule for product-authored UI copy that should be catalog-backed.
 
-Gate-readiness criteria:
+Gate maintenance criteria:
 
-- Current findings are migrated to catalog/descriptor or covered by narrow allowlist entries with `id`, `path`, `category`, `reason`, `ownerPlan`, `revisit`, and a stable locator.
-- `npm run audit:i18n-uncatalogued-user-copy` is standalone green in report mode and `node scripts/audit-i18n-uncatalogued-user-copy.mjs --check` has been evaluated against the intended allowlist without stale entries.
-- The owner records false-positive analysis in the execution ledger before wiring any check mode into `quality`, `verify:preflight`, CI, build, package, or release scripts.
+- New production English UI copy must enter the catalog or a typed descriptor before it reaches source.
+- Any retained non-product English text must be narrowly classified with allowlist proof and zero stale entries.
+- Before changing audit behavior or allowlist policy, run `npm run audit:i18n-uncatalogued-user-copy`, `npm run audit:i18n-uncatalogued-user-copy:check`, `npm run quality`, and `npm run verify:preflight`.
 
 ## Surface Ownership
 
@@ -121,6 +124,7 @@ The current post-migration ownership is:
 - Content runtime Clipper/Stitch/export destination fallbacks: P20, catalog-backed or non-Chinese compatibility defaults; no synthesized setup labels.
 - AI chat parser native tokens: P21, source-site token allowlist only; product fallback titles must be neutral or localized.
 - Hard gate and allowlist policy: P22, `quality` runs `audit:i18n-hardcoded-user-copy:check`.
+- English uncatalogued-copy hard gate: P08, `quality` and `verify:preflight` run `audit:i18n-uncatalogued-user-copy:check`.
 
 ## Regression Expectations
 
@@ -133,6 +137,7 @@ npm run typecheck
 npm run build:dev
 npm run test:i18n
 npm run audit:i18n-hardcoded-user-copy:check
+npm run audit:i18n-uncatalogued-user-copy:check
 npx vitest run --config vitest.unit.config.ts tests/unit/i18n/hardcodedSurfaceCoverage.test.ts
 ```
 
