@@ -89,7 +89,7 @@ export function initClipFlow(options: InitClipFlowOptions): ClipFlowHandlers {
       const appError = normalizeToAppError(error, {
         code: 'CONTENT_CLIP_FAILURE',
         domain: 'content',
-        defaultMessage: 'Clip failed unexpectedly.',
+        userMessageDescriptor: { key: 'clipFailed' },
         context: { url, mode: clipMode }
       });
       const { emitClipError } = await import('./clipFlowDispatch');

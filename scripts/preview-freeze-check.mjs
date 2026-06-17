@@ -76,11 +76,13 @@ const ALLOWED_PREVIEW_DRIFT = new Map([
         'P03 refreshes the generated preview JS hash after replacing Options resource schema inline English fallback prose with typed catalog-backed fallback resolution. This changes the generated preview bundle while preserving the frozen reference and keeping the Stitch runtime contract under verify:stitch-secondary.',
         'P04 refreshes the generated preview JS hash after removing the remaining Options settings/surfaces catalog fallback literals, including the controller-audited overview consent fallback, while preserving the frozen reference and Stitch runtime contract.',
         'P07 refreshes the generated preview JS hash after splitting generated schema messages into schemaCore plus per-locale schema modules and keeping the preview path on the English schema fallback only, while preserving the frozen reference and Stitch runtime contract.',
-        'P07b refreshes the generated preview JS hash after making production Stitch localization preserve omitted optional runtime destination fields under exactOptionalPropertyTypes while preserving the frozen reference and Stitch runtime contract.'
+        'P07b refreshes the generated preview JS hash after making production Stitch localization preserve omitted optional runtime destination fields under exactOptionalPropertyTypes while preserving the frozen reference and Stitch runtime contract.',
+        'The English uncatalogued-copy audit coverage follow-up refreshes the generated preview JS hash after replacing preview seed hint/subtitle/body literals with catalog-backed message lookups and extracting preview navigation seed ownership while preserving the frozen reference and Stitch runtime contract.',
+        'The English numbered UI title audit follow-up refreshes the generated preview JS hash after replacing plugin setup preview seed raw numbered step titles with existing catalog-backed schema message lookups while preserving the frozen reference and Stitch runtime contract.'
       ].join(' '),
       leftSha256: '9020ccbd91acd691eccd3fdf568b9a90efbddf0a35d79f36ef1caba702fa0c07',
-      // 2026-06-17 P07b stable preview JS hash refresh after optional destination preservation.
-      rightSha256: '54b239dd4075ee85de43edca105e51f4ec31942d985f61adde4bba6de1f03bcc'
+      // 2026-06-17 English numbered UI title audit follow-up preview JS hash refresh.
+      rightSha256: '86f0b401caea0876c22797714cf306f01c41179637f00b1fb4ef2307843da226'
     }
   ]
 ]);

@@ -192,7 +192,7 @@ export async function handleClipResult(
         : normalizeToAppError(classificationWarning, {
             code: 'CLASSIFICATION_WARNING_INVALID',
             domain: 'classifier',
-            defaultMessage: 'Classification warning could not be normalized.',
+            userMessageDescriptor: { key: 'errorClassifierInvalidPayload' },
             context: buildPipelineErrorContext(payload)
           });
       supportStatus = 'warning';
@@ -217,7 +217,7 @@ export async function handleClipResult(
     const appError = normalizeToAppError(error, {
       code: 'CLIP_PIPELINE_FAILURE',
       domain: 'background',
-      defaultMessage: 'Clip pipeline failed.',
+      userMessageDescriptor: { key: 'clipFailed' },
       context: buildPipelineErrorContext(payload)
     });
     await handleClipFailure(dependencies, appError, tabId, payload);

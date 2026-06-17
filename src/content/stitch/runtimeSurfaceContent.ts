@@ -106,7 +106,7 @@ function createRuntimeContent(): PreviewContent {
         channels: [
           {
             title: 'GitHub',
-            subtitle: 'File feedback',
+            subtitle: '',
             href: 'https://github.com/Lefeaker/AllinOB/issues'
           }
         ],

@@ -8,6 +8,10 @@ import {
   fragmentModifierStateWarning
 } from '@options/app/fragmentModifierOptions';
 
+const SIDEBAR_HIGHLIGHTS_LABEL = 'Sidebar Highlights';
+const SIDEBAR_HIGHLIGHTS_LINK =
+  '<a href="https://github.com/trevware/obsidian-sidebar-highlights" target="_blank" rel="noopener noreferrer">Sidebar Highlights</a>';
+
 const schema: SettingsSchema = {
   createView(ctx) {
     const t = (key: keyof Messages) => translateSchemaMessage(ctx.t, key);
@@ -95,8 +99,8 @@ const schema: SettingsSchema = {
                 },
                 htmlParagraph(
                   t('schemaCaptureBehaviorSidebarHighlightsNote').replace(
-                    'Sidebar Highlights',
-                    '<a href="https://github.com/trevware/obsidian-sidebar-highlights" target="_blank" rel="noopener noreferrer">Sidebar Highlights</a>'
+                    SIDEBAR_HIGHLIGHTS_LABEL,
+                    SIDEBAR_HIGHLIGHTS_LINK
                   ),
                   'option-support-note'
                 )

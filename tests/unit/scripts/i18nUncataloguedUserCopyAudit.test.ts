@@ -108,13 +108,95 @@ describe('audit-i18n-uncatalogued-user-copy', () => {
     });
   });
 
+  it('flags numbered English UI titles as uncatalogued copy', async () => {
+    const result = await scanProject({
+      'src/options/stitch/content.ts': [
+        `export const pluginSetup = {`,
+        `  title: '1. Install Local REST API in Obsidian'`,
+        `};`
+      ].join('\n')
+    });
+
+    expect(result.ok).toBe(false);
+    expect(result.unexpectedFindings).toHaveLength(1);
+    expect(result.unexpectedFindings[0]).toMatchObject({
+      file: 'src/options/stitch/content.ts',
+      kind: 'english-literal',
+      category: 'uncatalogued-ui-copy',
+      literal: '1. Install Local REST API in Obsidian'
+    });
+  });
+
+  it('flags English defaultMessage fallback passed to normalizeToAppError', async () => {
+    const result = await scanProject({
+      'src/content/runtime/clipFlow.ts': [
+        `import { normalizeToAppError } from '../../shared/errors';`,
+        `export const error = normalizeToAppError(new Error('boom'), {`,
+        `  code: 'CONTENT_CLIP_FAILURE',`,
+        `  domain: 'content',`,
+        `  defaultMessage: 'Clip failed unexpectedly.'`,
+        `});`
+      ].join('\n')
+    });
+
+    expect(result.ok).toBe(false);
+    expect(result.unexpectedFindings).toHaveLength(1);
+    expect(result.unexpectedFindings[0]).toMatchObject({
+      file: 'src/content/runtime/clipFlow.ts',
+      kind: 'descriptor-boundary',
+      category: 'descriptor-boundary',
+      literal: 'Clip failed unexpectedly.'
+    });
+  });
+
+  it('flags subtitle, hint, and body fields when they carry production-visible English copy', async () => {
+    const result = await scanProject({
+      'src/options/stitch/content.ts': [
+        `export const surface = {`,
+        `  subtitle: 'Component Preview',`,
+        `  hint: 'Selection dialog after highlighting text',`,
+        `  body: 'The extension does not upload clipped page content.'`,
+        `};`
+      ].join('\n')
+    });
+
+    expect(result.ok).toBe(false);
+    expect(result.unexpectedFindings.map((finding) => finding.literal)).toEqual([
+      'Component Preview',
+      'Selection dialog after highlighting text',
+      'The extension does not upload clipped page content.'
+    ]);
+    expect(
+      result.unexpectedFindings.every((finding) => finding.category === 'uncatalogued-ui-copy')
+    ).toBe(true);
+  });
+
+  it('does not flag localized overlay fields that carry descriptor siblings', async () => {
+    const result = await scanProject({
+      'src/options/stitch/schema/localizedOverlay.ts': [
+        `export const surface = {`,
+        `  subtitle: 'Component Preview',`,
+        `  subtitleDescriptor: { key: 'preview.component.subtitle' },`,
+        `  hint: 'Selection dialog after highlighting text',`,
+        `  hintDescriptor: { key: 'preview.selection.hint' },`,
+        `  body: 'The extension does not upload clipped page content.',`,
+        `  bodyDescriptor: { key: 'privacy.body' }`,
+        `};`
+      ].join('\n')
+    });
+
+    expect(result.ok).toBe(true);
+    expect(result.findings).toEqual([]);
+  });
+
   it('ignores technical identifiers, URLs, class names, icon names, and analytics event names', async () => {
     const result = await scanProject({
       'src/background/services/analyticsEvents.ts': [
         `export const url = 'https://example.com/docs';`,
         `export const event = { eventName: 'runtime_harness_open', category: 'usage' };`,
         `export const view = { className: 'aobx-button-row', icon: 'download', id: 'clipper-dialog' };`,
-        `export const classByTone = { error: 'alert alert-error mt-3' };`
+        `export const classByTone = { error: 'alert alert-error mt-3' };`,
+        `export const status = { message: 'HTTP 200 OK', error: 'CONTENT_CLIP_FAILURE TIMEOUT_504' };`
       ].join('\n')
     });
 

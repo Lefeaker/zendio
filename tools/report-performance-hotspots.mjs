@@ -22,7 +22,7 @@ const MAX_LINE_BUDGETS = new Map([
   ['src/i18n/generated/locales/ko.generated.ts', 732],
   ['src/i18n/generated/locales/zh-CN.generated.ts', 695],
   ['src/i18n/generated/locales/zh-TW.generated.ts', 690],
-  ['src/options/stitch/content.ts', 941],
+  ['src/options/stitch/content.ts', 841],
   ['src/options/yaml-config-editor/view.ts', 746],
   ['src/options/stitch/types.ts', 759],
   ['src/options/stitch/ui/components.ts', 592],

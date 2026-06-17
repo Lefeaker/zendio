@@ -21,15 +21,19 @@ const CHECKED_EXTENSIONS = new Set(['.ts', '.tsx', '.js', '.jsx', '.mjs', '.cjs'
 const SOURCE_ROOTS = ['src', 'public'];
 const USER_VISIBLE_FIELDS = new Set([
   'ariaLabel',
+  'body',
+  'defaultMessage',
   'description',
   'detail',
   'details',
   'emptyHint',
   'error',
   'helperText',
+  'hint',
   'label',
   'message',
   'placeholder',
+  'subtitle',
   'summary',
   'text',
   'title',
@@ -67,6 +71,8 @@ const URL_OR_PATH_RE =
 const TOKEN_RE = /^[a-zA-Z0-9_.:/#?&=%@+-]+$/;
 const EVENT_TOKEN_RE = /^[a-z][a-z0-9]*(?:_[a-z0-9]+)+$/;
 const CSS_TOKEN_RE = /^[a-z][a-z0-9]*(?:-[a-z0-9]+)+$/;
+const NUMBERING_TOKEN_RE = /^\d+[.)]?$/;
+const ALL_CAPS_OR_NUMBER_TOKEN_RE = /^[A-Z0-9_.:/#?&=%@+-]+$/;
 const PUBLIC_DEV_HARNESS_RE = /^public\/[^/]*harness\.html$/;
 const CSS_TEXT_RE = /(?:^|\s)[.#]?[a-z][a-z0-9-]*\s*\{|(?:^|\s)[a-z-]+\s*:/i;
 
@@ -321,6 +327,32 @@ function isTranslationFallbackLiteral(node, sourceFile) {
   return false;
 }
 
+function isNormalizeToAppErrorDefaultMessageLiteral(node, sourceFile) {
+  const property = findContainingPropertyAssignment(node);
+  if (!property || getPropertyNameText(property.name) !== 'defaultMessage') {
+    return false;
+  }
+
+  const objectLiteral = property.parent;
+  if (!ts.isObjectLiteralExpression(objectLiteral)) {
+    return false;
+  }
+
+  const callExpression = objectLiteral.parent;
+  if (!ts.isCallExpression(callExpression)) {
+    return false;
+  }
+
+  const argumentIndex = callExpression.arguments.findIndex(
+    (argument) => argument === objectLiteral
+  );
+  if (argumentIndex < 1) {
+    return false;
+  }
+
+  return /(?:^|\.)normalizeToAppError$/.test(callExpression.expression.getText(sourceFile));
+}
+
 function isDomTextLiteral(node, sourceFile) {
   const parent = node.parent;
   if (ts.isBinaryExpression(parent) && parent.right === node) {
@@ -392,7 +424,13 @@ function isTechnicalTokenList(value) {
   if (!tokens.every((token) => TOKEN_RE.test(token))) {
     return false;
   }
-  return tokens.some(
+
+  if (tokens.every((token) => ALL_CAPS_OR_NUMBER_TOKEN_RE.test(token))) {
+    return true;
+  }
+
+  const technicalMarkerTokens = tokens.filter((token) => !NUMBERING_TOKEN_RE.test(token));
+  return technicalMarkerTokens.some(
     (token) => EVENT_TOKEN_RE.test(token) || CSS_TOKEN_RE.test(token) || /\d/.test(token)
   );
 }
@@ -466,6 +504,21 @@ function detectTypeScriptFindings({ content, relativePath, filePath }) {
             kind: 'translation-fallback',
             category: 'english-translation-fallback',
             message: 'English fallback text in a translation helper call'
+          })
+        );
+      } else if (
+        isNormalizeToAppErrorDefaultMessageLiteral(node, sourceFile) &&
+        isPotentialUserCopy(literal)
+      ) {
+        findings.push(
+          createFinding({
+            sourceFile,
+            relativePath,
+            node,
+            literal,
+            kind: 'descriptor-boundary',
+            category: 'descriptor-boundary',
+            message: 'English normalizeToAppError defaultMessage user-visible fallback'
           })
         );
       } else if (isDomTextLiteral(node, sourceFile) && isPotentialUserCopy(literal)) {
