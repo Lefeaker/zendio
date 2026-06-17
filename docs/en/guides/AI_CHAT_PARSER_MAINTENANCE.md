@@ -2,7 +2,7 @@
 
 ## Overview
 
-The AI chat exporter now uses a modular registry. Each platform (ChatGPT, Claude, Copilot, Gemini, Tongyi, DeepSeek, Kimi) has its own parser module located in `src/third_party/ai-chat-exporter/platforms/`. Shared helpers live under `src/third_party/ai-chat-exporter/shared/`, and `parseChatDOM` routes requests through the registry defined in `registry.ts`.
+The AI chat exporter now uses a modular registry. Each platform (ChatGPT, Claude, Copilot, DeepSeek, Doubao, Gemini, Kimi, Monica, Perplexity, Tongyi) has its own parser module located in `src/third_party/ai-chat-exporter/platforms/`. Shared helpers live under `src/third_party/ai-chat-exporter/shared/`, and `parseChatDOM` routes requests through the registry defined in `registry.ts`.
 
 ```
 src/third_party/ai-chat-exporter/
@@ -18,10 +18,13 @@ src/third_party/ai-chat-exporter/
     ├── chatgpt.ts
     ├── claude.ts
     ├── copilot.ts
-    ├── gemini.ts
-    ├── tongyi.ts
     ├── deepseek.ts
-    └── kimi.ts
+    ├── doubao.ts
+    ├── gemini.ts
+    ├── kimi.ts
+    ├── monica.ts
+    ├── perplexity.ts
+    └── tongyi.ts
 ```
 
 ## Adding a New Platform
@@ -43,9 +46,35 @@ src/third_party/ai-chat-exporter/
 ## Testing Checklist
 
 - Unit fixtures reside in `tests/fixtures/ai-chat/`. Create a minimal HTML fixture that reproduces the target DOM structure for the platform.
-- Add or update assertions in `tests/unit/aiChatParsers/parsers.test.ts` to cover the new behaviour.
-- Run `npm run test` to execute the entire Vitest suite.
+- Add or update assertions in `tests/unit/third_party/parsers.test.ts` to cover the new behaviour.
+- Parser drift fixes must add or update the fixture and the unit assertion in the same commit.
+- Run the parser-focused suite before wider validation:
+
+```bash
+npx vitest run --config vitest.unit.config.ts tests/unit/third_party/parsers.test.ts tests/unit/third_party/gemini.test.ts tests/unit/third_party/markdownRules.test.ts tests/unit/content/aiChatExtractor.test.ts
+```
+
 - When modifying markdown conversion rules, add focused tests to the shared module to protect against regressions.
+
+## Fixture Governance
+
+`tests/fixtures/ai-chat/README.md` is the index for committed parser fixtures. Update it whenever a fixture is added, renamed, or materially changed.
+
+Each fixture entry must record:
+
+- fixture filename;
+- source capture date in `YYYY-MM-DD` format, or `legacy-unknown` for fixtures that predate this governance rule;
+- platform and expected parser id passed to `parseChatDOM`;
+- expected title and a short expected output sentinel;
+- privacy stripping status.
+
+Before committing a fixture:
+
+- strip account names, emails, tokens, workspace names, private URLs, and user identifiers;
+- replace personal conversation text with deterministic sample text that still exercises the DOM shape;
+- remove external network references unless the parser behavior being tested needs the attribute shape;
+- keep toolbar/action text only when the regression specifically proves that it is stripped from Markdown output;
+- add or update the matching unit assertions in `tests/unit/third_party/parsers.test.ts`.
 
 ## Debugging Tips
 

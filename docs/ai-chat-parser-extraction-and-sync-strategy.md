@@ -205,6 +205,29 @@ llm-chat-dom-parser/
 
 如果后续要保持 fixture 驱动测试，建议把各平台 HTML 样例和预期结果一起沉淀在独立仓库里，作为主回归资产。
 
+## Fixture 治理要求
+
+在解析器仍以内置 `src/third_party/ai-chat-exporter/**` 维护期间，`AiiinOB` 的主回归资产位于：
+
+- HTML fixture：`tests/fixtures/ai-chat/*.html`
+- fixture 索引与治理说明：`tests/fixtures/ai-chat/README.md`
+- 解析器回归测试：`tests/unit/third_party/parsers.test.ts`
+- Gemini 重点行为测试：`tests/unit/third_party/gemini.test.ts`
+- Markdown 规则测试：`tests/unit/third_party/markdownRules.test.ts`
+- 内容抽取接入测试：`tests/unit/content/aiChatExtractor.test.ts`
+
+新增或修复 parser drift 时，必须在同一个提交中同时更新 fixture 与对应单测断言。不能只改 parser 代码，也不能只替换 fixture 而不说明预期输出变化。
+
+每个 fixture 在 `tests/fixtures/ai-chat/README.md` 中必须登记：
+
+- fixture 文件名
+- 来源采集日期，格式为 `YYYY-MM-DD`；旧 fixture 无法追溯时只能标为 `legacy-unknown`
+- 平台与预期 `parseChatDOM` parser id
+- 预期标题、消息数量或关键 Markdown sentinel
+- 隐私剥离状态
+
+提交 fixture 前必须剥离账号名、邮箱、token、workspace 名称、私有 URL、用户标识和真实对话内容。保留按钮、工具栏、广告或动作区文本时，必须是为了证明 parser 会把这些 UI 噪音从输出 Markdown 中移除。
+
 ---
 
 ## 推荐的同步方式
