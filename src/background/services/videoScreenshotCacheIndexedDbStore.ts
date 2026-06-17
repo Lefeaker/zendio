@@ -61,9 +61,6 @@ type VideoScreenshotCacheIndexedDbTransaction = {
 };
 
 type VideoScreenshotCacheIndexedDbDatabase = {
-  objectStoreNames: {
-    contains(name: string): boolean;
-  };
   createObjectStore(
     name: string,
     options?: {
@@ -110,12 +107,11 @@ export function createVideoScreenshotCacheIndexedDbStore(
         return null;
       }
       return withStore('readwrite', indexedDb, async (store) => {
-        const rawValue = await requestToRecord(
-          store,
-          key,
+        const rawValue = await requestToPromise(
+          store.get(key),
           'Failed to read video screenshot cache blob entry.'
         );
-        if (rawValue === undefined) {
+        if (!isObjectRecord(rawValue)) {
           return null;
         }
         const entry = normalizeVideoScreenshotCacheBlobEntry(rawValue);
@@ -273,15 +269,6 @@ function requestToPromise<T>(
     request.onsuccess = () => resolve(request.result);
     request.onerror = () => reject(request.error ?? new Error(errorMessage));
   });
-}
-
-async function requestToRecord(
-  store: VideoScreenshotCacheIndexedDbObjectStore,
-  key: string,
-  errorMessage: string
-): Promise<VideoScreenshotCacheIndexedDbRecord | undefined> {
-  const rawValue = await requestToPromise(store.get(key), errorMessage);
-  return isObjectRecord(rawValue) ? rawValue : undefined;
 }
 
 async function requestToRecordArray(

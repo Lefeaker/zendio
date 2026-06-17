@@ -105,7 +105,6 @@ export class VideoSessionDraftController implements VideoSessionDraftRuntimePort
       this.screenshotHydrationGeneration += 1;
       return false;
     }
-
     const hydrated = hydrateVideoSessionDraft(
       draft.payload as VideoSessionDraftPayloadShape,
       this.options.doc.location.href
@@ -131,7 +130,6 @@ export class VideoSessionDraftController implements VideoSessionDraftRuntimePort
   handleLegacyRestore(storageKey: string): void {
     this.legacyCaptureStorageKey = storageKey;
   }
-
   async scheduleSave(): Promise<void> {
     if (!this.buildDraftEnvelope()) {
       await this.remove();
@@ -185,7 +183,6 @@ export class VideoSessionDraftController implements VideoSessionDraftRuntimePort
 
   async finalizeTerminal(status: SessionDraftTerminalStatus): Promise<boolean> {
     this.syncCommentDrafts();
-
     const hasTerminalTarget =
       this.options.state.captures.length > 0 ||
       Object.keys(this.options.state.commentDrafts).length > 0 ||
@@ -195,13 +192,8 @@ export class VideoSessionDraftController implements VideoSessionDraftRuntimePort
     if (!hasTerminalTarget) {
       return true;
     }
-
-    const currentEnvelope = this.buildDraftEnvelope({
-      status,
-      allowEmpty: true
-    });
+    const currentEnvelope = this.buildDraftEnvelope({ status, allowEmpty: true });
     const terminalEnvelopes = new Map<string, VideoSessionDraftEnvelope>();
-
     if (currentEnvelope) {
       terminalEnvelopes.set(
         createVideoSessionDraftStorageKey(currentEnvelope.pageUrl, currentEnvelope.draftId),
@@ -258,7 +250,6 @@ export class VideoSessionDraftController implements VideoSessionDraftRuntimePort
     ) {
       return null;
     }
-
     const pageUrl = (options.pageUrl ?? this.activeDraftPageUrl) || this.options.doc.location.href;
     const title = this.options.state.videoTitle || this.options.doc.title || VIDEO_TITLE_FALLBACK;
     return createVideoSessionDraftEnvelope({
