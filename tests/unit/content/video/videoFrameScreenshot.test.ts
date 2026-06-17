@@ -6,6 +6,7 @@ import {
   hasRequestedTimestampScreenshot,
   setRequestedTimestampScreenshot
 } from '@content/video/screenshotIntent';
+import { VIDEO_SCREENSHOT_CACHE_MAX_CONTENT_BYTES } from '@content/video/videoScreenshotCacheTypes';
 import {
   captureVideoFrameScreenshot,
   captureVideoFrameScreenshotAsync
@@ -34,26 +35,90 @@ function createBlobContent(text: string) {
 
 interface CaptureCanvasHarness {
   video: HTMLVideoElement;
-  drawImage: ReturnType<typeof vi.fn>;
-  toBlob: ReturnType<typeof vi.fn>;
-  toDataURL: ReturnType<typeof vi.fn>;
+  canvases: Array<{
+    canvas: HTMLCanvasElement;
+    drawImage: ReturnType<typeof vi.fn>;
+    toBlob: ReturnType<typeof vi.fn>;
+    toDataURL: ReturnType<typeof vi.fn>;
+  }>;
+  blobAttempts: Array<{
+    width: number;
+    height: number;
+    quality: number | undefined;
+    type: string | undefined;
+    callIndex: number;
+  }>;
+  dataUrlAttempts: Array<{
+    width: number;
+    height: number;
+    quality: number | undefined;
+    type: string | undefined;
+    callIndex: number;
+  }>;
   restore(): void;
 }
 
+function createSizedJpegBlob(size: number): Blob {
+  return new Blob([new Uint8Array(size)], { type: 'image/jpeg' });
+}
+
 function createCaptureCanvasHarness(options?: {
-  toBlob?: ((callback: BlobCallback, type?: string, quality?: number) => void) | undefined;
-  toDataURL?: (() => string) | undefined;
+  videoWidth?: number;
+  videoHeight?: number;
+  toBlob?:
+    | ((attempt: {
+        width: number;
+        height: number;
+        quality: number | undefined;
+        type: string | undefined;
+        callIndex: number;
+      }) => Blob | null)
+    | undefined;
+  toDataURL?:
+    | ((attempt: {
+        width: number;
+        height: number;
+        quality: number | undefined;
+        type: string | undefined;
+        callIndex: number;
+      }) => string)
+    | undefined;
 }): CaptureCanvasHarness {
   const video = document.createElement('video');
-  const canvas = document.createElement('canvas');
-  const drawImage = vi.fn();
-  const toBlob = vi.fn(
-    options?.toBlob ??
-      ((callback: BlobCallback) => callback(new Blob(['frame'], { type: 'image/jpeg' })))
-  );
-  const toDataURL = vi.fn(options?.toDataURL ?? (() => 'data:image/jpeg;base64,ZnJhbWU='));
+  const originalCreateElement = Document.prototype.createElement.bind(document);
+  const canvases: CaptureCanvasHarness['canvases'] = [];
+  const blobAttempts: CaptureCanvasHarness['blobAttempts'] = [];
+  const dataUrlAttempts: CaptureCanvasHarness['dataUrlAttempts'] = [];
   const createElementSpy = vi.spyOn(document, 'createElement').mockImplementation((tagName) => {
     if (tagName.toLowerCase() === 'canvas') {
+      const canvas = originalCreateElement('canvas') as HTMLCanvasElement;
+      const drawImage = vi.fn();
+      const toBlob = vi.fn((callback: BlobCallback, type?: string, quality?: number) => {
+        const attempt = {
+          width: canvas.width,
+          height: canvas.height,
+          quality,
+          type,
+          callIndex: blobAttempts.length
+        };
+        blobAttempts.push(attempt);
+        const blob =
+          options && 'toBlob' in options
+            ? (options.toBlob?.(attempt) ?? null)
+            : new Blob(['frame'], { type: 'image/jpeg' });
+        callback(blob);
+      });
+      const toDataURL = vi.fn((type?: string, quality?: number) => {
+        const attempt = {
+          width: canvas.width,
+          height: canvas.height,
+          quality,
+          type,
+          callIndex: dataUrlAttempts.length
+        };
+        dataUrlAttempts.push(attempt);
+        return options?.toDataURL?.(attempt) ?? 'data:image/jpeg;base64,ZnJhbWU=';
+      });
       Object.defineProperty(canvas, 'getContext', {
         value: vi.fn(() => ({ drawImage })),
         configurable: true
@@ -66,17 +131,24 @@ function createCaptureCanvasHarness(options?: {
         value: toDataURL,
         configurable: true
       });
+      canvases.push({ canvas, drawImage, toBlob, toDataURL });
       return canvas;
     }
-    return Document.prototype.createElement.call(document, tagName);
+    return originalCreateElement(tagName);
   });
-  Object.defineProperty(video, 'videoWidth', { value: 640, configurable: true });
-  Object.defineProperty(video, 'videoHeight', { value: 360, configurable: true });
+  Object.defineProperty(video, 'videoWidth', {
+    value: options?.videoWidth ?? 640,
+    configurable: true
+  });
+  Object.defineProperty(video, 'videoHeight', {
+    value: options?.videoHeight ?? 360,
+    configurable: true
+  });
   return {
     video,
-    drawImage,
-    toBlob,
-    toDataURL,
+    canvases,
+    blobAttempts,
+    dataUrlAttempts,
     restore() {
       createElementSpy.mockRestore();
     }
@@ -91,7 +163,7 @@ describe('captureVideoFrameScreenshot', () => {
 
     const screenshot = captureVideoFrameScreenshot(harness.video, 42, Date.now());
 
-    expect(harness.drawImage).toHaveBeenCalledWith(harness.video, 0, 0, 640, 360);
+    expect(harness.canvases[0]?.drawImage).toHaveBeenCalledWith(harness.video, 0, 0, 640, 360);
     expect(screenshot).toMatchObject({
       mimeType: 'image/jpeg',
       content: {
@@ -99,7 +171,15 @@ describe('captureVideoFrameScreenshot', () => {
         byteLength: 5
       }
     });
-    expect(harness.toDataURL).toHaveBeenCalledWith('image/jpeg', 0.88);
+    expect(harness.dataUrlAttempts).toEqual([
+      {
+        width: 640,
+        height: 360,
+        quality: 0.78,
+        type: 'image/jpeg',
+        callIndex: 0
+      }
+    ]);
     const syncContent = screenshot?.content;
     if (!syncContent) {
       throw new Error('expected legacy fallback screenshot content');
@@ -114,18 +194,22 @@ describe('captureVideoFrameScreenshot', () => {
 
   it('captures a jpeg screenshot asynchronously with toBlob when available', async () => {
     const harness = createCaptureCanvasHarness({
-      toBlob: (callback, type, quality) => {
-        expect(type).toBe('image/jpeg');
-        expect(quality).toBe(0.88);
-        callback(new Blob(['frame'], { type: 'image/jpeg' }));
-      }
+      toBlob: () => new Blob(['frame'], { type: 'image/jpeg' })
     });
 
     const screenshot = await captureVideoFrameScreenshotAsync(harness.video, 42, 1);
 
-    expect(harness.drawImage).toHaveBeenCalledWith(harness.video, 0, 0, 640, 360);
-    expect(harness.toBlob).toHaveBeenCalledOnce();
-    expect(harness.toDataURL).not.toHaveBeenCalled();
+    expect(harness.canvases[0]?.drawImage).toHaveBeenCalledWith(harness.video, 0, 0, 640, 360);
+    expect(harness.blobAttempts).toEqual([
+      {
+        width: 640,
+        height: 360,
+        quality: 0.78,
+        type: 'image/jpeg',
+        callIndex: 0
+      }
+    ]);
+    expect(harness.dataUrlAttempts).toEqual([]);
     expect(screenshot).toMatchObject({
       mimeType: 'image/jpeg',
       capturedAt: 1,
@@ -144,14 +228,116 @@ describe('captureVideoFrameScreenshot', () => {
     harness.restore();
   });
 
+  it('downscales 4k captures to the initial 1280px max edge before encoding', async () => {
+    const harness = createCaptureCanvasHarness({
+      videoWidth: 3840,
+      videoHeight: 2160,
+      toBlob: () => createSizedJpegBlob(640_000)
+    });
+
+    const screenshot = await captureVideoFrameScreenshotAsync(harness.video, 42, 1);
+
+    expect(harness.canvases).toHaveLength(2);
+    expect(harness.canvases[0]?.drawImage).toHaveBeenCalledWith(harness.video, 0, 0, 3840, 2160);
+    expect(harness.canvases[1]?.drawImage).toHaveBeenCalledWith(
+      harness.canvases[0]?.canvas,
+      0,
+      0,
+      3840,
+      2160,
+      0,
+      0,
+      1280,
+      720
+    );
+    expect(harness.blobAttempts).toEqual([
+      {
+        width: 1280,
+        height: 720,
+        quality: 0.78,
+        type: 'image/jpeg',
+        callIndex: 0
+      }
+    ]);
+    expect(screenshot?.content).toMatchObject({
+      kind: 'blob',
+      byteLength: 640_000
+    });
+
+    harness.restore();
+  });
+
+  it('does not upscale 720p captures before encoding', async () => {
+    const harness = createCaptureCanvasHarness({
+      videoWidth: 1280,
+      videoHeight: 720,
+      toBlob: () => createSizedJpegBlob(320_000)
+    });
+
+    const screenshot = await captureVideoFrameScreenshotAsync(harness.video, 42, 1);
+
+    expect(harness.canvases).toHaveLength(1);
+    expect(harness.blobAttempts).toEqual([
+      {
+        width: 1280,
+        height: 720,
+        quality: 0.78,
+        type: 'image/jpeg',
+        callIndex: 0
+      }
+    ]);
+    expect(screenshot?.content).toMatchObject({
+      kind: 'blob',
+      byteLength: 320_000
+    });
+
+    harness.restore();
+  });
+
+  it('retries lower jpeg qualities when the first encoded blob exceeds the byte budget', async () => {
+    const harness = createCaptureCanvasHarness({
+      videoWidth: 1280,
+      videoHeight: 720,
+      toBlob: ({ callIndex }) =>
+        createSizedJpegBlob(
+          callIndex === 0 ? VIDEO_SCREENSHOT_CACHE_MAX_CONTENT_BYTES + 1 : 900_000
+        )
+    });
+
+    const screenshot = await captureVideoFrameScreenshotAsync(harness.video, 42, 1);
+
+    expect(harness.blobAttempts).toEqual([
+      {
+        width: 1280,
+        height: 720,
+        quality: 0.78,
+        type: 'image/jpeg',
+        callIndex: 0
+      },
+      {
+        width: 1280,
+        height: 720,
+        quality: 0.7,
+        type: 'image/jpeg',
+        callIndex: 1
+      }
+    ]);
+    expect(screenshot?.content).toMatchObject({
+      kind: 'blob',
+      byteLength: 900_000
+    });
+
+    harness.restore();
+  });
+
   it('returns null when toBlob returns a null blob', async () => {
     const harness = createCaptureCanvasHarness({
-      toBlob: (callback) => callback(null)
+      toBlob: () => null
     });
 
     await expect(captureVideoFrameScreenshotAsync(harness.video, 42, 1)).resolves.toBeNull();
-    expect(harness.toBlob).toHaveBeenCalledOnce();
-    expect(harness.toDataURL).not.toHaveBeenCalled();
+    expect(harness.blobAttempts).toHaveLength(1);
+    expect(harness.dataUrlAttempts).toEqual([]);
 
     harness.restore();
   });
@@ -162,8 +348,8 @@ describe('captureVideoFrameScreenshot', () => {
     });
 
     await expect(captureVideoFrameScreenshotAsync(harness.video, 42, 1)).resolves.toBeNull();
-    expect(harness.toBlob).not.toHaveBeenCalled();
-    expect(harness.toDataURL).not.toHaveBeenCalled();
+    expect(harness.blobAttempts).toEqual([]);
+    expect(harness.dataUrlAttempts).toEqual([]);
 
     harness.restore();
   });

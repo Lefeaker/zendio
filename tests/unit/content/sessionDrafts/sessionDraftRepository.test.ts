@@ -1,4 +1,8 @@
 import { describe, expect, it, vi } from 'vitest';
+import {
+  FREE_SESSION_DRAFT_MAX_RESTORABLE_PAGES,
+  FREE_SESSION_DRAFT_RETENTION_MS
+} from '@content/sessionDrafts';
 import { createSessionDraftRepository } from '@content/sessionDrafts/sessionDraftRepository';
 import {
   SESSION_DRAFT_INDEX_KEY,
@@ -14,6 +18,7 @@ import type {
 import { createMemoryStorageArea } from '@platform/preview/memoryStorage';
 
 const BASE_TIME = 2_000_000_000_000;
+const DAY_MS = 24 * 60 * 60 * 1000;
 const OWNER_A: SessionDraftOwnerContext = { tabId: 11, windowId: 1, frameId: 0 };
 const OWNER_B: SessionDraftOwnerContext = { tabId: 22, windowId: 2, frameId: 0 };
 const OWNER_C: SessionDraftOwnerContext = { tabId: 33, windowId: 3, frameId: 0 };
@@ -126,6 +131,376 @@ describe('sessionDraftRepository', () => {
     await expect(
       repository.loadLatest('reader', envelope.pageUrl, BASE_TIME + 102)
     ).resolves.toBeNull();
+  });
+
+  it('normalizes saved draft expiry to the Free 48-hour retention window by default', async () => {
+    const storage = createMemoryStorageArea();
+    const repository = createSessionDraftRepository(storage);
+    const envelope = createEnvelope('reader', {
+      draftId: 'free-expiry',
+      updatedAt: BASE_TIME + 130,
+      expiresAt: BASE_TIME + 130
+    });
+    const storageKey = createIndexEntry(envelope).key;
+
+    await repository.save(envelope);
+
+    await expect(storage.get(storageKey)).resolves.toMatchObject({
+      draftId: 'free-expiry',
+      expiresAt: BASE_TIME + 130 + FREE_SESSION_DRAFT_RETENTION_MS
+    });
+    await expect(storage.get(SESSION_DRAFT_INDEX_KEY)).resolves.toMatchObject({
+      entries: [
+        expect.objectContaining({
+          draftId: 'free-expiry',
+          expiresAt: BASE_TIME + 130 + FREE_SESSION_DRAFT_RETENTION_MS
+        })
+      ]
+    });
+  });
+
+  it('caps saved future expiry to the Free 48-hour retention window by default', async () => {
+    const storage = createMemoryStorageArea();
+    const repository = createSessionDraftRepository(storage);
+    const updatedAt = BASE_TIME + 140;
+    const envelope = createEnvelope('reader', {
+      draftId: 'free-future-expiry',
+      updatedAt,
+      expiresAt: updatedAt + FREE_SESSION_DRAFT_RETENTION_MS + DAY_MS
+    });
+    const storageKey = createIndexEntry(envelope).key;
+
+    await repository.save(envelope);
+
+    await expect(storage.get(storageKey)).resolves.toMatchObject({
+      draftId: 'free-future-expiry',
+      expiresAt: updatedAt + FREE_SESSION_DRAFT_RETENTION_MS
+    });
+    await expect(storage.get(SESSION_DRAFT_INDEX_KEY)).resolves.toMatchObject({
+      entries: [
+        expect.objectContaining({
+          draftId: 'free-future-expiry',
+          expiresAt: updatedAt + FREE_SESSION_DRAFT_RETENTION_MS
+        })
+      ]
+    });
+  });
+
+  it('does not delete the refreshed envelope when saving over an expired same-key index row', async () => {
+    const storage = createMemoryStorageArea();
+    const repository = createSessionDraftRepository(storage);
+    const now = BASE_TIME + 500;
+    const pageUrl = 'https://example.com/post/refresh-same-key';
+    const oldEnvelope = createEnvelope('reader', {
+      draftId: 'refresh-same-key',
+      pageUrl,
+      updatedAt: now - 100,
+      expiresAt: now,
+      payload: {
+        commentDrafts: {
+          note: 'old draft'
+        }
+      }
+    });
+    const newEnvelope = createEnvelope('reader', {
+      draftId: oldEnvelope.draftId,
+      pageUrl,
+      updatedAt: now + 1,
+      expiresAt: now + 1,
+      payload: {
+        commentDrafts: {
+          note: 'new draft'
+        }
+      }
+    });
+    const storageKey = createIndexEntry(oldEnvelope).key;
+
+    await storage.setMany({
+      [storageKey]: oldEnvelope,
+      [SESSION_DRAFT_INDEX_KEY]: {
+        schemaVersion: 1,
+        entries: [createIndexEntry(oldEnvelope)]
+      }
+    });
+
+    const dateNowSpy = vi.spyOn(Date, 'now').mockReturnValue(now);
+    try {
+      await repository.save(newEnvelope);
+    } finally {
+      dateNowSpy.mockRestore();
+    }
+
+    await expect(storage.get(storageKey)).resolves.toMatchObject({
+      draftId: 'refresh-same-key',
+      updatedAt: now + 1,
+      expiresAt: now + 1 + FREE_SESSION_DRAFT_RETENTION_MS,
+      payload: {
+        commentDrafts: {
+          note: 'new draft'
+        }
+      }
+    });
+    await expect(storage.get(SESSION_DRAFT_INDEX_KEY)).resolves.toMatchObject({
+      entries: [
+        expect.objectContaining({
+          key: storageKey,
+          draftId: 'refresh-same-key',
+          expiresAt: now + 1 + FREE_SESSION_DRAFT_RETENTION_MS
+        })
+      ]
+    });
+    await expect(repository.loadLatest('reader', pageUrl, now + 2)).resolves.toMatchObject({
+      draftId: 'refresh-same-key',
+      updatedAt: now + 1
+    });
+  });
+
+  it('does not restore drafts older than the default Free 48-hour window', async () => {
+    const storage = createMemoryStorageArea();
+    const repository = createSessionDraftRepository(storage);
+    const now = BASE_TIME + 10 * DAY_MS;
+    const expired = createEnvelope('reader', {
+      draftId: 'free-expired',
+      pageUrl: 'https://example.com/post/free-expired',
+      updatedAt: now - FREE_SESSION_DRAFT_RETENTION_MS - 1,
+      expiresAt: now - FREE_SESSION_DRAFT_RETENTION_MS - 1,
+      status: 'restorable'
+    });
+    const expiredKey = createIndexEntry(expired).key;
+
+    await repository.save(expired);
+
+    await expect(repository.loadLatest('reader', expired.pageUrl, now)).resolves.toBeNull();
+    await expect(storage.get(expiredKey)).resolves.toBeUndefined();
+  });
+
+  it('does not let a legacy long expiresAt bypass the Free 48-hour updatedAt window', async () => {
+    const storage = createMemoryStorageArea();
+    const repository = createSessionDraftRepository(storage);
+    const now = BASE_TIME + 20 * DAY_MS;
+    const stale = createEnvelope('reader', {
+      draftId: 'legacy-long-expiry',
+      pageUrl: 'https://example.com/post/legacy-long-expiry',
+      updatedAt: now - FREE_SESSION_DRAFT_RETENTION_MS - 1,
+      expiresAt: now + DAY_MS,
+      status: 'restorable'
+    });
+    const staleKey = createIndexEntry(stale).key;
+
+    await storage.setMany({
+      [staleKey]: stale,
+      [SESSION_DRAFT_INDEX_KEY]: {
+        schemaVersion: 1,
+        entries: [createIndexEntry(stale)]
+      }
+    });
+
+    await expect(repository.loadLatest('reader', stale.pageUrl, now)).resolves.toBeNull();
+    await expect(storage.get(staleKey)).resolves.toBeUndefined();
+    await expect(storage.get(SESSION_DRAFT_INDEX_KEY)).resolves.toMatchObject({
+      entries: []
+    });
+  });
+
+  it('does not restore a stale envelope even when its index row still looks fresh', async () => {
+    const now = BASE_TIME + 30 * DAY_MS;
+    const stale = createEnvelope('reader', {
+      draftId: 'fresh-index-stale-envelope',
+      pageUrl: 'https://example.com/post/fresh-index-stale-envelope',
+      updatedAt: now - FREE_SESSION_DRAFT_RETENTION_MS - 1,
+      expiresAt: now + DAY_MS,
+      status: 'restorable'
+    });
+    const staleKey = createIndexEntry(stale).key;
+    const freshIndexEntry = {
+      ...createIndexEntry(stale),
+      updatedAt: now,
+      expiresAt: now + DAY_MS
+    };
+
+    const listStorage = createMemoryStorageArea();
+    const listRepository = createSessionDraftRepository(listStorage);
+    await listStorage.setMany({
+      [staleKey]: stale,
+      [SESSION_DRAFT_INDEX_KEY]: {
+        schemaVersion: 1,
+        entries: [freshIndexEntry]
+      }
+    });
+
+    await expect(listRepository.listCandidates('reader', stale.pageUrl, now)).resolves.toEqual([]);
+    await expect(listStorage.get(staleKey)).resolves.toBeUndefined();
+    await expect(listStorage.get(SESSION_DRAFT_INDEX_KEY)).resolves.toMatchObject({
+      entries: []
+    });
+
+    const latestStorage = createMemoryStorageArea();
+    const latestRepository = createSessionDraftRepository(latestStorage);
+    await latestStorage.setMany({
+      [staleKey]: stale,
+      [SESSION_DRAFT_INDEX_KEY]: {
+        schemaVersion: 1,
+        entries: [freshIndexEntry]
+      }
+    });
+
+    await expect(latestRepository.loadLatest('reader', stale.pageUrl, now)).resolves.toBeNull();
+    await expect(latestStorage.get(staleKey)).resolves.toBeUndefined();
+    await expect(latestStorage.get(SESSION_DRAFT_INDEX_KEY)).resolves.toMatchObject({
+      entries: []
+    });
+  });
+
+  it('prunes six unique restorable pages down to the newest five by default', async () => {
+    const storage = createMemoryStorageArea();
+    const repository = createSessionDraftRepository(storage);
+    const saved: SessionDraftEnvelope[] = [];
+
+    for (let index = 0; index < FREE_SESSION_DRAFT_MAX_RESTORABLE_PAGES + 1; index += 1) {
+      const mode: SessionDraftMode = index % 2 === 0 ? 'reader' : 'video';
+      const envelope = createEnvelope(mode, {
+        draftId: `page-${index}`,
+        pageUrl:
+          mode === 'reader'
+            ? `https://example.com/post/${index}`
+            : `https://video.example/watch?v=${index}`,
+        updatedAt: BASE_TIME + 200 + index,
+        expiresAt: BASE_TIME + 200 + index,
+        status: 'restorable'
+      });
+      saved.push(envelope);
+      await repository.save(envelope);
+    }
+
+    const indexState = (await storage.get<{
+      schemaVersion: number;
+      entries: SessionDraftIndexEntry[];
+    }>(SESSION_DRAFT_INDEX_KEY)) ?? { schemaVersion: 1, entries: [] };
+
+    expect(indexState.entries.map((entry) => entry.draftId)).toEqual([
+      'page-5',
+      'page-4',
+      'page-3',
+      'page-2',
+      'page-1'
+    ]);
+    await expect(storage.get(createIndexEntry(saved[0]!).key)).resolves.toBeUndefined();
+    await expect(
+      repository.loadLatest(saved[0]!.mode, saved[0]!.pageUrl, BASE_TIME + 300)
+    ).resolves.toBeNull();
+  });
+
+  it('does not count terminal drafts toward the default Free five-page quota', async () => {
+    const storage = createMemoryStorageArea();
+    const repository = createSessionDraftRepository(storage);
+
+    for (let index = 0; index < FREE_SESSION_DRAFT_MAX_RESTORABLE_PAGES; index += 1) {
+      await repository.save(
+        createEnvelope('reader', {
+          draftId: `restorable-${index}`,
+          pageUrl: `https://example.com/post/restorable-${index}`,
+          updatedAt: BASE_TIME + 310 + index,
+          expiresAt: BASE_TIME + 310 + index,
+          status: 'restorable'
+        })
+      );
+    }
+
+    await repository.save(
+      createEnvelope('reader', {
+        draftId: 'discarded-terminal',
+        pageUrl: 'https://example.com/post/discarded-terminal',
+        updatedAt: BASE_TIME + 400,
+        expiresAt: BASE_TIME + 400,
+        status: 'discarded'
+      })
+    );
+    await repository.save(
+      createEnvelope('video', {
+        draftId: 'exported-terminal',
+        pageUrl: 'https://video.example/watch?v=exported-terminal',
+        updatedAt: BASE_TIME + 401,
+        expiresAt: BASE_TIME + 401,
+        status: 'exported'
+      })
+    );
+
+    const indexState = (await storage.get<{
+      schemaVersion: number;
+      entries: SessionDraftIndexEntry[];
+    }>(SESSION_DRAFT_INDEX_KEY)) ?? { schemaVersion: 1, entries: [] };
+
+    expect(indexState.entries.map((entry) => entry.draftId).sort()).toEqual([
+      'discarded-terminal',
+      'exported-terminal',
+      'restorable-0',
+      'restorable-1',
+      'restorable-2',
+      'restorable-3',
+      'restorable-4'
+    ]);
+  });
+
+  it('can retain an older draft through an injected custom long retention policy', async () => {
+    const storage = createMemoryStorageArea();
+    const customLongRetentionPolicy = {
+      retentionMs: 10 * DAY_MS,
+      maxRestorablePages: null,
+      maxItemsPerPage: null
+    };
+    const repository = createSessionDraftRepository(storage, {
+      retentionPolicy: customLongRetentionPolicy
+    });
+    const now = BASE_TIME + 40 * DAY_MS;
+    const customRetainedDraft = createEnvelope('reader', {
+      draftId: 'custom-retained',
+      pageUrl: 'https://example.com/post/custom-retained',
+      updatedAt: now - 5 * DAY_MS,
+      expiresAt: now - 5 * DAY_MS,
+      status: 'restorable'
+    });
+
+    await repository.save(customRetainedDraft);
+
+    await expect(
+      repository.loadLatest('reader', customRetainedDraft.pageUrl, now)
+    ).resolves.toMatchObject({
+      draftId: 'custom-retained',
+      expiresAt: now + 5 * DAY_MS
+    });
+  });
+
+  it('caps saved future expiry to an injected custom retention window', async () => {
+    const storage = createMemoryStorageArea();
+    const customRetentionPolicy = {
+      retentionMs: 10 * DAY_MS,
+      maxRestorablePages: null,
+      maxItemsPerPage: null
+    };
+    const repository = createSessionDraftRepository(storage, {
+      retentionPolicy: customRetentionPolicy
+    });
+    const updatedAt = BASE_TIME + 50 * DAY_MS;
+    const envelope = createEnvelope('reader', {
+      draftId: 'custom-future-expiry',
+      pageUrl: 'https://example.com/post/custom-future-expiry',
+      updatedAt,
+      expiresAt: updatedAt + 20 * DAY_MS,
+      status: 'restorable'
+    });
+    const storageKey = createIndexEntry(envelope).key;
+
+    await repository.save(envelope);
+
+    await expect(storage.get(storageKey)).resolves.toMatchObject({
+      draftId: 'custom-future-expiry',
+      expiresAt: updatedAt + customRetentionPolicy.retentionMs
+    });
+    await expect(
+      repository.loadLatest('reader', envelope.pageUrl, updatedAt + 9 * DAY_MS)
+    ).resolves.toMatchObject({
+      draftId: 'custom-future-expiry'
+    });
   });
 
   it('stores exported video drafts in the index but excludes them from listCandidates', async () => {
@@ -416,7 +791,13 @@ describe('sessionDraftRepository', () => {
 
   it('keeps at most 100 index entries and drops non-active drafts first', async () => {
     const storage = createMemoryStorageArea();
-    const repository = createSessionDraftRepository(storage);
+    const repository = createSessionDraftRepository(storage, {
+      retentionPolicy: {
+        retentionMs: FREE_SESSION_DRAFT_RETENTION_MS,
+        maxRestorablePages: null,
+        maxItemsPerPage: null
+      }
+    });
 
     for (let index = 0; index < 100; index += 1) {
       await repository.save(

@@ -19,6 +19,7 @@ import type { ExportDestinationMetadata } from '@shared/exportDestination';
 import type { StorageAreaService } from '@platform/interfaces/storage';
 import { VideoSessionDraftController } from '@content/video/videoSessionDraftController';
 import type { VideoCaptureScreenshot } from '@content/video/types';
+import { createVideoSessionDraftScreenshotCacheMaintenance } from '@content/video/videoSessionDraftScreenshotCache';
 import {
   createVideoScreenshotCacheStorageKey,
   type VideoScreenshotCacheRef
@@ -131,7 +132,10 @@ function createDestinationState(metadata?: ExportDestinationMetadata) {
 function createHarness(
   options: {
     destinationMetadata?: ExportDestinationMetadata;
-    screenshotCache?: Pick<VideoScreenshotCacheRepository, 'load' | 'removeMany'>;
+    screenshotCache?:
+      | (Pick<VideoScreenshotCacheRepository, 'load' | 'removeMany'> &
+          Partial<Pick<VideoScreenshotCacheRepository, 'pruneExpired' | 'pruneToLimits'>>)
+      | undefined;
     onScreenshotHydrationChange?: () => void;
   } = {}
 ) {
@@ -743,6 +747,69 @@ describe('VideoSessionDraftController', () => {
     expect(harness.state.captures[0]).not.toHaveProperty('screenshotRef');
   });
 
+  it('removes invalid screenshot refs from the next persisted draft while preserving screenshot intent', async () => {
+    const screenshotCache = {
+      load: vi.fn(),
+      removeMany: vi.fn()
+    };
+    const harness = createHarness({ screenshotCache });
+    await seedRestorableDraftWithPayload(
+      harness.storage,
+      buildVideoSessionDraftPayload({
+        captures: [
+          {
+            kind: 'timestamp',
+            id: 'ts-1',
+            timeSec: 42,
+            url: 'https://video.example/watch?t=42',
+            comment: 'restored note',
+            createdAt: 2_000_000_000_100,
+            screenshotRequested: true,
+            screenshotRef: {
+              schemaVersion: 1,
+              pageKey: document.location.href,
+              captureId: 'ts-1',
+              id: 'shot-1',
+              key: 'invalid-ref',
+              fileName: 'video-0m42s.jpg',
+              mimeType: 'image/jpeg',
+              byteLength: 12,
+              capturedAt: 2_000_000_000_101,
+              expiresAt: 2_000_000_060_101
+            }
+          }
+        ],
+        commentDrafts: {},
+        platform: 'bilibili',
+        videoId: 'BV1xx411c7mD',
+        videoTitle: 'Restored title',
+        videoUrl: document.location.href,
+        canonicalUrl: document.location.href
+      })
+    );
+
+    const restored = await harness.controller.restoreDraftState();
+    await waitForAsyncWork();
+
+    expect(restored).toBe(true);
+    await vi.advanceTimersByTimeAsync(150);
+    await waitForAsyncWork();
+
+    const storedDraft = await harness.repository.loadLatest('video', document.location.href);
+    if (!storedDraft || storedDraft.mode !== 'video') {
+      throw new Error('expected saved video draft after invalid ref cleanup');
+    }
+    const payload = requireVideoDraftPayload(storedDraft);
+    expect(payload.captures[0]).toEqual(
+      expect.objectContaining({
+        kind: 'timestamp',
+        id: 'ts-1',
+        screenshotRequested: true
+      })
+    );
+    expect(payload.captures[0]).not.toHaveProperty('screenshotRef');
+  });
+
   it('keeps restore non-fatal when loading a referenced screenshot throws', async () => {
     const screenshotRef = createScreenshotCacheRef();
     const screenshotCache = {
@@ -895,6 +962,102 @@ describe('VideoSessionDraftController', () => {
 
     expect(terminalized).toBe(true);
     expect(screenshotCache.removeMany).toHaveBeenCalledWith([screenshotRef]);
+  });
+
+  it('deduplicates screenshot refs during terminal cleanup before calling removeMany', async () => {
+    const firstRef = createScreenshotCacheRef({ captureId: 'ts-1', id: 'shot-1' });
+    const duplicateFirstRef = { ...firstRef };
+    const secondRef = createScreenshotCacheRef({ captureId: 'ts-2', id: 'shot-2' });
+    const screenshotCache = {
+      load: vi.fn(),
+      removeMany: vi.fn().mockResolvedValue(undefined)
+    };
+    const harness = createHarness({ screenshotCache });
+    harness.state.captures = [
+      {
+        ...createTimestampCapture('ts-1'),
+        screenshotRequested: true,
+        screenshotRef: firstRef
+      },
+      {
+        ...createTimestampCapture('ts-1-duplicate'),
+        screenshotRequested: true,
+        screenshotRef: duplicateFirstRef
+      },
+      {
+        ...createTimestampCapture('ts-2'),
+        screenshotRequested: true,
+        screenshotRef: secondRef
+      }
+    ];
+    await harness.controller.flushNow('active');
+
+    const terminalized = await harness.controller.finalizeTerminal('discarded');
+
+    expect(terminalized).toBe(true);
+    expect(screenshotCache.removeMany).toHaveBeenCalledWith([firstRef, secondRef]);
+  });
+
+  it('runs screenshot cache maintenance best-effort without repeating it on draft saves', async () => {
+    const pruneExpired = vi.fn().mockRejectedValue(new Error('pruneExpired failed'));
+    const pruneToLimits = vi.fn().mockRejectedValue(new Error('pruneToLimits failed'));
+    const screenshotCache = {
+      load: vi.fn(),
+      removeMany: vi.fn(),
+      pruneExpired,
+      pruneToLimits
+    };
+    const harness = createHarness({ screenshotCache });
+    harness.state.captures = [createTimestampCapture()];
+    harness.setDomDrafts({ 'timestamp-1': 'draft note' });
+
+    harness.controller.bindPersistence();
+    await waitForAsyncWork();
+
+    expect(pruneExpired).toHaveBeenCalledTimes(1);
+    expect(warnSpy).toHaveBeenCalledWith(
+      '[VideoSession] Failed to prune expired cached screenshots:',
+      expect.any(Error)
+    );
+
+    const pendingSave = harness.controller.scheduleSave();
+    await vi.advanceTimersByTimeAsync(200);
+    await pendingSave;
+
+    expect(pruneExpired).toHaveBeenCalledTimes(1);
+
+    window.dispatchEvent(new Event('pagehide'));
+    await waitForAsyncWork();
+    expect(pruneToLimits).toHaveBeenCalledTimes(1);
+
+    await harness.controller.dispose();
+    await waitForAsyncWork();
+
+    expect(pruneToLimits).toHaveBeenCalledTimes(2);
+    expect(warnSpy).toHaveBeenCalledWith(
+      '[VideoSession] Failed to prune cached screenshots to limits:',
+      expect.any(Error)
+    );
+  });
+
+  it('ignores non-function maintenance hooks without throwing or warning', async () => {
+    const maintenance = createVideoSessionDraftScreenshotCacheMaintenance({
+      pruneExpired: true,
+      pruneToLimits: 'invalid'
+    });
+
+    maintenance.pruneExpiredOnce();
+    maintenance.pruneToLimitsBestEffort();
+    await waitForAsyncWork();
+
+    expect(warnSpy).not.toHaveBeenCalledWith(
+      '[VideoSession] Failed to prune expired cached screenshots:',
+      expect.anything()
+    );
+    expect(warnSpy).not.toHaveBeenCalledWith(
+      '[VideoSession] Failed to prune cached screenshots to limits:',
+      expect.anything()
+    );
   });
 
   it.each([

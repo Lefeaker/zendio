@@ -30,8 +30,7 @@ import type { TabsService } from '../../platform/interfaces/tabs';
 import type { RuntimeService } from '../../platform/interfaces/runtime';
 import type { ClipPayload } from '../../shared/types';
 import type { MessagePayload } from '../../platform/interfaces/messaging';
-import type { ReadingClipData } from '../../shared/repositories/IReaderRepository';
-import type { VideoClipData } from '../../shared/repositories/IVideoRepository';
+import { isObjectRecord } from '../../shared/guards/object';
 import {
   CAPTURE_VISIBLE_TAB_SCREENSHOT_MESSAGE,
   type CaptureVisibleTabScreenshotResponse
@@ -58,12 +57,19 @@ function isRepositoryContentMessage(
   type: 'clip' | 'readingClip' | 'videoClip',
   contentField: 'markdown' | 'content'
 ): message is { data: Record<string, unknown>; type: string } {
-  if (typeof message !== 'object' || message === null) return false;
-  const candidate = message as { data?: Record<string, unknown>; type?: unknown };
-  return candidate.type === type && typeof candidate.data?.[contentField] === 'string';
+  return (
+    isObjectRecord(message) &&
+    message.type === type &&
+    isObjectRecord(message.data) &&
+    typeof message.data[contentField] === 'string'
+  );
 }
 
-function toReadingClipPayload(data: ReadingClipData): ClipPayload {
+function toMessagePayload(value: unknown): MessagePayload {
+  return value as MessagePayload;
+}
+
+function toReadingClipPayload(data: Record<string, unknown>): unknown {
   return {
     markdown: data.content,
     title: data.title,
@@ -76,7 +82,7 @@ function toReadingClipPayload(data: ReadingClipData): ClipPayload {
   };
 }
 
-function toVideoClipPayload(data: VideoClipData): ClipPayload {
+function toVideoClipPayload(data: Record<string, unknown>): unknown {
   return {
     markdown: data.content,
     title: data.title,
@@ -232,7 +238,7 @@ export function registerRuntimeMessageListener(
     }
 
     if (isGetTabContextMessage(message)) {
-      return dependencies.getTabContext(sender as RuntimeMessageSender);
+      return dependencies.getTabContext(toRuntimeMessageSender(sender));
     }
 
     if (isTabContextActiveMessage(message)) {
@@ -250,7 +256,7 @@ export function registerRuntimeMessageListener(
 
     const screenshotCacheResponse = await dependencies.handleVideoScreenshotCacheMessage(message);
     if (screenshotCacheResponse !== undefined) {
-      return screenshotCacheResponse as MessagePayload;
+      return toMessagePayload(screenshotCacheResponse);
     }
 
     if (isRepositoryContentMessage(message, 'clip', 'markdown')) {
@@ -258,15 +264,11 @@ export function registerRuntimeMessageListener(
     }
 
     if (isRepositoryContentMessage(message, 'readingClip', 'content')) {
-      return processRepositoryClipPayload(
-        toReadingClipPayload(message.data as unknown as ReadingClipData)
-      );
+      return processRepositoryClipPayload(toReadingClipPayload(message.data));
     }
 
     if (isRepositoryContentMessage(message, 'videoClip', 'content')) {
-      return processRepositoryClipPayload(
-        toVideoClipPayload(message.data as unknown as VideoClipData)
-      );
+      return processRepositoryClipPayload(toVideoClipPayload(message.data));
     }
 
     if (isTestConnectionMessage(message)) {

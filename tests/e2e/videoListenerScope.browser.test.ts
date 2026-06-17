@@ -15,6 +15,12 @@ import {
   BILIBILI_REPLY_COMMENT_TEXT,
   buildBilibiliCommentsShadowFixture
 } from './fixtures/bilibili-comments-shadow';
+import {
+  VIDEO_SCREENSHOT_CACHE_LEGACY_STORAGE_INDEX_KEY,
+  VIDEO_SCREENSHOT_CACHE_LEGACY_STORAGE_KEY_PREFIX,
+  clearVideoScreenshotCacheIndexedDb,
+  readVideoScreenshotCacheIndexedDbSummary
+} from './utils/videoScreenshotCacheIndexedDb';
 import { readVideoControlBarGeometry } from '../utils/videoControlBarGeometry';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -25,8 +31,6 @@ const YOUTUBE_PAUSED_URL = 'https://www.youtube.com/watch?v=browserListenerScope
 const BILIBILI_URL = 'https://www.bilibili.com/video/BV1browser/';
 const SESSION_DRAFT_STORAGE_PREFIX = 'aiob.sessionDraft';
 const SESSION_DRAFT_INDEX_KEY = `${SESSION_DRAFT_STORAGE_PREFIX}.index.v1`;
-const VIDEO_SCREENSHOT_CACHE_KEY_PREFIX = 'aiob.videoScreenshotCache';
-const VIDEO_SCREENSHOT_CACHE_INDEX_KEY = `${VIDEO_SCREENSHOT_CACHE_KEY_PREFIX}.index.v1`;
 
 type FragmentModifierKey = 'alt' | 'meta' | 'ctrl' | 'shift';
 
@@ -72,6 +76,7 @@ type VideoStorageSummary = {
   cacheEntryCount: number;
   cacheIndexEntryCount: number;
   cacheKeys: string[];
+  legacyStorageCacheEntryCount: number;
 };
 
 type StartVideoModeResponse = {
@@ -610,76 +615,74 @@ async function releasePendingVideoScreenshotBlobs(
 }
 
 async function readVideoStorageSummary(extensionPage: Page): Promise<VideoStorageSummary> {
-  return await extensionPage.evaluate(
-    async ({ storageKeyPrefix, indexKey, cacheKeyPrefix, cacheIndexKey }) => {
-      const isRecord = (value: unknown): value is Record<string, unknown> =>
-        typeof value === 'object' && value !== null;
-      const toUnknownArray = (value: unknown): unknown[] => (Array.isArray(value) ? value : []);
+  const [cacheSummary, storageSummary] = await Promise.all([
+    readVideoScreenshotCacheIndexedDbSummary(extensionPage),
+    extensionPage.evaluate(
+      async ({ storageKeyPrefix, indexKey, legacyCacheKeyPrefix, legacyCacheIndexKey }) => {
+        const isRecord = (value: unknown): value is Record<string, unknown> =>
+          typeof value === 'object' && value !== null;
+        const toUnknownArray = (value: unknown): unknown[] => (Array.isArray(value) ? value : []);
 
-      const rawStorage = await chrome.storage.local.get(null);
-      const storage = isRecord(rawStorage) ? rawStorage : {};
-      const drafts = Object.entries(storage)
-        .filter(([key]) => key.startsWith(storageKeyPrefix) && key !== indexKey)
-        .map(([key, value]) => {
-          const envelope = isRecord(value) ? value : null;
-          const payload = envelope && isRecord(envelope.payload) ? envelope.payload : null;
-          const captures = payload ? toUnknownArray(payload.captures) : [];
-          return {
-            key,
-            pageUrl:
-              envelope && 'pageUrl' in envelope && typeof envelope.pageUrl === 'string'
-                ? envelope.pageUrl
-                : null,
-            captureCount: captures.length,
-            requestedScreenshotCount: captures.filter(
-              (capture) => isRecord(capture) && capture.screenshotRequested === true
-            ).length,
-            screenshotRefCount: captures.filter(
-              (capture) =>
-                isRecord(capture) &&
-                typeof capture.screenshotRef === 'object' &&
-                capture.screenshotRef !== null
-            ).length,
-            containsInlineScreenshotPayload: captures.some((capture) => {
-              if (!isRecord(capture)) {
-                return false;
-              }
-              return (
-                'screenshot' in capture ||
-                'dataUrl' in capture ||
-                'content' in capture ||
-                Object.values(capture).some(
-                  (field) => typeof field === 'string' && field.startsWith('data:image')
-                )
-              );
-            })
-          };
-        });
-      const cacheKeys = Object.keys(storage).filter(
-        (key) => key.startsWith(cacheKeyPrefix) && key !== cacheIndexKey
-      );
-      const cacheIndexValue = storage[cacheIndexKey];
-      const cacheIndexEntries =
-        typeof cacheIndexValue === 'object' &&
-        cacheIndexValue !== null &&
-        'entries' in cacheIndexValue &&
-        Array.isArray(cacheIndexValue.entries)
-          ? cacheIndexValue.entries
-          : [];
-      return {
-        drafts,
-        cacheEntryCount: cacheKeys.length,
-        cacheIndexEntryCount: cacheIndexEntries.length,
-        cacheKeys
-      };
-    },
-    {
-      storageKeyPrefix: SESSION_DRAFT_STORAGE_PREFIX,
-      indexKey: SESSION_DRAFT_INDEX_KEY,
-      cacheKeyPrefix: VIDEO_SCREENSHOT_CACHE_KEY_PREFIX,
-      cacheIndexKey: VIDEO_SCREENSHOT_CACHE_INDEX_KEY
-    }
-  );
+        const rawStorage = await chrome.storage.local.get(null);
+        const storage = isRecord(rawStorage) ? rawStorage : {};
+        const drafts = Object.entries(storage)
+          .filter(([key]) => key.startsWith(storageKeyPrefix) && key !== indexKey)
+          .map(([key, value]) => {
+            const envelope = isRecord(value) ? value : null;
+            const payload = envelope && isRecord(envelope.payload) ? envelope.payload : null;
+            const captures = payload ? toUnknownArray(payload.captures) : [];
+            return {
+              key,
+              pageUrl:
+                envelope && 'pageUrl' in envelope && typeof envelope.pageUrl === 'string'
+                  ? envelope.pageUrl
+                  : null,
+              captureCount: captures.length,
+              requestedScreenshotCount: captures.filter(
+                (capture) => isRecord(capture) && capture.screenshotRequested === true
+              ).length,
+              screenshotRefCount: captures.filter(
+                (capture) =>
+                  isRecord(capture) &&
+                  typeof capture.screenshotRef === 'object' &&
+                  capture.screenshotRef !== null
+              ).length,
+              containsInlineScreenshotPayload: captures.some((capture) => {
+                if (!isRecord(capture)) {
+                  return false;
+                }
+                return (
+                  'screenshot' in capture ||
+                  'dataUrl' in capture ||
+                  'content' in capture ||
+                  Object.values(capture).some(
+                    (field) => typeof field === 'string' && field.startsWith('data:image')
+                  )
+                );
+              })
+            };
+          });
+        const legacyStorageCacheEntryCount = Object.keys(storage).filter(
+          (key) => key.startsWith(legacyCacheKeyPrefix) && key !== legacyCacheIndexKey
+        ).length;
+        return {
+          drafts,
+          legacyStorageCacheEntryCount
+        };
+      },
+      {
+        storageKeyPrefix: SESSION_DRAFT_STORAGE_PREFIX,
+        indexKey: SESSION_DRAFT_INDEX_KEY,
+        legacyCacheKeyPrefix: VIDEO_SCREENSHOT_CACHE_LEGACY_STORAGE_KEY_PREFIX,
+        legacyCacheIndexKey: VIDEO_SCREENSHOT_CACHE_LEGACY_STORAGE_INDEX_KEY
+      }
+    )
+  ]);
+
+  return {
+    ...storageSummary,
+    ...cacheSummary
+  };
 }
 
 async function readVideoDraftEntries(extensionPage: Page): Promise<VideoDraftEntry[]> {
@@ -687,15 +690,18 @@ async function readVideoDraftEntries(extensionPage: Page): Promise<VideoDraftEnt
 }
 
 async function clearVideoScreenshotCacheStorage(extensionPage: Page): Promise<void> {
+  await clearVideoScreenshotCacheIndexedDb(extensionPage);
   await extensionPage.evaluate(
-    async ({ cacheKeyPrefix }) => {
+    async ({ legacyCacheKeyPrefix }) => {
       const storage = await chrome.storage.local.get(null);
-      const keys = Object.keys(storage).filter((key) => key.startsWith(cacheKeyPrefix));
+      const keys = Object.keys(storage).filter((key) => key.startsWith(legacyCacheKeyPrefix));
       if (keys.length > 0) {
         await chrome.storage.local.remove(keys);
       }
     },
-    { cacheKeyPrefix: VIDEO_SCREENSHOT_CACHE_KEY_PREFIX }
+    {
+      legacyCacheKeyPrefix: VIDEO_SCREENSHOT_CACHE_LEGACY_STORAGE_KEY_PREFIX
+    }
   );
 }
 
@@ -1625,7 +1631,8 @@ testWithExtension.describe('video listener scope browser runtime', () => {
               requestedScreenshotCount: firstDraft?.requestedScreenshotCount ?? 0,
               screenshotRefCount: firstDraft?.screenshotRefCount ?? 0,
               containsInlineScreenshotPayload: firstDraft?.containsInlineScreenshotPayload ?? false,
-              cacheEntryCount: summary.cacheEntryCount
+              cacheEntryCount: summary.cacheEntryCount,
+              legacyStorageCacheEntryCount: summary.legacyStorageCacheEntryCount
             };
           },
           {
@@ -1639,7 +1646,8 @@ testWithExtension.describe('video listener scope browser runtime', () => {
           requestedScreenshotCount: 1,
           screenshotRefCount: 0,
           containsInlineScreenshotPayload: false,
-          cacheEntryCount: 0
+          cacheEntryCount: 0,
+          legacyStorageCacheEntryCount: 0
         });
 
       await releasePendingVideoScreenshotBlobs(extensionPage, tabId, 'success');
@@ -1670,7 +1678,8 @@ testWithExtension.describe('video listener scope browser runtime', () => {
               screenshotRefCount: firstDraft?.screenshotRefCount ?? 0,
               containsInlineScreenshotPayload: firstDraft?.containsInlineScreenshotPayload ?? false,
               cacheEntryCount: summary.cacheEntryCount,
-              cacheIndexEntryCount: summary.cacheIndexEntryCount
+              cacheIndexEntryCount: summary.cacheIndexEntryCount,
+              legacyStorageCacheEntryCount: summary.legacyStorageCacheEntryCount
             };
           },
           {
@@ -1685,7 +1694,36 @@ testWithExtension.describe('video listener scope browser runtime', () => {
           screenshotRefCount: 1,
           containsInlineScreenshotPayload: false,
           cacheEntryCount: 1,
-          cacheIndexEntryCount: 1
+          cacheIndexEntryCount: 1,
+          legacyStorageCacheEntryCount: 0
+        });
+
+      await expandVideoPanel(page);
+      await closeVideoPanel(page);
+      await expect(page.locator('[data-aiob-video-control-bar-button="true"]')).toHaveCount(1);
+      await expect
+        .poll(
+          async () => {
+            const summary = await readVideoStorageSummary(extensionPage);
+            return {
+              draftCount: summary.drafts.length,
+              cacheEntryCount: summary.cacheEntryCount,
+              cacheIndexEntryCount: summary.cacheIndexEntryCount,
+              cacheKeyCount: summary.cacheKeys.length,
+              legacyStorageCacheEntryCount: summary.legacyStorageCacheEntryCount
+            };
+          },
+          {
+            timeout: 10000,
+            message: 'cancel cleanup left screenshot cache state behind'
+          }
+        )
+        .toEqual({
+          draftCount: 0,
+          cacheEntryCount: 0,
+          cacheIndexEntryCount: 0,
+          cacheKeyCount: 0,
+          legacyStorageCacheEntryCount: 0
         });
     }
   );
@@ -1730,14 +1768,16 @@ testWithExtension.describe('video listener scope browser runtime', () => {
             requestedScreenshotCount: firstDraft?.requestedScreenshotCount ?? 0,
             screenshotRefCount: firstDraft?.screenshotRefCount ?? 0,
             containsInlineScreenshotPayload: firstDraft?.containsInlineScreenshotPayload ?? false,
-            cacheEntryCount: summary.cacheEntryCount
+            cacheEntryCount: summary.cacheEntryCount,
+            legacyStorageCacheEntryCount: summary.legacyStorageCacheEntryCount
           };
         })
         .toEqual({
           requestedScreenshotCount: 1,
           screenshotRefCount: 1,
           containsInlineScreenshotPayload: false,
-          cacheEntryCount: 1
+          cacheEntryCount: 1,
+          legacyStorageCacheEntryCount: 0
         });
 
       await page.close();
@@ -1782,14 +1822,16 @@ testWithExtension.describe('video listener scope browser runtime', () => {
             requestedScreenshotCount: firstDraft?.requestedScreenshotCount ?? 0,
             screenshotRefCount: firstDraft?.screenshotRefCount ?? 0,
             containsInlineScreenshotPayload: firstDraft?.containsInlineScreenshotPayload ?? false,
-            cacheEntryCount: summary.cacheEntryCount
+            cacheEntryCount: summary.cacheEntryCount,
+            legacyStorageCacheEntryCount: summary.legacyStorageCacheEntryCount
           };
         })
         .toEqual({
           requestedScreenshotCount: 1,
           screenshotRefCount: 0,
           containsInlineScreenshotPayload: false,
-          cacheEntryCount: 0
+          cacheEntryCount: 0,
+          legacyStorageCacheEntryCount: 0
         });
 
       await releasePendingVideoScreenshotBlobs(extensionPage, restoredTabId, 'success');
@@ -1802,14 +1844,16 @@ testWithExtension.describe('video listener scope browser runtime', () => {
             requestedScreenshotCount: firstDraft?.requestedScreenshotCount ?? 0,
             screenshotRefCount: firstDraft?.screenshotRefCount ?? 0,
             containsInlineScreenshotPayload: firstDraft?.containsInlineScreenshotPayload ?? false,
-            cacheEntryCount: summary.cacheEntryCount
+            cacheEntryCount: summary.cacheEntryCount,
+            legacyStorageCacheEntryCount: summary.legacyStorageCacheEntryCount
           };
         })
         .toEqual({
           requestedScreenshotCount: 1,
           screenshotRefCount: 1,
           containsInlineScreenshotPayload: false,
-          cacheEntryCount: 1
+          cacheEntryCount: 1,
+          legacyStorageCacheEntryCount: 0
         });
 
       await restoredPage.close();
@@ -1856,14 +1900,16 @@ testWithExtension.describe('video listener scope browser runtime', () => {
             requestedScreenshotCount: firstDraft?.requestedScreenshotCount ?? 0,
             screenshotRefCount: firstDraft?.screenshotRefCount ?? 0,
             containsInlineScreenshotPayload: firstDraft?.containsInlineScreenshotPayload ?? false,
-            cacheEntryCount: summary.cacheEntryCount
+            cacheEntryCount: summary.cacheEntryCount,
+            legacyStorageCacheEntryCount: summary.legacyStorageCacheEntryCount
           };
         })
         .toEqual({
           requestedScreenshotCount: 1,
           screenshotRefCount: 1,
           containsInlineScreenshotPayload: false,
-          cacheEntryCount: 1
+          cacheEntryCount: 1,
+          legacyStorageCacheEntryCount: 0
         });
 
       await page.close();
@@ -1907,14 +1953,16 @@ testWithExtension.describe('video listener scope browser runtime', () => {
             requestedScreenshotCount: firstDraft?.requestedScreenshotCount ?? 0,
             screenshotRefCount: firstDraft?.screenshotRefCount ?? 0,
             containsInlineScreenshotPayload: firstDraft?.containsInlineScreenshotPayload ?? false,
-            cacheEntryCount: summary.cacheEntryCount
+            cacheEntryCount: summary.cacheEntryCount,
+            legacyStorageCacheEntryCount: summary.legacyStorageCacheEntryCount
           };
         })
         .toEqual({
           requestedScreenshotCount: 1,
           screenshotRefCount: 1,
           containsInlineScreenshotPayload: false,
-          cacheEntryCount: 0
+          cacheEntryCount: 0,
+          legacyStorageCacheEntryCount: 0
         });
 
       await releasePendingVideoScreenshotBlobs(extensionPage, restoredTabId, 'success');
@@ -1927,14 +1975,16 @@ testWithExtension.describe('video listener scope browser runtime', () => {
             requestedScreenshotCount: firstDraft?.requestedScreenshotCount ?? 0,
             screenshotRefCount: firstDraft?.screenshotRefCount ?? 0,
             containsInlineScreenshotPayload: firstDraft?.containsInlineScreenshotPayload ?? false,
-            cacheEntryCount: summary.cacheEntryCount
+            cacheEntryCount: summary.cacheEntryCount,
+            legacyStorageCacheEntryCount: summary.legacyStorageCacheEntryCount
           };
         })
         .toEqual({
           requestedScreenshotCount: 1,
           screenshotRefCount: 1,
           containsInlineScreenshotPayload: false,
-          cacheEntryCount: 1
+          cacheEntryCount: 1,
+          legacyStorageCacheEntryCount: 0
         });
 
       await restoredPage.close();

@@ -183,9 +183,9 @@ function normalizeSerializedScreenshot(
   };
 }
 
-export function isVideoScreenshotCacheMessage(
-  value: unknown
-): value is VideoScreenshotCacheMessage {
+export function isVideoScreenshotCacheMessage<T>(
+  value: T
+): value is T & VideoScreenshotCacheMessage {
   if (!isObjectRecord(value) || value.type !== VIDEO_SCREENSHOT_CACHE_MESSAGE) {
     return false;
   }
@@ -212,8 +212,8 @@ export function isVideoScreenshotCacheMessage(
   return value.operation === 'pruneExpired' || value.operation === 'pruneToLimits';
 }
 
-export function normalizeVideoScreenshotCacheMessage(
-  value: unknown
+export function normalizeVideoScreenshotCacheMessage<T>(
+  value: T
 ): VideoScreenshotCacheMessage | null {
   return isVideoScreenshotCacheMessage(value) ? value : null;
 }

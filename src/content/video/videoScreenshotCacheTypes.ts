@@ -1,16 +1,15 @@
 import type { SerializedClipAttachmentBinaryContent } from '../../shared/attachments/clipAttachmentBinary';
 import { isObjectRecord } from '../../shared/guards/object';
-import {
-  DEFAULT_SESSION_DRAFT_TTL_MS,
-  SESSION_DRAFT_MAX_ENTRIES
-} from '../sessionDrafts/sessionDraftTypes';
+import { DEFAULT_SESSION_DRAFT_STORAGE_POLICY } from '../sessionDrafts/sessionDraftRetentionPolicy';
+import { SESSION_DRAFT_MAX_ENTRIES } from '../sessionDrafts/sessionDraftTypes';
 
 type Raw = Parameters<typeof isObjectRecord>[0];
 
 export const VIDEO_SCREENSHOT_CACHE_SCHEMA_VERSION = 1;
 export const VIDEO_SCREENSHOT_CACHE_KEY_PREFIX = 'aiob.videoScreenshotCache';
 export const VIDEO_SCREENSHOT_CACHE_INDEX_KEY = `${VIDEO_SCREENSHOT_CACHE_KEY_PREFIX}.index.v1`;
-export const VIDEO_SCREENSHOT_CACHE_TTL_MS = DEFAULT_SESSION_DRAFT_TTL_MS;
+export const VIDEO_SCREENSHOT_CACHE_TTL_MS =
+  DEFAULT_SESSION_DRAFT_STORAGE_POLICY.videoScreenshotCacheTtlMs;
 export const VIDEO_SCREENSHOT_CACHE_MAX_GLOBAL_ENTRIES = SESSION_DRAFT_MAX_ENTRIES;
 export const VIDEO_SCREENSHOT_CACHE_MAX_PAGE_ENTRIES = 50;
 export const VIDEO_SCREENSHOT_CACHE_MAX_CONTENT_BYTES = 1024 * 1024;
