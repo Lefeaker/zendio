@@ -57,16 +57,31 @@
   align-items: center;
   gap: var(--space-4);
   min-width: 0;
+  width: 100%;
   padding: var(--space-5) var(--space-7);
+  border: 0;
+  background: transparent;
   color: var(--text);
+  font: inherit;
+  text-align: left;
 }
 
 .task-support-link + .task-support-link {
   border-left: 1px solid var(--runtime-line);
 }
 
-.task-support-link[href]:hover {
+.task-support-link[href]:hover,
+.task-support-link.is-expandable:hover {
   background: rgba(255, 255, 255, 0.035);
+}
+
+.task-support-link.is-expandable {
+  cursor: pointer;
+}
+
+.task-support-link.is-expandable:focus-visible {
+  outline: var(--focus-outline-width) solid var(--accent-soft-strong);
+  outline-offset: -2px;
 }
 
 .task-support-logo {

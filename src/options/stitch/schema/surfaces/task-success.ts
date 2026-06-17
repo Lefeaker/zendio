@@ -118,32 +118,57 @@ function supportStrip(items: SupportChannel[]): NodeSchema {
   return div(
     'task-support-strip',
     items.map((item) => {
-      const media = item.image
-        ? element('img', {
-            className: 'task-support-qr',
-            src: item.image,
-            alt: item.imageAlt ?? `${item.title} QR code`
-          })
-        : item.icon
+      const supportId = resolveSupportChannelId(item);
+      const hasExpandableImage = Boolean(item.icon && item.image);
+      const isExpanded = hasExpandableImage && item.imageExpanded === true;
+      const media =
+        isExpanded && item.image
           ? element('img', {
-              className: 'task-support-logo',
-              src: item.icon,
-              alt: `${item.title} logo`
+              className: 'task-support-qr',
+              src: item.image,
+              alt: item.imageAlt ?? `${item.title} QR code`
             })
-          : null;
+          : item.icon
+            ? element('img', {
+                className: 'task-support-logo',
+                src: item.icon,
+                alt: `${item.title} logo`
+              })
+            : null;
+      const className = [
+        'task-support-link',
+        hasExpandableImage ? 'is-expandable' : '',
+        isExpanded ? 'is-expanded has-qr' : ''
+      ]
+        .filter(Boolean)
+        .join(' ');
 
       return element(
-        item.href ? 'a' : 'div',
-        {
-          className: ['task-support-link', item.image ? 'has-qr' : ''].filter(Boolean).join(' '),
-          ...(item.href
-            ? {
-                href: item.href,
-                target: '_blank',
-                rel: 'noopener noreferrer'
-              }
-            : {})
-        },
+        item.href ? 'a' : hasExpandableImage ? 'button' : 'div',
+        item.href
+          ? {
+              className,
+              href: item.href,
+              target: '_blank',
+              rel: 'noopener noreferrer'
+            }
+          : {
+              className,
+              ...(hasExpandableImage
+                ? {
+                    type: 'button',
+                    ariaExpanded: isExpanded ? 'true' : 'false',
+                    dataset: {
+                      role: resolveSupportChannelRole(supportId),
+                      supportChannel: supportId
+                    },
+                    onClick: {
+                      id: 'task-success:support-image-toggle',
+                      args: [supportId]
+                    }
+                  }
+                : {})
+            },
         [
           media,
           div('task-support-copy', [
@@ -154,6 +179,25 @@ function supportStrip(items: SupportChannel[]): NodeSchema {
       );
     })
   );
+}
+
+function resolveSupportChannelId(item: SupportChannel): string {
+  if (item.id) {
+    return item.id;
+  }
+  if (item.image?.includes('wechat-reward') || item.icon?.includes('wechat-reward')) {
+    return 'wechat-reward';
+  }
+  return (
+    item.title
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-|-$/g, '') || 'support'
+  );
+}
+
+function resolveSupportChannelRole(supportId: string): string {
+  return supportId === 'wechat-reward' ? 'wechat-reward-btn' : 'support-image-toggle';
 }
 
 function resolveStatusMessage(surface: TaskSuccessSurface, ctx: SchemaContext): string {

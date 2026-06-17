@@ -347,9 +347,15 @@ describe('mountProductionStitchShell runtime surface i18n', () => {
     expect(taskSuccess.textContent).toContain('WeChat Reward Description Sentinel');
     expect(
       taskSuccess.querySelector<HTMLImageElement>(
-        'img.task-support-qr[src="./icons/wechat-reward-qr.jpg"]'
+        'img.task-support-logo[src="./icons/wechat-reward.svg"]'
       )
     ).toBeTruthy();
+    expect(taskSuccess.querySelector<HTMLImageElement>('img.task-support-qr')).toBeNull();
+    expect(
+      taskSuccess
+        .querySelector<HTMLButtonElement>('[data-role="wechat-reward-btn"]')
+        ?.getAttribute('aria-expanded')
+    ).toBe('false');
     expect(
       taskSuccess.querySelector<HTMLAnchorElement>('a.task-support-link[href*="afdian.com"]')
     ).toBeNull();

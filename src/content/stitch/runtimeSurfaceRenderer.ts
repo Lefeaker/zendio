@@ -1,9 +1,17 @@
 import { getSurfaceView } from '@options/stitch/schema/surfaceRegistry';
-import { renderPreviewView } from '@options/stitch/render/renderStitchView';
+import { renderPreviewView, type RendererContext } from '@options/stitch/render/renderStitchView';
 import { el } from '@options/stitch/ui/dom';
 import { previewUi } from '@options/stitch/ui/components';
 import type { PreviewContent, PreviewStoreState, SchemaContext } from '@options/stitch/types';
 import { getControlledRuntimeTheme, registerRuntimeSurfaceThemeRoot } from './runtimeTheme';
+
+export type RuntimeSurfaceActionArgs = Parameters<RendererContext['dispatch']>[1];
+export type RuntimeSurfaceActionValue = Parameters<RendererContext['dispatch']>[2];
+export type RuntimeSurfaceActionHandler = (
+  event: Event,
+  args: RuntimeSurfaceActionArgs,
+  value: RuntimeSurfaceActionValue
+) => void;
 
 export interface RuntimeSurfaceRenderOptions {
   surfaceId:
@@ -15,7 +23,7 @@ export interface RuntimeSurfaceRenderOptions {
     | 'task-success';
   appData: PreviewContent;
   state?: Partial<PreviewStoreState>;
-  actions?: Record<string, (event: Event) => void>;
+  actions?: Record<string, RuntimeSurfaceActionHandler>;
 }
 
 function resolveRuntimeTheme(
@@ -80,10 +88,10 @@ export function renderStitchRuntimeSurface(options: RuntimeSurfaceRenderOptions)
     ...ctx,
     el,
     ui: previewUi,
-    dispatch: (id, _args, _value, event) => {
+    dispatch: (id, args, value, event) => {
       const handler = options.actions?.[id];
       if (handler) {
-        handler(event ?? new Event('stitch-runtime-action'));
+        handler(event ?? new Event('stitch-runtime-action'), args, value);
       }
     }
   });

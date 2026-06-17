@@ -78,6 +78,7 @@ export interface ResourceStep {
 }
 
 export interface SupportChannel {
+  id?: string;
   title: string;
   subtitle?: string;
   detail?: string;
@@ -86,6 +87,7 @@ export interface SupportChannel {
   icon?: string;
   image?: string;
   imageAlt?: string;
+  imageExpanded?: boolean;
 }
 
 export interface ContactEntry {
@@ -696,6 +698,7 @@ export interface ElementNode extends BaseNode {
   type?: DynamicValue<string>;
   role?: DynamicValue<string>;
   ariaPressed?: DynamicValue<string>;
+  ariaExpanded?: DynamicValue<string>;
   ariaLabel?: DynamicValue<string>;
   disabled?: DynamicValue<boolean>;
   title?: DynamicValue<string>;

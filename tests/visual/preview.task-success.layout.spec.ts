@@ -66,6 +66,9 @@ test.describe('Stitch task success surface layout', () => {
     await expect(page.locator('[data-role="like-btn"]')).toHaveCount(1);
     await expect(page.locator('[data-role="dislike-btn"]')).toHaveCount(1);
     await expect(page.locator('.task-support-link')).toHaveCount(2);
+    await expect(page.locator('.task-support-qr')).toHaveCount(0);
+    const wechatReward = page.locator('[data-role="wechat-reward-btn"]').first();
+    await expect(wechatReward).toHaveAttribute('aria-expanded', 'false');
     await expect(page.locator('.task-support-strip')).not.toContainText('GitHub');
     await expect(page.locator('.task-feedback-label')).toHaveCount(0);
     await expect(page.locator('.task-feedback-row [data-role="dismiss-text"]')).toHaveCount(1);
@@ -110,6 +113,13 @@ test.describe('Stitch task success surface layout', () => {
     expect(
       Math.round(rect.y + rect.height - (feedbackRect.y + feedbackRect.height))
     ).toBeLessThanOrEqual(2);
+
+    await wechatReward.click();
+    await expect(page.locator('.task-support-qr')).toHaveCount(1);
+    await expect(page.locator('.task-support-qr')).toHaveAttribute(
+      'src',
+      /icons\/wechat-reward-qr\.jpg/
+    );
 
     await page.locator('[data-role="dislike-btn"]').click();
     await expect(page.locator('[data-role="github-link"]')).toHaveCount(1);

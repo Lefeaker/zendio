@@ -221,6 +221,7 @@ export function renderElementNode(
       type: resolveValue(node.type, ctx),
       role: resolveValue(node.role, ctx),
       'aria-pressed': resolveValue(node.ariaPressed, ctx),
+      'aria-expanded': resolveValue(node.ariaExpanded, ctx),
       'aria-label': resolveValue(node.ariaLabel, ctx),
       disabled: resolveValue(node.disabled, ctx),
       title: resolveValue(node.title, ctx),

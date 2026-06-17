@@ -160,14 +160,32 @@ describe('SupportPrompt', () => {
     expect(shadow?.querySelectorAll('.task-support-link[href]').length).toBe(1);
     expect(shadow?.textContent).toContain('微信赞赏');
     expect(
-      shadow?.querySelector<HTMLImageElement>('img.task-support-qr')?.getAttribute('src')
-    ).toBe('chrome-extension://icons/wechat-reward-qr.jpg');
+      shadow?.querySelector<HTMLImageElement>('img.task-support-logo[src$="wechat-reward.svg"]')
+    ).toBeTruthy();
+    expect(shadow?.querySelector<HTMLImageElement>('img.task-support-qr')).toBeNull();
     expect(shadow?.querySelector('[data-role="status-text"]')?.textContent).toContain(
       'Sent to Main Vault'
     );
     expect(shadow?.querySelector('[data-role="dismiss-text"]')?.textContent).toBe(
       'Click outside to close'
     );
+  });
+
+  it('reveals the WeChat reward QR only after clicking the WeChat support card', async () => {
+    const { SupportPrompt } = await import('../../../src/content/ui/supportPrompt');
+    const prompt = new SupportPrompt(document);
+    await prompt.show({ status: 'success' });
+
+    let shadow = getPromptHost().shadowRoot;
+    expect(shadow?.querySelector<HTMLImageElement>('img.task-support-qr')).toBeNull();
+
+    shadow?.querySelector<HTMLButtonElement>('[data-role="wechat-reward-btn"]')?.click();
+    await flushMicrotasks();
+
+    shadow = getPromptHost().shadowRoot;
+    expect(
+      shadow?.querySelector<HTMLImageElement>('img.task-support-qr')?.getAttribute('src')
+    ).toBe('chrome-extension://icons/wechat-reward-qr.jpg');
   });
 
   it('renders an in-flight progress strip before the support links', async () => {
@@ -233,20 +251,28 @@ describe('SupportPrompt', () => {
     ).toBe('第二步');
   });
 
-  it('auto-dismisses terminal progress prompts after completion', async () => {
+  it('keeps terminal progress prompts visible until the user clicks outside', async () => {
     vi.useFakeTimers();
-    const { SupportPrompt } = await import('../../../src/content/ui/supportPrompt');
-    const prompt = new SupportPrompt(document);
-    await prompt.show({
-      status: 'success',
-      progress: { value: 100, label: '成功发送到 Obsidian', variant: 'success' }
-    });
+    try {
+      const { SupportPrompt } = await import('../../../src/content/ui/supportPrompt');
+      const prompt = new SupportPrompt(document);
+      await prompt.show({
+        status: 'success',
+        progress: { value: 100, label: '成功发送到 Obsidian', variant: 'success' }
+      });
 
-    expect(document.getElementById('aiob-support-prompt')).toBeTruthy();
-    await vi.advanceTimersByTimeAsync(2400);
+      expect(document.getElementById('aiob-support-prompt')).toBeTruthy();
+      await vi.advanceTimersByTimeAsync(10000);
 
-    expect(document.getElementById('aiob-support-prompt')).toBeNull();
-    vi.useRealTimers();
+      expect(document.getElementById('aiob-support-prompt')).toBeTruthy();
+      getPromptHost()
+        .shadowRoot?.querySelector<HTMLDivElement>('.resource-modal-overlay')
+        ?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+
+      expect(document.getElementById('aiob-support-prompt')).toBeNull();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('renders warning and failure details', async () => {
