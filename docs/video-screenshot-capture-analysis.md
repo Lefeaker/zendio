@@ -10,14 +10,14 @@
 
 ## 2. 现有架构概览
 
-| 模块         | 作用                                                                                                                    | 关键文件                                                                                                                               |
-| ------------ | ----------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
-| 视频内容脚本 | `VideoSession` 协调面板 UI、选区捕获、截图请求、draft 同步与导出，时间戳录入在 `handleAddCapture` 内完成                 | `src/content/video/session.ts`, `src/content/video/videoSessionRuntime.ts`                                                            |
-| draft 持久化 | session draft 只持久化 `screenshotRequested` 与 metadata-only `screenshotRef`，不持久化截图 bytes                        | `src/content/video/sessionDrafts.ts`, `src/content/video/videoSessionDraftController.ts`, `src/content/video/captureStorage.ts`       |
-| 截图缓存     | background-owned extension IndexedDB Blob cache 保存截图 bytes；legacy `storage.local` base64 cache 仅做兼容读取与清理  | `src/background/services/videoScreenshotCacheIndexedDbStore.ts`, `src/background/services/videoScreenshotCacheService.ts`, `src/content/video/videoScreenshotCacheRepository.ts` |
-| 导出构建     | `VideoSessionExporter` 将捕获数据转成 Markdown + front matter，并规划截图附件输出路径                                     | `src/content/video/videoSessionExporter.ts`, `src/shared/attachments/videoScreenshotAttachmentTemplates.ts`                           |
-| 导出链路     | `VideoSession` -> `VideoSessionExporter` -> background `clipPipeline` -> `processClipPayload` -> `writeMarkdownToVault` | `src/background/pipelines/clipPipeline.ts`, `src/background/application/clipProcessor.ts`, `src/background/services/obsidianWriter.ts` |
-| JSON-safe 边界 | runtime/background/exporter 之间继续通过 JSON-safe serialized binary content 传递截图内容                              | `src/content/video/videoScreenshotCacheClientRepository.ts`, `src/background/services/videoScreenshotCacheService.ts`                  |
+| 模块           | 作用                                                                                                                    | 关键文件                                                                                                                                                                         |
+| -------------- | ----------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 视频内容脚本   | `VideoSession` 协调面板 UI、选区捕获、截图请求、draft 同步与导出，时间戳录入在 `handleAddCapture` 内完成                | `src/content/video/session.ts`, `src/content/video/videoSessionRuntime.ts`                                                                                                       |
+| draft 持久化   | session draft 只持久化 `screenshotRequested` 与 metadata-only `screenshotRef`，不持久化截图 bytes                       | `src/content/video/sessionDrafts.ts`, `src/content/video/videoSessionDraftController.ts`, `src/content/video/captureStorage.ts`                                                  |
+| 截图缓存       | background-owned extension IndexedDB Blob cache 保存截图 bytes；legacy `storage.local` base64 cache 仅做兼容读取与清理  | `src/background/services/videoScreenshotCacheIndexedDbStore.ts`, `src/background/services/videoScreenshotCacheService.ts`, `src/content/video/videoScreenshotCacheRepository.ts` |
+| 导出构建       | `VideoSessionExporter` 将捕获数据转成 Markdown + front matter，并规划截图附件输出路径                                   | `src/content/video/videoSessionExporter.ts`, `src/shared/attachments/videoScreenshotAttachmentTemplates.ts`                                                                      |
+| 导出链路       | `VideoSession` -> `VideoSessionExporter` -> background `clipPipeline` -> `processClipPayload` -> `writeMarkdownToVault` | `src/background/pipelines/clipPipeline.ts`, `src/background/application/clipProcessor.ts`, `src/background/services/obsidianWriter.ts`                                           |
+| JSON-safe 边界 | runtime/background/exporter 之间继续通过 JSON-safe serialized binary content 传递截图内容                               | `src/content/video/videoScreenshotCacheClientRepository.ts`, `src/background/services/videoScreenshotCacheService.ts`                                                            |
 
 - manifest 当前权限：`activeTab`、`scripting`、`storage`、`offscreen` 等；当前没有 `unlimitedStorage`、`message_serialization` 或 `tabCapture`。
 
@@ -61,7 +61,7 @@
 - **当前 durable owner**：截图 bytes 进入 background-owned extension IndexedDB Blob cache，按 page/capture/screenshot key 建索引，并受 TTL、全局条目数、单页面条目数与单截图字节上限约束。当前相关 owner 为 `videoScreenshotCacheIndexedDbStore.ts` + `videoScreenshotCacheRepository.ts`。
 - **legacy 兼容路径**：`storage.local` base64 cache 仍可被读取，但只作为 compatibility path。成功命中 legacy cache 时会 best-effort migrate 到 IndexedDB 并删除旧 key；失败或损坏时不会阻塞恢复。
 - **配额策略**：Chrome 官方扩展文档当前将 `storage.local` 默认总额度记为 `10 MB`。当前实现没有请求 `unlimitedStorage`；`storage.local` 主要承载 draft metadata、legacy base64 cache 兼容读取与 cleanup，而不是新的截图 bytes 主存储。
-- **恢复与清理**：restored draft 会先尝试 hydrate `screenshotRef`；invalid ref 会被清除，stale/missing/expired/corrupt ref 会回落到 low-concurrency screenshot preparation，并在需要时触发 draft save 清掉失效 ref。删除 capture、terminal cleanup 与 cache prune 都会同步删除对应缓存 key。
+- **恢复与清理**：restored draft 会先尝试 hydrate `screenshotRef`；invalid ref 会被清除，stale/missing/expired/corrupt ref 会回落到 low-concurrency screenshot preparation，并在需要时触发 draft save 清掉失效 ref。单条 capture 删除在删除 mutation 成功 commit 后 best-effort 删除不再被当前 draft 引用的缓存 key；terminal cleanup 与 cache prune 也会同步删除对应缓存 key。缓存清理失败只记录 warning，不回滚 capture 删除。
 
 ### 4.4 导出与仓库写入
 
@@ -135,13 +135,13 @@
 
 ## 6. 风险与缓解
 
-| 风险                      | 描述                                                | 缓解措施                                                                                 |
-| ------------------------- | --------------------------------------------------- | ---------------------------------------------------------------------------------------- |
-| 截图失败率高              | 标签页未激活、视频被遮挡、跨屏缩放导致裁剪错位      | 捕获前检测 `document.visibilityState`；获取失败时退化为无图；记录错误用于后续统计        |
+| 风险                      | 描述                                                                        | 缓解措施                                                                                                                                      |
+| ------------------------- | --------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| 截图失败率高              | 标签页未激活、视频被遮挡、跨屏缩放导致裁剪错位                              | 捕获前检测 `document.visibilityState`；获取失败时退化为无图；记录错误用于后续统计                                                             |
 | 存储超限                  | 多次截屏导致 IndexedDB Blob cache 增长，legacy `storage.local` 残留占用空间 | IndexedDB cache 受 TTL、全局/页面条目数与单截图字节上限约束；legacy cache 在命中后 best-effort migrate/cleanup；当前不请求 `unlimitedStorage` |
-| REST API 不支持二进制写入 | 现有 Obsidian REST 仅测试过 Markdown                | 预研 REST 端行为，必要时提交补丁；若短期无法支持，使用内联方案作为过渡                   |
-| 性能回归                  | 截图/编码耗时导致前端卡顿                           | 在 Service Worker 侧异步处理，前端仅等待 Promise；可在 UI 层显示 loading；对截图进行压缩 |
-| 权限审查风险              | 新增截图相关权限可能触发商店审核                    | 当前只增加 `offscreen`，不新增 `unlimitedStorage`、`message_serialization` 或 `tabCapture`；在文档与上架描述中充分披露用途并保留开关 |
+| REST API 不支持二进制写入 | 现有 Obsidian REST 仅测试过 Markdown                                        | 预研 REST 端行为，必要时提交补丁；若短期无法支持，使用内联方案作为过渡                                                                        |
+| 性能回归                  | 截图/编码耗时导致前端卡顿                                                   | 在 Service Worker 侧异步处理，前端仅等待 Promise；可在 UI 层显示 loading；对截图进行压缩                                                      |
+| 权限审查风险              | 新增截图相关权限可能触发商店审核                                            | 当前只增加 `offscreen`，不新增 `unlimitedStorage`、`message_serialization` 或 `tabCapture`；在文档与上架描述中充分披露用途并保留开关          |
 
 ## 7. 工作量粗估（以 2 人周衡量）
 

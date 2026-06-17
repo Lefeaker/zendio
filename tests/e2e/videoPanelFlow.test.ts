@@ -6,6 +6,8 @@ import {
   type Page,
   type TestInfo
 } from '@playwright/test';
+import fs from 'node:fs/promises';
+import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
@@ -95,6 +97,12 @@ type ExportedVideoClip = {
 
 type StartVideoModeResponse = {
   success: boolean;
+};
+
+type ExtensionHarness = {
+  background: ServiceWorker;
+  extensionId: string;
+  extensionPage: Page;
 };
 
 type VideoDraftCapture = {
@@ -206,6 +214,58 @@ async function runStage<T>(
     logStage(testInfo, `FAIL ${stage}`, `${Date.now() - startedAt}ms :: ${message}`);
     throw error;
   }
+}
+
+async function launchVideoPanelExtensionContext(
+  userDataDir: string,
+  testInfo: TestInfo,
+  stage = 'launch context'
+): Promise<BrowserContext> {
+  return runStage(testInfo, stage, () =>
+    chromium.launchPersistentContext(userDataDir, {
+      headless: true,
+      channel: 'chromium',
+      args: [`--disable-extensions-except=${EXTENSION_PATH}`, `--load-extension=${EXTENSION_PATH}`]
+    })
+  );
+}
+
+async function openExtensionHarnessPage(
+  context: BrowserContext,
+  testInfo: TestInfo,
+  stagePrefix = 'extension'
+): Promise<ExtensionHarness> {
+  let background = context.serviceWorkers()[0];
+  if (!background) {
+    background = await runStage(testInfo, `${stagePrefix} wait service worker`, () =>
+      context.waitForEvent('serviceworker', { timeout: 15000 })
+    );
+  } else {
+    logStage(testInfo, `${stagePrefix} reuse service worker`, background.url());
+  }
+
+  const extensionId = await runStage(testInfo, `${stagePrefix} resolve extension id`, () => {
+    const backgroundUrl = background.url();
+    const resolved = backgroundUrl.split('/')[2];
+    if (!resolved) {
+      throw new Error(`Unable to parse extension id from ${backgroundUrl}`);
+    }
+    return Promise.resolve(resolved);
+  });
+  const extensionPage = await runStage(testInfo, `${stagePrefix} open harness page`, () =>
+    context.newPage()
+  );
+  await runStage(testInfo, `${stagePrefix} goto harness page`, () =>
+    extensionPage.goto(`chrome-extension://${extensionId}/${EXTENSION_HARNESS_PATH}`, {
+      waitUntil: 'domcontentloaded'
+    })
+  );
+
+  return {
+    background,
+    extensionId,
+    extensionPage
+  };
 }
 
 function createOptionsFixture(): StoredOptionsFixture {
@@ -913,6 +973,53 @@ testWithExtension.describe('Video Panel browser flow', () => {
             legacyStorageCacheEntryCount: 0
           });
 
+        const deleteRestoredTimestamp = page
+          .locator('[data-role="capture-item"]')
+          .first()
+          .locator('[data-action-id="video:delete"]');
+        await runStage(
+          testInfo,
+          'delete restored timestamp capture with cached screenshot',
+          async () => {
+            await deleteRestoredTimestamp.click();
+            await expect(page.locator('[data-role="capture-item"]')).toHaveCount(1);
+          }
+        );
+        await expect
+          .poll(
+            async () => {
+              const summary = await readVideoStorageSummary(extensionPage);
+              const matchingDraft = summary.drafts.find((entry) =>
+                entry.pageUrl?.includes('p07BrowserVideoFlow')
+              );
+              return {
+                draftCount: summary.drafts.length,
+                captureCount: matchingDraft?.captureCount ?? 0,
+                requestedScreenshotCount: matchingDraft?.requestedScreenshotCount ?? 0,
+                screenshotRefCount: matchingDraft?.screenshotRefCount ?? 0,
+                containsInlineScreenshotPayload:
+                  matchingDraft?.containsInlineScreenshotPayload ?? false,
+                cacheEntryCount: summary.cacheEntryCount,
+                cacheIndexEntryCount: summary.cacheIndexEntryCount,
+                legacyStorageCacheEntryCount: summary.legacyStorageCacheEntryCount
+              };
+            },
+            {
+              timeout: 10000,
+              message: 'deleting the restored timestamp did not remove its cached screenshot blob'
+            }
+          )
+          .toEqual({
+            draftCount: 1,
+            captureCount: 1,
+            requestedScreenshotCount: 0,
+            screenshotRefCount: 0,
+            containsInlineScreenshotPayload: false,
+            cacheEntryCount: 0,
+            cacheIndexEntryCount: 0,
+            legacyStorageCacheEntryCount: 0
+          });
+
         await resetVideoProbe(extensionPage, reloadedTabId, testInfo);
         const finishButton = page.locator('[data-role="finish-btn"]');
         await runStage(testInfo, 'export restored video captures', async () => {
@@ -1104,4 +1211,193 @@ testWithExtension.describe('Video Panel browser flow', () => {
       }
     }
   );
+});
+
+test.describe('Video Panel persistent browser relaunch flow', () => {
+  test.slow();
+  test.setTimeout(120000);
+
+  test('restores screenshot-backed video drafts after closing and relaunching the browser context', async ({
+    browserName: _browserName
+  }, testInfo) => {
+    void _browserName;
+    const userDataDir = await fs.mkdtemp(path.join(tmpdir(), 'p09-video-relaunch-'));
+    const relaunchUrl = `${YOUTUBE_URL}&p09=persistent-relaunch`;
+    const persistentDraft = 'Persistent relaunch screenshot draft';
+    let context: BrowserContext | null = null;
+    let page: Page | null = null;
+
+    try {
+      context = await launchVideoPanelExtensionContext(
+        userDataDir,
+        testInfo,
+        'launch initial persistent context'
+      );
+      const initialHarness = await openExtensionHarnessPage(context, testInfo, 'initial');
+      await seedOptions(initialHarness.extensionPage, testInfo);
+
+      const initialFixture = await openFixtureWithRuntime(
+        context,
+        initialHarness.extensionPage,
+        testInfo,
+        relaunchUrl,
+        youtubeFixtureHtml()
+      );
+      const initialPage = initialFixture.page;
+      page = initialPage;
+      await installVideoProbe(initialHarness.extensionPage, initialFixture.tabId, testInfo);
+      await startVideoMode(initialHarness.extensionPage, initialFixture.tabId, testInfo);
+      await expandVideoPanel(initialPage);
+
+      await runStage(testInfo, 'create persistent screenshot capture', async () => {
+        await initialPage.locator('[data-role="add-btn"]').click();
+        await expect(initialPage.locator('[data-role="capture-item"]')).toHaveCount(1);
+        await initialPage.locator('[data-capture-input]').first().fill(persistentDraft);
+        await expect(initialPage.locator('[data-capture-input]').first()).toHaveValue(
+          persistentDraft
+        );
+      });
+
+      const screenshotToggle = initialPage
+        .locator('[data-role="capture-item"]')
+        .first()
+        .locator('[data-action-id="video:toggle-screenshot"]');
+      await runStage(testInfo, 'enable persistent screenshot intent', async () => {
+        await screenshotToggle.click();
+        await expect(screenshotToggle).toHaveAttribute('data-screenshot-state', 'on');
+      });
+
+      await expect
+        .poll(
+          async () => {
+            const summary = await readVideoStorageSummary(initialHarness.extensionPage);
+            const firstDraft = summary.drafts.find((entry) =>
+              entry.pageUrl?.includes('persistent-relaunch')
+            );
+            return {
+              count: summary.drafts.length,
+              captureCount: firstDraft?.captureCount ?? 0,
+              requestedScreenshotCount: firstDraft?.requestedScreenshotCount ?? 0,
+              screenshotRefCount: firstDraft?.screenshotRefCount ?? 0,
+              containsInlineScreenshotPayload: firstDraft?.containsInlineScreenshotPayload ?? false,
+              draftTextCount: Object.values(firstDraft?.commentDrafts ?? {}).filter(
+                (draft) => draft === persistentDraft
+              ).length,
+              cacheEntryCount: summary.cacheEntryCount,
+              cacheIndexEntryCount: summary.cacheIndexEntryCount,
+              legacyStorageCacheEntryCount: summary.legacyStorageCacheEntryCount
+            };
+          },
+          {
+            timeout: 10000,
+            message: 'persistent screenshot draft was not saved before browser relaunch'
+          }
+        )
+        .toEqual({
+          count: 1,
+          captureCount: 1,
+          requestedScreenshotCount: 1,
+          screenshotRefCount: 1,
+          containsInlineScreenshotPayload: false,
+          draftTextCount: 1,
+          cacheEntryCount: 1,
+          cacheIndexEntryCount: 1,
+          legacyStorageCacheEntryCount: 0
+        });
+
+      const initialExtensionId = initialHarness.extensionId;
+      await runStage(testInfo, 'close initial fixture page before browser relaunch', () =>
+        initialPage.close()
+      );
+      page = null;
+      const initialContext = context;
+      await runStage(testInfo, 'close initial persistent context', () => initialContext.close());
+      context = null;
+
+      context = await launchVideoPanelExtensionContext(
+        userDataDir,
+        testInfo,
+        'relaunch persistent context'
+      );
+      const relaunchedHarness = await openExtensionHarnessPage(context, testInfo, 'relaunched');
+      expect(relaunchedHarness.extensionId).toBe(initialExtensionId);
+
+      const relaunchedFixture = await openFixtureWithRuntime(
+        context,
+        relaunchedHarness.extensionPage,
+        testInfo,
+        relaunchUrl,
+        youtubeFixtureHtml()
+      );
+      const relaunchedPage = relaunchedFixture.page;
+      page = relaunchedPage;
+      await expect(relaunchedPage.locator('[data-stitch-surface="video"]')).toBeVisible({
+        timeout: 10000
+      });
+      await expandVideoPanel(relaunchedPage);
+      await expect(relaunchedPage.locator('[data-role="capture-item"]')).toHaveCount(1);
+      await expect(relaunchedPage.locator('[data-capture-input]').first()).toHaveValue(
+        persistentDraft
+      );
+
+      const relaunchedToggle = relaunchedPage
+        .locator('[data-role="capture-item"]')
+        .first()
+        .locator('[data-action-id="video:toggle-screenshot"]');
+      await expect
+        .poll(async () => await relaunchedToggle.getAttribute('data-screenshot-state'), {
+          timeout: 10000,
+          message: 'relaunched browser context did not hydrate the cached screenshot state'
+        })
+        .toBe('on');
+
+      await expect
+        .poll(
+          async () => {
+            const summary = await readVideoStorageSummary(relaunchedHarness.extensionPage);
+            const firstDraft = summary.drafts.find((entry) =>
+              entry.pageUrl?.includes('persistent-relaunch')
+            );
+            return {
+              count: summary.drafts.length,
+              captureCount: firstDraft?.captureCount ?? 0,
+              requestedScreenshotCount: firstDraft?.requestedScreenshotCount ?? 0,
+              screenshotRefCount: firstDraft?.screenshotRefCount ?? 0,
+              containsInlineScreenshotPayload: firstDraft?.containsInlineScreenshotPayload ?? false,
+              draftTextCount: Object.values(firstDraft?.commentDrafts ?? {}).filter(
+                (draft) => draft === persistentDraft
+              ).length,
+              cacheEntryCount: summary.cacheEntryCount,
+              cacheIndexEntryCount: summary.cacheIndexEntryCount,
+              legacyStorageCacheEntryCount: summary.legacyStorageCacheEntryCount
+            };
+          },
+          {
+            timeout: 10000,
+            message: 'persistent screenshot draft did not survive browser context relaunch'
+          }
+        )
+        .toEqual({
+          count: 1,
+          captureCount: 1,
+          requestedScreenshotCount: 1,
+          screenshotRefCount: 1,
+          containsInlineScreenshotPayload: false,
+          draftTextCount: 1,
+          cacheEntryCount: 1,
+          cacheIndexEntryCount: 1,
+          legacyStorageCacheEntryCount: 0
+        });
+    } finally {
+      const cleanupPage = page;
+      if (cleanupPage && !cleanupPage.isClosed()) {
+        await runStage(testInfo, 'cleanup persistent fixture page', () => cleanupPage.close());
+      }
+      const cleanupContext = context;
+      if (cleanupContext) {
+        await runStage(testInfo, 'cleanup persistent context', () => cleanupContext.close());
+      }
+      await fs.rm(userDataDir, { recursive: true, force: true });
+    }
+  });
 });
