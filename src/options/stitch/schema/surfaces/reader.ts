@@ -9,7 +9,7 @@ import {
 } from '../builders/surfaces';
 import { div } from '../builders/primitives';
 import { classNames } from '../builders/classNames';
-import { RUNTIME_SURFACE_FALLBACK_MESSAGES } from '../../../../i18n/catalog/runtimeSurfaceFallbackMessages';
+import { RUNTIME_SURFACE_FALLBACK_MESSAGES } from '@i18n/catalog/runtimeSurfaceFallbackMessages';
 
 const schema: ResourceSchema = {
   openMode: 'modal',

@@ -9,7 +9,7 @@ import type {
   SurfaceAction,
   VideoSurfaceCapture
 } from '../../types';
-import { RUNTIME_SURFACE_FALLBACK_MESSAGES } from '../../../../i18n/catalog/runtimeSurfaceFallbackMessages';
+import { RUNTIME_SURFACE_FALLBACK_MESSAGES } from '@i18n/catalog/runtimeSurfaceFallbackMessages';
 import { buttonNode, div, element, span, strong } from './primitives';
 import { classNames } from './classNames';
 import {

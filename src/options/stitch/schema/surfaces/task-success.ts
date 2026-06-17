@@ -8,7 +8,7 @@ import type {
 import { actionRow, surfaceBody, surfaceStage, surfaceWindow } from '../builders/surfaces';
 import { div, element, strong } from '../builders/primitives';
 import { classNames } from '../builders/classNames';
-import { RUNTIME_SURFACE_FALLBACK_MESSAGES } from '../../../../i18n/catalog/runtimeSurfaceFallbackMessages';
+import { RUNTIME_SURFACE_FALLBACK_MESSAGES } from '@i18n/catalog/runtimeSurfaceFallbackMessages';
 
 type TaskSuccessSurface = PreviewContent['surfaces']['taskSuccess'];
 

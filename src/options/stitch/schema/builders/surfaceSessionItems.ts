@@ -1,5 +1,5 @@
 import type { NodeChild, NodeSchema, VideoSurfaceCapture } from '../../types';
-import { RUNTIME_SURFACE_FALLBACK_MESSAGES } from '../../../../i18n/catalog/runtimeSurfaceFallbackMessages';
+import { RUNTIME_SURFACE_FALLBACK_MESSAGES } from '@i18n/catalog/runtimeSurfaceFallbackMessages';
 import { classNames } from './classNames';
 import { div, element } from './primitives';
 
