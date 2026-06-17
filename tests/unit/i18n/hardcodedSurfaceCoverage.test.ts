@@ -128,7 +128,7 @@ const COVERAGE: readonly SurfaceCoverage[] = [
         includes: [
           'sets document lang and title from the active onboarding runtime resource',
           'renders the support modal from onboarding catalog messages',
-          'uses English-only support modal fallback before onboarding messages are available'
+          'uses default onboarding runtime messages when page resources are unavailable'
         ]
       }
     ]

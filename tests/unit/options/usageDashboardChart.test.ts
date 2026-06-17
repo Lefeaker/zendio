@@ -17,6 +17,6 @@ describe('usage chart content', () => {
       'maintenance'
     );
     expect(getSettingsView('overview', createSchemaContext())).toBeTruthy();
-    expectProductionText('Total saved', 'AI conversations', 'Articles');
+    expectProductionText('Total saved', 'AI Conversations', 'Articles');
   });
 });

@@ -43,14 +43,15 @@ afterEach(async () => {
 });
 
 describe('Local Vault release readiness audit', () => {
-  it('keeps the shipped permission page first paint English-tagged and free of Chinese copy', async () => {
+  it('keeps the shipped permission page first paint English-tagged, neutral, and free of Chinese copy', async () => {
     const source = await readFile(
       new URL('../../../public/local-vault-permission.html', import.meta.url),
       'utf8'
     );
 
     expect(source).toContain('<html lang="en">');
-    expect(source).toContain('<title>Local vault permission</title>');
+    expect(source).toContain('<title>Zendio</title>');
+    expect(source).not.toContain('Local vault permission');
     expect(source).not.toMatch(/\p{Script=Han}/u);
   });
 

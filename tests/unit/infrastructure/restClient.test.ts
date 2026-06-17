@@ -89,9 +89,15 @@ describe('RestClient Implementation', () => {
       .mockResolvedValueOnce(new Response('Not Found', { status: 404, statusText: 'Not Found' }))
       .mockResolvedValueOnce(new Response('Not Found', { status: 404, statusText: 'Not Found' }));
 
-    await expect(restClient.writeFile(mockConnection, 'test.md', 'content')).rejects.toThrow(
-      'Target vault is not reachable or misconfigured.'
-    );
+    await expect(restClient.writeFile(mockConnection, 'test.md', 'content')).rejects.toMatchObject({
+      code: 'REST_VAULT_UNAVAILABLE',
+      message: 'REST_VAULT_UNAVAILABLE',
+      userMessageDescriptor: { key: 'errorRestVaultUnavailable' },
+      context: {
+        retryCount: 1,
+        vault: 'test-vault'
+      }
+    });
 
     const lastCall = warnSpy.mock.calls[warnSpy.mock.calls.length - 1];
     expect(lastCall?.[1]).toContain('HTTP error');
@@ -102,9 +108,15 @@ describe('RestClient Implementation', () => {
     const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
     mockFetch.mockRejectedValue(new Error('Failed to fetch'));
 
-    await expect(restClient.writeFile(mockConnection, 'test.md', 'content')).rejects.toThrow(
-      'Target vault is not reachable or misconfigured.'
-    );
+    await expect(restClient.writeFile(mockConnection, 'test.md', 'content')).rejects.toMatchObject({
+      code: 'REST_VAULT_UNAVAILABLE',
+      message: 'REST_VAULT_UNAVAILABLE',
+      userMessageDescriptor: { key: 'errorRestVaultUnavailable' },
+      context: {
+        retryCount: 1,
+        vault: 'test-vault'
+      }
+    });
 
     const lastCall = warnSpy.mock.calls[warnSpy.mock.calls.length - 1];
     expect(lastCall?.[1]).toContain('network error');
