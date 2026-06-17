@@ -70,6 +70,22 @@ describe('session draft retention policy', () => {
     expect(result.dirty).toBe(true);
   });
 
+  it('prunes entries whose updatedAt falls outside the retention window even with future expiresAt', () => {
+    const stale = createIndexEntry('legacy-long-expiry', {
+      updatedAt: BASE_TIME - FREE_SESSION_DRAFT_RETENTION_MS - 1,
+      expiresAt: BASE_TIME + DAY_MS
+    });
+
+    const result = pruneSessionDraftIndexEntriesForRetentionPolicy([stale], BASE_TIME, {
+      policy: FREE_SESSION_DRAFT_RETENTION_POLICY,
+      maxEntries: 100
+    });
+
+    expect(result.entries).toEqual([]);
+    expect(result.removedKeys).toEqual([stale.key]);
+    expect(result.dirty).toBe(true);
+  });
+
   it('removes every restorable entry for an over-limit page identity', () => {
     const oldPageFirst = createIndexEntry('old-page-first', {
       pageKey: 'old-page',

@@ -63,7 +63,7 @@ export function prunePolicyIndexEntries(
   }
 
   const retainedUnexpired = unique.filter((entry) => {
-    if (entry.expiresAt <= now) {
+    if (getEffectiveExpiresAt(entry, policy) <= now) {
       removedKeys.push(entry.key);
       return false;
     }
@@ -190,6 +190,13 @@ function createPageIdentity(entry: SessionDraftIndexEntry): string {
 
 function isRestorableStatus(status: SessionDraftIndexEntry['status']): boolean {
   return status === 'active' || status === 'restorable';
+}
+
+function getEffectiveExpiresAt(
+  entry: SessionDraftIndexEntry,
+  policy: SessionDraftRetentionPolicy
+): number {
+  return Math.min(entry.expiresAt, entry.updatedAt + policy.retentionMs);
 }
 
 function normalizePositiveFiniteNumber(value: number | undefined, fallback: number): number {

@@ -62,7 +62,6 @@ export function createSessionDraftRepository(
   const maxEnvelopeBytes = options.maxEnvelopeBytes ?? SESSION_DRAFT_MAX_ENVELOPE_BYTES;
   const resolveOwnerContext = options.resolveOwnerContext ?? getCurrentSessionDraftOwnerContext;
   const isOwnerContextActive = options.isOwnerContextActive ?? isSessionDraftOwnerContextActive;
-
   function resolveOperationOwnerContext(operationOptions?: OwnerContextOptions) {
     if (hasOwnerContextOverride(operationOptions)) {
       return normalizeSessionDraftOwnerContext(operationOptions.ownerContext);
@@ -98,7 +97,6 @@ export function createSessionDraftRepository(
   function pruneIndexEntries(entries: readonly SessionDraftIndexEntry[], now: number) {
     return prunePolicyIndexEntries(entries, now, { policy: retentionPolicy, maxEntries });
   }
-
   async function persistIndex(
     entries: SessionDraftIndexEntry[],
     removedKeys: string[],
@@ -187,9 +185,12 @@ export function createSessionDraftRepository(
       [SESSION_DRAFT_INDEX_KEY]: createSessionDraftIndex(nextState.entries)
     });
 
-    const removedKeys = nextState.removedKeys.filter((key) => key !== storageKey);
-    if (removedKeys.length > 0 || indexState.removedKeys.length > 0) {
-      await area.remove(Array.from(new Set([...indexState.removedKeys, ...removedKeys])));
+    const keysToRemove = new Set([...indexState.removedKeys, ...nextState.removedKeys]);
+    if (nextState.entries.some((entry) => entry.key === storageKey)) {
+      keysToRemove.delete(storageKey);
+    }
+    if (keysToRemove.size > 0) {
+      await area.remove(Array.from(keysToRemove));
     }
 
     return normalized;
