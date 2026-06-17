@@ -80,11 +80,12 @@ const ALLOWED_PREVIEW_DRIFT = new Map([
         'The English uncatalogued-copy audit coverage follow-up refreshes the generated preview JS hash after replacing preview seed hint/subtitle/body literals with catalog-backed message lookups and extracting preview navigation seed ownership while preserving the frozen reference and Stitch runtime contract.',
         'The English numbered UI title audit follow-up refreshes the generated preview JS hash after replacing plugin setup preview seed raw numbered step titles with existing catalog-backed schema message lookups while preserving the frozen reference and Stitch runtime contract.',
         'The 0.2.0 release-gates repair also replaces YAML editor fallback value imports and preview-reachable Options formatMessage barrel imports with slim local fallback copy plus the lightweight @i18n/messageFormatter entry, removing the full i18n runtime/localeService/generated-locale graph from the preview bundle while preserving YAML labels, fragment modifier warnings, and the Stitch preview contract. The English gate/main merge keeps Options/Stitch fallback copy catalog-backed through the English runtime catalog source plus the generated English schema fallback, without restoring localeService or the generated all-locale registry.',
-        'The Options support resource refresh replaces the old Afdian support channel with a WeChat reward icon plus cropped QR image, adds icons to support/suggestion resource cards, removes the visible Support Scope section, and keeps the task-success runtime support strip on the same Stitch schema contract.'
+        'The Options support resource refresh replaces the old Afdian support channel with a WeChat reward icon plus cropped QR image, adds icons to support/suggestion resource cards, removes the visible Support Scope section, and keeps the task-success runtime support strip on the same Stitch schema contract.',
+        'The Options resource URL resolver repair refreshes the generated preview JS hash after routing resource-card icon and preview image paths through the production extension-root asset resolver while preserving the frozen reference and Stitch runtime contract.'
       ].join(' '),
       leftSha256: '9020ccbd91acd691eccd3fdf568b9a90efbddf0a35d79f36ef1caba702fa0c07',
-      // 2026-06-17 Options support resource icon/QR refresh preview JS hash.
-      rightSha256: 'e4f235069151af003805afebce2a1e17457072ac33a80c31e68537db145b57f3'
+      // 2026-06-17 Options resource asset URL resolver repair preview JS hash.
+      rightSha256: 'a32e71737ea55b038ce912745292b420cf9ab15ee38da6d89019273d0e446fc2'
     }
   ]
 ]);

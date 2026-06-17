@@ -18,6 +18,7 @@ export interface RendererContext extends SchemaContext {
   el: typeof el;
   ui: typeof previewUi;
   dispatch: (id: string, args?: unknown[], value?: unknown, event?: Event) => void;
+  resolveAssetUrl?: (path: string) => string;
   mountWidget?: (widgetType: string, host: HTMLElement, props?: Record<string, unknown>) => void;
 }
 

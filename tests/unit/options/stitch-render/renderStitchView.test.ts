@@ -95,6 +95,36 @@ describe('Stitch schema renderer split', () => {
     expect(node?.querySelector('.inline-highlight')?.className).toContain('highlight-neon-green');
   });
 
+  it('resolves resource card assets through the render context when provided', () => {
+    const ctx: RendererContext & { resolveAssetUrl: (path: string) => string } = {
+      ...createContext(),
+      resolveAssetUrl: (path) =>
+        `chrome-extension://unit/${path.startsWith('./') ? path.slice(2) : path}`
+    };
+    const view: ViewSchema = {
+      id: 'renderer-asset-urls',
+      kind: 'page',
+      children: [
+        {
+          kind: 'resourceCard',
+          title: 'WeChat',
+          icon: './icons/wechat-reward.svg',
+          image: './icons/wechat-reward-qr.jpg',
+          imageAlt: 'WeChat reward code'
+        }
+      ]
+    };
+
+    const node = renderPreviewView(view, ctx);
+
+    expect(node?.querySelector('img.resource-link-icon')?.getAttribute('src')).toBe(
+      'chrome-extension://unit/icons/wechat-reward.svg'
+    );
+    expect(node?.querySelector('img.resource-link-preview')?.getAttribute('src')).toBe(
+      'chrome-extension://unit/icons/wechat-reward-qr.jpg'
+    );
+  });
+
   it('wires form renderer actions through the action adapter', () => {
     const dispatch = vi.fn();
     const view: ViewSchema = {

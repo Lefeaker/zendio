@@ -355,16 +355,16 @@ describe('mountProductionStitchShell resource i18n', () => {
       'Support WeChat Reward Description Sentinel'
     );
     expect(
-      support.querySelector<HTMLImageElement>('img.resource-link-icon[src="./icons/ko-fi.svg"]')
+      support.querySelector<HTMLImageElement>('img.resource-link-icon[src="../icons/ko-fi.svg"]')
     ).toBeTruthy();
     expect(
       support.querySelector<HTMLImageElement>(
-        'img.resource-link-icon[src="./icons/wechat-reward.svg"]'
+        'img.resource-link-icon[src="../icons/wechat-reward.svg"]'
       )
     ).toBeTruthy();
     expect(
       support.querySelector<HTMLImageElement>(
-        'img.resource-link-preview[src="./icons/wechat-reward-qr.jpg"]'
+        'img.resource-link-preview[src="../icons/wechat-reward-qr.jpg"]'
       )
     ).toBeTruthy();
     expect(
@@ -395,12 +395,12 @@ describe('mountProductionStitchShell resource i18n', () => {
     );
     expect(
       suggestions.querySelector<HTMLImageElement>(
-        'img.resource-link-icon[src="./icons/github-fill.svg"]'
+        'img.resource-link-icon[src="../icons/github-fill.svg"]'
       )
     ).toBeTruthy();
     expect(
       suggestions.querySelector<HTMLImageElement>(
-        'img.resource-link-icon[src="./icons/reddit.svg"]'
+        'img.resource-link-icon[src="../icons/reddit.svg"]'
       )
     ).toBeTruthy();
     expectNoText(

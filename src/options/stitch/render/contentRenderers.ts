@@ -83,8 +83,8 @@ export function renderResourceCardNode(node: ResourceCardNode, ctx: RendererCont
   const tag = isStatic ? 'div' : 'a';
   const title = resolveValue(node.title, ctx);
   const subtitle = resolveValue(node.subtitle, ctx);
-  const icon = resolveValue(node.icon, ctx);
-  const image = resolveValue(node.image, ctx);
+  const icon = resolveResourceAssetUrl(resolveValue(node.icon, ctx), ctx);
+  const image = resolveResourceAssetUrl(resolveValue(node.image, ctx), ctx);
   const imageAlt = resolveValue(node.imageAlt, ctx);
   const labels = ctx.appData.rendererLabels;
   const className = ['resource-link-card', isStatic ? 'is-static' : '', image ? 'has-preview' : '']
@@ -125,6 +125,16 @@ export function renderResourceCardNode(node: ResourceCardNode, ctx: RendererCont
     ),
     trailing
   );
+}
+
+function resolveResourceAssetUrl(
+  path: string | undefined,
+  ctx: RendererContext
+): string | undefined {
+  if (!path) {
+    return undefined;
+  }
+  return ctx.resolveAssetUrl ? ctx.resolveAssetUrl(path) : path;
 }
 
 export function renderHighlightExampleNode(ctx: RendererContext): HTMLDivElement {

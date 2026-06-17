@@ -12,6 +12,7 @@ import { RUNTIME_SURFACE_RESOURCE_IDS } from './productionStitchStateMapper';
 import { setScrollTopImmediately } from './productionStitchScrollGuard';
 import { createProductionStitchRenderControls } from './productionStitchRenderControls';
 import { installLocalFolderDismissal } from './productionStitchLocalFolderDismissal';
+import { resolveProductionStitchAssetUrl } from './productionStitchAssetUrlResolver';
 import type {
   ProductionStitchRenderLifecycle,
   ProductionStitchRenderLifecycleOptions,
@@ -53,6 +54,7 @@ export function createProductionStitchRenderLifecycle(
       ui: previewUi,
       dispatch: (actionId: string, args?: unknown[], value?: unknown, event?: Event) =>
         options.dispatch(actionId, args, value, event),
+      resolveAssetUrl: resolveProductionStitchAssetUrl,
       mountWidget: (widgetType: string, host: HTMLElement) =>
         options.widgetHost.mountWidget(widgetType, host)
     };
