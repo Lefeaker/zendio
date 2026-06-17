@@ -12,9 +12,9 @@ import {
   createSessionDraftIndex,
   createSessionDraftIndexEntry,
   measureSessionDraftValueBytes,
-  normalizeSessionDraftEnvelopeForSave,
-  pruneSessionDraftIndexEntries
+  normalizeSessionDraftEnvelopeForSave
 } from './sessionDraftSchemas';
+import { normalizePolicy, prunePolicyIndexEntries } from './sessionDraftRetentionPolicy';
 import {
   getCurrentSessionDraftOwnerContext,
   getSessionDraftEnvelopeOwnerContext,
@@ -23,7 +23,6 @@ import {
   normalizeSessionDraftOwnerContext
 } from './sessionDraftTabContext';
 import {
-  DEFAULT_SESSION_DRAFT_TTL_MS,
   SESSION_DRAFT_MAX_ENTRIES,
   SESSION_DRAFT_MAX_ENVELOPE_BYTES,
   isRestorableSessionDraftStatus,
@@ -58,15 +57,13 @@ export function createSessionDraftRepository(
   area: StorageAreaService,
   options: SessionDraftRepositoryOptions = {}
 ): SessionDraftRepository {
-  const ttlMs = options.ttlMs ?? DEFAULT_SESSION_DRAFT_TTL_MS;
+  const retentionPolicy = normalizePolicy(options.retentionPolicy, options.ttlMs);
   const maxEntries = options.maxEntries ?? SESSION_DRAFT_MAX_ENTRIES;
   const maxEnvelopeBytes = options.maxEnvelopeBytes ?? SESSION_DRAFT_MAX_ENVELOPE_BYTES;
   const resolveOwnerContext = options.resolveOwnerContext ?? getCurrentSessionDraftOwnerContext;
   const isOwnerContextActive = options.isOwnerContextActive ?? isSessionDraftOwnerContextActive;
 
-  function resolveOperationOwnerContext(
-    operationOptions?: OwnerContextOptions
-  ): SessionDraftOwnerContext | Promise<SessionDraftOwnerContext | null> | null {
+  function resolveOperationOwnerContext(operationOptions?: OwnerContextOptions) {
     if (hasOwnerContextOverride(operationOptions)) {
       return normalizeSessionDraftOwnerContext(operationOptions.ownerContext);
     }
@@ -90,13 +87,16 @@ export function createSessionDraftRepository(
     if (!parsed.success) {
       return { entries: [], removedKeys: [], dirty: true };
     }
-    return pruneSessionDraftIndexEntries(
+    return pruneIndexEntries(
       parsed.data.entries.map(
         (entry) => omitUndefinedOptionalFields(entry) as SessionDraftIndexEntry
       ),
-      now,
-      maxEntries
+      now
     );
+  }
+
+  function pruneIndexEntries(entries: readonly SessionDraftIndexEntry[], now: number) {
+    return prunePolicyIndexEntries(entries, now, { policy: retentionPolicy, maxEntries });
   }
 
   async function persistIndex(
@@ -155,13 +155,13 @@ export function createSessionDraftRepository(
       : pendingOwnerContext;
     const normalized = normalizeSessionDraftEnvelopeForSave(
       applyOwnerContext(envelope, operationOwnerContext),
-      ttlMs
+      retentionPolicy.retentionMs
     );
     ensureEnvelopeAllowed(normalized);
     const nextEntry = createSessionDraftIndexEntry(normalized);
 
     const indexState = await readIndex(now);
-    const nextState = pruneSessionDraftIndexEntries(
+    const nextState = pruneIndexEntries(
       [
         nextEntry,
         ...indexState.entries.filter(
@@ -174,8 +174,7 @@ export function createSessionDraftRepository(
             )
         )
       ],
-      now,
-      maxEntries
+      now
     );
     const storageKey = createSessionDraftStorageKey({
       mode: normalized.mode,

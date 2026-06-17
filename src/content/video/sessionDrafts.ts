@@ -2,7 +2,9 @@ import {
   createSessionDraftPageKey,
   createSessionDraftStorageKey,
   DEFAULT_SESSION_DRAFT_TTL_MS,
+  filterSessionCommentDraftsForRetainedIds,
   SESSION_DRAFT_SCHEMA_VERSION,
+  selectRetainedSessionDraftItems,
   type SessionCommentDraftSnapshot,
   type SessionDraftStatus,
   type VideoSessionDraftEnvelope,
@@ -102,6 +104,12 @@ export function createVideoSessionDraftStorageKey(pageUrl: string, draftId: stri
 export function buildVideoSessionDraftPayload(
   args: BuildVideoSessionDraftPayloadArgs
 ): VideoSessionDraftPayloadShape {
+  const captures = selectRetainedSessionDraftItems(args.captures).map(serializeVideoDraftCapture);
+  const commentDrafts = filterSessionCommentDraftsForRetainedIds(
+    args.commentDrafts,
+    captures.map((capture) => capture.id)
+  );
+
   return {
     mode: 'video',
     platform: args.platform,
@@ -110,8 +118,8 @@ export function buildVideoSessionDraftPayload(
     canonicalUrl: args.canonicalUrl,
     videoTitle: args.videoTitle,
     ...(args.destination ? { destination: args.destination } : {}),
-    commentDrafts: args.commentDrafts,
-    captures: args.captures.map(serializeVideoDraftCapture)
+    commentDrafts,
+    captures
   };
 }
 

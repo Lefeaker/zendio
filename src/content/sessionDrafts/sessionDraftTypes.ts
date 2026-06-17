@@ -1,7 +1,9 @@
 import type { ExportDestinationMetadata } from '../../shared/exportDestination';
+import { FREE_SESSION_DRAFT_RETENTION_MS } from './sessionDraftRetentionPolicy';
+import type { SessionDraftRetentionPolicy } from './sessionDraftRetentionPolicy';
 
 export const SESSION_DRAFT_SCHEMA_VERSION = 1 as const;
-export const DEFAULT_SESSION_DRAFT_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+export const DEFAULT_SESSION_DRAFT_TTL_MS = FREE_SESSION_DRAFT_RETENTION_MS;
 export const SESSION_DRAFT_MAX_ENTRIES = 100;
 export const SESSION_DRAFT_MAX_ENVELOPE_BYTES = 512 * 1024;
 
@@ -90,6 +92,7 @@ export interface SessionDraftIndex {
 
 export interface SessionDraftRepositoryOptions {
   ttlMs?: number;
+  retentionPolicy?: SessionDraftRetentionPolicy;
   maxEntries?: number;
   maxEnvelopeBytes?: number;
   resolveOwnerContext?: () => MaybePromise<SessionDraftOwnerContext | null | undefined>;

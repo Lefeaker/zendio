@@ -7,7 +7,10 @@ import {
   restoreReaderSessionDraftHighlights
 } from '@content/reader/sessionDrafts';
 import type { ReaderHighlightRecord } from '@content/reader/services/highlightManager';
-import { createSessionDraftRepository } from '@content/sessionDrafts';
+import {
+  FREE_SESSION_DRAFT_MAX_ITEMS_PER_PAGE,
+  createSessionDraftRepository
+} from '@content/sessionDrafts';
 import { createMemoryStorageArea } from '@platform/preview/memoryStorage';
 
 function createHighlightRecord(
@@ -90,6 +93,50 @@ describe('readerSessionDrafts', () => {
         status: 'active'
       })
     ).toBeNull();
+  });
+
+  it('persists only the newest Free highlight window and filters comment drafts', () => {
+    const highlights = Array.from({ length: 25 }, (_, index) =>
+      createHighlightRecord({
+        id: `highlight-${index}`,
+        selectedText: `Highlight ${index}`,
+        selectedHtml: `<mark>Highlight ${index}</mark>`,
+        comment: `saved comment ${index}`,
+        createdAt: 1_000 + index
+      })
+    );
+    const commentDrafts = Object.fromEntries(
+      highlights.map((highlight) => [highlight.id, `draft for ${highlight.id}`])
+    );
+
+    const envelope = buildReaderSessionDraftEnvelope({
+      draftId: 'reader-draft-cap',
+      createdAt: 900,
+      now: 2_000,
+      pageUrl: 'https://example.com/article/free-cap',
+      pageTitle: 'Article with many highlights',
+      highlights,
+      commentDrafts,
+      status: 'active'
+    });
+
+    expect(envelope).not.toBeNull();
+    if (!envelope) {
+      throw new Error('expected reader session envelope');
+    }
+    const retainedHighlights = envelope.payload.highlights ?? [];
+    const retainedCommentDrafts = envelope.payload.commentDrafts ?? {};
+    expect(retainedHighlights).toHaveLength(FREE_SESSION_DRAFT_MAX_ITEMS_PER_PAGE);
+    expect(retainedHighlights.map((highlight) => highlight.id)).toEqual(
+      Array.from(
+        { length: FREE_SESSION_DRAFT_MAX_ITEMS_PER_PAGE },
+        (_, index) => `highlight-${index + 5}`
+      )
+    );
+    expect(Object.keys(retainedCommentDrafts)).toEqual(
+      retainedHighlights.map((highlight) => highlight.id)
+    );
+    expect(highlights).toHaveLength(25);
   });
 
   it('recreates live highlight ranges when the saved text still exists in the document', () => {

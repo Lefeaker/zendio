@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
+import { FREE_SESSION_DRAFT_MAX_ITEMS_PER_PAGE } from '@content/sessionDrafts';
 import type { ExportDestinationMetadata } from '@shared/exportDestination';
 import type { VideoCapture, VideoCaptureScreenshot } from '@content/video/types';
+import type { VideoScreenshotCacheRef } from '@content/video/videoScreenshotCacheTypes';
 import {
   buildVideoSessionDraftPayload,
   createVideoSessionDraftEnvelope,
@@ -52,6 +54,22 @@ function createCaptures(): VideoCapture[] {
       createdAt: BASE_TIME + 2
     }
   ];
+}
+
+function createScreenshotRef(captureId: string, capturedAt: number): VideoScreenshotCacheRef {
+  const id = `shot-${captureId}`;
+  return {
+    schemaVersion: 1,
+    pageKey: 'video-page',
+    captureId,
+    id,
+    key: `aiob.videoScreenshotCache.v1.video-page.${captureId}.${id}`,
+    fileName: `${id}.jpg`,
+    mimeType: 'image/jpeg',
+    byteLength: 24,
+    capturedAt,
+    expiresAt: capturedAt + 60_000
+  };
 }
 
 describe('videoSessionDrafts', () => {
@@ -124,6 +142,51 @@ describe('videoSessionDrafts', () => {
       })
     ]);
     expect((restored[0] as { screenshot?: unknown }).screenshot).toBeUndefined();
+  });
+
+  it('persists only the newest Free capture window and filters comment drafts', () => {
+    const captures: VideoCapture[] = Array.from({ length: 25 }, (_, index) => ({
+      kind: 'timestamp',
+      id: `capture-${index}`,
+      timeSec: index,
+      url: `https://video.example/watch?v=1&t=${index}`,
+      comment: `Marker ${index}`,
+      createdAt: BASE_TIME + index,
+      screenshotRequested: true,
+      screenshotRef: createScreenshotRef(`capture-${index}`, BASE_TIME + 500 + index)
+    }));
+    const commentDrafts = Object.fromEntries(
+      captures.map((capture) => [capture.id, `draft for ${capture.id}`])
+    );
+
+    const payload = buildVideoSessionDraftPayload({
+      captures,
+      commentDrafts,
+      platform: 'youtube',
+      videoId: 'video-1',
+      videoTitle: 'Video title',
+      videoUrl: 'https://video.example/watch?v=1',
+      canonicalUrl: 'https://video.example/watch?v=1'
+    });
+
+    expect(payload.captures).toHaveLength(FREE_SESSION_DRAFT_MAX_ITEMS_PER_PAGE);
+    expect(payload.captures.map((capture) => capture.id)).toEqual(
+      Array.from(
+        { length: FREE_SESSION_DRAFT_MAX_ITEMS_PER_PAGE },
+        (_, index) => `capture-${index + 5}`
+      )
+    );
+    expect(Object.keys(payload.commentDrafts ?? {})).toEqual(
+      payload.captures.map((capture) => capture.id)
+    );
+    expect(payload.captures.at(-1)).toMatchObject({
+      id: 'capture-24',
+      screenshotRequested: true,
+      screenshotRef: createScreenshotRef('capture-24', BASE_TIME + 524)
+    });
+    expect(payload.captures[0]).not.toMatchObject({ id: 'capture-0' });
+    expect(captures).toHaveLength(25);
+    expect(JSON.stringify(payload)).not.toContain('data:image/');
   });
 
   it('does not persist prepared screenshot bytes as export intent when the timestamp is off', () => {
