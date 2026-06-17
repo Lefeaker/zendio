@@ -363,7 +363,7 @@ export async function processClipPayload(
             : normalizeToAppError(classification.errorDetail, {
                 code: 'CLASSIFICATION_WARNING_INVALID',
                 domain: 'classifier',
-                defaultMessage: 'Classification warning could not be normalized.',
+                userMessageDescriptor: { key: 'errorClassifierInvalidPayload' },
                 context: {
                   ...(payload.meta?.url !== undefined && { url: payload.meta.url }),
                   ...(payload.type !== undefined && { payloadType: payload.type })

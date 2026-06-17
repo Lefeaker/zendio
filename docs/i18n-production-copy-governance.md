@@ -51,7 +51,8 @@ Typed boundary descriptor 定义在 `src/shared/i18n/userVisibleMessageDescripto
 - Shared errors: `userMessageDescriptor`
 - Connection results: `messageDescriptor`、`errorDescriptor`、`labelDescriptor`
 - Support progress: `message`
-- App/runtime payloads: descriptor sibling must accompany user-visible `message` / `label` / `title` / `description` fields when those fields can cross background/content boundaries.
+- App/runtime payloads: descriptor sibling must accompany user-visible `message` / `label` / `title` / `description` / `subtitle` / `hint` / `body` fields when those fields can cross background/content boundaries.
+- Shared error fallbacks: `normalizeToAppError(..., { defaultMessage })` is user-visible whenever it can populate `message` / `userMessage`; production English fallbacks must use catalog-backed descriptors instead of raw prose.
 
 ## Hardcoded User-Copy Audit
 
@@ -96,14 +97,16 @@ Both npm entrypoints first refresh `build/reports/production-build-graph.json`, 
 
 The audit excludes catalog/generated locale sources, `public/_locales/**`, dev harness public HTML, tests/docs/fixtures/generated files, technical identifiers, URLs, event names, class/icon tokens, CSS text, and site-native AI parser token arrays.
 
+Coverage includes user-visible field taxonomy beyond the original title/label/message set: `subtitle`, `hint`, `body`, `defaultMessage`, `placeholder`, `ariaLabel`, and comparable UI fields are scanned when they appear in production-reachable source. `normalizeToAppError(..., { defaultMessage: "..." })` is a dedicated descriptor-boundary check because that option can become a user-facing fallback. Localized overlay objects with descriptor siblings remain valid; raw preview seed copy is allowed only when catalog-backed, localized by the production renderer, or backed by executable proof that production rendering does not consume the raw field directly.
+
 The report currently classifies:
 
 - `english-translation-fallback`: English fallback text in translation helper calls. Existing findings are migration candidates unless a future narrow allowlist classifies a specific retained fallback as `acceptable-fallback`.
-- `uncatalogued-ui-copy`: English product-authored UI copy in user-visible object fields such as `label`, `title`, `message`, `description`, `placeholder`, and `ariaLabel`.
-- `descriptor-boundary`: English user-visible payload fields under background/content/runtime/error boundaries without a descriptor sibling.
+- `uncatalogued-ui-copy`: English product-authored UI copy in user-visible object fields such as `label`, `title`, `message`, `description`, `subtitle`, `hint`, `body`, `placeholder`, `defaultMessage`, and `ariaLabel`.
+- `descriptor-boundary`: English user-visible payload fields under background/content/runtime/error boundaries without a descriptor sibling, including `normalizeToAppError` raw English `defaultMessage` fallbacks.
 - `html-uncatalogued-copy` and `dom-text-copy`: text nodes or DOM text assignment outside the catalog.
 
-Current tree truth on 2026-06-17 after P01-P07 English copy governance, P07d surface-localization owner split, and P08 gate wiring: `scanned=574 findings=0 unexpected=0 staleAllowlist=0`. The English allowlist currently has `0` rules, so the gate is not masking retained product UI copy.
+Current tree truth on 2026-06-17 after P01-P07 English copy governance, P07d surface-localization owner split, P08 gate wiring, and the coverage follow-up for `defaultMessage` plus expanded visible fields: `scanned=575 findings=0 unexpected=0 staleAllowlist=0`. The English allowlist currently has `0` rules, so the gate is not masking retained product UI copy.
 
 Valid future allowlist entries must include `id`, `path`, `category`, `reason`, `ownerPlan`, `revisit`, a stable locator (`line`, `pattern`, or `literalIncludes`), and applicable `findingKinds`. Broad path-only allowlists are invalid. Do not add an allowlist rule for product-authored UI copy that should be catalog-backed.
 
@@ -124,7 +127,7 @@ The current post-migration ownership is:
 - Content runtime Clipper/Stitch/export destination fallbacks: P20, catalog-backed or non-Chinese compatibility defaults; no synthesized setup labels.
 - AI chat parser native tokens: P21, source-site token allowlist only; product fallback titles must be neutral or localized.
 - Hard gate and allowlist policy: P22, `quality` runs `audit:i18n-hardcoded-user-copy:check`.
-- English uncatalogued-copy hard gate: P08, `quality` and `verify:preflight` run `audit:i18n-uncatalogued-user-copy:check`.
+- English uncatalogued-copy hard gate: P08 plus coverage follow-up, `quality` and `verify:preflight` run `audit:i18n-uncatalogued-user-copy:check`; the gate covers raw English `normalizeToAppError` default fallbacks and production-visible `subtitle` / `hint` / `body` fields.
 
 ## Regression Expectations
 

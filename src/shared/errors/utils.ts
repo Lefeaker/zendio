@@ -1,10 +1,14 @@
 import { AppError, ErrorSeverity, ErrorDomain, isAppError } from './types';
-import { toSerializableUserVisibleMessageDescriptor } from '../i18n/userVisibleMessageDescriptor';
+import {
+  toSerializableUserVisibleMessageDescriptor,
+  type UserVisibleMessageDescriptor
+} from '../i18n/userVisibleMessageDescriptor';
 
 interface UnknownErrorOptions {
   code?: string;
   domain?: ErrorDomain;
   defaultMessage?: string;
+  userMessageDescriptor?: UserVisibleMessageDescriptor;
   recoverable?: boolean;
   context?: Record<string, unknown>;
 }
@@ -16,6 +20,9 @@ export function normalizeToAppError(error: unknown, options: UnknownErrorOptions
 
   const isNativeError = error instanceof Error;
   const message = options.defaultMessage ?? (isNativeError ? error.message : 'Unknown error');
+  const userMessageDescriptor = toSerializableUserVisibleMessageDescriptor(
+    options.userMessageDescriptor
+  );
 
   return {
     code: options.code ?? 'UNKNOWN_ERROR',
@@ -23,7 +30,7 @@ export function normalizeToAppError(error: unknown, options: UnknownErrorOptions
     message,
     severity: ErrorSeverity.ERROR,
     recoverable: options.recoverable ?? false,
-    userMessage: message,
+    ...(userMessageDescriptor === undefined ? { userMessage: message } : { userMessageDescriptor }),
     context: {
       ...options.context,
       cause: isNativeError

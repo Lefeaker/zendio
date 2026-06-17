@@ -1,13 +1,8 @@
 import { changelogResource } from './changelogResourceData';
 import { createReleaseLanguageOptions } from './languageOptions';
-import { DEFAULT_PRODUCTION_ENGLISH_MESSAGES } from './schema/i18n';
+import { message, previewNavigation } from './previewNavigation';
 import { getPreviewTemplateDefaults } from '@shared/config';
 import type { PreviewContent } from './types';
-
-function message(key: keyof typeof DEFAULT_PRODUCTION_ENGLISH_MESSAGES, fallback = key): string {
-  const value = DEFAULT_PRODUCTION_ENGLISH_MESSAGES[key];
-  return typeof value === 'string' && value.length > 0 ? value : fallback;
-}
 
 const SAMPLE_RESEARCH_VAULT = message('schemaPreviewSampleVaultResearch');
 const SAMPLE_INBOX_VAULT = message('schemaPreviewSampleVaultInbox');
@@ -35,7 +30,7 @@ const usageHistory = usageHistoryValues.map((value, index) => {
 export const previewContent: PreviewContent = {
   brand: {
     title: 'Zendio',
-    subtitle: 'Component Preview',
+    subtitle: previewNavigation.brandSubtitle,
     logo: '../../AiiinOB/public/icons/bannerlogo-128.png'
   },
   rendererLabels: {
@@ -45,104 +40,9 @@ export const previewContent: PreviewContent = {
     highlightExampleText: 'this highlighted section',
     highlightExampleSuffix: ', making it easier to revisit later.'
   },
-  sidebarLinks: [
-    {
-      id: 'onboarding',
-      label: 'Onboarding',
-      hint: 'First-run guide and quick orientation',
-      icon: 'rocket_launch'
-    },
-    {
-      id: 'plugin-setup',
-      label: message('schemaResourcePluginSetupTitle'),
-      hint: 'Local REST API setup guide',
-      icon: 'extension'
-    },
-    {
-      id: 'support',
-      label: 'Support',
-      hint: 'Support channels and service scope',
-      icon: 'favorite'
-    },
-    {
-      id: 'suggestions',
-      label: 'Suggestions',
-      hint: 'Feedback and suggestion channels',
-      icon: 'lightbulb'
-    },
-    { id: 'contact', label: 'Contact', hint: 'Author contact and support email', icon: 'mail' },
-    { id: 'changelog', label: 'Changelog', hint: 'Recent release updates', icon: 'history' }
-  ],
-  surfaceLinks: [
-    {
-      id: 'clipper',
-      label: message('schemaRuntimeClipperTitle'),
-      hint: 'Selection dialog after highlighting text',
-      icon: 'content_cut'
-    },
-    {
-      id: 'reader',
-      label: message('schemaRuntimeReaderTitle'),
-      hint: 'Floating Reader Mode panel',
-      icon: 'auto_stories'
-    },
-    {
-      id: 'video',
-      label: message('schemaRuntimeVideoTitle'),
-      hint: 'Video note panel',
-      icon: 'smart_display'
-    },
-    {
-      id: 'video-floating-prompt',
-      label: message('schemaRuntimeVideoFloatingPromptTitle'),
-      hint: 'Entry bubble on video pages',
-      icon: 'ads_click'
-    },
-    {
-      id: 'task-success',
-      label: message('schemaRuntimeTaskSuccessTitle'),
-      hint: 'Success prompt and feedback modal',
-      icon: 'celebration'
-    }
-  ],
-  nav: [
-    {
-      id: 'overview',
-      label: 'Overview',
-      hint: 'Usage, language, privacy, and data controls',
-      icon: 'dashboard'
-    },
-    {
-      id: 'storage',
-      label: 'Storage',
-      hint: 'Vaults, connection settings, and routing',
-      icon: 'storage'
-    },
-    {
-      id: 'capture-sources',
-      label: message('schemaCaptureSourcesTitle'),
-      hint: 'AI Chat and Video',
-      icon: 'ads_click'
-    },
-    {
-      id: 'capture-behavior',
-      label: message('schemaCaptureBehaviorTitle'),
-      hint: 'Reading and Fragment behavior',
-      icon: 'menu_book'
-    },
-    {
-      id: 'output',
-      label: message('schemaOutputTitle'),
-      hint: 'Templates, mappings, and YAML',
-      icon: 'output'
-    },
-    {
-      id: 'maintenance',
-      label: 'Maintenance',
-      hint: 'Transfer, diagnosis, and repair',
-      icon: 'construction'
-    }
-  ],
+  sidebarLinks: previewNavigation.sidebarLinks,
+  surfaceLinks: previewNavigation.surfaceLinks,
+  nav: previewNavigation.nav,
   overview: {
     hero: {
       title: 'Overview',
@@ -432,7 +332,7 @@ export const previewContent: PreviewContent = {
       sections: [
         {
           title: message('errorReportingNotCollectedTitle'),
-          body: 'The extension does not upload, sell, or analyze your personal identity or clipped page content.',
+          body: message('schemaResourcePrivacyPolicyDescription'),
           bullets: [
             'Page content and clipped text',
             'Private URL lists',
@@ -442,11 +342,11 @@ export const previewContent: PreviewContent = {
         },
         {
           title: message('analyticsConsentTitle'),
-          body: 'Anonymous usage statistics and error reporting are controlled by toggles in Settings. When disabled, runtime analytics and error-reporting consent are disabled as well.'
+          body: message('schemaResourceDataUsageAnonymousUsageBody')
         },
         {
           title: message('schemaResourcePrivacyLocalConfigTitle'),
-          body: 'Vault settings, REST API details, path templates, YAML fields, and runtime configuration are stored in extension storage and can be exported or cleared through Maintenance.'
+          body: message('schemaResourcePrivacyLocalConfigBody')
         }
       ]
     },
@@ -460,15 +360,15 @@ export const previewContent: PreviewContent = {
       sections: [
         {
           title: message('schemaResourceDataUsageAnonymousUsageTitle'),
-          body: 'The Usage Dashboard only counts saves, feature types, and recent trends so users can understand their own workflow.'
+          body: message('schemaResourceDataUsageAnonymousUsageBody')
         },
         {
           title: message('errorReportingConsentTitle'),
-          body: 'When error reporting is enabled, the extension records error type and call site, browser and extension version, and the failure timestamp.'
+          body: message('errorReportingConsentDescription')
         },
         {
           title: message('schemaResourceDataUsageConfigMigrationTitle'),
-          body: 'Configuration exported from Maintenance supports same-device or cross-browser transfer; imported JSON is parsed and saved through the real Options controller path.'
+          body: message('schemaResourceDataUsageConfigMigrationBody')
         }
       ]
     },
@@ -559,19 +459,19 @@ export const previewContent: PreviewContent = {
       steps: [
         {
           title: '1. Install Local REST API in Obsidian',
-          body: 'Install and enable Local REST API from the Obsidian Community Plugins list. It is the only bridge between the extension and a local vault.'
+          body: message('schemaResourcePluginSetupStep1')
         },
         {
           title: '2. Confirm the HTTP / HTTPS connection info',
-          body: 'Check both HTTPS and HTTP addresses in the plugin settings. The current product uses dual-URL configuration, so it is recommended to fill both.'
+          body: message('schemaResourcePluginSetupStep2')
         },
         {
           title: '3. Record the vault name and API key',
-          body: 'Copy the vault name and API key so you can paste them into Storage > Vault List in the extension.'
+          body: message('schemaResourcePluginSetupStep3')
         },
         {
           title: '4. Test the connection in the extension',
-          body: 'Return to the extension settings page, fill the HTTPS / HTTP / API key fields in the first default-vault row, and run the connection test.'
+          body: message('schemaResourcePluginSetupStep4')
         }
       ],
       checks: [
@@ -592,13 +492,13 @@ export const previewContent: PreviewContent = {
       channels: [
         {
           title: 'Ko-fi',
-          subtitle: 'Buy me a coffee',
+          subtitle: message('schemaResourceSupportKoFiDescription'),
           icon: './icons/ko-fi.svg',
           href: 'https://ko-fi.com/xiannian'
         },
         {
           title: 'Afdian',
-          subtitle: 'Support the author in Chinese',
+          subtitle: message('schemaResourceSupportAfdianDescription'),
           icon: './icons/aifadian-line-copy.svg',
           href: 'https://afdian.com/a/LefShi'
         }
@@ -625,12 +525,12 @@ export const previewContent: PreviewContent = {
       channels: [
         {
           title: message('schemaResourceSuggestionsGithubTitle'),
-          subtitle: 'Submit feature requests or bug reports',
+          subtitle: message('schemaResourceSuggestionsGithubDescription'),
           href: 'https://github.com/Lefeaker/AllinOB/issues/new?labels=enhancement&title=%5BFeature%20Request%5D%20'
         },
         {
           title: message('schemaResourceSuggestionsRedditTitle'),
-          subtitle: 'Discuss ideas directly with the author',
+          subtitle: message('schemaResourceSuggestionsRedditDescription'),
           href: 'https://www.reddit.com/user/sxnian/'
         }
       ]
@@ -646,17 +546,17 @@ export const previewContent: PreviewContent = {
       entries: [
         {
           title: 'Reddit',
-          subtitle: 'Reddit messages or public profile',
+          subtitle: message('schemaResourceContactRedditDescription'),
           href: 'https://www.reddit.com/user/sxnian/'
         },
         {
           title: message('schemaResourceContactGithubTitle'),
-          subtitle: 'Browse the project and open issues',
+          subtitle: message('schemaResourceContactGithubDescription'),
           href: 'https://github.com/Lefeaker/AllinOB'
         },
         {
           title: message('schemaResourceContactEmailTitle'),
-          subtitle: 'Reach support by email',
+          subtitle: message('schemaResourceContactEmailDescription'),
           href: 'mailto:allinobsidian@outlook.com'
         }
       ],
@@ -734,7 +634,7 @@ export const previewContent: PreviewContent = {
       iconUrl: '../../AiiinOB/public/icons/60x60/zendio_icon_readingt.png',
       labels: {
         title: message('schemaRuntimeReaderTitle'),
-        subtitle: 'Reading session',
+        subtitle: message('readerPanelStatus'),
         exitTriggerLabel: 'Exit',
         exitTitle: 'Leave this panel?',
         exitCancelLabel: 'Keep editing',
@@ -743,7 +643,7 @@ export const previewContent: PreviewContent = {
         saveLabel: 'Save',
         deleteLabel: 'Delete'
       },
-      hint: 'Highlights and notes from the current page keep accumulating in this reading session.',
+      hint: message('readerPanelHint'),
       counter: '4',
       destination: {
         id: 'vault-research',
@@ -823,7 +723,7 @@ export const previewContent: PreviewContent = {
       },
       labels: {
         title: message('schemaRuntimeVideoTitle'),
-        subtitle: 'Video session active',
+        subtitle: message('videoPanelStatus'),
         exitTriggerLabel: 'Exit',
         exitTitle: 'Leave this panel?',
         exitCancelLabel: 'Keep editing',
@@ -835,7 +735,7 @@ export const previewContent: PreviewContent = {
         emptyCapturePlaceholder: 'Write a note for the current timestamp...'
       },
       status: 'YouTube · 01:23:14 · Following current playback time',
-      hint: 'Record the current timestamp, or capture a subtitle/comment fragment and add context immediately.',
+      hint: message('videoPanelHint'),
       counter: '3',
       destination: {
         id: 'vault-video',

@@ -20,6 +20,7 @@ const handleVaultConnectionTestMock = vi.hoisted(() =>
     Promise.resolve({ success: true, message: 'ok' })
   )
 );
+const notifyClipFailureMock = vi.hoisted(() => vi.fn(() => Promise.resolve(undefined)));
 const notifyExtractionErrorMock = vi.hoisted(() => vi.fn(() => Promise.resolve(undefined)));
 const trackUsageEventMock = vi.hoisted(() => vi.fn(() => Promise.resolve(undefined)));
 const handleErrorMock = vi.hoisted(() => vi.fn(() => Promise.resolve(undefined)));
@@ -72,6 +73,7 @@ vi.mock('../../../src/background/pipelines/connectionTest', () => ({
   handleVaultConnectionTest: handleVaultConnectionTestMock
 }));
 vi.mock('../../../src/background/services/notifications', () => ({
+  notifyClipFailure: notifyClipFailureMock,
   notifyExtractionError: notifyExtractionErrorMock
 }));
 vi.mock('../../../src/background/services/analyticsEvents', () => ({
@@ -356,8 +358,8 @@ describe('runtime message listener', () => {
     });
   });
 
-  it('normalizes clip errors and swallows extraction notification dispatch failures', async () => {
-    notifyExtractionErrorMock.mockRejectedValueOnce(new Error('notify failed'));
+  it('normalizes clip errors and swallows clip failure notification dispatch failures', async () => {
+    notifyClipFailureMock.mockRejectedValueOnce(new Error('notify failed'));
     const { registerRuntimeMessageListener } =
       await import('../../../src/background/listeners/runtimeMessages');
     registerRuntimeMessageListener(createDependencies());
@@ -371,7 +373,7 @@ describe('runtime message listener', () => {
     expect(handleErrorMock).toHaveBeenCalledTimes(2);
     expect(dispatchFailedMock).toHaveBeenCalledWith(
       'normalized user',
-      expect.objectContaining({ channel: 'clipper.error' }),
+      expect.objectContaining({ channel: 'clipper.error', title: 'notifyClipFailure' }),
       expect.any(Object)
     );
     const dispatchOptions = dispatchFailedMock.mock.calls[0]?.[2] as

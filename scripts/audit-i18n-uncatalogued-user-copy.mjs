@@ -21,15 +21,19 @@ const CHECKED_EXTENSIONS = new Set(['.ts', '.tsx', '.js', '.jsx', '.mjs', '.cjs'
 const SOURCE_ROOTS = ['src', 'public'];
 const USER_VISIBLE_FIELDS = new Set([
   'ariaLabel',
+  'body',
+  'defaultMessage',
   'description',
   'detail',
   'details',
   'emptyHint',
   'error',
   'helperText',
+  'hint',
   'label',
   'message',
   'placeholder',
+  'subtitle',
   'summary',
   'text',
   'title',
@@ -321,6 +325,32 @@ function isTranslationFallbackLiteral(node, sourceFile) {
   return false;
 }
 
+function isNormalizeToAppErrorDefaultMessageLiteral(node, sourceFile) {
+  const property = findContainingPropertyAssignment(node);
+  if (!property || getPropertyNameText(property.name) !== 'defaultMessage') {
+    return false;
+  }
+
+  const objectLiteral = property.parent;
+  if (!ts.isObjectLiteralExpression(objectLiteral)) {
+    return false;
+  }
+
+  const callExpression = objectLiteral.parent;
+  if (!ts.isCallExpression(callExpression)) {
+    return false;
+  }
+
+  const argumentIndex = callExpression.arguments.findIndex(
+    (argument) => argument === objectLiteral
+  );
+  if (argumentIndex < 1) {
+    return false;
+  }
+
+  return /(?:^|\.)normalizeToAppError$/.test(callExpression.expression.getText(sourceFile));
+}
+
 function isDomTextLiteral(node, sourceFile) {
   const parent = node.parent;
   if (ts.isBinaryExpression(parent) && parent.right === node) {
@@ -466,6 +496,21 @@ function detectTypeScriptFindings({ content, relativePath, filePath }) {
             kind: 'translation-fallback',
             category: 'english-translation-fallback',
             message: 'English fallback text in a translation helper call'
+          })
+        );
+      } else if (
+        isNormalizeToAppErrorDefaultMessageLiteral(node, sourceFile) &&
+        isPotentialUserCopy(literal)
+      ) {
+        findings.push(
+          createFinding({
+            sourceFile,
+            relativePath,
+            node,
+            literal,
+            kind: 'descriptor-boundary',
+            category: 'descriptor-boundary',
+            message: 'English normalizeToAppError defaultMessage user-visible fallback'
           })
         );
       } else if (isDomTextLiteral(node, sourceFile) && isPotentialUserCopy(literal)) {

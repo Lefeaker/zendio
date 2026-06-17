@@ -108,6 +108,68 @@ describe('audit-i18n-uncatalogued-user-copy', () => {
     });
   });
 
+  it('flags English defaultMessage fallback passed to normalizeToAppError', async () => {
+    const result = await scanProject({
+      'src/content/runtime/clipFlow.ts': [
+        `import { normalizeToAppError } from '../../shared/errors';`,
+        `export const error = normalizeToAppError(new Error('boom'), {`,
+        `  code: 'CONTENT_CLIP_FAILURE',`,
+        `  domain: 'content',`,
+        `  defaultMessage: 'Clip failed unexpectedly.'`,
+        `});`
+      ].join('\n')
+    });
+
+    expect(result.ok).toBe(false);
+    expect(result.unexpectedFindings).toHaveLength(1);
+    expect(result.unexpectedFindings[0]).toMatchObject({
+      file: 'src/content/runtime/clipFlow.ts',
+      kind: 'descriptor-boundary',
+      category: 'descriptor-boundary',
+      literal: 'Clip failed unexpectedly.'
+    });
+  });
+
+  it('flags subtitle, hint, and body fields when they carry production-visible English copy', async () => {
+    const result = await scanProject({
+      'src/options/stitch/content.ts': [
+        `export const surface = {`,
+        `  subtitle: 'Component Preview',`,
+        `  hint: 'Selection dialog after highlighting text',`,
+        `  body: 'The extension does not upload clipped page content.'`,
+        `};`
+      ].join('\n')
+    });
+
+    expect(result.ok).toBe(false);
+    expect(result.unexpectedFindings.map((finding) => finding.literal)).toEqual([
+      'Component Preview',
+      'Selection dialog after highlighting text',
+      'The extension does not upload clipped page content.'
+    ]);
+    expect(
+      result.unexpectedFindings.every((finding) => finding.category === 'uncatalogued-ui-copy')
+    ).toBe(true);
+  });
+
+  it('does not flag localized overlay fields that carry descriptor siblings', async () => {
+    const result = await scanProject({
+      'src/options/stitch/schema/localizedOverlay.ts': [
+        `export const surface = {`,
+        `  subtitle: 'Component Preview',`,
+        `  subtitleDescriptor: { key: 'preview.component.subtitle' },`,
+        `  hint: 'Selection dialog after highlighting text',`,
+        `  hintDescriptor: { key: 'preview.selection.hint' },`,
+        `  body: 'The extension does not upload clipped page content.',`,
+        `  bodyDescriptor: { key: 'privacy.body' }`,
+        `};`
+      ].join('\n')
+    });
+
+    expect(result.ok).toBe(true);
+    expect(result.findings).toEqual([]);
+  });
+
   it('ignores technical identifiers, URLs, class names, icon names, and analytics event names', async () => {
     const result = await scanProject({
       'src/background/services/analyticsEvents.ts': [

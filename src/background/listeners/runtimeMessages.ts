@@ -5,7 +5,7 @@ import {
 } from '../pipelines/clipPipeline';
 import { handleConnectionTest, handleVaultConnectionTest } from '../pipelines/connectionTest';
 import { toConnectionTestPayload } from './connectionTestPayload';
-import { notifyExtractionError } from '../services/notifications';
+import { notifyClipFailure, notifyExtractionError } from '../services/notifications';
 import {
   isClipErrorMessage,
   isClipResultMessage,
@@ -203,6 +203,23 @@ async function safeNotifyExtraction(message: string): Promise<void> {
   }
 }
 
+async function safeNotifyClipFailure(
+  error: Parameters<typeof notifyClipFailure>[0]
+): Promise<void> {
+  try {
+    await notifyClipFailure(error);
+  } catch (notifyError) {
+    await errorHandler.handle(
+      notificationErrors.dispatchFailed(
+        typeof error === 'string' ? error : (error.userMessage ?? error.message),
+        { channel: 'clipper.error', title: 'notifyClipFailure' },
+        { cause: notifyError }
+      ),
+      { suppressNotifications: true }
+    );
+  }
+}
+
 export function registerRuntimeMessageListener(
   dependencies: RuntimeMessageListenerDependencies
 ): void {
@@ -300,10 +317,10 @@ export function registerRuntimeMessageListener(
         : normalizeToAppError(message.error, {
             code: 'CONTENT_CLIP_FAILURE',
             domain: 'content',
-            defaultMessage: 'Clip failed in content script.'
+            userMessageDescriptor: { key: 'clipFailed' }
           });
       await errorHandler.handle(appError, { suppressNotifications: true });
-      await safeNotifyExtraction(appError.userMessage ?? appError.message);
+      await safeNotifyClipFailure(appError);
       return;
     }
 

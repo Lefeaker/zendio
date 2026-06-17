@@ -167,7 +167,7 @@ export function createContentClipOrchestrator(
       const appError = normalizeToAppError(error, {
         code: 'CONTENT_CLIP_FAILURE',
         domain: 'content',
-        defaultMessage: 'Clip failed due to an unexpected error.',
+        userMessageDescriptor: { key: 'clipFailed' },
         context: {
           url,
           mode: clipMode

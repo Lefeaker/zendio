@@ -50,4 +50,16 @@ describe('AppError descriptor guards', () => {
     expect(isAppError(candidate)).toBe(true);
     expect(normalizeToAppError(candidate)).toBe(candidate);
   });
+
+  it('uses descriptor-backed user messages without copying technical messages into userMessage', () => {
+    const normalized = normalizeToAppError(new Error('provider timeout'), {
+      code: 'NORMALIZED_DESCRIPTOR',
+      domain: 'content',
+      userMessageDescriptor: { key: 'clipFailed' }
+    });
+
+    expect(normalized.message).toBe('provider timeout');
+    expect(normalized.userMessage).toBeUndefined();
+    expect(normalized.userMessageDescriptor).toEqual({ key: 'clipFailed' });
+  });
 });
