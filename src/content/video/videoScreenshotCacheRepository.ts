@@ -264,7 +264,7 @@ export function createVideoScreenshotCacheRepository(
       let serializedContent;
       try {
         serializedContent = await serializeBlobAttachmentContent(screenshot.content.blob);
-      } catch (error) {
+      } catch {
         return {
           status: 'skipped',
           reason: 'serialize-failed',

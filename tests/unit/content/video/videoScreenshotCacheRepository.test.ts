@@ -308,8 +308,8 @@ describe('videoScreenshotCacheRepository', () => {
       now: () => BASE_TIME
     });
     const brokenBlob = {
-      async arrayBuffer(): Promise<ArrayBuffer> {
-        throw new Error('blob exploded');
+      arrayBuffer(): Promise<ArrayBuffer> {
+        return Promise.reject(new Error('blob exploded'));
       },
       size: 1,
       type: 'image/jpeg'

@@ -50,6 +50,7 @@ const RUNTIME_SURFACE_IDS: RuntimeSurfaceId[] = [
   'video-floating-prompt',
   'task-success'
 ];
+const CHINESE_FALLBACK_PANEL_IDS = ['overview', 'storage', 'capture-behavior'];
 
 const SURFACE_INITIAL_OPTIONS = {
   rest: {
@@ -318,7 +319,7 @@ describe('mountProductionStitchShell English residual coverage', () => {
       language: 'en'
     });
 
-    for (const panelId of ['overview', 'storage', 'capture-behavior'] as const) {
+    for (const panelId of CHINESE_FALLBACK_PANEL_IDS) {
       queryRequired<HTMLButtonElement>(`[data-nav-panel="${panelId}"]`).click();
       await flushPromises();
       expectNoChineseSettingsCopy(queryRequired<HTMLElement>(`[data-panel-id="${panelId}"]`));
@@ -590,5 +591,19 @@ describe('mountProductionStitchShell English residual coverage', () => {
     expect(context.appData.surfaces.taskSuccess.dislikeToast.detail).toBe(
       zhMessages.schemaPreviewTaskSuccessDislikeToastDetail
     );
+  });
+
+  it('keeps optional runtime surface destinations omitted when preview data has none', async () => {
+    const zhMessages = await getMessagesForLanguage('zh-CN');
+    const appData = structuredClone(previewContent);
+    delete appData.surfaces.clipper.destination;
+    delete appData.surfaces.reader.destination;
+    delete appData.surfaces.video.destination;
+
+    const context = createSchemaContextFromAppData(appData, zhMessages);
+
+    expect('destination' in context.appData.surfaces.clipper).toBe(false);
+    expect('destination' in context.appData.surfaces.reader).toBe(false);
+    expect('destination' in context.appData.surfaces.video).toBe(false);
   });
 });

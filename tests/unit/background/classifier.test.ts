@@ -6,17 +6,28 @@ import { DEFAULT_TAXONOMY_CONFIG } from '@shared/types/taxonomy';
 
 const originalFetch = globalThis.fetch;
 type FetchParams = [input: RequestInfo | URL, init?: RequestInit];
+type ClassifierConfig = NonNullable<Options['classifier']>;
+interface ProviderRequestBody {
+  messages: { role: string; content: string }[];
+}
 
-function createConfig(overrides: Partial<NonNullable<Options['classifier']>> = {}) {
-  return {
+function isProviderRequestBody(value: unknown): value is ProviderRequestBody {
+  return (
+    typeof value === 'object' && value !== null && Array.isArray(Reflect.get(value, 'messages'))
+  );
+}
+
+function createConfig(overrides: Partial<ClassifierConfig> = {}): ClassifierConfig {
+  const config: ClassifierConfig = {
     enabled: true,
-    provider: 'ollama' as const,
+    provider: 'ollama',
     endpoint: 'http://localhost:11434/api/chat',
     apiKey: '',
     model: 'llama3.1',
     taxonomy: DEFAULT_TAXONOMY_CONFIG,
     ...overrides
   };
+  return config;
 }
 
 describe('classifier', () => {
@@ -30,7 +41,7 @@ describe('classifier', () => {
       globalThis.fetch = originalFetch;
     } else {
       // eslint-disable-next-line @typescript-eslint/no-dynamic-delete
-      delete (globalThis as { fetch?: typeof fetch }).fetch;
+      Reflect.deleteProperty(globalThis, 'fetch');
     }
   });
 
@@ -53,9 +64,11 @@ describe('classifier', () => {
     if (result.ok) {
       expect(result.payload).toEqual({ type: 'article', topics: ['tech'] });
     }
-    const requestBody = JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body)) as {
-      messages: { role: string; content: string }[];
-    };
+    const requestBody: unknown = JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body));
+    expect(isProviderRequestBody(requestBody)).toBe(true);
+    if (!isProviderRequestBody(requestBody)) {
+      throw new Error('classifier request body missing messages');
+    }
     expect(requestBody.messages[0].content).toContain(
       '"classificationHint":"News articles, blog posts, and editorial content"'
     );
