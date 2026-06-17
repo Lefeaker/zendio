@@ -6,9 +6,7 @@ import {
 } from '@options/stitch/schema/i18n';
 import { createReleaseLanguageOptions } from '@options/stitch/languageOptions';
 import type { PreviewContent } from '@options/stitch/types';
-
-type SurfaceDestination = NonNullable<PreviewContent['surfaces']['clipper']['destination']>;
-type SurfaceWithDestination = { destination?: SurfaceDestination };
+import { localizeRuntimeCaptureSurfaces } from './productionStitchSurfaceLocalization';
 
 const NAV_LABEL_KEYS = {
   overview: 'schemaOverviewTitle',
@@ -237,230 +235,6 @@ function localizeStorage(
   };
 }
 
-function localizeSurfaceDestination(
-  destination: PreviewContent['surfaces']['clipper']['destination'],
-  t: SchemaTranslator
-): PreviewContent['surfaces']['clipper']['destination'] {
-  if (!destination) {
-    return destination;
-  }
-
-  return {
-    ...destination,
-    label: localizeSampleVaultLabel(destination.label, t),
-    options: destination.options.map((option) => ({
-      ...option,
-      label: localizeSampleVaultLabel(option.label, t)
-    }))
-  };
-}
-
-function splitSurfaceDestination<T extends SurfaceWithDestination>(
-  surface: T
-): {
-  rest: Omit<T, 'destination'>;
-  destination: SurfaceDestination | undefined;
-} {
-  const { destination, ...rest } = surface;
-  return { rest, destination };
-}
-
-function localizeOptionalSurfaceText<K extends 'commentPreview' | 'comment' | 'draft'>(
-  key: K,
-  value: string | undefined,
-  messageKey: SchemaMessageKey,
-  t: SchemaTranslator
-): Partial<Record<K, string>> {
-  if (value === undefined) {
-    return {};
-  }
-
-  const localizedText: Partial<Record<K, string>> = {};
-  localizedText[key] = value ? t(messageKey, value) : value;
-  return localizedText;
-}
-
-function localizeClipperSurface(
-  surface: PreviewContent['surfaces']['clipper'],
-  previewSurface: PreviewContent['surfaces']['clipper'],
-  t: SchemaTranslator
-): PreviewContent['surfaces']['clipper'] {
-  const { rest, destination } = splitSurfaceDestination(surface);
-  const localizedDestination = localizeSurfaceDestination(destination, t);
-
-  return {
-    ...rest,
-    source: {
-      ...surface.source,
-      title: localizeSampleValue(
-        surface.source.title,
-        previewSurface.source.title,
-        'schemaPreviewClipperSourceArticleTitle',
-        t
-      )
-    },
-    ...(localizedDestination !== undefined && { destination: localizedDestination }),
-    selectedText: t('schemaRuntimeClipperSelectedText', surface.selectedText)
-  };
-}
-
-function localizeReaderSurface(
-  surface: PreviewContent['surfaces']['reader'],
-  _previewSurface: PreviewContent['surfaces']['reader'],
-  t: SchemaTranslator
-): PreviewContent['surfaces']['reader'] {
-  const { rest, destination } = splitSurfaceDestination(surface);
-  const localizedDestination = localizeSurfaceDestination(destination, t);
-
-  return {
-    ...rest,
-    ...(localizedDestination !== undefined && { destination: localizedDestination }),
-    highlights: surface.highlights.map((highlight, index) => {
-      if (index === 0) {
-        return {
-          ...highlight,
-          excerpt: t('schemaRuntimeReaderHighlightOneExcerpt', highlight.excerpt),
-          ...localizeOptionalSurfaceText(
-            'commentPreview',
-            highlight.commentPreview,
-            'schemaRuntimeReaderHighlightOneComment',
-            t
-          ),
-          ...localizeOptionalSurfaceText(
-            'comment',
-            highlight.comment,
-            'schemaRuntimeReaderHighlightOneComment',
-            t
-          )
-        };
-      }
-
-      if (index === 1) {
-        return {
-          ...highlight,
-          excerpt: t('schemaRuntimeReaderHighlightTwoExcerpt', highlight.excerpt),
-          ...localizeOptionalSurfaceText(
-            'commentPreview',
-            highlight.commentPreview,
-            'schemaRuntimeReaderHighlightTwoComment',
-            t
-          ),
-          ...localizeOptionalSurfaceText(
-            'comment',
-            highlight.comment,
-            'schemaRuntimeReaderHighlightTwoComment',
-            t
-          )
-        };
-      }
-
-      if (index === 2) {
-        return {
-          ...highlight,
-          fullText: t('schemaRuntimeReaderHighlightThreeFullText', highlight.fullText),
-          ...localizeOptionalSurfaceText(
-            'draft',
-            highlight.draft,
-            'schemaRuntimeReaderHighlightThreeDraft',
-            t
-          )
-        };
-      }
-
-      return highlight;
-    })
-  };
-}
-
-function localizeVideoSurface(
-  surface: PreviewContent['surfaces']['video'],
-  previewSurface: PreviewContent['surfaces']['video'],
-  t: SchemaTranslator
-): PreviewContent['surfaces']['video'] {
-  const { rest, destination } = splitSurfaceDestination(surface);
-  const localizedDestination = localizeSurfaceDestination(destination, t);
-
-  return {
-    ...rest,
-    ...(localizedDestination !== undefined && { destination: localizedDestination }),
-    captures: surface.captures.map((capture, index) => {
-      if (index === 1 && capture.fullText) {
-        return {
-          ...capture,
-          summary: localizeSampleValue(
-            capture.summary,
-            previewSurface.captures[index]?.summary ?? capture.summary,
-            'schemaPreviewVideoCaptureTwoSummary',
-            t
-          ),
-          fullText: t('schemaRuntimeVideoCaptureTwoFullText', capture.fullText),
-          ...localizeOptionalSurfaceText(
-            'commentPreview',
-            capture.commentPreview,
-            'schemaRuntimeVideoCaptureTwoComment',
-            t
-          ),
-          ...localizeOptionalSurfaceText(
-            'comment',
-            capture.comment,
-            'schemaRuntimeVideoCaptureTwoComment',
-            t
-          )
-        };
-      }
-
-      if (index === 0) {
-        return {
-          ...capture,
-          ...localizeOptionalSurfaceText(
-            'commentPreview',
-            capture.commentPreview,
-            'schemaRuntimeVideoCaptureOneComment',
-            t
-          ),
-          ...localizeOptionalSurfaceText(
-            'comment',
-            capture.comment,
-            'schemaRuntimeVideoCaptureOneComment',
-            t
-          )
-        };
-      }
-
-      if (index === 2) {
-        return {
-          ...capture,
-          ...localizeOptionalSurfaceText(
-            'draft',
-            capture.draft,
-            'schemaRuntimeVideoCaptureThreeDraft',
-            t
-          )
-        };
-      }
-
-      return capture;
-    })
-  };
-}
-
-function localizeTaskSuccessSurface(
-  surface: PreviewContent['surfaces']['taskSuccess'],
-  t: SchemaTranslator
-): PreviewContent['surfaces']['taskSuccess'] {
-  return {
-    ...surface,
-    likeToast: {
-      ...surface.likeToast,
-      detail: t('schemaPreviewTaskSuccessLikeToastDetail', surface.likeToast.detail)
-    },
-    dislikeToast: {
-      ...surface.dislikeToast,
-      detail: t('schemaPreviewTaskSuccessDislikeToastDetail', surface.dislikeToast.detail)
-    }
-  };
-}
-
 function localizeOutput(
   output: PreviewContent['output'],
   t: SchemaTranslator
@@ -484,6 +258,23 @@ function localizeOutput(
         label: key ? t(key, filter.label) : filter.label
       };
     })
+  };
+}
+
+function localizeTaskSuccessSurface(
+  surface: PreviewContent['surfaces']['taskSuccess'],
+  t: SchemaTranslator
+): PreviewContent['surfaces']['taskSuccess'] {
+  return {
+    ...surface,
+    likeToast: {
+      ...surface.likeToast,
+      detail: t('schemaPreviewTaskSuccessLikeToastDetail', surface.likeToast.detail)
+    },
+    dislikeToast: {
+      ...surface.dislikeToast,
+      detail: t('schemaPreviewTaskSuccessDislikeToastDetail', surface.dislikeToast.detail)
+    }
   };
 }
 
@@ -563,9 +354,11 @@ export function localizeStitchContent(
     },
     surfaces: {
       ...content.surfaces,
-      clipper: localizeClipperSurface(content.surfaces.clipper, previewContent.surfaces.clipper, t),
-      reader: localizeReaderSurface(content.surfaces.reader, previewContent.surfaces.reader, t),
-      video: localizeVideoSurface(content.surfaces.video, previewContent.surfaces.video, t),
+      ...localizeRuntimeCaptureSurfaces(content.surfaces, previewContent.surfaces, t, {
+        localizeSampleValue: (value, previewValue, key) =>
+          localizeSampleValue(value, previewValue, key, t),
+        localizeSampleVaultLabel: (label) => localizeSampleVaultLabel(label, t)
+      }),
       taskSuccess: localizeTaskSuccessSurface(content.surfaces.taskSuccess, t)
     },
     maintenanceLog:
