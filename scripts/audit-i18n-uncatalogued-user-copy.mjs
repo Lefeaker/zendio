@@ -71,6 +71,8 @@ const URL_OR_PATH_RE =
 const TOKEN_RE = /^[a-zA-Z0-9_.:/#?&=%@+-]+$/;
 const EVENT_TOKEN_RE = /^[a-z][a-z0-9]*(?:_[a-z0-9]+)+$/;
 const CSS_TOKEN_RE = /^[a-z][a-z0-9]*(?:-[a-z0-9]+)+$/;
+const NUMBERING_TOKEN_RE = /^\d+[.)]?$/;
+const ALL_CAPS_OR_NUMBER_TOKEN_RE = /^[A-Z0-9_.:/#?&=%@+-]+$/;
 const PUBLIC_DEV_HARNESS_RE = /^public\/[^/]*harness\.html$/;
 const CSS_TEXT_RE = /(?:^|\s)[.#]?[a-z][a-z0-9-]*\s*\{|(?:^|\s)[a-z-]+\s*:/i;
 
@@ -422,7 +424,13 @@ function isTechnicalTokenList(value) {
   if (!tokens.every((token) => TOKEN_RE.test(token))) {
     return false;
   }
-  return tokens.some(
+
+  if (tokens.every((token) => ALL_CAPS_OR_NUMBER_TOKEN_RE.test(token))) {
+    return true;
+  }
+
+  const technicalMarkerTokens = tokens.filter((token) => !NUMBERING_TOKEN_RE.test(token));
+  return technicalMarkerTokens.some(
     (token) => EVENT_TOKEN_RE.test(token) || CSS_TOKEN_RE.test(token) || /\d/.test(token)
   );
 }

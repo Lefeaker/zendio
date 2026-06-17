@@ -458,20 +458,20 @@ export const previewContent: PreviewContent = {
       ],
       steps: [
         {
-          title: '1. Install Local REST API in Obsidian',
-          body: message('schemaResourcePluginSetupStep1')
+          title: message('schemaResourcePluginSetupStep1'),
+          body: ''
         },
         {
-          title: '2. Confirm the HTTP / HTTPS connection info',
-          body: message('schemaResourcePluginSetupStep2')
+          title: message('schemaResourcePluginSetupStep2'),
+          body: ''
         },
         {
-          title: '3. Record the vault name and API key',
-          body: message('schemaResourcePluginSetupStep3')
+          title: message('schemaResourcePluginSetupStep3'),
+          body: ''
         },
         {
-          title: '4. Test the connection in the extension',
-          body: message('schemaResourcePluginSetupStep4')
+          title: message('schemaResourcePluginSetupStep4'),
+          body: ''
         }
       ],
       checks: [

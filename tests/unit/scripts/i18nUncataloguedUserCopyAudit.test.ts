@@ -108,6 +108,25 @@ describe('audit-i18n-uncatalogued-user-copy', () => {
     });
   });
 
+  it('flags numbered English UI titles as uncatalogued copy', async () => {
+    const result = await scanProject({
+      'src/options/stitch/content.ts': [
+        `export const pluginSetup = {`,
+        `  title: '1. Install Local REST API in Obsidian'`,
+        `};`
+      ].join('\n')
+    });
+
+    expect(result.ok).toBe(false);
+    expect(result.unexpectedFindings).toHaveLength(1);
+    expect(result.unexpectedFindings[0]).toMatchObject({
+      file: 'src/options/stitch/content.ts',
+      kind: 'english-literal',
+      category: 'uncatalogued-ui-copy',
+      literal: '1. Install Local REST API in Obsidian'
+    });
+  });
+
   it('flags English defaultMessage fallback passed to normalizeToAppError', async () => {
     const result = await scanProject({
       'src/content/runtime/clipFlow.ts': [
@@ -176,7 +195,8 @@ describe('audit-i18n-uncatalogued-user-copy', () => {
         `export const url = 'https://example.com/docs';`,
         `export const event = { eventName: 'runtime_harness_open', category: 'usage' };`,
         `export const view = { className: 'aobx-button-row', icon: 'download', id: 'clipper-dialog' };`,
-        `export const classByTone = { error: 'alert alert-error mt-3' };`
+        `export const classByTone = { error: 'alert alert-error mt-3' };`,
+        `export const status = { message: 'HTTP 200 OK', error: 'CONTENT_CLIP_FAILURE TIMEOUT_504' };`
       ].join('\n')
     });
 

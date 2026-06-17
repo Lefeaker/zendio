@@ -95,9 +95,9 @@ npm run audit:i18n-uncatalogued-user-copy:check
 
 Both npm entrypoints first refresh `build/reports/production-build-graph.json`, then scan production-reachable `src/**` plus relevant `public/**`. `audit:i18n-uncatalogued-user-copy` prints the report; `audit:i18n-uncatalogued-user-copy:check` is the hard gate and is wired into `quality` and `verify:preflight`. Directly running `node scripts/audit-i18n-uncatalogued-user-copy.mjs --check` is lower-level because it does not refresh the production build graph, so prefer the npm script for gate evidence.
 
-The audit excludes catalog/generated locale sources, `public/_locales/**`, dev harness public HTML, tests/docs/fixtures/generated files, technical identifiers, URLs, event names, class/icon tokens, CSS text, and site-native AI parser token arrays.
+The audit excludes catalog/generated locale sources, `public/_locales/**`, dev harness public HTML, tests/docs/fixtures/generated files, technical identifiers, URLs, event names, class/icon tokens, CSS text, and site-native AI parser token arrays. Numbered natural-language UI titles are not technical token lists merely because they contain a list marker or numeric token.
 
-Coverage includes user-visible field taxonomy beyond the original title/label/message set: `subtitle`, `hint`, `body`, `defaultMessage`, `placeholder`, `ariaLabel`, and comparable UI fields are scanned when they appear in production-reachable source. `normalizeToAppError(..., { defaultMessage: "..." })` is a dedicated descriptor-boundary check because that option can become a user-facing fallback. Localized overlay objects with descriptor siblings remain valid; raw preview seed copy is allowed only when catalog-backed, localized by the production renderer, or backed by executable proof that production rendering does not consume the raw field directly.
+Coverage includes user-visible field taxonomy beyond the original title/label/message set: `subtitle`, `hint`, `body`, `defaultMessage`, `placeholder`, `ariaLabel`, numbered step/title prose, and comparable UI fields are scanned when they appear in production-reachable source. `normalizeToAppError(..., { defaultMessage: "..." })` is a dedicated descriptor-boundary check because that option can become a user-facing fallback. Localized overlay objects with descriptor siblings remain valid; raw preview seed copy is allowed only when catalog-backed, localized by the production renderer, or backed by executable proof that production rendering does not consume the raw field directly.
 
 The report currently classifies:
 
@@ -106,7 +106,7 @@ The report currently classifies:
 - `descriptor-boundary`: English user-visible payload fields under background/content/runtime/error boundaries without a descriptor sibling, including `normalizeToAppError` raw English `defaultMessage` fallbacks.
 - `html-uncatalogued-copy` and `dom-text-copy`: text nodes or DOM text assignment outside the catalog.
 
-Current tree truth on 2026-06-17 after P01-P07 English copy governance, P07d surface-localization owner split, P08 gate wiring, and the coverage follow-up for `defaultMessage` plus expanded visible fields: `scanned=575 findings=0 unexpected=0 staleAllowlist=0`. The English allowlist currently has `0` rules, so the gate is not masking retained product UI copy.
+Current tree truth on 2026-06-17 after P01-P07 English copy governance, P07d surface-localization owner split, P08 gate wiring, the coverage follow-up for `defaultMessage` plus expanded visible fields, and the numbered UI title false-negative follow-up: `scanned=575 findings=0 unexpected=0 staleAllowlist=0`. The English allowlist currently has `0` rules, so the gate is not masking retained product UI copy.
 
 Valid future allowlist entries must include `id`, `path`, `category`, `reason`, `ownerPlan`, `revisit`, a stable locator (`line`, `pattern`, or `literalIncludes`), and applicable `findingKinds`. Broad path-only allowlists are invalid. Do not add an allowlist rule for product-authored UI copy that should be catalog-backed.
 
@@ -127,7 +127,7 @@ The current post-migration ownership is:
 - Content runtime Clipper/Stitch/export destination fallbacks: P20, catalog-backed or non-Chinese compatibility defaults; no synthesized setup labels.
 - AI chat parser native tokens: P21, source-site token allowlist only; product fallback titles must be neutral or localized.
 - Hard gate and allowlist policy: P22, `quality` runs `audit:i18n-hardcoded-user-copy:check`.
-- English uncatalogued-copy hard gate: P08 plus coverage follow-up, `quality` and `verify:preflight` run `audit:i18n-uncatalogued-user-copy:check`; the gate covers raw English `normalizeToAppError` default fallbacks and production-visible `subtitle` / `hint` / `body` fields.
+- English uncatalogued-copy hard gate: P08 plus coverage follow-up, `quality` and `verify:preflight` run `audit:i18n-uncatalogued-user-copy:check`; the gate covers raw English `normalizeToAppError` default fallbacks, production-visible `subtitle` / `hint` / `body` fields, and numbered natural-language UI titles.
 
 ## Regression Expectations
 
