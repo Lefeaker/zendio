@@ -21,7 +21,8 @@ import {
 import {
   buildLocalVaultPermissionPromptMessage,
   dispatchSupportPrompt,
-  type ClipPipelineDependencies
+  type ClipPipelineDependencies,
+  type SupportPromptOptions
 } from './clipPipelineSupport';
 import {
   isLocalVaultPermissionPromptSuppressed,
@@ -54,7 +55,7 @@ async function handleClipFailure(
 ): Promise<void> {
   await errorHandler.handle(appError, { suppressNotifications: true });
 
-  await safeNotify(() => notifyClipFailure(appError.userMessage ?? appError.message), {
+  await safeNotify(() => notifyClipFailure(appError), {
     channel: 'clipper.failure',
     title: 'notifyClipFailure'
   });
@@ -93,12 +94,15 @@ async function requestCurrentPageLocalVaultPermission(
     return { action: 'use-rest' as const };
   }
 
-  dispatchClipProgress(
-    dependencies,
-    tabId,
-    60,
-    `正在请求本地目录授权：${request.folderName ?? request.vaultName ?? '本地仓库'}`
-  );
+  const folderName = request.folderName ?? request.vaultName ?? 'Local Folder';
+  dispatchClipProgress(dependencies, tabId, {
+    value: 60,
+    message: {
+      key: 'supportProgressLocalVaultPermissionRequest',
+      values: { folderName },
+      fallback: `Requesting local folder access: ${folderName}`
+    }
+  });
 
   try {
     const result = await dependencies.requestLocalVaultPermission(
@@ -118,14 +122,12 @@ async function requestCurrentPageLocalVaultPermission(
 function dispatchClipProgress(
   dependencies: ClipPipelineDependencies,
   tabId: number | undefined,
-  value: number,
-  label: string
+  progress: NonNullable<SupportPromptOptions['progress']>
 ): void {
   dispatchSupportPrompt(dependencies, tabId, {
     status: 'progress',
     progress: {
-      value,
-      label,
+      ...progress,
       variant: 'progress'
     }
   });
@@ -145,10 +147,16 @@ export async function handleClipResult(
   }
 
   try {
-    dispatchClipProgress(dependencies, tabId, 40, '正在接收剪藏内容');
+    dispatchClipProgress(dependencies, tabId, {
+      value: 40,
+      message: {
+        key: 'supportProgressReceivingClipContent',
+        fallback: 'Receiving clip content'
+      }
+    });
     const result = await processClipPayload(payload, {
       onProgress: (progress) => {
-        dispatchClipProgress(dependencies, tabId, progress.value, progress.label);
+        dispatchClipProgress(dependencies, tabId, progress);
       },
       requestLocalVaultPermission: (request) => {
         return requestCurrentPageLocalVaultPermission(dependencies, tabId, request);
@@ -184,13 +192,13 @@ export async function handleClipResult(
         : normalizeToAppError(classificationWarning, {
             code: 'CLASSIFICATION_WARNING_INVALID',
             domain: 'classifier',
-            defaultMessage: 'Classification warning could not be normalized.',
+            userMessageDescriptor: { key: 'errorClassifierInvalidPayload' },
             context: buildPipelineErrorContext(payload)
           });
       supportStatus = 'warning';
       supportError = warningError;
       await errorHandler.handle(warningError, { suppressNotifications: true });
-      await safeNotify(() => notifyClipWarning(warningError.userMessage ?? warningError.message), {
+      await safeNotify(() => notifyClipWarning(warningError), {
         channel: 'clipper.warning',
         title: 'notifyClipWarning'
       });
@@ -209,7 +217,7 @@ export async function handleClipResult(
     const appError = normalizeToAppError(error, {
       code: 'CLIP_PIPELINE_FAILURE',
       domain: 'background',
-      defaultMessage: 'Clip pipeline failed.',
+      userMessageDescriptor: { key: 'clipFailed' },
       context: buildPipelineErrorContext(payload)
     });
     await handleClipFailure(dependencies, appError, tabId, payload);

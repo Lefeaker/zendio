@@ -1,3 +1,4 @@
+import { VIDEO_TITLE_FALLBACK } from '../../i18n/catalog/runtimeFallbackMessages';
 import {
   createSessionDraftPersister,
   createSessionDraftRepository,
@@ -250,7 +251,7 @@ export class VideoSessionDraftController implements VideoSessionDraftRuntimePort
     }
 
     const pageUrl = (options.pageUrl ?? this.activeDraftPageUrl) || this.options.doc.location.href;
-    const title = this.options.state.videoTitle || this.options.doc.title || 'Video Capture';
+    const title = this.options.state.videoTitle || this.options.doc.title || VIDEO_TITLE_FALLBACK;
     return createVideoSessionDraftEnvelope({
       draftId: options.draftId ?? this.draftId,
       pageUrl,

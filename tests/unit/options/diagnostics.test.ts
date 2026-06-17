@@ -1,6 +1,7 @@
 /* @vitest-environment jsdom */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { getMessagesForLanguage, type Messages } from '@i18n';
 import type { CompleteOptions, StoredOptions } from '../../../src/shared/types/options';
 import type { OptionsController } from '../../../src/options/app/optionsController';
 import type { IOptionsRepository } from '../../../src/shared/repositories';
@@ -12,6 +13,7 @@ const LOCAL_HTTPS_URL = `https://localhost:${REST_DEFAULTS.httpsPort}`;
 const LOCAL_HTTP_URL = `http://localhost:${REST_DEFAULTS.httpPort}`;
 const LOCAL_HTTP_CONFLICT_URL = `http://localhost:${REST_DEFAULTS.httpsPort}`;
 const LOCAL_CONFLICT_PORT = String(REST_DEFAULTS.httpsPort);
+const HAN_REGEX = /\p{Script=Han}/u;
 
 const getSnapshotMock = vi.hoisted(() =>
   vi.fn<(...args: []) => ReturnType<DiagnosticsController['getSnapshot']>>(() => null)
@@ -43,9 +45,7 @@ const getOptionsControllerMock = vi.hoisted(() =>
     saveSnapshot: saveSnapshotMock
   }))
 );
-const getOptionsMessagesMock = vi.hoisted(() =>
-  vi.fn(() => Promise.resolve({ portConflictDetected: 'Port conflict: {ports}' }))
-);
+const getOptionsMessagesMock = vi.hoisted(() => vi.fn(() => Promise.resolve({})));
 
 vi.mock('../../../src/options/app/optionsControllerContext', () => ({
   getOptionsController: getOptionsControllerMock
@@ -55,8 +55,18 @@ vi.mock('@shared/di/serviceRegistry', () => ({
   resolveRepository: () => ({ get: repoGetMock, set: repoSetMock })
 }));
 
+async function createDiagnosticsMessages(
+  overrides: Partial<Messages> = {},
+  language = 'en'
+): Promise<Messages> {
+  return {
+    ...(await getMessagesForLanguage(language)),
+    ...overrides
+  };
+}
+
 describe('diagnostics', () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     vi.resetModules();
     vi.clearAllMocks();
     getSnapshotMock.mockReset();
@@ -65,6 +75,7 @@ describe('diagnostics', () => {
     repoGetMock.mockReset();
     repoSetMock.mockReset();
     getOptionsControllerMock.mockReset();
+    getOptionsMessagesMock.mockReset();
     saveSnapshotMock.mockResolvedValue({} as StoredOptions);
     repoGetMock.mockResolvedValue({} as CompleteOptions);
     repoSetMock.mockResolvedValue(undefined);
@@ -73,13 +84,21 @@ describe('diagnostics', () => {
       loadRaw: loadRawMock,
       saveSnapshot: saveSnapshotMock
     });
+    getOptionsMessagesMock.mockResolvedValue(await createDiagnosticsMessages());
     vi.useRealTimers();
     document.body.innerHTML =
       '<div id="diagSection" style="display:none"></div><pre id="diagOutput"></pre>';
   });
 
   it('renders diagnostic output from controller snapshots', async () => {
-    getSnapshotMock.mockReturnValue({
+    getOptionsMessagesMock.mockResolvedValue(
+      await createDiagnosticsMessages({
+        diagnosticsRunning: 'Running diagnostics sentinel...',
+        diagnosticsRestUrlsMissing: 'HTTP/HTTPS URL sentinel',
+        diagnosticsReadingUnknownExportMode: 'Unknown export mode sentinel: {mode}'
+      })
+    );
+    const snapshot: StoredOptions = {
       rest: { httpsUrl: '', httpUrl: '', apiKey: '' },
       templates: { article: '', fragment: '', ai: '' },
       vaultRouter: { vaults: [], rules: [] },
@@ -92,19 +111,34 @@ describe('diagnostics', () => {
         selectionModifierEnabled: true,
         selectionModifierKeys: []
       },
-      readingSession: { exportMode: 'weird', highlightTheme: 'strange' },
       video: { floatingPromptEnabled: false, promptButtonLabel: '', promptShortcut: '' }
-    } as unknown as StoredOptions);
+    };
+    Reflect.set(snapshot, 'readingSession', {
+      exportMode: 'weird',
+      highlightTheme: 'strange'
+    });
+    getSnapshotMock.mockReturnValue(snapshot);
     const { runDiagnostics } = await import('@options/components/diagnostics');
     await runDiagnostics();
 
     const output = document.getElementById('diagOutput');
-    expect(output?.textContent).toContain('未配置 HTTP/HTTPS URL');
-    expect(output?.textContent).toContain('未知导出模式');
+    expect(output?.textContent).toContain('Running diagnostics sentinel...');
+    expect(output?.textContent).toContain('HTTP/HTTPS URL sentinel');
+    expect(output?.textContent).toContain('Unknown export mode sentinel: weird');
+    expect(output?.textContent).not.toMatch(HAN_REGEX);
     expect(document.getElementById('diagSection')?.style.display).toBe('block');
   });
 
   it('fixes configuration and persists via controller or repository', async () => {
+    getOptionsMessagesMock.mockResolvedValue(
+      await createDiagnosticsMessages({
+        diagnosticsRepairSwitchedToHttps: 'Switched to HTTPS sentinel {port}',
+        diagnosticsRepairAddedFragmentTemplate: 'Added fragment template sentinel',
+        diagnosticsRepairUpdatedArticleTemplate: 'Updated article template sentinel',
+        diagnosticsRepairSaved: 'Repair saved sentinel',
+        diagnosticsRepairReloadHint: 'Reload hint sentinel'
+      })
+    );
     getSnapshotMock.mockReturnValue({
       rest: { httpsUrl: '', httpUrl: '', baseUrl: LOCAL_HTTP_CONFLICT_URL, apiKey: 'key' },
       templates: { article: 'Clippings/{title}.md', fragment: '', ai: '' }
@@ -112,10 +146,22 @@ describe('diagnostics', () => {
     const { fixConfiguration } = await import('@options/components/diagnostics');
     await fixConfiguration();
     expect(saveSnapshotMock).toHaveBeenCalled();
-    expect(document.getElementById('diagOutput')?.textContent).toContain('配置已修复并保存');
+    const output = document.getElementById('diagOutput')?.textContent ?? '';
+    expect(output).toContain('Switched to HTTPS sentinel 27124');
+    expect(output).toContain('Added fragment template sentinel');
+    expect(output).toContain('Updated article template sentinel');
+    expect(output).toContain('Repair saved sentinel');
+    expect(output).toContain('Reload hint sentinel');
+    expect(output).not.toMatch(HAN_REGEX);
   });
 
   it('loads raw options when controller snapshot is empty and reports port conflicts', async () => {
+    getOptionsMessagesMock.mockResolvedValue(
+      await createDiagnosticsMessages({
+        diagnosticsDomainMappingCount: 'Domain mapping sentinel: {count}',
+        portConflictDetected: 'Port conflict: {ports}'
+      })
+    );
     getSnapshotMock.mockReturnValue({} as StoredOptions);
     loadRawMock.mockResolvedValue({
       rest: {
@@ -149,11 +195,15 @@ describe('diagnostics', () => {
     const output = document.getElementById('diagOutput')?.textContent ?? '';
     expect(loadRawMock).toHaveBeenCalled();
     expect(output).toContain(`Port conflict: ${LOCAL_CONFLICT_PORT}`);
-    expect(output).toContain('映射条目数量: 1');
+    expect(output).toContain('Domain mapping sentinel: 1');
+    expect(output).not.toMatch(HAN_REGEX);
   });
 
   it('keeps missing placeholders unchanged in diagnostics port-conflict formatting', async () => {
     const { buildDiagnosticsReport } = await import('@options/components/diagnostics');
+    const messages = await createDiagnosticsMessages({
+      portConflictDetected: 'Port conflict: {ports} / {missing}'
+    });
 
     const report = buildDiagnosticsReport(
       {
@@ -181,13 +231,55 @@ describe('diagnostics', () => {
           rules: []
         }
       } as unknown as StoredOptions,
-      { portConflictDetected: 'Port conflict: {ports} / {missing}' }
+      messages
     );
 
     expect(report).toContain(`Port conflict: ${LOCAL_CONFLICT_PORT} / {missing}`);
   });
 
+  it('renders zh-CN diagnostics text from the active catalog messages', async () => {
+    const { buildDiagnosticsReport } = await import('@options/components/diagnostics');
+    const zhMessages = await createDiagnosticsMessages(
+      {
+        diagnosticsDomainMappingCount: '目录映射哨兵：{count}'
+      },
+      'zh-CN'
+    );
+
+    const report = buildDiagnosticsReport(
+      {
+        rest: {
+          httpsUrl: LOCAL_HTTPS_URL,
+          httpUrl: LOCAL_HTTP_URL,
+          apiKey: 'key'
+        },
+        templates: {
+          article: 'Articles/{title}.md',
+          fragment: 'Fragments/{title}.md',
+          ai: 'AI/{title}.md'
+        },
+        domainMappings: { 'example.com': 'article' }
+      } as unknown as StoredOptions,
+      zhMessages
+    );
+
+    expect(report).toContain('目录映射哨兵：1');
+  });
+
   it('falls back to repository get when controller is unavailable and surfaces complete diagnostic statuses', async () => {
+    getOptionsMessagesMock.mockResolvedValue(
+      await createDiagnosticsMessages({
+        diagnosticsActiveVaultCount: 'Configured vaults sentinel: {count}',
+        diagnosticsRoutingRuleCount: 'Routing rules sentinel: {count}',
+        diagnosticsAiChatUserNameValue: 'User name sentinel: {userName}',
+        diagnosticsFragmentContextLengthValue: 'Context length sentinel: {value}',
+        diagnosticsFragmentModifierKeysValue: 'Modifier keys sentinel: {keys}',
+        diagnosticsReadingExportFull: 'Full export sentinel',
+        diagnosticsReadingThemeValue: 'Theme sentinel: {theme}',
+        diagnosticsVideoFloatingPromptEnabled: 'Video prompt sentinel',
+        diagnosticsPortConfigHealthy: 'Healthy ports sentinel'
+      })
+    );
     getOptionsControllerMock.mockReturnValue(null);
     repoGetMock.mockResolvedValueOnce({
       rest: {
@@ -237,21 +329,27 @@ describe('diagnostics', () => {
 
     const output = document.getElementById('diagOutput')?.textContent ?? '';
     expect(repoGetMock).toHaveBeenCalledTimes(1);
-    expect(output).toContain('✅ 启用的仓库数量: 1');
-    expect(output).toContain('✅ 路由规则数量: 1');
-    expect(output).toContain('✅ 用户名称: Alice');
+    expect(output).toContain('Configured vaults sentinel: 1');
+    expect(output).toContain('Routing rules sentinel: 1');
+    expect(output).toContain('User name sentinel: Alice');
     expect(output).not.toContain('时间戳记录');
-    expect(output).toContain('✅ 上下文长度: 120');
-    expect(output).toContain('✅ 辅助键触发: alt + shift');
-    expect(output).toContain('✅ 导出全文，并保留高亮标注');
-    expect(output).toContain('✅ 高亮主题: purple');
-    expect(output).toContain('✅ 已启用视频笔记按钮，可在视频网站控制栏快速开启笔记模式');
+    expect(output).toContain('Context length sentinel: 120');
+    expect(output).toContain('Modifier keys sentinel: alt + shift');
+    expect(output).toContain('Full export sentinel');
+    expect(output).toContain('Theme sentinel: purple');
+    expect(output).toContain('Video prompt sentinel');
     expect(output).not.toContain('按钮文案');
     expect(output).not.toContain('快捷键');
-    expect(output).toContain('✅ 仓库端口配置正常');
+    expect(output).toContain('Healthy ports sentinel');
+    expect(output).not.toMatch(HAN_REGEX);
   });
 
   it('falls back to empty snapshot when repository loading throws', async () => {
+    getOptionsMessagesMock.mockResolvedValue(
+      await createDiagnosticsMessages({
+        diagnosticsConfigNotFound: 'No config sentinel'
+      })
+    );
     getOptionsControllerMock.mockReturnValue(null);
     repoGetMock.mockRejectedValueOnce(new Error('repo failed'));
     const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
@@ -259,16 +357,25 @@ describe('diagnostics', () => {
     await runDiagnostics();
 
     const output = document.getElementById('diagOutput')?.textContent ?? '';
-    expect(output).toContain('❌ 未找到配置');
+    expect(output).toContain('No config sentinel');
     expect(errorSpy).toHaveBeenCalled();
     errorSpy.mockRestore();
   });
 
   it('returns early for empty options and covers fragment and reading fallback branches', async () => {
+    getOptionsMessagesMock.mockResolvedValue(
+      await createDiagnosticsMessages({
+        diagnosticsConfigNotFound: 'No config sentinel',
+        diagnosticsFragmentContextLengthInvalid: 'Invalid context length sentinel',
+        diagnosticsFragmentModifierDisabled: 'Modifier disabled sentinel',
+        diagnosticsReadingExportHighlights: 'Highlights only sentinel',
+        diagnosticsReadingThemeValue: 'Theme sentinel: {theme}'
+      })
+    );
     getSnapshotMock.mockReturnValueOnce(null);
     const { runDiagnostics } = await import('@options/components/diagnostics');
     await runDiagnostics();
-    expect(document.getElementById('diagOutput')?.textContent).toContain('未找到配置');
+    expect(document.getElementById('diagOutput')?.textContent).toContain('No config sentinel');
 
     getSnapshotMock.mockReturnValueOnce({
       rest: {
@@ -288,10 +395,11 @@ describe('diagnostics', () => {
     } as unknown as StoredOptions);
     await runDiagnostics();
     const output = document.getElementById('diagOutput')?.textContent ?? '';
-    expect(output).toContain('❌ 上下文长度配置异常，应为正整数');
-    expect(output).toContain('ℹ️ 未启用辅助键触发操作');
-    expect(output).toContain('ℹ️ 仅导出高亮片段');
-    expect(output).toContain('✅ 高亮主题: gradient');
+    expect(output).toContain('Invalid context length sentinel');
+    expect(output).toContain('Modifier disabled sentinel');
+    expect(output).toContain('Highlights only sentinel');
+    expect(output).toContain('Theme sentinel: gradient');
+    expect(output).not.toMatch(HAN_REGEX);
   });
 
   it('uses repository set and reruns diagnostics after fix callback', async () => {
@@ -319,6 +427,12 @@ describe('diagnostics', () => {
   });
 
   it('uses repository set failure path and covers https-to-http port fix', async () => {
+    getOptionsMessagesMock.mockResolvedValue(
+      await createDiagnosticsMessages({
+        diagnosticsRepairSwitchedToHttp: 'Switched to HTTP sentinel {port}',
+        diagnosticsRepairFailed: 'Repair failed sentinel: {reason}'
+      })
+    );
     getOptionsControllerMock.mockReturnValue(null);
     repoGetMock.mockResolvedValueOnce({
       rest: { httpsUrl: '', httpUrl: '', baseUrl: 'https://localhost:27123', apiKey: 'key' },
@@ -329,11 +443,16 @@ describe('diagnostics', () => {
     await fixConfiguration();
 
     const output = document.getElementById('diagOutput')?.textContent ?? '';
-    expect(output).toContain('HTTPS://...27123 改为 HTTP://...27123');
-    expect(output).toContain('修复失败: repo save failed');
+    expect(output).toContain('Switched to HTTP sentinel 27123');
+    expect(output).toContain('Repair failed sentinel: repo save failed');
   });
 
   it('shows fix failure when snapshot saving rejects', async () => {
+    getOptionsMessagesMock.mockResolvedValue(
+      await createDiagnosticsMessages({
+        diagnosticsRepairFailed: 'Repair failed sentinel: {reason}'
+      })
+    );
     getSnapshotMock.mockReturnValue({
       rest: { httpsUrl: '', httpUrl: '', baseUrl: 'https://localhost:27123', apiKey: 'key' },
       templates: { article: '', fragment: '', ai: '' }
@@ -341,6 +460,8 @@ describe('diagnostics', () => {
     saveSnapshotMock.mockRejectedValueOnce(new Error('save failed'));
     const { fixConfiguration } = await import('../../../src/options/components/diagnostics');
     await fixConfiguration();
-    expect(document.getElementById('diagOutput')?.textContent).toContain('修复失败: save failed');
+    expect(document.getElementById('diagOutput')?.textContent).toContain(
+      'Repair failed sentinel: save failed'
+    );
   });
 });

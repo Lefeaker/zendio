@@ -38,6 +38,7 @@ export type DeepResearchConfig = {
 
 export type ParseConfig = {
   deepResearch?: DeepResearchConfig;
+  fallbackTitle?: string;
 };
 
 export interface ChatPlatformParser {

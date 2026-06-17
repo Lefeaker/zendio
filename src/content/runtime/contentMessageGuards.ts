@@ -1,6 +1,10 @@
 import type { AppError } from '../../shared/errors';
 import type { LocalVaultPermissionPromptMessage } from '../../shared/types';
 import { isNonEmptyString, isObjectRecord, isOptionalString } from '../../shared/guards';
+import {
+  isUserVisibleMessageDescriptor,
+  type UserVisibleMessageDescriptor
+} from '../../shared/i18n/userVisibleMessageDescriptor';
 
 const SHOW_SUPPORT_PROMPT = 'SHOW_SUPPORT_PROMPT';
 const SHOW_LOCAL_VAULT_PERMISSION_PROMPT = 'SHOW_LOCAL_VAULT_PERMISSION_PROMPT';
@@ -15,6 +19,7 @@ export interface SupportPromptOptions {
   progress?: {
     value: number;
     label?: string;
+    message?: UserVisibleMessageDescriptor;
     variant?: 'progress' | 'success' | 'failure' | 'warning';
   };
 }
@@ -63,6 +68,7 @@ export function isSupportPromptMessage(message: unknown): message is SupportProm
       (progress !== undefined &&
         typeof progress?.value === 'number' &&
         isOptionalString(progress.label) &&
+        (progress.message === undefined || isUserVisibleMessageDescriptor(progress.message)) &&
         (progress.variant === undefined || isSupportPromptStatus(progress.variant))))
   );
 }

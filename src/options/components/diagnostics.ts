@@ -1,3 +1,9 @@
+import { DEFAULT_RUNTIME_MESSAGES, type Messages } from '@i18n';
+import { formatUserVisibleMessage } from '../../i18n/userVisibleMessageFormatter';
+import type {
+  UserVisibleMessageDescriptor,
+  UserVisibleMessageValues
+} from '../../shared/i18n/userVisibleMessageDescriptor';
 import { getElementById } from '../utils/dom';
 import type { VaultConfig, RoutingRule } from '../../shared/types';
 import type {
@@ -8,24 +14,51 @@ import type {
 } from '../../shared/types/options';
 import { collectPortEntriesFromConfig, findDuplicatePorts } from '../utils/ports';
 import { getOptionsController } from '../app/optionsControllerContext';
-import { getOptionsMessages } from '../app/i18nContext';
+import { getOptionsI18nResource, getOptionsMessages } from '../app/i18nContext';
 import { configProvider } from '../../shared/config/provider';
 import { resolveRepository } from '../../shared/di/serviceRegistry';
 import { DI_TOKENS } from '../../shared/di/tokens';
 import type { IOptionsRepository } from '../../shared/repositories';
 
-function interpolateDiagnosticsTemplate(
-  template: string,
-  values: Record<string, string | number | undefined>
-): string {
-  return template.replace(/\{(\w+)\}/g, (match, token: string) => {
-    const value = values[token];
-    return value === undefined ? match : String(value);
-  });
+type DiagnosticSeverity = 'ok' | 'warning' | 'error' | 'info';
+type DiagnosticMessageKey = Extract<keyof Messages, string>;
+type DiagnosticMessage = UserVisibleMessageDescriptor<DiagnosticMessageKey>;
+
+interface DiagnosticLine {
+  severity?: DiagnosticSeverity;
+  message?: DiagnosticMessage;
+  rawText?: string;
 }
+
+interface DiagnosticSection {
+  icon: string;
+  title: DiagnosticMessage;
+  lines: DiagnosticLine[];
+  rawBlock?: string;
+}
+
+interface DiagnosticReport {
+  sections: DiagnosticSection[];
+  footer?: DiagnosticMessage;
+}
+
+const SEVERITY_PREFIX: Record<DiagnosticSeverity, string> = {
+  ok: '✅',
+  warning: '⚠️',
+  error: '❌',
+  info: 'ℹ️'
+};
+
+const INLINE_STATUS_PREFIX = /^(✅|⚠️|❌|ℹ️)\s/u;
 
 function isEmptyOptions(options: StoredOptions | null | undefined): boolean {
   return !options || Object.keys(options).length === 0;
+}
+
+function isPresentOptions(
+  options: StoredOptions | CompleteOptions | null | undefined
+): options is StoredOptions | CompleteOptions {
+  return options !== null && options !== undefined && Object.keys(options).length > 0;
 }
 
 const REST_DEFAULTS = configProvider.getRestDefaults();
@@ -47,6 +80,363 @@ const VALID_READING_THEMES: ReadonlySet<ReadingSessionOptions['highlightTheme']>
 const VALID_FRAGMENT_KEYS: ReadonlySet<FragmentClipperOptions['selectionModifierKeys'][number]> =
   new Set(['alt', 'meta', 'ctrl', 'shift']);
 
+function createDiagnosticMessage<Key extends DiagnosticMessageKey>(
+  key: Key,
+  values?: UserVisibleMessageValues
+): UserVisibleMessageDescriptor<Key> {
+  return values && Object.keys(values).length > 0 ? { key, values } : { key };
+}
+
+function createDiagnosticLine(
+  severity: DiagnosticSeverity,
+  key: DiagnosticMessageKey,
+  values?: UserVisibleMessageValues
+): DiagnosticLine {
+  return {
+    severity,
+    message: createDiagnosticMessage(key, values)
+  };
+}
+
+function resolveDiagnosticsMessages(messages?: Partial<Messages> | null): Messages {
+  if (messages) {
+    const mergedMessages: Messages = { ...DEFAULT_RUNTIME_MESSAGES, ...messages };
+    return mergedMessages;
+  }
+
+  return getOptionsI18nResource()?.messages ?? DEFAULT_RUNTIME_MESSAGES;
+}
+
+function formatDiagnosticMessage(message: DiagnosticMessage, messages: Messages): string {
+  return formatUserVisibleMessage(message, messages, DEFAULT_RUNTIME_MESSAGES[message.key] ?? '');
+}
+
+function renderDiagnosticLine(line: DiagnosticLine, messages: Messages): string {
+  if (line.rawText !== undefined) {
+    return line.rawText;
+  }
+
+  if (!line.message) {
+    return '';
+  }
+
+  const text = formatDiagnosticMessage(line.message, messages);
+  if (!line.severity || INLINE_STATUS_PREFIX.test(text)) {
+    return text;
+  }
+
+  return `${SEVERITY_PREFIX[line.severity]} ${text}`;
+}
+
+function renderDiagnosticSection(section: DiagnosticSection, messages: Messages): string {
+  let output = `\n${section.icon} ${formatDiagnosticMessage(section.title, messages)}:\n`;
+
+  if (section.rawBlock !== undefined) {
+    output += `${section.rawBlock}\n`;
+  }
+
+  for (const line of section.lines) {
+    output += `${renderDiagnosticLine(line, messages)}\n`;
+  }
+
+  return output;
+}
+
+function renderDiagnosticReport(report: DiagnosticReport, messages: Messages): string {
+  let output = '';
+
+  for (const section of report.sections) {
+    output += renderDiagnosticSection(section, messages);
+  }
+
+  if (report.footer) {
+    output += `\n${formatDiagnosticMessage(report.footer, messages)}\n`;
+  }
+
+  return output;
+}
+
+function buildDiagnosticsModel(
+  options: StoredOptions | CompleteOptions | null | undefined
+): DiagnosticReport {
+  const currentConfigSection: DiagnosticSection = {
+    icon: '📋',
+    title: createDiagnosticMessage('diagnosticsSectionCurrentConfigTitle'),
+    lines: [],
+    rawBlock: JSON.stringify(options, null, 2)
+  };
+  const configChecksSection: DiagnosticSection = {
+    icon: '🔍',
+    title: createDiagnosticMessage('diagnosticsSectionConfigChecksTitle'),
+    lines: []
+  };
+
+  if (!isPresentOptions(options)) {
+    configChecksSection.lines.push(createDiagnosticLine('error', 'diagnosticsConfigNotFound'));
+    return {
+      sections: [currentConfigSection, configChecksSection]
+    };
+  }
+
+  if (!options.rest) {
+    configChecksSection.lines.push(createDiagnosticLine('error', 'diagnosticsRestConfigMissing'));
+  } else {
+    const rest = options.rest;
+    if (!rest.httpsUrl && !rest.httpUrl) {
+      configChecksSection.lines.push(createDiagnosticLine('warning', 'diagnosticsRestUrlsMissing'));
+    }
+    if (!rest.apiKey) {
+      configChecksSection.lines.push(
+        createDiagnosticLine('warning', 'diagnosticsRestApiKeyMissing')
+      );
+    }
+  }
+
+  if (!options.templates) {
+    configChecksSection.lines.push(createDiagnosticLine('warning', 'diagnosticsTemplatesMissing'));
+  } else {
+    const templates = options.templates;
+    if (!templates.article) {
+      configChecksSection.lines.push(
+        createDiagnosticLine('warning', 'diagnosticsTemplateArticleMissing')
+      );
+    }
+    if (!templates.fragment) {
+      configChecksSection.lines.push(
+        createDiagnosticLine('warning', 'diagnosticsTemplateFragmentMissing')
+      );
+    }
+    if (!templates.ai) {
+      configChecksSection.lines.push(
+        createDiagnosticLine('warning', 'diagnosticsTemplateAiMissing')
+      );
+    }
+  }
+
+  const multiVaultSection: DiagnosticSection = {
+    icon: '📦',
+    title: createDiagnosticMessage('diagnosticsSectionMultiVaultTitle'),
+    lines: []
+  };
+
+  if (options.vaultRouter) {
+    const router = options.vaultRouter;
+    const activeVaults = router.vaults?.filter((vault) => vault.enabled !== false) ?? [];
+    if (activeVaults.length === 0) {
+      multiVaultSection.lines.push(
+        createDiagnosticLine('warning', 'diagnosticsAdditionalVaultsMissing')
+      );
+    } else {
+      multiVaultSection.lines.push(
+        createDiagnosticLine('ok', 'diagnosticsActiveVaultCount', { count: activeVaults.length })
+      );
+    }
+
+    const legacyRulesCount = router.rules?.length ?? 0;
+    const nestedRulesCount = activeVaults.reduce(
+      (total: number, vault: VaultConfig & { rules?: RoutingRule[] }) => {
+        return total + (vault.rules?.length ?? 0);
+      },
+      0
+    );
+    const totalRules = legacyRulesCount + nestedRulesCount;
+
+    if (totalRules === 0) {
+      multiVaultSection.lines.push(createDiagnosticLine('info', 'diagnosticsRoutingRulesMissing'));
+    } else {
+      multiVaultSection.lines.push(
+        createDiagnosticLine('ok', 'diagnosticsRoutingRuleCount', { count: totalRules })
+      );
+    }
+  } else {
+    multiVaultSection.lines.push(
+      createDiagnosticLine('info', 'diagnosticsMultiVaultNotConfigured')
+    );
+  }
+
+  const mappingCount = options.domainMappings ? Object.keys(options.domainMappings).length : 0;
+  const domainMappingsSection: DiagnosticSection = {
+    icon: '🌐',
+    title: createDiagnosticMessage('diagnosticsSectionDomainMappingsTitle'),
+    lines: [
+      mappingCount > 0
+        ? createDiagnosticLine('ok', 'diagnosticsDomainMappingCount', { count: mappingCount })
+        : createDiagnosticLine('info', 'diagnosticsDomainMappingsMissing')
+    ]
+  };
+
+  const aiChatSection: DiagnosticSection = {
+    icon: '🤖',
+    title: createDiagnosticMessage('diagnosticsSectionAiChatTitle'),
+    lines: []
+  };
+
+  if (!options.aiChat) {
+    aiChatSection.lines.push(createDiagnosticLine('info', 'diagnosticsAiChatConfigMissing'));
+  } else {
+    const userName = options.aiChat.userName?.trim();
+    if (!userName) {
+      aiChatSection.lines.push(createDiagnosticLine('warning', 'diagnosticsAiChatUserNameMissing'));
+    } else {
+      aiChatSection.lines.push(
+        createDiagnosticLine('ok', 'diagnosticsAiChatUserNameValue', { userName })
+      );
+    }
+  }
+
+  const fragmentSection: DiagnosticSection = {
+    icon: '✂️',
+    title: createDiagnosticMessage('diagnosticsSectionFragmentClipperTitle'),
+    lines: []
+  };
+
+  if (!options.fragmentClipper) {
+    fragmentSection.lines.push(
+      createDiagnosticLine('info', 'diagnosticsFragmentClipperConfigMissing')
+    );
+  } else {
+    const clipper = options.fragmentClipper;
+    fragmentSection.lines.push(
+      clipper.useFootnoteFormat
+        ? createDiagnosticLine('ok', 'diagnosticsFragmentFootnoteEnabled')
+        : createDiagnosticLine('info', 'diagnosticsFragmentFootnoteDisabled')
+    );
+    fragmentSection.lines.push(
+      clipper.captureContext
+        ? createDiagnosticLine('ok', 'diagnosticsFragmentContextEnabled')
+        : createDiagnosticLine('info', 'diagnosticsFragmentContextDisabled')
+    );
+
+    const contextLength = Number(clipper.contextLength ?? FRAGMENT_DEFAULTS.contextLength);
+    if (!Number.isFinite(contextLength) || contextLength <= 0) {
+      fragmentSection.lines.push(
+        createDiagnosticLine('error', 'diagnosticsFragmentContextLengthInvalid')
+      );
+    } else if (contextLength < 50) {
+      fragmentSection.lines.push(
+        createDiagnosticLine('warning', 'diagnosticsFragmentContextLengthShort', {
+          value: contextLength
+        })
+      );
+    } else {
+      fragmentSection.lines.push(
+        createDiagnosticLine('ok', 'diagnosticsFragmentContextLengthValue', {
+          value: contextLength
+        })
+      );
+    }
+
+    if (clipper.selectionModifierEnabled) {
+      const keys = (clipper.selectionModifierKeys ?? []).filter((key) =>
+        VALID_FRAGMENT_KEYS.has(key)
+      );
+      if (keys.length === 0) {
+        fragmentSection.lines.push(
+          createDiagnosticLine('warning', 'diagnosticsFragmentModifierKeysMissing')
+        );
+      } else {
+        fragmentSection.lines.push(
+          createDiagnosticLine('ok', 'diagnosticsFragmentModifierKeysValue', {
+            keys: keys.join(' + ')
+          })
+        );
+      }
+    } else {
+      fragmentSection.lines.push(
+        createDiagnosticLine('info', 'diagnosticsFragmentModifierDisabled')
+      );
+    }
+  }
+
+  const readingSection: DiagnosticSection = {
+    icon: '📖',
+    title: createDiagnosticMessage('diagnosticsSectionReadingModeTitle'),
+    lines: []
+  };
+
+  if (!options.readingSession) {
+    readingSection.lines.push(createDiagnosticLine('info', 'diagnosticsReadingConfigMissing'));
+  } else {
+    const exportMode = options.readingSession.exportMode ?? 'highlights';
+    if (!VALID_READING_EXPORT_MODES.has(exportMode as ReadingSessionOptions['exportMode'])) {
+      readingSection.lines.push(
+        createDiagnosticLine('error', 'diagnosticsReadingUnknownExportMode', {
+          mode: String(exportMode)
+        })
+      );
+    } else {
+      readingSection.lines.push(
+        exportMode === 'full'
+          ? createDiagnosticLine('ok', 'diagnosticsReadingExportFull')
+          : createDiagnosticLine('info', 'diagnosticsReadingExportHighlights')
+      );
+    }
+
+    const theme = options.readingSession.highlightTheme ?? 'gradient';
+    if (!VALID_READING_THEMES.has(theme as ReadingSessionOptions['highlightTheme'])) {
+      readingSection.lines.push(
+        createDiagnosticLine('warning', 'diagnosticsReadingUnknownTheme', {
+          theme: String(theme)
+        })
+      );
+    } else {
+      readingSection.lines.push(
+        createDiagnosticLine('ok', 'diagnosticsReadingThemeValue', { theme: String(theme) })
+      );
+    }
+  }
+
+  const videoSection: DiagnosticSection = {
+    icon: '🎬',
+    title: createDiagnosticMessage('diagnosticsSectionVideoModeTitle'),
+    lines: []
+  };
+
+  if (!options.video) {
+    videoSection.lines.push(createDiagnosticLine('info', 'diagnosticsVideoConfigMissing'));
+  } else {
+    videoSection.lines.push(
+      options.video.floatingPromptEnabled
+        ? createDiagnosticLine('ok', 'diagnosticsVideoFloatingPromptEnabled')
+        : createDiagnosticLine('info', 'diagnosticsVideoFloatingPromptDisabled')
+    );
+  }
+
+  const portSection: DiagnosticSection = {
+    icon: '🔌',
+    title: createDiagnosticMessage('diagnosticsSectionPortChecksTitle'),
+    lines: []
+  };
+
+  const portEntries = collectPortEntriesFromConfig(options.rest, options.vaultRouter?.vaults);
+  const portConflicts = findDuplicatePorts(portEntries);
+  if (portConflicts.length > 0) {
+    portSection.lines.push({
+      severity: 'warning',
+      message: createDiagnosticMessage('portConflictDetected', {
+        ports: portConflicts.join(', ')
+      })
+    });
+  } else {
+    portSection.lines.push(createDiagnosticLine('ok', 'diagnosticsPortConfigHealthy'));
+  }
+
+  return {
+    sections: [
+      currentConfigSection,
+      configChecksSection,
+      multiVaultSection,
+      domainMappingsSection,
+      aiChatSection,
+      fragmentSection,
+      readingSection,
+      videoSection,
+      portSection
+    ],
+    footer: createDiagnosticMessage('diagnosticsCompleted')
+  };
+}
+
 async function resolveOptionsSnapshot(): Promise<StoredOptions | null> {
   const controller = getOptionsController();
   if (controller) {
@@ -65,221 +455,107 @@ async function resolveOptionsSnapshot(): Promise<StoredOptions | null> {
   }
 }
 
+async function resolveCurrentMessages(): Promise<Messages> {
+  try {
+    return resolveDiagnosticsMessages(await getOptionsMessages());
+  } catch {
+    return resolveDiagnosticsMessages();
+  }
+}
+
 export async function runDiagnostics(): Promise<void> {
   const diagSection = getElementById<HTMLElement>('diagSection');
   const diagOutput = getElementById<HTMLPreElement>('diagOutput');
+  const messages = await resolveCurrentMessages();
 
   diagSection.style.display = 'block';
-  diagOutput.textContent = '正在诊断...\n';
+  diagOutput.textContent = `${formatDiagnosticMessage(
+    createDiagnosticMessage('diagnosticsRunning'),
+    messages
+  )}\n`;
 
   try {
-    const msgs = await getOptionsMessages();
     const options = await resolveOptionsSnapshot();
-    diagOutput.textContent += buildDiagnosticsReport(options, msgs);
+    diagOutput.textContent += buildDiagnosticsReport(options, messages);
   } catch (error) {
-    diagOutput.textContent += `\n❌ 诊断失败: ${error instanceof Error ? error.message : String(error)}\n`;
+    diagOutput.textContent += `\n${renderDiagnosticLine(
+      {
+        severity: 'error',
+        message: createDiagnosticMessage('diagnosticsRunFailed', {
+          reason: error instanceof Error ? error.message : String(error)
+        })
+      },
+      messages
+    )}\n`;
   }
 }
 
 export function buildDiagnosticsReport(
   options: StoredOptions | CompleteOptions | null | undefined,
-  msgs?: Partial<{ portConflictDetected: string }>
+  messages?: Partial<Messages> | null
 ): string {
-  let report = '\n📋 当前配置:\n';
-  report += JSON.stringify(options, null, 2) + '\n';
-
-  report += '\n🔍 检查配置:\n';
-
-  if (isEmptyOptions(options)) {
-    report += '❌ 未找到配置\n';
-    return report;
-  }
-
-  if (!options?.rest) {
-    report += '❌ REST API 配置缺失\n';
-  } else {
-    const rest = options.rest;
-    if (!rest.httpsUrl && !rest.httpUrl) {
-      report += '⚠️ 未配置 HTTP/HTTPS URL\n';
-    }
-    if (!rest.apiKey) {
-      report += '⚠️ 未配置 API Key\n';
-    }
-  }
-
-  if (!options?.templates) {
-    report += '⚠️ 未配置模板\n';
-  } else {
-    const templates = options.templates;
-    if (!templates.article) {
-      report += '⚠️ 未配置 Article 模板\n';
-    }
-    if (!templates.fragment) {
-      report += '⚠️ 未配置 Fragment 模板\n';
-    }
-    if (!templates.ai) {
-      report += '⚠️ 未配置 AI 模板\n';
-    }
-  }
-
-  if (options?.vaultRouter) {
-    const router = options.vaultRouter;
-    const activeVaults = router.vaults?.filter((vault) => vault.enabled !== false) ?? [];
-    report += '\n📦 多仓库配置:\n';
-    if (activeVaults.length === 0) {
-      report += '⚠️ 未配置额外仓库\n';
-    } else {
-      report += `✅ 启用的仓库数量: ${activeVaults.length}\n`;
-    }
-    const routerConfig = router;
-    const legacyRulesCount = routerConfig.rules?.length ?? 0;
-    const nestedRulesCount = activeVaults.reduce(
-      (total: number, vault: VaultConfig & { rules?: RoutingRule[] }) => {
-        return total + (vault.rules?.length ?? 0);
-      },
-      0
-    );
-    const totalRules = legacyRulesCount + nestedRulesCount;
-
-    if (totalRules === 0) {
-      report += 'ℹ️ 未配置路由规则\n';
-    } else {
-      report += `✅ 路由规则数量: ${totalRules}\n`;
-    }
-  } else {
-    report += '\nℹ️ 未配置多仓库\n';
-  }
-
-  report += '\n🌐 域名映射:\n';
-  const mappingCount = options?.domainMappings ? Object.keys(options.domainMappings).length : 0;
-  if (!mappingCount) {
-    report += 'ℹ️ 未配置域名映射\n';
-  } else {
-    report += `✅ 映射条目数量: ${mappingCount}\n`;
-  }
-
-  report += '\n🤖 AI 对话配置:\n';
-  if (!options?.aiChat) {
-    report += 'ℹ️ 未检测到 AI 对话配置\n';
-  } else {
-    const userName = options.aiChat.userName?.trim();
-    if (!userName) {
-      report += '⚠️ 用户名称为空，建议设置一个明确的称呼\n';
-    } else {
-      report += `✅ 用户名称: ${userName}\n`;
-    }
-  }
-
-  report += '\n✂️ 片段剪藏配置:\n';
-  if (!options?.fragmentClipper) {
-    report += 'ℹ️ 未检测到片段剪藏配置\n';
-  } else {
-    const clipper = options.fragmentClipper;
-    report += clipper.useFootnoteFormat
-      ? '✅ 已启用脚注格式，兼容 Sidebar Highlights\n'
-      : 'ℹ️ 未启用脚注格式\n';
-    report += clipper.captureContext
-      ? '✅ 将自动捕捉上下文\n'
-      : 'ℹ️ 未捕捉上下文，仅保存选中文本\n';
-
-    const contextLength = Number(clipper.contextLength ?? FRAGMENT_DEFAULTS.contextLength);
-    if (!Number.isFinite(contextLength) || contextLength <= 0) {
-      report += '❌ 上下文长度配置异常，应为正整数\n';
-    } else if (contextLength < 50) {
-      report += `⚠️ 上下文长度较短 (${contextLength})，可能无法提供足够引用信息\n`;
-    } else {
-      report += `✅ 上下文长度: ${contextLength}\n`;
-    }
-
-    if (clipper.selectionModifierEnabled) {
-      const keys = (clipper.selectionModifierKeys ?? []).filter((key) =>
-        VALID_FRAGMENT_KEYS.has(key)
-      );
-      if (keys.length === 0) {
-        report += '⚠️ 已启用辅助键触发，但未配置具体按键\n';
-      } else {
-        report += `✅ 辅助键触发: ${keys.join(' + ')}\n`;
-      }
-    } else {
-      report += 'ℹ️ 未启用辅助键触发操作\n';
-    }
-  }
-
-  report += '\n📖 阅读模式配置:\n';
-  if (!options?.readingSession) {
-    report += 'ℹ️ 未检测到阅读模式配置\n';
-  } else {
-    const exportMode = options.readingSession.exportMode ?? 'highlights';
-    if (!VALID_READING_EXPORT_MODES.has(exportMode as ReadingSessionOptions['exportMode'])) {
-      report += `❌ 未知导出模式: ${String(exportMode)}\n`;
-    } else {
-      report += exportMode === 'full' ? '✅ 导出全文，并保留高亮标注\n' : 'ℹ️ 仅导出高亮片段\n';
-    }
-
-    const theme = options.readingSession.highlightTheme ?? 'gradient';
-    if (!VALID_READING_THEMES.has(theme as ReadingSessionOptions['highlightTheme'])) {
-      report += `⚠️ 未知的高亮主题: ${String(theme)}，将回退到默认主题\n`;
-    } else {
-      report += `✅ 高亮主题: ${theme}\n`;
-    }
-  }
-
-  report += '\n🎬 视频模式:\n';
-  if (!options?.video) {
-    report += 'ℹ️ 未检测到视频模式配置\n';
-  } else {
-    report += options.video.floatingPromptEnabled
-      ? '✅ 已启用视频笔记按钮，可在视频网站控制栏快速开启笔记模式\n'
-      : 'ℹ️ 未启用视频笔记按钮\n';
-  }
-
-  report += '\n🔌 端口检查:\n';
-  const portEntries = collectPortEntriesFromConfig(options?.rest, options?.vaultRouter?.vaults);
-  const portConflicts = findDuplicatePorts(portEntries);
-  if (portConflicts.length > 0) {
-    const template = msgs?.portConflictDetected ?? '⚠️ 检测到端口冲突: {ports}';
-    report += `${interpolateDiagnosticsTemplate(template, { ports: portConflicts.join(', ') })}\n`;
-  } else {
-    report += '✅ 仓库端口配置正常\n';
-  }
-
-  report += '\n诊断完成\n';
-  return report;
+  return renderDiagnosticReport(
+    buildDiagnosticsModel(options),
+    resolveDiagnosticsMessages(messages)
+  );
 }
 
 export async function fixConfiguration(onAfterFix?: () => Promise<void> | void): Promise<void> {
   const diagOutput = getElementById<HTMLPreElement>('diagOutput');
+  const messages = await resolveCurrentMessages();
 
   try {
     const options = await resolveOptionsSnapshot();
 
     if (isEmptyOptions(options) || !options?.rest) {
-      diagOutput.textContent += '\n❌ 无法修复: 未找到配置\n';
+      diagOutput.textContent += `\n${renderDiagnosticLine(
+        createDiagnosticLine('error', 'diagnosticsRepairUnavailableNoConfig'),
+        messages
+      )}\n`;
       return;
     }
 
-    diagOutput.textContent += '\n🔧 修复配置...\n';
+    diagOutput.textContent += `\n${renderDiagnosticLine(
+      createDiagnosticLine('info', 'diagnosticsRepairing'),
+      messages
+    )}\n`;
 
     let baseUrl = options.rest.httpsUrl || options.rest.baseUrl || REST_DEFAULTS.baseUrl;
 
     if (baseUrl.startsWith('http://') && baseUrl.includes(`:${REST_DEFAULTS.httpsPort}`)) {
       baseUrl = baseUrl.replace('http://', 'https://');
-      diagOutput.textContent += `✅ 修复: 将 HTTP://...${REST_DEFAULTS.httpsPort} 改为 HTTPS://...${REST_DEFAULTS.httpsPort}\n`;
+      diagOutput.textContent += `${renderDiagnosticLine(
+        createDiagnosticLine('ok', 'diagnosticsRepairSwitchedToHttps', {
+          port: REST_DEFAULTS.httpsPort
+        }),
+        messages
+      )}\n`;
     } else if (baseUrl.startsWith('https://') && baseUrl.includes(`:${REST_DEFAULTS.httpPort}`)) {
       baseUrl = baseUrl.replace('https://', 'http://');
-      diagOutput.textContent += `✅ 修复: 将 HTTPS://...${REST_DEFAULTS.httpPort} 改为 HTTP://...${REST_DEFAULTS.httpPort}\n`;
+      diagOutput.textContent += `${renderDiagnosticLine(
+        createDiagnosticLine('ok', 'diagnosticsRepairSwitchedToHttp', {
+          port: REST_DEFAULTS.httpPort
+        }),
+        messages
+      )}\n`;
     }
 
     const templates = options.templates || {};
 
     if (!templates.fragment) {
       templates.fragment = TEMPLATE_DEFAULTS.fragment;
-      diagOutput.textContent += '✅ 添加: fragment 模板\n';
+      diagOutput.textContent += `${renderDiagnosticLine(
+        createDiagnosticLine('ok', 'diagnosticsRepairAddedFragmentTemplate'),
+        messages
+      )}\n`;
     }
 
     if (templates.article && templates.article.includes('Clippings/')) {
       templates.article = templates.article.replace('Clippings/', 'Articles/');
-      diagOutput.textContent += '✅ 更新: article 模板 (Clippings → Articles)\n';
+      diagOutput.textContent += `${renderDiagnosticLine(
+        createDiagnosticLine('ok', 'diagnosticsRepairUpdatedArticleTemplate'),
+        messages
+      )}\n`;
     }
 
     const newOptions = {
@@ -304,8 +580,14 @@ export async function fixConfiguration(onAfterFix?: () => Promise<void> | void):
       const optionsRepository = resolveRepository<IOptionsRepository>(DI_TOKENS.IOptionsRepository);
       await optionsRepository.set(newOptions as CompleteOptions);
     }
-    diagOutput.textContent += '✅ 配置已修复并保存\n';
-    diagOutput.textContent += '\n请重新加载页面查看修复后的配置\n';
+    diagOutput.textContent += `${renderDiagnosticLine(
+      createDiagnosticLine('ok', 'diagnosticsRepairSaved'),
+      messages
+    )}\n`;
+    diagOutput.textContent += `\n${formatDiagnosticMessage(
+      createDiagnosticMessage('diagnosticsRepairReloadHint'),
+      messages
+    )}\n`;
 
     if (onAfterFix) {
       window.setTimeout(() => {
@@ -316,6 +598,14 @@ export async function fixConfiguration(onAfterFix?: () => Promise<void> | void):
       }, 1000);
     }
   } catch (error) {
-    diagOutput.textContent += `\n❌ 修复失败: ${error instanceof Error ? error.message : String(error)}\n`;
+    diagOutput.textContent += `\n${renderDiagnosticLine(
+      {
+        severity: 'error',
+        message: createDiagnosticMessage('diagnosticsRepairFailed', {
+          reason: error instanceof Error ? error.message : String(error)
+        })
+      },
+      messages
+    )}\n`;
   }
 }

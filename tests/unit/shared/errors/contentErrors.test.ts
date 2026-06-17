@@ -24,7 +24,7 @@ describe('contentErrors', () => {
       message: 'Storage set operation failed for key: clipper-position',
       severity: 'warning',
       recoverable: true,
-      userMessage: '数据保存失败，将使用默认设置继续',
+      userMessageDescriptor: { key: 'errorContentStorageOperationFailed' },
       context: {
         operation: 'set',
         key: 'clipper-position',
@@ -50,6 +50,7 @@ describe('contentErrors', () => {
       message: 'Failed to initialize component: SupportPrompt',
       severity: 'error',
       recoverable: false,
+      userMessageDescriptor: { key: 'errorContentComponentInitializationFailed' },
       context: {
         component: 'SupportPrompt',
         action: 'render'
@@ -61,6 +62,7 @@ describe('contentErrors', () => {
       message: 'Failed to send message: OPEN_OPTIONS',
       severity: 'warning',
       recoverable: true,
+      userMessageDescriptor: { key: 'errorContentMessagingFailed' },
       context: {
         messageType: 'OPEN_OPTIONS',
         selector: '#settings'
@@ -79,10 +81,10 @@ describe('contentErrors', () => {
     expect(error).toMatchObject({
       code: 'CONTENT_SHORTCUT_USAGE_TRACKING_FAILED',
       domain: 'content',
-      message: 'Failed to track shortcut usage statistics',
+      message: 'CONTENT_SHORTCUT_USAGE_TRACKING_FAILED',
       severity: 'info',
       recoverable: true,
-      userMessage: '使用统计记录失败，不影响功能使用',
+      userMessageDescriptor: { key: 'errorContentShortcutUsageTrackingFailed' },
       context: { action: 'keyboardShortcut' },
       cause
     });

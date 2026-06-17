@@ -5,7 +5,7 @@ import {
 import type { RestOptions } from '@shared/types/options';
 import type { VaultConfig } from '@shared/types/vault';
 import type { ConnectionTestResult } from '@shared/types/connection';
-import type { Messages } from '@i18n';
+import { formatUserVisibleMessage, type Messages } from '@i18n';
 import { isAppError } from '@shared/errors';
 
 export interface ConnectionTesterConfig {
@@ -29,6 +29,7 @@ interface TestEntry {
   success: boolean;
   entry: string;
 }
+type ConnectionControlError = Error | object | string | number | boolean | null | undefined;
 
 let connectionRuntimeModulePromise: Promise<
   typeof import('../../services/connectionTestRuntime')
@@ -117,7 +118,7 @@ async function testDefaultVault(
   msgs: Messages,
   runTest?: (draft?: Partial<RestOptions>) => Promise<ConnectionTestResult>
 ): Promise<TestEntry> {
-  const label = msgs.defaultVaultBadge ?? '默认仓库';
+  const label = msgs.defaultVaultBadge ?? 'default';
   try {
     const restDraft = getRestDraft();
     const requester = runTest ?? (await loadConnectionRuntimeModule()).requestConnectionTest;
@@ -125,7 +126,17 @@ async function testDefaultVault(
     const detail = extractResultMessage(result, msgs);
     return { success: result.success, entry: formatEntry(label, result.success, detail, msgs) };
   } catch (error) {
-    const detail = extractErrorMessage(error, msgs);
+    const errorInput: ConnectionControlError =
+      error instanceof Error ||
+      typeof error === 'string' ||
+      typeof error === 'number' ||
+      typeof error === 'boolean' ||
+      error === null ||
+      error === undefined ||
+      typeof error === 'object'
+        ? error
+        : undefined;
+    const detail = extractErrorMessage(errorInput, msgs);
     return { success: false, entry: formatEntry(label, false, detail, msgs) };
   }
 }
@@ -140,7 +151,11 @@ async function testAdditionalVaults(
   const requester = runTest ?? (await loadConnectionRuntimeModule()).requestVaultConnectionTest;
 
   for (const config of configs) {
-    const label = ((config.name || config.vault || '').trim() || msgs.vaultNameLabel) ?? '额外仓库';
+    const label =
+      ((config.name || config.vault || '').trim() ||
+        msgs.additionalVaultsTitle ||
+        msgs.vaultNameLabel) ??
+      'vault';
     try {
       const response = await requester(config);
       const detail = extractResultMessage(response, msgs);
@@ -149,7 +164,17 @@ async function testAdditionalVaults(
         entry: formatEntry(label, response.success, detail, msgs)
       });
     } catch (error) {
-      const detail = extractErrorMessage(error, msgs);
+      const errorInput: ConnectionControlError =
+        error instanceof Error ||
+        typeof error === 'string' ||
+        typeof error === 'number' ||
+        typeof error === 'boolean' ||
+        error === null ||
+        error === undefined ||
+        typeof error === 'object'
+          ? error
+          : undefined;
+      const detail = extractErrorMessage(errorInput, msgs);
       results.push({
         success: false,
         entry: formatEntry(label, false, detail, msgs)
@@ -162,24 +187,33 @@ async function testAdditionalVaults(
 
 function extractResultMessage(result: ConnectionTestResult, msgs: Messages): string {
   if (result.success) {
-    const text = (result.message ?? '').trim();
+    const text = result.messageDescriptor
+      ? formatUserVisibleMessage(result.messageDescriptor, msgs, '').trim()
+      : '';
     return text || msgs.connectionSuccessShort;
   }
 
-  const errorText = (result.error ?? result.message ?? '').trim();
-  return errorText || msgs.connectionFailed;
+  const errorText = result.errorDescriptor
+    ? formatUserVisibleMessage(result.errorDescriptor, msgs, '').trim()
+    : '';
+  if (errorText) {
+    return errorText;
+  }
+
+  const technicalDetail = (result.error ?? '').trim();
+  if (technicalDetail) {
+    return technicalDetail;
+  }
+
+  return msgs.connectionFailed;
 }
 
-function extractErrorMessage(error: unknown, msgs: Messages): string {
-  if (isAppError(error)) {
-    return error.userMessage ?? error.message ?? msgs.connectionFailed;
+function extractErrorMessage(error: ConnectionControlError, msgs: Messages): string {
+  if (isAppError(error) && error.userMessage?.trim()) {
+    return msgs.connectionFailed;
   }
 
-  if (error instanceof Error) {
-    return error.message || msgs.connectionFailed;
-  }
-
-  return String(error);
+  return msgs.connectionFailed;
 }
 
 function formatEntry(label: string, success: boolean, detail: string, msgs: Messages): string {

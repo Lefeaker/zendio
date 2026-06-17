@@ -12,7 +12,7 @@ import {
   type AnalyticsRuntimeEventPayload
 } from '@shared/types/analytics';
 import type { UsageStats } from '@shared/types/usage';
-import type { Messages } from '@i18n';
+import { DEFAULT_RUNTIME_MESSAGES, type Messages } from '@i18n';
 import { persistPrivacyConsentAction, resetUsageStatsAction } from '@options/app/actions';
 import { applyAnalyticsTransferPayload } from '@options/services/analyticsTransfer';
 import { writeToClipboard } from '@options/services/configTransfer';
@@ -28,6 +28,14 @@ import { applyOptionsToState, LEGACY_USAGE_STATS_STORAGE_KEY } from './productio
 import type { PreviewContent, PreviewStoreState } from '@options/stitch/types';
 import type { OptionsController } from './optionsController';
 import { getMessage, setButtonBusy } from './productionStitchPersistenceUi';
+
+type PrivacyPreferenceField = 'analytics' | 'errorReporting' | 'debugMode';
+
+interface PrivacySnapshot {
+  analytics: boolean;
+  errorReporting: boolean;
+  debugMode: boolean;
+}
 
 interface ProductionStitchPersistenceOptions {
   controller: OptionsController;
@@ -54,10 +62,7 @@ export interface ProductionStitchPersistence {
   copyConfigurationToClipboard(button: HTMLButtonElement | null): Promise<void>;
   importConfigurationWithStatus(button: HTMLButtonElement | null): Promise<void>;
   loadUsageStatsFromStorage(): Promise<void>;
-  persistPrivacyPreference(
-    field: 'analytics' | 'errorReporting' | 'debugMode',
-    value: boolean
-  ): Promise<void>;
+  persistPrivacyPreference(field: PrivacyPreferenceField, value: boolean): Promise<void>;
   repairConfiguration(): Promise<void>;
   resetUsageData(): Promise<void>;
   trackUsageEvent(message: AnalyticsRuntimeEventPayload): Promise<void>;
@@ -76,14 +81,10 @@ export function createProductionStitchPersistence(
     }
   }
 
-  function getPrivacySnapshot(): {
-    analytics: boolean;
-    errorReporting: boolean;
-    debugMode: boolean;
-  } {
+  function getPrivacySnapshot(): PrivacySnapshot {
     const current = (
       options.getDraft() as {
-        privacyPreferences?: { analytics?: boolean; errorReporting?: boolean; debugMode?: boolean };
+        privacyPreferences?: Partial<Record<PrivacyPreferenceField, boolean>>;
       }
     ).privacyPreferences;
     return {
@@ -93,11 +94,7 @@ export function createProductionStitchPersistence(
     };
   }
 
-  function syncPrivacySnapshotToState(nextSnapshot: {
-    analytics: boolean;
-    errorReporting: boolean;
-    debugMode: boolean;
-  }): void {
+  function syncPrivacySnapshotToState(nextSnapshot: PrivacySnapshot): void {
     const draft = options.getDraft();
     const state = options.getState();
     (draft as Record<string, unknown>).privacyPreferences = nextSnapshot;
@@ -107,12 +104,8 @@ export function createProductionStitchPersistence(
   }
 
   async function applyRuntimePrivacySnapshot(
-    nextSnapshot: {
-      analytics: boolean;
-      errorReporting: boolean;
-      debugMode: boolean;
-    },
-    field: 'analytics' | 'errorReporting' | 'debugMode'
+    nextSnapshot: PrivacySnapshot,
+    field: PrivacyPreferenceField
   ): Promise<void> {
     const runtimeDebugMode =
       nextSnapshot.analytics || nextSnapshot.errorReporting ? nextSnapshot.debugMode : false;
@@ -128,7 +121,7 @@ export function createProductionStitchPersistence(
   }
 
   async function persistPrivacyPreference(
-    field: 'analytics' | 'errorReporting' | 'debugMode',
+    field: PrivacyPreferenceField,
     value: boolean
   ): Promise<void> {
     const nextSnapshot = {
@@ -156,7 +149,11 @@ export function createProductionStitchPersistence(
     const shouldClear =
       typeof window.confirm === 'function'
         ? window.confirm(
-            getMessage(options.getCurrentMessages(), 'confirmClearAllData', '清空全部分析数据？')
+            getMessage(
+              options.getCurrentMessages(),
+              'confirmClearAllData',
+              DEFAULT_RUNTIME_MESSAGES.confirmClearAllData
+            )
           )
         : true;
     if (!shouldClear) {
@@ -180,7 +177,7 @@ export function createProductionStitchPersistence(
       options.getState().privacyStatus = getMessage(
         options.getCurrentMessages(),
         'allDataCleared',
-        '所有分析数据已清除。'
+        DEFAULT_RUNTIME_MESSAGES.allDataCleared
       );
       options.controller.scheduleAutoSave(() => options.collectDraftWithWidgets());
     } catch (error) {
@@ -188,7 +185,7 @@ export function createProductionStitchPersistence(
       options.getState().privacyStatus = getMessage(
         options.getCurrentMessages(),
         'clearDataError',
-        '清除数据失败，请稍后重试。'
+        DEFAULT_RUNTIME_MESSAGES.clearDataError
       );
     }
   }

@@ -2,6 +2,7 @@ import {
   extractSelectionClip,
   type SelectionClipResult
 } from '../../extractors/selectionExtractor';
+import { getContentI18nResource, getContentMessages } from '../../i18n/context';
 import type { SelectionPromptLifecycleHandlers } from '../../runtime/clipFlowTypes';
 import type { ReaderBootstrapHighlight } from '../../reader/types';
 import type { ClipPromptGateway } from '../application/clipPromptGateway';
@@ -17,6 +18,20 @@ import {
 } from '../../runtime/contentSessionRegistry';
 
 const ADD_HIGHLIGHT_EVENT = 'aiob-reader:add-highlight';
+
+async function resolveFragmentCommentHeading(): Promise<string> {
+  try {
+    const messages = getContentI18nResource()?.messages ?? (await getContentMessages());
+    const heading = messages.exportFragmentCommentHeading?.trim();
+    if (!heading) {
+      throw new Error('Missing fragment comment heading');
+    }
+    return heading;
+  } catch (error) {
+    console.warn('[selection-controller] Failed to resolve fragment comment heading:', error);
+    throw new Error('Missing fragment comment heading');
+  }
+}
 
 export interface ReaderSessionAdapter {
   ingestExternalHighlight(
@@ -147,6 +162,10 @@ export function createSelectionController(deps: SelectionClipDependencies): Sele
     }
 
     const fragmentConfig = await loadFragmentConfig(deps.optionsRepository);
+    const commentHeading =
+      !fragmentConfig.useFootnoteFormat && comment
+        ? await resolveFragmentCommentHeading()
+        : undefined;
     promptLifecycle?.onPromptSubmitted?.();
 
     const clip = await extractSelectionClip({
@@ -155,6 +174,7 @@ export function createSelectionController(deps: SelectionClipDependencies): Sele
       selectedHtml,
       selectedText,
       userComment: comment,
+      ...(commentHeading !== undefined ? { commentHeading } : {}),
       config: fragmentConfig,
       selectionRange: savedRange
     });

@@ -9,6 +9,7 @@ import {
 } from '../builders/surfaces';
 import { div } from '../builders/primitives';
 import { classNames } from '../builders/classNames';
+import { RUNTIME_SURFACE_FALLBACK_MESSAGES } from '@i18n/catalog/runtimeSurfaceFallbackMessages';
 
 const schema: ResourceSchema = {
   openMode: 'modal',
@@ -42,32 +43,68 @@ const schema: ResourceSchema = {
             : action.label
     }));
     const destinationLabels = {
-      saveToLabel: t?.('schemaRuntimeSurfaceSaveToLabel', '保存到') ?? '保存到',
-      configureVaultLabel: t?.('schemaRuntimeSurfaceConfigureVaultLabel', '配置仓库') ?? '配置仓库'
+      saveToLabel:
+        t?.(
+          'schemaRuntimeSurfaceSaveToLabel',
+          RUNTIME_SURFACE_FALLBACK_MESSAGES.schemaRuntimeSurfaceSaveToLabel
+        ) ?? RUNTIME_SURFACE_FALLBACK_MESSAGES.schemaRuntimeSurfaceSaveToLabel,
+      configureVaultLabel:
+        t?.(
+          'schemaRuntimeSurfaceConfigureVaultLabel',
+          RUNTIME_SURFACE_FALLBACK_MESSAGES.schemaRuntimeSurfaceConfigureVaultLabel
+        ) ?? RUNTIME_SURFACE_FALLBACK_MESSAGES.schemaRuntimeSurfaceConfigureVaultLabel
+    };
+    const panelAriaLabels = {
+      resizeHeight:
+        t?.(
+          'schemaRuntimeSurfaceResizePanelHeightAriaLabel',
+          RUNTIME_SURFACE_FALLBACK_MESSAGES.schemaRuntimeSurfaceResizePanelHeightAriaLabel
+        ) ?? RUNTIME_SURFACE_FALLBACK_MESSAGES.schemaRuntimeSurfaceResizePanelHeightAriaLabel,
+      resizePanel:
+        t?.(
+          'schemaRuntimeSurfaceResizePanelAriaLabel',
+          RUNTIME_SURFACE_FALLBACK_MESSAGES.schemaRuntimeSurfaceResizePanelAriaLabel
+        ) ?? RUNTIME_SURFACE_FALLBACK_MESSAGES.schemaRuntimeSurfaceResizePanelAriaLabel
     };
 
     return {
       id: 'reader',
       kind: 'modal',
-      title: t?.('schemaRuntimeReaderTitle', 'Reader Mode') ?? 'Reader Mode',
+      title:
+        t?.(
+          'schemaRuntimeReaderTitle',
+          RUNTIME_SURFACE_FALLBACK_MESSAGES.schemaRuntimeReaderTitle
+        ) ?? RUNTIME_SURFACE_FALLBACK_MESSAGES.schemaRuntimeReaderTitle,
       description:
         t?.(
           'schemaRuntimeReaderDescription',
-          '阅读模式悬浮面板，保留真实的高亮列表与行内批注编辑节奏。'
-        ) ?? '阅读模式悬浮面板，保留真实的高亮列表与行内批注编辑节奏。',
+          RUNTIME_SURFACE_FALLBACK_MESSAGES.schemaRuntimeReaderDescription
+        ) ?? RUNTIME_SURFACE_FALLBACK_MESSAGES.schemaRuntimeReaderDescription,
       surfacePlacement: 'floating-bottom-right',
       surfaceSkin: 'session',
       children: [
         div('resource-modal-stack', [
-          sessionPanelShell('reader-surface-window', [
-            sessionHeader(labels, '✦', surface.iconUrl),
-            surfaceBody(classNames.session.bodyReader, [
-              sessionItemList(
-                surface.highlights.map((highlight) => readerHighlightItem(highlight, labels))
-              )
-            ]),
-            sessionFooterBar(counter, actions, null, surface.destination, destinationLabels)
-          ])
+          sessionPanelShell(
+            'reader-surface-window',
+            [
+              sessionHeader(
+                labels,
+                '✦',
+                surface.iconUrl,
+                t?.(
+                  'schemaRuntimeSurfaceCollapsePanelAriaLabel',
+                  RUNTIME_SURFACE_FALLBACK_MESSAGES.schemaRuntimeSurfaceCollapsePanelAriaLabel
+                ) ?? RUNTIME_SURFACE_FALLBACK_MESSAGES.schemaRuntimeSurfaceCollapsePanelAriaLabel
+              ),
+              surfaceBody(classNames.session.bodyReader, [
+                sessionItemList(
+                  surface.highlights.map((highlight) => readerHighlightItem(highlight, labels))
+                )
+              ]),
+              sessionFooterBar(counter, actions, null, surface.destination, destinationLabels)
+            ],
+            panelAriaLabels
+          )
         ])
       ]
     };

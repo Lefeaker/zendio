@@ -45,7 +45,7 @@ export interface VideoSessionControllers {
 const SCREENSHOT_CACHE_UNAVAILABLE_RESULT: VideoScreenshotCacheSaveResult = {
   status: 'skipped',
   reason: 'serialize-failed',
-  error: 'Video screenshot cache repository is unavailable.'
+  error: 'VIDEO_SCREENSHOT_CACHE_REPOSITORY_UNAVAILABLE'
 };
 
 function createUnavailableVideoScreenshotCacheRepository(): VideoScreenshotCacheRepository {

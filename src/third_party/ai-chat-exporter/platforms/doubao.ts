@@ -1,9 +1,23 @@
 import { DEFAULT_CHAT_TITLE } from '../shared/constants';
 import { chatHtmlToMarkdown } from '../shared/markdown';
-import type { ChatPlatformParser, ParsedMessage, ParsedResult } from '../types';
+import type { ChatPlatformParser, ParseConfig, ParsedMessage, ParsedResult } from '../types';
 
 const DOUBAO_MESSAGE_SELECTOR = '[class*="message-block-container"]';
-const DOUBAO_ASSISTANT_AVATAR_SELECTOR = 'img[alt*="豆包"]';
+// Native tokens from Doubao's own DOM/browser title. These are parser tokens, not extension UI copy.
+const DOUBAO_NATIVE_BRAND_TOKENS = ['豆包', 'Doubao'] as const;
+const DOUBAO_NATIVE_ASSISTANT_AVATAR_ALT_TOKEN = DOUBAO_NATIVE_BRAND_TOKENS[0];
+const DOUBAO_NATIVE_CJK_MODEL_TOKENS = ['旗舰', '极速', '标准', '轻量', '体验'] as const;
+const DOUBAO_NATIVE_MODEL_TOKENS = [
+  ...DOUBAO_NATIVE_BRAND_TOKENS,
+  ...DOUBAO_NATIVE_CJK_MODEL_TOKENS,
+  'Pro',
+  'Plus',
+  'Turbo',
+  'AI'
+] as const;
+const DOUBAO_NEUTRAL_FALLBACK_TITLE = 'Doubao Chat';
+const DOUBAO_NEUTRAL_FALLBACK_MODEL = 'Doubao';
+const DOUBAO_ASSISTANT_AVATAR_SELECTOR = `img[alt*="${DOUBAO_NATIVE_ASSISTANT_AVATAR_ALT_TOKEN}"]`;
 const DOUBAO_MARKDOWN_CLASS_HINT = 'flow-markdown-body';
 const DOUBAO_HEADER_SELECTORS = [
   '[class*="trigger-wrapper"]',
@@ -15,9 +29,34 @@ const DOUBAO_HEADER_SELECTORS = [
   '[class*="header"] button',
   '[class*="header"] span'
 ];
-function normaliseTitle(rawTitle: string): string {
-  const cleaned = rawTitle.replace(/\s*-\s*(豆包|Doubao)\s*$/i, '').trim();
-  return cleaned || DEFAULT_CHAT_TITLE;
+
+function escapeRegExp(text: string): string {
+  return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function buildTokenRegExp(tokens: readonly string[], flags: string): RegExp {
+  return new RegExp(tokens.map(escapeRegExp).join('|'), flags);
+}
+
+function resolveFallbackTitle(config?: ParseConfig): string {
+  return config?.fallbackTitle?.trim() || DOUBAO_NEUTRAL_FALLBACK_TITLE;
+}
+
+function normaliseTitle(rawTitle: string, config?: ParseConfig): string {
+  const brandSuffixPattern = buildTokenRegExp(DOUBAO_NATIVE_BRAND_TOKENS, 'iu');
+  const cleaned = rawTitle
+    .replace(new RegExp(`\\s*-\\s*(${brandSuffixPattern.source})\\s*$`, 'iu'), '')
+    .trim();
+  if (!cleaned) {
+    return resolveFallbackTitle(config);
+  }
+
+  const normalized = cleaned.toLowerCase();
+  if (DOUBAO_NATIVE_BRAND_TOKENS.some((token) => token.toLowerCase() === normalized)) {
+    return resolveFallbackTitle(config);
+  }
+
+  return cleaned;
 }
 
 function determineRole(container: HTMLElement): 'user' | 'assistant' {
@@ -64,7 +103,7 @@ function normaliseModelText(text: string | null | undefined): string | null {
   if (!cleaned) return null;
   if (cleaned.length > 32) return null;
   if (/[。！？…:：]/.test(cleaned)) return null;
-  if (!/(豆包|Doubao|旗舰|极速|标准|轻量|体验|Pro|Plus|Turbo|AI)/i.test(cleaned)) {
+  if (!buildTokenRegExp(DOUBAO_NATIVE_MODEL_TOKENS, 'iu').test(cleaned)) {
     return null;
   }
   return cleaned;
@@ -83,16 +122,16 @@ function extractModel(doc: Document): string {
       }
     }
   }
-  return '豆包';
+  return DOUBAO_NEUTRAL_FALLBACK_MODEL;
 }
 
-function extractDoubaoChat(doc: Document): ParsedResult {
+function extractDoubaoChat(doc: Document, config?: ParseConfig): ParsedResult {
   const containers = Array.from(doc.querySelectorAll<HTMLElement>(DOUBAO_MESSAGE_SELECTOR));
   if (containers.length === 0) {
     return { title: DEFAULT_CHAT_TITLE, messages: [], assets: [] };
   }
 
-  const title = normaliseTitle(doc.title || '') || '豆包对话';
+  const title = normaliseTitle(doc.title || '', config);
   const model = extractModel(doc);
 
   const messages: ParsedMessage[] = [];
@@ -128,14 +167,14 @@ function extractDoubaoChat(doc: Document): ParsedResult {
   }
 
   return {
-    title: title || '豆包对话',
+    title,
     messages,
     assets: [],
-    model: model || '豆包'
+    model
   };
 }
 
 export const doubaoParser: ChatPlatformParser = {
   id: 'doubao',
-  parse: (doc) => extractDoubaoChat(doc)
+  parse: (doc, config) => extractDoubaoChat(doc, config)
 };

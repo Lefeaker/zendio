@@ -1817,19 +1817,31 @@ describe('ReaderSession', () => {
     await flushDraftPersistence();
     expect(context.showSupportProgress).toHaveBeenCalledWith({
       value: 10,
-      label: '正在准备阅读导出'
+      message: {
+        key: 'supportProgressReaderPreparing',
+        fallback: 'Preparing reader export'
+      }
     });
     expect(context.showSupportProgress).toHaveBeenCalledWith({
       value: 24,
-      label: '正在整理阅读标注'
+      message: {
+        key: 'supportProgressReaderOrganizing',
+        fallback: 'Organizing highlights'
+      }
     });
     expect(context.showSupportProgress).toHaveBeenCalledWith({
       value: 32,
-      label: '正在生成阅读笔记'
+      message: {
+        key: 'supportProgressReaderGenerating',
+        fallback: 'Generating reader note'
+      }
     });
     expect(context.showSupportProgress).toHaveBeenCalledWith({
       value: 36,
-      label: '正在发送到 Obsidian'
+      message: {
+        key: 'supportProgressReaderSending',
+        fallback: 'Sending to Obsidian'
+      }
     });
     expect(context.view.destroy).toHaveBeenCalledTimes(1);
     expect(isReaderSessionActive(document)).toBe(false);
@@ -2376,7 +2388,6 @@ describe('ReaderSession', () => {
     expect(context.view.updateHint).toHaveBeenCalledWith(DEFAULT_SESSION_MESSAGES.hintFailure);
     expect(context.showSupportProgress).toHaveBeenCalledWith({
       value: 100,
-      label: '发送失败',
       variant: 'failure'
     });
     expect(

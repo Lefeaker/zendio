@@ -297,14 +297,20 @@ export async function finishReaderSession(
   context.panelCoordinator.applyHint('exporting', context.state.highlights.length);
   context.dependencies.showSupportProgress?.({
     value: 10,
-    label: '正在准备阅读导出'
+    message: {
+      key: 'supportProgressReaderPreparing',
+      fallback: 'Preparing reader export'
+    }
   });
 
   try {
     applyReadingConfig(await loadReadingConfig());
     context.dependencies.showSupportProgress?.({
       value: 24,
-      label: '正在整理阅读标注'
+      message: {
+        key: 'supportProgressReaderOrganizing',
+        fallback: 'Organizing highlights'
+      }
     });
     const highlights = context.dependencies.exporter.prepareHighlights(
       context.state.highlights,
@@ -322,7 +328,10 @@ export async function finishReaderSession(
 
     context.dependencies.showSupportProgress?.({
       value: 32,
-      label: '正在生成阅读笔记'
+      message: {
+        key: 'supportProgressReaderGenerating',
+        fallback: 'Generating reader note'
+      }
     });
     const payload = await context.dependencies.exporter.buildMarkdown({
       mode: context.state.readingConfig.exportMode,
@@ -341,14 +350,16 @@ export async function finishReaderSession(
 
     context.dependencies.showSupportProgress?.({
       value: 36,
-      label: '正在发送到 Obsidian'
+      message: {
+        key: 'supportProgressReaderSending',
+        fallback: 'Sending to Obsidian'
+      }
     });
     await context.dependencies.dispatchClipResult(payload);
     const terminalized = (await context.finalizeTerminalDraft?.('exported')) ?? true;
     if (!terminalized) {
       context.dependencies.showSupportProgress?.({
         value: 100,
-        label: '发送失败',
         variant: 'failure'
       });
       context.panelCoordinator.applyHint('failure', context.state.highlights.length);
@@ -369,7 +380,6 @@ export async function finishReaderSession(
     });
     context.dependencies.showSupportProgress?.({
       value: 100,
-      label: '发送失败',
       variant: 'failure'
     });
     context.panelCoordinator.applyHint('failure', context.state.highlights.length);

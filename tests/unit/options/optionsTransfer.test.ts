@@ -28,7 +28,7 @@ describe('options transfer normalizer', () => {
     const normalized = normalizeOptionsForTransfer({});
     expect(normalized.readingSession?.highlightTheme).toBe('gradient');
     expect(normalized.video?.floatingPromptEnabled).toBe(true);
-    expect(normalized.video?.promptButtonLabel).toBe('开启视频笔记');
+    expect(normalized.video?.promptButtonLabel).toBe('Clip video');
     expect(normalized.video?.promptShortcut).toBe('Alt+V');
   });
 
@@ -231,7 +231,7 @@ describe('options transfer normalizer', () => {
     });
 
     expect(normalized.video?.floatingPromptEnabled).toBe(true);
-    expect(normalized.video?.promptButtonLabel).toBe('开启视频笔记');
+    expect(normalized.video?.promptButtonLabel).toBe('Clip video');
     expect(normalized.video?.promptShortcut).toBe('Alt+V');
     expect(getScreenshotAttachment(normalized)).toEqual({
       ...defaultScreenshotAttachmentSettings,

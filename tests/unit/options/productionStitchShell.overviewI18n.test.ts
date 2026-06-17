@@ -13,6 +13,9 @@ import {
 const ENGLISH_SENTINEL_MESSAGE_OVERRIDES = {
   schemaOverviewTitle: 'Overview Hero Sentinel',
   schemaOverviewHeroDescription: 'Overview Description Sentinel',
+  schemaOverviewHeroPillDefaultVaultReady: 'Default Vault Pill Sentinel',
+  schemaOverviewHeroPillRoutingActive: 'Routing Pill Sentinel',
+  schemaOverviewHeroPillYamlConfigured: 'YAML Pill Sentinel',
   schemaOverviewUsageGroupTitle: 'Usage Group Sentinel',
   usageDashboardTitle: 'Usage Dashboard Sentinel',
   usageDashboardSubtitle: 'Usage Dashboard Description Sentinel',
@@ -20,8 +23,11 @@ const ENGLISH_SENTINEL_MESSAGE_OVERRIDES = {
   schemaOverviewClearUsageDataButton: 'Clear Usage Sentinel',
   schemaOverviewInterfaceGroupTitle: 'Interface Sentinel',
   schemaOverviewLanguageRowTitle: 'Language Row Sentinel',
+  schemaOverviewLanguageOptionEn: 'English Option Sentinel',
+  schemaOverviewLanguageOptionZhCn: 'Chinese Option Sentinel',
   schemaOverviewThemeRowTitle: 'Theme Row Sentinel',
   schemaOverviewThemeSystemOption: 'System Theme Sentinel',
+  privacySettingsNote: 'Consent Section Sentinel',
   analyticsConsentTitle: 'Analytics Sentinel',
   analyticsConsentDescription: 'Analytics Description Sentinel',
   errorReportingConsentTitle: 'Error Reporting Sentinel',
@@ -55,6 +61,7 @@ describe('mountProductionStitchShell overview i18n', () => {
     expect(text).toContain('Interface Sentinel');
     expect(text).toContain('Language Row Sentinel');
     expect(text).toContain('System Theme Sentinel');
+    expect(text).toContain('Consent Section Sentinel');
     expect(text).toContain('Analytics Sentinel');
     expect(text).toContain('Clear Data Sentinel');
 
@@ -69,5 +76,11 @@ describe('mountProductionStitchShell overview i18n', () => {
     expect(text).not.toContain('会收集');
     expect(text).not.toContain('不会收集');
     expect(text).not.toContain('清空全部分析数据');
+
+    const languageSelect = document.querySelector<HTMLSelectElement>('select');
+    expect(languageSelect).not.toBeNull();
+    const optionTexts = Array.from(languageSelect?.options ?? []).map((option) => option.text);
+    expect(optionTexts).toContain('English Option Sentinel');
+    expect(optionTexts).toContain('Chinese Option Sentinel');
   });
 });

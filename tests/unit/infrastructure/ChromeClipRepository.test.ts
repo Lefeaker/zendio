@@ -1,20 +1,16 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ChromeClipRepository } from '../../../src/infrastructure/repositories/ChromeClipRepository';
-import type { IMessagingRepository } from '@shared/repositories';
+import { DEFAULT_OPTIONS } from '@shared/config';
+import type { IMessagingRepository, Message, MessageHandler } from '@shared/repositories';
 import type { ClipData, ClipResult, FragmentConfig } from '@shared/repositories/IClipRepository';
 import type { IOptionsRepository } from '@shared/repositories/IOptionsRepository';
 import type { CompleteOptions } from '@shared/types/options';
 
-type MockableFunction = (...args: never[]) => void;
-
-const createMockFn = <T extends MockableFunction>() =>
-  vi.fn<(...args: Parameters<T>) => ReturnType<T>>();
-
-const clone = <T>(value: T): T => JSON.parse(JSON.stringify(value)) as T;
-
-const createOptionsSnapshot = (): CompleteOptions =>
-  clone({
+function createOptionsSnapshot(): CompleteOptions {
+  return {
+    ...DEFAULT_OPTIONS,
     rest: {
+      ...DEFAULT_OPTIONS.rest,
       baseUrl: 'https://obsidian.example/',
       httpsUrl: 'https://obsidian.example/',
       httpUrl: 'http://obsidian.example/',
@@ -22,12 +18,14 @@ const createOptionsSnapshot = (): CompleteOptions =>
       apiKey: 'test-key'
     },
     templates: {
+      ...DEFAULT_OPTIONS.templates,
       article: 'article template',
       fragment: 'fragment template',
       reading: 'reading template',
       ai: 'ai template'
     },
     fragmentClipper: {
+      ...DEFAULT_OPTIONS.fragmentClipper,
       useFootnoteFormat: true,
       captureContext: true,
       contextLength: 200,
@@ -35,43 +33,76 @@ const createOptionsSnapshot = (): CompleteOptions =>
       selectionModifierEnabled: false,
       selectionModifierKeys: []
     }
-  } as unknown as CompleteOptions);
+  };
+}
 
-type OptionsRepoMock = IOptionsRepository & {
-  get: ReturnType<typeof createMockFn<IOptionsRepository['get']>>;
-  set: ReturnType<typeof createMockFn<IOptionsRepository['set']>>;
-  onChange: ReturnType<typeof createMockFn<IOptionsRepository['onChange']>>;
-};
+class FakeOptionsRepository implements IOptionsRepository {
+  readonly setCalls: Partial<CompleteOptions>[] = [];
+  onChangeCalls = 0;
+  private readonly listeners = new Set<(options: CompleteOptions) => void>();
 
-type MessagingRepoMock = IMessagingRepository & {
-  send: ReturnType<typeof createMockFn<IMessagingRepository['send']>>;
-  onMessage: ReturnType<typeof createMockFn<IMessagingRepository['onMessage']>>;
-};
+  constructor(private options: CompleteOptions) {}
+
+  get(): Promise<CompleteOptions> {
+    return Promise.resolve(this.options);
+  }
+
+  set(options: Partial<CompleteOptions>): Promise<void> {
+    this.setCalls.push(options);
+    this.options = {
+      ...this.options,
+      ...options
+    };
+    this.emit(this.options);
+    return Promise.resolve();
+  }
+
+  onChange(callback: (options: CompleteOptions) => void): () => void {
+    this.onChangeCalls += 1;
+    this.listeners.add(callback);
+    callback(this.options);
+    return () => {
+      this.listeners.delete(callback);
+    };
+  }
+
+  emit(options: CompleteOptions): void {
+    this.options = options;
+    for (const listener of this.listeners) {
+      listener(options);
+    }
+  }
+}
+
+class FakeMessagingRepository implements IMessagingRepository {
+  lastMessage: Message | null = null;
+  response: ClipResult = { success: true };
+  failure: string | Error | null = null;
+
+  send<T>(message: Message): Promise<T> {
+    this.lastMessage = message;
+    if (this.failure) {
+      return Promise.reject(this.failure);
+    }
+    return Promise.resolve(this.response as T);
+  }
+
+  onMessage(_handler: MessageHandler): () => void {
+    return () => undefined;
+  }
+}
 
 describe('ChromeClipRepository', () => {
   let repo: ChromeClipRepository;
   let optionsSnapshot: CompleteOptions;
-
-  const mockOptionsRepo: OptionsRepoMock = {
-    get: createMockFn<IOptionsRepository['get']>(),
-    set: createMockFn<IOptionsRepository['set']>(),
-    onChange: createMockFn<IOptionsRepository['onChange']>()
-  };
-
-  const mockMessagingRepo: MessagingRepoMock = {
-    send: createMockFn<IMessagingRepository['send']>() as MessagingRepoMock['send'],
-    onMessage: createMockFn<IMessagingRepository['onMessage']>()
-  };
+  let fakeOptionsRepo: FakeOptionsRepository;
+  let fakeMessagingRepo: FakeMessagingRepository;
 
   beforeEach(() => {
     optionsSnapshot = createOptionsSnapshot();
-    mockOptionsRepo.get.mockResolvedValue(optionsSnapshot);
-    mockOptionsRepo.set.mockResolvedValue();
-    mockOptionsRepo.onChange.mockImplementation((listener) => {
-      listener(optionsSnapshot);
-      return vi.fn();
-    });
-    repo = new ChromeClipRepository(mockOptionsRepo, mockMessagingRepo);
+    fakeOptionsRepo = new FakeOptionsRepository(optionsSnapshot);
+    fakeMessagingRepo = new FakeMessagingRepository();
+    repo = new ChromeClipRepository(fakeOptionsRepo, fakeMessagingRepo);
   });
 
   describe('getFragmentConfig()', () => {
@@ -95,22 +126,17 @@ describe('ChromeClipRepository', () => {
 
       await repo.setFragmentConfig(partial);
 
-      expect(mockOptionsRepo.set).toHaveBeenCalledWith({
-        fragmentClipper: {
-          ...optionsSnapshot.fragmentClipper,
-          ...partial
+      expect(fakeOptionsRepo.setCalls).toEqual([
+        {
+          fragmentClipper: {
+            ...optionsSnapshot.fragmentClipper,
+            ...partial
+          }
         }
-      });
+      ]);
     });
 
     it('reflects merged config when getFragmentConfig is called afterwards', async () => {
-      mockOptionsRepo.set.mockImplementation((payload: Partial<CompleteOptions>) => {
-        if (payload.fragmentClipper) {
-          optionsSnapshot.fragmentClipper = clone(payload.fragmentClipper);
-        }
-        return Promise.resolve();
-      });
-
       await repo.setFragmentConfig({ contextLength: 321 });
       const config = await repo.getFragmentConfig();
       expect(config.contextLength).toBe(321);
@@ -140,11 +166,11 @@ describe('ChromeClipRepository', () => {
 
     it('returns result from messaging repository when successful', async () => {
       const expected: ClipResult = { success: true, filePath: '/vault/sample.md' };
-      mockMessagingRepo.send.mockResolvedValue(expected);
+      fakeMessagingRepo.response = expected;
 
       const result = await repo.sendClip(clipPayload);
 
-      expect(mockMessagingRepo.send).toHaveBeenCalledWith({
+      expect(fakeMessagingRepo.lastMessage).toEqual({
         type: 'clip',
         data: clipPayload
       });
@@ -152,7 +178,7 @@ describe('ChromeClipRepository', () => {
     });
 
     it('returns failure result when messaging throws errors', async () => {
-      mockMessagingRepo.send.mockRejectedValue(new Error('message failed'));
+      fakeMessagingRepo.failure = new Error('message failed');
 
       const result = await repo.sendClip(clipPayload);
 
@@ -163,13 +189,13 @@ describe('ChromeClipRepository', () => {
     });
 
     it('handles non Error exceptions gracefully', async () => {
-      mockMessagingRepo.send.mockRejectedValue('string failure');
+      fakeMessagingRepo.failure = 'string failure';
 
       const result = await repo.sendClip(clipPayload);
 
       expect(result).toEqual({
         success: false,
-        error: 'Unknown error'
+        error: 'CLIP_REPOSITORY_UNKNOWN_ERROR'
       });
     });
   });
@@ -182,7 +208,7 @@ describe('ChromeClipRepository', () => {
       });
       const unsubscribe = repo.onConfigChange(callback);
 
-      expect(mockOptionsRepo.onChange).toHaveBeenCalledTimes(1);
+      expect(fakeOptionsRepo.onChangeCalls).toBe(1);
       expect(callback).toHaveBeenCalledWith(optionsSnapshot.fragmentClipper);
       expect(emittedConfig).not.toBe(optionsSnapshot.fragmentClipper);
 
@@ -190,11 +216,6 @@ describe('ChromeClipRepository', () => {
     });
 
     it('propagates changes when options repository emits new fragment config', () => {
-      let listener: ((options: CompleteOptions) => void) | null = null;
-      mockOptionsRepo.onChange.mockImplementation((next) => {
-        listener = next;
-        return vi.fn();
-      });
       let latestConfig: FragmentConfig | null = null;
       const callback = vi.fn((config: FragmentConfig) => {
         latestConfig = config;
@@ -203,10 +224,7 @@ describe('ChromeClipRepository', () => {
 
       const updated = createOptionsSnapshot();
       updated.fragmentClipper.contextLength = 777;
-      if (!listener) {
-        throw new Error('options listener missing');
-      }
-      (listener as (options: CompleteOptions) => void)(updated);
+      fakeOptionsRepo.emit(updated);
 
       expect(callback).toHaveBeenCalledWith(updated.fragmentClipper);
       expect(latestConfig).not.toBe(updated.fragmentClipper);
@@ -215,26 +233,25 @@ describe('ChromeClipRepository', () => {
 
   describe('environment compatibility', () => {
     it('uses global structuredClone when available for deep cloning', async () => {
-      const globalRef = globalThis as typeof globalThis & { structuredClone?: <T>(value: T) => T };
-      const originalStructuredClone = globalRef.structuredClone;
-      const structuredSpy = vi.fn<(value: unknown) => unknown>(
-        (value) => JSON.parse(JSON.stringify(value)) as unknown
-      );
-      globalRef.structuredClone = <T>(value: T) => structuredSpy(value) as T;
+      const originalStructuredClone = globalThis.structuredClone;
+      let structuredCloneCalls = 0;
+      globalThis.structuredClone = <T>(value: T): T => {
+        structuredCloneCalls += 1;
+        return value;
+      };
 
       try {
         await repo.getFragmentConfig();
         await repo.getTemplateConfig();
-        expect(structuredSpy).toHaveBeenCalled();
+        expect(structuredCloneCalls).toBeGreaterThan(0);
       } finally {
-        globalRef.structuredClone = originalStructuredClone;
+        globalThis.structuredClone = originalStructuredClone;
       }
     });
 
     it('falls back to JSON cloning when structuredClone is unavailable', async () => {
-      const globalRef = globalThis as typeof globalThis & { structuredClone?: <T>(value: T) => T };
-      const originalStructuredClone = globalRef.structuredClone;
-      Reflect.deleteProperty(globalRef, 'structuredClone');
+      const originalStructuredClone = globalThis.structuredClone;
+      Reflect.deleteProperty(globalThis, 'structuredClone');
 
       try {
         const fragment = await repo.getFragmentConfig();
@@ -242,7 +259,7 @@ describe('ChromeClipRepository', () => {
         const fresh = await repo.getFragmentConfig();
         expect(fresh.contextLength).toBe(optionsSnapshot.fragmentClipper.contextLength);
       } finally {
-        globalRef.structuredClone = originalStructuredClone;
+        globalThis.structuredClone = originalStructuredClone;
       }
     });
   });

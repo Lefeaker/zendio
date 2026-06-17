@@ -2,58 +2,57 @@ import type { SettingsSchema } from '../../types';
 import type { Messages } from '@i18n';
 import { grid, htmlParagraph, paragraph, stack } from '../builders/primitives';
 import { boundInput, boundSelect, boundSwitch } from '../builders/controls';
+import { translateSchemaMessage } from '../i18n';
 import {
   fragmentModifierChipItems,
   fragmentModifierStateWarning
 } from '@options/app/fragmentModifierOptions';
 
+const SIDEBAR_HIGHLIGHTS_LABEL = 'Sidebar Highlights';
+const SIDEBAR_HIGHLIGHTS_LINK =
+  '<a href="https://github.com/trevware/obsidian-sidebar-highlights" target="_blank" rel="noopener noreferrer">Sidebar Highlights</a>';
+
 const schema: SettingsSchema = {
   createView(ctx) {
-    const t = (key: keyof Messages, fallback: string) => ctx.t?.(key, fallback) ?? fallback;
-    const translate = (current: typeof ctx, key: keyof Messages, fallback: string) =>
-      current.t?.(key, fallback) ?? fallback;
+    const t = (key: keyof Messages) => translateSchemaMessage(ctx.t, key);
+    const translate = (current: typeof ctx, key: keyof Messages) =>
+      translateSchemaMessage(current.t, key);
 
     return {
       id: 'capture-behavior',
       kind: 'page',
       hero: {
         ...ctx.appData.captureBehavior.hero,
-        title: t('schemaCaptureBehaviorTitle', ctx.appData.captureBehavior.hero.title),
-        description: t(
-          'schemaCaptureBehaviorHeroDescription',
-          ctx.appData.captureBehavior.hero.description
-        )
+        title: t('schemaCaptureBehaviorTitle'),
+        description: t('schemaCaptureBehaviorHeroDescription')
       },
       children: [
         {
           kind: 'group',
-          title: t('schemaCaptureBehaviorReadingGroupTitle', 'Reading Mode'),
+          title: t('schemaCaptureBehaviorReadingGroupTitle'),
           children: [
             {
               kind: 'card',
-              title: t('readingConfigTitle', 'Reading Export'),
-              description: t('readingConfigHint', '设置阅读模式导出方式和高亮主题。'),
+              title: t('readingConfigTitle'),
+              description: t('readingConfigHint'),
               body: [
                 {
                   kind: 'rows',
                   items: [
                     {
                       kind: 'row',
-                      title: t('readingExportModeLabel', '导出内容'),
-                      description: t(
-                        'readingExportModeDescription',
-                        '决定保存高亮片段，还是保存全文并标注高亮。'
-                      ),
+                      title: t('readingExportModeLabel'),
+                      description: t('readingExportModeDescription'),
                       control: {
                         kind: 'select',
                         options: [
                           {
                             value: 'highlights',
-                            label: t('readingExportModeHighlights', '仅保存高亮片段')
+                            label: t('readingExportModeHighlights')
                           },
                           {
                             value: 'full',
-                            label: t('readingExportModeFull', '保存全文并标注高亮')
+                            label: t('readingExportModeFull')
                           }
                         ],
                         bind: 'readingExportMode',
@@ -66,31 +65,28 @@ const schema: SettingsSchema = {
                     },
                     {
                       kind: 'row',
-                      title: t('readingHighlightThemeLabel', '高亮主题'),
-                      description: t(
-                        'readingHighlightThemeDescription',
-                        '仅影响阅读模式页面里的高亮呈现，不改变导出的 Markdown 内容。'
-                      ),
+                      title: t('readingHighlightThemeLabel'),
+                      description: t('readingHighlightThemeDescription'),
                       control: stack([
                         {
                           kind: 'segmentedNav',
                           items: [
                             {
                               value: 'gradient',
-                              label: t('readingHighlightThemeGradient', 'Gradient')
+                              label: t('readingHighlightThemeGradient')
                             },
-                            { value: 'purple', label: t('readingHighlightThemePurple', 'Purple') },
+                            { value: 'purple', label: t('readingHighlightThemePurple') },
                             {
                               value: 'neonYellow',
-                              label: t('readingHighlightThemeNeonYellow', 'Neon Yellow')
+                              label: t('readingHighlightThemeNeonYellow')
                             },
                             {
                               value: 'neonGreen',
-                              label: t('readingHighlightThemeNeonGreen', 'Neon Green')
+                              label: t('readingHighlightThemeNeonGreen')
                             },
                             {
                               value: 'neonOrange',
-                              label: t('readingHighlightThemeNeonOrange', 'Neon Orange')
+                              label: t('readingHighlightThemeNeonOrange')
                             }
                           ],
                           bind: 'highlightTheme',
@@ -102,12 +98,9 @@ const schema: SettingsSchema = {
                   ]
                 },
                 htmlParagraph(
-                  t(
-                    'schemaCaptureBehaviorSidebarHighlightsNote',
-                    '存储内容高亮与 Obsidian 插件 Sidebar Highlights 配合使用更佳。'
-                  ).replace(
-                    'Sidebar Highlights',
-                    '<a href="https://github.com/trevware/obsidian-sidebar-highlights" target="_blank" rel="noopener noreferrer">Sidebar Highlights</a>'
+                  t('schemaCaptureBehaviorSidebarHighlightsNote').replace(
+                    SIDEBAR_HIGHLIGHTS_LABEL,
+                    SIDEBAR_HIGHLIGHTS_LINK
                   ),
                   'option-support-note'
                 )
@@ -117,23 +110,20 @@ const schema: SettingsSchema = {
         },
         {
           kind: 'group',
-          title: t('schemaCaptureBehaviorFragmentGroupTitle', 'Fragment Clipper'),
+          title: t('schemaCaptureBehaviorFragmentGroupTitle'),
           children: [
             {
               kind: 'card',
-              title: t('fragmentConfigTitle', 'Fragment Interaction Model'),
-              description: t('fragmentConfigHint', '设置上下文、辅助键和对话框快捷键。'),
+              title: t('fragmentConfigTitle'),
+              description: t('fragmentConfigHint'),
               body: [
                 {
                   kind: 'rows',
                   items: [
                     {
                       kind: 'row',
-                      title: t('schemaCaptureBehaviorCaptureContextTitle', '捕捉上下文'),
-                      description: t(
-                        'fragmentCaptureContextHint',
-                        '开启后需要继续配置上下文长度和单位。'
-                      ),
+                      title: t('schemaCaptureBehaviorCaptureContextTitle'),
+                      description: t('fragmentCaptureContextHint'),
                       control: grid(
                         3,
                         [
@@ -148,10 +138,7 @@ const schema: SettingsSchema = {
                           }),
                           {
                             kind: 'field',
-                            label: t(
-                              'schemaCaptureBehaviorContextLengthFieldLabel',
-                              'contextLength'
-                            ),
+                            label: t('schemaCaptureBehaviorContextLengthFieldLabel'),
                             control: boundInput({
                               bind: 'fragmentContextLength',
                               mono: true,
@@ -165,20 +152,17 @@ const schema: SettingsSchema = {
                           },
                           {
                             kind: 'field',
-                            label: t('schemaCaptureBehaviorContextModeFieldLabel', 'contextMode'),
+                            label: t('schemaCaptureBehaviorContextModeFieldLabel'),
                             control: boundSelect({
                               bind: 'fragmentContextMode',
                               options: [
                                 {
                                   value: 'chars',
-                                  label: t('schemaCaptureBehaviorContextModeCharsOption', 'chars')
+                                  label: t('schemaCaptureBehaviorContextModeCharsOption')
                                 },
                                 {
                                   value: 'sentences',
-                                  label: t(
-                                    'schemaCaptureBehaviorContextModeSentencesOption',
-                                    'sentences'
-                                  )
+                                  label: t('schemaCaptureBehaviorContextModeSentencesOption')
                                 }
                               ],
                               onChange: {
@@ -194,11 +178,8 @@ const schema: SettingsSchema = {
                     },
                     {
                       kind: 'row',
-                      title: t('fragmentModifierToggleLabel', '启用辅助键触发'),
-                      description: t(
-                        'fragmentModifierToggleDescription',
-                        '选择用于触发自动剪藏或阅读高亮的辅助键。'
-                      ),
+                      title: t('fragmentModifierToggleLabel'),
+                      description: t('fragmentModifierToggleDescription'),
                       control: stack(
                         (current) => [
                           boundSwitch({
@@ -227,17 +208,14 @@ const schema: SettingsSchema = {
                     },
                     {
                       kind: 'row',
-                      title: t('fragmentKeyboardShortcutsLabel', '启用剪藏对话框快捷键'),
-                      description: t(
-                        'fragmentKeyboardShortcutsHint',
-                        '双击回车进入阅读模式，Cmd / Alt + 回车直接剪藏。'
-                      ),
+                      title: t('fragmentKeyboardShortcutsLabel'),
+                      description: t('fragmentKeyboardShortcutsHint'),
                       control: boundSwitch({
                         bind: 'fragmentKeyboardShortcutsEnabled',
                         stateText: (current) =>
                           current.state.fragmentKeyboardShortcutsEnabled
-                            ? translate(current, 'schemaCommonEnabledState', '已开启')
-                            : translate(current, 'schemaCommonDisabledState', '已关闭'),
+                            ? translate(current, 'schemaCommonEnabledState')
+                            : translate(current, 'schemaCommonDisabledState'),
                         onChange: {
                           id: 'options:updateField',
                           args: ['fragmentClipper.keyboardShortcutsEnabled'],
@@ -252,25 +230,18 @@ const schema: SettingsSchema = {
                   [
                     {
                       kind: 'miniCard',
-                      title: t('fragmentFootnoteExampleTitle', '脚注格式示例'),
+                      title: t('fragmentFootnoteExampleTitle'),
                       content: htmlParagraph(
-                        `${t('fragmentFootnoteExampleContent', '这是选中的文本')}[^1]<br><br>[^1]: ${t(
-                          'fragmentFootnoteExampleComment',
-                          '这是我的评论'
+                        `${t('fragmentFootnoteExampleContent')}[^1]<br><br>[^1]: ${t(
+                          'fragmentFootnoteExampleComment'
                         )}`,
                         'mono'
                       )
                     },
                     {
                       kind: 'miniCard',
-                      title: t('fragmentContextHighlightExampleTitle', '上下文高亮示例'),
-                      content: paragraph(
-                        t(
-                          'fragmentContextHighlightExampleContent',
-                          '前面的上下文 ==这是选中的文本== 后面的上下文'
-                        ),
-                        'mono'
-                      )
+                      title: t('fragmentContextHighlightExampleTitle'),
+                      content: paragraph(t('fragmentContextHighlightExampleContent'), 'mono')
                     }
                   ],
                   'u-mt-block'

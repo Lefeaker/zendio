@@ -1,8 +1,34 @@
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
+import { JSDOM } from 'jsdom';
 import { describe, expect, it } from 'vitest';
 
-import { resolveParserAsync } from '../../../src/third_party/ai-chat-exporter/runtimeRegistry';
+import {
+  parseChatDOMAsync,
+  resolveParserAsync
+} from '../../../src/third_party/ai-chat-exporter/runtimeRegistry';
+import { DEFAULT_CHAT_TITLE } from '../../../src/third_party/ai-chat-exporter/shared/constants';
 
-describe('ai chat runtime parser registry', () => {
+describe('runtime AI chat parser registry', () => {
+  it('uses a consolidated lazy parser module instead of per-platform dynamic imports', () => {
+    const source = readFileSync(
+      resolve(process.cwd(), 'src/third_party/ai-chat-exporter/runtimeRegistry.ts'),
+      'utf8'
+    );
+
+    expect(source).toContain('./runtimePlatformParsers');
+    expect(source).not.toMatch(/import\(['"]\.\/platforms\//);
+  });
+
+  it('keeps the AI chat extractor off the parser-bound public parse entrypoint', () => {
+    const source = readFileSync(
+      resolve(process.cwd(), 'src/content/extractors/aiChatExtractor.ts'),
+      'utf8'
+    );
+
+    expect(source).not.toContain('../../third_party/ai-chat-exporter/parse');
+  });
+
   it.each([
     ['chatgpt', 'chatgpt'],
     ['claude', 'claude'],
@@ -22,5 +48,15 @@ describe('ai chat runtime parser registry', () => {
 
   it('returns undefined for unsupported platforms', async () => {
     await expect(resolveParserAsync('unknown')).resolves.toBeUndefined();
+  });
+
+  it('keeps unknown platforms on the empty parse result path', async () => {
+    const dom = new JSDOM('<main>No supported AI chat here</main>');
+
+    await expect(parseChatDOMAsync('unknown', dom.window.document)).resolves.toMatchObject({
+      title: DEFAULT_CHAT_TITLE,
+      messages: [],
+      assets: []
+    });
   });
 });

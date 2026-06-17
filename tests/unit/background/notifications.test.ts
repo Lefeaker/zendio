@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { ErrorSeverity } from '@shared/errors';
+import { ErrorSeverity, optionsErrors } from '@shared/errors';
 import type { NormalizedNotification } from '@shared/notifications/types';
 import type { NotificationsService } from '../../../src/platform/interfaces/notifications';
 import type { RuntimeService } from '../../../src/platform/interfaces/runtime';
@@ -13,6 +13,30 @@ vi.mock('../../../src/i18n', async () => {
     getMessages: getMessagesMock
   };
 });
+
+const messages = {
+  clipSuccess: 'Clip Succeeded',
+  clipSuccessLocalFolder: 'Saved to local folder: {folderName}',
+  clipSuccessRestApi: 'Saved via REST API to: {vaultName}',
+  clipSuccessRestFallback: 'Local folder unavailable; saved via REST API',
+  clipSuccessDownloads: 'Saved to Downloads: {filePath}',
+  clipFailed: 'Clip Failed',
+  extractionFailed: 'Extraction Failed',
+  scriptInjectionFailed: 'Script inject failed',
+  classificationFallbackTitle: 'Classification Fallback',
+  classificationFallbackMessage: 'Fallback because: {reason}',
+  classificationFallbackDefaultReason: 'Automatic fallback',
+  notificationTitleSuccess: 'Notification Success Sentinel',
+  notificationTitleInfo: 'Notification Info Sentinel',
+  notificationTitleWarning: 'Notification Warning Sentinel',
+  notificationTitleError: 'Notification Error Sentinel',
+  notificationTitleCritical: 'Notification Critical Sentinel',
+  errorOptionsVaultConfigInvalid:
+    'Vault configuration is missing required information. Check settings and try again.',
+  localVaultWriteFailed: 'Failed to write to the local folder: {folderName}',
+  localVaultWriteReauthorizationRequired:
+    'Local folder needs to be reauthorized. Reauthorize "{folderName}" in Settings.'
+};
 
 function createRuntimeStub(): RuntimeService {
   return {
@@ -43,40 +67,26 @@ async function resetTestPlatformServices(): Promise<void> {
   resetPlatformServices();
 }
 
-describe('notifications service', () => {
-  const messages = {
-    clipSuccess: 'Clip Succeeded',
-    clipSuccessLocalFolder: 'Saved to local folder: {folderName}',
-    clipSuccessRestApi: 'Saved via REST API to: {vaultName}',
-    clipSuccessRestFallback: 'Local folder unavailable; saved via REST API',
-    clipSuccessDownloads: 'Saved to Downloads: {filePath}',
-    clipFailed: 'Clip Failed',
-    extractionFailed: 'Extraction Failed',
-    scriptInjectionFailed: 'Script inject failed',
-    classificationFallbackTitle: 'Classification Fallback',
-    classificationFallbackMessage: 'Fallback because: {reason}',
-    classificationFallbackDefaultReason: 'Automatic fallback'
-  };
+beforeEach(() => {
+  vi.resetModules();
+  getMessagesMock.mockReset();
+  getMessagesMock.mockResolvedValue(messages);
+  vi.unstubAllGlobals();
 
-  beforeEach(() => {
-    vi.resetModules();
-    getMessagesMock.mockReset();
-    getMessagesMock.mockResolvedValue(messages);
+  return configureTestPlatformServices({
+    runtime: createRuntimeStub(),
+    notifications: createNotificationsStub()
+  });
+});
+
+afterEach(() => {
+  return resetTestPlatformServices().then(() => {
+    vi.restoreAllMocks();
     vi.unstubAllGlobals();
-
-    return configureTestPlatformServices({
-      runtime: createRuntimeStub(),
-      notifications: createNotificationsStub()
-    });
   });
+});
 
-  afterEach(() => {
-    return resetTestPlatformServices().then(() => {
-      vi.restoreAllMocks();
-      vi.unstubAllGlobals();
-    });
-  });
-
+describe('notifications service', () => {
   it('sends success notification with vault name', async () => {
     const { notifyClipSuccess, setNotificationAdapter } =
       await import('../../../src/background/services/notifications');
@@ -199,6 +209,37 @@ describe('notifications service', () => {
     setNotificationAdapter(null);
   });
 
+  it('formats descriptor-based clip failure notifications without relying on userMessage or fallback', async () => {
+    const { notifyClipFailure, setNotificationAdapter } =
+      await import('../../../src/background/services/notifications');
+    const createMock = vi.fn<(...args: [string, NormalizedNotification]) => void>();
+
+    setNotificationAdapter(createMock);
+    await notifyClipFailure({
+      code: 'LOCAL_VAULT_WRITE_FAILED',
+      domain: 'background',
+      message: 'Local vault write failed: Articles/test.md',
+      severity: ErrorSeverity.ERROR,
+      recoverable: true,
+      userMessageDescriptor: {
+        key: 'localVaultWriteFailed',
+        values: { folderName: 'Main' }
+      }
+    });
+
+    expect(createMock.mock.calls[0]?.[1]).toMatchObject({
+      channel: 'clipper.failure',
+      severity: 'error',
+      title: 'Clip Failed',
+      message: 'Failed to write to the local folder: Main'
+    });
+    expect(createMock.mock.calls[0]?.[1].message).not.toContain(
+      'Local vault write failed: Articles/test.md'
+    );
+
+    setNotificationAdapter(null);
+  });
+
   it('sends warning notification with trimmed or default fallback reason', async () => {
     const { notifyClipWarning, setNotificationAdapter } =
       await import('../../../src/background/services/notifications');
@@ -218,6 +259,38 @@ describe('notifications service', () => {
     expect(createMock.mock.calls[1]?.[1]).toMatchObject({
       message: 'Fallback because: Automatic fallback',
       metadata: { reason: 'Automatic fallback' }
+    });
+
+    setNotificationAdapter(null);
+  });
+
+  it('formats descriptor-based clip warning reasons before applying the warning template', async () => {
+    const { notifyClipWarning, setNotificationAdapter } =
+      await import('../../../src/background/services/notifications');
+    const createMock = vi.fn<(...args: [string, NormalizedNotification]) => void>();
+
+    setNotificationAdapter(createMock);
+    await notifyClipWarning({
+      code: 'LOCAL_VAULT_REAUTH_REQUIRED',
+      domain: 'background',
+      message: 'Local vault permission is not granted and REST fallback failed: Articles/test.md',
+      severity: ErrorSeverity.WARNING,
+      recoverable: true,
+      userMessageDescriptor: {
+        key: 'localVaultWriteReauthorizationRequired',
+        values: { folderName: 'Main' }
+      }
+    });
+
+    expect(createMock.mock.calls[0]?.[1]).toMatchObject({
+      channel: 'clipper.warning',
+      severity: 'warning',
+      title: 'Classification Fallback',
+      message:
+        'Fallback because: Local folder needs to be reauthorized. Reauthorize "Main" in Settings.',
+      metadata: {
+        reason: 'Local folder needs to be reauthorized. Reauthorize "Main" in Settings.'
+      }
     });
 
     setNotificationAdapter(null);
@@ -397,7 +470,7 @@ it('routes options-domain errors through the notification bridge as user-facing 
   expect(lastCall?.[1]).toMatchObject({
     channel: 'system.user',
     severity: 'error',
-    title: 'Zendio - Error',
+    title: 'Notification Error Sentinel',
     message: 'Cannot save settings',
     contextMessage: 'persist exploded',
     requireInteraction: true,
@@ -413,6 +486,33 @@ it('routes options-domain errors through the notification bridge as user-facing 
 
   setNotificationAdapter(null);
   nowSpy.mockRestore();
+});
+
+it('prefers descriptor-backed copy from shared options factories for user-facing notifications', async () => {
+  const { setNotificationAdapter } = await import('../../../src/background/services/notifications');
+  const { getErrorHandler } = await import('../../../src/shared/errors');
+  const createMock = vi.fn<(...args: [string, NormalizedNotification]) => void>();
+  getMessagesMock.mockResolvedValue({
+    ...messages,
+    errorOptionsVaultConfigInvalid:
+      'Vault configuration is missing required information. Check settings and try again.'
+  });
+
+  setNotificationAdapter(createMock);
+  await getErrorHandler().handle(optionsErrors.invalidVaultConfig({ scope: 'vault' }), {
+    suppressConsole: true,
+    suppressReporters: true
+  });
+
+  expect(createMock.mock.calls[0]?.[1]).toMatchObject({
+    channel: 'system.user',
+    severity: 'error',
+    title: 'Notification Error Sentinel',
+    message: 'Vault configuration is missing required information. Check settings and try again.'
+  });
+  expect(createMock.mock.calls[0]?.[1].message).not.toMatch(/[\u3400-\u9fff]/u);
+
+  setNotificationAdapter(null);
 });
 
 it('falls back to app icon and about-page runtime url when generic notifications omit optional fields', async () => {
@@ -486,7 +586,7 @@ it('routes generic info errors through the notification bridge as non-blocking s
   expect(createMock.mock.calls[0]?.[1]).toMatchObject({
     channel: 'system.info',
     severity: 'info',
-    title: 'Zendio - Info',
+    title: 'Notification Info Sentinel',
     message: 'Informational only',
     requireInteraction: false
   });
@@ -496,6 +596,7 @@ it('routes generic info errors through the notification bridge as non-blocking s
 
 it('passes contextMessage and requireInteraction through platform notification options', async () => {
   getMessagesMock.mockResolvedValue({
+    ...messages,
     clipSuccess: 'Clip Succeeded',
     clipFailed: 'Clip Failed',
     extractionFailed: 'Extraction Failed',
@@ -537,6 +638,7 @@ it('passes contextMessage and requireInteraction through platform notification o
 
 it('routes extraction-domain failures through clip failure notifications with metadata context', async () => {
   getMessagesMock.mockResolvedValue({
+    ...messages,
     clipSuccess: 'Clip Succeeded',
     clipFailed: 'Clip Failed',
     extractionFailed: 'Extraction Failed',
@@ -597,6 +699,7 @@ it('routes extraction-domain failures through clip failure notifications with me
 
 it('routes content warning errors through classification fallback notifications', async () => {
   getMessagesMock.mockResolvedValue({
+    ...messages,
     clipSuccess: 'Clip Succeeded',
     clipFailed: 'Clip Failed',
     extractionFailed: 'Extraction Failed',
@@ -650,6 +753,7 @@ it('routes content warning errors through classification fallback notifications'
 
 it('routes generic warning errors through system warning channel without context duplication', async () => {
   getMessagesMock.mockResolvedValue({
+    ...messages,
     clipSuccess: 'Clip Succeeded',
     clipFailed: 'Clip Failed',
     extractionFailed: 'Extraction Failed',
@@ -685,7 +789,7 @@ it('routes generic warning errors through system warning channel without context
   expect(createMock.mock.calls[0]?.[1]).toMatchObject({
     channel: 'system.warning',
     severity: 'warning',
-    title: 'Zendio - Warning',
+    title: 'Notification Warning Sentinel',
     message: 'Same text',
     requireInteraction: false
   });
@@ -801,7 +905,7 @@ it('keeps generic info notifications non-interactive and preserves distinct cont
   expect(createMock.mock.calls[0]?.[1]).toMatchObject({
     channel: 'system.info',
     severity: 'info',
-    title: 'Zendio - Info',
+    title: 'Notification Info Sentinel',
     message: 'friendly info',
     contextMessage: 'debug detail',
     requireInteraction: false
@@ -854,7 +958,7 @@ it('routes i18n warning errors through the user-facing channel without context d
   expect(createMock.mock.calls[0]?.[1]).toMatchObject({
     channel: 'system.user',
     severity: 'warning',
-    title: 'Zendio - Warning',
+    title: 'Notification Warning Sentinel',
     message: 'Visible warning',
     requireInteraction: false
   });

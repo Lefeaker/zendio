@@ -1,4 +1,5 @@
 import type { ResourceSchema } from '../../types';
+import { translateSchemaMessage, type SchemaMessageKey } from '../i18n';
 import {
   modalSection,
   resourceCard,
@@ -11,55 +12,34 @@ const schema: ResourceSchema = {
   createView(ctx) {
     const resource = ctx.appData.resources.suggestions;
     const shouldLocalize = Boolean(ctx.messages);
+    const tr = (key: SchemaMessageKey) => translateSchemaMessage(ctx.t, key);
     const githubHref = resource.channels.find((item) => item.href?.includes('github.com'))?.href;
     const redditHref = resource.channels.find((item) => item.href?.includes('reddit.com'))?.href;
     return {
       id: 'suggestions',
       kind: 'modal',
-      title: shouldLocalize
-        ? (ctx.t?.('schemaResourceSuggestionsTitle', 'Suggestions') ?? 'Suggestions')
-        : '提出建议',
-      description: shouldLocalize
-        ? (ctx.t?.(
-            'schemaResourceSuggestionsDescription',
-            'Send feedback through the currently supported public channels.'
-          ) ?? 'Send feedback through the currently supported public channels.')
-        : '感谢你愿意反馈想法，以下渠道都可以快速联系到作者。',
+      title: tr('schemaResourceSuggestionsTitle'),
+      description: tr('schemaResourceSuggestionsDescription'),
       children: [
         shouldLocalize
           ? resourceModalStack([
-              modalSection(
-                ctx.t?.('schemaResourceSuggestionsChannelsGroupTitle', 'Feedback Channels') ??
-                  'Feedback Channels',
-                [
-                  resourceCardGrid(
-                    [
-                      {
-                        title:
-                          ctx.t?.('schemaResourceSuggestionsGithubTitle', 'GitHub Issue') ??
-                          'GitHub Issue',
-                        subtitle:
-                          ctx.t?.(
-                            'schemaResourceSuggestionsGithubDescription',
-                            'Feature requests and bug reports'
-                          ) ?? 'Feature requests and bug reports',
-                        ...(githubHref !== undefined ? { href: githubHref } : {})
-                      },
-                      {
-                        title:
-                          ctx.t?.('schemaResourceSuggestionsRedditTitle', 'Reddit') ?? 'Reddit',
-                        subtitle:
-                          ctx.t?.(
-                            'schemaResourceSuggestionsRedditDescription',
-                            'Direct public discussion with the author'
-                          ) ?? 'Direct public discussion with the author',
-                        ...(redditHref !== undefined ? { href: redditHref } : {})
-                      }
-                    ].map((item) => resourceCard(item)),
-                    2
-                  )
-                ]
-              )
+              modalSection(tr('schemaResourceSuggestionsChannelsGroupTitle'), [
+                resourceCardGrid(
+                  [
+                    {
+                      title: tr('schemaResourceSuggestionsGithubTitle'),
+                      subtitle: tr('schemaResourceSuggestionsGithubDescription'),
+                      ...(githubHref !== undefined ? { href: githubHref } : {})
+                    },
+                    {
+                      title: tr('schemaResourceSuggestionsRedditTitle'),
+                      subtitle: tr('schemaResourceSuggestionsRedditDescription'),
+                      ...(redditHref !== undefined ? { href: redditHref } : {})
+                    }
+                  ].map((item) => resourceCard(item)),
+                  2
+                )
+              ])
             ])
           : resourceCardGrid(
               resource.channels.map((item) => resourceCard(item)),

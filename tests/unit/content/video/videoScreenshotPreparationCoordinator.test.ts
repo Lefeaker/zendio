@@ -114,7 +114,7 @@ describe('VideoScreenshotPreparationCoordinator', () => {
     const capture = createPendingTimestampCapture('ts-1', 42);
     const visibleVideo = createVisibleVideo(42);
     document.body.append(visibleVideo);
-    const captureVisibleFrame = vi.fn(async () => createScreenshot(42));
+    const captureVisibleFrame = vi.fn(() => Promise.resolve(createScreenshot(42)));
     const syncPanel = vi.fn();
     const coordinator = new VideoScreenshotPreparationCoordinator({
       doc: document,
@@ -154,7 +154,7 @@ describe('VideoScreenshotPreparationCoordinator', () => {
     const capture = createPendingTimestampCapture('ts-1', 42);
     const visibleVideo = createVisibleVideo(42);
     document.body.append(visibleVideo);
-    const captureVisibleFrame = vi.fn(async () => createScreenshot(42));
+    const captureVisibleFrame = vi.fn(() => Promise.resolve(createScreenshot(42)));
     const coordinator = new VideoScreenshotPreparationCoordinator({
       doc: document,
       getCaptures: () => [capture],
@@ -185,7 +185,7 @@ describe('VideoScreenshotPreparationCoordinator', () => {
     const capture = createPendingTimestampCapture('ts-1', 42);
     const visibleVideo = createVisibleVideo(42);
     document.body.append(visibleVideo);
-    const captureVisibleFrame = vi.fn(async () => createScreenshot(42));
+    const captureVisibleFrame = vi.fn(() => Promise.resolve(createScreenshot(42)));
     const coordinator = new VideoScreenshotPreparationCoordinator({
       doc: document,
       getCaptures: () => [capture],

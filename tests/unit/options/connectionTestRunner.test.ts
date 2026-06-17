@@ -10,6 +10,7 @@ import {
   type ConnectionTestElements
 } from '@options/services/connectionTestRunner';
 import type { ConnectionTestResult } from '@shared/types/connection';
+import { optionsErrors } from '@shared/errors';
 import type { Messages } from '../../../src/i18n';
 
 describe('connectionTestRunner', () => {
@@ -33,11 +34,21 @@ describe('connectionTestRunner', () => {
       connectionTesting: '正在测试连接...',
       connectionFailed: '连接失败',
       connectionSuccessShort: '连接成功',
+      connectionResultHeaderSuccess: '连接成功',
+      connectionResultHeaderFailure: '连接失败',
+      connectionChannelLine: '{channel}：{message}',
+      connectionChannelLocalFolderLabel: '本地目录',
+      connectionChannelRestLabel: 'REST API',
+      connectionRestSuccess: '连接成功（HTTP {status}）',
+      connectionRestApiKeyMissing: 'API Key 未配置',
+      connectionLocalFolderSkipped: '未配置，已跳过。',
       connectionFailureHintsTitle: '处理建议：',
       connectionFailureHintCheckApiKey: '请检查 API Key 是否正确',
       connectionFailureHintCheckVault: '请确认 Vault 名称与 Obsidian 设置一致',
       connectionFailureHintCheckService: '请确认 Obsidian Local REST API 插件已启动',
-      connectionFailureHintGeneric: '请尝试重新启动服务'
+      connectionFailureHintGeneric: '请尝试重新启动服务',
+      errorOptionsConnectionRequestFailed:
+        'Connection test request failed. Check the network and try again.'
     } as Messages;
   });
 
@@ -135,11 +146,36 @@ describe('connectionTestRunner', () => {
       expect(mockResult.className).toBe(
         'aobx-connection-result rounded-md border border-[color:color-mix(in_srgb,var(--aobx-status-error)_70%,var(--aobx-border))] bg-[color:color-mix(in_srgb,var(--aobx-status-error)_22%,transparent)] p-3 text-sm text-[color:color-mix(in_srgb,var(--aobx-status-error)_80%,black)] flex gap-2 leading-relaxed items-start'
       );
-      expect(mockResult.textContent).toContain('连接失败: 网络错误');
+      expect(mockResult.textContent).toContain('连接失败');
       expect(mockResult.textContent).toContain('处理建议：请尝试重新启动服务');
 
       // 验证错误钩子被调用
       expect(onAfterRun).toHaveBeenCalledWith(undefined, testError);
+    });
+
+    it('renders descriptor-backed shared options errors without falling back to legacy userMessage copy', async () => {
+      const appError = optionsErrors.requestDispatchFailed(new Error('network timeout'), {
+        scope: 'global'
+      });
+      const mockExec = vi.fn().mockRejectedValue(appError);
+      const mockGetMessages = vi.fn().mockResolvedValue(mockMessages);
+      const onAfterRun = vi.fn();
+
+      const config: ConnectionTestRunnerConfig = {
+        exec: mockExec,
+        getMessages: mockGetMessages,
+        onAfterRun
+      };
+
+      await runConnectionTest(config, elements);
+
+      expect(mockResult.textContent).toContain(
+        '连接失败: Connection test request failed. Check the network and try again.'
+      );
+      expect(mockResult.textContent).toContain('处理建议：请尝试重新启动服务');
+      expect(mockResult.textContent).not.toContain('连接测试请求发送失败，请检查网络后重试。');
+      expect(mockResult.textContent).not.toContain(appError.message);
+      expect(onAfterRun).toHaveBeenCalledWith(undefined, expect.any(Error));
     });
 
     it('sets button to running state during test', async () => {
@@ -229,26 +265,73 @@ describe('connectionTestRunner', () => {
       const result: ConnectionTestResult = {
         success: true,
         message: '连接成功',
+        messageDescriptor: {
+          key: 'connectionRestSuccess',
+          values: { status: 200 },
+          fallback: 'Connection successful (HTTP 200)'
+        },
         status: 200,
         response: 'pong'
       };
 
       const formatted = renderConnectionResult(result, mockMessages);
 
-      expect(formatted).toBe('连接成功');
+      expect(formatted).toBe('连接成功（HTTP 200）');
     });
 
     it('formats failed result with error details', () => {
       const result: ConnectionTestResult = {
         success: false,
         message: '连接失败',
+        messageDescriptor: {
+          key: 'connectionResultHeaderFailure',
+          fallback: 'Connection failed'
+        },
         status: 500,
-        error: 'Server Error'
+        error: 'Server Error',
+        errorDescriptor: {
+          key: 'connectionRestApiKeyMissing',
+          fallback: 'API Key is missing'
+        },
+        channels: [
+          {
+            channel: 'localFolder',
+            label: 'Local Folder',
+            labelDescriptor: {
+              key: 'connectionChannelLocalFolderLabel',
+              fallback: 'Local Folder'
+            },
+            configured: false,
+            success: false,
+            message: 'Not configured, skipped.',
+            messageDescriptor: {
+              key: 'connectionLocalFolderSkipped',
+              fallback: 'Not configured, skipped.'
+            }
+          },
+          {
+            channel: 'https',
+            label: 'REST API',
+            labelDescriptor: {
+              key: 'connectionChannelRestLabel',
+              fallback: 'REST API'
+            },
+            configured: true,
+            success: false,
+            message: 'API Key is missing',
+            messageDescriptor: {
+              key: 'connectionRestApiKeyMissing',
+              fallback: 'API Key is missing'
+            }
+          }
+        ]
       };
 
       const formatted = renderConnectionResult(result, mockMessages);
 
-      expect(formatted).toBe('连接失败: Server Error\n处理建议：请尝试重新启动服务');
+      expect(formatted).toBe(
+        '连接失败\n本地目录：未配置，已跳过。\nREST API (HTTPS)：API Key 未配置'
+      );
     });
 
     it('handles minimal result with only message', () => {

@@ -1,5 +1,9 @@
 import type { SettingsSchema, SchemaContext } from '../../types';
-import type { SchemaMessageKey, SchemaMessageValues } from '../i18n';
+import {
+  getDefaultProductionEnglishMessage,
+  type SchemaMessageKey,
+  type SchemaMessageValues
+} from '../i18n';
 import { emptyState, grid } from '../builders/primitives';
 import { aiPlatformLinks } from '../builders/settings';
 import { boundInput } from '../builders/controls';
@@ -8,9 +12,9 @@ import { createVideoCaptureSourcesGroup } from './capture-sources-video';
 function translate(
   current: SchemaContext,
   key: SchemaMessageKey,
-  fallback: string,
   values?: SchemaMessageValues
 ): string {
+  const fallback = getDefaultProductionEnglishMessage(key, values);
   return current.t ? current.t(key, fallback, values) : fallback;
 }
 
@@ -23,34 +27,22 @@ const schema: SettingsSchema = {
       kind: 'page',
       hero: {
         ...hero,
-        title: translate(ctx, 'schemaCaptureSourcesTitle', hero.title),
-        description: translate(ctx, 'schemaCaptureSourcesHeroDescription', hero.description)
+        title: translate(ctx, 'schemaCaptureSourcesTitle'),
+        description: translate(ctx, 'schemaCaptureSourcesHeroDescription')
       },
       children: [
         {
           kind: 'group',
-          title: translate(ctx, 'schemaCaptureSourcesAiChatGroupTitle', 'AI Chat'),
+          title: translate(ctx, 'schemaCaptureSourcesAiChatGroupTitle'),
           children: [
             {
               kind: 'card',
-              title: translate(
-                ctx,
-                'schemaCaptureSourcesAiConversationTitle',
-                'AI Conversation Capture'
-              ),
-              description: translate(
-                ctx,
-                'schemaCaptureSourcesAiConversationDescription',
-                '配置 AI 对话导出时的来源和显示行为。'
-              ),
+              title: translate(ctx, 'schemaCaptureSourcesAiConversationTitle'),
+              description: translate(ctx, 'schemaCaptureSourcesAiConversationDescription'),
               actions: [
                 {
                   kind: 'badge',
-                  label: translate(
-                    ctx,
-                    'schemaCaptureSourcesAiSupportedPlatformsBadge',
-                    '8 supported platforms'
-                  ),
+                  label: translate(ctx, 'schemaCaptureSourcesAiSupportedPlatformsBadge'),
                   variant: 'success'
                 }
               ],
@@ -60,28 +52,23 @@ const schema: SettingsSchema = {
                   items: [
                     {
                       kind: 'row',
-                      title: translate(ctx, 'videoSupportedPlatformsTitle', '支持平台'),
+                      title: translate(ctx, 'videoSupportedPlatformsTitle'),
                       description: translate(
                         ctx,
-                        'schemaCaptureSourcesSupportedPlatformsDescription',
-                        '当前已适配的 AI 网站应可见，方便用户理解功能覆盖范围。'
+                        'schemaCaptureSourcesSupportedPlatformsDescription'
                       ),
                       control: aiPlatformLinks()
                     },
                     {
                       kind: 'row',
-                      title: translate(ctx, 'aiSummaryUserName', '用户显示名'),
-                      description: translate(
-                        ctx,
-                        'schemaCaptureSourcesUserDisplayNameDescription',
-                        '控制 AI 对话导出时用户消息的显示名称。'
-                      ),
+                      title: translate(ctx, 'aiSummaryUserName'),
+                      description: translate(ctx, 'schemaCaptureSourcesUserDisplayNameDescription'),
                       control: grid(
                         2,
                         [
                           {
                             kind: 'field',
-                            label: translate(ctx, 'userNameLabel', 'userName'),
+                            label: translate(ctx, 'userNameLabel'),
                             control: boundInput({
                               bind: 'aiUserName',
                               onInput: {
@@ -93,18 +80,11 @@ const schema: SettingsSchema = {
                           },
                           {
                             kind: 'field',
-                            label: translate(
-                              ctx,
-                              'schemaCaptureSourcesPreviewFieldLabel',
-                              'Preview'
-                            ),
+                            label: translate(ctx, 'schemaCaptureSourcesPreviewFieldLabel'),
                             control: emptyState((current) =>
-                              translate(
-                                current,
-                                'schemaCaptureSourcesUserDisplayNamePreview',
-                                '默认显示为 `{label}`。',
-                                { label: current.state.aiUserName ?? 'USER' }
-                              )
+                              translate(current, 'schemaCaptureSourcesUserDisplayNamePreview', {
+                                label: current.state.aiUserName ?? 'USER'
+                              })
                             )
                           }
                         ],

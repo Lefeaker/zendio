@@ -1,9 +1,11 @@
-import { formatMessage, type Messages } from '@i18n';
+import type { Messages } from '@i18n';
+import { DEFAULT_RUNTIME_MESSAGES } from '@i18n';
 import type {
   ConnectionChannelResult,
   ConnectionTestResult,
   VaultConnectionTestResult
 } from '@shared/types/connection';
+import { formatUserVisibleMessage } from '../../i18n/userVisibleMessageFormatter';
 import type { VaultConfig, VaultRouterConfig } from '@shared/types/vault';
 import type { RestOptions } from '@shared/types/options';
 import type { TrackUsageEventPayload } from '@shared/types/analytics';
@@ -33,17 +35,6 @@ interface VaultListMessagingRepository {
   send(message: TrackUsageEventPayload): void;
 }
 
-function getStorageMessage(
-  messages: Messages | null,
-  key: keyof Messages,
-  fallback: string,
-  values: Record<string, string | number | boolean> = {}
-): string {
-  const value = messages?.[key];
-  const template = typeof value === 'string' && value.length > 0 ? value : fallback;
-  return Object.keys(values).length > 0 ? formatMessage(template, values) : template;
-}
-
 export async function runVaultListConnectionTest(
   router: VaultRouterConfig,
   messagingRepository: VaultListMessagingRepository,
@@ -54,15 +45,20 @@ export async function runVaultListConnectionTest(
     return index === 0 || vault.isDefault || vault.enabled !== false;
   });
   if (vaults.length === 0) {
-    const message = getStorageMessage(
-      messages,
-      'schemaStorageNoEnabledVaults',
-      'No enabled vaults are available for testing.'
-    );
+    const message =
+      typeof messages?.schemaStorageNoEnabledVaults === 'string'
+        ? messages.schemaStorageNoEnabledVaults
+        : '';
     const result = {
       success: false,
       message,
-      error: message
+      messageDescriptor: {
+        key: 'schemaStorageNoEnabledVaults'
+      },
+      error: message,
+      errorDescriptor: {
+        key: 'schemaStorageNoEnabledVaults'
+      }
     } satisfies ConnectionTestResult;
     emitConnectionTestCompleted(messagingRepository, {
       storageTarget: 'unknown',
@@ -89,7 +85,15 @@ export async function runVaultListConnectionTest(
             {
               success: false,
               message: `[${vault.name || vault.vault || vault.id}] ${message}`,
+              messageDescriptor: {
+                key: 'connectionFailureWithReason',
+                values: { reason: message }
+              },
               error: message,
+              errorDescriptor: {
+                key: 'connectionRestFailure',
+                values: { reason: message }
+              },
               channels: buildFallbackChannels(vault, message, messages)
             },
             messages
@@ -104,13 +108,25 @@ export async function runVaultListConnectionTest(
   const result = {
     success: failures.length === 0,
     message: vaultResults.map((result) => result.message || result.error || '').join('\n\n'),
+    messageDescriptor: {
+      key: failures.length === 0 ? 'connectionResultHeaderSuccess' : 'connectionResultHeaderFailure'
+    },
     vaults: vaultResults,
     ...(failures.length
       ? {
           error: failures
             .map((result) => result.error || result.message)
             .filter(Boolean)
-            .join('\n\n')
+            .join('\n\n'),
+          errorDescriptor: {
+            key: 'connectionRestFailure',
+            values: {
+              reason: failures
+                .map((result) => result.error || result.message)
+                .filter(Boolean)
+                .join('; ')
+            }
+          }
         }
       : {})
   } satisfies ConnectionTestResult;
@@ -133,7 +149,9 @@ function toVaultConnectionResult(
     vaultName: vault.name || vault.vault || vault.id,
     success: result.success,
     message: result.message,
+    ...(result.messageDescriptor ? { messageDescriptor: result.messageDescriptor } : {}),
     ...(result.error ? { error: result.error } : {}),
+    ...(result.errorDescriptor ? { errorDescriptor: result.errorDescriptor } : {}),
     channels: normalizeChannelResults(vault, result, messages)
   };
 }
@@ -157,7 +175,9 @@ function buildFallbackChannels(
   return [
     buildFallbackChannel(
       'localFolder',
-      getStorageMessage(messages, 'schemaStorageLocalFolderLabel', 'Local Folder'),
+      typeof messages?.schemaStorageLocalFolderLabel === 'string'
+        ? messages.schemaStorageLocalFolderLabel
+        : DEFAULT_RUNTIME_MESSAGES.connectionChannelLocalFolderLabel,
       Boolean(vault.localFolderId),
       message,
       undefined,
@@ -190,35 +210,62 @@ function buildFallbackChannel(
   url?: string,
   messages: Messages | null = null
 ): ConnectionChannelResult {
+  const labelDescriptor =
+    channel === 'localFolder'
+      ? {
+          key: 'connectionChannelLocalFolderLabel'
+        }
+      : {
+          key: 'connectionChannelRestLabel'
+        };
+
   if (!configured) {
+    const messageDescriptor =
+      channel === 'localFolder'
+        ? {
+            key: 'connectionLocalFolderNotConfigured'
+          }
+        : {
+            key: 'connectionRestUrlMissing',
+            values: { label }
+          };
+    const fallbackText =
+      channel === 'localFolder'
+        ? typeof messages?.schemaStorageLocalFolderNotConfigured === 'string'
+          ? messages.schemaStorageLocalFolderNotConfigured
+          : DEFAULT_RUNTIME_MESSAGES.connectionLocalFolderNotConfigured
+        : formatUserVisibleMessage(messageDescriptor, messages ?? DEFAULT_RUNTIME_MESSAGES, '');
+
     return {
       channel,
       label,
+      labelDescriptor,
       configured: false,
       success: false,
-      message:
-        channel === 'localFolder'
-          ? getStorageMessage(
-              messages,
-              'schemaStorageLocalFolderNotConfigured',
-              'Local Folder not configured'
-            )
-          : getStorageMessage(
-              messages,
-              'schemaStorageConnectionUrlNotConfigured',
-              'No {label} URL configured',
-              { label }
-            )
+      message: formatUserVisibleMessage(
+        messageDescriptor,
+        messages ?? DEFAULT_RUNTIME_MESSAGES,
+        fallbackText
+      ),
+      messageDescriptor
     };
   }
+
+  const messageDescriptor = {
+    key: 'connectionRestFailure',
+    values: { reason: message }
+  };
 
   return {
     channel,
     label,
+    labelDescriptor,
     configured: true,
     success: false,
     message,
+    messageDescriptor,
     error: message,
+    errorDescriptor: messageDescriptor,
     ...(url ? { url } : {})
   };
 }

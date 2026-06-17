@@ -22,6 +22,7 @@ import {
   type ChromeStorageSet,
   type ChromeChangeListener
 } from '../utils/chromeMocks';
+import { createE2eOptionsRepository } from '../utils/e2eOptionsRepository';
 
 describe('deepseek ai chat integration', () => {
   const deepseekUrl = 'https://chat.deepseek.com/c/session-123';
@@ -69,10 +70,14 @@ describe('deepseek ai chat integration', () => {
     const dom = new JSDOM(html, { url: deepseekUrl });
     installJsdom(dom, { includeLocalStorage: false });
 
-    const { createDefaultExtractorRegistry } = await import(
-      '../../src/content/extractors/registry'
-    );
-    const registry = createDefaultExtractorRegistry();
+    const { createDefaultExtractorRegistry } =
+      await import('../../src/content/extractors/registry');
+    const registry = createDefaultExtractorRegistry({
+      optionsRepository: createE2eOptionsRepository({
+        aiChat: { includeTimestamps: true, userName: 'Analyst' },
+        deepResearch: { pureMode: false }
+      })
+    });
     const clip = await registry.extract({ document: dom.window.document, url: deepseekUrl });
 
     expect(clip.type).toBe('ai_chat');

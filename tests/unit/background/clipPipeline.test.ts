@@ -133,7 +133,13 @@ describe('background clipPipeline', () => {
   it('emits progress updates while processing clip results', async () => {
     processClipPayloadMock.mockImplementation(
       (_payload, hooks: ClipProcessingHooksWithProgress) => {
-        hooks.onProgress({ value: 82, label: '正在写入笔记' });
+        hooks.onProgress({
+          value: 82,
+          message: {
+            key: 'supportProgressWritingNote',
+            fallback: 'Writing note'
+          }
+        });
         return Promise.resolve({
           filePath: 'Articles/foo.md',
           vaultName: 'Secondary Vault',
@@ -160,23 +166,28 @@ describe('background clipPipeline', () => {
       expect.objectContaining({
         type: SHOW_SUPPORT_PROMPT,
         status: 'progress',
-        progress: expect.objectContaining({
+        progress: {
           value: 40,
-          label: '正在接收剪藏内容'
-        })
+          message: {
+            key: 'supportProgressReceivingClipContent',
+            fallback: 'Receiving clip content'
+          },
+          variant: 'progress'
+        }
       })
     );
-    expect(sendMessageMock).toHaveBeenCalledWith(
-      11,
-      expect.objectContaining({
-        type: SHOW_SUPPORT_PROMPT,
-        status: 'progress',
-        progress: expect.objectContaining({
-          value: 82,
-          label: '正在写入笔记'
-        })
-      })
-    );
+    expect(sendMessageMock).toHaveBeenCalledWith(11, {
+      type: SHOW_SUPPORT_PROMPT,
+      status: 'progress',
+      progress: {
+        value: 82,
+        message: {
+          key: 'supportProgressWritingNote',
+          fallback: 'Writing note'
+        },
+        variant: 'progress'
+      }
+    });
     expect(sendMessageMock).toHaveBeenLastCalledWith(
       11,
       expect.objectContaining({
@@ -191,7 +202,12 @@ describe('background clipPipeline', () => {
     const { handleClipResult, dependencies } = await loadPipeline();
     await handleClipResult(createMessage({ markdown: undefined }), undefined, dependencies);
 
-    expect(notifyFailureMock).toHaveBeenCalledWith('内容解析失败，请刷新页面或稍后重试。');
+    expect(notifyFailureMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        code: 'EXTRACTION_CONTENT_NO_MARKDOWN',
+        domain: 'extraction'
+      })
+    );
     expect(processClipPayloadMock).not.toHaveBeenCalled();
   });
 
@@ -243,7 +259,7 @@ describe('background clipPipeline', () => {
       localFolderName: undefined,
       fallbackReason: undefined
     });
-    expect(notifyWarningMock).toHaveBeenCalledWith('Classifier degraded');
+    expect(notifyWarningMock).toHaveBeenCalledWith(warning);
     expect(sendMessageMock).toHaveBeenCalledWith(
       7,
       expect.objectContaining({
@@ -251,6 +267,43 @@ describe('background clipPipeline', () => {
         status: 'warning',
         vaultName: 'Secondary Vault',
         errorMessage: 'Classifier degraded'
+      })
+    );
+  });
+
+  it('passes descriptor-bearing local-vault failures to downstream consumers without rebuilding user copy', async () => {
+    const localVaultError: AppError = {
+      code: 'LOCAL_VAULT_WRITE_FAILED',
+      domain: 'background',
+      message: 'Local vault write failed: Articles/test.md',
+      severity: ErrorSeverity.ERROR,
+      recoverable: true,
+      userMessageDescriptor: {
+        key: 'localVaultWriteFailed',
+        values: { folderName: 'Main' }
+      }
+    };
+    processClipPayloadMock.mockRejectedValue(localVaultError);
+    getOptionsMock.mockResolvedValue({
+      rest: { vault: 'FallbackVault' }
+    });
+
+    const { handleClipResult, dependencies } = await loadPipeline();
+    await handleClipResult(createMessage(), 52, dependencies);
+
+    expect(notifyFailureMock).toHaveBeenCalledWith(localVaultError);
+    expect(sendMessageMock).toHaveBeenCalledWith(
+      52,
+      expect.objectContaining({
+        type: SHOW_SUPPORT_PROMPT,
+        status: 'failure',
+        error: expect.objectContaining({
+          code: 'LOCAL_VAULT_WRITE_FAILED',
+          userMessageDescriptor: {
+            key: 'localVaultWriteFailed',
+            values: { folderName: 'Main' }
+          }
+        })
       })
     );
   });
@@ -422,6 +475,22 @@ describe('background clipPipeline', () => {
     const { handleClipResult, dependencies } = await loadPipeline();
     await handleClipResult(createMessage(), 23, dependencies);
 
+    expect(sendMessageMock).toHaveBeenCalledWith(
+      23,
+      expect.objectContaining({
+        type: SHOW_SUPPORT_PROMPT,
+        status: 'progress',
+        progress: {
+          value: 60,
+          message: {
+            key: 'supportProgressLocalVaultPermissionRequest',
+            values: { folderName: 'Blog' },
+            fallback: 'Requesting local folder access: Blog'
+          },
+          variant: 'progress'
+        }
+      })
+    );
     expect(sendMessageMock).toHaveBeenCalledWith(
       23,
       expect.objectContaining({

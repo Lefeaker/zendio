@@ -9,17 +9,22 @@ const EMPTY_RESULT: ParsedResult = {
 
 type ParserLoader = () => Promise<ChatPlatformParser>;
 
+async function loadRuntimePlatformParser(platform: PlatformId): Promise<ChatPlatformParser> {
+  const { getRuntimePlatformParser } = await import('./runtimePlatformParsers');
+  return getRuntimePlatformParser(platform);
+}
+
 const parserLoaders = new Map<string, ParserLoader>([
-  ['chatgpt', () => import('./platforms/openaiFamily').then((m) => m.chatgptParser)],
-  ['claude', () => import('./platforms/openaiFamily').then((m) => m.claudeParser)],
-  ['copilot', () => import('./platforms/openaiFamily').then((m) => m.copilotParser)],
-  ['gemini', () => import('./platforms/gemini').then((m) => m.geminiParser)],
-  ['tongyi', () => import('./platforms/chineseFamily').then((m) => m.tongyiParser)],
-  ['deepseek', () => import('./platforms/chineseFamily').then((m) => m.deepseekParser)],
-  ['kimi', () => import('./platforms/chineseFamily').then((m) => m.kimiParser)],
-  ['doubao', () => import('./platforms/chineseFamily').then((m) => m.doubaoParser)],
-  ['monica', () => import('./platforms/assistantFamily').then((m) => m.monicaParser)],
-  ['perplexity', () => import('./platforms/assistantFamily').then((m) => m.perplexityParser)]
+  ['chatgpt', () => loadRuntimePlatformParser('chatgpt')],
+  ['claude', () => loadRuntimePlatformParser('claude')],
+  ['copilot', () => loadRuntimePlatformParser('copilot')],
+  ['gemini', () => loadRuntimePlatformParser('gemini')],
+  ['tongyi', () => loadRuntimePlatformParser('tongyi')],
+  ['deepseek', () => loadRuntimePlatformParser('deepseek')],
+  ['kimi', () => loadRuntimePlatformParser('kimi')],
+  ['doubao', () => loadRuntimePlatformParser('doubao')],
+  ['monica', () => loadRuntimePlatformParser('monica')],
+  ['perplexity', () => loadRuntimePlatformParser('perplexity')]
 ]);
 
 const parserAliases: Partial<Record<PlatformId, string[]>> = {

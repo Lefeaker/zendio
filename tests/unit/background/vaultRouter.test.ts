@@ -1,5 +1,9 @@
 import { describe, it, expect } from 'vitest';
-import { VaultRouter } from '../../../src/background/vault-router';
+import {
+  VaultRouter,
+  createDefaultVaultRouterConfig,
+  migrateFromLegacyConfig
+} from '../../../src/background/vault-router';
 import type { ClipContext, VaultRouterConfig, RoutingRule } from '@shared/types';
 import { configProvider } from '@shared/config';
 
@@ -256,5 +260,108 @@ describe('VaultRouter', () => {
     const router = new VaultRouter(config);
     expect(router.getAllRules()).toHaveLength(1);
     expect(router.selectVault(context)?.id).toBe('tech');
+  });
+
+  it('does not route through a rule declared under a disabled vault', () => {
+    const config: VaultRouterConfig = {
+      vaults: [
+        { ...baseVaults[0], rules: [] },
+        {
+          ...baseVaults[1],
+          enabled: true,
+          rules: []
+        },
+        {
+          id: 'disabled-parent',
+          name: 'Disabled Parent',
+          httpsUrl: `https://disabled:${restDefaults.httpsPort}/`,
+          httpUrl: `http://disabled:${restDefaults.httpPort}/`,
+          vault: 'DisabledParent',
+          apiKey: 'disabled-key',
+          enabled: false,
+          rules: [
+            {
+              id: 'disabled-parent-rule',
+              vaultId: 'tech',
+              type: 'domain',
+              pattern: 'example.com',
+              enabled: true,
+              priority: 100
+            }
+          ]
+        }
+      ],
+      defaultVaultId: 'default'
+    };
+
+    const router = new VaultRouter(config);
+    expect(router.selectVault(context)).toBeNull();
+    expect(router.getAllRules()).toEqual([]);
+  });
+
+  it('returns English compatibility errors plus typed issues from validate()', () => {
+    const router = new VaultRouter({
+      vaults: [
+        {
+          id: 'default',
+          name: 'Default Vault',
+          httpsUrl: 'https://default.example.com/',
+          httpUrl: 'http://default.example.com/',
+          vault: 'Default',
+          apiKey: 'default-key',
+          enabled: false
+        },
+        {
+          id: 'default',
+          name: 'Duplicate Vault',
+          httpsUrl: 'https://duplicate.example.com/',
+          httpUrl: 'http://duplicate.example.com/',
+          vault: 'Duplicate',
+          apiKey: 'duplicate-key',
+          enabled: true
+        }
+      ],
+      defaultVaultId: 'missing-default',
+      rules: [
+        {
+          id: 'missing-target-rule',
+          vaultId: 'missing-target',
+          type: 'domain',
+          pattern: 'example.com',
+          enabled: true,
+          priority: 1
+        }
+      ]
+    });
+
+    const result = router.validate();
+
+    expect(result.valid).toBe(false);
+    expect(result.errors).toEqual([
+      'Duplicate vault ID(s): default',
+      'Rule "missing-target-rule" references a missing vault: missing-target',
+      'Default vault not found: missing-default'
+    ]);
+    expect(result.issues.map((issue) => issue.code)).toEqual([
+      'duplicate_vault_ids',
+      'missing_rule_vault',
+      'missing_default_vault'
+    ]);
+    expect(result.issues.every((issue) => /[\u4e00-\u9fff]/u.test(issue.message) === false)).toBe(
+      true
+    );
+  });
+
+  it('uses English default vault names without overwriting provided legacy vault names', () => {
+    expect(createDefaultVaultRouterConfig().vaults[0]?.name).toBe('New Vault');
+    expect(migrateFromLegacyConfig(null).vaults[0]?.name).toBe('New Vault');
+    expect(
+      migrateFromLegacyConfig({
+        vault: 'Research Vault',
+        httpsUrl: 'https://research.example.com/',
+        httpUrl: 'http://research.example.com/',
+        apiKey: 'research-token'
+      }).vaults[0]?.name
+    ).toBe('Research Vault');
   });
 });

@@ -1,4 +1,5 @@
 import type { NodeSchema, SchemaContext, YamlDomainRule } from '../../types';
+import { DEFAULT_PRODUCTION_ENGLISH_MESSAGES } from '../i18n';
 import type { SchemaMessageKey } from '../i18n';
 import { code, div, element, stack } from './primitives';
 import { classNames } from './classNames';
@@ -40,7 +41,7 @@ export function templateTokenBlock(
     | number
     | ((
         ctx: SchemaContext
-      ) => string | number) = '将鼠标放到上方任一路径输入框，再点击下方字段快速插入。'
+      ) => string | number) = DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaOutputTemplateHelperText
 ): NodeSchema {
   return stack(
     [
@@ -61,7 +62,12 @@ export function yamlFilterTabs(): NodeSchema {
     {
       className: classNames.yaml.filterRow,
       role: 'tablist',
-      ariaLabel: 'YAML filter'
+      ariaLabel: (current: SchemaContext) =>
+        translate(
+          current,
+          'schemaOutputYamlFilterAriaLabel',
+          DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaOutputYamlFilterAriaLabel
+        )
     },
     (current: SchemaContext) =>
       current.appData.output.yamlFilters.map((filter) =>
@@ -109,15 +115,35 @@ export function yamlDomainRule(rule: YamlDomainRule): NodeSchema {
     ]),
     element('strong', {
       text: (current: SchemaContext) =>
-        translate(current, 'schemaOutputDomainOverrideLabel', 'Domain Override')
+        translate(
+          current,
+          'schemaOutputDomainOverrideLabel',
+          DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaOutputDomainOverrideLabel
+        )
     }),
     {
       kind: 'table',
       columns: (current: SchemaContext) => [
-        translate(current, 'yamlFieldNameLabel', 'Field'),
-        translate(current, 'yamlDomainFieldEnabled', 'Enabled'),
-        translate(current, 'yamlFieldValuePathLabel', 'Value Path'),
-        translate(current, 'yamlFieldDefaultValueLabel', 'Default')
+        translate(
+          current,
+          'yamlFieldNameLabel',
+          DEFAULT_PRODUCTION_ENGLISH_MESSAGES.yamlFieldNameLabel
+        ),
+        translate(
+          current,
+          'yamlDomainFieldEnabled',
+          DEFAULT_PRODUCTION_ENGLISH_MESSAGES.yamlDomainFieldEnabled
+        ),
+        translate(
+          current,
+          'yamlFieldValuePathLabel',
+          DEFAULT_PRODUCTION_ENGLISH_MESSAGES.yamlFieldValuePathLabel
+        ),
+        translate(
+          current,
+          'yamlFieldDefaultValueLabel',
+          DEFAULT_PRODUCTION_ENGLISH_MESSAGES.yamlFieldDefaultValueLabel
+        )
       ],
       rows: rule.rows.map((row) => ({
         cells: [
@@ -137,7 +163,11 @@ export function yamlDomainRule(rule: YamlDomainRule): NodeSchema {
 }
 
 export function yamlPreviewBlock(
-  summary: string | ((ctx: SchemaContext) => string) = 'Preview'
+  summary:
+    | string
+    | ((
+        ctx: SchemaContext
+      ) => string) = DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaOutputYamlPreviewSummaryLabel
 ): NodeSchema {
   return {
     kind: 'details',

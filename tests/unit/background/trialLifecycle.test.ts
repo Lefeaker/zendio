@@ -124,7 +124,9 @@ describe('trialLifecycle', () => {
     });
 
     expect(initializeTrial).not.toHaveBeenCalled();
-    expect(consoleLogSpy).toHaveBeenCalledWith('[trial] 未检测到试用配置，使用正式版本');
+    expect(consoleLogSpy).toHaveBeenCalledWith(
+      '[trial] Trial config not found, using the full version'
+    );
   });
 
   it('registers installed and suspend lifecycle handlers', async () => {

@@ -106,6 +106,7 @@ describe('clipProcessor', () => {
   });
 
   afterEach(() => {
+    vi.doUnmock('../../../src/i18n/catalog/runtimeFallbackMessages');
     vi.restoreAllMocks();
   });
 
@@ -292,6 +293,230 @@ describe('clipProcessor', () => {
       expect(parseResult.data.storageTarget).toBe('rest-api');
       expect(parseResult.data.classification).toEqual(classificationResult);
     }
+  });
+
+  it('sources vault progress descriptor fallbacks from default runtime messages', async () => {
+    const actualFallbacks = await vi.importActual<
+      typeof import('../../../src/i18n/catalog/runtimeFallbackMessages')
+    >('../../../src/i18n/catalog/runtimeFallbackMessages');
+    vi.doMock('../../../src/i18n/catalog/runtimeFallbackMessages', () => ({
+      ...actualFallbacks,
+      RUNTIME_FALLBACK_MESSAGES: {
+        ...actualFallbacks.RUNTIME_FALLBACK_MESSAGES,
+        supportProgressReadingSettings: 'Reading settings sentinel',
+        supportProgressSelectingVault: 'Selecting vault sentinel',
+        supportProgressWritingAttachments: 'Writing attachments sentinel',
+        supportProgressWritingNote: 'Writing note sentinel',
+        supportProgressRecordingResult: 'Recording result sentinel'
+      }
+    }));
+
+    getOptionsMock.mockResolvedValue({
+      templates: templateOptions,
+      domainMappings: {},
+      rest: { baseUrl: 'https://default', vault: 'Vault', apiKey: '' }
+    });
+    selectVaultMock.mockReturnValue({
+      vault: { name: 'Secondary Vault' },
+      restConfig: { baseUrl: 'https://vault', vault: 'Secondary', apiKey: 'key' },
+      context: {}
+    });
+    classifyClipMock.mockResolvedValue({
+      type: 'video',
+      topics: [],
+      tags: [],
+      status: 'success' as const
+    });
+    resolvePathMock.mockReturnValue('Videos/example.md');
+    writeMarkdownMock.mockResolvedValue(undefined);
+    writeAttachmentMock.mockResolvedValue(undefined);
+    recordUsageMock.mockResolvedValue(undefined);
+
+    const progressUpdates: Array<{
+      value: number;
+      message?: { key: string; fallback: string };
+    }> = [];
+
+    const { processClipPayload } =
+      await import('../../../src/background/application/clipProcessor');
+    await processClipPayload(
+      createPayload({
+        type: 'video',
+        meta: {
+          url: 'https://example.com/video',
+          attachments: [
+            {
+              id: 'shot-1',
+              fileName: 'frame-1.jpg',
+              mimeType: 'image/jpeg',
+              content: {
+                encoding: 'base64',
+                data: 'YWFh',
+                byteLength: 3
+              }
+            }
+          ]
+        }
+      }),
+      {
+        onProgress: (progress) => {
+          let message:
+            | {
+                key: string;
+                fallback: string;
+              }
+            | undefined;
+          if (progress.message) {
+            if (typeof progress.message.fallback !== 'string') {
+              throw new Error('expected progress message fallback to be present');
+            }
+            message = {
+              key: progress.message.key,
+              fallback: progress.message.fallback
+            };
+          }
+          progressUpdates.push({
+            value: progress.value,
+            message
+          });
+        }
+      }
+    );
+
+    expect(progressUpdates).toEqual(
+      expect.arrayContaining([
+        {
+          value: 48,
+          message: {
+            key: 'supportProgressReadingSettings',
+            fallback: 'Reading settings sentinel'
+          }
+        },
+        {
+          value: 56,
+          message: {
+            key: 'supportProgressSelectingVault',
+            fallback: 'Selecting vault sentinel'
+          }
+        },
+        {
+          value: 68,
+          message: {
+            key: 'supportProgressWritingAttachments',
+            fallback: 'Writing attachments sentinel'
+          }
+        },
+        {
+          value: 82,
+          message: {
+            key: 'supportProgressWritingNote',
+            fallback: 'Writing note sentinel'
+          }
+        },
+        {
+          value: 94,
+          message: {
+            key: 'supportProgressRecordingResult',
+            fallback: 'Recording result sentinel'
+          }
+        }
+      ])
+    );
+  });
+
+  it('sources downloads progress descriptor fallbacks from default runtime messages', async () => {
+    const actualFallbacks = await vi.importActual<
+      typeof import('../../../src/i18n/catalog/runtimeFallbackMessages')
+    >('../../../src/i18n/catalog/runtimeFallbackMessages');
+    vi.doMock('../../../src/i18n/catalog/runtimeFallbackMessages', () => ({
+      ...actualFallbacks,
+      RUNTIME_FALLBACK_MESSAGES: {
+        ...actualFallbacks.RUNTIME_FALLBACK_MESSAGES,
+        supportProgressReadingSettings: 'Reading settings sentinel',
+        supportProgressSavingDownloads: 'Saving downloads sentinel',
+        supportProgressRecordingResult: 'Recording result sentinel'
+      }
+    }));
+
+    getOptionsMock.mockResolvedValue({
+      templates: templateOptions,
+      domainMappings: {},
+      rest: { baseUrl: 'https://default', vault: 'Vault', apiKey: '' }
+    });
+    classifyClipMock.mockResolvedValue({
+      type: 'article',
+      topics: [],
+      tags: [],
+      status: 'success' as const
+    });
+    resolvePathMock.mockReturnValue('Articles/downloaded-note.md');
+    downloadMock.mockResolvedValue(12);
+    recordUsageMock.mockResolvedValue(undefined);
+
+    const progressUpdates: Array<{
+      value: number;
+      message?: { key: string; fallback: string };
+    }> = [];
+
+    const { processClipPayload } =
+      await import('../../../src/background/application/clipProcessor');
+    await processClipPayload(
+      createPayload({
+        meta: {
+          url: 'https://example.com',
+          exportDestination: { kind: 'downloads' }
+        }
+      }),
+      {
+        onProgress: (progress) => {
+          let message:
+            | {
+                key: string;
+                fallback: string;
+              }
+            | undefined;
+          if (progress.message) {
+            if (typeof progress.message.fallback !== 'string') {
+              throw new Error('expected progress message fallback to be present');
+            }
+            message = {
+              key: progress.message.key,
+              fallback: progress.message.fallback
+            };
+          }
+          progressUpdates.push({
+            value: progress.value,
+            message
+          });
+        }
+      }
+    );
+
+    expect(progressUpdates).toEqual(
+      expect.arrayContaining([
+        {
+          value: 48,
+          message: {
+            key: 'supportProgressReadingSettings',
+            fallback: 'Reading settings sentinel'
+          }
+        },
+        {
+          value: 74,
+          message: {
+            key: 'supportProgressSavingDownloads',
+            fallback: 'Saving downloads sentinel'
+          }
+        },
+        {
+          value: 94,
+          message: {
+            key: 'supportProgressRecordingResult',
+            fallback: 'Recording result sentinel'
+          }
+        }
+      ])
+    );
   });
 
   it('downloads markdown instead of writing to a vault when downloads is selected', async () => {

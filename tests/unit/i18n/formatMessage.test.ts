@@ -4,6 +4,7 @@ import {
   __resetMessageFormatterCacheForTests,
   getMessageFormatterCacheSize
 } from '../../../src/i18n/messageFormatter';
+import type { Messages } from '../../../src/i18n/messages';
 
 describe('formatMessage (ICU)', () => {
   beforeEach(() => {
@@ -46,5 +47,67 @@ describe('formatMessage (ICU)', () => {
     }
 
     expect(getMessageFormatterCacheSize()).toBeLessThanOrEqual(64);
+  });
+
+  it('formats descriptor-backed messages with ICU params', async () => {
+    const { formatUserVisibleMessage } = await import('../../../src/i18n');
+    expect(formatUserVisibleMessage).toBeTypeOf('function');
+
+    const result = formatUserVisibleMessage(
+      {
+        key: 'supportPromptStatusSuccess',
+        values: { vaultName: 'Research' }
+      },
+      {
+        supportPromptStatusSuccess: 'Saved to {vaultName}'
+      } as Messages
+    );
+
+    expect(result).toBe('Saved to Research');
+  });
+
+  it('prefers descriptor or explicit fallback only when the key is unavailable', async () => {
+    const { formatUserVisibleMessage } = await import('../../../src/i18n');
+    expect(formatUserVisibleMessage).toBeTypeOf('function');
+
+    expect(
+      formatUserVisibleMessage(
+        {
+          key: 'missing.descriptor.key',
+          fallback: 'Descriptor fallback'
+        },
+        {} as Messages,
+        'Outer fallback'
+      )
+    ).toBe('Descriptor fallback');
+
+    expect(
+      formatUserVisibleMessage(
+        {
+          key: 'missing.descriptor.key'
+        },
+        {} as Messages,
+        'Outer fallback'
+      )
+    ).toBe('Outer fallback');
+
+    expect(formatUserVisibleMessage(undefined, {} as Messages, 'Outer fallback')).toBe(
+      'Outer fallback'
+    );
+  });
+
+  it('does not synthesize CJK fallback text when no descriptor fallback exists', async () => {
+    const { formatUserVisibleMessage } = await import('../../../src/i18n');
+    expect(formatUserVisibleMessage).toBeTypeOf('function');
+
+    const result = formatUserVisibleMessage(
+      {
+        key: 'missing.descriptor.key'
+      },
+      {} as Messages
+    );
+
+    expect(result).toBe('');
+    expect(result).not.toMatch(/[\u3400-\u9fff]/u);
   });
 });

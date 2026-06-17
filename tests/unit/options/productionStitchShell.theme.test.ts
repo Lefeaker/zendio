@@ -141,9 +141,9 @@ describe('mountProductionStitchShell theme', () => {
     const main = queryRequired<HTMLElement>('.main');
     const purpleButton = requireElement(
       Array.from(document.querySelectorAll<HTMLButtonElement>('.chips button')).find(
-        (button) => button.textContent === 'Purple'
+        (button) => button.textContent === 'Solid purple'
       ),
-      'Purple highlight chip'
+      'Solid purple highlight chip'
     );
 
     purpleButton.click();

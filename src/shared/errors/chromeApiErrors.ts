@@ -14,7 +14,7 @@ export const chromeApiErrors = {
       message,
       severity: ErrorSeverity.ERROR,
       recoverable: true,
-      userMessage: '浏览器接口调用失败，请刷新页面或重装扩展。',
+      userMessageDescriptor: { key: 'errorChromeApiRuntimeError' },
       context: {
         ...context,
         chromeLastError
@@ -30,7 +30,7 @@ export const chromeApiErrors = {
       message: `${api} is not available in the current runtime.`,
       severity: ErrorSeverity.ERROR,
       recoverable: false,
-      userMessage: '当前浏览器环境不支持所需功能，请升级或更换浏览器。',
+      userMessageDescriptor: { key: 'errorChromeApiUnsupportedEnvironment' },
       context: {
         api,
         ...context

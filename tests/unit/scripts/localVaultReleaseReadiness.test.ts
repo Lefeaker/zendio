@@ -1,4 +1,4 @@
-import { mkdtemp, mkdir, writeFile } from 'node:fs/promises';
+import { mkdtemp, mkdir, readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { afterEach, describe, expect, it } from 'vitest';
@@ -43,6 +43,18 @@ afterEach(async () => {
 });
 
 describe('Local Vault release readiness audit', () => {
+  it('keeps the shipped permission page first paint English-tagged, neutral, and free of Chinese copy', async () => {
+    const source = await readFile(
+      new URL('../../../public/local-vault-permission.html', import.meta.url),
+      'utf8'
+    );
+
+    expect(source).toContain('<html lang="en">');
+    expect(source).toContain('<title>Zendio</title>');
+    expect(source).not.toContain('Local vault permission');
+    expect(source).not.toMatch(/\p{Script=Han}/u);
+  });
+
   it('accepts a Chrome build with offscreen permission and scoped WAR matches', async () => {
     const distDir = await createDistFixture({
       permissions: ['storage', 'offscreen'],

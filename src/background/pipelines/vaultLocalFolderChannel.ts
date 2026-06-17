@@ -1,4 +1,5 @@
 import type { ConnectionChannelResult, ConnectionTestResult } from '../../shared/types/connection';
+import type { UserVisibleMessageDescriptor } from '../../shared/i18n/userVisibleMessageDescriptor';
 import { getService } from '../../shared/di';
 import { TOKENS } from '../../shared/di/tokens';
 import type { PlatformServices } from '../../platform/types';
@@ -12,21 +13,26 @@ export async function executeLocalFolderChannelTest(
   if (!config.localFolderId) {
     return {
       channel: 'localFolder',
-      label: '本地目录',
+      label: 'localFolder',
+      labelDescriptor: createDescriptor('connectionChannelLocalFolderLabel'),
       configured: false,
       success: false,
-      message: '未配置本地目录'
+      message: '',
+      messageDescriptor: createDescriptor('connectionLocalFolderNotConfigured')
     };
   }
 
   const result = await executeLocalFolderTest(config);
   return {
     channel: 'localFolder',
-    label: '本地目录',
+    label: 'localFolder',
+    labelDescriptor: createDescriptor('connectionChannelLocalFolderLabel'),
     configured: true,
     success: result.success,
     message: result.message,
-    ...(result.error ? { error: result.error } : {})
+    ...(result.messageDescriptor ? { messageDescriptor: result.messageDescriptor } : {}),
+    ...(result.error ? { error: result.error } : {}),
+    ...(result.errorDescriptor ? { errorDescriptor: result.errorDescriptor } : {})
   };
 }
 
@@ -39,21 +45,33 @@ async function executeLocalFolderTest(config: ConnectionTestConfig): Promise<Con
     if (permission === 'granted') {
       return {
         success: true,
-        message: `本地目录可用：${folderName}`
+        message: '',
+        messageDescriptor: createDescriptor('connectionLocalFolderAvailable', {
+          folderName
+        })
       };
     }
+    const failure = formatLocalFolderFailure(permission, folderName);
     return {
       success: false,
-      message: formatLocalFolderFailure(permission, folderName),
-      error: formatLocalFolderFailure(permission, folderName)
+      message: '',
+      messageDescriptor: failure,
+      error: formatLocalFolderErrorCode(permission, folderName),
+      errorDescriptor: failure
     };
   } catch (error) {
     const detail = sanitizeSnippet(error instanceof Error ? error.message : String(error));
-    const message = `本地目录测试失败：${folderName}${detail ? ` - ${detail}` : ''}`;
+    const reason = detail ?? 'unknown error';
+    const descriptor = createDescriptor('connectionLocalFolderWriteFailed', {
+      folderName,
+      reason
+    });
     return {
       success: false,
-      message,
-      error: message
+      message: '',
+      messageDescriptor: descriptor,
+      error: `local_folder_test_failed:${reason}`,
+      errorDescriptor: descriptor
     };
   }
 }
@@ -61,18 +79,47 @@ async function executeLocalFolderTest(config: ConnectionTestConfig): Promise<Con
 function formatLocalFolderFailure(
   permission: LocalVaultPermissionState,
   folderName: string
-): string {
+): UserVisibleMessageDescriptor {
   if (permission === 'prompt') {
-    return `本地目录需要重新授权：${folderName}`;
+    return createDescriptor('connectionLocalFolderNeedsReauthorization', { folderName });
   }
   if (permission === 'denied') {
-    return `本地目录权限被拒绝：${folderName}`;
+    return createDescriptor('connectionLocalFolderPermissionDenied', { folderName });
   }
   if (permission === 'missing') {
-    return `本地目录记录不存在，请重新选择：${folderName}`;
+    return createDescriptor('connectionLocalFolderUnavailable', { folderName });
   }
   if (permission === 'unsupported') {
-    return '当前浏览器不支持本地目录测试。';
+    return createDescriptor('connectionLocalFolderUnsupported');
   }
-  return `本地目录不可用：${folderName}`;
+  return createDescriptor('connectionLocalFolderUnavailable', { folderName });
+}
+
+function createDescriptor<Key extends string>(
+  key: Key,
+  values?: Record<string, string | number | boolean>
+): UserVisibleMessageDescriptor<Key> {
+  return {
+    key,
+    ...(values ? { values } : {})
+  };
+}
+
+function formatLocalFolderErrorCode(
+  permission: LocalVaultPermissionState,
+  folderName: string
+): string {
+  if (permission === 'prompt') {
+    return `local_folder_reauthorization_required:${folderName}`;
+  }
+  if (permission === 'denied') {
+    return `local_folder_permission_denied:${folderName}`;
+  }
+  if (permission === 'missing') {
+    return `local_folder_unavailable:${folderName}`;
+  }
+  if (permission === 'unsupported') {
+    return 'local_folder_unsupported';
+  }
+  return `local_folder_unavailable:${folderName}`;
 }

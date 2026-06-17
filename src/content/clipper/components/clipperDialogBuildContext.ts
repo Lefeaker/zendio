@@ -109,7 +109,7 @@ export function createClipperDialogActions({
       ? [
           {
             id: 'video' as const,
-            label: getMessage('openVideoModeButton', '进入视频模式'),
+            label: getMessage('openVideoModeButton', getFallback('openVideoModeButton')),
             variant: 'secondary' as const
           }
         ]

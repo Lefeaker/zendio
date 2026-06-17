@@ -44,10 +44,10 @@ describe('restCandidates utilities', () => {
     };
     const candidates = createRestCandidates(config, 'encoded.md');
     const protocols = candidates.map((c) => c.protocol);
-    expect(protocols.filter((p) => p === 'HTTPS (用户配置)')).toHaveLength(0);
-    expect(protocols).toContain('HTTPS (用户配置) (vault)');
-    expect(protocols.filter((p) => p === 'HTTP (用户配置)')).toHaveLength(0);
-    expect(protocols).toContain('HTTP (用户配置) (vault)');
+    expect(protocols.filter((p) => p === 'HTTPS (configured)')).toHaveLength(0);
+    expect(protocols).toContain('HTTPS (configured) (vault)');
+    expect(protocols.filter((p) => p === 'HTTP (configured)')).toHaveLength(0);
+    expect(protocols).toContain('HTTP (configured) (vault)');
   });
 
   it('honors custom endpoints that already contain vault segment', () => {

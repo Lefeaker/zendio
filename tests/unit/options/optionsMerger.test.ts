@@ -289,7 +289,7 @@ describe('shared optionsMerger', () => {
     expect(result.aiChat?.includeTimestamps).toBe(true);
     expect(result.video?.floatingPromptEnabled).toBe(false);
     expect(result.video?.promptButtonLabel).toBe(
-      DEFAULT_OPTIONS.video?.promptButtonLabel ?? '开启视频笔记'
+      DEFAULT_OPTIONS.video?.promptButtonLabel ?? 'Clip video'
     );
     expect(result.video?.promptShortcut).toBe(DEFAULT_OPTIONS.video?.promptShortcut ?? 'Alt+V');
     expect(result.video?.controlBarAutoPause).toBe(false);
@@ -310,6 +310,20 @@ describe('shared optionsMerger', () => {
     expect(result.subtitleTranslation?.targetLanguage).toBe(
       DEFAULT_OPTIONS.subtitleTranslation?.targetLanguage ?? 'zh-CN'
     );
+  });
+
+  it('preserves stored domain mappings instead of replacing them with new default aliases', () => {
+    const result = mergeOptions({
+      domainMappings: {
+        'mp.weixin.qq.com': '公众号',
+        'example.com': '示例'
+      }
+    });
+
+    expect(result.domainMappings).toEqual({
+      'mp.weixin.qq.com': '公众号',
+      'example.com': '示例'
+    });
   });
 
   it('keeps explicit summary and vault-router settings while exposing the merger facade', () => {

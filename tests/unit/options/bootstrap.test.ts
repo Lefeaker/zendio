@@ -68,10 +68,14 @@ const storageMock = {
   local: { kind: 'local' }
 } as unknown as StorageService;
 
-vi.mock('../../../src/i18n', () => ({
-  createDefaultPageI18nController: createDefaultPageI18nControllerMock,
-  configureI18nStorage: configureI18nStorageMock
-}));
+vi.mock('../../../src/i18n', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../../src/i18n')>();
+  return {
+    ...actual,
+    createDefaultPageI18nController: createDefaultPageI18nControllerMock,
+    configureI18nStorage: configureI18nStorageMock
+  };
+});
 vi.mock('../../../src/options/components/messages', () => ({
   showStatusMessage: showStatusMessageMock
 }));

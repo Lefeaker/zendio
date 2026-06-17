@@ -1,10 +1,11 @@
 # 工程文档入口
 
-最后更新：2026-06-05
+最后更新：2026-06-17
 
 ## 当前真值入口
 
 - [`engineering-entrypoints.md`](./engineering-entrypoints.md)
+- [`i18n-production-copy-governance.md`](./i18n-production-copy-governance.md)
 - [`ga4-telemetry-reference.md`](./ga4-telemetry-reference.md)
 - [`performance-baseline.md`](./performance-baseline.md)
 - [`source-of-truth-index.md`](./source-of-truth-index.md)
@@ -28,8 +29,9 @@
 ## 当前口径
 
 - `quality` / `verify:preflight` / CI 对三项 typecheck 口径已经对齐
-- `lint:type-any` 当前 GA/i18n PR merge 口径为扫描 `1071` files，实测 overall `0/1084/1776/41/4`、src `0/588/606/5/0`、tests `0/496/1170/36/4`；`lint:type-any:ratchet` 守住 checked-in 上限 overall `0/1084/1776/41/4`、src `0/588/606/5/0`、tests `0/496/1170/36/4`，`any` 保持 `0`，`non-null` 与 `ts-expect-error` 上限未放宽
+- `lint:type-any` 当前 i18n hardcoded P22/post-strict-gap integration 口径为扫描 `1231` files，实测 overall `0/1148/1973/47/3`、src `0/628/695/9/0`、tests `0/520/1278/38/3`；`lint:type-any:ratchet` 守住 checked-in 上限 overall `0/1148/1973/53/4`、src `0/628/695/9/0`、tests `0/520/1278/46/4`，`any` 保持 `0`，`ts-expect-error` 未增加，non-null 上限未放宽
 - `quality` 与 CI 已包含 `lint:hardcoded`；当前 hardcoded config 守卫是 `0` errors / `8` warning-only findings
+- i18n production copy 当前不变量：production user-visible copy 只能来自 i18n catalog 或 `UserVisibleMessageDescriptor` key；background/content 边界传 descriptor/code/params；`quality` 已包含 CJK/descriptor hard gate `audit:i18n-hardcoded-user-copy:check`，当前 audit truth 为 `scanned=579 findings=19 unexpected=0 staleAllowlist=0`；English uncatalogued-copy hard gate `audit:i18n-uncatalogued-user-copy:check` 已接入 `quality` 与 `verify:preflight`，覆盖 raw English `defaultMessage` fallback 与 `subtitle` / `hint` / `body` 等 production-visible fields，当前 audit truth 为 `scanned=575 findings=0 unexpected=0 staleAllowlist=0`
 - i18n 当前由 `src/i18n/catalog/messages/<lang>/{runtime,static,schema}.json` 驱动生成 `src/i18n/generated/**` 与 `public/_locales/**`；root `_locales/**` 已退役，不再作为 compatibility duplicate 保留
 - Chrome ZIP 与 Firefox XPI 在 package 脚本中会解包后执行 release-surface 审计，最终包不得包含 `qps-ploc` loader/chunk 或 `_locales/qps-ploc/messages.json`
 - `audit:build:report` 使用 2026-05-24 M2.5 复核后的预算真值

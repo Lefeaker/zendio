@@ -3,7 +3,7 @@ import { div, paragraph, stack, state, strong } from '../builders/primitives';
 import { classNames } from '../builders/classNames';
 import { themeSegmentedSwitch } from '../builders/settings';
 import { boundSwitch } from '../builders/controls';
-import type { SchemaMessageKey } from '../i18n';
+import { DEFAULT_PRODUCTION_ENGLISH_MESSAGES, type SchemaMessageKey } from '../i18n';
 
 function translate(current: SchemaContext, key: SchemaMessageKey, fallback: string): string {
   return current.t?.(key, fallback) ?? fallback;
@@ -32,11 +32,31 @@ function resolvePrivacyCollected(current: SchemaContext): string[] {
   }
 
   return [
-    translate(current, 'errorReportingCollectedError', '错误类型与调用位置'),
-    translate(current, 'errorReportingCollectedBrowser', '浏览器主版本'),
-    translate(current, 'errorReportingCollectedExtension', '扩展版本号'),
-    translate(current, 'errorReportingCollectedTimestamp', '异常发生时间'),
-    translate(current, 'schemaResourceDataUsageAnonymousUsageTitle', '匿名功能使用次数')
+    translate(
+      current,
+      'errorReportingCollectedError',
+      DEFAULT_PRODUCTION_ENGLISH_MESSAGES.errorReportingCollectedError
+    ),
+    translate(
+      current,
+      'errorReportingCollectedBrowser',
+      DEFAULT_PRODUCTION_ENGLISH_MESSAGES.errorReportingCollectedBrowser
+    ),
+    translate(
+      current,
+      'errorReportingCollectedExtension',
+      DEFAULT_PRODUCTION_ENGLISH_MESSAGES.errorReportingCollectedExtension
+    ),
+    translate(
+      current,
+      'errorReportingCollectedTimestamp',
+      DEFAULT_PRODUCTION_ENGLISH_MESSAGES.errorReportingCollectedTimestamp
+    ),
+    translate(
+      current,
+      'schemaResourceDataUsageAnonymousUsageTitle',
+      DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaResourceDataUsageAnonymousUsageTitle
+    )
   ];
 }
 
@@ -46,10 +66,26 @@ function resolvePrivacyExcluded(current: SchemaContext): string[] {
   }
 
   return [
-    translate(current, 'errorReportingNotCollectedPersonal', '个人身份信息'),
-    translate(current, 'errorReportingNotCollectedContent', '页面正文与剪藏内容'),
-    translate(current, 'errorReportingNotCollectedUrls', '私密 URL 清单'),
-    translate(current, 'errorReportingNotCollectedPasswords', '密码、API 密钥明文')
+    translate(
+      current,
+      'errorReportingNotCollectedPersonal',
+      DEFAULT_PRODUCTION_ENGLISH_MESSAGES.errorReportingNotCollectedPersonal
+    ),
+    translate(
+      current,
+      'errorReportingNotCollectedContent',
+      DEFAULT_PRODUCTION_ENGLISH_MESSAGES.errorReportingNotCollectedContent
+    ),
+    translate(
+      current,
+      'errorReportingNotCollectedUrls',
+      DEFAULT_PRODUCTION_ENGLISH_MESSAGES.errorReportingNotCollectedUrls
+    ),
+    translate(
+      current,
+      'errorReportingNotCollectedPasswords',
+      DEFAULT_PRODUCTION_ENGLISH_MESSAGES.errorReportingNotCollectedPasswords
+    )
   ];
 }
 
@@ -70,26 +106,42 @@ const schema: SettingsSchema = {
       children: [
         {
           kind: 'group',
-          title: translate(ctx, 'schemaOverviewUsageGroupTitle', '使用概览'),
+          title: translate(
+            ctx,
+            'schemaOverviewUsageGroupTitle',
+            DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaOverviewUsageGroupTitle
+          ),
           children: [
             {
               kind: 'card',
-              title: translate(ctx, 'usageDashboardTitle', 'Usage Dashboard'),
+              title: translate(
+                ctx,
+                'usageDashboardTitle',
+                DEFAULT_PRODUCTION_ENGLISH_MESSAGES.usageDashboardTitle
+              ),
               description: translate(
                 ctx,
                 'usageDashboardSubtitle',
-                '查看保存总量、内容分布和最近使用趋势。'
+                DEFAULT_PRODUCTION_ENGLISH_MESSAGES.usageDashboardSubtitle
               ),
               actions: [
                 {
                   kind: 'button',
-                  label: translate(ctx, 'schemaOverviewOpenDiagnosisButton', '打开 Diagnosis'),
+                  label: translate(
+                    ctx,
+                    'schemaOverviewOpenDiagnosisButton',
+                    DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaOverviewOpenDiagnosisButton
+                  ),
                   variant: 'secondary',
                   action: { id: 'navigation:scrollToPanel', args: ['maintenance'] }
                 },
                 {
                   kind: 'button',
-                  label: translate(ctx, 'schemaOverviewClearUsageDataButton', '清除使用数据'),
+                  label: translate(
+                    ctx,
+                    'schemaOverviewClearUsageDataButton',
+                    DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaOverviewClearUsageDataButton
+                  ),
                   variant: 'danger',
                   action: { id: 'overview:clearUsageData' }
                 }
@@ -103,7 +155,11 @@ const schema: SettingsSchema = {
         },
         {
           kind: 'group',
-          title: translate(ctx, 'schemaOverviewInterfaceGroupTitle', '界面'),
+          title: translate(
+            ctx,
+            'schemaOverviewInterfaceGroupTitle',
+            DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaOverviewInterfaceGroupTitle
+          ),
           children: [
             {
               kind: 'card',
@@ -111,7 +167,11 @@ const schema: SettingsSchema = {
                 div(classNames.settings.interfaceThemeGrid, [
                   {
                     kind: 'field',
-                    label: translate(ctx, 'schemaOverviewLanguageRowTitle', '界面语言'),
+                    label: translate(
+                      ctx,
+                      'schemaOverviewLanguageRowTitle',
+                      DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaOverviewLanguageRowTitle
+                    ),
                     control: {
                       kind: 'select',
                       options: (current) => current.appData.languageOptions,
@@ -124,7 +184,11 @@ const schema: SettingsSchema = {
                   },
                   {
                     kind: 'field',
-                    label: translate(ctx, 'schemaOverviewThemeRowTitle', '界面主题'),
+                    label: translate(
+                      ctx,
+                      'schemaOverviewThemeRowTitle',
+                      DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaOverviewThemeRowTitle
+                    ),
                     control: themeSegmentedSwitch()
                   }
                 ])
@@ -134,21 +198,35 @@ const schema: SettingsSchema = {
         },
         {
           kind: 'group',
-          title: translate(ctx, 'schemaOverviewPrivacyGroupTitle', '隐私与数据'),
+          title: translate(
+            ctx,
+            'schemaOverviewPrivacyGroupTitle',
+            DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaOverviewPrivacyGroupTitle
+          ),
           children: [
             {
               kind: 'card',
-              title: translate(ctx, 'privacySettingsNote', 'Consent'),
+              title: translate(
+                ctx,
+                'privacySettingsNote',
+                DEFAULT_PRODUCTION_ENGLISH_MESSAGES.privacySettingsNote
+              ),
               description: translate(
                 ctx,
                 'privacySettingsDescription',
-                '管理匿名使用统计、错误报告和相关数据说明。'
+                DEFAULT_PRODUCTION_ENGLISH_MESSAGES.privacySettingsDescription
               ),
               body: [
                 div('consent-inline-grid', [
                   div('consent-inline-item', [
                     div('consent-inline-head', [
-                      strong(translate(ctx, 'analyticsConsentTitle', '匿名使用统计')),
+                      strong(
+                        translate(
+                          ctx,
+                          'analyticsConsentTitle',
+                          DEFAULT_PRODUCTION_ENGLISH_MESSAGES.analyticsConsentTitle
+                        )
+                      ),
                       boundSwitch({
                         bind: 'privacyAnalytics',
                         compact: true,
@@ -163,14 +241,20 @@ const schema: SettingsSchema = {
                       translate(
                         ctx,
                         'analyticsConsentDescription',
-                        '记录功能使用次数，用于 Usage Dashboard 和行为统计。'
+                        DEFAULT_PRODUCTION_ENGLISH_MESSAGES.analyticsConsentDescription
                       ),
                       'consent-inline-copy'
                     )
                   ]),
                   div('consent-inline-item', [
                     div('consent-inline-head', [
-                      strong(translate(ctx, 'errorReportingConsentTitle', '错误报告')),
+                      strong(
+                        translate(
+                          ctx,
+                          'errorReportingConsentTitle',
+                          DEFAULT_PRODUCTION_ENGLISH_MESSAGES.errorReportingConsentTitle
+                        )
+                      ),
                       boundSwitch({
                         bind: 'privacyErrorReporting',
                         compact: true,
@@ -182,7 +266,11 @@ const schema: SettingsSchema = {
                       })
                     ]),
                     paragraph(
-                      translate(ctx, 'errorReportingConsentDescription', '帮助定位崩溃与异常。'),
+                      translate(
+                        ctx,
+                        'errorReportingConsentDescription',
+                        DEFAULT_PRODUCTION_ENGLISH_MESSAGES.errorReportingConsentDescription
+                      ),
                       'consent-inline-copy'
                     )
                   ])
@@ -192,11 +280,15 @@ const schema: SettingsSchema = {
                   items: [
                     {
                       kind: 'row',
-                      title: translate(ctx, 'analyticsDebugTitle', '调试模式'),
+                      title: translate(
+                        ctx,
+                        'analyticsDebugTitle',
+                        DEFAULT_PRODUCTION_ENGLISH_MESSAGES.analyticsDebugTitle
+                      ),
                       description: translate(
                         ctx,
                         'analyticsDebugDescription',
-                        '仅开发环境可见，需要 analytics 与 error reporting 都启用。'
+                        DEFAULT_PRODUCTION_ENGLISH_MESSAGES.analyticsDebugDescription
                       ),
                       control: stack(
                         [
@@ -223,11 +315,15 @@ const schema: SettingsSchema = {
                           },
                           state((current) =>
                             current.state.privacyAnalytics && current.state.privacyErrorReporting
-                              ? translate(current, 'schemaOverviewDebugModeAvailableState', '可用')
+                              ? translate(
+                                  current,
+                                  'schemaOverviewDebugModeAvailableState',
+                                  DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaOverviewDebugModeAvailableState
+                                )
                               : translate(
                                   current,
                                   'schemaOverviewDebugModePrerequisiteState',
-                                  '前置条件未满足'
+                                  DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaOverviewDebugModePrerequisiteState
                                 )
                           )
                         ],
@@ -237,11 +333,21 @@ const schema: SettingsSchema = {
                   ]
                 },
                 div('mini-card u-mt-block', [
-                  strong(translate(ctx, 'schemaOverviewPrivacyReferenceTitle', 'What Data Means')),
+                  strong(
+                    translate(
+                      ctx,
+                      'schemaOverviewPrivacyReferenceTitle',
+                      DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaOverviewPrivacyReferenceTitle
+                    )
+                  ),
                   div('data-means-grid u-mt-tight', [
                     div('data-means-block', [
                       strong(
-                        translate(ctx, 'errorReportingCollectedTitle', '会收集'),
+                        translate(
+                          ctx,
+                          'errorReportingCollectedTitle',
+                          DEFAULT_PRODUCTION_ENGLISH_MESSAGES.errorReportingCollectedTitle
+                        ),
                         'data-means-title'
                       ),
                       {
@@ -251,7 +357,11 @@ const schema: SettingsSchema = {
                     ]),
                     div('data-means-block', [
                       strong(
-                        translate(ctx, 'errorReportingNotCollectedTitle', '不会收集'),
+                        translate(
+                          ctx,
+                          'errorReportingNotCollectedTitle',
+                          DEFAULT_PRODUCTION_ENGLISH_MESSAGES.errorReportingNotCollectedTitle
+                        ),
                         'data-means-title'
                       ),
                       {
@@ -262,19 +372,31 @@ const schema: SettingsSchema = {
                     div('data-means-actions', [
                       {
                         kind: 'button',
-                        label: translate(ctx, 'clearAllAnalyticsData', '清空全部分析数据'),
+                        label: translate(
+                          ctx,
+                          'clearAllAnalyticsData',
+                          DEFAULT_PRODUCTION_ENGLISH_MESSAGES.clearAllAnalyticsData
+                        ),
                         variant: 'danger',
                         action: { id: 'overview:clearAnalyticsData' }
                       },
                       {
                         kind: 'button',
-                        label: translate(ctx, 'privacyPolicyLink', '隐私政策'),
+                        label: translate(
+                          ctx,
+                          'privacyPolicyLink',
+                          DEFAULT_PRODUCTION_ENGLISH_MESSAGES.privacyPolicyLink
+                        ),
                         variant: 'ghost',
                         action: { id: 'resource:open', args: ['privacy-policy'] }
                       },
                       {
                         kind: 'button',
-                        label: translate(ctx, 'dataUsageLink', '数据用途说明'),
+                        label: translate(
+                          ctx,
+                          'dataUsageLink',
+                          DEFAULT_PRODUCTION_ENGLISH_MESSAGES.dataUsageLink
+                        ),
                         variant: 'ghost',
                         action: { id: 'resource:open', args: ['data-usage'] }
                       }

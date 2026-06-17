@@ -1,5 +1,6 @@
 import type { ResourceSchema } from '../../types';
 import { code } from '../builders/primitives';
+import { translateSchemaMessage, type SchemaMessageKey } from '../i18n';
 import {
   heroPills,
   modalSection,
@@ -15,6 +16,7 @@ const schema: ResourceSchema = {
   createView(ctx) {
     const guide = ctx.appData.resources.pluginSetup;
     const shouldLocalize = Boolean(ctx.messages);
+    const tr = (key: SchemaMessageKey) => translateSchemaMessage(ctx.t, key);
     const fieldValues = {
       https: guide.ports.find(([label]) => label.toLowerCase().includes('https'))?.[1] ?? '',
       http: guide.ports.find(([label]) => label.toLowerCase().includes('http'))?.[1] ?? '',
@@ -25,97 +27,56 @@ const schema: ResourceSchema = {
       id: 'plugin-setup',
       kind: 'modal',
       title: shouldLocalize
-        ? (ctx.t?.('schemaResourcePluginSetupTitle', 'Plugin Setup') ?? 'Plugin Setup')
-        : 'Plugin Setup Guide',
+        ? tr('schemaResourcePluginSetupTitle')
+        : tr('schemaResourcePluginSetupTitle'),
       description: shouldLocalize
-        ? (ctx.t?.(
-            'schemaResourcePluginSetupDescription',
-            'Configure Obsidian Local REST API before editing advanced storage rules.'
-          ) ?? 'Configure Obsidian Local REST API before editing advanced storage rules.')
-        : '围绕 Obsidian Local REST API 的真实配置流程整理。',
+        ? tr('schemaResourcePluginSetupDescription')
+        : tr('schemaResourcePluginSetupDescription'),
       size: 'large',
       children: [
         resourceModalStack([
           heroPills(
             shouldLocalize
               ? [
-                  ctx.t?.('apiConfigTitle', 'Obsidian Local REST API') ?? 'Obsidian Local REST API',
-                  ctx.t?.('schemaResourcePluginSetupFieldHttpsUrl', 'HTTPS URL') ?? 'HTTPS URL',
-                  ctx.t?.('schemaResourcePluginSetupFieldVault', 'Vault') ?? 'Vault',
-                  ctx.t?.('testConnectionButton_short', 'Test') ?? 'Test'
+                  tr('apiConfigTitle'),
+                  tr('schemaResourcePluginSetupFieldHttpsUrl'),
+                  tr('schemaResourcePluginSetupFieldVault'),
+                  tr('testConnectionButton_short')
                 ]
               : guide.hero.pills
           ),
-          modalSection(
-            ctx.t?.('schemaResourcePluginSetupRecommendedValuesGroupTitle', 'Recommended Values') ??
-              'Recommended Values',
-            [
-              {
-                kind: 'table',
-                columns: ['Field', 'Value'],
-                rows: (shouldLocalize
-                  ? [
-                      [
-                        ctx.t?.('schemaResourcePluginSetupFieldHttpsUrl', 'HTTPS URL') ??
-                          'HTTPS URL',
-                        fieldValues.https
-                      ],
-                      [
-                        ctx.t?.('schemaResourcePluginSetupFieldHttpUrl', 'HTTP URL') ?? 'HTTP URL',
-                        fieldValues.http
-                      ],
-                      [
-                        ctx.t?.('schemaResourcePluginSetupFieldVault', 'Vault') ?? 'Vault',
-                        fieldValues.vault
-                      ],
-                      [
-                        ctx.t?.('schemaResourcePluginSetupFieldApiKey', 'API Key') ?? 'API Key',
-                        fieldValues.apiKey
-                      ]
-                    ]
-                  : guide.ports
-                ).map(([label, value]) => ({
-                  cells: [{ text: label }, { node: code(value) }]
-                }))
-              }
-            ]
-          ),
+          modalSection(tr('schemaResourcePluginSetupRecommendedValuesGroupTitle'), [
+            {
+              kind: 'table',
+              columns: [tr('schemaCommonFieldColumnLabel'), tr('schemaCommonValueColumnLabel')],
+              rows: (shouldLocalize
+                ? [
+                    [tr('schemaResourcePluginSetupFieldHttpsUrl'), fieldValues.https],
+                    [tr('schemaResourcePluginSetupFieldHttpUrl'), fieldValues.http],
+                    [tr('schemaResourcePluginSetupFieldVault'), fieldValues.vault],
+                    [tr('schemaResourcePluginSetupFieldApiKey'), fieldValues.apiKey]
+                  ]
+                : guide.ports
+              ).map(([label, value]) => ({
+                cells: [{ text: label }, { node: code(value) }]
+              }))
+            }
+          ]),
           modalSectionRaw([
-            modalSectionHead(
-              ctx.t?.('schemaResourcePluginSetupSetupFlowGroupTitle', 'Setup Flow') ?? 'Setup Flow',
-              {
-                kind: 'button',
-                label: shouldLocalize
-                  ? (ctx.t?.('schemaResourcePluginSetupGoToStorageButton', 'Go To Storage') ??
-                    'Go To Storage')
-                  : '跳到 Storage',
-                variant: 'primary',
-                action: { id: 'navigation:closeResourceAndScrollToPanel', args: ['storage'] }
-              }
-            ),
+            modalSectionHead(tr('schemaResourcePluginSetupSetupFlowGroupTitle'), {
+              kind: 'button',
+              label: tr('schemaResourcePluginSetupGoToStorageButton'),
+              variant: 'primary',
+              action: { id: 'navigation:closeResourceAndScrollToPanel', args: ['storage'] }
+            }),
             stepGrid(
               shouldLocalize
                 ? [
-                    ctx.t?.(
-                      'schemaResourcePluginSetupStep1',
-                      'Install and enable Obsidian Local REST API in Community Plugins.'
-                    ) ?? 'Install and enable Obsidian Local REST API in Community Plugins.',
-                    ctx.t?.(
-                      'schemaResourcePluginSetupStep2',
-                      'Open the plugin settings and confirm both HTTPS and HTTP endpoints.'
-                    ) ?? 'Open the plugin settings and confirm both HTTPS and HTTP endpoints.',
-                    ctx.t?.(
-                      'schemaResourcePluginSetupStep3',
-                      'Copy the vault name and API key from Obsidian.'
-                    ) ?? 'Copy the vault name and API key from Obsidian.',
-                    ctx.t?.(
-                      'schemaResourcePluginSetupStep4',
-                      'Return to Storage and fill the default vault row first.'
-                    ) ?? 'Return to Storage and fill the default vault row first.',
-                    ctx.t?.(
-                      'schemaResourcePluginSetupStep5',
-                      'Run the connection test before saving more routing rules.'
-                    ) ?? 'Run the connection test before saving more routing rules.'
+                    tr('schemaResourcePluginSetupStep1'),
+                    tr('schemaResourcePluginSetupStep2'),
+                    tr('schemaResourcePluginSetupStep3'),
+                    tr('schemaResourcePluginSetupStep4'),
+                    tr('schemaResourcePluginSetupStep5')
                   ].map((step, index) =>
                     stepCard({
                       number: String(index + 1),
@@ -133,38 +94,20 @@ const schema: ResourceSchema = {
               true
             )
           ]),
-          modalSection(
-            ctx.t?.('schemaResourcePluginSetupChecklistGroupTitle', 'Checklist') ?? 'Checklist',
-            [
-              {
-                kind: 'list',
-                items: shouldLocalize
-                  ? [
-                      ctx.t?.(
-                        'schemaResourcePluginSetupChecklist1',
-                        'Obsidian is running and Local REST API is enabled.'
-                      ) ?? 'Obsidian is running and Local REST API is enabled.',
-                      ctx.t?.(
-                        'schemaResourcePluginSetupChecklist2',
-                        'HTTPS and HTTP endpoints match the plugin settings.'
-                      ) ?? 'HTTPS and HTTP endpoints match the plugin settings.',
-                      ctx.t?.(
-                        'schemaResourcePluginSetupChecklist3',
-                        'Vault name spelling is exact.'
-                      ) ?? 'Vault name spelling is exact.',
-                      ctx.t?.(
-                        'schemaResourcePluginSetupChecklist4',
-                        'API key was copied without extra spaces.'
-                      ) ?? 'API key was copied without extra spaces.',
-                      ctx.t?.(
-                        'schemaResourcePluginSetupChecklist5',
-                        'The Storage connection test returns success.'
-                      ) ?? 'The Storage connection test returns success.'
-                    ]
-                  : guide.checks
-              }
-            ]
-          )
+          modalSection(tr('schemaResourcePluginSetupChecklistGroupTitle'), [
+            {
+              kind: 'list',
+              items: shouldLocalize
+                ? [
+                    tr('schemaResourcePluginSetupChecklist1'),
+                    tr('schemaResourcePluginSetupChecklist2'),
+                    tr('schemaResourcePluginSetupChecklist3'),
+                    tr('schemaResourcePluginSetupChecklist4'),
+                    tr('schemaResourcePluginSetupChecklist5')
+                  ]
+                : guide.checks
+            }
+          ])
         ])
       ]
     };

@@ -115,4 +115,32 @@ describe('ErrorHandler', () => {
     expect(serialized.context).toMatchObject({ nested: { attempts: 2 } });
     expect(serialized.context?.handler).toEqual(expect.any(String));
   });
+
+  it('preserves descriptor-based user messages during serialization without requiring legacy userMessage', () => {
+    const appError = {
+      ...createError(),
+      userMessageDescriptor: {
+        key: 'connection.failed',
+        values: { retryable: true, status: 503 },
+        fallback: 'Connection failed'
+      }
+    } as AppError & {
+      userMessageDescriptor: {
+        key: string;
+        values: Record<string, boolean | number | string | null | undefined>;
+        fallback: string;
+      };
+    };
+
+    const serialized = toSerializableAppError(appError);
+
+    expect(serialized).toMatchObject({
+      userMessageDescriptor: {
+        key: 'connection.failed',
+        values: { retryable: true, status: 503 },
+        fallback: 'Connection failed'
+      }
+    });
+    expect(serialized.userMessage).toBeUndefined();
+  });
 });

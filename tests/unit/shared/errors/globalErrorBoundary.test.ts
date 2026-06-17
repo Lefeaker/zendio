@@ -83,4 +83,32 @@ describe('globalErrorBoundary', () => {
 
     expect(handle).not.toHaveBeenCalled();
   });
+
+  it('normalizes non-error rejection reasons to a technical unhandled code message', async () => {
+    const handle = vi.fn().mockResolvedValue(undefined);
+    const cleanup = registerGlobalErrorBoundary({
+      domain: 'content',
+      errorHandler: { handle },
+      target: window
+    });
+
+    const event = new Event('unhandledrejection');
+    Object.defineProperty(event, 'reason', {
+      configurable: true,
+      value: { failed: true }
+    });
+    window.dispatchEvent(event);
+
+    await Promise.resolve();
+
+    expect(handle).toHaveBeenCalledWith(
+      expect.objectContaining({
+        code: 'UNHANDLED_REJECTION',
+        message: 'UNHANDLED_REJECTION'
+      }),
+      { suppressNotifications: true }
+    );
+
+    cleanup();
+  });
 });

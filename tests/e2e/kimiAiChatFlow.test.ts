@@ -22,6 +22,7 @@ import {
   type ChromeStorageSet,
   type ChromeChangeListener
 } from '../utils/chromeMocks';
+import { createE2eOptionsRepository } from '../utils/e2eOptionsRepository';
 
 describe('kimi ai chat integration', () => {
   const kimiUrl = 'https://www.kimi.com/chat/awesome-session';
@@ -66,10 +67,14 @@ describe('kimi ai chat integration', () => {
     const dom = new JSDOM(html, { url: kimiUrl });
     installJsdom(dom, { includeLocalStorage: false });
 
-    const { createDefaultExtractorRegistry } = await import(
-      '../../src/content/extractors/registry'
-    );
-    const registry = createDefaultExtractorRegistry();
+    const { createDefaultExtractorRegistry } =
+      await import('../../src/content/extractors/registry');
+    const registry = createDefaultExtractorRegistry({
+      optionsRepository: createE2eOptionsRepository({
+        aiChat: { includeTimestamps: false, userName: 'Tester' },
+        deepResearch: { pureMode: false }
+      })
+    });
     const clip = await registry.extract({ document: dom.window.document, url: kimiUrl });
 
     expect(clip.type).toBe('ai_chat');

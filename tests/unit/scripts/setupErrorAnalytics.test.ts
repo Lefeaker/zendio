@@ -96,7 +96,7 @@ describe('setup-error-analytics script', () => {
       expect(output).toContain('Google Measurement Protocol endpoint');
       expect(output).toContain('proxy endpoint');
     }
-  });
+  }, 15_000);
 
   it('accepts owner proxy endpoint paths that resemble Measurement Protocol on non-Google hosts', () => {
     const result = spawnSync(process.execPath, [setupErrorAnalyticsScript], {

@@ -24,6 +24,11 @@ const mockParseChatDOMAsync = vi.fn(
 const mockChatHtmlToMarkdown = vi.fn((_html: string) => 'Hi there');
 type BuildChatMarkdownInput = Parameters<typeof buildChatMarkdown>[0];
 const mockBuildChatMarkdown = vi.fn((_args: BuildChatMarkdownInput) => '# Chat transcript');
+const baseFallbackMessages = {
+  exportAiChatFallbackTitleDeepseek: 'Catalog DeepSeek Title',
+  exportAiChatFallbackTitleKimi: 'Catalog Kimi Title',
+  exportAiChatFallbackTitleTongyi: 'Catalog Tongyi Title'
+};
 
 vi.mock('@content/formatters/markdown', () => ({
   buildChatMarkdown: mockBuildChatMarkdown
@@ -33,7 +38,7 @@ vi.mock('../../../src/third_party/ai-chat-exporter/runtimeRegistry', () => ({
   parseChatDOMAsync: mockParseChatDOMAsync
 }));
 
-vi.mock('../../../src/third_party/ai-chat-exporter/parse', () => ({
+vi.mock('../../../src/third_party/ai-chat-exporter/shared/markdown', () => ({
   chatHtmlToMarkdown: mockChatHtmlToMarkdown
 }));
 
@@ -100,7 +105,7 @@ describe('extractAIChat', () => {
 
   it('detects Kimi domains and forwards the correct platform', async () => {
     mockParseChatDOMAsync.mockResolvedValueOnce({
-      title: 'Kimi Chat',
+      title: 'Catalog Kimi Title',
       messages: [
         { id: 'u1', role: 'user', md: 'hello kimi', timestamp: '2024-01-01T00:00:00Z' },
         { id: 'a1', role: 'assistant', md: '你好' }
@@ -111,13 +116,19 @@ describe('extractAIChat', () => {
 
     const module = await import('@content/extractors/aiChatExtractor');
     await module.extractAIChat(document, 'https://www.kimi.com/chat/123', {
-      optionsRepository: createOptionsRepository()
+      optionsRepository: createOptionsRepository(),
+      getMessages: vi.fn(async () => ({
+        ...baseFallbackMessages
+      }))
     });
 
     expect(mockParseChatDOMAsync).toHaveBeenCalledWith(
       'kimi',
       document,
-      expect.objectContaining({ deepResearch: { pureMode: true } })
+      expect.objectContaining({
+        deepResearch: { pureMode: true },
+        fallbackTitle: 'Catalog Kimi Title'
+      })
     );
 
     const lastCall = mockBuildChatMarkdown.mock.calls.at(-1);
@@ -127,6 +138,56 @@ describe('extractAIChat', () => {
       throw new Error('Expected buildChatMarkdown to be called for Kimi platform');
     }
     expect(kimiArgs.platform).toBe('kimi');
+  });
+
+  it('fails fast when a required localized fallback title is missing', async () => {
+    const module = await import('@content/extractors/aiChatExtractor');
+
+    await expect(
+      module.extractAIChat(document, 'https://www.kimi.com/chat/123', {
+        optionsRepository: createOptionsRepository(),
+        getMessages: vi.fn(async () => ({
+          ...baseFallbackMessages,
+          exportAiChatFallbackTitleDeepseek: 'Catalog DeepSeek Title',
+          exportAiChatFallbackTitleKimi: '',
+          exportAiChatFallbackTitleTongyi: 'Catalog Tongyi Title'
+        }))
+      })
+    ).rejects.toThrow('Missing localized AI chat fallback title for kimi');
+
+    expect(mockParseChatDOMAsync).not.toHaveBeenCalled();
+  });
+
+  it('injects English-neutral fallback titles for Doubao and Monica exports', async () => {
+    const module = await import('@content/extractors/aiChatExtractor');
+
+    await module.extractAIChat(document, 'https://www.doubao.com/chat/abc', {
+      optionsRepository: createOptionsRepository(),
+      getMessages: vi.fn(async () => ({ ...baseFallbackMessages }))
+    });
+    await module.extractAIChat(document, 'https://monica.im/chat/abc', {
+      optionsRepository: createOptionsRepository(),
+      getMessages: vi.fn(async () => ({ ...baseFallbackMessages }))
+    });
+
+    expect(mockParseChatDOMAsync).toHaveBeenNthCalledWith(
+      1,
+      'doubao',
+      document,
+      expect.objectContaining({
+        deepResearch: { pureMode: true },
+        fallbackTitle: 'Doubao Chat'
+      })
+    );
+    expect(mockParseChatDOMAsync).toHaveBeenNthCalledWith(
+      2,
+      'monica',
+      document,
+      expect.objectContaining({
+        deepResearch: { pureMode: true },
+        fallbackTitle: 'Monica Chat'
+      })
+    );
   });
 
   it('canHandle filters requests by AI chat hostname', async () => {

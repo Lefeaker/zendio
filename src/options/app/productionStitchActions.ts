@@ -16,7 +16,6 @@ import {
   createProductionStorageActions,
   updateExperimentalBoolean
 } from './productionStitchActionGroups';
-
 export interface ProductionStitchActionContext {
   getAppData(): PreviewContent;
   getCurrentLanguage(): Language;
@@ -280,7 +279,9 @@ export function createProductionStitchActions(
       void context.copyConfigurationToClipboard(context.eventButton(value));
     },
     'maintenance:diagnose': () => {
-      context.setMaintenanceLog(buildDiagnosticsReport(context.collectDraftWithWidgets()));
+      context.setMaintenanceLog(
+        buildDiagnosticsReport(context.collectDraftWithWidgets(), context.getMessages())
+      );
       context.refreshAppData();
       context.render();
     },

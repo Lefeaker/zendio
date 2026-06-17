@@ -1,10 +1,10 @@
 export const APP_ICON_PATH = 'icons/bannerlogo-128.png';
 
 export const DEFAULT_DOMAIN_MAPPINGS: Record<string, string> = {
-  'mp.weixin.qq.com': '公众号',
-  'wx.zsxq.com': '知识星球',
-  'www.zhihu.com': '知乎',
-  'juejin.cn': '掘金',
+  'mp.weixin.qq.com': 'WeChat',
+  'wx.zsxq.com': 'ZSXQ',
+  'www.zhihu.com': 'Zhihu',
+  'juejin.cn': 'Juejin',
   'www.youtube.com': 'YouTube',
   'twitter.com': 'Twitter',
   'x.com': 'Twitter',

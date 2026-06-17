@@ -70,15 +70,56 @@ describe('contentMessageRouter', () => {
       {
         type: SHOW_SUPPORT_PROMPT,
         status: 'progress',
-        progress: { value: 64, label: '正在写入附件' }
+        progress: {
+          value: 64,
+          label: '正在写入附件',
+          message: {
+            key: 'support.progress.attachmentWrite',
+            values: { count: 1 },
+            fallback: 'Writing attachment'
+          }
+        }
       },
       {}
     );
 
     expect(supportPrompt.show).toHaveBeenCalledWith({
       status: 'progress',
-      progress: { value: 64, label: '正在写入附件' }
+      progress: {
+        value: 64,
+        label: '正在写入附件',
+        message: {
+          key: 'support.progress.attachmentWrite',
+          values: { count: 1 },
+          fallback: 'Writing attachment'
+        }
+      }
     });
+  });
+
+  it('ignores support prompt messages with invalid descriptor payloads', async () => {
+    const supportPrompt = { show: vi.fn() };
+    const router = createRouter({
+      supportPrompt,
+      localVaultPermissionPrompt: { request: vi.fn() }
+    });
+
+    await router.handleMessage(
+      {
+        type: SHOW_SUPPORT_PROMPT,
+        status: 'progress',
+        progress: {
+          value: 64,
+          message: {
+            key: 42,
+            fallback: 'Writing attachment'
+          }
+        }
+      },
+      {}
+    );
+
+    expect(supportPrompt.show).not.toHaveBeenCalled();
   });
 
   it('short-circuits startVideoMode when a session is already active', async () => {

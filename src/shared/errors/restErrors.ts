@@ -32,7 +32,7 @@ export const restErrors = {
       message,
       severity: ErrorSeverity.ERROR,
       recoverable: true,
-      userMessage: '网络请求失败，稍后将自动重试或请检查网络。',
+      userMessageDescriptor: { key: 'errorRestRequestFailed' },
       context: {
         ...context,
         timestamp: Date.now()
@@ -52,7 +52,7 @@ export const restErrors = {
       message,
       severity: ErrorSeverity.ERROR,
       recoverable: false,
-      userMessage: '远程服务返回了异常数据，请反馈给我们。',
+      userMessageDescriptor: { key: 'errorRestUnexpectedResponse' },
       context: {
         ...context,
         timestamp: Date.now()
@@ -65,10 +65,10 @@ export const restErrors = {
     return {
       code: 'REST_VAULT_UNAVAILABLE', // 保持现有错误码，因为这是特定于项目的错误
       domain: 'rest',
-      message: 'Target vault is not reachable or misconfigured.',
+      message: 'REST_VAULT_UNAVAILABLE',
       severity: ErrorSeverity.WARNING,
       recoverable: true,
-      userMessage: '备份仓库暂不可用，系统会继续尝试同步。',
+      userMessageDescriptor: { key: 'errorRestVaultUnavailable' },
       context: {
         ...context,
         timestamp: Date.now()

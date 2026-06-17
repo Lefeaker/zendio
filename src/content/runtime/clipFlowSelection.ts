@@ -59,7 +59,10 @@ export async function prepareSelectionClip(
   }
   showSupportProgress?.({
     value: 16,
-    label: '正在发送选区剪藏'
+    message: {
+      key: 'supportProgressPreparingSelectionClip',
+      fallback: 'Preparing selection clip'
+    }
   });
   return clip;
 }

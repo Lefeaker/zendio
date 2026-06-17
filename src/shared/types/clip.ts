@@ -3,6 +3,10 @@ import type { RestOptions } from './options';
 import type { AppError } from '../errors/types';
 import type { SerializedClipAttachmentBinaryContent } from '../attachments/clipAttachmentBinary';
 import { isNonEmptyString, isObjectRecord, isOptionalString } from '../guards';
+import {
+  isUserVisibleMessageDescriptor,
+  type UserVisibleMessageDescriptor
+} from '../i18n/userVisibleMessageDescriptor';
 
 export interface LegacyDataUrlClipAttachment {
   id: string;
@@ -47,6 +51,7 @@ export const SHOW_LOCAL_VAULT_PERMISSION_PROMPT = 'SHOW_LOCAL_VAULT_PERMISSION_P
 export interface SupportPromptProgress {
   value: number;
   label?: string;
+  message?: UserVisibleMessageDescriptor;
   variant?: 'progress' | 'success' | 'failure' | 'warning';
 }
 
@@ -141,6 +146,9 @@ export function isSupportPromptMessage(message: unknown): message is SupportProm
       return false;
     }
     if (!isOptionalString(progress.label)) {
+      return false;
+    }
+    if (progress.message !== undefined && !isUserVisibleMessageDescriptor(progress.message)) {
       return false;
     }
     if (progress.variant !== undefined && !isSupportPromptProgressVariant(progress.variant)) {

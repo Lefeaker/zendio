@@ -1,6 +1,8 @@
 import type { SettingsSchema } from '../../types';
+import type { Messages } from '@i18n';
 import { element, htmlParagraph } from '../builders/primitives';
 import { routingRuleRow, vaultRow } from '../builders/storage';
+import { translateSchemaMessage } from '../i18n';
 
 function linkLocalRestApiRecommendation(value: string): string {
   return value.replace(
@@ -11,38 +13,35 @@ function linkLocalRestApiRecommendation(value: string): string {
 
 const schema: SettingsSchema = {
   createView(ctx) {
-    const t = ctx.t ?? ((_key, fallback: string) => fallback);
+    const t = (key: keyof Messages) => translateSchemaMessage(ctx.t, key);
 
     return {
       id: 'storage',
       kind: 'page',
       hero: {
         ...ctx.appData.storage.hero,
-        title: t('schemaStorageTitle', ctx.appData.storage.hero.title),
-        description: t('schemaStorageHeroDescription', ctx.appData.storage.hero.description)
+        title: t('schemaStorageTitle'),
+        description: t('schemaStorageHeroDescription')
       },
       children: [
         {
           kind: 'group',
-          title: t('schemaStorageVaultsGroupTitle', 'Vaults'),
+          title: t('schemaStorageVaultsGroupTitle'),
           children: [
             {
               kind: 'card',
-              title: t('schemaStorageVaultListTitle', 'Vault List'),
-              description: t(
-                'schemaStorageVaultListDescription',
-                '第一行是默认仓库，其余行为附加仓库。'
-              ),
+              title: t('schemaStorageVaultListTitle'),
+              description: t('schemaStorageVaultListDescription'),
               actions: [
                 {
                   kind: 'button',
-                  label: t('schemaStorageTestConnectionButton', '测试连接'),
+                  label: t('schemaStorageTestConnectionButton'),
                   variant: 'primary',
                   action: { id: 'storage:testConnection' }
                 },
                 {
                   kind: 'button',
-                  label: t('schemaStorageAddVaultButton', '添加仓库'),
+                  label: t('schemaStorageAddVaultButton'),
                   variant: 'secondary',
                   action: { id: 'storage:addVault' }
                 }
@@ -51,13 +50,13 @@ const schema: SettingsSchema = {
                 {
                   kind: 'table',
                   columns: [
-                    t('schemaStorageVaultEnabledColumnLabel', 'Enabled'),
-                    t('schemaStorageVaultNameColumnLabel', 'Vault'),
-                    t('schemaStorageVaultLocalFolderColumnLabel', 'Local Folder'),
-                    t('schemaStorageVaultHttpsUrlColumnLabel', 'HTTPS URL'),
-                    t('schemaStorageVaultHttpUrlColumnLabel', 'HTTP URL'),
-                    t('schemaStorageVaultApiKeyColumnLabel', 'API Key'),
-                    t('schemaStorageVaultActionsColumnLabel', 'Actions')
+                    t('schemaStorageVaultEnabledColumnLabel'),
+                    t('schemaStorageVaultNameColumnLabel'),
+                    t('schemaStorageVaultLocalFolderColumnLabel'),
+                    t('schemaStorageVaultHttpsUrlColumnLabel'),
+                    t('schemaStorageVaultHttpUrlColumnLabel'),
+                    t('schemaStorageVaultApiKeyColumnLabel'),
+                    t('schemaStorageVaultActionsColumnLabel')
                   ],
                   rows: (current) =>
                     current.appData.storage.vaults.map((vault, index) =>
@@ -73,8 +72,7 @@ const schema: SettingsSchema = {
                   kind: 'notice',
                   title: (current) =>
                     current.appData.storage.connectionNotice?.title ||
-                    (current.t?.('schemaStorageConnectionNoticeTitle', '连接测试结果') ??
-                      '连接测试结果'),
+                    translateSchemaMessage(current.t, 'schemaStorageConnectionNoticeTitle'),
                   body: (current) => {
                     const notice = current.appData.storage.connectionNotice;
                     if (notice?.html) {
@@ -87,25 +85,17 @@ const schema: SettingsSchema = {
                       return notice.body;
                     }
                     if (notice?.variant === 'success') {
-                      return current.t?.('connectionSuccessShort', '连接成功') ?? '连接成功';
+                      return translateSchemaMessage(current.t, 'connectionSuccessShort');
                     }
                     if (notice?.variant && notice.variant !== 'info') {
-                      return current.t?.('connectionFailed', '连接失败') ?? '连接失败';
+                      return translateSchemaMessage(current.t, 'connectionFailed');
                     }
-                    return (
-                      current.t?.('schemaStorageConnectionNotRun', '尚未运行连接测试。') ??
-                      '尚未运行连接测试。'
-                    );
+                    return translateSchemaMessage(current.t, 'schemaStorageConnectionNotRun');
                   },
                   variant: (current) => current.appData.storage.connectionNotice?.variant ?? 'info'
                 },
                 htmlParagraph(
-                  linkLocalRestApiRecommendation(
-                    t(
-                      'schemaStorageLocalFolderRecommendation',
-                      '推荐优先使用 Local Folder 通道；REST API 功能由 Obsidian 插件 Local REST API with MCP 支持。'
-                    )
-                  ),
+                  linkLocalRestApiRecommendation(t('schemaStorageLocalFolderRecommendation')),
                   'option-support-note'
                 )
               ]
@@ -114,19 +104,16 @@ const schema: SettingsSchema = {
         },
         {
           kind: 'group',
-          title: t('schemaStorageRoutingGroupTitle', 'Routing Engine'),
+          title: t('schemaStorageRoutingGroupTitle'),
           children: [
             {
               kind: 'card',
-              title: t('routingRulesTitle', 'Routing Rules'),
-              description: t(
-                'routingRulesHint',
-                '根据域名、关键词或 URL pattern 自动选择目标仓库。表格中的每一项都可以直接编辑。'
-              ),
+              title: t('routingRulesTitle'),
+              description: t('routingRulesHint'),
               actions: [
                 {
                   kind: 'button',
-                  label: t('schemaStorageAddRuleButton', '添加规则'),
+                  label: t('schemaStorageAddRuleButton'),
                   variant: 'primary',
                   action: { id: 'routing:add' }
                 }
@@ -134,22 +121,19 @@ const schema: SettingsSchema = {
               body: [
                 {
                   kind: 'notice',
-                  title: t('schemaStorageRoutingTipTitle', '路由提示'),
-                  body: t(
-                    'schemaStorageRoutingTipBody',
-                    '优先级越高越先匹配；每条规则都支持行内修改，不需要先删除再重建。'
-                  ),
+                  title: t('schemaStorageRoutingTipTitle'),
+                  body: t('schemaStorageRoutingTipBody'),
                   variant: 'warning'
                 },
                 {
                   kind: 'table',
                   columns: [
-                    t('schemaStorageRoutingEnabledColumnLabel', 'Enabled'),
-                    t('schemaStorageRoutingTypeColumnLabel', 'Type'),
-                    t('schemaStorageRoutingPatternColumnLabel', 'Pattern'),
-                    t('schemaStorageRoutingTargetVaultColumnLabel', 'Target Vault'),
-                    t('schemaStorageRoutingPriorityColumnLabel', 'Priority'),
-                    t('schemaStorageRoutingActionsColumnLabel', 'Actions')
+                    t('schemaStorageRoutingEnabledColumnLabel'),
+                    t('schemaStorageRoutingTypeColumnLabel'),
+                    t('schemaStorageRoutingPatternColumnLabel'),
+                    t('schemaStorageRoutingTargetVaultColumnLabel'),
+                    t('schemaStorageRoutingPriorityColumnLabel'),
+                    t('schemaStorageRoutingActionsColumnLabel')
                   ],
                   rows: (current) =>
                     current.state.routingRules.map((rule, index) =>

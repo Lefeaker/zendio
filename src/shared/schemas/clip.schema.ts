@@ -33,7 +33,7 @@ const LegacyClipAttachmentSchema = ClipAttachmentBaseSchema.extend({
   if (!isLegacyDataUrlForMimeType(attachment.dataUrl, attachment.mimeType)) {
     context.addIssue({
       code: z.ZodIssueCode.custom,
-      message: 'Attachment dataUrl must match the declared mimeType.',
+      message: 'CLIP_ATTACHMENT_DATA_URL_MIME_MISMATCH',
       path: ['dataUrl']
     });
   }

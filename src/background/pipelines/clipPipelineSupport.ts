@@ -10,6 +10,10 @@ import {
   errorHandler,
   toSerializableAppError
 } from '../../shared/errors';
+import {
+  toSerializableUserVisibleMessageDescriptor,
+  type UserVisibleMessageDescriptor
+} from '../../shared/i18n/userVisibleMessageDescriptor';
 
 export interface SupportPromptOptions {
   source?: string;
@@ -20,6 +24,7 @@ export interface SupportPromptOptions {
   progress?: {
     value: number;
     label?: string;
+    message?: UserVisibleMessageDescriptor;
     variant?: 'progress' | 'success' | 'failure' | 'warning';
   };
 }
@@ -67,6 +72,16 @@ export function dispatchSupportPrompt(
   }
   const errorMessage = options.error?.userMessage ?? options.error?.message ?? options.errorMessage;
   const serializableError = options.error ? toSerializableAppError(options.error) : undefined;
+  const serializableMessage = toSerializableUserVisibleMessageDescriptor(options.progress?.message);
+  const serializableProgress =
+    options.progress === undefined
+      ? undefined
+      : {
+          value: options.progress.value,
+          ...(options.progress.label !== undefined ? { label: options.progress.label } : {}),
+          ...(serializableMessage !== undefined ? { message: serializableMessage } : {}),
+          ...(options.progress.variant !== undefined ? { variant: options.progress.variant } : {})
+        };
 
   const message: SupportPromptMessage = {
     type: SHOW_SUPPORT_PROMPT,
@@ -75,7 +90,7 @@ export function dispatchSupportPrompt(
     ...(options.vaultName !== undefined && { vaultName: options.vaultName }),
     ...(errorMessage !== undefined && { errorMessage }),
     ...(serializableError !== undefined && { error: serializableError }),
-    ...(options.progress !== undefined && { progress: options.progress })
+    ...(serializableProgress !== undefined ? { progress: serializableProgress } : {})
   };
 
   dependencies.sendSupportPrompt(tabId, message).catch((error) => {

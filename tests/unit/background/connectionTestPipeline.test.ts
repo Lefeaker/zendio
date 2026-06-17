@@ -154,9 +154,17 @@ describe('connectionTest pipeline', () => {
 
     const result = await handleConnectionTest();
     expect(result.success).toBe(false);
-    expect(result.message).toContain('连接失败');
-    expect(result.message).toContain('network error');
-    expect(result.message).not.toContain(BODY_STREAM_REUSE_ERROR);
+    expect(result.message).toBe('');
+    expect(result.messageDescriptor).toEqual({ key: 'connectionResultHeaderFailure' });
+    expect(result.errorDescriptor).toEqual({
+      key: 'connectionRestFailure',
+      values: {
+        reason:
+          'HTTPS: network error: request failed; HTTP: network error: request failed; HTTP: network error: request failed'
+      }
+    });
+    expect(result.error).toContain('network error');
+    expect(result.error).not.toContain(BODY_STREAM_REUSE_ERROR);
   });
 
   it('returns failure when server responds with non-2xx status', async () => {
@@ -185,10 +193,14 @@ describe('connectionTest pipeline', () => {
     });
 
     expect(result.success).toBe(false);
-    expect(result.message).toContain('[Auth Vault] 连接失败');
-    expect(result.message).toContain('HTTP error');
-    expect(result.message).toContain('HTTP 401 - Unauthorized');
-    expect(result.message).not.toContain(BODY_STREAM_REUSE_ERROR);
+    expect(result.message).toBe('');
+    expect(result.messageDescriptor).toEqual({ key: 'connectionResultHeaderFailure' });
+    expect(result.errorDescriptor).toEqual({
+      key: 'connectionRestFailure',
+      values: { reason: 'HTTP error: HTTP 401 - Unauthorized' }
+    });
+    expect(result.error).toContain('HTTP 401 - Unauthorized');
+    expect(result.error).not.toContain(BODY_STREAM_REUSE_ERROR);
     const [url, init] = expectFetchCall(fetchMock, 0);
     expect(url).toBe(withTrailingSlash('https://api.example.com'));
     expect(getAuthorizationHeader(init)).toBe('Bearer bad-token');
@@ -220,10 +232,14 @@ describe('connectionTest pipeline', () => {
     });
 
     expect(result.success).toBe(false);
-    expect(result.message).toContain('[Missing Vault] 连接失败');
-    expect(result.message).toContain('HTTP error');
-    expect(result.message).toContain('HTTP 404 - Vault not found');
-    expect(result.message).not.toContain(BODY_STREAM_REUSE_ERROR);
+    expect(result.message).toBe('');
+    expect(result.messageDescriptor).toEqual({ key: 'connectionResultHeaderFailure' });
+    expect(result.errorDescriptor).toEqual({
+      key: 'connectionRestFailure',
+      values: { reason: 'HTTP error: HTTP 404 - Vault not found' }
+    });
+    expect(result.error).toContain('HTTP 404 - Vault not found');
+    expect(result.error).not.toContain(BODY_STREAM_REUSE_ERROR);
     const [url, init] = expectFetchCall(fetchMock, 0);
     expect(url).toBe(withTrailingSlash('https://api.example.com'));
     expect(getAuthorizationHeader(init)).toBe('Bearer token');
@@ -252,8 +268,58 @@ describe('connectionTest pipeline', () => {
     });
 
     expect(result.success).toBe(false);
-    expect(result.message).toContain('config error');
-    expect(result.message).toContain('未配置 API Key');
+    expect(result.messageDescriptor).toEqual({
+      key: 'connectionResultHeaderFailure'
+    });
+    expect(result.errorDescriptor).toEqual({
+      key: 'connectionRestApiKeyMissing'
+    });
+    expect(result.channels).toEqual([
+      expect.objectContaining({
+        channel: 'localFolder',
+        label: 'localFolder',
+        configured: false,
+        success: false,
+        labelDescriptor: {
+          key: 'connectionChannelLocalFolderLabel'
+        },
+        message: '',
+        messageDescriptor: {
+          key: 'connectionLocalFolderNotConfigured'
+        }
+      }),
+      expect.objectContaining({
+        channel: 'https',
+        label: 'rest',
+        configured: true,
+        success: false,
+        labelDescriptor: {
+          key: 'connectionChannelRestLabel'
+        },
+        message: '',
+        messageDescriptor: {
+          key: 'connectionRestApiKeyMissing'
+        },
+        error: 'config error: API Key is missing',
+        errorDescriptor: {
+          key: 'connectionRestApiKeyMissing'
+        }
+      }),
+      expect.objectContaining({
+        channel: 'http',
+        label: 'rest',
+        configured: false,
+        success: false,
+        labelDescriptor: {
+          key: 'connectionChannelRestLabel'
+        },
+        message: '',
+        messageDescriptor: {
+          key: 'connectionRestUrlMissing',
+          values: { label: 'HTTP' }
+        }
+      })
+    ]);
     expect(fetchMock).not.toHaveBeenCalled();
     expectAnalyticsEvent(
       trackUsageEventMock.mock.calls[0],
@@ -296,6 +362,47 @@ describe('connectionTest pipeline', () => {
     expect(getAuthorizationHeader(init)).toBe('Bearer secret');
   });
 
+  it('reports unsupported local-folder failures without relying on localized text heuristics', async () => {
+    const { handleVaultConnectionTest } =
+      await import('../../../src/background/pipelines/connectionTest');
+
+    getOptionsMock.mockResolvedValue(createOptions({ baseUrl: 'https://default.example/' }));
+    queryPermissionMock.mockResolvedValue('unsupported');
+
+    const result = await handleVaultConnectionTest({
+      type: 'TEST_VAULT_CONNECTION',
+      vaultId: 'vault-local',
+      vault: {
+        id: 'vault-local',
+        name: 'Local Vault',
+        httpsUrl: 'https://api.example.com',
+        httpUrl: '',
+        vault: 'LocalVault',
+        apiKey: 'secret',
+        localFolderId: 'folder-local',
+        localFolderName: 'LocalFolder',
+        isDefault: false
+      }
+    });
+
+    expect(result.success).toBe(false);
+    expect(result.messageDescriptor).toEqual({ key: 'connectionResultHeaderFailure' });
+    expect(result.errorDescriptor).toEqual({
+      key: 'connectionLocalFolderUnsupported'
+    });
+    expect(result.error).toContain('local_folder_unsupported');
+    expectAnalyticsEvent(
+      trackUsageEventMock.mock.calls[0],
+      'connection_test_completed',
+      {
+        failure_category: 'unsupported',
+        outcome: 'failed',
+        storage_target: 'local_folder'
+      },
+      ['duration_bucket', 'failure_category', 'outcome', 'storage_target']
+    );
+  });
+
   it('returns separate local folder, HTTPS, and HTTP channel results for vault tests', async () => {
     const { handleVaultConnectionTest } =
       await import('../../../src/background/pipelines/connectionTest');
@@ -330,9 +437,14 @@ describe('connectionTest pipeline', () => {
     expect(result.channels).toEqual([
       expect.objectContaining({
         channel: 'localFolder',
+        label: 'localFolder',
         configured: true,
         success: true,
-        message: '本地目录可用：SplitFolder'
+        message: '',
+        messageDescriptor: {
+          key: 'connectionLocalFolderAvailable',
+          values: { folderName: 'SplitFolder' }
+        }
       }),
       expect.objectContaining({
         channel: 'https',
@@ -412,9 +524,34 @@ describe('connectionTest pipeline', () => {
     });
 
     expect(result.success).toBe(true);
-    expect(result.message).toContain('[Local Vault]');
-    expect(result.message).toContain('REST API');
-    expect(result.message).toContain('本地目录可用：LocalFolder');
+    expect(result.message).toBe('');
+    expect(result.messageDescriptor).toEqual({ key: 'connectionResultHeaderSuccess' });
+    expect(result.channels).toEqual([
+      expect.objectContaining({
+        channel: 'localFolder',
+        success: true,
+        messageDescriptor: {
+          key: 'connectionLocalFolderAvailable',
+          values: { folderName: 'LocalFolder' }
+        }
+      }),
+      expect.objectContaining({
+        channel: 'https',
+        success: true,
+        messageDescriptor: {
+          key: 'connectionRestSuccess',
+          values: { status: 200 }
+        }
+      }),
+      expect.objectContaining({
+        channel: 'http',
+        configured: false,
+        messageDescriptor: {
+          key: 'connectionRestUrlMissing',
+          values: { label: 'HTTP' }
+        }
+      })
+    ]);
     expect(queryPermissionMock).toHaveBeenCalledWith('folder-local');
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expectAnalyticsEvent(
@@ -455,9 +592,13 @@ describe('connectionTest pipeline', () => {
     });
 
     expect(result.success).toBe(false);
-    expect(result.message).toContain('REST API');
-    expect(result.message).toContain('本地目录需要重新授权：LocalFolder');
-    expect(result.error).toContain('本地目录需要重新授权：LocalFolder');
+    expect(result.message).toBe('');
+    expect(result.messageDescriptor).toEqual({ key: 'connectionResultHeaderFailure' });
+    expect(result.errorDescriptor).toEqual({
+      key: 'connectionLocalFolderNeedsReauthorization',
+      values: { folderName: 'LocalFolder' }
+    });
+    expect(result.error).toContain('local_folder_reauthorization_required:LocalFolder');
     expectAnalyticsEvent(
       trackUsageEventMock.mock.calls[0],
       'connection_test_completed',
@@ -530,7 +671,12 @@ describe('connectionTest pipeline', () => {
     });
 
     expect(result.success).toBe(false);
-    expect(result.message).toContain('未配置可用的地址');
+    expect(result.messageDescriptor).toEqual({
+      key: 'connectionResultHeaderFailure'
+    });
+    expect(result.errorDescriptor).toEqual({
+      key: 'connectionNoUsableAddress'
+    });
     expect(fetchMock).not.toHaveBeenCalled();
   });
 });

@@ -1,6 +1,6 @@
 import { DEFAULT_CHAT_TITLE } from '../shared/constants';
 import { chatHtmlToMarkdown } from '../shared/markdown';
-import type { ChatPlatformParser, ParsedMessage, ParsedResult } from '../types';
+import type { ChatPlatformParser, ParseConfig, ParsedMessage, ParsedResult } from '../types';
 
 const KIMI_MESSAGE_CONTAINER_SELECTOR =
   '[class*="message"], [class*="Message"], [class*="chat-content-item"]';
@@ -43,7 +43,9 @@ const KIMI_REMOVABLE_SECTION_SELECTORS = [
 const KIMI_ACTION_CONTAINER_SELECTOR =
   '[class*="segment-code-header"], [class*="table-actions"], [class*="segment-assistant-actions"], [class*="segment-actions"], header[class*="table"]';
 
+// Native Kimi action labels rendered by the source site. These are parser tokens.
 const KIMI_ACTION_TEXTS = new Set(['分享', '复制', '预览', '重试', '编辑']);
+const KIMI_INLINE_ACTION_TEXT_RE = /分享|复制/gi;
 
 const KIMI_BLOCK_HEADER_SELECTOR =
   '[class*="segment-block-header"], header[class*="table"], [class*="table-actions"]';
@@ -141,16 +143,16 @@ function extractHeaderLabel(header: Element): string | undefined {
 
   for (const selector of labelSelectors) {
     const candidate = header.querySelector(selector);
-    const text = candidate?.textContent?.replace(/分享|复制/gi, '').trim();
+    const text = candidate?.textContent?.replace(KIMI_INLINE_ACTION_TEXT_RE, '').trim();
     if (text) return text;
   }
 
   for (const child of Array.from(header.childNodes)) {
     if (child.nodeType === Node.TEXT_NODE) {
-      const text = child.textContent?.replace(/分享|复制/gi, '').trim();
+      const text = child.textContent?.replace(KIMI_INLINE_ACTION_TEXT_RE, '').trim();
       if (text) return text.split(/\s+/)[0];
     } else if (child instanceof HTMLElement) {
-      const text = child.textContent?.replace(/分享|复制/gi, '').trim();
+      const text = child.textContent?.replace(KIMI_INLINE_ACTION_TEXT_RE, '').trim();
       if (text) return text;
     }
   }
@@ -158,7 +160,7 @@ function extractHeaderLabel(header: Element): string | undefined {
   return undefined;
 }
 
-function extractKimiChatData(doc: Document): ParsedResult {
+function extractKimiChatData(doc: Document, config?: ParseConfig): ParsedResult {
   const messageContainers = Array.from(doc.querySelectorAll(KIMI_MESSAGE_CONTAINER_SELECTOR));
   if (messageContainers.length === 0) {
     return { title: DEFAULT_CHAT_TITLE, messages: [], assets: [] };
@@ -172,7 +174,11 @@ function extractKimiChatData(doc: Document): ParsedResult {
     }
   }
   if (!title) {
-    title = 'Kimi 对话';
+    const fallbackTitle = config?.fallbackTitle?.trim();
+    if (!fallbackTitle) {
+      throw new Error('Missing fallback title for kimi export');
+    }
+    title = fallbackTitle;
   }
 
   let model = '';
@@ -247,5 +253,5 @@ function extractKimiChatData(doc: Document): ParsedResult {
 
 export const kimiParser: ChatPlatformParser = {
   id: 'kimi',
-  parse: (doc) => extractKimiChatData(doc)
+  parse: (doc, config) => extractKimiChatData(doc, config)
 };

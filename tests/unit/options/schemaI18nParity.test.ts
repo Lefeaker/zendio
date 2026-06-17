@@ -181,4 +181,112 @@ describe('schema i18n parity', () => {
     expect(source).not.toContain('保存页面时生成 AI 总结');
     expect(source).not.toContain('Support the project through the available public channels.');
   });
+
+  it('keeps P04 settings/surfaces source files free of representative English fallback literals', () => {
+    const representativeP04Files = [
+      {
+        file: 'src/options/app/productionStitchRenderLifecycle.ts',
+        banned: ['Runtime UI']
+      },
+      {
+        file: 'src/options/app/productionStitchActionGroups.ts',
+        banned: ['Connection Test Result']
+      },
+      {
+        file: 'src/options/app/productionStitchStorageSubscriptions.ts',
+        banned: ['Local Folder needs permission again']
+      },
+      {
+        file: 'src/options/stitch/schema/settings/maintenance.ts',
+        banned: ['Configuration Transfer']
+      },
+      {
+        file: 'src/options/stitch/schema/settings/output.ts',
+        banned: ['Path Templates']
+      },
+      {
+        file: 'src/options/stitch/schema/settings/overview.ts',
+        banned: ["privacySettingsNote', 'Consent'"]
+      },
+      {
+        file: 'src/options/stitch/schema/builders/output.ts',
+        banned: ['YAML filter']
+      }
+    ] as const;
+
+    for (const { file, banned } of representativeP04Files) {
+      const source = readFileSync(resolve(process.cwd(), file), 'utf8');
+      for (const literal of banned) {
+        expect(source).not.toContain(literal);
+      }
+    }
+  });
+
+  it('keeps P03 resource source files free of representative legacy English fallback prose', () => {
+    const resourceSources = [
+      {
+        file: 'src/options/stitch/schema/resources/onboarding.ts',
+        banned: [
+          'Guide Flow',
+          'This content mirrors the current onboarding flow instead of placeholder copy.',
+          'Configure Obsidian Local REST API (Required)',
+          'More Exciting Features, Continuous Iteration'
+        ]
+      },
+      {
+        file: 'src/options/stitch/schema/resources/plugin-setup.ts',
+        banned: [
+          'Configure Obsidian Local REST API before editing advanced storage rules.',
+          'Recommended Values',
+          'Install and enable Obsidian Local REST API in Community Plugins.'
+        ]
+      },
+      {
+        file: 'src/options/stitch/schema/resources/support.ts',
+        banned: [
+          'Support the project through the available public channels.',
+          'Buy me a coffee',
+          'Support the project in Chinese'
+        ]
+      },
+      {
+        file: 'src/options/stitch/schema/resources/suggestions.ts',
+        banned: [
+          'Send feedback through the currently supported public channels.',
+          'Feature requests and bug reports',
+          'Direct public discussion with the author'
+        ]
+      },
+      {
+        file: 'src/options/stitch/schema/resources/contact.ts',
+        banned: ['Contact the author', 'Public Channels', 'GitHub Repository', 'Support Email']
+      },
+      {
+        file: 'src/options/stitch/schema/resources/privacy-policy.ts',
+        banned: [
+          'Learn what the extension processes, what it never collects, and how to disable related capabilities.',
+          'Collect anonymized usage metrics to improve the extension. No personal-identifiable information is stored.'
+        ]
+      },
+      {
+        file: 'src/options/stitch/schema/resources/data-usage.ts',
+        banned: [
+          'Understand how usage metrics, error reports, and configuration transfer features use local or anonymous data.',
+          'Anonymous Usage Counts',
+          'Configuration Migration'
+        ]
+      },
+      {
+        file: 'src/options/stitch/changelogResourceData.ts',
+        banned: ['This modal highlights the latest shipped updates from the project changelog.']
+      }
+    ] as const;
+
+    for (const { file, banned } of resourceSources) {
+      const source = readFileSync(resolve(process.cwd(), file), 'utf8');
+      for (const literal of banned) {
+        expect(source).not.toContain(literal);
+      }
+    }
+  });
 });

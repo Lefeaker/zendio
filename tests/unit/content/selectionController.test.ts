@@ -16,6 +16,18 @@ import {
   registerVideoSession
 } from '@content/runtime/contentSessionRegistry';
 
+const getContentI18nResourceMock = vi.hoisted(() => vi.fn(() => null));
+const getContentMessagesMock = vi.hoisted(() =>
+  vi.fn(async () => ({
+    exportFragmentCommentHeading: 'Catalog Comment Heading'
+  }))
+);
+
+vi.mock('@content/i18n/context', () => ({
+  getContentI18nResource: getContentI18nResourceMock,
+  getContentMessages: getContentMessagesMock
+}));
+
 const extractSelectionClipMock = vi.spyOn(selectionExtractor, 'extractSelectionClip');
 let promptMock: ReturnType<
   typeof vi.fn<(...args: [ClipPromptRequest]) => Promise<ClipPromptResponse>>
@@ -26,6 +38,12 @@ describe('content selectionController service', () => {
   beforeEach(async () => {
     promptMock = vi.fn<(...args: [ClipPromptRequest]) => Promise<ClipPromptResponse>>();
     extractSelectionClipMock.mockReset();
+    getContentI18nResourceMock.mockReset();
+    getContentI18nResourceMock.mockReturnValue(null);
+    getContentMessagesMock.mockReset();
+    getContentMessagesMock.mockResolvedValue({
+      exportFragmentCommentHeading: 'Catalog Comment Heading'
+    });
     await platformHarness.storage.sync.clear();
     await platformHarness.storage.sync.set('options', {});
     __resetContentSessionRegistryForTests(document);
@@ -154,6 +172,7 @@ describe('content selectionController service', () => {
       selectionModifierKeys: ['shift'],
       keyboardShortcutsEnabled: true
     });
+    expect(args.commentHeading).toBe('Catalog Comment Heading');
   });
 
   it('passes the selected export destination into confirmed selection clips', async () => {
@@ -215,6 +234,20 @@ describe('content selectionController service', () => {
     await expect(
       controller.handleSelectionClip(document, 'https://example.com', selection)
     ).rejects.toThrow('No text selected');
+  });
+
+  it('fails when the localized fragment comment heading is unavailable', async () => {
+    promptMock.mockResolvedValue({ action: 'clip', comment: 'note' });
+    getContentMessagesMock.mockResolvedValueOnce({
+      exportFragmentCommentHeading: '   '
+    });
+    const selection = createSelection('Selected text');
+
+    const { controller } = await createController();
+    await expect(
+      controller.handleSelectionClip(document, 'https://example.com', selection)
+    ).rejects.toThrow('Missing fragment comment heading');
+    expect(extractSelectionClipMock).not.toHaveBeenCalled();
   });
 
   it('reuses registered reader session without falling back to window globals', async () => {

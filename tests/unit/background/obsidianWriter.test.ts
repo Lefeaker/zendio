@@ -56,6 +56,20 @@ const FORBIDDEN_ANALYTICS_KEYS = new Set([
   'vault_count_bucket'
 ]);
 
+interface TestUserMessageDescriptor {
+  key?: string;
+  values?: {
+    folderName?: string;
+  };
+  fallback?: string;
+}
+
+interface TestWriteError {
+  code?: string;
+  userMessage?: string;
+  userMessageDescriptor?: TestUserMessageDescriptor;
+}
+
 describe('obsidianWriter', () => {
   beforeEach(() => {
     vi.resetModules();
@@ -402,10 +416,17 @@ describe('obsidianWriter', () => {
     await session.writeAttachment('Articles/assets/test/image.png', attachmentBlob, 'image/png');
     const writeError = await session.writeMarkdown('Articles/test.md', '# Hello').then(
       () => null,
-      (error: { code?: string; userMessage?: string }) => error
+      (error: TestWriteError) => error
     );
-    expect(writeError?.code).toBe('LOCAL_VAULT_WRITE_FAILED');
-    expect(writeError?.userMessage).toContain('本地目录写入失败');
+    expect(writeError).toMatchObject({
+      code: 'LOCAL_VAULT_WRITE_FAILED',
+      userMessageDescriptor: {
+        key: 'localVaultWriteFailed',
+        values: { folderName: 'Main' }
+      }
+    });
+    expect(writeError?.userMessage).toBeUndefined();
+    expect(writeError?.userMessageDescriptor?.fallback).toBeUndefined();
     expect(writeFileMock).not.toHaveBeenCalled();
     expectAnalyticsEvent(
       trackUsageEventMock.mock.calls[0],
@@ -536,10 +557,17 @@ describe('obsidianWriter', () => {
     });
     const writeError = await session.writeMarkdown('Articles/test.md', '# Hello').then(
       () => null,
-      (error: { code?: string; userMessage?: string }) => error
+      (error: TestWriteError) => error
     );
-    expect(writeError?.code).toBe('LOCAL_VAULT_REAUTH_REQUIRED');
-    expect(writeError?.userMessage).toContain('本地目录需要重新授权');
+    expect(writeError).toMatchObject({
+      code: 'LOCAL_VAULT_REAUTH_REQUIRED',
+      userMessageDescriptor: {
+        key: 'localVaultWriteReauthorizationRequired',
+        values: { folderName: 'Main' }
+      }
+    });
+    expect(writeError?.userMessage).toBeUndefined();
+    expect(writeError?.userMessageDescriptor?.fallback).toBeUndefined();
     expect(writeFileMock).toHaveBeenCalled();
     expectAnalyticsEvent(
       trackUsageEventMock.mock.calls[0],

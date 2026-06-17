@@ -21,6 +21,7 @@ import {
   type ChromeStorageGet,
   type ChromeStorageSet
 } from '../utils/chromeMocks';
+import { createE2eOptionsRepository } from '../utils/e2eOptionsRepository';
 
 describe('tongyi ai chat integration', () => {
   const tongyiUrl = 'https://tongyi.aliyun.com/chat/share/demo-session';
@@ -70,10 +71,14 @@ describe('tongyi ai chat integration', () => {
 
     installJsdom(dom);
 
-    const { createDefaultExtractorRegistry } = await import(
-      '../../src/content/extractors/registry'
-    );
-    const registry = createDefaultExtractorRegistry();
+    const { createDefaultExtractorRegistry } =
+      await import('../../src/content/extractors/registry');
+    const registry = createDefaultExtractorRegistry({
+      optionsRepository: createE2eOptionsRepository({
+        aiChat: { includeTimestamps: false, userName: 'Tester' },
+        deepResearch: { pureMode: false }
+      })
+    });
     const clip = await registry.extract({ document: dom.window.document, url: tongyiUrl });
 
     expect(clip.type).toBe('ai_chat');

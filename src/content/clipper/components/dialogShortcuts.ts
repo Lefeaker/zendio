@@ -36,16 +36,16 @@ export function getModifierLabel(
   platform = getNavigatorPlatform()
 ): string {
   if (isMacPlatform(platform)) {
-    return variant === 'hint' ? 'Cmd+回车' : 'Cmd ↵';
+    return variant === 'hint' ? 'Cmd+Enter' : 'Cmd ↵';
   }
-  return variant === 'hint' ? 'Alt+回车' : 'Alt ↵';
+  return variant === 'hint' ? 'Alt+Enter' : 'Alt ↵';
 }
 
 export function detectReaderMode(doc: Document): boolean {
   return Boolean(
     isReaderSessionActive(doc) ||
-      doc.getElementById('aiob-reader-panel') ||
-      doc.documentElement.dataset.aiobReaderActive === 'true'
+    doc.getElementById('aiob-reader-panel') ||
+    doc.documentElement.dataset.aiobReaderActive === 'true'
   );
 }
 

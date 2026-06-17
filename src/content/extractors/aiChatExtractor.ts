@@ -1,5 +1,5 @@
 import { buildChatMarkdown } from '../formatters/markdown';
-import { chatHtmlToMarkdown } from '../../third_party/ai-chat-exporter/parse';
+import { chatHtmlToMarkdown } from '../../third_party/ai-chat-exporter/shared/markdown';
 import { formatDateTime } from '../clipper/utils/datetime';
 import { isAIChat } from '../detect';
 import type { StoredOptions, OptionsState } from '../../shared/types/options';
@@ -7,21 +7,37 @@ import type { ContentExtractor, ExtractionContext } from './types';
 import type { OptionsRepository } from '../../shared/interfaces/optionsRepository';
 import type { IOptionsRepository } from '../../shared/repositories/IOptionsRepository';
 import type { ParsedMessage } from '../../third_party/ai-chat-exporter/types';
+import { getContentI18nResource, getContentMessages } from '../i18n/context';
+import type { Messages } from '@i18n';
 
 interface OptionsProvider {
   get(): Promise<StoredOptions>;
   reset(): void;
 }
 
+type AIChatFallbackMessages = Pick<
+  Messages,
+  | 'exportAiChatFallbackTitleDeepseek'
+  | 'exportAiChatFallbackTitleKimi'
+  | 'exportAiChatFallbackTitleTongyi'
+>;
+
+const ENGLISH_NEUTRAL_AI_CHAT_FALLBACK_TITLES = {
+  doubao: 'Doubao Chat',
+  monica: 'Monica Chat'
+} as const;
+
 export interface AIChatExtractorDeps {
   optionsRepository?: OptionsRepository | IOptionsRepository;
   optionsProvider?: OptionsProvider;
+  getMessages?(): Promise<AIChatFallbackMessages>;
   detectPlatform(url: string): string;
   now(): Date;
 }
 
 interface ResolvedAIChatExtractorDeps {
   optionsProvider: OptionsProvider;
+  getMessages(): Promise<AIChatFallbackMessages>;
   detectPlatform(url: string): string;
   now(): Date;
 }
@@ -87,9 +103,13 @@ function createOptionsProviderFromRepository(
 
 function createEmptyOptionsProvider(): OptionsProvider {
   return {
-    get: async () => ({}) as StoredOptions,
+    get: () => Promise.resolve({} as StoredOptions),
     reset: () => undefined
   };
+}
+
+function createMessagesProvider(): () => Promise<AIChatFallbackMessages> {
+  return () => Promise.resolve(getContentI18nResource()?.messages ?? getContentMessages());
 }
 
 function defaultDetectPlatform(url: string): string {
@@ -146,6 +166,42 @@ function normalizeMessages(messages: ParsedMessage[]): ChatMarkdownMessage[] {
   });
 }
 
+function resolveFallbackTitle(
+  platform: string,
+  messages: AIChatFallbackMessages
+): string | undefined {
+  switch (platform) {
+    case 'deepseek':
+      return messages.exportAiChatFallbackTitleDeepseek;
+    case 'kimi':
+      return messages.exportAiChatFallbackTitleKimi;
+    case 'tongyi':
+      return messages.exportAiChatFallbackTitleTongyi;
+    case 'doubao':
+      return ENGLISH_NEUTRAL_AI_CHAT_FALLBACK_TITLES.doubao;
+    case 'monica':
+      return ENGLISH_NEUTRAL_AI_CHAT_FALLBACK_TITLES.monica;
+    default:
+      return undefined;
+  }
+}
+
+function requireFallbackTitle(
+  platform: string,
+  messages: AIChatFallbackMessages
+): string | undefined {
+  const fallbackTitle = resolveFallbackTitle(platform, messages)?.trim();
+  if (fallbackTitle) {
+    return fallbackTitle;
+  }
+
+  if (platform === 'deepseek' || platform === 'kimi' || platform === 'tongyi') {
+    throw new Error(`Missing localized AI chat fallback title for ${platform}`);
+  }
+
+  return undefined;
+}
+
 export const createAIChatExtractor = (deps?: Partial<AIChatExtractorDeps>): ContentExtractor => {
   const optionsProvider =
     deps?.optionsProvider ??
@@ -155,6 +211,7 @@ export const createAIChatExtractor = (deps?: Partial<AIChatExtractorDeps>): Cont
 
   const resolvedDeps: ResolvedAIChatExtractorDeps = {
     optionsProvider,
+    getMessages: deps?.getMessages ?? createMessagesProvider(),
     detectPlatform: deps?.detectPlatform ?? defaultDetectPlatform,
     now: deps?.now ?? (() => new Date())
   };
@@ -163,16 +220,17 @@ export const createAIChatExtractor = (deps?: Partial<AIChatExtractorDeps>): Cont
     const platform = resolvedDeps.detectPlatform(url);
     const storedOptions = await resolvedDeps.optionsProvider.get();
     const options = storedOptions as OptionsState;
+    const fallbackTitle = requireFallbackTitle(platform, await resolvedDeps.getMessages());
 
     const parseConfig = {
       deepResearch: {
         pureMode: options?.deepResearch?.pureMode || false
-      }
+      },
+      ...(fallbackTitle ? { fallbackTitle } : {})
     };
 
-    const { parseChatDOMAsync } = await import(
-      '../../third_party/ai-chat-exporter/runtimeRegistry'
-    );
+    const { parseChatDOMAsync } =
+      await import('../../third_party/ai-chat-exporter/runtimeRegistry');
     const { title, messages, assets, model, createdAt } = await parseChatDOMAsync(
       platform,
       document,
@@ -230,7 +288,10 @@ export async function extractAIChat(
   doc: Document,
   url: string,
   deps?: Partial<
-    Pick<AIChatExtractorDeps, 'optionsRepository' | 'optionsProvider' | 'detectPlatform' | 'now'>
+    Pick<
+      AIChatExtractorDeps,
+      'optionsRepository' | 'optionsProvider' | 'getMessages' | 'detectPlatform' | 'now'
+    >
   >
 ) {
   return createAIChatExtractor(deps).extract({ document: doc, url });

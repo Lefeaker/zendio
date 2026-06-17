@@ -1,9 +1,14 @@
 import { AppError, ErrorSeverity, ErrorDomain, isAppError } from './types';
+import {
+  toSerializableUserVisibleMessageDescriptor,
+  type UserVisibleMessageDescriptor
+} from '../i18n/userVisibleMessageDescriptor';
 
 interface UnknownErrorOptions {
   code?: string;
   domain?: ErrorDomain;
   defaultMessage?: string;
+  userMessageDescriptor?: UserVisibleMessageDescriptor;
   recoverable?: boolean;
   context?: Record<string, unknown>;
 }
@@ -15,6 +20,9 @@ export function normalizeToAppError(error: unknown, options: UnknownErrorOptions
 
   const isNativeError = error instanceof Error;
   const message = options.defaultMessage ?? (isNativeError ? error.message : 'Unknown error');
+  const userMessageDescriptor = toSerializableUserVisibleMessageDescriptor(
+    options.userMessageDescriptor
+  );
 
   return {
     code: options.code ?? 'UNKNOWN_ERROR',
@@ -22,7 +30,7 @@ export function normalizeToAppError(error: unknown, options: UnknownErrorOptions
     message,
     severity: ErrorSeverity.ERROR,
     recoverable: options.recoverable ?? false,
-    userMessage: message,
+    ...(userMessageDescriptor === undefined ? { userMessage: message } : { userMessageDescriptor }),
     context: {
       ...options.context,
       cause: isNativeError
@@ -86,6 +94,12 @@ export function toSerializableAppError(error: AppError): AppError {
   if (error.userMessage !== undefined) {
     serializable.userMessage = error.userMessage;
   }
+  const userMessageDescriptor = toSerializableUserVisibleMessageDescriptor(
+    error.userMessageDescriptor
+  );
+  if (userMessageDescriptor !== undefined) {
+    serializable.userMessageDescriptor = userMessageDescriptor;
+  }
   if (error.timestamp !== undefined) {
     serializable.timestamp = error.timestamp;
   }
@@ -110,6 +124,9 @@ export function toSerializableAppError(error: AppError): AppError {
 
     if (error.userMessage !== undefined) {
       fallback.userMessage = error.userMessage;
+    }
+    if (userMessageDescriptor !== undefined) {
+      fallback.userMessageDescriptor = userMessageDescriptor;
     }
     if (error.timestamp !== undefined) {
       fallback.timestamp = error.timestamp;

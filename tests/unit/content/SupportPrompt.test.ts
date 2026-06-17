@@ -1,6 +1,7 @@
 /* @vitest-environment jsdom */
 
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { restErrors } from '@shared/errors';
 import { ErrorSeverity } from '@shared/errors/types';
 
 const flushMicrotasks = () => new Promise((resolve) => setTimeout(resolve, 0));
@@ -67,6 +68,14 @@ const getContentMessagesMock = vi.hoisted(() =>
       supportPromptStatusWarningWithReason: 'Saved with warning: {reason}',
       supportPromptStatusFailure: 'Failed',
       supportPromptStatusFailureWithReason: 'Failed: {reason}',
+      supportProgressWritingNote: 'Writing note',
+      supportProgressSendingToObsidian: 'Sending to Obsidian',
+      supportProgressErrorCodeSuffix: ' (code: {code})',
+      errorRestRequestFailed:
+        'Request failed. We will retry shortly, or check the network and try again.',
+      localVaultWriteFailed: 'Failed to write to the local folder: {folderName}',
+      localVaultWriteReauthorizationRequired:
+        'Local folder needs to be reauthorized. Reauthorize "{folderName}" in Settings.',
       supportPromptLikeThankYou: 'Thanks!',
       supportPromptReviewLinkLabel: 'Write review',
       supportPromptReviewAcknowledgedLabel: 'I already reviewed',
@@ -135,6 +144,10 @@ describe('SupportPrompt', () => {
     );
   });
 
+  afterEach(() => {
+    vi.doUnmock('../../../src/i18n/catalog/runtimeFallbackMessages');
+  });
+
   it('renders success state with Stitch task-success content', async () => {
     const { SupportPrompt } = await import('../../../src/content/ui/supportPrompt');
     const prompt = new SupportPrompt(document);
@@ -155,24 +168,35 @@ describe('SupportPrompt', () => {
   it('renders an in-flight progress strip before the support links', async () => {
     const { SupportPrompt } = await import('../../../src/content/ui/supportPrompt');
     const prompt = new SupportPrompt(document);
+    const progress = {
+      value: 42,
+      label: '正在写入笔记',
+      message: {
+        key: 'supportProgressWritingNote',
+        fallback: 'Writing note'
+      }
+    };
     await prompt.show({
       status: 'progress',
-      progress: { value: 42, label: '正在写入笔记' }
+      progress
     });
 
     const shadow = getPromptHost().shadowRoot;
     const header = shadow?.querySelector('.task-success-header');
-    const progress = shadow?.querySelector<HTMLElement>('[data-role="task-progress"]');
+    const progressBar = shadow?.querySelector<HTMLElement>('[data-role="task-progress"]');
     const supportStrip = shadow?.querySelector('.task-support-strip');
 
-    expect(shadow?.querySelector('[data-role="status-text"]')?.textContent).toBe('正在写入笔记');
-    expect(progress).toBeTruthy();
-    expect(progress?.style.getPropertyValue('--task-progress-value')).toBe('42%');
-    expect(progress?.classList.contains('is-progress')).toBe(true);
-    expect(header?.compareDocumentPosition(progress as Node)).toBe(
+    expect(shadow?.querySelector('[data-role="status-text"]')?.textContent).toBe('Writing note');
+    expect(shadow?.querySelector('[data-role="status-text"]')?.textContent).not.toMatch(
+      /[\u3400-\u9fff]/u
+    );
+    expect(progressBar).toBeTruthy();
+    expect(progressBar?.style.getPropertyValue('--task-progress-value')).toBe('42%');
+    expect(progressBar?.classList.contains('is-progress')).toBe(true);
+    expect(header?.compareDocumentPosition(progressBar as Node)).toBe(
       Node.DOCUMENT_POSITION_FOLLOWING
     );
-    expect(progress?.compareDocumentPosition(supportStrip as Node)).toBe(
+    expect(progressBar?.compareDocumentPosition(supportStrip as Node)).toBe(
       Node.DOCUMENT_POSITION_FOLLOWING
     );
   });
@@ -247,7 +271,115 @@ describe('SupportPrompt', () => {
     expect(shadow?.querySelector('[data-role="status-text"]')?.textContent).toContain(
       'send failed'
     );
+    expect(shadow?.querySelector('[data-role="status-text"]')?.textContent).toContain(
+      '(code: FAIL_X)'
+    );
     expect(shadow?.querySelector('[data-role="status-detail"]')?.textContent).toBe('extra detail');
+  });
+
+  it('uses catalog-derived fallback messages when content i18n fails before loading', async () => {
+    ensureContentI18nMock.mockRejectedValueOnce(new Error('content i18n unavailable'));
+    const actualFallbacks = await vi.importActual<
+      typeof import('../../../src/i18n/catalog/runtimeFallbackMessages')
+    >('../../../src/i18n/catalog/runtimeFallbackMessages');
+    vi.doMock('../../../src/i18n/catalog/runtimeFallbackMessages', () => ({
+      ...actualFallbacks,
+      RUNTIME_FALLBACK_MESSAGES: {
+        ...actualFallbacks.RUNTIME_FALLBACK_MESSAGES,
+        supportPromptDialogLabel: 'Dialog sentinel',
+        supportPromptTitle: 'Title sentinel',
+        supportProgressSendingToObsidian: 'Progress sentinel'
+      }
+    }));
+
+    const { resolveStatusMessage, resolveSupportPromptMessages } =
+      await import('../../../src/content/ui/supportPromptMessages');
+    const messages = await resolveSupportPromptMessages(document);
+    const resolved = resolveStatusMessage({
+      status: 'progress',
+      messages,
+      runtimeMessages: undefined
+    });
+
+    expect(messages.dialogLabel).toBe('Dialog sentinel');
+    expect(messages.title).toBe('Title sentinel');
+    expect(resolved.text).toBe('Progress sentinel');
+  });
+
+  it('prefers descriptor-based failure copy over legacy error strings', async () => {
+    const { SupportPrompt } = await import('../../../src/content/ui/supportPrompt');
+    const prompt = new SupportPrompt(document);
+    await prompt.show({
+      status: 'failure',
+      error: {
+        code: 'LOCAL_VAULT_WRITE_FAILED',
+        message: 'Local vault write failed: Articles/test.md',
+        userMessageDescriptor: {
+          key: 'localVaultWriteFailed',
+          values: { folderName: 'Main' }
+        },
+        severity: ErrorSeverity.ERROR,
+        domain: 'background',
+        recoverable: true,
+        timestamp: Date.now(),
+        context: { contextMessage: 'disk full' }
+      }
+    });
+
+    const shadow = getPromptHost().shadowRoot;
+    const statusText = shadow?.querySelector('[data-role="status-text"]')?.textContent ?? '';
+    expect(statusText).toContain('Failed to write to the local folder: Main');
+    expect(statusText).toContain('(code: LOCAL_VAULT_WRITE_FAILED)');
+    expect(statusText).not.toMatch(/[\u3400-\u9fff]/u);
+    expect(shadow?.querySelector('[data-role="status-detail"]')?.textContent).toBe('disk full');
+  });
+
+  it('renders shared rest errors through descriptor-based failure copy', async () => {
+    const { SupportPrompt } = await import('../../../src/content/ui/supportPrompt');
+    const prompt = new SupportPrompt(document);
+    const error = restErrors.requestFailed('Failed to fetch', { endpoint: 'https://api.example' });
+    await prompt.show({
+      status: 'failure',
+      error
+    });
+
+    const shadow = getPromptHost().shadowRoot;
+    const statusText = shadow?.querySelector('[data-role="status-text"]')?.textContent ?? '';
+    expect(statusText).toContain(
+      'Request failed. We will retry shortly, or check the network and try again.'
+    );
+    expect(statusText).toContain('(code: REST_NETWORK_REQUEST_FAILED)');
+    expect(statusText).not.toMatch(/[\u3400-\u9fff]/u);
+  });
+
+  it('uses generic failure copy when descriptor exists but runtime messages are unavailable', async () => {
+    const { resolveStatusMessage, resolveSupportPromptMessages } =
+      await import('../../../src/content/ui/supportPromptMessages');
+    const messages = await resolveSupportPromptMessages(document);
+    const technicalMessage = 'Local vault write failed: Articles/test.md';
+
+    const statusMessage = resolveStatusMessage({
+      status: 'failure',
+      reason: technicalMessage,
+      messages,
+      error: {
+        code: 'LOCAL_VAULT_WRITE_FAILED',
+        message: technicalMessage,
+        userMessageDescriptor: {
+          key: 'localVaultWriteFailed',
+          values: { folderName: 'Main' }
+        },
+        severity: ErrorSeverity.ERROR,
+        domain: 'background',
+        recoverable: true,
+        timestamp: Date.now()
+      }
+    });
+
+    expect(statusMessage.text).toBe('Failed');
+    expect(statusMessage.text).not.toContain(technicalMessage);
+    expect(statusMessage.text).not.toContain('Failed to write to the local folder: Main');
+    expect(statusMessage.text).not.toMatch(/[\u3400-\u9fff]/u);
   });
 
   it('shows like toast and review actions', async () => {

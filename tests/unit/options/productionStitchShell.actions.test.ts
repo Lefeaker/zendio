@@ -29,6 +29,7 @@ import {
   analyticsMocks,
   asOptionsController,
   createController,
+  createEnglishPageMessages,
   createMessaging,
   createRepository,
   createStorage,
@@ -229,7 +230,7 @@ describe('mountProductionStitchShell actions', () => {
       messagingRepository: createMessaging({ success: true, message: 'ok' }) as never
     });
 
-    findButton('测试连接').click();
+    findButton('Test Connection').click();
     await flushPromises();
 
     const vaultList = findCardByTitle('Vault List');
@@ -253,7 +254,7 @@ describe('mountProductionStitchShell actions', () => {
       messagingRepository: createMessaging({ success: true, message: 'ok' }) as never
     });
 
-    findButton('测试连接').click();
+    findButton('Test Connection').click();
     await flushPromises();
 
     const vaultList = findCardByTitle('Vault List');
@@ -465,8 +466,15 @@ describe('mountProductionStitchShell actions', () => {
     expect(document.body.textContent).not.toContain('Copied config');
   });
 
-  it('runs the full production diagnostics report instead of a simplified JSON dump', () => {
+  it('runs the full production diagnostics report instead of a simplified JSON dump', async () => {
     const controller = createController();
+    const englishMessages = await createEnglishPageMessages({
+      diagnosticsRestApiKeyMissing: 'Missing API key sentinel',
+      diagnosticsSectionFragmentClipperTitle: 'Fragment clipping sentinel',
+      diagnosticsFragmentContextLengthShort: 'Context length sentinel {value}',
+      diagnosticsSectionVideoModeTitle: 'Video diagnostics sentinel',
+      diagnosticsSectionPortChecksTitle: 'Port checks sentinel'
+    });
     mountProductionStitchShell({
       controller: asOptionsController(controller),
       initialOptions: {
@@ -488,17 +496,18 @@ describe('mountProductionStitchShell actions', () => {
           floatingPromptEnabled: false
         }
       },
-      messages: null,
+      messages: englishMessages,
       language: 'en'
     });
 
     findButton('Diagnose Configuration').click();
+    await flushPromises();
 
-    expect(document.body.textContent).toContain('未配置 API Key');
-    expect(document.body.textContent).toContain('片段剪藏配置');
-    expect(document.body.textContent).toContain('上下文长度较短');
-    expect(document.body.textContent).toContain('视频模式');
-    expect(document.body.textContent).toContain('端口检查');
+    expect(document.body.textContent).toContain('Missing API key sentinel');
+    expect(document.body.textContent).toContain('Fragment clipping sentinel');
+    expect(document.body.textContent).toContain('Context length sentinel 10');
+    expect(document.body.textContent).toContain('Video diagnostics sentinel');
+    expect(document.body.textContent).toContain('Port checks sentinel');
   });
 
   it('persists privacy consent switches through the production options repository', async () => {
@@ -518,7 +527,7 @@ describe('mountProductionStitchShell actions', () => {
       optionsRepository
     } as never);
 
-    const analytics = findCheckboxInText('匿名使用统计');
+    const analytics = findCheckboxInText('Usage analytics');
     expect(analytics.disabled).toBe(false);
     analytics.checked = true;
     analytics.dispatchEvent(new Event('change', { bubbles: true }));
@@ -553,11 +562,11 @@ describe('mountProductionStitchShell actions', () => {
       },
       messages: null,
       language: 'en',
-      messagingRepository,
+      messagingRepository: messagingRepository as never,
       optionsRepository
-    } as never);
+    });
 
-    const analytics = findCheckboxInText('匿名使用统计');
+    const analytics = findCheckboxInText('Usage analytics');
     analytics.checked = true;
     analytics.dispatchEvent(new Event('change', { bubbles: true }));
     await flushPromises();
@@ -572,7 +581,7 @@ describe('mountProductionStitchShell actions', () => {
       }
     });
 
-    const errorReporting = findCheckboxInText('错误报告');
+    const errorReporting = findCheckboxInText('Error reporting');
     errorReporting.checked = true;
     errorReporting.dispatchEvent(new Event('change', { bubbles: true }));
     await flushPromises();
@@ -587,7 +596,7 @@ describe('mountProductionStitchShell actions', () => {
       }
     });
 
-    const debugMode = findCheckboxInText('调试模式');
+    const debugMode = findCheckboxInText('Debug mode');
     expect(debugMode.disabled).toBe(false);
     debugMode.checked = true;
     debugMode.dispatchEvent(new Event('change', { bubbles: true }));
@@ -643,7 +652,7 @@ describe('mountProductionStitchShell actions', () => {
       optionsRepository
     } as never);
 
-    findButton('清空全部分析数据').click();
+    findButton('Clear all data').click();
     await flushPromises();
 
     expect(analyticsMocks.clearAllData).toHaveBeenCalledTimes(1);
@@ -697,7 +706,7 @@ describe('mountProductionStitchShell actions', () => {
       optionsRepository
     } as never);
 
-    findButton('清空全部分析数据').click();
+    findButton('Clear all data').click();
     await flushPromises();
 
     expect(confirmSpy).toHaveBeenCalledWith('Localized clear all?');
@@ -709,7 +718,7 @@ describe('mountProductionStitchShell actions', () => {
     });
 
     analyticsMocks.clearAllData.mockRejectedValueOnce(new Error('clear failed'));
-    findButton('清空全部分析数据').click();
+    findButton('Clear all data').click();
     await flushPromises();
 
     expect(document.body.textContent).toContain('Localized clear error');
@@ -721,6 +730,36 @@ describe('mountProductionStitchShell actions', () => {
         outcome: 'failed'
       }
     });
+  });
+
+  it('falls back to English privacy clear-all copy when messages are missing', async () => {
+    const controller = createController();
+    const optionsRepository = createRepository();
+    const messagingRepository = createMessaging();
+    const confirmSpy = vi.mocked(window.confirm);
+
+    mountProductionStitchShell({
+      controller: asOptionsController(controller),
+      initialOptions: {
+        privacyPreferences: {
+          analytics: true,
+          errorReporting: true,
+          debugMode: true
+        }
+      },
+      messages: null,
+      language: 'en',
+      messagingRepository,
+      optionsRepository
+    } as never);
+
+    findButton('Clear all data').click();
+    await flushPromises();
+
+    expect(confirmSpy).toHaveBeenCalledWith(
+      'Clear all analytics data? This action cannot be undone.'
+    );
+    expect(document.body.textContent).toContain('All analytics data has been cleared.');
   });
 
   it('does not report analytics data cleared when error analytics cleanup fails', async () => {
@@ -748,7 +787,7 @@ describe('mountProductionStitchShell actions', () => {
       optionsRepository
     } as never);
 
-    findButton('清空全部分析数据').click();
+    findButton('Clear all data').click();
     await flushPromises();
 
     expect(analyticsMocks.clearAllData).toHaveBeenCalledTimes(1);
@@ -781,7 +820,7 @@ describe('mountProductionStitchShell actions', () => {
       now: () => 1234
     } as never);
 
-    findButton('清除使用数据').click();
+    findButton('Clear Usage Data').click();
     await flushPromises();
 
     const zeroStats = {

@@ -165,7 +165,10 @@ describe('clipFlow support progress', () => {
 
     expect(showSupportProgress).toHaveBeenCalledWith({
       value: 16,
-      label: '正在发送选区剪藏'
+      message: {
+        key: 'supportProgressPreparingSelectionClip',
+        fallback: 'Preparing selection clip'
+      }
     });
     expect(send).toHaveBeenCalledWith({
       type: 'CLIP_RESULT',
@@ -213,6 +216,7 @@ describe('clipFlow support progress', () => {
 
   it('dispatches full-page clips through the extractor registry and messaging service', async () => {
     const send = createSendMock();
+    const showSupportProgress = vi.fn();
     queueNextClipAnalyticsSource('toolbar');
     const extract = vi.fn(() =>
       Promise.resolve({
@@ -229,11 +233,19 @@ describe('clipFlow support progress', () => {
         handleSelectionClip: vi.fn(),
         handleVideoSelectionClip: vi.fn()
       },
-      extractorRegistry: { extract } as never
+      extractorRegistry: { extract } as never,
+      showSupportProgress
     });
 
     await flow.handleClip();
 
+    expect(showSupportProgress).toHaveBeenCalledWith({
+      value: 8,
+      message: {
+        key: 'supportProgressPreparingPageClip',
+        fallback: 'Preparing page clip'
+      }
+    });
     expect(extract).toHaveBeenCalledWith({ url: location.href, document });
     expect(send).toHaveBeenCalledWith({
       type: 'CLIP_RESULT',

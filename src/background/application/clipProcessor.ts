@@ -1,4 +1,5 @@
 import { getOptions } from '../store';
+import { RUNTIME_FALLBACK_MESSAGES } from '../../i18n/catalog/runtimeFallbackMessages';
 import { resolvePath } from '../pathResolver';
 import { selectVaultForClip } from '../services/vaultRouterService';
 import { classifyClip } from '../services/classificationService';
@@ -31,6 +32,7 @@ import { isAppError, normalizeToAppError } from '../../shared/errors';
 import type { AppError } from '../../shared/errors';
 import { getService } from '../../shared/di';
 import { TOKENS } from '../../shared/di/tokens';
+import type { UserVisibleMessageDescriptor } from '../../shared/i18n/userVisibleMessageDescriptor';
 import type { PlatformServices } from '../../platform/types';
 import { serializedAttachmentContentToBlob } from '../../shared/attachments/clipAttachmentBinary';
 import { prepareVideoClipAttachments } from './videoScreenshotAttachmentPlanner';
@@ -52,7 +54,8 @@ type UntrustedValue = Parameters<typeof isAppError>[0];
 
 export interface ClipProcessingProgress {
   value: number;
-  label: string;
+  label?: string;
+  message?: UserVisibleMessageDescriptor;
 }
 
 export interface ClipProcessingHooks {
@@ -78,6 +81,21 @@ interface AiChatTelemetryMetadata {
 const BACKGROUND_OPERATION_ID_PATTERN = /^op_[a-z0-9]{6,24}$/u;
 export interface ClipProcessingFailure extends Error {
   readonly failureCategory?: FailureCategory;
+}
+
+const CLIP_PROGRESS_FALLBACKS = {
+  supportProgressReadingSettings: RUNTIME_FALLBACK_MESSAGES.supportProgressReadingSettings,
+  supportProgressSelectingVault: RUNTIME_FALLBACK_MESSAGES.supportProgressSelectingVault,
+  supportProgressSavingDownloads: RUNTIME_FALLBACK_MESSAGES.supportProgressSavingDownloads,
+  supportProgressRecordingResult: RUNTIME_FALLBACK_MESSAGES.supportProgressRecordingResult,
+  supportProgressWritingAttachments: RUNTIME_FALLBACK_MESSAGES.supportProgressWritingAttachments,
+  supportProgressWritingNote: RUNTIME_FALLBACK_MESSAGES.supportProgressWritingNote
+} as const;
+
+type ClipProgressMessageKey = keyof typeof CLIP_PROGRESS_FALLBACKS;
+
+function createClipProgressMessage(key: ClipProgressMessageKey): UserVisibleMessageDescriptor {
+  return { key, fallback: CLIP_PROGRESS_FALLBACKS[key] };
 }
 
 function isFailureCategory(value: UntrustedValue): value is FailureCategory {
@@ -174,7 +192,10 @@ export async function processClipPayload(
   }
 
   try {
-    hooks.onProgress?.({ value: 48, label: '正在读取设置与分类' });
+    hooks.onProgress?.({
+      value: 48,
+      message: createClipProgressMessage('supportProgressReadingSettings')
+    });
     const options = await getOptions();
     const classification = await completeStage('classify', () => classifyClip(options, payload));
 
@@ -205,7 +226,10 @@ export async function processClipPayload(
         };
       }
 
-      hooks.onProgress?.({ value: 56, label: '正在选择 Obsidian 仓库' });
+      hooks.onProgress?.({
+        value: 56,
+        message: createClipProgressMessage('supportProgressSelectingVault')
+      });
       const { vault, restConfig } = selectVaultForClip(options, payload);
       const prepared = prepareVideoClipAttachments({
         payload,
@@ -233,7 +257,10 @@ export async function processClipPayload(
     });
 
     if (routed.destination === 'downloads') {
-      hooks.onProgress?.({ value: 74, label: '正在保存到下载目录' });
+      hooks.onProgress?.({
+        value: 74,
+        message: createClipProgressMessage('supportProgressSavingDownloads')
+      });
       const downloads = getDownloadsService();
       if (routed.prepared.attachments.length > 0) {
         await completeStage('write_attachments', async () => {
@@ -255,7 +282,10 @@ export async function processClipPayload(
         })
       );
 
-      hooks.onProgress?.({ value: 94, label: '正在记录发送结果' });
+      hooks.onProgress?.({
+        value: 94,
+        message: createClipProgressMessage('supportProgressRecordingResult')
+      });
       await completeStage('record_usage', async () => {
         try {
           await recordClipUsage(payload);
@@ -289,7 +319,10 @@ export async function processClipPayload(
     }
 
     if (routed.prepared.attachments.length) {
-      hooks.onProgress?.({ value: 68, label: '正在写入附件' });
+      hooks.onProgress?.({
+        value: 68,
+        message: createClipProgressMessage('supportProgressWritingAttachments')
+      });
       await completeStage('write_attachments', async () => {
         for (const attachment of routed.prepared.attachments) {
           const blob = serializedAttachmentContentToBlob(attachment.content, attachment.mimeType);
@@ -302,12 +335,18 @@ export async function processClipPayload(
       });
     }
 
-    hooks.onProgress?.({ value: 82, label: '正在写入笔记' });
+    hooks.onProgress?.({
+      value: 82,
+      message: createClipProgressMessage('supportProgressWritingNote')
+    });
     await completeStage('write_markdown', () =>
       routed.writeSession.writeMarkdown(routed.filePath, routed.prepared.markdown)
     );
 
-    hooks.onProgress?.({ value: 94, label: '正在记录发送结果' });
+    hooks.onProgress?.({
+      value: 94,
+      message: createClipProgressMessage('supportProgressRecordingResult')
+    });
     await completeStage('record_usage', async () => {
       try {
         await recordClipUsage(payload);
@@ -324,7 +363,7 @@ export async function processClipPayload(
             : normalizeToAppError(classification.errorDetail, {
                 code: 'CLASSIFICATION_WARNING_INVALID',
                 domain: 'classifier',
-                defaultMessage: 'Classification warning could not be normalized.',
+                userMessageDescriptor: { key: 'errorClassifierInvalidPayload' },
                 context: {
                   ...(payload.meta?.url !== undefined && { url: payload.meta.url }),
                   ...(payload.type !== undefined && { payloadType: payload.type })

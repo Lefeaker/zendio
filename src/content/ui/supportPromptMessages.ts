@@ -1,6 +1,9 @@
-import { ensureContentI18n, getContentI18nResource, getContentMessages } from '../i18n/context';
+import { formatUserVisibleMessage, type Messages } from '../../i18n';
+import { RUNTIME_FALLBACK_MESSAGES } from '../../i18n/catalog/runtimeFallbackMessages';
 import type { AppError } from '../../shared/errors';
 import { ErrorSeverity } from '../../shared/errors';
+import type { UserVisibleMessageDescriptor } from '../../shared/i18n/userVisibleMessageDescriptor';
+import { ensureContentI18n, getContentI18nResource, getContentMessages } from '../i18n/context';
 import type {
   PromptStatus,
   ResolvedStatusMessage,
@@ -9,32 +12,34 @@ import type {
 } from './supportPrompt/types';
 
 const FALLBACK_SUPPORT_PROMPT_MESSAGES: SupportPromptMessages = {
-  dialogLabel: '支持 Zendio',
-  title: '支持 Zendio',
-  koFiTitle: 'Ko-fi',
-  koFiDescription: '请我喝杯咖啡',
-  afdianTitle: '爱发电',
-  afdianDescription: '国内赞助渠道',
-  githubTitle: 'GitHub',
-  githubDescription: '提交反馈',
-  feedbackGroupLabel: '快速反馈',
-  likeLabel: '赞一个',
-  dislikeLabel: '倒赞',
-  dismiss: '点击页面其他区域即可关闭',
-  statusSuccess: '发送成功',
-  statusSuccessWithVault: '成功发送到 {vault}',
-  statusWarning: '已保存，但分类结果已回退',
-  statusWarningWithReason: '已保存，但分类失败：{reason}',
-  statusFailure: '发送失败',
-  statusFailureWithReason: '发送失败，{reason}',
-  likeThankYou: '感谢鼓励！',
-  reviewLinkLabel: '撰写评论',
-  reviewAcknowledgedLabel: '我已写过评论',
-  dislikeToastTitle: '反馈问题',
-  dislikeRedditLinkLabel: '在 Reddit 讨论',
-  dislikeQrLinkLabel: '扫码反馈',
-  dislikeQrPlaceholder: '二维码暂不可用'
+  dialogLabel: RUNTIME_FALLBACK_MESSAGES.supportPromptDialogLabel,
+  title: RUNTIME_FALLBACK_MESSAGES.supportPromptTitle,
+  koFiTitle: RUNTIME_FALLBACK_MESSAGES.supportPromptKoFiTitle,
+  koFiDescription: RUNTIME_FALLBACK_MESSAGES.supportPromptKoFiDescription,
+  afdianTitle: RUNTIME_FALLBACK_MESSAGES.supportPromptAfdianTitle,
+  afdianDescription: RUNTIME_FALLBACK_MESSAGES.supportPromptAfdianDescription,
+  githubTitle: RUNTIME_FALLBACK_MESSAGES.supportPromptGithubTitle,
+  githubDescription: RUNTIME_FALLBACK_MESSAGES.supportPromptGithubDescription,
+  feedbackGroupLabel: RUNTIME_FALLBACK_MESSAGES.supportPromptFeedbackGroupLabel,
+  likeLabel: RUNTIME_FALLBACK_MESSAGES.supportPromptLikeLabel,
+  dislikeLabel: RUNTIME_FALLBACK_MESSAGES.supportPromptDislikeLabel,
+  dismiss: RUNTIME_FALLBACK_MESSAGES.supportPromptDismiss,
+  statusSuccess: RUNTIME_FALLBACK_MESSAGES.supportPromptStatusSuccess,
+  statusSuccessWithVault: RUNTIME_FALLBACK_MESSAGES.supportPromptStatusSuccessWithVault,
+  statusWarning: RUNTIME_FALLBACK_MESSAGES.supportPromptStatusWarning,
+  statusWarningWithReason: RUNTIME_FALLBACK_MESSAGES.supportPromptStatusWarningWithReason,
+  statusFailure: RUNTIME_FALLBACK_MESSAGES.supportPromptStatusFailure,
+  statusFailureWithReason: RUNTIME_FALLBACK_MESSAGES.supportPromptStatusFailureWithReason,
+  likeThankYou: RUNTIME_FALLBACK_MESSAGES.supportPromptLikeThankYou,
+  reviewLinkLabel: RUNTIME_FALLBACK_MESSAGES.supportPromptReviewLinkLabel,
+  reviewAcknowledgedLabel: RUNTIME_FALLBACK_MESSAGES.supportPromptReviewAcknowledgedLabel,
+  dislikeToastTitle: RUNTIME_FALLBACK_MESSAGES.supportPromptDislikeToastTitle,
+  dislikeRedditLinkLabel: RUNTIME_FALLBACK_MESSAGES.supportPromptDislikeRedditLinkLabel,
+  dislikeQrLinkLabel: RUNTIME_FALLBACK_MESSAGES.supportPromptDislikeQrLinkLabel,
+  dislikeQrPlaceholder: RUNTIME_FALLBACK_MESSAGES.supportPromptDislikeQrPlaceholder
 };
+
+const DEFAULT_PROGRESS_FALLBACK = RUNTIME_FALLBACK_MESSAGES.supportProgressSendingToObsidian;
 
 const SEVERITY_STATUS_MAP: Record<ErrorSeverity, PromptStatus> = {
   [ErrorSeverity.INFO]: 'success',
@@ -51,6 +56,9 @@ export function resolveSupportPromptReason(
   error?: AppError,
   fallback?: string
 ): string | undefined {
+  if (error?.userMessageDescriptor) {
+    return undefined;
+  }
   const candidate = error?.userMessage ?? error?.message ?? fallback;
   if (typeof candidate === 'string' && candidate.trim().length > 0) {
     return candidate.trim();
@@ -64,9 +72,20 @@ export function resolveStatusMessage(input: {
   reason?: string;
   messages: SupportPromptMessages;
   error?: AppError;
+  runtimeMessages?: Messages;
+  progressMessage?: UserVisibleMessageDescriptor;
   progressLabel?: string;
 }): ResolvedStatusMessage {
-  const { status, vaultLabel, reason, messages, error, progressLabel } = input;
+  const {
+    status,
+    vaultLabel,
+    reason,
+    messages,
+    error,
+    runtimeMessages,
+    progressMessage,
+    progressLabel
+  } = input;
   let text: string;
 
   const fill = (template: string, token: string, value: string): string => {
@@ -77,18 +96,26 @@ export function resolveStatusMessage(input: {
     return `${template}${template.endsWith('：') || template.endsWith(':') ? '' : '：'}${value}`;
   };
 
-  if (progressLabel?.trim()) {
-    text = progressLabel.trim();
+  const resolvedProgressText = resolveProgressText(progressMessage, runtimeMessages, progressLabel);
+  const resolvedErrorText = resolveDescriptorErrorText(error, runtimeMessages, reason);
+  const descriptorReasonAllowed = error?.userMessageDescriptor === undefined;
+
+  if (resolvedProgressText) {
+    text = resolvedProgressText;
   } else if (status === 'progress') {
-    text = '正在发送到 Obsidian';
+    text = resolveProgressFallback(runtimeMessages);
+  } else if (resolvedErrorText) {
+    text = resolvedErrorText;
   } else if (status === 'failure') {
-    text = reason
-      ? fill(messages.statusFailureWithReason, 'reason', reason)
-      : messages.statusFailure;
+    text =
+      descriptorReasonAllowed && reason
+        ? fill(messages.statusFailureWithReason, 'reason', reason)
+        : messages.statusFailure;
   } else if (status === 'warning') {
-    text = reason
-      ? fill(messages.statusWarningWithReason, 'reason', reason)
-      : messages.statusWarning;
+    text =
+      descriptorReasonAllowed && reason
+        ? fill(messages.statusWarningWithReason, 'reason', reason)
+        : messages.statusWarning;
   } else {
     text = vaultLabel
       ? fill(messages.statusSuccessWithVault, 'vault', vaultLabel)
@@ -102,7 +129,7 @@ export function resolveStatusMessage(input: {
 
   const result: ResolvedStatusMessage = { text };
   if (error && status !== 'success') {
-    result.codeSuffix = `（代码: ${error.code}）`;
+    result.codeSuffix = resolveErrorCodeSuffix(error.code, runtimeMessages);
   }
   if (contextMessage && contextMessage.length > 0) {
     result.extraLine = contextMessage;
@@ -194,4 +221,77 @@ function clampProgressValue(value: number | undefined, fallback: number): number
     return fallback;
   }
   return Math.max(0, Math.min(100, Math.round(value)));
+}
+
+function resolveProgressText(
+  descriptor: UserVisibleMessageDescriptor | undefined,
+  runtimeMessages: Messages | undefined,
+  legacyLabel: string | undefined
+): string | undefined {
+  if (descriptor) {
+    const fallback = descriptor.fallback ?? legacyLabel ?? '';
+    const resolved = runtimeMessages
+      ? formatUserVisibleMessage(descriptor, runtimeMessages, fallback)
+      : fallback;
+    if (resolved.trim().length > 0) {
+      return resolved.trim();
+    }
+  }
+
+  if (legacyLabel?.trim()) {
+    return legacyLabel.trim();
+  }
+
+  return undefined;
+}
+
+function resolveDescriptorErrorText(
+  error: AppError | undefined,
+  runtimeMessages: Messages | undefined,
+  _fallbackReason: string | undefined
+): string | undefined {
+  const descriptor = error?.userMessageDescriptor;
+  if (!descriptor || !runtimeMessages) {
+    return undefined;
+  }
+
+  const resolved = formatUserVisibleMessage(descriptor, runtimeMessages);
+
+  if (resolved.trim().length > 0) {
+    return resolved.trim();
+  }
+
+  return undefined;
+}
+
+function resolveProgressFallback(runtimeMessages: Messages | undefined): string {
+  if (!runtimeMessages) {
+    return DEFAULT_PROGRESS_FALLBACK;
+  }
+
+  return formatUserVisibleMessage(
+    {
+      key: 'supportProgressSendingToObsidian',
+      fallback: DEFAULT_PROGRESS_FALLBACK
+    },
+    runtimeMessages,
+    DEFAULT_PROGRESS_FALLBACK
+  );
+}
+
+function resolveErrorCodeSuffix(code: string, runtimeMessages: Messages | undefined): string {
+  const fallback = ` (code: ${code})`;
+  if (!runtimeMessages) {
+    return fallback;
+  }
+
+  return formatUserVisibleMessage(
+    {
+      key: 'supportProgressErrorCodeSuffix',
+      values: { code },
+      fallback
+    },
+    runtimeMessages,
+    fallback
+  );
 }

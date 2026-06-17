@@ -144,9 +144,9 @@ export class AnalyticsConfigManager {
     ]);
   }
 
-  async getUserConsent(): Promise<UserConsent | undefined> {
+  getUserConsent(): Promise<UserConsent | undefined> {
     const consent = this.config.userConsent;
-    return consent ? { ...consent } : undefined;
+    return Promise.resolve(consent ? { ...consent } : undefined);
   }
 
   async renewSession(): Promise<void> {

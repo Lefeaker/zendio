@@ -1,4 +1,5 @@
 import { AppError, ErrorReporter, ErrorSeverity, HandleErrorOptions } from './types';
+import { toSerializableUserVisibleMessageDescriptor } from '../i18n/userVisibleMessageDescriptor';
 
 type ErrorNotificationBridge = (error: AppError) => Promise<void> | void;
 
@@ -24,6 +25,12 @@ function normalizeError(error: AppError, metadata?: Record<string, unknown>): Ap
 
   if (error.userMessage !== undefined) {
     result.userMessage = error.userMessage;
+  }
+  const userMessageDescriptor = toSerializableUserVisibleMessageDescriptor(
+    error.userMessageDescriptor
+  );
+  if (userMessageDescriptor !== undefined) {
+    result.userMessageDescriptor = userMessageDescriptor;
   }
 
   if (error.cause !== undefined) {

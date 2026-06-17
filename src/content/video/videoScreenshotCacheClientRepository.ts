@@ -93,7 +93,7 @@ export function createVideoScreenshotCacheClientRepository({
     if (!isVideoScreenshotCacheResponse(response)) {
       return {
         success: false,
-        error: 'Invalid video screenshot cache response.'
+        error: 'VIDEO_SCREENSHOT_CACHE_INVALID_RESPONSE'
       };
     }
     return response;

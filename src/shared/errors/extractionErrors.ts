@@ -28,10 +28,10 @@ export const extractionErrors = {
     return {
       code: STANDARDIZED_ERROR_CODES.EXTRACTION_SELECTION_NO_SELECTION,
       domain: 'extraction',
-      message: 'No valid selection found for clipping.',
+      message: STANDARDIZED_ERROR_CODES.EXTRACTION_SELECTION_NO_SELECTION,
       severity: ErrorSeverity.WARNING,
       recoverable: true,
-      userMessage: '未发现可用的选区，请重新选择内容后再试。',
+      userMessageDescriptor: { key: 'errorExtractionNoSelection' },
       context: {
         ...context,
         timestamp: Date.now()
@@ -43,10 +43,10 @@ export const extractionErrors = {
     return {
       code: STANDARDIZED_ERROR_CODES.EXTRACTION_CONTENT_NO_MARKDOWN,
       domain: 'extraction',
-      message: 'Extraction completed without markdown content.',
+      message: STANDARDIZED_ERROR_CODES.EXTRACTION_CONTENT_NO_MARKDOWN,
       severity: ErrorSeverity.ERROR,
       recoverable: false,
-      userMessage: '内容解析失败，请刷新页面或稍后重试。',
+      userMessageDescriptor: { key: 'errorExtractionNoMarkdown' },
       context: {
         ...context,
         timestamp: Date.now()
@@ -58,10 +58,10 @@ export const extractionErrors = {
     return {
       code: STANDARDIZED_ERROR_CODES.EXTRACTION_CONTENT_UNSUPPORTED,
       domain: 'extraction',
-      message: 'No extractor was able to handle the current page.',
+      message: STANDARDIZED_ERROR_CODES.EXTRACTION_CONTENT_UNSUPPORTED,
       severity: ErrorSeverity.ERROR,
       recoverable: false,
-      userMessage: '当前页面暂不支持剪藏，我们会尽快补充适配。',
+      userMessageDescriptor: { key: 'errorExtractionUnsupportedContent' },
       context: {
         ...context,
         timestamp: Date.now()
@@ -76,7 +76,7 @@ export const extractionErrors = {
       message: `Failed to dispatch clip result: ${reason}`,
       severity: ErrorSeverity.ERROR,
       recoverable: true,
-      userMessage: '结果发送失败，已自动重试。若问题持续，请反馈给我们。',
+      userMessageDescriptor: { key: 'errorExtractionDispatchFailure' },
       context: {
         ...context,
         reason,

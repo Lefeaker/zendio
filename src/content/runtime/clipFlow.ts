@@ -51,7 +51,10 @@ export function initClipFlow(options: InitClipFlowOptions): ClipFlowHandlers {
     if (clipMode !== 'selection') {
       showSupportProgress?.({
         value: 8,
-        label: '正在准备网页剪藏'
+        message: {
+          key: 'supportProgressPreparingPageClip',
+          fallback: 'Preparing page clip'
+        }
       });
     }
     analytics?.emitStarted();
@@ -86,7 +89,7 @@ export function initClipFlow(options: InitClipFlowOptions): ClipFlowHandlers {
       const appError = normalizeToAppError(error, {
         code: 'CONTENT_CLIP_FAILURE',
         domain: 'content',
-        defaultMessage: 'Clip failed unexpectedly.',
+        userMessageDescriptor: { key: 'clipFailed' },
         context: { url, mode: clipMode }
       });
       const { emitClipError } = await import('./clipFlowDispatch');

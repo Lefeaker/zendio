@@ -227,7 +227,7 @@ describe('configProvider', () => {
       });
       expect(research?.domainMappings).toEqual({
         'arxiv.org': 'Arxiv',
-        'mp.weixin.qq.com': '公众号',
+        'mp.weixin.qq.com': 'WeChat',
         'scholar.google.com': 'Scholar'
       });
       expect(conversation?.templates.ai).toBe('AI/{platform}/{yyyy}/{yyyy}-{mm}-{dd}_{title}.md');

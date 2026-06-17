@@ -12,6 +12,7 @@ import {
 } from '../builders/surfaces';
 import { div } from '../builders/primitives';
 import { classNames } from '../builders/classNames';
+import { RUNTIME_SURFACE_FALLBACK_MESSAGES } from '@i18n/catalog/runtimeSurfaceFallbackMessages';
 
 const schema: ResourceSchema = {
   openMode: 'modal',
@@ -19,8 +20,16 @@ const schema: ResourceSchema = {
     const surface = ctx.appData.surfaces.clipper;
     const t = ctx.t;
     const destinationLabels = {
-      saveToLabel: t?.('schemaRuntimeSurfaceSaveToLabel', '保存到') ?? '保存到',
-      configureVaultLabel: t?.('schemaRuntimeSurfaceConfigureVaultLabel', '配置仓库') ?? '配置仓库'
+      saveToLabel:
+        t?.(
+          'schemaRuntimeSurfaceSaveToLabel',
+          RUNTIME_SURFACE_FALLBACK_MESSAGES.schemaRuntimeSurfaceSaveToLabel
+        ) ?? RUNTIME_SURFACE_FALLBACK_MESSAGES.schemaRuntimeSurfaceSaveToLabel,
+      configureVaultLabel:
+        t?.(
+          'schemaRuntimeSurfaceConfigureVaultLabel',
+          RUNTIME_SURFACE_FALLBACK_MESSAGES.schemaRuntimeSurfaceConfigureVaultLabel
+        ) ?? RUNTIME_SURFACE_FALLBACK_MESSAGES.schemaRuntimeSurfaceConfigureVaultLabel
     };
     const actions = surface.actions.map((action) => ({
       ...action,
@@ -37,10 +46,16 @@ const schema: ResourceSchema = {
     return {
       id: 'clipper',
       kind: 'modal',
-      title: t?.('schemaRuntimeClipperTitle', 'Clipper Dialog') ?? 'Clipper Dialog',
+      title:
+        t?.(
+          'schemaRuntimeClipperTitle',
+          RUNTIME_SURFACE_FALLBACK_MESSAGES.schemaRuntimeClipperTitle
+        ) ?? RUNTIME_SURFACE_FALLBACK_MESSAGES.schemaRuntimeClipperTitle,
       description:
-        t?.('schemaRuntimeClipperDescription', '用户在网页上选中文本后首先看到的剪藏浮窗。') ??
-        '用户在网页上选中文本后首先看到的剪藏浮窗。',
+        t?.(
+          'schemaRuntimeClipperDescription',
+          RUNTIME_SURFACE_FALLBACK_MESSAGES.schemaRuntimeClipperDescription
+        ) ?? RUNTIME_SURFACE_FALLBACK_MESSAGES.schemaRuntimeClipperDescription,
       surfacePlacement: 'dialog',
       surfaceSkin: 'clipper',
       children: [

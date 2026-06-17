@@ -1,6 +1,7 @@
 /**
  * Firefox 浏览器特定功能测试
  */
+/* @vitest-environment jsdom */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import {

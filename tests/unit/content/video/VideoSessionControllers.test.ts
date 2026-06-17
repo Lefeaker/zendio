@@ -20,6 +20,53 @@ function createFragmentConfig() {
 }
 
 describe('createVideoSessionControllers', () => {
+  it('returns a stable code when no screenshot cache repository is wired', async () => {
+    const state = new VideoSessionState('gradient');
+    state.fragmentConfig = createFragmentConfig();
+
+    const controllers = createVideoSessionControllers({
+      doc: document,
+      dependencies: asType<VideoSessionDependencies>({
+        viewFactory: {},
+        optionsRepository: {},
+        videoRepository: {},
+        storage: {
+          local: {},
+          sync: {}
+        }
+      }),
+      state,
+      destinationState: asType({
+        metadata: undefined,
+        applyMetadata: vi.fn()
+      }),
+      getMessages: () =>
+        asType({
+          ready: 'ready'
+        }),
+      readCleanupState: () => ({ isCleaningUp: false, shouldTrackSavingState: true }),
+      createPlatformContext: () =>
+        asType({
+          doc: document
+        }),
+      getDocumentSelection: () => null,
+      isRangeInsideUi: () => false,
+      ensureCaptureHighlight: vi.fn(),
+      onSelectionAccepted: vi.fn(),
+      findVideoElement: () => null,
+      handleUrlChange: vi.fn(),
+      handleVideoElementChange: vi.fn()
+    });
+
+    await expect(
+      controllers.persistPreparedScreenshot('capture-1', asType({ id: 'shot-1' }))
+    ).resolves.toEqual({
+      status: 'skipped',
+      reason: 'serialize-failed',
+      error: 'VIDEO_SCREENSHOT_CACHE_REPOSITORY_UNAVAILABLE'
+    });
+  });
+
   it('passes shadow drag event fallback activation through the session controller wiring', async () => {
     document.body.innerHTML = '<div id="host"></div>';
     const host = document.getElementById('host');

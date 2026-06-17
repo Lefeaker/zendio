@@ -1,0 +1,92 @@
+{
+  "rules": [
+    {
+      "id": "p21-chatgpt-native-user-role-labels",
+      "path": "src/third_party/ai-chat-exporter/platforms/chatgpt.ts",
+      "line": 9,
+      "category": "site-native-role-label",
+      "reason": "ChatGPT parser strips role labels that come from the source site's own conversation headers.",
+      "ownerPlan": "P21",
+      "revisit": "Recheck if ChatGPT header parsing stops relying on source-site role labels.",
+      "literalIncludes": ["您说", "您"],
+      "findingKinds": ["cjk-literal"]
+    },
+    {
+      "id": "p21-chatgpt-native-assistant-role-label",
+      "path": "src/third_party/ai-chat-exporter/platforms/chatgpt.ts",
+      "line": 10,
+      "category": "site-native-role-label",
+      "reason": "ChatGPT parser strips assistant role labels that come from the source site's own conversation headers.",
+      "ownerPlan": "P21",
+      "revisit": "Recheck if ChatGPT header parsing stops relying on source-site assistant role labels.",
+      "literalIncludes": ["ChatGPT 说"],
+      "findingKinds": ["cjk-literal"]
+    },
+    {
+      "id": "p21-doubao-native-brand-token",
+      "path": "src/third_party/ai-chat-exporter/platforms/doubao.ts",
+      "line": 7,
+      "category": "site-native-dom-selector",
+      "reason": "Doubao parser matches the source site's native brand token in avatar/title parsing; it is not extension UI copy.",
+      "ownerPlan": "P21",
+      "revisit": "Recheck if Doubao DOM parsing stops depending on the native brand token.",
+      "literalIncludes": ["豆包"],
+      "findingKinds": ["cjk-literal"]
+    },
+    {
+      "id": "p21-doubao-native-model-tokens",
+      "path": "src/third_party/ai-chat-exporter/platforms/doubao.ts",
+      "line": 9,
+      "category": "site-native-model-token",
+      "reason": "Doubao parser recognizes source-site model labels and variants from native page text, not extension-authored fallback copy.",
+      "ownerPlan": "P21",
+      "revisit": "Recheck if Doubao model detection stops using native model text tokens.",
+      "literalIncludes": ["旗舰", "极速", "标准", "轻量", "体验"],
+      "findingKinds": ["cjk-literal"]
+    },
+    {
+      "id": "p21-kimi-native-action-labels",
+      "path": "src/third_party/ai-chat-exporter/platforms/kimi.ts",
+      "line": 47,
+      "category": "site-native-action-label",
+      "reason": "Kimi parser removes source-site action labels that are rendered inside native assistant toolbars.",
+      "ownerPlan": "P21",
+      "revisit": "Recheck if Kimi parser stops depending on source-site assistant action labels.",
+      "literalIncludes": ["分享", "复制", "预览", "重试", "编辑"],
+      "findingKinds": ["cjk-literal"]
+    },
+    {
+      "id": "p21-monica-native-title-token",
+      "path": "src/third_party/ai-chat-exporter/platforms/monica.ts",
+      "line": 10,
+      "category": "site-native-title-token",
+      "reason": "Monica parser strips or recognizes the source site's native browser-title token before applying product fallback titles.",
+      "ownerPlan": "P21",
+      "revisit": "Recheck if Monica title parsing stops using the source site's native browser-title token.",
+      "literalIncludes": ["莫妮卡"],
+      "findingKinds": ["cjk-literal"]
+    },
+    {
+      "id": "p21-tongyi-native-title-suffixes",
+      "path": "src/third_party/ai-chat-exporter/platforms/tongyi.ts",
+      "line": 12,
+      "category": "site-native-title-suffix",
+      "reason": "Tongyi parser strips browser-title suffixes that belong to the source site, not to Zendio UI copy.",
+      "ownerPlan": "P21",
+      "revisit": "Recheck if Tongyi title parsing stops using native browser-title suffixes.",
+      "literalIncludes": [" - 通义", " - 你的超级个人助理", " - 通义千问"],
+      "findingKinds": ["cjk-literal"]
+    },
+    {
+      "id": "p21-tongyi-native-title-placeholder",
+      "path": "src/third_party/ai-chat-exporter/platforms/tongyi.ts",
+      "line": 13,
+      "category": "site-native-title-placeholder",
+      "reason": "Tongyi parser checks the source site's browser-title placeholder before falling back to a derived export title.",
+      "ownerPlan": "P21",
+      "revisit": "Recheck if Tongyi title parsing stops comparing against the native browser-title placeholder.",
+      "literalIncludes": ["通义"],
+      "findingKinds": ["cjk-literal"]
+    }
+  ]
+}

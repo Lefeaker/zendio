@@ -44,7 +44,7 @@ function createTimestampCapture(
 
 function createRepository() {
   return {
-    sendVideoClip: vi.fn(async (_clip: VideoClipData) => ({ success: true }))
+    sendVideoClip: vi.fn((_clip: VideoClipData) => Promise.resolve({ success: true }))
   } as unknown as IVideoRepository & {
     sendVideoClip: ReturnType<typeof vi.fn>;
   };

@@ -138,7 +138,10 @@ export function createContentClipOrchestrator(
     if (clipMode !== 'selection') {
       showSupportProgress?.({
         value: 8,
-        label: '正在准备网页剪藏'
+        message: {
+          key: 'supportProgressPreparingPageClip',
+          fallback: 'Preparing page clip'
+        }
       });
     }
 
@@ -152,7 +155,10 @@ export function createContentClipOrchestrator(
       if (clipMode === 'selection') {
         showSupportProgress?.({
           value: 16,
-          label: '正在发送选区剪藏'
+          message: {
+            key: 'supportProgressPreparingSelectionClip',
+            fallback: 'Preparing selection clip'
+          }
         });
       }
 
@@ -161,7 +167,7 @@ export function createContentClipOrchestrator(
       const appError = normalizeToAppError(error, {
         code: 'CONTENT_CLIP_FAILURE',
         domain: 'content',
-        defaultMessage: 'Clip failed due to an unexpected error.',
+        userMessageDescriptor: { key: 'clipFailed' },
         context: {
           url,
           mode: clipMode

@@ -47,7 +47,8 @@ export function migrateLegacyTaxonomy(legacy: LegacyTaxonomy): ReadonlyDeep<Taxo
         categories.push({
           id: type,
           name: type.charAt(0).toUpperCase() + type.slice(1).replace('_', ' '),
-          description: `Content type: ${type}`,
+          descriptionKey: `taxonomy.legacy.type.${type}.description`,
+          classificationHint: `Content type: ${type}`,
           keywords: [type]
         });
       }
@@ -61,7 +62,8 @@ export function migrateLegacyTaxonomy(legacy: LegacyTaxonomy): ReadonlyDeep<Taxo
         categories.push({
           id: `topic_${topic}`,
           name: topic.charAt(0).toUpperCase() + topic.slice(1),
-          description: `Topic: ${topic}`,
+          descriptionKey: `taxonomy.legacy.topic.${topic}.description`,
+          classificationHint: `Topic: ${topic}`,
           keywords: [topic],
           parent: 'topics'
         });
@@ -72,7 +74,8 @@ export function migrateLegacyTaxonomy(legacy: LegacyTaxonomy): ReadonlyDeep<Taxo
     categories.unshift({
       id: 'topics',
       name: 'Topics',
-      description: 'Content topics and subjects'
+      descriptionKey: 'taxonomy.legacy.topics.description',
+      classificationHint: 'Content topics and subjects'
     });
   }
 
@@ -83,7 +86,8 @@ export function migrateLegacyTaxonomy(legacy: LegacyTaxonomy): ReadonlyDeep<Taxo
         tags.push({
           id: `platform_${platform}`,
           name: platform.charAt(0).toUpperCase() + platform.slice(1),
-          description: `AI Platform: ${platform}`,
+          descriptionKey: `taxonomy.legacy.platform.${platform}.description`,
+          classificationHint: `AI Platform: ${platform}`,
           category: 'platform',
           aliases: [platform]
         });
@@ -97,7 +101,8 @@ export function migrateLegacyTaxonomy(legacy: LegacyTaxonomy): ReadonlyDeep<Taxo
   const result: TaxonomyConfig = {
     version: '1.0.0',
     name: 'Migrated Taxonomy',
-    description: 'Taxonomy migrated from legacy format',
+    descriptionKey: 'taxonomy.legacy.migrated.description',
+    classificationHint: 'Taxonomy migrated from legacy format',
     categories: categories.length > 0 ? categories : DEFAULT_TAXONOMY_CONFIG.categories,
     tags: tags.length > 0 ? tags : DEFAULT_TAXONOMY_CONFIG.tags,
     rules: [],
