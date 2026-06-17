@@ -15,12 +15,35 @@ import {
   hasRequestedTimestampScreenshot,
   setRequestedTimestampScreenshot
 } from './screenshotIntent';
+import {
+  collectVideoDraftScreenshotRefs,
+  filterUnreferencedVideoDraftScreenshotRefs,
+  removeVideoDraftCachedScreenshotRefs
+} from './videoSessionDraftScreenshotCache';
+import type { VideoScreenshotCacheRef } from './videoScreenshotCacheTypes';
 
 export function runVideoSessionCaptureMutation<Result>(
   context: VideoSessionOperationContext,
   transaction: VideoCaptureMutationTransaction<Result>
 ): Promise<boolean> {
   return context.runCaptureMutation(transaction);
+}
+
+function cleanupRemovedCaptureScreenshotRefs(
+  context: Pick<VideoSessionOperationContext, 'dependencies'>,
+  refs: readonly VideoScreenshotCacheRef[]
+): void {
+  const screenshotCache = context.dependencies.screenshotCacheRepository;
+  if (refs.length === 0 || !screenshotCache) {
+    return;
+  }
+
+  void removeVideoDraftCachedScreenshotRefs(refs, screenshotCache).catch((error) => {
+    console.warn(
+      '[VideoSession] Failed to remove cached screenshot after capture deletion:',
+      error
+    );
+  });
 }
 
 export async function submitVideoSessionCaptureEdit(
@@ -104,13 +127,15 @@ export function removeVideoSessionCapture(context: VideoSessionOperationContext,
       if (!removed) {
         return null;
       }
+      const removedScreenshotRefs =
+        removed.kind === 'timestamp' ? collectVideoDraftScreenshotRefs([removed]) : [];
       context.playbackEditLease.release(id, false);
       if (removed.kind === 'fragment' && removed.wrapperId) {
         context.fragmentHighlighter.removeById(removed.wrapperId);
       }
       context.fragmentHighlightCoordinator.stopIfNoFragments();
       applied = true;
-      return { removed, previousDraft: draftToRestore, index };
+      return { removed, previousDraft: draftToRestore, index, removedScreenshotRefs };
     },
     afterApply: (result) => {
       if (!result) {
@@ -128,6 +153,13 @@ export function removeVideoSessionCapture(context: VideoSessionOperationContext,
       emitVideoUsageEvent(context.dependencies, 'video_capture_removed', {
         capture_count_bucket: bucketCount(context.state.captures.length)
       });
+      cleanupRemovedCaptureScreenshotRefs(
+        context,
+        filterUnreferencedVideoDraftScreenshotRefs(
+          result.removedScreenshotRefs,
+          context.state.captures
+        )
+      );
     },
     rollback: (result) => {
       if (!result) {

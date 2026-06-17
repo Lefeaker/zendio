@@ -1,71 +1,82 @@
 /* @vitest-environment node */
 
 import { describe, expect, it } from 'vitest';
+import { serializeBlobAttachmentContent } from '@shared/attachments/clipAttachmentBinary';
 import { createVideoScreenshotCacheClientRepository } from '@content/video/videoScreenshotCacheClientRepository';
 import { createVideoScreenshotCacheRepository } from '@content/video/videoScreenshotCacheRepository';
+import {
+  normalizeVideoScreenshotCacheBlobEntry,
+  pruneVideoScreenshotCacheBlobMetadataEntries,
+  sortVideoScreenshotCacheBlobMetadataNewestFirst,
+  type VideoScreenshotCacheBlobEntry,
+  type VideoScreenshotCacheBlobMetadata,
+  type VideoScreenshotCacheBlobStore
+} from '@content/video/videoScreenshotCacheStore';
 import type { VideoCaptureScreenshot } from '@content/video/types';
-import type { StorageAreaService } from '@platform/interfaces/storage';
 import type { MessagingService } from '@platform/interfaces/messaging';
+import type { StorageAreaService } from '@platform/interfaces/storage';
 import {
   VIDEO_SCREENSHOT_CACHE_INDEX_KEY,
   createVideoScreenshotCacheStorageKey,
-  normalizeVideoScreenshotCacheEntry,
-  normalizeVideoScreenshotCacheIndex,
   type VideoScreenshotCacheRef
 } from '@content/video/videoScreenshotCacheTypes';
-import type { VideoScreenshotCacheResponse } from '@content/video/videoScreenshotCacheMessages';
-import { createBackgroundVideoScreenshotCacheHandler } from '../../../../src/background/services/videoScreenshotCacheService';
-import type { BackgroundVideoScreenshotCacheHandler } from '../../../../src/background/services/videoScreenshotCacheService';
+import {
+  VIDEO_SCREENSHOT_CACHE_MESSAGE,
+  type SerializedVideoScreenshotCacheScreenshot,
+  type VideoScreenshotCacheMessage,
+  type VideoScreenshotCacheResponse
+} from '@content/video/videoScreenshotCacheMessages';
+import {
+  createBackgroundVideoScreenshotCacheHandler,
+  type BackgroundVideoScreenshotCacheHandler
+} from '../../../../src/background/services/videoScreenshotCacheService';
 
 const BASE_TIME = 2_000_000_000_000;
-type StoredValue = Parameters<StorageAreaService['set']>[1];
 
-class SharedBackingStore {
-  readonly values = new Map<string, StoredValue>();
-  pendingIndexResolvers: Array<() => void> = [];
-  releaseScheduled = false;
+type StoredValue = unknown;
+
+function castStoredValue<T>(value: StoredValue): T | undefined {
+  return value as T | undefined;
 }
 
-class BarrierStorageArea implements StorageAreaService {
-  constructor(
-    private readonly backing: SharedBackingStore,
-    private readonly options: { delayIndexReads?: boolean } = {}
-  ) {}
+function castMessageResult<TResult>(value: VideoScreenshotCacheResponse | undefined): TResult {
+  return value as TResult;
+}
 
-  async get<T = StoredValue>(key: string): Promise<T | undefined> {
-    if (this.options.delayIndexReads === true && key === VIDEO_SCREENSHOT_CACHE_INDEX_KEY) {
-      await this.waitForIndexReadTurn();
-    }
-    return this.backing.values.get(key) as T | undefined;
+class MemoryStorageArea implements StorageAreaService {
+  private readonly values = new Map<string, StoredValue>();
+
+  get<T = StoredValue>(key: string): Promise<T | undefined> {
+    return Promise.resolve(castStoredValue<T>(this.values.get(key)));
   }
 
   set<T = StoredValue>(key: string, value: T): Promise<void> {
-    this.backing.values.set(key, value);
+    this.values.set(key, value);
     return Promise.resolve();
   }
 
   getMany<T = StoredValue>(keys: string[]): Promise<Record<string, T | undefined>> {
     return Promise.resolve(
-      Object.fromEntries(keys.map((key) => [key, this.backing.values.get(key) as T | undefined]))
+      Object.fromEntries(keys.map((key) => [key, castStoredValue<T>(this.values.get(key))]))
     );
   }
 
   setMany<T = StoredValue>(entries: Record<string, T>): Promise<void> {
     for (const [key, value] of Object.entries(entries)) {
-      this.backing.values.set(key, value);
+      this.values.set(key, value);
     }
     return Promise.resolve();
   }
 
   remove(key: string | string[]): Promise<void> {
     for (const currentKey of Array.isArray(key) ? key : [key]) {
-      this.backing.values.delete(currentKey);
+      this.values.delete(currentKey);
     }
     return Promise.resolve();
   }
 
   clear(): Promise<void> {
-    this.backing.values.clear();
+    this.values.clear();
     return Promise.resolve();
   }
 
@@ -78,30 +89,160 @@ class BarrierStorageArea implements StorageAreaService {
   }
 
   snapshotKeys(): string[] {
-    return [...this.backing.values.keys()].sort();
+    return [...this.values.keys()].sort();
+  }
+}
+
+class MemoryBlobStore implements VideoScreenshotCacheBlobStore {
+  private readonly values = new Map<string, VideoScreenshotCacheBlobEntry>();
+  private readonly delayPageReads: boolean;
+  private pendingPageReadResolvers: Array<() => void> = [];
+  private pageReadReleaseScheduled = false;
+
+  constructor(options: { delayPageReads?: boolean } = {}) {
+    this.delayPageReads = options.delayPageReads === true;
   }
 
-  private waitForIndexReadTurn(): Promise<void> {
+  put(entry: VideoScreenshotCacheBlobEntry): Promise<void> {
+    const normalizedEntry = normalizeVideoScreenshotCacheBlobEntry(entry);
+    if (normalizedEntry === null) {
+      throw new Error('MemoryBlobStore rejected an invalid blob entry.');
+    }
+    this.values.set(normalizedEntry.key, cloneBlobEntry(normalizedEntry));
+    return Promise.resolve();
+  }
+
+  get(key: string): Promise<VideoScreenshotCacheBlobEntry | null> {
+    const entry = this.values.get(key);
+    return Promise.resolve(entry ? cloneBlobEntry(entry) : null);
+  }
+
+  delete(key: string): Promise<void> {
+    this.values.delete(key);
+    return Promise.resolve();
+  }
+
+  deleteMany(keys: readonly string[]): Promise<void> {
+    for (const key of keys) {
+      this.values.delete(key);
+    }
+    return Promise.resolve();
+  }
+
+  async listByPageKey(pageKey: string): Promise<VideoScreenshotCacheBlobEntry[]> {
+    if (this.delayPageReads) {
+      await this.waitForPageReadTurn();
+    }
+    return this.sortedEntries().filter((entry) => entry.pageKey === pageKey);
+  }
+
+  listAllMetadata(): Promise<VideoScreenshotCacheBlobMetadata[]> {
+    return Promise.resolve(this.sortedEntries().map(toMetadata));
+  }
+
+  async prune(options: Parameters<VideoScreenshotCacheBlobStore['prune']>[0]) {
+    const result = pruneVideoScreenshotCacheBlobMetadataEntries(
+      await this.listAllMetadata(),
+      options
+    );
+    await this.deleteMany(result.removedKeys);
+    return result;
+  }
+
+  peek(key: string): VideoScreenshotCacheBlobEntry | null {
+    const entry = this.values.get(key);
+    return entry ? cloneBlobEntry(entry) : null;
+  }
+
+  snapshotKeys(): string[] {
+    return [...this.values.keys()].sort();
+  }
+
+  snapshotMetadataIds(): string[] {
+    return this.sortedEntries().map((entry) => entry.id);
+  }
+
+  private sortedEntries(): VideoScreenshotCacheBlobEntry[] {
+    return sortVideoScreenshotCacheBlobMetadataNewestFirst(
+      [...this.values.values()].map(cloneBlobEntry)
+    );
+  }
+
+  private waitForPageReadTurn(): Promise<void> {
     return new Promise((resolve) => {
-      this.backing.pendingIndexResolvers.push(resolve);
-      if (this.backing.pendingIndexResolvers.length >= 2) {
-        this.releasePendingIndexReads();
+      this.pendingPageReadResolvers.push(resolve);
+      if (this.pendingPageReadResolvers.length >= 2) {
+        this.releasePendingPageReads();
         return;
       }
-      if (!this.backing.releaseScheduled) {
-        this.backing.releaseScheduled = true;
-        setTimeout(() => this.releasePendingIndexReads(), 0);
+      if (!this.pageReadReleaseScheduled) {
+        this.pageReadReleaseScheduled = true;
+        setTimeout(() => this.releasePendingPageReads(), 0);
       }
     });
   }
 
-  private releasePendingIndexReads(): void {
-    const resolvers = this.backing.pendingIndexResolvers.splice(0);
-    this.backing.releaseScheduled = false;
+  private releasePendingPageReads(): void {
+    const resolvers = this.pendingPageReadResolvers.splice(0);
+    this.pageReadReleaseScheduled = false;
     for (const resolve of resolvers) {
       resolve();
     }
   }
+}
+
+class RejectingBlobStore extends MemoryBlobStore {
+  constructor(
+    private readonly failures: {
+      put?: string;
+      get?: string;
+      deleteMany?: string;
+      prune?: string;
+    } = {}
+  ) {
+    super();
+  }
+
+  override put(entry: VideoScreenshotCacheBlobEntry): Promise<void> {
+    if (this.failures.put) {
+      return Promise.reject(new Error(this.failures.put));
+    }
+    return super.put(entry);
+  }
+
+  override get(key: string): Promise<VideoScreenshotCacheBlobEntry | null> {
+    if (this.failures.get) {
+      return Promise.reject(new Error(this.failures.get));
+    }
+    return super.get(key);
+  }
+
+  override deleteMany(keys: readonly string[]): Promise<void> {
+    if (this.failures.deleteMany) {
+      return Promise.reject(new Error(this.failures.deleteMany));
+    }
+    return super.deleteMany(keys);
+  }
+
+  override prune(options: Parameters<VideoScreenshotCacheBlobStore['prune']>[0]) {
+    if (this.failures.prune) {
+      return Promise.reject(new Error(this.failures.prune));
+    }
+    return super.prune(options);
+  }
+}
+
+function cloneBlobEntry(entry: VideoScreenshotCacheBlobEntry): VideoScreenshotCacheBlobEntry {
+  return {
+    ...entry,
+    blob: entry.blob.slice(0, entry.blob.size, entry.blob.type)
+  };
+}
+
+function toMetadata(entry: VideoScreenshotCacheBlobEntry): VideoScreenshotCacheBlobMetadata {
+  const { blob, ...metadata } = entry;
+  void blob;
+  return metadata;
 }
 
 function createScreenshot(
@@ -123,16 +264,13 @@ function createScreenshot(
   };
 }
 
-async function readIndex(area: Pick<StorageAreaService, 'get'>) {
-  return normalizeVideoScreenshotCacheIndex(await area.get(VIDEO_SCREENSHOT_CACHE_INDEX_KEY));
-}
-
 function requireSavedRef(
-  result: Awaited<ReturnType<ReturnType<typeof createVideoScreenshotCacheRepository>['save']>>
+  result: Awaited<ReturnType<ReturnType<typeof createVideoScreenshotCacheRepository>['save']>>,
+  label = 'expected screenshot cache save to succeed'
 ): VideoScreenshotCacheRef {
   expect(result.status).toBe('saved');
   if (result.status !== 'saved') {
-    throw new Error('expected screenshot cache save to succeed');
+    throw new Error(label);
   }
   return result.ref;
 }
@@ -142,7 +280,7 @@ function createClientMessaging(
 ): Pick<MessagingService, 'send'> {
   return {
     async send<TResult>(message: Parameters<MessagingService['send']>[0]): Promise<TResult> {
-      return (await handleMessage(message)) as TResult;
+      return castMessageResult<TResult>(await handleMessage(message));
     }
   };
 }
@@ -152,7 +290,7 @@ function createStaticMessaging(
 ): Pick<MessagingService, 'send'> {
   return {
     send<TResult>(): Promise<TResult> {
-      return Promise.resolve(response as TResult);
+      return Promise.resolve(castMessageResult<TResult>(response));
     }
   };
 }
@@ -176,52 +314,68 @@ function createRef(): VideoScreenshotCacheRef {
   };
 }
 
+function expectNoLegacyScreenshotCacheWrites(area: MemoryStorageArea): void {
+  expect(area.snapshotKeys()).toEqual([]);
+}
+
+function expectNoLegacyPayloadRows(area: MemoryStorageArea): void {
+  expect(
+    area
+      .snapshotKeys()
+      .filter(
+        (key) =>
+          key !== VIDEO_SCREENSHOT_CACHE_INDEX_KEY && key.startsWith('aiob.videoScreenshotCache.')
+      )
+  ).toEqual([]);
+}
+
+async function createSaveMessage(
+  screenshot: VideoCaptureScreenshot,
+  pageKey = 'page-a',
+  captureId = 'capture-a'
+): Promise<Extract<VideoScreenshotCacheMessage, { operation: 'save' }>> {
+  if (screenshot.content?.kind !== 'blob') {
+    throw new Error('createSaveMessage requires blob-backed screenshot content.');
+  }
+
+  return {
+    type: VIDEO_SCREENSHOT_CACHE_MESSAGE,
+    operation: 'save',
+    input: {
+      pageKey,
+      captureId,
+      screenshot: await serializeMessageScreenshot(screenshot)
+    }
+  };
+}
+
+async function serializeMessageScreenshot(
+  screenshot: VideoCaptureScreenshot
+): Promise<SerializedVideoScreenshotCacheScreenshot> {
+  if (screenshot.content?.kind !== 'blob') {
+    throw new Error('serializeMessageScreenshot requires blob-backed screenshot content.');
+  }
+
+  return {
+    id: screenshot.id,
+    fileName: screenshot.fileName,
+    mimeType: screenshot.mimeType,
+    capturedAt: screenshot.capturedAt,
+    content: await serializeBlobAttachmentContent(screenshot.content.blob)
+  };
+}
+
 describe('background-owned video screenshot cache client', () => {
-  it('serializes concurrent saves from separate content clients through one background owner', async () => {
-    const backing = new SharedBackingStore();
-    const legacyFirst = createVideoScreenshotCacheRepository(
-      new BarrierStorageArea(backing, { delayIndexReads: true }),
-      {
-        now: () => BASE_TIME,
-        ttlMs: 20
-      }
-    );
-    const legacySecond = createVideoScreenshotCacheRepository(
-      new BarrierStorageArea(backing, { delayIndexReads: true }),
-      {
-        now: () => BASE_TIME,
-        ttlMs: 20
-      }
-    );
-
-    const [legacyA, legacyB] = await Promise.all([
-      legacyFirst.save({
-        pageKey: 'page-a',
-        captureId: 'capture-a',
-        screenshot: createScreenshot('legacy-a', 'legacy-a')
-      }),
-      legacySecond.save({
-        pageKey: 'page-a',
-        captureId: 'capture-b',
-        screenshot: createScreenshot('legacy-b', 'legacy-b')
-      })
-    ]);
-
-    const legacyRefA = requireSavedRef(legacyA);
-    const legacyRefB = requireSavedRef(legacyB);
-    expect((await readIndex(new BarrierStorageArea(backing)))?.entries).toHaveLength(1);
-    expect(await new BarrierStorageArea(backing).get(legacyRefA.key)).not.toBeUndefined();
-    expect(await new BarrierStorageArea(backing).get(legacyRefB.key)).not.toBeUndefined();
-
-    await new BarrierStorageArea(backing).clear();
-
-    const backgroundArea = new BarrierStorageArea(backing, { delayIndexReads: true });
+  it('serializes concurrent saves from separate content clients through one background owner and keeps storage.local empty', async () => {
+    const blobStore = new MemoryBlobStore({ delayPageReads: true });
+    const legacyArea = new MemoryStorageArea();
     const handleMessage = createBackgroundVideoScreenshotCacheHandler(
-      { local: backgroundArea },
+      { local: legacyArea },
       {
         now: () => BASE_TIME,
         ttlMs: 20
-      }
+      },
+      { blobStore }
     );
     const firstClient = createVideoScreenshotCacheClientRepository({
       messaging: createClientMessaging(handleMessage)
@@ -245,25 +399,24 @@ describe('background-owned video screenshot cache client', () => {
 
     const firstRef = requireSavedRef(first);
     const secondRef = requireSavedRef(second);
-    expect(
-      (await readIndex(backgroundArea))?.entries.map((entry) => entry.captureId).sort()
-    ).toEqual(['capture-a', 'capture-b']);
-    expect(await backgroundArea.get(firstRef.key)).not.toBeUndefined();
-    expect(await backgroundArea.get(secondRef.key)).not.toBeUndefined();
-
-    await firstClient.pruneExpired();
-
-    expect((await readIndex(backgroundArea))?.entries).toHaveLength(2);
-    expect(
-      backgroundArea.snapshotKeys().filter((key) => key !== VIDEO_SCREENSHOT_CACHE_INDEX_KEY)
-    ).toHaveLength(2);
+    expect(firstRef.expiresAt).toBe(BASE_TIME + 20);
+    expect(secondRef.expiresAt).toBe(BASE_TIME + 20);
+    expect(blobStore.snapshotMetadataIds().sort()).toEqual(['shot-a', 'shot-b']);
+    expect(blobStore.peek(firstRef.key)).toMatchObject({ expiresAt: BASE_TIME + 20 });
+    expect(blobStore.peek(secondRef.key)).toMatchObject({ expiresAt: BASE_TIME + 20 });
+    expect(await legacyArea.get(firstRef.key)).toBeUndefined();
+    expect(await legacyArea.get(secondRef.key)).toBeUndefined();
+    expect(await legacyArea.get(VIDEO_SCREENSHOT_CACHE_INDEX_KEY)).toBeUndefined();
+    expectNoLegacyScreenshotCacheWrites(legacyArea);
   });
 
-  it('saves and loads blob screenshots through serialized runtime-message content', async () => {
-    const area = new BarrierStorageArea(new SharedBackingStore());
+  it('loads screenshots through JSON-safe runtime messages while the durable bytes stay in the blob store', async () => {
+    const blobStore = new MemoryBlobStore();
+    const legacyArea = new MemoryStorageArea();
     const handleMessage = createBackgroundVideoScreenshotCacheHandler(
-      { local: area },
-      { now: () => BASE_TIME }
+      { local: legacyArea },
+      { now: () => BASE_TIME },
+      { blobStore }
     );
     const client = createVideoScreenshotCacheClientRepository({
       messaging: createClientMessaging(handleMessage)
@@ -276,11 +429,42 @@ describe('background-owned video screenshot cache client', () => {
     });
     const ref = requireSavedRef(saved);
 
-    const storedEntry = normalizeVideoScreenshotCacheEntry(await area.get(ref.key));
-    expect(storedEntry?.content.data).toMatch(/^[A-Za-z0-9+/]+=*$/u);
+    expect(blobStore.peek(ref.key)).not.toBeNull();
+    expect(await legacyArea.get(ref.key)).toBeUndefined();
+    expect(await legacyArea.get(VIDEO_SCREENSHOT_CACHE_INDEX_KEY)).toBeUndefined();
+    expectNoLegacyScreenshotCacheWrites(legacyArea);
+
+    const response = await handleMessage({
+      type: VIDEO_SCREENSHOT_CACHE_MESSAGE,
+      operation: 'load',
+      ref
+    });
+
+    expect(response).toMatchObject({
+      success: true,
+      operation: 'load',
+      status: 'loaded'
+    });
+    if (
+      !response ||
+      response.success !== true ||
+      response.operation !== 'load' ||
+      response.status !== 'loaded'
+    ) {
+      throw new Error('expected load response to include serialized screenshot content');
+    }
+    expect(response.screenshot.content).toEqual({
+      encoding: 'base64',
+      data: 'ZnJhbWUtYQ==',
+      byteLength: 7
+    });
+    const responseValues = Object.values(response.screenshot);
+    expect(responseValues.some((value) => value instanceof Blob)).toBe(false);
+    expect(
+      responseValues.some((value) => value instanceof ArrayBuffer || ArrayBuffer.isView(value))
+    ).toBe(false);
 
     const loaded = await client.load(ref);
-
     expect(loaded).toMatchObject({
       id: 'shot-a',
       fileName: 'shot-a.jpg',
@@ -290,16 +474,55 @@ describe('background-owned video screenshot cache client', () => {
     await expect(loaded?.content?.blob.text()).resolves.toBe('frame-a');
   });
 
-  it('serializes removeMany and prune operations through the background owner', async () => {
-    const backing = new SharedBackingStore();
+  it('migrates a valid legacy storage.local cache entry into the blob store on background load', async () => {
+    const legacyArea = new MemoryStorageArea();
+    const legacyRepository = createVideoScreenshotCacheRepository(legacyArea, {
+      now: () => BASE_TIME
+    });
+    const legacyRef = requireSavedRef(
+      await legacyRepository.save({
+        pageKey: 'page-a',
+        captureId: 'capture-a',
+        screenshot: createScreenshot('legacy-shot', 'legacy-frame')
+      })
+    );
+
+    const blobStore = new MemoryBlobStore();
+    const client = createVideoScreenshotCacheClientRepository({
+      messaging: createClientMessaging(
+        createBackgroundVideoScreenshotCacheHandler(
+          { local: legacyArea },
+          { now: () => BASE_TIME },
+          { blobStore }
+        )
+      )
+    });
+
+    const loaded = await client.load(legacyRef);
+
+    expect(loaded).toMatchObject({
+      id: 'legacy-shot',
+      fileName: 'legacy-shot.jpg',
+      mimeType: 'image/jpeg',
+      capturedAt: BASE_TIME
+    });
+    await expect(loaded?.content?.blob.text()).resolves.toBe('legacy-frame');
+    expect(blobStore.peek(legacyRef.key)).not.toBeNull();
+    expect(await legacyArea.get(legacyRef.key)).toBeUndefined();
+    expectNoLegacyPayloadRows(legacyArea);
+  });
+
+  it('serializes removeMany and prune operations through the background owner and deletes blob entries', async () => {
     let nowMs = BASE_TIME;
-    const area = new BarrierStorageArea(backing, { delayIndexReads: true });
+    const blobStore = new MemoryBlobStore({ delayPageReads: true });
+    const legacyArea = new MemoryStorageArea();
     const handleMessage = createBackgroundVideoScreenshotCacheHandler(
-      { local: area },
+      { local: legacyArea },
       {
         now: () => nowMs,
         ttlMs: 20
-      }
+      },
+      { blobStore }
     );
     const firstClient = createVideoScreenshotCacheClientRepository({
       messaging: createClientMessaging(handleMessage)
@@ -316,76 +539,90 @@ describe('background-owned video screenshot cache client', () => {
       })
     );
     const secondRef = requireSavedRef(
-      await firstClient.save({
+      await secondClient.save({
         pageKey: 'page-a',
         captureId: 'capture-b',
         screenshot: createScreenshot('shot-b', 'frame-b')
       })
     );
+
     nowMs += 25;
 
     await Promise.all([firstClient.removeMany([firstRef]), secondClient.pruneExpired()]);
 
-    expect(await area.get(firstRef.key)).toBeUndefined();
-    expect(await area.get(secondRef.key)).toBeUndefined();
-    expect((await readIndex(area))?.entries).toEqual([]);
+    expect(blobStore.peek(firstRef.key)).toBeNull();
+    expect(blobStore.peek(secondRef.key)).toBeNull();
+    expect(blobStore.snapshotKeys()).toEqual([]);
+    expect(await legacyArea.get(firstRef.key)).toBeUndefined();
+    expect(await legacyArea.get(secondRef.key)).toBeUndefined();
+    expectNoLegacyPayloadRows(legacyArea);
   });
 
-  it('cleans missing and malformed refs without dropping unrelated index entries', async () => {
-    const area = new BarrierStorageArea(new SharedBackingStore());
+  it('returns a typed save skip when blob-store writes fail instead of rejecting the runtime message', async () => {
+    const screenshot = createScreenshot('shot-a', 'frame-a');
     const handleMessage = createBackgroundVideoScreenshotCacheHandler(
-      { local: area },
-      { now: () => BASE_TIME }
+      { local: new MemoryStorageArea() },
+      { now: () => BASE_TIME },
+      {
+        blobStore: new RejectingBlobStore({
+          put: 'Failed to write video screenshot cache blob entry.'
+        })
+      }
     );
     const client = createVideoScreenshotCacheClientRepository({
       messaging: createClientMessaging(handleMessage)
     });
 
-    const missingRef = requireSavedRef(
-      await client.save({
+    await expect(
+      client.save({
         pageKey: 'page-a',
-        captureId: 'capture-missing',
-        screenshot: createScreenshot('shot-missing', 'frame-missing')
+        captureId: 'capture-a',
+        screenshot
       })
-    );
-    const malformedRef = requireSavedRef(
-      await client.save({
-        pageKey: 'page-a',
-        captureId: 'capture-malformed',
-        screenshot: createScreenshot('shot-malformed', 'frame-malformed')
-      })
-    );
-    const retainedRef = requireSavedRef(
-      await client.save({
-        pageKey: 'page-a',
-        captureId: 'capture-retained',
-        screenshot: createScreenshot('shot-retained', 'frame-retained')
-      })
-    );
+    ).resolves.toEqual({
+      status: 'skipped',
+      reason: 'serialize-failed',
+      error: 'Failed to write video screenshot cache blob entry.'
+    });
 
-    await area.remove(missingRef.key);
-    const malformedEntry = normalizeVideoScreenshotCacheEntry(await area.get(malformedRef.key));
-    if (!malformedEntry) {
-      throw new Error('expected malformed entry setup');
-    }
-    await area.set(malformedRef.key, {
-      ...malformedEntry,
-      content: {
-        ...malformedEntry.content,
-        data: '*** not base64 ***'
+    await expect(handleMessage(await createSaveMessage(screenshot))).resolves.toEqual({
+      success: true,
+      operation: 'save',
+      result: {
+        status: 'skipped',
+        reason: 'serialize-failed',
+        error: 'Failed to write video screenshot cache blob entry.'
       }
     });
+  });
 
-    await expect(client.load(missingRef)).resolves.toBeNull();
-    await expect(client.load(malformedRef)).resolves.toBeNull();
-
-    expect((await readIndex(area))?.entries.map((entry) => entry.captureId)).toEqual([
-      'capture-retained'
-    ]);
-    expect(await area.get(retainedRef.key)).not.toBeUndefined();
-    await expect(client.load(retainedRef)).resolves.toMatchObject({
-      id: 'shot-retained'
+  it('returns a controlled missing load response when blob-store reads fail', async () => {
+    const ref = createRef();
+    const handleMessage = createBackgroundVideoScreenshotCacheHandler(
+      { local: new MemoryStorageArea() },
+      { now: () => BASE_TIME },
+      {
+        blobStore: new RejectingBlobStore({
+          get: 'Failed to read video screenshot cache blob entry.'
+        })
+      }
+    );
+    const client = createVideoScreenshotCacheClientRepository({
+      messaging: createClientMessaging(handleMessage)
     });
+
+    await expect(
+      handleMessage({
+        type: VIDEO_SCREENSHOT_CACHE_MESSAGE,
+        operation: 'load',
+        ref
+      })
+    ).resolves.toEqual({
+      success: true,
+      operation: 'load',
+      status: 'missing'
+    });
+    await expect(client.load(ref)).resolves.toBeNull();
   });
 
   it('rejects removeMany when the background mutation response fails', async () => {

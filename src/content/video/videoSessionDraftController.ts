@@ -29,7 +29,10 @@ import {
   flushVideoSessionDraftNow,
   syncVideoSessionCommentDraftsFromDom
 } from './videoSessionDraftSync';
-import { cleanupVideoDraftTerminalArtifacts } from './videoSessionDraftScreenshotCache';
+import {
+  cleanupVideoDraftTerminalArtifacts,
+  createVideoSessionDraftScreenshotCacheMaintenance
+} from './videoSessionDraftScreenshotCache';
 import { scheduleRestoredVideoDraftScreenshotHydration } from './videoSessionDraftScreenshotHydration';
 import { buildVideoTerminalEnvelopeForExactKey } from './videoSessionDraftTerminal';
 
@@ -37,6 +40,9 @@ export class VideoSessionDraftController implements VideoSessionDraftRuntimePort
   private readonly draftRepository = createSessionDraftRepository(this.options.storageArea);
   private readonly draftId = createVideoSessionDraftId();
   private readonly draftPersister: SessionDraftPersister;
+  private readonly screenshotCacheMaintenance = createVideoSessionDraftScreenshotCacheMaintenance(
+    this.options.screenshotCache
+  );
   private activeDraftPageUrl: string;
   private pendingDraftStatus: SessionDraftStatus = 'active';
   private restoredDraftKey: string | null = null;
@@ -65,16 +71,18 @@ export class VideoSessionDraftController implements VideoSessionDraftRuntimePort
   }
   bindPersistence(): void {
     this.stopDraftPersistence?.();
+    this.screenshotCacheMaintenance.pruneExpiredOnce();
     const view = this.options.doc.defaultView;
     if (!view) {
       return;
     }
-    const flush = () => {
-      void this.flushNow('restorable');
-    };
+    const flush = () => void this.flushNow('restorable');
+    const pruneToLimits = () => this.screenshotCacheMaintenance.pruneToLimitsBestEffort();
     const stop = bindVideoSessionDraftPersistence(view, flush);
+    view.addEventListener('pagehide', pruneToLimits, { passive: true });
     this.stopDraftPersistence = () => {
       stop();
+      view.removeEventListener('pagehide', pruneToLimits);
       this.stopDraftPersistence = null;
     };
   }
@@ -82,6 +90,7 @@ export class VideoSessionDraftController implements VideoSessionDraftRuntimePort
   async dispose(options: { flush?: boolean } = {}): Promise<void> {
     this.stopDraftPersistence?.();
     this.screenshotHydrationGeneration += 1;
+    this.screenshotCacheMaintenance.pruneToLimitsBestEffort();
     await this.draftPersister.dispose(options);
   }
 
@@ -96,7 +105,6 @@ export class VideoSessionDraftController implements VideoSessionDraftRuntimePort
       this.screenshotHydrationGeneration += 1;
       return false;
     }
-
     const hydrated = hydrateVideoSessionDraft(
       draft.payload as VideoSessionDraftPayloadShape,
       this.options.doc.location.href
@@ -122,7 +130,6 @@ export class VideoSessionDraftController implements VideoSessionDraftRuntimePort
   handleLegacyRestore(storageKey: string): void {
     this.legacyCaptureStorageKey = storageKey;
   }
-
   async scheduleSave(): Promise<void> {
     if (!this.buildDraftEnvelope()) {
       await this.remove();
@@ -176,7 +183,6 @@ export class VideoSessionDraftController implements VideoSessionDraftRuntimePort
 
   async finalizeTerminal(status: SessionDraftTerminalStatus): Promise<boolean> {
     this.syncCommentDrafts();
-
     const hasTerminalTarget =
       this.options.state.captures.length > 0 ||
       Object.keys(this.options.state.commentDrafts).length > 0 ||
@@ -186,13 +192,8 @@ export class VideoSessionDraftController implements VideoSessionDraftRuntimePort
     if (!hasTerminalTarget) {
       return true;
     }
-
-    const currentEnvelope = this.buildDraftEnvelope({
-      status,
-      allowEmpty: true
-    });
+    const currentEnvelope = this.buildDraftEnvelope({ status, allowEmpty: true });
     const terminalEnvelopes = new Map<string, VideoSessionDraftEnvelope>();
-
     if (currentEnvelope) {
       terminalEnvelopes.set(
         createVideoSessionDraftStorageKey(currentEnvelope.pageUrl, currentEnvelope.draftId),
@@ -249,7 +250,6 @@ export class VideoSessionDraftController implements VideoSessionDraftRuntimePort
     ) {
       return null;
     }
-
     const pageUrl = (options.pageUrl ?? this.activeDraftPageUrl) || this.options.doc.location.href;
     const title = this.options.state.videoTitle || this.options.doc.title || VIDEO_TITLE_FALLBACK;
     return createVideoSessionDraftEnvelope({

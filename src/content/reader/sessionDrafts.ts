@@ -8,6 +8,8 @@ import {
   SESSION_DRAFT_SCHEMA_VERSION,
   createSessionDraftPageKey,
   createSessionDraftStorageKey,
+  filterSessionCommentDraftsForRetainedIds,
+  selectRetainedSessionDraftItems,
   type ReaderSessionDraftEnvelope,
   type ReaderSessionDraftHighlightPayload,
   type SessionCommentDraftSnapshot,
@@ -72,7 +74,6 @@ export function createReaderSessionDraftId(now = Date.now()): string {
   }
   return `reader-${now}-${Math.random().toString(16).slice(2)}`;
 }
-
 export function buildReaderSessionDraftEnvelope(args: {
   draftId: string;
   createdAt: number;
@@ -84,20 +85,23 @@ export function buildReaderSessionDraftEnvelope(args: {
   commentDrafts: SessionCommentDraftSnapshot;
   status: SessionDraftStatus;
 }): ReaderSessionDraftEnvelope | null {
-  const highlights = args.highlights.map((highlight) => ({
-    id: highlight.id,
-    selectedHtml: highlight.selectedHtml,
-    selectedText: highlight.selectedText,
-    comment: highlight.comment,
-    fragmentUrl: highlight.fragmentUrl,
-    createdAt: highlight.createdAt
-  }));
-  const commentDrafts = sanitizeCommentDrafts(args.commentDrafts);
-
+  const highlights = selectRetainedSessionDraftItems(
+    args.highlights.map((highlight) => ({
+      id: highlight.id,
+      selectedHtml: highlight.selectedHtml,
+      selectedText: highlight.selectedText,
+      comment: highlight.comment,
+      fragmentUrl: highlight.fragmentUrl,
+      createdAt: highlight.createdAt
+    }))
+  );
+  const commentDrafts = filterSessionCommentDraftsForRetainedIds(
+    sanitizeCommentDrafts(args.commentDrafts),
+    highlights.map((highlight) => highlight.id)
+  );
   if (highlights.length === 0 && Object.keys(commentDrafts).length === 0) {
     return null;
   }
-
   const updatedAt = args.now ?? Date.now();
   return {
     schemaVersion: SESSION_DRAFT_SCHEMA_VERSION,

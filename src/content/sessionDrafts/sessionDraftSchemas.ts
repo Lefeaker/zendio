@@ -168,12 +168,15 @@ export function containsDisallowedSessionDraftPayloadValue(
 
 export function normalizeSessionDraftEnvelopeForSave(
   envelope: SessionDraftEnvelope,
-  ttlMs: number
+  retentionMs: number
 ): SessionDraftEnvelope {
   const parsed = SessionDraftEnvelopeSchema.parse(envelope);
   const pageKey = createSessionDraftPageKey(parsed.mode, parsed.pageUrl);
+  const retentionExpiresAt = parsed.updatedAt + retentionMs;
   const expiresAt =
-    parsed.expiresAt > parsed.updatedAt ? parsed.expiresAt : parsed.updatedAt + ttlMs;
+    parsed.expiresAt > parsed.updatedAt
+      ? Math.min(parsed.expiresAt, retentionExpiresAt)
+      : retentionExpiresAt;
   if (parsed.mode === 'reader') {
     return {
       ...parsed,

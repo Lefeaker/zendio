@@ -111,15 +111,29 @@ function createReaderDraftEnvelope(
   pageUrl: string,
   updatedAt = Date.now()
 ): ReaderSessionDraftEnvelope {
+  const wrapper = document.createElement('mark');
+  wrapper.dataset.readerHighlightId = 'draft-highlight';
+  wrapper.textContent = 'Reader highlight';
   const envelope = buildReaderSessionDraftEnvelope({
     draftId: `reader-${updatedAt}`,
     createdAt: updatedAt - 1,
     now: updatedAt,
     pageUrl,
     pageTitle: 'Reader draft',
-    highlights: [],
+    highlights: [
+      {
+        id: 'draft-highlight',
+        selectedHtml: '<mark>Reader highlight</mark>',
+        selectedText: 'Reader highlight',
+        comment: 'reader comment',
+        fragmentUrl: '#draft-highlight',
+        wrapper,
+        wrapperSegments: [wrapper],
+        createdAt: updatedAt
+      }
+    ],
     commentDrafts: {
-      draft: 'reader comment'
+      'draft-highlight': 'reader comment'
     },
     status: 'restorable'
   });

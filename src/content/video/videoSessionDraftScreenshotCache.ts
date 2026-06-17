@@ -23,7 +23,40 @@ interface VideoDraftCachedScreenshotRestoreCandidate {
   ref: VideoScreenshotCacheRef;
 }
 
+export interface VideoSessionDraftScreenshotCacheMaintenance {
+  pruneExpiredOnce(): void;
+  pruneToLimitsBestEffort(): void;
+}
+
 const DEFAULT_DRAFT_SCREENSHOT_RESTORE_CONCURRENCY = 4;
+
+export function createVideoSessionDraftScreenshotCacheMaintenance(
+  screenshotCache?: object
+): VideoSessionDraftScreenshotCacheMaintenance {
+  let didScheduleExpiredPrune = false;
+
+  return {
+    pruneExpiredOnce() {
+      const pruneExpired = readMaintenanceMethod(screenshotCache, 'pruneExpired');
+      if (didScheduleExpiredPrune || !pruneExpired) {
+        return;
+      }
+      didScheduleExpiredPrune = true;
+      void pruneExpired().catch((error) => {
+        console.warn('[VideoSession] Failed to prune expired cached screenshots:', error);
+      });
+    },
+    pruneToLimitsBestEffort() {
+      const pruneToLimits = readMaintenanceMethod(screenshotCache, 'pruneToLimits');
+      if (!pruneToLimits) {
+        return;
+      }
+      void pruneToLimits().catch((error) => {
+        console.warn('[VideoSession] Failed to prune cached screenshots to limits:', error);
+      });
+    }
+  };
+}
 
 export async function restoreVideoDraftCachedScreenshots(
   captures: VideoCapture[],
@@ -114,18 +147,44 @@ export async function removeVideoDraftCachedScreenshots(
   screenshotCache?: Pick<VideoSessionDraftScreenshotCache, 'removeMany'>
 ): Promise<void> {
   const refs = collectVideoDraftScreenshotRefs(captures);
-  if (refs.length === 0 || !screenshotCache) {
+  await removeVideoDraftCachedScreenshotRefs(refs, screenshotCache);
+}
+
+export async function removeVideoDraftCachedScreenshotRefs(
+  refs: readonly VideoScreenshotCacheRef[],
+  screenshotCache?: Pick<VideoSessionDraftScreenshotCache, 'removeMany'>
+): Promise<void> {
+  const uniqueRefs = dedupeVideoDraftScreenshotRefs(refs);
+  if (uniqueRefs.length === 0 || !screenshotCache) {
     return;
   }
 
-  await screenshotCache.removeMany(refs);
+  await screenshotCache.removeMany(uniqueRefs);
+}
+
+export function dedupeVideoDraftScreenshotRefs(
+  refs: readonly VideoScreenshotCacheRef[]
+): VideoScreenshotCacheRef[] {
+  const uniqueRefs: VideoScreenshotCacheRef[] = [];
+  const seenKeys = new Set<string>();
+
+  for (const ref of refs) {
+    const screenshotRef = normalizeVideoScreenshotCacheRef(ref);
+    if (!screenshotRef || seenKeys.has(screenshotRef.key)) {
+      continue;
+    }
+
+    seenKeys.add(screenshotRef.key);
+    uniqueRefs.push(screenshotRef);
+  }
+
+  return uniqueRefs;
 }
 
 export function collectVideoDraftScreenshotRefs(
   captures: readonly VideoCapture[]
 ): VideoScreenshotCacheRef[] {
   const refs: VideoScreenshotCacheRef[] = [];
-  const seenKeys = new Set<string>();
 
   for (const capture of captures) {
     if (capture.kind !== 'timestamp') {
@@ -133,15 +192,20 @@ export function collectVideoDraftScreenshotRefs(
     }
 
     const screenshotRef = normalizeVideoScreenshotCacheRef(capture.screenshotRef);
-    if (!screenshotRef || seenKeys.has(screenshotRef.key)) {
-      continue;
+    if (screenshotRef) {
+      refs.push(screenshotRef);
     }
-
-    seenKeys.add(screenshotRef.key);
-    refs.push(screenshotRef);
   }
 
-  return refs;
+  return dedupeVideoDraftScreenshotRefs(refs);
+}
+
+export function filterUnreferencedVideoDraftScreenshotRefs(
+  refs: readonly VideoScreenshotCacheRef[],
+  captures: readonly VideoCapture[]
+): VideoScreenshotCacheRef[] {
+  const referencedKeys = new Set(collectVideoDraftScreenshotRefs(captures).map((ref) => ref.key));
+  return dedupeVideoDraftScreenshotRefs(refs).filter((ref) => !referencedKeys.has(ref.key));
 }
 
 function normalizeConcurrency(value: number | undefined): number {
@@ -168,4 +232,19 @@ async function runBounded<T>(
       }
     })
   );
+}
+
+function readMaintenanceMethod(
+  screenshotCache: object | undefined,
+  key: 'pruneExpired' | 'pruneToLimits'
+): (() => Promise<void>) | null {
+  if (!screenshotCache) {
+    return null;
+  }
+
+  const candidate = screenshotCache as Partial<
+    Record<'pruneExpired' | 'pruneToLimits', () => Promise<void>>
+  >;
+  const method = candidate[key];
+  return typeof method === 'function' ? method : null;
 }

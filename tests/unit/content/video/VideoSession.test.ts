@@ -484,6 +484,32 @@ function createBlobScreenshotFixture(
   };
 }
 
+function createScreenshotCacheRefFixture(
+  captureId: string,
+  options: {
+    id?: string;
+    pageKey?: string;
+    capturedAt?: number;
+    byteLength?: number;
+  } = {}
+): VideoScreenshotCacheRef {
+  const pageKey = options.pageKey ?? 'video-example';
+  const id = options.id ?? `shot-${captureId}`;
+  const capturedAt = options.capturedAt ?? 2_000_000_000_300;
+  return {
+    schemaVersion: 1,
+    pageKey,
+    captureId,
+    id,
+    key: `aiob.videoScreenshotCache.v1.${pageKey}.${captureId}.${id}`,
+    fileName: `${id}.jpg`,
+    mimeType: 'image/jpeg',
+    byteLength: options.byteLength ?? 14,
+    capturedAt,
+    expiresAt: capturedAt + 60_000
+  };
+}
+
 function removalCallIncludesKey(value: unknown, key: string): boolean {
   if (Array.isArray(value)) {
     return value.includes(key);
@@ -1326,6 +1352,91 @@ describe('VideoSession', () => {
       expect(restoredTimestamp.screenshotRef).toEqual(savedRef);
     } finally {
       createElementSpy.mockRestore();
+      sessionApi.cleanup();
+    }
+  });
+
+  it('keeps cache-hit restore non-fatal when session-start pruneExpired maintenance fails', async () => {
+    const deps = createDependencies();
+    const repository = createSessionDraftRepository(deps.storage.local);
+    const cacheTypesModule =
+      await import('../../../../src/content/video/videoScreenshotCacheTypes');
+    const restoredScreenshot = createBlobScreenshotFixture('cached-frame', 2_000_000_000_101, {
+      id: 'shot-cached',
+      fileName: 'video-0m42s.jpg'
+    });
+    const savedRef: VideoScreenshotCacheRef = {
+      schemaVersion: 1,
+      pageKey: 'video-example',
+      captureId: 'ts-1',
+      id: 'shot-cached',
+      key: cacheTypesModule.createVideoScreenshotCacheStorageKey({
+        pageKey: 'video-example',
+        captureId: 'ts-1',
+        screenshotId: 'shot-cached'
+      }),
+      fileName: 'video-0m42s.jpg',
+      mimeType: 'image/jpeg',
+      byteLength: restoredScreenshot.content.byteLength,
+      capturedAt: restoredScreenshot.capturedAt,
+      expiresAt: restoredScreenshot.capturedAt + 60_000
+    };
+    const loadSpy = vi.fn(() => Promise.resolve(restoredScreenshot));
+    const pruneExpired = vi.fn().mockRejectedValue(new Error('pruneExpired failed'));
+    deps.screenshotCacheRepository = createScreenshotCacheRepositoryMock({
+      load: loadSpy,
+      pruneExpired
+    });
+    const envelope = createVideoSessionDraftEnvelope({
+      draftId: 'draft-cache-hit-prune-expired-failure',
+      pageUrl: document.location.href,
+      pageTitle: 'Draft title',
+      updatedAt: 2_000_000_000_100,
+      status: 'restorable',
+      payload: buildVideoSessionDraftPayload({
+        captures: [
+          {
+            kind: 'timestamp',
+            id: 'ts-1',
+            timeSec: 42,
+            url: 'https://video.example/watch?t=42',
+            comment: 'Restored marker',
+            createdAt: 2_000_000_000_100,
+            screenshotRequested: true,
+            screenshotRef: savedRef
+          }
+        ],
+        commentDrafts: { 'ts-1': 'draft note' },
+        platform: 'bilibili',
+        videoId: 'BV1xx411c7mD',
+        videoTitle: 'Draft title',
+        videoUrl: document.location.href,
+        canonicalUrl: document.location.href
+      })
+    });
+    await repository.save(envelope);
+    const session = new VideoSession(document, deps);
+    const sessionApi = toSessionTestApi(session);
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+
+    try {
+      await session.start();
+
+      expect(pruneExpired).toHaveBeenCalledTimes(1);
+      const restoredTimestamp = sessionApi.state.captures[0];
+      if (!restoredTimestamp || restoredTimestamp.kind !== 'timestamp') {
+        throw new Error('expected restored timestamp capture');
+      }
+
+      const hydratedScreenshot = await waitForTimestampScreenshot(restoredTimestamp);
+      expect(hydratedScreenshot).toBe(restoredScreenshot);
+      expect(loadSpy).toHaveBeenCalledWith(savedRef);
+      expect(warnSpy).toHaveBeenCalledWith(
+        '[VideoSession] Failed to prune expired cached screenshots:',
+        expect.any(Error)
+      );
+    } finally {
+      warnSpy.mockRestore();
       sessionApi.cleanup();
     }
   });
@@ -3259,6 +3370,175 @@ describe('VideoSession', () => {
 
     sessionApi.cleanup();
     vi.useRealTimers();
+  });
+
+  it('removes the cached screenshot ref after a timestamp capture deletion commits', async () => {
+    const removeMany = vi.fn(() => Promise.resolve(undefined));
+    const deps = createDependencies();
+    deps.screenshotCacheRepository = createScreenshotCacheRepositoryMock({
+      removeMany
+    });
+    const view = createView();
+    let mountedCallbacks: VideoPanelCallbacks | null = null;
+    deps.viewFactory.createView = vi.fn((callbacks: VideoPanelCallbacks) => {
+      mountedCallbacks = callbacks;
+      return view;
+    });
+    const session = new VideoSession(document, deps);
+    const sessionApi = toSessionTestApi(session);
+
+    await session.start();
+    const deletedId = seedTimestampCaptures(sessionApi, 2)[0];
+    if (!deletedId) {
+      throw new Error('expected timestamp capture id fixture');
+    }
+    const screenshotRef = createScreenshotCacheRefFixture(deletedId);
+    const deletedCapture = sessionApi.state.captures.find((capture) => capture.id === deletedId);
+    if (!deletedCapture || deletedCapture.kind !== 'timestamp') {
+      throw new Error('expected timestamp capture fixture');
+    }
+    deletedCapture.screenshotRequested = true;
+    deletedCapture.screenshotRef = screenshotRef;
+
+    requireMountedPanelCallbacks(mountedCallbacks).onDeleteCapture(deletedId);
+    await flushMutationWork();
+    await waitForMockCalls(removeMany);
+
+    expect(sessionApi.state.captures.map((capture) => capture.id)).not.toContain(deletedId);
+    expect(removeMany).toHaveBeenCalledTimes(1);
+    expect(removeMany).toHaveBeenCalledWith([screenshotRef]);
+
+    sessionApi.cleanup();
+  });
+
+  it('does not remove cached screenshots when deleting captures without screenshot refs', async () => {
+    const removeMany = vi.fn(() => Promise.resolve(undefined));
+    const deps = createDependencies();
+    deps.screenshotCacheRepository = createScreenshotCacheRepositoryMock({
+      removeMany
+    });
+    const view = createView();
+    let mountedCallbacks: VideoPanelCallbacks | null = null;
+    deps.viewFactory.createView = vi.fn((callbacks: VideoPanelCallbacks) => {
+      mountedCallbacks = callbacks;
+      return view;
+    });
+    const session = new VideoSession(document, deps);
+    const sessionApi = toSessionTestApi(session);
+
+    await session.start();
+    seedTimestampCaptures(sessionApi, 1);
+    sessionApi.state.captures.push({
+      kind: 'fragment',
+      id: 'fragment-1',
+      timeSec: 12,
+      comment: '',
+      selectedText: 'Fragment text',
+      selectedHtml: '<p>Fragment text</p>',
+      fragmentUrl: 'https://video.example/watch#:~:text=Fragment%20text',
+      createdAt: Date.now()
+    });
+
+    const callbacks = requireMountedPanelCallbacks(mountedCallbacks);
+    callbacks.onDeleteCapture('timestamp-1');
+    await flushMutationWork();
+    callbacks.onDeleteCapture('fragment-1');
+    for (let index = 0; index < 10 && sessionApi.state.captures.length > 0; index += 1) {
+      await flushMutationWork();
+    }
+
+    expect(sessionApi.state.captures).toHaveLength(0);
+    expect(removeMany).not.toHaveBeenCalled();
+
+    sessionApi.cleanup();
+  });
+
+  it('keeps capture deletion committed when cached screenshot cleanup fails', async () => {
+    const cleanupError = new Error('cache cleanup failed');
+    const removeMany = vi.fn(() => Promise.reject(cleanupError));
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    const deps = createDependencies();
+    deps.screenshotCacheRepository = createScreenshotCacheRepositoryMock({
+      removeMany
+    });
+    const view = createView();
+    let mountedCallbacks: VideoPanelCallbacks | null = null;
+    deps.viewFactory.createView = vi.fn((callbacks: VideoPanelCallbacks) => {
+      mountedCallbacks = callbacks;
+      return view;
+    });
+    const session = new VideoSession(document, deps);
+    const sessionApi = toSessionTestApi(session);
+
+    try {
+      await session.start();
+      const deletedId = seedTimestampCaptures(sessionApi, 2)[0];
+      if (!deletedId) {
+        throw new Error('expected timestamp capture id fixture');
+      }
+      const screenshotRef = createScreenshotCacheRefFixture(deletedId);
+      const deletedCapture = sessionApi.state.captures.find((capture) => capture.id === deletedId);
+      if (!deletedCapture || deletedCapture.kind !== 'timestamp') {
+        throw new Error('expected timestamp capture fixture');
+      }
+      deletedCapture.screenshotRequested = true;
+      deletedCapture.screenshotRef = screenshotRef;
+
+      requireMountedPanelCallbacks(mountedCallbacks).onDeleteCapture(deletedId);
+      await flushMutationWork();
+      await waitForMockCalls(removeMany);
+      await waitForMockCalls(warnSpy);
+
+      expect(sessionApi.state.captures.map((capture) => capture.id)).toEqual(['timestamp-2']);
+      expect(sessionApi.state.saving).toBe(false);
+      expect(view.updateHint).not.toHaveBeenCalledWith('failure');
+      expect(warnSpy).toHaveBeenCalledWith(
+        '[VideoSession] Failed to remove cached screenshot after capture deletion:',
+        cleanupError
+      );
+    } finally {
+      warnSpy.mockRestore();
+      sessionApi.cleanup();
+    }
+  });
+
+  it('does not remove a deleted screenshot ref while another capture still references it', async () => {
+    const removeMany = vi.fn(() => Promise.resolve(undefined));
+    const deps = createDependencies();
+    deps.screenshotCacheRepository = createScreenshotCacheRepositoryMock({
+      removeMany
+    });
+    const view = createView();
+    let mountedCallbacks: VideoPanelCallbacks | null = null;
+    deps.viewFactory.createView = vi.fn((callbacks: VideoPanelCallbacks) => {
+      mountedCallbacks = callbacks;
+      return view;
+    });
+    const session = new VideoSession(document, deps);
+    const sessionApi = toSessionTestApi(session);
+
+    await session.start();
+    seedTimestampCaptures(sessionApi, 2);
+    const sharedRef = createScreenshotCacheRefFixture('timestamp-1', { id: 'shared-shot' });
+    for (const capture of sessionApi.state.captures) {
+      if (capture.kind === 'timestamp') {
+        capture.screenshotRequested = true;
+        capture.screenshotRef = sharedRef;
+      }
+    }
+
+    requireMountedPanelCallbacks(mountedCallbacks).onDeleteCapture('timestamp-1');
+    await flushMutationWork();
+
+    expect(sessionApi.state.captures).toEqual([
+      expect.objectContaining({
+        id: 'timestamp-2',
+        screenshotRef: sharedRef
+      })
+    ]);
+    expect(removeMany).not.toHaveBeenCalled();
+
+    sessionApi.cleanup();
   });
 
   it('keeps capture edits committed and retries restored-draft cleanup after the durable save succeeds', async () => {

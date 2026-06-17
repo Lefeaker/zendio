@@ -60,6 +60,12 @@ const MAX_LINE_BUDGETS = new Map([
   // draft restore/write-through milestones and keeps image bytes outside drafts.
   ['src/content/video/videoScreenshotCacheRepository.ts', 525],
   ['src/content/video/videoScreenshotCacheTypes.ts', 302],
+  // 2026-06-17 video screenshot cache P09: background-owned IndexedDB blob store
+  // keeps screenshot bytes outside storage.local and owns the DOM IDB facade.
+  ['src/background/services/videoScreenshotCacheIndexedDbStore.ts', 335],
+  // 2026-06-17 video screenshot cache main integration: draft screenshot restore,
+  // terminal cleanup, and best-effort cache maintenance stay in a focused helper.
+  ['src/content/video/videoSessionDraftScreenshotCache.ts', 251],
   // 2026-06-13 final combined integration: request state moved out of the lazy
   // coordinator and now tracks explicit visible requests so dependency-cruiser can
   // enforce the screenshot preparation split without cycles.
