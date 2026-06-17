@@ -7,6 +7,9 @@ import {
 import { createReleaseLanguageOptions } from '@options/stitch/languageOptions';
 import type { PreviewContent } from '@options/stitch/types';
 
+type SurfaceDestination = NonNullable<PreviewContent['surfaces']['clipper']['destination']>;
+type SurfaceWithDestination = { destination?: SurfaceDestination };
+
 const NAV_LABEL_KEYS = {
   overview: 'schemaOverviewTitle',
   storage: 'schemaStorageTitle',
@@ -59,26 +62,26 @@ const SURFACE_HINT_KEYS = {
   'task-success': 'schemaRuntimeTaskSuccessHint'
 } satisfies Record<string, SchemaMessageKey>;
 
-const OVERVIEW_HERO_PILL_KEYS = [
+const OVERVIEW_HERO_PILL_KEYS: readonly SchemaMessageKey[] = [
   'schemaOverviewHeroPillDefaultVaultReady',
   'schemaOverviewHeroPillRoutingActive',
   'schemaOverviewHeroPillYamlConfigured'
-] as const satisfies readonly SchemaMessageKey[];
+] satisfies readonly SchemaMessageKey[];
 
-const STORAGE_HERO_PILL_KEYS = [
+const STORAGE_HERO_PILL_KEYS: readonly SchemaMessageKey[] = [
   'schemaStorageVaultListTitle',
   'schemaStorageRoutingGroupTitle'
-] as const satisfies readonly SchemaMessageKey[];
+] satisfies readonly SchemaMessageKey[];
 
-const CAPTURE_SOURCES_HERO_PILL_KEYS = [
+const CAPTURE_SOURCES_HERO_PILL_KEYS: readonly SchemaMessageKey[] = [
   'schemaCaptureSourcesAiChatGroupTitle',
   'schemaCaptureSourcesVideoGroupTitle'
-] as const satisfies readonly SchemaMessageKey[];
+] satisfies readonly SchemaMessageKey[];
 
-const CAPTURE_BEHAVIOR_HERO_PILL_KEYS = [
+const CAPTURE_BEHAVIOR_HERO_PILL_KEYS: readonly SchemaMessageKey[] = [
   'schemaCaptureBehaviorReadingGroupTitle',
   'schemaCaptureBehaviorFragmentGroupTitle'
-] as const satisfies readonly SchemaMessageKey[];
+] satisfies readonly SchemaMessageKey[];
 
 const LANGUAGE_OPTION_KEYS: Record<string, SchemaMessageKey> = {
   en: 'schemaOverviewLanguageOptionEn',
@@ -125,11 +128,11 @@ const SAMPLE_VAULT_KEYS: Record<string, SchemaMessageKey> = {
   'Video Vault': 'schemaPreviewSampleVaultVideo'
 };
 
-const DOMAIN_MAPPING_NOTE_KEYS = [
+const DOMAIN_MAPPING_NOTE_KEYS: readonly SchemaMessageKey[] = [
   'schemaOutputDomainMappingNoteWeChat',
   'schemaOutputDomainMappingNoteArxiv',
   'schemaOutputDomainMappingNoteChatGpt'
-] as const satisfies readonly SchemaMessageKey[];
+] satisfies readonly SchemaMessageKey[];
 
 function localizePills(
   pills: string[],
@@ -252,6 +255,16 @@ function localizeSurfaceDestination(
   };
 }
 
+function splitSurfaceDestination<T extends SurfaceWithDestination>(
+  surface: T
+): {
+  rest: Omit<T, 'destination'>;
+  destination: SurfaceDestination | undefined;
+} {
+  const { destination, ...rest } = surface;
+  return { rest, destination };
+}
+
 function localizeOptionalSurfaceText<K extends 'commentPreview' | 'comment' | 'draft'>(
   key: K,
   value: string | undefined,
@@ -272,8 +285,11 @@ function localizeClipperSurface(
   previewSurface: PreviewContent['surfaces']['clipper'],
   t: SchemaTranslator
 ): PreviewContent['surfaces']['clipper'] {
+  const { rest, destination } = splitSurfaceDestination(surface);
+  const localizedDestination = localizeSurfaceDestination(destination, t);
+
   return {
-    ...surface,
+    ...rest,
     source: {
       ...surface.source,
       title: localizeSampleValue(
@@ -283,7 +299,7 @@ function localizeClipperSurface(
         t
       )
     },
-    destination: localizeSurfaceDestination(surface.destination, t),
+    ...(localizedDestination !== undefined && { destination: localizedDestination }),
     selectedText: t('schemaRuntimeClipperSelectedText', surface.selectedText)
   };
 }
@@ -293,9 +309,12 @@ function localizeReaderSurface(
   _previewSurface: PreviewContent['surfaces']['reader'],
   t: SchemaTranslator
 ): PreviewContent['surfaces']['reader'] {
+  const { rest, destination } = splitSurfaceDestination(surface);
+  const localizedDestination = localizeSurfaceDestination(destination, t);
+
   return {
-    ...surface,
-    destination: localizeSurfaceDestination(surface.destination, t),
+    ...rest,
+    ...(localizedDestination !== undefined && { destination: localizedDestination }),
     highlights: surface.highlights.map((highlight, index) => {
       if (index === 0) {
         return {
@@ -358,9 +377,12 @@ function localizeVideoSurface(
   previewSurface: PreviewContent['surfaces']['video'],
   t: SchemaTranslator
 ): PreviewContent['surfaces']['video'] {
+  const { rest, destination } = splitSurfaceDestination(surface);
+  const localizedDestination = localizeSurfaceDestination(destination, t);
+
   return {
-    ...surface,
-    destination: localizeSurfaceDestination(surface.destination, t),
+    ...rest,
+    ...(localizedDestination !== undefined && { destination: localizedDestination }),
     captures: surface.captures.map((capture, index) => {
       if (index === 1 && capture.fullText) {
         return {
@@ -443,16 +465,18 @@ function localizeOutput(
   output: PreviewContent['output'],
   t: SchemaTranslator
 ): PreviewContent['output'] {
+  type DomainMappingRow = PreviewContent['output']['domainMappings'][number];
+  const localizeDomainMapping = (
+    [domain, alias, note]: DomainMappingRow,
+    index: number
+  ): DomainMappingRow => {
+    const noteKey = DOMAIN_MAPPING_NOTE_KEYS[index];
+    return [domain, alias, noteKey ? t(noteKey, note) : note];
+  };
+
   return {
     ...output,
-    domainMappings: output.domainMappings.map(([domain, alias, note], index) => {
-      const noteKey = DOMAIN_MAPPING_NOTE_KEYS[index];
-      return [
-        domain,
-        alias,
-        noteKey ? t(noteKey, note) : note
-      ] as (typeof output.domainMappings)[number];
-    }),
+    domainMappings: output.domainMappings.map(localizeDomainMapping),
     yamlFilters: output.yamlFilters.map((filter) => {
       const key = YAML_FILTER_KEYS[filter.value];
       return {
