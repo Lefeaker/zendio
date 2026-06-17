@@ -54,8 +54,8 @@ const getContentMessagesMock = vi.hoisted(() =>
       supportPromptTitle: 'Support Zendio',
       supportPromptKoFiTitle: 'Ko-fi',
       supportPromptKoFiDescription: 'Buy me a coffee',
-      supportPromptAfdianTitle: 'Afdian',
-      supportPromptAfdianDescription: 'CN sponsor',
+      supportPromptAfdianTitle: '微信赞赏',
+      supportPromptAfdianDescription: '扫码支持',
       supportPromptGithubTitle: 'GitHub',
       supportPromptGithubDescription: 'File feedback',
       supportPromptFeedbackGroupLabel: 'Quick feedback',
@@ -156,7 +156,12 @@ describe('SupportPrompt', () => {
     const shadow = getPromptHost().shadowRoot;
     expect(shadow?.querySelector('[data-role="like-btn"]')).toBeTruthy();
     expect(shadow?.querySelector('[data-role="dislike-btn"]')).toBeTruthy();
-    expect(shadow?.querySelectorAll('.task-support-link[href]').length).toBe(2);
+    expect(shadow?.querySelectorAll('.task-support-link').length).toBe(2);
+    expect(shadow?.querySelectorAll('.task-support-link[href]').length).toBe(1);
+    expect(shadow?.textContent).toContain('微信赞赏');
+    expect(
+      shadow?.querySelector<HTMLImageElement>('img.task-support-qr')?.getAttribute('src')
+    ).toBe('chrome-extension://icons/wechat-reward-qr.jpg');
     expect(shadow?.querySelector('[data-role="status-text"]')?.textContent).toContain(
       'Sent to Main Vault'
     );

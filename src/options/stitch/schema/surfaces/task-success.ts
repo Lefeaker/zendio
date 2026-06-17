@@ -117,28 +117,42 @@ function taskProgress(
 function supportStrip(items: SupportChannel[]): NodeSchema {
   return div(
     'task-support-strip',
-    items.map((item) =>
-      element(
-        'a',
+    items.map((item) => {
+      const media = item.image
+        ? element('img', {
+            className: 'task-support-qr',
+            src: item.image,
+            alt: item.imageAlt ?? `${item.title} QR code`
+          })
+        : item.icon
+          ? element('img', {
+              className: 'task-support-logo',
+              src: item.icon,
+              alt: `${item.title} logo`
+            })
+          : null;
+
+      return element(
+        item.href ? 'a' : 'div',
         {
-          className: 'task-support-link',
-          ...(item.href ? { href: item.href } : {}),
-          target: '_blank',
-          rel: 'noopener noreferrer'
+          className: ['task-support-link', item.image ? 'has-qr' : ''].filter(Boolean).join(' '),
+          ...(item.href
+            ? {
+                href: item.href,
+                target: '_blank',
+                rel: 'noopener noreferrer'
+              }
+            : {})
         },
         [
-          element('img', {
-            className: 'task-support-logo',
-            src: item.icon ?? '',
-            alt: `${item.title} logo`
-          }),
+          media,
           div('task-support-copy', [
             strong(item.title),
             item.subtitle ? element('span', { text: item.subtitle }) : null
           ])
         ]
-      )
-    )
+      );
+    })
   );
 }
 
@@ -202,7 +216,13 @@ function resolveSupportKeys(item: SupportChannel): {
     };
   }
 
-  if (href.includes('afdian.com') || title.includes('afdian')) {
+  if (
+    href.includes('afdian.com') ||
+    title.includes('afdian') ||
+    title.includes('wechat') ||
+    item.icon?.includes('wechat-reward') ||
+    item.image?.includes('wechat-reward')
+  ) {
     return {
       title: 'supportPromptAfdianTitle',
       subtitle: 'supportPromptAfdianDescription'

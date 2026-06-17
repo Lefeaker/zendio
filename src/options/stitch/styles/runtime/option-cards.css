@@ -198,8 +198,9 @@
 .resource-link-card {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-start;
   gap: var(--space-5-5);
+  min-width: 0;
   padding: var(--space-6-5);
   color: var(--text);
 }
@@ -215,6 +216,8 @@
 .resource-link-copy {
   display: grid;
   gap: var(--space-1-5);
+  min-width: 0;
+  flex: 1 1 auto;
 }
 
 .resource-link-copy strong {
@@ -247,6 +250,30 @@
   font-size: var(--font-size-sm);
   font-weight: 650;
   white-space: nowrap;
+}
+
+.resource-link-card > .badge,
+.resource-link-action,
+.resource-link-icon,
+.resource-link-preview {
+  flex: none;
+}
+
+.resource-link-icon {
+  width: 32px;
+  height: 32px;
+  object-fit: contain;
+}
+
+.resource-link-preview {
+  width: 76px;
+  height: 76px;
+  padding: 3px;
+  border: var(--border-default);
+  border-radius: var(--radius-lg);
+  background: #fff;
+  object-fit: contain;
+  box-shadow: var(--shadow-md);
 }
 
 .step-header-inline,

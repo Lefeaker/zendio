@@ -28,7 +28,10 @@ export function resourceCard(item: SupportChannel): NodeSchema {
     ...(item.subtitle ? { subtitle: item.subtitle } : {}),
     ...(item.detail ? { detail: item.detail } : {}),
     ...(item.note ? { note: item.note } : {}),
-    ...(item.href ? { href: item.href } : {})
+    ...(item.href ? { href: item.href } : {}),
+    ...(item.icon ? { icon: item.icon } : {}),
+    ...(item.image ? { image: item.image } : {}),
+    ...(item.imageAlt ? { imageAlt: item.imageAlt } : {})
   };
 }
 

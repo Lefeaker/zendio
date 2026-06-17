@@ -91,8 +91,8 @@ const ENGLISH_SENTINEL_MESSAGES = {
   schemaResourceSupportScopeGroupTitle: 'Support Scope Sentinel',
   schemaResourceSupportKoFiTitle: 'Support Ko-fi Title Sentinel',
   schemaResourceSupportKoFiDescription: 'Support Ko-fi Description Sentinel',
-  schemaResourceSupportAfdianTitle: 'Support Afdian Title Sentinel',
-  schemaResourceSupportAfdianDescription: 'Support Afdian Description Sentinel',
+  schemaResourceSupportAfdianTitle: 'Support WeChat Reward Title Sentinel',
+  schemaResourceSupportAfdianDescription: 'Support WeChat Reward Description Sentinel',
   schemaResourceSupportScope1: 'Support Scope 1 Sentinel',
   schemaResourceSupportScope2: 'Support Scope 2 Sentinel',
   schemaResourceSupportScope3: 'Support Scope 3 Sentinel',
@@ -349,16 +349,32 @@ describe('mountProductionStitchShell resource i18n', () => {
       'Support Title Sentinel',
       'Support Description Sentinel',
       'Support Channels Sentinel',
-      'Support Scope Sentinel',
       'Support Ko-fi Title Sentinel',
       'Support Ko-fi Description Sentinel',
-      'Support Afdian Title Sentinel',
-      'Support Afdian Description Sentinel',
-      'Support Scope 1 Sentinel',
-      'Support Scope 4 Sentinel'
+      'Support WeChat Reward Title Sentinel',
+      'Support WeChat Reward Description Sentinel'
     );
+    expect(
+      support.querySelector<HTMLImageElement>('img.resource-link-icon[src="./icons/ko-fi.svg"]')
+    ).toBeTruthy();
+    expect(
+      support.querySelector<HTMLImageElement>(
+        'img.resource-link-icon[src="./icons/wechat-reward.svg"]'
+      )
+    ).toBeTruthy();
+    expect(
+      support.querySelector<HTMLImageElement>(
+        'img.resource-link-preview[src="./icons/wechat-reward-qr.jpg"]'
+      )
+    ).toBeTruthy();
+    expect(
+      support.querySelector<HTMLAnchorElement>('a.resource-link-card[href*="afdian.com"]')
+    ).toBeNull();
     expectNoText(
       support,
+      'Support Scope Sentinel',
+      'Support Scope 1 Sentinel',
+      'Support Scope 4 Sentinel',
       'Support the project through the available public channels.',
       'Buy me a coffee',
       'Support the project in Chinese',
@@ -377,6 +393,16 @@ describe('mountProductionStitchShell resource i18n', () => {
       'Suggestions Reddit Title Sentinel',
       'Suggestions Reddit Description Sentinel'
     );
+    expect(
+      suggestions.querySelector<HTMLImageElement>(
+        'img.resource-link-icon[src="./icons/github-fill.svg"]'
+      )
+    ).toBeTruthy();
+    expect(
+      suggestions.querySelector<HTMLImageElement>(
+        'img.resource-link-icon[src="./icons/reddit.svg"]'
+      )
+    ).toBeTruthy();
     expectNoText(
       suggestions,
       'Send feedback through the currently supported public channels.',
@@ -563,7 +589,13 @@ describe('mountProductionStitchShell resource i18n', () => {
 
     const support = await openResource('Support');
     expectText(support, 'Support', 'Support the project through the available public channels.');
-    expectNoText(support, '感谢支持', '开发不易，如果这个插件对你有帮助，欢迎通过以下方式支持。');
+    expectNoText(
+      support,
+      'Support Scope',
+      'Install, upgrade, and environment setup questions.',
+      '感谢支持',
+      '开发不易，如果这个插件对你有帮助，欢迎通过以下方式支持。'
+    );
     await closeResource();
 
     const changelog = await openResource('Changelog');

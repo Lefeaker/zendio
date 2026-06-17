@@ -84,6 +84,8 @@ export interface SupportChannel {
   href?: string;
   note?: string;
   icon?: string;
+  image?: string;
+  imageAlt?: string;
 }
 
 export interface ContactEntry {
@@ -276,8 +278,6 @@ export interface PreviewResources {
   support: {
     hero: HeroData;
     channels: SupportChannel[];
-    scope: string[];
-    response: string[];
   };
   suggestions: {
     hero: HeroData;
@@ -668,6 +668,9 @@ export interface ResourceCardNode extends BaseNode {
   detail?: DynamicValue<string>;
   note?: DynamicValue<string>;
   href?: DynamicValue<string>;
+  icon?: DynamicValue<string>;
+  image?: DynamicValue<string>;
+  imageAlt?: DynamicValue<string>;
 }
 
 export interface HighlightExampleNode extends BaseNode {

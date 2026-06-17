@@ -117,9 +117,6 @@ function renderRuntimeSurface(surfaceId: RuntimeSurfaceId, messages: Messages): 
     messages,
     language: 'en'
   });
-
-  queryRequired<HTMLElement>(`[data-footer-panel="${surfaceId}"]`);
-
   const draft = createCompleteOptions(SURFACE_INITIAL_OPTIONS);
   const appData = structuredClone(
     createProductionStitchAppData(draft, {

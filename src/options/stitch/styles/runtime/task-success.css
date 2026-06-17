@@ -65,7 +65,7 @@
   border-left: 1px solid var(--runtime-line);
 }
 
-.task-support-link:hover {
+.task-support-link[href]:hover {
   background: rgba(255, 255, 255, 0.035);
 }
 
@@ -76,6 +76,17 @@
   object-fit: contain;
   filter: invert(1) brightness(1.8) saturate(0.8);
   opacity: 0.92;
+}
+
+.task-support-qr {
+  width: 54px;
+  height: 54px;
+  flex: none;
+  padding: 2px;
+  border-radius: var(--radius-md);
+  background: #fff;
+  object-fit: contain;
+  opacity: 0.98;
 }
 
 .task-support-copy {

@@ -29,7 +29,6 @@ import type { UserVisibleMessageDescriptor } from '../../shared/i18n/userVisible
 const REVIEW_BASE_URL =
   'https://chromewebstore.google.com/detail/all-in-ob/eoohmbhdepgknfemajanfaejmonckgmo';
 const KO_FI_URL = 'https://ko-fi.com/xiannian';
-const AFDIAN_URL = 'https://afdian.com/a/LefShi';
 const REVIEW_STATE_STORAGE_KEY = 'support_prompt_review_state';
 const TERMINAL_PROGRESS_DISMISS_MS = 2200;
 
@@ -91,7 +90,14 @@ export class SupportPrompt implements UiMountable<
     });
     const resolvedProgress = resolveSupportPromptProgress(options, promptStatus);
 
-    const links = [
+    const links: Array<{
+      icon: string;
+      image?: string;
+      imageAlt?: string;
+      title: string;
+      description?: string;
+      url?: string;
+    }> = [
       {
         icon: this.resolveAssetUrl('icons/ko-fi.svg'),
         title: messages.koFiTitle,
@@ -99,10 +105,11 @@ export class SupportPrompt implements UiMountable<
         url: KO_FI_URL
       },
       {
-        icon: this.resolveAssetUrl('icons/aifadian-line-copy.svg'),
+        icon: this.resolveAssetUrl('icons/wechat-reward.svg'),
+        image: this.resolveAssetUrl('icons/wechat-reward-qr.jpg'),
+        imageAlt: messages.afdianTitle,
         title: messages.afdianTitle,
-        description: messages.afdianDescription,
-        url: AFDIAN_URL
+        description: messages.afdianDescription
       }
     ];
 
@@ -133,8 +140,10 @@ export class SupportPrompt implements UiMountable<
       channels: links.map((link) => ({
         title: link.title,
         icon: link.icon,
+        ...(link.image ? { image: link.image } : {}),
+        ...(link.imageAlt ? { imageAlt: link.imageAlt } : {}),
         ...(link.description ? { subtitle: link.description } : {}),
-        href: link.url
+        ...(link.url ? { href: link.url } : {})
       }))
     };
 
@@ -245,8 +254,7 @@ export class SupportPrompt implements UiMountable<
     detail?.setAttribute('data-role', 'status-detail');
     surface.querySelectorAll<HTMLAnchorElement>('.task-support-link[href]').forEach((link) => {
       link.addEventListener('click', () => {
-        const target =
-          link.href === KO_FI_URL ? 'ko-fi' : link.href === AFDIAN_URL ? 'afdian' : null;
+        const target = link.href === KO_FI_URL ? 'ko-fi' : null;
         if (target) {
           void this.trackUsageEvent('support_link_clicked', { target });
         }

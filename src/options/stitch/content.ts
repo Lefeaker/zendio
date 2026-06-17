@@ -486,7 +486,7 @@ export const previewContent: PreviewContent = {
       hero: {
         title: 'Support',
         description: message('schemaResourceSupportDescription'),
-        pills: ['Ko-fi', 'Afdian'],
+        pills: ['Ko-fi', message('schemaResourceSupportAfdianTitle')],
         icon: 'favorite'
       },
       channels: [
@@ -497,22 +497,11 @@ export const previewContent: PreviewContent = {
           href: 'https://ko-fi.com/xiannian'
         },
         {
-          title: 'Afdian',
+          title: message('schemaResourceSupportAfdianTitle'),
           subtitle: message('schemaResourceSupportAfdianDescription'),
-          icon: './icons/aifadian-line-copy.svg',
-          href: 'https://afdian.com/a/LefShi'
+          icon: './icons/wechat-reward.svg',
+          image: './icons/wechat-reward-qr.jpg'
         }
-      ],
-      scope: [
-        'Install, upgrade, and uninstall basics',
-        'Troubleshooting clip failures, AI parsing, and Obsidian writes',
-        'Guidance for API tokens, permissions, and network setup',
-        'Explanations for privacy, permissions, and data safety'
-      ],
-      response: [
-        'First reply within 48 hours on business days',
-        'Complex cases will include an estimated resolution window',
-        'Use URGENT in the subject for data-loss or security-risk reports'
       ]
     },
     suggestions: {
@@ -526,11 +515,13 @@ export const previewContent: PreviewContent = {
         {
           title: message('schemaResourceSuggestionsGithubTitle'),
           subtitle: message('schemaResourceSuggestionsGithubDescription'),
+          icon: './icons/github-fill.svg',
           href: 'https://github.com/Lefeaker/AllinOB/issues/new?labels=enhancement&title=%5BFeature%20Request%5D%20'
         },
         {
           title: message('schemaResourceSuggestionsRedditTitle'),
           subtitle: message('schemaResourceSuggestionsRedditDescription'),
+          icon: './icons/reddit.svg',
           href: 'https://www.reddit.com/user/sxnian/'
         }
       ]

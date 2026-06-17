@@ -66,8 +66,14 @@ describe('Stitch schema renderer split', () => {
       id: 'renderer-labels',
       kind: 'page',
       children: [
-        { kind: 'resourceCard', title: 'Roadmap' },
+        { kind: 'resourceCard', title: 'Roadmap', icon: './icons/github-fill.svg' },
         { kind: 'resourceCard', title: 'Docs', href: 'https://example.test' },
+        {
+          kind: 'resourceCard',
+          title: 'WeChat',
+          image: './icons/wechat-reward-qr.jpg',
+          imageAlt: 'WeChat reward code'
+        },
         { kind: 'highlightExample' }
       ]
     };
@@ -77,6 +83,15 @@ describe('Stitch schema renderer split', () => {
     expect(node?.textContent).toContain('Queued');
     expect(node?.textContent).toContain('Open now');
     expect(node?.textContent).toContain('Before selected text after.');
+    expect(node?.querySelector('img.resource-link-icon')?.getAttribute('src')).toBe(
+      './icons/github-fill.svg'
+    );
+    expect(node?.querySelector('img.resource-link-preview')?.getAttribute('src')).toBe(
+      './icons/wechat-reward-qr.jpg'
+    );
+    expect(node?.querySelector('img.resource-link-preview')?.getAttribute('alt')).toBe(
+      'WeChat reward code'
+    );
     expect(node?.querySelector('.inline-highlight')?.className).toContain('highlight-neon-green');
   });
 

@@ -36,13 +36,7 @@ const EXPECTED_RESOURCE_LABELS = [
   'Changelog'
 ] as const;
 
-const EXPECTED_PRODUCTION_SURFACE_LABELS = [
-  'Clipper Dialog',
-  'Reader Mode',
-  'Video Mode',
-  'Video Floating Prompt',
-  'Task Success'
-] as const;
+const EXPECTED_PRODUCTION_SURFACE_LABELS: string[] = [];
 
 const DYNAMIC_WIDTH_SELECTORS = new Set([
   '.card',
@@ -103,11 +97,11 @@ const EXPECTED_PREVIEW_SURFACE_PANEL_COUNTS: Record<
 
 const EXPECTED_PRODUCTION_SURFACE_PANEL_COUNTS: Record<(typeof FOOTER_PANEL_IDS)[number], number> =
   {
-    clipper: 1,
-    reader: 1,
-    video: 1,
-    'video-floating-prompt': 1,
-    'task-success': 1
+    clipper: 0,
+    reader: 0,
+    video: 0,
+    'video-floating-prompt': 0,
+    'task-success': 0
   };
 
 function normalizeElementSamplesForParity(

@@ -13,8 +13,8 @@ const schema: ResourceSchema = {
     const resource = ctx.appData.resources.suggestions;
     const shouldLocalize = Boolean(ctx.messages);
     const tr = (key: SchemaMessageKey) => translateSchemaMessage(ctx.t, key);
-    const githubHref = resource.channels.find((item) => item.href?.includes('github.com'))?.href;
-    const redditHref = resource.channels.find((item) => item.href?.includes('reddit.com'))?.href;
+    const github = resource.channels.find((item) => item.href?.includes('github.com'));
+    const reddit = resource.channels.find((item) => item.href?.includes('reddit.com'));
     return {
       id: 'suggestions',
       kind: 'modal',
@@ -29,12 +29,14 @@ const schema: ResourceSchema = {
                     {
                       title: tr('schemaResourceSuggestionsGithubTitle'),
                       subtitle: tr('schemaResourceSuggestionsGithubDescription'),
-                      ...(githubHref !== undefined ? { href: githubHref } : {})
+                      ...(github?.href !== undefined ? { href: github.href } : {}),
+                      ...(github?.icon !== undefined ? { icon: github.icon } : {})
                     },
                     {
                       title: tr('schemaResourceSuggestionsRedditTitle'),
                       subtitle: tr('schemaResourceSuggestionsRedditDescription'),
-                      ...(redditHref !== undefined ? { href: redditHref } : {})
+                      ...(reddit?.href !== undefined ? { href: reddit.href } : {}),
+                      ...(reddit?.icon !== undefined ? { icon: reddit.icon } : {})
                     }
                   ].map((item) => resourceCard(item)),
                   2

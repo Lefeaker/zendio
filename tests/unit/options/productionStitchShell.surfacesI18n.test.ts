@@ -79,8 +79,8 @@ const ENGLISH_SENTINEL_MESSAGES = {
   supportPromptTitle: 'Support Prompt Title Sentinel',
   supportPromptKoFiTitle: 'Ko-fi Title Sentinel',
   supportPromptKoFiDescription: 'Ko-fi Description Sentinel',
-  supportPromptAfdianTitle: 'Afdian Title Sentinel',
-  supportPromptAfdianDescription: 'Afdian Description Sentinel',
+  supportPromptAfdianTitle: 'WeChat Reward Title Sentinel',
+  supportPromptAfdianDescription: 'WeChat Reward Description Sentinel',
   supportPromptLikeLabel: 'Like Label Sentinel',
   supportPromptDislikeLabel: 'Dislike Label Sentinel',
   supportPromptDismiss: 'Task Dismiss Sentinel',
@@ -105,9 +105,6 @@ function renderRuntimeSurface(
     messages: ENGLISH_SENTINEL_MESSAGES,
     language: 'en'
   });
-
-  queryRequired<HTMLElement>(`[data-footer-panel="${surfaceId}"]`);
-
   const draft = mergeOptions(SURFACE_INITIAL_OPTIONS) as CompleteOptions;
   const appData = structuredClone(
     createProductionStitchAppData(draft, {
@@ -346,8 +343,16 @@ describe('mountProductionStitchShell runtime surface i18n', () => {
     );
     expect(taskSuccess.textContent).toContain('Ko-fi Title Sentinel');
     expect(taskSuccess.textContent).toContain('Ko-fi Description Sentinel');
-    expect(taskSuccess.textContent).toContain('Afdian Title Sentinel');
-    expect(taskSuccess.textContent).toContain('Afdian Description Sentinel');
+    expect(taskSuccess.textContent).toContain('WeChat Reward Title Sentinel');
+    expect(taskSuccess.textContent).toContain('WeChat Reward Description Sentinel');
+    expect(
+      taskSuccess.querySelector<HTMLImageElement>(
+        'img.task-support-qr[src="./icons/wechat-reward-qr.jpg"]'
+      )
+    ).toBeTruthy();
+    expect(
+      taskSuccess.querySelector<HTMLAnchorElement>('a.task-support-link[href*="afdian.com"]')
+    ).toBeNull();
     expect(taskSuccess.textContent).toContain('Like Label Sentinel');
     expect(taskSuccess.textContent).toContain('Dislike Label Sentinel');
     expect(taskSuccess.textContent).toContain('Task Dismiss Sentinel');

@@ -83,27 +83,47 @@ export function renderResourceCardNode(node: ResourceCardNode, ctx: RendererCont
   const tag = isStatic ? 'div' : 'a';
   const title = resolveValue(node.title, ctx);
   const subtitle = resolveValue(node.subtitle, ctx);
+  const icon = resolveValue(node.icon, ctx);
+  const image = resolveValue(node.image, ctx);
+  const imageAlt = resolveValue(node.imageAlt, ctx);
   const labels = ctx.appData.rendererLabels;
+  const className = ['resource-link-card', isStatic ? 'is-static' : '', image ? 'has-preview' : '']
+    .filter(Boolean)
+    .join(' ');
+  const trailing = image
+    ? ctx.el('img', {
+        className: 'resource-link-preview',
+        src: image,
+        alt: imageAlt ?? `${title} preview`
+      })
+    : isStatic
+      ? ctx.ui.Badge(labels.resourcePendingBadge, 'warning')
+      : ctx.el('span', { className: 'resource-link-action', text: labels.resourceOpenAction });
 
   return ctx.el(
     tag,
     isStatic
-      ? { className: 'resource-link-card is-static' }
+      ? { className }
       : {
-          className: 'resource-link-card',
+          className,
           href,
           target: '_blank',
           rel: 'noopener noreferrer'
         },
+    icon
+      ? ctx.el('img', {
+          className: 'resource-link-icon',
+          src: icon,
+          alt: `${title} icon`
+        })
+      : null,
     ctx.el(
       'div',
       { className: 'resource-link-copy' },
       ctx.el('strong', { text: title }),
       subtitle ? ctx.el('span', { text: subtitle }) : null
     ),
-    isStatic
-      ? ctx.ui.Badge(labels.resourcePendingBadge, 'warning')
-      : ctx.el('span', { className: 'resource-link-action', text: labels.resourceOpenAction })
+    trailing
   );
 }
 
