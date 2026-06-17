@@ -1,6 +1,7 @@
 /* @vitest-environment jsdom */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import type { Mock, MockInstance } from 'vitest';
 import {
   createSessionDraftPageKey,
   createSessionDraftRepository,
@@ -25,8 +26,8 @@ import {
 import type { VideoScreenshotCacheRepository } from '@content/video/videoScreenshotCacheRepository';
 
 type TrackedStorageArea = StorageAreaService & {
-  setMany: StorageAreaService['setMany'] & ReturnType<typeof vi.fn>;
-  remove: StorageAreaService['remove'] & ReturnType<typeof vi.fn<StorageAreaService['remove']>>;
+  setMany: Mock<StorageAreaService['setMany']>;
+  remove: Mock<StorageAreaService['remove']>;
 };
 type TimestampDraftCapture = Extract<
   VideoSessionDraftPayloadShape['captures'][number],
@@ -37,8 +38,8 @@ function createTrackedStorageArea(): TrackedStorageArea {
   const area = createMemoryStorageArea();
   return {
     ...area,
-    setMany: vi.fn(area.setMany) as TrackedStorageArea['setMany'],
-    remove: vi.fn(area.remove) as TrackedStorageArea['remove']
+    setMany: vi.fn<StorageAreaService['setMany']>(area.setMany),
+    remove: vi.fn<StorageAreaService['remove']>(area.remove)
   };
 }
 
@@ -154,7 +155,6 @@ function createHarness(
     destinationState,
     storageArea: storage,
     dom,
-    applyHint: vi.fn(),
     onScreenshotHydrationChange: options.onScreenshotHydrationChange,
     readCleanupState: () => ({ ...cleanupState }),
     ...(options.screenshotCache ? { screenshotCache: options.screenshotCache } : {})
@@ -278,13 +278,15 @@ function createDeferred<T>() {
 }
 
 describe('VideoSessionDraftController', () => {
-  let warnSpy: ReturnType<typeof vi.spyOn>;
+  let warnSpy: MockInstance<(...data: unknown[]) => void>;
 
   beforeEach(() => {
     document.body.innerHTML = '<video></video>';
     document.title = 'Video Title';
     vi.useFakeTimers();
-    warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => undefined) as MockInstance<
+      (...data: unknown[]) => void
+    >;
   });
 
   afterEach(() => {

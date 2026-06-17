@@ -633,7 +633,12 @@ function getTrackUsageEventMock(
     params?: UsageEventParamMap[EventName]
   ) => Promise<void>
 > {
-  return deps.trackUsageEvent as ReturnType<typeof vi.fn>;
+  return deps.trackUsageEvent as Mock<
+    <EventName extends UsageEventName>(
+      event: EventName,
+      params?: UsageEventParamMap[EventName]
+    ) => Promise<void>
+  >;
 }
 
 type VideoScreenshotCacheSaveMock = Mock<
@@ -1064,7 +1069,7 @@ describe('VideoSession', () => {
       return Document.prototype.createElement.call(document, tagName);
     });
     const video = requireVideoElement();
-    let currentTime = 8;
+    let currentTime = 42;
     let paused = false;
     const currentTimeSetSpy = vi.fn((value: number) => {
       currentTime = value;
@@ -1123,7 +1128,7 @@ describe('VideoSession', () => {
       expect(toBlob).not.toHaveBeenCalled();
       expect(toDataURL).not.toHaveBeenCalled();
       expect(hiddenVideo.currentTimeSetSpy).not.toHaveBeenCalled();
-      expect(currentTime).toBe(8);
+      expect(currentTime).toBe(42);
       expect(currentTimeSetSpy).not.toHaveBeenCalled();
       expect(pauseSpy).not.toHaveBeenCalled();
       expect(playSpy).not.toHaveBeenCalled();
@@ -1140,6 +1145,185 @@ describe('VideoSession', () => {
       expect(latestCapture).not.toHaveProperty('screenshot');
       expect(latestCapture).not.toHaveProperty('dataUrl');
       expect(latestCapture).not.toHaveProperty('content');
+    } finally {
+      createElementSpy.mockRestore();
+      sessionApi.cleanup();
+    }
+  });
+
+  it('waits for cache-hit hydration before requesting fallback screenshot preparation on restored drafts', async () => {
+    const deps = createDependencies();
+    const repository = createSessionDraftRepository(deps.storage.local);
+    const cacheTypesModule =
+      await import('../../../../src/content/video/videoScreenshotCacheTypes');
+    const restoredScreenshot = createBlobScreenshotFixture('cached-frame', 2_000_000_000_101, {
+      id: 'shot-cached',
+      fileName: 'video-0m42s.jpg'
+    });
+    const savedRef: VideoScreenshotCacheRef = {
+      schemaVersion: 1,
+      pageKey: 'video-example',
+      captureId: 'ts-1',
+      id: 'shot-cached',
+      key: cacheTypesModule.createVideoScreenshotCacheStorageKey({
+        pageKey: 'video-example',
+        captureId: 'ts-1',
+        screenshotId: 'shot-cached'
+      }),
+      fileName: 'video-0m42s.jpg',
+      mimeType: 'image/jpeg',
+      byteLength: restoredScreenshot.content.byteLength,
+      capturedAt: restoredScreenshot.capturedAt,
+      expiresAt: restoredScreenshot.capturedAt + 60_000
+    };
+    const loadDeferred = createDeferred<typeof restoredScreenshot | null>();
+    const loadSpy = vi.fn(() => loadDeferred.promise);
+    const saveSpy: VideoScreenshotCacheSaveMock = vi.fn(
+      (): Promise<VideoScreenshotCacheSaveResult> =>
+        Promise.reject(new Error('cache save should not run for cache-hit restore'))
+    );
+    deps.screenshotCacheRepository = createScreenshotCacheRepositoryMock({
+      save: saveSpy,
+      load: loadSpy
+    });
+    const envelope = createVideoSessionDraftEnvelope({
+      draftId: 'draft-cache-hit-race',
+      pageUrl: document.location.href,
+      pageTitle: 'Draft title',
+      updatedAt: 2_000_000_000_100,
+      status: 'restorable',
+      payload: buildVideoSessionDraftPayload({
+        captures: [
+          {
+            kind: 'timestamp',
+            id: 'ts-1',
+            timeSec: 42,
+            url: 'https://video.example/watch?t=42',
+            comment: 'Restored marker',
+            createdAt: 2_000_000_000_100,
+            screenshotRequested: true,
+            screenshotRef: savedRef
+          }
+        ],
+        commentDrafts: { 'ts-1': 'draft note' },
+        platform: 'bilibili',
+        videoId: 'BV1xx411c7mD',
+        videoTitle: 'Draft title',
+        videoUrl: document.location.href,
+        canonicalUrl: document.location.href
+      })
+    });
+    await repository.save(envelope);
+    const session = new VideoSession(document, deps);
+    const sessionApi = toSessionTestApi(session);
+    const canvas = document.createElement('canvas');
+    const drawImage = vi.fn();
+    const toBlob = vi.fn();
+    const toDataURL = vi.fn();
+    const hiddenVideo = createPreparationVideoHarness({
+      currentTime: 0,
+      sourceUrl: 'https://cdn.example/video.mp4'
+    });
+    const createElementSpy = vi.spyOn(document, 'createElement').mockImplementation((tagName) => {
+      if (tagName.toLowerCase() === 'video') {
+        return hiddenVideo.video;
+      }
+      if (tagName.toLowerCase() === 'canvas') {
+        Object.defineProperty(canvas, 'getContext', {
+          value: vi.fn(() => ({ drawImage })),
+          configurable: true
+        });
+        Object.defineProperty(canvas, 'toBlob', {
+          value: toBlob,
+          configurable: true
+        });
+        Object.defineProperty(canvas, 'toDataURL', {
+          value: toDataURL,
+          configurable: true
+        });
+        return canvas;
+      }
+      return Document.prototype.createElement.call(document, tagName);
+    });
+    const video = requireVideoElement();
+    let currentTime = 42;
+    let paused = false;
+    const currentTimeSetSpy = vi.fn((value: number) => {
+      currentTime = value;
+    });
+    Object.defineProperty(video, 'currentTime', {
+      get: () => currentTime,
+      set: currentTimeSetSpy,
+      configurable: true
+    });
+    Object.defineProperty(video, 'paused', {
+      get: () => paused,
+      configurable: true
+    });
+    Object.defineProperty(video, 'readyState', {
+      value: 4,
+      configurable: true
+    });
+    Object.defineProperty(video, 'videoWidth', {
+      value: 640,
+      configurable: true
+    });
+    Object.defineProperty(video, 'videoHeight', {
+      value: 360,
+      configurable: true
+    });
+    Object.defineProperty(video, 'currentSrc', {
+      value: 'https://cdn.example/video.mp4',
+      configurable: true
+    });
+    Object.defineProperty(video, 'src', {
+      value: 'https://cdn.example/video.mp4',
+      configurable: true
+    });
+    const pauseSpy = vi.spyOn(video, 'pause').mockImplementation(() => {
+      paused = true;
+    });
+    const playSpy = vi.spyOn(video, 'play').mockImplementation(() => {
+      paused = false;
+      return Promise.resolve();
+    });
+
+    try {
+      await session.start();
+      (
+        session as unknown as {
+          handleVideoElementChange(element: HTMLVideoElement | null): void;
+        }
+      ).handleVideoElementChange(video);
+      await flushMutationWork();
+      await new Promise<void>((resolve) => {
+        globalThis.setTimeout(resolve, 0);
+      });
+      await flushMutationWork();
+
+      expect(sessionApi.state.captures).toHaveLength(1);
+      const restoredTimestamp = sessionApi.state.captures[0];
+      if (!restoredTimestamp || restoredTimestamp.kind !== 'timestamp') {
+        throw new Error('expected restored timestamp capture');
+      }
+
+      expect(loadSpy).toHaveBeenCalledWith(savedRef);
+      expect(restoredTimestamp.screenshot).toBeUndefined();
+      expect(drawImage).not.toHaveBeenCalled();
+      expect(toBlob).not.toHaveBeenCalled();
+      expect(toDataURL).not.toHaveBeenCalled();
+      expect(hiddenVideo.currentTimeSetSpy).not.toHaveBeenCalled();
+      expect(currentTime).toBe(42);
+      expect(currentTimeSetSpy).not.toHaveBeenCalled();
+      expect(pauseSpy).not.toHaveBeenCalled();
+      expect(playSpy).not.toHaveBeenCalled();
+
+      loadDeferred.resolve(restoredScreenshot);
+      const hydratedScreenshot = await waitForTimestampScreenshot(restoredTimestamp);
+      expect(hydratedScreenshot).toBe(restoredScreenshot);
+      await flushMutationWork();
+      expect(saveSpy).not.toHaveBeenCalled();
+      expect(restoredTimestamp.screenshotRef).toEqual(savedRef);
     } finally {
       createElementSpy.mockRestore();
       sessionApi.cleanup();

@@ -1,13 +1,7 @@
-import { chatgptParser } from './platforms/chatgpt';
-import { claudeParser } from './platforms/claude';
-import { copilotParser } from './platforms/copilot';
-import { deepseekParser } from './platforms/deepseek';
-import { doubaoParser } from './platforms/doubao';
+import { monicaParser, perplexityParser } from './platforms/assistantFamily';
+import { deepseekParser, doubaoParser, kimiParser, tongyiParser } from './platforms/chineseFamily';
 import { geminiParser } from './platforms/gemini';
-import { kimiParser } from './platforms/kimi';
-import { monicaParser } from './platforms/monica';
-import { perplexityParser } from './platforms/perplexity';
-import { tongyiParser } from './platforms/tongyi';
+import { chatgptParser, claudeParser, copilotParser } from './platforms/openaiFamily';
 import type { ChatPlatformParser, PlatformId } from './types';
 
 const runtimePlatformParsers: Record<PlatformId, ChatPlatformParser> = {

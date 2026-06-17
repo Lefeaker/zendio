@@ -1,5 +1,22 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+function createUrlConstructor(
+  methods: Partial<Pick<typeof URL, 'createObjectURL' | 'revokeObjectURL'>> = {}
+): typeof URL {
+  class TestURL extends URL {}
+  Object.defineProperties(TestURL, {
+    createObjectURL: {
+      configurable: true,
+      value: methods.createObjectURL
+    },
+    revokeObjectURL: {
+      configurable: true,
+      value: methods.revokeObjectURL
+    }
+  });
+  return TestURL as typeof URL;
+}
+
 describe('chrome downloads adapter', () => {
   beforeEach(() => {
     vi.resetModules();
@@ -21,10 +38,13 @@ describe('chrome downloads adapter', () => {
         download: downloadApiMock
       }
     });
-    vi.stubGlobal('URL', {
-      createObjectURL: createObjectURLMock,
-      revokeObjectURL: revokeObjectURLMock
-    });
+    vi.stubGlobal(
+      'URL',
+      createUrlConstructor({
+        createObjectURL: createObjectURLMock,
+        revokeObjectURL: revokeObjectURLMock
+      })
+    );
 
     const { chromeDownloadsService } = await import('../../../../src/platform/chrome/downloads');
     const blob = new Blob(['aaa'], { type: 'image/jpeg' });
@@ -59,7 +79,7 @@ describe('chrome downloads adapter', () => {
         download: downloadApiMock
       }
     });
-    vi.stubGlobal('URL', {});
+    vi.stubGlobal('URL', createUrlConstructor());
     vi.stubGlobal('btoa', (value: string) => Buffer.from(value, 'binary').toString('base64'));
 
     const { chromeDownloadsService } = await import('../../../../src/platform/chrome/downloads');

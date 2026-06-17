@@ -29,10 +29,25 @@ describe('runtime AI chat parser registry', () => {
     expect(source).not.toContain('../../third_party/ai-chat-exporter/parse');
   });
 
-  it('resolves direct platform ids and aliases through the runtime registry', async () => {
-    await expect(resolveParserAsync('chatgpt')).resolves.toMatchObject({ id: 'chatgpt' });
-    await expect(resolveParserAsync('moonshot')).resolves.toMatchObject({ id: 'kimi' });
-    await expect(resolveParserAsync('pplx')).resolves.toMatchObject({ id: 'perplexity' });
+  it.each([
+    ['chatgpt', 'chatgpt'],
+    ['claude', 'claude'],
+    ['copilot', 'copilot'],
+    ['gemini', 'gemini'],
+    ['tongyi', 'tongyi'],
+    ['deepseek', 'deepseek'],
+    ['kimi', 'kimi'],
+    ['moonshot', 'kimi'],
+    ['doubao', 'doubao'],
+    ['monica', 'monica'],
+    ['perplexity', 'perplexity'],
+    ['pplx', 'perplexity']
+  ])('resolves %s to the %s parser', async (platform, expectedId) => {
+    await expect(resolveParserAsync(platform)).resolves.toMatchObject({ id: expectedId });
+  });
+
+  it('returns undefined for unsupported platforms', async () => {
+    await expect(resolveParserAsync('unknown')).resolves.toBeUndefined();
   });
 
   it('keeps unknown platforms on the empty parse result path', async () => {

@@ -58,7 +58,6 @@ describe('VideoSessionDraftController title fallback', () => {
         readCommentDrafts: vi.fn(() => ({})),
         setCommentDrafts: vi.fn()
       },
-      applyHint: vi.fn(),
       readCleanupState: () => ({
         isCleaningUp: false,
         shouldTrackSavingState: true

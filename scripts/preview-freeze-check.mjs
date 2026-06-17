@@ -78,11 +78,12 @@ const ALLOWED_PREVIEW_DRIFT = new Map([
         'P07 refreshes the generated preview JS hash after splitting generated schema messages into schemaCore plus per-locale schema modules and keeping the preview path on the English schema fallback only, while preserving the frozen reference and Stitch runtime contract.',
         'P07b refreshes the generated preview JS hash after making production Stitch localization preserve omitted optional runtime destination fields under exactOptionalPropertyTypes while preserving the frozen reference and Stitch runtime contract.',
         'The English uncatalogued-copy audit coverage follow-up refreshes the generated preview JS hash after replacing preview seed hint/subtitle/body literals with catalog-backed message lookups and extracting preview navigation seed ownership while preserving the frozen reference and Stitch runtime contract.',
-        'The English numbered UI title audit follow-up refreshes the generated preview JS hash after replacing plugin setup preview seed raw numbered step titles with existing catalog-backed schema message lookups while preserving the frozen reference and Stitch runtime contract.'
+        'The English numbered UI title audit follow-up refreshes the generated preview JS hash after replacing plugin setup preview seed raw numbered step titles with existing catalog-backed schema message lookups while preserving the frozen reference and Stitch runtime contract.',
+        'The 0.2.0 release-gates repair also replaces YAML editor fallback value imports and preview-reachable Options formatMessage barrel imports with slim local fallback copy plus the lightweight @i18n/messageFormatter entry, removing the full i18n runtime/localeService/generated-locale graph from the preview bundle while preserving YAML labels, fragment modifier warnings, and the Stitch preview contract. The English gate/main merge keeps Options/Stitch fallback copy catalog-backed through the English runtime catalog source plus the generated English schema fallback, without restoring localeService or the generated all-locale registry.'
       ].join(' '),
       leftSha256: '9020ccbd91acd691eccd3fdf568b9a90efbddf0a35d79f36ef1caba702fa0c07',
-      // 2026-06-17 English numbered UI title audit follow-up preview JS hash refresh.
-      rightSha256: '86f0b401caea0876c22797714cf306f01c41179637f00b1fb4ef2307843da226'
+      // 2026-06-17 English numbered UI title + release-gates merge preview JS hash refresh.
+      rightSha256: 'f9b2105ae5b8ff82c2ef47ce265f673b7d706cf62b3baade7a0f064bb04d3f51'
     }
   ]
 ]);

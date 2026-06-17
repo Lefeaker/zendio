@@ -1,5 +1,7 @@
-import { DEFAULT_RUNTIME_MESSAGES, formatMessage, type Messages } from '@i18n';
+import englishRuntimeMessages from '@i18n/catalog/messages/en/runtime.json';
 import { GENERATED_RELEASE_SCHEMA_MESSAGES_EN } from '@i18n/generated/schema/en.generated';
+import { formatMessage } from '@i18n/messageFormatter';
+import type { Messages } from '@i18n/messages';
 
 export type SchemaMessageKey = keyof Messages;
 
@@ -49,7 +51,7 @@ export function createSchemaTranslator(messages: Messages | null): SchemaTransla
   };
 }
 
-export const DEFAULT_PRODUCTION_ENGLISH_MESSAGES: Messages = {
-  ...DEFAULT_RUNTIME_MESSAGES,
+export const DEFAULT_PRODUCTION_ENGLISH_MESSAGES = {
+  ...(englishRuntimeMessages as Partial<Messages>),
   ...GENERATED_RELEASE_SCHEMA_MESSAGES_EN
-};
+} as Messages;

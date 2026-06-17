@@ -106,7 +106,7 @@ The report currently classifies:
 - `descriptor-boundary`: English user-visible payload fields under background/content/runtime/error boundaries without a descriptor sibling, including `normalizeToAppError` raw English `defaultMessage` fallbacks.
 - `html-uncatalogued-copy` and `dom-text-copy`: text nodes or DOM text assignment outside the catalog.
 
-Current tree truth on 2026-06-17 after P01-P07 English copy governance, P07d surface-localization owner split, P08 gate wiring, the coverage follow-up for `defaultMessage` plus expanded visible fields, and the numbered UI title false-negative follow-up: `scanned=575 findings=0 unexpected=0 staleAllowlist=0`. The English allowlist currently has `0` rules, so the gate is not masking retained product UI copy.
+Current tree truth on 2026-06-17 after P01-P07 English copy governance, P07d surface-localization owner split, P08 gate wiring, the coverage follow-up for `defaultMessage` plus expanded visible fields, the numbered UI title false-negative follow-up, and the current `origin/main` merge: `scanned=578 findings=0 unexpected=0 staleAllowlist=0`. The English allowlist currently has `0` rules, so the gate is not masking retained product UI copy.
 
 Valid future allowlist entries must include `id`, `path`, `category`, `reason`, `ownerPlan`, `revisit`, a stable locator (`line`, `pattern`, or `literalIncludes`), and applicable `findingKinds`. Broad path-only allowlists are invalid. Do not add an allowlist rule for product-authored UI copy that should be catalog-backed.
 
