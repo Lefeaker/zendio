@@ -1,6 +1,6 @@
 # 工程命令与入口
 
-最后更新：2026-06-16
+最后更新：2026-06-17
 
 ## 推荐运行环境
 
@@ -25,8 +25,8 @@
   - `npm run test:i18n` 包含 `layout:report`；clean worktree 中需先运行 `npm run build:dev` 或 `npm run build` 生成 `build/dist`
   - `lint:options-css` 的当前有效规则覆盖 `src/options/**/*.css`；`src/options/stitch/styles/**` 的 `--print-config` 必须包含非空 `selector-class-pattern`
   - 显式包含 `lint:hardcoded`；当前 standalone 输出为 `0` hardcoded findings
-  - 显式包含 `audit:i18n-hardcoded-user-copy:check`；生产用户可见文案只能来自 i18n catalog 或 `UserVisibleMessageDescriptor` key，background/content 边界只传 descriptor/code/params。当前 hard gate 输出为 `scanned=577 findings=19 unexpected=0 staleAllowlist=0`，治理细节见 [`i18n-production-copy-governance.md`](./i18n-production-copy-governance.md)
-  - `audit:i18n-uncatalogued-user-copy` 是英文 uncatalogued-copy standalone report-only；当前未接入 `quality`、`verify:preflight`、CI、build、package 或 release。当前 report 输出 `scanned=573 findings=407 unexpected=407 staleAllowlist=0`，分类为 `translation-fallback=253`、`english-literal=134`、`descriptor-boundary=20`；不要把它表述为 hard gate。
+  - 显式包含 `audit:i18n-hardcoded-user-copy:check`；生产用户可见文案只能来自 i18n catalog 或 `UserVisibleMessageDescriptor` key，background/content 边界只传 descriptor/code/params。当前 CJK/descriptor hard gate 输出为 `scanned=578 findings=19 unexpected=0 staleAllowlist=0`，治理细节见 [`i18n-production-copy-governance.md`](./i18n-production-copy-governance.md)
+  - 显式包含 `audit:i18n-uncatalogued-user-copy:check`；英文 uncatalogued-copy audit 已作为 hard gate 接入 `quality`，当前输出 `scanned=574 findings=0 unexpected=0 staleAllowlist=0`，allowlist rules 为 `0`
   - 显式包含 `i18n:catalog:check`；catalog/generated artifact drift 会在 `quality`、`verify:preflight` 与 CI 中阻塞
   - `audit:design-system-doc:report` 只检查 tracked / non-ignored 的 active style guidance；被 `.gitignore` 标记的本地过程 archive 不进入当前样式真值口径
   - `i18n:catalog:generate` 当前从 `src/i18n/catalog/messages/<lang>/{runtime,static,schema}.json` 生成 `src/i18n/generated/*`、`src/i18n/generated/locales/*.generated.ts` 与 `public/_locales/**`；`npm run i18n:generate` 保持原命令名，但现在只是兼容包装层，实际委托给 catalog generator
@@ -37,6 +37,7 @@
   - 显式包含 `typecheck:tests`
   - 显式包含 `typecheck:strict`
   - 显式包含 `i18n:catalog:check`
+  - 显式包含 `audit:i18n-uncatalogued-user-copy:check`
   - 显式包含 `audit:ga:proxy-contract`、`audit:ga:docs` 与 `audit:ga:legacy-api`
   - 串行继续执行 `lint -- --quiet`、`build:dev`、`audit:ga:client-secret`、`audit:ga:release-surface` 与其他 `audit:*` 报告
 - `npm run test*` 与 `npm run visual*`
@@ -67,7 +68,7 @@
 - 2026-06-09 dependency-audit 真值：Node `v20.20.2` / npm `10.8.2` 下，`npm audit --omit=dev` 当前为 `0` vulnerabilities，production runtime release gate 仍为 green；`npm audit --audit-level=low` 当前因 dev tooling dependency `vitest <3.2.6` / `@vitest/coverage-v8 <=3.2.5` 返回 `2` critical findings，未接入 `quality` / `verify:preflight`，不得表述为当前全量 green。
 - 2026-06-16 i18n hardcoded P22/post-strict-gap type-ratchet 真值：P16-P22 与 post-P22 strict gap 合入 integration 后，`lint:type-any` 扫描 `1231` files，fresh overall `0/1148/1973/47/3`、src `0/628/695/9/0`、tests `0/520/1278/38/3`；`lint:type-any:ratchet` checked-in 上限同步为 overall `0/1148/1973/53/4`、src `0/628/695/9/0`、tests `0/520/1278/46/4`。本次只同步 accepted integration current truth，`any` 继续保持 `0`，`ts-expect-error` 未增加，non-null 上限未放宽。
 - 2026-06-16 i18n hardcoded production-copy 真值：`audit:i18n-hardcoded-user-copy` 为报告命令；`audit:i18n-hardcoded-user-copy:check` 会先生成 `build/reports/production-build-graph.json`，再以 `--check` 运行 hardcoded user-copy audit，并已接入 `quality`。当前保留 allowlist 仅限 P21 site-native AI parser tokens；P13 regression matrix `tests/unit/i18n/hardcodedSurfaceCoverage.test.ts` 绑定 P03-P22 migrated surfaces 到 executable evidence，integration full `npm run test` 已通过 `391` files / `2477` tests。
-- 2026-06-16 English uncatalogued-copy report 真值：`audit:i18n-uncatalogued-user-copy` 会先刷新 production build graph，再扫描 production-reachable `src/**` 与 relevant `public/**` 中疑似英文 UI copy、translation fallback、descriptor-boundary payload、HTML/DOM text。当前 standalone report-only 输出 `scanned=573 findings=407 unexpected=407 staleAllowlist=0`；top owners 为 Options/Stitch content 与 schema resources。该 audit 未接入 hard gate，后续 gate 化必须先完成迁移/窄 allowlist/误报评估并记录 ledger，不得直接加入 `quality`。
+- 2026-06-17 English uncatalogued-copy hard gate 真值：`audit:i18n-uncatalogued-user-copy:check` 会先刷新 production build graph，再扫描 production-reachable `src/**` 与 relevant `public/**` 中疑似英文 UI copy、translation fallback、descriptor-boundary payload、HTML/DOM text。P01-P07 迁移和 P07d surface-localization owner split 后当前输出 `scanned=574 findings=0 unexpected=0 staleAllowlist=0`，allowlist rules 为 `0`；P08 已将该 check 接入 `quality` 与 `verify:preflight`，不得用 broad allowlist 掩盖产品 UI copy。
 - 2026-06-16 i18n hardcoded P15 preflight build-budget follow-up 前风险状态：`audit:build:report` 在 integration `ca8be48e` 上复现 post-P14 dev-build drift 后，同步 gates 为 `content/runtime.js` warning `58,564` raw bytes / hard stop `58,752`、`onboarding/index.js` warning `17,377` / hard stop `17,633`、release locale chunk hard stop `64 KB`、shared `chunk-*` top-three hard stops `213 KB` / `136 KB` / `133 KB`；当时 chunk count hard stop 为 `120`，single chunk `320 KB`、YAML `70 KB` 未变。该条保留风险来源，不再代表 follow-up 后当前 chunk count gate。
 - 2026-06-16 i18n hardcoded follow-up build-budget 真值：AI chat runtime parser loaders 合并为一个 lazy `runtimePlatformParsers-*` boundary，并在 P3 follow-up 切断 `aiChatExtractor.ts -> parse.ts -> registry.ts -> platform parsers` 静态路径后，dev `audit:build:report` chunk count 从 `120` 降为 `101`；chunk count gate 收紧为 warning target `108` / hard stop `118`。`aiChatExtractor-*` 静态 import 图不再包含 platform parser implementation markers，platform parsers 只通过 `runtimeRegistry-*` 动态加载唯一 `runtimePlatformParsers-*`。本次没有提高任何 hard stop，也没有改变 entry/shared/locale/YAML size hard stops。
 - 2026-05-29 Plan 11 G2/G3 governance 真值：`lint:hardcoded` 已接入 `quality` 与 CI；`audit:platform-boundary:report` 仍是 report-only standalone evidence，当前报告 `148` findings（composition-root `11`、offscreen-local-vault-permission-root `1`、platform-adapter `93`、shared-runtime-helper `23`、type-only `20`），不得当作 hard gate；全量 `npm audit --audit-level=low` 不是 `quality` hard gate，当前 dev tooling advisory 见上一条。
@@ -100,12 +101,13 @@ npm run test:i18n
 npm run audit:i18n-hardcoded-user-copy
 npm run audit:i18n-hardcoded-user-copy:check
 npm run audit:i18n-uncatalogued-user-copy
+npm run audit:i18n-uncatalogued-user-copy:check
 npx vitest run --config vitest.unit.config.ts tests/unit/i18n/hardcodedSurfaceCoverage.test.ts
 ```
 
 `audit:i18n-hardcoded-user-copy` 只打印当前报告；`audit:i18n-hardcoded-user-copy:check` 是 hard gate 并由 `quality` 调用。直接运行 `node scripts/audit-i18n-hardcoded-user-copy.mjs --check` 不会刷新 `build/reports/production-build-graph.json`；优先使用 npm script，避免用过期 graph 审计。
 
-`audit:i18n-uncatalogued-user-copy` 是英文 uncatalogued-copy report-only。它用于迁移计划、误报评估和后续 hard-gate 准备；当前发现数不为零，因此不能作为通过/失败门禁使用，也不能接入 `quality`。
+`audit:i18n-uncatalogued-user-copy` 打印英文 uncatalogued-copy 报告；`audit:i18n-uncatalogued-user-copy:check` 是 hard gate，并已由 `quality` 与 `verify:preflight` 调用。新增英文产品 UI copy 必须先进入 catalog 或 typed descriptor。
 
 浏览器与交互验真：
 
