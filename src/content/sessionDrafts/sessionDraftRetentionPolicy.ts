@@ -6,6 +6,11 @@ export interface SessionDraftRetentionPolicy {
   maxItemsPerPage: number | null;
 }
 
+export interface SessionDraftStoragePolicy {
+  retentionPolicy: SessionDraftRetentionPolicy;
+  videoScreenshotCacheTtlMs: number;
+}
+
 export const FREE_SESSION_DRAFT_RETENTION_MS = 48 * 60 * 60 * 1000;
 export const FREE_SESSION_DRAFT_MAX_RESTORABLE_PAGES = 5;
 export const FREE_SESSION_DRAFT_MAX_ITEMS_PER_PAGE = 20;
@@ -17,8 +22,9 @@ export const FREE_SESSION_DRAFT_RETENTION_POLICY: SessionDraftRetentionPolicy = 
 };
 
 export const DEFAULT_SESSION_DRAFT_RETENTION_POLICY = FREE_SESSION_DRAFT_RETENTION_POLICY;
+export const DEFAULT_SESSION_DRAFT_TTL_MS = FREE_SESSION_DRAFT_RETENTION_MS;
 
-export function normalizePolicy(
+export function normalizeSessionDraftRetentionPolicy(
   policy?: Partial<SessionDraftRetentionPolicy> | null,
   fallbackRetentionMs?: number
 ): SessionDraftRetentionPolicy {
@@ -40,7 +46,35 @@ export function normalizePolicy(
   };
 }
 
-export function prunePolicyIndexEntries(
+export function createSessionDraftStoragePolicy(
+  options: {
+    retentionPolicy?: Partial<SessionDraftRetentionPolicy> | null;
+    videoScreenshotCacheTtlMs?: number;
+  } = {}
+): SessionDraftStoragePolicy {
+  const retentionPolicy = normalizeSessionDraftRetentionPolicy(options.retentionPolicy);
+  return {
+    retentionPolicy,
+    videoScreenshotCacheTtlMs: normalizePositiveFiniteNumber(
+      options.videoScreenshotCacheTtlMs,
+      retentionPolicy.retentionMs
+    )
+  };
+}
+
+export const DEFAULT_SESSION_DRAFT_STORAGE_POLICY = createSessionDraftStoragePolicy({
+  retentionPolicy: DEFAULT_SESSION_DRAFT_RETENTION_POLICY
+});
+
+export function getSessionDraftEffectiveExpiresAt(
+  value: Pick<SessionDraftIndexEntry, 'updatedAt' | 'expiresAt'>,
+  policy?: Partial<SessionDraftRetentionPolicy> | null
+): number {
+  const normalizedPolicy = normalizeSessionDraftRetentionPolicy(policy);
+  return Math.min(value.expiresAt, value.updatedAt + normalizedPolicy.retentionMs);
+}
+
+export function pruneSessionDraftIndexEntriesForRetentionPolicy(
   entries: readonly SessionDraftIndexEntry[],
   now: number,
   options: {
@@ -48,7 +82,7 @@ export function prunePolicyIndexEntries(
     maxEntries: number;
   }
 ): { entries: SessionDraftIndexEntry[]; removedKeys: string[]; dirty: boolean } {
-  const policy = normalizePolicy(options.policy);
+  const policy = normalizeSessionDraftRetentionPolicy(options.policy);
   const sorted = [...entries].sort((left, right) => right.updatedAt - left.updatedAt);
   const unique: SessionDraftIndexEntry[] = [];
   const removedKeys: string[] = [];
@@ -63,7 +97,7 @@ export function prunePolicyIndexEntries(
   }
 
   const retainedUnexpired = unique.filter((entry) => {
-    if (getEffectiveExpiresAt(entry, policy) <= now) {
+    if (getSessionDraftEffectiveExpiresAt(entry, policy) <= now) {
       removedKeys.push(entry.key);
       return false;
     }
@@ -91,7 +125,7 @@ export function selectRetainedSessionDraftItems<T extends { createdAt: number }>
   const maxItems =
     typeof policy === 'number'
       ? normalizeNullablePositiveInteger(policy, null)
-      : normalizePolicy(policy).maxItemsPerPage;
+      : normalizeSessionDraftRetentionPolicy(policy).maxItemsPerPage;
 
   if (maxItems === null || items.length <= maxItems) {
     return [...items];
@@ -192,13 +226,6 @@ function isRestorableStatus(status: SessionDraftIndexEntry['status']): boolean {
   return status === 'active' || status === 'restorable';
 }
 
-function getEffectiveExpiresAt(
-  entry: SessionDraftIndexEntry,
-  policy: SessionDraftRetentionPolicy
-): number {
-  return Math.min(entry.expiresAt, entry.updatedAt + policy.retentionMs);
-}
-
 function normalizePositiveFiniteNumber(value: number | undefined, fallback: number): number {
   return typeof value === 'number' && Number.isFinite(value) && value > 0 ? value : fallback;
 }
@@ -212,8 +239,3 @@ function normalizeNullablePositiveInteger(
   }
   return typeof value === 'number' && Number.isInteger(value) && value > 0 ? value : fallback;
 }
-
-export {
-  normalizePolicy as normalizeSessionDraftRetentionPolicy,
-  prunePolicyIndexEntries as pruneSessionDraftIndexEntriesForRetentionPolicy
-};

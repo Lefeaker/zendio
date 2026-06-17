@@ -163,7 +163,9 @@ class MemoryBlobStore implements VideoScreenshotCacheBlobStore {
   }
 
   private sortedEntries(): VideoScreenshotCacheBlobEntry[] {
-    return sortVideoScreenshotCacheBlobMetadataNewestFirst([...this.values.values()].map(cloneBlobEntry));
+    return sortVideoScreenshotCacheBlobMetadataNewestFirst(
+      [...this.values.values()].map(cloneBlobEntry)
+    );
   }
 
   private waitForPageReadTurn(): Promise<void> {
@@ -397,9 +399,11 @@ describe('background-owned video screenshot cache client', () => {
 
     const firstRef = requireSavedRef(first);
     const secondRef = requireSavedRef(second);
+    expect(firstRef.expiresAt).toBe(BASE_TIME + 20);
+    expect(secondRef.expiresAt).toBe(BASE_TIME + 20);
     expect(blobStore.snapshotMetadataIds().sort()).toEqual(['shot-a', 'shot-b']);
-    expect(blobStore.peek(firstRef.key)).not.toBeNull();
-    expect(blobStore.peek(secondRef.key)).not.toBeNull();
+    expect(blobStore.peek(firstRef.key)).toMatchObject({ expiresAt: BASE_TIME + 20 });
+    expect(blobStore.peek(secondRef.key)).toMatchObject({ expiresAt: BASE_TIME + 20 });
     expect(await legacyArea.get(firstRef.key)).toBeUndefined();
     expect(await legacyArea.get(secondRef.key)).toBeUndefined();
     expect(await legacyArea.get(VIDEO_SCREENSHOT_CACHE_INDEX_KEY)).toBeUndefined();

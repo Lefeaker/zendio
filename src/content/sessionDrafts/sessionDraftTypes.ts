@@ -1,9 +1,7 @@
 import type { ExportDestinationMetadata } from '../../shared/exportDestination';
-import { FREE_SESSION_DRAFT_RETENTION_MS } from './sessionDraftRetentionPolicy';
 import type { SessionDraftRetentionPolicy } from './sessionDraftRetentionPolicy';
 
 export const SESSION_DRAFT_SCHEMA_VERSION = 1 as const;
-export const DEFAULT_SESSION_DRAFT_TTL_MS = FREE_SESSION_DRAFT_RETENTION_MS;
 export const SESSION_DRAFT_MAX_ENTRIES = 100;
 export const SESSION_DRAFT_MAX_ENVELOPE_BYTES = 512 * 1024;
 

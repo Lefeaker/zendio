@@ -123,7 +123,10 @@ class MemoryBlobStore implements VideoScreenshotCacheBlobStore {
   }
 
   async prune(options: Parameters<VideoScreenshotCacheBlobStore['prune']>[0]) {
-    const result = pruneVideoScreenshotCacheBlobMetadataEntries(await this.listAllMetadata(), options);
+    const result = pruneVideoScreenshotCacheBlobMetadataEntries(
+      await this.listAllMetadata(),
+      options
+    );
     await this.deleteMany(result.removedKeys);
     return result;
   }
@@ -142,7 +145,9 @@ class MemoryBlobStore implements VideoScreenshotCacheBlobStore {
   }
 
   private sortedEntries(): VideoScreenshotCacheBlobEntry[] {
-    return sortVideoScreenshotCacheBlobMetadataNewestFirst([...this.values.values()].map(cloneBlobEntry));
+    return sortVideoScreenshotCacheBlobMetadataNewestFirst(
+      [...this.values.values()].map(cloneBlobEntry)
+    );
   }
 
   private waitForPageReadTurn(): Promise<void> {
@@ -307,6 +312,7 @@ describe('videoScreenshotCacheRepository', () => {
     const refValues = Object.values(ref);
     expect(ref).not.toHaveProperty('content');
     expect(ref).not.toHaveProperty('dataUrl');
+    expect(ref.expiresAt).toBe(BASE_TIME + 100);
     expect(refValues.some((value) => value instanceof Blob)).toBe(false);
     expect(
       refValues.some((value) => value instanceof ArrayBuffer || ArrayBuffer.isView(value))

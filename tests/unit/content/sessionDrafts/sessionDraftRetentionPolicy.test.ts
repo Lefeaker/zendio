@@ -1,11 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import {
   DEFAULT_SESSION_DRAFT_RETENTION_POLICY,
+  DEFAULT_SESSION_DRAFT_STORAGE_POLICY,
   FREE_SESSION_DRAFT_MAX_ITEMS_PER_PAGE,
   FREE_SESSION_DRAFT_MAX_RESTORABLE_PAGES,
   FREE_SESSION_DRAFT_RETENTION_MS,
   FREE_SESSION_DRAFT_RETENTION_POLICY,
+  createSessionDraftStoragePolicy,
   filterSessionCommentDraftsForRetainedIds,
+  getSessionDraftEffectiveExpiresAt,
   pruneSessionDraftIndexEntriesForRetentionPolicy,
   selectRetainedSessionDraftItems,
   type SessionDraftIndexEntry
@@ -43,6 +46,48 @@ describe('session draft retention policy', () => {
       maxItemsPerPage: 20
     });
     expect(DEFAULT_SESSION_DRAFT_RETENTION_POLICY).toEqual(FREE_SESSION_DRAFT_RETENTION_POLICY);
+  });
+
+  it('maps the default session draft storage policy to the Free retention window', () => {
+    expect(DEFAULT_SESSION_DRAFT_STORAGE_POLICY.retentionPolicy).toEqual(
+      FREE_SESSION_DRAFT_RETENTION_POLICY
+    );
+    expect(DEFAULT_SESSION_DRAFT_STORAGE_POLICY.videoScreenshotCacheTtlMs).toBe(
+      FREE_SESSION_DRAFT_RETENTION_MS
+    );
+  });
+
+  it('maps an injected retention policy to the matching screenshot cache ttl', () => {
+    const customRetentionPolicy = {
+      retentionMs: 123_456,
+      maxRestorablePages: null,
+      maxItemsPerPage: null
+    };
+
+    const storagePolicy = createSessionDraftStoragePolicy({
+      retentionPolicy: customRetentionPolicy
+    });
+
+    expect(storagePolicy.retentionPolicy).toEqual(customRetentionPolicy);
+    expect(storagePolicy.videoScreenshotCacheTtlMs).toBe(customRetentionPolicy.retentionMs);
+  });
+
+  it('computes effective expiry from the shorter stored expiry and retention window', () => {
+    const longStoredExpiry = createIndexEntry('long-stored-expiry', {
+      updatedAt: BASE_TIME,
+      expiresAt: BASE_TIME + 10 * DAY_MS
+    });
+    const shortStoredExpiry = createIndexEntry('short-stored-expiry', {
+      updatedAt: BASE_TIME,
+      expiresAt: BASE_TIME + 1_000
+    });
+
+    expect(
+      getSessionDraftEffectiveExpiresAt(longStoredExpiry, FREE_SESSION_DRAFT_RETENTION_POLICY)
+    ).toBe(BASE_TIME + FREE_SESSION_DRAFT_RETENTION_MS);
+    expect(
+      getSessionDraftEffectiveExpiresAt(shortStoredExpiry, FREE_SESSION_DRAFT_RETENTION_POLICY)
+    ).toBe(BASE_TIME + 1_000);
   });
 
   it('keeps only the five newest restorable page identities', () => {

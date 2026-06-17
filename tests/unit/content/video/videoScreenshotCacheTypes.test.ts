@@ -2,14 +2,15 @@
 
 import { describe, expect, it } from 'vitest';
 import {
+  DEFAULT_SESSION_DRAFT_STORAGE_POLICY,
+  SESSION_DRAFT_MAX_ENTRIES,
+  createSessionDraftStoragePolicy
+} from '@content/sessionDrafts';
+import {
   clearTimestampScreenshot,
   clearTimestampScreenshotRef,
   setTimestampScreenshotRef
 } from '@content/video/screenshotIntent';
-import {
-  DEFAULT_SESSION_DRAFT_TTL_MS,
-  SESSION_DRAFT_MAX_ENTRIES
-} from '@content/sessionDrafts/sessionDraftTypes';
 import type { VideoCaptureScreenshot, VideoTimestampCapture } from '@content/video/types';
 import {
   VIDEO_SCREENSHOT_CACHE_INDEX_KEY,
@@ -151,10 +152,24 @@ describe('videoScreenshotCacheTypes', () => {
     expect(VIDEO_SCREENSHOT_CACHE_SCHEMA_VERSION).toBe(1);
     expect(VIDEO_SCREENSHOT_CACHE_KEY_PREFIX).toBe('aiob.videoScreenshotCache');
     expect(VIDEO_SCREENSHOT_CACHE_INDEX_KEY).toBe('aiob.videoScreenshotCache.index.v1');
-    expect(VIDEO_SCREENSHOT_CACHE_TTL_MS).toBe(DEFAULT_SESSION_DRAFT_TTL_MS);
+    expect(VIDEO_SCREENSHOT_CACHE_TTL_MS).toBe(
+      DEFAULT_SESSION_DRAFT_STORAGE_POLICY.videoScreenshotCacheTtlMs
+    );
     expect(VIDEO_SCREENSHOT_CACHE_MAX_GLOBAL_ENTRIES).toBe(SESSION_DRAFT_MAX_ENTRIES);
     expect(VIDEO_SCREENSHOT_CACHE_MAX_PAGE_ENTRIES).toBe(50);
     expect(VIDEO_SCREENSHOT_CACHE_MAX_CONTENT_BYTES).toBe(1024 * 1024);
+  });
+
+  it('maps custom session draft retention to screenshot cache ttl through the storage policy', () => {
+    const customStoragePolicy = createSessionDraftStoragePolicy({
+      retentionPolicy: {
+        retentionMs: 987_654,
+        maxRestorablePages: null,
+        maxItemsPerPage: null
+      }
+    });
+
+    expect(customStoragePolicy.videoScreenshotCacheTtlMs).toBe(987_654);
   });
 
   it('accepts a metadata-only cache ref', () => {

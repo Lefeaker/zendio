@@ -159,6 +159,33 @@ describe('sessionDraftRepository', () => {
     });
   });
 
+  it('caps saved future expiry to the Free 48-hour retention window by default', async () => {
+    const storage = createMemoryStorageArea();
+    const repository = createSessionDraftRepository(storage);
+    const updatedAt = BASE_TIME + 140;
+    const envelope = createEnvelope('reader', {
+      draftId: 'free-future-expiry',
+      updatedAt,
+      expiresAt: updatedAt + FREE_SESSION_DRAFT_RETENTION_MS + DAY_MS
+    });
+    const storageKey = createIndexEntry(envelope).key;
+
+    await repository.save(envelope);
+
+    await expect(storage.get(storageKey)).resolves.toMatchObject({
+      draftId: 'free-future-expiry',
+      expiresAt: updatedAt + FREE_SESSION_DRAFT_RETENTION_MS
+    });
+    await expect(storage.get(SESSION_DRAFT_INDEX_KEY)).resolves.toMatchObject({
+      entries: [
+        expect.objectContaining({
+          draftId: 'free-future-expiry',
+          expiresAt: updatedAt + FREE_SESSION_DRAFT_RETENTION_MS
+        })
+      ]
+    });
+  });
+
   it('does not delete the refreshed envelope when saving over an expired same-key index row', async () => {
     const storage = createMemoryStorageArea();
     const repository = createSessionDraftRepository(storage);
@@ -271,6 +298,55 @@ describe('sessionDraftRepository', () => {
     await expect(repository.loadLatest('reader', stale.pageUrl, now)).resolves.toBeNull();
     await expect(storage.get(staleKey)).resolves.toBeUndefined();
     await expect(storage.get(SESSION_DRAFT_INDEX_KEY)).resolves.toMatchObject({
+      entries: []
+    });
+  });
+
+  it('does not restore a stale envelope even when its index row still looks fresh', async () => {
+    const now = BASE_TIME + 30 * DAY_MS;
+    const stale = createEnvelope('reader', {
+      draftId: 'fresh-index-stale-envelope',
+      pageUrl: 'https://example.com/post/fresh-index-stale-envelope',
+      updatedAt: now - FREE_SESSION_DRAFT_RETENTION_MS - 1,
+      expiresAt: now + DAY_MS,
+      status: 'restorable'
+    });
+    const staleKey = createIndexEntry(stale).key;
+    const freshIndexEntry = {
+      ...createIndexEntry(stale),
+      updatedAt: now,
+      expiresAt: now + DAY_MS
+    };
+
+    const listStorage = createMemoryStorageArea();
+    const listRepository = createSessionDraftRepository(listStorage);
+    await listStorage.setMany({
+      [staleKey]: stale,
+      [SESSION_DRAFT_INDEX_KEY]: {
+        schemaVersion: 1,
+        entries: [freshIndexEntry]
+      }
+    });
+
+    await expect(listRepository.listCandidates('reader', stale.pageUrl, now)).resolves.toEqual([]);
+    await expect(listStorage.get(staleKey)).resolves.toBeUndefined();
+    await expect(listStorage.get(SESSION_DRAFT_INDEX_KEY)).resolves.toMatchObject({
+      entries: []
+    });
+
+    const latestStorage = createMemoryStorageArea();
+    const latestRepository = createSessionDraftRepository(latestStorage);
+    await latestStorage.setMany({
+      [staleKey]: stale,
+      [SESSION_DRAFT_INDEX_KEY]: {
+        schemaVersion: 1,
+        entries: [freshIndexEntry]
+      }
+    });
+
+    await expect(latestRepository.loadLatest('reader', stale.pageUrl, now)).resolves.toBeNull();
+    await expect(latestStorage.get(staleKey)).resolves.toBeUndefined();
+    await expect(latestStorage.get(SESSION_DRAFT_INDEX_KEY)).resolves.toMatchObject({
       entries: []
     });
   });
@@ -391,6 +467,39 @@ describe('sessionDraftRepository', () => {
     ).resolves.toMatchObject({
       draftId: 'custom-retained',
       expiresAt: now + 5 * DAY_MS
+    });
+  });
+
+  it('caps saved future expiry to an injected custom retention window', async () => {
+    const storage = createMemoryStorageArea();
+    const customRetentionPolicy = {
+      retentionMs: 10 * DAY_MS,
+      maxRestorablePages: null,
+      maxItemsPerPage: null
+    };
+    const repository = createSessionDraftRepository(storage, {
+      retentionPolicy: customRetentionPolicy
+    });
+    const updatedAt = BASE_TIME + 50 * DAY_MS;
+    const envelope = createEnvelope('reader', {
+      draftId: 'custom-future-expiry',
+      pageUrl: 'https://example.com/post/custom-future-expiry',
+      updatedAt,
+      expiresAt: updatedAt + 20 * DAY_MS,
+      status: 'restorable'
+    });
+    const storageKey = createIndexEntry(envelope).key;
+
+    await repository.save(envelope);
+
+    await expect(storage.get(storageKey)).resolves.toMatchObject({
+      draftId: 'custom-future-expiry',
+      expiresAt: updatedAt + customRetentionPolicy.retentionMs
+    });
+    await expect(
+      repository.loadLatest('reader', envelope.pageUrl, updatedAt + 9 * DAY_MS)
+    ).resolves.toMatchObject({
+      draftId: 'custom-future-expiry'
     });
   });
 
