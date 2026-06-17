@@ -366,7 +366,21 @@ describe('mountProductionStitchShell resource i18n', () => {
       support.querySelector<HTMLImageElement>(
         'img.resource-link-preview[src="../icons/wechat-reward-qr.jpg"]'
       )
-    ).toBeTruthy();
+    ).toBeNull();
+    expect(support.querySelector('.resource-link-action')).toBeNull();
+    support.querySelector<HTMLButtonElement>('[data-role="resource-image-modal-trigger"]')?.click();
+    await flushPromises();
+    const rewardDialog = document.querySelector<HTMLElement>('.resource-image-modal-overlay');
+    expect(rewardDialog).toBeTruthy();
+    expect(rewardDialog?.textContent?.trim()).toBe('');
+    expect(
+      rewardDialog
+        ?.querySelector<HTMLImageElement>('img.resource-image-modal-media')
+        ?.getAttribute('src')
+    ).toBe('../icons/wechat-reward-qr.jpg');
+    rewardDialog?.click();
+    await flushPromises();
+    expect(document.querySelector('.resource-image-modal-overlay')).toBeNull();
     expect(
       support.querySelector<HTMLAnchorElement>('a.resource-link-card[href*="afdian.com"]')
     ).toBeNull();
@@ -403,6 +417,7 @@ describe('mountProductionStitchShell resource i18n', () => {
         'img.resource-link-icon[src="../icons/reddit.svg"]'
       )
     ).toBeTruthy();
+    expect(suggestions.querySelector('.resource-link-action')).toBeNull();
     expectNoText(
       suggestions,
       'Send feedback through the currently supported public channels.',
@@ -419,12 +434,18 @@ describe('mountProductionStitchShell resource i18n', () => {
       'Contact Body Sentinel',
       'Contact Channels Sentinel',
       'Contact Reddit Title Sentinel',
-      'Contact Reddit Description Sentinel',
       'Contact GitHub Title Sentinel',
-      'Contact GitHub Description Sentinel',
-      'Contact Email Title Sentinel',
-      'Contact Email Description Sentinel'
+      'Contact Email Title Sentinel'
     );
+    expectNoText(
+      contact,
+      'Contact Reddit Description Sentinel',
+      'Contact GitHub Description Sentinel',
+      'Contact Email Description Sentinel',
+      'https://www.reddit.com/user/sxnian/',
+      'https://github.com/Lefeaker/AllinOB'
+    );
+    expect(contact.querySelector('.resource-link-action')).toBeNull();
     expect(
       contact.querySelector<HTMLAnchorElement>('a[href="https://www.reddit.com/user/sxnian/"]')
     ).toBeTruthy();

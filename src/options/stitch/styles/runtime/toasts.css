@@ -29,6 +29,7 @@
   position: fixed;
   right: var(--space-8);
   bottom: var(--space-8);
+  width: min(var(--toast-max-width), calc(100vw - var(--space-16)));
   min-width: var(--toast-min-width);
   max-width: var(--toast-max-width);
   z-index: 2147483647;
@@ -52,6 +53,22 @@
 
 .prompt-toast.dislike {
   border-color: color-mix(in srgb, var(--warning) 28%, transparent);
+}
+
+.prompt-toast.reward-qr {
+  gap: 0;
+  padding: var(--space-3);
+  border-color: rgba(255, 255, 255, 0.22);
+  background: #fff;
+  box-shadow: var(--shadow-xl);
+}
+
+.support-prompt-reward-qr {
+  display: block;
+  width: 100%;
+  aspect-ratio: 1;
+  object-fit: contain;
+  border-radius: var(--radius-md);
 }
 
 .prompt-toast strong {

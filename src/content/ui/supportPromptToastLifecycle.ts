@@ -95,6 +95,10 @@ export function createSupportPromptToastLifecycle(options: SupportPromptToastLif
       toastController.showDislikeToast(messages);
       await options.trackUsageEvent('support_dislike_clicked');
     },
+    async showRewardQr(image: { imageSrc: string; imageAlt?: string | undefined }): Promise<void> {
+      const toastController = await getToastController();
+      toastController.showRewardQrToast(image);
+    },
     async preload(): Promise<void> {
       await Promise.all([options.getReviewState(), getToastController()]);
     }

@@ -65,11 +65,8 @@ describe('mountProductionStitchShell i18n shell metadata', () => {
     queryRequired<HTMLButtonElement>('[data-footer-panel="support"]').click();
     await flushPromises();
 
-    expect(
-      Array.from(document.querySelectorAll<HTMLElement>('.resource-link-action')).some(
-        (action) => action.textContent?.trim() === 'Open Sentinel'
-      )
-    ).toBe(true);
+    expect(document.querySelector('.resource-link-action')).toBeNull();
+    expect(document.body.textContent).not.toContain('Open Sentinel');
   });
 
   it('omits the runtime footer group even when runtime messages are available', () => {

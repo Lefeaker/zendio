@@ -93,17 +93,6 @@
   opacity: 0.92;
 }
 
-.task-support-qr {
-  width: 54px;
-  height: 54px;
-  flex: none;
-  padding: 2px;
-  border-radius: var(--radius-md);
-  background: #fff;
-  object-fit: contain;
-  opacity: 0.98;
-}
-
 .task-support-copy {
   display: grid;
   gap: var(--space-1);

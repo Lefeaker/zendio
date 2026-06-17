@@ -31,7 +31,8 @@ export function resourceCard(item: SupportChannel): NodeSchema {
     ...(item.href ? { href: item.href } : {}),
     ...(item.icon ? { icon: item.icon } : {}),
     ...(item.image ? { image: item.image } : {}),
-    ...(item.imageAlt ? { imageAlt: item.imageAlt } : {})
+    ...(item.imageAlt ? { imageAlt: item.imageAlt } : {}),
+    ...(item.imagePresentation ? { imagePresentation: item.imagePresentation } : {})
   };
 }
 

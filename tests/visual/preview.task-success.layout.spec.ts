@@ -68,7 +68,7 @@ test.describe('Stitch task success surface layout', () => {
     await expect(page.locator('.task-support-link')).toHaveCount(2);
     await expect(page.locator('.task-support-qr')).toHaveCount(0);
     const wechatReward = page.locator('[data-role="wechat-reward-btn"]').first();
-    await expect(wechatReward).toHaveAttribute('aria-expanded', 'false');
+    await expect(wechatReward).toHaveAttribute('aria-haspopup', 'dialog');
     await expect(page.locator('.task-support-strip')).not.toContainText('GitHub');
     await expect(page.locator('.task-feedback-label')).toHaveCount(0);
     await expect(page.locator('.task-feedback-row [data-role="dismiss-text"]')).toHaveCount(1);
@@ -115,11 +115,29 @@ test.describe('Stitch task success surface layout', () => {
     ).toBeLessThanOrEqual(2);
 
     await wechatReward.click();
-    await expect(page.locator('.task-support-qr')).toHaveCount(1);
-    await expect(page.locator('.task-support-qr')).toHaveAttribute(
+    await expect(page.locator('.task-support-qr')).toHaveCount(0);
+    const rewardToast = page.locator('.support-prompt-toast.reward-qr').first();
+    await expect(rewardToast).toHaveClass(/prompt-toast/);
+    await expect(rewardToast).toHaveClass(/is-visible/);
+    await expect(page.locator('[data-role="wechat-reward-qr-image"]')).toHaveAttribute(
       'src',
       /icons\/wechat-reward-qr\.jpg/
     );
+    const rewardToastRect = await rewardToast.boundingBox();
+    expect(rewardToastRect).toBeTruthy();
+    if (!rewardToastRect) {
+      throw new Error('missing WeChat reward toast rect');
+    }
+    expect(rewardToastRect.x + rewardToastRect.width).toBeGreaterThan(viewport.width - 48);
+    expect(rewardToastRect.y + rewardToastRect.height).toBeGreaterThan(viewport.height - 48);
+    await page.evaluate(() => {
+      document.body.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true }));
+    });
+    await expect(rewardToast).not.toHaveClass(/is-visible/);
+    await rewardToast.evaluate((toast) => {
+      toast.dispatchEvent(new Event('transitionend'));
+    });
+    await expect(page.locator('.support-prompt-toast.reward-qr')).toHaveCount(0);
 
     await page.locator('[data-role="dislike-btn"]').click();
     await expect(page.locator('[data-role="github-link"]')).toHaveCount(1);
@@ -131,6 +149,7 @@ test.describe('Stitch task success surface layout', () => {
     if (!toastRect) {
       throw new Error('missing dislike toast rect');
     }
+    expect(Math.abs(toastRect.width - rewardToastRect.width)).toBeLessThanOrEqual(2);
     expect(toastRect.x + toastRect.width).toBeGreaterThan(viewport.width - 48);
     expect(toastRect.y + toastRect.height).toBeGreaterThan(viewport.height - 48);
   });

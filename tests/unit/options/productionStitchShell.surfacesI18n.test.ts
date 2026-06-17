@@ -354,8 +354,8 @@ describe('mountProductionStitchShell runtime surface i18n', () => {
     expect(
       taskSuccess
         .querySelector<HTMLButtonElement>('[data-role="wechat-reward-btn"]')
-        ?.getAttribute('aria-expanded')
-    ).toBe('false');
+        ?.getAttribute('aria-haspopup')
+    ).toBe('dialog');
     expect(
       taskSuccess.querySelector<HTMLAnchorElement>('a.task-support-link[href*="afdian.com"]')
     ).toBeNull();

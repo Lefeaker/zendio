@@ -3,6 +3,17 @@ import { panelStyleSheetManager } from '../../shared/panels/styleSheetManager';
 import { getControlledRuntimeTheme } from '@content/stitch/runtimeTheme';
 
 const TOAST_AUTO_DISMISS_MS = 5000;
+type SupportPromptToastKind = 'like' | 'dislike' | 'reward-qr';
+type ActiveToastVariant = ToastVariant | 'reward-qr';
+
+interface RewardQrToastOptions {
+  imageSrc: string;
+  imageAlt?: string | undefined;
+}
+
+interface ShowToastOptions {
+  autoDismiss: boolean;
+}
 
 interface SupportPromptToastControllerOptions {
   doc: Document;
@@ -18,7 +29,7 @@ interface SupportPromptToastControllerOptions {
 export class SupportPromptToastController {
   private activeHost: HTMLDivElement | null = null;
   private activeToast: HTMLDivElement | null = null;
-  private activeToastVariant: ToastVariant | null = null;
+  private activeToastVariant: ActiveToastVariant | null = null;
   private toastTimer: number | null = null;
 
   private readonly handleToastPointerDown = (event: PointerEvent): void => {
@@ -30,6 +41,12 @@ export class SupportPromptToastController {
       return;
     }
     this.dismissToast();
+  };
+
+  private readonly handleToastKeyDown = (event: KeyboardEvent): void => {
+    if (event.key === 'Escape') {
+      this.dismissToast();
+    }
   };
 
   constructor(private readonly options: SupportPromptToastControllerOptions) {}
@@ -123,7 +140,23 @@ export class SupportPromptToastController {
     this.options.onDislikeToastShown();
   }
 
-  private createBaseToast(kind: 'like' | 'dislike'): HTMLDivElement {
+  showRewardQrToast({ imageSrc, imageAlt }: RewardQrToastOptions): void {
+    const toast = this.createBaseToast('reward-qr');
+    toast.setAttribute('role', 'dialog');
+    toast.setAttribute('aria-modal', 'false');
+    toast.setAttribute('aria-label', imageAlt ?? 'WeChat reward code');
+
+    const image = this.options.doc.createElement('img');
+    image.className = 'support-prompt-reward-qr';
+    image.dataset.role = 'wechat-reward-qr-image';
+    image.src = imageSrc;
+    image.alt = imageAlt ?? 'WeChat reward code';
+    toast.appendChild(image);
+
+    this.showToast(toast, 'reward-qr', { autoDismiss: false });
+  }
+
+  private createBaseToast(kind: SupportPromptToastKind): HTMLDivElement {
     this.dismissToast(true);
     const host = this.options.doc.createElement('div');
     host.id = 'aiob-support-toast-host';
@@ -150,7 +183,11 @@ export class SupportPromptToastController {
     return toast;
   }
 
-  private showToast(toast: HTMLDivElement, variant: ToastVariant): void {
+  private showToast(
+    toast: HTMLDivElement,
+    variant: ActiveToastVariant,
+    options: ShowToastOptions = { autoDismiss: true }
+  ): void {
     if (!this.activeHost) {
       return;
     }
@@ -165,8 +202,11 @@ export class SupportPromptToastController {
     if (this.toastTimer !== null) {
       window.clearTimeout(this.toastTimer);
     }
-    this.toastTimer = window.setTimeout(() => this.dismissToast(), TOAST_AUTO_DISMISS_MS);
+    if (options.autoDismiss) {
+      this.toastTimer = window.setTimeout(() => this.dismissToast(), TOAST_AUTO_DISMISS_MS);
+    }
     this.options.doc.addEventListener('pointerdown', this.handleToastPointerDown, true);
+    this.options.doc.addEventListener('keydown', this.handleToastKeyDown, true);
   }
 
   dismissToast(immediate = false): void {
@@ -178,6 +218,7 @@ export class SupportPromptToastController {
       this.toastTimer = null;
     }
     this.options.doc.removeEventListener('pointerdown', this.handleToastPointerDown, true);
+    this.options.doc.removeEventListener('keydown', this.handleToastKeyDown, true);
 
     const toast = this.activeToast;
     const remove = () => {

@@ -171,20 +171,31 @@ describe('SupportPrompt', () => {
     );
   });
 
-  it('reveals the WeChat reward QR only after clicking the WeChat support card', async () => {
+  it('opens the WeChat reward QR in a standalone support popup after clicking the WeChat support card', async () => {
     const { SupportPrompt } = await import('../../../src/content/ui/supportPrompt');
     const prompt = new SupportPrompt(document);
     await prompt.show({ status: 'success' });
 
-    let shadow = getPromptHost().shadowRoot;
+    const shadow = getPromptHost().shadowRoot;
     expect(shadow?.querySelector<HTMLImageElement>('img.task-support-qr')).toBeNull();
+    expect(document.querySelector('#aiob-support-toast-host')).toBeNull();
 
     shadow?.querySelector<HTMLButtonElement>('[data-role="wechat-reward-btn"]')?.click();
     await flushMicrotasks();
 
-    shadow = getPromptHost().shadowRoot;
+    expect(shadow?.querySelector<HTMLImageElement>('img.task-support-qr')).toBeNull();
     expect(
-      shadow?.querySelector<HTMLImageElement>('img.task-support-qr')?.getAttribute('src')
+      shadow?.querySelector<HTMLImageElement>('img.task-support-logo[src$="wechat-reward.svg"]')
+    ).toBeTruthy();
+
+    const rewardPopup = document.querySelector('#aiob-support-toast-host')?.shadowRoot;
+    const rewardToast = rewardPopup?.querySelector<HTMLElement>('.support-prompt-toast.reward-qr');
+    expect(rewardToast).toBeTruthy();
+    expect(rewardToast?.textContent?.trim()).toBe('');
+    expect(
+      rewardToast
+        ?.querySelector<HTMLImageElement>('[data-role="wechat-reward-qr-image"]')
+        ?.getAttribute('src')
     ).toBe('chrome-extension://icons/wechat-reward-qr.jpg');
   });
 

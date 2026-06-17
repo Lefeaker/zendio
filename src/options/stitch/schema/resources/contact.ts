@@ -27,19 +27,16 @@ const schema: ResourceSchema = {
                     {
                       kind: 'resourceCard',
                       title: tr('schemaResourceContactRedditTitle'),
-                      subtitle: tr('schemaResourceContactRedditDescription'),
                       ...(redditHref ? { href: redditHref } : {})
                     },
                     {
                       kind: 'resourceCard',
                       title: tr('schemaResourceContactGithubTitle'),
-                      subtitle: tr('schemaResourceContactGithubDescription'),
                       ...(githubHref ? { href: githubHref } : {})
                     },
                     {
                       kind: 'resourceCard',
                       title: tr('schemaResourceContactEmailTitle'),
-                      subtitle: tr('schemaResourceContactEmailDescription'),
                       ...(emailHref ? { href: emailHref } : {})
                     }
                   ],
@@ -52,7 +49,6 @@ const schema: ResourceSchema = {
                 resource.entries.map((item) => ({
                   kind: 'resourceCard',
                   title: item.title,
-                  ...(item.subtitle ? { subtitle: item.subtitle } : {}),
                   ...(item.href ? { href: item.href } : {})
                 })),
                 3

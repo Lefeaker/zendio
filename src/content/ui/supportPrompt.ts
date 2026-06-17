@@ -47,8 +47,6 @@ export class SupportPrompt implements UiMountable<
   private messagesPromise: Promise<SupportPromptMessages> | null = null;
   private reviewStatePromise: Promise<ReviewPromptState> | null = null;
   private unregisterPopup: (() => void) | null = null;
-  private lastOptions: SupportPromptOptions | undefined;
-  private expandedSupportChannelId: string | null = null;
   private renderSequence = 0;
 
   constructor(private readonly doc: Document) {
@@ -66,7 +64,6 @@ export class SupportPrompt implements UiMountable<
 
   async show(options?: SupportPromptOptions): Promise<void> {
     const renderId = ++this.renderSequence;
-    this.lastOptions = options;
     this.removeHost();
     const messages = await this.resolveMessages();
     if (renderId !== this.renderSequence) {
@@ -100,7 +97,6 @@ export class SupportPrompt implements UiMountable<
       icon: string;
       image?: string;
       imageAlt?: string;
-      imageExpanded?: boolean;
       title: string;
       description?: string;
       url?: string;
@@ -116,7 +112,6 @@ export class SupportPrompt implements UiMountable<
         icon: this.resolveAssetUrl('icons/wechat-reward.svg'),
         image: this.resolveAssetUrl('icons/wechat-reward-qr.jpg'),
         imageAlt: messages.afdianTitle,
-        imageExpanded: this.expandedSupportChannelId === WECHAT_REWARD_ID,
         title: messages.afdianTitle,
         description: messages.afdianDescription
       }
@@ -152,7 +147,6 @@ export class SupportPrompt implements UiMountable<
         icon: link.icon,
         ...(link.image ? { image: link.image } : {}),
         ...(link.imageAlt ? { imageAlt: link.imageAlt } : {}),
-        ...(link.imageExpanded !== undefined ? { imageExpanded: link.imageExpanded } : {}),
         ...(link.description ? { subtitle: link.description } : {}),
         ...(link.url ? { href: link.url } : {})
       }))
@@ -204,7 +198,6 @@ export class SupportPrompt implements UiMountable<
 
   hide(): void {
     this.renderSequence += 1;
-    this.expandedSupportChannelId = null;
     this.removeHost();
   }
 
@@ -261,12 +254,13 @@ export class SupportPrompt implements UiMountable<
 
   private handleSupportImageToggle(args: RuntimeSurfaceActionArgs): void {
     const channelId = typeof args?.[0] === 'string' ? args[0] : null;
-    if (!channelId) {
+    const imageSrc = typeof args?.[1] === 'string' ? args[1] : null;
+    const imageAlt = typeof args?.[2] === 'string' ? args[2] : undefined;
+    if (!channelId || !imageSrc) {
       return;
     }
 
-    this.expandedSupportChannelId = this.expandedSupportChannelId === channelId ? null : channelId;
-    void this.show(this.lastOptions);
+    void this.toastLifecycle.showRewardQr({ imageSrc, imageAlt });
   }
 
   private async resolveMessages(): Promise<SupportPromptMessages> {

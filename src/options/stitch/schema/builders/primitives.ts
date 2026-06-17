@@ -25,6 +25,7 @@ interface ElementOptions {
   role?: DynamicValue<string>;
   ariaPressed?: DynamicValue<string>;
   ariaExpanded?: DynamicValue<string>;
+  ariaHaspopup?: DynamicValue<string>;
   ariaLabel?: DynamicValue<string>;
   disabled?: DynamicValue<boolean>;
   title?: DynamicValue<string>;

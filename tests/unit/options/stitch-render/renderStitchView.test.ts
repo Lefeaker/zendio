@@ -81,7 +81,8 @@ describe('Stitch schema renderer split', () => {
     const node = renderPreviewView(view, ctx);
 
     expect(node?.textContent).toContain('Queued');
-    expect(node?.textContent).toContain('Open now');
+    expect(node?.textContent).not.toContain('Open now');
+    expect(node?.querySelector('.resource-link-action')).toBeNull();
     expect(node?.textContent).toContain('Before selected text after.');
     expect(node?.querySelector('img.resource-link-icon')?.getAttribute('src')).toBe(
       './icons/github-fill.svg'
@@ -110,6 +111,73 @@ describe('Stitch schema renderer split', () => {
           title: 'WeChat',
           icon: './icons/wechat-reward.svg',
           image: './icons/wechat-reward-qr.jpg',
+          imageAlt: 'WeChat reward code',
+          imagePresentation: 'modal'
+        }
+      ]
+    };
+
+    const node = renderPreviewView(view, ctx);
+    const trigger = node?.querySelector<HTMLButtonElement>(
+      '[data-role="resource-image-modal-trigger"]'
+    );
+
+    expect(trigger?.tagName).toBe('BUTTON');
+    expect(trigger?.querySelector('img.resource-link-icon')?.getAttribute('src')).toBe(
+      'chrome-extension://unit/icons/wechat-reward.svg'
+    );
+    expect(trigger?.querySelector('img.resource-link-preview')).toBeNull();
+
+    trigger?.click();
+    const dialog = document.querySelector('.resource-image-modal-overlay');
+    expect(
+      dialog?.querySelector<HTMLImageElement>('img.resource-image-modal-media')?.getAttribute('src')
+    ).toBe('chrome-extension://unit/icons/wechat-reward-qr.jpg');
+    expect(dialog?.textContent?.trim()).toBe('');
+
+    dialog?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    expect(document.querySelector('.resource-image-modal-overlay')).toBeNull();
+  });
+
+  it('keeps direct image resource cards as inline previews', () => {
+    const view: ViewSchema = {
+      id: 'inline-image-resource',
+      kind: 'page',
+      children: [
+        {
+          kind: 'resourceCard',
+          title: 'WeChat',
+          image: './icons/wechat-reward-qr.jpg',
+          imageAlt: 'WeChat reward code'
+        }
+      ]
+    };
+
+    const node = renderPreviewView(view, createContext());
+
+    expect(node?.querySelector('img.resource-link-preview')?.getAttribute('src')).toBe(
+      './icons/wechat-reward-qr.jpg'
+    );
+    expect(node?.querySelector('img.resource-link-preview')?.getAttribute('alt')).toBe(
+      'WeChat reward code'
+    );
+    expect(node?.querySelector('[data-role="resource-image-modal-trigger"]')).toBeNull();
+  });
+
+  it('resolves inline resource card previews through the render context when requested', () => {
+    const ctx: RendererContext & { resolveAssetUrl: (path: string) => string } = {
+      ...createContext(),
+      resolveAssetUrl: (path) =>
+        `chrome-extension://unit/${path.startsWith('./') ? path.slice(2) : path}`
+    };
+    const view: ViewSchema = {
+      id: 'inline-preview-asset-urls',
+      kind: 'page',
+      children: [
+        {
+          kind: 'resourceCard',
+          title: 'WeChat',
+          image: './icons/wechat-reward-qr.jpg',
           imageAlt: 'WeChat reward code'
         }
       ]
@@ -117,9 +185,6 @@ describe('Stitch schema renderer split', () => {
 
     const node = renderPreviewView(view, ctx);
 
-    expect(node?.querySelector('img.resource-link-icon')?.getAttribute('src')).toBe(
-      'chrome-extension://unit/icons/wechat-reward.svg'
-    );
     expect(node?.querySelector('img.resource-link-preview')?.getAttribute('src')).toBe(
       'chrome-extension://unit/icons/wechat-reward-qr.jpg'
     );

@@ -44,7 +44,8 @@ const schema: ResourceSchema = {
                       ...(weChatReward?.image !== undefined ? { image: weChatReward.image } : {}),
                       ...(weChatReward?.imageAlt !== undefined
                         ? { imageAlt: weChatReward.imageAlt }
-                        : {})
+                        : {}),
+                      imagePresentation: 'modal' as const
                     }
                   ].map((item) => resourceCard(item)),
                   2
@@ -53,7 +54,12 @@ const schema: ResourceSchema = {
             ])
           : resourceModalStack([
               resourceCardGrid(
-                resource.channels.map((item) => resourceCard(item)),
+                resource.channels.map((item) =>
+                  resourceCard({
+                    ...item,
+                    ...(item.icon && item.image ? { imagePresentation: 'modal' as const } : {})
+                  })
+                ),
                 2
               )
             ])

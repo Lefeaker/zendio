@@ -540,9 +540,12 @@ describe('mountProductionStitchShell English residual coverage', () => {
     expect(contact.textContent).toContain(
       DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaResourceContactTitle
     );
+    expect(contact.textContent).toContain('If you appreciate this project or want to connect');
     expect(contact.textContent).toContain(
-      DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaResourceContactRedditDescription
+      DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaResourceContactRedditTitle
     );
+    expect(contact.textContent).not.toContain('https://www.reddit.com/user/sxnian/');
+    expect(contact.textContent).not.toContain('https://github.com/Lefeaker/AllinOB');
     expect(contact.textContent).not.toContain('RAW CONTACT TITLE SENTINEL');
     expect(contact.textContent).not.toContain('RAW CONTACT SUBTITLE SENTINEL');
     contact.remove();

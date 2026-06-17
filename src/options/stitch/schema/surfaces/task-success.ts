@@ -120,26 +120,14 @@ function supportStrip(items: SupportChannel[]): NodeSchema {
     items.map((item) => {
       const supportId = resolveSupportChannelId(item);
       const hasExpandableImage = Boolean(item.icon && item.image);
-      const isExpanded = hasExpandableImage && item.imageExpanded === true;
-      const media =
-        isExpanded && item.image
-          ? element('img', {
-              className: 'task-support-qr',
-              src: item.image,
-              alt: item.imageAlt ?? `${item.title} QR code`
-            })
-          : item.icon
-            ? element('img', {
-                className: 'task-support-logo',
-                src: item.icon,
-                alt: `${item.title} logo`
-              })
-            : null;
-      const className = [
-        'task-support-link',
-        hasExpandableImage ? 'is-expandable' : '',
-        isExpanded ? 'is-expanded has-qr' : ''
-      ]
+      const media = item.icon
+        ? element('img', {
+            className: 'task-support-logo',
+            src: item.icon,
+            alt: `${item.title} logo`
+          })
+        : null;
+      const className = ['task-support-link', hasExpandableImage ? 'is-expandable' : '']
         .filter(Boolean)
         .join(' ');
 
@@ -157,14 +145,15 @@ function supportStrip(items: SupportChannel[]): NodeSchema {
               ...(hasExpandableImage
                 ? {
                     type: 'button',
-                    ariaExpanded: isExpanded ? 'true' : 'false',
+                    ariaHaspopup: 'dialog',
+                    ariaLabel: item.imageAlt ?? item.title,
                     dataset: {
                       role: resolveSupportChannelRole(supportId),
                       supportChannel: supportId
                     },
                     onClick: {
                       id: 'task-success:support-image-toggle',
-                      args: [supportId]
+                      args: [supportId, item.image, item.imageAlt ?? item.title]
                     }
                   }
                 : {})
