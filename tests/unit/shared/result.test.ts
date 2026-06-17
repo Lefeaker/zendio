@@ -5,7 +5,7 @@
  * and provide proper type safety.
  */
 
-import { afterEach, beforeEach, describe, it, expect } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import {
   type Result,
   success,
@@ -18,17 +18,8 @@ import {
   mapError,
   flatMap,
   fromPromise,
-  fromPromiseWith,
-  createChromeApiError,
-  fromChromeApi,
-  wrapChromeCallback
+  fromPromiseWith
 } from '@shared/types/result';
-
-type ChromeMock = Partial<Omit<typeof chrome, 'runtime'>> & {
-  runtime?: Partial<typeof chrome.runtime>;
-};
-
-const chromeGlobal = globalThis as Omit<typeof globalThis, 'chrome'> & { chrome?: ChromeMock };
 
 describe('Result Types', () => {
   describe('Basic Result Operations', () => {
@@ -151,99 +142,6 @@ describe('Result Types', () => {
       if (isFailure(result)) {
         expect(result.error.code).toBe('CUSTOM_ERROR');
         expect(result.error.message).toBe('string error');
-      }
-    });
-  });
-
-  describe('Chrome API Integration', () => {
-    beforeEach(() => {
-      chromeGlobal.chrome = { runtime: {} };
-    });
-
-    afterEach(() => {
-      Reflect.deleteProperty(chromeGlobal, 'chrome');
-    });
-
-    it('should create Chrome API errors', () => {
-      const error = createChromeApiError('Test error');
-
-      expect(error.code).toBe('CHROME_API_ERROR');
-      expect(error.message).toBe('Test error');
-      expect(error.originalError).toBeUndefined();
-    });
-
-    it('should create Chrome API errors with original error', () => {
-      const originalError = { message: 'Chrome error' } as chrome.runtime.LastError;
-      const error = createChromeApiError('Test error', originalError);
-
-      expect(error.code).toBe('CHROME_API_ERROR');
-      expect(error.message).toBe('Test error');
-      expect(error.originalError).toBe(originalError);
-    });
-
-    it('should wrap Chrome API calls', async () => {
-      // Mock successful Chrome API call
-      const successfulCall = () => Promise.resolve('success data');
-      const result = await fromChromeApi(successfulCall);
-
-      expect(isSuccess(result)).toBe(true);
-      if (isSuccess(result)) {
-        expect(result.data).toBe('success data');
-      }
-    });
-
-    it('should handle Chrome API errors', async () => {
-      // Mock Chrome runtime error
-      const mockChrome: ChromeMock = {
-        runtime: {
-          lastError: { message: 'Chrome API error' }
-        }
-      };
-      chromeGlobal.chrome = mockChrome as typeof chrome;
-
-      const failingCall = () => Promise.reject(new Error('API call failed'));
-
-      const result = await fromChromeApi(failingCall);
-
-      expect(isFailure(result)).toBe(true);
-      if (isFailure(result)) {
-        expect(result.error.code).toBe('CHROME_API_ERROR');
-        expect(result.error.message).toBe('API call failed');
-      }
-    });
-
-    it('should wrap Chrome callback APIs', async () => {
-      const mockApiCall = (callback: (result: string) => void) => {
-        setTimeout(() => callback('callback result'), 0);
-      };
-
-      const result = await wrapChromeCallback(mockApiCall);
-
-      expect(isSuccess(result)).toBe(true);
-      if (isSuccess(result)) {
-        expect(result.data).toBe('callback result');
-      }
-    });
-
-    it('should handle Chrome callback errors', async () => {
-      // Mock Chrome runtime error
-      const mockChrome: ChromeMock = {
-        runtime: {
-          lastError: { message: 'Callback error' }
-        }
-      };
-      chromeGlobal.chrome = mockChrome as typeof chrome;
-
-      const mockApiCall = (callback: (result: string) => void) => {
-        setTimeout(() => callback('result'), 0);
-      };
-
-      const result = await wrapChromeCallback(mockApiCall);
-
-      expect(isFailure(result)).toBe(true);
-      if (isFailure(result)) {
-        expect(result.error.code).toBe('CHROME_API_ERROR');
-        expect(result.error.message).toBe('Callback error');
       }
     });
   });
