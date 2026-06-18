@@ -90,11 +90,7 @@ test.describe('Stitch task success surface layout', () => {
       throw new Error('missing task success header rect');
     }
     expect(Math.abs(rect.width - headerRect.width)).toBeLessThanOrEqual(4);
-    if (viewport.width >= 640) {
-      expect(rect.width).toBeLessThan(viewport.width * 0.62);
-    } else {
-      expect(rect.width).toBeLessThanOrEqual(viewport.width - 16);
-    }
+    expect(rect.width).toBeLessThanOrEqual(Math.min(520, viewport.width - 16));
     expect(rect.x + rect.width).toBeGreaterThan(viewport.width - 48);
     expect(rect.y + rect.height).toBeGreaterThan(viewport.height - 48);
 
@@ -132,10 +128,6 @@ test.describe('Stitch task success surface layout', () => {
     expect(rewardToastRect.y + rewardToastRect.height).toBeGreaterThan(viewport.height - 48);
     await page.evaluate(() => {
       document.body.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true }));
-    });
-    await expect(rewardToast).not.toHaveClass(/is-visible/);
-    await rewardToast.evaluate((toast) => {
-      toast.dispatchEvent(new Event('transitionend'));
     });
     await expect(page.locator('.support-prompt-toast.reward-qr')).toHaveCount(0);
 

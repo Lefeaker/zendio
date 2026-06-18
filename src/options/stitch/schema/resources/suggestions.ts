@@ -9,17 +9,23 @@ function externalLink(label: string, href: string): NodeSchema {
   return element('a', { href, target: '_blank', rel: 'noopener noreferrer' }, [textSpan(label)]);
 }
 
-function xiaohongshuPopoverLink(label: string): NodeSchema {
+function xiaohongshuPopoverLink(label: string, caption: string): NodeSchema {
   return element(
-    'button',
+    'span',
     {
-      className: 'resource-inline-popover-trigger',
-      type: 'button',
-      dataset: { role: 'xiaohongshu-feedback-qr-trigger' },
-      ariaHaspopup: 'dialog'
+      className: 'resource-inline-popover-host'
     },
     [
-      textSpan(label),
+      element(
+        'button',
+        {
+          className: 'resource-inline-popover-trigger',
+          type: 'button',
+          dataset: { role: 'xiaohongshu-feedback-qr-trigger' },
+          ariaHaspopup: 'dialog'
+        },
+        [textSpan(label)]
+      ),
       element(
         'span',
         {
@@ -32,7 +38,8 @@ function xiaohongshuPopoverLink(label: string): NodeSchema {
             className: 'resource-inline-popover-media',
             src: XIAOHONGSHU_FEEDBACK_QR_URL,
             alt: label
-          })
+          }),
+          element('span', { className: 'resource-inline-popover-caption' }, [textSpan(caption)])
         ]
       )
     ]
@@ -62,7 +69,10 @@ const schema: ResourceSchema = {
               ? externalLink(tr('schemaResourceSuggestionsGithubTitle'), github.href)
               : textSpan(tr('schemaResourceSuggestionsGithubTitle')),
             textSpan(tr('schemaResourceSuggestionsGithubDescription')),
-            xiaohongshuPopoverLink(tr('schemaResourceSuggestionsXiaohongshuTitle')),
+            xiaohongshuPopoverLink(
+              tr('schemaResourceSuggestionsXiaohongshuTitle'),
+              tr('schemaResourceSuggestionsXiaohongshuQrCaption')
+            ),
             textSpan(tr('schemaResourceSuggestionsRedditDescription')),
             externalLink(tr('schemaResourceContactEmailTitle'), emailHref),
             textSpan(tr('schemaResourceSuggestionsXiaohongshuDescription'))

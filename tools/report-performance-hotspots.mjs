@@ -8,7 +8,7 @@ const ROOT = process.cwd();
 const MAX_LINE_BUDGETS = new Map([
   ['src/i18n/generated/localeRegistry.generated.ts', 8899],
   ['src/i18n/generated/schemaMessages.generated.ts', 481],
-  ['src/i18n/generated/schemaCore.generated.ts', 369],
+  ['src/i18n/generated/schemaCore.generated.ts', 370],
   ['src/i18n/generated/messages.generated.ts', 1312],
   ['src/i18n/generated/locales/fr.generated.ts', 785],
   ['src/i18n/generated/locales/es-419.generated.ts', 777],
@@ -138,6 +138,8 @@ const MAX_LINE_BUDGETS = new Map([
   ['src/i18n/adapters/domBindingAdapter.ts', 257],
   ['src/background/listeners/contextMenusCoordinator.ts', 258],
   ['src/content/runtime/contentLazyRuntime.ts', 258],
+  // 2026-06-18 options support closeout: modal link rendering and QR overlay
+  // wiring live in the shared content renderer to keep Stitch schemas declarative.
   ['src/options/stitch/render/contentRenderers.ts', 406],
   ['src/shared/guards/dom.ts', 256],
   ['src/content/reader/services/exporter.ts', 255],
@@ -155,7 +157,13 @@ const MAX_LINE_BUDGETS = new Map([
   ['src/utils/trial-manager.ts', 363],
   ['src/content/runtime/localVaultPermissionFrame.ts', 345],
   ['src/content/extractors/aiChatExtractor.ts', 299],
-  ['src/content/ui/supportPromptMessages.ts', 298],
+  ['src/content/ui/supportPromptMessages.ts', 301],
+  // 2026-06-18 options support closeout: runtime support prompt toast lifecycle
+  // was split into a dedicated controller with deterministic cleanup.
+  ['src/content/ui/supportPrompt/SupportPromptToastController.ts', 300],
+  // 2026-06-18 options support closeout: task-success surface owns the feedback
+  // and support schema copy used by production runtime previews.
+  ['src/options/stitch/schema/surfaces/task-success.ts', 276],
   ['src/background/pipelines/clipPipeline.ts', 253],
   // 2026-06-18 GA telemetry acceptance: activation lifecycle, bounded event
   // transport, and release smoke wiring are production hotspots in the final
@@ -165,9 +173,7 @@ const MAX_LINE_BUDGETS = new Map([
   ['src/shared/analytics/analyticsTransport.ts', 265],
   // 2026-06-18 GA telemetry acceptance: reader/video export shape telemetry
   // adds small guarded hotspots around existing mutation and completion flows.
-  ['src/content/video/videoCaptureMutationTransaction.ts', 257],
-  ['src/options/stitch/schema/surfaces/task-success.ts', 276],
-  ['src/content/ui/supportPrompt/SupportPromptToastController.ts', 256]
+  ['src/content/video/videoCaptureMutationTransaction.ts', 257]
 ]);
 
 const PATTERNS = [

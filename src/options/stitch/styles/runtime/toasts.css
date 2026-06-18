@@ -56,11 +56,17 @@
 }
 
 .prompt-toast.reward-qr {
-  gap: 0;
+  gap: var(--space-3);
   padding: var(--space-3);
   border-color: rgba(255, 255, 255, 0.22);
   background: #fff;
   box-shadow: var(--shadow-xl);
+}
+
+.support-prompt-toast.reward-qr--xiaohongshu {
+  width: min(calc(var(--toast-max-width) / 2), calc(100vw - var(--space-16)));
+  min-width: min(calc(var(--toast-max-width) / 2), calc(100vw - var(--space-16)));
+  max-width: calc(var(--toast-max-width) / 2);
 }
 
 .support-prompt-reward-qr {
@@ -69,6 +75,14 @@
   aspect-ratio: 1;
   object-fit: contain;
   border-radius: var(--radius-md);
+}
+
+.prompt-toast .support-prompt-reward-qr-caption {
+  color: #18181b;
+  font-size: var(--font-size-sm);
+  font-weight: 650;
+  line-height: var(--line-height-label);
+  text-align: center;
 }
 
 .prompt-toast strong {

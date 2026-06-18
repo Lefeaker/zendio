@@ -168,6 +168,8 @@
 
 .yaml-preview,
 .output-box {
+  min-width: 0;
+  max-width: 100%;
   padding: var(--space-5-5);
   border-radius: var(--radius-lg);
   border: var(--border-default);
@@ -179,7 +181,19 @@
   overflow: auto;
 }
 
+.output-box {
+  max-width: 100%;
+  max-height: 360px;
+  overflow: auto;
+}
+
 .yaml-preview pre,
 .output-box pre {
   margin: 0;
+}
+
+.output-box pre {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }

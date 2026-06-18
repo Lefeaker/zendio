@@ -52,12 +52,15 @@ export function createSupportPromptToastLifecycle(options: SupportPromptToastLif
             onDislikeRedditClick: () => {
               void options.trackUsageEvent('support_dislike_reddit_clicked');
             },
-            onDislikeXiaohongshuClick: (imageAlt) => {
+            onDislikeXiaohongshuClick: ({ imageAlt, caption }) => {
               void getToastController().then((controller) => {
                 controller.showRewardQrToast({
                   imageSrc: options.resolveXiaohongshuFeedbackQrUrl(),
                   imageAlt,
-                  imageRole: 'xiaohongshu-feedback-qr-image'
+                  imageRole: 'xiaohongshu-feedback-qr-image',
+                  caption,
+                  captionRole: 'xiaohongshu-feedback-qr-caption',
+                  channel: 'xiaohongshu-feedback'
                 });
               });
             },

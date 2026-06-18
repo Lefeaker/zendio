@@ -49,6 +49,7 @@ const getContentMessagesMock = vi.hoisted(() =>
       supportPromptDislikeToastTitle: 'Share feedback',
       supportPromptDislikeRedditLinkLabel: 'Reddit',
       supportPromptDislikeQrLinkLabel: '小红书',
+      supportPromptDislikeQrCaption: '使用小红书扫码入群',
       supportPromptDislikeQrPlaceholder: 'QR soon'
     })
   )
@@ -179,8 +180,14 @@ describe('support prompt flow', () => {
     xiaohongshuButton?.click();
     await flushMicrotasks();
 
+    const qrToast = getToastRoot()?.querySelector<HTMLElement>('.support-prompt-toast.reward-qr');
+    expect(qrToast?.classList.contains('reward-qr--xiaohongshu')).toBe(true);
     expect(
-      getToastRoot()
+      qrToast?.querySelector<HTMLElement>('[data-role="xiaohongshu-feedback-qr-caption"]')
+        ?.textContent
+    ).toBe('使用小红书扫码入群');
+    expect(
+      qrToast
         ?.querySelector<HTMLImageElement>('[data-role="xiaohongshu-feedback-qr-image"]')
         ?.getAttribute('src')
     ).toBe('https://sxnian.com/products/zendio/xiaohongshu-feedback.jpg');

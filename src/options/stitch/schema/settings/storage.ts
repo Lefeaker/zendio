@@ -49,6 +49,7 @@ const schema: SettingsSchema = {
               body: [
                 {
                   kind: 'table',
+                  rowClassName: 'storage-vault-table-scroll',
                   columns: [
                     t('schemaStorageVaultEnabledColumnLabel'),
                     t('schemaStorageVaultNameColumnLabel'),
@@ -121,6 +122,7 @@ const schema: SettingsSchema = {
               body: [
                 {
                   kind: 'table',
+                  rowClassName: 'routing-rules-table-scroll',
                   columns: [
                     t('schemaStorageRoutingEnabledColumnLabel'),
                     t('schemaStorageRoutingTypeColumnLabel'),

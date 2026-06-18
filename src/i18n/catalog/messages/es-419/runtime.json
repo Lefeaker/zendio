@@ -361,6 +361,7 @@
   "supportPromptDislikeToastTitle": "Comparte tus comentarios",
   "supportPromptDislikeRedditLinkLabel": "Reddit",
   "supportPromptDislikeQrLinkLabel": "Xiaohongshu",
+  "supportPromptDislikeQrCaption": "Escanea con Xiaohongshu para unirte al grupo",
   "supportPromptDislikeQrPlaceholder": "QR code unavailable",
   "clipDialogTitle": "Recortar Selección",
   "clipDialogInstructions": "Usa Tab para moverte entre controles. Presiona Alt + teclas de flecha para reposicionar el diálogo.",

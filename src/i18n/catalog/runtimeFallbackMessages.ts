@@ -36,6 +36,7 @@ type RuntimeFallbackMessageKey =
   | 'supportPromptDialogLabel'
   | 'supportPromptDismiss'
   | 'supportPromptDislikeLabel'
+  | 'supportPromptDislikeQrCaption'
   | 'supportPromptDislikeQrLinkLabel'
   | 'supportPromptDislikeQrPlaceholder'
   | 'supportPromptDislikeRedditLinkLabel'
@@ -119,6 +120,7 @@ export const RUNTIME_FALLBACK_MESSAGES = {
   supportPromptDialogLabel: 'Support Zendio',
   supportPromptDismiss: 'Click anywhere outside to close',
   supportPromptDislikeLabel: 'Thumbs down',
+  supportPromptDislikeQrCaption: 'Scan with Xiaohongshu to join the group',
   supportPromptDislikeQrLinkLabel: 'Xiaohongshu',
   supportPromptDislikeQrPlaceholder: 'QR code unavailable',
   supportPromptDislikeRedditLinkLabel: 'Reddit',

@@ -361,6 +361,7 @@
   "supportPromptDislikeToastTitle": "Поделитесь своим отзывом",
   "supportPromptDislikeRedditLinkLabel": "Reddit",
   "supportPromptDislikeQrLinkLabel": "Xiaohongshu",
+  "supportPromptDislikeQrCaption": "Отсканируйте в Xiaohongshu, чтобы присоединиться к группе",
   "supportPromptDislikeQrPlaceholder": "QR code unavailable",
   "clipDialogTitle": "Обрезать выделение",
   "clipDialogInstructions": "Используйте Tab для перемещения между элементами управления. Нажмите Alt + клавиши стрелок для перемещения диалога.",

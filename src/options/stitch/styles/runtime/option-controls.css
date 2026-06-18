@@ -4,6 +4,8 @@
   align-items: center;
   justify-content: center;
   gap: var(--space-3);
+  max-width: 100%;
+  min-width: 0;
   min-height: var(--brand-mark-size);
   padding: 0 var(--space-5-5);
   border: var(--border-default);

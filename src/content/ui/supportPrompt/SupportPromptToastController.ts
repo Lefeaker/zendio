@@ -3,6 +3,7 @@ import { panelStyleSheetManager } from '../../shared/panels/styleSheetManager';
 import { getControlledRuntimeTheme } from '@content/stitch/runtimeTheme';
 
 const TOAST_AUTO_DISMISS_MS = 5000;
+const TOAST_EXIT_FALLBACK_MS = 350;
 type SupportPromptToastKind = 'like' | 'dislike' | 'reward-qr';
 type ActiveToastVariant = ToastVariant | 'reward-qr';
 
@@ -10,6 +11,9 @@ interface RewardQrToastOptions {
   imageSrc: string;
   imageAlt?: string | undefined;
   imageRole?: string | undefined;
+  caption?: string | undefined;
+  captionRole?: string | undefined;
+  channel?: 'wechat-reward' | 'xiaohongshu-feedback' | undefined;
 }
 
 interface ShowToastOptions {
@@ -22,7 +26,7 @@ interface SupportPromptToastControllerOptions {
   onReviewLinkClick: (variant?: LikeToastVariant) => Promise<void>;
   onReviewAcknowledgedClick: (variant?: LikeToastVariant) => Promise<void>;
   onDislikeRedditClick: () => void;
-  onDislikeXiaohongshuClick: (imageAlt: string) => void;
+  onDislikeXiaohongshuClick: (image: { imageAlt: string; caption: string }) => void;
   onGitHubFeedbackClick: () => void;
   onLikeToastShown: (variant: LikeToastVariant) => void;
   onDislikeToastShown: () => void;
@@ -33,6 +37,7 @@ export class SupportPromptToastController {
   private activeToast: HTMLDivElement | null = null;
   private activeToastVariant: ActiveToastVariant | null = null;
   private toastTimer: number | null = null;
+  private toastExitTimer: number | null = null;
 
   private readonly handleToastPointerDown = (event: PointerEvent): void => {
     if (!this.activeToast) {
@@ -131,7 +136,10 @@ export class SupportPromptToastController {
     xiaohongshuButton.textContent = messages.dislikeQrLinkLabel;
     xiaohongshuButton.addEventListener('click', (event) => {
       event.preventDefault();
-      this.options.onDislikeXiaohongshuClick(messages.dislikeQrLinkLabel);
+      this.options.onDislikeXiaohongshuClick({
+        imageAlt: messages.dislikeQrLinkLabel,
+        caption: messages.dislikeQrCaption
+      });
     });
     links.appendChild(xiaohongshuButton);
 
@@ -153,8 +161,18 @@ export class SupportPromptToastController {
     this.options.onDislikeToastShown();
   }
 
-  showRewardQrToast({ imageSrc, imageAlt, imageRole }: RewardQrToastOptions): void {
+  showRewardQrToast({
+    imageSrc,
+    imageAlt,
+    imageRole,
+    caption,
+    captionRole,
+    channel
+  }: RewardQrToastOptions): void {
     const toast = this.createBaseToast('reward-qr');
+    if (channel === 'xiaohongshu-feedback') {
+      toast.classList.add('reward-qr--xiaohongshu');
+    }
     toast.setAttribute('role', 'dialog');
     toast.setAttribute('aria-modal', 'false');
     toast.setAttribute('aria-label', imageAlt ?? 'WeChat reward code');
@@ -165,6 +183,16 @@ export class SupportPromptToastController {
     image.src = imageSrc;
     image.alt = imageAlt ?? 'WeChat reward code';
     toast.appendChild(image);
+
+    if (caption) {
+      const captionLine = this.options.doc.createElement('span');
+      captionLine.className = 'support-prompt-reward-qr-caption';
+      if (captionRole) {
+        captionLine.dataset.role = captionRole;
+      }
+      captionLine.textContent = caption;
+      toast.appendChild(captionLine);
+    }
 
     this.showToast(toast, 'reward-qr', { autoDismiss: false });
   }
@@ -214,6 +242,11 @@ export class SupportPromptToastController {
 
     if (this.toastTimer !== null) {
       window.clearTimeout(this.toastTimer);
+      this.toastTimer = null;
+    }
+    if (this.toastExitTimer !== null) {
+      window.clearTimeout(this.toastExitTimer);
+      this.toastExitTimer = null;
     }
     if (options.autoDismiss) {
       this.toastTimer = window.setTimeout(() => this.dismissToast(), TOAST_AUTO_DISMISS_MS);
@@ -234,13 +267,23 @@ export class SupportPromptToastController {
     this.options.doc.removeEventListener('keydown', this.handleToastKeyDown, true);
 
     const toast = this.activeToast;
-    const remove = () => {
-      toast.removeEventListener('transitionend', remove);
-      this.activeHost?.remove();
+    const host = this.activeHost;
+    const remove = (): void => {
+      toast.removeEventListener('transitionend', handleTransitionEnd);
+      host?.remove();
       if (this.activeToast === toast) {
+        if (this.toastExitTimer !== null) {
+          window.clearTimeout(this.toastExitTimer);
+          this.toastExitTimer = null;
+        }
         this.activeHost = null;
         this.activeToast = null;
         this.activeToastVariant = null;
+      }
+    };
+    const handleTransitionEnd = (event: TransitionEvent): void => {
+      if (event.target === toast) {
+        remove();
       }
     };
 
@@ -249,7 +292,8 @@ export class SupportPromptToastController {
       return;
     }
 
-    toast.addEventListener('transitionend', remove);
+    toast.addEventListener('transitionend', handleTransitionEnd);
     toast.classList.remove('is-visible');
+    this.toastExitTimer = window.setTimeout(remove, TOAST_EXIT_FALLBACK_MS);
   }
 }
