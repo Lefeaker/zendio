@@ -21,6 +21,7 @@ interface FixtureOptions {
   dashboardEvents?: string[];
   dashboardDimensions?: string[];
   configDoc?: string;
+  runbookDoc?: string;
   writeProxyReport?: boolean;
   writeSourceContract?: boolean;
 }
@@ -78,6 +79,7 @@ function createFixture({
   dashboardEvents = ['support_link_clicked', 'support_like_clicked', 'extension_error'],
   dashboardDimensions = ['target', 'variant', 'error_code', 'browser_name'],
   configDoc = defaultConfigDoc(),
+  runbookDoc = defaultRunbookDoc(),
   writeProxyReport = true,
   writeSourceContract = false
 }: FixtureOptions = {}): string {
@@ -116,6 +118,9 @@ export function buildAnalyticsProxyContract() {
     join(docsDir, 'google-analytics-dashboard-setup.md'),
     dashboardDoc(dashboardEvents, dashboardDimensions)
   );
+  if (runbookDoc) {
+    writeFile(join(docsDir, 'analytics-operations-runbook.md'), runbookDoc);
+  }
 
   return dir;
 }
@@ -164,6 +169,15 @@ function defaultConfigDoc(): string {
 
 GA \`api_secret\` remains server-only in the Cloudflare Worker secret \`GA4_API_SECRET\`.
 Do not put it in extension source, tracked config, or \`.env.production.local\`.
+`;
+}
+
+function defaultRunbookDoc(): string {
+  return `
+# Analytics Operations Runbook
+
+Owner-only secrets remain in the server-side Cloudflare Worker secret store.
+Do not copy \`api_secret\` into product source, build config, packages, or release artifacts.
 `;
 }
 
@@ -394,6 +408,33 @@ GA4_API_SECRET=do-not-do-this
         'forbidden extension-side secret instruction'
       );
       expect(result.stdout + result.stderr).toContain('GA4_API_SECRET');
+    } finally {
+      rmSync(fixtureRoot, { recursive: true, force: true });
+    }
+  });
+
+  it('scans the default public-safe operations runbook for unsafe secret guidance', () => {
+    const fixtureRoot = createFixture({
+      runbookDoc: `
+# Analytics Operations Runbook
+
+Put this in tracked product config:
+
+\`\`\`bash
+api_secret=do-not-do-this
+\`\`\`
+`
+    });
+
+    try {
+      const result = runReport(fixtureRoot, { useDefaultPaths: true, cwd: fixtureRoot });
+
+      expect(result.status).not.toBe(0);
+      expect(result.stdout + result.stderr).toContain(
+        'forbidden extension-side secret instruction'
+      );
+      expect(result.stdout + result.stderr).toContain('api_secret');
+      expect(result.stdout + result.stderr).toContain('analytics-operations-runbook.md');
     } finally {
       rmSync(fixtureRoot, { recursive: true, force: true });
     }

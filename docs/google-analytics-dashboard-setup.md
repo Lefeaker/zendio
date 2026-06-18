@@ -9,8 +9,15 @@
 - release build 已注入 public analytics config
 - 生产 transport 使用 owner proxy
 - 测试 profile 已显式开启 consent
+- GA4 Event data retention 已按 owner policy 设置为 `14 months`，以支持 active-day retention、activation cohort 与 release regression 分析
 - owner 本机已有 `.env.production.local`，且文件中只包含 public build config：`measurementId`、`transportMode`、`proxyEndpoint`
 - 如需证明 live delivery、proxy 注入或真实 DebugView，可见性，owner 必须同时持有 proxy / GA property 访问权限；静态 docs contract 不提供这类 live 证据
+
+## 交付分层
+
+AiiinOB 仓库只保存 dashboard spec、分析口径、custom definitions 清单和 public-safe 验证流程。真实 GA4 property、dashboard / exploration 链接、Cloudflare account / Worker evidence、平台截图、retention 变更记录、deployment / rollback 记录和 incident evidence 必须保存在 owner private ops 资产中。
+
+Public-safe 运维流程见 [`analytics-operations-runbook.md`](./analytics-operations-runbook.md)。
 
 ## Dashboard 设计硬规则
 

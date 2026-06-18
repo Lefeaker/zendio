@@ -7,6 +7,7 @@
 - [`engineering-entrypoints.md`](./engineering-entrypoints.md)
 - [`i18n-production-copy-governance.md`](./i18n-production-copy-governance.md)
 - [`ga4-telemetry-reference.md`](./ga4-telemetry-reference.md)
+- [`analytics-operations-runbook.md`](./analytics-operations-runbook.md)
 - [`performance-baseline.md`](./performance-baseline.md)
 - [`source-of-truth-index.md`](./source-of-truth-index.md)
 - [`non-production-code-ownership.md`](./non-production-code-ownership.md)

@@ -200,6 +200,11 @@ never logs event params.
 `analytics_client_id` and `analytics_session_id` are local-only storage keys
 until the relevant event-class consent and public config make a send possible;
 `clearAllData()` / analytics data clear removes both ids.
+Public-safe analytics operations are documented in
+[`analytics-operations-runbook.md`](./analytics-operations-runbook.md). Real GA4
+property links, Cloudflare account evidence, dashboard URLs, screenshots,
+deployment records, rollback records, and owner platform incident notes belong
+in private ops assets, not this product repository.
 
 ## GA / Video Targeted Checks
 
@@ -222,9 +227,11 @@ node scripts/run-playwright.mjs test tests/e2e/videoPanelFlow.test.ts tests/e2e/
 
 Use these commands to validate the settled GA consent/transport contract and the
 video screenshot intent-to-attachment path. `report-ga-docs-contract` binds
-`ga4-telemetry-reference.md` and `google-analytics-dashboard-setup.md` to the
-current schema / proxy contract; it does not prove real GA property delivery,
-DebugView visibility, or server-side `api_secret` injection.
+`ga4-telemetry-reference.md`, `google-analytics-dashboard-setup.md`, and
+`analytics-operations-runbook.md` to the current schema / proxy contract and
+public-safe secret guidance; it does not prove real GA property delivery,
+DebugView visibility, owner retention settings, or server-side `api_secret`
+injection.
 `analytics:validate:prod` remains the static/public-config contract check, and
 `analytics:smoke:delivery` only proves that an owner proxy accepted a synthetic
 event under the current public env. For package/release surfaces, run

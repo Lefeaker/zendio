@@ -1,6 +1,6 @@
 # Source of Truth 索引
 
-最后更新：2026-06-17
+最后更新：2026-06-18
 
 ## 正式入口
 
@@ -8,6 +8,7 @@
 - i18n production copy 治理：[`i18n-production-copy-governance.md`](./i18n-production-copy-governance.md)
 - GA telemetry 事件与字段真值：[`ga4-telemetry-reference.md`](./ga4-telemetry-reference.md)
 - GA docs / dashboard contract checker：`node tools/report-ga-docs-contract.mjs --check`
+- GA analytics public-safe 运维流程：[`analytics-operations-runbook.md`](./analytics-operations-runbook.md)
 - 性能与热点真值：[`performance-baseline.md`](./performance-baseline.md)
 - 类型收口路线：[`typescript-strict-roadmap.md`](./typescript-strict-roadmap.md)
 - 当前执行计划：[`project-stabilization-plan-2026-04-13.md`](./project-stabilization-plan-2026-04-13.md)
@@ -44,7 +45,7 @@
 - `qps-ploc` 当前分类为 `dev-test-only` pseudo-locale：仅用于开发/测试伪本地化；production runtime locale registry、production build output、Chrome ZIP 与 Firefox XPI 均不得包含 `qps-ploc` loader/chunk 或 `_locales/qps-ploc/messages.json`
 - root `_locales/**` 已删除，不再作为 retained compatibility duplicate 保留；production build/package/release surface owner 为 `public/_locales/**` -> `build/dist/_locales/**` -> final Chrome ZIP / Firefox XPI
 - Chrome Web Store release 真值：`release:chrome` 默认 dry-run；真实发布只允许 `release:chrome:publish -- --zip <release.zip>` 并需要 owner credentials / manual confirmation
-- GA docs / dashboard current truth：`ga4-telemetry-reference.md` 的 active tables 现在只允许记录 schema/proxy contract 中 `emitted`、`error`、`dev-only` rows；`google-analytics-dashboard-setup.md` 只允许推荐 active emitted / error KPI 事件。提交前必须先运行 `npm run audit:ga:proxy-contract`，再运行 `npm run audit:ga:docs`，防止 docs 与 schema/proxy contract 静默漂移；该检查同样不证明真实 GA property delivery、DebugView 可见性或服务端 `api_secret` 注入。
+- GA docs / dashboard / runbook current truth：`ga4-telemetry-reference.md` 的 active tables 现在只允许记录 schema/proxy contract 中 `emitted`、`error`、`dev-only` rows；`google-analytics-dashboard-setup.md` 只允许推荐 active emitted / error KPI 事件；`analytics-operations-runbook.md` 只允许记录 public-safe 运维流程、占位符和检查清单，不得写入真实 GA4 property、Cloudflare account、dashboard 链接、平台截图、deployment evidence 或 owner-only secret。提交前必须先运行 `npm run audit:ga:proxy-contract`，再运行 `npm run audit:ga:docs`，防止 docs 与 schema/proxy contract 或 secret guidance 静默漂移；该检查同样不证明真实 GA property delivery、DebugView 可见性或服务端 `api_secret` 注入。
 - GA client secret / release surface current truth：`npm run audit:ga:client-secret` 会扫描 client runtime `src/**` 与当前 `build/dist`，拒绝任何 server-only token（包括 `api_secret`、`GA4_API_SECRET`、`AIIINOB_GA_API_SECRET`、`ZENDIO_GA_API_SECRET`）以及 direct Google Measurement Protocol endpoint；`npm run audit:ga:release-surface` 会对当前 `build/dist` 运行同类扫描，并可通过 `--archive <zip-or-xpi>` 单独审计 Chrome ZIP / Firefox XPI package runtime surface，额外拒绝 debug success log payload/params 泄漏。两者都是 deterministic engineering gates，不证明 live proxy / DebugView / server-side `api_secret` 注入。
 - GA production release public config 真值：owner 本机使用 ignored `.env.production.local` 注入 `AIIINOB_GA_MEASUREMENT_ID`、`AIIINOB_GA_TRANSPORT_MODE`、`AIIINOB_GA_PROXY_ENDPOINT`；复用命令为 `analytics:validate:prod`、`analytics:smoke:delivery`、`build:prod:ga`、`package:prod:ga`、`package:firefox:prod:ga`、`release:prod:ga`。GA `api_secret` 仍只允许存在于 Cloudflare Worker secret `GA4_API_SECRET`；`directDebug` 也必须经 owner debug proxy，不允许扩展直连 Google debug endpoint。`analytics:validate:prod` 现在验证静态/public-config wiring、tracked transport/consent contract、负向 secret/endpoint 守卫与 owner env sanity，但仍不证明真实 GA property delivery、DebugView 可见性或服务端 `api_secret` 注入；`.env.production.local` 缺失时该命令仍会运行并把缺失 public 值记为 warning。`analytics:smoke:delivery` 是 opt-in owner-run proxy acceptance smoke：默认在 public env 不完整时 skip，`--require-env` 才把缺失 public env 视为 failure；它只发送 allowlisted synthetic event、拒绝 direct Google Measurement Protocol hosts、只输出 redacted summary，也不证明真实 property delivery 或 DebugView 可见性。
 - GA live consent / local id 真值：`analytics_client_id` 与 `analytics_session_id` 会在本地扩展存储中预先建立，但在对应事件类别 consent 与 public config 允许发送前不会离开本地；`clearAllData()` / analytics data clear 会清除 consent、client id、session id 与相关本地状态。
@@ -100,6 +101,7 @@
 - 想知道“现在该跑什么命令”，先看 [`engineering-entrypoints.md`](./engineering-entrypoints.md)
 - 想知道“production user-visible copy 如何加 key、传 descriptor、跑 CJK hard gate 或英文 uncatalogued-copy hard gate”，先看 [`i18n-production-copy-governance.md`](./i18n-production-copy-governance.md)
 - 想知道“当前 telemetry 事件、字段、分类与隐私边界”，先看 [`ga4-telemetry-reference.md`](./ga4-telemetry-reference.md)
+- 想知道“GA dashboard / proxy / DebugView / retention 的 public-safe 运维流程”，先看 [`analytics-operations-runbook.md`](./analytics-operations-runbook.md)
 - 想知道“现在包体和热点是多少”，先看 [`performance-baseline.md`](./performance-baseline.md)
 - 想知道“审计时的脏工作树属于哪个交付批次”，先看 [`current-delivery-batches-2026-04-13.md`](./current-delivery-batches-2026-04-13.md)
 - 如果新增正式入口、门禁口径或批次归属规则，必须同步更新本页与 [`README.md`](./README.md)

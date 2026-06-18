@@ -11,6 +11,7 @@ const DEFAULT_REFERENCE_DOC_PATH = 'docs/ga4-telemetry-reference.md';
 const DEFAULT_CONFIG_DOC_PATH = 'docs/analytics-configuration-guide.md';
 const DEFAULT_DASHBOARD_DOC_PATH = 'docs/google-analytics-dashboard-setup.md';
 const OPTIONAL_SECRET_DOC_PATHS = [
+  'docs/analytics-operations-runbook.md',
   'docs/error-analytics-system-overview.md',
   'docs/runtime-observability-and-regression.md',
   'docs/source-of-truth-index.md',
