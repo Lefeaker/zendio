@@ -15,6 +15,7 @@ import {
 import type { VideoSessionOperationContext } from './videoSessionOperationContext';
 import {
   emitVideoUsageEvent,
+  countVideoRequestedScreenshots,
   createVideoExportFailure,
   mapVideoAnalyticsPlatform,
   requestRequestedScreenshotPreparation,
@@ -302,7 +303,9 @@ export async function finishVideoSession(
     emitVideoUsageEvent(context.dependencies, 'video_exported', {
       platform: mapVideoAnalyticsPlatform(context.state.platform),
       destination: resolveVideoExportDestination(exportDestination),
-      duration_bucket: resolveVideoSessionDurationBucket(context.state)
+      duration_bucket: resolveVideoSessionDurationBucket(context.state),
+      capture_count_bucket: bucketCount(context.state.captures.length),
+      screenshot_count_bucket: bucketCount(countVideoRequestedScreenshots(context.state.captures))
     });
     onCleanup();
   } catch (error) {
