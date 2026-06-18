@@ -36,6 +36,7 @@ const FALLBACK_SUPPORT_PROMPT_MESSAGES: SupportPromptMessages = {
   dislikeToastTitle: RUNTIME_FALLBACK_MESSAGES.supportPromptDislikeToastTitle,
   dislikeRedditLinkLabel: RUNTIME_FALLBACK_MESSAGES.supportPromptDislikeRedditLinkLabel,
   dislikeQrLinkLabel: RUNTIME_FALLBACK_MESSAGES.supportPromptDislikeQrLinkLabel,
+  dislikeQrCaption: RUNTIME_FALLBACK_MESSAGES.supportPromptDislikeQrCaption,
   dislikeQrPlaceholder: RUNTIME_FALLBACK_MESSAGES.supportPromptDislikeQrPlaceholder
 };
 
@@ -201,7 +202,9 @@ export async function resolveSupportPromptMessages(doc: Document): Promise<Suppo
         FALLBACK_SUPPORT_PROMPT_MESSAGES.dislikeRedditLinkLabel,
       dislikeQrLinkLabel:
         messages.supportPromptDislikeQrLinkLabel ??
-        FALLBACK_SUPPORT_PROMPT_MESSAGES.dislikeQrLinkLabel
+        FALLBACK_SUPPORT_PROMPT_MESSAGES.dislikeQrLinkLabel,
+      dislikeQrCaption:
+        messages.supportPromptDislikeQrCaption ?? FALLBACK_SUPPORT_PROMPT_MESSAGES.dislikeQrCaption
     };
     const dislikeQrPlaceholder =
       messages.supportPromptDislikeQrPlaceholder ??

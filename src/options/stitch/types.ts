@@ -78,12 +78,16 @@ export interface ResourceStep {
 }
 
 export interface SupportChannel {
+  id?: string;
   title: string;
   subtitle?: string;
   detail?: string;
   href?: string;
   note?: string;
   icon?: string;
+  image?: string;
+  imageAlt?: string;
+  imagePresentation?: 'inline' | 'modal';
 }
 
 export interface ContactEntry {
@@ -276,8 +280,6 @@ export interface PreviewResources {
   support: {
     hero: HeroData;
     channels: SupportChannel[];
-    scope: string[];
-    response: string[];
   };
   suggestions: {
     hero: HeroData;
@@ -668,6 +670,10 @@ export interface ResourceCardNode extends BaseNode {
   detail?: DynamicValue<string>;
   note?: DynamicValue<string>;
   href?: DynamicValue<string>;
+  icon?: DynamicValue<string>;
+  image?: DynamicValue<string>;
+  imageAlt?: DynamicValue<string>;
+  imagePresentation?: DynamicValue<'inline' | 'modal'>;
 }
 
 export interface HighlightExampleNode extends BaseNode {
@@ -693,6 +699,8 @@ export interface ElementNode extends BaseNode {
   type?: DynamicValue<string>;
   role?: DynamicValue<string>;
   ariaPressed?: DynamicValue<string>;
+  ariaExpanded?: DynamicValue<string>;
+  ariaHaspopup?: DynamicValue<string>;
   ariaLabel?: DynamicValue<string>;
   disabled?: DynamicValue<boolean>;
   title?: DynamicValue<string>;

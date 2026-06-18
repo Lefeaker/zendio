@@ -1,50 +1,83 @@
-import type { ResourceSchema } from '../../types';
+import type { NodeSchema, ResourceSchema } from '../../types';
+import { element, textSpan } from '../builders/primitives';
 import { translateSchemaMessage, type SchemaMessageKey } from '../i18n';
-import {
-  modalSection,
-  resourceCard,
-  resourceCardGrid,
-  resourceModalStack
-} from '../builders/resources';
+import { resourceModalStack } from '../builders/resources';
+
+const XIAOHONGSHU_FEEDBACK_QR_URL = 'https://sxnian.com/products/zendio/xiaohongshu-feedback.jpg';
+
+function externalLink(label: string, href: string): NodeSchema {
+  return element('a', { href, target: '_blank', rel: 'noopener noreferrer' }, [textSpan(label)]);
+}
+
+function xiaohongshuPopoverLink(label: string, caption: string): NodeSchema {
+  return element(
+    'span',
+    {
+      className: 'resource-inline-popover-host'
+    },
+    [
+      element(
+        'button',
+        {
+          className: 'resource-inline-popover-trigger',
+          type: 'button',
+          dataset: { role: 'xiaohongshu-feedback-qr-trigger' },
+          ariaHaspopup: 'dialog'
+        },
+        [textSpan(label)]
+      ),
+      element(
+        'span',
+        {
+          className: 'resource-inline-popover',
+          role: 'dialog',
+          ariaLabel: label
+        },
+        [
+          element('img', {
+            className: 'resource-inline-popover-media',
+            src: XIAOHONGSHU_FEEDBACK_QR_URL,
+            alt: label
+          }),
+          element('span', { className: 'resource-inline-popover-caption' }, [textSpan(caption)])
+        ]
+      )
+    ]
+  );
+}
 
 const schema: ResourceSchema = {
   openMode: 'modal',
   createView(ctx) {
     const resource = ctx.appData.resources.suggestions;
-    const shouldLocalize = Boolean(ctx.messages);
+    const contact = ctx.appData.resources.contact;
     const tr = (key: SchemaMessageKey) => translateSchemaMessage(ctx.t, key);
-    const githubHref = resource.channels.find((item) => item.href?.includes('github.com'))?.href;
-    const redditHref = resource.channels.find((item) => item.href?.includes('reddit.com'))?.href;
+    const github = resource.channels.find((item) => item.href?.includes('github.com'));
+    const emailHref =
+      contact.entries.find((item) => item.href?.startsWith('mailto:'))?.href ??
+      'mailto:zendio@sxnian.com';
     return {
       id: 'suggestions',
       kind: 'modal',
       title: tr('schemaResourceSuggestionsTitle'),
-      description: tr('schemaResourceSuggestionsDescription'),
+      description: '',
       children: [
-        shouldLocalize
-          ? resourceModalStack([
-              modalSection(tr('schemaResourceSuggestionsChannelsGroupTitle'), [
-                resourceCardGrid(
-                  [
-                    {
-                      title: tr('schemaResourceSuggestionsGithubTitle'),
-                      subtitle: tr('schemaResourceSuggestionsGithubDescription'),
-                      ...(githubHref !== undefined ? { href: githubHref } : {})
-                    },
-                    {
-                      title: tr('schemaResourceSuggestionsRedditTitle'),
-                      subtitle: tr('schemaResourceSuggestionsRedditDescription'),
-                      ...(redditHref !== undefined ? { href: redditHref } : {})
-                    }
-                  ].map((item) => resourceCard(item)),
-                  2
-                )
-              ])
-            ])
-          : resourceCardGrid(
-              resource.channels.map((item) => resourceCard(item)),
-              2
-            )
+        resourceModalStack([
+          element('p', { className: 'resource-inline-copy' }, [
+            textSpan(tr('schemaResourceSuggestionsDescription')),
+            github?.href
+              ? externalLink(tr('schemaResourceSuggestionsGithubTitle'), github.href)
+              : textSpan(tr('schemaResourceSuggestionsGithubTitle')),
+            textSpan(tr('schemaResourceSuggestionsGithubDescription')),
+            xiaohongshuPopoverLink(
+              tr('schemaResourceSuggestionsXiaohongshuTitle'),
+              tr('schemaResourceSuggestionsXiaohongshuQrCaption')
+            ),
+            textSpan(tr('schemaResourceSuggestionsRedditDescription')),
+            externalLink(tr('schemaResourceContactEmailTitle'), emailHref),
+            textSpan(tr('schemaResourceSuggestionsXiaohongshuDescription'))
+          ])
+        ])
       ]
     };
   }

@@ -36,6 +36,7 @@ type RuntimeFallbackMessageKey =
   | 'supportPromptDialogLabel'
   | 'supportPromptDismiss'
   | 'supportPromptDislikeLabel'
+  | 'supportPromptDislikeQrCaption'
   | 'supportPromptDislikeQrLinkLabel'
   | 'supportPromptDislikeQrPlaceholder'
   | 'supportPromptDislikeRedditLinkLabel'
@@ -114,14 +115,15 @@ export const RUNTIME_FALLBACK_MESSAGES = {
   supportProgressSendingToObsidian: 'Sending to Obsidian',
   supportProgressWritingAttachments: 'Writing attachments',
   supportProgressWritingNote: 'Writing note',
-  supportPromptAfdianDescription: 'Chinese donation platform',
-  supportPromptAfdianTitle: 'Afdian',
+  supportPromptAfdianDescription: 'Scan the WeChat reward code to support the project.',
+  supportPromptAfdianTitle: 'WeChat Reward',
   supportPromptDialogLabel: 'Support Zendio',
   supportPromptDismiss: 'Click anywhere outside to close',
   supportPromptDislikeLabel: 'Thumbs down',
-  supportPromptDislikeQrLinkLabel: 'Scan to share feedback',
+  supportPromptDislikeQrCaption: 'Scan with Xiaohongshu to join the group',
+  supportPromptDislikeQrLinkLabel: 'Xiaohongshu',
   supportPromptDislikeQrPlaceholder: 'QR code unavailable',
-  supportPromptDislikeRedditLinkLabel: 'Discuss on Reddit',
+  supportPromptDislikeRedditLinkLabel: 'Reddit',
   supportPromptDislikeToastTitle: 'Share your feedback',
   supportPromptFeedbackGroupLabel: 'Quick feedback',
   supportPromptGithubDescription: 'File feedback',

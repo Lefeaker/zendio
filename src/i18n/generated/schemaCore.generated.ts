@@ -261,6 +261,7 @@ export const GENERATED_SCHEMA_MESSAGE_KEYS = [
   'schemaResourceSuggestionsRedditTitle',
   'schemaResourceSuggestionsTitle',
   'schemaResourceSuggestionsXiaohongshuDescription',
+  'schemaResourceSuggestionsXiaohongshuQrCaption',
   'schemaResourceSuggestionsXiaohongshuTitle',
   'schemaResourceSupportAfdianDescription',
   'schemaResourceSupportAfdianTitle',

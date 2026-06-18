@@ -13,8 +13,13 @@ const schema: ResourceSchema = {
     const resource = ctx.appData.resources.support;
     const shouldLocalize = Boolean(ctx.messages);
     const tr = (key: SchemaMessageKey) => translateSchemaMessage(ctx.t, key);
-    const koFiHref = resource.channels.find((item) => item.href?.includes('ko-fi'))?.href;
-    const afdianHref = resource.channels.find((item) => item.href?.includes('afdian'))?.href;
+    const koFi = resource.channels.find((item) => item.href?.includes('ko-fi'));
+    const weChatReward = resource.channels.find(
+      (item) =>
+        item.image?.includes('wechat-reward') ||
+        item.icon?.includes('wechat-reward') ||
+        item.title.toLowerCase().includes('wechat')
+    );
     return {
       id: 'support',
       kind: 'modal',
@@ -29,32 +34,32 @@ const schema: ResourceSchema = {
                     {
                       title: tr('schemaResourceSupportKoFiTitle'),
                       subtitle: tr('schemaResourceSupportKoFiDescription'),
-                      ...(koFiHref !== undefined ? { href: koFiHref } : {})
+                      ...(koFi?.href !== undefined ? { href: koFi.href } : {}),
+                      ...(koFi?.icon !== undefined ? { icon: koFi.icon } : {})
                     },
                     {
                       title: tr('schemaResourceSupportAfdianTitle'),
                       subtitle: tr('schemaResourceSupportAfdianDescription'),
-                      ...(afdianHref !== undefined ? { href: afdianHref } : {})
+                      ...(weChatReward?.icon !== undefined ? { icon: weChatReward.icon } : {}),
+                      ...(weChatReward?.image !== undefined ? { image: weChatReward.image } : {}),
+                      ...(weChatReward?.imageAlt !== undefined
+                        ? { imageAlt: weChatReward.imageAlt }
+                        : {}),
+                      imagePresentation: 'modal' as const
                     }
                   ].map((item) => resourceCard(item)),
                   2
                 )
-              ]),
-              modalSection(tr('schemaResourceSupportScopeGroupTitle'), [
-                {
-                  kind: 'list',
-                  items: [
-                    tr('schemaResourceSupportScope1'),
-                    tr('schemaResourceSupportScope2'),
-                    tr('schemaResourceSupportScope3'),
-                    tr('schemaResourceSupportScope4')
-                  ]
-                }
               ])
             ])
           : resourceModalStack([
               resourceCardGrid(
-                resource.channels.map((item) => resourceCard(item)),
+                resource.channels.map((item) =>
+                  resourceCard({
+                    ...item,
+                    ...(item.icon && item.image ? { imagePresentation: 'modal' as const } : {})
+                  })
+                ),
                 2
               )
             ])

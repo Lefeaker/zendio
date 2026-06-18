@@ -2,6 +2,7 @@
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { getMessagesForLanguage, type Messages } from '@i18n';
+import type { ReleaseLangCode } from '@i18n/catalog/languages';
 import { mountProductionStitchShell } from '@options/app/productionStitchShell';
 import {
   createProductionStitchAppData,
@@ -51,6 +52,20 @@ const RUNTIME_SURFACE_IDS: RuntimeSurfaceId[] = [
   'task-success'
 ];
 const CHINESE_FALLBACK_PANEL_IDS = ['overview', 'storage', 'capture-behavior'];
+const EXPECTED_XIAOHONGSHU_QR_CAPTIONS = {
+  en: 'Scan with Xiaohongshu to join the group',
+  'zh-CN': '使用小红书扫码入群',
+  ja: '小紅書でQRコードを読み取ってグループに参加',
+  de: 'Mit Xiaohongshu scannen und der Gruppe beitreten',
+  fr: 'Scannez avec Xiaohongshu pour rejoindre le groupe',
+  'es-ES': 'Escanea con Xiaohongshu para unirte al grupo',
+  'es-419': 'Escanea con Xiaohongshu para unirte al grupo',
+  it: 'Scansiona con Xiaohongshu per unirti al gruppo',
+  ko: '샤오홍슈로 QR 코드를 스캔해 그룹에 참여하세요',
+  'pt-BR': 'Escaneie com o Xiaohongshu para entrar no grupo',
+  ru: 'Отсканируйте в Xiaohongshu, чтобы присоединиться к группе',
+  'zh-TW': '使用小紅書掃碼入群'
+} satisfies Record<ReleaseLangCode, string>;
 
 const SURFACE_INITIAL_OPTIONS = {
   rest: {
@@ -117,9 +132,6 @@ function renderRuntimeSurface(surfaceId: RuntimeSurfaceId, messages: Messages): 
     messages,
     language: 'en'
   });
-
-  queryRequired<HTMLElement>(`[data-footer-panel="${surfaceId}"]`);
-
   const draft = createCompleteOptions(SURFACE_INITIAL_OPTIONS);
   const appData = structuredClone(
     createProductionStitchAppData(draft, {
@@ -377,6 +389,23 @@ describe('mountProductionStitchShell English residual coverage', () => {
     }
   });
 
+  it('localizes Xiaohongshu QR captions instead of sharing Chinese copy across English surfaces', async () => {
+    for (const [language, expectedCaption] of Object.entries(EXPECTED_XIAOHONGSHU_QR_CAPTIONS)) {
+      const messages = await getMessagesForLanguage(language as ReleaseLangCode);
+
+      expect(messages.schemaResourceSuggestionsXiaohongshuQrCaption).toBe(expectedCaption);
+      expect(messages.supportPromptDislikeQrCaption).toBe(expectedCaption);
+    }
+
+    const messages = await createEnglishPageMessages();
+    expect(messages.schemaResourceSuggestionsXiaohongshuQrCaption).toBe(
+      'Scan with Xiaohongshu to join the group'
+    );
+    expect(messages.supportPromptDislikeQrCaption).toBe('Scan with Xiaohongshu to join the group');
+    expect(messages.schemaResourceSuggestionsXiaohongshuQrCaption).not.toMatch(/[\u4e00-\u9fff]/u);
+    expect(messages.supportPromptDislikeQrCaption).not.toMatch(/[\u4e00-\u9fff]/u);
+  });
+
   it('keeps every runtime surface preview free of residual Chinese in English mode', async () => {
     const messages = await createEnglishPageMessages();
     const failures: string[] = [];
@@ -533,8 +562,44 @@ describe('mountProductionStitchShell English residual coverage', () => {
       DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaResourceSuggestionsTitle
     );
     expect(suggestions.textContent).toContain(
-      DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaResourceSuggestionsGithubDescription
+      DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaResourceSuggestionsDescription
     );
+    expect(suggestions.textContent).toContain(
+      DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaResourceSuggestionsXiaohongshuTitle
+    );
+    expect(suggestions.textContent).toContain(
+      DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaResourceSuggestionsXiaohongshuDescription
+    );
+    expect(suggestions.querySelector('.resource-link-card')).toBeNull();
+    expect(
+      suggestions.querySelector<HTMLAnchorElement>(
+        'a[href*="github.com/Lefeaker/AllinOB/issues/new"]'
+      )
+    ).toBeTruthy();
+    const xiaohongshuTrigger = suggestions.querySelector<HTMLButtonElement>(
+      'button.resource-inline-popover-trigger[data-role="xiaohongshu-feedback-qr-trigger"]'
+    );
+    expect(xiaohongshuTrigger).toBeTruthy();
+    expect(xiaohongshuTrigger?.hasAttribute('href')).toBe(false);
+    expect(xiaohongshuTrigger?.hasAttribute('target')).toBe(false);
+    const xiaohongshuPopoverHost = xiaohongshuTrigger?.closest<HTMLElement>(
+      '.resource-inline-popover-host'
+    );
+    expect(xiaohongshuPopoverHost).toBeTruthy();
+    expect(
+      xiaohongshuPopoverHost
+        ?.querySelector<HTMLImageElement>(
+          '.resource-inline-popover img.resource-inline-popover-media'
+        )
+        ?.getAttribute('src')
+    ).toBe('https://sxnian.com/products/zendio/xiaohongshu-feedback.jpg');
+    expect(
+      xiaohongshuPopoverHost?.querySelector<HTMLElement>('.resource-inline-popover-caption')
+        ?.textContent
+    ).toBe(DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaResourceSuggestionsXiaohongshuQrCaption);
+    expect(
+      suggestions.querySelector<HTMLAnchorElement>('a[href="mailto:zendio@sxnian.com"]')
+    ).toBeTruthy();
     expect(suggestions.textContent).not.toContain('RAW SUGGESTION TITLE SENTINEL');
     expect(suggestions.textContent).not.toContain('RAW SUGGESTION SUBTITLE SENTINEL');
     suggestions.remove();
@@ -543,9 +608,21 @@ describe('mountProductionStitchShell English residual coverage', () => {
     expect(contact.textContent).toContain(
       DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaResourceContactTitle
     );
-    expect(contact.textContent).toContain(
-      DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaResourceContactRedditDescription
-    );
+    expect(contact.textContent).toContain('If you appreciate this project or want to connect');
+    expect(contact.querySelector('.resource-link-card')).toBeNull();
+    expect(contact.textContent).not.toContain('https://www.reddit.com/user/sxnian/');
+    expect(contact.textContent).not.toContain('https://github.com/Lefeaker');
+    expect(contact.textContent).not.toContain('zendio@sxnian.com');
+    expect(contact.querySelector<HTMLAnchorElement>('a[href="https://sxnian.com"]')).toBeTruthy();
+    expect(
+      contact.querySelector<HTMLAnchorElement>('a[href="https://www.reddit.com/user/sxnian/"]')
+    ).toBeTruthy();
+    expect(
+      contact.querySelector<HTMLAnchorElement>('a[href="https://github.com/Lefeaker"]')
+    ).toBeTruthy();
+    expect(
+      contact.querySelector<HTMLAnchorElement>('a[href="mailto:zendio@sxnian.com"]')
+    ).toBeTruthy();
     expect(contact.textContent).not.toContain('RAW CONTACT TITLE SENTINEL');
     expect(contact.textContent).not.toContain('RAW CONTACT SUBTITLE SENTINEL');
     contact.remove();

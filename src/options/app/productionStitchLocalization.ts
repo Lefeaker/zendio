@@ -81,21 +81,6 @@ const CAPTURE_BEHAVIOR_HERO_PILL_KEYS: readonly SchemaMessageKey[] = [
   'schemaCaptureBehaviorFragmentGroupTitle'
 ] satisfies readonly SchemaMessageKey[];
 
-const LANGUAGE_OPTION_KEYS: Record<string, SchemaMessageKey> = {
-  en: 'schemaOverviewLanguageOptionEn',
-  'zh-CN': 'schemaOverviewLanguageOptionZhCn',
-  ja: 'schemaOverviewLanguageOptionJa',
-  de: 'schemaOverviewLanguageOptionDe',
-  fr: 'schemaOverviewLanguageOptionFr',
-  'es-ES': 'schemaOverviewLanguageOptionEsEs',
-  'es-419': 'schemaOverviewLanguageOptionEs419',
-  it: 'schemaOverviewLanguageOptionIt',
-  ko: 'schemaOverviewLanguageOptionKo',
-  'pt-BR': 'schemaOverviewLanguageOptionPtBr',
-  ru: 'schemaOverviewLanguageOptionRu',
-  'zh-TW': 'schemaOverviewLanguageOptionZhTw'
-};
-
 const SUBTITLE_LANGUAGE_KEYS: Record<string, SchemaMessageKey> = {
   'zh-CN': 'schemaOverviewLanguageOptionZhCn',
   en: 'schemaOverviewLanguageOptionEn',
@@ -157,11 +142,8 @@ function localizeSelectOptions(
   });
 }
 
-function localizeLanguageOptions(t: SchemaTranslator): PreviewContent['languageOptions'] {
-  return createReleaseLanguageOptions((code, metadata) => {
-    const key = LANGUAGE_OPTION_KEYS[code];
-    return key ? t(key, metadata.englishName) : metadata.englishName;
-  });
+function localizeLanguageOptions(): PreviewContent['languageOptions'] {
+  return createReleaseLanguageOptions();
 }
 
 function localizeNavItems(
@@ -325,7 +307,7 @@ export function localizeStitchContent(
         pills: localizePills(content.overview.hero.pills, OVERVIEW_HERO_PILL_KEYS, t)
       }
     },
-    languageOptions: localizeLanguageOptions(t),
+    languageOptions: localizeLanguageOptions(),
     storage: {
       ...localizeStorage(content.storage, previewContent.storage, t)
     },

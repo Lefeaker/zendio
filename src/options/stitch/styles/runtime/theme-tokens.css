@@ -96,6 +96,9 @@ html[data-preview-theme='dark'] {
   --space-16: 56px;
   --space-17: 72px;
   --sidebar-width: 256px;
+  --sidebar-compact-width: 224px;
+  --sidebar-narrow-width: 188px;
+  --shell-sidebar-width: var(--sidebar-width);
   --content-max-width: 1180px;
   --standalone-max-width: 1080px;
   --modal-width: 680px;

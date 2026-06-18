@@ -31,16 +31,26 @@ export function getLanguageSelectValues(root: ParentNode): string[] {
   return Array.from(requireLanguageSelect(root).options).map((option) => option.value);
 }
 
-export function collectTextExcludingLanguageOptions(root: ParentNode): string {
+export function collectTextExcludingLanguageOptions(
+  root: ParentNode,
+  allowedPhrases: readonly string[] = []
+): string {
   const cloneSource = root instanceof Document ? root.body : (root as Node & ParentNode);
   const clone = cloneSource.cloneNode(true) as Node & ParentNode;
   const languageSelect = findLanguageSelect(clone);
   languageSelect?.querySelectorAll('option').forEach((option) => option.remove());
-  return normalizeWhitespace(clone.textContent ?? '');
+  let text = normalizeWhitespace(clone.textContent ?? '');
+  for (const phrase of allowedPhrases) {
+    text = text.replaceAll(phrase, '');
+  }
+  return text;
 }
 
-export function expectNoChineseSettingsCopy(root: ParentNode): void {
-  const text = collectTextExcludingLanguageOptions(root);
+export function expectNoChineseSettingsCopy(
+  root: ParentNode,
+  options: { allowedPhrases?: readonly string[] } = {}
+): void {
+  const text = collectTextExcludingLanguageOptions(root, options.allowedPhrases);
   const match = text.match(RESIDUAL_CHINESE_RE);
   if (!match) {
     return;

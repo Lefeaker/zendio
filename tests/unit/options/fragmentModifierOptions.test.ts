@@ -1,10 +1,12 @@
 import { DEFAULT_RUNTIME_MESSAGES, type Messages } from '@i18n';
 import { describe, expect, it } from 'vitest';
 import {
+  detectFragmentModifierPlatform,
   fragmentModifierChipItems,
   fragmentModifierChoices,
   fragmentModifierConflictWarning,
-  normalizeFragmentModifierKeys
+  normalizeFragmentModifierKeys,
+  platformCommandModifierKey
 } from '@options/app/fragmentModifierOptions';
 
 const ENGLISH_SENTINEL_MESSAGES: Messages = {
@@ -18,16 +20,34 @@ const ENGLISH_SENTINEL_MESSAGES: Messages = {
 };
 
 describe('fragment modifier Options helpers', () => {
-  it('renders three platform-specific single-select choices', () => {
-    expect(fragmentModifierChoices(true)).toEqual([
+  it('detects common browser platform strings before choosing keyboard mapping', () => {
+    expect(detectFragmentModifierPlatform('MacIntel')).toBe('apple');
+    expect(detectFragmentModifierPlatform('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)')).toBe(
+      'apple'
+    );
+    expect(platformCommandModifierKey(detectFragmentModifierPlatform('MacIntel'))).toBe('meta');
+
+    expect(detectFragmentModifierPlatform('Win32')).toBe('standard');
+    expect(platformCommandModifierKey(detectFragmentModifierPlatform('Win32'))).toBe('ctrl');
+    expect(detectFragmentModifierPlatform('Linux x86_64')).toBe('standard');
+    expect(detectFragmentModifierPlatform('')).toBe('unknown');
+  });
+
+  it('renders three platform-specific single-select choices without catalog override labels', () => {
+    expect(fragmentModifierChoices(true, ENGLISH_SENTINEL_MESSAGES)).toEqual([
       { value: 'shift', label: 'Shift' },
       { value: 'meta', label: 'Cmd' },
       { value: 'alt', label: 'Option' }
     ]);
-    expect(fragmentModifierChoices(false)).toEqual([
+    expect(fragmentModifierChoices(false, ENGLISH_SENTINEL_MESSAGES)).toEqual([
       { value: 'shift', label: 'Shift' },
-      { value: 'ctrl', label: 'Ctrl' },
+      { value: 'ctrl', label: 'Control' },
       { value: 'alt', label: 'Alt' }
+    ]);
+    expect(fragmentModifierChoices('unknown' as never, ENGLISH_SENTINEL_MESSAGES)).toEqual([
+      { value: 'shift', label: 'Shift' },
+      { value: 'ctrl', label: 'Control/Cmd' },
+      { value: 'alt', label: 'Option/Alt' }
     ]);
   });
 
@@ -44,28 +64,28 @@ describe('fragment modifier Options helpers', () => {
     const chips = fragmentModifierChipItems(['meta'], ENGLISH_SENTINEL_MESSAGES, false);
 
     expect(chips).toEqual([
-      { value: 'shift', label: 'Shift Sentinel', pressed: false },
-      { value: 'ctrl', label: 'Ctrl Sentinel', pressed: true },
-      { value: 'alt', label: 'Alt Sentinel', pressed: false }
+      { value: 'shift', label: 'Shift', pressed: false },
+      { value: 'ctrl', label: 'Control', pressed: true },
+      { value: 'alt', label: 'Alt', pressed: false }
     ]);
   });
 
   it('warns only for modifier choices with shortcut collision risk', () => {
     expect(fragmentModifierConflictWarning('shift', null, false)).toBe('');
     expect(fragmentModifierConflictWarning('ctrl', ENGLISH_SENTINEL_MESSAGES, false)).toBe(
-      'Browser warning sentinel for Ctrl Sentinel'
+      'Browser warning sentinel for Control'
     );
     expect(fragmentModifierConflictWarning('meta', ENGLISH_SENTINEL_MESSAGES, true)).toBe(
-      'Browser warning sentinel for Cmd Sentinel'
+      'Browser warning sentinel for Cmd'
     );
     expect(fragmentModifierConflictWarning('alt', ENGLISH_SENTINEL_MESSAGES, true)).toBe(
-      'System warning sentinel for Alt Sentinel'
+      'System warning sentinel for Option'
     );
   });
 
   it('falls back to English modifier conflict warnings when localized messages are missing', () => {
     expect(fragmentModifierConflictWarning('ctrl', null, false)).toBe(
-      'Ctrl may conflict with browser or page shortcuts. If it is unstable, use Shift.'
+      'Control may conflict with browser or page shortcuts. If it is unstable, use Shift.'
     );
     expect(fragmentModifierConflictWarning('alt', null, true)).toBe(
       'Option may conflict with system, browser, or page shortcuts. If it is unstable, use Shift.'

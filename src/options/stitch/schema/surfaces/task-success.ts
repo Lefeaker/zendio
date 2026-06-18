@@ -117,29 +117,76 @@ function taskProgress(
 function supportStrip(items: SupportChannel[]): NodeSchema {
   return div(
     'task-support-strip',
-    items.map((item) =>
-      element(
-        'a',
-        {
-          className: 'task-support-link',
-          ...(item.href ? { href: item.href } : {}),
-          target: '_blank',
-          rel: 'noopener noreferrer'
-        },
-        [
-          element('img', {
+    items.map((item) => {
+      const supportId = resolveSupportChannelId(item);
+      const hasExpandableImage = Boolean(item.icon && item.image);
+      const media = item.icon
+        ? element('img', {
             className: 'task-support-logo',
-            src: item.icon ?? '',
+            src: item.icon,
             alt: `${item.title} logo`
-          }),
+          })
+        : null;
+      const className = ['task-support-link', hasExpandableImage ? 'is-expandable' : '']
+        .filter(Boolean)
+        .join(' ');
+
+      return element(
+        item.href ? 'a' : hasExpandableImage ? 'button' : 'div',
+        item.href
+          ? {
+              className,
+              href: item.href,
+              target: '_blank',
+              rel: 'noopener noreferrer'
+            }
+          : {
+              className,
+              ...(hasExpandableImage
+                ? {
+                    type: 'button',
+                    ariaHaspopup: 'dialog',
+                    ariaLabel: item.imageAlt ?? item.title,
+                    dataset: {
+                      role: resolveSupportChannelRole(supportId),
+                      supportChannel: supportId
+                    },
+                    onClick: {
+                      id: 'task-success:support-image-toggle',
+                      args: [supportId, item.image, item.imageAlt ?? item.title]
+                    }
+                  }
+                : {})
+            },
+        [
+          media,
           div('task-support-copy', [
             strong(item.title),
             item.subtitle ? element('span', { text: item.subtitle }) : null
           ])
         ]
-      )
-    )
+      );
+    })
   );
+}
+
+function resolveSupportChannelId(item: SupportChannel): string {
+  if (item.id) {
+    return item.id;
+  }
+  if (item.image?.includes('wechat-reward') || item.icon?.includes('wechat-reward')) {
+    return 'wechat-reward';
+  }
+  return (
+    item.title
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-|-$/g, '') || 'support'
+  );
+}
+
+function resolveSupportChannelRole(supportId: string): string {
+  return supportId === 'wechat-reward' ? 'wechat-reward-btn' : 'support-image-toggle';
 }
 
 function resolveStatusMessage(surface: TaskSuccessSurface, ctx: SchemaContext): string {
@@ -202,7 +249,13 @@ function resolveSupportKeys(item: SupportChannel): {
     };
   }
 
-  if (href.includes('afdian.com') || title.includes('afdian')) {
+  if (
+    href.includes('afdian.com') ||
+    title.includes('afdian') ||
+    title.includes('wechat') ||
+    item.icon?.includes('wechat-reward') ||
+    item.image?.includes('wechat-reward')
+  ) {
     return {
       title: 'supportPromptAfdianTitle',
       subtitle: 'supportPromptAfdianDescription'

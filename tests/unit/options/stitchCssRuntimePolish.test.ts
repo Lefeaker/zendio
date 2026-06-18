@@ -73,6 +73,48 @@ describe('Stitch runtime polish CSS contracts', () => {
     expect(stitchCss).toContain('top: 0;');
   });
 
+  it('centers option table headers and cells while keeping narrow tables scrollable in-place', () => {
+    expect(stitchCss).toMatch(
+      /\.table-wrap,\s*\.schema-table-wrap\s*{[^}]*max-width:\s*100%;[^}]*overflow:\s*auto;/
+    );
+    expect(stitchCss).toMatch(
+      /th,\s*td\s*{[^}]*text-align:\s*center;[^}]*vertical-align:\s*middle;/
+    );
+    expect(stitchCss).toMatch(
+      /\.table-wrap\s+:is\(\.input,\s*\.select\),\s*\.yaml-table-shell\s+:is\(\.input,\s*\.select\)\s*{[^}]*text-align:\s*center;/
+    );
+  });
+
+  it('uses dedicated table width contracts for storage, routing, domain mapping, and YAML fields', () => {
+    expect(stitchCss).toMatch(
+      /\.storage-vault-table-scroll\s+table\s*{[^}]*table-layout:\s*fixed;[^}]*min-width:\s*1000px;/
+    );
+    expect(stitchCss).toMatch(
+      /\.storage-vault-table-scroll\s+:is\(th,\s*td\):nth-child\(2\)\s*{[^}]*width:\s*120px;/
+    );
+    expect(stitchCss).toMatch(
+      /\.storage-vault-table-scroll\s+:is\(th,\s*td\):nth-child\(3\)\s*{[^}]*width:\s*148px;/
+    );
+    expect(stitchCss).toMatch(
+      /\.routing-rules-table-scroll\s+table\s*{[^}]*table-layout:\s*fixed;[^}]*min-width:\s*860px;/
+    );
+    expect(stitchCss).toMatch(
+      /\.routing-rules-table-scroll\s+:is\(th,\s*td\):nth-child\(4\)\s*{[^}]*width:\s*140px;/
+    );
+    expect(stitchCss).toMatch(
+      /\.domain-mapping-table-scroll\s+table\s*{[^}]*table-layout:\s*fixed;[^}]*min-width:\s*720px;/
+    );
+    expect(stitchCss).toMatch(
+      /\.domain-mapping-table-scroll\s+:is\(th,\s*td\):nth-child\(2\)\s*{[^}]*width:\s*148px;/
+    );
+    expect(stitchCss).toMatch(
+      /\.yaml-table-scroll\s+table\s*{[^}]*table-layout:\s*fixed;[^}]*min-width:\s*900px;/
+    );
+    expect(stitchCss).toMatch(
+      /\.stitch-yaml-config-table\s+:is\(th,\s*td\):nth-child\(7\)\s*{[^}]*width:\s*132px;/
+    );
+  });
+
   it('keeps Domain Mappings inline-scrolled and centers collapsed session headers', () => {
     expect(stitchCss).toContain('.domain-mapping-table-scroll');
     expect(stitchCss).toContain('max-height: 360px;');
@@ -158,6 +200,85 @@ describe('Stitch runtime polish CSS contracts', () => {
     expect(stitchCss).toContain('.yaml-delete-button:not(:disabled)');
     expect(stitchCss).toContain('color: var(--danger);');
     expect(stitchCss).toContain('.yaml-actions .yaml-action-button');
+  });
+
+  it('brightens resource SVG icons in dark mode without filtering QR media', () => {
+    expect(stitchCss).toMatch(
+      /html\[data-preview-theme='dark'\]\s+\.resource-link-icon\[src\$='\.svg'\]\s*{[^}]*filter:\s*brightness\(0\)\s+invert\(1\);/
+    );
+    expect(stitchCss).toContain('.resource-inline-popover-media');
+    expect(stitchCss).not.toMatch(/\.resource-link-preview\s*{[^}]*filter:/);
+    expect(stitchCss).not.toMatch(/\.resource-image-modal-media\s*{[^}]*filter:/);
+    expect(stitchCss).not.toMatch(/\.resource-inline-popover-media\s*{[^}]*filter:/);
+  });
+
+  it('keeps QR popovers readable above modal chrome with the requested Xiaohongshu sizing', () => {
+    expect(stitchCss).toContain('.resource-inline-popover-host');
+    expect(stitchCss).toMatch(/\.resource-inline-popover-trigger\s*{[^}]*font-weight:\s*700;/);
+    expect(stitchCss).toMatch(
+      /\.resource-inline-popover\s*{[^}]*position:\s*absolute;[^}]*top:\s*calc\(100%\s*\+\s*var\(--space-3\)\);[^}]*z-index:\s*2147483646;/
+    );
+    expect(stitchCss).not.toMatch(
+      /\.resource-inline-popover\s*{[^}]*position:\s*fixed;[^}]*top:\s*50%;/
+    );
+    expect(stitchCss).toContain('.resource-modal:has(.resource-inline-popover-host:hover),');
+    expect(stitchCss).toContain(
+      '.resource-modal-body:has(.resource-inline-popover-host:focus-within)'
+    );
+    expect(stitchCss).toContain('.resource-inline-popover-caption');
+    expect(stitchCss).toContain('.prompt-toast .support-prompt-reward-qr-caption');
+    expect(stitchCss).toMatch(
+      /\.support-prompt-toast\.reward-qr--xiaohongshu\s*{[^}]*width:\s*min\(calc\(var\(--toast-max-width\)\s*\/\s*2\),\s*calc\(100vw\s+-\s+var\(--space-16\)\)\);[^}]*max-width:\s*calc\(var\(--toast-max-width\)\s*\/\s*2\);/
+    );
+  });
+
+  it('keeps localized Options layouts inside the viewport and constrains diagnostics output', () => {
+    expect(stitchCss).toMatch(
+      /\.shell\s*{[^}]*min-width:\s*0;[^}]*max-width:\s*calc\(100vw\s+-\s+var\(--shell-sidebar-width\)\);/
+    );
+    expect(stitchCss).toMatch(/\.main\s*{[^}]*overflow-x:\s*hidden;/);
+    expect(stitchCss).toMatch(/\.content\s*{[^}]*width:\s*100%;[^}]*min-width:\s*0;/);
+    expect(stitchCss).toMatch(
+      /\.panel-stack,\s*\.panel-section,\s*\.group,\s*\.card,\s*\.notice,\s*\.stack\s*{[^}]*min-width:\s*0;/
+    );
+    expect(stitchCss).toMatch(
+      /\.interface-theme-grid\s+\.field\s*{[^}]*min-width:\s*0;[^}]*max-width:\s*100%;/
+    );
+    expect(stitchCss).toMatch(/\.interface-theme-grid\s+\.select\s*{[^}]*max-width:\s*100%;/);
+    expect(stitchCss).toMatch(
+      /\.output-box\s*{[^}]*max-width:\s*100%;[^}]*max-height:\s*360px;[^}]*overflow:\s*auto;/
+    );
+    expect(stitchCss).toMatch(
+      /\.output-box\s+pre\s*{[^}]*white-space:\s*pre-wrap;[^}]*overflow-wrap:\s*anywhere;/
+    );
+  });
+
+  it('keeps the Options sidebar adaptive instead of turning it into a stacked mobile block', () => {
+    expect(stitchCss).toContain('--shell-sidebar-width: var(--sidebar-width);');
+    expect(stitchCss).toMatch(
+      /\.sidebar\s*{[^}]*width:\s*var\(--shell-sidebar-width\);[^}]*display:\s*flex;[^}]*flex-direction:\s*column;/
+    );
+    expect(stitchCss).toMatch(
+      /\.shell\s*{[^}]*margin-left:\s*var\(--shell-sidebar-width\);[^}]*width:\s*calc\(100vw\s+-\s+var\(--shell-sidebar-width\)\);[^}]*max-width:\s*calc\(100vw\s+-\s+var\(--shell-sidebar-width\)\);/
+    );
+    expect(stitchCss).toMatch(
+      /\.sidebar-footer\s*{[^}]*position:\s*static;[^}]*margin-top:\s*auto;/
+    );
+    expect(stitchCss).toMatch(
+      /@media\s*\(max-width:\s*1180px\)\s*{[^}]*:root\s*{[^}]*--shell-sidebar-width:\s*var\(--sidebar-compact-width\);/
+    );
+    expect(stitchCss).toMatch(
+      /@media\s*\(max-width:\s*980px\)\s*{[^}]*:root\s*{[^}]*--shell-sidebar-width:\s*var\(--sidebar-narrow-width\);/
+    );
+    expect(stitchCss).toMatch(
+      /@media\s*\(max-width:\s*760px\)\s*{[\s\S]*?\.sidebar\s*{[^}]*display:\s*none;/
+    );
+    expect(stitchCss).not.toMatch(
+      /@media\s*\(max-width:\s*980px\)[\s\S]*?\.sidebar\s*{[^}]*position:\s*static;/
+    );
+    expect(stitchCss).not.toMatch(
+      /@media\s*\(max-width:\s*980px\)[\s\S]*?\.main\s*{[^}]*height:\s*auto;/
+    );
   });
 
   it('lets the onboarding document scroll and uses the Stitch page layout', () => {

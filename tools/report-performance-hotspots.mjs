@@ -8,7 +8,7 @@ const ROOT = process.cwd();
 const MAX_LINE_BUDGETS = new Map([
   ['src/i18n/generated/localeRegistry.generated.ts', 8899],
   ['src/i18n/generated/schemaMessages.generated.ts', 481],
-  ['src/i18n/generated/schemaCore.generated.ts', 369],
+  ['src/i18n/generated/schemaCore.generated.ts', 370],
   ['src/i18n/generated/messages.generated.ts', 1312],
   ['src/i18n/generated/locales/fr.generated.ts', 785],
   ['src/i18n/generated/locales/es-419.generated.ts', 777],
@@ -24,7 +24,7 @@ const MAX_LINE_BUDGETS = new Map([
   ['src/i18n/generated/locales/zh-TW.generated.ts', 690],
   ['src/options/stitch/content.ts', 841],
   ['src/options/yaml-config-editor/view.ts', 746],
-  ['src/options/stitch/types.ts', 759],
+  ['src/options/stitch/types.ts', 767],
   ['src/options/stitch/ui/components.ts', 592],
   ['src/third_party/ai-chat-exporter/platforms/gemini.ts', 576],
   ['src/options/stitch/schema/builders/surfaces.ts', 558],
@@ -91,7 +91,7 @@ const MAX_LINE_BUDGETS = new Map([
   ['src/shared/state/globalStateManager.ts', 345],
   ['src/content/reader/sessionOperations.ts', 716],
   ['src/i18n/config.ts', 343],
-  ['src/content/ui/supportPrompt.ts', 338],
+  ['src/content/ui/supportPrompt.ts', 348],
   ['src/options/services/connectionTester.ts', 368],
   ['src/shared/config/provider.ts', 325],
   ['src/shared/errors/analytics/googleAnalyticsReporter.ts', 320],
@@ -138,7 +138,9 @@ const MAX_LINE_BUDGETS = new Map([
   ['src/i18n/adapters/domBindingAdapter.ts', 257],
   ['src/background/listeners/contextMenusCoordinator.ts', 258],
   ['src/content/runtime/contentLazyRuntime.ts', 258],
-  ['src/options/stitch/render/contentRenderers.ts', 256],
+  // 2026-06-18 options support closeout: modal link rendering and QR overlay
+  // wiring live in the shared content renderer to keep Stitch schemas declarative.
+  ['src/options/stitch/render/contentRenderers.ts', 406],
   ['src/shared/guards/dom.ts', 256],
   ['src/content/reader/services/exporter.ts', 255],
   ['src/content/video/fragmentHighlighter.ts', 255],
@@ -155,7 +157,13 @@ const MAX_LINE_BUDGETS = new Map([
   ['src/utils/trial-manager.ts', 363],
   ['src/content/runtime/localVaultPermissionFrame.ts', 345],
   ['src/content/extractors/aiChatExtractor.ts', 299],
-  ['src/content/ui/supportPromptMessages.ts', 298],
+  ['src/content/ui/supportPromptMessages.ts', 301],
+  // 2026-06-18 options support closeout: runtime support prompt toast lifecycle
+  // was split into a dedicated controller with deterministic cleanup.
+  ['src/content/ui/supportPrompt/SupportPromptToastController.ts', 300],
+  // 2026-06-18 options support closeout: task-success surface owns the feedback
+  // and support schema copy used by production runtime previews.
+  ['src/options/stitch/schema/surfaces/task-success.ts', 276],
   ['src/background/pipelines/clipPipeline.ts', 253]
 ]);
 

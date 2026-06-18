@@ -18,6 +18,8 @@ interface RenderedTableCell {
   html?: string | undefined;
 }
 
+const resourceImageModalClosers = new WeakMap<Document, () => void>();
+
 export interface ContentRenderCallbacks {
   renderNode: (node: NodeChild, ctx: RendererContext) => Node | null;
   renderNodeList: (
@@ -79,32 +81,178 @@ export function renderListNode(
 
 export function renderResourceCardNode(node: ResourceCardNode, ctx: RendererContext): HTMLElement {
   const href = resolveValue(node.href, ctx);
-  const isStatic = !href;
-  const tag = isStatic ? 'div' : 'a';
-  const title = resolveValue(node.title, ctx);
+  const title = resolveValue(node.title, ctx) ?? '';
   const subtitle = resolveValue(node.subtitle, ctx);
+  const icon = resolveResourceAssetUrl(resolveValue(node.icon, ctx), ctx);
+  const image = resolveResourceAssetUrl(resolveValue(node.image, ctx), ctx);
+  const imageAlt = resolveValue(node.imageAlt, ctx);
+  const imagePresentation = resolveValue(node.imagePresentation, ctx) ?? 'inline';
   const labels = ctx.appData.rendererLabels;
+  const opensImageModal = Boolean(image && imagePresentation === 'modal' && !href);
+  const isStatic = !href && !opensImageModal;
+  const tag = href ? 'a' : opensImageModal ? 'button' : 'div';
+  const className = [
+    'resource-link-card',
+    isStatic ? 'is-static' : '',
+    image && !opensImageModal ? 'has-preview' : '',
+    opensImageModal ? 'has-modal-preview' : ''
+  ]
+    .filter(Boolean)
+    .join(' ');
+  const trailing =
+    image && !opensImageModal
+      ? ctx.el('img', {
+          className: 'resource-link-preview',
+          src: image,
+          alt: imageAlt ?? `${title} preview`
+        })
+      : isStatic
+        ? ctx.ui.Badge(labels.resourcePendingBadge, 'warning')
+        : null;
 
   return ctx.el(
     tag,
-    isStatic
-      ? { className: 'resource-link-card is-static' }
-      : {
-          className: 'resource-link-card',
-          href,
-          target: '_blank',
-          rel: 'noopener noreferrer'
-        },
+    createResourceCardProps({
+      className,
+      href,
+      image,
+      imageAlt: imageAlt ?? `${title} preview`,
+      opensImageModal,
+      title,
+      ctx
+    }),
+    icon
+      ? ctx.el('img', {
+          className: 'resource-link-icon',
+          src: icon,
+          alt: `${title} icon`
+        })
+      : null,
     ctx.el(
       'div',
       { className: 'resource-link-copy' },
       ctx.el('strong', { text: title }),
       subtitle ? ctx.el('span', { text: subtitle }) : null
     ),
-    isStatic
-      ? ctx.ui.Badge(labels.resourcePendingBadge, 'warning')
-      : ctx.el('span', { className: 'resource-link-action', text: labels.resourceOpenAction })
+    trailing
   );
+}
+
+function createResourceCardProps({
+  className,
+  href,
+  image,
+  imageAlt,
+  opensImageModal,
+  title,
+  ctx
+}: {
+  className: string;
+  href: string | undefined;
+  image: string | undefined;
+  imageAlt: string;
+  opensImageModal: boolean;
+  title: string;
+  ctx: RendererContext;
+}): Record<string, unknown> {
+  if (href) {
+    return {
+      className,
+      href,
+      target: '_blank',
+      rel: 'noopener noreferrer'
+    };
+  }
+
+  if (opensImageModal && image) {
+    return {
+      className,
+      type: 'button',
+      dataset: { role: 'resource-image-modal-trigger' },
+      'aria-haspopup': 'dialog',
+      'aria-label': imageAlt || title,
+      onClick: (event: MouseEvent) => {
+        event.preventDefault();
+        event.stopPropagation();
+        showResourceImageModal(ctx, {
+          src: image,
+          alt: imageAlt || title
+        });
+      }
+    };
+  }
+
+  return { className };
+}
+
+function showResourceImageModal(
+  ctx: RendererContext,
+  image: {
+    src: string;
+    alt: string;
+  }
+): void {
+  const doc = document;
+  closeResourceImageModal(doc);
+
+  function close(): void {
+    overlay.remove();
+    doc.removeEventListener('keydown', handleKeyDown, true);
+    if (resourceImageModalClosers.get(doc) === close) {
+      resourceImageModalClosers.delete(doc);
+    }
+  }
+  function handleKeyDown(event: KeyboardEvent): void {
+    if (event.key === 'Escape') {
+      close();
+    }
+  }
+
+  const overlay = ctx.el(
+    'div',
+    {
+      className: 'resource-image-modal-overlay',
+      onClick: close
+    },
+    ctx.el(
+      'div',
+      {
+        className: 'resource-image-modal',
+        role: 'dialog',
+        'aria-modal': 'true',
+        'aria-label': image.alt,
+        onClick: (event: MouseEvent) => event.stopPropagation()
+      },
+      ctx.el('img', {
+        className: 'resource-image-modal-media',
+        src: image.src,
+        alt: image.alt
+      })
+    )
+  );
+
+  resourceImageModalClosers.set(doc, close);
+  doc.addEventListener('keydown', handleKeyDown, true);
+  doc.body.append(overlay);
+}
+
+function closeResourceImageModal(doc: Document): void {
+  const existingCloser = resourceImageModalClosers.get(doc);
+  if (existingCloser) {
+    existingCloser();
+    return;
+  }
+  doc.querySelectorAll('.resource-image-modal-overlay').forEach((node) => node.remove());
+}
+
+function resolveResourceAssetUrl(
+  path: string | undefined,
+  ctx: RendererContext
+): string | undefined {
+  if (!path) {
+    return undefined;
+  }
+  return ctx.resolveAssetUrl ? ctx.resolveAssetUrl(path) : path;
 }
 
 export function renderHighlightExampleNode(ctx: RendererContext): HTMLDivElement {
@@ -191,6 +339,8 @@ export function renderElementNode(
       type: resolveValue(node.type, ctx),
       role: resolveValue(node.role, ctx),
       'aria-pressed': resolveValue(node.ariaPressed, ctx),
+      'aria-expanded': resolveValue(node.ariaExpanded, ctx),
+      'aria-haspopup': resolveValue(node.ariaHaspopup, ctx),
       'aria-label': resolveValue(node.ariaLabel, ctx),
       disabled: resolveValue(node.disabled, ctx),
       title: resolveValue(node.title, ctx),

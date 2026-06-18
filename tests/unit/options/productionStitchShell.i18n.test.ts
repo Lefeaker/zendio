@@ -29,7 +29,7 @@ const ENGLISH_SENTINEL_MESSAGES = {
 describe('mountProductionStitchShell i18n shell metadata', () => {
   beforeEach(setupProductionStitchShellTest);
 
-  it('renders nav, resource, surface, and runtime titles from English messages', () => {
+  it('renders nav and resource titles from English messages without production runtime footer', () => {
     mountProductionStitchShell({
       controller: asOptionsController(createController()),
       initialOptions: null,
@@ -39,15 +39,13 @@ describe('mountProductionStitchShell i18n shell metadata', () => {
 
     const overviewButton = queryRequired<HTMLElement>('[data-nav-panel="overview"]');
     const supportButton = queryRequired<HTMLButtonElement>('[data-footer-panel="support"]');
-    const clipperButton = queryRequired<HTMLButtonElement>('[data-footer-panel="clipper"]');
 
     expect(overviewButton.querySelector('strong')?.textContent).toBe('Overview Sentinel');
     expect(overviewButton.querySelector('.nav-copy span')?.textContent).toBe('Usage Sentinel');
     expect(supportButton.textContent?.trim()).toBe('Support Sentinel');
     expect(supportButton.title).toBe('Support Hint Sentinel');
-    expect(clipperButton.textContent?.trim()).toBe('Clipper Sentinel');
-    expect(clipperButton.title).toBe('Clipper Hint Sentinel');
-    expect(document.querySelector('.sidebar-footer .nav-title')?.textContent).toBe(
+    expect(document.querySelector('[data-footer-panel="clipper"]')).toBeNull();
+    expect(document.querySelector('.sidebar-footer')?.textContent).not.toContain(
       'Runtime Sentinel'
     );
   });
@@ -67,14 +65,11 @@ describe('mountProductionStitchShell i18n shell metadata', () => {
     queryRequired<HTMLButtonElement>('[data-footer-panel="support"]').click();
     await flushPromises();
 
-    expect(
-      Array.from(document.querySelectorAll<HTMLElement>('.resource-link-action')).some(
-        (action) => action.textContent?.trim() === 'Open Sentinel'
-      )
-    ).toBe(true);
+    expect(document.querySelector('.resource-link-action')).toBeNull();
+    expect(document.body.textContent).not.toContain('Open Sentinel');
   });
 
-  it('uses message-backed runtime group titles even when the current language is not English', () => {
+  it('omits the runtime footer group even when runtime messages are available', () => {
     mountProductionStitchShell({
       controller: asOptionsController(createController()),
       initialOptions: null,
@@ -82,7 +77,8 @@ describe('mountProductionStitchShell i18n shell metadata', () => {
       language: 'zh-CN'
     });
 
-    expect(document.querySelector('.sidebar-footer .nav-title')?.textContent).toBe(
+    expect(document.querySelector('[data-footer-panel="clipper"]')).toBeNull();
+    expect(document.querySelector('.sidebar-footer')?.textContent).not.toContain(
       'Runtime Sentinel'
     );
   });

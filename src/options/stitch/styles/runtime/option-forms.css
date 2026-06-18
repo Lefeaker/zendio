@@ -1,5 +1,6 @@
 .rows {
   display: grid;
+  min-width: 0;
 }
 
 .row {
@@ -9,6 +10,7 @@
       1fr
     );
   gap: var(--space-7);
+  min-width: 0;
   padding: var(--space-6) 0;
   border-top: var(--border-default);
   align-items: start;
@@ -19,10 +21,19 @@
   padding-top: 0;
 }
 
+.label,
+.field,
+.field-grid,
+.field-grid-2,
+.field-grid-3 {
+  min-width: 0;
+}
+
 .label strong {
   display: block;
   margin-bottom: var(--space-1-5);
   font-size: var(--font-size-base);
+  overflow-wrap: anywhere;
 }
 
 .label span {
@@ -30,6 +41,7 @@
   color: var(--text-dim);
   font-size: var(--font-size-md);
   line-height: var(--line-height-control);
+  overflow-wrap: anywhere;
 }
 
 .field-grid,
@@ -112,13 +124,18 @@
   display: flex;
   align-items: center;
   gap: var(--space-11);
+  min-width: 0;
+  max-width: 100%;
   flex-wrap: wrap;
 }
 
 .interface-theme-grid .field {
   display: flex;
   align-items: center;
+  flex: 1 1 260px;
   gap: var(--space-5);
+  min-width: 0;
+  max-width: 100%;
 }
 
 .interface-theme-grid .field label {
@@ -126,12 +143,14 @@
   font-size: var(--font-size-base);
   font-weight: 650;
   line-height: var(--line-height-label);
-  white-space: nowrap;
+  overflow-wrap: anywhere;
+  white-space: normal;
 }
 
 .interface-theme-grid .select {
-  width: auto;
-  min-width: var(--interface-select-min-width);
+  width: min(100%, 260px);
+  min-width: min(var(--interface-select-min-width), 100%);
+  max-width: 100%;
   font-size: var(--font-size-base);
 }
 
@@ -141,6 +160,7 @@
   grid-template-columns: repeat(3, minmax(86px, 1fr));
   align-items: center;
   gap: 0;
+  min-width: 0;
   width: min(100%, 330px);
   padding: var(--space-1);
   border: var(--border-default);
@@ -331,12 +351,15 @@
 .field label {
   color: var(--text-faint);
   font-size: var(--font-size-sm);
+  overflow-wrap: anywhere;
 }
 
 .input,
 .select,
 .textarea {
   width: 100%;
+  min-width: 0;
+  max-width: 100%;
   padding: var(--space-4) var(--space-5);
   border: var(--border-default);
   border-radius: var(--radius-md);
@@ -365,18 +388,21 @@
   display: flex;
   align-items: center;
   gap: var(--space-4);
+  min-width: 0;
+  flex-wrap: wrap;
 }
 
 .reading-mode-select {
   width: auto;
-  min-width: var(--reading-mode-min-width);
+  min-width: min-content;
+  max-width: 100%;
   flex: 0 0 auto;
   white-space: nowrap;
 }
 
 .reading-template-row .input {
   flex: 1 1 auto;
-  min-width: var(--field-min-width);
+  min-width: min(var(--field-min-width), 100%);
 }
 
 .textarea {

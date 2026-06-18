@@ -54,8 +54,8 @@ const getContentMessagesMock = vi.hoisted(() =>
       supportPromptTitle: 'Support Zendio',
       supportPromptKoFiTitle: 'Ko-fi',
       supportPromptKoFiDescription: 'Buy me a coffee',
-      supportPromptAfdianTitle: 'Afdian',
-      supportPromptAfdianDescription: 'CN sponsor',
+      supportPromptAfdianTitle: '微信赞赏',
+      supportPromptAfdianDescription: '扫码支持',
       supportPromptGithubTitle: 'GitHub',
       supportPromptGithubDescription: 'File feedback',
       supportPromptFeedbackGroupLabel: 'Quick feedback',
@@ -80,8 +80,9 @@ const getContentMessagesMock = vi.hoisted(() =>
       supportPromptReviewLinkLabel: 'Write review',
       supportPromptReviewAcknowledgedLabel: 'I already reviewed',
       supportPromptDislikeToastTitle: 'Share feedback',
-      supportPromptDislikeRedditLinkLabel: 'Discuss on Reddit',
-      supportPromptDislikeQrLinkLabel: 'Join Xiaohongshu',
+      supportPromptDislikeRedditLinkLabel: 'Reddit',
+      supportPromptDislikeQrLinkLabel: '小红书',
+      supportPromptDislikeQrCaption: '使用小红书扫码入群',
       supportPromptDislikeQrPlaceholder: 'QR soon'
     })
   )
@@ -156,13 +157,47 @@ describe('SupportPrompt', () => {
     const shadow = getPromptHost().shadowRoot;
     expect(shadow?.querySelector('[data-role="like-btn"]')).toBeTruthy();
     expect(shadow?.querySelector('[data-role="dislike-btn"]')).toBeTruthy();
-    expect(shadow?.querySelectorAll('.task-support-link[href]').length).toBe(2);
+    expect(shadow?.querySelectorAll('.task-support-link').length).toBe(2);
+    expect(shadow?.querySelectorAll('.task-support-link[href]').length).toBe(1);
+    expect(shadow?.textContent).toContain('微信赞赏');
+    expect(
+      shadow?.querySelector<HTMLImageElement>('img.task-support-logo[src$="wechat-reward.svg"]')
+    ).toBeTruthy();
+    expect(shadow?.querySelector<HTMLImageElement>('img.task-support-qr')).toBeNull();
     expect(shadow?.querySelector('[data-role="status-text"]')?.textContent).toContain(
       'Sent to Main Vault'
     );
     expect(shadow?.querySelector('[data-role="dismiss-text"]')?.textContent).toBe(
       'Click outside to close'
     );
+  });
+
+  it('opens the WeChat reward QR in a standalone support popup after clicking the WeChat support card', async () => {
+    const { SupportPrompt } = await import('../../../src/content/ui/supportPrompt');
+    const prompt = new SupportPrompt(document);
+    await prompt.show({ status: 'success' });
+
+    const shadow = getPromptHost().shadowRoot;
+    expect(shadow?.querySelector<HTMLImageElement>('img.task-support-qr')).toBeNull();
+    expect(document.querySelector('#aiob-support-toast-host')).toBeNull();
+
+    shadow?.querySelector<HTMLButtonElement>('[data-role="wechat-reward-btn"]')?.click();
+    await flushMicrotasks();
+
+    expect(shadow?.querySelector<HTMLImageElement>('img.task-support-qr')).toBeNull();
+    expect(
+      shadow?.querySelector<HTMLImageElement>('img.task-support-logo[src$="wechat-reward.svg"]')
+    ).toBeTruthy();
+
+    const rewardPopup = document.querySelector('#aiob-support-toast-host')?.shadowRoot;
+    const rewardToast = rewardPopup?.querySelector<HTMLElement>('.support-prompt-toast.reward-qr');
+    expect(rewardToast).toBeTruthy();
+    expect(rewardToast?.textContent?.trim()).toBe('');
+    expect(
+      rewardToast
+        ?.querySelector<HTMLImageElement>('[data-role="wechat-reward-qr-image"]')
+        ?.getAttribute('src')
+    ).toBe('chrome-extension://icons/wechat-reward-qr.jpg');
   });
 
   it('renders an in-flight progress strip before the support links', async () => {
@@ -228,20 +263,28 @@ describe('SupportPrompt', () => {
     ).toBe('第二步');
   });
 
-  it('auto-dismisses terminal progress prompts after completion', async () => {
+  it('keeps terminal progress prompts visible until the user clicks outside', async () => {
     vi.useFakeTimers();
-    const { SupportPrompt } = await import('../../../src/content/ui/supportPrompt');
-    const prompt = new SupportPrompt(document);
-    await prompt.show({
-      status: 'success',
-      progress: { value: 100, label: '成功发送到 Obsidian', variant: 'success' }
-    });
+    try {
+      const { SupportPrompt } = await import('../../../src/content/ui/supportPrompt');
+      const prompt = new SupportPrompt(document);
+      await prompt.show({
+        status: 'success',
+        progress: { value: 100, label: '成功发送到 Obsidian', variant: 'success' }
+      });
 
-    expect(document.getElementById('aiob-support-prompt')).toBeTruthy();
-    await vi.advanceTimersByTimeAsync(2400);
+      expect(document.getElementById('aiob-support-prompt')).toBeTruthy();
+      await vi.advanceTimersByTimeAsync(10000);
 
-    expect(document.getElementById('aiob-support-prompt')).toBeNull();
-    vi.useRealTimers();
+      expect(document.getElementById('aiob-support-prompt')).toBeTruthy();
+      getPromptHost()
+        .shadowRoot?.querySelector<HTMLDivElement>('.resource-modal-overlay')
+        ?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+
+      expect(document.getElementById('aiob-support-prompt')).toBeNull();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('renders warning and failure details', async () => {
@@ -443,7 +486,7 @@ describe('SupportPrompt', () => {
     expect(openSpy).toHaveBeenCalledWith(expect.stringContaining('hl=ja'), '_blank', 'noopener');
   });
 
-  it('shows dislike toast with Reddit and GitHub feedback actions', async () => {
+  it('shows dislike toast with Reddit, GitHub, and Xiaohongshu feedback actions', async () => {
     const { SupportPrompt } = await import('../../../src/content/ui/supportPrompt');
     const prompt = new SupportPrompt(document);
     await prompt.show({ status: 'success' });
@@ -454,10 +497,30 @@ describe('SupportPrompt', () => {
     await flushMicrotasks();
 
     const toastShadow = getToastShadow();
-    expect(toastShadow.querySelector('[data-role="qr-container"]')).toBeNull();
-    expect(toastShadow.querySelector('[data-role="qr-toggle-btn"]')).toBeNull();
-    expect(toastShadow.querySelector('[data-role="reddit-link"]')).toBeTruthy();
+    const redditLink = toastShadow.querySelector<HTMLAnchorElement>('[data-role="reddit-link"]');
+    expect(redditLink?.textContent).toBe('Reddit');
     expect(toastShadow.querySelector('[data-role="github-link"]')).toBeTruthy();
+    const xiaohongshuButton = toastShadow.querySelector<HTMLButtonElement>(
+      '[data-role="xiaohongshu-feedback-btn"]'
+    );
+    expect(xiaohongshuButton?.tagName).toBe('BUTTON');
+    expect(xiaohongshuButton?.textContent).toBe('小红书');
+
+    xiaohongshuButton?.click();
+    await flushMicrotasks();
+
+    const qrToast = getToastShadow().querySelector<HTMLElement>('.support-prompt-toast.reward-qr');
+    expect(qrToast).toBeTruthy();
+    expect(qrToast?.classList.contains('reward-qr--xiaohongshu')).toBe(true);
+    expect(
+      qrToast?.querySelector<HTMLElement>('[data-role="xiaohongshu-feedback-qr-caption"]')
+        ?.textContent
+    ).toBe('使用小红书扫码入群');
+    expect(
+      qrToast
+        ?.querySelector<HTMLImageElement>('[data-role="xiaohongshu-feedback-qr-image"]')
+        ?.getAttribute('src')
+    ).toBe('https://sxnian.com/products/zendio/xiaohongshu-feedback.jpg');
   });
 
   it('dismisses support toasts from outside pointerdown', async () => {
@@ -477,6 +540,33 @@ describe('SupportPrompt', () => {
 
     toast?.dispatchEvent(new Event('transitionend'));
     expect(document.getElementById('aiob-support-toast-host')).toBeNull();
+  });
+
+  it('removes dismissed support toasts when no transitionend event fires', async () => {
+    const { SupportPrompt } = await import('../../../src/content/ui/supportPrompt');
+    const prompt = new SupportPrompt(document);
+    await prompt.show({ status: 'success' });
+
+    vi.useFakeTimers();
+    try {
+      getPromptHost()
+        .shadowRoot?.querySelector<HTMLButtonElement>('[data-role="like-btn"]')
+        ?.click();
+      await vi.advanceTimersByTimeAsync(0);
+
+      const toast = getToastShadow().querySelector<HTMLElement>('#aiob-support-toast');
+      expect(toast).toBeTruthy();
+
+      document.body.dispatchEvent(new Event('pointerdown', { bubbles: true }));
+      expect(toast?.classList.contains('is-visible')).toBe(false);
+      expect(document.getElementById('aiob-support-toast-host')).toBeTruthy();
+
+      await vi.advanceTimersByTimeAsync(1000);
+
+      expect(document.getElementById('aiob-support-toast-host')).toBeNull();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('closes from the Stitch overlay action', async () => {

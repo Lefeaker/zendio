@@ -36,13 +36,7 @@ const EXPECTED_RESOURCE_LABELS = [
   'Changelog'
 ] as const;
 
-const EXPECTED_PRODUCTION_SURFACE_LABELS = [
-  'Clipper Dialog',
-  'Reader Mode',
-  'Video Mode',
-  'Video Floating Prompt',
-  'Task Success'
-] as const;
+const EXPECTED_PRODUCTION_SURFACE_LABELS: string[] = [];
 
 const DYNAMIC_WIDTH_SELECTORS = new Set([
   '.card',
@@ -58,8 +52,13 @@ const DYNAMIC_WIDTH_SELECTORS = new Set([
   '.notice'
 ]);
 
-// Text-only copy drift between preview sources and production should not fail structural parity.
-const DYNAMIC_HEIGHT_SELECTORS = new Set(['.main', '.sidebar', '.row']);
+// Text-only copy drift and viewport-constrained wrapping should not fail structural parity.
+const DYNAMIC_HEIGHT_SELECTORS = new Set(['.main', '.sidebar', '.card', '.card-header', '.row']);
+
+const ADAPTIVE_SHELL_SAMPLE_STYLE_KEYS: Record<string, string[]> = {
+  '.main': ['height', 'minHeight', 'padding', 'width'],
+  '.sidebar': ['display', 'height', 'padding', 'position', 'width']
+};
 
 const EXPECTED_PREVIEW_SURFACE_LABELS: Record<PreviewSourceKind, string[]> = {
   'external-reference': ['Clipper Dialog', 'Reader Mode', 'Video Mode', 'Task Success'],
@@ -103,11 +102,11 @@ const EXPECTED_PREVIEW_SURFACE_PANEL_COUNTS: Record<
 
 const EXPECTED_PRODUCTION_SURFACE_PANEL_COUNTS: Record<(typeof FOOTER_PANEL_IDS)[number], number> =
   {
-    clipper: 1,
-    reader: 1,
-    video: 1,
-    'video-floating-prompt': 1,
-    'task-success': 1
+    clipper: 0,
+    reader: 0,
+    video: 0,
+    'video-floating-prompt': 0,
+    'task-success': 0
   };
 
 function normalizeElementSamplesForParity(
@@ -160,6 +159,20 @@ function normalizeElementSamplesForParity(
           style.height = 'dynamic';
         }
       }
+      const adaptiveStyleKeys = ADAPTIVE_SHELL_SAMPLE_STYLE_KEYS[selector] ?? [];
+      if (adaptiveStyleKeys.length > 0) {
+        for (const key of adaptiveStyleKeys) {
+          if (style && key in style) {
+            style[key] = 'adaptive';
+          }
+        }
+        if ((selector === '.main' || selector === '.sidebar') && rect) {
+          rect.width = 0;
+        }
+        if (selector === '.sidebar' && rect) {
+          rect.height = 0;
+        }
+      }
       return [
         selector,
         {
@@ -170,6 +183,14 @@ function normalizeElementSamplesForParity(
       ];
     })
   );
+}
+
+function normalizeMainComputedForParity(style: Record<string, string>): Record<string, string> {
+  return {
+    ...style,
+    minHeight: 'adaptive',
+    padding: 'adaptive'
+  };
 }
 
 function expectElementSamplesToMatch(
@@ -320,7 +341,9 @@ function expectSharedOptionsParity(
   expect(preview.skin.previewSkin).toBeNull();
   expect(production.skin.previewTheme).toBe(preview.skin.previewTheme);
   expect(production.computed.body).toEqual(preview.computed.body);
-  expect(production.computed.main).toEqual(preview.computed.main);
+  expect(normalizeMainComputedForParity(production.computed.main)).toEqual(
+    normalizeMainComputedForParity(preview.computed.main)
+  );
   expect(production.computed.heroTitle).toEqual(preview.computed.heroTitle);
   expect(production.computed.card).toEqual(preview.computed.card);
   expect(production.computed.button).toEqual(preview.computed.button);
@@ -437,6 +460,116 @@ test.describe('Stitch Secondary preview-to-production parity', () => {
       path: testInfo.outputPath('options-stitch-secondary-production-desktop.png'),
       fullPage: true
     });
+  });
+
+  test('production keeps non-Chinese maintenance diagnostics constrained to the viewport', async ({
+    page
+  }) => {
+    await page.setViewportSize({ width: 1280, height: 720 });
+    await page.goto(createProductionUrl());
+    await page.waitForSelector('.app');
+    await setLanguage(page, 'de');
+    await setTheme(page, 'dark');
+    await page.locator('[data-nav-panel="maintenance"]').click();
+    await page.waitForSelector('[data-panel-id="maintenance"] .output-box pre');
+
+    await page.evaluate(() => {
+      const output = document.querySelector<HTMLElement>(
+        '[data-panel-id="maintenance"] .output-box pre'
+      );
+      if (!output) {
+        throw new Error('Maintenance diagnostics output was not rendered.');
+      }
+      output.textContent = [
+        'Diagnose Ergebnisse',
+        'configuration-diagnosis-without-natural-breaks-'.repeat(80)
+      ].join('\n');
+    });
+    await stabilize(page);
+
+    const metrics = await page.evaluate(() => {
+      const root = document.documentElement;
+      const main = document.querySelector<HTMLElement>('.main');
+      const card = document.querySelector<HTMLElement>(
+        '[data-panel-id="maintenance"] .card:nth-of-type(1)'
+      );
+      const outputBox = document.querySelector<HTMLElement>(
+        '[data-panel-id="maintenance"] .output-box'
+      );
+      const output = outputBox?.querySelector<HTMLElement>('pre');
+      if (!main || !card || !outputBox || !output) {
+        throw new Error('Maintenance layout metrics could not be collected.');
+      }
+      const outputBoxStyle = window.getComputedStyle(outputBox);
+      const outputStyle = window.getComputedStyle(output);
+      return {
+        viewportWidth: root.clientWidth,
+        documentScrollWidth: root.scrollWidth,
+        mainClientWidth: main.clientWidth,
+        mainScrollWidth: main.scrollWidth,
+        cardWidth: card.getBoundingClientRect().width,
+        outputBoxWidth: outputBox.getBoundingClientRect().width,
+        outputBoxOverflowX: outputBoxStyle.overflowX,
+        outputBoxOverflowY: outputBoxStyle.overflowY,
+        outputWhiteSpace: outputStyle.whiteSpace,
+        outputOverflowWrap: outputStyle.overflowWrap
+      };
+    });
+
+    expect(metrics.documentScrollWidth).toBeLessThanOrEqual(metrics.viewportWidth + 1);
+    expect(metrics.mainScrollWidth).toBeLessThanOrEqual(metrics.mainClientWidth + 1);
+    expect(metrics.outputBoxWidth).toBeLessThanOrEqual(metrics.cardWidth);
+    expect(metrics.outputBoxOverflowX).toBe('auto');
+    expect(metrics.outputBoxOverflowY).toBe('auto');
+    expect(metrics.outputWhiteSpace).toBe('pre-wrap');
+    expect(metrics.outputOverflowWrap).toBe('anywhere');
+  });
+
+  test('production hides navigation and keeps main content scrollable at narrow widths', async ({
+    page
+  }) => {
+    await page.setViewportSize({ width: 740, height: 680 });
+    await page.goto(createProductionUrl());
+    await page.waitForSelector('.app');
+    await setTheme(page, 'light');
+
+    const metrics = await page.evaluate(() => {
+      const root = document.documentElement;
+      const sidebar = document.querySelector<HTMLElement>('.sidebar');
+      const shell = document.querySelector<HTMLElement>('.shell');
+      const main = document.querySelector<HTMLElement>('.main');
+      if (!sidebar || !shell || !main) {
+        throw new Error('Narrow Options shell metrics could not be collected.');
+      }
+      const sidebarStyle = window.getComputedStyle(sidebar);
+      const mainStyle = window.getComputedStyle(main);
+      const shellRect = shell.getBoundingClientRect();
+      const mainRect = main.getBoundingClientRect();
+      main.scrollTop = 320;
+      return {
+        viewportWidth: root.clientWidth,
+        documentScrollWidth: root.scrollWidth,
+        sidebarDisplay: sidebarStyle.display,
+        sidebarPosition: sidebarStyle.position,
+        shellLeft: Math.round(shellRect.left),
+        shellWidth: Math.round(shellRect.width),
+        mainHeight: Math.round(mainRect.height),
+        mainClientHeight: main.clientHeight,
+        mainScrollHeight: main.scrollHeight,
+        mainScrollTop: main.scrollTop,
+        mainOverflowY: mainStyle.overflowY
+      };
+    });
+
+    expect(metrics.documentScrollWidth).toBeLessThanOrEqual(metrics.viewportWidth + 1);
+    expect(metrics.sidebarDisplay).toBe('none');
+    expect(metrics.sidebarPosition).toBe('fixed');
+    expect(metrics.shellLeft).toBe(0);
+    expect(metrics.shellWidth).toBeLessThanOrEqual(metrics.viewportWidth);
+    expect(metrics.mainHeight).toBeGreaterThanOrEqual(680);
+    expect(metrics.mainOverflowY).toBe('auto');
+    expect(metrics.mainScrollHeight).toBeGreaterThan(metrics.mainClientHeight);
+    expect(metrics.mainScrollTop).toBeGreaterThan(0);
   });
 
   test('preview interaction inventory has production handlers and no fake YAML summary controls', async ({

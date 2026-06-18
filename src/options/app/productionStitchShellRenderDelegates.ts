@@ -10,6 +10,7 @@ import type {
 } from '@options/stitch/types';
 import type { ProductionStitchWidgetHost } from './productionStitchWidgetHost';
 import type { ProductionStitchRenderLifecycle } from './productionStitchRenderLifecycleTypes';
+import { resolveProductionStitchAssetUrl } from './productionStitchAssetUrlResolver';
 
 interface ProductionStitchShellSchemaRendererOptions {
   createSchemaContext(): SchemaContext;
@@ -29,6 +30,7 @@ export function createProductionStitchShellSchemaRenderer(
       ui: previewUi,
       dispatch: (actionId: string, args?: unknown[], value?: unknown, event?: Event) =>
         options.dispatch(actionId, args, value, event),
+      resolveAssetUrl: resolveProductionStitchAssetUrl,
       mountWidget: (widgetType: string, host: HTMLElement) =>
         options.widgetHost.mountWidget(widgetType, host)
     };

@@ -3,6 +3,22 @@ import { panelStyleSheetManager } from '../../shared/panels/styleSheetManager';
 import { getControlledRuntimeTheme } from '@content/stitch/runtimeTheme';
 
 const TOAST_AUTO_DISMISS_MS = 5000;
+const TOAST_EXIT_FALLBACK_MS = 350;
+type SupportPromptToastKind = 'like' | 'dislike' | 'reward-qr';
+type ActiveToastVariant = ToastVariant | 'reward-qr';
+
+interface RewardQrToastOptions {
+  imageSrc: string;
+  imageAlt?: string | undefined;
+  imageRole?: string | undefined;
+  caption?: string | undefined;
+  captionRole?: string | undefined;
+  channel?: 'wechat-reward' | 'xiaohongshu-feedback' | undefined;
+}
+
+interface ShowToastOptions {
+  autoDismiss: boolean;
+}
 
 interface SupportPromptToastControllerOptions {
   doc: Document;
@@ -10,6 +26,7 @@ interface SupportPromptToastControllerOptions {
   onReviewLinkClick: (variant?: LikeToastVariant) => Promise<void>;
   onReviewAcknowledgedClick: (variant?: LikeToastVariant) => Promise<void>;
   onDislikeRedditClick: () => void;
+  onDislikeXiaohongshuClick: (image: { imageAlt: string; caption: string }) => void;
   onGitHubFeedbackClick: () => void;
   onLikeToastShown: (variant: LikeToastVariant) => void;
   onDislikeToastShown: () => void;
@@ -18,8 +35,9 @@ interface SupportPromptToastControllerOptions {
 export class SupportPromptToastController {
   private activeHost: HTMLDivElement | null = null;
   private activeToast: HTMLDivElement | null = null;
-  private activeToastVariant: ToastVariant | null = null;
+  private activeToastVariant: ActiveToastVariant | null = null;
   private toastTimer: number | null = null;
+  private toastExitTimer: number | null = null;
 
   private readonly handleToastPointerDown = (event: PointerEvent): void => {
     if (!this.activeToast) {
@@ -30,6 +48,12 @@ export class SupportPromptToastController {
       return;
     }
     this.dismissToast();
+  };
+
+  private readonly handleToastKeyDown = (event: KeyboardEvent): void => {
+    if (event.key === 'Escape') {
+      this.dismissToast();
+    }
   };
 
   constructor(private readonly options: SupportPromptToastControllerOptions) {}
@@ -105,6 +129,20 @@ export class SupportPromptToastController {
     });
     links.appendChild(redditLink);
 
+    const xiaohongshuButton = this.options.doc.createElement('button');
+    xiaohongshuButton.type = 'button';
+    xiaohongshuButton.dataset.role = 'xiaohongshu-feedback-btn';
+    xiaohongshuButton.className = 'toast-link-button';
+    xiaohongshuButton.textContent = messages.dislikeQrLinkLabel;
+    xiaohongshuButton.addEventListener('click', (event) => {
+      event.preventDefault();
+      this.options.onDislikeXiaohongshuClick({
+        imageAlt: messages.dislikeQrLinkLabel,
+        caption: messages.dislikeQrCaption
+      });
+    });
+    links.appendChild(xiaohongshuButton);
+
     const githubLink = this.options.doc.createElement('a');
     githubLink.dataset.role = 'github-link';
     githubLink.className = 'toast-link-button';
@@ -123,7 +161,43 @@ export class SupportPromptToastController {
     this.options.onDislikeToastShown();
   }
 
-  private createBaseToast(kind: 'like' | 'dislike'): HTMLDivElement {
+  showRewardQrToast({
+    imageSrc,
+    imageAlt,
+    imageRole,
+    caption,
+    captionRole,
+    channel
+  }: RewardQrToastOptions): void {
+    const toast = this.createBaseToast('reward-qr');
+    if (channel === 'xiaohongshu-feedback') {
+      toast.classList.add('reward-qr--xiaohongshu');
+    }
+    toast.setAttribute('role', 'dialog');
+    toast.setAttribute('aria-modal', 'false');
+    toast.setAttribute('aria-label', imageAlt ?? 'WeChat reward code');
+
+    const image = this.options.doc.createElement('img');
+    image.className = 'support-prompt-reward-qr';
+    image.dataset.role = imageRole ?? 'wechat-reward-qr-image';
+    image.src = imageSrc;
+    image.alt = imageAlt ?? 'WeChat reward code';
+    toast.appendChild(image);
+
+    if (caption) {
+      const captionLine = this.options.doc.createElement('span');
+      captionLine.className = 'support-prompt-reward-qr-caption';
+      if (captionRole) {
+        captionLine.dataset.role = captionRole;
+      }
+      captionLine.textContent = caption;
+      toast.appendChild(captionLine);
+    }
+
+    this.showToast(toast, 'reward-qr', { autoDismiss: false });
+  }
+
+  private createBaseToast(kind: SupportPromptToastKind): HTMLDivElement {
     this.dismissToast(true);
     const host = this.options.doc.createElement('div');
     host.id = 'aiob-support-toast-host';
@@ -150,7 +224,11 @@ export class SupportPromptToastController {
     return toast;
   }
 
-  private showToast(toast: HTMLDivElement, variant: ToastVariant): void {
+  private showToast(
+    toast: HTMLDivElement,
+    variant: ActiveToastVariant,
+    options: ShowToastOptions = { autoDismiss: true }
+  ): void {
     if (!this.activeHost) {
       return;
     }
@@ -164,9 +242,17 @@ export class SupportPromptToastController {
 
     if (this.toastTimer !== null) {
       window.clearTimeout(this.toastTimer);
+      this.toastTimer = null;
     }
-    this.toastTimer = window.setTimeout(() => this.dismissToast(), TOAST_AUTO_DISMISS_MS);
+    if (this.toastExitTimer !== null) {
+      window.clearTimeout(this.toastExitTimer);
+      this.toastExitTimer = null;
+    }
+    if (options.autoDismiss) {
+      this.toastTimer = window.setTimeout(() => this.dismissToast(), TOAST_AUTO_DISMISS_MS);
+    }
     this.options.doc.addEventListener('pointerdown', this.handleToastPointerDown, true);
+    this.options.doc.addEventListener('keydown', this.handleToastKeyDown, true);
   }
 
   dismissToast(immediate = false): void {
@@ -178,15 +264,26 @@ export class SupportPromptToastController {
       this.toastTimer = null;
     }
     this.options.doc.removeEventListener('pointerdown', this.handleToastPointerDown, true);
+    this.options.doc.removeEventListener('keydown', this.handleToastKeyDown, true);
 
     const toast = this.activeToast;
-    const remove = () => {
-      toast.removeEventListener('transitionend', remove);
-      this.activeHost?.remove();
+    const host = this.activeHost;
+    const remove = (): void => {
+      toast.removeEventListener('transitionend', handleTransitionEnd);
+      host?.remove();
       if (this.activeToast === toast) {
+        if (this.toastExitTimer !== null) {
+          window.clearTimeout(this.toastExitTimer);
+          this.toastExitTimer = null;
+        }
         this.activeHost = null;
         this.activeToast = null;
         this.activeToastVariant = null;
+      }
+    };
+    const handleTransitionEnd = (event: TransitionEvent): void => {
+      if (event.target === toast) {
+        remove();
       }
     };
 
@@ -195,7 +292,8 @@ export class SupportPromptToastController {
       return;
     }
 
-    toast.addEventListener('transitionend', remove);
+    toast.addEventListener('transitionend', handleTransitionEnd);
     toast.classList.remove('is-visible');
+    this.toastExitTimer = window.setTimeout(remove, TOAST_EXIT_FALLBACK_MS);
   }
 }

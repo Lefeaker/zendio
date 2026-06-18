@@ -74,8 +74,8 @@ const getContentMessagesMock = vi.hoisted(() =>
       supportPromptTitle: 'Support Zendio',
       supportPromptKoFiTitle: 'Ko-fi',
       supportPromptKoFiDescription: 'Buy me a coffee',
-      supportPromptAfdianTitle: 'Afdian',
-      supportPromptAfdianDescription: 'CN sponsor',
+      supportPromptAfdianTitle: '微信赞赏',
+      supportPromptAfdianDescription: '扫码支持',
       supportPromptGithubTitle: 'GitHub',
       supportPromptGithubDescription: 'File feedback',
       supportPromptFeedbackGroupLabel: 'Quick feedback',
@@ -92,8 +92,9 @@ const getContentMessagesMock = vi.hoisted(() =>
       supportPromptReviewLinkLabel: 'Write review',
       supportPromptReviewAcknowledgedLabel: 'I already reviewed',
       supportPromptDislikeToastTitle: 'Share feedback',
-      supportPromptDislikeRedditLinkLabel: 'Discuss on Reddit',
-      supportPromptDislikeQrLinkLabel: 'Join Xiaohongshu',
+      supportPromptDislikeRedditLinkLabel: 'Reddit',
+      supportPromptDislikeQrLinkLabel: '小红书',
+      supportPromptDislikeQrCaption: '使用小红书扫码入群',
       supportPromptDislikeQrPlaceholder: 'QR soon'
     })
   )

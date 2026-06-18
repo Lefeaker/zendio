@@ -109,9 +109,7 @@ function createRuntimeContent(): PreviewContent {
             subtitle: '',
             href: 'https://github.com/Lefeaker/AllinOB/issues'
           }
-        ],
-        scope: [],
-        response: []
+        ]
       },
       suggestions: {
         hero: hero('Suggestions'),

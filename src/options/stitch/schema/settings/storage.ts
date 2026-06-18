@@ -49,6 +49,7 @@ const schema: SettingsSchema = {
               body: [
                 {
                   kind: 'table',
+                  rowClassName: 'storage-vault-table-scroll',
                   columns: [
                     t('schemaStorageVaultEnabledColumnLabel'),
                     t('schemaStorageVaultNameColumnLabel'),
@@ -120,13 +121,8 @@ const schema: SettingsSchema = {
               ],
               body: [
                 {
-                  kind: 'notice',
-                  title: t('schemaStorageRoutingTipTitle'),
-                  body: t('schemaStorageRoutingTipBody'),
-                  variant: 'warning'
-                },
-                {
                   kind: 'table',
+                  rowClassName: 'routing-rules-table-scroll',
                   columns: [
                     t('schemaStorageRoutingEnabledColumnLabel'),
                     t('schemaStorageRoutingTypeColumnLabel'),
@@ -139,7 +135,8 @@ const schema: SettingsSchema = {
                     current.state.routingRules.map((rule, index) =>
                       routingRuleRow(rule, index, current)
                     )
-                }
+                },
+                htmlParagraph(t('schemaStorageRoutingTipBody'), 'option-support-note')
               ]
             }
           ]

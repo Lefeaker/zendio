@@ -9,7 +9,10 @@ import type {
 import type { PopupCoordinator } from '../runtime/popupCoordinator';
 import { resolveContentPopupCoordinator } from '../runtime/popupCoordinatorAccess';
 import { createTaskSuccessSurfaceContent } from '@content/stitch/runtimeSurfaceContent';
-import { renderStitchRuntimeSurface } from '@content/stitch/runtimeSurfaceRenderer';
+import {
+  renderStitchRuntimeSurface,
+  type RuntimeSurfaceActionArgs
+} from '@content/stitch/runtimeSurfaceRenderer';
 import { panelStyleSheetManager } from '@content/shared/panels/styleSheetManager';
 import {
   mapSeverityToStatus,
@@ -29,9 +32,9 @@ import type { UserVisibleMessageDescriptor } from '../../shared/i18n/userVisible
 const REVIEW_BASE_URL =
   'https://chromewebstore.google.com/detail/all-in-ob/eoohmbhdepgknfemajanfaejmonckgmo';
 const KO_FI_URL = 'https://ko-fi.com/xiannian';
-const AFDIAN_URL = 'https://afdian.com/a/LefShi';
+const XIAOHONGSHU_FEEDBACK_QR_URL = 'https://sxnian.com/products/zendio/xiaohongshu-feedback.jpg';
+const WECHAT_REWARD_ID = 'wechat-reward';
 const REVIEW_STATE_STORAGE_KEY = 'support_prompt_review_state';
-const TERMINAL_PROGRESS_DISMISS_MS = 2200;
 
 export class SupportPrompt implements UiMountable<
   SupportPromptOptions | undefined,
@@ -45,7 +48,6 @@ export class SupportPrompt implements UiMountable<
   private messagesPromise: Promise<SupportPromptMessages> | null = null;
   private reviewStatePromise: Promise<ReviewPromptState> | null = null;
   private unregisterPopup: (() => void) | null = null;
-  private autoDismissTimer: number | null = null;
   private renderSequence = 0;
 
   constructor(private readonly doc: Document) {
@@ -54,6 +56,7 @@ export class SupportPrompt implements UiMountable<
     this.toastLifecycle = createSupportPromptToastLifecycle({
       doc: this.doc,
       resolveReviewUrl: () => this.resolveReviewUrl(),
+      resolveXiaohongshuFeedbackQrUrl: () => XIAOHONGSHU_FEEDBACK_QR_URL,
       resolveMessages: () => this.resolveMessages(),
       getReviewState: () => this.getReviewState(),
       updateReviewState: (updates) => this.updateReviewState(updates),
@@ -91,7 +94,15 @@ export class SupportPrompt implements UiMountable<
     });
     const resolvedProgress = resolveSupportPromptProgress(options, promptStatus);
 
-    const links = [
+    const links: Array<{
+      id?: string;
+      icon: string;
+      image?: string;
+      imageAlt?: string;
+      title: string;
+      description?: string;
+      url?: string;
+    }> = [
       {
         icon: this.resolveAssetUrl('icons/ko-fi.svg'),
         title: messages.koFiTitle,
@@ -99,10 +110,12 @@ export class SupportPrompt implements UiMountable<
         url: KO_FI_URL
       },
       {
-        icon: this.resolveAssetUrl('icons/aifadian-line-copy.svg'),
+        id: WECHAT_REWARD_ID,
+        icon: this.resolveAssetUrl('icons/wechat-reward.svg'),
+        image: this.resolveAssetUrl('icons/wechat-reward-qr.jpg'),
+        imageAlt: messages.afdianTitle,
         title: messages.afdianTitle,
-        description: messages.afdianDescription,
-        url: AFDIAN_URL
+        description: messages.afdianDescription
       }
     ];
 
@@ -125,16 +138,23 @@ export class SupportPrompt implements UiMountable<
       dislikeToast: {
         ...appData.surfaces.taskSuccess.dislikeToast,
         title: messages.dislikeToastTitle,
-        actions: [messages.dislikeRedditLinkLabel, messages.githubTitle]
+        actions: [
+          messages.dislikeRedditLinkLabel,
+          messages.dislikeQrLinkLabel,
+          messages.githubTitle
+        ]
       }
     };
     appData.resources.support = {
       ...appData.resources.support,
       channels: links.map((link) => ({
+        ...(link.id ? { id: link.id } : {}),
         title: link.title,
         icon: link.icon,
+        ...(link.image ? { image: link.image } : {}),
+        ...(link.imageAlt ? { imageAlt: link.imageAlt } : {}),
         ...(link.description ? { subtitle: link.description } : {}),
-        href: link.url
+        ...(link.url ? { href: link.url } : {})
       }))
     };
 
@@ -148,6 +168,9 @@ export class SupportPrompt implements UiMountable<
         },
         'task-success:dislike': () => {
           void this.handleDislikeClick();
+        },
+        'task-success:support-image-toggle': (_event, args) => {
+          this.handleSupportImageToggle(args);
         }
       }
     });
@@ -168,7 +191,6 @@ export class SupportPrompt implements UiMountable<
       this.unregisterPopup = this.popupCoordinator.register(this);
     }
     queueMicrotask(() => host.focus());
-    this.scheduleAutoDismiss(options);
     await this.toastLifecycle.preload();
   }
 
@@ -186,7 +208,6 @@ export class SupportPrompt implements UiMountable<
   }
 
   private removeHost(): void {
-    this.clearAutoDismiss();
     this.unregisterPopup?.();
     this.unregisterPopup = null;
     this.doc.querySelectorAll<HTMLElement>('#aiob-support-prompt').forEach((host) => {
@@ -203,27 +224,6 @@ export class SupportPrompt implements UiMountable<
   private async handleLikeClick(): Promise<void> {
     this.hide();
     await this.toastLifecycle.handleLikeClick();
-  }
-
-  private scheduleAutoDismiss(options?: SupportPromptOptions): void {
-    this.clearAutoDismiss();
-    const variant = options?.progress?.variant;
-    if (variant !== 'success' && variant !== 'failure' && variant !== 'warning') {
-      return;
-    }
-    const view = this.doc.defaultView ?? window;
-    this.autoDismissTimer = view.setTimeout(() => {
-      this.hide();
-    }, TERMINAL_PROGRESS_DISMISS_MS);
-  }
-
-  private clearAutoDismiss(): void {
-    if (this.autoDismissTimer === null) {
-      return;
-    }
-    const view = this.doc.defaultView ?? window;
-    view.clearTimeout(this.autoDismissTimer);
-    this.autoDismissTimer = null;
   }
 
   private decorateSurface(surface: HTMLElement): void {
@@ -245,8 +245,7 @@ export class SupportPrompt implements UiMountable<
     detail?.setAttribute('data-role', 'status-detail');
     surface.querySelectorAll<HTMLAnchorElement>('.task-support-link[href]').forEach((link) => {
       link.addEventListener('click', () => {
-        const target =
-          link.href === KO_FI_URL ? 'ko-fi' : link.href === AFDIAN_URL ? 'afdian' : null;
+        const target = link.href === KO_FI_URL ? 'ko-fi' : null;
         if (target) {
           void this.trackUsageEvent('support_link_clicked', { target });
         }
@@ -257,6 +256,17 @@ export class SupportPrompt implements UiMountable<
   private async handleDislikeClick(): Promise<void> {
     this.hide();
     await this.toastLifecycle.handleDislikeClick();
+  }
+
+  private handleSupportImageToggle(args: RuntimeSurfaceActionArgs): void {
+    const channelId = typeof args?.[0] === 'string' ? args[0] : null;
+    const imageSrc = typeof args?.[1] === 'string' ? args[1] : null;
+    const imageAlt = typeof args?.[2] === 'string' ? args[2] : undefined;
+    if (!channelId || !imageSrc) {
+      return;
+    }
+
+    void this.toastLifecycle.showRewardQr({ imageSrc, imageAlt });
   }
 
   private async resolveMessages(): Promise<SupportPromptMessages> {

@@ -48,6 +48,7 @@ export interface SupportPromptMessages {
   dislikeToastTitle: string;
   dislikeRedditLinkLabel: string;
   dislikeQrLinkLabel: string;
+  dislikeQrCaption: string;
   dislikeQrPlaceholder?: string;
 }
 
