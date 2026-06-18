@@ -1,3 +1,4 @@
+import { bucketCount } from '../../shared/analytics';
 import type { ReaderHighlightTheme } from '../../shared/types/options';
 import type { VideoAddCaptureSource } from './application/videoPanelModel';
 import type { VideoFragmentCapture } from './types';
@@ -61,9 +62,10 @@ import { VideoCommentEditorPlaybackController } from './videoCommentEditorPlayba
 import { VideoScreenshotPreparationCoordinator } from './videoScreenshotPreparationCoordinator';
 import { applyVideoSessionCommentDrafts } from './videoSessionDraftSync';
 import { createVideoSessionDestinationPayload } from './videoSessionDestinationPayload';
-import { setTimestampScreenshotRef } from './screenshotIntent';
+import { hasRequestedTimestampScreenshot, setTimestampScreenshotRef } from './screenshotIntent';
 import type { VideoTimestampCapture } from './types';
 import { VideoSessionMutationCoordinator } from './videoSessionMutationCoordinator';
+import { emitVideoUsageEvent } from './videoCaptureMutationTransaction';
 
 export class VideoSession {
   private readonly state = new VideoSessionState(DEFAULT_HIGHLIGHT_THEME);
@@ -409,9 +411,25 @@ export class VideoSession {
     }
 
     setTimestampScreenshotRef(capture, saveResult.ref);
-    void this.draftController.scheduleSave().catch((error) => {
+    try {
+      await this.draftController.scheduleSave();
+    } catch (error) {
       console.warn('[VideoSession] Failed to schedule screenshot ref draft save:', error);
+      return;
+    }
+
+    emitVideoUsageEvent(this.dependencies, 'video_screenshot_captured', {
+      screenshot_count_bucket: bucketCount(this.countRequestedScreenshots())
     });
+  }
+
+  private countRequestedScreenshots(): number {
+    return this.getTimestampCaptures().filter(
+      (capture) =>
+        hasRequestedTimestampScreenshot(capture) ||
+        capture.screenshot !== undefined ||
+        capture.screenshotRef !== undefined
+    ).length;
   }
 
   ingestTextCapture(

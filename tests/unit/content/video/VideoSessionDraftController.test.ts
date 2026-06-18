@@ -137,6 +137,7 @@ function createHarness(
           Partial<Pick<VideoScreenshotCacheRepository, 'pruneExpired' | 'pruneToLimits'>>)
       | undefined;
     onScreenshotHydrationChange?: () => void;
+    trackDraftRestoreEvent?: (params: Record<string, unknown>) => void | Promise<void>;
   } = {}
 ) {
   const state = new VideoSessionState('gradient');
@@ -160,6 +161,7 @@ function createHarness(
     storageArea: storage,
     dom,
     onScreenshotHydrationChange: options.onScreenshotHydrationChange,
+    trackDraftRestoreEvent: options.trackDraftRestoreEvent,
     readCleanupState: () => ({ ...cleanupState }),
     ...(options.screenshotCache ? { screenshotCache: options.screenshotCache } : {})
   });
@@ -279,6 +281,16 @@ function createDeferred<T>() {
     resolve = nextResolve;
   });
   return { promise, resolve };
+}
+
+function readDraftRestoreTelemetryPayload(
+  trackDraftRestoreEvent: Mock<(params: Record<string, unknown>) => unknown>
+): Record<string, unknown> {
+  const params = trackDraftRestoreEvent.mock.calls.at(-1)?.[0];
+  if (!params || typeof params !== 'object') {
+    throw new Error('expected a draft restore telemetry payload');
+  }
+  return params;
 }
 
 describe('VideoSessionDraftController', () => {
@@ -402,6 +414,34 @@ describe('VideoSessionDraftController', () => {
     expect(harness.dom.setCommentDrafts).toHaveBeenCalledWith({ 'ts-1': 'draft note' });
     expect(harness.destinationState.applyMetadata).toHaveBeenCalledWith(destination);
     expect(harness.destinationState.getCurrent()).toEqual(destination);
+  });
+
+  it('emits aggregate draft restore telemetry only after a draft candidate restores', async () => {
+    const trackDraftRestoreEvent = vi.fn().mockResolvedValue(undefined);
+    const harness = createHarness({ trackDraftRestoreEvent });
+    await seedRestorableDraft(harness.storage);
+
+    const restored = await harness.controller.restoreDraftState();
+
+    expect(restored).toBe(true);
+
+    await waitForAsyncWork();
+
+    expect(trackDraftRestoreEvent).toHaveBeenCalledTimes(1);
+    expect(trackDraftRestoreEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        capture_count_bucket: 'one',
+        screenshot_count_bucket: 'one',
+        outcome: 'completed',
+        duration_bucket: expect.any(String)
+      })
+    );
+    const payload = JSON.stringify(readDraftRestoreTelemetryPayload(trackDraftRestoreEvent));
+    expect(payload).not.toContain('https://video.example');
+    expect(payload).not.toContain('restored note');
+    expect(payload).not.toContain('draft note');
+    expect(payload).not.toContain('screenshotRef');
+    expect(payload).not.toContain('captureId');
   });
 
   it('persists screenshotRef metadata without serializing screenshot bytes into the draft payload', async () => {
@@ -628,11 +668,16 @@ describe('VideoSessionDraftController', () => {
   it('clears stale screenshot refs and keeps screenshot requests pending when cache entries are missing', async () => {
     const screenshotRef = createScreenshotCacheRef();
     const onScreenshotHydrationChange = vi.fn();
+    const trackDraftRestoreEvent = vi.fn().mockResolvedValue(undefined);
     const screenshotCache = {
       load: vi.fn().mockResolvedValue(null),
       removeMany: vi.fn()
     };
-    const harness = createHarness({ screenshotCache, onScreenshotHydrationChange });
+    const harness = createHarness({
+      screenshotCache,
+      onScreenshotHydrationChange,
+      trackDraftRestoreEvent
+    });
     await seedRestorableDraftWithPayload(
       harness.storage,
       buildVideoSessionDraftPayload({
@@ -672,6 +717,20 @@ describe('VideoSessionDraftController', () => {
     expect(harness.state.captures[0]).not.toHaveProperty('screenshot');
     expect(harness.state.captures[0]).not.toHaveProperty('screenshotRef');
     expect(onScreenshotHydrationChange).toHaveBeenCalledTimes(1);
+    expect(trackDraftRestoreEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        capture_count_bucket: 'one',
+        screenshot_count_bucket: 'one',
+        outcome: 'completed',
+        stale_screenshot_ref_count_bucket: 'one'
+      })
+    );
+    const telemetryPayload = JSON.stringify(
+      readDraftRestoreTelemetryPayload(trackDraftRestoreEvent)
+    );
+    expect(telemetryPayload).not.toContain(screenshotRef.key);
+    expect(telemetryPayload).not.toContain(screenshotRef.captureId);
+    expect(telemetryPayload).not.toContain('restored note');
 
     await vi.advanceTimersByTimeAsync(150);
     await waitForAsyncWork();
@@ -688,6 +747,52 @@ describe('VideoSessionDraftController', () => {
       })
     );
     expect(payload.captures[0]).not.toHaveProperty('screenshotRef');
+  });
+
+  it('does not emit draft restore telemetry for stale async hydration generations', async () => {
+    const screenshotRef = createScreenshotCacheRef();
+    const deferred = createDeferred<VideoCaptureScreenshot | null>();
+    const trackDraftRestoreEvent = vi.fn().mockResolvedValue(undefined);
+    const harness = createHarness({
+      screenshotCache: {
+        load: vi.fn().mockReturnValue(deferred.promise),
+        removeMany: vi.fn()
+      },
+      trackDraftRestoreEvent
+    });
+    await seedRestorableDraftWithPayload(
+      harness.storage,
+      buildVideoSessionDraftPayload({
+        captures: [
+          {
+            kind: 'timestamp',
+            id: 'ts-1',
+            timeSec: 42,
+            url: 'https://video.example/watch?t=42',
+            comment: 'restored note',
+            createdAt: 2_000_000_000_100,
+            screenshotRequested: true,
+            screenshotRef
+          }
+        ],
+        commentDrafts: {},
+        platform: 'bilibili',
+        videoId: 'BV1xx411c7mD',
+        videoTitle: 'Restored title',
+        videoUrl: document.location.href,
+        canonicalUrl: document.location.href
+      })
+    );
+
+    const restored = await harness.controller.restoreDraftState();
+
+    expect(restored).toBe(true);
+    await harness.controller.dispose();
+
+    deferred.resolve(createBlobScreenshotFixture('late-cached-frame'));
+    await waitForAsyncWork();
+
+    expect(trackDraftRestoreEvent).not.toHaveBeenCalled();
   });
 
   it('ignores invalid screenshot refs while preserving the restored capture', async () => {
@@ -855,6 +960,25 @@ describe('VideoSessionDraftController', () => {
       })
     ]);
     expect(harness.state.captures[0]).not.toHaveProperty('screenshot');
+  });
+
+  it('swallows draft restore telemetry failures after restoring state', async () => {
+    const trackDraftRestoreEvent = vi.fn().mockRejectedValue(new Error('analytics failed'));
+    const harness = createHarness({ trackDraftRestoreEvent });
+    await seedRestorableDraft(harness.storage);
+
+    const restored = await harness.controller.restoreDraftState();
+    await waitForAsyncWork();
+
+    expect(restored).toBe(true);
+    expect(harness.state.captures).toEqual([
+      expect.objectContaining({
+        kind: 'timestamp',
+        id: 'ts-1',
+        screenshotRequested: true
+      })
+    ]);
+    expect(trackDraftRestoreEvent).toHaveBeenCalledTimes(1);
   });
 
   it('writes exported terminal envelopes to the current and restored exact keys before cleanup', async () => {

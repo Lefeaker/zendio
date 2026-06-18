@@ -99,7 +99,13 @@ describe('videoSessionDraftScreenshotHydration', () => {
     expect(onStart).toHaveBeenCalledTimes(1);
     expect(onChange).not.toHaveBeenCalled();
     expect(scheduleSave).not.toHaveBeenCalled();
-    expect(onSettled).toHaveBeenCalledWith({ isCurrent: false });
+    expect(onSettled).toHaveBeenCalledWith({
+      isCurrent: false,
+      hydratedCount: 1,
+      invalidRefCount: 0,
+      staleRefCount: 0,
+      failedCount: 0
+    });
   });
 
   it('reports settled after load failures so pending requests do not stay suspended', async () => {
@@ -127,7 +133,13 @@ describe('videoSessionDraftScreenshotHydration', () => {
     expect(onStart).toHaveBeenCalledTimes(1);
     expect(onChange).not.toHaveBeenCalled();
     expect(scheduleSave).not.toHaveBeenCalled();
-    expect(onSettled).toHaveBeenCalledWith({ isCurrent: true });
+    expect(onSettled).toHaveBeenCalledWith({
+      isCurrent: true,
+      hydratedCount: 0,
+      invalidRefCount: 0,
+      staleRefCount: 0,
+      failedCount: 1
+    });
     expect(capture.screenshot).toBeUndefined();
   });
 
@@ -158,6 +170,12 @@ describe('videoSessionDraftScreenshotHydration', () => {
     expect(capture).not.toHaveProperty('screenshotRef');
     expect(onChange).toHaveBeenCalledTimes(1);
     expect(scheduleSave).toHaveBeenCalledTimes(1);
-    expect(onSettled).toHaveBeenCalledWith({ isCurrent: true });
+    expect(onSettled).toHaveBeenCalledWith({
+      isCurrent: true,
+      hydratedCount: 0,
+      invalidRefCount: 1,
+      staleRefCount: 0,
+      failedCount: 0
+    });
   });
 });
