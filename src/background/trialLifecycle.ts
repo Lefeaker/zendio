@@ -7,6 +7,7 @@ import type { StorageAreaService } from '../platform/interfaces/storage';
 import type { StorageService } from '../platform/interfaces/storage';
 import type { TabsService } from '../platform/interfaces/tabs';
 import { cleanupBackgroundDependencies } from './bootstrap';
+import { trackExtensionInstalledIfNeeded } from './services/analyticsEvents';
 import { checkTrialStatus, initializeTrial, showExpirationNotice } from '../utils/trial-manager';
 import {
   configureDefaultTrialManagerPortDependencies,
@@ -215,6 +216,7 @@ export async function handleFirstInstall(
   }
 
   console.log('[background] Extension installed for the first time');
+  void trackExtensionInstalledIfNeeded();
 
   try {
     await initializeTrialOnInstall(deps);

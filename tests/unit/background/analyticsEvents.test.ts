@@ -325,6 +325,51 @@ describe('analyticsEvents', () => {
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
+  it('emits extension_active_day once per UTC day on the usage queue path', async () => {
+    vi.useFakeTimers();
+    try {
+      vi.setSystemTime(new Date('2026-06-18T10:00:00.000Z'));
+      const queueConfig = createAnalyticsConfig({
+        reportingInterval: 1,
+        batchSize: 5
+      });
+      getConfigMock.mockReturnValue(queueConfig);
+      refreshAnalyticsConfigMock.mockResolvedValue(queueConfig);
+      fetchMock.mockResolvedValue({
+        ok: true,
+        clone: () => ({ text: () => Promise.resolve('') })
+      });
+      const storage = createQueueStorageService();
+
+      const module = await import('../../../src/background/services/analyticsEvents');
+      module.configureUsageAnalyticsQueueStorage(storage as never);
+      module.configureActivationAnalyticsStorage(storage.local as never);
+
+      await module.trackUsageEvent('support_dislike_clicked');
+      await module.trackUsageEvent('support_github_feedback_clicked');
+
+      vi.setSystemTime(new Date('2026-06-19T10:00:00.000Z'));
+      await module.trackUsageEvent('support_review_link_clicked', { variant: 'returning' });
+
+      expect(fetchMock).toHaveBeenCalledTimes(5);
+      expect(String(fetchMock.mock.calls[0]?.[1]?.body)).toContain(
+        '"name":"support_dislike_clicked"'
+      );
+      expect(String(fetchMock.mock.calls[1]?.[1]?.body)).toContain('"name":"extension_active_day"');
+      expect(String(fetchMock.mock.calls[1]?.[1]?.body)).toContain('"day_index_bucket":"day_0"');
+      expect(String(fetchMock.mock.calls[2]?.[1]?.body)).toContain(
+        '"name":"support_github_feedback_clicked"'
+      );
+      expect(String(fetchMock.mock.calls[3]?.[1]?.body)).toContain(
+        '"name":"support_review_link_clicked"'
+      );
+      expect(String(fetchMock.mock.calls[4]?.[1]?.body)).toContain('"name":"extension_active_day"');
+      expect(String(fetchMock.mock.calls[4]?.[1]?.body)).toContain('"day_index_bucket":"day_1"');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('sends usage events through the configured queue interval and batch size', async () => {
     vi.useFakeTimers();
     try {
