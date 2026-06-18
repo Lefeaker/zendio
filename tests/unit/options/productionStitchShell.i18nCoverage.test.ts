@@ -530,8 +530,28 @@ describe('mountProductionStitchShell English residual coverage', () => {
       DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaResourceSuggestionsTitle
     );
     expect(suggestions.textContent).toContain(
-      DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaResourceSuggestionsGithubDescription
+      DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaResourceSuggestionsDescription
     );
+    expect(suggestions.textContent).toContain(
+      DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaResourceSuggestionsXiaohongshuTitle
+    );
+    expect(suggestions.textContent).toContain(
+      DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaResourceSuggestionsXiaohongshuDescription
+    );
+    expect(suggestions.querySelector('.resource-link-card')).toBeNull();
+    expect(
+      suggestions.querySelector<HTMLAnchorElement>(
+        'a[href*="github.com/Lefeaker/AllinOB/issues/new"]'
+      )
+    ).toBeTruthy();
+    expect(
+      suggestions.querySelector<HTMLAnchorElement>(
+        'a[href="https://sxnian.com/products/zendio/xiaohongshu-feedback.jpg"]'
+      )
+    ).toBeTruthy();
+    expect(
+      suggestions.querySelector<HTMLAnchorElement>('a[href="mailto:zendio@sxnian.com"]')
+    ).toBeTruthy();
     expect(suggestions.textContent).not.toContain('RAW SUGGESTION TITLE SENTINEL');
     expect(suggestions.textContent).not.toContain('RAW SUGGESTION SUBTITLE SENTINEL');
     suggestions.remove();
@@ -541,11 +561,20 @@ describe('mountProductionStitchShell English residual coverage', () => {
       DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaResourceContactTitle
     );
     expect(contact.textContent).toContain('If you appreciate this project or want to connect');
-    expect(contact.textContent).toContain(
-      DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaResourceContactRedditTitle
-    );
+    expect(contact.querySelector('.resource-link-card')).toBeNull();
     expect(contact.textContent).not.toContain('https://www.reddit.com/user/sxnian/');
-    expect(contact.textContent).not.toContain('https://github.com/Lefeaker/AllinOB');
+    expect(contact.textContent).not.toContain('https://github.com/Lefeaker');
+    expect(contact.textContent).not.toContain('zendio@sxnian.com');
+    expect(contact.querySelector<HTMLAnchorElement>('a[href="https://sxnian.com"]')).toBeTruthy();
+    expect(
+      contact.querySelector<HTMLAnchorElement>('a[href="https://www.reddit.com/user/sxnian/"]')
+    ).toBeTruthy();
+    expect(
+      contact.querySelector<HTMLAnchorElement>('a[href="https://github.com/Lefeaker"]')
+    ).toBeTruthy();
+    expect(
+      contact.querySelector<HTMLAnchorElement>('a[href="mailto:zendio@sxnian.com"]')
+    ).toBeTruthy();
     expect(contact.textContent).not.toContain('RAW CONTACT TITLE SENTINEL');
     expect(contact.textContent).not.toContain('RAW CONTACT SUBTITLE SENTINEL');
     contact.remove();

@@ -529,9 +529,8 @@ export const previewContent: PreviewContent = {
     contact: {
       hero: {
         title: 'Contact',
-        description:
-          'Combines the existing author-contact entry points with the support-document contact details.',
-        pills: ['Reddit', 'GitHub', 'Outlook'],
+        description: message('schemaResourceContactHint'),
+        pills: ['Website', 'Reddit', 'Email'],
         icon: 'mail'
       },
       entries: [
@@ -543,15 +542,15 @@ export const previewContent: PreviewContent = {
         {
           title: message('schemaResourceContactGithubTitle'),
           subtitle: message('schemaResourceContactGithubDescription'),
-          href: 'https://github.com/Lefeaker/AllinOB'
+          href: 'https://github.com/Lefeaker'
         },
         {
           title: message('schemaResourceContactEmailTitle'),
           subtitle: message('schemaResourceContactEmailDescription'),
-          href: 'mailto:allinobsidian@outlook.com'
+          href: 'mailto:zendio@sxnian.com'
         }
       ],
-      note: 'If you like the product or want to talk with the author, the current public contact channels are Reddit, GitHub, and email.'
+      note: 'If you like the product or want to talk with the author, use the website, social channels, GitHub, or email.'
     },
     changelog: changelogResource
   },

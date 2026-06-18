@@ -83,11 +83,12 @@ const ALLOWED_PREVIEW_DRIFT = new Map([
         'The Options support resource refresh replaces the old Afdian support channel with a WeChat reward icon plus cropped QR image, adds icons to support/suggestion resource cards, removes the visible Support Scope section, and keeps the task-success runtime support strip on the same Stitch schema contract.',
         'The Options resource URL resolver repair refreshes the generated preview JS hash after routing resource-card icon and preview image paths through the production extension-root asset resolver while preserving the frozen reference and Stitch runtime contract.',
         'The runtime support prompt repair refreshes the generated preview JS hash after removing terminal-progress auto dismiss, threading Stitch runtime action args, and making the task-success WeChat reward QR an explicit click-to-expand image while preserving the frozen reference and Stitch runtime contract.',
-        'The support resource QR modal repair refreshes the generated preview JS hash after moving Options WeChat reward QR display from inline card preview to a centered image modal, removing visible resource-card Open actions, making Contact cards link by platform name without visible URLs, and changing runtime task-success WeChat reward clicks from inline QR expansion to a non-auto-dismiss support toast QR dialog while preserving the frozen reference and Stitch runtime contract.'
+        'The support resource QR modal repair refreshes the generated preview JS hash after moving Options WeChat reward QR display from inline card preview to a centered image modal, removing visible resource-card Open actions, making Contact cards link by platform name without visible URLs, and changing runtime task-success WeChat reward clicks from inline QR expansion to a non-auto-dismiss support toast QR dialog while preserving the frozen reference and Stitch runtime contract.',
+        'The Options contact/suggestions refresh updates the generated preview JS hash after replacing Contact cards with one catalog-backed linked paragraph, replacing Suggestions cards with one linked paragraph plus a Xiaohongshu QR popover image, updating the author email to zendio@sxnian.com, and preserving the existing Stitch schema renderer contract.'
       ].join(' '),
       leftSha256: '9020ccbd91acd691eccd3fdf568b9a90efbddf0a35d79f36ef1caba702fa0c07',
-      // 2026-06-18 support resource QR modal and resource card action removal preview JS hash.
-      rightSha256: '33ade3905393f12ecc8841595a0f85ebdada4d15c1acb9a82ad1f758ffd482ad'
+      // 2026-06-18 contact/suggestions linked paragraph and Xiaohongshu QR popover preview JS hash.
+      rightSha256: 'c3e646230ca93324c114e067041920bc75c7b0f0cb405daedf1b54362d161ac2'
     }
   ]
 ]);

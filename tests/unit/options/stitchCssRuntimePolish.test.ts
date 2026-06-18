@@ -160,6 +160,16 @@ describe('Stitch runtime polish CSS contracts', () => {
     expect(stitchCss).toContain('.yaml-actions .yaml-action-button');
   });
 
+  it('brightens resource SVG icons in dark mode without filtering QR media', () => {
+    expect(stitchCss).toMatch(
+      /html\[data-preview-theme='dark'\]\s+\.resource-link-icon\[src\$='\.svg'\]\s*{[^}]*filter:\s*brightness\(0\)\s+invert\(1\);/
+    );
+    expect(stitchCss).toContain('.resource-inline-popover-media');
+    expect(stitchCss).not.toMatch(/\.resource-link-preview\s*{[^}]*filter:/);
+    expect(stitchCss).not.toMatch(/\.resource-image-modal-media\s*{[^}]*filter:/);
+    expect(stitchCss).not.toMatch(/\.resource-inline-popover-media\s*{[^}]*filter:/);
+  });
+
   it('lets the onboarding document scroll and uses the Stitch page layout', () => {
     expect(stitchCss).toContain("html[data-route='onboarding'],");
     expect(stitchCss).toContain("body[data-route='onboarding']");

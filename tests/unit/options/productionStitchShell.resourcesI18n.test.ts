@@ -98,16 +98,18 @@ const ENGLISH_SENTINEL_MESSAGES = {
   schemaResourceSupportScope3: 'Support Scope 3 Sentinel',
   schemaResourceSupportScope4: 'Support Scope 4 Sentinel',
   schemaResourceSuggestionsTitle: 'Suggestions Title Sentinel',
-  schemaResourceSuggestionsDescription: 'Suggestions Description Sentinel',
+  schemaResourceSuggestionsDescription: 'Suggestions Body Prefix Sentinel',
   schemaResourceSuggestionsChannelsGroupTitle: 'Suggestions Channels Sentinel',
   schemaResourceSuggestionsGithubTitle: 'Suggestions GitHub Title Sentinel',
-  schemaResourceSuggestionsGithubDescription: 'Suggestions GitHub Description Sentinel',
+  schemaResourceSuggestionsGithubDescription: ', ',
   schemaResourceSuggestionsRedditTitle: 'Suggestions Reddit Title Sentinel',
-  schemaResourceSuggestionsRedditDescription: 'Suggestions Reddit Description Sentinel',
+  schemaResourceSuggestionsRedditDescription: ' or ',
+  schemaResourceSuggestionsXiaohongshuDescription: ' Suggestions Body Suffix Sentinel',
+  schemaResourceSuggestionsXiaohongshuTitle: 'Suggestions Xiaohongshu Title Sentinel',
   schemaResourceContactTitle: 'Contact Title Sentinel',
   schemaResourceContactHint: 'Contact Hint Sentinel',
   schemaResourceContactDescription:
-    'Contact Body Sentinel <a href="https://www.reddit.com/user/sxnian/" target="_blank" rel="noopener noreferrer">Reddit</a> Contact HTML Sentinel',
+    'Contact Body Sentinel <a href="https://sxnian.com" target="_blank" rel="noopener noreferrer">Author Site Sentinel</a>, <a href="https://www.reddit.com/user/sxnian/" target="_blank" rel="noopener noreferrer">Reddit Link Sentinel</a>, <a href="https://github.com/Lefeaker" target="_blank" rel="noopener noreferrer">GitHub Link Sentinel</a>, or <a href="mailto:zendio@sxnian.com">Email Link Sentinel</a> Contact HTML Sentinel',
   schemaResourceContactChannelsGroupTitle: 'Contact Channels Sentinel',
   schemaResourceContactRedditTitle: 'Contact Reddit Title Sentinel',
   schemaResourceContactRedditDescription: 'Contact Reddit Description Sentinel',
@@ -400,26 +402,35 @@ describe('mountProductionStitchShell resource i18n', () => {
     expectText(
       suggestions,
       'Suggestions Title Sentinel',
-      'Suggestions Description Sentinel',
-      'Suggestions Channels Sentinel',
+      'Suggestions Body Prefix Sentinel',
       'Suggestions GitHub Title Sentinel',
-      'Suggestions GitHub Description Sentinel',
-      'Suggestions Reddit Title Sentinel',
-      'Suggestions Reddit Description Sentinel'
+      'Suggestions Xiaohongshu Title Sentinel',
+      'Contact Email Title Sentinel',
+      'Suggestions Body Suffix Sentinel'
     );
-    expect(
-      suggestions.querySelector<HTMLImageElement>(
-        'img.resource-link-icon[src="../icons/github-fill.svg"]'
-      )
-    ).toBeTruthy();
-    expect(
-      suggestions.querySelector<HTMLImageElement>(
-        'img.resource-link-icon[src="../icons/reddit.svg"]'
-      )
-    ).toBeTruthy();
+    expect(suggestions.querySelector('.resource-link-card')).toBeNull();
     expect(suggestions.querySelector('.resource-link-action')).toBeNull();
+    expect(
+      suggestions.querySelector<HTMLAnchorElement>(
+        'a[href*="github.com/Lefeaker/AllinOB/issues/new"]'
+      )
+    ).toBeTruthy();
+    const xiaohongshuLink = suggestions.querySelector<HTMLAnchorElement>(
+      'a.resource-inline-popover-trigger[href="https://sxnian.com/products/zendio/xiaohongshu-feedback.jpg"]'
+    );
+    expect(xiaohongshuLink).toBeTruthy();
+    expect(
+      xiaohongshuLink
+        ?.querySelector<HTMLImageElement>('img.resource-inline-popover-media')
+        ?.getAttribute('src')
+    ).toBe('https://sxnian.com/products/zendio/xiaohongshu-feedback.jpg');
+    expect(
+      suggestions.querySelector<HTMLAnchorElement>('a[href="mailto:zendio@sxnian.com"]')
+    ).toBeTruthy();
     expectNoText(
       suggestions,
+      'Suggestions Channels Sentinel',
+      'Suggestions Reddit Title Sentinel',
       'Send feedback through the currently supported public channels.',
       'Feature requests and bug reports',
       'Direct public discussion with the author'
@@ -430,15 +441,21 @@ describe('mountProductionStitchShell resource i18n', () => {
     expectText(
       contact,
       'Contact Title Sentinel',
-      'Contact Hint Sentinel',
       'Contact Body Sentinel',
+      'Author Site Sentinel',
+      'Reddit Link Sentinel',
+      'GitHub Link Sentinel',
+      'Email Link Sentinel',
+      'Contact HTML Sentinel'
+    );
+    expect(contact.querySelector('.resource-link-card')).toBeNull();
+    expectNoText(
+      contact,
+      'Contact Hint Sentinel',
       'Contact Channels Sentinel',
       'Contact Reddit Title Sentinel',
       'Contact GitHub Title Sentinel',
-      'Contact Email Title Sentinel'
-    );
-    expectNoText(
-      contact,
+      'Contact Email Title Sentinel',
       'Contact Reddit Description Sentinel',
       'Contact GitHub Description Sentinel',
       'Contact Email Description Sentinel',
@@ -446,14 +463,15 @@ describe('mountProductionStitchShell resource i18n', () => {
       'https://github.com/Lefeaker/AllinOB'
     );
     expect(contact.querySelector('.resource-link-action')).toBeNull();
+    expect(contact.querySelector<HTMLAnchorElement>('a[href="https://sxnian.com"]')).toBeTruthy();
     expect(
       contact.querySelector<HTMLAnchorElement>('a[href="https://www.reddit.com/user/sxnian/"]')
     ).toBeTruthy();
     expect(
-      contact.querySelector<HTMLAnchorElement>('a[href="https://github.com/Lefeaker/AllinOB"]')
+      contact.querySelector<HTMLAnchorElement>('a[href="https://github.com/Lefeaker"]')
     ).toBeTruthy();
     expect(
-      contact.querySelector<HTMLAnchorElement>('a[href="mailto:allinobsidian@outlook.com"]')
+      contact.querySelector<HTMLAnchorElement>('a[href="mailto:zendio@sxnian.com"]')
     ).toBeTruthy();
     expectNoText(
       contact,
