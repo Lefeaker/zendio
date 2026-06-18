@@ -1,6 +1,7 @@
 import type { SessionDraftTerminalStatus } from '../sessionDrafts';
 import type { ContentExportDestinationState } from '../shared/exportDestinationState';
 import type { StorageAreaService } from '../../platform/interfaces/storage';
+import type { UsageEventParamMap } from '../../shared/types/analytics';
 import type { VideoCaptureMutationTransaction } from './videoCaptureMutationTypes';
 import type { VideoSessionState } from './sessionState';
 import type { VideoHintState } from './videoHintManager';
@@ -28,9 +29,20 @@ export interface VideoSessionDraftControllerOptions {
         Partial<Pick<VideoScreenshotCacheRepository, 'save'>>)
     | undefined;
   dom: VideoSessionDraftDomPort;
+  trackDraftRestoreEvent?:
+    | ((params: UsageEventParamMap['video_draft_restored']) => void | Promise<void>)
+    | undefined;
   onScreenshotHydrationStart?: (() => void) | undefined;
   onScreenshotHydrationChange?: (() => void) | undefined;
-  onScreenshotHydrationSettled?: ((result: { isCurrent: boolean }) => void) | undefined;
+  onScreenshotHydrationSettled?:
+    | ((result: {
+        isCurrent: boolean;
+        hydratedCount: number;
+        invalidRefCount: number;
+        staleRefCount: number;
+        failedCount: number;
+      }) => void)
+    | undefined;
   readCleanupState: ReadVideoSessionDraftCleanupState;
 }
 

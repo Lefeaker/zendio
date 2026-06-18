@@ -15,6 +15,10 @@ import {
   normalizeProxyEndpoint,
   type AnalyticsTransportMode
 } from './analyticsEnvironment';
+import {
+  createAnalyticsBrowserContextParams,
+  isAnalyticsBrowserFamily
+} from './analyticsBrowserFamily';
 import type { AnalyticsConfig } from '../errors/analytics/analyticsConfig';
 
 export interface AnalyticsTransportPayload {
@@ -87,7 +91,10 @@ export function buildAnalyticsTransportPayload<EventName extends AnalyticsEventN
     return null;
   }
 
-  const sanitizedParams = sanitizeAnalyticsEventParams(eventName, params ?? {});
+  const sanitizedParams = sanitizeAnalyticsEventParams(
+    eventName,
+    mergeAnalyticsTransportParams(eventName, params)
+  );
   if (!hasRequiredAnalyticsEventParams(eventName, sanitizedParams)) {
     return null;
   }
@@ -111,6 +118,25 @@ export function buildAnalyticsTransportPayload<EventName extends AnalyticsEventN
     ],
     timestamp_micros: (options.now?.() ?? Date.now()) * 1000
   };
+}
+
+function mergeAnalyticsTransportParams<EventName extends AnalyticsEventName>(
+  eventName: EventName,
+  params: AnalyticsEventParamMap[EventName] | Record<string, unknown> | undefined
+): Record<string, unknown> {
+  if (eventName !== 'extension_installed') {
+    return isPlainRecord(params) ? params : {};
+  }
+
+  const mergedParams = isPlainRecord(params) ? { ...params } : {};
+  if (!isAnalyticsBrowserFamily(mergedParams.browser_family)) {
+    mergedParams.browser_family = createAnalyticsBrowserContextParams().browser_family;
+  }
+  return mergedParams;
+}
+
+function isPlainRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
 export async function sendAnalyticsTransportEvent<EventName extends AnalyticsEventName>(

@@ -73,13 +73,15 @@ function sampleValueForParam(paramName: string): unknown {
       return false;
     case 'attachment_count_bucket':
     case 'capture_count_bucket':
+    case 'detached_highlight_count_bucket':
     case 'highlight_count_bucket':
     case 'message_count_bucket':
     case 'screenshot_count_bucket':
     case 'selection_length_bucket':
+    case 'stale_screenshot_ref_count_bucket':
       return 'two_to_five';
     case 'browser_family':
-      return 'chromium';
+      return 'chrome';
     case 'browser_name':
       return 'chrome';
     case 'browser_version':
@@ -90,6 +92,8 @@ function sampleValueForParam(paramName: string): unknown {
       return 'button';
     case 'content_type':
       return 'article';
+    case 'day_index_bucket':
+      return 'day_2_to_6';
     case 'destination':
       return 'downloads';
     case 'duration_bucket':
@@ -126,6 +130,8 @@ function sampleValueForParam(paramName: string): unknown {
       return 'en-US';
     case 'operation_id':
       return 'op_abc123';
+    case 'milestone':
+      return 'first_clip_saved';
     case 'outcome':
       return 'completed';
     case 'platform':

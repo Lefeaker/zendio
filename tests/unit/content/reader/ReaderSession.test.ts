@@ -224,6 +224,7 @@ function createSelectionPayload(node: Node) {
 
 const CANONICAL_READER_EVENTS = new Set([
   'reader_session_started',
+  'reader_draft_restored',
   'reader_highlight_added',
   'reader_exported',
   'reader_export_failed',
@@ -235,7 +236,6 @@ const FORBIDDEN_READER_PARAM_KEYS = new Set([
   'export_mode',
   'export_destination',
   'duration_ms',
-  'outcome',
   'selectedText',
   'selectedHtml',
   'comment',
@@ -680,6 +680,18 @@ describe('ReaderSession', () => {
         label: 'Research Vault'
       })
     );
+    expect(
+      getTelemetryMessages(context).find((message) => message.event === 'reader_draft_restored')
+    ).toEqual({
+      type: 'ANALYTICS_EVENT',
+      event: 'reader_draft_restored',
+      params: {
+        highlight_count_bucket: 'one',
+        outcome: 'completed',
+        detached_highlight_count_bucket: 'zero',
+        duration_bucket: 'under_100ms'
+      }
+    });
 
     await flushDraftPersistence();
 
@@ -794,6 +806,125 @@ describe('ReaderSession', () => {
         ({ selectedText, comment }) => selectedText === 'reader session' && comment === 'fresh note'
       )
     ).toBe(true);
+  });
+
+  it('tracks detached highlight counts when a restored reader draft can only hydrate detached rows', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-06-05T00:00:00.000Z'));
+    const context = createSessionContext();
+    const now = Date.now();
+    const envelope = buildReaderSessionDraftEnvelope({
+      draftId: 'reader-draft-detached',
+      createdAt: now - 10,
+      now,
+      pageUrl: 'https://example.com/article',
+      pageTitle: 'Detached article',
+      destination: { kind: 'downloads' },
+      highlights: [
+        createPersistedHighlightRecord({
+          id: 'detached-1',
+          selectedText: 'Missing reader text',
+          selectedHtml: '<mark>Missing reader text</mark>',
+          comment: 'detached note',
+          fragmentUrl: '#detached-1',
+          createdAt: 15
+        })
+      ],
+      commentDrafts: {},
+      status: 'restorable'
+    });
+    if (!envelope) {
+      throw new Error('expected detached reader envelope');
+    }
+    await context.draftRepository.save(envelope);
+
+    await context.session.initialize();
+
+    expect(getSessionHarness(context.session).__testHighlights).toEqual([
+      expect.objectContaining({
+        id: 'detached-1',
+        selectedText: 'Missing reader text',
+        comment: 'detached note',
+        createdAt: 15
+      })
+    ]);
+    expect(getSessionHarness(context.session).__testHighlights[0]?.wrapper.isConnected).toBe(false);
+    expect(
+      getTelemetryMessages(context).find((message) => message.event === 'reader_draft_restored')
+    ).toEqual({
+      type: 'ANALYTICS_EVENT',
+      event: 'reader_draft_restored',
+      params: {
+        highlight_count_bucket: 'one',
+        outcome: 'completed',
+        detached_highlight_count_bucket: 'one',
+        duration_bucket: 'under_100ms'
+      }
+    });
+  });
+
+  it('tracks failed draft restore outcomes and removes invalid candidates without hydrating reader state', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-06-05T00:00:00.000Z'));
+    const context = createSessionContext();
+    const now = Date.now();
+    const envelope = buildReaderSessionDraftEnvelope({
+      draftId: 'reader-draft-invalid',
+      createdAt: now - 10,
+      now,
+      pageUrl: 'https://example.com/article',
+      pageTitle: 'Broken article',
+      destination: { kind: 'downloads' },
+      highlights: [
+        createPersistedHighlightRecord({
+          id: 'saved-1',
+          selectedText: 'Hello reader session world.',
+          selectedHtml: '<mark>Hello reader session world.</mark>',
+          comment: 'remember this',
+          fragmentUrl: '#saved-1',
+          createdAt: 15
+        })
+      ],
+      commentDrafts: {
+        'saved-1': 'unsaved note'
+      },
+      status: 'restorable'
+    });
+    if (!envelope) {
+      throw new Error('expected invalid reader envelope');
+    }
+    await context.draftRepository.save(envelope);
+    const invalidDraftStorageKey = createSessionDraftStorageKey({
+      mode: envelope.mode,
+      pageKey: envelope.pageKey,
+      draftId: envelope.draftId
+    });
+    await context.storageLocal.set(invalidDraftStorageKey, {
+      ...envelope,
+      payload: {
+        ...envelope.payload,
+        commentDrafts: [] as unknown as SessionCommentDraftSnapshot
+      }
+    } as SessionDraftEnvelope);
+
+    await context.session.initialize();
+
+    expect(getSessionHarness(context.session).__testHighlights).toEqual([]);
+    expect(context.view.currentDrafts).toEqual({});
+    expect(
+      getTelemetryMessages(context).find((message) => message.event === 'reader_draft_restored')
+    ).toEqual({
+      type: 'ANALYTICS_EVENT',
+      event: 'reader_draft_restored',
+      params: {
+        highlight_count_bucket: 'one',
+        outcome: 'failed',
+        duration_bucket: 'under_100ms'
+      }
+    });
+    await expect(
+      context.draftRepository.loadLatest('reader', 'https://example.com/article')
+    ).resolves.toBeNull();
   });
 
   it('flushes a restorable reader draft on pagehide after prior mutation-time saves', async () => {
@@ -1893,7 +2024,8 @@ describe('ReaderSession', () => {
       event: 'reader_exported',
       params: {
         destination: 'downloads',
-        duration_bucket: '1s_to_2s'
+        duration_bucket: '1s_to_2s',
+        highlight_count_bucket: 'one'
       }
     });
     expectCanonicalReaderTelemetry(getTelemetryMessages(context));
@@ -2400,70 +2532,165 @@ describe('ReaderSession', () => {
     });
   });
 
-  it('tracks failed exports without swallowing the existing failure behavior', async () => {
+  it.each([
+    {
+      name: 'permission-denied export surfaces',
+      rejection: new Error('permission denied'),
+      expectedCategory: 'permission'
+    },
+    {
+      name: 'message timeout failures',
+      rejection: new DOMException('timed out', 'AbortError'),
+      expectedCategory: 'timeout'
+    },
+    {
+      name: 'extraction app errors',
+      rejection: {
+        code: 'EXTRACTION_CONTENT_NO_MARKDOWN',
+        domain: 'extraction',
+        message: 'EXTRACTION_CONTENT_NO_MARKDOWN',
+        severity: 'error',
+        recoverable: false
+      },
+      expectedCategory: 'extraction'
+    },
+    {
+      name: 'unknown failures stay unknown',
+      rejection: new Error('boom'),
+      expectedCategory: 'unknown'
+    }
+  ])(
+    'tracks failed exports for $name without swallowing the existing failure behavior',
+    async ({ rejection, expectedCategory }) => {
+      vi.useFakeTimers();
+      const context = createSessionContext();
+      await context.session.initialize();
+      context.dispatchClipResult.mockRejectedValueOnce(rejection);
+
+      const wrapper = document.createElement('mark');
+      wrapper.className = 'aiob-reader-highlight';
+      wrapper.dataset.readerHighlightId = 'h-fail';
+      wrapper.textContent = 'Export me';
+      document.body.appendChild(wrapper);
+      getSessionHarness(context.session).__setTestHighlights([
+        {
+          id: 'h-fail',
+          selectedHtml: '<mark>Export me</mark>',
+          selectedText: 'Export me',
+          comment: 'note',
+          fragmentUrl: '#export',
+          wrapper
+        }
+      ]);
+
+      const callbacks = context.getCallbacks();
+      if (!callbacks) {
+        throw new Error('panel callbacks missing');
+      }
+      if (!callbacks.onSelectDestination) {
+        throw new Error('destination callback missing');
+      }
+
+      await settleReaderMutation(Promise.resolve(callbacks.onSelectDestination('downloads')));
+      const { draftStorageKey: currentDraftKey, draftId: currentDraftId } = getDraftIdentity(
+        context.session
+      );
+      if (!currentDraftKey || !currentDraftId) {
+        throw new Error('expected an active current draft');
+      }
+      await callbacks.onFinish();
+
+      const failedEvent = getTelemetryMessages(context).find(
+        (message) => message.event === 'reader_export_failed'
+      );
+      expect(failedEvent).toEqual({
+        type: 'ANALYTICS_EVENT',
+        event: 'reader_export_failed',
+        params: {
+          destination: 'downloads',
+          failure_category: expectedCategory
+        }
+      });
+      expect(context.view.updateHint).toHaveBeenLastCalledWith(
+        DEFAULT_SESSION_MESSAGES.hintFailure
+      );
+      expect(context.view.destroy).not.toHaveBeenCalled();
+      expect(isReaderSessionActive(document)).toBe(true);
+      await expect(loadLatestReaderDraft(context)).resolves.toMatchObject({
+        status: 'active'
+      });
+      await expect(listReaderDraftCandidates(context)).resolves.toEqual([
+        expect.objectContaining({ draftId: currentDraftId, status: 'active' })
+      ]);
+      await expect(readStoredReaderDraft(context, currentDraftKey)).resolves.toMatchObject({
+        draftId: currentDraftId,
+        status: 'active'
+      });
+      expectCanonicalReaderTelemetry(getTelemetryMessages(context));
+    }
+  );
+
+  it('does not emit reader draft restore telemetry when no draft candidate exists', async () => {
     vi.useFakeTimers();
     const context = createSessionContext();
+
     await context.session.initialize();
-    context.dispatchClipResult.mockRejectedValueOnce(new Error('boom'));
 
-    const wrapper = document.createElement('mark');
-    wrapper.className = 'aiob-reader-highlight';
-    wrapper.dataset.readerHighlightId = 'h-fail';
-    wrapper.textContent = 'Export me';
-    document.body.appendChild(wrapper);
-    getSessionHarness(context.session).__setTestHighlights([
-      {
-        id: 'h-fail',
-        selectedHtml: '<mark>Export me</mark>',
-        selectedText: 'Export me',
-        comment: 'note',
-        fragmentUrl: '#export',
-        wrapper
-      }
+    expect(
+      getTelemetryMessages(context).find((message) => message.event === 'reader_draft_restored')
+    ).toBeUndefined();
+  });
+
+  it('does not let reader draft restore analytics failures block hydration', async () => {
+    vi.useFakeTimers();
+    const debugSpy = vi.spyOn(console, 'debug').mockImplementation(() => {});
+    vi.setSystemTime(new Date('2026-06-05T00:00:00.000Z'));
+    const context = createSessionContext();
+    const now = Date.now();
+    const envelope = buildReaderSessionDraftEnvelope({
+      draftId: 'reader-draft-analytics',
+      createdAt: now - 10,
+      now,
+      pageUrl: 'https://example.com/article',
+      pageTitle: 'Restored article',
+      destination: { kind: 'downloads' },
+      highlights: [
+        createPersistedHighlightRecord({
+          id: 'saved-1',
+          selectedText: 'Hello reader session world.',
+          selectedHtml: '<mark>Hello reader session world.</mark>',
+          comment: 'remember this',
+          fragmentUrl: '#saved-1',
+          createdAt: 15
+        })
+      ],
+      commentDrafts: {},
+      status: 'restorable'
+    });
+    if (!envelope) {
+      throw new Error('expected analytics restore envelope');
+    }
+    await context.draftRepository.save(envelope);
+    context.messaging.send.mockRejectedValueOnce(new Error('analytics down'));
+
+    await context.session.initialize();
+
+    expect(context.messaging.send.mock.calls[0]?.[0]).toMatchObject({
+      event: 'reader_draft_restored'
+    });
+    expect(getSessionHarness(context.session).__testHighlights).toEqual([
+      expect.objectContaining({
+        id: 'saved-1',
+        selectedText: 'Hello reader session world.',
+        comment: 'remember this',
+        createdAt: 15
+      })
     ]);
-
-    const callbacks = context.getCallbacks();
-    if (!callbacks) {
-      throw new Error('panel callbacks missing');
-    }
-    if (!callbacks.onSelectDestination) {
-      throw new Error('destination callback missing');
-    }
-
-    await settleReaderMutation(Promise.resolve(callbacks.onSelectDestination('downloads')));
-    const { draftStorageKey: currentDraftKey, draftId: currentDraftId } = getDraftIdentity(
-      context.session
+    expect(debugSpy).toHaveBeenCalledWith(
+      '[ReaderSession] Failed to send analytics event:',
+      expect.any(Error)
     );
-    if (!currentDraftKey || !currentDraftId) {
-      throw new Error('expected an active current draft');
-    }
-    await callbacks.onFinish();
-
-    const failedEvent = getTelemetryMessages(context).find(
-      (message) => message.event === 'reader_export_failed'
-    );
-    expect(failedEvent).toEqual({
-      type: 'ANALYTICS_EVENT',
-      event: 'reader_export_failed',
-      params: {
-        destination: 'downloads',
-        failure_category: 'unknown'
-      }
-    });
-    expect(context.view.updateHint).toHaveBeenLastCalledWith(DEFAULT_SESSION_MESSAGES.hintFailure);
-    expect(context.view.destroy).not.toHaveBeenCalled();
-    expect(isReaderSessionActive(document)).toBe(true);
-    await expect(loadLatestReaderDraft(context)).resolves.toMatchObject({
-      status: 'active'
-    });
-    await expect(listReaderDraftCandidates(context)).resolves.toEqual([
-      expect.objectContaining({ draftId: currentDraftId, status: 'active' })
-    ]);
-    await expect(readStoredReaderDraft(context, currentDraftKey)).resolves.toMatchObject({
-      draftId: currentDraftId,
-      status: 'active'
-    });
-    expectCanonicalReaderTelemetry(getTelemetryMessages(context));
+    debugSpy.mockRestore();
   });
 
   it('does not let analytics send failures block export cleanup', async () => {

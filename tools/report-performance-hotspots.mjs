@@ -37,8 +37,8 @@ const MAX_LINE_BUDGETS = new Map([
   ['src/shared/analytics/eventCatalog.ts', 541],
   // 2026-06-13 GA P01: schema-owned contract replaces duplicated catalog and
   // sanitizer tables; current exact schema hotspot budget is the new source of truth.
-  ['src/shared/analytics/schema/analyticsSchema.ts', 478],
-  ['src/content/video/sessionOperations.ts', 430],
+  ['src/shared/analytics/schema/analyticsSchema.ts', 527],
+  ['src/content/video/sessionOperations.ts', 433],
   ['src/content/video/platforms/bilibiliRichText.ts', 302],
   ['src/content/video/platforms/bilibiliPlatformObserver.ts', 292],
   ['src/ui/domains/video/VideoDialog.ts', 468],
@@ -47,7 +47,7 @@ const MAX_LINE_BUDGETS = new Map([
   ['src/background/pipelines/connectionTest.ts', 697],
   ['src/onboarding/bootstrap.ts', 586],
   ['src/background/services/notifications.ts', 451],
-  ['src/background/trialLifecycle.ts', 274],
+  ['src/background/trialLifecycle.ts', 276],
   ['src/shared/config/optionsMerger.ts', 417],
   ['src/dev/localVaultWriteHarness.ts', 411],
   // 2026-06-11: Session mutation architecture adds fail-closed terminal draft
@@ -72,7 +72,7 @@ const MAX_LINE_BUDGETS = new Map([
   ['src/content/video/videoScreenshotPreparationRequestStore.ts', 306],
   ['src/content/video/videoScreenshotPreparationCoordinator.ts', 147],
   ['src/content/reader/ui/ReaderDialogPanel.ts', 407],
-  ['src/content/reader/session.ts', 711],
+  ['src/content/reader/session.ts', 748],
   ['src/content/video/videoControlBarButton.ts', 395],
   ['src/content/stitch/runtimeSurfaceContent.ts', 407],
   ['src/options/components/infrastructure/listBuilder.ts', 378],
@@ -89,7 +89,7 @@ const MAX_LINE_BUDGETS = new Map([
   ['src/background/services/obsidianWriter.ts', 423],
   ['src/background/vault-router.ts', 422],
   ['src/shared/state/globalStateManager.ts', 345],
-  ['src/content/reader/sessionOperations.ts', 716],
+  ['src/content/reader/sessionOperations.ts', 839],
   ['src/i18n/config.ts', 343],
   ['src/content/ui/supportPrompt.ts', 348],
   ['src/options/services/connectionTester.ts', 368],
@@ -103,7 +103,7 @@ const MAX_LINE_BUDGETS = new Map([
   ['src/components/trial-notice.ts', 376],
   ['src/content/clipper/services/contextCapture.ts', 305],
   // 2026-06-12 P03: video session draft ownership moved into a focused controller.
-  ['src/content/video/videoSessionDraftController.ts', 311],
+  ['src/content/video/videoSessionDraftController.ts', 401],
   ['src/options/app/productionStitchActions.ts', 302],
   ['src/options/app/productionStitchLocalization.ts', 553],
   ['src/options/app/vaultConnectionTests.ts', 290],
@@ -116,7 +116,7 @@ const MAX_LINE_BUDGETS = new Map([
   ['src/content/bootstrap.ts', 286],
   ['src/platform/chrome/contextMenus.ts', 285],
   ['src/content/shared/panels/sessionPanelResize.ts', 284],
-  ['src/background/application/clipProcessor.ts', 508],
+  ['src/background/application/clipProcessor.ts', 512],
   ['src/infrastructure/restClient.ts', 281],
   ['src/shared/services/yamlConfigSanitize.ts', 277],
   ['src/ui/domains/vault-router/VaultRouterView.ts', 277],
@@ -127,7 +127,7 @@ const MAX_LINE_BUDGETS = new Map([
   ['src/background/llm/classifier.ts', 268],
   // 2026-06-13 final combined integration: runtime messages own the visible-tab
   // screenshot request boundary used by video export preparation.
-  ['src/background/listeners/runtimeMessages.ts', 356],
+  ['src/background/listeners/runtimeMessages.ts', 375],
   ['src/background/services/usageStats.ts', 266],
   ['src/background/application/videoScreenshotAttachmentPlanner.ts', 269],
   ['src/third_party/ai-chat-exporter/platforms/tongyi.ts', 274],
@@ -153,7 +153,7 @@ const MAX_LINE_BUDGETS = new Map([
   ['src/third_party/ai-chat-exporter/platforms/kimi.ts', 258],
   ['src/i18n/catalog/languages.ts', 280],
   ['src/content/sessionDrafts/sessionDraftRepository.ts', 399],
-  ['src/content/reader/sessionDrafts.ts', 333],
+  ['src/content/reader/sessionDrafts.ts', 440],
   ['src/utils/trial-manager.ts', 363],
   ['src/content/runtime/localVaultPermissionFrame.ts', 345],
   ['src/content/extractors/aiChatExtractor.ts', 299],
@@ -164,7 +164,16 @@ const MAX_LINE_BUDGETS = new Map([
   // 2026-06-18 options support closeout: task-success surface owns the feedback
   // and support schema copy used by production runtime previews.
   ['src/options/stitch/schema/surfaces/task-success.ts', 276],
-  ['src/background/pipelines/clipPipeline.ts', 253]
+  ['src/background/pipelines/clipPipeline.ts', 253],
+  // 2026-06-18 GA telemetry acceptance: activation lifecycle, bounded event
+  // transport, and release smoke wiring are production hotspots in the final
+  // GA integration branch; these budgets are exact current-line gates.
+  ['src/background/services/analyticsActivation.ts', 265],
+  ['src/background/services/analyticsEvents.ts', 363],
+  ['src/shared/analytics/analyticsTransport.ts', 265],
+  // 2026-06-18 GA telemetry acceptance: reader/video export shape telemetry
+  // adds small guarded hotspots around existing mutation and completion flows.
+  ['src/content/video/videoCaptureMutationTransaction.ts', 257]
 ]);
 
 const PATTERNS = [

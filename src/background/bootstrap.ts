@@ -18,6 +18,8 @@ import {
 import { configureUsageStatsStorage, createUsageStatsStore } from './services/usageStats';
 import {
   clearQueuedUsageAnalyticsEventsIfConsentRevoked,
+  configureActivationAnalyticsStorage,
+  reconcileActivationAnalyticsIdentity,
   configureUsageAnalyticsQueueStorage
 } from './services/analyticsEvents';
 import { configureI18nStorage } from '@i18n';
@@ -56,11 +58,13 @@ export function bootstrapBackgroundDependencies(storage?: StorageService): void 
   configureI18nStorage(resolvedStorage.sync);
   configureUsageStatsStorage(resolvedStorage);
   configureUsageAnalyticsQueueStorage(resolvedStorage);
+  configureActivationAnalyticsStorage(resolvedStorage.local);
   const errorHandler = createErrorHandler();
 
   cleanupAnalyticsConfigStorageWatch?.();
   cleanupAnalyticsConfigStorageWatch = watchAnalyticsConfigStorage((config) => {
     void clearQueuedUsageAnalyticsEventsIfConsentRevoked(config);
+    void reconcileActivationAnalyticsIdentity(config.clientId);
     void updateErrorAnalyticsConfig(
       config.userConsent?.errorReporting === true,
       errorHandler

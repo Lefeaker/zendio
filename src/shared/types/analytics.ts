@@ -10,10 +10,13 @@ import {
 export const TRACK_USAGE_EVENT = LEGACY_TRACK_USAGE_EVENT_MESSAGE;
 
 export type {
+  ActivationMilestone,
+  ActiveDayBucket,
   AnalyticsEventName,
   AnalyticsEventParamMap,
   AnalyticsOutcome,
   AnalyticsPrimitive,
+  BrowserFamily,
   ContentType,
   CountBucket,
   DurationBucket,

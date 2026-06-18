@@ -21,13 +21,21 @@ import {
 } from '../../shared/analytics/analyticsRuntimeConfig';
 import { getService } from '../../shared/di';
 import { TOKENS } from '../../shared/di/tokens';
-import type { StorageService } from '../../platform/interfaces/storage';
+import type { StorageAreaService, StorageService } from '../../platform/interfaces/storage';
 import type { PlatformServices } from '../../platform/types';
 import {
   isAllowedUsageEventName,
+  type ActivationMilestone,
   type UsageEventName,
   type UsageEventParamMap
 } from '../../shared/types/analytics';
+import {
+  configureActivationAnalyticsStorage as configureActivationAnalyticsStorageImpl,
+  reconcileActivationAnalyticsIdentity as reconcileActivationAnalyticsIdentityImpl,
+  trackActivationActiveDayIfNeeded as trackActivationActiveDayIfNeededImpl,
+  trackActivationMilestoneIfNeeded as trackActivationMilestoneIfNeededImpl,
+  trackExtensionInstalledIfNeeded as trackExtensionInstalledIfNeededImpl
+} from './analyticsActivation';
 
 let initializationPromise: Promise<void> | null = null;
 let usageEventQueue: AnalyticsEventQueue | null = null;
@@ -36,6 +44,10 @@ let usageEventQueueStorage: ReturnType<typeof createUsageAnalyticsQueueStorage> 
 
 type QueuedAnalyticsEventParams = Parameters<NonNullable<AnalyticsEventQueueOptions['send']>>[1];
 type SentAnalyticsTransportResult = Extract<AnalyticsTransportResult, { status: 'sent' }>;
+type UsageTrackResult = {
+  tracked: boolean;
+  clientId?: string;
+};
 
 async function ensureAnalyticsReady(): Promise<void> {
   if (initializationPromise === null) {
@@ -101,6 +113,18 @@ export function configureUsageAnalyticsQueueStorage(storage: Pick<StorageService
   usageEventQueueVersion = 'unknown';
 }
 
+export function configureActivationAnalyticsStorage(
+  storage: Pick<StorageAreaService, 'get' | 'set' | 'remove'>
+): void {
+  configureActivationAnalyticsStorageImpl(storage);
+}
+
+export async function reconcileActivationAnalyticsIdentity(
+  clientId?: string | null
+): Promise<void> {
+  await reconcileActivationAnalyticsIdentityImpl(clientId);
+}
+
 export async function clearQueuedUsageAnalyticsEvents(): Promise<void> {
   try {
     await clearAnalyticsQueueStorage(usageEventQueue, usageEventQueueStorage);
@@ -114,6 +138,31 @@ export async function clearQueuedUsageAnalyticsEventsIfConsentRevoked(config: {
   userConsent?: { analytics?: boolean };
 }): Promise<void> {
   await clearUsageAnalyticsQueueIfConsentRevoked(config, usageEventQueue, usageEventQueueStorage);
+}
+
+async function resolveConsentedClientIdForEvent<EventName extends UsageEventName>(
+  eventName: EventName
+): Promise<string | undefined> {
+  try {
+    await ensureAnalyticsReady();
+  } catch {
+    return undefined;
+  }
+
+  let config;
+  try {
+    config = await refreshAnalyticsConfig();
+  } catch (error) {
+    console.warn('[analytics-events] Failed to refresh analytics config:', error);
+    return undefined;
+  }
+
+  if (!hasAnalyticsSendConsent(createAnalyticsTransportConfig(config), eventName)) {
+    await clearQueuedUsageAnalyticsEvents();
+    return undefined;
+  }
+
+  return resolveAnalyticsClientId(config);
 }
 
 async function sendQueuedUsageEvent(
@@ -193,13 +242,84 @@ export async function trackUsageEvent<EventName extends UsageEventName>(
   eventName: EventName,
   params?: UsageEventParamMap[EventName]
 ): Promise<void> {
-  if (!isAllowedUsageEventName(eventName)) {
+  await trackUsageEventWithActivation(eventName, params);
+}
+
+export async function trackExtensionInstalledIfNeeded(): Promise<void> {
+  const clientId = await resolveConsentedClientIdForEvent('extension_installed');
+  if (!clientId) {
     return;
+  }
+
+  await trackExtensionInstalledIfNeededImpl({
+    clientId,
+    trackEvent: async () =>
+      (
+        await trackUsageEventWithActivation('extension_installed', {
+          source: 'install'
+        })
+      ).tracked
+  });
+}
+
+export async function trackActivationMilestoneIfNeeded(
+  milestone: ActivationMilestone
+): Promise<void> {
+  const clientId = await resolveConsentedClientIdForEvent('activation_milestone_completed');
+  if (!clientId) {
+    return;
+  }
+
+  await trackActivationMilestoneIfNeededImpl({
+    clientId,
+    milestone,
+    trackEvent: async () =>
+      (
+        await trackUsageEventWithActivation('activation_milestone_completed', {
+          milestone
+        })
+      ).tracked
+  });
+}
+
+async function trackUsageEventWithActivation<EventName extends UsageEventName>(
+  eventName: EventName,
+  params?: UsageEventParamMap[EventName]
+): Promise<UsageTrackResult> {
+  const result = await trackUsageEventInternal(eventName, params);
+  if (!result.tracked || !result.clientId || eventName === 'extension_active_day') {
+    return result;
+  }
+
+  await trackActivationActiveDayIfNeededImpl({
+    clientId: result.clientId,
+    trackEvent: async (activeDayParams) =>
+      (
+        await trackUsageEventInternal('extension_active_day', activeDayParams, {
+          forceFlush: true,
+          skipActivationActiveDay: true
+        })
+      ).tracked
+  });
+
+  return result;
+}
+
+async function trackUsageEventInternal<EventName extends UsageEventName>(
+  eventName: EventName,
+  params?: UsageEventParamMap[EventName],
+  options: {
+    forceFlush?: boolean;
+    skipActivationActiveDay?: boolean;
+  } = {}
+): Promise<UsageTrackResult> {
+  if (!isAllowedUsageEventName(eventName)) {
+    return { tracked: false };
   }
   try {
     await ensureAnalyticsReady();
   } catch {
-    return;
+    return { tracked: false };
   }
 
   let config;
@@ -207,21 +327,36 @@ export async function trackUsageEvent<EventName extends UsageEventName>(
     config = await refreshAnalyticsConfig();
   } catch (error) {
     console.warn('[analytics-events] Failed to refresh analytics config:', error);
-    return;
+    return { tracked: false };
   }
 
   if (!hasAnalyticsSendConsent(createAnalyticsTransportConfig(config), eventName)) {
     await clearQueuedUsageAnalyticsEvents();
-    return;
+    return { tracked: false };
   }
 
   await ensureSessionId();
+  const clientId = resolveAnalyticsClientId(config);
   const queue = getUsageEventQueue(resolveExtensionVersion());
   try {
     if (queue.enqueue(eventName, params)) {
-      await queue.flush();
+      await queue.flush(options.forceFlush ? { force: true } : {});
+      return {
+        tracked: true,
+        ...(clientId ? { clientId } : {})
+      };
     }
   } catch (error) {
     console.warn('[analytics-events] Failed to send analytics usage event:', error);
   }
+
+  return {
+    tracked: false,
+    ...(clientId ? { clientId } : {})
+  };
+}
+
+function resolveAnalyticsClientId(config: AnalyticsConfig): string | undefined {
+  const currentConfig = getAnalyticsConfigManager().getConfig();
+  return currentConfig.clientId ?? config.clientId;
 }

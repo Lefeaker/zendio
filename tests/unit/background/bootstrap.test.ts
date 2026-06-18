@@ -9,6 +9,7 @@ const TOKENS = vi.hoisted(() => ({
 }));
 type AnalyticsWatchConfig = {
   enabled: boolean;
+  clientId?: string;
   userConsent?: {
     analytics?: boolean;
     errorReporting?: boolean;
@@ -49,7 +50,11 @@ const watchAnalyticsConfigStorageMock = vi.hoisted(() =>
   })
 );
 const configureUsageAnalyticsQueueStorageMock = vi.hoisted(() => vi.fn());
+const configureActivationAnalyticsStorageMock = vi.hoisted(() => vi.fn());
 const clearQueuedUsageAnalyticsEventsIfConsentRevokedMock = vi.hoisted(() => vi.fn());
+const reconcileActivationAnalyticsIdentityMock = vi.hoisted(() =>
+  vi.fn(() => Promise.resolve(undefined))
+);
 const initializeErrorAnalyticsMock = vi.hoisted(() =>
   vi.fn((_errorHandler?: Pick<ErrorHandler, 'addReporter'>) => Promise.resolve(undefined))
 );
@@ -82,8 +87,10 @@ vi.mock('../../../src/shared/errors/analytics', () => ({
 }));
 vi.mock('../../../src/background/services/analyticsEvents', () => ({
   configureUsageAnalyticsQueueStorage: configureUsageAnalyticsQueueStorageMock,
+  configureActivationAnalyticsStorage: configureActivationAnalyticsStorageMock,
   clearQueuedUsageAnalyticsEventsIfConsentRevoked:
-    clearQueuedUsageAnalyticsEventsIfConsentRevokedMock
+    clearQueuedUsageAnalyticsEventsIfConsentRevokedMock,
+  reconcileActivationAnalyticsIdentity: reconcileActivationAnalyticsIdentityMock
 }));
 vi.mock('../../../src/shared/errors/globalErrorBoundary', () => ({
   registerGlobalErrorBoundary: registerGlobalErrorBoundaryMock
@@ -117,6 +124,7 @@ describe('background/bootstrap', () => {
     expect(configureI18nStorageMock).toHaveBeenCalledWith(storageMock.sync);
     expect(configureUsageStatsStorageMock).toHaveBeenCalledWith(storageMock);
     expect(configureUsageAnalyticsQueueStorageMock).toHaveBeenCalledWith(storageMock);
+    expect(configureActivationAnalyticsStorageMock).toHaveBeenCalledWith(storageMock.local);
     expect(watchAnalyticsConfigStorageMock).toHaveBeenCalledTimes(1);
     expect(registryMock.register).toHaveBeenCalledWith(TOKENS.errorHandler, expect.any(Function));
     expect(registerGlobalErrorBoundaryMock).toHaveBeenCalledWith(
@@ -145,13 +153,16 @@ describe('background/bootstrap', () => {
     expect(analyticsConfigWatchState.onRefresh).toBeTypeOf('function');
     analyticsConfigWatchState.onRefresh?.({
       enabled: true,
+      clientId: 'client-1',
       userConsent: { analytics: false, errorReporting: true }
     });
 
     expect(clearQueuedUsageAnalyticsEventsIfConsentRevokedMock).toHaveBeenCalledWith({
       enabled: true,
+      clientId: 'client-1',
       userConsent: { analytics: false, errorReporting: true }
     });
+    expect(reconcileActivationAnalyticsIdentityMock).toHaveBeenCalledWith('client-1');
     expect(updateErrorAnalyticsConfigMock).toHaveBeenCalledWith(true, backgroundErrorHandler);
   });
 

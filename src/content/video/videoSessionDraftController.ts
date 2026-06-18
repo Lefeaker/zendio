@@ -1,4 +1,5 @@
 import { VIDEO_TITLE_FALLBACK } from '../../i18n/catalog/runtimeFallbackMessages';
+import { bucketCount, createFeatureTimer, type FeatureTimer } from '../../shared/analytics';
 import {
   createSessionDraftPersister,
   createSessionDraftRepository,
@@ -35,6 +36,46 @@ import {
 } from './videoSessionDraftScreenshotCache';
 import { scheduleRestoredVideoDraftScreenshotHydration } from './videoSessionDraftScreenshotHydration';
 import { buildVideoTerminalEnvelopeForExactKey } from './videoSessionDraftTerminal';
+import { hasRequestedTimestampScreenshot } from './screenshotIntent';
+import type { RestoredVideoDraftScreenshotHydrationSettledResult } from './videoSessionDraftScreenshotHydration';
+
+type VideoDraftRestoreTelemetryParams = Parameters<
+  NonNullable<VideoSessionDraftControllerOptions['trackDraftRestoreEvent']>
+>[0];
+
+function countRequestedDraftScreenshots(captures: readonly VideoCapture[]): number {
+  return captures.filter(
+    (capture): capture is Extract<VideoCapture, { kind: 'timestamp' }> =>
+      capture.kind === 'timestamp' &&
+      (hasRequestedTimestampScreenshot(capture) ||
+        capture.screenshot !== undefined ||
+        capture.screenshotRef !== undefined)
+  ).length;
+}
+
+function buildDraftRestoreTelemetryParams(args: {
+  captures: readonly VideoCapture[];
+  outcome: VideoDraftRestoreTelemetryParams['outcome'];
+  restoreTimer: FeatureTimer;
+  staleRefCount?: number;
+}): VideoDraftRestoreTelemetryParams {
+  return {
+    capture_count_bucket: bucketCount(args.captures.length),
+    screenshot_count_bucket: bucketCount(countRequestedDraftScreenshots(args.captures)),
+    outcome: args.outcome,
+    ...(args.staleRefCount && args.staleRefCount > 0
+      ? { stale_screenshot_ref_count_bucket: bucketCount(args.staleRefCount) }
+      : {}),
+    duration_bucket: args.restoreTimer.durationBucket()
+  };
+}
+
+function readDraftRestoreTelemetryCaptures(
+  draft: VideoSessionDraftEnvelope
+): readonly VideoCapture[] {
+  const payload = draft.payload as Partial<VideoSessionDraftPayloadShape>;
+  return Array.isArray(payload.captures) ? (payload.captures as VideoCapture[]) : [];
+}
 
 export class VideoSessionDraftController implements VideoSessionDraftRuntimePort {
   private readonly draftRepository = createSessionDraftRepository(this.options.storageArea);
@@ -95,6 +136,7 @@ export class VideoSessionDraftController implements VideoSessionDraftRuntimePort
   }
 
   async restoreDraftState(): Promise<boolean> {
+    const restoreTimer = createFeatureTimer();
     const candidates = (await this.draftRepository.listCandidates(
       'video',
       this.options.doc.location.href
@@ -105,26 +147,39 @@ export class VideoSessionDraftController implements VideoSessionDraftRuntimePort
       this.screenshotHydrationGeneration += 1;
       return false;
     }
-    const hydrated = hydrateVideoSessionDraft(
-      draft.payload as VideoSessionDraftPayloadShape,
-      this.options.doc.location.href
-    );
-    this.options.state.captures = hydrated.captures;
-    applyVideoSessionCommentDrafts(this.options.state, hydrated.commentDrafts, {
-      hydrateDom: true,
-      dom: this.options.dom
-    });
-    this.options.state.platform = hydrated.platform;
-    this.options.state.videoId = hydrated.videoId;
-    this.options.state.videoUrl = hydrated.videoUrl || this.options.doc.location.href;
-    this.options.state.canonicalUrl = hydrated.canonicalUrl || this.options.state.videoUrl;
-    this.options.state.videoTitle =
-      hydrated.videoTitle || this.options.state.videoTitle || this.options.doc.title;
-    this.options.destinationState.applyMetadata(hydrated.destination);
-    this.restoredDraftKey = createVideoSessionDraftStorageKey(draft.pageUrl, draft.draftId);
-    this.legacyCaptureStorageKey = null;
-    this.scheduleRestoredScreenshotHydration(this.options.state.captures);
-    return true;
+    let telemetryCaptures = readDraftRestoreTelemetryCaptures(draft);
+    try {
+      const hydrated = hydrateVideoSessionDraft(
+        draft.payload as VideoSessionDraftPayloadShape,
+        this.options.doc.location.href
+      );
+      telemetryCaptures = hydrated.captures;
+      this.options.state.captures = hydrated.captures;
+      applyVideoSessionCommentDrafts(this.options.state, hydrated.commentDrafts, {
+        hydrateDom: true,
+        dom: this.options.dom
+      });
+      this.options.state.platform = hydrated.platform;
+      this.options.state.videoId = hydrated.videoId;
+      this.options.state.videoUrl = hydrated.videoUrl || this.options.doc.location.href;
+      this.options.state.canonicalUrl = hydrated.canonicalUrl || this.options.state.videoUrl;
+      this.options.state.videoTitle =
+        hydrated.videoTitle || this.options.state.videoTitle || this.options.doc.title;
+      this.options.destinationState.applyMetadata(hydrated.destination);
+      this.restoredDraftKey = createVideoSessionDraftStorageKey(draft.pageUrl, draft.draftId);
+      this.legacyCaptureStorageKey = null;
+      this.scheduleRestoredScreenshotHydration(this.options.state.captures, restoreTimer);
+      return true;
+    } catch (error) {
+      this.trackDraftRestoreEvent(
+        buildDraftRestoreTelemetryParams({
+          captures: telemetryCaptures,
+          outcome: 'failed',
+          restoreTimer
+        })
+      );
+      throw error;
+    }
   }
 
   handleLegacyRestore(storageKey: string): void {
@@ -292,7 +347,10 @@ export class VideoSessionDraftController implements VideoSessionDraftRuntimePort
     console.warn('[VideoSession] Failed to clear superseded durable draft sources:', error);
   }
 
-  private scheduleRestoredScreenshotHydration(captures: VideoCapture[]): void {
+  private scheduleRestoredScreenshotHydration(
+    captures: VideoCapture[],
+    restoreTimer: FeatureTimer
+  ): void {
     const generation = ++this.screenshotHydrationGeneration;
     scheduleRestoredVideoDraftScreenshotHydration({
       captures,
@@ -302,8 +360,41 @@ export class VideoSessionDraftController implements VideoSessionDraftRuntimePort
         this.options.state.captures === captures,
       onScreenshotHydrationStart: this.options.onScreenshotHydrationStart,
       onScreenshotHydrationChange: this.options.onScreenshotHydrationChange,
-      onScreenshotHydrationSettled: this.options.onScreenshotHydrationSettled,
+      onScreenshotHydrationSettled: (result) => {
+        this.options.onScreenshotHydrationSettled?.(result);
+        this.handleRestoredScreenshotHydrationSettled(captures, restoreTimer, result);
+      },
       scheduleSave: () => this.scheduleSave()
+    });
+  }
+
+  private handleRestoredScreenshotHydrationSettled(
+    captures: readonly VideoCapture[],
+    restoreTimer: FeatureTimer,
+    result: RestoredVideoDraftScreenshotHydrationSettledResult
+  ): void {
+    if (!result.isCurrent) {
+      return;
+    }
+
+    const staleRefCount = result.invalidRefCount + result.staleRefCount;
+    this.trackDraftRestoreEvent(
+      buildDraftRestoreTelemetryParams({
+        captures,
+        outcome: result.failedCount > 0 ? 'failed' : 'completed',
+        restoreTimer,
+        staleRefCount
+      })
+    );
+  }
+
+  private trackDraftRestoreEvent(params: VideoDraftRestoreTelemetryParams): void {
+    if (!this.options.trackDraftRestoreEvent) {
+      return;
+    }
+
+    void Promise.resolve(this.options.trackDraftRestoreEvent(params)).catch((error) => {
+      console.debug('[VideoSession] Failed to send draft restore analytics event:', error);
     });
   }
 }

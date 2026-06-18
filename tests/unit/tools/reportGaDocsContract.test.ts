@@ -9,6 +9,10 @@ interface ProxyEventContract {
   name: string;
   classification: 'emitted' | 'error' | 'dev-only' | 'contract-only' | 'future';
   runtimeAllowed: boolean;
+  requiredParams: string[];
+  optionalParams: string[];
+  allowedParams: string[];
+  paramValidators: Record<string, string>;
 }
 
 interface FixtureOptions {
@@ -17,35 +21,67 @@ interface FixtureOptions {
   dashboardEvents?: string[];
   dashboardDimensions?: string[];
   configDoc?: string;
+  runbookDoc?: string;
+  writeProxyReport?: boolean;
+  writeSourceContract?: boolean;
 }
 
 function createProxyContract(): { events: ProxyEventContract[] } {
   return {
     events: [
-      { name: 'support_link_clicked', classification: 'emitted', runtimeAllowed: true },
-      { name: 'support_like_clicked', classification: 'emitted', runtimeAllowed: true },
-      { name: 'runtime_harness_open', classification: 'dev-only', runtimeAllowed: true },
-      { name: 'extension_error', classification: 'error', runtimeAllowed: false },
-      { name: 'video_started', classification: 'contract-only', runtimeAllowed: true },
-      { name: 'video_screenshot_captured', classification: 'future', runtimeAllowed: true }
+      createEvent('support_link_clicked', 'emitted', true, ['target']),
+      createEvent('support_like_clicked', 'emitted', true, ['variant']),
+      createEvent('runtime_harness_open', 'dev-only', true, ['source']),
+      createEvent('extension_error', 'error', false, ['error_code'], ['browser_name']),
+      createEvent('video_started', 'contract-only', true, ['source']),
+      createEvent('video_screenshot_captured', 'future', true, ['screenshot_count_bucket'])
     ]
+  };
+}
+
+function createEvent(
+  name: string,
+  classification: ProxyEventContract['classification'],
+  runtimeAllowed: boolean,
+  requiredParams: string[] = [],
+  optionalParams: string[] = []
+): ProxyEventContract {
+  const allowedParams = [...requiredParams, ...optionalParams];
+  return {
+    name,
+    classification,
+    runtimeAllowed,
+    requiredParams,
+    optionalParams,
+    allowedParams,
+    paramValidators: Object.fromEntries(allowedParams.map((param) => [param, `fixture:${param}`]))
   };
 }
 
 function createFixture({
   activeRows = [
-    row('support_link_clicked', 'emitted', true),
-    row('support_like_clicked', 'emitted', true),
-    row('runtime_harness_open', 'dev-only', true),
-    row('extension_error', 'error', false)
+    row('support_link_clicked', ['target'], [], 'emitted', true),
+    row('support_like_clicked', ['variant'], [], 'emitted', true),
+    row('runtime_harness_open', ['source'], [], 'dev-only', true),
+    row('extension_error', ['error_code'], ['browser_name'], 'error', false)
   ],
   catalogRows = [
-    row('video_started', 'contract-only', true),
-    row('video_screenshot_captured', 'future', true, 'current branch has no active emitter')
+    row('video_started', ['source'], [], 'contract-only', true),
+    row(
+      'video_screenshot_captured',
+      ['screenshot_count_bucket'],
+      [],
+      'future',
+      true,
+      'current branch has no active emitter'
+    )
   ],
   dashboardEvents = ['support_link_clicked', 'support_like_clicked', 'extension_error'],
-  dashboardDimensions = ['duration_bucket'],
-  configDoc = defaultConfigDoc()
+  dashboardDimensions = ['target', 'variant', 'error_code', 'browser_name'],
+  configDoc = defaultConfigDoc(),
+  runbookDoc = defaultRunbookDoc(),
+  writeProxyReport = true,
+  writeSourceContract = false
 }: FixtureOptions = {}): string {
   const dir = mkdtempSync(join(tmpdir(), 'aiiinob-ga-docs-contract-'));
   const docsDir = join(dir, 'docs');
@@ -54,16 +90,37 @@ function createFixture({
   mkdirSync(docsDir, { recursive: true });
   mkdirSync(reportsDir, { recursive: true });
 
-  writeFile(
-    join(reportsDir, 'ga-proxy-contract.json'),
-    JSON.stringify(createProxyContract(), null, 2)
-  );
+  if (writeProxyReport) {
+    writeFile(
+      join(reportsDir, 'ga-proxy-contract.json'),
+      JSON.stringify(createProxyContract(), null, 2)
+    );
+  }
+
+  if (writeSourceContract) {
+    writeFile(
+      join(dir, 'src', 'shared', 'analytics', 'analyticsProxyContract.ts'),
+      `
+const contract = ${JSON.stringify(createProxyContract(), null, 2)} as const;
+
+export const ANALYTICS_PROXY_CONTRACT = contract;
+
+export function buildAnalyticsProxyContract() {
+  return contract;
+}
+`
+    );
+  }
+
   writeFile(join(docsDir, 'ga4-telemetry-reference.md'), referenceDoc(activeRows, catalogRows));
   writeFile(join(docsDir, 'analytics-configuration-guide.md'), configDoc);
   writeFile(
     join(docsDir, 'google-analytics-dashboard-setup.md'),
     dashboardDoc(dashboardEvents, dashboardDimensions)
   );
+  if (runbookDoc) {
+    writeFile(join(docsDir, 'analytics-operations-runbook.md'), runbookDoc);
+  }
 
   return dir;
 }
@@ -75,11 +132,17 @@ function writeFile(path: string, contents: string): void {
 
 function row(
   eventName: string,
+  requiredParams: string[],
+  optionalParams: string[],
   classification: string,
   runtimeAllowed: boolean,
   currentTruth = 'ok'
 ): string {
-  return `| \`${eventName}\` | none | \`${classification}\` | \`${String(runtimeAllowed)}\` | ${currentTruth} |`;
+  const params = [
+    ...requiredParams.map((param) => `\`${param}\``),
+    ...optionalParams.map((param) => `\`${param}?\``)
+  ];
+  return `| \`${eventName}\` | ${params.join(', ') || 'none'} | \`${classification}\` | \`${String(runtimeAllowed)}\` | ${currentTruth} |`;
 }
 
 function referenceDoc(activeRows: string[], catalogRows: string[]): string {
@@ -109,6 +172,15 @@ Do not put it in extension source, tracked config, or \`.env.production.local\`.
 `;
 }
 
+function defaultRunbookDoc(): string {
+  return `
+# Analytics Operations Runbook
+
+Owner-only secrets remain in the server-side Cloudflare Worker secret store.
+Do not copy \`api_secret\` into product source, build config, packages, or release artifacts.
+`;
+}
+
 function dashboardDoc(events: string[], dimensions: string[]): string {
   return `
 # Google Analytics Dashboard Setup
@@ -125,12 +197,12 @@ ${events.map((eventName) => `- \`${eventName}\``).join('\n')}
 `;
 }
 
-function runReport(root: string) {
-  return spawnSync(
-    process.execPath,
-    [
-      scriptPath,
-      '--check',
+function runReport(root: string, options: { useDefaultPaths?: boolean; cwd?: string } = {}) {
+  const { useDefaultPaths = false, cwd } = options;
+  const args = [scriptPath, '--check'];
+
+  if (!useDefaultPaths) {
+    args.push(
       '--proxy-contract',
       join(root, 'build', 'reports', 'ga-proxy-contract.json'),
       '--reference-doc',
@@ -139,11 +211,13 @@ function runReport(root: string) {
       join(root, 'docs', 'analytics-configuration-guide.md'),
       '--dashboard-doc',
       join(root, 'docs', 'google-analytics-dashboard-setup.md')
-    ],
-    {
-      encoding: 'utf8'
-    }
-  );
+    );
+  }
+
+  return spawnSync(process.execPath, args, {
+    cwd,
+    encoding: 'utf8'
+  });
 }
 
 describe('report-ga-docs-contract', () => {
@@ -163,11 +237,11 @@ describe('report-ga-docs-contract', () => {
   it('fails when the active reference table contains an extra docs event', () => {
     const fixtureRoot = createFixture({
       activeRows: [
-        row('support_link_clicked', 'emitted', true),
-        row('support_like_clicked', 'emitted', true),
-        row('runtime_harness_open', 'dev-only', true),
-        row('extension_error', 'error', false),
-        row('extension_usage', 'inventory-only', false)
+        row('support_link_clicked', ['target'], [], 'emitted', true),
+        row('support_like_clicked', ['variant'], [], 'emitted', true),
+        row('runtime_harness_open', ['source'], [], 'dev-only', true),
+        row('extension_error', ['error_code'], ['browser_name'], 'error', false),
+        row('extension_usage', [], [], 'inventory-only', false)
       ]
     });
 
@@ -185,9 +259,9 @@ describe('report-ga-docs-contract', () => {
   it('fails when an emitted event is missing from the active reference table', () => {
     const fixtureRoot = createFixture({
       activeRows: [
-        row('support_link_clicked', 'emitted', true),
-        row('runtime_harness_open', 'dev-only', true),
-        row('extension_error', 'error', false)
+        row('support_link_clicked', ['target'], [], 'emitted', true),
+        row('runtime_harness_open', ['source'], [], 'dev-only', true),
+        row('extension_error', ['error_code'], ['browser_name'], 'error', false)
       ]
     });
 
@@ -205,10 +279,10 @@ describe('report-ga-docs-contract', () => {
   it('fails when a documented event classification drifts from the proxy contract', () => {
     const fixtureRoot = createFixture({
       activeRows: [
-        row('support_link_clicked', 'emitted', true),
-        row('support_like_clicked', 'emitted', true),
-        row('runtime_harness_open', 'dev-only', true),
-        row('extension_error', 'emitted', false)
+        row('support_link_clicked', ['target'], [], 'emitted', true),
+        row('support_like_clicked', ['variant'], [], 'emitted', true),
+        row('runtime_harness_open', ['source'], [], 'dev-only', true),
+        row('extension_error', ['error_code'], ['browser_name'], 'emitted', false)
       ]
     });
 
@@ -241,7 +315,7 @@ describe('report-ga-docs-contract', () => {
 
   it('fails when the dashboard documents raw duration fields as dimensions', () => {
     const fixtureRoot = createFixture({
-      dashboardDimensions: ['duration_bucket', 'duration_ms']
+      dashboardDimensions: ['target', 'duration_ms']
     });
 
     try {
@@ -250,6 +324,64 @@ describe('report-ga-docs-contract', () => {
       expect(result.status).not.toBe(0);
       expect(result.stdout + result.stderr).toContain('dashboard uses forbidden raw dimensions');
       expect(result.stdout + result.stderr).toContain('duration_ms');
+    } finally {
+      rmSync(fixtureRoot, { recursive: true, force: true });
+    }
+  });
+
+  it('fails when a documented event param list drifts from the proxy contract', () => {
+    const fixtureRoot = createFixture({
+      activeRows: [
+        row('support_link_clicked', ['target'], [], 'emitted', true),
+        row('support_like_clicked', [], [], 'emitted', true),
+        row('runtime_harness_open', ['source'], [], 'dev-only', true),
+        row('extension_error', ['error_code', 'browser_name'], [], 'error', false)
+      ]
+    });
+
+    try {
+      const result = runReport(fixtureRoot);
+      const output = result.stdout + result.stderr;
+
+      expect(result.status).not.toBe(0);
+      expect(output).toContain('missing required params for support_like_clicked');
+      expect(output).toContain('variant');
+      expect(output).toContain('optional marker mismatch for extension_error');
+      expect(output).toContain('browser_name');
+    } finally {
+      rmSync(fixtureRoot, { recursive: true, force: true });
+    }
+  });
+
+  it('fails when the dashboard documents an unknown param', () => {
+    const fixtureRoot = createFixture({
+      dashboardDimensions: ['target', 'browser_name', 'day_index_bucket']
+    });
+
+    try {
+      const result = runReport(fixtureRoot);
+
+      expect(result.status).not.toBe(0);
+      expect(result.stdout + result.stderr).toContain('dashboard documents unknown params');
+      expect(result.stdout + result.stderr).toContain('day_index_bucket');
+    } finally {
+      rmSync(fixtureRoot, { recursive: true, force: true });
+    }
+  });
+
+  it('falls back to the source analytics proxy contract when the default report file is absent', () => {
+    const fixtureRoot = createFixture({
+      writeProxyReport: false,
+      writeSourceContract: true
+    });
+
+    try {
+      const result = runReport(fixtureRoot, { useDefaultPaths: true, cwd: fixtureRoot });
+      const output = result.stdout + result.stderr;
+
+      expect(result.status).toBe(0);
+      expect(output).toContain('Contract source: schema');
+      expect(output).toContain('Check passed');
     } finally {
       rmSync(fixtureRoot, { recursive: true, force: true });
     }
@@ -276,6 +408,33 @@ GA4_API_SECRET=do-not-do-this
         'forbidden extension-side secret instruction'
       );
       expect(result.stdout + result.stderr).toContain('GA4_API_SECRET');
+    } finally {
+      rmSync(fixtureRoot, { recursive: true, force: true });
+    }
+  });
+
+  it('scans the default public-safe operations runbook for unsafe secret guidance', () => {
+    const fixtureRoot = createFixture({
+      runbookDoc: `
+# Analytics Operations Runbook
+
+Put this in tracked product config:
+
+\`\`\`bash
+api_secret=do-not-do-this
+\`\`\`
+`
+    });
+
+    try {
+      const result = runReport(fixtureRoot, { useDefaultPaths: true, cwd: fixtureRoot });
+
+      expect(result.status).not.toBe(0);
+      expect(result.stdout + result.stderr).toContain(
+        'forbidden extension-side secret instruction'
+      );
+      expect(result.stdout + result.stderr).toContain('api_secret');
+      expect(result.stdout + result.stderr).toContain('analytics-operations-runbook.md');
     } finally {
       rmSync(fixtureRoot, { recursive: true, force: true });
     }

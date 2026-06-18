@@ -59,6 +59,14 @@ export const COUNT_BUCKETS = [
   'fifty_one_plus'
 ] as const;
 export type CountBucket = (typeof COUNT_BUCKETS)[number];
+export const ACTIVE_DAY_BUCKETS = [
+  'day_0',
+  'day_1',
+  'day_2_to_6',
+  'day_7_to_29',
+  'day_30_plus'
+] as const;
+export type ActiveDayBucket = (typeof ACTIVE_DAY_BUCKETS)[number];
 export const CONTENT_TYPES = [
   'article',
   'selection',
@@ -90,6 +98,22 @@ export const FAILURE_CATEGORIES = [
   'unknown'
 ] as const;
 export type FailureCategory = (typeof FAILURE_CATEGORIES)[number];
+export const ACTIVATION_MILESTONES = [
+  'onboarding_completed',
+  'first_clip_saved',
+  'first_reader_exported',
+  'first_video_exported'
+] as const;
+export type ActivationMilestone = (typeof ACTIVATION_MILESTONES)[number];
+export const BROWSER_FAMILIES = [
+  'chrome',
+  'edge',
+  'firefox',
+  'safari',
+  'other',
+  'unknown'
+] as const;
+export type BrowserFamily = (typeof BROWSER_FAMILIES)[number];
 export const SUPPORT_LINK_TARGETS = ['ko-fi', 'afdian'] as const;
 export type SupportLinkTarget = (typeof SUPPORT_LINK_TARGETS)[number];
 export const SUPPORT_TOAST_VARIANTS = ['first', 'returning', 'acknowledged'] as const;
@@ -249,10 +273,6 @@ const productEvent = <const Params extends AnalyticsParamDefinitions>(
   featureArea: FeatureArea,
   params: Params
 ) => event(featureArea, 'emitted', true, 'analytics', 'product', params);
-const futureProductEvent = <const Params extends AnalyticsParamDefinitions>(
-  featureArea: FeatureArea,
-  params: Params
-) => event(featureArea, 'future', true, 'analytics', 'product', params);
 const errorEvent = <const Params extends AnalyticsParamDefinitions>(
   featureArea: FeatureArea,
   params: Params
@@ -316,9 +336,15 @@ export const ANALYTICS_SCHEMA = defineAnalyticsSchema({
   }),
   runtime_harness_open: devOnlyEvent('runtime', { source: req(runtimeHarnessSource()) }),
   video_started: contractOnlyEvent('video', { source: req(literalValue('menu')) }),
-  extension_installed: futureProductEvent('activation', {
+  extension_installed: productEvent('activation', {
     source: req(literalValue('install')),
-    browser_family: opt(identifier(32))
+    browser_family: opt(enumValue(BROWSER_FAMILIES))
+  }),
+  extension_active_day: productEvent('activation', {
+    day_index_bucket: req(enumValue(ACTIVE_DAY_BUCKETS))
+  }),
+  activation_milestone_completed: productEvent('activation', {
+    milestone: req(enumValue(ACTIVATION_MILESTONES))
   }),
   onboarding_started: productEvent('onboarding', {
     source: req(enumValue(['install', 'options'] as const))
@@ -384,6 +410,12 @@ export const ANALYTICS_SCHEMA = defineAnalyticsSchema({
     duration_bucket: req(enumValue(DURATION_BUCKETS)),
     attachment_count_bucket: opt(enumValue(COUNT_BUCKETS))
   }),
+  extraction_failed: productEvent('clip', {
+    operation_id: req(operationId()),
+    content_type: req(enumValue(CONTENT_TYPES)),
+    failure_category: req(enumValue(FAILURE_CATEGORIES)),
+    duration_bucket: opt(enumValue(DURATION_BUCKETS))
+  }),
   background_stage_completed: productEvent('clip', {
     operation_id: req(operationId()),
     stage: req(enumValue(BACKGROUND_STAGES)),
@@ -392,7 +424,8 @@ export const ANALYTICS_SCHEMA = defineAnalyticsSchema({
   clip_save_completed: productEvent('clip', {
     operation_id: req(operationId()),
     storage_target: req(enumValue(STORAGE_TARGETS)),
-    duration_bucket: req(enumValue(DURATION_BUCKETS))
+    duration_bucket: req(enumValue(DURATION_BUCKETS)),
+    attachment_count_bucket: opt(enumValue(COUNT_BUCKETS))
   }),
   clip_save_failed: productEvent('clip', {
     operation_id: req(operationId()),
@@ -429,13 +462,20 @@ export const ANALYTICS_SCHEMA = defineAnalyticsSchema({
     failure_category: req(enumValue(FAILURE_CATEGORIES))
   }),
   reader_session_started: productEvent('reader', { source: req(enumValue(ANALYTICS_SOURCES)) }),
+  reader_draft_restored: productEvent('reader', {
+    highlight_count_bucket: req(enumValue(COUNT_BUCKETS)),
+    outcome: req(enumValue(COMPLETED_FAILED_OUTCOMES)),
+    detached_highlight_count_bucket: opt(enumValue(COUNT_BUCKETS)),
+    duration_bucket: opt(enumValue(DURATION_BUCKETS))
+  }),
   reader_highlight_added: productEvent('reader', {
     selection_length_bucket: req(enumValue(COUNT_BUCKETS)),
     highlight_count_bucket: req(enumValue(COUNT_BUCKETS))
   }),
   reader_exported: productEvent('reader', {
     destination: req(enumValue(EXPORT_DESTINATIONS)),
-    duration_bucket: req(enumValue(DURATION_BUCKETS))
+    duration_bucket: req(enumValue(DURATION_BUCKETS)),
+    highlight_count_bucket: opt(enumValue(COUNT_BUCKETS))
   }),
   reader_export_failed: productEvent('reader', {
     destination: req(enumValue(EXPORT_DESTINATIONS)),
@@ -448,13 +488,20 @@ export const ANALYTICS_SCHEMA = defineAnalyticsSchema({
     platform: req(enumValue(ANALYTICS_PLATFORMS)),
     source: req(enumValue(ANALYTICS_SOURCES))
   }),
+  video_draft_restored: productEvent('video', {
+    capture_count_bucket: req(enumValue(COUNT_BUCKETS)),
+    screenshot_count_bucket: req(enumValue(COUNT_BUCKETS)),
+    outcome: req(enumValue(COMPLETED_FAILED_OUTCOMES)),
+    stale_screenshot_ref_count_bucket: opt(enumValue(COUNT_BUCKETS)),
+    duration_bucket: opt(enumValue(DURATION_BUCKETS))
+  }),
   video_timestamp_added: productEvent('video', {
     capture_count_bucket: req(enumValue(COUNT_BUCKETS))
   }),
   video_fragment_added: productEvent('video', {
     capture_count_bucket: req(enumValue(COUNT_BUCKETS))
   }),
-  video_screenshot_captured: futureProductEvent('video', {
+  video_screenshot_captured: productEvent('video', {
     screenshot_count_bucket: req(enumValue(COUNT_BUCKETS))
   }),
   video_capture_removed: productEvent('video', {
@@ -463,7 +510,9 @@ export const ANALYTICS_SCHEMA = defineAnalyticsSchema({
   video_exported: productEvent('video', {
     platform: req(enumValue(ANALYTICS_PLATFORMS)),
     destination: req(enumValue(EXPORT_DESTINATIONS)),
-    duration_bucket: req(enumValue(DURATION_BUCKETS))
+    duration_bucket: req(enumValue(DURATION_BUCKETS)),
+    capture_count_bucket: opt(enumValue(COUNT_BUCKETS)),
+    screenshot_count_bucket: opt(enumValue(COUNT_BUCKETS))
   }),
   video_export_failed: productEvent('video', {
     platform: req(enumValue(ANALYTICS_PLATFORMS)),

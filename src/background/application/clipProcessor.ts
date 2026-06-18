@@ -12,7 +12,7 @@ import type {
   VaultStorageTarget
 } from '../services/obsidianWriter';
 import { recordClipUsage } from '../services/usageStats';
-import { trackUsageEvent } from '../services/analyticsEvents';
+import { trackActivationMilestoneIfNeeded, trackUsageEvent } from '../services/analyticsEvents';
 import type { ClipResultMessage } from '../../shared/types';
 import {
   bucketCount,
@@ -305,8 +305,10 @@ export async function processClipPayload(
       trackClipTelemetryEvent('clip_save_completed', {
         operation_id: operationId,
         storage_target: 'downloads',
-        duration_bucket: bucketDurationMs(Date.now() - startedAt)
+        duration_bucket: bucketDurationMs(Date.now() - startedAt),
+        attachment_count_bucket: bucketCount(routed.prepared.attachments.length)
       });
+      void trackActivationMilestoneIfNeeded('first_clip_saved');
       if (aiChatTelemetry) {
         trackClipTelemetryEvent('ai_chat_exported', {
           platform: aiChatTelemetry.platform,
@@ -391,8 +393,10 @@ export async function processClipPayload(
     trackClipTelemetryEvent('clip_save_completed', {
       operation_id: operationId,
       storage_target: storageTarget,
-      duration_bucket: bucketDurationMs(Date.now() - startedAt)
+      duration_bucket: bucketDurationMs(Date.now() - startedAt),
+      attachment_count_bucket: bucketCount(routed.prepared.attachments.length)
     });
+    void trackActivationMilestoneIfNeeded('first_clip_saved');
     if (aiChatTelemetry) {
       trackClipTelemetryEvent('ai_chat_exported', {
         platform: aiChatTelemetry.platform,

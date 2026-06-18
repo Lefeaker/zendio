@@ -325,6 +325,51 @@ describe('analyticsEvents', () => {
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
+  it('emits extension_active_day once per UTC day on the usage queue path', async () => {
+    vi.useFakeTimers();
+    try {
+      vi.setSystemTime(new Date('2026-06-18T10:00:00.000Z'));
+      const queueConfig = createAnalyticsConfig({
+        reportingInterval: 1,
+        batchSize: 5
+      });
+      getConfigMock.mockReturnValue(queueConfig);
+      refreshAnalyticsConfigMock.mockResolvedValue(queueConfig);
+      fetchMock.mockResolvedValue({
+        ok: true,
+        clone: () => ({ text: () => Promise.resolve('') })
+      });
+      const storage = createQueueStorageService();
+
+      const module = await import('../../../src/background/services/analyticsEvents');
+      module.configureUsageAnalyticsQueueStorage(storage as never);
+      module.configureActivationAnalyticsStorage(storage.local as never);
+
+      await module.trackUsageEvent('support_dislike_clicked');
+      await module.trackUsageEvent('support_github_feedback_clicked');
+
+      vi.setSystemTime(new Date('2026-06-19T10:00:00.000Z'));
+      await module.trackUsageEvent('support_review_link_clicked', { variant: 'returning' });
+
+      expect(fetchMock).toHaveBeenCalledTimes(5);
+      expect(String(fetchMock.mock.calls[0]?.[1]?.body)).toContain(
+        '"name":"support_dislike_clicked"'
+      );
+      expect(String(fetchMock.mock.calls[1]?.[1]?.body)).toContain('"name":"extension_active_day"');
+      expect(String(fetchMock.mock.calls[1]?.[1]?.body)).toContain('"day_index_bucket":"day_0"');
+      expect(String(fetchMock.mock.calls[2]?.[1]?.body)).toContain(
+        '"name":"support_github_feedback_clicked"'
+      );
+      expect(String(fetchMock.mock.calls[3]?.[1]?.body)).toContain(
+        '"name":"support_review_link_clicked"'
+      );
+      expect(String(fetchMock.mock.calls[4]?.[1]?.body)).toContain('"name":"extension_active_day"');
+      expect(String(fetchMock.mock.calls[4]?.[1]?.body)).toContain('"day_index_bucket":"day_1"');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('sends usage events through the configured queue interval and batch size', async () => {
     vi.useFakeTimers();
     try {
@@ -558,5 +603,45 @@ describe('analyticsEvents', () => {
     expect(params).not.toHaveProperty('url');
 
     await resetRuntime();
+  });
+
+  it('does not leak browser family context onto runtime usage events', async () => {
+    await configureRuntime('2.3.4');
+    vi.stubGlobal('chrome', { runtime: {} });
+    vi.stubGlobal('navigator', {
+      userAgent:
+        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/125.0.0.0 Safari/537.36 Edg/125.0.2535.51',
+      userAgentData: {
+        brands: [{ brand: 'Chromium' }, { brand: 'Microsoft Edge' }]
+      }
+    });
+    const proxyConfig = createAnalyticsConfig({
+      transportMode: 'proxy',
+      proxyEndpoint: 'https://analytics.example.test/ga4'
+    });
+    getConfigMock.mockReturnValue(proxyConfig);
+    refreshAnalyticsConfigMock.mockResolvedValue(proxyConfig);
+    fetchMock.mockResolvedValue({
+      ok: true,
+      clone: () => ({ text: () => Promise.resolve('') })
+    });
+
+    try {
+      const { trackUsageEvent } = await import('../../../src/background/services/analyticsEvents');
+      await trackUsageEvent('support_link_clicked', { target: 'ko-fi' });
+
+      const [, requestInit] = fetchMock.mock.calls[0] ?? [];
+      const parsedBody: unknown = JSON.parse(String(requestInit?.body));
+      const params = getFirstAnalyticsRequestParams(parsedBody);
+      expect(params).toMatchObject({
+        target: 'ko-fi',
+        extension_version: '2.3.4',
+        session_id: 'session-1'
+      });
+      expect(params).not.toHaveProperty('browser_family');
+    } finally {
+      vi.unstubAllGlobals();
+      await resetRuntime();
+    }
   });
 });

@@ -41,12 +41,15 @@ export type AnalyticsEventDefinition = AnalyticsDerivedEventDefinition<
   AnalyticsEventClassification
 >;
 export type {
+  ActivationMilestone,
+  ActiveDayBucket,
   AnalyticsEventClassification,
   AnalyticsOutcome,
   AnalyticsPlatform,
   AnalyticsPrimitive,
   AnalyticsSection,
   AnalyticsSource,
+  BrowserFamily,
   ContentType,
   CountBucket,
   DurationBucket,

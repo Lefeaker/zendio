@@ -315,10 +315,20 @@ describe('analyticsConfig', () => {
         attemptCount: 0
       }
     ]);
+    await storage.local.set('analytics_activation_state', {
+      clientId: 'client-1',
+      firstConsentedActiveUtcDate: '2026-06-18',
+      lastEmittedActiveUtcDate: '2026-06-18',
+      emittedFlags: {
+        extension_installed: true
+      }
+    });
 
     const module = await import('../../../../src/shared/errors/analytics/analyticsConfig');
     const manager = module.configureAnalyticsConfigManager(storage);
     await manager.initialize();
+
+    expect(Object.values(module.GA4_CONFIG.STORAGE_KEYS)).toContain('analytics_activation_state');
 
     await manager.clearAllData();
 
@@ -333,5 +343,6 @@ describe('analyticsConfig', () => {
     await expect(storage.local.get('analytics_session_id')).resolves.toBeUndefined();
     await expect(storage.local.get('analytics_error_queue')).resolves.toBeUndefined();
     await expect(storage.local.get('analytics_event_queue')).resolves.toBeUndefined();
+    await expect(storage.local.get('analytics_activation_state')).resolves.toBeUndefined();
   });
 });
