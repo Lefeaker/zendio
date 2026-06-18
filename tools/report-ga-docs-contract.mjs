@@ -1,8 +1,12 @@
-import { existsSync, readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { existsSync, readFileSync, rmSync } from 'node:fs';
+import { mkdtemp } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
+import { build } from 'esbuild';
 
 const DEFAULT_PROXY_CONTRACT_PATH = 'build/reports/ga-proxy-contract.json';
+const PROXY_CONTRACT_ENTRYPOINT = 'src/shared/analytics/analyticsProxyContract.ts';
 const DEFAULT_REFERENCE_DOC_PATH = 'docs/ga4-telemetry-reference.md';
 const DEFAULT_CONFIG_DOC_PATH = 'docs/analytics-configuration-guide.md';
 const DEFAULT_DASHBOARD_DOC_PATH = 'docs/google-analytics-dashboard-setup.md';
@@ -108,22 +112,86 @@ function readOptionalFile(relativeOrAbsolutePath) {
   };
 }
 
-function loadProxyContract(contractPath) {
-  const { contents } = readRequiredFile(
-    contractPath,
-    'GA docs contract requires a proxy contract report; run `node tools/report-ga-proxy-contract.mjs` first'
-  );
-  const parsed = JSON.parse(contents);
-
-  if (!parsed || !Array.isArray(parsed.events)) {
-    throw new Error(`Invalid analytics proxy contract report: ${contractPath}`);
+function validateProxyContract(contract, sourceLabel) {
+  if (!contract || !Array.isArray(contract.events)) {
+    throw new Error(`Invalid analytics proxy contract report: ${sourceLabel}`);
   }
 
-  return parsed;
+  return contract;
+}
+
+async function loadProxyContractFromSource() {
+  const repoRoot = process.cwd();
+  const tempDir = await mkdtemp(join(tmpdir(), 'aiiinob-ga-docs-contract-'));
+  const outfile = join(tempDir, 'analyticsProxyContract.bundle.mjs');
+
+  try {
+    await build({
+      entryPoints: [join(repoRoot, PROXY_CONTRACT_ENTRYPOINT)],
+      bundle: true,
+      platform: 'node',
+      format: 'esm',
+      target: 'node20',
+      outfile,
+      write: true,
+      logLevel: 'silent'
+    });
+
+    const contractModule = await import(`${pathToFileURL(outfile).href}?t=${Date.now()}`);
+    const contract =
+      contractModule.ANALYTICS_PROXY_CONTRACT ??
+      (typeof contractModule.buildAnalyticsProxyContract === 'function'
+        ? contractModule.buildAnalyticsProxyContract()
+        : undefined);
+
+    return validateProxyContract(contract, PROXY_CONTRACT_ENTRYPOINT);
+  } finally {
+    rmSync(tempDir, { recursive: true, force: true });
+  }
+}
+
+async function loadProxyContract(contractPath) {
+  const absolutePath = resolve(process.cwd(), contractPath);
+  if (existsSync(absolutePath)) {
+    const parsed = JSON.parse(readFileSync(absolutePath, 'utf8'));
+    return {
+      contract: validateProxyContract(parsed, contractPath),
+      source: 'report'
+    };
+  }
+
+  const defaultReportPath = resolve(process.cwd(), DEFAULT_PROXY_CONTRACT_PATH);
+  if (absolutePath !== defaultReportPath) {
+    throw new Error(
+      `GA docs contract requires a proxy contract report; missing ${contractPath}`
+    );
+  }
+
+  return {
+    contract: await loadProxyContractFromSource(),
+    source: 'schema'
+  };
+}
+
+function normalizeContractEvent(event) {
+  const requiredParams = Array.isArray(event.requiredParams) ? event.requiredParams : [];
+  const optionalParams = Array.isArray(event.optionalParams) ? event.optionalParams : [];
+  const allowedParams = Array.isArray(event.allowedParams)
+    ? event.allowedParams
+    : [...requiredParams, ...optionalParams, ...Object.keys(event.paramValidators ?? {})];
+
+  return {
+    ...event,
+    requiredParams,
+    optionalParams,
+    allowedParams
+  };
 }
 
 function buildExpectedEventMap(contract, allowedClasses) {
-  const entries = contract.events.filter((event) => allowedClasses.has(event.classification));
+  const entries = contract.events
+    .filter((event) => allowedClasses.has(event.classification))
+    .map((event) => normalizeContractEvent(event));
   return new Map(entries.map((event) => [event.name, event]));
 }
 
@@ -179,6 +247,7 @@ function parseMarkdownTableRows(block) {
     .filter((cells) => !cells.every((cell) => /^:?-{3,}:?$/.test(cell)))
     .map((cells) => ({
       eventName: stripInlineCode(cells[0]),
+      documentedParams: parseDocumentedParams(cells[1]),
       classification: stripInlineCode(cells[2]),
       runtimeAllowed: stripInlineCode(cells[3])
     }));
@@ -186,6 +255,113 @@ function parseMarkdownTableRows(block) {
 
 function stripInlineCode(value) {
   return value.replace(/^`|`$/g, '').trim();
+}
+
+function parseDocumentedParams(value) {
+  const normalized = value.trim();
+  if (normalized.length === 0 || /^none$/i.test(normalized)) {
+    return {
+      required: [],
+      optional: [],
+      duplicates: []
+    };
+  }
+
+  const required = [];
+  const optional = [];
+  const duplicates = [];
+  const seen = new Set();
+
+  for (const rawPart of normalized.split(',')) {
+    const stripped = stripInlineCode(rawPart.trim());
+    if (stripped.length === 0) {
+      continue;
+    }
+
+    const isOptional = stripped.endsWith('?');
+    const paramName = (isOptional ? stripped.slice(0, -1) : stripped).trim();
+    if (paramName.length === 0) {
+      continue;
+    }
+
+    if (seen.has(paramName)) {
+      duplicates.push(paramName);
+      continue;
+    }
+
+    seen.add(paramName);
+    if (isOptional) {
+      optional.push(paramName);
+    } else {
+      required.push(paramName);
+    }
+  }
+
+  return {
+    required,
+    optional,
+    duplicates
+  };
+}
+
+function compareDocumentedParams(row, expected, label) {
+  const problems = [];
+  const expectedRequired = new Set(expected.requiredParams);
+  const expectedOptional = new Set(expected.optionalParams);
+  const actualRequired = new Set(row.documentedParams.required);
+  const actualOptional = new Set(row.documentedParams.optional);
+
+  if (row.documentedParams.duplicates.length > 0) {
+    problems.push(
+      `duplicate ${label} docs params for ${row.eventName}: ${row.documentedParams.duplicates.join(', ')}`
+    );
+  }
+
+  const requiredMarkedOptional = row.documentedParams.optional.filter((param) =>
+    expectedRequired.has(param)
+  );
+  const optionalMarkedRequired = row.documentedParams.required.filter((param) =>
+    expectedOptional.has(param)
+  );
+
+  if (requiredMarkedOptional.length > 0) {
+    problems.push(
+      `optional marker mismatch for ${row.eventName}: expected required params, got optional ${requiredMarkedOptional.join(', ')}`
+    );
+  }
+  if (optionalMarkedRequired.length > 0) {
+    problems.push(
+      `optional marker mismatch for ${row.eventName}: expected optional params, got required ${optionalMarkedRequired.join(', ')}`
+    );
+  }
+
+  const missingRequired = expected.requiredParams.filter(
+    (param) => !actualRequired.has(param) && !actualOptional.has(param)
+  );
+  const missingOptional = expected.optionalParams.filter(
+    (param) => !actualRequired.has(param) && !actualOptional.has(param)
+  );
+  const extraRequired = row.documentedParams.required.filter(
+    (param) => !expectedRequired.has(param) && !expectedOptional.has(param)
+  );
+  const extraOptional = row.documentedParams.optional.filter(
+    (param) => !expectedRequired.has(param) && !expectedOptional.has(param)
+  );
+
+  if (missingRequired.length > 0) {
+    problems.push(`missing required params for ${row.eventName}: ${missingRequired.join(', ')}`);
+  }
+  if (missingOptional.length > 0) {
+    problems.push(`missing optional params for ${row.eventName}: ${missingOptional.join(', ')}`);
+  }
+  if (extraRequired.length > 0) {
+    problems.push(`extra required params for ${row.eventName}: ${extraRequired.join(', ')}`);
+  }
+  if (extraOptional.length > 0) {
+    problems.push(`extra optional params for ${row.eventName}: ${extraOptional.join(', ')}`);
+  }
+
+  return problems;
 }
 
 function compareReferenceRows(rows, expectedMap, label) {
@@ -231,6 +407,8 @@ function compareReferenceRows(rows, expectedMap, label) {
         `runtime mismatch for ${eventName}: expected ${expectedRuntime}, got ${row.runtimeAllowed}`
       );
     }
+
+    problems.push(...compareDocumentedParams(row, expected, label));
   }
 
   return {
@@ -266,12 +444,22 @@ function collectDashboardProblems(dashboardDoc, contract) {
       .filter((event) => DASHBOARD_ALLOWED_CLASSES.has(event.classification))
       .map((event) => event.name)
   );
+  const allowedDashboardParams = new Set(
+    contract.events
+      .filter((event) => DASHBOARD_ALLOWED_CLASSES.has(event.classification))
+      .flatMap((event) => normalizeContractEvent(event).allowedParams)
+  );
 
   const mentionedEvents = extractDashboardEventMentions(dashboardDoc, allEventNames);
   const disallowedEvents = mentionedEvents.filter((eventName) => !allowedDashboardEvents.has(eventName));
+  const mentionedParams = extractDashboardDocumentedParams(dashboardDoc);
+  const unknownParams = mentionedParams.filter((paramName) => !allowedDashboardParams.has(paramName));
 
   if (disallowedEvents.length > 0) {
     problems.push(`dashboard recommends non-active events: ${disallowedEvents.join(', ')}`);
+  }
+  if (unknownParams.length > 0) {
+    problems.push(`dashboard documents unknown params: ${unknownParams.join(', ')}`);
   }
 
   const forbiddenDimensions = extractDashboardForbiddenDimensions(dashboardDoc);
@@ -281,8 +469,26 @@ function collectDashboardProblems(dashboardDoc, contract) {
 
   return {
     problems,
-    mentionedEventCount: mentionedEvents.length
+    mentionedEventCount: mentionedEvents.length,
+    mentionedParamCount: mentionedParams.length
   };
+}
+
+function extractDashboardDocumentedParams(dashboardDoc) {
+  const params = new Set();
+
+  for (const line of dashboardDoc.split('\n')) {
+    const tableMatch = line.match(/^\s*\|\s*`([^`]+)`\s*\|/);
+    const candidate = tableMatch?.[1]?.trim();
+
+    if (!candidate || candidate === 'Event' || candidate === 'Parameter') {
+      continue;
+    }
+
+    params.add(candidate);
+  }
+
+  return [...params].sort();
 }
 
 function extractDashboardForbiddenDimensions(dashboardDoc) {
@@ -335,8 +541,8 @@ function collectSecretGuidanceProblems(docsToScan) {
   return problems;
 }
 
-export function collectGaDocsContractReport(options) {
-  const contract = loadProxyContract(options.proxyContractPath);
+export async function collectGaDocsContractReport(options) {
+  const { contract, source } = await loadProxyContract(options.proxyContractPath);
   const referenceDoc = readRequiredFile(options.referenceDocPath, 'Missing GA reference doc');
   const configDoc = readRequiredFile(options.configDocPath, 'Missing analytics config doc');
   const dashboardDoc = readRequiredFile(options.dashboardDocPath, 'Missing GA dashboard doc');
@@ -375,11 +581,13 @@ export function collectGaDocsContractReport(options) {
 
   return {
     summary: {
+      contractSource: source,
       expectedActiveEventCount: activeExpectedMap.size,
       expectedCatalogEventCount: catalogExpectedMap.size,
       documentedActiveEventCount: activeComparison.count,
       documentedCatalogEventCount: catalogComparison.count,
       dashboardEventMentionCount: dashboardReport.mentionedEventCount,
+      dashboardParamMentionCount: dashboardReport.mentionedParamCount,
       secretDocsScanned: 3 + extraSecretDocs.length
     },
     problems
@@ -387,6 +595,7 @@ export function collectGaDocsContractReport(options) {
 }
 
 function printReport(report) {
+  console.log(`[ga-docs-contract] Contract source: ${report.summary.contractSource}`);
   console.log(
     `[ga-docs-contract] Active rows: ${report.summary.documentedActiveEventCount}/${report.summary.expectedActiveEventCount}`
   );
@@ -395,6 +604,9 @@ function printReport(report) {
   );
   console.log(
     `[ga-docs-contract] Dashboard event mentions: ${report.summary.dashboardEventMentionCount}`
+  );
+  console.log(
+    `[ga-docs-contract] Dashboard param mentions: ${report.summary.dashboardParamMentionCount}`
   );
   console.log(`[ga-docs-contract] Secret docs scanned: ${report.summary.secretDocsScanned}`);
 
@@ -411,7 +623,7 @@ function printReport(report) {
 
 async function main() {
   const args = parseArgs(process.argv.slice(2));
-  const report = collectGaDocsContractReport({
+  const report = await collectGaDocsContractReport({
     ...args,
     extraSecretDocPaths:
       args.extraSecretDocPaths.length > 0 ? args.extraSecretDocPaths : OPTIONAL_SECRET_DOC_PATHS
