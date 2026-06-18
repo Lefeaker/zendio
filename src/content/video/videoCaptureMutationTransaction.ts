@@ -14,12 +14,13 @@ import {
 import type { ExportDestinationMetadata } from '../../shared/exportDestination';
 import { runSessionMutationTransaction } from '@content/sessionDrafts';
 import type { VideoHintState } from './videoHintManager';
-import type { VideoFragmentCapture, VideoTimestampCapture } from './types';
+import type { VideoCapture, VideoFragmentCapture, VideoTimestampCapture } from './types';
 import type { VideoSessionDependencies } from './sessionTypes';
 import type { VideoSessionState } from './sessionState';
 import type { VideoPlatform } from './utils';
 import type { VideoSessionOperationContext } from './videoSessionOperationContext';
 import type { VideoCaptureMutationTransaction } from './videoCaptureMutationTypes';
+import { hasRequestedTimestampScreenshot } from './screenshotIntent';
 
 export {
   restoreTimestampScreenshotState,
@@ -126,6 +127,16 @@ export function resolveVideoExportDestination(
   exportDestination?: ExportDestinationMetadata
 ): ExportDestination {
   return exportDestination?.kind === 'downloads' ? 'downloads' : 'unknown';
+}
+
+export function countVideoRequestedScreenshots(captures: readonly VideoCapture[]): number {
+  return captures.filter(
+    (capture) =>
+      capture.kind === 'timestamp' &&
+      (hasRequestedTimestampScreenshot(capture) ||
+        capture.screenshot !== undefined ||
+        capture.screenshotRef !== undefined)
+  ).length;
 }
 
 const FAILURE_CATEGORIES: ReadonlySet<string> = new Set(

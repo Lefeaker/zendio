@@ -305,7 +305,8 @@ export async function processClipPayload(
       trackClipTelemetryEvent('clip_save_completed', {
         operation_id: operationId,
         storage_target: 'downloads',
-        duration_bucket: bucketDurationMs(Date.now() - startedAt)
+        duration_bucket: bucketDurationMs(Date.now() - startedAt),
+        attachment_count_bucket: bucketCount(routed.prepared.attachments.length)
       });
       void trackActivationMilestoneIfNeeded('first_clip_saved');
       if (aiChatTelemetry) {
@@ -392,7 +393,8 @@ export async function processClipPayload(
     trackClipTelemetryEvent('clip_save_completed', {
       operation_id: operationId,
       storage_target: storageTarget,
-      duration_bucket: bucketDurationMs(Date.now() - startedAt)
+      duration_bucket: bucketDurationMs(Date.now() - startedAt),
+      attachment_count_bucket: bucketCount(routed.prepared.attachments.length)
     });
     void trackActivationMilestoneIfNeeded('first_clip_saved');
     if (aiChatTelemetry) {

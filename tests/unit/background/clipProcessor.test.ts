@@ -687,9 +687,10 @@ describe('clipProcessor', () => {
       {
         operation_id: 'op_abc123def',
         storage_target: 'local_folder',
-        duration_bucket: expect.any(String)
+        duration_bucket: expect.any(String),
+        attachment_count_bucket: 'zero'
       },
-      ['duration_bucket', 'operation_id', 'storage_target']
+      ['attachment_count_bucket', 'duration_bucket', 'operation_id', 'storage_target']
     );
     expect(trackActivationMilestoneIfNeededMock).toHaveBeenCalledWith('first_clip_saved');
     expectAnalyticsEvent(
@@ -790,9 +791,10 @@ describe('clipProcessor', () => {
       {
         operation_id: 'op_download7',
         storage_target: 'downloads',
-        duration_bucket: expect.any(String)
+        duration_bucket: expect.any(String),
+        attachment_count_bucket: 'one'
       },
-      ['duration_bucket', 'operation_id', 'storage_target']
+      ['attachment_count_bucket', 'duration_bucket', 'operation_id', 'storage_target']
     );
 
     trackUsageEventMock.mock.calls.forEach(([, params]) => {
@@ -800,7 +802,105 @@ describe('clipProcessor', () => {
         'Downloads Secret',
         'private clip markdown',
         'https://example.com/private',
-        'downloads-secret.md'
+        'downloads-secret.md',
+        'frame-1.jpg'
+      ]);
+    });
+  });
+
+  it('emits privacy-safe analytics for vault saves with attachment writes', async () => {
+    getOptionsMock.mockResolvedValue({
+      templates: templateOptions,
+      domainMappings: {},
+      rest: { baseUrl: 'https://default', vault: 'Vault', apiKey: '' }
+    });
+    selectVaultMock.mockReturnValue({
+      vault: { name: 'Private Vault' },
+      restConfig: { baseUrl: 'https://vault', vault: 'RemoteVault', apiKey: 'key' },
+      context: {}
+    });
+    classifyClipMock.mockResolvedValue({
+      type: 'video',
+      topics: [],
+      tags: [],
+      status: 'success' as const
+    });
+    resolvePathMock.mockReturnValue('Private/vault-secret.md');
+    writeMarkdownMock.mockResolvedValue(undefined);
+    writeAttachmentMock.mockResolvedValue(undefined);
+    recordUsageMock.mockResolvedValue(undefined);
+
+    const { processClipPayload } =
+      await import('../../../src/background/application/clipProcessor');
+    await processClipPayload(
+      createPayload({
+        markdown: 'private vault markdown',
+        title: 'Vault Secret',
+        type: 'video',
+        meta: {
+          url: 'https://example.com/vault-secret',
+          operationId: 'op_vault777',
+          attachments: [
+            {
+              id: 'shot-vault-1',
+              fileName: 'vault-frame-1.jpg',
+              mimeType: 'image/jpeg',
+              content: {
+                encoding: 'base64',
+                data: 'YWFh',
+                byteLength: 3
+              }
+            }
+          ]
+        }
+      })
+    );
+
+    expect(writeAttachmentMock).toHaveBeenCalledTimes(1);
+    expect(trackUsageEventMock.mock.calls.map(([eventName]) => eventName)).toEqual([
+      'background_stage_completed',
+      'background_stage_completed',
+      'background_stage_completed',
+      'background_stage_completed',
+      'background_stage_completed',
+      'clip_save_completed'
+    ]);
+
+    const stageCalls = trackUsageEventMock.mock.calls.filter(
+      ([eventName]) => eventName === 'background_stage_completed'
+    );
+    expect(stageCalls).toHaveLength(5);
+    expectAnalyticsEvent(
+      stageCalls[2],
+      'background_stage_completed',
+      {
+        operation_id: 'op_vault777',
+        stage: 'write_attachments',
+        duration_bucket: expect.any(String)
+      },
+      ['duration_bucket', 'operation_id', 'stage']
+    );
+    expectAnalyticsEvent(
+      trackUsageEventMock.mock.calls[5],
+      'clip_save_completed',
+      {
+        operation_id: 'op_vault777',
+        storage_target: 'rest_api',
+        duration_bucket: expect.any(String),
+        attachment_count_bucket: 'one'
+      },
+      ['attachment_count_bucket', 'duration_bucket', 'operation_id', 'storage_target']
+    );
+
+    trackUsageEventMock.mock.calls.forEach(([, params]) => {
+      expectNoSensitiveValues(params, [
+        'Vault Secret',
+        'private vault markdown',
+        'https://example.com/vault-secret',
+        'Private Vault',
+        'RemoteVault',
+        'vault-secret.md',
+        'vault-frame-1.jpg'
       ]);
     });
   });

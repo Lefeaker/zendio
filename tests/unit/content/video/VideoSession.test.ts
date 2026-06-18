@@ -4643,10 +4643,12 @@ describe('VideoSession', () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2026-03-14T10:00:00Z'));
     const deps = createDependencies();
-    const saveSpy: VideoScreenshotCacheSaveMock = vi.fn(async (input) => ({
-      status: 'saved',
-      ref: createScreenshotCacheRefFixture(input.captureId)
-    }));
+    const saveSpy: VideoScreenshotCacheSaveMock = vi.fn((input) =>
+      Promise.resolve({
+        status: 'saved',
+        ref: createScreenshotCacheRefFixture(input.captureId)
+      })
+    );
     deps.screenshotCacheRepository = createScreenshotCacheRepositoryMock({
       save: saveSpy
     });
@@ -5300,7 +5302,17 @@ describe('VideoSession', () => {
         timeSec: 12,
         comment: 'private export note',
         url: 'https://video.example/watch?t=12',
-        createdAt: 1
+        createdAt: 1,
+        screenshotRequested: true
+      },
+      {
+        kind: 'fragment',
+        id: 'fragment-1',
+        comment: 'secret fragment note',
+        selectedText: 'sensitive fragment text',
+        selectedHtml: '<mark>sensitive fragment text</mark>',
+        fragmentUrl: 'https://video.example/watch#:~:text=sensitive%20fragment%20text',
+        createdAt: 2
       }
     ];
     vi.setSystemTime(new Date('2026-03-14T10:00:06Z'));
@@ -5310,10 +5322,15 @@ describe('VideoSession', () => {
     expect(trackUsageEvent).toHaveBeenLastCalledWith('video_exported', {
       platform: 'bilibili',
       destination: 'downloads',
-      duration_bucket: '3s_to_9s'
+      duration_bucket: '3s_to_9s',
+      capture_count_bucket: 'two_to_five',
+      screenshot_count_bucket: 'one'
     });
     expect(JSON.stringify(trackUsageEvent.mock.calls.at(-1)?.[1] ?? {})).not.toContain(
       'private export note'
+    );
+    expect(JSON.stringify(trackUsageEvent.mock.calls.at(-1)?.[1] ?? {})).not.toContain(
+      'sensitive fragment text'
     );
     expectNoForbiddenAnalyticsKeys(
       trackUsageEvent.mock.calls.at(-1)?.[1] as Record<string, unknown>
