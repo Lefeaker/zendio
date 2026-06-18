@@ -134,11 +134,6 @@ test.describe('Stitch task success surface layout', () => {
       document.body.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true }));
     });
     await expect(rewardToast).not.toHaveClass(/is-visible/);
-    await page.evaluate(() => {
-      document.querySelectorAll('.support-prompt-toast.reward-qr').forEach((toast) => {
-        toast.dispatchEvent(new Event('transitionend'));
-      });
-    });
     await expect(page.locator('.support-prompt-toast.reward-qr')).toHaveCount(0);
 
     await page.locator('[data-role="dislike-btn"]').click();

@@ -542,6 +542,33 @@ describe('SupportPrompt', () => {
     expect(document.getElementById('aiob-support-toast-host')).toBeNull();
   });
 
+  it('removes dismissed support toasts when no transitionend event fires', async () => {
+    const { SupportPrompt } = await import('../../../src/content/ui/supportPrompt');
+    const prompt = new SupportPrompt(document);
+    await prompt.show({ status: 'success' });
+
+    vi.useFakeTimers();
+    try {
+      getPromptHost()
+        .shadowRoot?.querySelector<HTMLButtonElement>('[data-role="like-btn"]')
+        ?.click();
+      await vi.advanceTimersByTimeAsync(0);
+
+      const toast = getToastShadow().querySelector<HTMLElement>('#aiob-support-toast');
+      expect(toast).toBeTruthy();
+
+      document.body.dispatchEvent(new Event('pointerdown', { bubbles: true }));
+      expect(toast?.classList.contains('is-visible')).toBe(false);
+      expect(document.getElementById('aiob-support-toast-host')).toBeTruthy();
+
+      await vi.advanceTimersByTimeAsync(1000);
+
+      expect(document.getElementById('aiob-support-toast-host')).toBeNull();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('closes from the Stitch overlay action', async () => {
     const { SupportPrompt } = await import('../../../src/content/ui/supportPrompt');
     const prompt = new SupportPrompt(document);

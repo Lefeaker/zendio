@@ -3,6 +3,7 @@ import { panelStyleSheetManager } from '../../shared/panels/styleSheetManager';
 import { getControlledRuntimeTheme } from '@content/stitch/runtimeTheme';
 
 const TOAST_AUTO_DISMISS_MS = 5000;
+const TOAST_EXIT_FALLBACK_MS = 350;
 type SupportPromptToastKind = 'like' | 'dislike' | 'reward-qr';
 type ActiveToastVariant = ToastVariant | 'reward-qr';
 
@@ -36,6 +37,7 @@ export class SupportPromptToastController {
   private activeToast: HTMLDivElement | null = null;
   private activeToastVariant: ActiveToastVariant | null = null;
   private toastTimer: number | null = null;
+  private toastExitTimer: number | null = null;
 
   private readonly handleToastPointerDown = (event: PointerEvent): void => {
     if (!this.activeToast) {
@@ -240,6 +242,11 @@ export class SupportPromptToastController {
 
     if (this.toastTimer !== null) {
       window.clearTimeout(this.toastTimer);
+      this.toastTimer = null;
+    }
+    if (this.toastExitTimer !== null) {
+      window.clearTimeout(this.toastExitTimer);
+      this.toastExitTimer = null;
     }
     if (options.autoDismiss) {
       this.toastTimer = window.setTimeout(() => this.dismissToast(), TOAST_AUTO_DISMISS_MS);
@@ -260,13 +267,23 @@ export class SupportPromptToastController {
     this.options.doc.removeEventListener('keydown', this.handleToastKeyDown, true);
 
     const toast = this.activeToast;
-    const remove = () => {
-      toast.removeEventListener('transitionend', remove);
-      this.activeHost?.remove();
+    const host = this.activeHost;
+    const remove = (): void => {
+      toast.removeEventListener('transitionend', handleTransitionEnd);
+      host?.remove();
       if (this.activeToast === toast) {
+        if (this.toastExitTimer !== null) {
+          window.clearTimeout(this.toastExitTimer);
+          this.toastExitTimer = null;
+        }
         this.activeHost = null;
         this.activeToast = null;
         this.activeToastVariant = null;
+      }
+    };
+    const handleTransitionEnd = (event: TransitionEvent): void => {
+      if (event.target === toast) {
+        remove();
       }
     };
 
@@ -275,7 +292,8 @@ export class SupportPromptToastController {
       return;
     }
 
-    toast.addEventListener('transitionend', remove);
+    toast.addEventListener('transitionend', handleTransitionEnd);
     toast.classList.remove('is-visible');
+    this.toastExitTimer = window.setTimeout(remove, TOAST_EXIT_FALLBACK_MS);
   }
 }
