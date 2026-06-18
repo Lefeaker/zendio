@@ -9,6 +9,7 @@ import type { SupportPromptToastController } from './supportPrompt/SupportPrompt
 interface SupportPromptToastLifecycleOptions {
   doc: Document;
   resolveReviewUrl(): string;
+  resolveXiaohongshuFeedbackQrUrl(): string;
   resolveMessages(): Promise<SupportPromptMessages>;
   getReviewState(): Promise<ReviewPromptState>;
   updateReviewState(updates: Partial<ReviewPromptState>): Promise<void>;
@@ -50,6 +51,15 @@ export function createSupportPromptToastLifecycle(options: SupportPromptToastLif
             },
             onDislikeRedditClick: () => {
               void options.trackUsageEvent('support_dislike_reddit_clicked');
+            },
+            onDislikeXiaohongshuClick: (imageAlt) => {
+              void getToastController().then((controller) => {
+                controller.showRewardQrToast({
+                  imageSrc: options.resolveXiaohongshuFeedbackQrUrl(),
+                  imageAlt,
+                  imageRole: 'xiaohongshu-feedback-qr-image'
+                });
+              });
             },
             onGitHubFeedbackClick: () => {
               void options.trackUsageEvent('support_github_feedback_clicked');

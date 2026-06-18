@@ -80,8 +80,8 @@ const getContentMessagesMock = vi.hoisted(() =>
       supportPromptReviewLinkLabel: 'Write review',
       supportPromptReviewAcknowledgedLabel: 'I already reviewed',
       supportPromptDislikeToastTitle: 'Share feedback',
-      supportPromptDislikeRedditLinkLabel: 'Discuss on Reddit',
-      supportPromptDislikeQrLinkLabel: 'Join Xiaohongshu',
+      supportPromptDislikeRedditLinkLabel: 'Reddit',
+      supportPromptDislikeQrLinkLabel: '小红书',
       supportPromptDislikeQrPlaceholder: 'QR soon'
     })
   )
@@ -485,7 +485,7 @@ describe('SupportPrompt', () => {
     expect(openSpy).toHaveBeenCalledWith(expect.stringContaining('hl=ja'), '_blank', 'noopener');
   });
 
-  it('shows dislike toast with Reddit and GitHub feedback actions', async () => {
+  it('shows dislike toast with Reddit, GitHub, and Xiaohongshu feedback actions', async () => {
     const { SupportPrompt } = await import('../../../src/content/ui/supportPrompt');
     const prompt = new SupportPrompt(document);
     await prompt.show({ status: 'success' });
@@ -496,10 +496,25 @@ describe('SupportPrompt', () => {
     await flushMicrotasks();
 
     const toastShadow = getToastShadow();
-    expect(toastShadow.querySelector('[data-role="qr-container"]')).toBeNull();
-    expect(toastShadow.querySelector('[data-role="qr-toggle-btn"]')).toBeNull();
-    expect(toastShadow.querySelector('[data-role="reddit-link"]')).toBeTruthy();
+    const redditLink = toastShadow.querySelector<HTMLAnchorElement>('[data-role="reddit-link"]');
+    expect(redditLink?.textContent).toBe('Reddit');
     expect(toastShadow.querySelector('[data-role="github-link"]')).toBeTruthy();
+    const xiaohongshuButton = toastShadow.querySelector<HTMLButtonElement>(
+      '[data-role="xiaohongshu-feedback-btn"]'
+    );
+    expect(xiaohongshuButton?.tagName).toBe('BUTTON');
+    expect(xiaohongshuButton?.textContent).toBe('小红书');
+
+    xiaohongshuButton?.click();
+    await flushMicrotasks();
+
+    const qrToast = getToastShadow().querySelector<HTMLElement>('.support-prompt-toast.reward-qr');
+    expect(qrToast).toBeTruthy();
+    expect(
+      qrToast
+        ?.querySelector<HTMLImageElement>('[data-role="xiaohongshu-feedback-qr-image"]')
+        ?.getAttribute('src')
+    ).toBe('https://sxnian.com/products/zendio/xiaohongshu-feedback.jpg');
   });
 
   it('dismisses support toasts from outside pointerdown', async () => {

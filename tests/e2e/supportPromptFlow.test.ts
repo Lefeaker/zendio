@@ -47,8 +47,8 @@ const getContentMessagesMock = vi.hoisted(() =>
       supportPromptReviewLinkLabel: 'Write review',
       supportPromptReviewAcknowledgedLabel: 'I already reviewed',
       supportPromptDislikeToastTitle: 'Share feedback',
-      supportPromptDislikeRedditLinkLabel: 'Discuss on Reddit',
-      supportPromptDislikeQrLinkLabel: 'Join Xiaohongshu',
+      supportPromptDislikeRedditLinkLabel: 'Reddit',
+      supportPromptDislikeQrLinkLabel: '小红书',
       supportPromptDislikeQrPlaceholder: 'QR soon'
     })
   )
@@ -156,7 +156,7 @@ describe('support prompt flow', () => {
     );
   });
 
-  it('shows dislike flow with Reddit and GitHub actions', async () => {
+  it('shows dislike flow with Reddit, GitHub, and Xiaohongshu QR actions', async () => {
     const { SupportPrompt } = await import('../../src/content/ui/supportPrompt');
     const prompt = new SupportPrompt(document);
     await prompt.show({ status: 'success' });
@@ -166,11 +166,24 @@ describe('support prompt flow', () => {
       ?.click();
     await flushMicrotasks();
 
-    const qr = getToastRoot()?.querySelector<HTMLElement>('[data-role="qr-container"]') ?? null;
-    expect(qr).toBeNull();
-    expect(getToastRoot()?.querySelector('[data-role="qr-toggle-btn"]')).toBeNull();
-    expect(getToastRoot()?.querySelector('[data-role="reddit-link"]')).toBeTruthy();
+    const redditLink = getToastRoot()?.querySelector<HTMLAnchorElement>(
+      '[data-role="reddit-link"]'
+    );
+    expect(redditLink?.textContent).toBe('Reddit');
     expect(getToastRoot()?.querySelector('[data-role="github-link"]')).toBeTruthy();
+
+    const xiaohongshuButton = getToastRoot()?.querySelector<HTMLButtonElement>(
+      '[data-role="xiaohongshu-feedback-btn"]'
+    );
+    expect(xiaohongshuButton?.tagName).toBe('BUTTON');
+    xiaohongshuButton?.click();
+    await flushMicrotasks();
+
+    expect(
+      getToastRoot()
+        ?.querySelector<HTMLImageElement>('[data-role="xiaohongshu-feedback-qr-image"]')
+        ?.getAttribute('src')
+    ).toBe('https://sxnian.com/products/zendio/xiaohongshu-feedback.jpg');
     expect(messagingSendMock).toHaveBeenCalledWith(
       expect.objectContaining({ event: 'support_dislike_clicked' })
     );

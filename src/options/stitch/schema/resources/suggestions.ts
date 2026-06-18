@@ -11,12 +11,11 @@ function externalLink(label: string, href: string): NodeSchema {
 
 function xiaohongshuPopoverLink(label: string): NodeSchema {
   return element(
-    'a',
+    'button',
     {
       className: 'resource-inline-popover-trigger',
-      href: XIAOHONGSHU_FEEDBACK_QR_URL,
-      target: '_blank',
-      rel: 'noopener noreferrer',
+      type: 'button',
+      dataset: { role: 'xiaohongshu-feedback-qr-trigger' },
       ariaHaspopup: 'dialog'
     },
     [

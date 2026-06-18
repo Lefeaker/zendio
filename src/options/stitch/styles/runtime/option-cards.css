@@ -309,13 +309,23 @@ html[data-preview-theme='dark'] .resource-link-icon[src$='.svg'] {
   line-height: var(--line-height-rich);
 }
 
-.resource-inline-copy a {
+.resource-inline-copy a,
+.resource-inline-copy button {
   color: var(--accent);
   font-weight: 650;
   text-decoration: none;
 }
 
-.resource-inline-copy a:hover {
+.resource-inline-copy button {
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  font: inherit;
+  padding: 0;
+}
+
+.resource-inline-copy a:hover,
+.resource-inline-copy button:hover {
   text-decoration: underline;
 }
 

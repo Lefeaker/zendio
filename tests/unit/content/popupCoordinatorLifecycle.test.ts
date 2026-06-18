@@ -92,8 +92,8 @@ const getContentMessagesMock = vi.hoisted(() =>
       supportPromptReviewLinkLabel: 'Write review',
       supportPromptReviewAcknowledgedLabel: 'I already reviewed',
       supportPromptDislikeToastTitle: 'Share feedback',
-      supportPromptDislikeRedditLinkLabel: 'Discuss on Reddit',
-      supportPromptDislikeQrLinkLabel: 'Join Xiaohongshu',
+      supportPromptDislikeRedditLinkLabel: 'Reddit',
+      supportPromptDislikeQrLinkLabel: '小红书',
       supportPromptDislikeQrPlaceholder: 'QR soon'
     })
   )

@@ -9,6 +9,7 @@ type ActiveToastVariant = ToastVariant | 'reward-qr';
 interface RewardQrToastOptions {
   imageSrc: string;
   imageAlt?: string | undefined;
+  imageRole?: string | undefined;
 }
 
 interface ShowToastOptions {
@@ -21,6 +22,7 @@ interface SupportPromptToastControllerOptions {
   onReviewLinkClick: (variant?: LikeToastVariant) => Promise<void>;
   onReviewAcknowledgedClick: (variant?: LikeToastVariant) => Promise<void>;
   onDislikeRedditClick: () => void;
+  onDislikeXiaohongshuClick: (imageAlt: string) => void;
   onGitHubFeedbackClick: () => void;
   onLikeToastShown: (variant: LikeToastVariant) => void;
   onDislikeToastShown: () => void;
@@ -122,6 +124,17 @@ export class SupportPromptToastController {
     });
     links.appendChild(redditLink);
 
+    const xiaohongshuButton = this.options.doc.createElement('button');
+    xiaohongshuButton.type = 'button';
+    xiaohongshuButton.dataset.role = 'xiaohongshu-feedback-btn';
+    xiaohongshuButton.className = 'toast-link-button';
+    xiaohongshuButton.textContent = messages.dislikeQrLinkLabel;
+    xiaohongshuButton.addEventListener('click', (event) => {
+      event.preventDefault();
+      this.options.onDislikeXiaohongshuClick(messages.dislikeQrLinkLabel);
+    });
+    links.appendChild(xiaohongshuButton);
+
     const githubLink = this.options.doc.createElement('a');
     githubLink.dataset.role = 'github-link';
     githubLink.className = 'toast-link-button';
@@ -140,7 +153,7 @@ export class SupportPromptToastController {
     this.options.onDislikeToastShown();
   }
 
-  showRewardQrToast({ imageSrc, imageAlt }: RewardQrToastOptions): void {
+  showRewardQrToast({ imageSrc, imageAlt, imageRole }: RewardQrToastOptions): void {
     const toast = this.createBaseToast('reward-qr');
     toast.setAttribute('role', 'dialog');
     toast.setAttribute('aria-modal', 'false');
@@ -148,7 +161,7 @@ export class SupportPromptToastController {
 
     const image = this.options.doc.createElement('img');
     image.className = 'support-prompt-reward-qr';
-    image.dataset.role = 'wechat-reward-qr-image';
+    image.dataset.role = imageRole ?? 'wechat-reward-qr-image';
     image.src = imageSrc;
     image.alt = imageAlt ?? 'WeChat reward code';
     toast.appendChild(image);

@@ -544,11 +544,17 @@ describe('mountProductionStitchShell English residual coverage', () => {
         'a[href*="github.com/Lefeaker/AllinOB/issues/new"]'
       )
     ).toBeTruthy();
+    const xiaohongshuTrigger = suggestions.querySelector<HTMLButtonElement>(
+      'button.resource-inline-popover-trigger[data-role="xiaohongshu-feedback-qr-trigger"]'
+    );
+    expect(xiaohongshuTrigger).toBeTruthy();
+    expect(xiaohongshuTrigger?.hasAttribute('href')).toBe(false);
+    expect(xiaohongshuTrigger?.hasAttribute('target')).toBe(false);
     expect(
-      suggestions.querySelector<HTMLAnchorElement>(
-        'a[href="https://sxnian.com/products/zendio/xiaohongshu-feedback.jpg"]'
-      )
-    ).toBeTruthy();
+      xiaohongshuTrigger
+        ?.querySelector<HTMLImageElement>('img.resource-inline-popover-media')
+        ?.getAttribute('src')
+    ).toBe('https://sxnian.com/products/zendio/xiaohongshu-feedback.jpg');
     expect(
       suggestions.querySelector<HTMLAnchorElement>('a[href="mailto:zendio@sxnian.com"]')
     ).toBeTruthy();

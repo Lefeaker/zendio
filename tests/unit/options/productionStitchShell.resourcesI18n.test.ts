@@ -415,10 +415,13 @@ describe('mountProductionStitchShell resource i18n', () => {
         'a[href*="github.com/Lefeaker/AllinOB/issues/new"]'
       )
     ).toBeTruthy();
-    const xiaohongshuLink = suggestions.querySelector<HTMLAnchorElement>(
-      'a.resource-inline-popover-trigger[href="https://sxnian.com/products/zendio/xiaohongshu-feedback.jpg"]'
+    const xiaohongshuLink = suggestions.querySelector<HTMLButtonElement>(
+      'button.resource-inline-popover-trigger[data-role="xiaohongshu-feedback-qr-trigger"]'
     );
     expect(xiaohongshuLink).toBeTruthy();
+    expect(xiaohongshuLink?.getAttribute('type')).toBe('button');
+    expect(xiaohongshuLink?.hasAttribute('href')).toBe(false);
+    expect(xiaohongshuLink?.hasAttribute('target')).toBe(false);
     expect(
       xiaohongshuLink
         ?.querySelector<HTMLImageElement>('img.resource-inline-popover-media')

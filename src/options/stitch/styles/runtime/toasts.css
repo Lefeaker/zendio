@@ -228,6 +228,10 @@
 }
 
 .toast-link-button {
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  font: inherit;
   padding: 0;
   color: var(--code-panel-fg);
   font-size: var(--font-size-sm);

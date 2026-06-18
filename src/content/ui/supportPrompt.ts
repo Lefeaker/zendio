@@ -32,6 +32,7 @@ import type { UserVisibleMessageDescriptor } from '../../shared/i18n/userVisible
 const REVIEW_BASE_URL =
   'https://chromewebstore.google.com/detail/all-in-ob/eoohmbhdepgknfemajanfaejmonckgmo';
 const KO_FI_URL = 'https://ko-fi.com/xiannian';
+const XIAOHONGSHU_FEEDBACK_QR_URL = 'https://sxnian.com/products/zendio/xiaohongshu-feedback.jpg';
 const WECHAT_REWARD_ID = 'wechat-reward';
 const REVIEW_STATE_STORAGE_KEY = 'support_prompt_review_state';
 
@@ -55,6 +56,7 @@ export class SupportPrompt implements UiMountable<
     this.toastLifecycle = createSupportPromptToastLifecycle({
       doc: this.doc,
       resolveReviewUrl: () => this.resolveReviewUrl(),
+      resolveXiaohongshuFeedbackQrUrl: () => XIAOHONGSHU_FEEDBACK_QR_URL,
       resolveMessages: () => this.resolveMessages(),
       getReviewState: () => this.getReviewState(),
       updateReviewState: (updates) => this.updateReviewState(updates),
@@ -136,7 +138,11 @@ export class SupportPrompt implements UiMountable<
       dislikeToast: {
         ...appData.surfaces.taskSuccess.dislikeToast,
         title: messages.dislikeToastTitle,
-        actions: [messages.dislikeRedditLinkLabel, messages.githubTitle]
+        actions: [
+          messages.dislikeRedditLinkLabel,
+          messages.dislikeQrLinkLabel,
+          messages.githubTitle
+        ]
       }
     };
     appData.resources.support = {
