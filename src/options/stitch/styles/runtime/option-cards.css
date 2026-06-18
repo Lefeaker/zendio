@@ -124,33 +124,53 @@
   background: color-mix(in srgb, var(--panel) 90%, var(--surface-muted));
 }
 
-.panel-section[data-panel-id='storage'] table {
+.storage-vault-table-scroll table {
   table-layout: fixed;
-  min-width: 1040px;
+  min-width: 1000px;
 }
 
-.panel-section[data-panel-id='storage'] th:nth-child(1),
-.panel-section[data-panel-id='storage'] td:nth-child(1) {
+.storage-vault-table-scroll :is(th, td):nth-child(1) {
   width: 72px;
 }
 
-.panel-section[data-panel-id='storage'] th:nth-child(2),
-.panel-section[data-panel-id='storage'] td:nth-child(2) {
-  width: 136px;
+.storage-vault-table-scroll :is(th, td):nth-child(2) {
+  width: 120px;
 }
 
-.panel-section[data-panel-id='storage'] th:nth-child(3),
-.panel-section[data-panel-id='storage'] td:nth-child(3) {
-  width: 172px;
+.storage-vault-table-scroll :is(th, td):nth-child(3) {
+  width: 148px;
 }
 
-.panel-section[data-panel-id='storage'] th:nth-child(6),
-.panel-section[data-panel-id='storage'] td:nth-child(6) {
+.storage-vault-table-scroll :is(th, td):nth-child(6) {
   width: 128px;
 }
 
-.panel-section[data-panel-id='storage'] th:nth-child(7),
-.panel-section[data-panel-id='storage'] td:nth-child(7) {
+.storage-vault-table-scroll :is(th, td):nth-child(7) {
+  width: 96px;
+}
+
+.routing-rules-table-scroll table {
+  table-layout: fixed;
+  min-width: 860px;
+}
+
+.routing-rules-table-scroll :is(th, td):nth-child(1) {
+  width: 72px;
+}
+
+.routing-rules-table-scroll :is(th, td):nth-child(2) {
+  width: 132px;
+}
+
+.routing-rules-table-scroll :is(th, td):nth-child(4) {
+  width: 140px;
+}
+
+.routing-rules-table-scroll :is(th, td):nth-child(5) {
+  width: 104px;
+}
+
+.routing-rules-table-scroll :is(th, td):nth-child(6) {
   width: 96px;
 }
 

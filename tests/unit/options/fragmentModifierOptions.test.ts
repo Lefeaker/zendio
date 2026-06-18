@@ -36,8 +36,8 @@ describe('fragment modifier Options helpers', () => {
   it('renders three platform-specific single-select choices without catalog override labels', () => {
     expect(fragmentModifierChoices(true, ENGLISH_SENTINEL_MESSAGES)).toEqual([
       { value: 'shift', label: 'Shift' },
-      { value: 'meta', label: 'cmd' },
-      { value: 'alt', label: 'option' }
+      { value: 'meta', label: 'Cmd' },
+      { value: 'alt', label: 'Option' }
     ]);
     expect(fragmentModifierChoices(false, ENGLISH_SENTINEL_MESSAGES)).toEqual([
       { value: 'shift', label: 'Shift' },
@@ -46,7 +46,7 @@ describe('fragment modifier Options helpers', () => {
     ]);
     expect(fragmentModifierChoices('unknown' as never, ENGLISH_SENTINEL_MESSAGES)).toEqual([
       { value: 'shift', label: 'Shift' },
-      { value: 'ctrl', label: 'Control/cmd' },
+      { value: 'ctrl', label: 'Control/Cmd' },
       { value: 'alt', label: 'Option/Alt' }
     ]);
   });
@@ -76,10 +76,10 @@ describe('fragment modifier Options helpers', () => {
       'Browser warning sentinel for Control'
     );
     expect(fragmentModifierConflictWarning('meta', ENGLISH_SENTINEL_MESSAGES, true)).toBe(
-      'Browser warning sentinel for cmd'
+      'Browser warning sentinel for Cmd'
     );
     expect(fragmentModifierConflictWarning('alt', ENGLISH_SENTINEL_MESSAGES, true)).toBe(
-      'System warning sentinel for option'
+      'System warning sentinel for Option'
     );
   });
 
@@ -88,7 +88,7 @@ describe('fragment modifier Options helpers', () => {
       'Control may conflict with browser or page shortcuts. If it is unstable, use Shift.'
     );
     expect(fragmentModifierConflictWarning('alt', null, true)).toBe(
-      'option may conflict with system, browser, or page shortcuts. If it is unstable, use Shift.'
+      'Option may conflict with system, browser, or page shortcuts. If it is unstable, use Shift.'
     );
   });
 });

@@ -126,12 +126,12 @@ function localizedModifierKeyLabel(
 ): string {
   switch (key) {
     case 'meta':
-      return platform === 'apple' ? 'cmd' : 'Control/cmd';
+      return platform === 'apple' ? 'Cmd' : 'Control/Cmd';
     case 'ctrl':
-      return platform === 'unknown' ? 'Control/cmd' : 'Control';
+      return platform === 'unknown' ? 'Control/Cmd' : 'Control';
     case 'alt':
       if (platform === 'apple') {
-        return 'option';
+        return 'Option';
       }
       return platform === 'unknown' ? 'Option/Alt' : 'Alt';
     case 'shift':

@@ -96,6 +96,21 @@ describe('mountProductionStitchShell storage', () => {
     expect(highlightsLink?.textContent).toBe('Sidebar Highlights');
   });
 
+  it('renders storage tables with dedicated scroll classes for independent column sizing', () => {
+    const controller = createController();
+    mountProductionStitchShell({
+      controller: asOptionsController(controller),
+      initialOptions: null,
+      messages: null,
+      language: 'en'
+    });
+
+    expect(findCardByTitle('Vault List').querySelector('.storage-vault-table-scroll')).toBeTruthy();
+    expect(
+      findCardByTitle('Routing Rules').querySelector('.routing-rules-table-scroll')
+    ).toBeTruthy();
+  });
+
   it('renders Usage Dashboard from real usage stats instead of preview fixtures', async () => {
     const controller = createController();
     const storage = createStorage();

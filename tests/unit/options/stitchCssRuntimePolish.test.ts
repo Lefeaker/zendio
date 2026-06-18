@@ -73,6 +73,48 @@ describe('Stitch runtime polish CSS contracts', () => {
     expect(stitchCss).toContain('top: 0;');
   });
 
+  it('centers option table headers and cells while keeping narrow tables scrollable in-place', () => {
+    expect(stitchCss).toMatch(
+      /\.table-wrap,\s*\.schema-table-wrap\s*{[^}]*max-width:\s*100%;[^}]*overflow:\s*auto;/
+    );
+    expect(stitchCss).toMatch(
+      /th,\s*td\s*{[^}]*text-align:\s*center;[^}]*vertical-align:\s*middle;/
+    );
+    expect(stitchCss).toMatch(
+      /\.table-wrap\s+:is\(\.input,\s*\.select\),\s*\.yaml-table-shell\s+:is\(\.input,\s*\.select\)\s*{[^}]*text-align:\s*center;/
+    );
+  });
+
+  it('uses dedicated table width contracts for storage, routing, domain mapping, and YAML fields', () => {
+    expect(stitchCss).toMatch(
+      /\.storage-vault-table-scroll\s+table\s*{[^}]*table-layout:\s*fixed;[^}]*min-width:\s*1000px;/
+    );
+    expect(stitchCss).toMatch(
+      /\.storage-vault-table-scroll\s+:is\(th,\s*td\):nth-child\(2\)\s*{[^}]*width:\s*120px;/
+    );
+    expect(stitchCss).toMatch(
+      /\.storage-vault-table-scroll\s+:is\(th,\s*td\):nth-child\(3\)\s*{[^}]*width:\s*148px;/
+    );
+    expect(stitchCss).toMatch(
+      /\.routing-rules-table-scroll\s+table\s*{[^}]*table-layout:\s*fixed;[^}]*min-width:\s*860px;/
+    );
+    expect(stitchCss).toMatch(
+      /\.routing-rules-table-scroll\s+:is\(th,\s*td\):nth-child\(4\)\s*{[^}]*width:\s*140px;/
+    );
+    expect(stitchCss).toMatch(
+      /\.domain-mapping-table-scroll\s+table\s*{[^}]*table-layout:\s*fixed;[^}]*min-width:\s*720px;/
+    );
+    expect(stitchCss).toMatch(
+      /\.domain-mapping-table-scroll\s+:is\(th,\s*td\):nth-child\(2\)\s*{[^}]*width:\s*148px;/
+    );
+    expect(stitchCss).toMatch(
+      /\.yaml-table-scroll\s+table\s*{[^}]*table-layout:\s*fixed;[^}]*min-width:\s*900px;/
+    );
+    expect(stitchCss).toMatch(
+      /\.stitch-yaml-config-table\s+:is\(th,\s*td\):nth-child\(7\)\s*{[^}]*width:\s*132px;/
+    );
+  });
+
   it('keeps Domain Mappings inline-scrolled and centers collapsed session headers', () => {
     expect(stitchCss).toContain('.domain-mapping-table-scroll');
     expect(stitchCss).toContain('max-height: 360px;');
