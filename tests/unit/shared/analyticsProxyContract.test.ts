@@ -69,8 +69,30 @@ describe('analytics proxy contract', () => {
       source: 'enum:analytics_source',
       content_type: 'enum:content_type'
     });
+    expect(eventRows.get('extension_installed')?.paramValidators).toMatchObject({
+      source: 'literal:install',
+      browser_family: 'enum:browser_family'
+    });
+    expect(eventRows.get('extension_active_day')?.paramValidators).toMatchObject({
+      day_index_bucket: 'enum:active_day_bucket'
+    });
+    expect(eventRows.get('activation_milestone_completed')?.paramValidators).toMatchObject({
+      milestone: 'enum:activation_milestone'
+    });
+    expect(eventRows.get('extraction_failed')?.paramValidators).toMatchObject({
+      operation_id: 'operation_id',
+      content_type: 'enum:content_type',
+      failure_category: 'enum:failure_category',
+      duration_bucket: 'enum:duration_bucket'
+    });
     expect(eventRows.get('options_language_changed')?.paramValidators).toMatchObject({
       language: 'language_tag'
+    });
+    expect(eventRows.get('reader_draft_restored')?.paramValidators).toMatchObject({
+      highlight_count_bucket: 'enum:count_bucket',
+      outcome: 'enum:completed_failed_outcome',
+      detached_highlight_count_bucket: 'enum:count_bucket',
+      duration_bucket: 'enum:duration_bucket'
     });
     expect(eventRows.get('extension_error')?.paramValidators).toMatchObject({
       error_code: 'identifier:80',
@@ -83,8 +105,30 @@ describe('analytics proxy contract', () => {
     expect(eventRows.get('video_started')?.paramValidators).toMatchObject({
       source: 'literal:menu'
     });
-    expect(eventRows.get('extension_installed')?.paramValidators).toMatchObject({
-      source: 'literal:install'
+    expect(eventRows.get('video_draft_restored')?.paramValidators).toMatchObject({
+      capture_count_bucket: 'enum:count_bucket',
+      screenshot_count_bucket: 'enum:count_bucket',
+      outcome: 'enum:completed_failed_outcome',
+      stale_screenshot_ref_count_bucket: 'enum:count_bucket',
+      duration_bucket: 'enum:duration_bucket'
+    });
+    expect(eventRows.get('reader_exported')?.paramValidators).toMatchObject({
+      destination: 'enum:export_destination',
+      duration_bucket: 'enum:duration_bucket',
+      highlight_count_bucket: 'enum:count_bucket'
+    });
+    expect(eventRows.get('video_exported')?.paramValidators).toMatchObject({
+      platform: 'enum:analytics_platform',
+      destination: 'enum:export_destination',
+      duration_bucket: 'enum:duration_bucket',
+      capture_count_bucket: 'enum:count_bucket',
+      screenshot_count_bucket: 'enum:count_bucket'
+    });
+    expect(eventRows.get('clip_save_completed')?.paramValidators).toMatchObject({
+      operation_id: 'operation_id',
+      storage_target: 'enum:storage_target',
+      duration_bucket: 'enum:duration_bucket',
+      attachment_count_bucket: 'enum:count_bucket'
     });
   });
 

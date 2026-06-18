@@ -52,8 +52,8 @@ describe('analytics event catalog', () => {
   });
 
   it('keeps only inactive catalog rows classified as future while active product events stay emitted', () => {
-    expect(FUTURE_PRODUCT_EVENT_NAMES).toContain('extension_installed');
-    expect(FUTURE_PRODUCT_EVENT_NAMES).toContain('video_screenshot_captured');
+    expect(FUTURE_PRODUCT_EVENT_NAMES).not.toContain('extension_installed');
+    expect(FUTURE_PRODUCT_EVENT_NAMES).not.toContain('video_screenshot_captured');
     expect(FUTURE_PRODUCT_EVENT_NAMES).not.toContain('clip_started');
     expect(FUTURE_PRODUCT_EVENT_NAMES).not.toContain('privacy_consent_changed');
     expect(FUTURE_PRODUCT_EVENT_NAMES).not.toContain('reader_exported');
@@ -67,7 +67,18 @@ describe('analytics event catalog', () => {
     expect(RUNTIME_USAGE_EVENT_NAMES).toContain('privacy_consent_changed');
     expect(RUNTIME_USAGE_EVENT_NAMES).toContain('reader_exported');
     expect(RUNTIME_USAGE_EVENT_NAMES).toContain('video_session_started');
-    expect(EMITTED_PRODUCT_EVENT_NAMES).not.toContain('video_screenshot_captured');
+    expect(EMITTED_PRODUCT_EVENT_NAMES).toContain('extension_installed');
+    expect(EMITTED_PRODUCT_EVENT_NAMES).toContain('video_screenshot_captured');
+    expect(EMITTED_PRODUCT_EVENT_NAMES).toContain('extension_active_day');
+    expect(EMITTED_PRODUCT_EVENT_NAMES).toContain('activation_milestone_completed');
+    expect(EMITTED_PRODUCT_EVENT_NAMES).toContain('extraction_failed');
+    expect(EMITTED_PRODUCT_EVENT_NAMES).toContain('reader_draft_restored');
+    expect(EMITTED_PRODUCT_EVENT_NAMES).toContain('video_draft_restored');
+    expect(RUNTIME_USAGE_EVENT_NAMES).toContain('extension_active_day');
+    expect(RUNTIME_USAGE_EVENT_NAMES).toContain('activation_milestone_completed');
+    expect(RUNTIME_USAGE_EVENT_NAMES).toContain('extraction_failed');
+    expect(RUNTIME_USAGE_EVENT_NAMES).toContain('reader_draft_restored');
+    expect(RUNTIME_USAGE_EVENT_NAMES).toContain('video_draft_restored');
   });
 
   it('declares required params for representative current and future events', () => {
@@ -86,6 +97,26 @@ describe('analytics event catalog', () => {
     expect(ANALYTICS_EVENT_CATALOG.video_session_started.requiredParams).toEqual([
       'platform',
       'source'
+    ]);
+    expect(ANALYTICS_EVENT_CATALOG.extension_active_day.requiredParams).toEqual([
+      'day_index_bucket'
+    ]);
+    expect(ANALYTICS_EVENT_CATALOG.activation_milestone_completed.requiredParams).toEqual([
+      'milestone'
+    ]);
+    expect(ANALYTICS_EVENT_CATALOG.extraction_failed.requiredParams).toEqual([
+      'operation_id',
+      'content_type',
+      'failure_category'
+    ]);
+    expect(ANALYTICS_EVENT_CATALOG.reader_draft_restored.requiredParams).toEqual([
+      'highlight_count_bucket',
+      'outcome'
+    ]);
+    expect(ANALYTICS_EVENT_CATALOG.video_draft_restored.requiredParams).toEqual([
+      'capture_count_bucket',
+      'screenshot_count_bucket',
+      'outcome'
     ]);
     expect(ERROR_EVENT_NAMES).toEqual(['extension_error']);
   });
@@ -109,11 +140,30 @@ describe('analytics event catalog', () => {
     ]);
     expect(ANALYTICS_EVENT_CATALOG.extension_installed.optionalParams).toEqual(['browser_family']);
     expect(ANALYTICS_EVENT_CATALOG.options_action_completed.optionalParams).toEqual(['section']);
+    expect(ANALYTICS_EVENT_CATALOG.clip_save_completed.optionalParams).toEqual([
+      'attachment_count_bucket'
+    ]);
+    expect(ANALYTICS_EVENT_CATALOG.extraction_failed.optionalParams).toEqual(['duration_bucket']);
     expect(ANALYTICS_EVENT_CATALOG.extraction_completed.optionalParams).toEqual([
       'attachment_count_bucket'
     ]);
+    expect(ANALYTICS_EVENT_CATALOG.reader_exported.optionalParams).toEqual([
+      'highlight_count_bucket'
+    ]);
+    expect(ANALYTICS_EVENT_CATALOG.reader_draft_restored.optionalParams).toEqual([
+      'detached_highlight_count_bucket',
+      'duration_bucket'
+    ]);
     expect(ANALYTICS_EVENT_CATALOG.connection_test_completed.optionalParams).toEqual([
       'failure_category'
+    ]);
+    expect(ANALYTICS_EVENT_CATALOG.video_exported.optionalParams).toEqual([
+      'capture_count_bucket',
+      'screenshot_count_bucket'
+    ]);
+    expect(ANALYTICS_EVENT_CATALOG.video_draft_restored.optionalParams).toEqual([
+      'stale_screenshot_ref_count_bucket',
+      'duration_bucket'
     ]);
   });
 
