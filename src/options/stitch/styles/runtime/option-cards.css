@@ -61,6 +61,7 @@
 }
 
 .card {
+  min-width: 0;
   padding: var(--space-8);
 }
 
@@ -69,7 +70,26 @@
   justify-content: space-between;
   gap: var(--space-5);
   align-items: flex-start;
+  min-width: 0;
   margin-bottom: var(--space-5-5);
+}
+
+.panel-stack,
+.panel-section,
+.group,
+.card,
+.notice,
+.stack {
+  min-width: 0;
+}
+
+.card-header .toolbar .btn {
+  white-space: nowrap;
+}
+
+.card-header .toolbar .btn span {
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .card-header h2,
@@ -77,12 +97,14 @@
   margin: 0;
   font-size: var(--font-size-title);
   line-height: var(--line-height-tight);
+  overflow-wrap: anywhere;
 }
 
 .card-header p {
   margin: var(--space-2-5) 0 0;
   color: var(--text-dim);
   font-size: var(--font-size-md);
+  overflow-wrap: anywhere;
 }
 
 .panel-section[data-panel-id='output'] .card,
@@ -307,6 +329,7 @@ html[data-preview-theme='dark'] .resource-link-icon[src$='.svg'] {
   color: var(--text-dim);
   font-size: var(--font-size-md);
   line-height: var(--line-height-rich);
+  overflow-wrap: anywhere;
 }
 
 .resource-inline-copy a,
@@ -425,15 +448,18 @@ html[data-preview-theme='dark'] .resource-link-icon[src$='.svg'] {
 .step-copy {
   display: grid;
   gap: var(--space-1-5);
+  min-width: 0;
   flex: 1;
 }
 
 .step-copy strong {
   font-size: var(--font-size-base);
+  overflow-wrap: anywhere;
 }
 
 .step-copy p {
   margin: 0;
+  overflow-wrap: anywhere;
 }
 
 .info-list {

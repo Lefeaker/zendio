@@ -190,6 +190,27 @@ describe('Stitch runtime polish CSS contracts', () => {
     );
   });
 
+  it('keeps localized Options layouts inside the viewport and constrains diagnostics output', () => {
+    expect(stitchCss).toMatch(
+      /\.shell\s*{[^}]*min-width:\s*0;[^}]*max-width:\s*calc\(100vw\s+-\s+var\(--sidebar-width\)\);/
+    );
+    expect(stitchCss).toMatch(/\.main\s*{[^}]*overflow-x:\s*hidden;/);
+    expect(stitchCss).toMatch(/\.content\s*{[^}]*width:\s*100%;[^}]*min-width:\s*0;/);
+    expect(stitchCss).toMatch(
+      /\.panel-stack,\s*\.panel-section,\s*\.group,\s*\.card,\s*\.notice,\s*\.stack\s*{[^}]*min-width:\s*0;/
+    );
+    expect(stitchCss).toMatch(
+      /\.interface-theme-grid\s+\.field\s*{[^}]*min-width:\s*0;[^}]*max-width:\s*100%;/
+    );
+    expect(stitchCss).toMatch(/\.interface-theme-grid\s+\.select\s*{[^}]*max-width:\s*100%;/);
+    expect(stitchCss).toMatch(
+      /\.output-box\s*{[^}]*max-width:\s*100%;[^}]*max-height:\s*360px;[^}]*overflow:\s*auto;/
+    );
+    expect(stitchCss).toMatch(
+      /\.output-box\s+pre\s*{[^}]*white-space:\s*pre-wrap;[^}]*overflow-wrap:\s*anywhere;/
+    );
+  });
+
   it('lets the onboarding document scroll and uses the Stitch page layout', () => {
     expect(stitchCss).toContain("html[data-route='onboarding'],");
     expect(stitchCss).toContain("body[data-route='onboarding']");

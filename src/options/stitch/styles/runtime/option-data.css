@@ -58,7 +58,10 @@ td {
 }
 
 .notice {
+  max-width: 100%;
+  min-width: 0;
   padding: var(--space-5-5) var(--space-6-5);
+  overflow-wrap: anywhere;
 }
 
 .notice.info {
@@ -79,6 +82,7 @@ td {
 .notice strong {
   display: block;
   margin-bottom: var(--space-2);
+  overflow-wrap: anywhere;
 }
 
 .notice p,
@@ -86,6 +90,7 @@ td {
   margin: 0;
   color: var(--text-dim);
   font-size: var(--font-size-md);
+  overflow-wrap: anywhere;
 }
 
 .notice ul {

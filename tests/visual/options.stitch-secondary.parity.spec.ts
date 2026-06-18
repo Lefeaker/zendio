@@ -52,8 +52,8 @@ const DYNAMIC_WIDTH_SELECTORS = new Set([
   '.notice'
 ]);
 
-// Text-only copy drift between preview sources and production should not fail structural parity.
-const DYNAMIC_HEIGHT_SELECTORS = new Set(['.main', '.sidebar', '.row']);
+// Text-only copy drift and viewport-constrained wrapping should not fail structural parity.
+const DYNAMIC_HEIGHT_SELECTORS = new Set(['.main', '.sidebar', '.card', '.card-header', '.row']);
 
 const EXPECTED_PREVIEW_SURFACE_LABELS: Record<PreviewSourceKind, string[]> = {
   'external-reference': ['Clipper Dialog', 'Reader Mode', 'Video Mode', 'Task Success'],
@@ -431,6 +431,69 @@ test.describe('Stitch Secondary preview-to-production parity', () => {
       path: testInfo.outputPath('options-stitch-secondary-production-desktop.png'),
       fullPage: true
     });
+  });
+
+  test('production keeps non-Chinese maintenance diagnostics constrained to the viewport', async ({
+    page
+  }) => {
+    await page.setViewportSize({ width: 1280, height: 720 });
+    await page.goto(createProductionUrl());
+    await page.waitForSelector('.app');
+    await setLanguage(page, 'de');
+    await setTheme(page, 'dark');
+    await page.locator('[data-nav-panel="maintenance"]').click();
+    await page.waitForSelector('[data-panel-id="maintenance"] .output-box pre');
+
+    await page.evaluate(() => {
+      const output = document.querySelector<HTMLElement>(
+        '[data-panel-id="maintenance"] .output-box pre'
+      );
+      if (!output) {
+        throw new Error('Maintenance diagnostics output was not rendered.');
+      }
+      output.textContent = [
+        'Diagnose Ergebnisse',
+        'configuration-diagnosis-without-natural-breaks-'.repeat(80)
+      ].join('\n');
+    });
+    await stabilize(page);
+
+    const metrics = await page.evaluate(() => {
+      const root = document.documentElement;
+      const main = document.querySelector<HTMLElement>('.main');
+      const card = document.querySelector<HTMLElement>(
+        '[data-panel-id="maintenance"] .card:nth-of-type(1)'
+      );
+      const outputBox = document.querySelector<HTMLElement>(
+        '[data-panel-id="maintenance"] .output-box'
+      );
+      const output = outputBox?.querySelector<HTMLElement>('pre');
+      if (!main || !card || !outputBox || !output) {
+        throw new Error('Maintenance layout metrics could not be collected.');
+      }
+      const outputBoxStyle = window.getComputedStyle(outputBox);
+      const outputStyle = window.getComputedStyle(output);
+      return {
+        viewportWidth: root.clientWidth,
+        documentScrollWidth: root.scrollWidth,
+        mainClientWidth: main.clientWidth,
+        mainScrollWidth: main.scrollWidth,
+        cardWidth: card.getBoundingClientRect().width,
+        outputBoxWidth: outputBox.getBoundingClientRect().width,
+        outputBoxOverflowX: outputBoxStyle.overflowX,
+        outputBoxOverflowY: outputBoxStyle.overflowY,
+        outputWhiteSpace: outputStyle.whiteSpace,
+        outputOverflowWrap: outputStyle.overflowWrap
+      };
+    });
+
+    expect(metrics.documentScrollWidth).toBeLessThanOrEqual(metrics.viewportWidth + 1);
+    expect(metrics.mainScrollWidth).toBeLessThanOrEqual(metrics.mainClientWidth + 1);
+    expect(metrics.outputBoxWidth).toBeLessThanOrEqual(metrics.cardWidth);
+    expect(metrics.outputBoxOverflowX).toBe('auto');
+    expect(metrics.outputBoxOverflowY).toBe('auto');
+    expect(metrics.outputWhiteSpace).toBe('pre-wrap');
+    expect(metrics.outputOverflowWrap).toBe('anywhere');
   });
 
   test('preview interaction inventory has production handlers and no fake YAML summary controls', async ({
