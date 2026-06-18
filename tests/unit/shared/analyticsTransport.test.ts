@@ -77,6 +77,163 @@ describe('analytics transport', () => {
     expect(JSON.stringify(payload)).not.toMatch(forbiddenSecretFieldPattern);
   });
 
+  it('resolves only bounded browser families from low-entropy browser signals', async () => {
+    const { createAnalyticsBrowserContextParams } =
+      await import('../../../src/shared/analytics/analyticsBrowserFamily');
+
+    expect(
+      createAnalyticsBrowserContextParams({
+        chrome: { runtime: {} },
+        navigator: {
+          userAgentData: {
+            brands: [{ brand: 'Chromium' }, { brand: 'Google Chrome' }, { brand: 'Not A;Brand' }]
+          },
+          userAgent: 'Mozilla/5.0 Chrome/125.0.0.0 Safari/537.36'
+        }
+      })
+    ).toEqual({ browser_family: 'chrome' });
+
+    expect(
+      createAnalyticsBrowserContextParams({
+        chrome: { runtime: {} },
+        navigator: {
+          userAgentData: {
+            brands: [{ brand: 'Chromium' }, { brand: 'Microsoft Edge' }, { brand: 'Not A;Brand' }]
+          },
+          userAgent: 'Mozilla/5.0 Chrome/125.0.0.0 Safari/537.36 Edg/125.0.2535.51'
+        }
+      })
+    ).toEqual({ browser_family: 'edge' });
+
+    expect(
+      createAnalyticsBrowserContextParams({
+        browser: { runtime: {} },
+        navigator: {
+          userAgent: 'Mozilla/5.0 Firefox/126.0'
+        }
+      })
+    ).toEqual({ browser_family: 'firefox' });
+
+    expect(
+      createAnalyticsBrowserContextParams({
+        navigator: {
+          userAgent: 'Mozilla/5.0 Version/17.5 Safari/605.1.15'
+        },
+        safari: {}
+      })
+    ).toEqual({ browser_family: 'safari' });
+
+    expect(
+      createAnalyticsBrowserContextParams({
+        chrome: { runtime: {} },
+        navigator: {
+          userAgentData: {
+            brands: [{ brand: 'Chromium' }, { brand: 'Not A;Brand' }]
+          },
+          userAgent:
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chromium/125.0.0.0 Safari/537.36'
+        }
+      })
+    ).toEqual({ browser_family: 'other' });
+
+    expect(
+      createAnalyticsBrowserContextParams({
+        chrome: { runtime: {} },
+        navigator: {
+          userAgent: 125
+        }
+      })
+    ).toEqual({ browser_family: 'unknown' });
+
+    expect(createAnalyticsBrowserContextParams({})).toEqual({ browser_family: 'unknown' });
+  });
+
+  it('never exposes raw UA strings or versions through browser family context', async () => {
+    const { createAnalyticsBrowserContextParams } =
+      await import('../../../src/shared/analytics/analyticsBrowserFamily');
+
+    const context = createAnalyticsBrowserContextParams({
+      chrome: { runtime: {} },
+      navigator: {
+        userAgent:
+          'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/125.0.0.0 Safari/537.36 Edg/125.0.2535.51',
+        userAgentData: {
+          brands: [{ brand: 'Chromium' }, { brand: 'Microsoft Edge' }]
+        }
+      }
+    });
+
+    expect(context).toEqual({ browser_family: 'edge' });
+    expect(Object.keys(context)).toEqual(['browser_family']);
+    const serializedContext = JSON.stringify(context);
+    expect(serializedContext).not.toContain('Mozilla/5.0');
+    expect(serializedContext).not.toContain('125.0.2535.51');
+  });
+
+  it('attaches browser family only to events whose schema allows it', async () => {
+    const originalChrome = globalThis.chrome;
+    const originalNavigator = globalThis.navigator;
+
+    vi.stubGlobal('chrome', { runtime: {} });
+    vi.stubGlobal('navigator', {
+      userAgent:
+        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/125.0.0.0 Safari/537.36 Edg/125.0.2535.51',
+      userAgentData: {
+        brands: [{ brand: 'Chromium' }, { brand: 'Microsoft Edge' }]
+      }
+    });
+
+    try {
+      const { buildAnalyticsTransportPayload } = await import('../../../src/shared/analytics');
+
+      const activationPayload = buildAnalyticsTransportPayload(
+        'extension_installed',
+        {
+          source: 'install',
+          browser_family: 'Edg/125.0.2535.51',
+          userAgent:
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/125.0.0.0 Safari/537.36 Edg/125.0.2535.51',
+          browser_version: '125.0.2535.51'
+        },
+        baseConfig,
+        { now: () => 99 }
+      );
+
+      expect(activationPayload?.events[0]?.params).toEqual({
+        engagement_time_msec: 1,
+        session_id: 'session-1',
+        source: 'install',
+        browser_family: 'edge'
+      });
+      const serializedActivationPayload = JSON.stringify(activationPayload);
+      expect(serializedActivationPayload).not.toContain('Edg/125.0.2535.51');
+      expect(serializedActivationPayload).not.toContain('Mozilla/5.0');
+      expect(serializedActivationPayload).not.toContain('125.0.2535.51');
+
+      const usagePayload = buildAnalyticsTransportPayload(
+        'support_link_clicked',
+        { target: 'ko-fi' },
+        baseConfig,
+        { now: () => 99 }
+      );
+
+      expect(usagePayload?.events[0]?.params).toEqual({
+        engagement_time_msec: 1,
+        session_id: 'session-1',
+        target: 'ko-fi'
+      });
+      expect(usagePayload?.events[0]?.params).not.toHaveProperty('browser_family');
+    } finally {
+      vi.unstubAllGlobals();
+      if (originalChrome !== undefined) {
+        vi.stubGlobal('chrome', originalChrome);
+      }
+      if (originalNavigator !== undefined) {
+        vi.stubGlobal('navigator', originalNavigator);
+      }
+    }
+  });
+
   it('sends proxy transport requests with public GA config only', async () => {
     const { sendAnalyticsTransportEvent } = await import('../../../src/shared/analytics');
     fetchMock.mockResolvedValue({

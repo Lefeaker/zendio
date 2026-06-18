@@ -559,4 +559,44 @@ describe('analyticsEvents', () => {
 
     await resetRuntime();
   });
+
+  it('does not leak browser family context onto runtime usage events', async () => {
+    await configureRuntime('2.3.4');
+    vi.stubGlobal('chrome', { runtime: {} });
+    vi.stubGlobal('navigator', {
+      userAgent:
+        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/125.0.0.0 Safari/537.36 Edg/125.0.2535.51',
+      userAgentData: {
+        brands: [{ brand: 'Chromium' }, { brand: 'Microsoft Edge' }]
+      }
+    });
+    const proxyConfig = createAnalyticsConfig({
+      transportMode: 'proxy',
+      proxyEndpoint: 'https://analytics.example.test/ga4'
+    });
+    getConfigMock.mockReturnValue(proxyConfig);
+    refreshAnalyticsConfigMock.mockResolvedValue(proxyConfig);
+    fetchMock.mockResolvedValue({
+      ok: true,
+      clone: () => ({ text: () => Promise.resolve('') })
+    });
+
+    try {
+      const { trackUsageEvent } = await import('../../../src/background/services/analyticsEvents');
+      await trackUsageEvent('support_link_clicked', { target: 'ko-fi' });
+
+      const [, requestInit] = fetchMock.mock.calls[0] ?? [];
+      const parsedBody: unknown = JSON.parse(String(requestInit?.body));
+      const params = getFirstAnalyticsRequestParams(parsedBody);
+      expect(params).toMatchObject({
+        target: 'ko-fi',
+        extension_version: '2.3.4',
+        session_id: 'session-1'
+      });
+      expect(params).not.toHaveProperty('browser_family');
+    } finally {
+      vi.unstubAllGlobals();
+      await resetRuntime();
+    }
+  });
 });
