@@ -1,22 +1,21 @@
 import type { StorageAreaService } from '../../platform/interfaces/storage';
+import { GA4_CONFIG } from '../../shared/errors/analytics/analyticsConfig';
 import type {
   ActivationMilestone,
   ActiveDayBucket,
   UsageEventParamMap
 } from '../../shared/types/analytics';
 
-const ACTIVATION_STORAGE_KEY_PREFIX = 'analytics_activation_state:';
-
 type ActivationTrackerFlag = ActivationMilestone | 'extension_installed';
 
 interface ActivationTrackerState {
+  clientId: string;
   firstConsentedActiveUtcDate?: string;
   lastEmittedActiveUtcDate?: string;
   emittedFlags?: Partial<Record<ActivationTrackerFlag, true>>;
 }
 
 let activationStorage: Pick<StorageAreaService, 'get' | 'set' | 'remove'> | null = null;
-let lastKnownClientId: string | null = null;
 
 export function configureActivationAnalyticsStorage(
   storage: Pick<StorageAreaService, 'get' | 'set' | 'remove'>
@@ -27,13 +26,18 @@ export function configureActivationAnalyticsStorage(
 export async function reconcileActivationAnalyticsIdentity(
   clientId?: string | null
 ): Promise<void> {
-  const previousClientId = lastKnownClientId;
-  lastKnownClientId = clientId ?? null;
-  if (!activationStorage || !previousClientId || previousClientId === clientId) {
+  if (!activationStorage) {
     return;
   }
 
-  await activationStorage.remove(buildActivationStorageKey(previousClientId));
+  const stored = await readPersistedActivationState();
+  if (!stored) {
+    return;
+  }
+
+  if (!clientId || stored.clientId !== clientId) {
+    await activationStorage.remove(buildActivationStorageKey());
+  }
 }
 
 export async function trackExtensionInstalledIfNeeded(input: {
@@ -68,7 +72,6 @@ export async function trackActivationActiveDayIfNeeded(input: {
     return;
   }
 
-  lastKnownClientId = input.clientId;
   const now = input.now ?? (() => new Date());
   const state = await readActivationState(input.clientId);
   const currentUtcDate = toUtcDateString(now());
@@ -102,7 +105,6 @@ async function trackFlagIfNeeded(input: {
     return;
   }
 
-  lastKnownClientId = input.clientId;
   const state = await readActivationState(input.clientId);
   if (state.emittedFlags?.[input.flag]) {
     return;
@@ -131,18 +133,18 @@ async function safelyTrackEvent(trackEvent: () => Promise<boolean>): Promise<boo
 }
 
 async function readActivationState(clientId: string): Promise<ActivationTrackerState> {
-  if (!activationStorage) {
-    return {};
+  const stored = await readPersistedActivationState();
+  if (!stored) {
+    return { clientId };
   }
 
-  const stored = await activationStorage.get<ActivationTrackerState>(
-    buildActivationStorageKey(clientId)
-  );
-  if (typeof stored !== 'object' || stored === null) {
-    return {};
+  if (stored.clientId !== clientId) {
+    await activationStorage?.remove(buildActivationStorageKey());
+    return { clientId };
   }
 
   return {
+    clientId,
     firstConsentedActiveUtcDate: normalizeUtcDate(stored.firstConsentedActiveUtcDate),
     lastEmittedActiveUtcDate: normalizeUtcDate(stored.lastEmittedActiveUtcDate),
     emittedFlags: normalizeEmittedFlags(stored.emittedFlags)
@@ -157,15 +159,46 @@ async function writeActivationState(
     return;
   }
 
-  await activationStorage.set(buildActivationStorageKey(clientId), state);
+  await activationStorage.set(buildActivationStorageKey(), {
+    ...state,
+    clientId
+  });
 }
 
-function buildActivationStorageKey(clientId: string): string {
-  return `${ACTIVATION_STORAGE_KEY_PREFIX}${clientId}`;
+async function readPersistedActivationState(): Promise<ActivationTrackerState | null> {
+  if (!activationStorage) {
+    return null;
+  }
+
+  const stored = await activationStorage.get<ActivationTrackerState>(buildActivationStorageKey());
+  if (typeof stored !== 'object' || stored === null) {
+    return null;
+  }
+
+  const clientId = normalizeClientId(stored.clientId);
+  if (!clientId) {
+    await activationStorage.remove(buildActivationStorageKey());
+    return null;
+  }
+
+  return {
+    clientId,
+    firstConsentedActiveUtcDate: normalizeUtcDate(stored.firstConsentedActiveUtcDate),
+    lastEmittedActiveUtcDate: normalizeUtcDate(stored.lastEmittedActiveUtcDate),
+    emittedFlags: normalizeEmittedFlags(stored.emittedFlags)
+  };
+}
+
+function buildActivationStorageKey(): string {
+  return GA4_CONFIG.STORAGE_KEYS.ACTIVATION_STATE;
 }
 
 function normalizeUtcDate(value: unknown): string | undefined {
   return typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value) ? value : undefined;
+}
+
+function normalizeClientId(value: unknown): string | undefined {
+  return typeof value === 'string' && value.length > 0 ? value : undefined;
 }
 
 function normalizeEmittedFlags(

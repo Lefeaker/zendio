@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 type ActivationStorageValue = Record<string, unknown> | undefined;
+const ACTIVATION_STATE_KEY = 'analytics_activation_state';
 
 function createActivationStorage() {
   const values = new Map<string, ActivationStorageValue>();
@@ -80,28 +81,59 @@ describe('analyticsActivation', () => {
     expect(trackEvent).toHaveBeenCalledTimes(2);
   });
 
-  it('tracks milestones once per identity and removes the stored state when the identity is cleared', async () => {
+  it('does not reuse install, active-day, or milestone flags after the analytics identity changes', async () => {
     const storage = createActivationStorage();
     const activation = await import('../../../src/background/services/analyticsActivation');
     activation.configureActivationAnalyticsStorage(storage.local as never);
-    const trackEvent = vi.fn<() => Promise<boolean>>(() => Promise.resolve(true));
+    const trackInstall = vi.fn<() => Promise<boolean>>(() => Promise.resolve(true));
+    const trackDay = vi.fn<(params: { day_index_bucket: string }) => Promise<boolean>>(() =>
+      Promise.resolve(true)
+    );
+    const trackMilestone = vi.fn<() => Promise<boolean>>(() => Promise.resolve(true));
 
-    await activation.trackActivationMilestoneIfNeeded({
+    await activation.trackExtensionInstalledIfNeeded({
       clientId: 'client-1',
-      milestone: 'first_reader_exported',
-      trackEvent
+      trackEvent: trackInstall
+    });
+    await activation.trackActivationActiveDayIfNeeded({
+      clientId: 'client-1',
+      now: () => new Date('2026-06-18T10:00:00.000Z'),
+      trackEvent: trackDay
     });
     await activation.trackActivationMilestoneIfNeeded({
       clientId: 'client-1',
       milestone: 'first_reader_exported',
-      trackEvent
+      trackEvent: trackMilestone
     });
 
-    expect(trackEvent).toHaveBeenCalledTimes(1);
+    await activation.trackExtensionInstalledIfNeeded({
+      clientId: 'client-2',
+      trackEvent: trackInstall
+    });
+    await activation.trackActivationActiveDayIfNeeded({
+      clientId: 'client-2',
+      now: () => new Date('2026-06-18T10:00:00.000Z'),
+      trackEvent: trackDay
+    });
+    await activation.trackActivationMilestoneIfNeeded({
+      clientId: 'client-2',
+      milestone: 'first_reader_exported',
+      trackEvent: trackMilestone
+    });
 
-    await activation.reconcileActivationAnalyticsIdentity(undefined);
-
-    expect(storage.local.remove).toHaveBeenCalledWith('analytics_activation_state:client-1');
-    expect(storage.snapshot('analytics_activation_state:client-1')).toBeUndefined();
+    expect(trackInstall).toHaveBeenCalledTimes(2);
+    expect(trackDay).toHaveBeenNthCalledWith(1, { day_index_bucket: 'day_0' });
+    expect(trackDay).toHaveBeenNthCalledWith(2, { day_index_bucket: 'day_0' });
+    expect(trackMilestone).toHaveBeenCalledTimes(2);
+    expect(storage.local.remove).toHaveBeenCalledWith(ACTIVATION_STATE_KEY);
+    expect(storage.snapshot(ACTIVATION_STATE_KEY)).toMatchObject({
+      clientId: 'client-2',
+      firstConsentedActiveUtcDate: '2026-06-18',
+      lastEmittedActiveUtcDate: '2026-06-18',
+      emittedFlags: {
+        extension_installed: true,
+        first_reader_exported: true
+      }
+    });
   });
 });

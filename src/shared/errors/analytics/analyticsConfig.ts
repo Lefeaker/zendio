@@ -37,6 +37,7 @@ export const GA4_CONFIG = {
     CONFIG: 'analytics_config',
     CLIENT_ID: 'analytics_client_id',
     SESSION_ID: 'analytics_session_id',
+    ACTIVATION_STATE: 'analytics_activation_state',
     ANALYTICS_QUEUE: 'analytics_event_queue',
     ERROR_QUEUE: 'analytics_error_queue',
     LAST_REPORT_TIME: 'analytics_last_report_time'
