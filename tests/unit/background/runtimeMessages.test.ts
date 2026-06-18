@@ -23,6 +23,9 @@ const handleVaultConnectionTestMock = vi.hoisted(() =>
 const notifyClipFailureMock = vi.hoisted(() => vi.fn(() => Promise.resolve(undefined)));
 const notifyExtractionErrorMock = vi.hoisted(() => vi.fn(() => Promise.resolve(undefined)));
 const trackUsageEventMock = vi.hoisted(() => vi.fn(() => Promise.resolve(undefined)));
+const trackActivationMilestoneIfNeededMock = vi.hoisted(() =>
+  vi.fn(() => Promise.resolve(undefined))
+);
 const handleErrorMock = vi.hoisted(() => vi.fn(() => Promise.resolve(undefined)));
 const processClipPayloadMock = vi.hoisted(() =>
   vi.fn(() => Promise.resolve({ filePath: 'Video/example.md' }))
@@ -77,7 +80,8 @@ vi.mock('../../../src/background/services/notifications', () => ({
   notifyExtractionError: notifyExtractionErrorMock
 }));
 vi.mock('../../../src/background/services/analyticsEvents', () => ({
-  trackUsageEvent: trackUsageEventMock
+  trackUsageEvent: trackUsageEventMock,
+  trackActivationMilestoneIfNeeded: trackActivationMilestoneIfNeededMock
 }));
 vi.mock('../../../src/background/application/clipProcessor', () => ({
   processClipPayload: processClipPayloadMock,
@@ -399,6 +403,48 @@ describe('runtime message listener', () => {
       expect.any(Object)
     );
     expect(trackUsageEventMock).toHaveBeenCalledWith('support_like_clicked', { variant: 'first' });
+  });
+
+  it('maps onboarding and export success runtime events to activation milestones', async () => {
+    const { registerRuntimeMessageListener } =
+      await import('../../../src/background/listeners/runtimeMessages');
+    registerRuntimeMessageListener(createDependencies());
+
+    await listener?.(
+      {
+        type: 'ANALYTICS_EVENT',
+        event: 'onboarding_completed',
+        params: { duration_bucket: '3s_to_9s' }
+      },
+      { tabId: 12 }
+    );
+    await listener?.(
+      {
+        type: 'ANALYTICS_EVENT',
+        event: 'reader_exported',
+        params: { destination: 'downloads', duration_bucket: '3s_to_9s' }
+      },
+      { tabId: 12 }
+    );
+    await listener?.(
+      {
+        type: 'ANALYTICS_EVENT',
+        event: 'video_exported',
+        params: {
+          platform: 'bilibili',
+          destination: 'downloads',
+          duration_bucket: '3s_to_9s'
+        }
+      },
+      { tabId: 12 }
+    );
+
+    expect(trackActivationMilestoneIfNeededMock).toHaveBeenNthCalledWith(1, 'onboarding_completed');
+    expect(trackActivationMilestoneIfNeededMock).toHaveBeenNthCalledWith(
+      2,
+      'first_reader_exported'
+    );
+    expect(trackActivationMilestoneIfNeededMock).toHaveBeenNthCalledWith(3, 'first_video_exported');
   });
 
   it('keeps legacy analytics runtime message types accepted for one release boundary', async () => {

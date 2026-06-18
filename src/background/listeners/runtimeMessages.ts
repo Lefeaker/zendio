@@ -20,7 +20,7 @@ import {
   normalizeToAppError,
   notificationErrors
 } from '../../shared/errors';
-import { trackUsageEvent } from '../services/analyticsEvents';
+import { trackActivationMilestoneIfNeeded, trackUsageEvent } from '../services/analyticsEvents';
 import {
   processClipPayload,
   readClipProcessingFailureCategory
@@ -136,6 +136,21 @@ export interface RuntimeMessageListenerDependencies {
   handleVideoScreenshotCacheMessage: BackgroundVideoScreenshotCacheHandler;
 }
 
+function resolveActivationMilestone(
+  eventName: string
+): 'onboarding_completed' | 'first_reader_exported' | 'first_video_exported' | null {
+  switch (eventName) {
+    case 'onboarding_completed':
+      return 'onboarding_completed';
+    case 'reader_exported':
+      return 'first_reader_exported';
+    case 'video_exported':
+      return 'first_video_exported';
+    default:
+      return null;
+  }
+}
+
 export function createRuntimeMessageListenerDependencies(
   messaging: Pick<MessagingService, 'addListener'>,
   tabs: Pick<TabsService, 'create' | 'get' | 'sendMessage' | 'captureVisibleTab'>,
@@ -234,6 +249,10 @@ export function registerRuntimeMessageListener(
     // clip branch cannot swallow other payload shapes that also carry `event`.
     if (isTrackUsageEventMessage(message)) {
       await trackUsageEvent(message.event, message.params);
+      const activationMilestone = resolveActivationMilestone(message.event);
+      if (activationMilestone) {
+        void trackActivationMilestoneIfNeeded(activationMilestone);
+      }
       return;
     }
 

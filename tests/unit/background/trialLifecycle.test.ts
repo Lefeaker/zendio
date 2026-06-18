@@ -2,6 +2,14 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { asType, intervalId, partialOf, setGlobal } from '../../utils/typeHelpers';
 import type { StorageAreaService } from '../../../src/platform/interfaces/storage';
 
+const trackExtensionInstalledIfNeededMock = vi.hoisted(() =>
+  vi.fn(() => Promise.resolve(undefined))
+);
+
+vi.mock('../../../src/background/services/analyticsEvents', () => ({
+  trackExtensionInstalledIfNeeded: trackExtensionInstalledIfNeededMock
+}));
+
 function createStorageArea() {
   return {
     get: vi.fn(() => Promise.resolve(undefined)),
@@ -56,9 +64,34 @@ describe('trialLifecycle', () => {
 
     expect(fetchMock).toHaveBeenCalledWith('chrome-extension://test/trial-config.json');
     expect(initializeTrial).toHaveBeenCalledWith(14);
+    expect(trackExtensionInstalledIfNeededMock).toHaveBeenCalledTimes(1);
     expect(tabsCreate).toHaveBeenCalledWith({
       url: 'chrome-extension://test/onboarding/index.html'
     });
+  });
+
+  it('does not track an install event for update lifecycle reasons', async () => {
+    const { handleFirstInstall } = await import('../../../src/background/trialLifecycle');
+
+    await handleFirstInstall(
+      { reason: 'update' },
+      {
+        runtime: {
+          getURL: vi.fn((path: string) => `chrome-extension://test/${path}`),
+          onInstalled: vi.fn()
+        },
+        storage: {
+          local: createStorageArea()
+        },
+        tabs: {
+          create: vi.fn(() => Promise.resolve(undefined))
+        },
+        fetch: asType<typeof fetch>(vi.fn()),
+        initializeTrial: vi.fn(() => Promise.resolve(undefined))
+      }
+    );
+
+    expect(trackExtensionInstalledIfNeededMock).not.toHaveBeenCalled();
   });
 
   it('skips trial initialization when trial-config fetch returns a non-ok response', async () => {

@@ -12,7 +12,7 @@ import type {
   VaultStorageTarget
 } from '../services/obsidianWriter';
 import { recordClipUsage } from '../services/usageStats';
-import { trackUsageEvent } from '../services/analyticsEvents';
+import { trackActivationMilestoneIfNeeded, trackUsageEvent } from '../services/analyticsEvents';
 import type { ClipResultMessage } from '../../shared/types';
 import {
   bucketCount,
@@ -307,6 +307,7 @@ export async function processClipPayload(
         storage_target: 'downloads',
         duration_bucket: bucketDurationMs(Date.now() - startedAt)
       });
+      void trackActivationMilestoneIfNeeded('first_clip_saved');
       if (aiChatTelemetry) {
         trackClipTelemetryEvent('ai_chat_exported', {
           platform: aiChatTelemetry.platform,
@@ -393,6 +394,7 @@ export async function processClipPayload(
       storage_target: storageTarget,
       duration_bucket: bucketDurationMs(Date.now() - startedAt)
     });
+    void trackActivationMilestoneIfNeeded('first_clip_saved');
     if (aiChatTelemetry) {
       trackClipTelemetryEvent('ai_chat_exported', {
         platform: aiChatTelemetry.platform,

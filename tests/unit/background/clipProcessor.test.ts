@@ -14,6 +14,7 @@ const downloadMock = vi.fn();
 type TrackUsageEventMock = (eventName: string, params?: Record<string, unknown>) => Promise<void>;
 type TrackUsageEventCall = Parameters<TrackUsageEventMock>;
 const trackUsageEventMock = vi.fn<TrackUsageEventMock>();
+const trackActivationMilestoneIfNeededMock = vi.fn(() => Promise.resolve(undefined));
 const getServiceMock = vi.hoisted(() =>
   vi.fn(() => ({
     downloads: {
@@ -51,7 +52,8 @@ vi.mock('../../../src/background/services/usageStats', () => ({
 }));
 
 vi.mock('../../../src/background/services/analyticsEvents', () => ({
-  trackUsageEvent: trackUsageEventMock
+  trackUsageEvent: trackUsageEventMock,
+  trackActivationMilestoneIfNeeded: trackActivationMilestoneIfNeededMock
 }));
 
 vi.mock('../../../src/shared/di', () => ({
@@ -91,6 +93,7 @@ describe('clipProcessor', () => {
     recordUsageMock.mockReset();
     downloadMock.mockReset();
     trackUsageEventMock.mockReset();
+    trackActivationMilestoneIfNeededMock.mockReset();
     getServiceMock.mockReset();
     getServiceMock.mockReturnValue({
       downloads: {
@@ -688,6 +691,7 @@ describe('clipProcessor', () => {
       },
       ['duration_bucket', 'operation_id', 'storage_target']
     );
+    expect(trackActivationMilestoneIfNeededMock).toHaveBeenCalledWith('first_clip_saved');
     expectAnalyticsEvent(
       trackUsageEventMock.mock.calls[6],
       'ai_chat_exported',
