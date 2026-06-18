@@ -143,12 +143,7 @@ async function readActivationState(clientId: string): Promise<ActivationTrackerS
     return { clientId };
   }
 
-  return {
-    clientId,
-    firstConsentedActiveUtcDate: normalizeUtcDate(stored.firstConsentedActiveUtcDate),
-    lastEmittedActiveUtcDate: normalizeUtcDate(stored.lastEmittedActiveUtcDate),
-    emittedFlags: normalizeEmittedFlags(stored.emittedFlags)
-  };
+  return normalizeActivationState(clientId, stored);
 }
 
 async function writeActivationState(
@@ -181,16 +176,34 @@ async function readPersistedActivationState(): Promise<ActivationTrackerState | 
     return null;
   }
 
-  return {
-    clientId,
-    firstConsentedActiveUtcDate: normalizeUtcDate(stored.firstConsentedActiveUtcDate),
-    lastEmittedActiveUtcDate: normalizeUtcDate(stored.lastEmittedActiveUtcDate),
-    emittedFlags: normalizeEmittedFlags(stored.emittedFlags)
-  };
+  return normalizeActivationState(clientId, stored);
 }
 
 function buildActivationStorageKey(): string {
   return GA4_CONFIG.STORAGE_KEYS.ACTIVATION_STATE;
+}
+
+function normalizeActivationState(
+  clientId: string,
+  stored: ActivationTrackerState
+): ActivationTrackerState {
+  const state: ActivationTrackerState = { clientId };
+  const firstConsentedActiveUtcDate = normalizeUtcDate(stored.firstConsentedActiveUtcDate);
+  if (firstConsentedActiveUtcDate) {
+    state.firstConsentedActiveUtcDate = firstConsentedActiveUtcDate;
+  }
+
+  const lastEmittedActiveUtcDate = normalizeUtcDate(stored.lastEmittedActiveUtcDate);
+  if (lastEmittedActiveUtcDate) {
+    state.lastEmittedActiveUtcDate = lastEmittedActiveUtcDate;
+  }
+
+  const emittedFlags = normalizeEmittedFlags(stored.emittedFlags);
+  if (emittedFlags) {
+    state.emittedFlags = emittedFlags;
+  }
+
+  return state;
 }
 
 function normalizeUtcDate(value: unknown): string | undefined {

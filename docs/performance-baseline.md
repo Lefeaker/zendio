@@ -1,6 +1,6 @@
 # 性能优化与热点基线
 
-日期：2026-06-17
+日期：2026-06-18
 
 ## 1. 构建真值
 
@@ -58,6 +58,8 @@ npm run audit:build:report
 
 2026-06-17 video screenshot cache / English copy governance main integration 以 current `main` 的 English uncatalogued-copy hard gate 与 hybrid screenshot cache 分支的 IndexedDB Blob cache architecture 为合并基线，并重新采集 `build:fast`、`audit:build:report`、`build:dev`、`audit:build:report`、`audit:release-surface:report` 与 `audit:performance:report`。Fresh production build report 为 `content/runtime.js = 49,997` bytes、`onboarding/index.js = 10,023` bytes、`chunks = 104`；fresh dev build report 为 `content/runtime.js = 58,459` bytes（warning/hard `58,564 / 58,752`）、`onboarding/index.js = 17,566` bytes（warning/hard `17,377 / 17,633`）、`chunk count = 118`（warning/hard `108 / 118`）。当前 dev build 仅触发 onboarding 与 chunk count warning，没有超过 hard stop；本轮没有放宽 entry、single/shared chunk、locale chunk、YAML chunk size budget 或 existing line-budget hard gate。`audit:release-surface:report` 输出 `Files = 172`、forbidden harness members `none`、forbidden dev/test pseudo-locale members `none`；`audit:performance:report` 输出 sourceFiles=`811`、hotspotsOver250=`102`、registeredLineBudgets=`130`。新增 `src/content/video/videoSessionDraftScreenshotCache.ts <= 251` exact line budget 只覆盖本轮新发现的 >250 LOC helper hotspot。
 
+2026-06-18 GA telemetry production integration acceptance gap fix 复核重新采集 focused activation Vitest、`typecheck:strict`、`build:fast`、`audit:build:report`、`build:dev`、`audit:build:report`、`audit:release-surface:report` 与 `audit:performance:report`。本轮修复只收口 `exactOptionalPropertyTypes` 下 activation persisted optional fields 的 normalize 写回，并同步 GA integration 分支当前 >250 LOC hotspot exact budgets；没有提高 build hard stop、single/shared chunk、locale chunk、YAML chunk size budget 或 GA secret/release-surface gate。Fresh production build report 为 `content/runtime.js = 50,027` bytes、`onboarding/index.js = 10,023` bytes、`chunks = 104`；fresh dev build report 为 `content/runtime.js = 58,508` bytes（warning/hard `58,564 / 58,752`）、`onboarding/index.js = 17,566` bytes（warning/hard `17,377 / 17,633`）、`chunk count = 118`（warning/hard `108 / 118`）。当前 dev build 仅触发 onboarding 与 chunk count warning，没有超过 hard stop。`audit:release-surface:report` 输出 `Files = 173`、forbidden harness members `none`、forbidden dev/test pseudo-locale members `none`；`audit:performance:report` 输出 sourceFiles=`814`、hotspotsOver250=`108`、registeredLineBudgets=`136`。
+
 2026-06-16 i18n hardcoded follow-up build-budget risk reduction 将 AI chat runtime parser platform loaders 从 10 个 per-platform dynamic-import wrapper chunks 合并为一个 lazy `runtimePlatformParsers-*` boundary，并在 P3 follow-up 中切断 `aiChatExtractor.ts -> parse.ts -> registry.ts -> platform parsers` 静态路径。`build:dev` 后 `audit:build:report` 当前 dev chunk count 从 `120` 降至 `101`，chunk count gate 收紧为 warning target `108` / hard stop `118`；`aiChatExtractor-*` 静态 import 图不再包含 platform parser implementation markers，platform parsers 只通过 `runtimeRegistry-*` 动态加载唯一 `runtimePlatformParsers-*`。本次不改变 `content/runtime.js`、`onboarding/index.js`、single chunk、shared chunk、locale chunk 或 YAML size hard stops；`ru.generated-*` 与 shared Top 3 仍按 P15 current truth 继续观察。
 
 2026-06-17 English uncatalogued-copy P07 build-budget stabilization 将 generated schema catalog 从单一 `schemaMessages.generated.ts` 聚合模块拆为 `schemaCore.generated.ts` + `src/i18n/generated/schema/<locale>.generated.ts` per-locale chunks，并让 `@i18n/messages` 按语言动态加载 schema catalog。`build:dev` + `audit:build:report` 当前通过 hard gate：`content/runtime.js` raw `58,488` bytes、`onboarding/index.js` raw `17,377` bytes、chunk count `113`（warning `108` / hard stop `118`），最大 shared top three 为 `134.9 KB` / `132.0 KB` / `118.5 KB`；旧 `schemaMessages.generated.ts` `219.5 KB` shared chunk 不再出现。本次不提高 build hard stop；仅同步前序 Options/i18n 迁移后的 exact hotspot line budgets 与新增 `schemaCore.generated.ts <= 369` generated hotspot budget。
@@ -71,35 +73,35 @@ npm run audit:build:report
 当前 production fast build 真值：
 
 - `build/dist/content/index.js`: `561 B`
-- `build/dist/content/runtime.js`: `48.8 KB`（raw `49,997` bytes；warning target `58,564` raw bytes；hard stop `58,752` raw bytes）
+- `build/dist/content/runtime.js`: `48.9 KB`（raw `50,027` bytes；warning target `58,564` raw bytes；hard stop `58,752` raw bytes）
 - `build/dist/options/index.js`: `1.1 KB`
 - `build/dist/onboarding/index.js`: `9.8 KB`（raw `10,023` bytes；warning target `17,377` raw bytes；hard stop `17,633` raw bytes）
 - 总 chunk 数：`104`（warning target `108`；hard stop `118`）
-- `chunks/runtimeEntry-*.js`: `130.7 KB`
+- `chunks/runtimeEntry-*.js`: `130.4 KB`
 - `chunks/runtimePlatformParsers-*.js`: `25.7 KB`
-- `chunks/productionStitchAssets-*.js`: `59.3 KB`
-- `chunks/videoLazyRuntime-*.js`: `79.7 KB`
-- `chunks/videoSessionControllers-*.js`: `56.3 KB`
+- `chunks/productionStitchAssets-*.js`: `58.8 KB`
+- `chunks/videoLazyRuntime-*.js`: `75.6 KB`
+- `chunks/videoSessionControllers-*.js`: `57.7 KB`
 - `chunks/videoScreenshotPreparationQueue-*.js`: `14.8 KB`
 
 当前 dev build 真值：
 
 - `build/dist/content/index.js`: `561 B`
-- `build/dist/content/runtime.js`: `57.1 KB`（raw `58,459` bytes；warning target `58,564` raw bytes；hard stop `58,752` raw bytes）
+- `build/dist/content/runtime.js`: `57.1 KB`（raw `58,508` bytes；warning target `58,564` raw bytes；hard stop `58,752` raw bytes）
 - `build/dist/options/index.js`: `1.5 KB`
 - `build/dist/onboarding/index.js`: `17.2 KB`（raw `17,566` bytes；warning target `17,377` raw bytes；hard stop `17,633` raw bytes）
 - 总 chunk 数：`118`（warning target `108`；hard stop `118`）
-- `chunks/runtimeEntry-*.js`: `261.7 KB`
+- `chunks/runtimeEntry-*.js`: `261.9 KB`
 - `chunks/runtimePlatformParsers-*.js`: `54.2 KB`
-- `chunks/productionStitchAssets-*.js`: `117.8 KB`
-- `chunks/videoSessionControllers-*.js`: `105.8 KB`
+- `chunks/productionStitchAssets-*.js`: `116.5 KB`
+- `chunks/videoSessionControllers-*.js`: `108.5 KB`
 - `chunks/videoLazyRuntime-*.js`: `55.5 KB`
 - `chunks/videoScreenshotPreparationQueue-*.js`: `29.3 KB`
 
 当前 shared chunk Top 3（`chunk-*`，按 `tools/report-build-splitting.mjs` 口径，以 dev build 为更高值）：
 
 - 最大 shared chunk：`134.9 KB`（hard stop `213 KB`）
-- 第二大 shared chunk：`96.3 KB`（hard stop `136 KB`）
+- 第二大 shared chunk：`104.1 KB`（hard stop `136 KB`）
 - 第三大 shared chunk：`95.6 KB`（hard stop `133 KB`）
 
 当前重点功能 chunk：
@@ -136,15 +138,15 @@ npm run audit:performance:report
 
 当前热点摘要（完整 `src` >250 LOC 路径列表以 `tools/report-performance-hotspots.mjs` 为准）：
 
-- `src/options/stitch/content.ts`: `841` 行
+- `src/options/stitch/content.ts`: `831` 行
 - `src/i18n/generated/messages.generated.ts`: `1033` 行
-- `src/options/stitch/types.ts`: `759` 行
-- `src/content/video/videoSessionRuntime.ts`: `512` 行
-- `src/content/video/sessionOperations.ts`: `430` 行
+- `src/options/stitch/types.ts`: `767` 行
+- `src/content/video/videoSessionRuntime.ts`: `530` 行
+- `src/content/video/sessionOperations.ts`: `433` 行
 - `src/options/stitch/ui/components.ts`: `592` 行
 - `src/options/yaml-config-editor/view.ts`: `586` 行
 - `src/third_party/ai-chat-exporter/platforms/gemini.ts`: `576` 行
-- `src/content/reader/session.ts`: `703` 行
+- `src/content/reader/session.ts`: `748` 行
 - `src/onboarding/bootstrap.ts`: `585` 行
 - `src/background/pipelines/connectionTest.ts`: `697` 行
 - `src/content/video/videoScreenshotPreparationQueue.ts`: `401` 行
@@ -154,32 +156,38 @@ npm run audit:performance:report
 - `src/content/clipper/components/clipperDialogController.ts`: `511` 行
 - `src/content/reader/services/highlightManager.ts`: `505` 行
 - `src/options/app/productionStitchStateMapper.ts`: `506` 行
-- `src/options/app/productionStitchLocalization.ts`: `370` 行
+- `src/options/app/productionStitchLocalization.ts`: `352` 行
 - `src/shared/di/serviceRegistry.ts`: `496` 行
-- `src/shared/analytics/schema/analyticsSchema.ts`: `478` 行
+- `src/shared/analytics/schema/analyticsSchema.ts`: `527` 行
 - `src/options/stitch/schema/builders/surfaces.ts`: `542` 行
 - `src/ui/domains/video/VideoDialog.ts`: `468` 行
 - `src/content/video/videoPromptLifecycle.ts`: `490` 行
-- `src/content/stitch/runtimeSurfaceContent.ts`: `407` 行
-- `src/content/reader/sessionOperations.ts`: `716` 行
+- `src/content/stitch/runtimeSurfaceContent.ts`: `405` 行
+- `src/content/reader/sessionOperations.ts`: `839` 行
 - `src/content/reader/ui/ReaderDialogPanel.ts`: `384` 行
 - `src/content/sessionDrafts/sessionDraftRepository.ts`: `398` 行
-- `src/content/reader/sessionDrafts.ts`: `333` 行
-- `src/shared/errors/analytics/analyticsConfig.ts`: `368` 行
+- `src/content/reader/sessionDrafts.ts`: `440` 行
+- `src/shared/errors/analytics/analyticsConfig.ts`: `369` 行
 - `src/shared/errors/analytics/analyticsConfig.template.ts`: `364` 行
-- `src/background/listeners/runtimeMessages.ts`: `356` 行
+- `src/background/listeners/runtimeMessages.ts`: `375` 行
 - `src/background/services/videoScreenshotCacheIndexedDbStore.ts`: `331` 行
 - `src/content/video/videoSessionDraftScreenshotCache.ts`: `251` 行
 - `src/content/video/sessionPlatformController.ts`: `260` 行
 - `src/shared/errors/analytics/googleAnalyticsReporter.ts`: `260` 行
+- `src/background/services/analyticsEvents.ts`: `363` 行
+- `src/background/services/analyticsActivation.ts`: `265` 行
+- `src/shared/analytics/analyticsTransport.ts`: `265` 行
+- `src/content/video/videoCaptureMutationTransaction.ts`: `257` 行
+- `src/options/stitch/schema/surfaces/task-success.ts`: `276` 行
+- `src/content/ui/supportPrompt/SupportPromptToastController.ts`: `256` 行
 
 当前 hotspot line budget 口径：
 
-- 全部当前 `src` >250 LOC 文件均有 guarded line budget；2026-06-17 video screenshot cache / English copy governance main integration fresh `audit:performance:report` 输出 sourceFiles=`811`、hotspotsOver250=`102`、registeredLineBudgets=`130`，预算以 `tools/report-performance-hotspots.mjs` 为准。
+- 全部当前 `src` >250 LOC 文件均有 guarded line budget；2026-06-18 GA telemetry production integration acceptance fresh `audit:performance:report` 输出 sourceFiles=`814`、hotspotsOver250=`108`、registeredLineBudgets=`136`，预算以 `tools/report-performance-hotspots.mjs` 为准。
 - 2026-06-06 video screenshot attachment verification 已补齐 `src/shared/attachments/videoScreenshotAttachmentTemplates.ts <= 523` 与 `src/background/application/videoScreenshotAttachmentPlanner.ts <= 269`；2026-06-09 当前 performance coverage 见上一条。
-- 当前高信号热点实测：`stitch/content.ts = 841`、`messages.generated.ts = 1033`、`stitch/types.ts = 759`、`videoPromptLifecycle.ts = 490`、`runtimeSurfaceContent.ts = 407`、`videoSessionRuntime.ts = 512`、`videoSessionDraftController.ts = 310`、`videoScreenshotPreparationQueue.ts = 401`、`videoScreenshotPreparationRequestStore.ts = 294`、`videoScreenshotCacheRepository.ts = 423`、`videoScreenshotCacheIndexedDbStore.ts = 331`、`videoSessionDraftScreenshotCache.ts = 251`、`runtimeMessages.ts = 356`、`analyticsSchema.ts = 478`、`stitch/ui/components.ts = 592`、`yaml-config-editor/view.ts = 586`。`tools/report-performance-hotspots.mjs` 中的 line budgets 是当前 upper-bound hard gate；进一步收紧必须 standalone 通过后再同步。
+- 当前高信号热点实测：`stitch/content.ts = 831`、`messages.generated.ts = 1033`、`stitch/types.ts = 767`、`videoPromptLifecycle.ts = 490`、`runtimeSurfaceContent.ts = 405`、`videoSessionRuntime.ts = 530`、`videoSessionDraftController.ts = 401`、`videoScreenshotPreparationQueue.ts = 401`、`videoScreenshotPreparationRequestStore.ts = 294`、`videoScreenshotCacheRepository.ts = 423`、`videoScreenshotCacheIndexedDbStore.ts = 331`、`videoSessionDraftScreenshotCache.ts = 251`、`runtimeMessages.ts = 375`、`analyticsSchema.ts = 527`、`analyticsEvents.ts = 363`、`analyticsActivation.ts = 265`、`analyticsTransport.ts = 265`、`stitch/ui/components.ts = 592`、`yaml-config-editor/view.ts = 586`。`tools/report-performance-hotspots.mjs` 中的 line budgets 是当前 upper-bound hard gate；进一步收紧必须 standalone 通过后再同步。
 - M12/P01 current truth：`src/i18n/messages.ts` 已演进为 runtime/schema message split entrypoint；generated i18n 当前实测包括 `messages.generated.ts = 1033` 与 `schemaCore.generated.ts = 369`。Schema/options copy 仍通过 schema split 与 dynamic locale loading 避免重新压回 content/runtime locale chunks。
-- 当前业务/运行时/GA 重点实测：`videoSessionRuntime.ts = 512`、`videoSessionDraftController.ts = 310`、`videoScreenshotPreparationQueue.ts = 401`、`videoScreenshotPreparationRequestStore.ts = 294`、`videoScreenshotCacheRepository.ts = 423`、`videoScreenshotCacheIndexedDbStore.ts = 331`、`videoSessionDraftScreenshotCache.ts = 251`、`videoCaptureMutationTransaction.ts = 245`、`VideoDialogPanel.ts = 425`、`videoControlBarButton.ts = 299`、`sessionDraftRepository.ts = 398`、`runtimeMessages.ts = 356`、`bilibiliRichText.ts = 302`、`bilibiliPlatformObserver.ts = 286`、`markdownBuilder.ts = 288`、`PrivacySettingsView.ts = 255`、`yaml-config-editor/rowModel.ts = 254`、`analyticsSchema.ts = 478`、`eventCatalog.ts = 78`、`analyticsSanitizers.ts = 95`、`analyticsConfig.ts = 368`、`analyticsConfig.template.ts = 364`、`googleAnalyticsReporter.ts = 260`。
+- 当前业务/运行时/GA 重点实测：`videoSessionRuntime.ts = 530`、`videoSessionDraftController.ts = 401`、`videoScreenshotPreparationQueue.ts = 401`、`videoScreenshotPreparationRequestStore.ts = 294`、`videoScreenshotCacheRepository.ts = 423`、`videoScreenshotCacheIndexedDbStore.ts = 331`、`videoSessionDraftScreenshotCache.ts = 251`、`videoCaptureMutationTransaction.ts = 257`、`VideoDialogPanel.ts = 425`、`videoControlBarButton.ts = 299`、`sessionDraftRepository.ts = 398`、`runtimeMessages.ts = 375`、`bilibiliRichText.ts = 302`、`bilibiliPlatformObserver.ts = 286`、`markdownBuilder.ts = 288`、`PrivacySettingsView.ts = 255`、`yaml-config-editor/rowModel.ts = 254`、`analyticsSchema.ts = 527`、`analyticsEvents.ts = 363`、`analyticsActivation.ts = 265`、`analyticsTransport.ts = 265`、`eventCatalog.ts = 78`、`analyticsSanitizers.ts = 95`、`analyticsConfig.ts = 369`、`analyticsConfig.template.ts = 364`、`googleAnalyticsReporter.ts = 260`。
 - P09 hybrid-cache support files 当前实测：`src/content/video/videoScreenshotCacheStore.ts = 97`、`src/content/video/videoScreenshotEncoding.ts = 152`、`src/content/video/videoSessionDraftScreenshotCache.ts = 251`、`src/background/services/videoScreenshotCacheIndexedDbStore.ts = 331`、`tests/e2e/utils/videoScreenshotCacheIndexedDb.ts = 220`。`videoScreenshotCacheIndexedDbStore.ts` 与 `videoSessionDraftScreenshotCache.ts` 已进入 guarded hotspot，并分别由 `tools/report-performance-hotspots.mjs` 的 `<= 335` / `<= 251` 预算约束；其余路径仍低于新增 hard budget 阈值。
 - 2026-06-01 YAML i18n repair only raised release-locale line budgets by the exact newly added YAML field error/save-blocked message keys; runtime owner budgets are tracked by `tools/report-performance-hotspots.mjs` and must not be loosened without fresh evidence.
 
@@ -188,7 +196,7 @@ npm run audit:performance:report
 - `productionStitchShellMount.ts` 已从 `427` 行拆到 `254` 行，并在 M5.3 将预算收紧到 `<= 254`。
 - `usageChartRenderers.ts` 已从 `407` 行拆到 `23` 行；当前已低于 >250 LOC line-budget 覆盖阈值，不再作为 M5.3 line-budget 路径。
 - Markdown/parser decomposition 将 `markdown.ts` 从 `441` 行拆到 `138` 行，将 `markdownRules.ts` 从 `335` 行拆到 `120` 行；二者目前由 parser characterization tests 保护，不在 hotspot budget 表中单独设 gate。
-- `videoSessionRuntime` 当前为 `512` 行，`videoScreenshotPreparationQueue` 当前为 `401` 行，`videoScreenshotPreparationRequestStore` 当前为 `294` 行；P10 final integration 通过 `videoScreenshotPreparationCoordinator.ts` 将截图准备队列改为 lazy split，最终集成又把请求状态从 coordinator 拆出以消除 dependency-cruiser 循环。session-draft P08 final integration 已把 `video/sessionOperations`、`reader/session`、`reader/sessionOperations`、`ReaderDialogPanel`、`sessionDraftRepository`、`reader/sessionDrafts`、`runtimeMessages` 与 `sessionPlatformController` 纳入 line-budget 观察项；本轮 hybrid-cache integration 另外补齐 `videoSessionDraftScreenshotCache.ts <= 251`。
+- `videoSessionRuntime` 当前为 `530` 行，`videoScreenshotPreparationQueue` 当前为 `401` 行，`videoScreenshotPreparationRequestStore` 当前为 `294` 行；P10 final integration 通过 `videoScreenshotPreparationCoordinator.ts` 将截图准备队列改为 lazy split，最终集成又把请求状态从 coordinator 拆出以消除 dependency-cruiser 循环。session-draft P08 final integration 已把 `video/sessionOperations`、`reader/session`、`reader/sessionOperations`、`ReaderDialogPanel`、`sessionDraftRepository`、`reader/sessionDrafts`、`runtimeMessages` 与 `sessionPlatformController` 纳入 line-budget 观察项；本轮 hybrid-cache integration 另外补齐 `videoSessionDraftScreenshotCache.ts <= 251`。
 - `runtimeEntry` 在 M2.1-M2.4 后仍是最大 lazy/runtime chunk；本轮只收紧通用 max chunk/shared chunk 预算，不为 `runtimeEntry` 单独设置更紧命名 gate。
 
 ## 3. 浏览器验真

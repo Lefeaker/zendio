@@ -17,7 +17,10 @@ function createActivationStorage() {
         keys.forEach((entry) => values.delete(entry));
       })
     },
-    snapshot: (key: string) => values.get(key)
+    snapshot: (key: string) => values.get(key),
+    setRaw: (key: string, value: ActivationStorageValue) => {
+      values.set(key, structuredClone(value) as ActivationStorageValue);
+    }
   };
 }
 
@@ -132,6 +135,36 @@ describe('analyticsActivation', () => {
       lastEmittedActiveUtcDate: '2026-06-18',
       emittedFlags: {
         extension_installed: true,
+        first_reader_exported: true
+      }
+    });
+  });
+
+  it('normalizes invalid optional persisted fields before writing activation flags', async () => {
+    const storage = createActivationStorage();
+    storage.setRaw(ACTIVATION_STATE_KEY, {
+      clientId: 'client-1',
+      firstConsentedActiveUtcDate: 'not-a-date',
+      lastEmittedActiveUtcDate: 42,
+      emittedFlags: {
+        extension_installed: false,
+        first_clip_saved: true
+      }
+    });
+    const activation = await import('../../../src/background/services/analyticsActivation');
+    activation.configureActivationAnalyticsStorage(storage.local as never);
+    const trackEvent = vi.fn<() => Promise<boolean>>(() => Promise.resolve(true));
+
+    await activation.trackActivationMilestoneIfNeeded({
+      clientId: 'client-1',
+      milestone: 'first_reader_exported',
+      trackEvent
+    });
+
+    expect(storage.snapshot(ACTIVATION_STATE_KEY)).toEqual({
+      clientId: 'client-1',
+      emittedFlags: {
+        first_clip_saved: true,
         first_reader_exported: true
       }
     });
