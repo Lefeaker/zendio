@@ -136,7 +136,7 @@ export function createLocalVaultPermissionPrompt(params: {
           ].join(';');
           overlay.appendChild(frame);
 
-          const handleMessage = (event: MessageEvent): void => {
+          const handleMessage = (event: MessageEvent<object | null | undefined>): void => {
             if (event.origin !== extensionOrigin || event.source !== frame.contentWindow) {
               return;
             }

@@ -8,13 +8,15 @@ function createActivationStorage() {
 
   return {
     local: {
-      get: vi.fn(async <T>(key: string) => values.get(key) as T | undefined),
-      set: vi.fn(async <T>(key: string, value: T) => {
+      get: vi.fn(<T>(key: string) => Promise.resolve(values.get(key) as T | undefined)),
+      set: vi.fn(<T>(key: string, value: T) => {
         values.set(key, structuredClone(value) as ActivationStorageValue);
+        return Promise.resolve();
       }),
-      remove: vi.fn(async (key: string | string[]) => {
+      remove: vi.fn((key: string | string[]) => {
         const keys = Array.isArray(key) ? key : [key];
         keys.forEach((entry) => values.delete(entry));
+        return Promise.resolve();
       })
     },
     snapshot: (key: string) => values.get(key),

@@ -317,15 +317,17 @@ describe('clipFlow support progress', () => {
       'failure_category',
       'operation_id'
     ]);
-    expect(send).toHaveBeenCalledWith(
-      expect.objectContaining({
-        type: 'CLIP_ERROR',
-        error: expect.objectContaining({
-          code: 'CONTENT_CLIP_FAILURE',
-          domain: 'content'
-        })
-      })
-    );
+    const clipErrorMessage = send.mock.calls
+      .map(([message]) => message)
+      .find((message) => hasMessageType(message, 'CLIP_ERROR'));
+    expect(clipErrorMessage).toEqual(expect.objectContaining({ type: 'CLIP_ERROR' }));
+    if (!isRecord(clipErrorMessage) || !isRecord(clipErrorMessage.error)) {
+      throw new Error('expected clip error payload');
+    }
+    expect(clipErrorMessage.error).toMatchObject({
+      code: 'CONTENT_CLIP_FAILURE',
+      domain: 'content'
+    });
     expectPrivacySafeAnalytics(trackEvents);
   });
 

@@ -432,11 +432,12 @@ describe('VideoSessionDraftController', () => {
       expect.objectContaining({
         capture_count_bucket: 'one',
         screenshot_count_bucket: 'one',
-        outcome: 'completed',
-        duration_bucket: expect.any(String)
+        outcome: 'completed'
       })
     );
-    const payload = JSON.stringify(readDraftRestoreTelemetryPayload(trackDraftRestoreEvent));
+    const draftRestorePayload = readDraftRestoreTelemetryPayload(trackDraftRestoreEvent);
+    expect(draftRestorePayload.duration_bucket).toEqual(expect.any(String));
+    const payload = JSON.stringify(draftRestorePayload);
     expect(payload).not.toContain('https://video.example');
     expect(payload).not.toContain('restored note');
     expect(payload).not.toContain('draft note');
