@@ -2,13 +2,23 @@ import type { VideoCapture } from './types';
 import type { VideoSessionDraftControllerOptions } from './videoSessionRuntimePorts';
 import { restoreVideoDraftCachedScreenshots } from './videoSessionDraftScreenshotCache';
 
+export interface RestoredVideoDraftScreenshotHydrationSettledResult {
+  isCurrent: boolean;
+  hydratedCount: number;
+  invalidRefCount: number;
+  staleRefCount: number;
+  failedCount: number;
+}
+
 interface RestoredVideoDraftScreenshotHydrationArgs {
   captures: VideoCapture[];
   screenshotCache: VideoSessionDraftControllerOptions['screenshotCache'];
   isCurrent: () => boolean;
   onScreenshotHydrationStart?: (() => void) | undefined;
   onScreenshotHydrationChange?: (() => void) | undefined;
-  onScreenshotHydrationSettled?: ((result: { isCurrent: boolean }) => void) | undefined;
+  onScreenshotHydrationSettled?:
+    | ((result: RestoredVideoDraftScreenshotHydrationSettledResult) => void)
+    | undefined;
   scheduleSave: () => Promise<void>;
 }
 
@@ -29,8 +39,15 @@ async function hydrateRestoredScreenshots({
   scheduleSave
 }: RestoredVideoDraftScreenshotHydrationArgs): Promise<void> {
   let isHydrationCurrent = false;
+  let settledResult: Omit<RestoredVideoDraftScreenshotHydrationSettledResult, 'isCurrent'> = {
+    hydratedCount: 0,
+    invalidRefCount: 0,
+    staleRefCount: 0,
+    failedCount: 0
+  };
   try {
     const result = await restoreVideoDraftCachedScreenshots(captures, screenshotCache);
+    settledResult = result;
     isHydrationCurrent = isCurrent();
     if (!isHydrationCurrent) {
       return;
@@ -49,6 +66,9 @@ async function hydrateRestoredScreenshots({
       });
     }
   } finally {
-    onScreenshotHydrationSettled?.({ isCurrent: isHydrationCurrent });
+    onScreenshotHydrationSettled?.({
+      isCurrent: isHydrationCurrent,
+      ...settledResult
+    });
   }
 }

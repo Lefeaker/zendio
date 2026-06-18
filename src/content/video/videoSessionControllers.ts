@@ -22,6 +22,7 @@ import type {
   VideoScreenshotCacheRepository,
   VideoScreenshotCacheSaveResult
 } from './videoScreenshotCacheRepository';
+import { emitVideoUsageEvent } from './videoCaptureMutationTransaction';
 
 export interface VideoSessionControllers {
   fragmentHighlighter: FragmentHighlighter;
@@ -180,6 +181,8 @@ export function createVideoSessionControllers(args: {
     storageArea: dependencies.storage.local,
     screenshotCache,
     dom,
+    trackDraftRestoreEvent: (params) =>
+      emitVideoUsageEvent(dependencies, 'video_draft_restored', params),
     onScreenshotHydrationStart: onDraftScreenshotHydrationStart,
     onScreenshotHydrationChange: onDraftScreenshotHydrated,
     onScreenshotHydrationSettled: onDraftScreenshotHydrationSettled,
