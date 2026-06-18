@@ -90,11 +90,7 @@ test.describe('Stitch task success surface layout', () => {
       throw new Error('missing task success header rect');
     }
     expect(Math.abs(rect.width - headerRect.width)).toBeLessThanOrEqual(4);
-    if (viewport.width >= 640) {
-      expect(rect.width).toBeLessThan(viewport.width * 0.62);
-    } else {
-      expect(rect.width).toBeLessThanOrEqual(viewport.width - 16);
-    }
+    expect(rect.width).toBeLessThanOrEqual(Math.min(520, viewport.width - 16));
     expect(rect.x + rect.width).toBeGreaterThan(viewport.width - 48);
     expect(rect.y + rect.height).toBeGreaterThan(viewport.height - 48);
 
