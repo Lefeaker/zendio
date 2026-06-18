@@ -105,6 +105,7 @@ const ENGLISH_SENTINEL_MESSAGES = {
   schemaResourceSuggestionsRedditTitle: 'Suggestions Reddit Title Sentinel',
   schemaResourceSuggestionsRedditDescription: ' or ',
   schemaResourceSuggestionsXiaohongshuDescription: ' Suggestions Body Suffix Sentinel',
+  schemaResourceSuggestionsXiaohongshuQrCaption: 'Xiaohongshu QR Caption Sentinel',
   schemaResourceSuggestionsXiaohongshuTitle: 'Suggestions Xiaohongshu Title Sentinel',
   schemaResourceContactTitle: 'Contact Title Sentinel',
   schemaResourceContactHint: 'Contact Hint Sentinel',
@@ -422,11 +423,21 @@ describe('mountProductionStitchShell resource i18n', () => {
     expect(xiaohongshuLink?.getAttribute('type')).toBe('button');
     expect(xiaohongshuLink?.hasAttribute('href')).toBe(false);
     expect(xiaohongshuLink?.hasAttribute('target')).toBe(false);
+    const xiaohongshuPopoverHost = xiaohongshuLink?.closest<HTMLElement>(
+      '.resource-inline-popover-host'
+    );
+    expect(xiaohongshuPopoverHost).toBeTruthy();
     expect(
-      xiaohongshuLink
-        ?.querySelector<HTMLImageElement>('img.resource-inline-popover-media')
+      xiaohongshuPopoverHost
+        ?.querySelector<HTMLImageElement>(
+          '.resource-inline-popover img.resource-inline-popover-media'
+        )
         ?.getAttribute('src')
     ).toBe('https://sxnian.com/products/zendio/xiaohongshu-feedback.jpg');
+    expect(
+      xiaohongshuPopoverHost?.querySelector<HTMLElement>('.resource-inline-popover-caption')
+        ?.textContent
+    ).toBe('Xiaohongshu QR Caption Sentinel');
     expect(
       suggestions.querySelector<HTMLAnchorElement>('a[href="mailto:zendio@sxnian.com"]')
     ).toBeTruthy();

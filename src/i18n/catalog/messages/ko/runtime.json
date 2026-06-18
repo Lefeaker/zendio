@@ -361,6 +361,7 @@
   "supportPromptDislikeToastTitle": "피드백을 공유해 주세요",
   "supportPromptDislikeRedditLinkLabel": "Reddit",
   "supportPromptDislikeQrLinkLabel": "샤오홍슈",
+  "supportPromptDislikeQrCaption": "使用小红书扫码入群",
   "supportPromptDislikeQrPlaceholder": "QR 코드를 사용할 수 없음",
   "clipDialogTitle": "선택 항목 클립",
   "clipDialogInstructions": "Tab을 사용하여 컨트롤 간에 이동하세요. Alt + 화살표 키를 눌러 대화상자를 재배치하세요.",

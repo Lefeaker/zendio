@@ -361,6 +361,7 @@
   "supportPromptDislikeToastTitle": "分享您的回饋",
   "supportPromptDislikeRedditLinkLabel": "Reddit",
   "supportPromptDislikeQrLinkLabel": "小紅書",
+  "supportPromptDislikeQrCaption": "使用小红书扫码入群",
   "supportPromptDislikeQrPlaceholder": "QR code 暫不可用",
   "clipDialogTitle": "剪藏選取內容",
   "clipDialogInstructions": "使用 Tab 在控制項間導航。按 Alt + 方向鍵重新定位對話框。",

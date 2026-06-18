@@ -170,6 +170,22 @@ describe('Stitch runtime polish CSS contracts', () => {
     expect(stitchCss).not.toMatch(/\.resource-inline-popover-media\s*{[^}]*filter:/);
   });
 
+  it('keeps QR popovers readable above modal chrome with the requested Xiaohongshu sizing', () => {
+    expect(stitchCss).toContain('.resource-inline-popover-host');
+    expect(stitchCss).toMatch(
+      /\.resource-inline-popover\s*{[^}]*position:\s*fixed;[^}]*z-index:\s*2147483646;/
+    );
+    expect(stitchCss).toContain('.resource-modal:has(.resource-inline-popover-host:hover),');
+    expect(stitchCss).toContain(
+      '.resource-modal-body:has(.resource-inline-popover-host:focus-within)'
+    );
+    expect(stitchCss).toContain('.resource-inline-popover-caption');
+    expect(stitchCss).toContain('.prompt-toast .support-prompt-reward-qr-caption');
+    expect(stitchCss).toMatch(
+      /\.support-prompt-toast\.reward-qr--xiaohongshu\s*{[^}]*width:\s*min\(calc\(var\(--toast-max-width\)\s*\/\s*2\),\s*calc\(100vw\s+-\s+var\(--space-16\)\)\);[^}]*max-width:\s*calc\(var\(--toast-max-width\)\s*\/\s*2\);/
+    );
+  });
+
   it('lets the onboarding document scroll and uses the Stitch page layout', () => {
     expect(stitchCss).toContain("html[data-route='onboarding'],");
     expect(stitchCss).toContain("body[data-route='onboarding']");

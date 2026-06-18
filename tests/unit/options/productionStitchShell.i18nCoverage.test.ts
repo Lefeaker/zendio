@@ -338,6 +338,7 @@ describe('mountProductionStitchShell English residual coverage', () => {
     });
 
     const failures: string[] = [];
+    const allowedResourceChinesePhrases = [messages.schemaResourceSuggestionsXiaohongshuQrCaption];
 
     for (const resourceId of RESOURCE_MODAL_IDS) {
       queryRequired<HTMLButtonElement>(`[data-footer-panel="${resourceId}"]`).click();
@@ -345,7 +346,7 @@ describe('mountProductionStitchShell English residual coverage', () => {
 
       const modal = queryRequired<HTMLElement>('.resource-modal-overlay');
       try {
-        expectNoChineseSettingsCopy(modal);
+        expectNoChineseSettingsCopy(modal, { allowedPhrases: allowedResourceChinesePhrases });
       } catch (error) {
         failures.push(`Resource ${resourceId}: ${getErrorMessage(error)}`);
       }
@@ -360,7 +361,7 @@ describe('mountProductionStitchShell English residual coverage', () => {
 
       const modal = queryRequired<HTMLElement>('.resource-modal-overlay');
       try {
-        expectNoChineseSettingsCopy(modal);
+        expectNoChineseSettingsCopy(modal, { allowedPhrases: allowedResourceChinesePhrases });
       } catch (error) {
         failures.push(`Resource ${resourceId}: ${getErrorMessage(error)}`);
       }
@@ -550,11 +551,21 @@ describe('mountProductionStitchShell English residual coverage', () => {
     expect(xiaohongshuTrigger).toBeTruthy();
     expect(xiaohongshuTrigger?.hasAttribute('href')).toBe(false);
     expect(xiaohongshuTrigger?.hasAttribute('target')).toBe(false);
+    const xiaohongshuPopoverHost = xiaohongshuTrigger?.closest<HTMLElement>(
+      '.resource-inline-popover-host'
+    );
+    expect(xiaohongshuPopoverHost).toBeTruthy();
     expect(
-      xiaohongshuTrigger
-        ?.querySelector<HTMLImageElement>('img.resource-inline-popover-media')
+      xiaohongshuPopoverHost
+        ?.querySelector<HTMLImageElement>(
+          '.resource-inline-popover img.resource-inline-popover-media'
+        )
         ?.getAttribute('src')
     ).toBe('https://sxnian.com/products/zendio/xiaohongshu-feedback.jpg');
+    expect(
+      xiaohongshuPopoverHost?.querySelector<HTMLElement>('.resource-inline-popover-caption')
+        ?.textContent
+    ).toBe(DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaResourceSuggestionsXiaohongshuQrCaption);
     expect(
       suggestions.querySelector<HTMLAnchorElement>('a[href="mailto:zendio@sxnian.com"]')
     ).toBeTruthy();

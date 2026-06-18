@@ -329,18 +329,23 @@ html[data-preview-theme='dark'] .resource-link-icon[src$='.svg'] {
   text-decoration: underline;
 }
 
-.resource-inline-popover-trigger {
+.resource-inline-popover-host {
   position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
+.resource-inline-popover-trigger {
   display: inline-flex;
   align-items: center;
   outline: 0;
 }
 
 .resource-inline-popover {
-  position: absolute;
+  position: fixed;
   left: 50%;
-  bottom: calc(100% + var(--space-4));
-  z-index: calc(var(--z-modal) + 2);
+  top: 50%;
+  z-index: 2147483646;
   width: min(300px, calc(100vw - var(--space-12)));
   padding: var(--space-4);
   border: var(--border-default);
@@ -349,19 +354,25 @@ html[data-preview-theme='dark'] .resource-link-icon[src$='.svg'] {
   box-shadow: var(--shadow-xl);
   opacity: 0;
   pointer-events: none;
-  transform: translateX(-50%) translateY(6px);
+  transform: translate(-50%, calc(-50% + 6px));
   transition:
     opacity var(--motion-fast) var(--ease-standard),
     transform var(--motion-fast) var(--ease-standard);
   visibility: hidden;
 }
 
-.resource-inline-popover-trigger:hover .resource-inline-popover,
-.resource-inline-popover-trigger:focus .resource-inline-popover,
-.resource-inline-popover-trigger:focus-within .resource-inline-popover {
+.resource-modal:has(.resource-inline-popover-host:hover),
+.resource-modal:has(.resource-inline-popover-host:focus-within),
+.resource-modal-body:has(.resource-inline-popover-host:hover),
+.resource-modal-body:has(.resource-inline-popover-host:focus-within) {
+  overflow: visible;
+}
+
+.resource-inline-popover-host:hover .resource-inline-popover,
+.resource-inline-popover-host:focus-within .resource-inline-popover {
   opacity: 1;
   pointer-events: auto;
-  transform: translateX(-50%) translateY(0);
+  transform: translate(-50%, -50%);
   visibility: visible;
 }
 
@@ -371,6 +382,16 @@ html[data-preview-theme='dark'] .resource-link-icon[src$='.svg'] {
   aspect-ratio: 1;
   object-fit: contain;
   border-radius: var(--radius-md);
+}
+
+.resource-inline-popover-caption {
+  display: block;
+  margin-top: var(--space-3);
+  color: #18181b;
+  font-size: var(--font-size-sm);
+  font-weight: 650;
+  line-height: var(--line-height-label);
+  text-align: center;
 }
 
 .step-header-inline,

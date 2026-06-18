@@ -361,6 +361,7 @@
   "supportPromptDislikeToastTitle": "反馈问题",
   "supportPromptDislikeRedditLinkLabel": "Reddit",
   "supportPromptDislikeQrLinkLabel": "小红书",
+  "supportPromptDislikeQrCaption": "使用小红书扫码入群",
   "supportPromptDislikeQrPlaceholder": "二维码暂不可用",
   "clipDialogTitle": "剪藏选中内容",
   "clipDialogInstructions": "使用 Tab 键在控件间移动，按下 Alt + 方向键可移动对话框。",

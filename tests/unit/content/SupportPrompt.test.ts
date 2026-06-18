@@ -82,6 +82,7 @@ const getContentMessagesMock = vi.hoisted(() =>
       supportPromptDislikeToastTitle: 'Share feedback',
       supportPromptDislikeRedditLinkLabel: 'Reddit',
       supportPromptDislikeQrLinkLabel: '小红书',
+      supportPromptDislikeQrCaption: '使用小红书扫码入群',
       supportPromptDislikeQrPlaceholder: 'QR soon'
     })
   )
@@ -510,6 +511,11 @@ describe('SupportPrompt', () => {
 
     const qrToast = getToastShadow().querySelector<HTMLElement>('.support-prompt-toast.reward-qr');
     expect(qrToast).toBeTruthy();
+    expect(qrToast?.classList.contains('reward-qr--xiaohongshu')).toBe(true);
+    expect(
+      qrToast?.querySelector<HTMLElement>('[data-role="xiaohongshu-feedback-qr-caption"]')
+        ?.textContent
+    ).toBe('使用小红书扫码入群');
     expect(
       qrToast
         ?.querySelector<HTMLImageElement>('[data-role="xiaohongshu-feedback-qr-image"]')

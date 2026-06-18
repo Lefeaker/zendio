@@ -361,6 +361,7 @@
   "supportPromptDislikeToastTitle": "フィードバックをお寄せください",
   "supportPromptDislikeRedditLinkLabel": "Reddit",
   "supportPromptDislikeQrLinkLabel": "小紅書",
+  "supportPromptDislikeQrCaption": "使用小红书扫码入群",
   "supportPromptDislikeQrPlaceholder": "QR コードを利用できません",
   "clipDialogTitle": "選択範囲をクリップ",
   "clipDialogInstructions": "Tab キーで操作間を移動し、Alt + 矢印キーでダイアログを移動します。",

@@ -10,6 +10,9 @@ interface RewardQrToastOptions {
   imageSrc: string;
   imageAlt?: string | undefined;
   imageRole?: string | undefined;
+  caption?: string | undefined;
+  captionRole?: string | undefined;
+  channel?: 'wechat-reward' | 'xiaohongshu-feedback' | undefined;
 }
 
 interface ShowToastOptions {
@@ -22,7 +25,7 @@ interface SupportPromptToastControllerOptions {
   onReviewLinkClick: (variant?: LikeToastVariant) => Promise<void>;
   onReviewAcknowledgedClick: (variant?: LikeToastVariant) => Promise<void>;
   onDislikeRedditClick: () => void;
-  onDislikeXiaohongshuClick: (imageAlt: string) => void;
+  onDislikeXiaohongshuClick: (image: { imageAlt: string; caption: string }) => void;
   onGitHubFeedbackClick: () => void;
   onLikeToastShown: (variant: LikeToastVariant) => void;
   onDislikeToastShown: () => void;
@@ -131,7 +134,10 @@ export class SupportPromptToastController {
     xiaohongshuButton.textContent = messages.dislikeQrLinkLabel;
     xiaohongshuButton.addEventListener('click', (event) => {
       event.preventDefault();
-      this.options.onDislikeXiaohongshuClick(messages.dislikeQrLinkLabel);
+      this.options.onDislikeXiaohongshuClick({
+        imageAlt: messages.dislikeQrLinkLabel,
+        caption: messages.dislikeQrCaption
+      });
     });
     links.appendChild(xiaohongshuButton);
 
@@ -153,8 +159,18 @@ export class SupportPromptToastController {
     this.options.onDislikeToastShown();
   }
 
-  showRewardQrToast({ imageSrc, imageAlt, imageRole }: RewardQrToastOptions): void {
+  showRewardQrToast({
+    imageSrc,
+    imageAlt,
+    imageRole,
+    caption,
+    captionRole,
+    channel
+  }: RewardQrToastOptions): void {
     const toast = this.createBaseToast('reward-qr');
+    if (channel === 'xiaohongshu-feedback') {
+      toast.classList.add('reward-qr--xiaohongshu');
+    }
     toast.setAttribute('role', 'dialog');
     toast.setAttribute('aria-modal', 'false');
     toast.setAttribute('aria-label', imageAlt ?? 'WeChat reward code');
@@ -165,6 +181,16 @@ export class SupportPromptToastController {
     image.src = imageSrc;
     image.alt = imageAlt ?? 'WeChat reward code';
     toast.appendChild(image);
+
+    if (caption) {
+      const captionLine = this.options.doc.createElement('span');
+      captionLine.className = 'support-prompt-reward-qr-caption';
+      if (captionRole) {
+        captionLine.dataset.role = captionRole;
+      }
+      captionLine.textContent = caption;
+      toast.appendChild(captionLine);
+    }
 
     this.showToast(toast, 'reward-qr', { autoDismiss: false });
   }

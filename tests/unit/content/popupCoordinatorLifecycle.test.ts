@@ -94,6 +94,7 @@ const getContentMessagesMock = vi.hoisted(() =>
       supportPromptDislikeToastTitle: 'Share feedback',
       supportPromptDislikeRedditLinkLabel: 'Reddit',
       supportPromptDislikeQrLinkLabel: '小红书',
+      supportPromptDislikeQrCaption: '使用小红书扫码入群',
       supportPromptDislikeQrPlaceholder: 'QR soon'
     })
   )

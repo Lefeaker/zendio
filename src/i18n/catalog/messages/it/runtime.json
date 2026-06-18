@@ -361,6 +361,7 @@
   "supportPromptDislikeToastTitle": "Condividi il tuo feedback",
   "supportPromptDislikeRedditLinkLabel": "Reddit",
   "supportPromptDislikeQrLinkLabel": "Xiaohongshu",
+  "supportPromptDislikeQrCaption": "使用小红书扫码入群",
   "supportPromptDislikeQrPlaceholder": "QR code unavailable",
   "clipDialogTitle": "Clip selezione",
   "clipDialogInstructions": "Usa Tab per navigare tra i controlli. Premi Alt + tasti freccia per riposizionare il dialogo.",
