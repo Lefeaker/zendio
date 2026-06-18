@@ -234,7 +234,7 @@ describe('Stitch runtime polish CSS contracts', () => {
 
   it('keeps localized Options layouts inside the viewport and constrains diagnostics output', () => {
     expect(stitchCss).toMatch(
-      /\.shell\s*{[^}]*min-width:\s*0;[^}]*max-width:\s*calc\(100vw\s+-\s+var\(--sidebar-width\)\);/
+      /\.shell\s*{[^}]*min-width:\s*0;[^}]*max-width:\s*calc\(100vw\s+-\s+var\(--shell-sidebar-width\)\);/
     );
     expect(stitchCss).toMatch(/\.main\s*{[^}]*overflow-x:\s*hidden;/);
     expect(stitchCss).toMatch(/\.content\s*{[^}]*width:\s*100%;[^}]*min-width:\s*0;/);
@@ -250,6 +250,34 @@ describe('Stitch runtime polish CSS contracts', () => {
     );
     expect(stitchCss).toMatch(
       /\.output-box\s+pre\s*{[^}]*white-space:\s*pre-wrap;[^}]*overflow-wrap:\s*anywhere;/
+    );
+  });
+
+  it('keeps the Options sidebar adaptive instead of turning it into a stacked mobile block', () => {
+    expect(stitchCss).toContain('--shell-sidebar-width: var(--sidebar-width);');
+    expect(stitchCss).toMatch(
+      /\.sidebar\s*{[^}]*width:\s*var\(--shell-sidebar-width\);[^}]*display:\s*flex;[^}]*flex-direction:\s*column;/
+    );
+    expect(stitchCss).toMatch(
+      /\.shell\s*{[^}]*margin-left:\s*var\(--shell-sidebar-width\);[^}]*width:\s*calc\(100vw\s+-\s+var\(--shell-sidebar-width\)\);[^}]*max-width:\s*calc\(100vw\s+-\s+var\(--shell-sidebar-width\)\);/
+    );
+    expect(stitchCss).toMatch(
+      /\.sidebar-footer\s*{[^}]*position:\s*static;[^}]*margin-top:\s*auto;/
+    );
+    expect(stitchCss).toMatch(
+      /@media\s*\(max-width:\s*1180px\)\s*{[^}]*:root\s*{[^}]*--shell-sidebar-width:\s*var\(--sidebar-compact-width\);/
+    );
+    expect(stitchCss).toMatch(
+      /@media\s*\(max-width:\s*980px\)\s*{[^}]*:root\s*{[^}]*--shell-sidebar-width:\s*var\(--sidebar-narrow-width\);/
+    );
+    expect(stitchCss).toMatch(
+      /@media\s*\(max-width:\s*760px\)\s*{[\s\S]*?\.sidebar\s*{[^}]*display:\s*none;/
+    );
+    expect(stitchCss).not.toMatch(
+      /@media\s*\(max-width:\s*980px\)[\s\S]*?\.sidebar\s*{[^}]*position:\s*static;/
+    );
+    expect(stitchCss).not.toMatch(
+      /@media\s*\(max-width:\s*980px\)[\s\S]*?\.main\s*{[^}]*height:\s*auto;/
     );
   });
 
