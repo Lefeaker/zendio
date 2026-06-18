@@ -14,6 +14,11 @@ describe('analytics sanitizers', () => {
     expect(isAllowedUsageEventName('runtime_harness_open')).toBe(true);
     expect(isAllowedUsageEventName('video_started')).toBe(true);
     expect(isAllowedUsageEventName('clip_started')).toBe(true);
+    expect(isAllowedUsageEventName('extension_active_day')).toBe(true);
+    expect(isAllowedUsageEventName('activation_milestone_completed')).toBe(true);
+    expect(isAllowedUsageEventName('extraction_failed')).toBe(true);
+    expect(isAllowedUsageEventName('reader_draft_restored')).toBe(true);
+    expect(isAllowedUsageEventName('video_draft_restored')).toBe(true);
     expect(isAllowedAnalyticsEventName('clip_started')).toBe(true);
   });
 
@@ -120,6 +125,16 @@ describe('analytics sanitizers', () => {
       failure_category: 'connection'
     });
     expect(hasRequiredAnalyticsEventParams('clip_save_failed', invalid)).toBe(false);
+
+    const validActivation = sanitizeAnalyticsEventParams('extension_active_day', {
+      day_index_bucket: 'day_7_to_29'
+    });
+    expect(hasRequiredAnalyticsEventParams('extension_active_day', validActivation)).toBe(true);
+
+    const invalidActivation = sanitizeAnalyticsEventParams('extension_active_day', {
+      day_index_bucket: 'day_90'
+    });
+    expect(hasRequiredAnalyticsEventParams('extension_active_day', invalidActivation)).toBe(false);
   });
 
   it('allows unknown source only as the explicit low-cardinality fallback', () => {
@@ -185,5 +200,87 @@ describe('analytics sanitizers', () => {
         outcome: 'completed'
       })
     ).toBeNull();
+  });
+
+  it('enforces bounded activation, restore, and browser-family params', () => {
+    expect(
+      parseAnalyticsEventParams('extension_active_day', {
+        day_index_bucket: 'day_2_to_6',
+        rawUrl: 'https://example.com/private'
+      })
+    ).toEqual({
+      day_index_bucket: 'day_2_to_6'
+    });
+
+    expect(
+      parseAnalyticsEventParams('activation_milestone_completed', {
+        milestone: 'first_video_exported'
+      })
+    ).toEqual({
+      milestone: 'first_video_exported'
+    });
+
+    expect(
+      parseAnalyticsEventParams('activation_milestone_completed', {
+        milestone: 'shared_with_friend'
+      })
+    ).toBeNull();
+
+    expect(
+      parseAnalyticsEventParams('reader_draft_restored', {
+        highlight_count_bucket: 'two_to_five',
+        outcome: 'completed',
+        detached_highlight_count_bucket: 'one',
+        duration_bucket: '1s_to_2s',
+        pageTitle: 'private title'
+      })
+    ).toEqual({
+      highlight_count_bucket: 'two_to_five',
+      outcome: 'completed',
+      detached_highlight_count_bucket: 'one',
+      duration_bucket: '1s_to_2s'
+    });
+
+    expect(
+      parseAnalyticsEventParams('reader_draft_restored', {
+        highlight_count_bucket: 'two_to_five',
+        outcome: 'cancelled'
+      })
+    ).toBeNull();
+
+    expect(
+      parseAnalyticsEventParams('video_draft_restored', {
+        capture_count_bucket: 'two_to_five',
+        screenshot_count_bucket: 'one',
+        outcome: 'failed',
+        stale_screenshot_ref_count_bucket: 'zero',
+        duration_bucket: '3s_to_9s'
+      })
+    ).toEqual({
+      capture_count_bucket: 'two_to_five',
+      screenshot_count_bucket: 'one',
+      outcome: 'failed',
+      stale_screenshot_ref_count_bucket: 'zero',
+      duration_bucket: '3s_to_9s'
+    });
+
+    expect(
+      parseAnalyticsEventParams('extension_installed', {
+        source: 'install',
+        browser_family: 'firefox-mobile'
+      })
+    ).toEqual({
+      source: 'install'
+    });
+
+    expect(
+      parseAnalyticsEventParams('extension_installed', {
+        source: 'install',
+        browser_family: 'firefox'
+      })
+    ).toEqual({
+      source: 'install',
+      browser_family: 'firefox'
+    });
   });
 });

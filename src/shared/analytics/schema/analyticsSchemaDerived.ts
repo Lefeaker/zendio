@@ -92,9 +92,10 @@ export const CONTRACT_ONLY_EVENT_NAMES = Object.freeze(
 >[];
 
 export const FUTURE_PRODUCT_EVENT_NAMES = Object.freeze(
-  SCHEMA_ENTRIES.filter(([, definition]) => definition.classification === 'future').map(
-    ([eventName]) => eventName
-  )
+  SCHEMA_ENTRIES.filter(([, definition]) => {
+    const classification = definition.classification as AnalyticsEventClassification;
+    return classification === 'future';
+  }).map(([eventName]) => eventName)
 ) as readonly AnalyticsEventNamesMatching<AnalyticsSchemaType, { classification: 'future' }>[];
 
 export const RUNTIME_USAGE_EVENT_NAMES = Object.freeze(
