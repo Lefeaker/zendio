@@ -5,11 +5,13 @@ import {
   type ExportDestinationMetadata
 } from '@shared/exportDestination';
 import {
+  SESSION_DRAFT_INDEX_KEY,
   SESSION_DRAFT_SCHEMA_VERSION,
   createSessionDraftPageKey,
   createSessionDraftStorageKey,
   filterSessionCommentDraftsForRetainedIds,
   selectRetainedSessionDraftItems,
+  SessionDraftIndexSchema,
   type ReaderSessionDraftEnvelope,
   type ReaderSessionDraftHighlightPayload,
   type SessionCommentDraftSnapshot,
@@ -17,6 +19,7 @@ import {
   type SessionDraftStatus
 } from '@content/sessionDrafts';
 import type { ReaderHighlightManager, ReaderHighlightRecord } from './services/highlightManager';
+import type { StorageAreaService } from '@platform/interfaces/storage';
 import { createDetachedReaderHighlight } from './sessionOperations';
 
 const ReaderDraftHighlightSchema = z.object({
@@ -56,6 +59,27 @@ export interface LoadedReaderSessionDraft {
   storageKey: string;
   payload: ReaderSessionDraftPayloadV1;
 }
+
+export type ReaderSessionDraftLoadCleanup = 'not_needed' | 'removed' | 'remove_failed';
+
+export type LoadedReaderSessionDraftResult =
+  | {
+      status: 'none';
+      highlightCount: number;
+      cleanup: ReaderSessionDraftLoadCleanup;
+    }
+  | {
+      status: 'loaded';
+      highlightCount: number;
+      cleanup: ReaderSessionDraftLoadCleanup;
+      draft: LoadedReaderSessionDraft;
+    }
+  | {
+      status: 'invalid_removed';
+      highlightCount: number;
+      cleanup: ReaderSessionDraftLoadCleanup;
+      storageKey: string;
+    };
 
 export interface RestoredReaderHighlights {
   highlights: ReaderHighlightRecord[];
@@ -163,6 +187,36 @@ export async function loadLatestReaderSessionDraft(
   };
 }
 
+export async function loadLatestReaderSessionDraftResult(
+  repository: SessionDraftRepository,
+  storageArea: StorageAreaService,
+  pageUrl: string
+): Promise<LoadedReaderSessionDraftResult> {
+  const candidate = await findLatestReaderDraftCandidate(storageArea, pageUrl);
+  const draft = await loadLatestReaderSessionDraft(repository, pageUrl);
+  if (!draft) {
+    if (!candidate) {
+      return {
+        status: 'none',
+        highlightCount: 0,
+        cleanup: 'not_needed'
+      };
+    }
+    return {
+      status: 'invalid_removed',
+      highlightCount: candidate.highlightCount,
+      cleanup: await removeReaderDraftCandidate(repository, candidate.storageKey),
+      storageKey: candidate.storageKey
+    };
+  }
+  return {
+    status: 'loaded',
+    highlightCount: draft.payload.highlights.length,
+    cleanup: 'not_needed',
+    draft
+  };
+}
+
 export function restoreReaderSessionDraftHighlights(args: {
   doc: Document;
   highlightManager: ReaderHighlightManager;
@@ -210,6 +264,59 @@ export function restoreReaderSessionDraftHighlights(args: {
 
 function sanitizeCommentDrafts(drafts: SessionCommentDraftSnapshot): SessionCommentDraftSnapshot {
   return Object.fromEntries(Object.entries(drafts).filter(([id]) => id.trim().length > 0));
+}
+
+function countStoredReaderDraftHighlights(payload: unknown): number {
+  if (typeof payload !== 'object' || payload === null) {
+    return 0;
+  }
+  const { highlights } = payload as { highlights?: unknown };
+  return Array.isArray(highlights) ? highlights.length : 0;
+}
+
+async function findLatestReaderDraftCandidate(
+  storageArea: StorageAreaService,
+  pageUrl: string
+): Promise<{ storageKey: string; highlightCount: number } | null> {
+  const rawIndex = await storageArea.get<unknown>(SESSION_DRAFT_INDEX_KEY);
+  const parsedIndex = SessionDraftIndexSchema.safeParse(rawIndex);
+  if (!parsedIndex.success) {
+    return null;
+  }
+
+  const pageKey = createSessionDraftPageKey('reader', pageUrl);
+  const candidates = parsedIndex.data.entries
+    .filter(
+      (entry) =>
+        entry.mode === 'reader' && entry.pageKey === pageKey && entry.status === 'restorable'
+    )
+    .sort((left, right) => right.updatedAt - left.updatedAt);
+  const latest = candidates[0];
+  if (!latest) {
+    return null;
+  }
+
+  const rawEnvelope = await storageArea.get<unknown>(latest.key);
+  const payload =
+    typeof rawEnvelope === 'object' && rawEnvelope !== null
+      ? (rawEnvelope as { payload?: unknown }).payload
+      : undefined;
+  return {
+    storageKey: latest.key,
+    highlightCount: countStoredReaderDraftHighlights(payload)
+  };
+}
+
+async function removeReaderDraftCandidate(
+  repository: SessionDraftRepository,
+  storageKey: string
+): Promise<ReaderSessionDraftLoadCleanup> {
+  try {
+    await repository.remove({ key: storageKey });
+    return 'removed';
+  } catch {
+    return 'remove_failed';
+  }
 }
 
 function createExactTextRangeResolver(doc: Document): (selectedText: string) => Range | null {

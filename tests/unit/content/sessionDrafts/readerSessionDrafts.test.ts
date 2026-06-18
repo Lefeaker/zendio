@@ -4,6 +4,7 @@ import { describe, expect, it, vi } from 'vitest';
 import {
   buildReaderSessionDraftEnvelope,
   loadLatestReaderSessionDraft,
+  loadLatestReaderSessionDraftResult,
   restoreReaderSessionDraftHighlights
 } from '@content/reader/sessionDrafts';
 import type { ReaderHighlightRecord } from '@content/reader/services/highlightManager';
@@ -78,6 +79,71 @@ describe('readerSessionDrafts', () => {
         'saved-1': 'draft note'
       }
     });
+  });
+
+  it('reports invalid persisted reader drafts with aggregate counts and removes the candidate', async () => {
+    const storage = createMemoryStorageArea();
+    const repository = createSessionDraftRepository(storage);
+    const now = Date.now();
+    const envelope = buildReaderSessionDraftEnvelope({
+      draftId: 'reader-draft-invalid',
+      createdAt: now - 10,
+      now,
+      pageUrl: 'https://example.com/article',
+      pageTitle: 'Broken article',
+      destination: { kind: 'downloads' },
+      highlights: [
+        createHighlightRecord({
+          id: 'saved-1',
+          selectedText: 'Saved highlight',
+          comment: 'saved comment',
+          createdAt: 30
+        })
+      ],
+      commentDrafts: {
+        'saved-1': 'draft note'
+      },
+      status: 'restorable'
+    });
+
+    expect(envelope).not.toBeNull();
+    if (!envelope) {
+      throw new Error('expected invalid reader session envelope');
+    }
+
+    await repository.save(envelope);
+    const loadedDraft = await loadLatestReaderSessionDraft(
+      repository,
+      'https://example.com/article'
+    );
+    if (!loadedDraft) {
+      throw new Error('expected persisted reader draft');
+    }
+    await storage.set(loadedDraft.storageKey, {
+      ...envelope,
+      payload: {
+        ...envelope.payload,
+        commentDrafts: [] as unknown as Record<string, string>
+      }
+    } as never);
+
+    const result = await loadLatestReaderSessionDraftResult(
+      repository,
+      storage,
+      'https://example.com/article'
+    );
+
+    expect(result).toMatchObject({
+      status: 'invalid_removed',
+      highlightCount: 1,
+      cleanup: 'removed'
+    });
+    await expect(
+      repository.loadLatest('reader', 'https://example.com/article')
+    ).resolves.toBeNull();
+    await expect(
+      loadLatestReaderSessionDraft(repository, 'https://example.com/article')
+    ).resolves.toBeNull();
   });
 
   it('returns null instead of creating an empty durable reader draft', () => {

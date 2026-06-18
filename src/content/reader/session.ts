@@ -10,7 +10,7 @@ import type { ReaderSelectionController } from './services/selectionController';
 import type { ReaderEnvironmentController } from './environmentController';
 import type { ReaderSessionLifecycle } from './sessionLifecycle';
 import type { ReadingSessionOptions } from '../../shared/types/options';
-import { createFeatureTimer } from '../../shared/analytics/featureTimer';
+import { bucketCount, createFeatureTimer } from '../../shared/analytics/featureTimer';
 import {
   clearReaderSession,
   isReaderSessionActive,
@@ -48,7 +48,7 @@ import {
 import {
   buildReaderSessionDraftEnvelope,
   createReaderSessionDraftId,
-  loadLatestReaderSessionDraft,
+  loadLatestReaderSessionDraftResult,
   restoreReaderSessionDraftHighlights
 } from './sessionDrafts';
 
@@ -297,25 +297,57 @@ export class ReaderSession {
   }
 
   private async hydrateStoredDraft(): Promise<boolean> {
+    const restoreDurationBucket = this.state.analyticsTimer?.durationBucket() ?? 'under_100ms';
     try {
-      const loadedDraft = await loadLatestReaderSessionDraft(this.draftRepository, this.url);
-      if (!loadedDraft) {
+      const loadedDraftResult = await loadLatestReaderSessionDraftResult(
+        this.draftRepository,
+        this.dependencies.storage.local,
+        this.url
+      );
+      if (loadedDraftResult.status === 'none') {
+        return false;
+      }
+      if (loadedDraftResult.status === 'invalid_removed') {
+        void trackReaderUsageEvent(this.operationContext, 'reader_draft_restored', {
+          highlight_count_bucket: bucketCount(loadedDraftResult.highlightCount),
+          outcome: 'failed',
+          duration_bucket: restoreDurationBucket
+        });
         return false;
       }
 
-      this.draftId = loadedDraft.envelope.draftId;
-      this.draftCreatedAt = loadedDraft.envelope.createdAt;
-      this.draftStorageKey = loadedDraft.storageKey;
-      this.destinationState.applyMetadata(loadedDraft.payload.destination);
-      this.panelCoordinator.hydrateCommentDrafts(loadedDraft.payload.commentDrafts);
-      const restored = restoreReaderSessionDraftHighlights({
-        doc: this.doc,
-        highlightManager: this.highlightManager,
-        highlights: loadedDraft.payload.highlights
-      });
-      this.state.highlights = restored.highlights;
-      this.syncHighlightsUi();
-      return true;
+      const loadedDraft = loadedDraftResult.draft;
+      try {
+        const restored = restoreReaderSessionDraftHighlights({
+          doc: this.doc,
+          highlightManager: this.highlightManager,
+          highlights: loadedDraft.payload.highlights
+        });
+
+        this.draftId = loadedDraft.envelope.draftId;
+        this.draftCreatedAt = loadedDraft.envelope.createdAt;
+        this.draftStorageKey = loadedDraft.storageKey;
+        this.destinationState.applyMetadata(loadedDraft.payload.destination);
+        this.panelCoordinator.hydrateCommentDrafts(loadedDraft.payload.commentDrafts);
+        this.state.highlights = restored.highlights;
+        this.syncHighlightsUi();
+        void trackReaderUsageEvent(this.operationContext, 'reader_draft_restored', {
+          highlight_count_bucket: bucketCount(loadedDraftResult.highlightCount),
+          outcome: 'completed',
+          detached_highlight_count_bucket: bucketCount(restored.detachedHighlightIds.length),
+          duration_bucket: restoreDurationBucket
+        });
+        return true;
+      } catch (error) {
+        await this.discardStoredDraftCandidate(loadedDraft.storageKey);
+        console.warn('[ReaderSession] Failed to hydrate stored session draft:', error);
+        void trackReaderUsageEvent(this.operationContext, 'reader_draft_restored', {
+          highlight_count_bucket: bucketCount(loadedDraftResult.highlightCount),
+          outcome: 'failed',
+          duration_bucket: restoreDurationBucket
+        });
+        return false;
+      }
     } catch (error) {
       console.warn('[ReaderSession] Failed to hydrate stored session draft:', error);
       return false;
@@ -606,6 +638,19 @@ export class ReaderSession {
     const draftStorageKey = this.draftStorageKey;
     await this.draftRepository.remove({ key: draftStorageKey });
     if (this.draftStorageKey === draftStorageKey) {
+      this.draftId = null;
+      this.draftCreatedAt = null;
+      this.draftStorageKey = null;
+    }
+  }
+
+  private async discardStoredDraftCandidate(storageKey: string): Promise<void> {
+    try {
+      await this.draftRepository.remove({ key: storageKey });
+    } catch (error) {
+      console.warn('[ReaderSession] Failed to discard invalid stored session draft:', error);
+    }
+    if (this.draftStorageKey === storageKey) {
       this.draftId = null;
       this.draftCreatedAt = null;
       this.draftStorageKey = null;
