@@ -92,6 +92,7 @@ export function initClipFlow(options: InitClipFlowOptions): ClipFlowHandlers {
         userMessageDescriptor: { key: 'clipFailed' },
         context: { url, mode: clipMode }
       });
+      analytics?.emitExtractionFailed(appError);
       const { emitClipError } = await import('./clipFlowDispatch');
       await emitClipError(messaging, appError);
     }

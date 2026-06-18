@@ -1,8 +1,10 @@
 import { bucketCount, createFeatureTimer } from '../../shared/analytics/featureTimer';
 import type { ContentType, CountBucket } from '../../shared/analytics/eventCatalog';
+import { isAppError } from '../../shared/errors';
 import {
   createAnalyticsEventMessage,
   type AnalyticsRuntimeEventPayload,
+  type FailureCategory,
   type UsageEventParamMap
 } from '../../shared/types/analytics';
 import { isAIChat } from '../detect';
@@ -18,7 +20,8 @@ type ClipAnalyticsEventName =
   | 'clip_prompt_opened'
   | 'clip_prompt_submitted'
   | 'clip_prompt_cancelled'
-  | 'extraction_completed';
+  | 'extraction_completed'
+  | 'extraction_failed';
 
 interface ClipAnalyticsSessionOptions {
   clipMode: 'full' | 'selection';
@@ -31,6 +34,7 @@ interface ClipAnalyticsSessionOptions {
 export interface ClipAnalyticsSession {
   createSelectionPromptLifecycle(): SelectionPromptLifecycleHandlers;
   emitExtractionCompleted(result: ClipFlowResult): void;
+  emitExtractionFailed(error: unknown): void;
   emitStarted(): void;
 }
 
@@ -39,6 +43,7 @@ export function createClipAnalyticsSession(
 ): ClipAnalyticsSession {
   const { clipMode, document, messaging, source, url } = options;
   const timer = createFeatureTimer();
+  const startedContentType = inferStartedContentType(clipMode, url, document);
 
   return {
     createSelectionPromptLifecycle() {
@@ -68,14 +73,124 @@ export function createClipAnalyticsSession(
         ...buildAttachmentCountBucket(result)
       });
     },
+    emitExtractionFailed(error) {
+      emitClipAnalyticsEvent(messaging, 'extraction_failed', {
+        operation_id: timer.operationId,
+        content_type: startedContentType,
+        failure_category: resolveClipExtractionFailureCategory(error),
+        duration_bucket: timer.durationBucket()
+      });
+    },
     emitStarted() {
       emitClipAnalyticsEvent(messaging, 'clip_started', {
         operation_id: timer.operationId,
         source,
-        content_type: inferStartedContentType(clipMode, url, document)
+        content_type: startedContentType
       });
     }
   };
+}
+
+const FAILURE_HINTS = {
+  timeout: 'timeout|timed out|message timeout|aborterror|aborted'.split('|'),
+  unsupported:
+    'unsupported|not supported|unsupported content|unsupported environment|unavailable in this runtime'.split(
+      '|'
+    ),
+  permission:
+    'permission denied|permission-denied|access denied|not granted|forbidden|denied|securityerror|notallowederror'.split(
+      '|'
+    ),
+  validation: 'invalid|missing|malformed|expected|payload|no markdown|no_markdown'.split('|'),
+  connection:
+    'offline|network|connection|dispatch|failed to send message to background|failed to dispatch|could not establish connection|receiving end does not exist|extension context invalidated|message port closed|runtime.lasterror|failed to fetch|networkerror'.split(
+      '|'
+    )
+} as const;
+
+interface ClipExtractionFailureLike {
+  name?: string;
+  message?: string;
+  code?: string;
+  domain?: string;
+  userMessage?: string;
+  context?: unknown;
+  cause?: unknown;
+}
+
+function isClipExtractionFailureLike(error: unknown): error is ClipExtractionFailureLike {
+  return typeof error === 'object' && error !== null;
+}
+
+function collectFailureHints(error: unknown, seen = new Set<unknown>()): string {
+  if (error == null || seen.has(error)) {
+    return '';
+  }
+  seen.add(error);
+
+  const hints: string[] = [];
+  const push = (value: unknown) => {
+    if (typeof value === 'string' && value.trim()) {
+      hints.push(value.trim().toLowerCase());
+    }
+  };
+
+  if (typeof error === 'string') {
+    push(error);
+  } else if (error instanceof Error) {
+    push(error.name);
+    push(error.message);
+    push(collectFailureHints((error as Error & { cause?: unknown }).cause, seen));
+  } else if (isClipExtractionFailureLike(error)) {
+    push(error.code);
+    push(error.domain);
+    push(error.name);
+    push(error.message);
+    push(error.userMessage);
+    if (typeof error.context === 'object' && error.context !== null) {
+      const context = error.context as Record<string, unknown>;
+      [context.error, context.message, context.reason, context.fallbackReason].forEach(push);
+      push(collectFailureHints(context.cause, seen));
+    }
+    push(collectFailureHints(error.cause, seen));
+  }
+
+  return hints.join('\n');
+}
+
+function hasFailureHint(text: string, candidates: readonly string[]): boolean {
+  return candidates.some((candidate) => text.includes(candidate));
+}
+
+export function resolveClipExtractionFailureCategory(error: unknown): FailureCategory {
+  const failureHints = collectFailureHints(error);
+
+  if (hasFailureHint(failureHints, FAILURE_HINTS.timeout)) {
+    return 'timeout';
+  }
+  if (hasFailureHint(failureHints, FAILURE_HINTS.unsupported)) {
+    return 'unsupported';
+  }
+  if (hasFailureHint(failureHints, FAILURE_HINTS.permission)) {
+    return 'permission';
+  }
+  if (hasFailureHint(failureHints, FAILURE_HINTS.connection)) {
+    return 'connection';
+  }
+  if (hasFailureHint(failureHints, FAILURE_HINTS.validation)) {
+    return 'validation';
+  }
+
+  if (isAppError(error)) {
+    if (error.domain === 'classifier') {
+      return 'classification';
+    }
+    if (error.domain === 'extraction') {
+      return 'extraction';
+    }
+  }
+
+  return 'unknown';
 }
 
 function inferStartedContentType(

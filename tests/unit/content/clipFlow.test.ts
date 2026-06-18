@@ -273,6 +273,62 @@ describe('clipFlow support progress', () => {
     expectPrivacySafeAnalytics(trackEvents);
   });
 
+  it('emits extraction_failed analytics without displacing the existing clip error path', async () => {
+    const send = createSendMock();
+    queueNextClipAnalyticsSource('toolbar');
+    const flow = initClipFlow({
+      document,
+      messaging: { send: send as never },
+      runtimeState: createRuntimeState('full'),
+      selectionTracker: createSelectionTracker(createSelection()),
+      selectionController: {
+        handleSelectionClip: vi.fn(),
+        handleVideoSelectionClip: vi.fn()
+      },
+      extractorRegistry: {
+        extract: vi.fn(() =>
+          Promise.reject(
+            new Error(
+              'Could not establish connection while clipping selected text: secret raw text'
+            )
+          )
+        )
+      } as never
+    });
+
+    await flow.handleClip();
+
+    const trackEvents = getTrackEvents(send);
+    const operationId = trackEvents[0]?.params?.operation_id;
+    expect(trackEvents.map((event) => event.event)).toEqual(['clip_started', 'extraction_failed']);
+    expect(trackEvents[0]?.params).toMatchObject({
+      source: 'toolbar',
+      content_type: 'article'
+    });
+    expect(trackEvents[1]?.params).toEqual({
+      operation_id: operationId,
+      content_type: 'article',
+      failure_category: 'connection',
+      duration_bucket: 'under_100ms'
+    });
+    expect(Object.keys(trackEvents[1]?.params ?? {}).sort()).toEqual([
+      'content_type',
+      'duration_bucket',
+      'failure_category',
+      'operation_id'
+    ]);
+    expect(send).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: 'CLIP_ERROR',
+        error: expect.objectContaining({
+          code: 'CONTENT_CLIP_FAILURE',
+          domain: 'content'
+        })
+      })
+    );
+    expectPrivacySafeAnalytics(trackEvents);
+  });
+
   it('emits canonical prompt cancellation without dispatching clip payloads', async () => {
     const send = createSendMock();
     const showSupportProgress = vi.fn();
@@ -330,6 +386,7 @@ describe('clipFlow support progress', () => {
       })
     );
     expect(showSupportProgress).not.toHaveBeenCalled();
+    expect(trackEvents.map((event) => event.event)).not.toContain('extraction_failed');
     expectPrivacySafeAnalytics(trackEvents);
   });
 
