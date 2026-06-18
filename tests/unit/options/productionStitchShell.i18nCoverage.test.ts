@@ -2,6 +2,7 @@
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { getMessagesForLanguage, type Messages } from '@i18n';
+import type { ReleaseLangCode } from '@i18n/catalog/languages';
 import { mountProductionStitchShell } from '@options/app/productionStitchShell';
 import {
   createProductionStitchAppData,
@@ -51,6 +52,20 @@ const RUNTIME_SURFACE_IDS: RuntimeSurfaceId[] = [
   'task-success'
 ];
 const CHINESE_FALLBACK_PANEL_IDS = ['overview', 'storage', 'capture-behavior'];
+const EXPECTED_XIAOHONGSHU_QR_CAPTIONS = {
+  en: 'Scan with Xiaohongshu to join the group',
+  'zh-CN': '使用小红书扫码入群',
+  ja: '小紅書でQRコードを読み取ってグループに参加',
+  de: 'Mit Xiaohongshu scannen und der Gruppe beitreten',
+  fr: 'Scannez avec Xiaohongshu pour rejoindre le groupe',
+  'es-ES': 'Escanea con Xiaohongshu para unirte al grupo',
+  'es-419': 'Escanea con Xiaohongshu para unirte al grupo',
+  it: 'Scansiona con Xiaohongshu per unirti al gruppo',
+  ko: '샤오홍슈로 QR 코드를 스캔해 그룹에 참여하세요',
+  'pt-BR': 'Escaneie com o Xiaohongshu para entrar no grupo',
+  ru: 'Отсканируйте в Xiaohongshu, чтобы присоединиться к группе',
+  'zh-TW': '使用小紅書掃碼入群'
+} satisfies Record<ReleaseLangCode, string>;
 
 const SURFACE_INITIAL_OPTIONS = {
   rest: {
@@ -338,7 +353,6 @@ describe('mountProductionStitchShell English residual coverage', () => {
     });
 
     const failures: string[] = [];
-    const allowedResourceChinesePhrases = [messages.schemaResourceSuggestionsXiaohongshuQrCaption];
 
     for (const resourceId of RESOURCE_MODAL_IDS) {
       queryRequired<HTMLButtonElement>(`[data-footer-panel="${resourceId}"]`).click();
@@ -346,7 +360,7 @@ describe('mountProductionStitchShell English residual coverage', () => {
 
       const modal = queryRequired<HTMLElement>('.resource-modal-overlay');
       try {
-        expectNoChineseSettingsCopy(modal, { allowedPhrases: allowedResourceChinesePhrases });
+        expectNoChineseSettingsCopy(modal);
       } catch (error) {
         failures.push(`Resource ${resourceId}: ${getErrorMessage(error)}`);
       }
@@ -361,7 +375,7 @@ describe('mountProductionStitchShell English residual coverage', () => {
 
       const modal = queryRequired<HTMLElement>('.resource-modal-overlay');
       try {
-        expectNoChineseSettingsCopy(modal, { allowedPhrases: allowedResourceChinesePhrases });
+        expectNoChineseSettingsCopy(modal);
       } catch (error) {
         failures.push(`Resource ${resourceId}: ${getErrorMessage(error)}`);
       }
@@ -373,6 +387,23 @@ describe('mountProductionStitchShell English residual coverage', () => {
     if (failures.length > 0) {
       throw new Error(failures.join('\n'));
     }
+  });
+
+  it('localizes Xiaohongshu QR captions instead of sharing Chinese copy across English surfaces', async () => {
+    for (const [language, expectedCaption] of Object.entries(EXPECTED_XIAOHONGSHU_QR_CAPTIONS)) {
+      const messages = await getMessagesForLanguage(language as ReleaseLangCode);
+
+      expect(messages.schemaResourceSuggestionsXiaohongshuQrCaption).toBe(expectedCaption);
+      expect(messages.supportPromptDislikeQrCaption).toBe(expectedCaption);
+    }
+
+    const messages = await createEnglishPageMessages();
+    expect(messages.schemaResourceSuggestionsXiaohongshuQrCaption).toBe(
+      'Scan with Xiaohongshu to join the group'
+    );
+    expect(messages.supportPromptDislikeQrCaption).toBe('Scan with Xiaohongshu to join the group');
+    expect(messages.schemaResourceSuggestionsXiaohongshuQrCaption).not.toMatch(/[\u4e00-\u9fff]/u);
+    expect(messages.supportPromptDislikeQrCaption).not.toMatch(/[\u4e00-\u9fff]/u);
   });
 
   it('keeps every runtime surface preview free of residual Chinese in English mode', async () => {

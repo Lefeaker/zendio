@@ -86,11 +86,11 @@ const ALLOWED_PREVIEW_DRIFT = new Map([
         'The support resource QR modal repair refreshes the generated preview JS hash after moving Options WeChat reward QR display from inline card preview to a centered image modal, removing visible resource-card Open actions, making Contact cards link by platform name without visible URLs, and changing runtime task-success WeChat reward clicks from inline QR expansion to a non-auto-dismiss support toast QR dialog while preserving the frozen reference and Stitch runtime contract.',
         'The Options contact/suggestions refresh updates the generated preview JS hash after replacing Contact cards with one catalog-backed linked paragraph, replacing Suggestions cards with one linked paragraph plus a Xiaohongshu QR popover image, updating the author email to zendio@sxnian.com, and preserving the existing Stitch schema renderer contract.',
         'The Options and runtime feedback QR repair refreshes the generated preview JS hash after changing the Suggestions Xiaohongshu trigger from a target=_blank link to an in-page popover button and simplifying task-success dislike feedback labels to Reddit plus Xiaohongshu while preserving the existing Stitch schema renderer contract.',
-        'The Xiaohongshu QR caption and layering repair refreshes the generated preview JS hash after adding the requested QR caption message, changing the Suggestions QR trigger to a button-plus-popover-host structure, and preserving the existing Stitch schema renderer contract.'
+        'The Xiaohongshu QR caption and layering repair refreshes the generated preview JS hash after adding the requested QR caption message, changing the Suggestions QR trigger to a button-plus-popover-host structure, and preserving the existing Stitch schema renderer contract. The follow-up Xiaohongshu caption localization refreshes the generated preview JS hash after moving the QR caption into all release-language runtime/schema catalogs and tightening the Options trigger popover placement/weight while preserving the same Stitch schema renderer contract.'
       ].join(' '),
       leftSha256: '9020ccbd91acd691eccd3fdf568b9a90efbddf0a35d79f36ef1caba702fa0c07',
-      // 2026-06-18 Xiaohongshu QR caption and layering preview JS hash.
-      rightSha256: '993b7b170a13b4b1425c82902d642c648e81187cde676aeb786bbfbd65048b8d'
+      // 2026-06-18 Xiaohongshu QR caption localization and Options popover placement preview JS hash.
+      rightSha256: '639e1296256a8e84159a4e84d4065c526c736dc2c87b9afa72f9d6d022f4fc93'
     }
   ]
 ]);

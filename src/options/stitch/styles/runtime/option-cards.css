@@ -338,15 +338,17 @@ html[data-preview-theme='dark'] .resource-link-icon[src$='.svg'] {
 .resource-inline-popover-trigger {
   display: inline-flex;
   align-items: center;
+  font-weight: 700;
+  line-height: inherit;
   outline: 0;
 }
 
 .resource-inline-popover {
-  position: fixed;
+  position: absolute;
   left: 50%;
-  top: 50%;
+  top: calc(100% + var(--space-3));
   z-index: 2147483646;
-  width: min(300px, calc(100vw - var(--space-12)));
+  width: min(240px, calc(100vw - var(--space-12)));
   padding: var(--space-4);
   border: var(--border-default);
   border-radius: var(--radius-lg);
@@ -354,7 +356,7 @@ html[data-preview-theme='dark'] .resource-link-icon[src$='.svg'] {
   box-shadow: var(--shadow-xl);
   opacity: 0;
   pointer-events: none;
-  transform: translate(-50%, calc(-50% + 6px));
+  transform: translate(-50%, 6px);
   transition:
     opacity var(--motion-fast) var(--ease-standard),
     transform var(--motion-fast) var(--ease-standard);
@@ -372,7 +374,7 @@ html[data-preview-theme='dark'] .resource-link-icon[src$='.svg'] {
 .resource-inline-popover-host:focus-within .resource-inline-popover {
   opacity: 1;
   pointer-events: auto;
-  transform: translate(-50%, -50%);
+  transform: translate(-50%, 0);
   visibility: visible;
 }
 

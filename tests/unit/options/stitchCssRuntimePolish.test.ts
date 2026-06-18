@@ -172,8 +172,12 @@ describe('Stitch runtime polish CSS contracts', () => {
 
   it('keeps QR popovers readable above modal chrome with the requested Xiaohongshu sizing', () => {
     expect(stitchCss).toContain('.resource-inline-popover-host');
+    expect(stitchCss).toMatch(/\.resource-inline-popover-trigger\s*{[^}]*font-weight:\s*700;/);
     expect(stitchCss).toMatch(
-      /\.resource-inline-popover\s*{[^}]*position:\s*fixed;[^}]*z-index:\s*2147483646;/
+      /\.resource-inline-popover\s*{[^}]*position:\s*absolute;[^}]*top:\s*calc\(100%\s*\+\s*var\(--space-3\)\);[^}]*z-index:\s*2147483646;/
+    );
+    expect(stitchCss).not.toMatch(
+      /\.resource-inline-popover\s*{[^}]*position:\s*fixed;[^}]*top:\s*50%;/
     );
     expect(stitchCss).toContain('.resource-modal:has(.resource-inline-popover-host:hover),');
     expect(stitchCss).toContain(

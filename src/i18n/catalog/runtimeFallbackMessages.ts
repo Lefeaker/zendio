@@ -120,7 +120,7 @@ export const RUNTIME_FALLBACK_MESSAGES = {
   supportPromptDialogLabel: 'Support Zendio',
   supportPromptDismiss: 'Click anywhere outside to close',
   supportPromptDislikeLabel: 'Thumbs down',
-  supportPromptDislikeQrCaption: '使用小红书扫码入群',
+  supportPromptDislikeQrCaption: 'Scan with Xiaohongshu to join the group',
   supportPromptDislikeQrLinkLabel: 'Xiaohongshu',
   supportPromptDislikeQrPlaceholder: 'QR code unavailable',
   supportPromptDislikeRedditLinkLabel: 'Reddit',
