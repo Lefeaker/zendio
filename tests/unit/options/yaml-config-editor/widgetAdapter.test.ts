@@ -51,9 +51,41 @@ function findYamlRow(container: HTMLElement, fieldName: string): HTMLElement {
   return row;
 }
 
+function findButton(container: HTMLElement, label: string): HTMLButtonElement {
+  const button = Array.from(container.querySelectorAll<HTMLButtonElement>('button')).find(
+    (button) => button.textContent?.includes(label)
+  );
+  if (!button) {
+    throw new Error(`Missing button ${label}`);
+  }
+  return button;
+}
+
+function findBlankEditableYamlRow(container: HTMLElement): HTMLElement {
+  const row = Array.from(container.querySelectorAll<HTMLElement>('[data-row-id]')).find((row) => {
+    const name = row.querySelector<HTMLInputElement>('input[data-yaml-field="name"]');
+    return name && !name.disabled && name.value === '';
+  });
+  if (!row) {
+    throw new Error('Missing blank editable YAML row');
+  }
+  return row;
+}
+
+let scrollIntoViewSpy = vi.fn();
+
+function scrollIntoViewMock() {
+  return scrollIntoViewSpy;
+}
+
 describe('YamlConfigEditorWidgetAdapter', () => {
   beforeEach(() => {
     document.body.innerHTML = '';
+    scrollIntoViewSpy = vi.fn();
+    Object.defineProperty(Element.prototype, 'scrollIntoView', {
+      configurable: true,
+      value: scrollIntoViewSpy
+    });
   });
 
   it('mounts synchronously with stable Stitch YAML selectors and collect() returns yamlConfig', () => {
@@ -233,12 +265,7 @@ describe('YamlConfigEditorWidgetAdapter', () => {
 
   it('renders domain override fields as an aligned table', () => {
     const { container } = createMount({ yamlConfig: null });
-    const addDomainRule = Array.from(container.querySelectorAll<HTMLButtonElement>('button')).find(
-      (button) => button.textContent?.includes('Add domain rule')
-    );
-    if (!addDomainRule) {
-      throw new Error('Missing add domain rule action');
-    }
+    const addDomainRule = findButton(container, 'Add domain rule');
 
     addDomainRule.click();
 
@@ -256,6 +283,95 @@ describe('YamlConfigEditorWidgetAdapter', () => {
     expect(queryRequired<HTMLInputElement>('[data-yaml-domain-field="enabled"]', fieldRow)).toBe(
       fieldRow.querySelector('td:first-child input')
     );
+  });
+
+  it('adds blank YAML fields and scrolls the table to the new row', () => {
+    const { container } = createMount({ yamlConfig: null });
+
+    findButton(container, 'Add field').click();
+
+    const blankRow = findBlankEditableYamlRow(container);
+    const name = queryRequired<HTMLInputElement>('input[data-yaml-field="name"]', blankRow);
+
+    expect(name.value).toBe('');
+    expect(scrollIntoViewMock()).toHaveBeenCalledWith({
+      block: 'nearest',
+      inline: 'nearest'
+    });
+    expect(scrollIntoViewMock().mock.contexts.at(-1)).toBe(blankRow);
+  });
+
+  it('preserves the YAML field table scroll position when a field action re-renders', () => {
+    const { container } = createMount();
+    const shell = queryRequired<HTMLElement>('.stitch-yaml-config-table', container);
+    shell.scrollTop = 137;
+    shell.scrollLeft = 29;
+
+    const scoreRow = findYamlRow(container, 'score');
+    queryRequired<HTMLButtonElement>('.yaml-delete-button', scoreRow).click();
+
+    const rerenderedShell = queryRequired<HTMLElement>('.stitch-yaml-config-table', container);
+    expect(rerenderedShell.scrollTop).toBe(137);
+    expect(rerenderedShell.scrollLeft).toBe(29);
+  });
+
+  it('adds blank domain override fields and scrolls the domain table to the new row', () => {
+    const { container } = createMount({ yamlConfig: null });
+    findButton(container, 'Add domain rule').click();
+
+    const domainRule = queryRequired<HTMLElement>('[data-domain-rule-id]', container);
+    const firstSelect = queryRequired<HTMLSelectElement>(
+      'select[data-yaml-domain-field="name"]',
+      domainRule
+    );
+    firstSelect.value = 'title';
+    firstSelect.dispatchEvent(new Event('change', { bubbles: true }));
+    scrollIntoViewMock().mockClear();
+
+    findButton(domainRule, 'Add field').click();
+
+    const rerenderedDomainRule = queryRequired<HTMLElement>('[data-domain-rule-id]', container);
+    const blankRow = Array.from(
+      rerenderedDomainRule.querySelectorAll<HTMLTableRowElement>('[data-domain-field-id]')
+    ).find(
+      (row) =>
+        row.querySelector<HTMLSelectElement>('select[data-yaml-domain-field="name"]')?.value === ''
+    );
+    if (!blankRow) {
+      throw new Error('Missing blank domain field row');
+    }
+
+    expect(scrollIntoViewMock()).toHaveBeenCalledWith({
+      block: 'nearest',
+      inline: 'nearest'
+    });
+    expect(scrollIntoViewMock().mock.contexts.at(-1)).toBe(blankRow);
+  });
+
+  it('preserves the domain field table scroll position when a field action re-renders', () => {
+    const { container } = createMount({
+      yamlConfig: {
+        contentTypes: {
+          article: {
+            domainOverrides: {
+              'example.com': [
+                { name: 'title', type: 'text', enabled: true },
+                { name: 'author', type: 'text', enabled: true }
+              ]
+            }
+          }
+        }
+      }
+    });
+    const shell = queryRequired<HTMLElement>('.yaml-domain-fields-shell', container);
+    shell.scrollTop = 94;
+    shell.scrollLeft = 18;
+
+    queryRequired<HTMLButtonElement>('[data-domain-field-id] .yaml-delete-button', shell).click();
+
+    const rerenderedShell = queryRequired<HTMLElement>('.yaml-domain-fields-shell', container);
+    expect(rerenderedShell.scrollTop).toBe(94);
+    expect(rerenderedShell.scrollLeft).toBe(18);
   });
 
   it('is the production yaml-config widget factory result', () => {

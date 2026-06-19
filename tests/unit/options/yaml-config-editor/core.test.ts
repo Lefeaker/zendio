@@ -269,6 +269,46 @@ describe('YAML editor core', () => {
     }
   });
 
+  it('creates blank editable fields when adding fields without a seed value', () => {
+    let state = applyYamlEditorAction(createYamlEditorState(null), {
+      type: 'add-custom-field',
+      contentType: 'article'
+    });
+
+    expect(state.contentTypes.article.customFields.at(-1)).toEqual(
+      expect.objectContaining({
+        name: '',
+        type: 'text',
+        defaultValue: '',
+        valuePath: ''
+      })
+    );
+
+    state = applyYamlEditorAction(state, {
+      type: 'add-domain-override',
+      contentType: 'article',
+      domain: 'example.com'
+    });
+    const entry = state.contentTypes.article.domainOverrides.at(-1);
+    if (!entry) {
+      throw new Error('Missing domain override entry');
+    }
+
+    state = applyYamlEditorAction(state, {
+      type: 'add-domain-field',
+      domainEntryId: entry.id
+    });
+
+    expect(state.contentTypes.article.domainOverrides.at(-1)?.fields.at(-1)).toEqual(
+      expect.objectContaining({
+        name: '',
+        type: 'text',
+        defaultValue: '',
+        valuePath: ''
+      })
+    );
+  });
+
   it('preserves globalFields and serializes them only when present', () => {
     const state = createYamlEditorState({
       globalFields: [

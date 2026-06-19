@@ -8,9 +8,11 @@ import { serializeYamlEditorState } from './serialize';
 import { validateYamlEditorState } from './validation';
 import { createYamlEditorLabels, type YamlEditorLabels } from './labels';
 import type { YamlEditorState, YamlEditorValidation } from './types';
+import { captureYamlEditorScrollSnapshot, restoreYamlEditorScrollSnapshot } from './scroll';
 import {
   renderYamlConfigEditorView,
   renderYamlEditorValidation,
+  type YamlEditorRenderRequest,
   type YamlEditorFilter
 } from './view';
 
@@ -89,10 +91,11 @@ export class YamlConfigEditorWidgetAdapter implements WidgetMountContract<
     this.render();
   }
 
-  private render(): void {
+  private render(request?: YamlEditorRenderRequest): void {
     if (!this.container) {
       return;
     }
+    const scrollSnapshot = captureYamlEditorScrollSnapshot(this.container);
     this.container.replaceChildren(
       renderYamlConfigEditorView({
         state: this.state,
@@ -100,13 +103,14 @@ export class YamlConfigEditorWidgetAdapter implements WidgetMountContract<
         validation: this.validation,
         labels: this.labels,
         onChange: () => this.markDirty(),
-        onRender: () => this.render(),
+        onRender: (renderRequest) => this.render(renderRequest),
         onSetFilter: (filter) => {
           this.filter = filter;
           this.render();
         }
       })
     );
+    restoreYamlEditorScrollSnapshot(this.container, scrollSnapshot, request);
   }
 
   private markDirty(): void {

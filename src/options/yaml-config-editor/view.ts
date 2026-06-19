@@ -36,15 +36,24 @@ interface YamlConfigEditorViewOptions {
   validation: YamlEditorValidation | null;
   labels: YamlEditorLabels;
   onChange: () => void;
-  onRender: () => void;
+  onRender: (request?: YamlEditorRenderRequest) => void;
   onSetFilter: (filter: YamlEditorFilter) => void;
 }
 
-function createCustomField(state: YamlEditorState, filter: YamlEditorFilter): void {
+export type YamlEditorScrollTarget =
+  | { kind: 'field'; fieldId: string }
+  | { kind: 'domainField'; domainEntryId: string; fieldId: string };
+
+export interface YamlEditorRenderRequest {
+  scrollTarget?: YamlEditorScrollTarget;
+}
+
+function createCustomField(state: YamlEditorState, filter: YamlEditorFilter): string {
   const contentType = filter === 'all' ? 'article' : filter;
+  const id = allocateId(state, 'yaml-custom');
   state.contentTypes[contentType].customFields.push({
-    id: allocateId(state, 'yaml-custom'),
-    name: 'custom_field',
+    id,
+    name: '',
     type: 'text',
     enabled: true,
     required: false,
@@ -53,6 +62,7 @@ function createCustomField(state: YamlEditorState, filter: YamlEditorFilter): vo
     builtIn: false,
     isCustom: true
   });
+  return id;
 }
 
 function getDomainEntries(state: YamlEditorState): YamlEditorDomainEntry[] {
@@ -69,29 +79,31 @@ function getAvailableFields(
   return [...content.fields, ...content.customFields, ...state.globalFields];
 }
 
-function createDomainField(
-  state: YamlEditorState,
-  contentType: YamlContentType
-): YamlEditorDomainField {
-  const source = getAvailableFields(state, contentType)[0];
+function createDomainField(state: YamlEditorState): YamlEditorDomainField {
   return {
     id: allocateId(state, 'domain-field'),
-    name: source?.name ?? 'title',
-    type: source?.type ?? 'text',
+    name: '',
+    type: 'text',
     enabled: true,
     defaultValue: '',
-    valuePath: source?.valuePath ?? ''
+    valuePath: ''
   };
 }
 
-function addDomainRule(state: YamlEditorState, filter: YamlEditorFilter): void {
+function addDomainRule(
+  state: YamlEditorState,
+  filter: YamlEditorFilter
+): { domainEntryId: string; domainFieldId: string } {
   const contentType = filter === 'all' ? 'article' : filter;
+  const field = createDomainField(state);
+  const entryId = allocateId(state, `domain-${contentType}`);
   state.contentTypes[contentType].domainOverrides.push({
-    id: allocateId(state, `domain-${contentType}`),
+    id: entryId,
     domain: '',
     contentType,
-    fields: [createDomainField(state, contentType)]
+    fields: [field]
   });
+  return { domainEntryId: entryId, domainFieldId: field.id };
 }
 
 function moveDomainEntry(
@@ -486,9 +498,16 @@ function renderDomainRule(
       onClick: (event) => {
         event.preventDefault();
         event.stopPropagation();
-        entry.fields.push(createDomainField(options.state, entry.contentType));
+        const field = createDomainField(options.state);
+        entry.fields.push(field);
         options.onChange();
-        options.onRender();
+        options.onRender({
+          scrollTarget: {
+            kind: 'domainField',
+            domainEntryId: entry.id,
+            fieldId: field.id
+          }
+        });
       }
     })
   );
@@ -516,9 +535,9 @@ function renderActions(options: YamlConfigEditorViewOptions): HTMLElement {
       onClick: (event) => {
         event.preventDefault();
         event.stopPropagation();
-        createCustomField(options.state, options.filter);
+        const fieldId = createCustomField(options.state, options.filter);
         options.onChange();
-        options.onRender();
+        options.onRender({ scrollTarget: { kind: 'field', fieldId } });
       }
     }),
     button({
@@ -527,9 +546,15 @@ function renderActions(options: YamlConfigEditorViewOptions): HTMLElement {
       onClick: (event) => {
         event.preventDefault();
         event.stopPropagation();
-        addDomainRule(options.state, options.filter);
+        const { domainEntryId, domainFieldId } = addDomainRule(options.state, options.filter);
         options.onChange();
-        options.onRender();
+        options.onRender({
+          scrollTarget: {
+            kind: 'domainField',
+            domainEntryId,
+            fieldId: domainFieldId
+          }
+        });
       }
     })
   );
