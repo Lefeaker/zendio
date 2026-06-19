@@ -1,8 +1,8 @@
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { RUNTIME_MESSAGE_KEYS } from '../src/i18n/catalog/keys';
 import { RELEASE_LANGUAGE_ORDER } from '../src/i18n/catalog/languages';
 import { SCHEMA_MESSAGE_KEYS } from '../src/i18n/catalog/schemaKeys';
+import { collectRuntimeMessageKeysFromEnglishSource } from './i18n/catalogExpectedKeys';
 import { readCatalogSource } from './i18n/catalogReader';
 import { compileCatalog } from './i18n/compileCatalog';
 import {
@@ -33,7 +33,7 @@ async function main(): Promise<void> {
   const { checkOnly } = parseArgs(process.argv.slice(2));
   const sourceCatalogs = readCatalogSource({ includePseudoLocale: true });
   const compiled = compileCatalog(sourceCatalogs, {
-    expectedKeys: RUNTIME_MESSAGE_KEYS,
+    expectedKeys: collectRuntimeMessageKeysFromEnglishSource(sourceCatalogs),
     releaseLanguageOrder: RELEASE_LANGUAGE_ORDER
   });
   const schemaCatalogs = readSchemaCatalogSource(ROOT);

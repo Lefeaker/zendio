@@ -4,6 +4,7 @@ import { grid, htmlParagraph, paragraph, stack } from '../builders/primitives';
 import { boundInput, boundSelect, boundSwitch } from '../builders/controls';
 import { translateSchemaMessage } from '../i18n';
 import {
+  fragmentKeyboardShortcutsHint,
   fragmentModifierChipItems,
   fragmentModifierStateWarning
 } from '@options/app/fragmentModifierOptions';
@@ -209,7 +210,7 @@ const schema: SettingsSchema = {
                     {
                       kind: 'row',
                       title: t('fragmentKeyboardShortcutsLabel'),
-                      description: t('fragmentKeyboardShortcutsHint'),
+                      description: (current) => fragmentKeyboardShortcutsHint(current.messages),
                       control: boundSwitch({
                         bind: 'fragmentKeyboardShortcutsEnabled',
                         stateText: (current) =>

@@ -101,7 +101,7 @@ function isKnownFragmentModifierValue(value: string): boolean {
 
 function resolveModifierLocalization(
   messagesOrIsApple?: ModifierMessagesOrPlatform,
-  maybeIsApple?: boolean
+  maybeIsApple?: ModifierPlatformInput
 ): { platform: FragmentModifierPlatform; messages: Messages | null } {
   if (typeof messagesOrIsApple === 'boolean') {
     return { platform: resolveModifierPlatform(messagesOrIsApple), messages: null };
@@ -183,7 +183,7 @@ export function fragmentModifierChoices(
 export function fragmentModifierChipItems(
   selectedKeys: readonly string[],
   messagesOrIsApple?: ModifierMessagesOrPlatform,
-  maybeIsApple?: boolean
+  maybeIsApple?: ModifierPlatformInput
 ): ChipItem[] {
   const { platform, messages } = resolveModifierLocalization(messagesOrIsApple, maybeIsApple);
   const selectedKey = normalizeFragmentModifierKeys(selectedKeys, platform)[0];
@@ -197,7 +197,7 @@ export function fragmentModifierChipItems(
 export function fragmentModifierConflictWarning(
   selectedKey: string | undefined,
   messagesOrIsApple?: ModifierMessagesOrPlatform,
-  maybeIsApple?: boolean
+  maybeIsApple?: ModifierPlatformInput
 ): string {
   const { platform, messages } = resolveModifierLocalization(messagesOrIsApple, maybeIsApple);
   const key = normalizeFragmentModifierKey(selectedKey, platform);
@@ -227,10 +227,50 @@ export function fragmentModifierConflictWarning(
 export function fragmentModifierStateWarning(
   state: PreviewStoreState,
   messagesOrIsApple?: ModifierMessagesOrPlatform,
-  maybeIsApple?: boolean
+  maybeIsApple?: ModifierPlatformInput
 ): string {
   if (!state.fragmentModifierEnabled) {
     return '';
   }
   return fragmentModifierConflictWarning(state.modifierKeys[0], messagesOrIsApple, maybeIsApple);
+}
+
+function getShortcutMessage(
+  messages: Messages | null,
+  key: keyof Messages,
+  fallback: string
+): string {
+  return getMessage(messages, key, fallback);
+}
+
+function platformDirectClipShortcutLabel(
+  platform: FragmentModifierPlatform,
+  messages: Messages | null
+): string {
+  if (platform === 'apple') {
+    return getShortcutMessage(messages, 'fragmentKeyboardShortcutCommandEnter', 'Cmd+Enter');
+  }
+  if (platform === 'standard') {
+    return getShortcutMessage(messages, 'fragmentKeyboardShortcutAltEnter', 'Alt+Enter');
+  }
+  return getShortcutMessage(
+    messages,
+    'fragmentKeyboardShortcutFallbackEnter',
+    'Cmd+Enter (Mac) / Alt+Enter (Windows)'
+  );
+}
+
+export function fragmentKeyboardShortcutsHint(
+  messagesOrIsApple?: ModifierMessagesOrPlatform,
+  maybeIsApple?: ModifierPlatformInput
+): string {
+  const { platform, messages } = resolveModifierLocalization(messagesOrIsApple, maybeIsApple);
+  return formatMessage(
+    getShortcutMessage(
+      messages,
+      'fragmentKeyboardShortcutsHint',
+      'In clipper dialog: Double-Enter to enter reader mode, {modifierShortcut} to clip directly'
+    ),
+    { modifierShortcut: platformDirectClipShortcutLabel(platform, messages) }
+  );
 }

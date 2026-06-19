@@ -640,6 +640,27 @@ describe('mountProductionStitchShell renderLifecycle', () => {
     expect(document.body.textContent).not.toContain('快捷键冲突');
   });
 
+  it('renders the fragment keyboard shortcut hint for the current desktop platform only', () => {
+    const controller = createController();
+    Object.defineProperty(navigator, 'platform', {
+      configurable: true,
+      value: 'Win32'
+    });
+
+    mountProductionStitchShell({
+      controller: asOptionsController(controller),
+      initialOptions: null,
+      messages: null,
+      language: 'en'
+    });
+
+    expect(document.body.textContent).toContain(
+      'In clipper dialog: Double-Enter to enter reader mode, Alt+Enter to clip directly'
+    );
+    expect(document.body.textContent).not.toContain('Cmd+Enter (Mac) or Alt+Enter (Windows)');
+    expect(document.body.textContent).not.toContain('Cmd+Enter to clip directly');
+  });
+
   it('keeps YAML widget interactions scoped away from the options shell render tree', () => {
     const controller = createController();
     mountProductionStitchShell({

@@ -87,11 +87,12 @@ const ALLOWED_PREVIEW_DRIFT = new Map([
         'The Options contact/suggestions refresh updates the generated preview JS hash after replacing Contact cards with one catalog-backed linked paragraph, replacing Suggestions cards with one linked paragraph plus a Xiaohongshu QR popover image, updating the author email to zendio@sxnian.com, and preserving the existing Stitch schema renderer contract.',
         'The Options and runtime feedback QR repair refreshes the generated preview JS hash after changing the Suggestions Xiaohongshu trigger from a target=_blank link to an in-page popover button and simplifying task-success dislike feedback labels to Reddit plus Xiaohongshu while preserving the existing Stitch schema renderer contract.',
         'The Xiaohongshu QR caption and layering repair refreshes the generated preview JS hash after adding the requested QR caption message, changing the Suggestions QR trigger to a button-plus-popover-host structure, and preserving the existing Stitch schema renderer contract. The follow-up Xiaohongshu caption localization refreshes the generated preview JS hash after moving the QR caption into all release-language runtime/schema catalogs and tightening the Options trigger popover placement/weight while preserving the same Stitch schema renderer contract.',
-        'The Options table alignment refresh updates the generated preview JS hash after giving Vault List and Routing Rules dedicated table wrapper classes and capitalizing platform-specific fragment modifier labels while preserving the frozen reference and Stitch runtime contract.'
+        'The Options table alignment refresh updates the generated preview JS hash after giving Vault List and Routing Rules dedicated table wrapper classes and capitalizing platform-specific fragment modifier labels while preserving the frozen reference and Stitch runtime contract.',
+        'The fragment keyboard shortcut hint refresh updates the generated preview JS hash after moving the direct-clip shortcut copy to platform-aware catalog keys and deriving runtime catalog generation keys from the English source catalog while preserving the frozen reference and Stitch runtime contract.'
       ].join(' '),
       leftSha256: '9020ccbd91acd691eccd3fdf568b9a90efbddf0a35d79f36ef1caba702fa0c07',
-      // 2026-06-18 Options table alignment and modifier key label preview JS hash.
-      rightSha256: '314c0bcd1f4ad4a77afd93b8a87709bbed976fbee5a0f8af0357e011b93b0e46'
+      // 2026-06-19 platform-aware fragment shortcut hint preview JS hash.
+      rightSha256: 'd886c5f015bd7ca5db4b2ed4040380e73f47f9d1bfe5b99a955b6a660eb07e43'
     }
   ]
 ]);

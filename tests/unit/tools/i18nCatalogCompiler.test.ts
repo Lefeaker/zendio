@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { RuntimeMessageKey } from '../../../src/i18n/catalog/keys';
 import type { CatalogLocaleCatalog } from '../../../src/i18n/catalog/schema';
+import { collectRuntimeMessageKeysFromEnglishSource } from '../../../tools/i18n/catalogExpectedKeys';
 import { compileCatalog } from '../../../tools/i18n/compileCatalog';
 import { emitGeneratedLocales } from '../../../tools/i18n/emitGeneratedLocales';
 import { emitGeneratedTypes } from '../../../tools/i18n/emitGeneratedTypes';
@@ -20,6 +21,26 @@ function runtimeKeys<const Keys extends RuntimeMessageKey[]>(...keys: Keys): Key
 }
 
 describe('i18n catalog compiler', () => {
+  it('derives runtime keys from the English source catalog before generated artifacts exist', () => {
+    const input = [
+      createLocaleCatalog('en', {
+        extensionName: 'Alpha',
+        fragmentKeyboardShortcutCommandEnter: 'Cmd+Enter'
+      }),
+      createLocaleCatalog('de', {
+        extensionName: 'Alpha',
+        fragmentKeyboardShortcutCommandEnter: 'Cmd+Enter'
+      })
+    ];
+
+    const compiled = compileCatalog(input, {
+      expectedKeys: collectRuntimeMessageKeysFromEnglishSource(input),
+      releaseLanguageOrder: ['en', 'de']
+    });
+
+    expect(compiled.messageKeys).toEqual(['extensionName', 'fragmentKeyboardShortcutCommandEnter']);
+  });
+
   it('rejects missing runtime keys', () => {
     const input = [
       createLocaleCatalog('en', {
