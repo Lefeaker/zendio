@@ -89,11 +89,11 @@ const ALLOWED_PREVIEW_DRIFT = new Map([
         'The Xiaohongshu QR caption and layering repair refreshes the generated preview JS hash after adding the requested QR caption message, changing the Suggestions QR trigger to a button-plus-popover-host structure, and preserving the existing Stitch schema renderer contract. The follow-up Xiaohongshu caption localization refreshes the generated preview JS hash after moving the QR caption into all release-language runtime/schema catalogs and tightening the Options trigger popover placement/weight while preserving the same Stitch schema renderer contract.',
         'The Options table alignment refresh updates the generated preview JS hash after giving Vault List and Routing Rules dedicated table wrapper classes and capitalizing platform-specific fragment modifier labels while preserving the frozen reference and Stitch runtime contract.',
         'The fragment keyboard shortcut hint refresh updates the generated preview JS hash after moving the direct-clip shortcut copy to platform-aware catalog keys and deriving runtime catalog generation keys from the English source catalog while preserving the frozen reference and Stitch runtime contract.',
-        'The YAML editor dynamic preview refresh updates the generated preview JS hash after moving YAML preview generation into the production YAML widget state/filter owner and removing the static article-only output seed while preserving the frozen reference and Stitch runtime contract. The YAML editor scoped field-value refresh updates the generated preview JS hash after rendering all-view content-type-specific YAML field values as read-only scoped groups while preserving per-content editing through the existing content-type filters and the Stitch runtime contract.'
+        'The YAML editor dynamic preview refresh updates the generated preview JS hash after moving YAML preview generation into the production YAML widget state/filter owner and removing the static article-only output seed while preserving the frozen reference and Stitch runtime contract. The YAML editor divergent-value refresh updates the generated preview JS hash after keeping all-view built-in YAML default/value-path cells blank when content types disagree, while preserving per-content editing through the existing content-type filters and the Stitch runtime contract.'
       ].join(' '),
       leftSha256: '9020ccbd91acd691eccd3fdf568b9a90efbddf0a35d79f36ef1caba702fa0c07',
-      // 2026-06-19 YAML editor scoped field-value preview JS hash.
-      rightSha256: '1b8da07e6c51d345ba546894a2194ee32edac118fd5388b0439dea7d6b61b685'
+      // 2026-06-19 YAML editor divergent all-view field-value preview JS hash.
+      rightSha256: '00d65446f2c845add0fa69c2686c70314e80e20a74262dd714a05df791b9369a'
     }
   ]
 ]);

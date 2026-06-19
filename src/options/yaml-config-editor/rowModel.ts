@@ -25,11 +25,6 @@ export interface YamlTableRow {
   defaultCustom: boolean;
 }
 
-export interface YamlContentScopedValue {
-  contentType: YamlContentType;
-  value: string;
-}
-
 export function allocateId(state: YamlEditorState, prefix: string): string {
   state.nextId += 1;
   return `${prefix}-${state.nextId}`;
@@ -160,51 +155,33 @@ export function getRowType(row: YamlTableRow): YamlFieldType {
   return getPrimaryField(row).type;
 }
 
-export function getRowDefaultValue(row: YamlTableRow, filter: YamlEditorFilter): string {
-  if (filter !== 'all' && row.fields[filter]) {
-    return row.fields[filter]?.defaultValue ?? '';
-  }
-  return getPrimaryField(row).defaultValue;
-}
-
-export function getRowValuePath(row: YamlTableRow, filter: YamlEditorFilter): string {
-  if (filter !== 'all' && row.fields[filter]) {
-    return row.fields[filter]?.valuePath ?? '';
-  }
-  return getPrimaryField(row).valuePath;
-}
-
-function getRowScopedValues(
+function getMergedRowValue(
   row: YamlTableRow,
   filter: YamlEditorFilter,
   readValue: (field: YamlEditorField) => string
-): YamlContentScopedValue[] | null {
-  if (filter !== 'all') {
-    return null;
+): string {
+  const filteredField = filter !== 'all' ? row.fields[filter] : undefined;
+  if (filteredField) {
+    return readValue(filteredField);
   }
-  const values = YAML_EDITOR_CONTENT_TYPES.flatMap((contentType) => {
-    const field = row.fields[contentType];
-    return field ? [{ contentType, value: readValue(field) }] : [];
-  });
-  if (values.length <= 1) {
-    return null;
+  if (filter === 'all') {
+    const contentValues = YAML_EDITOR_CONTENT_TYPES.flatMap((contentType) => {
+      const field = row.fields[contentType];
+      return field ? [readValue(field)] : [];
+    });
+    if (new Set(contentValues).size > 1) {
+      return '';
+    }
   }
-  const distinctValues = new Set(values.map((item) => item.value));
-  return distinctValues.size > 1 ? values : null;
+  return readValue(getPrimaryField(row));
 }
 
-export function getRowScopedDefaultValues(
-  row: YamlTableRow,
-  filter: YamlEditorFilter
-): YamlContentScopedValue[] | null {
-  return getRowScopedValues(row, filter, (field) => field.defaultValue);
+export function getRowDefaultValue(row: YamlTableRow, filter: YamlEditorFilter): string {
+  return getMergedRowValue(row, filter, (field) => field.defaultValue);
 }
 
-export function getRowScopedValuePaths(
-  row: YamlTableRow,
-  filter: YamlEditorFilter
-): YamlContentScopedValue[] | null {
-  return getRowScopedValues(row, filter, (field) => field.valuePath);
+export function getRowValuePath(row: YamlTableRow, filter: YamlEditorFilter): string {
+  return getMergedRowValue(row, filter, (field) => field.valuePath);
 }
 
 export function updateRow(row: YamlTableRow, patch: Partial<YamlEditorField>): void {

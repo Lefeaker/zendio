@@ -18,15 +18,12 @@ import {
   getRowDefaultValue,
   getRowFields,
   getRowName,
-  getRowScopedDefaultValues,
-  getRowScopedValuePaths,
   getRowType,
   getRowValuePath,
   removeRow,
   setRowEnabled,
   updateFilteredField,
   updateRow,
-  type YamlContentScopedValue,
   type YamlEditorFilter,
   type YamlTableRow
 } from './rowModel';
@@ -175,45 +172,10 @@ function renderToggle(
   return checkbox;
 }
 
-function renderScopedValues(
-  options: YamlConfigEditorViewOptions,
-  fieldName: 'defaultValue' | 'valuePath',
-  values: YamlContentScopedValue[]
-): HTMLElement {
-  const list = el('div', {
-    className: 'yaml-content-value-list',
-    dataset: { yamlFieldValues: fieldName }
-  });
-  values.forEach(({ contentType, value }) => {
-    list.append(
-      el(
-        'span',
-        {
-          className: 'yaml-content-value',
-          dataset: { mode: contentType }
-        },
-        el('span', {
-          className: 'yaml-content-value-label',
-          text: options.labels.contentTypes[contentType]
-        }),
-        el('code', {
-          className: 'yaml-content-value-code',
-          text: value || '-'
-        })
-      )
-    );
-  });
-  return list;
-}
-
 function renderDefaultValueControl(
   options: YamlConfigEditorViewOptions,
   row: YamlTableRow
 ): HTMLElement {
-  const scopedValues = getRowScopedDefaultValues(row, options.filter);
-  if (scopedValues) {
-    return renderScopedValues(options, 'defaultValue', scopedValues);
-  }
   return textInput({
     className: 'input mono',
     value: getRowDefaultValue(row, options.filter),
@@ -229,10 +191,6 @@ function renderValuePathControl(
   options: YamlConfigEditorViewOptions,
   row: YamlTableRow
 ): HTMLElement {
-  const scopedValues = getRowScopedValuePaths(row, options.filter);
-  if (scopedValues) {
-    return renderScopedValues(options, 'valuePath', scopedValues);
-  }
   return textInput({
     className: 'input mono',
     value: getRowValuePath(row, options.filter),
