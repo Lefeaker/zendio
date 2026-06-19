@@ -111,6 +111,12 @@ describe('Stitch runtime polish CSS contracts', () => {
       /\.yaml-table-scroll\s+table\s*{[^}]*table-layout:\s*fixed;[^}]*min-width:\s*900px;/
     );
     expect(stitchCss).toMatch(
+      /\.stitch-yaml-config-widget,\s*\.stitch-yaml-config-widget\s*>\s*\*\s*{[^}]*min-width:\s*0;[^}]*max-width:\s*100%;/
+    );
+    expect(stitchCss).toMatch(
+      /\.yaml-table-shell\s*{[^}]*width:\s*100%;[^}]*max-width:\s*100%;[^}]*min-width:\s*0;/
+    );
+    expect(stitchCss).toMatch(
       /\.yaml-domain-fields-shell\s+table\s*{[^}]*table-layout:\s*fixed;[^}]*min-width:\s*760px;/
     );
     expect(stitchCss).toMatch(
@@ -118,6 +124,21 @@ describe('Stitch runtime polish CSS contracts', () => {
     );
     expect(stitchCss).toMatch(
       /\.stitch-yaml-domain-fields-table\s+:is\(th,\s*td\):nth-child\(1\)\s*{[^}]*width:\s*88px;/
+    );
+  });
+
+  it('keeps reading path controls and helper copy responsive inside their control column', () => {
+    expect(stitchCss).toMatch(
+      /\.reading-template-row\s*{[^}]*display:\s*flex;[^}]*flex-wrap:\s*wrap;/
+    );
+    expect(stitchCss).toMatch(
+      /\.reading-mode-select\s*{[^}]*flex:\s*0\s+0\s+auto;[^}]*max-width:\s*100%;/
+    );
+    expect(stitchCss).toMatch(
+      /\.reading-template-row\s+\.input\s*{[^}]*flex:\s*1\s+1\s+220px;[^}]*min-width:\s*0;/
+    );
+    expect(stitchCss).toMatch(
+      /\.template-row-helper,\s*\.modifier-key-description,\s*\.keyboard-shortcuts-description\s*{[^}]*min-width:\s*0;/
     );
   });
 

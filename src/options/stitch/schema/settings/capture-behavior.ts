@@ -180,7 +180,6 @@ const schema: SettingsSchema = {
                     {
                       kind: 'row',
                       title: t('fragmentModifierToggleLabel'),
-                      description: t('fragmentModifierToggleDescription'),
                       control: stack(
                         (current) => [
                           boundSwitch({
@@ -200,6 +199,10 @@ const schema: SettingsSchema = {
                             action: { id: 'modifier:setKey' }
                           },
                           paragraph(
+                            translate(current, 'fragmentModifierToggleDescription'),
+                            'modifier-key-description'
+                          ),
+                          paragraph(
                             fragmentModifierStateWarning(current.state, current.messages),
                             'modifier-key-warning'
                           )
@@ -210,19 +213,27 @@ const schema: SettingsSchema = {
                     {
                       kind: 'row',
                       title: t('fragmentKeyboardShortcutsLabel'),
-                      description: (current) => fragmentKeyboardShortcutsHint(current.messages),
-                      control: boundSwitch({
-                        bind: 'fragmentKeyboardShortcutsEnabled',
-                        stateText: (current) =>
-                          current.state.fragmentKeyboardShortcutsEnabled
-                            ? translate(current, 'schemaCommonEnabledState')
-                            : translate(current, 'schemaCommonDisabledState'),
-                        onChange: {
-                          id: 'options:updateField',
-                          args: ['fragmentClipper.keyboardShortcutsEnabled'],
-                          valueFrom: 'target.checked'
-                        }
-                      })
+                      control: stack(
+                        [
+                          boundSwitch({
+                            bind: 'fragmentKeyboardShortcutsEnabled',
+                            stateText: (current) =>
+                              current.state.fragmentKeyboardShortcutsEnabled
+                                ? translate(current, 'schemaCommonEnabledState')
+                                : translate(current, 'schemaCommonDisabledState'),
+                            onChange: {
+                              id: 'options:updateField',
+                              args: ['fragmentClipper.keyboardShortcutsEnabled'],
+                              valueFrom: 'target.checked'
+                            }
+                          }),
+                          paragraph(
+                            (current) => fragmentKeyboardShortcutsHint(current.messages),
+                            'keyboard-shortcuts-description'
+                          )
+                        ],
+                        'switch-line keyboard-shortcuts-inline'
+                      )
                     }
                   ]
                 },

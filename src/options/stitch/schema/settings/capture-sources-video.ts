@@ -5,7 +5,7 @@ import {
   type SchemaMessageValues
 } from '../i18n';
 import { boundInput, boundSwitch } from '../builders/controls';
-import { element, emptyState, grid, stack } from '../builders/primitives';
+import { element, grid, paragraph, stack } from '../builders/primitives';
 
 function translate(
   current: SchemaContext,
@@ -14,6 +14,79 @@ function translate(
 ): string {
   const fallback = getDefaultProductionEnglishMessage(key, values);
   return current.t ? current.t(key, fallback, values) : fallback;
+}
+
+function createVideoPromptHelper(): ReturnType<typeof element> {
+  return element('p', { className: 'video-prompt-helper' }, [
+    element('span', {
+      text: (current) => translate(current, 'schemaCaptureSourcesVideoPromptIntroPrefix')
+    }),
+    element('a', {
+      text: (current) => translate(current, 'schemaCaptureSourcesVideoYoutubeLabel'),
+      href: 'https://www.youtube.com/',
+      target: '_blank',
+      rel: 'noopener noreferrer'
+    }),
+    element('span', {
+      text: (current) => translate(current, 'schemaCaptureSourcesVideoPromptPlatformJoiner')
+    }),
+    element('a', {
+      text: (current) => translate(current, 'schemaCaptureSourcesVideoBilibiliLabel'),
+      href: 'https://www.bilibili.com/',
+      target: '_blank',
+      rel: 'noopener noreferrer'
+    }),
+    element('span', {
+      text: (current) => translate(current, 'schemaCaptureSourcesVideoPromptIntroSuffix')
+    }),
+    element('span', {
+      text: (current) => translate(current, 'schemaCaptureSourcesVideoPromptGreyDotLabel')
+    }),
+    element('span', {
+      className: 'video-screenshot-dot-example is-empty',
+      role: 'img',
+      ariaLabel: (current) => translate(current, 'schemaCaptureSourcesVideoPromptGreyDotLabel')
+    }),
+    element('span', {
+      text: (current) => translate(current, 'schemaCaptureSourcesVideoPromptGreyDotDescription')
+    }),
+    element('span', {
+      text: (current) => translate(current, 'schemaCaptureSourcesVideoPromptGreenDotLabel')
+    }),
+    element('span', {
+      className: 'video-screenshot-dot-example is-saved',
+      role: 'img',
+      ariaLabel: (current) => translate(current, 'schemaCaptureSourcesVideoPromptGreenDotLabel')
+    }),
+    element('span', {
+      text: (current) => translate(current, 'schemaCaptureSourcesVideoPromptGreenDotDescription')
+    }),
+    element('span', {
+      text: (current) => translate(current, 'schemaCaptureSourcesVideoPromptToggleHint')
+    })
+  ]);
+}
+
+function templateInputWithHelper(
+  bind: string,
+  argsPath: string,
+  descriptionKey: SchemaMessageKey
+): ReturnType<typeof stack> {
+  return stack(
+    [
+      boundInput({
+        bind,
+        mono: true,
+        onInput: {
+          id: 'options:updateField',
+          args: [argsPath],
+          valueFrom: 'target.value'
+        }
+      }),
+      paragraph((current) => translate(current, descriptionKey), 'template-row-helper')
+    ],
+    'template-row-control'
+  );
 }
 
 export function createVideoCaptureSourcesGroup(ctx: SchemaContext): GroupNode {
@@ -79,7 +152,7 @@ export function createVideoCaptureSourcesGroup(ctx: SchemaContext): GroupNode {
               }
             ]
           },
-          emptyState(translate(ctx, 'schemaCaptureSourcesVideoPromptHelper')),
+          createVideoPromptHelper(),
           stack(
             [
               element('div', { className: 'path-template-section-title' }, [
@@ -95,48 +168,30 @@ export function createVideoCaptureSourcesGroup(ctx: SchemaContext): GroupNode {
                     kind: 'row',
                     title: (current) =>
                       translate(current, 'schemaCaptureSourcesScreenshotLocationTitle'),
-                    description: (current) =>
-                      translate(current, 'schemaCaptureSourcesScreenshotLocationDescription'),
-                    control: boundInput({
-                      bind: 'videoScreenshotAttachmentLocationTemplate',
-                      mono: true,
-                      onInput: {
-                        id: 'options:updateField',
-                        args: ['video.screenshotAttachment.locationTemplate'],
-                        valueFrom: 'target.value'
-                      }
-                    })
+                    control: templateInputWithHelper(
+                      'videoScreenshotAttachmentLocationTemplate',
+                      'video.screenshotAttachment.locationTemplate',
+                      'schemaCaptureSourcesScreenshotLocationDescription'
+                    )
                   },
                   {
                     kind: 'row',
                     title: (current) =>
                       translate(current, 'schemaCaptureSourcesScreenshotFilenameTitle'),
-                    description: (current) =>
-                      translate(current, 'schemaCaptureSourcesScreenshotFilenameDescription'),
-                    control: boundInput({
-                      bind: 'videoScreenshotAttachmentFileNameTemplate',
-                      mono: true,
-                      onInput: {
-                        id: 'options:updateField',
-                        args: ['video.screenshotAttachment.fileNameTemplate'],
-                        valueFrom: 'target.value'
-                      }
-                    })
+                    control: templateInputWithHelper(
+                      'videoScreenshotAttachmentFileNameTemplate',
+                      'video.screenshotAttachment.fileNameTemplate',
+                      'schemaCaptureSourcesScreenshotFilenameDescription'
+                    )
                   },
                   {
                     kind: 'row',
                     title: (current) => translate(current, 'schemaCaptureSourcesMarkdownUrlTitle'),
-                    description: (current) =>
-                      translate(current, 'schemaCaptureSourcesMarkdownUrlDescription'),
-                    control: boundInput({
-                      bind: 'videoScreenshotAttachmentMarkdownUrlFormat',
-                      mono: true,
-                      onInput: {
-                        id: 'options:updateField',
-                        args: ['video.screenshotAttachment.markdownUrlFormat'],
-                        valueFrom: 'target.value'
-                      }
-                    })
+                    control: templateInputWithHelper(
+                      'videoScreenshotAttachmentMarkdownUrlFormat',
+                      'video.screenshotAttachment.markdownUrlFormat',
+                      'schemaCaptureSourcesMarkdownUrlDescription'
+                    )
                   }
                 ]
               },

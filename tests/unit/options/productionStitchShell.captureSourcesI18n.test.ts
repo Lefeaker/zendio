@@ -18,11 +18,23 @@ const ENGLISH_SENTINEL_MESSAGES = {
   schemaCaptureSourcesVideoEntryBehaviorTitle: 'Video Entry Behavior Sentinel',
   schemaCaptureSourcesVideoEntryBehaviorDescription: 'Video Entry Behavior Description Sentinel',
   schemaCaptureSourcesVideoNoteButtonLabel: 'Video Note Button Sentinel',
-  schemaCaptureSourcesVideoPromptHelper: 'Video Prompt Helper Sentinel',
+  schemaCaptureSourcesVideoPromptIntroPrefix: 'Video Prompt Intro Prefix Sentinel ',
+  schemaCaptureSourcesVideoPromptPlatformJoiner: ' + ',
+  schemaCaptureSourcesVideoPromptIntroSuffix: '. Video Prompt Intro Suffix Sentinel ',
+  schemaCaptureSourcesVideoPromptGreyDotLabel: 'Grey Dot Sentinel',
+  schemaCaptureSourcesVideoPromptGreyDotDescription: ' means empty sentinel. ',
+  schemaCaptureSourcesVideoPromptGreenDotLabel: 'Green Dot Sentinel',
+  schemaCaptureSourcesVideoPromptGreenDotDescription: ' means saved sentinel. ',
+  schemaCaptureSourcesVideoPromptToggleHint: 'Click dots sentinel.',
+  schemaCaptureSourcesVideoYoutubeLabel: 'YouTube Sentinel',
+  schemaCaptureSourcesVideoBilibiliLabel: 'Bilibili Sentinel',
   schemaCaptureSourcesAttachmentPathGroupTitle: 'Attachment Path Group Sentinel',
   schemaCaptureSourcesScreenshotLocationTitle: 'Attachment Location Sentinel',
+  schemaCaptureSourcesScreenshotLocationDescription: 'Attachment Location Description Sentinel',
   schemaCaptureSourcesScreenshotFilenameTitle: 'Attachment Filename Sentinel',
+  schemaCaptureSourcesScreenshotFilenameDescription: 'Attachment Filename Description Sentinel',
   schemaCaptureSourcesMarkdownUrlTitle: 'Markdown URL Sentinel',
+  schemaCaptureSourcesMarkdownUrlDescription: 'Markdown URL Description Sentinel',
   schemaCaptureSourcesAttachmentGuidancePrefix: 'Attachment Guidance Prefix Sentinel ',
   schemaCaptureSourcesAttachmentGuidanceLink: 'Attachment Guidance Link Sentinel',
   schemaCaptureSourcesAttachmentGuidanceSuffix: ' Attachment Guidance Suffix Sentinel',
@@ -61,7 +73,11 @@ describe('mountProductionStitchShell capture sources i18n', () => {
     expect(panelText).toContain('Video Entry Behavior Sentinel');
     expect(panelText).toContain('Video Entry Behavior Description Sentinel');
     expect(panelText).toContain('Video Note Button Sentinel');
-    expect(panelText).toContain('Video Prompt Helper Sentinel');
+    expect(panelText).toContain('Video Prompt Intro Prefix Sentinel');
+    expect(panelText).toContain('Video Prompt Intro Suffix Sentinel');
+    expect(panelText).toContain('Grey Dot Sentinel means empty sentinel.');
+    expect(panelText).toContain('Green Dot Sentinel means saved sentinel.');
+    expect(panelText).toContain('Click dots sentinel.');
     expect(panelText).toContain('Attachment Path Group Sentinel');
     expect(panelText).toContain('Attachment Location Sentinel');
     expect(panelText).toContain('Attachment Filename Sentinel');
@@ -73,6 +89,32 @@ describe('mountProductionStitchShell capture sources i18n', () => {
     expect(
       videoEntryRow?.querySelectorAll<HTMLInputElement>('input[type="checkbox"]')
     ).toHaveLength(2);
+
+    const aiConversationCard = queryRequired<HTMLElement>('.card', captureSourcesPanel);
+    expect(aiConversationCard.textContent).not.toContain('User name');
+    expect(aiConversationCard.textContent).not.toContain('USER');
+    expect(captureSourcesPanel.querySelector('input[data-bind="aiUserName"]')).toBeNull();
+
+    const promptHelper = queryRequired<HTMLElement>('.video-prompt-helper', captureSourcesPanel);
+    const promptLinks = Array.from(promptHelper.querySelectorAll<HTMLAnchorElement>('a')).map(
+      (link) => ({ text: link.textContent?.trim(), href: link.href })
+    );
+    expect(promptLinks).toEqual([
+      { text: 'YouTube Sentinel', href: 'https://www.youtube.com/' },
+      { text: 'Bilibili Sentinel', href: 'https://www.bilibili.com/' }
+    ]);
+    expect(promptHelper.querySelector('.video-screenshot-dot-example.is-empty')).toBeTruthy();
+    expect(promptHelper.querySelector('.video-screenshot-dot-example.is-saved')).toBeTruthy();
+
+    const attachmentRows = Array.from(
+      captureSourcesPanel.querySelectorAll<HTMLElement>('.video-attachment-path-config .row')
+    );
+    for (const row of attachmentRows) {
+      expect(row.querySelector('.label')?.textContent).not.toContain('Description Sentinel');
+      expect(row.querySelector('.template-row-helper')?.textContent).toContain(
+        'Description Sentinel'
+      );
+    }
 
     const attachmentLink = captureSourcesPanel.querySelector<HTMLAnchorElement>(
       'a[href="https://github.com/mnaoumov/obsidian-custom-attachment-location"]'

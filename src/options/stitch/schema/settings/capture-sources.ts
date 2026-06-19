@@ -4,9 +4,7 @@ import {
   type SchemaMessageKey,
   type SchemaMessageValues
 } from '../i18n';
-import { emptyState, grid } from '../builders/primitives';
 import { aiPlatformLinks } from '../builders/settings';
-import { boundInput } from '../builders/controls';
 import { createVideoCaptureSourcesGroup } from './capture-sources-video';
 
 function translate(
@@ -58,38 +56,6 @@ const schema: SettingsSchema = {
                         'schemaCaptureSourcesSupportedPlatformsDescription'
                       ),
                       control: aiPlatformLinks()
-                    },
-                    {
-                      kind: 'row',
-                      title: translate(ctx, 'aiSummaryUserName'),
-                      description: translate(ctx, 'schemaCaptureSourcesUserDisplayNameDescription'),
-                      control: grid(
-                        2,
-                        [
-                          {
-                            kind: 'field',
-                            label: translate(ctx, 'userNameLabel'),
-                            control: boundInput({
-                              bind: 'aiUserName',
-                              onInput: {
-                                id: 'options:updateField',
-                                args: ['aiChat.userName'],
-                                valueFrom: 'target.value'
-                              }
-                            })
-                          },
-                          {
-                            kind: 'field',
-                            label: translate(ctx, 'schemaCaptureSourcesPreviewFieldLabel'),
-                            control: emptyState((current) =>
-                              translate(current, 'schemaCaptureSourcesUserDisplayNamePreview', {
-                                label: current.state.aiUserName ?? 'USER'
-                              })
-                            )
-                          }
-                        ],
-                        'field-grid-2'
-                      )
                     }
                   ]
                 }

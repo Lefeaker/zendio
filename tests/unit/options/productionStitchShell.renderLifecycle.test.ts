@@ -170,7 +170,7 @@ describe('mountProductionStitchShell renderLifecycle', () => {
     const mounted = mountProductionStitchShell({
       controller: asOptionsController(controller),
       initialOptions: {
-        aiChat: { userName: 'Bob' },
+        rest: { vault: 'Bob Vault' },
         video: { promptButtonLabel: 'Clip this video', promptShortcut: 'Alt+Shift+V' }
       },
       messages: null,
@@ -178,13 +178,13 @@ describe('mountProductionStitchShell renderLifecycle', () => {
       messagingRepository: createMessaging({ success: true, message: 'ok' })
     } as never);
 
-    const userNameInput = findInputByValue('Bob');
+    const vaultNameInput = findInputByValue('Bob Vault');
 
-    userNameInput.value = 'Alice';
-    userNameInput.dispatchEvent(new Event('input', { bubbles: true }));
+    vaultNameInput.value = 'Alice Vault';
+    vaultNameInput.dispatchEvent(new Event('input', { bubbles: true }));
 
     expect(vi.mocked(controller.scheduleAutoSave)).toHaveBeenCalledTimes(1);
-    expect(mounted.collectDraft().aiChat.userName).toBe('Alice');
+    expect(mounted.collectDraft().rest.vault).toBe('Alice Vault');
   });
 
   it('prevents mouse button presses from moving the production Options scroller', async () => {
