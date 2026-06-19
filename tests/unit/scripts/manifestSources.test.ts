@@ -20,11 +20,19 @@ describe('manifestSources', () => {
     const manifestWithSharedFields = manifest as {
       name?: string;
       description?: string;
+      background?: {
+        scripts?: string[];
+        service_worker?: string;
+      };
     };
 
     expect(manifest.action?.default_popup).toBeUndefined();
     expect(manifestWithSharedFields.name).toBe('__MSG_extName__');
     expect(manifestWithSharedFields.description).toBe('__MSG_extDescription__');
+    expect(manifestWithSharedFields.background).toEqual({
+      scripts: ['background/index.js']
+    });
+    expect(manifestWithSharedFields.background?.service_worker).toBeUndefined();
     expect(manifest.content_scripts).toEqual([
       {
         matches: ['<all_urls>'],
@@ -34,6 +42,12 @@ describe('manifestSources', () => {
     ]);
     expect(manifest.permissions).not.toContain('offscreen');
     expect(manifest.browser_specific_settings?.gecko?.id).toBe('allinob@aiiin.com');
+    expect(manifest.browser_specific_settings?.gecko?.strict_min_version).toBe('142.0');
+    expect(manifest.browser_specific_settings?.gecko?.data_collection_permissions).toEqual({
+      required: ['none'],
+      optional: ['technicalAndInteraction']
+    });
+    expect(manifest.browser_specific_settings?.gecko_android?.strict_min_version).toBe('142.0');
     expect(manifest.incognito).toBeUndefined();
   });
 });

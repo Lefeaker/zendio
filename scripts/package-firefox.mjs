@@ -53,6 +53,75 @@ async function loadWebExt() {
   return webExtModule.default ?? webExtModule;
 }
 
+function getLintCount(lintResult, key) {
+  const summaryCount = lintResult?.summary?.[key];
+  if (typeof summaryCount === 'number') {
+    return summaryCount;
+  }
+
+  const entries = lintResult?.[key];
+  return Array.isArray(entries) ? entries.length : 0;
+}
+
+function formatLintErrorCodes(errors) {
+  if (!Array.isArray(errors) || errors.length === 0) {
+    return 'unknown';
+  }
+
+  return errors
+    .map((error) => error?.code ?? error?.message ?? 'unknown')
+    .slice(0, 5)
+    .join(', ');
+}
+
+export async function lintFirefoxExtension(distDir, dependencies = {}) {
+  const {
+    importWebExtImpl = loadWebExt,
+    logger = console,
+    webExt
+  } = dependencies;
+  const resolvedWebExt = webExt ?? (await importWebExtImpl());
+
+  if (typeof resolvedWebExt?.cmd?.lint !== 'function') {
+    throw new Error('Firefox web-ext lint API is unavailable.');
+  }
+
+  logger.log('🔎 正在运行 Firefox web-ext lint...');
+
+  let lintResult;
+  try {
+    lintResult = await resolvedWebExt.cmd.lint(
+      {
+        sourceDir: distDir,
+        selfHosted: true,
+        warningsAsErrors: false
+      },
+      { shouldExitProgram: false }
+    );
+  } catch (error) {
+    throw new Error(`Firefox web-ext lint failed: ${error.message}`);
+  }
+
+  const errorCount = getLintCount(lintResult, 'errors');
+  if (errorCount > 0) {
+    throw new Error(
+      `Firefox web-ext lint failed with ${errorCount} error(s): ${formatLintErrorCodes(
+        lintResult?.errors
+      )}`
+    );
+  }
+
+  const warningCount = getLintCount(lintResult, 'warnings');
+  if (warningCount > 0) {
+    logger.warn(
+      `⚠️  Firefox web-ext lint reported ${warningCount} warning(s); review web-ext output before AMO submission.`
+    );
+  }
+
+  logger.log('✅ Firefox web-ext lint passed');
+  return lintResult;
+}
+
 async function readXpiArtifactSnapshot(artifactsDir, { readdirImpl, statImpl }) {
   const snapshot = new Map();
   const files = await readdirImpl(artifactsDir);
@@ -180,6 +249,52 @@ export async function signAndAuditFirefoxPackage(signingOptions, dependencies = 
   return signedPath;
 }
 
+export async function prepareFirefoxReleasePackage({ distDir }, dependencies = {}) {
+  const {
+    applyRestHostPermissionsImpl = applyRestHostPermissions,
+    auditReleaseArchiveImpl = auditReleaseArchive,
+    createUnsignedXpiImpl = createUnsignedXpi,
+    lintFirefoxExtensionImpl = lintFirefoxExtension,
+    logger = console,
+    prepareLicenseArtifactsImpl = prepareLicenseArtifacts,
+    readFileImpl = readFile,
+    resolveMessageImpl = resolveMessage,
+    writeFileImpl = writeFile
+  } = dependencies;
+
+  await prepareLicenseArtifactsImpl(distDir);
+
+  const manifestPath = join(distDir, 'manifest.json');
+  const manifest = JSON.parse(await readFileImpl(manifestPath, 'utf8'));
+  const manifestWithHosts = applyRestHostPermissionsImpl(manifest);
+
+  await writeFileImpl(manifestPath, JSON.stringify(manifestWithHosts, null, 2));
+
+  const version = manifestWithHosts.version;
+  const resolvedName = await resolveMessageImpl(manifestWithHosts.name, manifestWithHosts, distDir);
+
+  logger.log(`📝 扩展名称: ${resolvedName}`);
+  logger.log(`📝 版本号: ${version}`);
+
+  await lintFirefoxExtensionImpl(distDir);
+
+  const { xpiName, outputPath, zipSafeName } = await createUnsignedXpiImpl(
+    distDir,
+    resolvedName,
+    version
+  );
+  await auditReleaseArchiveImpl(outputPath);
+
+  return {
+    manifest: manifestWithHosts,
+    outputPath,
+    resolvedName,
+    version,
+    xpiName,
+    zipSafeName
+  };
+}
+
 export async function packageFirefoxExtension() {
   console.log('📦 开始打包 Firefox 扩展...');
 
@@ -189,22 +304,9 @@ export async function packageFirefoxExtension() {
   }
 
   const distDir = 'build/dist';
-  await prepareLicenseArtifacts(distDir);
-
-  const manifestPath = join(distDir, 'manifest.json');
-  const manifest = JSON.parse(await readFile(manifestPath, 'utf8'));
-  const manifestWithHosts = applyRestHostPermissions(manifest);
-
-  await writeFile(manifestPath, JSON.stringify(manifestWithHosts, null, 2));
-
-  const version = manifestWithHosts.version;
-  const resolvedName = await resolveMessage(manifestWithHosts.name, manifestWithHosts, distDir);
-
-  console.log(`📝 扩展名称: ${resolvedName}`);
-  console.log(`📝 版本号: ${version}`);
-
-  const { xpiName, outputPath, zipSafeName } = await createUnsignedXpi(distDir, resolvedName, version);
-  await auditReleaseArchive(outputPath);
+  const { manifest, outputPath, version, xpiName, zipSafeName } = await prepareFirefoxReleasePackage({
+    distDir
+  });
 
   console.log('✅ 未签名 XPI 已生成');
   console.log(`   文件路径: ${outputPath}`);
@@ -237,7 +339,7 @@ export async function packageFirefoxExtension() {
     apiKey,
     apiSecret,
     channel,
-    extensionId: manifestWithHosts?.browser_specific_settings?.gecko?.id
+    extensionId: manifest?.browser_specific_settings?.gecko?.id
   });
 }
 

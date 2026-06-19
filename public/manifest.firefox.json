@@ -30,7 +30,7 @@
   ],
   "host_permissions": ["<all_urls>", "http://127.0.0.1/*", "https://127.0.0.1/*"],
   "background": {
-    "service_worker": "background/index.js"
+    "scripts": ["background/index.js"]
   },
   "options_ui": {
     "page": "options/index.html",
@@ -61,10 +61,14 @@
   "browser_specific_settings": {
     "gecko": {
       "id": "allinob@aiiin.com",
-      "strict_min_version": "113.0"
+      "strict_min_version": "142.0",
+      "data_collection_permissions": {
+        "required": ["none"],
+        "optional": ["technicalAndInteraction"]
+      }
     },
     "gecko_android": {
-      "strict_min_version": "113.0"
+      "strict_min_version": "142.0"
     }
   }
 }

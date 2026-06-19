@@ -12,9 +12,20 @@ export interface BrowserManifest {
     default_popup?: string;
     default_title?: string;
   };
+  background?: {
+    service_worker?: string;
+    scripts?: string[];
+  };
   browser_specific_settings?: {
     gecko?: {
       id?: string;
+      strict_min_version?: string;
+      data_collection_permissions?: {
+        required: string[];
+        optional?: string[];
+      };
+    };
+    gecko_android?: {
       strict_min_version?: string;
     };
   };

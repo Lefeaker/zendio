@@ -21,6 +21,12 @@ const SHARED_PERMISSIONS = [
 
 const SHARED_HOST_PERMISSIONS = ['<all_urls>', 'http://127.0.0.1/*', 'https://127.0.0.1/*'];
 const WEB_ACCESSIBLE_RESOURCE_MATCHES = ['http://*/*', 'https://*/*'];
+const BACKGROUND_ENTRYPOINT = 'background/index.js';
+const FIREFOX_MIN_VERSION = '142.0';
+const FIREFOX_DATA_COLLECTION_PERMISSIONS = {
+  required: ['none'],
+  optional: ['technicalAndInteraction']
+};
 
 const SHARED_WEB_ACCESSIBLE_RESOURCES = [
   {
@@ -59,7 +65,7 @@ function createBaseManifest() {
     permissions: [...SHARED_PERMISSIONS],
     host_permissions: [...SHARED_HOST_PERMISSIONS],
     background: {
-      service_worker: 'background/index.js'
+      service_worker: BACKGROUND_ENTRYPOINT
     },
     options_ui: {
       page: 'options/index.html',
@@ -81,6 +87,9 @@ function applyBrowserOverrides(manifest, browser) {
   if (browser === 'firefox') {
     return {
       ...manifest,
+      background: {
+        scripts: [BACKGROUND_ENTRYPOINT]
+      },
       content_scripts: [
         {
           matches: ['<all_urls>'],
@@ -91,10 +100,11 @@ function applyBrowserOverrides(manifest, browser) {
       browser_specific_settings: {
         gecko: {
           id: 'allinob@aiiin.com',
-          strict_min_version: '113.0'
+          strict_min_version: FIREFOX_MIN_VERSION,
+          data_collection_permissions: clone(FIREFOX_DATA_COLLECTION_PERMISSIONS)
         },
         gecko_android: {
-          strict_min_version: '113.0'
+          strict_min_version: FIREFOX_MIN_VERSION
         }
       }
     };
