@@ -1,4 +1,4 @@
-import { getMessagesForLanguage, type Messages } from '@i18n';
+import type { Messages } from '@i18n';
 import { resolveSchemaMessage } from '@options/stitch/schema/i18n';
 import { getService } from '@shared/di';
 import { TOKENS } from '@shared/di/tokens';
@@ -23,12 +23,8 @@ export function createProductionStitchStorageSubscriptions(
   options: ProductionStitchStorageControllerOptions,
   load: ProductionStitchStorageLoad
 ): ProductionStitchStorageSubscriptions {
-  async function resolveCurrentMessages(): Promise<Messages | null> {
-    try {
-      return await getMessagesForLanguage(options.getState().previewLanguage);
-    } catch {
-      return null;
-    }
+  function resolveCurrentMessages(): Messages | null {
+    return options.getMessages?.() ?? null;
   }
 
   function getMessage(
@@ -82,7 +78,7 @@ export function createProductionStitchStorageSubscriptions(
         void removeStoredLocalFolder(previousFolderId);
       }
     } catch (error) {
-      const messages = await resolveCurrentMessages();
+      const messages = resolveCurrentMessages();
       emitLocalVaultPermissionResolved(
         options.getMessagingRepository(),
         classifyPermissionPromptErrorOutcome(error)
@@ -139,7 +135,7 @@ export function createProductionStitchStorageSubscriptions(
       const permission = await getService<PlatformServices>(
         TOKENS.platformServices
       ).fileSystemAccess.ensurePermission(vault.localFolderId);
-      const messages = await resolveCurrentMessages();
+      const messages = resolveCurrentMessages();
       emitLocalVaultPermissionResolved(
         options.getMessagingRepository(),
         permission === 'granted' ? 'completed' : 'failed'
@@ -164,7 +160,7 @@ export function createProductionStitchStorageSubscriptions(
         variant: 'success'
       });
     } catch (error) {
-      const messages = await resolveCurrentMessages();
+      const messages = resolveCurrentMessages();
       emitLocalVaultPermissionResolved(
         options.getMessagingRepository(),
         classifyPermissionPromptErrorOutcome(error)
