@@ -3,6 +3,7 @@ import { DEFAULT_YAML_CONFIG } from '@shared/config';
 import type { YamlConfigOverrides, YamlContentType, YamlFieldType } from '@shared/types/yamlConfig';
 import {
   applyYamlEditorAction,
+  buildYamlEditorPreview,
   createYamlEditorState,
   serializeYamlEditorState,
   validateYamlEditorState,
@@ -386,5 +387,33 @@ describe('YAML editor core', () => {
     );
     expect(() => validateYamlEditorState(state)).not.toThrow();
     expect(serializeYamlEditorState(state)).toBeNull();
+  });
+
+  it('builds preview YAML from the current editor state and selected content type', () => {
+    let state = createYamlEditorState(null);
+    state = applyYamlEditorAction(state, {
+      type: 'set-field-enabled',
+      contentType: 'video',
+      bucket: 'fields',
+      fieldId: findFieldId(state, 'video', 'url'),
+      enabled: false
+    });
+    state = addCustomField(state, 'video', 'sponsor', 'text', 'OpenAI');
+
+    const videoPreview = buildYamlEditorPreview(state, 'video');
+
+    expect(videoPreview).toContain('# Video');
+    expect(videoPreview).toContain('type: "video"');
+    expect(videoPreview).toContain('platform: "YouTube"');
+    expect(videoPreview).toContain('sponsor: "OpenAI"');
+    expect(videoPreview).not.toContain('url:');
+
+    const allPreview = buildYamlEditorPreview(state, 'all');
+
+    expect(allPreview).toContain('# Article');
+    expect(allPreview).toContain('# Clipper');
+    expect(allPreview).toContain('# Video');
+    expect(allPreview).toContain('# AI');
+    expect(allPreview).toContain('message_count: 12');
   });
 });

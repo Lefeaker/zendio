@@ -348,7 +348,6 @@ export interface PreviewContent {
     yamlFilters: SelectOption[];
     yamlRows: YamlRowGroup[];
     yamlDomainRules: YamlDomainRule[];
-    yamlPreview: string;
     presets: PresetEntry[];
   };
   experimental: {

@@ -3,7 +3,7 @@ import { stack } from '../builders/primitives';
 import { boundInput } from '../builders/controls';
 import { sectionHelper } from '../builders/chrome';
 import { buttonCell, textCell } from '../builders/table';
-import { templateInput, templateTokenBlock, yamlPreviewBlock } from '../builders/output';
+import { templateInput, templateTokenBlock } from '../builders/output';
 import { getDefaultProductionEnglishMessage, type SchemaMessageKey } from '../i18n';
 
 function translate(current: Pick<SchemaContext, 't'>, key: SchemaMessageKey): string {
@@ -212,9 +212,6 @@ const schema: SettingsSchema = {
                 sectionHelper(
                   (current) => translate(current, 'schemaOutputYamlHelperText'),
                   'yaml-helper'
-                ),
-                yamlPreviewBlock((current) =>
-                  translate(current, 'schemaOutputYamlPreviewSummaryLabel')
                 )
               ]
             }

@@ -275,7 +275,6 @@ export const previewContent: PreviewContent = {
         rows: [['official_account', 'On', 'metadata.wechat.account', '']]
       }
     ],
-    yamlPreview: `---\ntype: article\ntitle: "Research Article Example"\nurl: "https://arxiv.org/abs/2401.00001"\nclipped_at: "2026-04-08T18:32:00+08:00"\ntags: ["clipping", "research"]\nstatus: ["unread"]\nworkspace: "research"\nauthors: ["Jane Doe", "John Smith"]\ncitation_key: "doe2026ia"\n---`,
     presets: [
       ['Minimal', 'Title, source, date, and base tags. Good for quick capture.'],
       ['Research', 'Adds author, published_at, citation, status, and workspace.'],

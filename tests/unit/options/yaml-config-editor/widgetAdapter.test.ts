@@ -136,6 +136,51 @@ describe('YamlConfigEditorWidgetAdapter', () => {
     );
   });
 
+  it('renders YAML preview from the live editor state and active filter', () => {
+    const { container } = createMount({
+      yamlConfig: {
+        contentTypes: {
+          video: {
+            fields: [{ name: 'url', type: 'text', enabled: false }],
+            customFields: [{ name: 'sponsor', type: 'text', enabled: true, defaultValue: 'OpenAI' }]
+          }
+        }
+      }
+    });
+
+    const preview = () =>
+      queryRequired<HTMLElement>('[data-yaml-preview="content"]', container).textContent ?? '';
+
+    expect(preview()).toContain('# Article');
+    expect(preview()).toContain('# Video');
+    expect(preview()).not.toContain('Research Article Example');
+
+    queryRequired<HTMLButtonElement>('.yaml-filter[data-value="video"]', container).click();
+
+    expect(preview()).toContain('# Video');
+    expect(preview()).toContain('type: "video"');
+    expect(preview()).toContain('platform: "YouTube"');
+    expect(preview()).toContain('sponsor: "OpenAI"');
+    expect(preview()).not.toContain('url:');
+  });
+
+  it('updates YAML preview when a field is edited', () => {
+    const { container } = createMount();
+    const scoreRow = findYamlRow(container, 'score');
+    const defaultValue = queryRequired<HTMLInputElement>(
+      'input[data-yaml-field="defaultValue"]',
+      scoreRow
+    );
+    const preview = queryRequired<HTMLElement>('[data-yaml-preview="content"]', container);
+
+    expect(preview.textContent).toContain('score: 42');
+
+    defaultValue.value = '64';
+    defaultValue.dispatchEvent(new Event('input', { bubbles: true }));
+
+    expect(preview.textContent).toContain('score: 64');
+  });
+
   it('locks non-owner content toggles for default custom fields in the all view', () => {
     const { adapter, container, notifyDirty } = createMount({ yamlConfig: null });
     const statusRow = findYamlRow(container, 'status');

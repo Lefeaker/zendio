@@ -57,7 +57,6 @@ export const classNames = {
     ruleMeta: 'yaml-rule-meta',
     actions: 'yaml-actions',
     helper: 'yaml-helper',
-    preview: 'yaml-preview',
     groupRow: 'yaml-group-row'
   },
   table: {

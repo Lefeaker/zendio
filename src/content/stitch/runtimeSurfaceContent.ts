@@ -68,7 +68,6 @@ function createRuntimeContent(): PreviewContent {
       yamlFilters: [],
       yamlRows: [],
       yamlDomainRules: [],
-      yamlPreview: '',
       presets: []
     },
     experimental: {

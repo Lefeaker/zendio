@@ -2,6 +2,7 @@ import type { YamlContentType, YamlFieldType } from '@shared/types/yamlConfig';
 import { button, el, selectInput, textInput } from './dom';
 import { FALLBACK_YAML_EDITOR_LABELS, YAML_EDITOR_FIELD_TYPES } from './labels';
 import type { YamlEditorLabels } from './labels';
+import { buildYamlEditorPreview } from './preview';
 import {
   YAML_EDITOR_CONTENT_TYPES,
   type YamlEditorDomainEntry,
@@ -492,6 +493,33 @@ function renderActions(options: YamlConfigEditorViewOptions): HTMLElement {
   return actions;
 }
 
+function updateYamlPreview(host: HTMLElement, options: YamlConfigEditorViewOptions): void {
+  const target = host.querySelector<HTMLElement>('[data-yaml-preview="content"] pre');
+  if (!target) {
+    return;
+  }
+  target.replaceChildren(
+    target.ownerDocument.createTextNode(
+      buildYamlEditorPreview(options.state, options.filter, options.labels.contentTypes)
+    )
+  );
+}
+
+function renderPreview(options: YamlConfigEditorViewOptions): HTMLElement {
+  const details = el('details', { className: 'u-mt-block yaml-preview-details' });
+  const output = el('div', {
+    className: 'yaml-preview',
+    dataset: { yamlPreview: 'content' }
+  });
+  output.append(
+    el('pre', {
+      text: buildYamlEditorPreview(options.state, options.filter, options.labels.contentTypes)
+    })
+  );
+  details.append(el('summary', { text: options.labels.table.previewSummary }), output);
+  return details;
+}
+
 function formatError(error: YamlEditorValidationError, labels: YamlEditorLabels): string {
   if (error.code === 'default_invalid' && error.message in labels.errors) {
     return labels.errors[error.message] ?? labels.errors.default_invalid ?? error.message;
@@ -569,16 +597,24 @@ export function renderYamlConfigEditorView(options: YamlConfigEditorViewOptions)
     className: 'schema-widget-stack yaml-config-widget stitch-yaml-config-widget',
     dataset: { stitchWidget: 'yaml-config' }
   });
+  const liveOptions: YamlConfigEditorViewOptions = {
+    ...options,
+    onChange: () => {
+      options.onChange();
+      updateYamlPreview(host, liveOptions);
+    }
+  };
   host.append(
     el('div', {
       className: 'yaml-validation-errors stitch-yaml-validation-errors',
       dataset: { yamlErrors: 'global' }
     }),
-    renderFilter(options),
-    renderFieldTable(options),
-    renderDomainRules(options),
-    renderActions(options),
-    el('p', { className: 'yaml-helper', text: options.labels.table.helper })
+    renderFilter(liveOptions),
+    renderFieldTable(liveOptions),
+    renderDomainRules(liveOptions),
+    renderActions(liveOptions),
+    el('p', { className: 'yaml-helper', text: options.labels.table.helper }),
+    renderPreview(liveOptions)
   );
   renderYamlEditorValidation(host, options.validation, options.labels);
   return host;
