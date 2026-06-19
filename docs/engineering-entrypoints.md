@@ -23,6 +23,7 @@
   - i18n 产品范围决策为 `release-13-languages`：release-supported human UI locales 为 `en`、`zh-CN`、`ja`、`de`、`fr`、`es-ES`、`es-419`、`it`、`ko`、`pt-BR`、`ru`、`zh-TW`
   - `qps-ploc` 分类为 `dev-test-only`；production build/package output 与 release-surface audit 不允许出现 `qps-ploc` loader/chunk 或 `_locales/qps-ploc/messages.json`
   - Chrome ZIP 与 Firefox XPI package 脚本会解包最终产物并通过 `tools/audit-release-archive.mjs` 复用 release-surface 审计
+  - Firefox XPI package 脚本会在生成未签名 XPI 前对最终 `build/dist` 执行 `web-ext lint --self-hosted`；Firefox source manifest 当前使用 `background.scripts`，声明 `browser_specific_settings.gecko.data_collection_permissions.required=["none"]` / `optional=["technicalAndInteraction"]`，并将 desktop / Android `strict_min_version` 统一为 `142.0`，避免 `BACKGROUND_SERVICE_WORKER_NOFALLBACK`、`storage.session` min-version 与 AMO data-collection min-version 漂移静默进入 release artifact
   - `npm run test:i18n` 包含 `layout:report`；clean worktree 中需先运行 `npm run build:dev` 或 `npm run build` 生成 `build/dist`
   - `lint:options-css` 的当前有效规则覆盖 `src/options/**/*.css`；`src/options/stitch/styles/**` 的 `--print-config` 必须包含非空 `selector-class-pattern`
   - 显式包含 `lint:hardcoded`；当前 standalone 输出为 `0` hardcoded findings

@@ -1,6 +1,6 @@
 # Source of Truth 索引
 
-最后更新：2026-06-18
+最后更新：2026-06-19
 
 ## 正式入口
 
@@ -30,6 +30,7 @@
 - 2026-05-19 gap closure 后，batch handoff 使用 post-fact amended ownership；不要再声称历史 committed path manifests exactly once
 - Local Vault / offscreen / manifest / release 风险的当前真值来自 2026-05-18 stabilization ledger、2026-05-19 gap closure ledger、集成提交和 `audit:local-vault-release:report`
 - Release surface 当前真值：production builds/package outputs 不包含 dev/test harness HTML/JS；dev builds 保留 harness 页面；`audit:release-surface:report` 校验 manifest 文件引用与 forbidden harness package members，并已接入 `quality` 与 CI release-surface 步骤；Chrome ZIP 与 Firefox XPI package 脚本会先解包最终产物，再对解包目录执行同一 release-surface 审计
+- 2026-06-19 Firefox 0.2.0 release manifest / package gate current truth：Firefox source manifest 不再输出 `background.service_worker`，改用 AMO / `web-ext` 当前可验证的 `background.scripts=["background/index.js"]`；Firefox manifest 声明 `browser_specific_settings.gecko.data_collection_permissions.required=["none"]` 与 `optional=["technicalAndInteraction"]`，desktop / Android `strict_min_version` 统一为 `142.0`，这是 `web-ext 10.4.0` probe 中同时消除 `BACKGROUND_SERVICE_WORKER_NOFALLBACK` error、`storage.session` min-version warning 与 data-collection min-version warning 的统一 release floor。`npm run package:firefox` / `package:firefox:sign` / `package:firefox:prod:ga` 会在生成 XPI 前对最终 `build/dist` 执行 `web-ext lint --self-hosted`，再创建 XPI 并复用 release archive audit。
 - Quality gate 当前真值：`quality` 包含 i18n catalog drift check、locale source alignment、hardcoded config 守卫、i18n CJK hardcoded user-copy hard gate、English uncatalogued-copy hard gate、type/lint ratchet、release surface、GA proxy/docs/legacy-api static contract 守卫、GA client secret/build surface hard gate 与 non-production source hard gate；CI 通过 `verify:preflight` 继承同一批 deterministic GA preflight checks，且 i18n catalog drift check、English uncatalogued-copy check、locale source alignment 与 hardcoded config guard 仍为 hard gate；`verify:preflight` 同样显式包含 `i18n:catalog:check` 与 `audit:i18n-uncatalogued-user-copy:check`；English gate 覆盖 raw English `defaultMessage` fallback、`subtitle` / `hint` / `body` 等 production-visible fields 与带编号的多词英文 UI title；`lint:options-css` 对当前 `src/options/stitch/styles/**` 解析出非空 `selector-class-pattern` 规则
 - CI 拓扑当前真值：`.github/workflows/ci.yml` 使用 workflow-level `concurrency` 取消同一 PR / ref 的旧 run；`static-gates`、`coverage`、`visual`、`e2e` 并行执行，`package` 通过 `needs: [static-gates, coverage, visual, e2e]` 汇总后运行；`package` job 只在前置门禁通过后使用 `build:fast`，不得改回会重复触发完整 `quality` 的 `npm run build`；官方 JavaScript actions 使用 Node 24-compatible major（`checkout@v6`、`setup-node@v6`、`upload-artifact@v7`、`github-script@v8`）
 - 2026-06-17 video screenshot cache main integration current truth：本轮从 current `main` 合入 hybrid video screenshot cache / Free restore policy 分支，必须同时保留 English uncatalogued-copy hard gate 与 screenshot cache architecture truth。English gate 继续扫描 production-reachable `src/**` 与 relevant `public/**` 中 raw English `defaultMessage` fallback、`subtitle` / `hint` / `body` 等 production-visible fields、descriptor-boundary payload、HTML/DOM text 与带编号的多词英文 UI title；新增英文产品 UI copy 必须进入 catalog 或 typed descriptor，不得用 broad allowlist 掩盖。

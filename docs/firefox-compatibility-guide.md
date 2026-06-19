@@ -25,7 +25,7 @@ src/platform/
 
 | 特性       | Chrome           | Firefox                                   |
 | ---------- | ---------------- | ----------------------------------------- |
-| Background | `service_worker` | `service_worker`                          |
+| Background | `service_worker` | `scripts` fallback for AMO MV3 validation |
 | Action API | `action`         | `browserAction` (旧版)                    |
 | 扩展 ID    | 自动生成         | 需要在 `browser_specific_settings` 中指定 |
 
@@ -37,7 +37,11 @@ src/platform/
 | Promise 支持  | 需要 polyfill      | 原生支持                            |
 | Scripting API | `chrome.scripting` | `browser.tabs.executeScript` (回退) |
 
-> ℹ️ Firefox 自 113 起开始支持 MV3 `background.service_worker`，因此我们保持与 Chrome 同步的 Service Worker 形态。若需兼容旧版，请在构建脚本中降级处理。
+> ℹ️ 0.2.0 的 Firefox release manifest 使用 `background.scripts`，避免 AMO / `web-ext`
+> 对 MV3 `background.service_worker` fallback 的阻断错误。Firefox manifest 同步声明
+> `browser_specific_settings.gecko.data_collection_permissions`，并将桌面与 Android
+> `strict_min_version` 设为 `142.0`，这是当前 `web-ext 10.4.0` lint 可证明无
+> `storage.session` 与 data-collection min-version 兼容警告的最低统一版本。
 
 ### 3. 浏览器检测
 
@@ -212,6 +216,8 @@ if (capabilities.serviceWorker) {
 - 检查 `manifest.firefox.json` 语法
 - 确保 `browser_specific_settings.gecko.id` 已设置
 - 检查最低版本要求 `strict_min_version`
+- 本地发布前运行 `npm run package:firefox`，该命令会在生成 XPI 前对最终
+  `build/dist` 执行 `web-ext lint --self-hosted`
 
 ### 2. API 不可用
 

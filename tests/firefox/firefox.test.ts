@@ -15,6 +15,7 @@ import {
   type FirefoxMockHandle,
   type ChromeMockHandle
 } from '../utils/browserMocks';
+import { createBrowserManifest } from '../../scripts/utils/manifestSources.mjs';
 
 const globalAny = globalThis as typeof globalThis & { document?: Document };
 
@@ -205,8 +206,44 @@ describe('Firefox 特定功能', () => {
   });
 
   it('应该正确处理 Firefox 的 manifest 差异', () => {
-    // Firefox 现已支持 background.service_worker，与 Chrome 保持一致
-    // 这个测试可以验证 manifest 文件的正确性
-    expect(true).toBe(true); // 占位测试
+    const firefoxManifest = createBrowserManifest('firefox') as {
+      background?: {
+        scripts?: string[];
+        service_worker?: string;
+      };
+      browser_specific_settings?: {
+        gecko?: {
+          data_collection_permissions?: {
+            required?: string[];
+            optional?: string[];
+          };
+          strict_min_version?: string;
+        };
+        gecko_android?: {
+          strict_min_version?: string;
+        };
+      };
+    };
+    const chromeManifest = createBrowserManifest('chrome') as {
+      background?: {
+        scripts?: string[];
+        service_worker?: string;
+      };
+    };
+
+    expect(chromeManifest.background?.service_worker).toBe('background/index.js');
+    expect(chromeManifest.background?.scripts).toBeUndefined();
+    expect(firefoxManifest.background).toEqual({
+      scripts: ['background/index.js']
+    });
+    expect(firefoxManifest.background?.service_worker).toBeUndefined();
+    expect(firefoxManifest.browser_specific_settings?.gecko?.strict_min_version).toBe('142.0');
+    expect(firefoxManifest.browser_specific_settings?.gecko?.data_collection_permissions).toEqual({
+      required: ['none'],
+      optional: ['technicalAndInteraction']
+    });
+    expect(firefoxManifest.browser_specific_settings?.gecko_android?.strict_min_version).toBe(
+      '142.0'
+    );
   });
 });

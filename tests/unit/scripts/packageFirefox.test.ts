@@ -3,7 +3,11 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { WebExtSigningApi } from '../../../scripts/package-firefox.mjs';
-import { signAndAuditFirefoxPackage } from '../../../scripts/package-firefox.mjs';
+import {
+  lintFirefoxExtension,
+  prepareFirefoxReleasePackage,
+  signAndAuditFirefoxPackage
+} from '../../../scripts/package-firefox.mjs';
 
 const tempRoots: string[] = [];
 
@@ -31,6 +35,120 @@ describe('Firefox package signing audit', () => {
     await Promise.all(
       tempRoots.splice(0).map((root) => rm(root, { recursive: true, force: true }))
     );
+  });
+
+  it('runs web-ext lint in self-hosted non-exiting mode for Firefox release artifacts', async () => {
+    const root = await createTempRoot();
+    const distDir = join(root, 'dist');
+    const webExt = {
+      cmd: {
+        lint: vi.fn().mockResolvedValue({
+          summary: {
+            errors: 0,
+            warnings: 2,
+            notices: 0
+          },
+          errors: [],
+          warnings: [{ code: 'UNSAFE_VAR_ASSIGNMENT' }, { code: 'UNSAFE_VAR_ASSIGNMENT' }],
+          notices: []
+        })
+      }
+    };
+    const logger = { log: vi.fn(), warn: vi.fn() };
+
+    await lintFirefoxExtension(distDir, { logger, webExt });
+
+    expect(webExt.cmd.lint).toHaveBeenCalledWith(
+      {
+        sourceDir: distDir,
+        selfHosted: true,
+        warningsAsErrors: false
+      },
+      { shouldExitProgram: false }
+    );
+    expect(logger.log).toHaveBeenCalledWith('✅ Firefox web-ext lint passed');
+  });
+
+  it('fails Firefox release lint when web-ext reports validation errors', async () => {
+    const root = await createTempRoot();
+    const distDir = join(root, 'dist');
+    const webExt = {
+      cmd: {
+        lint: vi.fn().mockResolvedValue({
+          summary: {
+            errors: 1,
+            warnings: 0,
+            notices: 0
+          },
+          errors: [{ code: 'BACKGROUND_SERVICE_WORKER_NOFALLBACK' }],
+          warnings: [],
+          notices: []
+        })
+      }
+    };
+
+    await expect(
+      lintFirefoxExtension(distDir, { logger: { log: vi.fn(), warn: vi.fn() }, webExt })
+    ).rejects.toThrow(
+      'Firefox web-ext lint failed with 1 error(s): BACKGROUND_SERVICE_WORKER_NOFALLBACK'
+    );
+  });
+
+  it('lints the final Firefox dist before creating and auditing the unsigned XPI', async () => {
+    const root = await createTempRoot();
+    const distDir = join(root, 'dist');
+    await mkdir(distDir, { recursive: true });
+    await writeFile(
+      join(distDir, 'manifest.json'),
+      JSON.stringify({
+        manifest_version: 3,
+        name: '__MSG_extName__',
+        version: '0.2.0',
+        host_permissions: []
+      })
+    );
+    const steps: string[] = [];
+    const lintFirefoxExtensionImpl = vi.fn(() => {
+      steps.push('lint');
+      return Promise.resolve();
+    });
+    const createUnsignedXpiImpl = vi.fn(() => {
+      steps.push('xpi');
+      return Promise.resolve({
+        xpiName: 'all-in-ob-v0.2.0.xpi',
+        outputPath: join(root, 'all-in-ob-v0.2.0.xpi'),
+        zipSafeName: 'all-in-ob'
+      });
+    });
+    const auditReleaseArchiveImpl = vi.fn(() => {
+      steps.push('audit');
+      return Promise.resolve();
+    });
+
+    const result = await prepareFirefoxReleasePackage(
+      { distDir },
+      {
+        auditReleaseArchiveImpl,
+        createUnsignedXpiImpl,
+        lintFirefoxExtensionImpl,
+        logger: { log: vi.fn(), warn: vi.fn() },
+        prepareLicenseArtifactsImpl: vi.fn(() => {
+          steps.push('prepare');
+          return Promise.resolve();
+        }),
+        resolveMessageImpl: vi.fn(() => Promise.resolve('All in OB'))
+      }
+    );
+
+    expect(steps).toEqual(['prepare', 'lint', 'xpi', 'audit']);
+    expect(lintFirefoxExtensionImpl).toHaveBeenCalledWith(distDir);
+    expect(createUnsignedXpiImpl).toHaveBeenCalledWith(distDir, 'All in OB', '0.2.0');
+    expect(auditReleaseArchiveImpl).toHaveBeenCalledWith(join(root, 'all-in-ob-v0.2.0.xpi'));
+    expect(result).toMatchObject({
+      resolvedName: 'All in OB',
+      version: '0.2.0',
+      zipSafeName: 'all-in-ob'
+    });
   });
 
   it('copies the signed XPI to the final path and audits that final artifact', async () => {
