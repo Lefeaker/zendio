@@ -52,6 +52,12 @@
   gap: var(--space-4);
 }
 
+.stitch-widget-host,
+.stitch-widget-host > * {
+  min-width: 0;
+  max-width: 100%;
+}
+
 .u-mt-tight {
   margin-top: var(--space-4);
 }

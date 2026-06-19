@@ -111,6 +111,9 @@ describe('Stitch runtime polish CSS contracts', () => {
       /\.yaml-table-scroll\s+table\s*{[^}]*table-layout:\s*fixed;[^}]*min-width:\s*900px;/
     );
     expect(stitchCss).toMatch(
+      /\.stitch-widget-host,\s*\.stitch-widget-host\s*>\s*\*\s*{[^}]*min-width:\s*0;[^}]*max-width:\s*100%;/
+    );
+    expect(stitchCss).toMatch(
       /\.stitch-yaml-config-widget,\s*\.stitch-yaml-config-widget\s*>\s*\*\s*{[^}]*min-width:\s*0;[^}]*max-width:\s*100%;/
     );
     expect(stitchCss).toMatch(

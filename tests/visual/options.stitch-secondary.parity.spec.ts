@@ -572,6 +572,59 @@ test.describe('Stitch Secondary preview-to-production parity', () => {
     expect(metrics.mainScrollTop).toBeGreaterThan(0);
   });
 
+  test('production keeps YAML field table constrained to the output card at narrow widths', async ({
+    page
+  }) => {
+    await page.setViewportSize({ width: 900, height: 760 });
+    await page.goto(createProductionUrl());
+    await page.waitForSelector('.app');
+    await page.waitForSelector('.stitch-yaml-config-table table');
+    await setTheme(page, 'light');
+
+    const metrics = await page.evaluate(() => {
+      const root = document.documentElement;
+      const section = document.querySelector<HTMLElement>('[data-panel-id="output"]');
+      const widget = section?.querySelector<HTMLElement>('[data-stitch-widget="yaml-config"]');
+      const card = Array.from(section?.querySelectorAll<HTMLElement>('.card') ?? []).find(
+        (candidate) => candidate.contains(widget ?? null)
+      );
+      const shell = widget?.querySelector<HTMLElement>('.stitch-yaml-config-table');
+      const table = shell?.querySelector<HTMLElement>('table');
+      if (!section || !card || !widget || !shell || !table) {
+        throw new Error('YAML table layout metrics could not be collected.');
+      }
+
+      section.scrollIntoView({ block: 'start' });
+      const cardRect = card.getBoundingClientRect();
+      const widgetRect = widget.getBoundingClientRect();
+      const shellRect = shell.getBoundingClientRect();
+      const tableRect = table.getBoundingClientRect();
+      const shellStyle = window.getComputedStyle(shell);
+
+      return {
+        viewportWidth: root.clientWidth,
+        documentScrollWidth: root.scrollWidth,
+        cardWidth: cardRect.width,
+        widgetWidth: widgetRect.width,
+        shellWidth: shellRect.width,
+        tableWidth: tableRect.width,
+        shellClientWidth: shell.clientWidth,
+        shellScrollWidth: shell.scrollWidth,
+        shellOverflowX: shellStyle.overflowX,
+        cardRight: cardRect.right,
+        shellRight: shellRect.right
+      };
+    });
+
+    expect(metrics.documentScrollWidth).toBeLessThanOrEqual(metrics.viewportWidth + 1);
+    expect(metrics.widgetWidth).toBeLessThanOrEqual(metrics.cardWidth);
+    expect(metrics.shellWidth).toBeLessThanOrEqual(metrics.cardWidth);
+    expect(metrics.shellRight).toBeLessThanOrEqual(metrics.cardRight + 1);
+    expect(metrics.shellOverflowX).toBe('auto');
+    expect(metrics.shellScrollWidth).toBeGreaterThan(metrics.shellClientWidth);
+    expect(metrics.tableWidth).toBeGreaterThan(metrics.shellWidth);
+  });
+
   test('preview interaction inventory has production handlers and no fake YAML summary controls', async ({
     page
   }) => {
