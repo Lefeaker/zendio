@@ -1,6 +1,6 @@
 # 工程命令与入口
 
-最后更新：2026-06-17
+最后更新：2026-06-19
 
 ## 推荐运行环境
 
@@ -16,6 +16,7 @@
   - 显式包含 `typecheck:tests`
   - 显式包含 `typecheck:strict`
   - 显式包含 `audit:ga:proxy-contract`、`audit:ga:docs` 与 `audit:ga:legacy-api`
+  - `audit:ga:proxy-contract` check mode 以 source-derived contract 为当前真值，并刷新 ignored `build/reports/ga-proxy-contract.json` 供 `audit:ga:docs` 复用；stale / missing / invalid report 不得阻塞当前 source contract
   - 显式执行 production `build:fast` 后运行 `audit:release-surface:report`
   - 显式在 production `build:fast` 后运行 `audit:ga:client-secret` 与 `audit:ga:release-surface`
   - 显式包含 `audit:locales:report`，在 i18n lint 与字符预算通过后校验 config、locale loaders、catalog runtime/static/schema source、generated locale modules 与 public `_locales` 一致
@@ -66,7 +67,7 @@
 - 2026-06-01 Plan 09 compatibility duplicate 真值：`quality` 显式包含 `audit:compatibility-duplicates:check`；当前 usage/rest compatibility candidate files 为 `0`，exact duplicate groups 为 `0`，allowlist entries 为 `0`，因此没有生产 allowlist。工具中的旧 `src/options/components/sections/usage*.ts` / `src/options/widgets/shared/usage/**` scope 是 retired compatibility reintroduction guard，只用于防止已退役 usage compatibility shells 被重新引入并复制，不代表当前生产 owner。
 - 2026-06-13 test runtime guard 真值：`package.json` 中 `test` / `test:*` / `visual:*` npm scripts 均显式前置 `verify:runtime`；本地 PATH 指向 Node 23 等不支持版本时，测试入口会先失败在 runtime guard，不会启动 Vitest / Playwright。
 - 2026-05-25 post-gap runtime guard 真值：本轮验证使用 Node `v20.20.2` / npm `10.8.2`；`package.json` 与 `package-lock.json` root engines 要求 Node `>=20.19 <21`，`verify:runtime` 会读取 `package.json` 的 `engines.node` 并已接入 `quality` 与 `verify:preflight`
-- 2026-06-16 Vitest 4 / Vite 8 dependency-audit 真值：Node `v20.20.2` / npm `10.8.2` 下，root devDependencies 精确锁定为 `vitest 4.1.9` 与 `@vitest/coverage-v8 4.1.9`，解析出的 dev test toolchain 为 `vite 8.0.16`、`esbuild 0.28.1`。`npm audit --omit=dev --json` 与 `npm audit --audit-level=low --json` 当前均退出 `0`，total `0` vulnerabilities；此前 `vitest` / `vite` / `esbuild` dev/build/test-only high 链 release exception 已关闭。全量 dev audit 仍不是 `quality` / `verify:preflight` / CI hard gate，除非后续 owner 单独做 gate 决策。迁移兼容修复仅限测试侧：Vitest 4 stricter `Mock` typing、Chrome/Firefox downloads 测试中的 constructible `URL` stub、以及 `@mozilla/readability` constructible mock。coverage hard gate 保持启用并同步为 Vitest 4 口径 floor：statements `76.5`、lines `77`、functions `77.5`、branches `66.5`。
+- 2026-06-19 Vitest 4 / Vite 8 / release-tooling dependency-audit 真值：Node `v20.20.2` / npm `10.8.2` 下，root devDependencies 精确锁定为 `vitest 4.1.9` 与 `@vitest/coverage-v8 4.1.9`，解析出的 dev test toolchain 为 `vite 8.0.16`、`esbuild 0.28.1`。Firefox signing toolchain 仍通过 `web-ext 10.4.0 -> addons-linter 10.7.0 -> cheerio 1.2.0` 解析；`undici@>=7.0.0 <7.28.0` 已由 root override 锁定到 `7.28.0`，关闭 2026-06-19 发现的 `undici@7.27.2` dev/release-tooling audit 漂移。`npm audit --omit=dev --json` 与 `npm audit --audit-level=low --json` 当前均退出 `0`，total `0` vulnerabilities；此前 `vitest` / `vite` / `esbuild` dev/build/test-only high 链 release exception 已关闭。全量 dev audit 仍不是 `quality` / `verify:preflight` / CI hard gate，除非后续 owner 单独做 gate 决策。迁移兼容修复仅限测试侧：Vitest 4 stricter `Mock` typing、Chrome/Firefox downloads 测试中的 constructible `URL` stub、以及 `@mozilla/readability` constructible mock。coverage hard gate 保持启用并同步为 Vitest 4 口径 floor：statements `76.5`、lines `77`、functions `77.5`、branches `66.5`。
 - 2026-06-16 i18n hardcoded P22/post-strict-gap type-ratchet 真值：P16-P22 与 post-P22 strict gap 合入 integration 后，`lint:type-any` 扫描 `1231` files，fresh overall `0/1148/1973/47/3`、src `0/628/695/9/0`、tests `0/520/1278/38/3`；`lint:type-any:ratchet` checked-in 上限同步为 overall `0/1148/1973/53/4`、src `0/628/695/9/0`、tests `0/520/1278/46/4`。本次只同步 accepted integration current truth，`any` 继续保持 `0`，`ts-expect-error` 未增加，non-null 上限未放宽。
 - 2026-06-18 GA telemetry post-main type-ratchet 真值：GA integration 合入 current `origin/main` 后，`lint:type-any` 扫描 `1285` files，fresh overall `0/1190/1996/50/3`、src `0/668/715/9/0`、tests `0/522/1281/41/3`；`lint:type-any:ratchet` checked-in 上限同步为 exact current counts。`any` 继续保持 `0`，overall / tests 的 non-null 与 `ts-expect-error` 上限较旧值收紧；tests 下降不得抵消 src 增长。
 - 2026-06-18 GA telemetry post-main quality 真值：`quality` fresh run 在 Node `v20.20.2` 下通过；`lint:warnings-guard` checked-in baseline 为 `160`，fresh warning count 为 `159`；`audit:non-production-source:check` decision counts 为 `retain-production: 685`、`migrate-import-owner: 137`、`retain-production-facade: 16`；`audit:deps:report` 输出 `modules=927`、`dependencies=2840`、`violations=0`。本次没有同步 warning baseline，也没有把 dependency / non-production source 报告改成新的 hard threshold。

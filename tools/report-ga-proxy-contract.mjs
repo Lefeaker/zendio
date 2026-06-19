@@ -73,12 +73,18 @@ function writeReport(reportPath, contract) {
   return absolutePath;
 }
 
-function readReport(reportPath) {
+function getReportState(reportPath, expectedContract) {
   const absolutePath = resolve(process.cwd(), reportPath);
   if (!existsSync(absolutePath)) {
-    return undefined;
+    return 'missing';
   }
-  return JSON.parse(readFileSync(absolutePath, 'utf8'));
+
+  try {
+    const parsedReport = JSON.parse(readFileSync(absolutePath, 'utf8'));
+    return contractsEqual(expectedContract, parsedReport) ? 'current' : 'stale';
+  } catch {
+    return 'invalid';
+  }
 }
 
 function collectContractProblems(contract) {
@@ -169,6 +175,10 @@ function walkContract(value, path, visit) {
   }
 }
 
+function contractsEqual(expected, actual) {
+  return JSON.stringify(expected) === JSON.stringify(actual);
+}
+
 function assertContractsEqual(expected, actual) {
   if (JSON.stringify(expected) !== JSON.stringify(actual)) {
     throw new Error('analytics proxy contract drift: exported contract no longer matches schema-derived rebuild');
@@ -199,10 +209,7 @@ async function main() {
     return;
   }
 
-  const report = readReport(args.outPath);
-  if (report) {
-    assertContractsEqual(contract, report);
-  }
+  const reportState = getReportState(args.outPath, contract);
 
   const contractProblems = collectContractProblems(contract);
   const sourceProblems = collectSourceScanProblems();
@@ -214,7 +221,7 @@ async function main() {
 
   writeReport(args.outPath, contract);
   console.log(
-    `[ga-proxy-contract] Check passed (${contract.events.length} events, scanned ${SOURCE_FILES_TO_SCAN.length} source files)`
+    `[ga-proxy-contract] Check passed (${contract.events.length} events, scanned ${SOURCE_FILES_TO_SCAN.length} source files, report: ${reportState})`
   );
 }
 
