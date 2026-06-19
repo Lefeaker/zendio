@@ -257,6 +257,12 @@ describe('Stitch runtime polish CSS contracts', () => {
     expect(stitchCss).toMatch(
       /\.yaml-preview\s+pre,\s*\.output-box\s+pre\s*{[^}]*white-space:\s*pre-wrap;[^}]*overflow-wrap:\s*anywhere;/
     );
+    expect(stitchCss).toMatch(
+      /\.yaml-content-value-list\s*{[^}]*display:\s*flex;[^}]*flex-wrap:\s*wrap;[^}]*justify-content:\s*center;/
+    );
+    expect(stitchCss).toMatch(
+      /\.yaml-content-value-code\s*{[^}]*min-width:\s*0;[^}]*overflow-wrap:\s*anywhere;/
+    );
   });
 
   it('keeps the Options sidebar adaptive instead of turning it into a stacked mobile block', () => {

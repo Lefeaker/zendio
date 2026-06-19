@@ -181,6 +181,33 @@ describe('YamlConfigEditorWidgetAdapter', () => {
     expect(preview.textContent).toContain('score: 64');
   });
 
+  it('renders content-scoped values instead of a single article value in the all view', () => {
+    const { container } = createMount({ yamlConfig: null });
+    const typeRow = findYamlRow(container, 'type');
+
+    expect(typeRow.querySelector('input[data-yaml-field="defaultValue"]')).toBeNull();
+    const values = Array.from(
+      typeRow.querySelectorAll<HTMLElement>('[data-yaml-field-values="defaultValue"] [data-mode]')
+    ).map((item) => [
+      item.dataset.mode,
+      item.querySelector('.yaml-content-value-label')?.textContent,
+      item.querySelector('.yaml-content-value-code')?.textContent
+    ]);
+
+    expect(values).toEqual([
+      ['article', 'Article', 'article'],
+      ['clipper', 'Clipper', 'clipper'],
+      ['video', 'Video', 'video'],
+      ['ai_chat', 'AI', 'ai_chat']
+    ]);
+
+    queryRequired<HTMLButtonElement>('.yaml-filter[data-value="video"]', container).click();
+    const videoTypeRow = findYamlRow(container, 'type');
+    expect(
+      queryRequired<HTMLInputElement>('input[data-yaml-field="defaultValue"]', videoTypeRow).value
+    ).toBe('video');
+  });
+
   it('locks non-owner content toggles for default custom fields in the all view', () => {
     const { adapter, container, notifyDirty } = createMount({ yamlConfig: null });
     const statusRow = findYamlRow(container, 'status');

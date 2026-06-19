@@ -89,11 +89,11 @@ const ALLOWED_PREVIEW_DRIFT = new Map([
         'The Xiaohongshu QR caption and layering repair refreshes the generated preview JS hash after adding the requested QR caption message, changing the Suggestions QR trigger to a button-plus-popover-host structure, and preserving the existing Stitch schema renderer contract. The follow-up Xiaohongshu caption localization refreshes the generated preview JS hash after moving the QR caption into all release-language runtime/schema catalogs and tightening the Options trigger popover placement/weight while preserving the same Stitch schema renderer contract.',
         'The Options table alignment refresh updates the generated preview JS hash after giving Vault List and Routing Rules dedicated table wrapper classes and capitalizing platform-specific fragment modifier labels while preserving the frozen reference and Stitch runtime contract.',
         'The fragment keyboard shortcut hint refresh updates the generated preview JS hash after moving the direct-clip shortcut copy to platform-aware catalog keys and deriving runtime catalog generation keys from the English source catalog while preserving the frozen reference and Stitch runtime contract.',
-        'The YAML editor dynamic preview refresh updates the generated preview JS hash after moving YAML preview generation into the production YAML widget state/filter owner and removing the static article-only output seed while preserving the frozen reference and Stitch runtime contract.'
+        'The YAML editor dynamic preview refresh updates the generated preview JS hash after moving YAML preview generation into the production YAML widget state/filter owner and removing the static article-only output seed while preserving the frozen reference and Stitch runtime contract. The YAML editor scoped field-value refresh updates the generated preview JS hash after rendering all-view content-type-specific YAML field values as read-only scoped groups while preserving per-content editing through the existing content-type filters and the Stitch runtime contract.'
       ].join(' '),
       leftSha256: '9020ccbd91acd691eccd3fdf568b9a90efbddf0a35d79f36ef1caba702fa0c07',
-      // 2026-06-19 YAML editor dynamic preview preview JS hash.
-      rightSha256: '8b30989c0ff51a710cd8b84a78695143484e71f6ff6d145389fd128ed9edf215'
+      // 2026-06-19 YAML editor scoped field-value preview JS hash.
+      rightSha256: '1b8da07e6c51d345ba546894a2194ee32edac118fd5388b0439dea7d6b61b685'
     }
   ]
 ]);

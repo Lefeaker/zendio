@@ -25,6 +25,11 @@ export interface YamlTableRow {
   defaultCustom: boolean;
 }
 
+export interface YamlContentScopedValue {
+  contentType: YamlContentType;
+  value: string;
+}
+
 export function allocateId(state: YamlEditorState, prefix: string): string {
   state.nextId += 1;
   return `${prefix}-${state.nextId}`;
@@ -167,6 +172,39 @@ export function getRowValuePath(row: YamlTableRow, filter: YamlEditorFilter): st
     return row.fields[filter]?.valuePath ?? '';
   }
   return getPrimaryField(row).valuePath;
+}
+
+function getRowScopedValues(
+  row: YamlTableRow,
+  filter: YamlEditorFilter,
+  readValue: (field: YamlEditorField) => string
+): YamlContentScopedValue[] | null {
+  if (filter !== 'all') {
+    return null;
+  }
+  const values = YAML_EDITOR_CONTENT_TYPES.flatMap((contentType) => {
+    const field = row.fields[contentType];
+    return field ? [{ contentType, value: readValue(field) }] : [];
+  });
+  if (values.length <= 1) {
+    return null;
+  }
+  const distinctValues = new Set(values.map((item) => item.value));
+  return distinctValues.size > 1 ? values : null;
+}
+
+export function getRowScopedDefaultValues(
+  row: YamlTableRow,
+  filter: YamlEditorFilter
+): YamlContentScopedValue[] | null {
+  return getRowScopedValues(row, filter, (field) => field.defaultValue);
+}
+
+export function getRowScopedValuePaths(
+  row: YamlTableRow,
+  filter: YamlEditorFilter
+): YamlContentScopedValue[] | null {
+  return getRowScopedValues(row, filter, (field) => field.valuePath);
 }
 
 export function updateRow(row: YamlTableRow, patch: Partial<YamlEditorField>): void {
