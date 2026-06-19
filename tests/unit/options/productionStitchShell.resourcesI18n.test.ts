@@ -245,6 +245,10 @@ describe('mountProductionStitchShell resource i18n', () => {
       language: 'en'
     });
 
+    const sidebarText = document.querySelector('.sidebar')?.textContent ?? '';
+    expect(sidebarText).toContain('Onboarding Title Sentinel');
+    expect(sidebarText).not.toContain('Plugin Setup Title Sentinel');
+
     findButton('Onboarding Title Sentinel').click();
 
     expect(openSpy).toHaveBeenCalledWith(
@@ -260,7 +264,19 @@ describe('mountProductionStitchShell resource i18n', () => {
       'Onboarding Description Sentinel',
       'Onboarding Flow Sentinel',
       'Onboarding Steps Sentinel',
+      'Plugin Recommended Values Sentinel',
+      'Plugin Setup Flow Sentinel',
+      'Plugin Checklist Sentinel',
+      'Plugin HTTPS Field Sentinel',
+      'Plugin HTTP Field Sentinel',
+      'Plugin Vault Field Sentinel',
+      'Plugin API Key Field Sentinel',
+      'Plugin Test Button Sentinel',
       'Plugin Go Storage Sentinel',
+      'Plugin Setup Step 1 Sentinel',
+      'Plugin Setup Step 5 Sentinel',
+      'Plugin Checklist Item 1 Sentinel',
+      'Plugin Checklist Item 5 Sentinel',
       'Onboarding Step 1 Title Sentinel',
       'Onboarding Step 1 Description Sentinel',
       'Onboarding Step 1 Detail 1 Sentinel',
@@ -309,20 +325,12 @@ describe('mountProductionStitchShell resource i18n', () => {
     );
   });
 
-  it('renders footer resource modals from sentinel English messages', async () => {
-    mountProductionStitchShell({
-      controller: asOptionsController(createController()),
-      initialOptions: null,
-      messages: ENGLISH_SENTINEL_MESSAGES,
-      language: 'en'
-    });
-
-    const pluginSetup = await openResource('Plugin Setup Title Sentinel');
+  it('keeps the retired plugin setup resource id as a unified setup guide compatibility alias', () => {
+    const pluginSetup = renderResourcePage('plugin-setup');
     expectText(
       pluginSetup,
-      'Plugin Setup Title Sentinel',
-      'Plugin Setup Description Sentinel',
-      'Plugin API Config Sentinel',
+      'Onboarding Title Sentinel',
+      'Onboarding Description Sentinel',
       'Plugin Recommended Values Sentinel',
       'Plugin Setup Flow Sentinel',
       'Plugin Checklist Sentinel',
@@ -337,14 +345,15 @@ describe('mountProductionStitchShell resource i18n', () => {
       'Plugin Checklist Item 1 Sentinel',
       'Plugin Checklist Item 5 Sentinel'
     );
-    expectNoText(
-      pluginSetup,
-      'Configure Obsidian Local REST API before editing advanced storage rules.',
-      'Install and enable Obsidian Local REST API in Community Plugins.',
-      'Run the connection test before saving more routing rules.',
-      '跳到 Storage'
-    );
-    await closeResource();
+  });
+
+  it('renders footer resource modals from sentinel English messages', async () => {
+    mountProductionStitchShell({
+      controller: asOptionsController(createController()),
+      initialOptions: null,
+      messages: ENGLISH_SENTINEL_MESSAGES,
+      language: 'en'
+    });
 
     const support = await openResource('Support Title Sentinel');
     expectText(

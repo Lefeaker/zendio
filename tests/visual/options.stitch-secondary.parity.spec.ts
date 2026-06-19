@@ -27,14 +27,25 @@ const FOOTER_PANEL_IDS = [
   'task-success'
 ] as const;
 
-const EXPECTED_RESOURCE_LABELS = [
-  'Onboarding',
-  'Plugin Setup',
+const EXPECTED_PRODUCTION_RESOURCE_LABELS = [
+  'Setup Guide',
   'Support',
   'Suggestions',
   'Contact',
   'Changelog'
 ] as const;
+
+const EXPECTED_PREVIEW_RESOURCE_LABELS: Record<PreviewSourceKind, string[]> = {
+  'external-reference': [
+    'Onboarding',
+    'Plugin Setup',
+    'Support',
+    'Suggestions',
+    'Contact',
+    'Changelog'
+  ],
+  'generated-preview': [...EXPECTED_PRODUCTION_RESOURCE_LABELS]
+};
 
 const EXPECTED_PRODUCTION_SURFACE_LABELS: string[] = [];
 
@@ -329,11 +340,11 @@ function expectSharedOptionsParity(
 ): void {
   const previewReleaseNavLabels = preview.navLabels.filter((label) => label !== 'Experimental');
   const expectedPreviewModalTitles = [
-    ...EXPECTED_RESOURCE_LABELS,
+    ...EXPECTED_PREVIEW_RESOURCE_LABELS[previewSourceKind],
     ...EXPECTED_PREVIEW_SURFACE_LABELS[previewSourceKind]
   ];
   const expectedProductionModalTitles = [
-    ...EXPECTED_RESOURCE_LABELS,
+    ...EXPECTED_PRODUCTION_RESOURCE_LABELS,
     ...EXPECTED_PRODUCTION_SURFACE_LABELS
   ];
   expect(production.skin.previewSkin).toBe('stitch-secondary');
@@ -349,8 +360,8 @@ function expectSharedOptionsParity(
   expect(production.computed.button).toEqual(preview.computed.button);
   expectElementSamplesToMatch(production.elementSamples, preview.elementSamples);
   expect(production.navLabels).toEqual(previewReleaseNavLabels);
-  expect(production.resourceLabels).toEqual(EXPECTED_RESOURCE_LABELS);
-  expect(preview.resourceLabels).toEqual(EXPECTED_RESOURCE_LABELS);
+  expect(production.resourceLabels).toEqual(EXPECTED_PRODUCTION_RESOURCE_LABELS);
+  expect(preview.resourceLabels).toEqual(EXPECTED_PREVIEW_RESOURCE_LABELS[previewSourceKind]);
   expect(production.surfaceLabels).toEqual(EXPECTED_PRODUCTION_SURFACE_LABELS);
   expect(preview.surfaceLabels).toEqual(EXPECTED_PREVIEW_SURFACE_LABELS[previewSourceKind]);
   expect(production.modalResourceTitles).toEqual(expectedProductionModalTitles);

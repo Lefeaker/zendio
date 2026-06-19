@@ -373,15 +373,13 @@ export const previewContent: PreviewContent = {
     },
     onboarding: {
       hero: {
-        title: 'Onboarding',
-        description:
-          'Mirrors the current 5-step onboarding flow so new users can finish setup and understand the basics quickly.',
+        title: message('schemaResourceOnboardingTitle'),
+        description: message('schemaResourceOnboardingDescription'),
         pills: [
-          'Step 1 API',
-          'Step 2 Vault Routing',
-          'Step 3 Core Features',
-          'Step 4 Utilities',
-          'Step 5 Feedback'
+          message('apiConfigTitle'),
+          message('schemaStorageVaultListTitle'),
+          message('schemaStorageRoutingGroupTitle'),
+          message('schemaOutputYamlGroupTitle')
         ],
         icon: 'rocket_launch'
       },

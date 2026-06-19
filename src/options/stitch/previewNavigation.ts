@@ -14,15 +14,9 @@ export const previewNavigation = {
   sidebarLinks: [
     {
       id: 'onboarding',
-      label: 'Onboarding',
+      label: message('schemaResourceOnboardingTitle'),
       hint: message('schemaResourceOnboardingHint'),
       icon: 'rocket_launch'
-    },
-    {
-      id: 'plugin-setup',
-      label: message('schemaResourcePluginSetupTitle'),
-      hint: message('schemaResourcePluginSetupHint'),
-      icon: 'extension'
     },
     {
       id: 'support',

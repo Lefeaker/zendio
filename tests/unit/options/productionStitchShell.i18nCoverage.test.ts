@@ -40,7 +40,7 @@ const SETTINGS_PANEL_IDS = [
   'maintenance'
 ];
 
-const RESOURCE_MODAL_IDS = ['plugin-setup', 'support', 'suggestions', 'contact', 'changelog'];
+const RESOURCE_MODAL_IDS = ['support', 'suggestions', 'contact', 'changelog'];
 
 type RuntimeSurfaceId = 'clipper' | 'reader' | 'video' | 'video-floating-prompt' | 'task-success';
 
@@ -530,7 +530,7 @@ describe('mountProductionStitchShell English residual coverage', () => {
 
     const pluginSetup = renderResourceModal('plugin-setup', poisonedAppData, null);
     expect(pluginSetup.textContent).toContain(
-      DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaResourcePluginSetupTitle
+      DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaResourceOnboardingTitle
     );
     expect(pluginSetup.textContent).toContain(
       DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaResourcePluginSetupStep1

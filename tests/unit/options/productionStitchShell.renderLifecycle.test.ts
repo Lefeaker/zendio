@@ -19,6 +19,8 @@ import {
 } from './productionStitchShell.helpers';
 import { createProductionStitchRenderLifecycle } from '@options/app/productionStitchRenderLifecycle';
 import { mountProductionStitchShell } from '@options/app/productionStitchShell';
+import { previewContent } from '@options/stitch/content';
+import { getFooterMeta, getFooterView, getSettingsView } from '@options/stitch/schema/registry';
 import { mergeOptions } from '@shared/config/optionsMerger';
 
 describe('mountProductionStitchShell renderLifecycle', () => {
@@ -340,7 +342,7 @@ describe('mountProductionStitchShell renderLifecycle', () => {
       language: 'en'
     });
 
-    findButton('Onboarding').click();
+    findButton('Setup Guide').click();
 
     expect(openSpy).toHaveBeenCalledWith(
       '../onboarding/index.html',
@@ -849,11 +851,25 @@ describe('mountProductionStitchShell renderLifecycle', () => {
   it('handles resource navigation actions by closing the modal and activating the target panel', () => {
     const controller = createController();
     const messagingRepository = createMessaging();
+    const legacyAliasPreviewContent = structuredClone(previewContent);
+    legacyAliasPreviewContent.sidebarLinks = [
+      ...previewContent.sidebarLinks,
+      {
+        id: 'plugin-setup',
+        label: 'Plugin Setup',
+        hint: 'Local REST API setup guide',
+        icon: 'extension'
+      }
+    ];
     mountProductionStitchShell({
       controller: asOptionsController(controller),
       initialOptions: null,
       messages: null,
       language: 'en',
+      previewContent: legacyAliasPreviewContent,
+      getFooterMeta,
+      getFooterView,
+      getSettingsView,
       messagingRepository: messagingRepository as never
     });
 
@@ -862,7 +878,7 @@ describe('mountProductionStitchShell renderLifecycle', () => {
     document.querySelector<HTMLElement>('.resource-modal-overlay')?.click();
 
     findButton('Plugin Setup').click();
-    expect(document.querySelector('[role="dialog"]')?.textContent).toContain('Plugin Setup');
+    expect(document.querySelector('[role="dialog"]')?.textContent).toContain('Setup Guide');
 
     findButton('Go To Storage').click();
 

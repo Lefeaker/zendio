@@ -8,7 +8,9 @@ const ROOT = process.cwd();
 const MAX_LINE_BUDGETS = new Map([
   ['src/i18n/generated/localeRegistry.generated.ts', 8899],
   ['src/i18n/generated/schemaMessages.generated.ts', 481],
-  ['src/i18n/generated/schemaCore.generated.ts', 370],
+  // 2026-06-19 Options catalog growth: generated schema core carries the
+  // accepted setup/YAML/shortcut copy surface and remains an exact line gate.
+  ['src/i18n/generated/schemaCore.generated.ts', 379],
   ['src/i18n/generated/messages.generated.ts', 1312],
   ['src/i18n/generated/locales/fr.generated.ts', 785],
   ['src/i18n/generated/locales/es-419.generated.ts', 777],
@@ -147,7 +149,9 @@ const MAX_LINE_BUDGETS = new Map([
   ['src/ui/domains/privacy/PrivacySettingsView.ts', 255],
   ['src/options/app/productionStitchShellMount.ts', 254],
   ['src/options/app/productionStitchRenderLifecycle.ts', 253],
-  ['src/options/yaml-config-editor/rowModel.ts', 254],
+  // 2026-06-19 Options YAML editor stabilization: row aggregation, editable
+  // domain override cells, and scroll-target ownership stay in this row model.
+  ['src/options/yaml-config-editor/rowModel.ts', 269],
   ['src/options/app/bootstrap.ts', 251],
   ['src/options/stitch/schema/resources/onboarding.ts', 251],
   ['src/third_party/ai-chat-exporter/platforms/kimi.ts', 258],
@@ -165,6 +169,12 @@ const MAX_LINE_BUDGETS = new Map([
   // and support schema copy used by production runtime previews.
   ['src/options/stitch/schema/surfaces/task-success.ts', 276],
   ['src/background/pipelines/clipPipeline.ts', 253],
+  // 2026-06-19 Options shortcut copy stabilization: platform-aware modifier
+  // labels and keyboard mappings are centralized for Options rendering.
+  ['src/options/app/fragmentModifierOptions.ts', 277],
+  // 2026-06-19 Options YAML editor stabilization: preview generation is owned
+  // by current editor state plus active content-type/filter selection.
+  ['src/options/yaml-config-editor/preview.ts', 262],
   // 2026-06-18 GA telemetry acceptance: activation lifecycle, bounded event
   // transport, and release smoke wiring are production hotspots in the final
   // GA integration branch; these budgets are exact current-line gates.
