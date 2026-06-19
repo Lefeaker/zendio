@@ -32,6 +32,14 @@ const ENGLISH_SENTINEL_MESSAGES = {
   step1Detail4: 'Onboarding Step 1 Detail 4 Sentinel',
   step1Detail5: 'Onboarding Step 1 Detail 5 Sentinel',
   step1Detail6: 'Onboarding Step 1 Detail 6 Sentinel',
+  step1ChromeTitle: 'Onboarding Chrome Step 1 Title Sentinel',
+  step1ChromeDescription: 'Onboarding Chrome Step 1 Description Sentinel',
+  step1ChromeDetail1: 'Onboarding Chrome Step 1 Detail 1 Sentinel',
+  step1ChromeDetail2: 'Onboarding Chrome Step 1 Detail 2 Sentinel',
+  step1ChromeDetail3: 'Onboarding Chrome Step 1 Detail 3 Sentinel',
+  step1ChromeDetail4: 'Onboarding Chrome Step 1 Detail 4 Sentinel',
+  step1ChromeDetail5: 'Onboarding Chrome Step 1 Detail 5 Sentinel',
+  step1ChromeDetail6: 'Onboarding Chrome Step 1 Detail 6 Sentinel',
   step2Title: 'Onboarding Step 2 Title Sentinel',
   step2Description: 'Onboarding Step 2 Description Sentinel',
   step2Detail1: 'Onboarding Step 2 Detail 1 Sentinel',
@@ -233,7 +241,10 @@ function expectNoText(root: ParentNode, ...values: string[]): void {
 }
 
 describe('mountProductionStitchShell resource i18n', () => {
-  beforeEach(setupProductionStitchShellTest);
+  beforeEach(() => {
+    setupProductionStitchShellTest();
+    Reflect.deleteProperty(globalThis, 'browser');
+  });
 
   it('opens onboarding through the production page path and renders onboarding copy from generated messages', () => {
     const openSpy = vi.spyOn(window, 'open').mockImplementation(() => null);
@@ -277,14 +288,14 @@ describe('mountProductionStitchShell resource i18n', () => {
       'Plugin Setup Step 5 Sentinel',
       'Plugin Checklist Item 1 Sentinel',
       'Plugin Checklist Item 5 Sentinel',
-      'Onboarding Step 1 Title Sentinel',
-      'Onboarding Step 1 Description Sentinel',
-      'Onboarding Step 1 Detail 1 Sentinel',
-      'Onboarding Step 1 Detail 2 Sentinel',
-      'Onboarding Step 1 Detail 3 Sentinel',
-      'Onboarding Step 1 Detail 4 Sentinel',
-      'Onboarding Step 1 Detail 5 Sentinel',
-      'Onboarding Step 1 Detail 6 Sentinel',
+      'Onboarding Chrome Step 1 Title Sentinel',
+      'Onboarding Chrome Step 1 Description Sentinel',
+      'Onboarding Chrome Step 1 Detail 1 Sentinel',
+      'Onboarding Chrome Step 1 Detail 2 Sentinel',
+      'Onboarding Chrome Step 1 Detail 3 Sentinel',
+      'Onboarding Chrome Step 1 Detail 4 Sentinel',
+      'Onboarding Chrome Step 1 Detail 5 Sentinel',
+      'Onboarding Chrome Step 1 Detail 6 Sentinel',
       'Onboarding Step 2 Title Sentinel',
       'Onboarding Step 2 Description Sentinel',
       'Onboarding Step 2 Detail 1 Sentinel',
@@ -322,6 +333,32 @@ describe('mountProductionStitchShell resource i18n', () => {
       'More Exciting Features, Continuous Iteration',
       '配置 Obsidian Local REST API',
       '欢迎提出建议，开发不易，感谢支持'
+    );
+  });
+
+  it('renders onboarding REST API copy for Firefox builds', () => {
+    Object.defineProperty(globalThis, 'browser', {
+      configurable: true,
+      value: {
+        runtime: {
+          getBrowserInfo: vi.fn()
+        }
+      }
+    });
+
+    const onboardingPage = renderResourcePage('onboarding');
+
+    expectText(
+      onboardingPage,
+      'Onboarding Step 1 Title Sentinel',
+      'Onboarding Step 1 Description Sentinel',
+      'Onboarding Step 1 Detail 1 Sentinel',
+      'Onboarding Step 1 Detail 6 Sentinel'
+    );
+    expectNoText(
+      onboardingPage,
+      'Onboarding Chrome Step 1 Title Sentinel',
+      'Onboarding Chrome Step 1 Description Sentinel'
     );
   });
 

@@ -13,11 +13,42 @@ import {
 import { translateSchemaMessage, type SchemaMessageKey } from '../i18n';
 
 type SetupGuideKind = 'standalone-page' | 'modal';
+type SetupGuideBrowserTarget = 'chrome' | 'firefox';
+type SetupGuideStepKeys = {
+  title: SchemaMessageKey;
+  description: SchemaMessageKey;
+  details: readonly SchemaMessageKey[];
+};
 
 interface SetupGuideOptions {
   id: string;
   kind: SetupGuideKind;
 }
+
+const FIREFOX_STEP1_KEYS: SetupGuideStepKeys = {
+  title: 'step1Title',
+  description: 'step1Description',
+  details: [
+    'step1Detail1',
+    'step1Detail2',
+    'step1Detail3',
+    'step1Detail4',
+    'step1Detail5',
+    'step1Detail6'
+  ]
+};
+const CHROME_STEP1_KEYS: SetupGuideStepKeys = {
+  title: 'step1ChromeTitle',
+  description: 'step1ChromeDescription',
+  details: [
+    'step1ChromeDetail1',
+    'step1ChromeDetail2',
+    'step1ChromeDetail3',
+    'step1ChromeDetail4',
+    'step1ChromeDetail5',
+    'step1ChromeDetail6'
+  ]
+};
 
 function replaceGuideUrl(message: string, pattern: RegExp, value: string): string {
   return message.replace(pattern, value);
@@ -25,6 +56,18 @@ function replaceGuideUrl(message: string, pattern: RegExp, value: string): strin
 
 function stripTrailingSlash(value: string): string {
   return value.replace(/\/$/, '');
+}
+
+function resolveSetupGuideBrowserTarget(): SetupGuideBrowserTarget {
+  if (typeof browser !== 'undefined' && typeof browser.runtime?.getBrowserInfo === 'function') {
+    return 'firefox';
+  }
+
+  return 'chrome';
+}
+
+function getStep1Keys(): SetupGuideStepKeys {
+  return resolveSetupGuideBrowserTarget() === 'firefox' ? FIREFOX_STEP1_KEYS : CHROME_STEP1_KEYS;
 }
 
 function setupActionFor(kind: SetupGuideKind, tr: (key: SchemaMessageKey) => string): NodeSchema {
@@ -117,20 +160,20 @@ function createOnboardingStepCards(tr: (key: SchemaMessageKey) => string): Resou
   const restDefaults = configProvider.getRestDefaults();
   const defaultHttpsUrl = stripTrailingSlash(restDefaults.httpsUrl);
   const defaultHttpUrl = stripTrailingSlash(restDefaults.httpUrl);
+  const step1Keys = getStep1Keys();
 
   return [
     {
       number: '1',
-      title: tr('step1Title'),
-      description: tr('step1Description'),
-      bullets: [
-        tr('step1Detail1'),
-        tr('step1Detail2'),
-        replaceGuideUrl(tr('step1Detail3'), /https:\/\/[^\s)]+/, defaultHttpsUrl),
-        replaceGuideUrl(tr('step1Detail4'), /http:\/\/[^\s)]+/, defaultHttpUrl),
-        tr('step1Detail5'),
-        tr('step1Detail6')
-      ]
+      title: tr(step1Keys.title),
+      description: tr(step1Keys.description),
+      bullets: step1Keys.details.map((key) =>
+        replaceGuideUrl(
+          replaceGuideUrl(tr(key), /https:\/\/[^\s)]+/, defaultHttpsUrl),
+          /http:\/\/[^\s)]+/,
+          defaultHttpUrl
+        )
+      )
     },
     {
       number: '2',

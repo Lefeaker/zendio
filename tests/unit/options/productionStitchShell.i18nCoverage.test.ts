@@ -520,7 +520,7 @@ describe('mountProductionStitchShell English residual coverage', () => {
     expect(onboarding.textContent).toContain(
       DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaResourceOnboardingTitle
     );
-    expect(onboarding.textContent).toContain(DEFAULT_PRODUCTION_ENGLISH_MESSAGES.step1Title);
+    expect(onboarding.textContent).toContain(DEFAULT_PRODUCTION_ENGLISH_MESSAGES.step1ChromeTitle);
     expect(onboarding.textContent).not.toContain('RAW ONBOARDING TITLE SENTINEL');
     expect(onboarding.textContent).not.toContain('RAW ONBOARDING DESCRIPTION SENTINEL');
     expect(onboarding.textContent).not.toContain('RAW ONBOARDING STEP TITLE SENTINEL');

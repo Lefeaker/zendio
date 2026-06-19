@@ -1,9 +1,12 @@
 import {
   createDefaultPageI18nController,
   type PageI18nController,
-  configureI18nStorage
+  configureI18nStorage,
+  DEFAULT_RUNTIME_MESSAGES
 } from '@i18n';
-import { RUNTIME_FALLBACK_MESSAGES } from '../i18n/catalog/runtimeFallbackMessages';
+import type { Messages } from '@i18n/messages';
+import type { RendererContext } from '@options/stitch/render/renderStitchView';
+import type { PreviewContent, PreviewStoreState, SchemaContext } from '@options/stitch/types';
 import { getService } from '../shared/di';
 import { resolveRepository } from '../shared/di/serviceRegistry';
 import { DI_TOKENS, TOKENS } from '../shared/di/tokens';
@@ -20,13 +23,38 @@ import type { OnboardingTrackingRequest } from './onboardingAnalytics';
 let declarativeI18nController: PageI18nController | null = null;
 
 type BrowserStorageLike = Partial<Pick<Storage, 'getItem' | 'setItem'>> & Record<string, unknown>;
+type OnboardingBrowserTarget = 'chrome' | 'firefox';
+type OnboardingResourceId = 'support' | 'suggestions' | 'contact';
+type OnboardingConnectionGuideKeys = {
+  title: keyof Messages;
+  description: keyof Messages;
+  details: readonly (keyof Messages)[];
+};
 
 const DEFAULT_ONBOARDING_DOCUMENT_TITLE = 'Zendio';
-const DEFAULT_SUPPORT_MODAL_MESSAGES = {
-  title: RUNTIME_FALLBACK_MESSAGES.onboardingSupportModalTitle,
-  description: RUNTIME_FALLBACK_MESSAGES.onboardingSupportModalDescription,
-  closeButton: RUNTIME_FALLBACK_MESSAGES.onboardingSupportModalCloseButton,
-  afdianLabel: RUNTIME_FALLBACK_MESSAGES.onboardingSupportModalAfdianLabel
+const FIREFOX_CONNECTION_GUIDE_KEYS: OnboardingConnectionGuideKeys = {
+  title: 'step1Title',
+  description: 'step1Description',
+  details: [
+    'step1Detail1',
+    'step1Detail2',
+    'step1Detail3',
+    'step1Detail4',
+    'step1Detail5',
+    'step1Detail6'
+  ]
+};
+const CHROME_CONNECTION_GUIDE_KEYS: OnboardingConnectionGuideKeys = {
+  title: 'step1ChromeTitle',
+  description: 'step1ChromeDescription',
+  details: [
+    'step1ChromeDetail1',
+    'step1ChromeDetail2',
+    'step1ChromeDetail3',
+    'step1ChromeDetail4',
+    'step1ChromeDetail5',
+    'step1ChromeDetail6'
+  ]
 };
 
 function getBrowserLocalStorage(): BrowserStorageLike | null {
@@ -43,6 +71,7 @@ function applyOnboardingDocumentResource(
 
   document.documentElement.lang = resource.language;
   document.title = resource.messages.onboardingDocumentTitle || DEFAULT_ONBOARDING_DOCUMENT_TITLE;
+  applyOnboardingConnectionGuideCopy(resource.messages);
 }
 
 async function ensureDeclarativeI18nController(): Promise<PageI18nController> {
@@ -63,6 +92,48 @@ async function ensureDeclarativeI18nController(): Promise<PageI18nController> {
 
 async function applyI18n(): Promise<void> {
   await ensureDeclarativeI18nController();
+}
+
+function resolveOnboardingBrowserTarget(): OnboardingBrowserTarget {
+  if (typeof browser !== 'undefined' && typeof browser.runtime?.getBrowserInfo === 'function') {
+    return 'firefox';
+  }
+
+  return 'chrome';
+}
+
+function resolveOnboardingRuntimeMessage(
+  messages: Partial<Messages> | null | undefined,
+  key: keyof Messages
+): string {
+  const raw = messages?.[key] ?? DEFAULT_RUNTIME_MESSAGES[key];
+  return typeof raw === 'string' ? raw : '';
+}
+
+function applyOnboardingConnectionGuideCopy(messages: Partial<Messages> | null | undefined): void {
+  if (typeof document === 'undefined') {
+    return;
+  }
+
+  const guideKeys =
+    resolveOnboardingBrowserTarget() === 'firefox'
+      ? FIREFOX_CONNECTION_GUIDE_KEYS
+      : CHROME_CONNECTION_GUIDE_KEYS;
+  const title = document.querySelector<HTMLElement>('[data-onboarding-step1-title]');
+  const description = document.querySelector<HTMLElement>('[data-onboarding-step1-description]');
+  title?.replaceChildren(
+    document.createTextNode(resolveOnboardingRuntimeMessage(messages, guideKeys.title))
+  );
+  description?.replaceChildren(
+    document.createTextNode(resolveOnboardingRuntimeMessage(messages, guideKeys.description))
+  );
+
+  guideKeys.details.forEach((key, index) => {
+    const item = document.querySelector<HTMLElement>(
+      `[data-onboarding-step1-detail="${String(index + 1)}"]`
+    );
+    item?.replaceChildren(document.createTextNode(resolveOnboardingRuntimeMessage(messages, key)));
+  });
 }
 
 interface OnboardingControllerDependencies {
@@ -355,7 +426,7 @@ export class OnboardingController {
 
   private async handleFeedback(): Promise<void> {
     try {
-      await this.navigationRepo.openExternalLink('https://github.com/Lefeaker/AllinOB/issues');
+      await openOnboardingResourceModal('suggestions');
       markStepCompleted(5);
       updateProgress();
       await this.trackSupportAction('feedback');
@@ -367,7 +438,7 @@ export class OnboardingController {
 
   private async handleSupport(): Promise<void> {
     try {
-      await showSupportModal();
+      await openOnboardingResourceModal('support');
       markStepCompleted(5);
       updateProgress();
       await this.trackSupportAction('docs');
@@ -378,7 +449,7 @@ export class OnboardingController {
   }
 
   private async handleContact(): Promise<void> {
-    showContactModal();
+    await openOnboardingResourceModal('contact');
     await this.trackSupportAction('contact');
   }
 
@@ -529,56 +600,116 @@ function updateProgress(): void {
   }
 }
 
-async function showSupportModal(): Promise<void> {
-  const controller = await ensureDeclarativeI18nController();
-  const resource = controller.getCurrentResource();
-  const messages = resource?.messages;
-  const title = messages?.onboardingSupportModalTitle || DEFAULT_SUPPORT_MODAL_MESSAGES.title;
-  const description =
-    messages?.onboardingSupportModalDescription || DEFAULT_SUPPORT_MODAL_MESSAGES.description;
-  const closeButtonLabel =
-    messages?.onboardingSupportModalCloseButton || DEFAULT_SUPPORT_MODAL_MESSAGES.closeButton;
-  const afdianLabel =
-    messages?.onboardingSupportModalAfdianLabel || DEFAULT_SUPPORT_MODAL_MESSAGES.afdianLabel;
-
-  const modal = document.createElement('div');
-  modal.className = 'support-modal';
-  modal.setAttribute('role', 'presentation');
-  modal.innerHTML = `
-    <div class="support-modal-content">
-      <div class="support-modal-header">
-        <h3>${title}</h3>
-        <button type="button" class="support-modal-close" aria-label="${closeButtonLabel}">&times;</button>
-      </div>
-      <div class="support-modal-body">
-        <p>${description}</p>
-        <div class="support-options">
-          <a href="https://ko-fi.com/xiannian" target="_blank" rel="noopener noreferrer" class="support-link">
-            <span class="support-icon" data-icon="ko-fi"></span>
-            <span>Ko-fi</span>
-          </a>
-          <a href="https://afdian.com/a/LefShi" target="_blank" rel="noopener noreferrer" class="support-link">
-            <span class="support-icon" data-icon="afdian"></span>
-            <span>${afdianLabel}</span>
-          </a>
-        </div>
-      </div>
-    </div>
-  `;
-  document.body.appendChild(modal);
-
-  const close = (): void => {
-    modal.remove();
-  };
-
-  modal.querySelector('.support-modal-close')?.addEventListener('click', close);
-  modal.addEventListener('click', (event) => {
-    if (event.target === modal) {
-      close();
-    }
-  });
+function parseOnboardingResourceId(value: string | undefined): OnboardingResourceId | null {
+  switch (value) {
+    case 'support':
+    case 'suggestions':
+    case 'contact':
+      return value;
+    default:
+      return null;
+  }
 }
 
-function showContactModal(): void {
-  window.open('https://github.com/Lefeaker/AllinOB', '_blank', 'noopener,noreferrer');
+function closeOnboardingResourceModals(): void {
+  document.querySelectorAll('.resource-modal-overlay').forEach((modal) => modal.remove());
+}
+
+function createOnboardingSchemaContext({
+  appData,
+  language,
+  messages,
+  state,
+  t
+}: {
+  appData: PreviewContent;
+  language: string;
+  messages: Messages;
+  state: PreviewStoreState;
+  t: SchemaContext['t'];
+}): SchemaContext {
+  return {
+    appData,
+    state,
+    language,
+    messages,
+    t
+  };
+}
+
+function handleOnboardingResourceAction(actionId: string, resourceId?: string): void {
+  switch (actionId) {
+    case 'resource:close':
+      closeOnboardingResourceModals();
+      return;
+    case 'resource:open': {
+      const nextResourceId = parseOnboardingResourceId(resourceId);
+      if (nextResourceId) {
+        void openOnboardingResourceModal(nextResourceId);
+      }
+      return;
+    }
+    default:
+      return;
+  }
+}
+
+async function openOnboardingResourceModal(resourceId: OnboardingResourceId): Promise<void> {
+  const controller = await ensureDeclarativeI18nController();
+  const resource = controller.getCurrentResource();
+  if (!resource) {
+    return;
+  }
+
+  const [
+    { previewContent },
+    { getFooterView },
+    { createSchemaTranslator },
+    { renderStitchView },
+    { el },
+    { previewUi },
+    { resolveProductionStitchAssetUrl },
+    { createInitialStitchState }
+  ] = await Promise.all([
+    import('@options/stitch/content'),
+    import('@options/stitch/schema/registry'),
+    import('@options/stitch/schema/i18n'),
+    import('@options/stitch/render/renderStitchView'),
+    import('@options/stitch/ui/dom'),
+    import('@options/stitch/ui/components'),
+    import('@options/app/productionStitchAssetUrlResolver'),
+    import('@options/app/productionStitchStateMapper')
+  ]);
+  const messages = resource.messages;
+  const state = createInitialStitchState(previewContent);
+  const schemaContext = createOnboardingSchemaContext({
+    appData: previewContent,
+    language: resource.language,
+    messages,
+    state,
+    t: createSchemaTranslator(messages)
+  });
+  const view = getFooterView(resourceId, schemaContext);
+  if (!view) {
+    return;
+  }
+
+  const renderContext: RendererContext = {
+    ...schemaContext,
+    el,
+    ui: previewUi,
+    dispatch: (actionId, args) =>
+      handleOnboardingResourceAction(
+        actionId,
+        args?.[0] === undefined ? undefined : String(args[0])
+      ),
+    resolveAssetUrl: resolveProductionStitchAssetUrl,
+    mountWidget: () => {}
+  };
+
+  closeOnboardingResourceModals();
+  const modal = renderStitchView(view, renderContext);
+  if (modal) {
+    document.body.append(modal);
+  }
 }

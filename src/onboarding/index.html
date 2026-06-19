@@ -30,30 +30,38 @@
         <div class="onboarding-step" id="step1">
           <div class="step-header">
             <div class="step-number"><span>1</span></div>
-            <h2 class="step-title" data-i18n="step1Title">
-              Configure Obsidian Local REST API (Required)
+            <h2 class="step-title" data-i18n="step1Title" data-onboarding-step1-title>
+              Connect Obsidian with Local Folder (Recommended)
             </h2>
           </div>
           <div class="step-content">
-            <p class="step-description" data-i18n="step1Description">
-              First, you need to install and configure the Local REST API plugin in Obsidian.
-              This is the bridge between the extension and Obsidian.
+            <p
+              class="step-description"
+              data-i18n="step1Description"
+              data-onboarding-step1-description
+            >
+              Chrome and Chromium builds should connect through Local Folder first. Obsidian Local
+              REST API remains available as the fallback connection.
             </p>
             <div class="step-details">
               <ul>
-                <li data-i18n="step1Detail1">
-                  Install and enable the "Local REST API" plugin in Obsidian
+                <li data-i18n="step1Detail1" data-onboarding-step1-detail="1">
+                  Open Storage in Options and choose the vault row you want to connect.
                 </li>
-                <li data-i18n="step1Detail2">
-                  Enable "Non-encrypted (HTTP) Server" in the plugin settings
+                <li data-i18n="step1Detail2" data-onboarding-step1-detail="2">
+                  Click Choose Local Folder and authorize your Obsidian vault directory.
                 </li>
-                <li data-i18n="step1Detail3">Note the HTTPS URL (usually https://127.0.0.1:27124)</li>
-                <li data-i18n="step1Detail4">Note the HTTP URL (usually http://127.0.0.1:27123)</li>
-                <li data-i18n="step1Detail5">
-                  Record your Obsidian vault name and copy the Local REST API key
+                <li data-i18n="step1Detail3" data-onboarding-step1-detail="3">
+                  Keep the folder permission active so Zendio can write notes directly.
                 </li>
-                <li data-i18n="step1Detail6">
-                  Fill in the above information in the extension and perform connection test
+                <li data-i18n="step1Detail4" data-onboarding-step1-detail="4">
+                  If Local Folder is unavailable, configure Obsidian Local REST API.
+                </li>
+                <li data-i18n="step1Detail5" data-onboarding-step1-detail="5">
+                  Run the connection test after choosing Local Folder or REST API details.
+                </li>
+                <li data-i18n="step1Detail6" data-onboarding-step1-detail="6">
+                  Add additional vaults and routing rules only after the default vault works.
                 </li>
               </ul>
             </div>

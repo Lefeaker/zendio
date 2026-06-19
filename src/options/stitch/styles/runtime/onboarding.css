@@ -268,69 +268,6 @@ body[data-route='onboarding'] {
   display: none;
 }
 
-.support-modal {
-  position: fixed;
-  inset: 0;
-  z-index: calc(var(--z-modal) + 1);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: var(--space-8);
-  background: var(--modal-backdrop);
-  backdrop-filter: var(--blur-modal);
-}
-
-.support-modal-content {
-  width: min(440px, calc(100vw - 32px));
-  padding: var(--space-9);
-  border: var(--border-default);
-  border-radius: var(--radius-xl);
-  background: var(--panel);
-  box-shadow: var(--shadow-lg);
-}
-
-.support-modal-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-5);
-  margin-bottom: var(--space-6);
-}
-
-.support-modal-header h3 {
-  margin: 0;
-  color: var(--text);
-  font-size: var(--font-size-modal-title);
-}
-
-.support-modal-close {
-  width: var(--control-height-lg);
-  height: var(--control-height-lg);
-  border: 0;
-  border-radius: var(--radius-full);
-  background: var(--surface-muted);
-  color: var(--text-faint);
-  cursor: pointer;
-  font-size: var(--font-size-xl);
-}
-
-.support-modal-body {
-  display: grid;
-  gap: var(--space-6);
-}
-
-.support-modal-body p {
-  margin: 0;
-  color: var(--text-dim);
-  line-height: var(--line-height-rich);
-}
-
-.support-link {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-}
-
 .hidden {
   display: none !important;
 }

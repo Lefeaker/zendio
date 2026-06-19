@@ -1,22 +1,29 @@
 /* @vitest-environment jsdom */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import type { Messages } from '../../../src/i18n/messages';
 
-type OnboardingRuntimeMessagesMock = Partial<{
-  onboardingDocumentTitle: string;
-  onboardingSupportModalTitle: string;
-  onboardingSupportModalDescription: string;
-  onboardingSupportModalCloseButton: string;
-  onboardingSupportModalAfdianLabel: string;
-}>;
+type OnboardingRuntimeMessagesMock = Partial<Messages>;
 
-const defaultRuntimeMessagesMock = vi.hoisted<Required<OnboardingRuntimeMessagesMock>>(() => ({
+const defaultRuntimeMessagesMock = vi.hoisted<OnboardingRuntimeMessagesMock>(() => ({
   onboardingDocumentTitle: 'Zendio',
-  onboardingSupportModalTitle: 'Thank You for Your Support',
-  onboardingSupportModalDescription:
-    'Development is not easy. If this plugin helps you, welcome to support through the following ways:',
-  onboardingSupportModalCloseButton: 'Close',
-  onboardingSupportModalAfdianLabel: 'Afdian'
+  step1Title: 'Configure Obsidian Local REST API',
+  step1Description: 'Configure Obsidian Local REST API in Firefox.',
+  step1Detail1: 'Install and enable the Local REST API plugin in Obsidian.',
+  step1Detail2: 'Enable the HTTP server in the plugin settings.',
+  step1Detail3: 'Note the HTTPS URL.',
+  step1Detail4: 'Note the HTTP URL.',
+  step1Detail5: 'Copy the API key.',
+  step1Detail6: 'Run the connection test.',
+  step1ChromeTitle: 'Connect Obsidian with Local Folder (Recommended)',
+  step1ChromeDescription:
+    'Use Local Folder first in Chrome and keep Obsidian Local REST API as the fallback.',
+  step1ChromeDetail1: 'Open Storage and choose the vault row.',
+  step1ChromeDetail2: 'Choose Local Folder.',
+  step1ChromeDetail3: 'Keep folder permission active.',
+  step1ChromeDetail4: 'Use Obsidian Local REST API if Local Folder is unavailable.',
+  step1ChromeDetail5: 'Run the connection test.',
+  step1ChromeDetail6: 'Configure routing after the default vault works.'
 }));
 
 const currentResourceMock = vi.hoisted<{
@@ -26,11 +33,7 @@ const currentResourceMock = vi.hoisted<{
     language: 'en',
     messages: {
       onboardingDocumentTitle: 'Zendio',
-      onboardingSupportModalTitle: 'Thank You for Your Support',
-      onboardingSupportModalDescription:
-        'Development is not easy. If this plugin helps you, welcome to support through the following ways:',
-      onboardingSupportModalCloseButton: 'Close',
-      onboardingSupportModalAfdianLabel: 'Afdian'
+      step1ChromeTitle: 'Connect Obsidian with Local Folder (Recommended)'
     }
   }
 }));
@@ -100,7 +103,20 @@ function buildOnboardingDom(): void {
     <button id="skipOnboardingBtn"></button>
     <button id="completeOnboardingBtn" class="hidden"></button>
     <div id="progressBar"></div>
-    <div id="step1"></div>
+    <div id="step1">
+      <h2 data-i18n="step1Title" data-onboarding-step1-title>Initial REST Required Copy</h2>
+      <p data-i18n="step1Description" data-onboarding-step1-description>
+        Initial description.
+      </p>
+      <ul>
+        <li data-i18n="step1Detail1" data-onboarding-step1-detail="1">Initial detail 1</li>
+        <li data-i18n="step1Detail2" data-onboarding-step1-detail="2">Initial detail 2</li>
+        <li data-i18n="step1Detail3" data-onboarding-step1-detail="3">Initial detail 3</li>
+        <li data-i18n="step1Detail4" data-onboarding-step1-detail="4">Initial detail 4</li>
+        <li data-i18n="step1Detail5" data-onboarding-step1-detail="5">Initial detail 5</li>
+        <li data-i18n="step1Detail6" data-onboarding-step1-detail="6">Initial detail 6</li>
+      </ul>
+    </div>
     <div id="step2"></div>
     <div id="step3"></div>
     <div id="step4"></div>
@@ -173,21 +189,29 @@ describe('onboarding bootstrap', () => {
     vi.clearAllMocks();
     Object.assign(defaultRuntimeMessagesMock, {
       onboardingDocumentTitle: 'Zendio',
-      onboardingSupportModalTitle: 'Thank You for Your Support',
-      onboardingSupportModalDescription:
-        'Development is not easy. If this plugin helps you, welcome to support through the following ways:',
-      onboardingSupportModalCloseButton: 'Close',
-      onboardingSupportModalAfdianLabel: 'Afdian'
+      step1Title: 'Configure Obsidian Local REST API',
+      step1Description: 'Configure Obsidian Local REST API in Firefox.',
+      step1Detail1: 'Install and enable the Local REST API plugin in Obsidian.',
+      step1Detail2: 'Enable the HTTP server in the plugin settings.',
+      step1Detail3: 'Note the HTTPS URL.',
+      step1Detail4: 'Note the HTTP URL.',
+      step1Detail5: 'Copy the API key.',
+      step1Detail6: 'Run the connection test.',
+      step1ChromeTitle: 'Connect Obsidian with Local Folder (Recommended)',
+      step1ChromeDescription:
+        'Use Local Folder first in Chrome and keep Obsidian Local REST API as the fallback.',
+      step1ChromeDetail1: 'Open Storage and choose the vault row.',
+      step1ChromeDetail2: 'Choose Local Folder.',
+      step1ChromeDetail3: 'Keep folder permission active.',
+      step1ChromeDetail4: 'Use Obsidian Local REST API if Local Folder is unavailable.',
+      step1ChromeDetail5: 'Run the connection test.',
+      step1ChromeDetail6: 'Configure routing after the default vault works.'
     });
     currentResourceMock.value = {
       language: 'en',
       messages: {
         onboardingDocumentTitle: 'Zendio',
-        onboardingSupportModalTitle: 'Thank You for Your Support',
-        onboardingSupportModalDescription:
-          'Development is not easy. If this plugin helps you, welcome to support through the following ways:',
-        onboardingSupportModalCloseButton: 'Close',
-        onboardingSupportModalAfdianLabel: 'Afdian'
+        step1ChromeTitle: 'Connect Obsidian with Local Folder (Recommended)'
       }
     };
     installLocalStorageMock();
@@ -201,6 +225,7 @@ describe('onboarding bootstrap', () => {
       addEventListener: vi.fn(),
       removeEventListener: vi.fn()
     } as never);
+    Reflect.deleteProperty(globalThis, 'browser');
     localStorage.clear();
     buildOnboardingDom();
   });
@@ -210,10 +235,7 @@ describe('onboarding bootstrap', () => {
       language: 'zh-CN',
       messages: {
         onboardingDocumentTitle: '欢迎使用 Zendio',
-        onboardingSupportModalTitle: '感谢支持',
-        onboardingSupportModalDescription: '如果这个插件对您有帮助，欢迎支持。',
-        onboardingSupportModalCloseButton: '关闭',
-        onboardingSupportModalAfdianLabel: '爱发电'
+        step1ChromeTitle: '使用本地目录连接 Obsidian（推荐）'
       }
     };
     resolveRepositoryMock.mockReturnValue({
@@ -227,6 +249,78 @@ describe('onboarding bootstrap', () => {
 
     expect(document.documentElement.lang).toBe('zh-CN');
     expect(document.title).toBe('欢迎使用 Zendio');
+  });
+
+  it('renders Chrome onboarding connection copy as local-folder-first recommendation', async () => {
+    currentResourceMock.value = {
+      language: 'zh-CN',
+      messages: {
+        onboardingDocumentTitle: '欢迎使用 Zendio',
+        step1ChromeTitle: 'Chrome Local Folder Recommended Sentinel',
+        step1ChromeDescription: 'Chrome should use Local Folder Sentinel.',
+        step1ChromeDetail1: 'Local Folder Detail 1 Sentinel',
+        step1ChromeDetail2: 'Local Folder Detail 2 Sentinel',
+        step1ChromeDetail3: 'Local Folder Detail 3 Sentinel',
+        step1ChromeDetail4: 'REST API Fallback Detail Sentinel',
+        step1ChromeDetail5: 'Connection Test Detail Sentinel',
+        step1ChromeDetail6: 'Routing Later Detail Sentinel',
+        step1Title: 'Firefox REST Required Sentinel'
+      }
+    };
+    resolveRepositoryMock.mockReturnValue({
+      openVault: vi.fn(() => Promise.resolve(undefined)),
+      openOptions: vi.fn(() => Promise.resolve(undefined)),
+      openExternalLink: vi.fn(() => Promise.resolve(undefined))
+    });
+
+    const { bootstrapOnboardingApp } = await import('../../../src/onboarding/bootstrap');
+    await bootstrapOnboardingApp();
+
+    const step1Text = document.getElementById('step1')?.textContent ?? '';
+    expect(step1Text).toContain('Chrome Local Folder Recommended Sentinel');
+    expect(step1Text).toContain('Local Folder Detail 1 Sentinel');
+    expect(step1Text).toContain('REST API Fallback Detail Sentinel');
+    expect(step1Text).not.toContain('Firefox REST Required Sentinel');
+    expect(step1Text).not.toMatch(/Required|必须配置/u);
+  });
+
+  it('renders Firefox onboarding connection copy as REST API setup', async () => {
+    Object.defineProperty(globalThis, 'browser', {
+      configurable: true,
+      value: {
+        runtime: {
+          getBrowserInfo: vi.fn()
+        }
+      }
+    });
+    currentResourceMock.value = {
+      language: 'zh-CN',
+      messages: {
+        onboardingDocumentTitle: '欢迎使用 Zendio',
+        step1Title: 'Firefox REST API Title Sentinel',
+        step1Description: 'Firefox REST API Description Sentinel',
+        step1Detail1: 'Firefox REST Detail 1 Sentinel',
+        step1Detail2: 'Firefox REST Detail 2 Sentinel',
+        step1Detail3: 'Firefox REST Detail 3 Sentinel',
+        step1Detail4: 'Firefox REST Detail 4 Sentinel',
+        step1Detail5: 'Firefox REST Detail 5 Sentinel',
+        step1Detail6: 'Firefox REST Detail 6 Sentinel',
+        step1ChromeTitle: 'Chrome Local Folder Hidden Sentinel'
+      }
+    };
+    resolveRepositoryMock.mockReturnValue({
+      openVault: vi.fn(() => Promise.resolve(undefined)),
+      openOptions: vi.fn(() => Promise.resolve(undefined)),
+      openExternalLink: vi.fn(() => Promise.resolve(undefined))
+    });
+
+    const { bootstrapOnboardingApp } = await import('../../../src/onboarding/bootstrap');
+    await bootstrapOnboardingApp();
+
+    const step1Text = document.getElementById('step1')?.textContent ?? '';
+    expect(step1Text).toContain('Firefox REST API Title Sentinel');
+    expect(step1Text).toContain('Firefox REST Detail 6 Sentinel');
+    expect(step1Text).not.toContain('Chrome Local Folder Hidden Sentinel');
   });
 
   it('restores completed steps and updates progress on initialize', async () => {
@@ -288,11 +382,11 @@ describe('onboarding bootstrap', () => {
     document
       .getElementById('suggestionsLink')
       ?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
-    await Promise.resolve();
-    await Promise.resolve();
-    expect(navigationRepo.openExternalLink).toHaveBeenCalledWith(
-      'https://github.com/Lefeaker/AllinOB/issues'
-    );
+    await vi.waitFor(() => {
+      expect(document.querySelector('.resource-modal')).not.toBeNull();
+    });
+    expect(document.querySelector('.resource-modal')?.textContent).toContain('Suggestions');
+    expect(navigationRepo.openExternalLink).not.toHaveBeenCalled();
 
     document
       .getElementById('skipOnboardingBtn')
@@ -302,15 +396,16 @@ describe('onboarding bootstrap', () => {
     expect(storageSet).toHaveBeenCalledWith('onboardingCompleted', true);
   });
 
-  it('renders the support modal from onboarding catalog messages', async () => {
+  it('renders the support resource modal from shared Options schema messages', async () => {
     currentResourceMock.value = {
       language: 'en',
       messages: {
         onboardingDocumentTitle: 'Zendio',
-        onboardingSupportModalTitle: 'Support Title Sentinel',
-        onboardingSupportModalDescription: 'Support Description Sentinel',
-        onboardingSupportModalCloseButton: 'Dismiss Support Sentinel',
-        onboardingSupportModalAfdianLabel: 'Afdian Label Sentinel'
+        schemaResourceSupportTitle: 'Support Title Sentinel',
+        schemaResourceSupportDescription: 'Support Description Sentinel',
+        schemaResourceSupportKoFiTitle: 'Ko-fi Title Sentinel',
+        schemaResourceSupportAfdianTitle: 'WeChat Reward Title Sentinel',
+        schemaResourceSupportAfdianDescription: 'WeChat Reward Description Sentinel'
       }
     };
 
@@ -320,27 +415,23 @@ describe('onboarding bootstrap', () => {
     document
       .getElementById('supportLink')
       ?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
-    await new Promise((resolve) => setTimeout(resolve, 0));
+    await vi.waitFor(() => {
+      expect(document.querySelector('.resource-modal')).not.toBeNull();
+    });
 
-    const modal = document.querySelector('.support-modal');
+    const modal = document.querySelector('.resource-modal');
     expect(modal).not.toBeNull();
     expect(modal?.textContent).toContain('Support Title Sentinel');
     expect(modal?.textContent).toContain('Support Description Sentinel');
-    expect(modal?.textContent).toContain('Afdian Label Sentinel');
+    expect(modal?.textContent).toContain('Ko-fi Title Sentinel');
+    expect(modal?.textContent).toContain('WeChat Reward Title Sentinel');
+    expect(modal?.querySelector('[data-role="resource-image-modal-trigger"]')).not.toBeNull();
+    expect(document.querySelector('.support-modal')).toBeNull();
     expect(modal?.textContent).not.toContain('感谢支持');
     expect(modal?.textContent).not.toContain('爱发电');
-    expect(
-      modal?.querySelector<HTMLButtonElement>('.support-modal-close')?.getAttribute('aria-label')
-    ).toBe('Dismiss Support Sentinel');
   });
 
-  it('uses default onboarding runtime messages when page resources are unavailable', async () => {
-    Object.assign(defaultRuntimeMessagesMock, {
-      onboardingSupportModalTitle: 'Default Support Title Sentinel',
-      onboardingSupportModalDescription: 'Default Support Description Sentinel',
-      onboardingSupportModalCloseButton: 'Default Close Sentinel',
-      onboardingSupportModalAfdianLabel: 'Default Afdian Sentinel'
-    });
+  it('uses default shared resource messages when page resources are unavailable', async () => {
     currentResourceMock.value = {
       language: 'en',
       messages: {}
@@ -352,19 +443,18 @@ describe('onboarding bootstrap', () => {
     document
       .getElementById('supportLink')
       ?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
-    await new Promise((resolve) => setTimeout(resolve, 0));
+    await vi.waitFor(() => {
+      expect(document.querySelector('.resource-modal')).not.toBeNull();
+    });
 
-    const modal = document.querySelector('.support-modal');
+    const modal = document.querySelector('.resource-modal');
     const modalText = modal?.textContent ?? '';
     expect(document.documentElement.lang).toBe('en');
     expect(document.title).toBe('Zendio');
-    expect(modalText).toContain('Default Support Title Sentinel');
-    expect(modalText).toContain('Default Support Description Sentinel');
-    expect(modalText).toContain('Default Afdian Sentinel');
+    expect(modalText).toContain('Support');
+    expect(modal?.querySelector('[data-role="resource-image-modal-trigger"]')).not.toBeNull();
+    expect(document.querySelector('.support-modal')).toBeNull();
     expect(modalText).not.toMatch(/\p{Script=Han}/u);
-    expect(
-      modal?.querySelector<HTMLButtonElement>('.support-modal-close')?.getAttribute('aria-label')
-    ).toBe('Default Close Sentinel');
   });
 
   it('emits catalog-safe onboarding lifecycle telemetry for consented users', async () => {
@@ -543,13 +633,12 @@ describe('onboarding bootstrap', () => {
     document
       .getElementById('contactLink')
       ?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
-    await new Promise((resolve) => setTimeout(resolve, 0));
+    await vi.waitFor(() => {
+      expect(document.querySelector('.resource-modal')).not.toBeNull();
+    });
 
-    expect(window.open).toHaveBeenCalledWith(
-      'https://github.com/Lefeaker/AllinOB',
-      '_blank',
-      'noopener,noreferrer'
-    );
+    expect(document.querySelector('.resource-modal')?.textContent).toContain('Contact');
+    expect(window.open).not.toHaveBeenCalled();
     expect(localStorage.getItem('onboardingCompletedSteps')).toBeNull();
     await waitForSentMessage(messagingRepository.send, {
       type: 'ANALYTICS_EVENT',
@@ -567,11 +656,16 @@ describe('onboarding bootstrap', () => {
       }
     });
 
+    document.querySelectorAll('.resource-modal-overlay').forEach((modal) => modal.remove());
     document
       .getElementById('suggestionsLink')
       ?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
-    await new Promise((resolve) => setTimeout(resolve, 0));
+    await vi.waitFor(() => {
+      expect(document.querySelector('.resource-modal')).not.toBeNull();
+    });
 
+    expect(document.querySelector('.resource-modal')?.textContent).toContain('Suggestions');
+    expect(window.open).not.toHaveBeenCalled();
     await waitForSentMessage(messagingRepository.send, {
       type: 'ANALYTICS_EVENT',
       event: 'onboarding_support_action',
