@@ -232,9 +232,18 @@ body[data-route='onboarding'] {
 }
 
 .footer-link {
+  flex: 0 0 auto;
   color: var(--accent);
   font-size: var(--font-size-sm);
   font-weight: 650;
+  white-space: nowrap;
+}
+
+.footer-links {
+  flex-wrap: nowrap;
+  max-width: 100%;
+  overflow-x: auto;
+  scrollbar-width: thin;
 }
 
 .onboarding-footer {

@@ -812,6 +812,7 @@ export const GENERATED_MESSAGE_KEYS = [
   'step3Section2Detail4',
   'step3Section2Detail5',
   'step3Section2Detail6',
+  'step3Section2Detail7',
   'step3Section2Title',
   'step3Section3Detail1',
   'step3Section3Detail2',

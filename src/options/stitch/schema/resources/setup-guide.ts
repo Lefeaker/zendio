@@ -190,6 +190,7 @@ function createOnboardingStepCards(tr: (key: SchemaMessageKey) => string): Resou
         `${tr('step3Section1Title')}: ${tr('step3Section1Detail2')}`,
         `${tr('step3Section2Title')}: ${tr('step3Section2Detail1')}`,
         `${tr('step3Section2Title')}: ${tr('step3Section2Detail4')}`,
+        `${tr('step3Section2Title')}: ${tr('step3Section2Detail7')}`,
         `${tr('step3Section3Title')}: ${tr('step3Section3Detail1')}`,
         `${tr('step3Section3Title')}: ${tr('step3Section3Detail4')}`
       ]
