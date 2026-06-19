@@ -111,7 +111,13 @@ describe('Stitch runtime polish CSS contracts', () => {
       /\.yaml-table-scroll\s+table\s*{[^}]*table-layout:\s*fixed;[^}]*min-width:\s*900px;/
     );
     expect(stitchCss).toMatch(
+      /\.yaml-domain-fields-shell\s+table\s*{[^}]*table-layout:\s*fixed;[^}]*min-width:\s*760px;/
+    );
+    expect(stitchCss).toMatch(
       /\.stitch-yaml-config-table\s+:is\(th,\s*td\):nth-child\(7\)\s*{[^}]*width:\s*132px;/
+    );
+    expect(stitchCss).toMatch(
+      /\.stitch-yaml-domain-fields-table\s+:is\(th,\s*td\):nth-child\(1\)\s*{[^}]*width:\s*88px;/
     );
   });
 

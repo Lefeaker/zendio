@@ -130,10 +130,25 @@
 }
 
 .yaml-rule-meta {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: minmax(132px, 180px) minmax(240px, 1fr) auto;
+  align-items: center;
   gap: var(--space-3);
   margin-bottom: var(--space-4);
+}
+
+.yaml-rule-meta :is(.input, .select) {
+  width: 100%;
+  min-width: 0;
+}
+
+.yaml-rule-meta .yaml-delete-button {
+  justify-self: end;
+  white-space: nowrap;
+}
+
+.yaml-domain-fields-shell {
+  max-height: 320px;
 }
 
 .yaml-validation-errors:empty,
@@ -163,6 +178,16 @@
   margin-top: var(--space-5);
   color: var(--text-dim);
   font-size: var(--font-size-sm);
+}
+
+@media (max-width: 720px) {
+  .yaml-rule-meta {
+    grid-template-columns: 1fr;
+  }
+
+  .yaml-rule-meta .yaml-delete-button {
+    justify-self: start;
+  }
 }
 
 .yaml-preview,

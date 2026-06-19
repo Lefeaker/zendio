@@ -231,6 +231,33 @@ describe('YamlConfigEditorWidgetAdapter', () => {
     expect(notifyDirty).not.toHaveBeenCalledWith(['yamlConfig'], { invalid: false });
   });
 
+  it('renders domain override fields as an aligned table', () => {
+    const { container } = createMount({ yamlConfig: null });
+    const addDomainRule = Array.from(container.querySelectorAll<HTMLButtonElement>('button')).find(
+      (button) => button.textContent?.includes('Add domain rule')
+    );
+    if (!addDomainRule) {
+      throw new Error('Missing add domain rule action');
+    }
+
+    addDomainRule.click();
+
+    const domainRule = queryRequired<HTMLElement>('[data-domain-rule-id]', container);
+    const fieldsTable = queryRequired<HTMLTableElement>(
+      '.yaml-domain-fields-shell table',
+      domainRule
+    );
+    const fieldRow = queryRequired<HTMLTableRowElement>('[data-domain-field-id]', fieldsTable);
+
+    expect(fieldRow.tagName).toBe('TR');
+    expect(fieldRow.classList.contains('schema-row')).toBe(false);
+    expect(fieldsTable.querySelectorAll('thead th')).toHaveLength(5);
+    expect(fieldRow.querySelectorAll(':scope > td')).toHaveLength(5);
+    expect(queryRequired<HTMLInputElement>('[data-yaml-domain-field="enabled"]', fieldRow)).toBe(
+      fieldRow.querySelector('td:first-child input')
+    );
+  });
+
   it('is the production yaml-config widget factory result', () => {
     const draft = createCompleteOptions(null);
     const state = createInitialStitchState(createProductionContent(previewContent, draft));
