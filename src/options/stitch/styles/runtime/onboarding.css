@@ -231,19 +231,21 @@ body[data-route='onboarding'] {
   color: var(--text-dim);
 }
 
-.footer-link {
+body[data-route='onboarding'] .footer-link {
+  display: inline-flex;
   flex: 0 0 auto;
+  width: auto;
+  max-width: 100%;
   color: var(--accent);
   font-size: var(--font-size-sm);
   font-weight: 650;
   white-space: nowrap;
 }
 
-.footer-links {
-  flex-wrap: nowrap;
+body[data-route='onboarding'] .footer-links {
+  flex-wrap: wrap;
   max-width: 100%;
-  overflow-x: auto;
-  scrollbar-width: thin;
+  overflow-x: visible;
 }
 
 .onboarding-footer {

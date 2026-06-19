@@ -6,21 +6,28 @@ const onboardingCssPath = fileURLToPath(
   new URL('../../../src/options/stitch/styles/runtime/onboarding.css', import.meta.url)
 );
 
-function readFooterLinksRule(): string {
+function readCssRule(selector: string, property: string): string {
   const css = readFileSync(onboardingCssPath, 'utf8');
-  const footerRules = Array.from(css.matchAll(/\.footer-links\s*\{(?<body>[^}]+)\}/gu));
-  return (
-    footerRules.find((match) => match.groups?.body.includes('flex-wrap: nowrap'))?.groups?.body ??
-    ''
+  const escapedSelector = selector.replace(/[.*+?^${}()|[\]\\]/gu, '\\$&');
+  const rules = Array.from(
+    css.matchAll(new RegExp(`${escapedSelector}\\s*\\{(?<body>[^}]+)\\}`, 'gu'))
   );
+  return rules.find((match) => match.groups?.body.includes(property))?.groups?.body ?? '';
 }
 
 describe('onboarding styles', () => {
-  it('keeps the resource footer links in one row without widening the page', () => {
-    const footerLinksRule = readFooterLinksRule();
+  it('keeps resource footer links sized to their labels without horizontal scrolling', () => {
+    const footerLinkRule = readCssRule("body[data-route='onboarding'] .footer-link", 'width: auto');
+    const footerLinksRule = readCssRule(
+      "body[data-route='onboarding'] .footer-links",
+      'overflow-x: visible'
+    );
 
-    expect(footerLinksRule).toContain('flex-wrap: nowrap');
+    expect(footerLinkRule).toContain('display: inline-flex');
+    expect(footerLinkRule).toContain('width: auto');
+    expect(footerLinkRule).toContain('flex: 0 0 auto');
+    expect(footerLinksRule).toContain('flex-wrap: wrap');
     expect(footerLinksRule).toContain('max-width: 100%');
-    expect(footerLinksRule).toContain('overflow-x: auto');
+    expect(footerLinksRule).toContain('overflow-x: visible');
   });
 });
