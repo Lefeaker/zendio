@@ -451,7 +451,7 @@ describe('onboarding bootstrap', () => {
     expect(storageSet).toHaveBeenCalledWith('onboardingCompleted', true);
   });
 
-  it('renders the support resource modal from shared Options schema messages', async () => {
+  it('renders the support modal from onboarding catalog messages', async () => {
     currentResourceMock.value = {
       language: 'en',
       messages: {
@@ -486,7 +486,7 @@ describe('onboarding bootstrap', () => {
     expect(modal?.textContent).not.toContain('爱发电');
   });
 
-  it('uses default shared resource messages when page resources are unavailable', async () => {
+  it('uses default onboarding runtime messages when page resources are unavailable', async () => {
     currentResourceMock.value = {
       language: 'en',
       messages: {}

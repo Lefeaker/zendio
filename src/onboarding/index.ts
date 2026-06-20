@@ -2,7 +2,6 @@ import { registerFallbackRepositories, registerRepositories } from '../shared/di
 import { registerService, TOKENS } from '../shared/di';
 import { getPlatformServices } from '../platform';
 import { createPreviewPlatformServices } from '../platform/preview/services';
-import { bootstrapOnboardingApp } from './bootstrap';
 
 if (typeof chrome !== 'undefined' && chrome.runtime) {
   const platformServices = getPlatformServices();
@@ -18,7 +17,7 @@ if (typeof chrome !== 'undefined' && chrome.runtime) {
 }
 
 const run = () => {
-  void bootstrapOnboardingApp();
+  void import('./bootstrap').then(({ bootstrapOnboardingApp }) => bootstrapOnboardingApp());
 };
 
 if (document.readyState === 'loading') {

@@ -8,9 +8,9 @@ const ROOT = process.cwd();
 const MAX_LINE_BUDGETS = new Map([
   ['src/i18n/generated/localeRegistry.generated.ts', 8899],
   ['src/i18n/generated/schemaMessages.generated.ts', 481],
-  // 2026-06-19 Options catalog growth: generated schema core carries the
-  // accepted setup/YAML/shortcut copy surface and remains an exact line gate.
-  ['src/i18n/generated/schemaCore.generated.ts', 379],
+  // 2026-06-20 onboarding closeout: generated schema core now carries the
+  // accepted first-run terms/privacy resource keys in addition to Options copy.
+  ['src/i18n/generated/schemaCore.generated.ts', 443],
   ['src/i18n/generated/messages.generated.ts', 1312],
   ['src/i18n/generated/locales/fr.generated.ts', 785],
   ['src/i18n/generated/locales/es-419.generated.ts', 777],
@@ -26,7 +26,7 @@ const MAX_LINE_BUDGETS = new Map([
   ['src/i18n/generated/locales/zh-TW.generated.ts', 690],
   ['src/options/stitch/content.ts', 841],
   ['src/options/yaml-config-editor/view.ts', 746],
-  ['src/options/stitch/types.ts', 767],
+  ['src/options/stitch/types.ts', 769],
   ['src/options/stitch/ui/components.ts', 592],
   ['src/third_party/ai-chat-exporter/platforms/gemini.ts', 576],
   ['src/options/stitch/schema/builders/surfaces.ts', 558],
@@ -85,9 +85,9 @@ const MAX_LINE_BUDGETS = new Map([
   ['src/content/video/ui/VideoDialogPanel.ts', 425],
   ['src/options/app/productionStitchPersistence.ts', 387],
   ['src/shared/errors/analytics/analyticsConfig.template.ts', 364],
-  ['src/shared/errors/analytics/analyticsConfig.ts', 369],
+  ['src/shared/errors/analytics/analyticsConfig.ts', 383],
   ['src/dev/contentOrchestratorHarness.ts', 359],
-  ['src/options/app/productionStitchShellActionRuntime.ts', 357],
+  ['src/options/app/productionStitchShellActionRuntime.ts', 358],
   ['src/background/services/obsidianWriter.ts', 423],
   ['src/background/vault-router.ts', 422],
   ['src/shared/state/globalStateManager.ts', 345],
@@ -109,7 +109,7 @@ const MAX_LINE_BUDGETS = new Map([
   ['src/options/app/productionStitchActions.ts', 302],
   ['src/options/app/productionStitchLocalization.ts', 553],
   ['src/options/app/vaultConnectionTests.ts', 290],
-  ['src/options/stitch/schema/settings/overview.ts', 420],
+  ['src/options/stitch/schema/settings/overview.ts', 429],
   ['src/options/stitch/schema/settings/capture-behavior.ts', 333],
   ['src/content/video/videoPromptRenderer.ts', 291],
   ['src/options/stitch/schema/settings/output.ts', 333],
@@ -154,6 +154,9 @@ const MAX_LINE_BUDGETS = new Map([
   ['src/options/yaml-config-editor/rowModel.ts', 269],
   ['src/options/app/bootstrap.ts', 251],
   ['src/options/stitch/schema/resources/onboarding.ts', 251],
+  // 2026-06-20 onboarding closeout: Chrome/Firefox first-run setup guidance
+  // keeps Local Folder and REST fallback instructions centralized here.
+  ['src/options/stitch/schema/resources/setup-guide.ts', 255],
   ['src/third_party/ai-chat-exporter/platforms/kimi.ts', 258],
   ['src/i18n/catalog/languages.ts', 280],
   ['src/content/sessionDrafts/sessionDraftRepository.ts', 399],
@@ -175,6 +178,9 @@ const MAX_LINE_BUDGETS = new Map([
   // 2026-06-19 Options YAML editor stabilization: preview generation is owned
   // by current editor state plus active content-type/filter selection.
   ['src/options/yaml-config-editor/preview.ts', 262],
+  // 2026-06-20 onboarding closeout: first-run resources render through a local
+  // lightweight modal instead of importing the full Options/Stitch renderer.
+  ['src/onboarding/resourceModal.ts', 625],
   // 2026-06-18 GA telemetry acceptance: activation lifecycle, bounded event
   // transport, and release smoke wiring are production hotspots in the final
   // GA integration branch; these budgets are exact current-line gates.

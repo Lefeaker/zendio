@@ -5,46 +5,30 @@ import {
   DEFAULT_RUNTIME_MESSAGES
 } from '@i18n';
 import type { Messages } from '@i18n/messages';
-import type { RendererContext } from '@options/stitch/render/renderStitchView';
-import type { PreviewContent, PreviewStoreState, SchemaContext } from '@options/stitch/types';
-import { getService } from '../shared/di';
 import { resolveRepository } from '../shared/di/serviceRegistry';
-import { DI_TOKENS, TOKENS } from '../shared/di/tokens';
+import { DI_TOKENS } from '../shared/di/tokens';
 import type { INavigationRepository } from '../shared/repositories/INavigationRepository';
-import type { IMessagingRepository } from '../shared/repositories/IMessagingRepository';
-import type { IOptionsRepository } from '../shared/repositories/IOptionsRepository';
-import type { StorageAreaService } from '../platform/interfaces/storage';
-import type { StorageService } from '../platform/interfaces/storage';
-import type { TabsService } from '../platform/interfaces/tabs';
-import type { PlatformServices } from '../platform/types';
-import type { InterfaceTheme, PrivacyPreferencesOptions } from '../shared/types/options';
+import {
+  resolveOnboardingDependencies,
+  resolveOptionalMessagingRepository,
+  resolveOptionalOptionsRepository
+} from './dependencies';
+import type {
+  OnboardingControllerDependencies,
+  OnboardingOptionsRepository,
+  OnboardingPrivacyField,
+  OnboardingPrivacyOptions,
+  OnboardingPrivacySnapshot
+} from './dependencies';
 import type { OnboardingTrackingRequest } from './onboardingAnalytics';
+import { markStepCompleted, restoreCompletedSteps, updateProgress } from './progress';
+import { renderOnboardingResourceModal } from './resourceModal';
+import type { OnboardingResourceId } from './resourceModal';
+import { applyStoredOnboardingTheme } from './theme';
 
 let declarativeI18nController: PageI18nController | null = null;
 
-type BrowserStorageLike = Partial<Pick<Storage, 'getItem' | 'setItem'>> & Record<string, unknown>;
 type OnboardingBrowserTarget = 'chrome' | 'firefox';
-type OnboardingResourceId =
-  | 'support'
-  | 'suggestions'
-  | 'contact'
-  | 'changelog'
-  | 'privacy-policy'
-  | 'terms-of-use';
-type OnboardingPrivacyField = 'analytics' | 'errorReporting';
-interface OnboardingPrivacySnapshot {
-  analytics: boolean;
-  errorReporting: boolean;
-  debugMode: boolean;
-}
-interface OnboardingPrivacyOptions {
-  privacyPreferences?: Partial<PrivacyPreferencesOptions>;
-}
-interface OnboardingOptionsRepository {
-  get: () => Promise<OnboardingPrivacyOptions>;
-  set: (options: { privacyPreferences: OnboardingPrivacySnapshot }) => Promise<void>;
-  onChange?: (callback: (options: OnboardingPrivacyOptions) => void) => () => void;
-}
 type OnboardingConnectionGuideKeys = {
   title: keyof Messages;
   description: keyof Messages;
@@ -80,11 +64,6 @@ const CHROME_CONNECTION_GUIDE_KEYS: OnboardingConnectionGuideKeys = {
     'step1ChromeDetail6'
   ]
 };
-
-function getBrowserLocalStorage(): BrowserStorageLike | null {
-  const storage = globalThis.localStorage as BrowserStorageLike | undefined;
-  return storage ?? null;
-}
 
 function applyOnboardingDocumentResource(
   resource: ReturnType<PageI18nController['getCurrentResource']>
@@ -182,136 +161,6 @@ function applyOnboardingConnectionGuideCopy(messages: Partial<Messages> | null |
   });
 }
 
-interface OnboardingControllerDependencies {
-  messagingRepository?: Pick<IMessagingRepository, 'send'>;
-  now?: () => number;
-  optionsRepository?: OnboardingOptionsRepository;
-  storage: StorageService;
-  tabs: TabsService;
-}
-
-function createMemoryStorageArea(): StorageAreaService {
-  const values = new Map<string, unknown>();
-  return {
-    async get<T = unknown>(key: string): Promise<T | undefined> {
-      return values.get(key) as T | undefined;
-    },
-    async set<T = unknown>(key: string, value: T): Promise<void> {
-      values.set(key, value);
-    },
-    async getMany<T = unknown>(keys: string[]): Promise<Record<string, T | undefined>> {
-      return Object.fromEntries(keys.map((key) => [key, values.get(key) as T | undefined]));
-    },
-    async setMany<T = unknown>(entries: Record<string, T>): Promise<void> {
-      for (const [key, value] of Object.entries(entries)) {
-        values.set(key, value);
-      }
-    },
-    async remove(key: string | string[]): Promise<void> {
-      for (const currentKey of Array.isArray(key) ? key : [key]) {
-        values.delete(currentKey);
-      }
-    },
-    async clear(): Promise<void> {
-      values.clear();
-    },
-    watchKey(): () => void {
-      return () => {};
-    },
-    watchAll(): () => void {
-      return () => {};
-    }
-  };
-}
-
-function createPreviewDependencies(): OnboardingControllerDependencies {
-  const sync = createMemoryStorageArea();
-  const local = createMemoryStorageArea();
-  const session = createMemoryStorageArea();
-
-  return {
-    storage: { sync, local, session },
-    tabs: {
-      async create() {
-        return undefined;
-      },
-      async remove() {},
-      async getCurrent() {
-        return undefined;
-      },
-      async get() {
-        return undefined;
-      },
-      async query() {
-        return [];
-      },
-      async sendMessage<TResult = unknown>() {
-        return undefined as TResult;
-      },
-      onActivated() {
-        return () => {};
-      },
-      onUpdated() {
-        return () => {};
-      },
-      onRemoved() {
-        return () => {};
-      }
-    }
-  };
-}
-
-function hasOptionsRepository(value: unknown): value is OnboardingOptionsRepository {
-  const candidate = value as Partial<OnboardingOptionsRepository> | null;
-  return (
-    typeof candidate === 'object' &&
-    candidate !== null &&
-    typeof candidate.get === 'function' &&
-    typeof candidate.set === 'function'
-  );
-}
-
-function hasMessagingRepository(value: unknown): value is Pick<IMessagingRepository, 'send'> {
-  const candidate = value as { send?: unknown } | null;
-  return (
-    typeof candidate === 'object' && candidate !== null && typeof candidate.send === 'function'
-  );
-}
-
-function resolveOptionalOptionsRepository(): OnboardingOptionsRepository | undefined {
-  try {
-    const repository = resolveRepository<unknown>(DI_TOKENS.IOptionsRepository);
-    return hasOptionsRepository(repository) ? repository : undefined;
-  } catch {
-    return undefined;
-  }
-}
-
-function resolveOptionalMessagingRepository(): Pick<IMessagingRepository, 'send'> | undefined {
-  try {
-    const repository = resolveRepository<unknown>(DI_TOKENS.IMessagingRepository);
-    return hasMessagingRepository(repository) ? repository : undefined;
-  } catch {
-    return undefined;
-  }
-}
-
-function resolveOnboardingDependencies(): OnboardingControllerDependencies {
-  try {
-    const platform = getService<PlatformServices>(TOKENS.platformServices);
-    const messagingRepository = resolveOptionalMessagingRepository();
-    const optionsRepository = resolveOptionalOptionsRepository();
-    return {
-      ...(messagingRepository ? { messagingRepository } : {}),
-      ...(optionsRepository ? { optionsRepository } : {}),
-      storage: platform.storage,
-      tabs: platform.tabs
-    };
-  } catch {
-    return createPreviewDependencies();
-  }
-}
-
 export class OnboardingController {
   private dependencies: OnboardingControllerDependencies | null;
   private readonly onboardingStartedAt: number;
@@ -349,7 +198,7 @@ export class OnboardingController {
     return provided ?? resolveOptionalOptionsRepository();
   }
 
-  private getMessagingRepository(): Pick<IMessagingRepository, 'send'> | undefined {
+  private getMessagingRepository(): OnboardingControllerDependencies['messagingRepository'] {
     const provided = this.dependencies?.messagingRepository;
     return provided ?? resolveOptionalMessagingRepository();
   }
@@ -702,225 +551,15 @@ export async function bootstrapOnboardingApp(): Promise<void> {
   controller.initialize();
 }
 
-async function applyStoredOnboardingTheme(): Promise<void> {
-  try {
-    const optionsRepository = resolveRepository<IOptionsRepository>(DI_TOKENS.IOptionsRepository);
-    const options = await optionsRepository.get();
-    applyOnboardingTheme(options.interfaceTheme);
-  } catch {
-    applyOnboardingTheme(resolveStoredThemePreference());
-  }
-}
-
-function applyOnboardingTheme(preference: InterfaceTheme | undefined): void {
-  const resolvedTheme = resolvePreviewTheme(preference);
-  document.documentElement.dataset.previewTheme = resolvedTheme;
-  document.documentElement.dataset.theme = resolvedTheme;
-  document.body.dataset.previewTheme = resolvedTheme;
-}
-
-function resolvePreviewTheme(preference: InterfaceTheme | undefined): 'dark' | 'light' {
-  if (preference === 'light' || preference === 'dark') {
-    return preference;
-  }
-  return resolveSystemTheme();
-}
-
-function resolveStoredThemePreference(): InterfaceTheme {
-  try {
-    const stored = window.localStorage.getItem('aob-theme');
-    if (stored === 'dark' || stored === 'light' || stored === 'system') {
-      return stored;
-    }
-  } catch {
-    // localStorage can be unavailable in isolated test contexts.
-  }
-  return 'system';
-}
-
-function resolveSystemTheme(): 'dark' | 'light' {
-  try {
-    return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
-  } catch {
-    return 'dark';
-  }
-}
-
-function markStepCompleted(stepNumber: number): void {
-  const step = document.getElementById(`step${stepNumber}`);
-  if (step) {
-    step.classList.add('step-completed');
-  }
-
-  const completedSteps = getCompletedSteps();
-  if (!completedSteps.includes(stepNumber)) {
-    completedSteps.push(stepNumber);
-    const storage = getBrowserLocalStorage();
-    if (typeof storage?.setItem === 'function') {
-      storage.setItem('onboardingCompletedSteps', JSON.stringify(completedSteps));
-    }
-  }
-}
-
-function getCompletedSteps(): number[] {
-  try {
-    const storage = getBrowserLocalStorage();
-    const stored =
-      typeof storage?.getItem === 'function' ? storage.getItem('onboardingCompletedSteps') : null;
-    if (!stored) {
-      return [];
-    }
-    const parsed: unknown = JSON.parse(stored);
-    if (Array.isArray(parsed)) {
-      return parsed
-        .map((value) => Number(value))
-        .filter((value): value is number => Number.isFinite(value));
-    }
-    return [];
-  } catch {
-    return [];
-  }
-}
-
-function restoreCompletedSteps(): void {
-  for (const stepNumber of getCompletedSteps()) {
-    const step = document.getElementById(`step${stepNumber}`);
-    step?.classList.add('step-completed');
-  }
-}
-
-function updateProgress(): void {
-  const completedSteps = getCompletedSteps();
-  const totalSteps = 5;
-  const progress = (completedSteps.length / totalSteps) * 100;
-
-  const progressBar = document.getElementById('progressBar');
-  if (progressBar) {
-    progressBar.style.width = `${progress}%`;
-  }
-
-  if (completedSteps.length === totalSteps) {
-    const skipBtn = document.getElementById('skipOnboardingBtn');
-    const completeBtn = document.getElementById('completeOnboardingBtn');
-
-    if (skipBtn) skipBtn.classList.add('hidden');
-    if (completeBtn) completeBtn.classList.remove('hidden');
-  }
-}
-
-function parseOnboardingResourceId(value: string | undefined): OnboardingResourceId | null {
-  switch (value) {
-    case 'support':
-    case 'suggestions':
-    case 'contact':
-    case 'changelog':
-    case 'privacy-policy':
-    case 'terms-of-use':
-      return value;
-    default:
-      return null;
-  }
-}
-
-function closeOnboardingResourceModals(): void {
-  document.querySelectorAll('.resource-modal-overlay').forEach((modal) => modal.remove());
-}
-
-function createOnboardingSchemaContext({
-  appData,
-  language,
-  messages,
-  state,
-  t
-}: {
-  appData: PreviewContent;
-  language: string;
-  messages: Messages;
-  state: PreviewStoreState;
-  t: SchemaContext['t'];
-}): SchemaContext {
-  return {
-    appData,
-    state,
-    language,
-    messages,
-    t
-  };
-}
-
-function handleOnboardingResourceAction(actionId: string, resourceId?: string): void {
-  switch (actionId) {
-    case 'resource:close':
-      closeOnboardingResourceModals();
-      return;
-    case 'resource:open': {
-      const nextResourceId = parseOnboardingResourceId(resourceId);
-      if (nextResourceId) {
-        void openOnboardingResourceModal(nextResourceId);
-      }
-      return;
-    }
-    default:
-      return;
-  }
-}
-
 async function openOnboardingResourceModal(resourceId: OnboardingResourceId): Promise<void> {
   const controller = await ensureDeclarativeI18nController();
   const resource = controller.getCurrentResource();
   if (!resource) {
     return;
   }
-
-  const [
-    { previewContent },
-    { getFooterView },
-    { createSchemaTranslator },
-    { renderStitchView },
-    { el },
-    { previewUi },
-    { resolveProductionStitchAssetUrl },
-    { createInitialStitchState }
-  ] = await Promise.all([
-    import('@options/stitch/content'),
-    import('@options/stitch/schema/registry'),
-    import('@options/stitch/schema/i18n'),
-    import('@options/stitch/render/renderStitchView'),
-    import('@options/stitch/ui/dom'),
-    import('@options/stitch/ui/components'),
-    import('@options/app/productionStitchAssetUrlResolver'),
-    import('@options/app/productionStitchStateMapper')
-  ]);
-  const messages = resource.messages;
-  const state = createInitialStitchState(previewContent);
-  const schemaContext = createOnboardingSchemaContext({
-    appData: previewContent,
+  await renderOnboardingResourceModal({
     language: resource.language,
-    messages,
-    state,
-    t: createSchemaTranslator(messages)
+    messages: resource.messages,
+    resourceId
   });
-  const view = getFooterView(resourceId, schemaContext);
-  if (!view) {
-    return;
-  }
-
-  const renderContext: RendererContext = {
-    ...schemaContext,
-    el,
-    ui: previewUi,
-    dispatch: (actionId, args) =>
-      handleOnboardingResourceAction(
-        actionId,
-        args?.[0] === undefined ? undefined : String(args[0])
-      ),
-    resolveAssetUrl: resolveProductionStitchAssetUrl,
-    mountWidget: () => {}
-  };
-
-  closeOnboardingResourceModals();
-  const modal = renderStitchView(view, renderContext);
-  if (modal) {
-    document.body.append(modal);
-  }
 }
