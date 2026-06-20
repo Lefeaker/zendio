@@ -16,8 +16,8 @@ permissions:
   issues: write
 
 jobs:
-  static-gates:
-    name: Static gates
+  static-preflight:
+    name: Static preflight
     runs-on: ubuntu-latest
     timeout-minutes: 12
 
@@ -25,14 +25,11 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v6
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v6
-        with:
-          node-version-file: '.nvmrc'
-          cache: 'npm'
+      - name: Setup Node dependencies
+        uses: ./.github/actions/setup-node-deps
 
-      - name: Install dependencies
-        run: npm ci
+      - name: Verify CI workflow topology
+        run: npm run audit:ci-workflow:check
 
       - name: Verify generated i18n catalog artifacts are up to date
         run: npm run i18n:catalog:check
@@ -40,22 +37,56 @@ jobs:
       - name: Verify preflight baseline
         run: npm run verify:preflight
 
+  static-release-surface:
+    name: Static release surface
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Setup Node dependencies
+        uses: ./.github/actions/setup-node-deps
+
       - name: Audit release surface
         run: |
           npm run build:fast
           npm run audit:release-surface:report
 
-      - name: Dependency boundary audit report
-        continue-on-error: true
-        run: npm run audit:deps:report
+  static-generated-artifacts:
+    name: Static generated artifacts
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
 
-      - name: Platform services allowlist audit report
-        continue-on-error: true
-        run: npm run audit:platform-services:report
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
 
-      - name: Design token alignment audit report
-        continue-on-error: true
-        run: npm run audit:design-tokens:report
+      - name: Setup Node dependencies
+        uses: ./.github/actions/setup-node-deps
+
+      - name: Verify generated Chrome locales are up to date
+        run: |
+          npm run i18n:generate
+          git diff --exit-code -- public/_locales
+
+      - name: Verify generated browser manifests are up to date
+        run: |
+          npm run manifest:generate
+          git diff --exit-code -- public/manifest.json public/manifest.firefox.json
+
+  static-style-and-locale:
+    name: Static style and locale audits
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Setup Node dependencies
+        uses: ./.github/actions/setup-node-deps
 
       - name: Locale source alignment audit report
         run: npm run audit:locales:report
@@ -71,15 +102,29 @@ jobs:
       - name: Enforce lint warning guard
         run: npm run lint:warnings-guard
 
-      - name: Verify generated Chrome locales are up to date
-        run: |
-          npm run i18n:generate
-          git diff --exit-code -- public/_locales
+  static-reporting-audits:
+    name: Static reporting audits
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
 
-      - name: Verify generated browser manifests are up to date
-        run: |
-          npm run manifest:generate
-          git diff --exit-code -- public/manifest.json public/manifest.firefox.json
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Setup Node dependencies
+        uses: ./.github/actions/setup-node-deps
+
+      - name: Dependency boundary audit report
+        continue-on-error: true
+        run: npm run audit:deps:report
+
+      - name: Platform services allowlist audit report
+        continue-on-error: true
+        run: npm run audit:platform-services:report
+
+      - name: Design token alignment audit report
+        continue-on-error: true
+        run: npm run audit:design-tokens:report
 
   coverage:
     name: Unit coverage
@@ -90,14 +135,8 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v6
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v6
-        with:
-          node-version-file: '.nvmrc'
-          cache: 'npm'
-
-      - name: Install dependencies
-        run: npm ci
+      - name: Setup Node dependencies
+        uses: ./.github/actions/setup-node-deps
 
       - name: Run unit tests with coverage thresholds
         run: npm run test:coverage
@@ -157,72 +196,124 @@ jobs:
             }
 
   visual:
-    name: Visual regression
+    name: Visual regression (${{ matrix.project }})
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 8
+    strategy:
+      fail-fast: false
+      matrix:
+        project:
+          - chromium-desktop
+          - chromium-tablet
+          - chromium-mobile
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v6
-        with:
-          node-version-file: '.nvmrc'
-          cache: 'npm'
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Install Playwright dependencies
-        run: npx playwright install --with-deps chromium
+      - name: Setup Playwright
+        uses: ./.github/actions/setup-playwright
 
       - name: Run i18n visual regression tests
-        run: npm run visual:test
+        run: npm run verify:runtime && node scripts/run-playwright.mjs test --config=playwright.config.ts --project=${{ matrix.project }}
 
       - name: Upload visual reports
         if: failure()
         uses: actions/upload-artifact@v7
         with:
-          name: visual-reports
+          name: visual-reports-${{ matrix.project }}
           path: |
             build/reports/
             tests/visual/__output__/
           if-no-files-found: ignore
 
-  e2e:
-    name: End-to-end tests
+  e2e-vitest:
+    name: E2E Vitest
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 8
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v6
-        with:
-          node-version-file: '.nvmrc'
-          cache: 'npm'
+      - name: Setup Node dependencies
+        uses: ./.github/actions/setup-node-deps
 
-      - name: Install dependencies
-        run: npm ci
+      - name: Run Vitest end-to-end tests
+        run: npm run test:e2e
 
-      - name: Install Playwright dependencies
-        run: npx playwright install --with-deps chromium
+  browser-yaml:
+    name: Browser YAML flow
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
 
-      - name: Run end-to-end tests
-        run: |
-          npm run test:e2e
-          npm run test:e2e:browser
-          npm run test:e2e:browser:reader-panel
-          npm run test:e2e:browser:smoke
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
 
-      - name: Upload e2e reports
+      - name: Setup Playwright
+        uses: ./.github/actions/setup-playwright
+
+      - name: Run browser YAML tests
+        run: npm run test:e2e:browser
+
+      - name: Upload browser YAML reports
         if: failure()
         uses: actions/upload-artifact@v7
         with:
-          name: e2e-reports
+          name: browser-yaml-reports
+          path: |
+            build/reports/
+            tests/visual/__output__/
+            build/reports/playwright/
+          if-no-files-found: ignore
+
+  browser-reader-panel:
+    name: Browser reader panel flow
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Setup Playwright
+        uses: ./.github/actions/setup-playwright
+
+      - name: Run browser reader panel tests
+        run: npm run test:e2e:browser:reader-panel
+
+      - name: Upload browser reader panel reports
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: browser-reader-panel-reports
+          path: |
+            build/reports/
+            tests/visual/__output__/
+            build/reports/playwright/
+          if-no-files-found: ignore
+
+  browser-smoke:
+    name: Browser smoke flow
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Setup Playwright
+        uses: ./.github/actions/setup-playwright
+
+      - name: Run browser smoke tests
+        run: npm run test:e2e:browser:smoke
+
+      - name: Upload browser smoke reports
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: browser-smoke-reports
           path: |
             build/reports/
             tests/visual/__output__/
@@ -233,20 +324,14 @@ jobs:
     name: Package extension
     runs-on: ubuntu-latest
     timeout-minutes: 8
-    needs: [static-gates, coverage, visual, e2e]
+    needs: [static-preflight]
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v6
-        with:
-          node-version-file: '.nvmrc'
-          cache: 'npm'
-
-      - name: Install dependencies
-        run: npm ci
+      - name: Setup Node dependencies
+        uses: ./.github/actions/setup-node-deps
 
       - name: Build production bundle
         run: npm run build:fast

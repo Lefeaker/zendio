@@ -46,14 +46,15 @@
   - 每个 npm script entrypoint 显式前置 `verify:runtime`
   - 本地 PATH 指向不受支持 Node 版本时，先在 runtime guard 失败，不启动 Vitest / Playwright
 - `.github/workflows/ci.yml`
-  - 采用并行 job 拓扑：`static-gates`、`coverage`、`visual`、`e2e` 并行执行，`package` 通过 `needs: [static-gates, coverage, visual, e2e]` 汇总后再打包
+  - 采用拆分后的并行 job 拓扑：`static-preflight`、`static-release-surface`、`static-generated-artifacts`、`static-style-and-locale`、`static-reporting-audits`、`coverage`、`visual` matrix、`e2e-vitest`、`browser-yaml`、`browser-reader-panel`、`browser-smoke` 并行执行
   - 使用 workflow-level `concurrency`，同一 PR / ref 的新 run 会取消旧 run
+  - `.github/actions/setup-node-deps` 统一 Node / npm cache / `npm ci`；`.github/actions/setup-playwright` 在此基础上缓存 `~/.cache/ms-playwright` 并安装 Chromium browser dependencies
   - 官方 JavaScript actions 使用 Node 24-compatible major：`actions/checkout@v6`、`actions/setup-node@v6`、`actions/upload-artifact@v7`、`actions/github-script@v8`
-  - `static-gates` 显式运行 `npm run i18n:catalog:check` 与 `npm run verify:preflight`；三项 typecheck 仍由 `verify:preflight` 显式覆盖
-  - `Verify preflight baseline` 后显式运行 `build:fast` 与 `audit:release-surface:report`
-  - `Locale source alignment audit report` 是 hard gate，不再 `continue-on-error`
-  - `Enforce hardcoded config guard` 显式运行 `npm run lint:hardcoded`
-  - `package` job 只在前置门禁通过后使用 `npm run build:fast`，避免在 CI 后段通过 `npm run build` 重复触发完整 `quality`
+  - `static-preflight` 显式运行 `npm run audit:ci-workflow:check`、`npm run i18n:catalog:check` 与 `npm run verify:preflight`；三项 typecheck 仍由 `verify:preflight` 显式覆盖
+  - `static-release-surface` 显式运行 `build:fast` 与 `audit:release-surface:report`
+  - `static-style-and-locale` 保留 locale source alignment、Options CSS naming、hardcoded config guard 与 lint warning guard 的 hard gate 语义；`static-reporting-audits` 仅保留 report-only audit 的 per-step `continue-on-error`
+  - `visual` 按 `chromium-desktop` / `chromium-tablet` / `chromium-mobile` matrix 拆分；Vitest E2E 与三组 browser E2E 拆成独立 job，失败报告 artifact 按 suite 命名
+  - `package` job 通过 `needs: [static-preflight]` 提前启动，并继续使用 `npm run build:fast`，避免在 CI 后段通过 `npm run build` 重复触发完整 `quality`；测试、visual、release-surface 与静态拆分 job 仍应作为独立 required checks 参与合并判断
 - 2026-05-22 final exit gate 真值：在 Node `v20.20.2` / npm `10.8.2` 下，`quality`、`verify:preflight`、`test:unit`、`clean`、`build:dev`、`audit:build:report`、`audit:performance:report`、`verify:stitch-secondary`、`visual:test`、browser smoke、reader-panel、local-vault 均已通过；`build/dist/content/runtime.js` raw `54,554` bytes，低于当时 `57,600` stop gate
 - 2026-05-24 M2.5 budget ratchet 真值：M2.1-M2.4 合入后，`audit:build:report` 的 `content/runtime.js` raw stop gate 收紧为 `56,320` bytes；chunk count 收紧为 `<= 112`；hotspot line budgets 以 `docs/performance-baseline.md` 为准
 - 2026-06-07 video legacy recovery 真值：视频/阅读 draft 自动恢复入口改为 lazy `sessionDraftAutoRestore-*` chunk 后，`audit:build:report` 的 `content/runtime.js` raw stop gate 同步为 `57,344` bytes；chunk count 继续守住 `<= 112`；完整 build/hotspot 真值以 `docs/performance-baseline.md` 为准

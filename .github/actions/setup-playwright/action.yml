@@ -1,0 +1,20 @@
+name: Setup Playwright
+description: Install repository Node.js dependencies and cache Playwright browser binaries.
+
+runs:
+  using: composite
+  steps:
+    - name: Setup Node dependencies
+      uses: ./.github/actions/setup-node-deps
+
+    - name: Cache Playwright browser binaries
+      uses: actions/cache@v4
+      with:
+        path: ~/.cache/ms-playwright
+        key: ${{ runner.os }}-playwright-${{ hashFiles('package-lock.json') }}
+        restore-keys: |
+          ${{ runner.os }}-playwright-
+
+    - name: Install Playwright dependencies
+      shell: bash
+      run: npx playwright install --with-deps chromium

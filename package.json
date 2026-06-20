@@ -46,6 +46,7 @@
     "audit:retired-code:report": "node tools/report-retired-code-inventory.mjs",
     "audit:production-shape:report": "node tools/report-production-code-shape.mjs",
     "audit:build:report": "node tools/report-build-splitting.mjs",
+    "audit:ci-workflow:check": "node tools/report-ci-workflow-contract.mjs --check",
     "audit:local-vault-release:report": "node scripts/audit-local-vault-release-readiness.mjs",
     "audit:performance:report": "node tools/report-performance-hotspots.mjs",
     "audit:ga:proxy-contract": "node tools/report-ga-proxy-contract.mjs --check",
