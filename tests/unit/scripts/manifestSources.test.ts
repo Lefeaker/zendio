@@ -41,7 +41,7 @@ describe('manifestSources', () => {
       }
     ]);
     expect(manifest.permissions).not.toContain('offscreen');
-    expect(manifest.browser_specific_settings?.gecko?.id).toBe('allinob@aiiin.com');
+    expect(manifest.browser_specific_settings?.gecko?.id).toBe('zendio@sxnian.com');
     expect(manifest.browser_specific_settings?.gecko?.strict_min_version).toBe('142.0');
     expect(manifest.browser_specific_settings?.gecko?.data_collection_permissions).toEqual({
       required: ['none'],

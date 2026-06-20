@@ -13,6 +13,7 @@ import {
 } from '@shared/types/analytics';
 import type { UsageStats } from '@shared/types/usage';
 import { DEFAULT_RUNTIME_MESSAGES, type Messages } from '@i18n';
+import { isAnalyticsDebugModeControlAvailable, resolveAnalyticsDebugMode } from '@shared/analytics';
 import { persistPrivacyConsentAction, resetUsageStatsAction } from '@options/app/actions';
 import { applyAnalyticsTransferPayload } from '@options/services/analyticsTransfer';
 import { writeToClipboard } from '@options/services/configTransfer';
@@ -103,12 +104,18 @@ export function createProductionStitchPersistence(
     state.privacyDebugMode = nextSnapshot.debugMode;
   }
 
+  function normalizePrivacySnapshot(nextSnapshot: PrivacySnapshot): PrivacySnapshot {
+    return {
+      ...nextSnapshot,
+      debugMode: resolveAnalyticsDebugMode(nextSnapshot)
+    };
+  }
+
   async function applyRuntimePrivacySnapshot(
     nextSnapshot: PrivacySnapshot,
     field: PrivacyPreferenceField
   ): Promise<void> {
-    const runtimeDebugMode =
-      nextSnapshot.analytics && nextSnapshot.errorReporting ? nextSnapshot.debugMode : false;
+    const runtimeDebugMode = resolveAnalyticsDebugMode(nextSnapshot);
 
     if (field === 'debugMode') {
       await getAnalyticsConfigManager().updateConfig({ debugMode: runtimeDebugMode });
@@ -124,13 +131,12 @@ export function createProductionStitchPersistence(
     field: PrivacyPreferenceField,
     value: boolean
   ): Promise<void> {
-    const nextSnapshot = {
+    const requestedValue =
+      field === 'debugMode' && !isAnalyticsDebugModeControlAvailable() ? false : value;
+    const nextSnapshot = normalizePrivacySnapshot({
       ...getPrivacySnapshot(),
-      [field]: value
-    };
-    if ((!nextSnapshot.analytics || !nextSnapshot.errorReporting) && nextSnapshot.debugMode) {
-      nextSnapshot.debugMode = false;
-    }
+      [field]: requestedValue
+    });
     await persistPrivacyConsentAction(nextSnapshot, {
       optionsRepository: options.optionsRepository
     });

@@ -30,7 +30,7 @@ import { getContentI18nResource, getContentMessages } from '../i18n/context';
 import type { UserVisibleMessageDescriptor } from '../../shared/i18n/userVisibleMessageDescriptor';
 
 const REVIEW_BASE_URL =
-  'https://chromewebstore.google.com/detail/all-in-ob/eoohmbhdepgknfemajanfaejmonckgmo';
+  'https://chromewebstore.google.com/detail/zendio/eoohmbhdepgknfemajanfaejmonckgmo';
 const KO_FI_URL = 'https://ko-fi.com/xiannian';
 const XIAOHONGSHU_FEEDBACK_QR_URL = 'https://sxnian.com/products/zendio/xiaohongshu-feedback.jpg';
 const WECHAT_REWARD_ID = 'wechat-reward';

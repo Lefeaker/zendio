@@ -21,7 +21,7 @@ function createSigningOptions(root: string) {
   return {
     distDir: join(root, 'dist'),
     artifactsDir: join(root, 'artifacts'),
-    zipSafeName: 'all-in-ob',
+    zipSafeName: 'zendio',
     version: '0.2.0',
     apiKey: 'api-key',
     apiSecret: 'api-secret',
@@ -115,9 +115,9 @@ describe('Firefox package signing audit', () => {
     const createUnsignedXpiImpl = vi.fn(() => {
       steps.push('xpi');
       return Promise.resolve({
-        xpiName: 'all-in-ob-v0.2.0.xpi',
-        outputPath: join(root, 'all-in-ob-v0.2.0.xpi'),
-        zipSafeName: 'all-in-ob'
+        xpiName: 'zendio-v0.2.0.xpi',
+        outputPath: join(root, 'zendio-v0.2.0.xpi'),
+        zipSafeName: 'zendio'
       });
     });
     const auditReleaseArchiveImpl = vi.fn(() => {
@@ -136,18 +136,18 @@ describe('Firefox package signing audit', () => {
           steps.push('prepare');
           return Promise.resolve();
         }),
-        resolveMessageImpl: vi.fn(() => Promise.resolve('All in OB'))
+        resolveMessageImpl: vi.fn(() => Promise.resolve('Zendio'))
       }
     );
 
     expect(steps).toEqual(['prepare', 'lint', 'xpi', 'audit']);
     expect(lintFirefoxExtensionImpl).toHaveBeenCalledWith(distDir);
-    expect(createUnsignedXpiImpl).toHaveBeenCalledWith(distDir, 'All in OB', '0.2.0');
-    expect(auditReleaseArchiveImpl).toHaveBeenCalledWith(join(root, 'all-in-ob-v0.2.0.xpi'));
+    expect(createUnsignedXpiImpl).toHaveBeenCalledWith(distDir, 'Zendio', '0.2.0');
+    expect(auditReleaseArchiveImpl).toHaveBeenCalledWith(join(root, 'zendio-v0.2.0.xpi'));
     expect(result).toMatchObject({
-      resolvedName: 'All in OB',
+      resolvedName: 'Zendio',
       version: '0.2.0',
-      zipSafeName: 'all-in-ob'
+      zipSafeName: 'zendio'
     });
   });
 
@@ -177,7 +177,7 @@ describe('Firefox package signing audit', () => {
       webExt
     });
 
-    expect(signedPath).toBe(join(finalDir, 'all-in-ob-v0.2.0-signed.xpi'));
+    expect(signedPath).toBe(join(finalDir, 'zendio-v0.2.0-signed.xpi'));
     await expect(readFile(signedPath, 'utf8')).resolves.toBe('signed-xpi-bytes');
     expect(auditReleaseArchiveImpl).toHaveBeenCalledWith(signedPath);
     expect(webExt.cmd.sign).toHaveBeenCalledWith(
@@ -221,7 +221,7 @@ describe('Firefox package signing audit', () => {
       webExt
     });
 
-    expect(signedPath).toBe(join(finalDir, 'all-in-ob-v0.2.0-signed.xpi'));
+    expect(signedPath).toBe(join(finalDir, 'zendio-v0.2.0-signed.xpi'));
     await expect(readFile(signedPath, 'utf8')).resolves.toBe('signed-xpi-overwritten-by-web-ext');
     expect(auditReleaseArchiveImpl).toHaveBeenCalledWith(signedPath);
   });

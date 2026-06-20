@@ -417,6 +417,9 @@ export interface PreviewStoreState extends PreviewVideoStoreState {
 export interface SchemaContext {
   appData: PreviewContent;
   state: PreviewStoreState;
+  capabilities?: {
+    analyticsDebugMode?: boolean;
+  };
   language?: string;
   messages?: Messages | null;
   t?: SchemaTranslator;

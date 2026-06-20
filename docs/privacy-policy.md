@@ -1,6 +1,6 @@
 # Zendio 浏览器扩展隐私政策
 
-公开访问版本：https://github.com/Lefeaker/AllinOB
+公开访问版本：https://github.com/Lefeaker/zendio
 
 最后更新：2026-06-20
 
@@ -102,6 +102,6 @@ Zendio 采用 local-first 设计：剪藏、解析、阅读模式、视频笔记
 如您对本隐私政策或数据处理有任何疑问、建议或投诉，欢迎通过以下方式联系我们：
 
 - 电子邮箱：[zendio@sxnian.com](mailto:zendio@sxnian.com)
-- GitHub Issues：[提交隐私相关请求或问题](https://github.com/Lefeaker/AllinOB/issues)
+- GitHub Issues：[提交隐私相关请求或问题](https://github.com/Lefeaker/zendio/issues)
 
 我们将在收到请求后的 15 个工作日内予以回复，并在法律法规要求的期限内完成处理。

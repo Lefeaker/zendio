@@ -40,16 +40,16 @@
     "test-results/**",
     "tmp/**",
     "tools/brand-rename-residual-allowlist.json",
-    "tools/report-brand-rename-residuals.mjs"
+    "tools/report-brand-rename-residuals.mjs",
+    ".archive/**",
+    ".claude/**",
+    "trash/**",
+    "HIGHLIGHT_FIX_SUMMARY.md",
+    "HIGHLIGHT_THEME_FIX_SUMMARY.md",
+    "agent.md",
+    "claude.md"
   ],
   "rules": [
-    {
-      "id": "license-legal-owner-name",
-      "paths": ["LICENSE"],
-      "class": "external-owner-confirmation-required",
-      "reason": "MIT copyright holder text is legal/owner-controlled and must not be changed without owner confirmation.",
-      "ownerConfirmationRequired": true
-    },
     {
       "id": "agent-and-process-repo-identity",
       "paths": [
@@ -63,28 +63,6 @@
       "reason": "Workspace/process documents refer to the repository or historical repo branch identity, not current product display copy."
     },
     {
-      "id": "external-support-email-and-urls",
-      "paths": ["docs/**", "marketing/chrome-web-store/listing.md", "src/**"],
-      "lineRegex": "allinobsidian|github\\.com/aiiinob/all-in-obsidian|chromewebstore\\.google\\.com/detail/all-in-ob",
-      "class": "external-owner-confirmation-required",
-      "reason": "Support email, support repository URL, and Chrome Web Store item URL are externally owned identifiers retained until owner-confirmed replacements exist.",
-      "ownerConfirmationRequired": true
-    },
-    {
-      "id": "external-lefeaker-github-url",
-      "paths": [
-        "docs/privacy-policy.md",
-        "docs/zh-cn/permissions-usage-notes.md",
-        "docs/zh-cn/support-contact.md",
-        "marketing/chrome-web-store/listing.md",
-        "src/**"
-      ],
-      "lineRegex": "github\\.com/Lefeaker/AllinOB",
-      "class": "external-owner-confirmation-required",
-      "reason": "The legacy public GitHub repository URL is an externally owned support/contact identifier retained until owner-confirmed Zendio replacement URLs exist.",
-      "ownerConfirmationRequired": true
-    },
-    {
       "id": "repo-path-examples",
       "paths": [
         "docs/**",
@@ -96,17 +74,6 @@
       "lineRegex": "AI2OB_Plg/|\\.\\./\\.\\./AiiinOB|`?AiiinOB/|AiiinOB/src|AiiinOB/tests|AiiinOB/docs|AiiinOB/uiguide|^AiiinOB/$",
       "class": "repo-path-or-history",
       "reason": "The token is part of a real repository path, worktree path, resource-id path, or historical code path example."
-    },
-    {
-      "id": "firefox-extension-id",
-      "paths": [
-        "scripts/utils/manifestSources.mjs",
-        "public/manifest.firefox.json",
-        "tests/unit/scripts/manifestSources.test.ts"
-      ],
-      "lineRegex": "allinob@aiiin\\.com",
-      "class": "compat-retain-extension-identity",
-      "reason": "Firefox extension ID is a published compatibility identity and must remain stable."
     },
     {
       "id": "local-vault-storage-identities",
@@ -225,6 +192,12 @@
       ],
       "class": "repo-path-or-history",
       "reason": "Residual old token is a repository path, code path, historical handoff path, or repo-scoped architecture label."
+    },
+    {
+      "id": "design-system-poc-history",
+      "paths": ["docs/251126-design-system-poc/**"],
+      "class": "historical-doc",
+      "reason": "The design-system POC tree contains historical Tailwind/DaisyUI migration notes and frozen examples, not active product copy."
     }
   ]
 }

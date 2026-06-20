@@ -38,14 +38,7 @@ const SCOPED_THRESHOLD_OPTIONS = new Map(
     ])
   )
 );
-const IGNORED_DIRECTORIES = new Set([
-  'dist',
-  'node_modules',
-  '.git',
-  'tmp',
-  'releases',
-  'trash'
-]);
+const IGNORED_DIRECTORIES = new Set(['dist', 'node_modules', '.git', 'tmp', 'releases', 'trash']);
 
 function parseIntegerOption(optionName, value) {
   if (value === undefined) {
@@ -236,12 +229,10 @@ export function checkThresholds(report, limits) {
 function formatThresholdFailures(failures) {
   return [
     'Type safety threshold check failed:',
-    ...failures.map(
-      (failure) => {
-        const label = failure.scope ? `${failure.scope}.${failure.metric}` : failure.metric;
-        return `  - ${label}: ${failure.actual} > ${failure.max} (+${failure.delta})`;
-      }
-    )
+    ...failures.map((failure) => {
+      const label = failure.scope ? `${failure.scope}.${failure.metric}` : failure.metric;
+      return `  - ${label}: ${failure.actual} > ${failure.max} (+${failure.delta})`;
+    })
   ].join('\n');
 }
 
@@ -314,7 +305,9 @@ function formatMarkdown(report) {
 function formatTable(report) {
   const lines = [];
   lines.push(`Type Safety Audit @ ${report.generatedAt}`);
-  lines.push(`Files: ${report.totals.files} | any: ${report.totals.any} | unknown: ${report.totals.unknown} | assertions: ${report.totals.assertions} | non-null: ${report.totals.nonNullAssertions} | ts-expect-error: ${report.totals.tsExpectError}`);
+  lines.push(
+    `Files: ${report.totals.files} | any: ${report.totals.any} | unknown: ${report.totals.unknown} | assertions: ${report.totals.assertions} | non-null: ${report.totals.nonNullAssertions} | ts-expect-error: ${report.totals.tsExpectError}`
+  );
   for (const scope of SCOPE_KEYS) {
     const totals = report.scopes[scope];
     lines.push(
@@ -326,13 +319,16 @@ function formatTable(report) {
   const offenders = report.files.filter((file) => file.score > 0).slice(0, 20);
   if (offenders.length > 0) {
     // Calculate column widths
-    const maxPathWidth = Math.max(4, ...offenders.map(f => f.path.length));
-    const anyWidth = Math.max(3, ...offenders.map(f => f.any.toString().length));
-    const unknownWidth = Math.max(7, ...offenders.map(f => f.unknown.toString().length));
-    const assertionsWidth = Math.max(10, ...offenders.map(f => f.assertions.toString().length));
-    const nonNullWidth = Math.max(8, ...offenders.map(f => f.nonNullAssertions.toString().length));
-    const tsExpectWidth = Math.max(11, ...offenders.map(f => f.tsExpectError.toString().length));
-    const scoreWidth = Math.max(5, ...offenders.map(f => f.score.toString().length));
+    const maxPathWidth = Math.max(4, ...offenders.map((f) => f.path.length));
+    const anyWidth = Math.max(3, ...offenders.map((f) => f.any.toString().length));
+    const unknownWidth = Math.max(7, ...offenders.map((f) => f.unknown.toString().length));
+    const assertionsWidth = Math.max(10, ...offenders.map((f) => f.assertions.toString().length));
+    const nonNullWidth = Math.max(
+      8,
+      ...offenders.map((f) => f.nonNullAssertions.toString().length)
+    );
+    const tsExpectWidth = Math.max(11, ...offenders.map((f) => f.tsExpectError.toString().length));
+    const scoreWidth = Math.max(5, ...offenders.map((f) => f.score.toString().length));
 
     // Header
     const header = `${'File'.padEnd(maxPathWidth)} | ${'any'.padStart(anyWidth)} | ${'unknown'.padStart(unknownWidth)} | ${'assertions'.padStart(assertionsWidth)} | ${'non-null'.padStart(nonNullWidth)} | ${'ts-expect-error'.padStart(tsExpectWidth)} | ${'Score'.padStart(scoreWidth)}`;
@@ -393,7 +389,7 @@ async function buildReport() {
   fileRecords.sort((a, b) => b.score - a.score || a.path.localeCompare(b.path));
 
   const report = {
-    project: 'AiiinOB',
+    project: 'Zendio',
     generatedAt: new Date().toISOString(),
     totals,
     scopes: {
@@ -419,10 +415,10 @@ async function main(args = process.argv.slice(2)) {
       options.format === 'md'
         ? formatMarkdown(report)
         : options.format === 'json'
-        ? JSON.stringify(report, null, 2)
-        : options.format === 'table'
-        ? formatTable(report)
-        : formatSummary(report);
+          ? JSON.stringify(report, null, 2)
+          : options.format === 'table'
+            ? formatTable(report)
+            : formatSummary(report);
     await writeFile(options.outputPath, content, 'utf8');
   }
 

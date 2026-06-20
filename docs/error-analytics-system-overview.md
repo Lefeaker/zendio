@@ -1,8 +1,8 @@
 # Error Analytics System Overview
 
-最后更新：2026-06-14
+最后更新：2026-06-20
 
-本文给出 AiiinOB 当前错误遥测系统的结构化总览。P06 起，错误事件文档也受
+本文给出 Zendio 当前错误遥测系统的结构化总览。P06 起，错误事件文档也受
 同一条 schema -> proxy contract -> docs contract 校验链保护，不再依赖手写表格
 自行保持同步。
 

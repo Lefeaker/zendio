@@ -1,8 +1,8 @@
 # Google Analytics Dashboard Setup
 
-最后更新：2026-06-18
+最后更新：2026-06-20
 
-本文说明如何基于当前 AiiinOB telemetry contract 建立 GA4 custom definitions、Explorations 与 owner dashboard。事件与字段真值以 [`ga4-telemetry-reference.md`](./ga4-telemetry-reference.md) 为准。
+本文说明如何基于当前 Zendio telemetry contract 建立 GA4 custom definitions、Explorations 与 owner dashboard。事件与字段真值以 [`ga4-telemetry-reference.md`](./ga4-telemetry-reference.md) 为准。
 
 ## 前置条件
 
@@ -15,7 +15,7 @@
 
 ## 交付分层
 
-AiiinOB 仓库只保存 dashboard spec、分析口径、custom definitions 清单和 public-safe 验证流程。真实 GA4 property、dashboard / exploration 链接、Cloudflare account / Worker evidence、平台截图、retention 变更记录、deployment / rollback 记录和 incident evidence 必须保存在 owner private ops 资产中。
+Zendio 仓库只保存 dashboard spec、分析口径、custom definitions 清单和 public-safe 验证流程。真实 GA4 property、dashboard / exploration 链接、Cloudflare account / Worker evidence、平台截图、retention 变更记录、deployment / rollback 记录和 incident evidence 必须保存在 owner private ops 资产中。
 
 Public-safe 运维流程见 [`analytics-operations-runbook.md`](./analytics-operations-runbook.md)。
 

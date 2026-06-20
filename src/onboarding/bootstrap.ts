@@ -573,13 +573,16 @@ export class OnboardingController {
     field: OnboardingPrivacyField
   ): Promise<void> {
     try {
-      const [{ getAnalyticsConfigManager, setAnalyticsConsent }, { updateErrorAnalyticsConfig }] =
-        await Promise.all([
-          import('../shared/errors/analytics/analyticsConfig'),
-          import('../shared/errors/analytics')
-        ]);
-      const runtimeDebugMode =
-        snapshot.analytics && snapshot.errorReporting ? snapshot.debugMode : false;
+      const [
+        { getAnalyticsConfigManager, setAnalyticsConsent },
+        { updateErrorAnalyticsConfig },
+        { resolveAnalyticsDebugMode }
+      ] = await Promise.all([
+        import('../shared/errors/analytics/analyticsConfig'),
+        import('../shared/errors/analytics'),
+        import('../shared/analytics')
+      ]);
+      const runtimeDebugMode = resolveAnalyticsDebugMode(snapshot);
       await setAnalyticsConsent(snapshot.analytics, snapshot.errorReporting);
       await getAnalyticsConfigManager().updateConfig({ debugMode: runtimeDebugMode });
       if (field === 'errorReporting') {

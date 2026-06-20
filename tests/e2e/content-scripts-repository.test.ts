@@ -564,16 +564,24 @@ describe('Content scripts repository integration (Onboarding)', () => {
     expect(navRepo.openedVaults[0]).toBe('obsidian://open');
   });
 
-  it('opens external feedback links through NavigationRepository', async () => {
+  it('opens feedback resources in the onboarding modal', async () => {
     const navRepo = new MockNavigationRepository();
     const controller = new OnboardingController(navRepo);
     controller.initialize();
 
     const link = document.getElementById('suggestionsLink');
     link?.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
-    await flushPromises();
 
-    expect(navRepo.openedExternalLinks).toContain('https://github.com/Lefeaker/AllinOB/issues');
-    expect(navRepo.openedExternalLinks).toHaveLength(1);
+    await vi.waitFor(() => {
+      const modal = document.querySelector<HTMLElement>('.resource-modal-overlay');
+      const githubLink = modal?.querySelector<HTMLAnchorElement>(
+        'a[href*="github.com/Lefeaker/zendio/issues/new"]'
+      );
+
+      expect(modal).toBeTruthy();
+      expect(githubLink?.href).toContain('https://github.com/Lefeaker/zendio/issues/new');
+    });
+
+    expect(navRepo.openedExternalLinks).toHaveLength(0);
   });
 });

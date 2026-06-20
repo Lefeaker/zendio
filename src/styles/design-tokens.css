@@ -1,231 +1,234 @@
 /**
- * All in Ob - Design Tokens
+ * Zendio - Design Tokens
  * 设计变量系统 - 基于 uiguide.md 规范
  */
 
 :root {
-   /* ========================================
+  /* ========================================
      基础色彩系统
      ======================================== */
 
-   /* 背景层级 */
-   --bg: #0B0C12;
-   /* 主背景 */
-   --bg-elev-1: #111320;
-   /* 卡片层 */
-   --bg-elev-2: #14172A;
-   /* 浮层/模态/输入框 */
+  /* 背景层级 */
+  --bg: #0b0c12;
+  /* 主背景 */
+  --bg-elev-1: #111320;
+  /* 卡片层 */
+  --bg-elev-2: #14172a;
+  /* 浮层/模态/输入框 */
 
-   /* 边框与分隔 */
-   --border: #24273B;
-   /* 主边框色 */
-   --border-hover: #3a3f5c;
-   /* 悬浮边框色 */
+  /* 边框与分隔 */
+  --border: #24273b;
+  /* 主边框色 */
+  --border-hover: #3a3f5c;
+  /* 悬浮边框色 */
 
-   /* 文字颜色 */
-   --text: #E7E8F2;
-   /* 主文字 */
-   --text-dim: #A3A8C3;
-   /* 次要文字/提示 */
-   --text-muted: #6b7280;
-   /* 更暗的文字 */
+  /* 文字颜色 */
+  --text: #e7e8f2;
+  /* 主文字 */
+  --text-dim: #a3a8c3;
+  /* 次要文字/提示 */
+  --text-muted: #6b7280;
+  /* 更暗的文字 */
 
-   /* ========================================
+  /* ========================================
      霓虹主色（与 Logo 一致）
      ======================================== */
 
-   --accent-start: #A855F7;
-   /* 紫色起点 */
-   --accent-mid: #6366F1;
-   /* 靛蓝中点 */
-   --accent-end: #22D3EE;
-   /* 青色终点 */
-   --accent-solid: #8B5CF6;
-   /* 紫色实色（按钮等） */
+  --accent-start: #a855f7;
+  /* 紫色起点 */
+  --accent-mid: #6366f1;
+  /* 靛蓝中点 */
+  --accent-end: #22d3ee;
+  /* 青色终点 */
+  --accent-solid: #8b5cf6;
+  /* 紫色实色（按钮等） */
 
-   /* 渐变定义 */
-   --gradient-primary: linear-gradient(135deg, var(--accent-start), var(--accent-end));
-   --gradient-primary-hover: linear-gradient(135deg, #9333ea, #06b6d4);
-   --gradient-text: linear-gradient(135deg, var(--accent-start), var(--accent-end));
+  /* 渐变定义 */
+  --gradient-primary: linear-gradient(135deg, var(--accent-start), var(--accent-end));
+  --gradient-primary-hover: linear-gradient(135deg, #9333ea, #06b6d4);
+  --gradient-text: linear-gradient(135deg, var(--accent-start), var(--accent-end));
 
-   /* ========================================
+  /* ========================================
      状态色
      ======================================== */
 
-   --ok: #34D399;
-   /* 成功/已连接 */
-   --ok-bg: rgba(52, 211, 153, 0.1);
-   /* 成功背景 */
-   --warn: #FBBF24;
-   /* 警告 */
-   --warn-bg: rgba(251, 191, 36, 0.1);
-   /* 警告背景 */
-   --err: #F87171;
-   /* 错误/失败 */
-   --err-bg: rgba(248, 113, 113, 0.1);
-   /* 错误背景 */
+  --ok: #34d399;
+  /* 成功/已连接 */
+  --ok-bg: rgba(52, 211, 153, 0.1);
+  /* 成功背景 */
+  --warn: #fbbf24;
+  /* 警告 */
+  --warn-bg: rgba(251, 191, 36, 0.1);
+  /* 警告背景 */
+  --err: #f87171;
+  /* 错误/失败 */
+  --err-bg: rgba(248, 113, 113, 0.1);
+  /* 错误背景 */
 
-   /* ========================================
+  /* ========================================
      圆角系统
      ======================================== */
 
-   --radius-lg: 14px;
-   /* 大圆角：卡片、模态框 */
-   --radius-md: 12px;
-   /* 中圆角：按钮 */
-   --radius-sm: 10px;
-   /* 小圆角：输入框 */
-   --radius-xs: 6px;
-   /* 超小圆角：徽章、标签 */
+  --radius-lg: 14px;
+  /* 大圆角：卡片、模态框 */
+  --radius-md: 12px;
+  /* 中圆角：按钮 */
+  --radius-sm: 10px;
+  /* 小圆角：输入框 */
+  --radius-xs: 6px;
+  /* 超小圆角：徽章、标签 */
 
-   /* ========================================
+  /* ========================================
      阴影系统
      ======================================== */
 
-   --shadow-soft: none;
-   --shadow-card: none;
-   --shadow-button: none;
-   --shadow-button-hover: none;
+  --shadow-soft: none;
+  --shadow-card: none;
+  --shadow-button: none;
+  --shadow-button-hover: none;
 
-   /* 霓虹发光效果 */
-   --shadow-neon: none;
+  /* 霓虹发光效果 */
+  --shadow-neon: none;
 
-   /* Focus 环形发光 */
-   --ring: none;
-   --ring-ok: none;
-   --ring-err: none;
+  /* Focus 环形发光 */
+  --ring: none;
+  --ring-ok: none;
+  --ring-err: none;
 
-   /* ========================================
+  /* ========================================
      间距系统
      ======================================== */
 
-   --space-xs: 6px;
-   --space-sm: 8px;
-   --space-md: 12px;
-   --space-lg: 16px;
-   --space-xl: 20px;
-   --space-2xl: 24px;
-   --space-3xl: 32px;
+  --space-xs: 6px;
+  --space-sm: 8px;
+  --space-md: 12px;
+  --space-lg: 16px;
+  --space-xl: 20px;
+  --space-2xl: 24px;
+  --space-3xl: 32px;
 
-   /* ========================================
+  /* ========================================
      字体系统
      ======================================== */
 
-   --font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-   --font-mono: 'SF Mono', 'Monaco', 'Cascadia Code', 'Courier New', monospace;
+  --font-family:
+    -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --font-mono: 'SF Mono', 'Monaco', 'Cascadia Code', 'Courier New', monospace;
 
-   --font-size-xs: 12px;
-   --font-size-sm: 13px;
-   --font-size-base: 14px;
-   --font-size-md: 15px;
-   --font-size-lg: 16px;
-   --font-size-xl: 18px;
-   --font-size-2xl: 20px;
-   --font-size-3xl: 24px;
-   --font-size-4xl: 28px;
+  --font-size-xs: 12px;
+  --font-size-sm: 13px;
+  --font-size-base: 14px;
+  --font-size-md: 15px;
+  --font-size-lg: 16px;
+  --font-size-xl: 18px;
+  --font-size-2xl: 20px;
+  --font-size-3xl: 24px;
+  --font-size-4xl: 28px;
 
-   --font-weight-normal: 400;
-   --font-weight-medium: 500;
-   --font-weight-semibold: 600;
-   --font-weight-bold: 700;
+  --font-weight-normal: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+  --font-weight-bold: 700;
 
-   /* ========================================
+  /* ========================================
      过渡动画
      ======================================== */
 
-   --transition-fast: 0.12s ease;
-   --transition-base: 0.15s ease;
-   --transition-slow: 0.2s ease;
+  --transition-fast: 0.12s ease;
+  --transition-base: 0.15s ease;
+  --transition-slow: 0.2s ease;
 
-   --ease-out-cubic: cubic-bezier(0.2, 0.8, 0.2, 1);
-   --ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
+  --ease-out-cubic: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
 
-   /* ========================================
+  /* ========================================
      Z-index 层级
      ======================================== */
 
-   --z-dropdown: 1000;
-   --z-sticky: 1020;
-   --z-modal-backdrop: 2000;
-   --z-modal: 2010;
-   --z-tooltip: 3000;
-   --z-notification: 9999;
+  --z-dropdown: 1000;
+  --z-sticky: 1020;
+  --z-modal-backdrop: 2000;
+  --z-modal: 2010;
+  --z-tooltip: 3000;
+  --z-notification: 9999;
 
-   /* ========================================
+  /* ========================================
      Unified AOBX Token Layer
      Single source of truth for options/content preview tokens
      ======================================== */
 
-   --aobx-font-ui: ui-sans-serif, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Inter, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', sans-serif;
+  --aobx-font-ui:
+    ui-sans-serif, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Inter,
+    'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', sans-serif;
 
-   /* HSL fragments kept for Daisy/theme utilities */
-   --aobx-primary-h: 257;
-   --aobx-primary-s: 86%;
-   --aobx-primary-l: 63%;
-   --aobx-secondary-h: 220;
-   --aobx-secondary-s: 15%;
-   --aobx-secondary-l: 50%;
-   --aobx-accent-h: 257;
-   --aobx-accent-s: 86%;
-   --aobx-accent-l: 63%;
-   --aobx-neutral-h: 220;
-   --aobx-neutral-s: 15%;
-   --aobx-neutral-l: 20%;
-   --aobx-surface-0-h: 220;
-   --aobx-surface-0-s: 8%;
-   --aobx-surface-0-l: 11%;
+  /* HSL fragments kept for Daisy/theme utilities */
+  --aobx-primary-h: 257;
+  --aobx-primary-s: 86%;
+  --aobx-primary-l: 63%;
+  --aobx-secondary-h: 220;
+  --aobx-secondary-s: 15%;
+  --aobx-secondary-l: 50%;
+  --aobx-accent-h: 257;
+  --aobx-accent-s: 86%;
+  --aobx-accent-l: 63%;
+  --aobx-neutral-h: 220;
+  --aobx-neutral-s: 15%;
+  --aobx-neutral-l: 20%;
+  --aobx-surface-0-h: 220;
+  --aobx-surface-0-s: 8%;
+  --aobx-surface-0-l: 11%;
 
-   /* Semantic color aliases */
-   --aobx-accent: var(--accent-solid);
-   --aobx-accent-soft: color-mix(in srgb, var(--accent-solid) 35%, white);
-   --aobx-surface-0: var(--bg);
-   --aobx-surface-1: var(--bg-elev-1);
-   --aobx-surface-2: var(--bg-elev-2);
-   --aobx-border: var(--border);
-   --aobx-divider: color-mix(in srgb, var(--border) 88%, white);
-   --aobx-text: var(--text);
-   --aobx-text-muted: var(--text-dim);
-   --aobx-text-strong: #ffffff;
-   --aobx-status-success: var(--ok);
-   --aobx-status-warning: var(--warn);
-   --aobx-status-error: var(--err);
-   --aobx-highlight-gradient: var(--gradient-primary);
-   --aobx-highlight-purple: var(--accent-solid);
-   --aobx-highlight-neon-yellow: #facc15;
-   --aobx-highlight-neon-green: #4ade80;
-   --aobx-highlight-neon-orange: #fb923c;
-   --aobx-focus-ring: 0 0 0 2px color-mix(in srgb, var(--aobx-accent) 35%, transparent);
-   --aobx-shadow-card: var(--shadow-card);
-   --accent: var(--aobx-accent);
-   --accent-hover: color-mix(in srgb, var(--aobx-accent) 80%, white 20%);
+  /* Semantic color aliases */
+  --aobx-accent: var(--accent-solid);
+  --aobx-accent-soft: color-mix(in srgb, var(--accent-solid) 35%, white);
+  --aobx-surface-0: var(--bg);
+  --aobx-surface-1: var(--bg-elev-1);
+  --aobx-surface-2: var(--bg-elev-2);
+  --aobx-border: var(--border);
+  --aobx-divider: color-mix(in srgb, var(--border) 88%, white);
+  --aobx-text: var(--text);
+  --aobx-text-muted: var(--text-dim);
+  --aobx-text-strong: #ffffff;
+  --aobx-status-success: var(--ok);
+  --aobx-status-warning: var(--warn);
+  --aobx-status-error: var(--err);
+  --aobx-highlight-gradient: var(--gradient-primary);
+  --aobx-highlight-purple: var(--accent-solid);
+  --aobx-highlight-neon-yellow: #facc15;
+  --aobx-highlight-neon-green: #4ade80;
+  --aobx-highlight-neon-orange: #fb923c;
+  --aobx-focus-ring: 0 0 0 2px color-mix(in srgb, var(--aobx-accent) 35%, transparent);
+  --aobx-shadow-card: var(--shadow-card);
+  --accent: var(--aobx-accent);
+  --accent-hover: color-mix(in srgb, var(--aobx-accent) 80%, white 20%);
 
-   /* Spacing */
-   --aobx-space-0_5: 2px;
-   --aobx-space-1: 4px;
-   --aobx-space-1_5: var(--space-xs);
-   --aobx-space-2: var(--space-sm);
-   --aobx-space-3: var(--space-md);
-   --aobx-space-4: var(--space-lg);
-   --aobx-space-5: var(--space-xl);
-   --aobx-space-6: var(--space-2xl);
-   --aobx-space-7: 28px;
-   --aobx-space-8: var(--space-3xl);
-   --aobx-space-12: 48px;
-   --space-xxs: 4px;
+  /* Spacing */
+  --aobx-space-0_5: 2px;
+  --aobx-space-1: 4px;
+  --aobx-space-1_5: var(--space-xs);
+  --aobx-space-2: var(--space-sm);
+  --aobx-space-3: var(--space-md);
+  --aobx-space-4: var(--space-lg);
+  --aobx-space-5: var(--space-xl);
+  --aobx-space-6: var(--space-2xl);
+  --aobx-space-7: 28px;
+  --aobx-space-8: var(--space-3xl);
+  --aobx-space-12: 48px;
+  --space-xxs: 4px;
 
-   /* Radius */
-   --aobx-radius-sm: 8px;
-   --aobx-radius-md: 12px;
-   --aobx-radius-lg: 18px;
+  /* Radius */
+  --aobx-radius-sm: 8px;
+  --aobx-radius-md: 12px;
+  --aobx-radius-lg: 18px;
 
-   /* Fonts */
-   --aobx-font-xs: var(--font-size-xs);
-   --aobx-font-sm: var(--font-size-sm);
-   --aobx-font-md: var(--font-size-base);
-   --aobx-font-lg: 18px;
-   --aobx-font-xl: var(--font-size-2xl);
-   --aobx-font-2xl: 22px;
-   --aobx-input-height: 40px;
+  /* Fonts */
+  --aobx-font-xs: var(--font-size-xs);
+  --aobx-font-sm: var(--font-size-sm);
+  --aobx-font-md: var(--font-size-base);
+  --aobx-font-lg: 18px;
+  --aobx-font-xl: var(--font-size-2xl);
+  --aobx-font-2xl: 22px;
+  --aobx-input-height: 40px;
 }
 
 /* ========================================
@@ -233,86 +236,86 @@
    ======================================== */
 
 html.aobx-preview {
-   --bg: hsl(220 12% 97%);
-   --bg-elev-1: hsl(220 12% 95%);
-   --bg-elev-2: hsl(220 12% 92%);
-   --border: hsl(220 12% 86%);
-   --border-hover: hsl(220 12% 72%);
-   --text: hsl(220 18% 24%);
-   --text-dim: hsl(220 12% 45%);
-   --text-muted: hsl(220 12% 55%);
-   --aobx-surface-0-h: 220;
-   --aobx-surface-0-s: 12%;
-   --aobx-surface-0-l: 97%;
-   --aobx-accent: hsl(257 86% 63%);
-   --aobx-accent-soft: hsl(257 65% 82%);
-   --aobx-surface-0: hsl(220 12% 97%);
-   --aobx-surface-1: hsl(220 12% 95%);
-   --aobx-surface-2: hsl(220 12% 92%);
-   --aobx-border: hsl(220 12% 86%);
-   --aobx-divider: hsl(220 12% 83%);
-   --aobx-text: hsl(220 18% 24%);
-   --aobx-text-muted: hsl(220 12% 45%);
-   --aobx-text-strong: hsl(0 0% 100%);
-   --aobx-shadow-card: none;
-   --accent: var(--aobx-accent);
-   --accent-hover: color-mix(in srgb, var(--aobx-accent) 80%, #ffffff 20%);
+  --bg: hsl(220 12% 97%);
+  --bg-elev-1: hsl(220 12% 95%);
+  --bg-elev-2: hsl(220 12% 92%);
+  --border: hsl(220 12% 86%);
+  --border-hover: hsl(220 12% 72%);
+  --text: hsl(220 18% 24%);
+  --text-dim: hsl(220 12% 45%);
+  --text-muted: hsl(220 12% 55%);
+  --aobx-surface-0-h: 220;
+  --aobx-surface-0-s: 12%;
+  --aobx-surface-0-l: 97%;
+  --aobx-accent: hsl(257 86% 63%);
+  --aobx-accent-soft: hsl(257 65% 82%);
+  --aobx-surface-0: hsl(220 12% 97%);
+  --aobx-surface-1: hsl(220 12% 95%);
+  --aobx-surface-2: hsl(220 12% 92%);
+  --aobx-border: hsl(220 12% 86%);
+  --aobx-divider: hsl(220 12% 83%);
+  --aobx-text: hsl(220 18% 24%);
+  --aobx-text-muted: hsl(220 12% 45%);
+  --aobx-text-strong: hsl(0 0% 100%);
+  --aobx-shadow-card: none;
+  --accent: var(--aobx-accent);
+  --accent-hover: color-mix(in srgb, var(--aobx-accent) 80%, #ffffff 20%);
 }
 
 /* ========================================
    Explicit theme control for options/content
    ======================================== */
 
-html[data-theme="light"] {
-   --bg: hsl(220 12% 97%);
-   --bg-elev-1: hsl(220 12% 95%);
-   --bg-elev-2: hsl(220 12% 92%);
-   --border: hsl(220 12% 86%);
-   --border-hover: hsl(220 12% 72%);
-   --text: hsl(220 18% 24%);
-   --text-dim: hsl(220 12% 45%);
-   --text-muted: hsl(220 12% 55%);
-   --aobx-surface-0-h: 220;
-   --aobx-surface-0-s: 12%;
-   --aobx-surface-0-l: 97%;
-   --aobx-accent: hsl(257 86% 63%);
-   --aobx-accent-soft: hsl(257 65% 82%);
-   --aobx-surface-0: hsl(220 12% 97%);
-   --aobx-surface-1: hsl(220 12% 95%);
-   --aobx-surface-2: hsl(220 12% 92%);
-   --aobx-border: hsl(220 12% 86%);
-   --aobx-divider: hsl(220 12% 83%);
-   --aobx-text: hsl(220 18% 24%);
-   --aobx-text-muted: hsl(220 12% 45%);
-   --aobx-text-strong: hsl(0 0% 100%);
-   --aobx-shadow-card: none;
-   --accent: var(--aobx-accent);
-   --accent-hover: color-mix(in srgb, var(--aobx-accent) 80%, #ffffff 20%);
+html[data-theme='light'] {
+  --bg: hsl(220 12% 97%);
+  --bg-elev-1: hsl(220 12% 95%);
+  --bg-elev-2: hsl(220 12% 92%);
+  --border: hsl(220 12% 86%);
+  --border-hover: hsl(220 12% 72%);
+  --text: hsl(220 18% 24%);
+  --text-dim: hsl(220 12% 45%);
+  --text-muted: hsl(220 12% 55%);
+  --aobx-surface-0-h: 220;
+  --aobx-surface-0-s: 12%;
+  --aobx-surface-0-l: 97%;
+  --aobx-accent: hsl(257 86% 63%);
+  --aobx-accent-soft: hsl(257 65% 82%);
+  --aobx-surface-0: hsl(220 12% 97%);
+  --aobx-surface-1: hsl(220 12% 95%);
+  --aobx-surface-2: hsl(220 12% 92%);
+  --aobx-border: hsl(220 12% 86%);
+  --aobx-divider: hsl(220 12% 83%);
+  --aobx-text: hsl(220 18% 24%);
+  --aobx-text-muted: hsl(220 12% 45%);
+  --aobx-text-strong: hsl(0 0% 100%);
+  --aobx-shadow-card: none;
+  --accent: var(--aobx-accent);
+  --accent-hover: color-mix(in srgb, var(--aobx-accent) 80%, #ffffff 20%);
 }
 
-html[data-theme="dark"] {
-   --bg: #0B0C12;
-   --bg-elev-1: #111320;
-   --bg-elev-2: #14172A;
-   --border: #24273B;
-   --border-hover: #3a3f5c;
-   --text: #E7E8F2;
-   --text-dim: #A3A8C3;
-   --text-muted: #6b7280;
-   --aobx-surface-0-h: 220;
-   --aobx-surface-0-s: 8%;
-   --aobx-surface-0-l: 11%;
-   --aobx-surface-0: hsl(220 8% 11%);
-   --aobx-surface-1: hsl(220 8% 13%);
-   --aobx-surface-2: hsl(220 8% 17%);
-   --aobx-border: hsl(220 8% 24%);
-   --aobx-divider: hsl(220 8% 28%);
-   --aobx-text: hsl(0 0% 92%);
-   --aobx-text-muted: hsl(0 0% 65%);
-   --aobx-text-strong: hsl(0 0% 98%);
-   --aobx-shadow-card: none;
-   --accent: var(--aobx-accent);
-   --accent-hover: color-mix(in srgb, var(--aobx-accent) 80%, #ffffff 20%);
+html[data-theme='dark'] {
+  --bg: #0b0c12;
+  --bg-elev-1: #111320;
+  --bg-elev-2: #14172a;
+  --border: #24273b;
+  --border-hover: #3a3f5c;
+  --text: #e7e8f2;
+  --text-dim: #a3a8c3;
+  --text-muted: #6b7280;
+  --aobx-surface-0-h: 220;
+  --aobx-surface-0-s: 8%;
+  --aobx-surface-0-l: 11%;
+  --aobx-surface-0: hsl(220 8% 11%);
+  --aobx-surface-1: hsl(220 8% 13%);
+  --aobx-surface-2: hsl(220 8% 17%);
+  --aobx-border: hsl(220 8% 24%);
+  --aobx-divider: hsl(220 8% 28%);
+  --aobx-text: hsl(0 0% 92%);
+  --aobx-text-muted: hsl(0 0% 65%);
+  --aobx-text-strong: hsl(0 0% 98%);
+  --aobx-shadow-card: none;
+  --accent: var(--aobx-accent);
+  --accent-hover: color-mix(in srgb, var(--aobx-accent) 80%, #ffffff 20%);
 }
 
 /* ========================================
@@ -324,5 +327,8 @@ html.theme-transitioning,
 html.theme-transitioning *,
 html.theme-transitioning *::before,
 html.theme-transitioning *::after {
-   transition: background-color 0.3s ease, border-color 0.3s ease, color 0.3s ease !important;
+  transition:
+    background-color 0.3s ease,
+    border-color 0.3s ease,
+    color 0.3s ease !important;
 }

@@ -106,7 +106,7 @@ function createRuntimeContent(): PreviewContent {
           {
             title: 'GitHub',
             subtitle: '',
-            href: 'https://github.com/Lefeaker/AllinOB/issues'
+            href: 'https://github.com/Lefeaker/zendio/issues'
           }
         ]
       },

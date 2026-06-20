@@ -2,7 +2,7 @@
 
 最后更新：2026-06-18
 
-本文是 AiiinOB telemetry 的 public-safe 运维流程。它只记录可随产品代码一起维护的 contract、检查清单和排障路径。真实 GA4 property、Cloudflare account、dashboard 链接、部署证据、带账号或业务数据的截图、rollback 记录和 incident 记录必须保存在 owner private ops 资产中，不得进入产品仓库。
+本文是 Zendio telemetry 的 public-safe 运维流程。它只记录可随产品代码一起维护的 contract、检查清单和排障路径。真实 GA4 property、Cloudflare account、dashboard 链接、部署证据、带账号或业务数据的截图、rollback 记录和 incident 记录必须保存在 owner private ops 资产中，不得进入产品仓库。
 
 事件、字段、隐私边界与 dashboard 分析口径以这些文档为准：
 
@@ -13,7 +13,7 @@
 
 ## 分层边界
 
-### 保留在 AiiinOB 仓库
+### 保留在 Zendio 仓库
 
 - telemetry event / parameter contract
 - GA4 custom dimensions / metrics 清单
@@ -66,7 +66,7 @@
 
 ## Platform Baseline Checklist
 
-Owner 在 GA4 / proxy 平台变更后，必须在 private ops 资产中记录真实值和证据；AiiinOB 仓库只记录以下 baseline 规则。
+Owner 在 GA4 / proxy 平台变更后，必须在 private ops 资产中记录真实值和证据；Zendio 仓库只记录以下 baseline 规则。
 
 ### GA4 property
 
@@ -122,7 +122,7 @@ npm run analytics:smoke:delivery -- --require-env
 ```
 
 3. 在 private ops 中记录：
-   - AiiinOB commit hash
+   - Zendio commit hash
    - synthetic event name
    - proxy response status
    - GA4 Measurement Protocol forwarding status
@@ -162,7 +162,7 @@ node scripts/run-ga-owner-smoke.mjs --mode directDebug --event runtime_harness_o
 
 - dashboard / exploration 链接
 - 使用的 GA4 property reference
-- 对应 AiiinOB commit hash
+- 对应 Zendio commit hash
 - 使用的事件和 custom definitions
 - 图表解读口径
 - 已知延迟：GA4 standard reporting 不是实时完整数据；DebugView 只用于 live smoke
@@ -191,7 +191,7 @@ node scripts/run-ga-owner-smoke.mjs --mode directDebug --event runtime_harness_o
 2. 确认事件属于 active `emitted` / `error` contract。
 3. 确认 GA4 reporting 延迟窗口。
 4. 检查 `audit:ga:docs` 是否仍通过。
-5. 如字段名或 event name 改动，先修正 AiiinOB contract，再同步 owner dashboard。
+5. 如字段名或 event name 改动，先修正 Zendio contract，再同步 owner dashboard。
 
 ### Symptom: privacy or secret concern
 

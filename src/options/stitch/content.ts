@@ -513,7 +513,7 @@ export const previewContent: PreviewContent = {
           title: message('schemaResourceSuggestionsGithubTitle'),
           subtitle: message('schemaResourceSuggestionsGithubDescription'),
           icon: './icons/github-fill.svg',
-          href: 'https://github.com/Lefeaker/AllinOB/issues/new?labels=enhancement&title=%5BFeature%20Request%5D%20'
+          href: 'https://github.com/Lefeaker/zendio/issues/new?labels=enhancement&title=%5BFeature%20Request%5D%20'
         },
         {
           title: message('schemaResourceSuggestionsRedditTitle'),

@@ -99,7 +99,7 @@ function applyBrowserOverrides(manifest, browser) {
       ],
       browser_specific_settings: {
         gecko: {
-          id: 'allinob@aiiin.com',
+          id: 'zendio@sxnian.com',
           strict_min_version: FIREFOX_MIN_VERSION,
           data_collection_permissions: clone(FIREFOX_DATA_COLLECTION_PERMISSIONS)
         },

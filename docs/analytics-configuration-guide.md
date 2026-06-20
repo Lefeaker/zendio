@@ -1,6 +1,6 @@
 # Analytics Configuration Guide
 
-最后更新：2026-06-14
+最后更新：2026-06-20
 
 本文描述 owner 如何为 Zendio 配置公开 GA 参数与 server-side proxy。
 
@@ -9,9 +9,9 @@
 - tracked `src/shared/errors/analytics/analyticsConfig.ts` 只保留非敏感默认值。
 - 真实 GA 公共配置通过 build-time 注入，不写回 tracked source。
 - 生产默认推荐：
-  - `AIIINOB_GA_TRANSPORT_MODE=proxy`
-  - `AIIINOB_GA_MEASUREMENT_ID=G-...`
-  - `AIIINOB_GA_PROXY_ENDPOINT=https://<owner-endpoint>/...`
+  - `ZENDIO_GA_TRANSPORT_MODE=proxy`
+  - `ZENDIO_GA_MEASUREMENT_ID=G-...`
+  - `ZENDIO_GA_PROXY_ENDPOINT=https://<owner-endpoint>/...`
 - `api_secret` 只能存在于 server-side proxy。
 - 如果没有 public build config，扩展会保持 `disabled`。
 
@@ -20,12 +20,12 @@
 `scripts/build.mjs` 当前注入以下 public build 变量：
 
 ```bash
-AIIINOB_GA_MEASUREMENT_ID=G-XXXXXXXXXX
-AIIINOB_GA_TRANSPORT_MODE=proxy
-AIIINOB_GA_PROXY_ENDPOINT=https://analytics.example.com/ga4
+ZENDIO_GA_MEASUREMENT_ID=G-XXXXXXXXXX
+ZENDIO_GA_TRANSPORT_MODE=proxy
+ZENDIO_GA_PROXY_ENDPOINT=https://analytics.example.com/ga4
 ```
 
-这些值在运行时由 `src/shared/analytics/analyticsEnvironment.ts` 读取，并装配到 `DEFAULT_ANALYTICS_CONFIG`。
+这些值在运行时由 `src/shared/analytics/analyticsEnvironment.ts` 读取，并装配到 `DEFAULT_ANALYTICS_CONFIG`。旧版 `AIIINOB_GA_*` 名称仍作为兼容 alias 可读，但新配置和文档应优先使用 `ZENDIO_GA_*`。
 
 当前生产 owner public config 只应存在于 ignored local file：
 
@@ -38,9 +38,9 @@ AIIINOB_GA_PROXY_ENDPOINT=https://analytics.example.com/ga4
 变量形状，不回写 owner 当前 release 值：
 
 ```bash
-AIIINOB_GA_MEASUREMENT_ID=G-XXXXXXXXXX
-AIIINOB_GA_TRANSPORT_MODE=proxy
-AIIINOB_GA_PROXY_ENDPOINT=https://analytics.example.com/ga4
+ZENDIO_GA_MEASUREMENT_ID=G-XXXXXXXXXX
+ZENDIO_GA_TRANSPORT_MODE=proxy
+ZENDIO_GA_PROXY_ENDPOINT=https://analytics.example.com/ga4
 ```
 
 生产构建与打包优先使用已封装脚本：
@@ -121,9 +121,9 @@ npm run package:prod:ga
 优先使用 proxy：
 
 ```bash
-export AIIINOB_GA_MEASUREMENT_ID=G-ABCD1234
-export AIIINOB_GA_TRANSPORT_MODE=proxy
-export AIIINOB_GA_PROXY_ENDPOINT=http://localhost:8787/ga4
+export ZENDIO_GA_MEASUREMENT_ID=G-ABCD1234
+export ZENDIO_GA_TRANSPORT_MODE=proxy
+export ZENDIO_GA_PROXY_ENDPOINT=http://localhost:8787/ga4
 ```
 
 这能验证真实 consent gating、public config 注入、proxy log 与 request body。
@@ -136,8 +136,8 @@ node scripts/run-ga-owner-smoke.mjs --mode proxy --event runtime_harness_open
 可选本地控制项：
 
 ```bash
-export AIIINOB_GA_OWNER_SMOKE_TIMEOUT_MS=8000
-export AIIINOB_GA_OWNER_SMOKE_RETRIES=1
+export ZENDIO_GA_OWNER_SMOKE_TIMEOUT_MS=8000
+export ZENDIO_GA_OWNER_SMOKE_RETRIES=1
 ```
 
 该命令会拒绝 `GA4_API_SECRET`、`AIIINOB_GA_API_SECRET`、`ZENDIO_GA_API_SECRET`
@@ -149,9 +149,9 @@ event params、client id、session id 或完整 `measurementId`。
 只在本地使用，并且仍然通过 owner-controlled debug proxy：
 
 ```bash
-export AIIINOB_GA_MEASUREMENT_ID=G-ABCD1234
-export AIIINOB_GA_TRANSPORT_MODE=directDebug
-export AIIINOB_GA_PROXY_ENDPOINT=http://localhost:8787/ga4-debug
+export ZENDIO_GA_MEASUREMENT_ID=G-ABCD1234
+export ZENDIO_GA_TRANSPORT_MODE=directDebug
+export ZENDIO_GA_PROXY_ENDPOINT=http://localhost:8787/ga4-debug
 ```
 
 ```bash

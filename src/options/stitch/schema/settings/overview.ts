@@ -1,4 +1,4 @@
-import type { SchemaContext, SettingsSchema } from '../../types';
+import type { NodeChild, SchemaContext, SettingsSchema } from '../../types';
 import { div, paragraph, stack, state, strong } from '../builders/primitives';
 import { classNames } from '../builders/classNames';
 import { themeSegmentedSwitch } from '../builders/settings';
@@ -86,6 +86,71 @@ function resolvePrivacyExcluded(current: SchemaContext): string[] {
       'errorReportingNotCollectedPasswords',
       DEFAULT_PRODUCTION_ENGLISH_MESSAGES.errorReportingNotCollectedPasswords
     )
+  ];
+}
+
+function canShowAnalyticsDebugMode(current: SchemaContext): boolean {
+  return current.capabilities?.analyticsDebugMode !== false;
+}
+
+function createAnalyticsDebugModeRows(ctx: SchemaContext): NodeChild[] {
+  if (!canShowAnalyticsDebugMode(ctx)) {
+    return [];
+  }
+
+  return [
+    {
+      kind: 'rows',
+      items: [
+        {
+          kind: 'row',
+          title: translate(
+            ctx,
+            'analyticsDebugTitle',
+            DEFAULT_PRODUCTION_ENGLISH_MESSAGES.analyticsDebugTitle
+          ),
+          description: translate(
+            ctx,
+            'analyticsDebugDescription',
+            DEFAULT_PRODUCTION_ENGLISH_MESSAGES.analyticsDebugDescription
+          ),
+          control: stack(
+            [
+              boundSwitch({
+                bind: 'privacyDebugMode',
+                compact: true,
+                disabled: (current) =>
+                  !current.state.privacyAnalytics || !current.state.privacyErrorReporting,
+                onChange: {
+                  id: 'overview:updatePrivacyConsent',
+                  args: ['debugMode'],
+                  valueFrom: 'target.checked'
+                }
+              }),
+              {
+                kind: 'badge',
+                label: translate(ctx, 'schemaOverviewDebugModeDevOnlyBadge', 'Dev-only'),
+                variant: 'warning'
+              },
+              state((current) =>
+                current.state.privacyAnalytics && current.state.privacyErrorReporting
+                  ? translate(
+                      current,
+                      'schemaOverviewDebugModeAvailableState',
+                      DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaOverviewDebugModeAvailableState
+                    )
+                  : translate(
+                      current,
+                      'schemaOverviewDebugModePrerequisiteState',
+                      DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaOverviewDebugModePrerequisiteState
+                    )
+              )
+            ],
+            'switch-line debug-mode-inline'
+          )
+        }
+      ]
+    }
   ];
 }
 
@@ -275,63 +340,7 @@ const schema: SettingsSchema = {
                     )
                   ])
                 ]),
-                {
-                  kind: 'rows',
-                  items: [
-                    {
-                      kind: 'row',
-                      title: translate(
-                        ctx,
-                        'analyticsDebugTitle',
-                        DEFAULT_PRODUCTION_ENGLISH_MESSAGES.analyticsDebugTitle
-                      ),
-                      description: translate(
-                        ctx,
-                        'analyticsDebugDescription',
-                        DEFAULT_PRODUCTION_ENGLISH_MESSAGES.analyticsDebugDescription
-                      ),
-                      control: stack(
-                        [
-                          boundSwitch({
-                            bind: 'privacyDebugMode',
-                            compact: true,
-                            disabled: (current) =>
-                              !current.state.privacyAnalytics ||
-                              !current.state.privacyErrorReporting,
-                            onChange: {
-                              id: 'overview:updatePrivacyConsent',
-                              args: ['debugMode'],
-                              valueFrom: 'target.checked'
-                            }
-                          }),
-                          {
-                            kind: 'badge',
-                            label: translate(
-                              ctx,
-                              'schemaOverviewDebugModeDevOnlyBadge',
-                              'Dev-only'
-                            ),
-                            variant: 'warning'
-                          },
-                          state((current) =>
-                            current.state.privacyAnalytics && current.state.privacyErrorReporting
-                              ? translate(
-                                  current,
-                                  'schemaOverviewDebugModeAvailableState',
-                                  DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaOverviewDebugModeAvailableState
-                                )
-                              : translate(
-                                  current,
-                                  'schemaOverviewDebugModePrerequisiteState',
-                                  DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaOverviewDebugModePrerequisiteState
-                                )
-                          )
-                        ],
-                        'switch-line debug-mode-inline'
-                      )
-                    }
-                  ]
-                },
+                ...createAnalyticsDebugModeRows(ctx),
                 div('mini-card u-mt-block', [
                   strong(
                     translate(

@@ -193,7 +193,7 @@ const ENGLISH_SENTINEL_MESSAGES: Messages = {
   schemaResourcePrivacyPolicyUpdatesBody: 'Privacy Policy Updates Body Sentinel',
   schemaResourcePrivacyPolicyContactTitle: 'Privacy Policy Contact Title Sentinel',
   schemaResourcePrivacyPolicyContactBody:
-    'Privacy Policy Contact Body Sentinel <a href="mailto:zendio@sxnian.com">Privacy Email Sentinel</a> or <a href="https://github.com/Lefeaker/AllinOB/issues" target="_blank" rel="noopener noreferrer">Privacy GitHub Issues Sentinel</a>',
+    'Privacy Policy Contact Body Sentinel <a href="mailto:zendio@sxnian.com">Privacy Email Sentinel</a> or <a href="https://github.com/Lefeaker/zendio/issues" target="_blank" rel="noopener noreferrer">Privacy GitHub Issues Sentinel</a>',
   errorReportingNotCollectedTitle: 'Privacy Not Collected Sentinel',
   errorReportingNotCollectedContent: 'Privacy Not Collected Content Sentinel',
   errorReportingNotCollectedUrls: 'Privacy Not Collected URLs Sentinel',
@@ -246,7 +246,7 @@ const ENGLISH_SENTINEL_MESSAGES: Messages = {
   schemaResourceTermsChangesBody: 'Terms Changes Body Sentinel',
   schemaResourceTermsContactTitle: 'Terms Contact Title Sentinel',
   schemaResourceTermsContactBody:
-    'Terms Contact Body Sentinel <a href="mailto:zendio@sxnian.com">Terms Email Sentinel</a> or <a href="https://github.com/Lefeaker/AllinOB/issues" target="_blank" rel="noopener noreferrer">Terms GitHub Issues Sentinel</a>'
+    'Terms Contact Body Sentinel <a href="mailto:zendio@sxnian.com">Terms Email Sentinel</a> or <a href="https://github.com/Lefeaker/zendio/issues" target="_blank" rel="noopener noreferrer">Terms GitHub Issues Sentinel</a>'
 };
 
 type ResourceRenderOptions = {
@@ -326,7 +326,7 @@ function expectContactAuthorLinks(root: ParentNode): void {
 function expectLegalContactLinks(root: ParentNode): void {
   expect(root.querySelector<HTMLAnchorElement>('a[href="mailto:zendio@sxnian.com"]')).toBeTruthy();
   expect(
-    root.querySelector<HTMLAnchorElement>('a[href="https://github.com/Lefeaker/AllinOB/issues"]')
+    root.querySelector<HTMLAnchorElement>('a[href="https://github.com/Lefeaker/zendio/issues"]')
   ).toBeTruthy();
 }
 
@@ -551,7 +551,7 @@ describe('mountProductionStitchShell resource i18n', () => {
     expect(suggestions.querySelector('.resource-link-action')).toBeNull();
     expect(
       suggestions.querySelector<HTMLAnchorElement>(
-        'a[href*="github.com/Lefeaker/AllinOB/issues/new"]'
+        'a[href*="github.com/Lefeaker/Zendio/issues/new"]'
       )
     ).toBeTruthy();
     const xiaohongshuLink = suggestions.querySelector<HTMLButtonElement>(
@@ -612,7 +612,7 @@ describe('mountProductionStitchShell resource i18n', () => {
       'Contact GitHub Description Sentinel',
       'Contact Email Description Sentinel',
       'https://www.reddit.com/user/sxnian/',
-      'https://github.com/Lefeaker/AllinOB'
+      'https://github.com/Lefeaker/zendio'
     );
     expect(contact.querySelector('.resource-link-action')).toBeNull();
     expectContactAuthorLinks(contact);
@@ -771,7 +771,7 @@ describe('mountProductionStitchShell resource i18n', () => {
       'href="mailto:zendio@sxnian.com"'
     );
     expect(zhHansMessages.schemaResourcePrivacyPolicyContactBody).toContain(
-      'href="https://github.com/Lefeaker/AllinOB/issues"'
+      'href="https://github.com/Lefeaker/zendio/issues"'
     );
     expect(zhHansMessages.schemaResourcePrivacyPolicyContactBody).not.toContain('如果你认可本项目');
     expect(zhHansMessages.schemaResourcePrivacyPolicyContactBody).not.toContain(
@@ -800,7 +800,7 @@ describe('mountProductionStitchShell resource i18n', () => {
       'href="mailto:zendio@sxnian.com"'
     );
     expect(japaneseMessages.schemaResourceTermsContactBody).toContain(
-      'href="https://github.com/Lefeaker/AllinOB/issues"'
+      'href="https://github.com/Lefeaker/zendio/issues"'
     );
     expect(japaneseMessages.schemaResourceTermsContactBody).not.toContain(
       'If you appreciate this project or want to connect'

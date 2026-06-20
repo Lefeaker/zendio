@@ -102,6 +102,26 @@ describe('analyticsConfig', () => {
     expect(storage.local.set).toHaveBeenCalledWith('analytics_session_id', expect.any(String));
   });
 
+  it('normalizes stored debug mode off when the production build disables the control', async () => {
+    vi.stubGlobal('__DEV__', false);
+    const storage = createStorageService();
+    await storage.local.set('analytics_user_consent', {
+      analytics: true,
+      errorReporting: true,
+      timestamp: 100,
+      version: '1.0'
+    });
+    await storage.local.set('analytics_config', {
+      debugMode: true
+    });
+
+    const module = await import('../../../../src/shared/errors/analytics/analyticsConfig');
+    const manager = module.configureAnalyticsConfigManager(storage);
+    await manager.initialize();
+
+    expect(manager.getConfig().debugMode).toBe(false);
+  });
+
   it('creates client and session ids locally before consent while keeping sends disabled', async () => {
     const storage = createStorageService();
 

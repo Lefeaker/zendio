@@ -93,8 +93,8 @@ npm run package:firefox
 
 Generated artifacts were moved to ignored local evidence:
 
-- `/Users/mac/Documents/Dev/AI2OB_Plg/.tmp/aiiinob-stabilization-2026-05-18/release-artifacts-2026-05-20/all-in-ob-v0.2.0.zip`
-- `/Users/mac/Documents/Dev/AI2OB_Plg/.tmp/aiiinob-stabilization-2026-05-18/release-artifacts-2026-05-20/all-in-ob-v0.2.0.xpi`
+- `/Users/mac/Documents/Dev/AI2OB_Plg/.tmp/aiiinob-stabilization-2026-05-18/release-artifacts-2026-05-20/zendio-v0.2.0.zip`
+- `/Users/mac/Documents/Dev/AI2OB_Plg/.tmp/aiiinob-stabilization-2026-05-18/release-artifacts-2026-05-20/zendio-v0.2.0.xpi`
 
 Artifact sanity checks:
 
@@ -118,7 +118,7 @@ The Chrome Web Store release commands were safety-checked without real publish:
 - `npm run release:chrome` without `--zip` exits `1` with:
   `Dry-run requires --zip <path>. Refusing to auto-select release artifacts.`
 - `npm run release:chrome -- --zip ./missing-release.zip` with dummy CWS env exits `1` because the zip does not exist.
-- `npm run release:chrome -- --zip ./all-in-ob-v0.2.0.zip` with dummy CWS env exits `0`, prints the upload/publish URLs, and does not upload or publish.
+- `npm run release:chrome -- --zip ./zendio-v0.2.0.zip` with dummy CWS env exits `0`, prints the upload/publish URLs, and does not upload or publish.
 - `npm run release:chrome:publish` without `--zip` exits `1` with:
   `Publish mode requires --zip <path>. Refusing to auto-select release artifacts.`
 

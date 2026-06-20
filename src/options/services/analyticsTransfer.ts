@@ -1,5 +1,9 @@
 import { updateErrorAnalyticsConfig } from '../../shared/errors/analytics';
 import { getAnalyticsConfigManager } from '../../shared/errors/analytics/analyticsConfig';
+import {
+  isAnalyticsDebugModeControlAvailable,
+  resolveAnalyticsDebugMode
+} from '../../shared/analytics';
 
 export interface AnalyticsTransferPayload {
   consent?: {
@@ -27,7 +31,7 @@ export async function exportAnalyticsTransferPayload(): Promise<
     };
   }
 
-  if (typeof config.debugMode === 'boolean') {
+  if (isAnalyticsDebugModeControlAvailable() && typeof config.debugMode === 'boolean') {
     payload.debugMode = config.debugMode;
   }
 
@@ -63,14 +67,17 @@ export async function applyAnalyticsTransferPayload(
   }
 
   const currentDebugMode = manager.getConfig().debugMode;
-  const nextDebugMode =
-    nextConsent.analytics || nextConsent.errorReporting
-      ? typeof payload.debugMode === 'boolean'
-        ? payload.debugMode
-        : currentDebugMode
-      : false;
-  const shouldUpdateDebugMode =
-    typeof payload.debugMode === 'boolean' || nextDebugMode !== currentDebugMode;
+  const debugModeControlAvailable = isAnalyticsDebugModeControlAvailable();
+  const nextDebugMode = resolveAnalyticsDebugMode(
+    {
+      ...nextConsent,
+      debugMode: typeof payload.debugMode === 'boolean' ? payload.debugMode : currentDebugMode
+    },
+    debugModeControlAvailable
+  );
+  const shouldUpdateDebugMode = debugModeControlAvailable
+    ? typeof payload.debugMode === 'boolean' || nextDebugMode !== currentDebugMode
+    : currentDebugMode === true;
   if (shouldUpdateDebugMode) {
     await manager.updateConfig({ debugMode: nextDebugMode });
   }

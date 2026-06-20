@@ -174,11 +174,11 @@ describe('i18n catalog contract', () => {
     const validCatalog = {
       language: 'en',
       runtime: {
-        extensionName: 'AiiinOB',
+        extensionName: 'Zendio',
         settingsTitle: 'Settings'
       },
       static: {
-        extName: 'AiiinOB',
+        extName: 'Zendio',
         extDescription: 'Export to Obsidian'
       },
       domains: {
@@ -194,7 +194,7 @@ describe('i18n catalog contract', () => {
       isCatalogLocaleCatalog({
         ...validCatalog,
         static: {
-          extName: 'AiiinOB',
+          extName: 'Zendio',
           extDescription: 1
         }
       })

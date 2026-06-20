@@ -4,7 +4,7 @@
 
 ## 1. 项目上下文（按当前仓库状态）
 
-- 目标项目：`AiiinOB` / `all-in-ob`
+- 目标项目：`Zendio`（当前本地仓库目录仍为 `AiiinOB`）
 - 项目形态：浏览器扩展，主要面向 Obsidian 工作流，包含网页剪藏、AI 聊天导出、阅读模式、视频模式、多语言与多仓库配置能力。
 - 技术栈：TypeScript、esbuild、Vitest、Playwright、ESLint、Prettier、Stylelint、Zod、Stitch runtime CSS、WebExtension APIs。
 - 关键目录：

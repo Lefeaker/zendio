@@ -1,6 +1,6 @@
 # Zendio 权限使用说明
 
-公开访问版本：https://github.com/Lefeaker/AllinOB
+公开访问版本：https://github.com/Lefeaker/zendio
 
 最后更新：2025-02-14
 

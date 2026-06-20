@@ -61,7 +61,7 @@ function selectFirstConnected(doc: Document, selectors: readonly string[]): Elem
 }
 
 /**
- * Finds the supported player control target that can host the AiiinOB entry button.
+ * Finds the supported player control target that can host the Zendio entry button.
  */
 export function findVideoControlTarget(doc: Document, url: string): Element | null {
   try {
@@ -105,7 +105,7 @@ export function isIgnoredVideoMutationNode(node: Node | null): boolean {
   }
   return Boolean(
     element.matches(IGNORED_DYNAMIC_REGION_SELECTOR) ||
-      element.closest(IGNORED_DYNAMIC_REGION_SELECTOR)
+    element.closest(IGNORED_DYNAMIC_REGION_SELECTOR)
   );
 }
 

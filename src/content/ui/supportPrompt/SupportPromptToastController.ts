@@ -146,7 +146,7 @@ export class SupportPromptToastController {
     const githubLink = this.options.doc.createElement('a');
     githubLink.dataset.role = 'github-link';
     githubLink.className = 'toast-link-button';
-    githubLink.href = 'https://github.com/Lefeaker/AllinOB/issues';
+    githubLink.href = 'https://github.com/Lefeaker/zendio/issues';
     githubLink.target = '_blank';
     githubLink.rel = 'noopener noreferrer';
     githubLink.textContent = messages.githubTitle;

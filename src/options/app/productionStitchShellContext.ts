@@ -1,5 +1,6 @@
 import type { Language, Messages } from '@i18n';
 import type { CompleteOptions } from '@shared/types/options';
+import { isAnalyticsDebugModeControlAvailable } from '@shared/analytics';
 import {
   createSchemaTranslator,
   DEFAULT_PRODUCTION_ENGLISH_MESSAGES
@@ -57,6 +58,7 @@ export function createProductionStitchAppData(
 
 export function createProductionStitchSchemaContext(options: {
   appData: PreviewContent;
+  capabilities?: SchemaContext['capabilities'];
   previewContent?: PreviewContent;
   language: Language;
   messages: Messages | null;
@@ -77,6 +79,10 @@ export function createProductionStitchSchemaContext(options: {
         subtitle: resolveExtensionVersionLabel(),
         logo: '../icons/bannerlogo-128.png'
       }
+    },
+    capabilities: {
+      analyticsDebugMode: isAnalyticsDebugModeControlAvailable(),
+      ...options.capabilities
     },
     language: options.language,
     messages: effectiveMessages,

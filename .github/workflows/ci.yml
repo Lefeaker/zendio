@@ -131,7 +131,7 @@ jobs:
               `- Functions: ${summary.functions.pct}%`,
               `- Branches: ${summary.branches.pct}%`
             ].join('\n');
-            const marker = '<!-- aiiinob-coverage-summary -->';
+            const marker = '<!-- zendio-coverage-summary -->';
             const issue_number = context.issue.number;
             const comments = await github.paginate(github.rest.issues.listComments, {
               owner: context.repo.owner,

@@ -576,7 +576,7 @@ describe('mountProductionStitchShell English residual coverage', () => {
     expect(suggestions.querySelector('.resource-link-card')).toBeNull();
     expect(
       suggestions.querySelector<HTMLAnchorElement>(
-        'a[href*="github.com/Lefeaker/AllinOB/issues/new"]'
+        'a[href*="github.com/Lefeaker/Zendio/issues/new"]'
       )
     ).toBeTruthy();
     const xiaohongshuTrigger = suggestions.querySelector<HTMLButtonElement>(
