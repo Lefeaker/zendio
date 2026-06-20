@@ -101,7 +101,7 @@ Zendio 采用 local-first 设计：剪藏、解析、阅读模式、视频笔记
 
 如您对本隐私政策或数据处理有任何疑问、建议或投诉，欢迎通过以下方式联系我们：
 
-- 电子邮箱：zendio@sxnian.com
-- GitHub Issues：<https://github.com/Lefeaker/AllinOB/issues>
+- 电子邮箱：[zendio@sxnian.com](mailto:zendio@sxnian.com)
+- GitHub Issues：[提交隐私相关请求或问题](https://github.com/Lefeaker/AllinOB/issues)
 
 我们将在收到请求后的 15 个工作日内予以回复，并在法律法规要求的期限内完成处理。

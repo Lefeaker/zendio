@@ -193,7 +193,7 @@ const ENGLISH_SENTINEL_MESSAGES: Messages = {
   schemaResourcePrivacyPolicyUpdatesBody: 'Privacy Policy Updates Body Sentinel',
   schemaResourcePrivacyPolicyContactTitle: 'Privacy Policy Contact Title Sentinel',
   schemaResourcePrivacyPolicyContactBody:
-    'Privacy Policy Contact Body Sentinel <a href="https://sxnian.com" target="_blank" rel="noopener noreferrer">Privacy Author Site Sentinel</a>, <a href="https://www.reddit.com/user/sxnian/" target="_blank" rel="noopener noreferrer">Privacy Reddit Sentinel</a>, <a href="https://github.com/Lefeaker" target="_blank" rel="noopener noreferrer">Privacy GitHub Sentinel</a>, or <a href="mailto:zendio@sxnian.com">Privacy Email Sentinel</a>',
+    'Privacy Policy Contact Body Sentinel <a href="mailto:zendio@sxnian.com">Privacy Email Sentinel</a> or <a href="https://github.com/Lefeaker/AllinOB/issues" target="_blank" rel="noopener noreferrer">Privacy GitHub Issues Sentinel</a>',
   errorReportingNotCollectedTitle: 'Privacy Not Collected Sentinel',
   errorReportingNotCollectedContent: 'Privacy Not Collected Content Sentinel',
   errorReportingNotCollectedUrls: 'Privacy Not Collected URLs Sentinel',
@@ -246,7 +246,7 @@ const ENGLISH_SENTINEL_MESSAGES: Messages = {
   schemaResourceTermsChangesBody: 'Terms Changes Body Sentinel',
   schemaResourceTermsContactTitle: 'Terms Contact Title Sentinel',
   schemaResourceTermsContactBody:
-    'Terms Contact Body Sentinel <a href="https://sxnian.com" target="_blank" rel="noopener noreferrer">Terms Author Site Sentinel</a>, <a href="https://www.reddit.com/user/sxnian/" target="_blank" rel="noopener noreferrer">Terms Reddit Sentinel</a>, <a href="https://github.com/Lefeaker" target="_blank" rel="noopener noreferrer">Terms GitHub Sentinel</a>, or <a href="mailto:zendio@sxnian.com">Terms Email Sentinel</a>'
+    'Terms Contact Body Sentinel <a href="mailto:zendio@sxnian.com">Terms Email Sentinel</a> or <a href="https://github.com/Lefeaker/AllinOB/issues" target="_blank" rel="noopener noreferrer">Terms GitHub Issues Sentinel</a>'
 };
 
 type ResourceRenderOptions = {
@@ -321,6 +321,13 @@ function expectContactAuthorLinks(root: ParentNode): void {
     root.querySelector<HTMLAnchorElement>('a[href="https://github.com/Lefeaker"]')
   ).toBeTruthy();
   expect(root.querySelector<HTMLAnchorElement>('a[href="mailto:zendio@sxnian.com"]')).toBeTruthy();
+}
+
+function expectLegalContactLinks(root: ParentNode): void {
+  expect(root.querySelector<HTMLAnchorElement>('a[href="mailto:zendio@sxnian.com"]')).toBeTruthy();
+  expect(
+    root.querySelector<HTMLAnchorElement>('a[href="https://github.com/Lefeaker/AllinOB/issues"]')
+  ).toBeTruthy();
 }
 
 describe('mountProductionStitchShell resource i18n', () => {
@@ -689,17 +696,19 @@ describe('mountProductionStitchShell resource i18n', () => {
       'Privacy Policy Not Collected Content Bullet Sentinel',
       'Privacy Policy Retention Body Sentinel',
       'Privacy Policy Contact Body Sentinel',
-      'Privacy Author Site Sentinel',
-      'Privacy Reddit Sentinel',
-      'Privacy GitHub Sentinel',
-      'Privacy Email Sentinel'
+      'Privacy Email Sentinel',
+      'Privacy GitHub Issues Sentinel'
     );
-    expectContactAuthorLinks(privacyPolicy);
+    expectLegalContactLinks(privacyPolicy);
     expectNoText(
       privacyPolicy,
       'Learn what the extension processes, what it never collects, and how to disable related capabilities.',
       'Local Configuration',
-      '页面正文与剪藏内容'
+      '页面正文与剪藏内容',
+      'Privacy Author Site Sentinel',
+      'Privacy Reddit Sentinel',
+      'https://sxnian.com',
+      'https://www.reddit.com/user/sxnian/'
     );
     await closeResource();
 
@@ -732,13 +741,19 @@ describe('mountProductionStitchShell resource i18n', () => {
       'Terms Title Sentinel',
       'Terms Effective Body Sentinel',
       'Terms Contact Body Sentinel',
+      'Terms Email Sentinel',
+      'Terms GitHub Issues Sentinel'
+    );
+    expectLegalContactLinks(terms);
+    expectNoText(
+      terms,
+      'Terms of Use',
+      '使用协议',
       'Terms Author Site Sentinel',
       'Terms Reddit Sentinel',
-      'Terms GitHub Sentinel',
-      'Terms Email Sentinel'
+      'https://sxnian.com',
+      'https://www.reddit.com/user/sxnian/'
     );
-    expectContactAuthorLinks(terms);
-    expectNoText(terms, 'Terms of Use', '使用协议');
   });
 
   it('uses Chinese legal copy only for zh-CN and zh-TW while other interface languages use English', async () => {
@@ -751,16 +766,26 @@ describe('mountProductionStitchShell resource i18n', () => {
     expect(zhHansMessages.schemaResourcePrivacyPolicyLocalFirstBody).toContain(
       '默认情况下，Zendio 不会把页面内容发送给开发者'
     );
-    expect(zhHansMessages.schemaResourceTermsContactBody).toContain('如果你认可本项目');
-    expect(zhHansMessages.schemaResourceTermsContactBody).toContain('href="https://sxnian.com"');
+    expect(zhHansMessages.schemaResourcePrivacyPolicyContactBody).toContain('隐私相关问题或请求');
+    expect(zhHansMessages.schemaResourcePrivacyPolicyContactBody).toContain(
+      'href="mailto:zendio@sxnian.com"'
+    );
+    expect(zhHansMessages.schemaResourcePrivacyPolicyContactBody).toContain(
+      'href="https://github.com/Lefeaker/AllinOB/issues"'
+    );
+    expect(zhHansMessages.schemaResourcePrivacyPolicyContactBody).not.toContain('如果你认可本项目');
+    expect(zhHansMessages.schemaResourcePrivacyPolicyContactBody).not.toContain(
+      'href="https://sxnian.com"'
+    );
 
     expect(zhHantMessages.schemaResourceTermsTitle).toBe('使用协议');
     expect(zhHantMessages.privacyPolicyLink).toBe('隐私政策');
     expect(zhHantMessages.schemaResourcePrivacyPolicyTelemetryBody).toContain('匿名使用统计');
-    expect(zhHantMessages.schemaResourcePrivacyPolicyContactBody).toContain('如果你认可本项目');
-    expect(zhHantMessages.schemaResourcePrivacyPolicyContactBody).toContain(
+    expect(zhHantMessages.schemaResourceTermsContactBody).toContain('本使用協議');
+    expect(zhHantMessages.schemaResourceTermsContactBody).toContain(
       'href="mailto:zendio@sxnian.com"'
     );
+    expect(zhHantMessages.schemaResourceTermsContactBody).not.toContain('如果你认可本项目');
 
     expect(japaneseMessages.schemaResourceTermsTitle).toBe('Terms of Use');
     expect(japaneseMessages.schemaResourcePrivacyPolicyTitle).toBe('Privacy Policy');
@@ -769,10 +794,16 @@ describe('mountProductionStitchShell resource i18n', () => {
       'Zendio does not send page content to the developer by default'
     );
     expect(japaneseMessages.schemaResourceTermsContactBody).toContain(
-      'If you appreciate this project or want to connect'
+      'For questions about these terms'
     );
     expect(japaneseMessages.schemaResourceTermsContactBody).toContain(
       'href="mailto:zendio@sxnian.com"'
+    );
+    expect(japaneseMessages.schemaResourceTermsContactBody).toContain(
+      'href="https://github.com/Lefeaker/AllinOB/issues"'
+    );
+    expect(japaneseMessages.schemaResourceTermsContactBody).not.toContain(
+      'If you appreciate this project or want to connect'
     );
   });
 

@@ -399,8 +399,8 @@
   "schemaResourcePrivacyPolicyChoicesBody": "你可以分别关闭匿名使用统计和错误诊断，清除 analytics 数据，编辑或删除已保存的仓库设置，撤销 REST API Token，移除本地目录权限，清除浏览器扩展数据，或卸载 Zendio。你也可以联系维护者提出隐私、访问、更正或删除请求。",
   "schemaResourcePrivacyPolicyUpdatesTitle": "政策更新",
   "schemaResourcePrivacyPolicyUpdatesBody": "当 Zendio 的功能、数据流程、第三方服务或法律要求发生变化时，本政策可能更新。重大变更应在新行为发布前或发布时通过项目文档、版本记录或扩展界面体现。",
-  "schemaResourcePrivacyPolicyContactTitle": "联系方式",
-  "schemaResourcePrivacyPolicyContactBody": "如果你认可本项目，或想联系作者，欢迎前往 <a href=\"https://sxnian.com\" target=\"_blank\" rel=\"noopener noreferrer\">作者个人网站</a>、<a href=\"https://www.reddit.com/user/sxnian/\" target=\"_blank\" rel=\"noopener noreferrer\">Reddit</a>、<a href=\"https://github.com/Lefeaker\" target=\"_blank\" rel=\"noopener noreferrer\">Github</a> 或 <a href=\"mailto:zendio@sxnian.com\">邮件</a>。",
+  "schemaResourcePrivacyPolicyContactTitle": "聯絡方式",
+  "schemaResourcePrivacyPolicyContactBody": "如有隱私相關問題或請求，請透過 <a href=\"mailto:zendio@sxnian.com\">郵件</a> 聯絡，或在 <a href=\"https://github.com/Lefeaker/AllinOB/issues\" target=\"_blank\" rel=\"noopener noreferrer\">GitHub Issues</a> 提交。",
   "schemaResourceTermsEffectiveTitle": "生效日期",
   "schemaResourceTermsEffectiveBody": "本使用协议自 2026 年 6 月 20 日起生效，适用于你安装和使用 Zendio 的行为。",
   "schemaResourceTermsAcceptanceTitle": "接受协议",
@@ -421,6 +421,6 @@
   "schemaResourceTermsLiabilityBody": "Zendio 按现状提供，不保证持续可用、完全准确或适合特定用途。在法律允许的最大范围内，开发者不对数据丢失、导出失败、服务中断、网站变更、Token 误用或基于导出内容作出的决策承担责任。",
   "schemaResourceTermsChangesTitle": "更新与终止",
   "schemaResourceTermsChangesBody": "你可以随时停用或卸载 Zendio 来停止使用。若产品行为、分发渠道或法律要求变化，开发者可能更新本协议。更新后继续使用，即表示你接受更新后的协议。",
-  "schemaResourceTermsContactTitle": "联系方式",
-  "schemaResourceTermsContactBody": "如果你认可本项目，或想联系作者，欢迎前往 <a href=\"https://sxnian.com\" target=\"_blank\" rel=\"noopener noreferrer\">作者个人网站</a>、<a href=\"https://www.reddit.com/user/sxnian/\" target=\"_blank\" rel=\"noopener noreferrer\">Reddit</a>、<a href=\"https://github.com/Lefeaker\" target=\"_blank\" rel=\"noopener noreferrer\">Github</a> 或 <a href=\"mailto:zendio@sxnian.com\">邮件</a>。"
+  "schemaResourceTermsContactTitle": "聯絡方式",
+  "schemaResourceTermsContactBody": "如對本使用協議有疑問，請透過 <a href=\"mailto:zendio@sxnian.com\">郵件</a> 聯絡，或在 <a href=\"https://github.com/Lefeaker/AllinOB/issues\" target=\"_blank\" rel=\"noopener noreferrer\">GitHub Issues</a> 提交。"
 }
