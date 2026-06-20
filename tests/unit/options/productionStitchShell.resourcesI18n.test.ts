@@ -139,7 +139,7 @@ const ENGLISH_SENTINEL_MESSAGES = {
   schemaResourceChangelogV020Bullet8: 'Changelog v0.2.0 Bullet 8 Sentinel',
   schemaResourceChangelogV020Bullet9: 'Changelog v0.2.0 Bullet 9 Sentinel',
   schemaResourceChangelogV020Bullet10: 'Changelog v0.2.0 Bullet 10 Sentinel',
-  schemaResourceChangelogV020Bullet11: 'Changelog v0.2.0 Bullet 11 Sentinel',
+  schemaResourceChangelogV020Summary: 'Changelog v0.2.0 Summary Sentinel',
   schemaResourceChangelogUsageAdviceTitle: 'Changelog Usage Advice Sentinel',
   schemaResourceChangelogUsageAdvice1: 'Changelog Usage Advice 1 Sentinel',
   schemaResourceChangelogUsageAdvice2: 'Changelog Usage Advice 2 Sentinel',
@@ -150,7 +150,7 @@ const ENGLISH_SENTINEL_MESSAGES = {
   schemaResourceChangelogV010Bullet4: 'Changelog v0.1.0 Bullet 4 Sentinel',
   schemaResourceChangelogV010Bullet5: 'Changelog v0.1.0 Bullet 5 Sentinel',
   schemaResourceChangelogV010Bullet6: 'Changelog v0.1.0 Bullet 6 Sentinel',
-  schemaResourceChangelogV010Bullet7: 'Changelog v0.1.0 Bullet 7 Sentinel',
+  schemaResourceChangelogV010Summary: 'Changelog v0.1.0 Summary Sentinel',
   privacyPolicyLink: 'Privacy Policy Link Sentinel',
   schemaResourcePrivacyPolicyTitle: 'Privacy Policy Title Sentinel',
   schemaResourcePrivacyPolicyDescription: 'Privacy Policy Description Sentinel',
@@ -547,10 +547,22 @@ describe('mountProductionStitchShell resource i18n', () => {
     await closeResource();
 
     const changelog = await openResource('Changelog Title Sentinel');
+    const releaseCards = Array.from(changelog.querySelectorAll<HTMLElement>('.release-card'));
+    expect(releaseCards).toHaveLength(2);
+    expect(
+      releaseCards.map((card) => card.querySelector<HTMLElement>('.release-summary')?.textContent)
+    ).toEqual(['Changelog v0.2.0 Summary Sentinel', 'Changelog v0.1.0 Summary Sentinel']);
+    expect(
+      Array.from(releaseCards[0].querySelectorAll('li')).map((item) => item.textContent)
+    ).not.toContain('Changelog v0.2.0 Summary Sentinel');
+    expect(
+      Array.from(releaseCards[1].querySelectorAll('li')).map((item) => item.textContent)
+    ).not.toContain('Changelog v0.1.0 Summary Sentinel');
     expectText(
       changelog,
       'Changelog Title Sentinel',
       'Changelog Description Sentinel',
+      'Changelog v0.2.0 Summary Sentinel',
       'Changelog v0.2.0 Bullet 1 Sentinel',
       'Changelog v0.2.0 Bullet 2 Sentinel',
       'Changelog v0.2.0 Bullet 3 Sentinel',
@@ -561,18 +573,17 @@ describe('mountProductionStitchShell resource i18n', () => {
       'Changelog v0.2.0 Bullet 8 Sentinel',
       'Changelog v0.2.0 Bullet 9 Sentinel',
       'Changelog v0.2.0 Bullet 10 Sentinel',
-      'Changelog v0.2.0 Bullet 11 Sentinel',
       'Changelog Usage Advice Sentinel',
       'Changelog Usage Advice 1 Sentinel',
       'Changelog Usage Advice 2 Sentinel',
       'Changelog Usage Advice 3 Sentinel',
+      'Changelog v0.1.0 Summary Sentinel',
       'Changelog v0.1.0 Bullet 1 Sentinel',
       'Changelog v0.1.0 Bullet 2 Sentinel',
       'Changelog v0.1.0 Bullet 3 Sentinel',
       'Changelog v0.1.0 Bullet 4 Sentinel',
       'Changelog v0.1.0 Bullet 5 Sentinel',
-      'Changelog v0.1.0 Bullet 6 Sentinel',
-      'Changelog v0.1.0 Bullet 7 Sentinel'
+      'Changelog v0.1.0 Bullet 6 Sentinel'
     );
     expectNoText(
       changelog,

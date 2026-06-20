@@ -101,6 +101,7 @@ export interface ContactEntry {
 export interface ChangelogEntry {
   version: string;
   date: string;
+  summary?: string;
   bullets: string[];
   notes?: Array<{ title: string; items: string[] }>;
 }

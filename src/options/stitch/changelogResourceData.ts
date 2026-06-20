@@ -14,6 +14,7 @@ type ChangelogNoteSectionDefinition = {
 type ChangelogEntryDefinition = {
   version: string;
   date: string;
+  summaryKey?: SchemaMessageKey;
   bulletKeys: readonly SchemaMessageKey[];
   notes?: readonly ChangelogNoteSectionDefinition[];
 };
@@ -32,6 +33,7 @@ const CHANGELOG_ENTRY_DEFINITIONS: readonly ChangelogEntryDefinition[] = [
   {
     version: 'v0.2.0',
     date: '2026-06-10',
+    summaryKey: 'schemaResourceChangelogV020Summary',
     bulletKeys: [
       'schemaResourceChangelogV020Bullet1',
       'schemaResourceChangelogV020Bullet2',
@@ -42,8 +44,7 @@ const CHANGELOG_ENTRY_DEFINITIONS: readonly ChangelogEntryDefinition[] = [
       'schemaResourceChangelogV020Bullet7',
       'schemaResourceChangelogV020Bullet8',
       'schemaResourceChangelogV020Bullet9',
-      'schemaResourceChangelogV020Bullet10',
-      'schemaResourceChangelogV020Bullet11'
+      'schemaResourceChangelogV020Bullet10'
     ],
     notes: [
       {
@@ -59,14 +60,14 @@ const CHANGELOG_ENTRY_DEFINITIONS: readonly ChangelogEntryDefinition[] = [
   {
     version: 'v0.1.0',
     date: '2025-10-13',
+    summaryKey: 'schemaResourceChangelogV010Summary',
     bulletKeys: [
       'schemaResourceChangelogV010Bullet1',
       'schemaResourceChangelogV010Bullet2',
       'schemaResourceChangelogV010Bullet3',
       'schemaResourceChangelogV010Bullet4',
       'schemaResourceChangelogV010Bullet5',
-      'schemaResourceChangelogV010Bullet6',
-      'schemaResourceChangelogV010Bullet7'
+      'schemaResourceChangelogV010Bullet6'
     ]
   }
 ];
@@ -84,6 +85,11 @@ export function createChangelogResource(
     entries: CHANGELOG_ENTRY_DEFINITIONS.map((entry) => ({
       version: entry.version,
       date: entry.date,
+      ...(entry.summaryKey
+        ? {
+            summary: resolveSchemaMessage(messages, entry.summaryKey)
+          }
+        : {}),
       bullets: entry.bulletKeys.map((key) => resolveSchemaMessage(messages, key)),
       ...(entry.notes
         ? {
