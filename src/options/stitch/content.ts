@@ -326,7 +326,7 @@ export const previewContent: PreviewContent = {
       hero: {
         title: message('schemaResourcePrivacyPolicyTitle'),
         description: message('schemaResourcePrivacyPolicyDescription'),
-        pills: ['Local first', 'No page content analytics', 'User controlled'],
+        pills: ['Local-first', 'GA4 opt-in', 'No content analytics'],
         icon: 'privacy_tip'
       },
       sections: [
@@ -334,9 +334,9 @@ export const previewContent: PreviewContent = {
           title: message('errorReportingNotCollectedTitle'),
           body: message('schemaResourcePrivacyPolicyDescription'),
           bullets: [
-            'Page content and clipped text',
-            'Private URL lists',
-            'Plaintext passwords and API keys',
+            'Page content, clipped text, reading notes, and video note text',
+            'Full URLs, query strings, Vault names, file names, and local paths',
+            'Screenshot bytes, data URLs, cache keys, passwords, tokens, and cookies',
             'Personal identity information'
           ]
         },

@@ -37,12 +37,11 @@
 
 ### 关于隐私？
 
-我只希望了解扩展的使用次数，仅此而已：
+Zendio 的核心工作流是 local-first：网页内容、AI 对话、阅读批注、视频时间戳笔记和 Obsidian 配置默认留在你的浏览器、本地 Vault 或本地 Obsidian REST API 环境里。
 
-- 了解使用频率有助于判断它是否真正带来了价值。
-- 不同功能的使用差异也能激发新的产品灵感。
+可选的 Usage analytics 和 Error reporting 默认关闭。只有你在设置页主动开启后，扩展才会通过维护者控制的 proxy 向 Google Analytics 4 发送低基数、匿名化的功能使用或错误事件，用来判断哪些功能真正有价值、哪些版本存在稳定性问题。
 
-至于你是谁、何时使用、访问了哪些站点或内容，都只保留在本地，不会上报，所有内容在发送到本地服务前不会经过任何云端中转。
+这些事件不会包含页面正文、完整 URL、URL 查询参数、Vault 名称、文件名、本地路径、截图数据、聊天内容、阅读批注正文、视频笔记正文、密码、token 或 cookie。你可以随时关闭这些开关，并在隐私设置里清除本地 analytics 数据。
 
 谢谢你，[欢迎随时来交流](https://github.com/Lefeaker/AllinOB/issues)。
 
@@ -79,12 +78,11 @@ My goal: After initial setup, make the experience as seamless and effortless as 
 
 ### Privacy?
 
-I only want to track usage frequency—nothing more:
+Zendio's core workflow is local-first: webpage content, AI conversations, reading annotations, video timestamp notes, and Obsidian configuration stay in your browser, local Vault, or local Obsidian REST API environment by default.
 
-- Understanding usage helps gauge whether the extension truly adds value.
-- Differences in feature usage can also spark new ideas.
+Optional Usage analytics and Error reporting are off by default. Only after you enable them in Settings will the extension send low-cardinality, anonymized usage or error events through an owner-controlled proxy to Google Analytics 4. The goal is to understand which features are useful and which releases need stability work.
 
-As for who you are, when you use it, or what sites/content you access—all that stays locally and isn’t uploaded, and nothing travels through any cloud service before it reaches your local setup.
+Those events do not include page bodies, full URLs, URL query strings, Vault names, file names, local paths, screenshot data, chat content, reading annotation text, video note text, passwords, tokens, or cookies. You can turn the switches off at any time and clear local analytics data from the privacy settings.
 
 Thank you, and [feel free to reach out anytime](https://github.com/Lefeaker/AllinOB/issues).
 

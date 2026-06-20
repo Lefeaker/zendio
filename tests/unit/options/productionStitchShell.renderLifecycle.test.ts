@@ -811,7 +811,7 @@ describe('mountProductionStitchShell renderLifecycle', () => {
     privacyPolicy.click();
     expect(document.querySelector('[role="dialog"]')?.textContent).toContain('Privacy Policy');
     expect(document.querySelector('[role="dialog"]')?.textContent).toContain(
-      'Clipped content or page text'
+      'Page bodies, clipped text, reading notes, video note text, or exported Markdown'
     );
 
     document.querySelector<HTMLElement>('.resource-modal-overlay')?.click();
