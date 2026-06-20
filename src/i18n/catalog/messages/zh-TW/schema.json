@@ -400,7 +400,7 @@
   "schemaResourcePrivacyPolicyUpdatesTitle": "政策更新",
   "schemaResourcePrivacyPolicyUpdatesBody": "当 Zendio 的功能、数据流程、第三方服务或法律要求发生变化时，本政策可能更新。重大变更应在新行为发布前或发布时通过项目文档、版本记录或扩展界面体现。",
   "schemaResourcePrivacyPolicyContactTitle": "联系方式",
-  "schemaResourcePrivacyPolicyContactBody": "如有隐私问题或请求，请发送邮件至 zendio@sxnian.com，或在 https://github.com/Lefeaker/AllinOB/issues 提交 GitHub Issue。",
+  "schemaResourcePrivacyPolicyContactBody": "如果你认可本项目，或想联系作者，欢迎前往 <a href=\"https://sxnian.com\" target=\"_blank\" rel=\"noopener noreferrer\">作者个人网站</a>、<a href=\"https://www.reddit.com/user/sxnian/\" target=\"_blank\" rel=\"noopener noreferrer\">Reddit</a>、<a href=\"https://github.com/Lefeaker\" target=\"_blank\" rel=\"noopener noreferrer\">Github</a> 或 <a href=\"mailto:zendio@sxnian.com\">邮件</a>。",
   "schemaResourceTermsEffectiveTitle": "生效日期",
   "schemaResourceTermsEffectiveBody": "本使用协议自 2026 年 6 月 20 日起生效，适用于你安装和使用 Zendio 的行为。",
   "schemaResourceTermsAcceptanceTitle": "接受协议",
@@ -422,5 +422,5 @@
   "schemaResourceTermsChangesTitle": "更新与终止",
   "schemaResourceTermsChangesBody": "你可以随时停用或卸载 Zendio 来停止使用。若产品行为、分发渠道或法律要求变化，开发者可能更新本协议。更新后继续使用，即表示你接受更新后的协议。",
   "schemaResourceTermsContactTitle": "联系方式",
-  "schemaResourceTermsContactBody": "如有协议相关问题，请发送邮件至 zendio@sxnian.com，或在 https://github.com/Lefeaker/AllinOB/issues 提交 GitHub Issue。"
+  "schemaResourceTermsContactBody": "如果你认可本项目，或想联系作者，欢迎前往 <a href=\"https://sxnian.com\" target=\"_blank\" rel=\"noopener noreferrer\">作者个人网站</a>、<a href=\"https://www.reddit.com/user/sxnian/\" target=\"_blank\" rel=\"noopener noreferrer\">Reddit</a>、<a href=\"https://github.com/Lefeaker\" target=\"_blank\" rel=\"noopener noreferrer\">Github</a> 或 <a href=\"mailto:zendio@sxnian.com\">邮件</a>。"
 }

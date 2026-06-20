@@ -400,7 +400,7 @@
   "schemaResourcePrivacyPolicyUpdatesTitle": "Updates",
   "schemaResourcePrivacyPolicyUpdatesBody": "This policy may be updated when Zendio changes features, data flows, third-party services, or legal requirements. Material changes should be reflected in the project documentation, release notes, or extension UI before or when the new behavior ships.",
   "schemaResourcePrivacyPolicyContactTitle": "Contact",
-  "schemaResourcePrivacyPolicyContactBody": "For privacy questions or requests, contact zendio@sxnian.com or open a GitHub issue at https://github.com/Lefeaker/AllinOB/issues.",
+  "schemaResourcePrivacyPolicyContactBody": "If you appreciate this project or want to connect, visit <a href=\"https://sxnian.com\" target=\"_blank\" rel=\"noopener noreferrer\">the author's website</a>, <a href=\"https://www.reddit.com/user/sxnian/\" target=\"_blank\" rel=\"noopener noreferrer\">Reddit</a>, <a href=\"https://github.com/Lefeaker\" target=\"_blank\" rel=\"noopener noreferrer\">Github</a>, or <a href=\"mailto:zendio@sxnian.com\">email</a>.",
   "schemaResourceTermsEffectiveTitle": "Effective date",
   "schemaResourceTermsEffectiveBody": "These Terms of Use are effective June 20, 2026 and apply to your installation and use of Zendio.",
   "schemaResourceTermsAcceptanceTitle": "Acceptance",
@@ -422,5 +422,5 @@
   "schemaResourceTermsChangesTitle": "Updates and termination",
   "schemaResourceTermsChangesBody": "You may stop using Zendio at any time by disabling or uninstalling it. The developer may update these terms when product behavior, distribution channels, or legal requirements change. Continued use after an update means you accept the updated terms.",
   "schemaResourceTermsContactTitle": "Contact",
-  "schemaResourceTermsContactBody": "For questions about these terms, contact zendio@sxnian.com or open a GitHub issue at https://github.com/Lefeaker/AllinOB/issues."
+  "schemaResourceTermsContactBody": "If you appreciate this project or want to connect, visit <a href=\"https://sxnian.com\" target=\"_blank\" rel=\"noopener noreferrer\">the author's website</a>, <a href=\"https://www.reddit.com/user/sxnian/\" target=\"_blank\" rel=\"noopener noreferrer\">Reddit</a>, <a href=\"https://github.com/Lefeaker\" target=\"_blank\" rel=\"noopener noreferrer\">Github</a>, or <a href=\"mailto:zendio@sxnian.com\">email</a>."
 }

@@ -50,6 +50,7 @@ describe('shared optionsMerger', () => {
     expect(result.pageSummary).toEqual(DEFAULT_OPTIONS.pageSummary);
     expect(result.readingOverlaySummary).toEqual(DEFAULT_OPTIONS.readingOverlaySummary);
     expect(result.subtitleTranslation).toEqual(DEFAULT_OPTIONS.subtitleTranslation);
+    expect(result.privacyPreferences).toEqual(DEFAULT_OPTIONS.privacyPreferences);
   });
 
   it('merges partial rest and classifier values', () => {
@@ -88,6 +89,36 @@ describe('shared optionsMerger', () => {
       defaultFragmentClipper.keyboardShortcutsEnabled
     );
     expect(result.templates.reading).toBe(DEFAULT_OPTIONS.templates.reading);
+  });
+
+  it('merges persisted privacy preferences with explicit false defaults', () => {
+    const result = mergeOptions({
+      privacyPreferences: {
+        analytics: true
+      }
+    });
+
+    expect(result.privacyPreferences).toEqual({
+      analytics: true,
+      errorReporting: false,
+      debugMode: false
+    });
+  });
+
+  it('requires analytics and error reporting before preserving privacy debug mode', () => {
+    const result = mergeOptions({
+      privacyPreferences: {
+        analytics: true,
+        errorReporting: false,
+        debugMode: true
+      }
+    });
+
+    expect(result.privacyPreferences).toEqual({
+      analytics: true,
+      errorReporting: false,
+      debugMode: false
+    });
   });
 
   it('normalizes fragment modifier keys to a single selection', () => {

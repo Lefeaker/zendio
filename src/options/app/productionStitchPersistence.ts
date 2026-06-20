@@ -108,7 +108,7 @@ export function createProductionStitchPersistence(
     field: PrivacyPreferenceField
   ): Promise<void> {
     const runtimeDebugMode =
-      nextSnapshot.analytics || nextSnapshot.errorReporting ? nextSnapshot.debugMode : false;
+      nextSnapshot.analytics && nextSnapshot.errorReporting ? nextSnapshot.debugMode : false;
 
     if (field === 'debugMode') {
       await getAnalyticsConfigManager().updateConfig({ debugMode: runtimeDebugMode });

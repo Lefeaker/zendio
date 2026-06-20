@@ -192,7 +192,8 @@ const ENGLISH_SENTINEL_MESSAGES: Messages = {
   schemaResourcePrivacyPolicyUpdatesTitle: 'Privacy Policy Updates Title Sentinel',
   schemaResourcePrivacyPolicyUpdatesBody: 'Privacy Policy Updates Body Sentinel',
   schemaResourcePrivacyPolicyContactTitle: 'Privacy Policy Contact Title Sentinel',
-  schemaResourcePrivacyPolicyContactBody: 'Privacy Policy Contact Body Sentinel',
+  schemaResourcePrivacyPolicyContactBody:
+    'Privacy Policy Contact Body Sentinel <a href="https://sxnian.com" target="_blank" rel="noopener noreferrer">Privacy Author Site Sentinel</a>, <a href="https://www.reddit.com/user/sxnian/" target="_blank" rel="noopener noreferrer">Privacy Reddit Sentinel</a>, <a href="https://github.com/Lefeaker" target="_blank" rel="noopener noreferrer">Privacy GitHub Sentinel</a>, or <a href="mailto:zendio@sxnian.com">Privacy Email Sentinel</a>',
   errorReportingNotCollectedTitle: 'Privacy Not Collected Sentinel',
   errorReportingNotCollectedContent: 'Privacy Not Collected Content Sentinel',
   errorReportingNotCollectedUrls: 'Privacy Not Collected URLs Sentinel',
@@ -244,7 +245,8 @@ const ENGLISH_SENTINEL_MESSAGES: Messages = {
   schemaResourceTermsChangesTitle: 'Terms Changes Title Sentinel',
   schemaResourceTermsChangesBody: 'Terms Changes Body Sentinel',
   schemaResourceTermsContactTitle: 'Terms Contact Title Sentinel',
-  schemaResourceTermsContactBody: 'Terms Contact Body Sentinel'
+  schemaResourceTermsContactBody:
+    'Terms Contact Body Sentinel <a href="https://sxnian.com" target="_blank" rel="noopener noreferrer">Terms Author Site Sentinel</a>, <a href="https://www.reddit.com/user/sxnian/" target="_blank" rel="noopener noreferrer">Terms Reddit Sentinel</a>, <a href="https://github.com/Lefeaker" target="_blank" rel="noopener noreferrer">Terms GitHub Sentinel</a>, or <a href="mailto:zendio@sxnian.com">Terms Email Sentinel</a>'
 };
 
 type ResourceRenderOptions = {
@@ -308,6 +310,17 @@ function expectNoText(root: ParentNode, ...values: string[]): void {
   for (const value of values) {
     expect(text).not.toContain(value);
   }
+}
+
+function expectContactAuthorLinks(root: ParentNode): void {
+  expect(root.querySelector<HTMLAnchorElement>('a[href="https://sxnian.com"]')).toBeTruthy();
+  expect(
+    root.querySelector<HTMLAnchorElement>('a[href="https://www.reddit.com/user/sxnian/"]')
+  ).toBeTruthy();
+  expect(
+    root.querySelector<HTMLAnchorElement>('a[href="https://github.com/Lefeaker"]')
+  ).toBeTruthy();
+  expect(root.querySelector<HTMLAnchorElement>('a[href="mailto:zendio@sxnian.com"]')).toBeTruthy();
 }
 
 describe('mountProductionStitchShell resource i18n', () => {
@@ -595,16 +608,7 @@ describe('mountProductionStitchShell resource i18n', () => {
       'https://github.com/Lefeaker/AllinOB'
     );
     expect(contact.querySelector('.resource-link-action')).toBeNull();
-    expect(contact.querySelector<HTMLAnchorElement>('a[href="https://sxnian.com"]')).toBeTruthy();
-    expect(
-      contact.querySelector<HTMLAnchorElement>('a[href="https://www.reddit.com/user/sxnian/"]')
-    ).toBeTruthy();
-    expect(
-      contact.querySelector<HTMLAnchorElement>('a[href="https://github.com/Lefeaker"]')
-    ).toBeTruthy();
-    expect(
-      contact.querySelector<HTMLAnchorElement>('a[href="mailto:zendio@sxnian.com"]')
-    ).toBeTruthy();
+    expectContactAuthorLinks(contact);
     expectNoText(
       contact,
       'Contact the author',
@@ -684,8 +688,13 @@ describe('mountProductionStitchShell resource i18n', () => {
       'Privacy Policy Proxy Bullet Sentinel',
       'Privacy Policy Not Collected Content Bullet Sentinel',
       'Privacy Policy Retention Body Sentinel',
-      'Privacy Policy Contact Body Sentinel'
+      'Privacy Policy Contact Body Sentinel',
+      'Privacy Author Site Sentinel',
+      'Privacy Reddit Sentinel',
+      'Privacy GitHub Sentinel',
+      'Privacy Email Sentinel'
     );
+    expectContactAuthorLinks(privacyPolicy);
     expectNoText(
       privacyPolicy,
       'Learn what the extension processes, what it never collects, and how to disable related capabilities.',
@@ -715,6 +724,21 @@ describe('mountProductionStitchShell resource i18n', () => {
       'Configuration Migration',
       '匿名功能使用次数'
     );
+    await closeResource();
+
+    const terms = renderResourcePage('terms-of-use');
+    expectText(
+      terms,
+      'Terms Title Sentinel',
+      'Terms Effective Body Sentinel',
+      'Terms Contact Body Sentinel',
+      'Terms Author Site Sentinel',
+      'Terms Reddit Sentinel',
+      'Terms GitHub Sentinel',
+      'Terms Email Sentinel'
+    );
+    expectContactAuthorLinks(terms);
+    expectNoText(terms, 'Terms of Use', '使用协议');
   });
 
   it('uses Chinese legal copy only for zh-CN and zh-TW while other interface languages use English', async () => {
@@ -727,16 +751,28 @@ describe('mountProductionStitchShell resource i18n', () => {
     expect(zhHansMessages.schemaResourcePrivacyPolicyLocalFirstBody).toContain(
       '默认情况下，Zendio 不会把页面内容发送给开发者'
     );
+    expect(zhHansMessages.schemaResourceTermsContactBody).toContain('如果你认可本项目');
+    expect(zhHansMessages.schemaResourceTermsContactBody).toContain('href="https://sxnian.com"');
 
     expect(zhHantMessages.schemaResourceTermsTitle).toBe('使用协议');
     expect(zhHantMessages.privacyPolicyLink).toBe('隐私政策');
     expect(zhHantMessages.schemaResourcePrivacyPolicyTelemetryBody).toContain('匿名使用统计');
+    expect(zhHantMessages.schemaResourcePrivacyPolicyContactBody).toContain('如果你认可本项目');
+    expect(zhHantMessages.schemaResourcePrivacyPolicyContactBody).toContain(
+      'href="mailto:zendio@sxnian.com"'
+    );
 
     expect(japaneseMessages.schemaResourceTermsTitle).toBe('Terms of Use');
     expect(japaneseMessages.schemaResourcePrivacyPolicyTitle).toBe('Privacy Policy');
     expect(japaneseMessages.onboardingTermsOfUseLink).toBe('Terms of Use');
     expect(japaneseMessages.schemaResourcePrivacyPolicyLocalFirstBody).toContain(
       'Zendio does not send page content to the developer by default'
+    );
+    expect(japaneseMessages.schemaResourceTermsContactBody).toContain(
+      'If you appreciate this project or want to connect'
+    );
+    expect(japaneseMessages.schemaResourceTermsContactBody).toContain(
+      'href="mailto:zendio@sxnian.com"'
     );
   });
 

@@ -151,6 +151,12 @@ export const SubtitleTranslationOptionsSchema = z.object({
   targetLanguage: z.string().min(1)
 });
 
+export const PrivacyPreferencesOptionsSchema = z.object({
+  analytics: z.boolean(),
+  errorReporting: z.boolean(),
+  debugMode: z.boolean()
+});
+
 export const InterfaceThemeSchema = z.enum(['dark', 'light', 'system']);
 
 /**
@@ -185,6 +191,7 @@ export const StoredOptionsSchema = z
     pageSummary: PageSummaryOptionsSchema.partial().optional(),
     readingOverlaySummary: ReadingOverlaySummaryOptionsSchema.partial().optional(),
     subtitleTranslation: SubtitleTranslationOptionsSchema.partial().optional(),
+    privacyPreferences: PrivacyPreferencesOptionsSchema.partial().optional(),
     vaultRouter: VaultRouterConfigSchema.optional(),
     yamlConfig: YamlConfigOverridesSchema.nullable().optional()
   })
@@ -207,6 +214,7 @@ export const CompleteOptionsSchema = z.object({
   pageSummary: PageSummaryOptionsSchema,
   readingOverlaySummary: ReadingOverlaySummaryOptionsSchema,
   subtitleTranslation: SubtitleTranslationOptionsSchema,
+  privacyPreferences: PrivacyPreferencesOptionsSchema,
   domainMappings: z.record(z.string())
 });
 
@@ -233,6 +241,7 @@ export type ExperimentalAiOptions = z.infer<typeof ExperimentalAiOptionsSchema>;
 export type PageSummaryOptions = z.infer<typeof PageSummaryOptionsSchema>;
 export type ReadingOverlaySummaryOptions = z.infer<typeof ReadingOverlaySummaryOptionsSchema>;
 export type SubtitleTranslationOptions = z.infer<typeof SubtitleTranslationOptionsSchema>;
+export type PrivacyPreferencesOptions = z.infer<typeof PrivacyPreferencesOptionsSchema>;
 export type InterfaceTheme = z.infer<typeof InterfaceThemeSchema>;
 export type StoredOptions = z.infer<typeof StoredOptionsSchema>;
 export type CompleteOptions = z.infer<typeof CompleteOptionsSchema>;

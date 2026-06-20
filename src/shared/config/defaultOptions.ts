@@ -79,5 +79,10 @@ export const DEFAULT_OPTIONS: CompleteOptions = {
   subtitleTranslation: {
     enabled: false,
     targetLanguage: 'zh-CN'
+  },
+  privacyPreferences: {
+    analytics: false,
+    errorReporting: false,
+    debugMode: false
   }
 };

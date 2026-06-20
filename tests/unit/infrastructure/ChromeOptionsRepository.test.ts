@@ -319,6 +319,24 @@ describe('ChromeOptionsRepository', () => {
       expect((result as Record<string, unknown>).customKey).toBeUndefined();
     });
 
+    it('should preserve persisted privacy preferences after schema sanitization', async () => {
+      mockStorage.sync.get.mockResolvedValue({
+        privacyPreferences: {
+          analytics: true,
+          errorReporting: true,
+          debugMode: false
+        }
+      } as Partial<CompleteOptions>);
+
+      const result = await repo.get();
+
+      expect(result.privacyPreferences).toEqual({
+        analytics: true,
+        errorReporting: true,
+        debugMode: false
+      });
+    });
+
     it('should throw StorageError when storage.get fails', async () => {
       const failure = new Error('storage unavailable');
       mockStorage.sync.get.mockRejectedValue(failure);

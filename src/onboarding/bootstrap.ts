@@ -579,7 +579,7 @@ export class OnboardingController {
           import('../shared/errors/analytics')
         ]);
       const runtimeDebugMode =
-        snapshot.analytics || snapshot.errorReporting ? snapshot.debugMode : false;
+        snapshot.analytics && snapshot.errorReporting ? snapshot.debugMode : false;
       await setAnalyticsConsent(snapshot.analytics, snapshot.errorReporting);
       await getAnalyticsConfigManager().updateConfig({ debugMode: runtimeDebugMode });
       if (field === 'errorReporting') {

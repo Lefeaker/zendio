@@ -1,5 +1,5 @@
 import type { ResourceSchema } from '../../types';
-import { paragraph } from '../builders/primitives';
+import { htmlParagraph, paragraph } from '../builders/primitives';
 import { modalSection, resourceModalStack } from '../builders/resources';
 import { translateSchemaMessage, type SchemaMessageKey } from '../i18n';
 
@@ -7,6 +7,7 @@ interface LegalSection {
   title: SchemaMessageKey;
   paragraphs: SchemaMessageKey[];
   bullets?: SchemaMessageKey[];
+  paragraphFormat?: 'text' | 'html';
 }
 
 const PRIVACY_POLICY_SECTIONS: LegalSection[] = [
@@ -78,13 +79,15 @@ const PRIVACY_POLICY_SECTIONS: LegalSection[] = [
   },
   {
     title: 'schemaResourcePrivacyPolicyContactTitle',
-    paragraphs: ['schemaResourcePrivacyPolicyContactBody']
+    paragraphs: ['schemaResourcePrivacyPolicyContactBody'],
+    paragraphFormat: 'html'
   }
 ];
 
 function legalSection(section: LegalSection, tr: (key: SchemaMessageKey) => string) {
+  const renderParagraph = section.paragraphFormat === 'html' ? htmlParagraph : paragraph;
   return modalSection(tr(section.title), [
-    ...section.paragraphs.map((key) => paragraph(tr(key))),
+    ...section.paragraphs.map((key) => renderParagraph(tr(key))),
     section.bullets?.length
       ? {
           kind: 'list',
