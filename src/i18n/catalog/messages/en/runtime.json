@@ -692,6 +692,7 @@
   "onboardingPrivacyPolicyLink": "Privacy Policy",
   "onboardingAnalyticsConsentLabel": "Allow anonymous usage statistics",
   "onboardingErrorReportingConsentLabel": "Allow error diagnostics",
+  "onboardingConsentSupportHint": "This project is independently developed. Enabling these two options helps improve development and deliver a better user experience.",
   "footerOfficialWebsiteLink": "Official Website",
   "footerChangelogLink": "Changelog"
 }

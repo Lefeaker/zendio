@@ -692,6 +692,7 @@
   "onboardingPrivacyPolicyLink": "プライバシーポリシー",
   "onboardingAnalyticsConsentLabel": "匿名の利用統計を送信する",
   "onboardingErrorReportingConsentLabel": "エラー診断を送信する",
+  "onboardingConsentSupportHint": "このプロジェクトは個人開発です。この2つの項目を有効にしていただくと、開発改善とより良いユーザー体験づくりに役立ちます。",
   "footerOfficialWebsiteLink": "公式サイト",
   "footerChangelogLink": "変更履歴"
 }

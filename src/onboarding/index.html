@@ -1,5 +1,10 @@
 <!doctype html>
-<html lang="en" data-route="onboarding" data-preview-skin="stitch-secondary" data-preview-theme="dark">
+<html
+  lang="en"
+  data-route="onboarding"
+  data-preview-skin="stitch-secondary"
+  data-preview-theme="dark"
+>
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -21,19 +26,18 @@
           Let's quickly set up your clipper extension
         </p>
         <p class="welcome-message" data-i18n="onboardingWelcomeMessage">
-          Thank you for installing Zendio! This guide will help you quickly configure the
-          extension so you can easily save web content and AI conversations to Obsidian.
+          Thank you for installing Zendio! This guide will help you quickly configure the extension
+          so you can easily save web content and AI conversations to Obsidian.
         </p>
       </div>
 
-      <section class="onboarding-step onboarding-agreement" aria-labelledby="onboardingAgreementTitle">
+      <section
+        class="onboarding-step onboarding-agreement"
+        aria-labelledby="onboardingAgreementTitle"
+      >
         <div class="step-header">
           <div class="step-number"><span>✓</span></div>
-          <h2
-            class="step-title"
-            id="onboardingAgreementTitle"
-            data-i18n="onboardingAgreementTitle"
-          >
+          <h2 class="step-title" id="onboardingAgreementTitle" data-i18n="onboardingAgreementTitle">
             Terms and Privacy
           </h2>
         </div>
@@ -50,17 +54,27 @@
           </div>
           <div class="agreement-consent-grid">
             <label class="agreement-consent">
-              <input type="checkbox" id="onboardingAnalyticsConsent" />
-              <span data-i18n="onboardingAnalyticsConsentLabel"
+              <span class="switch">
+                <input id="onboardingAnalyticsConsent" type="checkbox" />
+                <span class="slider"></span>
+              </span>
+              <span class="agreement-consent-label" data-i18n="onboardingAnalyticsConsentLabel"
                 >Allow anonymous usage statistics</span
               >
             </label>
             <label class="agreement-consent">
-              <input type="checkbox" id="onboardingErrorReportingConsent" />
-              <span data-i18n="onboardingErrorReportingConsentLabel"
+              <span class="switch">
+                <input id="onboardingErrorReportingConsent" type="checkbox" />
+                <span class="slider"></span>
+              </span>
+              <span class="agreement-consent-label" data-i18n="onboardingErrorReportingConsentLabel"
                 >Allow error diagnostics</span
               >
             </label>
+            <p class="agreement-consent-hint" data-i18n="onboardingConsentSupportHint">
+              This project is independently developed. Enabling these options helps improve
+              development and deliver a better user experience.
+            </p>
           </div>
         </div>
       </section>
@@ -94,8 +108,8 @@
                   Keep the folder permission active so Zendio can write notes directly.
                 </li>
                 <li data-i18n="step1Detail4" data-onboarding-step1-detail="4">
-                  If Local Folder is unavailable, configure Obsidian Local REST API and trust
-                  the local certificate when prompted.
+                  If Local Folder is unavailable, configure Obsidian Local REST API and trust the
+                  local certificate when prompted.
                 </li>
                 <li data-i18n="step1Detail5" data-onboarding-step1-detail="5">
                   Run the connection test after choosing Local Folder or REST API details.
@@ -130,9 +144,9 @@
           </div>
           <div class="step-content">
             <p class="step-description" data-i18n="step2Description">
-              If you have multiple Obsidian vaults, you can configure additional vaults and
-              set routing rules to automatically save different types of content to
-              corresponding vaults.
+              If you have multiple Obsidian vaults, you can configure additional vaults and set
+              routing rules to automatically save different types of content to corresponding
+              vaults.
             </p>
             <div class="step-details">
               <ul>
@@ -141,8 +155,7 @@
                   Set routing rules based on domain, keywords, or URL patterns
                 </li>
                 <li data-i18n="step2Detail3">
-                  Example: Save tech articles to work vault, personal content to personal
-                  vault
+                  Example: Save tech articles to work vault, personal content to personal vault
                 </li>
               </ul>
             </div>
@@ -177,12 +190,12 @@
                 <h5 data-i18n="step3Section1Title">Web Clipping</h5>
                 <ul>
                   <li data-i18n="step3Section1Detail1">
-                    Click on blank areas of web pages to clip entire pages (wait for page to
-                    load completely and scroll to load all images)
+                    Click on blank areas of web pages to clip entire pages (wait for page to load
+                    completely and scroll to load all images)
                   </li>
                   <li data-i18n="step3Section1Detail2">
-                    Automatically recognize mainstream AI chat conversations and save
-                    formatted AI dialogue records
+                    Automatically recognize mainstream AI chat conversations and save formatted AI
+                    dialogue records
                   </li>
                 </ul>
               </div>
@@ -191,32 +204,31 @@
                 <h5 data-i18n="step3Section2Title">Clipping/Reading Mode</h5>
                 <ul>
                   <li data-i18n="step3Section2Detail1">
-                    Right-click selected text or use auxiliary keys to select content, add
-                    comments, and save selected content with annotations to Obsidian
+                    Right-click selected text or use auxiliary keys to select content, add comments,
+                    and save selected content with annotations to Obsidian
                   </li>
                   <li data-i18n="step3Section2Detail2">
-                    Enter reading mode to select multiple fragments on the same page, comment
-                    on them, and save together to Obsidian
+                    Enter reading mode to select multiple fragments on the same page, comment on
+                    them, and save together to Obsidian
                   </li>
                   <li data-i18n="step3Section2Detail3">
-                    Reading mode automatically arranges text fragments according to page
-                    layout, click fragment numbers for quick navigation
+                    Reading mode automatically arranges text fragments according to page layout,
+                    click fragment numbers for quick navigation
                   </li>
                   <li data-i18n="step3Section2Detail4">
-                    Reading mode can save full text to Obsidian with selected content
-                    highlighted
+                    Reading mode can save full text to Obsidian with selected content highlighted
                   </li>
                   <li data-i18n="step3Section2Detail5">
-                    Whether fragments or reading mode selections, precise page links are
-                    saved for one-click return to web positions
+                    Whether fragments or reading mode selections, precise page links are saved for
+                    one-click return to web positions
                   </li>
                   <li data-i18n="step3Section2Detail6">
-                    Install sidebar highlights plugin in Obsidian for more convenient
-                    annotation viewing
+                    Install sidebar highlights plugin in Obsidian for more convenient annotation
+                    viewing
                   </li>
                   <li data-i18n="step3Section2Detail7">
-                    Automatically restore unsaved reading or video drafts from up to 5
-                    recently used pages within the last 48 hours
+                    Automatically restore unsaved reading or video drafts from up to 5 recently used
+                    pages within the last 48 hours
                   </li>
                 </ul>
               </div>
@@ -225,19 +237,17 @@
                 <h5 data-i18n="step3Section3Title">Video Mode</h5>
                 <ul>
                   <li data-i18n="step3Section3Detail1">
-                    YouTube or Bilibili adapted playback pages, open video mode to record
-                    video timestamps and add notes anytime
+                    YouTube or Bilibili adapted playback pages, open video mode to record video
+                    timestamps and add notes anytime
                   </li>
                   <li data-i18n="step3Section3Detail2">
-                    Click numbers next to timestamps for one-click navigation and repeated
-                    viewing
+                    Click numbers next to timestamps for one-click navigation and repeated viewing
                   </li>
                   <li data-i18n="step3Section3Detail3">
                     Select page text and capture exciting comments with one click
                   </li>
                   <li data-i18n="step3Section3Detail4">
-                    After saving to Obsidian, one-click return to precise video timestamps
-                    anytime
+                    After saving to Obsidian, one-click return to precise video timestamps anytime
                   </li>
                 </ul>
               </div>
@@ -265,14 +275,14 @@
           </div>
           <div class="step-content">
             <p class="step-description" data-i18n="step4Description">
-              The extension also provides various auxiliary features to make your experience
-              more convenient.
+              The extension also provides various auxiliary features to make your experience more
+              convenient.
             </p>
             <div class="step-details">
               <ul>
                 <li data-i18n="step4Detail1">
-                  Multiple browsers on the same device: one-click copy current configuration,
-                  paste to sync, no need for repeated setup
+                  Multiple browsers on the same device: one-click copy current configuration, paste
+                  to sync, no need for repeated setup
                 </li>
                 <li data-i18n="step4Detail2">
                   Domain mapping: map common websites to friendly folder names
@@ -319,12 +329,12 @@
                   Introducing AI features for smoother, more intelligent experience
                 </li>
                 <li data-i18n="step5Detail2">
-                  Bidirectional interaction, no longer just saving notes, but a bridge
-                  between browser and Obsidian
+                  Bidirectional interaction, no longer just saving notes, but a bridge between
+                  browser and Obsidian
                 </li>
                 <li data-i18n="step5Detail3">
-                  Welcome to suggest improvements, development is not easy, thank you for
-                  your support
+                  Welcome to suggest improvements, development is not easy, thank you for your
+                  support
                 </li>
               </ul>
             </div>

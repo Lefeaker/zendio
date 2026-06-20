@@ -692,6 +692,7 @@
   "onboardingPrivacyPolicyLink": "개인정보 처리방침",
   "onboardingAnalyticsConsentLabel": "익명 사용 통계 전송 허용",
   "onboardingErrorReportingConsentLabel": "오류 진단 전송 허용",
+  "onboardingConsentSupportHint": "이 프로젝트는 개인이 개발하고 있습니다. 이 두 옵션을 켜 주시면 개발을 더 잘 이어가고 더 나은 사용자 경험을 만드는 데 도움이 됩니다.",
   "footerOfficialWebsiteLink": "공식 웹사이트",
   "footerChangelogLink": "변경 로그"
 }

@@ -692,6 +692,7 @@
   "onboardingPrivacyPolicyLink": "Datenschutzerklärung",
   "onboardingAnalyticsConsentLabel": "Anonyme Nutzungsstatistiken erlauben",
   "onboardingErrorReportingConsentLabel": "Fehlerdiagnosen erlauben",
+  "onboardingConsentSupportHint": "Dieses Projekt wird von einer Einzelperson entwickelt. Wenn Sie diese beiden Optionen aktivieren, helfen Sie, die Entwicklung zu verbessern und eine bessere Nutzungserfahrung zu schaffen.",
   "footerOfficialWebsiteLink": "Offizielle Website",
   "footerChangelogLink": "Änderungsprotokoll"
 }

@@ -692,6 +692,7 @@
   "onboardingPrivacyPolicyLink": "隱私政策",
   "onboardingAnalyticsConsentLabel": "允許傳送匿名使用統計",
   "onboardingErrorReportingConsentLabel": "允許傳送錯誤診斷",
+  "onboardingConsentSupportHint": "本專案為個人開發，希望您可以同意以上兩個選項，來助力開發更好地進行，以獲得更優質的使用者體驗",
   "footerOfficialWebsiteLink": "前往官網",
   "footerChangelogLink": "更新日誌"
 }

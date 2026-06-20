@@ -89,8 +89,8 @@ function installLocalStorageMock(): void {
 }
 
 function buildOnboardingDom(): void {
-  document.documentElement.lang = 'zh-CN';
-  document.title = 'Zendio - 欢迎使用';
+  document.documentElement.lang = 'en';
+  document.title = 'Zendio';
   document.body.innerHTML = `
     <button id="openVault"></button>
     <button id="configureApiBtn"></button>
@@ -512,7 +512,7 @@ describe('onboarding bootstrap', () => {
     expect(modalText).not.toMatch(/\p{Script=Han}/u);
   });
 
-  it('opens the official website externally and renders changelog from the shared resource modal', async () => {
+  it('opens the official website externally for non-Chinese interface languages and renders changelog from the shared resource modal', async () => {
     const { OnboardingController } = await import('../../../src/onboarding/bootstrap');
     const openExternalLink = vi.fn(() => Promise.resolve(undefined));
     const navigationRepo: OnboardingNavigationRepo = {
@@ -527,7 +527,7 @@ describe('onboarding bootstrap', () => {
       .getElementById('officialWebsiteLink')
       ?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
     await Promise.resolve();
-    expect(openExternalLink).toHaveBeenCalledWith('https://sxnian.com/products/zendio');
+    expect(openExternalLink).toHaveBeenCalledWith('https://sxnian.com/projects/zendio/en/');
 
     document
       .getElementById('changelogLink')
@@ -539,6 +539,29 @@ describe('onboarding bootstrap', () => {
     expect(document.querySelector('.resource-modal')?.textContent).toContain('Changelog');
     expect(window.open).not.toHaveBeenCalled();
   });
+
+  it.each(['zh-CN', 'zh-TW'] as const)(
+    'opens the Chinese official website for %s interface language',
+    async (language) => {
+      const { OnboardingController } = await import('../../../src/onboarding/bootstrap');
+      const openExternalLink = vi.fn(() => Promise.resolve(undefined));
+      const navigationRepo: OnboardingNavigationRepo = {
+        openVault: vi.fn(() => Promise.resolve(undefined)),
+        openOptions: vi.fn(() => Promise.resolve(undefined)),
+        openExternalLink
+      };
+      document.documentElement.lang = language;
+      const controller = new OnboardingController(navigationRepo, createOnboardingDependencies());
+
+      controller.initialize();
+      document
+        .getElementById('officialWebsiteLink')
+        ?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      await Promise.resolve();
+
+      expect(openExternalLink).toHaveBeenCalledWith('https://sxnian.com/projects/zendio/');
+    }
+  );
 
   it('opens terms of use and privacy policy inline from the first-run agreement card', async () => {
     currentResourceMock.value = {

@@ -42,7 +42,8 @@ const CHANGELOG_ENTRY_DEFINITIONS: readonly ChangelogEntryDefinition[] = [
       'schemaResourceChangelogV020Bullet7',
       'schemaResourceChangelogV020Bullet8',
       'schemaResourceChangelogV020Bullet9',
-      'schemaResourceChangelogV020Bullet10'
+      'schemaResourceChangelogV020Bullet10',
+      'schemaResourceChangelogV020Bullet11'
     ],
     notes: [
       {
@@ -64,7 +65,8 @@ const CHANGELOG_ENTRY_DEFINITIONS: readonly ChangelogEntryDefinition[] = [
       'schemaResourceChangelogV010Bullet3',
       'schemaResourceChangelogV010Bullet4',
       'schemaResourceChangelogV010Bullet5',
-      'schemaResourceChangelogV010Bullet6'
+      'schemaResourceChangelogV010Bullet6',
+      'schemaResourceChangelogV010Bullet7'
     ]
   }
 ];

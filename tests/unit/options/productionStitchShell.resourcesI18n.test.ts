@@ -139,6 +139,7 @@ const ENGLISH_SENTINEL_MESSAGES = {
   schemaResourceChangelogV020Bullet8: 'Changelog v0.2.0 Bullet 8 Sentinel',
   schemaResourceChangelogV020Bullet9: 'Changelog v0.2.0 Bullet 9 Sentinel',
   schemaResourceChangelogV020Bullet10: 'Changelog v0.2.0 Bullet 10 Sentinel',
+  schemaResourceChangelogV020Bullet11: 'Changelog v0.2.0 Bullet 11 Sentinel',
   schemaResourceChangelogUsageAdviceTitle: 'Changelog Usage Advice Sentinel',
   schemaResourceChangelogUsageAdvice1: 'Changelog Usage Advice 1 Sentinel',
   schemaResourceChangelogUsageAdvice2: 'Changelog Usage Advice 2 Sentinel',
@@ -149,6 +150,7 @@ const ENGLISH_SENTINEL_MESSAGES = {
   schemaResourceChangelogV010Bullet4: 'Changelog v0.1.0 Bullet 4 Sentinel',
   schemaResourceChangelogV010Bullet5: 'Changelog v0.1.0 Bullet 5 Sentinel',
   schemaResourceChangelogV010Bullet6: 'Changelog v0.1.0 Bullet 6 Sentinel',
+  schemaResourceChangelogV010Bullet7: 'Changelog v0.1.0 Bullet 7 Sentinel',
   privacyPolicyLink: 'Privacy Policy Link Sentinel',
   schemaResourcePrivacyPolicyTitle: 'Privacy Policy Title Sentinel',
   schemaResourcePrivacyPolicyDescription: 'Privacy Policy Description Sentinel',
@@ -559,6 +561,7 @@ describe('mountProductionStitchShell resource i18n', () => {
       'Changelog v0.2.0 Bullet 8 Sentinel',
       'Changelog v0.2.0 Bullet 9 Sentinel',
       'Changelog v0.2.0 Bullet 10 Sentinel',
+      'Changelog v0.2.0 Bullet 11 Sentinel',
       'Changelog Usage Advice Sentinel',
       'Changelog Usage Advice 1 Sentinel',
       'Changelog Usage Advice 2 Sentinel',
@@ -568,7 +571,8 @@ describe('mountProductionStitchShell resource i18n', () => {
       'Changelog v0.1.0 Bullet 3 Sentinel',
       'Changelog v0.1.0 Bullet 4 Sentinel',
       'Changelog v0.1.0 Bullet 5 Sentinel',
-      'Changelog v0.1.0 Bullet 6 Sentinel'
+      'Changelog v0.1.0 Bullet 6 Sentinel',
+      'Changelog v0.1.0 Bullet 7 Sentinel'
     );
     expectNoText(
       changelog,

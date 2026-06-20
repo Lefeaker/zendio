@@ -52,7 +52,10 @@ type OnboardingConnectionGuideKeys = {
 };
 
 const DEFAULT_ONBOARDING_DOCUMENT_TITLE = 'Zendio';
-const ZENDIO_OFFICIAL_WEBSITE_URL = 'https://sxnian.com/products/zendio';
+const ZENDIO_OFFICIAL_WEBSITE_URLS = {
+  default: 'https://sxnian.com/projects/zendio/en/',
+  chinese: 'https://sxnian.com/projects/zendio/'
+};
 const FIREFOX_CONNECTION_GUIDE_KEYS: OnboardingConnectionGuideKeys = {
   title: 'step1Title',
   description: 'step1Description',
@@ -121,6 +124,28 @@ function resolveOnboardingBrowserTarget(): OnboardingBrowserTarget {
   }
 
   return 'chrome';
+}
+
+function resolveZendioOfficialWebsiteUrl(language: string | null | undefined): string {
+  const normalizedLanguage = language?.toLowerCase();
+  return normalizedLanguage === 'zh-cn' || normalizedLanguage === 'zh-tw'
+    ? ZENDIO_OFFICIAL_WEBSITE_URLS.chinese
+    : ZENDIO_OFFICIAL_WEBSITE_URLS.default;
+}
+
+function getCurrentOnboardingLanguage(): string | null {
+  const resourceLanguage = declarativeI18nController?.getCurrentResource()?.language;
+  if (typeof resourceLanguage === 'string' && resourceLanguage.trim().length > 0) {
+    return resourceLanguage;
+  }
+
+  if (typeof document === 'undefined') {
+    return null;
+  }
+
+  const documentLanguage =
+    document.documentElement.lang || document.documentElement.getAttribute('lang');
+  return documentLanguage && documentLanguage.trim().length > 0 ? documentLanguage : null;
 }
 
 function resolveOnboardingRuntimeMessage(
@@ -604,7 +629,9 @@ export class OnboardingController {
 
   private async handleOfficialWebsite(): Promise<void> {
     try {
-      await this.navigationRepo.openExternalLink(ZENDIO_OFFICIAL_WEBSITE_URL);
+      await this.navigationRepo.openExternalLink(
+        resolveZendioOfficialWebsiteUrl(getCurrentOnboardingLanguage())
+      );
     } catch (error) {
       console.error('[onboarding] Failed to open official website:', error);
     }

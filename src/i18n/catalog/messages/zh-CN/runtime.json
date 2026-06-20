@@ -692,6 +692,7 @@
   "onboardingPrivacyPolicyLink": "隐私政策",
   "onboardingAnalyticsConsentLabel": "允许发送匿名使用统计",
   "onboardingErrorReportingConsentLabel": "允许发送错误诊断",
+  "onboardingConsentSupportHint": "本项目为个人开发，希望您可以同意以上两个选项，来助力开发更好地进行，以获得更优质的用户体验",
   "footerOfficialWebsiteLink": "前往官网",
   "footerChangelogLink": "更新日志"
 }

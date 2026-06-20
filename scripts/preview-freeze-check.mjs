@@ -94,11 +94,12 @@ const ALLOWED_PREVIEW_DRIFT = new Map([
         'The Options setup guide consolidation refreshes the generated preview JS hash after folding the visible Plugin Setup resource into the single Setup Guide entry, keeping plugin-setup as a hidden compatibility alias, and moving the shared Obsidian connection/setup/checklist view into one resource builder while preserving the frozen reference and Stitch runtime contract.',
         'The onboarding platform connection refresh updates the generated preview JS hash after making Chrome/Chromium setup copy recommend Local Folder first with Obsidian Local REST API as fallback, keeping Firefox on Obsidian Local REST API, and reusing the shared Options resource modals for Suggestions, Support, and Contact while preserving the frozen reference and Stitch runtime contract.',
         'The onboarding setup-guide copy refresh updates the generated preview JS hash after adding certificate-trust guidance to REST API fallback copy, keeping the onboarding resource footer links on one row, and adding the catalog-backed 48-hour / 5-page unsaved reading and video draft restore feature bullet while preserving the frozen reference and Stitch runtime contract.',
-        'The onboarding first-run agreement refresh updates the generated preview JS hash after adding the official website and changelog footer actions, the schema-backed terms-of-use resource, and privacy consent controls shared with Options privacy preferences while preserving the frozen reference, the shared resource modal contract, and the Stitch runtime behavior.'
+        'The onboarding first-run agreement refresh updates the generated preview JS hash after adding the official website and changelog footer actions, the schema-backed terms-of-use resource, and privacy consent controls shared with Options privacy preferences while preserving the frozen reference, the shared resource modal contract, and the Stitch runtime behavior.',
+        'The onboarding website-link and consent-switch refresh updates the generated preview JS hash after routing official website clicks by active interface language, rendering first-run analytics/error-reporting consent with the shared Options switch structure, and adding the requested catalog-backed v0.1.0/v0.2.0 changelog bullets while preserving the frozen reference and shared resource modal contract.'
       ].join(' '),
       leftSha256: '9020ccbd91acd691eccd3fdf568b9a90efbddf0a35d79f36ef1caba702fa0c07',
-      // 2026-06-20 onboarding first-run agreement and footer resource preview JS hash.
-      rightSha256: '63625ed109caadd1b93893cbfd92ae3c4f1fc95f745d6ef69e00ede1748e5d95'
+      // 2026-06-20 onboarding website-link, consent switch, and changelog catalog preview JS hash.
+      rightSha256: '045a362005f5c523b126f70e3c09389a62f105f0e13adf579a09b391d191e980'
     }
   ]
 ]);

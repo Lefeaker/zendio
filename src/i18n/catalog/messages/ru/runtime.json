@@ -692,6 +692,7 @@
   "onboardingPrivacyPolicyLink": "Политика конфиденциальности",
   "onboardingAnalyticsConsentLabel": "Разрешить анонимную статистику использования",
   "onboardingErrorReportingConsentLabel": "Разрешить диагностику ошибок",
+  "onboardingConsentSupportHint": "Этот проект разрабатывается одним человеком. Если вы включите эти два параметра, это поможет улучшать разработку и делать пользовательский опыт лучше.",
   "footerOfficialWebsiteLink": "Официальный сайт",
   "footerChangelogLink": "Журнал изменений"
 }

@@ -225,13 +225,21 @@ body[data-route='onboarding'] {
   line-height: var(--line-height-rich);
 }
 
-.agreement-consent input {
+body[data-route='onboarding'] .agreement-consent .switch {
   flex: 0 0 auto;
 }
 
-.agreement-consent span {
+.agreement-consent-label {
   min-width: 0;
   overflow-wrap: anywhere;
+}
+
+body[data-route='onboarding'] .agreement-consent-hint {
+  grid-column: 1 / -1;
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-rich);
 }
 
 .step-action,
