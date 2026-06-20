@@ -16,6 +16,7 @@ import type {
   VideoPanelTexts
 } from '@content/video/application/videoPanelModel';
 import { VIDEO_MODE_ICON_PATH } from '@shared/assets/iconPaths';
+import { ZENDIO_RESOURCE_LINKS } from '@shared/links/zendioResourceLinks';
 
 const VIDEO_PREVIEW_ABSENT_ACTIONS = new Set(['video:add', 'video:save', 'video:delete']);
 const CLIPPER_ICON_PATH = 'icons/60x60/zendio_icon_clipt.png';
@@ -107,7 +108,7 @@ function createRuntimeContent(): PreviewContent {
           {
             title: 'GitHub',
             subtitle: '',
-            href: 'https://github.com/Lefeaker/zendio/issues'
+            href: ZENDIO_RESOURCE_LINKS.githubIssues
           }
         ]
       },

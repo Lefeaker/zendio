@@ -100,11 +100,13 @@ const ALLOWED_PREVIEW_DRIFT = new Map([
         'The legal contact and privacy consent persistence refresh updates the generated preview JS hash after rendering terms/privacy contact sections with legal-specific email and GitHub Issues links instead of the general author contact paragraph, preserving Chinese/English legal language routing, and adding first-class privacyPreferences storage schema/default/merge support so Options and first-run consent toggles survive reloads while preserving the frozen reference and resource modal contract.',
         'The analytics debug-mode release-surface repair refreshes the generated preview JS hash after routing the Options debug-mode row through a build capability context and keeping production imports from preserving the dev-only debug flag while preserving the frozen reference and privacy consent contract.',
         'The video icon and Options brand-link refresh updates the generated preview JS hash after threading the shared 60px video mode icon through the video runtime surface preview contract and rendering the brand title through the reusable shell link node while preserving the frozen reference and Stitch runtime behavior.',
-        'The video path template refresh updates the generated preview JS hash after adding the separate Options video path template row plus template state wiring while keeping the existing article template row as article-only user copy and preserving the frozen reference and Stitch runtime behavior.'
+        'The video path template refresh updates the generated preview JS hash after adding the separate Options video path template row plus template state wiring while keeping the existing article template row as article-only user copy and preserving the frozen reference and Stitch runtime behavior.',
+        'The i18n chunk-loading repair refreshes the generated preview JS hash after replacing generated locale/schema dynamic imports with static release registries so extension pages do not depend on runtime-loaded i18n chunks, while preserving the frozen reference, locale fallback semantics, and Stitch runtime behavior.',
+        'The support resource closeout refreshes the generated preview JS hash after deleting retired Support Scope schema messages, neutralizing AI-assisted product-positioning copy in cataloged experimental settings, and routing support/contact/suggestion links through the shared Zendio resource link registry while preserving the frozen reference and Stitch resource modal/runtime surface behavior.'
       ].join(' '),
       leftSha256: '9020ccbd91acd691eccd3fdf568b9a90efbddf0a35d79f36ef1caba702fa0c07',
-      // 2026-06-20 video path template preview JS hash.
-      rightSha256: '6c0c206f1d771bc037645db3114c17fefb99999a70b1ca508e93ddfea9dd4679'
+      // 2026-06-20 support resource closeout preview JS hash.
+      rightSha256: '701399075c765c0f4b4ebe91842047e5c9b08f0397ada96bbc968207b2c3ca87'
     }
   ]
 ]);

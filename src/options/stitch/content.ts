@@ -3,6 +3,7 @@ import { createReleaseLanguageOptions } from './languageOptions';
 import { message, previewNavigation } from './previewNavigation';
 import { getPreviewTemplateDefaults } from '@shared/config';
 import { VIDEO_MODE_ICON_PATH } from '@shared/assets/iconPaths';
+import { ZENDIO_RESOURCE_LINKS } from '@shared/links/zendioResourceLinks';
 import type { PreviewContent } from './types';
 
 const SAMPLE_RESEARCH_VAULT = message('schemaPreviewSampleVaultResearch');
@@ -492,7 +493,7 @@ export const previewContent: PreviewContent = {
           title: 'Ko-fi',
           subtitle: message('schemaResourceSupportKoFiDescription'),
           icon: './icons/ko-fi.svg',
-          href: 'https://ko-fi.com/xiannian'
+          href: ZENDIO_RESOURCE_LINKS.koFi
         },
         {
           title: message('schemaResourceSupportAfdianTitle'),
@@ -514,13 +515,13 @@ export const previewContent: PreviewContent = {
           title: message('schemaResourceSuggestionsGithubTitle'),
           subtitle: message('schemaResourceSuggestionsGithubDescription'),
           icon: './icons/github-fill.svg',
-          href: 'https://github.com/Lefeaker/zendio/issues/new?labels=enhancement&title=%5BFeature%20Request%5D%20'
+          href: ZENDIO_RESOURCE_LINKS.githubIssuesNew
         },
         {
           title: message('schemaResourceSuggestionsRedditTitle'),
           subtitle: message('schemaResourceSuggestionsRedditDescription'),
           icon: './icons/reddit.svg',
-          href: 'https://www.reddit.com/user/sxnian/'
+          href: ZENDIO_RESOURCE_LINKS.redditAuthor
         }
       ]
     },
@@ -535,17 +536,17 @@ export const previewContent: PreviewContent = {
         {
           title: 'Reddit',
           subtitle: message('schemaResourceContactRedditDescription'),
-          href: 'https://www.reddit.com/user/sxnian/'
+          href: ZENDIO_RESOURCE_LINKS.redditAuthor
         },
         {
           title: message('schemaResourceContactGithubTitle'),
           subtitle: message('schemaResourceContactGithubDescription'),
-          href: 'https://github.com/Lefeaker'
+          href: ZENDIO_RESOURCE_LINKS.githubProfile
         },
         {
           title: message('schemaResourceContactEmailTitle'),
           subtitle: message('schemaResourceContactEmailDescription'),
-          href: 'mailto:zendio@sxnian.com'
+          href: ZENDIO_RESOURCE_LINKS.supportEmail
         }
       ],
       note: 'If you like the product or want to talk with the author, use the website, social channels, GitHub, or email.'

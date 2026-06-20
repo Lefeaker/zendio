@@ -547,7 +547,7 @@ async function openOnboardingResourceModal(resourceId: OnboardingResourceId): Pr
   if (!resource) {
     return;
   }
-  await renderOnboardingResourceModal({
+  renderOnboardingResourceModal({
     language: resource.language,
     messages: resource.messages,
     resourceId

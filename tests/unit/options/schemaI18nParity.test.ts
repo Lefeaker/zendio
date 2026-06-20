@@ -142,7 +142,7 @@ describe('schema i18n parity', () => {
       'schemaMaintenanceDiagnosisButton',
       'schemaMaintenanceDiagnosisResultLog',
       'schemaResourcePluginSetupGoToStorageButton',
-      'schemaResourceSupportScopeGroupTitle',
+      'schemaResourceSupportChannelsGroupTitle',
       'schemaResourcePrivacyLocalConfigTitle',
       'schemaResourceChangelogV020Bullet10',
       'schemaResourceChangelogV020Summary',

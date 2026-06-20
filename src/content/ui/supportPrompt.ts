@@ -28,11 +28,8 @@ import {
 import { createSupportPromptToastLifecycle } from './supportPromptToastLifecycle';
 import { getContentI18nResource, getContentMessages } from '../i18n/context';
 import type { UserVisibleMessageDescriptor } from '../../shared/i18n/userVisibleMessageDescriptor';
+import { ZENDIO_RESOURCE_LINKS } from '@shared/links/zendioResourceLinks';
 
-const REVIEW_BASE_URL =
-  'https://chromewebstore.google.com/detail/zendio/eoohmbhdepgknfemajanfaejmonckgmo';
-const KO_FI_URL = 'https://ko-fi.com/xiannian';
-const XIAOHONGSHU_FEEDBACK_QR_URL = 'https://sxnian.com/products/zendio/xiaohongshu-feedback.jpg';
 const WECHAT_REWARD_ID = 'wechat-reward';
 const REVIEW_STATE_STORAGE_KEY = 'support_prompt_review_state';
 
@@ -56,7 +53,7 @@ export class SupportPrompt implements UiMountable<
     this.toastLifecycle = createSupportPromptToastLifecycle({
       doc: this.doc,
       resolveReviewUrl: () => this.resolveReviewUrl(),
-      resolveXiaohongshuFeedbackQrUrl: () => XIAOHONGSHU_FEEDBACK_QR_URL,
+      resolveXiaohongshuFeedbackQrUrl: () => ZENDIO_RESOURCE_LINKS.xiaohongshuFeedbackQr,
       resolveMessages: () => this.resolveMessages(),
       getReviewState: () => this.getReviewState(),
       updateReviewState: (updates) => this.updateReviewState(updates),
@@ -107,7 +104,7 @@ export class SupportPrompt implements UiMountable<
         icon: this.resolveAssetUrl('icons/ko-fi.svg'),
         title: messages.koFiTitle,
         description: messages.koFiDescription,
-        url: KO_FI_URL
+        url: ZENDIO_RESOURCE_LINKS.koFi
       },
       {
         id: WECHAT_REWARD_ID,
@@ -245,7 +242,7 @@ export class SupportPrompt implements UiMountable<
     detail?.setAttribute('data-role', 'status-detail');
     surface.querySelectorAll<HTMLAnchorElement>('.task-support-link[href]').forEach((link) => {
       link.addEventListener('click', () => {
-        const target = link.href === KO_FI_URL ? 'ko-fi' : null;
+        const target = link.href === ZENDIO_RESOURCE_LINKS.koFi ? 'ko-fi' : null;
         if (target) {
           void this.trackUsageEvent('support_link_clicked', { target });
         }
@@ -289,7 +286,7 @@ export class SupportPrompt implements UiMountable<
 
   private resolveReviewUrl(): string {
     const locale = this.resolveReviewLocale();
-    return `${REVIEW_BASE_URL}/reviews?reviewId=0&hl=${encodeURIComponent(locale)}`;
+    return `${ZENDIO_RESOURCE_LINKS.chromeWebStoreReview}/reviews?reviewId=0&hl=${encodeURIComponent(locale)}`;
   }
 
   private resolveReviewLocale(): string {

@@ -1,7 +1,18 @@
 import { DEFAULT_LANGUAGE, type LangCode } from '../config';
 import { buildPseudoLocaleDefinition } from '../catalog/pseudoLocale';
 import type { LocaleDefinition, LocaleStaticMessages, RuntimeMessages } from '../localeDefinition';
+import de from '../generated/locales/de.generated';
 import en from '../generated/locales/en.generated';
+import es419 from '../generated/locales/es-419.generated';
+import esES from '../generated/locales/es-ES.generated';
+import fr from '../generated/locales/fr.generated';
+import it from '../generated/locales/it.generated';
+import ja from '../generated/locales/ja.generated';
+import ko from '../generated/locales/ko.generated';
+import ptBR from '../generated/locales/pt-BR.generated';
+import ru from '../generated/locales/ru.generated';
+import zhCN from '../generated/locales/zh-CN.generated';
+import zhTW from '../generated/locales/zh-TW.generated';
 import { getRuntimeLanguageFallbackChain } from './fallback';
 
 export type LocaleLoader = () => Promise<LocaleDefinition>;
@@ -115,17 +126,17 @@ export function createLocaleService(options: LocaleServiceOptions): LocaleServic
 
 const localeLoaders: LocaleLoaderMap = {
   en: () => Promise.resolve(en),
-  'zh-CN': async () => (await import('../generated/locales/zh-CN.generated')).default,
-  ja: async () => (await import('../generated/locales/ja.generated')).default,
-  de: async () => (await import('../generated/locales/de.generated')).default,
-  fr: async () => (await import('../generated/locales/fr.generated')).default,
-  'es-ES': async () => (await import('../generated/locales/es-ES.generated')).default,
-  'es-419': async () => (await import('../generated/locales/es-419.generated')).default,
-  it: async () => (await import('../generated/locales/it.generated')).default,
-  ko: async () => (await import('../generated/locales/ko.generated')).default,
-  'pt-BR': async () => (await import('../generated/locales/pt-BR.generated')).default,
-  ru: async () => (await import('../generated/locales/ru.generated')).default,
-  'zh-TW': async () => (await import('../generated/locales/zh-TW.generated')).default
+  'zh-CN': () => Promise.resolve(zhCN),
+  ja: () => Promise.resolve(ja),
+  de: () => Promise.resolve(de),
+  fr: () => Promise.resolve(fr),
+  'es-ES': () => Promise.resolve(esES),
+  'es-419': () => Promise.resolve(es419),
+  it: () => Promise.resolve(it),
+  ko: () => Promise.resolve(ko),
+  'pt-BR': () => Promise.resolve(ptBR),
+  ru: () => Promise.resolve(ru),
+  'zh-TW': () => Promise.resolve(zhTW)
 };
 
 if (process.env.NODE_ENV !== 'production') {

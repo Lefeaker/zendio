@@ -1,4 +1,6 @@
 import type { Messages } from '@i18n/messages';
+import { GENERATED_RELEASE_SCHEMA_MESSAGES } from '@i18n/generated/schemaMessages.generated';
+import { ZENDIO_RESOURCE_LINKS } from '@shared/links/zendioResourceLinks';
 
 export type OnboardingResourceId =
   | 'support'
@@ -39,12 +41,6 @@ interface ChangelogEntryDefinition {
   summaryKey: MessageKey;
   version: string;
 }
-
-const XIAOHONGSHU_FEEDBACK_QR_URL = 'https://sxnian.com/products/zendio/xiaohongshu-feedback.jpg';
-const GITHUB_FEEDBACK_URL =
-  'https://github.com/Lefeaker/zendio/issues/new?labels=enhancement&title=%5BFeature%20Request%5D%20';
-const KO_FI_URL = 'https://ko-fi.com/xiannian';
-const SUPPORT_EMAIL_URL = 'mailto:zendio@sxnian.com';
 
 const SUPPORT_KEYS: readonly MessageKey[] = [
   'schemaResourceSupportTitle',
@@ -247,36 +243,24 @@ function matchesSchemaLanguage(
   return language.toLowerCase() === fallbackLanguage.toLowerCase();
 }
 
-async function loadSchemaFallbackMessages(
-  language: SchemaFallbackLanguage
-): Promise<MessageSource> {
-  switch (language) {
-    case 'zh-CN':
-      return (await import('@i18n/generated/schema/zh-CN.generated'))
-        .GENERATED_RELEASE_SCHEMA_MESSAGES_ZH_CN;
-    case 'zh-TW':
-      return (await import('@i18n/generated/schema/zh-TW.generated'))
-        .GENERATED_RELEASE_SCHEMA_MESSAGES_ZH_TW;
-    case 'en':
-      return (await import('@i18n/generated/schema/en.generated'))
-        .GENERATED_RELEASE_SCHEMA_MESSAGES_EN;
-  }
+function loadSchemaFallbackMessages(language: SchemaFallbackLanguage): MessageSource {
+  return GENERATED_RELEASE_SCHEMA_MESSAGES[language];
 }
 
-async function createMessageResolver({
+function createMessageResolver({
   language,
   messages,
   resourceId
-}: OnboardingResourceModalRequest): Promise<MessageResolver> {
+}: OnboardingResourceModalRequest): MessageResolver {
   const fallbackLanguage = isLegalResource(resourceId)
     ? resolveLegalSchemaLanguage(language)
     : 'en';
   const primary =
     isLegalResource(resourceId) && !matchesSchemaLanguage(language, fallbackLanguage)
-      ? await loadSchemaFallbackMessages(fallbackLanguage)
+      ? loadSchemaFallbackMessages(fallbackLanguage)
       : messages;
   const needsFallback = RESOURCE_KEYS[resourceId].some((key) => !readMessage(primary, key));
-  const fallback = needsFallback ? await loadSchemaFallbackMessages(fallbackLanguage) : null;
+  const fallback = needsFallback ? loadSchemaFallbackMessages(fallbackLanguage) : null;
 
   return (key) => readMessage(primary, key) || readMessage(fallback, key) || String(key);
 }
@@ -404,7 +388,7 @@ function createSupportView(t: MessageResolver): ResourceModalView {
   append(
     grid,
     createResourceCard({
-      href: KO_FI_URL,
+      href: ZENDIO_RESOURCE_LINKS.koFi,
       icon: './icons/ko-fi.svg',
       subtitle: t('schemaResourceSupportKoFiDescription'),
       title: t('schemaResourceSupportKoFiTitle')
@@ -446,7 +430,7 @@ function createXiaohongshuPopoverLink(label: string, caption: string): HTMLEleme
   popover.setAttribute('role', 'dialog');
   popover.setAttribute('aria-label', label);
   const image = createElement('img', 'resource-inline-popover-media');
-  image.src = XIAOHONGSHU_FEEDBACK_QR_URL;
+  image.src = ZENDIO_RESOURCE_LINKS.xiaohongshuFeedbackQr;
   image.alt = label;
   const captionElement = createElement('span', 'resource-inline-popover-caption');
   captionElement.textContent = caption;
@@ -460,14 +444,17 @@ function createSuggestionsView(t: MessageResolver): ResourceModalView {
   append(
     copy,
     t('schemaResourceSuggestionsDescription'),
-    createInlineLink(t('schemaResourceSuggestionsGithubTitle'), GITHUB_FEEDBACK_URL),
+    createInlineLink(
+      t('schemaResourceSuggestionsGithubTitle'),
+      ZENDIO_RESOURCE_LINKS.githubIssuesNew
+    ),
     t('schemaResourceSuggestionsGithubDescription'),
     createXiaohongshuPopoverLink(
       t('schemaResourceSuggestionsXiaohongshuTitle'),
       t('schemaResourceSuggestionsXiaohongshuQrCaption')
     ),
     t('schemaResourceSuggestionsRedditDescription'),
-    createInlineLink(t('schemaResourceContactEmailTitle'), SUPPORT_EMAIL_URL),
+    createInlineLink(t('schemaResourceContactEmailTitle'), ZENDIO_RESOURCE_LINKS.supportEmail),
     t('schemaResourceSuggestionsXiaohongshuDescription')
   );
   const stack = createElement('div', 'resource-modal-stack');
@@ -613,10 +600,8 @@ function renderModal(view: ResourceModalView): HTMLElement {
   return overlay;
 }
 
-export async function renderOnboardingResourceModal(
-  request: OnboardingResourceModalRequest
-): Promise<void> {
-  const t = await createMessageResolver(request);
+export function renderOnboardingResourceModal(request: OnboardingResourceModalRequest): void {
+  const t = createMessageResolver(request);
   closeResourceModals();
   document.body.append(renderModal(createView(request.resourceId, t)));
 }
