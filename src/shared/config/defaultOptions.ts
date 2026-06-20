@@ -18,6 +18,7 @@ export const DEFAULT_OPTIONS: CompleteOptions = {
   },
   templates: {
     article: TEMPLATE_DEFAULTS.article,
+    video: TEMPLATE_DEFAULTS.video,
     fragment: TEMPLATE_DEFAULTS.fragment,
     reading: TEMPLATE_DEFAULTS.reading,
     ai: TEMPLATE_DEFAULTS.ai

@@ -41,6 +41,7 @@ describe('shared optionsMerger', () => {
     const result = mergeOptions(undefined);
     expect(result.rest.baseUrl).toBe(DEFAULT_OPTIONS.rest.baseUrl);
     expect(result.templates.article).toBe(DEFAULT_OPTIONS.templates.article);
+    expect(result.templates.video).toBe(DEFAULT_OPTIONS.templates.video);
     expect(result.interfaceTheme).toBe('system');
     expect(result.templates.reading).toBe(DEFAULT_OPTIONS.templates.reading);
     expect(result.domainMappings).toEqual(DEFAULT_OPTIONS.domainMappings);
@@ -89,6 +90,7 @@ describe('shared optionsMerger', () => {
       defaultFragmentClipper.keyboardShortcutsEnabled
     );
     expect(result.templates.reading).toBe(DEFAULT_OPTIONS.templates.reading);
+    expect(result.templates.video).toBe(DEFAULT_OPTIONS.templates.video);
   });
 
   it('merges persisted privacy preferences with explicit false defaults', () => {

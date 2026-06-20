@@ -349,6 +349,7 @@ export function toRoutingRules(options: CompleteOptions): RoutingRule[] {
 export function toTemplateValues(options: CompleteOptions): Record<string, string> {
   return {
     articleVideo: options.templates.article,
+    video: options.templates.video,
     fragment: options.templates.fragment,
     readingCustom: options.templates.reading,
     aiChat: options.templates.ai

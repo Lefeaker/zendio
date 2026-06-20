@@ -241,6 +241,7 @@ describe('validation', () => {
     it('validates valid template options', () => {
       const options = {
         article: 'path/to/article',
+        video: 'path/to/video',
         fragment: 'path/to/fragment',
         reading: 'path/to/reading',
         ai: 'path/to/ai'
@@ -269,6 +270,7 @@ describe('validation', () => {
     it('fails validation for invalid data type', () => {
       const options = {
         article: 123,
+        video: 'path/to/video',
         fragment: 'path/to/fragment',
         reading: 'path/to/reading',
         ai: 'path/to/ai'

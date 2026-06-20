@@ -201,6 +201,11 @@ function buildDiagnosticsModel(
         createDiagnosticLine('warning', 'diagnosticsTemplateArticleMissing')
       );
     }
+    if (!templates.video) {
+      configChecksSection.lines.push(
+        createDiagnosticLine('warning', 'diagnosticsTemplateVideoMissing')
+      );
+    }
     if (!templates.fragment) {
       configChecksSection.lines.push(
         createDiagnosticLine('warning', 'diagnosticsTemplateFragmentMissing')
@@ -550,6 +555,14 @@ export async function fixConfiguration(onAfterFix?: () => Promise<void> | void):
       )}\n`;
     }
 
+    if (!templates.video) {
+      templates.video = TEMPLATE_DEFAULTS.video;
+      diagOutput.textContent += `${renderDiagnosticLine(
+        createDiagnosticLine('ok', 'diagnosticsRepairAddedVideoTemplate'),
+        messages
+      )}\n`;
+    }
+
     if (templates.article && templates.article.includes('Clippings/')) {
       templates.article = templates.article.replace('Clippings/', 'Articles/');
       diagOutput.textContent += `${renderDiagnosticLine(
@@ -568,7 +581,9 @@ export async function fixConfiguration(onAfterFix?: () => Promise<void> | void):
       },
       templates: {
         article: templates.article || TEMPLATE_DEFAULTS.article,
+        video: templates.video || TEMPLATE_DEFAULTS.video,
         fragment: templates.fragment || TEMPLATE_DEFAULTS.fragment,
+        reading: templates.reading || TEMPLATE_DEFAULTS.reading,
         ai: templates.ai || TEMPLATE_DEFAULTS.ai
       }
     };

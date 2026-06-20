@@ -93,6 +93,7 @@ describe('production Stitch shell section coverage', () => {
       },
       templates: {
         article: 'Articles/{slug}.md',
+        video: 'video/{slug}.md',
         fragment: 'Fragments/{slug}.md',
         reading: 'Reading/{slug}.md',
         ai: 'AI/{title}.md'
@@ -120,6 +121,7 @@ describe('production Stitch shell section coverage', () => {
     );
     expect(state.templateValues).toEqual({
       articleVideo: 'Articles/{slug}.md',
+      video: 'video/{slug}.md',
       fragment: 'Fragments/{slug}.md',
       readingCustom: 'Reading/{slug}.md',
       aiChat: 'AI/{title}.md'

@@ -8,7 +8,7 @@ describe('pathResolver', () => {
     vi.useRealTimers();
   });
 
-  it('uses the fragment template for video clips so timestamp templates apply', () => {
+  it('uses the video template for video clips', () => {
     const minimalPreset = getOutputTemplatePreset('Minimal');
     if (!minimalPreset) {
       throw new Error('Missing Minimal preset');
@@ -24,7 +24,10 @@ describe('pathResolver', () => {
     };
 
     const path = resolvePath(
-      minimalPreset.templates,
+      {
+        ...minimalPreset.templates,
+        video: 'video/{domain}/{yyyy}/{yyyy}-{mm}-{dd}/{slug}.md'
+      },
       {
         markdown: '# video',
         title: '当我以为国内景区审美已经要完蛋了的时候…直到我们来到…',
@@ -39,7 +42,7 @@ describe('pathResolver', () => {
     );
 
     expect(path).toBe(
-      'Clips/www.bilibili.com/2026/当我以为国内景区审美已经要完蛋了的时候…直到我们来到….md'
+      'video/www.bilibili.com/2026/2026-05-09/当我以为国内景区审美已经要完蛋了的时候…直到我们来到….md'
     );
   });
 });

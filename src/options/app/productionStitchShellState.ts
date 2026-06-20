@@ -112,6 +112,7 @@ export function mergePartialIntoDraft(
 
 export function applyTemplateStateToDraft(draft: CompleteOptions, state: PreviewStoreState): void {
   draft.templates.article = state.templateValues.articleVideo ?? draft.templates.article;
+  draft.templates.video = state.templateValues.video ?? draft.templates.video;
   draft.templates.fragment = state.templateValues.fragment ?? draft.templates.fragment;
   draft.templates.ai = state.templateValues.aiChat ?? draft.templates.ai;
   if (state.readingPathMode === 'article') {

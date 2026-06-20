@@ -49,6 +49,12 @@ const schema: SettingsSchema = {
                     },
                     {
                       kind: 'row',
+                      title: (current) => translate(current, 'videoTemplateLabel'),
+                      description: (current) => translate(current, 'videoTemplateHint'),
+                      control: templateInput('video')
+                    },
+                    {
+                      kind: 'row',
                       title: (current) => translate(current, 'fragmentTemplateLabel'),
                       description: (current) => translate(current, 'fragmentTemplateHint'),
                       control: templateInput('fragment')

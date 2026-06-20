@@ -22,6 +22,7 @@ export const RestOptionsSchema = z.object({
  */
 export const TemplateOptionsSchema = z.object({
   article: z.string(),
+  video: z.string(),
   fragment: z.string(),
   reading: z.string(),
   ai: z.string()

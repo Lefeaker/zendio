@@ -25,6 +25,7 @@ describe('production Stitch state mapper', () => {
       options({
         templates: {
           article: 'Articles/{slug}.md',
+          video: 'video/{slug}.md',
           fragment: 'Fragments/{slug}.md',
           reading: 'Reading/{slug}.md',
           ai: 'AI/{title}.md'
@@ -34,6 +35,7 @@ describe('production Stitch state mapper', () => {
 
     expect(mapped).toEqual({
       articleVideo: 'Articles/{slug}.md',
+      video: 'video/{slug}.md',
       fragment: 'Fragments/{slug}.md',
       readingCustom: 'Reading/{slug}.md',
       aiChat: 'AI/{title}.md'
@@ -48,6 +50,7 @@ describe('production Stitch state mapper', () => {
     const draft = options({
       templates: {
         article: 'Articles/{slug}.md',
+        video: 'video/{slug}.md',
         fragment: 'Fragments/{slug}.md',
         reading: 'Reading/{slug}.md',
         ai: 'AI/{title}.md'
@@ -57,12 +60,14 @@ describe('production Stitch state mapper', () => {
     state.templateValues = {
       ...state.templateValues,
       articleVideo: 'Articles/current.md',
+      video: 'video/current.md',
       fragment: 'Fragments/current.md',
       readingCustom: 'Reading/custom.md'
     };
 
     state.readingPathMode = 'article';
     applyTemplateStateToDraft(draft, state);
+    expect(draft.templates.video).toBe('video/current.md');
     expect(draft.templates.reading).toBe('Articles/current.md');
 
     state.readingPathMode = 'fragment';

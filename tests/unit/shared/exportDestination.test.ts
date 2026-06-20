@@ -13,7 +13,7 @@ const templateKeyCases: Array<[Pick<ClipPayload, 'type' | 'meta'>, TemplateKey]>
   [{ type: 'clipper', meta: { readerMode: true } }, 'reading'],
   [{ type: 'clipper' }, 'fragment'],
   [{ type: 'fragment' }, 'fragment'],
-  [{ type: 'video' }, 'fragment'],
+  [{ type: 'video' }, 'video'],
   [{ type: 'article' }, 'article']
 ];
 
@@ -22,7 +22,7 @@ describe('exportDestination path preview', () => {
     vi.useRealTimers();
   });
 
-  it('previews video paths with the same fragment template used by background writes', () => {
+  it('previews video paths with the video template used by background writes', () => {
     const minimalPreset = getOutputTemplatePreset('Minimal');
     if (!minimalPreset) {
       throw new Error('Missing Minimal preset');
@@ -30,18 +30,24 @@ describe('exportDestination path preview', () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2026-05-09T20:24:13'));
 
-    const path = resolveExportPath(minimalPreset.templates, {
-      markdown: '# video',
-      title: '当我以为国内景区审美已经要完蛋了的时候…直到我们来到…',
-      type: 'video',
-      meta: {
-        url: 'https://www.bilibili.com/video/BV129ReB1ExM',
-        platform: 'bilibili'
+    const path = resolveExportPath(
+      {
+        ...minimalPreset.templates,
+        video: 'video/{domain}/{yyyy}/{yyyy}-{mm}-{dd}/{slug}.md'
+      },
+      {
+        markdown: '# video',
+        title: '当我以为国内景区审美已经要完蛋了的时候…直到我们来到…',
+        type: 'video',
+        meta: {
+          url: 'https://www.bilibili.com/video/BV129ReB1ExM',
+          platform: 'bilibili'
+        }
       }
-    });
+    );
 
     expect(path).toBe(
-      'Clips/www.bilibili.com/2026/当我以为国内景区审美已经要完蛋了的时候…直到我们来到….md'
+      'video/www.bilibili.com/2026/2026-05-09/当我以为国内景区审美已经要完蛋了的时候…直到我们来到….md'
     );
   });
 

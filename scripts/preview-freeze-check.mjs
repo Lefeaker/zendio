@@ -99,11 +99,12 @@ const ALLOWED_PREVIEW_DRIFT = new Map([
         'The legal resources refresh updates the generated preview JS hash after replacing the short terms/privacy resources with complete catalog-backed Chinese/English legal sections and shared onboarding/options language routing while preserving the frozen reference and resource modal contract.',
         'The legal contact and privacy consent persistence refresh updates the generated preview JS hash after rendering terms/privacy contact sections with legal-specific email and GitHub Issues links instead of the general author contact paragraph, preserving Chinese/English legal language routing, and adding first-class privacyPreferences storage schema/default/merge support so Options and first-run consent toggles survive reloads while preserving the frozen reference and resource modal contract.',
         'The analytics debug-mode release-surface repair refreshes the generated preview JS hash after routing the Options debug-mode row through a build capability context and keeping production imports from preserving the dev-only debug flag while preserving the frozen reference and privacy consent contract.',
-        'The video icon and Options brand-link refresh updates the generated preview JS hash after threading the shared 60px video mode icon through the video runtime surface preview contract and rendering the brand title through the reusable shell link node while preserving the frozen reference and Stitch runtime behavior.'
+        'The video icon and Options brand-link refresh updates the generated preview JS hash after threading the shared 60px video mode icon through the video runtime surface preview contract and rendering the brand title through the reusable shell link node while preserving the frozen reference and Stitch runtime behavior.',
+        'The video path template refresh updates the generated preview JS hash after adding the separate Options video path template row plus template state wiring while keeping the existing article template row as article-only user copy and preserving the frozen reference and Stitch runtime behavior.'
       ].join(' '),
       leftSha256: '9020ccbd91acd691eccd3fdf568b9a90efbddf0a35d79f36ef1caba702fa0c07',
-      // 2026-06-20 video icon and Options brand-link preview JS hash.
-      rightSha256: '4f2f1fdad4ce9e49501f494d8fd5f17658e0ba4fa9497d60ed896178f204b945'
+      // 2026-06-20 video path template preview JS hash.
+      rightSha256: '6c0c206f1d771bc037645db3114c17fefb99999a70b1ca508e93ddfea9dd4679'
     }
   ]
 ]);

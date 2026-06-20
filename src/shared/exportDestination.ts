@@ -36,7 +36,7 @@ export interface ExportDestinationMetadata {
   vaultId?: string;
 }
 
-export type TemplateKey = 'article' | 'fragment' | 'reading' | 'ai';
+export type TemplateKey = 'article' | 'video' | 'fragment' | 'reading' | 'ai';
 
 const TEMPLATE_DEFAULTS = configProvider.getTemplates();
 
@@ -226,11 +226,10 @@ export function resolveTemplateKeyForPayloadType(
   if (payload.type === 'clipper') {
     return payload.meta?.readerMode ? 'reading' : 'fragment';
   }
-  return payload.type === 'ai_chat'
-    ? 'ai'
-    : payload.type === 'video' || payload.type === 'fragment'
-      ? 'fragment'
-      : 'article';
+  if (payload.type === 'video') {
+    return 'video';
+  }
+  return payload.type === 'ai_chat' ? 'ai' : payload.type === 'fragment' ? 'fragment' : 'article';
 }
 
 function getTemplateValue(templates: TemplateOptions, key: TemplateKey): string {

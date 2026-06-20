@@ -281,6 +281,7 @@ export function mergeOptions(stored?: StoredOptions | null): OptionsState {
 
   const templates = {
     article: source.templates?.article || defaults.templates.article,
+    video: source.templates?.video || defaults.templates.video,
     fragment: source.templates?.fragment || legacyClipperString || defaults.templates.fragment,
     reading:
       source.templates?.reading ||

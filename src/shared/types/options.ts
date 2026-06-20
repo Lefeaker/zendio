@@ -18,6 +18,7 @@ export interface RestOptions {
 
 export interface TemplateOptions {
   article: string;
+  video: string;
   fragment: string;
   reading: string;
   ai: string;

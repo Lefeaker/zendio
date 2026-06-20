@@ -29,6 +29,7 @@ import { applyOptionsToState, LEGACY_USAGE_STATS_STORAGE_KEY } from './productio
 import type { PreviewContent, PreviewStoreState } from '@options/stitch/types';
 import type { OptionsController } from './optionsController';
 import { getMessage, setButtonBusy } from './productionStitchPersistenceUi';
+import { repairTemplateOptions } from './productionStitchTemplateRepair';
 
 type PrivacyPreferenceField = 'analytics' | 'errorReporting' | 'debugMode';
 
@@ -353,16 +354,7 @@ export function createProductionStitchPersistence(
       httpUrl: draft.rest.httpUrl || restDefaults.httpUrl,
       baseUrl
     };
-    draft.templates = {
-      ...draft.templates,
-      article: (draft.templates.article || templateDefaults.article).replace(
-        'Clippings/',
-        'Articles/'
-      ),
-      fragment: draft.templates.fragment || templateDefaults.fragment,
-      reading: draft.templates.reading || templateDefaults.reading,
-      ai: draft.templates.ai || templateDefaults.ai
-    };
+    draft.templates = repairTemplateOptions(draft.templates, templateDefaults);
     options.syncDefaultVaultFromRest();
     options.setMaintenanceLog(log.join('\n'));
     options.refreshAppData();

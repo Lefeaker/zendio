@@ -249,6 +249,7 @@ function createOptions(
     },
     templates: {
       article: '',
+      video: '',
       ai: '',
       fragment: '',
       reading: ''
