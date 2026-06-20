@@ -148,13 +148,19 @@ describe('i18n catalog contract', () => {
     if (pseudoCatalog.static === undefined) {
       throw new Error('Unexpected pseudo catalog shape');
     }
+    const pseudoDescription = pseudoCatalog.static.extDescription;
+    if (pseudoDescription === undefined) {
+      throw new Error('Missing pseudo static description');
+    }
     expect(pseudoCatalog.language).toBe(PSEUDO_LOCALE_CODE);
     expect(Object.keys(pseudoCatalog.runtime).sort()).toEqual(
       Object.keys(DEFAULT_RUNTIME_MESSAGES).sort()
     );
     expect(Object.keys(pseudoCatalog.runtime).every((key) => !key.startsWith('schema'))).toBe(true);
     expect(pseudoCatalog.static.extName).toContain('Ž');
-    expect(pseudoCatalog.static.extDescription).toContain('À');
+    expect(pseudoDescription).not.toBe(DEFAULT_STATIC_MESSAGES.extDescription);
+    expect(pseudoDescription).toMatch(/^\[.+·\d+\]$/);
+    expect(Array.from(pseudoDescription).some((char) => char.charCodeAt(0) > 127)).toBe(true);
   });
 
   it('tracks schema-only runtime keys as a dedicated catalog subset', () => {
