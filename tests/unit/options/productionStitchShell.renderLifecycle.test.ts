@@ -38,6 +38,11 @@ describe('mountProductionStitchShell renderLifecycle', () => {
 
     expect(document.querySelector('.sidebar')).toBeTruthy();
     expect(document.querySelector('.brand-copy strong')?.textContent).toBe('Zendio');
+    const brandLink = document.querySelector<HTMLAnchorElement>('.brand-title-link');
+    expect(brandLink?.textContent).toBe('Zendio');
+    expect(brandLink?.getAttribute('href')).toBe('https://sxnian.com/projects/zendio/en/');
+    expect(brandLink?.getAttribute('target')).toBe('_blank');
+    expect(brandLink?.getAttribute('rel')).toBe('noopener noreferrer');
     expect(document.querySelector('.brand-copy span')?.textContent).toMatch(/^v\d+\.\d+\.\d+/);
     const brandLogo = document.querySelector<HTMLImageElement>('.brand-mark img');
     expect(brandLogo?.getAttribute('src')).toBe('../icons/bannerlogo-128.png');
@@ -87,6 +92,10 @@ describe('mountProductionStitchShell renderLifecycle', () => {
       language: 'zh-CN'
     });
 
+    expect(
+      document.querySelector<HTMLAnchorElement>('.brand-title-link')?.getAttribute('href')
+    ).toBe('https://sxnian.com/projects/zendio/');
+
     mounted.setMessages(
       {
         ...DEFAULT_RUNTIME_MESSAGES,
@@ -106,6 +115,9 @@ describe('mountProductionStitchShell renderLifecycle', () => {
     expect(recreatedContext.messages?.schemaOverviewTitle).toBe('Overview From Messages');
     expect(recreatedContext.t?.('schemaOverviewTitle', 'Fallback')).toBe('Overview From Messages');
     expect(document.querySelector('.brand-copy span')?.textContent).toMatch(/^v\d+\.\d+\.\d+/);
+    expect(
+      document.querySelector<HTMLAnchorElement>('.brand-title-link')?.getAttribute('href')
+    ).toBe('https://sxnian.com/projects/zendio/en/');
 
     mounted.cleanup();
     expect(document.getElementById('optionsShellRoot')?.innerHTML).toBe('');

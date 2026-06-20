@@ -11,6 +11,7 @@ import {
   resolveExtensionVersionLabel
 } from './productionStitchStateMapper';
 import { localizeStitchContent } from './productionStitchLocalization';
+import { resolveZendioOfficialWebsiteUrl } from '@shared/links/zendioOfficialWebsite';
 
 type ProductionStitchAppDataOptions = {
   connectionNotice?: PreviewContent['storage']['connectionNotice'];
@@ -77,7 +78,8 @@ export function createProductionStitchSchemaContext(options: {
         ...localizedAppData.brand,
         title: 'Zendio',
         subtitle: resolveExtensionVersionLabel(),
-        logo: '../icons/bannerlogo-128.png'
+        logo: '../icons/bannerlogo-128.png',
+        websiteUrl: resolveZendioOfficialWebsiteUrl(options.language)
       }
     },
     capabilities: {

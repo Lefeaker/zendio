@@ -10,6 +10,7 @@ import type {
 } from '@platform/interfaces/storage';
 import type { IVideoRepository } from '@shared/repositories/IVideoRepository';
 import type { VideoOptions } from '@shared/types/options';
+import { VIDEO_MODE_ICON_PATH } from '@shared/assets/iconPaths';
 import { intervalId } from '../../utils/typeHelpers';
 
 type Deferred<T> = {
@@ -32,6 +33,7 @@ type TestPromptElementOptions = {
   id: string;
   label: string;
   shortcut: string;
+  getIconUrl?: () => string | null;
   onPrimaryAction: () => void;
 };
 
@@ -130,6 +132,7 @@ const ensureVideoControlBarButtonMock = vi.hoisted(() =>
         autoPauseLabel: string;
         screenshotLabel: string;
       };
+      getIconUrl?: () => string | null;
       onPreferencesChange(preferences: {
         autoPauseEnabled: boolean;
         captureScreenshotEnabled: boolean;
@@ -454,6 +457,9 @@ describe('video prompt', () => {
     expect(prompt).not.toBeNull();
     expect(lastRendererConfig.current?.label).toBe('Clip video');
     expect(lastRendererConfig.current?.shortcut).toBe('CTRL+SHIFT+V');
+    expect(lastRendererConfig.current?.getIconUrl?.()).toBe(
+      `chrome-extension://mock/${VIDEO_MODE_ICON_PATH}`
+    );
 
     const state = currentTestUtils.getPromptStateForTests();
     expect(state.hasCustomPosition).toBe(true);
@@ -499,6 +505,9 @@ describe('video prompt', () => {
     expect(document.querySelector('.aiob-video-control-bar-button')).toBeTruthy();
     expect(getPromptFromShadowDom()).toBeNull();
     expect(ensureVideoControlBarButtonMock).toHaveBeenCalled();
+    expect(ensureVideoControlBarButtonMock.mock.calls.at(-1)?.[0]?.getIconUrl?.()).toBe(
+      `chrome-extension://mock/${VIDEO_MODE_ICON_PATH}`
+    );
   });
 
   it('opens a control-bar capture with persisted preferences', async () => {

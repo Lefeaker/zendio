@@ -111,7 +111,7 @@ const schema: ResourceSchema = {
               sessionHeader(
                 labels,
                 '▶',
-                undefined,
+                surface.iconUrl,
                 t?.(
                   'schemaRuntimeSurfaceCollapsePanelAriaLabel',
                   RUNTIME_SURFACE_FALLBACK_MESSAGES.schemaRuntimeSurfaceCollapsePanelAriaLabel

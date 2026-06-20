@@ -58,6 +58,20 @@ interface AppShellOptions {
 }
 
 export function buildBrandBlock({ el: createElement, brand }: BrandBlockOptions): HTMLElement {
+  const title = createElement('strong', { text: brand.title });
+  const titleNode = brand.websiteUrl
+    ? createElement(
+        'a',
+        {
+          className: 'brand-title-link',
+          href: brand.websiteUrl,
+          target: '_blank',
+          rel: 'noopener noreferrer'
+        },
+        title
+      )
+    : title;
+
   return createElement(
     'div',
     { className: 'brand' },
@@ -69,7 +83,7 @@ export function buildBrandBlock({ el: createElement, brand }: BrandBlockOptions)
     createElement(
       'div',
       { className: 'brand-copy' },
-      createElement('strong', { text: brand.title }),
+      titleNode,
       createElement('span', { text: brand.subtitle })
     )
   );

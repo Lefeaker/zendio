@@ -2,6 +2,7 @@ import { changelogResource } from './changelogResourceData';
 import { createReleaseLanguageOptions } from './languageOptions';
 import { message, previewNavigation } from './previewNavigation';
 import { getPreviewTemplateDefaults } from '@shared/config';
+import { VIDEO_MODE_ICON_PATH } from '@shared/assets/iconPaths';
 import type { PreviewContent } from './types';
 
 const SAMPLE_RESEARCH_VAULT = message('schemaPreviewSampleVaultResearch');
@@ -708,6 +709,7 @@ export const previewContent: PreviewContent = {
         pills: ['Timestamp Notes', 'Fragment Capture', 'Inline Edit', 'YouTube / Bilibili'],
         icon: 'smart_display'
       },
+      iconUrl: `../../AiiinOB/public/${VIDEO_MODE_ICON_PATH}`,
       labels: {
         title: message('schemaRuntimeVideoTitle'),
         subtitle: message('videoPanelStatus'),

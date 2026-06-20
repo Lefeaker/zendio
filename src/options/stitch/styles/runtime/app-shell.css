@@ -71,6 +71,18 @@
   min-width: 0;
 }
 
+.brand-title-link {
+  display: block;
+  color: inherit;
+  text-decoration: none;
+}
+
+.brand-title-link:hover,
+.brand-title-link:focus-visible {
+  color: inherit;
+  text-decoration: none;
+}
+
 .brand-copy strong,
 .brand-copy span,
 .nav-copy strong,

@@ -47,6 +47,15 @@ describe('Stitch runtime polish CSS contracts', () => {
     expect(stitchCss).toContain(".interface-theme-grid .chips[data-active-value='light']::before");
   });
 
+  it('keeps the Options brand website link visually unadorned', () => {
+    expect(stitchCss).toMatch(
+      /\.brand-title-link\s*{[\s\S]*?color:\s*inherit;[\s\S]*?text-decoration:\s*none;/
+    );
+    expect(stitchCss).toMatch(
+      /\.brand-title-link:hover,\s*\.brand-title-link:focus-visible\s*{[\s\S]*?color:\s*inherit;[\s\S]*?text-decoration:\s*none;/
+    );
+  });
+
   it('makes the clipper destination selector full-bleed and square-cornered', () => {
     expect(stitchCss).toContain("[data-stitch-surface='clipper'] .export-destination-row");
     expect(stitchCss).toContain('margin-inline: calc(var(--space-7) * -1);');

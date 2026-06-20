@@ -10,6 +10,7 @@ import type {
 import { createVideoSurfaceContent } from '@content/stitch/runtimeSurfaceContent';
 import { renderStitchRuntimeSurface } from '@content/stitch/runtimeSurfaceRenderer';
 import { VideoDialogPanel } from '@content/video/ui/VideoDialogPanel';
+import { VIDEO_MODE_ICON_PATH } from '@shared/assets/iconPaths';
 import { testPlatformHarness } from '../../../setup/globalSetup';
 
 const callbacks: VideoPanelCallbacks = {
@@ -89,6 +90,18 @@ describe('VideoDialogPanel', () => {
   beforeEach(() => {
     document.body.innerHTML = '';
     vi.clearAllMocks();
+  });
+
+  it('renders the shared video mode icon in the session panel header', () => {
+    const panel = new VideoDialogPanel({ callbacks, texts });
+
+    const icon = panel.element.shadowRoot?.querySelector<HTMLImageElement>(
+      '.surface-window-icon-image'
+    );
+
+    expect(icon?.getAttribute('src')).toBe(VIDEO_MODE_ICON_PATH);
+
+    panel.destroy();
   });
 
   it('renders the Stitch dialog actions and updates captures without Daisy modal chrome', () => {

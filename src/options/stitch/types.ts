@@ -223,6 +223,7 @@ export interface PreviewSurfaces {
   };
   video: {
     hero: HeroData;
+    iconUrl: string;
     labels: RuntimeSessionLabels & { addLabel: string; emptyCapturePlaceholder: string };
     status: string;
     hint: string;
@@ -301,6 +302,7 @@ export interface PreviewContent {
     title: string;
     subtitle: string;
     logo: string;
+    websiteUrl?: string;
   };
   rendererLabels: {
     resourcePendingBadge: string;

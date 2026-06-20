@@ -7,6 +7,7 @@ import {
 import type { Messages } from '@i18n/messages';
 import { resolveRepository } from '../shared/di/serviceRegistry';
 import { DI_TOKENS } from '../shared/di/tokens';
+import { resolveZendioOfficialWebsiteUrl } from '../shared/links/zendioOfficialWebsite';
 import type { INavigationRepository } from '../shared/repositories/INavigationRepository';
 import {
   resolveOnboardingDependencies,
@@ -36,10 +37,6 @@ type OnboardingConnectionGuideKeys = {
 };
 
 const DEFAULT_ONBOARDING_DOCUMENT_TITLE = 'Zendio';
-const ZENDIO_OFFICIAL_WEBSITE_URLS = {
-  default: 'https://sxnian.com/projects/zendio/en/',
-  chinese: 'https://sxnian.com/projects/zendio/'
-};
 const FIREFOX_CONNECTION_GUIDE_KEYS: OnboardingConnectionGuideKeys = {
   title: 'step1Title',
   description: 'step1Description',
@@ -103,13 +100,6 @@ function resolveOnboardingBrowserTarget(): OnboardingBrowserTarget {
   }
 
   return 'chrome';
-}
-
-function resolveZendioOfficialWebsiteUrl(language: string | null | undefined): string {
-  const normalizedLanguage = language?.toLowerCase();
-  return normalizedLanguage === 'zh-cn' || normalizedLanguage === 'zh-tw'
-    ? ZENDIO_OFFICIAL_WEBSITE_URLS.chinese
-    : ZENDIO_OFFICIAL_WEBSITE_URLS.default;
 }
 
 function getCurrentOnboardingLanguage(): string | null {
