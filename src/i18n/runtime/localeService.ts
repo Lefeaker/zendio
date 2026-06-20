@@ -1,18 +1,8 @@
 import { DEFAULT_LANGUAGE, type LangCode } from '../config';
 import { buildPseudoLocaleDefinition } from '../catalog/pseudoLocale';
 import type { LocaleDefinition, LocaleStaticMessages, RuntimeMessages } from '../localeDefinition';
-import de from '../generated/locales/de.generated';
 import en from '../generated/locales/en.generated';
-import es419 from '../generated/locales/es-419.generated';
-import esES from '../generated/locales/es-ES.generated';
-import fr from '../generated/locales/fr.generated';
-import it from '../generated/locales/it.generated';
-import ja from '../generated/locales/ja.generated';
-import ko from '../generated/locales/ko.generated';
-import ptBR from '../generated/locales/pt-BR.generated';
-import ru from '../generated/locales/ru.generated';
-import zhCN from '../generated/locales/zh-CN.generated';
-import zhTW from '../generated/locales/zh-TW.generated';
+import { loadRuntimeLocaleAsset } from './assets';
 import { getRuntimeLanguageFallbackChain } from './fallback';
 
 export type LocaleLoader = () => Promise<LocaleDefinition>;
@@ -104,9 +94,13 @@ export function createLocaleService(options: LocaleServiceOptions): LocaleServic
     async loadStaticMessages(language) {
       const chain = getLanguageFallbackChain(language);
       for (const code of chain) {
-        const definition = await this.loadLocaleDefinition(code);
-        if (definition.static) {
-          return definition.static;
+        try {
+          const definition = await this.loadLocaleDefinition(code);
+          if (definition.static) {
+            return definition.static;
+          }
+        } catch {
+          continue;
         }
       }
       return defaultStaticMessages;
@@ -117,7 +111,11 @@ export function createLocaleService(options: LocaleServiceOptions): LocaleServic
         if (!hasLocaleLoader(code)) {
           continue;
         }
-        return this.loadLocaleMessages(code);
+        try {
+          return await this.loadLocaleMessages(code);
+        } catch {
+          continue;
+        }
       }
       return defaultRuntimeMessages;
     }
@@ -126,17 +124,17 @@ export function createLocaleService(options: LocaleServiceOptions): LocaleServic
 
 const localeLoaders: LocaleLoaderMap = {
   en: () => Promise.resolve(en),
-  'zh-CN': () => Promise.resolve(zhCN),
-  ja: () => Promise.resolve(ja),
-  de: () => Promise.resolve(de),
-  fr: () => Promise.resolve(fr),
-  'es-ES': () => Promise.resolve(esES),
-  'es-419': () => Promise.resolve(es419),
-  it: () => Promise.resolve(it),
-  ko: () => Promise.resolve(ko),
-  'pt-BR': () => Promise.resolve(ptBR),
-  ru: () => Promise.resolve(ru),
-  'zh-TW': () => Promise.resolve(zhTW)
+  'zh-CN': () => loadRuntimeLocaleAsset('zh-CN'),
+  ja: () => loadRuntimeLocaleAsset('ja'),
+  de: () => loadRuntimeLocaleAsset('de'),
+  fr: () => loadRuntimeLocaleAsset('fr'),
+  'es-ES': () => loadRuntimeLocaleAsset('es-ES'),
+  'es-419': () => loadRuntimeLocaleAsset('es-419'),
+  it: () => loadRuntimeLocaleAsset('it'),
+  ko: () => loadRuntimeLocaleAsset('ko'),
+  'pt-BR': () => loadRuntimeLocaleAsset('pt-BR'),
+  ru: () => loadRuntimeLocaleAsset('ru'),
+  'zh-TW': () => loadRuntimeLocaleAsset('zh-TW')
 };
 
 if (process.env.NODE_ENV !== 'production') {

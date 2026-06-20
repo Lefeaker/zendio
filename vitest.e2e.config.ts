@@ -14,7 +14,7 @@ export default defineConfig({
       'tests/e2e/videoPanelFlow.test.ts',
       'tests/e2e/**/*.browser.test.ts'
     ],
-    setupFiles: ['tests/e2e/setup.ts'],
+    setupFiles: ['tests/setup/i18nAssetFetch.ts', 'tests/e2e/setup.ts'],
     // Disable file parallelism to prevent state pollution in harness
     fileParallelism: false
   }

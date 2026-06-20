@@ -33,6 +33,8 @@ const SHARED_WEB_ACCESSIBLE_RESOURCES = [
     resources: [
       'chunks/*',
       'content/*',
+      'i18n/locales/*',
+      'i18n/schema/*',
       'icons/*',
       'local-vault-permission.html',
       'local-vault-permission.js',

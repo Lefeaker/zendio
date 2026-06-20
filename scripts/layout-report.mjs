@@ -3,6 +3,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { build } from 'esbuild';
 import { JSDOM, VirtualConsole } from 'jsdom';
+import { installI18nAssetFetch } from './utils/install-i18n-asset-fetch.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -10,6 +11,8 @@ const ROOT = path.resolve(__dirname, '..');
 const DIST_ROOT = path.join(ROOT, 'build', 'dist');
 const REPORT_DIR = path.join(ROOT, 'build', 'reports');
 const OUTPUT_FILE = path.join(REPORT_DIR, 'layout-issues.json');
+
+installI18nAssetFetch();
 
 async function bundleModule(filePath) {
   const result = await build({

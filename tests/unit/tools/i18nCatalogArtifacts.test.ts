@@ -237,6 +237,8 @@ describe('i18n generated artifact drift checks', () => {
     const schemaEnArtifact = artifacts.get('src/i18n/generated/schema/en.generated.ts');
     const schemaDeArtifact = artifacts.get('src/i18n/generated/schema/de.generated.ts');
     const localeArtifact = artifacts.get('src/i18n/generated/locales/en.generated.ts');
+    const runtimeAsset = artifacts.get('public/i18n/locales/en.json');
+    const schemaAsset = artifacts.get('public/i18n/schema/en.json');
     const rawSchemaArtifact = emitGeneratedSchemaMessages(schemaCompiled);
     const rawSchemaCoreArtifact = emitGeneratedSchemaCore(schemaCompiled);
     const schemaArtifactPath = resolve(
@@ -281,6 +283,22 @@ describe('i18n generated artifact drift checks', () => {
     expect(schemaDeArtifact).toContain(
       'const GENERATED_RELEASE_SCHEMA_MESSAGES_DE_VALUES = parseSchemaMessageValues('
     );
+    expect(runtimeAsset).toBe(
+      `${JSON.stringify(
+        {
+          runtime: {
+            extensionName: 'Alpha'
+          },
+          static: {
+            extName: 'en extension',
+            extDescription: 'en description'
+          }
+        },
+        null,
+        2
+      )}\n`
+    );
+    expect(schemaAsset).toBe(`${JSON.stringify({ schemaOverviewTitle: 'Overview' }, null, 2)}\n`);
     expect(schemaArtifact).not.toContain(
       "import type { SchemaMessageKey } from '../catalog/schemaKeys';"
     );

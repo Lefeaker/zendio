@@ -13,6 +13,8 @@ describe('manifestSources', () => {
     expect(manifest.browser_specific_settings).toBeUndefined();
     const war = (manifest as { web_accessible_resources?: unknown }).web_accessible_resources;
     expect(JSON.stringify(war)).not.toContain('<all_urls>');
+    expect(JSON.stringify(war)).toContain('i18n/locales/*');
+    expect(JSON.stringify(war)).toContain('i18n/schema/*');
   });
 
   it('builds a firefox manifest with firefox-only overrides', () => {

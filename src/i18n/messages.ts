@@ -1,10 +1,8 @@
 import { isReleaseLanguage, type ReleaseLangCode } from './catalog/languages';
 import type { GeneratedMessages as GeneratedRuntimeMessages } from './generated/messages.generated';
-import {
-  GENERATED_RELEASE_SCHEMA_MESSAGES,
-  type GeneratedSchemaMessages
-} from './generated/schemaMessages.generated';
+import type { GeneratedSchemaMessages } from './generated/schemaMessages.generated';
 import { pseudoLocalizeRecord } from './pseudoLocalization';
+import { loadSchemaMessagesAsset } from './runtime/assets';
 import { getRuntimeLanguageFallbackChain } from './runtime/fallback';
 import { defaultLocaleService } from './runtime/localeService';
 
@@ -15,27 +13,25 @@ export type Messages = RuntimeMessages & Partial<SchemaMessages>;
 let pseudoSchemaMessages: SchemaMessages | null = null;
 const schemaMessageCache = new Map<ReleaseLangCode, SchemaMessages>();
 
-function importSchemaMessages(code: ReleaseLangCode): GeneratedSchemaMessages {
-  return GENERATED_RELEASE_SCHEMA_MESSAGES[code];
-}
-
-function loadSchemaMessagesForReleaseLanguage(code: ReleaseLangCode): SchemaMessages {
+async function loadSchemaMessagesForReleaseLanguage(
+  code: ReleaseLangCode
+): Promise<SchemaMessages> {
   const cached = schemaMessageCache.get(code);
   if (cached) {
     return cached;
   }
 
-  const messages = importSchemaMessages(code);
+  const messages: GeneratedSchemaMessages = await loadSchemaMessagesAsset(code);
   schemaMessageCache.set(code, messages);
   return messages;
 }
 
-function getPseudoSchemaMessages(): SchemaMessages {
-  pseudoSchemaMessages ??= pseudoLocalizeRecord(loadSchemaMessagesForReleaseLanguage('en'));
+async function getPseudoSchemaMessages(): Promise<SchemaMessages> {
+  pseudoSchemaMessages ??= pseudoLocalizeRecord(await loadSchemaMessagesForReleaseLanguage('en'));
   return pseudoSchemaMessages;
 }
 
-function resolveSchemaMessages(language: string): SchemaMessages {
+async function resolveSchemaMessages(language: string): Promise<SchemaMessages> {
   const fallbackChain = getRuntimeLanguageFallbackChain(language);
 
   for (const code of fallbackChain) {
@@ -43,7 +39,11 @@ function resolveSchemaMessages(language: string): SchemaMessages {
       return getPseudoSchemaMessages();
     }
     if (isReleaseLanguage(code)) {
-      return loadSchemaMessagesForReleaseLanguage(code);
+      try {
+        return await loadSchemaMessagesForReleaseLanguage(code);
+      } catch {
+        continue;
+      }
     }
   }
 
@@ -51,8 +51,10 @@ function resolveSchemaMessages(language: string): SchemaMessages {
 }
 
 export async function getMessagesForLanguage(language: string): Promise<Messages> {
-  const runtimeMessages = await defaultLocaleService.loadMessagesWithFallback(language);
-  const schemaMessages = resolveSchemaMessages(language);
+  const [runtimeMessages, schemaMessages] = await Promise.all([
+    defaultLocaleService.loadMessagesWithFallback(language),
+    resolveSchemaMessages(language)
+  ]);
   return {
     ...runtimeMessages,
     ...schemaMessages

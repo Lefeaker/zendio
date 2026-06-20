@@ -1,5 +1,5 @@
 import type { Messages } from '@i18n/messages';
-import { GENERATED_RELEASE_SCHEMA_MESSAGES } from '@i18n/generated/schemaMessages.generated';
+import { GENERATED_RELEASE_SCHEMA_MESSAGES_EN } from '@i18n/generated/schema/en.generated';
 import { ZENDIO_RESOURCE_LINKS } from '@shared/links/zendioResourceLinks';
 
 export type OnboardingResourceId =
@@ -13,7 +13,6 @@ export type OnboardingResourceId =
 type MessageKey = keyof Messages;
 type MessageSource = Partial<Messages>;
 type MessageResolver = (key: MessageKey) => string;
-type SchemaFallbackLanguage = 'en' | 'zh-CN' | 'zh-TW';
 
 interface OnboardingResourceModalRequest {
   language: string;
@@ -225,42 +224,17 @@ function readMessage(source: MessageSource | null | undefined, key: MessageKey):
   return typeof value === 'string' && value.length > 0 ? value : '';
 }
 
-function isLegalResource(resourceId: OnboardingResourceId): boolean {
-  return resourceId === 'terms-of-use' || resourceId === 'privacy-policy';
-}
-
-function resolveLegalSchemaLanguage(language: string): SchemaFallbackLanguage {
-  const normalized = language.toLowerCase();
-  if (normalized === 'zh-cn') return 'zh-CN';
-  if (normalized === 'zh-tw') return 'zh-TW';
-  return 'en';
-}
-
-function matchesSchemaLanguage(
-  language: string,
-  fallbackLanguage: SchemaFallbackLanguage
-): boolean {
-  return language.toLowerCase() === fallbackLanguage.toLowerCase();
-}
-
-function loadSchemaFallbackMessages(language: SchemaFallbackLanguage): MessageSource {
-  return GENERATED_RELEASE_SCHEMA_MESSAGES[language];
+function loadSchemaFallbackMessages(): MessageSource {
+  return GENERATED_RELEASE_SCHEMA_MESSAGES_EN;
 }
 
 function createMessageResolver({
-  language,
   messages,
   resourceId
 }: OnboardingResourceModalRequest): MessageResolver {
-  const fallbackLanguage = isLegalResource(resourceId)
-    ? resolveLegalSchemaLanguage(language)
-    : 'en';
-  const primary =
-    isLegalResource(resourceId) && !matchesSchemaLanguage(language, fallbackLanguage)
-      ? loadSchemaFallbackMessages(fallbackLanguage)
-      : messages;
+  const primary = messages;
   const needsFallback = RESOURCE_KEYS[resourceId].some((key) => !readMessage(primary, key));
-  const fallback = needsFallback ? loadSchemaFallbackMessages(fallbackLanguage) : null;
+  const fallback = needsFallback ? loadSchemaFallbackMessages() : null;
 
   return (key) => readMessage(primary, key) || readMessage(fallback, key) || String(key);
 }
