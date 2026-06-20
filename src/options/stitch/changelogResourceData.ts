@@ -6,17 +6,11 @@ import {
 } from './schema/i18n';
 import type { PreviewContent } from './types';
 
-type ChangelogNoteSectionDefinition = {
-  titleKey: SchemaMessageKey;
-  itemKeys: readonly SchemaMessageKey[];
-};
-
 type ChangelogEntryDefinition = {
   version: string;
   date: string;
   summaryKey?: SchemaMessageKey;
   bulletKeys: readonly SchemaMessageKey[];
-  notes?: readonly ChangelogNoteSectionDefinition[];
 };
 
 const CHANGELOG_TITLE_KEY: SchemaMessageKey = 'schemaResourceChangelogTitle';
@@ -45,16 +39,6 @@ const CHANGELOG_ENTRY_DEFINITIONS: readonly ChangelogEntryDefinition[] = [
       'schemaResourceChangelogV020Bullet8',
       'schemaResourceChangelogV020Bullet9',
       'schemaResourceChangelogV020Bullet10'
-    ],
-    notes: [
-      {
-        titleKey: 'schemaResourceChangelogUsageAdviceTitle',
-        itemKeys: [
-          'schemaResourceChangelogUsageAdvice1',
-          'schemaResourceChangelogUsageAdvice2',
-          'schemaResourceChangelogUsageAdvice3'
-        ]
-      }
     ]
   },
   {
@@ -90,15 +74,7 @@ export function createChangelogResource(
             summary: resolveSchemaMessage(messages, entry.summaryKey)
           }
         : {}),
-      bullets: entry.bulletKeys.map((key) => resolveSchemaMessage(messages, key)),
-      ...(entry.notes
-        ? {
-            notes: entry.notes.map((section) => ({
-              title: resolveSchemaMessage(messages, section.titleKey),
-              items: section.itemKeys.map((key) => resolveSchemaMessage(messages, key))
-            }))
-          }
-        : {})
+      bullets: entry.bulletKeys.map((key) => resolveSchemaMessage(messages, key))
     }))
   };
 }

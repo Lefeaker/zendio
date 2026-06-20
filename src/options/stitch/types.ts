@@ -103,7 +103,6 @@ export interface ChangelogEntry {
   date: string;
   summary?: string;
   bullets: string[];
-  notes?: Array<{ title: string; items: string[] }>;
 }
 
 export interface SurfaceAction {

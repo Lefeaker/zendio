@@ -54,4 +54,15 @@ describe('onboarding styles', () => {
     expect(footerLinksRule).toContain('max-width: 100%');
     expect(footerLinksRule).toContain('overflow-x: visible');
   });
+
+  it('keeps first-run feature copy focused on shipped capabilities', () => {
+    const html = readFileSync(onboardingHtmlPath, 'utf8');
+
+    expect(html).toContain('data-i18n="step3Section3Detail5"');
+    expect(html).toContain(
+      'Save video screenshots with timestamps so Obsidian exports keep the visual context.'
+    );
+    expect(html).not.toContain('data-i18n="step5Detail1"');
+    expect(html).not.toContain('Introducing AI features for smoother, more intelligent experience');
+  });
 });

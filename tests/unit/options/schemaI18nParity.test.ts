@@ -81,7 +81,7 @@ describe('schema i18n parity', () => {
   });
 
   it('keeps generated runtime locale modules schema-free while page messages merge schema catalogs', async () => {
-    const runtimeLocales = [
+    const runtimeLocales: Array<Record<string, string>> = [
       en.runtime,
       zhCN.runtime,
       ja.runtime,
@@ -94,7 +94,7 @@ describe('schema i18n parity', () => {
       ptBR.runtime,
       ru.runtime,
       zhTW.runtime
-    ] as Array<Record<string, string>>;
+    ];
 
     for (const runtime of runtimeLocales) {
       expect('schemaOverviewTitle' in runtime).toBe(false);
@@ -118,7 +118,7 @@ describe('schema i18n parity', () => {
   });
 
   it('publishes representative P03-P13 schema keys through the shell catalog and page-message merge path', async () => {
-    const representativeKeys = [
+    const representativeKeys: Array<keyof typeof schemaShellMessagesEnglish> = [
       'schemaRendererResourceOpenAction',
       'schemaNavOverviewHint',
       'schemaRuntimeUiGroupTitle',
@@ -146,7 +146,6 @@ describe('schema i18n parity', () => {
       'schemaResourcePrivacyLocalConfigTitle',
       'schemaResourceChangelogV020Bullet10',
       'schemaResourceChangelogV020Summary',
-      'schemaResourceChangelogUsageAdvice3',
       'schemaResourceChangelogV010Bullet6',
       'schemaResourceChangelogV010Summary',
       'schemaRuntimeClipperSelectedText',
@@ -157,7 +156,7 @@ describe('schema i18n parity', () => {
       'schemaRuntimeTaskSuccessTitle',
       'schemaRuntimeVideoCaptureTwoFullText',
       'schemaRuntimeVideoFloatingPromptTitle'
-    ] as const;
+    ];
 
     const englishMessages = await getMessagesForLanguage('en');
     const zhHansMessages = await getMessagesForLanguage('zh-CN');
@@ -185,7 +184,7 @@ describe('schema i18n parity', () => {
   });
 
   it('keeps P04 settings/surfaces source files free of representative English fallback literals', () => {
-    const representativeP04Files = [
+    const representativeP04Files: Array<{ file: string; banned: string[] }> = [
       {
         file: 'src/options/app/productionStitchRenderLifecycle.ts',
         banned: ['Runtime UI']
@@ -214,7 +213,7 @@ describe('schema i18n parity', () => {
         file: 'src/options/stitch/schema/builders/output.ts',
         banned: ['YAML filter']
       }
-    ] as const;
+    ];
 
     for (const { file, banned } of representativeP04Files) {
       const source = readFileSync(resolve(process.cwd(), file), 'utf8');
@@ -225,7 +224,7 @@ describe('schema i18n parity', () => {
   });
 
   it('keeps P03 resource source files free of representative legacy English fallback prose', () => {
-    const resourceSources = [
+    const resourceSources: Array<{ file: string; banned: string[] }> = [
       {
         file: 'src/options/stitch/schema/resources/onboarding.ts',
         banned: [
@@ -280,9 +279,12 @@ describe('schema i18n parity', () => {
       },
       {
         file: 'src/options/stitch/changelogResourceData.ts',
-        banned: ['This modal highlights the latest shipped updates from the project changelog.']
+        banned: [
+          'This modal highlights the latest shipped updates from the project changelog.',
+          'schemaResourceChangelogUsageAdvice'
+        ]
       }
-    ] as const;
+    ];
 
     for (const { file, banned } of resourceSources) {
       const source = readFileSync(resolve(process.cwd(), file), 'utf8');

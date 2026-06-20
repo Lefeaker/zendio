@@ -192,7 +192,8 @@ function createOnboardingStepCards(tr: (key: SchemaMessageKey) => string): Resou
         `${tr('step3Section2Title')}: ${tr('step3Section2Detail4')}`,
         `${tr('step3Section2Title')}: ${tr('step3Section2Detail7')}`,
         `${tr('step3Section3Title')}: ${tr('step3Section3Detail1')}`,
-        `${tr('step3Section3Title')}: ${tr('step3Section3Detail4')}`
+        `${tr('step3Section3Title')}: ${tr('step3Section3Detail4')}`,
+        `${tr('step3Section3Title')}: ${tr('step3Section3Detail5')}`
       ]
     },
     {
@@ -205,7 +206,7 @@ function createOnboardingStepCards(tr: (key: SchemaMessageKey) => string): Resou
       number: '5',
       title: tr('step5Title'),
       description: tr('step5Description'),
-      bullets: [tr('step5Detail1'), tr('step5Detail2'), tr('step5Detail3')]
+      bullets: [tr('step5Detail2'), tr('step5Detail3')]
     }
   ];
 }

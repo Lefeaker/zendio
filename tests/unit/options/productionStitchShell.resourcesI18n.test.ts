@@ -18,7 +18,7 @@ import {
   setupProductionStitchShellTest
 } from './productionStitchShell.helpers';
 
-const ENGLISH_SENTINEL_MESSAGES = {
+const ENGLISH_SENTINEL_MESSAGES: Messages = {
   ...DEFAULT_RUNTIME_MESSAGES,
   schemaResourceOnboardingTitle: 'Onboarding Title Sentinel',
   schemaResourceOnboardingDescription: 'Onboarding Description Sentinel',
@@ -58,6 +58,7 @@ const ENGLISH_SENTINEL_MESSAGES = {
   step3Section3Title: 'Onboarding Step 3 Section 3 Sentinel',
   step3Section3Detail1: 'Onboarding Step 3 Section 3 Detail 1 Sentinel',
   step3Section3Detail4: 'Onboarding Step 3 Section 3 Detail 4 Sentinel',
+  step3Section3Detail5: 'Onboarding Step 3 Section 3 Detail 5 Sentinel',
   step4Title: 'Onboarding Step 4 Title Sentinel',
   step4Description: 'Onboarding Step 4 Description Sentinel',
   step4Detail1: 'Onboarding Step 4 Detail 1 Sentinel',
@@ -66,7 +67,6 @@ const ENGLISH_SENTINEL_MESSAGES = {
   step4Detail4: 'Onboarding Step 4 Detail 4 Sentinel',
   step5Title: 'Onboarding Step 5 Title Sentinel',
   step5Description: 'Onboarding Step 5 Description Sentinel',
-  step5Detail1: 'Onboarding Step 5 Detail 1 Sentinel',
   step5Detail2: 'Onboarding Step 5 Detail 2 Sentinel',
   step5Detail3: 'Onboarding Step 5 Detail 3 Sentinel',
   footerSuggestionsLink: 'Onboarding Suggestions Link Sentinel',
@@ -140,10 +140,6 @@ const ENGLISH_SENTINEL_MESSAGES = {
   schemaResourceChangelogV020Bullet9: 'Changelog v0.2.0 Bullet 9 Sentinel',
   schemaResourceChangelogV020Bullet10: 'Changelog v0.2.0 Bullet 10 Sentinel',
   schemaResourceChangelogV020Summary: 'Changelog v0.2.0 Summary Sentinel',
-  schemaResourceChangelogUsageAdviceTitle: 'Changelog Usage Advice Sentinel',
-  schemaResourceChangelogUsageAdvice1: 'Changelog Usage Advice 1 Sentinel',
-  schemaResourceChangelogUsageAdvice2: 'Changelog Usage Advice 2 Sentinel',
-  schemaResourceChangelogUsageAdvice3: 'Changelog Usage Advice 3 Sentinel',
   schemaResourceChangelogV010Bullet1: 'Changelog v0.1.0 Bullet 1 Sentinel',
   schemaResourceChangelogV010Bullet2: 'Changelog v0.1.0 Bullet 2 Sentinel',
   schemaResourceChangelogV010Bullet3: 'Changelog v0.1.0 Bullet 3 Sentinel',
@@ -178,7 +174,7 @@ const ENGLISH_SENTINEL_MESSAGES = {
   errorReportingCollectedTimestamp: 'Data Usage Collected Timestamp Sentinel',
   schemaResourceDataUsageConfigMigrationTitle: 'Data Usage Config Migration Title Sentinel',
   schemaResourceDataUsageConfigMigrationBody: 'Data Usage Config Migration Body Sentinel'
-} as Messages;
+};
 
 type ResourceRenderOptions = {
   language?: 'en' | 'zh-CN';
@@ -317,6 +313,7 @@ describe('mountProductionStitchShell resource i18n', () => {
       'Onboarding Step 3 Section 3 Sentinel',
       'Onboarding Step 3 Section 3 Detail 1 Sentinel',
       'Onboarding Step 3 Section 3 Detail 4 Sentinel',
+      'Onboarding Step 3 Section 3 Detail 5 Sentinel',
       'Onboarding Step 4 Title Sentinel',
       'Onboarding Step 4 Description Sentinel',
       'Onboarding Step 4 Detail 1 Sentinel',
@@ -325,7 +322,6 @@ describe('mountProductionStitchShell resource i18n', () => {
       'Onboarding Step 4 Detail 4 Sentinel',
       'Onboarding Step 5 Title Sentinel',
       'Onboarding Step 5 Description Sentinel',
-      'Onboarding Step 5 Detail 1 Sentinel',
       'Onboarding Step 5 Detail 2 Sentinel',
       'Onboarding Step 5 Detail 3 Sentinel'
     );
@@ -335,6 +331,7 @@ describe('mountProductionStitchShell resource i18n', () => {
       'Go To Storage',
       'Configure Obsidian Local REST API (Required)',
       'More Exciting Features, Continuous Iteration',
+      'Onboarding Step 5 Detail 1 Sentinel',
       '配置 Obsidian Local REST API',
       '欢迎提出建议，开发不易，感谢支持'
     );
@@ -573,10 +570,6 @@ describe('mountProductionStitchShell resource i18n', () => {
       'Changelog v0.2.0 Bullet 8 Sentinel',
       'Changelog v0.2.0 Bullet 9 Sentinel',
       'Changelog v0.2.0 Bullet 10 Sentinel',
-      'Changelog Usage Advice Sentinel',
-      'Changelog Usage Advice 1 Sentinel',
-      'Changelog Usage Advice 2 Sentinel',
-      'Changelog Usage Advice 3 Sentinel',
       'Changelog v0.1.0 Summary Sentinel',
       'Changelog v0.1.0 Bullet 1 Sentinel',
       'Changelog v0.1.0 Bullet 2 Sentinel',
@@ -585,8 +578,13 @@ describe('mountProductionStitchShell resource i18n', () => {
       'Changelog v0.1.0 Bullet 5 Sentinel',
       'Changelog v0.1.0 Bullet 6 Sentinel'
     );
+    expect(changelog.querySelector('.release-note-section')).toBeNull();
     expectNoText(
       changelog,
+      'Changelog Usage Advice Sentinel',
+      'Changelog Usage Advice 1 Sentinel',
+      'Changelog Usage Advice 2 Sentinel',
+      'Changelog Usage Advice 3 Sentinel',
       '重构选项页为新的设置中心',
       '这里直接使用项目中的更新日志重点内容，保持和真实版本记录一致。',
       '使用建议'
@@ -657,12 +655,6 @@ describe('mountProductionStitchShell resource i18n', () => {
         appData.resources.changelog.hero.title = 'RAW CHANGELOG TITLE SENTINEL';
         appData.resources.changelog.hero.description = 'RAW CHANGELOG DESCRIPTION SENTINEL';
         appData.resources.changelog.entries[0].bullets[0] = 'RAW CHANGELOG BULLET SENTINEL';
-        appData.resources.changelog.entries[0].notes = [
-          {
-            title: 'RAW CHANGELOG NOTES TITLE SENTINEL',
-            items: ['RAW CHANGELOG NOTE ITEM SENTINEL']
-          }
-        ];
       }
     });
 
@@ -670,9 +662,8 @@ describe('mountProductionStitchShell resource i18n', () => {
       changelog,
       zhMessages.schemaResourceChangelogTitle,
       zhMessages.schemaResourceChangelogDescription,
-      zhMessages.schemaResourceChangelogV020Bullet1,
-      zhMessages.schemaResourceChangelogUsageAdviceTitle,
-      zhMessages.schemaResourceChangelogUsageAdvice1
+      zhMessages.schemaResourceChangelogV020Summary,
+      zhMessages.schemaResourceChangelogV020Bullet1
     );
     expectNoText(
       changelog,
@@ -680,7 +671,8 @@ describe('mountProductionStitchShell resource i18n', () => {
       'RAW CHANGELOG DESCRIPTION SENTINEL',
       'RAW CHANGELOG BULLET SENTINEL',
       'RAW CHANGELOG NOTES TITLE SENTINEL',
-      'RAW CHANGELOG NOTE ITEM SENTINEL'
+      'RAW CHANGELOG NOTE ITEM SENTINEL',
+      '使用建议'
     );
   });
 
@@ -691,9 +683,7 @@ describe('mountProductionStitchShell resource i18n', () => {
       schemaResourceSupportDescription: '',
       schemaResourceChangelogTitle: '',
       schemaResourceChangelogDescription: '',
-      schemaResourceChangelogV020Bullet1: '',
-      schemaResourceChangelogUsageAdviceTitle: '',
-      schemaResourceChangelogUsageAdvice1: ''
+      schemaResourceChangelogV020Bullet1: ''
     };
 
     mountProductionStitchShell({
@@ -719,12 +709,12 @@ describe('mountProductionStitchShell resource i18n', () => {
       changelog,
       'Changelog',
       'This modal highlights the latest shipped updates from the project changelog.',
-      'Rebuilt Options as a new settings center for overview, language, privacy, storage, capture, output, and maintenance workflows.',
-      'Notes',
-      'Configure the default vault first, then add extra vaults and routing rules as needed.'
+      'Rebuilt Options as a new settings center for overview, language, privacy, storage, capture, output, and maintenance workflows.'
     );
     expectNoText(
       changelog,
+      'Notes',
+      'Configure the default vault first, then add extra vaults and routing rules as needed.',
       '更新日志',
       '重构选项页为新的设置中心',
       '先在 Storage 中配置默认仓库',
