@@ -685,5 +685,13 @@
   "visibleTabScreenshotMissingSenderWindow": "Missing sender window for visible tab screenshot.",
   "visibleTabScreenshotUnsupported": "Visible tab screenshot capture is unsupported.",
   "visibleTabScreenshotMissingImage": "Visible tab screenshot capture returned no image.",
-  "videoSessionDraftTitleFallback": "Video Capture"
+  "videoSessionDraftTitleFallback": "Video Capture",
+  "onboardingAgreementTitle": "Termos e privacidade",
+  "onboardingAgreementDescription": "Revise os termos e a política de privacidade e escolha se deseja permitir estatísticas anônimas de uso e diagnósticos de erro.",
+  "onboardingTermsOfUseLink": "Termos de uso",
+  "onboardingPrivacyPolicyLink": "Política de privacidade",
+  "onboardingAnalyticsConsentLabel": "Permitir estatísticas anônimas de uso",
+  "onboardingErrorReportingConsentLabel": "Permitir diagnósticos de erro",
+  "footerOfficialWebsiteLink": "Site oficial",
+  "footerChangelogLink": "Registro de alterações"
 }

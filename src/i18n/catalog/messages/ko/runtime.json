@@ -685,5 +685,13 @@
   "visibleTabScreenshotMissingSenderWindow": "Missing sender window for visible tab screenshot.",
   "visibleTabScreenshotUnsupported": "Visible tab screenshot capture is unsupported.",
   "visibleTabScreenshotMissingImage": "Visible tab screenshot capture returned no image.",
-  "videoSessionDraftTitleFallback": "Video Capture"
+  "videoSessionDraftTitleFallback": "Video Capture",
+  "onboardingAgreementTitle": "이용 약관 및 개인정보",
+  "onboardingAgreementDescription": "설정을 계속하기 전에 이용 약관과 개인정보 처리방침을 확인하고 익명 사용 통계와 오류 진단 전송 여부를 선택하세요.",
+  "onboardingTermsOfUseLink": "이용 약관",
+  "onboardingPrivacyPolicyLink": "개인정보 처리방침",
+  "onboardingAnalyticsConsentLabel": "익명 사용 통계 전송 허용",
+  "onboardingErrorReportingConsentLabel": "오류 진단 전송 허용",
+  "footerOfficialWebsiteLink": "공식 웹사이트",
+  "footerChangelogLink": "변경 로그"
 }

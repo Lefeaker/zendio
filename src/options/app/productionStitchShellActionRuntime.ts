@@ -109,6 +109,7 @@ const TRACKED_SYNCHRONOUS_ACTIONS = new Set(Object.keys(ACTION_SECTION_MAP));
 const RESOURCE_SECTION_MAP: Record<string, AnalyticsSection> = {
   'privacy-policy': 'privacy',
   'data-usage': 'privacy',
+  'terms-of-use': 'privacy',
   'plugin-setup': 'onboarding'
 };
 

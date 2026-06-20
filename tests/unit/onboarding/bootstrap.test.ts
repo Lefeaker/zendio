@@ -4,6 +4,10 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Messages } from '../../../src/i18n/messages';
 
 type OnboardingRuntimeMessagesMock = Partial<Messages>;
+type OnboardingControllerCtor =
+  typeof import('../../../src/onboarding/bootstrap').OnboardingController;
+type OnboardingNavigationRepo = ConstructorParameters<OnboardingControllerCtor>[0];
+type OnboardingDependencies = NonNullable<ConstructorParameters<OnboardingControllerCtor>[1]>;
 
 const defaultRuntimeMessagesMock = vi.hoisted<OnboardingRuntimeMessagesMock>(() => ({
   onboardingDocumentTitle: 'Zendio',
@@ -97,9 +101,15 @@ function buildOnboardingDom(): void {
     <button id="skipStep3Btn"></button>
     <button id="exploreAuxiliaryBtn"></button>
     <button id="skipStep4Btn"></button>
+    <a id="termsOfUseLink" href="#"></a>
+    <a id="privacyPolicyLink" href="#"></a>
+    <input id="onboardingAnalyticsConsent" type="checkbox" />
+    <input id="onboardingErrorReportingConsent" type="checkbox" />
+    <a id="officialWebsiteLink" href="#"></a>
     <a id="suggestionsLink" href="#"></a>
     <a id="supportLink" href="#"></a>
     <a id="contactLink" href="#"></a>
+    <a id="changelogLink" href="#"></a>
     <button id="skipOnboardingBtn"></button>
     <button id="completeOnboardingBtn" class="hidden"></button>
     <div id="progressBar"></div>
@@ -144,6 +154,51 @@ function createStorageAreaMock() {
     watchKey: vi.fn(() => () => {}),
     watchAll: vi.fn(() => () => {})
   };
+}
+
+function createNavigationRepoMock(): OnboardingNavigationRepo {
+  return {
+    openVault: vi.fn(() => Promise.resolve(undefined)),
+    openOptions: vi.fn(() => Promise.resolve(undefined)),
+    openExternalLink: vi.fn(() => Promise.resolve(undefined))
+  };
+}
+
+function createOnboardingDependencies(
+  overrides: Partial<OnboardingDependencies> = {}
+): OnboardingDependencies {
+  const syncArea = createStorageAreaMock();
+  const localArea = createStorageAreaMock();
+  const sessionArea = createStorageAreaMock();
+  const sendMessage: OnboardingDependencies['tabs']['sendMessage'] = (_tabId, _message, _options) =>
+    new Promise<never>(() => {});
+  return {
+    storage: {
+      sync: syncArea,
+      local: localArea,
+      session: sessionArea
+    },
+    tabs: {
+      create: vi.fn(() => Promise.resolve(undefined)),
+      getCurrent: vi.fn(() => Promise.resolve(undefined)),
+      remove: vi.fn(() => Promise.resolve(undefined)),
+      get: vi.fn(() => Promise.resolve(undefined)),
+      query: vi.fn(() => Promise.resolve([])),
+      sendMessage,
+      onActivated: vi.fn(() => () => {}),
+      onUpdated: vi.fn(() => () => {}),
+      onRemoved: vi.fn(() => () => {})
+    },
+    ...overrides
+  };
+}
+
+function getInputById(id: string): HTMLInputElement {
+  const input = document.getElementById(id);
+  if (!(input instanceof HTMLInputElement)) {
+    throw new Error(`Expected #${id} to be an input`);
+  }
+  return input;
 }
 
 async function createSupportModalTestController() {
@@ -455,6 +510,123 @@ describe('onboarding bootstrap', () => {
     expect(modal?.querySelector('[data-role="resource-image-modal-trigger"]')).not.toBeNull();
     expect(document.querySelector('.support-modal')).toBeNull();
     expect(modalText).not.toMatch(/\p{Script=Han}/u);
+  });
+
+  it('opens the official website externally and renders changelog from the shared resource modal', async () => {
+    const { OnboardingController } = await import('../../../src/onboarding/bootstrap');
+    const openExternalLink = vi.fn(() => Promise.resolve(undefined));
+    const navigationRepo: OnboardingNavigationRepo = {
+      openVault: vi.fn(() => Promise.resolve(undefined)),
+      openOptions: vi.fn(() => Promise.resolve(undefined)),
+      openExternalLink
+    };
+    const controller = new OnboardingController(navigationRepo, createOnboardingDependencies());
+
+    controller.initialize();
+    document
+      .getElementById('officialWebsiteLink')
+      ?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    await Promise.resolve();
+    expect(openExternalLink).toHaveBeenCalledWith('https://sxnian.com/products/zendio');
+
+    document
+      .getElementById('changelogLink')
+      ?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    await vi.waitFor(() => {
+      expect(document.querySelector('.resource-modal')).not.toBeNull();
+    });
+
+    expect(document.querySelector('.resource-modal')?.textContent).toContain('Changelog');
+    expect(window.open).not.toHaveBeenCalled();
+  });
+
+  it('opens terms of use and privacy policy inline from the first-run agreement card', async () => {
+    currentResourceMock.value = {
+      language: 'en',
+      messages: {
+        onboardingDocumentTitle: 'Zendio',
+        schemaResourceTermsTitle: 'Terms of Use Sentinel',
+        schemaResourceTermsDescription: 'Terms description sentinel',
+        schemaResourcePrivacyPolicyTitle: 'Privacy Policy Sentinel',
+        schemaResourcePrivacyPolicyDescription: 'Privacy description sentinel'
+      }
+    };
+    const controller = await createSupportModalTestController();
+
+    controller.initialize();
+    document
+      .getElementById('termsOfUseLink')
+      ?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    await vi.waitFor(() => {
+      expect(document.querySelector('.resource-modal')).not.toBeNull();
+    });
+    expect(document.querySelector('.resource-modal')?.textContent).toContain(
+      'Terms of Use Sentinel'
+    );
+
+    document.querySelectorAll('.resource-modal-overlay').forEach((modal) => modal.remove());
+    document
+      .getElementById('privacyPolicyLink')
+      ?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    await vi.waitFor(() => {
+      expect(document.querySelector('.resource-modal')).not.toBeNull();
+    });
+    expect(document.querySelector('.resource-modal')?.textContent).toContain(
+      'Privacy Policy Sentinel'
+    );
+    expect(window.open).not.toHaveBeenCalled();
+  });
+
+  it('syncs first-run analytics and error diagnostic toggles with Options privacy preferences', async () => {
+    const { OnboardingController } = await import('../../../src/onboarding/bootstrap');
+    const optionsRepository = {
+      get: vi.fn(() =>
+        Promise.resolve({
+          privacyPreferences: {
+            analytics: false,
+            errorReporting: true,
+            debugMode: true
+          }
+        })
+      ),
+      set: vi.fn(() => Promise.resolve(undefined))
+    };
+    const controller = new OnboardingController(
+      createNavigationRepoMock(),
+      createOnboardingDependencies({
+        optionsRepository
+      })
+    );
+
+    controller.initialize();
+    const analytics = getInputById('onboardingAnalyticsConsent');
+    const errorReporting = getInputById('onboardingErrorReportingConsent');
+    await vi.waitFor(() => {
+      expect(analytics?.checked).toBe(false);
+      expect(errorReporting?.checked).toBe(true);
+    });
+
+    analytics?.click();
+    await vi.waitFor(() => {
+      expect(optionsRepository.set).toHaveBeenCalledWith({
+        privacyPreferences: {
+          analytics: true,
+          errorReporting: true,
+          debugMode: true
+        }
+      });
+    });
+
+    errorReporting?.click();
+    await vi.waitFor(() => {
+      expect(optionsRepository.set).toHaveBeenLastCalledWith({
+        privacyPreferences: {
+          analytics: true,
+          errorReporting: false,
+          debugMode: false
+        }
+      });
+    });
   });
 
   it('emits catalog-safe onboarding lifecycle telemetry for consented users', async () => {

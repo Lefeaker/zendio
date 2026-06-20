@@ -26,6 +26,45 @@
         </p>
       </div>
 
+      <section class="onboarding-step onboarding-agreement" aria-labelledby="onboardingAgreementTitle">
+        <div class="step-header">
+          <div class="step-number"><span>✓</span></div>
+          <h2
+            class="step-title"
+            id="onboardingAgreementTitle"
+            data-i18n="onboardingAgreementTitle"
+          >
+            Terms and Privacy
+          </h2>
+        </div>
+        <div class="step-content">
+          <p class="step-description" data-i18n="onboardingAgreementDescription">
+            Review the terms and privacy policy, then choose whether to share anonymous usage
+            statistics and error diagnostics.
+          </p>
+          <div class="agreement-links">
+            <a href="#" id="termsOfUseLink" data-i18n="onboardingTermsOfUseLink">Terms of Use</a>
+            <a href="#" id="privacyPolicyLink" data-i18n="onboardingPrivacyPolicyLink"
+              >Privacy Policy</a
+            >
+          </div>
+          <div class="agreement-consent-grid">
+            <label class="agreement-consent">
+              <input type="checkbox" id="onboardingAnalyticsConsent" />
+              <span data-i18n="onboardingAnalyticsConsentLabel"
+                >Allow anonymous usage statistics</span
+              >
+            </label>
+            <label class="agreement-consent">
+              <input type="checkbox" id="onboardingErrorReportingConsent" />
+              <span data-i18n="onboardingErrorReportingConsentLabel"
+                >Allow error diagnostics</span
+              >
+            </label>
+          </div>
+        </div>
+      </section>
+
       <div class="onboarding-steps">
         <div class="onboarding-step" id="step1">
           <div class="step-header">
@@ -290,6 +329,13 @@
               </ul>
             </div>
             <div class="footer-links">
+              <a
+                href="#"
+                id="officialWebsiteLink"
+                class="footer-link"
+                data-i18n="footerOfficialWebsiteLink"
+                >Official Website</a
+              >
               <a href="#" id="suggestionsLink" class="footer-link" data-i18n="footerSuggestionsLink"
                 >Suggestions</a
               >
@@ -298,6 +344,9 @@
               >
               <a href="#" id="contactLink" class="footer-link" data-i18n="footerContactLink"
                 >Contact Author</a
+              >
+              <a href="#" id="changelogLink" class="footer-link" data-i18n="footerChangelogLink"
+                >Changelog</a
               >
             </div>
           </div>

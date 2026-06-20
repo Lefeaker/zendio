@@ -685,5 +685,13 @@
   "visibleTabScreenshotMissingSenderWindow": "Missing sender window for visible tab screenshot.",
   "visibleTabScreenshotUnsupported": "Visible tab screenshot capture is unsupported.",
   "visibleTabScreenshotMissingImage": "Visible tab screenshot capture returned no image.",
-  "videoSessionDraftTitleFallback": "Video Capture"
+  "videoSessionDraftTitleFallback": "Video Capture",
+  "onboardingAgreementTitle": "使用协议与隐私",
+  "onboardingAgreementDescription": "继续配置前，你可以查看使用协议和隐私政策，并选择是否允许发送匿名使用统计和错误诊断。",
+  "onboardingTermsOfUseLink": "使用协议",
+  "onboardingPrivacyPolicyLink": "隐私政策",
+  "onboardingAnalyticsConsentLabel": "允许发送匿名使用统计",
+  "onboardingErrorReportingConsentLabel": "允许发送错误诊断",
+  "footerOfficialWebsiteLink": "前往官网",
+  "footerChangelogLink": "更新日志"
 }

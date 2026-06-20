@@ -358,5 +358,13 @@
   "schemaYamlFilterAllLabel": "全部",
   "schemaYamlFilterArticleLabel": "文章",
   "schemaYamlFilterClipperLabel": "片段",
-  "schemaYamlFilterVideoLabel": "视频"
+  "schemaYamlFilterVideoLabel": "视频",
+  "schemaResourceTermsTitle": "使用协议",
+  "schemaResourceTermsDescription": "了解使用 Zendio 时的基本责任与服务边界。",
+  "schemaResourceTermsLocalFirstTitle": "本地优先工作流",
+  "schemaResourceTermsLocalFirstBody": "Zendio 会按照你配置的目标保存内容，例如 Obsidian 仓库、本地目录或下载目录。",
+  "schemaResourceTermsUserResponsibilityTitle": "用户责任",
+  "schemaResourceTermsUserResponsibilityBody": "你需要对自己剪藏的内容、授权的保存目标，以及使用的网站和服务规则负责。",
+  "schemaResourceTermsServiceLimitTitle": "服务边界",
+  "schemaResourceTermsServiceLimitBody": "可选的使用统计和错误诊断可以随时关闭。本扩展不会出售个人数据或网页内容。"
 }

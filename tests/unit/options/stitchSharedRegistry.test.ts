@@ -87,7 +87,8 @@ describe('Stitch shared registry contracts', () => {
       'contact',
       'changelog',
       'privacy-policy',
-      'data-usage'
+      'data-usage',
+      'terms-of-use'
     ]);
     expect(Object.keys(surfaceSchemas)).toEqual([
       'clipper',

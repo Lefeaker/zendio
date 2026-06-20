@@ -358,5 +358,13 @@
   "schemaYamlFilterAllLabel": "全部",
   "schemaYamlFilterArticleLabel": "文章",
   "schemaYamlFilterClipperLabel": "片段",
-  "schemaYamlFilterVideoLabel": "影片"
+  "schemaYamlFilterVideoLabel": "影片",
+  "schemaResourceTermsTitle": "使用協議",
+  "schemaResourceTermsDescription": "了解使用 Zendio 時的基本責任與服務邊界。",
+  "schemaResourceTermsLocalFirstTitle": "本地優先工作流",
+  "schemaResourceTermsLocalFirstBody": "Zendio 會依照你設定的目標儲存內容，例如 Obsidian Vault、本地目錄或下載目錄。",
+  "schemaResourceTermsUserResponsibilityTitle": "使用者責任",
+  "schemaResourceTermsUserResponsibilityBody": "你需要對自己剪藏的內容、授權的儲存目標，以及使用的網站和服務規則負責。",
+  "schemaResourceTermsServiceLimitTitle": "服務邊界",
+  "schemaResourceTermsServiceLimitBody": "可選的使用統計和錯誤診斷可以隨時關閉。本擴充功能不會出售個人資料或網頁內容。"
 }

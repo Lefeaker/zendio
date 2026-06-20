@@ -685,5 +685,13 @@
   "visibleTabScreenshotMissingSenderWindow": "Missing sender window for visible tab screenshot.",
   "visibleTabScreenshotUnsupported": "Visible tab screenshot capture is unsupported.",
   "visibleTabScreenshotMissingImage": "Visible tab screenshot capture returned no image.",
-  "videoSessionDraftTitleFallback": "Video Capture"
+  "videoSessionDraftTitleFallback": "Video Capture",
+  "onboardingAgreementTitle": "利用規約とプライバシー",
+  "onboardingAgreementDescription": "設定を続ける前に利用規約とプライバシーポリシーを確認し、匿名の利用統計とエラー診断を送信するか選択できます。",
+  "onboardingTermsOfUseLink": "利用規約",
+  "onboardingPrivacyPolicyLink": "プライバシーポリシー",
+  "onboardingAnalyticsConsentLabel": "匿名の利用統計を送信する",
+  "onboardingErrorReportingConsentLabel": "エラー診断を送信する",
+  "footerOfficialWebsiteLink": "公式サイト",
+  "footerChangelogLink": "変更履歴"
 }

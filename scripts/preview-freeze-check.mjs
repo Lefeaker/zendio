@@ -93,11 +93,12 @@ const ALLOWED_PREVIEW_DRIFT = new Map([
         'The Options capture-source layout refresh updates the generated preview JS hash after hiding the AI user display-name controls from production Options, replacing the video prompt helper with catalog-backed links plus screenshot-dot examples, moving attachment and fragment shortcut helper copy into the control column, adding schema-key generation from English schema source, removing the retired whole-sentence video prompt schema key, and constraining the YAML config table scroll shell inside the card while preserving the frozen reference and Stitch runtime contract.',
         'The Options setup guide consolidation refreshes the generated preview JS hash after folding the visible Plugin Setup resource into the single Setup Guide entry, keeping plugin-setup as a hidden compatibility alias, and moving the shared Obsidian connection/setup/checklist view into one resource builder while preserving the frozen reference and Stitch runtime contract.',
         'The onboarding platform connection refresh updates the generated preview JS hash after making Chrome/Chromium setup copy recommend Local Folder first with Obsidian Local REST API as fallback, keeping Firefox on Obsidian Local REST API, and reusing the shared Options resource modals for Suggestions, Support, and Contact while preserving the frozen reference and Stitch runtime contract.',
-        'The onboarding setup-guide copy refresh updates the generated preview JS hash after adding certificate-trust guidance to REST API fallback copy, keeping the onboarding resource footer links on one row, and adding the catalog-backed 48-hour / 5-page unsaved reading and video draft restore feature bullet while preserving the frozen reference and Stitch runtime contract.'
+        'The onboarding setup-guide copy refresh updates the generated preview JS hash after adding certificate-trust guidance to REST API fallback copy, keeping the onboarding resource footer links on one row, and adding the catalog-backed 48-hour / 5-page unsaved reading and video draft restore feature bullet while preserving the frozen reference and Stitch runtime contract.',
+        'The onboarding first-run agreement refresh updates the generated preview JS hash after adding the official website and changelog footer actions, the schema-backed terms-of-use resource, and privacy consent controls shared with Options privacy preferences while preserving the frozen reference, the shared resource modal contract, and the Stitch runtime behavior.'
       ].join(' '),
       leftSha256: '9020ccbd91acd691eccd3fdf568b9a90efbddf0a35d79f36ef1caba702fa0c07',
-      // 2026-06-20 onboarding setup-guide copy and footer layout preview JS hash.
-      rightSha256: '27413b9e845b0dec673df777bdba53344357e8fa08773611d90c12920a1dd366'
+      // 2026-06-20 onboarding first-run agreement and footer resource preview JS hash.
+      rightSha256: '63625ed109caadd1b93893cbfd92ae3c4f1fc95f745d6ef69e00ede1748e5d95'
     }
   ]
 ]);

@@ -358,5 +358,13 @@
   "schemaYamlFilterAllLabel": "All",
   "schemaYamlFilterArticleLabel": "Article",
   "schemaYamlFilterClipperLabel": "Clipper",
-  "schemaYamlFilterVideoLabel": "Video"
+  "schemaYamlFilterVideoLabel": "Video",
+  "schemaResourceTermsTitle": "Terms of Use",
+  "schemaResourceTermsDescription": "Understand the basic usage responsibilities and service boundaries for Zendio.",
+  "schemaResourceTermsLocalFirstTitle": "Local-first workflow",
+  "schemaResourceTermsLocalFirstBody": "Zendio is designed to save content into destinations you configure, such as Obsidian vaults, local folders, or downloads.",
+  "schemaResourceTermsUserResponsibilityTitle": "User responsibility",
+  "schemaResourceTermsUserResponsibilityBody": "You are responsible for the content you clip, the destinations you authorize, and compliance with the websites and services you use.",
+  "schemaResourceTermsServiceLimitTitle": "Service boundaries",
+  "schemaResourceTermsServiceLimitBody": "Optional analytics and error diagnostics can be disabled at any time. The extension does not sell personal data or page content."
 }

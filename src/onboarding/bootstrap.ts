@@ -17,14 +17,34 @@ import type { StorageAreaService } from '../platform/interfaces/storage';
 import type { StorageService } from '../platform/interfaces/storage';
 import type { TabsService } from '../platform/interfaces/tabs';
 import type { PlatformServices } from '../platform/types';
-import type { InterfaceTheme } from '../shared/types/options';
+import type { InterfaceTheme, PrivacyPreferencesOptions } from '../shared/types/options';
 import type { OnboardingTrackingRequest } from './onboardingAnalytics';
 
 let declarativeI18nController: PageI18nController | null = null;
 
 type BrowserStorageLike = Partial<Pick<Storage, 'getItem' | 'setItem'>> & Record<string, unknown>;
 type OnboardingBrowserTarget = 'chrome' | 'firefox';
-type OnboardingResourceId = 'support' | 'suggestions' | 'contact';
+type OnboardingResourceId =
+  | 'support'
+  | 'suggestions'
+  | 'contact'
+  | 'changelog'
+  | 'privacy-policy'
+  | 'terms-of-use';
+type OnboardingPrivacyField = 'analytics' | 'errorReporting';
+interface OnboardingPrivacySnapshot {
+  analytics: boolean;
+  errorReporting: boolean;
+  debugMode: boolean;
+}
+interface OnboardingPrivacyOptions {
+  privacyPreferences?: Partial<PrivacyPreferencesOptions>;
+}
+interface OnboardingOptionsRepository {
+  get: () => Promise<OnboardingPrivacyOptions>;
+  set: (options: { privacyPreferences: OnboardingPrivacySnapshot }) => Promise<void>;
+  onChange?: (callback: (options: OnboardingPrivacyOptions) => void) => () => void;
+}
 type OnboardingConnectionGuideKeys = {
   title: keyof Messages;
   description: keyof Messages;
@@ -32,6 +52,7 @@ type OnboardingConnectionGuideKeys = {
 };
 
 const DEFAULT_ONBOARDING_DOCUMENT_TITLE = 'Zendio';
+const ZENDIO_OFFICIAL_WEBSITE_URL = 'https://sxnian.com/products/zendio';
 const FIREFOX_CONNECTION_GUIDE_KEYS: OnboardingConnectionGuideKeys = {
   title: 'step1Title',
   description: 'step1Description',
@@ -139,7 +160,7 @@ function applyOnboardingConnectionGuideCopy(messages: Partial<Messages> | null |
 interface OnboardingControllerDependencies {
   messagingRepository?: Pick<IMessagingRepository, 'send'>;
   now?: () => number;
-  optionsRepository?: Pick<IOptionsRepository, 'get'>;
+  optionsRepository?: OnboardingOptionsRepository;
   storage: StorageService;
   tabs: TabsService;
 }
@@ -215,9 +236,14 @@ function createPreviewDependencies(): OnboardingControllerDependencies {
   };
 }
 
-function hasOptionsRepository(value: unknown): value is Pick<IOptionsRepository, 'get'> {
-  const candidate = value as { get?: unknown } | null;
-  return typeof candidate === 'object' && candidate !== null && typeof candidate.get === 'function';
+function hasOptionsRepository(value: unknown): value is OnboardingOptionsRepository {
+  const candidate = value as Partial<OnboardingOptionsRepository> | null;
+  return (
+    typeof candidate === 'object' &&
+    candidate !== null &&
+    typeof candidate.get === 'function' &&
+    typeof candidate.set === 'function'
+  );
 }
 
 function hasMessagingRepository(value: unknown): value is Pick<IMessagingRepository, 'send'> {
@@ -227,7 +253,7 @@ function hasMessagingRepository(value: unknown): value is Pick<IMessagingReposit
   );
 }
 
-function resolveOptionalOptionsRepository(): Pick<IOptionsRepository, 'get'> | undefined {
+function resolveOptionalOptionsRepository(): OnboardingOptionsRepository | undefined {
   try {
     const repository = resolveRepository<unknown>(DI_TOKENS.IOptionsRepository);
     return hasOptionsRepository(repository) ? repository : undefined;
@@ -266,6 +292,8 @@ export class OnboardingController {
   private readonly onboardingStartedAt: number;
   private readonly now: () => number;
   private startedTracked = false;
+  private privacySubscriptionActive = false;
+  private currentPrivacySnapshot: OnboardingPrivacySnapshot | null = null;
 
   constructor(
     private readonly navigationRepo: INavigationRepository,
@@ -280,6 +308,7 @@ export class OnboardingController {
     restoreCompletedSteps();
     updateProgress();
     this.bindEventHandlers();
+    void this.initializePrivacyConsentControls();
     void this.trackOnboardingStarted();
   }
 
@@ -290,7 +319,7 @@ export class OnboardingController {
     return this.dependencies;
   }
 
-  private getOptionsRepository(): Pick<IOptionsRepository, 'get'> | undefined {
+  private getOptionsRepository(): OnboardingOptionsRepository | undefined {
     const provided = this.dependencies?.optionsRepository;
     return provided ?? resolveOptionalOptionsRepository();
   }
@@ -382,9 +411,21 @@ export class OnboardingController {
     this.bindClick('exploreAuxiliaryBtn', () => this.openOptionsAndMarkStep(4));
     this.bindClick('skipStep4Btn', () => this.handleSkipStep(4));
 
+    this.bindClick('termsOfUseLink', () => this.handleTermsOfUse(), { preventDefault: true });
+    this.bindClick('privacyPolicyLink', () => this.handlePrivacyPolicy(), { preventDefault: true });
+    this.bindCheckboxChange('onboardingAnalyticsConsent', (checked) =>
+      this.persistPrivacyPreference('analytics', checked)
+    );
+    this.bindCheckboxChange('onboardingErrorReportingConsent', (checked) =>
+      this.persistPrivacyPreference('errorReporting', checked)
+    );
+    this.bindClick('officialWebsiteLink', () => this.handleOfficialWebsite(), {
+      preventDefault: true
+    });
     this.bindClick('suggestionsLink', () => this.handleFeedback(), { preventDefault: true });
     this.bindClick('supportLink', () => this.handleSupport(), { preventDefault: true });
     this.bindClick('contactLink', () => this.handleContact(), { preventDefault: true });
+    this.bindClick('changelogLink', () => this.handleChangelog(), { preventDefault: true });
 
     this.bindClick('skipOnboardingBtn', () => this.handleSkipOnboarding());
     this.bindClick('completeOnboardingBtn', () => this.handleCompleteOnboarding());
@@ -405,6 +446,123 @@ export class OnboardingController {
       }
       void handler();
     });
+  }
+
+  private bindCheckboxChange(
+    elementId: string,
+    handler: (checked: boolean) => void | Promise<void>
+  ): void {
+    const element = document.getElementById(elementId);
+    if (!(element instanceof HTMLInputElement)) {
+      return;
+    }
+    element.addEventListener('change', () => {
+      void handler(element.checked);
+    });
+  }
+
+  private async initializePrivacyConsentControls(): Promise<void> {
+    const optionsRepository = this.getOptionsRepository();
+    if (!optionsRepository) {
+      this.applyPrivacySnapshotToControls({
+        analytics: false,
+        errorReporting: false,
+        debugMode: false
+      });
+      return;
+    }
+
+    try {
+      this.applyPrivacySnapshotToControls(
+        this.normalizePrivacySnapshot(await optionsRepository.get())
+      );
+      if (!this.privacySubscriptionActive && typeof optionsRepository.onChange === 'function') {
+        this.privacySubscriptionActive = true;
+        optionsRepository.onChange((options) => {
+          this.applyPrivacySnapshotToControls(this.normalizePrivacySnapshot(options));
+        });
+      }
+    } catch {
+      this.applyPrivacySnapshotToControls({
+        analytics: false,
+        errorReporting: false,
+        debugMode: false
+      });
+    }
+  }
+
+  private normalizePrivacySnapshot(
+    options: OnboardingPrivacyOptions | null | undefined
+  ): OnboardingPrivacySnapshot {
+    const current = options?.privacyPreferences;
+    return {
+      analytics: Boolean(current?.analytics),
+      errorReporting: Boolean(current?.errorReporting),
+      debugMode: Boolean(current?.debugMode)
+    };
+  }
+
+  private applyPrivacySnapshotToControls(snapshot: OnboardingPrivacySnapshot): void {
+    this.currentPrivacySnapshot = snapshot;
+    const analytics = document.getElementById('onboardingAnalyticsConsent');
+    const errorReporting = document.getElementById('onboardingErrorReportingConsent');
+    if (analytics instanceof HTMLInputElement) {
+      analytics.checked = snapshot.analytics;
+    }
+    if (errorReporting instanceof HTMLInputElement) {
+      errorReporting.checked = snapshot.errorReporting;
+    }
+  }
+
+  private async persistPrivacyPreference(
+    field: OnboardingPrivacyField,
+    value: boolean
+  ): Promise<void> {
+    const optionsRepository = this.getOptionsRepository();
+    if (!optionsRepository) {
+      return;
+    }
+
+    try {
+      const nextSnapshot = {
+        ...(this.currentPrivacySnapshot ??
+          this.normalizePrivacySnapshot(await optionsRepository.get())),
+        [field]: value
+      };
+      if ((!nextSnapshot.analytics || !nextSnapshot.errorReporting) && nextSnapshot.debugMode) {
+        nextSnapshot.debugMode = false;
+      }
+      await optionsRepository.set({
+        privacyPreferences: nextSnapshot
+      });
+      this.applyPrivacySnapshotToControls(nextSnapshot);
+      await this.applyRuntimePrivacySnapshot(nextSnapshot, field);
+    } catch (error) {
+      console.error('[onboarding] Failed to persist privacy preference:', error);
+      await this.initializePrivacyConsentControls();
+    }
+  }
+
+  private async applyRuntimePrivacySnapshot(
+    snapshot: OnboardingPrivacySnapshot,
+    field: OnboardingPrivacyField
+  ): Promise<void> {
+    try {
+      const [{ getAnalyticsConfigManager, setAnalyticsConsent }, { updateErrorAnalyticsConfig }] =
+        await Promise.all([
+          import('../shared/errors/analytics/analyticsConfig'),
+          import('../shared/errors/analytics')
+        ]);
+      const runtimeDebugMode =
+        snapshot.analytics || snapshot.errorReporting ? snapshot.debugMode : false;
+      await setAnalyticsConsent(snapshot.analytics, snapshot.errorReporting);
+      await getAnalyticsConfigManager().updateConfig({ debugMode: runtimeDebugMode });
+      if (field === 'errorReporting') {
+        await updateErrorAnalyticsConfig(snapshot.errorReporting);
+      }
+    } catch {
+      // Runtime privacy sync is best-effort; persisted Options state remains the source of truth.
+    }
   }
 
   private async openOptionsAndMarkStep(stepNumber: number): Promise<void> {
@@ -436,6 +594,22 @@ export class OnboardingController {
     }
   }
 
+  private async handleTermsOfUse(): Promise<void> {
+    await openOnboardingResourceModal('terms-of-use');
+  }
+
+  private async handlePrivacyPolicy(): Promise<void> {
+    await openOnboardingResourceModal('privacy-policy');
+  }
+
+  private async handleOfficialWebsite(): Promise<void> {
+    try {
+      await this.navigationRepo.openExternalLink(ZENDIO_OFFICIAL_WEBSITE_URL);
+    } catch (error) {
+      console.error('[onboarding] Failed to open official website:', error);
+    }
+  }
+
   private async handleSupport(): Promise<void> {
     try {
       await openOnboardingResourceModal('support');
@@ -451,6 +625,10 @@ export class OnboardingController {
   private async handleContact(): Promise<void> {
     await openOnboardingResourceModal('contact');
     await this.trackSupportAction('contact');
+  }
+
+  private async handleChangelog(): Promise<void> {
+    await openOnboardingResourceModal('changelog');
   }
 
   private async handleSkipOnboarding(): Promise<void> {
@@ -605,6 +783,9 @@ function parseOnboardingResourceId(value: string | undefined): OnboardingResourc
     case 'support':
     case 'suggestions':
     case 'contact':
+    case 'changelog':
+    case 'privacy-policy':
+    case 'terms-of-use':
       return value;
     default:
       return null;
