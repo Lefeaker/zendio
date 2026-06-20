@@ -10,7 +10,7 @@ import type {
 } from '@platform/interfaces/storage';
 import type { IVideoRepository } from '@shared/repositories/IVideoRepository';
 import type { VideoOptions } from '@shared/types/options';
-import { VIDEO_MODE_ICON_PATH } from '@shared/assets/iconPaths';
+import { VIDEO_CONTROL_BAR_LOGO_PATH, VIDEO_MODE_PANEL_ICON_PATH } from '@shared/assets/iconPaths';
 import { intervalId } from '../../utils/typeHelpers';
 
 type Deferred<T> = {
@@ -458,7 +458,7 @@ describe('video prompt', () => {
     expect(lastRendererConfig.current?.label).toBe('Clip video');
     expect(lastRendererConfig.current?.shortcut).toBe('CTRL+SHIFT+V');
     expect(lastRendererConfig.current?.getIconUrl?.()).toBe(
-      `chrome-extension://mock/${VIDEO_MODE_ICON_PATH}`
+      `chrome-extension://mock/${VIDEO_MODE_PANEL_ICON_PATH}`
     );
 
     const state = currentTestUtils.getPromptStateForTests();
@@ -506,7 +506,7 @@ describe('video prompt', () => {
     expect(getPromptFromShadowDom()).toBeNull();
     expect(ensureVideoControlBarButtonMock).toHaveBeenCalled();
     expect(ensureVideoControlBarButtonMock.mock.calls.at(-1)?.[0]?.getIconUrl?.()).toBe(
-      `chrome-extension://mock/${VIDEO_MODE_ICON_PATH}`
+      `chrome-extension://mock/${VIDEO_CONTROL_BAR_LOGO_PATH}`
     );
   });
 

@@ -13,6 +13,7 @@ import { createVideoSessionDependencies } from './sessionDependencies';
 export interface VideoLazyRuntimeDependencies {
   optionsRepository: IOptionsRepository;
   storage: StorageService;
+  runtime?: Pick<RuntimeService, 'getURL'>;
   messaging?: Pick<MessagingService, 'send'>;
   showSupportProgress?: SupportProgressReporter;
 }
@@ -33,6 +34,7 @@ export function createVideoSessionAdapter(
         const videoDependencies = createVideoSessionDependencies({
           optionsRepository: dependencies.optionsRepository,
           storage: dependencies.storage,
+          ...(dependencies.runtime ? { runtime: dependencies.runtime } : {}),
           ...(dependencies.messaging ? { messaging: dependencies.messaging } : {}),
           ...(dependencies.showSupportProgress
             ? { showSupportProgress: dependencies.showSupportProgress }
@@ -75,6 +77,7 @@ export async function initializeVideoPromptRuntime(
           createVideoSessionDependencies({
             optionsRepository: dependencies.optionsRepository,
             storage: dependencies.storage,
+            runtime: dependencies.runtime,
             ...(dependencies.messaging ? { messaging: dependencies.messaging } : {}),
             ...(dependencies.showSupportProgress
               ? { showSupportProgress: dependencies.showSupportProgress }

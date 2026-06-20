@@ -93,6 +93,16 @@ describe('shared optionsMerger', () => {
     expect(result.templates.video).toBe(DEFAULT_OPTIONS.templates.video);
   });
 
+  it('preserves explicit video template values without legacy default migration', () => {
+    expect(
+      mergeOptions({
+        templates: {
+          video: 'video/{domain}/{yyyy}/{yyyy}-{mm}-{dd}/{slug}.md'
+        }
+      }).templates.video
+    ).toBe('video/{domain}/{yyyy}/{yyyy}-{mm}-{dd}/{slug}.md');
+  });
+
   it('merges persisted privacy preferences with explicit false defaults', () => {
     const result = mergeOptions({
       privacyPreferences: {

@@ -13,7 +13,7 @@ describe('production template settings', () => {
     const options = mergeOptions({
       templates: {
         article: 'Articles/custom-article.md',
-        video: 'video/custom-video.md',
+        video: 'Video/custom-video.md',
         fragment: 'Fragments/custom-fragment.md',
         reading: 'Reading/custom-reading.md',
         ai: 'AI/custom-ai.md'
@@ -26,7 +26,7 @@ describe('production template settings', () => {
     expect(state.templateValues).toEqual(
       expect.objectContaining({
         articleVideo: 'Articles/custom-article.md',
-        video: 'video/custom-video.md',
+        video: 'Video/custom-video.md',
         fragment: 'Fragments/custom-fragment.md',
         readingCustom: 'Reading/custom-reading.md',
         aiChat: 'AI/custom-ai.md'

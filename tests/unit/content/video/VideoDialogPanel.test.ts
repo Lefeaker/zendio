@@ -10,7 +10,7 @@ import type {
 import { createVideoSurfaceContent } from '@content/stitch/runtimeSurfaceContent';
 import { renderStitchRuntimeSurface } from '@content/stitch/runtimeSurfaceRenderer';
 import { VideoDialogPanel } from '@content/video/ui/VideoDialogPanel';
-import { VIDEO_MODE_ICON_PATH } from '@shared/assets/iconPaths';
+import { VIDEO_MODE_PANEL_ICON_PATH } from '@shared/assets/iconPaths';
 import { testPlatformHarness } from '../../../setup/globalSetup';
 
 const callbacks: VideoPanelCallbacks = {
@@ -99,7 +99,54 @@ describe('VideoDialogPanel', () => {
       '.surface-window-icon-image'
     );
 
-    expect(icon?.getAttribute('src')).toBe(VIDEO_MODE_ICON_PATH);
+    expect(icon?.getAttribute('src')).toBe(VIDEO_MODE_PANEL_ICON_PATH);
+
+    panel.destroy();
+  });
+
+  it('resolves the video mode icon URL for content-page session panels', () => {
+    const panel = new VideoDialogPanel({
+      callbacks,
+      texts,
+      resolveAssetUrl: (path) => `chrome-extension://mock/${path}`
+    });
+
+    const icon = panel.element.shadowRoot?.querySelector<HTMLImageElement>(
+      '.surface-window-icon-image'
+    );
+
+    expect(icon?.getAttribute('src')).toBe(`chrome-extension://mock/${VIDEO_MODE_PANEL_ICON_PATH}`);
+
+    panel.destroy();
+  });
+
+  it('preserves the loaded panel icon element across capture rerenders', () => {
+    const panel = new VideoDialogPanel({
+      callbacks,
+      texts,
+      resolveAssetUrl: (path) => `chrome-extension://mock/${path}`
+    });
+
+    const iconBefore = panel.element.shadowRoot?.querySelector<HTMLImageElement>(
+      '.surface-window-icon-image'
+    );
+    panel.setCaptures([createCapture({ id: 'capture-1', hasScreenshot: false })]);
+    const iconAfterAdd = panel.element.shadowRoot?.querySelector<HTMLImageElement>(
+      '.surface-window-icon-image'
+    );
+    panel.setCaptures([createCapture({ id: 'capture-1', hasScreenshot: true })]);
+    const iconAfterStatusChange = panel.element.shadowRoot?.querySelector<HTMLImageElement>(
+      '.surface-window-icon-image'
+    );
+    panel.setCaptures([]);
+    const iconAfterDelete = panel.element.shadowRoot?.querySelector<HTMLImageElement>(
+      '.surface-window-icon-image'
+    );
+
+    expect(iconBefore).toBeInstanceOf(HTMLImageElement);
+    expect(iconAfterAdd).toBe(iconBefore);
+    expect(iconAfterStatusChange).toBe(iconBefore);
+    expect(iconAfterDelete).toBe(iconBefore);
 
     panel.destroy();
   });

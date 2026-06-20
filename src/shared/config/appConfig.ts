@@ -45,7 +45,7 @@ const DEFAULT_FRAGMENT_CLIPPER: FragmentClipperOptions = {
 
 const DEFAULT_TEMPLATES: TemplateOptions = {
   article: 'Articles/{domain}/{yyyy}/{slug}.md',
-  video: 'video/{domain}/{yyyy}/{yyyy}-{mm}-{dd}/{slug}.md',
+  video: 'Video/{domain}/{yyyy}/{yyyy}-{mm}-{dd}/{slug}.md',
   fragment: 'Fragments/{yyyy}/{mm}/{dd}/{title}.md',
   reading: 'Reading/{domain}/{yyyy}/{yyyy}-{mm}-{dd}/{slug}.md',
   ai: 'AI/{platform}/{yyyy}/{yyyy}-{mm}-{dd}_{title}.md'

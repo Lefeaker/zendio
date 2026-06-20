@@ -67,9 +67,8 @@ describe('createVideoPanelViewFactory', () => {
   beforeEach(async () => {
     vi.resetModules();
     mocks.dialogCtor.mockReset();
-    ({ createVideoPanelViewFactory } = await import(
-      '../../../../src/content/video/presentation/videoPanelView'
-    ));
+    ({ createVideoPanelViewFactory } =
+      await import('../../../../src/content/video/presentation/videoPanelView'));
   });
 
   it('creates VideoDialogPanel and proxies view calls', () => {
@@ -78,6 +77,18 @@ describe('createVideoPanelViewFactory', () => {
 
     expect(mocks.dialogCtor).toHaveBeenCalledWith({ callbacks, texts });
     expect(view).toBeTruthy();
+  });
+
+  it('passes the configured asset resolver into the Stitch video panel', () => {
+    const resolveAssetUrl = vi.fn((path: string) => `chrome-extension://mock/${path}`);
+    const factory = createVideoPanelViewFactory({ resolveAssetUrl });
+    factory.createView(callbacks, texts);
+
+    expect(mocks.dialogCtor).toHaveBeenCalledWith({
+      callbacks,
+      texts,
+      resolveAssetUrl
+    });
   });
 
   it('passes the initial collapsed option into the Stitch video panel', () => {

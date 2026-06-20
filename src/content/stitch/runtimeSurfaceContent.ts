@@ -15,7 +15,7 @@ import type {
   VideoPanelCapture,
   VideoPanelTexts
 } from '@content/video/application/videoPanelModel';
-import { VIDEO_MODE_ICON_PATH } from '@shared/assets/iconPaths';
+import { VIDEO_MODE_PANEL_ICON_PATH } from '@shared/assets/iconPaths';
 import { ZENDIO_RESOURCE_LINKS } from '@shared/links/zendioResourceLinks';
 
 const VIDEO_PREVIEW_ABSENT_ACTIONS = new Set(['video:add', 'video:save', 'video:delete']);
@@ -170,7 +170,7 @@ function createRuntimeContent(): PreviewContent {
       },
       video: {
         hero: hero('Video Mode'),
-        iconUrl: VIDEO_MODE_ICON_PATH,
+        iconUrl: VIDEO_MODE_PANEL_ICON_PATH,
         labels: {
           title: '',
           subtitle: '',

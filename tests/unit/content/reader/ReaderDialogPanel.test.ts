@@ -118,6 +118,35 @@ describe('ReaderDialogPanel', () => {
     panel.destroy();
   });
 
+  it('preserves the loaded panel icon element across highlight rerenders', () => {
+    const panel = new ReaderDialogPanel({
+      texts: createReaderPanelTexts(),
+      callbacks: createReaderPanelCallbacks(),
+      resolveAssetUrl: (path) => `chrome-extension://mock/${path}`
+    });
+
+    const iconBefore = panel.element.shadowRoot?.querySelector<HTMLImageElement>(
+      '.surface-window-icon-image'
+    );
+    panel.setHighlights([createHighlight({ id: 'h-1', index: 1 })]);
+    const iconAfterAdd = panel.element.shadowRoot?.querySelector<HTMLImageElement>(
+      '.surface-window-icon-image'
+    );
+    panel.setHighlights([
+      createHighlight({ id: 'h-1', index: 1 }),
+      createHighlight({ id: 'h-2', index: 2 })
+    ]);
+    const iconAfterUpdate = panel.element.shadowRoot?.querySelector<HTMLImageElement>(
+      '.surface-window-icon-image'
+    );
+
+    expect(iconBefore).toBeInstanceOf(HTMLImageElement);
+    expect(iconAfterAdd).toBe(iconBefore);
+    expect(iconAfterUpdate).toBe(iconBefore);
+
+    panel.destroy();
+  });
+
   it('reports editing only while the highlight note input keeps focus', () => {
     const panel = new ReaderDialogPanel({
       texts: createReaderPanelTexts(),

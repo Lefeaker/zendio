@@ -191,6 +191,7 @@ export function createLazyVideoSessionFactory(
           createVideoSessionAdapter(doc, {
             optionsRepository: dependencies.optionsRepository,
             storage: dependencies.storage,
+            runtime: dependencies.runtime,
             messaging: dependencies.messaging,
             ...(dependencies.showSupportProgress
               ? { showSupportProgress: dependencies.showSupportProgress }

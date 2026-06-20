@@ -46,7 +46,7 @@ const OUTPUT_TEMPLATE_PRESETS: Record<OutputTemplatePresetName, OutputTemplatePr
       name: 'Research',
       templates: Object.freeze({
         article: 'Research/{domain}/{yyyy}/{slug}.md',
-        video: 'video/Research/{domain}/{yyyy}/{yyyy}-{mm}-{dd}/{slug}.md',
+        video: 'Video/Research/{domain}/{yyyy}/{yyyy}-{mm}-{dd}/{slug}.md',
         fragment: 'Research/Fragments/{domain}/{yyyy}/{yyyy}-{mm}-{dd}/{slug}.md',
         reading: 'Research/{domain}/{yyyy}/{yyyy}-{mm}-{dd}/{slug}.md',
         ai: 'Research/AI/{platform}/{yyyy}/{yyyy}-{mm}-{dd}_{title}.md'

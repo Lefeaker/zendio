@@ -13,16 +13,19 @@ import { bindSessionPanelResize } from '@content/shared/panels/sessionPanelResiz
 import { SessionPanelCollapsePersistence } from '@content/shared/panels/sessionPanelCollapsePersistence';
 import { createSessionPanelRenderRoot } from '@content/shared/panels/sessionPanelRoot';
 import { bindSessionItemPreviewExpansion } from '@content/shared/panels/sessionItemPreviewExpansion';
+import { preserveSessionPanelIcon } from '@content/shared/panels/sessionPanelIconPersistence';
 import { SessionCommentDraftController } from '@content/shared/panels/sessionCommentDrafts';
 import { patchExportDestinationRow } from '@content/shared/exportDestinationDom';
 import type { ExportDestinationSurfacePreview } from '@options/stitch/types';
 import { focusContentDialogElementByDataset } from '@ui/hosts/content/contentDialogFocus';
 import { bindVideoInputKeyboardIsolationBoundary } from '../videoInputEventIsolation';
 import { applyVideoDialogPanelCompatibilityAttributes } from './videoDialogPanelCompatibility';
+import { VIDEO_MODE_PANEL_ICON_PATH } from '@shared/assets/iconPaths';
 
 interface VideoDialogPanelOptions {
   callbacks: VideoPanelCallbacks;
   texts: VideoPanelTexts;
+  resolveAssetUrl?: (path: string) => string;
   initialCollapsed?: boolean;
 }
 
@@ -215,6 +218,7 @@ export class VideoDialogPanel implements UiMountable<
     this.previewExpansionDisposer?.();
     this.previewExpansionDisposer = null;
     const surface = this.renderSurface();
+    preserveSessionPanelIcon(shadow, surface);
     this.suppressCaptureEditorBlurForInternalRender();
     shadow.replaceChildren(surface);
     panelStyleSheetManager.applyStitchRuntimeStyles(shadow);
@@ -240,6 +244,7 @@ export class VideoDialogPanel implements UiMountable<
       texts: this.texts,
       captures: this.captures.map((capture) => this.commentDrafts.withDraft(capture)),
       counter: this.formatCounter(this.captureCount),
+      iconUrl: this.resolveAssetUrl(VIDEO_MODE_PANEL_ICON_PATH),
       ...(this.destination ? { destination: this.destination } : {}),
       actions: [
         { id: 'video:finish', label: this.texts.finish, variant: 'primary' },
@@ -309,6 +314,14 @@ export class VideoDialogPanel implements UiMountable<
     });
     this.bindCaptureInteractions(surface);
     return surface;
+  }
+
+  private resolveAssetUrl(path: string): string {
+    try {
+      return this.options.resolveAssetUrl?.(path) ?? path;
+    } catch {
+      return path;
+    }
   }
 
   private resolveActionId(event: Event, datasetKey: 'captureId' | 'destinationId'): string | null {

@@ -26,7 +26,7 @@ describe('pathResolver', () => {
     const path = resolvePath(
       {
         ...minimalPreset.templates,
-        video: 'video/{domain}/{yyyy}/{yyyy}-{mm}-{dd}/{slug}.md'
+        video: 'Video/{domain}/{yyyy}/{yyyy}-{mm}-{dd}/{slug}.md'
       },
       {
         markdown: '# video',
@@ -42,7 +42,7 @@ describe('pathResolver', () => {
     );
 
     expect(path).toBe(
-      'video/www.bilibili.com/2026/2026-05-09/当我以为国内景区审美已经要完蛋了的时候…直到我们来到….md'
+      'Video/www.bilibili.com/2026/2026-05-09/当我以为国内景区审美已经要完蛋了的时候…直到我们来到….md'
     );
   });
 });

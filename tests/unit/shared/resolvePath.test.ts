@@ -6,7 +6,7 @@ import type { TemplateOptions } from '@shared/types/options';
 
 const templates: TemplateOptions = {
   article: 'Articles/{domain}/{yyyy}/{slug}.md',
-  video: 'video/{domain}/{yyyy}/{yyyy}-{mm}-{dd}/{slug}.md',
+  video: 'Video/{domain}/{yyyy}/{yyyy}-{mm}-{dd}/{slug}.md',
   fragment: 'Clippings/{domain}/{yyyy}/{yyyy}-{mm}-{dd}/{slug}.md',
   reading: 'Reading/{domain}/{yyyy}/{yyyy}-{mm}-{dd}/{slug}.md',
   ai: 'AI/{platform}/{yyyy}/{mm}/{dd}/{title}.md'
@@ -103,7 +103,7 @@ describe('resolvePath', () => {
       meta: { url: 'https://video.example.com/watch?v=1', domain: 'video.example.com' }
     });
     const result = resolvePath(templates, payload, { ...CLASSIFICATION, type: 'video' });
-    expect(result).toBe('video/video.example.com/2024/2024-01-02/video-note.md');
+    expect(result).toBe('Video/video.example.com/2024/2024-01-02/video-note.md');
   });
 
   it('distinguishes month and minute placeholders when both are present', () => {

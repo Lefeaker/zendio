@@ -6,6 +6,7 @@ import type { IVideoRepository } from '../../shared/repositories/IVideoRepositor
 import type { IOptionsRepository } from '../../shared/repositories/IOptionsRepository';
 import type { MessagingService } from '../../platform/interfaces/messaging';
 import type { StorageService } from '../../platform/interfaces/storage';
+import type { RuntimeService } from '../../platform/interfaces/runtime';
 import type { SupportProgressReporter } from '../runtime/supportProgress';
 import { createVisibleTabVideoFrameScreenshotCapture } from './videoVisibleTabScreenshot';
 import { createVideoScreenshotCacheClientRepository } from './videoScreenshotCacheClientRepository';
@@ -15,6 +16,7 @@ export interface VideoSessionPlatformDependencies {
   optionsRepository: IOptionsRepository;
   videoRepository?: IVideoRepository;
   storage: StorageService;
+  runtime?: Pick<RuntimeService, 'getURL'>;
   messaging?: Pick<MessagingService, 'send'>;
   showSupportProgress?: SupportProgressReporter;
 }
@@ -22,8 +24,15 @@ export interface VideoSessionPlatformDependencies {
 export function createVideoSessionDependencies(
   deps: VideoSessionPlatformDependencies
 ): VideoSessionDependencies {
+  const runtime = deps.runtime;
   return {
-    viewFactory: createVideoPanelViewFactory(),
+    viewFactory: createVideoPanelViewFactory(
+      runtime
+        ? {
+            resolveAssetUrl: (path) => runtime.getURL(path)
+          }
+        : {}
+    ),
     optionsRepository: deps.optionsRepository,
     videoRepository:
       deps.videoRepository ?? resolveRepository<IVideoRepository>(DI_TOKENS.IVideoRepository),
