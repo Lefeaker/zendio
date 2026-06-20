@@ -1,4 +1,4 @@
-# Zendio Chrome 扩展隐私政策
+# Zendio 浏览器扩展隐私政策
 
 公开访问版本：https://github.com/Lefeaker/AllinOB
 
@@ -8,7 +8,7 @@
 
 ## 一、适用范围
 
-本隐私政策适用于您在 Chrome / Chromium 浏览器中安装、使用及更新本扩展的全过程。
+本隐私政策适用于您在 Chrome / Chromium 浏览器以及可用的 Firefox 构建版本中安装、使用及更新本扩展的全过程。
 
 Zendio 采用 local-first 设计：剪藏、解析、阅读模式、视频笔记、配置管理和写入 Obsidian 的核心流程默认在您的浏览器、本地 Vault 或本地 Obsidian REST API 环境中完成。只有在您主动打开“Usage analytics”或“Error reporting”开关后，扩展才会通过维护者控制的代理端点发送受限的匿名事件到 GA4。您可以随时关闭这些开关，也可以清除本地 analytics 数据。
 
@@ -101,7 +101,7 @@ Zendio 采用 local-first 设计：剪藏、解析、阅读模式、视频笔记
 
 如您对本隐私政策或数据处理有任何疑问、建议或投诉，欢迎通过以下方式联系我们：
 
-- 电子邮箱：allinobsidian@outlook.com
+- 电子邮箱：zendio@sxnian.com
 - GitHub Issues：<https://github.com/Lefeaker/AllinOB/issues>
 
 我们将在收到请求后的 15 个工作日内予以回复，并在法律法规要求的期限内完成处理。

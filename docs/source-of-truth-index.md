@@ -9,6 +9,8 @@
 - GA telemetry 事件与字段真值：[`ga4-telemetry-reference.md`](./ga4-telemetry-reference.md)
 - GA docs / dashboard contract checker：`node tools/report-ga-docs-contract.mjs --check`
 - GA analytics public-safe 运维流程：[`analytics-operations-runbook.md`](./analytics-operations-runbook.md)
+- 使用协议：[`terms-of-use.md`](./terms-of-use.md)
+- 隐私政策：[`privacy-policy.md`](./privacy-policy.md)
 - 性能与热点真值：[`performance-baseline.md`](./performance-baseline.md)
 - 类型收口路线：[`typescript-strict-roadmap.md`](./typescript-strict-roadmap.md)
 - 当前执行计划：[`project-stabilization-plan-2026-04-13.md`](./project-stabilization-plan-2026-04-13.md)

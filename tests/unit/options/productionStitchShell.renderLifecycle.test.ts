@@ -829,12 +829,12 @@ describe('mountProductionStitchShell renderLifecycle', () => {
       language: 'en'
     });
 
-    const privacyPolicy = findButton('Privacy policy');
+    const privacyPolicy = findButton('Privacy Policy');
     expect(privacyPolicy.disabled).toBe(false);
     privacyPolicy.click();
     expect(document.querySelector('[role="dialog"]')?.textContent).toContain('Privacy Policy');
     expect(document.querySelector('[role="dialog"]')?.textContent).toContain(
-      'Page bodies, clipped text, reading notes, video note text, or exported Markdown'
+      'Page body, clipped text, article text, AI chat content, reading highlight text'
     );
 
     document.querySelector<HTMLElement>('.resource-modal-overlay')?.click();
@@ -873,7 +873,7 @@ describe('mountProductionStitchShell renderLifecycle', () => {
       messagingRepository: messagingRepository as never
     });
 
-    findButton('Privacy policy').click();
+    findButton('Privacy Policy').click();
     expect(document.querySelector('[role="dialog"]')?.textContent).toContain('Privacy Policy');
     document.querySelector<HTMLElement>('.resource-modal-overlay')?.click();
 

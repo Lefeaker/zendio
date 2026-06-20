@@ -459,7 +459,10 @@ describe('mountProductionStitchShell English residual coverage', () => {
       DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaResourcePrivacyPolicyDescription
     );
     expect(privacyPolicy.textContent).toContain(
-      DEFAULT_PRODUCTION_ENGLISH_MESSAGES.errorReportingNotCollectedContent
+      DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaResourcePrivacyPolicyNotCollectedBody
+    );
+    expect(privacyPolicy.textContent).toContain(
+      DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaResourcePrivacyPolicyTelemetryBody
     );
     expect(privacyPolicy.textContent).not.toContain('RAW RESOURCE SENTINEL');
     expect(privacyPolicy.textContent).not.toContain('RAW RESOURCE BODY SENTINEL');

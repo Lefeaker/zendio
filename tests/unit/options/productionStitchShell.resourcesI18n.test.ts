@@ -150,6 +150,49 @@ const ENGLISH_SENTINEL_MESSAGES: Messages = {
   privacyPolicyLink: 'Privacy Policy Link Sentinel',
   schemaResourcePrivacyPolicyTitle: 'Privacy Policy Title Sentinel',
   schemaResourcePrivacyPolicyDescription: 'Privacy Policy Description Sentinel',
+  schemaResourcePrivacyPolicyEffectiveTitle: 'Privacy Policy Effective Title Sentinel',
+  schemaResourcePrivacyPolicyEffectiveBody: 'Privacy Policy Effective Body Sentinel',
+  schemaResourcePrivacyPolicyScopeTitle: 'Privacy Policy Scope Title Sentinel',
+  schemaResourcePrivacyPolicyScopeBody: 'Privacy Policy Scope Body Sentinel',
+  schemaResourcePrivacyPolicyLocalFirstTitle: 'Privacy Policy Local First Title Sentinel',
+  schemaResourcePrivacyPolicyLocalFirstBody: 'Privacy Policy Local First Body Sentinel',
+  schemaResourcePrivacyPolicyLocalDataTitle: 'Privacy Policy Local Data Title Sentinel',
+  schemaResourcePrivacyPolicyLocalDataBody: 'Privacy Policy Local Data Body Sentinel',
+  schemaResourcePrivacyPolicyLocalDataBulletClip: 'Privacy Policy Clip Bullet Sentinel',
+  schemaResourcePrivacyPolicyLocalDataBulletConfig: 'Privacy Policy Config Bullet Sentinel',
+  schemaResourcePrivacyPolicyLocalDataBulletFolder: 'Privacy Policy Folder Bullet Sentinel',
+  schemaResourcePrivacyPolicyLocalDataBulletDrafts: 'Privacy Policy Drafts Bullet Sentinel',
+  schemaResourcePrivacyPolicyObsidianTitle: 'Privacy Policy Obsidian Title Sentinel',
+  schemaResourcePrivacyPolicyObsidianBody: 'Privacy Policy Obsidian Body Sentinel',
+  schemaResourcePrivacyPolicyTelemetryTitle: 'Privacy Policy Telemetry Title Sentinel',
+  schemaResourcePrivacyPolicyTelemetryBody: 'Privacy Policy Telemetry Body Sentinel',
+  schemaResourcePrivacyPolicyTelemetryBulletAnalytics: 'Privacy Policy Analytics Bullet Sentinel',
+  schemaResourcePrivacyPolicyTelemetryBulletErrors: 'Privacy Policy Errors Bullet Sentinel',
+  schemaResourcePrivacyPolicyTelemetryBulletProxy: 'Privacy Policy Proxy Bullet Sentinel',
+  schemaResourcePrivacyPolicyTelemetryBulletIdentifiers:
+    'Privacy Policy Identifiers Bullet Sentinel',
+  schemaResourcePrivacyPolicyNotCollectedTitle: 'Privacy Policy Not Collected Title Sentinel',
+  schemaResourcePrivacyPolicyNotCollectedBody: 'Privacy Policy Not Collected Body Sentinel',
+  schemaResourcePrivacyPolicyNotCollectedBulletContent:
+    'Privacy Policy Not Collected Content Bullet Sentinel',
+  schemaResourcePrivacyPolicyNotCollectedBulletUrls:
+    'Privacy Policy Not Collected URLs Bullet Sentinel',
+  schemaResourcePrivacyPolicyNotCollectedBulletSecrets:
+    'Privacy Policy Not Collected Secrets Bullet Sentinel',
+  schemaResourcePrivacyPolicyNotCollectedBulletIdentity:
+    'Privacy Policy Not Collected Identity Bullet Sentinel',
+  schemaResourcePrivacyPolicySharingTitle: 'Privacy Policy Sharing Title Sentinel',
+  schemaResourcePrivacyPolicySharingBody: 'Privacy Policy Sharing Body Sentinel',
+  schemaResourcePrivacyPolicyRetentionTitle: 'Privacy Policy Retention Title Sentinel',
+  schemaResourcePrivacyPolicyRetentionBody: 'Privacy Policy Retention Body Sentinel',
+  schemaResourcePrivacyPolicySecurityTitle: 'Privacy Policy Security Title Sentinel',
+  schemaResourcePrivacyPolicySecurityBody: 'Privacy Policy Security Body Sentinel',
+  schemaResourcePrivacyPolicyChoicesTitle: 'Privacy Policy Choices Title Sentinel',
+  schemaResourcePrivacyPolicyChoicesBody: 'Privacy Policy Choices Body Sentinel',
+  schemaResourcePrivacyPolicyUpdatesTitle: 'Privacy Policy Updates Title Sentinel',
+  schemaResourcePrivacyPolicyUpdatesBody: 'Privacy Policy Updates Body Sentinel',
+  schemaResourcePrivacyPolicyContactTitle: 'Privacy Policy Contact Title Sentinel',
+  schemaResourcePrivacyPolicyContactBody: 'Privacy Policy Contact Body Sentinel',
   errorReportingNotCollectedTitle: 'Privacy Not Collected Sentinel',
   errorReportingNotCollectedContent: 'Privacy Not Collected Content Sentinel',
   errorReportingNotCollectedUrls: 'Privacy Not Collected URLs Sentinel',
@@ -173,7 +216,35 @@ const ENGLISH_SENTINEL_MESSAGES: Messages = {
   errorReportingCollectedExtension: 'Data Usage Collected Extension Sentinel',
   errorReportingCollectedTimestamp: 'Data Usage Collected Timestamp Sentinel',
   schemaResourceDataUsageConfigMigrationTitle: 'Data Usage Config Migration Title Sentinel',
-  schemaResourceDataUsageConfigMigrationBody: 'Data Usage Config Migration Body Sentinel'
+  schemaResourceDataUsageConfigMigrationBody: 'Data Usage Config Migration Body Sentinel',
+  schemaResourceTermsTitle: 'Terms Title Sentinel',
+  schemaResourceTermsDescription: 'Terms Description Sentinel',
+  schemaResourceTermsEffectiveTitle: 'Terms Effective Title Sentinel',
+  schemaResourceTermsEffectiveBody: 'Terms Effective Body Sentinel',
+  schemaResourceTermsAcceptanceTitle: 'Terms Acceptance Title Sentinel',
+  schemaResourceTermsAcceptanceBody: 'Terms Acceptance Body Sentinel',
+  schemaResourceTermsProductTitle: 'Terms Product Title Sentinel',
+  schemaResourceTermsProductBody: 'Terms Product Body Sentinel',
+  schemaResourceTermsLocalFirstTitle: 'Terms Local First Title Sentinel',
+  schemaResourceTermsLocalFirstBody: 'Terms Local First Body Sentinel',
+  schemaResourceTermsUserResponsibilityTitle: 'Terms Responsibility Title Sentinel',
+  schemaResourceTermsUserResponsibilityBody: 'Terms Responsibility Body Sentinel',
+  schemaResourceTermsUserResponsibilityBulletContent: 'Terms Content Bullet Sentinel',
+  schemaResourceTermsUserResponsibilityBulletDestinations: 'Terms Destinations Bullet Sentinel',
+  schemaResourceTermsUserResponsibilityBulletThirdParty: 'Terms Third Party Bullet Sentinel',
+  schemaResourceTermsUserResponsibilityBulletSecurity: 'Terms Security Bullet Sentinel',
+  schemaResourceTermsThirdPartyTitle: 'Terms Third Party Title Sentinel',
+  schemaResourceTermsThirdPartyBody: 'Terms Third Party Body Sentinel',
+  schemaResourceTermsPrivacyTitle: 'Terms Privacy Title Sentinel',
+  schemaResourceTermsPrivacyBody: 'Terms Privacy Body Sentinel',
+  schemaResourceTermsAvailabilityTitle: 'Terms Availability Title Sentinel',
+  schemaResourceTermsAvailabilityBody: 'Terms Availability Body Sentinel',
+  schemaResourceTermsLiabilityTitle: 'Terms Liability Title Sentinel',
+  schemaResourceTermsLiabilityBody: 'Terms Liability Body Sentinel',
+  schemaResourceTermsChangesTitle: 'Terms Changes Title Sentinel',
+  schemaResourceTermsChangesBody: 'Terms Changes Body Sentinel',
+  schemaResourceTermsContactTitle: 'Terms Contact Title Sentinel',
+  schemaResourceTermsContactBody: 'Terms Contact Body Sentinel'
 };
 
 type ResourceRenderOptions = {
@@ -604,15 +675,16 @@ describe('mountProductionStitchShell resource i18n', () => {
       privacyPolicy,
       'Privacy Policy Title Sentinel',
       'Privacy Policy Description Sentinel',
-      'Privacy Not Collected Sentinel',
-      'Privacy Not Collected Content Sentinel',
-      'Privacy Not Collected Personal Sentinel',
-      'Privacy Analytics Title Sentinel',
-      'Privacy Analytics Description Sentinel',
-      'Privacy Error Reporting Title Sentinel',
-      'Privacy Error Reporting Description Sentinel',
-      'Privacy Local Config Title Sentinel',
-      'Privacy Local Config Body Sentinel'
+      'Privacy Policy Effective Title Sentinel',
+      'Privacy Policy Effective Body Sentinel',
+      'Privacy Policy Local First Title Sentinel',
+      'Privacy Policy Clip Bullet Sentinel',
+      'Privacy Policy Obsidian Body Sentinel',
+      'Privacy Policy Telemetry Title Sentinel',
+      'Privacy Policy Proxy Bullet Sentinel',
+      'Privacy Policy Not Collected Content Bullet Sentinel',
+      'Privacy Policy Retention Body Sentinel',
+      'Privacy Policy Contact Body Sentinel'
     );
     expectNoText(
       privacyPolicy,
@@ -642,6 +714,29 @@ describe('mountProductionStitchShell resource i18n', () => {
       'Anonymous Usage Counts',
       'Configuration Migration',
       '匿名功能使用次数'
+    );
+  });
+
+  it('uses Chinese legal copy only for zh-CN and zh-TW while other interface languages use English', async () => {
+    const zhHansMessages = await getMessagesForLanguage('zh-CN');
+    const zhHantMessages = await getMessagesForLanguage('zh-TW');
+    const japaneseMessages = await getMessagesForLanguage('ja');
+
+    expect(zhHansMessages.schemaResourceTermsTitle).toBe('使用协议');
+    expect(zhHansMessages.schemaResourcePrivacyPolicyTitle).toBe('隐私政策');
+    expect(zhHansMessages.schemaResourcePrivacyPolicyLocalFirstBody).toContain(
+      '默认情况下，Zendio 不会把页面内容发送给开发者'
+    );
+
+    expect(zhHantMessages.schemaResourceTermsTitle).toBe('使用协议');
+    expect(zhHantMessages.privacyPolicyLink).toBe('隐私政策');
+    expect(zhHantMessages.schemaResourcePrivacyPolicyTelemetryBody).toContain('匿名使用统计');
+
+    expect(japaneseMessages.schemaResourceTermsTitle).toBe('Terms of Use');
+    expect(japaneseMessages.schemaResourcePrivacyPolicyTitle).toBe('Privacy Policy');
+    expect(japaneseMessages.onboardingTermsOfUseLink).toBe('Terms of Use');
+    expect(japaneseMessages.schemaResourcePrivacyPolicyLocalFirstBody).toContain(
+      'Zendio does not send page content to the developer by default'
     );
   });
 

@@ -658,7 +658,7 @@ test.describe('Stitch Secondary preview-to-production parity', () => {
     await expectFooterPanelCounts(page, EXPECTED_PRODUCTION_SURFACE_PANEL_COUNTS);
     const production = await collectStitchContract(page);
 
-    for (const label of ['Privacy policy', 'Data usage details']) {
+    for (const label of ['Privacy Policy', 'Data usage details']) {
       expect(production.interactionInventory.enabledButtonLabels).toContain(label);
     }
     for (const label of EXPECTED_PRODUCTION_SURFACE_LABELS) {
@@ -669,7 +669,7 @@ test.describe('Stitch Secondary preview-to-production parity', () => {
       expect(production.interactionInventory.disabledButtonLabels).not.toContain(label);
     }
     for (const label of [
-      'Privacy policy',
+      'Privacy Policy',
       'Data usage details',
       '+ Add field',
       '+ Add domain rule'
