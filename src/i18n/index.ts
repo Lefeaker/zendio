@@ -15,6 +15,7 @@ import { errorHandler, i18nErrors } from '../shared/errors';
 import { createLanguageService, LANGUAGE_STORAGE_KEY } from './runtime/languageService';
 import { createPageRuntime } from './runtime/pageRuntime';
 import { createStorageAdapter } from './runtime/storageAdapter';
+import { getMessagesForLanguage as loadPageMessagesForLanguage } from './messages';
 
 export { createPageI18nController } from './pageController';
 export type { PageI18nController } from './pageController';
@@ -37,8 +38,7 @@ function isExtensionI18nPage(): boolean {
 }
 
 export async function getMessagesForLanguage(language: string): Promise<Messages> {
-  const pageMessages = await import('./messages');
-  return pageMessages.getMessagesForLanguage(language);
+  return loadPageMessagesForLanguage(language);
 }
 
 export function configureI18nStorage(storage: StorageAreaService | null): void {
