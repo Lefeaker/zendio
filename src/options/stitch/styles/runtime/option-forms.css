@@ -52,6 +52,12 @@
   gap: var(--space-4);
 }
 
+.stitch-widget-host,
+.stitch-widget-host > * {
+  min-width: 0;
+  max-width: 100%;
+}
+
 .u-mt-tight {
   margin-top: var(--space-4);
 }
@@ -110,6 +116,27 @@
   color: var(--warning);
   font-size: var(--font-size-sm);
   line-height: var(--line-height-copy);
+}
+
+.template-row-helper,
+.modifier-key-description,
+.keyboard-shortcuts-description {
+  min-width: 0;
+  margin: 0;
+  color: var(--text-dim);
+  font-size: var(--font-size-md);
+  line-height: var(--line-height-control);
+  overflow-wrap: anywhere;
+}
+
+.modifier-key-description,
+.keyboard-shortcuts-description {
+  flex: 1 1 260px;
+}
+
+.keyboard-shortcuts-inline {
+  align-items: center;
+  max-width: 100%;
 }
 
 .modifier-key-warning:empty {
@@ -395,14 +422,14 @@
 .reading-mode-select {
   width: auto;
   min-width: min-content;
-  max-width: 100%;
   flex: 0 0 auto;
+  max-width: 100%;
   white-space: nowrap;
 }
 
 .reading-template-row .input {
-  flex: 1 1 auto;
-  min-width: min(var(--field-min-width), 100%);
+  flex: 1 1 220px;
+  min-width: 0;
 }
 
 .textarea {

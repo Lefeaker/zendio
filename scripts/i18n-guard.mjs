@@ -1,10 +1,13 @@
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { build } from 'esbuild';
+import { installI18nAssetFetch } from './utils/install-i18n-asset-fetch.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const ROOT = path.resolve(__dirname, '..');
+
+installI18nAssetFetch();
 const LENGTH_RATIO_THRESHOLD = 1.3;
 
 function stripPlaceholders(value) {

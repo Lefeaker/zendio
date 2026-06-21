@@ -20,6 +20,7 @@ function createBaseOptions(): Options {
     },
     templates: {
       article: '',
+      video: '',
       ai: '',
       fragment: '',
       reading: ''

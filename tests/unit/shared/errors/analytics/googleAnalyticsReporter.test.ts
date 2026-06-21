@@ -17,7 +17,7 @@ const sendAnalyticsTransportEventMock = vi.hoisted(() =>
 );
 const manifest: chrome.runtime.Manifest = {
   manifest_version: 3,
-  name: 'AiiinOB Test',
+  name: 'Zendio Test',
   version: '3.2.1'
 };
 const createGrantedErrorReportingConsent = () => ({

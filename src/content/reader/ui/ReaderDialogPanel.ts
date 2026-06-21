@@ -14,6 +14,7 @@ import { bindSessionPanelResize } from '@content/shared/panels/sessionPanelResiz
 import { SessionPanelCollapsePersistence } from '@content/shared/panels/sessionPanelCollapsePersistence';
 import { createSessionPanelRenderRoot } from '@content/shared/panels/sessionPanelRoot';
 import { bindSessionItemPreviewExpansion } from '@content/shared/panels/sessionItemPreviewExpansion';
+import { preserveSessionPanelIcon } from '@content/shared/panels/sessionPanelIconPersistence';
 import {
   SessionCommentDraftController,
   type SessionCommentDraftSnapshot
@@ -237,6 +238,7 @@ export class ReaderDialogPanel implements UiMountable<
     this.previewExpansionDisposer?.();
     this.previewExpansionDisposer = null;
     const surface = this.renderSurface();
+    preserveSessionPanelIcon(shadow, surface);
     shadow.replaceChildren(surface);
     panelStyleSheetManager.applyStitchRuntimeStyles(shadow);
     this.resizeDisposer = bindSessionPanelResize(surface);

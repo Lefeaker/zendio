@@ -79,7 +79,7 @@ describe('report-brand-rename-residuals', () => {
     expect(allowlist.ignorePaths).toEqual(expect.arrayContaining(['.tmp/**', 'tmp/**']));
   });
 
-  it('classifies owner-confirmation support channels separately from repo paths', async () => {
+  it('fails closed on retired public support channels while keeping repo paths classified', async () => {
     const allowlist = await loadAllowlist();
 
     expect(
@@ -94,8 +94,9 @@ describe('report-brand-rename-residuals', () => {
         allowlist
       )
     ).toMatchObject({
-      class: 'external-owner-confirmation-required',
-      ownerConfirmationRequired: true
+      class: 'unclassified',
+      ownerConfirmationRequired: false,
+      ruleId: null
     });
 
     expect(
@@ -126,9 +127,9 @@ describe('report-brand-rename-residuals', () => {
         allowlist
       )
     ).toMatchObject({
-      class: 'external-owner-confirmation-required',
-      ownerConfirmationRequired: true,
-      ruleId: 'external-lefeaker-github-url'
+      class: 'unclassified',
+      ownerConfirmationRequired: false,
+      ruleId: null
     });
 
     expect(
@@ -182,19 +183,15 @@ describe('report-brand-rename-residuals', () => {
         `const fallback = '${legacyVaultToken}';\n`
       );
       await writeFixture(root, 'docs/zh-cn/clipper/旧文档.md', '找到 "All in Ob" 扩展\n');
-      await writeFixture(
-        root,
-        'marketing/chrome-web-store/listing.md',
-        `Feature requests: https://github.com/Lefeaker/${legacyRepoSlugToken}/issues\n`
-      );
+      await writeFixture(root, 'docs/251126-design-system-poc/old.md', 'darkTheme: "allinob"\n');
 
       const result = await scanResiduals({ root, allowlist });
 
       expect(result.ok).toBe(true);
       expect(result.counts['compat-retain-user-data']).toBe(1);
       expect(result.counts['internal-dev-preview']).toBe(1);
-      expect(result.counts['historical-doc']).toBe(1);
-      expect(result.counts['external-owner-confirmation-required']).toBe(1);
+      expect(result.counts['historical-doc']).toBe(2);
+      expect(result.counts['external-owner-confirmation-required']).toBeUndefined();
     } finally {
       await rm(root, { recursive: true, force: true });
     }

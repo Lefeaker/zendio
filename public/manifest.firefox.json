@@ -41,6 +41,8 @@
       "resources": [
         "chunks/*",
         "content/*",
+        "i18n/locales/*",
+        "i18n/schema/*",
         "icons/*",
         "local-vault-permission.html",
         "local-vault-permission.js",
@@ -60,7 +62,7 @@
   ],
   "browser_specific_settings": {
     "gecko": {
-      "id": "allinob@aiiin.com",
+      "id": "zendio@sxnian.com",
       "strict_min_version": "142.0",
       "data_collection_permissions": {
         "required": ["none"],

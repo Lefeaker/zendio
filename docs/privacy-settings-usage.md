@@ -1,8 +1,8 @@
 # Privacy Settings Usage
 
-最后更新：2026-06-05
+最后更新：2026-06-20
 
-本文描述 AiiinOB 当前隐私与数据设置的用户行为、实现边界与验证方式。
+本文描述 Zendio 当前隐私与数据设置的用户行为、实现边界与验证方式。
 
 ## 当前 UI 归属
 
@@ -11,6 +11,13 @@
 - `src/options/stitch/schema/settings/overview.ts`
 - `src/ui/domains/privacy/PrivacySettingsView.ts`
 - `src/options/app/productionStitchPersistence.ts`
+- `src/onboarding/bootstrap.ts`
+
+Onboarding 首启协议卡片也暴露同一组 `analytics` / `errorReporting`
+consent。用户在 onboarding 或 Options 任一位置切换，都会写回同一个
+`privacyPreferences` 状态；Options 侧变化会同步回已打开的 onboarding 控件。
+首启协议中的“使用协议”和“隐私政策”入口使用 Options 共享 resource modal，
+不维护第二套静态说明。
 
 ## 用户可控制的内容
 
@@ -74,7 +81,7 @@
 
 ## 如何证明 “consent off 不发事件”
 
-1. 在概览页的“隐私与数据”卡片中关闭两个 consent。
+1. 在概览页的“隐私与数据”卡片，或 onboarding 首启协议卡片中关闭两个 consent。
 2. 执行一组典型行为：
    - 打开 options 并切换 section
    - 执行一次 clip / reader / video 流程
@@ -94,6 +101,8 @@ AiiinOB/
 │   └── PrivacySettingsView.ts          # privacy domain view
 ├── src/options/app/
 │   └── productionStitchPersistence.ts  # consent / clear-data persistence wiring
+├── src/onboarding/
+│   └── bootstrap.ts                    # first-run agreement and consent wiring
 ├── src/shared/errors/analytics/
 │   ├── analyticsConfig.ts              # GA4 配置管理
 │   ├── googleAnalyticsReporter.ts      # GA4 错误报告器

@@ -19,6 +19,8 @@ import {
 } from './productionStitchShell.helpers';
 import { createProductionStitchRenderLifecycle } from '@options/app/productionStitchRenderLifecycle';
 import { mountProductionStitchShell } from '@options/app/productionStitchShell';
+import { previewContent } from '@options/stitch/content';
+import { getFooterMeta, getFooterView, getSettingsView } from '@options/stitch/schema/registry';
 import { mergeOptions } from '@shared/config/optionsMerger';
 
 describe('mountProductionStitchShell renderLifecycle', () => {
@@ -36,6 +38,11 @@ describe('mountProductionStitchShell renderLifecycle', () => {
 
     expect(document.querySelector('.sidebar')).toBeTruthy();
     expect(document.querySelector('.brand-copy strong')?.textContent).toBe('Zendio');
+    const brandLink = document.querySelector<HTMLAnchorElement>('.brand-title-link');
+    expect(brandLink?.textContent).toBe('Zendio');
+    expect(brandLink?.getAttribute('href')).toBe('https://zendio.sxnian.com/en/');
+    expect(brandLink?.getAttribute('target')).toBe('_blank');
+    expect(brandLink?.getAttribute('rel')).toBe('noopener noreferrer');
     expect(document.querySelector('.brand-copy span')?.textContent).toMatch(/^v\d+\.\d+\.\d+/);
     const brandLogo = document.querySelector<HTMLImageElement>('.brand-mark img');
     expect(brandLogo?.getAttribute('src')).toBe('../icons/bannerlogo-128.png');
@@ -85,6 +92,10 @@ describe('mountProductionStitchShell renderLifecycle', () => {
       language: 'zh-CN'
     });
 
+    expect(
+      document.querySelector<HTMLAnchorElement>('.brand-title-link')?.getAttribute('href')
+    ).toBe('https://zendio.sxnian.com/');
+
     mounted.setMessages(
       {
         ...DEFAULT_RUNTIME_MESSAGES,
@@ -104,6 +115,9 @@ describe('mountProductionStitchShell renderLifecycle', () => {
     expect(recreatedContext.messages?.schemaOverviewTitle).toBe('Overview From Messages');
     expect(recreatedContext.t?.('schemaOverviewTitle', 'Fallback')).toBe('Overview From Messages');
     expect(document.querySelector('.brand-copy span')?.textContent).toMatch(/^v\d+\.\d+\.\d+/);
+    expect(
+      document.querySelector<HTMLAnchorElement>('.brand-title-link')?.getAttribute('href')
+    ).toBe('https://zendio.sxnian.com/en/');
 
     mounted.cleanup();
     expect(document.getElementById('optionsShellRoot')?.innerHTML).toBe('');
@@ -170,7 +184,7 @@ describe('mountProductionStitchShell renderLifecycle', () => {
     const mounted = mountProductionStitchShell({
       controller: asOptionsController(controller),
       initialOptions: {
-        aiChat: { userName: 'Bob' },
+        rest: { vault: 'Bob Vault' },
         video: { promptButtonLabel: 'Clip this video', promptShortcut: 'Alt+Shift+V' }
       },
       messages: null,
@@ -178,13 +192,13 @@ describe('mountProductionStitchShell renderLifecycle', () => {
       messagingRepository: createMessaging({ success: true, message: 'ok' })
     } as never);
 
-    const userNameInput = findInputByValue('Bob');
+    const vaultNameInput = findInputByValue('Bob Vault');
 
-    userNameInput.value = 'Alice';
-    userNameInput.dispatchEvent(new Event('input', { bubbles: true }));
+    vaultNameInput.value = 'Alice Vault';
+    vaultNameInput.dispatchEvent(new Event('input', { bubbles: true }));
 
     expect(vi.mocked(controller.scheduleAutoSave)).toHaveBeenCalledTimes(1);
-    expect(mounted.collectDraft().aiChat.userName).toBe('Alice');
+    expect(mounted.collectDraft().rest.vault).toBe('Alice Vault');
   });
 
   it('prevents mouse button presses from moving the production Options scroller', async () => {
@@ -340,7 +354,7 @@ describe('mountProductionStitchShell renderLifecycle', () => {
       language: 'en'
     });
 
-    findButton('Onboarding').click();
+    findButton('Setup Guide').click();
 
     expect(openSpy).toHaveBeenCalledWith(
       '../onboarding/index.html',
@@ -640,6 +654,27 @@ describe('mountProductionStitchShell renderLifecycle', () => {
     expect(document.body.textContent).not.toContain('快捷键冲突');
   });
 
+  it('renders the fragment keyboard shortcut hint for the current desktop platform only', () => {
+    const controller = createController();
+    Object.defineProperty(navigator, 'platform', {
+      configurable: true,
+      value: 'Win32'
+    });
+
+    mountProductionStitchShell({
+      controller: asOptionsController(controller),
+      initialOptions: null,
+      messages: null,
+      language: 'en'
+    });
+
+    expect(document.body.textContent).toContain(
+      'In clipper dialog: Double-Enter to enter reader mode, Alt+Enter to clip directly'
+    );
+    expect(document.body.textContent).not.toContain('Cmd+Enter (Mac) or Alt+Enter (Windows)');
+    expect(document.body.textContent).not.toContain('Cmd+Enter to clip directly');
+  });
+
   it('keeps YAML widget interactions scoped away from the options shell render tree', () => {
     const controller = createController();
     mountProductionStitchShell({
@@ -806,12 +841,12 @@ describe('mountProductionStitchShell renderLifecycle', () => {
       language: 'en'
     });
 
-    const privacyPolicy = findButton('Privacy policy');
+    const privacyPolicy = findButton('Privacy Policy');
     expect(privacyPolicy.disabled).toBe(false);
     privacyPolicy.click();
     expect(document.querySelector('[role="dialog"]')?.textContent).toContain('Privacy Policy');
     expect(document.querySelector('[role="dialog"]')?.textContent).toContain(
-      'Page bodies, clipped text, reading notes, video note text, or exported Markdown'
+      'Page body, clipped text, article text, AI chat content, reading highlight text'
     );
 
     document.querySelector<HTMLElement>('.resource-modal-overlay')?.click();
@@ -828,20 +863,34 @@ describe('mountProductionStitchShell renderLifecycle', () => {
   it('handles resource navigation actions by closing the modal and activating the target panel', () => {
     const controller = createController();
     const messagingRepository = createMessaging();
+    const legacyAliasPreviewContent = structuredClone(previewContent);
+    legacyAliasPreviewContent.sidebarLinks = [
+      ...previewContent.sidebarLinks,
+      {
+        id: 'plugin-setup',
+        label: 'Plugin Setup',
+        hint: 'Local REST API setup guide',
+        icon: 'extension'
+      }
+    ];
     mountProductionStitchShell({
       controller: asOptionsController(controller),
       initialOptions: null,
       messages: null,
       language: 'en',
+      previewContent: legacyAliasPreviewContent,
+      getFooterMeta,
+      getFooterView,
+      getSettingsView,
       messagingRepository: messagingRepository as never
     });
 
-    findButton('Privacy policy').click();
+    findButton('Privacy Policy').click();
     expect(document.querySelector('[role="dialog"]')?.textContent).toContain('Privacy Policy');
     document.querySelector<HTMLElement>('.resource-modal-overlay')?.click();
 
     findButton('Plugin Setup').click();
-    expect(document.querySelector('[role="dialog"]')?.textContent).toContain('Plugin Setup');
+    expect(document.querySelector('[role="dialog"]')?.textContent).toContain('Setup Guide');
 
     findButton('Go To Storage').click();
 

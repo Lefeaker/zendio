@@ -1,5 +1,6 @@
-import { DEFAULT_RUNTIME_MESSAGES, type Messages } from '@i18n';
+import type { Messages } from '@i18n';
 import type { ConnectionTestResult } from '@shared/types/connection';
+import { DEFAULT_PRODUCTION_ENGLISH_MESSAGES } from '@options/stitch/schema/i18n';
 import { formatUserVisibleMessage } from '../../i18n/userVisibleMessageFormatter';
 import type {
   ProductionStitchStorageControllerOptions,
@@ -19,7 +20,7 @@ export function createProductionStitchStorageFeedback(
   let resolvedMessages: Messages | null = null;
 
   function resolveCurrentMessages(): Messages {
-    return options.getMessages?.() ?? resolvedMessages ?? DEFAULT_RUNTIME_MESSAGES;
+    return options.getMessages?.() ?? resolvedMessages ?? DEFAULT_PRODUCTION_ENGLISH_MESSAGES;
   }
 
   function getMessage(messages: Messages | null, key: keyof Messages, fallback: string): string {
@@ -39,9 +40,7 @@ export function createProductionStitchStorageFeedback(
   }
 
   async function runVaultListConnectionTest(): Promise<ConnectionTestResult> {
-    const messages = await import('@i18n').then(({ getMessagesForLanguage }) =>
-      getMessagesForLanguage(options.getState().previewLanguage)
-    );
+    const messages = resolveCurrentMessages();
     resolvedMessages = messages;
     return runVaultListConnectionTestHelper(
       load.ensureVaultRouter(),
@@ -139,8 +138,8 @@ function resolveResultText(result: ConnectionTestResult, messages: Messages | nu
   }
 
   return result.success
-    ? (messages ?? DEFAULT_RUNTIME_MESSAGES).connectionSuccessShort
-    : (messages ?? DEFAULT_RUNTIME_MESSAGES).connectionFailed;
+    ? (messages ?? DEFAULT_PRODUCTION_ENGLISH_MESSAGES).connectionSuccessShort
+    : (messages ?? DEFAULT_PRODUCTION_ENGLISH_MESSAGES).connectionFailed;
 }
 
 function resolveDescriptorText(
@@ -148,7 +147,11 @@ function resolveDescriptorText(
   messages: Messages | null,
   fallback: string
 ): string {
-  return formatUserVisibleMessage(descriptor, messages ?? DEFAULT_RUNTIME_MESSAGES, fallback);
+  return formatUserVisibleMessage(
+    descriptor,
+    messages ?? DEFAULT_PRODUCTION_ENGLISH_MESSAGES,
+    fallback
+  );
 }
 
 function resolveChannelLabel(
@@ -166,10 +169,10 @@ function resolveChannelLabel(
   }
 
   if (channel.channel === 'localFolder') {
-    return (messages ?? DEFAULT_RUNTIME_MESSAGES).connectionChannelLocalFolderLabel;
+    return (messages ?? DEFAULT_PRODUCTION_ENGLISH_MESSAGES).connectionChannelLocalFolderLabel;
   }
 
-  return `${(messages ?? DEFAULT_RUNTIME_MESSAGES).connectionChannelRestLabel} (${channel.channel.toUpperCase()})`;
+  return `${(messages ?? DEFAULT_PRODUCTION_ENGLISH_MESSAGES).connectionChannelRestLabel} (${channel.channel.toUpperCase()})`;
 }
 
 function resolveChannelMessage(
@@ -188,10 +191,10 @@ function resolveChannelMessage(
   }
 
   if (!channel.configured && channel.channel === 'localFolder') {
-    return (messages ?? DEFAULT_RUNTIME_MESSAGES).connectionLocalFolderSkipped;
+    return (messages ?? DEFAULT_PRODUCTION_ENGLISH_MESSAGES).connectionLocalFolderSkipped;
   }
 
   return channel.success
-    ? (messages ?? DEFAULT_RUNTIME_MESSAGES).connectionSuccessShort
-    : (messages ?? DEFAULT_RUNTIME_MESSAGES).connectionFailed;
+    ? (messages ?? DEFAULT_PRODUCTION_ENGLISH_MESSAGES).connectionSuccessShort
+    : (messages ?? DEFAULT_PRODUCTION_ENGLISH_MESSAGES).connectionFailed;
 }

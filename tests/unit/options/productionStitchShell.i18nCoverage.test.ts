@@ -40,7 +40,7 @@ const SETTINGS_PANEL_IDS = [
   'maintenance'
 ];
 
-const RESOURCE_MODAL_IDS = ['plugin-setup', 'support', 'suggestions', 'contact', 'changelog'];
+const RESOURCE_MODAL_IDS = ['support', 'suggestions', 'contact', 'changelog'];
 
 type RuntimeSurfaceId = 'clipper' | 'reader' | 'video' | 'video-floating-prompt' | 'task-success';
 
@@ -459,7 +459,10 @@ describe('mountProductionStitchShell English residual coverage', () => {
       DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaResourcePrivacyPolicyDescription
     );
     expect(privacyPolicy.textContent).toContain(
-      DEFAULT_PRODUCTION_ENGLISH_MESSAGES.errorReportingNotCollectedContent
+      DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaResourcePrivacyPolicyNotCollectedBody
+    );
+    expect(privacyPolicy.textContent).toContain(
+      DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaResourcePrivacyPolicyTelemetryBody
     );
     expect(privacyPolicy.textContent).not.toContain('RAW RESOURCE SENTINEL');
     expect(privacyPolicy.textContent).not.toContain('RAW RESOURCE BODY SENTINEL');
@@ -520,7 +523,7 @@ describe('mountProductionStitchShell English residual coverage', () => {
     expect(onboarding.textContent).toContain(
       DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaResourceOnboardingTitle
     );
-    expect(onboarding.textContent).toContain(DEFAULT_PRODUCTION_ENGLISH_MESSAGES.step1Title);
+    expect(onboarding.textContent).toContain(DEFAULT_PRODUCTION_ENGLISH_MESSAGES.step1ChromeTitle);
     expect(onboarding.textContent).not.toContain('RAW ONBOARDING TITLE SENTINEL');
     expect(onboarding.textContent).not.toContain('RAW ONBOARDING DESCRIPTION SENTINEL');
     expect(onboarding.textContent).not.toContain('RAW ONBOARDING STEP TITLE SENTINEL');
@@ -530,7 +533,7 @@ describe('mountProductionStitchShell English residual coverage', () => {
 
     const pluginSetup = renderResourceModal('plugin-setup', poisonedAppData, null);
     expect(pluginSetup.textContent).toContain(
-      DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaResourcePluginSetupTitle
+      DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaResourceOnboardingTitle
     );
     expect(pluginSetup.textContent).toContain(
       DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaResourcePluginSetupStep1
@@ -573,7 +576,7 @@ describe('mountProductionStitchShell English residual coverage', () => {
     expect(suggestions.querySelector('.resource-link-card')).toBeNull();
     expect(
       suggestions.querySelector<HTMLAnchorElement>(
-        'a[href*="github.com/Lefeaker/AllinOB/issues/new"]'
+        'a[href*="github.com/Lefeaker/Zendio/issues/new"]'
       )
     ).toBeTruthy();
     const xiaohongshuTrigger = suggestions.querySelector<HTMLButtonElement>(

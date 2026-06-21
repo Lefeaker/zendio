@@ -96,4 +96,20 @@ describe('production Stitch schema presence', () => {
       'maintenance'
     ]);
   });
+
+  it('omits the analytics debug mode row when the runtime capability is disabled', () => {
+    const debugContext = createSchemaContext();
+    debugContext.capabilities = { analyticsDebugMode: true };
+    const debugView = getSettingsView('overview', debugContext);
+
+    expect(JSON.stringify(debugView)).toContain('privacyDebugMode');
+    expect(JSON.stringify(debugView)).toContain('Debug mode');
+
+    const productionContext = createSchemaContext();
+    productionContext.capabilities = { analyticsDebugMode: false };
+    const productionView = getSettingsView('overview', productionContext);
+
+    expect(JSON.stringify(productionView)).not.toContain('privacyDebugMode');
+    expect(JSON.stringify(productionView)).not.toContain('Debug mode');
+  });
 });

@@ -1,38 +1,66 @@
 import {
   createDefaultPageI18nController,
   type PageI18nController,
-  configureI18nStorage
+  configureI18nStorage,
+  DEFAULT_RUNTIME_MESSAGES
 } from '@i18n';
-import { RUNTIME_FALLBACK_MESSAGES } from '../i18n/catalog/runtimeFallbackMessages';
-import { getService } from '../shared/di';
+import type { Messages } from '@i18n/messages';
 import { resolveRepository } from '../shared/di/serviceRegistry';
-import { DI_TOKENS, TOKENS } from '../shared/di/tokens';
+import { DI_TOKENS } from '../shared/di/tokens';
+import { resolveZendioOfficialWebsiteUrl } from '../shared/links/zendioOfficialWebsite';
 import type { INavigationRepository } from '../shared/repositories/INavigationRepository';
-import type { IMessagingRepository } from '../shared/repositories/IMessagingRepository';
-import type { IOptionsRepository } from '../shared/repositories/IOptionsRepository';
-import type { StorageAreaService } from '../platform/interfaces/storage';
-import type { StorageService } from '../platform/interfaces/storage';
-import type { TabsService } from '../platform/interfaces/tabs';
-import type { PlatformServices } from '../platform/types';
-import type { InterfaceTheme } from '../shared/types/options';
+import {
+  resolveOnboardingDependencies,
+  resolveOptionalMessagingRepository,
+  resolveOptionalOptionsRepository
+} from './dependencies';
+import type {
+  OnboardingControllerDependencies,
+  OnboardingOptionsRepository,
+  OnboardingPrivacyField,
+  OnboardingPrivacyOptions,
+  OnboardingPrivacySnapshot
+} from './dependencies';
 import type { OnboardingTrackingRequest } from './onboardingAnalytics';
+import { markStepCompleted, restoreCompletedSteps, updateProgress } from './progress';
+import { renderOnboardingResourceModal } from './resourceModal';
+import type { OnboardingResourceId } from './resourceModal';
+import { applyStoredOnboardingTheme } from './theme';
 
 let declarativeI18nController: PageI18nController | null = null;
 
-type BrowserStorageLike = Partial<Pick<Storage, 'getItem' | 'setItem'>> & Record<string, unknown>;
-
-const DEFAULT_ONBOARDING_DOCUMENT_TITLE = 'Zendio';
-const DEFAULT_SUPPORT_MODAL_MESSAGES = {
-  title: RUNTIME_FALLBACK_MESSAGES.onboardingSupportModalTitle,
-  description: RUNTIME_FALLBACK_MESSAGES.onboardingSupportModalDescription,
-  closeButton: RUNTIME_FALLBACK_MESSAGES.onboardingSupportModalCloseButton,
-  afdianLabel: RUNTIME_FALLBACK_MESSAGES.onboardingSupportModalAfdianLabel
+type OnboardingBrowserTarget = 'chrome' | 'firefox';
+type OnboardingConnectionGuideKeys = {
+  title: keyof Messages;
+  description: keyof Messages;
+  details: readonly (keyof Messages)[];
 };
 
-function getBrowserLocalStorage(): BrowserStorageLike | null {
-  const storage = globalThis.localStorage as BrowserStorageLike | undefined;
-  return storage ?? null;
-}
+const DEFAULT_ONBOARDING_DOCUMENT_TITLE = 'Zendio';
+const FIREFOX_CONNECTION_GUIDE_KEYS: OnboardingConnectionGuideKeys = {
+  title: 'step1Title',
+  description: 'step1Description',
+  details: [
+    'step1Detail1',
+    'step1Detail2',
+    'step1Detail3',
+    'step1Detail4',
+    'step1Detail5',
+    'step1Detail6'
+  ]
+};
+const CHROME_CONNECTION_GUIDE_KEYS: OnboardingConnectionGuideKeys = {
+  title: 'step1ChromeTitle',
+  description: 'step1ChromeDescription',
+  details: [
+    'step1ChromeDetail1',
+    'step1ChromeDetail2',
+    'step1ChromeDetail3',
+    'step1ChromeDetail4',
+    'step1ChromeDetail5',
+    'step1ChromeDetail6'
+  ]
+};
 
 function applyOnboardingDocumentResource(
   resource: ReturnType<PageI18nController['getCurrentResource']>
@@ -43,6 +71,7 @@ function applyOnboardingDocumentResource(
 
   document.documentElement.lang = resource.language;
   document.title = resource.messages.onboardingDocumentTitle || DEFAULT_ONBOARDING_DOCUMENT_TITLE;
+  applyOnboardingConnectionGuideCopy(resource.messages);
 }
 
 async function ensureDeclarativeI18nController(): Promise<PageI18nController> {
@@ -65,129 +94,61 @@ async function applyI18n(): Promise<void> {
   await ensureDeclarativeI18nController();
 }
 
-interface OnboardingControllerDependencies {
-  messagingRepository?: Pick<IMessagingRepository, 'send'>;
-  now?: () => number;
-  optionsRepository?: Pick<IOptionsRepository, 'get'>;
-  storage: StorageService;
-  tabs: TabsService;
+function resolveOnboardingBrowserTarget(): OnboardingBrowserTarget {
+  if (typeof browser !== 'undefined' && typeof browser.runtime?.getBrowserInfo === 'function') {
+    return 'firefox';
+  }
+
+  return 'chrome';
 }
 
-function createMemoryStorageArea(): StorageAreaService {
-  const values = new Map<string, unknown>();
-  return {
-    async get<T = unknown>(key: string): Promise<T | undefined> {
-      return values.get(key) as T | undefined;
-    },
-    async set<T = unknown>(key: string, value: T): Promise<void> {
-      values.set(key, value);
-    },
-    async getMany<T = unknown>(keys: string[]): Promise<Record<string, T | undefined>> {
-      return Object.fromEntries(keys.map((key) => [key, values.get(key) as T | undefined]));
-    },
-    async setMany<T = unknown>(entries: Record<string, T>): Promise<void> {
-      for (const [key, value] of Object.entries(entries)) {
-        values.set(key, value);
-      }
-    },
-    async remove(key: string | string[]): Promise<void> {
-      for (const currentKey of Array.isArray(key) ? key : [key]) {
-        values.delete(currentKey);
-      }
-    },
-    async clear(): Promise<void> {
-      values.clear();
-    },
-    watchKey(): () => void {
-      return () => {};
-    },
-    watchAll(): () => void {
-      return () => {};
-    }
-  };
+function getCurrentOnboardingLanguage(): string | null {
+  const resourceLanguage = declarativeI18nController?.getCurrentResource()?.language;
+  if (typeof resourceLanguage === 'string' && resourceLanguage.trim().length > 0) {
+    return resourceLanguage;
+  }
+
+  if (typeof document === 'undefined') {
+    return null;
+  }
+
+  const documentLanguage =
+    document.documentElement.lang || document.documentElement.getAttribute('lang');
+  return documentLanguage && documentLanguage.trim().length > 0 ? documentLanguage : null;
 }
 
-function createPreviewDependencies(): OnboardingControllerDependencies {
-  const sync = createMemoryStorageArea();
-  const local = createMemoryStorageArea();
-  const session = createMemoryStorageArea();
-
-  return {
-    storage: { sync, local, session },
-    tabs: {
-      async create() {
-        return undefined;
-      },
-      async remove() {},
-      async getCurrent() {
-        return undefined;
-      },
-      async get() {
-        return undefined;
-      },
-      async query() {
-        return [];
-      },
-      async sendMessage<TResult = unknown>() {
-        return undefined as TResult;
-      },
-      onActivated() {
-        return () => {};
-      },
-      onUpdated() {
-        return () => {};
-      },
-      onRemoved() {
-        return () => {};
-      }
-    }
-  };
+function resolveOnboardingRuntimeMessage(
+  messages: Partial<Messages> | null | undefined,
+  key: keyof Messages
+): string {
+  const raw = messages?.[key] ?? DEFAULT_RUNTIME_MESSAGES[key];
+  return typeof raw === 'string' ? raw : '';
 }
 
-function hasOptionsRepository(value: unknown): value is Pick<IOptionsRepository, 'get'> {
-  const candidate = value as { get?: unknown } | null;
-  return typeof candidate === 'object' && candidate !== null && typeof candidate.get === 'function';
-}
+function applyOnboardingConnectionGuideCopy(messages: Partial<Messages> | null | undefined): void {
+  if (typeof document === 'undefined') {
+    return;
+  }
 
-function hasMessagingRepository(value: unknown): value is Pick<IMessagingRepository, 'send'> {
-  const candidate = value as { send?: unknown } | null;
-  return (
-    typeof candidate === 'object' && candidate !== null && typeof candidate.send === 'function'
+  const guideKeys =
+    resolveOnboardingBrowserTarget() === 'firefox'
+      ? FIREFOX_CONNECTION_GUIDE_KEYS
+      : CHROME_CONNECTION_GUIDE_KEYS;
+  const title = document.querySelector<HTMLElement>('[data-onboarding-step1-title]');
+  const description = document.querySelector<HTMLElement>('[data-onboarding-step1-description]');
+  title?.replaceChildren(
+    document.createTextNode(resolveOnboardingRuntimeMessage(messages, guideKeys.title))
   );
-}
+  description?.replaceChildren(
+    document.createTextNode(resolveOnboardingRuntimeMessage(messages, guideKeys.description))
+  );
 
-function resolveOptionalOptionsRepository(): Pick<IOptionsRepository, 'get'> | undefined {
-  try {
-    const repository = resolveRepository<unknown>(DI_TOKENS.IOptionsRepository);
-    return hasOptionsRepository(repository) ? repository : undefined;
-  } catch {
-    return undefined;
-  }
-}
-
-function resolveOptionalMessagingRepository(): Pick<IMessagingRepository, 'send'> | undefined {
-  try {
-    const repository = resolveRepository<unknown>(DI_TOKENS.IMessagingRepository);
-    return hasMessagingRepository(repository) ? repository : undefined;
-  } catch {
-    return undefined;
-  }
-}
-
-function resolveOnboardingDependencies(): OnboardingControllerDependencies {
-  try {
-    const platform = getService<PlatformServices>(TOKENS.platformServices);
-    const messagingRepository = resolveOptionalMessagingRepository();
-    const optionsRepository = resolveOptionalOptionsRepository();
-    return {
-      ...(messagingRepository ? { messagingRepository } : {}),
-      ...(optionsRepository ? { optionsRepository } : {}),
-      storage: platform.storage,
-      tabs: platform.tabs
-    };
-  } catch {
-    return createPreviewDependencies();
-  }
+  guideKeys.details.forEach((key, index) => {
+    const item = document.querySelector<HTMLElement>(
+      `[data-onboarding-step1-detail="${String(index + 1)}"]`
+    );
+    item?.replaceChildren(document.createTextNode(resolveOnboardingRuntimeMessage(messages, key)));
+  });
 }
 
 export class OnboardingController {
@@ -195,6 +156,8 @@ export class OnboardingController {
   private readonly onboardingStartedAt: number;
   private readonly now: () => number;
   private startedTracked = false;
+  private privacySubscriptionActive = false;
+  private currentPrivacySnapshot: OnboardingPrivacySnapshot | null = null;
 
   constructor(
     private readonly navigationRepo: INavigationRepository,
@@ -209,6 +172,7 @@ export class OnboardingController {
     restoreCompletedSteps();
     updateProgress();
     this.bindEventHandlers();
+    void this.initializePrivacyConsentControls();
     void this.trackOnboardingStarted();
   }
 
@@ -219,12 +183,12 @@ export class OnboardingController {
     return this.dependencies;
   }
 
-  private getOptionsRepository(): Pick<IOptionsRepository, 'get'> | undefined {
+  private getOptionsRepository(): OnboardingOptionsRepository | undefined {
     const provided = this.dependencies?.optionsRepository;
     return provided ?? resolveOptionalOptionsRepository();
   }
 
-  private getMessagingRepository(): Pick<IMessagingRepository, 'send'> | undefined {
+  private getMessagingRepository(): OnboardingControllerDependencies['messagingRepository'] {
     const provided = this.dependencies?.messagingRepository;
     return provided ?? resolveOptionalMessagingRepository();
   }
@@ -311,9 +275,21 @@ export class OnboardingController {
     this.bindClick('exploreAuxiliaryBtn', () => this.openOptionsAndMarkStep(4));
     this.bindClick('skipStep4Btn', () => this.handleSkipStep(4));
 
+    this.bindClick('termsOfUseLink', () => this.handleTermsOfUse(), { preventDefault: true });
+    this.bindClick('privacyPolicyLink', () => this.handlePrivacyPolicy(), { preventDefault: true });
+    this.bindCheckboxChange('onboardingAnalyticsConsent', (checked) =>
+      this.persistPrivacyPreference('analytics', checked)
+    );
+    this.bindCheckboxChange('onboardingErrorReportingConsent', (checked) =>
+      this.persistPrivacyPreference('errorReporting', checked)
+    );
+    this.bindClick('officialWebsiteLink', () => this.handleOfficialWebsite(), {
+      preventDefault: true
+    });
     this.bindClick('suggestionsLink', () => this.handleFeedback(), { preventDefault: true });
     this.bindClick('supportLink', () => this.handleSupport(), { preventDefault: true });
     this.bindClick('contactLink', () => this.handleContact(), { preventDefault: true });
+    this.bindClick('changelogLink', () => this.handleChangelog(), { preventDefault: true });
 
     this.bindClick('skipOnboardingBtn', () => this.handleSkipOnboarding());
     this.bindClick('completeOnboardingBtn', () => this.handleCompleteOnboarding());
@@ -336,6 +312,126 @@ export class OnboardingController {
     });
   }
 
+  private bindCheckboxChange(
+    elementId: string,
+    handler: (checked: boolean) => void | Promise<void>
+  ): void {
+    const element = document.getElementById(elementId);
+    if (!(element instanceof HTMLInputElement)) {
+      return;
+    }
+    element.addEventListener('change', () => {
+      void handler(element.checked);
+    });
+  }
+
+  private async initializePrivacyConsentControls(): Promise<void> {
+    const optionsRepository = this.getOptionsRepository();
+    if (!optionsRepository) {
+      this.applyPrivacySnapshotToControls({
+        analytics: false,
+        errorReporting: false,
+        debugMode: false
+      });
+      return;
+    }
+
+    try {
+      this.applyPrivacySnapshotToControls(
+        this.normalizePrivacySnapshot(await optionsRepository.get())
+      );
+      if (!this.privacySubscriptionActive && typeof optionsRepository.onChange === 'function') {
+        this.privacySubscriptionActive = true;
+        optionsRepository.onChange((options) => {
+          this.applyPrivacySnapshotToControls(this.normalizePrivacySnapshot(options));
+        });
+      }
+    } catch {
+      this.applyPrivacySnapshotToControls({
+        analytics: false,
+        errorReporting: false,
+        debugMode: false
+      });
+    }
+  }
+
+  private normalizePrivacySnapshot(
+    options: OnboardingPrivacyOptions | null | undefined
+  ): OnboardingPrivacySnapshot {
+    const current = options?.privacyPreferences;
+    return {
+      analytics: Boolean(current?.analytics),
+      errorReporting: Boolean(current?.errorReporting),
+      debugMode: Boolean(current?.debugMode)
+    };
+  }
+
+  private applyPrivacySnapshotToControls(snapshot: OnboardingPrivacySnapshot): void {
+    this.currentPrivacySnapshot = snapshot;
+    const analytics = document.getElementById('onboardingAnalyticsConsent');
+    const errorReporting = document.getElementById('onboardingErrorReportingConsent');
+    if (analytics instanceof HTMLInputElement) {
+      analytics.checked = snapshot.analytics;
+    }
+    if (errorReporting instanceof HTMLInputElement) {
+      errorReporting.checked = snapshot.errorReporting;
+    }
+  }
+
+  private async persistPrivacyPreference(
+    field: OnboardingPrivacyField,
+    value: boolean
+  ): Promise<void> {
+    const optionsRepository = this.getOptionsRepository();
+    if (!optionsRepository) {
+      return;
+    }
+
+    try {
+      const nextSnapshot = {
+        ...(this.currentPrivacySnapshot ??
+          this.normalizePrivacySnapshot(await optionsRepository.get())),
+        [field]: value
+      };
+      if ((!nextSnapshot.analytics || !nextSnapshot.errorReporting) && nextSnapshot.debugMode) {
+        nextSnapshot.debugMode = false;
+      }
+      await optionsRepository.set({
+        privacyPreferences: nextSnapshot
+      });
+      this.applyPrivacySnapshotToControls(nextSnapshot);
+      await this.applyRuntimePrivacySnapshot(nextSnapshot, field);
+    } catch (error) {
+      console.error('[onboarding] Failed to persist privacy preference:', error);
+      await this.initializePrivacyConsentControls();
+    }
+  }
+
+  private async applyRuntimePrivacySnapshot(
+    snapshot: OnboardingPrivacySnapshot,
+    field: OnboardingPrivacyField
+  ): Promise<void> {
+    try {
+      const [
+        { getAnalyticsConfigManager, setAnalyticsConsent },
+        { updateErrorAnalyticsConfig },
+        { resolveAnalyticsDebugMode }
+      ] = await Promise.all([
+        import('../shared/errors/analytics/analyticsConfig'),
+        import('../shared/errors/analytics'),
+        import('../shared/analytics')
+      ]);
+      const runtimeDebugMode = resolveAnalyticsDebugMode(snapshot);
+      await setAnalyticsConsent(snapshot.analytics, snapshot.errorReporting);
+      await getAnalyticsConfigManager().updateConfig({ debugMode: runtimeDebugMode });
+      if (field === 'errorReporting') {
+        await updateErrorAnalyticsConfig(snapshot.errorReporting);
+      }
+    } catch {
+      // Runtime privacy sync is best-effort; persisted Options state remains the source of truth.
+    }
+  }
+
   private async openOptionsAndMarkStep(stepNumber: number): Promise<void> {
     try {
       await this.navigationRepo.openOptions();
@@ -355,7 +451,7 @@ export class OnboardingController {
 
   private async handleFeedback(): Promise<void> {
     try {
-      await this.navigationRepo.openExternalLink('https://github.com/Lefeaker/AllinOB/issues');
+      await openOnboardingResourceModal('suggestions');
       markStepCompleted(5);
       updateProgress();
       await this.trackSupportAction('feedback');
@@ -365,9 +461,27 @@ export class OnboardingController {
     }
   }
 
+  private async handleTermsOfUse(): Promise<void> {
+    await openOnboardingResourceModal('terms-of-use');
+  }
+
+  private async handlePrivacyPolicy(): Promise<void> {
+    await openOnboardingResourceModal('privacy-policy');
+  }
+
+  private async handleOfficialWebsite(): Promise<void> {
+    try {
+      await this.navigationRepo.openExternalLink(
+        resolveZendioOfficialWebsiteUrl(getCurrentOnboardingLanguage())
+      );
+    } catch (error) {
+      console.error('[onboarding] Failed to open official website:', error);
+    }
+  }
+
   private async handleSupport(): Promise<void> {
     try {
-      await showSupportModal();
+      await openOnboardingResourceModal('support');
       markStepCompleted(5);
       updateProgress();
       await this.trackSupportAction('docs');
@@ -378,8 +492,12 @@ export class OnboardingController {
   }
 
   private async handleContact(): Promise<void> {
-    showContactModal();
+    await openOnboardingResourceModal('contact');
     await this.trackSupportAction('contact');
+  }
+
+  private async handleChangelog(): Promise<void> {
+    await openOnboardingResourceModal('changelog');
   }
 
   private async handleSkipOnboarding(): Promise<void> {
@@ -423,162 +541,15 @@ export async function bootstrapOnboardingApp(): Promise<void> {
   controller.initialize();
 }
 
-async function applyStoredOnboardingTheme(): Promise<void> {
-  try {
-    const optionsRepository = resolveRepository<IOptionsRepository>(DI_TOKENS.IOptionsRepository);
-    const options = await optionsRepository.get();
-    applyOnboardingTheme(options.interfaceTheme);
-  } catch {
-    applyOnboardingTheme(resolveStoredThemePreference());
-  }
-}
-
-function applyOnboardingTheme(preference: InterfaceTheme | undefined): void {
-  const resolvedTheme = resolvePreviewTheme(preference);
-  document.documentElement.dataset.previewTheme = resolvedTheme;
-  document.documentElement.dataset.theme = resolvedTheme;
-  document.body.dataset.previewTheme = resolvedTheme;
-}
-
-function resolvePreviewTheme(preference: InterfaceTheme | undefined): 'dark' | 'light' {
-  if (preference === 'light' || preference === 'dark') {
-    return preference;
-  }
-  return resolveSystemTheme();
-}
-
-function resolveStoredThemePreference(): InterfaceTheme {
-  try {
-    const stored = window.localStorage.getItem('aob-theme');
-    if (stored === 'dark' || stored === 'light' || stored === 'system') {
-      return stored;
-    }
-  } catch {
-    // localStorage can be unavailable in isolated test contexts.
-  }
-  return 'system';
-}
-
-function resolveSystemTheme(): 'dark' | 'light' {
-  try {
-    return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
-  } catch {
-    return 'dark';
-  }
-}
-
-function markStepCompleted(stepNumber: number): void {
-  const step = document.getElementById(`step${stepNumber}`);
-  if (step) {
-    step.classList.add('step-completed');
-  }
-
-  const completedSteps = getCompletedSteps();
-  if (!completedSteps.includes(stepNumber)) {
-    completedSteps.push(stepNumber);
-    const storage = getBrowserLocalStorage();
-    if (typeof storage?.setItem === 'function') {
-      storage.setItem('onboardingCompletedSteps', JSON.stringify(completedSteps));
-    }
-  }
-}
-
-function getCompletedSteps(): number[] {
-  try {
-    const storage = getBrowserLocalStorage();
-    const stored =
-      typeof storage?.getItem === 'function' ? storage.getItem('onboardingCompletedSteps') : null;
-    if (!stored) {
-      return [];
-    }
-    const parsed: unknown = JSON.parse(stored);
-    if (Array.isArray(parsed)) {
-      return parsed
-        .map((value) => Number(value))
-        .filter((value): value is number => Number.isFinite(value));
-    }
-    return [];
-  } catch {
-    return [];
-  }
-}
-
-function restoreCompletedSteps(): void {
-  for (const stepNumber of getCompletedSteps()) {
-    const step = document.getElementById(`step${stepNumber}`);
-    step?.classList.add('step-completed');
-  }
-}
-
-function updateProgress(): void {
-  const completedSteps = getCompletedSteps();
-  const totalSteps = 5;
-  const progress = (completedSteps.length / totalSteps) * 100;
-
-  const progressBar = document.getElementById('progressBar');
-  if (progressBar) {
-    progressBar.style.width = `${progress}%`;
-  }
-
-  if (completedSteps.length === totalSteps) {
-    const skipBtn = document.getElementById('skipOnboardingBtn');
-    const completeBtn = document.getElementById('completeOnboardingBtn');
-
-    if (skipBtn) skipBtn.classList.add('hidden');
-    if (completeBtn) completeBtn.classList.remove('hidden');
-  }
-}
-
-async function showSupportModal(): Promise<void> {
+async function openOnboardingResourceModal(resourceId: OnboardingResourceId): Promise<void> {
   const controller = await ensureDeclarativeI18nController();
   const resource = controller.getCurrentResource();
-  const messages = resource?.messages;
-  const title = messages?.onboardingSupportModalTitle || DEFAULT_SUPPORT_MODAL_MESSAGES.title;
-  const description =
-    messages?.onboardingSupportModalDescription || DEFAULT_SUPPORT_MODAL_MESSAGES.description;
-  const closeButtonLabel =
-    messages?.onboardingSupportModalCloseButton || DEFAULT_SUPPORT_MODAL_MESSAGES.closeButton;
-  const afdianLabel =
-    messages?.onboardingSupportModalAfdianLabel || DEFAULT_SUPPORT_MODAL_MESSAGES.afdianLabel;
-
-  const modal = document.createElement('div');
-  modal.className = 'support-modal';
-  modal.setAttribute('role', 'presentation');
-  modal.innerHTML = `
-    <div class="support-modal-content">
-      <div class="support-modal-header">
-        <h3>${title}</h3>
-        <button type="button" class="support-modal-close" aria-label="${closeButtonLabel}">&times;</button>
-      </div>
-      <div class="support-modal-body">
-        <p>${description}</p>
-        <div class="support-options">
-          <a href="https://ko-fi.com/xiannian" target="_blank" rel="noopener noreferrer" class="support-link">
-            <span class="support-icon" data-icon="ko-fi"></span>
-            <span>Ko-fi</span>
-          </a>
-          <a href="https://afdian.com/a/LefShi" target="_blank" rel="noopener noreferrer" class="support-link">
-            <span class="support-icon" data-icon="afdian"></span>
-            <span>${afdianLabel}</span>
-          </a>
-        </div>
-      </div>
-    </div>
-  `;
-  document.body.appendChild(modal);
-
-  const close = (): void => {
-    modal.remove();
-  };
-
-  modal.querySelector('.support-modal-close')?.addEventListener('click', close);
-  modal.addEventListener('click', (event) => {
-    if (event.target === modal) {
-      close();
-    }
+  if (!resource) {
+    return;
+  }
+  renderOnboardingResourceModal({
+    language: resource.language,
+    messages: resource.messages,
+    resourceId
   });
-}
-
-function showContactModal(): void {
-  window.open('https://github.com/Lefeaker/AllinOB', '_blank', 'noopener,noreferrer');
 }

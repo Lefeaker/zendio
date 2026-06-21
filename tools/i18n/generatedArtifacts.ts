@@ -4,6 +4,10 @@ import prettier from 'prettier';
 import type { CompiledCatalog } from './compileCatalog';
 import { emitGeneratedChromeLocales } from './emitGeneratedChromeLocales';
 import {
+  emitGeneratedRuntimeAssets,
+  emitGeneratedSchemaAssets
+} from './emitGeneratedI18nAssets';
+import {
   emitGeneratedLocaleModules,
   emitGeneratedPseudoLocaleModule
 } from './emitGeneratedLocaleModules';
@@ -55,7 +59,8 @@ export async function buildGeneratedArtifacts(
       'src/i18n/generated/locales/qps-ploc.generated.ts',
       emitGeneratedPseudoLocaleModule()
     ],
-    ...emitGeneratedChromeLocales(runtime)
+    ...emitGeneratedChromeLocales(runtime),
+    ...emitGeneratedRuntimeAssets(runtime)
   ]);
 
   if (schema) {
@@ -70,6 +75,9 @@ export async function buildGeneratedArtifacts(
       'src/i18n/generated/schemaMessages.generated.ts',
       emitGeneratedSchemaMessages(schema)
     );
+    for (const [relativePath, content] of emitGeneratedSchemaAssets(schema)) {
+      rawArtifacts.set(relativePath, content);
+    }
   }
 
   const formattedEntries = await Promise.all(

@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { getMessagesForLanguage, type Messages } from '@i18n';
 import { mountProductionStitchShell } from '@options/app/productionStitchShell';
 import { runVaultListConnectionTest } from '@options/app/vaultConnectionTests';
+import { registerService, TOKENS } from '@shared/di';
 import type { VaultRouterConfig } from '@shared/types/vault';
 import { getTestRestUrls } from '../../fixtures/configTestHelpers';
 import {
@@ -33,6 +34,8 @@ vi.mock('@i18n', async () => {
 const LOCAL_REST_URLS = getTestRestUrls('localhost');
 const LOCAL_HTTPS_URL = LOCAL_REST_URLS.httpsUrl.replace(/\/$/, '');
 const LOCAL_CERTIFICATE_URL = `${LOCAL_HTTPS_URL}/obsidian-local-rest-api.crt`;
+const DYNAMIC_I18N_IMPORT_ERROR =
+  'Failed to fetch dynamically imported module: chrome-extension://extension-id/chunks/i18n-D2D32S64.js';
 
 const STORAGE_SENTINEL_MESSAGE_OVERRIDES = {
   routingRulesTitle: 'Routing Rules Sentinel',
@@ -46,6 +49,8 @@ const STORAGE_SENTINEL_MESSAGE_OVERRIDES = {
   schemaStorageRoutingPriorityColumnLabel: 'Routing Priority Column Sentinel',
   schemaStorageRoutingTargetVaultColumnLabel: 'Routing Target Column Sentinel',
   schemaStorageLocalFolderChooseAction: 'Choose Folder Sentinel',
+  schemaStorageLocalFolderAuthorizeWarningBody: 'Local Folder Authorize Warning Body Sentinel',
+  schemaStorageLocalFolderAuthorizeWarningTitle: 'Local Folder Authorize Warning Title Sentinel',
   schemaStorageLocalFolderLabel: 'Local Folder Label Sentinel',
   schemaStorageLocalFolderNotConfigured: 'Local Folder Missing Sentinel',
   schemaStorageNoEnabledVaults: 'No Enabled Vaults Sentinel',
@@ -81,7 +86,7 @@ function restoreGetMessagesForLanguageMock(): void {
 describe('mountProductionStitchShell storage i18n', () => {
   beforeEach(() => {
     setupProductionStitchShellTest();
-    vi.mocked(getMessagesForLanguage).mockClear();
+    vi.mocked(getMessagesForLanguage).mockReset();
     restoreGetMessagesForLanguageMock();
   });
 
@@ -242,6 +247,7 @@ describe('mountProductionStitchShell storage i18n', () => {
       ]
     });
     vi.mocked(getMessagesForLanguage).mockResolvedValue(storageSentinelMessages);
+    vi.mocked(getMessagesForLanguage).mockClear();
 
     mountProductionStitchShell({
       controller: asOptionsController(controller),
@@ -265,6 +271,101 @@ describe('mountProductionStitchShell storage i18n', () => {
       );
       expect(certificateLink?.textContent).toBe('Certificate Link Sentinel');
     });
-    expect(vi.mocked(getMessagesForLanguage)).toHaveBeenCalledWith('en');
+    expect(vi.mocked(getMessagesForLanguage)).not.toHaveBeenCalled();
+  });
+
+  it('uses mounted storage messages for connection tests without lazy-loading i18n chunks', async () => {
+    const controller = createController();
+    const storageSentinelMessages = await createStorageSentinelMessages();
+    const messagingRepository = createMessaging({
+      success: false,
+      status: 401,
+      message: 'Research Vault partial',
+      error: 'HTTPS: network error: request failed',
+      channels: [
+        {
+          channel: 'https',
+          label: 'HTTPS',
+          configured: true,
+          success: false,
+          message: 'network error: request failed',
+          error: 'network error: request failed',
+          url: LOCAL_HTTPS_URL,
+          certificateUrl: LOCAL_CERTIFICATE_URL
+        }
+      ]
+    });
+    vi.mocked(getMessagesForLanguage).mockClear();
+    vi.mocked(getMessagesForLanguage).mockRejectedValueOnce(new Error(DYNAMIC_I18N_IMPORT_ERROR));
+
+    mountProductionStitchShell({
+      controller: asOptionsController(controller),
+      initialOptions: {
+        rest: {
+          vault: 'Research Vault',
+          httpsUrl: LOCAL_HTTPS_URL,
+          apiKey: 'bad-token'
+        }
+      },
+      messages: storageSentinelMessages,
+      language: 'en',
+      messagingRepository
+    } as never);
+
+    findButton('Test Connection Sentinel').click();
+    await flushPromises();
+
+    await vi.waitFor(() => {
+      const certificateLink = document.querySelector<HTMLAnchorElement>(
+        `a[href="${LOCAL_CERTIFICATE_URL}"]`
+      );
+      expect(certificateLink?.textContent).toBe('Certificate Link Sentinel');
+    });
+    expect(document.body.textContent).not.toContain(DYNAMIC_I18N_IMPORT_ERROR);
+    expect(vi.mocked(getMessagesForLanguage)).not.toHaveBeenCalled();
+  });
+
+  it('uses mounted storage messages for local-folder failures without lazy-loading i18n chunks', async () => {
+    const controller = createController();
+    const storageSentinelMessages = await createStorageSentinelMessages();
+    const chooseDirectory = vi.fn(() => Promise.reject(new Error('permission dismissed')));
+    registerService(
+      TOKENS.platformServices,
+      () =>
+        ({
+          fileSystemAccess: {
+            chooseDirectory,
+            ensurePermission: vi.fn(),
+            removeDirectory: vi.fn()
+          }
+        }) as never
+    );
+
+    mountProductionStitchShell({
+      controller: asOptionsController(controller),
+      initialOptions: {
+        rest: {
+          vault: 'Research Vault',
+          httpsUrl: LOCAL_HTTPS_URL,
+          apiKey: 'token'
+        }
+      },
+      messages: storageSentinelMessages,
+      language: 'en',
+      messagingRepository: createMessaging(undefined)
+    } as never);
+    vi.mocked(getMessagesForLanguage).mockClear();
+    vi.mocked(getMessagesForLanguage).mockRejectedValueOnce(new Error(DYNAMIC_I18N_IMPORT_ERROR));
+
+    findButton('Choose Folder Sentinel').click();
+    await flushPromises();
+
+    await vi.waitFor(() => {
+      expect(document.body.textContent).toContain('Local Folder Authorize Warning Title Sentinel');
+      expect(document.body.textContent).toContain('Local Folder Authorize Warning Body Sentinel');
+    });
+    expect(chooseDirectory).toHaveBeenCalledWith({ suggestedName: 'Research Vault' });
+    expect(document.body.textContent).not.toContain(DYNAMIC_I18N_IMPORT_ERROR);
+    expect(vi.mocked(getMessagesForLanguage)).not.toHaveBeenCalled();
   });
 });

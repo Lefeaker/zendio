@@ -45,6 +45,7 @@ const DEFAULT_FRAGMENT_CLIPPER: FragmentClipperOptions = {
 
 const DEFAULT_TEMPLATES: TemplateOptions = {
   article: 'Articles/{domain}/{yyyy}/{slug}.md',
+  video: 'Video/{domain}/{yyyy}/{yyyy}-{mm}-{dd}/{slug}.md',
   fragment: 'Fragments/{yyyy}/{mm}/{dd}/{title}.md',
   reading: 'Reading/{domain}/{yyyy}/{yyyy}-{mm}-{dd}/{slug}.md',
   ai: 'AI/{platform}/{yyyy}/{yyyy}-{mm}-{dd}_{title}.md'
@@ -118,6 +119,7 @@ export function getDefaultRestOptions(): {
 export function getDefaultTemplates(): TemplateOptions {
   return {
     article: CLIPPER_DEFAULTS.templates.article,
+    video: CLIPPER_DEFAULTS.templates.video,
     fragment: CLIPPER_DEFAULTS.templates.fragment,
     reading: CLIPPER_DEFAULTS.templates.reading,
     ai: CLIPPER_DEFAULTS.templates.ai

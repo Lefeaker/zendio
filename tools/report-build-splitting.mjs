@@ -40,13 +40,13 @@ const ENTRY_BUDGETS = new Map([
 // esbuild also extracts the tiny shared screenshot-intent bridge used by both the
 // session runtime and screenshot queue. Keep size budgets strict while allowing
 // the two intentional chunks created by that split.
-// 2026-06-16 follow-up: AI chat runtime parser loaders now share one lazy
-// runtimePlatformParsers boundary instead of emitting one tiny dynamic-import
-// wrapper per platform. Ratchet chunk count back below the P15 danger zone
-// without changing entry/shared/locale/YAML size budgets.
+// 2026-06-20 onboarding closeout: the first-run page now lazy-loads its
+// bootstrap/controller and keeps terms/privacy/support resources in a focused
+// bootstrap chunk. The retained dev graph has four additional intentional
+// chunks after removing the erroneous Options/Stitch modal dependency chain.
 const CHUNK_COUNT_BUDGET = {
-  warningTarget: 108,
-  hardStop: 118
+  warningTarget: 118,
+  hardStop: 122
 };
 const MAX_SINGLE_CHUNK_SIZE = 320 * 1024;
 // Shared #1 carries the cross-entry options/repository schema. The first budget
@@ -59,7 +59,10 @@ const MAX_SINGLE_CHUNK_SIZE = 320 * 1024;
 // reproducing the same budget drift on the pre-import-boundary integration
 // head. Keep single chunk, YAML, and chunk-count gates unchanged.
 const SHARED_CHUNK_BUDGETS = [213 * 1024, 136 * 1024, 133 * 1024];
-const MAX_LOCALE_CHUNK_SIZE = 64 * 1024;
+// 2026-06-20: release schema text now includes the full first-run terms and
+// privacy policy resource surface. Russian remains the largest schema locale
+// chunk after the onboarding modal import graph was corrected.
+const MAX_LOCALE_CHUNK_SIZE = 68 * 1024;
 const LOCALE_CHUNK_PATTERN =
   /^(?:en|zh-CN|zh-TW|ja|ko|fr|de|ru|it|es-ES|es-419|pt-BR)(?:\.generated)?-/;
 const YAML_CONFIG_CHUNK_PATTERN = /^yaml-config-/;

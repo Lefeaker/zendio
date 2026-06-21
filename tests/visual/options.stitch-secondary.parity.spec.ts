@@ -27,14 +27,25 @@ const FOOTER_PANEL_IDS = [
   'task-success'
 ] as const;
 
-const EXPECTED_RESOURCE_LABELS = [
-  'Onboarding',
-  'Plugin Setup',
+const EXPECTED_PRODUCTION_RESOURCE_LABELS = [
+  'Setup Guide',
   'Support',
   'Suggestions',
   'Contact',
   'Changelog'
 ] as const;
+
+const EXPECTED_PREVIEW_RESOURCE_LABELS: Record<PreviewSourceKind, string[]> = {
+  'external-reference': [
+    'Onboarding',
+    'Plugin Setup',
+    'Support',
+    'Suggestions',
+    'Contact',
+    'Changelog'
+  ],
+  'generated-preview': [...EXPECTED_PRODUCTION_RESOURCE_LABELS]
+};
 
 const EXPECTED_PRODUCTION_SURFACE_LABELS: string[] = [];
 
@@ -329,11 +340,11 @@ function expectSharedOptionsParity(
 ): void {
   const previewReleaseNavLabels = preview.navLabels.filter((label) => label !== 'Experimental');
   const expectedPreviewModalTitles = [
-    ...EXPECTED_RESOURCE_LABELS,
+    ...EXPECTED_PREVIEW_RESOURCE_LABELS[previewSourceKind],
     ...EXPECTED_PREVIEW_SURFACE_LABELS[previewSourceKind]
   ];
   const expectedProductionModalTitles = [
-    ...EXPECTED_RESOURCE_LABELS,
+    ...EXPECTED_PRODUCTION_RESOURCE_LABELS,
     ...EXPECTED_PRODUCTION_SURFACE_LABELS
   ];
   expect(production.skin.previewSkin).toBe('stitch-secondary');
@@ -349,8 +360,8 @@ function expectSharedOptionsParity(
   expect(production.computed.button).toEqual(preview.computed.button);
   expectElementSamplesToMatch(production.elementSamples, preview.elementSamples);
   expect(production.navLabels).toEqual(previewReleaseNavLabels);
-  expect(production.resourceLabels).toEqual(EXPECTED_RESOURCE_LABELS);
-  expect(preview.resourceLabels).toEqual(EXPECTED_RESOURCE_LABELS);
+  expect(production.resourceLabels).toEqual(EXPECTED_PRODUCTION_RESOURCE_LABELS);
+  expect(preview.resourceLabels).toEqual(EXPECTED_PREVIEW_RESOURCE_LABELS[previewSourceKind]);
   expect(production.surfaceLabels).toEqual(EXPECTED_PRODUCTION_SURFACE_LABELS);
   expect(preview.surfaceLabels).toEqual(EXPECTED_PREVIEW_SURFACE_LABELS[previewSourceKind]);
   expect(production.modalResourceTitles).toEqual(expectedProductionModalTitles);
@@ -572,6 +583,59 @@ test.describe('Stitch Secondary preview-to-production parity', () => {
     expect(metrics.mainScrollTop).toBeGreaterThan(0);
   });
 
+  test('production keeps YAML field table constrained to the output card at narrow widths', async ({
+    page
+  }) => {
+    await page.setViewportSize({ width: 900, height: 760 });
+    await page.goto(createProductionUrl());
+    await page.waitForSelector('.app');
+    await page.waitForSelector('.stitch-yaml-config-table table');
+    await setTheme(page, 'light');
+
+    const metrics = await page.evaluate(() => {
+      const root = document.documentElement;
+      const section = document.querySelector<HTMLElement>('[data-panel-id="output"]');
+      const widget = section?.querySelector<HTMLElement>('[data-stitch-widget="yaml-config"]');
+      const card = Array.from(section?.querySelectorAll<HTMLElement>('.card') ?? []).find(
+        (candidate) => candidate.contains(widget ?? null)
+      );
+      const shell = widget?.querySelector<HTMLElement>('.stitch-yaml-config-table');
+      const table = shell?.querySelector<HTMLElement>('table');
+      if (!section || !card || !widget || !shell || !table) {
+        throw new Error('YAML table layout metrics could not be collected.');
+      }
+
+      section.scrollIntoView({ block: 'start' });
+      const cardRect = card.getBoundingClientRect();
+      const widgetRect = widget.getBoundingClientRect();
+      const shellRect = shell.getBoundingClientRect();
+      const tableRect = table.getBoundingClientRect();
+      const shellStyle = window.getComputedStyle(shell);
+
+      return {
+        viewportWidth: root.clientWidth,
+        documentScrollWidth: root.scrollWidth,
+        cardWidth: cardRect.width,
+        widgetWidth: widgetRect.width,
+        shellWidth: shellRect.width,
+        tableWidth: tableRect.width,
+        shellClientWidth: shell.clientWidth,
+        shellScrollWidth: shell.scrollWidth,
+        shellOverflowX: shellStyle.overflowX,
+        cardRight: cardRect.right,
+        shellRight: shellRect.right
+      };
+    });
+
+    expect(metrics.documentScrollWidth).toBeLessThanOrEqual(metrics.viewportWidth + 1);
+    expect(metrics.widgetWidth).toBeLessThanOrEqual(metrics.cardWidth);
+    expect(metrics.shellWidth).toBeLessThanOrEqual(metrics.cardWidth);
+    expect(metrics.shellRight).toBeLessThanOrEqual(metrics.cardRight + 1);
+    expect(metrics.shellOverflowX).toBe('auto');
+    expect(metrics.shellScrollWidth).toBeGreaterThan(metrics.shellClientWidth);
+    expect(metrics.tableWidth).toBeGreaterThan(metrics.shellWidth);
+  });
+
   test('preview interaction inventory has production handlers and no fake YAML summary controls', async ({
     page
   }) => {
@@ -594,7 +658,7 @@ test.describe('Stitch Secondary preview-to-production parity', () => {
     await expectFooterPanelCounts(page, EXPECTED_PRODUCTION_SURFACE_PANEL_COUNTS);
     const production = await collectStitchContract(page);
 
-    for (const label of ['Privacy policy', 'Data usage details']) {
+    for (const label of ['Privacy Policy', 'Data usage details']) {
       expect(production.interactionInventory.enabledButtonLabels).toContain(label);
     }
     for (const label of EXPECTED_PRODUCTION_SURFACE_LABELS) {
@@ -605,7 +669,7 @@ test.describe('Stitch Secondary preview-to-production parity', () => {
       expect(production.interactionInventory.disabledButtonLabels).not.toContain(label);
     }
     for (const label of [
-      'Privacy policy',
+      'Privacy Policy',
       'Data usage details',
       '+ Add field',
       '+ Add domain rule'

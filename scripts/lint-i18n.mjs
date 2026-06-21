@@ -3,11 +3,14 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { build } from 'esbuild';
 import { validateRichHtmlCatalogMessages } from './utils/i18nRichHtmlPolicy.mjs';
+import { installI18nAssetFetch } from './utils/install-i18n-asset-fetch.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const ROOT = path.resolve(__dirname, '..');
 const CHROME_LOCALES_DIR = path.join(ROOT, 'public', '_locales');
+
+installI18nAssetFetch();
 
 function flattenMessages(record, prefix = '', output = {}) {
   for (const [key, value] of Object.entries(record)) {

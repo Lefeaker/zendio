@@ -1,8 +1,7 @@
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { RUNTIME_MESSAGE_KEYS } from '../src/i18n/catalog/keys';
 import { RELEASE_LANGUAGE_ORDER } from '../src/i18n/catalog/languages';
-import { SCHEMA_MESSAGE_KEYS } from '../src/i18n/catalog/schemaKeys';
+import { collectRuntimeMessageKeysFromEnglishSource } from './i18n/catalogExpectedKeys';
 import { readCatalogSource } from './i18n/catalogReader';
 import { compileCatalog } from './i18n/compileCatalog';
 import {
@@ -10,7 +9,10 @@ import {
   diffGeneratedArtifacts,
   writeGeneratedArtifacts
 } from './i18n/generatedArtifacts';
-import { readSchemaCatalogSource } from './i18n/schemaCatalogReader';
+import {
+  collectSchemaMessageKeysFromEnglishSource,
+  readSchemaCatalogSource
+} from './i18n/schemaCatalogReader';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -33,12 +35,12 @@ async function main(): Promise<void> {
   const { checkOnly } = parseArgs(process.argv.slice(2));
   const sourceCatalogs = readCatalogSource({ includePseudoLocale: true });
   const compiled = compileCatalog(sourceCatalogs, {
-    expectedKeys: RUNTIME_MESSAGE_KEYS,
+    expectedKeys: collectRuntimeMessageKeysFromEnglishSource(sourceCatalogs),
     releaseLanguageOrder: RELEASE_LANGUAGE_ORDER
   });
   const schemaCatalogs = readSchemaCatalogSource(ROOT);
   const schemaCompiled = compileCatalog(schemaCatalogs, {
-    expectedKeys: SCHEMA_MESSAGE_KEYS,
+    expectedKeys: collectSchemaMessageKeysFromEnglishSource(schemaCatalogs),
     releaseLanguageOrder: RELEASE_LANGUAGE_ORDER
   });
   const artifacts = await buildGeneratedArtifacts(

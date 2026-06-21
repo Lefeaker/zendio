@@ -101,8 +101,8 @@ export interface ContactEntry {
 export interface ChangelogEntry {
   version: string;
   date: string;
+  summary?: string;
   bullets: string[];
-  notes?: Array<{ title: string; items: string[] }>;
 }
 
 export interface SurfaceAction {
@@ -223,6 +223,7 @@ export interface PreviewSurfaces {
   };
   video: {
     hero: HeroData;
+    iconUrl: string;
     labels: RuntimeSessionLabels & { addLabel: string; emptyCapturePlaceholder: string };
     status: string;
     hint: string;
@@ -301,6 +302,7 @@ export interface PreviewContent {
     title: string;
     subtitle: string;
     logo: string;
+    websiteUrl?: string;
   };
   rendererLabels: {
     resourcePendingBadge: string;
@@ -348,7 +350,6 @@ export interface PreviewContent {
     yamlFilters: SelectOption[];
     yamlRows: YamlRowGroup[];
     yamlDomainRules: YamlDomainRule[];
-    yamlPreview: string;
     presets: PresetEntry[];
   };
   experimental: {
@@ -418,6 +419,9 @@ export interface PreviewStoreState extends PreviewVideoStoreState {
 export interface SchemaContext {
   appData: PreviewContent;
   state: PreviewStoreState;
+  capabilities?: {
+    analyticsDebugMode?: boolean;
+  };
   language?: string;
   messages?: Messages | null;
   t?: SchemaTranslator;

@@ -1,5 +1,9 @@
 import { hasConsentForAnalyticsEvent } from './analyticsConsent';
 import {
+  normalizeAnalyticsDebugModeFlag,
+  resolveAnalyticsDebugMode
+} from './analyticsDebugModeCapability';
+import {
   DEFAULT_ANALYTICS_MEASUREMENT_ID,
   normalizeAnalyticsTransportMode,
   normalizeMeasurementId,
@@ -48,8 +52,9 @@ export function normalizeStoredAnalyticsConfig(
 
   return {
     enabled: resolveAnalyticsRuntimeEnabled(consent),
-    debugMode:
-      typeof storedConfig?.debugMode === 'boolean' ? storedConfig.debugMode : defaults.debugMode,
+    debugMode: normalizeAnalyticsDebugModeFlag(
+      typeof storedConfig?.debugMode === 'boolean' ? storedConfig.debugMode : defaults.debugMode
+    ),
     measurementId:
       normalizeMeasurementId(storedConfig?.measurementId, defaults.measurementId) ??
       defaults.measurementId,
@@ -98,13 +103,19 @@ export function createAnalyticsTransportConfig(
   const sessionId = Object.prototype.hasOwnProperty.call(overrides, 'sessionId')
     ? normalizeOptionalString(overrides.sessionId)
     : normalizedBaseConfig.sessionId;
+  const requestedDebugMode =
+    typeof overrides.debugMode === 'boolean' ? overrides.debugMode : normalizedBaseConfig.debugMode;
+  const debugMode = consent
+    ? resolveAnalyticsDebugMode({
+        analytics: consent.analytics,
+        errorReporting: consent.errorReporting,
+        debugMode: requestedDebugMode
+      })
+    : normalizeAnalyticsDebugModeFlag(requestedDebugMode);
 
   return {
     enabled: resolveAnalyticsRuntimeEnabled(consent),
-    debugMode:
-      typeof overrides.debugMode === 'boolean'
-        ? overrides.debugMode
-        : normalizedBaseConfig.debugMode,
+    debugMode,
     measurementId:
       normalizeMeasurementId(
         Object.prototype.hasOwnProperty.call(overrides, 'measurementId')

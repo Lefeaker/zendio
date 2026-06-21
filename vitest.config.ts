@@ -5,6 +5,7 @@ export default defineConfig({
   test: {
     globals: true,
     environment: 'node',
+    setupFiles: ['tests/setup/i18nAssetFetch.ts'],
     include: ['tests/**/*.test.ts'],
     exclude: [
       'tests/e2e/readerPanelFlow.test.ts',

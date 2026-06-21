@@ -45,7 +45,7 @@ describe('options index modal hosts', () => {
 
     expect(source).toContain('../options/stitch/styles/stitch.css');
     expect(source).toContain('../options/stitch/styles/variants/stitch-secondary.css');
-    expect(source).toContain('<html lang="en" data-route="onboarding"');
+    expect(source).toMatch(/<html\b[^>]*\blang="en"[^>]*\bdata-route="onboarding"/su);
     expect(source).toContain('<title>Zendio</title>');
     expect(source).toContain('data-preview-skin="stitch-secondary"');
     expect(source).not.toContain('../styles/global.tailwind.css');

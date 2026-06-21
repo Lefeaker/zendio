@@ -77,10 +77,25 @@ export function resolvePath(
         HHmmss: `${hourTwoDigit}${minuteTwoDigit}${secondTwoDigit}`,
         HHmm: `${hourTwoDigit}${minuteTwoDigit}`,
         ss: secondTwoDigit,
-        platform:
-          payload.meta?.platform ??
-          classification.ai_platform ??
-          (payload.type === 'video' ? 'video' : 'clipper')
+        platform: payload.meta?.platform ?? classification.ai_platform ?? 'clipper'
+      });
+    }
+
+    case 'video': {
+      const template = getTemplateValue(templates, 'video');
+      const domain = resolveDomain(payload, domainMappings);
+      return populateTemplate(template, {
+        domain: safe(domain),
+        yyyy: String(yyyy),
+        mm: monthTwoDigit,
+        dd,
+        HH: hourTwoDigit,
+        slug: slug(title),
+        title: safe(title),
+        HHmmss: `${hourTwoDigit}${minuteTwoDigit}${secondTwoDigit}`,
+        HHmm: `${hourTwoDigit}${minuteTwoDigit}`,
+        ss: secondTwoDigit,
+        platform: payload.meta?.platform ?? classification.ai_platform ?? 'video'
       });
     }
 

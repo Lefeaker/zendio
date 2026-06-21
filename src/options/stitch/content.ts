@@ -2,6 +2,8 @@ import { changelogResource } from './changelogResourceData';
 import { createReleaseLanguageOptions } from './languageOptions';
 import { message, previewNavigation } from './previewNavigation';
 import { getPreviewTemplateDefaults } from '@shared/config';
+import { VIDEO_MODE_PANEL_ICON_PATH } from '@shared/assets/iconPaths';
+import { ZENDIO_RESOURCE_LINKS } from '@shared/links/zendioResourceLinks';
 import type { PreviewContent } from './types';
 
 const SAMPLE_RESEARCH_VAULT = message('schemaPreviewSampleVaultResearch');
@@ -275,7 +277,6 @@ export const previewContent: PreviewContent = {
         rows: [['official_account', 'On', 'metadata.wechat.account', '']]
       }
     ],
-    yamlPreview: `---\ntype: article\ntitle: "Research Article Example"\nurl: "https://arxiv.org/abs/2401.00001"\nclipped_at: "2026-04-08T18:32:00+08:00"\ntags: ["clipping", "research"]\nstatus: ["unread"]\nworkspace: "research"\nauthors: ["Jane Doe", "John Smith"]\ncitation_key: "doe2026ia"\n---`,
     presets: [
       ['Minimal', 'Title, source, date, and base tags. Good for quick capture.'],
       ['Research', 'Adds author, published_at, citation, status, and workspace.'],
@@ -374,15 +375,13 @@ export const previewContent: PreviewContent = {
     },
     onboarding: {
       hero: {
-        title: 'Onboarding',
-        description:
-          'Mirrors the current 5-step onboarding flow so new users can finish setup and understand the basics quickly.',
+        title: message('schemaResourceOnboardingTitle'),
+        description: message('schemaResourceOnboardingDescription'),
         pills: [
-          'Step 1 API',
-          'Step 2 Vault Routing',
-          'Step 3 Core Features',
-          'Step 4 Utilities',
-          'Step 5 Feedback'
+          message('apiConfigTitle'),
+          message('schemaStorageVaultListTitle'),
+          message('schemaStorageRoutingGroupTitle'),
+          message('schemaOutputYamlGroupTitle')
         ],
         icon: 'rocket_launch'
       },
@@ -494,7 +493,7 @@ export const previewContent: PreviewContent = {
           title: 'Ko-fi',
           subtitle: message('schemaResourceSupportKoFiDescription'),
           icon: './icons/ko-fi.svg',
-          href: 'https://ko-fi.com/xiannian'
+          href: ZENDIO_RESOURCE_LINKS.koFi
         },
         {
           title: message('schemaResourceSupportAfdianTitle'),
@@ -516,13 +515,13 @@ export const previewContent: PreviewContent = {
           title: message('schemaResourceSuggestionsGithubTitle'),
           subtitle: message('schemaResourceSuggestionsGithubDescription'),
           icon: './icons/github-fill.svg',
-          href: 'https://github.com/Lefeaker/AllinOB/issues/new?labels=enhancement&title=%5BFeature%20Request%5D%20'
+          href: ZENDIO_RESOURCE_LINKS.githubIssuesNew
         },
         {
           title: message('schemaResourceSuggestionsRedditTitle'),
           subtitle: message('schemaResourceSuggestionsRedditDescription'),
           icon: './icons/reddit.svg',
-          href: 'https://www.reddit.com/user/sxnian/'
+          href: ZENDIO_RESOURCE_LINKS.redditAuthor
         }
       ]
     },
@@ -537,17 +536,17 @@ export const previewContent: PreviewContent = {
         {
           title: 'Reddit',
           subtitle: message('schemaResourceContactRedditDescription'),
-          href: 'https://www.reddit.com/user/sxnian/'
+          href: ZENDIO_RESOURCE_LINKS.redditAuthor
         },
         {
           title: message('schemaResourceContactGithubTitle'),
           subtitle: message('schemaResourceContactGithubDescription'),
-          href: 'https://github.com/Lefeaker'
+          href: ZENDIO_RESOURCE_LINKS.githubProfile
         },
         {
           title: message('schemaResourceContactEmailTitle'),
           subtitle: message('schemaResourceContactEmailDescription'),
-          href: 'mailto:zendio@sxnian.com'
+          href: ZENDIO_RESOURCE_LINKS.supportEmail
         }
       ],
       note: 'If you like the product or want to talk with the author, use the website, social channels, GitHub, or email.'
@@ -711,6 +710,7 @@ export const previewContent: PreviewContent = {
         pills: ['Timestamp Notes', 'Fragment Capture', 'Inline Edit', 'YouTube / Bilibili'],
         icon: 'smart_display'
       },
+      iconUrl: `../../AiiinOB/public/${VIDEO_MODE_PANEL_ICON_PATH}`,
       labels: {
         title: message('schemaRuntimeVideoTitle'),
         subtitle: message('videoPanelStatus'),

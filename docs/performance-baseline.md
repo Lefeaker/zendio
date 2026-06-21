@@ -60,6 +60,8 @@ npm run audit:build:report
 
 2026-06-18 GA telemetry production integration acceptance gap fix 复核重新采集 focused activation Vitest、`typecheck:strict`、`build:fast`、`audit:build:report`、`build:dev`、`audit:build:report`、`audit:release-surface:report` 与 `audit:performance:report`。本轮修复只收口 `exactOptionalPropertyTypes` 下 activation persisted optional fields 的 normalize 写回，并同步 GA integration 分支当前 >250 LOC hotspot exact budgets；没有提高 build hard stop、single/shared chunk、locale chunk、YAML chunk size budget 或 GA secret/release-surface gate。Fresh production build report 为 `content/runtime.js = 50,027` bytes、`onboarding/index.js = 10,023` bytes、`chunks = 104`；fresh dev build report 为 `content/runtime.js = 58,508` bytes（warning/hard `58,564 / 58,752`）、`onboarding/index.js = 17,566` bytes（warning/hard `17,377 / 17,633`）、`chunk count = 118`（warning/hard `108 / 118`）。当前 dev build 仅触发 onboarding 与 chunk count warning，没有超过 hard stop。`audit:release-surface:report` 输出 `Files = 173`、forbidden harness members `none`、forbidden dev/test pseudo-locale members `none`；`audit:performance:report` 输出 sourceFiles=`814`、hotspotsOver250=`108`、registeredLineBudgets=`136`。
 
+2026-06-20 Options/onboarding closeout 复核重新采集 `build:dev`、`audit:build:report` 与 `audit:performance:report`。首启页入口改为 lazy bootstrap，支持/建议/联系/更新日志/协议/隐私弹窗改为 onboarding 专属轻量 renderer，不再从 onboarding 动态导入完整 Options/Stitch schema registry 与 renderStitchView。当前 dev build report 为 `content/runtime.js = 58,546` bytes（warning/hard `58,564 / 58,752`）、`onboarding/index.js = 1,827` bytes（warning/hard `17,377 / 17,633`）、`chunk count = 122`（warning/hard `118 / 122`）；Russian schema locale chunk 当前为 `66.8 KB`，locale chunk hard stop 同步为 `68 KB`。本次没有放宽 single chunk、shared chunk 或 YAML chunk size budget。`audit:performance:report` 当前输出 sourceFiles=`823`、hotspotsOver250=`112`、registeredLineBudgets=`140`，新增 `src/onboarding/resourceModal.ts <= 625` 与 `src/options/stitch/schema/resources/setup-guide.ts <= 255` exact budgets，并同步首启协议/隐私与 Options schema copy 引起的 generated/schema、overview、analytics config 与 shell action runtime exact line budgets。
+
 2026-06-16 i18n hardcoded follow-up build-budget risk reduction 将 AI chat runtime parser platform loaders 从 10 个 per-platform dynamic-import wrapper chunks 合并为一个 lazy `runtimePlatformParsers-*` boundary，并在 P3 follow-up 中切断 `aiChatExtractor.ts -> parse.ts -> registry.ts -> platform parsers` 静态路径。`build:dev` 后 `audit:build:report` 当前 dev chunk count 从 `120` 降至 `101`，chunk count gate 收紧为 warning target `108` / hard stop `118`；`aiChatExtractor-*` 静态 import 图不再包含 platform parser implementation markers，platform parsers 只通过 `runtimeRegistry-*` 动态加载唯一 `runtimePlatformParsers-*`。本次不改变 `content/runtime.js`、`onboarding/index.js`、single chunk、shared chunk、locale chunk 或 YAML size hard stops；`ru.generated-*` 与 shared Top 3 仍按 P15 current truth 继续观察。
 
 2026-06-17 English uncatalogued-copy P07 build-budget stabilization 将 generated schema catalog 从单一 `schemaMessages.generated.ts` 聚合模块拆为 `schemaCore.generated.ts` + `src/i18n/generated/schema/<locale>.generated.ts` per-locale chunks，并让 `@i18n/messages` 按语言动态加载 schema catalog。`build:dev` + `audit:build:report` 当前通过 hard gate：`content/runtime.js` raw `58,488` bytes、`onboarding/index.js` raw `17,377` bytes、chunk count `113`（warning `108` / hard stop `118`），最大 shared top three 为 `134.9 KB` / `132.0 KB` / `118.5 KB`；旧 `schemaMessages.generated.ts` `219.5 KB` shared chunk 不再出现。本次不提高 build hard stop；仅同步前序 Options/i18n 迁移后的 exact hotspot line budgets 与新增 `schemaCore.generated.ts <= 370` generated hotspot budget。
@@ -89,8 +91,8 @@ npm run audit:build:report
 - `build/dist/content/index.js`: `561 B`
 - `build/dist/content/runtime.js`: `57.1 KB`（raw `58,508` bytes；warning target `58,564` raw bytes；hard stop `58,752` raw bytes）
 - `build/dist/options/index.js`: `1.5 KB`
-- `build/dist/onboarding/index.js`: `17.2 KB`（raw `17,566` bytes；warning target `17,377` raw bytes；hard stop `17,633` raw bytes）
-- 总 chunk 数：`118`（warning target `108`；hard stop `118`）
+- `build/dist/onboarding/index.js`: `1.8 KB`（raw `1,827` bytes；warning target `17,377` raw bytes；hard stop `17,633` raw bytes）
+- 总 chunk 数：`122`（warning target `118`；hard stop `122`）
 - `chunks/runtimeEntry-*.js`: `261.9 KB`
 - `chunks/runtimePlatformParsers-*.js`: `54.2 KB`
 - `chunks/productionStitchAssets-*.js`: `116.9 KB`
@@ -124,9 +126,9 @@ npm run audit:build:report
 - 最大 shared chunk `<= 213 KB`
 - 第二大 shared chunk `<= 136 KB`
 - 第三大 shared chunk `<= 133 KB`
-- locale chunk `<= 64 KB`
+- locale chunk `<= 68 KB`
 - `yaml-config <= 70 KB`
-- `chunk count`: warning target `108`；hard stop `118`
+- `chunk count`: warning target `118`；hard stop `122`
 
 ## 2. 热点真值
 

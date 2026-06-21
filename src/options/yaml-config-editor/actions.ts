@@ -88,7 +88,7 @@ function createDomainField(
   const type: YamlFieldType = field?.type ?? 'text';
   return {
     id: allocateId(state, `domain-field-${field?.name || 'field'}`),
-    name: field?.name ?? 'title',
+    name: field?.name ?? '',
     type,
     enabled: field?.enabled ?? true,
     defaultValue: stringifyDefaultValue(type, field?.defaultValue),
@@ -133,7 +133,7 @@ export function applyYamlEditorAction(
   switch (action.type) {
     case 'add-custom-field': {
       next.contentTypes[action.contentType].customFields.push(
-        createEditableField(next, action.field, 'custom_field')
+        createEditableField(next, action.field, '')
       );
       return next;
     }

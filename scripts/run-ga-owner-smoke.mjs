@@ -83,17 +83,18 @@ const OWNER_ONLY_CHECKS = Object.freeze([
  * }} OwnerSmokeRunResult
  */
 
-const SUPPORTED_EVENT_DEFINITIONS = /** @type {Readonly<Record<OwnerSmokeEventName, SupportedEventDefinition>>} */ (
-  Object.freeze({
-    runtime_harness_open: {
-      eventName: 'runtime_harness_open',
-      paramNames: ['source'],
-      params: Object.freeze({
-        source: 'runtime-observability-harness'
-      })
-    }
-  })
-);
+const SUPPORTED_EVENT_DEFINITIONS =
+  /** @type {Readonly<Record<OwnerSmokeEventName, SupportedEventDefinition>>} */ (
+    Object.freeze({
+      runtime_harness_open: {
+        eventName: 'runtime_harness_open',
+        paramNames: ['source'],
+        params: Object.freeze({
+          source: 'runtime-observability-harness'
+        })
+      }
+    })
+  );
 
 export function normalizeAnalyticsTransportMode(value, fallback = 'disabled') {
   if (typeof value !== 'string' || value.trim().length === 0) {
@@ -101,7 +102,9 @@ export function normalizeAnalyticsTransportMode(value, fallback = 'disabled') {
   }
 
   const normalized = value.trim();
-  return /** @type {readonly string[]} */ (['disabled', 'proxy', 'directDebug']).includes(normalized)
+  return /** @type {readonly string[]} */ (['disabled', 'proxy', 'directDebug']).includes(
+    normalized
+  )
     ? normalized
     : 'disabled';
 }
@@ -192,9 +195,7 @@ function isGoogleMeasurementProtocolEndpointUrl(url) {
 
   return (
     pathParts.length > 0 &&
-    GOOGLE_MEASUREMENT_PROTOCOL_PATH_PARTS.some(
-      (parts) => pathParts.join('/') === parts.join('/')
-    )
+    GOOGLE_MEASUREMENT_PROTOCOL_PATH_PARTS.some((parts) => pathParts.join('/') === parts.join('/'))
   );
 }
 
@@ -270,7 +271,9 @@ export function parseOwnerSmokeArgs(argv) {
   }
 
   if (!SUPPORTED_MODES.includes(options.mode)) {
-    throw new Error(`Unsupported --mode "${options.mode}". Supported values: ${SUPPORTED_MODES.join(', ')}`);
+    throw new Error(
+      `Unsupported --mode "${options.mode}". Supported values: ${SUPPORTED_MODES.join(', ')}`
+    );
   }
 
   if (!SUPPORTED_EVENTS.includes(options.eventName)) {
@@ -294,7 +297,11 @@ export function resolveOwnerSmokePublicConfig(env, mode) {
     );
   }
 
-  const rawMeasurementId = resolveEnvValue(env, 'ZENDIO_GA_MEASUREMENT_ID', 'AIIINOB_GA_MEASUREMENT_ID');
+  const rawMeasurementId = resolveEnvValue(
+    env,
+    'ZENDIO_GA_MEASUREMENT_ID',
+    'AIIINOB_GA_MEASUREMENT_ID'
+  );
   const rawTransportMode = resolveEnvValue(
     env,
     'ZENDIO_GA_TRANSPORT_MODE',
@@ -435,10 +442,7 @@ export async function runOwnerSmoke(options, env = process.env, fetchImpl = glob
     summary: {
       ...baseSummary,
       responseStatus: response.statusCode,
-      responseSummary: buildResponseSummary(
-        response.bodyText,
-        options.showRedactedResponseSummary
-      ),
+      responseSummary: buildResponseSummary(response.bodyText, options.showRedactedResponseSummary),
       ...(options.mode === 'directDebug'
         ? { validationSummary: summarizeValidationMessages(response.bodyText) }
         : {})
@@ -612,15 +616,17 @@ function summarizeValidationMessages(bodyText) {
         : null
     )
     .filter((value) => typeof value === 'string');
-  const severities = [...new Set(
-    parsed.validationMessages
-      .map((message) =>
-        message && typeof message === 'object' && typeof message.severity === 'string'
-          ? message.severity
-          : null
-      )
-      .filter((value) => typeof value === 'string')
-  )];
+  const severities = [
+    ...new Set(
+      parsed.validationMessages
+        .map((message) =>
+          message && typeof message === 'object' && typeof message.severity === 'string'
+            ? message.severity
+            : null
+        )
+        .filter((value) => typeof value === 'string')
+    )
+  ];
 
   return {
     available: true,
@@ -647,12 +653,12 @@ function printHelp() {
   node scripts/run-ga-owner-smoke.mjs --mode <proxy|directDebug> --event <runtime_harness_open> [--show-redacted-response-summary]
 
 Required public env:
-  AIIINOB_GA_MEASUREMENT_ID or ZENDIO_GA_MEASUREMENT_ID
-  AIIINOB_GA_PROXY_ENDPOINT or ZENDIO_GA_PROXY_ENDPOINT
+  ZENDIO_GA_MEASUREMENT_ID or AIIINOB_GA_MEASUREMENT_ID
+  ZENDIO_GA_PROXY_ENDPOINT or AIIINOB_GA_PROXY_ENDPOINT
 
 Optional local-only env:
-  AIIINOB_GA_OWNER_SMOKE_TIMEOUT_MS or ZENDIO_GA_OWNER_SMOKE_TIMEOUT_MS
-  AIIINOB_GA_OWNER_SMOKE_RETRIES or ZENDIO_GA_OWNER_SMOKE_RETRIES
+  ZENDIO_GA_OWNER_SMOKE_TIMEOUT_MS or AIIINOB_GA_OWNER_SMOKE_TIMEOUT_MS
+  ZENDIO_GA_OWNER_SMOKE_RETRIES or AIIINOB_GA_OWNER_SMOKE_RETRIES
 
 Forbidden local env:
   GA4_API_SECRET, AIIINOB_GA_API_SECRET, ZENDIO_GA_API_SECRET, AIIINOB_GA_SECRET, ZENDIO_GA_SECRET

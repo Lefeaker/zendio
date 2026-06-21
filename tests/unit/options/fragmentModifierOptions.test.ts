@@ -2,6 +2,7 @@ import { DEFAULT_RUNTIME_MESSAGES, type Messages } from '@i18n';
 import { describe, expect, it } from 'vitest';
 import {
   detectFragmentModifierPlatform,
+  fragmentKeyboardShortcutsHint,
   fragmentModifierChipItems,
   fragmentModifierChoices,
   fragmentModifierConflictWarning,
@@ -15,6 +16,10 @@ const ENGLISH_SENTINEL_MESSAGES: Messages = {
   fragmentModifierKeyMeta: 'Cmd Sentinel',
   fragmentModifierKeyCtrl: 'Ctrl Sentinel',
   fragmentModifierKeyAlt: 'Alt Sentinel',
+  fragmentKeyboardShortcutsHint: 'Shortcut hint sentinel: {modifierShortcut}',
+  fragmentKeyboardShortcutCommandEnter: 'Cmd+Enter Sentinel',
+  fragmentKeyboardShortcutAltEnter: 'Alt+Enter Sentinel',
+  fragmentKeyboardShortcutFallbackEnter: 'Cmd+Enter / Alt+Enter Sentinel',
   schemaCaptureBehaviorModifierConflictBrowser: 'Browser warning sentinel for {label}',
   schemaCaptureBehaviorModifierConflictSystem: 'System warning sentinel for {label}'
 };
@@ -89,6 +94,18 @@ describe('fragment modifier Options helpers', () => {
     );
     expect(fragmentModifierConflictWarning('alt', null, true)).toBe(
       'Option may conflict with system, browser, or page shortcuts. If it is unstable, use Shift.'
+    );
+  });
+
+  it('localizes the fragment keyboard shortcut hint by detected platform', () => {
+    expect(fragmentKeyboardShortcutsHint(ENGLISH_SENTINEL_MESSAGES, true)).toBe(
+      'Shortcut hint sentinel: Cmd+Enter Sentinel'
+    );
+    expect(fragmentKeyboardShortcutsHint(ENGLISH_SENTINEL_MESSAGES, false)).toBe(
+      'Shortcut hint sentinel: Alt+Enter Sentinel'
+    );
+    expect(fragmentKeyboardShortcutsHint(ENGLISH_SENTINEL_MESSAGES, 'unknown')).toBe(
+      'Shortcut hint sentinel: Cmd+Enter / Alt+Enter Sentinel'
     );
   });
 });

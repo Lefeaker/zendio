@@ -20,6 +20,8 @@ const ENGLISH_SENTINEL_MESSAGES = {
   templateConfigHint: 'Template card hint sentinel.',
   articleTemplateLabel: 'Article Path Sentinel',
   articleTemplateHint: 'Article path hint sentinel.',
+  videoTemplateLabel: 'Video Path Sentinel',
+  videoTemplateHint: 'Video path hint sentinel.',
   fragmentTemplateLabel: 'Fragment Path Sentinel',
   fragmentTemplateHint: 'Fragment path hint sentinel.',
   readingTemplateLabel: 'Reading Path Sentinel',
@@ -78,6 +80,10 @@ describe('mountProductionStitchShell output i18n', () => {
 
     const templateCard = findCardByTitle('Template Card Sentinel');
     expect(templateCard.textContent).toContain('Template card hint sentinel.');
+    expect(templateCard.textContent).toContain('Article Path Sentinel');
+    expect(templateCard.textContent).toContain('Article path hint sentinel.');
+    expect(templateCard.textContent).toContain('Video Path Sentinel');
+    expect(templateCard.textContent).toContain('Video path hint sentinel.');
     expect(templateCard.textContent).toContain('Template helper sentinel.');
 
     const readingOptions = Array.from(

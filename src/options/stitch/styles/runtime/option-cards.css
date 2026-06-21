@@ -1,4 +1,3 @@
-
 .toolbar,
 .chips,
 .pill-row,
@@ -449,6 +448,13 @@ html[data-preview-theme='dark'] .resource-link-icon[src$='.svg'] {
 
 .step-header-inline {
   margin-bottom: var(--space-4);
+}
+
+.release-summary {
+  margin: var(--space-4) 0;
+  color: var(--text-muted);
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-rich);
 }
 
 .step-index {

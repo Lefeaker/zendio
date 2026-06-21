@@ -364,6 +364,8 @@ export async function expectNoLegacyOptionsShell(page: Page): Promise<void> {
   ).toHaveCount(0);
   await expect(page.locator('.aobx-shell__sidebar')).toHaveCount(0);
   await expect(
-    page.locator('details:has(.ai-platform-link), details:has-text("ChatGPT")')
+    page.locator(
+      'details:has(.ai-platform-link), details:has-text("ChatGPT"):not(.yaml-preview-details):not(:has([data-yaml-preview="content"]))'
+    )
   ).toHaveCount(0);
 }

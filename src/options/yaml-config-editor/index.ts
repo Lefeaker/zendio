@@ -7,6 +7,7 @@ export {
 } from './codecs';
 export { applyYamlEditorAction } from './actions';
 export { createYamlEditorState } from './state';
+export { buildYamlEditorPreview } from './preview';
 export { serializeYamlEditorState } from './serialize';
 export { validateYamlEditorState } from './validation';
 export type {

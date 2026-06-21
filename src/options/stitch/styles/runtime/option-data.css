@@ -1,4 +1,3 @@
-
 .table-wrap,
 .schema-table-wrap {
   max-width: 100%;
@@ -20,6 +19,11 @@
 .yaml-table-scroll table {
   table-layout: fixed;
   min-width: 900px;
+}
+
+.yaml-domain-fields-shell table {
+  table-layout: fixed;
+  min-width: 760px;
 }
 
 .domain-mapping-table-scroll table {
@@ -56,6 +60,18 @@
 
 .stitch-yaml-config-table :is(th, td):nth-child(9) {
   width: 100px;
+}
+
+.stitch-yaml-domain-fields-table :is(th, td):nth-child(1) {
+  width: 88px;
+}
+
+.stitch-yaml-domain-fields-table :is(th, td):nth-child(2) {
+  width: 168px;
+}
+
+.stitch-yaml-domain-fields-table :is(th, td):nth-child(5) {
+  width: 104px;
 }
 
 .yaml-table-scroll thead th {
@@ -204,6 +220,46 @@ td {
 .template-helper {
   color: var(--text-faint);
   font-size: var(--font-size-sm);
+}
+
+.video-prompt-helper {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0 var(--space-1);
+  min-width: 0;
+  margin: 0;
+  color: var(--text-dim);
+  font-size: var(--font-size-md);
+  line-height: var(--line-height-control);
+  overflow-wrap: anywhere;
+}
+
+.video-prompt-helper a {
+  color: var(--accent);
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.video-prompt-helper a:hover,
+.video-prompt-helper a:focus-visible {
+  text-decoration: underline;
+}
+
+.video-screenshot-dot-example {
+  display: inline-flex;
+  flex: 0 0 auto;
+  width: var(--session-video-screenshot-dot-size, 8px);
+  height: var(--session-video-screenshot-dot-size, 8px);
+  margin-inline: var(--space-1);
+  border: 1px solid transparent;
+  border-radius: var(--radius-full);
+  background: var(--runtime-subtle);
+  vertical-align: middle;
+}
+
+.video-screenshot-dot-example.is-saved {
+  background: var(--success);
 }
 
 .path-template-section-title h3 {

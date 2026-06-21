@@ -6,16 +6,11 @@ import {
 } from './schema/i18n';
 import type { PreviewContent } from './types';
 
-type ChangelogNoteSectionDefinition = {
-  titleKey: SchemaMessageKey;
-  itemKeys: readonly SchemaMessageKey[];
-};
-
 type ChangelogEntryDefinition = {
   version: string;
   date: string;
+  summaryKey?: SchemaMessageKey;
   bulletKeys: readonly SchemaMessageKey[];
-  notes?: readonly ChangelogNoteSectionDefinition[];
 };
 
 const CHANGELOG_TITLE_KEY: SchemaMessageKey = 'schemaResourceChangelogTitle';
@@ -32,6 +27,7 @@ const CHANGELOG_ENTRY_DEFINITIONS: readonly ChangelogEntryDefinition[] = [
   {
     version: 'v0.2.0',
     date: '2026-06-10',
+    summaryKey: 'schemaResourceChangelogV020Summary',
     bulletKeys: [
       'schemaResourceChangelogV020Bullet1',
       'schemaResourceChangelogV020Bullet2',
@@ -43,21 +39,12 @@ const CHANGELOG_ENTRY_DEFINITIONS: readonly ChangelogEntryDefinition[] = [
       'schemaResourceChangelogV020Bullet8',
       'schemaResourceChangelogV020Bullet9',
       'schemaResourceChangelogV020Bullet10'
-    ],
-    notes: [
-      {
-        titleKey: 'schemaResourceChangelogUsageAdviceTitle',
-        itemKeys: [
-          'schemaResourceChangelogUsageAdvice1',
-          'schemaResourceChangelogUsageAdvice2',
-          'schemaResourceChangelogUsageAdvice3'
-        ]
-      }
     ]
   },
   {
     version: 'v0.1.0',
     date: '2025-10-13',
+    summaryKey: 'schemaResourceChangelogV010Summary',
     bulletKeys: [
       'schemaResourceChangelogV010Bullet1',
       'schemaResourceChangelogV010Bullet2',
@@ -82,15 +69,12 @@ export function createChangelogResource(
     entries: CHANGELOG_ENTRY_DEFINITIONS.map((entry) => ({
       version: entry.version,
       date: entry.date,
-      bullets: entry.bulletKeys.map((key) => resolveSchemaMessage(messages, key)),
-      ...(entry.notes
+      ...(entry.summaryKey
         ? {
-            notes: entry.notes.map((section) => ({
-              title: resolveSchemaMessage(messages, section.titleKey),
-              items: section.itemKeys.map((key) => resolveSchemaMessage(messages, key))
-            }))
+            summary: resolveSchemaMessage(messages, entry.summaryKey)
           }
-        : {})
+        : {}),
+      bullets: entry.bulletKeys.map((key) => resolveSchemaMessage(messages, key))
     }))
   };
 }

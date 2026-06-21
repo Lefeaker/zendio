@@ -155,18 +155,33 @@ export function getRowType(row: YamlTableRow): YamlFieldType {
   return getPrimaryField(row).type;
 }
 
-export function getRowDefaultValue(row: YamlTableRow, filter: YamlEditorFilter): string {
-  if (filter !== 'all' && row.fields[filter]) {
-    return row.fields[filter]?.defaultValue ?? '';
+function getMergedRowValue(
+  row: YamlTableRow,
+  filter: YamlEditorFilter,
+  readValue: (field: YamlEditorField) => string
+): string {
+  const filteredField = filter !== 'all' ? row.fields[filter] : undefined;
+  if (filteredField) {
+    return readValue(filteredField);
   }
-  return getPrimaryField(row).defaultValue;
+  if (filter === 'all') {
+    const contentValues = YAML_EDITOR_CONTENT_TYPES.flatMap((contentType) => {
+      const field = row.fields[contentType];
+      return field ? [readValue(field)] : [];
+    });
+    if (new Set(contentValues).size > 1) {
+      return '';
+    }
+  }
+  return readValue(getPrimaryField(row));
+}
+
+export function getRowDefaultValue(row: YamlTableRow, filter: YamlEditorFilter): string {
+  return getMergedRowValue(row, filter, (field) => field.defaultValue);
 }
 
 export function getRowValuePath(row: YamlTableRow, filter: YamlEditorFilter): string {
-  if (filter !== 'all' && row.fields[filter]) {
-    return row.fields[filter]?.valuePath ?? '';
-  }
-  return getPrimaryField(row).valuePath;
+  return getMergedRowValue(row, filter, (field) => field.valuePath);
 }
 
 export function updateRow(row: YamlTableRow, patch: Partial<YamlEditorField>): void {

@@ -13,6 +13,7 @@ import {
 } from '@shared/types/analytics';
 import type { UsageStats } from '@shared/types/usage';
 import { DEFAULT_RUNTIME_MESSAGES, type Messages } from '@i18n';
+import { isAnalyticsDebugModeControlAvailable, resolveAnalyticsDebugMode } from '@shared/analytics';
 import { persistPrivacyConsentAction, resetUsageStatsAction } from '@options/app/actions';
 import { applyAnalyticsTransferPayload } from '@options/services/analyticsTransfer';
 import { writeToClipboard } from '@options/services/configTransfer';
@@ -28,6 +29,7 @@ import { applyOptionsToState, LEGACY_USAGE_STATS_STORAGE_KEY } from './productio
 import type { PreviewContent, PreviewStoreState } from '@options/stitch/types';
 import type { OptionsController } from './optionsController';
 import { getMessage, setButtonBusy } from './productionStitchPersistenceUi';
+import { repairTemplateOptions } from './productionStitchTemplateRepair';
 
 type PrivacyPreferenceField = 'analytics' | 'errorReporting' | 'debugMode';
 
@@ -103,12 +105,18 @@ export function createProductionStitchPersistence(
     state.privacyDebugMode = nextSnapshot.debugMode;
   }
 
+  function normalizePrivacySnapshot(nextSnapshot: PrivacySnapshot): PrivacySnapshot {
+    return {
+      ...nextSnapshot,
+      debugMode: resolveAnalyticsDebugMode(nextSnapshot)
+    };
+  }
+
   async function applyRuntimePrivacySnapshot(
     nextSnapshot: PrivacySnapshot,
     field: PrivacyPreferenceField
   ): Promise<void> {
-    const runtimeDebugMode =
-      nextSnapshot.analytics || nextSnapshot.errorReporting ? nextSnapshot.debugMode : false;
+    const runtimeDebugMode = resolveAnalyticsDebugMode(nextSnapshot);
 
     if (field === 'debugMode') {
       await getAnalyticsConfigManager().updateConfig({ debugMode: runtimeDebugMode });
@@ -124,13 +132,12 @@ export function createProductionStitchPersistence(
     field: PrivacyPreferenceField,
     value: boolean
   ): Promise<void> {
-    const nextSnapshot = {
+    const requestedValue =
+      field === 'debugMode' && !isAnalyticsDebugModeControlAvailable() ? false : value;
+    const nextSnapshot = normalizePrivacySnapshot({
       ...getPrivacySnapshot(),
-      [field]: value
-    };
-    if ((!nextSnapshot.analytics || !nextSnapshot.errorReporting) && nextSnapshot.debugMode) {
-      nextSnapshot.debugMode = false;
-    }
+      [field]: requestedValue
+    });
     await persistPrivacyConsentAction(nextSnapshot, {
       optionsRepository: options.optionsRepository
     });
@@ -347,16 +354,7 @@ export function createProductionStitchPersistence(
       httpUrl: draft.rest.httpUrl || restDefaults.httpUrl,
       baseUrl
     };
-    draft.templates = {
-      ...draft.templates,
-      article: (draft.templates.article || templateDefaults.article).replace(
-        'Clippings/',
-        'Articles/'
-      ),
-      fragment: draft.templates.fragment || templateDefaults.fragment,
-      reading: draft.templates.reading || templateDefaults.reading,
-      ai: draft.templates.ai || templateDefaults.ai
-    };
+    draft.templates = repairTemplateOptions(draft.templates, templateDefaults);
     options.syncDefaultVaultFromRest();
     options.setMaintenanceLog(log.join('\n'));
     options.refreshAppData();

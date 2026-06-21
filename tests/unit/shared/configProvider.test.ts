@@ -199,6 +199,7 @@ describe('configProvider', () => {
 
       const templates = provider.getTemplates();
       expect(templates.article).toBe('Articles/{domain}/{yyyy}/{slug}.md');
+      expect(templates.video).toBe('Video/{domain}/{yyyy}/{yyyy}-{mm}-{dd}/{slug}.md');
       expect(templates.fragment).toBe('Fragments/{yyyy}/{mm}/{dd}/{title}.md');
       expect(templates.reading).toBe('Reading/{domain}/{yyyy}/{yyyy}-{mm}-{dd}/{slug}.md');
       expect(templates.ai).toBe('AI/{platform}/{yyyy}/{yyyy}-{mm}-{dd}_{title}.md');
@@ -213,6 +214,7 @@ describe('configProvider', () => {
         name: 'Minimal',
         templates: {
           article: 'Articles/{domain}/{yyyy}/{slug}.md',
+          video: 'Video/{domain}/{yyyy}/{yyyy}-{mm}-{dd}/{slug}.md',
           fragment: 'Clips/{domain}/{yyyy}/{slug}.md',
           reading: 'Reading/{domain}/{yyyy}/{slug}.md',
           ai: 'AI/{platform}/{yyyy}/{title}.md'
@@ -221,6 +223,7 @@ describe('configProvider', () => {
       });
       expect(research?.templates).toEqual({
         article: 'Research/{domain}/{yyyy}/{slug}.md',
+        video: 'Video/Research/{domain}/{yyyy}/{yyyy}-{mm}-{dd}/{slug}.md',
         fragment: 'Research/Fragments/{domain}/{yyyy}/{yyyy}-{mm}-{dd}/{slug}.md',
         reading: 'Research/{domain}/{yyyy}/{yyyy}-{mm}-{dd}/{slug}.md',
         ai: 'Research/AI/{platform}/{yyyy}/{yyyy}-{mm}-{dd}_{title}.md'
@@ -241,6 +244,7 @@ describe('configProvider', () => {
     it('returns preview template defaults that match the accepted preview behavior', () => {
       expect(getPreviewTemplateDefaults()).toEqual({
         articleVideo: 'Articles/{domain}/{yyyy}/{slug}.md',
+        video: 'Video/{domain}/{yyyy}/{yyyy}-{mm}-{dd}/{slug}.md',
         fragment: 'Clippings/{domain}/{yyyy}/{yyyy}-{mm}-{dd}/{slug}.md',
         readingCustom: 'Reading/{domain}/{yyyy}/{yyyy}-{mm}-{dd}/{slug}.md',
         aiChat: 'AI/{platform}/{yyyy}/{yyyy}-{mm}-{dd}_{title}.md'

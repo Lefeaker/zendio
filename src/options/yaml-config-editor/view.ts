@@ -2,6 +2,7 @@ import type { YamlContentType, YamlFieldType } from '@shared/types/yamlConfig';
 import { button, el, selectInput, textInput } from './dom';
 import { FALLBACK_YAML_EDITOR_LABELS, YAML_EDITOR_FIELD_TYPES } from './labels';
 import type { YamlEditorLabels } from './labels';
+import { buildYamlEditorPreview } from './preview';
 import {
   YAML_EDITOR_CONTENT_TYPES,
   type YamlEditorDomainEntry,
@@ -35,15 +36,24 @@ interface YamlConfigEditorViewOptions {
   validation: YamlEditorValidation | null;
   labels: YamlEditorLabels;
   onChange: () => void;
-  onRender: () => void;
+  onRender: (request?: YamlEditorRenderRequest) => void;
   onSetFilter: (filter: YamlEditorFilter) => void;
 }
 
-function createCustomField(state: YamlEditorState, filter: YamlEditorFilter): void {
+export type YamlEditorScrollTarget =
+  | { kind: 'field'; fieldId: string }
+  | { kind: 'domainField'; domainEntryId: string; fieldId: string };
+
+export interface YamlEditorRenderRequest {
+  scrollTarget?: YamlEditorScrollTarget;
+}
+
+function createCustomField(state: YamlEditorState, filter: YamlEditorFilter): string {
   const contentType = filter === 'all' ? 'article' : filter;
+  const id = allocateId(state, 'yaml-custom');
   state.contentTypes[contentType].customFields.push({
-    id: allocateId(state, 'yaml-custom'),
-    name: 'custom_field',
+    id,
+    name: '',
     type: 'text',
     enabled: true,
     required: false,
@@ -52,6 +62,7 @@ function createCustomField(state: YamlEditorState, filter: YamlEditorFilter): vo
     builtIn: false,
     isCustom: true
   });
+  return id;
 }
 
 function getDomainEntries(state: YamlEditorState): YamlEditorDomainEntry[] {
@@ -68,29 +79,31 @@ function getAvailableFields(
   return [...content.fields, ...content.customFields, ...state.globalFields];
 }
 
-function createDomainField(
-  state: YamlEditorState,
-  contentType: YamlContentType
-): YamlEditorDomainField {
-  const source = getAvailableFields(state, contentType)[0];
+function createDomainField(state: YamlEditorState): YamlEditorDomainField {
   return {
     id: allocateId(state, 'domain-field'),
-    name: source?.name ?? 'title',
-    type: source?.type ?? 'text',
+    name: '',
+    type: 'text',
     enabled: true,
     defaultValue: '',
-    valuePath: source?.valuePath ?? ''
+    valuePath: ''
   };
 }
 
-function addDomainRule(state: YamlEditorState, filter: YamlEditorFilter): void {
+function addDomainRule(
+  state: YamlEditorState,
+  filter: YamlEditorFilter
+): { domainEntryId: string; domainFieldId: string } {
   const contentType = filter === 'all' ? 'article' : filter;
+  const field = createDomainField(state);
+  const entryId = allocateId(state, `domain-${contentType}`);
   state.contentTypes[contentType].domainOverrides.push({
-    id: allocateId(state, `domain-${contentType}`),
+    id: entryId,
     domain: '',
     contentType,
-    fields: [createDomainField(state, contentType)]
+    fields: [field]
   });
+  return { domainEntryId: entryId, domainFieldId: field.id };
 }
 
 function moveDomainEntry(
@@ -171,6 +184,37 @@ function renderToggle(
   return checkbox;
 }
 
+function renderDefaultValueControl(
+  options: YamlConfigEditorViewOptions,
+  row: YamlTableRow
+): HTMLElement {
+  return textInput({
+    className: 'input mono',
+    value: getRowDefaultValue(row, options.filter),
+    dataset: { yamlField: 'defaultValue' },
+    onInput: (value) => {
+      updateFilteredField(row, options.filter, { defaultValue: value });
+      options.onChange();
+    }
+  });
+}
+
+function renderValuePathControl(
+  options: YamlConfigEditorViewOptions,
+  row: YamlTableRow
+): HTMLElement {
+  return textInput({
+    className: 'input mono',
+    value: getRowValuePath(row, options.filter),
+    placeholder: options.labels.table.valuePathPlaceholder,
+    dataset: { yamlField: 'valuePath' },
+    onInput: (value) => {
+      updateFilteredField(row, options.filter, { valuePath: value });
+      options.onChange();
+    }
+  });
+}
+
 function renderDeleteButton(
   text: string,
   remove: () => void,
@@ -233,29 +277,8 @@ function renderFieldRow(
     ...YAML_EDITOR_CONTENT_TYPES.map((contentType) =>
       cell(renderToggle(options, row, contentType))
     ),
-    cell(
-      textInput({
-        className: 'input mono',
-        value: getRowDefaultValue(row, options.filter),
-        dataset: { yamlField: 'defaultValue' },
-        onInput: (value) => {
-          updateFilteredField(row, options.filter, { defaultValue: value });
-          options.onChange();
-        }
-      })
-    ),
-    cell(
-      textInput({
-        className: 'input mono',
-        value: getRowValuePath(row, options.filter),
-        placeholder: options.labels.table.valuePathPlaceholder,
-        dataset: { yamlField: 'valuePath' },
-        onInput: (value) => {
-          updateFilteredField(row, options.filter, { valuePath: value });
-          options.onChange();
-        }
-      })
-    ),
+    cell(renderDefaultValueControl(options, row)),
+    cell(renderValuePathControl(options, row)),
     cell(
       renderDeleteButton(
         options.labels.table.deleteButton,
@@ -338,9 +361,9 @@ function renderDomainField(
   options: YamlConfigEditorViewOptions,
   entry: YamlEditorDomainEntry,
   field: YamlEditorDomainField
-): HTMLElement {
-  const row = el('div', {
-    className: 'schema-row yaml-domain-field-row',
+): HTMLTableRowElement {
+  const row = el('tr', {
+    className: 'yaml-domain-field-row',
     dataset: { domainFieldId: field.id }
   });
   const availableFields = getAvailableFields(options.state, entry.contentType);
@@ -371,52 +394,85 @@ function renderDomainField(
     options.onChange();
   });
   row.append(
-    enabled,
-    selectInput<string>({
-      className: 'select',
-      value: field.name,
-      options: fieldOptions.map((candidate) => ({
-        value: candidate.name,
-        label: candidate.name
-      })),
-      dataset: { yamlDomainField: 'name' },
-      onChange: (value) => {
-        const definition = availableFields.find((candidate) => candidate.name === value);
-        field.name = value;
-        field.type = definition?.type ?? field.type;
-        field.valuePath ||= definition?.valuePath ?? '';
-        options.onChange();
-      }
-    }),
-    textInput({
-      className: 'input mono',
-      value: field.defaultValue,
-      placeholder: options.labels.table.defaultValue,
-      dataset: { yamlField: 'defaultValue', yamlDomainField: 'defaultValue' },
-      onInput: (value) => {
-        field.defaultValue = value;
-        options.onChange();
-      }
-    }),
-    textInput({
-      className: 'input mono',
-      value: field.valuePath,
-      placeholder: options.labels.table.valuePathPlaceholder,
-      dataset: { yamlField: 'valuePath', yamlDomainField: 'valuePath' },
-      onInput: (value) => {
-        field.valuePath = value;
-        options.onChange();
-      }
-    }),
-    renderDeleteButton(
-      options.labels.table.domainRemoveField,
-      () => {
-        entry.fields = entry.fields.filter((candidate) => candidate.id !== field.id);
-      },
-      options
+    cell(enabled),
+    cell(
+      selectInput<string>({
+        className: 'select',
+        value: field.name,
+        options: fieldOptions.map((candidate) => ({
+          value: candidate.name,
+          label: candidate.name
+        })),
+        dataset: { yamlDomainField: 'name' },
+        onChange: (value) => {
+          const definition = availableFields.find((candidate) => candidate.name === value);
+          field.name = value;
+          field.type = definition?.type ?? field.type;
+          field.valuePath ||= definition?.valuePath ?? '';
+          options.onChange();
+        }
+      })
+    ),
+    cell(
+      textInput({
+        className: 'input mono',
+        value: field.defaultValue,
+        placeholder: options.labels.table.defaultValue,
+        dataset: { yamlField: 'defaultValue', yamlDomainField: 'defaultValue' },
+        onInput: (value) => {
+          field.defaultValue = value;
+          options.onChange();
+        }
+      })
+    ),
+    cell(
+      textInput({
+        className: 'input mono',
+        value: field.valuePath,
+        placeholder: options.labels.table.valuePathPlaceholder,
+        dataset: { yamlField: 'valuePath', yamlDomainField: 'valuePath' },
+        onInput: (value) => {
+          field.valuePath = value;
+          options.onChange();
+        }
+      })
+    ),
+    cell(
+      renderDeleteButton(
+        options.labels.table.domainRemoveField,
+        () => {
+          entry.fields = entry.fields.filter((candidate) => candidate.id !== field.id);
+        },
+        options
+      )
     )
   );
   return row;
+}
+
+function renderDomainFieldsTable(
+  options: YamlConfigEditorViewOptions,
+  entry: YamlEditorDomainEntry
+): HTMLElement {
+  const shell = el('div', {
+    className: 'yaml-table-shell yaml-table-scroll yaml-domain-fields-shell'
+  });
+  const table = el('table', { className: 'schema-table stitch-yaml-domain-fields-table' });
+  const thead = el('thead');
+  const header = el('tr');
+  [
+    '',
+    options.labels.table.field,
+    options.labels.table.defaultValue,
+    options.labels.table.valuePath,
+    options.labels.table.actions
+  ].forEach((label) => header.append(el('th', { text: label })));
+  thead.append(header);
+  const tbody = el('tbody');
+  entry.fields.forEach((field) => tbody.append(renderDomainField(options, entry, field)));
+  table.append(thead, tbody);
+  shell.append(table);
+  return shell;
 }
 
 function renderDomainRule(
@@ -434,17 +490,24 @@ function renderDomainRule(
       dataset: { yamlDomainErrors: entry.id }
     })
   );
-  entry.fields.forEach((field) => fields.append(renderDomainField(options, entry, field)));
   fields.append(
+    renderDomainFieldsTable(options, entry),
     button({
       className: 'schema-button yaml-action-button secondary',
       text: options.labels.table.addDomainField,
       onClick: (event) => {
         event.preventDefault();
         event.stopPropagation();
-        entry.fields.push(createDomainField(options.state, entry.contentType));
+        const field = createDomainField(options.state);
+        entry.fields.push(field);
         options.onChange();
-        options.onRender();
+        options.onRender({
+          scrollTarget: {
+            kind: 'domainField',
+            domainEntryId: entry.id,
+            fieldId: field.id
+          }
+        });
       }
     })
   );
@@ -472,9 +535,9 @@ function renderActions(options: YamlConfigEditorViewOptions): HTMLElement {
       onClick: (event) => {
         event.preventDefault();
         event.stopPropagation();
-        createCustomField(options.state, options.filter);
+        const fieldId = createCustomField(options.state, options.filter);
         options.onChange();
-        options.onRender();
+        options.onRender({ scrollTarget: { kind: 'field', fieldId } });
       }
     }),
     button({
@@ -483,13 +546,46 @@ function renderActions(options: YamlConfigEditorViewOptions): HTMLElement {
       onClick: (event) => {
         event.preventDefault();
         event.stopPropagation();
-        addDomainRule(options.state, options.filter);
+        const { domainEntryId, domainFieldId } = addDomainRule(options.state, options.filter);
         options.onChange();
-        options.onRender();
+        options.onRender({
+          scrollTarget: {
+            kind: 'domainField',
+            domainEntryId,
+            fieldId: domainFieldId
+          }
+        });
       }
     })
   );
   return actions;
+}
+
+function updateYamlPreview(host: HTMLElement, options: YamlConfigEditorViewOptions): void {
+  const target = host.querySelector<HTMLElement>('[data-yaml-preview="content"] pre');
+  if (!target) {
+    return;
+  }
+  target.replaceChildren(
+    target.ownerDocument.createTextNode(
+      buildYamlEditorPreview(options.state, options.filter, options.labels.contentTypes)
+    )
+  );
+}
+
+function renderPreview(options: YamlConfigEditorViewOptions): HTMLElement {
+  const details = el('details', { className: 'u-mt-block yaml-preview-details' });
+  const output = el('div', {
+    className: 'yaml-preview',
+    dataset: { yamlPreview: 'content' }
+  });
+  output.append(
+    el('pre', {
+      text: buildYamlEditorPreview(options.state, options.filter, options.labels.contentTypes)
+    })
+  );
+  details.append(el('summary', { text: options.labels.table.previewSummary }), output);
+  return details;
 }
 
 function formatError(error: YamlEditorValidationError, labels: YamlEditorLabels): string {
@@ -569,16 +665,24 @@ export function renderYamlConfigEditorView(options: YamlConfigEditorViewOptions)
     className: 'schema-widget-stack yaml-config-widget stitch-yaml-config-widget',
     dataset: { stitchWidget: 'yaml-config' }
   });
+  const liveOptions: YamlConfigEditorViewOptions = {
+    ...options,
+    onChange: () => {
+      options.onChange();
+      updateYamlPreview(host, liveOptions);
+    }
+  };
   host.append(
     el('div', {
       className: 'yaml-validation-errors stitch-yaml-validation-errors',
       dataset: { yamlErrors: 'global' }
     }),
-    renderFilter(options),
-    renderFieldTable(options),
-    renderDomainRules(options),
-    renderActions(options),
-    el('p', { className: 'yaml-helper', text: options.labels.table.helper })
+    renderFilter(liveOptions),
+    renderFieldTable(liveOptions),
+    renderDomainRules(liveOptions),
+    renderActions(liveOptions),
+    el('p', { className: 'yaml-helper', text: options.labels.table.helper }),
+    renderPreview(liveOptions)
   );
   renderYamlEditorValidation(host, options.validation, options.labels);
   return host;

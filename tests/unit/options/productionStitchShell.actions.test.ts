@@ -172,7 +172,7 @@ describe('mountProductionStitchShell actions', () => {
   });
 
   it('runs real maintenance actions for copy, diagnostics, and reload', async () => {
-    const reloaded = mergeOptions({ aiChat: { userName: 'Reloaded' } }) as CompleteOptions;
+    const reloaded = mergeOptions({ rest: { vault: 'Reloaded' } }) as CompleteOptions;
     const loadRaw = vi.fn(() => Promise.resolve(reloaded));
     const controller = {
       ...createController(),
@@ -189,6 +189,7 @@ describe('mountProductionStitchShell actions', () => {
       initialOptions: {
         aiChat: { userName: 'Before' },
         rest: {
+          vault: 'Before Vault',
           apiKey: 'REST_SECRET_TOKEN'
         },
         customKey: { hello: 'world' }

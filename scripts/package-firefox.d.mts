@@ -1,8 +1,7 @@
 export type FirefoxSigningOptions = {
   distDir: string;
   artifactsDir: string;
-  zipSafeName: string;
-  version: string;
+  artifactBaseName: string;
   apiKey: string;
   apiSecret: string;
   channel: string;
@@ -72,12 +71,12 @@ export type FirefoxSigningDependencies = {
 };
 
 export type FirefoxReleasePackageResult = {
+  artifactBaseName: string;
   manifest: Record<string, unknown>;
   outputPath: string;
   resolvedName: string;
   version: string;
   xpiName: string;
-  zipSafeName: string;
 };
 
 export type FirefoxReleasePackageDependencies = {
@@ -87,7 +86,7 @@ export type FirefoxReleasePackageDependencies = {
     distDir: string,
     resolvedName: string,
     version: string
-  ) => Promise<{ xpiName: string; outputPath: string; zipSafeName: string }>;
+  ) => Promise<{ xpiName: string; outputPath: string; artifactBaseName: string }>;
   lintFirefoxExtensionImpl?: (distDir: string) => Promise<FirefoxLintResult | void>;
   logger?: {
     log: (...args: unknown[]) => void;
@@ -103,13 +102,11 @@ export type FirefoxReleasePackageDependencies = {
   writeFileImpl?: (path: string, content: string) => Promise<void>;
 };
 
-export function sanitizeFileName(text: string): string;
-
 export function createUnsignedXpi(
   distDir: string,
   resolvedName: string,
   version: string
-): Promise<{ xpiName: string; outputPath: string; zipSafeName: string }>;
+): Promise<{ xpiName: string; outputPath: string; artifactBaseName: string }>;
 
 export function lintFirefoxExtension(
   distDir: string,

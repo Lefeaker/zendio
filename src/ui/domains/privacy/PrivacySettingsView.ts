@@ -1,4 +1,5 @@
 import { getMessages, type Messages } from '@i18n';
+import { isAnalyticsDebugModeControlAvailable } from '@shared/analytics';
 import { BaseComponent } from '../../foundation/lifecycle/BaseComponent';
 import { buildPrivacySettingsLayout } from './privacySettingsLayout';
 import {
@@ -18,9 +19,7 @@ import {
 } from './privacySettingsAsyncActions';
 import type { PrivacyConsentSnapshot } from './privacySettingsTypes';
 
-declare const __DEV__: boolean;
-
-const SHOW_DEBUG_TOGGLE = typeof __DEV__ === 'boolean' ? __DEV__ : true;
+const SHOW_DEBUG_TOGGLE = isAnalyticsDebugModeControlAvailable();
 
 interface PrivacySettingsOptions {
   initialConsent?: PrivacyConsentSnapshot | null;

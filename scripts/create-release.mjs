@@ -2,6 +2,7 @@ import { access, readFile, mkdir, cp, writeFile, rm } from 'fs/promises';
 import { constants as fsConstants } from 'fs';
 import { resolve } from 'path';
 import { zipDirectory } from './utils/archive.mjs';
+import { createReleaseArtifactBaseName, createReleaseArtifactFileName } from './utils/releaseArtifactNames.mjs';
 
 async function pathExists(targetPath) {
   try {
@@ -24,8 +25,7 @@ async function createRelease() {
   // 读取版本号
   const manifest = JSON.parse(await readFile('build/dist/manifest.json', 'utf8'));
   const version = manifest.version;
-  const name = manifest.name.replace(/\s+/g, '-').toLowerCase();
-  const releaseName = `${name}-v${version}-release`;
+  const releaseName = createReleaseArtifactBaseName(version, { suffix: '-release' });
   const releaseDir = resolve('build/releases', releaseName);
 
   console.log(`📝 扩展名称: ${manifest.name}`);
@@ -82,7 +82,7 @@ async function createRelease() {
     console.log('📋 创建 README');
 
     // 创建 zip 文件
-    const zipName = `${releaseName}.zip`;
+    const zipName = createReleaseArtifactFileName(version, 'zip', { suffix: '-release' });
     const zipPath = resolve('build/releases', zipName);
     console.log('🔨 正在创建 zip 文件...');
 

@@ -1,3 +1,8 @@
+.stitch-yaml-config-widget,
+.stitch-yaml-config-widget > * {
+  min-width: 0;
+  max-width: 100%;
+}
 
 .yaml-filter {
   min-height: var(--control-height-md);
@@ -65,6 +70,9 @@
 }
 
 .yaml-table-shell {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
   overflow: hidden;
   border: var(--border-default);
   border-radius: var(--radius-lg);
@@ -131,10 +139,25 @@
 }
 
 .yaml-rule-meta {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: minmax(132px, 180px) minmax(240px, 1fr) auto;
+  align-items: center;
   gap: var(--space-3);
   margin-bottom: var(--space-4);
+}
+
+.yaml-rule-meta :is(.input, .select) {
+  width: 100%;
+  min-width: 0;
+}
+
+.yaml-rule-meta .yaml-delete-button {
+  justify-self: end;
+  white-space: nowrap;
+}
+
+.yaml-domain-fields-shell {
+  max-height: 320px;
 }
 
 .yaml-validation-errors:empty,
@@ -166,6 +189,16 @@
   font-size: var(--font-size-sm);
 }
 
+@media (max-width: 720px) {
+  .yaml-rule-meta {
+    grid-template-columns: 1fr;
+  }
+
+  .yaml-rule-meta .yaml-delete-button {
+    justify-self: start;
+  }
+}
+
 .yaml-preview,
 .output-box {
   min-width: 0;
@@ -181,6 +214,7 @@
   overflow: auto;
 }
 
+.yaml-preview,
 .output-box {
   max-width: 100%;
   max-height: 360px;
@@ -192,6 +226,7 @@
   margin: 0;
 }
 
+.yaml-preview pre,
 .output-box pre {
   white-space: pre-wrap;
   overflow-wrap: anywhere;

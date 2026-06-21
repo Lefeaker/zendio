@@ -47,6 +47,15 @@ describe('Stitch runtime polish CSS contracts', () => {
     expect(stitchCss).toContain(".interface-theme-grid .chips[data-active-value='light']::before");
   });
 
+  it('keeps the Options brand website link visually unadorned', () => {
+    expect(stitchCss).toMatch(
+      /\.brand-title-link\s*{[\s\S]*?color:\s*inherit;[\s\S]*?text-decoration:\s*none;/
+    );
+    expect(stitchCss).toMatch(
+      /\.brand-title-link:hover,\s*\.brand-title-link:focus-visible\s*{[\s\S]*?color:\s*inherit;[\s\S]*?text-decoration:\s*none;/
+    );
+  });
+
   it('makes the clipper destination selector full-bleed and square-cornered', () => {
     expect(stitchCss).toContain("[data-stitch-surface='clipper'] .export-destination-row");
     expect(stitchCss).toContain('margin-inline: calc(var(--space-7) * -1);');
@@ -111,7 +120,37 @@ describe('Stitch runtime polish CSS contracts', () => {
       /\.yaml-table-scroll\s+table\s*{[^}]*table-layout:\s*fixed;[^}]*min-width:\s*900px;/
     );
     expect(stitchCss).toMatch(
+      /\.stitch-widget-host,\s*\.stitch-widget-host\s*>\s*\*\s*{[^}]*min-width:\s*0;[^}]*max-width:\s*100%;/
+    );
+    expect(stitchCss).toMatch(
+      /\.stitch-yaml-config-widget,\s*\.stitch-yaml-config-widget\s*>\s*\*\s*{[^}]*min-width:\s*0;[^}]*max-width:\s*100%;/
+    );
+    expect(stitchCss).toMatch(
+      /\.yaml-table-shell\s*{[^}]*width:\s*100%;[^}]*max-width:\s*100%;[^}]*min-width:\s*0;/
+    );
+    expect(stitchCss).toMatch(
+      /\.yaml-domain-fields-shell\s+table\s*{[^}]*table-layout:\s*fixed;[^}]*min-width:\s*760px;/
+    );
+    expect(stitchCss).toMatch(
       /\.stitch-yaml-config-table\s+:is\(th,\s*td\):nth-child\(7\)\s*{[^}]*width:\s*132px;/
+    );
+    expect(stitchCss).toMatch(
+      /\.stitch-yaml-domain-fields-table\s+:is\(th,\s*td\):nth-child\(1\)\s*{[^}]*width:\s*88px;/
+    );
+  });
+
+  it('keeps reading path controls and helper copy responsive inside their control column', () => {
+    expect(stitchCss).toMatch(
+      /\.reading-template-row\s*{[^}]*display:\s*flex;[^}]*flex-wrap:\s*wrap;/
+    );
+    expect(stitchCss).toMatch(
+      /\.reading-mode-select\s*{[^}]*flex:\s*0\s+0\s+auto;[^}]*max-width:\s*100%;/
+    );
+    expect(stitchCss).toMatch(
+      /\.reading-template-row\s+\.input\s*{[^}]*flex:\s*1\s+1\s+220px;[^}]*min-width:\s*0;/
+    );
+    expect(stitchCss).toMatch(
+      /\.template-row-helper,\s*\.modifier-key-description,\s*\.keyboard-shortcuts-description\s*{[^}]*min-width:\s*0;/
     );
   });
 
@@ -250,6 +289,12 @@ describe('Stitch runtime polish CSS contracts', () => {
     );
     expect(stitchCss).toMatch(
       /\.output-box\s+pre\s*{[^}]*white-space:\s*pre-wrap;[^}]*overflow-wrap:\s*anywhere;/
+    );
+    expect(stitchCss).toMatch(
+      /\.yaml-preview,\s*\.output-box\s*{[^}]*max-width:\s*100%;[^}]*max-height:\s*360px;[^}]*overflow:\s*auto;/
+    );
+    expect(stitchCss).toMatch(
+      /\.yaml-preview\s+pre,\s*\.output-box\s+pre\s*{[^}]*white-space:\s*pre-wrap;[^}]*overflow-wrap:\s*anywhere;/
     );
   });
 

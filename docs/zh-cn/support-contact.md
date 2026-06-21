@@ -1,6 +1,6 @@
 # Zendio 用户支持与联系指引
 
-公开访问版本：https://github.com/Lefeaker/AllinOB
+公开访问版本：https://github.com/Lefeaker/zendio
 
 最后更新：2025-02-14
 
@@ -8,8 +8,8 @@
 
 ## 1. 支持渠道
 
-- **电子邮箱**：allinobsidian@outlook.com
-- **GitHub Issues**：<https://github.com/aiiinob/all-in-obsidian/issues>，用于功能建议与缺陷反馈。
+- **电子邮箱**：zendio@sxnian.com
+- **GitHub Issues**：<https://github.com/Lefeaker/zendio/issues>，用于功能建议与缺陷反馈。
 - **紧急通道**：遇到数据丢失或安全风险，可在邮件标题加注“URGENT”，我们会在 SLA 内优先处理。
 
 ## 2. 服务范围

@@ -28,7 +28,6 @@ const NAV_HINT_KEYS = {
 
 const SIDEBAR_LABEL_KEYS = {
   onboarding: 'schemaResourceOnboardingTitle',
-  'plugin-setup': 'schemaResourcePluginSetupTitle',
   support: 'schemaResourceSupportTitle',
   suggestions: 'schemaResourceSuggestionsTitle',
   contact: 'schemaResourceContactTitle',
@@ -37,7 +36,6 @@ const SIDEBAR_LABEL_KEYS = {
 
 const SIDEBAR_HINT_KEYS = {
   onboarding: 'schemaResourceOnboardingHint',
-  'plugin-setup': 'schemaResourcePluginSetupHint',
   support: 'schemaResourceSupportHint',
   suggestions: 'schemaResourceSuggestionsHint',
   contact: 'schemaResourceContactHint',

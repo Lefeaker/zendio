@@ -41,6 +41,7 @@ describe('shared optionsMerger', () => {
     const result = mergeOptions(undefined);
     expect(result.rest.baseUrl).toBe(DEFAULT_OPTIONS.rest.baseUrl);
     expect(result.templates.article).toBe(DEFAULT_OPTIONS.templates.article);
+    expect(result.templates.video).toBe(DEFAULT_OPTIONS.templates.video);
     expect(result.interfaceTheme).toBe('system');
     expect(result.templates.reading).toBe(DEFAULT_OPTIONS.templates.reading);
     expect(result.domainMappings).toEqual(DEFAULT_OPTIONS.domainMappings);
@@ -50,6 +51,7 @@ describe('shared optionsMerger', () => {
     expect(result.pageSummary).toEqual(DEFAULT_OPTIONS.pageSummary);
     expect(result.readingOverlaySummary).toEqual(DEFAULT_OPTIONS.readingOverlaySummary);
     expect(result.subtitleTranslation).toEqual(DEFAULT_OPTIONS.subtitleTranslation);
+    expect(result.privacyPreferences).toEqual(DEFAULT_OPTIONS.privacyPreferences);
   });
 
   it('merges partial rest and classifier values', () => {
@@ -88,6 +90,47 @@ describe('shared optionsMerger', () => {
       defaultFragmentClipper.keyboardShortcutsEnabled
     );
     expect(result.templates.reading).toBe(DEFAULT_OPTIONS.templates.reading);
+    expect(result.templates.video).toBe(DEFAULT_OPTIONS.templates.video);
+  });
+
+  it('preserves explicit video template values without legacy default migration', () => {
+    expect(
+      mergeOptions({
+        templates: {
+          video: 'video/{domain}/{yyyy}/{yyyy}-{mm}-{dd}/{slug}.md'
+        }
+      }).templates.video
+    ).toBe('video/{domain}/{yyyy}/{yyyy}-{mm}-{dd}/{slug}.md');
+  });
+
+  it('merges persisted privacy preferences with explicit false defaults', () => {
+    const result = mergeOptions({
+      privacyPreferences: {
+        analytics: true
+      }
+    });
+
+    expect(result.privacyPreferences).toEqual({
+      analytics: true,
+      errorReporting: false,
+      debugMode: false
+    });
+  });
+
+  it('requires analytics and error reporting before preserving privacy debug mode', () => {
+    const result = mergeOptions({
+      privacyPreferences: {
+        analytics: true,
+        errorReporting: false,
+        debugMode: true
+      }
+    });
+
+    expect(result.privacyPreferences).toEqual({
+      analytics: true,
+      errorReporting: false,
+      debugMode: false
+    });
   });
 
   it('normalizes fragment modifier keys to a single selection', () => {

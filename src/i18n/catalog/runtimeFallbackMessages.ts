@@ -83,7 +83,7 @@ type RuntimeFallbackMessageKey =
   | 'videoTimestampSectionTitle';
 
 export const RUNTIME_FALLBACK_MESSAGES = {
-  onboardingSupportModalAfdianLabel: 'Afdian',
+  onboardingSupportModalAfdianLabel: 'WeChat Reward',
   onboardingSupportModalCloseButton: 'Close',
   onboardingSupportModalDescription:
     'Development is not easy. If this plugin helps you, welcome to support through the following ways:',

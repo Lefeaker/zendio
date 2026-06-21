@@ -2,8 +2,7 @@ import type { NodeSchema, ResourceSchema } from '../../types';
 import { element, textSpan } from '../builders/primitives';
 import { translateSchemaMessage, type SchemaMessageKey } from '../i18n';
 import { resourceModalStack } from '../builders/resources';
-
-const XIAOHONGSHU_FEEDBACK_QR_URL = 'https://sxnian.com/products/zendio/xiaohongshu-feedback.jpg';
+import { ZENDIO_RESOURCE_LINKS } from '@shared/links/zendioResourceLinks';
 
 function externalLink(label: string, href: string): NodeSchema {
   return element('a', { href, target: '_blank', rel: 'noopener noreferrer' }, [textSpan(label)]);
@@ -36,7 +35,7 @@ function xiaohongshuPopoverLink(label: string, caption: string): NodeSchema {
         [
           element('img', {
             className: 'resource-inline-popover-media',
-            src: XIAOHONGSHU_FEEDBACK_QR_URL,
+            src: ZENDIO_RESOURCE_LINKS.xiaohongshuFeedbackQr,
             alt: label
           }),
           element('span', { className: 'resource-inline-popover-caption' }, [textSpan(caption)])
@@ -55,7 +54,7 @@ const schema: ResourceSchema = {
     const github = resource.channels.find((item) => item.href?.includes('github.com'));
     const emailHref =
       contact.entries.find((item) => item.href?.startsWith('mailto:'))?.href ??
-      'mailto:zendio@sxnian.com';
+      ZENDIO_RESOURCE_LINKS.supportEmail;
     return {
       id: 'suggestions',
       kind: 'modal',

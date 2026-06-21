@@ -1,107 +1,132 @@
+[English](README.md) | [日本語](README.ja-JP.md)
+
 <p align="center">
   <img src="marketing/banner.png" alt="Zendio Banner" width="600"/>
 </p>
 
----
+## 简介
 
-## 简介 | What & Why
-
-- **一句话定位**：Zendio 是一款浏览器插件，帮你把网页、片段、评论、AI 对话高效捕捉为结构化 Markdown 笔记。
+- **一句话定位**：Zendio 是一款面向 Obsidian 工作流的浏览器扩展，用于把网页、片段、阅读会话、视频笔记和 AI 对话保存为结构化 Markdown。
 - **解决的问题**：
-  - 不再手工复制粘贴网页和对话内容
-  - 连同上下文、批注、源链接一并保存，防止信息丢失
-  - 自动生成 YAML / Properties，完美适配 Obsidian Bases 与 [Sidebar Highlights](https://github.com/trevware/obsidian-sidebar-highlights)
-- **适合谁**：研究者、工程师、写作者、知识管理者、重度 Obsidian 用户
+  - 减少在网页、视频和对话之间反复复制粘贴
+  - 连同来源链接、批注、时间戳、截图和 YAML 元数据一起保存
+  - 通过路由规则、路径模板和 YAML 字段适配 Obsidian Bases、Dataview 与 [Sidebar Highlights](https://github.com/trevware/obsidian-sidebar-highlights)
+- **适合谁**：研究者、工程师、写作者、知识管理者和重度 Obsidian 用户。
 
-## 最新更新 | Latest Enhancements
+## 当前能力
 
-- ♿ 剪藏对话框内置焦点陷阱、屏幕阅读器标签，并可通过 `Alt` + 方向键精准移动位置。
-- 🌐 选项页重构为模块化组件，新增自定义确认弹窗，并完整覆盖中 / 英 / 日文案。
-- 🤖 AI 会话解析器模块化，首发支持通义千问、DeepSeek、Kimi，同时保持 ChatGPT / Claude / Copilot / Gemini 稳定输出。
-- 📌 片段上下文捕获支持嵌套列表、Shadow DOM 与 Text Fragment，确保周边信息完整保留。
-- 🔐 Obsidian REST 写入加固重试机制，日志自动掩码 API Key，并在 HTTPS / HTTP 之间智能回退。
+- 选项页和首次引导页已迁移到当前 Stitch UI 主链，并覆盖 12 种发布界面语言。
+- Chromium 版本推荐通过用户选择的本地 Vault 目录写入；REST 仍作为回退路径和 Firefox 写入路径。
+- 视频模式支持 YouTube 与哔哩哔哩时间戳笔记、文本片段捕捉、截图状态圆点和导出时的截图附件。
+- 阅读和视频草稿支持最近 48 小时内、最新 5 个页面、每页 20 条可恢复内容的自动恢复。
+- 文章、视频、片段、阅读会话和 AI 对话都拥有独立路径模板与 YAML 预览行为。
+- 支持、提出建议、联系作者、更新日志、使用协议和隐私政策入口在选项页和首次引导页保持一致。
 
-## 功能清单 | Features
+## 功能清单
 
-### 📑 网页剪藏
+### 网页剪藏
 
-- 选中网页文字即可右键保存，支持整篇文章或任意片段
-- 自动提取标题、URL、作者、捕获时间等元数据
-- 基于 Mozilla Readability 清洗正文，保留任务列表、代码块、数学公式
-- 生成 Text Fragment URL，回到原文位置只需一键
+- 右键保存选中文本或整篇文章。
+- 自动提取标题、URL、作者、捕获时间等元数据。
+- 基于 Mozilla Readability 清洗正文，并保留任务列表、代码块、数学公式和表格。
+- 生成 Text Fragment URL，便于一键回到原文位置。
 
-### 💬 片段评论
+### 片段评论
 
-- 剪藏浮窗支持即时注释，记录当下思考
-- 评论与正文结构化展示，便于后续整理
-- 多次剪藏同一页面自动使用时间戳命名，避免覆盖
-- 浮窗支持键盘无障碍焦点循环，可使用 `Alt` + 方向键微调位置
+- 在剪藏浮窗内即时添加批注。
+- 评论与原文片段一起保存为结构化 Markdown。
+- 多次剪藏同一页面时使用时间戳命名，避免覆盖。
+- 焦点管理支持键盘操作，减少鼠标依赖。
 
-### 🤖 AI 辅助
+### 阅读会话
 
-- 支持 OpenAI、Ollama、本地 WebLLM 等模型，自动生成标题、摘要、标签
-- 适配 ChatGPT、Claude、Gemini、Copilot、Perplexity、通义千问、DeepSeek、Kimi 等平台
-- 模块化平台解析器按站点剥离噪音，未来新增平台更轻松
-- 智能过滤多余内容（如 Claude thinking、Copilot 反应条），保留格式
+- 将一个或多个页面的片段合并为一篇阅读笔记。
+- 保留阅读顺序、来源页面和批注。
+- 在保留窗口内重新打开浏览器或页面时恢复未保存草稿。
 
-### 📚 阅读会话模式
+### 视频笔记
 
-- 将多个片段合并成一篇“阅读笔记”，支持跨网页整合
-- 会话视图展示阅读顺序，适合长文研究与主题整理
-- 支持 AI 对话与文章混合导出，形成完整知识链
+- 在支持的 YouTube 与哔哩哔哩页面捕捉时间戳笔记。
+- 保存评论、字幕或选中文本片段，并保留回跳链接。
+- 用圆点标记每个时间戳是否已有截图；点击圆点即可切换截图状态。
+- 导出截图附件，并支持单独配置附件目录、文件名和 Markdown URL。
+- 视频笔记拥有独立的视频路径模板，不再复用文章或片段路径。
 
-### 🗂️ 多仓库智能路由
+### AI 对话捕捉
 
-- 支持配置多个 Obsidian Vault，依据域名、关键词、URL 模式自动分流
-- 自定义规则优先级与回退策略，实时通知目标仓库
-- 全新本地化选项构建器提供安全预览与确认流程，避免配置误操作
+- 支持导出 ChatGPT、Claude、Gemini、Copilot、Perplexity、通义千问、DeepSeek、Kimi 等平台的对话。
+- 剥离平台界面噪音和反应条，同时保留对话结构与格式。
+- 可选元数据能力只使用用户自己配置的提供方；基础剪藏和导出不依赖任何模型提供方。
 
-### 🔗 [Sidebar Highlights](https://github.com/trevware/obsidian-sidebar-highlights) 兼容
+### 多仓库路由
 
-- 导出高亮与片段时自动补充 [Sidebar Highlights](https://github.com/trevware/obsidian-sidebar-highlights) 所需字段
-- YAML frontmatter 可直接用于 Bases、Dataview 等插件
+- 配置多个 Obsidian Vault 目标。
+- 通过域名、关键词、URL、优先级和回退规则分流内容。
+- 在选项页测试连接，并通过配置诊断修复缺失字段。
 
-### 🌍 多语言与自定义
+### YAML 与模板控制
 
-- 内置简体中文 / English / 日本語 UI，可实时切换
-- 自定义路径模板与 Markdown 规则，满足不同工作流
+- 为文章、视频、片段、阅读会话和 AI 对话分别配置保存路径。
+- 按内容类型配置 YAML 字段，并支持域名级映射规则。
+- YAML 预览根据当前编辑状态和当前内容类型生成。
 
-## 安装与配置 | Install & Setup
+### 多语言
 
-1. **安装 Chrome 扩展**  
-   目前处于开发阶段，可下载源码后在 Chrome “开发者模式”中加载 `dist/` 目录。（发布链接预留）
-2. **配置 [Obsidian Local REST API](https://github.com/coddingtonbear/obsidian-local-rest-api)**
-   - 在 Obsidian 中安装 [Local REST API](https://github.com/coddingtonbear/obsidian-local-rest-api) 插件
-   - 启用插件、设置 API Key，并确认监听地址（默认 `https://127.0.0.1:27124`）
-3. **完成扩展设置**
-   - 右键扩展图标 → 选项页
-   - 填写 Vault 路径、REST API 配置、AI API Key
-   - 配置路由规则与模板（文章 / 片段 / AI 对话 / 阅读会话）
+- 发布界面语言包括 English、简体中文、繁體中文、日本語、Deutsch、Français、Español、Español latinoamericano、Italiano、한국어、Português brasileiro 和 Русский。
+- 语言选择菜单使用各语言自己的名称显示。
 
-### 权限说明
+## 安装与配置
 
-| 权限                                    | 用途                                                                                      | 隐私承诺                             |
-| --------------------------------------- | ----------------------------------------------------------------------------------------- | ------------------------------------ |
-| `activeTab`                             | 捕获当前浏览页面内容                                                                      | 仅在你主动剪藏时使用，不发送到第三方 |
-| `scripting`                             | 向页面注入内容脚本，实现浮窗与标注                                                        | 代码开源，逻辑可审查                 |
-| `storage`                               | 保存插件配置、路由规则、临时队列                                                          | 数据仅保存在本地浏览器               |
-| `contextMenus`                          | 添加右键菜单项“保存到 Obsidian”                                                           | 不跟踪历史点击，仅用于触发操作       |
-| `notifications`                         | 剪藏完成后推送桌面通知                                                                    | 不发送外部请求，提示即刻消失         |
-| `host_permissions: <all_urls>`          | 允许在任意页面运行剪藏脚本                                                                | 只在用户触发时访问页面内容           |
-| `host_permissions: https://127.0.0.1/*` | 调用 [Obsidian Local REST API](https://github.com/coddingtonbear/obsidian-local-rest-api) | 仅与本机 Obsidian 实例通信           |
+1. **构建或下载扩展**
+   - 本地手测可运行 `npm run build`，然后在 Chrome 开发者模式加载 `build/dist`。
+   - Firefox 使用 Firefox 构建/打包脚本，并通过 REST 路径写入 Vault。
+2. **选择写入路径**
+   - Chromium 推荐：在选项页选择本地 Obsidian Vault 目录。
+   - 如果本地目录不可用、被拒绝、不受支持或预检失败，再配置 [Obsidian Local REST API](https://github.com/coddingtonbear/obsidian-local-rest-api)。
+   - Firefox 使用 [Obsidian Local REST API](https://github.com/coddingtonbear/obsidian-local-rest-api) 写入 Vault。
+3. **完成选项页设置**
+   - 设置仓库目标和回退行为。
+   - 配置路由规则、路径模板、YAML 字段、视频截图附件模板和可选提供方。
+   - 检查匿名使用统计和错误诊断两个隐私开关。
 
-## 使用指南 | Quick Start
+## 开发基线
 
-### 快速入门
+- Node.js：`.nvmrc` 固定为 `20.20.2`；package engines 允许 `>=20.19 <21`。
+- npm：当前验证版本为 `10.8.2`；package engines 允许 `>=10 <11`。
+- `npm run test*` 与 `npm run visual*` 入口会先执行 `verify:runtime`。
+- 常用本地门禁：
+  - `npm run quality`
+  - `npm run verify:preflight`
+  - `npm run verify:stitch-secondary`
+  - `npm run build`
 
-1. 选中文本 → 右键 → `保存到 Obsidian`
-2. 在浮窗中补充评论、标签或选择目标 Vault
-3. 完成阅读后打开扩展面板，合并片段生成阅读会话笔记
-4. 打开 Obsidian，即可看到包含元数据与附件的 Markdown 文件
+## 权限说明
 
-### YAML 模板示例
+| 权限                                      | 用途                                                                                      | 隐私边界                         |
+| ----------------------------------------- | ----------------------------------------------------------------------------------------- | -------------------------------- |
+| `activeTab`                               | 读取用户主动剪藏的页面内容                                                                | 仅在触发剪藏时使用               |
+| `scripting`                               | 注入剪藏、阅读、视频和支持界面的内容脚本                                                  | 运行时代码开源可审查             |
+| `storage`                                 | 保存设置、路由规则、本地 ID 和近期可恢复草稿                                              | 保存在浏览器扩展环境中           |
+| `contextMenus`                            | 添加右键保存入口                                                                          | 不跟踪浏览历史                   |
+| `notifications`                           | 显示完成或失败通知                                                                        | 仅本地可见                       |
+| `downloads`                               | 用户请求时保存降级或导出文件                                                              | 只由用户操作触发                 |
+| `offscreen`                               | 承载 Chromium 本地目录桥接和截图处理支持                                                  | 只用于浏览器支持的本地操作       |
+| `host_permissions: <all_urls>`            | 在用户主动操作的页面上启用剪藏                                                            | 页面访问绑定到用户触发的捕捉流程 |
+| `host_permissions: http(s)://127.0.0.1/*` | 调用 [Obsidian Local REST API](https://github.com/coddingtonbear/obsidian-local-rest-api) | 只与本机 Obsidian REST 端点通信  |
 
-**文章 Article**
+本地目录访问是可选的，并且仅适用于 Chromium。Zendio 不能写入任意本地路径：用户必须显式选择目录，写入范围受浏览器授予的目录句柄限制，也可以在选项页清除。
+
+## 快速开始
+
+1. 选中文本，右键选择 Zendio 保存入口。
+2. 在浮窗中添加评论、标签或目标仓库。
+3. 视频页面可通过 Zendio 视频面板添加时间戳笔记和截图状态。
+4. 结束阅读或视频会话后导出 Markdown 笔记和附件。
+5. 在 Obsidian 中检查保存的笔记、YAML 元数据和关联资源。
+
+## YAML 示例
+
+**文章**
 
 ```markdown
 ---
@@ -109,14 +134,32 @@ type: article
 title: '阅读笔记标题'
 url: 'https://example.com'
 author: '作者'
-clipped_at: '2024-01-01T12:00:00'
+clipped_at: '2026-06-20T12:00:00'
 tags: [clipping]
 ---
 
 正文内容...
 ```
 
-**片段 Fragment**
+**视频**
+
+```markdown
+---
+type: video
+platform: 'Bilibili'
+title: '视频笔记标题'
+url: 'https://www.bilibili.com/video/example'
+clipped_at: '2026-06-20T12:05:00'
+tags: [video]
+---
+
+## 00:42
+
+- 这一时间点的笔记
+- 截图：`./assets/video-note-0042.png`
+```
+
+**片段**
 
 ```markdown
 ---
@@ -124,34 +167,33 @@ type: fragment
 source_title: '原网页标题'
 source_url: 'https://example.com#~:text=fragment'
 comment: '我的批注'
-clipped_at: '2024-01-01T12:05:00'
+clipped_at: '2026-06-20T12:10:00'
 route: 'Research Vault'
 ---
 
 > 选中的原文片段
 ```
 
-**AI 对话 AI Chat**
+**AI 对话**
 
 ```markdown
 ---
 type: ai-chat
 platform: 'ChatGPT'
-model: 'gpt-4o'
-started_at: '2024-01-01T13:00:00'
-tags: [ai, research]
+started_at: '2026-06-20T13:00:00'
+tags: [conversation, research]
 ---
 
 ### user
 
-请帮我总结最近的论文进展
+请帮我总结最近的论文进展。
 
 ### assistant
 
-为你总结关键要点...
+关键要点如下...
 ```
 
-**阅读会话 Reading Session**
+**阅读会话**
 
 ```markdown
 ---
@@ -161,35 +203,23 @@ sources:
     url: 'https://example.com/a'
   - title: '片段 B'
     url: 'https://example.com/b#fragment'
-compiled_at: '2024-01-01T14:00:00'
+compiled_at: '2026-06-20T14:00:00'
 ---
 
 1. 第一阶段阅读记录...
 2. 第二阶段洞见...
 ```
 
-### 示例截图
+## 支持与反馈
 
-- 浮窗操作、Bases 表格视图等截图预留，可在后续版本补充
+- 官网：[zendio.sxnian.com](https://zendio.sxnian.com/)
+- Ko-fi：[ko-fi.com/xiannian](https://ko-fi.com/xiannian)
+- 微信赞赏：可在 Zendio 的“支持”弹窗中查看
+- 反馈：[GitHub Issues](https://github.com/Lefeaker/zendio/issues)、[Reddit](https://www.reddit.com/user/sxnian/) 或 [邮件](mailto:zendio@sxnian.com)
 
-## Roadmap
-
-- ✅ 已上线：网页剪藏、片段批注、AI 对话导出、阅读会话、多仓库路由、多语言 UI、无障碍剪藏对话框、模块化 AI 解析器
-- 🚧 进行中：高级模板管理、更多 AI 模型适配、批量回放阅读会话、Vault 级分析与批量清理工具
-- 💡 欢迎提交 Issue 或 PR，提出你的工作流需求
-
-## 支持项目 | Support
-
-- [Ko-fi：Buy me a coffee](https://ko-fi.com/xiannian)
-- [爱发电：支持作者](https://afdian.com/a/LefShi)
-
-## 致谢与许可 | Credits
+## 致谢与许可
 
 - 灵感来源：[Readwise](https://github.com/readwiseio/obsidian-readwise)、[Sidebar Highlights](https://github.com/trevware/obsidian-sidebar-highlights)、[Dataview](https://github.com/blacksmithgu/obsidian-dataview)、[Obsidian Bases](https://github.com/hadynz/obsidian-bases)
 - 第三方组件：[AI Chat Exporter](https://github.com/revivalstack/chatgpt-exporter)、[Obsidian Web Clipper](https://github.com/obsidianmd/obsidian-clipper)、[Mozilla Readability](https://github.com/mozilla/readability)、[Turndown](https://github.com/mixmark-io/turndown)
-- License：MIT（详见 `LICENSE`）
-- 作者：Zendio 团队 · 欢迎通过 Issue / PR / Discussions 与我们交流
-
----
-
-让知识管理更简单，让思考更专注。🧠✨
+- License：MIT，详见 `LICENSE`。
+- 联系方式：[作者个人网站](https://zendio.sxnian.com/)、[GitHub](https://github.com/Lefeaker/zendio)、[Reddit](https://www.reddit.com/user/sxnian/) 或 [zendio@sxnian.com](mailto:zendio@sxnian.com)

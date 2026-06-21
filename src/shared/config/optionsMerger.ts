@@ -11,6 +11,7 @@ import type {
   ExperimentalAiOptions,
   PageSummaryOptions,
   ReadingOverlaySummaryOptions,
+  PrivacyPreferencesOptions,
   SubtitleTranslationOptions
 } from '../types';
 import { DEFAULT_OPTIONS } from './defaultOptions';
@@ -201,6 +202,25 @@ function mergeSubtitleTranslationOptions(
   };
 }
 
+function mergePrivacyPreferencesOptions(
+  source?: StoredOptions['privacyPreferences']
+): PrivacyPreferencesOptions | undefined {
+  const defaults = DEFAULT_OPTIONS.privacyPreferences;
+  if (!defaults && !source) {
+    return undefined;
+  }
+
+  const base = source ?? {};
+  const analytics = base.analytics ?? defaults?.analytics ?? false;
+  const errorReporting = base.errorReporting ?? defaults?.errorReporting ?? false;
+  return {
+    analytics,
+    errorReporting,
+    debugMode:
+      analytics && errorReporting ? (base.debugMode ?? defaults?.debugMode ?? false) : false
+  };
+}
+
 function sanitizeVaultRouter(source: StoredOptions['vaultRouter']): StoredOptions['vaultRouter'] {
   return sanitizeVaultRouterConfig(source);
 }
@@ -261,6 +281,7 @@ export function mergeOptions(stored?: StoredOptions | null): OptionsState {
 
   const templates = {
     article: source.templates?.article || defaults.templates.article,
+    video: source.templates?.video || defaults.templates.video,
     fragment: source.templates?.fragment || legacyClipperString || defaults.templates.fragment,
     reading:
       source.templates?.reading ||
@@ -301,6 +322,7 @@ export function mergeOptions(stored?: StoredOptions | null): OptionsState {
     'pageSummary',
     'readingOverlaySummary',
     'subtitleTranslation',
+    'privacyPreferences',
     'vaultRouter',
     'yamlConfig'
   ]);
@@ -353,6 +375,11 @@ export function mergeOptions(stored?: StoredOptions | null): OptionsState {
   const subtitleTranslation = mergeSubtitleTranslationOptions(source.subtitleTranslation);
   if (subtitleTranslation !== undefined) {
     options.subtitleTranslation = subtitleTranslation;
+  }
+
+  const privacyPreferences = mergePrivacyPreferencesOptions(source.privacyPreferences);
+  if (privacyPreferences !== undefined) {
+    options.privacyPreferences = privacyPreferences;
   }
 
   const vaultRouter = sanitizeVaultRouter(source.vaultRouter);

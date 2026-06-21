@@ -1,7 +1,9 @@
 import {
   initializeConnectionTestElements,
+  runConnectionTest,
   type ConnectionResultType
 } from '../../services/connectionTestRunner';
+import { requestConnectionTest, requestVaultConnectionTest } from '../../services/connectionTester';
 import type { RestOptions } from '@shared/types/options';
 import type { VaultConfig } from '@shared/types/vault';
 import type { ConnectionTestResult } from '@shared/types/connection';
@@ -31,19 +33,6 @@ interface TestEntry {
 }
 type ConnectionControlError = Error | object | string | number | boolean | null | undefined;
 
-let connectionRuntimeModulePromise: Promise<
-  typeof import('../../services/connectionTestRuntime')
-> | null = null;
-
-function loadConnectionRuntimeModule(): Promise<
-  typeof import('../../services/connectionTestRuntime')
-> {
-  if (!connectionRuntimeModulePromise) {
-    connectionRuntimeModulePromise = import('../../services/connectionTestRuntime');
-  }
-  return connectionRuntimeModulePromise;
-}
-
 export function createConnectionTester(config: ConnectionTesterConfig): ConnectionTester {
   const { button, resultHost } = config;
 
@@ -56,7 +45,6 @@ export function createConnectionTester(config: ConnectionTesterConfig): Connecti
   button.addEventListener('click', handleClick);
 
   async function trigger(): Promise<void> {
-    const { runConnectionTest } = await loadConnectionRuntimeModule();
     await runConnectionTest(
       {
         exec: () => runCompositeConnectionTest(config),
@@ -121,7 +109,7 @@ async function testDefaultVault(
   const label = msgs.defaultVaultBadge ?? 'default';
   try {
     const restDraft = getRestDraft();
-    const requester = runTest ?? (await loadConnectionRuntimeModule()).requestConnectionTest;
+    const requester = runTest ?? requestConnectionTest;
     const result = await requester(restDraft);
     const detail = extractResultMessage(result, msgs);
     return { success: result.success, entry: formatEntry(label, result.success, detail, msgs) };
@@ -148,7 +136,7 @@ async function testAdditionalVaults(
 ): Promise<TestEntry[]> {
   const configs = getConfigs();
   const results: TestEntry[] = [];
-  const requester = runTest ?? (await loadConnectionRuntimeModule()).requestVaultConnectionTest;
+  const requester = runTest ?? requestVaultConnectionTest;
 
   for (const config of configs) {
     const label =

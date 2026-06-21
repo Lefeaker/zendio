@@ -3,6 +3,7 @@ import { fileURLToPath } from 'node:url';
 import type { Messages } from '../src/i18n/messages';
 import { getLocaleCodes, loadLocaleMessages } from '../src/i18n/locales';
 import { TEXT_BUDGETS, getTextBudget, type TextBudget } from '../src/shared/i18n/budgets';
+import { installI18nAssetFetch } from '../scripts/utils/install-i18n-asset-fetch.mjs';
 
 interface BudgetViolation {
   key: string;
@@ -13,6 +14,8 @@ interface BudgetViolation {
 }
 
 const PLACEHOLDER_PATTERN = /\{[^}]+\}/g;
+
+installI18nAssetFetch();
 
 function stripPlaceholders(value: string): string {
   return value.replace(PLACEHOLDER_PATTERN, '');

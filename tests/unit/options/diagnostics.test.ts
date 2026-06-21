@@ -134,6 +134,7 @@ describe('diagnostics', () => {
       await createDiagnosticsMessages({
         diagnosticsRepairSwitchedToHttps: 'Switched to HTTPS sentinel {port}',
         diagnosticsRepairAddedFragmentTemplate: 'Added fragment template sentinel',
+        diagnosticsRepairAddedVideoTemplate: 'Added video template sentinel',
         diagnosticsRepairUpdatedArticleTemplate: 'Updated article template sentinel',
         diagnosticsRepairSaved: 'Repair saved sentinel',
         diagnosticsRepairReloadHint: 'Reload hint sentinel'
@@ -149,6 +150,7 @@ describe('diagnostics', () => {
     const output = document.getElementById('diagOutput')?.textContent ?? '';
     expect(output).toContain('Switched to HTTPS sentinel 27124');
     expect(output).toContain('Added fragment template sentinel');
+    expect(output).toContain('Added video template sentinel');
     expect(output).toContain('Updated article template sentinel');
     expect(output).toContain('Repair saved sentinel');
     expect(output).toContain('Reload hint sentinel');
@@ -418,6 +420,7 @@ describe('diagnostics', () => {
     expect(payload).toBeTruthy();
     const templates = payload.templates as Record<string, string>;
     expect(templates.fragment).toBeTruthy();
+    expect(templates.video).toBeTruthy();
     expect(templates.ai).toBeTruthy();
 
     await vi.advanceTimersByTimeAsync(1000);

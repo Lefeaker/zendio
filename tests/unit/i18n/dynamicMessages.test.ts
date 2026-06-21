@@ -266,7 +266,7 @@ describe('dynamicMessages', () => {
         defaultLanguage: 'zh-CN',
         loadMessages: (language) =>
           Promise.resolve({
-            extensionName: language === 'zh-CN' ? 'All in Ob' : 'All in Ob',
+            extensionName: language === 'zh-CN' ? 'Zendio' : 'Zendio',
             httpsUrlHint:
               language === 'zh-CN'
                 ? '通常端口为 27124，适用于安全连接'

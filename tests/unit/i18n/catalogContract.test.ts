@@ -119,7 +119,7 @@ describe('i18n catalog contract', () => {
   it('keeps generated runtime and static catalog sources aligned with release languages', () => {
     expect(GENERATED_MESSAGE_KEYS).toEqual(RUNTIME_MESSAGE_KEYS);
     expect(DEFAULT_RUNTIME_MESSAGES.settingsTitle).toBe('Settings');
-    expect(DEFAULT_STATIC_MESSAGES.extName).toBe('Zendio');
+    expect(DEFAULT_STATIC_MESSAGES.extName).toBe('Zendio——All in Obsidian');
     expect(getLocaleCodes()).toEqual(getConfiguredLanguageCodes());
     expect(hasLocaleLoader('en')).toBe(true);
     expect(hasLocaleLoader(PSEUDO_LOCALE_CODE)).toBe(true);
@@ -140,7 +140,7 @@ describe('i18n catalog contract', () => {
 
       expect(Object.keys(catalog.runtime).sort()).toEqual([...GENERATED_MESSAGE_KEYS].sort());
       expect(staticMessages).toEqual(GENERATED_RELEASE_STATIC_REGISTRY[catalog.language]);
-      expect(staticMessages.extName).toBe('Zendio');
+      expect(staticMessages.extName).toBe('Zendio——All in Obsidian');
       expect(staticDescription.length).toBeGreaterThan(20);
     }
 
@@ -148,13 +148,19 @@ describe('i18n catalog contract', () => {
     if (pseudoCatalog.static === undefined) {
       throw new Error('Unexpected pseudo catalog shape');
     }
+    const pseudoDescription = pseudoCatalog.static.extDescription;
+    if (pseudoDescription === undefined) {
+      throw new Error('Missing pseudo static description');
+    }
     expect(pseudoCatalog.language).toBe(PSEUDO_LOCALE_CODE);
     expect(Object.keys(pseudoCatalog.runtime).sort()).toEqual(
       Object.keys(DEFAULT_RUNTIME_MESSAGES).sort()
     );
     expect(Object.keys(pseudoCatalog.runtime).every((key) => !key.startsWith('schema'))).toBe(true);
     expect(pseudoCatalog.static.extName).toContain('Ž');
-    expect(pseudoCatalog.static.extDescription).toContain('À');
+    expect(pseudoDescription).not.toBe(DEFAULT_STATIC_MESSAGES.extDescription);
+    expect(pseudoDescription).toMatch(/^\[.+·\d+\]$/);
+    expect(Array.from(pseudoDescription).some((char) => char.charCodeAt(0) > 127)).toBe(true);
   });
 
   it('tracks schema-only runtime keys as a dedicated catalog subset', () => {
@@ -174,11 +180,11 @@ describe('i18n catalog contract', () => {
     const validCatalog = {
       language: 'en',
       runtime: {
-        extensionName: 'AiiinOB',
+        extensionName: 'Zendio——All in Obsidian',
         settingsTitle: 'Settings'
       },
       static: {
-        extName: 'AiiinOB',
+        extName: 'Zendio——All in Obsidian',
         extDescription: 'Export to Obsidian'
       },
       domains: {
@@ -194,7 +200,7 @@ describe('i18n catalog contract', () => {
       isCatalogLocaleCatalog({
         ...validCatalog,
         static: {
-          extName: 'AiiinOB',
+          extName: 'Zendio——All in Obsidian',
           extDescription: 1
         }
       })

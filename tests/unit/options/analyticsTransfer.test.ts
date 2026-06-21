@@ -25,10 +25,23 @@ import {
   exportAnalyticsTransferPayload
 } from '@options/services/analyticsTransfer';
 
+function setBuildDebugMode(value: boolean | undefined): void {
+  if (value === undefined) {
+    Reflect.deleteProperty(globalThis as { __DEV__?: boolean }, '__DEV__');
+    return;
+  }
+
+  Object.defineProperty(globalThis, '__DEV__', {
+    configurable: true,
+    value
+  });
+}
+
 describe('analyticsTransfer', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     updateErrorAnalyticsConfigMock.mockClear();
+    setBuildDebugMode(undefined);
   });
 
   it('exports consent and debug mode when available', async () => {
@@ -47,6 +60,23 @@ describe('analyticsTransfer', () => {
       debugMode: true
     });
     expect(refreshFromStorageMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not export debug mode when the production build disables the control', async () => {
+    setBuildDebugMode(false);
+    getUserConsentMock.mockResolvedValue({ analytics: true, errorReporting: true });
+    getConfigMock.mockReturnValue({
+      debugMode: true,
+      measurementId: 'G-1234567890',
+      transportMode: 'proxy',
+      proxyEndpoint: 'https://proxy.example/collect',
+      clientId: 'client-id',
+      sessionId: 'session-id'
+    });
+
+    await expect(exportAnalyticsTransferPayload()).resolves.toEqual({
+      consent: { analytics: true, errorReporting: true }
+    });
   });
 
   it('returns undefined when nothing transferable exists', async () => {
@@ -79,6 +109,21 @@ describe('analyticsTransfer', () => {
     expect(setUserConsentMock).toHaveBeenCalledWith({ analytics: false, errorReporting: false });
     expect(updateConfigMock).toHaveBeenCalledWith({ debugMode: false });
     expect(updateErrorAnalyticsConfigMock).toHaveBeenCalledWith(false);
+  });
+
+  it('clears stale debug mode instead of importing it when the production build disables the control', async () => {
+    setBuildDebugMode(false);
+    getUserConsentMock.mockResolvedValue({ analytics: true, errorReporting: true });
+    getConfigMock.mockReturnValue({ debugMode: true });
+
+    await applyAnalyticsTransferPayload({
+      consent: { analytics: true, errorReporting: true },
+      debugMode: true
+    });
+
+    expect(setUserConsentMock).toHaveBeenCalledWith({ analytics: true, errorReporting: true });
+    expect(updateConfigMock).toHaveBeenCalledWith({ debugMode: false });
+    expect(updateErrorAnalyticsConfigMock).toHaveBeenCalledWith(true);
   });
 
   it('returns early when payload is absent', async () => {

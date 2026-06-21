@@ -7,6 +7,10 @@ import type {
 import type { VideoSessionView, VideoSessionViewFactory } from '../application/videoSessionView';
 import type { ExportDestinationSurfacePreview } from '@options/stitch/types';
 
+interface VideoPanelViewFactoryOptions {
+  resolveAssetUrl?: (path: string) => string;
+}
+
 class VideoPanelViewAdapter implements VideoSessionView {
   constructor(private readonly panel: VideoDialogPanel) {}
 
@@ -55,16 +59,19 @@ class VideoPanelViewAdapter implements VideoSessionView {
   }
 }
 
-export const createVideoPanelViewFactory = (): VideoSessionViewFactory => ({
+export const createVideoPanelViewFactory = (
+  options: VideoPanelViewFactoryOptions = {}
+): VideoSessionViewFactory => ({
   createView(
     callbacks: VideoPanelCallbacks,
     texts: VideoPanelTexts,
-    options: { initialCollapsed?: boolean } = {}
+    viewOptions: { initialCollapsed?: boolean } = {}
   ): VideoSessionView {
     const panel = new VideoDialogPanel({
       callbacks,
       texts,
-      ...(options.initialCollapsed ? { initialCollapsed: true } : {})
+      ...(viewOptions.initialCollapsed ? { initialCollapsed: true } : {}),
+      ...(options.resolveAssetUrl ? { resolveAssetUrl: options.resolveAssetUrl } : {})
     });
     panel.show();
     return new VideoPanelViewAdapter(panel);

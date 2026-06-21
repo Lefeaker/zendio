@@ -29,7 +29,7 @@ const CJK_REGEX = /[\u3040-\u30ff\u3400-\u9fff\uf900-\ufaff]/u;
 
 const manifest: chrome.runtime.Manifest = {
   manifest_version: 3,
-  name: 'AiiinOB Test',
+  name: 'Zendio Test',
   version: '1.2.3'
 };
 

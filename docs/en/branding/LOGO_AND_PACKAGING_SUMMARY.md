@@ -14,7 +14,7 @@
 
 #### 源文件
 
-使用了 `/Users/mac/Documents/Dev/AI2OB_Plg/AiiinOB/marketing/icons/allinob_256x256.png` 作为源文件，通过 macOS 的 `sips` 工具生成了不同尺寸的图标。
+使用了 `/Users/mac/Documents/Dev/AI2OB_Plg/AiiinOB/marketing/icons/zendio_256x256.png` 作为源文件，通过 macOS 的 `sips` 工具生成了不同尺寸的图标。
 
 #### manifest.json 更新
 
@@ -44,14 +44,14 @@
 
 - 功能：快速打包扩展为 zip 文件
 - 命令：`npm run package`
-- 输出：`all-in-ob-v{version}.zip`
+- 输出：`zendio-v{version}.zip`
 - 特点：仅包含扩展文件，适合快速分发
 
 ##### `scripts/create-release.mjs`
 
 - 功能：创建完整的发布包
 - 命令：`npm run release`
-- 输出：`releases/all-in-ob-v{version}-release.zip`
+- 输出：`releases/zendio-v{version}-release.zip`
 - 特点：包含扩展文件、安装指南和快速开始文档
 
 #### 新增文档
@@ -112,7 +112,7 @@ npm run package
 1. 运行 `npm run release`
 2. 找到生成的文件：
    ```
-   releases/all-in-ob-v0.2.0-release.zip
+   releases/zendio-v0.2.0-release.zip
    ```
 3. 将这个 zip 文件发送给朋友
 4. 朋友解压后会看到：
@@ -155,7 +155,7 @@ your-extension/
 │   └── create-release.mjs  # 发布包脚本（新）
 ├── dist/                   # 构建输出（运行 build 后生成）
 ├── releases/               # 发布包（运行 release 后生成）
-│   └── all-in-ob-v0.2.0-release/
+│   └── zendio-v0.2.0-release/
 │       ├── extension/      # 扩展文件
 │       ├── 安装指南.md
 │       └── README.txt
@@ -181,7 +181,7 @@ your-extension/
 
 当前已生成：
 
-- `releases/all-in-ob-v0.2.0-release.zip` (322KB)
+- `releases/zendio-v0.2.0-release.zip` (322KB)
 
 这个文件可以直接发送给朋友使用！
 
@@ -210,7 +210,7 @@ your-extension/
 1. 替换源文件：
 
    ```bash
-   cp 新logo.png /path/to/allinob_256x256.png
+   cp 新logo.png /path/to/zendio_256x256.png
    ```
 
 2. 重新生成图标：
@@ -275,6 +275,6 @@ your-extension/
 **所有功能已完成并测试通过！** ✨
 
 生成的发布包位于：
-`/Users/mac/Documents/Dev/AI2OB_Plg/AiiinOB/your-extension/releases/all-in-ob-v0.2.0-release.zip`
+`/Users/mac/Documents/Dev/AI2OB_Plg/AiiinOB/your-extension/releases/zendio-v0.2.0-release.zip`
 
 可以直接将这个文件发送给朋友使用！

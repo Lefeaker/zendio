@@ -9,7 +9,7 @@ export default defineConfig({
     globals: true,
     environment: 'node',
     include: ['tests/unit/**/*.test.ts'],
-    setupFiles: ['tests/setup/globalSetup.ts'],
+    setupFiles: ['tests/setup/i18nAssetFetch.ts', 'tests/setup/globalSetup.ts'],
     pool: 'threads',
     maxWorkers: 1,
     coverage: {

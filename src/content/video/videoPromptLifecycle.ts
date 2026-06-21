@@ -45,6 +45,7 @@ import {
 } from './videoPromptSettingsWatcher';
 import { createVideoPromptControlTargetLifecycle } from './videoPromptControlTargetLifecycle';
 import { createVideoPromptMountLifecycle } from './videoPromptMountLifecycle';
+import { VIDEO_CONTROL_BAR_LOGO_PATH, VIDEO_MODE_PANEL_ICON_PATH } from '@shared/assets/iconPaths';
 
 declare const __DEV__: boolean;
 
@@ -100,7 +101,7 @@ const promptMountLifecycle = createVideoPromptMountLifecycle({
   getShortcut: () => promptShortcut,
   getIconUrl: () => {
     try {
-      return getRuntimeService().getURL('icons/bannerlogo-48.png');
+      return getRuntimeService().getURL(VIDEO_MODE_PANEL_ICON_PATH);
     } catch {
       return null;
     }
@@ -133,7 +134,7 @@ const controlTargetLifecycle = createVideoPromptControlTargetLifecycle({
   },
   getIconUrl: () => {
     try {
-      return getRuntimeService().getURL('icons/bannerlogo-48.png');
+      return getRuntimeService().getURL(VIDEO_CONTROL_BAR_LOGO_PATH);
     } catch {
       return null;
     }

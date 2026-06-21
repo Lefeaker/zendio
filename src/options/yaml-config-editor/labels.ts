@@ -31,6 +31,7 @@ interface YamlEditorTableLabels {
   domainRemoveField: string;
   helper: string;
   invalidWarning: string;
+  previewSummary: string;
 }
 
 export interface YamlEditorLabels {
@@ -69,6 +70,7 @@ type YamlEditorMessageKey =
   | 'yamlDomainPlaceholder'
   | 'yamlDomainRemoveRule'
   | 'yamlDomainFieldRemove'
+  | 'schemaOutputYamlPreviewSummaryLabel'
   | 'yamlFieldAvailabilityNote'
   | 'yamlFieldErrorNameRequired'
   | 'yamlFieldErrorNamePattern'
@@ -110,6 +112,7 @@ const YAML_EDITOR_FALLBACK_MESSAGES: Record<YamlEditorMessageKey, string> = {
   yamlDomainPlaceholder: 'e.g., example.com or *.example.com',
   yamlDomainRemoveRule: 'Remove rule',
   yamlDomainFieldRemove: 'Remove',
+  schemaOutputYamlPreviewSummaryLabel: 'Preview',
   yamlFieldAvailabilityNote:
     'Disable a switch to hide a field. Newly added fields apply to the selected export types.',
   yamlFieldErrorNameRequired: 'Field name is required.',
@@ -178,7 +181,8 @@ export function createYamlEditorLabels(messages?: Messages | null): YamlEditorLa
       domainRemoveRule: readMessage(messages, 'yamlDomainRemoveRule'),
       domainRemoveField: readMessage(messages, 'yamlDomainFieldRemove'),
       helper: readMessage(messages, 'yamlFieldAvailabilityNote'),
-      invalidWarning
+      invalidWarning,
+      previewSummary: readMessage(messages, 'schemaOutputYamlPreviewSummaryLabel')
     },
     errors: {
       name_required: readMessage(messages, 'yamlFieldErrorNameRequired'),

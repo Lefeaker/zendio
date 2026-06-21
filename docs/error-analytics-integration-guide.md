@@ -1,6 +1,6 @@
 # Error Analytics Integration Guide
 
-最后更新：2026-06-11
+最后更新：2026-06-20
 
 本文面向 owner / release 维护者，说明当前错误遥测如何接入 GA4 proxy 流。
 
@@ -25,10 +25,12 @@
 ### 1. 配置 public build analytics 参数
 
 ```bash
-export AIIINOB_GA_MEASUREMENT_ID=G-ABCD1234
-export AIIINOB_GA_TRANSPORT_MODE=proxy
-export AIIINOB_GA_PROXY_ENDPOINT=https://analytics.example.com/ga4
+export ZENDIO_GA_MEASUREMENT_ID=G-ABCD1234
+export ZENDIO_GA_TRANSPORT_MODE=proxy
+export ZENDIO_GA_PROXY_ENDPOINT=https://analytics.example.com/ga4
 ```
+
+旧版 `AIIINOB_GA_*` 环境变量仍作为兼容 alias 可读；新的 owner 配置应使用 `ZENDIO_GA_*`。
 
 ### 2. 在 server-side proxy 持有 forwarding credential
 

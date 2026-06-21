@@ -96,6 +96,7 @@ function mergeTemplates(
   }
   return {
     article: overrides.article ?? defaults.article,
+    video: overrides.video ?? defaults.video,
     fragment: overrides.fragment ?? defaults.fragment,
     reading: overrides.reading ?? defaults.reading,
     ai: overrides.ai ?? defaults.ai

@@ -28,7 +28,13 @@ const ENGLISH_SENTINEL_MESSAGES: Messages = {
   readingExportModeLabel: 'Export Row Sentinel',
   readingExportModeHighlights: 'Highlights Sentinel',
   readingExportModeFull: 'Full Sentinel',
+  fragmentModifierToggleLabel: 'Modifier Row Sentinel',
+  fragmentModifierToggleDescription: 'Modifier description sentinel.',
   fragmentKeyboardShortcutsLabel: 'Shortcuts Row Sentinel',
+  fragmentKeyboardShortcutsHint: 'Shortcut hint sentinel: {modifierShortcut}',
+  fragmentKeyboardShortcutCommandEnter: 'Cmd+Enter Sentinel',
+  fragmentKeyboardShortcutAltEnter: 'Alt+Enter Sentinel',
+  fragmentKeyboardShortcutFallbackEnter: 'Cmd+Enter / Alt+Enter Sentinel',
   schemaCommonEnabledState: 'Enabled Sentinel',
   schemaCommonDisabledState: 'Disabled Sentinel'
 };
@@ -77,6 +83,49 @@ describe('mountProductionStitchShell capture behavior i18n', () => {
     expect(resolveSwitchStateText(shortcutsSwitch, requiredSchemaContext, false)).toBe(
       'Disabled Sentinel'
     );
+  });
+
+  it('renders modifier and clipper shortcut help beside their controls instead of in labels', () => {
+    Object.defineProperty(navigator, 'platform', {
+      configurable: true,
+      value: 'MacIntel'
+    });
+
+    mountProductionStitchShell({
+      controller: asOptionsController(createController()),
+      initialOptions: {
+        fragmentClipper: {
+          selectionModifierEnabled: true,
+          selectionModifierKeys: ['shift'],
+          keyboardShortcutsEnabled: true
+        }
+      },
+      messages: ENGLISH_SENTINEL_MESSAGES,
+      language: 'en'
+    });
+
+    queryRequired<HTMLButtonElement>('[data-nav-panel="capture-behavior"]').click();
+
+    const modifierRow = requireRenderedRow('Modifier Row Sentinel');
+    const modifierLabel = queryRequired<HTMLElement>('.label', modifierRow);
+    const modifierControlHelp = queryRequired<HTMLElement>(
+      '.modifier-key-description',
+      modifierRow
+    );
+    expect(modifierLabel.textContent).not.toContain('Modifier description sentinel.');
+    expect(modifierControlHelp.textContent).toBe('Modifier description sentinel.');
+    expect(
+      modifierRow.querySelectorAll<HTMLButtonElement>('.modifier-key-inline .chip')
+    ).toHaveLength(3);
+
+    const shortcutRow = requireRenderedRow('Shortcuts Row Sentinel');
+    const shortcutLabel = queryRequired<HTMLElement>('.label', shortcutRow);
+    const shortcutControlHelp = queryRequired<HTMLElement>(
+      '.keyboard-shortcuts-description',
+      shortcutRow
+    );
+    expect(shortcutLabel.textContent).not.toContain('Shortcut hint sentinel');
+    expect(shortcutControlHelp.textContent).toBe('Shortcut hint sentinel: Cmd+Enter Sentinel');
   });
 });
 
@@ -133,6 +182,17 @@ function requireSwitch(row: RowNode): SwitchNode {
     throw new Error(`Missing switch control for row: ${String(row.title)}`);
   }
   return switchNode;
+}
+
+function requireRenderedRow(title: string): HTMLElement {
+  const rows = Array.from(document.querySelectorAll<HTMLElement>('.row'));
+  const row = rows.find((candidate) =>
+    candidate.querySelector<HTMLElement>('.label strong')?.textContent?.includes(title)
+  );
+  if (!row) {
+    throw new Error(`Missing rendered row: ${title}`);
+  }
+  return row;
 }
 
 function resolveSwitchStateText(

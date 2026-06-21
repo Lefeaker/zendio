@@ -1,5 +1,9 @@
 import type { StorageService } from '@platform/interfaces/storage';
 import {
+  normalizeAnalyticsDebugModeFlag,
+  resolveAnalyticsDebugMode
+} from '../../analytics/analyticsDebugModeCapability';
+import {
   DEFAULT_ANALYTICS_MEASUREMENT_ID,
   normalizeAnalyticsTransportMode,
   normalizeMeasurementId,
@@ -103,9 +107,17 @@ export class AnalyticsConfigManager {
     const normalizedConfig = normalizeAnalyticsConfig(storedConfigWithoutConsent);
     const clientId = storedClientId ?? normalizedConfig.clientId ?? this.config.clientId;
     const sessionId = storedSessionId ?? normalizedConfig.sessionId ?? this.config.sessionId;
+    const debugMode = storedConsent
+      ? resolveAnalyticsDebugMode({
+          analytics: storedConsent.analytics,
+          errorReporting: storedConsent.errorReporting,
+          debugMode: normalizedConfig.debugMode
+        })
+      : normalizeAnalyticsDebugModeFlag(normalizedConfig.debugMode);
 
     this.config = {
       ...normalizedConfig,
+      debugMode,
       ...(clientId ? { clientId } : {}),
       ...(sessionId ? { sessionId } : {}),
       ...(storedConsent ? { userConsent: storedConsent } : {}),
@@ -339,7 +351,9 @@ function normalizeStoredAnalyticsConfig(
 
   return {
     enabled: resolveAnalyticsRuntimeEnabled(consent),
-    debugMode: typeof config.debugMode === 'boolean' ? config.debugMode : defaults.debugMode,
+    debugMode: normalizeAnalyticsDebugModeFlag(
+      typeof config.debugMode === 'boolean' ? config.debugMode : defaults.debugMode
+    ),
     measurementId:
       normalizeMeasurementId(config.measurementId, defaults.measurementId) ??
       defaults.measurementId,

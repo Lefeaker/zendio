@@ -121,4 +121,21 @@ describe('options boundary schemas', () => {
     expect(result.aiChat?.userName).toBe('Researcher');
     expect((result as Record<string, unknown>).customKey).toBeUndefined();
   });
+
+  it('preserves privacy consent preferences at the storage boundary', () => {
+    const result = StoredOptionsSchema.parse({
+      privacyPreferences: {
+        analytics: true,
+        errorReporting: true,
+        debugMode: false,
+        extraConsentKey: true
+      }
+    });
+
+    expect(result.privacyPreferences).toEqual({
+      analytics: true,
+      errorReporting: true,
+      debugMode: false
+    });
+  });
 });

@@ -15,6 +15,7 @@ import contact from './resources/contact';
 import changelog from './resources/changelog';
 import privacyPolicy from './resources/privacy-policy';
 import dataUsage from './resources/data-usage';
+import termsOfUse from './resources/terms-of-use';
 import { getSurfaceMeta, getSurfaceView } from './surfaceRegistry';
 
 export { surfaceSchemas } from './surfaceRegistry';
@@ -36,7 +37,8 @@ export const resourceSchemas: Record<string, ResourceSchema> = {
   contact,
   changelog,
   'privacy-policy': privacyPolicy,
-  'data-usage': dataUsage
+  'data-usage': dataUsage,
+  'terms-of-use': termsOfUse
 };
 
 export function getSettingsView(id: string, ctx: SchemaContext): ViewSchema | null {

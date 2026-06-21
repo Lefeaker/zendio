@@ -172,6 +172,59 @@ describe('locale fallback characterization', () => {
     expect(pageMessages.schemaOverviewTitle).toBe('Overview');
   });
 
+  it('loads extension locale and schema copy from stable packaged assets', async () => {
+    const fetchMock = vi.fn((url: string) => {
+      if (url === 'chrome-extension://extension-id/i18n/locales/zh-CN.json') {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: () =>
+            Promise.resolve({
+              runtime: {
+                extensionName: 'Asset Runtime Name'
+              },
+              static: {
+                extName: 'Asset Static Name',
+                extDescription: 'Asset static description'
+              }
+            })
+        });
+      }
+      if (url === 'chrome-extension://extension-id/i18n/schema/zh-CN.json') {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: () => Promise.resolve({ schemaOverviewTitle: 'Asset Schema Overview' })
+        });
+      }
+      return Promise.resolve({
+        ok: false,
+        status: 404,
+        json: () => Promise.resolve({})
+      });
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    vi.stubGlobal('chrome', {
+      runtime: {
+        getURL: (path: string) => `chrome-extension://extension-id/${path}`
+      }
+    });
+    const { getMessagesForLanguage } = await import('../../../src/i18n');
+
+    const pageMessages = await getMessagesForLanguage('zh-CN');
+
+    expect(pageMessages.extensionName).toBe('Asset Runtime Name');
+    expect(pageMessages.schemaOverviewTitle).toBe('Asset Schema Overview');
+    expect(fetchMock).toHaveBeenCalledWith(
+      'chrome-extension://extension-id/i18n/locales/zh-CN.json',
+      { cache: 'force-cache' }
+    );
+    expect(fetchMock).toHaveBeenCalledWith(
+      'chrome-extension://extension-id/i18n/schema/zh-CN.json',
+      { cache: 'force-cache' }
+    );
+  });
+
   it('loads schema-backed resources for extension-page controllers', async () => {
     vi.stubGlobal('window', { location: { protocol: 'chrome-extension:' } });
     const { createDefaultPageI18nController } = await import('../../../src/i18n');

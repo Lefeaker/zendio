@@ -18,6 +18,7 @@ export interface RestOptions {
 
 export interface TemplateOptions {
   article: string;
+  video: string;
   fragment: string;
   reading: string;
   ai: string;
@@ -106,6 +107,12 @@ export interface ReadingOverlaySummaryOptions {
   enabled: boolean;
 }
 
+export interface PrivacyPreferencesOptions {
+  analytics: boolean;
+  errorReporting: boolean;
+  debugMode: boolean;
+}
+
 export interface SubtitleTranslationOptions {
   enabled: boolean;
   targetLanguage: string;
@@ -126,6 +133,7 @@ export interface StoredOptions {
   pageSummary?: Partial<PageSummaryOptions>;
   readingOverlaySummary?: Partial<ReadingOverlaySummaryOptions>;
   subtitleTranslation?: Partial<SubtitleTranslationOptions>;
+  privacyPreferences?: Partial<PrivacyPreferencesOptions>;
   vaultRouter?: VaultRouterConfig;
   yamlConfig?: YamlConfigOverrides | null;
   [key: string]: unknown;
@@ -145,6 +153,7 @@ export interface CompleteOptions extends StoredOptions {
   pageSummary: PageSummaryOptions;
   readingOverlaySummary: ReadingOverlaySummaryOptions;
   subtitleTranslation: SubtitleTranslationOptions;
+  privacyPreferences?: PrivacyPreferencesOptions;
   domainMappings: Record<string, string>;
 }
 
@@ -163,6 +172,7 @@ export interface OptionsState {
   pageSummary?: PageSummaryOptions;
   readingOverlaySummary?: ReadingOverlaySummaryOptions;
   subtitleTranslation?: SubtitleTranslationOptions;
+  privacyPreferences?: PrivacyPreferencesOptions;
   vaultRouter?: VaultRouterConfig;
   yamlConfig?: YamlConfigOverrides | null;
 }

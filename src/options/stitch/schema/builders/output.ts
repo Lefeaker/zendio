@@ -3,7 +3,7 @@ import { DEFAULT_PRODUCTION_ENGLISH_MESSAGES } from '../i18n';
 import type { SchemaMessageKey } from '../i18n';
 import { code, div, element, stack } from './primitives';
 import { classNames } from './classNames';
-import { codeOutputBox, sectionHelper } from './chrome';
+import { sectionHelper } from './chrome';
 import { templateBoundInput } from './controls';
 
 function translate(
@@ -160,24 +160,4 @@ export function yamlDomainRule(rule: YamlDomainRule): NodeSchema {
       }))
     }
   ]);
-}
-
-export function yamlPreviewBlock(
-  summary:
-    | string
-    | ((
-        ctx: SchemaContext
-      ) => string) = DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaOutputYamlPreviewSummaryLabel
-): NodeSchema {
-  return {
-    kind: 'details',
-    summary,
-    className: 'u-mt-block',
-    children: [
-      codeOutputBox(
-        (current: SchemaContext) => current.appData.output.yamlPreview,
-        classNames.yaml.preview
-      )
-    ]
-  };
 }

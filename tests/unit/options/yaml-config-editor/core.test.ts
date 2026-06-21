@@ -3,6 +3,7 @@ import { DEFAULT_YAML_CONFIG } from '@shared/config';
 import type { YamlConfigOverrides, YamlContentType, YamlFieldType } from '@shared/types/yamlConfig';
 import {
   applyYamlEditorAction,
+  buildYamlEditorPreview,
   createYamlEditorState,
   serializeYamlEditorState,
   validateYamlEditorState,
@@ -268,6 +269,46 @@ describe('YAML editor core', () => {
     }
   });
 
+  it('creates blank editable fields when adding fields without a seed value', () => {
+    let state = applyYamlEditorAction(createYamlEditorState(null), {
+      type: 'add-custom-field',
+      contentType: 'article'
+    });
+
+    expect(state.contentTypes.article.customFields.at(-1)).toEqual(
+      expect.objectContaining({
+        name: '',
+        type: 'text',
+        defaultValue: '',
+        valuePath: ''
+      })
+    );
+
+    state = applyYamlEditorAction(state, {
+      type: 'add-domain-override',
+      contentType: 'article',
+      domain: 'example.com'
+    });
+    const entry = state.contentTypes.article.domainOverrides.at(-1);
+    if (!entry) {
+      throw new Error('Missing domain override entry');
+    }
+
+    state = applyYamlEditorAction(state, {
+      type: 'add-domain-field',
+      domainEntryId: entry.id
+    });
+
+    expect(state.contentTypes.article.domainOverrides.at(-1)?.fields.at(-1)).toEqual(
+      expect.objectContaining({
+        name: '',
+        type: 'text',
+        defaultValue: '',
+        valuePath: ''
+      })
+    );
+  });
+
   it('preserves globalFields and serializes them only when present', () => {
     const state = createYamlEditorState({
       globalFields: [
@@ -386,5 +427,33 @@ describe('YAML editor core', () => {
     );
     expect(() => validateYamlEditorState(state)).not.toThrow();
     expect(serializeYamlEditorState(state)).toBeNull();
+  });
+
+  it('builds preview YAML from the current editor state and selected content type', () => {
+    let state = createYamlEditorState(null);
+    state = applyYamlEditorAction(state, {
+      type: 'set-field-enabled',
+      contentType: 'video',
+      bucket: 'fields',
+      fieldId: findFieldId(state, 'video', 'url'),
+      enabled: false
+    });
+    state = addCustomField(state, 'video', 'sponsor', 'text', 'OpenAI');
+
+    const videoPreview = buildYamlEditorPreview(state, 'video');
+
+    expect(videoPreview).toContain('# Video');
+    expect(videoPreview).toContain('type: "video"');
+    expect(videoPreview).toContain('platform: "YouTube"');
+    expect(videoPreview).toContain('sponsor: "OpenAI"');
+    expect(videoPreview).not.toContain('url:');
+
+    const allPreview = buildYamlEditorPreview(state, 'all');
+
+    expect(allPreview).toContain('# Article');
+    expect(allPreview).toContain('# Clipper');
+    expect(allPreview).toContain('# Video');
+    expect(allPreview).toContain('# AI');
+    expect(allPreview).toContain('message_count: 12');
   });
 });

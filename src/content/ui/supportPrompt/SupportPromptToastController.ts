@@ -1,6 +1,7 @@
 import type { LikeToastVariant, SupportPromptMessages, ToastVariant } from './types';
 import { panelStyleSheetManager } from '../../shared/panels/styleSheetManager';
 import { getControlledRuntimeTheme } from '@content/stitch/runtimeTheme';
+import { ZENDIO_RESOURCE_LINKS } from '@shared/links/zendioResourceLinks';
 
 const TOAST_AUTO_DISMISS_MS = 5000;
 const TOAST_EXIT_FALLBACK_MS = 350;
@@ -101,7 +102,7 @@ export class SupportPromptToastController {
       toast.appendChild(links);
     }
 
-    this.showToast(toast, variant);
+    this.showToast(toast, variant, { autoDismiss: false });
     this.options.onLikeToastShown(variant);
   }
 
@@ -119,8 +120,7 @@ export class SupportPromptToastController {
     const redditLink = this.options.doc.createElement('a');
     redditLink.dataset.role = 'reddit-link';
     redditLink.className = 'toast-link-button';
-    redditLink.href =
-      'https://www.reddit.com/r/ObsidianMD/comments/1oahhds/i_made_a_browser_extension_for_a_better/?utm_source=share&utm_medium=web3x&utm_name=web3xcss&utm_term=1&utm_content=share_button';
+    redditLink.href = ZENDIO_RESOURCE_LINKS.redditFeedbackThread;
     redditLink.target = '_blank';
     redditLink.rel = 'noopener noreferrer';
     redditLink.textContent = messages.dislikeRedditLinkLabel;
@@ -146,7 +146,7 @@ export class SupportPromptToastController {
     const githubLink = this.options.doc.createElement('a');
     githubLink.dataset.role = 'github-link';
     githubLink.className = 'toast-link-button';
-    githubLink.href = 'https://github.com/Lefeaker/AllinOB/issues';
+    githubLink.href = ZENDIO_RESOURCE_LINKS.githubIssues;
     githubLink.target = '_blank';
     githubLink.rel = 'noopener noreferrer';
     githubLink.textContent = messages.githubTitle;
@@ -157,7 +157,7 @@ export class SupportPromptToastController {
 
     toast.appendChild(links);
 
-    this.showToast(toast, 'dislike');
+    this.showToast(toast, 'dislike', { autoDismiss: false });
     this.options.onDislikeToastShown();
   }
 

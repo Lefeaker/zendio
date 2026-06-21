@@ -2,6 +2,7 @@ import { DEFAULT_LANGUAGE, type LangCode } from '../config';
 import { buildPseudoLocaleDefinition } from '../catalog/pseudoLocale';
 import type { LocaleDefinition, LocaleStaticMessages, RuntimeMessages } from '../localeDefinition';
 import en from '../generated/locales/en.generated';
+import { loadRuntimeLocaleAsset } from './assets';
 import { getRuntimeLanguageFallbackChain } from './fallback';
 
 export type LocaleLoader = () => Promise<LocaleDefinition>;
@@ -93,9 +94,13 @@ export function createLocaleService(options: LocaleServiceOptions): LocaleServic
     async loadStaticMessages(language) {
       const chain = getLanguageFallbackChain(language);
       for (const code of chain) {
-        const definition = await this.loadLocaleDefinition(code);
-        if (definition.static) {
-          return definition.static;
+        try {
+          const definition = await this.loadLocaleDefinition(code);
+          if (definition.static) {
+            return definition.static;
+          }
+        } catch {
+          continue;
         }
       }
       return defaultStaticMessages;
@@ -106,7 +111,11 @@ export function createLocaleService(options: LocaleServiceOptions): LocaleServic
         if (!hasLocaleLoader(code)) {
           continue;
         }
-        return this.loadLocaleMessages(code);
+        try {
+          return await this.loadLocaleMessages(code);
+        } catch {
+          continue;
+        }
       }
       return defaultRuntimeMessages;
     }
@@ -115,17 +124,17 @@ export function createLocaleService(options: LocaleServiceOptions): LocaleServic
 
 const localeLoaders: LocaleLoaderMap = {
   en: () => Promise.resolve(en),
-  'zh-CN': async () => (await import('../generated/locales/zh-CN.generated')).default,
-  ja: async () => (await import('../generated/locales/ja.generated')).default,
-  de: async () => (await import('../generated/locales/de.generated')).default,
-  fr: async () => (await import('../generated/locales/fr.generated')).default,
-  'es-ES': async () => (await import('../generated/locales/es-ES.generated')).default,
-  'es-419': async () => (await import('../generated/locales/es-419.generated')).default,
-  it: async () => (await import('../generated/locales/it.generated')).default,
-  ko: async () => (await import('../generated/locales/ko.generated')).default,
-  'pt-BR': async () => (await import('../generated/locales/pt-BR.generated')).default,
-  ru: async () => (await import('../generated/locales/ru.generated')).default,
-  'zh-TW': async () => (await import('../generated/locales/zh-TW.generated')).default
+  'zh-CN': () => loadRuntimeLocaleAsset('zh-CN'),
+  ja: () => loadRuntimeLocaleAsset('ja'),
+  de: () => loadRuntimeLocaleAsset('de'),
+  fr: () => loadRuntimeLocaleAsset('fr'),
+  'es-ES': () => loadRuntimeLocaleAsset('es-ES'),
+  'es-419': () => loadRuntimeLocaleAsset('es-419'),
+  it: () => loadRuntimeLocaleAsset('it'),
+  ko: () => loadRuntimeLocaleAsset('ko'),
+  'pt-BR': () => loadRuntimeLocaleAsset('pt-BR'),
+  ru: () => loadRuntimeLocaleAsset('ru'),
+  'zh-TW': () => loadRuntimeLocaleAsset('zh-TW')
 };
 
 if (process.env.NODE_ENV !== 'production') {

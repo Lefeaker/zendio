@@ -5,6 +5,10 @@ import { pathToFileURL } from 'url';
 import { zipDirectory } from './utils/archive.mjs';
 import { applyRestHostPermissions } from './utils/manifestHosts.mjs';
 import { pathExists, prepareLicenseArtifacts, resolveMessage } from './utils/packageHelpers.mjs';
+import {
+  createReleaseArtifactBaseName,
+  createReleaseArtifactFileName
+} from './utils/releaseArtifactNames.mjs';
 import { auditReleaseArchive } from '../tools/audit-release-archive.mjs';
 
 const args = process.argv.slice(2);
@@ -25,19 +29,9 @@ function getFlagValue(flag, { defaultValue } = {}) {
   return value;
 }
 
-export function sanitizeFileName(text) {
-  const sanitized = text
-    .replace(/\s+/g, '-')
-    .replace(/[^a-zA-Z0-9._-]/g, '')
-    .replace(/-+/g, '-')
-    .replace(/^-+|-+$/g, '')
-    .toLowerCase();
-  return sanitized.length > 0 ? sanitized : 'extension';
-}
-
-export async function createUnsignedXpi(distDir, resolvedName, version) {
-  const zipSafeName = sanitizeFileName(resolvedName);
-  const xpiName = `${zipSafeName}-v${version}.xpi`;
+export async function createUnsignedXpi(distDir, _resolvedName, version) {
+  const artifactBaseName = createReleaseArtifactBaseName(version);
+  const xpiName = createReleaseArtifactFileName(version, 'xpi');
   const outputPath = resolve(xpiName);
 
   if (await pathExists(outputPath)) {
@@ -45,7 +39,7 @@ export async function createUnsignedXpi(distDir, resolvedName, version) {
   }
 
   await zipDirectory(distDir, outputPath, { ignore: ['**/*.map', '**/.DS_Store'] });
-  return { xpiName, outputPath, zipSafeName };
+  return { xpiName, outputPath, artifactBaseName };
 }
 
 async function loadWebExt() {
@@ -167,7 +161,7 @@ function findUpdatedSignedArtifact(beforeSnapshot, afterSnapshot) {
 }
 
 export async function runSigning(
-  { distDir, artifactsDir, zipSafeName, version, apiKey, apiSecret, channel, extensionId },
+  { distDir, artifactsDir, artifactBaseName, apiKey, apiSecret, channel, extensionId },
   dependencies = {}
 ) {
   const {
@@ -222,7 +216,7 @@ export async function runSigning(
   }
 
   const signedSource = join(artifactsDir, latestSigned);
-  const signedTargetName = `${zipSafeName}-v${version}-signed.xpi`;
+  const signedTargetName = `${artifactBaseName}-signed.xpi`;
   const signedTargetPath = resolvePathImpl(signedTargetName);
 
   await copyFileImpl(signedSource, signedTargetPath);
@@ -278,7 +272,7 @@ export async function prepareFirefoxReleasePackage({ distDir }, dependencies = {
 
   await lintFirefoxExtensionImpl(distDir);
 
-  const { xpiName, outputPath, zipSafeName } = await createUnsignedXpiImpl(
+  const { xpiName, outputPath, artifactBaseName } = await createUnsignedXpiImpl(
     distDir,
     resolvedName,
     version
@@ -291,7 +285,7 @@ export async function prepareFirefoxReleasePackage({ distDir }, dependencies = {
     resolvedName,
     version,
     xpiName,
-    zipSafeName
+    artifactBaseName
   };
 }
 
@@ -304,7 +298,7 @@ export async function packageFirefoxExtension() {
   }
 
   const distDir = 'build/dist';
-  const { manifest, outputPath, version, xpiName, zipSafeName } = await prepareFirefoxReleasePackage({
+  const { artifactBaseName, manifest, outputPath, xpiName } = await prepareFirefoxReleasePackage({
     distDir
   });
 
@@ -334,8 +328,7 @@ export async function packageFirefoxExtension() {
   await signAndAuditFirefoxPackage({
     distDir,
     artifactsDir,
-    zipSafeName,
-    version,
+    artifactBaseName,
     apiKey,
     apiSecret,
     channel,

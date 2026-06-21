@@ -8,8 +8,9 @@ const CONTENT_RUNTIME_WARNING = 58564;
 const CONTENT_RUNTIME_HARD_STOP = 58752;
 const ONBOARDING_WARNING = 17377;
 const ONBOARDING_HARD_STOP = 17633;
-const CHUNK_COUNT_WARNING = 108;
-const CHUNK_COUNT_HARD_STOP = 118;
+const LOCALE_CHUNK_HARD_STOP = 68 * 1024;
+const CHUNK_COUNT_WARNING = 118;
+const CHUNK_COUNT_HARD_STOP = 122;
 
 function createSizedSource(bytes: number) {
   return 'x'.repeat(bytes);
@@ -70,7 +71,7 @@ describe('report-build-splitting', () => {
       chunkFiles: [
         {
           path: 'build/dist/chunks/ja.generated-OVER.js',
-          size: 65 * 1024
+          size: LOCALE_CHUNK_HARD_STOP + 1
         },
         {
           path: 'build/dist/chunks/chunk-small.js',
@@ -93,7 +94,7 @@ describe('report-build-splitting', () => {
       chunkFiles: [
         {
           path: 'build/dist/chunks/qps-ploc.generated-OVER.js',
-          size: 65 * 1024
+          size: LOCALE_CHUNK_HARD_STOP + 1
         },
         {
           path: 'build/dist/chunks/chunk-small.js',
@@ -139,7 +140,7 @@ describe('report-build-splitting', () => {
       chunkFiles: [
         {
           path: 'build/dist/chunks/ja-OVER.js',
-          size: 65 * 1024
+          size: LOCALE_CHUNK_HARD_STOP + 1
         },
         {
           path: 'build/dist/chunks/chunk-small.js',
