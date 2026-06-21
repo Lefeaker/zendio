@@ -159,8 +159,18 @@ describe('Stitch runtime polish CSS contracts', () => {
     expect(stitchCss).toContain('max-height: 360px;');
     expect(stitchCss).toContain('.domain-mapping-table-scroll thead th');
     expect(stitchCss).toContain('.resource-modal--session.is-collapsed .surface-window-header');
-    expect(stitchCss).toContain('grid-template-columns: auto minmax(0, auto);');
+    expect(stitchCss).toContain('grid-template-columns: minmax(0, max-content);');
     expect(stitchCss).toContain('justify-content: center;');
+    expect(stitchCss).toContain('justify-items: center;');
+    expect(stitchCss).toMatch(
+      /\.resource-modal--session\.is-collapsed\s+\.surface-window-brand\s*{[^}]*display:\s*inline-flex;[^}]*align-items:\s*center;[^}]*justify-content:\s*center;/
+    );
+    expect(stitchCss).toMatch(
+      /\.resource-modal--session\.is-collapsed\s+\.surface-window-icon\s*{[^}]*flex:\s*0\s+0\s+var\(--session-header-icon-size\);[^}]*transform:\s*none;/
+    );
+    expect(stitchCss).toMatch(
+      /\.resource-modal--session\.is-collapsed\s+\.surface-window-title\s*{[^}]*left:\s*auto;[^}]*top:\s*auto;[^}]*text-align:\s*center;/
+    );
   });
 
   it('uses green for active video screenshot timestamp dots', () => {

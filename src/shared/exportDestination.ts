@@ -191,7 +191,10 @@ export function hasConfiguredVaultTarget(
   options: OptionsState,
   vaults = getConfiguredVaults(options)
 ): boolean {
-  return vaults.some((vault) => Boolean(vault.apiKey?.trim())) || isRestConfigured(options);
+  return (
+    vaults.some((vault) => Boolean(vault.localFolderId?.trim() || vault.apiKey?.trim())) ||
+    isRestConfigured(options)
+  );
 }
 
 export function selectVaultForPreview(

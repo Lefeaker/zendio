@@ -23,7 +23,7 @@ const getServiceMock = vi.hoisted(() =>
   }))
 );
 
-const templateOptions = { article: '', fragment: '', reading: '', ai: '' } as const;
+const templateOptions = { article: '', video: '', fragment: '', reading: '', ai: '' } as const;
 
 vi.mock('../../../src/background/store', () => ({
   getOptions: getOptionsMock
@@ -227,14 +227,14 @@ describe('clipProcessor', () => {
     });
     selectVaultMock.mockReturnValue({
       vault: null,
-      restConfig: { baseUrl: 'https://default', vault: 'Vault', apiKey: '' },
+      restConfig: { baseUrl: 'https://default', vault: 'Vault', apiKey: 'key' },
       context: {}
     });
     const classificationResult = {
       type: 'article',
       topics: [],
       tags: [],
-      status: 'success' as const
+      status: 'success'
     };
     classifyClipMock.mockResolvedValue(classificationResult);
     resolvePathMock.mockReturnValue('Articles/foo.md');
@@ -532,7 +532,7 @@ describe('clipProcessor', () => {
       type: 'article',
       topics: [],
       tags: [],
-      status: 'success' as const
+      status: 'success'
     };
     classifyClipMock.mockResolvedValue(classificationResult);
     resolvePathMock.mockReturnValue('Articles/downloaded-note.md');
@@ -559,6 +559,51 @@ describe('clipProcessor', () => {
     });
     expect(result).toEqual({
       filePath: 'downloaded-note.md',
+      restVault: '',
+      destination: 'downloads',
+      storageTarget: 'downloads',
+      classification: classificationResult
+    });
+  });
+
+  it('falls back to downloads for article clips when no writable vault target is configured', async () => {
+    const restConfig = { baseUrl: 'https://default', vault: '', apiKey: '' };
+    getOptionsMock.mockResolvedValue({
+      templates: templateOptions,
+      domainMappings: {},
+      rest: restConfig,
+      vaultRouter: { vaults: [] }
+    });
+    selectVaultMock.mockReturnValue({
+      vault: null,
+      restConfig,
+      context: {}
+    });
+    const classificationResult = {
+      type: 'article',
+      topics: [],
+      tags: [],
+      status: 'success' as const
+    };
+    classifyClipMock.mockResolvedValue(classificationResult);
+    resolvePathMock.mockReturnValue('Articles/unconfigured-note.md');
+    downloadMock.mockResolvedValue(12);
+    recordUsageMock.mockResolvedValue(undefined);
+
+    const { processClipPayload } =
+      await import('../../../src/background/application/clipProcessor');
+    const result = await processClipPayload(createPayload());
+
+    expect(selectVaultMock).toHaveBeenCalled();
+    expect(createWriteSessionMock).not.toHaveBeenCalled();
+    expect(writeMarkdownMock).not.toHaveBeenCalled();
+    expect(downloadMock).toHaveBeenCalledWith({
+      filename: 'unconfigured-note.md',
+      content: '# note',
+      mimeType: 'text/markdown;charset=utf-8'
+    });
+    expect(result).toEqual({
+      filePath: 'unconfigured-note.md',
       restVault: '',
       destination: 'downloads',
       storageTarget: 'downloads',
@@ -970,7 +1015,7 @@ describe('clipProcessor', () => {
     });
     selectVaultMock.mockReturnValue({
       vault: null,
-      restConfig: { baseUrl: 'https://default', vault: 'Vault', apiKey: '' },
+      restConfig: { baseUrl: 'https://default', vault: 'Vault', apiKey: 'key' },
       context: {}
     });
     classifyClipMock.mockResolvedValue({
@@ -1371,7 +1416,7 @@ describe('clipProcessor', () => {
     });
     selectVaultMock.mockReturnValue({
       vault: null,
-      restConfig: { baseUrl: 'https://default', vault: 'Vault', apiKey: '' },
+      restConfig: { baseUrl: 'https://default', vault: 'Vault', apiKey: 'key' },
       context: {}
     });
     const errorDetail = {

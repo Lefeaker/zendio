@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { getOutputTemplatePreset } from '@shared/config';
 import {
+  hasConfiguredVaultTarget,
   resolveExportPath,
   resolveTemplateKeyForPayloadType,
   toDownloadsFilename,
@@ -67,5 +68,39 @@ describe('exportDestination path preview', () => {
     ['folder/.hidden.md', '.hidden.md']
   ])('normalizes downloads filename %s to %s', (resolvedPath, expected) => {
     expect(toDownloadsFilename(resolvedPath)).toBe(expected);
+  });
+
+  it('treats local folder vaults as configured export targets without requiring REST keys', () => {
+    expect(
+      hasConfiguredVaultTarget({
+        rest: {
+          baseUrl: '',
+          vault: '',
+          apiKey: ''
+        },
+        templates: {
+          article: '',
+          video: '',
+          fragment: '',
+          reading: '',
+          ai: ''
+        },
+        domainMappings: {},
+        vaultRouter: {
+          vaults: [
+            {
+              id: 'local',
+              name: 'Local Vault',
+              httpsUrl: '',
+              httpUrl: '',
+              vault: '',
+              apiKey: '',
+              localFolderId: 'folder-local',
+              localFolderName: 'Local Vault'
+            }
+          ]
+        }
+      })
+    ).toBe(true);
   });
 });
