@@ -40,7 +40,7 @@ describe('mountProductionStitchShell renderLifecycle', () => {
     expect(document.querySelector('.brand-copy strong')?.textContent).toBe('Zendio');
     const brandLink = document.querySelector<HTMLAnchorElement>('.brand-title-link');
     expect(brandLink?.textContent).toBe('Zendio');
-    expect(brandLink?.getAttribute('href')).toBe('https://sxnian.com/projects/zendio/en/');
+    expect(brandLink?.getAttribute('href')).toBe('https://zendio.sxnian.com/en/');
     expect(brandLink?.getAttribute('target')).toBe('_blank');
     expect(brandLink?.getAttribute('rel')).toBe('noopener noreferrer');
     expect(document.querySelector('.brand-copy span')?.textContent).toMatch(/^v\d+\.\d+\.\d+/);
@@ -94,7 +94,7 @@ describe('mountProductionStitchShell renderLifecycle', () => {
 
     expect(
       document.querySelector<HTMLAnchorElement>('.brand-title-link')?.getAttribute('href')
-    ).toBe('https://sxnian.com/projects/zendio/');
+    ).toBe('https://zendio.sxnian.com/');
 
     mounted.setMessages(
       {
@@ -117,7 +117,7 @@ describe('mountProductionStitchShell renderLifecycle', () => {
     expect(document.querySelector('.brand-copy span')?.textContent).toMatch(/^v\d+\.\d+\.\d+/);
     expect(
       document.querySelector<HTMLAnchorElement>('.brand-title-link')?.getAttribute('href')
-    ).toBe('https://sxnian.com/projects/zendio/en/');
+    ).toBe('https://zendio.sxnian.com/en/');
 
     mounted.cleanup();
     expect(document.getElementById('optionsShellRoot')?.innerHTML).toBe('');

@@ -212,7 +212,7 @@ compiled_at: '2026-06-20T14:00:00'
 
 ## サポートとフィードバック
 
-- 公式サイト: [sxnian.com/projects/zendio](https://sxnian.com/projects/zendio/en/)
+- 公式サイト: [zendio.sxnian.com/en](https://zendio.sxnian.com/en/)
 - Ko-fi: [ko-fi.com/xiannian](https://ko-fi.com/xiannian)
 - WeChat Reward: Zendio のサポートモーダルから表示できます
 - フィードバック: [GitHub Issues](https://github.com/Lefeaker/zendio/issues)、[Reddit](https://www.reddit.com/user/sxnian/)、または [email](mailto:zendio@sxnian.com)
@@ -222,4 +222,4 @@ compiled_at: '2026-06-20T14:00:00'
 - インスピレーション: [Readwise](https://github.com/readwiseio/obsidian-readwise)、[Sidebar Highlights](https://github.com/trevware/obsidian-sidebar-highlights)、[Dataview](https://github.com/blacksmithgu/obsidian-dataview)、[Obsidian Bases](https://github.com/hadynz/obsidian-bases)
 - サードパーティコンポーネント: [AI Chat Exporter](https://github.com/revivalstack/chatgpt-exporter)、[Obsidian Web Clipper](https://github.com/obsidianmd/obsidian-clipper)、[Mozilla Readability](https://github.com/mozilla/readability)、[Turndown](https://github.com/mixmark-io/turndown)
 - ライセンス: MIT。`LICENSE` を参照してください。
-- 連絡先: [website](https://sxnian.com/projects/zendio/en/)、[GitHub](https://github.com/Lefeaker/zendio)、[Reddit](https://www.reddit.com/user/sxnian/)、または [zendio@sxnian.com](mailto:zendio@sxnian.com)
+- 連絡先: [website](https://zendio.sxnian.com/en/)、[GitHub](https://github.com/Lefeaker/zendio)、[Reddit](https://www.reddit.com/user/sxnian/)、または [zendio@sxnian.com](mailto:zendio@sxnian.com)

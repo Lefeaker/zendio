@@ -6,8 +6,6 @@ import type {
 import type { UiMountable } from '@ui/hosts/shared/contract';
 import type { PopupCoordinator } from '@content/runtime/popupCoordinator';
 import { resolveContentPopupCoordinator } from '@content/runtime/popupCoordinatorAccess';
-import { createVideoSurfaceContent } from '@content/stitch/runtimeSurfaceContent';
-import { renderStitchRuntimeSurface } from '@content/stitch/runtimeSurfaceRenderer';
 import { panelStyleSheetManager } from '@content/shared/panels/styleSheetManager';
 import { bindSessionPanelResize } from '@content/shared/panels/sessionPanelResize';
 import { SessionPanelCollapsePersistence } from '@content/shared/panels/sessionPanelCollapsePersistence';
@@ -19,7 +17,7 @@ import { patchExportDestinationRow } from '@content/shared/exportDestinationDom'
 import type { ExportDestinationSurfacePreview } from '@options/stitch/types';
 import { focusContentDialogElementByDataset } from '@ui/hosts/content/contentDialogFocus';
 import { bindVideoInputKeyboardIsolationBoundary } from '../videoInputEventIsolation';
-import { applyVideoDialogPanelCompatibilityAttributes } from './videoDialogPanelCompatibility';
+import { createVideoDialogSurface } from './videoDialogSurface';
 import { VIDEO_MODE_PANEL_ICON_PATH } from '@shared/assets/iconPaths';
 
 interface VideoDialogPanelOptions {
@@ -240,77 +238,45 @@ export class VideoDialogPanel implements UiMountable<
   }
 
   private renderSurface(): HTMLElement {
-    const content = createVideoSurfaceContent({
+    const surface = createVideoDialogSurface({
       texts: this.texts,
       captures: this.captures.map((capture) => this.commentDrafts.withDraft(capture)),
       counter: this.formatCounter(this.captureCount),
       iconUrl: this.resolveAssetUrl(VIDEO_MODE_PANEL_ICON_PATH),
-      ...(this.destination ? { destination: this.destination } : {}),
-      actions: [
-        { id: 'video:finish', label: this.texts.finish, variant: 'primary' },
-        { id: 'video:cancel', label: this.texts.cancel, variant: 'ghost' }
-      ]
-    });
-    if (this.collapsePersistence.value) {
-      content.surfaces.video.labels.subtitle = '';
-    }
-    content.surfaces.video.captures = content.surfaces.video.captures.map((capture) =>
-      capture.id === this.editingCaptureId ? { ...capture, editing: true } : capture
-    );
-    const surface = renderStitchRuntimeSurface({
-      surfaceId: 'video',
-      appData: content,
+      destination: this.destination,
+      collapsed: this.collapsePersistence.value,
+      editingCaptureId: this.editingCaptureId,
       actions: {
-        'video:add': () => {
-          void this.commentDrafts.runAfterFlush(() =>
-            this.options.callbacks.onAddCapture('button')
-          );
+        addCapture: (source) => {
+          void this.commentDrafts.runAfterFlush(() => this.options.callbacks.onAddCapture(source));
         },
-        'video:add-note': () => {
-          void this.commentDrafts.runAfterFlush(() =>
-            this.options.callbacks.onAddCapture('note-input')
-          );
-        },
-        'video:finish': () => {
+        finish: () => {
           void this.commentDrafts.runAfterFlush(() => this.options.callbacks.onFinish());
         },
-        'video:cancel': () => {
+        cancel: () => {
           this.cancelActiveEditor();
           this.options.callbacks.onCancel();
         },
-        'export-destination:select': (event) => {
-          const id = this.resolveActionId(event, 'destinationId');
-          if (id) {
-            void this.options.callbacks.onSelectDestination?.(id);
-          }
+        selectDestination: (id) => {
+          void this.options.callbacks.onSelectDestination?.(id);
         },
-        'session:toggleCollapse': () => {
+        toggleCollapse: () => {
           this.collapsePersistence.toggle({ persist: true });
         },
-        'resource:close': () => this.options.callbacks.onCancel(),
-        'video:delete': (event) => {
-          const id = this.resolveActionId(event, 'captureId');
-          if (id) {
-            if (id === this.editingCaptureId) {
-              this.options.callbacks.onCaptureEditorCancel?.(id);
-              this.editingCaptureId = null;
-            }
-            this.commentDrafts.clear(id);
-            this.options.callbacks.onDeleteCapture(id);
+        closeResource: () => this.options.callbacks.onCancel(),
+        deleteCapture: (id) => {
+          if (id === this.editingCaptureId) {
+            this.options.callbacks.onCaptureEditorCancel?.(id);
+            this.editingCaptureId = null;
           }
+          this.commentDrafts.clear(id);
+          this.options.callbacks.onDeleteCapture(id);
         },
-        'video:toggle-screenshot': (event) => {
-          const id = this.resolveActionId(event, 'captureId');
-          if (id) {
-            void this.options.callbacks.onToggleScreenshot(id);
-          }
-        }
+        toggleScreenshot: (id) => {
+          void this.options.callbacks.onToggleScreenshot(id);
+        },
+        expandCollapsedPanel: () => this.collapsePersistence.set(false, { persist: true })
       }
-    });
-    applyVideoDialogPanelCompatibilityAttributes({
-      surface,
-      collapsed: this.collapsePersistence.value,
-      expandCollapsedPanel: () => this.collapsePersistence.set(false, { persist: true })
     });
     this.bindCaptureInteractions(surface);
     return surface;
@@ -322,18 +288,6 @@ export class VideoDialogPanel implements UiMountable<
     } catch {
       return path;
     }
-  }
-
-  private resolveActionId(event: Event, datasetKey: 'captureId' | 'destinationId'): string | null {
-    const target = event.currentTarget instanceof HTMLElement ? event.currentTarget : null;
-    if (datasetKey === 'destinationId') {
-      return target?.dataset.destinationId ?? null;
-    }
-    return (
-      target?.dataset[datasetKey] ??
-      target?.closest<HTMLElement>('[data-capture-id]')?.dataset.captureId ??
-      null
-    );
   }
 
   private resolveFocusedEditingCaptureId(shadow: ShadowRoot): string | null {

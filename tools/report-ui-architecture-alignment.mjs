@@ -92,7 +92,7 @@ const requiredSnippets = {
     ['@content/stitch/runtimeSurfaceRenderer'],
     ['@content/stitch/runtimeSurfaceContent']
   ],
-  'src/content/video/ui/VideoDialogPanel.ts': [
+  'src/content/video/ui/videoDialogSurface.ts': [
     ['@content/stitch/runtimeSurfaceRenderer'],
     ['@content/stitch/runtimeSurfaceContent']
   ],

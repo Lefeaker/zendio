@@ -212,7 +212,7 @@ compiled_at: '2026-06-20T14:00:00'
 
 ## 支持与反馈
 
-- 官网：[sxnian.com/projects/zendio](https://sxnian.com/projects/zendio/)
+- 官网：[zendio.sxnian.com](https://zendio.sxnian.com/)
 - Ko-fi：[ko-fi.com/xiannian](https://ko-fi.com/xiannian)
 - 微信赞赏：可在 Zendio 的“支持”弹窗中查看
 - 反馈：[GitHub Issues](https://github.com/Lefeaker/zendio/issues)、[Reddit](https://www.reddit.com/user/sxnian/) 或 [邮件](mailto:zendio@sxnian.com)
@@ -222,4 +222,4 @@ compiled_at: '2026-06-20T14:00:00'
 - 灵感来源：[Readwise](https://github.com/readwiseio/obsidian-readwise)、[Sidebar Highlights](https://github.com/trevware/obsidian-sidebar-highlights)、[Dataview](https://github.com/blacksmithgu/obsidian-dataview)、[Obsidian Bases](https://github.com/hadynz/obsidian-bases)
 - 第三方组件：[AI Chat Exporter](https://github.com/revivalstack/chatgpt-exporter)、[Obsidian Web Clipper](https://github.com/obsidianmd/obsidian-clipper)、[Mozilla Readability](https://github.com/mozilla/readability)、[Turndown](https://github.com/mixmark-io/turndown)
 - License：MIT，详见 `LICENSE`。
-- 联系方式：[作者个人网站](https://sxnian.com/projects/zendio/)、[GitHub](https://github.com/Lefeaker/zendio)、[Reddit](https://www.reddit.com/user/sxnian/) 或 [zendio@sxnian.com](mailto:zendio@sxnian.com)
+- 联系方式：[作者个人网站](https://zendio.sxnian.com/)、[GitHub](https://github.com/Lefeaker/zendio)、[Reddit](https://www.reddit.com/user/sxnian/) 或 [zendio@sxnian.com](mailto:zendio@sxnian.com)

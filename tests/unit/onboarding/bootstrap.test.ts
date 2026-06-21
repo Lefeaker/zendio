@@ -527,7 +527,7 @@ describe('onboarding bootstrap', () => {
       .getElementById('officialWebsiteLink')
       ?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
     await Promise.resolve();
-    expect(openExternalLink).toHaveBeenCalledWith('https://sxnian.com/projects/zendio/en/');
+    expect(openExternalLink).toHaveBeenCalledWith('https://zendio.sxnian.com/en/');
 
     document
       .getElementById('changelogLink')
@@ -559,7 +559,7 @@ describe('onboarding bootstrap', () => {
         ?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
       await Promise.resolve();
 
-      expect(openExternalLink).toHaveBeenCalledWith('https://sxnian.com/projects/zendio/');
+      expect(openExternalLink).toHaveBeenCalledWith('https://zendio.sxnian.com/');
     }
   );
 

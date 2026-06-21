@@ -1,6 +1,6 @@
 const ZENDIO_OFFICIAL_WEBSITE_URLS = {
-  chinese: 'https://sxnian.com/projects/zendio/',
-  default: 'https://sxnian.com/projects/zendio/en/'
+  chinese: 'https://zendio.sxnian.com/',
+  default: 'https://zendio.sxnian.com/en/'
 };
 
 export function resolveZendioOfficialWebsiteUrl(language: string | null | undefined): string {
