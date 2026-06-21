@@ -119,7 +119,7 @@ describe('i18n catalog contract', () => {
   it('keeps generated runtime and static catalog sources aligned with release languages', () => {
     expect(GENERATED_MESSAGE_KEYS).toEqual(RUNTIME_MESSAGE_KEYS);
     expect(DEFAULT_RUNTIME_MESSAGES.settingsTitle).toBe('Settings');
-    expect(DEFAULT_STATIC_MESSAGES.extName).toBe('Zendio');
+    expect(DEFAULT_STATIC_MESSAGES.extName).toBe('Zendio——All in Obsidian');
     expect(getLocaleCodes()).toEqual(getConfiguredLanguageCodes());
     expect(hasLocaleLoader('en')).toBe(true);
     expect(hasLocaleLoader(PSEUDO_LOCALE_CODE)).toBe(true);
@@ -140,7 +140,7 @@ describe('i18n catalog contract', () => {
 
       expect(Object.keys(catalog.runtime).sort()).toEqual([...GENERATED_MESSAGE_KEYS].sort());
       expect(staticMessages).toEqual(GENERATED_RELEASE_STATIC_REGISTRY[catalog.language]);
-      expect(staticMessages.extName).toBe('Zendio');
+      expect(staticMessages.extName).toBe('Zendio——All in Obsidian');
       expect(staticDescription.length).toBeGreaterThan(20);
     }
 
@@ -180,11 +180,11 @@ describe('i18n catalog contract', () => {
     const validCatalog = {
       language: 'en',
       runtime: {
-        extensionName: 'Zendio',
+        extensionName: 'Zendio——All in Obsidian',
         settingsTitle: 'Settings'
       },
       static: {
-        extName: 'Zendio',
+        extName: 'Zendio——All in Obsidian',
         extDescription: 'Export to Obsidian'
       },
       domains: {
@@ -200,7 +200,7 @@ describe('i18n catalog contract', () => {
       isCatalogLocaleCatalog({
         ...validCatalog,
         static: {
-          extName: 'Zendio',
+          extName: 'Zendio——All in Obsidian',
           extDescription: 1
         }
       })

@@ -237,7 +237,7 @@
     "exportAiChatFallbackTitleKimi": "Kimi 對話",
     "exportAiChatFallbackTitleTongyi": "通義千問對話",
     "exportFragmentCommentHeading": "我的評論",
-    "extensionName": "Zendio",
+    "extensionName": "Zendio——All in Obsidian",
     "extensionSubtitle": "配置您的剪藏器以實現更智慧的內容管理",
     "extractionFailed": "內容擷取失敗",
     "featureUnstableNote": "不穩定功能",
@@ -703,7 +703,7 @@
     "yamlFilterAllLabel": "All"
   },
   "static": {
-    "extName": "Zendio",
+    "extName": "Zendio——All in Obsidian",
     "extDescription": "面向 Obsidian 的網頁、影片與對話剪藏器，支援保存結構化筆記。"
   }
 }

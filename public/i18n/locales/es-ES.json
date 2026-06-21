@@ -237,7 +237,7 @@
     "exportAiChatFallbackTitleKimi": "Chat de Kimi",
     "exportAiChatFallbackTitleTongyi": "Chat de Tongyi",
     "exportFragmentCommentHeading": "Mi comentario",
-    "extensionName": "Zendio",
+    "extensionName": "Zendio——All in Obsidian",
     "extensionSubtitle": "Configura tu clipper para una gestión de contenido más inteligente",
     "extractionFailed": "Error en la extracción de contenido",
     "featureUnstableNote": "La función es inestable",
@@ -703,7 +703,7 @@
     "yamlFilterAllLabel": "All"
   },
   "static": {
-    "extName": "Zendio",
+    "extName": "Zendio——All in Obsidian",
     "extDescription": "Clipper web, de video y conversaciones para guardar notas estructuradas en Obsidian."
   }
 }

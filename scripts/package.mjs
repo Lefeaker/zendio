@@ -3,6 +3,7 @@ import { join, resolve } from 'path';
 import { zipDirectory } from './utils/archive.mjs';
 import { applyRestHostPermissions } from './utils/manifestHosts.mjs';
 import { pathExists, prepareLicenseArtifacts, resolveMessage } from './utils/packageHelpers.mjs';
+import { createReleaseArtifactFileName } from './utils/releaseArtifactNames.mjs';
 import { auditReleaseArchive } from '../tools/audit-release-archive.mjs';
 
 /**
@@ -70,8 +71,7 @@ async function packageExtension() {
 
   const version = manifestWithHosts.version;
   const resolvedName = await resolveMessage(manifestWithHosts.name, manifestWithHosts, distDir);
-  const zipSafeName = resolvedName.replace(/\s+/g, '-').toLowerCase();
-  const zipName = `${zipSafeName}-v${version}.zip`;
+  const zipName = createReleaseArtifactFileName(version, 'zip');
   const zipPath = resolve(zipName);
 
   console.log(`📝 扩展名称: ${resolvedName}`);
