@@ -1,10 +1,7 @@
 import { getOptions } from '../store';
 import { RUNTIME_FALLBACK_MESSAGES } from '../../i18n/catalog/runtimeFallbackMessages';
-import { resolvePath } from '../pathResolver';
-import { selectVaultForClip } from '../services/vaultRouterService';
 import { classifyClip } from '../services/classificationService';
 import type { ClassificationResult } from '../services/classificationService';
-import { createVaultWriteSession } from '../services/obsidianWriter';
 import type {
   LocalVaultFallbackReason,
   LocalVaultPermissionPromptRequest,
@@ -24,19 +21,14 @@ import {
   type StorageTarget,
   type UsageEventParamMap
 } from '../../shared/analytics';
-import {
-  parseExportDestinationMetadata,
-  toDownloadsFilename
-} from '../../shared/exportDestination';
+import { resolveClipRoute, type ResolvedClipRoute } from './clipRouteResolver';
 import { isAppError, normalizeToAppError } from '../../shared/errors';
 import type { AppError } from '../../shared/errors';
 import { getService } from '../../shared/di';
 import { TOKENS } from '../../shared/di/tokens';
 import type { UserVisibleMessageDescriptor } from '../../shared/i18n/userVisibleMessageDescriptor';
 import type { PlatformServices } from '../../platform/types';
-import type { RestOptions } from '../../shared/types/options';
 import { serializedAttachmentContentToBlob } from '../../shared/attachments/clipAttachmentBinary';
-import { prepareVideoClipAttachments } from './videoScreenshotAttachmentPlanner';
 
 export interface ClipProcessingResult {
   filePath: string;
@@ -201,69 +193,20 @@ export async function processClipPayload(
     const classification = await completeStage('classify', () => classifyClip(options, payload));
 
     const routed = await completeStage('route', async () => {
-      const filePath = resolvePath(
-        options.templates,
-        payload,
-        classification,
-        options.domainMappings
-      );
-      const exportDestination = parseExportDestinationMetadata(payload.meta?.exportDestination);
-
-      const createDownloadsRoute = () => {
-        storageTarget = 'downloads';
-        const filename = toDownloadsFilename(filePath);
-        return {
-          destination: 'downloads' as const,
-          filePath: filename,
-          restVault: '',
-          prepared: prepareVideoClipAttachments({
-            payload,
-            notePath: filename,
-            destination: 'downloads',
-            ...(options.video?.screenshotAttachment
-              ? { screenshotAttachmentOptions: options.video.screenshotAttachment }
-              : {})
-          })
-        };
-      };
-
-      if (exportDestination?.kind === 'downloads') {
-        return createDownloadsRoute();
-      }
-
       hooks.onProgress?.({
         value: 56,
         message: createClipProgressMessage('supportProgressSelectingVault')
       });
-      const { vault, restConfig } = selectVaultForClip(options, payload);
-      if (!isWritableVaultRestConfig(restConfig)) {
-        return createDownloadsRoute();
-      }
-
-      const prepared = prepareVideoClipAttachments({
+      return resolveClipRoute({
+        options,
         payload,
-        notePath: filePath,
-        destination: 'vault',
-        ...(options.video?.screenshotAttachment
-          ? { screenshotAttachmentOptions: options.video.screenshotAttachment }
-          : {})
-      });
-      const writeSession = await createVaultWriteSession(restConfig, {
+        classification,
         ...(hooks.requestLocalVaultPermission
           ? { requestLocalVaultPermission: hooks.requestLocalVaultPermission }
           : {})
       });
-      storageTarget = toAnalyticsStorageTarget(writeSession.target.storageTarget);
-
-      return {
-        destination: 'vault' as const,
-        filePath,
-        vault,
-        restConfig,
-        prepared,
-        writeSession
-      };
     });
+    storageTarget = toRouteStorageTarget(routed);
 
     if (routed.destination === 'downloads') {
       hooks.onProgress?.({
@@ -426,12 +369,6 @@ export async function processClipPayload(
   }
 }
 
-function isWritableVaultRestConfig(restConfig: RestOptions): boolean {
-  return Boolean(
-    restConfig.localFolderId?.trim() || (restConfig.vault?.trim() && restConfig.apiKey?.trim())
-  );
-}
-
 function resolveBackgroundOperationId(payload: ClipPayload): string {
   const meta = payload.meta;
   const candidate =
@@ -481,6 +418,12 @@ function toAnalyticsStorageTarget(
     return value;
   }
   return value === 'local-folder' ? 'local_folder' : 'rest_api';
+}
+
+function toRouteStorageTarget(route: ResolvedClipRoute): StorageTarget {
+  return route.destination === 'downloads'
+    ? 'downloads'
+    : toAnalyticsStorageTarget(route.writeSession.target.storageTarget);
 }
 
 function resolveFailureCategory(
