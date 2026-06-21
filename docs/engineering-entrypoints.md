@@ -48,7 +48,8 @@
   - 每个 npm script entrypoint 显式前置 `verify:runtime`
   - 本地 PATH 指向不受支持 Node 版本时，先在 runtime guard 失败，不启动 Vitest / Playwright
   - `test:unit:shards` 与 `test:e2e:shards` 是本地加速入口：它们按进程级 shard 并行运行，单个 Vitest 进程仍使用现有 config，不改变 canonical `test:unit`、`test:e2e` 或 `test:coverage` 口径
-  - `test:e2e:browser:parallel` 与 `visual:test:parallel` 会先运行一次 `build:dev`，再通过 `PLAYWRIGHT_SKIP_WEB_SERVER_BUILD=1` 让各 Playwright shard 只读同一 dist；直接并行多个旧 browser 命令仍不推荐
+  - `test:e2e:browser:parallel` 与 `visual:test:parallel` 会先运行一次 `build:dev`，再通过 `PLAYWRIGHT_SKIP_WEB_SERVER_BUILD=1` 让各 Playwright shard 只读同一 dist；runner 会为每个 shard 注入独立 `PLAYWRIGHT_OUTPUT_DIR` 与 `PLAYWRIGHT_HTML_REPORT_DIR`，避免 failure artifacts / HTML report 互相覆盖；直接并行多个旧 browser 命令仍不推荐
+  - `test:e2e:browser:parallel` 当前覆盖 YAML interaction、reader-panel 与 migration smoke 三组 shard；local-vault 与 Firefox browser checks 仍保留为独立专项命令
 - `npm run build*` 与 `npm run package*`
   - `build` 与 `build:firefox` 显式先运行一次 `quality`，随后调用 `scripts/build.mjs --skip-checks`，不得恢复为重复触发完整 `quality` 的形式
   - `scripts/build.mjs` 支持 `--outdir` / `BUILD_DIST_DIR`；`scripts/package.mjs` 与 `scripts/package-firefox.mjs` 支持 `--dist-dir`

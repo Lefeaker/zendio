@@ -244,6 +244,9 @@ describe('local command parallelization contract', () => {
       resolve('scripts/start-playwright-web-server.mjs'),
       'utf8'
     );
+    const browserShardRunner = readFileSync(resolve('scripts/run-browser-test-shards.mjs'), 'utf8');
+    const visualPlaywrightConfig = readFileSync(resolve('playwright.config.ts'), 'utf8');
+    const readerPlaywrightConfig = readFileSync(resolve('playwright.reader.config.ts'), 'utf8');
 
     expect(buildScript).toContain('--outdir');
     expect(buildScript).toContain('BUILD_DIST_DIR');
@@ -251,5 +254,8 @@ describe('local command parallelization contract', () => {
     expect(firefoxPackageScript).toContain('--dist-dir');
     expect(playwrightServer).toContain('PLAYWRIGHT_DIST_DIR');
     expect(playwrightServer).toContain('PLAYWRIGHT_SKIP_WEB_SERVER_BUILD');
+    expect(browserShardRunner).toContain('PLAYWRIGHT_OUTPUT_DIR');
+    expect(visualPlaywrightConfig).toContain('PLAYWRIGHT_OUTPUT_DIR');
+    expect(readerPlaywrightConfig).toContain('PLAYWRIGHT_OUTPUT_DIR');
   });
 });

@@ -5,13 +5,16 @@ import { defineConfig, devices } from '@playwright/test';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const configuredPort = Number(process.env.PLAYWRIGHT_WEB_SERVER_PORT ?? '4182');
-const playwrightReaderPort = Number.isFinite(configuredPort) && configuredPort > 0
-  ? configuredPort
-  : 4182;
+const playwrightReaderPort =
+  Number.isFinite(configuredPort) && configuredPort > 0 ? configuredPort : 4182;
 const playwrightReaderBaseUrl = `http://127.0.0.1:${playwrightReaderPort}`;
+const playwrightOutputDir = process.env.PLAYWRIGHT_OUTPUT_DIR
+  ? path.resolve(__dirname, process.env.PLAYWRIGHT_OUTPUT_DIR)
+  : path.join(__dirname, 'test-results');
 
 export default defineConfig({
   testDir: path.join(__dirname, 'tests/e2e'),
+  outputDir: playwrightOutputDir,
   timeout: 60000,
   retries: process.env.CI ? 1 : 0,
   workers: 1,

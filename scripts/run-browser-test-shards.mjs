@@ -1,4 +1,5 @@
 import { spawn } from 'node:child_process';
+import path from 'node:path';
 import { defaultConcurrency, resolveConcurrency } from './utils/taskGraphRunner.mjs';
 
 const suite = process.argv[2];
@@ -76,7 +77,9 @@ function runBrowserShard(shard) {
     env: {
       ...process.env,
       PLAYWRIGHT_SKIP_WEB_SERVER_BUILD: '1',
-      PLAYWRIGHT_DIST_DIR: process.env.PLAYWRIGHT_DIST_DIR ?? 'build/dist'
+      PLAYWRIGHT_DIST_DIR: process.env.PLAYWRIGHT_DIST_DIR ?? 'build/dist',
+      PLAYWRIGHT_OUTPUT_DIR: createShardOutputDir(shard.id),
+      PLAYWRIGHT_HTML_REPORT_DIR: createShardHtmlReportDir(shard.id)
     }
   });
 
@@ -95,4 +98,18 @@ function runBrowserShard(shard) {
       resolve(false);
     });
   });
+}
+
+function createShardOutputDir(shardId) {
+  const baseDir = process.env.PLAYWRIGHT_OUTPUT_DIR ?? 'test-results/browser-shards';
+  return path.join(baseDir, sanitizeShardId(shardId));
+}
+
+function createShardHtmlReportDir(shardId) {
+  const baseDir = process.env.PLAYWRIGHT_HTML_REPORT_DIR ?? 'build/reports/playwright-shards';
+  return path.join(baseDir, sanitizeShardId(shardId));
+}
+
+function sanitizeShardId(value) {
+  return value.replace(/[^a-zA-Z0-9._-]+/g, '-');
 }

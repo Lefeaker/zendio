@@ -9,15 +9,20 @@ const firefoxExecutablePath = process.env.PLAYWRIGHT_FIREFOX_EXECUTABLE_PATH;
 const configuredWorkers = Number(process.env.PLAYWRIGHT_WORKERS ?? '1');
 const workers = Number.isFinite(configuredWorkers) && configuredWorkers > 0 ? configuredWorkers : 1;
 const configuredPort = Number(process.env.PLAYWRIGHT_WEB_SERVER_PORT ?? '4181');
-const playwrightVisualPort = Number.isFinite(configuredPort) && configuredPort > 0
-  ? configuredPort
-  : 4181;
+const playwrightVisualPort =
+  Number.isFinite(configuredPort) && configuredPort > 0 ? configuredPort : 4181;
 const playwrightVisualBaseUrl = `http://127.0.0.1:${playwrightVisualPort}`;
+const playwrightOutputDir = process.env.PLAYWRIGHT_OUTPUT_DIR
+  ? path.resolve(__dirname, process.env.PLAYWRIGHT_OUTPUT_DIR)
+  : path.join(__dirname, 'tests/visual/__output__');
+const playwrightHtmlReportDir = process.env.PLAYWRIGHT_HTML_REPORT_DIR
+  ? path.resolve(__dirname, process.env.PLAYWRIGHT_HTML_REPORT_DIR)
+  : path.join('build', 'reports', 'playwright');
 
 export default defineConfig({
   testDir: path.join(__dirname, 'tests/visual'),
   snapshotDir: path.join(__dirname, 'tests/visual/__snapshots__'),
-  outputDir: path.join(__dirname, 'tests/visual/__output__'),
+  outputDir: playwrightOutputDir,
   timeout: 60000,
   retries: process.env.CI ? 1 : 0,
   workers,
@@ -25,7 +30,7 @@ export default defineConfig({
   reporter: process.env.CI
     ? [
         ['list'],
-        ['html', { open: 'never', outputFolder: path.join('build', 'reports', 'playwright') }]
+        ['html', { open: 'never', outputFolder: playwrightHtmlReportDir }]
       ]
     : 'list',
   use: {
@@ -63,7 +68,7 @@ export default defineConfig({
       use: { ...devices['Pixel 5'], channel: 'chrome' }
     },
     ...(includeFirefoxProject
-        ? [
+      ? [
           {
             name: 'firefox-desktop',
             use: {
