@@ -44,7 +44,7 @@ export function applyManagedShadowStyle(
     managedSheetsByRoot.set(shadowRoot, managedSheets);
 
     const managedSheetSet = new Set(managedSheets.values());
-    const nextSheets = shadowRoot.adoptedStyleSheets.filter((entry) => {
+    const nextSheets = getAdoptedStyleSheetArray(shadowRoot).filter((entry) => {
       if (entry === previousSheet) {
         return false;
       }
@@ -86,10 +86,16 @@ function detachManagedSheet(shadowRoot: ShadowRoot, key: string): void {
     return;
   }
   managedSheets.delete(key);
-  shadowRoot.adoptedStyleSheets = shadowRoot.adoptedStyleSheets.filter((entry) => entry !== sheet);
+  shadowRoot.adoptedStyleSheets = getAdoptedStyleSheetArray(shadowRoot).filter(
+    (entry) => entry !== sheet
+  );
   if (managedSheets.size === 0) {
     managedSheetsByRoot.delete(shadowRoot);
   }
+}
+
+function getAdoptedStyleSheetArray(shadowRoot: ShadowRoot): CSSStyleSheet[] {
+  return Array.from(shadowRoot.adoptedStyleSheets);
 }
 
 function ensureManagedFallbackStyle(shadowRoot: ShadowRoot, key: string): HTMLStyleElement {
