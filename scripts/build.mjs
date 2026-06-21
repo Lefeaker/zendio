@@ -1,5 +1,6 @@
 import { build, context } from 'esbuild';
 import { mkdir, cp, readdir, rm, writeFile } from 'fs/promises';
+import { join } from 'path';
 import { applyRestHostPermissions } from './utils/manifestHosts.mjs';
 import { createBrowserManifest } from './utils/manifestSources.mjs';
 import { cssTextPlugin } from './plugins/cssTextPlugin.mjs';
@@ -11,6 +12,23 @@ const prod = args.includes('--mode=prod') || args.includes('--prod');
 const skipChecks = args.includes('--skip-checks');
 const firefox = args.includes('--firefox');
 const includeHarnesses = !prod || args.includes('--include-harnesses');
+const distDir = getArgValue('--outdir') ?? process.env.BUILD_DIST_DIR ?? 'build/dist';
+
+function getArgValue(name) {
+  const inline = args.find((arg) => arg.startsWith(`${name}=`));
+  if (inline) {
+    return inline.slice(name.length + 1);
+  }
+  const index = args.indexOf(name);
+  if (index !== -1) {
+    const value = args[index + 1];
+    if (!value || value.startsWith('--')) {
+      throw new Error(`${name} requires a value`);
+    }
+    return value;
+  }
+  return undefined;
+}
 
 function resolveBooleanEnv(value) {
   return value === '1' || value === 'true';
@@ -35,8 +53,8 @@ if (prod && !skipChecks && !watch) {
   console.log('');
 }
 
-await rm('build/dist', { recursive: true, force: true });
-await mkdir('build/dist', { recursive: true });
+await rm(distDir, { recursive: true, force: true });
+await mkdir(distDir, { recursive: true });
 
 const CONTENT_LOADER_SOURCE = `
 (() => {
@@ -60,7 +78,7 @@ const CONTENT_LOADER_SOURCE = `
 
 const sharedBuildOptions = {
   bundle: true,
-  outdir: 'build/dist',
+  outdir: distDir,
   platform: 'browser',
   sourcemap: watch || !prod,
   minify: prod && !watch,
@@ -135,22 +153,21 @@ if (watch) {
   await Promise.all([backgroundCtx.watch(), appCtx.watch()]);
   console.log('👀 Watching for changes...');
 } else {
-  await build(backgroundBuildOptions);
-  await build(appBuildOptions);
+  await Promise.all([build(backgroundBuildOptions), build(appBuildOptions)]);
 }
 
-await mkdir('build/dist/content', { recursive: true });
-await writeFile('build/dist/content/index.js', CONTENT_LOADER_SOURCE);
+await mkdir(join(distDir, 'content'), { recursive: true });
+await writeFile(join(distDir, 'content/index.js'), CONTENT_LOADER_SOURCE);
 
-await cp('public', 'build/dist', { recursive: true });
+await cp('public', distDir, { recursive: true });
 if (prod) {
-  await rm('build/dist/_locales/qps-ploc', { recursive: true, force: true });
+  await rm(join(distDir, '_locales/qps-ploc'), { recursive: true, force: true });
   try {
-    const chunkFiles = await readdir('build/dist/chunks');
+    const chunkFiles = await readdir(join(distDir, 'chunks'));
     await Promise.all(
       chunkFiles
         .filter((file) => file.startsWith('qps-ploc-') && file.endsWith('.js'))
-        .map((file) => rm(`build/dist/chunks/${file}`, { force: true }))
+        .map((file) => rm(join(distDir, 'chunks', file), { force: true }))
     );
   } catch (error) {
     if (error?.code !== 'ENOENT') {
@@ -166,18 +183,18 @@ if (!includeHarnesses) {
       'content-orchestrator-harness.html',
       'runtime-observability-harness.html',
       'local-vault-write-harness.html'
-    ].map((file) => rm(`build/dist/${file}`, { force: true }))
+    ].map((file) => rm(join(distDir, file), { force: true }))
   );
 }
 
 // Copy styles
-await mkdir('build/dist/styles', { recursive: true });
-await cp('src/styles/design-tokens.css', 'build/dist/styles/design-tokens.css');
+await mkdir(join(distDir, 'styles'), { recursive: true });
+await cp('src/styles/design-tokens.css', join(distDir, 'styles/design-tokens.css'));
 try {
-  await mkdir('build/dist/styles/clipper', { recursive: true });
+  await mkdir(join(distDir, 'styles/clipper'), { recursive: true });
   await cp(
     'src/styles/clipper/highlight-themes.css',
-    'build/dist/styles/clipper/highlight-themes.css'
+    join(distDir, 'styles/clipper/highlight-themes.css')
   );
 } catch (error) {
   if (error?.code !== 'ENOENT') {
@@ -186,22 +203,22 @@ try {
 }
 
 // Copy options pages and assets
-await mkdir('build/dist/options', { recursive: true });
-await cp('src/options/index.html', 'build/dist/options/index.html');
-await rm('build/dist/options/stitch', { recursive: true, force: true });
-await mkdir('build/dist/options/stitch/styles', { recursive: true });
-await cp('src/options/stitch/styles', 'build/dist/options/stitch/styles', { recursive: true });
+await mkdir(join(distDir, 'options'), { recursive: true });
+await cp('src/options/index.html', join(distDir, 'options/index.html'));
+await rm(join(distDir, 'options/stitch'), { recursive: true, force: true });
+await mkdir(join(distDir, 'options/stitch/styles'), { recursive: true });
+await cp('src/options/stitch/styles', join(distDir, 'options/stitch/styles'), { recursive: true });
 
 // Copy onboarding pages and assets
-await mkdir('build/dist/onboarding', { recursive: true });
-await cp('src/onboarding/index.html', 'build/dist/onboarding/index.html');
+await mkdir(join(distDir, 'onboarding'), { recursive: true });
+await cp('src/onboarding/index.html', join(distDir, 'onboarding/index.html'));
 
 // _locales is now included in public directory, so no need to copy separately
 
 // Build manifest from the shared source-of-truth and browser-specific overrides
 const manifest = createBrowserManifest(firefox ? 'firefox' : 'chrome');
 const manifestWithHosts = applyRestHostPermissions(manifest);
-await writeFile('build/dist/manifest.json', JSON.stringify(manifestWithHosts, null, 2));
+await writeFile(join(distDir, 'manifest.json'), JSON.stringify(manifestWithHosts, null, 2));
 
 const browserType = firefox ? ' (Firefox)' : ' (Chrome)';
-console.log(`✅ Build done${prod ? ' (production mode)' : ''}${browserType}`);
+console.log(`✅ Build done${prod ? ' (production mode)' : ''}${browserType}: ${distDir}`);

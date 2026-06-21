@@ -69,11 +69,7 @@ function formatLintErrorCodes(errors) {
 }
 
 export async function lintFirefoxExtension(distDir, dependencies = {}) {
-  const {
-    importWebExtImpl = loadWebExt,
-    logger = console,
-    webExt
-  } = dependencies;
+  const { importWebExtImpl = loadWebExt, logger = console, webExt } = dependencies;
   const resolvedWebExt = webExt ?? (await importWebExtImpl());
 
   if (typeof resolvedWebExt?.cmd?.lint !== 'function') {
@@ -142,9 +138,9 @@ function findUpdatedSignedArtifact(beforeSnapshot, afterSnapshot) {
   for (const [file, afterStats] of afterSnapshot.entries()) {
     const beforeStats = beforeSnapshot.get(file);
     if (
-      !beforeStats
-      || beforeStats.mtimeMs !== afterStats.mtimeMs
-      || beforeStats.size !== afterStats.size
+      !beforeStats ||
+      beforeStats.mtimeMs !== afterStats.mtimeMs ||
+      beforeStats.size !== afterStats.size
     ) {
       candidates.push(afterStats);
     }
@@ -229,10 +225,8 @@ export async function runSigning(
 }
 
 export async function signAndAuditFirefoxPackage(signingOptions, dependencies = {}) {
-  const {
-    auditReleaseArchiveImpl = auditReleaseArchive,
-    runSigningImpl = runSigning
-  } = dependencies;
+  const { auditReleaseArchiveImpl = auditReleaseArchive, runSigningImpl = runSigning } =
+    dependencies;
   const signedPath = await runSigningImpl(signingOptions, dependencies);
 
   if (!signedPath) {
@@ -291,13 +285,13 @@ export async function prepareFirefoxReleasePackage({ distDir }, dependencies = {
 
 export async function packageFirefoxExtension() {
   console.log('📦 开始打包 Firefox 扩展...');
+  const distDir = getFlagValue('--dist-dir', { defaultValue: 'build/dist' });
 
-  if (!(await pathExists('build/dist'))) {
-    console.error('❌ build/dist 目录不存在，请先运行 npm run build:firefox');
+  if (!(await pathExists(distDir))) {
+    console.error(`❌ ${distDir} 目录不存在，请先运行 npm run build:firefox`);
     process.exit(1);
   }
 
-  const distDir = 'build/dist';
   const { artifactBaseName, manifest, outputPath, xpiName } = await prepareFirefoxReleasePackage({
     distDir
   });

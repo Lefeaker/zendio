@@ -10,16 +10,19 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const rootDir = path.resolve(__dirname, '..');
 const buildDir = path.resolve(rootDir, 'build');
-const distDir = path.resolve(rootDir, 'build/dist');
+const distDir = path.resolve(rootDir, process.env.PLAYWRIGHT_DIST_DIR ?? 'build/dist');
 const buildLockDir = path.resolve(buildDir, '.playwright-build.lock');
 const host = process.env.PLAYWRIGHT_WEB_SERVER_HOST ?? '127.0.0.1';
 const port = Number(process.env.PLAYWRIGHT_WEB_SERVER_PORT ?? '4173');
+const skipBuild = process.env.PLAYWRIGHT_SKIP_WEB_SERVER_BUILD === '1';
 
-const releaseBuildLock = await acquireBuildLock();
-try {
-  await runBuild();
-} finally {
-  await releaseBuildLock();
+if (!skipBuild) {
+  const releaseBuildLock = await acquireBuildLock();
+  try {
+    await runBuild();
+  } finally {
+    await releaseBuildLock();
+  }
 }
 await assertDistExists();
 
@@ -72,7 +75,9 @@ function runBuild() {
     const child = spawn('npm', ['run', 'build:dev'], {
       cwd: rootDir,
       stdio: 'inherit',
-      env: createCleanCliEnv()
+      env: createCleanCliEnv({
+        BUILD_DIST_DIR: path.relative(rootDir, distDir)
+      })
     });
 
     child.on('exit', (code, signal) => {

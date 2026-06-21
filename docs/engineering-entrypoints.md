@@ -1,6 +1,6 @@
 # 工程命令与入口
 
-最后更新：2026-06-19
+最后更新：2026-06-21
 
 ## 推荐运行环境
 
@@ -11,6 +11,7 @@
 ## 本轮统一门禁真值
 
 - `npm run quality`
+  - 由 `scripts/quality-check.mjs` 的 dependency-aware task graph 执行；`QUALITY_CONCURRENCY` 可控制本地并发，默认按 CPU 上限保守并行
   - 显式包含 `verify:runtime`，运行 `scripts/verify-runtime.mjs` 校验当前 Node.js 满足 `package.json` 的 `engines.node`
   - 显式包含 `typecheck:app`
   - 显式包含 `typecheck:tests`
@@ -19,6 +20,7 @@
   - `audit:ga:proxy-contract` check mode 以 source-derived contract 为当前真值，并刷新 ignored `build/reports/ga-proxy-contract.json` 供 `audit:ga:docs` 复用；stale / missing / invalid report 不得阻塞当前 source contract
   - 显式执行 production `build:fast` 后运行 `audit:release-surface:report`
   - 显式在 production `build:fast` 后运行 `audit:ga:client-secret` 与 `audit:ga:release-surface`
+  - 显式只生成一次 `build/reports/production-build-graph.json`，随后复用该 graph 运行 i18n hardcoded user-copy、English uncatalogued-copy 与 non-production source hard gates；English uncatalogued-copy 仍依赖 CJK/descriptor hardcoded gate 先通过
   - 显式包含 `audit:locales:report`，在 i18n lint 与字符预算通过后校验 config、locale loaders、catalog runtime/static/schema source、generated locale modules 与 public `_locales` 一致
   - i18n 产品范围决策为 `release-13-languages`：release-supported human UI locales 为 `en`、`zh-CN`、`ja`、`de`、`fr`、`es-ES`、`es-419`、`it`、`ko`、`pt-BR`、`ru`、`zh-TW`
   - `qps-ploc` 分类为 `dev-test-only`；production build/package output 与 release-surface audit 不允许出现 `qps-ploc` loader/chunk 或 `_locales/qps-ploc/messages.json`
@@ -45,15 +47,23 @@
 - `npm run test*` 与 `npm run visual*`
   - 每个 npm script entrypoint 显式前置 `verify:runtime`
   - 本地 PATH 指向不受支持 Node 版本时，先在 runtime guard 失败，不启动 Vitest / Playwright
+  - `test:unit:shards` 与 `test:e2e:shards` 是本地加速入口：它们按进程级 shard 并行运行，单个 Vitest 进程仍使用现有 config，不改变 canonical `test:unit`、`test:e2e` 或 `test:coverage` 口径
+  - `test:e2e:browser:parallel` 与 `visual:test:parallel` 会先运行一次 `build:dev`，再通过 `PLAYWRIGHT_SKIP_WEB_SERVER_BUILD=1` 让各 Playwright shard 只读同一 dist；runner 会为每个 shard 注入独立 `PLAYWRIGHT_OUTPUT_DIR` 与 `PLAYWRIGHT_HTML_REPORT_DIR`，避免 failure artifacts / HTML report 互相覆盖；直接并行多个旧 browser 命令仍不推荐
+  - `test:e2e:browser:parallel` 当前覆盖 YAML interaction、reader-panel 与 migration smoke 三组 shard；local-vault 与 Firefox browser checks 仍保留为独立专项命令
+- `npm run build*` 与 `npm run package*`
+  - `build` 与 `build:firefox` 显式先运行一次 `quality`，随后调用 `scripts/build.mjs --skip-checks`，不得恢复为重复触发完整 `quality` 的形式
+  - `scripts/build.mjs` 支持 `--outdir` / `BUILD_DIST_DIR`；`scripts/package.mjs` 与 `scripts/package-firefox.mjs` 支持 `--dist-dir`
+  - `build:chrome:isolated` / `build:firefox:isolated` 与 `package:chrome:isolated` / `package:firefox:isolated` 使用独立 dist 目录，作为 Chrome / Firefox package 并行化的安全入口
 - `.github/workflows/ci.yml`
-  - 采用并行 job 拓扑：`static-gates`、`coverage`、`visual`、`e2e` 并行执行，`package` 通过 `needs: [static-gates, coverage, visual, e2e]` 汇总后再打包
+  - 采用拆分后的并行 job 拓扑：`static-preflight`、`static-release-surface`、`static-generated-artifacts`、`static-style-and-locale`、`static-reporting-audits`、`coverage`、`visual` matrix、`e2e-vitest`、`browser-yaml`、`browser-reader-panel`、`browser-smoke` 并行执行
   - 使用 workflow-level `concurrency`，同一 PR / ref 的新 run 会取消旧 run
+  - `.github/actions/setup-node-deps` 统一 Node / npm cache / `npm ci`；`.github/actions/setup-playwright` 在此基础上缓存 `~/.cache/ms-playwright` 并安装 Chromium browser dependencies
   - 官方 JavaScript actions 使用 Node 24-compatible major：`actions/checkout@v6`、`actions/setup-node@v6`、`actions/upload-artifact@v7`、`actions/github-script@v8`
-  - `static-gates` 显式运行 `npm run i18n:catalog:check` 与 `npm run verify:preflight`；三项 typecheck 仍由 `verify:preflight` 显式覆盖
-  - `Verify preflight baseline` 后显式运行 `build:fast` 与 `audit:release-surface:report`
-  - `Locale source alignment audit report` 是 hard gate，不再 `continue-on-error`
-  - `Enforce hardcoded config guard` 显式运行 `npm run lint:hardcoded`
-  - `package` job 只在前置门禁通过后使用 `npm run build:fast`，避免在 CI 后段通过 `npm run build` 重复触发完整 `quality`
+  - `static-preflight` 显式运行 `npm run audit:ci-workflow:check`、`npm run i18n:catalog:check` 与 `npm run verify:preflight`；三项 typecheck 仍由 `verify:preflight` 显式覆盖
+  - `static-release-surface` 显式运行 `build:fast` 与 `audit:release-surface:report`
+  - `static-style-and-locale` 保留 locale source alignment、Options CSS naming、hardcoded config guard 与 lint warning guard 的 hard gate 语义；`static-reporting-audits` 仅保留 report-only audit 的 per-step `continue-on-error`
+  - `visual` 按 `chromium-desktop` / `chromium-tablet` / `chromium-mobile` matrix 拆分；Vitest E2E 与三组 browser E2E 拆成独立 job，失败报告 artifact 按 suite 命名
+  - `package` job 通过 `needs: [static-preflight]` 提前启动，并继续使用 `npm run build:fast`，避免在 CI 后段通过 `npm run build` 重复触发完整 `quality`；测试、visual、release-surface 与静态拆分 job 仍应作为独立 required checks 参与合并判断
 - 2026-05-22 final exit gate 真值：在 Node `v20.20.2` / npm `10.8.2` 下，`quality`、`verify:preflight`、`test:unit`、`clean`、`build:dev`、`audit:build:report`、`audit:performance:report`、`verify:stitch-secondary`、`visual:test`、browser smoke、reader-panel、local-vault 均已通过；`build/dist/content/runtime.js` raw `54,554` bytes，低于当时 `57,600` stop gate
 - 2026-05-24 M2.5 budget ratchet 真值：M2.1-M2.4 合入后，`audit:build:report` 的 `content/runtime.js` raw stop gate 收紧为 `56,320` bytes；chunk count 收紧为 `<= 112`；hotspot line budgets 以 `docs/performance-baseline.md` 为准
 - 2026-06-07 video legacy recovery 真值：视频/阅读 draft 自动恢复入口改为 lazy `sessionDraftAutoRestore-*` chunk 后，`audit:build:report` 的 `content/runtime.js` raw stop gate 同步为 `57,344` bytes；chunk count 继续守住 `<= 112`；完整 build/hotspot 真值以 `docs/performance-baseline.md` 为准
@@ -112,7 +122,7 @@ npm run audit:i18n-uncatalogued-user-copy:check
 npx vitest run --config vitest.unit.config.ts tests/unit/i18n/hardcodedSurfaceCoverage.test.ts
 ```
 
-`audit:i18n-hardcoded-user-copy` 只打印当前报告；`audit:i18n-hardcoded-user-copy:check` 是 hard gate 并由 `quality` 调用。直接运行 `node scripts/audit-i18n-hardcoded-user-copy.mjs --check` 不会刷新 `build/reports/production-build-graph.json`；优先使用 npm script，避免用过期 graph 审计。
+`audit:i18n-hardcoded-user-copy` 只打印当前报告；`audit:i18n-hardcoded-user-copy:check` 是 standalone hard gate。`quality` 会先生成 `build/reports/production-build-graph.json` 再直接调用底层 check 脚本以复用同一个 graph；手动直接运行 `node scripts/audit-i18n-hardcoded-user-copy.mjs --check` 前必须先刷新 graph，普通本地使用仍优先 npm script。
 
 `audit:i18n-uncatalogued-user-copy` 打印英文 uncatalogued-copy 报告；`audit:i18n-uncatalogued-user-copy:check` 是 hard gate，并已由 `quality` 与 `verify:preflight` 调用。新增英文产品 UI copy 必须先进入 catalog 或 typed descriptor；`defaultMessage`、`subtitle`、`hint`、`body` 等真实可见字段不能作为 raw English escape hatch。
 
@@ -123,8 +133,10 @@ npm run test:e2e:browser:local-vault
 npm run test:e2e:browser:smoke
 npm run test:e2e:browser
 npm run test:e2e:browser:reader-panel
+npm run test:e2e:browser:parallel
 npm run verify:stitch-secondary
 npm run visual:test
+npm run visual:test:parallel
 ```
 
 Reader/video browser E2E command truth:

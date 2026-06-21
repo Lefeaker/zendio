@@ -1,27 +1,50 @@
+import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
+import { z } from 'zod';
+
+const QualityTaskGraphSchema = z.object({
+  tasks: z.array(
+    z.object({
+      id: z.string(),
+      dependsOn: z.array(z.string())
+    })
+  )
+});
+
+function readQualityTaskGraph(): z.infer<typeof QualityTaskGraphSchema> {
+  const stdout = execFileSync(
+    'node',
+    [
+      '-e',
+      "import('./scripts/quality-check.mjs').then(({ createQualityTaskGraph }) => process.stdout.write(JSON.stringify(createQualityTaskGraph())));"
+    ],
+    {
+      cwd: process.cwd(),
+      encoding: 'utf8'
+    }
+  );
+
+  return QualityTaskGraphSchema.parse(JSON.parse(stdout));
+}
 
 describe('i18n gate wiring', () => {
-  it('runs catalog drift checks from quality before locale lint', () => {
-    const source = readFileSync(resolve('scripts/quality-check.mjs'), 'utf8');
-    const catalogCheckIndex = source.indexOf("cmd: ['npm', 'run', 'i18n:catalog:check']");
-    const lintIndex = source.indexOf("cmd: ['npm', 'run', 'i18n:lint']");
+  it('runs catalog drift and locale lint checks from quality', () => {
+    const taskIds = new Set(readQualityTaskGraph().tasks.map((task) => task.id));
 
-    expect(catalogCheckIndex).toBeGreaterThan(-1);
-    expect(lintIndex).toBeGreaterThan(catalogCheckIndex);
+    expect(taskIds.has('i18n-catalog-check')).toBe(true);
+    expect(taskIds.has('i18n-lint')).toBe(true);
   });
 
   it('runs English uncatalogued-copy checks from quality after the CJK user-copy gate', () => {
-    const source = readFileSync(resolve('scripts/quality-check.mjs'), 'utf8');
-    const hardcodedCheckIndex = source.indexOf(
-      "cmd: ['npm', 'run', 'audit:i18n-hardcoded-user-copy:check']"
-    );
-    const englishCheckIndex = source.indexOf(
-      "cmd: ['npm', 'run', 'audit:i18n-uncatalogued-user-copy:check']"
-    );
+    const taskById = new Map(readQualityTaskGraph().tasks.map((task) => [task.id, task]));
 
-    expect(hardcodedCheckIndex).toBeGreaterThan(-1);
-    expect(englishCheckIndex).toBeGreaterThan(hardcodedCheckIndex);
+    expect(taskById.get('audit-hardcoded-user-copy-check')?.dependsOn).toEqual([
+      'audit-build-graph-report'
+    ]);
+    expect(taskById.get('uncatalogued-user-copy-check')?.dependsOn).toEqual([
+      'audit-hardcoded-user-copy-check'
+    ]);
   });
 
   it('runs catalog drift checks from verify:preflight', () => {
