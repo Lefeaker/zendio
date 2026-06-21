@@ -1,6 +1,7 @@
 const MANAGED_FALLBACK_ATTR = 'data-aiob-style-bridge';
 
 const managedSheetsByRoot = new WeakMap<ShadowRoot, Map<string, CSSStyleSheet>>();
+const constructableStylesBlockedRoots = new WeakSet<ShadowRoot>();
 
 // Cross-browser policy:
 // - Chromium content UIs can use constructed stylesheets directly.
@@ -35,23 +36,7 @@ export function applyManagedShadowStyle(
   cssText: string,
   sheet: CSSStyleSheet | null
 ): void {
-  if (sheet) {
-    detachManagedFallbackStyle(shadowRoot, key);
-
-    const managedSheets = managedSheetsByRoot.get(shadowRoot) ?? new Map<string, CSSStyleSheet>();
-    const previousSheet = managedSheets.get(key) ?? null;
-    managedSheets.set(key, sheet);
-    managedSheetsByRoot.set(shadowRoot, managedSheets);
-
-    const managedSheetSet = new Set(managedSheets.values());
-    const nextSheets = getAdoptedStyleSheetArray(shadowRoot).filter((entry) => {
-      if (entry === previousSheet) {
-        return false;
-      }
-      return !managedSheetSet.has(entry);
-    });
-    nextSheets.push(...managedSheets.values());
-    shadowRoot.adoptedStyleSheets = nextSheets;
+  if (sheet && tryApplyManagedSheet(shadowRoot, key, sheet)) {
     return;
   }
 
@@ -86,12 +71,56 @@ function detachManagedSheet(shadowRoot: ShadowRoot, key: string): void {
     return;
   }
   managedSheets.delete(key);
-  shadowRoot.adoptedStyleSheets = getAdoptedStyleSheetArray(shadowRoot).filter(
-    (entry) => entry !== sheet
-  );
+  try {
+    shadowRoot.adoptedStyleSheets = getAdoptedStyleSheetArray(shadowRoot).filter(
+      (entry) => entry !== sheet
+    );
+  } catch {
+    constructableStylesBlockedRoots.add(shadowRoot);
+    managedSheetsByRoot.delete(shadowRoot);
+    return;
+  }
   if (managedSheets.size === 0) {
     managedSheetsByRoot.delete(shadowRoot);
   }
+}
+
+function tryApplyManagedSheet(shadowRoot: ShadowRoot, key: string, sheet: CSSStyleSheet): boolean {
+  if (constructableStylesBlockedRoots.has(shadowRoot)) {
+    return false;
+  }
+
+  const managedSheets = managedSheetsByRoot.get(shadowRoot) ?? new Map<string, CSSStyleSheet>();
+  const previousSheet = managedSheets.get(key) ?? null;
+
+  managedSheets.set(key, sheet);
+  managedSheetsByRoot.set(shadowRoot, managedSheets);
+
+  try {
+    const managedSheetSet = new Set(managedSheets.values());
+    const nextSheets = getAdoptedStyleSheetArray(shadowRoot).filter((entry) => {
+      if (entry === previousSheet) {
+        return false;
+      }
+      return !managedSheetSet.has(entry);
+    });
+    nextSheets.push(...managedSheets.values());
+    shadowRoot.adoptedStyleSheets = nextSheets;
+  } catch {
+    if (previousSheet) {
+      managedSheets.set(key, previousSheet);
+    } else {
+      managedSheets.delete(key);
+    }
+    if (managedSheets.size === 0) {
+      managedSheetsByRoot.delete(shadowRoot);
+    }
+    constructableStylesBlockedRoots.add(shadowRoot);
+    return false;
+  }
+
+  detachManagedFallbackStyle(shadowRoot, key);
+  return true;
 }
 
 function getAdoptedStyleSheetArray(shadowRoot: ShadowRoot): CSSStyleSheet[] {
