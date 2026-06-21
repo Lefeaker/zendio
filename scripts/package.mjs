@@ -10,7 +10,7 @@ import { auditReleaseArchive } from '../tools/audit-release-archive.mjs';
  * 获取试用天数参数
  */
 function getTrialDays() {
-  const trialArg = process.argv.find(arg => arg.startsWith('--trial-days='));
+  const trialArg = process.argv.find((arg) => arg.startsWith('--trial-days='));
   if (trialArg) {
     const days = parseInt(trialArg.split('=')[1]);
     return isNaN(days) ? 7 : days;
@@ -24,7 +24,7 @@ function getTrialDays() {
 async function injectTrialConfig(distDir, trialDays) {
   const trialConfigPath = join(distDir, 'trial-config.json');
   const now = Date.now();
-  const expirationTime = now + (trialDays * 24 * 60 * 60 * 1000);
+  const expirationTime = now + trialDays * 24 * 60 * 60 * 1000;
 
   const trialConfig = {
     isTrial: true,
@@ -40,14 +40,14 @@ async function injectTrialConfig(distDir, trialDays) {
 
 async function packageExtension() {
   console.log('📦 开始打包扩展...');
+  const distDir = getFlagValue('--dist-dir', { defaultValue: 'build/dist' });
 
   // 检查 build/dist 目录是否存在
-  if (!(await pathExists('build/dist'))) {
-    console.error('❌ build/dist 目录不存在，请先运行 npm run build');
+  if (!(await pathExists(distDir))) {
+    console.error(`❌ ${distDir} 目录不存在，请先运行 npm run build`);
     process.exit(1);
   }
 
-  const distDir = 'build/dist';
   await prepareLicenseArtifacts(distDir);
 
   // 读取版本号
@@ -87,7 +87,7 @@ async function packageExtension() {
 
     // 创建 zip 文件
     console.log('🔨 正在创建 zip 文件...');
-    await zipDirectory('build/dist', zipPath, { ignore: ['**/*.map', '**/.DS_Store'] });
+    await zipDirectory(distDir, zipPath, { ignore: ['**/*.map', '**/.DS_Store'] });
     await auditReleaseArchive(zipPath);
 
     console.log('✅ 打包完成！');
@@ -99,7 +99,9 @@ async function packageExtension() {
     if (isTrialBuild) {
       console.log('🔄 试用版本信息:');
       console.log(`   试用期限: ${trialDays} 天`);
-      console.log(`   过期时间: ${new Date(Date.now() + trialDays * 24 * 60 * 60 * 1000).toLocaleString('zh-CN')}`);
+      console.log(
+        `   过期时间: ${new Date(Date.now() + trialDays * 24 * 60 * 60 * 1000).toLocaleString('zh-CN')}`
+      );
       console.log('   ⚠️  试用版本会在过期后自动限制功能');
       console.log('');
     }
@@ -111,11 +113,27 @@ async function packageExtension() {
     console.log('   4. 点击"加载已解压的扩展程序"');
     console.log(`   5. 选择解压后的文件夹，或者直接拖拽 ${zipName} 到页面上`);
     console.log('');
-    console.log('💡 提示: 也可以将 build/dist 文件夹直接发送给朋友，让他们加载该文件夹');
+    console.log(`💡 提示: 也可以将 ${distDir} 文件夹直接发送给朋友，让他们加载该文件夹`);
   } catch (error) {
     console.error('❌ 打包失败:', error.message);
     process.exit(1);
   }
+}
+
+function getFlagValue(flag, { defaultValue } = {}) {
+  const inline = process.argv.find((arg) => arg.startsWith(`${flag}=`));
+  if (inline) {
+    return inline.slice(flag.length + 1);
+  }
+  const index = process.argv.indexOf(flag);
+  if (index === -1) {
+    return defaultValue;
+  }
+  const value = process.argv[index + 1];
+  if (!value || value.startsWith('--')) {
+    throw new Error(`参数 ${flag} 缺少取值`);
+  }
+  return value;
 }
 
 packageExtension();
