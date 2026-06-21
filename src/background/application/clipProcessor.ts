@@ -34,6 +34,7 @@ import { getService } from '../../shared/di';
 import { TOKENS } from '../../shared/di/tokens';
 import type { UserVisibleMessageDescriptor } from '../../shared/i18n/userVisibleMessageDescriptor';
 import type { PlatformServices } from '../../platform/types';
+import type { RestOptions } from '../../shared/types/options';
 import { serializedAttachmentContentToBlob } from '../../shared/attachments/clipAttachmentBinary';
 import { prepareVideoClipAttachments } from './videoScreenshotAttachmentPlanner';
 
@@ -208,7 +209,7 @@ export async function processClipPayload(
       );
       const exportDestination = parseExportDestinationMetadata(payload.meta?.exportDestination);
 
-      if (exportDestination?.kind === 'downloads') {
+      const createDownloadsRoute = () => {
         storageTarget = 'downloads';
         const filename = toDownloadsFilename(filePath);
         return {
@@ -224,6 +225,10 @@ export async function processClipPayload(
               : {})
           })
         };
+      };
+
+      if (exportDestination?.kind === 'downloads') {
+        return createDownloadsRoute();
       }
 
       hooks.onProgress?.({
@@ -231,6 +236,10 @@ export async function processClipPayload(
         message: createClipProgressMessage('supportProgressSelectingVault')
       });
       const { vault, restConfig } = selectVaultForClip(options, payload);
+      if (!isWritableVaultRestConfig(restConfig)) {
+        return createDownloadsRoute();
+      }
+
       const prepared = prepareVideoClipAttachments({
         payload,
         notePath: filePath,
@@ -415,6 +424,12 @@ export async function processClipPayload(
     });
     throw withClipProcessingFailureCategory(error, failureCategory);
   }
+}
+
+function isWritableVaultRestConfig(restConfig: RestOptions): boolean {
+  return Boolean(
+    restConfig.localFolderId?.trim() || (restConfig.vault?.trim() && restConfig.apiKey?.trim())
+  );
 }
 
 function resolveBackgroundOperationId(payload: ClipPayload): string {

@@ -1,4 +1,3 @@
-
 .session-panel-rail {
   position: relative;
   height: auto;
@@ -95,14 +94,39 @@
 }
 
 .resource-modal--session.is-collapsed .surface-window-header {
-  grid-template-columns: auto minmax(0, auto);
+  grid-template-columns: minmax(0, max-content);
   justify-content: center;
   align-items: center;
+  justify-items: center;
 }
 
 .resource-modal--session.is-collapsed .surface-window-brand {
-  display: flex;
+  display: inline-flex;
+  align-items: center;
   justify-content: center;
+  gap: var(--session-header-column-gap);
+  min-width: 0;
+  max-width: calc(100vw - var(--surface-side-gap) - (var(--session-header-padding-x) * 2));
+}
+
+.resource-modal--session.is-collapsed .surface-window-brand > .surface-heading-copy {
+  align-items: center;
+  min-width: 0;
+  transform: none;
+}
+
+.resource-modal--session.is-collapsed .surface-window-icon {
+  flex: 0 0 var(--session-header-icon-size);
+  transform: none;
+}
+
+.resource-modal--session.is-collapsed .surface-window-title {
+  left: auto;
+  top: auto;
+  max-width: 100%;
+  overflow: hidden;
+  text-align: center;
+  text-overflow: ellipsis;
 }
 
 .resource-modal--session.is-collapsed .surface-window-subtitle,
