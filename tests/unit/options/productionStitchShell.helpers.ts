@@ -1,7 +1,7 @@
 /* @vitest-environment jsdom */
 
 import { vi } from 'vitest';
-import { getMessagesForLanguage, type Messages } from '@i18n';
+import { getMessagesForLanguage, type Language, type Messages } from '@i18n';
 import { mergeOptions } from '@shared/config/optionsMerger';
 import type { OptionsController } from '@options/app/optionsController';
 import {
@@ -10,6 +10,13 @@ import {
   getSettingsView,
   previewContent
 } from '@options/app/productionStitchAssets';
+import {
+  applyOptionsToState,
+  createInitialStitchState,
+  createProductionContent
+} from '@options/app/productionStitchStateMapper';
+import { createProductionStitchShellActionRuntime } from '@options/app/productionStitchShellActionRuntime';
+import { previewContent as stitchPreviewContent } from '@options/stitch/content';
 import type { CompleteOptions, StoredOptions } from '@shared/types/options';
 import { ensureWindowLocalStorage } from '../../utils/localStorage';
 
@@ -201,6 +208,104 @@ export function createMessaging(result: unknown = undefined) {
   return {
     send: vi.fn(() => Promise.resolve(result)),
     onMessage: vi.fn(() => () => {})
+  };
+}
+
+export function createActionRuntimeHarness() {
+  const mountRoot = document.createElement('div');
+  document.body.append(mountRoot);
+
+  let draft = mergeOptions(null) as CompleteOptions;
+  let appData = createProductionContent(stitchPreviewContent, draft);
+  let state = applyOptionsToState(createInitialStitchState(appData), draft, appData);
+  const trackUsageEventMock = vi.fn(() => Promise.resolve(undefined));
+  const scrollToPanelMock = vi.fn();
+  const openResourceMock = vi.fn();
+
+  const runtime = createProductionStitchShellActionRuntime({
+    mountRoot,
+    buttonPressScrollGuard: {
+      cleanup: vi.fn(),
+      getSnapshot: vi.fn(() => null)
+    },
+    controller: {
+      loadRaw: vi.fn(() => Promise.resolve(draft)),
+      scheduleAutoSave: vi.fn()
+    },
+    optionsRepository: createRepository(),
+    changeLanguage: vi.fn((language: Language) => Promise.resolve({ messages: null, language })),
+    getAppData: () => appData,
+    getCurrentLanguage: () => state.previewLanguage as Language,
+    getCurrentMessages: () => null,
+    getDraft: () => draft,
+    getState: () => state,
+    setConnectionNotice: vi.fn(),
+    setDomainMappingRows: vi.fn(),
+    setLanguageResource: ({ language }) => {
+      state = { ...state, previewLanguage: language };
+    },
+    setMaintenanceLog: vi.fn(),
+    setState: (nextState) => {
+      state = nextState;
+    },
+    createSchemaContext: () => ({
+      appData,
+      language: state.previewLanguage,
+      state
+    }),
+    mutate: (mutator) => {
+      mutator(state);
+    },
+    currentDomainEntries: () => [],
+    refreshAppData: () => {
+      appData = createProductionContent(stitchPreviewContent, draft);
+    },
+    refreshOptions: (options) => {
+      draft = mergeOptions(options) as CompleteOptions;
+      appData = createProductionContent(stitchPreviewContent, draft);
+      state = applyOptionsToState(state, draft, appData);
+    },
+    render: vi.fn(),
+    renderActiveResourceModal: vi.fn(),
+    scheduleDraftSave: vi.fn(),
+    scrollToPanel: scrollToPanelMock,
+    syncDomainEntries: vi.fn(),
+    syncHighlightThemeControls: vi.fn(),
+    syncModifierControls: vi.fn(),
+    syncPreviewThemeControls: vi.fn(),
+    openResource: openResourceMock,
+    persistence: {
+      clearAnalyticsPrivacyData: vi.fn(() => Promise.resolve()),
+      copyConfigurationToClipboard: vi.fn(() => Promise.resolve()),
+      importConfigurationWithStatus: vi.fn(() => Promise.resolve()),
+      loadUsageStatsFromStorage: vi.fn(() => Promise.resolve()),
+      persistPrivacyPreference: vi.fn(() => Promise.resolve()),
+      repairConfiguration: vi.fn(() => Promise.resolve()),
+      resetUsageData: vi.fn(() => Promise.resolve()),
+      trackUsageEvent: trackUsageEventMock
+    } as never,
+    storageController: {
+      activateVaultLocalFolder: vi.fn(() => Promise.resolve()),
+      applyConnectionNotice: vi.fn(),
+      chooseVaultLocalFolder: vi.fn(() => Promise.resolve()),
+      clearVaultLocalFolder: vi.fn(),
+      ensureVaultRouter: vi.fn(() => ({ vaults: [], rules: [], defaultVaultId: '' })),
+      runVaultListConnectionTest: vi.fn(() => Promise.resolve({ success: true, message: 'ok' })),
+      syncRoutingRulesToDraft: vi.fn(),
+      updateVaultField: vi.fn()
+    } as never,
+    widgetHost: {
+      collectDraftWithWidgets: vi.fn(() => draft),
+      flushDirtyWidgets: vi.fn(),
+      markDirty: vi.fn()
+    } as never
+  });
+
+  return {
+    runtime,
+    scrollToPanelMock,
+    openResourceMock,
+    trackUsageEventMock
   };
 }
 
