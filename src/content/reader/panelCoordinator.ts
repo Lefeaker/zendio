@@ -1,6 +1,7 @@
 import type { ReaderPanelCallbacks } from './application/readerPanelModel';
 import type {
   ReaderPanelEditingSnapshot,
+  ReaderPanelRenderOptions,
   ReaderSessionView,
   ReaderSessionViewFactory
 } from './application/readerSessionView';
@@ -54,11 +55,14 @@ export class ReaderPanelCoordinator {
     }
   }
 
-  updateHighlights(highlights: ReaderHighlightRecord[]): void {
+  updateHighlights(
+    highlights: ReaderHighlightRecord[],
+    options: ReaderPanelRenderOptions = {}
+  ): void {
     if (!this.presenter) {
       return;
     }
-    this.presenter.render(highlights);
+    this.presenter.render(highlights, options);
     this.applyHint(this.currentHintState, highlights.length);
   }
 

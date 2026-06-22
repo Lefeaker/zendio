@@ -11,6 +11,10 @@ export interface ReaderPanelEditingSnapshot {
   pendingNoteFocusHighlightId: string | null;
 }
 
+export interface ReaderPanelRenderOptions {
+  focusHighlightId?: string | null;
+}
+
 export interface ReaderSessionViewOptions {
   onCommentDraftChange?: (drafts: SessionCommentDraftSnapshot) => void;
 }
@@ -21,7 +25,7 @@ export interface ReaderSessionView {
   updateHint(message: string): void;
   updateTexts(texts: ReaderPanelTexts): void;
   updateDestination?(destination: ExportDestinationSurfacePreview | undefined): void;
-  setHighlights(highlights: ReaderPanelHighlight[]): void;
+  setHighlights(highlights: ReaderPanelHighlight[], options?: ReaderPanelRenderOptions): void;
   snapshotCommentDrafts(): SessionCommentDraftSnapshot;
   hydrateCommentDrafts(drafts: SessionCommentDraftSnapshot): void;
   clearCommentDraft(id: string): void;

@@ -1,5 +1,5 @@
 import type { ReaderPanelHighlight, ReaderPanelTexts } from './application/readerPanelModel';
-import type { ReaderSessionView } from './application/readerSessionView';
+import type { ReaderPanelRenderOptions, ReaderSessionView } from './application/readerSessionView';
 import type { ReaderHighlightRecord } from './services/highlightManager';
 import { BasePanelPresenter } from '../shared/panels/basePanelPresenter';
 
@@ -17,7 +17,7 @@ export class ReaderPanelPresenter extends BasePanelPresenter<ReaderSessionView> 
     this.view.updateTexts(texts);
   }
 
-  render(highlights: ReaderHighlightRecord[]): void {
+  render(highlights: ReaderHighlightRecord[], options: ReaderPanelRenderOptions = {}): void {
     const items: ReaderPanelHighlight[] = highlights.map((highlight, index) => {
       const reconstructed = this.utils.reconstructText(highlight);
       return {
@@ -31,6 +31,6 @@ export class ReaderPanelPresenter extends BasePanelPresenter<ReaderSessionView> 
       };
     });
     this.view.updateCount(items.length);
-    this.view.setHighlights(items);
+    this.view.setHighlights(items, options);
   }
 }

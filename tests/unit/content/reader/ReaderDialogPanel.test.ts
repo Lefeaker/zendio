@@ -95,17 +95,20 @@ describe('ReaderDialogPanel', () => {
     });
     panel.mount(document.body);
 
-    panel.setHighlights([
-      {
-        id: 'h-1',
-        index: 1,
-        excerpt: 'Selected text',
-        fullText: 'Selected text',
-        comment: '',
-        commentPreview: '',
-        timestamp: Date.now()
-      }
-    ]);
+    panel.setHighlights(
+      [
+        {
+          id: 'h-1',
+          index: 1,
+          excerpt: 'Selected text',
+          fullText: 'Selected text',
+          comment: '',
+          commentPreview: '',
+          timestamp: Date.now()
+        }
+      ],
+      { focusHighlightId: 'h-1' }
+    );
 
     const noteInput = panel.element.shadowRoot?.querySelector('[data-highlight-input="h-1"]');
     expect(panel.element.shadowRoot?.activeElement).toBe(noteInput);
@@ -113,6 +116,50 @@ describe('ReaderDialogPanel', () => {
     panel.update({ hint: 'Updated hint after capture' });
     expect(panel.element.shadowRoot?.activeElement).toBe(
       panel.element.shadowRoot?.querySelector('[data-highlight-input="h-1"]')
+    );
+
+    panel.destroy();
+  });
+
+  it('focuses the newly inserted highlight note input when document order places it between existing notes', () => {
+    const panel = new ReaderDialogPanel({
+      texts: createReaderPanelTexts(),
+      callbacks: createReaderPanelCallbacks()
+    });
+    panel.mount(document.body);
+    const first = createHighlight({ id: 'h-1', index: 1 });
+    const last = createHighlight({ id: 'h-3', index: 2 });
+    panel.setHighlights([first, last]);
+
+    panel.setHighlights(
+      [
+        createHighlight({ id: 'h-1', index: 1 }),
+        createHighlight({ id: 'h-2', index: 2 }),
+        createHighlight({ id: 'h-3', index: 3 })
+      ],
+      { focusHighlightId: 'h-2' }
+    );
+
+    expect(panel.element.shadowRoot?.activeElement).toBe(
+      panel.element.shadowRoot?.querySelector('[data-highlight-input="h-2"]')
+    );
+
+    panel.destroy();
+  });
+
+  it('does not focus a note input when highlights hydrate without an explicit focus target', () => {
+    const panel = new ReaderDialogPanel({
+      texts: createReaderPanelTexts(),
+      callbacks: createReaderPanelCallbacks()
+    });
+    panel.mount(document.body);
+    const restoredFirst = createHighlight({ id: 'saved-1', index: 1 });
+    const restoredSecond = createHighlight({ id: 'saved-2', index: 2 });
+
+    panel.setHighlights([restoredFirst, restoredSecond]);
+
+    expect(panel.element.shadowRoot?.activeElement).not.toBe(
+      panel.element.shadowRoot?.querySelector('[data-highlight-input="saved-2"]')
     );
 
     panel.destroy();
@@ -154,17 +201,20 @@ describe('ReaderDialogPanel', () => {
     });
     panel.mount(document.body);
 
-    panel.setHighlights([
-      {
-        id: 'h-1',
-        index: 1,
-        excerpt: 'Selected text',
-        fullText: 'Selected text',
-        comment: '',
-        commentPreview: '',
-        timestamp: Date.now()
-      }
-    ]);
+    panel.setHighlights(
+      [
+        {
+          id: 'h-1',
+          index: 1,
+          excerpt: 'Selected text',
+          fullText: 'Selected text',
+          comment: '',
+          commentPreview: '',
+          timestamp: Date.now()
+        }
+      ],
+      { focusHighlightId: 'h-1' }
+    );
 
     expect(panel.isEditing()).toBe(true);
     panel.element.shadowRoot?.querySelector<HTMLButtonElement>('[data-role="export-btn"]')?.focus();
@@ -194,7 +244,9 @@ describe('ReaderDialogPanel', () => {
     secondInput.value = 'second draft';
     secondInput.dispatchEvent(new Event('input', { bubbles: true }));
 
-    panel.setHighlights([first, second, createHighlight({ id: 'h-3', index: 3 })]);
+    panel.setHighlights([first, second, createHighlight({ id: 'h-3', index: 3 })], {
+      focusHighlightId: 'h-3'
+    });
 
     expect(
       panel.element.shadowRoot?.querySelector<HTMLInputElement>('[data-highlight-input="h-2"]')
@@ -344,7 +396,7 @@ describe('ReaderDialogPanel', () => {
     panel.destroy();
   });
 
-  it('keeps restored collapse when the initial highlight list hydrates', async () => {
+  it('keeps restored collapse on hydrate and expands when a new focused highlight is added', async () => {
     await testPlatformHarness.storage.local.set('aiob.sessionPanel.collapsed', true);
     const panel = new ReaderDialogPanel({
       texts: createReaderPanelTexts(),
@@ -364,7 +416,7 @@ describe('ReaderDialogPanel', () => {
     ).toBe(true);
     expect(await testPlatformHarness.storage.local.get('aiob.sessionPanel.collapsed')).toBe(true);
 
-    panel.setHighlights([first, second]);
+    panel.setHighlights([first, second], { focusHighlightId: second.id });
 
     expect(
       panel.element.shadowRoot

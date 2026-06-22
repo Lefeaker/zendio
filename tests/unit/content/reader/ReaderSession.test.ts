@@ -12,6 +12,7 @@ import type {
 } from '@content/reader/application/readerPanelModel';
 import type {
   ReaderPanelEditingSnapshot,
+  ReaderPanelRenderOptions,
   ReaderSessionView,
   ReaderSessionViewOptions
 } from '@content/reader/application/readerSessionView';
@@ -61,7 +62,9 @@ type TestView = ReaderSessionView & {
   updateHint: Mock<(...args: [message: string]) => void>;
   updateTexts: Mock<(...args: [texts: ReaderPanelTexts]) => void>;
   updateDestination: Mock<(...args: [destination: unknown]) => void>;
-  setHighlights: Mock<(...args: [highlights: ReaderPanelHighlight[]]) => void>;
+  setHighlights: Mock<
+    (...args: [highlights: ReaderPanelHighlight[], options?: ReaderPanelRenderOptions]) => void
+  >;
   snapshotCommentDrafts: Mock<(...args: []) => SessionCommentDraftSnapshot>;
   hydrateCommentDrafts: Mock<(...args: [drafts: SessionCommentDraftSnapshot]) => void>;
   clearCommentDraft: Mock<(...args: [id: string]) => void>;
@@ -584,7 +587,7 @@ describe('ReaderSession', () => {
     expect(context.environment.start).toHaveBeenCalledTimes(1);
     expect(context.getCallbacks()).toBeDefined();
     expect(context.view.updateCount).toHaveBeenLastCalledWith(0);
-    expect(context.view.setHighlights).toHaveBeenLastCalledWith([]);
+    expect(context.view.setHighlights).toHaveBeenLastCalledWith([], {});
     expect(getSessionHarness(context.session).__testHighlights).toEqual([]);
   });
 
@@ -619,6 +622,11 @@ describe('ReaderSession', () => {
       destination: { kind: 'vault', vaultId: 'research' }
     });
 
+    const [createdHighlight] = getSessionHarness(context.session).__testHighlights;
+    expect(createdHighlight).toBeDefined();
+    expect(context.view.setHighlights).toHaveBeenLastCalledWith(expect.any(Array), {
+      focusHighlightId: createdHighlight?.id
+    });
     expect(context.view.updateDestination).toHaveBeenCalledWith(
       expect.objectContaining({
         id: 'research',
@@ -673,6 +681,7 @@ describe('ReaderSession', () => {
     expect(context.view.currentDrafts).toEqual({
       'saved-1': 'unsaved note'
     });
+    expect(context.view.setHighlights).toHaveBeenLastCalledWith(expect.any(Array), {});
     expect(context.view.updateDestination).toHaveBeenCalledWith(
       expect.objectContaining({
         id: 'research',

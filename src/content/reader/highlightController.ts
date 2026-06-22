@@ -42,7 +42,7 @@ export class ReaderHighlightController {
 
     this.highlights.push(highlight);
     this.options.highlightManager.sortByDocumentOrder(this.highlights);
-    this.syncPanel('panel');
+    this.syncPanel('panel', { focusHighlightId: highlight.id });
   }
 
   ingestExternalHighlight(
@@ -127,8 +127,11 @@ export class ReaderHighlightController {
     this.highlights = [...highlights];
   }
 
-  private syncPanel(state: 'panel' | 'noHighlights'): void {
-    this.options.panelCoordinator.updateHighlights(this.highlights);
+  private syncPanel(
+    state: 'panel' | 'noHighlights',
+    options: { focusHighlightId?: string | null } = {}
+  ): void {
+    this.options.panelCoordinator.updateHighlights(this.highlights, options);
     this.options.panelCoordinator.applyHint(state, this.highlights.length);
   }
 

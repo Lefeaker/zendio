@@ -161,7 +161,7 @@ export function applyReaderHighlightFromRange(
     );
 
   context.state.highlights.push(highlight);
-  syncReaderHighlightsUi(context);
+  syncReaderHighlightsUi(context, { focusHighlightId: highlight.id });
   context.panelCoordinator.applyHint('panel', context.state.highlights.length);
   return highlight;
 }
@@ -582,9 +582,12 @@ export async function submitReaderHighlightEdit(
   });
 }
 
-function syncReaderHighlightsUi(context: ReaderSessionOperationContext): void {
+function syncReaderHighlightsUi(
+  context: ReaderSessionOperationContext,
+  options: { focusHighlightId?: string | null } = {}
+): void {
   context.highlightManager.sortByDocumentOrder(context.state.highlights);
-  context.panelCoordinator.updateHighlights(context.state.highlights);
+  context.panelCoordinator.updateHighlights(context.state.highlights, options);
 }
 
 function queueReaderDraftPersistence(context: ReaderSessionOperationContext): void {
@@ -768,14 +771,12 @@ function collectFailureHints(error: unknown, seen = new Set<unknown>()): string 
     return '';
   }
   seen.add(error);
-
   const hints: string[] = [];
   const push = (value: unknown) => {
     if (typeof value === 'string' && value.trim()) {
       hints.push(value.trim().toLowerCase());
     }
   };
-
   if (typeof error === 'string') {
     push(error);
   } else if (error instanceof Error) {
@@ -794,7 +795,6 @@ function collectFailureHints(error: unknown, seen = new Set<unknown>()): string 
     }
     push(collectFailureHints(error.cause, seen));
   }
-
   return hints.join('\n');
 }
 
