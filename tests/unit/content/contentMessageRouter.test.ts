@@ -29,6 +29,16 @@ function createRouter(overrides: Partial<Parameters<typeof createContentMessageR
   });
 }
 
+function createSelectionStub(range: Range): Selection {
+  const selection = window.getSelection();
+  if (!selection) {
+    throw new Error('Selection API unavailable');
+  }
+  selection.removeAllRanges();
+  selection.addRange(range);
+  return selection;
+}
+
 describe('contentMessageRouter', () => {
   beforeEach(() => {
     document.body.innerHTML = '';
@@ -209,14 +219,7 @@ describe('contentMessageRouter', () => {
     range.setStart(textNode, 0);
     range.setEnd(textNode, textNode.textContent?.length ?? 0);
 
-    const removeAllRanges = vi.fn();
-    const selection = {
-      rangeCount: 1,
-      isCollapsed: false,
-      getRangeAt: vi.fn(() => range),
-      toString: vi.fn(() => 'frame selection'),
-      removeAllRanges
-    } as unknown as Selection;
+    const selection = createSelectionStub(range);
     const send = vi.fn().mockResolvedValue(undefined);
     const frameWindow = {
       top: {},
@@ -243,8 +246,46 @@ describe('contentMessageRouter', () => {
         sourceUrl: location.href
       }
     });
-    expect(removeAllRanges).toHaveBeenCalledTimes(1);
+    expect(selection.rangeCount).toBe(0);
     expect(result).toEqual({ success: true, forwarded: true });
+  });
+
+  it('returns a failure when frame video selection forwarding fails', async () => {
+    const textNode = document.createTextNode('frame selection');
+    document.body.appendChild(textNode);
+    const range = document.createRange();
+    range.setStart(textNode, 0);
+    range.setEnd(textNode, textNode.textContent?.length ?? 0);
+
+    const selection = createSelectionStub(range);
+    const send = vi.fn().mockRejectedValue(new Error('bridge failed'));
+    const frameWindow = {
+      top: {},
+      getSelection: vi.fn(() => selection)
+    } as unknown as Window;
+
+    const router = createRouter({
+      document,
+      window: frameWindow,
+      messaging: { addListener: vi.fn(() => () => undefined), send },
+      selectionController: {
+        handleVideoSelectionClip: vi.fn(),
+        handleVideoSelectionClipFromData: vi.fn()
+      }
+    });
+
+    const result = await router.handleMessage({ action: 'videoClipSelection', frameId: 3 }, {});
+
+    expect(send).toHaveBeenCalledWith({
+      type: 'AIIOB_FORWARD_VIDEO_SELECTION',
+      payload: {
+        selectedHtml: 'frame selection',
+        selectedText: 'frame selection',
+        sourceUrl: location.href
+      }
+    });
+    expect(selection.rangeCount).toBe(1);
+    expect(result).toEqual({ success: false, error: 'bridge failed' });
   });
 
   it('ignores unknown messages without route side effects', async () => {

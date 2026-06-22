@@ -21,6 +21,16 @@ function getObjectProperty(source: object, key: string): unknown {
   return (source as Record<string, unknown>)[key];
 }
 
+function resolveContentActionFailureMessage(response: object | undefined): string | null {
+  if (!response || getObjectProperty(response, 'success') !== false) {
+    return null;
+  }
+  const error = getObjectProperty(response, 'error');
+  return typeof error === 'string' && error.trim().length > 0
+    ? error
+    : 'Content action reported failure';
+}
+
 export function createContextMenuListenerDependencies(
   dependencies: ContextMenuListenerDependencies
 ): ContextMenuListenerDependencies {
@@ -79,7 +89,11 @@ export function registerContextMenuListeners(dependencies: ContextMenuListenerDe
     }
 
     try {
-      await tabs.sendMessage(tab.id, { action: 'clipFull' });
+      const response = await tabs.sendMessage<object | undefined>(tab.id, { action: 'clipFull' });
+      const failureMessage = resolveContentActionFailureMessage(response);
+      if (failureMessage) {
+        await notifyActionDispatchFailure('clipFull', tab.id, null, new Error(failureMessage));
+      }
     } catch (error) {
       await notifyActionDispatchFailure(
         'clipFull',
@@ -136,10 +150,17 @@ export function registerContextMenuListeners(dependencies: ContextMenuListenerDe
     }
 
     if (targetFrameId !== 0) {
-      await injectClipper(dependencies, runtimeState, tab.id, {
-        targetFrameId: 0,
-        silent: true
-      }).catch(() => undefined);
+      const requiresTopFrameRuntime = actionType === 'videoClipSelection';
+      try {
+        await injectClipper(dependencies, runtimeState, tab.id, {
+          targetFrameId: 0,
+          silent: !requiresTopFrameRuntime
+        });
+      } catch {
+        if (requiresTopFrameRuntime) {
+          return;
+        }
+      }
     }
 
     try {
@@ -150,11 +171,20 @@ export function registerContextMenuListeners(dependencies: ContextMenuListenerDe
     }
 
     try {
-      await tabs.sendMessage(
+      const response = await tabs.sendMessage<object | undefined>(
         tab.id,
         { action: actionType, frameId: targetFrameId, tabId: tab.id },
         { frameId: targetFrameId }
       );
+      const failureMessage = resolveContentActionFailureMessage(response);
+      if (failureMessage) {
+        await notifyActionDispatchFailure(
+          actionType,
+          tab.id,
+          targetFrameId,
+          new Error(failureMessage)
+        );
+      }
     } catch (error) {
       await notifyActionDispatchFailure(
         actionType,

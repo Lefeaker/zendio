@@ -77,6 +77,23 @@ export function showSupportPrompt(
   void supportPrompt.show(supportPromptOptions);
 }
 
+function isMessagePayloadRecord(
+  response: MessagePayload | undefined
+): response is { [key: string]: MessagePayload } {
+  return Boolean(response) && typeof response === 'object' && !Array.isArray(response);
+}
+
+function resolveFailureResponseMessage(
+  response: MessagePayload | undefined,
+  fallback: string
+): string | null {
+  if (!isMessagePayloadRecord(response) || response.success !== false) {
+    return null;
+  }
+  const error = response.error;
+  return typeof error === 'string' && error.trim().length > 0 ? error : fallback;
+}
+
 export function requestLocalVaultPermission(
   localVaultPermissionPrompt: LocalVaultPermissionPromptLike,
   message: LocalVaultPermissionPromptMessage
@@ -206,15 +223,27 @@ function handleVideoClipSelection(
     const selectedHtml = container.innerHTML;
     const selectedText = selection.toString();
 
-    void messaging
-      .send({
+    return messaging
+      .send<MessagePayload>({
         type: 'AIIOB_FORWARD_VIDEO_SELECTION',
         payload: { selectedHtml, selectedText, sourceUrl: location.href }
       })
-      .catch(() => undefined);
-
-    selection.removeAllRanges();
-    return createSuccessPayload({ forwarded: true });
+      .then((response) => {
+        const failureMessage = resolveFailureResponseMessage(
+          response,
+          'Forwarded video selection failed'
+        );
+        if (failureMessage) {
+          return createFailurePayload(failureMessage);
+        }
+        selection.removeAllRanges();
+        return createSuccessPayload({ forwarded: true });
+      })
+      .catch((error) => {
+        console.error('[content] forwardVideoSelection:', error);
+        const messageText = error instanceof Error ? error.message : String(error);
+        return createFailurePayload(messageText);
+      });
   }
 
   let selectionInfo = context.resolveActiveSelection();

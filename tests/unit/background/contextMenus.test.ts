@@ -322,6 +322,45 @@ describe('context menu listeners', () => {
     consoleErrorSpy.mockRestore();
   });
 
+  it('does not dispatch video frame selection when top frame runtime readiness fails', async () => {
+    vi.useFakeTimers();
+    const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    const executeScript = vi
+      .fn()
+      .mockResolvedValue([{ documentId: 'document-ready', frameId: 4, result: { ready: true } }]);
+    executeScript.mockResolvedValueOnce(undefined).mockResolvedValueOnce([
+      {
+        documentId: 'document-0',
+        frameId: 0,
+        result: {
+          ready: false,
+          reason: 'runtime-ready-timeout'
+        }
+      }
+    ]);
+    const { rig, register } = await loadModule({
+      executeScript
+    });
+
+    register();
+    await flush();
+
+    const clickPromise = rig.onClickedListeners[0]?.(
+      menuClickData({
+        menuItemId: 'clip-selection',
+        frameId: 4,
+        pageUrl: 'https://www.bilibili.com/video/BV1xx411c7mD'
+      }),
+      tabData({ id: 21, url: 'https://www.bilibili.com/video/BV1xx411c7mD' })
+    );
+    await vi.advanceTimersByTimeAsync(200);
+    await clickPromise;
+
+    expect(rig.notifyInjectionFailure).toHaveBeenCalledWith('runtime-ready-timeout');
+    expect(rig.sendMessage).not.toHaveBeenCalled();
+    consoleErrorSpy.mockRestore();
+  });
+
   it('ignores action clicks without a tab id and handles shown events without tab metadata', async () => {
     const { rig, register } = await loadModule();
     register();
@@ -412,6 +451,46 @@ describe('context menu listeners', () => {
       })
     );
     consoleWarnSpy.mockRestore();
+    consoleErrorSpy.mockRestore();
+  });
+
+  it('notifies when a content action response reports failure', async () => {
+    vi.useFakeTimers();
+    const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    const { rig, register } = await loadModule({
+      sendMessage: vi.fn(() => Promise.resolve({ success: false, error: 'bridge failed' }))
+    });
+
+    register();
+    await flush();
+
+    const clickPromise = rig.onClickedListeners[0]?.(
+      menuClickData({
+        menuItemId: 'clip-selection',
+        frameId: 4,
+        pageUrl: 'https://www.bilibili.com/video/BV1xx411c7mD'
+      }),
+      tabData({ id: 57, url: 'https://www.bilibili.com/video/BV1xx411c7mD' })
+    );
+    await vi.advanceTimersByTimeAsync(140);
+    await clickPromise;
+
+    expect(rig.notifyClipFailure).toHaveBeenCalledWith(
+      expect.objectContaining({
+        code: 'CONTENT_MESSAGING_FAILED',
+        userMessageDescriptor: { key: 'errorContentMessagingFailed' },
+        context: objectMatcher({
+          component: 'contextMenus',
+          messageType: 'videoClipSelection',
+          tabId: 57,
+          frameId: 4
+        })
+      })
+    );
+    expect(consoleErrorSpy).toHaveBeenCalledWith(
+      '[contextMenu] Failed to dispatch action to tab:',
+      errorMatcher()
+    );
     consoleErrorSpy.mockRestore();
   });
 
