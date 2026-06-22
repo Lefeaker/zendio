@@ -77,23 +77,6 @@ export function showSupportPrompt(
   void supportPrompt.show(supportPromptOptions);
 }
 
-function isMessagePayloadRecord(
-  response: MessagePayload | undefined
-): response is { [key: string]: MessagePayload } {
-  return Boolean(response) && typeof response === 'object' && !Array.isArray(response);
-}
-
-function resolveFailureResponseMessage(
-  response: MessagePayload | undefined,
-  fallback: string
-): string | null {
-  if (!isMessagePayloadRecord(response) || response.success !== false) {
-    return null;
-  }
-  const error = response.error;
-  return typeof error === 'string' && error.trim().length > 0 ? error : fallback;
-}
-
 export function requestLocalVaultPermission(
   localVaultPermissionPrompt: LocalVaultPermissionPromptLike,
   message: LocalVaultPermissionPromptMessage
@@ -210,35 +193,10 @@ function handleVideoClipSelection(
   context: ContentMessageHandlerContext,
   message: Record<string, unknown>
 ): Promise<MessagePayload> | MessagePayload {
-  const { document, window, messaging, selectionController } = context;
+  const { document, window, selectionController } = context;
   if (window !== window.top && typeof message.frameId === 'number') {
-    const selection = window.getSelection();
-    if (!selection || !hasUsableSelection(selection)) {
-      return createFailurePayload('No text selected');
-    }
-
-    const range = selection.getRangeAt(0).cloneRange();
-    const container = document.createElement('div');
-    container.appendChild(range.cloneContents());
-    const selectedHtml = container.innerHTML;
-    const selectedText = selection.toString();
-
-    return messaging
-      .send<MessagePayload>({
-        type: 'AIIOB_FORWARD_VIDEO_SELECTION',
-        payload: { selectedHtml, selectedText, sourceUrl: location.href }
-      })
-      .then((response) => {
-        const failureMessage = resolveFailureResponseMessage(
-          response,
-          'Forwarded video selection failed'
-        );
-        if (failureMessage) {
-          return createFailurePayload(failureMessage);
-        }
-        selection.removeAllRanges();
-        return createSuccessPayload({ forwarded: true });
-      })
+    return import('./videoFrameSelectionForwarder')
+      .then(({ forwardVideoFrameSelection }) => forwardVideoFrameSelection(context))
       .catch((error) => {
         console.error('[content] forwardVideoSelection:', error);
         const messageText = error instanceof Error ? error.message : String(error);

@@ -1,35 +1,22 @@
+import { delay, deriveVideoState, setupContextMenus } from './contextMenusCoordinator';
 import {
   autoInjectIfNeeded,
-  delay,
-  deriveVideoState,
   ensureModifierInjectionForActiveTab,
   injectClipper,
-  refreshSelectionModifierInjection,
-  setupContextMenus,
-  isVideoUrl
-} from './contextMenusCoordinator';
+  refreshSelectionModifierInjection
+} from './contextMenuInjection';
+import {
+  notifyActionDispatchFailure,
+  resolveContentActionFailureMessage
+} from './contextMenuDispatch';
+import { registerFrameSelectionBridge } from './contextMenuFrameSelectionBridge';
+import { isVideoUrl } from './contextMenuUrls';
 import {
   createContextMenuRuntimeState,
   type ContextMenuListenerDependencies
 } from './contextMenusTypes';
-import { notifyClipFailure } from '../services/notifications';
-import { contentErrors } from '../../shared/errors/contentErrors';
 
 const runtimeState = createContextMenuRuntimeState();
-
-function getObjectProperty(source: object, key: string): unknown {
-  return (source as Record<string, unknown>)[key];
-}
-
-function resolveContentActionFailureMessage(response: object | undefined): string | null {
-  if (!response || getObjectProperty(response, 'success') !== false) {
-    return null;
-  }
-  const error = getObjectProperty(response, 'error');
-  return typeof error === 'string' && error.trim().length > 0
-    ? error
-    : 'Content action reported failure';
-}
 
 export function createContextMenuListenerDependencies(
   dependencies: ContextMenuListenerDependencies
@@ -38,32 +25,7 @@ export function createContextMenuListenerDependencies(
 }
 
 export function registerContextMenuListeners(dependencies: ContextMenuListenerDependencies): void {
-  const { action, contextMenus, runtime, tabs, messaging, optionsRepository } = dependencies;
-
-  const notifyActionDispatchFailure = async (
-    actionType: string,
-    tabId: number,
-    frameId: number | null,
-    error: Error
-  ): Promise<void> => {
-    console.error('[contextMenu] Failed to dispatch action to tab:', error);
-    try {
-      await notifyClipFailure(
-        contentErrors.messagingFailed(
-          actionType,
-          {
-            component: 'contextMenus',
-            action: actionType,
-            tabId,
-            frameId
-          },
-          { cause: error }
-        )
-      );
-    } catch (notifyError) {
-      console.error('[contextMenu] Failed to notify action dispatch failure:', notifyError);
-    }
-  };
+  const { action, contextMenus, runtime, tabs, optionsRepository } = dependencies;
 
   runtime.onInstalled(() => {
     void setupContextMenus(dependencies, runtimeState);
@@ -215,43 +177,7 @@ export function registerContextMenuListeners(dependencies: ContextMenuListenerDe
     contextMenus.refresh?.();
   });
 
-  messaging.addListener((rawMessage, sender) => {
-    if (!rawMessage || typeof rawMessage !== 'object') {
-      return undefined;
-    }
-    const messageType = getObjectProperty(rawMessage, 'type');
-    if (messageType !== 'AIIOB_FORWARD_VIDEO_SELECTION') {
-      return undefined;
-    }
-    const messagePayload = getObjectProperty(rawMessage, 'payload');
-
-    const tabId = sender.tabId;
-    if (typeof tabId !== 'number') {
-      return { success: false, error: 'NO_TAB' };
-    }
-
-    const rawPayload =
-      typeof messagePayload === 'object' && messagePayload !== null ? messagePayload : {};
-    const selectedHtml = getObjectProperty(rawPayload, 'selectedHtml');
-    const selectedText = getObjectProperty(rawPayload, 'selectedText');
-    const sourceUrl = getObjectProperty(rawPayload, 'sourceUrl');
-
-    const payload = {
-      selectedHtml: String(selectedHtml ?? ''),
-      selectedText: String(selectedText ?? ''),
-      sourceFrameId: sender.frameId ?? null,
-      sourceUrl: typeof sourceUrl === 'string' ? sourceUrl : null
-    };
-
-    return tabs
-      .sendMessage(tabId, { action: 'videoClipSelectionFromFrame', payload }, { frameId: 0 })
-      .then(() => ({ success: true }))
-      .catch((error) => {
-        const msg = error instanceof Error ? error.message : String(error);
-        console.error('[contextMenu] Failed to forward video selection from frame:', msg);
-        return { success: false, error: msg };
-      });
-  });
+  registerFrameSelectionBridge(dependencies);
 
   optionsRepository.onChange(() => {
     void refreshSelectionModifierInjection(runtimeState)
