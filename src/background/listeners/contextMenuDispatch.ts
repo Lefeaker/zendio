@@ -1,15 +1,11 @@
 import { notifyClipFailure } from '../services/notifications';
 import { contentErrors } from '../../shared/errors/contentErrors';
 
-function getObjectProperty(source: object, key: string): unknown {
-  return (source as Record<string, unknown>)[key];
-}
-
 export function resolveContentActionFailureMessage(response: object | undefined): string | null {
-  if (!response || getObjectProperty(response, 'success') !== false) {
+  if (!response || !('success' in response) || response.success !== false) {
     return null;
   }
-  const error = getObjectProperty(response, 'error');
+  const error = 'error' in response ? response.error : undefined;
   return typeof error === 'string' && error.trim().length > 0
     ? error
     : 'Content action reported failure';
