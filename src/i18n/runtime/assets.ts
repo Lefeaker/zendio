@@ -2,9 +2,7 @@ import type { ReleaseLangCode } from '../catalog/languages';
 import type { GeneratedSchemaMessages } from '../generated/schemaCore.generated';
 import type { LocaleDefinition } from '../localeDefinition';
 
-type RuntimeLike = {
-  getURL?: (path: string) => string;
-};
+export type RuntimeAssetUrlResolver = (path: string) => string;
 
 type JsonValue = string | number | boolean | null | JsonValue[] | JsonRecord;
 
@@ -49,21 +47,16 @@ function readLocaleDefinitionAsset(value: JsonValue, language: ReleaseLangCode):
   };
 }
 
-function resolveExtensionRuntime(): RuntimeLike | undefined {
-  if (typeof chrome !== 'undefined' && chrome.runtime) {
-    return chrome.runtime;
-  }
-  if (typeof browser !== 'undefined' && browser.runtime) {
-    return browser.runtime;
-  }
-  return undefined;
+let runtimeAssetUrlResolver: RuntimeAssetUrlResolver | null = null;
+
+export function configureRuntimeAssetUrlResolver(resolver: RuntimeAssetUrlResolver | null): void {
+  runtimeAssetUrlResolver = resolver;
 }
 
 function resolveAssetUrl(path: string): string {
   const normalizedPath = path.replace(/^\/+/, '');
-  const runtime = resolveExtensionRuntime();
-  if (typeof runtime?.getURL === 'function') {
-    return runtime.getURL(normalizedPath);
+  if (runtimeAssetUrlResolver) {
+    return runtimeAssetUrlResolver(normalizedPath);
   }
 
   if (typeof document !== 'undefined' && document.baseURI) {

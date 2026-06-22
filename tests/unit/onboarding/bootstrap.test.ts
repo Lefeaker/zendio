@@ -340,14 +340,6 @@ describe('onboarding bootstrap', () => {
   });
 
   it('renders Firefox onboarding connection copy as REST API setup', async () => {
-    Object.defineProperty(globalThis, 'browser', {
-      configurable: true,
-      value: {
-        runtime: {
-          getBrowserInfo: vi.fn()
-        }
-      }
-    });
     currentResourceMock.value = {
       language: 'zh-CN',
       messages: {
@@ -367,6 +359,17 @@ describe('onboarding bootstrap', () => {
       openVault: vi.fn(() => Promise.resolve(undefined)),
       openOptions: vi.fn(() => Promise.resolve(undefined)),
       openExternalLink: vi.fn(() => Promise.resolve(undefined))
+    });
+    getServiceMock.mockReturnValue({
+      storage: { local: { set: vi.fn(() => Promise.resolve(undefined)) } },
+      runtime: {
+        getURL: vi.fn((path: string) => `moz-extension://test/${path}`),
+        getBrowserTarget: vi.fn<() => 'firefox'>(() => 'firefox')
+      },
+      tabs: {
+        getCurrent: vi.fn(() => Promise.resolve(undefined)),
+        remove: vi.fn(() => Promise.resolve(undefined))
+      }
     });
 
     const { bootstrapOnboardingApp } = await import('../../../src/onboarding/bootstrap');

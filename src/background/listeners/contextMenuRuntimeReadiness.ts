@@ -1,4 +1,5 @@
 import type { ContextMenuListenerDependencies } from './contextMenusTypes';
+import type { ScriptInjectionTarget } from '../../platform/interfaces/scripting';
 
 type ContentRuntimeReadyResult =
   | { ready: true }
@@ -96,7 +97,7 @@ function formatContentRuntimeReadyFailure(result: ContentRuntimeReadyResult | un
 
 export async function ensureContentRuntimeReady(
   dependencies: ContextMenuListenerDependencies,
-  target: chrome.scripting.InjectionTarget
+  target: ScriptInjectionTarget
 ): Promise<void> {
   const results = await dependencies.scripting.executeScript({
     target,

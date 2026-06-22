@@ -120,6 +120,7 @@ function createQueueStorageService() {
 function createRuntimeStub(version = '9.9.9'): RuntimeService {
   return {
     getURL: vi.fn((path: string) => `chrome-extension://test/${path}`),
+    getBrowserTarget: vi.fn<() => 'chrome'>(() => 'chrome'),
     getManifest: vi.fn(() => ({
       version
     })),

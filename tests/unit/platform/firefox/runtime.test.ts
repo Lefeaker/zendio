@@ -47,6 +47,7 @@ describe('firefoxRuntimeService', () => {
     }
 
     expect(firefoxRuntimeService.getURL('options/index.html')).toContain('options/index.html');
+    expect(firefoxRuntimeService.getBrowserTarget()).toBe('firefox');
     expect(getUILanguage()).toBe('fr-FR');
     await expect(firefoxRuntimeService.sendMessage?.({ ping: true })).resolves.toEqual({
       ok: true

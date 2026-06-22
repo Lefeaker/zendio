@@ -9,9 +9,11 @@ export type RuntimeInstallListener = (details: RuntimeInstallDetails) => void;
 export type RuntimeStartupListener = () => void;
 export type RuntimeMessageSender = <TResult = unknown>(message: unknown) => Promise<TResult>;
 export type RuntimeLanguageProvider = () => string | undefined;
+export type BrowserTarget = 'chrome' | 'firefox';
 
 export interface RuntimeService {
   getURL: (path: string) => string;
+  getBrowserTarget: () => BrowserTarget;
   openOptionsPage: () => Promise<void>;
   sendMessage?: RuntimeMessageSender;
   getUILanguage?: RuntimeLanguageProvider;

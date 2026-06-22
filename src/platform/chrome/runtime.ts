@@ -24,6 +24,10 @@ export const chromeRuntimeService: RuntimeService = {
     return chromeApi.runtime.getURL(path);
   },
 
+  getBrowserTarget() {
+    return 'chrome';
+  },
+
   async sendMessage<TResult = unknown>(message: unknown): Promise<TResult> {
     const chromeApi = ensureChrome();
     return normalizePromise<TResult>((resolve, reject) => {

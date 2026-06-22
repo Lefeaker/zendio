@@ -339,6 +339,7 @@ function createTestDependencies(): TestDeps & VideoPromptDependencies {
 
   const runtime: RuntimeService = {
     getURL: vi.fn<(...args: [string]) => string>((path) => `chrome-extension://mock/${path}`),
+    getBrowserTarget: vi.fn<(...args: []) => 'chrome'>(() => 'chrome'),
     openOptionsPage: vi.fn<(...args: []) => Promise<void>>(() => Promise.resolve()),
     onInstalled: vi.fn<RuntimeService['onInstalled']>(() => vi.fn()),
     onStartup: vi.fn<RuntimeService['onStartup']>(() => vi.fn()),

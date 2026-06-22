@@ -14,6 +14,7 @@ import {
   resolveOptionalMessagingRepository,
   resolveOptionalOptionsRepository
 } from './dependencies';
+import type { BrowserTarget } from '../platform/interfaces/runtime';
 import type {
   OnboardingControllerDependencies,
   OnboardingOptionsRepository,
@@ -28,8 +29,9 @@ import type { OnboardingResourceId } from './resourceModal';
 import { applyStoredOnboardingTheme } from './theme';
 
 let declarativeI18nController: PageI18nController | null = null;
+let onboardingBrowserTarget: BrowserTarget = 'chrome';
+let onboardingResourceAssetUrlResolver: ((path: string) => string) | undefined;
 
-type OnboardingBrowserTarget = 'chrome' | 'firefox';
 type OnboardingConnectionGuideKeys = {
   title: keyof Messages;
   description: keyof Messages;
@@ -94,14 +96,6 @@ async function applyI18n(): Promise<void> {
   await ensureDeclarativeI18nController();
 }
 
-function resolveOnboardingBrowserTarget(): OnboardingBrowserTarget {
-  if (typeof browser !== 'undefined' && typeof browser.runtime?.getBrowserInfo === 'function') {
-    return 'firefox';
-  }
-
-  return 'chrome';
-}
-
 function getCurrentOnboardingLanguage(): string | null {
   const resourceLanguage = declarativeI18nController?.getCurrentResource()?.language;
   if (typeof resourceLanguage === 'string' && resourceLanguage.trim().length > 0) {
@@ -131,7 +125,7 @@ function applyOnboardingConnectionGuideCopy(messages: Partial<Messages> | null |
   }
 
   const guideKeys =
-    resolveOnboardingBrowserTarget() === 'firefox'
+    onboardingBrowserTarget === 'firefox'
       ? FIREFOX_CONNECTION_GUIDE_KEYS
       : CHROME_CONNECTION_GUIDE_KEYS;
   const title = document.querySelector<HTMLElement>('[data-onboarding-step1-title]');
@@ -533,11 +527,16 @@ export class OnboardingController {
 }
 
 export async function bootstrapOnboardingApp(): Promise<void> {
-  configureI18nStorage(resolveOnboardingDependencies().storage.sync);
+  const dependencies = resolveOnboardingDependencies();
+  onboardingBrowserTarget = dependencies.runtime?.getBrowserTarget() ?? 'chrome';
+  onboardingResourceAssetUrlResolver = dependencies.runtime
+    ? (path) => dependencies.runtime!.getURL(path)
+    : undefined;
+  configureI18nStorage(dependencies.storage.sync);
   await applyI18n();
   await applyStoredOnboardingTheme();
   const navigationRepo = resolveRepository<INavigationRepository>(DI_TOKENS.INavigationRepository);
-  const controller = new OnboardingController(navigationRepo, resolveOnboardingDependencies());
+  const controller = new OnboardingController(navigationRepo, dependencies);
   controller.initialize();
 }
 
@@ -550,6 +549,7 @@ async function openOnboardingResourceModal(resourceId: OnboardingResourceId): Pr
   renderOnboardingResourceModal({
     language: resource.language,
     messages: resource.messages,
+    resolveAssetUrl: onboardingResourceAssetUrlResolver,
     resourceId
   });
 }

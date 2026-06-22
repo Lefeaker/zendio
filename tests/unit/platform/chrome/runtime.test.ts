@@ -55,6 +55,7 @@ describe('chromeRuntimeService', () => {
       throw new Error('runtime metadata api missing');
     }
     expect(getURL('options/index.html')).toContain('options/index.html');
+    expect(chromeRuntimeService.getBrowserTarget()).toBe('chrome');
     expect(getManifest()).toEqual({ version: '1.0.0' });
     expect(getUILanguage()).toBe('en-US');
     await chromeRuntimeService.openOptionsPage();
