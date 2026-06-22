@@ -1,8 +1,9 @@
 import type { MessagePayload, MessagingService } from '../../platform/interfaces/messaging';
-import type { ContentMessageHandlerContext } from './contentMessageHandlers';
 import { hasUsableSelection } from './selectionSnapshot';
 
-type ForwardContext = Pick<ContentMessageHandlerContext, 'document' | 'window' | 'messaging'> & {
+type ForwardContext = {
+  document: Document;
+  window: Window;
   messaging: Pick<MessagingService, 'send'>;
 };
 
