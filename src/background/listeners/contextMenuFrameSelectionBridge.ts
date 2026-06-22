@@ -1,9 +1,5 @@
 import type { ContextMenuListenerDependencies } from './contextMenusTypes';
 
-function getObjectProperty(source: object, key: string): unknown {
-  return (source as Record<string, unknown>)[key];
-}
-
 export function registerFrameSelectionBridge({
   messaging,
   tabs
@@ -12,8 +8,7 @@ export function registerFrameSelectionBridge({
     if (!rawMessage || typeof rawMessage !== 'object') {
       return undefined;
     }
-    const messageType = getObjectProperty(rawMessage, 'type');
-    if (messageType !== 'AIIOB_FORWARD_VIDEO_SELECTION') {
+    if (!('type' in rawMessage) || rawMessage.type !== 'AIIOB_FORWARD_VIDEO_SELECTION') {
       return undefined;
     }
 
@@ -22,12 +17,12 @@ export function registerFrameSelectionBridge({
       return { success: false, error: 'NO_TAB' };
     }
 
-    const messagePayload = getObjectProperty(rawMessage, 'payload');
+    const messagePayload = 'payload' in rawMessage ? rawMessage.payload : undefined;
     const rawPayload =
       typeof messagePayload === 'object' && messagePayload !== null ? messagePayload : {};
-    const selectedHtml = getObjectProperty(rawPayload, 'selectedHtml');
-    const selectedText = getObjectProperty(rawPayload, 'selectedText');
-    const sourceUrl = getObjectProperty(rawPayload, 'sourceUrl');
+    const selectedHtml = 'selectedHtml' in rawPayload ? rawPayload.selectedHtml : undefined;
+    const selectedText = 'selectedText' in rawPayload ? rawPayload.selectedText : undefined;
+    const sourceUrl = 'sourceUrl' in rawPayload ? rawPayload.sourceUrl : undefined;
     const payload = {
       selectedHtml: String(selectedHtml ?? ''),
       selectedText: String(selectedText ?? ''),
