@@ -3,7 +3,11 @@ import type {
   ReaderSessionAdapter,
   VideoSessionAdapter
 } from '../clipper/services/selectionController';
-import { createSessionDraftRepository } from '../sessionDrafts';
+import {
+  createSessionDraftRepository,
+  DEFAULT_SESSION_DRAFT_STORAGE_POLICY,
+  type SessionDraftStoragePolicy
+} from '../sessionDrafts';
 import { watchVideoNavigation, type VideoNavigationWatcher } from '../video/videoNavigationWatcher';
 
 const VIDEO_ELEMENT_WAIT_TIMEOUT_MS = 1_500;
@@ -15,6 +19,7 @@ export interface SessionDraftAutoRestoreOptions {
   currentUrl: () => string;
   createReaderSession: () => ReaderSessionAdapter;
   createVideoSession: () => VideoSessionAdapter;
+  sessionDraftStoragePolicy?: SessionDraftStoragePolicy;
   isReaderSessionActive: () => boolean;
   isVideoSessionActive: () => boolean;
   isVideoCandidateUrl: (href: string) => boolean;
@@ -25,7 +30,11 @@ export type SessionDraftAutoRestoreDisposer = () => void;
 export function startSessionDraftAutoRestore(
   options: SessionDraftAutoRestoreOptions
 ): SessionDraftAutoRestoreDisposer {
-  const repository = createSessionDraftRepository(options.storage.local);
+  const sessionDraftStoragePolicy =
+    options.sessionDraftStoragePolicy ?? DEFAULT_SESSION_DRAFT_STORAGE_POLICY;
+  const repository = createSessionDraftRepository(options.storage.local, {
+    retentionPolicy: sessionDraftStoragePolicy.retentionPolicy
+  });
   const abortController = new AbortController();
   let stopped = false;
   let restoreRun: Promise<void> | null = null;

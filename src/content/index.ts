@@ -28,6 +28,7 @@ import type { IOptionsRepository } from '../shared/repositories/IOptionsReposito
 import { startRuntimeThemeSync } from './stitch/runtimeTheme';
 import type { SupportProgressUpdate } from './runtime/supportProgress';
 import { startLazyDraftRestore } from './runtime/sessionDraftAutoRestoreBootstrap';
+import { DEFAULT_SESSION_DRAFT_STORAGE_POLICY } from './sessionDrafts/sessionDraftRetentionPolicy';
 
 if (markContentRuntimeInitialized(document)) {
   initializeClipperRuntime();
@@ -70,6 +71,7 @@ function initializeClipperRuntime(): void {
       }
     });
   };
+  const sessionDraftStoragePolicy = DEFAULT_SESSION_DRAFT_STORAGE_POLICY;
   const createReaderSession = createLazyReaderSessionFactory({
     document,
     optionsRepository: primaryOptionsRepository,
@@ -154,6 +156,7 @@ function initializeClipperRuntime(): void {
       currentUrl: () => window.location.href,
       createReaderSession: () => createReaderSession(document, window.location.href),
       createVideoSession: () => createVideoSession(document),
+      sessionDraftStoragePolicy,
       isReaderSessionActive: () => isReaderSessionActive(document),
       isVideoSessionActive: () => isVideoSessionActive(document),
       isVideoCandidateUrl: isVideoPromptCandidateUrl

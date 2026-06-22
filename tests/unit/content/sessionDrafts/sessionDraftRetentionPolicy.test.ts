@@ -72,6 +72,20 @@ describe('session draft retention policy', () => {
     expect(storagePolicy.videoScreenshotCacheTtlMs).toBe(customRetentionPolicy.retentionMs);
   });
 
+  it('normalizes invalid injected policy values back to the Free policy', () => {
+    const storagePolicy = createSessionDraftStoragePolicy({
+      retentionPolicy: {
+        retentionMs: -1,
+        maxRestorablePages: 0,
+        maxItemsPerPage: Number.NaN
+      },
+      videoScreenshotCacheTtlMs: -1
+    });
+
+    expect(storagePolicy.retentionPolicy).toEqual(FREE_SESSION_DRAFT_RETENTION_POLICY);
+    expect(storagePolicy.videoScreenshotCacheTtlMs).toBe(FREE_SESSION_DRAFT_RETENTION_MS);
+  });
+
   it('computes effective expiry from the shorter stored expiry and retention window', () => {
     const longStoredExpiry = createIndexEntry('long-stored-expiry', {
       updatedAt: BASE_TIME,
@@ -233,6 +247,45 @@ describe('session draft retention policy', () => {
       )
     );
     expect(items).toHaveLength(25);
+  });
+
+  it('uses generic null item caps as unlimited without product-specific state', () => {
+    const items = Array.from({ length: 25 }, (_, index) => ({
+      id: `item-${index}`,
+      createdAt: BASE_TIME + index
+    }));
+
+    const retained = selectRetainedSessionDraftItems(items, {
+      retentionMs: FREE_SESSION_DRAFT_RETENTION_MS,
+      maxRestorablePages: null,
+      maxItemsPerPage: null
+    });
+
+    expect(retained.map((item) => item.id)).toEqual(items.map((item) => item.id));
+  });
+
+  it('uses generic null page caps as unlimited without product-specific state', () => {
+    const entries = Array.from({ length: 8 }, (_, index) =>
+      createIndexEntry(`restorable-${index}`, {
+        pageKey: `page-${index}`,
+        updatedAt: BASE_TIME + index
+      })
+    );
+
+    const result = pruneSessionDraftIndexEntriesForRetentionPolicy(entries, BASE_TIME - 1, {
+      policy: {
+        retentionMs: FREE_SESSION_DRAFT_RETENTION_MS,
+        maxRestorablePages: null,
+        maxItemsPerPage: FREE_SESSION_DRAFT_MAX_ITEMS_PER_PAGE
+      },
+      maxEntries: 100
+    });
+
+    expect(result.entries.map((entry) => entry.draftId)).toEqual(
+      entries.map((entry) => entry.draftId).reverse()
+    );
+    expect(result.removedKeys).toEqual([]);
+    expect(result.dirty).toBe(false);
   });
 
   it('filters comment drafts to retained item ids', () => {

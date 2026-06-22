@@ -2,7 +2,9 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ConnectionTestResult } from '../../../src/shared/types/connection';
 import type { CaptureVisibleTabScreenshotResponse } from '../../../src/shared/types/videoScreenshotMessages';
 import type { VideoScreenshotCacheResponse } from '../../../src/content/video/videoScreenshotCacheMessages';
+import type { StorageService } from '../../../src/platform/interfaces/storage';
 import type { TabsService } from '../../../src/platform/interfaces/tabs';
+import { createSessionDraftStoragePolicy } from '../../../src/content/sessionDrafts';
 import { asType } from '../../utils/typeHelpers';
 
 const addListenerMock = vi.hoisted(() => vi.fn());
@@ -602,6 +604,68 @@ describe('runtime message listener', () => {
       type: 'AIIOB_VIDEO_SCREENSHOT_CACHE',
       operation: 'pruneExpired'
     });
+  });
+
+  it('threads only the injected generic screenshot cache ttl into the concrete cache owner', async () => {
+    const handleVideoScreenshotCacheMessage = vi.fn(
+      (message: unknown): Promise<VideoScreenshotCacheResponse | undefined> =>
+        Promise.resolve(
+          typeof message === 'object' &&
+            message !== null &&
+            'type' in message &&
+            message.type === 'AIIOB_VIDEO_SCREENSHOT_CACHE'
+            ? { success: true, operation: 'pruneExpired' }
+            : undefined
+        )
+    );
+    const createBackgroundVideoScreenshotCacheHandler = vi.fn(
+      () => handleVideoScreenshotCacheMessage
+    );
+    vi.doMock('../../../src/background/services/videoScreenshotCacheService', () => ({
+      createBackgroundVideoScreenshotCacheHandler
+    }));
+    const storagePolicy = createSessionDraftStoragePolicy({
+      retentionPolicy: {
+        retentionMs: 123_456,
+        maxRestorablePages: null,
+        maxItemsPerPage: null
+      }
+    });
+    const storage = asType<Pick<StorageService, 'local'>>({ local: {} });
+
+    try {
+      const { createRuntimeMessageListenerDependencies, registerRuntimeMessageListener } =
+        await import('../../../src/background/listeners/runtimeMessages');
+      const dependencies = createRuntimeMessageListenerDependencies(
+        { addListener: addListenerMock },
+        asType<Pick<TabsService, 'create' | 'get' | 'sendMessage' | 'captureVisibleTab'>>({
+          create: vi.fn(),
+          get: vi.fn(),
+          sendMessage: vi.fn(),
+          captureVisibleTab: vi.fn()
+        }),
+        { getURL: vi.fn((path: string) => `chrome-extension://${path}`) },
+        storage,
+        { ttlMs: storagePolicy.videoScreenshotCacheTtlMs }
+      );
+
+      expect(createBackgroundVideoScreenshotCacheHandler).toHaveBeenCalledWith(storage, {
+        ttlMs: 123_456
+      });
+      registerRuntimeMessageListener(dependencies);
+      await expect(
+        listener?.({ type: 'AIIOB_VIDEO_SCREENSHOT_CACHE', operation: 'pruneExpired' }, {})
+      ).resolves.toEqual({
+        success: true,
+        operation: 'pruneExpired'
+      });
+      expect(handleVideoScreenshotCacheMessage).toHaveBeenCalledWith({
+        type: 'AIIOB_VIDEO_SCREENSHOT_CACHE',
+        operation: 'pruneExpired'
+      });
+    } finally {
+      vi.doUnmock('../../../src/background/services/videoScreenshotCacheService');
+    }
   });
 
   it('routes visible-tab screenshot runtime messages through the concrete sender-window capture dependency', async () => {

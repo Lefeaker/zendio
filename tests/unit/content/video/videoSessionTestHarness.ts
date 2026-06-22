@@ -11,6 +11,7 @@ import type {
   SessionDraftEnvelope,
   SessionDraftIndex,
   SessionDraftOwnerContext,
+  SessionDraftStoragePolicy,
   VideoSessionDraftEnvelope
 } from '@content/sessionDrafts/sessionDraftTypes';
 import type { VideoSessionView } from '@content/video/application/videoSessionView';
@@ -292,7 +293,12 @@ export function createView(
   };
 }
 
-export function createDependencies(videoConfig: unknown = null): VideoSessionDependencies {
+export function createDependencies(
+  videoConfig: unknown = null,
+  overrides: {
+    sessionDraftStoragePolicy?: SessionDraftStoragePolicy;
+  } = {}
+): VideoSessionDependencies {
   const showSupportProgress = vi.fn();
   const trackUsageEvent = vi.fn(() => Promise.resolve(undefined));
   const localArea = createMemoryStorageArea();
@@ -337,8 +343,20 @@ export function createDependencies(videoConfig: unknown = null): VideoSessionDep
       sync
     },
     showSupportProgress,
+    ...(overrides.sessionDraftStoragePolicy
+      ? { sessionDraftStoragePolicy: overrides.sessionDraftStoragePolicy }
+      : {}),
     trackUsageEvent
   } as unknown as VideoSessionDependencies;
+}
+
+function createSessionDraftRepositoryForDeps(deps: VideoSessionDependencies) {
+  return createSessionDraftRepository(
+    deps.storage.local,
+    deps.sessionDraftStoragePolicy
+      ? { retentionPolicy: deps.sessionDraftStoragePolicy.retentionPolicy }
+      : {}
+  );
 }
 
 export async function listVideoDraftCandidates(
@@ -346,7 +364,7 @@ export async function listVideoDraftCandidates(
   pageUrl = document.location.href,
   ownerContext?: SessionDraftOwnerContext | null
 ): Promise<VideoSessionDraftEnvelope[]> {
-  const repository = createSessionDraftRepository(deps.storage.local);
+  const repository = createSessionDraftRepositoryForDeps(deps);
   const candidates = await repository.listCandidates(
     'video',
     pageUrl,
@@ -370,7 +388,7 @@ export async function loadLatestVideoDraft(
   pageUrl = document.location.href,
   ownerContext?: SessionDraftOwnerContext | null
 ): Promise<VideoSessionDraftEnvelope | null> {
-  const repository = createSessionDraftRepository(deps.storage.local);
+  const repository = createSessionDraftRepositoryForDeps(deps);
   const candidate = await repository.loadLatest(
     'video',
     pageUrl,

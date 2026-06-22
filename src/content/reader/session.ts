@@ -28,7 +28,6 @@ import {
   finalizeTerminalSessionDraft,
   type ReaderSessionDraftEnvelope,
   type SessionDraftPersister,
-  type SessionDraftRepository,
   type SessionDraftStatus,
   type SessionDraftTerminalStatus,
   type SessionMutationTransaction
@@ -58,14 +57,13 @@ export type { ReaderSessionDependencies } from './sessionTypes';
 
 export class ReaderSession {
   private readonly state = new ReaderSessionState();
-  private readonly dependencies: FullReaderSessionDependencies;
   private readonly highlightManager: ReaderHighlightManager;
   private readonly panelCoordinator: ReaderPanelCoordinator;
   private readonly selectionController: ReaderSelectionController;
   private readonly environment: ReaderEnvironmentController;
   private readonly lifecycle: ReaderSessionLifecycle;
   private readonly destinationState: ContentExportDestinationState;
-  private readonly draftRepository: SessionDraftRepository;
+  private readonly draftRepository: ReturnType<typeof createSessionDraftRepository>;
   private readonly draftPersister: SessionDraftPersister;
   private readonly draftMutationRunner = createSessionMutationRunner();
   private draftId: string | null = null;
@@ -100,9 +98,8 @@ export class ReaderSession {
     private readonly doc: Document,
     private readonly url: string,
     private readonly clipPrompt: ClipPromptGateway,
-    dependencies: FullReaderSessionDependencies
+    private readonly dependencies: FullReaderSessionDependencies
   ) {
-    this.dependencies = dependencies;
     this.highlightManager = this.dependencies.createHighlightManager(this.doc);
     this.panelCoordinator = this.dependencies.createPanelCoordinator({
       viewFactory: this.dependencies.viewFactory,
@@ -171,7 +168,9 @@ export class ReaderSession {
       () => this.createDestinationPayload(),
       this.dependencies.optionsPageUrl
     );
-    this.draftRepository = createSessionDraftRepository(this.dependencies.storage.local);
+    this.draftRepository = createSessionDraftRepository(this.dependencies.storage.local, {
+      retentionPolicy: this.dependencies.sessionDraftStoragePolicy?.retentionPolicy
+    });
     this.draftPersister = createSessionDraftPersister({
       repository: this.draftRepository,
       buildEnvelope: () => this.buildDraftEnvelope('active')
@@ -490,6 +489,7 @@ export class ReaderSession {
       pageTitle,
       highlights: this.state.highlights,
       commentDrafts: this.panelCoordinator.snapshotCommentDrafts(),
+      retentionPolicy: this.dependencies.sessionDraftStoragePolicy?.retentionPolicy,
       status,
       ...(this.destinationState.metadata ? { destination: this.destinationState.metadata } : {})
     });
