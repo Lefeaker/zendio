@@ -72,6 +72,7 @@
 - `npm run quality` 当前强制执行 retired-code、production-shape、build-graph、non-production-source check 与 dependency-cruiser hard gates；架构边界变更必须保持这些 hard gates 为绿。
 - `npm run audit:non-production-source:report` 是 inventory evidence，完成态必须退出 0；若出现 report blocker，必须逐 exact path 迁移、六证据删除或显式 retained-contract 分类。`npm run audit:non-production-source:check` 才是可接入 hard gate 的安全命令。
 - 2026-05-21 owner-proof checkpoint：`src/options/app/changelogContent.ts` 与 `src/components/trial-notice.ts` 仍是 retained facade；`src/content/reader/highlightController.ts` 与 `src/content/runtime/contentClipOrchestrator.ts` 仍是 migrate-import-owner。它们不得进入 M6.2 删除批次，除非新的六项 owner proof 表明确标记 `delete-approved`。
+- 2026-06-22 commercial capability boundary checkpoint：`src/components/trial-notice.ts` 继续是 retained facade，仍未获得 delete-approved 六项 owner proof；本 milestone 不删除、不挂载该组件。`src/background/trialLifecycle.ts`、`src/utils/trial-manager.ts` 与 `src/utils/trial-manager-ports.ts` 是 production-owned，因为 background startup imports the trial lifecycle path. Public Reader / Video / Options code must not import private entitlement, subscription, customer, payment, or Pro concepts.
 
 ## 7. 持续审计
 
