@@ -98,6 +98,15 @@ const EXPLICIT_CLASSIFICATION_PATTERNS = [
       'delete only after support progress UI imports move to the current runtime surface owner'
   },
   {
+    pattern: 'src/shared/capabilities/capabilityPolicy.ts',
+    decision: 'retain-production-facade',
+    owner: 'public restore capability policy contract',
+    deletionCondition:
+      'delete only after commercial boundary docs and retention policy owners remove the public capability port',
+    requiredAction:
+      'Retain the generic public capability policy contract until P03 retention selection records a replacement or six-proof deletion.'
+  },
+  {
     pattern: 'src/content/shared/markdown.ts',
     decision: 'retain-production-facade',
     owner: 'content markdown shared contract',

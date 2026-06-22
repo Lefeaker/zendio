@@ -163,6 +163,11 @@ describe('report-non-production-source', () => {
         testOwners: ['tests/unit/components/trialNotice.test.ts']
       },
       {
+        pattern: 'src/shared/capabilities/capabilityPolicy.ts',
+        owner: 'public restore capability policy contract',
+        testOwners: ['tests/unit/shared/capabilities/capabilityPolicy.test.ts']
+      },
+      {
         pattern: 'src/content/clipper/shared/styleManager.ts',
         owner: 'clipper inline style manager documented contract',
         testOwners: ['tests/unit/content/styleManager.test.ts']
