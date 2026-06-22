@@ -6,61 +6,31 @@ import {
   SHOW_SUPPORT_PROMPT,
   type ClipResultMessage
 } from '@shared/types';
-import type { ClipProcessingHooks } from '../../../src/background/application/clipProcessor';
+import {
+  createAppError,
+  createClipResultMessage as createMessage,
+  getOptionsMock,
+  isPromptSuppressedMock,
+  notifyFailureMock,
+  notifySuccessMock,
+  notifyWarningMock,
+  resetClipPipelineHarnessMocks,
+  sendMessageMock,
+  suppressPromptMock,
+  type ClipProcessingHooksWithPermission,
+  type ClipProcessingHooksWithProgress
+} from './clipTestHarness';
 
-type ClipProcessingHooksWithProgress = ClipProcessingHooks & {
-  onProgress: NonNullable<ClipProcessingHooks['onProgress']>;
-};
-
-type ClipProcessingHooksWithPermission = ClipProcessingHooks & {
-  requestLocalVaultPermission: NonNullable<ClipProcessingHooks['requestLocalVaultPermission']>;
-};
-
-const getOptionsMock = vi.fn();
-const notifySuccessMock = vi.fn();
-const notifyFailureMock = vi.fn();
-const notifyWarningMock = vi.fn();
 const processClipPayloadMock = vi.fn();
-const sendMessageMock = vi.fn();
-const isPromptSuppressedMock = vi.fn();
-const suppressPromptMock = vi.fn();
-
-vi.mock('../../../src/background/store', () => ({
-  getOptions: getOptionsMock
-}));
-
-vi.mock('../../../src/background/services/notifications', () => ({
-  notifyClipSuccess: notifySuccessMock,
-  notifyClipFailure: notifyFailureMock,
-  notifyClipWarning: notifyWarningMock
-}));
 
 vi.mock('../../../src/background/application/clipProcessor', () => ({
   processClipPayload: processClipPayloadMock
 }));
 
-vi.mock('../../../src/background/services/localVaultPermissionPrompts', () => ({
-  isLocalVaultPermissionPromptSuppressed: isPromptSuppressedMock,
-  suppressLocalVaultPermissionPrompt: suppressPromptMock
-}));
-
 describe('background clipPipeline', () => {
   beforeEach(() => {
     vi.resetModules();
-    getOptionsMock.mockReset();
-    notifySuccessMock.mockReset();
-    notifyFailureMock.mockReset();
-    notifyWarningMock.mockReset();
-    processClipPayloadMock.mockReset();
-    sendMessageMock.mockReset();
-    isPromptSuppressedMock.mockReset();
-    suppressPromptMock.mockReset();
-    isPromptSuppressedMock.mockResolvedValue(false);
-    suppressPromptMock.mockResolvedValue(undefined);
-    sendMessageMock.mockResolvedValue(undefined);
-    notifySuccessMock.mockResolvedValue(undefined);
-    notifyFailureMock.mockResolvedValue(undefined);
-    notifyWarningMock.mockResolvedValue(undefined);
+    resetClipPipelineHarnessMocks(processClipPayloadMock);
   });
 
   async function loadPipeline() {
@@ -70,33 +40,6 @@ describe('background clipPipeline', () => {
       dependencies: module.createClipPipelineDependencies({
         sendMessage: sendMessageMock
       })
-    };
-  }
-
-  function createMessage(
-    payloadOverrides: Partial<ClipResultMessage['payload']> = {}
-  ): ClipResultMessage {
-    return {
-      type: 'CLIP_RESULT' as const,
-      payload: {
-        markdown: '# note',
-        title: 'Title',
-        type: 'article',
-        meta: { url: 'https://example.com/articles/1' },
-        ...payloadOverrides
-      }
-    };
-  }
-
-  function createAppError(overrides: Partial<AppError> = {}): AppError {
-    return {
-      code: 'TEST_WARNING',
-      domain: 'content',
-      message: 'Classifier degraded',
-      userMessage: 'Classifier degraded',
-      severity: ErrorSeverity.WARNING,
-      recoverable: true,
-      ...overrides
     };
   }
 
