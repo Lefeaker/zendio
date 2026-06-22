@@ -9,8 +9,6 @@ import {
   SESSION_DRAFT_SCHEMA_VERSION,
   createSessionDraftPageKey,
   createSessionDraftStorageKey,
-  filterSessionCommentDraftsForRetainedIds,
-  selectRetainedSessionDraftItems,
   SessionDraftIndexSchema,
   type ReaderSessionDraftEnvelope,
   type ReaderSessionDraftHighlightPayload,
@@ -20,7 +18,13 @@ import {
 } from '@content/sessionDrafts';
 import type { ReaderHighlightManager, ReaderHighlightRecord } from './services/highlightManager';
 import type { StorageAreaService } from '@platform/interfaces/storage';
-import { createDetachedReaderHighlight } from './sessionOperations';
+import { createDetachedReaderHighlight } from './sessionOperationSelection';
+import { createExactTextRangeResolver } from './sessionDraftTextResolver';
+import {
+  countStoredReaderDraftHighlights,
+  createReaderSessionDraftPayload,
+  type ReaderDraftRetentionPolicy
+} from './sessionDraftPayload';
 
 const ReaderDraftHighlightSchema = z.object({
   id: z.string().min(1),
@@ -86,8 +90,6 @@ export interface RestoredReaderHighlights {
   detachedHighlightIds: string[];
 }
 
-type TextSegment = { node: Text; start: number; end: number };
-
 export function createReaderSessionDraftId(now = Date.now()): string {
   if (typeof globalThis.crypto?.randomUUID === 'function') {
     return `reader-${globalThis.crypto.randomUUID()}`;
@@ -103,22 +105,14 @@ export function buildReaderSessionDraftEnvelope(args: {
   destination?: ExportDestinationMetadata;
   highlights: ReaderHighlightRecord[];
   commentDrafts: SessionCommentDraftSnapshot;
-  retentionPolicy?: Parameters<typeof selectRetainedSessionDraftItems>[1];
+  retentionPolicy?: ReaderDraftRetentionPolicy;
   status: SessionDraftStatus;
 }): ReaderSessionDraftEnvelope | null {
-  const highlightPayloads = args.highlights.map((highlight) => ({
-    id: highlight.id,
-    selectedHtml: highlight.selectedHtml,
-    selectedText: highlight.selectedText,
-    comment: highlight.comment,
-    fragmentUrl: highlight.fragmentUrl,
-    createdAt: highlight.createdAt
-  }));
-  const highlights = selectRetainedSessionDraftItems(highlightPayloads, args.retentionPolicy);
-  const commentDrafts = filterSessionCommentDraftsForRetainedIds(
-    sanitizeCommentDrafts(args.commentDrafts),
-    highlights.map((highlight) => highlight.id)
-  );
+  const { highlights, commentDrafts } = createReaderSessionDraftPayload({
+    highlights: args.highlights,
+    commentDrafts: args.commentDrafts,
+    retentionPolicy: args.retentionPolicy
+  });
   if (highlights.length === 0 && Object.keys(commentDrafts).length === 0) {
     return null;
   }
@@ -258,18 +252,6 @@ export function restoreReaderSessionDraftHighlights(args: {
   return { highlights: restored, detachedHighlightIds };
 }
 
-function sanitizeCommentDrafts(drafts: SessionCommentDraftSnapshot): SessionCommentDraftSnapshot {
-  return Object.fromEntries(Object.entries(drafts).filter(([id]) => id.trim().length > 0));
-}
-
-function countStoredReaderDraftHighlights(payload: unknown): number {
-  if (typeof payload !== 'object' || payload === null) {
-    return 0;
-  }
-  const { highlights } = payload as { highlights?: unknown };
-  return Array.isArray(highlights) ? highlights.length : 0;
-}
-
 async function findLatestReaderDraftCandidate(
   storageArea: StorageAreaService,
   pageUrl: string
@@ -313,123 +295,4 @@ async function removeReaderDraftCandidate(
   } catch {
     return 'remove_failed';
   }
-}
-
-function createExactTextRangeResolver(doc: Document): (selectedText: string) => Range | null {
-  const { fullText, segments } = collectTextSegments(doc);
-  const claimedSpans: Array<{ start: number; end: number }> = [];
-
-  return (selectedText: string): Range | null => {
-    if (!selectedText) {
-      return null;
-    }
-
-    let searchIndex = 0;
-    while (searchIndex <= fullText.length) {
-      const start = fullText.indexOf(selectedText, searchIndex);
-      if (start === -1) {
-        return null;
-      }
-      const end = start + selectedText.length;
-      searchIndex = start + Math.max(selectedText.length, 1);
-
-      if (claimedSpans.some((span) => start < span.end && end > span.start)) {
-        continue;
-      }
-
-      const range = createRangeFromOffsets(doc, segments, start, end);
-      if (!range) {
-        continue;
-      }
-      if (range.toString() !== selectedText) {
-        range.detach?.();
-        continue;
-      }
-
-      claimedSpans.push({ start, end });
-      return range;
-    }
-
-    return null;
-  };
-}
-
-function collectTextSegments(doc: Document): { fullText: string; segments: TextSegment[] } {
-  const root = doc.body ?? doc.documentElement;
-  if (!root) {
-    return { fullText: '', segments: [] };
-  }
-
-  const segments: TextSegment[] = [];
-  let fullText = '';
-  const walker = doc.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
-    acceptNode(node) {
-      if (!(node instanceof Text) || node.data.length === 0) {
-        return NodeFilter.FILTER_REJECT;
-      }
-      const parent = node.parentElement;
-      if (!parent) {
-        return NodeFilter.FILTER_REJECT;
-      }
-      if (['SCRIPT', 'STYLE', 'NOSCRIPT', 'TEMPLATE'].includes(parent.tagName)) {
-        return NodeFilter.FILTER_REJECT;
-      }
-      return NodeFilter.FILTER_ACCEPT;
-    }
-  });
-
-  let current = walker.nextNode();
-  while (current) {
-    const node = current as Text;
-    const start = fullText.length;
-    fullText += node.data;
-    segments.push({ node, start, end: fullText.length });
-    current = walker.nextNode();
-  }
-
-  return { fullText, segments };
-}
-
-function createRangeFromOffsets(
-  doc: Document,
-  segments: TextSegment[],
-  start: number,
-  end: number
-): Range | null {
-  const startPosition = locateTextPosition(segments, start);
-  const endPosition = locateTextPosition(segments, end);
-  if (!startPosition || !endPosition) {
-    return null;
-  }
-
-  const range = doc.createRange();
-  range.setStart(startPosition.node, startPosition.offset);
-  range.setEnd(endPosition.node, endPosition.offset);
-  return range;
-}
-
-function locateTextPosition(
-  segments: TextSegment[],
-  absoluteOffset: number
-): { node: Text; offset: number } | null {
-  if (segments.length === 0) {
-    return null;
-  }
-
-  for (const segment of segments) {
-    if (absoluteOffset < segment.end) {
-      return {
-        node: segment.node,
-        offset: absoluteOffset - segment.start
-      };
-    }
-    if (absoluteOffset === segment.end) {
-      return {
-        node: segment.node,
-        offset: segment.node.data.length
-      };
-    }
-  }
-
-  return null;
 }
