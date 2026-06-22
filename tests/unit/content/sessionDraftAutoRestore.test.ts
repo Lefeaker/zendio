@@ -7,9 +7,11 @@ import {
   SESSION_DRAFT_INDEX_KEY,
   createSessionDraftPageKey,
   createSessionDraftRepository,
+  createSessionDraftStoragePolicy,
   createSessionDraftStorageKey,
   type SessionDraftEnvelope,
-  type ReaderSessionDraftEnvelope
+  type ReaderSessionDraftEnvelope,
+  type SessionDraftStoragePolicy
 } from '@content/sessionDrafts';
 import type {
   ReaderSessionAdapter,
@@ -22,7 +24,12 @@ import {
   createVideoSessionDraftEnvelope
 } from '@content/video/sessionDrafts';
 
-function createHarness(initialUrl: string) {
+function createHarness(
+  initialUrl: string,
+  options: {
+    sessionDraftStoragePolicy?: SessionDraftStoragePolicy;
+  } = {}
+) {
   document.body.innerHTML = '<main id="app">content</main>';
   Object.defineProperty(document, 'visibilityState', {
     configurable: true,
@@ -34,7 +41,12 @@ function createHarness(initialUrl: string) {
     local: createMemoryStorageArea(),
     sync: createMemoryStorageArea()
   };
-  const repository = createSessionDraftRepository(storage.local);
+  const repository = createSessionDraftRepository(
+    storage.local,
+    options.sessionDraftStoragePolicy
+      ? { retentionPolicy: options.sessionDraftStoragePolicy.retentionPolicy }
+      : {}
+  );
   const readerStart = vi.fn<ReaderSessionAdapter['start']>().mockResolvedValue(undefined);
   const videoStart = vi.fn<VideoSessionAdapter['start']>().mockResolvedValue(undefined);
   const createReaderSession = vi.fn<() => ReaderSessionAdapter>(() => ({
@@ -73,7 +85,10 @@ function createHarness(initialUrl: string) {
         createVideoSession,
         isReaderSessionActive,
         isVideoSessionActive,
-        isVideoCandidateUrl
+        isVideoCandidateUrl,
+        ...(options.sessionDraftStoragePolicy
+          ? { sessionDraftStoragePolicy: options.sessionDraftStoragePolicy }
+          : {})
       })
   };
 }
@@ -218,6 +233,52 @@ describe('sessionDraftAutoRestore', () => {
 
     expect(harness.readerStart).toHaveBeenCalledTimes(1);
     expect(harness.readerStart.mock.calls[0]).toHaveLength(0);
+    expect(harness.videoStart).not.toHaveBeenCalled();
+    stop();
+  });
+
+  it('keeps the default Free retention window for auto-restore', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-06-22T08:00:00Z'));
+    const url = 'https://example.com/article';
+    const harness = createHarness(url);
+    const staleUpdatedAt = Date.now() - 49 * 60 * 60 * 1000;
+    await seedStoredDraft(harness, {
+      ...createReaderDraftEnvelope(url, staleUpdatedAt),
+      expiresAt: Date.now() + 60_000
+    });
+
+    const stop = harness.start();
+    await flushAsyncWork();
+
+    expect(harness.readerStart).not.toHaveBeenCalled();
+    expect(harness.videoStart).not.toHaveBeenCalled();
+    stop();
+  });
+
+  it('threads an injected generic retention policy through auto-restore', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-06-22T08:00:00Z'));
+    const url = 'https://example.com/article';
+    const harness = createHarness(url, {
+      sessionDraftStoragePolicy: createSessionDraftStoragePolicy({
+        retentionPolicy: {
+          retentionMs: 96 * 60 * 60 * 1000,
+          maxRestorablePages: null,
+          maxItemsPerPage: null
+        }
+      })
+    });
+    const staleUpdatedAt = Date.now() - 49 * 60 * 60 * 1000;
+    await seedStoredDraft(harness, {
+      ...createReaderDraftEnvelope(url, staleUpdatedAt),
+      expiresAt: Date.now() + 60_000
+    });
+
+    const stop = harness.start();
+    await flushAsyncWork();
+
+    expect(harness.readerStart).toHaveBeenCalledTimes(1);
     expect(harness.videoStart).not.toHaveBeenCalled();
     stop();
   });

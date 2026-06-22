@@ -4,6 +4,7 @@ import type { MessagingService } from '../../platform/interfaces/messaging';
 import type { IOptionsRepository } from '../../shared/repositories/IOptionsRepository';
 import type { VideoSessionAdapter } from '../clipper/services/selectionController';
 import type { SupportProgressReporter } from '../runtime/supportProgress';
+import type { SessionDraftStoragePolicy } from '../sessionDrafts';
 import { initVideoPrompt } from './prompt';
 import { createVideoPromptDependencies } from './videoPromptDependencies';
 import { matchesSupportedVideoHost } from './videoPromptObserver';
@@ -15,6 +16,7 @@ export interface VideoLazyRuntimeDependencies {
   storage: StorageService;
   runtime?: Pick<RuntimeService, 'getURL'>;
   messaging?: Pick<MessagingService, 'send'>;
+  sessionDraftStoragePolicy?: SessionDraftStoragePolicy;
   showSupportProgress?: SupportProgressReporter;
 }
 
@@ -36,6 +38,9 @@ export function createVideoSessionAdapter(
           storage: dependencies.storage,
           ...(dependencies.runtime ? { runtime: dependencies.runtime } : {}),
           ...(dependencies.messaging ? { messaging: dependencies.messaging } : {}),
+          ...(dependencies.sessionDraftStoragePolicy
+            ? { sessionDraftStoragePolicy: dependencies.sessionDraftStoragePolicy }
+            : {}),
           ...(dependencies.showSupportProgress
             ? { showSupportProgress: dependencies.showSupportProgress }
             : {})
@@ -79,6 +84,9 @@ export async function initializeVideoPromptRuntime(
             storage: dependencies.storage,
             runtime: dependencies.runtime,
             ...(dependencies.messaging ? { messaging: dependencies.messaging } : {}),
+            ...(dependencies.sessionDraftStoragePolicy
+              ? { sessionDraftStoragePolicy: dependencies.sessionDraftStoragePolicy }
+              : {}),
             ...(dependencies.showSupportProgress
               ? { showSupportProgress: dependencies.showSupportProgress }
               : {})

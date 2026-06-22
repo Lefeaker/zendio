@@ -2,6 +2,7 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createSessionDraftStorageKey } from '@content/sessionDrafts/sessionDraftKeys';
+import { createSessionDraftStoragePolicy } from '@content/sessionDrafts';
 import { createSessionDraftRepository } from '@content/sessionDrafts/sessionDraftRepository';
 import { configureSessionDraftRuntimeMessenger } from '@content/sessionDrafts/sessionDraftTabContext';
 import { VideoSession } from '@content/video/session';
@@ -152,6 +153,40 @@ describe('VideoSession', () => {
       ''
     );
     expect(pauseSpy).not.toHaveBeenCalled();
+
+    sessionApi.cleanup();
+    vi.useRealTimers();
+  });
+
+  it('threads an injected generic null item cap through video draft saves', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-06-22T08:00:00Z'));
+    const retentionMs = 96 * 60 * 60 * 1000;
+    const deps = createDependencies(null, {
+      sessionDraftStoragePolicy: createSessionDraftStoragePolicy({
+        retentionPolicy: {
+          retentionMs,
+          maxRestorablePages: null,
+          maxItemsPerPage: null
+        }
+      })
+    });
+    const session = new VideoSession(document, deps);
+    const sessionApi = toSessionTestApi(session);
+
+    await session.start();
+    const ids = seedTimestampCaptures(sessionApi, 25);
+
+    await toDraftControllerTestApi(session).flushNow('active');
+
+    const draft = await loadLatestVideoDraft(deps);
+    const payload = readVideoDraftPayload(draft);
+    expect(payload?.captures).toHaveLength(25);
+    expect(draft?.expiresAt).toBe(Date.now() + retentionMs);
+    const serializedDraft = JSON.stringify(draft);
+    expect(serializedDraft).not.toContain('data:image/');
+    expect(serializedDraft).not.toContain('"screenshot"');
+    expect(serializedDraft).not.toContain('"content"');
 
     sessionApi.cleanup();
     vi.useRealTimers();

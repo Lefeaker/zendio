@@ -179,6 +179,9 @@ export function createVideoSessionControllers(args: {
     state,
     destinationState,
     storageArea: dependencies.storage.local,
+    ...(dependencies.sessionDraftStoragePolicy
+      ? { sessionDraftStoragePolicy: dependencies.sessionDraftStoragePolicy }
+      : {}),
     screenshotCache,
     dom,
     trackDraftRestoreEvent: (params) =>

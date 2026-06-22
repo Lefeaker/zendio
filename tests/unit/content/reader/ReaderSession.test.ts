@@ -13,8 +13,10 @@ import {
 import {
   createSessionContext,
   flushDraftPersistence,
-  getSessionHarness
+  getSessionHarness,
+  loadLatestReaderDraft
 } from './readerSessionTestHarness';
+import { createSessionDraftStoragePolicy } from '@content/sessionDrafts';
 
 describe('ReaderSession', () => {
   beforeEach(() => {
@@ -173,5 +175,53 @@ describe('ReaderSession', () => {
     context.emitReadingConfig({ exportMode: 'highlights', highlightTheme: 'neonGreen' });
 
     expect(document.body.dataset.aiobReaderHighlight).toBe('neonGreen');
+  });
+
+  it('threads an injected generic null item cap through reader draft saves', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-06-22T08:00:00Z'));
+    const retentionMs = 96 * 60 * 60 * 1000;
+    const context = createSessionContext({
+      sessionDraftStoragePolicy: createSessionDraftStoragePolicy({
+        retentionPolicy: {
+          retentionMs,
+          maxRestorablePages: null,
+          maxItemsPerPage: null
+        }
+      })
+    });
+    await context.session.initialize();
+
+    const highlights = Array.from({ length: 25 }, (_, index) => {
+      const wrapper = document.createElement('mark');
+      wrapper.dataset.readerHighlightId = `h-${index}`;
+      wrapper.textContent = `Highlight ${index}`;
+      document.body.appendChild(wrapper);
+      return {
+        id: `h-${index}`,
+        selectedHtml: `<mark>Highlight ${index}</mark>`,
+        selectedText: `Highlight ${index}`,
+        comment: `note ${index}`,
+        fragmentUrl: `#h-${index}`,
+        wrapper
+      };
+    });
+    getSessionHarness(context.session).__setTestHighlights(highlights);
+    context.view.currentDrafts = Object.fromEntries([
+      ...highlights.map((highlight) => [highlight.id, `draft for ${highlight.id}`]),
+      ['orphan', 'drop me']
+    ]);
+
+    const persistPromise = getSessionHarness(context.session).persistDraftMutation();
+    await flushDraftPersistence();
+    await persistPromise;
+
+    const draft = await loadLatestReaderDraft(context);
+    expect(draft?.payload.highlights).toHaveLength(25);
+    expect(Object.keys(draft?.payload.commentDrafts ?? {})).toEqual(
+      highlights.map((highlight) => highlight.id)
+    );
+    expect(draft?.expiresAt).toBe((draft?.updatedAt ?? 0) + retentionMs);
+    expect(JSON.stringify(draft)).not.toContain('data:image/');
   });
 });

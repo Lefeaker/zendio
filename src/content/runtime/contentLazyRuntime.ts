@@ -13,6 +13,7 @@ import type {
   VideoSessionAdapter
 } from '../clipper/services/selectionController';
 import type { SupportProgressReporter } from './supportProgress';
+import type { SessionDraftStoragePolicy } from '../sessionDrafts';
 
 interface SupportPromptLike {
   show(options?: unknown): Promise<void> | void;
@@ -28,12 +29,13 @@ interface LazyRuntimeDependencies {
   storage: StorageService;
   messaging: Pick<MessagingService, 'send'>;
   runtime: RuntimeService;
+  sessionDraftStoragePolicy?: SessionDraftStoragePolicy;
   showSupportProgress?: SupportProgressReporter;
 }
 
 type VideoPromptOnDemandDependencies = Pick<
   LazyRuntimeDependencies,
-  'optionsRepository' | 'storage' | 'runtime' | 'showSupportProgress'
+  'optionsRepository' | 'storage' | 'runtime' | 'sessionDraftStoragePolicy' | 'showSupportProgress'
 > &
   Partial<Pick<LazyRuntimeDependencies, 'messaging'>>;
 
@@ -147,6 +149,9 @@ export function createLazyReaderSessionFactory(
             messaging: dependencies.messaging as MessagingService,
             runtime: dependencies.runtime,
             promptGateway: dependencies.promptGateway,
+            ...(dependencies.sessionDraftStoragePolicy
+              ? { sessionDraftStoragePolicy: dependencies.sessionDraftStoragePolicy }
+              : {}),
             ...(dependencies.showSupportProgress
               ? { showSupportProgress: dependencies.showSupportProgress }
               : {})
@@ -193,6 +198,9 @@ export function createLazyVideoSessionFactory(
             storage: dependencies.storage,
             runtime: dependencies.runtime,
             messaging: dependencies.messaging,
+            ...(dependencies.sessionDraftStoragePolicy
+              ? { sessionDraftStoragePolicy: dependencies.sessionDraftStoragePolicy }
+              : {}),
             ...(dependencies.showSupportProgress
               ? { showSupportProgress: dependencies.showSupportProgress }
               : {})

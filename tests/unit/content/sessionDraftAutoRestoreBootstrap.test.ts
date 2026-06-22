@@ -7,6 +7,7 @@ import {
   type SessionDraftAutoRestoreModule
 } from '@content/runtime/sessionDraftAutoRestoreBootstrap';
 import type { SessionDraftAutoRestoreOptions } from '@content/runtime/sessionDraftAutoRestore';
+import { createSessionDraftStoragePolicy } from '@content/sessionDrafts';
 
 function createDeferred<T>() {
   let resolve!: (value: T) => void;
@@ -76,6 +77,34 @@ describe('startLazyDraftRestore', () => {
     stop();
 
     expect(stopLoadedAutoRestore).toHaveBeenCalledTimes(1);
+  });
+
+  it('forwards supplied session draft storage policy through the lazy auto-restore bootstrap', async () => {
+    const sessionDraftStoragePolicy = createSessionDraftStoragePolicy({
+      retentionPolicy: {
+        retentionMs: 96 * 60 * 60 * 1000,
+        maxRestorablePages: null,
+        maxItemsPerPage: null
+      }
+    });
+    const options = {
+      ...createAutoRestoreOptions(),
+      sessionDraftStoragePolicy
+    };
+    const startSessionDraftAutoRestore = vi.fn(() => vi.fn());
+
+    startLazyDraftRestore(
+      () => Promise.resolve({ startSessionDraftAutoRestore }),
+      options,
+      vi.fn()
+    );
+    await flushAsyncWork();
+
+    expect(startSessionDraftAutoRestore).toHaveBeenCalledWith(
+      expect.objectContaining({
+        sessionDraftStoragePolicy
+      })
+    );
   });
 
   it('reports lazy import failures without starting auto-restore', async () => {

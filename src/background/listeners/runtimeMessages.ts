@@ -37,7 +37,7 @@ import {
 } from '../../shared/types/videoScreenshotMessages';
 import { captureVisibleTabScreenshotForSender } from './visibleTabScreenshot';
 import {
-  createBackgroundVideoScreenshotCacheHandler,
+  createBackgroundVideoScreenshotCacheHandler as createScreenshotCacheHandler,
   type BackgroundVideoScreenshotCacheHandler
 } from '../services/videoScreenshotCacheService';
 import type { StorageService } from '../../platform/interfaces/storage';
@@ -135,7 +135,6 @@ export interface RuntimeMessageListenerDependencies {
   ): Promise<CaptureVisibleTabScreenshotResponse>;
   handleVideoScreenshotCacheMessage: BackgroundVideoScreenshotCacheHandler;
 }
-
 function resolveActivationMilestone(
   eventName: string
 ): 'onboarding_completed' | 'first_reader_exported' | 'first_video_exported' | null {
@@ -150,17 +149,17 @@ function resolveActivationMilestone(
       return null;
   }
 }
-
 export function createRuntimeMessageListenerDependencies(
   messaging: Pick<MessagingService, 'addListener'>,
   tabs: Pick<TabsService, 'create' | 'get' | 'sendMessage' | 'captureVisibleTab'>,
   runtime: Pick<RuntimeService, 'getURL'>,
-  storage: Pick<StorageService, 'local'>
+  storage: Pick<StorageService, 'local'>,
+  cacheOptions: { ttlMs?: number } = {}
 ): RuntimeMessageListenerDependencies {
   return {
     messaging,
     clipPipeline: createClipPipelineDependencies(tabs),
-    handleVideoScreenshotCacheMessage: createBackgroundVideoScreenshotCacheHandler(storage),
+    handleVideoScreenshotCacheMessage: createScreenshotCacheHandler(storage, cacheOptions),
     async openOptionsPage(section) {
       const optionsUrl = runtime.getURL('options/index.html');
       const normalizedSection = section?.trim();

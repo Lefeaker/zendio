@@ -205,6 +205,51 @@ describe('readerSessionDrafts', () => {
     expect(highlights).toHaveLength(25);
   });
 
+  it('honors an injected generic null item cap without durable binary payloads', () => {
+    const highlights = Array.from({ length: 25 }, (_, index) =>
+      createHighlightRecord({
+        id: `highlight-${index}`,
+        selectedText: `Highlight ${index}`,
+        selectedHtml: `<mark>Highlight ${index}</mark>`,
+        comment: `saved comment ${index}`,
+        createdAt: 1_000 + index
+      })
+    );
+    const commentDrafts = Object.fromEntries([
+      ...highlights.map((highlight) => [highlight.id, `draft for ${highlight.id}`]),
+      ['orphan-highlight', 'should be filtered']
+    ]);
+
+    const envelope = buildReaderSessionDraftEnvelope({
+      draftId: 'reader-draft-null-cap',
+      createdAt: 900,
+      now: 2_000,
+      pageUrl: 'https://example.com/article/null-cap',
+      pageTitle: 'Article with generic null cap',
+      highlights,
+      commentDrafts,
+      retentionPolicy: {
+        retentionMs: 96 * 60 * 60 * 1000,
+        maxRestorablePages: null,
+        maxItemsPerPage: null
+      },
+      status: 'active'
+    });
+
+    expect(envelope).not.toBeNull();
+    if (!envelope) {
+      throw new Error('expected reader session envelope');
+    }
+    expect(envelope.payload.highlights).toHaveLength(25);
+    expect(Object.keys(envelope.payload.commentDrafts ?? {})).toEqual(
+      highlights.map((highlight) => highlight.id)
+    );
+    const serializedEnvelope = JSON.stringify(envelope);
+    expect(serializedEnvelope).not.toContain('data:image/');
+    expect(serializedEnvelope).not.toContain('ArrayBuffer');
+    expect(serializedEnvelope).not.toContain('Blob');
+  });
+
   it('recreates live highlight ranges when the saved text still exists in the document', () => {
     document.body.innerHTML = '<article><p>Alpha Beta Gamma</p></article>';
     const createHighlight = vi.fn(

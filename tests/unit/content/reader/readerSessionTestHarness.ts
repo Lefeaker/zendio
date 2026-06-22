@@ -33,7 +33,8 @@ import {
   createSessionDraftRepository,
   type ReaderSessionDraftEnvelope,
   type SessionDraftEnvelope,
-  type SessionDraftIndex
+  type SessionDraftIndex,
+  type SessionDraftStoragePolicy
 } from '@content/sessionDrafts';
 import type { SessionCommentDraftSnapshot } from '@content/shared/panels/sessionCommentDrafts';
 import { createMemoryStorageArea } from '@platform/preview/memoryStorage';
@@ -293,7 +294,11 @@ export function expectCanonicalReaderTelemetry(messages: TelemetryMessage[]): vo
   }
 }
 
-export function createSessionContext() {
+export function createSessionContext(
+  options: {
+    sessionDraftStoragePolicy?: SessionDraftStoragePolicy;
+  } = {}
+) {
   document.body.innerHTML = '<article><p id="content">Hello reader session world.</p></article>';
   const view = createView();
   let callbacks: ReaderPanelCallbacks | undefined;
@@ -450,6 +455,9 @@ export function createSessionContext() {
       buildFullMarkdown: buildReaderFullMarkdown
     }),
     dispatchClipResult,
+    ...(options.sessionDraftStoragePolicy
+      ? { sessionDraftStoragePolicy: options.sessionDraftStoragePolicy }
+      : {}),
     showSupportProgress
   };
 
@@ -465,7 +473,12 @@ export function createSessionContext() {
     session,
     view,
     storageLocal: localStorageArea,
-    draftRepository: createSessionDraftRepository(localStorageArea),
+    draftRepository: createSessionDraftRepository(
+      localStorageArea,
+      options.sessionDraftStoragePolicy
+        ? { retentionPolicy: options.sessionDraftStoragePolicy.retentionPolicy }
+        : {}
+    ),
     clipPrompt,
     messaging,
     environment,

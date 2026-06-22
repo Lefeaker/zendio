@@ -86,11 +86,7 @@ export interface RestoredReaderHighlights {
   detachedHighlightIds: string[];
 }
 
-interface TextSegment {
-  node: Text;
-  start: number;
-  end: number;
-}
+type TextSegment = { node: Text; start: number; end: number };
 
 export function createReaderSessionDraftId(now = Date.now()): string {
   if (typeof globalThis.crypto?.randomUUID === 'function') {
@@ -107,18 +103,18 @@ export function buildReaderSessionDraftEnvelope(args: {
   destination?: ExportDestinationMetadata;
   highlights: ReaderHighlightRecord[];
   commentDrafts: SessionCommentDraftSnapshot;
+  retentionPolicy?: Parameters<typeof selectRetainedSessionDraftItems>[1];
   status: SessionDraftStatus;
 }): ReaderSessionDraftEnvelope | null {
-  const highlights = selectRetainedSessionDraftItems(
-    args.highlights.map((highlight) => ({
-      id: highlight.id,
-      selectedHtml: highlight.selectedHtml,
-      selectedText: highlight.selectedText,
-      comment: highlight.comment,
-      fragmentUrl: highlight.fragmentUrl,
-      createdAt: highlight.createdAt
-    }))
-  );
+  const highlightPayloads = args.highlights.map((highlight) => ({
+    id: highlight.id,
+    selectedHtml: highlight.selectedHtml,
+    selectedText: highlight.selectedText,
+    comment: highlight.comment,
+    fragmentUrl: highlight.fragmentUrl,
+    createdAt: highlight.createdAt
+  }));
+  const highlights = selectRetainedSessionDraftItems(highlightPayloads, args.retentionPolicy);
   const commentDrafts = filterSessionCommentDraftsForRetainedIds(
     sanitizeCommentDrafts(args.commentDrafts),
     highlights.map((highlight) => highlight.id)
