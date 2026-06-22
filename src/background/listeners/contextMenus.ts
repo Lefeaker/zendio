@@ -1,13 +1,16 @@
+import { delay, deriveVideoState, setupContextMenus } from './contextMenusCoordinator';
 import {
   autoInjectIfNeeded,
-  delay,
-  deriveVideoState,
   ensureModifierInjectionForActiveTab,
   injectClipper,
-  refreshSelectionModifierInjection,
-  setupContextMenus,
-  isVideoUrl
-} from './contextMenusCoordinator';
+  refreshSelectionModifierInjection
+} from './contextMenuInjection';
+import {
+  notifyActionDispatchFailure,
+  resolveContentActionFailureMessage
+} from './contextMenuDispatch';
+import { registerFrameSelectionBridge } from './contextMenuFrameSelectionBridge';
+import { isVideoUrl } from './contextMenuUrls';
 import {
   createContextMenuRuntimeState,
   type ContextMenuListenerDependencies
@@ -22,7 +25,7 @@ export function createContextMenuListenerDependencies(
 }
 
 export function registerContextMenuListeners(dependencies: ContextMenuListenerDependencies): void {
-  const { action, contextMenus, runtime, tabs, messaging, optionsRepository } = dependencies;
+  const { action, contextMenus, runtime, tabs, optionsRepository } = dependencies;
 
   runtime.onInstalled(() => {
     void setupContextMenus(dependencies, runtimeState);
@@ -42,9 +45,24 @@ export function registerContextMenuListeners(dependencies: ContextMenuListenerDe
     try {
       await injectClipper(dependencies, runtimeState, tab.id, { targetFrameId: 0 });
       await delay(50);
-      await tabs.sendMessage(tab.id, { action: 'clipFull' });
     } catch (error) {
-      console.error('[action] Failed to trigger clipFull:', error);
+      console.error('[action] Failed to prepare clipFull:', error);
+      return;
+    }
+
+    try {
+      const response = await tabs.sendMessage<object | undefined>(tab.id, { action: 'clipFull' });
+      const failureMessage = resolveContentActionFailureMessage(response);
+      if (failureMessage) {
+        await notifyActionDispatchFailure('clipFull', tab.id, null, new Error(failureMessage));
+      }
+    } catch (error) {
+      await notifyActionDispatchFailure(
+        'clipFull',
+        tab.id,
+        null,
+        error instanceof Error ? error : new Error(String(error))
+      );
     }
   });
 
@@ -94,19 +112,48 @@ export function registerContextMenuListeners(dependencies: ContextMenuListenerDe
     }
 
     if (targetFrameId !== 0) {
-      await injectClipper(dependencies, runtimeState, tab.id, { targetFrameId: 0, silent: true });
+      const requiresTopFrameRuntime = actionType === 'videoClipSelection';
+      try {
+        await injectClipper(dependencies, runtimeState, tab.id, {
+          targetFrameId: 0,
+          silent: !requiresTopFrameRuntime
+        });
+      } catch {
+        if (requiresTopFrameRuntime) {
+          return;
+        }
+      }
     }
-    await injectClipper(dependencies, runtimeState, tab.id, { targetFrameId });
-    await delay(waitMs);
 
     try {
-      await tabs.sendMessage(
+      await injectClipper(dependencies, runtimeState, tab.id, { targetFrameId });
+      await delay(waitMs);
+    } catch {
+      return;
+    }
+
+    try {
+      const response = await tabs.sendMessage<object | undefined>(
         tab.id,
         { action: actionType, frameId: targetFrameId, tabId: tab.id },
         { frameId: targetFrameId }
       );
+      const failureMessage = resolveContentActionFailureMessage(response);
+      if (failureMessage) {
+        await notifyActionDispatchFailure(
+          actionType,
+          tab.id,
+          targetFrameId,
+          new Error(failureMessage)
+        );
+      }
     } catch (error) {
-      console.error('[contextMenu] Failed to dispatch action to tab:', error);
+      await notifyActionDispatchFailure(
+        actionType,
+        tab.id,
+        targetFrameId,
+        error instanceof Error ? error : new Error(String(error))
+      );
     }
   });
 
@@ -130,41 +177,7 @@ export function registerContextMenuListeners(dependencies: ContextMenuListenerDe
     contextMenus.refresh?.();
   });
 
-  messaging.addListener((rawMessage, sender) => {
-    if (!rawMessage || typeof rawMessage !== 'object') {
-      return undefined;
-    }
-    const message = rawMessage as { type?: unknown; payload?: unknown };
-    if (message.type !== 'AIIOB_FORWARD_VIDEO_SELECTION') {
-      return undefined;
-    }
-
-    const tabId = sender.tabId;
-    if (typeof tabId !== 'number') {
-      return { success: false, error: 'NO_TAB' };
-    }
-
-    const rawPayload =
-      typeof message.payload === 'object' && message.payload !== null
-        ? (message.payload as Record<string, unknown>)
-        : {};
-
-    const payload = {
-      selectedHtml: String(rawPayload.selectedHtml ?? ''),
-      selectedText: String(rawPayload.selectedText ?? ''),
-      sourceFrameId: sender.frameId ?? null,
-      sourceUrl: typeof rawPayload.sourceUrl === 'string' ? rawPayload.sourceUrl : null
-    } as const;
-
-    return tabs
-      .sendMessage(tabId, { action: 'videoClipSelectionFromFrame', payload }, { frameId: 0 })
-      .then(() => ({ success: true }))
-      .catch((error) => {
-        const msg = error instanceof Error ? error.message : String(error);
-        console.error('[contextMenu] Failed to forward video selection from frame:', msg);
-        return { success: false, error: msg };
-      });
-  });
+  registerFrameSelectionBridge(dependencies);
 
   optionsRepository.onChange(() => {
     void refreshSelectionModifierInjection(runtimeState)

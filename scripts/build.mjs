@@ -68,7 +68,10 @@ const CONTENT_LOADER_SOURCE = `
   };
   const key = '__AIIINOB_CONTENT_RUNTIME_PROMISE__';
   if (!scope[key]) {
-    scope[key] = import(resolve('content/runtime.js'));
+    scope[key] = import(resolve('content/runtime.js')).catch((error) => {
+      delete scope[key];
+      throw error;
+    });
   }
   Promise.resolve(scope[key]).catch((error) => {
     console.error('[content-loader] Failed to bootstrap content runtime:', error);

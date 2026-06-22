@@ -193,28 +193,15 @@ function handleVideoClipSelection(
   context: ContentMessageHandlerContext,
   message: Record<string, unknown>
 ): Promise<MessagePayload> | MessagePayload {
-  const { document, window, messaging, selectionController } = context;
+  const { document, window, selectionController } = context;
   if (window !== window.top && typeof message.frameId === 'number') {
-    const selection = window.getSelection();
-    if (!selection || !hasUsableSelection(selection)) {
-      return createFailurePayload('No text selected');
-    }
-
-    const range = selection.getRangeAt(0).cloneRange();
-    const container = document.createElement('div');
-    container.appendChild(range.cloneContents());
-    const selectedHtml = container.innerHTML;
-    const selectedText = selection.toString();
-
-    void messaging
-      .send({
-        type: 'AIIOB_FORWARD_VIDEO_SELECTION',
-        payload: { selectedHtml, selectedText, sourceUrl: location.href }
-      })
-      .catch(() => undefined);
-
-    selection.removeAllRanges();
-    return createSuccessPayload({ forwarded: true });
+    return import('./videoFrameSelectionForwarder')
+      .then(({ forwardVideoFrameSelection }) => forwardVideoFrameSelection(context))
+      .catch((error) => {
+        console.error('[content] forwardVideoSelection:', error);
+        const messageText = error instanceof Error ? error.message : String(error);
+        return createFailurePayload(messageText);
+      });
   }
 
   let selectionInfo = context.resolveActiveSelection();

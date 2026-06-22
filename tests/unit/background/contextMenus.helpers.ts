@@ -40,7 +40,8 @@ export type ContextMenusTestRig = {
   get: ReturnType<typeof createMockFn<TabsService['get']>>;
   sendMessage: ReturnType<typeof createMockFn<TabsService['sendMessage']>>;
   executeScript: ReturnType<typeof createMockFn<ScriptingService['executeScript']>>;
-  notifyInjectionFailure: Mock<(...args: []) => Promise<void>>;
+  notifyInjectionFailure: Mock<(message: string) => Promise<void>>;
+  notifyClipFailure: Mock<(error: string | object) => Promise<void>>;
   getOptions: Mock<
     (...args: []) => Promise<{
       fragmentClipper: { selectionModifierEnabled: boolean; selectionModifierKeys: string[] };
@@ -81,8 +82,11 @@ export async function loadModule(
       async (tabId: number) => ({ id: tabId, url: 'https://example.com/page' }) as chrome.tabs.Tab
     ),
     sendMessage: createMockFn<TabsService['sendMessage']>().mockResolvedValue(undefined),
-    executeScript: createMockFn<ScriptingService['executeScript']>().mockResolvedValue(undefined),
-    notifyInjectionFailure: vi.fn<(...args: []) => Promise<void>>(() => Promise.resolve()),
+    executeScript: createMockFn<ScriptingService['executeScript']>().mockResolvedValue([
+      { documentId: 'document-0', frameId: 0, result: { ready: true } }
+    ]),
+    notifyInjectionFailure: vi.fn<(message: string) => Promise<void>>(() => Promise.resolve()),
+    notifyClipFailure: vi.fn<(error: string | object) => Promise<void>>(() => Promise.resolve()),
     getOptions: vi.fn<
       (...args: []) => Promise<{
         fragmentClipper: { selectionModifierEnabled: boolean; selectionModifierKeys: string[] };
@@ -118,7 +122,8 @@ export async function loadModule(
   }));
 
   vi.doMock('../../../src/background/services/notifications', () => ({
-    notifyInjectionFailure: rig.notifyInjectionFailure
+    notifyInjectionFailure: rig.notifyInjectionFailure,
+    notifyClipFailure: rig.notifyClipFailure
   }));
 
   const mod = await import('../../../src/background/listeners/contextMenus');

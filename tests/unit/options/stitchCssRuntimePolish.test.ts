@@ -8,6 +8,10 @@ const CSS_IMPORT_PATTERN =
 const stitchCss = readCssWithImports(
   resolve(process.cwd(), 'src/options/stitch/styles/stitch.css')
 );
+const previewFixtureCss = readFileSync(
+  resolve(process.cwd(), 'tests/fixtures/options-preview/styles/preview.css'),
+  'utf8'
+);
 
 function readCssWithImports(path: string, importStack = new Set<string>()): string {
   if (importStack.has(path)) {
@@ -251,14 +255,35 @@ describe('Stitch runtime polish CSS contracts', () => {
     expect(stitchCss).toContain('.yaml-actions .yaml-action-button');
   });
 
-  it('brightens resource SVG icons in dark mode without filtering QR media', () => {
+  it('themes resource SVG icons only on dark document or runtime surfaces', () => {
+    expect(stitchCss).toMatch(/\.resource-link-icon\s*{[^}]*filter:\s*none;/);
     expect(stitchCss).toMatch(
-      /html\[data-preview-theme='dark'\]\s+\.resource-link-icon\[src\$='\.svg'\]\s*{[^}]*filter:\s*brightness\(0\)\s+invert\(1\);/
+      /:is\(html\[data-preview-theme='dark'\],\s*\.stitch-runtime-surface\[data-preview-theme='dark'\]\)\s+\.resource-link-icon\[src\$='\.svg'\]\s*{[^}]*filter:\s*brightness\(0\)\s+invert\(1\);/
     );
     expect(stitchCss).toContain('.resource-inline-popover-media');
     expect(stitchCss).not.toMatch(/\.resource-link-preview\s*{[^}]*filter:/);
     expect(stitchCss).not.toMatch(/\.resource-image-modal-media\s*{[^}]*filter:/);
     expect(stitchCss).not.toMatch(/\.resource-inline-popover-media\s*{[^}]*filter:/);
+  });
+
+  it('themes task support SVG icons without inverting them in light mode', () => {
+    expect(stitchCss).toMatch(/\.task-support-logo\s*{[^}]*filter:\s*none;/);
+    expect(stitchCss).not.toMatch(/\.task-support-logo\s*{[^}]*filter:\s*invert\(/);
+    expect(stitchCss).toMatch(
+      /:is\(html\[data-preview-theme='dark'\],\s*\.stitch-runtime-surface\[data-preview-theme='dark'\]\)\s+\.task-support-logo\[src\$='\.svg'\]\s*{[^}]*filter:\s*brightness\(0\)\s+invert\(1\);[^}]*opacity:\s*0\.92;/
+    );
+  });
+
+  it('keeps the preview fixture aligned with production icon theme contracts', () => {
+    expect(previewFixtureCss).toMatch(/\.resource-link-icon\s*{[^}]*filter:\s*none;/);
+    expect(previewFixtureCss).toMatch(/\.task-support-logo\s*{[^}]*filter:\s*none;/);
+    expect(previewFixtureCss).not.toMatch(/\.task-support-logo\s*{[^}]*filter:\s*invert\(/);
+    expect(previewFixtureCss).toMatch(
+      /:is\(html\[data-preview-theme='dark'\],\s*\.stitch-runtime-surface\[data-preview-theme='dark'\]\)\s+\.resource-link-icon\[src\$='\.svg'\]\s*{[^}]*filter:\s*brightness\(0\)\s+invert\(1\);/
+    );
+    expect(previewFixtureCss).toMatch(
+      /:is\(html\[data-preview-theme='dark'\],\s*\.stitch-runtime-surface\[data-preview-theme='dark'\]\)\s+\.task-support-logo\[src\$='\.svg'\]\s*{[^}]*filter:\s*brightness\(0\)\s+invert\(1\);/
+    );
   });
 
   it('keeps QR popovers readable above modal chrome with the requested Xiaohongshu sizing', () => {

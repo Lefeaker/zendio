@@ -297,9 +297,11 @@
   width: 32px;
   height: 32px;
   object-fit: contain;
+  filter: none;
 }
 
-html[data-preview-theme='dark'] .resource-link-icon[src$='.svg'] {
+:is(html[data-preview-theme='dark'], .stitch-runtime-surface[data-preview-theme='dark'])
+  .resource-link-icon[src$='.svg'] {
   filter: brightness(0) invert(1);
   opacity: 0.92;
 }
