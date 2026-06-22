@@ -264,6 +264,15 @@ function createScreenshot(
   };
 }
 
+function createThrowingBlob(): Blob {
+  const blob = new Blob(['firefox'], { type: 'image/jpeg' });
+  Object.defineProperty(blob, 'arrayBuffer', {
+    configurable: true,
+    value: () => Promise.reject(new Error('Permission denied to access property "constructor"'))
+  });
+  return blob;
+}
+
 function requireSavedRef(
   result: Awaited<ReturnType<ReturnType<typeof createVideoScreenshotCacheRepository>['save']>>,
   label = 'expected screenshot cache save to succeed'
@@ -510,6 +519,80 @@ describe('background-owned video screenshot cache client', () => {
     expect(blobStore.peek(legacyRef.key)).not.toBeNull();
     expect(await legacyArea.get(legacyRef.key)).toBeUndefined();
     expectNoLegacyPayloadRows(legacyArea);
+  });
+
+  it('saves dataUrl-only screenshots through the background cache owner', async () => {
+    const legacyArea = new MemoryStorageArea();
+    const blobStore = new MemoryBlobStore();
+    const client = createVideoScreenshotCacheClientRepository({
+      messaging: createClientMessaging(
+        createBackgroundVideoScreenshotCacheHandler(
+          { local: legacyArea },
+          { now: () => BASE_TIME },
+          { blobStore }
+        )
+      )
+    });
+
+    const saved = await client.save({
+      pageKey: 'page-firefox',
+      captureId: 'capture-firefox',
+      screenshot: {
+        id: 'shot-firefox',
+        fileName: 'shot-firefox.jpg',
+        mimeType: 'image/jpeg',
+        capturedAt: BASE_TIME,
+        dataUrl: 'data:image/jpeg;base64,ZmlyZWZveA=='
+      }
+    });
+    const ref = requireSavedRef(saved);
+
+    expect(blobStore.peek(ref.key)).not.toBeNull();
+    const loaded = await client.load(ref);
+    expect(loaded).toMatchObject({
+      id: 'shot-firefox',
+      fileName: 'shot-firefox.jpg',
+      mimeType: 'image/jpeg',
+      capturedAt: BASE_TIME
+    });
+    await expect(loaded?.content?.blob.text()).resolves.toBe('firefox');
+  });
+
+  it('saves the dataUrl fallback when Firefox blocks blob serialization in the content client', async () => {
+    const legacyArea = new MemoryStorageArea();
+    const blobStore = new MemoryBlobStore();
+    const client = createVideoScreenshotCacheClientRepository({
+      messaging: createClientMessaging(
+        createBackgroundVideoScreenshotCacheHandler(
+          { local: legacyArea },
+          { now: () => BASE_TIME },
+          { blobStore }
+        )
+      )
+    });
+
+    const saved = await client.save({
+      pageKey: 'page-firefox',
+      captureId: 'capture-firefox',
+      screenshot: {
+        id: 'shot-firefox-fallback',
+        fileName: 'shot-firefox-fallback.jpg',
+        mimeType: 'image/jpeg',
+        capturedAt: BASE_TIME,
+        dataUrl: 'data:image/jpeg;base64,ZmlyZWZveA==',
+        content: {
+          kind: 'blob',
+          blob: createThrowingBlob(),
+          byteLength: 7
+        }
+      }
+    });
+    const ref = requireSavedRef(saved);
+
+    expect(blobStore.peek(ref.key)).not.toBeNull();
+    const loaded = await client.load(ref);
+    await expect(loaded?.content?.blob.text()).resolves.toBe('firefox');
+    expectNoLegacyScreenshotCacheWrites(legacyArea);
   });
 
   it('serializes removeMany and prune operations through the background owner and deletes blob entries', async () => {

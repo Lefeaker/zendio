@@ -9,26 +9,24 @@ export type BrowserType = 'chrome' | 'firefox' | 'firefox-mobile' | 'edge' | 'sa
  * 检测当前浏览器类型
  */
 export function detectBrowser(): BrowserType {
-  // 在扩展环境中检测
-  if (typeof chrome !== 'undefined' && chrome.runtime) {
-    // 检测是否为 Edge（基于 Chromium）
-    if (navigator.userAgent.includes('Edg/')) {
-      return 'edge';
-    }
-    return 'chrome';
+  const userAgent = getNavigatorUserAgent().toLowerCase();
+  const browserFromUserAgent = detectBrowserFromUserAgent(userAgent);
+  if (browserFromUserAgent !== 'unknown') {
+    return browserFromUserAgent;
   }
 
   if (typeof browser !== 'undefined' && browser.runtime) {
-    // Firefox 环境
-    if (navigator.userAgent.includes('Mobile')) {
-      return 'firefox-mobile';
-    }
     return 'firefox';
   }
 
-  // 在网页环境中检测
-  const userAgent = navigator.userAgent.toLowerCase();
+  if (typeof chrome !== 'undefined' && chrome.runtime) {
+    return 'chrome';
+  }
 
+  return 'unknown';
+}
+
+function detectBrowserFromUserAgent(userAgent: string): BrowserType {
   if (userAgent.includes('firefox')) {
     return userAgent.includes('mobile') ? 'firefox-mobile' : 'firefox';
   }
@@ -46,6 +44,10 @@ export function detectBrowser(): BrowserType {
   }
 
   return 'unknown';
+}
+
+function getNavigatorUserAgent(): string {
+  return typeof navigator !== 'undefined' ? navigator.userAgent : '';
 }
 
 /**
@@ -70,7 +72,7 @@ export function isMobile(): boolean {
   const browser = detectBrowser();
   return (
     browser === 'firefox-mobile' ||
-    /Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
+    /Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(getNavigatorUserAgent())
   );
 }
 
@@ -120,7 +122,7 @@ export function addBrowserClassToHtml(): void {
  * 获取浏览器版本信息
  */
 export function getBrowserVersion(): string {
-  const userAgent = navigator.userAgent;
+  const userAgent = getNavigatorUserAgent();
   const browser = detectBrowser();
 
   let match: RegExpMatchArray | null = null;

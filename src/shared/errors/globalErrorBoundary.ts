@@ -14,6 +14,14 @@ export interface GlobalErrorBoundaryOptions {
   errorHandler?: ErrorHandlerLike;
   metadata?: Record<string, unknown>;
   target?: ErrorBoundaryTarget;
+  shouldReport?: (report: GlobalErrorBoundaryReport) => boolean;
+}
+
+export interface GlobalErrorBoundaryReport {
+  event: Event;
+  eventType: 'error' | 'unhandledrejection';
+  reason: AppError['cause'];
+  metadata: NonNullable<AppError['context']>;
 }
 
 function normalizeThrownError(
@@ -70,32 +78,51 @@ export function registerGlobalErrorBoundary(options: GlobalErrorBoundaryOptions)
 
   const handleErrorEvent: EventListener = (event) => {
     const errorEvent = event as ErrorEvent;
-    const reportedError = buildUnhandledError(
-      'UNHANDLED_ERROR',
-      options.domain,
-      errorEvent.error ?? errorEvent.message,
-      {
-        ...options.metadata,
+    const metadata = {
+      ...options.metadata,
+      eventType: 'error' as const,
+      ...(errorEvent.filename ? { filename: errorEvent.filename } : {}),
+      ...(errorEvent.lineno ? { lineno: errorEvent.lineno } : {}),
+      ...(errorEvent.colno ? { colno: errorEvent.colno } : {})
+    };
+    const reason: AppError['cause'] = errorEvent.error ?? errorEvent.message;
+    if (
+      options.shouldReport?.({
+        event,
         eventType: 'error',
-        ...(errorEvent.filename ? { filename: errorEvent.filename } : {}),
-        ...(errorEvent.lineno ? { lineno: errorEvent.lineno } : {}),
-        ...(errorEvent.colno ? { colno: errorEvent.colno } : {})
-      }
-    );
+        reason,
+        metadata
+      }) === false
+    ) {
+      return;
+    }
+    const reportedError = buildUnhandledError('UNHANDLED_ERROR', options.domain, reason, metadata);
 
     void errorHandler.handle(reportedError, { suppressNotifications: true });
   };
 
   const handleUnhandledRejection: EventListener = (event) => {
     const rejectionEvent = event as PromiseRejectionEvent;
+    const reason: AppError['cause'] = rejectionEvent.reason;
+    const metadata = {
+      ...options.metadata,
+      eventType: 'unhandledrejection' as const
+    };
+    if (
+      options.shouldReport?.({
+        event,
+        eventType: 'unhandledrejection',
+        reason,
+        metadata
+      }) === false
+    ) {
+      return;
+    }
     const reportedError = buildUnhandledError(
       'UNHANDLED_REJECTION',
       options.domain,
-      rejectionEvent.reason,
-      {
-        ...options.metadata,
-        eventType: 'unhandledrejection'
-      }
+      reason,
+      metadata
     );
 
     void errorHandler.handle(reportedError, { suppressNotifications: true });

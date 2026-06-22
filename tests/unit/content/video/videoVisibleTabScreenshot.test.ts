@@ -1,7 +1,10 @@
 /* @vitest-environment jsdom */
 
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { createVisibleTabVideoFrameScreenshotCapture } from '@content/video/videoVisibleTabScreenshot';
+import {
+  createVisibleTabVideoFrameScreenshotCapture,
+  createVisibleTabVideoFrameScreenshotDataUrlCapture
+} from '@content/video/videoVisibleTabScreenshot';
 import { VIDEO_SCREENSHOT_CACHE_MAX_CONTENT_BYTES } from '@content/video/videoScreenshotCacheTypes';
 import {
   createCaptureVisibleTabScreenshotMessage,
@@ -59,8 +62,16 @@ function createCanvasHarness(
     canvas: HTMLCanvasElement;
     drawImage: ReturnType<typeof vi.fn>;
     toBlob: ReturnType<typeof vi.fn>;
+    toDataURL: ReturnType<typeof vi.fn>;
   }> = [];
   const blobAttempts: Array<{
+    width: number;
+    height: number;
+    quality: number | undefined;
+    type: string | undefined;
+    callIndex: number;
+  }> = [];
+  const dataUrlAttempts: Array<{
     width: number;
     height: number;
     quality: number | undefined;
@@ -86,6 +97,16 @@ function createCanvasHarness(
             : blobText(attempt);
         callback(blob);
       });
+      const toDataURL = vi.fn((type?: string, quality?: number) => {
+        dataUrlAttempts.push({
+          width: canvas.width,
+          height: canvas.height,
+          quality,
+          type,
+          callIndex: dataUrlAttempts.length
+        });
+        return 'data:image/jpeg;base64,Y3JvcHBlZA==';
+      });
       Object.defineProperty(canvas, 'getContext', {
         configurable: true,
         value: vi.fn(() => ({ drawImage }))
@@ -94,7 +115,11 @@ function createCanvasHarness(
         configurable: true,
         value: toBlob
       });
-      canvases.push({ canvas, drawImage, toBlob });
+      Object.defineProperty(canvas, 'toDataURL', {
+        configurable: true,
+        value: toDataURL
+      });
+      canvases.push({ canvas, drawImage, toBlob, toDataURL });
       return canvas;
     }
     return originalCreateElement(tagName);
@@ -102,6 +127,7 @@ function createCanvasHarness(
   return {
     canvases,
     blobAttempts,
+    dataUrlAttempts,
     restore() {
       createElementSpy.mockRestore();
     }
@@ -283,5 +309,51 @@ describe('createVisibleTabVideoFrameScreenshotCapture', () => {
 
     await expect(capture(document.createElement('video'), 42, 123)).resolves.toBeNull();
     expect(messaging.send).toHaveBeenCalledWith(createCaptureVisibleTabScreenshotMessage());
+  });
+
+  it('captures Firefox visible-tab screenshots as data URLs without creating Blob-backed content', async () => {
+    installImageMock({ width: 3840, height: 2160 });
+    Object.defineProperty(window, 'innerWidth', {
+      configurable: true,
+      value: 1920
+    });
+    Object.defineProperty(window, 'innerHeight', {
+      configurable: true,
+      value: 1080
+    });
+    const canvasHarness = createCanvasHarness();
+    const video = document.createElement('video');
+    vi.spyOn(video, 'getBoundingClientRect').mockReturnValue(new DOMRect(0, 0, 1920, 1080));
+    const response: CaptureVisibleTabScreenshotResponse = {
+      success: true,
+      dataUrl: 'data:image/jpeg;base64,frame'
+    };
+    const messaging = {
+      send: vi.fn(() => Promise.resolve(response))
+    };
+    const capture = createVisibleTabVideoFrameScreenshotDataUrlCapture({
+      messaging: asType<Pick<MessagingService, 'send'>>(messaging)
+    });
+
+    const screenshot = await capture(video, 42, 123);
+
+    expect(messaging.send).toHaveBeenCalledWith(createCaptureVisibleTabScreenshotMessage());
+    expect(canvasHarness.dataUrlAttempts).toEqual([
+      {
+        width: 1280,
+        height: 720,
+        quality: 0.78,
+        type: 'image/jpeg',
+        callIndex: 0
+      }
+    ]);
+    expect(canvasHarness.blobAttempts).toEqual([]);
+    expect(screenshot).toMatchObject({
+      mimeType: 'image/jpeg',
+      capturedAt: 123,
+      dataUrl: 'data:image/jpeg;base64,Y3JvcHBlZA=='
+    });
+    expect(screenshot?.content).toBeUndefined();
+    canvasHarness.restore();
   });
 });

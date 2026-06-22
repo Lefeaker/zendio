@@ -142,6 +142,7 @@ export class VideoSession {
       doc: this.doc,
       getCaptures: () => this.getTimestampCaptures(),
       getVisibleVideo: () => this.state.videoElement,
+      captureFrame: this.dependencies.captureVideoFrameScreenshot,
       captureVisibleFrame: this.dependencies.captureVisibleVideoFrameScreenshot,
       onScreenshotPrepared: (capture, screenshot) => {
         void this.persistPreparedScreenshot(capture, screenshot);

@@ -46,6 +46,7 @@ export {
   FUTURE_PRODUCT_EVENT_NAMES,
   INVENTORY_ONLY_EVENT_NAMES,
   RUNTIME_USAGE_EVENT_NAMES,
+  createAnalyticsEventAck,
   createAnalyticsEventMessage,
   getAnalyticsAllowedParams,
   hasRequiredUsageEventParams,
@@ -55,6 +56,7 @@ export {
   sanitizeUsageEventParams
 } from '../analytics';
 export type {
+  AnalyticsRuntimeEventAck,
   AnalyticsRuntimeEventCompatibilityPayload,
   AnalyticsRuntimeEventPayload
 } from '../analytics';

@@ -1,6 +1,7 @@
 import { VIDEO_SCREENSHOT_CACHE_MAX_CONTENT_BYTES } from './videoScreenshotCacheTypes';
 
 export const SCREENSHOT_MIME_TYPE = 'image/jpeg';
+export const SCREENSHOT_DATA_URL_PREFIX = `data:${SCREENSHOT_MIME_TYPE};base64,`;
 export const VIDEO_SCREENSHOT_ENCODING_MAX_BYTES = VIDEO_SCREENSHOT_CACHE_MAX_CONTENT_BYTES;
 export const VIDEO_SCREENSHOT_ENCODING_QUALITY_LADDER = [0.78, 0.7, 0.62] as const;
 export const VIDEO_SCREENSHOT_ENCODING_MAX_EDGE_LADDER = [1280, 960, 720] as const;
@@ -38,6 +39,41 @@ export async function encodeCanvasToBudgetedBlob(
       const normalizedBlob = normalizeBlobMimeType(blob);
       if (normalizedBlob.size <= maxBytes) {
         return normalizedBlob;
+      }
+    }
+  }
+
+  return null;
+}
+
+export function encodeCanvasToBudgetedDataUrl(
+  canvas: HTMLCanvasElement,
+  options?: {
+    maxBytes?: number;
+    qualityLadder?: readonly number[];
+    maxEdgeLadder?: readonly number[];
+  }
+): string | null {
+  const maxBytes =
+    normalizePositiveInteger(options?.maxBytes) ?? VIDEO_SCREENSHOT_ENCODING_MAX_BYTES;
+  const qualityLadder =
+    normalizeNumberSequence(options?.qualityLadder) ?? VIDEO_SCREENSHOT_ENCODING_QUALITY_LADDER;
+  const maxEdgeLadder =
+    normalizeNumberSequence(options?.maxEdgeLadder) ?? VIDEO_SCREENSHOT_ENCODING_MAX_EDGE_LADDER;
+
+  if (qualityLadder.length === 0 || maxEdgeLadder.length === 0) {
+    return null;
+  }
+
+  for (const maxEdge of maxEdgeLadder) {
+    const resizedCanvas = resizeCanvasToMaxEdge(canvas, maxEdge);
+    if (!resizedCanvas) {
+      return null;
+    }
+    for (const quality of qualityLadder) {
+      const dataUrl = encodeCanvasToDataUrl(resizedCanvas, quality);
+      if (isJpegDataUrl(dataUrl) && getJpegDataUrlByteLength(dataUrl) <= maxBytes) {
+        return dataUrl;
       }
     }
   }
@@ -90,10 +126,27 @@ async function encodeCanvasToBlob(
   });
 }
 
+function encodeCanvasToDataUrl(canvas: HTMLCanvasElement, quality: number): string | null {
+  if (typeof canvas.toDataURL !== 'function') {
+    return null;
+  }
+  return canvas.toDataURL(SCREENSHOT_MIME_TYPE, quality);
+}
+
 function normalizeBlobMimeType(blob: Blob): Blob {
   return blob.type === SCREENSHOT_MIME_TYPE
     ? blob
     : new Blob([blob], { type: SCREENSHOT_MIME_TYPE });
+}
+
+export function isJpegDataUrl(dataUrl: string | null): dataUrl is string {
+  return typeof dataUrl === 'string' && dataUrl.startsWith(SCREENSHOT_DATA_URL_PREFIX);
+}
+
+export function getJpegDataUrlByteLength(dataUrl: string): number {
+  const base64 = dataUrl.slice(SCREENSHOT_DATA_URL_PREFIX.length);
+  const padding = base64.endsWith('==') ? 2 : base64.endsWith('=') ? 1 : 0;
+  return Math.floor((base64.length * 3) / 4) - padding;
 }
 
 function resolveResizedCanvasDimensions(

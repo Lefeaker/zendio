@@ -1,7 +1,4 @@
-import {
-  serializeBlobAttachmentContent,
-  serializedAttachmentContentToBlob
-} from '../../shared/attachments/clipAttachmentBinary';
+import { serializedAttachmentContentToBlob } from '../../shared/attachments/clipAttachmentBinary';
 import type { MessagingService } from '../../platform/interfaces/messaging';
 import type { VideoCaptureScreenshot } from './types';
 import type {
@@ -16,17 +13,10 @@ import {
   type VideoScreenshotCacheResponse
 } from './videoScreenshotCacheMessages';
 import type { VideoScreenshotCacheRef } from './videoScreenshotCacheTypes';
+import { serializeVideoScreenshotAttachment } from './videoScreenshotAttachmentSerialization';
 
 export interface VideoScreenshotCacheClientRepositoryOptions {
   messaging: Pick<MessagingService, 'send'>;
-}
-
-function hasBlobContent(
-  screenshot: VideoCaptureScreenshot
-): screenshot is VideoCaptureScreenshot & {
-  content: NonNullable<VideoCaptureScreenshot['content']>;
-} {
-  return screenshot.content?.kind === 'blob';
 }
 
 function errorMessage(error: Error | string): string {
@@ -48,16 +38,18 @@ function isVideoScreenshotCacheResponse(
 }
 
 async function serializeScreenshot(
-  screenshot: VideoCaptureScreenshot & {
-    content: NonNullable<VideoCaptureScreenshot['content']>;
+  screenshot: VideoCaptureScreenshot
+): Promise<SerializedVideoScreenshotCacheScreenshot | null> {
+  const attachment = await serializeVideoScreenshotAttachment(screenshot);
+  if (!attachment) {
+    return null;
   }
-): Promise<SerializedVideoScreenshotCacheScreenshot> {
   return {
     id: screenshot.id,
     fileName: screenshot.fileName,
     mimeType: screenshot.mimeType,
     capturedAt: screenshot.capturedAt,
-    content: await serializeBlobAttachmentContent(screenshot.content.blob)
+    ...('content' in attachment ? { content: attachment.content } : { dataUrl: attachment.dataUrl })
   };
 }
 
@@ -65,10 +57,15 @@ function deserializeScreenshot(
   screenshot: SerializedVideoScreenshotCacheScreenshot
 ): VideoCaptureScreenshot {
   const blob = serializedAttachmentContentToBlob(
-    {
-      kind: 'base64',
-      binary: screenshot.content
-    },
+    screenshot.content
+      ? {
+          kind: 'base64',
+          binary: screenshot.content
+        }
+      : {
+          kind: 'legacyDataUrl',
+          dataUrl: screenshot.dataUrl ?? ''
+        },
     screenshot.mimeType
   );
 
@@ -80,7 +77,7 @@ function deserializeScreenshot(
     content: {
       kind: 'blob',
       blob,
-      byteLength: screenshot.content.byteLength
+      byteLength: blob.size
     }
   };
 }
@@ -111,18 +108,17 @@ export function createVideoScreenshotCacheClientRepository({
 
   return {
     async save(input: VideoScreenshotCacheSaveInput): Promise<VideoScreenshotCacheSaveResult> {
-      if (!hasBlobContent(input.screenshot)) {
-        return {
-          status: 'skipped',
-          reason: 'missing-blob-content'
-        };
-      }
-
-      let screenshot: SerializedVideoScreenshotCacheScreenshot;
+      let screenshot: SerializedVideoScreenshotCacheScreenshot | null;
       try {
         screenshot = await serializeScreenshot(input.screenshot);
       } catch (error) {
         return messageFailure(error instanceof Error ? error : String(error));
+      }
+      if (!screenshot) {
+        return {
+          status: 'skipped',
+          reason: 'missing-blob-content'
+        };
       }
 
       try {

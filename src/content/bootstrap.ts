@@ -1,6 +1,7 @@
 import { createScopedRegistry, registry, TOKENS, type ScopedServiceRegistry } from '../shared/di';
 import { createErrorHandler, type ErrorHandler } from '../shared/errors/errorHandler';
 import { registerGlobalErrorBoundary } from '../shared/errors/globalErrorBoundary';
+import { shouldReportContentGlobalError } from './contentErrorSourcePolicy';
 import {
   configureGlobalStateManagerStorage,
   createGlobalStateManager
@@ -156,6 +157,7 @@ export class ContentScriptContext {
       metadata: {
         extensionContext: 'content'
       },
+      shouldReport: shouldReportContentGlobalError,
       target: window
     });
     this.initializeErrorAnalytics(resolvedStorage, errorHandler);
