@@ -22,13 +22,6 @@ import type { ClipPayload } from '../../shared/types';
 import type { ReaderSessionDependencies as FullReaderSessionDependencies } from './sessionTypes';
 import {
   createSessionMutationRunner,
-  createSessionDraftPersister,
-  createSessionDraftRepository,
-  createSessionDraftStorageKey,
-  finalizeTerminalSessionDraft,
-  type ReaderSessionDraftEnvelope,
-  type SessionDraftPersister,
-  type SessionDraftStatus,
   type SessionDraftTerminalStatus,
   type SessionMutationTransaction
 } from '../sessionDrafts';
@@ -44,12 +37,8 @@ import {
   submitReaderHighlightEdit,
   trackReaderUsageEvent
 } from './sessionOperations';
-import {
-  buildReaderSessionDraftEnvelope,
-  createReaderSessionDraftId,
-  loadLatestReaderSessionDraftResult,
-  restoreReaderSessionDraftHighlights
-} from './sessionDrafts';
+import { restoreReaderSessionDraftHighlights } from './sessionDrafts';
+import { ReaderSessionDraftController } from './readerSessionDraftController';
 
 const ADD_HIGHLIGHT_EVENT = 'aiob-reader:add-highlight';
 
@@ -63,14 +52,21 @@ export class ReaderSession {
   private readonly environment: ReaderEnvironmentController;
   private readonly lifecycle: ReaderSessionLifecycle;
   private readonly destinationState: ContentExportDestinationState;
-  private readonly draftRepository: ReturnType<typeof createSessionDraftRepository>;
-  private readonly draftPersister: SessionDraftPersister;
+  private readonly draftController: ReaderSessionDraftController;
   private readonly draftMutationRunner = createSessionMutationRunner();
-  private draftId: string | null = null;
-  private draftCreatedAt: number | null = null;
-  private draftStorageKey: string | null = null;
   private pendingDraftMutations = 0;
-  private removeDraftLifecycleListeners: (() => void) | null = null;
+
+  private get draftId(): string | null {
+    return this.draftController.identity.draftId;
+  }
+
+  private get draftCreatedAt(): number | null {
+    return this.draftController.identity.draftCreatedAt;
+  }
+
+  private get draftStorageKey(): string | null {
+    return this.draftController.identity.draftStorageKey;
+  }
 
   private get operationContext() {
     return {
@@ -168,12 +164,19 @@ export class ReaderSession {
       () => this.createDestinationPayload(),
       this.dependencies.optionsPageUrl
     );
-    this.draftRepository = createSessionDraftRepository(this.dependencies.storage.local, {
-      retentionPolicy: this.dependencies.sessionDraftStoragePolicy?.retentionPolicy
-    });
-    this.draftPersister = createSessionDraftPersister({
-      repository: this.draftRepository,
-      buildEnvelope: () => this.buildDraftEnvelope('active')
+    const sessionDraftRetentionPolicy =
+      this.dependencies.sessionDraftStoragePolicy?.retentionPolicy;
+    this.draftController = new ReaderSessionDraftController({
+      doc: this.doc,
+      pageUrl: this.url,
+      storageArea: this.dependencies.storage.local,
+      getPageTitle: () => this.getDraftPageTitle(),
+      getHighlights: () => this.state.highlights,
+      getCommentDrafts: () => this.panelCoordinator.snapshotCommentDrafts(),
+      getDestinationMetadata: () => this.destinationState.metadata,
+      onPersistenceFailure: () =>
+        this.panelCoordinator.applyHint('failure', this.state.highlights.length),
+      ...(sessionDraftRetentionPolicy ? { retentionPolicy: sessionDraftRetentionPolicy } : {})
     });
   }
 
@@ -232,7 +235,7 @@ export class ReaderSession {
 
     try {
       await this.lifecycle.start();
-      this.bindDraftLifecycleListeners();
+      this.draftController.bindLifecycleListeners();
       this.state.analyticsTimer = createFeatureTimer();
       this.state.analyticsSource = 'unknown';
       this.applyInitialDestination(initialHighlights);
@@ -298,11 +301,7 @@ export class ReaderSession {
   private async hydrateStoredDraft(): Promise<boolean> {
     const restoreDurationBucket = this.state.analyticsTimer?.durationBucket() ?? 'under_100ms';
     try {
-      const loadedDraftResult = await loadLatestReaderSessionDraftResult(
-        this.draftRepository,
-        this.dependencies.storage.local,
-        this.url
-      );
+      const loadedDraftResult = await this.draftController.loadLatestResult();
       if (loadedDraftResult.status === 'none') {
         return false;
       }
@@ -323,9 +322,7 @@ export class ReaderSession {
           highlights: loadedDraft.payload.highlights
         });
 
-        this.draftId = loadedDraft.envelope.draftId;
-        this.draftCreatedAt = loadedDraft.envelope.createdAt;
-        this.draftStorageKey = loadedDraft.storageKey;
+        this.draftController.claimLoadedDraft(loadedDraft);
         this.destinationState.applyMetadata(loadedDraft.payload.destination);
         this.panelCoordinator.hydrateCommentDrafts(loadedDraft.payload.commentDrafts);
         this.state.highlights = restored.highlights;
@@ -476,144 +473,28 @@ export class ReaderSession {
     void cancelReaderSession(this.operationContext);
   }
 
-  private buildDraftEnvelope(status: SessionDraftStatus) {
-    const now = Date.now();
-    const draftId = this.draftId ?? createReaderSessionDraftId(now);
-    const createdAt = this.draftCreatedAt ?? now;
-    const pageTitle = this.doc.title || this.parseCurrentUrl()?.hostname || 'Untitled';
-    const envelope = buildReaderSessionDraftEnvelope({
-      draftId,
-      createdAt,
-      now,
-      pageUrl: this.url,
-      pageTitle,
-      highlights: this.state.highlights,
-      commentDrafts: this.panelCoordinator.snapshotCommentDrafts(),
-      retentionPolicy: this.dependencies.sessionDraftStoragePolicy?.retentionPolicy,
-      status,
-      ...(this.destinationState.metadata ? { destination: this.destinationState.metadata } : {})
-    });
-
-    if (!envelope) {
-      return null;
-    }
-
-    this.draftId = draftId;
-    this.draftCreatedAt = createdAt;
-    this.draftStorageKey = createSessionDraftStorageKey({
-      mode: envelope.mode,
-      pageKey: envelope.pageKey,
-      draftId: envelope.draftId
-    });
-    return envelope;
+  private buildDraftEnvelope(status: Parameters<ReaderSessionDraftController['buildEnvelope']>[0]) {
+    return this.draftController.buildEnvelope(status);
   }
 
-  private hasPersistableDraftContent(): boolean {
-    return (
-      this.state.highlights.length > 0 ||
-      Object.keys(this.panelCoordinator.snapshotCommentDrafts()).length > 0
-    );
+  private getDraftPageTitle(): string {
+    return this.doc.title || this.parseCurrentUrl()?.hostname || 'Untitled';
   }
 
   private async persistDraftMutation(): Promise<void> {
-    if (!this.hasPersistableDraftContent()) {
-      await this.clearPersistedDraft();
-      return;
-    }
-
-    await this.draftPersister.scheduleSave();
+    await this.draftController.persistMutation();
   }
 
   private queueDraftPersistence(): void {
-    void this.persistDraftMutation().catch((error) => {
-      console.warn('[ReaderSession] Failed to persist session draft:', error);
-    });
+    this.draftController.queuePersistence();
   }
 
   private autosaveCommentDraftMutation(): void {
-    void this.persistDraftMutation().catch((error) => {
-      console.warn('[ReaderSession] Failed to persist session draft:', error);
-      this.panelCoordinator.applyHint('failure', this.state.highlights.length);
-    });
+    this.draftController.autosaveCommentDraftMutation();
   }
 
   private async finalizeTerminalDraft(status: SessionDraftTerminalStatus): Promise<boolean> {
-    if (status === 'discarded' && !this.draftStorageKey) {
-      return true;
-    }
-
-    let draftStorageKey: string | null = null;
-    return finalizeTerminalSessionDraft<ReaderSessionDraftEnvelope>({
-      repository: this.draftRepository,
-      flushPendingDraft: () => this.draftPersister.flushNow(),
-      buildTerminalEnvelopes: async () => {
-        const terminalEnvelope = await this.buildTerminalDraftEnvelope(status);
-        if (!terminalEnvelope) {
-          return [];
-        }
-
-        draftStorageKey =
-          this.draftStorageKey ??
-          createSessionDraftStorageKey({
-            mode: terminalEnvelope.mode,
-            pageKey: terminalEnvelope.pageKey,
-            draftId: terminalEnvelope.draftId
-          });
-
-        this.draftId = terminalEnvelope.draftId;
-        this.draftCreatedAt = terminalEnvelope.createdAt;
-        this.draftStorageKey = draftStorageKey;
-        return [terminalEnvelope];
-      },
-      cleanupTerminalDrafts: async () => {
-        if (draftStorageKey) {
-          await this.draftRepository.remove({ key: draftStorageKey });
-        }
-      },
-      onFlushError: (error) => {
-        console.warn(
-          '[ReaderSession] Failed to flush session draft before terminal finalization:',
-          error
-        );
-      },
-      onSaveError: (error) => {
-        console.warn('[ReaderSession] Failed to finalize terminal session draft:', error);
-      },
-      onCleanupError: (error) => {
-        console.warn(
-          '[ReaderSession] Failed to remove terminal session draft after finalization:',
-          error
-        );
-      }
-    });
-  }
-
-  private async buildTerminalDraftEnvelope(
-    status: SessionDraftTerminalStatus
-  ): Promise<ReaderSessionDraftEnvelope | null> {
-    const currentEnvelope = this.buildDraftEnvelope(status);
-    if (currentEnvelope) {
-      return currentEnvelope;
-    }
-
-    if (!this.draftStorageKey) {
-      return null;
-    }
-
-    const stored = await this.dependencies.storage.local.get<ReaderSessionDraftEnvelope>(
-      this.draftStorageKey
-    );
-    if (!stored || stored.mode !== 'reader') {
-      return null;
-    }
-
-    const now = Date.now();
-    return {
-      ...stored,
-      status,
-      updatedAt: now,
-      expiresAt: now
-    };
+    return this.draftController.finalizeTerminalDraft(status);
   }
 
   private async runDraftMutation<Result>(
@@ -631,73 +512,19 @@ export class ReaderSession {
   }
 
   private async clearPersistedDraft(): Promise<void> {
-    if (!this.draftStorageKey) {
-      return;
-    }
-
-    const draftStorageKey = this.draftStorageKey;
-    await this.draftRepository.remove({ key: draftStorageKey });
-    if (this.draftStorageKey === draftStorageKey) {
-      this.draftId = null;
-      this.draftCreatedAt = null;
-      this.draftStorageKey = null;
-    }
+    await this.draftController.clearPersistedDraft();
   }
 
   private async discardStoredDraftCandidate(storageKey: string): Promise<void> {
-    try {
-      await this.draftRepository.remove({ key: storageKey });
-    } catch (error) {
-      console.warn('[ReaderSession] Failed to discard invalid stored session draft:', error);
-    }
-    if (this.draftStorageKey === storageKey) {
-      this.draftId = null;
-      this.draftCreatedAt = null;
-      this.draftStorageKey = null;
-    }
-  }
-
-  private bindDraftLifecycleListeners(): void {
-    if (this.removeDraftLifecycleListeners) {
-      return;
-    }
-
-    const onPageHide = () => {
-      void this.flushDraftForRestore();
-    };
-    const onBeforeUnload = () => {
-      void this.flushDraftForRestore();
-    };
-    this.doc.defaultView?.addEventListener('pagehide', onPageHide, { passive: true });
-    this.doc.defaultView?.addEventListener('beforeunload', onBeforeUnload);
-    this.removeDraftLifecycleListeners = () => {
-      this.doc.defaultView?.removeEventListener('pagehide', onPageHide);
-      this.doc.defaultView?.removeEventListener('beforeunload', onBeforeUnload);
-      this.removeDraftLifecycleListeners = null;
-    };
+    await this.draftController.discardStoredDraftCandidate(storageKey);
   }
 
   private async flushDraftForRestore(): Promise<void> {
-    try {
-      await this.draftPersister.flushNow();
-      const envelope = this.buildDraftEnvelope('restorable');
-      if (!envelope) {
-        await this.clearPersistedDraft();
-        return;
-      }
-      await this.draftRepository.save(envelope);
-    } catch (error) {
-      console.warn('[ReaderSession] Failed to flush restorable session draft:', error);
-    }
+    await this.draftController.flushForRestore();
   }
 
   private async disposeDraftPersistence(): Promise<void> {
-    this.removeDraftLifecycleListeners?.();
-    try {
-      await this.draftPersister.dispose();
-    } catch (error) {
-      console.warn('[ReaderSession] Failed to dispose session draft persister:', error);
-    }
+    await this.draftController.dispose();
   }
 
   private cleanup(): void {
