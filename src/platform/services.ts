@@ -16,16 +16,28 @@ import { registry, TOKENS } from '../shared/di';
 import { createFetchRestClient } from '../infrastructure/restClient';
 import { configureSessionDraftRuntimeMessenger } from '../content/sessionDrafts/sessionDraftTabContext';
 import { configureI18nRuntimeLanguageProvider } from '../i18n';
+import { detectBrowser } from '../shared/utils/browserDetection';
 /**
  * 检测当前浏览器环境
  */
 function detectBrowserEnvironment(): 'chrome' | 'firefox' | 'unknown' {
+  const detectedBrowser = detectBrowser();
+  if (
+    (detectedBrowser === 'firefox' || detectedBrowser === 'firefox-mobile') &&
+    typeof browser !== 'undefined' &&
+    browser.runtime
+  ) {
+    return 'firefox';
+  }
+
+  if (typeof browser !== 'undefined' && browser.runtime && typeof chrome === 'undefined') {
+    return 'firefox';
+  }
+
   if (typeof chrome !== 'undefined' && chrome.runtime) {
     return 'chrome';
   }
-  if (typeof browser !== 'undefined' && browser.runtime) {
-    return 'firefox';
-  }
+
   return 'unknown';
 }
 

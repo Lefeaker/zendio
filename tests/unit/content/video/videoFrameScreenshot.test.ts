@@ -9,7 +9,8 @@ import {
 import { VIDEO_SCREENSHOT_CACHE_MAX_CONTENT_BYTES } from '@content/video/videoScreenshotCacheTypes';
 import {
   captureVideoFrameScreenshot,
-  captureVideoFrameScreenshotAsync
+  captureVideoFrameScreenshotAsync,
+  captureVideoFrameScreenshotDataUrl
 } from '@content/video/videoFrameScreenshot';
 import type { VideoTimestampCapture } from '@content/video/types';
 
@@ -350,6 +351,34 @@ describe('captureVideoFrameScreenshot', () => {
     await expect(captureVideoFrameScreenshotAsync(harness.video, 42, 1)).resolves.toBeNull();
     expect(harness.blobAttempts).toEqual([]);
     expect(harness.dataUrlAttempts).toEqual([]);
+
+    harness.restore();
+  });
+
+  it('captures a Firefox-safe dataUrl screenshot without blob content', () => {
+    const harness = createCaptureCanvasHarness({
+      toDataURL: () => 'data:image/jpeg;base64,ZmlyZWZveC1mcmFtZQ=='
+    });
+
+    const screenshot = captureVideoFrameScreenshotDataUrl(harness.video, 42, 1);
+
+    expect(harness.canvases[0]?.drawImage).toHaveBeenCalledWith(harness.video, 0, 0, 640, 360);
+    expect(harness.blobAttempts).toEqual([]);
+    expect(harness.dataUrlAttempts).toEqual([
+      {
+        width: 640,
+        height: 360,
+        quality: 0.78,
+        type: 'image/jpeg',
+        callIndex: 0
+      }
+    ]);
+    expect(screenshot?.id).toMatch(/^screenshot-/u);
+    expect(screenshot?.fileName).toMatch(/^file-\d{17}\.jpg$/u);
+    expect(screenshot?.mimeType).toBe('image/jpeg');
+    expect(screenshot?.capturedAt).toBe(1);
+    expect(screenshot?.dataUrl).toBe('data:image/jpeg;base64,ZmlyZWZveC1mcmFtZQ==');
+    expect(screenshot).not.toHaveProperty('content');
 
     harness.restore();
   });

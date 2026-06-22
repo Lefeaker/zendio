@@ -108,6 +108,43 @@ describe('VideoSessionExporter', () => {
     await expect(restoredBlob.text()).resolves.toBe('frame-live');
   });
 
+  it('exports Firefox-safe dataUrl screenshots through the existing attachment flow', async () => {
+    const repository = createRepository();
+    const exporter = new VideoSessionExporter(repository);
+
+    await exporter.export({
+      captures: [
+        createTimestampCapture('timestamp-firefox', 7, {
+          screenshotRequested: true,
+          screenshot: {
+            id: 'shot-firefox',
+            fileName: 'shot-firefox.jpg',
+            mimeType: 'image/jpeg',
+            capturedAt: 2_000_000_000_001,
+            dataUrl: 'data:image/jpeg;base64,ZmlyZWZveA=='
+          }
+        })
+      ],
+      videoTitle: 'Firefox Video',
+      canonicalUrl: 'https://video.example/watch?v=firefox',
+      videoUrl: 'https://video.example/watch?v=firefox',
+      platform: 'youtube',
+      messages: DEFAULT_SESSION_MESSAGES,
+      storageKey: 'video:firefox'
+    });
+
+    const exportedClip = readExportedClip(repository);
+    expect(exportedClip.content).toContain('![Screenshot](aiob-attachment:shot-firefox)');
+    expect(exportedClip.attachments).toEqual([
+      {
+        id: 'shot-firefox',
+        fileName: 'shot-firefox.jpg',
+        mimeType: 'image/jpeg',
+        dataUrl: 'data:image/jpeg;base64,ZmlyZWZveA=='
+      }
+    ]);
+  });
+
   it('filters missing requested screenshots while keeping live screenshot attachments exportable', async () => {
     const repository = createRepository();
     const exporter = new VideoSessionExporter(repository);

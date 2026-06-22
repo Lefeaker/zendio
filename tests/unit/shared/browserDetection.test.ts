@@ -44,6 +44,16 @@ describe('browserDetection', () => {
     expect(isChrome()).toBe(false);
   });
 
+  it('detects Firefox from user agent when Firefox also exposes the chrome runtime namespace', () => {
+    defineUserAgent('Mozilla/5.0 (Macintosh; rv:152.0) Gecko/20100101 Firefox/152.0');
+    installBrowserRuntime();
+    installChromeRuntime();
+
+    expect(detectBrowser()).toBe('firefox');
+    expect(isFirefox()).toBe(true);
+    expect(isChrome()).toBe(false);
+  });
+
   it('detects firefox mobile and adds html classes', () => {
     defineUserAgent('Mozilla/5.0 Firefox/124.0 Mobile');
     Reflect.deleteProperty(globalThis as typeof globalThis & { chrome?: unknown }, 'chrome');

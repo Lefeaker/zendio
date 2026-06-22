@@ -8,8 +8,13 @@ import type { MessagingService } from '../../platform/interfaces/messaging';
 import type { StorageService } from '../../platform/interfaces/storage';
 import type { RuntimeService } from '../../platform/interfaces/runtime';
 import type { SupportProgressReporter } from '../runtime/supportProgress';
-import { createVisibleTabVideoFrameScreenshotCapture } from './videoVisibleTabScreenshot';
+import {
+  createVisibleTabVideoFrameScreenshotCapture,
+  createVisibleTabVideoFrameScreenshotDataUrlCapture
+} from './videoVisibleTabScreenshot';
 import { createVideoScreenshotCacheClientRepository } from './videoScreenshotCacheClientRepository';
+import { captureVideoFrameScreenshotDataUrl } from './videoFrameScreenshot';
+import { isFirefox } from '../../shared/utils/browserDetection';
 
 export interface VideoSessionPlatformDependencies {
   // Content composition root now passes the primary repository contract.
@@ -25,6 +30,7 @@ export function createVideoSessionDependencies(
   deps: VideoSessionPlatformDependencies
 ): VideoSessionDependencies {
   const runtime = deps.runtime;
+  const firefox = isFirefox();
   return {
     viewFactory: createVideoPanelViewFactory(
       runtime
@@ -37,9 +43,12 @@ export function createVideoSessionDependencies(
     videoRepository:
       deps.videoRepository ?? resolveRepository<IVideoRepository>(DI_TOKENS.IVideoRepository),
     storage: deps.storage,
+    ...(firefox ? { captureVideoFrameScreenshot: captureVideoFrameScreenshotDataUrl } : {}),
     ...(deps.messaging
       ? {
-          captureVisibleVideoFrameScreenshot: createVisibleTabVideoFrameScreenshotCapture({
+          captureVisibleVideoFrameScreenshot: (firefox
+            ? createVisibleTabVideoFrameScreenshotDataUrlCapture
+            : createVisibleTabVideoFrameScreenshotCapture)({
             messaging: deps.messaging
           }),
           screenshotCacheRepository: createVideoScreenshotCacheClientRepository({

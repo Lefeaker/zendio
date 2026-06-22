@@ -13,7 +13,7 @@ import {
   isTestVaultConnectionMessage
 } from '../../shared/types';
 import { ClipPayloadSchema } from '../../shared/schemas';
-import { isTrackUsageEventMessage } from '../../shared/types/analytics';
+import { createAnalyticsEventAck, isTrackUsageEventMessage } from '../../shared/types/analytics';
 import {
   errorHandler,
   isAppError,
@@ -253,7 +253,7 @@ export function registerRuntimeMessageListener(
       if (activationMilestone) {
         void trackActivationMilestoneIfNeeded(activationMilestone);
       }
-      return;
+      return createAnalyticsEventAck();
     }
 
     if (isGetTabContextMessage(message)) {

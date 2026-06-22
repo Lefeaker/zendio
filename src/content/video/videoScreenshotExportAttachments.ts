@@ -1,13 +1,13 @@
 import type { ClipAttachment } from '../../shared/types';
-import { serializeBlobAttachmentContent } from '../../shared/attachments/clipAttachmentBinary';
 import type { VideoTimestampCapture } from './types';
+import { serializeVideoScreenshotAttachment as serializeScreenshotAttachment } from './videoScreenshotAttachmentSerialization';
 
 type SerializedVideoScreenshotAttachments = {
   attachments: ClipAttachment[];
   attachmentIds: Set<string>;
 };
 
-async function serializeVideoScreenshotAttachment(
+async function serializeCaptureScreenshotAttachment(
   capture: VideoTimestampCapture
 ): Promise<ClipAttachment | null> {
   const screenshot = capture.screenshot;
@@ -15,36 +15,14 @@ async function serializeVideoScreenshotAttachment(
     return null;
   }
 
-  if (screenshot.content?.kind === 'blob') {
-    try {
-      return {
-        id: screenshot.id,
-        fileName: screenshot.fileName,
-        mimeType: screenshot.mimeType,
-        content: await serializeBlobAttachmentContent(screenshot.content.blob)
-      };
-    } catch {
-      return null;
-    }
-  }
-
-  if (typeof screenshot.dataUrl === 'string') {
-    return {
-      id: screenshot.id,
-      fileName: screenshot.fileName,
-      mimeType: screenshot.mimeType,
-      dataUrl: screenshot.dataUrl
-    };
-  }
-
-  return null;
+  return serializeScreenshotAttachment(screenshot);
 }
 
 export async function serializeVideoScreenshotAttachments(
   captures: readonly VideoTimestampCapture[]
 ): Promise<SerializedVideoScreenshotAttachments> {
   const attachments = (
-    await Promise.all(captures.map((capture) => serializeVideoScreenshotAttachment(capture)))
+    await Promise.all(captures.map((capture) => serializeCaptureScreenshotAttachment(capture)))
   ).filter((attachment): attachment is ClipAttachment => attachment !== null);
 
   return {

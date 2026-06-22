@@ -26,6 +26,7 @@ type GlobalErrorBoundaryArgs = {
   metadata: {
     extensionContext: string;
   };
+  shouldReport: () => boolean;
   target: Window & typeof globalThis;
 };
 
@@ -201,6 +202,7 @@ describe('content/bootstrap', () => {
     expect(boundaryRegistration?.domain).toBe('content');
     expect(boundaryRegistration?.metadata?.extensionContext).toBe('content');
     expect(boundaryRegistration?.target).toBe(window);
+    expect(boundaryRegistration?.shouldReport).toBeTypeOf('function');
     expect(configureAnalyticsConfigManagerMock).not.toHaveBeenCalled();
     expect(initializeErrorAnalyticsMock).not.toHaveBeenCalled();
     expect(scopedRegistryMock.register).toHaveBeenCalledWith(

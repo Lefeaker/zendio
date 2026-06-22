@@ -1,13 +1,11 @@
 import type { VideoCaptureScreenshot, VideoCaptureScreenshotContent } from './types';
 import {
   encodeCanvasToBudgetedBlob,
-  resizeCanvasToMaxEdge,
-  SCREENSHOT_MIME_TYPE,
-  VIDEO_SCREENSHOT_ENCODING_MAX_EDGE_LADDER,
-  VIDEO_SCREENSHOT_ENCODING_QUALITY_LADDER
+  encodeCanvasToBudgetedDataUrl,
+  isJpegDataUrl,
+  SCREENSHOT_DATA_URL_PREFIX,
+  SCREENSHOT_MIME_TYPE
 } from './videoScreenshotEncoding';
-
-const SCREENSHOT_DATA_URL_PREFIX = `data:${SCREENSHOT_MIME_TYPE};base64,`;
 
 export function captureVideoFrameScreenshot(
   video: HTMLVideoElement,
@@ -47,11 +45,36 @@ export async function captureVideoFrameScreenshotAsync(
   }
 }
 
+export function captureVideoFrameScreenshotDataUrl(
+  video: HTMLVideoElement,
+  timeSec: number,
+  now = Date.now()
+): VideoCaptureScreenshot | null {
+  void timeSec;
+  try {
+    const canvas = renderVideoFrameToCanvas(video);
+    if (!canvas) {
+      return null;
+    }
+    return createScreenshotRecordFromDataUrl(encodeCanvasToBudgetedDataUrl(canvas), now);
+  } catch (error) {
+    console.warn('[VideoSession] Failed to capture video frame screenshot:', error);
+    return null;
+  }
+}
+
 export function createVideoFrameScreenshotFromBlob(
   blob: Blob | null,
   now = Date.now()
 ): VideoCaptureScreenshot | null {
   return createScreenshotRecord(createBlobContent(blob), now);
+}
+
+export function createVideoFrameScreenshotFromDataUrl(
+  dataUrl: string | null,
+  now = Date.now()
+): VideoCaptureScreenshot | null {
+  return createScreenshotRecordFromDataUrl(dataUrl, now);
 }
 
 function renderVideoFrameToCanvas(video: HTMLVideoElement): HTMLCanvasElement | null {
@@ -73,15 +96,7 @@ function renderVideoFrameToCanvas(video: HTMLVideoElement): HTMLCanvasElement | 
 }
 
 function encodeCanvasToDataUrl(canvas: HTMLCanvasElement): string | null {
-  const resizedCanvas = resizeCanvasToMaxEdge(canvas, VIDEO_SCREENSHOT_ENCODING_MAX_EDGE_LADDER[0]);
-  if (!resizedCanvas) {
-    return null;
-  }
-  const dataUrl = resizedCanvas.toDataURL(
-    SCREENSHOT_MIME_TYPE,
-    VIDEO_SCREENSHOT_ENCODING_QUALITY_LADDER[0]
-  );
-  return isJpegDataUrl(dataUrl) ? dataUrl : null;
+  return encodeCanvasToBudgetedDataUrl(canvas);
 }
 
 function encodeCanvasToLegacyBlobContent(
@@ -146,8 +161,21 @@ function createScreenshotRecord(
   };
 }
 
-function isJpegDataUrl(dataUrl: string | null): dataUrl is string {
-  return typeof dataUrl === 'string' && dataUrl.startsWith(SCREENSHOT_DATA_URL_PREFIX);
+function createScreenshotRecordFromDataUrl(
+  dataUrl: string | null,
+  now: number
+): VideoCaptureScreenshot | null {
+  if (!isJpegDataUrl(dataUrl)) {
+    return null;
+  }
+  const id = `screenshot-${now}-${Math.random().toString(16).slice(2)}`;
+  return {
+    id,
+    fileName: `file-${formatTimestampSlug(now)}.jpg`,
+    mimeType: SCREENSHOT_MIME_TYPE,
+    capturedAt: now,
+    dataUrl
+  };
 }
 
 function formatTimestampSlug(timestamp: number): string {

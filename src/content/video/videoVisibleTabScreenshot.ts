@@ -3,9 +3,15 @@ import {
   createCaptureVisibleTabScreenshotMessage,
   type CaptureVisibleTabScreenshotResponse
 } from '../../shared/types/videoScreenshotMessages';
-import { createVideoFrameScreenshotFromBlob } from './videoFrameScreenshot';
+import {
+  createVideoFrameScreenshotFromBlob,
+  createVideoFrameScreenshotFromDataUrl
+} from './videoFrameScreenshot';
 import type { VideoCaptureScreenshot } from './types';
-import { encodeCanvasToBudgetedBlob } from './videoScreenshotEncoding';
+import {
+  encodeCanvasToBudgetedBlob,
+  encodeCanvasToBudgetedDataUrl
+} from './videoScreenshotEncoding';
 
 export type VideoVisibleFrameScreenshotCapture = (
   video: HTMLVideoElement,
@@ -21,8 +27,21 @@ export function createVisibleTabVideoFrameScreenshotCapture(args: {
     if (!dataUrl) {
       return null;
     }
-    const blob = await cropVisibleTabScreenshotToVideo(dataUrl, video);
+    const blob = await cropVisibleTabScreenshotToVideoBlob(dataUrl, video);
     return createVideoFrameScreenshotFromBlob(blob, now);
+  };
+}
+
+export function createVisibleTabVideoFrameScreenshotDataUrlCapture(args: {
+  messaging: Pick<MessagingService, 'send'>;
+}): VideoVisibleFrameScreenshotCapture {
+  return async (video, _timeSec, now = Date.now()) => {
+    const dataUrl = await requestVisibleTabScreenshot(args.messaging);
+    if (!dataUrl) {
+      return null;
+    }
+    const croppedDataUrl = await cropVisibleTabScreenshotToVideoDataUrl(dataUrl, video);
+    return createVideoFrameScreenshotFromDataUrl(croppedDataUrl, now);
   };
 }
 
@@ -40,10 +59,26 @@ async function requestVisibleTabScreenshot(
   }
 }
 
-async function cropVisibleTabScreenshotToVideo(
+async function cropVisibleTabScreenshotToVideoBlob(
   dataUrl: string,
   video: HTMLVideoElement
 ): Promise<Blob | null> {
+  const canvas = await cropVisibleTabScreenshotToVideoCanvas(dataUrl, video);
+  return canvas ? await encodeCanvasToBudgetedBlob(canvas) : null;
+}
+
+async function cropVisibleTabScreenshotToVideoDataUrl(
+  dataUrl: string,
+  video: HTMLVideoElement
+): Promise<string | null> {
+  const canvas = await cropVisibleTabScreenshotToVideoCanvas(dataUrl, video);
+  return canvas ? encodeCanvasToBudgetedDataUrl(canvas) : null;
+}
+
+async function cropVisibleTabScreenshotToVideoCanvas(
+  dataUrl: string,
+  video: HTMLVideoElement
+): Promise<HTMLCanvasElement | null> {
   const doc = video.ownerDocument;
   if (!doc.defaultView || !dataUrl.startsWith('data:image/')) {
     return null;
@@ -79,7 +114,7 @@ async function cropVisibleTabScreenshotToVideo(
     crop.width,
     crop.height
   );
-  return await encodeCanvasToBudgetedBlob(canvas);
+  return canvas;
 }
 
 function loadImage(doc: Document, dataUrl: string): Promise<HTMLImageElement> {

@@ -6,6 +6,7 @@ import type { VideoSessionViewFactory } from './application/videoSessionView';
 import type { SupportProgressReporter } from '../runtime/supportProgress';
 import type { VideoVisibleFrameScreenshotCapture } from './videoVisibleTabScreenshot';
 import type { VideoScreenshotCacheRepository } from './videoScreenshotCacheRepository';
+import type { VideoScreenshotFrameCapture } from './videoScreenshotPreparationQueueTypes';
 
 export type VideoSessionAddCaptureOptions = {
   comment?: string;
@@ -25,6 +26,7 @@ export interface VideoSessionDependencies {
     local: StorageAreaService;
     sync: StorageAreaService;
   };
+  captureVideoFrameScreenshot?: VideoScreenshotFrameCapture;
   captureVisibleVideoFrameScreenshot?: VideoVisibleFrameScreenshotCapture;
   screenshotCacheRepository?: VideoScreenshotCacheRepository;
   showSupportProgress?: SupportProgressReporter;

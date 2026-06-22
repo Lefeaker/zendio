@@ -111,4 +111,27 @@ describe('globalErrorBoundary', () => {
 
     cleanup();
   });
+
+  it('skips events rejected by a caller-provided source policy', async () => {
+    const handle = vi.fn().mockResolvedValue(undefined);
+    const cleanup = registerGlobalErrorBoundary({
+      domain: 'content',
+      errorHandler: { handle },
+      target: window,
+      shouldReport: () => false
+    });
+
+    window.dispatchEvent(
+      new ErrorEvent('error', {
+        message: 'page boom',
+        error: new Error('page boom'),
+        filename: 'https://example.com/page.js'
+      })
+    );
+
+    await Promise.resolve();
+
+    expect(handle).not.toHaveBeenCalled();
+    cleanup();
+  });
 });

@@ -63,6 +63,55 @@ describe('phase4/shadow-dom adoptedStyleSheets', () => {
     );
   });
 
+  it('handles Firefox-style adoptedStyleSheets collections without Array methods', async () => {
+    await withDomEnvironment(
+      '<!DOCTYPE html><html><body></body></html>',
+      { globals: DOM_GLOBALS },
+      async ({ document, window }) => {
+        const restoreFetch = stubClipperFetch(window);
+        const restore = enableConstructableStyles(window, { firefoxCollection: true });
+        try {
+          await clipperStyleSheetManager.initialize();
+
+          const host = document.createElement('div');
+          document.body.append(host);
+          const shadow = host.attachShadow({ mode: 'open' });
+
+          expect(() => clipperStyleSheetManager.applyTo(shadow)).not.toThrow();
+          expect(Array.from(shadow.adoptedStyleSheets)).toHaveLength(2);
+          expect(shadow.querySelectorAll('style')).toHaveLength(0);
+        } finally {
+          restore();
+          restoreFetch();
+        }
+      }
+    );
+  });
+
+  it('falls back to inline style tags when Firefox blocks shadow adoptedStyleSheets access', async () => {
+    await withDomEnvironment(
+      '<!DOCTYPE html><html><body></body></html>',
+      { globals: DOM_GLOBALS },
+      async ({ document, window }) => {
+        const restoreFetch = stubClipperFetch(window);
+        const restore = enableConstructableStyles(window, { shadowAccessBlocked: true });
+        try {
+          await clipperStyleSheetManager.initialize();
+
+          const host = document.createElement('div');
+          document.body.append(host);
+          const shadow = host.attachShadow({ mode: 'open' });
+
+          expect(() => clipperStyleSheetManager.applyTo(shadow)).not.toThrow();
+          expect(shadow.querySelectorAll('style')).toHaveLength(2);
+        } finally {
+          restore();
+          restoreFetch();
+        }
+      }
+    );
+  });
+
   it('falls back to inline style tags when constructable styles are unavailable', async () => {
     await withDomEnvironment(
       '<!DOCTYPE html><html><body></body></html>',
@@ -119,7 +168,10 @@ function stubClipperFetch(window: WindowShim): () => void {
   };
 }
 
-function enableConstructableStyles(window: WindowShim): () => void {
+function enableConstructableStyles(
+  window: WindowShim,
+  options: { firefoxCollection?: boolean; shadowAccessBlocked?: boolean } = {}
+): () => void {
   const globals = globalThis as typeof globalThis & {
     Document?: typeof window.Document;
     CSSStyleSheet?: typeof window.CSSStyleSheet;
@@ -141,8 +193,16 @@ function enableConstructableStyles(window: WindowShim): () => void {
     'adoptedStyleSheets'
   );
 
-  Object.defineProperty(docProto, 'adoptedStyleSheets', createAdoptedDescriptor<Document>());
-  Object.defineProperty(shadowProto, 'adoptedStyleSheets', createAdoptedDescriptor<ShadowRoot>());
+  Object.defineProperty(
+    docProto,
+    'adoptedStyleSheets',
+    createAdoptedDescriptor<Document>(window, options)
+  );
+  Object.defineProperty(
+    shadowProto,
+    'adoptedStyleSheets',
+    createAdoptedDescriptor<ShadowRoot>(window, options)
+  );
 
   class FakeConstructableStyleSheet {
     private cssText = '';
@@ -173,14 +233,39 @@ function enableConstructableStyles(window: WindowShim): () => void {
   };
 }
 
-function createAdoptedDescriptor<T extends Document | ShadowRoot>(): PropertyDescriptor {
+function createAdoptedDescriptor<T extends Document | ShadowRoot>(
+  window: WindowShim,
+  options: { firefoxCollection?: boolean; shadowAccessBlocked?: boolean } = {}
+): PropertyDescriptor {
   return {
     configurable: true,
     get(this: T & { [INTERNAL_DOC_SHEETS]?: CSSStyleSheet[] }) {
-      return this[INTERNAL_DOC_SHEETS] ?? [];
+      if (this instanceof window.ShadowRoot && options.shadowAccessBlocked) {
+        throw new Error('Accessing from Xray wrapper is not supported.');
+      }
+      const sheets = this[INTERNAL_DOC_SHEETS] ?? [];
+      if (!options.firefoxCollection) {
+        return sheets;
+      }
+      return createFirefoxStyleSheetCollection(sheets);
     },
     set(this: T & { [INTERNAL_DOC_SHEETS]?: CSSStyleSheet[] }, value: CSSStyleSheet[]) {
+      if (this instanceof window.ShadowRoot && options.shadowAccessBlocked) {
+        throw new Error('Accessing from Xray wrapper is not supported.');
+      }
       this[INTERNAL_DOC_SHEETS] = value;
     }
   };
+}
+
+function createFirefoxStyleSheetCollection(sheets: CSSStyleSheet[]): CSSStyleSheet[] {
+  const collection = {
+    length: sheets.length,
+    item: (index: number) => sheets[index] ?? null,
+    [Symbol.iterator]: () => sheets[Symbol.iterator]()
+  } as CSSStyleSheet[] & { item(index: number): CSSStyleSheet | null };
+  sheets.forEach((sheet, index) => {
+    collection[index] = sheet;
+  });
+  return collection;
 }

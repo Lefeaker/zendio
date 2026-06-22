@@ -3,7 +3,10 @@ import type {
   ReaderPanelHighlight,
   ReaderPanelTexts
 } from '../application/readerPanelModel';
-import type { ReaderPanelEditingSnapshot } from '../application/readerSessionView';
+import type {
+  ReaderPanelEditingSnapshot,
+  ReaderPanelRenderOptions
+} from '../application/readerSessionView';
 import type { UiMountable } from '@ui/hosts/shared/contract';
 import type { PopupCoordinator } from '@content/runtime/popupCoordinator';
 import { resolveContentPopupCoordinator } from '@content/runtime/popupCoordinatorAccess';
@@ -125,9 +128,9 @@ export class ReaderDialogPanel implements UiMountable<
       this.texts = { ...this.texts, hint: payload.hint };
     }
     if (payload.highlights) {
-      const newestHighlight = this.applyHighlights(payload.highlights);
+      const focusTargetHighlight = this.applyHighlights(payload.highlights);
       this.rerender({ captureDrafts: false });
-      this.focusHighlightNoteInput(newestHighlight?.id);
+      this.focusHighlightNoteInput(focusTargetHighlight?.id);
       return this.renderRoot;
     }
     this.rerender();
@@ -157,10 +160,10 @@ export class ReaderDialogPanel implements UiMountable<
     this.rerender();
   }
 
-  setHighlights(highlights: ReaderPanelHighlight[]): void {
-    const newestHighlight = this.applyHighlights(highlights);
+  setHighlights(highlights: ReaderPanelHighlight[], options: ReaderPanelRenderOptions = {}): void {
+    const focusTargetHighlight = this.applyHighlights(highlights, options);
     this.rerender();
-    this.focusHighlightNoteInput(newestHighlight?.id);
+    this.focusHighlightNoteInput(focusTargetHighlight?.id);
   }
 
   stopEditing(): void {
@@ -335,22 +338,38 @@ export class ReaderDialogPanel implements UiMountable<
     );
   }
 
-  private applyHighlights(highlights: ReaderPanelHighlight[]): ReaderPanelHighlight | undefined {
+  private applyHighlights(
+    highlights: ReaderPanelHighlight[],
+    options: ReaderPanelRenderOptions = {}
+  ): ReaderPanelHighlight | undefined {
     this.commentDrafts.captureRenderedInputs();
     const previousCount = this.highlights.length;
-    const shouldExpandForNewHighlight = previousCount > 0 && highlights.length > previousCount;
+    const focusTargetHighlight = this.resolveHighlightFocusTarget(
+      highlights,
+      options.focusHighlightId
+    );
+    const shouldExpandForNewHighlight = previousCount > 0 && Boolean(focusTargetHighlight);
     if (this.collapsePersistence.value && shouldExpandForNewHighlight) {
       this.collapsePersistence.set(false, { persist: true, rerender: false });
     }
     this.highlights = [...highlights];
     this.highlightCount = highlights.length;
     this.commentDrafts.reconcile(this.highlights);
-    const newestHighlight = highlights.length > previousCount ? highlights.at(-1) : undefined;
-    if (newestHighlight?.id) {
-      this.editingHighlightId = newestHighlight.id;
-      this.pendingNoteFocusHighlightId = newestHighlight.id;
+    if (focusTargetHighlight?.id) {
+      this.editingHighlightId = focusTargetHighlight.id;
+      this.pendingNoteFocusHighlightId = focusTargetHighlight.id;
     }
-    return newestHighlight;
+    return focusTargetHighlight;
+  }
+
+  private resolveHighlightFocusTarget(
+    highlights: ReaderPanelHighlight[],
+    focusHighlightId: string | null | undefined
+  ): ReaderPanelHighlight | undefined {
+    if (!focusHighlightId) {
+      return undefined;
+    }
+    return highlights.find((highlight) => highlight.id === focusHighlightId);
   }
 
   private focusHighlightNoteInput(highlightId: string | null | undefined): void {

@@ -9,6 +9,7 @@ import type {
 } from '@content/reader/application/readerPanelModel';
 import type {
   ReaderPanelEditingSnapshot,
+  ReaderPanelRenderOptions,
   ReaderSessionView
 } from '@content/reader/application/readerSessionView';
 import type { ReaderSessionViewFactory } from '@content/reader/application/readerSessionView';
@@ -22,6 +23,7 @@ class FakeReaderView implements ReaderSessionView {
   lastHint = '';
   lastTexts: ReaderPanelTexts | null = null;
   lastHighlights: ReaderPanelHighlight[] = [];
+  lastRenderOptions: ReaderPanelRenderOptions = {};
   currentDrafts: Record<string, string> = {};
   editingSnapshot: ReaderPanelEditingSnapshot = {
     editingHighlightId: null,
@@ -42,8 +44,9 @@ class FakeReaderView implements ReaderSessionView {
     this.lastTexts = texts;
   }
 
-  setHighlights(highlights: ReaderPanelHighlight[]): void {
+  setHighlights(highlights: ReaderPanelHighlight[], options: ReaderPanelRenderOptions = {}): void {
     this.lastHighlights = highlights;
+    this.lastRenderOptions = options;
   }
 
   snapshotCommentDrafts(): Record<string, string> {
@@ -182,6 +185,21 @@ describe('ReaderPanelCoordinator', () => {
     expect(view.lastHint).toBe(DEFAULT_SESSION_MESSAGES.panel.hint);
     coordinator.stopEditing();
     expect(view.editing).toBe(false);
+  });
+
+  it('forwards the requested highlight focus target through presenter rendering', () => {
+    const coordinator = new ReaderPanelCoordinator({
+      viewFactory,
+      callbacks,
+      reconstructText: (highlight) => highlight.selectedText
+    });
+
+    coordinator.mount(DEFAULT_SESSION_MESSAGES);
+    coordinator.updateHighlights([createHighlight('a', 'note', 'Content')], {
+      focusHighlightId: 'a'
+    });
+
+    expect(view.lastRenderOptions).toEqual({ focusHighlightId: 'a' });
   });
 
   it('forwards comment draft snapshot and hydrate operations to the view', () => {

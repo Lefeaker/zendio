@@ -115,6 +115,28 @@ describe('Firefox 平台服务', () => {
     expect(storageSet).toHaveBeenCalledWith({ [testKey]: testValue });
   });
 
+  it('应该在 Firefox 暴露 chrome runtime 命名空间时仍使用 Firefox 默认平台服务', async () => {
+    Object.defineProperty(globalThis, 'chrome', {
+      configurable: true,
+      writable: true,
+      value: { runtime: {} }
+    });
+    const { getPlatformServices, resetPlatformServices } = await import('../../src/platform');
+
+    resetPlatformServices();
+    const services = getPlatformServices();
+    await services.storage.sync.set('key', 'value');
+
+    if (!firefoxHandle) {
+      throw new Error('Firefox mock 尚未初始化');
+    }
+    // eslint-disable-next-line @typescript-eslint/unbound-method
+    expect(vi.mocked(firefoxHandle.browser.storage.sync.set)).toHaveBeenCalledWith({
+      key: 'value'
+    });
+    resetPlatformServices();
+  });
+
   it('应该使用 Firefox messaging API', async () => {
     const { firefoxMessagingService } = await import('../../src/platform/firefox/messaging');
 

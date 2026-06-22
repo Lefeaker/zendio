@@ -30,6 +30,10 @@ export type AnalyticsRuntimeEventCompatibilityPayload = {
   };
 }[UsageEventName];
 
+export type AnalyticsRuntimeEventAck = {
+  success: true;
+};
+
 export function createAnalyticsEventMessage<EventName extends UsageEventName>(
   event: EventName,
   params?: UsageEventParamMap[EventName]
@@ -38,6 +42,10 @@ export function createAnalyticsEventMessage<EventName extends UsageEventName>(
     return { type: ANALYTICS_EVENT_MESSAGE, event } as AnalyticsRuntimeEventPayload;
   }
   return { type: ANALYTICS_EVENT_MESSAGE, event, params } as AnalyticsRuntimeEventPayload;
+}
+
+export function createAnalyticsEventAck(): AnalyticsRuntimeEventAck {
+  return { success: true };
 }
 
 export function isAnalyticsRuntimeEventMessage(

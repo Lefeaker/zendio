@@ -64,10 +64,15 @@ function deserializeScreenshot(
   screenshot: SerializedVideoScreenshotCacheScreenshot
 ): VideoCaptureScreenshot {
   const blob = serializedAttachmentContentToBlob(
-    {
-      kind: 'base64',
-      binary: screenshot.content
-    },
+    screenshot.content
+      ? {
+          kind: 'base64',
+          binary: screenshot.content
+        }
+      : {
+          kind: 'legacyDataUrl',
+          dataUrl: screenshot.dataUrl ?? ''
+        },
     screenshot.mimeType
   );
 
@@ -79,7 +84,7 @@ function deserializeScreenshot(
     content: {
       kind: 'blob',
       blob,
-      byteLength: screenshot.content.byteLength
+      byteLength: blob.size
     }
   };
 }

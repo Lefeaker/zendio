@@ -1,4 +1,5 @@
 import {
+  isLegacyDataUrlForMimeType,
   isSerializedClipAttachmentBinaryContent,
   type SerializedClipAttachmentBinaryContent
 } from '../../shared/attachments/clipAttachmentBinary';
@@ -20,7 +21,8 @@ export interface SerializedVideoScreenshotCacheScreenshot {
   fileName: string;
   mimeType: VideoCaptureScreenshot['mimeType'];
   capturedAt: number;
-  content: SerializedClipAttachmentBinaryContent;
+  content?: SerializedClipAttachmentBinaryContent;
+  dataUrl?: string;
 }
 
 export type VideoScreenshotCacheMessage =
@@ -169,8 +171,16 @@ function normalizeSerializedScreenshot(
   const mimeType = value.mimeType === 'image/jpeg' ? value.mimeType : null;
   const capturedAt = normalizeTimestamp(value.capturedAt);
   const content = isSerializedClipAttachmentBinaryContent(value.content) ? value.content : null;
+  const dataUrl =
+    mimeType && isLegacyDataUrlForMimeType(value.dataUrl, mimeType) ? value.dataUrl : null;
 
-  if (id === null || fileName === null || mimeType === null || capturedAt === null || !content) {
+  if (
+    id === null ||
+    fileName === null ||
+    mimeType === null ||
+    capturedAt === null ||
+    (content === null && dataUrl === null)
+  ) {
     return null;
   }
 
@@ -179,7 +189,8 @@ function normalizeSerializedScreenshot(
     fileName,
     mimeType,
     capturedAt,
-    content
+    ...(content ? { content } : {}),
+    ...(dataUrl ? { dataUrl } : {})
   };
 }
 

@@ -2,6 +2,10 @@ import { setTimestampScreenshot } from './screenshotIntent';
 import type { VideoCaptureScreenshot, VideoTimestampCapture } from './types';
 import type { VideoVisibleFrameScreenshotCapture } from './videoVisibleTabScreenshot';
 import type { VideoScreenshotPreparedCallback } from './videoScreenshotPreparationCallbacks';
+import type {
+  CreateVideoScreenshotPreparationQueueArgs,
+  VideoScreenshotFrameCapture
+} from './videoScreenshotPreparationQueueTypes';
 
 interface VideoScreenshotPreparationCoordinatorArgs {
   doc: Document;
@@ -9,6 +13,7 @@ interface VideoScreenshotPreparationCoordinatorArgs {
   getVisibleVideo: () => HTMLVideoElement | null;
   syncPanel: () => void;
   onScreenshotPrepared?: VideoScreenshotPreparedCallback;
+  captureFrame?: VideoScreenshotFrameCapture | undefined;
   captureVisibleFrame?: VideoVisibleFrameScreenshotCapture | undefined;
 }
 
@@ -139,15 +144,20 @@ export class VideoScreenshotPreparationCoordinator {
           return null;
         }
 
-        const queue = createVideoScreenshotPreparationQueue({
+        const queueArgs: CreateVideoScreenshotPreparationQueueArgs = {
           doc: this.args.doc,
           getCaptures: this.args.getCaptures,
           getVisibleVideo: this.args.getVisibleVideo,
-          captureVisibleFrame: this.args.captureVisibleFrame,
           onScreenshotPrepared: (capture, screenshot, source) =>
             this.args.onScreenshotPrepared?.(capture, screenshot, source),
-          syncPanel: this.args.syncPanel
-        });
+          syncPanel: this.args.syncPanel,
+          ...(this.args.captureFrame ? { captureFrame: this.args.captureFrame } : {}),
+          ...(this.args.captureVisibleFrame
+            ? { captureVisibleFrame: this.args.captureVisibleFrame }
+            : {})
+        };
+
+        const queue = createVideoScreenshotPreparationQueue(queueArgs);
 
         if (this.disposed || generation !== this.generation) {
           queue.dispose();

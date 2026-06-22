@@ -405,6 +405,32 @@ describe('runtime message listener', () => {
     expect(trackUsageEventMock).toHaveBeenCalledWith('support_like_clicked', { variant: 'first' });
   });
 
+  it('returns an explicit ack for analytics runtime messages', async () => {
+    const { registerRuntimeMessageListener } =
+      await import('../../../src/background/listeners/runtimeMessages');
+    registerRuntimeMessageListener(createDependencies());
+
+    await expect(
+      listener?.(
+        {
+          type: 'ANALYTICS_EVENT',
+          event: 'video_exported',
+          params: {
+            platform: 'youtube',
+            destination: 'downloads',
+            duration_bucket: '3s_to_9s'
+          }
+        },
+        { tabId: 12 }
+      )
+    ).resolves.toEqual({ success: true });
+    expect(trackUsageEventMock).toHaveBeenCalledWith('video_exported', {
+      platform: 'youtube',
+      destination: 'downloads',
+      duration_bucket: '3s_to_9s'
+    });
+  });
+
   it('maps onboarding and export success runtime events to activation milestones', async () => {
     const { registerRuntimeMessageListener } =
       await import('../../../src/background/listeners/runtimeMessages');
