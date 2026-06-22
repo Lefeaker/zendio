@@ -26,6 +26,17 @@ function runPackageTrialJson<T>(code: string, schema: z.ZodType<T>): T {
 }
 
 describe('package-trial script contract', () => {
+  function runInvalidPackageTrialArgs(args: string[]): void {
+    execFileSync(
+      'node',
+      [
+        '-e',
+        `import('./scripts/package-trial.mjs').then(({ parsePackageTrialArgs }) => parsePackageTrialArgs(${JSON.stringify(args)}));`
+      ],
+      { cwd: process.cwd(), encoding: 'utf8', stdio: 'pipe' }
+    );
+  }
+
   it('parses trial days without accepting unused contact metadata', () => {
     const config = runPackageTrialJson(
       "import('./scripts/package-trial.mjs').then(({ parsePackageTrialArgs }) => process.stdout.write(JSON.stringify(parsePackageTrialArgs(['--days=14']))));",
@@ -48,6 +59,20 @@ describe('package-trial script contract', () => {
         { cwd: process.cwd(), encoding: 'utf8', stdio: 'pipe' }
       )
     ).toThrow('--contact is no longer supported');
+  });
+
+  it('rejects non-decimal and out-of-range trial day values', () => {
+    for (const args of [
+      ['--days=0'],
+      ['--days=-1'],
+      ['--days=14abc'],
+      ['--days=abc'],
+      ['--days=31']
+    ]) {
+      expect(() => runInvalidPackageTrialArgs(args), args.join(' ')).toThrow(
+        'must be a base-10 integer from 1 to 30'
+      );
+    }
   });
 
   it('uses an isolated Chrome trial dist when a build is requested', () => {

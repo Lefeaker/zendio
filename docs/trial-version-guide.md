@@ -29,7 +29,7 @@ npm run package:trial:quick
 
 ### 命令行参数
 
-- `--days=N`: 设置试用天数（默认：7天）
+- `--days=N`: 设置试用天数（默认：7天，必须是 `1` 到 `30` 之间的十进制整数）
 - `--skip-build`: 跳过构建步骤，直接打包已有的 `build/dist-chrome-trial`
 - `--help`, `-h`: 显示帮助信息
 
@@ -43,7 +43,7 @@ npm run package:trial -- --days=14
 npm run package:trial -- --skip-build --days=30
 ```
 
-`package:trial` 使用独立输出目录 `build/dist-chrome-trial`。默认流程会先运行 `build:fast -- --outdir build/dist-chrome-trial`，然后调用 `scripts/package.mjs --dist-dir build/dist-chrome-trial --trial`。它不得修改 `package.json`，也不得复用正式 Chrome / Firefox package 输出目录。
+`package:trial` 使用独立输出目录 `build/dist-chrome-trial`。默认流程会先运行 `build:fast -- --outdir build/dist-chrome-trial`，然后调用 `scripts/package.mjs --dist-dir build/dist-chrome-trial --trial`。它不得修改 `package.json`，也不得复用正式 Chrome / Firefox package 输出目录。底层 `scripts/package.mjs --trial-days=N` 使用同一 `1..30` 天十进制整数边界。
 
 ## 试用版本特性
 
@@ -124,7 +124,7 @@ zendio-(试用版)-v0.2.0.zip
 ### 安全考虑
 
 - 试用期检查在客户端进行，不能作为商业授权边界
-- 建议试用期不超过30天
+- 试用期被硬性限制为 `1` 到 `30` 天之间的十进制整数
 - 远程 entitlement、customer identifiers、subscription status、payment state 与 private server behavior 均属于 private overlay owner，不进入 tracked public source
 
 ### 用户体验

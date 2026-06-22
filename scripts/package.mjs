@@ -7,16 +7,32 @@ import { pathExists, prepareLicenseArtifacts, resolveMessage } from './utils/pac
 import { createReleaseArtifactFileName } from './utils/releaseArtifactNames.mjs';
 import { auditReleaseArchive } from '../tools/audit-release-archive.mjs';
 
+const DEFAULT_TRIAL_DAYS = 7;
+const MIN_TRIAL_DAYS = 1;
+const MAX_TRIAL_DAYS = 30;
+
+function parseTrialDaysValue(value, flagName) {
+  if (!/^[1-9]\d*$/.test(value)) {
+    throw new Error(`${flagName} must be a base-10 integer from 1 to ${MAX_TRIAL_DAYS}`);
+  }
+
+  const days = Number(value);
+  if (days < MIN_TRIAL_DAYS || days > MAX_TRIAL_DAYS) {
+    throw new Error(`${flagName} must be a base-10 integer from 1 to ${MAX_TRIAL_DAYS}`);
+  }
+
+  return days;
+}
+
 /**
  * 获取试用天数参数
  */
 export function normalizeTrialDays(args = process.argv) {
   const trialArg = args.find((arg) => arg.startsWith('--trial-days='));
   if (trialArg) {
-    const days = parseInt(trialArg.split('=')[1]);
-    return isNaN(days) || days <= 0 ? 7 : days;
+    return parseTrialDaysValue(trialArg.split('=')[1], '--trial-days');
   }
-  return 7; // 默认7天
+  return DEFAULT_TRIAL_DAYS;
 }
 
 function getTrialDays() {

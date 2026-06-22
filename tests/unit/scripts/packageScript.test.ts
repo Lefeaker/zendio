@@ -18,13 +18,38 @@ function runPackageScriptJson<T>(code: string, schema: z.ZodType<T>): T {
 }
 
 describe('package script trial config contract', () => {
-  it('normalizes trial days to a positive default', () => {
+  function runInvalidPackageArgs(args: string[]): void {
+    execFileSync(
+      'node',
+      [
+        '-e',
+        `import('./scripts/package.mjs').then(({ normalizeTrialDays }) => normalizeTrialDays(${JSON.stringify(args)}));`
+      ],
+      { cwd: process.cwd(), encoding: 'utf8', stdio: 'pipe' }
+    );
+  }
+
+  it('normalizes missing trial days to the default and parses valid values strictly', () => {
     const values = runPackageScriptJson(
-      "import('./scripts/package.mjs').then(({ normalizeTrialDays }) => process.stdout.write(JSON.stringify([normalizeTrialDays(['node', 'scripts/package.mjs']), normalizeTrialDays(['node', 'scripts/package.mjs', '--trial-days=14']), normalizeTrialDays(['node', 'scripts/package.mjs', '--trial-days=-1']), normalizeTrialDays(['node', 'scripts/package.mjs', '--trial-days=0'])])));",
+      "import('./scripts/package.mjs').then(({ normalizeTrialDays }) => process.stdout.write(JSON.stringify([normalizeTrialDays(['node', 'scripts/package.mjs']), normalizeTrialDays(['node', 'scripts/package.mjs', '--trial-days=14'])])));",
       z.array(z.number())
     );
 
-    expect(values).toEqual([7, 14, 7, 7]);
+    expect(values).toEqual([7, 14]);
+  });
+
+  it('rejects non-decimal and out-of-range trial day values', () => {
+    for (const args of [
+      ['node', 'scripts/package.mjs', '--trial-days=0'],
+      ['node', 'scripts/package.mjs', '--trial-days=-1'],
+      ['node', 'scripts/package.mjs', '--trial-days=14abc'],
+      ['node', 'scripts/package.mjs', '--trial-days=abc'],
+      ['node', 'scripts/package.mjs', '--trial-days=31']
+    ]) {
+      expect(() => runInvalidPackageArgs(args), args.join(' ')).toThrow(
+        'must be a base-10 integer from 1 to 30'
+      );
+    }
   });
 
   it('creates a valid local trial channel config', () => {

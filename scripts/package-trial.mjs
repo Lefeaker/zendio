@@ -10,7 +10,22 @@ import { pathToFileURL } from 'url';
 
 // 默认配置
 const DEFAULT_TRIAL_DAYS = 7;
+const MIN_TRIAL_DAYS = 1;
+const MAX_TRIAL_DAYS = 30;
 const TRIAL_DIST_DIR = 'build/dist-chrome-trial';
+
+function parseTrialDaysValue(value, flagName) {
+  if (!/^[1-9]\d*$/.test(value)) {
+    throw new Error(`${flagName} must be a base-10 integer from 1 to ${MAX_TRIAL_DAYS}`);
+  }
+
+  const days = Number(value);
+  if (days < MIN_TRIAL_DAYS || days > MAX_TRIAL_DAYS) {
+    throw new Error(`${flagName} must be a base-10 integer from 1 to ${MAX_TRIAL_DAYS}`);
+  }
+
+  return days;
+}
 
 /**
  * 解析命令行参数
@@ -30,10 +45,7 @@ export function parsePackageTrialArgs(args = process.argv.slice(2)) {
     } else if (arg === '--skip-build') {
       config.skipBuild = true;
     } else if (arg.startsWith('--days=')) {
-      const days = parseInt(arg.split('=')[1]);
-      if (!isNaN(days) && days > 0) {
-        config.trialDays = days;
-      }
+      config.trialDays = parseTrialDaysValue(arg.split('=')[1], '--days');
     } else if (arg.startsWith('--contact=')) {
       throw new Error(
         '--contact is no longer supported; trial packages do not carry contact metadata'
@@ -95,7 +107,7 @@ function showHelp() {
   - 试用版本会在指定天数后自动过期
   - 试用包使用独立输出目录 ${TRIAL_DIST_DIR}，避免污染正式包 build/dist
   - 试用标记只是本地首次安装配置，不是订阅或私有能力证明
-  - 建议试用期不超过30天
+  - 试用期必须为 ${MIN_TRIAL_DAYS}-${MAX_TRIAL_DAYS} 天之间的十进制整数
 `);
 }
 
