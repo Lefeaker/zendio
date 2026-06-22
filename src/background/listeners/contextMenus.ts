@@ -12,8 +12,14 @@ import {
   createContextMenuRuntimeState,
   type ContextMenuListenerDependencies
 } from './contextMenusTypes';
+import { notifyClipFailure } from '../services/notifications';
+import { contentErrors } from '../../shared/errors/contentErrors';
 
 const runtimeState = createContextMenuRuntimeState();
+
+function getObjectProperty(source: object, key: string): unknown {
+  return (source as Record<string, unknown>)[key];
+}
 
 export function createContextMenuListenerDependencies(
   dependencies: ContextMenuListenerDependencies
@@ -23,6 +29,31 @@ export function createContextMenuListenerDependencies(
 
 export function registerContextMenuListeners(dependencies: ContextMenuListenerDependencies): void {
   const { action, contextMenus, runtime, tabs, messaging, optionsRepository } = dependencies;
+
+  const notifyActionDispatchFailure = async (
+    actionType: string,
+    tabId: number,
+    frameId: number | null,
+    error: Error
+  ): Promise<void> => {
+    console.error('[contextMenu] Failed to dispatch action to tab:', error);
+    try {
+      await notifyClipFailure(
+        contentErrors.messagingFailed(
+          actionType,
+          {
+            component: 'contextMenus',
+            action: actionType,
+            tabId,
+            frameId
+          },
+          { cause: error }
+        )
+      );
+    } catch (notifyError) {
+      console.error('[contextMenu] Failed to notify action dispatch failure:', notifyError);
+    }
+  };
 
   runtime.onInstalled(() => {
     void setupContextMenus(dependencies, runtimeState);
@@ -42,9 +73,20 @@ export function registerContextMenuListeners(dependencies: ContextMenuListenerDe
     try {
       await injectClipper(dependencies, runtimeState, tab.id, { targetFrameId: 0 });
       await delay(50);
+    } catch (error) {
+      console.error('[action] Failed to prepare clipFull:', error);
+      return;
+    }
+
+    try {
       await tabs.sendMessage(tab.id, { action: 'clipFull' });
     } catch (error) {
-      console.error('[action] Failed to trigger clipFull:', error);
+      await notifyActionDispatchFailure(
+        'clipFull',
+        tab.id,
+        null,
+        error instanceof Error ? error : new Error(String(error))
+      );
     }
   });
 
@@ -94,10 +136,18 @@ export function registerContextMenuListeners(dependencies: ContextMenuListenerDe
     }
 
     if (targetFrameId !== 0) {
-      await injectClipper(dependencies, runtimeState, tab.id, { targetFrameId: 0, silent: true });
+      await injectClipper(dependencies, runtimeState, tab.id, {
+        targetFrameId: 0,
+        silent: true
+      }).catch(() => undefined);
     }
-    await injectClipper(dependencies, runtimeState, tab.id, { targetFrameId });
-    await delay(waitMs);
+
+    try {
+      await injectClipper(dependencies, runtimeState, tab.id, { targetFrameId });
+      await delay(waitMs);
+    } catch {
+      return;
+    }
 
     try {
       await tabs.sendMessage(
@@ -106,7 +156,12 @@ export function registerContextMenuListeners(dependencies: ContextMenuListenerDe
         { frameId: targetFrameId }
       );
     } catch (error) {
-      console.error('[contextMenu] Failed to dispatch action to tab:', error);
+      await notifyActionDispatchFailure(
+        actionType,
+        tab.id,
+        targetFrameId,
+        error instanceof Error ? error : new Error(String(error))
+      );
     }
   });
 
@@ -134,10 +189,11 @@ export function registerContextMenuListeners(dependencies: ContextMenuListenerDe
     if (!rawMessage || typeof rawMessage !== 'object') {
       return undefined;
     }
-    const message = rawMessage as { type?: unknown; payload?: unknown };
-    if (message.type !== 'AIIOB_FORWARD_VIDEO_SELECTION') {
+    const messageType = getObjectProperty(rawMessage, 'type');
+    if (messageType !== 'AIIOB_FORWARD_VIDEO_SELECTION') {
       return undefined;
     }
+    const messagePayload = getObjectProperty(rawMessage, 'payload');
 
     const tabId = sender.tabId;
     if (typeof tabId !== 'number') {
@@ -145,16 +201,17 @@ export function registerContextMenuListeners(dependencies: ContextMenuListenerDe
     }
 
     const rawPayload =
-      typeof message.payload === 'object' && message.payload !== null
-        ? (message.payload as Record<string, unknown>)
-        : {};
+      typeof messagePayload === 'object' && messagePayload !== null ? messagePayload : {};
+    const selectedHtml = getObjectProperty(rawPayload, 'selectedHtml');
+    const selectedText = getObjectProperty(rawPayload, 'selectedText');
+    const sourceUrl = getObjectProperty(rawPayload, 'sourceUrl');
 
     const payload = {
-      selectedHtml: String(rawPayload.selectedHtml ?? ''),
-      selectedText: String(rawPayload.selectedText ?? ''),
+      selectedHtml: String(selectedHtml ?? ''),
+      selectedText: String(selectedText ?? ''),
       sourceFrameId: sender.frameId ?? null,
-      sourceUrl: typeof rawPayload.sourceUrl === 'string' ? rawPayload.sourceUrl : null
-    } as const;
+      sourceUrl: typeof sourceUrl === 'string' ? sourceUrl : null
+    };
 
     return tabs
       .sendMessage(tabId, { action: 'videoClipSelectionFromFrame', payload }, { frameId: 0 })

@@ -1,6 +1,30 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { flush, loadModule } from './contextMenus.helpers';
 
+type MenuClickDataStub = Partial<chrome.contextMenus.OnClickData> & {
+  menuItemId: chrome.contextMenus.OnClickData['menuItemId'];
+};
+
+function menuClickData(data: MenuClickDataStub): chrome.contextMenus.OnClickData {
+  return data as chrome.contextMenus.OnClickData;
+}
+
+function tabData(data: Partial<chrome.tabs.Tab>): chrome.tabs.Tab {
+  return data as chrome.tabs.Tab;
+}
+
+function objectMatcher(value: object): object {
+  return expect.objectContaining(value) as object;
+}
+
+function functionMatcher(): object {
+  return expect.any(Function) as object;
+}
+
+function errorMatcher(): object {
+  return expect.any(Error) as object;
+}
+
 describe('context menu listeners', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -22,12 +46,12 @@ describe('context menu listeners', () => {
     expect(rig.create).toHaveBeenCalledWith(expect.objectContaining({ id: 'clip-selection' }));
 
     await rig.onShownListeners[0]?.(
-      {
+      menuClickData({
         menuItemId: 'clip-selection',
         selectionText: ' selected ',
         pageUrl: 'https://www.bilibili.com/video/BV1xx411c7mD'
-      } as chrome.contextMenus.OnClickData,
-      { id: 7, url: 'https://www.bilibili.com/video/BV1xx411c7mD' } as chrome.tabs.Tab
+      }),
+      tabData({ id: 7, url: 'https://www.bilibili.com/video/BV1xx411c7mD' })
     );
 
     expect(rig.update).toHaveBeenCalledWith('clip-selection', {
@@ -44,12 +68,12 @@ describe('context menu listeners', () => {
     await Promise.resolve();
 
     const clickPromise = rig.onClickedListeners[0]?.(
-      {
+      menuClickData({
         menuItemId: 'clip-selection',
         frameId: 4,
         pageUrl: 'https://www.bilibili.com/video/BV1xx411c7mD'
-      } as chrome.contextMenus.OnClickData,
-      { id: 9, url: 'https://www.bilibili.com/video/BV1xx411c7mD' } as chrome.tabs.Tab
+      }),
+      tabData({ id: 9, url: 'https://www.bilibili.com/video/BV1xx411c7mD' })
     );
 
     await vi.advanceTimersByTimeAsync(120);
@@ -61,7 +85,15 @@ describe('context menu listeners', () => {
     );
     expect(rig.executeScript).toHaveBeenNthCalledWith(
       2,
+      expect.objectContaining({ target: { tabId: 9, frameIds: [0] }, func: functionMatcher() })
+    );
+    expect(rig.executeScript).toHaveBeenNthCalledWith(
+      3,
       expect.objectContaining({ target: { tabId: 9, frameIds: [4] }, files: ['content/index.js'] })
+    );
+    expect(rig.executeScript).toHaveBeenNthCalledWith(
+      4,
+      expect.objectContaining({ target: { tabId: 9, frameIds: [4] }, func: functionMatcher() })
     );
     expect(rig.sendMessage).toHaveBeenCalledWith(
       9,
@@ -115,12 +147,12 @@ describe('context menu listeners', () => {
     register();
     await flush();
     await rig.onShownListeners[0]?.(
-      {
+      menuClickData({
         menuItemId: 'clip-selection',
         selectionText: '',
         pageUrl: 'https://example.com/article'
-      } as chrome.contextMenus.OnClickData,
-      { id: 3, url: 'https://example.com/article' } as chrome.tabs.Tab
+      }),
+      tabData({ id: 3, url: 'https://example.com/article' })
     );
 
     expect(rig.update).toHaveBeenCalledWith('clip-selection', { title: 'Clip selection' });
@@ -133,7 +165,7 @@ describe('context menu listeners', () => {
     expect(response).toEqual({ success: false, error: 'NO_TAB' });
   });
 
-  it('ignores unknown menu ids and swallows tab dispatch failures for regular page clicks', async () => {
+  it('ignores unknown menu ids and notifies tab dispatch failures for regular page clicks', async () => {
     vi.useFakeTimers();
     const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
     const { rig, register } = await loadModule({
@@ -144,20 +176,20 @@ describe('context menu listeners', () => {
     await flush();
 
     await rig.onClickedListeners[0]?.(
-      {
+      menuClickData({
         menuItemId: 'unknown-item',
         pageUrl: 'https://example.com/article'
-      } as chrome.contextMenus.OnClickData,
-      { id: 21, url: 'https://example.com/article' } as chrome.tabs.Tab
+      }),
+      tabData({ id: 21, url: 'https://example.com/article' })
     );
     expect(rig.executeScript).not.toHaveBeenCalled();
 
     const clickPromise = rig.onClickedListeners[0]?.(
-      {
+      menuClickData({
         menuItemId: 'clip-page',
         pageUrl: 'https://example.com/article'
-      } as chrome.contextMenus.OnClickData,
-      { id: 21, url: 'https://example.com/article' } as chrome.tabs.Tab
+      }),
+      tabData({ id: 21, url: 'https://example.com/article' })
     );
     await vi.advanceTimersByTimeAsync(60);
     await clickPromise;
@@ -167,9 +199,126 @@ describe('context menu listeners', () => {
     );
     expect(consoleErrorSpy).toHaveBeenCalledWith(
       '[contextMenu] Failed to dispatch action to tab:',
-      expect.any(Error)
+      errorMatcher()
+    );
+    expect(rig.notifyClipFailure).toHaveBeenCalledWith(
+      expect.objectContaining({
+        code: 'CONTENT_MESSAGING_FAILED',
+        userMessageDescriptor: { key: 'errorContentMessagingFailed' },
+        context: objectMatcher({
+          component: 'contextMenus',
+          messageType: 'clipFull',
+          tabId: 21,
+          frameId: 0
+        })
+      })
     );
 
+    consoleErrorSpy.mockRestore();
+  });
+
+  it('waits for the injected content runtime before dispatching full-page context menu actions', async () => {
+    vi.useFakeTimers();
+    const runtimeReady: { resolve?: () => void } = {};
+    const { rig, register } = await loadModule({
+      executeScript: vi
+        .fn()
+        .mockResolvedValueOnce(undefined)
+        .mockImplementationOnce(
+          () =>
+            new Promise((resolve) => {
+              runtimeReady.resolve = () =>
+                resolve([{ documentId: 'document-0', frameId: 0, result: { ready: true } }]);
+            })
+        )
+    });
+
+    register();
+    await flush();
+
+    const clickPromise = rig.onClickedListeners[0]?.(
+      menuClickData({
+        menuItemId: 'clip-page',
+        pageUrl: 'https://example.com/article'
+      }),
+      tabData({ id: 21, url: 'https://example.com/article' })
+    );
+
+    await vi.advanceTimersByTimeAsync(200);
+    expect(rig.sendMessage).not.toHaveBeenCalled();
+    expect(runtimeReady.resolve).toEqual(expect.any(Function));
+
+    runtimeReady.resolve?.();
+    await vi.advanceTimersByTimeAsync(60);
+    await clickPromise;
+
+    expect(rig.sendMessage).toHaveBeenCalledWith(
+      21,
+      { action: 'clipFull', frameId: 0, tabId: 21 },
+      { frameId: 0 }
+    );
+  });
+
+  it('does not dispatch context menu actions after content runtime injection fails', async () => {
+    vi.useFakeTimers();
+    const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    const { rig, register } = await loadModule({
+      executeScript: vi.fn(() => Promise.reject(new Error('missing content loader')))
+    });
+
+    register();
+    await flush();
+
+    const clickPromise = rig.onClickedListeners[0]?.(
+      menuClickData({
+        menuItemId: 'clip-page',
+        pageUrl: 'https://example.com/article'
+      }),
+      tabData({ id: 21, url: 'https://example.com/article' })
+    );
+    await vi.advanceTimersByTimeAsync(200);
+    await clickPromise;
+
+    expect(rig.notifyInjectionFailure).toHaveBeenCalledWith('missing content loader');
+    expect(rig.sendMessage).not.toHaveBeenCalled();
+    consoleErrorSpy.mockRestore();
+  });
+
+  it('does not dispatch context menu actions when content runtime readiness fails', async () => {
+    vi.useFakeTimers();
+    const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    const { rig, register } = await loadModule({
+      executeScript: vi
+        .fn()
+        .mockResolvedValueOnce(undefined)
+        .mockResolvedValueOnce([
+          {
+            documentId: 'document-0',
+            frameId: 0,
+            result: {
+              ready: false,
+              reason: 'runtime-import-rejected',
+              message: 'boot failed'
+            }
+          }
+        ])
+    });
+
+    register();
+    await flush();
+
+    const clickPromise = rig.onClickedListeners[0]?.(
+      menuClickData({
+        menuItemId: 'clip-page',
+        pageUrl: 'https://example.com/article'
+      }),
+      tabData({ id: 21, url: 'https://example.com/article' })
+    );
+    await vi.advanceTimersByTimeAsync(200);
+    await clickPromise;
+
+    expect(rig.notifyInjectionFailure).toHaveBeenCalledWith('runtime-import-rejected: boot failed');
+    expect(rig.sendMessage).not.toHaveBeenCalled();
     consoleErrorSpy.mockRestore();
   });
 
@@ -178,15 +327,15 @@ describe('context menu listeners', () => {
     register();
     await flush();
 
-    await rig.actionListeners[0]?.({ url: 'https://example.com/page' } as chrome.tabs.Tab);
+    await rig.actionListeners[0]?.(tabData({ url: 'https://example.com/page' }));
     expect(rig.executeScript).not.toHaveBeenCalled();
 
     await rig.onShownListeners[0]?.(
-      {
+      menuClickData({
         menuItemId: 'clip-page',
         selectionText: '',
         pageUrl: undefined
-      } as chrome.contextMenus.OnClickData,
+      }),
       undefined
     );
 
@@ -223,7 +372,7 @@ describe('context menu listeners', () => {
     consoleErrorSpy.mockRestore();
   });
 
-  it('warns for non-chrome removeAll failures and action click dispatch failures', async () => {
+  it('warns for non-chrome removeAll failures and notifies action click dispatch failures', async () => {
     vi.useFakeTimers();
     const consoleWarnSpy = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
     const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
@@ -242,16 +391,25 @@ describe('context menu listeners', () => {
       ])
     );
 
-    const promise = rig.actionListeners[0]?.({
-      id: 41,
-      url: 'https://example.com/page'
-    } as chrome.tabs.Tab);
+    const promise = rig.actionListeners[0]?.(tabData({ id: 41, url: 'https://example.com/page' }));
     await vi.advanceTimersByTimeAsync(60);
     await promise;
 
     expect(consoleErrorSpy).toHaveBeenCalledWith(
-      '[action] Failed to trigger clipFull:',
-      expect.any(Error)
+      '[contextMenu] Failed to dispatch action to tab:',
+      errorMatcher()
+    );
+    expect(rig.notifyClipFailure).toHaveBeenCalledWith(
+      expect.objectContaining({
+        code: 'CONTENT_MESSAGING_FAILED',
+        userMessageDescriptor: { key: 'errorContentMessagingFailed' },
+        context: objectMatcher({
+          component: 'contextMenus',
+          messageType: 'clipFull',
+          tabId: 41,
+          frameId: null
+        })
+      })
     );
     consoleWarnSpy.mockRestore();
     consoleErrorSpy.mockRestore();
@@ -265,11 +423,11 @@ describe('context menu listeners', () => {
     await flush();
 
     const clipVideoPromise = rig.onClickedListeners[0]?.(
-      {
+      menuClickData({
         menuItemId: 'clip-video',
         pageUrl: 'https://example.com/page'
-      } as chrome.contextMenus.OnClickData,
-      { id: 55, url: 'https://example.com/page' } as chrome.tabs.Tab
+      }),
+      tabData({ id: 55, url: 'https://example.com/page' })
     );
     await vi.advanceTimersByTimeAsync(140);
     await clipVideoPromise;
@@ -283,16 +441,16 @@ describe('context menu listeners', () => {
     rig.executeScript.mockClear();
     rig.sendMessage.mockClear();
     const selectionPromise = rig.onClickedListeners[0]?.(
-      {
+      menuClickData({
         menuItemId: 'clip-selection',
         pageUrl: 'https://example.com/article'
-      } as chrome.contextMenus.OnClickData,
-      { id: 56, url: 'https://example.com/article' } as chrome.tabs.Tab
+      }),
+      tabData({ id: 56, url: 'https://example.com/article' })
     );
     await vi.advanceTimersByTimeAsync(120);
     await selectionPromise;
 
-    expect(rig.executeScript).toHaveBeenCalledTimes(1);
+    expect(rig.executeScript).toHaveBeenCalledTimes(2);
     expect(rig.sendMessage).toHaveBeenCalledWith(
       56,
       { action: 'clipSelection', frameId: 0, tabId: 56 },

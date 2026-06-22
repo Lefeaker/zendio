@@ -34,7 +34,20 @@ export const firefoxScriptingService: ScriptingService = {
 
       const inlineCode = buildFallbackCode(options);
       if (inlineCode) {
-        await firefoxApi.tabs.executeScript(options.target.tabId, { code: inlineCode, frameId });
+        const fallbackResults = await firefoxApi.tabs.executeScript(options.target.tabId, {
+          code: inlineCode,
+          frameId
+        });
+        const normalizedResults = Array.isArray(fallbackResults)
+          ? fallbackResults
+          : [fallbackResults];
+        return normalizedResults.map(
+          (result, index): chrome.scripting.InjectionResult<unknown> => ({
+            documentId: `firefox-tabs-execute-script-${frameId ?? 0}-${index}`,
+            frameId: frameId ?? 0,
+            result
+          })
+        );
       }
 
       return;
