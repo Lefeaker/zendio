@@ -89,7 +89,12 @@
   height: 28px;
   flex: none;
   object-fit: contain;
-  filter: invert(1) brightness(1.8) saturate(0.8);
+  filter: none;
+}
+
+:is(html[data-preview-theme='dark'], .stitch-runtime-surface[data-preview-theme='dark'])
+  .task-support-logo[src$='.svg'] {
+  filter: brightness(0) invert(1);
   opacity: 0.92;
 }
 

@@ -1,6 +1,6 @@
 # 设计系统治理基线
 
-日期：2026-05-11
+日期：2026-06-22
 
 适用范围：`Options`、`content`、`onboarding` 的共享 UI、样式宿主、领域控件与长期守门规则。
 
@@ -119,6 +119,9 @@
 - 只允许 `src/ui/foundation/icons/index.ts` 从 `lucide` 导入白名单图标
 - 禁止任何其他 `src/*` 文件直接从 `lucide` 导入
 - `src/shared/utils/iconHelpers.ts` 仅保留为对 foundation icon helper 的兼容 re-export
+- public SVG 资产分为两类：品牌/二维码媒体保持原图，单色功能图标可由 Stitch CSS 主题化。不得对 `.resource-link-preview`、`.resource-image-modal-media`、`.resource-inline-popover-media` 或 QR 图片应用 `filter`
+- 单色 SVG 图标只允许在明确的暗色主题宿主下反白，例如 `html[data-preview-theme='dark']` 或 `.stitch-runtime-surface[data-preview-theme='dark']`。浅色主题必须保持 `filter: none`，禁止无条件 `invert()` / `brightness()` 规则
+- Options、content runtime 与 onboarding 共享 `src/options/stitch/styles/stitch.css`；新增 resource/support icon 样式必须同时覆盖 document 页面与 shadow/runtime surface，并用 `tests/unit/options/stitchCssRuntimePolish.test.ts` 或 Playwright computed-style 测试固化契约
 
 ## 5. 迁移期兼容层与归档资产
 

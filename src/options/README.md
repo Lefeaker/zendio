@@ -33,6 +33,7 @@
 - `src/options/styles/*` legacy 样式链路已退出正式构建；真实 token 真值源只有 `src/styles/design-tokens.css`。
 - `.aobx-*` 采用 BEM 语义，优先复用 Token/Utility，例如 `.aobx-card`、`.aobx-alert` 等。
 - 禁止新增 `.aob-*` 或内联颜色；Dark/Light 模式需同步维护。
+- 单色 SVG resource/support 图标必须在浅色主题保持 `filter: none`，只允许在 `html[data-preview-theme='dark']` 或 `.stitch-runtime-surface[data-preview-theme='dark']` 下主题化；QR、预览图和 popover 图片媒体不得加 filter。
 - 需要实验性样式时，在 README / PR 中写明范围与回滚方式，并确保 `npm run report:options-legacy` 通过。
 - Tailwind / DaisyUI 构建链路已退出主线；新增或修改样式必须落在 Stitch schema / renderer / `stitch/styles/`，不得恢复 Tailwind 配置、CLI 脚本或旧 CSS bridge。
 
@@ -186,6 +187,7 @@ src/options/
   - 正式 Options 与 content runtime 样式优先落在 Stitch schema / renderer / `stitch/styles/stitch.css`。
   - 不再新增或恢复模块级 legacy CSS；结构与视觉规则应优先落在 Stitch runtime CSS 或 token 链路。
   - 组件级样式优先靠 Token/Utility（如 `--aobx-space-*`、`.aobx-button-row`），避免复制粘贴局部颜色/间距。
+  - SVG icon 主题化必须显式绑定 document 与 runtime surface 的暗色主题宿主；不要为了修暗色图标可读性而在基础选择器中写无条件 `filter: invert()`。
   - 如需实验性样式，请放在局部容器，并在 PR 描述中说明范围与回滚方式。
 - **开发流程建议**：
   1. 修改 DOM → 使用统一 helper 输出 `.aobx-*` 类。

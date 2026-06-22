@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test, type Page } from '@playwright/test';
 import { execFileSync } from 'node:child_process';
 import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -12,6 +12,25 @@ const GENERATED_TASK_SUCCESS_PREVIEW_ROOT = resolve(
 const GENERATED_TASK_SUCCESS_PREVIEW_URL = pathToFileURL(
   resolve(GENERATED_TASK_SUCCESS_PREVIEW_ROOT, 'index.html')
 ).toString();
+
+async function setPreviewTheme(page: Page, theme: 'dark' | 'light'): Promise<void> {
+  await page.evaluate((themeName) => {
+    document.documentElement.dataset.previewTheme = themeName;
+    document.documentElement.dataset.theme = themeName;
+    document.body.dataset.previewTheme = themeName;
+  }, theme);
+}
+
+async function readTaskSupportLogoFilters(page: Page): Promise<string[]> {
+  return page.locator('.task-support-logo').evaluateAll((logos) =>
+    logos.map((logo) => {
+      if (!(logo instanceof HTMLElement)) {
+        throw new Error('task support logo is not an HTMLElement');
+      }
+      return window.getComputedStyle(logo).filter;
+    })
+  );
+}
 
 test.describe('Stitch task success surface layout', () => {
   test.beforeAll(() => {
@@ -46,6 +65,15 @@ test.describe('Stitch task success surface layout', () => {
     await expect(page.locator('.toast-preview-stack')).toHaveCount(0);
     await expect(page.locator('.prompt-toast.like')).toHaveCount(0);
     await expect(page.locator('.prompt-toast.dislike')).toHaveCount(0);
+
+    await setPreviewTheme(page, 'light');
+    await expect(page.locator('.task-support-logo')).toHaveCount(2);
+    expect(await readTaskSupportLogoFilters(page)).toEqual(['none', 'none']);
+
+    await setPreviewTheme(page, 'dark');
+    const darkLogoFilters = await readTaskSupportLogoFilters(page);
+    expect(darkLogoFilters).toHaveLength(2);
+    expect(darkLogoFilters.every((filter) => filter !== 'none')).toBe(true);
   });
 
   test('production support prompt mounts the task-success Stitch runtime surface', async ({
