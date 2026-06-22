@@ -49,6 +49,7 @@ function createStorageArea(): StorageAreaService {
 function createRuntime(): RuntimeService {
   return {
     getURL: vi.fn(() => 'mock-url'),
+    getBrowserTarget: vi.fn<() => 'chrome'>(() => 'chrome'),
     openOptionsPage: vi.fn(() => Promise.resolve(undefined)),
     onInstalled: vi.fn().mockReturnValue(() => {}),
     onStartup: vi.fn().mockReturnValue(() => {})

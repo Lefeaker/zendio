@@ -41,6 +41,7 @@ const messages = {
 function createRuntimeStub(): RuntimeService {
   return {
     getURL: vi.fn((path: string) => `chrome-extension://test/${path}`),
+    getBrowserTarget: vi.fn<() => 'chrome'>(() => 'chrome'),
     openOptionsPage: vi.fn(() => Promise.resolve(undefined)),
     onInstalled: vi.fn(() => () => undefined),
     onStartup: vi.fn(() => () => undefined)

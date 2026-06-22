@@ -15,7 +15,10 @@ import type { PartialPlatformServices, PlatformServices } from './types';
 import { registry, TOKENS } from '../shared/di';
 import { createFetchRestClient } from '../infrastructure/restClient';
 import { configureSessionDraftRuntimeMessenger } from '../content/sessionDrafts/sessionDraftTabContext';
-import { configureI18nRuntimeLanguageProvider } from '../i18n';
+import {
+  configureI18nRuntimeAssetUrlResolver,
+  configureI18nRuntimeLanguageProvider
+} from '../i18n';
 import { detectBrowser } from '../shared/utils/browserDetection';
 /**
  * 检测当前浏览器环境
@@ -50,6 +53,7 @@ function configureRuntimePorts(runtime: PlatformServices['runtime'] | null): voi
   configureI18nRuntimeLanguageProvider(
     runtime && typeof runtime.getUILanguage === 'function' ? () => runtime.getUILanguage!() : null
   );
+  configureI18nRuntimeAssetUrlResolver(runtime ? (path) => runtime.getURL(path) : null);
 }
 
 function createDefaultServices(): PlatformServices {

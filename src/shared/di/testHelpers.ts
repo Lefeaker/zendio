@@ -50,6 +50,7 @@ export function createMockPlatformServices(): PlatformServices {
     },
     runtime: {
       getURL: (path: string) => `chrome-extension://test/${path}`,
+      getBrowserTarget: () => 'chrome',
       openOptionsPage: () => Promise.resolve(undefined),
       onInstalled: () => () => undefined,
       onStartup: () => () => undefined

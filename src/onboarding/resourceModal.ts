@@ -17,6 +17,7 @@ type MessageResolver = (key: MessageKey) => string;
 interface OnboardingResourceModalRequest {
   language: string;
   messages: MessageSource;
+  resolveAssetUrl?: (path: string) => string;
   resourceId: OnboardingResourceId;
 }
 
@@ -239,20 +240,12 @@ function createMessageResolver({
   return (key) => readMessage(primary, key) || readMessage(fallback, key) || String(key);
 }
 
-function resolveAssetUrl(path: string): string {
+function resolveAssetUrl(path: string, runtimeAssetUrlResolver?: (path: string) => string): string {
   if (ABSOLUTE_ASSET_URL.test(path)) {
     return path;
   }
   const normalizedPath = path.replace(/^\.\/+/, '').replace(/^(?:\.\.\/)+/, '');
-  const runtime =
-    typeof chrome !== 'undefined' && chrome.runtime
-      ? chrome.runtime
-      : typeof browser !== 'undefined' && browser.runtime
-        ? browser.runtime
-        : undefined;
-  return typeof runtime?.getURL === 'function'
-    ? runtime.getURL(normalizedPath)
-    : `../${normalizedPath}`;
+  return runtimeAssetUrlResolver ? runtimeAssetUrlResolver(normalizedPath) : `../${normalizedPath}`;
 }
 
 function append(parent: Node, ...children: Array<Node | string | null | undefined>): void {
@@ -306,6 +299,7 @@ function createResourceCard(options: {
   icon?: string;
   image?: string;
   imageAlt?: string;
+  resolveAssetUrl?: (path: string) => string;
   subtitle?: string;
   title: string;
 }): HTMLElement {
@@ -334,13 +328,13 @@ function createResourceCard(options: {
       event.stopPropagation();
       showResourceImageModal({
         alt: options.imageAlt ?? options.title,
-        src: resolveAssetUrl(options.image ?? '')
+        src: resolveAssetUrl(options.image ?? '', options.resolveAssetUrl)
       });
     });
   }
   if (options.icon) {
     const icon = createElement('img', 'resource-link-icon');
-    icon.src = resolveAssetUrl(options.icon);
+    icon.src = resolveAssetUrl(options.icon, options.resolveAssetUrl);
     icon.alt = `${options.title} icon`;
     card.append(icon);
   }
@@ -357,13 +351,17 @@ function createResourceCard(options: {
   return card;
 }
 
-function createSupportView(t: MessageResolver): ResourceModalView {
+function createSupportView(
+  t: MessageResolver,
+  runtimeAssetUrlResolver?: (path: string) => string
+): ResourceModalView {
   const grid = createElement('div', 'resource-card-grid');
   append(
     grid,
     createResourceCard({
       href: ZENDIO_RESOURCE_LINKS.koFi,
       icon: './icons/ko-fi.svg',
+      resolveAssetUrl: runtimeAssetUrlResolver,
       subtitle: t('schemaResourceSupportKoFiDescription'),
       title: t('schemaResourceSupportKoFiTitle')
     }),
@@ -371,6 +369,7 @@ function createSupportView(t: MessageResolver): ResourceModalView {
       icon: './icons/wechat-reward.svg',
       image: './icons/wechat-reward-qr.jpg',
       imageAlt: t('schemaResourceSupportAfdianTitle'),
+      resolveAssetUrl: runtimeAssetUrlResolver,
       subtitle: t('schemaResourceSupportAfdianDescription'),
       title: t('schemaResourceSupportAfdianTitle')
     })
@@ -493,10 +492,14 @@ function createLegalView(
   };
 }
 
-function createView(resourceId: OnboardingResourceId, t: MessageResolver): ResourceModalView {
+function createView(
+  resourceId: OnboardingResourceId,
+  t: MessageResolver,
+  runtimeAssetUrlResolver?: (path: string) => string
+): ResourceModalView {
   switch (resourceId) {
     case 'support':
-      return createSupportView(t);
+      return createSupportView(t, runtimeAssetUrlResolver);
     case 'suggestions':
       return createSuggestionsView(t);
     case 'contact':
@@ -577,5 +580,5 @@ function renderModal(view: ResourceModalView): HTMLElement {
 export function renderOnboardingResourceModal(request: OnboardingResourceModalRequest): void {
   const t = createMessageResolver(request);
   closeResourceModals();
-  document.body.append(renderModal(createView(request.resourceId, t)));
+  document.body.append(renderModal(createView(request.resourceId, t, request.resolveAssetUrl)));
 }

@@ -16,6 +16,7 @@ import { createLanguageService, LANGUAGE_STORAGE_KEY } from './runtime/languageS
 import { createPageRuntime } from './runtime/pageRuntime';
 import { createStorageAdapter } from './runtime/storageAdapter';
 import { getMessagesForLanguage as loadPageMessagesForLanguage } from './messages';
+import { configureRuntimeAssetUrlResolver, type RuntimeAssetUrlResolver } from './runtime/assets';
 
 export { createPageI18nController } from './pageController';
 export type { PageI18nController } from './pageController';
@@ -49,6 +50,12 @@ export function configureI18nRuntimeLanguageProvider(
   provider: RuntimeLanguageProvider | null
 ): void {
   runtimeLanguageProvider = provider;
+}
+
+export function configureI18nRuntimeAssetUrlResolver(
+  resolver: RuntimeAssetUrlResolver | null
+): void {
+  configureRuntimeAssetUrlResolver(resolver);
 }
 
 function getRuntimeLanguage(): string | undefined {

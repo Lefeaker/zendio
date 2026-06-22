@@ -31,6 +31,9 @@ function createPreviewRuntimeService(): RuntimeService {
     getURL(path: string): string {
       return path;
     },
+    getBrowserTarget() {
+      return 'chrome';
+    },
     openOptionsPage(): Promise<void> {
       return Promise.resolve();
     },

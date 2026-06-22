@@ -10,6 +10,7 @@ describe('preview platform services', () => {
     expect(services.messaging.addListener(() => undefined)).toEqual(expect.any(Function));
 
     expect(services.runtime.getURL('/options/index.html')).toBe('/options/index.html');
+    expect(services.runtime.getBrowserTarget()).toBe('chrome');
     await expect(services.runtime.openOptionsPage()).resolves.toBeUndefined();
     expect(services.runtime.getManifest?.()).toEqual({ version: 'preview' });
     expect(services.runtime.onInstalled(() => undefined)).toEqual(expect.any(Function));

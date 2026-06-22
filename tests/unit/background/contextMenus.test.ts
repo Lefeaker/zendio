@@ -87,6 +87,10 @@ describe('context menu listeners', () => {
       2,
       expect.objectContaining({ target: { tabId: 9, frameIds: [0] }, func: functionMatcher() })
     );
+    expect(rig.executeScript.mock.calls[1]?.[0].target).toEqual({
+      tabId: 9,
+      frameIds: [0]
+    });
     expect(rig.executeScript).toHaveBeenNthCalledWith(
       3,
       expect.objectContaining({ target: { tabId: 9, frameIds: [4] }, files: ['content/index.js'] })

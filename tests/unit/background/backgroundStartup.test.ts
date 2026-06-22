@@ -53,6 +53,7 @@ describe('backgroundStartup', () => {
         onInstalled: vi.fn(),
         onStartup: vi.fn(),
         getURL: vi.fn(),
+        getBrowserTarget: vi.fn<() => 'chrome'>(() => 'chrome'),
         openOptionsPage: vi.fn()
       },
       scripting: { executeScript: vi.fn() },
