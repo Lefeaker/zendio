@@ -262,6 +262,79 @@ describe('readerSessionDrafts', () => {
     ]);
   });
 
+  it('restores duplicate reader draft text to separate document occurrences', () => {
+    document.body.innerHTML = '<article><p>Echo middle Echo</p></article>';
+    const createHighlight = vi.fn(
+      (options: {
+        id: string;
+        range: Range;
+        selectedHtml: string;
+        selectedText: string;
+        comment: string;
+        fragmentUrl: string;
+      }) => {
+        const wrapper = document.createElement('mark');
+        wrapper.dataset.readerHighlightId = options.id;
+        wrapper.textContent = options.range.toString();
+        return createHighlightRecord({
+          id: options.id,
+          selectedHtml: options.selectedHtml,
+          selectedText: options.selectedText,
+          comment: options.comment,
+          fragmentUrl: options.fragmentUrl,
+          wrapper,
+          wrapperSegments: [wrapper],
+          createdAt: 40
+        });
+      }
+    );
+
+    const restored = restoreReaderSessionDraftHighlights({
+      doc: document,
+      highlightManager: {
+        createHighlight
+      } as never,
+      highlights: [
+        {
+          id: 'saved-1',
+          selectedHtml: '<mark>Echo</mark>',
+          selectedText: 'Echo',
+          comment: 'first duplicate',
+          fragmentUrl: '#saved-1',
+          createdAt: 44
+        },
+        {
+          id: 'saved-2',
+          selectedHtml: '<mark>Echo</mark>',
+          selectedText: 'Echo',
+          comment: 'second duplicate',
+          fragmentUrl: '#saved-2',
+          createdAt: 45
+        }
+      ]
+    });
+
+    expect(createHighlight).toHaveBeenCalledTimes(2);
+    expect(createHighlight.mock.calls.map(([options]) => options.range.startOffset)).toEqual([
+      0, 12
+    ]);
+    expect(restored.detachedHighlightIds).toEqual([]);
+    expect(restored.highlights).toEqual([
+      expect.objectContaining({
+        id: 'saved-1',
+        selectedText: 'Echo',
+        comment: 'first duplicate',
+        createdAt: 44
+      }),
+      expect.objectContaining({
+        id: 'saved-2',
+        selectedText: 'Echo',
+        comment: 'second duplicate',
+        createdAt: 45
+      })
+    ]);
+  });
+
   it('falls back to detached highlight rows when the saved text no longer exists', () => {
     document.body.innerHTML = '<article><p>Alpha Beta Gamma</p></article>';
     const createHighlight = vi.fn();
