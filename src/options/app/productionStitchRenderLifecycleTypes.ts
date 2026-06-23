@@ -5,6 +5,7 @@ import type {
   SchemaContext,
   ViewSchema
 } from '@options/stitch/types';
+import type { ProductionStitchAssetUrlResolver } from './productionStitchAssetUrlResolver';
 
 export interface ProductionStitchRenderWidgetHost {
   createWidgetFactory(widgetType: string): unknown;
@@ -28,6 +29,7 @@ export interface ProductionStitchRenderLifecycleOptions {
   setState(state: PreviewStoreState): void;
   createSchemaContext(): SchemaContext;
   dispatch(actionId: string, args?: unknown[], value?: unknown, event?: Event): void;
+  resolveAssetUrl: ProductionStitchAssetUrlResolver;
   schemaRenderer: ProductionStitchSchemaRenderer;
   widgetHost: ProductionStitchRenderWidgetHost;
 }

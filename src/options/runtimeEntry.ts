@@ -12,6 +12,7 @@ export async function bootstrapOptionsRuntime(platformServices?: PlatformService
     Boolean(chrome.storage?.sync) &&
     Boolean(chrome.storage?.local);
 
+  let runtime = platformServices?.runtime;
   const bootstrapStorage = hasChromeStorage
     ? platformServices?.storage
     : createMemoryStorageService();
@@ -34,12 +35,14 @@ export async function bootstrapOptionsRuntime(platformServices?: PlatformService
     });
   } else {
     const previewPlatformServices = createPreviewPlatformServices(bootstrapStorage);
+    runtime = previewPlatformServices.runtime;
     registerService(TOKENS.platformServices, () => previewPlatformServices);
     registerFallbackRepositories();
   }
 
   configureOptionsAppBootstrapStorage(bootstrapStorage);
   await bootstrapOptionsApp({
-    storage: bootstrapStorage
+    storage: bootstrapStorage,
+    ...(runtime ? { runtime } : {})
   });
 }

@@ -58,16 +58,8 @@ function stripTrailingSlash(value: string): string {
   return value.replace(/\/$/, '');
 }
 
-function resolveSetupGuideBrowserTarget(): SetupGuideBrowserTarget {
-  if (typeof browser !== 'undefined' && typeof browser.runtime?.getBrowserInfo === 'function') {
-    return 'firefox';
-  }
-
-  return 'chrome';
-}
-
-function getStep1Keys(): SetupGuideStepKeys {
-  return resolveSetupGuideBrowserTarget() === 'firefox' ? FIREFOX_STEP1_KEYS : CHROME_STEP1_KEYS;
+function getStep1Keys(ctx: Pick<SchemaContext, 'browserTarget'>): SetupGuideStepKeys {
+  return ctx.browserTarget === 'firefox' ? FIREFOX_STEP1_KEYS : CHROME_STEP1_KEYS;
 }
 
 function setupActionFor(kind: SetupGuideKind, tr: (key: SchemaMessageKey) => string): NodeSchema {
@@ -156,11 +148,14 @@ function createConnectionSections(
   ];
 }
 
-function createOnboardingStepCards(tr: (key: SchemaMessageKey) => string): ResourceStep[] {
+function createOnboardingStepCards(
+  ctx: SchemaContext,
+  tr: (key: SchemaMessageKey) => string
+): ResourceStep[] {
   const restDefaults = configProvider.getRestDefaults();
   const defaultHttpsUrl = stripTrailingSlash(restDefaults.httpsUrl);
   const defaultHttpUrl = stripTrailingSlash(restDefaults.httpUrl);
-  const step1Keys = getStep1Keys();
+  const step1Keys = getStep1Keys(ctx);
 
   return [
     {
@@ -219,7 +214,7 @@ export function createSetupGuideView(ctx: SchemaContext, options: SetupGuideOpti
     resourceModalStack([
       ...createConnectionSections(options.kind, tr),
       modalSection(tr('schemaResourceOnboardingStepsTitle'), [
-        stepGrid(createOnboardingStepCards(tr).map((step) => stepCard(step)))
+        stepGrid(createOnboardingStepCards(ctx, tr).map((step) => stepCard(step)))
       ])
     ])
   ];

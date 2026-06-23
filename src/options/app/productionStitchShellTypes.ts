@@ -1,9 +1,11 @@
 import type { StorageService } from '@platform/interfaces/storage';
+import type { RuntimeService } from '@platform/interfaces/runtime';
 import type { IOptionsRepository, IMessagingRepository } from '@shared/repositories';
 import type { CompleteOptions, StoredOptions } from '@shared/types/options';
 import type { Language, Messages } from '@i18n';
 import type { PreviewContent, SchemaContext, ViewSchema } from '@options/stitch/types';
 import type { OptionsController } from './optionsController';
+import type { ProductionStitchAssetUrlResolver } from './productionStitchAssetUrlResolver';
 
 export interface MountedProductionStitchShell {
   cleanup(): void;
@@ -28,5 +30,8 @@ export interface ProductionStitchShellDependencies {
   optionsRepository?: Pick<IOptionsRepository, 'get' | 'set' | 'onChange'>;
   messagingRepository?: Pick<IMessagingRepository, 'send' | 'onMessage'>;
   storage?: StorageService;
+  runtime?: Pick<RuntimeService, 'getURL' | 'getBrowserTarget'>;
+  resolveAssetUrl?: ProductionStitchAssetUrlResolver;
+  browserTarget?: SchemaContext['browserTarget'];
   now?: () => number;
 }

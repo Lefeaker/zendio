@@ -26,14 +26,29 @@ const MAX_LINE_BUDGETS = new Map([
   ['src/i18n/generated/locales/zh-TW.generated.ts', 690],
   ['src/options/stitch/content.ts', 841],
   ['src/options/yaml-config-editor/view.ts', 746],
+  // 2026-06-23 P05 Options/Stitch decomposition: extracted YAML row DOM
+  // rendering keeps the public YAML editor facade stable.
+  ['src/options/yaml-config-editor/fieldRowsView.ts', 257],
+  // 2026-06-23 P05 Options/Stitch decomposition: domain override table
+  // rendering moved behind the YAML editor facade.
+  ['src/options/yaml-config-editor/domainRulesView.ts', 282],
   // 2026-06-20 Options/onboarding closeout: current Stitch schema type surface
   // includes the accepted resource modal and first-run setup contracts.
   ['src/options/stitch/types.ts', 771],
+  // 2026-06-23 P05 Options/Stitch decomposition: schema/context type owner
+  // carries the browser-target field while the legacy type path remains a facade.
+  ['src/options/stitch/types/schemaTypes.ts', 366],
   ['src/options/stitch/ui/components.ts', 592],
   ['src/third_party/ai-chat-exporter/platforms/gemini.ts', 576],
   ['src/options/stitch/schema/builders/surfaces.ts', 558],
+  // 2026-06-23 P05 Options/Stitch decomposition: shared surface chrome
+  // helpers back the stable surface-builder facade.
+  ['src/options/stitch/schema/builders/surfaceChrome.ts', 275],
   ['src/shared/attachments/videoScreenshotAttachmentTemplates.ts', 523],
   ['src/options/app/productionStitchStateMapper.ts', 517],
+  // 2026-06-23 P05 Options/Stitch decomposition: pure theme/state seed
+  // mapping moved behind the production state mapper facade.
+  ['src/options/app/stateMapper/themeStateMapper.ts', 206],
   ['src/content/clipper/components/clipperDialogController.ts', 511],
   ['src/content/reader/services/highlightManager.ts', 505],
   ['src/shared/di/serviceRegistry.ts', 498],
@@ -109,6 +124,12 @@ const MAX_LINE_BUDGETS = new Map([
   // 2026-06-20 Options/onboarding closeout: diagnostics remains a current
   // production hotspot and is tracked at its exact branch line count.
   ['src/options/components/diagnostics.ts', 627],
+  // 2026-06-23 P05 Options/Stitch decomposition: diagnostics rendering and
+  // fix actions moved behind the diagnostics facade without changing exports.
+  ['src/options/components/diagnostics/diagnosticsRenderer.ts', 85],
+  // 2026-06-23 P05 Options/Stitch decomposition: diagnostics model building
+  // moved behind the diagnostics facade as the production report owner.
+  ['src/options/components/diagnostics/diagnosticsModel.ts', 325],
   ['src/options/state/vaultRouterStore.ts', 308],
   ['src/components/trial-notice.ts', 376],
   ['src/content/clipper/services/contextCapture.ts', 305],
@@ -182,6 +203,9 @@ const MAX_LINE_BUDGETS = new Map([
   // 2026-06-18 options support closeout: task-success surface owns the feedback
   // and support schema copy used by production runtime previews.
   ['src/options/stitch/schema/surfaces/task-success.ts', 276],
+  // 2026-06-23 P05 Options/Stitch decomposition: runtime surface content moved
+  // out of the monolithic Stitch content seed behind the stable facade.
+  ['src/options/stitch/content/runtimeSurfaceContent.ts', 283],
   ['src/background/pipelines/clipPipeline.ts', 253],
   // 2026-06-19 Options shortcut copy stabilization: platform-aware modifier
   // labels and keyboard mappings are centralized for Options rendering.
