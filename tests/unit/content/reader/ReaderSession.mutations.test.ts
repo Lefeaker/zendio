@@ -1,16 +1,15 @@
 /* @vitest-environment jsdom */
 
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { Mock } from 'vitest';
-import '../../../setup/globalSetup';
 import type { ReaderPanelHighlight } from '@content/reader/application/readerPanelModel';
-import { DEFAULT_SESSION_MESSAGES } from '@content/reader/sessionMessages';
 import type { ReaderHighlightRecord } from '@content/reader/services/highlightManager';
+import { DEFAULT_SESSION_MESSAGES } from '@content/reader/sessionMessages';
 import {
   __resetContentSessionRegistryForTests,
   getReaderSession,
   isReaderSessionActive
 } from '@content/runtime/contentSessionRegistry';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import '../../../setup/globalSetup';
 import {
   createDeferred,
   createSelectionPayload,

@@ -1,18 +1,15 @@
+import { bucketCount } from '@shared/analytics/featureTimer';
+import type { ExportDestinationMetadata } from '@shared/exportDestination';
 import type { ClipPromptGateway } from '../clipper/application/clipPromptGateway';
 import { generateTextFragmentUrl } from '../clipper/utils/textFragment';
-import { createReaderHighlightId, type ReaderSessionState } from './sessionState';
-import type { ReaderSelectionPayload } from './services/selectionController';
-import type { ReaderHighlightManager, ReaderHighlightRecord } from './services/highlightManager';
-import type { ReaderPanelCoordinator } from './panelCoordinator';
-import type { ReaderSessionDependencies } from './sessionTypes';
-import type { ReaderSessionLifecycle } from './sessionLifecycle';
-import type { ExportDestinationMetadata } from '@shared/exportDestination';
-import type { SessionDraftTerminalStatus, SessionMutationTransaction } from '../sessionDrafts';
-import type { UsageEventParamMap } from '@shared/types/analytics';
-import { bucketCount } from '@shared/analytics/featureTimer';
-import { isNodeInsideReaderUi } from './sessionDom';
 import { clearReaderSession } from '../runtime/contentSessionRegistry';
+import type { SessionDraftTerminalStatus, SessionMutationTransaction } from '../sessionDrafts';
 import { clearHighlightThemeState } from '../shared/highlightThemeState';
+import type { ReaderPanelCoordinator } from './panelCoordinator';
+import type { ReaderHighlightManager, ReaderHighlightRecord } from './services/highlightManager';
+import type { ReaderSelectionPayload } from './services/selectionController';
+import { isNodeInsideReaderUi } from './sessionDom';
+import type { ReaderSessionLifecycle } from './sessionLifecycle';
 import { resolveReaderFailureCategory } from './sessionOperationFailures';
 import {
   createDetachedReaderHighlight,
@@ -20,6 +17,8 @@ import {
   snapshotSelection
 } from './sessionOperationSelection';
 import { resolveReaderExportDestination, trackReaderUsageEvent } from './sessionOperationTelemetry';
+import { createReaderHighlightId, type ReaderSessionState } from './sessionState';
+import type { ReaderSessionDependencies } from './sessionTypes';
 
 export { createDetachedReaderHighlight } from './sessionOperationSelection';
 export { trackReaderUsageEvent } from './sessionOperationTelemetry';

@@ -368,9 +368,11 @@ describe('VideoSessionDraftController', () => {
       createdAt: Date.now() + index,
       screenshotRef: createScreenshotCacheRef({ captureId: id, id: `shot-${index + 1}` })
     }));
-    harness.setDomDrafts(
-      Object.fromEntries([...ids.map((id) => [id, `draft for ${id}`]), ['orphan', 'drop me']])
-    );
+    const domDraftEntries: Array<[string, string]> = [
+      ...ids.map((id): [string, string] => [id, `draft for ${id}`]),
+      ['orphan', 'drop me']
+    ];
+    harness.setDomDrafts(Object.fromEntries(domDraftEntries));
 
     await harness.controller.flushNow('active');
 
