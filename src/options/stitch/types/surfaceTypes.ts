@@ -1,4 +1,4 @@
-import type { HeroData } from './contentTypes';
+import type { HeroData } from './baseTypes';
 
 export interface SupportChannel {
   id?: string;

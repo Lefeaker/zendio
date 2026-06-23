@@ -1,9 +1,6 @@
-export interface HeroData {
-  title: string;
-  description: string;
-  pills: string[];
-  icon?: string;
-}
+import type { HeroData } from './baseTypes';
+export type { HeroData } from './baseTypes';
+
 export interface NavItem {
   id: string;
   label: string;
