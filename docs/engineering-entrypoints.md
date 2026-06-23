@@ -1,6 +1,6 @@
 # 工程命令与入口
 
-最后更新：2026-06-21
+最后更新：2026-06-23
 
 ## 推荐运行环境
 
@@ -64,6 +64,7 @@
   - `static-style-and-locale` 保留 locale source alignment、Options CSS naming、hardcoded config guard 与 lint warning guard 的 hard gate 语义；`static-reporting-audits` 仅保留 report-only audit 的 per-step `continue-on-error`
   - `visual` 按 `chromium-desktop` / `chromium-tablet` / `chromium-mobile` matrix 拆分；Vitest E2E 与三组 browser E2E 拆成独立 job，失败报告 artifact 按 suite 命名
   - `package` job 通过 `needs: [static-preflight]` 提前启动，并继续使用 `npm run build:fast`，避免在 CI 后段通过 `npm run build` 重复触发完整 `quality`；测试、visual、release-surface 与静态拆分 job 仍应作为独立 required checks 参与合并判断
+- 2026-06-23 post-0.2.0 P07 performance observability truth：在 branch `codex/aiiinob-post-020-p07-performance-observability-2026-06-22` / source baseline commit `7495ab47` 重新采集 production `build:fast`、dev `build:dev`、`audit:build:report`、`audit:release-surface:report`、`audit:performance:report`、`audit:deps:report`、`audit:platform-boundary:report`、`audit:non-production-source:report`、`lint:type-any` 与 `lint:warnings-guard`；P07 后续只同步 docs、tool budget ratchets 与对应 tool test expectation。Fresh production build report 为 `content/runtime.js` raw `50,167` bytes、`onboarding/index.js` raw `1,130` bytes、chunks `86`；fresh dev report 为 `content/runtime.js` raw `58,694` bytes、`onboarding/index.js` raw `1,751` bytes、chunks `100`。Dev `content/runtime.js` remains above warning target `58,564` but below hard stop `58,752`; P07 intentionally did not loosen this build budget. `audit:release-surface:report` 为 `Files=180`、forbidden harness/pseudo-locale `none`；`audit:performance:report` 为 `sourceFiles=875`、`hotspotsOver250=111`、`registeredLineBudgets=149`，并将 36 个 stale line budgets 收紧到 fresh line count；`audit:deps:report` 为 `modules=993`、`dependencies=3032`、`violations=0`；`audit:platform-boundary:report` 为 total `141`；`audit:non-production-source:report` decision counts 为 `retain-production: 718`、`migrate-import-owner: 164`、`retain-production-facade: 17`；`lint:type-any` 为 overall `0/1187/1987/49/3`、src `0/666/715/8/0`、tests `0/521/1272/41/3`；`lint:warnings-guard` 当前 warning count 为 `157`（baseline `160`）。
 - 2026-05-22 final exit gate 真值：在 Node `v20.20.2` / npm `10.8.2` 下，`quality`、`verify:preflight`、`test:unit`、`clean`、`build:dev`、`audit:build:report`、`audit:performance:report`、`verify:stitch-secondary`、`visual:test`、browser smoke、reader-panel、local-vault 均已通过；`build/dist/content/runtime.js` raw `54,554` bytes，低于当时 `57,600` stop gate
 - 2026-05-24 M2.5 budget ratchet 真值：M2.1-M2.4 合入后，`audit:build:report` 的 `content/runtime.js` raw stop gate 收紧为 `56,320` bytes；chunk count 收紧为 `<= 112`；hotspot line budgets 以 `docs/performance-baseline.md` 为准
 - 2026-06-07 video legacy recovery 真值：视频/阅读 draft 自动恢复入口改为 lazy `sessionDraftAutoRestore-*` chunk 后，`audit:build:report` 的 `content/runtime.js` raw stop gate 同步为 `57,344` bytes；chunk count 继续守住 `<= 112`；完整 build/hotspot 真值以 `docs/performance-baseline.md` 为准

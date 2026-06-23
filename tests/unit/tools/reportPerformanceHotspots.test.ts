@@ -34,7 +34,7 @@ describe('report-performance-hotspots', () => {
 
     expect(output).toContain('src/i18n/generated/schemaCore.generated.ts');
     expect(output).toContain('src/content/reader/utils/markdownBuilder.ts');
-    expect(output).toContain('src/options/app/productionStitchStateMapper.ts');
+    expect(output).toContain('src/options/app/productionStitchLocalization.ts');
     expect(output).toContain('src/ui/domains/privacy/PrivacySettingsView.ts');
     expect(output).toContain('src/content/video/videoScreenshotPreparationRequestStore.ts');
     expect(output).toContain('src/background/listeners/runtimeMessages.ts');

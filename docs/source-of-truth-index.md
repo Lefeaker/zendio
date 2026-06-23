@@ -1,6 +1,6 @@
 # Source of Truth 索引
 
-最后更新：2026-06-20
+最后更新：2026-06-23
 
 ## 正式入口
 
@@ -28,6 +28,7 @@
 - 当前统一门禁以 `quality` / `verify:preflight` / CI 三者一致为准
 - 当前本地 runtime hard gate 以 `verify:runtime` 为准；该命令读取 `package.json` 的 `engines.node`，并已接入 `quality`、`verify:preflight`、`test` / `test:*` 与 `visual:*` npm scripts
 - 当前性能真值以 `audit:build:report` 与 `audit:performance:report` 为准
+- 2026-06-23 post-0.2.0 P07 performance/budget current truth：branch `codex/aiiinob-post-020-p07-performance-observability-2026-06-22` / source baseline commit `7495ab47` fresh evidence shows production `content/runtime.js` raw `50,167` bytes、`onboarding/index.js` raw `1,130` bytes、chunks `86`; dev `content/runtime.js` raw `58,694` bytes、`onboarding/index.js` raw `1,751` bytes、chunks `100`; dev `content/runtime.js` remains above warning target `58,564` and below hard stop `58,752`, so P07 preserved the existing build budget and documented the remaining `58 B` hard-stop headroom risk. P07 itself only syncs docs, tool budget ratchets, and the corresponding tool test expectation. Current `audit:performance:report` is `sourceFiles=875`、`hotspotsOver250=111`、`registeredLineBudgets=149`; P07 tightened 36 stale line budgets to fresh line counts without runtime-code line-count edits. Current auxiliary reports: release surface `Files=180` / forbidden harness and pseudo-locale `none`; deps `modules=993 dependencies=3032 violations=0`; platform boundary total `141`; non-production source decision counts `retain-production: 718`、`migrate-import-owner: 164`、`retain-production-facade: 17`; type audit overall `0/1187/1987/49/3`, src `0/666/715/8/0`, tests `0/521/1272/41/3`; lint warning count `157` against baseline `160`. Details live in [`performance-baseline.md`](./performance-baseline.md) and [`engineering-entrypoints.md`](./engineering-entrypoints.md).
 - 当前 `M4` 已按重定义口径通过；旧版工作树/批次规模预算已下沉到 backlog
 - 2026-05-18 stabilization 的 audit-time dirty tree 归属以 [`current-delivery-batches-2026-04-13.md`](./current-delivery-batches-2026-04-13.md) 为准；该文档不再声明当前工作树为 `0` open paths
 - 2026-05-19 gap closure 后，batch handoff 使用 post-fact amended ownership；不要再声称历史 committed path manifests exactly once
