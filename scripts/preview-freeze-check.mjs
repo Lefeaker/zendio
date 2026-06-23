@@ -104,12 +104,11 @@ const ALLOWED_PREVIEW_DRIFT = new Map([
         'The i18n chunk-loading repair refreshes the generated preview JS hash after replacing generated locale/schema dynamic imports with static release registries so extension pages do not depend on runtime-loaded i18n chunks, while preserving the frozen reference, locale fallback semantics, and Stitch runtime behavior.',
         'The support resource closeout refreshes the generated preview JS hash after deleting retired Support Scope schema messages, neutralizing AI-assisted product-positioning copy in cataloged experimental settings, and routing support/contact/suggestion links through the shared Zendio resource link registry while preserving the frozen reference and Stitch resource modal/runtime surface behavior.',
         'The Firefox runtime boundary and reader focus main merge refreshes the generated preview JS hash while preserving the frozen reference, preview freeze logic, and Stitch runtime contract.',
-        'P05 refreshes the generated preview JS hash after facade-preserving Options/Stitch owner decomposition, runtime-threaded asset URL resolution, and schema-context browser target routing while focused Options/Stitch tests and visual:stitch preserve the frozen reference and Stitch runtime contract.',
-        'The P05 type-cycle repair refreshes the generated preview JS hash after moving shared Stitch hero type ownership out of the content/surface type cycle, with dependency-cruiser, focused Options/Stitch tests, and visual:stitch preserving the frozen reference and Stitch runtime contract.'
+        'P05 refreshes the generated preview JS hash after facade-preserving Options/Stitch owner decomposition, runtime-threaded asset URL resolution, and schema-context browser target routing while focused Options/Stitch tests and visual:stitch preserve the frozen reference and Stitch runtime contract.'
       ].join(' '),
       leftSha256: '9020ccbd91acd691eccd3fdf568b9a90efbddf0a35d79f36ef1caba702fa0c07',
-      // 2026-06-23 P05 Options/Stitch type-cycle repair preview JS hash.
-      rightSha256: '565d7bcd46753b2290f4d10979e9363d16b45e21fbb2b273973f7c090d0f0de0'
+      // 2026-06-23 P05 Options/Stitch owner decomposition preview JS hash.
+      rightSha256: 'eee72d720aa3e6e7ab27ae4bac53cdb624735ce567a0911bea0ee3e816fe666d'
     }
   ]
 ]);
