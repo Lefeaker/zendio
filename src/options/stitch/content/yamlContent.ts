@@ -1,10 +1,21 @@
-import { getPreviewTemplateDefaults } from '@shared/config';
+import { configProvider, getPreviewTemplateDefaults } from '@shared/config';
 import { message } from '../previewNavigation';
 import type { PreviewContent } from '../types';
 
 const SAMPLE_RESEARCH_VAULT = message('schemaPreviewSampleVaultResearch');
 const SAMPLE_INBOX_VAULT = message('schemaPreviewSampleVaultInbox');
 const SAMPLE_ARCHIVE_VAULT = message('schemaPreviewSampleVaultArchive');
+const REST_DEFAULTS = configProvider.getRestDefaults();
+
+function withRestPortOffset(url: string, offset: number): string {
+  const parsed = new URL(url);
+  const currentPort = Number(parsed.port);
+  if (!Number.isFinite(currentPort)) {
+    return url;
+  }
+  parsed.port = String(currentPort + offset);
+  return parsed.toString();
+}
 
 export const storageContent: PreviewContent['storage'] = {
   hero: {
@@ -21,32 +32,32 @@ export const storageContent: PreviewContent['storage'] = {
   vaults: [
     {
       name: 'Zendio',
-      https: 'https://127.0.0.1:27124/',
-      http: 'http://127.0.0.1:27123/',
+      https: REST_DEFAULTS.httpsUrl,
+      http: REST_DEFAULTS.httpUrl,
       key: 'sk-demo-demo-demo',
       enabled: true,
       isDefault: true
     },
     {
       name: SAMPLE_RESEARCH_VAULT,
-      https: 'https://127.0.0.1:27124/',
-      http: 'http://127.0.0.1:27123/',
+      https: REST_DEFAULTS.httpsUrl,
+      http: REST_DEFAULTS.httpUrl,
       key: 'research-key',
       enabled: true,
       isDefault: false
     },
     {
       name: SAMPLE_INBOX_VAULT,
-      https: 'https://127.0.0.1:27130/',
-      http: 'http://127.0.0.1:27129/',
+      https: withRestPortOffset(REST_DEFAULTS.httpsUrl, 6),
+      http: withRestPortOffset(REST_DEFAULTS.httpUrl, 6),
       key: 'inbox-key',
       enabled: true,
       isDefault: false
     },
     {
       name: SAMPLE_ARCHIVE_VAULT,
-      https: 'https://127.0.0.1:27136/',
-      http: 'http://127.0.0.1:27135/',
+      https: withRestPortOffset(REST_DEFAULTS.httpsUrl, 12),
+      http: withRestPortOffset(REST_DEFAULTS.httpUrl, 12),
       key: 'archive-key',
       enabled: false,
       isDefault: false
