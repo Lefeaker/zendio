@@ -1,3 +1,4 @@
+export type * from './types/baseTypes';
 export type * from './types/contentTypes';
 export type * from './types/schemaTypes';
 export type * from './types/surfaceTypes';
