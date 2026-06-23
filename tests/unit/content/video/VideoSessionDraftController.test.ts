@@ -18,6 +18,7 @@ import {
 import { VideoSessionState } from '@content/video/sessionState';
 import { createMemoryStorageArea } from '@platform/preview/memoryStorage';
 import type { ExportDestinationMetadata } from '@shared/exportDestination';
+import type { UsageEventParamMap } from '@shared/types/analytics';
 import type { StorageAreaService } from '@platform/interfaces/storage';
 import { VideoSessionDraftController } from '@content/video/videoSessionDraftController';
 import type { VideoCaptureScreenshot } from '@content/video/types';
@@ -36,6 +37,7 @@ type TimestampDraftCapture = Extract<
   VideoSessionDraftPayloadShape['captures'][number],
   { kind: 'timestamp' }
 >;
+type VideoDraftRestoreTelemetryParams = UsageEventParamMap['video_draft_restored'];
 
 function createTrackedStorageArea(): TrackedStorageArea {
   const area = createMemoryStorageArea();
@@ -140,7 +142,7 @@ function createHarness(
       | undefined;
     onScreenshotHydrationChange?: () => void;
     sessionDraftStoragePolicy?: SessionDraftStoragePolicy;
-    trackDraftRestoreEvent?: (params: Record<string, unknown>) => void | Promise<void>;
+    trackDraftRestoreEvent?: (params: VideoDraftRestoreTelemetryParams) => void | Promise<void>;
   } = {}
 ) {
   const state = new VideoSessionState('gradient');
@@ -295,8 +297,8 @@ function createDeferred<T>() {
 }
 
 function readDraftRestoreTelemetryPayload(
-  trackDraftRestoreEvent: Mock<(params: Record<string, unknown>) => unknown>
-): Record<string, unknown> {
+  trackDraftRestoreEvent: Mock<(params: VideoDraftRestoreTelemetryParams) => void | Promise<void>>
+): VideoDraftRestoreTelemetryParams {
   const params = trackDraftRestoreEvent.mock.calls.at(-1)?.[0];
   if (!params || typeof params !== 'object') {
     throw new Error('expected a draft restore telemetry payload');
