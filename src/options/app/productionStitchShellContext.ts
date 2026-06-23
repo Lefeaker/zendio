@@ -64,6 +64,7 @@ export function createProductionStitchSchemaContext(options: {
   language: Language;
   messages: Messages | null;
   state: PreviewStoreState;
+  browserTarget?: SchemaContext['browserTarget'];
 }): SchemaContext {
   const effectiveMessages = options.messages ?? DEFAULT_PRODUCTION_ENGLISH_MESSAGES;
   const localizedAppData = localizeStitchContent(options.appData, {
@@ -86,6 +87,7 @@ export function createProductionStitchSchemaContext(options: {
       analyticsDebugMode: isAnalyticsDebugModeControlAvailable(),
       ...options.capabilities
     },
+    browserTarget: options.browserTarget ?? 'chrome',
     language: options.language,
     messages: effectiveMessages,
     state: options.state,

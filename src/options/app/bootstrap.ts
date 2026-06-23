@@ -10,6 +10,7 @@ import { DI_TOKENS } from '../../shared/di/tokens';
 import { resolveRepository } from '../../shared/di/serviceRegistry';
 import type { IOptionsRepository, IMessagingRepository } from '../../shared/repositories';
 import type { StoredOptions } from '../../shared/types/options';
+import type { RuntimeService } from '../../platform/interfaces/runtime';
 import type { StorageService } from '../../platform/interfaces/storage';
 import { showStatusMessage } from '../components/messages';
 import { createOptionsFormAdapter } from '../components/optionsFormAdapter';
@@ -29,6 +30,7 @@ import { trackInitialOptionsTelemetry } from './productionStitchTelemetry';
 
 export interface OptionsAppBootstrapDependencies {
   storage: StorageService;
+  runtime?: Pick<RuntimeService, 'getURL' | 'getBrowserTarget'>;
 }
 
 type CleanupFn = () => void;
@@ -120,7 +122,7 @@ export async function bootstrapOptionsApp(
   disposeCleanupHandlers();
   ensureUnloadCleanup();
 
-  const { storage } = resolveOptionsAppBootstrapDependencies(dependencies);
+  const { storage, runtime } = resolveOptionsAppBootstrapDependencies(dependencies);
   configureAnalyticsConfigManager(storage);
   configureGlobalStateManagerStorage(storage);
   configureI18nStorage(storage.sync);
@@ -141,6 +143,7 @@ export async function bootstrapOptionsApp(
     previewContent,
     messages: resource?.messages ?? null,
     language: (resource?.language ?? 'zh-CN') as Language,
+    ...(runtime ? { runtime } : {}),
     storage,
     optionsRepository: resolveRepository<IOptionsRepository>(DI_TOKENS.IOptionsRepository),
     messagingRepository: resolveRepository<IMessagingRepository>(DI_TOKENS.IMessagingRepository),

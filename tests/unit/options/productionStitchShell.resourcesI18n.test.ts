@@ -247,6 +247,7 @@ const ENGLISH_SENTINEL_MESSAGES: Messages = {
 type ResourceRenderOptions = {
   language?: 'en' | 'zh-CN';
   messages?: Messages;
+  browserTarget?: 'chrome' | 'firefox';
   mutateAppData?: (appData: ReturnType<typeof createBaseSchemaContext>['appData']) => void;
 };
 
@@ -260,6 +261,7 @@ function createLocalizedSchemaContext(options: ResourceRenderOptions = {}) {
       ...base.state,
       previewLanguage: language
     },
+    ...(options.browserTarget ? { browserTarget: options.browserTarget } : {}),
     language,
     messages: options.messages ?? ENGLISH_SENTINEL_MESSAGES
   });
@@ -423,17 +425,10 @@ describe('mountProductionStitchShell resource i18n', () => {
     );
   });
 
-  it('renders onboarding REST API copy for Firefox builds', () => {
-    Object.defineProperty(globalThis, 'browser', {
-      configurable: true,
-      value: {
-        runtime: {
-          getBrowserInfo: vi.fn()
-        }
-      }
-    });
+  it('renders onboarding REST API copy for Firefox builds from schema context', () => {
+    Reflect.deleteProperty(globalThis, 'browser');
 
-    const onboardingPage = renderResourcePage('onboarding');
+    const onboardingPage = renderResourcePage('onboarding', { browserTarget: 'firefox' });
 
     expectText(
       onboardingPage,

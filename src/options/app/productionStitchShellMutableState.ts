@@ -19,6 +19,7 @@ interface ProductionStitchShellMutableStateOptions {
   initialOptions?: StoredOptions | CompleteOptions | null;
   language: Language;
   messages: Messages | null;
+  browserTarget?: SchemaContext['browserTarget'];
 }
 
 export interface ProductionStitchShellMutableState {
@@ -45,7 +46,8 @@ export function createProductionStitchShellMutableState({
   previewContent,
   initialOptions = null,
   language,
-  messages
+  messages,
+  browserTarget = 'chrome'
 }: ProductionStitchShellMutableStateOptions): ProductionStitchShellMutableState {
   let draft = createInitialDraft(initialOptions);
   let currentLanguage = language;
@@ -66,7 +68,8 @@ export function createProductionStitchShellMutableState({
       previewContent,
       language: currentLanguage,
       messages: currentMessages,
-      state
+      state,
+      browserTarget
     });
   }
 

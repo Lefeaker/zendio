@@ -10,13 +10,14 @@ import type {
 } from '@options/stitch/types';
 import type { ProductionStitchWidgetHost } from './productionStitchWidgetHost';
 import type { ProductionStitchRenderLifecycle } from './productionStitchRenderLifecycleTypes';
-import { resolveProductionStitchAssetUrl } from './productionStitchAssetUrlResolver';
+import type { ProductionStitchAssetUrlResolver } from './productionStitchAssetUrlResolver';
 
 interface ProductionStitchShellSchemaRendererOptions {
   createSchemaContext(): SchemaContext;
   dispatch(actionId: string, args?: unknown[], value?: unknown, event?: Event): void;
   mutate(mutator: (draftState: PreviewStoreState) => void, options?: { silent?: boolean }): void;
   render(): void;
+  resolveAssetUrl: ProductionStitchAssetUrlResolver;
   widgetHost: ProductionStitchWidgetHost;
 }
 
@@ -30,7 +31,7 @@ export function createProductionStitchShellSchemaRenderer(
       ui: previewUi,
       dispatch: (actionId: string, args?: unknown[], value?: unknown, event?: Event) =>
         options.dispatch(actionId, args, value, event),
-      resolveAssetUrl: resolveProductionStitchAssetUrl,
+      resolveAssetUrl: options.resolveAssetUrl,
       mountWidget: (widgetType: string, host: HTMLElement) =>
         options.widgetHost.mountWidget(widgetType, host)
     };

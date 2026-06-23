@@ -1,12 +1,9 @@
 const ABSOLUTE_ASSET_URL = /^(?:[a-z][a-z\d+\-.]*:|\/\/|\/)/i;
 
-type ExtensionRuntimeLike = {
-  getURL?: (path: string) => string;
-};
+export type ProductionStitchAssetUrlResolver = (path: string) => string;
 
-type ExtensionGlobalScope = typeof globalThis & {
-  chrome?: { runtime?: ExtensionRuntimeLike };
-  browser?: { runtime?: ExtensionRuntimeLike };
+export type ProductionStitchAssetRuntime = {
+  getURL(path: string): string;
 };
 
 function isAbsoluteAssetUrl(path: string): boolean {
@@ -20,21 +17,24 @@ export function normalizeProductionStitchAssetPath(path: string): string {
   return path.replace(/^\.\/+/, '').replace(/^(?:\.\.\/)+/, '');
 }
 
-function resolveExtensionRuntime(): ExtensionRuntimeLike | undefined {
-  const scope = globalThis as ExtensionGlobalScope;
-  return scope.chrome?.runtime ?? scope.browser?.runtime;
-}
-
-export function resolveProductionStitchAssetUrl(path: string): string {
+export function resolveProductionStitchAssetUrl(
+  path: string,
+  runtime?: ProductionStitchAssetRuntime
+): string {
   if (isAbsoluteAssetUrl(path)) {
     return path;
   }
 
   const extensionRootPath = normalizeProductionStitchAssetPath(path);
-  const runtime = resolveExtensionRuntime();
-  if (typeof runtime?.getURL === 'function') {
+  if (runtime) {
     return runtime.getURL(extensionRootPath);
   }
 
   return `../${extensionRootPath}`;
+}
+
+export function createProductionStitchAssetUrlResolver(
+  runtime?: ProductionStitchAssetRuntime
+): ProductionStitchAssetUrlResolver {
+  return (path) => resolveProductionStitchAssetUrl(path, runtime);
 }

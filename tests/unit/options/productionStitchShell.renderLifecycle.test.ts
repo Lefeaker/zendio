@@ -59,6 +59,23 @@ describe('mountProductionStitchShell renderLifecycle', () => {
     expect(typeof mounted.setMessages).toBe('function');
   });
 
+  it('resolves production shell image assets through the injected resolver', () => {
+    const controller = createController();
+    mountProductionStitchShell({
+      controller: asOptionsController(controller),
+      initialOptions: null,
+      messages: null,
+      language: 'en',
+      runtime: {
+        getURL: (path: string) => `extension-root://${path}`,
+        getBrowserTarget: () => 'chrome'
+      }
+    } as never);
+
+    const brandLogo = document.querySelector<HTMLImageElement>('.brand-mark img');
+    expect(brandLogo?.getAttribute('src')).toBe('extension-root://icons/bannerlogo-128.png');
+  });
+
   it('collectDraft returns complete options and preserves refreshed fields', () => {
     const controller = createController();
     const mounted = mountProductionStitchShell({
@@ -163,6 +180,7 @@ describe('mountProductionStitchShell renderLifecycle', () => {
       createSchemaContext: () =>
         ({ appData: { nav: [], sidebarLinks: [], surfaceLinks: [] }, state: {} }) as never,
       dispatch: vi.fn(),
+      resolveAssetUrl: (path) => path,
       schemaRenderer: { renderView: vi.fn() },
       widgetHost: {
         createWidgetFactory: vi.fn(),
