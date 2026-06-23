@@ -10,8 +10,8 @@ const MAX_LINE_BUDGETS = new Map([
   ['src/i18n/generated/schemaMessages.generated.ts', 481],
   // 2026-06-20 onboarding closeout: generated schema core now carries the
   // accepted first-run terms/privacy resource keys in addition to Options copy.
-  ['src/i18n/generated/schemaCore.generated.ts', 443],
-  ['src/i18n/generated/messages.generated.ts', 1312],
+  ['src/i18n/generated/schemaCore.generated.ts', 438],
+  ['src/i18n/generated/messages.generated.ts', 1129],
   ['src/i18n/generated/locales/fr.generated.ts', 785],
   ['src/i18n/generated/locales/es-419.generated.ts', 777],
   ['src/i18n/generated/locales/es-ES.generated.ts', 777],
@@ -51,7 +51,7 @@ const MAX_LINE_BUDGETS = new Map([
   ['src/options/app/stateMapper/themeStateMapper.ts', 206],
   ['src/content/clipper/components/clipperDialogController.ts', 511],
   ['src/content/reader/services/highlightManager.ts', 505],
-  ['src/shared/di/serviceRegistry.ts', 498],
+  ['src/shared/di/serviceRegistry.ts', 496],
   // 2026-06-12 P03b: accepted P02 telemetry contract schema growth.
   ['src/shared/analytics/eventCatalog.ts', 541],
   // 2026-06-13 GA P01: schema-owned contract replaces duplicated catalog and
@@ -59,52 +59,52 @@ const MAX_LINE_BUDGETS = new Map([
   ['src/shared/analytics/schema/analyticsSchema.ts', 527],
   ['src/content/video/sessionOperations.ts', 433],
   ['src/content/video/platforms/bilibiliRichText.ts', 302],
-  ['src/content/video/platforms/bilibiliPlatformObserver.ts', 292],
+  ['src/content/video/platforms/bilibiliPlatformObserver.ts', 286],
   ['src/ui/domains/video/VideoDialog.ts', 468],
   // 2026-06-20 Options/onboarding closeout: keep current video prompt lifecycle
   // line count explicit so the hotspot gate reaches later CI checks.
   ['src/content/video/videoPromptLifecycle.ts', 491],
   ['src/shared/analytics/analyticsSanitizers.ts', 460],
   ['src/background/pipelines/connectionTest.ts', 697],
-  ['src/onboarding/bootstrap.ts', 586],
+  ['src/onboarding/bootstrap.ts', 556],
   ['src/background/services/notifications.ts', 451],
   ['src/background/trialLifecycle.ts', 276],
-  ['src/shared/config/optionsMerger.ts', 417],
+  ['src/shared/config/optionsMerger.ts', 406],
   ['src/dev/localVaultWriteHarness.ts', 411],
   // 2026-06-11: Session mutation architecture adds fail-closed terminal draft
   // finalization and shared transaction plumbing across reader/video surfaces.
-  ['src/content/video/videoSessionRuntime.ts', 746],
+  ['src/content/video/videoSessionRuntime.ts', 531],
   // 2026-06-13 final combined integration: queue now carries explicit visible
   // capture request tracking while preserving the lazy screenshot preparation split.
-  ['src/content/video/videoScreenshotPreparationQueue.ts', 404],
+  ['src/content/video/videoScreenshotPreparationQueue.ts', 401],
   // 2026-06-14 video screenshot cache P02: storage repository is lazy-owned by
   // draft restore/write-through milestones and keeps image bytes outside drafts.
-  ['src/content/video/videoScreenshotCacheRepository.ts', 525],
-  ['src/content/video/videoScreenshotCacheTypes.ts', 302],
+  ['src/content/video/videoScreenshotCacheRepository.ts', 423],
+  ['src/content/video/videoScreenshotCacheTypes.ts', 299],
   // 2026-06-17 video screenshot cache P09: background-owned IndexedDB blob store
   // keeps screenshot bytes outside storage.local and owns the DOM IDB facade.
-  ['src/background/services/videoScreenshotCacheIndexedDbStore.ts', 335],
+  ['src/background/services/videoScreenshotCacheIndexedDbStore.ts', 331],
   // 2026-06-17 video screenshot cache main integration: draft screenshot restore,
   // terminal cleanup, and best-effort cache maintenance stay in a focused helper.
   ['src/content/video/videoSessionDraftScreenshotCache.ts', 251],
   // 2026-06-13 final combined integration: request state moved out of the lazy
   // coordinator and now tracks explicit visible requests so dependency-cruiser can
   // enforce the screenshot preparation split without cycles.
-  ['src/content/video/videoScreenshotPreparationRequestStore.ts', 306],
+  ['src/content/video/videoScreenshotPreparationRequestStore.ts', 294],
   ['src/content/video/videoScreenshotPreparationCoordinator.ts', 147],
-  ['src/content/reader/ui/ReaderDialogPanel.ts', 407],
-  ['src/content/reader/session.ts', 748],
-  ['src/content/video/videoControlBarButton.ts', 395],
+  ['src/content/reader/ui/ReaderDialogPanel.ts', 405],
+  ['src/content/reader/session.ts', 575],
+  ['src/content/video/videoControlBarButton.ts', 299],
   // 2026-06-20 support-link closeout: runtime surface copy now uses the shared
   // Zendio link registry while preserving the existing surface renderer split.
   ['src/content/stitch/runtimeSurfaceContent.ts', 409],
   ['src/options/components/infrastructure/listBuilder.ts', 378],
-  ['src/shared/exportDestination.ts', 372],
+  ['src/shared/exportDestination.ts', 369],
   ['src/ui/domains/reading/ReaderDialog.ts', 371],
   // 2026-06-13 final combined integration: screenshot status dots and add-note
   // focus/layout regressions are covered in the panel while retaining the current UI.
-  ['src/content/video/ui/VideoDialogPanel.ts', 425],
-  ['src/options/app/productionStitchPersistence.ts', 387],
+  ['src/content/video/ui/VideoDialogPanel.ts', 392],
+  ['src/options/app/productionStitchPersistence.ts', 379],
   ['src/shared/errors/analytics/analyticsConfig.template.ts', 364],
   ['src/shared/errors/analytics/analyticsConfig.ts', 383],
   ['src/dev/contentOrchestratorHarness.ts', 359],
@@ -112,13 +112,13 @@ const MAX_LINE_BUDGETS = new Map([
   ['src/background/services/obsidianWriter.ts', 423],
   ['src/background/vault-router.ts', 422],
   ['src/shared/state/globalStateManager.ts', 345],
-  ['src/content/reader/sessionOperations.ts', 839],
+  ['src/content/reader/sessionOperations.ts', 643],
   ['src/i18n/config.ts', 343],
-  ['src/content/ui/supportPrompt.ts', 348],
+  ['src/content/ui/supportPrompt.ts', 345],
   ['src/options/services/connectionTester.ts', 368],
   ['src/shared/config/provider.ts', 325],
-  ['src/shared/errors/analytics/googleAnalyticsReporter.ts', 320],
-  ['src/content/video/platforms/baseVideoPlatform.ts', 317],
+  ['src/shared/errors/analytics/googleAnalyticsReporter.ts', 260],
+  ['src/content/video/platforms/baseVideoPlatform.ts', 291],
   ['src/shared/errors/analytics/dataSanitizer.ts', 316],
   ['src/content/video/videoPromptMountLifecycle.ts', 313],
   // 2026-06-20 Options/onboarding closeout: diagnostics remains a current
@@ -136,29 +136,29 @@ const MAX_LINE_BUDGETS = new Map([
   // 2026-06-12 P03: video session draft ownership moved into a focused controller.
   ['src/content/video/videoSessionDraftController.ts', 401],
   ['src/options/app/productionStitchActions.ts', 302],
-  ['src/options/app/productionStitchLocalization.ts', 553],
+  ['src/options/app/productionStitchLocalization.ts', 350],
   ['src/options/app/vaultConnectionTests.ts', 290],
   ['src/options/stitch/schema/settings/overview.ts', 429],
-  ['src/options/stitch/schema/settings/capture-behavior.ts', 333],
+  ['src/options/stitch/schema/settings/capture-behavior.ts', 271],
   ['src/content/video/videoPromptRenderer.ts', 291],
   ['src/options/stitch/schema/settings/output.ts', 333],
   ['src/content/reader/utils/markdownBuilder.ts', 288],
-  ['src/options/app/productionStitchShellState.ts', 288],
-  ['src/content/bootstrap.ts', 286],
+  ['src/options/app/productionStitchShellState.ts', 254],
+  ['src/content/bootstrap.ts', 252],
   ['src/platform/chrome/contextMenus.ts', 285],
   ['src/content/shared/panels/sessionPanelResize.ts', 284],
-  ['src/background/application/clipProcessor.ts', 512],
-  ['src/infrastructure/restClient.ts', 281],
+  ['src/background/application/clipProcessor.ts', 470],
+  ['src/infrastructure/restClient.ts', 266],
   ['src/shared/services/yamlConfigSanitize.ts', 277],
   ['src/ui/domains/vault-router/VaultRouterView.ts', 277],
   ['src/options/stitch/render/nodeRenderers.ts', 274],
   ['src/third_party/ai-chat-exporter/shared/markdownLanguage.ts', 273],
   ['src/options/stitch/schema/settings/capture-sources.ts', 272],
-  ['src/options/yaml-config-editor/validation.ts', 270],
-  ['src/background/llm/classifier.ts', 268],
+  ['src/options/yaml-config-editor/validation.ts', 269],
+  ['src/background/llm/classifier.ts', 262],
   // 2026-06-13 final combined integration: runtime messages own the visible-tab
   // screenshot request boundary used by video export preparation.
-  ['src/background/listeners/runtimeMessages.ts', 375],
+  ['src/background/listeners/runtimeMessages.ts', 374],
   ['src/background/services/usageStats.ts', 266],
   ['src/background/application/videoScreenshotAttachmentPlanner.ts', 269],
   ['src/third_party/ai-chat-exporter/platforms/tongyi.ts', 274],
@@ -177,8 +177,8 @@ const MAX_LINE_BUDGETS = new Map([
   ['src/options/stitch/render/shellBuilders.ts', 257],
   ['src/shared/guards/dom.ts', 256],
   ['src/content/reader/services/exporter.ts', 255],
-  ['src/content/video/fragmentHighlighter.ts', 255],
-  ['src/ui/domains/privacy/PrivacySettingsView.ts', 255],
+  ['src/content/video/fragmentHighlighter.ts', 254],
+  ['src/ui/domains/privacy/PrivacySettingsView.ts', 254],
   ['src/options/app/productionStitchShellMount.ts', 254],
   ['src/options/app/productionStitchRenderLifecycle.ts', 253],
   // 2026-06-19 Options YAML editor stabilization: row aggregation, editable
@@ -191,8 +191,8 @@ const MAX_LINE_BUDGETS = new Map([
   ['src/options/stitch/schema/resources/setup-guide.ts', 255],
   ['src/third_party/ai-chat-exporter/platforms/kimi.ts', 258],
   ['src/i18n/catalog/languages.ts', 280],
-  ['src/content/sessionDrafts/sessionDraftRepository.ts', 399],
-  ['src/content/reader/sessionDrafts.ts', 440],
+  ['src/content/sessionDrafts/sessionDraftRepository.ts', 398],
+  ['src/content/reader/sessionDrafts.ts', 299],
   ['src/utils/trial-manager.ts', 363],
   ['src/content/runtime/localVaultPermissionFrame.ts', 345],
   ['src/content/extractors/aiChatExtractor.ts', 299],
@@ -215,7 +215,7 @@ const MAX_LINE_BUDGETS = new Map([
   ['src/options/yaml-config-editor/preview.ts', 262],
   // 2026-06-20 onboarding closeout: first-run resources render through a local
   // lightweight modal instead of importing the full Options/Stitch renderer.
-  ['src/onboarding/resourceModal.ts', 625],
+  ['src/onboarding/resourceModal.ts', 585],
   // 2026-06-18 GA telemetry acceptance: activation lifecycle, bounded event
   // transport, and release smoke wiring are production hotspots in the final
   // GA integration branch; these budgets are exact current-line gates.
