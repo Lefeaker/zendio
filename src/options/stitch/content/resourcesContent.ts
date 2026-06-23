@@ -1,7 +1,10 @@
+import { configProvider } from '@shared/config';
 import { ZENDIO_RESOURCE_LINKS } from '@shared/links/zendioResourceLinks';
 import { changelogResource } from '../changelogResourceData';
 import { message } from '../previewNavigation';
 import type { PreviewContent } from '../types';
+
+const REST_DEFAULTS = configProvider.getRestDefaults();
 
 export const resourcesContent: PreviewContent['resources'] = {
   privacyPolicy: {
@@ -74,8 +77,8 @@ export const resourcesContent: PreviewContent['resources'] = {
         bullets: [
           'Install and enable the Local REST API plugin in Obsidian',
           'Turn on Enable Non-encrypted (HTTP) Server',
-          'Record the HTTPS URL, usually https://127.0.0.1:27124/',
-          'Record the HTTP URL, usually http://127.0.0.1:27123/',
+          `Record the HTTPS URL, usually ${REST_DEFAULTS.httpsUrl}`,
+          `Record the HTTP URL, usually ${REST_DEFAULTS.httpUrl}`,
           'Record the vault name and copy the API key'
         ]
       },
@@ -131,8 +134,8 @@ export const resourcesContent: PreviewContent['resources'] = {
       icon: 'extension'
     },
     ports: [
-      ['HTTPS URL', 'https://127.0.0.1:27124/'],
-      ['HTTP URL', 'http://127.0.0.1:27123/'],
+      ['HTTPS URL', REST_DEFAULTS.httpsUrl],
+      ['HTTP URL', REST_DEFAULTS.httpUrl],
       ['Vault', 'your-vault-name'],
       ['API Key', 'your-api-key']
     ],
