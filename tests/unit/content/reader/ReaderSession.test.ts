@@ -207,10 +207,14 @@ describe('ReaderSession', () => {
       };
     });
     getSessionHarness(context.session).__setTestHighlights(highlights);
-    context.view.currentDrafts = Object.fromEntries([
-      ...highlights.map((highlight) => [highlight.id, `draft for ${highlight.id}`]),
+    const draftEntries: Array<[string, string]> = [
+      ...highlights.map((highlight): [string, string] => [
+        highlight.id,
+        `draft for ${highlight.id}`
+      ]),
       ['orphan', 'drop me']
-    ]);
+    ];
+    context.view.currentDrafts = Object.fromEntries(draftEntries);
 
     const persistPromise = getSessionHarness(context.session).persistDraftMutation();
     await flushDraftPersistence();

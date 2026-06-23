@@ -215,10 +215,14 @@ describe('readerSessionDrafts', () => {
         createdAt: 1_000 + index
       })
     );
-    const commentDrafts = Object.fromEntries([
-      ...highlights.map((highlight) => [highlight.id, `draft for ${highlight.id}`]),
+    const commentDraftEntries: Array<[string, string]> = [
+      ...highlights.map((highlight): [string, string] => [
+        highlight.id,
+        `draft for ${highlight.id}`
+      ]),
       ['orphan-highlight', 'should be filtered']
-    ]);
+    ];
+    const commentDrafts = Object.fromEntries(commentDraftEntries);
 
     const envelope = buildReaderSessionDraftEnvelope({
       draftId: 'reader-draft-null-cap',

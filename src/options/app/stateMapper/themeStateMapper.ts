@@ -1,9 +1,8 @@
-import { resolveExtensionVersionLabel } from '../productionStitchVersion';
-import type { CompleteOptions, InterfaceTheme, StoredOptions } from '@shared/types/options';
 import type { PreviewContent, PreviewStoreState } from '@options/stitch/types';
+import type { CompleteOptions, InterfaceTheme, StoredOptions } from '@shared/types/options';
 import { normalizeFragmentModifierKeys } from '../fragmentModifierOptions';
-import { createYamlFieldStates, toTemplateValues } from './yamlStateMapper';
 import { toRoutingRules } from './vaultStateMapper';
+import { createYamlFieldStates, toTemplateValues } from './yamlStateMapper';
 
 export { resolveExtensionVersionLabel } from '../productionStitchVersion';
 

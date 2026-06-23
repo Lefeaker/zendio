@@ -1,39 +1,23 @@
 /* @vitest-environment jsdom */
 
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { Mock } from 'vitest';
-import { createSessionDraftStorageKey } from '@content/sessionDrafts/sessionDraftKeys';
+import {
+  __resetContentSessionRegistryForTests,
+  isVideoSessionActive
+} from '@content/runtime/contentSessionRegistry';
 import { createSessionDraftRepository } from '@content/sessionDrafts/sessionDraftRepository';
-import { configureSessionDraftRuntimeMessenger } from '@content/sessionDrafts/sessionDraftTabContext';
-import { VideoSession } from '@content/video/session';
-import { DEFAULT_SESSION_MESSAGES } from '@content/video/sessionMessages';
-import { VideoScreenshotPreparationCoordinator } from '@content/video/videoScreenshotPreparationCoordinator';
 import type { VideoPanelCallbacks } from '@content/video/application/videoPanelModel';
-import type { SessionDraftOwnerContext } from '@content/sessionDrafts/sessionDraftTypes';
-import type { VideoSessionView } from '@content/video/application/videoSessionView';
+import { VideoSession } from '@content/video/session';
 import {
   buildVideoSessionDraftPayload,
   createVideoSessionDraftEnvelope
 } from '@content/video/sessionDrafts';
-import type { VideoScreenshotCacheSaveResult } from '@content/video/videoScreenshotCacheRepository';
+import { DEFAULT_SESSION_MESSAGES } from '@content/video/sessionMessages';
 import type { VideoScreenshotCacheRef } from '@content/video/videoScreenshotCacheTypes';
-import {
-  __resetContentSessionRegistryForTests,
-  isVideoSessionActive,
-  registerVideoSession
-} from '@content/runtime/contentSessionRegistry';
-import { setGlobal } from '../../../utils/typeHelpers';
+import type { Mock } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import type {
-  DraftMutationCase,
-  SessionTestApi,
-  TabContextProbeResponse,
-  TestView,
-  VideoScreenshotCacheSaveMock
-} from './videoSessionTestHarness';
+import type { VideoScreenshotCacheSaveMock } from './videoSessionTestHarness';
 import {
-  RecordingMutationObserver,
-  createBlobScreenshotFixture,
   createDeferred,
   createDependencies,
   createPreparationVideoHarness,
@@ -44,35 +28,20 @@ import {
   flushMutationWork,
   getTrackUsageEventMock,
   getVideoSessionHarnessMocks,
-  isTabContextProbeMessage,
-  listVideoDraftCandidates,
   loadLatestVideoDraft,
-  pickUnrelatedCaptureId,
-  readDraftIndex,
-  readFirstCacheSaveInput,
   readLatestVideoDraftCandidate,
-  readStoredVideoDraft,
   readVideoDraftPayload,
-  removalCallIncludesKey,
   requireMountedPanelCallbacks,
   requirePromise,
   requireVideoElement,
   resetVideoSessionHarnessMocks,
   restoreVideoSessionHarnessGlobals,
-  seedTimestampCaptures,
   toDraftControllerTestApi,
   toSessionTestApi,
-  waitForMockCalls,
-  waitForTimestampScreenshot
+  waitForMockCalls
 } from './videoSessionTestHarness';
 
-const {
-  ensureContentI18nMock,
-  exportMock,
-  loadStoredCaptureDataMock,
-  saveCaptureDataMock,
-  createVideoPlatformAdapterMock
-} = getVideoSessionHarnessMocks();
+const { exportMock, createVideoPlatformAdapterMock } = getVideoSessionHarnessMocks();
 
 describe('VideoSession analytics', () => {
   beforeEach(() => {

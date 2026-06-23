@@ -13,7 +13,6 @@ import {
 import { translateSchemaMessage, type SchemaMessageKey } from '../i18n';
 
 type SetupGuideKind = 'standalone-page' | 'modal';
-type SetupGuideBrowserTarget = 'chrome' | 'firefox';
 type SetupGuideStepKeys = {
   title: SchemaMessageKey;
   description: SchemaMessageKey;
