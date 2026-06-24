@@ -41,9 +41,20 @@ describe('runtime AI chat parser registry', () => {
     ['doubao', 'doubao'],
     ['monica', 'monica'],
     ['perplexity', 'perplexity'],
-    ['pplx', 'perplexity']
+    ['pplx', 'perplexity'],
+    ['qianwen', 'tongyi']
   ])('resolves %s to the %s parser', async (platform, expectedId) => {
     await expect(resolveParserAsync(platform)).resolves.toMatchObject({ id: expectedId });
+  });
+
+  it('derives aliases from the canonical platform registry', () => {
+    const source = readFileSync(
+      resolve(process.cwd(), 'src/third_party/ai-chat-exporter/runtimeRegistry.ts'),
+      'utf8'
+    );
+
+    expect(source).toContain('getAIChatPlatformAliases');
+    expect(source).not.toContain('parserAliases');
   });
 
   it('returns undefined for unsupported platforms', async () => {

@@ -6,7 +6,8 @@ import type { StoredOptions, OptionsState } from '../../shared/types/options';
 import type { ContentExtractor, ExtractionContext } from './types';
 import type { OptionsRepository } from '../../shared/interfaces/optionsRepository';
 import type { IOptionsRepository } from '../../shared/repositories/IOptionsRepository';
-import type { ParsedMessage } from '../../third_party/ai-chat-exporter/types';
+import type { ParsedMessage, PlatformId } from '../../third_party/ai-chat-exporter/types';
+import { resolveAIChatPlatformByUrl } from '../../third_party/ai-chat-exporter/platformRegistry';
 import { getContentI18nResource, getContentMessages } from '../i18n/context';
 import type { Messages } from '@i18n';
 
@@ -31,14 +32,14 @@ export interface AIChatExtractorDeps {
   optionsRepository?: OptionsRepository | IOptionsRepository;
   optionsProvider?: OptionsProvider;
   getMessages?(): Promise<AIChatFallbackMessages>;
-  detectPlatform(url: string): string;
+  detectPlatform(url: string, doc?: Document): PlatformId | null;
   now(): Date;
 }
 
 interface ResolvedAIChatExtractorDeps {
   optionsProvider: OptionsProvider;
   getMessages(): Promise<AIChatFallbackMessages>;
-  detectPlatform(url: string): string;
+  detectPlatform(url: string, doc?: Document): PlatformId | null;
   now(): Date;
 }
 
@@ -112,18 +113,8 @@ function createMessagesProvider(): () => Promise<AIChatFallbackMessages> {
   return () => Promise.resolve(getContentI18nResource()?.messages ?? getContentMessages());
 }
 
-function defaultDetectPlatform(url: string): string {
-  if (/(chatgpt|chat\.openai\.com)/.test(url)) return 'chatgpt';
-  if (/claude/.test(url)) return 'claude';
-  if (/gemini/.test(url)) return 'gemini';
-  if (/copilot/.test(url)) return 'copilot';
-  if (/tongyi/.test(url)) return 'tongyi';
-  if (/deepseek/.test(url)) return 'deepseek';
-  if (/kimi|moonshot/.test(url)) return 'kimi';
-  if (/doubao/.test(url)) return 'doubao';
-  if (/monica/.test(url)) return 'monica';
-  if (/perplexity/.test(url)) return 'perplexity';
-  return 'chat';
+function defaultDetectPlatform(url: string, doc?: Document): PlatformId | null {
+  return resolveAIChatPlatformByUrl(url, doc);
 }
 
 interface ChatMarkdownMessage {
@@ -217,7 +208,11 @@ export const createAIChatExtractor = (deps?: Partial<AIChatExtractorDeps>): Cont
   };
 
   const extract = async ({ document, url }: ExtractionContext) => {
-    const platform = resolvedDeps.detectPlatform(url);
+    const platform = resolvedDeps.detectPlatform(url, document);
+    if (!platform) {
+      throw new Error(`Unsupported AI chat platform for ${url}`);
+    }
+
     const storedOptions = await resolvedDeps.optionsProvider.get();
     const options = storedOptions as OptionsState;
     const fallbackTitle = requireFallbackTitle(platform, await resolvedDeps.getMessages());

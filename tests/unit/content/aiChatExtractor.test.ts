@@ -140,6 +140,38 @@ describe('extractAIChat', () => {
     expect(kimiArgs.platform).toBe('kimi');
   });
 
+  it('detects Qianwen domains and forwards the Tongyi parser platform', async () => {
+    const module = await import('@content/extractors/aiChatExtractor');
+    await module.extractAIChat(document, 'https://www.qianwen.com/chat/123', {
+      optionsRepository: createOptionsRepository(),
+      getMessages: vi.fn(async () => ({ ...baseFallbackMessages }))
+    });
+
+    expect(mockParseChatDOMAsync).toHaveBeenCalledWith(
+      'tongyi',
+      document,
+      expect.objectContaining({
+        deepResearch: { pureMode: true },
+        fallbackTitle: 'Catalog Tongyi Title'
+      })
+    );
+
+    const lastCall = mockBuildChatMarkdown.mock.calls.at(-1);
+    expect(lastCall?.[0].platform).toBe('tongyi');
+  });
+
+  it('rejects direct extraction for unsupported AI chat platforms', async () => {
+    const module = await import('@content/extractors/aiChatExtractor');
+
+    await expect(
+      module.extractAIChat(document, 'https://example.com/not-ai-chat', {
+        optionsRepository: createOptionsRepository()
+      })
+    ).rejects.toThrow('Unsupported AI chat platform for https://example.com/not-ai-chat');
+
+    expect(mockParseChatDOMAsync).not.toHaveBeenCalled();
+  });
+
   it('fails fast when a required localized fallback title is missing', async () => {
     const module = await import('@content/extractors/aiChatExtractor');
 
