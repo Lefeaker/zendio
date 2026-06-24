@@ -210,23 +210,40 @@ llm-chat-dom-parser/
 在解析器仍以内置 `src/third_party/ai-chat-exporter/**` 维护期间，`AiiinOB` 的主回归资产位于：
 
 - HTML fixture：`tests/fixtures/ai-chat/*.html`
+- current-DOM fixture lane：`tests/fixtures/ai-chat/current-dom/*.html`
+- executable fixture manifest：`tests/fixtures/ai-chat/fixtureManifest.ts`
 - fixture 索引与治理说明：`tests/fixtures/ai-chat/README.md`
 - 解析器回归测试：`tests/unit/third_party/parsers.test.ts`
+- current-DOM matrix：`tests/unit/third_party/parserCurrentDomMatrix.test.ts`
 - Gemini 重点行为测试：`tests/unit/third_party/gemini.test.ts`
 - Markdown 规则测试：`tests/unit/third_party/markdownRules.test.ts`
 - 内容抽取接入测试：`tests/unit/content/aiChatExtractor.test.ts`
 
 新增或修复 parser drift 时，必须在同一个提交中同时更新 fixture 与对应单测断言。不能只改 parser 代码，也不能只替换 fixture 而不说明预期输出变化。
 
-每个 fixture 在 `tests/fixtures/ai-chat/README.md` 中必须登记：
+每个 fixture 在 `tests/fixtures/ai-chat/fixtureManifest.ts` 与
+`tests/fixtures/ai-chat/README.md` 中必须登记：
 
 - fixture 文件名
 - 来源采集日期，格式为 `YYYY-MM-DD`；旧 fixture 无法追溯时只能标为 `legacy-unknown`
 - 平台与预期 `parseChatDOM` parser id
 - 预期标题、消息数量或关键 Markdown sentinel
 - 隐私剥离状态
+- `active` / `pending` 状态；`pending` 只用于尚未提交 sanitized HTML 的
+  current-DOM 预留槽位，不能被 parser matrix 当作可解析 fixture
 
 提交 fixture 前必须剥离账号名、邮箱、token、workspace 名称、私有 URL、用户标识和真实对话内容。保留按钮、工具栏、广告或动作区文本时，必须是为了证明 parser 会把这些 UI 噪音从输出 Markdown 中移除。
+
+真实站点 DOM 只能先保存到 ignored 本地证据目录：
+
+```text
+/Users/mac/Documents/Dev/AI2OB_Plg/.tmp/ai-chat-parser-productionization-2026-06-24/live-dom-snapshots/
+```
+
+提交到 `tests/fixtures/ai-chat/current-dom/` 前必须完成隐私剥离，并保留会触发
+drift 的 DOM shape、class、attribute、role marker、toolbar 结构。已提交的
+`current-dom/*.html` 不允许使用 `legacy-unknown`，必须记录具体 `YYYY-MM-DD`
+capture date。
 
 ---
 
