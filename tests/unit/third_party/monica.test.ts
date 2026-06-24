@@ -131,4 +131,14 @@ describe('monica parser', () => {
     expect(source).not.toContain('/\\s*-\\s*(Monica|莫妮卡)\\s*$/i');
     expect(source).not.toContain('/^(Monica|莫妮卡)$/iu');
   });
+
+  it('uses the shared profile engine as the Monica extraction path', () => {
+    const source = readFileSync(
+      resolve(process.cwd(), 'src/third_party/ai-chat-exporter/platforms/monica.ts'),
+      'utf8'
+    );
+
+    expect(source).toContain('parseWithProfile');
+    expect(source).toContain('monicaProfile');
+  });
 });
