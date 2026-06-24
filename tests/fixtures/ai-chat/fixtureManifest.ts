@@ -314,30 +314,54 @@ export const AI_CHAT_FIXTURE_MANIFEST: readonly AIChatFixtureMetadata[] = [
     platform: 'deepseek',
     sourceCaptureDate: '2026-06-24',
     captureKind: 'current-dom-sanitized',
-    sentinels: ['pending-p06-deepseek-current-dom'],
+    expectedTitle: 'Sanitized DeepSeek Current Session',
+    expectedMessageCount: 2,
+    expectedRoles: ['user', 'assistant'],
+    sentinels: [
+      'Sanitized DeepSeek prompt about parser roles.',
+      'Sanitized DeepSeek answer with a unique conclusion.',
+      '```python'
+    ],
+    absentSentinels: ['Copy'],
     privacyStatus: 'sanitized',
     ownerMilestone: 'P06',
-    status: 'pending'
+    status: 'active'
   },
   {
     file: 'current-dom/doubao-current-2026-06-24.html',
     platform: 'doubao',
     sourceCaptureDate: '2026-06-24',
     captureKind: 'current-dom-sanitized',
-    sentinels: ['pending-p06-doubao-current-dom'],
+    expectedTitle: 'Sanitized Doubao Current Session',
+    expectedMessageCount: 2,
+    expectedRoles: ['user', 'assistant'],
+    sentinels: [
+      'Sanitized Doubao prompt about export coverage.',
+      'Sanitized Doubao answer with retained markdown.',
+      '| Field | Value |'
+    ],
+    absentSentinels: ['Do not collect sidebar history', '复制'],
     privacyStatus: 'sanitized',
     ownerMilestone: 'P06',
-    status: 'pending'
+    status: 'active'
   },
   {
     file: 'current-dom/tongyi-qianwen-current-2026-06-24.html',
     platform: 'tongyi',
     sourceCaptureDate: '2026-06-24',
     captureKind: 'current-dom-sanitized',
-    sentinels: ['pending-p06-tongyi-qianwen-current-dom'],
+    expectedTitle: 'Catalog Qianwen Title',
+    expectedMessageCount: 2,
+    expectedRoles: ['user', 'assistant'],
+    sentinels: [
+      'Sanitized Qianwen prompt about parser routing.',
+      'Sanitized Qianwen answer routed through Tongyi.',
+      'const routed'
+    ],
+    absentSentinels: ['复制', '1 const routed'],
     privacyStatus: 'sanitized',
     ownerMilestone: 'P06',
-    status: 'pending'
+    status: 'active'
   },
   {
     file: 'current-dom/kimi-current-pass-regression-2026-06-24.html',

@@ -3,14 +3,14 @@ import { chatHtmlToMarkdown } from '../shared/markdown';
 import type { ChatPlatformParser, ParseConfig, ParsedMessage, ParsedResult } from '../types';
 
 const TONGYI_MESSAGE_CONTAINER_SELECTOR =
-  '[class*="message-item"], [class*="questionItem--"], [class*="answerItem"], [class*="contentBox--"]';
+  '[class*="message-item"], [class*="questionItem--"], [class*="answerItem"], [class*="contentBox--"], [class*="qwen-chat-message"]';
 const TONGYI_USER_MESSAGE_SELECTOR =
-  '[class*="user-message"], [class*="userMessage"], [class*="questionItem--"]';
+  '[class*="user-message"], [class*="userMessage"], [class*="questionItem--"], [class*="qwen-chat-question"], [data-role="user"]';
 const TONGYI_ASSISTANT_MESSAGE_SELECTOR =
-  '[class*="assistant-message"], [class*="assistantMessage"], [class*="bot-message"], [class*="contentBox--"]';
+  '[class*="assistant-message"], [class*="assistantMessage"], [class*="bot-message"], [class*="contentBox--"], [class*="qwen-chat-answer"], [data-role="assistant"]';
 // Native Tongyi browser-title suffixes/placeholders. These are source-site parser tokens.
 const TONGYI_NATIVE_TITLE_SUFFIXES = [' - 通义', ' - 你的超级个人助理', ' - 通义千问'] as const;
-const TONGYI_NATIVE_TITLE_PLACEHOLDER = '通义';
+const TONGYI_NATIVE_TITLE_PLACEHOLDERS = new Set(['通义', '通义千问']);
 
 const TONGYI_CODE_CONTAINER_SELECTOR = '[class*="contain-layout-style"]';
 
@@ -31,14 +31,15 @@ function stripTongyiNativeTitle(rawTitle: string): string {
 function extractTongyiChatData(doc: Document, config?: ParseConfig): ParsedResult {
   const questionItems = Array.from(doc.querySelectorAll('[class*="questionItem"]'));
   const answerItems = Array.from(doc.querySelectorAll('[class*="answerItem"]'));
+  const messageContainers = Array.from(doc.querySelectorAll(TONGYI_MESSAGE_CONTAINER_SELECTOR));
 
-  if (questionItems.length === 0 && answerItems.length === 0) {
+  if (messageContainers.length === 0) {
     return { title: DEFAULT_CHAT_TITLE, messages: [], assets: [] };
   }
 
   let title = stripTongyiNativeTitle(doc.title);
 
-  if (!title || title === TONGYI_NATIVE_TITLE_PLACEHOLDER) {
+  if (!title || TONGYI_NATIVE_TITLE_PLACEHOLDERS.has(title)) {
     if (questionItems.length > 0) {
       const firstQuestion = questionItems[0].textContent?.trim() || '';
       title = firstQuestion.substring(0, 50) + (firstQuestion.length > 50 ? '...' : '');
@@ -103,7 +104,6 @@ function extractTongyiChatData(doc: Document, config?: ParseConfig): ParsedResul
     }
   }
 
-  const messageContainers = Array.from(doc.querySelectorAll(TONGYI_MESSAGE_CONTAINER_SELECTOR));
   const messages: ParsedMessage[] = [];
   let chatIndex = 1;
 
@@ -115,18 +115,18 @@ function extractTongyiChatData(doc: Document, config?: ParseConfig): ParsedResul
     if (element.matches(TONGYI_USER_MESSAGE_SELECTOR)) {
       role = 'user';
       contentElem = element.querySelector(
-        '[class*="content"], [class*="msgText"], pre, article, div, p'
+        '[class*="qwen-message-bubble"], [class*="content"], [class*="msgText"], pre, article, div, p'
       );
     } else if (element.matches(TONGYI_ASSISTANT_MESSAGE_SELECTOR)) {
       role = 'assistant';
       contentElem = element.querySelector(
-        '.tongyi-markdown, pre, [class*="content"], [class*="msgText"], [class*="markdown"], article, div, p'
+        '.tongyi-markdown, [class*="qwen-content-box"], pre, [class*="content"], [class*="msgText"], [class*="markdown"], article, div, p'
       );
     }
 
     if (!contentElem) {
       contentElem = element.querySelector(
-        '.tongyi-markdown, pre, [class*="content"], [class*="msgText"], [class*="markdown"], article, div, p'
+        '.tongyi-markdown, [class*="qwen-message-bubble"], [class*="qwen-content-box"], pre, [class*="content"], [class*="msgText"], [class*="markdown"], article, div, p'
       );
     }
 

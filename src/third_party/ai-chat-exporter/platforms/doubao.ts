@@ -2,7 +2,8 @@ import { DEFAULT_CHAT_TITLE } from '../shared/constants';
 import { chatHtmlToMarkdown } from '../shared/markdown';
 import type { ChatPlatformParser, ParseConfig, ParsedMessage, ParsedResult } from '../types';
 
-const DOUBAO_MESSAGE_SELECTOR = '[class*="message-block-container"]';
+const DOUBAO_MESSAGE_SELECTOR =
+  '[class*="message-block-container"], [class~="semi-chat-message"], [data-testid="message_user"], [data-testid="message_assistant"]';
 // Native tokens from Doubao's own DOM/browser title. These are parser tokens, not extension UI copy.
 const DOUBAO_NATIVE_BRAND_TOKENS = ['豆包', 'Doubao'] as const;
 const DOUBAO_NATIVE_ASSISTANT_AVATAR_ALT_TOKEN = DOUBAO_NATIVE_BRAND_TOKENS[0];
@@ -60,6 +61,23 @@ function normaliseTitle(rawTitle: string, config?: ParseConfig): string {
 }
 
 function determineRole(container: HTMLElement): 'user' | 'assistant' {
+  const roleAttr = [
+    container.getAttribute('data-role'),
+    container.getAttribute('data-testid'),
+    container.getAttribute('aria-label'),
+    container.className
+  ]
+    .filter((value): value is string => Boolean(value))
+    .join(' ')
+    .toLowerCase();
+
+  if (/assistant|message_assistant|bot|doubao/.test(roleAttr)) {
+    return 'assistant';
+  }
+  if (/user|message_user|human/.test(roleAttr)) {
+    return 'user';
+  }
+
   if (container.querySelector(DOUBAO_ASSISTANT_AVATAR_SELECTOR)) {
     return 'assistant';
   }
