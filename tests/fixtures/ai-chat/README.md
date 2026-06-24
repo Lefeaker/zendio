@@ -96,6 +96,9 @@ The current-DOM matrix is driven by `fixtureManifest.ts`:
 | `tongyi-inline-numbers.html` | `legacy-unknown` | Tongyi | `tongyi` | strips inline numeric prefixes without removing indentation | sanitized legacy fixture |
 | `tongyi-new.html` | `legacy-unknown` | Tongyi | `tongyi` | hashed class layout with four messages | sanitized legacy fixture |
 | `current-dom/harness-chatgpt-current-synthetic.html` | `2026-06-24` | ChatGPT | `chatgpt` | synthetic current-DOM lane harness; assistant text `sanitized current DOM shape` | sanitized fixture |
+| `current-dom/chatgpt-current-2026-06-24.html` | `2026-06-24` | ChatGPT | `chatgpt` | no-`article` role-marked DOM; assistant text `role attributes without article wrappers` | sanitized fixture |
+| `current-dom/claude-current-2026-06-24.html` | `2026-06-24` | Claude | `claude` | no full Tailwind main container; keeps `ts` fence and strips thinking/artifact chrome | sanitized fixture |
+| `current-dom/copilot-current-synthetic.html` | `2026-06-24` | Copilot | `copilot` | synthetic focused current guard; assistant text `parser support covered` | sanitized fixture |
 
 ## Pending Current DOM Slots
 
@@ -104,9 +107,6 @@ until the owning milestone contributes sanitized HTML and assertions.
 
 | fixture | owner milestone | platform | capture kind |
 | --- | --- | --- | --- |
-| `current-dom/chatgpt-current-2026-06-24.html` | P05 | ChatGPT | current DOM sanitized |
-| `current-dom/claude-current-2026-06-24.html` | P05 | Claude | current DOM sanitized |
-| `current-dom/copilot-current-synthetic.html` | P05 | Copilot | focused regression |
 | `current-dom/deepseek-current-2026-06-24.html` | P06 | DeepSeek | current DOM sanitized |
 | `current-dom/doubao-current-2026-06-24.html` | P06 | Doubao | current DOM sanitized |
 | `current-dom/tongyi-qianwen-current-2026-06-24.html` | P06 | Tongyi | current DOM sanitized |

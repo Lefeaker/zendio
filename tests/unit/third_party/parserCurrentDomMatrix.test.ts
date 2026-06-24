@@ -22,9 +22,6 @@ function loadCurrentDomFixture(file: string): Document {
 describe('AI chat current-DOM fixture matrix', () => {
   it('keeps future live-derived fixture slots pending until sanitized files exist', () => {
     expect(PENDING_CURRENT_DOM_AI_CHAT_FIXTURES.map((fixture) => fixture.file).sort()).toEqual([
-      'current-dom/chatgpt-current-2026-06-24.html',
-      'current-dom/claude-current-2026-06-24.html',
-      'current-dom/copilot-current-synthetic.html',
       'current-dom/deepseek-current-2026-06-24.html',
       'current-dom/doubao-current-2026-06-24.html',
       'current-dom/gemini-current-pass-regression-2026-06-24.html',
