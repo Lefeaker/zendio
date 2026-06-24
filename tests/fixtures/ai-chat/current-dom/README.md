@@ -45,9 +45,14 @@ sanitized fixture file and assertions:
 - `absentSentinels` for toolbar, copy, citation, or shell noise that must be
   stripped.
 
-## Current Active Fixture
+## Current Active Fixtures
 
 `harness-chatgpt-current-synthetic.html` is a synthetic P04 harness fixture. It
 is not a live capture and should not be used as evidence for ChatGPT drift. Its
 purpose is to keep the current-DOM loader, matrix assertions, and privacy scan
 executable before P05/P06/P07 add real sanitized fixtures.
+
+`perplexity-current-2026-06-24.html` is a sanitized P07 current-DOM regression
+fixture for the Perplexity empty-extraction drift. It keeps the current query
+and answer container shape, plus sources/sidebar/toolbars that must be stripped
+from Markdown output.

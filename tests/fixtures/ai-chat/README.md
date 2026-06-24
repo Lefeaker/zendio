@@ -91,6 +91,7 @@ The current-DOM matrix is driven by `fixtureManifest.ts`:
 | `monica.html` | `legacy-unknown` | Monica | `monica` | title `AI 对话摘要`; model `GPT-4o` | sanitized legacy fixture |
 | `monica-fallback.html` | `legacy-unknown` | Monica | `monica` | fallback model `Monica` | sanitized legacy fixture |
 | `perplexity.html` | `legacy-unknown` | Perplexity | `perplexity` | title `AI Research Thread`; removes `Copy` | sanitized legacy fixture |
+| `current-dom/perplexity-current-2026-06-24.html` | `2026-06-24` | Perplexity | `perplexity` | current DOM query/answer markers; removes sources, sidebar, and toolbar text | sanitized fixture |
 | `tongyi.html` | `legacy-unknown` | Tongyi | `tongyi` | title `研究计划`; model `Qwen2-Turbo` | sanitized legacy fixture |
 | `tongyi-code.html` | `legacy-unknown` | Tongyi | `tongyi` | keeps TypeScript and Python fences; removes line numbers | sanitized legacy fixture |
 | `tongyi-inline-numbers.html` | `legacy-unknown` | Tongyi | `tongyi` | strips inline numeric prefixes without removing indentation | sanitized legacy fixture |
@@ -111,7 +112,6 @@ until the owning milestone contributes sanitized HTML and assertions.
 | `current-dom/doubao-current-2026-06-24.html` | P06 | Doubao | current DOM sanitized |
 | `current-dom/tongyi-qianwen-current-2026-06-24.html` | P06 | Tongyi | current DOM sanitized |
 | `current-dom/kimi-current-pass-regression-2026-06-24.html` | P06 | Kimi | focused regression |
-| `current-dom/perplexity-current-2026-06-24.html` | P07 | Perplexity | current DOM sanitized |
 | `current-dom/monica-current-pass-regression-2026-06-24.html` | P07 | Monica | focused regression |
 | `current-dom/gemini-current-pass-regression-2026-06-24.html` | P07 | Gemini | focused regression |
 

@@ -30,7 +30,6 @@ describe('AI chat current-DOM fixture matrix', () => {
       'current-dom/gemini-current-pass-regression-2026-06-24.html',
       'current-dom/kimi-current-pass-regression-2026-06-24.html',
       'current-dom/monica-current-pass-regression-2026-06-24.html',
-      'current-dom/perplexity-current-2026-06-24.html',
       'current-dom/tongyi-qianwen-current-2026-06-24.html'
     ]);
   });

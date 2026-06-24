@@ -354,10 +354,23 @@ export const AI_CHAT_FIXTURE_MANIFEST: readonly AIChatFixtureMetadata[] = [
     platform: 'perplexity',
     sourceCaptureDate: '2026-06-24',
     captureKind: 'current-dom-sanitized',
-    sentinels: ['pending-p07-perplexity-current-dom'],
+    expectedTitle: 'Current Perplexity Research Thread',
+    expectedMessageCount: 2,
+    expectedRoles: ['user', 'assistant'],
+    sentinels: [
+      'Compare OpenAI and Anthropic for a sanitized research note.',
+      'OpenAI focuses on frontier deployment and platform APIs.',
+      'Anthropic emphasizes constitutional AI and enterprise safety.'
+    ],
+    absentSentinels: [
+      'Sanitized source card should not become a message.',
+      'Sidebar suggestion should not become a message.',
+      'Copy',
+      'Share'
+    ],
     privacyStatus: 'sanitized',
     ownerMilestone: 'P07',
-    status: 'pending'
+    status: 'active'
   },
   {
     file: 'current-dom/monica-current-pass-regression-2026-06-24.html',
