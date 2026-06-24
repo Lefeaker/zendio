@@ -207,6 +207,7 @@ export const GENERATED_MESSAGE_KEYS = [
   'errorContentMessagingFailed',
   'errorContentShortcutUsageTrackingFailed',
   'errorContentStorageOperationFailed',
+  'errorExtractionAiChatParseEmpty',
   'errorExtractionDispatchFailure',
   'errorExtractionNoMarkdown',
   'errorExtractionNoSelection',

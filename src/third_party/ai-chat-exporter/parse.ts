@@ -4,6 +4,8 @@ import type { ParseConfig, ParsedResult } from './types';
 
 export type {
   ParsedMessage,
+  ParseDiagnostic,
+  ParseDiagnosticSeverity,
   ParsedResult,
   ParseConfig,
   DeepResearchConfig,

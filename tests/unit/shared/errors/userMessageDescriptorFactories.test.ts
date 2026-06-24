@@ -71,6 +71,16 @@ describe('shared AppError factories', () => {
         key: 'errorExtractionNoMarkdown'
       },
       {
+        error: extractionErrors.aiChatParseEmpty({
+          url: 'https://chat.openai.com/empty',
+          type: 'ai_chat',
+          platform: 'chatgpt',
+          messageCount: 0,
+          parserDiagnosticCodes: ['parser_not_found']
+        }),
+        key: 'errorExtractionAiChatParseEmpty'
+      },
+      {
         error: extractionErrors.unsupportedContent(),
         key: 'errorExtractionUnsupportedContent'
       },
@@ -149,6 +159,16 @@ describe('shared AppError factories', () => {
       {
         error: extractionErrors.noMarkdown(),
         message: 'EXTRACTION_CONTENT_NO_MARKDOWN'
+      },
+      {
+        error: extractionErrors.aiChatParseEmpty({
+          url: 'https://chat.openai.com/empty',
+          type: 'ai_chat',
+          platform: 'chatgpt',
+          messageCount: 0,
+          parserDiagnosticCodes: ['parser_not_found']
+        }),
+        message: 'EXTRACTION_AI_CHAT_PARSE_EMPTY'
       },
       {
         error: extractionErrors.unsupportedContent(),

@@ -1,11 +1,18 @@
-import type { ChatPlatformParser, ParseConfig, ParsedResult, PlatformId } from './types';
+import {
+  PARSER_NOT_FOUND_DIAGNOSTIC_CODE,
+  type ChatPlatformParser,
+  type ParseConfig,
+  type ParsedResult,
+  type PlatformId
+} from './types';
 import { DEFAULT_CHAT_TITLE, SUPPORTED_PLATFORMS } from './shared/constants';
 import { getAIChatPlatformAliases } from './platformRegistry';
 
 const EMPTY_RESULT: ParsedResult = {
   title: DEFAULT_CHAT_TITLE,
   messages: [],
-  assets: []
+  assets: [],
+  diagnostics: [{ code: PARSER_NOT_FOUND_DIAGNOSTIC_CODE, severity: 'warning' }]
 };
 
 type ParserLoader = () => Promise<ChatPlatformParser>;

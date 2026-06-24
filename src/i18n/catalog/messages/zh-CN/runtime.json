@@ -273,6 +273,7 @@
   "errorContentMessagingFailed": "通信失败，请重试操作",
   "errorExtractionNoSelection": "未发现可用的选区，请重新选择内容后再试。",
   "errorExtractionNoMarkdown": "内容解析失败，请刷新页面或稍后重试。",
+  "errorExtractionAiChatParseEmpty": "AI 对话解析未发现消息，请刷新会话后再试。",
   "errorExtractionUnsupportedContent": "当前页面暂不支持剪藏，我们会尽快补充适配。",
   "errorExtractionDispatchFailure": "结果发送失败，已自动重试。若问题持续，请反馈给我们。",
   "errorI18nLanguageLoadFailed": "语言配置加载失败，已回退至默认语言。",

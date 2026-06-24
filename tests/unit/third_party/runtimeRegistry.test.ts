@@ -67,7 +67,8 @@ describe('runtime AI chat parser registry', () => {
     await expect(parseChatDOMAsync('unknown', dom.window.document)).resolves.toMatchObject({
       title: DEFAULT_CHAT_TITLE,
       messages: [],
-      assets: []
+      assets: [],
+      diagnostics: [{ code: 'parser_not_found', severity: 'warning' }]
     });
   });
 });

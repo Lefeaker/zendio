@@ -99,8 +99,46 @@ describe('extractAIChat', () => {
     expect(result.type).toBe('ai_chat');
     expect(result.markdown).toBe('# Chat transcript');
     expect(result.meta.platform).toBe('chatgpt');
+    expect(result.meta.messageCount).toBe(2);
     expect(result.assets).toEqual([{ url: 'asset-1' }]);
     expect(result.meta.createdAt).toBe('2024-01-02T00:00:00Z');
+  });
+
+  it('rejects empty AI chat parse results before building markdown', async () => {
+    mockParseChatDOMAsync.mockResolvedValueOnce({
+      title: 'Empty Chat',
+      messages: [],
+      assets: [],
+      diagnostics: [
+        { code: 'parser_not_found', severity: 'warning' },
+        { code: 'empty_dom', severity: 'info', detail: 'developer-only detail' }
+      ]
+    });
+
+    const module = await import('@content/extractors/aiChatExtractor');
+
+    const extraction = module.extractAIChat(document, 'https://chat.openai.com/empty', {
+      optionsRepository: createOptionsRepository()
+    });
+    const error = await extraction.catch((caught: unknown) => caught);
+
+    expect(error).toMatchObject({
+      code: 'EXTRACTION_AI_CHAT_PARSE_EMPTY',
+      userMessageDescriptor: { key: 'errorExtractionAiChatParseEmpty' },
+      context: {
+        url: 'https://chat.openai.com/empty',
+        type: 'ai_chat',
+        platform: 'chatgpt',
+        messageCount: 0,
+        parserDiagnosticCodes: ['parser_not_found', 'empty_dom']
+      }
+    });
+    const context = (error as { context?: Record<string, unknown> }).context;
+    expect(context).not.toHaveProperty('title');
+    expect(context).not.toHaveProperty('diagnostics');
+    expect(JSON.stringify(context)).not.toContain('developer-only detail');
+
+    expect(mockBuildChatMarkdown).not.toHaveBeenCalled();
   });
 
   it('detects Kimi domains and forwards the correct platform', async () => {

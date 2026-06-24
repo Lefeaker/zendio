@@ -10,6 +10,7 @@ import type { ParsedMessage, PlatformId } from '../../third_party/ai-chat-export
 import { resolveAIChatPlatformByUrl } from '../../third_party/ai-chat-exporter/platformRegistry';
 import { getContentI18nResource, getContentMessages } from '../i18n/context';
 import type { Messages } from '@i18n';
+import { validateAIChatExtraction } from './aiChatExtractionValidation';
 
 interface OptionsProvider {
   get(): Promise<StoredOptions>;
@@ -226,7 +227,7 @@ export const createAIChatExtractor = (deps?: Partial<AIChatExtractorDeps>): Cont
 
     const { parseChatDOMAsync } =
       await import('../../third_party/ai-chat-exporter/runtimeRegistry');
-    const { title, messages, assets, model, createdAt } = await parseChatDOMAsync(
+    const { title, messages, assets, model, createdAt, diagnostics } = await parseChatDOMAsync(
       platform,
       document,
       parseConfig
@@ -236,6 +237,7 @@ export const createAIChatExtractor = (deps?: Partial<AIChatExtractorDeps>): Cont
       userName: options?.aiChat?.userName || 'USER'
     };
     const normalizedMessages = normalizeMessages(messages);
+    validateAIChatExtraction({ title, platform, url, messages: normalizedMessages, diagnostics });
 
     const baseInput: ChatMarkdownInput = {
       title,
