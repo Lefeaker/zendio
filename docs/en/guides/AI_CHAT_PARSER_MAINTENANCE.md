@@ -46,7 +46,8 @@ src/third_party/ai-chat-exporter/
 ## Testing Checklist
 
 - Unit fixtures reside in `tests/fixtures/ai-chat/`. Create a minimal HTML fixture that reproduces the target DOM structure for the platform.
-- Add or update assertions in `tests/unit/third_party/parsers.test.ts` to cover the new behaviour.
+- Current-DOM drift fixtures reside in `tests/fixtures/ai-chat/current-dom/` and are governed by `tests/fixtures/ai-chat/fixtureManifest.ts`.
+- Add or update assertions in `tests/unit/third_party/parsers.test.ts` or `tests/unit/third_party/parserCurrentDomMatrix.test.ts` to cover the new behaviour.
 - Parser drift fixes must add or update the fixture and the unit assertion in the same commit.
 - Run the parser-focused suite before wider validation:
 
@@ -58,7 +59,7 @@ npx vitest run --config vitest.unit.config.ts tests/unit/third_party/parsers.tes
 
 ## Fixture Governance
 
-`tests/fixtures/ai-chat/README.md` is the index for committed parser fixtures. Update it whenever a fixture is added, renamed, or materially changed.
+`tests/fixtures/ai-chat/fixtureManifest.ts` is the executable index for committed parser fixtures, and `tests/fixtures/ai-chat/README.md` is the human-readable governance document. Update both whenever a fixture is added, renamed, or materially changed.
 
 Each fixture entry must record:
 
@@ -67,6 +68,7 @@ Each fixture entry must record:
 - platform and expected parser id passed to `parseChatDOM`;
 - expected title and a short expected output sentinel;
 - privacy stripping status.
+- active/pending status.
 
 Before committing a fixture:
 
@@ -75,6 +77,16 @@ Before committing a fixture:
 - remove external network references unless the parser behavior being tested needs the attribute shape;
 - keep toolbar/action text only when the regression specifically proves that it is stripped from Markdown output;
 - add or update the matching unit assertions in `tests/unit/third_party/parsers.test.ts`.
+
+For live-derived drift work, save raw captures only under ignored local evidence:
+
+```text
+/Users/mac/Documents/Dev/AI2OB_Plg/.tmp/ai-chat-parser-productionization-2026-06-24/live-dom-snapshots/
+```
+
+Commit only sanitized `current-dom/*.html` files. Pending manifest entries reserve
+P05/P06/P07 fixture slots and are skipped by the current-DOM matrix until the
+sanitized file is added and the row is switched to `status: 'active'`.
 
 ## Debugging Tips
 
