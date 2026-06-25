@@ -76,12 +76,14 @@ from Markdown output.
 ## P10 Live Residual Fixtures
 
 P10 adds sanitized residual fixtures from the 2026-06-25 built-dist smoke
-diagnostics. P12 promotes the Chinese-family entries to active parser assertions;
-remaining unrepaired owners stay pending until their milestone lands:
+diagnostics. These fixtures intentionally preserve the live selector gaps that
+the 2026-06-24 fixtures missed. P12 promotes the Chinese-family entries to
+active parser assertions, and P13 promotes Perplexity to an active parser
+assertion.
 
 | File | Platform | Owner | Live-shape evidence |
 | --- | --- | --- | --- |
 | `deepseek-live-residual-2026-06-25.html` | DeepSeek | P10/P12 | `ds-message`, `ds-markdown`, `ds-markdown-paragraph`, `ds-markdown-cite`, `ds-assistant-message-main-content`; no friendly `data-message-role` wrappers |
 | `tongyi-qianwen-live-residual-2026-06-25.html` | Tongyi/Qianwen | P10/P12 | `message-select-wrapper-question-*`, `message-select-wrapper-answer-*`, `chat-question-wrap`, `answerItem-*`, `qk-md-text`, `data-msgid`, `data-chat-id`, `data-req-id` |
 | `doubao-live-residual-2026-06-25.html` | Doubao | P10/P12 | `data-message-id`, `data-container-type`, `data-thinking-box`, `data-render-engine`, `send-text`; no `message-block-container` or `semi-chat-message` roots |
-| `perplexity-live-residual-2026-06-25.html` | Perplexity | P10/P13 | `group/query`, `max-w-threadContentWidth`, `prose`; assistant selectors remain absent so current parser paths risk all-user output |
+| `perplexity-live-residual-2026-06-25.html` | Perplexity | P10/P13 | `group/query`, `max-w-threadContentWidth`, `prose`; P13 parser output returns `user/assistant/user/assistant` and strips source/sidebar/citation/copy noise |

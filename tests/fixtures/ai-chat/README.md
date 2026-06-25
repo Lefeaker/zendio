@@ -107,7 +107,7 @@ The current-DOM matrix is driven by `fixtureManifest.ts`:
 | `current-dom/deepseek-live-residual-2026-06-25.html` | `2026-06-25` | DeepSeek | `deepseek` | active P12 repair fixture; parses live `ds-message` / `ds-markdown` tokens without friendly role wrappers | sanitized fixture |
 | `current-dom/doubao-live-residual-2026-06-25.html` | `2026-06-25` | Doubao | `doubao` | active P12 repair fixture; parses live `data-message-id` / `data-container-type` / `send-text` shape without legacy message roots | sanitized fixture |
 | `current-dom/tongyi-qianwen-live-residual-2026-06-25.html` | `2026-06-25` | Tongyi | `tongyi` | active P12 repair fixture; parses Qianwen `message-select-wrapper-*` / `answerItem-*` shape through Tongyi | sanitized fixture |
-| `current-dom/perplexity-live-residual-2026-06-25.html` | `2026-06-25` | Perplexity | `perplexity` | pending P13 repair fixture; preserves `group/query`, `max-w-threadContentWidth`, and `prose` shape that currently risks all-user roles | sanitized pending fixture |
+| `current-dom/perplexity-live-residual-2026-06-25.html` | `2026-06-25` | Perplexity | `perplexity` | P13 active residual repair; returns four messages with `user/assistant/user/assistant` roles and strips source/sidebar/citation/copy noise | sanitized fixture |
 
 ## Pending Current DOM Slots
 
@@ -118,7 +118,6 @@ the live DOM tokens without committing canonical failing parser tests.
 
 | fixture | owner milestone | platform | capture kind |
 | --- | --- | --- | --- |
-| `current-dom/perplexity-live-residual-2026-06-25.html` | P10/P13 | Perplexity | current DOM sanitized |
 | `current-dom/kimi-current-pass-regression-2026-06-24.html` | P06 | Kimi | focused regression |
 | `current-dom/monica-current-pass-regression-2026-06-24.html` | P07 | Monica | focused regression |
 | `current-dom/gemini-current-pass-regression-2026-06-24.html` | P07 | Gemini | focused regression |

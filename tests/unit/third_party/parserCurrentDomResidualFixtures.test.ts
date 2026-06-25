@@ -41,18 +41,30 @@ function getManifestRow(file: string): AIChatFixtureMetadata {
 }
 
 function assertResidualParse(
-  platform: 'deepseek' | 'doubao' | 'tongyi',
+  platform: AIChatFixtureMetadata['platform'],
   file: string,
   url = 'https://example.com'
-): void {
+) {
   const fixture = getManifestRow(file);
   const result = parseChatDOM(platform, loadFixture(file, url), {
     fallbackTitle: 'Catalog Qianwen Title'
   });
 
   expect(fixture.status).toBe('active');
-  expect(result.messages).toHaveLength(fixture.expectedMessageCount);
-  expect(result.messages.map((message) => message.role)).toEqual(fixture.expectedRoles);
+  if (fixture.expectedTitle) {
+    expect(result.title).toBe(fixture.expectedTitle);
+  }
+
+  const expectedMessageCount = fixture.expectedMessageCount;
+  const expectedRoles = fixture.expectedRoles;
+  expect(expectedMessageCount, fixture.file).toBeDefined();
+  expect(expectedRoles, fixture.file).toBeDefined();
+  if (expectedMessageCount === undefined || expectedRoles === undefined) {
+    throw new Error(`Missing residual fixture parser expectations for ${fixture.file}`);
+  }
+
+  expect(result.messages).toHaveLength(expectedMessageCount);
+  expect(result.messages.map((message) => message.role)).toEqual(expectedRoles);
 
   const markdown = result.messages.map((message) => message.md ?? '').join('\n\n');
   for (const sentinel of fixture.sentinels) {
@@ -64,7 +76,7 @@ function assertResidualParse(
 }
 
 describe('AI chat current-DOM residual fixture shapes', () => {
-  it('tracks residual fixture metadata by repaired and unrepaired ownership', () => {
+  it('tracks residual fixture metadata as active sanitized 2026-06-25 evidence', () => {
     const residualFiles: readonly string[] = Object.values(residualFixtures).sort();
     const manifestRows = AI_CHAT_FIXTURE_MANIFEST.filter((fixture) =>
       residualFiles.includes(fixture.file)
@@ -73,16 +85,14 @@ describe('AI chat current-DOM residual fixture shapes', () => {
     expect(manifestRows.map((fixture) => fixture.file)).toEqual(residualFiles);
 
     for (const fixture of manifestRows) {
-      expect(fixture.sourceCaptureDate).toBe('2026-06-25');
-      expect(fixture.captureKind).toBe('current-dom-sanitized');
-      expect(fixture.privacyStatus).toBe('sanitized');
-      expect(fixture.ownerMilestone).toMatch(/^P10\/P1[23]$/u);
+      expect(fixture.status, fixture.file).toBe('active');
+      expect(fixture.sourceCaptureDate, fixture.file).toBe('2026-06-25');
+      expect(fixture.captureKind, fixture.file).toBe('current-dom-sanitized');
+      expect(fixture.privacyStatus, fixture.file).toBe('sanitized');
+      expect(fixture.ownerMilestone, fixture.file).toMatch(/^P10\/P1[23]$/u);
+      expect(fixture.expectedMessageCount, fixture.file).toBeGreaterThan(0);
+      expect(fixture.expectedRoles?.length, fixture.file).toBe(fixture.expectedMessageCount);
     }
-
-    expect(getManifestRow(residualFixtures.deepseek).status).toBe('active');
-    expect(getManifestRow(residualFixtures.doubao).status).toBe('active');
-    expect(getManifestRow(residualFixtures.tongyi).status).toBe('active');
-    expect(getManifestRow(residualFixtures.perplexity).status).toBe('pending');
   });
 
   it('preserves DeepSeek ds-* live tokens without friendly role wrappers', () => {
@@ -167,7 +177,7 @@ describe('AI chat current-DOM residual fixture shapes', () => {
     expect(countAll(doc, currentMessageRootSelectors)).toBe(0);
   });
 
-  it('preserves Perplexity all-user risk tokens and assistant-selector gap', () => {
+  it('preserves Perplexity live risk tokens while old assistant selectors stay empty', () => {
     const doc = loadFixture(residualFixtures.perplexity);
     const previous = loadFixture('current-dom/perplexity-current-2026-06-24.html');
     const currentUserSelectors = [
@@ -213,7 +223,7 @@ describe('AI chat current-DOM residual fixture shapes', () => {
     assertResidualParse('doubao', residualFixtures.doubao);
   });
 
-  it.todo(
-    'P13 enables Perplexity residual parse with user and assistant roles, not all user roles'
-  );
+  it('parses Perplexity residual output with user and assistant roles', () => {
+    assertResidualParse('perplexity', residualFixtures.perplexity);
+  });
 });
