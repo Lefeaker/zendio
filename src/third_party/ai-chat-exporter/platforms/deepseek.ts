@@ -1,17 +1,129 @@
 import { DEFAULT_CHAT_TITLE } from '../shared/constants';
 import { chatHtmlToMarkdown } from '../shared/markdown';
-import type { ChatPlatformParser, ParseConfig, ParsedMessage, ParsedResult } from '../types';
+import type {
+  ChatPlatformParser,
+  ParseConfig,
+  ParseDiagnostic,
+  ParsedMessage,
+  ParsedResult
+} from '../types';
 
-const DEEPSEEK_MESSAGE_CONTAINER_SELECTOR = '[class*="message"], [class*="Message"]';
+const DEEPSEEK_MESSAGE_CONTAINER_SELECTORS = [
+  '[data-message-role]',
+  '[data-role="user"]',
+  '[data-role="assistant"]',
+  'article[data-message-author-role]',
+  '[class~="message"]',
+  '[class*="message-row"]',
+  '[class*="MessageRow"]',
+  '[class*="chat-message"]',
+  '[class*="ChatMessage"]'
+];
 const DEEPSEEK_USER_MESSAGE_SELECTOR = '[class*="user"], [class*="User"]';
 const DEEPSEEK_ASSISTANT_MESSAGE_SELECTOR =
   '[class*="assistant"], [class*="Assistant"], [class*="bot"]';
 const DEEPSEEK_TITLE_REPLACE_TEXT = ' - DeepSeek';
+const DEEPSEEK_CONTENT_SELECTORS = [
+  '[data-message-content]',
+  '[class*="markdown"]',
+  '[class*="message-content"]',
+  '[class*="content"]',
+  '[class*="text"]',
+  'article',
+  'pre',
+  'p'
+];
+const DEEPSEEK_NO_CONTAINERS_DIAGNOSTIC_CODE = 'deepseek_no_message_containers';
+const DEEPSEEK_NO_MESSAGES_DIAGNOSTIC_CODE = 'deepseek_no_messages';
+
+function deepSeekDiagnostic(code: string): ParseDiagnostic {
+  return { code, severity: 'warning', detail: 'deepseek' };
+}
+
+function normalizeText(text: string): string {
+  return text.replace(/\s+/g, ' ').trim();
+}
+
+function collectDeepSeekMessageContainers(doc: Document): HTMLElement[] {
+  const seen = new Set<HTMLElement>();
+  const containers: HTMLElement[] = [];
+
+  for (const selector of DEEPSEEK_MESSAGE_CONTAINER_SELECTORS) {
+    doc.querySelectorAll<HTMLElement>(selector).forEach((element) => {
+      if (seen.has(element)) return;
+      if (!normalizeText(element.textContent ?? '')) return;
+      if (element.closest('[class*="toolbar"], [class*="action"], nav, aside')) return;
+      seen.add(element);
+      containers.push(element);
+    });
+  }
+
+  return containers;
+}
+
+function normalizeRoleValue(value: string | null | undefined): 'user' | 'assistant' | undefined {
+  if (!value) return undefined;
+  const normalized = value.toLowerCase();
+  if (/user|human|prompt|question/.test(normalized)) return 'user';
+  if (/assistant|bot|answer|ai|deepseek/.test(normalized)) return 'assistant';
+  return undefined;
+}
+
+function roleFromAttributes(element: HTMLElement): 'user' | 'assistant' | undefined {
+  const attributes = [
+    'data-message-role',
+    'data-role',
+    'data-testid',
+    'aria-label',
+    'class'
+  ] as const;
+
+  for (const attribute of attributes) {
+    const role = normalizeRoleValue(element.getAttribute(attribute));
+    if (role) return role;
+  }
+
+  return undefined;
+}
+
+function resolveDeepSeekRole(element: HTMLElement): 'user' | 'assistant' {
+  const direct = roleFromAttributes(element);
+  if (direct) return direct;
+
+  const ancestor = element.closest<HTMLElement>(
+    '[data-message-role], [data-role], [class*="user"], [class*="User"], [class*="assistant"], [class*="Assistant"], [class*="bot"]'
+  );
+  const ancestorRole = ancestor ? roleFromAttributes(ancestor) : undefined;
+  if (ancestorRole) return ancestorRole;
+
+  if (element.matches(DEEPSEEK_USER_MESSAGE_SELECTOR)) return 'user';
+  if (element.matches(DEEPSEEK_ASSISTANT_MESSAGE_SELECTOR)) return 'assistant';
+
+  const roleDescendant = element.querySelector<HTMLElement>(
+    '[data-message-role], [data-role], [aria-label*="user" i], [aria-label*="assistant" i], [class*="user"], [class*="User"], [class*="assistant"], [class*="Assistant"], [class*="bot"]'
+  );
+  const descendantRole = roleDescendant ? roleFromAttributes(roleDescendant) : undefined;
+  return descendantRole ?? 'assistant';
+}
+
+function pickDeepSeekContentElement(element: HTMLElement): HTMLElement {
+  for (const selector of DEEPSEEK_CONTENT_SELECTORS) {
+    const content = element.querySelector<HTMLElement>(selector);
+    if (content) return content;
+  }
+
+  return element;
+}
 
 function extractDeepSeekChatData(doc: Document, config?: ParseConfig): ParsedResult {
-  const messageContainers = Array.from(doc.querySelectorAll(DEEPSEEK_MESSAGE_CONTAINER_SELECTOR));
+  const messageContainers = collectDeepSeekMessageContainers(doc);
   if (messageContainers.length === 0) {
-    return { title: DEFAULT_CHAT_TITLE, messages: [], assets: [] };
+    return {
+      title: DEFAULT_CHAT_TITLE,
+      messages: [],
+      assets: [],
+      diagnostics: [deepSeekDiagnostic(DEEPSEEK_NO_CONTAINERS_DIAGNOSTIC_CODE)]
+    };
   }
 
   let title = doc.title.replace(DEEPSEEK_TITLE_REPLACE_TEXT, '').trim();
@@ -62,31 +174,19 @@ function extractDeepSeekChatData(doc: Document, config?: ParseConfig): ParsedRes
   }
 
   const messages: ParsedMessage[] = [];
+  const seenMarkdown = new Set<string>();
   let chatIndex = 1;
 
   for (const container of messageContainers) {
-    const element = container as HTMLElement;
-    let role: 'user' | 'assistant' = 'assistant';
-    let contentElem: HTMLElement | null = null;
-
-    if (element.matches(DEEPSEEK_USER_MESSAGE_SELECTOR)) {
-      role = 'user';
-      contentElem = element.querySelector('[class*="content"], [class*="text"], article, div, p');
-    } else if (element.matches(DEEPSEEK_ASSISTANT_MESSAGE_SELECTOR)) {
-      role = 'assistant';
-      contentElem = element.querySelector(
-        '[class*="content"], [class*="markdown"], article, div, p'
-      );
-    }
-
-    if (!contentElem) {
-      contentElem = element;
-    }
+    const role = resolveDeepSeekRole(container);
+    const contentElem = pickDeepSeekContentElement(container);
 
     const html = contentElem.innerHTML;
     const markdown = chatHtmlToMarkdown(html);
+    const normalizedMarkdown = normalizeText(markdown);
 
-    if (markdown.trim()) {
+    if (normalizedMarkdown && !seenMarkdown.has(normalizedMarkdown)) {
+      seenMarkdown.add(normalizedMarkdown);
       messages.push({
         id: `msg-${chatIndex++}`,
         role,
@@ -101,6 +201,10 @@ function extractDeepSeekChatData(doc: Document, config?: ParseConfig): ParsedRes
 
   if (model.trim()) {
     parsedResult.model = model.trim();
+  }
+
+  if (messages.length === 0) {
+    parsedResult.diagnostics = [deepSeekDiagnostic(DEEPSEEK_NO_MESSAGES_DIAGNOSTIC_CODE)];
   }
 
   return parsedResult;
