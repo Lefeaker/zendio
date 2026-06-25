@@ -103,11 +103,12 @@ const ALLOWED_PREVIEW_DRIFT = new Map([
         'The video path template refresh updates the generated preview JS hash after adding the separate Options video path template row plus template state wiring while keeping the existing article template row as article-only user copy and preserving the frozen reference and Stitch runtime behavior.',
         'The i18n chunk-loading repair refreshes the generated preview JS hash after replacing generated locale/schema dynamic imports with static release registries so extension pages do not depend on runtime-loaded i18n chunks, while preserving the frozen reference, locale fallback semantics, and Stitch runtime behavior.',
         'The support resource closeout refreshes the generated preview JS hash after deleting retired Support Scope schema messages, neutralizing AI-assisted product-positioning copy in cataloged experimental settings, and routing support/contact/suggestion links through the shared Zendio resource link registry while preserving the frozen reference and Stitch resource modal/runtime surface behavior.',
-        'The Firefox runtime boundary and reader focus main merge refreshes the generated preview JS hash while preserving the frozen reference, preview freeze logic, and Stitch runtime contract.'
+        'The Firefox runtime boundary and reader focus main merge refreshes the generated preview JS hash while preserving the frozen reference, preview freeze logic, and Stitch runtime contract.',
+        'P08 Options AI platform surface sync refreshes the generated preview JS hash after aligning the supported AI chat platform product surface and generated schema/i18n catalog output while preserving the frozen reference, preview freeze logic, and Stitch runtime contract.'
       ].join(' '),
       leftSha256: '9020ccbd91acd691eccd3fdf568b9a90efbddf0a35d79f36ef1caba702fa0c07',
-      // 2026-06-22 Firefox runtime boundary / reader focus main merge preview JS hash.
-      rightSha256: 'b4a980c009357b15bff697326dfe7be84a30dbc4256c5a2e4818038196f1b1dc'
+      // 2026-06-25 P08 Options AI platform surface sync preview JS hash.
+      rightSha256: '36c96dc3eb6d749ad711bb116b4dc16b03acf50fa37a9cde975e84b0121f6cbb'
     }
   ]
 ]);
