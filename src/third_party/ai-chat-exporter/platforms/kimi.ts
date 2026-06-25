@@ -1,5 +1,5 @@
 import { DEFAULT_CHAT_TITLE } from '../shared/constants';
-import { chatHtmlToMarkdown } from '../shared/markdown';
+import { chatElementToMarkdown } from '../shared/markdown';
 import type { ChatPlatformParser, ParseConfig, ParsedMessage, ParsedResult } from '../types';
 
 const KIMI_MESSAGE_CONTAINER_SELECTOR =
@@ -228,10 +228,10 @@ function extractKimiChatData(doc: Document, config?: ParseConfig): ParsedResult 
     }
 
     const sanitizedContent = sanitizeKimiContent(contentElem);
-    const html = sanitizedContent.innerHTML;
-    const markdown = chatHtmlToMarkdown(html);
+    const markdown = chatElementToMarkdown(sanitizedContent);
 
     if (markdown.trim()) {
+      const html = sanitizedContent.innerHTML;
       messages.push({
         id: `msg-${chatIndex++}`,
         role,

@@ -6,15 +6,35 @@ vi.mock('../../../src/third_party/ai-chat-exporter/shared/assets', () => ({
   convertBlobImageToBase64: vi.fn(() => 'data:image/png;base64,abc')
 }));
 
+function withInnerHTMLAssignmentBlocked<T>(callback: () => T): T {
+  const descriptor = Object.getOwnPropertyDescriptor(Element.prototype, 'innerHTML');
+  if (!descriptor?.get || !descriptor.configurable) {
+    throw new Error('Expected configurable Element.innerHTML descriptor');
+  }
+
+  Object.defineProperty(Element.prototype, 'innerHTML', {
+    configurable: true,
+    get: descriptor.get,
+    set() {
+      throw new TypeError('Trusted Types blocked innerHTML assignment');
+    }
+  });
+
+  try {
+    return callback();
+  } finally {
+    Object.defineProperty(Element.prototype, 'innerHTML', descriptor);
+  }
+}
+
 describe('gemini parser', () => {
   beforeEach(() => {
     vi.resetModules();
   });
 
   it('returns empty result when no gemini messages exist', async () => {
-    const { geminiParser } = await import(
-      '../../../src/third_party/ai-chat-exporter/platforms/gemini'
-    );
+    const { geminiParser } =
+      await import('../../../src/third_party/ai-chat-exporter/platforms/gemini');
     const doc = new DOMParser().parseFromString(
       '<html><head><title>Gemini - Empty</title></head><body></body></html>',
       'text/html'
@@ -24,9 +44,8 @@ describe('gemini parser', () => {
   });
 
   it('parses user and assistant messages and strips gemini title prefix', async () => {
-    const { geminiParser } = await import(
-      '../../../src/third_party/ai-chat-exporter/platforms/gemini'
-    );
+    const { geminiParser } =
+      await import('../../../src/third_party/ai-chat-exporter/platforms/gemini');
     const doc = new DOMParser().parseFromString(
       `
       <html>
@@ -47,10 +66,32 @@ describe('gemini parser', () => {
     expect(result.messages[1]?.md).toContain('General Kenobi');
   });
 
-  it('supports pure deep research mode fallback', async () => {
-    const { geminiParser } = await import(
-      '../../../src/third_party/ai-chat-exporter/platforms/gemini'
+  it('parses live message nodes when string HTML assignment is blocked', async () => {
+    const { geminiParser } =
+      await import('../../../src/third_party/ai-chat-exporter/platforms/gemini');
+    const doc = new DOMParser().parseFromString(
+      `
+      <html>
+        <head><title>Gemini - Trusted Types</title></head>
+        <body>
+          <user-query><div role="presentation"><p>Can you parse?</p></div></user-query>
+          <model-response><message-content><p>Yes, safely.</p></message-content></model-response>
+        </body>
+      </html>
+    `,
+      'text/html'
     );
+
+    const result = withInnerHTMLAssignmentBlocked(() => geminiParser.parse(doc));
+
+    expect(result.messages).toHaveLength(2);
+    expect(result.messages[0]?.md).toBe('Can you parse?');
+    expect(result.messages[1]?.md).toBe('Yes, safely.');
+  });
+
+  it('supports pure deep research mode fallback', async () => {
+    const { geminiParser } =
+      await import('../../../src/third_party/ai-chat-exporter/platforms/gemini');
     const doc = new DOMParser().parseFromString(
       '<html><body><model-response><div>No report</div></model-response></body></html>',
       'text/html'

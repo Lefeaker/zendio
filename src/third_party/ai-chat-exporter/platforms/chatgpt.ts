@@ -1,5 +1,5 @@
 import { DEFAULT_CHAT_TITLE } from '../shared/constants';
-import { chatHtmlToMarkdown } from '../shared/markdown';
+import { chatElementToMarkdown } from '../shared/markdown';
 import type { ChatPlatformParser, ParsedMessage, ParsedResult } from '../types';
 
 const CHATGPT_ARTICLE_SELECTOR = 'article';
@@ -180,14 +180,14 @@ function extractChatGPTChatData(doc: Document): ParsedResult {
     const fragment = content.cloneNode(true) as HTMLElement;
     removeChatGPTChrome(fragment);
 
-    const html = fragment.innerHTML;
-    let markdown = chatHtmlToMarkdown(html);
+    let markdown = chatElementToMarkdown(fragment);
 
     if (!markdown.trim()) continue;
 
     markdown = stripNativeRoleLabels(markdown);
     if (!markdown.trim()) continue;
 
+    const html = fragment.innerHTML;
     messages.push({
       id: `msg-${chatIndex++}`,
       role: resolveChatGPTRole(messageRoot, header),

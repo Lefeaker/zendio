@@ -24,18 +24,36 @@ function getParserDiagnosticCodes(diagnostics: readonly ParseDiagnostic[] | unde
   return [...new Set(diagnostics.map((diagnostic) => diagnostic.code).filter(Boolean))];
 }
 
-export function validateAIChatExtraction(input: AIChatValidationInput): void {
-  if (input.messages.length > 0) {
-    return;
-  }
+function getRecoveredRoles(messages: AIChatValidationMessage[]): AIChatValidationMessage['role'][] {
+  return [...new Set(messages.map((message) => message.role))];
+}
 
+export function validateAIChatExtraction(input: AIChatValidationInput): void {
   const parserDiagnosticCodes = getParserDiagnosticCodes(input.diagnostics);
 
-  throw extractionErrors.aiChatParseEmpty({
-    url: input.url,
-    type: 'ai_chat',
-    platform: input.platform,
-    messageCount: 0,
-    ...(parserDiagnosticCodes.length > 0 ? { parserDiagnosticCodes } : {})
-  });
+  if (input.messages.length === 0) {
+    throw extractionErrors.aiChatParseEmpty({
+      url: input.url,
+      type: 'ai_chat',
+      platform: input.platform,
+      messageCount: 0,
+      ...(parserDiagnosticCodes.length > 0 ? { parserDiagnosticCodes } : {})
+    });
+  }
+
+  const recoveredRoles = getRecoveredRoles(input.messages);
+  const recoveredRoleSet = new Set(recoveredRoles);
+  if (
+    input.messages.length >= 2 &&
+    (!recoveredRoleSet.has('user') || !recoveredRoleSet.has('assistant'))
+  ) {
+    throw extractionErrors.aiChatParseRoleIncomplete({
+      url: input.url,
+      type: 'ai_chat',
+      platform: input.platform,
+      messageCount: input.messages.length,
+      recoveredRoles,
+      ...(parserDiagnosticCodes.length > 0 ? { parserDiagnosticCodes } : {})
+    });
+  }
 }

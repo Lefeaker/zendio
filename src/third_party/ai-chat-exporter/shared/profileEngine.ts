@@ -1,6 +1,6 @@
 import { DEFAULT_CHAT_TITLE } from './constants';
 import { collectOrderedElements, normalizeText, pickFirstElement } from './dom';
-import { chatHtmlToMarkdown } from './markdown';
+import { chatElementToMarkdown } from './markdown';
 import type { ParseConfig, ParseDiagnostic, ParsedMessage, ParsedResult } from '../types';
 import type {
   ContainerResolver,
@@ -192,8 +192,7 @@ export function parseWithProfile(
       content
     });
 
-    const html = fragment.innerHTML || '';
-    const markdown = chatHtmlToMarkdown(html || textContent);
+    const markdown = chatElementToMarkdown(fragment);
     if (!markdown.trim()) {
       return;
     }
@@ -208,6 +207,7 @@ export function parseWithProfile(
       md: markdown,
       text: markdown
     };
+    const html = fragment.innerHTML || '';
     if (html) {
       message.html = html;
     }

@@ -1,6 +1,6 @@
 import { DEFAULT_CHAT_TITLE } from '../shared/constants';
 import { convertBlobImageToBase64 } from '../shared/assets';
-import { chatHtmlToMarkdown } from '../shared/markdown';
+import { chatElementToMarkdown } from '../shared/markdown';
 import type { ChatPlatformParser, ParsedMessage, ParsedResult, ParseConfig } from '../types';
 
 const GEMINI_MESSAGE_ITEM_SELECTOR = 'user-query, model-response';
@@ -99,7 +99,7 @@ function extractDomain(href: string): string {
 function isDeepResearchSession(doc: Document): boolean {
   return Boolean(
     GEMINI_DEEP_RESEARCH_SELECTORS.some((selector) => doc.querySelector(selector)) ||
-      doc.querySelector(GEMINI_DEEP_RESEARCH_CLASS_MATCHER)
+    doc.querySelector(GEMINI_DEEP_RESEARCH_CLASS_MATCHER)
   );
 }
 
@@ -392,8 +392,8 @@ function extractCanvasContent(doc: Document): string | null {
     '[data-test-id="canvas-body"], [class*="content"], section'
   );
   if (textContent) {
-    const canvasHtml = textContent.innerHTML;
-    const canvasMarkdown = chatHtmlToMarkdown(canvasHtml);
+    const canvasFragment = textContent.cloneNode(true) as HTMLElement;
+    const canvasMarkdown = chatElementToMarkdown(canvasFragment);
     if (canvasMarkdown.trim()) {
       markdown += canvasMarkdown + '\n\n';
     }
@@ -515,7 +515,8 @@ function extractGeminiChatData(doc: Document, config?: ParseConfig): ParsedResul
     }
 
     if (messageContentElem) {
-      const blobImages = Array.from(messageContentElem.querySelectorAll('img[src^="blob:"]'));
+      const fragment = messageContentElem.cloneNode(true) as HTMLElement;
+      const blobImages = Array.from(fragment.querySelectorAll('img[src^="blob:"]'));
       if (blobImages.length > 0) {
         console.log(`[Gemini] Found ${blobImages.length} blob URL images, converting to base64...`);
         blobImages.forEach((img, index) => {
@@ -535,10 +536,9 @@ function extractGeminiChatData(doc: Document, config?: ParseConfig): ParsedResul
         });
       }
 
-      const html = messageContentElem.innerHTML;
-      let markdown = chatHtmlToMarkdown(html);
+      let markdown = chatElementToMarkdown(fragment);
 
-      const hasCanvasChip = messageContentElem.querySelector('immersive-entry-chip');
+      const hasCanvasChip = fragment.querySelector('immersive-entry-chip');
       if (hasCanvasChip && canvasContent) {
         markdown += canvasContent;
       }
@@ -555,6 +555,7 @@ function extractGeminiChatData(doc: Document, config?: ParseConfig): ParsedResul
       }
 
       if (markdown.trim()) {
+        const html = fragment.innerHTML;
         messages.push({
           id: `msg-${chatIndex++}`,
           role,

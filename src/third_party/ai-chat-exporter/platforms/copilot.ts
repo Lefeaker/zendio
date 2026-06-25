@@ -1,5 +1,5 @@
 import { DEFAULT_CHAT_TITLE } from '../shared/constants';
-import { chatHtmlToMarkdown } from '../shared/markdown';
+import { chatElementToMarkdown } from '../shared/markdown';
 import type { ChatPlatformParser, ParsedMessage, ParsedResult } from '../types';
 
 const COPILOT_MESSAGE_SELECTOR = '[data-content="user-message"], [data-content="ai-message"]';
@@ -33,10 +33,11 @@ function extractCopilotChatData(doc: Document): ParsedResult {
     const isUser = (item as HTMLElement).matches(COPILOT_USER_MESSAGE_SELECTOR);
     const role = isUser ? 'user' : 'assistant';
 
-    const html = (item as HTMLElement).innerHTML;
-    const markdown = chatHtmlToMarkdown(html);
+    const fragment = (item as HTMLElement).cloneNode(true) as HTMLElement;
+    const markdown = chatElementToMarkdown(fragment);
 
     if (markdown.trim()) {
+      const html = fragment.innerHTML;
       messages.push({
         id: `msg-${chatIndex++}`,
         role,
