@@ -2,14 +2,14 @@ import { DEFAULT_CHAT_TITLE } from '../shared/constants';
 import { chatElementToMarkdown } from '../shared/markdown';
 import type { ChatPlatformParser, ParseConfig, ParsedMessage, ParsedResult } from '../types';
 import {
-  collectChineseFamilyMessageContainers,
-  removeChineseFamilyChrome,
-  resolveChineseFamilyRoleFromAttributes,
-  type ChineseFamilyMessageRole
-} from './chineseFamilyHelpers';
+  cleanupDoubaoContent,
+  pickDoubaoContentElement,
+  resolveDoubaoMessageRole
+} from './doubaoHelpers';
+import { collectChineseFamilyMessageContainers } from './chineseFamilyHelpers';
 
 const DOUBAO_MESSAGE_SELECTOR =
-  '[class*="message-block-container"], [class~="semi-chat-message"], [data-testid="message_user"], [data-testid="message_assistant"], [data-container-type="message"][data-message-id]';
+  '[class*="message-block-container"], [class~="semi-chat-message"], [data-testid="message_user"], [data-testid="message_assistant"], [data-container-type="message"][data-message-id], [data-message-id], [data-container-type="block-v2"]';
 // Native tokens from Doubao's own DOM/browser title. These are parser tokens, not extension UI copy.
 const DOUBAO_NATIVE_BRAND_TOKENS = ['豆包', 'Doubao'] as const;
 const DOUBAO_NATIVE_ASSISTANT_AVATAR_ALT_TOKEN = DOUBAO_NATIVE_BRAND_TOKENS[0];
@@ -66,98 +66,6 @@ function normaliseTitle(rawTitle: string, config?: ParseConfig): string {
   return cleaned;
 }
 
-function determineRole(container: HTMLElement): ChineseFamilyMessageRole {
-  const explicitRole = resolveChineseFamilyRoleFromAttributes(container, [
-    'data-role',
-    'data-testid',
-    'aria-label',
-    'data-message-id',
-    'class'
-  ]);
-  if (explicitRole) {
-    return explicitRole;
-  }
-
-  const roleAttr = [
-    container.getAttribute('data-role'),
-    container.getAttribute('data-testid'),
-    container.getAttribute('aria-label'),
-    container.getAttribute('data-render-engine'),
-    container.className
-  ]
-    .filter((value): value is string => Boolean(value))
-    .join(' ')
-    .toLowerCase();
-
-  if (/assistant|message_assistant|bot|doubao/.test(roleAttr)) {
-    return 'assistant';
-  }
-  if (/user|message_user|human/.test(roleAttr)) {
-    return 'user';
-  }
-
-  const renderEngine = container.getAttribute('data-render-engine')?.toLowerCase();
-  if (renderEngine === 'markdown') {
-    return 'assistant';
-  }
-  if (renderEngine === 'text' || renderEngine === 'plain') {
-    return 'user';
-  }
-
-  if (container.querySelector(DOUBAO_ASSISTANT_AVATAR_SELECTOR)) {
-    return 'assistant';
-  }
-  if (
-    container.querySelector(
-      '[data-render-engine="markdown"]:not([data-thinking-box]), [class*="flow-markdown-body"], [class*="content-"]'
-    )
-  ) {
-    return 'assistant';
-  }
-  if (container.querySelector('[class*="send-text"]')) {
-    return 'user';
-  }
-  const bubble = container.querySelector<HTMLElement>('[class*="container-"]');
-  const className = bubble?.className || '';
-  if (className.includes(DOUBAO_MARKDOWN_CLASS_HINT)) {
-    return 'assistant';
-  }
-  return 'user';
-}
-
-function pickContentElement(container: HTMLElement): HTMLElement | null {
-  const order = [
-    '[class*="flow-markdown-body"]',
-    '[data-render-engine="markdown"]:not([data-thinking-box])',
-    '[data-lexical-editor]',
-    '[data-slate-editor]',
-    '[class*="send-text"]',
-    '[class*="content-"]',
-    '[class*="markdown"]',
-    'article',
-    'pre',
-    'code'
-  ];
-
-  for (const selector of order) {
-    const el = container.querySelector<HTMLElement>(selector);
-    if (el) return el;
-  }
-
-  return container.querySelector<HTMLElement>('[class*="container-"]');
-}
-
-function cleanupContent(fragment: HTMLElement) {
-  removeChineseFamilyChrome(fragment, [
-    '[data-thinking-box]',
-    '[data-container-type="suggestion"]',
-    '[class*="toolbar"]',
-    '[class*="message-action"]',
-    'button',
-    'svg'
-  ]);
-}
-
 function normaliseModelText(text: string | null | undefined): string | null {
   if (!text) return null;
   const cleaned = text.replace(/\s+/g, ' ').trim();
@@ -190,7 +98,8 @@ function extractDoubaoChat(doc: Document, config?: ParseConfig): ParsedResult {
   const containers = collectChineseFamilyMessageContainers(doc, [DOUBAO_MESSAGE_SELECTOR], {
     shouldSkip: (element) =>
       Boolean(element.closest('aside, [data-history-container="true"]')) ||
-      element.getAttribute('data-container-type') === 'suggestion'
+      element.getAttribute('data-container-type') === 'suggestion' ||
+      Boolean(element.closest('[data-container-type="suggestion"]'))
   });
   if (containers.length === 0) {
     return { title: DEFAULT_CHAT_TITLE, messages: [], assets: [] };
@@ -203,21 +112,25 @@ function extractDoubaoChat(doc: Document, config?: ParseConfig): ParsedResult {
   let index = 1;
 
   for (const container of containers) {
-    const content = pickContentElement(container);
+    const content = pickDoubaoContentElement(container);
     if (!content) continue;
 
     const textContent = content.textContent?.trim() || '';
     if (!textContent) continue;
 
     const fragment = content.cloneNode(true) as HTMLElement;
-    cleanupContent(fragment);
+    cleanupDoubaoContent(fragment);
 
     const markdown = chatElementToMarkdown(fragment);
     if (!markdown.trim()) continue;
 
     const message: ParsedMessage = {
       id: `msg-${index++}`,
-      role: determineRole(container),
+      role: resolveDoubaoMessageRole(
+        container,
+        DOUBAO_ASSISTANT_AVATAR_SELECTOR,
+        DOUBAO_MARKDOWN_CLASS_HINT
+      ),
       md: markdown,
       text: markdown
     };

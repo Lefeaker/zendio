@@ -10,46 +10,43 @@
     </aside>
 
     <main data-empty-conversation="false">
-      <div
-        class="chat-item-r3aVVV max-w-(--content-max-width) bg-g-send-msg-bubble-bg text-g-send-msg-bubble-text"
-        data-container-type="message"
-        data-message-id="sanitized-user-message-1"
-        data-observe-row="true"
-        data-render-engine="plain"
-      >
-        <div
-          class="send-text !text-[length:var(--message-send-text-content-font-size,16px)]"
-          data-render-engine="text"
-        >
-          Sanitized Doubao prompt about export coverage.
+      <div class="flex-row flex w-full justify-end" data-message-id="sanitized-user-message-1">
+        <div class="flex max-w-full flex-col gap-8" data-container-type="block-v2">
+          <div class="flex justify-end" data-render-engine="node">
+            <div
+              class="whitespace-pre-wrap wrap-anywhere rounded-s-radius-s s-font-base sm:text-15 max-w-450 px-16 py-9"
+            >
+              Sanitized Doubao prompt about export coverage.
+            </div>
+          </div>
         </div>
       </div>
 
       <div
-        class="chat-item-r3aVVV has-[.side-by-side-messages]:mx-0 has-[.side-by-side-messages]:max-w-full"
-        data-container-type="message"
+        class="relative grid w-full grid-cols-[minmax(0,1fr)_auto]"
         data-message-id="sanitized-assistant-message-1"
-        data-observe-row="true"
-        data-render-engine="markdown"
-        data-streaming="false"
-        data-thinking-box="step-end-expanded"
       >
-        <div
-          class="[&amp;_[data-thinking-box=&quot;step-message&quot;]]:pl-0! [&amp;_[data-thinking-box=&quot;step-message&quot;]]:text-s-color-text-tertiary!"
-          data-thinking-box="step-message"
-        >
-          Sanitized thinking box should not become exported answer content.
-        </div>
-        <div class="content-pWK1u_ text-dbx-text-primary" data-render-engine="markdown">
-          <p>Sanitized Doubao answer with retained markdown after residual repair.</p>
-          <table data-table-spillover="false">
-            <thead>
-              <tr><th>Field</th><th>Value</th></tr>
-            </thead>
-            <tbody>
-              <tr><td>coverage</td><td>live residual DOM</td></tr>
-            </tbody>
-          </table>
+        <div class="flex w-full flex-col space-y-20" data-container-type="block-v2">
+          <div class="mb-12!" data-render-engine="node">
+            <div
+              class="group/thinking-box-root w-full container-WZpjtt"
+              data-thinking-box="step-message"
+            >
+              Sanitized thinking box should not become exported answer content.
+            </div>
+          </div>
+          <div data-render-engine="node">
+            <p>Sanitized Doubao answer with retained markdown after residual repair.</p>
+            <table data-table-spillover="false">
+              <thead>
+                <tr><th>Field</th><th>Value</th></tr>
+              </thead>
+              <tbody>
+                <tr><td>coverage</td><td>live residual DOM</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="message-action-bar-raqbg0 flex flex-row w-full group">Copy Share</div>
         </div>
       </div>
 

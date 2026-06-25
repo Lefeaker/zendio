@@ -22,7 +22,7 @@ const PERPLEXITY_CURRENT_ASSISTANT_SELECTORS = [
   '[aria-label*="response" i]',
   '[class*="answer"]',
   '[class*="response"]',
-  '[class*="prose"]'
+  '[class~="prose"]'
 ].join(',');
 
 const PERPLEXITY_CURRENT_ASSISTANT_ROOT_SELECTORS = [
@@ -97,7 +97,7 @@ function detectPerplexityRole(node: HTMLElement): PerplexityMessageCandidate['ro
 export function pickPerplexityMessageBody(node: HTMLElement): HTMLElement | null {
   const selectors = [
     '[data-testid="message-content"]',
-    '[class*="prose"]',
+    '[class~="prose"]',
     '[class*="markdown"]',
     'article',
     'main',
@@ -138,7 +138,8 @@ function resolveCurrentAssistantRoot(node: HTMLElement): HTMLElement {
 }
 
 function isLikelyCurrentUserSection(node: HTMLElement): boolean {
-  if (node.querySelector('[class*="prose"], [class*="answer"], [class*="response"]')) return false;
+  if (node.matches('[class*="answer"], [class*="response"], [class~="prose"]')) return false;
+  if (node.querySelector('[class~="prose"], [class*="answer"], [class*="response"]')) return false;
   const marker = [
     node.getAttribute('data-testid'),
     node.getAttribute('aria-label'),
@@ -152,8 +153,8 @@ function isLikelyCurrentUserSection(node: HTMLElement): boolean {
 
 function isLikelyCurrentAssistantSection(node: HTMLElement): boolean {
   return (
-    node.matches('[class*="prose"], [class*="answer"], [class*="response"]') ||
-    Boolean(node.querySelector('[class*="prose"], [class*="answer"], [class*="response"]'))
+    node.matches('[class~="prose"], [class*="answer"], [class*="response"]') ||
+    Boolean(node.querySelector('[class~="prose"], [class*="answer"], [class*="response"]'))
   );
 }
 
@@ -188,6 +189,7 @@ function collectCurrentCandidates(doc: Document): PerplexityMessageCandidate[] {
   for (const node of Array.from(
     doc.querySelectorAll<HTMLElement>(PERPLEXITY_CURRENT_USER_SELECTORS)
   )) {
+    if (!isLikelyCurrentUserSection(node)) continue;
     candidates.push({ node, role: 'user' });
   }
   for (const node of Array.from(

@@ -169,9 +169,11 @@ describe('AI chat current-DOM residual fixture shapes', () => {
     expect(count(previous, '[class~="semi-chat-message"]')).toBeGreaterThan(0);
     expect(count(doc, '[data-message-id]')).toBeGreaterThanOrEqual(2);
     expect(count(doc, '[data-container-type]')).toBeGreaterThanOrEqual(2);
+    expect(count(doc, '[data-container-type="message"]')).toBe(0);
+    expect(count(doc, '[data-container-type="block-v2"]')).toBeGreaterThanOrEqual(2);
     expect(count(doc, '[data-thinking-box]')).toBeGreaterThan(0);
     expect(count(doc, '[data-render-engine]')).toBeGreaterThan(0);
-    expect(count(doc, '[class~="send-text"]')).toBeGreaterThan(0);
+    expect(count(doc, '[class~="whitespace-pre-wrap"]')).toBeGreaterThan(0);
     expect(doc.body.textContent).toContain('Do not collect sidebar history');
     expect(doc.body.textContent).toContain('Do not collect suggestion chip text');
     expect(countAll(doc, currentMessageRootSelectors)).toBe(0);
