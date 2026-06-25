@@ -5,8 +5,12 @@ import { join } from 'node:path';
 import { JSDOM } from 'jsdom';
 import { describe, expect, it } from 'vitest';
 
+import { parseChatDOM } from '../../../src/third_party/ai-chat-exporter/parse';
 import { resolveAIChatPlatformByUrl } from '../../../src/third_party/ai-chat-exporter/platformRegistry';
-import { AI_CHAT_FIXTURE_MANIFEST } from '../../fixtures/ai-chat/fixtureManifest';
+import {
+  AI_CHAT_FIXTURE_MANIFEST,
+  type AIChatFixtureMetadata
+} from '../../fixtures/ai-chat/fixtureManifest';
 
 const fixtureRoot = join(process.cwd(), 'tests/fixtures/ai-chat');
 
@@ -30,8 +34,37 @@ function countAll(doc: Document, selectors: readonly string[]): number {
   return selectors.reduce((total, selector) => total + count(doc, selector), 0);
 }
 
+function getManifestRow(file: string): AIChatFixtureMetadata {
+  const row = AI_CHAT_FIXTURE_MANIFEST.find((fixture) => fixture.file === file);
+  expect(row, file).toBeDefined();
+  return row as AIChatFixtureMetadata;
+}
+
+function assertResidualParse(
+  platform: 'deepseek' | 'doubao' | 'tongyi',
+  file: string,
+  url = 'https://example.com'
+): void {
+  const fixture = getManifestRow(file);
+  const result = parseChatDOM(platform, loadFixture(file, url), {
+    fallbackTitle: 'Catalog Qianwen Title'
+  });
+
+  expect(fixture.status).toBe('active');
+  expect(result.messages).toHaveLength(fixture.expectedMessageCount);
+  expect(result.messages.map((message) => message.role)).toEqual(fixture.expectedRoles);
+
+  const markdown = result.messages.map((message) => message.md ?? '').join('\n\n');
+  for (const sentinel of fixture.sentinels) {
+    expect(markdown).toContain(sentinel);
+  }
+  for (const sentinel of fixture.absentSentinels ?? []) {
+    expect(markdown).not.toContain(sentinel);
+  }
+}
+
 describe('AI chat current-DOM residual fixture shapes', () => {
-  it('keeps residual fixtures pending with sanitized 2026-06-25 metadata', () => {
+  it('tracks residual fixture metadata by repaired and unrepaired ownership', () => {
     const residualFiles: readonly string[] = Object.values(residualFixtures).sort();
     const manifestRows = AI_CHAT_FIXTURE_MANIFEST.filter((fixture) =>
       residualFiles.includes(fixture.file)
@@ -40,12 +73,16 @@ describe('AI chat current-DOM residual fixture shapes', () => {
     expect(manifestRows.map((fixture) => fixture.file)).toEqual(residualFiles);
 
     for (const fixture of manifestRows) {
-      expect(fixture.status).toBe('pending');
       expect(fixture.sourceCaptureDate).toBe('2026-06-25');
       expect(fixture.captureKind).toBe('current-dom-sanitized');
       expect(fixture.privacyStatus).toBe('sanitized');
       expect(fixture.ownerMilestone).toMatch(/^P10\/P1[23]$/u);
     }
+
+    expect(getManifestRow(residualFixtures.deepseek).status).toBe('active');
+    expect(getManifestRow(residualFixtures.doubao).status).toBe('active');
+    expect(getManifestRow(residualFixtures.tongyi).status).toBe('active');
+    expect(getManifestRow(residualFixtures.perplexity).status).toBe('pending');
   });
 
   it('preserves DeepSeek ds-* live tokens without friendly role wrappers', () => {
@@ -160,11 +197,22 @@ describe('AI chat current-DOM residual fixture shapes', () => {
     expect(doc.body.textContent).toContain('Copy');
   });
 
-  it.todo('P12 enables DeepSeek residual parse: two messages with user then assistant roles');
-  it.todo('P12 enables Qianwen/Tongyi residual parse through the Tongyi parser with both roles');
-  it.todo(
-    'P12 enables Doubao residual parse while excluding sidebar, thinking, and suggestion noise'
-  );
+  it('parses DeepSeek residual output with user then assistant roles', () => {
+    assertResidualParse('deepseek', residualFixtures.deepseek);
+  });
+
+  it('parses Qianwen/Tongyi residual output through the Tongyi parser with both roles', () => {
+    assertResidualParse(
+      'tongyi',
+      residualFixtures.tongyi,
+      'https://www.qianwen.com/chat/sanitized-residual'
+    );
+  });
+
+  it('parses Doubao residual output while excluding sidebar, thinking, and suggestion noise', () => {
+    assertResidualParse('doubao', residualFixtures.doubao);
+  });
+
   it.todo(
     'P13 enables Perplexity residual parse with user and assistant roles, not all user roles'
   );
