@@ -13,7 +13,7 @@ export type AIChatValidationInput = {
   url: string;
   title: string;
   messages: AIChatValidationMessage[];
-  diagnostics?: readonly ParseDiagnostic[];
+  diagnostics: readonly ParseDiagnostic[] | undefined;
 };
 
 function getParserDiagnosticCodes(diagnostics: readonly ParseDiagnostic[] | undefined): string[] {

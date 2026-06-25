@@ -2,7 +2,7 @@ import { buildChatMarkdown } from '../formatters/markdown';
 import { chatHtmlToMarkdown } from '../../third_party/ai-chat-exporter/shared/markdown';
 import { formatDateTime } from '../clipper/utils/datetime';
 import { isAIChat } from '../detect';
-import type { StoredOptions, OptionsState } from '../../shared/types/options';
+import type { StoredOptions } from '../../shared/types/options';
 import type { ContentExtractor, ExtractionContext } from './types';
 import type { OptionsRepository } from '../../shared/interfaces/optionsRepository';
 import type { IOptionsRepository } from '../../shared/repositories/IOptionsRepository';
@@ -27,7 +27,7 @@ type AIChatFallbackMessages = Pick<
 const ENGLISH_NEUTRAL_AI_CHAT_FALLBACK_TITLES = {
   doubao: 'Doubao Chat',
   monica: 'Monica Chat'
-} as const;
+};
 
 export interface AIChatExtractorDeps {
   optionsRepository?: OptionsRepository | IOptionsRepository;
@@ -69,7 +69,7 @@ function createOptionsProviderFromRepository(
     }
 
     unsubscribe = repository.onChange((value) => {
-      cached = value as StoredOptions;
+      cached = value;
     });
   };
 
@@ -105,7 +105,7 @@ function createOptionsProviderFromRepository(
 
 function createEmptyOptionsProvider(): OptionsProvider {
   return {
-    get: () => Promise.resolve({} as StoredOptions),
+    get: () => Promise.resolve({}),
     reset: () => undefined
   };
 }
@@ -215,7 +215,7 @@ export const createAIChatExtractor = (deps?: Partial<AIChatExtractorDeps>): Cont
     }
 
     const storedOptions = await resolvedDeps.optionsProvider.get();
-    const options = storedOptions as OptionsState;
+    const options = storedOptions;
     const fallbackTitle = requireFallbackTitle(platform, await resolvedDeps.getMessages());
 
     const parseConfig = {
@@ -256,7 +256,7 @@ export const createAIChatExtractor = (deps?: Partial<AIChatExtractorDeps>): Cont
     const markdown = buildChatMarkdown(chatMarkdownInput);
 
     return {
-      type: 'ai_chat' as const,
+      type: 'ai_chat',
       title,
       markdown,
       assets,

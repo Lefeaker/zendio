@@ -5,6 +5,7 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { testPlatformHarness } from './setup';
 
+import type { AppError } from '@shared/errors/types';
 import type { ParseConfig, ParsedResult } from '../../../src/third_party/ai-chat-exporter/types';
 import type { buildChatMarkdown } from '@content/formatters/markdown';
 import type { CompleteOptions, StoredOptions } from '@shared/types/options';
@@ -120,7 +121,12 @@ describe('extractAIChat', () => {
     const extraction = module.extractAIChat(document, 'https://chat.openai.com/empty', {
       optionsRepository: createOptionsRepository()
     });
-    const error = await extraction.catch((caught: unknown) => caught);
+    let error: AppError | undefined;
+    try {
+      await extraction;
+    } catch (caught) {
+      error = caught as AppError;
+    }
 
     expect(error).toMatchObject({
       code: 'EXTRACTION_AI_CHAT_PARSE_EMPTY',
@@ -133,7 +139,7 @@ describe('extractAIChat', () => {
         parserDiagnosticCodes: ['parser_not_found', 'empty_dom']
       }
     });
-    const context = (error as { context?: Record<string, unknown> }).context;
+    const context = (error as AppError).context;
     expect(context).not.toHaveProperty('title');
     expect(context).not.toHaveProperty('diagnostics');
     expect(JSON.stringify(context)).not.toContain('developer-only detail');

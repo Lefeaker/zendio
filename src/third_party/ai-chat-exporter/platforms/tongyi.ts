@@ -30,7 +30,6 @@ function stripTongyiNativeTitle(rawTitle: string): string {
 
 function extractTongyiChatData(doc: Document, config?: ParseConfig): ParsedResult {
   const questionItems = Array.from(doc.querySelectorAll('[class*="questionItem"]'));
-  const answerItems = Array.from(doc.querySelectorAll('[class*="answerItem"]'));
   const messageContainers = Array.from(doc.querySelectorAll(TONGYI_MESSAGE_CONTAINER_SELECTOR));
 
   if (messageContainers.length === 0) {

@@ -28,7 +28,6 @@ const usageHistory = usageHistoryValues.map((value, index) => {
     value
   };
 });
-
 export const previewContent: PreviewContent = {
   brand: {
     title: 'Zendio',
