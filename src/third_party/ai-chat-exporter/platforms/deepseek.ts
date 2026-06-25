@@ -1,4 +1,5 @@
 import { DEFAULT_CHAT_TITLE } from '../shared/constants';
+import { cloneHTMLElement } from '../shared/dom';
 import { chatElementToMarkdown } from '../shared/markdown';
 import type {
   ChatPlatformParser,
@@ -13,7 +14,7 @@ import {
   resolveChineseFamilyRoleFromAttributes,
   resolveChineseFamilyRoleFromToken,
   type ChineseFamilyMessageRole
-} from './chineseFamily';
+} from './chineseFamilyHelpers';
 
 const DEEPSEEK_MESSAGE_CONTAINER_SELECTORS = [
   '.ds-message',
@@ -184,7 +185,9 @@ function extractDeepSeekChatData(doc: Document, config?: ParseConfig): ParsedRes
     const role = resolveDeepSeekRole(container, index);
     const contentElem = pickDeepSeekContentElement(container);
 
-    const fragment = contentElem.cloneNode(true) as HTMLElement;
+    const fragment = cloneHTMLElement(contentElem);
+    if (!fragment) continue;
+
     cleanupDeepSeekContent(fragment);
     const markdown = chatElementToMarkdown(fragment);
     const normalizedMarkdown = normalizeText(markdown);

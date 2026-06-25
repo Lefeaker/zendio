@@ -1,7 +1,7 @@
 import { DEFAULT_CHAT_TITLE } from '../shared/constants';
 import { chatElementToMarkdown } from '../shared/markdown';
 import type { ChatPlatformParser, ParseConfig, ParsedMessage, ParsedResult } from '../types';
-import { collectChineseFamilyMessageContainers } from './chineseFamily';
+import { collectChineseFamilyMessageContainers } from './chineseFamilyHelpers';
 
 const TONGYI_MESSAGE_CONTAINER_SELECTOR =
   '[class*="message-item"], [class*="questionItem--"], [class*="message-select-wrapper-question"], [class*="chat-question-wrap"], [data-chat-question-wrap="true"], [class*="answerItem"], [class*="message-select-wrapper-answer"], [data-chat-answers-wrap="true"], [class*="contentBox--"], [class*="qwen-chat-message"]';
@@ -12,9 +12,7 @@ const TONGYI_ASSISTANT_MESSAGE_SELECTOR =
 // Native Tongyi browser-title suffixes/placeholders. These are source-site parser tokens.
 const TONGYI_NATIVE_TITLE_SUFFIXES = [' - 通义', ' - 你的超级个人助理', ' - 通义千问'] as const;
 const TONGYI_NATIVE_TITLE_PLACEHOLDERS = new Set(['通义', '通义千问']);
-
 const TONGYI_CODE_CONTAINER_SELECTOR = '[class*="contain-layout-style"]';
-
 const LANGUAGE_ALIASES: Record<string, string> = {
   typescript: 'ts',
   javascript: 'js',

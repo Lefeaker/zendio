@@ -25,7 +25,6 @@ const GEMINI_DEEP_RESEARCH_SELECTORS = [
   'deep-research-confirmation-widget',
   'deep-research-processing-indicator'
 ];
-
 const GEMINI_DEEP_RESEARCH_CLASS_MATCHER = '[class*="deep-research"]';
 
 function queryAllDeep(root: Document | Element, selector: string): Element[] {

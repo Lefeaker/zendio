@@ -11,19 +11,31 @@ import {
 } from '../../../src/third_party/ai-chat-exporter/shared/profileEngine';
 import type { ParserProfile } from '../../../src/third_party/ai-chat-exporter/shared/profileTypes';
 
+type ConfigurableInnerHTMLDescriptor = PropertyDescriptor & {
+  get: (this: Element) => string;
+};
+
+function hasConfigurableInnerHTMLGetter(
+  descriptor: PropertyDescriptor | undefined
+): descriptor is ConfigurableInnerHTMLDescriptor {
+  return Boolean(descriptor?.get && descriptor.configurable);
+}
+
 function parseDocument(html: string): Document {
   return new DOMParser().parseFromString(html, 'text/html');
 }
 
 function withInnerHTMLAssignmentBlocked<T>(callback: () => T): T {
   const descriptor = Object.getOwnPropertyDescriptor(Element.prototype, 'innerHTML');
-  if (!descriptor?.get || !descriptor.configurable) {
+  if (!hasConfigurableInnerHTMLGetter(descriptor)) {
     throw new Error('Expected configurable Element.innerHTML descriptor');
   }
 
   Object.defineProperty(Element.prototype, 'innerHTML', {
     configurable: true,
-    get: descriptor.get,
+    get(this: Element) {
+      return String(descriptor.get.call(this));
+    },
     set() {
       throw new TypeError('Trusted Types blocked innerHTML assignment');
     }

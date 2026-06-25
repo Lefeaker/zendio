@@ -43,6 +43,20 @@ export function pickFirstElement(root: ParentNode, selectors: ProfileSelector): 
   return null;
 }
 
+function isElementNode(node: Node): node is HTMLElement {
+  return node.nodeType === 1;
+}
+
+export function cloneHTMLElement(element: HTMLElement): HTMLElement | null {
+  const clone = element.cloneNode(true);
+  const view = element.ownerDocument.defaultView;
+  if (view) {
+    return clone instanceof view.HTMLElement ? clone : null;
+  }
+
+  return isElementNode(clone) ? clone : null;
+}
+
 export function removeElements(selectors: ProfileSelector): CleanupHook {
   return (fragment) => {
     collectOrderedElements(fragment, selectors).forEach((element) => element.remove());

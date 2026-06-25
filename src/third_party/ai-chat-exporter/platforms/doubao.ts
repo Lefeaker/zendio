@@ -6,7 +6,7 @@ import {
   removeChineseFamilyChrome,
   resolveChineseFamilyRoleFromAttributes,
   type ChineseFamilyMessageRole
-} from './chineseFamily';
+} from './chineseFamilyHelpers';
 
 const DOUBAO_MESSAGE_SELECTOR =
   '[class*="message-block-container"], [class~="semi-chat-message"], [data-testid="message_user"], [data-testid="message_assistant"], [data-container-type="message"][data-message-id]';
