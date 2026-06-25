@@ -284,30 +284,41 @@ export const AI_CHAT_FIXTURE_MANIFEST: readonly AIChatFixtureMetadata[] = [
     platform: 'chatgpt',
     sourceCaptureDate: '2026-06-24',
     captureKind: 'current-dom-sanitized',
-    sentinels: ['pending-p05-chatgpt-current-dom'],
+    expectedTitle: 'Parser Drift',
+    expectedMessageCount: 2,
+    expectedRoles: ['user', 'assistant'],
+    sentinels: ['Current ChatGPT response keeps role attributes without article wrappers.'],
+    absentSentinels: ['Copy response', 'Regenerate', 'Edit message'],
     privacyStatus: 'sanitized',
     ownerMilestone: 'P05',
-    status: 'pending'
+    status: 'active'
   },
   {
     file: 'current-dom/claude-current-2026-06-24.html',
     platform: 'claude',
     sourceCaptureDate: '2026-06-24',
     captureKind: 'current-dom-sanitized',
-    sentinels: ['pending-p05-claude-current-dom'],
+    expectedTitle: 'Parser Drift',
+    expectedMessageCount: 2,
+    expectedRoles: ['user', 'assistant'],
+    sentinels: ['Claude current response keeps stable markdown wrappers.', '```typescript'],
+    absentSentinels: ['Thinking through hidden tool context.', 'Copy response', 'Artifact preview'],
     privacyStatus: 'sanitized',
     ownerMilestone: 'P05',
-    status: 'pending'
+    status: 'active'
   },
   {
     file: 'current-dom/copilot-current-synthetic.html',
     platform: 'copilot',
     sourceCaptureDate: '2026-06-24',
     captureKind: 'focused-regression',
-    sentinels: ['pending-p05-copilot-current-synthetic'],
+    expectedTitle: 'Current Copilot Prompt',
+    expectedMessageCount: 2,
+    expectedRoles: ['user', 'assistant'],
+    sentinels: ['Copilot synthetic current fixture keeps parser support covered.'],
     privacyStatus: 'sanitized',
     ownerMilestone: 'P05',
-    status: 'pending'
+    status: 'active'
   },
   {
     file: 'current-dom/deepseek-current-2026-06-24.html',
