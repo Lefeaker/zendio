@@ -23,7 +23,19 @@ const CURRENT_ASSISTANT_SELECTORS = [
   '[aria-label*="answer" i]',
   '[aria-label*="response" i]',
   '[class*="answer"]',
-  '[class*="response"]'
+  '[class*="response"]',
+  '[class*="prose"]'
+].join(',');
+
+const CURRENT_ASSISTANT_ROOT_SELECTORS = [
+  '[data-testid*="answer" i]',
+  '[data-testid*="response" i]',
+  '[aria-label*="answer" i]',
+  '[aria-label*="response" i]',
+  '[class*="answer"]',
+  '[class*="response"]',
+  '[class*="group/query"]',
+  '[class*="max-w-threadContentWidth"]'
 ].join(',');
 
 const SUPPRESSED_MESSAGE_CONTAINER_SELECTOR = [
@@ -39,6 +51,9 @@ const SUPPRESSED_MESSAGE_CONTAINER_SELECTOR = [
   '[class*="sidebar"]',
   '[class*="toolbar"]',
   '[class*="action"]',
+  '[data-pplx-citation]',
+  '[data-testid*="source" i]',
+  '[data-testid*="citation" i]',
   '[data-testid*="toolbar" i]'
 ].join(',');
 
@@ -60,7 +75,10 @@ const CLEANUP_SELECTORS = [
   '[class*="action"]',
   '[class*="source"]',
   '[class*="citation"]',
-  '[class*="sidebar"]'
+  '[class*="sidebar"]',
+  '[data-pplx-citation]',
+  '[data-testid*="source" i]',
+  '[data-testid*="citation" i]'
 ].join(',');
 
 const MODEL_SELECTORS = [
@@ -105,6 +123,10 @@ function pickMessageBody(node: HTMLElement): HTMLElement | null {
   ];
 
   for (const selector of selectors) {
+    if (node.matches(selector)) {
+      return node;
+    }
+
     const match = node.querySelector<HTMLElement>(selector);
     if (match) return match;
   }
@@ -132,6 +154,36 @@ function hasMessageText(node: HTMLElement): boolean {
   const clone = body.cloneNode(true) as HTMLElement;
   cleanupBody(clone);
   return Boolean(clone.textContent?.trim());
+}
+
+function resolveCurrentAssistantRoot(node: HTMLElement): HTMLElement {
+  const root = node.closest<HTMLElement>(CURRENT_ASSISTANT_ROOT_SELECTORS);
+  return root ?? node;
+}
+
+function isLikelyCurrentUserSection(node: HTMLElement): boolean {
+  if (node.querySelector('[class*="prose"], [class*="answer"], [class*="response"]')) {
+    return false;
+  }
+
+  const marker = [
+    node.getAttribute('data-testid'),
+    node.getAttribute('aria-label'),
+    node.className,
+    node.textContent ?? ''
+  ]
+    .join(' ')
+    .toLowerCase();
+
+  return /(question|query|prompt|select-text|text-foreground)/.test(marker);
+}
+
+function isLikelyCurrentAssistantSection(node: HTMLElement): boolean {
+  if (node.matches('[class*="prose"], [class*="answer"], [class*="response"]')) {
+    return true;
+  }
+
+  return Boolean(node.querySelector('[class*="prose"], [class*="answer"], [class*="response"]'));
 }
 
 function documentOrder(left: MessageCandidate, right: MessageCandidate): number {
@@ -170,7 +222,7 @@ function collectCurrentCandidates(doc: Document): MessageCandidate[] {
   }
 
   for (const node of Array.from(doc.querySelectorAll<HTMLElement>(CURRENT_ASSISTANT_SELECTORS))) {
-    candidates.push({ node, role: 'assistant' });
+    candidates.push({ node: resolveCurrentAssistantRoot(node), role: 'assistant' });
   }
 
   return uniqueCandidates(candidates);
@@ -178,7 +230,7 @@ function collectCurrentCandidates(doc: Document): MessageCandidate[] {
 
 function collectOrderedSectionCandidates(doc: Document): MessageCandidate[] {
   const conversation = doc.querySelector<HTMLElement>(
-    'main [aria-label*="conversation" i], main [role="main"], main'
+    'main [aria-label*="conversation" i], main [role="main"], main [class*="max-w-threadContentWidth"], main'
   );
   if (!conversation) {
     return [];
@@ -191,6 +243,15 @@ function collectOrderedSectionCandidates(doc: Document): MessageCandidate[] {
 
   if (sections.length < 2 || sections.length % 2 !== 0) {
     return [];
+  }
+
+  for (let index = 0; index < sections.length; index += 2) {
+    if (!isLikelyCurrentUserSection(sections[index])) {
+      return [];
+    }
+    if (!isLikelyCurrentAssistantSection(sections[index + 1])) {
+      return [];
+    }
   }
 
   return sections.map((node, index) => ({
@@ -207,6 +268,14 @@ function collectMessageCandidates(doc: Document): MessageCandidate[] {
 
   const currentCandidates = collectCurrentCandidates(doc);
   if (currentCandidates.length > 0) {
+    const roles = new Set(currentCandidates.map((candidate) => candidate.role));
+    if (!roles.has('assistant')) {
+      const orderedSectionCandidates = collectOrderedSectionCandidates(doc);
+      if (orderedSectionCandidates.length > 0) {
+        return orderedSectionCandidates;
+      }
+    }
+
     return currentCandidates;
   }
 

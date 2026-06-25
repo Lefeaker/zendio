@@ -229,6 +229,31 @@ describe('ai chat platform parsers', () => {
     expect(result.messages[1].md).not.toMatch(/Copy/);
   });
 
+  it('parses Perplexity live residual thread sections with assistant roles', () => {
+    const doc = loadFixture('current-dom/perplexity-live-residual-2026-06-25.html');
+    const result = parseChatDOM('perplexity', doc);
+
+    expect(result.title).toBe('Sanitized Perplexity Residual Thread');
+    expect(result.messages).toHaveLength(4);
+    expect(result.messages.map((message) => message.role)).toEqual([
+      'user',
+      'assistant',
+      'user',
+      'assistant'
+    ]);
+
+    const markdown = result.messages.map((message) => message.md ?? '').join('\n\n');
+    expect(markdown).toContain('Compare two sanitized AI research workflows.');
+    expect(markdown).toContain(
+      'Sanitized Perplexity answer one should become assistant content after repair.'
+    );
+    expect(markdown).toContain('First sanitized assistant bullet should be retained.');
+    expect(markdown).not.toContain('Sanitized source card should not become a message.');
+    expect(markdown).not.toContain('Sidebar suggestion should not become a message.');
+    expect(markdown).not.toContain('Citation wrapper text should stay part of source cleanup.');
+    expect(markdown).not.toMatch(/\bCopy\b/);
+  });
+
   it('preserves Claude language fences while removing copy buttons', () => {
     const doc = loadFixture('claude-code.html');
     const result = parseChatDOM('claude', doc);

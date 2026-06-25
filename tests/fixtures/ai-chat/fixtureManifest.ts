@@ -480,11 +480,12 @@ export const AI_CHAT_FIXTURE_MANIFEST: readonly AIChatFixtureMetadata[] = [
     absentSentinels: [
       'Sanitized source card should not become a message.',
       'Sidebar suggestion should not become a message.',
+      'Citation wrapper text should stay part of source cleanup.',
       'Copy'
     ],
     privacyStatus: 'sanitized',
     ownerMilestone: 'P10/P13',
-    status: 'pending'
+    status: 'active'
   },
   {
     file: 'current-dom/monica-current-pass-regression-2026-06-24.html',

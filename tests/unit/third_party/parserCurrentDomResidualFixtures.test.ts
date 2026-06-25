@@ -5,6 +5,7 @@ import { join } from 'node:path';
 import { JSDOM } from 'jsdom';
 import { describe, expect, it } from 'vitest';
 
+import { parseChatDOM } from '../../../src/third_party/ai-chat-exporter/parse';
 import { resolveAIChatPlatformByUrl } from '../../../src/third_party/ai-chat-exporter/platformRegistry';
 import { AI_CHAT_FIXTURE_MANIFEST } from '../../fixtures/ai-chat/fixtureManifest';
 
@@ -31,13 +32,17 @@ function countAll(doc: Document, selectors: readonly string[]): number {
 }
 
 describe('AI chat current-DOM residual fixture shapes', () => {
-  it('keeps residual fixtures pending with sanitized 2026-06-25 metadata', () => {
-    const residualFiles: readonly string[] = Object.values(residualFixtures).sort();
+  it('keeps unrepaired residual fixtures pending with sanitized 2026-06-25 metadata', () => {
+    const pendingResidualFiles: readonly string[] = [
+      residualFixtures.deepseek,
+      residualFixtures.doubao,
+      residualFixtures.tongyi
+    ].sort();
     const manifestRows = AI_CHAT_FIXTURE_MANIFEST.filter((fixture) =>
-      residualFiles.includes(fixture.file)
+      pendingResidualFiles.includes(fixture.file)
     ).sort((left, right) => left.file.localeCompare(right.file));
 
-    expect(manifestRows.map((fixture) => fixture.file)).toEqual(residualFiles);
+    expect(manifestRows.map((fixture) => fixture.file)).toEqual(pendingResidualFiles);
 
     for (const fixture of manifestRows) {
       expect(fixture.status).toBe('pending');
@@ -46,6 +51,24 @@ describe('AI chat current-DOM residual fixture shapes', () => {
       expect(fixture.privacyStatus).toBe('sanitized');
       expect(fixture.ownerMilestone).toMatch(/^P10\/P1[23]$/u);
     }
+  });
+
+  it('promotes Perplexity residual metadata to the active P13 matrix slot', () => {
+    const fixture = AI_CHAT_FIXTURE_MANIFEST.find(
+      (candidate) => candidate.file === residualFixtures.perplexity
+    );
+
+    expect(fixture).toMatchObject({
+      file: residualFixtures.perplexity,
+      platform: 'perplexity',
+      sourceCaptureDate: '2026-06-25',
+      captureKind: 'current-dom-sanitized',
+      privacyStatus: 'sanitized',
+      ownerMilestone: 'P10/P13',
+      status: 'active',
+      expectedMessageCount: 4,
+      expectedRoles: ['user', 'assistant', 'user', 'assistant']
+    });
   });
 
   it('preserves DeepSeek ds-* live tokens without friendly role wrappers', () => {
@@ -165,7 +188,23 @@ describe('AI chat current-DOM residual fixture shapes', () => {
   it.todo(
     'P12 enables Doubao residual parse while excluding sidebar, thinking, and suggestion noise'
   );
-  it.todo(
-    'P13 enables Perplexity residual parse with user and assistant roles, not all user roles'
-  );
+  it('P13 enables Perplexity residual parse with user and assistant roles, not all user roles', () => {
+    const doc = loadFixture(residualFixtures.perplexity);
+    const result = parseChatDOM('perplexity', doc);
+    const markdown = result.messages.map((message) => message.md ?? '').join('\n\n');
+
+    expect(result.messages).toHaveLength(4);
+    expect(result.messages.map((message) => message.role)).toEqual([
+      'user',
+      'assistant',
+      'user',
+      'assistant'
+    ]);
+    expect(markdown).toContain(
+      'Sanitized Perplexity answer one should become assistant content after repair.'
+    );
+    expect(markdown).not.toContain('Sanitized source card should not become a message.');
+    expect(markdown).not.toContain('Sidebar suggestion should not become a message.');
+    expect(markdown).not.toContain('Citation wrapper text should stay part of source cleanup.');
+  });
 });
