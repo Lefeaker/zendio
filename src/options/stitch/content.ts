@@ -150,7 +150,18 @@ export const previewContent: PreviewContent = {
       pills: ['AI Chat', 'Video'],
       icon: 'ads_click'
     },
-    aiPlatforms: ['ChatGPT', 'Claude', 'Gemini', 'Kimi', 'DeepSeek', 'Tongyi', 'Doubao', 'Monica']
+    aiPlatforms: [
+      'ChatGPT',
+      'Claude',
+      'Copilot',
+      'Gemini',
+      'Tongyi/Qianwen',
+      'DeepSeek',
+      'Kimi',
+      'Doubao',
+      'Monica',
+      'Perplexity'
+    ]
   },
   captureBehavior: {
     hero: {

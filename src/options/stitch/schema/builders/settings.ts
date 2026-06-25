@@ -6,12 +6,14 @@ import { classNames } from './classNames';
 const AI_PLATFORM_LINKS: Record<string, string> = {
   ChatGPT: 'https://chatgpt.com/',
   Claude: 'https://claude.ai/',
+  Copilot: 'https://copilot.microsoft.com/',
   Gemini: 'https://gemini.google.com/',
+  'Tongyi/Qianwen': 'https://tongyi.aliyun.com/',
   Kimi: 'https://www.kimi.com/',
   DeepSeek: 'https://chat.deepseek.com/',
-  Tongyi: 'https://tongyi.aliyun.com/',
   Doubao: 'https://www.doubao.com/',
-  Monica: 'https://monica.im/'
+  Monica: 'https://monica.im/',
+  Perplexity: 'https://www.perplexity.ai/'
 };
 
 export function themeSegmentedSwitch(): NodeSchema {

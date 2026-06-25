@@ -762,6 +762,74 @@ describe('clipProcessor', () => {
     });
   });
 
+  it.each(['copilot', 'deepseek', 'kimi', 'doubao', 'monica', 'perplexity', 'tongyi', 'qianwen'])(
+    'buckets non-core AI chat platform %s as other for analytics',
+    async (platform) => {
+      getOptionsMock.mockResolvedValue({
+        templates: templateOptions,
+        domainMappings: {},
+        rest: { baseUrl: 'https://default', vault: 'Vault', apiKey: '' }
+      });
+      selectVaultMock.mockReturnValue({
+        vault: { name: 'Private Vault' },
+        restConfig: { baseUrl: 'https://vault', vault: 'RemoteVault', apiKey: 'key' },
+        context: {}
+      });
+      classifyClipMock.mockResolvedValue({
+        type: 'ai_chat',
+        ai_platform: platform,
+        topics: [],
+        tags: [],
+        status: 'success' as const
+      });
+      resolvePathMock.mockReturnValue('Private/AI Chat.md');
+      writeMarkdownMock.mockResolvedValue(undefined);
+      recordUsageMock.mockResolvedValue(undefined);
+
+      const { processClipPayload } =
+        await import('../../../src/background/application/clipProcessor');
+      await processClipPayload(
+        createPayload({
+          markdown: 'assistant reply',
+          title: 'AI Chat',
+          type: 'ai_chat',
+          meta: {
+            platform,
+            messageCount: 3,
+            operationId: 'op_abc123def'
+          }
+        })
+      );
+
+      const detectedCall = trackUsageEventMock.mock.calls.find(
+        ([eventName]) => eventName === 'ai_chat_detected'
+      );
+      const exportedCall = trackUsageEventMock.mock.calls.find(
+        ([eventName]) => eventName === 'ai_chat_exported'
+      );
+
+      expectAnalyticsEvent(
+        detectedCall,
+        'ai_chat_detected',
+        {
+          platform: 'other',
+          message_count_bucket: 'two_to_five'
+        },
+        ['message_count_bucket', 'platform']
+      );
+      expectAnalyticsEvent(
+        exportedCall,
+        'ai_chat_exported',
+        {
+          platform: 'other',
+          message_count_bucket: 'two_to_five',
+          duration_bucket: expect.any(String)
+        },
+        ['duration_bucket', 'message_count_bucket', 'platform']
+      );
+    }
+  );
+
   it('emits privacy-safe analytics for downloads saves with attachment writes', async () => {
     getOptionsMock.mockResolvedValue({
       templates: templateOptions,

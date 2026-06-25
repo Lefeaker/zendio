@@ -23,6 +23,8 @@
 - 有平台注册表：`registry.ts`
 - 各平台实现基本都在 `src/third_party/ai-chat-exporter/platforms/*`
 
+当前产品面展示的支持列表与注册表真值保持一致：ChatGPT、Claude、Copilot、Gemini、Tongyi/Qianwen、DeepSeek、Kimi、Doubao、Monica、Perplexity。
+
 因此，这部分完全可以抽为一个独立的 DOM 解析库。
 
 ### 2. 存在明显重复，适合继续收敛
@@ -53,6 +55,12 @@
 - 商店审核风险高
 - 调试和回归不可控
 - 用户实际运行版本不可追踪
+
+主项目的 Options、文档和 telemetry 只同步轻量产品面信息，不导入平台 parser 实现或运行时 parser registry。解析器实现继续通过 lazy runtime parser boundary 加载，避免把平台解析代码压入 Options 或 content 主入口。
+
+AI 对话输出路径不新增默认域名映射。当前模板依赖 `meta.platform` 等导出元数据，域名到 vault 的映射继续由用户在设置中维护，避免升级后静默改变现有 vault 路由语义。
+
+Telemetry 暂不扩展平台枚举。ChatGPT、Claude、Gemini 保持具名 analytics platform，Copilot、Tongyi/Qianwen、DeepSeek、Kimi、Doubao、Monica、Perplexity 等非核心 AI 平台继续归入 `other`，直到后续单独完成 GA schema、dashboard 和 docs contract 迁移。
 
 ---
 

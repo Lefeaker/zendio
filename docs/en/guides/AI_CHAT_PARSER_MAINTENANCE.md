@@ -2,7 +2,7 @@
 
 ## Overview
 
-The AI chat exporter now uses a modular registry. Each platform (ChatGPT, Claude, Copilot, DeepSeek, Doubao, Gemini, Kimi, Monica, Perplexity, Tongyi) has its own parser module located in `src/third_party/ai-chat-exporter/platforms/`. Shared helpers live under `src/third_party/ai-chat-exporter/shared/`, and `parseChatDOM` routes requests through the registry defined in `registry.ts`.
+The AI chat exporter now uses a modular registry. The current supported product surface is ChatGPT, Claude, Copilot, Gemini, Tongyi/Qianwen, DeepSeek, Kimi, Doubao, Monica, and Perplexity. Each platform has its own parser module located in `src/third_party/ai-chat-exporter/platforms/`. Shared helpers live under `src/third_party/ai-chat-exporter/shared/`, and `parseChatDOM` routes requests through the registry defined in `registry.ts`.
 
 ```
 src/third_party/ai-chat-exporter/
@@ -37,6 +37,23 @@ src/third_party/ai-chat-exporter/
 4. Register the parser in `registry.ts` by importing it and adding it to `registeredParsers`.
 5. Provide URL detection for the new platform in `src/content/extractors/aiChatExtractor.ts` if needed.
 
+## Product Surface Sync
+
+- Options/Stitch displays the supported platform list from the registry truth in this order: ChatGPT, Claude, Copilot, Gemini, Tongyi/Qianwen, DeepSeek, Kimi, Doubao, Monica, Perplexity.
+- AI chat templates rely on exported metadata such as `meta.platform`; default domain mappings stay user-owned and do not add AI platform host aliases by default. This avoids silently changing vault routing for existing users.
+- Usage telemetry keeps the low-cardinality `ANALYTICS_PLATFORMS` contract. ChatGPT, Claude, and Gemini are tracked as named AI platforms; Copilot, Tongyi/Qianwen, DeepSeek, Kimi, Doubao, Monica, Perplexity, and future AI IDs intentionally map to `other` unless a later GA dashboard/docs migration expands the schema.
+- Parser implementation remains behind the lazy runtime parser boundary. Options/product surfaces may mirror lightweight platform metadata, but must not import parser implementations or the runtime parser registry into Options bundles.
+
+## Drift Fix Checklist
+
+When a platform DOM drift is found:
+
+1. Reproduce the empty or incorrect parse with a focused unit test.
+2. Add or update the sanitized current-DOM fixture and manifest row only when the drift depends on a real current DOM shape.
+3. Keep empty extraction fail-closed: a parser that cannot identify user or assistant content must return the fallback empty parse instead of emitting toolbar/sidebar text.
+4. Update the platform parser and shared helpers without changing unrelated parser families.
+5. Re-run the focused parser/current-DOM matrix before broader product verification.
+
 ## Updating Shared Logic
 
 - Global constants belong in `shared/constants.ts`.
@@ -49,6 +66,7 @@ src/third_party/ai-chat-exporter/
 - Current-DOM drift fixtures reside in `tests/fixtures/ai-chat/current-dom/` and are governed by `tests/fixtures/ai-chat/fixtureManifest.ts`.
 - Add or update assertions in `tests/unit/third_party/parsers.test.ts` or `tests/unit/third_party/parserCurrentDomMatrix.test.ts` to cover the new behaviour.
 - Parser drift fixes must add or update the fixture and the unit assertion in the same commit.
+- Current-DOM fixture work is a separate lane from product surface sync. Do not edit fixture HTML when a task only changes Options, docs, i18n, or telemetry decisions.
 - Run the parser-focused suite before wider validation:
 
 ```bash

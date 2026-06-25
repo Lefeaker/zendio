@@ -22,7 +22,7 @@
   "schemaCaptureSourcesAiChatGroupTitle": "Chat IA",
   "schemaCaptureSourcesAiConversationDescription": "Configura copertura delle fonti e comportamento visivo per le esportazioni di chat AI.",
   "schemaCaptureSourcesAiConversationTitle": "Acquisizione conversazioni AI",
-  "schemaCaptureSourcesAiSupportedPlatformsBadge": "8 piattaforme supportate",
+  "schemaCaptureSourcesAiSupportedPlatformsBadge": "10 piattaforme supportate",
   "schemaCaptureSourcesAttachmentGuidanceLink": "Custom Attachment Location",
   "schemaCaptureSourcesAttachmentGuidancePrefix": "Usa queste impostazioni degli allegati con il plugin Obsidian ",
   "schemaCaptureSourcesAttachmentGuidanceSuffix": " e mantieni la configurazione del plugin in Obsidian allineata a questi modelli.",

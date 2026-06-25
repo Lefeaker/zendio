@@ -22,7 +22,7 @@
   "schemaCaptureSourcesAiChatGroupTitle": "ИИ-чат",
   "schemaCaptureSourcesAiConversationDescription": "Настройте поддерживаемые источники и отображение при экспорте ИИ-чатов.",
   "schemaCaptureSourcesAiConversationTitle": "Сохранение ИИ-диалогов",
-  "schemaCaptureSourcesAiSupportedPlatformsBadge": "8 поддерживаемых платформ",
+  "schemaCaptureSourcesAiSupportedPlatformsBadge": "10 поддерживаемых платформ",
   "schemaCaptureSourcesAttachmentGuidanceLink": "Custom Attachment Location",
   "schemaCaptureSourcesAttachmentGuidancePrefix": "Используйте эти настройки вложений вместе с плагином Obsidian ",
   "schemaCaptureSourcesAttachmentGuidanceSuffix": " и держите конфигурацию плагина в Obsidian согласованной с этими шаблонами.",
