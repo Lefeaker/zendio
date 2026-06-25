@@ -339,6 +339,23 @@ export const AI_CHAT_FIXTURE_MANIFEST: readonly AIChatFixtureMetadata[] = [
     status: 'active'
   },
   {
+    file: 'current-dom/deepseek-live-residual-2026-06-25.html',
+    platform: 'deepseek',
+    sourceCaptureDate: '2026-06-25',
+    captureKind: 'current-dom-sanitized',
+    expectedTitle: 'Sanitized DeepSeek Residual Session',
+    expectedMessageCount: 2,
+    expectedRoles: ['user', 'assistant'],
+    sentinels: [
+      'Sanitized DeepSeek prompt about residual live DOM.',
+      'Sanitized DeepSeek answer that should become an assistant message after repair.'
+    ],
+    absentSentinels: ['Copy'],
+    privacyStatus: 'sanitized',
+    ownerMilestone: 'P10/P12',
+    status: 'pending'
+  },
+  {
     file: 'current-dom/doubao-current-2026-06-24.html',
     platform: 'doubao',
     sourceCaptureDate: '2026-06-24',
@@ -357,6 +374,28 @@ export const AI_CHAT_FIXTURE_MANIFEST: readonly AIChatFixtureMetadata[] = [
     status: 'active'
   },
   {
+    file: 'current-dom/doubao-live-residual-2026-06-25.html',
+    platform: 'doubao',
+    sourceCaptureDate: '2026-06-25',
+    captureKind: 'current-dom-sanitized',
+    expectedTitle: 'Sanitized Doubao Residual Session',
+    expectedMessageCount: 2,
+    expectedRoles: ['user', 'assistant'],
+    sentinels: [
+      'Sanitized Doubao prompt about export coverage.',
+      'Sanitized Doubao answer with retained markdown after residual repair.',
+      '| Field | Value |'
+    ],
+    absentSentinels: [
+      'Do not collect sidebar history',
+      'Sanitized thinking box should not become exported answer content.',
+      'Do not collect suggestion chip text.'
+    ],
+    privacyStatus: 'sanitized',
+    ownerMilestone: 'P10/P12',
+    status: 'pending'
+  },
+  {
     file: 'current-dom/tongyi-qianwen-current-2026-06-24.html',
     platform: 'tongyi',
     sourceCaptureDate: '2026-06-24',
@@ -373,6 +412,24 @@ export const AI_CHAT_FIXTURE_MANIFEST: readonly AIChatFixtureMetadata[] = [
     privacyStatus: 'sanitized',
     ownerMilestone: 'P06',
     status: 'active'
+  },
+  {
+    file: 'current-dom/tongyi-qianwen-live-residual-2026-06-25.html',
+    platform: 'tongyi',
+    sourceCaptureDate: '2026-06-25',
+    captureKind: 'current-dom-sanitized',
+    expectedTitle: 'Catalog Qianwen Title',
+    expectedMessageCount: 2,
+    expectedRoles: ['user', 'assistant'],
+    sentinels: [
+      'Sanitized Qianwen prompt about residual parser routing.',
+      'Sanitized Qianwen answer routed through Tongyi after selector repair.',
+      'const residualRoute'
+    ],
+    absentSentinels: ['复制'],
+    privacyStatus: 'sanitized',
+    ownerMilestone: 'P10/P12',
+    status: 'pending'
   },
   {
     file: 'current-dom/kimi-current-pass-regression-2026-06-24.html',
@@ -406,6 +463,28 @@ export const AI_CHAT_FIXTURE_MANIFEST: readonly AIChatFixtureMetadata[] = [
     privacyStatus: 'sanitized',
     ownerMilestone: 'P07',
     status: 'active'
+  },
+  {
+    file: 'current-dom/perplexity-live-residual-2026-06-25.html',
+    platform: 'perplexity',
+    sourceCaptureDate: '2026-06-25',
+    captureKind: 'current-dom-sanitized',
+    expectedTitle: 'Sanitized Perplexity Residual Thread',
+    expectedMessageCount: 4,
+    expectedRoles: ['user', 'assistant', 'user', 'assistant'],
+    sentinels: [
+      'Compare two sanitized AI research workflows.',
+      'Sanitized Perplexity answer one should become assistant content after repair.',
+      'First sanitized assistant bullet should be retained.'
+    ],
+    absentSentinels: [
+      'Sanitized source card should not become a message.',
+      'Sidebar suggestion should not become a message.',
+      'Copy'
+    ],
+    privacyStatus: 'sanitized',
+    ownerMilestone: 'P10/P13',
+    status: 'pending'
   },
   {
     file: 'current-dom/monica-current-pass-regression-2026-06-24.html',

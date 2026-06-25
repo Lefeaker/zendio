@@ -5,7 +5,6 @@ import { describe, expect, it } from 'vitest';
 import {
   ACTIVE_AI_CHAT_FIXTURES,
   AI_CHAT_FIXTURE_MANIFEST,
-  CURRENT_DOM_AI_CHAT_FIXTURES,
   PENDING_AI_CHAT_FIXTURES
 } from '../../fixtures/ai-chat/fixtureManifest';
 
@@ -15,6 +14,10 @@ const knownRealUserNamesFromP00: readonly string[] = [];
 
 function fixturePath(file: string): string {
   return join(fixtureRoot, file);
+}
+
+function fixtureExists(file: string): boolean {
+  return existsSync(fixturePath(file));
 }
 
 function listCommittedFixtureFiles(): readonly string[] {
@@ -59,23 +62,39 @@ function collectPrivacyFindings(file: string): readonly string[] {
 }
 
 describe('AI chat fixture manifest', () => {
-  it('covers every committed fixture file exactly once with active metadata', () => {
+  it('covers every committed fixture file exactly once with metadata', () => {
     const committedFiles = listCommittedFixtureFiles();
-    const activeFiles = ACTIVE_AI_CHAT_FIXTURES.map((fixture) => fixture.file).sort();
+    const manifestFiles = AI_CHAT_FIXTURE_MANIFEST.map((fixture) => fixture.file).sort();
+    const committedManifestFiles = AI_CHAT_FIXTURE_MANIFEST.filter((fixture) =>
+      committedFiles.includes(fixture.file)
+    )
+      .map((fixture) => fixture.file)
+      .sort();
 
-    expect(activeFiles).toEqual(committedFiles);
-    expect(new Set(AI_CHAT_FIXTURE_MANIFEST.map((fixture) => fixture.file)).size).toBe(
-      AI_CHAT_FIXTURE_MANIFEST.length
-    );
+    expect(committedManifestFiles).toEqual(committedFiles);
+    expect(new Set(manifestFiles).size).toBe(AI_CHAT_FIXTURE_MANIFEST.length);
   });
 
-  it('requires active files to exist and pending files to stay out of active coverage', () => {
+  it('requires active files to exist and limits committed pending files to residual repair notes', () => {
+    const committedFiles = new Set(listCommittedFixtureFiles());
+
     for (const fixture of ACTIVE_AI_CHAT_FIXTURES) {
-      expect(existsSync(fixturePath(fixture.file)), fixture.file).toBe(true);
+      expect(fixtureExists(fixture.file), fixture.file).toBe(true);
     }
 
     for (const fixture of PENDING_AI_CHAT_FIXTURES) {
       expect(ACTIVE_AI_CHAT_FIXTURES.some((active) => active.file === fixture.file)).toBe(false);
+
+      if (!committedFiles.has(fixture.file)) {
+        continue;
+      }
+
+      expect(fixture.file, fixture.file).toMatch(
+        /^current-dom\/.+-live-residual-2026-06-25\.html$/u
+      );
+      expect(fixture.ownerMilestone, fixture.file).toMatch(/^P10\/P1[23]$/u);
+      expect(fixture.captureKind, fixture.file).toBe('current-dom-sanitized');
+      expect(fixture.privacyStatus, fixture.file).toBe('sanitized');
     }
   });
 
@@ -83,19 +102,27 @@ describe('AI chat fixture manifest', () => {
     const committedCurrentDomFiles = listCommittedFixtureFiles().filter((file) =>
       file.startsWith('current-dom/')
     );
-    const currentDomFiles = CURRENT_DOM_AI_CHAT_FIXTURES.map((fixture) => fixture.file).sort();
+    const currentDomFiles = AI_CHAT_FIXTURE_MANIFEST.filter(
+      (fixture) => fixture.file.startsWith('current-dom/') && fixtureExists(fixture.file)
+    )
+      .map((fixture) => fixture.file)
+      .sort();
 
     expect(currentDomFiles).toEqual(committedCurrentDomFiles);
 
-    for (const fixture of CURRENT_DOM_AI_CHAT_FIXTURES) {
+    for (const fixture of AI_CHAT_FIXTURE_MANIFEST.filter(
+      (entry) => entry.file.startsWith('current-dom/') && fixtureExists(entry.file)
+    )) {
       expect(fixture.sourceCaptureDate).not.toBe(legacyDate);
       expect(fixture.sourceCaptureDate).toMatch(/^\d{4}-\d{2}-\d{2}$/u);
       expect(fixture.privacyStatus).toBe('sanitized');
     }
   });
 
-  it('keeps active fixture HTML privacy-stripped', () => {
-    const findings = ACTIVE_AI_CHAT_FIXTURES.flatMap((fixture) =>
+  it('keeps committed fixture HTML privacy-stripped', () => {
+    const findings = AI_CHAT_FIXTURE_MANIFEST.filter((fixture) =>
+      fixtureExists(fixture.file)
+    ).flatMap((fixture) =>
       collectPrivacyFindings(fixture.file).map((finding) => `${fixture.file}: ${finding}`)
     );
 

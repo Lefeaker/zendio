@@ -24,11 +24,15 @@ function loadCurrentDomFixture(file: string): Document {
 }
 
 describe('AI chat current-DOM fixture matrix', () => {
-  it('keeps future live-derived fixture slots pending until sanitized files exist', () => {
+  it('keeps unrepaired current-DOM fixture slots pending and out of the parser matrix', () => {
     expect(PENDING_CURRENT_DOM_AI_CHAT_FIXTURES.map((fixture) => fixture.file).sort()).toEqual([
+      'current-dom/deepseek-live-residual-2026-06-25.html',
+      'current-dom/doubao-live-residual-2026-06-25.html',
       'current-dom/gemini-current-pass-regression-2026-06-24.html',
       'current-dom/kimi-current-pass-regression-2026-06-24.html',
-      'current-dom/monica-current-pass-regression-2026-06-24.html'
+      'current-dom/monica-current-pass-regression-2026-06-24.html',
+      'current-dom/perplexity-live-residual-2026-06-25.html',
+      'current-dom/tongyi-qianwen-live-residual-2026-06-25.html'
     ]);
   });
 

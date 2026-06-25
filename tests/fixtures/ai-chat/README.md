@@ -66,7 +66,9 @@ Current-DOM fixtures live under `current-dom/` and are documented in
 The current-DOM matrix is driven by `fixtureManifest.ts`:
 
 - `status: 'pending'` reserves a P05/P06/P07 slot and is skipped by parser
-  matrix tests.
+  matrix tests. P10 residual fixtures may commit sanitized HTML while staying
+  pending when they intentionally document expected-red parser behavior for
+  P12/P13.
 - `status: 'active'` requires a committed sanitized fixture file and parser
   assertions.
 - Every committed `current-dom/*.html` fixture must use a concrete
@@ -100,17 +102,27 @@ The current-DOM matrix is driven by `fixtureManifest.ts`:
 | `current-dom/chatgpt-current-2026-06-24.html` | `2026-06-24` | ChatGPT | `chatgpt` | no-`article` role-marked DOM; assistant text `role attributes without article wrappers` | sanitized fixture |
 | `current-dom/claude-current-2026-06-24.html` | `2026-06-24` | Claude | `claude` | no full Tailwind main container; keeps `ts` fence and strips thinking/artifact chrome | sanitized fixture |
 | `current-dom/copilot-current-synthetic.html` | `2026-06-24` | Copilot | `copilot` | synthetic focused current guard; assistant text `parser support covered` | sanitized fixture |
+| `current-dom/deepseek-current-2026-06-24.html` | `2026-06-24` | DeepSeek | `deepseek` | friendly role-marked current-DOM fixture retained as P06 history | sanitized fixture |
+| `current-dom/doubao-current-2026-06-24.html` | `2026-06-24` | Doubao | `doubao` | friendly current-DOM fixture retained as P06 history | sanitized fixture |
+| `current-dom/tongyi-qianwen-current-2026-06-24.html` | `2026-06-24` | Tongyi | `tongyi` | friendly Qianwen fixture retained as P06 history | sanitized fixture |
+| `current-dom/deepseek-live-residual-2026-06-25.html` | `2026-06-25` | DeepSeek | `deepseek` | pending P12 repair fixture; preserves live `ds-message` / `ds-markdown` tokens without friendly role wrappers | sanitized pending fixture |
+| `current-dom/doubao-live-residual-2026-06-25.html` | `2026-06-25` | Doubao | `doubao` | pending P12 repair fixture; preserves live `data-message-id` / `data-container-type` / `send-text` shape without legacy message roots | sanitized pending fixture |
+| `current-dom/tongyi-qianwen-live-residual-2026-06-25.html` | `2026-06-25` | Tongyi | `tongyi` | pending P12 repair fixture; preserves Qianwen `message-select-wrapper-*` / `answerItem-*` / request ids while `www.qianwen.com` routes to Tongyi | sanitized pending fixture |
+| `current-dom/perplexity-live-residual-2026-06-25.html` | `2026-06-25` | Perplexity | `perplexity` | pending P13 repair fixture; preserves `group/query`, `max-w-threadContentWidth`, and `prose` shape that currently risks all-user roles | sanitized pending fixture |
 
 ## Pending Current DOM Slots
 
-These manifest entries are intentionally `pending`; they do not require files
-until the owning milestone contributes sanitized HTML and assertions.
+These manifest entries are intentionally `pending`; they stay out of the parser
+matrix until the owning milestone contributes passing parser assertions. Some
+P10 residual entries already have sanitized HTML so fixture-shape tests can prove
+the live DOM tokens without committing canonical failing parser tests.
 
 | fixture | owner milestone | platform | capture kind |
 | --- | --- | --- | --- |
-| `current-dom/deepseek-current-2026-06-24.html` | P06 | DeepSeek | current DOM sanitized |
-| `current-dom/doubao-current-2026-06-24.html` | P06 | Doubao | current DOM sanitized |
-| `current-dom/tongyi-qianwen-current-2026-06-24.html` | P06 | Tongyi | current DOM sanitized |
+| `current-dom/deepseek-live-residual-2026-06-25.html` | P10/P12 | DeepSeek | current DOM sanitized |
+| `current-dom/doubao-live-residual-2026-06-25.html` | P10/P12 | Doubao | current DOM sanitized |
+| `current-dom/tongyi-qianwen-live-residual-2026-06-25.html` | P10/P12 | Tongyi | current DOM sanitized |
+| `current-dom/perplexity-live-residual-2026-06-25.html` | P10/P13 | Perplexity | current DOM sanitized |
 | `current-dom/kimi-current-pass-regression-2026-06-24.html` | P06 | Kimi | focused regression |
 | `current-dom/monica-current-pass-regression-2026-06-24.html` | P07 | Monica | focused regression |
 | `current-dom/gemini-current-pass-regression-2026-06-24.html` | P07 | Gemini | focused regression |
