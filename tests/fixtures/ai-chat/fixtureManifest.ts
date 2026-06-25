@@ -350,10 +350,10 @@ export const AI_CHAT_FIXTURE_MANIFEST: readonly AIChatFixtureMetadata[] = [
       'Sanitized DeepSeek prompt about residual live DOM.',
       'Sanitized DeepSeek answer that should become an assistant message after repair.'
     ],
-    absentSentinels: ['Copy'],
+    absentSentinels: ['Copy', 'ds-markdown-cite', '[sanitized-cite-1]'],
     privacyStatus: 'sanitized',
     ownerMilestone: 'P10/P12',
-    status: 'pending'
+    status: 'active'
   },
   {
     file: 'current-dom/doubao-current-2026-06-24.html',
@@ -389,11 +389,13 @@ export const AI_CHAT_FIXTURE_MANIFEST: readonly AIChatFixtureMetadata[] = [
     absentSentinels: [
       'Do not collect sidebar history',
       'Sanitized thinking box should not become exported answer content.',
-      'Do not collect suggestion chip text.'
+      'Do not collect suggestion chip text.',
+      'data-message-id',
+      'data-container-type'
     ],
     privacyStatus: 'sanitized',
     ownerMilestone: 'P10/P12',
-    status: 'pending'
+    status: 'active'
   },
   {
     file: 'current-dom/tongyi-qianwen-current-2026-06-24.html',
@@ -426,10 +428,10 @@ export const AI_CHAT_FIXTURE_MANIFEST: readonly AIChatFixtureMetadata[] = [
       'Sanitized Qianwen answer routed through Tongyi after selector repair.',
       'const residualRoute'
     ],
-    absentSentinels: ['复制'],
+    absentSentinels: ['复制', 'data-msgid', 'data-chat-id'],
     privacyStatus: 'sanitized',
     ownerMilestone: 'P10/P12',
-    status: 'pending'
+    status: 'active'
   },
   {
     file: 'current-dom/kimi-current-pass-regression-2026-06-24.html',

@@ -7,8 +7,17 @@ import type {
   ParsedMessage,
   ParsedResult
 } from '../types';
+import {
+  collectChineseFamilyMessageContainers,
+  removeChineseFamilyChrome,
+  resolveChineseFamilyRoleFromAttributes,
+  resolveChineseFamilyRoleFromToken,
+  type ChineseFamilyMessageRole
+} from './chineseFamily';
 
 const DEEPSEEK_MESSAGE_CONTAINER_SELECTORS = [
+  '.ds-message',
+  '[data-virtual-list-item-key*="message"]',
   '[data-message-role]',
   '[data-role="user"]',
   '[data-role="assistant"]',
@@ -25,6 +34,8 @@ const DEEPSEEK_ASSISTANT_MESSAGE_SELECTOR =
 const DEEPSEEK_TITLE_REPLACE_TEXT = ' - DeepSeek';
 const DEEPSEEK_CONTENT_SELECTORS = [
   '[data-message-content]',
+  '.ds-assistant-message-main-content',
+  '.ds-markdown',
   '[class*="markdown"]',
   '[class*="message-content"]',
   '[class*="content"]',
@@ -45,48 +56,24 @@ function normalizeText(text: string): string {
 }
 
 function collectDeepSeekMessageContainers(doc: Document): HTMLElement[] {
-  const seen = new Set<HTMLElement>();
-  const containers: HTMLElement[] = [];
-
-  for (const selector of DEEPSEEK_MESSAGE_CONTAINER_SELECTORS) {
-    doc.querySelectorAll<HTMLElement>(selector).forEach((element) => {
-      if (seen.has(element)) return;
-      if (!normalizeText(element.textContent ?? '')) return;
-      if (element.closest('[class*="toolbar"], [class*="action"], nav, aside')) return;
-      seen.add(element);
-      containers.push(element);
-    });
-  }
-
-  return containers;
+  return collectChineseFamilyMessageContainers(doc, DEEPSEEK_MESSAGE_CONTAINER_SELECTORS, {
+    shouldSkip: (element) =>
+      Boolean(element.closest('[class*="toolbar"], [class*="action"], nav, aside'))
+  });
 }
 
-function normalizeRoleValue(value: string | null | undefined): 'user' | 'assistant' | undefined {
-  if (!value) return undefined;
-  const normalized = value.toLowerCase();
-  if (/user|human|prompt|question/.test(normalized)) return 'user';
-  if (/assistant|bot|answer|ai|deepseek/.test(normalized)) return 'assistant';
-  return undefined;
-}
-
-function roleFromAttributes(element: HTMLElement): 'user' | 'assistant' | undefined {
-  const attributes = [
+function roleFromAttributes(element: HTMLElement): ChineseFamilyMessageRole | undefined {
+  return resolveChineseFamilyRoleFromAttributes(element, [
     'data-message-role',
     'data-role',
+    'data-virtual-list-item-key',
     'data-testid',
     'aria-label',
     'class'
-  ] as const;
-
-  for (const attribute of attributes) {
-    const role = normalizeRoleValue(element.getAttribute(attribute));
-    if (role) return role;
-  }
-
-  return undefined;
+  ]);
 }
 
-function resolveDeepSeekRole(element: HTMLElement): 'user' | 'assistant' {
+function resolveDeepSeekRole(element: HTMLElement, index: number): ChineseFamilyMessageRole {
   const direct = roleFromAttributes(element);
   if (direct) return direct;
 
@@ -103,7 +90,12 @@ function resolveDeepSeekRole(element: HTMLElement): 'user' | 'assistant' {
     '[data-message-role], [data-role], [aria-label*="user" i], [aria-label*="assistant" i], [class*="user"], [class*="User"], [class*="assistant"], [class*="Assistant"], [class*="bot"]'
   );
   const descendantRole = roleDescendant ? roleFromAttributes(roleDescendant) : undefined;
-  return descendantRole ?? 'assistant';
+  if (descendantRole) return descendantRole;
+
+  return (
+    resolveChineseFamilyRoleFromToken(element.textContent) ??
+    (index % 2 === 0 ? 'user' : 'assistant')
+  );
 }
 
 function pickDeepSeekContentElement(element: HTMLElement): HTMLElement {
@@ -113,6 +105,17 @@ function pickDeepSeekContentElement(element: HTMLElement): HTMLElement {
   }
 
   return element;
+}
+
+function cleanupDeepSeekContent(fragment: HTMLElement): void {
+  removeChineseFamilyChrome(fragment, [
+    '.ds-markdown-cite',
+    '[class*="cite"]',
+    '[class*="toolbar"]',
+    '[class*="action"]',
+    'button',
+    'svg'
+  ]);
 }
 
 function extractDeepSeekChatData(doc: Document, config?: ParseConfig): ParsedResult {
@@ -162,7 +165,7 @@ function extractDeepSeekChatData(doc: Document, config?: ParseConfig): ParsedRes
   if (!model) {
     const bodyText = doc.body.textContent || '';
     const modelMatch = bodyText.match(
-      /DeepSeek[\s-]*(?:V3|R1|Coder|Chat|General|Math|Reasoning|Vision|Coder|Turbo|Pro)/i
+      /DeepSeek[\s-]*(?:V3|R1|Coder|Chat|General|Math|Reasoning|Vision|Turbo|Pro)\b/i
     );
     if (modelMatch) {
       model = modelMatch[0];
@@ -177,11 +180,12 @@ function extractDeepSeekChatData(doc: Document, config?: ParseConfig): ParsedRes
   const seenMarkdown = new Set<string>();
   let chatIndex = 1;
 
-  for (const container of messageContainers) {
-    const role = resolveDeepSeekRole(container);
+  for (const [index, container] of messageContainers.entries()) {
+    const role = resolveDeepSeekRole(container, index);
     const contentElem = pickDeepSeekContentElement(container);
 
     const fragment = contentElem.cloneNode(true) as HTMLElement;
+    cleanupDeepSeekContent(fragment);
     const markdown = chatElementToMarkdown(fragment);
     const normalizedMarkdown = normalizeText(markdown);
 

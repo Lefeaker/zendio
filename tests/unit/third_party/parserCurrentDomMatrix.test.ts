@@ -5,6 +5,7 @@ import { join } from 'node:path';
 import { JSDOM } from 'jsdom';
 import { describe, expect, it } from 'vitest';
 
+import { validateAIChatExtraction } from '../../../src/content/extractors/aiChatExtractionValidation';
 import { parseChatDOM } from '../../../src/third_party/ai-chat-exporter/parse';
 import { resolveAIChatPlatformByUrl } from '../../../src/third_party/ai-chat-exporter/platformRegistry';
 import { resolveParser } from '../../../src/third_party/ai-chat-exporter/registry';
@@ -26,13 +27,10 @@ function loadCurrentDomFixture(file: string): Document {
 describe('AI chat current-DOM fixture matrix', () => {
   it('keeps unrepaired current-DOM fixture slots pending and out of the parser matrix', () => {
     expect(PENDING_CURRENT_DOM_AI_CHAT_FIXTURES.map((fixture) => fixture.file).sort()).toEqual([
-      'current-dom/deepseek-live-residual-2026-06-25.html',
-      'current-dom/doubao-live-residual-2026-06-25.html',
       'current-dom/gemini-current-pass-regression-2026-06-24.html',
       'current-dom/kimi-current-pass-regression-2026-06-24.html',
       'current-dom/monica-current-pass-regression-2026-06-24.html',
-      'current-dom/perplexity-live-residual-2026-06-25.html',
-      'current-dom/tongyi-qianwen-live-residual-2026-06-25.html'
+      'current-dom/perplexity-live-residual-2026-06-25.html'
     ]);
   });
 
@@ -76,6 +74,22 @@ describe('AI chat current-DOM fixture matrix', () => {
       for (const sentinel of fixture.absentSentinels ?? []) {
         expect(markdown).not.toContain(sentinel);
       }
+
+      expect(() =>
+        validateAIChatExtraction({
+          platform: fixture.platform,
+          url: fixture.file.includes('tongyi-qianwen')
+            ? 'https://www.qianwen.com/chat/sanitized-session'
+            : `https://example.com/${fixture.platform}`,
+          title: result.title,
+          messages: result.messages.map((message) => ({
+            id: message.id,
+            role: message.role,
+            text: message.text ?? message.md ?? ''
+          })),
+          diagnostics: result.diagnostics
+        })
+      ).not.toThrow();
     }
   );
 });

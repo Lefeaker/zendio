@@ -1,13 +1,14 @@
 import { DEFAULT_CHAT_TITLE } from '../shared/constants';
 import { chatElementToMarkdown } from '../shared/markdown';
 import type { ChatPlatformParser, ParseConfig, ParsedMessage, ParsedResult } from '../types';
+import { collectChineseFamilyMessageContainers } from './chineseFamily';
 
 const TONGYI_MESSAGE_CONTAINER_SELECTOR =
-  '[class*="message-item"], [class*="questionItem--"], [class*="answerItem"], [class*="contentBox--"], [class*="qwen-chat-message"]';
+  '[class*="message-item"], [class*="questionItem--"], [class*="message-select-wrapper-question"], [class*="chat-question-wrap"], [data-chat-question-wrap="true"], [class*="answerItem"], [class*="message-select-wrapper-answer"], [data-chat-answers-wrap="true"], [class*="contentBox--"], [class*="qwen-chat-message"]';
 const TONGYI_USER_MESSAGE_SELECTOR =
-  '[class*="user-message"], [class*="userMessage"], [class*="questionItem--"], [class*="qwen-chat-question"], [data-role="user"]';
+  '[class*="user-message"], [class*="userMessage"], [class*="questionItem--"], [class*="message-select-wrapper-question"], [class*="chat-question-wrap"], [class*="qwen-chat-question"], [data-chat-question-wrap="true"], [data-role="user"]';
 const TONGYI_ASSISTANT_MESSAGE_SELECTOR =
-  '[class*="assistant-message"], [class*="assistantMessage"], [class*="bot-message"], [class*="contentBox--"], [class*="qwen-chat-answer"], [data-role="assistant"]';
+  '[class*="assistant-message"], [class*="assistantMessage"], [class*="bot-message"], [class*="message-select-wrapper-answer"], [class*="contentBox--"], [class*="qwen-chat-answer"], [data-chat-answers-wrap="true"], [data-role="assistant"]';
 // Native Tongyi browser-title suffixes/placeholders. These are source-site parser tokens.
 const TONGYI_NATIVE_TITLE_SUFFIXES = [' - 通义', ' - 你的超级个人助理', ' - 通义千问'] as const;
 const TONGYI_NATIVE_TITLE_PLACEHOLDERS = new Set(['通义', '通义千问']);
@@ -30,7 +31,9 @@ function stripTongyiNativeTitle(rawTitle: string): string {
 
 function extractTongyiChatData(doc: Document, config?: ParseConfig): ParsedResult {
   const questionItems = Array.from(doc.querySelectorAll('[class*="questionItem"]'));
-  const messageContainers = Array.from(doc.querySelectorAll(TONGYI_MESSAGE_CONTAINER_SELECTOR));
+  const messageContainers = collectChineseFamilyMessageContainers(doc, [
+    TONGYI_MESSAGE_CONTAINER_SELECTOR
+  ]);
 
   if (messageContainers.length === 0) {
     return { title: DEFAULT_CHAT_TITLE, messages: [], assets: [] };
@@ -114,18 +117,18 @@ function extractTongyiChatData(doc: Document, config?: ParseConfig): ParsedResul
     if (element.matches(TONGYI_USER_MESSAGE_SELECTOR)) {
       role = 'user';
       contentElem = element.querySelector(
-        '[class*="qwen-message-bubble"], [class*="content"], [class*="msgText"], pre, article, div, p'
+        '.qk-md-text, [class*="qwen-message-bubble"], [class*="message-select-content-inner"], [class*="content"], [class*="msgText"], pre, article, div, p'
       );
     } else if (element.matches(TONGYI_ASSISTANT_MESSAGE_SELECTOR)) {
       role = 'assistant';
       contentElem = element.querySelector(
-        '.tongyi-markdown, [class*="qwen-content-box"], pre, [class*="content"], [class*="msgText"], [class*="markdown"], article, div, p'
+        '.qk-md-text, .tongyi-markdown, [class*="qwen-content-box"], [class*="message-select-content-inner"], pre, [class*="content"], [class*="msgText"], [class*="markdown"], article, div, p'
       );
     }
 
     if (!contentElem) {
       contentElem = element.querySelector(
-        '.tongyi-markdown, [class*="qwen-message-bubble"], [class*="qwen-content-box"], pre, [class*="content"], [class*="msgText"], [class*="markdown"], article, div, p'
+        '.qk-md-text, .tongyi-markdown, [class*="qwen-message-bubble"], [class*="qwen-content-box"], [class*="message-select-content-inner"], pre, [class*="content"], [class*="msgText"], [class*="markdown"], article, div, p'
       );
     }
 

@@ -34,9 +34,9 @@ Before adding an active fixture:
 
 Use `status: 'pending'` for planned fixture slots whose parser repair is not
 complete yet. Pending entries are skipped by `parserCurrentDomMatrix.test.ts`.
-P10 residual entries may have committed sanitized HTML, but they must be covered
-by fixture-shape tests and privacy scan rather than canonical parser-output
-assertions.
+Unrepaired P10 residual entries may have committed sanitized HTML, but they must
+be covered by fixture-shape tests and privacy scan rather than canonical
+parser-output assertions.
 
 Switch a row to `status: 'active'` only in the same commit that adds the
 sanitized fixture file and assertions:
@@ -75,9 +75,9 @@ from Markdown output.
 
 ## P10 Live Residual Fixtures
 
-P10 adds sanitized pending fixtures from the 2026-06-25 built-dist smoke
-diagnostics. These fixtures intentionally preserve the live selector gaps that
-the 2026-06-24 fixtures missed:
+P10 adds sanitized residual fixtures from the 2026-06-25 built-dist smoke
+diagnostics. P12 promotes the Chinese-family entries to active parser assertions;
+remaining unrepaired owners stay pending until their milestone lands:
 
 | File | Platform | Owner | Live-shape evidence |
 | --- | --- | --- | --- |
