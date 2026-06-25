@@ -3,7 +3,7 @@
     {
       "id": "p21-chatgpt-native-user-role-labels",
       "path": "src/third_party/ai-chat-exporter/platforms/chatgpt.ts",
-      "line": 9,
+      "line": 27,
       "category": "site-native-role-label",
       "reason": "ChatGPT parser strips role labels that come from the source site's own conversation headers.",
       "ownerPlan": "P21",
@@ -14,7 +14,7 @@
     {
       "id": "p21-chatgpt-native-assistant-role-label",
       "path": "src/third_party/ai-chat-exporter/platforms/chatgpt.ts",
-      "line": 10,
+      "line": 28,
       "category": "site-native-role-label",
       "reason": "ChatGPT parser strips assistant role labels that come from the source site's own conversation headers.",
       "ownerPlan": "P21",
@@ -25,7 +25,7 @@
     {
       "id": "p21-doubao-native-brand-token",
       "path": "src/third_party/ai-chat-exporter/platforms/doubao.ts",
-      "line": 7,
+      "line": 8,
       "category": "site-native-dom-selector",
       "reason": "Doubao parser matches the source site's native brand token in avatar/title parsing; it is not extension UI copy.",
       "ownerPlan": "P21",
@@ -36,7 +36,7 @@
     {
       "id": "p21-doubao-native-model-tokens",
       "path": "src/third_party/ai-chat-exporter/platforms/doubao.ts",
-      "line": 9,
+      "line": 10,
       "category": "site-native-model-token",
       "reason": "Doubao parser recognizes source-site model labels and variants from native page text, not extension-authored fallback copy.",
       "ownerPlan": "P21",
