@@ -15,6 +15,27 @@ function parseDocument(html: string): Document {
   return new DOMParser().parseFromString(html, 'text/html');
 }
 
+function withInnerHTMLAssignmentBlocked<T>(callback: () => T): T {
+  const descriptor = Object.getOwnPropertyDescriptor(Element.prototype, 'innerHTML');
+  if (!descriptor?.get || !descriptor.configurable) {
+    throw new Error('Expected configurable Element.innerHTML descriptor');
+  }
+
+  Object.defineProperty(Element.prototype, 'innerHTML', {
+    configurable: true,
+    get: descriptor.get,
+    set() {
+      throw new TypeError('Trusted Types blocked innerHTML assignment');
+    }
+  });
+
+  try {
+    return callback();
+  } finally {
+    Object.defineProperty(Element.prototype, 'innerHTML', descriptor);
+  }
+}
+
 function baseProfile(overrides: Partial<ParserProfile> = {}): ParserProfile {
   return {
     platform: 'monica',
@@ -118,6 +139,32 @@ describe('profile parser engine', () => {
     expect(result.messages[0]?.md).toContain('Useful answer');
     expect(result.messages[0]?.md).not.toContain('Copy');
     expect(result.messages[0]?.md).not.toContain('icon');
+  });
+
+  it('converts cloned profile content without assigning string HTML', () => {
+    const doc = parseDocument(`
+      <main>
+        <article data-message>
+          <div class="message-body">
+            <p>Trusted Types answer</p>
+            <button type="button">Copy</button>
+          </div>
+        </article>
+      </main>
+    `);
+    const profile = baseProfile({
+      cleanup: removeElements(['button'])
+    });
+
+    const result = withInnerHTMLAssignmentBlocked(() => parseWithProfile(doc, profile));
+
+    expect(result.messages).toHaveLength(1);
+    expect(result.messages[0]).toMatchObject({
+      md: 'Trusted Types answer',
+      text: 'Trusted Types answer'
+    });
+    expect(result.messages[0]?.html).toContain('<p>Trusted Types answer</p>');
+    expect(result.messages[0]?.html).not.toContain('Copy');
   });
 
   it('suppresses duplicate messages by normalized content when configured', () => {

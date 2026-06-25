@@ -147,6 +147,52 @@ describe('extractAIChat', () => {
     expect(mockBuildChatMarkdown).not.toHaveBeenCalled();
   });
 
+  it('rejects multi-message role-incomplete AI chat results before building markdown', async () => {
+    mockParseChatDOMAsync.mockResolvedValueOnce({
+      title: 'Perplexity Role Drift',
+      messages: [
+        { id: 'u1', role: 'user', md: 'first private prompt' },
+        { id: 'u2', role: 'user', md: 'second private prompt' }
+      ],
+      assets: [],
+      diagnostics: [
+        { code: 'perplexity_no_assistant_roots', severity: 'warning' },
+        { code: 'perplexity_no_assistant_roots', severity: 'warning', detail: 'raw selector note' }
+      ]
+    });
+
+    const module = await import('@content/extractors/aiChatExtractor');
+
+    let error: AppError | undefined;
+    try {
+      await module.extractAIChat(document, 'https://www.perplexity.ai/search/role-drift', {
+        optionsRepository: createOptionsRepository()
+      });
+    } catch (caught) {
+      error = caught as AppError;
+    }
+
+    expect(error).toMatchObject({
+      code: 'EXTRACTION_AI_CHAT_PARSE_ROLE_INCOMPLETE',
+      userMessageDescriptor: { key: 'errorExtractionAiChatParseRoleIncomplete' },
+      context: {
+        url: 'https://www.perplexity.ai/search/role-drift',
+        type: 'ai_chat',
+        platform: 'perplexity',
+        messageCount: 2,
+        recoveredRoles: ['user'],
+        parserDiagnosticCodes: ['perplexity_no_assistant_roots']
+      }
+    });
+    const context = (error as AppError).context;
+    expect(context).not.toHaveProperty('title');
+    expect(context).not.toHaveProperty('diagnostics');
+    expect(JSON.stringify(context)).not.toContain('first private prompt');
+    expect(JSON.stringify(context)).not.toContain('second private prompt');
+    expect(JSON.stringify(context)).not.toContain('raw selector note');
+    expect(mockBuildChatMarkdown).not.toHaveBeenCalled();
+  });
+
   it('detects Kimi domains and forwards the correct platform', async () => {
     mockParseChatDOMAsync.mockResolvedValueOnce({
       title: 'Catalog Kimi Title',

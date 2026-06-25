@@ -1,5 +1,5 @@
 import { DEFAULT_CHAT_TITLE } from '../shared/constants';
-import { chatHtmlToMarkdown } from '../shared/markdown';
+import { chatElementToMarkdown } from '../shared/markdown';
 import type { ChatPlatformParser, ParsedMessage, ParsedResult } from '../types';
 
 const MESSAGE_SELECTORS = [
@@ -247,10 +247,10 @@ function extractPerplexityChat(doc: Document): ParsedResult {
     const text = clone.textContent?.trim() ?? '';
     if (!text) continue;
 
-    const html = clone.innerHTML || '';
-    const markdown = chatHtmlToMarkdown(html || text);
+    const markdown = chatElementToMarkdown(clone);
     if (!markdown.trim()) continue;
 
+    const html = clone.innerHTML || '';
     messages.push({
       id: `msg-${index++}`,
       role,

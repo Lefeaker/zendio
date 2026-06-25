@@ -1,5 +1,5 @@
 import { DEFAULT_CHAT_TITLE } from '../shared/constants';
-import { chatHtmlToMarkdown } from '../shared/markdown';
+import { chatElementToMarkdown } from '../shared/markdown';
 import type { ChatPlatformParser, ParsedMessage, ParsedResult } from '../types';
 
 const CLAUDE_USER_MESSAGE_SELECTOR = '[data-testid="user-message"]';
@@ -70,8 +70,8 @@ function extractClaudeChatData(doc: Document): ParsedResult {
       continue;
     }
 
-    const html = content.innerHTML;
-    const markdown = chatHtmlToMarkdown(html);
+    const fragment = content.cloneNode(true) as HTMLElement;
+    const markdown = chatElementToMarkdown(fragment);
     if (!markdown.trim()) {
       continue;
     }
@@ -83,6 +83,7 @@ function extractClaudeChatData(doc: Document): ParsedResult {
       text: markdown
     };
 
+    const html = fragment.innerHTML;
     if (html) {
       message.html = html;
     }

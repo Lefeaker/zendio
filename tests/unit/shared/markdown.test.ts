@@ -2,7 +2,31 @@
 
 import { describe, expect, it } from 'vitest';
 
-import { chatHtmlToMarkdown } from '../../../src/third_party/ai-chat-exporter/shared/markdown';
+import {
+  chatElementToMarkdown,
+  chatHtmlToMarkdown
+} from '../../../src/third_party/ai-chat-exporter/shared/markdown';
+
+function withInnerHTMLAssignmentBlocked<T>(callback: () => T): T {
+  const descriptor = Object.getOwnPropertyDescriptor(Element.prototype, 'innerHTML');
+  if (!descriptor?.get || !descriptor.configurable) {
+    throw new Error('Expected configurable Element.innerHTML descriptor');
+  }
+
+  Object.defineProperty(Element.prototype, 'innerHTML', {
+    configurable: true,
+    get: descriptor.get,
+    set() {
+      throw new TypeError('Trusted Types blocked innerHTML assignment');
+    }
+  });
+
+  try {
+    return callback();
+  } finally {
+    Object.defineProperty(Element.prototype, 'innerHTML', descriptor);
+  }
+}
 
 describe('chatHtmlToMarkdown - code fences', () => {
   it('uses toolbar language chip before code block', () => {
@@ -465,4 +489,27 @@ beta</code></pre>
   expect(markdown).toBe(
     ['```text', 'alpha', 'beta', '```', '', '```cpp', 'std::cout << value;', '```'].join('\n')
   );
+});
+
+describe('chatElementToMarkdown', () => {
+  it('renders an existing DOM node without assigning string HTML', () => {
+    const root = document.createElement('section');
+    const heading = document.createElement('h3');
+    heading.textContent = 'Nested Heading';
+    const paragraph = document.createElement('p');
+    paragraph.append('Read the ');
+    const link = document.createElement('a');
+    link.href = 'https://example.com/docs';
+    link.textContent = 'docs';
+    paragraph.append(link);
+    const button = document.createElement('button');
+    button.textContent = 'Copy';
+    root.append(heading, paragraph, button);
+
+    const markdown = withInnerHTMLAssignmentBlocked(() => chatElementToMarkdown(root));
+
+    expect(markdown).toContain('## Nested Heading');
+    expect(markdown).toContain('[docs](https://example.com/docs)');
+    expect(markdown).not.toContain('Copy');
+  });
 });

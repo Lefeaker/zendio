@@ -1,5 +1,5 @@
 import { DEFAULT_CHAT_TITLE } from '../shared/constants';
-import { chatHtmlToMarkdown } from '../shared/markdown';
+import { chatElementToMarkdown } from '../shared/markdown';
 import type {
   ChatPlatformParser,
   ParseConfig,
@@ -181,12 +181,13 @@ function extractDeepSeekChatData(doc: Document, config?: ParseConfig): ParsedRes
     const role = resolveDeepSeekRole(container);
     const contentElem = pickDeepSeekContentElement(container);
 
-    const html = contentElem.innerHTML;
-    const markdown = chatHtmlToMarkdown(html);
+    const fragment = contentElem.cloneNode(true) as HTMLElement;
+    const markdown = chatElementToMarkdown(fragment);
     const normalizedMarkdown = normalizeText(markdown);
 
     if (normalizedMarkdown && !seenMarkdown.has(normalizedMarkdown)) {
       seenMarkdown.add(normalizedMarkdown);
+      const html = fragment.innerHTML;
       messages.push({
         id: `msg-${chatIndex++}`,
         role,

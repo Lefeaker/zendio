@@ -1,5 +1,5 @@
 import { DEFAULT_CHAT_TITLE } from '../shared/constants';
-import { chatHtmlToMarkdown } from '../shared/markdown';
+import { chatElementToMarkdown } from '../shared/markdown';
 import type { ChatPlatformParser, ParseConfig, ParsedMessage, ParsedResult } from '../types';
 
 const TONGYI_MESSAGE_CONTAINER_SELECTOR =
@@ -134,10 +134,10 @@ function extractTongyiChatData(doc: Document, config?: ParseConfig): ParsedResul
     }
 
     const sanitized = sanitizeTongyiContent(contentElem);
-    const html = sanitized.innerHTML;
-    const markdown = chatHtmlToMarkdown(html);
+    const markdown = chatElementToMarkdown(sanitized);
 
     if (markdown.trim()) {
+      const html = sanitized.innerHTML;
       messages.push({
         id: `msg-${chatIndex++}`,
         role,

@@ -1,5 +1,5 @@
 import { DEFAULT_CHAT_TITLE } from '../shared/constants';
-import { chatHtmlToMarkdown } from '../shared/markdown';
+import { chatElementToMarkdown } from '../shared/markdown';
 import type { ChatPlatformParser, ParseConfig, ParsedMessage, ParsedResult } from '../types';
 
 const DOUBAO_MESSAGE_SELECTOR =
@@ -165,8 +165,7 @@ function extractDoubaoChat(doc: Document, config?: ParseConfig): ParsedResult {
     const fragment = content.cloneNode(true) as HTMLElement;
     cleanupContent(fragment);
 
-    const html = fragment.innerHTML || '';
-    const markdown = chatHtmlToMarkdown(html || textContent);
+    const markdown = chatElementToMarkdown(fragment);
     if (!markdown.trim()) continue;
 
     const message: ParsedMessage = {
@@ -176,6 +175,7 @@ function extractDoubaoChat(doc: Document, config?: ParseConfig): ParsedResult {
       text: markdown
     };
 
+    const html = fragment.innerHTML || '';
     const resolvedHtml = html || undefined;
     if (resolvedHtml !== undefined) {
       message.html = resolvedHtml;

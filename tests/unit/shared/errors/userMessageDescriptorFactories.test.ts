@@ -81,6 +81,17 @@ describe('shared AppError factories', () => {
         key: 'errorExtractionAiChatParseEmpty'
       },
       {
+        error: extractionErrors.aiChatParseRoleIncomplete({
+          url: 'https://www.perplexity.ai/search/role-drift',
+          type: 'ai_chat',
+          platform: 'perplexity',
+          messageCount: 2,
+          recoveredRoles: ['user'],
+          parserDiagnosticCodes: ['perplexity_no_assistant_roots']
+        }),
+        key: 'errorExtractionAiChatParseRoleIncomplete'
+      },
+      {
         error: extractionErrors.unsupportedContent(),
         key: 'errorExtractionUnsupportedContent'
       },
@@ -169,6 +180,17 @@ describe('shared AppError factories', () => {
           parserDiagnosticCodes: ['parser_not_found']
         }),
         message: 'EXTRACTION_AI_CHAT_PARSE_EMPTY'
+      },
+      {
+        error: extractionErrors.aiChatParseRoleIncomplete({
+          url: 'https://www.perplexity.ai/search/role-drift',
+          type: 'ai_chat',
+          platform: 'perplexity',
+          messageCount: 2,
+          recoveredRoles: ['user'],
+          parserDiagnosticCodes: ['perplexity_no_assistant_roots']
+        }),
+        message: 'EXTRACTION_AI_CHAT_PARSE_ROLE_INCOMPLETE'
       },
       {
         error: extractionErrors.unsupportedContent(),
