@@ -31,6 +31,9 @@ const MAX_LINE_BUDGETS = new Map([
   ['src/options/stitch/types.ts', 771],
   ['src/options/stitch/ui/components.ts', 592],
   ['src/third_party/ai-chat-exporter/platforms/gemini.ts', 576],
+  // 2026-06-25 AI chat parser P09 repair: Perplexity keeps readable
+  // selector arrays; the explicit budget tracks the restored parser hotspot.
+  ['src/third_party/ai-chat-exporter/platforms/perplexity.ts', 281],
   ['src/options/stitch/schema/builders/surfaces.ts', 558],
   ['src/shared/attachments/videoScreenshotAttachmentTemplates.ts', 523],
   ['src/options/app/productionStitchStateMapper.ts', 517],

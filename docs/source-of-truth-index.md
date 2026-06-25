@@ -1,6 +1,6 @@
 # Source of Truth 索引
 
-最后更新：2026-06-20
+最后更新：2026-06-25
 
 ## 正式入口
 
@@ -27,6 +27,7 @@
 - 当前统一门禁以 `quality` / `verify:preflight` / CI 三者一致为准
 - 当前本地 runtime hard gate 以 `verify:runtime` 为准；该命令读取 `package.json` 的 `engines.node`，并已接入 `quality`、`verify:preflight`、`test` / `test:*` 与 `visual:*` npm scripts
 - 当前性能真值以 `audit:build:report` 与 `audit:performance:report` 为准
+- 2026-06-25 AI chat parser productionization P09 repair current truth：Perplexity parser 选择器恢复为可读数组结构后显式纳入 hotspot line budget，`tools/report-performance-hotspots.mjs` 预算为 `src/third_party/ai-chat-exporter/platforms/perplexity.ts <= 281`；fresh `audit:performance:report` 输出 `sourceFiles=843`、`hotspotsOver250=113`、`registeredLineBudgets=142`。本轮只同步 line-budget current truth，没有提高 build hard stop、single/shared chunk、locale chunk、YAML chunk size budget 或 runtime parser lazy boundary。
 - 当前 `M4` 已按重定义口径通过；旧版工作树/批次规模预算已下沉到 backlog
 - 2026-05-18 stabilization 的 audit-time dirty tree 归属以 [`current-delivery-batches-2026-04-13.md`](./current-delivery-batches-2026-04-13.md) 为准；该文档不再声明当前工作树为 `0` open paths
 - 2026-05-19 gap closure 后，batch handoff 使用 post-fact amended ownership；不要再声称历史 committed path manifests exactly once

@@ -2,16 +2,66 @@ import { DEFAULT_CHAT_TITLE } from '../shared/constants';
 import { chatHtmlToMarkdown } from '../shared/markdown';
 import type { ChatPlatformParser, ParsedMessage, ParsedResult } from '../types';
 
-const MESSAGE_SELECTORS =
-  '[data-testid="user-message"],[data-testid="assistant-message"],[data-message-author],[data-role="message"]';
-const CURRENT_USER_SELECTORS =
-  '[data-testid*="question" i],[data-testid*="query" i],[aria-label*="question" i],[aria-label*="query" i],[class*="query"]';
-const CURRENT_ASSISTANT_SELECTORS =
-  '[data-testid*="answer" i],[data-testid*="response" i],[aria-label*="answer" i],[aria-label*="response" i],[class*="answer"],[class*="response"]';
-const SUPPRESSED_MESSAGE_CONTAINER_SELECTOR =
-  'aside,nav,footer,[role="navigation"],[aria-label*="source" i],[aria-label*="citation" i],[aria-label*="related" i],[class*="source"],[class*="citation"],[class*="sidebar"],[class*="toolbar"],[class*="action"],[data-testid*="toolbar" i]';
-const CLEANUP_SELECTORS =
-  'button,svg,aside,nav,footer,[role="navigation"],[aria-label*="copy" i],[aria-label*="share" i],[aria-label*="edit" i],[aria-label*="source" i],[aria-label*="citation" i],[aria-label*="related" i],[data-testid*="toolbar" i],[class*="toolbar"],[class*="action"],[class*="source"],[class*="citation"],[class*="sidebar"]';
+const MESSAGE_SELECTORS = [
+  '[data-testid="user-message"]',
+  '[data-testid="assistant-message"]',
+  '[data-message-author]',
+  '[data-role="message"]'
+].join(',');
+
+const CURRENT_USER_SELECTORS = [
+  '[data-testid*="question" i]',
+  '[data-testid*="query" i]',
+  '[aria-label*="question" i]',
+  '[aria-label*="query" i]',
+  '[class*="query"]'
+].join(',');
+
+const CURRENT_ASSISTANT_SELECTORS = [
+  '[data-testid*="answer" i]',
+  '[data-testid*="response" i]',
+  '[aria-label*="answer" i]',
+  '[aria-label*="response" i]',
+  '[class*="answer"]',
+  '[class*="response"]'
+].join(',');
+
+const SUPPRESSED_MESSAGE_CONTAINER_SELECTOR = [
+  'aside',
+  'nav',
+  'footer',
+  '[role="navigation"]',
+  '[aria-label*="source" i]',
+  '[aria-label*="citation" i]',
+  '[aria-label*="related" i]',
+  '[class*="source"]',
+  '[class*="citation"]',
+  '[class*="sidebar"]',
+  '[class*="toolbar"]',
+  '[class*="action"]',
+  '[data-testid*="toolbar" i]'
+].join(',');
+
+const CLEANUP_SELECTORS = [
+  'button',
+  'svg',
+  'aside',
+  'nav',
+  'footer',
+  '[role="navigation"]',
+  '[aria-label*="copy" i]',
+  '[aria-label*="share" i]',
+  '[aria-label*="edit" i]',
+  '[aria-label*="source" i]',
+  '[aria-label*="citation" i]',
+  '[aria-label*="related" i]',
+  '[data-testid*="toolbar" i]',
+  '[class*="toolbar"]',
+  '[class*="action"]',
+  '[class*="source"]',
+  '[class*="citation"]',
+  '[class*="sidebar"]'
+].join(',');
 
 const MODEL_SELECTORS = [
   '[data-testid="model-name"]',
