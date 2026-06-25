@@ -45,7 +45,7 @@ sanitized fixture file and assertions:
 - `absentSentinels` for toolbar, copy, citation, or shell noise that must be
   stripped.
 
-## Current Active Fixture
+## Current Active Fixtures
 
 `harness-chatgpt-current-synthetic.html` is a synthetic P04 harness fixture. It
 is not a live capture and should not be used as evidence for ChatGPT drift. Its
@@ -62,3 +62,10 @@ live DOM snapshot was available from P00:
 | `deepseek-current-2026-06-24.html` | DeepSeek | role detection across ancestor/data attributes, duplicate suppression, toolbar cleanup |
 | `doubao-current-2026-06-24.html` | Doubao | current message roots without `message-block-container`, sidebar/history exclusion, toolbar cleanup |
 | `tongyi-qianwen-current-2026-06-24.html` | Tongyi/Qianwen | Qianwen-shaped message roots through the Tongyi parser and line-number cleanup |
+
+## P07 Assistant-Family Fixtures
+
+`perplexity-current-2026-06-24.html` is a sanitized P07 current-DOM regression
+fixture for the Perplexity empty-extraction drift. It keeps the current query
+and answer container shape, plus sources/sidebar/toolbars that must be stripped
+from Markdown output.

@@ -28,8 +28,7 @@ describe('AI chat current-DOM fixture matrix', () => {
     expect(PENDING_CURRENT_DOM_AI_CHAT_FIXTURES.map((fixture) => fixture.file).sort()).toEqual([
       'current-dom/gemini-current-pass-regression-2026-06-24.html',
       'current-dom/kimi-current-pass-regression-2026-06-24.html',
-      'current-dom/monica-current-pass-regression-2026-06-24.html',
-      'current-dom/perplexity-current-2026-06-24.html'
+      'current-dom/monica-current-pass-regression-2026-06-24.html'
     ]);
   });
 
