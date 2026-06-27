@@ -12,7 +12,6 @@ import {
   collectChineseFamilyMessageContainers,
   removeChineseFamilyChrome,
   resolveChineseFamilyRoleFromAttributes,
-  resolveChineseFamilyRoleFromToken,
   type ChineseFamilyMessageRole
 } from './chineseFamilyHelpers';
 
@@ -93,10 +92,11 @@ function resolveDeepSeekRole(element: HTMLElement, index: number): ChineseFamily
   const descendantRole = roleDescendant ? roleFromAttributes(roleDescendant) : undefined;
   if (descendantRole) return descendantRole;
 
-  return (
-    resolveChineseFamilyRoleFromToken(element.textContent) ??
-    (index % 2 === 0 ? 'user' : 'assistant')
-  );
+  if (element.classList.contains('ds-message')) {
+    return element.querySelector('.ds-assistant-message-main-content') ? 'assistant' : 'user';
+  }
+
+  return index % 2 === 0 ? 'user' : 'assistant';
 }
 
 function pickDeepSeekContentElement(element: HTMLElement): HTMLElement {

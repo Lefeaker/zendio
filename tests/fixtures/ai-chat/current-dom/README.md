@@ -87,3 +87,14 @@ assertion.
 | `tongyi-qianwen-live-residual-2026-06-25.html` | Tongyi/Qianwen | P10/P12 | `message-select-wrapper-question-*`, `message-select-wrapper-answer-*`, `chat-question-wrap`, `answerItem-*`, `qk-md-text`, `data-msgid`, `data-chat-id`, `data-req-id` |
 | `doubao-live-residual-2026-06-25.html` | Doubao | P10/P12 | `data-message-id`, `data-container-type="block-v2"`, `data-thinking-box`, `data-render-engine`, `whitespace-pre-wrap`; no `message-block-container`, `semi-chat-message`, or `data-container-type="message"` roots |
 | `perplexity-live-residual-2026-06-25.html` | Perplexity | P10/P13 | `group/query`, `max-w-threadContentWidth`, `prose`; P13 parser output returns `user/assistant/user/assistant` and strips source/sidebar/citation/copy noise |
+
+## P14 Live Closeout Fixtures
+
+P14 adds sanitized fixtures from the 2026-06-27 closeout smoke after DeepSeek
+and Qianwen were reopened in the owner's Chrome profile. They preserve the live
+DOM shape without raw conversation text.
+
+| File | Platform | Owner | Live-shape evidence |
+| --- | --- | --- | --- |
+| `deepseek-live-residual-2026-06-27.html` | DeepSeek | P14 | shared-thread ordering can start with an assistant `.ds-message`; user `.ds-message` nodes use `d29f3d7d` / `fbb737a4` wrappers and may mention platform names such as DeepSeek or Qwen in message text |
+| `tongyi-qianwen-live-residual-2026-06-27.html` | Tongyi/Qianwen | P14 | `message-select-wrapper-*` wrappers can contain empty `share-selection-*` nodes before the real `chat-question-wrap` / `answerItem-*` content, and a `last-message-item` wrapper can nest a final question/answer pair |

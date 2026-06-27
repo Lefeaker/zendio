@@ -356,6 +356,24 @@ export const AI_CHAT_FIXTURE_MANIFEST: readonly AIChatFixtureMetadata[] = [
     status: 'active'
   },
   {
+    file: 'current-dom/deepseek-live-residual-2026-06-27.html',
+    platform: 'deepseek',
+    sourceCaptureDate: '2026-06-27',
+    captureKind: 'current-dom-sanitized',
+    expectedTitle: 'Sanitized DeepSeek Shared Thread',
+    expectedMessageCount: 5,
+    expectedRoles: ['assistant', 'user', 'assistant', 'user', 'assistant'],
+    sentinels: [
+      'Sanitized DeepSeek follow-up that mentions DeepSeek and Qwen',
+      'Sanitized DeepSeek request comparing model vendors',
+      'Sanitized DeepSeek final assistant answer with retained markdown.'
+    ],
+    absentSentinels: ['Copy', 'ds-markdown-cite', '[sanitized-cite-1]'],
+    privacyStatus: 'sanitized',
+    ownerMilestone: 'P14',
+    status: 'active'
+  },
+  {
     file: 'current-dom/doubao-current-2026-06-24.html',
     platform: 'doubao',
     sourceCaptureDate: '2026-06-24',
@@ -431,6 +449,30 @@ export const AI_CHAT_FIXTURE_MANIFEST: readonly AIChatFixtureMetadata[] = [
     absentSentinels: ['复制', 'data-msgid', 'data-chat-id'],
     privacyStatus: 'sanitized',
     ownerMilestone: 'P10/P12',
+    status: 'active'
+  },
+  {
+    file: 'current-dom/tongyi-qianwen-live-residual-2026-06-27.html',
+    platform: 'tongyi',
+    sourceCaptureDate: '2026-06-27',
+    captureKind: 'current-dom-sanitized',
+    expectedTitle: 'Sanitized Qianwen Live Thread',
+    expectedMessageCount: 6,
+    expectedRoles: ['user', 'assistant', 'user', 'assistant', 'user', 'assistant'],
+    sentinels: [
+      'Sanitized Qianwen user prompt before an empty share-selection node.',
+      'Sanitized Qianwen final assistant answer from a nested last-message item.',
+      'const qianwenLiveRoute'
+    ],
+    absentSentinels: [
+      'Copy',
+      'data-msgid',
+      'data-chat-id',
+      'share-selection-NEsSb3',
+      'share-selection-answer-zbYnt5'
+    ],
+    privacyStatus: 'sanitized',
+    ownerMilestone: 'P14',
     status: 'active'
   },
   {

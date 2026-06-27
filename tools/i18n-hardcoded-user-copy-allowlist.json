@@ -69,7 +69,7 @@
     {
       "id": "p21-tongyi-native-title-suffixes",
       "path": "src/third_party/ai-chat-exporter/platforms/tongyi.ts",
-      "line": 13,
+      "line": 11,
       "category": "site-native-title-suffix",
       "reason": "Tongyi parser strips browser-title suffixes that belong to the source site, not to Zendio UI copy.",
       "ownerPlan": "P21",
@@ -80,7 +80,7 @@
     {
       "id": "p21-tongyi-native-title-placeholder",
       "path": "src/third_party/ai-chat-exporter/platforms/tongyi.ts",
-      "line": 14,
+      "line": 12,
       "category": "site-native-title-placeholder",
       "reason": "Tongyi parser checks the source site's browser-title placeholder before falling back to a derived export title.",
       "ownerPlan": "P21",

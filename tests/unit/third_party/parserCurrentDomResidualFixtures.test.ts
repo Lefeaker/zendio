@@ -21,6 +21,11 @@ const residualFixtures = {
   tongyi: 'current-dom/tongyi-qianwen-live-residual-2026-06-25.html'
 } as const;
 
+const p14ResidualFixtures = {
+  deepseek: 'current-dom/deepseek-live-residual-2026-06-27.html',
+  tongyi: 'current-dom/tongyi-qianwen-live-residual-2026-06-27.html'
+} as const;
+
 function loadFixture(file: string, url = 'https://example.com'): Document {
   const html = readFileSync(join(fixtureRoot, file), 'utf8');
   return new JSDOM(html, { url }).window.document;
@@ -213,12 +218,38 @@ describe('AI chat current-DOM residual fixture shapes', () => {
     assertResidualParse('deepseek', residualFixtures.deepseek);
   });
 
+  it('parses DeepSeek shared-thread residual output without text-token role drift', () => {
+    const doc = loadFixture(p14ResidualFixtures.deepseek);
+
+    expect(count(doc, '[class~="ds-message"]')).toBe(5);
+    expect(count(doc, '[class~="d29f3d7d"]')).toBe(2);
+    expect(count(doc, '[class~="fbb737a4"]')).toBe(2);
+    expect(doc.body.textContent).toContain('DeepSeek and Qwen');
+    expect(doc.body.textContent).not.toMatch(/\buser\b/u);
+
+    assertResidualParse('deepseek', p14ResidualFixtures.deepseek);
+  });
+
   it('parses Qianwen/Tongyi residual output through the Tongyi parser with both roles', () => {
     assertResidualParse(
       'tongyi',
       residualFixtures.tongyi,
       'https://www.qianwen.com/chat/sanitized-residual'
     );
+  });
+
+  it('parses Qianwen/Tongyi residual output when empty share-selection nodes precede content', () => {
+    const url = 'https://www.qianwen.com/chat/sanitized-residual';
+    const doc = loadFixture(p14ResidualFixtures.tongyi, url);
+
+    expect(resolveAIChatPlatformByUrl(url, doc)).toBe('tongyi');
+    expect(count(doc, '[class*="message-select-wrapper-question-"]')).toBe(3);
+    expect(count(doc, '[class*="message-select-wrapper-answer-"]')).toBe(3);
+    expect(count(doc, '[class*="share-selection-"]')).toBeGreaterThan(0);
+    expect(count(doc, '[class~="last-message-item"]')).toBe(1);
+    expect(count(doc, '[class~="qk-md-text"]')).toBeGreaterThan(0);
+
+    assertResidualParse('tongyi', p14ResidualFixtures.tongyi, url);
   });
 
   it('parses Doubao residual output while excluding sidebar, thinking, and suggestion noise', () => {
