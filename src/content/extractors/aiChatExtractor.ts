@@ -11,6 +11,7 @@ import { resolveAIChatPlatformByUrl } from '../../third_party/ai-chat-exporter/p
 import { getContentI18nResource, getContentMessages } from '../i18n/context';
 import type { Messages } from '@i18n';
 import { validateAIChatExtraction } from './aiChatExtractionValidation';
+import { prepareAIChatDocumentForExtraction } from './aiChatDocumentPreparer';
 
 interface OptionsProvider {
   get(): Promise<StoredOptions>;
@@ -227,9 +228,10 @@ export const createAIChatExtractor = (deps?: Partial<AIChatExtractorDeps>): Cont
 
     const { parseChatDOMAsync } =
       await import('../../third_party/ai-chat-exporter/runtimeRegistry');
+    const preparedDocument = await prepareAIChatDocumentForExtraction(platform, document);
     const { title, messages, assets, model, createdAt, diagnostics } = await parseChatDOMAsync(
       platform,
-      document,
+      preparedDocument,
       parseConfig
     );
     const aiChatOptions: ChatMarkdownOptions = {
