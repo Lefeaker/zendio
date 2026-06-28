@@ -289,6 +289,37 @@ describe('ai chat platform parsers', () => {
     expect(markdown).not.toMatch(/\bCopy\b/);
   });
 
+  it('fails closed on unverified Perplexity assistant-first current candidates', () => {
+    const doc = new DOMParser().parseFromString(
+      `
+      <html>
+        <head><title>Unverified Perplexity Drift - Perplexity</title></head>
+        <body>
+          <main>
+            <section aria-label="Conversation">
+              <div class="max-w-threadContentWidth">
+                <div class="group/query !text-wrap select-text">
+                  <div class="text-foreground">This user prompt must not be exported second.</div>
+                </div>
+                <div class="reply-block">
+                  <div class="prose">
+                    <p>This assistant answer must not be exported before recovery is verified.</p>
+                  </div>
+                </div>
+              </div>
+            </section>
+          </main>
+        </body>
+      </html>
+    `,
+      'text/html'
+    );
+
+    const result = parseChatDOM('perplexity', doc);
+
+    expect(result.messages).toHaveLength(0);
+  });
+
   it('preserves Claude language fences while removing copy buttons', () => {
     const doc = loadFixture('claude-code.html');
     const result = parseChatDOM('claude', doc);

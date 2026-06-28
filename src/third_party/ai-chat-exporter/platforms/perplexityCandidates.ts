@@ -180,7 +180,7 @@ export function collectPerplexityMessageCandidates(doc: Document): PerplexityMes
     const orderedSectionCandidates = collectOrderedSectionCandidates(doc);
     if (orderedSectionCandidates.length > 0) return orderedSectionCandidates;
 
-    return currentCandidates;
+    return [];
   }
 
   const turnPanelCandidates = collectTurnPanelCandidates(doc);

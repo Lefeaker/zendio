@@ -87,6 +87,7 @@ assertion.
 | `tongyi-qianwen-live-residual-2026-06-25.html` | Tongyi/Qianwen | P10/P12 | `message-select-wrapper-question-*`, `message-select-wrapper-answer-*`, `chat-question-wrap`, `answerItem-*`, `qk-md-text`, `data-msgid`, `data-chat-id`, `data-req-id` |
 | `doubao-live-residual-2026-06-25.html` | Doubao | P10/P12 | `data-message-id`, `data-container-type="block-v2"`, `data-thinking-box`, `data-render-engine`, `whitespace-pre-wrap`; no `message-block-container`, `semi-chat-message`, or `data-container-type="message"` roots |
 | `perplexity-live-residual-2026-06-25.html` | Perplexity | P10/P13 | `group/query`, `max-w-threadContentWidth`, `prose`; P13 parser output returns `user/assistant/user/assistant` and strips source/sidebar/citation/copy noise |
+| `perplexity-live-tabpanel-role-drift-2026-06-28.html` | Perplexity | Perplexity live DOM repair 2026-06-28 | `role="tabpanel"` panels can contain both a `group/query` user prompt and a later assistant `prose`; parser output must remain user-first alternating and strip source/sidebar/citation/copy noise |
 
 ## P14 Live Closeout Fixtures
 

@@ -108,6 +108,7 @@ The current-DOM matrix is driven by `fixtureManifest.ts`:
 | `current-dom/doubao-live-residual-2026-06-25.html` | `2026-06-25` | Doubao | `doubao` | active P12 repair fixture; parses live `data-message-id` / `block-v2` / `whitespace-pre-wrap` shape without legacy message roots | sanitized fixture |
 | `current-dom/tongyi-qianwen-live-residual-2026-06-25.html` | `2026-06-25` | Tongyi | `tongyi` | active P12 repair fixture; parses Qianwen `message-select-wrapper-*` / `answerItem-*` shape through Tongyi | sanitized fixture |
 | `current-dom/perplexity-live-residual-2026-06-25.html` | `2026-06-25` | Perplexity | `perplexity` | P13 active residual repair; returns four messages with `user/assistant/user/assistant` roles and strips source/sidebar/citation/copy noise | sanitized fixture |
+| `current-dom/perplexity-live-tabpanel-role-drift-2026-06-28.html` | `2026-06-28` | Perplexity | `perplexity` | active live tabpanel repair; recovers `user/assistant` role alternation when one panel contains both query text and assistant `prose` | sanitized fixture |
 
 ## Pending Current DOM Slots
 
