@@ -532,6 +532,30 @@ export const AI_CHAT_FIXTURE_MANIFEST: readonly AIChatFixtureMetadata[] = [
     status: 'active'
   },
   {
+    file: 'current-dom/perplexity-live-tabpanel-role-drift-2026-06-28.html',
+    platform: 'perplexity',
+    sourceCaptureDate: '2026-06-28',
+    captureKind: 'current-dom-sanitized',
+    expectedTitle: 'Sanitized Perplexity Tabpanel Thread',
+    expectedMessageCount: 6,
+    expectedRoles: ['user', 'assistant', 'user', 'assistant', 'user', 'assistant'],
+    sentinels: [
+      'please use a table to summarize three AI company differences.',
+      'Here is a summary table for three sanitized AI companies.',
+      'Deep nested assistant detail should remain readable.',
+      '```html'
+    ],
+    absentSentinels: [
+      'Sanitized source card should not become a message.',
+      'Sidebar suggestion should not become a message.',
+      'Citation wrapper text should stay part of source cleanup.',
+      'Copy'
+    ],
+    privacyStatus: 'sanitized',
+    ownerMilestone: 'Perplexity live DOM repair 2026-06-28',
+    status: 'active'
+  },
+  {
     file: 'current-dom/monica-current-pass-regression-2026-06-24.html',
     platform: 'monica',
     sourceCaptureDate: '2026-06-24',

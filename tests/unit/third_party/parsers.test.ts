@@ -254,6 +254,41 @@ describe('ai chat platform parsers', () => {
     expect(markdown).not.toMatch(/\bCopy\b/);
   });
 
+  it('parses Perplexity tabpanel live DOM without assistant-first role drift', () => {
+    const doc = loadFixture('current-dom/perplexity-live-tabpanel-role-drift-2026-06-28.html');
+    const result = parseChatDOM('perplexity', doc);
+
+    expect(result.title).toBe('Sanitized Perplexity Tabpanel Thread');
+    expect(result.messages).toHaveLength(6);
+    expect(result.messages.map((message) => message.role)).toEqual([
+      'user',
+      'assistant',
+      'user',
+      'assistant',
+      'user',
+      'assistant'
+    ]);
+
+    expect(result.messages[0]?.md).toContain(
+      'please use a table to summarize three AI company differences.'
+    );
+    expect(result.messages[1]?.md).toContain(
+      'Here is a summary table for three sanitized AI companies.'
+    );
+    expect(result.messages[2]?.md).toContain('at least four layers of text nesting');
+    expect(result.messages[3]?.md).toContain(
+      'Deep nested assistant detail should remain readable.'
+    );
+    expect(result.messages[4]?.md).toContain('code block that renders a small comparison widget');
+    expect(result.messages[5]?.md).toContain('```html');
+
+    const markdown = result.messages.map((message) => message.md ?? '').join('\n\n');
+    expect(markdown).not.toContain('Sanitized source card should not become a message.');
+    expect(markdown).not.toContain('Sidebar suggestion should not become a message.');
+    expect(markdown).not.toContain('Citation wrapper text should stay part of source cleanup.');
+    expect(markdown).not.toMatch(/\bCopy\b/);
+  });
+
   it('preserves Claude language fences while removing copy buttons', () => {
     const doc = loadFixture('claude-code.html');
     const result = parseChatDOM('claude', doc);
