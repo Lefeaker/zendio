@@ -6,7 +6,7 @@ import {
   type PlatformId
 } from './types';
 import { DEFAULT_CHAT_TITLE, SUPPORTED_PLATFORMS } from './shared/constants';
-import { getAIChatPlatformAliases } from './platformRegistry';
+import { getAIChatPlatformAliases } from './platformIdentity';
 
 const EMPTY_RESULT: ParsedResult = {
   title: DEFAULT_CHAT_TITLE,

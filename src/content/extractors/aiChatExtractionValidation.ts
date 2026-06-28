@@ -28,6 +28,30 @@ function getRecoveredRoles(messages: AIChatValidationMessage[]): AIChatValidatio
   return [...new Set(messages.map((message) => message.role))];
 }
 
+function getFirstConversationRole(
+  messages: AIChatValidationMessage[]
+): AIChatValidationMessage['role'] | undefined {
+  return messages.find((message) => message.role !== 'system')?.role;
+}
+
+function throwRoleIncomplete(
+  input: AIChatValidationInput,
+  recoveredRoles: AIChatValidationMessage['role'][],
+  parserDiagnosticCodes: string[],
+  firstConversationRole: AIChatValidationMessage['role'] | undefined
+): never {
+  throw extractionErrors.aiChatParseRoleIncomplete({
+    url: input.url,
+    type: 'ai_chat',
+    platform: input.platform,
+    messageCount: input.messages.length,
+    recoveredRoles,
+    ...(firstConversationRole ? { firstConversationRole } : {}),
+    requiredFirstConversationRole: 'user',
+    ...(parserDiagnosticCodes.length > 0 ? { parserDiagnosticCodes } : {})
+  });
+}
+
 export function validateAIChatExtraction(input: AIChatValidationInput): void {
   const parserDiagnosticCodes = getParserDiagnosticCodes(input.diagnostics);
 
@@ -43,17 +67,12 @@ export function validateAIChatExtraction(input: AIChatValidationInput): void {
 
   const recoveredRoles = getRecoveredRoles(input.messages);
   const recoveredRoleSet = new Set(recoveredRoles);
-  if (
-    input.messages.length >= 2 &&
-    (!recoveredRoleSet.has('user') || !recoveredRoleSet.has('assistant'))
-  ) {
-    throw extractionErrors.aiChatParseRoleIncomplete({
-      url: input.url,
-      type: 'ai_chat',
-      platform: input.platform,
-      messageCount: input.messages.length,
-      recoveredRoles,
-      ...(parserDiagnosticCodes.length > 0 ? { parserDiagnosticCodes } : {})
-    });
+  const firstConversationRole = getFirstConversationRole(input.messages);
+  if (firstConversationRole !== 'user') {
+    throwRoleIncomplete(input, recoveredRoles, parserDiagnosticCodes, firstConversationRole);
+  }
+
+  if (!recoveredRoleSet.has('user') || !recoveredRoleSet.has('assistant')) {
+    throwRoleIncomplete(input, recoveredRoles, parserDiagnosticCodes, firstConversationRole);
   }
 }

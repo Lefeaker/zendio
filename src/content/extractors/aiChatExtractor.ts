@@ -7,11 +7,11 @@ import type { ContentExtractor, ExtractionContext } from './types';
 import type { OptionsRepository } from '../../shared/interfaces/optionsRepository';
 import type { IOptionsRepository } from '../../shared/repositories/IOptionsRepository';
 import type { ParsedMessage, PlatformId } from '../../third_party/ai-chat-exporter/types';
+import { resolveAIChatPlatformByUrl } from '../../third_party/ai-chat-exporter/platformIdentity';
 import {
   getAIChatFallbackTitlePolicy,
-  resolveAIChatPlatformByUrl,
   type AIChatFallbackTitleMessageKey
-} from '../../third_party/ai-chat-exporter/platformRegistry';
+} from '../../third_party/ai-chat-exporter/platformProductSurface';
 import { getContentI18nResource, getContentMessages } from '../i18n/context';
 import type { Messages } from '@i18n';
 import { validateAIChatExtraction } from './aiChatExtractionValidation';

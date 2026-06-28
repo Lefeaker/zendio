@@ -8,6 +8,7 @@ export type AIChatFixtureCaptureKind =
 export type AIChatFixturePrivacyStatus = 'sanitized' | 'legacy-sanitized';
 export type AIChatFixtureStatus = 'active' | 'pending';
 export type AIChatFixtureRole = 'user' | 'assistant' | 'system';
+export type AIChatFixtureValidationExpectation = 'pass' | 'role-incomplete';
 
 export type AIChatFixtureMetadata = {
   file: string;
@@ -17,6 +18,7 @@ export type AIChatFixtureMetadata = {
   expectedTitle?: string;
   expectedMessageCount?: number;
   expectedRoles?: readonly AIChatFixtureRole[];
+  expectedValidation?: AIChatFixtureValidationExpectation;
   sentinels: readonly string[];
   absentSentinels?: readonly string[];
   privacyStatus: AIChatFixturePrivacyStatus;
@@ -363,6 +365,7 @@ export const AI_CHAT_FIXTURE_MANIFEST: readonly AIChatFixtureMetadata[] = [
     expectedTitle: 'Sanitized DeepSeek Shared Thread',
     expectedMessageCount: 5,
     expectedRoles: ['assistant', 'user', 'assistant', 'user', 'assistant'],
+    expectedValidation: 'role-incomplete',
     sentinels: [
       'Sanitized DeepSeek follow-up that mentions DeepSeek and Qwen',
       'Sanitized DeepSeek request comparing model vendors',

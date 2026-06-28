@@ -13,7 +13,7 @@ import { resourceSchemas, settingsSchemas, surfaceSchemas } from '@options/stitc
 import { aiPlatformLinks, themeSegmentedSwitch } from '@options/stitch/schema/builders/settings';
 import { previewUi } from '@options/stitch/ui/components';
 import { el } from '@options/stitch/ui/dom';
-import { getAIChatProductSurfacePlatforms } from '../../../src/third_party/ai-chat-exporter/platformRegistry';
+import { getAIChatProductSurfacePlatforms } from '../../../src/third_party/ai-chat-exporter/platformProductSurface';
 import type {
   ElementNode,
   NodeChild,

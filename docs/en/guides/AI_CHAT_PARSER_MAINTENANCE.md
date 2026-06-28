@@ -2,12 +2,14 @@
 
 ## Overview
 
-The AI chat exporter now uses a modular parser registry plus a lightweight platform metadata registry. The current supported product surface is ChatGPT, Claude, Copilot, Gemini, Tongyi/Qianwen, DeepSeek, Kimi, Doubao, Monica, and Perplexity. Each platform has its own parser module located in `src/third_party/ai-chat-exporter/platforms/`. Shared helpers live under `src/third_party/ai-chat-exporter/shared/`, `parseChatDOM` routes requests through the parser registry defined in `registry.ts`, and product-facing metadata lives in `platformRegistry.ts`.
+The AI chat exporter now uses a modular parser registry plus layered lightweight platform metadata. The current supported product surface is ChatGPT, Claude, Copilot, Gemini, Tongyi/Qianwen, DeepSeek, Kimi, Doubao, Monica, and Perplexity. Each platform has its own parser module located in `src/third_party/ai-chat-exporter/platforms/`. Shared helpers live under `src/third_party/ai-chat-exporter/shared/`, `parseChatDOM` routes requests through the parser registry defined in `registry.ts`, platform identity metadata lives in `platformIdentity.ts`, product-facing metadata lives in `platformProductSurface.ts`, and `platformRegistry.ts` remains only as a compatibility facade.
 
 ```
 src/third_party/ai-chat-exporter/
 ├── parse.ts                # Public API (parseChatDOM, chatHtmlToMarkdown)
-├── platformRegistry.ts     # Host detection, aliases, product labels/links, fallback-title policy
+├── platformIdentity.ts     # Supported ids, host detection, aliases, analytics metadata
+├── platformProductSurface.ts # Options labels/links and fallback-title policy
+├── platformRegistry.ts     # Compatibility facade for older imports
 ├── registry.ts             # Parser registry + fallback result
 ├── runtimeRegistry.ts      # Lazy content-runtime parser boundary
 ├── runtimePlatformParsers.ts # Runtime-only parser implementation map
@@ -40,17 +42,19 @@ src/third_party/ai-chat-exporter/
 3. Export the parser as `const <platform>Parser: ChatPlatformParser`.
 4. Register the parser in `registry.ts` by importing it and adding it to `registeredParsers`.
 5. Register the runtime parser in `runtimePlatformParsers.ts`; keep it behind the existing `runtimeRegistry.ts` lazy boundary.
-6. Add lightweight platform metadata in `platformRegistry.ts`: id, display label, host patterns, aliases, Options URL, and fallback-title policy when the platform needs one.
-7. Add an `AI_CHAT_DOCUMENT_PREPARERS` entry in `src/content/extractors/aiChatDocumentPreparer.ts` only when the platform needs live-page preparation such as virtual-list scrolling. Do not put live DOM preparation inside parser modules.
+6. Add platform identity metadata in `platformIdentity.ts`: id, display label, host patterns, aliases, and analytics metadata when needed.
+7. Add product-surface metadata in `platformProductSurface.ts`: Options URL, optional product label, and fallback-title policy when the platform needs one.
+8. Add an `AI_CHAT_DOCUMENT_PREPARERS` entry in `src/content/extractors/aiChatDocumentPreparer.ts` only when the platform needs live-page preparation such as virtual-list scrolling. Do not put live DOM preparation inside parser modules.
 
 ## Product Surface Sync
 
-- Options/Stitch displays supported platform labels and links from `getAIChatProductSurfacePlatforms()` in `platformRegistry.ts`.
-- URL host detection and aliases also come from `platformRegistry.ts`; do not add platform detection switches in `aiChatExtractor.ts`.
+- Options/Stitch displays supported platform labels and links from `getAIChatProductSurfacePlatforms()` in `platformProductSurface.ts`.
+- URL host detection and aliases come from `platformIdentity.ts`; do not add platform detection switches in `aiChatExtractor.ts`.
 - Fallback title policy comes from `getAIChatFallbackTitlePolicy()`. Localized required titles must use existing message keys; neutral parser tokens such as "Doubao Chat" and "Monica Chat" live in metadata.
 - AI chat templates rely on exported metadata such as `meta.platform`; default domain mappings stay user-owned and do not add AI platform host aliases by default. This avoids silently changing vault routing for existing users.
 - Usage telemetry keeps the low-cardinality `ANALYTICS_PLATFORMS` contract. ChatGPT, Claude, and Gemini are tracked as named AI platforms; Copilot, Tongyi/Qianwen, DeepSeek, Kimi, Doubao, Monica, Perplexity, and future AI IDs intentionally map to `other` unless a later GA dashboard/docs migration expands the schema.
-- Parser implementation remains behind the lazy runtime parser boundary. Options/product surfaces may import lightweight platform metadata, but must not import parser implementations or the runtime parser registry into Options bundles.
+- Parser implementation remains behind the lazy runtime parser boundary. Options/product surfaces may import `platformProductSurface.ts`, but must not import parser implementations, `runtimeRegistry.ts`, or `runtimePlatformParsers.ts` into Options bundles.
+- New consumers should import the narrow metadata owner they need. Do not add new direct imports from the compatibility `platformRegistry.ts` facade unless preserving an older public path.
 
 ## Drift Fix Checklist
 
@@ -59,8 +63,10 @@ When a platform DOM drift is found:
 1. Reproduce the empty or incorrect parse with a focused unit test.
 2. Add or update the sanitized current-DOM fixture and manifest row only when the drift depends on a real current DOM shape.
 3. Keep empty extraction fail-closed: a parser that cannot identify user or assistant content must return the fallback empty parse instead of emitting toolbar/sidebar text.
-4. Update the platform parser and shared helpers without changing unrelated parser families.
-5. Re-run the focused parser/current-DOM matrix before broader product verification.
+4. Keep export validation fail-closed: after leading `system` messages, the first recovered conversation turn must be `user`, and successful export requires both `user` and `assistant` roles.
+5. If a sanitized parser fixture intentionally preserves assistant-first evidence, mark its manifest row with `expectedValidation: 'role-incomplete'` so parser evidence cannot be confused with a successful export fixture.
+6. Update the platform parser and shared helpers without changing unrelated parser families.
+7. Re-run the focused parser/current-DOM matrix before broader product verification.
 
 ## Updating Shared Logic
 

@@ -4,7 +4,7 @@ import { message, previewNavigation } from './previewNavigation';
 import { getPreviewTemplateDefaults } from '@shared/config';
 import { VIDEO_MODE_PANEL_ICON_PATH } from '@shared/assets/iconPaths';
 import { ZENDIO_RESOURCE_LINKS } from '@shared/links/zendioResourceLinks';
-import { getAIChatProductSurfacePlatforms } from '../../third_party/ai-chat-exporter/platformRegistry';
+import { getAIChatProductSurfacePlatforms } from '../../third_party/ai-chat-exporter/platformProductSurface';
 import type { PreviewContent } from './types';
 
 const SAMPLE_RESEARCH_VAULT = message('schemaPreviewSampleVaultResearch');

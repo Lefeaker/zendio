@@ -6,7 +6,7 @@ import { JSDOM } from 'jsdom';
 import { describe, expect, it } from 'vitest';
 
 import { parseChatDOM } from '../../../src/third_party/ai-chat-exporter/parse';
-import { resolveAIChatPlatformByUrl } from '../../../src/third_party/ai-chat-exporter/platformRegistry';
+import { resolveAIChatPlatformByUrl } from '../../../src/third_party/ai-chat-exporter/platformIdentity';
 import {
   AI_CHAT_FIXTURE_MANIFEST,
   type AIChatFixtureMetadata

@@ -6,8 +6,9 @@ import { JSDOM } from 'jsdom';
 import { describe, expect, it } from 'vitest';
 
 import { validateAIChatExtraction } from '../../../src/content/extractors/aiChatExtractionValidation';
+import type { AppError } from '../../../src/shared/errors/types';
 import { parseChatDOM } from '../../../src/third_party/ai-chat-exporter/parse';
-import { resolveAIChatPlatformByUrl } from '../../../src/third_party/ai-chat-exporter/platformRegistry';
+import { resolveAIChatPlatformByUrl } from '../../../src/third_party/ai-chat-exporter/platformIdentity';
 import { resolveParser } from '../../../src/third_party/ai-chat-exporter/registry';
 import {
   CURRENT_DOM_AI_CHAT_FIXTURES,
@@ -22,6 +23,31 @@ function loadCurrentDomFixture(file: string): Document {
     : 'https://example.com';
   const dom = new JSDOM(html, { url });
   return dom.window.document;
+}
+
+function validateParsedFixture(
+  fixture: (typeof CURRENT_DOM_AI_CHAT_FIXTURES)[number],
+  result: ReturnType<typeof parseChatDOM>
+): AppError | undefined {
+  try {
+    validateAIChatExtraction({
+      platform: fixture.platform,
+      url: fixture.file.includes('tongyi-qianwen')
+        ? 'https://www.qianwen.com/chat/sanitized-session'
+        : `https://example.com/${fixture.platform}`,
+      title: result.title,
+      messages: result.messages.map((message) => ({
+        id: message.id,
+        role: message.role,
+        text: message.text ?? message.md ?? ''
+      })),
+      diagnostics: result.diagnostics
+    });
+  } catch (caught) {
+    return caught as AppError;
+  }
+
+  return undefined;
 }
 
 describe('AI chat current-DOM fixture matrix', () => {
@@ -74,21 +100,19 @@ describe('AI chat current-DOM fixture matrix', () => {
         expect(markdown).not.toContain(sentinel);
       }
 
-      expect(() =>
-        validateAIChatExtraction({
-          platform: fixture.platform,
-          url: fixture.file.includes('tongyi-qianwen')
-            ? 'https://www.qianwen.com/chat/sanitized-session'
-            : `https://example.com/${fixture.platform}`,
-          title: result.title,
-          messages: result.messages.map((message) => ({
-            id: message.id,
-            role: message.role,
-            text: message.text ?? message.md ?? ''
-          })),
-          diagnostics: result.diagnostics
-        })
-      ).not.toThrow();
+      const validationError = validateParsedFixture(fixture, result);
+      if (fixture.expectedValidation === 'role-incomplete') {
+        expect(validationError).toMatchObject({
+          code: 'EXTRACTION_AI_CHAT_PARSE_ROLE_INCOMPLETE',
+          context: expect.objectContaining({
+            platform: fixture.platform,
+            firstConversationRole: 'assistant',
+            requiredFirstConversationRole: 'user'
+          })
+        });
+      } else {
+        expect(validationError).toBeUndefined();
+      }
     }
   );
 });

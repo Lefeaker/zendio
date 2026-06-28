@@ -32,6 +32,9 @@ Each row must include:
 - privacy stripping status.
 - manifest status: `active` for committed parser fixtures and `pending` for
   planned current-DOM slots that do not have sanitized HTML yet.
+- validation expectation when parser evidence is intentionally not exportable,
+  for example `expectedValidation: 'role-incomplete'` for assistant-first
+  shared-thread evidence that must fail closed in the product export path.
 
 ## Privacy Stripping
 
@@ -72,6 +75,11 @@ The current-DOM matrix is driven by `fixtureManifest.ts`:
   assertions.
 - Every committed `current-dom/*.html` fixture must use a concrete
   `YYYY-MM-DD` source capture date and `privacyStatus: 'sanitized'`.
+- Active parser fixtures default to successful export validation. If a fixture
+  preserves known unsafe parser evidence such as assistant-first output, the
+  manifest row must explicitly set `expectedValidation: 'role-incomplete'` so
+  the current-DOM matrix asserts fail-closed export behavior instead of treating
+  that parse as a successful export.
 
 ## Fixture Index
 

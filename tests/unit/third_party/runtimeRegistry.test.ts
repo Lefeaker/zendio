@@ -8,7 +8,7 @@ import {
   resolveParserAsync
 } from '../../../src/third_party/ai-chat-exporter/runtimeRegistry';
 import { DEFAULT_CHAT_TITLE } from '../../../src/third_party/ai-chat-exporter/shared/constants';
-import { AI_CHAT_PLATFORM_DEFINITIONS } from '../../../src/third_party/ai-chat-exporter/platformRegistry';
+import { AI_CHAT_PLATFORM_IDENTITIES } from '../../../src/third_party/ai-chat-exporter/platformIdentity';
 import { getRuntimePlatformParser } from '../../../src/third_party/ai-chat-exporter/runtimePlatformParsers';
 
 describe('runtime AI chat parser registry', () => {
@@ -60,12 +60,12 @@ describe('runtime AI chat parser registry', () => {
   });
 
   it('keeps the runtime parser map aligned with canonical platform metadata', () => {
-    const runtimeParserIds = AI_CHAT_PLATFORM_DEFINITIONS.map(
+    const runtimeParserIds = AI_CHAT_PLATFORM_IDENTITIES.map(
       (definition) => getRuntimePlatformParser(definition.id).id
     );
 
     expect(runtimeParserIds).toEqual(
-      AI_CHAT_PLATFORM_DEFINITIONS.map((definition) => definition.id)
+      AI_CHAT_PLATFORM_IDENTITIES.map((definition) => definition.id)
     );
   });
 

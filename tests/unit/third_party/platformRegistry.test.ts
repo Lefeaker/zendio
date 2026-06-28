@@ -5,14 +5,16 @@ import { JSDOM } from 'jsdom';
 
 import type { PlatformId } from '../../../src/third_party/ai-chat-exporter/types';
 import {
-  AI_CHAT_PLATFORM_DEFINITIONS,
-  getAIChatFallbackTitlePolicy,
+  AI_CHAT_PLATFORM_IDENTITIES,
   getAIChatPlatformAliases,
-  getAIChatProductSurfacePlatforms,
   isAIChatHost,
   normalizeHostname,
   resolveAIChatPlatformByUrl
-} from '../../../src/third_party/ai-chat-exporter/platformRegistry';
+} from '../../../src/third_party/ai-chat-exporter/platformIdentity';
+import {
+  getAIChatFallbackTitlePolicy,
+  getAIChatProductSurfacePlatforms
+} from '../../../src/third_party/ai-chat-exporter/platformProductSurface';
 
 const expectedPlatformIds: readonly PlatformId[] = [
   'chatgpt',
@@ -90,7 +92,7 @@ describe('AI chat platform registry', () => {
   });
 
   it('has exactly one definition per platform id', () => {
-    const ids = AI_CHAT_PLATFORM_DEFINITIONS.map((definition) => definition.id);
+    const ids = AI_CHAT_PLATFORM_IDENTITIES.map((definition) => definition.id);
 
     expect([...ids].sort()).toEqual([...expectedPlatformIds].sort());
     expect(new Set(ids).size).toBe(expectedPlatformIds.length);

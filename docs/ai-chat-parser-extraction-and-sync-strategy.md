@@ -21,10 +21,10 @@
 - 有统一的解析器契约：`parse(doc, config) => ParsedResult`
 - 有统一入口：`parseChatDOM(platform, doc, config)`
 - 有平台 parser 注册表：`registry.ts`
-- 有轻量平台元数据注册表：`platformRegistry.ts`
+- 有分层轻量平台元数据：`platformIdentity.ts` 管 host/alias/平台身份，`platformProductSurface.ts` 管 Options 展示链接和 fallback title policy，`platformRegistry.ts` 仅保留兼容 facade
 - 各平台实现基本都在 `src/third_party/ai-chat-exporter/platforms/*`
 
-当前产品面展示的支持列表、Options 链接、URL host detection、alias 与 fallback title policy 均从 `platformRegistry.ts` 的轻量元数据派生；parser 实现注册仍由 `registry.ts` 与 runtime lazy parser map 负责。当前支持列表为 ChatGPT、Claude、Copilot、Gemini、Tongyi/Qianwen、DeepSeek、Kimi、Doubao、Monica、Perplexity。
+当前产品面展示的支持列表和 Options 链接从 `platformProductSurface.ts` 派生；URL host detection、alias 与 supported id 顺序从 `platformIdentity.ts` 派生；parser 实现注册仍由 `registry.ts` 与 runtime lazy parser map 负责。当前支持列表为 ChatGPT、Claude、Copilot、Gemini、Tongyi/Qianwen、DeepSeek、Kimi、Doubao、Monica、Perplexity。
 
 因此，这部分完全可以抽为一个独立的 DOM 解析库。
 
@@ -57,11 +57,11 @@
 - 调试和回归不可控
 - 用户实际运行版本不可追踪
 
-主项目的 Options、文档和 telemetry 只同步 `platformRegistry.ts` 中的轻量产品面信息，不导入平台 parser 实现或运行时 parser registry。解析器实现继续通过 lazy runtime parser boundary 加载，避免把平台解析代码压入 Options 或 content 主入口。
+主项目的 Options、文档和 telemetry 只同步轻量 metadata：Options 只消费 `platformProductSurface.ts`，content detection / runtime alias 只消费 `platformIdentity.ts`。它们不得导入平台 parser 实现或运行时 parser registry。解析器实现继续通过 lazy runtime parser boundary 加载，避免把平台解析代码压入 Options 或 content 主入口。
 
 AI 对话输出路径不新增默认域名映射。当前模板依赖 `meta.platform` 等导出元数据，域名到 vault 的映射继续由用户在设置中维护，避免升级后静默改变现有 vault 路由语义。
 
-Telemetry 暂不扩展平台枚举。ChatGPT、Claude、Gemini 保持具名 analytics platform，Copilot、Tongyi/Qianwen、DeepSeek、Kimi、Doubao、Monica、Perplexity 等非核心 AI 平台继续归入 `other`，直到后续单独完成 GA schema、dashboard 和 docs contract 迁移。`platformRegistry.ts` 中的 `analyticsPlatform` 仅是轻量元数据字段，不得绕过 GA schema / dashboard / docs contract 扩展流程。
+Telemetry 暂不扩展平台枚举。ChatGPT、Claude、Gemini 保持具名 analytics platform，Copilot、Tongyi/Qianwen、DeepSeek、Kimi、Doubao、Monica、Perplexity 等非核心 AI 平台继续归入 `other`，直到后续单独完成 GA schema、dashboard 和 docs contract 迁移。`platformIdentity.ts` 中的 `analyticsPlatform` 仅是轻量身份元数据字段，不得绕过 GA schema / dashboard / docs contract 扩展流程。
 
 ---
 
@@ -130,11 +130,15 @@ registerParser(parser)
 
 当前健康边界是：
 
-- `platformRegistry.ts` 是轻量平台元数据唯一来源，覆盖 host detection、alias、Options label/link 与 fallback title policy。
+- `platformIdentity.ts` 是平台身份唯一来源，覆盖 supported id 顺序、host detection、alias 和 analytics metadata。
+- `platformProductSurface.ts` 是产品面元数据唯一来源，覆盖 Options label/link 与 fallback title policy。
+- `platformRegistry.ts` 只作为兼容 facade，不应成为新消费者的默认 import 入口。
 - `registry.ts` 与 `runtimePlatformParsers.ts` 仍只负责 parser 实现注册；必须通过测试与轻量元数据保持一致，但不反向驱动 Options。
 - `profileEngine.ts` 是 opt-in 共享骨架。默认未知 role 必须 fail closed；只有平台 profile 显式声明 `fallbackRole` 时才允许降级为默认角色。
 - live DOM hydration 属于 content extraction 层，当前通过 `AI_CHAT_DOCUMENT_PREPARERS` 显式注册。它不属于独立 parser 库，因为它需要滚动、等待 animation frame 和操作 live page。
 - Perplexity、Gemini、Tongyi、Kimi 等复杂平台可以保留定制 parser，只复用底层 DOM/Markdown/helper；不要强行迁入通用 profile engine。
+
+导出语义校验属于 content extraction 层，不属于独立 parser 库。当前 `validateAIChatExtraction` 的产品 contract 是：空结果失败；忽略 leading `system` 后第一个真实对话消息必须是 `user`；导出必须同时恢复到 `user` 与 `assistant`。只有 parser fixture 可保留 assistant-first 的 live DOM 证据；这类 fixture 必须在 manifest 中显式标注 `expectedValidation: 'role-incomplete'`，并在实际导出路径 fail closed。
 
 ### 推荐的两层结构
 

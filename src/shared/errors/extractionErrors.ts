@@ -26,6 +26,8 @@ interface AIChatParseRoleIncompleteContext extends ExtractionContext {
   platform: string;
   messageCount: number;
   recoveredRoles: string[];
+  firstConversationRole?: string;
+  requiredFirstConversationRole?: 'user';
   parserDiagnosticCodes?: string[];
 }
 
