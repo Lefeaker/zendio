@@ -1,5 +1,7 @@
 import type { PlatformId } from '../../third_party/ai-chat-exporter/types';
 
+type AIChatDocumentPreparer = (doc: Document) => Promise<Document>;
+
 const DEEPSEEK_PRINTABLE_VIRTUAL_LIST_SELECTOR = '.ds-virtual-list--printable';
 const DEEPSEEK_MESSAGE_SELECTOR = '.ds-message';
 const DEEPSEEK_ASSISTANT_CONTENT_SELECTOR = '.ds-assistant-message-main-content';
@@ -232,13 +234,13 @@ async function prepareDeepSeekDocumentForExtraction(doc: Document): Promise<Docu
   return createHydratedDeepSeekDocument(doc, messages);
 }
 
+export const AI_CHAT_DOCUMENT_PREPARERS: Partial<Record<PlatformId, AIChatDocumentPreparer>> = {
+  deepseek: prepareDeepSeekDocumentForExtraction
+};
+
 export async function prepareAIChatDocumentForExtraction(
   platform: PlatformId,
   doc: Document
 ): Promise<Document> {
-  if (platform === 'deepseek') {
-    return prepareDeepSeekDocumentForExtraction(doc);
-  }
-
-  return doc;
+  return AI_CHAT_DOCUMENT_PREPARERS[platform]?.(doc) ?? doc;
 }

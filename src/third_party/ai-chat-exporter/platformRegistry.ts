@@ -1,15 +1,39 @@
 import type { PlatformId } from './types';
 
+export type AIChatFallbackTitleMessageKey =
+  | 'exportAiChatFallbackTitleDeepseek'
+  | 'exportAiChatFallbackTitleKimi'
+  | 'exportAiChatFallbackTitleTongyi';
+
+export type AIChatFallbackTitlePolicy =
+  | {
+      kind: 'localized';
+      messageKey: AIChatFallbackTitleMessageKey;
+      required: true;
+    }
+  | {
+      kind: 'neutral';
+      title: string;
+    };
+
 export type AIChatPlatformDefinition = {
   id: PlatformId;
   displayName: string;
+  productSurfaceLabel?: string;
   hostPatterns: readonly RegExp[];
   aliases?: readonly string[];
   analyticsPlatform?: string;
-  optionsUrl?: string;
+  optionsUrl: string;
+  fallbackTitlePolicy?: AIChatFallbackTitlePolicy;
 };
 
-export const AI_CHAT_PLATFORM_DEFINITIONS = [
+export type AIChatProductSurfacePlatform = {
+  id: PlatformId;
+  label: string;
+  url: string;
+};
+
+export const AI_CHAT_PLATFORM_DEFINITIONS: readonly AIChatPlatformDefinition[] = [
   {
     id: 'chatgpt',
     displayName: 'ChatGPT',
@@ -41,6 +65,7 @@ export const AI_CHAT_PLATFORM_DEFINITIONS = [
   {
     id: 'tongyi',
     displayName: 'Tongyi',
+    productSurfaceLabel: 'Tongyi/Qianwen',
     hostPatterns: [
       /^(?:www\.)?tongyi\.aliyun\.com$/i,
       /^(?:www\.)?tongyi\.com$/i,
@@ -48,14 +73,24 @@ export const AI_CHAT_PLATFORM_DEFINITIONS = [
     ],
     aliases: ['qianwen'],
     analyticsPlatform: 'tongyi',
-    optionsUrl: 'https://tongyi.aliyun.com/'
+    optionsUrl: 'https://tongyi.aliyun.com/',
+    fallbackTitlePolicy: {
+      kind: 'localized',
+      messageKey: 'exportAiChatFallbackTitleTongyi',
+      required: true
+    }
   },
   {
     id: 'deepseek',
     displayName: 'DeepSeek',
     hostPatterns: [/^(?:www\.|chat\.)?deepseek\.com$/i],
     analyticsPlatform: 'deepseek',
-    optionsUrl: 'https://chat.deepseek.com/'
+    optionsUrl: 'https://chat.deepseek.com/',
+    fallbackTitlePolicy: {
+      kind: 'localized',
+      messageKey: 'exportAiChatFallbackTitleDeepseek',
+      required: true
+    }
   },
   {
     id: 'kimi',
@@ -63,21 +98,34 @@ export const AI_CHAT_PLATFORM_DEFINITIONS = [
     hostPatterns: [/^(?:www\.)?kimi\.com$/i, /^kimi\.moonshot\.cn$/i],
     aliases: ['moonshot'],
     analyticsPlatform: 'kimi',
-    optionsUrl: 'https://www.kimi.com/'
+    optionsUrl: 'https://www.kimi.com/',
+    fallbackTitlePolicy: {
+      kind: 'localized',
+      messageKey: 'exportAiChatFallbackTitleKimi',
+      required: true
+    }
   },
   {
     id: 'doubao',
     displayName: 'Doubao',
     hostPatterns: [/^(?:[a-z0-9-]+\.)*doubao\.com$/i],
     analyticsPlatform: 'doubao',
-    optionsUrl: 'https://www.doubao.com/'
+    optionsUrl: 'https://www.doubao.com/',
+    fallbackTitlePolicy: {
+      kind: 'neutral',
+      title: 'Doubao Chat'
+    }
   },
   {
     id: 'monica',
     displayName: 'Monica',
     hostPatterns: [/^(?:[a-z0-9-]+\.)*monica\.im$/i],
     analyticsPlatform: 'monica',
-    optionsUrl: 'https://monica.im/'
+    optionsUrl: 'https://monica.im/',
+    fallbackTitlePolicy: {
+      kind: 'neutral',
+      title: 'Monica Chat'
+    }
   },
   {
     id: 'perplexity',
@@ -87,7 +135,27 @@ export const AI_CHAT_PLATFORM_DEFINITIONS = [
     analyticsPlatform: 'perplexity',
     optionsUrl: 'https://www.perplexity.ai/'
   }
-] as const satisfies readonly AIChatPlatformDefinition[];
+] as const;
+
+export function getAIChatPlatformDefinition(
+  platform: PlatformId
+): AIChatPlatformDefinition | undefined {
+  return AI_CHAT_PLATFORM_DEFINITIONS.find((definition) => definition.id === platform);
+}
+
+export function getAIChatProductSurfacePlatforms(): AIChatProductSurfacePlatform[] {
+  return AI_CHAT_PLATFORM_DEFINITIONS.map((definition) => ({
+    id: definition.id,
+    label: definition.productSurfaceLabel ?? definition.displayName,
+    url: definition.optionsUrl
+  }));
+}
+
+export function getAIChatFallbackTitlePolicy(
+  platform: PlatformId
+): AIChatFallbackTitlePolicy | undefined {
+  return getAIChatPlatformDefinition(platform)?.fallbackTitlePolicy;
+}
 
 export function normalizeHostname(inputUrl: string, doc?: Document): string | null {
   try {
@@ -120,7 +188,7 @@ export function getAIChatPlatformAliases(): ReadonlyMap<PlatformId, readonly str
   const entries: Array<readonly [PlatformId, readonly string[]]> = [];
 
   for (const definition of AI_CHAT_PLATFORM_DEFINITIONS) {
-    if ('aliases' in definition) {
+    if (definition.aliases) {
       entries.push([definition.id, definition.aliases]);
     }
   }

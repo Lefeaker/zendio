@@ -20,10 +20,11 @@
 
 - 有统一的解析器契约：`parse(doc, config) => ParsedResult`
 - 有统一入口：`parseChatDOM(platform, doc, config)`
-- 有平台注册表：`registry.ts`
+- 有平台 parser 注册表：`registry.ts`
+- 有轻量平台元数据注册表：`platformRegistry.ts`
 - 各平台实现基本都在 `src/third_party/ai-chat-exporter/platforms/*`
 
-当前产品面展示的支持列表与注册表真值保持一致：ChatGPT、Claude、Copilot、Gemini、Tongyi/Qianwen、DeepSeek、Kimi、Doubao、Monica、Perplexity。
+当前产品面展示的支持列表、Options 链接、URL host detection、alias 与 fallback title policy 均从 `platformRegistry.ts` 的轻量元数据派生；parser 实现注册仍由 `registry.ts` 与 runtime lazy parser map 负责。当前支持列表为 ChatGPT、Claude、Copilot、Gemini、Tongyi/Qianwen、DeepSeek、Kimi、Doubao、Monica、Perplexity。
 
 因此，这部分完全可以抽为一个独立的 DOM 解析库。
 
@@ -56,11 +57,11 @@
 - 调试和回归不可控
 - 用户实际运行版本不可追踪
 
-主项目的 Options、文档和 telemetry 只同步轻量产品面信息，不导入平台 parser 实现或运行时 parser registry。解析器实现继续通过 lazy runtime parser boundary 加载，避免把平台解析代码压入 Options 或 content 主入口。
+主项目的 Options、文档和 telemetry 只同步 `platformRegistry.ts` 中的轻量产品面信息，不导入平台 parser 实现或运行时 parser registry。解析器实现继续通过 lazy runtime parser boundary 加载，避免把平台解析代码压入 Options 或 content 主入口。
 
 AI 对话输出路径不新增默认域名映射。当前模板依赖 `meta.platform` 等导出元数据，域名到 vault 的映射继续由用户在设置中维护，避免升级后静默改变现有 vault 路由语义。
 
-Telemetry 暂不扩展平台枚举。ChatGPT、Claude、Gemini 保持具名 analytics platform，Copilot、Tongyi/Qianwen、DeepSeek、Kimi、Doubao、Monica、Perplexity 等非核心 AI 平台继续归入 `other`，直到后续单独完成 GA schema、dashboard 和 docs contract 迁移。
+Telemetry 暂不扩展平台枚举。ChatGPT、Claude、Gemini 保持具名 analytics platform，Copilot、Tongyi/Qianwen、DeepSeek、Kimi、Doubao、Monica、Perplexity 等非核心 AI 平台继续归入 `other`，直到后续单独完成 GA schema、dashboard 和 docs contract 迁移。`platformRegistry.ts` 中的 `analyticsPlatform` 仅是轻量元数据字段，不得绕过 GA schema / dashboard / docs contract 扩展流程。
 
 ---
 
@@ -75,14 +76,16 @@ Telemetry 暂不扩展平台枚举。ChatGPT、Claude、Gemini 保持具名 anal
 - `shared/dom.ts`
 - `shared/markdown.ts`
 - `shared/assets.ts`
+- 可选的 profile parser helper，例如 `shared/profileEngine.ts`，但前提是它继续保持 fail-closed role contract
 
 不建议一起抽出去的内容：
 
 - `src/content/extractors/aiChatExtractor.ts` 中的业务整合逻辑
-- 平台 URL 检测默认策略
+- 需要产品语义的轻量平台元数据，例如 Options 展示链接、fallback title policy 和 Zendio 的 URL host detection 默认策略
 - Options 仓储兼容逻辑
 - Obsidian 输出格式拼装
 - 时间格式化、扩展侧 meta 构造
+- live DOM preparation / hydration，例如 DeepSeek virtual list scrolling
 
 原因很简单：独立库应只负责把 DOM 解析成标准化聊天数据，而不应耦合 `AiiinOB` 自己的业务上下文。
 
@@ -100,6 +103,7 @@ registerParser(parser)
 - 读取扩展配置
 - 生成最终导出的业务 Markdown
 - 处理 Obsidian 侧字段和元数据
+- 操作 live page 滚动或等待 frame 以补齐虚拟列表 DOM
 
 ---
 
@@ -123,6 +127,14 @@ registerParser(parser)
 - Gemini：深层 DOM / Shadow DOM / Deep Research
 - Tongyi：代码块语言和行号清理
 - Kimi：块头部、表格标签、动作区清洗
+
+当前健康边界是：
+
+- `platformRegistry.ts` 是轻量平台元数据唯一来源，覆盖 host detection、alias、Options label/link 与 fallback title policy。
+- `registry.ts` 与 `runtimePlatformParsers.ts` 仍只负责 parser 实现注册；必须通过测试与轻量元数据保持一致，但不反向驱动 Options。
+- `profileEngine.ts` 是 opt-in 共享骨架。默认未知 role 必须 fail closed；只有平台 profile 显式声明 `fallbackRole` 时才允许降级为默认角色。
+- live DOM hydration 属于 content extraction 层，当前通过 `AI_CHAT_DOCUMENT_PREPARERS` 显式注册。它不属于独立 parser 库，因为它需要滚动、等待 animation frame 和操作 live page。
+- Perplexity、Gemini、Tongyi、Kimi 等复杂平台可以保留定制 parser，只复用底层 DOM/Markdown/helper；不要强行迁入通用 profile engine。
 
 ### 推荐的两层结构
 

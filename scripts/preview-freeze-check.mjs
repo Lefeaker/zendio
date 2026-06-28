@@ -104,11 +104,12 @@ const ALLOWED_PREVIEW_DRIFT = new Map([
         'The i18n chunk-loading repair refreshes the generated preview JS hash after replacing generated locale/schema dynamic imports with static release registries so extension pages do not depend on runtime-loaded i18n chunks, while preserving the frozen reference, locale fallback semantics, and Stitch runtime behavior.',
         'The support resource closeout refreshes the generated preview JS hash after deleting retired Support Scope schema messages, neutralizing AI-assisted product-positioning copy in cataloged experimental settings, and routing support/contact/suggestion links through the shared Zendio resource link registry while preserving the frozen reference and Stitch resource modal/runtime surface behavior.',
         'The Firefox runtime boundary and reader focus main merge refreshes the generated preview JS hash while preserving the frozen reference, preview freeze logic, and Stitch runtime contract.',
-        'P08 Options AI platform surface sync refreshes the generated preview JS hash after aligning the supported AI chat platform product surface and generated schema/i18n catalog output while preserving the frozen reference, preview freeze logic, and Stitch runtime contract.'
+        'P08 Options AI platform surface sync refreshes the generated preview JS hash after aligning the supported AI chat platform product surface and generated schema/i18n catalog output while preserving the frozen reference, preview freeze logic, and Stitch runtime contract.',
+        'The AI chat abstraction tuning refreshes the generated preview JS hash after deriving Options supported-platform labels and links from canonical lightweight platform metadata while preserving the frozen reference, preview freeze logic, and Stitch runtime contract.'
       ].join(' '),
       leftSha256: '9020ccbd91acd691eccd3fdf568b9a90efbddf0a35d79f36ef1caba702fa0c07',
-      // 2026-06-25 P08 Options AI platform surface sync preview JS hash.
-      rightSha256: '36c96dc3eb6d749ad711bb116b4dc16b03acf50fa37a9cde975e84b0121f6cbb'
+      // 2026-06-28 AI chat abstraction tuning preview JS hash.
+      rightSha256: '783fd88010976881c2d03658483571d247ea94181b106a31209bb94c122efc52'
     }
   ]
 ]);

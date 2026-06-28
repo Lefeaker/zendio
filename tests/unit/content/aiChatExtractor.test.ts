@@ -344,4 +344,15 @@ describe('extractAIChat', () => {
     expect(source).not.toContain('TOKENS.platformServices');
     expect(source).not.toContain('getService<PlatformServices>');
   });
+
+  it('resolves fallback-title policy through canonical platform metadata', () => {
+    const source = readFileSync(
+      resolve(process.cwd(), 'src/content/extractors/aiChatExtractor.ts'),
+      'utf8'
+    );
+
+    expect(source).toContain('getAIChatFallbackTitlePolicy');
+    expect(source).not.toContain('ENGLISH_NEUTRAL_AI_CHAT_FALLBACK_TITLES');
+    expect(source).not.toContain('switch (platform)');
+  });
 });

@@ -49,6 +49,7 @@ export type ParserProfile = {
   model?: ModelResolver;
   containers: ContainerResolver;
   role: RoleResolver;
+  fallbackRole?: ProfileMessageRole;
   content: ContentResolver;
   cleanup?: CleanupHook;
   shouldSkipMessage?: MessageSkipPredicate;

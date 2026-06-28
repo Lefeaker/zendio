@@ -229,6 +229,17 @@ describe('ai chat platform parsers', () => {
     expect(result.messages[1].md).not.toMatch(/Copy/);
   });
 
+  it('imports Perplexity helpers directly instead of through an assistant-family facade', () => {
+    const source = readFileSync(
+      join(process.cwd(), 'src/third_party/ai-chat-exporter/platforms/perplexity.ts'),
+      'utf8'
+    );
+
+    expect(source).toContain('./perplexityCandidates');
+    expect(source).toContain('./perplexityDom');
+    expect(source).not.toContain('./assistantFamilyHelpers');
+  });
+
   it('parses Perplexity live residual thread sections with assistant roles', () => {
     const doc = loadFixture('current-dom/perplexity-live-residual-2026-06-25.html');
     const result = parseChatDOM('perplexity', doc);

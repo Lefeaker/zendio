@@ -2,18 +2,22 @@
 
 ## Overview
 
-The AI chat exporter now uses a modular registry. The current supported product surface is ChatGPT, Claude, Copilot, Gemini, Tongyi/Qianwen, DeepSeek, Kimi, Doubao, Monica, and Perplexity. Each platform has its own parser module located in `src/third_party/ai-chat-exporter/platforms/`. Shared helpers live under `src/third_party/ai-chat-exporter/shared/`, and `parseChatDOM` routes requests through the registry defined in `registry.ts`.
+The AI chat exporter now uses a modular parser registry plus a lightweight platform metadata registry. The current supported product surface is ChatGPT, Claude, Copilot, Gemini, Tongyi/Qianwen, DeepSeek, Kimi, Doubao, Monica, and Perplexity. Each platform has its own parser module located in `src/third_party/ai-chat-exporter/platforms/`. Shared helpers live under `src/third_party/ai-chat-exporter/shared/`, `parseChatDOM` routes requests through the parser registry defined in `registry.ts`, and product-facing metadata lives in `platformRegistry.ts`.
 
 ```
 src/third_party/ai-chat-exporter/
 ├── parse.ts                # Public API (parseChatDOM, chatHtmlToMarkdown)
+├── platformRegistry.ts     # Host detection, aliases, product labels/links, fallback-title policy
 ├── registry.ts             # Parser registry + fallback result
+├── runtimeRegistry.ts      # Lazy content-runtime parser boundary
+├── runtimePlatformParsers.ts # Runtime-only parser implementation map
 ├── types.ts                # Common types and parser contracts
 ├── shared/
 │   ├── assets.ts           # Blob/base64 helpers
 │   ├── constants.ts        # DEFAULT_CHAT_TITLE, supported ids
 │   ├── dom.ts              # DOM sanitizers
-│   └── markdown.ts         # HTML → Markdown converter
+│   ├── markdown.ts         # HTML → Markdown converter
+│   └── profileEngine.ts    # Opt-in profile parser with fail-closed role handling
 └── platforms/
     ├── chatgpt.ts
     ├── claude.ts
@@ -35,14 +39,18 @@ src/third_party/ai-chat-exporter/
    - Record platform-specific assets (images, attachments) if available.
 3. Export the parser as `const <platform>Parser: ChatPlatformParser`.
 4. Register the parser in `registry.ts` by importing it and adding it to `registeredParsers`.
-5. Provide URL detection for the new platform in `src/content/extractors/aiChatExtractor.ts` if needed.
+5. Register the runtime parser in `runtimePlatformParsers.ts`; keep it behind the existing `runtimeRegistry.ts` lazy boundary.
+6. Add lightweight platform metadata in `platformRegistry.ts`: id, display label, host patterns, aliases, Options URL, and fallback-title policy when the platform needs one.
+7. Add an `AI_CHAT_DOCUMENT_PREPARERS` entry in `src/content/extractors/aiChatDocumentPreparer.ts` only when the platform needs live-page preparation such as virtual-list scrolling. Do not put live DOM preparation inside parser modules.
 
 ## Product Surface Sync
 
-- Options/Stitch displays the supported platform list from the registry truth in this order: ChatGPT, Claude, Copilot, Gemini, Tongyi/Qianwen, DeepSeek, Kimi, Doubao, Monica, Perplexity.
+- Options/Stitch displays supported platform labels and links from `getAIChatProductSurfacePlatforms()` in `platformRegistry.ts`.
+- URL host detection and aliases also come from `platformRegistry.ts`; do not add platform detection switches in `aiChatExtractor.ts`.
+- Fallback title policy comes from `getAIChatFallbackTitlePolicy()`. Localized required titles must use existing message keys; neutral parser tokens such as "Doubao Chat" and "Monica Chat" live in metadata.
 - AI chat templates rely on exported metadata such as `meta.platform`; default domain mappings stay user-owned and do not add AI platform host aliases by default. This avoids silently changing vault routing for existing users.
 - Usage telemetry keeps the low-cardinality `ANALYTICS_PLATFORMS` contract. ChatGPT, Claude, and Gemini are tracked as named AI platforms; Copilot, Tongyi/Qianwen, DeepSeek, Kimi, Doubao, Monica, Perplexity, and future AI IDs intentionally map to `other` unless a later GA dashboard/docs migration expands the schema.
-- Parser implementation remains behind the lazy runtime parser boundary. Options/product surfaces may mirror lightweight platform metadata, but must not import parser implementations or the runtime parser registry into Options bundles.
+- Parser implementation remains behind the lazy runtime parser boundary. Options/product surfaces may import lightweight platform metadata, but must not import parser implementations or the runtime parser registry into Options bundles.
 
 ## Drift Fix Checklist
 
@@ -59,6 +67,8 @@ When a platform DOM drift is found:
 - Global constants belong in `shared/constants.ts`.
 - DOM cleanup utilities should live in `shared/dom.ts`; reuse them rather than duplicating selectors inside platform modules.
 - Markdown conversion helpers are centralised in `shared/markdown.ts`. When adding constructs (tables, KaTeX, custom components), extend this file and add regression tests.
+- The profile parser engine in `shared/profileEngine.ts` is opt-in. It fails closed when a container role cannot be resolved; set `fallbackRole` explicitly only when the platform contract owns that behavior.
+- Per-platform helpers should use specific names such as `perplexityCandidates.ts` or `chineseFamilyHelpers.ts`. Do not add broad family facades unless they own real shared behavior used by multiple platforms.
 
 ## Testing Checklist
 

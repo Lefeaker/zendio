@@ -4,6 +4,7 @@ import { message, previewNavigation } from './previewNavigation';
 import { getPreviewTemplateDefaults } from '@shared/config';
 import { VIDEO_MODE_PANEL_ICON_PATH } from '@shared/assets/iconPaths';
 import { ZENDIO_RESOURCE_LINKS } from '@shared/links/zendioResourceLinks';
+import { getAIChatProductSurfacePlatforms } from '../../third_party/ai-chat-exporter/platformRegistry';
 import type { PreviewContent } from './types';
 
 const SAMPLE_RESEARCH_VAULT = message('schemaPreviewSampleVaultResearch');
@@ -13,6 +14,7 @@ const SAMPLE_VIDEO_VAULT = message('schemaPreviewSampleVaultVideo');
 const SAMPLE_ARTICLE_TITLE = message('schemaPreviewClipperSourceArticleTitle');
 const SAMPLE_VIDEO_CAPTURE_QUOTE = message('schemaPreviewVideoCaptureTwoSummary');
 const SAMPLE_USAGE_TOTAL_LABEL = message('schemaPreviewUsageTotalLabel');
+const AI_CHAT_PRODUCT_SURFACE_PLATFORMS = getAIChatProductSurfacePlatforms();
 
 const usageHistoryValues = [
   24, 28, 31, 36, 33, 39, 44, 41, 48, 53, 58, 55, 62, 67, 61, 57, 52, 49, 54, 60, 66, 72, 78, 74,
@@ -149,18 +151,7 @@ export const previewContent: PreviewContent = {
       pills: ['AI Chat', 'Video'],
       icon: 'ads_click'
     },
-    aiPlatforms: [
-      'ChatGPT',
-      'Claude',
-      'Copilot',
-      'Gemini',
-      'Tongyi/Qianwen',
-      'DeepSeek',
-      'Kimi',
-      'Doubao',
-      'Monica',
-      'Perplexity'
-    ]
+    aiPlatforms: AI_CHAT_PRODUCT_SURFACE_PLATFORMS.map((platform) => platform.label)
   },
   captureBehavior: {
     hero: {

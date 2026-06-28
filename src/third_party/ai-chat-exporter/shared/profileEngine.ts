@@ -24,6 +24,7 @@ export {
 
 const PROFILE_NO_CONTAINERS_DIAGNOSTIC_CODE = 'profile_no_containers';
 const PROFILE_NO_MESSAGES_DIAGNOSTIC_CODE = 'profile_no_messages';
+const PROFILE_ROLE_UNRESOLVED_DIAGNOSTIC_CODE = 'profile_role_unresolved';
 
 function profileDiagnostic(code: string, profile: ParserProfile): ParseDiagnostic {
   return {
@@ -154,10 +155,12 @@ export function parseWithProfile(
   }
 
   const messages: ParsedMessage[] = [];
+  const diagnostics: ParseDiagnostic[] = [];
   const seenElements = new Set<HTMLElement>();
   const seenContent = new Set<string>();
   const messageIdPrefix = profile.messageIdPrefix ?? 'msg';
   let messageIndex = 1;
+  let roleUnresolved = false;
 
   containers.forEach((container, index) => {
     const messageContext: ProfileMessageContext = {
@@ -166,7 +169,15 @@ export function parseWithProfile(
       index,
       config
     };
-    const role = profile.role(messageContext) ?? 'assistant';
+    const role = profile.role(messageContext) ?? profile.fallbackRole;
+    if (!role) {
+      if (!roleUnresolved) {
+        diagnostics.push(profileDiagnostic(PROFILE_ROLE_UNRESOLVED_DIAGNOSTIC_CODE, profile));
+        roleUnresolved = true;
+      }
+      return;
+    }
+
     const contentContext: ProfileContentContext = {
       ...messageContext,
       role
@@ -214,7 +225,6 @@ export function parseWithProfile(
     messages.push(message);
   });
 
-  const diagnostics: ParseDiagnostic[] = [];
   if (messages.length === 0) {
     diagnostics.push(profileDiagnostic(PROFILE_NO_MESSAGES_DIAGNOSTIC_CODE, profile));
   }

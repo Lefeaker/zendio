@@ -7,7 +7,11 @@ import type { ContentExtractor, ExtractionContext } from './types';
 import type { OptionsRepository } from '../../shared/interfaces/optionsRepository';
 import type { IOptionsRepository } from '../../shared/repositories/IOptionsRepository';
 import type { ParsedMessage, PlatformId } from '../../third_party/ai-chat-exporter/types';
-import { resolveAIChatPlatformByUrl } from '../../third_party/ai-chat-exporter/platformRegistry';
+import {
+  getAIChatFallbackTitlePolicy,
+  resolveAIChatPlatformByUrl,
+  type AIChatFallbackTitleMessageKey
+} from '../../third_party/ai-chat-exporter/platformRegistry';
 import { getContentI18nResource, getContentMessages } from '../i18n/context';
 import type { Messages } from '@i18n';
 import { validateAIChatExtraction } from './aiChatExtractionValidation';
@@ -18,17 +22,7 @@ interface OptionsProvider {
   reset(): void;
 }
 
-type AIChatFallbackMessages = Pick<
-  Messages,
-  | 'exportAiChatFallbackTitleDeepseek'
-  | 'exportAiChatFallbackTitleKimi'
-  | 'exportAiChatFallbackTitleTongyi'
->;
-
-const ENGLISH_NEUTRAL_AI_CHAT_FALLBACK_TITLES = {
-  doubao: 'Doubao Chat',
-  monica: 'Monica Chat'
-};
+type AIChatFallbackMessages = Pick<Messages, AIChatFallbackTitleMessageKey>;
 
 export interface AIChatExtractorDeps {
   optionsRepository?: OptionsRepository | IOptionsRepository;
@@ -159,36 +153,22 @@ function normalizeMessages(messages: ParsedMessage[]): ChatMarkdownMessage[] {
   });
 }
 
-function resolveFallbackTitle(
-  platform: string,
-  messages: AIChatFallbackMessages
-): string | undefined {
-  switch (platform) {
-    case 'deepseek':
-      return messages.exportAiChatFallbackTitleDeepseek;
-    case 'kimi':
-      return messages.exportAiChatFallbackTitleKimi;
-    case 'tongyi':
-      return messages.exportAiChatFallbackTitleTongyi;
-    case 'doubao':
-      return ENGLISH_NEUTRAL_AI_CHAT_FALLBACK_TITLES.doubao;
-    case 'monica':
-      return ENGLISH_NEUTRAL_AI_CHAT_FALLBACK_TITLES.monica;
-    default:
-      return undefined;
-  }
-}
-
 function requireFallbackTitle(
-  platform: string,
+  platform: PlatformId,
   messages: AIChatFallbackMessages
 ): string | undefined {
-  const fallbackTitle = resolveFallbackTitle(platform, messages)?.trim();
+  const policy = getAIChatFallbackTitlePolicy(platform);
+  if (!policy) {
+    return undefined;
+  }
+
+  const fallbackTitle =
+    policy.kind === 'neutral' ? policy.title.trim() : messages[policy.messageKey].trim();
   if (fallbackTitle) {
     return fallbackTitle;
   }
 
-  if (platform === 'deepseek' || platform === 'kimi' || platform === 'tongyi') {
+  if (policy.kind === 'localized' && policy.required) {
     throw new Error(`Missing localized AI chat fallback title for ${platform}`);
   }
 

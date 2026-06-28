@@ -13,6 +13,7 @@ import { resourceSchemas, settingsSchemas, surfaceSchemas } from '@options/stitc
 import { aiPlatformLinks, themeSegmentedSwitch } from '@options/stitch/schema/builders/settings';
 import { previewUi } from '@options/stitch/ui/components';
 import { el } from '@options/stitch/ui/dom';
+import { getAIChatProductSurfacePlatforms } from '../../../src/third_party/ai-chat-exporter/platformRegistry';
 import type {
   ElementNode,
   NodeChild,
@@ -115,8 +116,12 @@ describe('Stitch shared registry contracts', () => {
       appData: previewContent,
       state: createPreviewState()
     };
+    const productSurfacePlatforms = getAIChatProductSurfacePlatforms();
     const node = aiPlatformLinks();
 
+    expect(previewContent.captureSources.aiPlatforms).toEqual(
+      productSurfacePlatforms.map((platform) => platform.label)
+    );
     expect(node).toMatchObject({ kind: 'element', tag: 'div' });
     expect(isElementNode(node)).toBe(true);
     if (!isElementNode(node)) {
@@ -128,10 +133,10 @@ describe('Stitch shared registry contracts', () => {
     const children = resolveChildren(node.children, ctx);
 
     expect(children).toHaveLength(previewContent.captureSources.aiPlatforms.length);
-    for (const child of children) {
+    children.forEach((child, index) => {
       expect(isElementNode(child)).toBe(true);
       if (!isElementNode(child)) {
-        continue;
+        return;
       }
       expect(child).toMatchObject({
         kind: 'element',
@@ -140,10 +145,12 @@ describe('Stitch shared registry contracts', () => {
         rel: 'noopener noreferrer',
         ariaPressed: 'true'
       });
+      expect(child.text).toBe(productSurfacePlatforms[index]?.label);
+      expect(child.href).toBe(productSurfacePlatforms[index]?.url);
       expect(child.tag).not.toBe('details');
       expect(child.tag).not.toBe('summary');
       expect(String(child.className)).toContain('chip');
-    }
+    });
   });
 
   it('keeps content runtime surfaces owned by the dedicated surface registry', () => {

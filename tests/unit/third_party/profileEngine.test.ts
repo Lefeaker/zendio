@@ -111,6 +111,56 @@ describe('profile parser engine', () => {
     expect(result.messages.map((message) => message.role)).toEqual(['user', 'assistant']);
   });
 
+  it('fails closed on role-unresolved profile containers by default', () => {
+    const doc = parseDocument(`
+      <main>
+        <article data-message>
+          <div class="message-body">Message with no reliable role marker</div>
+        </article>
+      </main>
+    `);
+    const profile = baseProfile({
+      role: () => undefined
+    });
+
+    const result = parseWithProfile(doc, profile);
+
+    expect(result.messages).toEqual([]);
+    expect(result.diagnostics).toContainEqual({
+      code: 'profile_role_unresolved',
+      severity: 'warning',
+      detail: 'monica'
+    });
+    expect(result.diagnostics).toContainEqual({
+      code: 'profile_no_messages',
+      severity: 'warning',
+      detail: 'monica'
+    });
+  });
+
+  it('allows explicit fallback roles for profiles whose platform contract owns that behavior', () => {
+    const doc = parseDocument(`
+      <main>
+        <article data-message>
+          <div class="message-body">Explicit fallback assistant body</div>
+        </article>
+      </main>
+    `);
+    const profile = baseProfile({
+      fallbackRole: 'assistant',
+      role: () => undefined
+    });
+
+    const result = parseWithProfile(doc, profile);
+
+    expect(result.messages).toHaveLength(1);
+    expect(result.messages[0]).toMatchObject({
+      role: 'assistant',
+      md: 'Explicit fallback assistant body'
+    });
+    expect(result.diagnostics).toBeUndefined();
+  });
+
   it('uses ordered content selector fallback', () => {
     const doc = parseDocument(`
       <main>

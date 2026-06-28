@@ -6,7 +6,9 @@ import { JSDOM } from 'jsdom';
 import type { PlatformId } from '../../../src/third_party/ai-chat-exporter/types';
 import {
   AI_CHAT_PLATFORM_DEFINITIONS,
+  getAIChatFallbackTitlePolicy,
   getAIChatPlatformAliases,
+  getAIChatProductSurfacePlatforms,
   isAIChatHost,
   normalizeHostname,
   resolveAIChatPlatformByUrl
@@ -44,6 +46,19 @@ const hostMatrix: ReadonlyArray<[PlatformId, string]> = [
   ['perplexity', 'https://www.perplexity.ai/search/123']
 ];
 
+const expectedProductSurface = [
+  { id: 'chatgpt', label: 'ChatGPT', url: 'https://chatgpt.com/' },
+  { id: 'claude', label: 'Claude', url: 'https://claude.ai/' },
+  { id: 'copilot', label: 'Copilot', url: 'https://copilot.microsoft.com/' },
+  { id: 'gemini', label: 'Gemini', url: 'https://gemini.google.com/' },
+  { id: 'tongyi', label: 'Tongyi/Qianwen', url: 'https://tongyi.aliyun.com/' },
+  { id: 'deepseek', label: 'DeepSeek', url: 'https://chat.deepseek.com/' },
+  { id: 'kimi', label: 'Kimi', url: 'https://www.kimi.com/' },
+  { id: 'doubao', label: 'Doubao', url: 'https://www.doubao.com/' },
+  { id: 'monica', label: 'Monica', url: 'https://monica.im/' },
+  { id: 'perplexity', label: 'Perplexity', url: 'https://www.perplexity.ai/' }
+] as const;
+
 describe('AI chat platform registry', () => {
   it.each(hostMatrix)('resolves %s host %s', (platformId, url) => {
     expect(resolveAIChatPlatformByUrl(url, document)).toBe(platformId);
@@ -79,6 +94,37 @@ describe('AI chat platform registry', () => {
 
     expect([...ids].sort()).toEqual([...expectedPlatformIds].sort());
     expect(new Set(ids).size).toBe(expectedPlatformIds.length);
+  });
+
+  it('derives the Options product surface from canonical platform metadata', () => {
+    expect(getAIChatProductSurfacePlatforms()).toEqual(expectedProductSurface);
+  });
+
+  it('keeps fallback-title policy in canonical platform metadata', () => {
+    expect(getAIChatFallbackTitlePolicy('deepseek')).toEqual({
+      kind: 'localized',
+      messageKey: 'exportAiChatFallbackTitleDeepseek',
+      required: true
+    });
+    expect(getAIChatFallbackTitlePolicy('kimi')).toEqual({
+      kind: 'localized',
+      messageKey: 'exportAiChatFallbackTitleKimi',
+      required: true
+    });
+    expect(getAIChatFallbackTitlePolicy('tongyi')).toEqual({
+      kind: 'localized',
+      messageKey: 'exportAiChatFallbackTitleTongyi',
+      required: true
+    });
+    expect(getAIChatFallbackTitlePolicy('doubao')).toEqual({
+      kind: 'neutral',
+      title: 'Doubao Chat'
+    });
+    expect(getAIChatFallbackTitlePolicy('monica')).toEqual({
+      kind: 'neutral',
+      title: 'Monica Chat'
+    });
+    expect(getAIChatFallbackTitlePolicy('perplexity')).toBeUndefined();
   });
 
   it('exposes runtime aliases from the canonical registry', () => {

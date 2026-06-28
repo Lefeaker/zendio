@@ -2,11 +2,8 @@ import { DEFAULT_CHAT_TITLE } from '../shared/constants';
 import { cloneHTMLElement } from '../shared/dom';
 import { chatElementToMarkdown } from '../shared/markdown';
 import type { ChatPlatformParser, ParsedMessage, ParsedResult } from '../types';
-import {
-  cleanupPerplexityBody,
-  collectPerplexityMessageCandidates,
-  pickPerplexityMessageBody
-} from './assistantFamilyHelpers';
+import { collectPerplexityMessageCandidates } from './perplexityCandidates';
+import { cleanupPerplexityBody, pickPerplexityMessageBody } from './perplexityDom';
 
 const MODEL_SELECTORS = [
   '[data-testid="model-name"]',

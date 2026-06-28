@@ -85,13 +85,11 @@ const monicaProfile: ParserProfile = {
   title: (doc, config) => normaliseTitle(doc.title || '', config),
   model: (doc) => extractModel(doc),
   containers: MONICA_MESSAGE_SELECTOR,
-  role: profileEngine.roleByClassName(
-    {
-      [USER_CLASS_HINT]: 'user',
-      [ASSISTANT_CLASS_HINT]: 'assistant'
-    },
-    'assistant'
-  ),
+  role: profileEngine.roleByClassName({
+    [USER_CLASS_HINT]: 'user',
+    [ASSISTANT_CLASS_HINT]: 'assistant'
+  }),
+  fallbackRole: 'assistant',
   content: ({ container }) =>
     profileEngine.pickFirstElement(container, [
       '[class*="markdown"]',
