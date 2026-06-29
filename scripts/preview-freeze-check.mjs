@@ -110,11 +110,12 @@ const ALLOWED_PREVIEW_DRIFT = new Map([
         'The AI chat abstraction tuning refreshes the generated preview JS hash after deriving Options supported-platform labels and links from canonical lightweight platform metadata while preserving the frozen reference, preview freeze logic, and Stitch runtime contract.',
         'The AI chat metadata-boundary refresh updates the generated preview JS hash after moving Options supported-platform labels and links onto the dedicated platformProductSurface metadata owner while preserving the frozen reference, preview freeze logic, and Stitch runtime contract.',
         'The v0.2.1 changelog refresh updates the generated preview JS hash after adding the catalog-backed Options/Stitch release notes and regenerated schema message keys while preserving the frozen reference, preview freeze logic, and Stitch runtime contract.',
-        'The zero-state Usage Dashboard repair refreshes the generated preview JS hash after extracting the Stitch usage chart renderer from the hotspot components module and making chart-domain math fail closed for all-zero or non-finite values while preserving the frozen reference, preview freeze logic, and Stitch runtime contract.'
+        'The zero-state Usage Dashboard repair refreshes the generated preview JS hash after extracting the Stitch usage chart renderer from the hotspot components module and making chart-domain math fail closed for all-zero or non-finite values while preserving the frozen reference, preview freeze logic, and Stitch runtime contract.',
+        'The v0.2.1 release version bump refreshes the generated preview JS hash after updating the Options runtime version label and regenerated runtime locale artifacts while preserving the frozen reference, preview freeze logic, and Stitch runtime contract.'
       ].join(' '),
       leftSha256: '9020ccbd91acd691eccd3fdf568b9a90efbddf0a35d79f36ef1caba702fa0c07',
-      // 2026-06-29 zero-state Usage Dashboard renderer split preview JS hash.
-      rightSha256: '1b518f227ec1dfbdd306b05a2c166aa38fff693f3d66c2a9d64055e02f0d933b'
+      // 2026-06-30 v0.2.1 release version bump preview JS hash.
+      rightSha256: '5cef207a9e87249e7b055a6c0dfd1f599389d96241b83be5643362d3e2e48e3e'
     }
   ]
 ]);

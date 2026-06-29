@@ -85,13 +85,13 @@ const sharedBuildOptions = {
     __ZENDIO_SENTRY_ENVIRONMENT__: JSON.stringify(
       resolveSentryEnv('ENVIRONMENT', prod ? 'production' : 'development')
     ),
-    __ZENDIO_SENTRY_RELEASE__: JSON.stringify(resolveSentryEnv('RELEASE', '0.2.0')),
+    __ZENDIO_SENTRY_RELEASE__: JSON.stringify(resolveSentryEnv('RELEASE', '0.2.1')),
     __ZENDIO_SENTRY_ENABLED__: resolveBooleanEnv(resolveSentryEnv('ENABLED')) ? 'true' : 'false',
     __AIIINOB_SENTRY_DSN__: JSON.stringify(resolveSentryEnv('DSN')),
     __AIIINOB_SENTRY_ENVIRONMENT__: JSON.stringify(
       resolveSentryEnv('ENVIRONMENT', prod ? 'production' : 'development')
     ),
-    __AIIINOB_SENTRY_RELEASE__: JSON.stringify(resolveSentryEnv('RELEASE', '0.2.0')),
+    __AIIINOB_SENTRY_RELEASE__: JSON.stringify(resolveSentryEnv('RELEASE', '0.2.1')),
     __AIIINOB_SENTRY_ENABLED__: resolveBooleanEnv(resolveSentryEnv('ENABLED')) ? 'true' : 'false',
     __ZENDIO_GA_MEASUREMENT_ID__: JSON.stringify(resolveGaEnv('MEASUREMENT_ID')),
     __ZENDIO_GA_TRANSPORT_MODE__: JSON.stringify(resolveGaEnv('TRANSPORT_MODE')),

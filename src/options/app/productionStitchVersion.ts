@@ -1,7 +1,7 @@
 import { getService, hasService, TOKENS } from '@shared/di';
 import type { PlatformServices } from '@platform/types';
 
-const PACKAGE_VERSION = '0.2.0';
+const PACKAGE_VERSION = '0.2.1';
 
 type ExtensionVersionReader = () => string | undefined;
 

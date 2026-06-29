@@ -54,11 +54,11 @@ function createProductionBuildGraphDefine() {
     __DEV__: 'false',
     __ZENDIO_SENTRY_DSN__: JSON.stringify(resolveSentryEnv('DSN')),
     __ZENDIO_SENTRY_ENVIRONMENT__: JSON.stringify(resolveSentryEnv('ENVIRONMENT', 'production')),
-    __ZENDIO_SENTRY_RELEASE__: JSON.stringify(resolveSentryEnv('RELEASE', '0.2.0')),
+    __ZENDIO_SENTRY_RELEASE__: JSON.stringify(resolveSentryEnv('RELEASE', '0.2.1')),
     __ZENDIO_SENTRY_ENABLED__: resolveBooleanEnv(resolveSentryEnv('ENABLED')) ? 'true' : 'false',
     __AIIINOB_SENTRY_DSN__: JSON.stringify(resolveSentryEnv('DSN')),
     __AIIINOB_SENTRY_ENVIRONMENT__: JSON.stringify(resolveSentryEnv('ENVIRONMENT', 'production')),
-    __AIIINOB_SENTRY_RELEASE__: JSON.stringify(resolveSentryEnv('RELEASE', '0.2.0')),
+    __AIIINOB_SENTRY_RELEASE__: JSON.stringify(resolveSentryEnv('RELEASE', '0.2.1')),
     __AIIINOB_SENTRY_ENABLED__: resolveBooleanEnv(resolveSentryEnv('ENABLED')) ? 'true' : 'false'
   };
 }
