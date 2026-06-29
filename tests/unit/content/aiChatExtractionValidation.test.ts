@@ -8,6 +8,13 @@ type ValidationMessage = Pick<ParsedMessage, 'id' | 'role' | 'timestamp'> & {
   text: string;
 };
 
+type ExpectedValidationContext = {
+  messageCount: number;
+  firstConversationRole?: ParsedMessage['role'];
+  requiredFirstConversationRole?: 'user';
+  recoveredRoles: ParsedMessage['role'][];
+};
+
 function validate(messages: ValidationMessage[]): void {
   validateAIChatExtraction({
     platform: 'perplexity',
@@ -19,7 +26,7 @@ function validate(messages: ValidationMessage[]): void {
 
 function expectValidationError(
   messages: ValidationMessage[],
-  expectedContext: Record<string, unknown>
+  expectedContext: ExpectedValidationContext
 ): void {
   let error: AppError | undefined;
   try {
@@ -28,10 +35,8 @@ function expectValidationError(
     error = caught as AppError;
   }
 
-  expect(error).toMatchObject({
-    code: 'EXTRACTION_AI_CHAT_PARSE_ROLE_INCOMPLETE',
-    context: expect.objectContaining(expectedContext)
-  });
+  expect(error?.code).toBe('EXTRACTION_AI_CHAT_PARSE_ROLE_INCOMPLETE');
+  expect(error?.context).toMatchObject(expectedContext);
 }
 
 describe('validateAIChatExtraction', () => {

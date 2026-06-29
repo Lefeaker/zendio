@@ -1,6 +1,6 @@
 import type { NodeSchema, SchemaContext } from '../../types';
 import { DEFAULT_PRODUCTION_ENGLISH_MESSAGES } from '../i18n';
-import { getAIChatProductSurfacePlatforms } from '../../../../third_party/ai-chat-exporter/platformProductSurface';
+import { getAIChatProductSurfacePlatforms } from '@third-party/ai-chat-exporter/platformProductSurface';
 import { div, element } from './primitives';
 import { classNames } from './classNames';
 

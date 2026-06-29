@@ -118,14 +118,8 @@ describe('AI chat platform registry', () => {
       messageKey: 'exportAiChatFallbackTitleTongyi',
       required: true
     });
-    expect(getAIChatFallbackTitlePolicy('doubao')).toEqual({
-      kind: 'neutral',
-      title: 'Doubao Chat'
-    });
-    expect(getAIChatFallbackTitlePolicy('monica')).toEqual({
-      kind: 'neutral',
-      title: 'Monica Chat'
-    });
+    expect(getAIChatFallbackTitlePolicy('doubao')).toBeUndefined();
+    expect(getAIChatFallbackTitlePolicy('monica')).toBeUndefined();
     expect(getAIChatFallbackTitlePolicy('perplexity')).toBeUndefined();
   });
 

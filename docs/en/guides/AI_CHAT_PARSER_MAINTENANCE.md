@@ -7,7 +7,7 @@ The AI chat exporter now uses a modular parser registry plus layered lightweight
 ```
 src/third_party/ai-chat-exporter/
 ├── parse.ts                # Public API (parseChatDOM, chatHtmlToMarkdown)
-├── platformIdentity.ts     # Supported ids, host detection, aliases, analytics metadata
+├── platformIdentity.ts     # Supported ids, host detection, aliases
 ├── platformProductSurface.ts # Options labels/links and fallback-title policy
 ├── platformRegistry.ts     # Compatibility facade for older imports
 ├── registry.ts             # Parser registry + fallback result
@@ -42,7 +42,7 @@ src/third_party/ai-chat-exporter/
 3. Export the parser as `const <platform>Parser: ChatPlatformParser`.
 4. Register the parser in `registry.ts` by importing it and adding it to `registeredParsers`.
 5. Register the runtime parser in `runtimePlatformParsers.ts`; keep it behind the existing `runtimeRegistry.ts` lazy boundary.
-6. Add platform identity metadata in `platformIdentity.ts`: id, display label, host patterns, aliases, and analytics metadata when needed.
+6. Add platform identity metadata in `platformIdentity.ts`: id, display label, host patterns, and aliases when needed.
 7. Add product-surface metadata in `platformProductSurface.ts`: Options URL, optional product label, and fallback-title policy when the platform needs one.
 8. Add an `AI_CHAT_DOCUMENT_PREPARERS` entry in `src/content/extractors/aiChatDocumentPreparer.ts` only when the platform needs live-page preparation such as virtual-list scrolling. Do not put live DOM preparation inside parser modules.
 
@@ -50,7 +50,7 @@ src/third_party/ai-chat-exporter/
 
 - Options/Stitch displays supported platform labels and links from `getAIChatProductSurfacePlatforms()` in `platformProductSurface.ts`.
 - URL host detection and aliases come from `platformIdentity.ts`; do not add platform detection switches in `aiChatExtractor.ts`.
-- Fallback title policy comes from `getAIChatFallbackTitlePolicy()`. Localized required titles must use existing message keys; neutral parser tokens such as "Doubao Chat" and "Monica Chat" live in metadata.
+- Fallback title policy comes from `getAIChatFallbackTitlePolicy()`. Product-surface fallback titles must use catalog message keys; neutral source-site fallback tokens stay inside platform parser modules.
 - AI chat templates rely on exported metadata such as `meta.platform`; default domain mappings stay user-owned and do not add AI platform host aliases by default. This avoids silently changing vault routing for existing users.
 - Usage telemetry keeps the low-cardinality `ANALYTICS_PLATFORMS` contract. ChatGPT, Claude, and Gemini are tracked as named AI platforms; Copilot, Tongyi/Qianwen, DeepSeek, Kimi, Doubao, Monica, Perplexity, and future AI IDs intentionally map to `other` unless a later GA dashboard/docs migration expands the schema.
 - Parser implementation remains behind the lazy runtime parser boundary. Options/product surfaces may import `platformProductSurface.ts`, but must not import parser implementations, `runtimeRegistry.ts`, or `runtimePlatformParsers.ts` into Options bundles.

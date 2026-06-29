@@ -121,6 +121,27 @@ describe('monica parser', () => {
     );
   });
 
+  it('uses the parser-owned neutral fallback title when no fallback config is injected', async () => {
+    const { monicaParser } =
+      await import('../../../src/third_party/ai-chat-exporter/platforms/monica');
+    const doc = new DOMParser().parseFromString(
+      `
+      <html>
+        <head><title>莫妮卡</title></head>
+        <body>
+          <div class="chat-message-- chat-question"><p>Hello Monica</p></div>
+          <div class="chat-message-- chat-reply"><div class="markdown"><p>Hi there</p></div></div>
+        </body>
+      </html>
+    `,
+      'text/html'
+    );
+    const result = monicaParser.parse(doc);
+
+    expect(result.title).toBe('Monica Chat');
+    expect(result.messages).toHaveLength(2);
+  });
+
   it('centralizes native Monica title tokens instead of keeping 莫妮卡 in inline regexes', () => {
     const source = readFileSync(
       resolve(process.cwd(), 'src/third_party/ai-chat-exporter/platforms/monica.ts'),

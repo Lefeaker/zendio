@@ -280,36 +280,28 @@ describe('extractAIChat', () => {
     expect(mockParseChatDOMAsync).not.toHaveBeenCalled();
   });
 
-  it('injects English-neutral fallback titles for Doubao and Monica exports', async () => {
+  it('does not inject product-surface fallback titles for platforms with parser-owned neutral fallback', async () => {
     const module = await import('@content/extractors/aiChatExtractor');
 
     await module.extractAIChat(document, 'https://www.doubao.com/chat/abc', {
       optionsRepository: createOptionsRepository(),
-      getMessages: vi.fn(async () => ({ ...baseFallbackMessages }))
+      getMessages: vi.fn(() => Promise.resolve({ ...baseFallbackMessages }))
     });
     await module.extractAIChat(document, 'https://monica.im/chat/abc', {
       optionsRepository: createOptionsRepository(),
-      getMessages: vi.fn(async () => ({ ...baseFallbackMessages }))
+      getMessages: vi.fn(() => Promise.resolve({ ...baseFallbackMessages }))
     });
 
-    expect(mockParseChatDOMAsync).toHaveBeenNthCalledWith(
-      1,
-      'doubao',
-      document,
-      expect.objectContaining({
-        deepResearch: { pureMode: true },
-        fallbackTitle: 'Doubao Chat'
-      })
-    );
-    expect(mockParseChatDOMAsync).toHaveBeenNthCalledWith(
-      2,
-      'monica',
-      document,
-      expect.objectContaining({
-        deepResearch: { pureMode: true },
-        fallbackTitle: 'Monica Chat'
-      })
-    );
+    expect(mockParseChatDOMAsync.mock.calls[0]?.[0]).toBe('doubao');
+    expect(mockParseChatDOMAsync.mock.calls[0]?.[1]).toBe(document);
+    expect(mockParseChatDOMAsync.mock.calls[0]?.[2]).toEqual({
+      deepResearch: { pureMode: true }
+    });
+    expect(mockParseChatDOMAsync.mock.calls[1]?.[0]).toBe('monica');
+    expect(mockParseChatDOMAsync.mock.calls[1]?.[1]).toBe(document);
+    expect(mockParseChatDOMAsync.mock.calls[1]?.[2]).toEqual({
+      deepResearch: { pureMode: true }
+    });
   });
 
   it('canHandle filters requests by AI chat hostname', async () => {

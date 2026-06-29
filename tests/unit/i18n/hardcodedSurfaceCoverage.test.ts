@@ -366,15 +366,15 @@ const COVERAGE: readonly SurfaceCoverage[] = [
   },
   {
     milestone: 'P21',
-    surface: 'AI chat fallback titles',
+    surface: 'AI chat fallback title ownership',
     proves:
-      'AI chat extraction requires localized fallback titles and supplies neutral product titles for product-native fallbacks',
+      'AI chat extraction requires localized product-surface fallback titles and leaves parser-owned neutral fallbacks inside parser modules',
     evidence: [
       {
         file: 'tests/unit/content/aiChatExtractor.test.ts',
         includes: [
           'fails fast when a required localized fallback title is missing',
-          'injects English-neutral fallback titles for Doubao and Monica exports',
+          'does not inject product-surface fallback titles for platforms with parser-owned neutral fallback',
           'fallbackTitle'
         ]
       }

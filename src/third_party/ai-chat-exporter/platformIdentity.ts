@@ -5,33 +5,28 @@ export type AIChatPlatformIdentityDefinition = {
   displayName: string;
   hostPatterns: readonly RegExp[];
   aliases?: readonly string[];
-  analyticsPlatform?: string;
 };
 
 export const AI_CHAT_PLATFORM_IDENTITIES: readonly AIChatPlatformIdentityDefinition[] = [
   {
     id: 'chatgpt',
     displayName: 'ChatGPT',
-    hostPatterns: [/^(?:www\.)?chatgpt\.com$/i, /^(?:www\.)?chat\.openai\.com$/i],
-    analyticsPlatform: 'chatgpt'
+    hostPatterns: [/^(?:www\.)?chatgpt\.com$/i, /^(?:www\.)?chat\.openai\.com$/i]
   },
   {
     id: 'claude',
     displayName: 'Claude',
-    hostPatterns: [/^(?:www\.)?claude\.ai$/i],
-    analyticsPlatform: 'claude'
+    hostPatterns: [/^(?:www\.)?claude\.ai$/i]
   },
   {
     id: 'copilot',
     displayName: 'Copilot',
-    hostPatterns: [/^(?:www\.)?copilot\.microsoft\.com$/i],
-    analyticsPlatform: 'copilot'
+    hostPatterns: [/^(?:www\.)?copilot\.microsoft\.com$/i]
   },
   {
     id: 'gemini',
     displayName: 'Gemini',
-    hostPatterns: [/^(?:www\.)?gemini\.google\.com$/i],
-    analyticsPlatform: 'gemini'
+    hostPatterns: [/^(?:www\.)?gemini\.google\.com$/i]
   },
   {
     id: 'tongyi',
@@ -41,42 +36,36 @@ export const AI_CHAT_PLATFORM_IDENTITIES: readonly AIChatPlatformIdentityDefinit
       /^(?:www\.)?tongyi\.com$/i,
       /^(?:www\.)?qianwen\.com$/i
     ],
-    aliases: ['qianwen'],
-    analyticsPlatform: 'tongyi'
+    aliases: ['qianwen']
   },
   {
     id: 'deepseek',
     displayName: 'DeepSeek',
-    hostPatterns: [/^(?:www\.|chat\.)?deepseek\.com$/i],
-    analyticsPlatform: 'deepseek'
+    hostPatterns: [/^(?:www\.|chat\.)?deepseek\.com$/i]
   },
   {
     id: 'kimi',
     displayName: 'Kimi',
     hostPatterns: [/^(?:www\.)?kimi\.com$/i, /^kimi\.moonshot\.cn$/i],
-    aliases: ['moonshot'],
-    analyticsPlatform: 'kimi'
+    aliases: ['moonshot']
   },
   {
     id: 'doubao',
     displayName: 'Doubao',
-    hostPatterns: [/^(?:[a-z0-9-]+\.)*doubao\.com$/i],
-    analyticsPlatform: 'doubao'
+    hostPatterns: [/^(?:[a-z0-9-]+\.)*doubao\.com$/i]
   },
   {
     id: 'monica',
     displayName: 'Monica',
-    hostPatterns: [/^(?:[a-z0-9-]+\.)*monica\.im$/i],
-    analyticsPlatform: 'monica'
+    hostPatterns: [/^(?:[a-z0-9-]+\.)*monica\.im$/i]
   },
   {
     id: 'perplexity',
     displayName: 'Perplexity',
     hostPatterns: [/^(?:www\.)?perplexity\.ai$/i],
-    aliases: ['pplx'],
-    analyticsPlatform: 'perplexity'
+    aliases: ['pplx']
   }
-] as const;
+];
 
 export function getAIChatPlatformIdentityDefinition(
   platform: PlatformId

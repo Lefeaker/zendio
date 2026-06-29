@@ -61,7 +61,7 @@
 
 AI 对话输出路径不新增默认域名映射。当前模板依赖 `meta.platform` 等导出元数据，域名到 vault 的映射继续由用户在设置中维护，避免升级后静默改变现有 vault 路由语义。
 
-Telemetry 暂不扩展平台枚举。ChatGPT、Claude、Gemini 保持具名 analytics platform，Copilot、Tongyi/Qianwen、DeepSeek、Kimi、Doubao、Monica、Perplexity 等非核心 AI 平台继续归入 `other`，直到后续单独完成 GA schema、dashboard 和 docs contract 迁移。`platformIdentity.ts` 中的 `analyticsPlatform` 仅是轻量身份元数据字段，不得绕过 GA schema / dashboard / docs contract 扩展流程。
+Telemetry 暂不扩展平台枚举。ChatGPT、Claude、Gemini 保持具名 analytics platform，Copilot、Tongyi/Qianwen、DeepSeek、Kimi、Doubao、Monica、Perplexity 等非核心 AI 平台继续归入 `other`，直到后续单独完成 GA schema、dashboard 和 docs contract 迁移。平台 identity metadata 不承载 telemetry 扩展字段，避免绕过 GA schema / dashboard / docs contract 扩展流程。
 
 ---
 
@@ -130,7 +130,7 @@ registerParser(parser)
 
 当前健康边界是：
 
-- `platformIdentity.ts` 是平台身份唯一来源，覆盖 supported id 顺序、host detection、alias 和 analytics metadata。
+- `platformIdentity.ts` 是平台身份唯一来源，覆盖 supported id 顺序、host detection 和 alias。
 - `platformProductSurface.ts` 是产品面元数据唯一来源，覆盖 Options label/link 与 fallback title policy。
 - `platformRegistry.ts` 只作为兼容 facade，不应成为新消费者的默认 import 入口。
 - `registry.ts` 与 `runtimePlatformParsers.ts` 仍只负责 parser 实现注册；必须通过测试与轻量元数据保持一致，但不反向驱动 Options。

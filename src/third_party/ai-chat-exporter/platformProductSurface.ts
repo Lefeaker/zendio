@@ -9,16 +9,11 @@ export type AIChatFallbackTitleMessageKey =
   | 'exportAiChatFallbackTitleKimi'
   | 'exportAiChatFallbackTitleTongyi';
 
-export type AIChatFallbackTitlePolicy =
-  | {
-      kind: 'localized';
-      messageKey: AIChatFallbackTitleMessageKey;
-      required: true;
-    }
-  | {
-      kind: 'neutral';
-      title: string;
-    };
+export type AIChatFallbackTitlePolicy = {
+  kind: 'localized';
+  messageKey: AIChatFallbackTitleMessageKey;
+  required: true;
+};
 
 export type AIChatPlatformProductDefinition = {
   id: PlatformId;
@@ -80,25 +75,17 @@ export const AI_CHAT_PLATFORM_PRODUCT_DEFINITIONS: readonly AIChatPlatformProduc
   },
   {
     id: 'doubao',
-    optionsUrl: 'https://www.doubao.com/',
-    fallbackTitlePolicy: {
-      kind: 'neutral',
-      title: 'Doubao Chat'
-    }
+    optionsUrl: 'https://www.doubao.com/'
   },
   {
     id: 'monica',
-    optionsUrl: 'https://monica.im/',
-    fallbackTitlePolicy: {
-      kind: 'neutral',
-      title: 'Monica Chat'
-    }
+    optionsUrl: 'https://monica.im/'
   },
   {
     id: 'perplexity',
     optionsUrl: 'https://www.perplexity.ai/'
   }
-] as const;
+];
 
 export function getAIChatPlatformProductDefinition(
   platform: PlatformId

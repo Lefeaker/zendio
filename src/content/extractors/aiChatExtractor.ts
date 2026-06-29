@@ -162,13 +162,12 @@ function requireFallbackTitle(
     return undefined;
   }
 
-  const fallbackTitle =
-    policy.kind === 'neutral' ? policy.title.trim() : messages[policy.messageKey].trim();
+  const fallbackTitle = messages[policy.messageKey].trim();
   if (fallbackTitle) {
     return fallbackTitle;
   }
 
-  if (policy.kind === 'localized' && policy.required) {
+  if (policy.required) {
     throw new Error(`Missing localized AI chat fallback title for ${platform}`);
   }
 
