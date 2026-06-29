@@ -1,5 +1,6 @@
 import type { PreviewContent } from './types';
 import { message } from './previewNavigation';
+import { getAIChatProductSurfacePlatforms } from '@third-party/ai-chat-exporter/platformProductSurface';
 import {
   overviewContent,
   previewBrand,
@@ -15,6 +16,7 @@ import { resourcesContent } from './content/resourcesContent';
 import { runtimeSurfacesContent } from './content/runtimeSurfaceContent';
 import { outputContent, storageContent } from './content/yamlContent';
 
+const AI_CHAT_PRODUCT_SURFACE_PLATFORMS = getAIChatProductSurfacePlatforms();
 export const previewContent: PreviewContent = {
   brand: previewBrand,
   rendererLabels: previewRendererLabels,
@@ -33,7 +35,7 @@ export const previewContent: PreviewContent = {
       pills: ['AI Chat', 'Video'],
       icon: 'ads_click'
     },
-    aiPlatforms: ['ChatGPT', 'Claude', 'Gemini', 'Kimi', 'DeepSeek', 'Tongyi', 'Doubao', 'Monica']
+    aiPlatforms: AI_CHAT_PRODUCT_SURFACE_PLATFORMS.map((platform) => platform.label)
   },
   captureBehavior: {
     hero: {

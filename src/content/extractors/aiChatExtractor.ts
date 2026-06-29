@@ -2,43 +2,40 @@ import { buildChatMarkdown } from '../formatters/markdown';
 import { chatHtmlToMarkdown } from '../../third_party/ai-chat-exporter/shared/markdown';
 import { formatDateTime } from '../clipper/utils/datetime';
 import { isAIChat } from '../detect';
-import type { StoredOptions, OptionsState } from '../../shared/types/options';
+import type { StoredOptions } from '../../shared/types/options';
 import type { ContentExtractor, ExtractionContext } from './types';
 import type { OptionsRepository } from '../../shared/interfaces/optionsRepository';
 import type { IOptionsRepository } from '../../shared/repositories/IOptionsRepository';
-import type { ParsedMessage } from '../../third_party/ai-chat-exporter/types';
+import type { ParsedMessage, PlatformId } from '../../third_party/ai-chat-exporter/types';
+import { resolveAIChatPlatformByUrl } from '../../third_party/ai-chat-exporter/platformIdentity';
+import {
+  getAIChatFallbackTitlePolicy,
+  type AIChatFallbackTitleMessageKey
+} from '../../third_party/ai-chat-exporter/platformProductSurface';
 import { getContentI18nResource, getContentMessages } from '../i18n/context';
 import type { Messages } from '@i18n';
+import { validateAIChatExtraction } from './aiChatExtractionValidation';
+import { prepareAIChatDocumentForExtraction } from './aiChatDocumentPreparer';
 
 interface OptionsProvider {
   get(): Promise<StoredOptions>;
   reset(): void;
 }
 
-type AIChatFallbackMessages = Pick<
-  Messages,
-  | 'exportAiChatFallbackTitleDeepseek'
-  | 'exportAiChatFallbackTitleKimi'
-  | 'exportAiChatFallbackTitleTongyi'
->;
-
-const ENGLISH_NEUTRAL_AI_CHAT_FALLBACK_TITLES = {
-  doubao: 'Doubao Chat',
-  monica: 'Monica Chat'
-} as const;
+type AIChatFallbackMessages = Pick<Messages, AIChatFallbackTitleMessageKey>;
 
 export interface AIChatExtractorDeps {
   optionsRepository?: OptionsRepository | IOptionsRepository;
   optionsProvider?: OptionsProvider;
   getMessages?(): Promise<AIChatFallbackMessages>;
-  detectPlatform(url: string): string;
+  detectPlatform(url: string, doc?: Document): PlatformId | null;
   now(): Date;
 }
 
 interface ResolvedAIChatExtractorDeps {
   optionsProvider: OptionsProvider;
   getMessages(): Promise<AIChatFallbackMessages>;
-  detectPlatform(url: string): string;
+  detectPlatform(url: string, doc?: Document): PlatformId | null;
   now(): Date;
 }
 
@@ -67,7 +64,7 @@ function createOptionsProviderFromRepository(
     }
 
     unsubscribe = repository.onChange((value) => {
-      cached = value as StoredOptions;
+      cached = value;
     });
   };
 
@@ -103,7 +100,7 @@ function createOptionsProviderFromRepository(
 
 function createEmptyOptionsProvider(): OptionsProvider {
   return {
-    get: () => Promise.resolve({} as StoredOptions),
+    get: () => Promise.resolve({}),
     reset: () => undefined
   };
 }
@@ -112,18 +109,8 @@ function createMessagesProvider(): () => Promise<AIChatFallbackMessages> {
   return () => Promise.resolve(getContentI18nResource()?.messages ?? getContentMessages());
 }
 
-function defaultDetectPlatform(url: string): string {
-  if (/(chatgpt|chat\.openai\.com)/.test(url)) return 'chatgpt';
-  if (/claude/.test(url)) return 'claude';
-  if (/gemini/.test(url)) return 'gemini';
-  if (/copilot/.test(url)) return 'copilot';
-  if (/tongyi/.test(url)) return 'tongyi';
-  if (/deepseek/.test(url)) return 'deepseek';
-  if (/kimi|moonshot/.test(url)) return 'kimi';
-  if (/doubao/.test(url)) return 'doubao';
-  if (/monica/.test(url)) return 'monica';
-  if (/perplexity/.test(url)) return 'perplexity';
-  return 'chat';
+function defaultDetectPlatform(url: string, doc?: Document): PlatformId | null {
+  return resolveAIChatPlatformByUrl(url, doc);
 }
 
 interface ChatMarkdownMessage {
@@ -166,36 +153,21 @@ function normalizeMessages(messages: ParsedMessage[]): ChatMarkdownMessage[] {
   });
 }
 
-function resolveFallbackTitle(
-  platform: string,
-  messages: AIChatFallbackMessages
-): string | undefined {
-  switch (platform) {
-    case 'deepseek':
-      return messages.exportAiChatFallbackTitleDeepseek;
-    case 'kimi':
-      return messages.exportAiChatFallbackTitleKimi;
-    case 'tongyi':
-      return messages.exportAiChatFallbackTitleTongyi;
-    case 'doubao':
-      return ENGLISH_NEUTRAL_AI_CHAT_FALLBACK_TITLES.doubao;
-    case 'monica':
-      return ENGLISH_NEUTRAL_AI_CHAT_FALLBACK_TITLES.monica;
-    default:
-      return undefined;
-  }
-}
-
 function requireFallbackTitle(
-  platform: string,
+  platform: PlatformId,
   messages: AIChatFallbackMessages
 ): string | undefined {
-  const fallbackTitle = resolveFallbackTitle(platform, messages)?.trim();
+  const policy = getAIChatFallbackTitlePolicy(platform);
+  if (!policy) {
+    return undefined;
+  }
+
+  const fallbackTitle = messages[policy.messageKey].trim();
   if (fallbackTitle) {
     return fallbackTitle;
   }
 
-  if (platform === 'deepseek' || platform === 'kimi' || platform === 'tongyi') {
+  if (policy.required) {
     throw new Error(`Missing localized AI chat fallback title for ${platform}`);
   }
 
@@ -217,9 +189,13 @@ export const createAIChatExtractor = (deps?: Partial<AIChatExtractorDeps>): Cont
   };
 
   const extract = async ({ document, url }: ExtractionContext) => {
-    const platform = resolvedDeps.detectPlatform(url);
+    const platform = resolvedDeps.detectPlatform(url, document);
+    if (!platform) {
+      throw new Error(`Unsupported AI chat platform for ${url}`);
+    }
+
     const storedOptions = await resolvedDeps.optionsProvider.get();
-    const options = storedOptions as OptionsState;
+    const options = storedOptions;
     const fallbackTitle = requireFallbackTitle(platform, await resolvedDeps.getMessages());
 
     const parseConfig = {
@@ -231,9 +207,10 @@ export const createAIChatExtractor = (deps?: Partial<AIChatExtractorDeps>): Cont
 
     const { parseChatDOMAsync } =
       await import('../../third_party/ai-chat-exporter/runtimeRegistry');
-    const { title, messages, assets, model, createdAt } = await parseChatDOMAsync(
+    const preparedDocument = await prepareAIChatDocumentForExtraction(platform, document);
+    const { title, messages, assets, model, createdAt, diagnostics } = await parseChatDOMAsync(
       platform,
-      document,
+      preparedDocument,
       parseConfig
     );
     const aiChatOptions: ChatMarkdownOptions = {
@@ -241,6 +218,7 @@ export const createAIChatExtractor = (deps?: Partial<AIChatExtractorDeps>): Cont
       userName: options?.aiChat?.userName || 'USER'
     };
     const normalizedMessages = normalizeMessages(messages);
+    validateAIChatExtraction({ title, platform, url, messages: normalizedMessages, diagnostics });
 
     const baseInput: ChatMarkdownInput = {
       title,
@@ -259,7 +237,7 @@ export const createAIChatExtractor = (deps?: Partial<AIChatExtractorDeps>): Cont
     const markdown = buildChatMarkdown(chatMarkdownInput);
 
     return {
-      type: 'ai_chat' as const,
+      type: 'ai_chat',
       title,
       markdown,
       assets,

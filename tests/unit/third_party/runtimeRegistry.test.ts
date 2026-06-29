@@ -8,6 +8,8 @@ import {
   resolveParserAsync
 } from '../../../src/third_party/ai-chat-exporter/runtimeRegistry';
 import { DEFAULT_CHAT_TITLE } from '../../../src/third_party/ai-chat-exporter/shared/constants';
+import { AI_CHAT_PLATFORM_IDENTITIES } from '../../../src/third_party/ai-chat-exporter/platformIdentity';
+import { getRuntimePlatformParser } from '../../../src/third_party/ai-chat-exporter/runtimePlatformParsers';
 
 describe('runtime AI chat parser registry', () => {
   it('uses a consolidated lazy parser module instead of per-platform dynamic imports', () => {
@@ -41,9 +43,30 @@ describe('runtime AI chat parser registry', () => {
     ['doubao', 'doubao'],
     ['monica', 'monica'],
     ['perplexity', 'perplexity'],
-    ['pplx', 'perplexity']
+    ['pplx', 'perplexity'],
+    ['qianwen', 'tongyi']
   ])('resolves %s to the %s parser', async (platform, expectedId) => {
     await expect(resolveParserAsync(platform)).resolves.toMatchObject({ id: expectedId });
+  });
+
+  it('derives aliases from the canonical platform registry', () => {
+    const source = readFileSync(
+      resolve(process.cwd(), 'src/third_party/ai-chat-exporter/runtimeRegistry.ts'),
+      'utf8'
+    );
+
+    expect(source).toContain('getAIChatPlatformAliases');
+    expect(source).not.toContain('parserAliases');
+  });
+
+  it('keeps the runtime parser map aligned with canonical platform metadata', () => {
+    const runtimeParserIds = AI_CHAT_PLATFORM_IDENTITIES.map(
+      (definition) => getRuntimePlatformParser(definition.id).id
+    );
+
+    expect(runtimeParserIds).toEqual(
+      AI_CHAT_PLATFORM_IDENTITIES.map((definition) => definition.id)
+    );
   });
 
   it('returns undefined for unsupported platforms', async () => {
@@ -56,7 +79,8 @@ describe('runtime AI chat parser registry', () => {
     await expect(parseChatDOMAsync('unknown', dom.window.document)).resolves.toMatchObject({
       title: DEFAULT_CHAT_TITLE,
       messages: [],
-      assets: []
+      assets: [],
+      diagnostics: [{ code: 'parser_not_found', severity: 'warning' }]
     });
   });
 });

@@ -24,12 +24,23 @@ export type ChatAsset = {
   filename?: string;
 };
 
+export type ParseDiagnosticSeverity = 'info' | 'warning' | 'error';
+
+export type ParseDiagnostic = {
+  code: string;
+  severity: ParseDiagnosticSeverity;
+  detail?: string;
+};
+
+export const PARSER_NOT_FOUND_DIAGNOSTIC_CODE = 'parser_not_found' as const;
+
 export type ParsedResult = {
   title: string;
   messages: ParsedMessage[];
   assets: ChatAsset[];
   model?: string;
   createdAt?: string;
+  diagnostics?: ParseDiagnostic[];
 };
 
 export type DeepResearchConfig = {

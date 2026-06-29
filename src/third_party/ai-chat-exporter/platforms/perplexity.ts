@@ -1,13 +1,9 @@
 import { DEFAULT_CHAT_TITLE } from '../shared/constants';
-import { chatHtmlToMarkdown } from '../shared/markdown';
+import { cloneHTMLElement } from '../shared/dom';
+import { chatElementToMarkdown } from '../shared/markdown';
 import type { ChatPlatformParser, ParsedMessage, ParsedResult } from '../types';
-
-const MESSAGE_SELECTORS = [
-  '[data-testid="user-message"]',
-  '[data-testid="assistant-message"]',
-  '[data-message-author]',
-  '[data-role="message"]'
-].join(',');
+import { collectPerplexityMessageCandidates } from './perplexityCandidates';
+import { cleanupPerplexityBody, pickPerplexityMessageBody } from './perplexityDom';
 
 const MODEL_SELECTORS = [
   '[data-testid="model-name"]',
@@ -19,46 +15,6 @@ const MODEL_SELECTORS = [
 
 function normaliseTitle(rawTitle: string): string {
   return rawTitle.replace(/\s*[-|]\s*Perplexity.*$/i, '').trim() || DEFAULT_CHAT_TITLE;
-}
-
-function detectRole(node: HTMLElement): 'user' | 'assistant' {
-  const author = (
-    node.dataset.messageAuthor ??
-    node.dataset.role ??
-    node.getAttribute('data-testid') ??
-    node.className
-  ).toLowerCase();
-
-  if (/(user|query|prompt|human)/.test(author)) {
-    return 'user';
-  }
-  return 'assistant';
-}
-
-function pickMessageBody(node: HTMLElement): HTMLElement | null {
-  const selectors = [
-    '[data-testid="message-content"]',
-    '[class*="prose"]',
-    '[class*="markdown"]',
-    'article',
-    'main',
-    'p'
-  ];
-
-  for (const selector of selectors) {
-    const match = node.querySelector<HTMLElement>(selector);
-    if (match) return match;
-  }
-
-  return node;
-}
-
-function cleanupBody(fragment: HTMLElement): void {
-  fragment
-    .querySelectorAll(
-      'button, svg, [aria-label*="copy" i], [data-testid*="toolbar"], [class*="toolbar"]'
-    )
-    .forEach((element) => element.remove());
 }
 
 function extractModel(doc: Document): string | undefined {
@@ -77,31 +33,33 @@ function extractModel(doc: Document): string | undefined {
 }
 
 function extractPerplexityChat(doc: Document): ParsedResult {
-  const nodes = Array.from(doc.querySelectorAll<HTMLElement>(MESSAGE_SELECTORS));
-  if (nodes.length === 0) {
+  const candidates = collectPerplexityMessageCandidates(doc);
+  if (candidates.length === 0) {
     return { title: DEFAULT_CHAT_TITLE, messages: [], assets: [] };
   }
 
   const messages: ParsedMessage[] = [];
   let index = 1;
 
-  for (const node of nodes) {
-    const body = pickMessageBody(node);
+  for (const { node, role } of candidates) {
+    const body = pickPerplexityMessageBody(node);
     if (!body) continue;
 
-    const clone = body.cloneNode(true) as HTMLElement;
-    cleanupBody(clone);
+    const clone = cloneHTMLElement(body);
+    if (!clone) continue;
+
+    cleanupPerplexityBody(clone);
 
     const text = clone.textContent?.trim() ?? '';
     if (!text) continue;
 
-    const html = clone.innerHTML || '';
-    const markdown = chatHtmlToMarkdown(html || text);
+    const markdown = chatElementToMarkdown(clone);
     if (!markdown.trim()) continue;
 
+    const html = clone.innerHTML || '';
     messages.push({
       id: `msg-${index++}`,
-      role: detectRole(node),
+      role,
       ...(html ? { html } : {}),
       md: markdown,
       text: markdown

@@ -22,7 +22,7 @@
   "schemaCaptureSourcesAiChatGroupTitle": "AI チャット",
   "schemaCaptureSourcesAiConversationDescription": "AI チャット書き出しの対応元と表示方法を設定します。",
   "schemaCaptureSourcesAiConversationTitle": "AI 会話キャプチャ",
-  "schemaCaptureSourcesAiSupportedPlatformsBadge": "対応プラットフォーム 8 件",
+  "schemaCaptureSourcesAiSupportedPlatformsBadge": "対応プラットフォーム 10 件",
   "schemaCaptureSourcesAttachmentGuidanceLink": "Custom Attachment Location",
   "schemaCaptureSourcesAttachmentGuidancePrefix": "これらの添付設定は Obsidian プラグイン ",
   "schemaCaptureSourcesAttachmentGuidanceSuffix": " と併用し、Obsidian 側のプラグイン設定をここでのテンプレートと一致させてください。",

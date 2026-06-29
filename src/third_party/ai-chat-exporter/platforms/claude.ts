@@ -1,15 +1,51 @@
 import { DEFAULT_CHAT_TITLE } from '../shared/constants';
-import { chatHtmlToMarkdown } from '../shared/markdown';
+import { chatElementToMarkdown } from '../shared/markdown';
 import type { ChatPlatformParser, ParsedMessage, ParsedResult } from '../types';
 
-const CLAUDE_MAIN_CONTAINER_SELECTOR =
-  '.flex-1.flex.flex-col.gap-3.px-4.max-w-3xl.mx-auto.w-full.pt-1';
 const CLAUDE_USER_MESSAGE_SELECTOR = '[data-testid="user-message"]';
 const CLAUDE_ASSISTANT_MESSAGE_SELECTOR = '.font-claude-response';
+const CLAUDE_MARKDOWN_SELECTOR = '.standard-markdown, .progressive-markdown';
+const CLAUDE_MESSAGE_ROOT_SELECTOR = [
+  CLAUDE_USER_MESSAGE_SELECTOR,
+  CLAUDE_ASSISTANT_MESSAGE_SELECTOR,
+  '.standard-markdown',
+  '.progressive-markdown'
+].join(', ');
+
+function collectClaudeMessageRoots(doc: Document): HTMLElement[] {
+  const candidates = Array.from(doc.querySelectorAll<HTMLElement>(CLAUDE_MESSAGE_ROOT_SELECTOR));
+  const roots: HTMLElement[] = [];
+
+  for (const candidate of candidates) {
+    if (roots.some((root) => root !== candidate && root.contains(candidate))) {
+      continue;
+    }
+
+    roots.push(candidate);
+  }
+
+  return roots;
+}
+
+function isClaudeUserMessage(element: HTMLElement): boolean {
+  return element.matches(CLAUDE_USER_MESSAGE_SELECTOR);
+}
+
+function pickClaudeMessageContent(element: HTMLElement): HTMLElement | null {
+  if (isClaudeUserMessage(element)) {
+    return element;
+  }
+
+  if (element.matches(CLAUDE_MARKDOWN_SELECTOR)) {
+    return element;
+  }
+
+  return element.querySelector<HTMLElement>(CLAUDE_MARKDOWN_SELECTOR);
+}
 
 function extractClaudeChatData(doc: Document): ParsedResult {
-  const mainContainer = doc.querySelector(CLAUDE_MAIN_CONTAINER_SELECTOR);
-  if (!mainContainer) {
+  const messageRoots = collectClaudeMessageRoots(doc);
+  if (messageRoots.length === 0) {
     return { title: DEFAULT_CHAT_TITLE, messages: [], assets: [] };
   }
 
@@ -28,52 +64,32 @@ function extractClaudeChatData(doc: Document): ParsedResult {
     }
   }
 
-  Array.from(mainContainer.children).forEach((child) => {
-    const element = child as HTMLElement;
-
-    const userMessage = element.querySelector(CLAUDE_USER_MESSAGE_SELECTOR);
-    if (userMessage) {
-      const html = userMessage.innerHTML;
-      const markdown = chatHtmlToMarkdown(html);
-
-      if (markdown.trim()) {
-        messages.push({
-          id: `msg-${chatIndex++}`,
-          role: 'user',
-          html,
-          md: markdown,
-          text: markdown
-        });
-      }
-      return;
+  for (const element of messageRoots) {
+    const content = pickClaudeMessageContent(element);
+    if (!content) {
+      continue;
     }
 
-    const assistantMessage = element.querySelector(CLAUDE_ASSISTANT_MESSAGE_SELECTOR);
-    if (assistantMessage) {
-      const markdownContainer = assistantMessage.querySelector(
-        '.standard-markdown, .progressive-markdown'
-      );
-      if (markdownContainer) {
-        const html = markdownContainer.innerHTML;
-        const markdown = chatHtmlToMarkdown(html);
-
-        if (markdown.trim()) {
-          const message: ParsedMessage = {
-            id: `msg-${chatIndex++}`,
-            role: 'assistant',
-            md: markdown,
-            text: markdown
-          };
-
-          if (html) {
-            message.html = html;
-          }
-
-          messages.push(message);
-        }
-      }
+    const fragment = content.cloneNode(true) as HTMLElement;
+    const markdown = chatElementToMarkdown(fragment);
+    if (!markdown.trim()) {
+      continue;
     }
-  });
+
+    const message: ParsedMessage = {
+      id: `msg-${chatIndex++}`,
+      role: isClaudeUserMessage(element) ? 'user' : 'assistant',
+      md: markdown,
+      text: markdown
+    };
+
+    const html = fragment.innerHTML;
+    if (html) {
+      message.html = html;
+    }
+
+    messages.push(message);
+  }
 
   const parsedResult: ParsedResult = { title, messages, assets: [] };
 

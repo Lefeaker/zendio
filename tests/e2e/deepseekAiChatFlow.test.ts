@@ -163,4 +163,84 @@ describe('deepseek ai chat integration', () => {
     );
     expect(filePath).toBe('AI/deepseek/2025/03/04/代码片段.md');
   });
+
+  it('hydrates DeepSeek virtualized messages before parsing from a bottom scroll position', async () => {
+    const dom = new JSDOM(
+      `<!doctype html>
+      <html lang="en">
+        <head>
+          <title>Comparison of Three Leading AI Companies - DeepSeek</title>
+        </head>
+        <body>
+          <main>
+            <div class="ds-virtual-list ds-virtual-list--printable ds-scroll-area ds-scroll-area--enabled">
+              <div class="ds-virtual-list-visible-items"></div>
+            </div>
+          </main>
+        </body>
+      </html>`,
+      { url: deepseekUrl, pretendToBeVisual: true }
+    );
+    installJsdom(dom, { includeLocalStorage: false });
+
+    const doc = dom.window.document;
+    const scroller = doc.querySelector<HTMLElement>('.ds-virtual-list--printable');
+    const visibleItems = doc.querySelector<HTMLElement>('.ds-virtual-list-visible-items');
+    if (!scroller || !visibleItems) {
+      throw new Error('Expected DeepSeek virtual list fixture nodes');
+    }
+
+    Object.defineProperty(scroller, 'clientHeight', { configurable: true, value: 700 });
+    Object.defineProperty(scroller, 'scrollHeight', { configurable: true, value: 5200 });
+
+    const renderTopWindow = () => {
+      visibleItems.innerHTML = `
+        <div class="d29f3d7d ds-message _63c77b1"><div class="fbb737a4">please u use a table to summery three ai company different</div></div>
+        <div class="ds-message _63c77b1"><div class="ds-markdown ds-assistant-message-main-content"><p>Of course! Here is a table that summarizes and compares three leading AI companies.</p></div></div>
+        <div class="d29f3d7d ds-message _63c77b1"><div class="fbb737a4">i need u use least four layers text to show more things</div></div>
+        <div class="ds-message _63c77b1"><div class="ds-markdown ds-assistant-message-main-content"><p>Of course. Here is a more detailed layered breakdown.</p></div></div>
+        <div class="d29f3d7d ds-message _63c77b1"><div class="fbb737a4">please give me some code block example html markdown js ts python</div></div>
+        <div class="ds-message _63c77b1"><div class="ds-markdown ds-assistant-message-main-content"><p>Here are code examples in HTML, Markdown, JavaScript, TypeScript, and Python.</p></div></div>`;
+    };
+
+    const renderBottomWindow = () => {
+      visibleItems.innerHTML = `
+        <div class="ds-message _63c77b1"><div class="ds-markdown ds-assistant-message-main-content"><p>Of course! Here is a table that summarizes and compares three leading AI companies.</p></div></div>
+        <div class="d29f3d7d ds-message _63c77b1"><div class="fbb737a4">i need u use least four layers text to show more things</div></div>
+        <div class="ds-message _63c77b1"><div class="ds-markdown ds-assistant-message-main-content"><p>Of course. Here is a more detailed layered breakdown.</p></div></div>
+        <div class="d29f3d7d ds-message _63c77b1"><div class="fbb737a4">please give me some code block example html markdown js ts python</div></div>
+        <div class="ds-message _63c77b1"><div class="ds-markdown ds-assistant-message-main-content"><p>Here are code examples in HTML, Markdown, JavaScript, TypeScript, and Python.</p></div></div>`;
+    };
+
+    scroller.addEventListener('scroll', () => {
+      if (scroller.scrollTop <= 0) {
+        renderTopWindow();
+      } else {
+        renderBottomWindow();
+      }
+    });
+
+    renderBottomWindow();
+    scroller.scrollTop = 4500;
+
+    const { createDefaultExtractorRegistry } =
+      await import('../../src/content/extractors/registry');
+    const registry = createDefaultExtractorRegistry({
+      optionsRepository: createE2eOptionsRepository({
+        aiChat: { includeTimestamps: true, userName: 'Analyst' },
+        deepResearch: { pureMode: false }
+      })
+    });
+
+    const clip = await registry.extract({ document: doc, url: deepseekUrl });
+
+    expect(clip.meta.messageCount).toBe(6);
+    expect(clip.markdown).toContain('message_count: 6');
+    expect(clip.markdown).toMatch(/^# 1 Analyst/m);
+    expect(clip.markdown.indexOf('# 1 Analyst')).toBeLessThan(
+      clip.markdown.indexOf('# 2 DeepSeek')
+    );
+    expect(clip.markdown).toContain('> please u use a table to summery three ai company different');
+    expect(scroller.scrollTop).toBe(4500);
+  });
 });

@@ -229,6 +229,108 @@ describe('ai chat platform parsers', () => {
     expect(result.messages[1].md).not.toMatch(/Copy/);
   });
 
+  it('imports Perplexity helpers directly instead of through an assistant-family facade', () => {
+    const source = readFileSync(
+      join(process.cwd(), 'src/third_party/ai-chat-exporter/platforms/perplexity.ts'),
+      'utf8'
+    );
+
+    expect(source).toContain('./perplexityCandidates');
+    expect(source).toContain('./perplexityDom');
+    expect(source).not.toContain('./assistantFamilyHelpers');
+  });
+
+  it('parses Perplexity live residual thread sections with assistant roles', () => {
+    const doc = loadFixture('current-dom/perplexity-live-residual-2026-06-25.html');
+    const result = parseChatDOM('perplexity', doc);
+
+    expect(result.title).toBe('Sanitized Perplexity Residual Thread');
+    expect(result.messages).toHaveLength(4);
+    expect(result.messages.map((message) => message.role)).toEqual([
+      'user',
+      'assistant',
+      'user',
+      'assistant'
+    ]);
+
+    const markdown = result.messages.map((message) => message.md ?? '').join('\n\n');
+    expect(markdown).toContain('Compare two sanitized AI research workflows.');
+    expect(markdown).toContain(
+      'Sanitized Perplexity answer one should become assistant content after repair.'
+    );
+    expect(markdown).toContain('First sanitized assistant bullet should be retained.');
+    expect(markdown).not.toContain('Sanitized source card should not become a message.');
+    expect(markdown).not.toContain('Sidebar suggestion should not become a message.');
+    expect(markdown).not.toContain('Citation wrapper text should stay part of source cleanup.');
+    expect(markdown).not.toMatch(/\bCopy\b/);
+  });
+
+  it('parses Perplexity tabpanel live DOM without assistant-first role drift', () => {
+    const doc = loadFixture('current-dom/perplexity-live-tabpanel-role-drift-2026-06-28.html');
+    const result = parseChatDOM('perplexity', doc);
+
+    expect(result.title).toBe('Sanitized Perplexity Tabpanel Thread');
+    expect(result.messages).toHaveLength(6);
+    expect(result.messages.map((message) => message.role)).toEqual([
+      'user',
+      'assistant',
+      'user',
+      'assistant',
+      'user',
+      'assistant'
+    ]);
+
+    expect(result.messages[0]?.md).toContain(
+      'please use a table to summarize three AI company differences.'
+    );
+    expect(result.messages[1]?.md).toContain(
+      'Here is a summary table for three sanitized AI companies.'
+    );
+    expect(result.messages[2]?.md).toContain('at least four layers of text nesting');
+    expect(result.messages[3]?.md).toContain(
+      'Deep nested assistant detail should remain readable.'
+    );
+    expect(result.messages[4]?.md).toContain('code block that renders a small comparison widget');
+    expect(result.messages[5]?.md).toContain('```html');
+
+    const markdown = result.messages.map((message) => message.md ?? '').join('\n\n');
+    expect(markdown).not.toContain('Sanitized source card should not become a message.');
+    expect(markdown).not.toContain('Sidebar suggestion should not become a message.');
+    expect(markdown).not.toContain('Citation wrapper text should stay part of source cleanup.');
+    expect(markdown).not.toMatch(/\bCopy\b/);
+  });
+
+  it('fails closed on unverified Perplexity assistant-first current candidates', () => {
+    const doc = new DOMParser().parseFromString(
+      `
+      <html>
+        <head><title>Unverified Perplexity Drift - Perplexity</title></head>
+        <body>
+          <main>
+            <section aria-label="Conversation">
+              <div class="max-w-threadContentWidth">
+                <div class="group/query !text-wrap select-text">
+                  <div class="text-foreground">This user prompt must not be exported second.</div>
+                </div>
+                <div class="reply-block">
+                  <div class="prose">
+                    <p>This assistant answer must not be exported before recovery is verified.</p>
+                  </div>
+                </div>
+              </div>
+            </section>
+          </main>
+        </body>
+      </html>
+    `,
+      'text/html'
+    );
+
+    const result = parseChatDOM('perplexity', doc);
+
+    expect(result.messages).toHaveLength(0);
+  });
+
   it('preserves Claude language fences while removing copy buttons', () => {
     const doc = loadFixture('claude-code.html');
     const result = parseChatDOM('claude', doc);

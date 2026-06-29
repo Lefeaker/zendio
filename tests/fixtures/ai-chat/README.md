@@ -3,18 +3,24 @@
 These fixtures are committed regression inputs for `src/third_party/ai-chat-exporter/**`.
 They must stay deterministic, local, and privacy-stripped. Unit coverage lives in
 `tests/unit/third_party/parsers.test.ts` unless a focused parser test owns the case.
+The executable fixture manifest is `fixtureManifest.ts`; keep this README and the
+manifest synchronized in the same commit.
 
 ## Naming
 
 - Use `<platform>.html` for the primary layout.
 - Use `<platform>-<scenario>.html` for drift or edge cases.
+- Use `current-dom/<platform>-current-YYYY-MM-DD.html` for sanitized live-derived
+  current-DOM captures.
+- Use `current-dom/<platform>-current-<scenario>.html` for focused current-DOM
+  regression slots that are not tied to a live capture date.
 - Keep platform ids aligned with `parseChatDOM(<platform>, document)`.
 - Do not use live network calls or external HTML downloads in tests.
 
 ## Required Metadata
 
-When adding or materially changing a fixture, update the index below in the same
-commit as the parser/test change.
+When adding or materially changing a fixture, update the index below and
+`fixtureManifest.ts` in the same commit as the parser/test change.
 
 Each row must include:
 
@@ -24,6 +30,11 @@ Each row must include:
 - platform and expected parser id;
 - expected title, message count, or Markdown sentinel;
 - privacy stripping status.
+- manifest status: `active` for committed parser fixtures and `pending` for
+  planned current-DOM slots that do not have sanitized HTML yet.
+- validation expectation when parser evidence is intentionally not exportable,
+  for example `expectedValidation: 'role-incomplete'` for assistant-first
+  shared-thread evidence that must fail closed in the product export path.
 
 ## Privacy Stripping
 
@@ -38,11 +49,37 @@ Before committing fixture HTML:
 - keep toolbar/action text only when a test asserts the parser removes it from
   Markdown output.
 
-Current fixtures were created before capture-date governance. Their source
-capture date is therefore recorded as `legacy-unknown`; refreshes must replace
-that value with an actual capture date. On 2026-05-26, a privacy scan found no
-email addresses, bearer tokens, common API-key tokens, or `http(s)` URLs in this
-directory.
+Current legacy fixtures were created before capture-date governance. Their
+source capture date is therefore recorded as `legacy-unknown`; refreshes must
+replace that value with an actual capture date. The current-DOM lane does not
+allow `legacy-unknown` for committed files. On 2026-05-26, a privacy scan found
+no email addresses, bearer tokens, common API-key tokens, or `http(s)` URLs in
+this directory. `tests/unit/third_party/fixtureManifest.test.ts` now repeats
+that privacy scan for active fixture files.
+
+## Current DOM Lane
+
+Current-DOM fixtures live under `current-dom/` and are documented in
+`current-dom/README.md`. Raw live captures must stay ignored under:
+
+```text
+/Users/mac/Documents/Dev/AI2OB_Plg/.tmp/ai-chat-parser-productionization-2026-06-24/live-dom-snapshots/
+```
+
+The current-DOM matrix is driven by `fixtureManifest.ts`:
+
+- `status: 'pending'` reserves a P05/P06/P07 slot and is skipped by parser
+  matrix tests. Unrepaired P10 residual fixtures may commit sanitized HTML while
+  staying pending when they intentionally document expected-red parser behavior.
+- `status: 'active'` requires a committed sanitized fixture file and parser
+  assertions.
+- Every committed `current-dom/*.html` fixture must use a concrete
+  `YYYY-MM-DD` source capture date and `privacyStatus: 'sanitized'`.
+- Active parser fixtures default to successful export validation. If a fixture
+  preserves known unsafe parser evidence such as assistant-first output, the
+  manifest row must explicitly set `expectedValidation: 'role-incomplete'` so
+  the current-DOM matrix asserts fail-closed export behavior instead of treating
+  that parse as a successful export.
 
 ## Fixture Index
 
@@ -63,10 +100,36 @@ directory.
 | `monica.html` | `legacy-unknown` | Monica | `monica` | title `AI 对话摘要`; model `GPT-4o` | sanitized legacy fixture |
 | `monica-fallback.html` | `legacy-unknown` | Monica | `monica` | fallback model `Monica` | sanitized legacy fixture |
 | `perplexity.html` | `legacy-unknown` | Perplexity | `perplexity` | title `AI Research Thread`; removes `Copy` | sanitized legacy fixture |
+| `current-dom/perplexity-current-2026-06-24.html` | `2026-06-24` | Perplexity | `perplexity` | current DOM query/answer markers; removes sources, sidebar, and toolbar text | sanitized fixture |
 | `tongyi.html` | `legacy-unknown` | Tongyi | `tongyi` | title `研究计划`; model `Qwen2-Turbo` | sanitized legacy fixture |
 | `tongyi-code.html` | `legacy-unknown` | Tongyi | `tongyi` | keeps TypeScript and Python fences; removes line numbers | sanitized legacy fixture |
 | `tongyi-inline-numbers.html` | `legacy-unknown` | Tongyi | `tongyi` | strips inline numeric prefixes without removing indentation | sanitized legacy fixture |
 | `tongyi-new.html` | `legacy-unknown` | Tongyi | `tongyi` | hashed class layout with four messages | sanitized legacy fixture |
+| `current-dom/harness-chatgpt-current-synthetic.html` | `2026-06-24` | ChatGPT | `chatgpt` | synthetic current-DOM lane harness; assistant text `sanitized current DOM shape` | sanitized fixture |
+| `current-dom/chatgpt-current-2026-06-24.html` | `2026-06-24` | ChatGPT | `chatgpt` | no-`article` role-marked DOM; assistant text `role attributes without article wrappers` | sanitized fixture |
+| `current-dom/claude-current-2026-06-24.html` | `2026-06-24` | Claude | `claude` | no full Tailwind main container; keeps `ts` fence and strips thinking/artifact chrome | sanitized fixture |
+| `current-dom/copilot-current-synthetic.html` | `2026-06-24` | Copilot | `copilot` | synthetic focused current guard; assistant text `parser support covered` | sanitized fixture |
+| `current-dom/deepseek-current-2026-06-24.html` | `2026-06-24` | DeepSeek | `deepseek` | friendly role-marked current-DOM fixture retained as P06 history | sanitized fixture |
+| `current-dom/doubao-current-2026-06-24.html` | `2026-06-24` | Doubao | `doubao` | friendly current-DOM fixture retained as P06 history | sanitized fixture |
+| `current-dom/tongyi-qianwen-current-2026-06-24.html` | `2026-06-24` | Tongyi | `tongyi` | friendly Qianwen fixture retained as P06 history | sanitized fixture |
+| `current-dom/deepseek-live-residual-2026-06-25.html` | `2026-06-25` | DeepSeek | `deepseek` | active P12 repair fixture; parses live `ds-message` / `ds-markdown` tokens without friendly role wrappers | sanitized fixture |
+| `current-dom/doubao-live-residual-2026-06-25.html` | `2026-06-25` | Doubao | `doubao` | active P12 repair fixture; parses live `data-message-id` / `block-v2` / `whitespace-pre-wrap` shape without legacy message roots | sanitized fixture |
+| `current-dom/tongyi-qianwen-live-residual-2026-06-25.html` | `2026-06-25` | Tongyi | `tongyi` | active P12 repair fixture; parses Qianwen `message-select-wrapper-*` / `answerItem-*` shape through Tongyi | sanitized fixture |
+| `current-dom/perplexity-live-residual-2026-06-25.html` | `2026-06-25` | Perplexity | `perplexity` | P13 active residual repair; returns four messages with `user/assistant/user/assistant` roles and strips source/sidebar/citation/copy noise | sanitized fixture |
+| `current-dom/perplexity-live-tabpanel-role-drift-2026-06-28.html` | `2026-06-28` | Perplexity | `perplexity` | active live tabpanel repair; recovers `user/assistant` role alternation when one panel contains both query text and assistant `prose` | sanitized fixture |
+
+## Pending Current DOM Slots
+
+These manifest entries are intentionally `pending`; they stay out of the parser
+matrix until the owning milestone contributes passing parser assertions. Some
+P10 residual entries already have sanitized HTML so fixture-shape tests can prove
+the live DOM tokens without committing canonical failing parser tests.
+
+| fixture | owner milestone | platform | capture kind |
+| --- | --- | --- | --- |
+| `current-dom/kimi-current-pass-regression-2026-06-24.html` | P06 | Kimi | focused regression |
+| `current-dom/monica-current-pass-regression-2026-06-24.html` | P07 | Monica | focused regression |
+| `current-dom/gemini-current-pass-regression-2026-06-24.html` | P07 | Gemini | focused regression |
 
 ## Drift Rule
 

@@ -22,7 +22,7 @@
   "schemaCaptureSourcesAiChatGroupTitle": "Chat IA",
   "schemaCaptureSourcesAiConversationDescription": "Configura la cobertura de orígenes y el comportamiento visual de las exportaciones de chat con IA.",
   "schemaCaptureSourcesAiConversationTitle": "Captura de conversaciones de IA",
-  "schemaCaptureSourcesAiSupportedPlatformsBadge": "8 plataformas compatibles",
+  "schemaCaptureSourcesAiSupportedPlatformsBadge": "10 plataformas compatibles",
   "schemaCaptureSourcesAttachmentGuidanceLink": "Custom Attachment Location",
   "schemaCaptureSourcesAttachmentGuidancePrefix": "Usa estos ajustes de adjuntos con el plugin de Obsidian ",
   "schemaCaptureSourcesAttachmentGuidanceSuffix": " y mantén la configuración del plugin en Obsidian alineada con estas plantillas.",

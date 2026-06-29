@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Parser Drift - Claude</title>
+</head>
+<body>
+  <main data-testid="claude-chat">
+    <section data-testid="message-row">
+      <div data-testid="user-message">
+        <p>Draft a parser repair checklist for resilient message selectors.</p>
+      </div>
+    </section>
+    <section data-testid="message-row">
+      <div data-testid="thinking-block">Thinking through hidden tool context.</div>
+      <div class="font-claude-response">
+        <div class="standard-markdown">
+          <p>Claude current response keeps stable markdown wrappers.</p>
+          <pre><code class="language-ts">const selector = '[data-testid=&quot;user-message&quot;]';</code></pre>
+        </div>
+      </div>
+      <button type="button" aria-label="Copy response">Copy response</button>
+      <div data-testid="artifact-card">Artifact preview should stay out of Markdown.</div>
+    </section>
+  </main>
+</body>
+</html>

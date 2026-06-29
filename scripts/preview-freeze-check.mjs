@@ -105,11 +105,14 @@ const ALLOWED_PREVIEW_DRIFT = new Map([
         'The support resource closeout refreshes the generated preview JS hash after deleting retired Support Scope schema messages, neutralizing AI-assisted product-positioning copy in cataloged experimental settings, and routing support/contact/suggestion links through the shared Zendio resource link registry while preserving the frozen reference and Stitch resource modal/runtime surface behavior.',
         'The Firefox runtime boundary and reader focus main merge refreshes the generated preview JS hash while preserving the frozen reference, preview freeze logic, and Stitch runtime contract.',
         'P05 refreshes the generated preview JS hash after facade-preserving Options/Stitch owner decomposition, runtime-threaded asset URL resolution, and schema-context browser target routing while focused Options/Stitch tests and visual:stitch preserve the frozen reference and Stitch runtime contract.',
-        'The post-P05 hardcoded-config repair refreshes the generated preview JS hash after routing Options resource and YAML sample REST URLs through configProvider.getRestDefaults(), preserving the visible default and offset sample values while keeping the hardcoded config guard intact.'
+        'The post-P05 hardcoded-config repair refreshes the generated preview JS hash after routing Options resource and YAML sample REST URLs through configProvider.getRestDefaults(), preserving the visible default and offset sample values while keeping the hardcoded config guard intact.',
+        'P08 Options AI platform surface sync refreshes the generated preview JS hash after aligning the supported AI chat platform product surface and generated schema/i18n catalog output while preserving the frozen reference, preview freeze logic, and Stitch runtime contract.',
+        'The AI chat abstraction tuning refreshes the generated preview JS hash after deriving Options supported-platform labels and links from canonical lightweight platform metadata while preserving the frozen reference, preview freeze logic, and Stitch runtime contract.',
+        'The AI chat metadata-boundary refresh updates the generated preview JS hash after moving Options supported-platform labels and links onto the dedicated platformProductSurface metadata owner while preserving the frozen reference, preview freeze logic, and Stitch runtime contract.'
       ].join(' '),
       leftSha256: '9020ccbd91acd691eccd3fdf568b9a90efbddf0a35d79f36ef1caba702fa0c07',
-      // 2026-06-23 post-P05 hardcoded config repair preview JS hash.
-      rightSha256: 'a6e8cb98402ea19325757a7a2adec02668951499a70529eb4c3a82b6033865ec'
+      // 2026-06-29 post-0.2 governance and AI chat abstraction merge preview JS hash.
+      rightSha256: 'f9137ab0f61b1a4461d473dec7408e39e3c93e931421e5b31cf4139bb9e4a6f3'
     }
   ]
 ]);

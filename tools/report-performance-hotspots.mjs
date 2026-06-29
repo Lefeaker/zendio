@@ -11,7 +11,9 @@ const MAX_LINE_BUDGETS = new Map([
   // 2026-06-20 onboarding closeout: generated schema core now carries the
   // accepted first-run terms/privacy resource keys in addition to Options copy.
   ['src/i18n/generated/schemaCore.generated.ts', 438],
-  ['src/i18n/generated/messages.generated.ts', 1129],
+  // 2026-06-29 governance/AI-chat merge: generated runtime messages carry
+  // the accepted AI chat product-surface/error catalog keys.
+  ['src/i18n/generated/messages.generated.ts', 1131],
   ['src/i18n/generated/locales/fr.generated.ts', 785],
   ['src/i18n/generated/locales/es-419.generated.ts', 777],
   ['src/i18n/generated/locales/es-ES.generated.ts', 777],
@@ -40,6 +42,9 @@ const MAX_LINE_BUDGETS = new Map([
   ['src/options/stitch/types/schemaTypes.ts', 366],
   ['src/options/stitch/ui/components.ts', 592],
   ['src/third_party/ai-chat-exporter/platforms/gemini.ts', 576],
+  // 2026-06-25 AI chat parser P09 repair: Perplexity keeps readable
+  // selector arrays; the explicit budget tracks the restored parser hotspot.
+  ['src/third_party/ai-chat-exporter/platforms/perplexity.ts', 281],
   ['src/options/stitch/schema/builders/surfaces.ts', 558],
   // 2026-06-23 P05 Options/Stitch decomposition: shared surface chrome
   // helpers back the stable surface-builder facade.

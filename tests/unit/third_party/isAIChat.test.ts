@@ -5,28 +5,24 @@ import { describe, expect, it } from 'vitest';
 import { isAIChat } from '@content/detect';
 
 describe('isAIChat', () => {
-  it('detects ChatGPT domain as AI chat', () => {
-    const result = isAIChat('https://chat.openai.com/', document);
-    expect(result).toBe(true);
-  });
-
-  it('detects legacy Kimi domain as AI chat', () => {
-    const result = isAIChat('https://kimi.moonshot.cn/chat/123', document);
-    expect(result).toBe(true);
-  });
-
-  it('detects www.kimi.com as AI chat', () => {
-    const result = isAIChat('https://www.kimi.com/chat', document);
-    expect(result).toBe(true);
-  });
-
-  it('detects Doubao domain as AI chat', () => {
-    const result = isAIChat('https://www.doubao.com/chat/', document);
-    expect(result).toBe(true);
-  });
-
-  it('detects Monica domain as AI chat', () => {
-    const result = isAIChat('https://monica.im/chat', document);
+  it.each([
+    ['ChatGPT', 'https://chatgpt.com/c/123'],
+    ['legacy ChatGPT', 'https://chat.openai.com/c/123'],
+    ['Claude', 'https://claude.ai/chat/123'],
+    ['Copilot', 'https://copilot.microsoft.com/chats/123'],
+    ['Gemini', 'https://gemini.google.com/app/123'],
+    ['Tongyi', 'https://tongyi.aliyun.com/qianwen/123'],
+    ['Tongyi alternate', 'https://www.tongyi.aliyun.com/qianwen/123'],
+    ['Tongyi short', 'https://tongyi.com/chat/123'],
+    ['Qianwen', 'https://www.qianwen.com/chat/123'],
+    ['DeepSeek', 'https://chat.deepseek.com/a/chat/s/123'],
+    ['legacy Kimi', 'https://kimi.moonshot.cn/chat/123'],
+    ['Kimi', 'https://www.kimi.com/chat'],
+    ['Doubao', 'https://www.doubao.com/chat/'],
+    ['Monica', 'https://monica.im/chat'],
+    ['Perplexity', 'https://www.perplexity.ai/search/123']
+  ])('detects %s domain as AI chat', (_label, url) => {
+    const result = isAIChat(url, document);
     expect(result).toBe(true);
   });
 

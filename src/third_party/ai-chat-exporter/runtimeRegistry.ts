@@ -1,10 +1,18 @@
-import type { ChatPlatformParser, ParseConfig, ParsedResult, PlatformId } from './types';
-import { DEFAULT_CHAT_TITLE } from './shared/constants';
+import {
+  PARSER_NOT_FOUND_DIAGNOSTIC_CODE,
+  type ChatPlatformParser,
+  type ParseConfig,
+  type ParsedResult,
+  type PlatformId
+} from './types';
+import { DEFAULT_CHAT_TITLE, SUPPORTED_PLATFORMS } from './shared/constants';
+import { getAIChatPlatformAliases } from './platformIdentity';
 
 const EMPTY_RESULT: ParsedResult = {
   title: DEFAULT_CHAT_TITLE,
   messages: [],
-  assets: []
+  assets: [],
+  diagnostics: [{ code: PARSER_NOT_FOUND_DIAGNOSTIC_CODE, severity: 'warning' }]
 };
 
 type ParserLoader = () => Promise<ChatPlatformParser>;
@@ -14,23 +22,11 @@ async function loadRuntimePlatformParser(platform: PlatformId): Promise<ChatPlat
   return getRuntimePlatformParser(platform);
 }
 
-const parserLoaders = new Map<string, ParserLoader>([
-  ['chatgpt', () => loadRuntimePlatformParser('chatgpt')],
-  ['claude', () => loadRuntimePlatformParser('claude')],
-  ['copilot', () => loadRuntimePlatformParser('copilot')],
-  ['gemini', () => loadRuntimePlatformParser('gemini')],
-  ['tongyi', () => loadRuntimePlatformParser('tongyi')],
-  ['deepseek', () => loadRuntimePlatformParser('deepseek')],
-  ['kimi', () => loadRuntimePlatformParser('kimi')],
-  ['doubao', () => loadRuntimePlatformParser('doubao')],
-  ['monica', () => loadRuntimePlatformParser('monica')],
-  ['perplexity', () => loadRuntimePlatformParser('perplexity')]
-]);
+const parserLoaders = new Map<string, ParserLoader>(
+  SUPPORTED_PLATFORMS.map((platform) => [platform, () => loadRuntimePlatformParser(platform)])
+);
 
-const parserAliases: Partial<Record<PlatformId, string[]>> = {
-  kimi: ['moonshot'],
-  perplexity: ['pplx']
-};
+const platformAliases = getAIChatPlatformAliases();
 
 export async function resolveParserAsync(
   platform: string
@@ -41,8 +37,8 @@ export async function resolveParserAsync(
     return direct();
   }
 
-  for (const [id, aliases] of Object.entries(parserAliases)) {
-    if (aliases?.includes(key)) {
+  for (const [id, aliases] of platformAliases.entries()) {
+    if (aliases.includes(key)) {
       return parserLoaders.get(id)?.();
     }
   }

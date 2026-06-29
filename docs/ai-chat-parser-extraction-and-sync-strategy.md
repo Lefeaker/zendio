@@ -20,8 +20,11 @@
 
 - 有统一的解析器契约：`parse(doc, config) => ParsedResult`
 - 有统一入口：`parseChatDOM(platform, doc, config)`
-- 有平台注册表：`registry.ts`
+- 有平台 parser 注册表：`registry.ts`
+- 有分层轻量平台元数据：`platformIdentity.ts` 管 host/alias/平台身份，`platformProductSurface.ts` 管 Options 展示链接和 fallback title policy，`platformRegistry.ts` 仅保留兼容 facade
 - 各平台实现基本都在 `src/third_party/ai-chat-exporter/platforms/*`
+
+当前产品面展示的支持列表和 Options 链接从 `platformProductSurface.ts` 派生；URL host detection、alias 与 supported id 顺序从 `platformIdentity.ts` 派生；parser 实现注册仍由 `registry.ts` 与 runtime lazy parser map 负责。当前支持列表为 ChatGPT、Claude、Copilot、Gemini、Tongyi/Qianwen、DeepSeek、Kimi、Doubao、Monica、Perplexity。
 
 因此，这部分完全可以抽为一个独立的 DOM 解析库。
 
@@ -54,6 +57,12 @@
 - 调试和回归不可控
 - 用户实际运行版本不可追踪
 
+主项目的 Options、文档和 telemetry 只同步轻量 metadata：Options 只消费 `platformProductSurface.ts`，content detection / runtime alias 只消费 `platformIdentity.ts`。它们不得导入平台 parser 实现或运行时 parser registry。解析器实现继续通过 lazy runtime parser boundary 加载，避免把平台解析代码压入 Options 或 content 主入口。
+
+AI 对话输出路径不新增默认域名映射。当前模板依赖 `meta.platform` 等导出元数据，域名到 vault 的映射继续由用户在设置中维护，避免升级后静默改变现有 vault 路由语义。
+
+Telemetry 暂不扩展平台枚举。ChatGPT、Claude、Gemini 保持具名 analytics platform，Copilot、Tongyi/Qianwen、DeepSeek、Kimi、Doubao、Monica、Perplexity 等非核心 AI 平台继续归入 `other`，直到后续单独完成 GA schema、dashboard 和 docs contract 迁移。平台 identity metadata 不承载 telemetry 扩展字段，避免绕过 GA schema / dashboard / docs contract 扩展流程。
+
 ---
 
 ## 建议的抽离边界
@@ -67,14 +76,16 @@
 - `shared/dom.ts`
 - `shared/markdown.ts`
 - `shared/assets.ts`
+- 可选的 profile parser helper，例如 `shared/profileEngine.ts`，但前提是它继续保持 fail-closed role contract
 
 不建议一起抽出去的内容：
 
 - `src/content/extractors/aiChatExtractor.ts` 中的业务整合逻辑
-- 平台 URL 检测默认策略
+- 需要产品语义的轻量平台元数据，例如 Options 展示链接、fallback title policy 和 Zendio 的 URL host detection 默认策略
 - Options 仓储兼容逻辑
 - Obsidian 输出格式拼装
 - 时间格式化、扩展侧 meta 构造
+- live DOM preparation / hydration，例如 DeepSeek virtual list scrolling
 
 原因很简单：独立库应只负责把 DOM 解析成标准化聊天数据，而不应耦合 `AiiinOB` 自己的业务上下文。
 
@@ -92,6 +103,7 @@ registerParser(parser)
 - 读取扩展配置
 - 生成最终导出的业务 Markdown
 - 处理 Obsidian 侧字段和元数据
+- 操作 live page 滚动或等待 frame 以补齐虚拟列表 DOM
 
 ---
 
@@ -115,6 +127,18 @@ registerParser(parser)
 - Gemini：深层 DOM / Shadow DOM / Deep Research
 - Tongyi：代码块语言和行号清理
 - Kimi：块头部、表格标签、动作区清洗
+
+当前健康边界是：
+
+- `platformIdentity.ts` 是平台身份唯一来源，覆盖 supported id 顺序、host detection 和 alias。
+- `platformProductSurface.ts` 是产品面元数据唯一来源，覆盖 Options label/link 与 fallback title policy。
+- `platformRegistry.ts` 只作为兼容 facade，不应成为新消费者的默认 import 入口。
+- `registry.ts` 与 `runtimePlatformParsers.ts` 仍只负责 parser 实现注册；必须通过测试与轻量元数据保持一致，但不反向驱动 Options。
+- `profileEngine.ts` 是 opt-in 共享骨架。默认未知 role 必须 fail closed；只有平台 profile 显式声明 `fallbackRole` 时才允许降级为默认角色。
+- live DOM hydration 属于 content extraction 层，当前通过 `AI_CHAT_DOCUMENT_PREPARERS` 显式注册。它不属于独立 parser 库，因为它需要滚动、等待 animation frame 和操作 live page。
+- Perplexity、Gemini、Tongyi、Kimi 等复杂平台可以保留定制 parser，只复用底层 DOM/Markdown/helper；不要强行迁入通用 profile engine。
+
+导出语义校验属于 content extraction 层，不属于独立 parser 库。当前 `validateAIChatExtraction` 的产品 contract 是：空结果失败；忽略 leading `system` 后第一个真实对话消息必须是 `user`；导出必须同时恢复到 `user` 与 `assistant`。只有 parser fixture 可保留 assistant-first 的 live DOM 证据；这类 fixture 必须在 manifest 中显式标注 `expectedValidation: 'role-incomplete'`，并在实际导出路径 fail closed。
 
 ### 推荐的两层结构
 
@@ -210,23 +234,40 @@ llm-chat-dom-parser/
 在解析器仍以内置 `src/third_party/ai-chat-exporter/**` 维护期间，`AiiinOB` 的主回归资产位于：
 
 - HTML fixture：`tests/fixtures/ai-chat/*.html`
+- current-DOM fixture lane：`tests/fixtures/ai-chat/current-dom/*.html`
+- executable fixture manifest：`tests/fixtures/ai-chat/fixtureManifest.ts`
 - fixture 索引与治理说明：`tests/fixtures/ai-chat/README.md`
 - 解析器回归测试：`tests/unit/third_party/parsers.test.ts`
+- current-DOM matrix：`tests/unit/third_party/parserCurrentDomMatrix.test.ts`
 - Gemini 重点行为测试：`tests/unit/third_party/gemini.test.ts`
 - Markdown 规则测试：`tests/unit/third_party/markdownRules.test.ts`
 - 内容抽取接入测试：`tests/unit/content/aiChatExtractor.test.ts`
 
 新增或修复 parser drift 时，必须在同一个提交中同时更新 fixture 与对应单测断言。不能只改 parser 代码，也不能只替换 fixture 而不说明预期输出变化。
 
-每个 fixture 在 `tests/fixtures/ai-chat/README.md` 中必须登记：
+每个 fixture 在 `tests/fixtures/ai-chat/fixtureManifest.ts` 与
+`tests/fixtures/ai-chat/README.md` 中必须登记：
 
 - fixture 文件名
 - 来源采集日期，格式为 `YYYY-MM-DD`；旧 fixture 无法追溯时只能标为 `legacy-unknown`
 - 平台与预期 `parseChatDOM` parser id
 - 预期标题、消息数量或关键 Markdown sentinel
 - 隐私剥离状态
+- `active` / `pending` 状态；`pending` 只用于尚未提交 sanitized HTML 的
+  current-DOM 预留槽位，不能被 parser matrix 当作可解析 fixture
 
 提交 fixture 前必须剥离账号名、邮箱、token、workspace 名称、私有 URL、用户标识和真实对话内容。保留按钮、工具栏、广告或动作区文本时，必须是为了证明 parser 会把这些 UI 噪音从输出 Markdown 中移除。
+
+真实站点 DOM 只能先保存到 ignored 本地证据目录：
+
+```text
+/Users/mac/Documents/Dev/AI2OB_Plg/.tmp/ai-chat-parser-productionization-2026-06-24/live-dom-snapshots/
+```
+
+提交到 `tests/fixtures/ai-chat/current-dom/` 前必须完成隐私剥离，并保留会触发
+drift 的 DOM shape、class、attribute、role marker、toolbar 结构。已提交的
+`current-dom/*.html` 不允许使用 `legacy-unknown`，必须记录具体 `YYYY-MM-DD`
+capture date。
 
 ---
 

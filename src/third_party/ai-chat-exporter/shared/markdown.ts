@@ -12,6 +12,8 @@ import { processChildNodes } from './markdownNodeTraversal';
 
 let headingLevelOffset = 0;
 
+type MarkdownRoot = HTMLElement | DocumentFragment;
+
 function nodeToMarkdown(node: Node, indent = ''): string {
   if (node.nodeType === Node.TEXT_NODE) {
     const textContent = node.textContent || '';
@@ -54,6 +56,14 @@ function processChildren(elem: HTMLElement, indent = ''): string {
   return processChildNodes(elem, nodeToMarkdown, indent);
 }
 
+function processRootChildren(root: HTMLElement): string {
+  let result = '';
+  for (const child of Array.from(root.childNodes)) {
+    result += nodeToMarkdown(child);
+  }
+  return result;
+}
+
 function fixDanglingLanguageLabels(markdown: string): string {
   if (!markdown.includes('```')) {
     return markdown;
@@ -94,16 +104,8 @@ function fixDanglingLanguageLabels(markdown: string): string {
   return result.join('\n');
 }
 
-export function chatHtmlToMarkdown(html: string): string {
-  if (!html) return '';
-  resetPendingCodeLanguageLabel();
-
-  const tempDiv = document.createElement('div');
-  tempDiv.innerHTML = html;
-
-  cleanupUIElements(tempDiv);
-
-  const headings = tempDiv.querySelectorAll('h1, h2, h3, h4, h5, h6');
+function updateHeadingLevelOffset(root: ParentNode): void {
+  const headings = root.querySelectorAll('h1, h2, h3, h4, h5, h6');
   let minHeadingLevel = 7;
   headings.forEach((h) => {
     const level = parseInt(h.tagName[1]);
@@ -117,10 +119,10 @@ export function chatHtmlToMarkdown(html: string): string {
   } else {
     headingLevelOffset = 0;
   }
+}
 
-  let markdown = processChildren(tempDiv);
-
-  markdown = markdown
+function normalizeRenderedMarkdown(markdown: string): string {
+  let normalized = markdown
     .replace(/&lt;/g, '<')
     .replace(/&gt;/g, '>')
     .replace(/&amp;/g, '&')
@@ -128,11 +130,41 @@ export function chatHtmlToMarkdown(html: string): string {
     .replace(/&#39;/g, "'")
     .replace(/&nbsp;/g, ' ');
 
-  markdown = markdown.replace(/\n\s*\n\s*\n/g, '\n\n').replace(/^\s+|\s+$/g, '');
+  normalized = normalized.replace(/\n\s*\n\s*\n/g, '\n\n').replace(/^\s+|\s+$/g, '');
 
-  markdown = fixDanglingLanguageLabels(markdown);
+  normalized = fixDanglingLanguageLabels(normalized);
 
-  return markdown;
+  return normalized;
+}
+
+function cloneMarkdownRoot(root: MarkdownRoot): HTMLElement {
+  if (root.nodeType === Node.DOCUMENT_FRAGMENT_NODE) {
+    const container = document.createElement('div');
+    container.append(root.cloneNode(true));
+    return container;
+  }
+
+  return root.cloneNode(true) as HTMLElement;
+}
+
+// Live parser paths should use this node-based API when they already have DOM nodes.
+export function chatElementToMarkdown(root: MarkdownRoot): string {
+  resetPendingCodeLanguageLabel();
+
+  const clonedRoot = cloneMarkdownRoot(root);
+  cleanupUIElements(clonedRoot);
+  updateHeadingLevelOffset(clonedRoot);
+
+  return normalizeRenderedMarkdown(processRootChildren(clonedRoot));
+}
+
+export function chatHtmlToMarkdown(html: string): string {
+  if (!html) return '';
+
+  const tempDiv = document.createElement('div');
+  tempDiv.innerHTML = html;
+
+  return chatElementToMarkdown(tempDiv);
 }
 
 export { nodeToMarkdown };

@@ -22,7 +22,7 @@
   "schemaCaptureSourcesAiChatGroupTitle": "KI-Chat",
   "schemaCaptureSourcesAiConversationDescription": "Konfigurieren Sie Abdeckung und Anzeigeverhalten für KI-Chat-Exporte.",
   "schemaCaptureSourcesAiConversationTitle": "KI-Gesprächserfassung",
-  "schemaCaptureSourcesAiSupportedPlatformsBadge": "8 unterstützte Plattformen",
+  "schemaCaptureSourcesAiSupportedPlatformsBadge": "10 unterstützte Plattformen",
   "schemaCaptureSourcesAttachmentGuidanceLink": "Custom Attachment Location",
   "schemaCaptureSourcesAttachmentGuidancePrefix": "Verwenden Sie diese Anhangseinstellungen zusammen mit dem Obsidian-Plugin ",
   "schemaCaptureSourcesAttachmentGuidanceSuffix": " und halten Sie die Plugin-Konfiguration in Obsidian mit diesen Vorlagen synchron.",

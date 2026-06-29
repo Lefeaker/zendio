@@ -14,6 +14,23 @@ interface ExtractionContext extends Record<string, unknown> {
   timestamp?: number;
 }
 
+interface AIChatParseEmptyContext extends ExtractionContext {
+  type: 'ai_chat';
+  platform: string;
+  messageCount: 0;
+  parserDiagnosticCodes?: string[];
+}
+
+interface AIChatParseRoleIncompleteContext extends ExtractionContext {
+  type: 'ai_chat';
+  platform: string;
+  messageCount: number;
+  recoveredRoles: string[];
+  firstConversationRole?: string;
+  requiredFirstConversationRole?: 'user';
+  parserDiagnosticCodes?: string[];
+}
+
 interface SelectionContext extends ExtractionContext {
   selectionLength?: number;
   selectionText?: string; // 截断的选择文本（用于调试，会被自动清理）
@@ -47,6 +64,36 @@ export const extractionErrors = {
       severity: ErrorSeverity.ERROR,
       recoverable: false,
       userMessageDescriptor: { key: 'errorExtractionNoMarkdown' },
+      context: {
+        ...context,
+        timestamp: Date.now()
+      }
+    };
+  },
+
+  aiChatParseEmpty(context: AIChatParseEmptyContext): AppError {
+    return {
+      code: STANDARDIZED_ERROR_CODES.EXTRACTION_AI_CHAT_PARSE_EMPTY,
+      domain: 'extraction',
+      message: STANDARDIZED_ERROR_CODES.EXTRACTION_AI_CHAT_PARSE_EMPTY,
+      severity: ErrorSeverity.ERROR,
+      recoverable: false,
+      userMessageDescriptor: { key: 'errorExtractionAiChatParseEmpty' },
+      context: {
+        ...context,
+        timestamp: Date.now()
+      }
+    };
+  },
+
+  aiChatParseRoleIncomplete(context: AIChatParseRoleIncompleteContext): AppError {
+    return {
+      code: STANDARDIZED_ERROR_CODES.EXTRACTION_AI_CHAT_PARSE_ROLE_INCOMPLETE,
+      domain: 'extraction',
+      message: STANDARDIZED_ERROR_CODES.EXTRACTION_AI_CHAT_PARSE_ROLE_INCOMPLETE,
+      severity: ErrorSeverity.ERROR,
+      recoverable: false,
+      userMessageDescriptor: { key: 'errorExtractionAiChatParseRoleIncomplete' },
       context: {
         ...context,
         timestamp: Date.now()
