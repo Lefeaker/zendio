@@ -178,6 +178,13 @@ describe('ClipperDialog Keyboard Shortcuts', () => {
     const { renderShortcutHint } =
       await import('../../../src/content/clipper/components/dialogPresenterEvents');
     const hint = document.createElement('div');
+    Object.defineProperty(hint, 'innerHTML', {
+      configurable: true,
+      get: () => '',
+      set: () => {
+        throw new Error('renderShortcutHint must build DOM nodes without innerHTML');
+      }
+    });
 
     renderShortcutHint(
       hint,
@@ -192,7 +199,12 @@ describe('ClipperDialog Keyboard Shortcuts', () => {
     );
 
     expect(hint.hidden).toBe(false);
-    expect(hint.innerHTML).toContain('Cmd+Enter');
+    expect(hint.querySelectorAll('br')).toHaveLength(1);
+    expect(Array.from(hint.querySelectorAll('strong')).map((node) => node.textContent)).toEqual([
+      'Double-Enter',
+      'Cmd+Enter',
+      'Esc'
+    ]);
     expect(hint.textContent).toContain('Clip directly');
   });
 

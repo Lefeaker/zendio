@@ -1,7 +1,7 @@
 import type { Messages } from '@i18n/messages';
 import { GENERATED_RELEASE_SCHEMA_MESSAGES_EN } from '@i18n/generated/schema/en.generated';
 import { ZENDIO_RESOURCE_LINKS } from '@shared/links/zendioResourceLinks';
-
+import { replaceChildrenWithSafeRichText } from '@shared/i18n/richTextDom';
 export type OnboardingResourceId =
   | 'support'
   | 'suggestions'
@@ -269,7 +269,7 @@ function createElement<K extends keyof HTMLElementTagNameMap>(
 function paragraph(text: string, html = false): HTMLParagraphElement {
   const element = createElement('p');
   if (html) {
-    element.innerHTML = text;
+    replaceChildrenWithSafeRichText(element, text);
   } else {
     element.textContent = text;
   }

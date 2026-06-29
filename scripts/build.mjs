@@ -59,16 +59,9 @@ await mkdir(distDir, { recursive: true });
 const CONTENT_LOADER_SOURCE = `
 (() => {
   const scope = globalThis;
-  const runtime = scope.chrome?.runtime ?? scope.browser?.runtime;
-  const resolve = (path) => {
-    if (runtime?.getURL) {
-      return runtime.getURL(path);
-    }
-    return new URL(path, scope.location?.href ?? 'http://localhost/').href;
-  };
   const key = '__AIIINOB_CONTENT_RUNTIME_PROMISE__';
   if (!scope[key]) {
-    scope[key] = import(resolve('content/runtime.js')).catch((error) => {
+    scope[key] = import('./runtime.js').catch((error) => {
       delete scope[key];
       throw error;
     });
