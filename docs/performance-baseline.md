@@ -66,7 +66,7 @@ npm run audit:build:report
 
 2026-06-25 AI chat parser productionization P09 repair 复核重新采集 `audit:performance:report`。Perplexity parser 选择器恢复为可读数组结构后成为当前 >250 LOC hotspot，本轮新增 `src/third_party/ai-chat-exporter/platforms/perplexity.ts <= 281` exact line budget；该预算只显式承认当前结构化 parser 热点，没有放宽 build hard stop、single/shared chunk、locale chunk、YAML chunk size budget 或动态 parser lazy boundary。当前 performance coverage 为 sourceFiles=`843`、hotspotsOver250=`113`、registeredLineBudgets=`142`。
 
-2026-06-29 post-0.2 governance / AI chat abstraction merge 复核重新采集 `i18n:catalog:check`、`audit:imports:check`、`audit:performance:report`、production `build:fast` + `audit:build:report` + `audit:release-surface:report`、dev `build:dev` + `audit:build:report`、`test:i18n`、`package:firefox:isolated`、`package:chrome:isolated` 与 `test:e2e:browser:smoke`。本轮保留 P07 Options/Stitch decomposition、post-0.2 release warning cleanup 与 AI chat platform metadata/parser productionization；fresh `audit:performance:report` 输出 sourceFiles=`887`、hotspotsOver250=`109`、registeredLineBudgets=`150`。Fresh production build report 为 `content/runtime.js = 50,170` bytes、`onboarding/index.js = 1,130` bytes、`chunks = 87`；fresh dev build report 为 `content/runtime.js = 58,501` bytes、`onboarding/index.js = 1,751` bytes、`chunks = 101`，没有触发 warning target 或 hard stop。Production release surface 为 `Files = 181`、forbidden harness / pseudo-locale `none`；Chrome ZIP 与 Firefox XPI isolated package archive audits 均为 `Files = 188`、forbidden harness / pseudo-locale `none`，Firefox `web-ext` 仍为既有 `innerHTML` warnings `3`。本次只同步 generated runtime catalog 合并后的 `src/i18n/generated/messages.generated.ts <= 1131` exact line budget，并保留 `src/third_party/ai-chat-exporter/platforms/perplexity.ts <= 281`；没有通过 runtime-code line-count edits 改善指标，也没有提高 build hard stop、single/shared chunk、locale chunk、YAML chunk size budget 或 runtime parser lazy boundary。
+2026-06-29 post-0.2 governance / AI chat abstraction merge 复核重新采集 `i18n:catalog:check`、`audit:imports:check`、`audit:performance:report`、production `build:fast` + `audit:build:report` + `audit:release-surface:report`、dev `build:dev` + `audit:build:report`、`test:i18n`、`package:firefox:isolated`、`package:chrome:isolated` 与 `test:e2e:browser:smoke`。本轮保留 P07 Options/Stitch decomposition、post-0.2 release warning cleanup 与 AI chat platform metadata/parser productionization；fresh `audit:performance:report` 输出 sourceFiles=`887`、hotspotsOver250=`109`、registeredLineBudgets=`150`。Fresh production build report 为 `content/runtime.js = 50,170` bytes、`onboarding/index.js = 1,130` bytes、`chunks = 87`；fresh dev build report 为 `content/runtime.js = 58,501` bytes、`onboarding/index.js = 1,751` bytes、`chunks = 101`，没有触发 warning target 或 hard stop。Production release surface 为 `Files = 181`、forbidden harness / pseudo-locale `none`；Chrome ZIP 与 Firefox XPI isolated package archive audits 均为 `Files = 188`、forbidden harness / pseudo-locale `none`，Firefox `web-ext` 仍为既有 `innerHTML` warnings `3`。v0.2.1 Options/Stitch changelog sync 只新增 release-note catalog keys，并将 generated catalog exact line budgets 同步为 `src/i18n/generated/messages.generated.ts <= 1137` 与 `src/i18n/generated/schemaCore.generated.ts <= 444`；同时保留 `src/third_party/ai-chat-exporter/platforms/perplexity.ts <= 281`。本轮没有通过 runtime-code line-count edits 改善指标，也没有提高 build hard stop、single/shared chunk、locale chunk、YAML chunk size budget 或 runtime parser lazy boundary。
 
 2026-06-16 i18n hardcoded follow-up build-budget risk reduction 将 AI chat runtime parser platform loaders 从 10 个 per-platform dynamic-import wrapper chunks 合并为一个 lazy `runtimePlatformParsers-*` boundary，并在 P3 follow-up 中切断 `aiChatExtractor.ts -> parse.ts -> registry.ts -> platform parsers` 静态路径。`build:dev` 后 `audit:build:report` 当前 dev chunk count 从 `120` 降至 `101`，chunk count gate 收紧为 warning target `108` / hard stop `118`；`aiChatExtractor-*` 静态 import 图不再包含 platform parser implementation markers，platform parsers 只通过 `runtimeRegistry-*` 动态加载唯一 `runtimePlatformParsers-*`。本次不改变 `content/runtime.js`、`onboarding/index.js`、single chunk、shared chunk、locale chunk 或 YAML size hard stops；`ru.generated-*` 与 shared Top 3 仍按 P15 current truth 继续观察。
 
@@ -87,7 +87,7 @@ npm run audit:build:report
 - 总 chunk 数：`87`（warning target `118`；hard stop `122`）
 - `chunks/runtimeEntry-*.js`: `136.7 KB`
 - `chunks/runtimePlatformParsers-*.js`: `37.0 KB`
-- `chunks/productionStitchAssets-*.js`: `62.2 KB`
+- `chunks/productionStitchAssets-*.js`: `62.5 KB`
 - `chunks/readerLazyRuntime-*.js`: `62.8 KB`
 - `chunks/videoLazyRuntime-*.js`: `77.0 KB`
 - `chunks/videoSessionControllers-*.js`: `57.7 KB`
@@ -102,7 +102,7 @@ npm run audit:build:report
 - 总 chunk 数：`101`（warning target `118`；hard stop `122`）
 - `chunks/runtimeEntry-*.js`: `276.1 KB`
 - `chunks/runtimePlatformParsers-*.js`: `77.9 KB`
-- `chunks/productionStitchAssets-*.js`: `118.8 KB`
+- `chunks/productionStitchAssets-*.js`: `119.1 KB`
 - `chunks/videoSessionControllers-*.js`: `108.3 KB`
 - `chunks/videoLazyRuntime-*.js`: `57.5 KB`
 - `chunks/videoScreenshotPreparationQueue-*.js`: `29.3 KB`
@@ -153,7 +153,7 @@ npm run audit:performance:report
 
 当前热点摘要（完整 `src` >250 LOC 路径列表以 `tools/report-performance-hotspots.mjs` 为准）：
 
-- `src/i18n/generated/messages.generated.ts`: `1131` 行
+- `src/i18n/generated/messages.generated.ts`: `1137` 行
 - `src/background/pipelines/connectionTest.ts`: `697` 行
 - `src/content/reader/sessionOperations.ts`: `643` 行
 - `src/options/stitch/ui/components.ts`: `592` 行
@@ -170,7 +170,7 @@ npm run audit:performance:report
 - `src/background/application/clipProcessor.ts`: `470` 行
 - `src/ui/domains/video/VideoDialog.ts`: `468` 行
 - `src/background/services/notifications.ts`: `451` 行
-- `src/i18n/generated/schemaCore.generated.ts`: `438` 行
+- `src/i18n/generated/schemaCore.generated.ts`: `444` 行
 - `src/content/video/sessionOperations.ts`: `433` 行
 - `src/options/stitch/schema/settings/overview.ts`: `429` 行
 - `src/background/services/obsidianWriter.ts`: `423` 行
@@ -212,8 +212,8 @@ npm run audit:performance:report
 - 2026-06-25 AI chat parser productionization P09 repair 在当时分支上补齐 `src/third_party/ai-chat-exporter/platforms/perplexity.ts <= 281` exact line budget；该预算随本次合并保留。
 - 2026-06-06 video screenshot attachment verification 已补齐 `src/shared/attachments/videoScreenshotAttachmentTemplates.ts <= 523` 与 `src/background/application/videoScreenshotAttachmentPlanner.ts <= 269`；2026-06-09 当前 performance coverage 见上一条。
 - P07 将 36 个已低于 checked-in line budget 的 current hotspots 收紧到 fresh line count；standalone `npm run audit:performance:report` 已在 ratchet 后通过。本次不通过 runtime-code line-count edits 改善指标。
-- 当前高信号热点实测：`messages.generated.ts = 1131`、`connectionTest.ts = 697`、`reader/sessionOperations.ts = 643`、`stitch/ui/components.ts = 592`、`onboarding/resourceModal.ts = 585`、`gemini.ts = 576`、`reader/session.ts = 575`、`onboarding/bootstrap.ts = 556`、`videoSessionRuntime.ts = 531`、`analyticsSchema.ts = 527`、`videoSessionDraftController.ts = 401`、`videoScreenshotPreparationQueue.ts = 401`、`videoScreenshotPreparationRequestStore.ts = 294`、`videoScreenshotCacheRepository.ts = 423`、`videoScreenshotCacheIndexedDbStore.ts = 331`、`videoSessionDraftScreenshotCache.ts = 251`、`aiChatExtractor.ts = 277`、`tongyi.ts = 254`。`tools/report-performance-hotspots.mjs` 中的 line budgets 是当前 upper-bound hard gate；进一步收紧必须 standalone 通过后再同步。
-- M12/P01 current truth：`src/i18n/messages.ts` 已演进为 runtime/schema message split entrypoint；generated i18n 当前实测包括 `messages.generated.ts = 1131` 与 `schemaCore.generated.ts = 438`。Schema/options copy 仍通过 schema split 与 dynamic locale loading 避免重新压回 content/runtime locale chunks。
+- 当前高信号热点实测：`messages.generated.ts = 1137`、`connectionTest.ts = 697`、`reader/sessionOperations.ts = 643`、`stitch/ui/components.ts = 592`、`onboarding/resourceModal.ts = 585`、`gemini.ts = 576`、`reader/session.ts = 575`、`onboarding/bootstrap.ts = 556`、`videoSessionRuntime.ts = 531`、`analyticsSchema.ts = 527`、`videoSessionDraftController.ts = 401`、`videoScreenshotPreparationQueue.ts = 401`、`videoScreenshotPreparationRequestStore.ts = 294`、`videoScreenshotCacheRepository.ts = 423`、`videoScreenshotCacheIndexedDbStore.ts = 331`、`videoSessionDraftScreenshotCache.ts = 251`、`aiChatExtractor.ts = 277`、`tongyi.ts = 254`。`tools/report-performance-hotspots.mjs` 中的 line budgets 是当前 upper-bound hard gate；进一步收紧必须 standalone 通过后再同步。
+- M12/P01 current truth：`src/i18n/messages.ts` 已演进为 runtime/schema message split entrypoint；generated i18n 当前实测包括 `messages.generated.ts = 1137` 与 `schemaCore.generated.ts = 444`。Schema/options copy 仍通过 schema split 与 dynamic locale loading 避免重新压回 content/runtime locale chunks。
 - 当前业务/运行时/GA 重点实测：`videoSessionRuntime.ts = 531`、`videoSessionDraftController.ts = 401`、`videoScreenshotPreparationQueue.ts = 401`、`videoScreenshotPreparationRequestStore.ts = 294`、`videoScreenshotCacheRepository.ts = 423`、`videoScreenshotCacheIndexedDbStore.ts = 331`、`videoSessionDraftScreenshotCache.ts = 251`、`videoCaptureMutationTransaction.ts = 257`、`VideoDialogPanel.ts = 392`、`videoControlBarButton.ts = 299`、`sessionDraftRepository.ts = 398`、`runtimeMessages.ts = 375`、`bilibiliRichText.ts = 302`、`bilibiliPlatformObserver.ts = 286`、`markdownBuilder.ts = 288`、`PrivacySettingsView.ts = 254`、`yaml-config-editor/rowModel.ts = 269`、`analyticsSchema.ts = 527`、`analyticsEvents.ts = 363`、`analyticsActivation.ts = 265`、`analyticsTransport.ts = 265`、`eventCatalog.ts = 78`、`analyticsSanitizers.ts = 95`、`analyticsConfig.ts = 383`、`analyticsConfig.template.ts = 364`、`googleAnalyticsReporter.ts = 260`。
 - P09 hybrid-cache support files 当前实测：`src/content/video/videoScreenshotCacheStore.ts = 97`、`src/content/video/videoScreenshotEncoding.ts = 152`、`src/content/video/videoSessionDraftScreenshotCache.ts = 251`、`src/background/services/videoScreenshotCacheIndexedDbStore.ts = 331`、`tests/e2e/utils/videoScreenshotCacheIndexedDb.ts = 220`。`videoScreenshotCacheIndexedDbStore.ts` 与 `videoSessionDraftScreenshotCache.ts` 已进入 guarded hotspot，并分别由 `tools/report-performance-hotspots.mjs` 的 `<= 335` / `<= 251` 预算约束；其余路径仍低于新增 hard budget 阈值。
 - 2026-06-01 YAML i18n repair only raised release-locale line budgets by the exact newly added YAML field error/save-blocked message keys; runtime owner budgets are tracked by `tools/report-performance-hotspots.mjs` and must not be loosened without fresh evidence.

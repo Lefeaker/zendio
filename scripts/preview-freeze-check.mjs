@@ -108,11 +108,12 @@ const ALLOWED_PREVIEW_DRIFT = new Map([
         'The post-P05 hardcoded-config repair refreshes the generated preview JS hash after routing Options resource and YAML sample REST URLs through configProvider.getRestDefaults(), preserving the visible default and offset sample values while keeping the hardcoded config guard intact.',
         'P08 Options AI platform surface sync refreshes the generated preview JS hash after aligning the supported AI chat platform product surface and generated schema/i18n catalog output while preserving the frozen reference, preview freeze logic, and Stitch runtime contract.',
         'The AI chat abstraction tuning refreshes the generated preview JS hash after deriving Options supported-platform labels and links from canonical lightweight platform metadata while preserving the frozen reference, preview freeze logic, and Stitch runtime contract.',
-        'The AI chat metadata-boundary refresh updates the generated preview JS hash after moving Options supported-platform labels and links onto the dedicated platformProductSurface metadata owner while preserving the frozen reference, preview freeze logic, and Stitch runtime contract.'
+        'The AI chat metadata-boundary refresh updates the generated preview JS hash after moving Options supported-platform labels and links onto the dedicated platformProductSurface metadata owner while preserving the frozen reference, preview freeze logic, and Stitch runtime contract.',
+        'The v0.2.1 changelog refresh updates the generated preview JS hash after adding the catalog-backed Options/Stitch release notes and regenerated schema message keys while preserving the frozen reference, preview freeze logic, and Stitch runtime contract.'
       ].join(' '),
       leftSha256: '9020ccbd91acd691eccd3fdf568b9a90efbddf0a35d79f36ef1caba702fa0c07',
-      // 2026-06-29 post-0.2 governance and AI chat abstraction merge preview JS hash.
-      rightSha256: 'f9137ab0f61b1a4461d473dec7408e39e3c93e931421e5b31cf4139bb9e4a6f3'
+      // 2026-06-29 v0.2.1 changelog preview JS hash.
+      rightSha256: '01a91b9153c8c2233cadee9dd1d8b50adf539b4966e5ed838f7c817a7b464e50'
     }
   ]
 ]);

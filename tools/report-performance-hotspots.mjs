@@ -8,12 +8,12 @@ const ROOT = process.cwd();
 const MAX_LINE_BUDGETS = new Map([
   ['src/i18n/generated/localeRegistry.generated.ts', 8899],
   ['src/i18n/generated/schemaMessages.generated.ts', 481],
-  // 2026-06-20 onboarding closeout: generated schema core now carries the
-  // accepted first-run terms/privacy resource keys in addition to Options copy.
-  ['src/i18n/generated/schemaCore.generated.ts', 438],
-  // 2026-06-29 governance/AI-chat merge: generated runtime messages carry
-  // the accepted AI chat product-surface/error catalog keys.
-  ['src/i18n/generated/messages.generated.ts', 1131],
+  // 2026-06-29 v0.2.1 changelog sync: schema core now carries the accepted
+  // Options/Stitch release-note keys in addition to existing resource copy.
+  ['src/i18n/generated/schemaCore.generated.ts', 444],
+  // 2026-06-29 v0.2.1 changelog sync: generated runtime messages carry the
+  // accepted Options/Stitch release-note catalog keys.
+  ['src/i18n/generated/messages.generated.ts', 1137],
   ['src/i18n/generated/locales/fr.generated.ts', 785],
   ['src/i18n/generated/locales/es-419.generated.ts', 777],
   ['src/i18n/generated/locales/es-ES.generated.ts', 777],
