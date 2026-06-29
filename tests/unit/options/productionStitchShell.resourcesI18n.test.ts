@@ -124,6 +124,12 @@ const ENGLISH_SENTINEL_MESSAGES: Messages = {
   schemaResourceContactEmailDescription: 'Contact Email Description Sentinel',
   schemaResourceChangelogTitle: 'Changelog Title Sentinel',
   schemaResourceChangelogDescription: 'Changelog Description Sentinel',
+  schemaResourceChangelogV021Bullet1: 'Changelog v0.2.1 Bullet 1 Sentinel',
+  schemaResourceChangelogV021Bullet2: 'Changelog v0.2.1 Bullet 2 Sentinel',
+  schemaResourceChangelogV021Bullet3: 'Changelog v0.2.1 Bullet 3 Sentinel',
+  schemaResourceChangelogV021Bullet4: 'Changelog v0.2.1 Bullet 4 Sentinel',
+  schemaResourceChangelogV021Bullet5: 'Changelog v0.2.1 Bullet 5 Sentinel',
+  schemaResourceChangelogV021Summary: 'Changelog v0.2.1 Summary Sentinel',
   schemaResourceChangelogV020Bullet1: 'Changelog v0.2.0 Bullet 1 Sentinel',
   schemaResourceChangelogV020Bullet2: 'Changelog v0.2.0 Bullet 2 Sentinel',
   schemaResourceChangelogV020Bullet3: 'Changelog v0.2.0 Bullet 3 Sentinel',
@@ -247,6 +253,7 @@ const ENGLISH_SENTINEL_MESSAGES: Messages = {
 type ResourceRenderOptions = {
   language?: 'en' | 'zh-CN';
   messages?: Messages;
+  browserTarget?: 'chrome' | 'firefox';
   mutateAppData?: (appData: ReturnType<typeof createBaseSchemaContext>['appData']) => void;
 };
 
@@ -260,6 +267,7 @@ function createLocalizedSchemaContext(options: ResourceRenderOptions = {}) {
       ...base.state,
       previewLanguage: language
     },
+    ...(options.browserTarget ? { browserTarget: options.browserTarget } : {}),
     language,
     messages: options.messages ?? ENGLISH_SENTINEL_MESSAGES
   });
@@ -423,17 +431,10 @@ describe('mountProductionStitchShell resource i18n', () => {
     );
   });
 
-  it('renders onboarding REST API copy for Firefox builds', () => {
-    Object.defineProperty(globalThis, 'browser', {
-      configurable: true,
-      value: {
-        runtime: {
-          getBrowserInfo: vi.fn()
-        }
-      }
-    });
+  it('renders onboarding REST API copy for Firefox builds from schema context', () => {
+    Reflect.deleteProperty(globalThis, 'browser');
 
-    const onboardingPage = renderResourcePage('onboarding');
+    const onboardingPage = renderResourcePage('onboarding', { browserTarget: 'firefox' });
 
     expectText(
       onboardingPage,
@@ -619,20 +620,33 @@ describe('mountProductionStitchShell resource i18n', () => {
 
     const changelog = await openResource('Changelog Title Sentinel');
     const releaseCards = Array.from(changelog.querySelectorAll<HTMLElement>('.release-card'));
-    expect(releaseCards).toHaveLength(2);
+    expect(releaseCards).toHaveLength(3);
     expect(
       releaseCards.map((card) => card.querySelector<HTMLElement>('.release-summary')?.textContent)
-    ).toEqual(['Changelog v0.2.0 Summary Sentinel', 'Changelog v0.1.0 Summary Sentinel']);
+    ).toEqual([
+      'Changelog v0.2.1 Summary Sentinel',
+      'Changelog v0.2.0 Summary Sentinel',
+      'Changelog v0.1.0 Summary Sentinel'
+    ]);
     expect(
       Array.from(releaseCards[0].querySelectorAll('li')).map((item) => item.textContent)
-    ).not.toContain('Changelog v0.2.0 Summary Sentinel');
+    ).not.toContain('Changelog v0.2.1 Summary Sentinel');
     expect(
       Array.from(releaseCards[1].querySelectorAll('li')).map((item) => item.textContent)
+    ).not.toContain('Changelog v0.2.0 Summary Sentinel');
+    expect(
+      Array.from(releaseCards[2].querySelectorAll('li')).map((item) => item.textContent)
     ).not.toContain('Changelog v0.1.0 Summary Sentinel');
     expectText(
       changelog,
       'Changelog Title Sentinel',
       'Changelog Description Sentinel',
+      'Changelog v0.2.1 Summary Sentinel',
+      'Changelog v0.2.1 Bullet 1 Sentinel',
+      'Changelog v0.2.1 Bullet 2 Sentinel',
+      'Changelog v0.2.1 Bullet 3 Sentinel',
+      'Changelog v0.2.1 Bullet 4 Sentinel',
+      'Changelog v0.2.1 Bullet 5 Sentinel',
       'Changelog v0.2.0 Summary Sentinel',
       'Changelog v0.2.0 Bullet 1 Sentinel',
       'Changelog v0.2.0 Bullet 2 Sentinel',
@@ -816,8 +830,8 @@ describe('mountProductionStitchShell resource i18n', () => {
       changelog,
       zhMessages.schemaResourceChangelogTitle,
       zhMessages.schemaResourceChangelogDescription,
-      zhMessages.schemaResourceChangelogV020Summary,
-      zhMessages.schemaResourceChangelogV020Bullet1
+      zhMessages.schemaResourceChangelogV021Summary,
+      zhMessages.schemaResourceChangelogV021Bullet1
     );
     expectNoText(
       changelog,
@@ -837,7 +851,7 @@ describe('mountProductionStitchShell resource i18n', () => {
       schemaResourceSupportDescription: '',
       schemaResourceChangelogTitle: '',
       schemaResourceChangelogDescription: '',
-      schemaResourceChangelogV020Bullet1: ''
+      schemaResourceChangelogV021Bullet1: ''
     };
 
     mountProductionStitchShell({
@@ -863,7 +877,7 @@ describe('mountProductionStitchShell resource i18n', () => {
       changelog,
       'Changelog',
       'This modal highlights the latest shipped updates from the project changelog.',
-      'Rebuilt Options as a new settings center for overview, language, privacy, storage, capture, output, and maintenance workflows.'
+      'Reworked AI chat extraction around shared platform metadata, registry ownership, and runtime parser boundaries so platform support stays consistent across export, tests, and Options.'
     );
     expectNoText(
       changelog,

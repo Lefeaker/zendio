@@ -147,6 +147,26 @@ describe('mountProductionStitchShell storage', () => {
     expect(document.querySelector('#usageWavePath')?.getAttribute('d')).toBeTruthy();
   });
 
+  it('renders default zero Usage Dashboard without invalid SVG chart coordinates', async () => {
+    const controller = createController();
+    mountProductionStitchShell({
+      controller: asOptionsController(controller),
+      initialOptions: null,
+      messages: null,
+      language: 'en'
+    });
+    await flushPromises();
+
+    expect(document.querySelector('[data-role="usage-chart-shell"]')).toBeTruthy();
+    const invalidAttributes = Array.from(document.querySelectorAll<SVGElement>('#usageWave *'))
+      .flatMap((element) =>
+        ['d', 'x1', 'x2', 'y1', 'y2', 'x', 'y'].map((attribute) => element.getAttribute(attribute))
+      )
+      .filter((value): value is string => Boolean(value?.includes('NaN')));
+
+    expect(invalidAttributes).toEqual([]);
+  });
+
   it('writes routing table edits back into vaultRouter before autosave collection', () => {
     const controller = createController();
     const mounted = mountProductionStitchShell({

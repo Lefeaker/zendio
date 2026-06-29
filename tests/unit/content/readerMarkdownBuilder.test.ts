@@ -1,6 +1,6 @@
 /* @vitest-environment jsdom */
 
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { Readability } from '@mozilla/readability';
 
 import {
@@ -380,6 +380,59 @@ it('falls back to document body html when readability content is empty', () => {
     expect(body).toContain('Fallback body content');
     expect(body).toContain('==Loose mark==[^6]');
   } finally {
+    if (originalParseDescriptor) {
+      Object.defineProperty(Readability.prototype, 'parse', originalParseDescriptor);
+    }
+  }
+});
+
+it('parses readability content without assigning innerHTML to the article host body', () => {
+  const documentClone = createDocument(`
+    <html>
+      <body>
+        <article><p>Original body</p></article>
+      </body>
+    </html>
+  `);
+  const articleHost = document.implementation.createHTMLDocument('');
+  const innerHtmlDescriptor = Object.getOwnPropertyDescriptor(Element.prototype, 'innerHTML');
+
+  if (!innerHtmlDescriptor?.get) {
+    throw new Error('Expected Element.innerHTML getter in test environment');
+  }
+
+  Object.defineProperty(articleHost.body, 'innerHTML', {
+    configurable: true,
+    get(this: Element): string {
+      return String(Reflect.get(Element.prototype, 'innerHTML', this));
+    },
+    set() {
+      throw new Error('reader full markdown must parse HTML without innerHTML assignment');
+    }
+  });
+
+  const createHtmlDocument = vi
+    .spyOn(documentClone.implementation, 'createHTMLDocument')
+    .mockReturnValue(articleHost);
+  const originalParseDescriptor = Object.getOwnPropertyDescriptor(Readability.prototype, 'parse');
+  Object.defineProperty(Readability.prototype, 'parse', {
+    configurable: true,
+    writable: true,
+    value: () => ({ content: '<article><p>Parsed <strong>body</strong></p></article>' })
+  });
+
+  try {
+    const { markdown } = buildReaderFullMarkdown({
+      pageTitle: 'Parsed Body',
+      pageUrl: 'https://example.com/parsed',
+      documentClone,
+      highlights: []
+    });
+
+    const body = stripFrontMatter(markdown);
+    expect(body).toContain('Parsed **body**');
+  } finally {
+    createHtmlDocument.mockRestore();
     if (originalParseDescriptor) {
       Object.defineProperty(Readability.prototype, 'parse', originalParseDescriptor);
     }

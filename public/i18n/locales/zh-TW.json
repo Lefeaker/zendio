@@ -206,6 +206,8 @@
     "errorContentMessagingFailed": "通訊失敗，請重試操作",
     "errorContentShortcutUsageTrackingFailed": "快捷鍵使用統計記錄失敗，不影響功能使用",
     "errorContentStorageOperationFailed": "資料保存失敗，將使用預設設定繼續",
+    "errorExtractionAiChatParseEmpty": "AI 對話解析未找到訊息，請重新整理會話後再試。",
+    "errorExtractionAiChatParseRoleIncomplete": "AI 對話解析找到訊息，但角色資訊不完整，請重新整理會話後再試。",
     "errorExtractionDispatchFailure": "傳送結果失敗，已自動重試。若問題持續，請回饋給我們。",
     "errorExtractionNoMarkdown": "內容解析失敗，請重新整理頁面或稍後重試。",
     "errorExtractionNoSelection": "未找到可用的選取內容，請重新選取後再試。",

@@ -1,22 +1,25 @@
 import type { UsageStats, UsageStatsHistoryEntry } from '@shared/types/usage';
+import { normalizeUsageStats } from '@shared/constants/usage';
 
 export function prepareUsageHistory(stats: UsageStats): UsageStatsHistoryEntry[] {
-  const input = Array.isArray(stats.history) ? stats.history : [];
+  const normalizedStats = normalizeUsageStats(stats);
+  const input = normalizedStats.history;
   const sorted = [...input].sort((a, b) => a.date.localeCompare(b.date));
 
   if (sorted.length === 0) {
-    const total = stats.aiChatSaves + stats.fragmentSaves + stats.articleSaves;
+    const total =
+      normalizedStats.aiChatSaves + normalizedStats.fragmentSaves + normalizedStats.articleSaves;
     if (total === 0) {
       return [];
     }
 
-    const fallbackDate = resolveUsageDateKey(stats.lastUpdatedISO);
+    const fallbackDate = resolveUsageDateKey(normalizedStats.lastUpdatedISO);
     return [
       {
         date: fallbackDate,
-        aiChat: stats.aiChatSaves,
-        fragment: stats.fragmentSaves,
-        article: stats.articleSaves
+        aiChat: normalizedStats.aiChatSaves,
+        fragment: normalizedStats.fragmentSaves,
+        article: normalizedStats.articleSaves
       }
     ];
   }
@@ -44,15 +47,17 @@ export function prepareUsageHistory(stats: UsageStats): UsageStatsHistoryEntry[]
     (sum, entry) => sum + entry.aiChat + entry.fragment + entry.article,
     0
   );
-  const aggregateTotal = stats.aiChatSaves + stats.fragmentSaves + stats.articleSaves;
+  const aggregateTotal =
+    normalizedStats.aiChatSaves + normalizedStats.fragmentSaves + normalizedStats.articleSaves;
   if (aggregateTotal > 0 && timelineTotal === 0 && trimmed.length) {
     const lastIndex = trimmed.length - 1;
-    const fallbackDate = resolveUsageDateKey(stats.lastUpdatedISO) || trimmed[lastIndex].date;
+    const fallbackDate =
+      resolveUsageDateKey(normalizedStats.lastUpdatedISO) || trimmed[lastIndex].date;
     trimmed[lastIndex] = {
       date: fallbackDate,
-      aiChat: stats.aiChatSaves,
-      fragment: stats.fragmentSaves,
-      article: stats.articleSaves
+      aiChat: normalizedStats.aiChatSaves,
+      fragment: normalizedStats.fragmentSaves,
+      article: normalizedStats.articleSaves
     };
   }
 

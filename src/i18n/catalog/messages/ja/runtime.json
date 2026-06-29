@@ -273,6 +273,8 @@
   "errorContentMessagingFailed": "Communication failed. Please try the action again.",
   "errorExtractionNoSelection": "No usable selection was found. Select content and try again.",
   "errorExtractionNoMarkdown": "Content parsing failed. Refresh the page or try again later.",
+  "errorExtractionAiChatParseEmpty": "AI chat parsing found no messages. Refresh the conversation and try again.",
+  "errorExtractionAiChatParseRoleIncomplete": "AI chat parsing found messages, but their roles look incomplete. Refresh the conversation and try again.",
   "errorExtractionUnsupportedContent": "This page is not supported for clipping yet.",
   "errorExtractionDispatchFailure": "Sending the result failed. It will retry automatically; contact us if the problem continues.",
   "errorI18nLanguageLoadFailed": "Language settings could not be loaded. The default language is being used.",

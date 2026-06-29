@@ -1,3 +1,4 @@
+import type { RuntimeService } from '../platform/interfaces/runtime';
 import type { StorageAreaService, StorageService } from '../platform/interfaces/storage';
 import type { TabsService } from '../platform/interfaces/tabs';
 import type { PlatformServices } from '../platform/types';
@@ -29,6 +30,7 @@ export interface OnboardingControllerDependencies {
   messagingRepository?: Pick<IMessagingRepository, 'send'>;
   now?: () => number;
   optionsRepository?: OnboardingOptionsRepository;
+  runtime?: Pick<RuntimeService, 'getURL' | 'getBrowserTarget'>;
   storage: StorageService;
   tabs: TabsService;
 }
@@ -74,6 +76,14 @@ function createPreviewDependencies(): OnboardingControllerDependencies {
 
   return {
     storage: { sync, local, session },
+    runtime: {
+      getURL(path: string) {
+        return path;
+      },
+      getBrowserTarget() {
+        return 'chrome';
+      }
+    },
     tabs: {
       async create() {
         return undefined;
@@ -149,6 +159,7 @@ export function resolveOnboardingDependencies(): OnboardingControllerDependencie
     return {
       ...(messagingRepository ? { messagingRepository } : {}),
       ...(optionsRepository ? { optionsRepository } : {}),
+      runtime: platform.runtime,
       storage: platform.storage,
       tabs: platform.tabs
     };

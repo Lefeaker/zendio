@@ -1,21 +1,54 @@
 import { readFile, rm, writeFile } from 'fs/promises';
 import { join, resolve } from 'path';
+import { pathToFileURL } from 'url';
 import { zipDirectory } from './utils/archive.mjs';
 import { applyRestHostPermissions } from './utils/manifestHosts.mjs';
 import { pathExists, prepareLicenseArtifacts, resolveMessage } from './utils/packageHelpers.mjs';
 import { createReleaseArtifactFileName } from './utils/releaseArtifactNames.mjs';
 import { auditReleaseArchive } from '../tools/audit-release-archive.mjs';
 
+const DEFAULT_TRIAL_DAYS = 7;
+const MIN_TRIAL_DAYS = 1;
+const MAX_TRIAL_DAYS = 30;
+
+function parseTrialDaysValue(value, flagName) {
+  if (!/^[1-9]\d*$/.test(value)) {
+    throw new Error(`${flagName} must be a base-10 integer from 1 to ${MAX_TRIAL_DAYS}`);
+  }
+
+  const days = Number(value);
+  if (days < MIN_TRIAL_DAYS || days > MAX_TRIAL_DAYS) {
+    throw new Error(`${flagName} must be a base-10 integer from 1 to ${MAX_TRIAL_DAYS}`);
+  }
+
+  return days;
+}
+
 /**
  * 获取试用天数参数
  */
-function getTrialDays() {
-  const trialArg = process.argv.find((arg) => arg.startsWith('--trial-days='));
+export function normalizeTrialDays(args = process.argv) {
+  const trialArg = args.find((arg) => arg.startsWith('--trial-days='));
   if (trialArg) {
-    const days = parseInt(trialArg.split('=')[1]);
-    return isNaN(days) ? 7 : days;
+    return parseTrialDaysValue(trialArg.split('=')[1], '--trial-days');
   }
-  return 7; // 默认7天
+  return DEFAULT_TRIAL_DAYS;
+}
+
+function getTrialDays() {
+  return normalizeTrialDays();
+}
+
+export function createTrialConfig(trialDays, now = Date.now()) {
+  const expirationTime = now + trialDays * 24 * 60 * 60 * 1000;
+
+  return {
+    isTrial: true,
+    expirationTime,
+    trialDays,
+    createdAt: now,
+    version: 'trial'
+  };
 }
 
 /**
@@ -24,18 +57,12 @@ function getTrialDays() {
 async function injectTrialConfig(distDir, trialDays) {
   const trialConfigPath = join(distDir, 'trial-config.json');
   const now = Date.now();
-  const expirationTime = now + trialDays * 24 * 60 * 60 * 1000;
-
-  const trialConfig = {
-    isTrial: true,
-    expirationTime,
-    trialDays,
-    createdAt: now,
-    version: 'trial'
-  };
+  const trialConfig = createTrialConfig(trialDays, now);
 
   await writeFile(trialConfigPath, JSON.stringify(trialConfig, null, 2));
-  console.log(`✅ 试用配置已注入，过期时间: ${new Date(expirationTime).toLocaleString('zh-CN')}`);
+  console.log(
+    `✅ 试用配置已注入，过期时间: ${new Date(trialConfig.expirationTime).toLocaleString('zh-CN')}`
+  );
 }
 
 async function packageExtension() {
@@ -136,4 +163,6 @@ function getFlagValue(flag, { defaultValue } = {}) {
   return value;
 }
 
-packageExtension();
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  packageExtension();
+}

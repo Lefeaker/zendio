@@ -1,3 +1,5 @@
+import { replaceChildrenWithSafeRichText } from '@shared/i18n/richTextDom';
+
 type PrimitiveChild = string | number | boolean | null | undefined;
 type Child = PrimitiveChild | Node;
 
@@ -33,7 +35,7 @@ export function el<K extends keyof HTMLElementTagNameMap>(
     }
 
     if (key === 'html' && typeof value === 'string') {
-      node.innerHTML = value;
+      replaceChildrenWithSafeRichText(node, value);
       return;
     }
 

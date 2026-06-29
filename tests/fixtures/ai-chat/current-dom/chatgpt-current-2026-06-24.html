@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Parser Drift - ChatGPT</title>
+</head>
+<body>
+  <main data-testid="conversation-turns">
+    <div data-testid="conversation-turn-1">
+      <div data-message-author-role="user" data-message-id="sanitized-user-1">
+        <div class="sr-only">You said:</div>
+        <div class="flex min-h-8 w-full flex-col items-start gap-2">
+          <div class="whitespace-pre-wrap">
+            <p>Please compare parser drift shapes without article wrappers.</p>
+          </div>
+        </div>
+        <div data-testid="message-toolbar">
+          <button type="button" aria-label="Edit message">Edit message</button>
+          <button type="button" aria-label="Copy prompt">Copy prompt</button>
+        </div>
+      </div>
+    </div>
+    <div data-testid="conversation-turn-2">
+      <div data-message-author-role="assistant" data-message-id="sanitized-assistant-1">
+        <div class="sr-only">ChatGPT said:</div>
+        <div class="markdown prose w-full break-words">
+          <p>Current ChatGPT response keeps role attributes without article wrappers.</p>
+          <ul>
+            <li>Collect role-marked message roots.</li>
+            <li>Skip toolbar controls from exported Markdown.</li>
+          </ul>
+        </div>
+        <div data-testid="message-toolbar">
+          <button type="button" aria-label="Copy response">Copy response</button>
+          <button type="button" aria-label="Regenerate">Regenerate</button>
+        </div>
+      </div>
+    </div>
+  </main>
+</body>
+</html>

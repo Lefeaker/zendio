@@ -204,12 +204,9 @@ describe('locale fallback characterization', () => {
       });
     });
     vi.stubGlobal('fetch', fetchMock);
-    vi.stubGlobal('chrome', {
-      runtime: {
-        getURL: (path: string) => `chrome-extension://extension-id/${path}`
-      }
-    });
-    const { getMessagesForLanguage } = await import('../../../src/i18n');
+    const { configureI18nRuntimeAssetUrlResolver, getMessagesForLanguage } =
+      await import('../../../src/i18n');
+    configureI18nRuntimeAssetUrlResolver((path) => `chrome-extension://extension-id/${path}`);
 
     const pageMessages = await getMessagesForLanguage('zh-CN');
 

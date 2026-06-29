@@ -2,18 +2,24 @@
 
 ## Overview
 
-The AI chat exporter now uses a modular registry. Each platform (ChatGPT, Claude, Copilot, DeepSeek, Doubao, Gemini, Kimi, Monica, Perplexity, Tongyi) has its own parser module located in `src/third_party/ai-chat-exporter/platforms/`. Shared helpers live under `src/third_party/ai-chat-exporter/shared/`, and `parseChatDOM` routes requests through the registry defined in `registry.ts`.
+The AI chat exporter now uses a modular parser registry plus layered lightweight platform metadata. The current supported product surface is ChatGPT, Claude, Copilot, Gemini, Tongyi/Qianwen, DeepSeek, Kimi, Doubao, Monica, and Perplexity. Each platform has its own parser module located in `src/third_party/ai-chat-exporter/platforms/`. Shared helpers live under `src/third_party/ai-chat-exporter/shared/`, `parseChatDOM` routes requests through the parser registry defined in `registry.ts`, platform identity metadata lives in `platformIdentity.ts`, product-facing metadata lives in `platformProductSurface.ts`, and `platformRegistry.ts` remains only as a compatibility facade.
 
 ```
 src/third_party/ai-chat-exporter/
 ├── parse.ts                # Public API (parseChatDOM, chatHtmlToMarkdown)
+├── platformIdentity.ts     # Supported ids, host detection, aliases
+├── platformProductSurface.ts # Options labels/links and fallback-title policy
+├── platformRegistry.ts     # Compatibility facade for older imports
 ├── registry.ts             # Parser registry + fallback result
+├── runtimeRegistry.ts      # Lazy content-runtime parser boundary
+├── runtimePlatformParsers.ts # Runtime-only parser implementation map
 ├── types.ts                # Common types and parser contracts
 ├── shared/
 │   ├── assets.ts           # Blob/base64 helpers
 │   ├── constants.ts        # DEFAULT_CHAT_TITLE, supported ids
 │   ├── dom.ts              # DOM sanitizers
-│   └── markdown.ts         # HTML → Markdown converter
+│   ├── markdown.ts         # HTML → Markdown converter
+│   └── profileEngine.ts    # Opt-in profile parser with fail-closed role handling
 └── platforms/
     ├── chatgpt.ts
     ├── claude.ts
@@ -35,19 +41,48 @@ src/third_party/ai-chat-exporter/
    - Record platform-specific assets (images, attachments) if available.
 3. Export the parser as `const <platform>Parser: ChatPlatformParser`.
 4. Register the parser in `registry.ts` by importing it and adding it to `registeredParsers`.
-5. Provide URL detection for the new platform in `src/content/extractors/aiChatExtractor.ts` if needed.
+5. Register the runtime parser in `runtimePlatformParsers.ts`; keep it behind the existing `runtimeRegistry.ts` lazy boundary.
+6. Add platform identity metadata in `platformIdentity.ts`: id, display label, host patterns, and aliases when needed.
+7. Add product-surface metadata in `platformProductSurface.ts`: Options URL, optional product label, and fallback-title policy when the platform needs one.
+8. Add an `AI_CHAT_DOCUMENT_PREPARERS` entry in `src/content/extractors/aiChatDocumentPreparer.ts` only when the platform needs live-page preparation such as virtual-list scrolling. Do not put live DOM preparation inside parser modules.
+
+## Product Surface Sync
+
+- Options/Stitch displays supported platform labels and links from `getAIChatProductSurfacePlatforms()` in `platformProductSurface.ts`.
+- URL host detection and aliases come from `platformIdentity.ts`; do not add platform detection switches in `aiChatExtractor.ts`.
+- Fallback title policy comes from `getAIChatFallbackTitlePolicy()`. Product-surface fallback titles must use catalog message keys; neutral source-site fallback tokens stay inside platform parser modules.
+- AI chat templates rely on exported metadata such as `meta.platform`; default domain mappings stay user-owned and do not add AI platform host aliases by default. This avoids silently changing vault routing for existing users.
+- Usage telemetry keeps the low-cardinality `ANALYTICS_PLATFORMS` contract. ChatGPT, Claude, and Gemini are tracked as named AI platforms; Copilot, Tongyi/Qianwen, DeepSeek, Kimi, Doubao, Monica, Perplexity, and future AI IDs intentionally map to `other` unless a later GA dashboard/docs migration expands the schema.
+- Parser implementation remains behind the lazy runtime parser boundary. Options/product surfaces may import `platformProductSurface.ts`, but must not import parser implementations, `runtimeRegistry.ts`, or `runtimePlatformParsers.ts` into Options bundles.
+- New consumers should import the narrow metadata owner they need. Do not add new direct imports from the compatibility `platformRegistry.ts` facade unless preserving an older public path.
+
+## Drift Fix Checklist
+
+When a platform DOM drift is found:
+
+1. Reproduce the empty or incorrect parse with a focused unit test.
+2. Add or update the sanitized current-DOM fixture and manifest row only when the drift depends on a real current DOM shape.
+3. Keep empty extraction fail-closed: a parser that cannot identify user or assistant content must return the fallback empty parse instead of emitting toolbar/sidebar text.
+4. Keep export validation fail-closed: after leading `system` messages, the first recovered conversation turn must be `user`, and successful export requires both `user` and `assistant` roles.
+5. If a sanitized parser fixture intentionally preserves assistant-first evidence, mark its manifest row with `expectedValidation: 'role-incomplete'` so parser evidence cannot be confused with a successful export fixture.
+6. Update the platform parser and shared helpers without changing unrelated parser families.
+7. Re-run the focused parser/current-DOM matrix before broader product verification.
 
 ## Updating Shared Logic
 
 - Global constants belong in `shared/constants.ts`.
 - DOM cleanup utilities should live in `shared/dom.ts`; reuse them rather than duplicating selectors inside platform modules.
 - Markdown conversion helpers are centralised in `shared/markdown.ts`. When adding constructs (tables, KaTeX, custom components), extend this file and add regression tests.
+- The profile parser engine in `shared/profileEngine.ts` is opt-in. It fails closed when a container role cannot be resolved; set `fallbackRole` explicitly only when the platform contract owns that behavior.
+- Per-platform helpers should use specific names such as `perplexityCandidates.ts` or `chineseFamilyHelpers.ts`. Do not add broad family facades unless they own real shared behavior used by multiple platforms.
 
 ## Testing Checklist
 
 - Unit fixtures reside in `tests/fixtures/ai-chat/`. Create a minimal HTML fixture that reproduces the target DOM structure for the platform.
-- Add or update assertions in `tests/unit/third_party/parsers.test.ts` to cover the new behaviour.
+- Current-DOM drift fixtures reside in `tests/fixtures/ai-chat/current-dom/` and are governed by `tests/fixtures/ai-chat/fixtureManifest.ts`.
+- Add or update assertions in `tests/unit/third_party/parsers.test.ts` or `tests/unit/third_party/parserCurrentDomMatrix.test.ts` to cover the new behaviour.
 - Parser drift fixes must add or update the fixture and the unit assertion in the same commit.
+- Current-DOM fixture work is a separate lane from product surface sync. Do not edit fixture HTML when a task only changes Options, docs, i18n, or telemetry decisions.
 - Run the parser-focused suite before wider validation:
 
 ```bash
@@ -58,7 +93,7 @@ npx vitest run --config vitest.unit.config.ts tests/unit/third_party/parsers.tes
 
 ## Fixture Governance
 
-`tests/fixtures/ai-chat/README.md` is the index for committed parser fixtures. Update it whenever a fixture is added, renamed, or materially changed.
+`tests/fixtures/ai-chat/fixtureManifest.ts` is the executable index for committed parser fixtures, and `tests/fixtures/ai-chat/README.md` is the human-readable governance document. Update both whenever a fixture is added, renamed, or materially changed.
 
 Each fixture entry must record:
 
@@ -67,6 +102,7 @@ Each fixture entry must record:
 - platform and expected parser id passed to `parseChatDOM`;
 - expected title and a short expected output sentinel;
 - privacy stripping status.
+- active/pending status.
 
 Before committing a fixture:
 
@@ -75,6 +111,16 @@ Before committing a fixture:
 - remove external network references unless the parser behavior being tested needs the attribute shape;
 - keep toolbar/action text only when the regression specifically proves that it is stripped from Markdown output;
 - add or update the matching unit assertions in `tests/unit/third_party/parsers.test.ts`.
+
+For live-derived drift work, save raw captures only under ignored local evidence:
+
+```text
+/Users/mac/Documents/Dev/AI2OB_Plg/.tmp/ai-chat-parser-productionization-2026-06-24/live-dom-snapshots/
+```
+
+Commit only sanitized `current-dom/*.html` files. Pending manifest entries reserve
+P05/P06/P07 fixture slots and are skipped by the current-DOM matrix until the
+sanitized file is added and the row is switched to `status: 'active'`.
 
 ## Debugging Tips
 

@@ -7,6 +7,7 @@ import type { SupportProgressReporter } from '../runtime/supportProgress';
 import type { VideoVisibleFrameScreenshotCapture } from './videoVisibleTabScreenshot';
 import type { VideoScreenshotCacheRepository } from './videoScreenshotCacheRepository';
 import type { VideoScreenshotFrameCapture } from './videoScreenshotPreparationQueueTypes';
+import type { SessionDraftStoragePolicy } from '../sessionDrafts';
 
 export type VideoSessionAddCaptureOptions = {
   comment?: string;
@@ -29,6 +30,7 @@ export interface VideoSessionDependencies {
   captureVideoFrameScreenshot?: VideoScreenshotFrameCapture;
   captureVisibleVideoFrameScreenshot?: VideoVisibleFrameScreenshotCapture;
   screenshotCacheRepository?: VideoScreenshotCacheRepository;
+  sessionDraftStoragePolicy?: SessionDraftStoragePolicy;
   showSupportProgress?: SupportProgressReporter;
   trackUsageEvent?: <EventName extends UsageEventName>(
     event: EventName,

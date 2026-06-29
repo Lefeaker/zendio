@@ -205,6 +205,55 @@ describe('readerSessionDrafts', () => {
     expect(highlights).toHaveLength(25);
   });
 
+  it('honors an injected generic null item cap without durable binary payloads', () => {
+    const highlights = Array.from({ length: 25 }, (_, index) =>
+      createHighlightRecord({
+        id: `highlight-${index}`,
+        selectedText: `Highlight ${index}`,
+        selectedHtml: `<mark>Highlight ${index}</mark>`,
+        comment: `saved comment ${index}`,
+        createdAt: 1_000 + index
+      })
+    );
+    const commentDraftEntries: Array<[string, string]> = [
+      ...highlights.map((highlight): [string, string] => [
+        highlight.id,
+        `draft for ${highlight.id}`
+      ]),
+      ['orphan-highlight', 'should be filtered']
+    ];
+    const commentDrafts = Object.fromEntries(commentDraftEntries);
+
+    const envelope = buildReaderSessionDraftEnvelope({
+      draftId: 'reader-draft-null-cap',
+      createdAt: 900,
+      now: 2_000,
+      pageUrl: 'https://example.com/article/null-cap',
+      pageTitle: 'Article with generic null cap',
+      highlights,
+      commentDrafts,
+      retentionPolicy: {
+        retentionMs: 96 * 60 * 60 * 1000,
+        maxRestorablePages: null,
+        maxItemsPerPage: null
+      },
+      status: 'active'
+    });
+
+    expect(envelope).not.toBeNull();
+    if (!envelope) {
+      throw new Error('expected reader session envelope');
+    }
+    expect(envelope.payload.highlights).toHaveLength(25);
+    expect(Object.keys(envelope.payload.commentDrafts ?? {})).toEqual(
+      highlights.map((highlight) => highlight.id)
+    );
+    const serializedEnvelope = JSON.stringify(envelope);
+    expect(serializedEnvelope).not.toContain('data:image/');
+    expect(serializedEnvelope).not.toContain('ArrayBuffer');
+    expect(serializedEnvelope).not.toContain('Blob');
+  });
+
   it('recreates live highlight ranges when the saved text still exists in the document', () => {
     document.body.innerHTML = '<article><p>Alpha Beta Gamma</p></article>';
     const createHighlight = vi.fn(
@@ -258,6 +307,79 @@ describe('readerSessionDrafts', () => {
         selectedText: 'Beta',
         comment: 'saved comment',
         createdAt: 44
+      })
+    ]);
+  });
+
+  it('restores duplicate reader draft text to separate document occurrences', () => {
+    document.body.innerHTML = '<article><p>Echo middle Echo</p></article>';
+    const createHighlight = vi.fn(
+      (options: {
+        id: string;
+        range: Range;
+        selectedHtml: string;
+        selectedText: string;
+        comment: string;
+        fragmentUrl: string;
+      }) => {
+        const wrapper = document.createElement('mark');
+        wrapper.dataset.readerHighlightId = options.id;
+        wrapper.textContent = options.range.toString();
+        return createHighlightRecord({
+          id: options.id,
+          selectedHtml: options.selectedHtml,
+          selectedText: options.selectedText,
+          comment: options.comment,
+          fragmentUrl: options.fragmentUrl,
+          wrapper,
+          wrapperSegments: [wrapper],
+          createdAt: 40
+        });
+      }
+    );
+
+    const restored = restoreReaderSessionDraftHighlights({
+      doc: document,
+      highlightManager: {
+        createHighlight
+      } as never,
+      highlights: [
+        {
+          id: 'saved-1',
+          selectedHtml: '<mark>Echo</mark>',
+          selectedText: 'Echo',
+          comment: 'first duplicate',
+          fragmentUrl: '#saved-1',
+          createdAt: 44
+        },
+        {
+          id: 'saved-2',
+          selectedHtml: '<mark>Echo</mark>',
+          selectedText: 'Echo',
+          comment: 'second duplicate',
+          fragmentUrl: '#saved-2',
+          createdAt: 45
+        }
+      ]
+    });
+
+    expect(createHighlight).toHaveBeenCalledTimes(2);
+    expect(createHighlight.mock.calls.map(([options]) => options.range.startOffset)).toEqual([
+      0, 12
+    ]);
+    expect(restored.detachedHighlightIds).toEqual([]);
+    expect(restored.highlights).toEqual([
+      expect.objectContaining({
+        id: 'saved-1',
+        selectedText: 'Echo',
+        comment: 'first duplicate',
+        createdAt: 44
+      }),
+      expect.objectContaining({
+        id: 'saved-2',
+        selectedText: 'Echo',
+        comment: 'second duplicate',
+        createdAt: 45
       })
     ]);
   });

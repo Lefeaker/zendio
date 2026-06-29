@@ -1,6 +1,6 @@
-import { DEFAULT_CHAT_TITLE } from '../shared/constants';
-import { chatHtmlToMarkdown } from '../shared/markdown';
-import type { ChatPlatformParser, ParseConfig, ParsedMessage, ParsedResult } from '../types';
+import * as profileEngine from '../shared/profileEngine';
+import type { ParserProfile } from '../shared/profileTypes';
+import type { ChatPlatformParser, ParseConfig } from '../types';
 
 const MONICA_MESSAGE_SELECTOR = '[class*="chat-message--"]';
 const USER_CLASS_HINT = 'chat-question';
@@ -48,42 +48,6 @@ function normaliseTitle(rawTitle: string, config?: ParseConfig): string {
   return cleaned;
 }
 
-function determineRole(node: HTMLElement): 'user' | 'assistant' {
-  const className = node.className;
-  if (className.includes(USER_CLASS_HINT)) {
-    return 'user';
-  }
-  if (className.includes(ASSISTANT_CLASS_HINT)) {
-    return 'assistant';
-  }
-  return 'assistant';
-}
-
-function pickContentElement(node: HTMLElement): HTMLElement | null {
-  const selectors = [
-    '[class*="markdown"]',
-    '[data-lexical-editor]',
-    '[data-slate-editor]',
-    'article',
-    'pre',
-    'code',
-    'p'
-  ];
-
-  for (const selector of selectors) {
-    const el = node.querySelector<HTMLElement>(selector);
-    if (el) return el;
-  }
-
-  return node;
-}
-
-function cleanupContent(fragment: HTMLElement) {
-  fragment
-    .querySelectorAll('[class*="toolbar"], [class*="reply-header"], button, svg')
-    .forEach((el) => el.remove());
-}
-
 function normaliseModelCandidate(text: string): string | null {
   const cleaned = text.replace(/\s+/g, ' ').trim();
   if (!cleaned) return null;
@@ -101,76 +65,46 @@ function normaliseModelCandidate(text: string): string | null {
 }
 
 function extractModel(doc: Document): string {
-  for (const selector of MONICA_MODEL_CANDIDATE_SELECTORS) {
-    const elements = Array.from(doc.querySelectorAll<HTMLElement>(selector));
-    for (const el of elements) {
-      if (!el) continue;
+  const model = profileEngine.findFirstNormalizedText(
+    doc,
+    MONICA_MODEL_CANDIDATE_SELECTORS,
+    (text, el) => {
       const container = el.closest<HTMLElement>(MONICA_MESSAGE_SELECTOR);
       if (container && !container.className.includes(ASSISTANT_CLASS_HINT)) {
-        continue;
+        return false;
       }
-      const text = el.textContent?.trim() || '';
-      if (!text) continue;
-      const candidate = normaliseModelCandidate(text);
-      if (candidate) {
-        return candidate;
-      }
+      return normaliseModelCandidate(text) !== null;
     }
-  }
+  );
 
-  return 'Monica';
+  return model ?? 'Monica';
 }
 
-function extractMonicaChat(doc: Document, config?: ParseConfig): ParsedResult {
-  const nodes = Array.from(doc.querySelectorAll<HTMLElement>(MONICA_MESSAGE_SELECTOR));
-  if (nodes.length === 0) {
-    return { title: DEFAULT_CHAT_TITLE, messages: [], assets: [] };
-  }
-
-  const title = normaliseTitle(doc.title || '', config);
-  const model = extractModel(doc);
-
-  const messages: ParsedMessage[] = [];
-  let index = 1;
-
-  for (const node of nodes) {
-    const content = pickContentElement(node);
-    if (!content) continue;
-
-    const textContent = content.textContent?.trim() || '';
-    if (!textContent) continue;
-
-    const fragment = content.cloneNode(true) as HTMLElement;
-    cleanupContent(fragment);
-
-    const html = fragment.innerHTML || '';
-    const markdown = chatHtmlToMarkdown(html || textContent);
-    if (!markdown.trim()) continue;
-
-    const message: ParsedMessage = {
-      id: `msg-${index++}`,
-      role: determineRole(node),
-      md: markdown,
-      text: markdown
-    };
-
-    const resolvedHtml = html || undefined;
-    if (resolvedHtml !== undefined) {
-      message.html = resolvedHtml;
-    }
-
-    messages.push(message);
-  }
-
-  return {
-    title,
-    messages,
-    assets: [],
-    model: model || 'Monica'
-  };
-}
+const monicaProfile: ParserProfile = {
+  platform: 'monica',
+  title: (doc, config) => normaliseTitle(doc.title || '', config),
+  model: (doc) => extractModel(doc),
+  containers: MONICA_MESSAGE_SELECTOR,
+  role: profileEngine.roleByClassName({
+    [USER_CLASS_HINT]: 'user',
+    [ASSISTANT_CLASS_HINT]: 'assistant'
+  }),
+  fallbackRole: 'assistant',
+  content: ({ container }) =>
+    profileEngine.pickFirstElement(container, [
+      '[class*="markdown"]',
+      '[data-lexical-editor]',
+      '[data-slate-editor]',
+      'article',
+      'pre',
+      'code',
+      'p'
+    ]) ?? container,
+  cleanup: profileEngine.removeElements('[class*="toolbar"], [class*="reply-header"], button, svg')
+};
 
 export const monicaParser: ChatPlatformParser = {
   id: 'monica',
-  parse: (doc, config) => extractMonicaChat(doc, config)
+  parse: (doc, config: ParseConfig | undefined) =>
+    profileEngine.parseWithProfile(doc, monicaProfile, config)
 };

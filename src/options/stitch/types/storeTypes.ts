@@ -1,0 +1,50 @@
+import type { PreviewVideoStoreState } from '../videoStateTypes';
+import type { RoutingRule } from './contentTypes';
+
+export interface PreviewStoreState extends PreviewVideoStoreState {
+  activePanel: string;
+  activeResource: string | null;
+  previewTheme: 'dark' | 'light';
+  interfaceThemePreference?: 'dark' | 'light' | 'system';
+  previewLanguage: string;
+  yamlFilter: string;
+  readingPathMode: string;
+  pageSummaryEnabled: boolean;
+  readingOverlaySummaryEnabled: boolean;
+  subtitleTranslationEnabled: boolean;
+  subtitleTargetLanguage: string;
+  experimentalAiConfig: {
+    provider: string;
+    model: string;
+    apiUrl: string;
+    apiKey: string;
+  };
+  highlightTheme: string;
+  readingExportMode?: string;
+  aiUserName?: string;
+  privacyAnalytics?: boolean;
+  privacyErrorReporting?: boolean;
+  privacyDebugMode?: boolean;
+  privacyStatus?: string;
+  classifierEnabled?: boolean;
+  classifierProvider?: string;
+  classifierEndpoint?: string;
+  classifierModel?: string;
+  classifierApiKey?: string;
+  classifierTaxonomyText?: string;
+  fragmentUseFootnoteFormat?: boolean;
+  fragmentCaptureContext?: boolean;
+  fragmentContextLength?: number;
+  fragmentContextMode?: string;
+  fragmentKeyboardShortcutsEnabled?: boolean;
+  fragmentModifierEnabled: boolean;
+  modifierKeys: string[];
+  activeLocalFolderVaultIndex?: number | null;
+  yamlFieldStates: Record<string, string>;
+  routingRules: RoutingRule[];
+  templateValues: Record<string, string>;
+  activeTemplateField: string;
+  pendingTemplateFocus: string | null;
+  pendingTemplateSelection: { start: number; end: number } | null;
+  maintenanceLog?: string;
+}

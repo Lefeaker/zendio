@@ -125,7 +125,6 @@ export class ContentScriptContext {
       return;
     }
 
-    console.log('[ContentScript] Disposing context...');
     this.isDisposed = true;
     this.scopedRegistry.disposeScope();
     this.cleanupGlobalErrorBoundary?.();
@@ -133,13 +132,9 @@ export class ContentScriptContext {
     this.cleanupErrorAnalytics?.();
     this.cleanupErrorAnalytics = null;
     this.removeCleanupListeners();
-
-    console.log('[ContentScript] Context disposed');
   }
 
   private bootstrapDependencies(storage?: StorageService): void {
-    console.log('[ContentScript] Bootstrapping scoped dependencies...');
-
     // 确保全局 registry 已注册 platformServices (styleRegistry 需要)
     if (!registry.has(TOKENS.platformServices)) {
       const { getPlatformServices } = loadPlatformModuleForContentBootstrap();
@@ -163,8 +158,6 @@ export class ContentScriptContext {
     this.initializeErrorAnalytics(resolvedStorage, errorHandler);
     this.scopedRegistry.register(TOKENS.globalStateManager, createGlobalStateManager);
     this.scopedRegistry.register(TOKENS.dialogRegistry, createPopupCoordinator);
-
-    console.log('[ContentScript] Scoped dependencies bootstrapped');
   }
 
   private initializeErrorAnalytics(
@@ -244,8 +237,6 @@ export function getContentService<T>(token: symbol): T {
 }
 
 export function bootstrapContentScript(storage?: StorageService): ContentScriptContext {
-  console.log('[ContentScript] Bootstrapping...');
   const context = getGlobalContentContext(storage);
-  console.log('[ContentScript] Bootstrap complete');
   return context;
 }

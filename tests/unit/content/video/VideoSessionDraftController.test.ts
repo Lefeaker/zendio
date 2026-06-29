@@ -6,6 +6,8 @@ import {
   createSessionDraftPageKey,
   createSessionDraftRepository,
   createSessionDraftStorageKey,
+  createSessionDraftStoragePolicy,
+  type SessionDraftStoragePolicy,
   type VideoSessionDraftEnvelope
 } from '@content/sessionDrafts';
 import {
@@ -16,6 +18,7 @@ import {
 import { VideoSessionState } from '@content/video/sessionState';
 import { createMemoryStorageArea } from '@platform/preview/memoryStorage';
 import type { ExportDestinationMetadata } from '@shared/exportDestination';
+import type { UsageEventParamMap } from '@shared/types/analytics';
 import type { StorageAreaService } from '@platform/interfaces/storage';
 import { VideoSessionDraftController } from '@content/video/videoSessionDraftController';
 import type { VideoCaptureScreenshot } from '@content/video/types';
@@ -34,6 +37,7 @@ type TimestampDraftCapture = Extract<
   VideoSessionDraftPayloadShape['captures'][number],
   { kind: 'timestamp' }
 >;
+type VideoDraftRestoreTelemetryParams = UsageEventParamMap['video_draft_restored'];
 
 function createTrackedStorageArea(): TrackedStorageArea {
   const area = createMemoryStorageArea();
@@ -137,7 +141,8 @@ function createHarness(
           Partial<Pick<VideoScreenshotCacheRepository, 'pruneExpired' | 'pruneToLimits'>>)
       | undefined;
     onScreenshotHydrationChange?: () => void;
-    trackDraftRestoreEvent?: (params: Record<string, unknown>) => void | Promise<void>;
+    sessionDraftStoragePolicy?: SessionDraftStoragePolicy;
+    trackDraftRestoreEvent?: (params: VideoDraftRestoreTelemetryParams) => void | Promise<void>;
   } = {}
 ) {
   const state = new VideoSessionState('gradient');
@@ -161,11 +166,19 @@ function createHarness(
     storageArea: storage,
     dom,
     onScreenshotHydrationChange: options.onScreenshotHydrationChange,
+    ...(options.sessionDraftStoragePolicy
+      ? { sessionDraftStoragePolicy: options.sessionDraftStoragePolicy }
+      : {}),
     trackDraftRestoreEvent: options.trackDraftRestoreEvent,
     readCleanupState: () => ({ ...cleanupState }),
     ...(options.screenshotCache ? { screenshotCache: options.screenshotCache } : {})
   });
-  const repository = createSessionDraftRepository(storage);
+  const repository = createSessionDraftRepository(
+    storage,
+    options.sessionDraftStoragePolicy
+      ? { retentionPolicy: options.sessionDraftStoragePolicy.retentionPolicy }
+      : {}
+  );
 
   return {
     state,
@@ -284,8 +297,8 @@ function createDeferred<T>() {
 }
 
 function readDraftRestoreTelemetryPayload(
-  trackDraftRestoreEvent: Mock<(params: Record<string, unknown>) => unknown>
-): Record<string, unknown> {
+  trackDraftRestoreEvent: Mock<(params: VideoDraftRestoreTelemetryParams) => void | Promise<void>>
+): VideoDraftRestoreTelemetryParams {
   const params = trackDraftRestoreEvent.mock.calls.at(-1)?.[0];
   if (!params || typeof params !== 'object') {
     throw new Error('expected a draft restore telemetry payload');
@@ -337,6 +350,47 @@ describe('VideoSessionDraftController', () => {
     await expect(controller.remove()).resolves.toBeUndefined();
     await expect(repository.loadLatest('video', document.location.href)).resolves.toBeNull();
     await expect(storage.get(currentDraftKey)).resolves.toBeUndefined();
+  });
+
+  it('applies an injected generic storage policy at save time', async () => {
+    vi.setSystemTime(new Date('2026-06-22T08:00:00Z'));
+    const retentionMs = 96 * 60 * 60 * 1000;
+    const harness = createHarness({
+      sessionDraftStoragePolicy: createSessionDraftStoragePolicy({
+        retentionPolicy: {
+          retentionMs,
+          maxRestorablePages: null,
+          maxItemsPerPage: null
+        }
+      })
+    });
+    const ids = Array.from({ length: 25 }, (_, index) => `timestamp-${index + 1}`);
+    harness.state.captures = ids.map((id, index) => ({
+      ...createTimestampCapture(id),
+      createdAt: Date.now() + index,
+      screenshotRef: createScreenshotCacheRef({ captureId: id, id: `shot-${index + 1}` })
+    }));
+    const domDraftEntries: Array<[string, string]> = [
+      ...ids.map((id): [string, string] => [id, `draft for ${id}`]),
+      ['orphan', 'drop me']
+    ];
+    harness.setDomDrafts(Object.fromEntries(domDraftEntries));
+
+    await harness.controller.flushNow('active');
+
+    const draft = await harness.repository.loadLatest('video', document.location.href);
+    if (!draft || draft.mode !== 'video') {
+      throw new Error('expected video draft');
+    }
+    expect(draft?.expiresAt).toBe(Date.now() + retentionMs);
+    const payload = requireVideoDraftPayload(draft);
+    expect(payload.captures).toHaveLength(25);
+    expect(Object.keys(payload.commentDrafts ?? {})).toEqual(ids);
+    const serializedDraft = JSON.stringify(draft);
+    expect(serializedDraft).toContain('"screenshotRef"');
+    expect(serializedDraft).not.toContain('data:image/');
+    expect(serializedDraft).not.toContain('"screenshot"');
+    expect(serializedDraft).not.toContain('"content"');
   });
 
   it('schedules and flushes active drafts with exact active status', async () => {

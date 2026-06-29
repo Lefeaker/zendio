@@ -100,7 +100,7 @@ export interface SessionDraftIndex {
 
 export interface SessionDraftRepositoryOptions {
   ttlMs?: number;
-  retentionPolicy?: SessionDraftRetentionPolicy;
+  retentionPolicy?: SessionDraftRetentionPolicy | undefined;
   maxEntries?: number;
   maxEnvelopeBytes?: number;
   resolveOwnerContext?: () => MaybePromise<SessionDraftOwnerContext | null | undefined>;

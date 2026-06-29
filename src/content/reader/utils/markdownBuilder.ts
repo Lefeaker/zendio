@@ -20,6 +20,7 @@ import {
   liftToAncestorChild,
   normalizeHighlightSegments,
   resolveCommonAncestor,
+  replaceDocumentBodyWithParsedHtml,
   shouldUnwrapInlineElement,
   stripInlineFormattingBetweenTokens,
   unwrapNode
@@ -43,7 +44,6 @@ export interface ReaderMarkdownParams {
 export interface ReaderFullMarkdownParams extends ReaderMarkdownParams {
   documentClone: Document;
 }
-
 export interface ReaderMarkdownPayload extends ClipPayload {}
 
 interface HighlightSectionResult {
@@ -118,7 +118,7 @@ export function buildReaderFullMarkdown(params: ReaderFullMarkdownParams): Reade
   const prepared = preprocessDocument(documentClone, pageUrl);
   const readable = new Readability(prepared).parse();
   const articleHost = documentClone.implementation.createHTMLDocument('');
-  articleHost.body.innerHTML = readable?.content || documentClone.body.innerHTML;
+  replaceDocumentBodyWithParsedHtml(articleHost, readable?.content || documentClone.body.innerHTML);
   normalizeHighlightSegments(articleHost, highlights);
   const articleHtml = articleHost.body.innerHTML;
 

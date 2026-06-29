@@ -19,11 +19,14 @@ export function updateGridLines(
   }
 
   ticks.forEach(({ value, topValue }) => {
-    if (topValue <= 0) {
+    if (!Number.isFinite(value) || !Number.isFinite(topValue) || topValue <= 0) {
       return;
     }
     const ratio = value / topValue;
     const y = geometry.baseline - ratio * geometry.usableHeight;
+    if (!Number.isFinite(y)) {
+      return;
+    }
     const line = document.createElementNS(SVG_NS, 'line');
     line.setAttribute('x1', '0');
     line.setAttribute('x2', geometry.svgWidth.toString());

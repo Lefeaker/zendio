@@ -125,7 +125,7 @@ The current post-migration ownership is:
 - Shared `AppError` user-facing messages: P18, descriptor-backed `userMessageDescriptor`.
 - Vault routing, REST candidates, config defaults, Zod/schema defaults, and YAML generator warnings: P19, descriptor or catalog-backed output.
 - Content runtime Clipper/Stitch/export destination fallbacks: P20, catalog-backed or non-Chinese compatibility defaults; no synthesized setup labels.
-- AI chat parser native tokens: P21, source-site token allowlist only; product fallback titles must be neutral or localized.
+- AI chat parser native tokens: P21, source-site token allowlist only; product-surface fallback titles must be catalog-backed/localized, and source-site neutral fallback tokens stay inside parser modules.
 - Hard gate and allowlist policy: P22, `quality` runs `audit:i18n-hardcoded-user-copy:check`.
 - English uncatalogued-copy hard gate: P08 plus coverage follow-up, `quality` and `verify:preflight` run `audit:i18n-uncatalogued-user-copy:check`; the gate covers raw English `normalizeToAppError` default fallbacks, production-visible `subtitle` / `hint` / `body` fields, and numbered natural-language UI titles.
 

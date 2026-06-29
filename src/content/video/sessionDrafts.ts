@@ -1,11 +1,11 @@
 import {
   createSessionDraftPageKey,
   createSessionDraftStorageKey,
-  DEFAULT_SESSION_DRAFT_TTL_MS,
   filterSessionCommentDraftsForRetainedIds,
   SESSION_DRAFT_SCHEMA_VERSION,
   selectRetainedSessionDraftItems,
   type SessionCommentDraftSnapshot,
+  type SessionDraftRetentionPolicy,
   type SessionDraftStatus,
   type VideoSessionDraftEnvelope,
   type VideoSessionDraftPayload
@@ -65,6 +65,7 @@ export interface BuildVideoSessionDraftPayloadArgs {
   videoUrl: string;
   canonicalUrl: string;
   videoTitle: string;
+  retentionPolicy?: Partial<SessionDraftRetentionPolicy> | null | undefined;
 }
 
 export interface HydratedVideoSessionDraft {
@@ -104,7 +105,9 @@ export function createVideoSessionDraftStorageKey(pageUrl: string, draftId: stri
 export function buildVideoSessionDraftPayload(
   args: BuildVideoSessionDraftPayloadArgs
 ): VideoSessionDraftPayloadShape {
-  const captures = selectRetainedSessionDraftItems(args.captures).map(serializeVideoDraftCapture);
+  const captures = selectRetainedSessionDraftItems(args.captures, args.retentionPolicy).map(
+    serializeVideoDraftCapture
+  );
   const commentDrafts = filterSessionCommentDraftsForRetainedIds(
     args.commentDrafts,
     captures.map((capture) => capture.id)
@@ -159,7 +162,7 @@ export function createVideoSessionDraftEnvelope(
     pageTitle: args.pageTitle,
     createdAt,
     updatedAt: args.updatedAt,
-    expiresAt: args.expiresAt ?? args.updatedAt + DEFAULT_SESSION_DRAFT_TTL_MS,
+    expiresAt: args.expiresAt ?? args.updatedAt,
     status: args.status ?? 'active',
     payload: args.payload
   };

@@ -25,6 +25,7 @@ import type { ProductionStitchRenderLifecycle } from './productionStitchRenderLi
 import { createProductionStitchShellRuntimeServices } from './productionStitchShellRuntimeServices';
 import { resolveProductionStitchAssets } from './productionStitchShellAssetResolver';
 import { createProductionStitchShellMutableState } from './productionStitchShellMutableState';
+import { createProductionStitchAssetUrlResolver } from './productionStitchAssetUrlResolver';
 
 export function mountProductionStitchShellFromDependencies({
   root,
@@ -40,6 +41,9 @@ export function mountProductionStitchShellFromDependencies({
   optionsRepository,
   messagingRepository,
   storage,
+  runtime,
+  resolveAssetUrl: providedResolveAssetUrl,
+  browserTarget: providedBrowserTarget,
   now
 }: ProductionStitchShellDependencies): MountedProductionStitchShell {
   const stitchAssets = resolveProductionStitchAssets({
@@ -52,11 +56,15 @@ export function mountProductionStitchShellFromDependencies({
   const buttonPressScrollGuard = installButtonPressScrollGuard(mountRoot);
   const resolvedOptionsRepository = optionsRepository ?? resolveOptionsRepositoryFallback();
   const resolvedMessagingRepository = messagingRepository ?? resolveMessagingRepositoryFallback();
+  const resolveAssetUrl =
+    providedResolveAssetUrl ?? createProductionStitchAssetUrlResolver(runtime);
+  const browserTarget = providedBrowserTarget ?? runtime?.getBrowserTarget() ?? 'chrome';
   const shellState = createProductionStitchShellMutableState({
     initialOptions,
     previewContent: stitchAssets.previewContent,
     language,
-    messages
+    messages,
+    browserTarget
   });
   const themeMediaQuery = createThemeMediaQuery();
 
@@ -169,6 +177,7 @@ export function mountProductionStitchShellFromDependencies({
     dispatch,
     mutate,
     render,
+    resolveAssetUrl,
     widgetHost
   });
 
@@ -183,6 +192,7 @@ export function mountProductionStitchShellFromDependencies({
     setState,
     createSchemaContext,
     dispatch,
+    resolveAssetUrl,
     schemaRenderer,
     widgetHost
   });

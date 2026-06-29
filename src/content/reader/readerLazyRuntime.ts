@@ -5,6 +5,7 @@ import type { IOptionsRepository } from '../../shared/repositories/IOptionsRepos
 import type { ClipPromptGateway } from '../clipper/application/clipPromptGateway';
 import type { ReaderSessionAdapter } from '../clipper/services/selectionController';
 import type { SupportProgressReporter } from '../runtime/supportProgress';
+import type { SessionDraftStoragePolicy } from '../sessionDrafts';
 import { ReaderSession } from './session';
 import { createReaderSessionDependencies } from './sessionDependencies';
 
@@ -14,6 +15,7 @@ export interface ReaderLazyRuntimeDependencies {
   messaging: Pick<MessagingService, 'send'>;
   runtime: Pick<RuntimeService, 'getURL'>;
   promptGateway: ClipPromptGateway;
+  sessionDraftStoragePolicy?: SessionDraftStoragePolicy;
   showSupportProgress?: SupportProgressReporter;
 }
 
@@ -32,6 +34,9 @@ export function createReaderSessionAdapter(
           storage: dependencies.storage,
           messaging: dependencies.messaging,
           runtime: dependencies.runtime,
+          ...(dependencies.sessionDraftStoragePolicy
+            ? { sessionDraftStoragePolicy: dependencies.sessionDraftStoragePolicy }
+            : {}),
           ...(dependencies.showSupportProgress
             ? { showSupportProgress: dependencies.showSupportProgress }
             : {})

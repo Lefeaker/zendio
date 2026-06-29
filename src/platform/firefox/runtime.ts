@@ -28,6 +28,10 @@ export const firefoxRuntimeService: RuntimeService = {
     return firefoxApi.runtime.getURL(path);
   },
 
+  getBrowserTarget() {
+    return 'firefox';
+  },
+
   async sendMessage<TResult = unknown>(message: unknown): Promise<TResult> {
     const firefoxApi = ensureFirefox();
     const response: unknown = await firefoxApi.runtime.sendMessage(message);

@@ -9,7 +9,11 @@ import { kimiParser } from './platforms/kimi';
 import { doubaoParser } from './platforms/doubao';
 import { monicaParser } from './platforms/monica';
 import { perplexityParser } from './platforms/perplexity';
-import type { ChatPlatformParser, ParsedResult } from './types';
+import {
+  PARSER_NOT_FOUND_DIAGNOSTIC_CODE,
+  type ChatPlatformParser,
+  type ParsedResult
+} from './types';
 
 const registeredParsers: ChatPlatformParser[] = [
   chatgptParser,
@@ -43,5 +47,6 @@ export function listParsers(): ChatPlatformParser[] {
 export const EMPTY_RESULT: ParsedResult = {
   title: DEFAULT_CHAT_TITLE,
   messages: [],
-  assets: []
+  assets: [],
+  diagnostics: [{ code: PARSER_NOT_FOUND_DIAGNOSTIC_CODE, severity: 'warning' }]
 };

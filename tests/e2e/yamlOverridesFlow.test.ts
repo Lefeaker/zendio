@@ -201,6 +201,9 @@ const mockRuntime: RuntimeService = {
   getURL(path: string) {
     return path;
   },
+  getBrowserTarget() {
+    return 'chrome';
+  },
   openOptionsPage() {
     return Promise.resolve(undefined);
   },

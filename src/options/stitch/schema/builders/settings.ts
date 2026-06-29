@@ -1,18 +1,12 @@
 import type { NodeSchema, SchemaContext } from '../../types';
 import { DEFAULT_PRODUCTION_ENGLISH_MESSAGES } from '../i18n';
+import { getAIChatProductSurfacePlatforms } from '@third-party/ai-chat-exporter/platformProductSurface';
 import { div, element } from './primitives';
 import { classNames } from './classNames';
 
-const AI_PLATFORM_LINKS: Record<string, string> = {
-  ChatGPT: 'https://chatgpt.com/',
-  Claude: 'https://claude.ai/',
-  Gemini: 'https://gemini.google.com/',
-  Kimi: 'https://www.kimi.com/',
-  DeepSeek: 'https://chat.deepseek.com/',
-  Tongyi: 'https://tongyi.aliyun.com/',
-  Doubao: 'https://www.doubao.com/',
-  Monica: 'https://monica.im/'
-};
+const AI_PLATFORM_LINKS = new Map(
+  getAIChatProductSurfacePlatforms().map((platform) => [platform.label, platform.url])
+);
 
 export function themeSegmentedSwitch(): NodeSchema {
   return {
@@ -50,7 +44,7 @@ export function aiPlatformLinks(): NodeSchema {
       element('a', {
         className: ['chip', classNames.settings.aiPlatformLink].join(' '),
         text: item,
-        href: AI_PLATFORM_LINKS[item] ?? '#',
+        href: AI_PLATFORM_LINKS.get(item) ?? '#',
         target: '_blank',
         rel: 'noopener noreferrer',
         ariaPressed: 'true'

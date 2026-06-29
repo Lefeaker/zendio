@@ -121,4 +121,36 @@ describe('mountProductionStitchShell capture sources i18n', () => {
     );
     expect(attachmentLink?.textContent).toBe('Attachment Guidance Link Sentinel');
   });
+
+  it('renders the supported AI chat platform truth with external links', async () => {
+    mountProductionStitchShell({
+      controller: asOptionsController(createController()),
+      messages: ENGLISH_SENTINEL_MESSAGES,
+      language: 'en'
+    });
+
+    queryRequired<HTMLButtonElement>('[data-nav-panel="capture-sources"]').click();
+    await flushPromises();
+
+    const captureSourcesPanel = queryRequired<HTMLElement>('[data-panel-id="capture-sources"]');
+    const platformLinks = Array.from(
+      captureSourcesPanel.querySelectorAll<HTMLAnchorElement>('.ai-platform-link')
+    ).map((link) => ({
+      text: link.textContent?.trim(),
+      href: link.href
+    }));
+
+    expect(platformLinks).toEqual([
+      { text: 'ChatGPT', href: 'https://chatgpt.com/' },
+      { text: 'Claude', href: 'https://claude.ai/' },
+      { text: 'Copilot', href: 'https://copilot.microsoft.com/' },
+      { text: 'Gemini', href: 'https://gemini.google.com/' },
+      { text: 'Tongyi/Qianwen', href: 'https://tongyi.aliyun.com/' },
+      { text: 'DeepSeek', href: 'https://chat.deepseek.com/' },
+      { text: 'Kimi', href: 'https://www.kimi.com/' },
+      { text: 'Doubao', href: 'https://www.doubao.com/' },
+      { text: 'Monica', href: 'https://monica.im/' },
+      { text: 'Perplexity', href: 'https://www.perplexity.ai/' }
+    ]);
+  });
 });

@@ -2,6 +2,7 @@
 
 import { describe, expect, it } from 'vitest';
 import { serializeBlobAttachmentContent } from '@shared/attachments/clipAttachmentBinary';
+import { createSessionDraftStoragePolicy } from '@content/sessionDrafts';
 import { createVideoScreenshotCacheClientRepository } from '@content/video/videoScreenshotCacheClientRepository';
 import { createVideoScreenshotCacheRepository } from '@content/video/videoScreenshotCacheRepository';
 import {
@@ -415,6 +416,42 @@ describe('background-owned video screenshot cache client', () => {
     expect(blobStore.peek(secondRef.key)).toMatchObject({ expiresAt: BASE_TIME + 20 });
     expect(await legacyArea.get(firstRef.key)).toBeUndefined();
     expect(await legacyArea.get(secondRef.key)).toBeUndefined();
+    expect(await legacyArea.get(VIDEO_SCREENSHOT_CACHE_INDEX_KEY)).toBeUndefined();
+    expectNoLegacyScreenshotCacheWrites(legacyArea);
+  });
+
+  it('uses the injected generic storage policy ttl for background-owned cache refs', async () => {
+    const blobStore = new MemoryBlobStore();
+    const legacyArea = new MemoryStorageArea();
+    const storagePolicy = createSessionDraftStoragePolicy({
+      retentionPolicy: {
+        retentionMs: 123_456,
+        maxRestorablePages: null,
+        maxItemsPerPage: null
+      }
+    });
+    const handleMessage = createBackgroundVideoScreenshotCacheHandler(
+      { local: legacyArea },
+      {
+        now: () => BASE_TIME,
+        ttlMs: storagePolicy.videoScreenshotCacheTtlMs
+      },
+      { blobStore }
+    );
+    const client = createVideoScreenshotCacheClientRepository({
+      messaging: createClientMessaging(handleMessage)
+    });
+
+    const saved = await client.save({
+      pageKey: 'page-a',
+      captureId: 'capture-a',
+      screenshot: createScreenshot('policy-shot', 'policy-frame')
+    });
+
+    const ref = requireSavedRef(saved);
+    expect(ref.expiresAt).toBe(BASE_TIME + 123_456);
+    expect(blobStore.peek(ref.key)).toMatchObject({ expiresAt: BASE_TIME + 123_456 });
+    expect(await legacyArea.get(ref.key)).toBeUndefined();
     expect(await legacyArea.get(VIDEO_SCREENSHOT_CACHE_INDEX_KEY)).toBeUndefined();
     expectNoLegacyScreenshotCacheWrites(legacyArea);
   });

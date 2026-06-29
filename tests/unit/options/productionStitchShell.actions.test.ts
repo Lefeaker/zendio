@@ -20,16 +20,11 @@ vi.mock('@options/app/productionStitchFinalAnalyticsEvent', () => ({
 }));
 
 import {
-  applyOptionsToState,
-  createInitialStitchState,
-  createProductionContent
-} from '@options/app/productionStitchStateMapper';
-import { createProductionStitchShellActionRuntime } from '@options/app/productionStitchShellActionRuntime';
-import {
   analyticsMocks,
   asOptionsController,
   createController,
   createEnglishPageMessages,
+  createActionRuntimeHarness,
   createMessaging,
   createRepository,
   createStorage,
@@ -42,9 +37,7 @@ import {
 } from './productionStitchShell.helpers';
 import { mountProductionStitchShell } from '@options/app/productionStitchShell';
 import * as storageControllerModule from '@options/app/productionStitchStorageController';
-import { previewContent } from '@options/stitch/content';
 import { mergeOptions } from '@shared/config/optionsMerger';
-import type { Language } from '@i18n';
 import type { StorageService } from '@platform/interfaces/storage';
 import type { CompleteOptions } from './productionStitchShell.helpers';
 import { getRestDefaults } from '../../utils/restDefaults';
@@ -62,104 +55,6 @@ function mockStorageConnectionFailure(message: string) {
     runVaultListConnectionTest: vi.fn(() => Promise.reject(new Error(message)))
   }));
   return factorySpy;
-}
-
-function createActionRuntimeHarness() {
-  const mountRoot = document.createElement('div');
-  document.body.append(mountRoot);
-
-  let draft = mergeOptions(null) as CompleteOptions;
-  let appData = createProductionContent(previewContent, draft);
-  let state = applyOptionsToState(createInitialStitchState(appData), draft, appData);
-  const trackUsageEventMock = vi.fn(() => Promise.resolve(undefined));
-  const scrollToPanelMock = vi.fn();
-  const openResourceMock = vi.fn();
-
-  const runtime = createProductionStitchShellActionRuntime({
-    mountRoot,
-    buttonPressScrollGuard: {
-      cleanup: vi.fn(),
-      getSnapshot: vi.fn(() => null)
-    },
-    controller: {
-      loadRaw: vi.fn(() => Promise.resolve(draft)),
-      scheduleAutoSave: vi.fn()
-    },
-    optionsRepository: createRepository(),
-    changeLanguage: vi.fn((language: Language) => Promise.resolve({ messages: null, language })),
-    getAppData: () => appData,
-    getCurrentLanguage: () => state.previewLanguage as Language,
-    getCurrentMessages: () => null,
-    getDraft: () => draft,
-    getState: () => state,
-    setConnectionNotice: vi.fn(),
-    setDomainMappingRows: vi.fn(),
-    setLanguageResource: ({ language }) => {
-      state = { ...state, previewLanguage: language };
-    },
-    setMaintenanceLog: vi.fn(),
-    setState: (nextState) => {
-      state = nextState;
-    },
-    createSchemaContext: () => ({
-      appData,
-      language: state.previewLanguage,
-      state
-    }),
-    mutate: (mutator) => {
-      mutator(state);
-    },
-    currentDomainEntries: () => [],
-    refreshAppData: () => {
-      appData = createProductionContent(previewContent, draft);
-    },
-    refreshOptions: (options) => {
-      draft = mergeOptions(options) as CompleteOptions;
-      appData = createProductionContent(previewContent, draft);
-      state = applyOptionsToState(state, draft, appData);
-    },
-    render: vi.fn(),
-    renderActiveResourceModal: vi.fn(),
-    scheduleDraftSave: vi.fn(),
-    scrollToPanel: scrollToPanelMock,
-    syncDomainEntries: vi.fn(),
-    syncHighlightThemeControls: vi.fn(),
-    syncModifierControls: vi.fn(),
-    syncPreviewThemeControls: vi.fn(),
-    openResource: openResourceMock,
-    persistence: {
-      clearAnalyticsPrivacyData: vi.fn(() => Promise.resolve()),
-      copyConfigurationToClipboard: vi.fn(() => Promise.resolve()),
-      importConfigurationWithStatus: vi.fn(() => Promise.resolve()),
-      loadUsageStatsFromStorage: vi.fn(() => Promise.resolve()),
-      persistPrivacyPreference: vi.fn(() => Promise.resolve()),
-      repairConfiguration: vi.fn(() => Promise.resolve()),
-      resetUsageData: vi.fn(() => Promise.resolve()),
-      trackUsageEvent: trackUsageEventMock
-    } as never,
-    storageController: {
-      activateVaultLocalFolder: vi.fn(() => Promise.resolve()),
-      applyConnectionNotice: vi.fn(),
-      chooseVaultLocalFolder: vi.fn(() => Promise.resolve()),
-      clearVaultLocalFolder: vi.fn(),
-      ensureVaultRouter: vi.fn(() => ({ vaults: [], rules: [], defaultVaultId: '' })),
-      runVaultListConnectionTest: vi.fn(() => Promise.resolve({ success: true, message: 'ok' })),
-      syncRoutingRulesToDraft: vi.fn(),
-      updateVaultField: vi.fn()
-    } as never,
-    widgetHost: {
-      collectDraftWithWidgets: vi.fn(() => draft),
-      flushDirtyWidgets: vi.fn(),
-      markDirty: vi.fn()
-    } as never
-  });
-
-  return {
-    runtime,
-    scrollToPanelMock,
-    openResourceMock,
-    trackUsageEventMock
-  };
 }
 
 describe('mountProductionStitchShell actions', () => {

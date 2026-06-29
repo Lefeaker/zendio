@@ -103,11 +103,18 @@ const ALLOWED_PREVIEW_DRIFT = new Map([
         'The video path template refresh updates the generated preview JS hash after adding the separate Options video path template row plus template state wiring while keeping the existing article template row as article-only user copy and preserving the frozen reference and Stitch runtime behavior.',
         'The i18n chunk-loading repair refreshes the generated preview JS hash after replacing generated locale/schema dynamic imports with static release registries so extension pages do not depend on runtime-loaded i18n chunks, while preserving the frozen reference, locale fallback semantics, and Stitch runtime behavior.',
         'The support resource closeout refreshes the generated preview JS hash after deleting retired Support Scope schema messages, neutralizing AI-assisted product-positioning copy in cataloged experimental settings, and routing support/contact/suggestion links through the shared Zendio resource link registry while preserving the frozen reference and Stitch resource modal/runtime surface behavior.',
-        'The Firefox runtime boundary and reader focus main merge refreshes the generated preview JS hash while preserving the frozen reference, preview freeze logic, and Stitch runtime contract.'
+        'The Firefox runtime boundary and reader focus main merge refreshes the generated preview JS hash while preserving the frozen reference, preview freeze logic, and Stitch runtime contract.',
+        'P05 refreshes the generated preview JS hash after facade-preserving Options/Stitch owner decomposition, runtime-threaded asset URL resolution, and schema-context browser target routing while focused Options/Stitch tests and visual:stitch preserve the frozen reference and Stitch runtime contract.',
+        'The post-P05 hardcoded-config repair refreshes the generated preview JS hash after routing Options resource and YAML sample REST URLs through configProvider.getRestDefaults(), preserving the visible default and offset sample values while keeping the hardcoded config guard intact.',
+        'P08 Options AI platform surface sync refreshes the generated preview JS hash after aligning the supported AI chat platform product surface and generated schema/i18n catalog output while preserving the frozen reference, preview freeze logic, and Stitch runtime contract.',
+        'The AI chat abstraction tuning refreshes the generated preview JS hash after deriving Options supported-platform labels and links from canonical lightweight platform metadata while preserving the frozen reference, preview freeze logic, and Stitch runtime contract.',
+        'The AI chat metadata-boundary refresh updates the generated preview JS hash after moving Options supported-platform labels and links onto the dedicated platformProductSurface metadata owner while preserving the frozen reference, preview freeze logic, and Stitch runtime contract.',
+        'The v0.2.1 changelog refresh updates the generated preview JS hash after adding the catalog-backed Options/Stitch release notes and regenerated schema message keys while preserving the frozen reference, preview freeze logic, and Stitch runtime contract.',
+        'The zero-state Usage Dashboard repair refreshes the generated preview JS hash after extracting the Stitch usage chart renderer from the hotspot components module and making chart-domain math fail closed for all-zero or non-finite values while preserving the frozen reference, preview freeze logic, and Stitch runtime contract.'
       ].join(' '),
       leftSha256: '9020ccbd91acd691eccd3fdf568b9a90efbddf0a35d79f36ef1caba702fa0c07',
-      // 2026-06-22 Firefox runtime boundary / reader focus main merge preview JS hash.
-      rightSha256: 'b4a980c009357b15bff697326dfe7be84a30dbc4256c5a2e4818038196f1b1dc'
+      // 2026-06-29 zero-state Usage Dashboard renderer split preview JS hash.
+      rightSha256: '1b518f227ec1dfbdd306b05a2c166aa38fff693f3d66c2a9d64055e02f0d933b'
     }
   ]
 ]);

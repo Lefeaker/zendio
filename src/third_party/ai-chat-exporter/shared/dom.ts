@@ -2,6 +2,82 @@
  * Remove unwanted UI elements from the DOM before conversion
  * This includes buttons, footers, and other non-content elements
  */
+import type { CleanupHook, ProfileSelector } from './profileTypes';
+
+function toSelectorList(selectors: ProfileSelector): readonly string[] {
+  return typeof selectors === 'string' ? [selectors] : selectors;
+}
+
+export function normalizeText(text: string): string {
+  return text.replace(/\s+/g, ' ').trim();
+}
+
+export function collectOrderedElements(
+  root: ParentNode,
+  selectors: ProfileSelector
+): HTMLElement[] {
+  const elements: HTMLElement[] = [];
+  const seen = new Set<HTMLElement>();
+
+  for (const selector of toSelectorList(selectors)) {
+    const matches = root.querySelectorAll<HTMLElement>(selector);
+    matches.forEach((element) => {
+      if (!seen.has(element)) {
+        seen.add(element);
+        elements.push(element);
+      }
+    });
+  }
+
+  return elements;
+}
+
+export function pickFirstElement(root: ParentNode, selectors: ProfileSelector): HTMLElement | null {
+  for (const selector of toSelectorList(selectors)) {
+    const element = root.querySelector<HTMLElement>(selector);
+    if (element) {
+      return element;
+    }
+  }
+
+  return null;
+}
+
+function isElementNode(node: Node): node is HTMLElement {
+  return node.nodeType === 1;
+}
+
+export function cloneHTMLElement(element: HTMLElement): HTMLElement | null {
+  const clone = element.cloneNode(true);
+  const view = element.ownerDocument.defaultView;
+  if (view) {
+    return clone instanceof view.HTMLElement ? clone : null;
+  }
+
+  return isElementNode(clone) ? clone : null;
+}
+
+export function removeElements(selectors: ProfileSelector): CleanupHook {
+  return (fragment) => {
+    collectOrderedElements(fragment, selectors).forEach((element) => element.remove());
+  };
+}
+
+export function findFirstNormalizedText(
+  root: ParentNode,
+  selectors: ProfileSelector,
+  predicate: (text: string, element: HTMLElement) => boolean = (text) => text.length > 0
+): string | null {
+  for (const element of collectOrderedElements(root, selectors)) {
+    const text = normalizeText(element.textContent ?? '');
+    if (predicate(text, element)) {
+      return text;
+    }
+  }
+
+  return null;
+}
+
 export function cleanupUIElements(container: HTMLElement): void {
   const selectorsToRemove = [
     '.thoughts-header-button-content',

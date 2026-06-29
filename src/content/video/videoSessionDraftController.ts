@@ -76,9 +76,10 @@ function readDraftRestoreTelemetryCaptures(
   const payload = draft.payload as Partial<VideoSessionDraftPayloadShape>;
   return Array.isArray(payload.captures) ? (payload.captures as VideoCapture[]) : [];
 }
-
 export class VideoSessionDraftController implements VideoSessionDraftRuntimePort {
-  private readonly draftRepository = createSessionDraftRepository(this.options.storageArea);
+  private readonly draftRepository = createSessionDraftRepository(this.options.storageArea, {
+    retentionPolicy: this.options.sessionDraftStoragePolicy?.retentionPolicy
+  });
   private readonly draftId = createVideoSessionDraftId();
   private readonly draftPersister: SessionDraftPersister;
   private readonly screenshotCacheMaintenance = createVideoSessionDraftScreenshotCacheMaintenance(
@@ -90,7 +91,6 @@ export class VideoSessionDraftController implements VideoSessionDraftRuntimePort
   private legacyCaptureStorageKey: string | null = null;
   private stopDraftPersistence: (() => void) | null = null;
   private screenshotHydrationGeneration = 0;
-
   constructor(private readonly options: VideoSessionDraftControllerOptions) {
     this.activeDraftPageUrl = this.options.doc.location.href;
     this.draftPersister = createSessionDraftPersister<VideoSessionDraftEnvelope>({
@@ -323,11 +323,11 @@ export class VideoSessionDraftController implements VideoSessionDraftRuntimePort
         videoId: this.options.state.videoId,
         videoUrl: this.options.state.videoUrl || pageUrl,
         canonicalUrl: this.options.state.canonicalUrl || pageUrl,
-        videoTitle: title
+        videoTitle: title,
+        retentionPolicy: this.options.sessionDraftStoragePolicy?.retentionPolicy
       })
     });
   }
-
   private async clearSupersededDurableSources(): Promise<void> {
     const currentDraftKey = createVideoSessionDraftStorageKey(
       this.activeDraftPageUrl,

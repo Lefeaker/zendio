@@ -23,6 +23,7 @@ import type { IReaderRepository } from '../../shared/repositories/IReaderReposit
 import type { ReadingSessionOptions } from '../../shared/types/options';
 import type { ReaderMarkdownPayload } from './utils/markdownBuilder';
 import type { SupportProgressReporter } from '../runtime/supportProgress';
+import type { SessionDraftStoragePolicy } from '../sessionDrafts';
 
 export interface ReaderSessionDependencies {
   viewFactory: ReaderSessionViewFactory;
@@ -46,6 +47,7 @@ export interface ReaderSessionDependencies {
   ) => ReaderSessionLifecycle;
   exporter: ReaderSessionExporter;
   dispatchClipResult: (payload: ReaderMarkdownPayload) => Promise<void>;
+  sessionDraftStoragePolicy?: SessionDraftStoragePolicy;
   showSupportProgress?: SupportProgressReporter;
 }
 

@@ -1,24 +1,27 @@
+import { bucketCount } from '@shared/analytics/featureTimer';
+import type { ExportDestinationMetadata } from '@shared/exportDestination';
 import type { ClipPromptGateway } from '../clipper/application/clipPromptGateway';
 import { generateTextFragmentUrl } from '../clipper/utils/textFragment';
-import { createReaderHighlightId, type ReaderSessionState } from './sessionState';
-import type { ReaderSelectionPayload } from './services/selectionController';
-import type { ReaderHighlightManager, ReaderHighlightRecord } from './services/highlightManager';
-import type { ReaderPanelCoordinator } from './panelCoordinator';
-import type { ReaderSessionDependencies } from './sessionTypes';
-import type { ReaderSessionLifecycle } from './sessionLifecycle';
-import type { ExportDestinationMetadata } from '@shared/exportDestination';
-import type { SessionDraftTerminalStatus, SessionMutationTransaction } from '../sessionDrafts';
-import { isAppError } from '../../shared/errors';
-import {
-  createAnalyticsEventMessage,
-  type AnalyticsRuntimeEventPayload,
-  type FailureCategory,
-  type UsageEventParamMap
-} from '@shared/types/analytics';
-import { bucketCount } from '@shared/analytics/featureTimer';
-import { isNodeInsideReaderUi } from './sessionDom';
 import { clearReaderSession } from '../runtime/contentSessionRegistry';
+import type { SessionDraftTerminalStatus, SessionMutationTransaction } from '../sessionDrafts';
 import { clearHighlightThemeState } from '../shared/highlightThemeState';
+import type { ReaderPanelCoordinator } from './panelCoordinator';
+import type { ReaderHighlightManager, ReaderHighlightRecord } from './services/highlightManager';
+import type { ReaderSelectionPayload } from './services/selectionController';
+import { isNodeInsideReaderUi } from './sessionDom';
+import type { ReaderSessionLifecycle } from './sessionLifecycle';
+import { resolveReaderFailureCategory } from './sessionOperationFailures';
+import {
+  createDetachedReaderHighlight,
+  restoreSelection,
+  snapshotSelection
+} from './sessionOperationSelection';
+import { resolveReaderExportDestination, trackReaderUsageEvent } from './sessionOperationTelemetry';
+import { createReaderHighlightId, type ReaderSessionState } from './sessionState';
+import type { ReaderSessionDependencies } from './sessionTypes';
+
+export { createDetachedReaderHighlight } from './sessionOperationSelection';
+export { trackReaderUsageEvent } from './sessionOperationTelemetry';
 
 interface ReaderSessionOperationContext {
   session: object;
@@ -39,16 +42,6 @@ interface ReaderSessionOperationContext {
     transaction: SessionMutationTransaction<Result, void>
   ) => Promise<boolean>;
 }
-
-type ReaderUsageEventName = Extract<
-  keyof UsageEventParamMap,
-  | 'reader_session_started'
-  | 'reader_draft_restored'
-  | 'reader_highlight_added'
-  | 'reader_exported'
-  | 'reader_export_failed'
-  | 'reader_session_cancelled'
->;
 
 type HighlightWrapperSnapshot = {
   wrapper: HTMLElement;
@@ -599,36 +592,6 @@ function queueReaderDraftPersistence(context: ReaderSessionOperationContext): vo
   });
 }
 
-export function createDetachedReaderHighlight(
-  doc: Document,
-  id: string,
-  selectedHtml: string,
-  selectedText: string,
-  comment: string,
-  fragmentUrl: string,
-  createdAt = Date.now()
-): ReaderHighlightRecord {
-  const wrapper = doc.createElement('mark');
-  wrapper.className = 'aiob-reader-highlight';
-  wrapper.dataset.readerHighlightId = id;
-  const trimmedComment = comment.trim();
-  if (trimmedComment) {
-    wrapper.dataset.readerComment = trimmedComment;
-  }
-  wrapper.textContent = selectedText;
-
-  return {
-    id,
-    selectedHtml,
-    selectedText,
-    comment: trimmedComment,
-    fragmentUrl,
-    wrapper,
-    wrapperSegments: [wrapper],
-    createdAt
-  };
-}
-
 function findReaderHighlight(
   highlights: ReaderHighlightRecord[],
   id: string
@@ -676,163 +639,4 @@ function restoreHighlightWrappers(snapshots: HighlightWrapperSnapshot[]): void {
       }
     }
   }
-}
-
-function snapshotSelection(doc: Document): Range[] {
-  const selection = doc.defaultView?.getSelection();
-  if (!selection || selection.rangeCount === 0) {
-    return [];
-  }
-  return Array.from({ length: selection.rangeCount }, (_value, index) =>
-    selection.getRangeAt(index).cloneRange()
-  );
-}
-
-function restoreSelection(doc: Document, ranges: Range[]): void {
-  const selection = doc.defaultView?.getSelection();
-  if (!selection) {
-    return;
-  }
-  selection.removeAllRanges();
-  for (const range of ranges) {
-    selection.addRange(range);
-  }
-}
-
-export async function trackReaderUsageEvent<EventName extends ReaderUsageEventName>(
-  context: ReaderSessionOperationContext,
-  event: EventName,
-  params: UsageEventParamMap[EventName]
-): Promise<void> {
-  try {
-    const payload = createAnalyticsEventMessage(event, params);
-    await context.dependencies.messaging.send(payload as AnalyticsRuntimeEventPayload);
-  } catch (error) {
-    console.debug('[ReaderSession] Failed to send analytics event:', error);
-  }
-}
-
-function resolveReaderExportDestination(
-  metadata: ExportDestinationMetadata | undefined
-): UsageEventParamMap['reader_exported']['destination'] {
-  if (metadata?.kind === 'downloads') {
-    return 'downloads';
-  }
-  return 'unknown';
-}
-
-const FAILURE_CATEGORIES: ReadonlySet<string> = new Set(
-  'permission connection validation classification extraction write timeout unsupported unknown'.split(
-    ' '
-  )
-);
-
-const FAILURE_HINTS = {
-  timeout: 'timeout|timed out|message timeout|aborterror|aborted'.split('|'),
-  unsupported: 'unsupported|not supported|unavailable in this runtime'.split('|'),
-  permission:
-    'permission denied|permission-denied|access denied|not granted|forbidden|denied'.split('|'),
-  validation:
-    'documentclone is required|markdown builders are not configured|invalid|missing|malformed|expected|not configured'.split(
-      '|'
-    ),
-  extraction:
-    'extraction_content_no_markdown|extraction_selection_no_selection|failed to dispatch clip result'.split(
-      '|'
-    ),
-  write: 'local_vault_write_failed|write failed|save failed'.split('|'),
-  connection:
-    'offline|network|connection|could not establish connection|receiving end does not exist|extension context invalidated|message port closed|runtime.lasterror|failed to fetch|networkerror'.split(
-      '|'
-    )
-} as const;
-
-interface ReaderExportFailureLike {
-  name?: string;
-  message?: string;
-  code?: string;
-  domain?: string;
-  userMessage?: string;
-  context?: unknown;
-  cause?: unknown;
-  failureCategory?: unknown;
-}
-
-function isFailureCategory(value: unknown): value is FailureCategory {
-  return typeof value === 'string' && FAILURE_CATEGORIES.has(value);
-}
-
-function isReaderExportFailureLike(error: unknown): error is ReaderExportFailureLike {
-  return typeof error === 'object' && error !== null;
-}
-
-function collectFailureHints(error: unknown, seen = new Set<unknown>()): string {
-  if (error == null || seen.has(error)) {
-    return '';
-  }
-  seen.add(error);
-  const hints: string[] = [];
-  const push = (value: unknown) => {
-    if (typeof value === 'string' && value.trim()) {
-      hints.push(value.trim().toLowerCase());
-    }
-  };
-  if (typeof error === 'string') {
-    push(error);
-  } else if (error instanceof Error) {
-    push(error.name);
-    push(error.message);
-    push(collectFailureHints((error as Error & { cause?: unknown }).cause, seen));
-  } else if (isReaderExportFailureLike(error)) {
-    push(error.code);
-    push(error.domain);
-    push(error.name);
-    push(error.message);
-    push(error.userMessage);
-    if (typeof error.context === 'object' && error.context !== null) {
-      const context = error.context as Record<string, unknown>;
-      [context.fallbackReason, context.error, context.message, context.reason].forEach(push);
-    }
-    push(collectFailureHints(error.cause, seen));
-  }
-  return hints.join('\n');
-}
-
-function hasFailureHint(text: string, candidates: readonly string[]): boolean {
-  return candidates.some((candidate) => text.includes(candidate));
-}
-
-function resolveReaderFailureCategory(error: unknown): FailureCategory {
-  if (isReaderExportFailureLike(error) && isFailureCategory(error.failureCategory)) {
-    return error.failureCategory;
-  }
-
-  const failureHints = collectFailureHints(error);
-
-  if (isAppError(error)) {
-    if (error.domain === 'classifier') return 'classification';
-    if (error.code === 'LOCAL_VAULT_WRITE_FAILED') return 'write';
-    if (error.code.includes('TIMEOUT')) return 'timeout';
-    if (error.domain === 'rest') {
-      return hasFailureHint(failureHints, FAILURE_HINTS.timeout) ? 'timeout' : 'connection';
-    }
-    if (
-      error.domain === 'extraction' &&
-      !hasFailureHint(failureHints, FAILURE_HINTS.timeout) &&
-      !hasFailureHint(failureHints, FAILURE_HINTS.unsupported) &&
-      !hasFailureHint(failureHints, FAILURE_HINTS.permission) &&
-      !hasFailureHint(failureHints, FAILURE_HINTS.validation) &&
-      !hasFailureHint(failureHints, FAILURE_HINTS.connection)
-    ) {
-      return 'extraction';
-    }
-  }
-  if (hasFailureHint(failureHints, FAILURE_HINTS.timeout)) return 'timeout';
-  if (hasFailureHint(failureHints, FAILURE_HINTS.unsupported)) return 'unsupported';
-  if (hasFailureHint(failureHints, FAILURE_HINTS.permission)) return 'permission';
-  if (hasFailureHint(failureHints, FAILURE_HINTS.validation)) return 'validation';
-  if (hasFailureHint(failureHints, FAILURE_HINTS.write)) return 'write';
-  if (hasFailureHint(failureHints, FAILURE_HINTS.connection)) return 'connection';
-  if (hasFailureHint(failureHints, FAILURE_HINTS.extraction)) return 'extraction';
-  return 'unknown';
 }

@@ -65,7 +65,12 @@ export function computeChartGeometry(
     };
   }
 
-  const totals = history.map((entry) => entry.aiChat + entry.fragment + entry.article);
+  const totals = history.map(
+    (entry) =>
+      normalizeChartCount(entry.aiChat) +
+      normalizeChartCount(entry.fragment) +
+      normalizeChartCount(entry.article)
+  );
   const maxValue = Math.max(...totals, 0);
   const tickInfo = generateTicks(maxValue);
   const topValue = tickInfo.topValue || 1;
@@ -127,7 +132,7 @@ export function buildSmoothPath(points: ChartPoint[]): string {
 }
 
 export function generateTicks(maxValue: number): TickInfo {
-  if (maxValue <= 0) {
+  if (!Number.isFinite(maxValue) || maxValue <= 0) {
     return { ticks: [], topValue: 0 };
   }
 
@@ -160,6 +165,13 @@ export function generateTicks(maxValue: number): TickInfo {
     ticks.push(0);
   }
   return { ticks, topValue };
+}
+
+function normalizeChartCount(value: number): number {
+  if (!Number.isFinite(value) || value <= 0) {
+    return 0;
+  }
+  return Math.floor(value);
 }
 
 export function pickLabelIndices(length: number, maxLabels: number): number[] {

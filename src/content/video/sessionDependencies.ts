@@ -8,6 +8,7 @@ import type { MessagingService } from '../../platform/interfaces/messaging';
 import type { StorageService } from '../../platform/interfaces/storage';
 import type { RuntimeService } from '../../platform/interfaces/runtime';
 import type { SupportProgressReporter } from '../runtime/supportProgress';
+import type { SessionDraftStoragePolicy } from '../sessionDrafts';
 import {
   createVisibleTabVideoFrameScreenshotCapture,
   createVisibleTabVideoFrameScreenshotDataUrlCapture
@@ -23,6 +24,7 @@ export interface VideoSessionPlatformDependencies {
   storage: StorageService;
   runtime?: Pick<RuntimeService, 'getURL'>;
   messaging?: Pick<MessagingService, 'send'>;
+  sessionDraftStoragePolicy?: SessionDraftStoragePolicy;
   showSupportProgress?: SupportProgressReporter;
 }
 
@@ -55,6 +57,9 @@ export function createVideoSessionDependencies(
             messaging: deps.messaging
           })
         }
+      : {}),
+    ...(deps.sessionDraftStoragePolicy
+      ? { sessionDraftStoragePolicy: deps.sessionDraftStoragePolicy }
       : {}),
     ...(deps.showSupportProgress ? { showSupportProgress: deps.showSupportProgress } : {})
   };
