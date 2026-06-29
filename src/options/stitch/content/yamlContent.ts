@@ -8,11 +8,18 @@ const SAMPLE_ARCHIVE_VAULT = message('schemaPreviewSampleVaultArchive');
 const REST_DEFAULTS = configProvider.getRestDefaults();
 
 function withRestPortOffset(url: string, offset: number): string {
-  const parsed = new URL(url);
-  const currentPort = Number(parsed.port);
+  let parsed: URL;
+  try {
+    parsed = new URL(url);
+  } catch {
+    return url;
+  }
+
+  const currentPort = Number.parseInt(parsed.port, 10);
   if (!Number.isFinite(currentPort)) {
     return url;
   }
+
   parsed.port = String(currentPort + offset);
   return parsed.toString();
 }

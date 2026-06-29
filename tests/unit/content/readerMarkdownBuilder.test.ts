@@ -396,16 +396,15 @@ it('parses readability content without assigning innerHTML to the article host b
   `);
   const articleHost = document.implementation.createHTMLDocument('');
   const innerHtmlDescriptor = Object.getOwnPropertyDescriptor(Element.prototype, 'innerHTML');
-  const getInnerHtml = innerHtmlDescriptor?.get;
 
-  if (!getInnerHtml) {
+  if (!innerHtmlDescriptor?.get) {
     throw new Error('Expected Element.innerHTML getter in test environment');
   }
 
   Object.defineProperty(articleHost.body, 'innerHTML', {
     configurable: true,
     get(this: Element): string {
-      return String(getInnerHtml.call(this));
+      return String(Reflect.get(Element.prototype, 'innerHTML', this));
     },
     set() {
       throw new Error('reader full markdown must parse HTML without innerHTML assignment');
