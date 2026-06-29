@@ -222,6 +222,29 @@ describe('content/bootstrap', () => {
     expect(analyticsCleanupMock).toHaveBeenCalledTimes(1);
   });
 
+  it('does not write ordinary lifecycle logs during bootstrap or disposal', async () => {
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => undefined);
+    const { ContentScriptContext, __setContentBootstrapLoadersForTests } =
+      await import('../../../src/content/bootstrap');
+    __setContentBootstrapLoadersForTests({
+      loadPlatformModule: () => ({
+        getPlatformServices: getPlatformServicesMock
+      }),
+      loadAnalyticsModule: loadAnalyticsModuleMock,
+      loadStyleManagers: () => ({
+        clipperStyleSheetManager: { initialize: clipperInitializeMock },
+        panelStyleSheetManager: { initialize: panelInitializeMock }
+      })
+    });
+
+    const context = new ContentScriptContext(storageMock);
+    context.dispose();
+    await flushMicrotasks();
+
+    expect(logSpy).not.toHaveBeenCalled();
+    logSpy.mockRestore();
+  });
+
   it('exposes services, transient-closes popups during page visibility changes, and disposes on beforeunload', async () => {
     const dialogRegistry = { closeAll: vi.fn(), closeTransient: vi.fn() };
     const customToken = Symbol('custom');

@@ -120,6 +120,14 @@ export function normalizeHighlightSegments(
     }
   }
 }
+
+export function replaceDocumentBodyWithParsedHtml(targetDocument: Document, html: string): void {
+  const Parser = targetDocument.defaultView?.DOMParser ?? DOMParser;
+  const parsed = new Parser().parseFromString(html, 'text/html');
+  const nodes = Array.from(parsed.body.childNodes, (node) => targetDocument.importNode(node, true));
+  targetDocument.body.replaceChildren(...nodes);
+}
+
 export {
   resolveCommonAncestor,
   findBlockContainer,

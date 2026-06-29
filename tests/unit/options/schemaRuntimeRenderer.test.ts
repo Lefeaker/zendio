@@ -280,6 +280,57 @@ describe('schema runtime renderer', () => {
     expect(element.querySelector('p')?.textContent).toContain('123');
   });
 
+  it('renders rich HTML schema content without assigning innerHTML', () => {
+    const renderer = createSchemaRenderer<Record<string, never>, Record<string, never>>({
+      getContext: () => ({ state: {}, appData: {} }),
+      dispatch: vi.fn(),
+      mutate: vi.fn(),
+      requestRerender: vi.fn(),
+      getWidgetFactory: () => null
+    });
+    const nativeCreateElement = document.createElement.bind(document);
+    const createElementSpy = vi.spyOn(document, 'createElement');
+    createElementSpy.mockImplementation(function (
+      this: Document,
+      tagName: string,
+      options?: ElementCreationOptions
+    ): HTMLElement {
+      const element = nativeCreateElement.call(this, tagName, options) as HTMLElement;
+      if (tagName.toLowerCase() === 'p') {
+        Object.defineProperty(element, 'innerHTML', {
+          configurable: true,
+          get: () => '',
+          set: () => {
+            throw new Error('schema rich HTML must be rendered without innerHTML');
+          }
+        });
+      }
+      return element;
+    } as typeof document.createElement);
+
+    try {
+      const element = renderer.renderView({
+        id: 'rich-html',
+        kind: 'page',
+        children: [
+          {
+            kind: 'element',
+            tag: 'p',
+            html: 'Use <strong>bold</strong><br><a href="https://example.com" target="_blank">link</a>'
+          }
+        ]
+      });
+
+      const paragraph = element.querySelector('p');
+      expect(paragraph?.querySelector('strong')?.textContent).toBe('bold');
+      expect(paragraph?.querySelector('br')).not.toBeNull();
+      expect(paragraph?.querySelector('a')?.getAttribute('href')).toBe('https://example.com');
+      expect(paragraph?.querySelector('a')?.getAttribute('rel')).toContain('noopener');
+    } finally {
+      createElementSpy.mockRestore();
+    }
+  });
+
   it('keeps primitive content, class slots, and binding contracts stable', () => {
     const state = {
       title: 'State title',

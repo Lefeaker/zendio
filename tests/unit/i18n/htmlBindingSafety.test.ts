@@ -1,6 +1,6 @@
 /* @vitest-environment jsdom */
 
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { createDomBindingAdapter } from '../../../src/i18n/adapters/domBindingAdapter';
 import { createI18nResource } from '../../../src/i18n/resource';
 import { loadLocaleMessages, type Messages } from '../../../src/i18n/locales';
@@ -32,6 +32,39 @@ describe('htmlBindingSafety', () => {
     expect(link?.getAttribute('target')).toBe('_blank');
     expect(link?.getAttribute('rel')).toContain('noopener');
     expect(link?.getAttribute('rel')).toContain('noreferrer');
+  });
+
+  it('renders allowlisted rich HTML without template innerHTML parsing', async () => {
+    const adapter = createDomBindingAdapter();
+    const element = document.createElement('div');
+    const nativeCreateElement = document.createElement.bind(document);
+    const createElementSpy = vi.spyOn(document, 'createElement');
+    createElementSpy.mockImplementation(function (
+      this: Document,
+      tagName: string,
+      options?: ElementCreationOptions
+    ): HTMLElement {
+      if (tagName.toLowerCase() === 'template') {
+        throw new Error('rich HTML rendering must not use template.innerHTML');
+      }
+      return nativeCreateElement.call(this, tagName, options) as HTMLElement;
+    } as typeof document.createElement);
+
+    try {
+      adapter.bindHtml(element, 'contactModalDescription');
+      adapter.refresh(
+        await createEnglishResource({
+          contactModalDescription:
+            'Reach <strong>out</strong><br><a href="https://example.com" target="_blank">online</a>'
+        })
+      );
+
+      expect(element.querySelector('strong')?.textContent).toBe('out');
+      expect(element.querySelector('br')).not.toBeNull();
+      expect(element.querySelector('a')?.getAttribute('href')).toBe('https://example.com');
+    } finally {
+      createElementSpy.mockRestore();
+    }
   });
 
   it('blocks script tags event handlers and javascript urls in allowlisted rich HTML keys', async () => {

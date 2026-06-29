@@ -18,12 +18,23 @@ export function renderShortcutHint(
   platform?: string
 ): void {
   hintElement.hidden = false;
-  hintElement.innerHTML = `
-      ${messages.header}<br>
-      <strong>${messages.doubleEnterLabel}</strong> ${messages.doubleEnterAction} |
-      <strong>${getModifierLabel('hint', platform)}</strong> ${messages.modifierAction} |
-      <strong>Esc</strong> ${messages.escapeAction}
-    `;
+  const createShortcut = (label: string, action: string): DocumentFragment => {
+    const fragment = document.createDocumentFragment();
+    const strong = document.createElement('strong');
+    strong.textContent = label;
+    fragment.append(strong, ` ${action}`);
+    return fragment;
+  };
+
+  hintElement.replaceChildren(
+    messages.header,
+    document.createElement('br'),
+    createShortcut(messages.doubleEnterLabel, messages.doubleEnterAction),
+    ' | ',
+    createShortcut(getModifierLabel('hint', platform), messages.modifierAction),
+    ' | ',
+    createShortcut('Esc', messages.escapeAction)
+  );
 }
 
 export function addButtonShortcutHints(
