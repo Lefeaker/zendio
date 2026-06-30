@@ -1,6 +1,6 @@
 # 工程命令与入口
 
-最后更新：2026-06-23
+最后更新：2026-06-30
 
 ## 推荐运行环境
 
@@ -13,6 +13,7 @@
 - `npm run quality`
   - 由 `scripts/quality-check.mjs` 的 dependency-aware task graph 执行；`QUALITY_CONCURRENCY` 可控制本地并发，默认按 CPU 上限保守并行
   - 显式包含 `verify:runtime`，运行 `scripts/verify-runtime.mjs` 校验当前 Node.js 满足 `package.json` 的 `engines.node`
+  - 显式包含 `release:metadata:check`；版本号单一来源为 `package.json` 的 `version` 字段，该 gate 校验 `package-lock.json` root version、`public/manifest.json`、`public/manifest.firefox.json` 与 `src/i18n/catalog/messages/*/runtime.json` 的 `versionNumber` 均已由 `npm run release:metadata:sync` 同步
   - 显式包含 `typecheck:app`
   - 显式包含 `typecheck:tests`
   - 显式包含 `typecheck:strict`
@@ -40,6 +41,7 @@
   - 显式包含 `typecheck:app`
   - 显式包含 `typecheck:tests`
   - 显式包含 `typecheck:strict`
+  - 显式包含 `release:metadata:check`，并且在 `i18n:catalog:check` 前失败，防止版本元数据或 release catalog 版本号 drift 进入后续发布门禁
   - 显式包含 `i18n:catalog:check`
   - 显式包含 `audit:i18n-uncatalogued-user-copy:check`
   - 显式包含 `audit:ga:proxy-contract`、`audit:ga:docs` 与 `audit:ga:legacy-api`
@@ -52,6 +54,7 @@
   - `test:e2e:browser:parallel` 当前覆盖 YAML interaction、reader-panel 与 migration smoke 三组 shard；local-vault 与 Firefox browser checks 仍保留为独立专项命令
 - `npm run build*` 与 `npm run package*`
   - `build` 与 `build:firefox` 显式先运行一次 `quality`，随后调用 `scripts/build.mjs --skip-checks`，不得恢复为重复触发完整 `quality` 的形式
+  - `scripts/build.mjs` 从 `package.json` 读取版本号，并注入 `__ZENDIO_EXTENSION_VERSION__` / `__AIIINOB_EXTENSION_VERSION__` 作为 Options 等无 platform manifest 场景的版本 fallback；不要在 UI 代码中硬编码 release version
   - `scripts/build.mjs` 支持 `--outdir` / `BUILD_DIST_DIR`；`scripts/package.mjs` 与 `scripts/package-firefox.mjs` 支持 `--dist-dir`
   - `build:chrome:isolated` / `build:firefox:isolated` 与 `package:chrome:isolated` / `package:firefox:isolated` 使用独立 dist 目录，作为 Chrome / Firefox package 并行化的安全入口
 - `.github/workflows/ci.yml`
@@ -107,6 +110,7 @@
 本地前置守门：
 
 ```bash
+npm run release:metadata:check
 npm run quality
 npm run verify:preflight
 npm run typecheck:strict
@@ -150,6 +154,7 @@ Reader/video browser E2E command truth:
 Local Vault / release handoff checks:
 
 ```bash
+npm run release:metadata:check
 npm run clean
 npm run build
 npm run audit:release-surface:report

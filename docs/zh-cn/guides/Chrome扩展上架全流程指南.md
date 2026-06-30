@@ -23,8 +23,8 @@
 
 ## 阶段 2：版本与构建
 
-- [ ] 确定发布版本号，更新 `src/manifest.json:3` 与 `package.json` 的 `version` 字段保持一致；在 commit 信息中记录发布说明。
-- [ ] 执行 fresh build 验证：`npm run clean`、`npm run build:dev`、`npm run audit:build:report`、`npm run build`；如发布 Firefox 包，再执行 `npm run build:firefox`。
+- [ ] 确定发布版本号，只手写更新 `package.json` 的 `version` 字段；随后运行 `npm run release:metadata:sync` 同步 `package-lock.json`、`public/manifest.json`、`public/manifest.firefox.json` 与 runtime i18n catalog 的 `versionNumber`，并用 `npm run release:metadata:check` 确认无 drift。不要手动改 `public/manifest*.json` 或 i18n runtime catalog 版本号。
+- [ ] 执行 fresh build 验证：`npm run release:metadata:check`、`npm run clean`、`npm run build:dev`、`npm run audit:build:report`、`npm run build`；如发布 Firefox 包，再执行 `npm run build:firefox`。
 - [ ] 执行 Local Vault release-readiness 审计：Chrome build 后运行 `npm run audit:local-vault-release:report -- --browser chrome`；Firefox build 后运行 `npm run audit:local-vault-release:report -- --browser firefox`。
 - [ ] 清理 `dist/`：仅保留运行期必须文件（`manifest.json`、构建后的 JS/CSS、必要资源）；剔除 `*.map`、测试文件、`node_modules/`、脚本和文档等。
 - [ ] 运行最低限度的自动化测试（如 `npm run test` 或 `npm run lint`）；若测试覆盖不足，补充纸面检查说明并记录测试结果链接。

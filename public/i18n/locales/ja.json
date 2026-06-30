@@ -239,7 +239,7 @@
     "exportAiChatFallbackTitleKimi": "Kimi 会話",
     "exportAiChatFallbackTitleTongyi": "Tongyi 会話",
     "exportFragmentCommentHeading": "私のコメント",
-    "extensionName": "Zendio——All in Obsidian",
+    "extensionName": "Zendio-All in Obsidian",
     "extensionSubtitle": "クリッパーを設定して、よりスマートなコンテンツ管理を実現",
     "extractionFailed": "コンテンツの抽出に失敗しました",
     "featureUnstableNote": "機能はまだ安定していません",
@@ -705,7 +705,7 @@
     "yamlFilterAllLabel": "All"
   },
   "static": {
-    "extName": "Zendio——All in Obsidian",
+    "extName": "Zendio-All in Obsidian",
     "extDescription": "Web、動画、会話をObsidian向けの構造化ノートとして保存するクリッパー。"
   }
 }
