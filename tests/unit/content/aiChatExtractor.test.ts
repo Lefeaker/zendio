@@ -8,6 +8,7 @@ import { testPlatformHarness } from './setup';
 import type { AppError } from '@shared/errors/types';
 import type { ParseConfig, ParsedResult } from '../../../src/third_party/ai-chat-exporter/types';
 import type { buildChatMarkdown } from '@content/formatters/markdown';
+import { DEFAULT_OPTIONS } from '@shared/config/defaultOptions';
 import type { CompleteOptions, StoredOptions } from '@shared/types/options';
 const mockParseChatDOMAsync = vi.fn(
   async (_platform: string, _doc: Document, _config?: ParseConfig): Promise<ParsedResult> => ({
@@ -30,6 +31,70 @@ const baseFallbackMessages = {
   exportAiChatFallbackTitleKimi: 'Catalog Kimi Title',
   exportAiChatFallbackTitleTongyi: 'Catalog Tongyi Title'
 };
+
+function createCompleteOptions(stored: StoredOptions = {}): CompleteOptions {
+  return {
+    ...DEFAULT_OPTIONS,
+    ...stored,
+    rest: { ...DEFAULT_OPTIONS.rest, ...stored.rest },
+    templates: { ...DEFAULT_OPTIONS.templates, ...stored.templates },
+    domainMappings: { ...DEFAULT_OPTIONS.domainMappings, ...stored.domainMappings },
+    aiChat: { ...DEFAULT_OPTIONS.aiChat, ...stored.aiChat },
+    deepResearch: { ...DEFAULT_OPTIONS.deepResearch, ...stored.deepResearch },
+    fragmentClipper: { ...DEFAULT_OPTIONS.fragmentClipper, ...stored.fragmentClipper },
+    readingSession: { ...DEFAULT_OPTIONS.readingSession, ...stored.readingSession },
+    video: {
+      ...DEFAULT_OPTIONS.video,
+      ...stored.video,
+      screenshotAttachment: {
+        ...DEFAULT_OPTIONS.video.screenshotAttachment,
+        ...stored.video?.screenshotAttachment
+      }
+    },
+    classifier: {
+      ...DEFAULT_OPTIONS.classifier,
+      ...stored.classifier,
+      taxonomy: stored.classifier?.taxonomy ?? DEFAULT_OPTIONS.classifier.taxonomy
+    },
+    experimentalAi: { ...DEFAULT_OPTIONS.experimentalAi, ...stored.experimentalAi },
+    pageSummary: { ...DEFAULT_OPTIONS.pageSummary, ...stored.pageSummary },
+    readingOverlaySummary: {
+      ...DEFAULT_OPTIONS.readingOverlaySummary,
+      ...stored.readingOverlaySummary
+    },
+    subtitleTranslation: { ...DEFAULT_OPTIONS.subtitleTranslation, ...stored.subtitleTranslation },
+    privacyPreferences: {
+      analytics:
+        stored.privacyPreferences?.analytics ??
+        DEFAULT_OPTIONS.privacyPreferences?.analytics ??
+        false,
+      errorReporting:
+        stored.privacyPreferences?.errorReporting ??
+        DEFAULT_OPTIONS.privacyPreferences?.errorReporting ??
+        false,
+      debugMode:
+        stored.privacyPreferences?.debugMode ??
+        DEFAULT_OPTIONS.privacyPreferences?.debugMode ??
+        false
+    }
+  };
+}
+
+function isAppError(value: object): value is AppError {
+  return 'code' in value && 'context' in value;
+}
+
+async function expectAppError<T>(action: Promise<T>): Promise<AppError> {
+  try {
+    await action;
+  } catch (caught) {
+    if (typeof caught === 'object' && caught !== null && isAppError(caught)) {
+      return caught;
+    }
+  }
+
+  throw new Error('Expected extraction to reject with an AppError');
+}
 
 vi.mock('@content/formatters/markdown', () => ({
   buildChatMarkdown: mockBuildChatMarkdown
@@ -59,10 +124,8 @@ describe('extractAIChat', () => {
 
   function createOptionsRepository() {
     return {
-      get: vi.fn(
-        async () =>
-          ((await testPlatformHarness.storage.sync.get<StoredOptions>('options')) ??
-            {}) as CompleteOptions
+      get: vi.fn(async () =>
+        createCompleteOptions(await testPlatformHarness.storage.sync.get<StoredOptions>('options'))
       ),
       set: vi.fn(async (options: Partial<CompleteOptions>) => {
         const current =
@@ -121,12 +184,7 @@ describe('extractAIChat', () => {
     const extraction = module.extractAIChat(document, 'https://chat.openai.com/empty', {
       optionsRepository: createOptionsRepository()
     });
-    let error: AppError | undefined;
-    try {
-      await extraction;
-    } catch (caught) {
-      error = caught as AppError;
-    }
+    const error = await expectAppError(extraction);
 
     expect(error).toMatchObject({
       code: 'EXTRACTION_AI_CHAT_PARSE_EMPTY',
@@ -139,7 +197,7 @@ describe('extractAIChat', () => {
         parserDiagnosticCodes: ['parser_not_found', 'empty_dom']
       }
     });
-    const context = (error as AppError).context;
+    const context = error.context;
     expect(context).not.toHaveProperty('title');
     expect(context).not.toHaveProperty('diagnostics');
     expect(JSON.stringify(context)).not.toContain('developer-only detail');
@@ -163,14 +221,11 @@ describe('extractAIChat', () => {
 
     const module = await import('@content/extractors/aiChatExtractor');
 
-    let error: AppError | undefined;
-    try {
-      await module.extractAIChat(document, 'https://www.perplexity.ai/search/role-drift', {
+    const error = await expectAppError(
+      module.extractAIChat(document, 'https://www.perplexity.ai/search/role-drift', {
         optionsRepository: createOptionsRepository()
-      });
-    } catch (caught) {
-      error = caught as AppError;
-    }
+      })
+    );
 
     expect(error).toMatchObject({
       code: 'EXTRACTION_AI_CHAT_PARSE_ROLE_INCOMPLETE',
@@ -184,7 +239,7 @@ describe('extractAIChat', () => {
         parserDiagnosticCodes: ['perplexity_no_assistant_roots']
       }
     });
-    const context = (error as AppError).context;
+    const context = error.context;
     expect(context).not.toHaveProperty('title');
     expect(context).not.toHaveProperty('diagnostics');
     expect(JSON.stringify(context)).not.toContain('first private prompt');
@@ -308,7 +363,7 @@ describe('extractAIChat', () => {
     const module = await import('@content/extractors/aiChatExtractor');
     const extractor = module.createAIChatExtractor({
       optionsProvider: {
-        get: () => Promise.resolve({} as StoredOptions),
+        get: (): Promise<StoredOptions> => Promise.resolve({}),
         reset: () => undefined
       },
       now: () => new Date('2024-01-01T00:00:00Z')
