@@ -6,66 +6,66 @@ import type { LocaleStaticMessages } from '../localeDefinition';
 export type GeneratedStaticRegistry = Record<ReleaseLangCode, LocaleStaticMessages>;
 
 export const GENERATED_RELEASE_STATIC_MESSAGES_EN: LocaleStaticMessages = {
-  extName: 'Zendio——All in Obsidian',
+  extName: 'Zendio-All in Obsidian',
   extDescription: 'Web, video, and conversation clipper for saving structured notes into Obsidian.'
 };
 
 export const GENERATED_RELEASE_STATIC_MESSAGES_ZH_CN: LocaleStaticMessages = {
-  extName: 'Zendio——All in Obsidian',
+  extName: 'Zendio-All in Obsidian',
   extDescription: '面向 Obsidian 的网页、视频与对话剪藏插件，支持保存结构化笔记。'
 };
 
 export const GENERATED_RELEASE_STATIC_MESSAGES_JA: LocaleStaticMessages = {
-  extName: 'Zendio——All in Obsidian',
+  extName: 'Zendio-All in Obsidian',
   extDescription: 'Web、動画、会話をObsidian向けの構造化ノートとして保存するクリッパー。'
 };
 
 export const GENERATED_RELEASE_STATIC_MESSAGES_DE: LocaleStaticMessages = {
-  extName: 'Zendio——All in Obsidian',
+  extName: 'Zendio-All in Obsidian',
   extDescription:
     'Web-, Video- und Gesprächs-Clipper zum Speichern strukturierter Notizen in Obsidian.'
 };
 
 export const GENERATED_RELEASE_STATIC_MESSAGES_FR: LocaleStaticMessages = {
-  extName: 'Zendio——All in Obsidian',
+  extName: 'Zendio-All in Obsidian',
   extDescription:
     'Clipper web, vidéo et conversation pour enregistrer des notes structurées dans Obsidian.'
 };
 
 export const GENERATED_RELEASE_STATIC_MESSAGES_ES_ES: LocaleStaticMessages = {
-  extName: 'Zendio——All in Obsidian',
+  extName: 'Zendio-All in Obsidian',
   extDescription:
     'Clipper web, de video y conversaciones para guardar notas estructuradas en Obsidian.'
 };
 
 export const GENERATED_RELEASE_STATIC_MESSAGES_ES_419: LocaleStaticMessages = {
-  extName: 'Zendio——All in Obsidian',
+  extName: 'Zendio-All in Obsidian',
   extDescription:
     'Clipper web, de video y conversaciones para guardar notas estructuradas en Obsidian.'
 };
 
 export const GENERATED_RELEASE_STATIC_MESSAGES_IT: LocaleStaticMessages = {
-  extName: 'Zendio——All in Obsidian',
+  extName: 'Zendio-All in Obsidian',
   extDescription: 'Clipper web, video e conversazioni per salvare note strutturate in Obsidian.'
 };
 
 export const GENERATED_RELEASE_STATIC_MESSAGES_KO: LocaleStaticMessages = {
-  extName: 'Zendio——All in Obsidian',
+  extName: 'Zendio-All in Obsidian',
   extDescription: '웹, 동영상, 대화를 Obsidian용 구조화 노트로 저장하는 클리퍼.'
 };
 
 export const GENERATED_RELEASE_STATIC_MESSAGES_PT_BR: LocaleStaticMessages = {
-  extName: 'Zendio——All in Obsidian',
+  extName: 'Zendio-All in Obsidian',
   extDescription: 'Clipper de web, vídeo e conversas para salvar notas estruturadas no Obsidian.'
 };
 
 export const GENERATED_RELEASE_STATIC_MESSAGES_RU: LocaleStaticMessages = {
-  extName: 'Zendio——All in Obsidian',
+  extName: 'Zendio-All in Obsidian',
   extDescription: 'Клиппер веб-страниц, видео и диалогов для структурированных заметок в Obsidian.'
 };
 
 export const GENERATED_RELEASE_STATIC_MESSAGES_ZH_TW: LocaleStaticMessages = {
-  extName: 'Zendio——All in Obsidian',
+  extName: 'Zendio-All in Obsidian',
   extDescription: '面向 Obsidian 的網頁、影片與對話剪藏器，支援保存結構化筆記。'
 };
 

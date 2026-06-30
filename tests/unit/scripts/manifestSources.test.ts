@@ -1,11 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import { createBrowserManifest } from '../../../scripts/utils/manifestSources.mjs';
+import { readPackageVersion } from '../../../scripts/utils/packageMetadata.mjs';
 
 describe('manifestSources', () => {
   it('builds a chrome manifest with shared defaults and chrome-only fields', () => {
     const manifest = createBrowserManifest('chrome');
 
     expect(manifest.manifest_version).toBe(3);
+    expect(manifest.version).toBe(readPackageVersion());
     expect(manifest.options_ui?.page).toBe('options/index.html');
     expect(manifest.permissions).toContain('offscreen');
     expect(manifest.incognito).toBe('spanning');
@@ -51,5 +53,11 @@ describe('manifestSources', () => {
     });
     expect(manifest.browser_specific_settings?.gecko_android?.strict_min_version).toBe('142.0');
     expect(manifest.incognito).toBeUndefined();
+  });
+
+  it('allows release metadata checks to evaluate a version from an isolated root', () => {
+    const manifest = createBrowserManifest('chrome', { version: '9.8.7' });
+
+    expect(manifest.version).toBe('9.8.7');
   });
 });

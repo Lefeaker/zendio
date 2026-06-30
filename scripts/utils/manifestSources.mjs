@@ -1,3 +1,5 @@
+import { assertManifestCompatibleVersion, readPackageVersion } from './packageMetadata.mjs';
+
 const SHARED_ACTION_ICONS = {
   16: 'icons/bannerlogo-16.png',
   32: 'icons/bannerlogo-32.png',
@@ -52,12 +54,17 @@ function clone(value) {
   return JSON.parse(JSON.stringify(value));
 }
 
-function createBaseManifest() {
+function createBaseManifest(options = {}) {
+  const version =
+    options.version === undefined
+      ? readPackageVersion(options.rootDir)
+      : assertManifestCompatibleVersion(options.version, 'manifest version override');
+
   return {
     manifest_version: 3,
     name: '__MSG_extName__',
     description: '__MSG_extDescription__',
-    version: '0.2.1',
+    version,
     default_locale: 'en',
     action: {
       default_title: 'Clip to Obsidian',
@@ -115,6 +122,6 @@ function applyBrowserOverrides(manifest, browser) {
   throw new Error(`Unsupported manifest browser target: ${browser}`);
 }
 
-export function createBrowserManifest(browser) {
-  return applyBrowserOverrides(createBaseManifest(), browser);
+export function createBrowserManifest(browser, options = {}) {
+  return applyBrowserOverrides(createBaseManifest(options), browser);
 }

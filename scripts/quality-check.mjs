@@ -4,6 +4,11 @@ export function createQualityTaskGraph() {
   return {
     tasks: [
       task('verify-runtime', 'Runtime engine 守卫', ['npm', 'run', 'verify:runtime']),
+      task('release-metadata-check', 'Release metadata source-of-truth 守卫', [
+        'npm',
+        'run',
+        'release:metadata:check'
+      ]),
       task('audit-ui-architecture-report', 'UI 架构迁移守卫', [
         'npm',
         'run',

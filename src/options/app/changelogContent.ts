@@ -5,11 +5,11 @@ export function getChangelogByLanguage(language: string): string {
       <p>正值毕业，兵荒马乱相伴。</p>
       <h3>✨ 主要更新</h3>
       <ul>
-        <li><strong>AI 对话导出抽象收口</strong>: 统一平台身份、产品展示、运行时注册与解析器边界，让导出、测试和选项页支持列表使用同一套轻量元数据。</li>
-        <li><strong>平台解析稳定性</strong>: 补充并修复当前 DOM 夹具与回归样例，覆盖 DeepSeek、豆包、通义、Perplexity 等平台的结构漂移。</li>
-        <li><strong>Perplexity / 通义细节修复</strong>: 拆出候选节点、DOM 选择和会话区域判断，降低页面角色或 tabpanel 变化对导出的影响。</li>
-        <li><strong>选项页支持平台同步</strong>: 设置中心中的 AI 平台列表改为从 canonical product surface 生成，避免文案和实际支持平台脱节。</li>
-        <li><strong>发布门禁同步</strong>: 同步 i18n catalog、preview freeze、performance budget、Chrome / Firefox 打包与浏览器 smoke 证据，为 v0.2.1 留下可回放基线。</li>
+        <li>AI 对话导出稳定性增强。</li>
+        <li>加固了 AI 对话页面的导出识别能力，降低导出失败、内容缺失或角色判断错误的概率。</li>
+        <li>AI 对话范围识别更可靠，页面标签、角色标记或候选内容变化时，更不容易导出错内容。</li>
+        <li>选项页中的 AI 平台支持列表会跟随实际导出能力同步更新，避免支持状态与实际导出能力不一致。</li>
+        <li>优化了部分性能表现，并完善了 Chrome 与 Firefox 发布前检查。</li>
       </ul>
 
       <hr style="margin: 2rem 0; border: none; border-top: 1px solid var(--border);">
@@ -54,11 +54,11 @@ export function getChangelogByLanguage(language: string): string {
       <p>Graduation arrived with deadline chaos alongside it.</p>
       <h3>✨ Highlights</h3>
       <ul>
-        <li><strong>AI chat export abstraction</strong>: Unified platform identity, product surface copy, runtime registration, and parser boundaries so export, tests, and Options use the same lightweight metadata.</li>
-        <li><strong>Parser stability</strong>: Added current-DOM fixtures and regression coverage for structural drift across DeepSeek, Doubao, Tongyi, Perplexity, and related AI chat surfaces.</li>
-        <li><strong>Perplexity / Tongyi repairs</strong>: Split candidate selection, DOM helpers, and conversation-scope checks to reduce breakage from role or tabpanel changes.</li>
-        <li><strong>Options platform sync</strong>: The supported AI platform list in Options now comes from the canonical product surface instead of a separate hardcoded list.</li>
-        <li><strong>Release-gate baseline</strong>: Synced i18n catalog, preview freeze, performance budgets, Chrome / Firefox packaging, and browser smoke evidence for a replayable v0.2.1 baseline.</li>
+        <li>AI chat export stability has been improved.</li>
+        <li>AI chat page detection is stronger, reducing export failures, missing content, and incorrect role detection.</li>
+        <li>Conversation-scope detection is more reliable when page labels, role markers, or candidate content change, so exports are less likely to capture the wrong content.</li>
+        <li>The AI platform support list in Options now follows actual export capability, avoiding mismatches between displayed support and real behavior.</li>
+        <li>Some performance behavior was optimized, and Chrome / Firefox pre-release checks were completed.</li>
       </ul>
 
       <hr style="margin: 2rem 0; border: none; border-top: 1px solid var(--border);">
@@ -103,11 +103,11 @@ export function getChangelogByLanguage(language: string): string {
       <p>卒業の時期を迎え、慌ただしさも一緒にやってきました。</p>
       <h3>✨ 主な更新</h3>
       <ul>
-        <li><strong>AI チャット出力の抽象化</strong>: プラットフォーム識別、製品表示、ランタイム登録、パーサー境界を統一し、出力、テスト、Options が同じ軽量メタデータを使うようにしました。</li>
-        <li><strong>パーサー安定性</strong>: DeepSeek、Doubao、Tongyi、Perplexity などの構造変化に備え、現在の DOM フィクスチャと回帰ケースを追加しました。</li>
-        <li><strong>Perplexity / Tongyi 修復</strong>: 候補選択、DOM ヘルパー、会話スコープ判定を分離し、role や tabpanel の変化による破損を抑えました。</li>
-        <li><strong>Options のプラットフォーム表示同期</strong>: Options の対応 AI プラットフォーム一覧を個別の固定文言ではなく canonical product surface から生成するようにしました。</li>
-        <li><strong>リリースゲート基準</strong>: i18n catalog、preview freeze、performance budget、Chrome / Firefox パッケージ、browser smoke の証跡を v0.2.1 用に同期しました。</li>
+        <li>AI チャット出力の安定性を強化しました。</li>
+        <li>AI チャットページの出力検出を強化し、出力失敗、内容欠落、ロール判定ミスの可能性を下げました。</li>
+        <li>ページラベル、ロールマーカー、候補コンテンツが変わっても、会話範囲をより正確に認識し、誤った内容を出力しにくくしました。</li>
+        <li>Options の AI プラットフォーム対応一覧は実際の出力機能と同期し、表示上の対応状況と実際の動作の不一致を避けます。</li>
+        <li>一部のパフォーマンスを最適化し、Chrome / Firefox のリリース前チェックを整えました。</li>
       </ul>
 
       <hr style="margin: 2rem 0; border: none; border-top: 1px solid var(--border);">

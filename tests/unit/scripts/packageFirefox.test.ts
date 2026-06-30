@@ -10,7 +10,7 @@ import {
 } from '../../../scripts/package-firefox.mjs';
 
 const tempRoots: string[] = [];
-const RELEASE_DISPLAY_NAME = 'Zendio——All in Obsidian';
+const RELEASE_DISPLAY_NAME = 'Zendio-All in Obsidian';
 const RELEASE_ARTIFACT_BASE_NAME = `${RELEASE_DISPLAY_NAME}-v0.2.0`;
 
 async function createTempRoot(): Promise<string> {

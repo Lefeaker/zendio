@@ -3,6 +3,7 @@ import { mkdir, cp, readdir, rm, writeFile } from 'fs/promises';
 import { join } from 'path';
 import { applyRestHostPermissions } from './utils/manifestHosts.mjs';
 import { createBrowserManifest } from './utils/manifestSources.mjs';
+import { readPackageVersion } from './utils/packageMetadata.mjs';
 import { cssTextPlugin } from './plugins/cssTextPlugin.mjs';
 import { runQualityChecks } from './quality-check.mjs';
 
@@ -13,6 +14,7 @@ const skipChecks = args.includes('--skip-checks');
 const firefox = args.includes('--firefox');
 const includeHarnesses = !prod || args.includes('--include-harnesses');
 const distDir = getArgValue('--outdir') ?? process.env.BUILD_DIST_DIR ?? 'build/dist';
+const packageVersion = readPackageVersion();
 
 function getArgValue(name) {
   const inline = args.find((arg) => arg.startsWith(`${name}=`));
@@ -85,20 +87,22 @@ const sharedBuildOptions = {
     __ZENDIO_SENTRY_ENVIRONMENT__: JSON.stringify(
       resolveSentryEnv('ENVIRONMENT', prod ? 'production' : 'development')
     ),
-    __ZENDIO_SENTRY_RELEASE__: JSON.stringify(resolveSentryEnv('RELEASE', '0.2.1')),
+    __ZENDIO_SENTRY_RELEASE__: JSON.stringify(resolveSentryEnv('RELEASE', packageVersion)),
     __ZENDIO_SENTRY_ENABLED__: resolveBooleanEnv(resolveSentryEnv('ENABLED')) ? 'true' : 'false',
     __AIIINOB_SENTRY_DSN__: JSON.stringify(resolveSentryEnv('DSN')),
     __AIIINOB_SENTRY_ENVIRONMENT__: JSON.stringify(
       resolveSentryEnv('ENVIRONMENT', prod ? 'production' : 'development')
     ),
-    __AIIINOB_SENTRY_RELEASE__: JSON.stringify(resolveSentryEnv('RELEASE', '0.2.1')),
+    __AIIINOB_SENTRY_RELEASE__: JSON.stringify(resolveSentryEnv('RELEASE', packageVersion)),
     __AIIINOB_SENTRY_ENABLED__: resolveBooleanEnv(resolveSentryEnv('ENABLED')) ? 'true' : 'false',
     __ZENDIO_GA_MEASUREMENT_ID__: JSON.stringify(resolveGaEnv('MEASUREMENT_ID')),
     __ZENDIO_GA_TRANSPORT_MODE__: JSON.stringify(resolveGaEnv('TRANSPORT_MODE')),
     __ZENDIO_GA_PROXY_ENDPOINT__: JSON.stringify(resolveGaEnv('PROXY_ENDPOINT')),
     __AIIINOB_GA_MEASUREMENT_ID__: JSON.stringify(resolveGaEnv('MEASUREMENT_ID')),
     __AIIINOB_GA_TRANSPORT_MODE__: JSON.stringify(resolveGaEnv('TRANSPORT_MODE')),
-    __AIIINOB_GA_PROXY_ENDPOINT__: JSON.stringify(resolveGaEnv('PROXY_ENDPOINT'))
+    __AIIINOB_GA_PROXY_ENDPOINT__: JSON.stringify(resolveGaEnv('PROXY_ENDPOINT')),
+    __ZENDIO_EXTENSION_VERSION__: JSON.stringify(packageVersion),
+    __AIIINOB_EXTENSION_VERSION__: JSON.stringify(packageVersion)
   },
   charset: 'utf8',
   loader: {

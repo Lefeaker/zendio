@@ -18,9 +18,9 @@ const CHANGELOG_DESCRIPTION_KEY: SchemaMessageKey = 'schemaResourceChangelogDesc
 const CHANGELOG_HERO_PILLS = [
   'v0.2.1',
   'AI Chat',
-  'Parser Stability',
+  'Export Stability',
   'Options',
-  'Release Gates'
+  'Performance'
 ] as const;
 
 const CHANGELOG_ENTRY_DEFINITIONS: readonly ChangelogEntryDefinition[] = [
