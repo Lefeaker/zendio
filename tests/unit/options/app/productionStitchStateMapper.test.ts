@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { mergeOptions } from '@shared/config/optionsMerger';
 import { previewContent } from '@options/stitch/content';
 import { testPlatformHarness } from '../../../setup/globalSetup';
@@ -20,6 +20,10 @@ function options(overrides: StoredOptions | Partial<CompleteOptions> = {}): Comp
 }
 
 describe('production Stitch state mapper', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
   it('maps templates and reading path mode from options', () => {
     const mapped = toTemplateValues(
       options({
@@ -181,5 +185,15 @@ describe('production Stitch state mapper', () => {
       chromeMock.restore();
       delete testPlatformHarness.runtime.getManifest;
     }
+  });
+
+  it('falls back to the build-injected extension version when platform runtime is unavailable', () => {
+    vi.stubGlobal('__ZENDIO_EXTENSION_VERSION__', '4.5.6');
+
+    expect(resolveExtensionVersionLabel(() => undefined)).toBe('v4.5.6');
+  });
+
+  it('uses an explicit unknown version label when no release metadata source is available', () => {
+    expect(resolveExtensionVersionLabel(() => undefined)).toBe('v0.0.0');
   });
 });

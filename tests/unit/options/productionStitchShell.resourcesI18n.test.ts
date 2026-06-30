@@ -877,7 +877,7 @@ describe('mountProductionStitchShell resource i18n', () => {
       changelog,
       'Changelog',
       'This modal highlights the latest shipped updates from the project changelog.',
-      'Reworked AI chat extraction around shared platform metadata, registry ownership, and runtime parser boundaries so platform support stays consistent across export, tests, and Options.'
+      'AI chat export stability has been improved.'
     );
     expectNoText(
       changelog,

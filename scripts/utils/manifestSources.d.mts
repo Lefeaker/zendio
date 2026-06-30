@@ -2,6 +2,7 @@ export type BrowserManifestTarget = 'chrome' | 'firefox';
 
 export interface BrowserManifest {
   manifest_version: number;
+  version?: string;
   permissions?: string[];
   options_ui?: {
     page?: string;
@@ -36,4 +37,12 @@ export interface BrowserManifest {
   }>;
 }
 
-export function createBrowserManifest(target: BrowserManifestTarget): BrowserManifest;
+export interface ManifestSourceOptions {
+  rootDir?: string;
+  version?: string;
+}
+
+export function createBrowserManifest(
+  target: BrowserManifestTarget,
+  options?: ManifestSourceOptions
+): BrowserManifest;

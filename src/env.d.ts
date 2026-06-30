@@ -13,6 +13,8 @@ declare const __ZENDIO_GA_PROXY_ENDPOINT__: string | undefined;
 declare const __AIIINOB_GA_MEASUREMENT_ID__: string | undefined;
 declare const __AIIINOB_GA_TRANSPORT_MODE__: string | undefined;
 declare const __AIIINOB_GA_PROXY_ENDPOINT__: string | undefined;
+declare const __ZENDIO_EXTENSION_VERSION__: string | undefined;
+declare const __AIIINOB_EXTENSION_VERSION__: string | undefined;
 
 declare module '*.css?inline' {
   const content: string;

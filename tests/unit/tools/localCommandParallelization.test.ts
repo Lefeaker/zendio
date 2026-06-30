@@ -154,6 +154,7 @@ describe('local command parallelization contract', () => {
       'lint-options-css',
       'lint-type-any-ratchet',
       'lint-warnings-guard',
+      'release-metadata-check',
       'report-options-legacy',
       'typecheck-app',
       'typecheck-strict',

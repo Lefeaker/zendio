@@ -1,3 +1,11 @@
 export type BrowserManifestTarget = 'chrome' | 'firefox';
 
-export function createBrowserManifest(target: BrowserManifestTarget): Record<string, unknown>;
+export interface ManifestSourceOptions {
+  rootDir?: string;
+  version?: string;
+}
+
+export function createBrowserManifest(
+  target: BrowserManifestTarget,
+  options?: ManifestSourceOptions
+): Record<string, unknown>;

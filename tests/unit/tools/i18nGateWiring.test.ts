@@ -54,6 +54,15 @@ describe('i18n gate wiring', () => {
     expect(packageJson).toContain('npm run i18n:catalog:check');
   });
 
+  it('runs release metadata checks before catalog drift checks from verify:preflight', () => {
+    const packageJson = readFileSync(resolve('package.json'), 'utf8');
+    const releaseMetadataCheckIndex = packageJson.indexOf('npm run release:metadata:check');
+    const catalogCheckIndex = packageJson.indexOf('npm run i18n:catalog:check');
+
+    expect(releaseMetadataCheckIndex).toBeGreaterThan(-1);
+    expect(catalogCheckIndex).toBeGreaterThan(releaseMetadataCheckIndex);
+  });
+
   it('runs English uncatalogued-copy checks from verify:preflight after catalog drift checks', () => {
     const packageJson = readFileSync(resolve('package.json'), 'utf8');
     const catalogCheckIndex = packageJson.indexOf('npm run i18n:catalog:check');
