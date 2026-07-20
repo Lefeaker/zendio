@@ -11,9 +11,9 @@ const MAX_LINE_BUDGETS = new Map([
   // 2026-06-29 v0.2.1 changelog sync: schema core now carries the accepted
   // Options/Stitch release-note keys in addition to existing resource copy.
   ['src/i18n/generated/schemaCore.generated.ts', 444],
-  // 2026-06-29 v0.2.1 changelog sync: generated runtime messages carry the
-  // accepted Options/Stitch release-note catalog keys.
-  ['src/i18n/generated/messages.generated.ts', 1137],
+  // 2026-07-20 selection-trigger policy: generated runtime messages carry the
+  // explicit disabled, direct, and modifier mode copy plus diagnostics copy.
+  ['src/i18n/generated/messages.generated.ts', 1141],
   ['src/i18n/generated/locales/fr.generated.ts', 785],
   ['src/i18n/generated/locales/es-419.generated.ts', 777],
   ['src/i18n/generated/locales/es-ES.generated.ts', 777],

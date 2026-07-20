@@ -51,7 +51,7 @@ function createPreviewState(): PreviewStoreState {
     fragmentContextLength: 200,
     fragmentContextMode: 'chars',
     fragmentKeyboardShortcutsEnabled: true,
-    fragmentModifierEnabled: true,
+    fragmentSelectionTriggerMode: 'modifier',
     modifierKeys: ['shift'],
     yamlFieldStates: {},
     routingRules: [],

@@ -1,9 +1,8 @@
 import {
-  createModifierState,
-  shouldTriggerSelectionWithModifiers,
-  syncModifierState,
-  type ModifierState
-} from '../clipper/services/fragmentConfig';
+  modifierSourceFromEvent,
+  SelectionModifierTrigger
+} from '../clipper/services/selectionModifierTrigger';
+import { isSelectionTriggerConfigured } from '../../shared/config/selectionTriggerMode';
 import type { FragmentClipperOptions } from '../../shared/types/options';
 import type { SelectionActivationPayload } from './selectionCaptureController';
 import type { VideoPlatformAdapter, PlatformSelectionResult } from './platforms';
@@ -25,8 +24,7 @@ interface FragmentSelectionCallbacks {
 }
 
 export class VideoFragmentSelectionController {
-  private modifierState: ModifierState = createModifierState();
-  private selectionModifierActive = false;
+  private readonly selectionTrigger = new SelectionModifierTrigger();
 
   constructor(
     private readonly deps: FragmentSelectionDependencies,
@@ -34,54 +32,50 @@ export class VideoFragmentSelectionController {
   ) {}
 
   handleMouseDown(event: MouseEvent): void {
-    if (event.button !== 0) {
-      this.selectionModifierActive = false;
-      return;
-    }
-
-    syncModifierState(this.modifierState, event);
-
     const fragmentConfig = this.deps.getFragmentConfig();
-    if (!fragmentConfig?.selectionModifierEnabled) {
-      this.selectionModifierActive = false;
+    if (!fragmentConfig) {
+      this.selectionTrigger.reset();
       return;
     }
-
-    this.selectionModifierActive = shouldTriggerSelectionWithModifiers(
-      fragmentConfig,
-      this.modifierState
-    );
+    this.selectionTrigger.beginPointerGesture(fragmentConfig, event);
   }
 
   handleKeyDown(event: KeyboardEvent): void {
-    syncModifierState(this.modifierState, event);
+    this.selectionTrigger.updateModifierState(event);
   }
 
   handleKeyUp(event: KeyboardEvent): void {
-    syncModifierState(this.modifierState, event);
+    this.selectionTrigger.updateModifierState(event);
   }
 
   handleWindowBlur(): void {
-    this.modifierState = createModifierState();
-    this.selectionModifierActive = false;
+    this.selectionTrigger.reset();
     this.deps.pendingSelection.reset();
+  }
+
+  isSelectionTriggerConfigured(): boolean {
+    const fragmentConfig = this.deps.getFragmentConfig();
+    return Boolean(fragmentConfig && isSelectionTriggerConfigured(fragmentConfig));
   }
 
   shouldTrackSelection(): boolean {
     const fragmentConfig = this.deps.getFragmentConfig();
-    if (!fragmentConfig) {
-      return false;
-    }
-    if (!fragmentConfig.selectionModifierEnabled) {
-      return true;
-    }
-    return (
-      shouldTriggerSelectionWithModifiers(fragmentConfig, this.modifierState) ||
-      this.selectionModifierActive
+    return Boolean(fragmentConfig && this.selectionTrigger.shouldTrackSelection(fragmentConfig));
+  }
+
+  canActivateSelection(event: Event): boolean {
+    const fragmentConfig = this.deps.getFragmentConfig();
+    return Boolean(
+      fragmentConfig &&
+      this.selectionTrigger.canTrigger(fragmentConfig, modifierSourceFromEvent(event))
     );
   }
 
   processActivatedSelection({ range, selection, event }: SelectionActivationPayload): void {
+    if (!this.canActivateSelection(event)) {
+      this.selectionTrigger.completePointerGesture();
+      return;
+    }
     let highlightRange: Range | null = range ? range.cloneRange() : null;
     const container = this.deps.doc.createElement('div');
     if (highlightRange) {
@@ -102,6 +96,7 @@ export class VideoFragmentSelectionController {
 
     if (!platformSelection) {
       selection?.removeAllRanges();
+      this.selectionTrigger.completePointerGesture();
       return;
     }
 
@@ -111,41 +106,8 @@ export class VideoFragmentSelectionController {
       ? platformSelection.range.cloneRange()
       : highlightRange;
 
-    const fragmentConfig = this.deps.getFragmentConfig();
-    if (!fragmentConfig) {
-      return;
-    }
-
-    syncModifierState(this.modifierState, readModifierSource(event));
-    const modifierRequired = fragmentConfig.selectionModifierEnabled;
-    const modifiersSatisfied =
-      this.selectionModifierActive ||
-      shouldTriggerSelectionWithModifiers(fragmentConfig, this.modifierState);
-
-    if (modifierRequired && !modifiersSatisfied) {
-      this.selectionModifierActive = false;
-      return;
-    }
-
     this.callbacks.onSelectionAccepted({ selectedHtml, selectedText, range: highlightRange });
     selection?.removeAllRanges();
-    this.selectionModifierActive = false;
+    this.selectionTrigger.completePointerGesture();
   }
-}
-
-function readModifierSource(event: Event): Partial<ModifierState> {
-  const source: Partial<ModifierState> = {};
-  if ('altKey' in event) {
-    source.altKey = Boolean(event.altKey);
-  }
-  if ('metaKey' in event) {
-    source.metaKey = Boolean(event.metaKey);
-  }
-  if ('ctrlKey' in event) {
-    source.ctrlKey = Boolean(event.ctrlKey);
-  }
-  if ('shiftKey' in event) {
-    source.shiftKey = Boolean(event.shiftKey);
-  }
-  return source;
 }

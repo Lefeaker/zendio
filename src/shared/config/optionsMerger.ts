@@ -18,6 +18,8 @@ import { DEFAULT_OPTIONS } from './defaultOptions';
 import { sanitizeVaultRouterConfig } from './optionsSanitizer';
 import { resolveTaxonomy } from './taxonomyMigration';
 import { mergeVideoOptions } from './videoOptionsMerger';
+import { migrateSelectionTriggerOptions } from './selectionTriggerMigration';
+import { isFragmentSelectionTriggerMode } from './selectionTriggerMode';
 export { omitLegacyRestRootDir, omitLegacyRestRootDirFromOptions } from './legacyRestRootDir';
 
 function mergeClassifierOptions(
@@ -83,8 +85,9 @@ function mergeFragmentClipperOptions(
     captureContext: base.captureContext ?? defaults?.captureContext ?? false,
     contextLength: base.contextLength ?? defaults?.contextLength ?? 200,
     contextMode: base.contextMode ?? defaults?.contextMode ?? 'chars',
-    selectionModifierEnabled:
-      base.selectionModifierEnabled ?? defaults?.selectionModifierEnabled ?? false,
+    selectionTriggerMode: isFragmentSelectionTriggerMode(base.selectionTriggerMode)
+      ? base.selectionTriggerMode
+      : (defaults?.selectionTriggerMode ?? 'modifier'),
     selectionModifierKeys,
     keyboardShortcutsEnabled:
       base.keyboardShortcutsEnabled ?? defaults?.keyboardShortcutsEnabled ?? true
@@ -226,8 +229,8 @@ function sanitizeVaultRouter(source: StoredOptions['vaultRouter']): StoredOption
   return sanitizeVaultRouterConfig(source);
 }
 
-export function mergeOptions(stored?: StoredOptions | null): OptionsState {
-  const source = stored ?? {};
+export function mergeOptions(stored?: object | null): OptionsState {
+  const source = migrateSelectionTriggerOptions(stored).options as StoredOptions;
   const defaults = DEFAULT_OPTIONS;
 
   const rest: RestOptions = {
@@ -393,5 +396,5 @@ export function mergeOptions(stored?: StoredOptions | null): OptionsState {
 }
 
 export const optionsMerger = {
-  merge: (stored?: StoredOptions | null) => mergeOptions(stored ?? null)
+  merge: (stored?: object | null) => mergeOptions(stored)
 };

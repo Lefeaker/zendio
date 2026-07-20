@@ -61,7 +61,7 @@ void storage.sync.set('options', {
     captureContext: true,
     contextLength: 200,
     contextMode: 'chars',
-    selectionModifierEnabled: false,
+    selectionTriggerMode: 'direct',
     selectionModifierKeys: []
   },
   readingSession: {
@@ -83,7 +83,7 @@ optionsRepository.setMockData(
       captureContext: true,
       contextLength: 200,
       contextMode: 'chars',
-      selectionModifierEnabled: false,
+      selectionTriggerMode: 'direct',
       selectionModifierKeys: []
     },
     readingSession: {

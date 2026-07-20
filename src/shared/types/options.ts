@@ -36,6 +36,8 @@ export type FragmentContextMode = 'chars' | 'sentences';
 
 export type FragmentModifierKey = 'alt' | 'meta' | 'ctrl' | 'shift';
 
+export type FragmentSelectionTriggerMode = 'disabled' | 'direct' | 'modifier';
+
 export type ReadingExportMode = 'highlights' | 'full';
 
 export type ReaderHighlightTheme =
@@ -76,7 +78,7 @@ export interface FragmentClipperOptions {
   captureContext: boolean;
   contextLength: number;
   contextMode: FragmentContextMode;
-  selectionModifierEnabled: boolean;
+  selectionTriggerMode: FragmentSelectionTriggerMode;
   selectionModifierKeys: FragmentModifierKey[];
   keyboardShortcutsEnabled: boolean;
 }

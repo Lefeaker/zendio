@@ -5,15 +5,16 @@ import { createVideoSessionControllers } from '@content/video/videoSessionContro
 import { VideoSessionState } from '@content/video/sessionState';
 import type { VideoSessionDependencies } from '@content/video/sessionTypes';
 import type { PlatformSelectionInput, VideoPlatformAdapter } from '@content/video/platforms';
+import type { FragmentClipperOptions } from '@shared/types/options';
 import { asType, selection as mkSelection } from '../../../utils/typeHelpers';
 
-function createFragmentConfig() {
+function createFragmentConfig(): FragmentClipperOptions {
   return {
     useFootnoteFormat: false,
     captureContext: true,
     contextLength: 100,
     contextMode: 'chars' as const,
-    selectionModifierEnabled: false,
+    selectionTriggerMode: 'direct',
     selectionModifierKeys: [],
     keyboardShortcutsEnabled: true
   };

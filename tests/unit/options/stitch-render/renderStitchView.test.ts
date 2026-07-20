@@ -26,7 +26,7 @@ function createState(): PreviewStoreState {
       apiKey: ''
     },
     highlightTheme: 'neonGreen',
-    fragmentModifierEnabled: false,
+    fragmentSelectionTriggerMode: 'direct',
     modifierKeys: [],
     yamlFieldStates: {},
     routingRules: [],

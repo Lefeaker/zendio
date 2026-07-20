@@ -42,7 +42,7 @@ const DEFAULT_FRAGMENT_CLIPPER = DEFAULT_OPTIONS.fragmentClipper ?? {
   captureContext: true,
   contextLength: 100,
   contextMode: 'chars',
-  selectionModifierEnabled: false,
+  selectionTriggerMode: 'modifier',
   selectionModifierKeys: [],
   keyboardShortcutsEnabled: true
 };

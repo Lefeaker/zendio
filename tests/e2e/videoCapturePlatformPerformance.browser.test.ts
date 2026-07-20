@@ -27,7 +27,7 @@ type StoredOptionsFixture = {
     captureContext: boolean;
     contextLength: number;
     contextMode: 'chars' | 'words';
-    selectionModifierEnabled: boolean;
+    selectionTriggerMode: 'disabled' | 'direct' | 'modifier';
     selectionModifierKeys: FragmentModifierKey[];
     keyboardShortcutsEnabled: boolean;
   };
@@ -109,7 +109,7 @@ function createOptionsFixture(): StoredOptionsFixture {
       captureContext: true,
       contextLength: 200,
       contextMode: 'chars',
-      selectionModifierEnabled: true,
+      selectionTriggerMode: 'modifier',
       selectionModifierKeys: ['shift'],
       keyboardShortcutsEnabled: true
     },

@@ -111,7 +111,7 @@ export type StoredOptionsFixture = {
     captureContext: boolean;
     contextLength: number;
     contextMode: 'chars' | 'words';
-    selectionModifierEnabled: boolean;
+    selectionTriggerMode: 'disabled' | 'direct' | 'modifier';
     selectionModifierKeys: FragmentModifierKey[];
     keyboardShortcutsEnabled: boolean;
   };
@@ -176,7 +176,7 @@ export function createOptionsFixture(
       captureContext: true,
       contextLength: 200,
       contextMode: 'chars',
-      selectionModifierEnabled: false,
+      selectionTriggerMode: 'direct',
       selectionModifierKeys: [],
       keyboardShortcutsEnabled: true,
       ...fragment
@@ -1001,7 +1001,11 @@ export async function expandVideoPanel(page: Page): Promise<void> {
   }
 }
 
-export async function dragSelectBilibiliRichText(page: Page, fixtureId: string): Promise<void> {
+export async function dragSelectBilibiliRichText(
+  page: Page,
+  fixtureId: string,
+  options: { modifierKey?: 'Shift' | null } = {}
+): Promise<void> {
   const content = page.locator(`bili-rich-text[data-fixture="${fixtureId}"] #contents`).first();
   await expect(content).toBeVisible();
   const box = await content.boundingBox();
@@ -1010,12 +1014,20 @@ export async function dragSelectBilibiliRichText(page: Page, fixtureId: string):
   }
 
   const y = box.y + box.height / 2;
-  await page.keyboard.down('Shift');
-  await page.mouse.move(box.x + 2, y);
-  await page.mouse.down();
-  await page.mouse.move(box.x + box.width - 2, y, { steps: 12 });
-  await page.mouse.up();
-  await page.keyboard.up('Shift');
+  const modifierKey = options.modifierKey === undefined ? 'Shift' : options.modifierKey;
+  if (modifierKey) {
+    await page.keyboard.down(modifierKey);
+  }
+  try {
+    await page.mouse.move(box.x + 2, y);
+    await page.mouse.down();
+    await page.mouse.move(box.x + box.width - 2, y, { steps: 12 });
+    await page.mouse.up();
+  } finally {
+    if (modifierKey) {
+      await page.keyboard.up(modifierKey);
+    }
+  }
 }
 
 export async function countBilibiliRichTextHighlights(

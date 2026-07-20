@@ -15,7 +15,7 @@ describe('buildFragmentMarkdown', () => {
     captureContext: false,
     contextLength: 200,
     contextMode: 'chars',
-    selectionModifierEnabled: false,
+    selectionTriggerMode: 'direct',
     selectionModifierKeys: [],
     keyboardShortcutsEnabled: false
   };

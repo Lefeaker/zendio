@@ -229,7 +229,7 @@ export function fragmentModifierStateWarning(
   messagesOrIsApple?: ModifierMessagesOrPlatform,
   maybeIsApple?: ModifierPlatformInput
 ): string {
-  if (!state.fragmentModifierEnabled) {
+  if (state.fragmentSelectionTriggerMode !== 'modifier') {
     return '';
   }
   return fragmentModifierConflictWarning(state.modifierKeys[0], messagesOrIsApple, maybeIsApple);

@@ -32,7 +32,7 @@ type StoredOptionsFixture = {
     captureContext: boolean;
     contextLength: number;
     contextMode: 'chars' | 'words';
-    selectionModifierEnabled: boolean;
+    selectionTriggerMode: 'disabled' | 'direct' | 'modifier';
     selectionModifierKeys: Array<'alt' | 'meta' | 'ctrl' | 'shift'>;
   };
   readingSession: {
@@ -158,7 +158,7 @@ function createOptionsFixture(): StoredOptionsFixture {
       captureContext: true,
       contextLength: 200,
       contextMode: 'chars',
-      selectionModifierEnabled: false,
+      selectionTriggerMode: 'direct',
       selectionModifierKeys: []
     },
     readingSession: {

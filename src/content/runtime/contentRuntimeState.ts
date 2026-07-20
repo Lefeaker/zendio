@@ -1,11 +1,6 @@
 import type { FragmentClipperOptions } from '../../shared/types/options';
-import {
-  DEFAULT_FRAGMENT_CONFIG,
-  createModifierState,
-  loadFragmentConfig,
-  resetModifierState,
-  type ModifierState
-} from '../clipper/services/fragmentConfig';
+import { DEFAULT_FRAGMENT_CONFIG, loadFragmentConfig } from '../clipper/services/fragmentConfig';
+import { SelectionModifierTrigger } from '../clipper/services/selectionModifierTrigger';
 import type { SelectionSnapshot } from './contentSelectionTracker';
 import type { IOptionsRepository } from '../../shared/repositories/IOptionsRepository';
 
@@ -17,9 +12,7 @@ export interface ContentRuntimeState {
   getFragmentClipperConfig(): FragmentClipperOptions;
   getAutoSelectionInFlight(): boolean;
   setAutoSelectionInFlight(value: boolean): void;
-  getModifierState(): ModifierState;
-  isSelectionModifierActive(): boolean;
-  setSelectionModifierActive(value: boolean): void;
+  getSelectionModifierTrigger(): SelectionModifierTrigger;
   getLastSelectionSnapshot(): SelectionSnapshot | null;
   setLastSelectionSnapshot(snapshot: SelectionSnapshot | null): void;
   resetSelectionTracking(): void;
@@ -41,8 +34,7 @@ export function createContentRuntimeState(
   let clipMode: ContentClipMode = 'full';
   let fragmentClipperConfig = DEFAULT_FRAGMENT_CONFIG;
   let autoSelectionInFlight = false;
-  const modifierState = createModifierState();
-  let selectionModifierActive = false;
+  const selectionModifierTrigger = new SelectionModifierTrigger();
   let lastSelectionSnapshot: SelectionSnapshot | null = null;
   let stopOptionsSubscription: (() => void) | null = null;
 
@@ -67,10 +59,7 @@ export function createContentRuntimeState(
       console.warn('[content] fragment config refresh failed:', error);
       fragmentClipperConfig = DEFAULT_FRAGMENT_CONFIG;
     }
-    if (!fragmentClipperConfig.selectionModifierEnabled) {
-      selectionModifierActive = false;
-      resetModifierState(modifierState);
-    }
+    selectionModifierTrigger.reset();
   }
 
   const resumeOptionsSubscription = (): void => {
@@ -102,8 +91,7 @@ export function createContentRuntimeState(
   }
 
   function resetSelectionTracking(): void {
-    resetModifierState(modifierState);
-    selectionModifierActive = false;
+    selectionModifierTrigger.reset();
     lastSelectionSnapshot = null;
   }
 
@@ -117,11 +105,7 @@ export function createContentRuntimeState(
     setAutoSelectionInFlight: (value) => {
       autoSelectionInFlight = value;
     },
-    getModifierState: () => modifierState,
-    isSelectionModifierActive: () => selectionModifierActive,
-    setSelectionModifierActive: (value) => {
-      selectionModifierActive = value;
-    },
+    getSelectionModifierTrigger: () => selectionModifierTrigger,
     getLastSelectionSnapshot: () => lastSelectionSnapshot,
     setLastSelectionSnapshot: (snapshot) => {
       lastSelectionSnapshot = snapshot;

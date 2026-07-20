@@ -12,6 +12,22 @@
 | readingSession                                                                  | production Stitch capture schema                     | production Stitch state mapper                  |
 | rest/templates/deepResearch/video/fragment/classifier/yamlConfig/domainMappings | production Stitch schema/runtime 或当前 domain owner | 详见 `src/options/README.md` 的 Stitch 主链说明 |
 
+## Current Fragment Selection Trigger Contract（2026-07-20）
+
+`fragmentClipper.selectionTriggerMode` is the only production field controlling automatic
+selection capture:
+
+| Value      | Behavior                                                                |
+| ---------- | ----------------------------------------------------------------------- |
+| `disabled` | Keep browser selection behavior; do not open or add a capture           |
+| `direct`   | Capture a completed primary-button selection without a modifier key     |
+| `modifier` | Capture only when the configured modifier key is active for the gesture |
+
+The production Stitch control is a select bound to `fragmentSelectionTriggerMode`. Modifier chips
+are rendered only for `modifier`. Stored legacy `selectionModifierEnabled` data is migrated once:
+`true` becomes `modifier`, `false` becomes `direct`, and the retired field is removed before
+runtime validation. The legacy table below remains historical reference material only.
+
 ## Legacy Schema Inventory（保留历史对照）
 
 | Section         | Option Key               | DOM Hook                                                           | Control  | Default Source                               | Notes                                                                                                       |

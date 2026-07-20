@@ -13,7 +13,7 @@ const mockOptions: { fragmentClipper: FragmentClipperOptions } = {
     captureContext: true,
     contextLength: 500,
     contextMode: 'chars',
-    selectionModifierEnabled: false,
+    selectionTriggerMode: 'direct',
     selectionModifierKeys: [],
     keyboardShortcutsEnabled: true
   }
@@ -120,7 +120,7 @@ describe('Keyboard Shortcuts Integration', () => {
   });
 
   it('keyboard shortcuts work with modifier keys configuration', async () => {
-    mockOptions.fragmentClipper.selectionModifierEnabled = true;
+    mockOptions.fragmentClipper.selectionTriggerMode = 'modifier';
     mockOptions.fragmentClipper.selectionModifierKeys = ['alt', 'meta'];
     mockLoadFragmentConfig.mockResolvedValue(mockOptions.fragmentClipper);
 
@@ -129,7 +129,7 @@ describe('Keyboard Shortcuts Integration', () => {
 
     const config = await loadFragmentConfig();
     expect(config.keyboardShortcutsEnabled).toBe(true);
-    expect(config.selectionModifierEnabled).toBe(true);
+    expect(config.selectionTriggerMode).toBe('modifier');
     expect(config.selectionModifierKeys).toEqual(['alt', 'meta']);
   });
 
@@ -193,7 +193,7 @@ describe('Configuration Provider Integration', () => {
       captureContext: false,
       contextLength: 1000,
       contextMode: 'chars',
-      selectionModifierEnabled: true,
+      selectionTriggerMode: 'modifier',
       selectionModifierKeys: ['ctrl'],
       keyboardShortcutsEnabled: true
     };
@@ -203,7 +203,7 @@ describe('Configuration Provider Integration', () => {
     const config = configProvider.getDefaults();
     expect(config.fragmentClipper).toMatchObject({
       keyboardShortcutsEnabled: true,
-      selectionModifierEnabled: true,
+      selectionTriggerMode: 'modifier',
       selectionModifierKeys: ['ctrl'],
       captureContext: false,
       contextLength: 1000
@@ -275,7 +275,7 @@ describe('End-to-End Configuration Flow', () => {
       captureContext: true,
       contextLength: 750,
       contextMode: 'chars',
-      selectionModifierEnabled: true,
+      selectionTriggerMode: 'modifier',
       selectionModifierKeys: ['alt'],
       keyboardShortcutsEnabled: true
     };
@@ -291,7 +291,7 @@ describe('End-to-End Configuration Flow', () => {
     const config = await loadFragmentConfig();
 
     expect(config.keyboardShortcutsEnabled).toBe(false);
-    expect(config.selectionModifierEnabled).toBe(true);
+    expect(config.selectionTriggerMode).toBe('modifier');
     expect(config.selectionModifierKeys).toEqual(['alt']);
     expect(config.captureContext).toBe(true);
     expect(config.contextLength).toBe(750);

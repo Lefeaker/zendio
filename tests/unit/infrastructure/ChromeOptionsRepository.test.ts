@@ -291,6 +291,70 @@ describe('ChromeOptionsRepository', () => {
 
       expect(result).toEqual(DEFAULT_COMPLETE_OPTIONS);
     });
+
+    it.each([
+      [true, 'modifier'],
+      [false, 'direct']
+    ] as const)(
+      'should migrate and persist the retired selection modifier flag %s as %s',
+      async (legacyEnabled, expectedMode) => {
+        mockStorage.sync.get.mockResolvedValue({
+          fragmentClipper: {
+            selectionModifierEnabled: legacyEnabled,
+            selectionModifierKeys: ['shift']
+          }
+        });
+
+        const result = await repo.get();
+
+        expect(result.fragmentClipper.selectionTriggerMode).toBe(expectedMode);
+        expect(mockStorage.sync.set).toHaveBeenCalledTimes(1);
+        expect(mockStorage.sync.set).toHaveBeenCalledWith('options', {
+          fragmentClipper: {
+            selectionTriggerMode: expectedMode,
+            selectionModifierKeys: ['shift']
+          }
+        });
+        expect(mockStorage.sync.set.mock.calls[0]?.[1]).not.toHaveProperty(
+          'fragmentClipper.selectionModifierEnabled'
+        );
+      }
+    );
+
+    it('should not rewrite storage when selection trigger configuration is current', async () => {
+      mockStorage.sync.get.mockResolvedValue({
+        fragmentClipper: {
+          selectionTriggerMode: 'direct',
+          selectionModifierKeys: ['shift']
+        }
+      });
+
+      const result = await repo.get();
+
+      expect(result.fragmentClipper.selectionTriggerMode).toBe('direct');
+      expect(mockStorage.sync.set).not.toHaveBeenCalled();
+    });
+
+    it('should keep migrated options usable when migration persistence fails', async () => {
+      mockStorage.sync.get.mockResolvedValue({
+        fragmentClipper: {
+          selectionModifierEnabled: false,
+          selectionModifierKeys: ['shift']
+        }
+      });
+      mockStorage.sync.set.mockRejectedValueOnce(new Error('sync quota exceeded'));
+      const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+
+      const result = await repo.get();
+
+      expect(result.fragmentClipper.selectionTriggerMode).toBe('direct');
+      expect(consoleSpy).toHaveBeenCalledWith(
+        '[ChromeOptionsRepository] Failed to persist options migration:',
+        expect.any(Error)
+      );
+      consoleSpy.mockRestore();
+    });
+
     it('should merge partial options with defaults when storage has sparse data', async () => {
       mockStorage.sync.get.mockResolvedValue({
         rest: {

@@ -31,7 +31,7 @@ function createContext(): RendererContext {
         apiKey: ''
       },
       highlightTheme: 'gradient',
-      fragmentModifierEnabled: false,
+      fragmentSelectionTriggerMode: 'direct',
       modifierKeys: [],
       yamlFieldStates: {},
       routingRules: [],

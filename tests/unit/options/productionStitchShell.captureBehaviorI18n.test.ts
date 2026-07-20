@@ -28,8 +28,11 @@ const ENGLISH_SENTINEL_MESSAGES: Messages = {
   readingExportModeLabel: 'Export Row Sentinel',
   readingExportModeHighlights: 'Highlights Sentinel',
   readingExportModeFull: 'Full Sentinel',
-  fragmentModifierToggleLabel: 'Modifier Row Sentinel',
-  fragmentModifierToggleDescription: 'Modifier description sentinel.',
+  fragmentSelectionTriggerModeLabel: 'Selection Trigger Sentinel',
+  fragmentSelectionTriggerModeDescription: 'Selection trigger description sentinel.',
+  fragmentSelectionTriggerModeDisabled: 'Never Sentinel',
+  fragmentSelectionTriggerModeDirect: 'Direct Sentinel',
+  fragmentSelectionTriggerModeModifier: 'Modifier Sentinel',
   fragmentKeyboardShortcutsLabel: 'Shortcuts Row Sentinel',
   fragmentKeyboardShortcutsHint: 'Shortcut hint sentinel: {modifierShortcut}',
   fragmentKeyboardShortcutCommandEnter: 'Cmd+Enter Sentinel',
@@ -85,7 +88,7 @@ describe('mountProductionStitchShell capture behavior i18n', () => {
     );
   });
 
-  it('renders modifier and clipper shortcut help beside their controls instead of in labels', () => {
+  it('renders all trigger modes and shows modifier keys only for modifier mode', () => {
     Object.defineProperty(navigator, 'platform', {
       configurable: true,
       value: 'MacIntel'
@@ -95,7 +98,7 @@ describe('mountProductionStitchShell capture behavior i18n', () => {
       controller: asOptionsController(createController()),
       initialOptions: {
         fragmentClipper: {
-          selectionModifierEnabled: true,
+          selectionTriggerMode: 'modifier',
           selectionModifierKeys: ['shift'],
           keyboardShortcutsEnabled: true
         }
@@ -106,14 +109,19 @@ describe('mountProductionStitchShell capture behavior i18n', () => {
 
     queryRequired<HTMLButtonElement>('[data-nav-panel="capture-behavior"]').click();
 
-    const modifierRow = requireRenderedRow('Modifier Row Sentinel');
+    const modifierRow = requireRenderedRow('Selection Trigger Sentinel');
     const modifierLabel = queryRequired<HTMLElement>('.label', modifierRow);
-    const modifierControlHelp = queryRequired<HTMLElement>(
-      '.modifier-key-description',
-      modifierRow
-    );
-    expect(modifierLabel.textContent).not.toContain('Modifier description sentinel.');
-    expect(modifierControlHelp.textContent).toBe('Modifier description sentinel.');
+    expect(modifierLabel.textContent).toContain('Selection trigger description sentinel.');
+    expect(
+      Array.from(modifierRow.querySelectorAll<HTMLOptionElement>('option')).map((option) => [
+        option.value,
+        option.textContent
+      ])
+    ).toEqual([
+      ['disabled', 'Never Sentinel'],
+      ['direct', 'Direct Sentinel'],
+      ['modifier', 'Modifier Sentinel']
+    ]);
     expect(
       modifierRow.querySelectorAll<HTMLButtonElement>('.modifier-key-inline .chip')
     ).toHaveLength(3);

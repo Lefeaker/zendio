@@ -1,5 +1,6 @@
 import type { PreviewVideoStoreState } from '../videoStateTypes';
 import type { RoutingRule } from './contentTypes';
+import type { FragmentSelectionTriggerMode } from '@shared/types/options';
 
 export interface PreviewStoreState extends PreviewVideoStoreState {
   activePanel: string;
@@ -37,7 +38,7 @@ export interface PreviewStoreState extends PreviewVideoStoreState {
   fragmentContextLength?: number;
   fragmentContextMode?: string;
   fragmentKeyboardShortcutsEnabled?: boolean;
-  fragmentModifierEnabled: boolean;
+  fragmentSelectionTriggerMode: FragmentSelectionTriggerMode;
   modifierKeys: string[];
   activeLocalFolderVaultIndex?: number | null;
   yamlFieldStates: Record<string, string>;

@@ -433,7 +433,7 @@ export function registerVideoListenerScopeLifecycleTests(): void {
         `${YOUTUBE_URL}&p09=session-restart`,
         youtubeFixtureHtml(),
         createOptionsFixture({
-          selectionModifierEnabled: true,
+          selectionTriggerMode: 'modifier',
           selectionModifierKeys: ['shift']
         })
       );

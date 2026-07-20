@@ -7,15 +7,12 @@ import type { PreviewContent, PreviewStoreState } from '@options/stitch/types';
 import type { VaultRouterConfig } from '@shared/types/vault';
 import { persistTheme } from './productionStitchStateMapper';
 import {
-  normalizeFragmentModifierKey,
-  normalizeFragmentModifierKeys
-} from './fragmentModifierOptions';
-import {
   createProductionDomainActions,
   createProductionRoutingActions,
   createProductionStorageActions,
   updateExperimentalBoolean
 } from './productionStitchActionGroups';
+import { createProductionSelectionTriggerActions } from './productionStitchSelectionTriggerActions';
 export interface ProductionStitchActionContext {
   getAppData(): PreviewContent;
   getCurrentLanguage(): Language;
@@ -74,22 +71,11 @@ export interface ProductionStitchActionContext {
 export function createProductionStitchActions(
   context: ProductionStitchActionContext
 ): ActionRegistry<PreviewStoreState, PreviewContent> {
-  const setModifierKey = (value: string | undefined): void => {
-    const draft = context.getDraft();
-    const state = context.getState();
-    const key = normalizeFragmentModifierKey(value);
-    state.modifierKeys = [key];
-    state.fragmentModifierEnabled = true;
-    draft.fragmentClipper.selectionModifierEnabled = true;
-    draft.fragmentClipper.selectionModifierKeys = [key];
-    context.scheduleDraftSave();
-    context.syncModifierControls();
-  };
-
   return {
     ...createProductionRoutingActions(context),
     ...createProductionStorageActions(context),
     ...createProductionDomainActions(context),
+    ...createProductionSelectionTriggerActions(context),
     'preview:setTheme': ({ value, mutate: update }) => {
       const theme: InterfaceTheme = value === 'light' || value === 'system' ? value : 'dark';
       update(
@@ -192,23 +178,6 @@ export function createProductionStitchActions(
       context.getState().highlightTheme = draft.readingSession.highlightTheme;
       context.scheduleDraftSave();
       context.syncHighlightThemeControls();
-    },
-    'modifier:setEnabled': ({ value }) => {
-      const draft = context.getDraft();
-      const state = context.getState();
-      const enabled = Boolean(value);
-      const selectedKeys = normalizeFragmentModifierKeys(
-        state.modifierKeys.length ? state.modifierKeys : draft.fragmentClipper.selectionModifierKeys
-      );
-      draft.fragmentClipper.selectionModifierEnabled = enabled;
-      draft.fragmentClipper.selectionModifierKeys = selectedKeys;
-      state.fragmentModifierEnabled = enabled;
-      state.modifierKeys = selectedKeys;
-      context.scheduleDraftSave();
-      context.syncModifierControls();
-    },
-    'modifier:setKey': ({ value }) => {
-      setModifierKey(typeof value === 'string' ? value : undefined);
     },
     'options:updateField': ({ args, value }) => {
       context.updateDraftPath(String(args[0] ?? ''), value);

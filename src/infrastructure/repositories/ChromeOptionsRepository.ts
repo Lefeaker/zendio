@@ -5,6 +5,7 @@ import type { IOptionsRepository } from '../../shared/repositories';
 import type { CompleteOptions, StoredOptions } from '../../shared/types/options';
 import { StorageError } from '../../shared/errors/repositoryErrors';
 import { StoredOptionsSchema } from '../../shared/schemas';
+import { migrateSelectionTriggerOptions } from '../../shared/config/selectionTriggerMigration';
 
 const OPTIONS_STORAGE_KEY = 'options';
 
@@ -15,22 +16,36 @@ function cloneOptions<T>(value: T): T {
   return JSON.parse(JSON.stringify(value)) as T;
 }
 
-function sanitizeStoredOptions(stored: unknown): StoredOptions | null {
-  const parsed = StoredOptionsSchema.safeParse(stored ?? {});
+interface SanitizedStoredOptions {
+  options: StoredOptions;
+  shouldPersistMigration: boolean;
+}
+
+function sanitizeStoredOptions(stored: object | null | undefined): SanitizedStoredOptions {
+  const migration = migrateSelectionTriggerOptions(stored);
+  const parsed = StoredOptionsSchema.safeParse(migration.options);
   if (parsed.success) {
-    return parsed.data as StoredOptions;
+    return {
+      options: parsed.data as StoredOptions,
+      shouldPersistMigration: migration.migrated
+    };
   }
 
   const fallback =
-    typeof stored === 'object' && stored !== null ? { ...(stored as Record<string, unknown>) } : {};
+    typeof migration.options === 'object' && migration.options !== null
+      ? { ...migration.options }
+      : {};
   delete fallback.vaultRouter;
 
   const reparsed = StoredOptionsSchema.safeParse(fallback);
   if (reparsed.success) {
-    return reparsed.data as StoredOptions;
+    return {
+      options: reparsed.data as StoredOptions,
+      shouldPersistMigration: false
+    };
   }
 
-  return {};
+  return { options: {}, shouldPersistMigration: false };
 }
 
 /**
@@ -49,9 +64,12 @@ export class ChromeOptionsRepository implements IOptionsRepository {
 
   async get(): Promise<CompleteOptions> {
     try {
-      const stored = await this.storage.sync.get<StoredOptions>(OPTIONS_STORAGE_KEY);
+      const stored = await this.storage.sync.get<object | null>(OPTIONS_STORAGE_KEY);
       const sanitized = sanitizeStoredOptions(stored);
-      return optionsMerger.merge(sanitized) as CompleteOptions;
+      if (sanitized.shouldPersistMigration) {
+        await this.persistSelectionTriggerMigration(sanitized.options);
+      }
+      return optionsMerger.merge(sanitized.options) as CompleteOptions;
     } catch (error) {
       throw new StorageError('Failed to get options from chrome.storage', {
         cause: error,
@@ -105,11 +123,14 @@ export class ChromeOptionsRepository implements IOptionsRepository {
     if (this.stopWatchingOptions) {
       return;
     }
-    this.stopWatchingOptions = this.storage.sync.watchKey<StoredOptions>(
+    this.stopWatchingOptions = this.storage.sync.watchKey<object | null>(
       OPTIONS_STORAGE_KEY,
       (stored) => {
         const sanitized = sanitizeStoredOptions(stored);
-        const options = optionsMerger.merge(sanitized) as CompleteOptions;
+        if (sanitized.shouldPersistMigration) {
+          void this.persistSelectionTriggerMigration(sanitized.options);
+        }
+        const options = optionsMerger.merge(sanitized.options) as CompleteOptions;
         this.emitToListeners(options);
       }
     );
@@ -123,6 +144,14 @@ export class ChromeOptionsRepository implements IOptionsRepository {
       .catch((error) => {
         console.error('[ChromeOptionsRepository] Failed to notify listeners:', error);
       });
+  }
+
+  private async persistSelectionTriggerMigration(options: StoredOptions): Promise<void> {
+    try {
+      await this.storage.sync.set(OPTIONS_STORAGE_KEY, omitLegacyRestRootDirFromOptions(options));
+    } catch (error) {
+      console.error('[ChromeOptionsRepository] Failed to persist options migration:', error);
+    }
   }
 
   private emitToListeners(options: CompleteOptions): void {

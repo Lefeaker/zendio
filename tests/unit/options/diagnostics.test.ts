@@ -108,7 +108,7 @@ describe('diagnostics', () => {
         useFootnoteFormat: true,
         captureContext: false,
         contextLength: 10,
-        selectionModifierEnabled: true,
+        selectionTriggerMode: 'modifier',
         selectionModifierKeys: []
       },
       video: { floatingPromptEnabled: false, promptButtonLabel: '', promptShortcut: '' }
@@ -143,7 +143,7 @@ describe('diagnostics', () => {
     getSnapshotMock.mockReturnValue({
       rest: { httpsUrl: '', httpUrl: '', baseUrl: LOCAL_HTTP_CONFLICT_URL, apiKey: 'key' },
       templates: { article: 'Clippings/{title}.md', fragment: '', ai: '' }
-    } as unknown as StoredOptions);
+    });
     const { fixConfiguration } = await import('@options/components/diagnostics');
     await fixConfiguration();
     expect(saveSnapshotMock).toHaveBeenCalled();
@@ -320,7 +320,7 @@ describe('diagnostics', () => {
         useFootnoteFormat: false,
         captureContext: true,
         contextLength: 120,
-        selectionModifierEnabled: true,
+        selectionTriggerMode: 'modifier',
         selectionModifierKeys: ['alt', 'shift']
       },
       readingSession: { exportMode: 'full', highlightTheme: 'purple' },
@@ -369,7 +369,8 @@ describe('diagnostics', () => {
       await createDiagnosticsMessages({
         diagnosticsConfigNotFound: 'No config sentinel',
         diagnosticsFragmentContextLengthInvalid: 'Invalid context length sentinel',
-        diagnosticsFragmentModifierDisabled: 'Modifier disabled sentinel',
+        diagnosticsFragmentSelectionTriggerDirect: 'Direct trigger sentinel',
+        diagnosticsFragmentSelectionTriggerDisabled: 'Disabled trigger sentinel',
         diagnosticsReadingExportHighlights: 'Highlights only sentinel',
         diagnosticsReadingThemeValue: 'Theme sentinel: {theme}'
       })
@@ -390,18 +391,39 @@ describe('diagnostics', () => {
         useFootnoteFormat: false,
         captureContext: true,
         contextLength: -1,
-        selectionModifierEnabled: false,
+        selectionTriggerMode: 'direct',
         selectionModifierKeys: []
       },
       readingSession: { exportMode: 'highlights', highlightTheme: 'gradient' }
-    } as unknown as StoredOptions);
+    });
     await runDiagnostics();
     const output = document.getElementById('diagOutput')?.textContent ?? '';
     expect(output).toContain('Invalid context length sentinel');
-    expect(output).toContain('Modifier disabled sentinel');
+    expect(output).toContain('Direct trigger sentinel');
     expect(output).toContain('Highlights only sentinel');
     expect(output).toContain('Theme sentinel: gradient');
     expect(output).not.toMatch(HAN_REGEX);
+
+    getSnapshotMock.mockReturnValueOnce({
+      rest: {
+        httpsUrl: LOCAL_HTTPS_URL,
+        httpUrl: LOCAL_HTTP_URL,
+        apiKey: 'key'
+      },
+      templates: { article: 'A', fragment: 'F', ai: 'I' },
+      fragmentClipper: {
+        useFootnoteFormat: false,
+        captureContext: true,
+        contextLength: 100,
+        selectionTriggerMode: 'disabled',
+        selectionModifierKeys: []
+      },
+      readingSession: { exportMode: 'highlights', highlightTheme: 'gradient' }
+    });
+    await runDiagnostics();
+    expect(document.getElementById('diagOutput')?.textContent).toContain(
+      'Disabled trigger sentinel'
+    );
   });
 
   it('uses repository set and reruns diagnostics after fix callback', async () => {

@@ -1,14 +1,10 @@
-import {
-  shouldTriggerSelectionWithModifiers,
-  syncModifierState
-} from '../clipper/services/fragmentConfig';
 import type { ContentRuntimeState } from './contentRuntimeState';
 import type { ContentSelectionTracker } from './contentSelectionTracker';
 import { isReaderSessionActive, isVideoSessionActive } from './contentSessionRegistry';
 import { hasUsableSelection } from './selectionSnapshot';
 
 export function handleModifierKey(runtimeState: ContentRuntimeState, event: KeyboardEvent): void {
-  syncModifierState(runtimeState.getModifierState(), event);
+  runtimeState.getSelectionModifierTrigger().updateModifierState(event);
 }
 
 export function handleWindowBlur(runtimeState: ContentRuntimeState): void {
@@ -16,19 +12,9 @@ export function handleWindowBlur(runtimeState: ContentRuntimeState): void {
 }
 
 export function handlePrimaryMouseDown(runtimeState: ContentRuntimeState, event: MouseEvent): void {
-  if (event.button !== 0) {
-    runtimeState.setSelectionModifierActive(false);
-    return;
-  }
-  syncModifierState(runtimeState.getModifierState(), event);
-  const fragmentClipperConfig = runtimeState.getFragmentClipperConfig();
-  if (!fragmentClipperConfig.selectionModifierEnabled) {
-    runtimeState.setSelectionModifierActive(false);
-    return;
-  }
-  runtimeState.setSelectionModifierActive(
-    shouldTriggerSelectionWithModifiers(fragmentClipperConfig, runtimeState.getModifierState())
-  );
+  runtimeState
+    .getSelectionModifierTrigger()
+    .beginPointerGesture(runtimeState.getFragmentClipperConfig(), event);
 }
 
 export function handleAutoSelectionClip(
@@ -41,20 +27,16 @@ export function handleAutoSelectionClip(
   if (event.button !== 0 || isReaderSessionActive(document) || isVideoSessionActive(document)) {
     return;
   }
-  syncModifierState(runtimeState.getModifierState(), event);
   const fragmentClipperConfig = runtimeState.getFragmentClipperConfig();
-  const modifierRequired = fragmentClipperConfig.selectionModifierEnabled;
-  const modifiersSatisfied =
-    runtimeState.isSelectionModifierActive() ||
-    shouldTriggerSelectionWithModifiers(fragmentClipperConfig, runtimeState.getModifierState());
-  if (modifierRequired && !modifiersSatisfied) {
-    runtimeState.setSelectionModifierActive(false);
+  const selectionTrigger = runtimeState.getSelectionModifierTrigger();
+  if (!selectionTrigger.canTrigger(fragmentClipperConfig, event)) {
+    selectionTrigger.completePointerGesture();
     return;
   }
 
   const selectionInfo = selectionTracker.resolveActiveSelection();
   if (!selectionInfo) {
-    runtimeState.setSelectionModifierActive(false);
+    selectionTrigger.completePointerGesture();
     return;
   }
 
@@ -66,7 +48,7 @@ export function handleAutoSelectionClip(
     selectionTracker.isSelectionInsideUi(selection) ||
     selectionTracker.isSelectionEditable(selection)
   ) {
-    runtimeState.setSelectionModifierActive(false);
+    selectionTrigger.completePointerGesture();
     return;
   }
   if (runtimeState.getAutoSelectionInFlight()) {
@@ -77,6 +59,6 @@ export function handleAutoSelectionClip(
   runtimeState.setClipMode('selection');
   void runClip().finally(() => {
     runtimeState.setAutoSelectionInFlight(false);
-    runtimeState.setSelectionModifierActive(false);
+    selectionTrigger.completePointerGesture();
   });
 }

@@ -113,7 +113,7 @@ const clipRepo = {
       captureContext: false,
       contextLength: 200,
       contextMode: 'chars',
-      selectionModifierEnabled: false,
+      selectionTriggerMode: 'disabled',
       selectionModifierKeys: [],
       keyboardShortcutsEnabled: true
     });

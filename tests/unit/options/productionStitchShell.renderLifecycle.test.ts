@@ -641,7 +641,7 @@ describe('mountProductionStitchShell renderLifecycle', () => {
     expect(draft.video.promptPosition).toEqual({ x: 99, y: 77 });
   });
 
-  it('updates fragment modifier selection without remounting the options shell', () => {
+  it('updates all selection trigger modes while keeping modifier-key edits incremental', () => {
     const controller = createController();
     Object.defineProperty(navigator, 'platform', {
       configurable: true,
@@ -651,7 +651,7 @@ describe('mountProductionStitchShell renderLifecycle', () => {
       controller: asOptionsController(controller),
       initialOptions: {
         fragmentClipper: {
-          selectionModifierEnabled: true,
+          selectionTriggerMode: 'modifier',
           selectionModifierKeys: ['alt']
         }
       },
@@ -675,9 +675,23 @@ describe('mountProductionStitchShell renderLifecycle', () => {
     expect(document.querySelector('.main')).toBe(main);
     expect(altChip.getAttribute('aria-pressed')).toBe('false');
     expect(shiftChip.getAttribute('aria-pressed')).toBe('true');
-    expect(mounted.collectDraft().fragmentClipper.selectionModifierEnabled).toBe(true);
+    expect(mounted.collectDraft().fragmentClipper.selectionTriggerMode).toBe('modifier');
     expect(mounted.collectDraft().fragmentClipper.selectionModifierKeys).toEqual(['shift']);
     expect(document.body.textContent).not.toContain('快捷键冲突');
+
+    const directSelect = queryRequired<HTMLSelectElement>('.selection-trigger-inline select');
+    directSelect.value = 'direct';
+    directSelect.dispatchEvent(new Event('change', { bubbles: true }));
+
+    expect(mounted.collectDraft().fragmentClipper.selectionTriggerMode).toBe('direct');
+    expect(document.querySelectorAll('.modifier-key-inline .chip')).toHaveLength(0);
+
+    const disabledSelect = queryRequired<HTMLSelectElement>('.selection-trigger-inline select');
+    disabledSelect.value = 'disabled';
+    disabledSelect.dispatchEvent(new Event('change', { bubbles: true }));
+
+    expect(mounted.collectDraft().fragmentClipper.selectionTriggerMode).toBe('disabled');
+    expect(mounted.collectDraft().fragmentClipper.selectionModifierKeys).toEqual(['shift']);
   });
 
   it('renders the fragment keyboard shortcut hint for the current desktop platform only', () => {

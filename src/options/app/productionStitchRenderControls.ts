@@ -44,9 +44,9 @@ export function createProductionStitchRenderControls(options: RenderControlOptio
     const state = options.getState();
     const activeKey = normalizeFragmentModifierKeys(state.modifierKeys)[0];
     mountRoot
-      .querySelectorAll<HTMLInputElement>('.modifier-key-inline .switch input[type="checkbox"]')
-      .forEach((input) => {
-        input.checked = state.fragmentModifierEnabled;
+      .querySelectorAll<HTMLSelectElement>('.selection-trigger-inline select')
+      .forEach((select) => {
+        select.value = state.fragmentSelectionTriggerMode;
       });
     mountRoot
       .querySelectorAll<HTMLButtonElement>('.modifier-key-inline .chips button[data-value]')

@@ -58,7 +58,7 @@ function createRuntimeState(overrides: Partial<PreviewStoreState> = {}): Preview
       apiKey: ''
     },
     highlightTheme: 'gradient',
-    fragmentModifierEnabled: false,
+    fragmentSelectionTriggerMode: 'disabled',
     modifierKeys: [],
     yamlFieldStates: {},
     routingRules: [],

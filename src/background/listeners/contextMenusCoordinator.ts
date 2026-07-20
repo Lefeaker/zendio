@@ -1,7 +1,7 @@
 import { getMessages } from '@i18n';
 import { PlatformError } from '../../platform/errors';
 import type { ContextMenuListenerDependencies, ContextMenuRuntimeState } from './contextMenusTypes';
-import { autoInjectIfNeeded, refreshSelectionModifierInjection } from './contextMenuInjection';
+import { autoInjectIfNeeded, refreshSelectionTriggerInjection } from './contextMenuInjection';
 import { isVideoUrl } from './contextMenuUrls';
 
 export function deriveVideoState(
@@ -55,7 +55,7 @@ export async function setupContextMenus(
     state.clipFullPageTitle = msgs.clipFullPage;
     state.videoModeTitle = msgs.contextMenuVideoMode;
     state.tabVideoState.clear();
-    await refreshSelectionModifierInjection(state);
+    await refreshSelectionTriggerInjection(state);
 
     try {
       await contextMenus.removeAll();

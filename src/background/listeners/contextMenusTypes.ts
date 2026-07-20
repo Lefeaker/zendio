@@ -27,7 +27,7 @@ export interface ContextMenuRuntimeState {
   clipSelectionVideoTitle: string;
   clipFullPageTitle: string;
   videoModeTitle: string;
-  selectionModifierInjectionEnabled: boolean;
+  selectionTriggerInjectionEnabled: boolean;
   isSettingUpContextMenus: boolean;
   tabVideoState: Map<number, boolean>;
   autoInjectedTabs: Set<number>;
@@ -39,7 +39,7 @@ export function createContextMenuRuntimeState(): ContextMenuRuntimeState {
     clipSelectionVideoTitle: 'Clip to video capture panel',
     clipFullPageTitle: 'Clip full page to Obsidian',
     videoModeTitle: 'Enter video capture mode',
-    selectionModifierInjectionEnabled: false,
+    selectionTriggerInjectionEnabled: false,
     isSettingUpContextMenus: false,
     tabVideoState: new Map<number, boolean>(),
     autoInjectedTabs: new Set<number>()

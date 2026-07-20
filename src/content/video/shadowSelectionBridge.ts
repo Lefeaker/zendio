@@ -2,6 +2,7 @@ import type { PendingSelectionTracker } from './pendingSelectionTracker';
 
 interface ShadowSelectionBridgeOptions {
   suppressSelectionCapture: () => boolean;
+  isSelectionTriggerConfigured: () => boolean;
   getDocumentSelection: () => Selection | null;
   isRangeInsideUi: (range: Range) => boolean;
   pendingSelection: PendingSelectionTracker;
@@ -42,7 +43,8 @@ export class ShadowSelectionBridge {
     }
 
     const syncSelection = () => {
-      if (this.options.suppressSelectionCapture()) {
+      if (this.options.suppressSelectionCapture() || !this.options.isSelectionTriggerConfigured()) {
+        this.options.pendingSelection.reset();
         return;
       }
       const selection = this.getSelectionForRoot(root);
@@ -69,6 +71,11 @@ export class ShadowSelectionBridge {
     };
 
     const handleMouseDown = (event: Event) => {
+      if (!this.options.isSelectionTriggerConfigured()) {
+        this.pointerStarts.delete(root);
+        this.options.pendingSelection.reset();
+        return;
+      }
       const mouse = readShadowMouseEventData(event);
       if (!mouse || mouse.button !== 0) {
         this.pointerStarts.delete(root);
@@ -94,6 +101,11 @@ export class ShadowSelectionBridge {
     };
 
     const scheduleSync = (event: Event) => {
+      if (!this.options.isSelectionTriggerConfigured()) {
+        this.pointerStarts.delete(root);
+        this.options.pendingSelection.reset();
+        return;
+      }
       const view = root.ownerDocument.defaultView ?? window;
       const allowEventFallback = this.isDragSelectionEnd(root, event);
       const activationEvent = snapshotShadowSelectionEvent(event);

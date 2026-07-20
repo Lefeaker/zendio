@@ -80,8 +80,8 @@ describe('shared optionsMerger', () => {
     expect(result.classifier?.taxonomy).toEqual(DEFAULT_OPTIONS.classifier?.taxonomy);
     expect(result.fragmentClipper?.captureContext).toBe(true);
     expect(result.fragmentClipper?.contextLength).toBe(defaultFragmentClipper.contextLength);
-    expect(result.fragmentClipper?.selectionModifierEnabled).toBe(
-      defaultFragmentClipper.selectionModifierEnabled
+    expect(result.fragmentClipper?.selectionTriggerMode).toBe(
+      defaultFragmentClipper.selectionTriggerMode
     );
     expect(result.fragmentClipper?.selectionModifierKeys).toEqual(
       defaultFragmentClipper.selectionModifierKeys
@@ -139,7 +139,7 @@ describe('shared optionsMerger', () => {
     );
 
     const result = mergeOptions(stored);
-    expect(result.fragmentClipper?.selectionModifierEnabled).toBe(true);
+    expect(result.fragmentClipper?.selectionTriggerMode).toBe('modifier');
     expect(result.fragmentClipper?.selectionModifierKeys).toEqual(['meta']);
   });
 
@@ -167,21 +167,21 @@ describe('shared optionsMerger', () => {
     const stored: StoredOptions = {
       fragmentClipper: {
         keyboardShortcutsEnabled: false,
-        selectionModifierEnabled: true,
+        selectionTriggerMode: 'modifier',
         selectionModifierKeys: ['alt']
       }
     };
 
     const result = mergeOptions(stored);
     expect(result.fragmentClipper?.keyboardShortcutsEnabled).toBe(false);
-    expect(result.fragmentClipper?.selectionModifierEnabled).toBe(true);
+    expect(result.fragmentClipper?.selectionTriggerMode).toBe('modifier');
     expect(result.fragmentClipper?.selectionModifierKeys).toEqual(['alt']);
   });
 
   it('uses default keyboard shortcuts when not specified', () => {
     const stored: StoredOptions = {
       fragmentClipper: {
-        selectionModifierEnabled: true
+        selectionTriggerMode: 'modifier'
       }
     };
 

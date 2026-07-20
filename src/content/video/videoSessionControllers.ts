@@ -132,6 +132,7 @@ export function createVideoSessionControllers(args: {
     doc,
     pendingSelection,
     shouldTrackSelection: () => fragmentSelectionController.shouldTrackSelection(),
+    canActivateSelection: (event) => fragmentSelectionController.canActivateSelection(event),
     suppressSelectionCapture: () => state.suppressSelectionCapture,
     isRangeInsideUi,
     getDocumentSelection,
@@ -143,6 +144,7 @@ export function createVideoSessionControllers(args: {
   });
   const shadowSelectionBridge = new ShadowSelectionBridge({
     suppressSelectionCapture: () => state.suppressSelectionCapture,
+    isSelectionTriggerConfigured: () => fragmentSelectionController.isSelectionTriggerConfigured(),
     getDocumentSelection,
     isRangeInsideUi,
     pendingSelection,

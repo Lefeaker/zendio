@@ -131,7 +131,7 @@ export type ReadonlyFragmentClipperOptions = ReadonlyDeep<{
   captureContext: boolean;
   contextLength: number;
   contextMode: 'chars';
-  selectionModifierEnabled: boolean;
+  selectionTriggerMode: 'disabled' | 'direct' | 'modifier';
   selectionModifierKeys: ('alt' | 'meta' | 'ctrl' | 'shift')[];
   keyboardShortcutsEnabled: boolean;
 }>;

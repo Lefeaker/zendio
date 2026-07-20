@@ -3,6 +3,7 @@ import { omitLegacyRestRootDirFromOptions } from '../../shared/config/optionsMer
 import { sanitizeYamlConfigValue } from '../../shared/config/optionsSanitizer';
 import { StoredOptionsSchema } from '../../shared/schemas';
 import type { AnalyticsTransferPayload } from './analyticsTransfer';
+import { migrateSelectionTriggerOptions } from '../../shared/config/selectionTriggerMigration';
 
 export interface ConfigTransferPayload {
   version: number;
@@ -75,9 +76,10 @@ function sanitizeImportedOptions(candidate: unknown): StoredOptions {
     throw new ConfigTransferError('PARSE_FAILED');
   }
 
-  const hasYamlConfig = Object.prototype.hasOwnProperty.call(candidate, 'yamlConfig');
-  const yamlConfigCandidate = candidate.yamlConfig;
-  const schemaCandidate = { ...candidate };
+  const migration = migrateSelectionTriggerOptions(candidate);
+  const hasYamlConfig = Object.prototype.hasOwnProperty.call(migration.options, 'yamlConfig');
+  const yamlConfigCandidate = migration.options.yamlConfig;
+  const schemaCandidate = { ...migration.options };
   delete schemaCandidate.yamlConfig;
 
   const parsed = StoredOptionsSchema.safeParse(schemaCandidate);

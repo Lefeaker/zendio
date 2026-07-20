@@ -36,7 +36,7 @@ export function createSchemaContext(): SchemaContext {
       subtitleTargetLanguage: 'en',
       experimentalAiConfig: { ...previewContent.experimental.aiDefaults },
       highlightTheme: 'yellow',
-      fragmentModifierEnabled: true,
+      fragmentSelectionTriggerMode: 'modifier',
       modifierKeys: ['shift'],
       yamlFieldStates: {},
       routingRules: [...previewContent.storage.routingRules],

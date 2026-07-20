@@ -30,7 +30,7 @@ function createOptionsSnapshot(): CompleteOptions {
       captureContext: true,
       contextLength: 200,
       contextMode: 'chars',
-      selectionModifierEnabled: false,
+      selectionTriggerMode: 'direct',
       selectionModifierKeys: []
     }
   };

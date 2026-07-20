@@ -125,6 +125,26 @@ describe('configTransfer service', () => {
     expect(Array.isArray(parsed.options.yamlConfig?.contentTypes)).toBe(false);
   });
 
+  it('migrates legacy direct-selection imports to the canonical trigger mode', () => {
+    const parsed = parseConfigInput(
+      JSON.stringify({
+        version: 2,
+        options: {
+          fragmentClipper: {
+            selectionModifierEnabled: false,
+            selectionModifierKeys: ['shift']
+          }
+        }
+      })
+    );
+
+    expect(parsed.options.fragmentClipper).toEqual({
+      selectionTriggerMode: 'direct',
+      selectionModifierKeys: ['shift']
+    });
+    expect(parsed.options.fragmentClipper).not.toHaveProperty('selectionModifierEnabled');
+  });
+
   it('兼容旧版仅包含选项的格式', () => {
     const text =
       '{"rest":{"baseUrl":"https://example.com"},"customKey":{"hello":"world"},"analytics":{"debugMode":true}}';

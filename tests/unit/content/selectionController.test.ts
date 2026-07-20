@@ -101,7 +101,7 @@ describe('content selectionController service', () => {
             captureContext: true,
             contextLength: 200,
             contextMode: 'chars',
-            selectionModifierEnabled: false,
+            selectionTriggerMode: 'direct',
             selectionModifierKeys: []
           }
         }),
@@ -168,7 +168,7 @@ describe('content selectionController service', () => {
       captureContext: true,
       contextLength: 200,
       contextMode: 'chars',
-      selectionModifierEnabled: false,
+      selectionTriggerMode: 'direct',
       selectionModifierKeys: ['shift'],
       keyboardShortcutsEnabled: true
     });

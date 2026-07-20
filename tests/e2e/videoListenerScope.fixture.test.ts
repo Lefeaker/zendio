@@ -287,7 +287,7 @@ describe('video listener scope jsdom fixtures', () => {
           captureContext: true,
           contextLength: 100,
           contextMode: 'chars',
-          selectionModifierEnabled: true,
+          selectionTriggerMode: 'modifier',
           selectionModifierKeys: ['shift'],
           keyboardShortcutsEnabled: true
         }),
@@ -306,6 +306,7 @@ describe('video listener scope jsdom fixtures', () => {
       doc: document,
       pendingSelection: asType<PendingSelectionTracker>(pendingSelection),
       shouldTrackSelection: () => fragmentSelectionController.shouldTrackSelection(),
+      canActivateSelection: (event) => fragmentSelectionController.canActivateSelection(event),
       suppressSelectionCapture: () => false,
       isRangeInsideUi: () => false,
       getDocumentSelection: () => selection,

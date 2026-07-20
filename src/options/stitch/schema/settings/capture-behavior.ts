@@ -3,11 +3,8 @@ import type { Messages } from '@i18n';
 import { grid, htmlParagraph, paragraph, stack } from '../builders/primitives';
 import { boundInput, boundSelect, boundSwitch } from '../builders/controls';
 import { translateSchemaMessage } from '../i18n';
-import {
-  fragmentKeyboardShortcutsHint,
-  fragmentModifierChipItems,
-  fragmentModifierStateWarning
-} from '@options/app/fragmentModifierOptions';
+import { fragmentKeyboardShortcutsHint } from '@options/app/fragmentModifierOptions';
+import { createSelectionTriggerControl } from './selectionTriggerControl';
 
 const SIDEBAR_HIGHLIGHTS_LABEL = 'Sidebar Highlights';
 const SIDEBAR_HIGHLIGHTS_LINK =
@@ -179,36 +176,9 @@ const schema: SettingsSchema = {
                     },
                     {
                       kind: 'row',
-                      title: t('fragmentModifierToggleLabel'),
-                      control: stack(
-                        (current) => [
-                          boundSwitch({
-                            bind: 'fragmentModifierEnabled',
-                            compact: true,
-                            onClick: {
-                              id: 'modifier:setEnabled',
-                              transform: (_value, current) => !current.state.fragmentModifierEnabled
-                            }
-                          }),
-                          {
-                            kind: 'chips',
-                            items: fragmentModifierChipItems(
-                              current.state.modifierKeys,
-                              current.messages
-                            ),
-                            action: { id: 'modifier:setKey' }
-                          },
-                          paragraph(
-                            translate(current, 'fragmentModifierToggleDescription'),
-                            'modifier-key-description'
-                          ),
-                          paragraph(
-                            fragmentModifierStateWarning(current.state, current.messages),
-                            'modifier-key-warning'
-                          )
-                        ],
-                        'switch-line modifier-key-inline'
-                      )
+                      title: t('fragmentSelectionTriggerModeLabel'),
+                      description: t('fragmentSelectionTriggerModeDescription'),
+                      control: createSelectionTriggerControl()
                     },
                     {
                       kind: 'row',

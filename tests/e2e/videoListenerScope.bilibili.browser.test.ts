@@ -167,7 +167,7 @@ export function registerVideoListenerScopeBilibiliTests(): void {
         bilibiliFixtureHtml(),
         createOptionsFixture(
           {
-            selectionModifierEnabled: true,
+            selectionTriggerMode: 'modifier',
             selectionModifierKeys: ['shift']
           },
           { highlightTheme: 'neonOrange' }
@@ -197,6 +197,54 @@ export function registerVideoListenerScopeBilibiliTests(): void {
       await expect
         .poll(() => isBilibiliRichTextHighlightVisible(page, 'reply-rich-text'))
         .toBe(true);
+    }
+  );
+
+  testWithExtension(
+    'honors disabled and direct trigger modes for Bilibili shadow-root drag selection',
+    async ({ context, extensionPage }) => {
+      const { page: disabledPage } = await openFixtureWithRuntime(
+        context,
+        extensionPage,
+        `${BILIBILI_URL}?selection-trigger=disabled`,
+        bilibiliFixtureHtml(),
+        createOptionsFixture({ selectionTriggerMode: 'disabled' })
+      );
+      await openVideoPanelFromControlBar(disabledPage, 'Disabled trigger seed');
+      await expandVideoPanel(disabledPage);
+      const disabledInitialCount = await disabledPage.locator('[data-role="capture-item"]').count();
+
+      await dragSelectBilibiliRichText(disabledPage, 'main-rich-text', { modifierKey: null });
+
+      await expect(disabledPage.locator('[data-role="capture-item"]')).toHaveCount(
+        disabledInitialCount
+      );
+      await expect
+        .poll(() => countBilibiliRichTextHighlights(disabledPage, 'main-rich-text'))
+        .toBe(0);
+
+      const { page: directPage } = await openFixtureWithRuntime(
+        context,
+        extensionPage,
+        `${BILIBILI_URL}?selection-trigger=direct`,
+        bilibiliFixtureHtml(),
+        createOptionsFixture({ selectionTriggerMode: 'direct' })
+      );
+      await openVideoPanelFromControlBar(directPage, 'Direct trigger seed');
+      await expandVideoPanel(directPage);
+      const directInitialCount = await directPage.locator('[data-role="capture-item"]').count();
+
+      await dragSelectBilibiliRichText(directPage, 'main-rich-text', { modifierKey: null });
+
+      await expect(directPage.locator('[data-role="capture-item"]')).toHaveCount(
+        directInitialCount + 1
+      );
+      await expect(directPage.locator('[data-role="capture-item"]').last()).toContainText(
+        BILIBILI_MAIN_COMMENT_TEXT
+      );
+      await expect
+        .poll(() => countBilibiliRichTextHighlights(directPage, 'main-rich-text'))
+        .toBe(1);
     }
   );
 
@@ -354,7 +402,7 @@ export function registerVideoListenerScopeBilibiliTests(): void {
         bilibiliFixtureHtml(),
         createOptionsFixture(
           {
-            selectionModifierEnabled: true,
+            selectionTriggerMode: 'modifier',
             selectionModifierKeys: ['shift']
           },
           { highlightTheme: 'neonOrange' }
@@ -403,7 +451,7 @@ export function registerVideoListenerScopeBilibiliTests(): void {
         bilibiliFixtureHtml(),
         createOptionsFixture(
           {
-            selectionModifierEnabled: true,
+            selectionTriggerMode: 'modifier',
             selectionModifierKeys: ['shift']
           },
           { highlightTheme: 'neonOrange' }

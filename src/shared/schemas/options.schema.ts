@@ -51,6 +51,7 @@ export const FragmentContextModeSchema = z.enum(['chars', 'sentences']);
  * FragmentModifierKey Schema
  */
 export const FragmentModifierKeySchema = z.enum(['alt', 'meta', 'ctrl', 'shift']);
+export const FragmentSelectionTriggerModeSchema = z.enum(['disabled', 'direct', 'modifier']);
 
 /**
  * ReadingExportMode Schema
@@ -109,7 +110,7 @@ export const FragmentClipperOptionsSchema = z.object({
   captureContext: z.boolean(),
   contextLength: z.number().int().positive(),
   contextMode: FragmentContextModeSchema,
-  selectionModifierEnabled: z.boolean(),
+  selectionTriggerMode: FragmentSelectionTriggerModeSchema,
   selectionModifierKeys: z.array(FragmentModifierKeySchema),
   keyboardShortcutsEnabled: z.boolean()
 });
@@ -227,6 +228,7 @@ export type AiChatOptions = z.infer<typeof AiChatOptionsSchema>;
 export type DeepResearchOptions = z.infer<typeof DeepResearchOptionsSchema>;
 export type FragmentContextMode = z.infer<typeof FragmentContextModeSchema>;
 export type FragmentModifierKey = z.infer<typeof FragmentModifierKeySchema>;
+export type FragmentSelectionTriggerMode = z.infer<typeof FragmentSelectionTriggerModeSchema>;
 export type ReadingExportMode = z.infer<typeof ReadingExportModeSchema>;
 export type ReaderHighlightTheme = z.infer<typeof ReaderHighlightThemeSchema>;
 export type ReadingSessionOptions = z.infer<typeof ReadingSessionOptionsSchema>;

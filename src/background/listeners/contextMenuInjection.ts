@@ -3,10 +3,11 @@ import { notifyInjectionFailure } from '../services/notifications';
 import type { ContextMenuListenerDependencies, ContextMenuRuntimeState } from './contextMenusTypes';
 import { ensureContentRuntimeReady } from './contextMenuRuntimeReadiness';
 import { isInjectableUrl, isVideoUrl, resolveTabUrl } from './contextMenuUrls';
+import { isSelectionTriggerConfigured } from '../../shared/config/selectionTriggerMode';
 
 const CONTENT_SCRIPT_PATH = 'content/index.js';
 
-export async function refreshSelectionModifierInjection(
+export async function refreshSelectionTriggerInjection(
   state: ContextMenuRuntimeState
 ): Promise<void> {
   try {
@@ -14,12 +15,16 @@ export async function refreshSelectionModifierInjection(
     const fragment = options.fragmentClipper;
     const rawKeys = fragment?.selectionModifierKeys;
     const modifierKeys = Array.isArray(rawKeys) ? rawKeys : [];
-    state.selectionModifierInjectionEnabled = Boolean(
-      fragment?.selectionModifierEnabled && modifierKeys.length > 0
+    state.selectionTriggerInjectionEnabled = Boolean(
+      fragment &&
+      isSelectionTriggerConfigured({
+        selectionTriggerMode: fragment.selectionTriggerMode,
+        selectionModifierKeys: modifierKeys
+      })
     );
   } catch (error) {
-    console.warn('[contextMenus] Failed to resolve selection modifier options:', error);
-    state.selectionModifierInjectionEnabled = false;
+    console.warn('[contextMenus] Failed to resolve selection trigger options:', error);
+    state.selectionTriggerInjectionEnabled = false;
   }
 }
 
@@ -66,7 +71,7 @@ export async function autoInjectIfNeeded(
   let shouldInject = videoCandidate;
   let resolvedUrl = candidateUrl;
 
-  if (!shouldInject && state.selectionModifierInjectionEnabled) {
+  if (!shouldInject && state.selectionTriggerInjectionEnabled) {
     if (!resolvedUrl) {
       resolvedUrl = await resolveTabUrl(dependencies, tabId);
     }
@@ -84,11 +89,11 @@ export async function autoInjectIfNeeded(
   }
 }
 
-export async function ensureModifierInjectionForActiveTab(
+export async function ensureSelectionTriggerInjectionForActiveTab(
   dependencies: ContextMenuListenerDependencies,
   state: ContextMenuRuntimeState
 ): Promise<void> {
-  if (!state.selectionModifierInjectionEnabled) {
+  if (!state.selectionTriggerInjectionEnabled) {
     return;
   }
   try {
@@ -99,6 +104,9 @@ export async function ensureModifierInjectionForActiveTab(
       }
     }
   } catch (error) {
-    console.warn('[contextMenus] Failed to ensure modifier injection for active tab:', error);
+    console.warn(
+      '[contextMenus] Failed to ensure selection trigger injection for active tab:',
+      error
+    );
   }
 }
