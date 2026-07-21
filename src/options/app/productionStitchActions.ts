@@ -1,4 +1,5 @@
 import { buildDiagnosticsReport } from '@options/components/diagnostics';
+import { formatOptionsError, showStatusMessage } from '@options/components/messages';
 import type { ActionRegistry } from '@options/schema-runtime/actionRuntime';
 import type { Language, Messages } from '@i18n';
 import type { CompleteOptions, InterfaceTheme } from '@shared/types/options';
@@ -13,6 +14,7 @@ import {
   updateExperimentalBoolean
 } from './productionStitchActionGroups';
 import { createProductionSelectionTriggerActions } from './productionStitchSelectionTriggerActions';
+import type { ClassifierFieldUpdateResult } from './productionStitchShellState';
 export interface ProductionStitchActionContext {
   getAppData(): PreviewContent;
   getCurrentLanguage(): Language;
@@ -63,7 +65,7 @@ export interface ProductionStitchActionContext {
   trackExperimentalFeatureToggle?(featureKey: string, enabled: boolean): void;
   trackLanguageChanged?(language: Language): void;
   trackThemeChanged?(theme: InterfaceTheme): void;
-  updateClassifierField(field: string, value: unknown): void;
+  updateClassifierField(field: string, value: unknown): ClassifierFieldUpdateResult;
   updateDraftPath(path: string, value: unknown): void;
   updateVaultField(index: number, field: string, value: unknown): void;
 }
@@ -264,7 +266,10 @@ export function createProductionStitchActions(
       void context.reloadOptions();
     },
     'classifier:updateField': ({ args, value }) => {
-      context.updateClassifierField(String(args[0] ?? ''), value);
+      const result = context.updateClassifierField(String(args[0] ?? ''), value);
+      if (!result.success) {
+        showStatusMessage('error', formatOptionsError(result.error, context.getMessages()));
+      }
     }
   };
 }

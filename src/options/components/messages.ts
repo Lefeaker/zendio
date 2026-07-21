@@ -1,5 +1,5 @@
-import type { Messages } from '@i18n';
-import { getElementById, getOptionalElementById } from '../utils/dom';
+import { DEFAULT_RUNTIME_MESSAGES, type Messages } from '@i18n';
+import { getOptionalElementById } from '../utils/dom';
 import { OptionsValidationError } from '../services/validation';
 import { ConfigTransferError } from '../services/configTransfer';
 import {
@@ -53,26 +53,29 @@ export function clearTransferMessage(): void {
 }
 
 export function showStatusMessage(type: MessageType, content: MessageContent): void {
-  const element = getElementById<HTMLSpanElement>('msg');
+  const element = getOptionalElementById<HTMLSpanElement>('msg') ?? createStatusMessageElement();
   applyMessage(element, type, content, statusMessageState, MESSAGE_CLASS_CONFIG.status);
 }
 
-export function formatOptionsError(error: unknown, msgs: Messages): string {
+export function formatOptionsError(error: unknown, msgs: Messages | null): string {
   if (error instanceof OptionsValidationError) {
-    return error.detail ? `${msgs.invalidTaxonomy}: ${error.detail}` : msgs.invalidTaxonomy;
+    const title = msgs?.invalidTaxonomy ?? DEFAULT_RUNTIME_MESSAGES.invalidTaxonomy;
+    return error.detail ? `${title}: ${error.detail}` : title;
   }
 
   if (error instanceof ConfigTransferError) {
     switch (error.code) {
       case 'EMPTY_IMPORT':
-        return msgs.emptyImportError;
+        return msgs?.emptyImportError ?? DEFAULT_RUNTIME_MESSAGES.emptyImportError;
       case 'CLIPBOARD_UNAVAILABLE':
-        return msgs.clipboardUnavailable;
+        return msgs?.clipboardUnavailable ?? DEFAULT_RUNTIME_MESSAGES.clipboardUnavailable;
       case 'CLIPBOARD_READ_UNAVAILABLE':
-        return msgs.clipboardReadUnavailable;
+        return msgs?.clipboardReadUnavailable ?? DEFAULT_RUNTIME_MESSAGES.clipboardReadUnavailable;
       case 'PARSE_FAILED':
-      default:
-        return error.detail ? `${msgs.importParseFailed}: ${error.detail}` : msgs.importParseFailed;
+      default: {
+        const title = msgs?.importParseFailed ?? DEFAULT_RUNTIME_MESSAGES.importParseFailed;
+        return error.detail ? `${title}: ${error.detail}` : title;
+      }
     }
   }
 
@@ -81,6 +84,14 @@ export function formatOptionsError(error: unknown, msgs: Messages): string {
   }
 
   return String(error);
+}
+
+function createStatusMessageElement(): HTMLSpanElement {
+  const element = document.createElement('span');
+  element.id = 'msg';
+  ensureMessageAccessibility(element);
+  document.body.append(element);
+  return element;
 }
 
 interface MessageClassConfig {

@@ -34,16 +34,24 @@ export function migrateSelectionTriggerOptions(
     fragmentClipper,
     'selectionModifierEnabled'
   );
+  const retiredValue = fragmentClipper.selectionModifierEnabled;
 
-  if (!isFragmentSelectionTriggerMode(fragmentClipper.selectionTriggerMode)) {
-    const retiredValue = fragmentClipper.selectionModifierEnabled;
-    if (typeof retiredValue === 'boolean') {
-      fragmentClipper.selectionTriggerMode = retiredValue ? 'modifier' : 'direct';
-    }
+  // Invalid legacy values are deliberately left in place. The raw-first codec
+  // must preserve and report them instead of turning an unrecognised value into
+  // a lossy successful migration.
+  if (!hasRetiredField || typeof retiredValue !== 'boolean') {
+    return { options, migrated: false };
   }
 
-  if (!hasRetiredField) {
+  const hasCurrentField = Object.prototype.hasOwnProperty.call(
+    fragmentClipper,
+    'selectionTriggerMode'
+  );
+  if (hasCurrentField && !isFragmentSelectionTriggerMode(fragmentClipper.selectionTriggerMode)) {
     return { options, migrated: false };
+  }
+  if (!hasCurrentField) {
+    fragmentClipper.selectionTriggerMode = retiredValue ? 'modifier' : 'direct';
   }
 
   delete fragmentClipper.selectionModifierEnabled;

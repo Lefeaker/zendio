@@ -20,9 +20,91 @@ import {
   type LegacyTaxonomy,
   isLegacyTaxonomy,
   migrateLegacyTaxonomy,
+  migrateTaxonomyValue,
   resolveTaxonomy,
   LEGACY_COMPATIBLE_TAXONOMY
 } from '@shared/config/taxonomyMigration';
+import {
+  TaxonomyCategorySchema,
+  TaxonomyConfigSchema,
+  TaxonomyTagSchema
+} from '@shared/schemas/taxonomy.schema';
+
+const FULL_TAXONOMY: TaxonomyConfig = {
+  version: '2.0.0',
+  name: 'Full taxonomy',
+  description: 'Every supported field is present.',
+  descriptionKey: 'taxonomy.full.description',
+  classificationHint: 'Use the full taxonomy.',
+  categories: [
+    {
+      id: 'engineering',
+      name: 'Engineering',
+      description: 'Technical material',
+      descriptionKey: 'taxonomy.category.engineering.description',
+      classificationHint: 'Software and systems content',
+      parent: 'knowledge',
+      keywords: ['software', 'systems'],
+      weight: 1.5
+    }
+  ],
+  tags: [
+    {
+      id: 'review',
+      name: 'Review',
+      description: 'Needs review',
+      descriptionKey: 'taxonomy.tag.review.description',
+      classificationHint: 'Content requiring review',
+      category: 'workflow',
+      color: '#336699',
+      aliases: ['check', 'inspect']
+    }
+  ],
+  rules: [
+    {
+      id: 'rule-engineering',
+      name: 'Engineering rule',
+      description: 'Classify technical content.',
+      conditions: [
+        {
+          type: 'metadata',
+          operator: 'equals',
+          value: 'engineering',
+          caseSensitive: true
+        }
+      ],
+      actions: [
+        {
+          type: 'setProperty',
+          target: 'classification',
+          value: 'engineering',
+          metadata: {
+            source: 'rule',
+            score: 0.9,
+            enabled: true,
+            nullable: null,
+            nested: { labels: ['engineering', 'review'] }
+          }
+        }
+      ],
+      priority: 10,
+      enabled: true
+    }
+  ],
+  defaultCategory: 'engineering',
+  defaultTags: ['review'],
+  settings: {
+    autoClassification: true,
+    confidenceThreshold: 0.8,
+    maxCategories: 2,
+    maxTags: 4,
+    fallbackBehavior: 'prompt',
+    customPrompts: {
+      classify: 'Choose the best category.',
+      summarize: 'Summarize the content.'
+    }
+  }
+};
 
 describe('Taxonomy Types', () => {
   describe('Type Guards', () => {
@@ -64,6 +146,98 @@ describe('Taxonomy Types', () => {
       expect(isTaxonomyTag({ id: 'test' })).toBe(false);
       expect(isTaxonomyTag({ name: 'test' })).toBe(false);
     });
+
+    it('keeps public guards in exact parity with the canonical schemas', () => {
+      const configCandidates = [
+        FULL_TAXONOMY,
+        {},
+        {
+          ...FULL_TAXONOMY,
+          rules: [
+            {
+              ...FULL_TAXONOMY.rules[0],
+              conditions: [{ type: 'body', operator: 'equals', value: 'engineering' }]
+            }
+          ]
+        }
+      ];
+      const categoryCandidates = [
+        FULL_TAXONOMY.categories[0],
+        { id: 'invalid', name: 'Invalid', keywords: ['valid', 42] }
+      ];
+      const tagCandidates = [
+        FULL_TAXONOMY.tags[0],
+        { id: 'invalid', name: 'Invalid', aliases: ['valid', false] }
+      ];
+
+      for (const candidate of configCandidates) {
+        expect(isTaxonomyConfig(candidate)).toBe(TaxonomyConfigSchema.safeParse(candidate).success);
+      }
+      for (const candidate of categoryCandidates) {
+        expect(isTaxonomyCategory(candidate)).toBe(
+          TaxonomyCategorySchema.safeParse(candidate).success
+        );
+      }
+      for (const candidate of tagCandidates) {
+        expect(isTaxonomyTag(candidate)).toBe(TaxonomyTagSchema.safeParse(candidate).success);
+      }
+    });
+
+    it('rejects malformed nested taxonomy fields and unknown object keys', () => {
+      const invalidConfigs = [
+        { ...FULL_TAXONOMY, categories: [{ id: 'bad', name: 'Bad', keywords: ['ok', 1] }] },
+        { ...FULL_TAXONOMY, tags: [{ id: 'bad', name: 'Bad', aliases: ['ok', 1] }] },
+        { ...FULL_TAXONOMY, rules: [{ ...FULL_TAXONOMY.rules[0], enabled: 'yes' }] },
+        { ...FULL_TAXONOMY, rules: [{ ...FULL_TAXONOMY.rules[0], priority: 'high' }] },
+        {
+          ...FULL_TAXONOMY,
+          categories: [{ ...FULL_TAXONOMY.categories[0], weight: Number.POSITIVE_INFINITY }]
+        },
+        { ...FULL_TAXONOMY, rules: [{ ...FULL_TAXONOMY.rules[0], priority: Number.NaN }] },
+        {
+          ...FULL_TAXONOMY,
+          rules: [
+            {
+              ...FULL_TAXONOMY.rules[0],
+              actions: [
+                {
+                  ...FULL_TAXONOMY.rules[0].actions[0],
+                  metadata: { score: Number.POSITIVE_INFINITY }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          ...FULL_TAXONOMY,
+          settings: { ...FULL_TAXONOMY.settings, maxTags: Number.POSITIVE_INFINITY }
+        },
+        {
+          ...FULL_TAXONOMY,
+          rules: [
+            {
+              ...FULL_TAXONOMY.rules[0],
+              conditions: [{ type: 'content', operator: 'includes', value: 'test' }]
+            }
+          ]
+        },
+        {
+          ...FULL_TAXONOMY,
+          rules: [
+            {
+              ...FULL_TAXONOMY.rules[0],
+              actions: [{ type: 'appendTag', target: 'tags', value: 'review' }]
+            }
+          ]
+        },
+        { ...FULL_TAXONOMY, categories: [{ id: 'bad', name: 'Bad', unexpected: true }] }
+      ];
+
+      for (const candidate of invalidConfigs) {
+        expect(TaxonomyConfigSchema.safeParse(candidate).success).toBe(false);
+        expect(isTaxonomyConfig(candidate)).toBe(false);
+      }
+    });
   });
 
   describe('Default Configuration', () => {
@@ -76,6 +250,12 @@ describe('Taxonomy Types', () => {
       );
       expect(DEFAULT_TAXONOMY_CONFIG.categories.length).toBeGreaterThan(0);
       expect(DEFAULT_TAXONOMY_CONFIG.tags.length).toBeGreaterThan(0);
+    });
+
+    it('preserves every optional field through an exact JSON round trip', () => {
+      const parsed = TaxonomyConfigSchema.parse(JSON.parse(JSON.stringify(FULL_TAXONOMY)));
+
+      expect(parsed).toEqual(FULL_TAXONOMY);
     });
 
     it('should have valid categories in default config', () => {
@@ -225,12 +405,68 @@ describe('Taxonomy Migration', () => {
     });
 
     it('should handle empty legacy format', () => {
-      const legacy: LegacyTaxonomy = {};
-      const migrated = migrateLegacyTaxonomy(legacy);
+      expect(isLegacyTaxonomy({})).toBe(false);
+      expect(() => migrateLegacyTaxonomy({})).toThrow();
+    });
 
-      expect(isTaxonomyConfig(migrated)).toBe(true);
-      expect(migrated.categories).toBe(DEFAULT_TAXONOMY_CONFIG.categories);
-      expect(migrated.tags).toBe(DEFAULT_TAXONOMY_CONFIG.tags);
+    it('migrates valid legacy values deterministically', () => {
+      const legacy: LegacyTaxonomy = {
+        type: ['article'],
+        topics: ['systems'],
+        ai_platform: ['chatgpt']
+      };
+
+      expect(migrateLegacyTaxonomy(legacy)).toEqual(migrateLegacyTaxonomy(legacy));
+    });
+  });
+
+  describe('Non-lossy Migration Result', () => {
+    it('reports canonical values without migration', () => {
+      const result = migrateTaxonomyValue(FULL_TAXONOMY);
+
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.migrated).toBe(false);
+        expect(result.value).toBe(FULL_TAXONOMY);
+      }
+    });
+
+    it('reports valid legacy objects and JSON strings as migrated', () => {
+      const legacy: LegacyTaxonomy = { type: ['article'], topics: ['systems'] };
+      const objectResult = migrateTaxonomyValue(legacy);
+      const stringResult = migrateTaxonomyValue(JSON.stringify(legacy));
+
+      expect(objectResult).toEqual(stringResult);
+      expect(objectResult.success).toBe(true);
+      if (objectResult.success) {
+        expect(objectResult.migrated).toBe(true);
+        expect(isTaxonomyConfig(objectResult.value)).toBe(true);
+      }
+    });
+
+    it('reports canonical JSON strings as migrated from their persisted representation', () => {
+      const result = migrateTaxonomyValue(JSON.stringify(FULL_TAXONOMY));
+
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.migrated).toBe(true);
+        expect(result.value).toEqual(FULL_TAXONOMY);
+      }
+    });
+
+    it('reports invalid objects and strings without replacing them with defaults', () => {
+      const invalidValues = [
+        {},
+        { type: ['article', 42] },
+        { type: ['article'], extra: 'would be lost' },
+        '{not-json}',
+        JSON.stringify({ ...FULL_TAXONOMY, rules: [{ enabled: 'yes' }] }),
+        JSON.stringify({ type: ['private-value'.repeat(60_000)] })
+      ];
+
+      for (const value of invalidValues) {
+        expect(migrateTaxonomyValue(value)).toEqual({ success: false });
+      }
     });
   });
 
