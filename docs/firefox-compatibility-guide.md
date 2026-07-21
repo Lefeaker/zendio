@@ -43,6 +43,25 @@ src/platform/
 > `strict_min_version` 设为 `142.0`，这是当前 `web-ext 10.4.0` lint 可证明无
 > `storage.session` 与 data-collection min-version 兼容警告的最低统一版本。
 
+#### Messaging 监听器契约
+
+Chrome 与 Firefox 平台适配器使用同一套消息监听语义：
+
+- 同步返回 `undefined` 表示当前监听器不响应，后续监听器仍可提供结果；异步
+  `undefined` 已经占用响应通道，因此统一归一化为 JSON 安全的 `null`。
+- 同步抛出和异步拒绝都只发送固定标记
+  `{ __zendioTransportError: { code: 'MESSAGE_LISTENER_FAILED' } }`。标记不包含异常文本、
+  堆栈、`cause`、原始拒绝值或用户数据。
+- `send` 与 `sendToTab` 仅把上述精确标记转换为
+  `MessageListenerInvocationError`；普通业务结果（包括 `{ error: string }`）保持成功结果，
+  浏览器原生发送错误保持原始拒绝。
+- Firefox 监听器直接返回原生 Promise，不组合 `sendResponse` 与 `return true`；Chrome
+  继续使用回调和布尔 keepalive，并发送同一个归一化结果。
+- 发送者字段只映射浏览器实际提供的 `id`、tab/window/frame ID、直接 URL 或
+  `tab.url`。只有原生发送者确实提供 `origin` 时才复制该字段，不从 URL 推导安全源。
+- 注销函数只移除注册时的精确包装监听器一次。注销前已经开始的异步响应仍会完成，
+  但不会遗留新的监听器。
+
 ### 3. 浏览器检测
 
 ```typescript
@@ -289,6 +308,8 @@ Firefox 版本与 Chrome 版本保持同步：
 
 ---
 
-**维护者**：前端团队  
-**最后更新**：2025-01-19  
+**维护者**：前端团队
+
+**最后更新**：2026-07-21
+
 **适用版本**：Zendio v0.2.0+

@@ -1,30 +1,16 @@
 import type {
   MessageListener,
-  MessageSenderInfo,
   MessagingService,
   MessageSendOptions
 } from '../interfaces/messaging';
+import { decodeMessageResponse, invokeMessageListener } from '../shared/messageListenerInvocation';
 import { ensureFirefox } from './utils';
-
-function mapSender(sender: browser.runtime.MessageSender): MessageSenderInfo {
-  return {
-    ...(sender.id !== undefined && { id: sender.id }),
-    ...(sender.tab?.id !== undefined && { tabId: sender.tab.id }),
-    ...(sender.tab?.windowId !== undefined && { windowId: sender.tab.windowId }),
-    ...(sender.frameId !== undefined && { frameId: sender.frameId }),
-    ...(sender.url !== undefined && { url: sender.url })
-  };
-}
-
-function isPromise<T>(value: unknown): value is Promise<T> {
-  return Boolean(value && typeof (value as Promise<T>).then === 'function');
-}
 
 export const firefoxMessagingService: MessagingService = {
   async send<TResult = unknown>(message: unknown): Promise<TResult> {
     const firefoxApi = ensureFirefox();
     const response: unknown = await firefoxApi.runtime.sendMessage(message);
-    return response as TResult;
+    return decodeMessageResponse<TResult>(response);
   },
 
   async sendToTab<TResult = unknown>(
@@ -34,35 +20,32 @@ export const firefoxMessagingService: MessagingService = {
   ): Promise<TResult> {
     const firefoxApi = ensureFirefox();
     const response: unknown = await firefoxApi.tabs.sendMessage(tabId, message, options);
-    return response as TResult;
+    return decodeMessageResponse<TResult>(response);
   },
 
   addListener(listener: MessageListener): () => void {
     const firefoxApi = ensureFirefox();
     const wrapped: Parameters<typeof firefoxApi.runtime.onMessage.addListener>[0] = (
       message,
-      sender,
-      sendResponse
+      sender
     ) => {
-      const result = listener(message, mapSender(sender));
-      if (isPromise(result)) {
-        result
-          .then((value) => {
-            if (value !== undefined) {
-              sendResponse(value);
-            }
-          })
-          .catch(() => {
-            // swallow listener errors to avoid disconnecting runtime
-          });
-        return true;
+      const invocation = invokeMessageListener(listener, message, sender);
+      switch (invocation.kind) {
+        case 'no-response':
+          return undefined;
+        case 'sync-response':
+          return Promise.resolve(invocation.response);
+        case 'async-response':
+          return invocation.response;
       }
-      if (result !== undefined) {
-        sendResponse(result);
-      }
-      return false;
     };
+
     firefoxApi.runtime.onMessage.addListener(wrapped);
-    return () => firefoxApi.runtime.onMessage.removeListener(wrapped);
+    let subscribed = true;
+    return () => {
+      if (!subscribed) return;
+      subscribed = false;
+      firefoxApi.runtime.onMessage.removeListener(wrapped);
+    };
   }
 };

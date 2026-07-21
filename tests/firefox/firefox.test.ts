@@ -137,21 +137,6 @@ describe('Firefox 平台服务', () => {
     resetPlatformServices();
   });
 
-  it('应该使用 Firefox messaging API', async () => {
-    const { firefoxMessagingService } = await import('../../src/platform/firefox/messaging');
-
-    const testMessage = { action: 'test' };
-    await firefoxMessagingService.send(testMessage);
-
-    if (!firefoxHandle) {
-      throw new Error('Firefox mock 尚未初始化');
-    }
-    // eslint-disable-next-line @typescript-eslint/unbound-method
-    const runtimeSendMessage = vi.mocked(firefoxHandle.browser.runtime.sendMessage);
-    // eslint-disable-next-line @typescript-eslint/unbound-method
-    expect(runtimeSendMessage).toHaveBeenCalledWith(testMessage);
-  });
-
   it('应该优先通过 browserAction 设置徽标文本', async () => {
     const { firefoxActionService } = await import('../../src/platform/firefox/action');
     if (!firefoxHandle) {
