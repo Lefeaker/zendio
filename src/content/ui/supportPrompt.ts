@@ -29,6 +29,7 @@ import { createSupportPromptToastLifecycle } from './supportPromptToastLifecycle
 import { getContentI18nResource, getContentMessages } from '../i18n/context';
 import type { UserVisibleMessageDescriptor } from '../../shared/i18n/userVisibleMessageDescriptor';
 import { ZENDIO_RESOURCE_LINKS } from '@shared/links/zendioResourceLinks';
+import type { StyleAttachmentHandle } from '@ui/foundation/style-host';
 
 const WECHAT_REWARD_ID = 'wechat-reward';
 const REVIEW_STATE_STORAGE_KEY = 'support_prompt_review_state';
@@ -38,7 +39,7 @@ export class SupportPrompt implements UiMountable<
   SupportPromptOptions | undefined,
   Promise<void>
 > {
-  private host: HTMLElement | null = null;
+  private activeMount: { host: HTMLElement; style: StyleAttachmentHandle } | null = null;
   private readonly deps: SupportPromptDependencies;
   private readonly popupCoordinator: PopupCoordinator | null;
   private readonly toastLifecycle: ReturnType<typeof createSupportPromptToastLifecycle>;
@@ -46,7 +47,6 @@ export class SupportPrompt implements UiMountable<
   private reviewStatePromise: Promise<ReviewPromptState> | null = null;
   private unregisterPopup: (() => void) | null = null;
   private renderSequence = 0;
-
   constructor(private readonly doc: Document) {
     this.deps = resolveSupportPromptDependencies();
     this.popupCoordinator = resolveContentPopupCoordinator();
@@ -65,15 +65,14 @@ export class SupportPrompt implements UiMountable<
     const renderId = ++this.renderSequence;
     this.removeHost();
     const messages = await this.resolveMessages();
-    if (renderId !== this.renderSequence) {
-      return;
-    }
+    if (renderId !== this.renderSequence) return;
     const resolvedError = options?.error;
     const promptStatus =
       options?.status ?? (resolvedError ? mapSeverityToStatus(resolvedError.severity) : 'success');
     const reason = resolveSupportPromptReason(resolvedError, options?.errorMessage);
     const vaultLabel = options?.vaultName?.trim();
     const runtimeMessages = getContentI18nResource()?.messages ?? (await getContentMessages());
+    if (renderId !== this.renderSequence) return;
     const progress = options?.progress as
       | (NonNullable<SupportPromptOptions['progress']> & {
           message?: UserVisibleMessageDescriptor;
@@ -180,10 +179,10 @@ export class SupportPrompt implements UiMountable<
     host.style.zIndex = '2147483647';
     host.style.pointerEvents = 'none';
     const shadow = host.attachShadow({ mode: 'open' });
-    panelStyleSheetManager.applyStitchRuntimeStyles(shadow);
+    const style = panelStyleSheetManager.applyStitchRuntimeStyles(shadow);
     shadow.append(surface);
     this.doc.body.append(host);
-    this.host = host;
+    this.activeMount = { host, style };
     if (!this.unregisterPopup && this.popupCoordinator) {
       this.unregisterPopup = this.popupCoordinator.register(this);
     }
@@ -207,10 +206,11 @@ export class SupportPrompt implements UiMountable<
   private removeHost(): void {
     this.unregisterPopup?.();
     this.unregisterPopup = null;
-    this.doc.querySelectorAll<HTMLElement>('#aiob-support-prompt').forEach((host) => {
-      host.remove();
-    });
-    this.host = null;
+    const mount = this.activeMount;
+    this.activeMount = null;
+    if (!mount) return;
+    mount.style.dispose();
+    mount.host.remove();
   }
 
   destroy(): void {

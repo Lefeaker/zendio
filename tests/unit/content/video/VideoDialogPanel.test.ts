@@ -1,6 +1,6 @@
 /* @vitest-environment jsdom */
 
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Mock } from 'vitest';
 import type {
   VideoPanelCallbacks,
@@ -11,6 +11,8 @@ import { createVideoSurfaceContent } from '@content/stitch/runtimeSurfaceContent
 import { renderStitchRuntimeSurface } from '@content/stitch/runtimeSurfaceRenderer';
 import { VideoDialogPanel } from '@content/video/ui/VideoDialogPanel';
 import { VIDEO_MODE_PANEL_ICON_PATH } from '@shared/assets/iconPaths';
+import { panelStyleSheetManager } from '@content/shared/panels/styleSheetManager';
+import type { StyleAttachmentHandle } from '@ui/foundation/style-host';
 import { testPlatformHarness } from '../../../setup/globalSetup';
 
 const callbacks: VideoPanelCallbacks = {
@@ -76,6 +78,21 @@ function flushPanelPersistence(): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, 0));
 }
 
+type StyleAttachmentHandleMock = StyleAttachmentHandle & {
+  refresh: ReturnType<typeof vi.fn<StyleAttachmentHandle['refresh']>>;
+  dispose: ReturnType<typeof vi.fn<StyleAttachmentHandle['dispose']>>;
+};
+
+function createStyleAttachmentHandle(root: ShadowRoot): StyleAttachmentHandleMock {
+  return {
+    ready: Promise.resolve({ status: 'ready' }),
+    refresh: vi.fn<StyleAttachmentHandle['refresh']>(() => Promise.resolve({ status: 'ready' })),
+    dispose: vi.fn(() => {
+      expect(root.host.isConnected).toBe(true);
+    })
+  };
+}
+
 function requireCaptureInput(panel: VideoDialogPanel, id: string): HTMLInputElement {
   const input =
     panel.element.shadowRoot?.querySelector<HTMLInputElement>(`[data-capture-input="${id}"]`) ??
@@ -90,6 +107,84 @@ describe('VideoDialogPanel', () => {
   beforeEach(() => {
     document.body.innerHTML = '';
     vi.clearAllMocks();
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('reuses one style attachment across rerenders and disposes it before removal', async () => {
+    const handles: StyleAttachmentHandleMock[] = [];
+    const attach = vi
+      .spyOn(panelStyleSheetManager, 'applyStitchRuntimeStyles')
+      .mockImplementation((root) => {
+        const handle = createStyleAttachmentHandle(root);
+        handles.push(handle);
+        return handle;
+      });
+    const first = new VideoDialogPanel({ callbacks, texts });
+    first.mount();
+    first.updateHint('Updated');
+    first.destroy();
+    first.destroy();
+    const second = new VideoDialogPanel({ callbacks, texts });
+    second.mount();
+    second.destroy();
+    second.destroy();
+
+    expect(attach).toHaveBeenCalledTimes(2);
+    const [firstHandle, secondHandle] = handles;
+    if (!firstHandle || !secondHandle) throw new Error('fresh style handles missing');
+    expect(firstHandle).not.toBe(secondHandle);
+    expect(firstHandle.refresh).toHaveBeenCalledTimes(1);
+    expect(secondHandle.refresh).not.toHaveBeenCalled();
+    await expect(firstHandle.ready).resolves.toEqual({ status: 'ready' });
+    await expect(secondHandle.ready).resolves.toEqual({ status: 'ready' });
+    handles.forEach((handle) => expect(handle.dispose).toHaveBeenCalledTimes(1));
+    expect(first.element.isConnected).toBe(false);
+    expect(second.element.isConnected).toBe(false);
+  });
+
+  it('restores managed fallback styles after replacing the shadow contents', async () => {
+    const applyStyles =
+      panelStyleSheetManager.applyStitchRuntimeStyles.bind(panelStyleSheetManager);
+    const attachments: StyleAttachmentHandle[] = [];
+    vi.spyOn(panelStyleSheetManager, 'applyStitchRuntimeStyles').mockImplementation((root) => {
+      const attachment = applyStyles(root);
+      attachments.push(attachment);
+      return attachment;
+    });
+    const panel = new VideoDialogPanel({ callbacks, texts });
+    panel.mount();
+    const [attachment] = attachments;
+    if (!attachment) throw new Error('style attachment missing');
+    await expect(attachment.ready).resolves.toEqual({ status: 'ready' });
+    const shadow = panel.element.shadowRoot;
+    await vi.waitFor(() =>
+      expect(
+        shadow?.querySelector('style[data-aiob-style-bridge="panel-stitch-runtime"]')
+      ).toBeTruthy()
+    );
+    const initialStyle = shadow?.querySelector<HTMLStyleElement>(
+      'style[data-aiob-style-bridge="panel-stitch-runtime"]'
+    );
+
+    panel.updateHint('Rerendered');
+    await vi.waitFor(() => {
+      const current = shadow?.querySelector('style[data-aiob-style-bridge="panel-stitch-runtime"]');
+      expect(current).toBeTruthy();
+      expect(current).not.toBe(initialStyle);
+    });
+    const restoredStyle = shadow?.querySelector<HTMLStyleElement>(
+      'style[data-aiob-style-bridge="panel-stitch-runtime"]'
+    );
+
+    expect(initialStyle).toBeTruthy();
+    expect(initialStyle?.isConnected).toBe(false);
+    expect(restoredStyle).toBeTruthy();
+    expect(restoredStyle).not.toBe(initialStyle);
+    panel.destroy();
+    expect(restoredStyle?.isConnected).toBe(false);
   });
 
   it('renders the shared video mode icon in the session panel header', () => {

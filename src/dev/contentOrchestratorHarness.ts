@@ -22,29 +22,23 @@ import type { ReaderMarkdownPayload } from '../content/reader/utils/markdownBuil
 import type { StorageAreaService, StorageService } from '../platform/interfaces/storage';
 import type { MessagingService } from '../platform/interfaces/messaging';
 import type { ErrorHandler as SharedErrorHandler } from '../shared/errors/errorHandler';
+import type { StyleAttachmentHandle } from '../ui/foundation/style-host';
 import { registerService, TOKENS } from '../shared/di';
 import { registerFallbackRepositories } from '../shared/di/serviceRegistry';
 import { createPreviewPlatformServices } from '../platform/preview/services';
 import { DEFAULT_RUNTIME_MESSAGES } from '@i18n';
-
-type HarnessStorageValue = Parameters<StorageAreaService['set']>[1];
 const status = document.getElementById('status');
-
 function setStatus(message: string): void {
-  if (status) {
-    status.textContent = message;
-  }
+  status?.replaceChildren(message);
 }
-
 function createStorageArea(): StorageAreaService {
-  const values = new Map<string, HarnessStorageValue>();
+  const values = new Map<string, Parameters<StorageAreaService['set']>[1]>();
   return {
     get<T>(key: string): Promise<T | undefined> {
       return Promise.resolve(values.get(key) as T | undefined);
     },
     set<T>(key: string, value: T): Promise<void> {
-      values.set(key, value);
-      return Promise.resolve();
+      return Promise.resolve(void values.set(key, value));
     },
     getMany<T>(keys: string[]): Promise<Record<string, T | undefined>> {
       return Promise.resolve(
@@ -52,37 +46,31 @@ function createStorageArea(): StorageAreaService {
       );
     },
     setMany<T>(entries: Record<string, T>): Promise<void> {
-      for (const [key, value] of Object.entries(entries)) values.set(key, value);
-      return Promise.resolve();
+      return Promise.resolve(
+        void Object.entries(entries).forEach(([key, value]) => values.set(key, value))
+      );
     },
     remove(key: string | string[]): Promise<void> {
-      for (const currentKey of Array.isArray(key) ? key : [key]) values.delete(currentKey);
-      return Promise.resolve();
+      return Promise.resolve(
+        void (Array.isArray(key) ? key : [key]).forEach((item) => values.delete(item))
+      );
     },
     clear(): Promise<void> {
-      values.clear();
-      return Promise.resolve();
+      return Promise.resolve(values.clear());
     },
-    watchKey(): () => void {
-      return () => undefined;
-    },
-    watchAll(): () => void {
-      return () => undefined;
-    }
+    watchKey: () => () => undefined,
+    watchAll: () => () => undefined
   };
 }
-
 const storage: StorageService = {
   local: createStorageArea(),
   sync: createStorageArea(),
   session: createStorageArea()
 };
-
 const configuredInterfaceTheme =
   new URLSearchParams(window.location.search).get('interfaceTheme') === 'light' ? 'light' : 'dark';
 setControlledRuntimeTheme(window, configuredInterfaceTheme);
 const HARNESS_VIDEO_PROMPT_LABEL = DEFAULT_RUNTIME_MESSAGES.videoPromptAction;
-const HARNESS_VIDEO_PROMPT_DISMISS = DEFAULT_RUNTIME_MESSAGES.videoPromptDismiss;
 const HARNESS_VIDEO_OPTIONS = {
   floatingPromptEnabled: true,
   promptButtonLabel: HARNESS_VIDEO_PROMPT_LABEL,
@@ -91,7 +79,6 @@ const HARNESS_VIDEO_OPTIONS = {
   controlBarScreenshot: true,
   commentEditorAutoPause: false
 };
-
 const optionsRepository = {
   get() {
     return Promise.resolve({
@@ -100,12 +87,10 @@ const optionsRepository = {
       video: HARNESS_VIDEO_OPTIONS
     });
   },
-  async set() {},
   onChange() {
     return () => undefined;
   }
 };
-
 const clipRepo = {
   getFragmentConfig() {
     return Promise.resolve({
@@ -122,28 +107,34 @@ const clipRepo = {
     return () => undefined;
   }
 };
-
 const previewPlatformServices = createPreviewPlatformServices(storage);
 registerService(TOKENS.platformServices, () => previewPlatformServices);
 registerFallbackRepositories();
-
 const runtime = previewPlatformServices.runtime;
 const runtimeState = createContentRuntimeState({
   optionsRepository: optionsRepository as never,
   window
 });
-
 const errorHandler = {
   handle(error: Parameters<SharedErrorHandler['handle']>[0]): Promise<void> {
     console.warn('[harness:errorHandler]', error);
     return Promise.resolve();
   }
 };
-
 let activeReader: ReaderSession | null = null;
 let activeVideo: VideoSession | null = null;
-let activeVideoPromptHost: HTMLElement | null = null;
-
+type VideoFloatingPrompt = { host: HTMLElement; styleAttachment: StyleAttachmentHandle };
+let activeVideoPrompt: VideoFloatingPrompt | null = null;
+let activeSupportPrompt: SupportPrompt | null = null;
+let activeVideoPromptGeneration = 0;
+function removeVideoFloatingPrompt(): void {
+  activeVideoPromptGeneration += 1;
+  const prompt = activeVideoPrompt;
+  activeVideoPrompt = null;
+  if (!prompt) return;
+  prompt.styleAttachment.dispose();
+  prompt.host.remove();
+}
 function buildReaderDependencies(): ReaderSessionDependencies {
   return {
     viewFactory: createReaderPanelViewFactory(),
@@ -269,39 +260,48 @@ async function startVideoSession(): Promise<void> {
 }
 
 async function showVideoFloatingPrompt(): Promise<void> {
-  activeVideoPromptHost?.remove();
+  removeVideoFloatingPrompt();
+  const generation = activeVideoPromptGeneration;
   await panelStyleSheetManager.initialize();
+  if (generation !== activeVideoPromptGeneration) return;
   const host = document.createElement('div');
   const shadow = host.attachShadow({ mode: 'open' });
-  panelStyleSheetManager.applyStitchRuntimeStyles(shadow);
-  const { container } = createPromptElement({
-    id: 'aiob-video-floating-prompt',
-    label: HARNESS_VIDEO_PROMPT_LABEL,
-    shortcut: 'Alt+V',
-    previewTheme: configuredInterfaceTheme,
-    messages: {
-      videoPromptDismiss: HARNESS_VIDEO_PROMPT_DISMISS
-    } as never,
-    getIconUrl: () => runtime.getURL('icons/bannerlogo-48.png'),
-    onPrimaryAction: () => {
-      setStatus('Video floating prompt primary action');
-    },
-    onDismiss: () => {
-      activeVideoPromptHost?.remove();
-      activeVideoPromptHost = null;
-      setStatus('Video floating prompt dismissed');
+  const pending = {
+    host,
+    styleAttachment: panelStyleSheetManager.applyStitchRuntimeStyles(shadow)
+  };
+  try {
+    const { container } = createPromptElement({
+      id: 'aiob-video-floating-prompt',
+      label: HARNESS_VIDEO_PROMPT_LABEL,
+      shortcut: 'Alt+V',
+      previewTheme: configuredInterfaceTheme,
+      messages: { videoPromptDismiss: DEFAULT_RUNTIME_MESSAGES.videoPromptDismiss } as never,
+      getIconUrl: () => runtime.getURL('icons/bannerlogo-48.png'),
+      onPrimaryAction: () => setStatus('Video floating prompt primary action'),
+      onDismiss: () => {
+        removeVideoFloatingPrompt();
+        setStatus('Video floating prompt dismissed');
+      }
+    });
+    shadow.appendChild(container);
+    if (generation !== activeVideoPromptGeneration) return;
+    document.body.appendChild(host);
+    setStatus('Video floating prompt mounted');
+    activeVideoPrompt = pending;
+  } finally {
+    if (activeVideoPrompt !== pending) {
+      pending.styleAttachment.dispose();
+      pending.host.remove();
     }
-  });
-  shadow.appendChild(container);
-  document.body.appendChild(host);
-  activeVideoPromptHost = host;
-  setStatus('Video floating prompt mounted');
+  }
 }
 
 async function showSupportPrompt(): Promise<void> {
-  const prompt = new SupportPrompt(document);
+  activeSupportPrompt?.destroy();
+  const prompt = (activeSupportPrompt = new SupportPrompt(document));
   await prompt.show({ status: 'success', vaultName: 'Harness Vault' });
-  setStatus('SupportPrompt mounted');
+  if (activeSupportPrompt === prompt) setStatus('SupportPrompt mounted');
 }
 
 document.getElementById('open-clipper')?.addEventListener('click', () => {

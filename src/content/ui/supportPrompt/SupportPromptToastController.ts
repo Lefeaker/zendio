@@ -1,13 +1,12 @@
-import type { LikeToastVariant, SupportPromptMessages, ToastVariant } from './types';
+import type { LikeToastVariant, SupportPromptMessages } from './types';
 import { panelStyleSheetManager } from '../../shared/panels/styleSheetManager';
 import { getControlledRuntimeTheme } from '@content/stitch/runtimeTheme';
 import { ZENDIO_RESOURCE_LINKS } from '@shared/links/zendioResourceLinks';
+import type { StyleAttachmentHandle } from '@ui/foundation/style-host';
 
 const TOAST_AUTO_DISMISS_MS = 5000;
 const TOAST_EXIT_FALLBACK_MS = 350;
 type SupportPromptToastKind = 'like' | 'dislike' | 'reward-qr';
-type ActiveToastVariant = ToastVariant | 'reward-qr';
-
 interface RewardQrToastOptions {
   imageSrc: string;
   imageAlt?: string | undefined;
@@ -15,10 +14,6 @@ interface RewardQrToastOptions {
   caption?: string | undefined;
   captionRole?: string | undefined;
   channel?: 'wechat-reward' | 'xiaohongshu-feedback' | undefined;
-}
-
-interface ShowToastOptions {
-  autoDismiss: boolean;
 }
 
 interface SupportPromptToastControllerOptions {
@@ -33,19 +28,24 @@ interface SupportPromptToastControllerOptions {
   onDislikeToastShown: () => void;
 }
 
+type ActiveToast = {
+  host: HTMLDivElement;
+  toast: HTMLDivElement;
+  styleAttachment: StyleAttachmentHandle;
+  animationFrame: number | null;
+};
 export class SupportPromptToastController {
-  private activeHost: HTMLDivElement | null = null;
-  private activeToast: HTMLDivElement | null = null;
-  private activeToastVariant: ActiveToastVariant | null = null;
+  private activeToast: ActiveToast | null = null;
   private toastTimer: number | null = null;
   private toastExitTimer: number | null = null;
 
   private readonly handleToastPointerDown = (event: PointerEvent): void => {
-    if (!this.activeToast) {
+    const activeToast = this.activeToast;
+    if (!activeToast) {
       return;
     }
     const target = event.target;
-    if (target instanceof Node && this.activeHost?.contains(target)) {
+    if (target instanceof Node && activeToast.host.contains(target)) {
       return;
     }
     this.dismissToast();
@@ -102,7 +102,7 @@ export class SupportPromptToastController {
       toast.appendChild(links);
     }
 
-    this.showToast(toast, variant, { autoDismiss: false });
+    this.showToast(toast, false);
     this.options.onLikeToastShown(variant);
   }
 
@@ -157,7 +157,7 @@ export class SupportPromptToastController {
 
     toast.appendChild(links);
 
-    this.showToast(toast, 'dislike', { autoDismiss: false });
+    this.showToast(toast, false);
     this.options.onDislikeToastShown();
   }
 
@@ -194,7 +194,7 @@ export class SupportPromptToastController {
       toast.appendChild(captionLine);
     }
 
-    this.showToast(toast, 'reward-qr', { autoDismiss: false });
+    this.showToast(toast, false);
   }
 
   private createBaseToast(kind: SupportPromptToastKind): HTMLDivElement {
@@ -207,7 +207,7 @@ export class SupportPromptToastController {
     host.style.pointerEvents = 'none';
     const shadow = host.attachShadow({ mode: 'open' });
     void panelStyleSheetManager.initialize();
-    panelStyleSheetManager.applyStitchRuntimeStyles(shadow);
+    const styleAttachment = panelStyleSheetManager.applyStitchRuntimeStyles(shadow);
 
     const root = this.options.doc.createElement('div');
     root.className = 'support-prompt-toast-root stitch-runtime-surface';
@@ -220,24 +220,19 @@ export class SupportPromptToastController {
     toast.className = `support-prompt-toast prompt-toast ${kind}`;
     root.appendChild(toast);
     shadow.appendChild(root);
-    this.activeHost = host;
+    this.activeToast = { host, toast, styleAttachment, animationFrame: null };
     return toast;
   }
 
-  private showToast(
-    toast: HTMLDivElement,
-    variant: ActiveToastVariant,
-    options: ShowToastOptions = { autoDismiss: true }
-  ): void {
-    if (!this.activeHost) {
-      return;
+  private showToast(toast: HTMLDivElement, autoDismiss = true): void {
+    const activeToast = this.activeToast;
+    if (!activeToast || activeToast.toast !== toast) {
+      throw new Error('Support toast lifecycle is missing');
     }
-    this.options.doc.body.appendChild(this.activeHost);
-    this.activeToast = toast;
-    this.activeToastVariant = variant;
-
-    requestAnimationFrame(() => {
-      toast.classList.add('is-visible');
+    this.options.doc.body.appendChild(activeToast.host);
+    activeToast.animationFrame = requestAnimationFrame(() => {
+      activeToast.animationFrame = null;
+      if (this.activeToast === activeToast) toast.classList.add('is-visible');
     });
 
     if (this.toastTimer !== null) {
@@ -248,7 +243,7 @@ export class SupportPromptToastController {
       window.clearTimeout(this.toastExitTimer);
       this.toastExitTimer = null;
     }
-    if (options.autoDismiss) {
+    if (autoDismiss) {
       this.toastTimer = window.setTimeout(() => this.dismissToast(), TOAST_AUTO_DISMISS_MS);
     }
     this.options.doc.addEventListener('pointerdown', this.handleToastPointerDown, true);
@@ -256,7 +251,8 @@ export class SupportPromptToastController {
   }
 
   dismissToast(immediate = false): void {
-    if (!this.activeToast) {
+    const activeToast = this.activeToast;
+    if (!activeToast) {
       return;
     }
     if (this.toastTimer !== null) {
@@ -265,20 +261,24 @@ export class SupportPromptToastController {
     }
     this.options.doc.removeEventListener('pointerdown', this.handleToastPointerDown, true);
     this.options.doc.removeEventListener('keydown', this.handleToastKeyDown, true);
-
-    const toast = this.activeToast;
-    const host = this.activeHost;
+    if (activeToast.animationFrame !== null) {
+      cancelAnimationFrame(activeToast.animationFrame);
+      activeToast.animationFrame = null;
+    }
+    const { toast } = activeToast;
+    let removed = false;
     const remove = (): void => {
+      if (removed || this.activeToast !== activeToast) return;
+      removed = true;
       toast.removeEventListener('transitionend', handleTransitionEnd);
-      host?.remove();
-      if (this.activeToast === toast) {
+      activeToast.styleAttachment.dispose();
+      activeToast.host.remove();
+      if (this.activeToast === activeToast) {
         if (this.toastExitTimer !== null) {
           window.clearTimeout(this.toastExitTimer);
           this.toastExitTimer = null;
         }
-        this.activeHost = null;
         this.activeToast = null;
-        this.activeToastVariant = null;
       }
     };
     const handleTransitionEnd = (event: TransitionEvent): void => {

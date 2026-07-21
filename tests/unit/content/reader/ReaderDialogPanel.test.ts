@@ -1,12 +1,14 @@
 /* @vitest-environment jsdom */
 
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ReaderDialogPanel } from '../../../../src/content/reader/ui/ReaderDialogPanel';
 import type {
   ReaderPanelCallbacks,
   ReaderPanelHighlight,
   ReaderPanelTexts
 } from '../../../../src/content/reader/application/readerPanelModel';
+import { panelStyleSheetManager } from '../../../../src/content/shared/panels/styleSheetManager';
+import type { StyleAttachmentHandle } from '../../../../src/ui/foundation/style-host';
 import { testPlatformHarness } from '../../../setup/globalSetup';
 
 vi.mock('focus-trap', () => ({
@@ -68,10 +70,112 @@ function flushPanelPersistence(): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, 0));
 }
 
+type StyleAttachmentHandleMock = StyleAttachmentHandle & {
+  refresh: ReturnType<typeof vi.fn<StyleAttachmentHandle['refresh']>>;
+  dispose: ReturnType<typeof vi.fn<StyleAttachmentHandle['dispose']>>;
+};
+
+function createStyleAttachmentHandle(root: ShadowRoot): StyleAttachmentHandleMock {
+  return {
+    ready: Promise.resolve({ status: 'ready' }),
+    refresh: vi.fn<StyleAttachmentHandle['refresh']>(() => Promise.resolve({ status: 'ready' })),
+    dispose: vi.fn(() => {
+      expect(root.host.isConnected).toBe(true);
+    })
+  };
+}
+
 describe('ReaderDialogPanel', () => {
   beforeEach(() => {
     document.body.innerHTML = '';
     document.head.innerHTML = '';
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('reuses one style attachment across rerenders and disposes it before removal', async () => {
+    const handles: StyleAttachmentHandleMock[] = [];
+    const attach = vi
+      .spyOn(panelStyleSheetManager, 'applyStitchRuntimeStyles')
+      .mockImplementation((root) => {
+        const handle = createStyleAttachmentHandle(root);
+        handles.push(handle);
+        return handle;
+      });
+    const first = new ReaderDialogPanel({
+      texts: createReaderPanelTexts(),
+      callbacks: createReaderPanelCallbacks()
+    });
+    first.mount();
+    first.updateHint('Updated');
+    first.destroy();
+    first.destroy();
+    const second = new ReaderDialogPanel({
+      texts: createReaderPanelTexts(),
+      callbacks: createReaderPanelCallbacks()
+    });
+    second.mount();
+    second.destroy();
+    second.destroy();
+
+    expect(attach).toHaveBeenCalledTimes(2);
+    const [firstHandle, secondHandle] = handles;
+    if (!firstHandle || !secondHandle) throw new Error('fresh style handles missing');
+    expect(firstHandle).not.toBe(secondHandle);
+    expect(firstHandle.refresh).toHaveBeenCalledTimes(1);
+    expect(secondHandle.refresh).not.toHaveBeenCalled();
+    await expect(firstHandle.ready).resolves.toEqual({ status: 'ready' });
+    await expect(secondHandle.ready).resolves.toEqual({ status: 'ready' });
+    handles.forEach((handle) => expect(handle.dispose).toHaveBeenCalledTimes(1));
+    expect(first.element.isConnected).toBe(false);
+    expect(second.element.isConnected).toBe(false);
+  });
+
+  it('restores managed fallback styles after replacing the shadow contents', async () => {
+    const applyStyles =
+      panelStyleSheetManager.applyStitchRuntimeStyles.bind(panelStyleSheetManager);
+    const attachments: StyleAttachmentHandle[] = [];
+    vi.spyOn(panelStyleSheetManager, 'applyStitchRuntimeStyles').mockImplementation((root) => {
+      const attachment = applyStyles(root);
+      attachments.push(attachment);
+      return attachment;
+    });
+    const panel = new ReaderDialogPanel({
+      texts: createReaderPanelTexts(),
+      callbacks: createReaderPanelCallbacks()
+    });
+    panel.mount();
+    const [attachment] = attachments;
+    if (!attachment) throw new Error('style attachment missing');
+    await expect(attachment.ready).resolves.toEqual({ status: 'ready' });
+    const shadow = panel.element.shadowRoot;
+    await vi.waitFor(() =>
+      expect(
+        shadow?.querySelector('style[data-aiob-style-bridge="panel-stitch-runtime"]')
+      ).toBeTruthy()
+    );
+    const initialStyle = shadow?.querySelector<HTMLStyleElement>(
+      'style[data-aiob-style-bridge="panel-stitch-runtime"]'
+    );
+
+    panel.updateHint('Rerendered');
+    await vi.waitFor(() => {
+      const current = shadow?.querySelector('style[data-aiob-style-bridge="panel-stitch-runtime"]');
+      expect(current).toBeTruthy();
+      expect(current).not.toBe(initialStyle);
+    });
+    const restoredStyle = shadow?.querySelector<HTMLStyleElement>(
+      'style[data-aiob-style-bridge="panel-stitch-runtime"]'
+    );
+
+    expect(initialStyle).toBeTruthy();
+    expect(initialStyle?.isConnected).toBe(false);
+    expect(restoredStyle).toBeTruthy();
+    expect(restoredStyle).not.toBe(initialStyle);
+    panel.destroy();
+    expect(restoredStyle?.isConnected).toBe(false);
   });
 
   it('mounts reader panel with the stable aiob-reader-panel id', () => {

@@ -29,6 +29,7 @@ import type {
   VideoPanelCallbacks,
   VideoPanelTexts
 } from '../../../src/content/video/application/videoPanelModel';
+import type { StyleAttachmentHandle } from '../../../src/ui/foundation/style-host';
 import {
   MockClipRepository,
   MockMessagingRepository,
@@ -38,6 +39,18 @@ import {
   MockVideoRepository,
   MockYamlRepository
 } from '../../utils/repositories';
+
+type StyleAttachmentHandleMock = StyleAttachmentHandle & {
+  dispose: ReturnType<typeof vi.fn<StyleAttachmentHandle['dispose']>>;
+};
+
+function createStyleAttachmentHandle(root: ShadowRoot): StyleAttachmentHandleMock {
+  return {
+    ready: Promise.resolve({ status: 'ready' }),
+    refresh: vi.fn<StyleAttachmentHandle['refresh']>(() => Promise.resolve({ status: 'ready' })),
+    dispose: vi.fn(() => expect(root.host.isConnected).toBe(true))
+  };
+}
 
 vi.mock('focus-trap', () => ({
   createFocusTrap: () => ({
@@ -108,8 +121,17 @@ vi.mock('../../../src/content/i18n/context', () => ({
 }));
 
 const initializeClipperStylesMock = vi.hoisted(() => vi.fn(() => Promise.resolve(undefined)));
-const applyClipperStylesMock = vi.hoisted(() => vi.fn());
-const applyClipperStitchRuntimeStylesMock = vi.hoisted(() => vi.fn());
+const clipperStyleHandles = vi.hoisted<StyleAttachmentHandleMock[]>(() => []);
+const applyClipperStylesMock = vi.hoisted(() =>
+  vi.fn((root: ShadowRoot) => createStyleAttachmentHandle(root))
+);
+const applyClipperStitchRuntimeStylesMock = vi.hoisted(() =>
+  vi.fn((root: ShadowRoot) => {
+    const handle = createStyleAttachmentHandle(root);
+    clipperStyleHandles.push(handle);
+    return handle;
+  })
+);
 vi.mock('../../../src/content/clipper/shared/styleSheetManager', () => ({
   clipperStyleSheetManager: {
     initialize: initializeClipperStylesMock,
@@ -119,8 +141,17 @@ vi.mock('../../../src/content/clipper/shared/styleSheetManager', () => ({
 }));
 
 const initializePanelStylesMock = vi.hoisted(() => vi.fn());
-const applyReaderStylesMock = vi.hoisted(() => vi.fn());
-const applyStitchRuntimeStylesMock = vi.hoisted(() => vi.fn());
+const panelStyleHandles = vi.hoisted<StyleAttachmentHandleMock[]>(() => []);
+const applyReaderStylesMock = vi.hoisted(() =>
+  vi.fn((root: ShadowRoot) => createStyleAttachmentHandle(root))
+);
+const applyStitchRuntimeStylesMock = vi.hoisted(() =>
+  vi.fn((root: ShadowRoot) => {
+    const handle = createStyleAttachmentHandle(root);
+    panelStyleHandles.push(handle);
+    return handle;
+  })
+);
 vi.mock('../../../src/content/shared/panels/styleSheetManager', () => ({
   panelStyleSheetManager: {
     initialize: initializePanelStylesMock,
@@ -194,6 +225,8 @@ const videoCallbacks: VideoPanelCallbacks = {
 describe('content popup coordinator lifecycle', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    clipperStyleHandles.length = 0;
+    panelStyleHandles.length = 0;
     document.body.innerHTML = '';
     resetGlobalContentContext();
     resetGlobalRegistry();
@@ -298,11 +331,16 @@ describe('content popup coordinator lifecycle', () => {
       value: true
     });
     document.dispatchEvent(new Event('visibilitychange'));
+    document.dispatchEvent(new Event('visibilitychange'));
 
     expect(document.getElementById('obsidian-clipper-dialog')).toBeNull();
     expect(document.getElementById('aiob-support-prompt')).toBeNull();
     expectReaderAndVideoVisible(reader, video);
     expect(popupCoordinator.getActive()).toBe(video);
+    expect(panelStyleHandles[0]?.dispose).not.toHaveBeenCalled();
+    expect(panelStyleHandles[1]?.dispose).not.toHaveBeenCalled();
+    expect(panelStyleHandles[2]?.dispose).toHaveBeenCalledTimes(1);
+    expect(clipperStyleHandles[0]?.dispose).toHaveBeenCalledTimes(1);
   });
 
   it('transient-closes clipper and support prompt while preserving reader and video panels on bfcache pagehide', async () => {
@@ -314,5 +352,7 @@ describe('content popup coordinator lifecycle', () => {
     expect(document.getElementById('aiob-support-prompt')).toBeNull();
     expectReaderAndVideoVisible(reader, video);
     expect(popupCoordinator.getActive()).toBe(video);
+    expect(panelStyleHandles[2]?.dispose).toHaveBeenCalledTimes(1);
+    expect(clipperStyleHandles[0]?.dispose).toHaveBeenCalledTimes(1);
   });
 });

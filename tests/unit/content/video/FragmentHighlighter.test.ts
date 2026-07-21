@@ -1,11 +1,21 @@
 /* @vitest-environment jsdom */
 
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import type { StyleAttachmentHandle } from '@ui/foundation/style-host';
 import {
   DEFAULT_HIGHLIGHT_THEME,
   FragmentHighlighter,
   resolveHighlightTheme
 } from '@content/video/fragmentHighlighter';
+
+type HighlightStyleRegistration = {
+  root: WeakRef<ShadowRoot>;
+  handle: StyleAttachmentHandle;
+};
+
+function getStyleRegistrations(highlighter: FragmentHighlighter): HighlightStyleRegistration[] {
+  return Reflect.get(highlighter, 'shadowHighlightStyles') as HighlightStyleRegistration[];
+}
 
 describe('FragmentHighlighter', () => {
   afterEach(() => {
@@ -42,7 +52,7 @@ describe('FragmentHighlighter', () => {
     expect(document.getElementById('root')?.textContent).toBe('Hello world');
   });
 
-  it('decorates and resolves elements inside shadow roots', () => {
+  it('decorates and resolves elements inside shadow roots', async () => {
     const host = document.createElement('div');
     document.body.appendChild(host);
     const shadow = host.attachShadow({ mode: 'open' });
@@ -50,6 +60,7 @@ describe('FragmentHighlighter', () => {
 
     const highlighter = new FragmentHighlighter(document);
     highlighter.decorateById('deep-highlight');
+    await getStyleRegistrations(highlighter)[0]?.handle.ready;
 
     const deep = shadow.getElementById('deep-highlight');
     expect(deep?.classList.contains('aiob-reader-highlight')).toBe(true);
@@ -58,7 +69,7 @@ describe('FragmentHighlighter', () => {
     );
   });
 
-  it('keeps solid highlight themes visible inside shadow roots', () => {
+  it('keeps solid highlight themes visible inside shadow roots', async () => {
     const host = document.createElement('div');
     document.body.appendChild(host);
     const shadow = host.attachShadow({ mode: 'open' });
@@ -68,6 +79,7 @@ describe('FragmentHighlighter', () => {
     const highlighter = new FragmentHighlighter(document);
     highlighter.setTheme('neonOrange');
     highlighter.decorateElement(inner);
+    await getStyleRegistrations(highlighter)[0]?.handle.ready;
 
     const styleText = shadow.querySelector('style')?.textContent ?? '';
     expect(styleText).toContain('background: var(--reader-highlight-bg');
@@ -75,7 +87,7 @@ describe('FragmentHighlighter', () => {
     expect(styleText).not.toContain('background-color: transparent');
   });
 
-  it('refreshes or removes shadow styles based on host connectivity', () => {
+  it('refreshes or removes shadow styles based on host connectivity', async () => {
     const host = document.createElement('div');
     document.body.appendChild(host);
     const shadow = host.attachShadow({ mode: 'open' });
@@ -84,6 +96,7 @@ describe('FragmentHighlighter', () => {
 
     const highlighter = new FragmentHighlighter(document);
     highlighter.decorateElement(inner);
+    await getStyleRegistrations(highlighter)[0]?.handle.ready;
     const style = shadow.querySelector('style');
     expect(style).toBeTruthy();
 
@@ -94,6 +107,28 @@ describe('FragmentHighlighter', () => {
     host.remove();
     highlighter.refreshShadowHighlightStyles();
     expect(style?.isConnected).toBe(false);
+  });
+
+  it('stores only weak root references and disposes one reused handle exactly once', async () => {
+    const host = document.createElement('div');
+    document.body.appendChild(host);
+    const shadow = host.attachShadow({ mode: 'open' });
+    const highlighter = new FragmentHighlighter(document);
+
+    highlighter.ensureHighlightStyles(shadow);
+    const [registration] = getStyleRegistrations(highlighter);
+    if (!registration) throw new Error('style registration missing');
+    await registration.handle.ready;
+    const dispose = vi.spyOn(registration.handle, 'dispose');
+    highlighter.ensureHighlightStyles(shadow);
+
+    expect(getStyleRegistrations(highlighter)).toHaveLength(1);
+    expect(registration.root).toBeInstanceOf(WeakRef);
+    expect(registration.root.deref()).toBe(shadow);
+    highlighter.reset();
+    highlighter.reset();
+    expect(dispose).toHaveBeenCalledTimes(1);
+    expect(shadow.querySelector('[data-aiob-style-bridge="video-fragment-highlight"]')).toBeNull();
   });
 
   it('clears document theme state on reset', () => {

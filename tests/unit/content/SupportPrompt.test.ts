@@ -3,6 +3,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { restErrors } from '@shared/errors';
 import { ErrorSeverity } from '@shared/errors/types';
+import type { StyleAttachmentHandle } from '@ui/foundation/style-host';
 
 const flushMicrotasks = () => new Promise((resolve) => setTimeout(resolve, 0));
 
@@ -263,6 +264,26 @@ describe('SupportPrompt', () => {
     ).toBe('第二步');
   });
 
+  it('does not mount after hide invalidates the second async message lookup', async () => {
+    const runtimeMessagesGate =
+      createDeferred<Awaited<ReturnType<typeof getContentMessagesMock>>>();
+    const messages = await getContentMessagesMock();
+    getContentMessagesMock.mockClear();
+    getContentMessagesMock
+      .mockResolvedValueOnce(messages)
+      .mockReturnValueOnce(runtimeMessagesGate.promise);
+    const { SupportPrompt } = await import('../../../src/content/ui/supportPrompt');
+    const prompt = new SupportPrompt(document);
+
+    const show = prompt.show({ status: 'success' });
+    await vi.waitFor(() => expect(getContentMessagesMock).toHaveBeenCalledTimes(2));
+    prompt.hide();
+    runtimeMessagesGate.resolve(messages);
+    await show;
+
+    expect(document.querySelector('#aiob-support-prompt')).toBeNull();
+  });
+
   it('keeps terminal progress prompts visible until the user clicks outside', async () => {
     vi.useFakeTimers();
     try {
@@ -448,6 +469,79 @@ describe('SupportPrompt', () => {
     expect(messagingSendMock).toHaveBeenCalledWith(
       expect.objectContaining({ event: 'support_like_clicked' })
     );
+  });
+
+  it('uses fresh style handles and disposes each prompt and toast owner exactly once', async () => {
+    const handles: Array<{
+      dispose: ReturnType<typeof vi.fn>;
+      connectedOnDispose: boolean[];
+    }> = [];
+    const { panelStyleSheetManager } =
+      await import('../../../src/content/shared/panels/styleSheetManager');
+    vi.spyOn(panelStyleSheetManager, 'applyStitchRuntimeStyles').mockImplementation((root) => {
+      const connectedOnDispose: boolean[] = [];
+      const handle: StyleAttachmentHandle & {
+        dispose: ReturnType<typeof vi.fn>;
+        connectedOnDispose: boolean[];
+      } = {
+        ready: Promise.resolve({ status: 'ready' }),
+        refresh: () => Promise.resolve({ status: 'ready' }),
+        dispose: vi.fn(() => connectedOnDispose.push(root.host.isConnected)),
+        connectedOnDispose
+      };
+      handles.push(handle);
+      return handle;
+    });
+    storageLocalGetMock.mockResolvedValue({ hasClickedReview: true });
+    const { SupportPrompt } = await import('../../../src/content/ui/supportPrompt');
+    const prompt = new SupportPrompt(document);
+
+    await prompt.show({ status: 'success' });
+    getPromptHost().shadowRoot?.querySelector<HTMLButtonElement>('[data-role="like-btn"]')?.click();
+    await flushMicrotasks();
+    const firstToast = getToastShadow().querySelector<HTMLElement>('#aiob-support-toast');
+    document.body.dispatchEvent(new Event('pointerdown', { bubbles: true }));
+    expect(handles[1]?.dispose).not.toHaveBeenCalled();
+    firstToast?.dispatchEvent(new Event('transitionend'));
+    expect(handles[1]?.dispose).toHaveBeenCalledTimes(1);
+    await prompt.show({ status: 'success' });
+    getPromptHost()
+      .shadowRoot?.querySelector<HTMLButtonElement>('[data-role="dislike-btn"]')
+      ?.click();
+    await flushMicrotasks();
+    prompt.destroy();
+    prompt.destroy();
+    await flushMicrotasks();
+
+    expect(handles).toHaveLength(4);
+    handles.forEach(({ dispose, connectedOnDispose }) => {
+      expect(dispose).toHaveBeenCalledTimes(1);
+      expect(connectedOnDispose).toEqual([true]);
+    });
+  });
+
+  it('cancels and guards toast reveal work when destroyed before the frame', async () => {
+    const frame = { callback: null as FrameRequestCallback | null };
+    vi.spyOn(window, 'requestAnimationFrame').mockImplementation((callback) => {
+      frame.callback = callback;
+      return 17;
+    });
+    const cancelFrame = vi.spyOn(window, 'cancelAnimationFrame');
+    storageLocalGetMock.mockResolvedValue({ hasClickedReview: true });
+    const { SupportPrompt } = await import('../../../src/content/ui/supportPrompt');
+    const prompt = new SupportPrompt(document);
+
+    await prompt.show({ status: 'success' });
+    getPromptHost().shadowRoot?.querySelector<HTMLButtonElement>('[data-role="like-btn"]')?.click();
+    await flushMicrotasks();
+    const toast = getToastShadow().querySelector<HTMLElement>('#aiob-support-toast');
+    prompt.destroy();
+    await flushMicrotasks();
+
+    expect(cancelFrame).toHaveBeenCalledWith(17);
+    frame.callback?.(0);
+    expect(toast?.classList.contains('is-visible')).toBe(false);
+    expect(document.getElementById('aiob-support-toast-host')).toBeNull();
   });
 
   it('tracks support links with stable target ids instead of hrefs', async () => {
@@ -641,8 +735,7 @@ describe('SupportPrompt', () => {
     const toastShadow = getToastShadow();
     expect(
       toastShadow.querySelector('style[data-aiob-style-bridge="panel-stitch-runtime"]')
-        ?.textContent ?? ''
-    ).toBe('');
+    ).toBeNull();
     expect(
       toastShadow.querySelector('style[data-aiob-style-bridge="panel-clipper-tailwind"]')
     ).toBeNull();
