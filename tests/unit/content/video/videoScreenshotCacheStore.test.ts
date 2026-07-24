@@ -6,6 +6,9 @@ import {
   VIDEO_SCREENSHOT_CACHE_BLOB_STORE_DB_NAME,
   VIDEO_SCREENSHOT_CACHE_BLOB_STORE_DB_VERSION,
   VIDEO_SCREENSHOT_CACHE_BLOB_STORE_EXPIRES_AT_INDEX_NAME,
+  VIDEO_SCREENSHOT_CACHE_BLOB_STORE_MAINTENANCE_ID,
+  VIDEO_SCREENSHOT_CACHE_BLOB_STORE_METADATA_OBJECT_STORE_NAME,
+  VIDEO_SCREENSHOT_CACHE_BLOB_STORE_METADATA_SCHEMA_VERSION,
   VIDEO_SCREENSHOT_CACHE_BLOB_STORE_OBJECT_STORE_NAME,
   VIDEO_SCREENSHOT_CACHE_BLOB_STORE_PAGE_CAPTURE_INDEX_NAME,
   VIDEO_SCREENSHOT_CACHE_BLOB_STORE_PAGE_KEY_INDEX_NAME,
@@ -18,6 +21,7 @@ import {
 } from '@content/video/videoScreenshotCacheStore';
 
 const BASE_TIME = 2_000_000_000_000;
+const BLOB_BYTES = new Uint8Array([0, 255, 1, 128, 127, 13, 10, 66]);
 
 function createMetadata(
   overrides: Partial<VideoScreenshotCacheBlobMetadata> = {}
@@ -29,7 +33,7 @@ function createMetadata(
   const createdAt = overrides.createdAt ?? capturedAt + 10;
   const updatedAt = overrides.updatedAt ?? createdAt + 10;
   const expiresAt = overrides.expiresAt ?? updatedAt + 10_000;
-  const byteLength = overrides.byteLength ?? 7;
+  const byteLength = overrides.byteLength ?? BLOB_BYTES.byteLength;
 
   return {
     schemaVersion: 1,
@@ -55,7 +59,7 @@ function createMetadata(
 
 function createEntry(
   overrides: Partial<VideoScreenshotCacheBlobMetadata> = {},
-  content = 'frame-a'
+  content: BlobPart = BLOB_BYTES
 ): VideoScreenshotCacheBlobEntry {
   const blob = new Blob([content], { type: 'image/jpeg' });
   return {
@@ -67,12 +71,15 @@ function createEntry(
 describe('videoScreenshotCacheStore', () => {
   it('exports the IndexedDB schema contract and normalizes valid blob entries', async () => {
     expect(VIDEO_SCREENSHOT_CACHE_BLOB_STORE_DB_NAME).toBe('aiob-video-screenshot-cache');
-    expect(VIDEO_SCREENSHOT_CACHE_BLOB_STORE_DB_VERSION).toBe(1);
+    expect(VIDEO_SCREENSHOT_CACHE_BLOB_STORE_DB_VERSION).toBe(2);
     expect(VIDEO_SCREENSHOT_CACHE_BLOB_STORE_OBJECT_STORE_NAME).toBe('entries');
     expect(VIDEO_SCREENSHOT_CACHE_BLOB_STORE_PAGE_KEY_INDEX_NAME).toBe('byPageKey');
     expect(VIDEO_SCREENSHOT_CACHE_BLOB_STORE_EXPIRES_AT_INDEX_NAME).toBe('byExpiresAt');
     expect(VIDEO_SCREENSHOT_CACHE_BLOB_STORE_UPDATED_AT_INDEX_NAME).toBe('byUpdatedAt');
     expect(VIDEO_SCREENSHOT_CACHE_BLOB_STORE_PAGE_CAPTURE_INDEX_NAME).toBe('byPageCapture');
+    expect(VIDEO_SCREENSHOT_CACHE_BLOB_STORE_METADATA_OBJECT_STORE_NAME).toBe('metadata');
+    expect(VIDEO_SCREENSHOT_CACHE_BLOB_STORE_MAINTENANCE_ID).toBe('maintenance');
+    expect(VIDEO_SCREENSHOT_CACHE_BLOB_STORE_METADATA_SCHEMA_VERSION).toBe(2);
 
     const entry = createEntry();
     expect(normalizeVideoScreenshotCacheBlobMetadata(entry)).toEqual(createMetadata());
@@ -80,7 +87,9 @@ describe('videoScreenshotCacheStore', () => {
     const normalizedEntry = normalizeVideoScreenshotCacheBlobEntry(entry);
     expect(normalizedEntry).not.toBeNull();
     expect(normalizedEntry?.blob.type).toBe('image/jpeg');
-    await expect(normalizedEntry?.blob.text()).resolves.toBe('frame-a');
+    expect([...new Uint8Array(await (normalizedEntry?.blob ?? new Blob()).arrayBuffer())]).toEqual([
+      ...BLOB_BYTES
+    ]);
   });
 
   it('rejects corrupt blob rows when metadata or blob size is invalid', () => {

@@ -1,6 +1,6 @@
 # 视频模式截图功能可行性分析报告
 
-最后更新：2026-06-17
+最后更新：2026-07-21
 
 ## 1. 背景与目标
 
@@ -59,10 +59,12 @@
 
 - **当前 runtime 结构**：`VideoTimestampCapture` 在内存态仍可持有 `screenshot`，但 draft envelope 与 legacy capture storage 不持久化图片 bytes；durable state 只保留 `screenshotRequested` 与 normalized `screenshotRef`。
 - **当前 durable owner**：截图 bytes 进入 background-owned extension IndexedDB Blob cache，按 page/capture/screenshot key 建索引，并受 TTL、全局条目数、单页面条目数与单截图字节上限约束。当前相关 owner 为 `videoScreenshotCacheIndexedDbStore.ts` + `videoScreenshotCacheRepository.ts`。
+- **IndexedDB schema 与演进**：截图缓存数据库当前为 v2。v1 的 `entries` store、`key` keyPath、四个索引以及每条 row 的 `schemaVersion: 1` 保持不变；v1→v2 只新增 `metadata` store（keyPath `id`）和 `{ id: 'maintenance', schemaVersion: 2, lastPrunedAt: null }`，迁移不读取或重写任何截图 row/Blob。fresh install 也按 0→1→2 的同一迁移序列建立结构；重复 v2 open 会验证 store、keyPath、索引唯一性与 maintenance record，发现未来版本或结构漂移时 fail closed，绝不 delete/reset 数据库。
+- **连接与事务生命周期**：共享 IndexedDB lifecycle 统一处理 5 秒 blocked timeout、late-success close、`versionchange` close、upgrade abort 与 settle-once。普通 request success 只代表 provisional result；readonly/readwrite API 必须等所属 transaction `complete` 才 resolve，transaction error/abort 会 reject 并关闭 owned connection。
 - **当前 session draft 恢复限额**：0.2.0 开源默认策略只保留最近 `48` 小时、最新 `5` 个 reader/video 页面身份以及每页最新 `20` 条可恢复 highlight / capture；`SESSION_DRAFT_MAX_ENTRIES = 100` 与 `SESSION_DRAFT_MAX_ENVELOPE_BYTES = 512 KiB` 仍是独立技术保护。默认截图 Blob cache TTL 通过通用 session draft storage policy 映射到同一 retention 窗口。未来私有构建或外部集成如需不同保留策略，应同时注入匹配的 `retentionPolicy` 与 cache TTL policy，不在开源默认路径加入额外产品判断。
 - **legacy 兼容路径**：`storage.local` base64 cache 仍可被读取，但只作为 compatibility path。成功命中 legacy cache 时会 best-effort migrate 到 IndexedDB 并删除旧 key；失败或损坏时不会阻塞恢复。
 - **配额策略**：Chrome 官方扩展文档当前将 `storage.local` 默认总额度记为 `10 MB`。当前实现没有请求 `unlimitedStorage`；`storage.local` 主要承载 draft metadata、legacy base64 cache 兼容读取与 cleanup，而不是新的截图 bytes 主存储。
-- **恢复与清理**：restored draft 会先尝试 hydrate `screenshotRef`；invalid ref 会被清除，stale/missing/expired/corrupt ref 会回落到 low-concurrency screenshot preparation，并在需要时触发 draft save 清掉失效 ref。单条 capture 删除在删除 mutation 成功 commit 后 best-effort 删除不再被当前 draft 引用的缓存 key；terminal cleanup 与 cache prune 也会同步删除对应缓存 key。缓存清理失败只记录 warning，不回滚 capture 删除。
+- **恢复与清理**：restored draft 会先尝试 hydrate `screenshotRef`；invalid ref 会被清除，stale/missing/expired/corrupt ref 会回落到 low-concurrency screenshot preparation，并在需要时触发 draft save 清掉失效 ref。单条 capture 删除在删除 mutation 成功 commit 后 best-effort 删除不再被当前 draft 引用的缓存 key；terminal cleanup 与 cache prune 也会同步删除对应缓存 key。每次成功 prune（包括零删除）在同一个 `entries` + `metadata` readwrite transaction 内提交删除和 `lastPrunedAt`；abort 会同时保留原 rows 与旧时间戳。缓存清理失败只记录 warning，不回滚 capture 删除。
 
 ### 4.4 导出与仓库写入
 
@@ -172,4 +174,4 @@
 
 ---
 
-当前文档用途是约束“已实现真值”：draft 只持久化 `screenshotRequested` + metadata-only `screenshotRef`，截图 bytes 由 background-owned extension IndexedDB Blob cache 持有，legacy `storage.local` base64 cache 只做兼容读取与清理，消息边界保持 JSON-safe，且当前没有 idle zip/archive packing。
+当前文档用途是约束“已实现真值”：draft 只持久化 `screenshotRequested` + metadata-only `screenshotRef`，截图 bytes 由 background-owned extension IndexedDB Blob cache 持有；缓存以非破坏性 v1→v2 migration 增加真实 maintenance metadata，并以 transaction-complete 作为读写成功边界。legacy `storage.local` base64 cache 只做兼容读取与清理，消息边界保持 JSON-safe，且当前没有 idle zip/archive packing。
