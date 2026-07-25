@@ -174,7 +174,7 @@ addBrowserClassToHtml(); // 添加 .is-firefox 类
 
 ```bash
 # 运行 Firefox 特定测试
-npm test tests/firefox/
+npm run verify:runtime && npx vitest run --config vitest.unit.config.ts tests/unit/platform/firefox
 
 # 运行所有测试
 npm test
@@ -184,7 +184,7 @@ npm test
 
 ```bash
 # Firefox E2E 测试（需要安装 Firefox）
-npm run test:e2e -- --browser=firefox
+npm run test:e2e:browser:firefox
 ```
 
 ## 📝 开发注意事项

@@ -320,6 +320,58 @@ jobs:
             build/reports/playwright/
           if-no-files-found: ignore
 
+  browser-video:
+    name: Browser video flow
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Setup Playwright
+        uses: ./.github/actions/setup-playwright
+
+      - name: Run browser video tests
+        run: npm run test:e2e:browser:video
+
+      - name: Upload browser video reports
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: browser-video-reports
+          path: |
+            test-results/
+          if-no-files-found: ignore
+
+  browser-firefox:
+    name: Browser Firefox flow
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Setup Playwright
+        uses: ./.github/actions/setup-playwright
+
+      - name: Install Firefox browser
+        run: npx playwright install --with-deps firefox
+
+      - name: Run browser Firefox tests
+        run: npm run test:e2e:browser:firefox
+
+      - name: Upload browser Firefox reports
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: browser-firefox-reports
+          path: |
+            tests/visual/__output__/
+            build/reports/playwright/
+          if-no-files-found: ignore
+
   package:
     name: Package extension
     runs-on: ubuntu-latest

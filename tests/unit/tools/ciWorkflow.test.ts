@@ -42,6 +42,8 @@ describe('CI workflow wiring', () => {
     expect(workflow).toContain('browser-yaml:');
     expect(workflow).toContain('browser-reader-panel:');
     expect(workflow).toContain('browser-smoke:');
+    expect(workflow).toContain('browser-video:');
+    expect(workflow).toContain('browser-firefox:');
     expect(workflow).toContain('package:');
     expect(workflow).toContain('needs: [static-preflight]');
     expect(workflow).not.toContain('static-gates:');
@@ -68,6 +70,209 @@ describe('CI workflow wiring', () => {
     expect(setupNodeAction).not.toMatch(/actions\/setup-node@v[1-5]\b/);
     expect(workflow).not.toMatch(/actions\/upload-artifact@v[1-6]\b/);
     expect(workflow).not.toMatch(/actions\/github-script@v[1-7]\b/);
+  });
+
+  it('parses and locks the exact Video and Firefox browser job structure', async () => {
+    const { parseCiWorkflowJobs, checkCiWorkflowContract } = await loadCiContractModule();
+    const parsed = parseCiWorkflowJobs(readCiWorkflow());
+
+    expect(parsed.order).toEqual([
+      'static-preflight',
+      'static-release-surface',
+      'static-generated-artifacts',
+      'static-style-and-locale',
+      'static-reporting-audits',
+      'coverage',
+      'visual',
+      'e2e-vitest',
+      'browser-yaml',
+      'browser-reader-panel',
+      'browser-smoke',
+      'browser-video',
+      'browser-firefox',
+      'package'
+    ]);
+    expect(parsed.jobs.get('browser-video')).toEqual({
+      id: 'browser-video',
+      fields: ['name', 'runs-on', 'timeout-minutes', 'steps'],
+      name: 'Browser video flow',
+      runsOn: 'ubuntu-latest',
+      timeoutMinutes: '20',
+      steps: [
+        { name: 'Checkout repository', uses: 'actions/checkout@v6' },
+        { name: 'Setup Playwright', uses: './.github/actions/setup-playwright' },
+        { name: 'Run browser video tests', run: 'npm run test:e2e:browser:video' },
+        {
+          name: 'Upload browser video reports',
+          if: 'failure()',
+          uses: 'actions/upload-artifact@v7',
+          with: {
+            name: 'browser-video-reports',
+            path: 'test-results/',
+            'if-no-files-found': 'ignore'
+          }
+        }
+      ]
+    });
+    expect(parsed.jobs.get('browser-firefox')?.steps.map((step) => step.run ?? step.uses)).toEqual([
+      'actions/checkout@v6',
+      './.github/actions/setup-playwright',
+      'npx playwright install --with-deps firefox',
+      'npm run test:e2e:browser:firefox',
+      'actions/upload-artifact@v7'
+    ]);
+    expect(checkCiWorkflowContract()).toEqual({ ok: true, failures: [] });
+  });
+
+  it('fails closed on browser command, timeout, ordering, masking, and artifact mutations', async () => {
+    const { checkCiWorkflowContract } = await loadCiContractModule();
+    const workflow = readCiWorkflow();
+    const mutations = [
+      workflow.replace(
+        'run: npm run test:e2e:browser:video',
+        'run: npm run test:e2e:browser:video && true'
+      ),
+      workflow.replace(
+        '  browser-video:\n    name: Browser video flow\n    runs-on: ubuntu-latest\n    timeout-minutes: 20',
+        '  browser-video:\n    name: Browser video flow\n    runs-on: ubuntu-latest\n    timeout-minutes: 19'
+      ),
+      workflow.replace(
+        '  browser-video:\n    name: Browser video flow\n    runs-on: ubuntu-latest',
+        '  browser-video:\n    name: Browser video flow\n    runs-on: ubuntu-latest\n    if: always()'
+      ),
+      workflow.replace(
+        '  browser-video:\n    name: Browser video flow\n    runs-on: ubuntu-latest\n    timeout-minutes: 20\n\n    steps:',
+        '  browser-video:\n    name: Browser video flow\n    runs-on: ubuntu-latest\n    timeout-minutes: 20\n    defaults:\n      run:\n        shell: bash {0} || true\n\n    steps:'
+      ),
+      workflow.replace(
+        'run: npx playwright install --with-deps firefox',
+        'run: npx playwright install --with-deps firefox || true'
+      ),
+      workflow.replace(
+        '      - name: Run browser video tests\n        run: npm run test:e2e:browser:video',
+        '      - name: Run browser video tests\n        continue-on-error: true\n        run: npm run test:e2e:browser:video'
+      ),
+      workflow.replace(
+        '      - name: Run browser video tests\n        run: npm run test:e2e:browser:video',
+        '      - name: Run browser video tests\n        "continue-on-error": true\n        run: npm run test:e2e:browser:video'
+      ),
+      workflow.replace(
+        '      - name: Install Firefox browser\n        run: npx playwright install --with-deps firefox\n\n      - name: Run browser Firefox tests\n        run: npm run test:e2e:browser:firefox',
+        '      - name: Run browser Firefox tests\n        run: npm run test:e2e:browser:firefox\n\n      - name: Install Firefox browser\n        run: npx playwright install --with-deps firefox'
+      ),
+      workflow.replace('name: browser-video-reports', 'name: browser-generic-reports')
+    ];
+
+    for (const mutatedWorkflow of mutations) {
+      const result = checkCiWorkflowContract({ workflow: mutatedWorkflow });
+      expect(result.ok).toBe(false);
+      expect(result.failures.some((failure) => failure.includes('browser-'))).toBe(true);
+    }
+
+    const workflowDefaults = workflow.replace(
+      '\njobs:\n',
+      '\ndefaults:\n  run:\n    shell: bash {0} || true\n\njobs:\n'
+    );
+    const workflowDefaultsResult = checkCiWorkflowContract({ workflow: workflowDefaults });
+    expect(workflowDefaultsResult.ok).toBe(false);
+    expect(workflowDefaultsResult.failures).toContainEqual(
+      expect.stringContaining('workflow-level run defaults')
+    );
+    const quotedWorkflowDefaults = workflow.replace(
+      '\njobs:\n',
+      '\n"defaults":\n  run:\n    shell: bash {0} || true\n\njobs:\n'
+    );
+    expect(checkCiWorkflowContract({ workflow: quotedWorkflowDefaults }).ok).toBe(false);
+    for (const escapedDefaultsKey of [
+      '"de\\x66aults"',
+      '"de\\u0066aults"',
+      '"de\\U00000066aults"'
+    ]) {
+      const escapedWorkflowDefaults = workflow.replace(
+        '\njobs:\n',
+        `\n${escapedDefaultsKey}:\n  run:\n    shell: bash {0} || true\n\njobs:\n`
+      );
+      expect(checkCiWorkflowContract({ workflow: escapedWorkflowDefaults }).ok).toBe(false);
+    }
+    const quotedExtraJob = workflow.replace(
+      '\n  package:\n',
+      '\n  "ownership-extra":\n    runs-on: ubuntu-latest\n    steps: []\n\n  package:\n'
+    );
+    expect(checkCiWorkflowContract({ workflow: quotedExtraJob }).ok).toBe(false);
+  });
+
+  it('rejects premature ownership wiring in Static, verify:preflight, or quality', async () => {
+    const { checkCiWorkflowContract } = await loadCiContractModule();
+    const workflow = readCiWorkflow();
+    const packageJson = JSON.parse(readPackageJson()) as {
+      scripts: Record<string, string>;
+    };
+    packageJson.scripts['verify:preflight'] += ' && npm run audit:test-suite-ownership:check';
+
+    const staticWiring = workflow.replace(
+      '      - name: Verify preflight baseline\n        run: npm run verify:preflight',
+      [
+        '      - name: Verify canonical test suite ownership',
+        '        run: npm run audit:test-suite-ownership:check',
+        '',
+        '      - name: Verify preflight baseline',
+        '        run: npm run verify:preflight'
+      ].join('\n')
+    );
+    const directStaticWiring = workflow.replace(
+      '      - name: Verify preflight baseline\n        run: npm run verify:preflight',
+      [
+        '      - name: Direct ownership audit',
+        '        run: node tools/report-test-suite-ownership.mjs --check',
+        '',
+        '      - name: Verify preflight baseline',
+        '        run: npm run verify:preflight'
+      ].join('\n')
+    );
+    const obfuscatedStaticWirings = [
+      'report-test-suite-owner""ship.mjs',
+      'report-test-suite-owner\\ship.mjs',
+      'report-test-suite-owner?hip.mjs',
+      'repor?-test-suite-ownership.mjs',
+      'report-test-suite-own?rship.mjs',
+      'report-test-suite-ownership.mj?'
+    ].map((reportFile) =>
+      workflow.replace(
+        '      - name: Verify preflight baseline\n        run: npm run verify:preflight',
+        [
+          '      - name: Obfuscated ownership audit',
+          `        run: node tools/${reportFile} --check`,
+          '',
+          '      - name: Verify preflight baseline',
+          '        run: npm run verify:preflight'
+        ].join('\n')
+      )
+    );
+    const directPackageJson = JSON.parse(readPackageJson()) as {
+      scripts: Record<string, string>;
+    };
+    directPackageJson.scripts['verify:preflight'] +=
+      ' && node tools/report-test-suite-ownership.mjs --check';
+
+    expect(checkCiWorkflowContract({ workflow: staticWiring }).ok).toBe(false);
+    expect(checkCiWorkflowContract({ workflow: directStaticWiring }).ok).toBe(false);
+    for (const obfuscatedStaticWiring of obfuscatedStaticWirings) {
+      expect(checkCiWorkflowContract({ workflow: obfuscatedStaticWiring }).ok).toBe(false);
+    }
+    expect(checkCiWorkflowContract({ packageJson: JSON.stringify(packageJson) }).ok).toBe(false);
+    expect(checkCiWorkflowContract({ packageJson: JSON.stringify(directPackageJson) }).ok).toBe(
+      false
+    );
+    expect(
+      checkCiWorkflowContract({
+        qualityCheck: 'tasks.push("npm run audit:test-suite-ownership:check");\n'
+      }).ok
+    ).toBe(false);
+    expect(
+      checkCiWorkflowContract({
+        qualityCheck: 'await import("../tools/report-test-suite-ownership.mjs");\n'
+      }).ok
+    ).toBe(false);
   });
 
   it('keeps Firefox AMO publishing on the GA production release path', () => {
@@ -117,3 +322,54 @@ describe('CI workflow wiring', () => {
     expect(packageJson).not.toContain('"analytics:validate:prod:required": "node --env-file');
   });
 });
+
+interface ParsedCiStep {
+  name?: string;
+  uses?: string;
+  run?: string;
+  if?: string;
+  continueOnError?: string;
+  with?: Record<string, string>;
+}
+
+interface ParsedCiJob {
+  id: string;
+  fields: string[];
+  name?: string;
+  runsOn?: string;
+  timeoutMinutes?: string;
+  steps: ParsedCiStep[];
+}
+
+async function loadCiContractModule(): Promise<{
+  parseCiWorkflowJobs: (workflow: string) => {
+    order: string[];
+    jobs: Map<string, ParsedCiJob>;
+    topLevelFields: string[];
+  };
+  checkCiWorkflowContract: (options?: {
+    workflow?: string;
+    firefoxReleaseWorkflow?: string;
+    nodeAction?: string;
+    packageJson?: string;
+    playwrightAction?: string;
+    qualityCheck?: string;
+  }) => { ok: boolean; failures: string[] };
+}> {
+  const moduleUrl = new URL('../../../tools/report-ci-workflow-contract.mjs', import.meta.url).href;
+  return (await import(moduleUrl)) as {
+    parseCiWorkflowJobs: (workflow: string) => {
+      order: string[];
+      jobs: Map<string, ParsedCiJob>;
+      topLevelFields: string[];
+    };
+    checkCiWorkflowContract: (options?: {
+      workflow?: string;
+      firefoxReleaseWorkflow?: string;
+      nodeAction?: string;
+      packageJson?: string;
+      playwrightAction?: string;
+      qualityCheck?: string;
+    }) => { ok: boolean; failures: string[] };
+  };
+}

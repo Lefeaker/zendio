@@ -1,42 +1,26 @@
 import { spawn } from 'node:child_process';
 import path from 'node:path';
+import { pathToFileURL } from 'node:url';
 import { defaultConcurrency, resolveConcurrency } from './utils/taskGraphRunner.mjs';
+import { createBrowserTestShardSuites } from './utils/testShards.mjs';
 
-const suite = process.argv[2];
+export async function main(argv = process.argv, env = process.env) {
+  const suite = argv[2];
+  const browserTestShardSuites = createBrowserTestShardSuites();
+  const shards = Object.hasOwn(browserTestShardSuites, suite)
+    ? browserTestShardSuites[suite]
+    : undefined;
 
-const suites = {
-  e2e: [
-    {
-      id: 'yaml',
-      args: ['test', 'tests/visual/yaml-config.interaction.spec.ts']
-    },
-    {
-      id: 'reader-panel',
-      args: ['test', 'tests/e2e/readerPanelFlow.test.ts', '--config=playwright.reader.config.ts']
-    },
-    {
-      id: 'smoke',
-      args: ['test', 'tests/visual/migration-harness.spec.ts', '--project=chromium-desktop']
-    }
-  ],
-  visual: ['chromium-desktop', 'chromium-tablet', 'chromium-mobile'].map((project) => ({
-    id: project,
-    args: ['test', '--config=playwright.config.ts', `--project=${project}`]
-  }))
-};
+  if (!shards) {
+    console.error('Usage: node scripts/run-browser-test-shards.mjs <e2e|visual>');
+    return { ok: false, failed: [] };
+  }
 
-if (!suites[suite]) {
-  console.error('Usage: node scripts/run-browser-test-shards.mjs <e2e|visual>');
-  process.exit(1);
+  const concurrency = resolveConcurrency(env.BROWSER_TEST_CONCURRENCY, defaultConcurrency());
+  return runBrowserShards(shards, concurrency, env);
 }
 
-const concurrency = resolveConcurrency(process.env.BROWSER_TEST_CONCURRENCY, defaultConcurrency());
-const result = await runBrowserShards(suites[suite], concurrency);
-if (!result.ok) {
-  process.exit(1);
-}
-
-async function runBrowserShards(shards, concurrency) {
+async function runBrowserShards(shards, concurrency, env) {
   const pending = [...shards];
   const running = new Set();
   const failed = [];
@@ -52,7 +36,7 @@ async function runBrowserShards(shards, concurrency) {
       }
       while (running.size < concurrency && pending.length > 0) {
         const shard = pending.shift();
-        const promise = runBrowserShard(shard).then((ok) => {
+        const promise = runBrowserShard(shard, env).then((ok) => {
           running.delete(promise);
           if (!ok) {
             failed.push(shard.id);
@@ -69,17 +53,17 @@ async function runBrowserShards(shards, concurrency) {
   });
 }
 
-function runBrowserShard(shard) {
+function runBrowserShard(shard, env) {
   console.log(`⏳ browser shard ${shard.id}...`);
   const child = spawn('node', ['scripts/run-playwright.mjs', ...shard.args], {
     stdio: 'inherit',
     shell: process.platform === 'win32',
     env: {
-      ...process.env,
+      ...env,
       PLAYWRIGHT_SKIP_WEB_SERVER_BUILD: '1',
-      PLAYWRIGHT_DIST_DIR: process.env.PLAYWRIGHT_DIST_DIR ?? 'build/dist',
-      PLAYWRIGHT_OUTPUT_DIR: createShardOutputDir(shard.id),
-      PLAYWRIGHT_HTML_REPORT_DIR: createShardHtmlReportDir(shard.id)
+      PLAYWRIGHT_DIST_DIR: env.PLAYWRIGHT_DIST_DIR ?? 'build/dist',
+      PLAYWRIGHT_OUTPUT_DIR: createShardOutputDir(shard.id, env),
+      PLAYWRIGHT_HTML_REPORT_DIR: createShardHtmlReportDir(shard.id, env)
     }
   });
 
@@ -100,16 +84,23 @@ function runBrowserShard(shard) {
   });
 }
 
-function createShardOutputDir(shardId) {
-  const baseDir = process.env.PLAYWRIGHT_OUTPUT_DIR ?? 'test-results/browser-shards';
+function createShardOutputDir(shardId, env) {
+  const baseDir = env.PLAYWRIGHT_OUTPUT_DIR ?? 'test-results/browser-shards';
   return path.join(baseDir, sanitizeShardId(shardId));
 }
 
-function createShardHtmlReportDir(shardId) {
-  const baseDir = process.env.PLAYWRIGHT_HTML_REPORT_DIR ?? 'build/reports/playwright-shards';
+function createShardHtmlReportDir(shardId, env) {
+  const baseDir = env.PLAYWRIGHT_HTML_REPORT_DIR ?? 'build/reports/playwright-shards';
   return path.join(baseDir, sanitizeShardId(shardId));
 }
 
 function sanitizeShardId(value) {
   return value.replace(/[^a-zA-Z0-9._-]+/g, '-');
+}
+
+if (process.argv[1] && pathToFileURL(path.resolve(process.argv[1])).href === import.meta.url) {
+  const result = await main();
+  if (!result.ok) {
+    process.exitCode = 1;
+  }
 }
