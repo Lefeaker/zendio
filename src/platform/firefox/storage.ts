@@ -1,9 +1,10 @@
 import type {
+  EnumerableStorageAreaService,
   StorageAreaChangeCallback,
-  StorageAreaService,
   StorageChange,
   StorageService,
-  StorageChangeCallback
+  StorageChangeCallback,
+  StorageValueMap
 } from '../interfaces/storage';
 import { ensureFirefox } from './utils';
 
@@ -50,12 +51,18 @@ function createWatcher(
   return () => firefoxApi.storage.onChanged?.removeListener(wrapped);
 }
 
-function createFirefoxStorageArea(areaName: FirefoxStorageAreaName): StorageAreaService {
+function createFirefoxStorageArea(areaName: FirefoxStorageAreaName): EnumerableStorageAreaService {
   return {
     async get<T = unknown>(key: string): Promise<T | undefined> {
       const area = ensureStorageArea(areaName);
       const result = await area.get(key);
       return (result as Record<string, T | undefined>)[key];
+    },
+
+    async getAll(): Promise<StorageValueMap> {
+      const area = ensureStorageArea(areaName);
+      const result: StorageValueMap = await area.get(null);
+      return result;
     },
 
     async set<T = unknown>(key: string, value: T): Promise<void> {
@@ -116,8 +123,8 @@ function hasStorageArea(areaName: FirefoxStorageAreaName): boolean {
   }
 }
 
-export const firefoxStorageService: StorageService = {
+export const firefoxStorageService = {
   local: createFirefoxStorageArea('local'),
   sync: createFirefoxStorageArea('sync'),
   ...(hasStorageArea('session') ? { session: createFirefoxStorageArea('session') } : {})
-};
+} satisfies StorageService;

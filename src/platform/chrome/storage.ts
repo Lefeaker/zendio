@@ -1,14 +1,15 @@
 import type {
-  StorageAreaService,
+  EnumerableStorageAreaService,
   StorageService,
   StorageChange,
-  StorageChangeCallback
+  StorageChangeCallback,
+  StorageValueMap
 } from '../interfaces/storage';
 import { ensureChrome, getChromeLastError, normalizePromise } from './utils';
 
 type StorageAreaName = 'sync' | 'local' | 'session';
 
-function createStorageArea(area: StorageAreaName): StorageAreaService {
+function createStorageArea(area: StorageAreaName): EnumerableStorageAreaService {
   return {
     async get<T = unknown>(key: string): Promise<T | undefined> {
       const chromeApi = ensureChrome();
@@ -31,6 +32,28 @@ function createStorageArea(area: StorageAreaName): StorageAreaService {
         }
       });
       return result[key];
+    },
+
+    async getAll(): Promise<StorageValueMap> {
+      const chromeApi = ensureChrome();
+      const areaApi = chromeApi.storage?.[area];
+      if (!areaApi) {
+        throw new Error(`chrome.storage.${area} is unavailable`);
+      }
+      return normalizePromise<StorageValueMap>((resolve, reject) => {
+        try {
+          areaApi.get<StorageValueMap>(null, (items) => {
+            const error = getChromeLastError();
+            if (error) {
+              reject(error);
+              return;
+            }
+            resolve(items);
+          });
+        } catch (error) {
+          reject(error instanceof Error ? error : new Error(String(error)));
+        }
+      });
     },
 
     async getMany<T = unknown>(keys: string[]): Promise<Record<string, T | undefined>> {
@@ -204,13 +227,8 @@ function createStorageArea(area: StorageAreaName): StorageAreaService {
 
 const hasSessionStorage = typeof chrome !== 'undefined' && Boolean(chrome.storage?.session);
 
-export const chromeStorageService: StorageService = hasSessionStorage
-  ? {
-      sync: createStorageArea('sync'),
-      local: createStorageArea('local'),
-      session: createStorageArea('session')
-    }
-  : {
-      sync: createStorageArea('sync'),
-      local: createStorageArea('local')
-    };
+export const chromeStorageService = {
+  sync: createStorageArea('sync'),
+  local: createStorageArea('local'),
+  ...(hasSessionStorage ? { session: createStorageArea('session') } : {})
+} satisfies StorageService;

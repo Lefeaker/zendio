@@ -4,6 +4,7 @@ export interface StorageChange<T = unknown> {
 }
 
 export type StorageChangeMap = Record<string, StorageChange>;
+export type StorageValueMap = Record<string, unknown>;
 
 export type StorageChangeCallback<T = unknown> = (
   value: T | undefined,
@@ -20,6 +21,10 @@ export interface StorageAreaService {
   clear: () => Promise<void>;
   watchKey: <T = unknown>(key: string, callback: StorageChangeCallback<T>) => () => void;
   watchAll: (callback: StorageAreaChangeCallback) => () => void;
+}
+
+export interface EnumerableStorageAreaService extends StorageAreaService {
+  getAll: () => Promise<StorageValueMap>;
 }
 
 export interface StorageService {
