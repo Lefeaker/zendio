@@ -14,11 +14,8 @@ import type {
   VaultConfig as SchemaVaultConfig,
   VaultRouterConfig as SchemaVaultRouterConfig
 } from '../schemas/vault.schema';
-import {
-  plainStructuredDataEqual,
-  snapshotPlainStructuredData,
-  type PlainStructuredValue
-} from './losslessObjectBoundary';
+import { plainStructuredDataEqual, snapshotPlainStructuredData } from './losslessObjectBoundary';
+import type { PlainStructuredValue } from './losslessObjectBoundaryTypes';
 import {
   STORED_OPTIONS_KNOWN_SECTIONS,
   type StoredOptionsKnownSection

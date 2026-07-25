@@ -11,7 +11,7 @@ import { DEFAULT_TAXONOMY_CONFIG } from '@shared/types/taxonomy';
 import type {
   PlainStructuredObject,
   PlainStructuredValue
-} from '@shared/config/losslessObjectBoundary';
+} from '@shared/config/losslessObjectBoundaryTypes';
 
 function requireMutation(result: ReturnType<typeof applyStoredOptionsPatch>) {
   if (!result.success) {

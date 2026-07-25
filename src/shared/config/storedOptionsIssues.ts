@@ -1,5 +1,5 @@
 import type { ZodError } from 'zod';
-import type { PlainStructuredDataFailure } from './losslessObjectBoundary';
+import type { PlainStructuredDataFailure } from './losslessObjectBoundaryTypes';
 
 export const STORED_OPTIONS_KNOWN_ROOTS = Object.freeze([
   'interfaceTheme',

@@ -1,8 +1,5 @@
-import {
-  snapshotPlainStructuredData,
-  type PlainStructuredObject,
-  type PlainStructuredValue
-} from './losslessObjectBoundary';
+import { snapshotPlainStructuredData } from './losslessObjectBoundary';
+import type { PlainStructuredObject, PlainStructuredValue } from './losslessObjectBoundaryTypes';
 import { migrateSelectionTriggerOptions } from './selectionTriggerMigration';
 import { migrateTaxonomyValue } from './taxonomyMigration';
 import { validateStrictStoredOptionsSection } from './optionsSanitizer';

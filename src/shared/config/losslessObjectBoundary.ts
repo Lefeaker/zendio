@@ -1,31 +1,31 @@
-/* prettier-ignore */ export interface PlainStructuredObject { [key: string]: PlainStructuredValue; }
-/* prettier-ignore */ export type PlainStructuredValue = null | boolean | number | string | PlainStructuredValue[] | PlainStructuredObject;
-/* prettier-ignore */ export interface PlainStructuredDataLimits { maxDepth: number; maxNodes: number; maxUtf8Bytes: number; }
-/* prettier-ignore */ export interface PlainStructuredDataMeasurement { nodes: number; depth: number; utf8Bytes: number; }
-/* prettier-ignore */ export type PlainStructuredDataFailureCode = 'UNSUPPORTED_TYPE' | 'NON_FINITE_NUMBER' | 'SYMBOL_KEY' | 'ACCESSOR_PROPERTY' | 'UNSUPPORTED_DESCRIPTOR' | 'UNSUPPORTED_PROTOTYPE' | 'SPARSE_ARRAY' | 'EXTRA_ARRAY_PROPERTY' | 'CYCLE' | 'PROTOTYPE_TRAP' | 'KEY_TRAP' | 'DESCRIPTOR_TRAP' | 'MAX_DEPTH' | 'MAX_NODES' | 'MAX_UTF8_BYTES' | 'INVALID_JSON' | 'INVALID_LIMITS' | 'INSPECTION_FAILED';
-/* prettier-ignore */ export interface PlainStructuredDataFailure { ok: false; code: PlainStructuredDataFailureCode; }
-type Success<T extends object> = { ok: true } & T;
-/* prettier-ignore */ export type PlainStructuredDataResult = Success<{ value: PlainStructuredValue; measurement: PlainStructuredDataMeasurement }> | PlainStructuredDataFailure;
-/* prettier-ignore */ export type PlainStructuredDataMeasureResult = Success<{ measurement: PlainStructuredDataMeasurement }> | PlainStructuredDataFailure;
-/* prettier-ignore */ export type PlainStructuredDataEqualityResult = Success<{ equal: boolean }> | PlainStructuredDataFailure;
-/* prettier-ignore */ export const DEFAULT_PLAIN_STRUCTURED_DATA_LIMITS: Readonly<PlainStructuredDataLimits> = Object.freeze({ maxDepth: 32, maxNodes: 10_000, maxUtf8Bytes: 512 * 1024 });
-/* prettier-ignore */ class BoundaryAbort { constructor(readonly code: PlainStructuredDataFailureCode) {} }
-/* prettier-ignore */ interface Context { limits: PlainStructuredDataLimits; active: Set<object>; nodes: number; depth: number; utf8Bytes: number; }
-/* prettier-ignore */ interface InspectedObject { array: boolean; keys: string[]; }
-/* prettier-ignore */ interface DataDescriptor { enumerable: boolean | undefined; value: unknown; }
-type Value = PlainStructuredValue;
-type RecordValue = PlainStructuredObject;
-type Overrides = Partial<PlainStructuredDataLimits>;
-type Result = PlainStructuredDataResult;
-type MeasureResult = PlainStructuredDataMeasureResult;
-type EqualityResult = PlainStructuredDataEqualityResult;
-function abort(code: PlainStructuredDataFailureCode): never {
+import type {
+  Context,
+  DataDescriptor,
+  EqualityResult,
+  InspectedObject,
+  MeasureResult,
+  Overrides,
+  PlainStructuredDataFailure,
+  PlainStructuredDataLimits,
+  RecordValue,
+  Result,
+  Value
+} from './losslessObjectBoundaryTypes';
+
+export const DEFAULT_PLAIN_STRUCTURED_DATA_LIMITS: Readonly<PlainStructuredDataLimits> =
+  Object.freeze({ maxDepth: 32, maxNodes: 10_000, maxUtf8Bytes: 512 * 1024 });
+
+class BoundaryAbort {
+  constructor(readonly code: PlainStructuredDataFailure['code']) {}
+}
+
+function abort(code: PlainStructuredDataFailure['code']): never {
   throw new BoundaryAbort(code);
 }
-function failure(code: PlainStructuredDataFailureCode): PlainStructuredDataFailure {
+function failure(code: PlainStructuredDataFailure['code']): PlainStructuredDataFailure {
   return Object.freeze({ ok: false, code });
 }
-function resolveLimits(overrides?: Partial<PlainStructuredDataLimits>): PlainStructuredDataLimits {
+function resolveLimits(overrides?: Overrides): PlainStructuredDataLimits {
   const limits = { ...DEFAULT_PLAIN_STRUCTURED_DATA_LIMITS, ...overrides };
   const valid = (value: number, maximum: number): boolean =>
     Number.isSafeInteger(value) && value >= 0 && value <= maximum;

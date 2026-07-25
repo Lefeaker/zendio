@@ -4,10 +4,12 @@ import {
   measurePlainStructuredData,
   parseBoundedJson,
   plainStructuredDataEqual,
-  snapshotPlainStructuredData,
-  type PlainStructuredObject,
-  type PlainStructuredValue
+  snapshotPlainStructuredData
 } from '@shared/config/losslessObjectBoundary';
+import type {
+  PlainStructuredObject,
+  PlainStructuredValue
+} from '@shared/config/losslessObjectBoundaryTypes';
 import {
   STORED_OPTIONS_KNOWN_ROOTS,
   createStoredOptionsBoundaryIssue,

@@ -3,11 +3,8 @@ import {
   StoredOptionsSchema,
   type StoredOptions as SchemaStoredOptions
 } from '../schemas/options.schema';
-import {
-  snapshotPlainStructuredData,
-  type PlainStructuredObject,
-  type PlainStructuredValue
-} from './losslessObjectBoundary';
+import { snapshotPlainStructuredData } from './losslessObjectBoundary';
+import type { PlainStructuredObject, PlainStructuredValue } from './losslessObjectBoundaryTypes';
 import { mergeOptions } from './optionsMerger';
 import {
   isValidStoredOptionsPatchPath,
