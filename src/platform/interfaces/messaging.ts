@@ -7,6 +7,19 @@ export interface MessageSenderInfo {
   origin?: string;
 }
 
+export const MESSAGE_LISTENER_INVOCATION_ERROR_CODE = 'MESSAGE_LISTENER_FAILED' as const;
+export const MESSAGE_LISTENER_INVOCATION_ERROR_MESSAGE =
+  'Message listener invocation failed' as const;
+
+export class MessageListenerInvocationError extends Error {
+  readonly code = MESSAGE_LISTENER_INVOCATION_ERROR_CODE;
+
+  constructor() {
+    super(MESSAGE_LISTENER_INVOCATION_ERROR_MESSAGE);
+    this.name = 'MessageListenerInvocationError';
+  }
+}
+
 export type MessagePayload =
   | null
   | boolean
@@ -19,11 +32,10 @@ export type MessageListenerResult = void | MessagePayload;
 export type MessageListener = (
   message: unknown,
   sender: MessageSenderInfo
-) => MessageListenerResult | Promise<MessageListenerResult>;
+) => MessageListenerResult | PromiseLike<MessageListenerResult>;
 
 export interface MessageSendOptions {
   frameId?: number;
-  tabId?: number;
 }
 
 export interface MessagingService {
