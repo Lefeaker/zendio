@@ -37,6 +37,7 @@ import {
 } from './productionStitchShell.helpers';
 import { mountProductionStitchShell } from '@options/app/productionStitchShell';
 import * as storageControllerModule from '@options/app/productionStitchStorageController';
+import { DEFAULT_RUNTIME_MESSAGES } from '@i18n';
 import { mergeOptions } from '@shared/config/optionsMerger';
 import type { StorageService } from '@platform/interfaces/storage';
 import type { CompleteOptions } from './productionStitchShell.helpers';
@@ -328,6 +329,35 @@ describe('mountProductionStitchShell actions', () => {
         'options_resource_viewed'
       ])
     );
+  });
+
+  it('surfaces synchronous taxonomy validation failures in an accessible status message', () => {
+    const { runtime } = createActionRuntimeHarness();
+    expect(document.getElementById('msg')).toBeNull();
+
+    runtime.dispatch(
+      'classifier:updateField',
+      ['taxonomy'],
+      JSON.stringify({
+        version: '1',
+        categories: [],
+        tags: [],
+        rules: [
+          {
+            id: 'invalid-rule',
+            name: 'Invalid rule',
+            conditions: [{ type: 'unsupported', operator: 'contains', value: 'private' }],
+            actions: []
+          }
+        ]
+      })
+    );
+
+    const message = document.getElementById('msg');
+    expect(message?.textContent).toContain(DEFAULT_RUNTIME_MESSAGES.invalidTaxonomy);
+    expect(message?.classList.contains('is-error')).toBe(true);
+    expect(message?.getAttribute('role')).toBe('status');
+    expect(message?.getAttribute('aria-live')).toBe('polite');
   });
 
   it('uses the transfer clipboard fallback and does not report copy success when fallback fails', async () => {

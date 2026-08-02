@@ -6,8 +6,10 @@ import { resolveRepository } from '@shared/di/serviceRegistry';
 import type { IMessagingRepository, IOptionsRepository } from '@shared/repositories';
 import type { CompleteOptions, StoredOptions } from '@shared/types/options';
 import type { PreviewStoreState } from '@options/stitch/types';
-import { parseClassifierTaxonomy } from '@options/services/validation';
-import { resolveTaxonomy } from '@shared/config/taxonomyMigration';
+import {
+  type OptionsValidationError,
+  resolveClassifierTaxonomyEditorText
+} from '@options/services/validation';
 import {
   createPresetYamlConfig,
   resolveReadingPathMode,
@@ -16,14 +18,14 @@ import {
 import { updateVideoDraftPath } from './productionStitchVideoDraftState';
 
 export function createLocalOptionsRepositoryFallback(): IOptionsRepository {
-  let snapshot = mergeOptions(null) as CompleteOptions;
+  let snapshot = mergeOptions(null);
   const listeners = new Set<(options: CompleteOptions) => void>();
   return {
     get() {
       return Promise.resolve(snapshot);
     },
     set(options) {
-      snapshot = mergeOptions({ ...snapshot, ...options }) as CompleteOptions;
+      snapshot = mergeOptions({ ...snapshot, ...options });
       listeners.forEach((listener) => listener(snapshot));
       return Promise.resolve();
     },
@@ -36,7 +38,6 @@ export function createLocalOptionsRepositoryFallback(): IOptionsRepository {
     }
   };
 }
-
 export function createLocalMessagingRepositoryFallback(): IMessagingRepository {
   return {
     send<T>() {
@@ -55,7 +56,6 @@ export function resolveOptionsRepositoryFallback(): IOptionsRepository {
     return createLocalOptionsRepositoryFallback();
   }
 }
-
 export function resolveMessagingRepositoryFallback(): IMessagingRepository {
   try {
     return resolveRepository<IMessagingRepository>(DI_TOKENS.IMessagingRepository);
@@ -71,7 +71,6 @@ export function resolveRoot(root?: HTMLElement | null): HTMLElement {
   }
   return target;
 }
-
 export function resolveDefaultDomainMappingRows(draft: CompleteOptions): Array<[string, string]> {
   const entries = Object.entries(draft.domainMappings);
   if (entries.length) {
@@ -109,7 +108,6 @@ export function mergePartialIntoDraft(
     (draft as Record<string, unknown>)[key] = value;
   });
 }
-
 export function applyTemplateStateToDraft(draft: CompleteOptions, state: PreviewStoreState): void {
   draft.templates.article = state.templateValues.articleVideo ?? draft.templates.article;
   draft.templates.video = state.templateValues.video ?? draft.templates.video;
@@ -153,13 +151,16 @@ export function applyOutputPresetToDraft(options: {
   options.render();
 }
 
+export type ClassifierFieldUpdateResult =
+  | { success: true }
+  | { success: false; error: OptionsValidationError };
 export function updateClassifierField(
   draft: CompleteOptions,
   state: PreviewStoreState,
   scheduleDraftSave: () => void,
   field: string,
   value: unknown
-): void {
+): ClassifierFieldUpdateResult {
   switch (field) {
     case 'enabled':
       draft.classifier.enabled = Boolean(value);
@@ -183,22 +184,22 @@ export function updateClassifierField(
       draft.classifier.apiKey = String(value ?? '');
       state.classifierApiKey = draft.classifier.apiKey;
       break;
-    case 'taxonomy':
-      state.classifierTaxonomyText = String(value ?? '');
-      try {
-        draft.classifier.taxonomy = resolveTaxonomy(
-          parseClassifierTaxonomy(state.classifierTaxonomyText)
-        );
-      } catch {
-        // Keep the previous taxonomy until the JSON is valid and matches the classifier schema.
+    case 'taxonomy': {
+      const editorText = String(value ?? '');
+      const result = resolveClassifierTaxonomyEditorText(editorText);
+      if (!result.success) {
+        return result;
       }
+      draft.classifier.taxonomy = result.taxonomy;
+      state.classifierTaxonomyText = editorText;
       break;
+    }
     default:
-      return;
+      return { success: true };
   }
   scheduleDraftSave();
+  return { success: true };
 }
-
 export function updateDraftPath(
   draft: CompleteOptions,
   state: PreviewStoreState,
@@ -245,9 +246,8 @@ export function updateDraftPath(
       break;
   }
 }
-
 export function createInitialDraft(
   options?: StoredOptions | CompleteOptions | null
 ): CompleteOptions {
-  return mergeOptions(options) as CompleteOptions;
+  return mergeOptions(options);
 }

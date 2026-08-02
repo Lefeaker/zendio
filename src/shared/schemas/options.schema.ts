@@ -1,25 +1,25 @@
 import { z } from 'zod';
+import { TaxonomyConfigSchema } from './taxonomy.schema';
 import { VaultRouterConfigSchema } from './vault.schema';
 import { YamlConfigOverridesSchema } from './yamlConfig.schema';
 
-/**
- * RestOptions Schema
- * 替换 src/shared/types/options.ts 中的 RestOptions 接口
- */
-export const RestOptionsSchema = z.object({
+export const RestOptionsSchema = z.strictObject({
   baseUrl: z.string().url('Must be a valid URL'),
   httpsUrl: z.string().url().optional(),
   httpUrl: z.string().url().optional(),
   vault: z.string().min(1, 'Vault name is required'),
-  apiKey: z.string().min(10, 'API key must be at least 10 characters'),
+  apiKey: z.union([z.literal(''), z.string().min(10, 'API key must be at least 10 characters')]),
   localFolderId: z.string().optional(),
   localFolderName: z.string().optional()
+});
+export const RestOptionsReadinessSchema = RestOptionsSchema.extend({
+  apiKey: z.string().min(10, 'API key must be at least 10 characters')
 });
 
 /**
  * TemplateOptions Schema
  */
-export const TemplateOptionsSchema = z.object({
+export const TemplateOptionsSchema = z.strictObject({
   article: z.string(),
   video: z.string(),
   fragment: z.string(),
@@ -30,7 +30,7 @@ export const TemplateOptionsSchema = z.object({
 /**
  * AiChatOptions Schema
  */
-export const AiChatOptionsSchema = z.object({
+export const AiChatOptionsSchema = z.strictObject({
   includeTimestamps: z.boolean(),
   userName: z.string()
 });
@@ -38,7 +38,7 @@ export const AiChatOptionsSchema = z.object({
 /**
  * DeepResearchOptions Schema
  */
-export const DeepResearchOptionsSchema = z.object({
+export const DeepResearchOptionsSchema = z.strictObject({
   pureMode: z.boolean()
 });
 
@@ -72,12 +72,12 @@ export const ReaderHighlightThemeSchema = z.enum([
 /**
  * ReadingSessionOptions Schema
  */
-export const ReadingSessionOptionsSchema = z.object({
+export const ReadingSessionOptionsSchema = z.strictObject({
   exportMode: ReadingExportModeSchema,
   highlightTheme: ReaderHighlightThemeSchema
 });
 
-export const VideoScreenshotAttachmentOptionsSchema = z.object({
+export const VideoScreenshotAttachmentOptionsSchema = z.strictObject({
   locationTemplate: z.string(),
   fileNameTemplate: z.string(),
   markdownUrlFormat: z.string()
@@ -86,7 +86,7 @@ export const VideoScreenshotAttachmentOptionsSchema = z.object({
 /**
  * VideoOptions Schema
  */
-export const VideoOptionsSchema = z.object({
+export const VideoOptionsSchema = z.strictObject({
   floatingPromptEnabled: z.boolean(),
   promptButtonLabel: z.string().min(1),
   promptShortcut: z.string().min(1),
@@ -94,7 +94,7 @@ export const VideoOptionsSchema = z.object({
   controlBarScreenshot: z.boolean().optional(),
   commentEditorAutoPause: z.boolean().optional(),
   promptPosition: z
-    .object({
+    .strictObject({
       x: z.number(),
       y: z.number()
     })
@@ -105,7 +105,7 @@ export const VideoOptionsSchema = z.object({
 /**
  * FragmentClipperOptions Schema
  */
-export const FragmentClipperOptionsSchema = z.object({
+export const FragmentClipperOptionsSchema = z.strictObject({
   useFootnoteFormat: z.boolean(),
   captureContext: z.boolean(),
   contextLength: z.number().int().positive(),
@@ -123,36 +123,36 @@ export const ClassifierProviderSchema = z.enum(['openai', 'compatible', 'ollama'
 /**
  * ClassifierOptions Schema
  */
-export const ClassifierOptionsSchema = z.object({
+export const ClassifierOptionsSchema = z.strictObject({
   enabled: z.boolean(),
   provider: ClassifierProviderSchema,
   endpoint: z.string().url(),
   apiKey: z.string(),
   model: z.string(),
-  taxonomy: z.any()
+  taxonomy: TaxonomyConfigSchema
 });
 
-export const ExperimentalAiOptionsSchema = z.object({
+export const ExperimentalAiOptionsSchema = z.strictObject({
   provider: z.string().min(1),
   model: z.string().min(1),
   apiUrl: z.string().url(),
   apiKey: z.string()
 });
 
-export const PageSummaryOptionsSchema = z.object({
+export const PageSummaryOptionsSchema = z.strictObject({
   enabled: z.boolean()
 });
 
-export const ReadingOverlaySummaryOptionsSchema = z.object({
+export const ReadingOverlaySummaryOptionsSchema = z.strictObject({
   enabled: z.boolean()
 });
 
-export const SubtitleTranslationOptionsSchema = z.object({
+export const SubtitleTranslationOptionsSchema = z.strictObject({
   enabled: z.boolean(),
   targetLanguage: z.string().min(1)
 });
 
-export const PrivacyPreferencesOptionsSchema = z.object({
+export const PrivacyPreferencesOptionsSchema = z.strictObject({
   analytics: z.boolean(),
   errorReporting: z.boolean(),
   debugMode: z.boolean()
@@ -163,14 +163,13 @@ export const InterfaceThemeSchema = z.enum(['dark', 'light', 'system']);
 /**
  * StoredOptions Schema（用于 chrome.storage 存储）
  *
- * Unknown root keys are stripped at the schema boundary. Config transfer has its
- * own explicit portable/fullBackup policy; persisted settings must use named
- * fields instead of accidental top-level extension keys.
+ * Unknown root keys are rejected at the canonical boundary. Config transfer and
+ * the loss-aware codec preserve opaque raw data separately from runtime options.
  */
 export const StoredOptionsSchema = z
   .object({
     interfaceTheme: InterfaceThemeSchema.optional(),
-    rest: RestOptionsSchema.partial().extend({ baseUrl: z.string().optional() }).optional(),
+    rest: RestOptionsSchema.partial().optional(),
     templates: TemplateOptionsSchema.partial()
       .extend({
         fragment: z.string().optional(),
@@ -196,12 +195,12 @@ export const StoredOptionsSchema = z
     vaultRouter: VaultRouterConfigSchema.optional(),
     yamlConfig: YamlConfigOverridesSchema.nullable().optional()
   })
-  .strip();
+  .strict();
 
 /**
  * CompleteOptions Schema（合并默认值后的完整配置）
  */
-export const CompleteOptionsSchema = z.object({
+export const CompleteOptionsSchema = z.strictObject({
   interfaceTheme: InterfaceThemeSchema.optional(),
   rest: RestOptionsSchema,
   templates: TemplateOptionsSchema,

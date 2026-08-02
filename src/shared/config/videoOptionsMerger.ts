@@ -4,6 +4,7 @@ import type {
   VideoOptions,
   VideoScreenshotAttachmentOptions
 } from '../types';
+import type { StoredOptions as SchemaStoredOptions } from '../schemas/options.schema';
 import { DEFAULT_OPTIONS } from './defaultOptions';
 
 function normalizeTemplateValue(
@@ -24,7 +25,9 @@ function normalizeTemplateValue(
 }
 
 function mergeScreenshotAttachmentOptions(
-  source: StoredVideoOptions['screenshotAttachment'],
+  source:
+    | StoredVideoOptions['screenshotAttachment']
+    | NonNullable<SchemaStoredOptions['video']>['screenshotAttachment'],
   defaults: VideoScreenshotAttachmentOptions
 ): VideoScreenshotAttachmentOptions {
   const base = source ?? {};
@@ -38,17 +41,15 @@ function mergeScreenshotAttachmentOptions(
   };
 }
 
-export function mergeVideoOptions(source?: StoredOptions['video']): VideoOptions | undefined {
+export function mergeVideoOptions(
+  source?: StoredOptions['video'] | SchemaStoredOptions['video']
+): VideoOptions | undefined {
   const defaults = DEFAULT_OPTIONS.video;
   if (!defaults && !source) {
     return undefined;
   }
 
   const base = source ?? {};
-  const legacy = base as typeof base & {
-    controlBarAutoPauseEnabled?: boolean;
-    controlBarCaptureScreenshotEnabled?: boolean;
-  };
   const merged: VideoOptions = {
     floatingPromptEnabled: base.floatingPromptEnabled ?? defaults?.floatingPromptEnabled ?? true,
     promptButtonLabel:
@@ -59,16 +60,8 @@ export function mergeVideoOptions(source?: StoredOptions['video']): VideoOptions
       (base.promptShortcut ?? defaults?.promptShortcut ?? '').trim() ||
       defaults?.promptShortcut ||
       'Alt+V',
-    controlBarAutoPause:
-      base.controlBarAutoPause ??
-      legacy.controlBarAutoPauseEnabled ??
-      defaults?.controlBarAutoPause ??
-      true,
-    controlBarScreenshot:
-      base.controlBarScreenshot ??
-      legacy.controlBarCaptureScreenshotEnabled ??
-      defaults?.controlBarScreenshot ??
-      true,
+    controlBarAutoPause: base.controlBarAutoPause ?? defaults?.controlBarAutoPause ?? true,
+    controlBarScreenshot: base.controlBarScreenshot ?? defaults?.controlBarScreenshot ?? true,
     commentEditorAutoPause:
       base.commentEditorAutoPause ?? defaults?.commentEditorAutoPause ?? false,
     screenshotAttachment: mergeScreenshotAttachmentOptions(base.screenshotAttachment, {
