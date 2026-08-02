@@ -21,28 +21,34 @@ import { buildZipFixture } from '../../utils/zipFixtureBuilder';
 
 const tempRoots: string[] = [];
 
-type ReplayCommand = {
+type JsonPrimitive = string | number | boolean | null;
+type JsonValue = JsonPrimitive | JsonObject | JsonValue[];
+interface JsonObject {
+  [key: string]: JsonValue;
+}
+
+type ReplayCommand = JsonObject & {
   label: string;
-  argv: unknown[];
-  environment: Record<string, unknown>;
-  stdin: Record<string, unknown>;
-  result: Record<string, unknown>;
+  argv: JsonValue[];
+  environment: JsonObject;
+  stdin: JsonObject;
+  result: JsonObject;
 };
 
-type ReplayReceipt = {
+type ReplayReceipt = JsonObject & {
   schema: string;
   policy: string;
   cwd: string;
-  input: { rows: unknown[]; rosterSha256: string };
+  input: JsonObject & { rows: JsonValue[]; rosterSha256: string };
   commands: ReplayCommand[];
-  output: Record<string, unknown>;
+  output: JsonObject;
 };
 
-function isRecord(value: unknown): value is Record<string, unknown> {
+function isRecord(value: JsonValue): value is JsonObject {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
-function isReplayCommand(value: unknown): value is ReplayCommand {
+function isReplayCommand(value: JsonValue): value is ReplayCommand {
   return (
     isRecord(value) &&
     typeof value.label === 'string' &&
@@ -53,7 +59,7 @@ function isReplayCommand(value: unknown): value is ReplayCommand {
   );
 }
 
-function isReplayReceipt(value: unknown): value is ReplayReceipt {
+function isReplayReceipt(value: JsonValue): value is ReplayReceipt {
   return (
     isRecord(value) &&
     typeof value.schema === 'string' &&
@@ -353,7 +359,7 @@ exit 65
     expect(receiptPath).toBeTruthy();
     if (!receiptPath) throw new Error('missing replay receipt path');
     tempRoots.push(dirname(receiptPath));
-    const receiptValue: unknown = JSON.parse(await readFile(receiptPath, 'utf8'));
+    const receiptValue: JsonValue = JSON.parse(await readFile(receiptPath, 'utf8'));
     if (!isReplayReceipt(receiptValue)) throw new Error('invalid replay receipt shape');
     const receipt = receiptValue;
     expect(receipt).toMatchObject({
@@ -406,11 +412,10 @@ exit 65
       expect.stringMatching(/^\/tmp\/zendio-amo-review\..+\/tmp\/dist-firefox$/)
     ]);
     const packageLockRow = receipt.input.rows.find(
-      (row): row is Record<string, unknown> => isRecord(row) && row.path === 'package-lock.json'
+      (row): row is JsonObject => isRecord(row) && row.path === 'package-lock.json'
     );
     const binaryRow = receipt.input.rows.find(
-      (row): row is Record<string, unknown> =>
-        isRecord(row) && row.path === 'public/icons/arbitrary-binary.bin'
+      (row): row is JsonObject => isRecord(row) && row.path === 'public/icons/arbitrary-binary.bin'
     );
     expect(packageLockRow).toBeDefined();
     expect(typeof packageLockRow?.sha256).toBe('string');
