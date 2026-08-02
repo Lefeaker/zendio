@@ -1025,7 +1025,7 @@ describe('video prompt', () => {
   });
 
   it('removes the connected host when drag setup fails after attachment', async () => {
-    const attached = { root: null as ShadowRoot | null };
+    const attached: { root: ShadowRoot | null } = { root: null };
     const dispose = vi.fn(() => expect(attached.root?.host.isConnected).toBe(true));
     const { panelStyleSheetManager } =
       await import('../../../src/content/shared/panels/styleSheetManager');

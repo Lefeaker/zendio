@@ -521,7 +521,7 @@ describe('SupportPrompt', () => {
   });
 
   it('cancels and guards toast reveal work when destroyed before the frame', async () => {
-    const frame = { callback: null as FrameRequestCallback | null };
+    const frame: { callback: FrameRequestCallback | null } = { callback: null };
     vi.spyOn(window, 'requestAnimationFrame').mockImplementation((callback) => {
       frame.callback = callback;
       return 17;
