@@ -1,6 +1,6 @@
 export type FirefoxAmoSourceArchiveEntry = {
   readonly path: string;
-  readonly content: string | null;
+  readonly content: Buffer | null;
 };
 
 export type FirefoxAmoSourceArchiveResult = {
