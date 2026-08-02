@@ -1,6 +1,6 @@
 import {
-  createSessionDraftPageKey,
-  createSessionDraftStorageIdentity,
+  matchesSessionDraftPageIdentity,
+  matchesSessionDraftStorageRecord,
   SESSION_DRAFT_INDEX_KEY
 } from '../../shared/sessionDrafts/keys';
 import type { SessionDraftPruneRequest } from '../../shared/sessionDrafts/messages';
@@ -67,13 +67,13 @@ type SessionDraftSelectionConflictCode = Extract<
   'OWNER_CONTEXT_INVALID' | 'OWNER_ACTIVE' | 'OWNER_LIVENESS_UNAVAILABLE' | 'RECORD_CHANGED'
 >;
 
-function isExactCandidate(candidate: SessionDraftSelectionCandidate, pageKey: string): boolean {
-  const { record } = candidate;
-  const identity = createSessionDraftStorageIdentity(record);
+function isExactCandidate(
+  candidate: SessionDraftSelectionCandidate,
+  input: Pick<SessionDraftSelectionInput, 'mode' | 'pageUrl'>
+): boolean {
   return (
-    record.pageKey === pageKey &&
-    identity.pageKey === record.pageKey &&
-    identity.key === candidate.key
+    matchesSessionDraftStorageRecord(candidate.key, candidate.record) &&
+    matchesSessionDraftPageIdentity(candidate.record, input)
   );
 }
 
@@ -136,13 +136,11 @@ async function selectCandidate(
     return { outcome: 'conflict', code: 'OWNER_CONTEXT_INVALID' };
   }
   const policy = normalizeSessionDraftRetentionPolicy(input.retentionPolicy);
-  const pageKey = createSessionDraftPageKey(input.mode, input.pageUrl);
   const invalidRemovedCount = Math.max(0, input.invalidRemovedCount ?? 0);
   const candidates = input.candidates
     .filter(
       (candidate) =>
-        candidate.record.mode === input.mode &&
-        isExactCandidate(candidate, pageKey) &&
+        isExactCandidate(candidate, input) &&
         getSessionDraftEffectiveExpiresAt(candidate.record, policy) > now
     )
     .sort(

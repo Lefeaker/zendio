@@ -8,6 +8,7 @@ import {
 } from '../../../src/background/services/sessionDraftStoreSelection';
 import { createSessionDraftIndexEntry } from '../../../src/shared/sessionDrafts';
 import {
+  createLegacySessionDraftPageKey,
   createSessionDraftPageKey,
   createSessionDraftStorageKey
 } from '../../../src/shared/sessionDrafts/keys';
@@ -24,6 +25,11 @@ import { SESSION_DRAFT_LEASE_DURATION_MS } from '../../../src/shared/sessionDraf
 const NOW = 100_000;
 const PAGE_URL = 'https://example.com/article?view=full';
 const PAGE_KEY = createSessionDraftPageKey('reader', PAGE_URL);
+const LEGACY_PAGE_KEY = createLegacySessionDraftPageKey('reader', PAGE_URL);
+const COLLIDING_PAGE_URLS = [
+  'https://example.com/reader/1ctg9w7-1jx99je',
+  'https://example.com/reader/1d2u5vn-q239ae'
+] as const;
 const OWNER: SessionDraftTrustedOwnerContext = { tabId: 7, frameId: 0, windowId: 2 };
 const PRIOR_OWNER: SessionDraftTrustedOwnerContext = { tabId: 5, frameId: 3, windowId: 1 };
 
@@ -71,14 +77,16 @@ function legacyRecord(options: {
   status: SessionDraftLegacyRecord['status'];
   owner?: SessionDraftLegacyRecord['legacyOwnerContext'];
   updatedAt?: number;
+  pageUrl?: string;
+  pageKey?: string;
 }): SessionDraftLegacyRecord {
   return {
     schemaVersion: 1,
     revision: 0,
     draftId: options.draftId,
     mode: 'reader',
-    pageKey: PAGE_KEY,
-    pageUrl: PAGE_URL,
+    pageKey: options.pageKey ?? LEGACY_PAGE_KEY,
+    pageUrl: options.pageUrl ?? PAGE_URL,
     pageTitle: 'Legacy',
     createdAt: NOW - 2_000,
     updatedAt: options.updatedAt ?? NOW - 200,
@@ -144,6 +152,33 @@ function indexEntry(key: string, updatedAt: number, expiresAt: number): SessionD
 }
 
 describe('session draft store selection', () => {
+  it('selects by full normalized identity when legacy page keys collide', async () => {
+    const [leftUrl, rightUrl] = COLLIDING_PAGE_URLS;
+    const left = candidate(
+      legacyRecord({
+        draftId: 'left-collision',
+        status: 'restorable',
+        updatedAt: NOW - 10,
+        pageUrl: leftUrl,
+        pageKey: '1kqeq3k'
+      })
+    );
+    const right = candidate(
+      legacyRecord({
+        draftId: 'right-collision',
+        status: 'restorable',
+        updatedAt: NOW - 20,
+        pageUrl: rightUrl,
+        pageKey: '1kqeq3k'
+      })
+    );
+    const deps = dependencies([left, right]);
+
+    await expect(
+      selectSessionDraftClaimCandidate({ ...input([left, right]), pageUrl: rightUrl }, deps)
+    ).resolves.toMatchObject({ outcome: 'selected', key: right.key });
+  });
+
   it('plans deterministic expiry, page, and technical-cap retention', async () => {
     const entries = [
       indexEntry('expired', NOW - 20, NOW),

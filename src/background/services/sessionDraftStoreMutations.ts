@@ -1,4 +1,8 @@
-import { createSessionDraftStorageIdentity } from '../../shared/sessionDrafts/keys';
+import {
+  createSessionDraftCanonicalPageFields,
+  createSessionDraftStorageIdentity,
+  matchesSessionDraftRecordPageIdentity
+} from '../../shared/sessionDrafts/keys';
 import type {
   SessionDraftFinalizeExactRequest,
   SessionDraftReleaseLeaseRequest,
@@ -100,7 +104,7 @@ function migrateLegacySave(
       ...withoutLegacyOwner(record),
       schemaVersion: 2,
       revision: 1,
-      pageUrl: request.draft.pageUrl,
+      ...createSessionDraftCanonicalPageFields(request.draft.mode, request.draft.pageUrl),
       pageTitle: request.draft.pageTitle,
       updatedAt: context.now,
       expiresAt: context.now + context.retentionMs,
@@ -127,7 +131,7 @@ export function saveSessionDraftTransition(
         schemaVersion: 2,
         revision: 1,
         ...request.draft,
-        pageKey: identity.pageKey,
+        ...createSessionDraftCanonicalPageFields(request.draft.mode, request.draft.pageUrl),
         createdAt: context.now,
         updatedAt: context.now,
         expiresAt: context.now + context.retentionMs,
@@ -138,9 +142,8 @@ export function saveSessionDraftTransition(
   }
   if (request.expectedRevision === null) return conflict('DRAFT_EXISTS');
   if (
-    record.pageKey !== identity.pageKey ||
     record.draftId !== request.draft.draftId ||
-    record.mode !== request.draft.mode
+    !matchesSessionDraftRecordPageIdentity(record, request.draft)
   ) {
     return conflict('STORAGE_KEY_MISMATCH');
   }
@@ -154,7 +157,7 @@ export function saveSessionDraftTransition(
     envelope: {
       ...record,
       revision: record.revision + 1,
-      pageUrl: request.draft.pageUrl,
+      ...createSessionDraftCanonicalPageFields(request.draft.mode, request.draft.pageUrl),
       pageTitle: request.draft.pageTitle,
       updatedAt: context.now,
       expiresAt: context.now + context.retentionMs,
@@ -234,6 +237,7 @@ export function claimSessionDraftTransition(
       ...withoutLegacyOwner(record),
       schemaVersion: 2,
       revision: record.schemaVersion === 1 ? 1 : record.revision + 1,
+      ...createSessionDraftCanonicalPageFields(record.mode, record.pageUrl),
       updatedAt: context.now,
       expiresAt: context.now + context.retentionMs,
       status: 'active',

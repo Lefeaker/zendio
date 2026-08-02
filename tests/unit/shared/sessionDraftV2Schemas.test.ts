@@ -20,6 +20,7 @@ import {
   SessionDraftSaveRequestSchema,
   SessionDraftSelectAndClaimResultSchema,
   compareSessionDraftText,
+  createLegacySessionDraftPageKey,
   createSessionDraftIndex,
   createSessionDraftIndexEntry,
   createSessionDraftPageKey,
@@ -38,6 +39,10 @@ import {
 } from '@shared/sessionDrafts';
 
 const NOW = 1_000_000;
+const COLLIDING_PAGE_URLS = [
+  'https://example.com/reader/1ctg9w7-1jx99je',
+  'https://example.com/reader/1d2u5vn-q239ae'
+] as const;
 const LEASE = {
   leaseId: 'lease-1',
   owner: { tabId: 7, frameId: 0, windowId: 3 },
@@ -80,6 +85,28 @@ function createEntry(id: string, updatedAt: number, pageKey = id): SessionDraftI
 }
 
 describe('session draft v2 shared contract', () => {
+  it('uses collision-resistant physical page identities for the known FNV-1a/32 collision', () => {
+    const legacyKeys = COLLIDING_PAGE_URLS.map((pageUrl) =>
+      createLegacySessionDraftPageKey('reader', pageUrl)
+    );
+    const physicalKeys = COLLIDING_PAGE_URLS.map((pageUrl) =>
+      createSessionDraftStorageKey({
+        mode: 'reader',
+        pageKey: createSessionDraftPageKey('reader', pageUrl),
+        draftId: 'shared-draft'
+      })
+    );
+
+    expect(legacyKeys).toEqual(['1kqeq3k', '1kqeq3k']);
+    expect(
+      COLLIDING_PAGE_URLS.map((pageUrl) => createSessionDraftPageKey('reader', pageUrl))
+    ).toEqual([
+      '839e89718ebbfa291d1535c3413d5350803cb1fc6a85d7dd32eec4c07a5449ce',
+      '35099eec2f2f9107a27819ddba9d577ed0b59c80f64809bf9d0855cc7b46e229'
+    ]);
+    expect(new Set(physicalKeys).size).toBe(2);
+  });
+
   it('retains the physical v1 key grammar and parses encoded exact identities', () => {
     const pageUrl = 'https://example.com/post#section:~:text=Alpha';
     const pageKey = createSessionDraftPageKey('reader', pageUrl);
@@ -108,6 +135,14 @@ describe('session draft v2 shared contract', () => {
 
   it('enforces revision and lease/status invariants with trusted top-level ownership', () => {
     expect(SessionDraftEnvelopeSchema.safeParse(createEnvelope()).success).toBe(true);
+    expect(
+      SessionDraftEnvelopeSchema.safeParse(createEnvelope({ pageKey: 'legacy-page-key' })).success
+    ).toBe(false);
+    expect(
+      SessionDraftEnvelopeSchema.safeParse(
+        createEnvelope({ pageUrl: 'https://example.com/post#section:~:text=Alpha' })
+      ).success
+    ).toBe(false);
     expect(SessionDraftEnvelopeSchema.safeParse(createEnvelope({ revision: 0 })).success).toBe(
       false
     );
