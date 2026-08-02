@@ -1,5 +1,11 @@
+import { spawnSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
+import {
+  CI_CONTRACT_PUBLIC_EXPORTS,
+  CI_WORKFLOW_CHARACTERIZATION
+} from './fixtures/ciWorkflowCharacterization';
 
 function readCiWorkflow(): string {
   return readFileSync(resolve('.github/workflows/ci.yml'), 'utf8');
@@ -18,6 +24,41 @@ function readWorkflowSupportFile(path: string): string {
 }
 
 describe('CI workflow wiring', () => {
+  it('preserves the public facade, semantic model, diagnostics, and check CLI tuple', async () => {
+    const contract = await loadCiContractModule();
+    expect(Object.keys(contract).sort()).toEqual(CI_CONTRACT_PUBLIC_EXPORTS);
+
+    const workflow = readCiWorkflow();
+    const parsed = contract.parseCiWorkflowJobs(workflow);
+    const normalized = {
+      order: parsed.order,
+      jobs: parsed.order.map((id) => [id, parsed.jobs.get(id)]),
+      topLevelFields: parsed.topLevelFields
+    };
+    expect(createHash('sha256').update(JSON.stringify(normalized)).digest('hex')).toBe(
+      CI_WORKFLOW_CHARACTERIZATION.parsedSemanticSha256
+    );
+    expect(contract.checkCiWorkflowContract()).toEqual(CI_WORKFLOW_CHARACTERIZATION.validResult);
+
+    const mutation = CI_WORKFLOW_CHARACTERIZATION.timeoutMutation;
+    const mutatedWorkflow = workflow.replace(mutation.from, mutation.to);
+    expect(mutatedWorkflow).not.toBe(workflow);
+    expect(contract.checkCiWorkflowContract({ workflow: mutatedWorkflow }).failures).toEqual(
+      mutation.failures
+    );
+
+    const cli = spawnSync('node', ['tools/report-ci-workflow-contract.mjs', '--check'], {
+      cwd: process.cwd(),
+      encoding: 'utf8'
+    });
+    expect({
+      status: cli.status,
+      signal: cli.signal,
+      stdout: cli.stdout,
+      stderr: cli.stderr
+    }).toEqual(CI_WORKFLOW_CHARACTERIZATION.checkCli);
+  });
+
   it('cancels superseded runs for the same workflow ref or PR', () => {
     const workflow = readCiWorkflow();
 
