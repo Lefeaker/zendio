@@ -10,37 +10,28 @@ import {
   type SessionDraftPendingRemoval,
   type SessionDraftRecord
 } from './types';
+import {
+  createLegacySessionDraftPageKey,
+  createSessionDraftPageIdentity,
+  matchesSessionDraftPageIdentity,
+  type SessionDraftIdentityRequest
+} from './pageIdentity';
 
 const SESSION_DRAFT_KEY_PREFIX = 'aiob.sessionDraft';
 const SESSION_DRAFT_VALUE_PREFIX = `${SESSION_DRAFT_KEY_PREFIX}.v1.`;
-const TEXT_FRAGMENT_MARKER = ':~:text=';
-
 export const SESSION_DRAFT_INDEX_KEY = `${SESSION_DRAFT_KEY_PREFIX}.index.v1`;
 export const SESSION_DRAFT_QUARANTINE_KEY = `${SESSION_DRAFT_INDEX_KEY}.quarantine.latest`;
 
-function extractReaderHash(hash: string): string {
-  const markerIndex = hash.indexOf(TEXT_FRAGMENT_MARKER);
-  return markerIndex === -1 ? '' : `#${hash.slice(markerIndex)}`;
-}
-
-function hashSessionDraftKey(input: string): string {
-  let hash = 0x811c9dc5;
-  for (let index = 0; index < input.length; index += 1) {
-    hash ^= input.charCodeAt(index);
-    hash = Math.imul(hash, 0x01000193) >>> 0;
-  }
-  return hash.toString(36);
-}
-
-export function normalizeSessionDraftPageUrl(mode: SessionDraftMode, pageUrl: string): string {
-  const parsed = new URL(pageUrl);
-  const hash = mode === 'reader' ? extractReaderHash(parsed.hash) : '';
-  return `${parsed.origin}${parsed.pathname}${parsed.search}${hash}`;
-}
-
-export function createSessionDraftPageKey(mode: SessionDraftMode, pageUrl: string): string {
-  return hashSessionDraftKey(`${mode}:${normalizeSessionDraftPageUrl(mode, pageUrl)}`);
-}
+export {
+  createSessionDraftCanonicalPageFields,
+  createLegacySessionDraftPageKey,
+  createSessionDraftPageIdentity,
+  createSessionDraftPageKey,
+  hasCanonicalSessionDraftPageIdentity,
+  matchesSessionDraftPageIdentity,
+  matchesSessionDraftRecordPageIdentity,
+  normalizeSessionDraftPageUrl
+} from './pageIdentity';
 
 export function createSessionDraftStorageKey(input: {
   mode: SessionDraftMode;
@@ -54,9 +45,41 @@ export function createSessionDraftStorageIdentity(input: {
   mode: SessionDraftMode;
   pageUrl: string;
   draftId: string;
-}): { key: string; pageKey: string } {
-  const pageKey = createSessionDraftPageKey(input.mode, input.pageUrl);
-  return { pageKey, key: createSessionDraftStorageKey({ ...input, pageKey }) };
+}): { key: string; pageKey: string; normalizedPageUrl: string } {
+  const identity = createSessionDraftPageIdentity(input.mode, input.pageUrl);
+  return {
+    pageKey: identity.pageKey,
+    normalizedPageUrl: identity.normalizedPageUrl,
+    key: createSessionDraftStorageKey({ ...input, pageKey: identity.pageKey })
+  };
+}
+
+export function resolveSessionDraftRecord(
+  records: readonly { key: string; record: SessionDraftRecord }[],
+  request: SessionDraftIdentityRequest
+): readonly [SessionDraftRecord | undefined, string | undefined] {
+  const exact = records.find((item) => item.key === request.key);
+  if (exact || request.operation !== 'save' || !request.draft) {
+    return [exact?.record, undefined];
+  }
+  const draft = request.draft;
+  const legacy = records.find(
+    (item) =>
+      item.record.schemaVersion === 1 &&
+      item.record.draftId === draft.draftId &&
+      matchesSessionDraftPageIdentity(item.record, draft)
+  );
+  return [legacy?.record, legacy?.key];
+}
+
+export function resolveClaimRekey(
+  sourceKey: string,
+  source: SessionDraftRecord,
+  target: { mode: SessionDraftMode; pageUrl: string; draftId: string }
+): { key: string; removedKeys: string[] } | undefined {
+  const identity = createSessionDraftStorageIdentity(target);
+  if (source.schemaVersion === 2 && identity.key !== sourceKey) return undefined;
+  return { key: identity.key, removedKeys: identity.key === sourceKey ? [] : [sourceKey] };
 }
 
 export function matchesSessionDraftStorageIdentity(input: {
@@ -74,6 +97,13 @@ export function matchesSessionDraftStorageIdentity(input: {
 }
 
 export function matchesSessionDraftStorageRecord(key: string, record: SessionDraftRecord): boolean {
+  if (record.schemaVersion === 1) {
+    const pageKey = createLegacySessionDraftPageKey(record.mode, record.pageUrl);
+    return (
+      record.pageKey === pageKey &&
+      key === createSessionDraftStorageKey({ mode: record.mode, pageKey, draftId: record.draftId })
+    );
+  }
   return matchesSessionDraftStorageIdentity({
     key,
     mode: record.mode,

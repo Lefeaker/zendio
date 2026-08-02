@@ -7,6 +7,7 @@ import {
   validateSessionDraftRemoveTransition
 } from '../../../src/background/services/sessionDraftStoreMutations';
 import {
+  createLegacySessionDraftPageKey,
   createSessionDraftPageKey,
   createSessionDraftStorageKey
 } from '../../../src/shared/sessionDrafts/keys';
@@ -80,7 +81,7 @@ function legacyRecord(overrides: Partial<SessionDraftLegacyRecord> = {}): Sessio
     revision: 0,
     draftId: current.draftId,
     mode: current.mode,
-    pageKey: current.pageKey,
+    pageKey: createLegacySessionDraftPageKey(current.mode, current.pageUrl),
     pageUrl: current.pageUrl,
     pageTitle: current.pageTitle,
     createdAt: current.createdAt,
@@ -183,6 +184,10 @@ describe('sessionDraftStoreMutations', () => {
     );
 
     expect(sameOwner).toMatchObject({ schemaVersion: 2, revision: 1, lease: { owner: OWNER } });
+    expect(sameOwner.pageKey).toBe(
+      createSessionDraftPageKey(request.draft.mode, request.draft.pageUrl)
+    );
+    expect(sameOwner.pageKey).not.toBe(legacyRecord().pageKey);
     expect(restorable).toMatchObject({ schemaVersion: 2, revision: 1, status: 'active' });
     expect(sameOwner.payload).not.toHaveProperty('ownerContext');
     expect(sameOwner).not.toHaveProperty('legacyOwnerContext');
@@ -271,6 +276,9 @@ describe('sessionDraftStoreMutations', () => {
     expect(currentClaim.outcome).toBe('success');
     if (legacyClaim.outcome !== 'success' || currentClaim.outcome !== 'success') return;
     expect(legacyClaim.envelope).toMatchObject({ schemaVersion: 2, revision: 1 });
+    expect(legacyClaim.envelope.pageKey).toBe(
+      createSessionDraftPageKey(legacy.mode, legacy.pageUrl)
+    );
     expect(legacyClaim.envelope).not.toHaveProperty('legacyOwnerContext');
     expect(currentClaim.envelope).toMatchObject({ schemaVersion: 2, revision: 4 });
     expect(claimSessionDraftTransition(activeEnvelope({ status: 'exported' }), context)).toEqual({

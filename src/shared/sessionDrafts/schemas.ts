@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import {
+  hasCanonicalSessionDraftPageIdentity,
   isValidSessionDraftMutationMetadata as validMutationMetadata,
   isValidSessionDraftMutationReceipt as validMutationReceipt,
   isValidSessionDraftPendingRemoval as validPendingRemoval
@@ -126,14 +127,12 @@ export const SessionDraftEnvelopeSchema = SessionDraftRecordMetadataSchema.exten
   payload: SessionDraftPayloadSchema
 })
   .strict()
+  .refine(hasCanonicalSessionDraftPageIdentity, 'SESSION_DRAFT_PAGE_IDENTITY_INVALID')
+  .refine(
+    (record) => (record.status !== 'restorable') === Boolean(record.lease),
+    'SESSION_DRAFT_LEASE_STATUS_INVALID'
+  )
   .superRefine((record, context) => {
-    const requiresLease = record.status !== 'restorable';
-    if (requiresLease !== Boolean(record.lease)) {
-      context.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: 'SESSION_DRAFT_LEASE_STATUS_INVALID'
-      });
-    }
     if (measureSessionDraftValueBytes(record) > SESSION_DRAFT_MAX_ENVELOPE_BYTES) {
       context.addIssue({ code: z.ZodIssueCode.custom, message: 'SESSION_DRAFT_PAYLOAD_TOO_LARGE' });
     }

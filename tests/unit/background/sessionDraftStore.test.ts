@@ -11,6 +11,7 @@ import {
 } from '../../../src/background/services/sessionDraftStore';
 import {
   createSessionDraftIndex,
+  createLegacySessionDraftPageKey,
   createSessionDraftPageKey,
   createSessionDraftStorageKey,
   compareSessionDraftText,
@@ -33,6 +34,10 @@ import {
 } from '../../../src/shared/sessionDrafts';
 
 const BASE_TIME = 4_000_000;
+const COLLIDING_PAGE_URLS = [
+  'https://example.com/reader/1ctg9w7-1jx99je',
+  'https://example.com/reader/1d2u5vn-q239ae'
+] as const;
 const OWNER: SessionDraftTrustedOwnerContext = { tabId: 7, frameId: 0, windowId: 2 };
 const FOREIGN_OWNER: SessionDraftTrustedOwnerContext = { tabId: 8, frameId: 0 };
 
@@ -130,9 +135,14 @@ class FakeEnumerableStorage {
 function saveRequest(
   draftId: string,
   requestId: string,
-  options: { expectedRevision?: number; leaseId?: string; payload?: Record<string, string> } = {}
+  options: {
+    expectedRevision?: number;
+    leaseId?: string;
+    payload?: Record<string, string>;
+    pageUrl?: string;
+  } = {}
 ): SessionDraftSaveRequest {
-  const pageUrl = `https://example.com/${draftId}`;
+  const pageUrl = options.pageUrl ?? `https://example.com/${draftId}`;
   const pageKey = createSessionDraftPageKey('reader', pageUrl);
   return {
     operation: 'save',
@@ -273,6 +283,74 @@ describe('sessionDraftStore facade', () => {
         saveRequest('beta', 'ignored').key
       ])
     );
+  });
+
+  it('isolates same-draftId lifecycle and receipts across the known page-key collision', async () => {
+    const { store, storage } = createStoreHarness();
+    const [leftUrl, rightUrl] = COLLIDING_PAGE_URLS;
+    const left = saveRequest('shared-draft', 'save-collision-left', { pageUrl: leftUrl });
+    const right = saveRequest('shared-draft', 'save-collision-right', { pageUrl: rightUrl });
+
+    expect(left.key).not.toBe(right.key);
+    const leftEnvelope = expectSaved(await store.save(left, OWNER));
+    const rightEnvelope = expectSaved(await store.save(right, OWNER));
+    expect(leftEnvelope.pageUrl).toBe(leftUrl);
+    expect(rightEnvelope.pageUrl).toBe(rightUrl);
+
+    const leftLease = leftEnvelope.lease?.leaseId;
+    if (!leftLease) throw new Error('Expected the left collision lease.');
+    await expect(
+      store.finalizeExact(
+        {
+          operation: 'finalizeExact',
+          requestId: 'finalize-collision-left',
+          key: left.key,
+          expectedRevision: leftEnvelope.revision,
+          leaseId: leftLease,
+          status: 'exported'
+        },
+        OWNER
+      )
+    ).resolves.toMatchObject({ outcome: 'finalized', envelope: { pageUrl: leftUrl } });
+    await expect(
+      store.removeExact(
+        {
+          operation: 'removeExact',
+          requestId: 'remove-collision-left',
+          key: left.key,
+          expectedRevision: leftEnvelope.revision + 1,
+          leaseId: leftLease
+        },
+        OWNER
+      )
+    ).resolves.toMatchObject({ outcome: 'removed', key: left.key });
+
+    await expect(store.readExact({ operation: 'readExact', key: left.key })).resolves.toEqual({
+      outcome: 'missing'
+    });
+    await expect(
+      store.readExact({ operation: 'readExact', key: right.key })
+    ).resolves.toMatchObject({
+      outcome: 'found',
+      envelope: { pageUrl: rightUrl, draftId: 'shared-draft' }
+    });
+    await expect(
+      store.list({ operation: 'list', mode: 'reader', pageUrl: leftUrl })
+    ).resolves.toMatchObject({ outcome: 'listed', envelopes: [] });
+    await expect(
+      store.list({ operation: 'list', mode: 'reader', pageUrl: rightUrl })
+    ).resolves.toMatchObject({
+      outcome: 'listed',
+      envelopes: [{ pageUrl: rightUrl, draftId: 'shared-draft' }]
+    });
+
+    const index = SessionDraftIndexSchema.parse(storage.values[SESSION_DRAFT_INDEX_KEY]);
+    expect(
+      index.receipts.find((receipt) => receipt.requestId === 'save-collision-right')?.key
+    ).toBe(right.key);
+    expect(
+      index.receipts.find((receipt) => receipt.requestId === 'remove-collision-left')?.key
+    ).toBe(left.key);
   });
 
   it('retains the current envelope under a fixed-clock full-capacity tie', async () => {
@@ -992,7 +1070,7 @@ describe('sessionDraftStore facade', () => {
 
   it('reads v1 non-destructively and migrates only on the first successful claim', async () => {
     const pageUrl = 'https://example.com/legacy';
-    const pageKey = createSessionDraftPageKey('reader', pageUrl);
+    const pageKey = createLegacySessionDraftPageKey('reader', pageUrl);
     const key = createSessionDraftStorageKey({ mode: 'reader', pageKey, draftId: 'legacy' });
     const legacy = {
       schemaVersion: 1,
@@ -1042,15 +1120,13 @@ describe('sessionDraftStore facade', () => {
     }
     expect(storage.setManyAttempts).toHaveLength(0);
     expect(storage.values[key]).toEqual(legacy);
-    const claimed = await store.selectAndClaim(
-      {
-        operation: 'selectAndClaim',
-        requestId: 'claim-legacy',
-        mode: 'reader',
-        pageUrl
-      },
-      OWNER
-    );
+    const claimRequest: SessionDraftSelectAndClaimRequest = {
+      operation: 'selectAndClaim',
+      requestId: 'claim-legacy',
+      mode: 'reader',
+      pageUrl
+    };
+    const claimed = await store.selectAndClaim(claimRequest, OWNER);
     expect(claimed).toMatchObject({
       outcome: 'claimed',
       revision: 1,
@@ -1063,6 +1139,21 @@ describe('sessionDraftStore facade', () => {
     });
     if (claimed.outcome === 'claimed') {
       expect(claimed.envelope?.payload).not.toHaveProperty('ownerContext');
+      if (!claimed.envelope) throw new Error('Expected the migrated legacy envelope.');
+      const migratedKey = createSessionDraftStorageKey({
+        mode: claimed.envelope.mode,
+        pageKey: claimed.envelope.pageKey,
+        draftId: claimed.envelope.draftId
+      });
+      expect(migratedKey).not.toBe(key);
+      expect(storage.values[key]).toBeUndefined();
+      expect(storage.values[migratedKey]).toEqual(claimed.envelope);
+      await expect(store.selectAndClaim(claimRequest, OWNER)).resolves.toMatchObject({
+        outcome: 'claimed',
+        revision: 1,
+        replay: { replayed: true, requiresReadExact: false },
+        envelope: { pageKey: claimed.envelope.pageKey }
+      });
     }
   });
 

@@ -187,12 +187,11 @@ async function list(
     snapshot.invalidRemovedKeys
   );
   if (!cleaned) return { outcome: 'recovery_failed', code: 'INDEX_RECOVERY_FAILED' };
-  const pageKey = Draft.createSessionDraftPageKey(request.mode, request.pageUrl);
   return {
     outcome: 'listed',
     envelopes: snapshot.records
       .map((item) => withoutLegacyOwner(item.record))
-      .filter((item) => item.mode === request.mode && item.pageKey === pageKey),
+      .filter((item) => Draft.matchesSessionDraftPageIdentity(item, request)),
     invalidRemovedCount: snapshot.invalidRemovedCount
   };
 }
