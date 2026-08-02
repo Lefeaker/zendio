@@ -1,9 +1,8 @@
-import { readFileSync } from 'node:fs';
 import { access, cp, mkdir, mkdtemp, readdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { basename, dirname, extname, join, normalize, resolve, sep } from 'node:path';
-import { inflateRawSync } from 'node:zlib';
 import { zipDirectory } from './archive.mjs';
+import { inventoryBoundedZip, readBoundedZipText } from './boundedZipArchive.mjs';
 
 export const FIREFOX_AMO_SOURCE_ARCHIVE_SUFFIX = '-source';
 
@@ -220,78 +219,14 @@ The final command writes \`${releaseXpiName}\` in the archive root. Compare that
 `;
 }
 
-function readZipEntryContent(
-  buffer,
-  { archivePath, compressedSize, compressionMethod, localHeaderOffset, path }
-) {
-  if (path.endsWith('/')) {
-    return null;
-  }
-  if (buffer.readUInt32LE(localHeaderOffset) !== 0x04034b50) {
-    throw new Error(`Invalid ZIP local file header for ${path} in ${archivePath}`);
-  }
-  const fileNameLength = buffer.readUInt16LE(localHeaderOffset + 26);
-  const extraLength = buffer.readUInt16LE(localHeaderOffset + 28);
-  const contentStart = localHeaderOffset + 30 + fileNameLength + extraLength;
-  const compressed = buffer.subarray(contentStart, contentStart + compressedSize);
-  if (compressionMethod === 0) {
-    return compressed;
-  }
-  if (compressionMethod === 8) {
-    return inflateRawSync(compressed);
-  }
-  return null;
-}
-
 export async function readFirefoxAmoSourceArchiveEntries(archivePath) {
-  const buffer = readFileSync(archivePath);
-  let endOffset = -1;
-  for (let index = buffer.length - 22; index >= 0; index -= 1) {
-    if (buffer.readUInt32LE(index) === 0x06054b50) {
-      endOffset = index;
-      break;
-    }
-  }
-
-  if (endOffset === -1) {
-    throw new Error(`Unable to locate ZIP end-of-central-directory record: ${archivePath}`);
-  }
-
-  const entryCount = buffer.readUInt16LE(endOffset + 10);
-  const centralDirectoryOffset = buffer.readUInt32LE(endOffset + 16);
-  const entries = [];
-  let offset = centralDirectoryOffset;
-
-  for (let index = 0; index < entryCount; index += 1) {
-    if (buffer.readUInt32LE(offset) !== 0x02014b50) {
-      throw new Error(`Invalid ZIP central directory entry in ${archivePath}`);
-    }
-    const compressionMethod = buffer.readUInt16LE(offset + 10);
-    const compressedSize = buffer.readUInt32LE(offset + 20);
-    const fileNameLength = buffer.readUInt16LE(offset + 28);
-    const extraLength = buffer.readUInt16LE(offset + 30);
-    const commentLength = buffer.readUInt16LE(offset + 32);
-    const localHeaderOffset = buffer.readUInt32LE(offset + 42);
-    const fileNameStart = offset + 46;
-    const fileNameEnd = fileNameStart + fileNameLength;
-    const path = normalizeArchiveEntryPath(
-      buffer.subarray(fileNameStart, fileNameEnd).toString('utf8')
-    );
-    const contentBuffer = readZipEntryContent(buffer, {
-      archivePath,
-      compressedSize,
-      compressionMethod,
-      localHeaderOffset,
-      path
-    });
-    entries.push({
-      path,
-      content: contentBuffer ? contentBuffer.toString('utf8') : null
-    });
-    offset = fileNameEnd + extraLength + commentLength;
-  }
-
-  return entries;
+  const inventory = await inventoryBoundedZip(archivePath);
+  return Promise.all(
+    inventory.entries.map(async (entry) => ({
+      path: entry.path,
+      content: await readBoundedZipText(entry)
+    }))
+  );
 }
 
 export async function auditFirefoxAmoSourceArchive(archivePath, options = {}) {

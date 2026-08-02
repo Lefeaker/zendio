@@ -69,7 +69,7 @@
     "i18n:guard": "node scripts/i18n-guard.mjs",
     "layout:report": "node scripts/layout-report.mjs",
     "test:i18n:layout": "npm run verify:runtime && npm run layout:report",
-    "test:i18n:visual": "npm run verify:runtime && playwright test --config=playwright.config.ts",
+    "test:i18n:visual": "npm run verify:runtime && node scripts/run-playwright.mjs test --config=playwright.config.ts",
     "validate:i18n:budgets": "node --import tsx tools/validate-text-budgets.ts",
     "generate:i18n:pseudo": "tsx tools/generate-pseudo-locale.ts",
     "test:i18n": "npm run verify:runtime && npm run i18n:lint && npm run validate:i18n:budgets && npm run test:i18n:layout",
@@ -172,6 +172,8 @@
     "@typescript-eslint/parser": "^8.59.4",
     "@vitest/coverage-v8": "4.1.9",
     "archiver": "^6.0.2",
+    "crc-32": "1.2.2",
+    "dependency-cruiser": "16.10.4",
     "esbuild": "^0.28.1",
     "eslint": "^8.57.1",
     "eslint-config-prettier": "^10.1.8",
@@ -185,7 +187,8 @@
     "tsx": "^4.22.3",
     "typescript": "^5.5.4",
     "vitest": "4.1.9",
-    "web-ext": "^10.4.0"
+    "web-ext": "^10.4.0",
+    "yauzl": "3.3.2"
   },
   "overrides": {
     "ajv@<6.14.0": "6.15.0",

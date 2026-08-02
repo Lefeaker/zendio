@@ -1,6 +1,7 @@
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { basename, extname, join, relative, resolve } from 'node:path';
-import { inflateRawSync } from 'node:zlib';
+
+import { inventoryBoundedZip, readBoundedZipText } from '../scripts/utils/boundedZipArchive.mjs';
 
 const DEFAULT_SOURCE_DIR = 'src';
 const DEFAULT_DIST_DIR = 'build/dist';
@@ -247,78 +248,11 @@ export function scanDirectoryWithPatterns(root, scope, patterns) {
   };
 }
 
-function readZipEntryContent(
-  buffer,
-  { archivePath, compressedSize, compressionMethod, localHeaderOffset, path }
+export async function scanArchiveWithPatterns(
+  archivePath,
+  patterns,
+  scope = basename(archivePath)
 ) {
-  if (path.endsWith('/')) {
-    return null;
-  }
-  if (buffer.readUInt32LE(localHeaderOffset) !== 0x04034b50) {
-    throw new Error(`Invalid ZIP local file header for ${path} in ${archivePath}`);
-  }
-  const fileNameLength = buffer.readUInt16LE(localHeaderOffset + 26);
-  const extraLength = buffer.readUInt16LE(localHeaderOffset + 28);
-  const contentStart = localHeaderOffset + 30 + fileNameLength + extraLength;
-  const compressed = buffer.subarray(contentStart, contentStart + compressedSize);
-  if (compressionMethod === 0) {
-    return compressed.toString('utf8');
-  }
-  if (compressionMethod === 8) {
-    return inflateRawSync(compressed).toString('utf8');
-  }
-  return null;
-}
-
-export function parseZipEntries(archivePath) {
-  const buffer = readFileSync(archivePath);
-  let endOffset = -1;
-  for (let index = buffer.length - 22; index >= 0; index -= 1) {
-    if (buffer.readUInt32LE(index) === 0x06054b50) {
-      endOffset = index;
-      break;
-    }
-  }
-
-  if (endOffset === -1) {
-    throw new Error(`Unable to locate ZIP end-of-central-directory record: ${archivePath}`);
-  }
-
-  const entryCount = buffer.readUInt16LE(endOffset + 10);
-  const centralDirectoryOffset = buffer.readUInt32LE(endOffset + 16);
-  const entries = [];
-  let offset = centralDirectoryOffset;
-
-  for (let index = 0; index < entryCount; index += 1) {
-    if (buffer.readUInt32LE(offset) !== 0x02014b50) {
-      throw new Error(`Invalid ZIP central directory entry in ${archivePath}`);
-    }
-    const compressionMethod = buffer.readUInt16LE(offset + 10);
-    const compressedSize = buffer.readUInt32LE(offset + 20);
-    const fileNameLength = buffer.readUInt16LE(offset + 28);
-    const extraLength = buffer.readUInt16LE(offset + 30);
-    const commentLength = buffer.readUInt16LE(offset + 32);
-    const localHeaderOffset = buffer.readUInt32LE(offset + 42);
-    const fileNameStart = offset + 46;
-    const fileNameEnd = fileNameStart + fileNameLength;
-    const path = buffer.subarray(fileNameStart, fileNameEnd).toString('utf8').replaceAll('\\', '/');
-    entries.push({
-      path,
-      content: readZipEntryContent(buffer, {
-        archivePath,
-        compressedSize,
-        compressionMethod,
-        localHeaderOffset,
-        path
-      })
-    });
-    offset = fileNameEnd + extraLength + commentLength;
-  }
-
-  return entries;
-}
-
-export function scanArchiveWithPatterns(archivePath, patterns, scope = basename(archivePath)) {
   if (!existsSync(archivePath)) {
     return {
       scope,
@@ -330,26 +264,28 @@ export function scanArchiveWithPatterns(archivePath, patterns, scope = basename(
   }
 
   const findings = [];
-  const entries = parseZipEntries(archivePath);
+  const inventory = await inventoryBoundedZip(archivePath);
 
-  for (const entry of entries) {
-    if (typeof entry.content !== 'string' || !shouldScanContent(entry.path)) {
+  for (const entry of inventory.entries) {
+    if (entry.directory || !shouldScanContent(entry.path)) {
       continue;
     }
-
-    findings.push(...scanTextWithPatterns(scope, entry.path, entry.content, patterns));
+    const content = await readBoundedZipText(entry);
+    if (content !== null) {
+      findings.push(...scanTextWithPatterns(scope, entry.path, content, patterns));
+    }
   }
 
   return {
     scope,
     archivePath,
-    entryCount: entries.length,
+    entryCount: inventory.entryCount,
     findings,
     failures: []
   };
 }
 
-export function buildClientSecretReport({
+export async function buildClientSecretReport({
   sourceDir = DEFAULT_SOURCE_DIR,
   distDir = DEFAULT_DIST_DIR,
   archives = []
@@ -357,8 +293,10 @@ export function buildClientSecretReport({
   const normalizedArchives = archives.map((archivePath) => resolve(archivePath));
   const source = scanDirectoryWithPatterns(resolve(sourceDir), 'source', CLIENT_SECRET_PATTERNS);
   const dist = scanDirectoryWithPatterns(resolve(distDir), 'build/dist', CLIENT_SECRET_PATTERNS);
-  const archiveReports = normalizedArchives.map((archivePath) =>
-    scanArchiveWithPatterns(archivePath, CLIENT_SECRET_PATTERNS)
+  const archiveReports = await Promise.all(
+    normalizedArchives.map((archivePath) =>
+      scanArchiveWithPatterns(archivePath, CLIENT_SECRET_PATTERNS)
+    )
   );
 
   const failures = [
@@ -412,9 +350,9 @@ function formatReport(report) {
   return `${lines.join('\n')}\n`;
 }
 
-function main() {
+async function main() {
   const options = parseArgs(process.argv.slice(2));
-  const report = buildClientSecretReport(options);
+  const report = await buildClientSecretReport(options);
   const findings = [
     ...report.source.findings,
     ...report.dist.findings,
@@ -434,5 +372,5 @@ function main() {
 }
 
 if (process.argv[1] && resolve(process.argv[1]) === new URL(import.meta.url).pathname) {
-  main();
+  await main();
 }
