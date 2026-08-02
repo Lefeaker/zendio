@@ -29,6 +29,19 @@ function readQualityTaskGraph(): z.infer<typeof QualityTaskGraphSchema> {
 }
 
 describe('i18n gate wiring', () => {
+  it('runs quality TypeScript checkers through the loader without the tsx CLI IPC path', () => {
+    const packageJson = JSON.parse(readFileSync(resolve('package.json'), 'utf8')) as {
+      scripts?: Record<string, string>;
+    };
+
+    expect(packageJson.scripts?.['i18n:catalog:check']).toBe(
+      'node --import tsx tools/generate-i18n-catalog.ts --check'
+    );
+    expect(packageJson.scripts?.['validate:i18n:budgets']).toBe(
+      'node --import tsx tools/validate-text-budgets.ts'
+    );
+  });
+
   it('runs catalog drift and locale lint checks from quality', () => {
     const taskIds = new Set(readQualityTaskGraph().tasks.map((task) => task.id));
 
