@@ -14,12 +14,10 @@ import {
   writeFileSync
 } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join, resolve } from 'node:path';
-import { pathToFileURL } from 'node:url';
+import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
+import { loadEvidenceChain } from '../../utils/npmAuditTypedLoader.mjs';
 
-const modulePath = pathToFileURL(resolve('tools/npm-audit-regression/evidence-chain.mjs')).href;
-const loadEvidenceChain = () => import(modulePath);
 const expectedOriginPaths = [
   'tests/unit/tools/npmAuditEvidenceChain.test.ts',
   'tests/unit/tools/npmAuditRegression.test.ts',

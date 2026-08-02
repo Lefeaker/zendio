@@ -1,21 +1,13 @@
 import { createHash } from 'node:crypto';
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join, resolve } from 'node:path';
-import { pathToFileURL } from 'node:url';
+import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
+import { loadCanonicalJson, loadTransitionValidator } from '../../utils/npmAuditTypedLoader.mjs';
 
 const manifestPath = 'tools/npm-audit-regression/manifests/r02-transition-v10.json';
 const expectedManifestSha256 = 'e0af57ea02d4244a8969154ff1e1b975085fb433163b5d946fce38e4ff863143';
 const sha256 = (bytes: Buffer): string => createHash('sha256').update(bytes).digest('hex');
-const transitionModulePath = pathToFileURL(
-  resolve('tools/npm-audit-regression/transition-validator.mjs')
-).href;
-const canonicalModulePath = pathToFileURL(
-  resolve('tools/npm-audit-regression/canonical-json.mjs')
-).href;
-const loadTransitionValidator = () => import(transitionModulePath);
-const loadCanonicalJson = () => import(canonicalModulePath);
 
 describe('portable R02 transition manifest', () => {
   it('keeps transition validation pure and delegates Git bytes to its caller', () => {
@@ -60,7 +52,7 @@ describe('portable R02 transition manifest', () => {
         'JSON_DUPLICATE_KEY:nodeVersion'
       );
 
-      const parsed = JSON.parse(original.toString('utf8'));
+      const parsed = structuredClone(loadTransitionManifest(manifestPath, expectedManifestSha256));
       const unknownPath = join(root, 'unknown.json');
       parsed.runtime.extra = true;
       const unknown = canonicalJsonBytes(parsed);
@@ -85,7 +77,9 @@ describe('portable R02 transition manifest', () => {
       );
 
       const semanticPath = join(root, 'semantic.json');
-      const semantic = JSON.parse(original.toString('utf8'));
+      const semantic = structuredClone(
+        loadTransitionManifest(manifestPath, expectedManifestSha256)
+      );
       semantic.internalDigest = '0'.repeat(64);
       const semanticBytes = canonicalJsonBytes(semantic);
       writeFileSync(semanticPath, semanticBytes);
@@ -100,11 +94,12 @@ describe('portable R02 transition manifest', () => {
   it('rejects the full nested row, relation, depth, and 64 KiB mutation families', async () => {
     const { loadTransitionManifest } = await loadTransitionValidator();
     const { canonicalJsonBytes } = await loadCanonicalJson();
-    const original = JSON.parse(readFileSync(manifestPath, 'utf8'));
+    const original = structuredClone(loadTransitionManifest(manifestPath, expectedManifestSha256));
     const root = mkdtempSync(join(tmpdir(), 'zendio-transition-family-'));
     const freeze = (name: string, value: typeof original) => {
-      const semantic = structuredClone(value);
-      delete semantic.internalDigest;
+      const semantic = Object.fromEntries(
+        Object.entries(structuredClone(value)).filter(([key]) => key !== 'internalDigest')
+      );
       value.internalDigest = sha256(canonicalJsonBytes(semantic));
       const bytes = canonicalJsonBytes(value);
       const path = join(root, `${name}.json`);
@@ -123,6 +118,7 @@ describe('portable R02 transition manifest', () => {
       const node = edgeValue.closureNodes.find(
         (entry: (typeof original.closureNodes)[number]) => entry.adjacency.dependencies.length > 0
       );
+      if (!node) throw new Error('fixture requires a dependency edge');
       node.adjacency.dependencies[0].resolvedKey = '';
       const badEdge = freeze('bad-edge', edgeValue);
       expect(() => loadTransitionManifest(badEdge.path, sha256(badEdge.bytes))).toThrow(

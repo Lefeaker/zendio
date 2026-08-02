@@ -2,8 +2,8 @@ import { spawnSync } from 'node:child_process';
 import { existsSync, mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
-import { pathToFileURL } from 'node:url';
 import { describe, expect, it } from 'vitest';
+import { loadNpmAuditRegression } from '../../utils/npmAuditTypedLoader.mjs';
 
 const toolPath = resolve('tools/check-npm-audit-regression.mjs');
 const closedEnvironment = {
@@ -14,23 +14,19 @@ const closedEnvironment = {
   TZ: 'UTC'
 };
 
-async function loadOwner() {
-  return import(`${pathToFileURL(toolPath).href}?test=${Date.now()}`);
-}
-
 describe('portable npm audit regression owner', () => {
   it('is import-safe when process.argv[1] is absent', async () => {
     const original = process.argv[1];
     Reflect.deleteProperty(process.argv, '1');
     try {
-      await expect(loadOwner()).resolves.toHaveProperty('npmAuditRegressionTestHooks');
+      await expect(loadNpmAuditRegression()).resolves.toHaveProperty('npmAuditRegressionTestHooks');
     } finally {
       process.argv[1] = original;
     }
   });
 
   it('binds the accepted corrected-R01 base and immutable portable v10 transition', async () => {
-    const module = await loadOwner();
+    const module = await loadNpmAuditRegression();
     const transition = module.getR02ImmutableTransition();
     expect(transition.schema).toEqual({
       name: 'r02-transition-v10',
@@ -57,7 +53,7 @@ describe('portable npm audit regression owner', () => {
   });
 
   it('projects only dependency-affecting package fields', async () => {
-    const module = await loadOwner();
+    const module = await loadNpmAuditRegression();
     expect(
       module.createDependencyProjection({
         name: 'fixture',

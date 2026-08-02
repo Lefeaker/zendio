@@ -11,13 +11,13 @@ import {
   writeFileSync
 } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join, resolve } from 'node:path';
-import { pathToFileURL } from 'node:url';
+import { join } from 'node:path';
 import { describe, expect, it, vi } from 'vitest';
+import {
+  inventoryBoundedZip,
+  readBoundedZipText
+} from '../../../scripts/utils/boundedZipArchive.mjs';
 import { buildZipFixture } from '../../utils/zipFixtureBuilder';
-
-const modulePath = pathToFileURL(resolve('scripts/utils/boundedZipArchive.mjs')).href;
-const loadOwner = () => import(modulePath);
 
 function withArchive(bytes: Buffer, run: (path: string) => Promise<void>) {
   const root = mkdtempSync(join(tmpdir(), 'zendio-bounded-zip-'));
@@ -28,7 +28,6 @@ function withArchive(bytes: Buffer, run: (path: string) => Promise<void>) {
 
 describe('bounded ZIP archive owner', () => {
   it('rejects a real FIFO within a short bounded interval without opening it for a blocking read', async () => {
-    const { inventoryBoundedZip } = await loadOwner();
     const root = mkdtempSync(join(tmpdir(), 'zendio-bounded-zip-fifo-'));
     const fifo = join(root, 'archive.zip');
     execFileSync('/usr/bin/mkfifo', [fifo]);
@@ -47,7 +46,6 @@ describe('bounded ZIP archive owner', () => {
   });
 
   it('rejects symlinks even when O_NOFOLLOW is unavailable', async () => {
-    const { inventoryBoundedZip } = await loadOwner();
     const root = mkdtempSync(join(tmpdir(), 'zendio-bounded-zip-symlink-'));
     const target = join(root, 'target.zip');
     const link = join(root, 'archive.zip');
@@ -67,7 +65,6 @@ describe('bounded ZIP archive owner', () => {
   });
 
   it('transfers the regular-file descriptor to yauzl and does not close it twice', async () => {
-    const { inventoryBoundedZip } = await loadOwner();
     const closeSyncImpl = vi.fn(closeSync);
     await withArchive(buildZipFixture([{ path: 'ok.txt', content: 'ok' }]), async (archive) => {
       await expect(inventoryBoundedZip(archive, {}, { closeSyncImpl })).resolves.toMatchObject({
@@ -78,7 +75,6 @@ describe('bounded ZIP archive owner', () => {
   });
 
   it('closes the caller-owned descriptor exactly once when the path identity changes after open', async () => {
-    const { inventoryBoundedZip } = await loadOwner();
     const closeSyncImpl = vi.fn(closeSync);
     await withArchive(buildZipFixture([{ path: 'ok.txt', content: 'ok' }]), async (archive) => {
       const openAndReplace = (path: string, flags: number) => {
@@ -95,7 +91,6 @@ describe('bounded ZIP archive owner', () => {
   });
 
   it('reads stored, deflated, empty, directory, and both descriptor forms', async () => {
-    const { inventoryBoundedZip, readBoundedZipText } = await loadOwner();
     const bytes = buildZipFixture([
       { path: 'dir/', externalFileAttributes: 0o040755 << 16, versionMadeBy: 3 << 8 },
       {
@@ -132,14 +127,12 @@ describe('bounded ZIP archive owner', () => {
     { label: 'repeat separator', path: 'a//b', code: 'ZIP_PATH_UNSAFE', flags: 0 },
     { label: 'non-NFC', path: 'e\u0301.txt', code: 'ZIP_PATH_NOT_NFC', flags: 0x0800 }
   ])('rejects $label paths', async ({ path, code, flags }) => {
-    const { inventoryBoundedZip } = await loadOwner();
     await withArchive(buildZipFixture([{ path, content: 'x', flags }]), async (archive) => {
       await expect(inventoryBoundedZip(archive)).rejects.toThrow(code);
     });
   });
 
   it('rejects duplicate, case-ambiguous, and file-prefix collisions', async () => {
-    const { inventoryBoundedZip } = await loadOwner();
     const cases = [
       [
         { path: 'same', content: 'a' },
@@ -214,14 +207,12 @@ describe('bounded ZIP archive owner', () => {
       'ZIP_EOCD_MISSING'
     ]
   ])('rejects %s', async (_label, entries, options, code) => {
-    const { inventoryBoundedZip } = await loadOwner();
     await withArchive(buildZipFixture(entries, options), async (archive) => {
       await expect(inventoryBoundedZip(archive)).rejects.toThrow(code);
     });
   });
 
   it('rejects unsupported flags, methods, and Unix special types', async () => {
-    const { inventoryBoundedZip } = await loadOwner();
     const cases = [
       buildZipFixture([{ path: 'x', content: 'x', flags: 1 }]),
       buildZipFixture([{ path: 'x', content: 'x', method: 99 }]),
@@ -244,7 +235,6 @@ describe('bounded ZIP archive owner', () => {
   });
 
   it('rejects CRC drift before delivering entries to the consumer', async () => {
-    const { inventoryBoundedZip } = await loadOwner();
     const bytes = buildZipFixture([{ path: 'x', content: 'payload' }]);
     bytes[30 + 1] ^= 0xff;
     const delivered: string[] = [];

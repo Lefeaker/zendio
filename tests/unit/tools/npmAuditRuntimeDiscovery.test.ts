@@ -11,13 +11,10 @@ import {
   writeFileSync
 } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join, resolve } from 'node:path';
-import { pathToFileURL } from 'node:url';
+import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { createPortableRuntimeFixture } from '../../utils/npmAuditRegressionFixtures';
-
-const modulePath = pathToFileURL(resolve('tools/npm-audit-regression/runtime-discovery.mjs')).href;
-const loadRuntimeDiscovery = () => import(modulePath);
+import { loadRuntimeDiscovery } from '../../utils/npmAuditTypedLoader.mjs';
 
 describe('portable runtime discovery', () => {
   it('contains no developer-home or implicit command lookup authority', () => {
@@ -155,17 +152,13 @@ describe('portable runtime discovery', () => {
       unlinkSync(launcher);
       symlinkSync('../lib/node_modules/npm/bin/npm-cli.js', launcher);
       const physicalLauncher = join(realpathSync(join(root, 'bin')), 'npm');
+      const foreignOwnedLink = { uid: 9999, isSymbolicLink: () => true };
       expect(() =>
         detectNpmCommand({
           ...options,
           lstatOperation: (path: string) => {
             const stats = lstatSync(path);
-            return path === physicalLauncher
-              ? new Proxy(stats, {
-                  get: (target, property) =>
-                    property === 'uid' ? 9999 : Reflect.get(target, property)
-                })
-              : stats;
+            return path === physicalLauncher ? foreignOwnedLink : stats;
           }
         })
       ).toThrow('RUNTIME_SYMLINK_OWNER');

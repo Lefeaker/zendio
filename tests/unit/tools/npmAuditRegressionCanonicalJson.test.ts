@@ -1,11 +1,8 @@
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join, resolve } from 'node:path';
-import { pathToFileURL } from 'node:url';
+import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-
-const modulePath = pathToFileURL(resolve('tools/npm-audit-regression/canonical-json.mjs')).href;
-const loadCanonicalJson = () => import(modulePath);
+import { loadCanonicalJson } from '../../utils/npmAuditTypedLoader.mjs';
 
 describe('canonical audit JSON', () => {
   it('sorts object keys recursively with two-space JSON and terminal LF', async () => {

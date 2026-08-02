@@ -1,10 +1,6 @@
-import { resolve } from 'node:path';
-import { pathToFileURL } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { minimalAuditReport } from '../../utils/npmAuditRegressionFixtures';
-
-const modulePath = pathToFileURL(resolve('tools/npm-audit-regression/audit-report.mjs')).href;
-const loadAuditReport = () => import(modulePath);
+import { loadAuditReport } from '../../utils/npmAuditTypedLoader.mjs';
 
 describe('npm audit report comparator', () => {
   it('accepts equal reports and rejects vulnerability count growth', async () => {

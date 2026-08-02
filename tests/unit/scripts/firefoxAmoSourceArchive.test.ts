@@ -44,11 +44,11 @@ type ReplayReceipt = JsonObject & {
   output: JsonObject;
 };
 
-function isRecord(value: JsonValue): value is JsonObject {
+function isRecord(value: unknown): value is JsonObject {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
-function isReplayCommand(value: JsonValue): value is ReplayCommand {
+function isReplayCommand(value: unknown): value is ReplayCommand {
   return (
     isRecord(value) &&
     typeof value.label === 'string' &&
@@ -59,7 +59,7 @@ function isReplayCommand(value: JsonValue): value is ReplayCommand {
   );
 }
 
-function isReplayReceipt(value: JsonValue): value is ReplayReceipt {
+function isReplayReceipt(value: unknown): value is ReplayReceipt {
   return (
     isRecord(value) &&
     typeof value.schema === 'string' &&
@@ -359,7 +359,7 @@ exit 65
     expect(receiptPath).toBeTruthy();
     if (!receiptPath) throw new Error('missing replay receipt path');
     tempRoots.push(dirname(receiptPath));
-    const receiptValue: JsonValue = JSON.parse(await readFile(receiptPath, 'utf8'));
+    const receiptValue: unknown = JSON.parse(await readFile(receiptPath, 'utf8'));
     if (!isReplayReceipt(receiptValue)) throw new Error('invalid replay receipt shape');
     const receipt = receiptValue;
     expect(receipt).toMatchObject({
