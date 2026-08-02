@@ -18,12 +18,18 @@ import {
   auditRepositoryTestSuiteOwnership,
   buildTestSuiteOwnershipReport,
   decodeNulDelimitedPaths,
+  formatTestSuiteOwnershipReport,
   listGitVisibleTestFiles,
   parsePlaywrightConfig,
   type OwnershipReport,
   type PlaywrightCollectionConfig,
   type TestShardDescriptor
 } from '../../../scripts/utils/testSuiteOwnership.mjs';
+import {
+  OWNERSHIP_CHARACTERIZATION,
+  OWNERSHIP_CHARACTERIZATION_SOURCES,
+  OWNERSHIP_PUBLIC_EXPORTS
+} from './fixtures/testSuiteOwnershipCharacterization';
 
 const temporaryRoots: string[] = [];
 const R01_CASE_MIGRATION_LEDGER = [
@@ -113,6 +119,38 @@ afterEach(() => {
   for (const root of temporaryRoots.splice(0)) {
     rmSync(root, { recursive: true, force: true });
   }
+});
+
+describe('ownership module characterization', () => {
+  it('preserves the public facade and semantic report diagnostics across extraction', async () => {
+    const facade = await import('../../../scripts/utils/testSuiteOwnership.mjs');
+    expect(Object.keys(facade).sort()).toEqual(OWNERSHIP_PUBLIC_EXPORTS);
+
+    const sources = new Map<string, string>(OWNERSHIP_CHARACTERIZATION_SOURCES);
+    const pass = buildFixtureReport(sources, {
+      unitShards: [{ id: 'unit-owned', patterns: ['tests/unit/**/*.test.ts'] }]
+    });
+    const zeroOwner = buildFixtureReport(sources);
+
+    const cases: ReadonlyArray<
+      readonly [
+        OwnershipReport,
+        { reportSha256: string; formattedSha256: string; failures: readonly string[] }
+      ]
+    > = [
+      [pass, OWNERSHIP_CHARACTERIZATION.pass],
+      [zeroOwner, OWNERSHIP_CHARACTERIZATION.zeroOwner]
+    ];
+    for (const [report, expected] of cases) {
+      expect(createHash('sha256').update(JSON.stringify(report)).digest('hex')).toBe(
+        expected.reportSha256
+      );
+      expect(
+        createHash('sha256').update(formatTestSuiteOwnershipReport(report)).digest('hex')
+      ).toBe(expected.formattedSha256);
+      expect(report.failures).toEqual(expected.failures);
+    }
+  });
 });
 
 describe('canonical test suite descriptors', () => {
