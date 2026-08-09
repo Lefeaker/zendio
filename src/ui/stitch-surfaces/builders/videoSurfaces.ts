@@ -4,9 +4,9 @@ import type {
   RuntimeSessionLabels,
   SurfaceAction,
   VideoSurfaceCapture
-} from '../../types';
+} from '@ui/stitch-runtime';
 import { buttonNode, div, element } from './primitives';
-import { classNames } from './classNames';
+import { runtimeClassNames as classNames } from './classNames';
 import {
   sessionItemCard,
   sessionItemCloseButton,
@@ -68,24 +68,10 @@ export function videoCaptureItem(
     capture.editing,
     inputValue,
     labels.notePlaceholder,
-    null,
     { captureId: capture.id, captureKind: 'timestamp' },
     undefined,
     'input',
     sessionItemCloseButton(labels.deleteLabel, 'video:delete', { captureId: capture.id })
-  );
-}
-
-export function sessionPlaceholderItem(label: string, placeholder: string): NodeSchema {
-  return sessionItemCard(
-    sessionItemMarker(label, 'time'),
-    '',
-    undefined,
-    '',
-    false,
-    '',
-    placeholder,
-    null
   );
 }
 

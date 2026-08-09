@@ -1,5 +1,5 @@
 import type { VideoPanelCallbacks, VideoPanelCapture, VideoPanelTexts } from './videoPanelModel';
-import type { ExportDestinationSurfacePreview } from '@options/stitch/types';
+import type { ExportDestinationSurfacePreview } from '@ui/stitch-runtime';
 
 export interface VideoSessionView {
   updateCount(count: number): void;

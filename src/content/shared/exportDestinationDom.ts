@@ -1,4 +1,4 @@
-import type { ExportDestinationSurfacePreview } from '@options/stitch/types';
+import type { ExportDestinationSurfacePreview } from '@ui/stitch-runtime';
 
 function findDestinationRow(root: ParentNode): HTMLElement | null {
   return root.querySelector<HTMLElement>('.export-destination-row');

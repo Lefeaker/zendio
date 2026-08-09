@@ -12,7 +12,7 @@ import { STITCH_ACTIONS } from '@options/stitch/runtime/actions';
 import { resourceSchemas, settingsSchemas, surfaceSchemas } from '@options/stitch/schema/registry';
 import { aiPlatformLinks, themeSegmentedSwitch } from '@options/stitch/schema/builders/settings';
 import { previewUi } from '@options/stitch/ui/components';
-import { el } from '@options/stitch/ui/dom';
+import { el } from '@ui/stitch-runtime';
 import { getAIChatProductSurfacePlatforms } from '../../../src/third_party/ai-chat-exporter/platformProductSurface';
 import type {
   ElementNode,
@@ -159,7 +159,9 @@ describe('Stitch shared registry contracts', () => {
       'utf8'
     );
 
-    expect(sourceOfRuntimeSurfaceRenderer).toContain('@options/stitch/schema/surfaceRegistry');
+    expect(sourceOfRuntimeSurfaceRenderer).toContain('@ui/stitch-surfaces');
+    expect(sourceOfRuntimeSurfaceRenderer).toContain('@ui/stitch-runtime');
+    expect(sourceOfRuntimeSurfaceRenderer).not.toContain('@options/stitch/schema/surfaceRegistry');
     expect(sourceOfRuntimeSurfaceRenderer).not.toContain('@options/stitch/schema/registry');
     expect(sourceOfRuntimeSurfaceRenderer).not.toContain('@options/stitch/content');
   });

@@ -1,12 +1,17 @@
-import { getSurfaceView } from '@options/stitch/schema/surfaceRegistry';
-import { renderPreviewView, type RendererContext } from '@options/stitch/render/renderStitchView';
-import { el } from '@options/stitch/ui/dom';
-import { previewUi } from '@options/stitch/ui/components';
-import type { PreviewContent, PreviewStoreState, SchemaContext } from '@options/stitch/types';
+import { getSurfaceView } from '@ui/stitch-surfaces';
+import {
+  el,
+  renderRuntimeSurface,
+  surfaceComponents,
+  type RuntimeSurfaceContent,
+  type RuntimeSurfaceState,
+  type RuntimeSurfaceTheme,
+  type RuntimeSurfaceRendererContext
+} from '@ui/stitch-runtime';
 import { getControlledRuntimeTheme, registerRuntimeSurfaceThemeRoot } from './runtimeTheme';
 
-export type RuntimeSurfaceActionArgs = Parameters<RendererContext['dispatch']>[1];
-export type RuntimeSurfaceActionValue = Parameters<RendererContext['dispatch']>[2];
+export type RuntimeSurfaceActionArgs = Parameters<RuntimeSurfaceRendererContext['dispatch']>[1];
+export type RuntimeSurfaceActionValue = Parameters<RuntimeSurfaceRendererContext['dispatch']>[2];
 export type RuntimeSurfaceActionHandler = (
   event: Event,
   args: RuntimeSurfaceActionArgs,
@@ -21,84 +26,33 @@ export interface RuntimeSurfaceRenderOptions {
     | 'video-control-bar-popover'
     | 'video-floating-prompt'
     | 'task-success';
-  appData: PreviewContent;
-  state?: Partial<PreviewStoreState>;
+  appData: RuntimeSurfaceContent;
+  state?: Partial<RuntimeSurfaceState>;
   actions?: Record<string, RuntimeSurfaceActionHandler>;
 }
 
-function resolveRuntimeTheme(
-  explicitTheme?: PreviewStoreState['previewTheme']
-): PreviewStoreState['previewTheme'] {
-  if (explicitTheme === 'light' || explicitTheme === 'dark') {
-    return explicitTheme;
-  }
-  const runtimeTheme = getControlledRuntimeTheme();
-  if (runtimeTheme) {
-    return runtimeTheme;
-  }
-  return 'dark';
-}
-
-function createRuntimeState(overrides: Partial<PreviewStoreState> = {}): PreviewStoreState {
-  return {
-    activePanel: 'overview',
-    activeResource: null,
-    previewTheme: 'dark',
-    previewLanguage: 'zh-CN',
-    yamlFilter: 'all',
-    readingPathMode: 'custom',
-    pageSummaryEnabled: false,
-    readingOverlaySummaryEnabled: false,
-    subtitleTranslationEnabled: false,
-    subtitleTargetLanguage: 'zh-CN',
-    experimentalAiConfig: {
-      provider: 'compatible',
-      model: '',
-      apiUrl: '',
-      apiKey: ''
-    },
-    highlightTheme: 'gradient',
-    fragmentSelectionTriggerMode: 'disabled',
-    modifierKeys: [],
-    yamlFieldStates: {},
-    routingRules: [],
-    templateValues: {},
-    activeTemplateField: 'articleVideo',
-    pendingTemplateFocus: null,
-    pendingTemplateSelection: null,
-    ...overrides
-  };
+function resolveRuntimeTheme(explicitTheme?: RuntimeSurfaceTheme): RuntimeSurfaceTheme {
+  if (explicitTheme === 'light' || explicitTheme === 'dark') return explicitTheme;
+  return getControlledRuntimeTheme() ?? 'dark';
 }
 
 export function renderStitchRuntimeSurface(options: RuntimeSurfaceRenderOptions): HTMLElement {
-  const state = createRuntimeState({
-    ...options.state,
+  const state: RuntimeSurfaceState = {
     previewTheme: resolveRuntimeTheme(options.state?.previewTheme)
-  });
-  const ctx: SchemaContext = {
-    appData: options.appData,
-    state
   };
+  const ctx = { appData: options.appData, state };
   const view = getSurfaceView(options.surfaceId, ctx);
-  if (!view) {
-    throw new Error(`Unknown Stitch runtime surface: ${options.surfaceId}`);
-  }
+  if (!view) throw new Error(`Unknown Stitch runtime surface: ${options.surfaceId}`);
 
-  const rendered = renderPreviewView(view, {
+  const rendered = renderRuntimeSurface(view, {
     ...ctx,
     el,
-    ui: previewUi,
+    ui: surfaceComponents,
     dispatch: (id, args, value, event) => {
       const handler = options.actions?.[id];
-      if (handler) {
-        handler(event ?? new Event('stitch-runtime-action'), args, value);
-      }
+      if (handler) handler(event ?? new Event('stitch-runtime-action'), args, value);
     }
   });
-
-  if (!(rendered instanceof HTMLElement)) {
-    throw new Error(`Failed to render Stitch runtime surface: ${options.surfaceId}`);
-  }
 
   rendered.classList.add('stitch-runtime-surface');
   rendered.dataset.stitchSurface = options.surfaceId;

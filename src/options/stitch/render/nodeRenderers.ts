@@ -1,15 +1,21 @@
-import { normalizeNodes, resolveValue, type RendererContext } from './actionAdapter';
 import {
-  renderButtonNode,
+  createRuntimeExtensionRendererRegistry,
+  renderRuntimeNode,
+  type RuntimeNodeRendererContext
+} from '@ui/stitch-runtime';
+import {
+  normalizeNodes,
+  resolveBinding as resolveOptionsBinding,
+  resolveValue,
+  type RendererContext
+} from './actionAdapter';
+import {
   renderChipsNode,
-  renderInputNode,
   renderSegmentedNavNode,
   renderSelectNode,
-  renderSwitchNode,
-  renderTextareaNode
+  renderSwitchNode
 } from './formRenderers';
 import {
-  renderElementNode,
   renderHighlightExampleNode,
   renderListNode,
   renderNoticeBody,
@@ -20,7 +26,14 @@ import {
   renderWidgetNode,
   type ContentRenderCallbacks
 } from './contentRenderers';
-import type { DynamicValue, GridNode, GroupNode, NodeChild, ViewSchema } from '../types';
+import type {
+  DynamicValue,
+  GridNode,
+  GroupNode,
+  NodeChild,
+  OptionsViewSchema,
+  OptionsExtensionNode
+} from '../types';
 
 const callbacks: ContentRenderCallbacks = {
   renderNode,
@@ -28,160 +41,172 @@ const callbacks: ContentRenderCallbacks = {
   renderContent
 };
 
+const OPTIONS_EXTENSION_KINDS = [
+  'group',
+  'card',
+  'rows',
+  'row',
+  'field',
+  'select',
+  'switch',
+  'statsGrid',
+  'usageChart',
+  'notice',
+  'table',
+  'tokenRow',
+  'segmentedNav',
+  'details',
+  'stack',
+  'grid',
+  'miniCard',
+  'chips',
+  'list',
+  'resourceCard',
+  'highlightExample',
+  'widget'
+] satisfies readonly OptionsExtensionNode['kind'][];
+
+const optionsExtensionRenderers = createRuntimeExtensionRendererRegistry<
+  RendererContext,
+  OptionsExtensionNode
+>();
+
+OPTIONS_EXTENSION_KINDS.forEach((kind) => {
+  optionsExtensionRenderers.register(kind, renderOptionsExtensionNode);
+});
+
 export function renderNodeList(
   nodes: DynamicValue<NodeChild[] | NodeChild> | undefined,
   ctx: RendererContext
 ): Node[] {
   return normalizeNodes(nodes, ctx)
     .map((node) => renderNode(node, ctx))
-    .filter((node): node is Node => Boolean(node));
+    .filter((node): node is Node => node !== null);
 }
 
 export function renderNode(node: NodeChild, ctx: RendererContext): Node | null {
-  const resolved = resolveValue(node, ctx);
-  if (resolved === null || resolved === undefined || resolved === false) {
-    return null;
-  }
+  return renderRuntimeNode<RendererContext, OptionsExtensionNode>(
+    node,
+    withOptionsExtensionRenderers(ctx)
+  );
+}
 
-  if (resolved instanceof HTMLElement) {
-    return resolved;
-  }
+export function withOptionsExtensionRenderers(
+  ctx: RendererContext
+): RuntimeNodeRendererContext<RendererContext, OptionsExtensionNode> {
+  return {
+    ...ctx,
+    extensionRenderers: optionsExtensionRenderers,
+    resolveBinding: (binding) => resolveOptionsBinding(binding, ctx),
+    transformActionValue: (action, value, event) => {
+      if ('transform' in action && typeof action.transform === 'function') {
+        return action.transform(value, ctx, event);
+      }
+      return value;
+    }
+  };
+}
 
-  if (typeof resolved === 'string' || typeof resolved === 'number') {
-    return ctx.el('span', { text: String(resolved) });
-  }
-
-  if (Array.isArray(resolved)) {
-    return renderContent(resolved, ctx);
-  }
-
-  switch (resolved.kind) {
+function renderOptionsExtensionNode(node: OptionsExtensionNode, ctx: RendererContext): Node | null {
+  switch (node.kind) {
     case 'group':
-      return ctx.ui.Group(
-        resolveValue(resolved.title, ctx) ?? '',
-        renderGroupContent(resolved, ctx)
-      );
+      return ctx.ui.Group(resolveValue(node.title, ctx) ?? '', renderGroupContent(node, ctx));
     case 'card':
       return ctx.ui.Card({
-        title: resolveValue(resolved.title, ctx),
-        description: resolveValue(resolved.description, ctx),
-        actions: renderInlineNodes(resolved.actions, ctx),
-        body: renderContent(
-          resolved.body ?? resolved.children,
-          ctx,
-          resolveValue(resolved.bodyClassName, ctx)
-        ),
-        extraClass: resolveValue(resolved.extraClass, ctx) || ''
+        title: resolveValue(node.title, ctx),
+        description: resolveValue(node.description, ctx),
+        actions: renderInlineNodes(node.actions, ctx),
+        body: renderContent(node.body ?? node.children, ctx, resolveValue(node.bodyClassName, ctx)),
+        extraClass: resolveValue(node.extraClass, ctx) || ''
       });
     case 'rows':
-      return ctx.ui.Rows(renderNodeList(resolved.items, ctx));
+      return ctx.ui.Rows(renderNodeList(node.items, ctx));
     case 'row':
       return ctx.ui.Row({
-        title: resolveValue(resolved.title, ctx) ?? '',
-        description: resolveValue(resolved.description, ctx) ?? '',
-        control: renderContent(resolved.control, ctx)
+        title: resolveValue(node.title, ctx) ?? '',
+        description: resolveValue(node.description, ctx) ?? '',
+        control: renderContent(node.control, ctx)
       });
     case 'field':
-      return ctx.ui.Field(
-        resolveValue(resolved.label, ctx) || '',
-        renderContent(resolved.control, ctx)
-      );
-    case 'input':
-      return renderInputNode(resolved, ctx);
-    case 'textarea':
-      return renderTextareaNode(resolved, ctx);
+      return ctx.ui.Field(resolveValue(node.label, ctx) || '', renderContent(node.control, ctx));
     case 'select':
-      return renderSelectNode(resolved, ctx);
+      return renderSelectNode(node, ctx);
     case 'switch':
-      return renderSwitchNode(resolved, ctx);
-    case 'button':
-      return renderButtonNode(resolved, ctx);
-    case 'badge':
-      return ctx.ui.Badge(
-        resolveValue(resolved.label, ctx) ?? '',
-        resolveValue(resolved.variant, ctx) || ''
-      );
-    case 'pill':
-      return ctx.ui.Pill(resolveValue(resolved.label, ctx) ?? '');
+      return renderSwitchNode(node, ctx);
     case 'statsGrid':
-      return ctx.ui.StatsGrid(resolveValue(resolved.items, ctx) || []);
+      return ctx.ui.StatsGrid(resolveValue(node.items, ctx) || []);
     case 'usageChart':
       return renderUsageChartShell(ctx);
     case 'notice':
       return ctx.ui.Notice({
-        title: resolveValue(resolved.title, ctx) ?? '',
-        body: renderNoticeBody(resolved.body, ctx, callbacks),
-        variant: resolveValue(resolved.variant, ctx) || 'info'
+        title: resolveValue(node.title, ctx) ?? '',
+        body: renderNoticeBody(node.body, ctx, callbacks),
+        variant: resolveValue(node.variant, ctx) || 'info'
       });
     case 'table':
-      return renderTableNode(resolved, ctx, callbacks);
+      return renderTableNode(node, ctx, callbacks);
     case 'tokenRow':
-      return renderTokenRowNode(resolved, ctx);
+      return renderTokenRowNode(node, ctx);
     case 'segmentedNav':
-      return renderSegmentedNavNode(resolved, ctx);
+      return renderSegmentedNavNode(node, ctx);
     case 'details':
       return ctx.el(
         'details',
         {
-          className: ['advanced', resolveValue(resolved.className, ctx) || '']
+          className: ['advanced', resolveValue(node.className, ctx) || '']
             .filter(Boolean)
             .join(' '),
-          open: resolveValue(resolved.open, ctx) ?? false,
-          style: resolveValue(resolved.style, ctx)
+          open: resolveValue(node.open, ctx) ?? false,
+          style: resolveValue(node.style, ctx)
         },
-        ctx.el('summary', { text: resolveValue(resolved.summary, ctx) }),
+        ctx.el('summary', { text: resolveValue(node.summary, ctx) }),
         ctx.el(
           'div',
           {
-            className: ['advanced-body', resolveValue(resolved.bodyClassName, ctx) || '']
+            className: ['advanced-body', resolveValue(node.bodyClassName, ctx) || '']
               .filter(Boolean)
               .join(' ')
           },
-          renderNodeList(resolved.children, ctx)
+          renderNodeList(node.children, ctx)
         )
       );
     case 'stack':
       return ctx.el(
-        resolved.tag || 'div',
+        node.tag || 'div',
         {
-          className: ['stack', resolveValue(resolved.className, ctx) || '']
-            .filter(Boolean)
-            .join(' '),
-          style: resolveValue(resolved.style, ctx),
-          dataset: resolveValue(resolved.dataset, ctx)
+          className: ['stack', resolveValue(node.className, ctx) || ''].filter(Boolean).join(' '),
+          style: resolveValue(node.style, ctx),
+          dataset: resolveValue(node.dataset, ctx)
         },
-        renderNodeList(resolved.children, ctx)
+        renderNodeList(node.children, ctx)
       );
     case 'grid':
       return ctx.el(
         'div',
         {
-          className: buildGridClassName(resolved, ctx),
-          style: resolveValue(resolved.style, ctx),
-          dataset: resolveValue(resolved.dataset, ctx)
+          className: buildGridClassName(node, ctx),
+          style: resolveValue(node.style, ctx),
+          dataset: resolveValue(node.dataset, ctx)
         },
-        renderNodeList(resolved.children, ctx)
+        renderNodeList(node.children, ctx)
       );
     case 'miniCard':
       return ctx.ui.MiniCard(
-        resolveValue(resolved.title, ctx) ?? '',
-        renderContent(resolved.content ?? resolved.children, ctx)
+        resolveValue(node.title, ctx) ?? '',
+        renderContent(node.content ?? node.children, ctx)
       );
     case 'chips':
-      return renderChipsNode(resolved, ctx);
+      return renderChipsNode(node, ctx);
     case 'list':
-      return renderListNode(resolved, ctx, callbacks);
+      return renderListNode(node, ctx, callbacks);
     case 'resourceCard':
-      return renderResourceCardNode(resolved, ctx);
+      return renderResourceCardNode(node, ctx);
     case 'highlightExample':
       return renderHighlightExampleNode(ctx);
     case 'widget':
-      return renderWidgetNode(resolved, ctx);
-    case 'element':
-      return renderElementNode(resolved, ctx, callbacks);
-    default:
-      return null;
+      return renderWidgetNode(node, ctx);
   }
+  throw new Error('Unregistered Options extension node kind');
 }
 
 export function renderInlineNodes(
@@ -199,17 +224,13 @@ export function renderContent(
   className?: string
 ): Node {
   const nodes = renderNodeList(content, ctx);
-  if (!nodes.length) {
-    return ctx.el('div');
-  }
-  if (nodes.length === 1 && !className) {
-    return nodes[0];
-  }
+  if (!nodes.length) return ctx.el('div');
+  if (nodes.length === 1 && !className) return nodes[0];
   return ctx.el('div', { className: className || 'stack' }, nodes);
 }
 
 export function resolveHero(
-  hero: ViewSchema['hero'],
+  hero: OptionsViewSchema['hero'],
   ctx: RendererContext
 ): { title: string; description: string; pills: string[]; icon?: string } {
   const resolved = resolveValue(hero, ctx);
@@ -224,10 +245,7 @@ export function resolveHero(
 
 function renderGroupContent(groupNode: GroupNode, ctx: RendererContext): Node {
   const children = renderNodeList(groupNode.children, ctx);
-  if (children.length === 1) {
-    return children[0];
-  }
-
+  if (children.length === 1) return children[0];
   return ctx.el(
     'div',
     {
@@ -242,7 +260,6 @@ function renderGroupContent(groupNode: GroupNode, ctx: RendererContext): Node {
 function buildGridClassName(node: GridNode, ctx: RendererContext): string {
   const columns = resolveValue(node.columns, ctx);
   const classNames: string[] = [];
-
   switch (columns) {
     case 2:
     case '2':
@@ -261,13 +278,8 @@ function buildGridClassName(node: GridNode, ctx: RendererContext): string {
       break;
     default:
       classNames.push('grid-2');
-      break;
   }
-
   const extra = resolveValue(node.className, ctx);
-  if (extra) {
-    classNames.push(extra);
-  }
-
+  if (extra) classNames.push(extra);
   return classNames.join(' ');
 }

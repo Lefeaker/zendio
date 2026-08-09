@@ -17,7 +17,7 @@ import { previewContent } from '@options/stitch/content';
 import { renderPreviewView, type RendererContext } from '@options/stitch/render/renderStitchView';
 import { getFooterView, getResourceView, getSettingsView } from '@options/stitch/schema/registry';
 import { previewUi } from '@options/stitch/ui/components';
-import { el } from '@options/stitch/ui/dom';
+import { el } from '@ui/stitch-runtime';
 import { createSchemaContext as createBaseSchemaContext } from '../../utils/productionStitchAssertions';
 import { expectNoChineseSettingsCopy } from '../../utils/optionsI18nTextAssertions';
 import {

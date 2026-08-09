@@ -1,15 +1,11 @@
-import type { ClipperSurfaceSource, NodeSchema, SurfaceAction } from '../../types';
+import type { ClipperSurfaceSource, NodeSchema, SurfaceAction } from '@ui/stitch-runtime';
 import { buttonNode, div, element } from './primitives';
-import { classNames } from './classNames';
+import { runtimeClassNames as classNames } from './classNames';
 import { surfaceBrand, surfaceWindow } from './surfaceChrome';
 
-export function clipperHeader(
-  title: string,
-  subtitle: string | null,
-  iconSrc?: string
-): NodeSchema {
+export function clipperHeader(title: string, subtitle: string | null, iconUrl: string): NodeSchema {
   return div(`${classNames.surface.windowHeader} clipper-dialog-header`, [
-    surfaceBrand('◆', title, subtitle, iconSrc)
+    surfaceBrand(iconUrl, title, subtitle)
   ]);
 }
 

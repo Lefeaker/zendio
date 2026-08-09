@@ -5,10 +5,10 @@ import type {
   ExportDestinationSurfacePreview,
   RuntimeSessionLabels,
   SurfaceAction
-} from '../../types';
+} from '@ui/stitch-runtime';
 import { RUNTIME_SURFACE_FALLBACK_MESSAGES } from '@i18n/catalog/runtimeSurfaceFallbackMessages';
 import { buttonNode, div, element, span, strong } from './primitives';
-import { classNames } from './classNames';
+import { runtimeClassNames as classNames } from './classNames';
 
 export function surfaceStage(children: NodeSchema[]): NodeSchema {
   return element('div', { className: classNames.surface.stage }, children);
@@ -50,40 +50,18 @@ export function sessionPanelShell(
   ]);
 }
 
-export function surfaceHeader(
-  title: string,
-  subtitle: string | null,
-  pills: string[] = []
-): NodeSchema {
-  return div(classNames.surface.windowHeader, [
-    div(classNames.surface.headingCopy, [
-      strong(title, classNames.surface.windowTitle),
-      subtitle ? span(classNames.surface.windowSubtitle, subtitle) : null
-    ]),
-    pills.length
-      ? div(
-          classNames.surface.pillRow,
-          pills.map((pill) => ({ kind: 'pill', label: pill }))
-        )
-      : null
-  ]);
-}
-
-export function surfaceBrand(
-  iconGlyph: string,
-  title: string,
-  subtitle: string | null,
-  iconSrc?: string
-): NodeSchema {
+export function surfaceBrand(iconUrl: string, title: string, subtitle: string | null): NodeSchema {
+  const normalizedIconUrl = iconUrl.trim();
+  if (!normalizedIconUrl) {
+    throw new Error('Runtime surface iconUrl must be non-empty');
+  }
   return div(classNames.surface.windowBrand, [
     div(classNames.surface.windowIcon, [
-      iconSrc
-        ? element('img', {
-            className: 'surface-window-icon-image',
-            src: iconSrc,
-            alt: ''
-          })
-        : span(classNames.surface.windowIconGlyph, iconGlyph)
+      element('img', {
+        className: 'surface-window-icon-image',
+        src: normalizedIconUrl,
+        alt: ''
+      })
     ]),
     div(classNames.surface.headingCopy, [
       strong(title, classNames.surface.windowTitle),
@@ -94,12 +72,11 @@ export function surfaceBrand(
 
 export function sessionHeader(
   labels: RuntimeSessionLabels,
-  iconGlyph: string,
-  iconSrc?: string,
+  iconUrl: string,
   collapseAriaLabel = RUNTIME_SURFACE_FALLBACK_MESSAGES.schemaRuntimeSurfaceCollapsePanelAriaLabel
 ): NodeSchema {
   return div(classNames.surface.windowHeader, [
-    surfaceBrand(iconGlyph, labels.title, labels.subtitle, iconSrc),
+    surfaceBrand(iconUrl, labels.title, labels.subtitle),
     element('button', {
       className: classNames.session.collapseTrigger,
       type: 'button',
@@ -112,13 +89,10 @@ export function sessionHeader(
 }
 
 export function actionRow(
-  actions: Array<{ id?: string; label: string; variant?: ButtonVariant }>,
-  compact = false
+  actions: Array<{ id?: string; label: string; variant?: ButtonVariant }>
 ): NodeSchema {
   return div(
-    [classNames.surface.actionRow, compact ? classNames.surface.actionRowCompact : '']
-      .filter(Boolean)
-      .join(' '),
+    classNames.surface.actionRow,
     actions.map((action) => ({
       kind: 'button',
       label: action.label,
@@ -134,25 +108,6 @@ export function surfaceBody(className: string, children: NodeChild[]): NodeSchem
 
 export function surfaceFooter(children: NodeChild[], className?: string): NodeSchema {
   return div([classNames.surface.windowFooter, className].filter(Boolean).join(' '), children);
-}
-
-export function runtimeList(children: NodeSchema[]): NodeSchema {
-  return div(classNames.runtime.list, children);
-}
-
-export function runtimeMeta(childrenOrText: NodeChild[] | string): NodeSchema {
-  if (typeof childrenOrText === 'string') {
-    return element('div', { className: classNames.runtime.meta, text: childrenOrText });
-  }
-  return div(classNames.runtime.meta, childrenOrText);
-}
-
-export function runtimeCommentBox(text: string): NodeSchema {
-  return element('div', { className: classNames.runtime.commentBox, text });
-}
-
-export function surfaceActions(actions: SurfaceAction[]): NodeSchema {
-  return actionRow(actions);
 }
 
 export function exportDestinationRow(
@@ -214,40 +169,8 @@ export function exportDestinationRow(
   ]);
 }
 
-export function sessionStatusStrip(
-  text: string,
-  type: 'summary' | 'status' = 'summary'
-): NodeSchema {
-  return div(
-    type === 'summary' ? classNames.surface.summaryStrip : classNames.surface.statusStrip,
-    [
-      type === 'summary'
-        ? {
-            kind: 'badge',
-            label: RUNTIME_SURFACE_FALLBACK_MESSAGES.schemaRuntimeAiSummaryBadge,
-            variant: 'violet'
-          }
-        : null,
-      span(
-        type === 'summary' ? classNames.surface.summaryText : classNames.surface.summaryText,
-        text
-      )
-    ]
-  );
-}
-
 export function sessionItemList(items: NodeSchema[]): NodeSchema {
   return div(classNames.session.list, items);
-}
-
-export function linkedContentFooter(title: string, meta: string): NodeSchema {
-  return div(classNames.session.linkedSection, [
-    div(classNames.surface.linkedCopy, [
-      element('strong', { className: classNames.session.linkedTitle, text: title }),
-      element('span', { className: classNames.session.linkedMeta, text: meta })
-    ]),
-    element('span', { className: classNames.session.linkedAction, text: '↗' })
-  ]);
 }
 
 export function sessionFooterBar(

@@ -274,6 +274,9 @@ describe('ClipperDialog UI', () => {
     expect(host?.getAttribute('role')).toBe('dialog');
     expect(host?.getAttribute('aria-modal')).toBe('true');
     expect(shadow).not.toBeNull();
+    expect(
+      shadow?.querySelector<HTMLImageElement>('.surface-window-icon-image')?.getAttribute('src')
+    ).toBe('icons/60x60/zendio_icon_clipt.png');
 
     const textarea = shadow?.querySelector<HTMLTextAreaElement>('#clipper-comment-input') ?? null;
     expect(textarea).not.toBeNull();

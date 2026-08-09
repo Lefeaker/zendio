@@ -1,6 +1,6 @@
-import type { NodeSchema, ReaderSurfaceHighlight, RuntimeSessionLabels } from '../../types';
+import type { NodeSchema, ReaderSurfaceHighlight, RuntimeSessionLabels } from '@ui/stitch-runtime';
 import { div, element } from './primitives';
-import { classNames } from './classNames';
+import { runtimeClassNames as classNames } from './classNames';
 import { sessionItemCloseButton, sessionItemMarker } from './surfaceSessionItems';
 
 export function readerHighlightItem(

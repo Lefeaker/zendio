@@ -5,7 +5,7 @@ import type {
   ReaderSessionView,
   ReaderSessionViewFactory
 } from './application/readerSessionView';
-import type { ExportDestinationSurfacePreview } from '@options/stitch/types';
+import type { ExportDestinationSurfacePreview } from '@ui/stitch-runtime';
 import type { ReaderHighlightRecord } from './services/highlightManager';
 import type { ReaderSessionMessages, ReaderHintState } from './sessionMessages';
 import { DEFAULT_SESSION_MESSAGES } from './sessionMessages';

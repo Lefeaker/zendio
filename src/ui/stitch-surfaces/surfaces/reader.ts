@@ -1,4 +1,4 @@
-import type { ResourceSchema } from '../../types';
+import type { ResourceSchema } from '@ui/stitch-runtime';
 import {
   readerHighlightItem,
   sessionHeader,
@@ -8,13 +8,13 @@ import {
   surfaceBody
 } from '../builders/surfaces';
 import { div } from '../builders/primitives';
-import { classNames } from '../builders/classNames';
+import { runtimeClassNames as classNames } from '../builders/classNames';
 import { RUNTIME_SURFACE_FALLBACK_MESSAGES } from '@i18n/catalog/runtimeSurfaceFallbackMessages';
 
 const schema: ResourceSchema = {
   openMode: 'modal',
   createView(ctx) {
-    const surface = ctx.appData.surfaces.reader;
+    const surface = ctx.appData.reader;
     const t = ctx.t;
     const labels = {
       ...surface.labels,
@@ -89,7 +89,6 @@ const schema: ResourceSchema = {
             [
               sessionHeader(
                 labels,
-                '✦',
                 surface.iconUrl,
                 t?.(
                   'schemaRuntimeSurfaceCollapsePanelAriaLabel',

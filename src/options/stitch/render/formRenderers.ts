@@ -5,52 +5,7 @@ import {
   runEventAction,
   type RendererContext
 } from './actionAdapter';
-import type {
-  ButtonNode,
-  ChipsNode,
-  InputNode,
-  SegmentedNavNode,
-  SelectNode,
-  SwitchNode,
-  TextareaNode
-} from '../types';
-
-export function renderInputNode(node: InputNode, ctx: RendererContext): HTMLInputElement {
-  const value = resolveNodeValue(node, ctx) ?? '';
-  return ctx.ui.Input(value as string | number, {
-    mono: resolveValue(node.mono, ctx),
-    type: resolveValue(node.type, ctx),
-    placeholder: resolveValue(node.placeholder, ctx),
-    disabled: resolveValue(node.disabled, ctx),
-    readOnly: resolveValue(node.readOnly, ctx),
-    min: resolveValue(node.min, ctx),
-    max: resolveValue(node.max, ctx),
-    step: resolveValue(node.step, ctx),
-    className: resolveValue(node.className, ctx),
-    dataset: resolveValue(node.dataset, ctx),
-    onInput: node.onInput ? (event: Event) => runEventAction(node.onInput, event, ctx) : undefined,
-    onChange: node.onChange
-      ? (event: Event) => runEventAction(node.onChange, event, ctx)
-      : undefined,
-    onFocus: node.onFocus ? (event: Event) => runEventAction(node.onFocus, event, ctx) : undefined,
-    onBlur: node.onBlur ? (event: Event) => runEventAction(node.onBlur, event, ctx) : undefined,
-    onClick: node.onClick
-      ? (event: MouseEvent) => {
-          event.preventDefault();
-          runEventAction(node.onClick, event, ctx);
-        }
-      : undefined,
-    onKeyUp: node.onKeyUp
-      ? (event: KeyboardEvent) => runEventAction(node.onKeyUp, event, ctx)
-      : undefined,
-    onSelect: node.onSelect
-      ? (event: Event) => runEventAction(node.onSelect, event, ctx)
-      : undefined,
-    onMouseEnter: node.onMouseEnter
-      ? (event: MouseEvent) => runEventAction(node.onMouseEnter, event, ctx)
-      : undefined
-  });
-}
+import type { ChipsNode, SegmentedNavNode, SelectNode, SwitchNode } from '../types';
 
 export function renderSelectNode(node: SelectNode, ctx: RendererContext): HTMLSelectElement {
   return ctx.ui.Select(
@@ -64,21 +19,6 @@ export function renderSelectNode(node: SelectNode, ctx: RendererContext): HTMLSe
         : undefined
     }
   );
-}
-
-export function renderTextareaNode(node: TextareaNode, ctx: RendererContext): HTMLTextAreaElement {
-  return ctx.ui.Textarea((resolveNodeValue(node, ctx) ?? '') as string | number, {
-    className: resolveValue(node.className, ctx),
-    placeholder: resolveValue(node.placeholder, ctx),
-    disabled: resolveValue(node.disabled, ctx),
-    dataset: resolveValue(node.dataset, ctx),
-    onInput: node.onInput ? (event: Event) => runEventAction(node.onInput, event, ctx) : undefined,
-    onChange: node.onChange
-      ? (event: Event) => runEventAction(node.onChange, event, ctx)
-      : undefined,
-    onFocus: node.onFocus ? (event: Event) => runEventAction(node.onFocus, event, ctx) : undefined,
-    onBlur: node.onBlur ? (event: Event) => runEventAction(node.onBlur, event, ctx) : undefined
-  });
 }
 
 export function renderSwitchNode(node: SwitchNode, ctx: RendererContext): Element | null {
@@ -97,32 +37,6 @@ export function renderSwitchNode(node: SwitchNode, ctx: RendererContext): Elemen
       : undefined
   });
   return resolveValue(node.compact, ctx) ? switchNode.firstElementChild : switchNode;
-}
-
-export function renderButtonNode(node: ButtonNode, ctx: RendererContext): HTMLButtonElement {
-  const action = resolveValue(node.action, ctx);
-  const button = ctx.ui.Button(resolveValue(node.label, ctx) ?? '', {
-    variant: resolveValue(node.variant, ctx),
-    disabled: Boolean(resolveValue(node.disabled, ctx)),
-    onClick: action
-      ? (event: MouseEvent) => {
-          event.preventDefault();
-          runAction(action, ctx, undefined, event);
-        }
-      : undefined
-  });
-  const dataset = resolveValue(node.dataset, ctx);
-  if (dataset) {
-    Object.entries(dataset).forEach(([key, value]) => {
-      button.dataset[key] = String(value);
-    });
-  }
-  if (typeof action === 'string') {
-    button.dataset.actionId = action;
-  } else if (action?.id) {
-    button.dataset.actionId = action.id;
-  }
-  return button;
 }
 
 export function renderChipsNode(node: ChipsNode, ctx: RendererContext): HTMLDivElement {

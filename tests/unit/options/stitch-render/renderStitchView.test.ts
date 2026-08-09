@@ -3,9 +3,9 @@
 import { describe, expect, it, vi } from 'vitest';
 import { previewContent } from '@options/stitch/content';
 import { renderPreviewView, type RendererContext } from '@options/stitch/render/renderStitchView';
-import { el } from '@options/stitch/ui/dom';
+import { el } from '@ui/stitch-runtime';
 import { previewUi } from '@options/stitch/ui/components';
-import type { PreviewStoreState, ViewSchema } from '@options/stitch/types';
+import type { ActionDescriptor, PreviewStoreState, ViewSchema } from '@options/stitch/types';
 
 function createState(): PreviewStoreState {
   return {
@@ -192,6 +192,12 @@ describe('Stitch schema renderer split', () => {
 
   it('wires form renderer actions through the action adapter', () => {
     const dispatch = vi.fn();
+    const transformedAction: ActionDescriptor = {
+      id: 'field:update',
+      args: ['field'],
+      valueFrom: 'target.value',
+      transform: (value) => String(value).toUpperCase()
+    };
     const view: ViewSchema = {
       id: 'form-action',
       kind: 'page',
@@ -199,11 +205,7 @@ describe('Stitch schema renderer split', () => {
         {
           kind: 'input',
           value: 'old',
-          onInput: {
-            id: 'field:update',
-            args: ['field'],
-            valueFrom: 'target.value'
-          }
+          onInput: transformedAction
         }
       ]
     };
@@ -216,6 +218,6 @@ describe('Stitch schema renderer split', () => {
     input.value = 'new';
     input.dispatchEvent(new Event('input', { bubbles: true }));
 
-    expect(dispatch).toHaveBeenCalledWith('field:update', ['field'], 'new', expect.any(Event));
+    expect(dispatch).toHaveBeenCalledWith('field:update', ['field'], 'NEW', expect.any(Event));
   });
 });

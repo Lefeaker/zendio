@@ -15,7 +15,7 @@ import { bindSessionItemPreviewExpansion } from '@content/shared/panels/sessionI
 import { preserveSessionPanelIcon } from '@content/shared/panels/sessionPanelIconPersistence';
 import { SessionCommentDraftController } from '@content/shared/panels/sessionCommentDrafts';
 import { patchExportDestinationRow } from '@content/shared/exportDestinationDom';
-import type { ExportDestinationSurfacePreview } from '@options/stitch/types';
+import type { ExportDestinationSurfacePreview } from '@ui/stitch-runtime';
 import { focusContentDialogElementByDataset } from '@ui/hosts/content/contentDialogFocus';
 import { bindVideoInputKeyboardIsolationBoundary } from '../videoInputEventIsolation';
 import { createVideoDialogSurface } from './videoDialogSurface';

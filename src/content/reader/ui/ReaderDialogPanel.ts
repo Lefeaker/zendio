@@ -24,7 +24,7 @@ import {
   type SessionCommentDraftSnapshot
 } from '@content/shared/panels/sessionCommentDrafts';
 import { patchExportDestinationRow } from '@content/shared/exportDestinationDom';
-import type { ExportDestinationSurfacePreview } from '@options/stitch/types';
+import type { ExportDestinationSurfacePreview } from '@ui/stitch-runtime';
 import { focusContentDialogElementByDataset } from '@ui/hosts/content/contentDialogFocus';
 import {
   applyReaderPanelCompatibilityAttributes,
@@ -262,7 +262,7 @@ export class ReaderDialogPanel implements UiMountable<
       ]
     });
     if (this.collapsePersistence.value) {
-      content.surfaces.reader.labels.subtitle = '';
+      content.reader.labels.subtitle = '';
     }
     const surface = renderStitchRuntimeSurface({
       surfaceId: 'reader',

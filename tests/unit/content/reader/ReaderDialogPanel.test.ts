@@ -292,6 +292,7 @@ describe('ReaderDialogPanel', () => {
     );
 
     expect(iconBefore).toBeInstanceOf(HTMLImageElement);
+    expect(iconBefore?.src).toBe('chrome-extension://mock/icons/60x60/zendio_icon_readingt.png');
     expect(iconAfterAdd).toBe(iconBefore);
     expect(iconAfterUpdate).toBe(iconBefore);
 

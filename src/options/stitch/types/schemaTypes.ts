@@ -6,7 +6,24 @@ import type { Messages } from '@i18n';
 import type { SchemaTranslator } from '../schema/i18n';
 import type { HeroData, PreviewContent, SelectOption, UsageStat } from './contentTypes';
 import type { PreviewStoreState } from './storeTypes';
-import type { SurfaceAction } from './surfaceTypes';
+import type { SurfaceAction } from '@ui/stitch-runtime';
+import type {
+  RuntimeActionDescriptor,
+  RuntimeBaseNode,
+  RuntimeBadgeNode,
+  RuntimeButtonNode,
+  RuntimeDynamicValue,
+  RuntimeElementNode,
+  RuntimeInputNode,
+  RuntimeNodeChild,
+  RuntimeNodeSchema,
+  RuntimePillNode,
+  RuntimePreviewStyle,
+  RuntimeSurfaceContext,
+  RuntimeStateBinding,
+  RuntimeTextareaNode,
+  RuntimeViewSchema
+} from '@ui/stitch-runtime';
 
 export type SchemaBrowserTarget = 'chrome' | 'firefox';
 
@@ -22,34 +39,28 @@ export interface SchemaContext {
   t?: SchemaTranslator;
 }
 
-export type DynamicValue<T> = T | ((ctx: SchemaContext) => T);
+export type DynamicValue<T> = RuntimeDynamicValue<T, SchemaContext>;
 
-export interface ActionDescriptor extends Omit<SharedActionDescriptor, 'args'> {
+export interface ActionDescriptor
+  extends
+    Omit<SharedActionDescriptor, 'args'>,
+    Omit<RuntimeActionDescriptor<SchemaContext>, 'args'> {
   args?: DynamicValue<unknown[]>;
   transform?: (value: unknown, ctx: SchemaContext, event?: Event) => unknown;
 }
 
 export type ActionReference = string | ActionDescriptor;
 
-export interface StateBinding extends Omit<SharedStateBinding, 'source'> {
+export interface StateBinding
+  extends Omit<SharedStateBinding, 'source'>, Omit<RuntimeStateBinding<SchemaContext>, 'source'> {
   source?: SharedStateBinding['source'] | 'context';
 }
 
-export type PreviewStyle = Partial<CSSStyleDeclaration> & Record<`--${string}`, string | number>;
+export type PreviewStyle = RuntimePreviewStyle;
 
-export type NodeChild =
-  | NodeSchema
-  | null
-  | false
-  | undefined
-  | ((ctx: SchemaContext) => NodeSchema | null | false | undefined);
+export type NodeChild = RuntimeNodeChild<SchemaContext, OptionsExtensionNode>;
 
-export interface BaseNode {
-  kind: string;
-  className?: DynamicValue<string>;
-  dataset?: DynamicValue<Record<string, string | number | boolean>>;
-  style?: DynamicValue<PreviewStyle>;
-}
+export type BaseNode = RuntimeBaseNode<SchemaContext>;
 
 export interface GroupNode extends BaseNode {
   kind: 'group';
@@ -87,39 +98,8 @@ export interface FieldNode extends BaseNode {
   control: NodeChild | NodeChild[];
 }
 
-export interface InputNode extends BaseNode {
-  kind: 'input';
-  bind?: string | StateBinding;
-  value?: DynamicValue<string | number>;
-  type?: DynamicValue<string>;
-  placeholder?: DynamicValue<string>;
-  disabled?: DynamicValue<boolean>;
-  readOnly?: DynamicValue<boolean>;
-  mono?: DynamicValue<boolean>;
-  min?: DynamicValue<string | number>;
-  max?: DynamicValue<string | number>;
-  step?: DynamicValue<string | number>;
-  onInput?: DynamicValue<ActionDescriptor>;
-  onChange?: DynamicValue<ActionDescriptor>;
-  onFocus?: DynamicValue<ActionDescriptor>;
-  onBlur?: DynamicValue<ActionDescriptor>;
-  onClick?: DynamicValue<ActionDescriptor>;
-  onKeyUp?: DynamicValue<ActionDescriptor>;
-  onSelect?: DynamicValue<ActionDescriptor>;
-  onMouseEnter?: DynamicValue<ActionDescriptor>;
-}
-
-export interface TextareaNode extends BaseNode {
-  kind: 'textarea';
-  bind?: string | StateBinding;
-  value?: DynamicValue<string | number>;
-  placeholder?: DynamicValue<string>;
-  disabled?: DynamicValue<boolean>;
-  onInput?: DynamicValue<ActionDescriptor>;
-  onChange?: DynamicValue<ActionDescriptor>;
-  onFocus?: DynamicValue<ActionDescriptor>;
-  onBlur?: DynamicValue<ActionDescriptor>;
-}
+export type InputNode = RuntimeInputNode<SchemaContext>;
+export type TextareaNode = RuntimeTextareaNode<SchemaContext>;
 
 export interface SelectNode extends BaseNode {
   kind: 'select';
@@ -143,24 +123,9 @@ export interface SwitchNode extends BaseNode {
 
 export type ButtonVariant = SurfaceAction['variant'];
 
-export interface ButtonNode extends BaseNode {
-  kind: 'button';
-  label: DynamicValue<string>;
-  variant?: DynamicValue<ButtonVariant>;
-  action?: DynamicValue<ActionReference>;
-  disabled?: DynamicValue<boolean>;
-}
-
-export interface BadgeNode extends BaseNode {
-  kind: 'badge';
-  label: DynamicValue<string>;
-  variant?: DynamicValue<string>;
-}
-
-export interface PillNode extends BaseNode {
-  kind: 'pill';
-  label: DynamicValue<string>;
-}
+export type ButtonNode = RuntimeButtonNode<SchemaContext>;
+export type BadgeNode = RuntimeBadgeNode<SchemaContext>;
+export type PillNode = RuntimePillNode<SchemaContext>;
 
 export interface StatsGridNode extends BaseNode {
   kind: 'statsGrid';
@@ -285,41 +250,16 @@ export interface WidgetNode extends BaseNode {
   props?: DynamicValue<Record<string, unknown>>;
 }
 
-export interface ElementNode extends BaseNode {
-  kind: 'element';
-  tag?: keyof HTMLElementTagNameMap;
-  text?: DynamicValue<string | number>;
-  html?: DynamicValue<string>;
-  src?: DynamicValue<string>;
-  alt?: DynamicValue<string>;
-  href?: DynamicValue<string>;
-  target?: DynamicValue<string>;
-  rel?: DynamicValue<string>;
-  type?: DynamicValue<string>;
-  role?: DynamicValue<string>;
-  ariaPressed?: DynamicValue<string>;
-  ariaExpanded?: DynamicValue<string>;
-  ariaHaspopup?: DynamicValue<string>;
-  ariaLabel?: DynamicValue<string>;
-  disabled?: DynamicValue<boolean>;
-  title?: DynamicValue<string>;
-  onClick?: DynamicValue<ActionDescriptor>;
-  children?: DynamicValue<NodeChild[]>;
-}
+export type ElementNode = RuntimeElementNode<SchemaContext, OptionsExtensionNode>;
 
-export type NodeSchema =
+export type OptionsExtensionNode =
   | GroupNode
   | CardNode
   | RowsNode
   | RowNode
   | FieldNode
-  | InputNode
-  | TextareaNode
   | SelectNode
   | SwitchNode
-  | ButtonNode
-  | BadgeNode
-  | PillNode
   | StatsGridNode
   | UsageChartNode
   | NoticeNode
@@ -334,15 +274,11 @@ export type NodeSchema =
   | ListNode
   | ResourceCardNode
   | HighlightExampleNode
-  | WidgetNode
-  | ElementNode
-  | string
-  | number
-  | null
-  | undefined
-  | false;
+  | WidgetNode;
 
-export interface ViewSchema {
+export type NodeSchema = RuntimeNodeSchema<SchemaContext, OptionsExtensionNode>;
+
+export interface OptionsViewSchema {
   id: string;
   kind: 'page' | 'modal' | 'standalone-page';
   className?: string;
@@ -355,6 +291,8 @@ export interface ViewSchema {
   surfaceSkin?: 'clipper' | 'session' | 'task-success';
   children?: NodeSchema[];
 }
+
+export type ViewSchema = OptionsViewSchema | RuntimeViewSchema<RuntimeSurfaceContext>;
 
 export type ResourceSchema = {
   openMode: 'modal' | 'page';

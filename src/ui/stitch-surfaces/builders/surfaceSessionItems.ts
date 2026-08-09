@@ -1,6 +1,6 @@
-import type { NodeChild, NodeSchema, VideoSurfaceCapture } from '../../types';
+import type { NodeSchema, VideoSurfaceCapture } from '@ui/stitch-runtime';
 import { RUNTIME_SURFACE_FALLBACK_MESSAGES } from '@i18n/catalog/runtimeSurfaceFallbackMessages';
-import { classNames } from './classNames';
+import { runtimeClassNames as classNames } from './classNames';
 import { div, element } from './primitives';
 
 export function sessionItemMarker(label: string, kind: 'index' | 'time' = 'index'): NodeSchema {
@@ -64,7 +64,6 @@ export function sessionItemCard(
   editing: boolean | undefined,
   editorValue: string,
   editorPlaceholder: string,
-  meta: NodeChild | NodeChild[] | string | null,
   dataset?: Record<string, string>,
   actions?: NodeSchema,
   editorKind: 'input' | 'textarea' = 'textarea',
@@ -93,18 +92,6 @@ export function sessionItemCard(
   return element(
     'article',
     { className: classNames.session.item, ...(dataset ? { dataset } : {}) },
-    [
-      marker,
-      div(classNames.session.content, [
-        editor,
-        meta
-          ? typeof meta === 'string'
-            ? div(classNames.session.metaRow, [meta])
-            : div(classNames.session.metaRow, Array.isArray(meta) ? meta : [meta])
-          : null,
-        actions ?? null
-      ]),
-      trailingAction ?? null
-    ]
+    [marker, div(classNames.session.content, [editor, actions ?? null]), trailingAction ?? null]
   );
 }

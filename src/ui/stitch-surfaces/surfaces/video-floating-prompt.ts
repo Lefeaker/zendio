@@ -1,10 +1,10 @@
-import type { ResourceSchema } from '../../types';
+import type { ResourceSchema } from '@ui/stitch-runtime';
 import { element } from '../builders/primitives';
 
 const schema: ResourceSchema = {
   openMode: 'modal',
   createView(ctx) {
-    const prompt = ctx.appData.surfaces.videoFloatingPrompt;
+    const prompt = ctx.appData.videoFloatingPrompt;
     const label = ctx.t?.('videoPromptAction', prompt.label) ?? prompt.label;
     const dismissLabel = ctx.t?.('videoPromptDismiss', prompt.dismissLabel) ?? prompt.dismissLabel;
     const readableLabel = prompt.shortcut ? `${label} · ${prompt.shortcut}` : label;

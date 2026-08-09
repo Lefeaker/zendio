@@ -1,6 +1,8 @@
 /* @vitest-environment jsdom */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import {
   registerRuntimeSurfaceThemeRoot,
   setControlledRuntimeTheme,
@@ -68,5 +70,14 @@ describe('runtimeTheme', () => {
 
     stop();
     expect(listener).toBeUndefined();
+  });
+
+  it('keeps the runtime theme owner independent from Options Stitch', () => {
+    const source = readFileSync(
+      resolve(process.cwd(), 'src/content/stitch/runtimeTheme.ts'),
+      'utf8'
+    );
+
+    expect(source).not.toContain('@options/stitch');
   });
 });

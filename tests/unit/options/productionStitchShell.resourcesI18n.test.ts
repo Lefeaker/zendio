@@ -6,7 +6,7 @@ import { createProductionStitchSchemaContext } from '@options/app/productionStit
 import { renderPreviewView, type RendererContext } from '@options/stitch/render/renderStitchView';
 import { getResourceView } from '@options/stitch/schema/registry';
 import { previewUi } from '@options/stitch/ui/components';
-import { el } from '@options/stitch/ui/dom';
+import { el } from '@ui/stitch-runtime';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createSchemaContext as createBaseSchemaContext } from '../../utils/productionStitchAssertions';
 import {

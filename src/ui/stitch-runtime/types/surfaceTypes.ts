@@ -120,7 +120,7 @@ export interface VideoControlBarPopoverSurfacePreferences {
 
 export type ToastPreview = { title: string; detail: string; actions?: string[] };
 
-export interface PreviewSurfaces {
+export interface RuntimeSurfaceContent {
   clipper: {
     hero: HeroData;
     iconUrl: string;
@@ -179,5 +179,7 @@ export interface PreviewSurfaces {
     dismissLabel: string;
     likeToast: ToastPreview;
     dislikeToast: ToastPreview;
+    supportChannels: SupportChannel[];
+    defaultVaultName?: string;
   };
 }

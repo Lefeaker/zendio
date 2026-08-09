@@ -116,8 +116,8 @@ export class SupportPrompt implements UiMountable<
     ];
 
     const appData = createTaskSuccessSurfaceContent();
-    appData.surfaces.taskSuccess = {
-      ...appData.surfaces.taskSuccess,
+    appData.taskSuccess = {
+      ...appData.taskSuccess,
       status: promptStatus,
       statusMessage: statusMessage.text + (statusMessage.codeSuffix ?? ''),
       statusDetail: statusMessage.extraLine ?? '',
@@ -127,23 +127,20 @@ export class SupportPrompt implements UiMountable<
       dislikeLabel: messages.dislikeLabel,
       dismissLabel: messages.dismiss,
       likeToast: {
-        ...appData.surfaces.taskSuccess.likeToast,
+        ...appData.taskSuccess.likeToast,
         title: messages.likeThankYou,
         actions: [messages.reviewLinkLabel, messages.reviewAcknowledgedLabel]
       },
       dislikeToast: {
-        ...appData.surfaces.taskSuccess.dislikeToast,
+        ...appData.taskSuccess.dislikeToast,
         title: messages.dislikeToastTitle,
         actions: [
           messages.dislikeRedditLinkLabel,
           messages.dislikeQrLinkLabel,
           messages.githubTitle
         ]
-      }
-    };
-    appData.resources.support = {
-      ...appData.resources.support,
-      channels: links.map((link) => ({
+      },
+      supportChannels: links.map((link) => ({
         ...(link.id ? { id: link.id } : {}),
         title: link.title,
         icon: link.icon,
@@ -151,7 +148,8 @@ export class SupportPrompt implements UiMountable<
         ...(link.imageAlt ? { imageAlt: link.imageAlt } : {}),
         ...(link.description ? { subtitle: link.description } : {}),
         ...(link.url ? { href: link.url } : {})
-      }))
+      })),
+      ...(vaultLabel ? { defaultVaultName: vaultLabel } : {})
     };
 
     const surface = renderStitchRuntimeSurface({

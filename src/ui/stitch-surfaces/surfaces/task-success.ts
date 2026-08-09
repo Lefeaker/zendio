@@ -1,22 +1,22 @@
 import type {
   NodeSchema,
-  PreviewContent,
   ResourceSchema,
-  SchemaContext,
+  RuntimeSurfaceContent,
+  RuntimeSurfaceContext,
   SupportChannel
-} from '../../types';
+} from '@ui/stitch-runtime';
 import { actionRow, surfaceBody, surfaceStage, surfaceWindow } from '../builders/surfaces';
 import { div, element, strong } from '../builders/primitives';
-import { classNames } from '../builders/classNames';
+import { runtimeClassNames as classNames } from '../builders/classNames';
 import { RUNTIME_SURFACE_FALLBACK_MESSAGES } from '@i18n/catalog/runtimeSurfaceFallbackMessages';
 
-type TaskSuccessSurface = PreviewContent['surfaces']['taskSuccess'];
+type TaskSuccessSurface = RuntimeSurfaceContent['taskSuccess'];
 
 const schema: ResourceSchema = {
   openMode: 'modal',
   createView(ctx) {
-    const surface = ctx.appData.surfaces.taskSuccess;
-    const supportLinks = localizeSupportLinks(ctx.appData.resources.support.channels, ctx);
+    const surface = ctx.appData.taskSuccess;
+    const supportLinks = localizeSupportLinks(surface.supportChannels, ctx);
     const supportTitle =
       ctx.t?.('supportPromptTitle', RUNTIME_SURFACE_FALLBACK_MESSAGES.supportPromptTitle) ??
       RUNTIME_SURFACE_FALLBACK_MESSAGES.supportPromptTitle;
@@ -189,11 +189,9 @@ function resolveSupportChannelRole(supportId: string): string {
   return supportId === 'wechat-reward' ? 'wechat-reward-btn' : 'support-image-toggle';
 }
 
-function resolveStatusMessage(surface: TaskSuccessSurface, ctx: SchemaContext): string {
+function resolveStatusMessage(surface: TaskSuccessSurface, ctx: RuntimeSurfaceContext): string {
   const fallback = surface.statusMessage;
-  const defaultVault =
-    ctx.appData.storage.vaults.find((vault) => vault.isDefault)?.name ??
-    ctx.appData.storage.vaults[0]?.name;
+  const defaultVault = surface.defaultVaultName;
 
   if (surface.status === 'failure') {
     return ctx.t?.('supportPromptStatusFailure', fallback) ?? fallback;
@@ -212,7 +210,10 @@ function resolveStatusMessage(surface: TaskSuccessSurface, ctx: SchemaContext): 
   return ctx.t?.('supportPromptStatusSuccess', fallback) ?? fallback;
 }
 
-function localizeSupportLinks(items: SupportChannel[], ctx: SchemaContext): SupportChannel[] {
+function localizeSupportLinks(
+  items: SupportChannel[],
+  ctx: RuntimeSurfaceContext
+): SupportChannel[] {
   return items.map((item) => {
     const keys = resolveSupportKeys(item);
     if (!keys) {

@@ -1,4 +1,4 @@
-import { el } from './dom';
+import { el } from '@ui/stitch-runtime';
 import type { UsagePoint } from '../types';
 
 export function renderUsageChart(root: HTMLElement, history: UsagePoint[]): void {

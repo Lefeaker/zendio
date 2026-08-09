@@ -5,7 +5,7 @@ import type {
   VideoPanelTexts
 } from '../application/videoPanelModel';
 import type { VideoSessionView, VideoSessionViewFactory } from '../application/videoSessionView';
-import type { ExportDestinationSurfacePreview } from '@options/stitch/types';
+import type { ExportDestinationSurfacePreview } from '@ui/stitch-runtime';
 
 interface VideoPanelViewFactoryOptions {
   resolveAssetUrl?: (path: string) => string;

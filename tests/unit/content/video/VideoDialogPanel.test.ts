@@ -304,6 +304,7 @@ describe('VideoDialogPanel', () => {
         texts,
         captures: [createCapture()],
         counter: '1 capture',
+        iconUrl: VIDEO_MODE_PANEL_ICON_PATH,
         actions: [
           { id: 'video:finish', label: texts.finish, variant: 'primary' },
           { id: 'video:cancel', label: texts.cancel, variant: 'ghost' }
