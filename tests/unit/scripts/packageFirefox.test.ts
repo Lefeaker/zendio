@@ -19,7 +19,7 @@ type MockSignOptions = {
   artifactsDir?: string;
 };
 
-const READABILITY_WARNING_PATH = 'chunks/chunk-Q2FLBW36.js';
+const READABILITY_WARNING_PATH = 'chunks/chunk-readability.js';
 const READABILITY_WARNING_FIXTURE = [
   {
     code: 'UNSAFE_VAR_ASSIGNMENT',
@@ -79,6 +79,10 @@ function createLintResult(
     warnings,
     notices: []
   };
+}
+
+function createFirefoxLintProvenanceVerifier() {
+  return vi.fn().mockResolvedValue(undefined);
 }
 
 async function createTempRoot(): Promise<string> {
@@ -176,18 +180,18 @@ describe('Firefox package signing audit', () => {
       }),
       code: 'FIREFOX_LINT_READABILITY_LOCK_IDENTITY_DRIFT'
     }
-  ])('validates $name identity before rejecting a zero-warning lint result', async ({
-    contractFiles,
-    code
-  }) => {
-    await expect(
-      lintFirefoxExtension('/private/dist', {
-        readFirefoxLintContractFilesImpl: contractFiles,
-        webExt: { cmd: { lint: vi.fn().mockResolvedValue(createLintResult([])) } }
-      })
-    ).rejects.toThrow(code);
-    expect(contractFiles).toHaveBeenCalledOnce();
-  });
+  ])(
+    'validates $name identity before rejecting a zero-warning lint result',
+    async ({ contractFiles, code }) => {
+      await expect(
+        lintFirefoxExtension('/private/dist', {
+          readFirefoxLintContractFilesImpl: contractFiles,
+          webExt: { cmd: { lint: vi.fn().mockResolvedValue(createLintResult([])) } }
+        })
+      ).rejects.toThrow(code);
+      expect(contractFiles).toHaveBeenCalledOnce();
+    }
+  );
 
   it('accepts only the two package-and-lock-pinned bundled Readability warnings', async () => {
     const webExt = {
@@ -196,6 +200,7 @@ describe('Firefox package signing audit', () => {
     const logger = { log: vi.fn(), warn: vi.fn() };
 
     await lintFirefoxExtension('/private/dist', {
+      assertFirefoxLintProvenanceImpl: createFirefoxLintProvenanceVerifier(),
       logger,
       readFirefoxLintContractFilesImpl: createLintContractFiles(),
       webExt
@@ -212,18 +217,25 @@ describe('Firefox package signing audit', () => {
       file: 'local-vault-permission.js'
     };
 
+    const assertFirefoxLintProvenanceImpl = vi
+      .fn()
+      .mockRejectedValue(new Error('FIREFOX_LINT_FIRST_PARTY_OR_UNPINNED_WARNING'));
     await expect(
       lintFirefoxExtension('/private/dist', {
+        assertFirefoxLintProvenanceImpl,
         readFirefoxLintContractFilesImpl: createLintContractFiles(),
         webExt: {
           cmd: {
             lint: vi
               .fn()
-              .mockResolvedValue(createLintResult([firstPartyWarning, READABILITY_WARNING_FIXTURE[1]]))
+              .mockResolvedValue(
+                createLintResult([firstPartyWarning, READABILITY_WARNING_FIXTURE[1]])
+              )
           }
         }
       })
     ).rejects.toThrow('FIREFOX_LINT_FIRST_PARTY_OR_UNPINNED_WARNING');
+    expect(assertFirefoxLintProvenanceImpl).toHaveBeenCalledOnce();
   });
 
   it('rejects a web-ext summary that does not enumerate every warning', async () => {
@@ -274,25 +286,18 @@ describe('Firefox package signing audit', () => {
       code: 'FIREFOX_LINT_THIRD_PARTY_WARNING_RULE_DRIFT'
     },
     {
-      name: 'path',
+      name: 'message',
       warnings: [
-        { ...READABILITY_WARNING_FIXTURE[0], file: 'chunks/chunk-DRIFTED.js' },
+        { ...READABILITY_WARNING_FIXTURE[0], message: 'Unsafe assignment to outerHTML' },
         READABILITY_WARNING_FIXTURE[1]
       ],
-      code: 'FIREFOX_LINT_FIRST_PARTY_OR_UNPINNED_WARNING'
-    },
-    {
-      name: 'provenance location',
-      warnings: [
-        { ...READABILITY_WARNING_FIXTURE[0], column: 16341 },
-        READABILITY_WARNING_FIXTURE[1]
-      ],
-      code: 'FIREFOX_LINT_THIRD_PARTY_WARNING_PROVENANCE_DRIFT'
+      code: 'FIREFOX_LINT_THIRD_PARTY_WARNING_MESSAGE_DRIFT'
     }
   ])('rejects $name drift in the Readability warning contract', async ({ warnings, code }) => {
     await expect(
       lintFirefoxExtension('/private/dist', {
         readFirefoxLintContractFilesImpl: createLintContractFiles(),
+        assertFirefoxLintProvenanceImpl: createFirefoxLintProvenanceVerifier(),
         webExt: { cmd: { lint: vi.fn().mockResolvedValue(createLintResult(warnings)) } }
       })
     ).rejects.toThrow(code);
@@ -336,7 +341,9 @@ describe('Firefox package signing audit', () => {
   it('rejects a nonzero web-ext command result', async () => {
     await expect(
       lintFirefoxExtension('/private/dist', {
-        webExt: { cmd: { lint: vi.fn().mockRejectedValue(new Error('Command failed with exit 1')) } }
+        webExt: {
+          cmd: { lint: vi.fn().mockRejectedValue(new Error('Command failed with exit 1')) }
+        }
       })
     ).rejects.toThrow('Firefox web-ext lint failed: Command failed with exit 1');
   });

@@ -14,6 +14,10 @@ import {
   auditFirefoxAmoSourceArchive,
   createFirefoxAmoSourceArchive
 } from './utils/firefoxAmoSourceArchive.mjs';
+import {
+  assertFirefoxLintProvenance,
+  FIREFOX_READABILITY_WARNING_CONTRACT as FIREFOX_READABILITY_SOURCE_CONTRACT
+} from './utils/firefoxLintProvenance.mjs';
 import { auditReleaseArchive } from '../tools/audit-release-archive.mjs';
 
 const args = process.argv.slice(2);
@@ -29,10 +33,8 @@ const FIREFOX_READABILITY_WARNING_CONTRACT = Object.freeze({
   lockIdentitySha256: 'cd7a3c2b695164ef97fd4ff72a50ff8ce01cf45d6934c5f7e5889d6f967ac3c1',
   rule: 'UNSAFE_VAR_ASSIGNMENT',
   provenance: '@mozilla/readability@0.6.0/Readability.js:1549,1928',
-  warnings: Object.freeze([
-    Object.freeze({ file: 'chunks/chunk-Q2FLBW36.js', line: 2, column: 16340 }),
-    Object.freeze({ file: 'chunks/chunk-Q2FLBW36.js', line: 2, column: 21195 })
-  ])
+  warningCount: FIREFOX_READABILITY_SOURCE_CONTRACT.length,
+  warningMessage: FIREFOX_READABILITY_SOURCE_CONTRACT[0].message
 });
 
 function hasFlag(flag) {
@@ -128,7 +130,9 @@ function canonicalizeJson(value) {
 }
 
 function sha256Json(value) {
-  return createHash('sha256').update(JSON.stringify(canonicalizeJson(value))).digest('hex');
+  return createHash('sha256')
+    .update(JSON.stringify(canonicalizeJson(value)))
+    .digest('hex');
 }
 
 function parseFirefoxLintContractJson(serialized, label) {
@@ -163,9 +167,7 @@ function assertReadabilityDependencyIdentity({ packageJson, packageLockJson }) {
   const lockEntry = parsedLock.packages?.[`node_modules/${dependency}`] ?? null;
   const lockIdentity = { name: dependency, ...(lockEntry ?? {}) };
 
-  if (
-    sha256Json(packageIdentity) !== FIREFOX_READABILITY_WARNING_CONTRACT.packageIdentitySha256
-  ) {
+  if (sha256Json(packageIdentity) !== FIREFOX_READABILITY_WARNING_CONTRACT.packageIdentitySha256) {
     throw new Error('FIREFOX_LINT_READABILITY_PACKAGE_IDENTITY_DRIFT');
   }
   if (sha256Json(lockIdentity) !== FIREFOX_READABILITY_WARNING_CONTRACT.lockIdentitySha256) {
@@ -173,38 +175,25 @@ function assertReadabilityDependencyIdentity({ packageJson, packageLockJson }) {
   }
 }
 
-function warningLocationKey(warning) {
-  return `${warning.file}:${warning.line}:${warning.column}`;
-}
-
 function assertPinnedReadabilityWarnings(warnings) {
   const contract = FIREFOX_READABILITY_WARNING_CONTRACT;
-  if (warnings.length !== contract.warnings.length) {
+  if (warnings.length !== contract.warningCount) {
     throw new Error(
-      `FIREFOX_LINT_THIRD_PARTY_WARNING_COUNT_DRIFT: expected=${contract.warnings.length} actual=${warnings.length}`
+      `FIREFOX_LINT_THIRD_PARTY_WARNING_COUNT_DRIFT: expected=${contract.warningCount} actual=${warnings.length}`
     );
   }
 
-  const pinnedPath = contract.warnings[0].file;
   for (const warning of warnings) {
-    if (warning?.file !== pinnedPath) {
-      throw new Error(
-        `FIREFOX_LINT_FIRST_PARTY_OR_UNPINNED_WARNING: ${String(warning?.file ?? 'unknown')}`
-      );
-    }
     if (warning?.code !== contract.rule) {
       throw new Error(
         `FIREFOX_LINT_THIRD_PARTY_WARNING_RULE_DRIFT: ${String(warning?.code ?? 'unknown')}`
       );
     }
-  }
-
-  const expectedLocations = contract.warnings.map(warningLocationKey).sort();
-  const actualLocations = warnings.map(warningLocationKey).sort();
-  if (JSON.stringify(actualLocations) !== JSON.stringify(expectedLocations)) {
-    throw new Error(
-      `FIREFOX_LINT_THIRD_PARTY_WARNING_PROVENANCE_DRIFT: expected=${expectedLocations.join(',')} actual=${actualLocations.join(',')}`
-    );
+    if (warning?.message !== contract.warningMessage) {
+      throw new Error(
+        `FIREFOX_LINT_THIRD_PARTY_WARNING_MESSAGE_DRIFT: ${String(warning?.message ?? 'unknown')}`
+      );
+    }
   }
 }
 
@@ -212,6 +201,7 @@ export async function lintFirefoxExtension(distDir, dependencies = {}) {
   const {
     importWebExtImpl = loadWebExt,
     logger = console,
+    assertFirefoxLintProvenanceImpl = assertFirefoxLintProvenance,
     readFirefoxLintContractFilesImpl = readFirefoxLintContractFiles,
     webExt
   } = dependencies;
@@ -261,6 +251,7 @@ export async function lintFirefoxExtension(distDir, dependencies = {}) {
     );
   }
   assertPinnedReadabilityWarnings(warnings);
+  await assertFirefoxLintProvenanceImpl({ distDir, warnings });
   logger.warn(
     `Firefox web-ext lint accepted ${warningCount} pinned ${FIREFOX_READABILITY_WARNING_CONTRACT.dependency} warning(s): rule=${FIREFOX_READABILITY_WARNING_CONTRACT.rule} provenance=${FIREFOX_READABILITY_WARNING_CONTRACT.provenance} packageSha256=${FIREFOX_READABILITY_WARNING_CONTRACT.packageIdentitySha256} lockSha256=${FIREFOX_READABILITY_WARNING_CONTRACT.lockIdentitySha256}`
   );

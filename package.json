@@ -162,6 +162,7 @@
     "zod": "^3.23.8"
   },
   "devDependencies": {
+    "@jridgewell/trace-mapping": "0.3.31",
     "@playwright/test": "^1.60.0",
     "@types/chrome": "^0.1.42",
     "@types/firefox-webext-browser": "^143.0.0",

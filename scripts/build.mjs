@@ -6,6 +6,7 @@ import { createBrowserManifest } from './utils/manifestSources.mjs';
 import { readPackageVersion } from './utils/packageMetadata.mjs';
 import { cssTextPlugin } from './plugins/cssTextPlugin.mjs';
 import { runQualityChecks } from './quality-check.mjs';
+import { writeFirefoxLintProvenance } from './utils/firefoxLintProvenance.mjs';
 
 const args = process.argv.slice(2);
 const watch = args.includes('--watch');
@@ -78,7 +79,7 @@ const sharedBuildOptions = {
   bundle: true,
   outdir: distDir,
   platform: 'browser',
-  sourcemap: watch || !prod,
+  sourcemap: firefox && prod ? 'external' : watch || !prod,
   minify: prod && !watch,
   define: {
     'process.env.NODE_ENV': JSON.stringify(prod ? 'production' : 'development'),
@@ -147,6 +148,17 @@ const appBuildOptions = {
   chunkNames: 'chunks/[name]-[hash]'
 };
 
+const firefoxLintProvenanceBuildConfig = {
+  browser: 'firefox',
+  chunkNames: appBuildOptions.chunkNames,
+  entryPoints: Object.keys(productionAppEntryPoints).sort(),
+  format: appBuildOptions.format,
+  minify: appBuildOptions.minify,
+  mode: 'production',
+  sourcemap: appBuildOptions.sourcemap,
+  splitting: appBuildOptions.splitting
+};
+
 if (watch) {
   const backgroundCtx = await context(backgroundBuildOptions);
   const appCtx = await context(appBuildOptions);
@@ -185,6 +197,14 @@ if (!includeHarnesses) {
       'local-vault-write-harness.html'
     ].map((file) => rm(join(distDir, file), { force: true }))
   );
+}
+
+if (firefox && prod && !watch) {
+  const { outputPath } = await writeFirefoxLintProvenance({
+    buildConfig: firefoxLintProvenanceBuildConfig,
+    distDir
+  });
+  console.log(`🧾 Firefox lint provenance: ${outputPath}`);
 }
 
 // Copy styles

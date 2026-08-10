@@ -37,6 +37,7 @@ export type FirefoxLintResult = {
   errors?: Array<{ code?: string; message?: string }>;
   warnings?: Array<{
     code?: string;
+    description?: string;
     message?: string;
     file?: string;
     line?: number;
@@ -59,6 +60,10 @@ export type WebExtLintApi = {
 };
 
 export type FirefoxLintDependencies = {
+  assertFirefoxLintProvenanceImpl?: (input: {
+    distDir: string;
+    warnings: NonNullable<FirefoxLintResult['warnings']>;
+  }) => Promise<unknown>;
   importWebExtImpl?: () => Promise<WebExtLintApi>;
   logger?: {
     log: (...args: unknown[]) => void;

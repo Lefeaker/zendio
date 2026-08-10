@@ -161,10 +161,9 @@ export function chatElementToMarkdown(root: MarkdownRoot): string {
 export function chatHtmlToMarkdown(html: string): string {
   if (!html) return '';
 
-  const tempDiv = document.createElement('div');
-  tempDiv.innerHTML = html;
-
-  return chatElementToMarkdown(tempDiv);
+  const Parser = document.defaultView?.DOMParser ?? DOMParser;
+  const parsed = new Parser().parseFromString(html, 'text/html');
+  return chatElementToMarkdown(parsed.body);
 }
 
 export { nodeToMarkdown };
