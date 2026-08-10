@@ -61,10 +61,21 @@ function createLintContractFiles(
   });
 }
 
-function createLintResult(warnings: Array<Record<string, unknown>>) {
+function createLintResult(
+  warnings: Array<Record<string, unknown>>,
+  {
+    errors = [],
+    errorCount = errors.length,
+    warningCount = warnings.length
+  }: {
+    errors?: Array<Record<string, unknown>>;
+    errorCount?: number;
+    warningCount?: number;
+  } = {}
+) {
   return {
-    summary: { errors: 0, warnings: warnings.length, notices: 0 },
-    errors: [],
+    summary: { errors: errorCount, warnings: warningCount, notices: 0 },
+    errors,
     warnings,
     notices: []
   };
@@ -105,7 +116,7 @@ describe('Firefox package signing audit', () => {
     );
   });
 
-  it('runs web-ext lint without delegating the warning contract to the command exit code', async () => {
+  it('rejects zero warnings because the Readability warning contract is exact', async () => {
     const root = await createTempRoot();
     const distDir = join(root, 'dist');
     const webExt = {
@@ -124,7 +135,13 @@ describe('Firefox package signing audit', () => {
     };
     const logger = { log: vi.fn(), warn: vi.fn() };
 
-    await lintFirefoxExtension(distDir, { logger, webExt });
+    await expect(
+      lintFirefoxExtension(distDir, {
+        logger,
+        readFirefoxLintContractFilesImpl: createLintContractFiles(),
+        webExt
+      })
+    ).rejects.toThrow('FIREFOX_LINT_THIRD_PARTY_WARNING_COUNT_DRIFT: expected=2 actual=0');
 
     expect(webExt.cmd.lint).toHaveBeenCalledWith(
       {
@@ -134,7 +151,42 @@ describe('Firefox package signing audit', () => {
       },
       { shouldExitProgram: false }
     );
-    expect(logger.log).toHaveBeenCalledWith('✅ Firefox web-ext lint passed');
+    expect(logger.log).toHaveBeenCalledWith('🔎 正在运行 Firefox web-ext lint...');
+  });
+
+  it.each([
+    {
+      name: 'package declaration',
+      contractFiles: createLintContractFiles({
+        packageJson: { dependencies: { '@mozilla/readability': '0.6.1' } }
+      }),
+      code: 'FIREFOX_LINT_READABILITY_PACKAGE_IDENTITY_DRIFT'
+    },
+    {
+      name: 'lock entry',
+      contractFiles: createLintContractFiles({
+        packageLockJson: {
+          packages: {
+            'node_modules/@mozilla/readability': {
+              ...READABILITY_LOCK_FIXTURE.packages['node_modules/@mozilla/readability'],
+              version: '0.6.1'
+            }
+          }
+        }
+      }),
+      code: 'FIREFOX_LINT_READABILITY_LOCK_IDENTITY_DRIFT'
+    }
+  ])('validates $name identity before rejecting a zero-warning lint result', async ({
+    contractFiles,
+    code
+  }) => {
+    await expect(
+      lintFirefoxExtension('/private/dist', {
+        readFirefoxLintContractFilesImpl: contractFiles,
+        webExt: { cmd: { lint: vi.fn().mockResolvedValue(createLintResult([])) } }
+      })
+    ).rejects.toThrow(code);
+    expect(contractFiles).toHaveBeenCalledOnce();
   });
 
   it('accepts only the two package-and-lock-pinned bundled Readability warnings', async () => {
@@ -183,6 +235,28 @@ describe('Firefox package signing audit', () => {
         webExt: { cmd: { lint: vi.fn().mockResolvedValue(lintResult) } }
       })
     ).rejects.toThrow('FIREFOX_LINT_THIRD_PARTY_WARNING_COUNT_DRIFT: summary=1 entries=2');
+  });
+
+  it.each([
+    { name: 'reports an error without an entry', errorCount: 1, errors: [] },
+    {
+      name: 'omits an enumerated error',
+      errorCount: 0,
+      errors: [{ code: 'BACKGROUND_SERVICE_WORKER_NOFALLBACK' }]
+    }
+  ])('rejects an error summary that $name', async ({ errorCount, errors }) => {
+    const lintResult = createLintResult([...READABILITY_WARNING_FIXTURE], {
+      errorCount,
+      errors
+    });
+    await expect(
+      lintFirefoxExtension('/private/dist', {
+        readFirefoxLintContractFilesImpl: createLintContractFiles(),
+        webExt: { cmd: { lint: vi.fn().mockResolvedValue(lintResult) } }
+      })
+    ).rejects.toThrow(
+      `FIREFOX_LINT_ERROR_COUNT_DRIFT: summary=${errorCount} entries=${errors.length}`
+    );
   });
 
   it.each([

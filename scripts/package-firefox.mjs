@@ -237,12 +237,19 @@ export async function lintFirefoxExtension(distDir, dependencies = {}) {
     throw new Error(`Firefox web-ext lint failed: ${error.message}`);
   }
 
+  const contractFiles = await readFirefoxLintContractFilesImpl();
+  assertReadabilityDependencyIdentity(contractFiles);
+
+  const errors = Array.isArray(lintResult?.errors) ? lintResult.errors : [];
   const errorCount = getLintCount(lintResult, 'errors');
+  if (errorCount !== errors.length) {
+    throw new Error(
+      `FIREFOX_LINT_ERROR_COUNT_DRIFT: summary=${errorCount} entries=${errors.length}`
+    );
+  }
   if (errorCount > 0) {
     throw new Error(
-      `Firefox web-ext lint failed with ${errorCount} error(s): ${formatLintErrorCodes(
-        lintResult?.errors
-      )}`
+      `Firefox web-ext lint failed with ${errorCount} error(s): ${formatLintErrorCodes(errors)}`
     );
   }
 
@@ -253,20 +260,13 @@ export async function lintFirefoxExtension(distDir, dependencies = {}) {
       `FIREFOX_LINT_THIRD_PARTY_WARNING_COUNT_DRIFT: summary=${warningCount} entries=${warnings.length}`
     );
   }
-  if (warningCount > 0) {
-    const contractFiles = await readFirefoxLintContractFilesImpl();
-    assertReadabilityDependencyIdentity(contractFiles);
-    assertPinnedReadabilityWarnings(warnings);
-    logger.warn(
-      `Firefox web-ext lint accepted ${warningCount} pinned ${FIREFOX_READABILITY_WARNING_CONTRACT.dependency} warning(s): rule=${FIREFOX_READABILITY_WARNING_CONTRACT.rule} provenance=${FIREFOX_READABILITY_WARNING_CONTRACT.provenance} packageSha256=${FIREFOX_READABILITY_WARNING_CONTRACT.packageIdentitySha256} lockSha256=${FIREFOX_READABILITY_WARNING_CONTRACT.lockIdentitySha256}`
-    );
-    logger.log(
-      `✅ Firefox web-ext lint passed with ${warningCount} pinned ${FIREFOX_READABILITY_WARNING_CONTRACT.dependency} warning(s)`
-    );
-    return lintResult;
-  }
-
-  logger.log('✅ Firefox web-ext lint passed');
+  assertPinnedReadabilityWarnings(warnings);
+  logger.warn(
+    `Firefox web-ext lint accepted ${warningCount} pinned ${FIREFOX_READABILITY_WARNING_CONTRACT.dependency} warning(s): rule=${FIREFOX_READABILITY_WARNING_CONTRACT.rule} provenance=${FIREFOX_READABILITY_WARNING_CONTRACT.provenance} packageSha256=${FIREFOX_READABILITY_WARNING_CONTRACT.packageIdentitySha256} lockSha256=${FIREFOX_READABILITY_WARNING_CONTRACT.lockIdentitySha256}`
+  );
+  logger.log(
+    `✅ Firefox web-ext lint passed with ${warningCount} pinned ${FIREFOX_READABILITY_WARNING_CONTRACT.dependency} warning(s)`
+  );
   return lintResult;
 }
 
