@@ -170,6 +170,8 @@ addBrowserClassToHtml(); // 添加 .is-firefox 类
 
 ## 🧪 测试
 
+Firefox lint 的发布契约由仓库包装层判定，而不是把 `web-ext` 的 warning exit code 当作零 warning 证明。第一方 warning 必须为 `0`；当前唯一可接受的第三方输出是 `@mozilla/readability@0.6.0` 在 `chunks/chunk-Q2FLBW36.js:2:16340` 与 `:2:21195` 的两条 `UNSAFE_VAR_ASSIGNMENT`。包装层同时校验根 `package.json` 声明身份 SHA-256 `168f01305bab908fc4a75172e05eef6bab00e009f0c7e97709bcc02c8471b966`、lock entry 身份 SHA-256 `cd7a3c2b695164ef97fd4ff72a50ff8ce01cf45d6934c5f7e5889d6f967ac3c1`、规则、生成路径、行列和精确数量；任一漂移都在 XPI 创建前失败。该契约不是通用 allowlist，不能用来接受其他依赖、其他位置或新增 warning，也不得通过编辑 bundle/vendor 输出闭合。
+
 ### 单元测试
 
 ```bash

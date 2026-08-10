@@ -35,7 +35,13 @@ export type FirefoxLintResult = {
     notices?: number;
   };
   errors?: Array<{ code?: string; message?: string }>;
-  warnings?: Array<{ code?: string; message?: string }>;
+  warnings?: Array<{
+    code?: string;
+    message?: string;
+    file?: string;
+    line?: number;
+    column?: number;
+  }>;
   notices?: Array<{ code?: string; message?: string }>;
 };
 
@@ -58,6 +64,10 @@ export type FirefoxLintDependencies = {
     log: (...args: unknown[]) => void;
     warn: (...args: unknown[]) => void;
   };
+  readFirefoxLintContractFilesImpl?: () => Promise<{
+    packageJson: string;
+    packageLockJson: string;
+  }>;
   webExt?: WebExtLintApi;
 };
 
