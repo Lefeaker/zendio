@@ -16,6 +16,8 @@ npm run audit:build:report
 
 2026-06-23 post-0.2.0 P07 governance 复核在 branch `codex/aiiinob-post-020-p07-performance-observability-2026-06-22` / source baseline commit `7495ab47` 上重新采集 `build:fast`、`build:dev`、`audit:build:report`、`audit:release-surface:report`、`audit:performance:report`、`audit:deps:report`、`audit:platform-boundary:report`、`audit:non-production-source:report`、`lint:type-any` 与 `lint:warnings-guard`。P07 后续只同步 docs、tool budget ratchets 与对应 tool test expectation，没有做 runtime-code line-count edits。本节下方“当前”区块以本次 P07 采集为准；更早段落中的“当前”只表示该历史条目采集当时的 current truth。
 
+2026-08-11 U02A current-truth sync 基于 endpoint `34baa51aa59f397aea3d0ceb6ffe39b404792973` / tree `d8dc8dde7d04bcf12d8dd6e223b366612a9ef01e`（parent `1c86951a056eec06f6fe47c6e510c59d3e2c3c78`）重新确认 performance gate ownership：sourceFiles=`913`、hotspotsOver250=`107`、registeredLineBudgets=`151`。本次只将 `src/options/stitch/render/nodeRenderers.ts <= 286`、`src/ui/stitch-runtime/render/nodeRenderers.ts <= 276` 与 `src/ui/stitch-surfaces/surfaces/task-success.ts <= 277` 同步为 U02A 当前实测上界；不修改运行时代码、gate 算法、package scripts 或其他构建预算。
+
 2026-05-24 M2.5 budget ratchet 复核在 Node `v20.20.2` / npm `10.8.2` 下完成，输入为 M2.1-M2.4 全部合入后的 integration baseline。
 
 2026-05-25 M4.3 dev build surface budget 复核在同一 Node/npm 版本下完成。Production fast build 继续排除 dev/test harness 与 `qps-ploc` pseudo-locale，并由 `audit:release-surface:report` 证明 forbidden harness members 与 forbidden dev/test pseudo-locale members 均为 `none`。当时 dev build 保留本地浏览器 harness 与 `qps-ploc`，但仍必须通过当时更严格的 `audit:build:report` 预算；该预算已经严于本轮 plan 的 `content/runtime.js <= 57,600 bytes`、`chunk count <= 132` 和 locale chunk `<= 60 KB` 约束。

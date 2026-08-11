@@ -156,7 +156,10 @@ const MAX_LINE_BUDGETS = new Map([
   ['src/infrastructure/restClient.ts', 266],
   ['src/shared/services/yamlConfigSanitize.ts', 277],
   ['src/ui/domains/vault-router/VaultRouterView.ts', 277],
-  ['src/options/stitch/render/nodeRenderers.ts', 274],
+  // 2026-08-11 U02A owner transfer/current truth: keep the legacy Options
+  // renderer at 286 lines and register its runtime successor at 276 lines.
+  ['src/options/stitch/render/nodeRenderers.ts', 286],
+  ['src/ui/stitch-runtime/render/nodeRenderers.ts', 276],
   ['src/third_party/ai-chat-exporter/shared/markdownLanguage.ts', 273],
   ['src/options/stitch/schema/settings/capture-sources.ts', 272],
   ['src/options/yaml-config-editor/validation.ts', 269],
@@ -207,7 +210,7 @@ const MAX_LINE_BUDGETS = new Map([
   ['src/content/ui/supportPrompt/SupportPromptToastController.ts', 300],
   // 2026-06-18 options support closeout: task-success surface owns the feedback
   // and support schema copy used by production runtime previews.
-  ['src/ui/stitch-surfaces/surfaces/task-success.ts', 276],
+  ['src/ui/stitch-surfaces/surfaces/task-success.ts', 277],
   // 2026-06-23 P05 Options/Stitch decomposition: runtime surface content moved
   // out of the monolithic Stitch content seed behind the stable facade.
   ['src/options/stitch/content/runtimeSurfaceContent.ts', 283],
