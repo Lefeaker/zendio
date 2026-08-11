@@ -1,6 +1,6 @@
 import { createSchemaRenderer } from '@options/schema-runtime/renderer';
 import { renderPreviewView } from '@options/stitch/render/renderStitchView';
-import { el } from '@options/stitch/ui/dom';
+import { el } from '@ui/stitch-runtime';
 import { previewUi } from '@options/stitch/ui/components';
 import type {
   PreviewContent,

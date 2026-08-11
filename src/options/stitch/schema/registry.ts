@@ -16,9 +16,10 @@ import changelog from './resources/changelog';
 import privacyPolicy from './resources/privacy-policy';
 import dataUsage from './resources/data-usage';
 import termsOfUse from './resources/terms-of-use';
-import { getSurfaceMeta, getSurfaceView } from './surfaceRegistry';
+import { getSurfaceMeta, getSurfaceView, surfaceSchemas } from '@ui/stitch-surfaces';
+import type { RuntimeSurfaceContext } from '@ui/stitch-runtime';
 
-export { surfaceSchemas } from './surfaceRegistry';
+export { surfaceSchemas };
 
 export const settingsSchemas: Record<string, SettingsSchema> = {
   overview,
@@ -62,7 +63,25 @@ export function getResourceMeta(id: string): Pick<ResourceSchema, 'openMode' | '
 }
 
 export function getFooterView(id: string, ctx: SchemaContext): ViewSchema | null {
-  return resourceSchemas[id]?.createView(ctx) ?? getSurfaceView(id, ctx);
+  return resourceSchemas[id]?.createView(ctx) ?? getSurfaceView(id, projectSurfaceContext(ctx));
+}
+
+export function projectSurfaceContext(ctx: SchemaContext): RuntimeSurfaceContext {
+  const defaultVaultName =
+    ctx.appData.storage.vaults.find((vault) => vault.isDefault)?.name ??
+    ctx.appData.storage.vaults[0]?.name;
+  return {
+    appData: {
+      ...ctx.appData.surfaces,
+      taskSuccess: {
+        ...ctx.appData.surfaces.taskSuccess,
+        supportChannels: ctx.appData.resources.support.channels,
+        ...(defaultVaultName ? { defaultVaultName } : {})
+      }
+    },
+    state: { previewTheme: ctx.state.previewTheme },
+    ...(ctx.t ? { t: ctx.t } : {})
+  };
 }
 
 export function getFooterMeta(id: string): Pick<ResourceSchema, 'openMode' | 'href'> | null {

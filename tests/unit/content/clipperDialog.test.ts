@@ -3,6 +3,7 @@
 import type { PageI18nController, Messages, I18nBinder } from '../../../src/i18n';
 import type { StorageAreaService, StorageService } from '../../../src/platform/interfaces/storage';
 import type { ClipperDialogDependencies } from '@content/clipper/components/dialogDependencies';
+import type { StyleAttachmentHandle } from '@ui/foundation/style-host';
 
 import { describe, it, expect, beforeEach, beforeAll, vi } from 'vitest';
 import { setWindowProp, asType } from '../../utils/typeHelpers';
@@ -30,7 +31,14 @@ const applyStylesMock =
       ...args: Parameters<StyleSheetManagerModule['clipperStyleSheetManager']['applyTo']>
     ) => ReturnType<StyleSheetManagerModule['clipperStyleSheetManager']['applyTo']>
   >();
-const applyStitchRuntimeStylesMock = vi.fn();
+const applyStitchRuntimeStylesMock =
+  vi.fn<
+    (
+      ...args: Parameters<
+        StyleSheetManagerModule['clipperStyleSheetManager']['applyStitchRuntimeStyles']
+      >
+    ) => ReturnType<StyleSheetManagerModule['clipperStyleSheetManager']['applyStitchRuntimeStyles']>
+  >();
 const ensureContentI18nMock =
   vi.fn<
     (
@@ -86,6 +94,31 @@ const dialogMessages = {
 };
 
 const flushPromises = () => new Promise((resolve) => setTimeout(resolve, 0));
+const createDeferred = () => {
+  let resolve!: () => void;
+  const promise = new Promise<void>((settle) => {
+    resolve = settle;
+  });
+  return { promise, resolve };
+};
+type StyleAttachmentHandleMock = StyleAttachmentHandle & {
+  dispose: ReturnType<typeof vi.fn<StyleAttachmentHandle['dispose']>>;
+};
+const styleAttachmentHandles: StyleAttachmentHandleMock[] = [];
+const createStyleAttachmentHandleMock = (): StyleAttachmentHandleMock => ({
+  ready: Promise.resolve({ status: 'ready' }),
+  refresh: vi.fn<StyleAttachmentHandle['refresh']>(() => Promise.resolve({ status: 'ready' })),
+  dispose: vi.fn<StyleAttachmentHandle['dispose']>()
+});
+const resetStyleAttachmentMocks = (): void => {
+  styleAttachmentHandles.length = 0;
+  applyStylesMock.mockImplementation(createStyleAttachmentHandleMock);
+  applyStitchRuntimeStylesMock.mockImplementation(() => {
+    const handle = createStyleAttachmentHandleMock();
+    styleAttachmentHandles.push(handle);
+    return handle;
+  });
+};
 const expectDialogResult = (result: unknown, expected: { action: string; comment: string }) => {
   expect(result).toEqual({
     ...expected,
@@ -151,7 +184,6 @@ const createDialogDeps = (
           }
         })
       ),
-      set: vi.fn(() => Promise.resolve()),
       onChange: vi.fn(() => () => undefined)
     } as unknown as ClipperDialogDependencies['optionsRepository'],
     storage,
@@ -225,8 +257,7 @@ describe('ClipperDialog UI', () => {
     getContentI18nBinderMock.mockReturnValue(null);
     getContentMessagesMock.mockResolvedValue(dialogMessages as Messages);
     initializeStylesMock.mockResolvedValue(undefined);
-    applyStylesMock.mockResolvedValue(undefined);
-    applyStitchRuntimeStylesMock.mockReturnValue(undefined);
+    resetStyleAttachmentMocks();
     document.body.innerHTML = '';
     document.head.innerHTML = '';
   });
@@ -243,6 +274,9 @@ describe('ClipperDialog UI', () => {
     expect(host?.getAttribute('role')).toBe('dialog');
     expect(host?.getAttribute('aria-modal')).toBe('true');
     expect(shadow).not.toBeNull();
+    expect(
+      shadow?.querySelector<HTMLImageElement>('.surface-window-icon-image')?.getAttribute('src')
+    ).toBe('icons/60x60/zendio_icon_clipt.png');
 
     const textarea = shadow?.querySelector<HTMLTextAreaElement>('#clipper-comment-input') ?? null;
     expect(textarea).not.toBeNull();
@@ -260,6 +294,88 @@ describe('ClipperDialog UI', () => {
     const result = await resultPromise;
     expectDialogResult(result, { action: 'clip', comment: 'note' });
     expect(document.getElementById('obsidian-clipper-dialog')).toBeNull();
+  });
+
+  it('disposes the replaced no-registry host and final host exactly once before removal', async () => {
+    const { ClipperDialog } = await import('../../../src/content/clipper/components/dialog');
+    const firstDialog = new ClipperDialog(createDialogDeps());
+    void firstDialog.show('First selection');
+    await flushPromises();
+
+    const firstHost = getHost();
+    const firstHandle = styleAttachmentHandles[0];
+    if (!firstHost || !firstHandle) throw new Error('first mounted lifecycle missing');
+    firstHandle.dispose.mockImplementation(() => expect(firstHost.isConnected).toBe(true));
+
+    const secondDialog = new ClipperDialog(createDialogDeps());
+    void secondDialog.show('Second selection');
+    await flushPromises();
+
+    const secondHost = getHost();
+    const secondHandle = styleAttachmentHandles[1];
+    if (!secondHost || !secondHandle) throw new Error('second mounted lifecycle missing');
+    expect(secondHandle).not.toBe(firstHandle);
+    expect(firstHandle.dispose).toHaveBeenCalledTimes(1);
+    expect(firstHost.isConnected).toBe(false);
+    expect(secondHandle.dispose).not.toHaveBeenCalled();
+    secondHandle.dispose.mockImplementation(() => expect(secondHost.isConnected).toBe(true));
+
+    secondDialog.destroy();
+    secondDialog.destroy();
+    firstDialog.destroy();
+
+    expect(secondHandle.dispose).toHaveBeenCalledTimes(1);
+    expect(firstHandle.dispose).toHaveBeenCalledTimes(1);
+    expect(secondHost.isConnected).toBe(false);
+  });
+
+  it('does not mount or attach styles after destroy during pending style initialization', async () => {
+    const styles = createDeferred();
+    initializeStylesMock.mockReturnValue(styles.promise);
+    const { ClipperDialog } = await import('../../../src/content/clipper/components/dialog');
+    const dialog = new ClipperDialog(createDialogDeps());
+
+    const show = dialog.show('Pending selection');
+    await vi.waitFor(() => expect(initializeStylesMock).toHaveBeenCalledTimes(1));
+    dialog.destroy();
+    styles.resolve();
+
+    await expect(show).resolves.toEqual({ action: 'cancel', comment: '' });
+    expect(applyStitchRuntimeStylesMock).not.toHaveBeenCalled();
+    expect(styleAttachmentHandles).toHaveLength(0);
+    expect(getHost()).toBeNull();
+  });
+
+  it('lets only the latest dialog mount after shared pending style initialization', async () => {
+    const styles = createDeferred();
+    initializeStylesMock.mockReturnValue(styles.promise);
+    const { ClipperDialog } = await import('../../../src/content/clipper/components/dialog');
+    const firstDialog = new ClipperDialog(createDialogDeps());
+    const secondDialog = new ClipperDialog(createDialogDeps());
+
+    const firstShow = firstDialog.show('First pending selection');
+    await vi.waitFor(() => expect(initializeStylesMock).toHaveBeenCalledTimes(1));
+    const secondShow = secondDialog.show('Second pending selection');
+    await vi.waitFor(() => expect(initializeStylesMock).toHaveBeenCalledTimes(2));
+    styles.resolve();
+
+    await expect(firstShow).resolves.toEqual({ action: 'cancel', comment: '' });
+    await vi.waitFor(() => expect(getHost()).not.toBeNull());
+    const host = getHost();
+    const handle = styleAttachmentHandles[0];
+    if (!host || !handle) throw new Error('latest mounted lifecycle missing');
+    expect(styleAttachmentHandles).toHaveLength(1);
+    expect(document.documentElement.dataset.aiobClipperDialog).toBe('open');
+    handle.dispose.mockImplementation(() => expect(host.isConnected).toBe(true));
+
+    secondDialog.close();
+    await expect(secondShow).resolves.toEqual({
+      action: 'cancel',
+      comment: '',
+      destination: { kind: 'downloads' }
+    });
+    expect(handle.dispose).toHaveBeenCalledTimes(1);
+    expect(host.isConnected).toBe(false);
   });
 
   it('builds presenter command buttons and comment hooks from element helpers', async () => {
@@ -552,7 +668,7 @@ describe('ClipperDialog repository integration', () => {
     getContentI18nBinderMock.mockReturnValue(null);
     getContentMessagesMock.mockResolvedValue(dialogMessages as unknown as Messages);
     initializeStylesMock.mockResolvedValue(undefined);
-    applyStylesMock.mockResolvedValue(undefined);
+    resetStyleAttachmentMocks();
     document.body.innerHTML = '';
     document.head.innerHTML = '';
   });

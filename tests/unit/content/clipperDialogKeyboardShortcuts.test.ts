@@ -11,6 +11,7 @@ import type { StorageService } from '../../../src/platform/interfaces/storage';
 import type { RuntimeService } from '../../../src/platform/interfaces/runtime';
 import type { ErrorHandler } from '@shared/errors';
 import type { ClipperDialogDependencies } from '@content/clipper/components/dialogDependencies';
+import type { StyleAttachmentHandle } from '@ui/foundation/style-host';
 
 type StyleSheetManagerModule =
   typeof import('../../../src/content/clipper/shared/styleSheetManager');
@@ -27,7 +28,14 @@ const applyStylesMock =
       ...args: Parameters<StyleSheetManagerModule['clipperStyleSheetManager']['applyTo']>
     ) => ReturnType<StyleSheetManagerModule['clipperStyleSheetManager']['applyTo']>
   >();
-const applyStitchRuntimeStylesMock = vi.fn();
+const applyStitchRuntimeStylesMock =
+  vi.fn<
+    (
+      ...args: Parameters<
+        StyleSheetManagerModule['clipperStyleSheetManager']['applyStitchRuntimeStyles']
+      >
+    ) => ReturnType<StyleSheetManagerModule['clipperStyleSheetManager']['applyStitchRuntimeStyles']>
+  >();
 const ensureContentI18nMock = vi.fn();
 const getContentI18nBinderMock = vi.fn();
 const getContentMessagesMock = vi.fn();
@@ -64,6 +72,11 @@ const dialogMessages = {
 };
 
 const flushPromises = () => new Promise((resolve) => setTimeout(resolve, 0));
+const createStyleAttachmentHandleMock = (): StyleAttachmentHandle => ({
+  ready: Promise.resolve({ status: 'ready' }),
+  refresh: vi.fn<StyleAttachmentHandle['refresh']>(() => Promise.resolve({ status: 'ready' })),
+  dispose: vi.fn<StyleAttachmentHandle['dispose']>()
+});
 const expectDialogResult = (result: unknown, expected: { action: string; comment: string }) => {
   expect(result).toEqual({
     ...expected,
@@ -104,7 +117,6 @@ async function createDialog() {
         }
       })
     ),
-    set: vi.fn(() => Promise.resolve()),
     onChange: vi.fn(() => () => undefined)
   } as unknown as ClipperDialogDependencies['optionsRepository'];
   return new ClipperDialog({
@@ -142,18 +154,18 @@ describe('ClipperDialog Keyboard Shortcuts', () => {
     getContentI18nBinderMock.mockReturnValue(null);
     getContentMessagesMock.mockResolvedValue(dialogMessages);
     initializeStylesMock.mockResolvedValue(undefined);
-    applyStylesMock.mockResolvedValue(undefined);
-    applyStitchRuntimeStylesMock.mockReturnValue(undefined);
+    applyStylesMock.mockImplementation(createStyleAttachmentHandleMock);
+    applyStitchRuntimeStylesMock.mockImplementation(createStyleAttachmentHandleMock);
     document.body.innerHTML = '';
     document.head.innerHTML = '';
     clipRepo = new MockClipRepository();
     storageService = {
       local: {
-        get: vi.fn(async () => undefined),
-        set: vi.fn(async () => undefined),
-        remove: vi.fn(async () => undefined),
-        clear: vi.fn(async () => undefined),
-        getBytesInUse: vi.fn(async () => 0),
+        get: vi.fn(() => Promise.resolve(undefined)),
+        set: vi.fn(() => Promise.resolve(undefined)),
+        remove: vi.fn(() => Promise.resolve(undefined)),
+        clear: vi.fn(() => Promise.resolve(undefined)),
+        getBytesInUse: vi.fn(() => Promise.resolve(0)),
         watch: vi.fn(() => () => {}),
         watchKey: vi.fn(() => () => {})
       }
@@ -162,7 +174,7 @@ describe('ClipperDialog Keyboard Shortcuts', () => {
       getURL: vi.fn((path: string) => `chrome-extension://test/${path}`)
     } as unknown as RuntimeService;
     errorHandler = {
-      handle: vi.fn(async () => undefined)
+      handle: vi.fn(() => Promise.resolve(undefined))
     } as unknown as ErrorHandler;
 
     // Clear any reader mode indicators

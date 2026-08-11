@@ -8,7 +8,7 @@ import {
 } from '@shared/exportDestination';
 import type { IOptionsRepository } from '@shared/repositories/IOptionsRepository';
 import type { ClipPayload } from '@shared/types';
-import type { ExportDestinationSurfacePreview } from '@options/stitch/types';
+import type { ExportDestinationSurfacePreview } from '@ui/stitch-runtime';
 import { mergeOptions } from '@shared/config/optionsMerger';
 
 export class ContentExportDestinationState {

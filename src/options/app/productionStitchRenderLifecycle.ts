@@ -5,7 +5,7 @@ import {
   buildSidebar
 } from '@options/stitch/render/shellBuilders';
 import { renderPreviewView } from '@options/stitch/render/renderStitchView';
-import { clear, el } from '@options/stitch/ui/dom';
+import { clear, el } from '@ui/stitch-runtime';
 import { previewUi } from '@options/stitch/ui/components';
 import type { PreviewStoreState } from '@options/stitch/types';
 import { RUNTIME_SURFACE_RESOURCE_IDS } from './productionStitchStateMapper';

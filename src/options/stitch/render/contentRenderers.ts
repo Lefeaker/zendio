@@ -1,7 +1,6 @@
-import { resolveValue, runAction, runEventAction, type RendererContext } from './actionAdapter';
+import { resolveValue, runAction, type RendererContext } from './actionAdapter';
 import type {
   DynamicValue,
-  ElementNode,
   ListNode,
   NodeChild,
   NoticeNode,
@@ -316,38 +315,6 @@ export function renderWidgetNode(node: WidgetNode, ctx: RendererContext): HTMLEl
   });
   ctx.mountWidget?.(widgetType, host, resolveValue(node.props, ctx));
   return host;
-}
-
-export function renderElementNode(
-  node: ElementNode,
-  ctx: RendererContext,
-  callbacks: ContentRenderCallbacks
-): HTMLElement {
-  return ctx.el(
-    node.tag || 'div',
-    {
-      className: resolveValue(node.className, ctx),
-      text: node.text !== undefined ? String(resolveValue(node.text, ctx) ?? '') : undefined,
-      html: node.html !== undefined ? resolveValue(node.html, ctx) : undefined,
-      style: resolveValue(node.style, ctx),
-      dataset: resolveValue(node.dataset, ctx),
-      src: resolveValue(node.src, ctx),
-      alt: resolveValue(node.alt, ctx),
-      href: resolveValue(node.href, ctx),
-      target: resolveValue(node.target, ctx),
-      rel: resolveValue(node.rel, ctx),
-      type: resolveValue(node.type, ctx),
-      role: resolveValue(node.role, ctx),
-      'aria-pressed': resolveValue(node.ariaPressed, ctx),
-      'aria-expanded': resolveValue(node.ariaExpanded, ctx),
-      'aria-haspopup': resolveValue(node.ariaHaspopup, ctx),
-      'aria-label': resolveValue(node.ariaLabel, ctx),
-      disabled: resolveValue(node.disabled, ctx),
-      title: resolveValue(node.title, ctx),
-      onClick: node.onClick ? (event: Event) => runEventAction(node.onClick, event, ctx) : undefined
-    },
-    callbacks.renderNodeList(node.children, ctx)
-  );
 }
 
 export function renderNoticeBody(

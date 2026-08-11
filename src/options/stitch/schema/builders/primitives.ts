@@ -1,66 +1,28 @@
 import type {
-  ActionDescriptor,
-  ActionReference,
-  ButtonVariant,
   DynamicValue,
   GridColumns,
   NodeChild,
   NodeSchema,
-  PreviewStyle
+  OptionsExtensionNode,
+  SchemaContext
 } from '../../types';
 import { classNames } from './classNames';
+import {
+  buttonNode as runtimeButtonNode,
+  div as runtimeDiv,
+  element as runtimeElement,
+  span as runtimeSpan,
+  strong as runtimeStrong
+} from '@ui/stitch-surfaces/builders/primitives';
 
-type ElementTag = keyof HTMLElementTagNameMap;
-
-interface ElementOptions {
-  className?: DynamicValue<string>;
-  text?: DynamicValue<string | number>;
-  html?: DynamicValue<string>;
-  src?: DynamicValue<string>;
-  alt?: DynamicValue<string>;
-  href?: DynamicValue<string>;
-  target?: DynamicValue<string>;
-  rel?: DynamicValue<string>;
-  type?: DynamicValue<string>;
-  role?: DynamicValue<string>;
-  ariaPressed?: DynamicValue<string>;
-  ariaExpanded?: DynamicValue<string>;
-  ariaHaspopup?: DynamicValue<string>;
-  ariaLabel?: DynamicValue<string>;
-  disabled?: DynamicValue<boolean>;
-  title?: DynamicValue<string>;
-  dataset?: DynamicValue<Record<string, string | number | boolean>>;
-  style?: DynamicValue<PreviewStyle>;
-  onClick?: DynamicValue<ActionDescriptor>;
-}
-
-export function element(
-  tag: ElementTag,
-  options: ElementOptions = {},
-  children?: DynamicValue<NodeChild[]>
-): NodeSchema {
-  return {
-    kind: 'element',
-    tag,
-    ...options,
-    ...(children ? { children } : {})
-  };
-}
-
-export function div(className: string, children: DynamicValue<NodeChild[]> = []): NodeSchema {
-  return element('div', { className }, children);
-}
-
-export function span(className: string, text: DynamicValue<string | number>): NodeSchema {
-  return element('span', { className, text });
-}
+export const buttonNode = runtimeButtonNode<SchemaContext>;
+export const div = runtimeDiv<SchemaContext, OptionsExtensionNode>;
+export const element = runtimeElement<SchemaContext, OptionsExtensionNode>;
+export const span = runtimeSpan<SchemaContext>;
+export const strong = runtimeStrong<SchemaContext>;
 
 export function textSpan(text: DynamicValue<string | number>): NodeSchema {
   return element('span', { text });
-}
-
-export function strong(text: DynamicValue<string | number>, className?: string): NodeSchema {
-  return element('strong', { text, ...(className ? { className } : {}) });
 }
 
 export function paragraph(text: DynamicValue<string | number>, className?: string): NodeSchema {
@@ -82,7 +44,7 @@ export function pre(text: DynamicValue<string | number>): NodeSchema {
 export function stack(
   children: DynamicValue<NodeChild[]>,
   className?: string,
-  tag?: ElementTag
+  tag?: keyof HTMLElementTagNameMap
 ): NodeSchema {
   return {
     kind: 'stack',
@@ -111,23 +73,6 @@ export function toolbar(children: DynamicValue<NodeChild[]>, extraClass?: string
 
 export function state(text: DynamicValue<string | number>): NodeSchema {
   return span('state', text);
-}
-
-export function buttonNode(
-  label: DynamicValue<string>,
-  variant?: DynamicValue<ButtonVariant>,
-  action?: DynamicValue<ActionReference>,
-  disabled?: DynamicValue<boolean>,
-  dataset?: DynamicValue<Record<string, string | number | boolean>>
-): NodeSchema {
-  return {
-    kind: 'button',
-    label,
-    ...(variant ? { variant } : {}),
-    ...(action ? { action } : {}),
-    ...(disabled !== undefined ? { disabled } : {}),
-    ...(dataset ? { dataset } : {})
-  };
 }
 
 export function badgeNode(label: DynamicValue<string>, variant?: DynamicValue<string>): NodeSchema {

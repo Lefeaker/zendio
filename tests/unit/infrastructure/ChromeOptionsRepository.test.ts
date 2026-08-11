@@ -3,7 +3,11 @@ import { ChromeOptionsRepository } from '../../../src/infrastructure/repositorie
 import { DEFAULT_OPTIONS } from '@shared/config/defaultOptions';
 import { StorageError } from '@shared/errors';
 import type { CompleteOptions } from '@shared/types/options';
-import type { StorageAreaService, StorageService } from '../../../src/platform/interfaces/storage';
+import type {
+  StorageAreaService,
+  StorageChangeCallback,
+  StorageService
+} from '../../../src/platform/interfaces/storage';
 
 type MockableFunction = (...args: never[]) => void;
 
@@ -27,9 +31,7 @@ type StorageAreaMock = StorageAreaService & {
 // Helper Functions
 // ===========================
 function cloneOptions(options: CompleteOptions): CompleteOptions {
-  const cloned = JSON.parse(JSON.stringify(options)) as CompleteOptions;
-  cloned.rest.apiKey = 'test-api-key-12345';
-  return cloned;
+  return JSON.parse(JSON.stringify(options)) as CompleteOptions;
 }
 
 function withLegacyRootDir<TRest extends CompleteOptions['rest']>(
@@ -103,7 +105,7 @@ describe('ChromeOptionsRepository', () => {
       // Setup: Third get (for notifyListeners) returns updated state
       mockStorage.sync.get.mockResolvedValueOnce(updatedOptions);
 
-      const callback = vi.fn();
+      const callback = vi.fn<(options: CompleteOptions) => void>();
 
       // Subscribe to onChange
       repo.onChange(callback);
@@ -164,6 +166,31 @@ describe('ChromeOptionsRepository', () => {
         expect(callback).toHaveBeenCalledTimes(1);
       });
       expect(callback).toHaveBeenCalledWith(expect.objectContaining({ interfaceTheme: 'light' }));
+    });
+
+    it('should decode legacy watcher values without scheduling migration writes', async () => {
+      mockStorage.sync.get.mockResolvedValue(DEFAULT_COMPLETE_OPTIONS);
+      let externalChange: StorageChangeCallback<object | null> | undefined;
+      mockStorage.sync.watchKey.mockImplementation((_key, callback) => {
+        externalChange = (value, change) => callback(value, change);
+        return vi.fn();
+      });
+      const callback = vi.fn<(options: CompleteOptions) => void>();
+      repo.onChange(callback);
+      await vi.waitFor(() => expect(callback).toHaveBeenCalledTimes(1));
+      callback.mockClear();
+
+      const watchedValue = {
+        templates: { clipper: 'Watched legacy template' },
+        fragmentClipper: { selectionModifierEnabled: false }
+      };
+      externalChange?.(watchedValue, { newValue: watchedValue });
+
+      await vi.waitFor(() => expect(callback).toHaveBeenCalledTimes(1));
+      const emitted = callback.mock.calls[0]?.[0];
+      expect(emitted?.templates.fragment).toBe('Watched legacy template');
+      expect(emitted?.fragmentClipper.selectionTriggerMode).toBe('direct');
+      expect(mockStorage.sync.set).not.toHaveBeenCalled();
     });
 
     it('should emit initial state immediately when onChange is called', async () => {
@@ -296,7 +323,7 @@ describe('ChromeOptionsRepository', () => {
       [true, 'modifier'],
       [false, 'direct']
     ] as const)(
-      'should migrate and persist the retired selection modifier flag %s as %s',
+      'should migrate the retired selection modifier flag %s as %s without read writeback',
       async (legacyEnabled, expectedMode) => {
         mockStorage.sync.get.mockResolvedValue({
           fragmentClipper: {
@@ -308,16 +335,7 @@ describe('ChromeOptionsRepository', () => {
         const result = await repo.get();
 
         expect(result.fragmentClipper.selectionTriggerMode).toBe(expectedMode);
-        expect(mockStorage.sync.set).toHaveBeenCalledTimes(1);
-        expect(mockStorage.sync.set).toHaveBeenCalledWith('options', {
-          fragmentClipper: {
-            selectionTriggerMode: expectedMode,
-            selectionModifierKeys: ['shift']
-          }
-        });
-        expect(mockStorage.sync.set.mock.calls[0]?.[1]).not.toHaveProperty(
-          'fragmentClipper.selectionModifierEnabled'
-        );
+        expect(mockStorage.sync.set).not.toHaveBeenCalled();
       }
     );
 
@@ -335,24 +353,162 @@ describe('ChromeOptionsRepository', () => {
       expect(mockStorage.sync.set).not.toHaveBeenCalled();
     });
 
-    it('should keep migrated options usable when migration persistence fails', async () => {
+    it('should migrate legacy template, video, and taxonomy data without read writeback', async () => {
       mockStorage.sync.get.mockResolvedValue({
-        fragmentClipper: {
-          selectionModifierEnabled: false,
-          selectionModifierKeys: ['shift']
-        }
+        templates: { clipper: 'Legacy/{{title}}.md' },
+        video: {
+          controlBarAutoPauseEnabled: false,
+          controlBarCaptureScreenshotEnabled: false
+        },
+        classifier: { taxonomy: { type: ['article'], topics: ['research'] } }
       });
-      mockStorage.sync.set.mockRejectedValueOnce(new Error('sync quota exceeded'));
-      const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
 
       const result = await repo.get();
 
-      expect(result.fragmentClipper.selectionTriggerMode).toBe('direct');
-      expect(consoleSpy).toHaveBeenCalledWith(
-        '[ChromeOptionsRepository] Failed to persist options migration:',
-        expect.any(Error)
-      );
-      consoleSpy.mockRestore();
+      expect(result.templates.fragment).toBe('Legacy/{{title}}.md');
+      expect(result.templates.reading).toBe('Legacy/{{title}}.md');
+      expect(result.video.controlBarAutoPause).toBe(false);
+      expect(result.video.controlBarScreenshot).toBe(false);
+      expect(result.classifier.taxonomy.name).toBe('Migrated Taxonomy');
+      expect(mockStorage.sync.set).not.toHaveBeenCalled();
+    });
+
+    it('should salvage valid sections when REST, taxonomy, YAML, and Vault roots are malformed', async () => {
+      mockStorage.sync.get.mockResolvedValue({
+        interfaceTheme: 'light',
+        templates: { article: 'Articles/{{title}}.md' },
+        rest: { baseUrl: 'not a url', apiKey: '' },
+        classifier: {
+          taxonomy: {
+            version: '1',
+            categories: [{ id: 'bad', name: 'Bad', keywords: null }],
+            tags: [],
+            rules: []
+          }
+        },
+        yamlConfig: { contentTypes: { article: { fields: null } } },
+        vaultRouter: { vaults: [{ id: 'broken' }] }
+      });
+
+      const result = await repo.get();
+
+      expect(result.interfaceTheme).toBe('light');
+      expect(result.templates.article).toBe('Articles/{{title}}.md');
+      expect(result.rest).toEqual(DEFAULT_COMPLETE_OPTIONS.rest);
+      expect(result.classifier.taxonomy).toEqual(DEFAULT_COMPLETE_OPTIONS.classifier.taxonomy);
+      expect(result.yamlConfig).toBeUndefined();
+      expect(result.vaultRouter).toBeUndefined();
+      expect(mockStorage.sync.set).not.toHaveBeenCalled();
+    });
+
+    it('should round-trip the shipped empty REST apiKey through the read boundary', async () => {
+      mockStorage.sync.get.mockResolvedValue({
+        rest: {
+          baseUrl: DEFAULT_COMPLETE_OPTIONS.rest.baseUrl,
+          vault: DEFAULT_COMPLETE_OPTIONS.rest.vault,
+          apiKey: ''
+        }
+      });
+
+      const result = await repo.get();
+
+      expect(result.rest.apiKey).toBe('');
+      expect(mockStorage.sync.set).not.toHaveBeenCalled();
+    });
+
+    it('should preserve the shipped empty REST apiKey through a real set/read round trip', async () => {
+      let stored: unknown = cloneOptions(DEFAULT_COMPLETE_OPTIONS);
+      mockStorage.sync.get.mockImplementation(() => Promise.resolve(stored));
+      mockStorage.sync.set.mockImplementation((_key, value) => {
+        stored = value;
+        return Promise.resolve();
+      });
+
+      await repo.set({
+        rest: {
+          ...DEFAULT_COMPLETE_OPTIONS.rest,
+          apiKey: ''
+        }
+      });
+      const result = await repo.get();
+
+      expect(result.rest.apiKey).toBe('');
+      expect(mockStorage.sync.set).toHaveBeenCalledTimes(1);
+    });
+
+    it('should preserve a full optional taxonomy exactly through the repository read boundary', async () => {
+      const taxonomy = {
+        version: '2.0.0',
+        name: 'Repository taxonomy',
+        description: 'All optional fields',
+        descriptionKey: 'taxonomy.repository',
+        classificationHint: 'Classify repository input',
+        categories: [
+          {
+            id: 'research',
+            name: 'Research',
+            description: 'Research material',
+            descriptionKey: 'taxonomy.category.research',
+            classificationHint: 'Academic work',
+            parent: 'knowledge',
+            keywords: ['paper'],
+            weight: 0.8
+          }
+        ],
+        tags: [
+          {
+            id: 'review',
+            name: 'Review',
+            description: 'Review later',
+            descriptionKey: 'taxonomy.tag.review',
+            classificationHint: 'Queue for review',
+            category: 'research',
+            color: '#123456',
+            aliases: ['later']
+          }
+        ],
+        rules: [
+          {
+            id: 'r1',
+            name: 'Research domain',
+            description: 'Assign research',
+            conditions: [
+              {
+                type: 'domain',
+                operator: 'endsWith',
+                value: '.example.edu',
+                caseSensitive: false
+              }
+            ],
+            actions: [
+              {
+                type: 'assignCategory',
+                target: 'category',
+                value: 'research',
+                metadata: { origin: 'repository' }
+              }
+            ],
+            priority: 2,
+            enabled: true
+          }
+        ],
+        defaultCategory: 'research',
+        defaultTags: ['review'],
+        settings: {
+          autoClassification: true,
+          confidenceThreshold: 0.75,
+          maxCategories: 2,
+          maxTags: 3,
+          fallbackBehavior: 'prompt',
+          customPrompts: { classify: 'Classify this' }
+        }
+      };
+      mockStorage.sync.get.mockResolvedValue({ classifier: { taxonomy } });
+
+      const result = await repo.get();
+
+      expect(result.classifier.taxonomy).toEqual(taxonomy);
+      expect(mockStorage.sync.set).not.toHaveBeenCalled();
     });
 
     it('should merge partial options with defaults when storage has sparse data', async () => {

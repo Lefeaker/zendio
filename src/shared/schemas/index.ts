@@ -1,4 +1,5 @@
 export * from './options.schema';
+export * from './taxonomy.schema';
 export * from './error.schema';
 export * from './classification.schema';
 export * from './clip.schema';

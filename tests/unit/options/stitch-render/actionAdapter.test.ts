@@ -7,7 +7,7 @@ import {
   type RendererContext
 } from '@options/stitch/render/actionAdapter';
 import { previewContent } from '@options/stitch/content';
-import { el } from '@options/stitch/ui/dom';
+import { el } from '@ui/stitch-runtime';
 import { previewUi } from '@options/stitch/ui/components';
 
 function createContext(): RendererContext {

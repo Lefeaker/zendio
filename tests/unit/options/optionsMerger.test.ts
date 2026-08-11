@@ -257,7 +257,7 @@ describe('shared optionsMerger', () => {
     });
   });
 
-  it('prunes legacy rest rootDir while preserving current rest fields and unknown extensions', () => {
+  it('projects canonical sparse fields without leaking unknown roots into runtime options', () => {
     const result = mergeOptions(
       parseStoredOptions(
         JSON.stringify({
@@ -268,15 +268,13 @@ describe('shared optionsMerger', () => {
             apiKey: '',
             httpsUrl: '',
             httpUrl: 'http://stored.example/',
-            rootDir: 'Root',
             localFolderId: '',
             localFolderName: 'Local Folder'
           },
           templates: {
-            clipper: 'Legacy/{title}.md'
+            fragment: 'Canonical/{title}.md'
           },
           domainMappings: { 'example.com': 'Examples' },
-          yamlConfig: { fields: [] },
           customExtension: { enabled: true }
         })
       )
@@ -288,16 +286,12 @@ describe('shared optionsMerger', () => {
     expect(result.rest.apiKey).toBe(DEFAULT_OPTIONS.rest.apiKey);
     expect(result.rest.httpsUrl).toBe(DEFAULT_OPTIONS.rest.httpsUrl);
     expect(result.rest.httpUrl).toBe('http://stored.example/');
-    expect(result.rest).not.toHaveProperty('rootDir');
     expect(result.rest.localFolderId).toBe('');
     expect(result.rest.localFolderName).toBe('Local Folder');
-    expect(result.templates.fragment).toBe('Legacy/{title}.md');
-    expect(result.templates.reading).toBe('Legacy/{title}.md');
+    expect(result.templates.fragment).toBe('Canonical/{title}.md');
+    expect(result.templates.reading).toBe('Canonical/{title}.md');
     expect(result.domainMappings).toEqual({ 'example.com': 'Examples' });
-    expect(result.yamlConfig).toEqual({ fields: [] });
-    expect(Reflect.get(result, 'customExtension')).toEqual({
-      enabled: true
-    });
+    expect(Reflect.get(result, 'customExtension')).toBeUndefined();
   });
 
   it('normalizes blank optional feature values through documented fallbacks', () => {
@@ -309,8 +303,8 @@ describe('shared optionsMerger', () => {
             floatingPromptEnabled: false,
             promptButtonLabel: '   ',
             promptShortcut: '',
-            controlBarAutoPauseEnabled: false,
-            controlBarCaptureScreenshotEnabled: false,
+            controlBarAutoPause: false,
+            controlBarScreenshot: false,
             commentEditorAutoPause: true,
             promptPosition: { x: 'NaN', y: 12 }
           },

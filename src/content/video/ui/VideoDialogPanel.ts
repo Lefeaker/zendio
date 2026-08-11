@@ -4,6 +4,7 @@ import type {
   VideoPanelTexts
 } from '../application/videoPanelModel';
 import type { UiMountable } from '@ui/hosts/shared/contract';
+import type { StyleAttachmentHandle } from '@ui/foundation/style-host';
 import type { PopupCoordinator } from '@content/runtime/popupCoordinator';
 import { resolveContentPopupCoordinator } from '@content/runtime/popupCoordinatorAccess';
 import { panelStyleSheetManager } from '@content/shared/panels/styleSheetManager';
@@ -14,7 +15,7 @@ import { bindSessionItemPreviewExpansion } from '@content/shared/panels/sessionI
 import { preserveSessionPanelIcon } from '@content/shared/panels/sessionPanelIconPersistence';
 import { SessionCommentDraftController } from '@content/shared/panels/sessionCommentDrafts';
 import { patchExportDestinationRow } from '@content/shared/exportDestinationDom';
-import type { ExportDestinationSurfacePreview } from '@options/stitch/types';
+import type { ExportDestinationSurfacePreview } from '@ui/stitch-runtime';
 import { focusContentDialogElementByDataset } from '@ui/hosts/content/contentDialogFocus';
 import { bindVideoInputKeyboardIsolationBoundary } from '../videoInputEventIsolation';
 import { createVideoDialogSurface } from './videoDialogSurface';
@@ -26,7 +27,6 @@ interface VideoDialogPanelOptions {
   resolveAssetUrl?: (path: string) => string;
   initialCollapsed?: boolean;
 }
-
 export class VideoDialogPanel implements UiMountable<
   HTMLElement | undefined,
   | { texts?: VideoPanelTexts; count?: number; hint?: string; captures?: VideoPanelCapture[] }
@@ -34,8 +34,8 @@ export class VideoDialogPanel implements UiMountable<
   HTMLElement
 > {
   readonly popupLifecycle = { preserveOnTransientClose: true, kind: 'session-panel' } as const;
-
   private renderRoot: HTMLElement;
+  private styleAttachment: StyleAttachmentHandle | null = null;
   private readonly popupCoordinator: PopupCoordinator | null;
   private readonly collapsePersistence: SessionPanelCollapsePersistence;
   private unregisterPopup: (() => void) | null = null;
@@ -58,7 +58,6 @@ export class VideoDialogPanel implements UiMountable<
   private keepCollapsedForNextCaptureUpdate = false;
   private suppressCaptureEditorBlur = false;
   private renderBlurSuppressionToken = 0;
-
   constructor(private readonly options: VideoDialogPanelOptions) {
     this.texts = options.texts;
     this.keepCollapsedForNextCaptureUpdate = Boolean(options.initialCollapsed);
@@ -71,15 +70,13 @@ export class VideoDialogPanel implements UiMountable<
     this.renderRoot = createSessionPanelRenderRoot();
     const shadow = this.renderRoot.attachShadow({ mode: 'open' });
     this.keyboardIsolationDisposer = bindVideoInputKeyboardIsolationBoundary(shadow);
-    panelStyleSheetManager.applyStitchRuntimeStyles(shadow);
     this.rerender();
+    this.styleAttachment = panelStyleSheetManager.applyStitchRuntimeStyles(shadow);
     void this.collapsePersistence.restore();
   }
-
   get element(): HTMLElement {
     return this.renderRoot;
   }
-
   mount(target: HTMLElement = document.body): HTMLElement {
     if (!this.renderRoot.isConnected) {
       target.append(this.renderRoot);
@@ -199,6 +196,9 @@ export class VideoDialogPanel implements UiMountable<
     this.previewExpansionDisposer = null;
     this.keyboardIsolationDisposer?.();
     this.keyboardIsolationDisposer = null;
+    const styleAttachment = this.styleAttachment;
+    this.styleAttachment = null;
+    if (styleAttachment) styleAttachment.dispose();
     this.renderRoot.remove();
   }
 
@@ -219,7 +219,7 @@ export class VideoDialogPanel implements UiMountable<
     preserveSessionPanelIcon(shadow, surface);
     this.suppressCaptureEditorBlurForInternalRender();
     shadow.replaceChildren(surface);
-    panelStyleSheetManager.applyStitchRuntimeStyles(shadow);
+    if (this.styleAttachment) void this.styleAttachment.refresh();
     this.resizeDisposer = bindSessionPanelResize(surface);
     this.previewExpansionDisposer = bindSessionItemPreviewExpansion(surface);
     if (restoreFocusCaptureId) {

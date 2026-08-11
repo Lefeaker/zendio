@@ -35,6 +35,7 @@ import type { IOptionsRepository } from '../../src/shared/repositories/IOptionsR
 import { createMemoryStorageService } from '../../src/platform/preview/memoryStorage';
 import type { PlatformServices } from '../../src/platform/types';
 import type { SessionCommentDraftSnapshot } from '../../src/content/shared/panels/sessionCommentDrafts';
+import type { StyleAttachmentHandle } from '../../src/ui/foundation/style-host';
 
 type I18nContextModule = typeof import('../../src/content/i18n/context');
 type StyleSheetManagerModule = typeof import('../../src/content/clipper/shared/styleSheetManager');
@@ -117,6 +118,24 @@ const dialogMessages = partialOf<Messages>({
 });
 
 const flushPromises = () => new Promise((resolve) => setTimeout(resolve, 0));
+type StyleAttachmentHandleMock = StyleAttachmentHandle & {
+  dispose: ReturnType<typeof vi.fn<StyleAttachmentHandle['dispose']>>;
+};
+const styleAttachmentHandles: StyleAttachmentHandleMock[] = [];
+const createStyleAttachmentHandleMock = (): StyleAttachmentHandleMock => ({
+  ready: Promise.resolve({ status: 'ready' }),
+  refresh: vi.fn<StyleAttachmentHandle['refresh']>(() => Promise.resolve({ status: 'ready' })),
+  dispose: vi.fn<StyleAttachmentHandle['dispose']>()
+});
+const resetStyleAttachmentMocks = (): void => {
+  styleAttachmentHandles.length = 0;
+  applyStylesMock.mockImplementation(createStyleAttachmentHandleMock);
+  applyStitchRuntimeStylesMock.mockImplementation(() => {
+    const handle = createStyleAttachmentHandleMock();
+    styleAttachmentHandles.push(handle);
+    return handle;
+  });
+};
 
 type ReaderSessionCtor = (typeof import('../../src/content/reader/session'))['ReaderSession'];
 type ReaderSessionInstance = InstanceType<ReaderSessionCtor>;
@@ -189,7 +208,7 @@ describe('Content scripts repository integration (Clipper)', () => {
     getContentI18nBinderMock.mockReturnValue(null);
     getContentMessagesMock.mockResolvedValue(dialogMessages);
     initializeStylesMock.mockResolvedValue(undefined);
-    applyStylesMock.mockResolvedValue(undefined);
+    resetStyleAttachmentMocks();
     document.body.innerHTML = '';
     document.head.innerHTML = '';
     resetGlobalRegistry();
@@ -230,6 +249,39 @@ describe('Content scripts repository integration (Clipper)', () => {
     await flushPromises();
     expect(state.keyboardShortcutsEnabled).toBe(true);
     dialog.destroy();
+  });
+
+  it('uses fresh mandatory style handles and disposes replacement and destroy exactly once', async () => {
+    const { ClipperDialog } = await import('../../src/content/clipper/components/dialog');
+    const firstDialog = new ClipperDialog({ clipRepo: new MockClipRepository() });
+    void firstDialog.show('First selection');
+    await flushPromises();
+
+    const firstHost = document.getElementById('obsidian-clipper-dialog');
+    const firstHandle = styleAttachmentHandles[0];
+    if (!firstHost || !firstHandle) throw new Error('first mounted lifecycle missing');
+    firstHandle.dispose.mockImplementation(() => expect(firstHost.isConnected).toBe(true));
+
+    const secondDialog = new ClipperDialog({ clipRepo: new MockClipRepository() });
+    void secondDialog.show('Second selection');
+    await flushPromises();
+
+    const secondHost = document.getElementById('obsidian-clipper-dialog');
+    const secondHandle = styleAttachmentHandles[1];
+    if (!secondHost || !secondHandle) throw new Error('second mounted lifecycle missing');
+    expect(secondHandle).not.toBe(firstHandle);
+    expect(firstHandle.dispose).toHaveBeenCalledTimes(1);
+    expect(firstHost.isConnected).toBe(false);
+    expect(secondHandle.dispose).not.toHaveBeenCalled();
+    secondHandle.dispose.mockImplementation(() => expect(secondHost.isConnected).toBe(true));
+
+    secondDialog.destroy();
+    secondDialog.destroy();
+    firstDialog.destroy();
+
+    expect(secondHandle.dispose).toHaveBeenCalledTimes(1);
+    expect(firstHandle.dispose).toHaveBeenCalledTimes(1);
+    expect(secondHost.isConnected).toBe(false);
   });
 });
 

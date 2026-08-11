@@ -5,69 +5,71 @@
  * to the new structured TaxonomyConfig format.
  */
 
+import { z } from 'zod';
 import type {
   TaxonomyConfig,
   TaxonomyCategory,
   TaxonomyTag,
   ReadonlyDeep
 } from '../types/taxonomy';
-import { DEFAULT_TAXONOMY_CONFIG } from '../types/taxonomy';
+import { DEFAULT_TAXONOMY_CONFIG, isTaxonomyConfig } from '../types/taxonomy';
+import { TaxonomyConfigSchema } from '../schemas/taxonomy.schema';
+import { parseBoundedJson } from './losslessObjectBoundary';
 
 // Legacy taxonomy format (for backward compatibility)
 export interface LegacyTaxonomy {
-  type?: string[];
-  topics?: string[];
-  ai_platform?: string[];
-  [key: string]: unknown;
+  readonly type?: readonly string[];
+  readonly topics?: readonly string[];
+  readonly ai_platform?: readonly string[];
 }
+
+const LegacyTaxonomySchema = z
+  .object({
+    type: z.array(z.string().min(1)).optional(),
+    topics: z.array(z.string().min(1)).optional(),
+    ai_platform: z.array(z.string().min(1)).optional()
+  })
+  .strict()
+  .refine(
+    (value) =>
+      (value.type?.length ?? 0) + (value.topics?.length ?? 0) + (value.ai_platform?.length ?? 0) > 0
+  );
 
 // Type guard for legacy taxonomy
 export function isLegacyTaxonomy(value: unknown): value is LegacyTaxonomy {
-  if (typeof value !== 'object' || value === null) {
-    return false;
-  }
-
-  const obj = value as Record<string, unknown>;
-  return (
-    ('type' in obj && Array.isArray(obj.type)) ||
-    ('topics' in obj && Array.isArray(obj.topics)) ||
-    ('ai_platform' in obj && Array.isArray(obj.ai_platform))
-  );
+  return LegacyTaxonomySchema.safeParse(value).success;
 }
 
 // Migration function from legacy to new format
 export function migrateLegacyTaxonomy(legacy: LegacyTaxonomy): ReadonlyDeep<TaxonomyConfig> {
+  const parsed = LegacyTaxonomySchema.parse(legacy);
   const categories: TaxonomyCategory[] = [];
   const tags: TaxonomyTag[] = [];
 
   // Convert legacy 'type' array to categories
-  if (legacy.type && Array.isArray(legacy.type)) {
-    for (const type of legacy.type) {
-      if (typeof type === 'string') {
-        categories.push({
-          id: type,
-          name: type.charAt(0).toUpperCase() + type.slice(1).replace('_', ' '),
-          descriptionKey: `taxonomy.legacy.type.${type}.description`,
-          classificationHint: `Content type: ${type}`,
-          keywords: [type]
-        });
-      }
+  if (parsed.type) {
+    for (const type of parsed.type) {
+      categories.push({
+        id: type,
+        name: type.charAt(0).toUpperCase() + type.slice(1).replace('_', ' '),
+        descriptionKey: `taxonomy.legacy.type.${type}.description`,
+        classificationHint: `Content type: ${type}`,
+        keywords: [type]
+      });
     }
   }
 
   // Convert legacy 'topics' array to categories
-  if (legacy.topics && Array.isArray(legacy.topics)) {
-    for (const topic of legacy.topics) {
-      if (typeof topic === 'string') {
-        categories.push({
-          id: `topic_${topic}`,
-          name: topic.charAt(0).toUpperCase() + topic.slice(1),
-          descriptionKey: `taxonomy.legacy.topic.${topic}.description`,
-          classificationHint: `Topic: ${topic}`,
-          keywords: [topic],
-          parent: 'topics'
-        });
-      }
+  if (parsed.topics) {
+    for (const topic of parsed.topics) {
+      categories.push({
+        id: `topic_${topic}`,
+        name: topic.charAt(0).toUpperCase() + topic.slice(1),
+        descriptionKey: `taxonomy.legacy.topic.${topic}.description`,
+        classificationHint: `Topic: ${topic}`,
+        keywords: [topic],
+        parent: 'topics'
+      });
     }
 
     // Add topics parent category
@@ -80,18 +82,16 @@ export function migrateLegacyTaxonomy(legacy: LegacyTaxonomy): ReadonlyDeep<Taxo
   }
 
   // Convert legacy 'ai_platform' array to tags
-  if (legacy.ai_platform && Array.isArray(legacy.ai_platform)) {
-    for (const platform of legacy.ai_platform) {
-      if (typeof platform === 'string') {
-        tags.push({
-          id: `platform_${platform}`,
-          name: platform.charAt(0).toUpperCase() + platform.slice(1),
-          descriptionKey: `taxonomy.legacy.platform.${platform}.description`,
-          classificationHint: `AI Platform: ${platform}`,
-          category: 'platform',
-          aliases: [platform]
-        });
-      }
+  if (parsed.ai_platform) {
+    for (const platform of parsed.ai_platform) {
+      tags.push({
+        id: `platform_${platform}`,
+        name: platform.charAt(0).toUpperCase() + platform.slice(1),
+        descriptionKey: `taxonomy.legacy.platform.${platform}.description`,
+        classificationHint: `AI Platform: ${platform}`,
+        category: 'platform',
+        aliases: [platform]
+      });
     }
   }
 
@@ -113,53 +113,54 @@ export function migrateLegacyTaxonomy(legacy: LegacyTaxonomy): ReadonlyDeep<Taxo
     ...(defaultCategory !== undefined && { defaultCategory })
   };
 
+  TaxonomyConfigSchema.parse(result);
   return result;
 }
 
-// Smart taxonomy resolver that handles both legacy and new formats
-export function resolveTaxonomy(value: unknown): ReadonlyDeep<TaxonomyConfig> {
-  // If it's already a valid TaxonomyConfig, return it
-  if (isTaxonomyConfig(value)) {
-    return value as ReadonlyDeep<TaxonomyConfig>;
-  }
-
-  // If it's a legacy format, migrate it
-  if (isLegacyTaxonomy(value)) {
-    return migrateLegacyTaxonomy(value);
-  }
-
-  // If it's a string, try to parse it as JSON
-  if (typeof value === 'string') {
-    try {
-      const parsed: unknown = JSON.parse(value);
-      return resolveTaxonomy(parsed);
-    } catch {
-      // If parsing fails, return default
-      return DEFAULT_TAXONOMY_CONFIG;
+export type TaxonomyMigrationResult =
+  | {
+      readonly success: true;
+      readonly value: TaxonomyConfig;
+      readonly migrated: boolean;
     }
+  | { readonly success: false };
+
+/**
+ * Converts canonical or legacy persisted values without hiding invalid input.
+ * Callers retain the original value when this reports failure.
+ */
+export function migrateTaxonomyValue(value: unknown): TaxonomyMigrationResult {
+  let candidate = value;
+  let migrated = false;
+
+  if (typeof value === 'string') {
+    const parsed = parseBoundedJson(value);
+    if (!parsed.ok) return { success: false };
+    candidate = parsed.value;
+    migrated = true;
   }
 
-  // Fallback to default
-  return DEFAULT_TAXONOMY_CONFIG;
+  if (isTaxonomyConfig(candidate)) {
+    return { success: true, value: candidate, migrated };
+  }
+
+  const legacy = LegacyTaxonomySchema.safeParse(candidate);
+  if (!legacy.success) {
+    return { success: false };
+  }
+
+  const validLegacy: LegacyTaxonomy = {
+    ...(legacy.data.type !== undefined && { type: legacy.data.type }),
+    ...(legacy.data.topics !== undefined && { topics: legacy.data.topics }),
+    ...(legacy.data.ai_platform !== undefined && { ai_platform: legacy.data.ai_platform })
+  };
+  return { success: true, value: migrateLegacyTaxonomy(validLegacy), migrated: true };
 }
 
-// Type guard for TaxonomyConfig (imported from taxonomy.ts would be circular)
-function isTaxonomyConfig(value: unknown): value is TaxonomyConfig {
-  if (typeof value !== 'object' || value === null) {
-    return false;
-  }
-
-  const obj = value as Record<string, unknown>;
-  return (
-    'version' in obj &&
-    'categories' in obj &&
-    'tags' in obj &&
-    'rules' in obj &&
-    typeof obj.version === 'string' &&
-    Array.isArray(obj.categories) &&
-    Array.isArray(obj.tags) &&
-    Array.isArray(obj.rules)
-  );
+// Runtime projection keeps the historical default fallback separate from persistence migration.
+export function resolveTaxonomy(value: unknown): ReadonlyDeep<TaxonomyConfig> {
+  const result = migrateTaxonomyValue(value);
+  return result.success ? result.value : DEFAULT_TAXONOMY_CONFIG;
 }
 
 // Create a backward-compatible default taxonomy

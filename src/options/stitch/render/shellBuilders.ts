@@ -1,5 +1,5 @@
 import type { PreviewContent } from '../types';
-import type { el } from '../ui/dom';
+import type { el } from '@ui/stitch-runtime';
 
 type ElementFactory = typeof el;
 

@@ -8,6 +8,7 @@ import type {
   ReaderPanelRenderOptions
 } from '../application/readerSessionView';
 import type { UiMountable } from '@ui/hosts/shared/contract';
+import type { StyleAttachmentHandle } from '@ui/foundation/style-host';
 import type { PopupCoordinator } from '@content/runtime/popupCoordinator';
 import { resolveContentPopupCoordinator } from '@content/runtime/popupCoordinatorAccess';
 import { createReaderSurfaceContent } from '@content/stitch/runtimeSurfaceContent';
@@ -23,7 +24,7 @@ import {
   type SessionCommentDraftSnapshot
 } from '@content/shared/panels/sessionCommentDrafts';
 import { patchExportDestinationRow } from '@content/shared/exportDestinationDom';
-import type { ExportDestinationSurfacePreview } from '@options/stitch/types';
+import type { ExportDestinationSurfacePreview } from '@ui/stitch-runtime';
 import { focusContentDialogElementByDataset } from '@ui/hosts/content/contentDialogFocus';
 import {
   applyReaderPanelCompatibilityAttributes,
@@ -39,18 +40,14 @@ interface ReaderDialogPanelOptions {
 
 export class ReaderDialogPanel implements UiMountable<
   HTMLElement | undefined,
-  | {
-      texts?: ReaderPanelTexts;
-      count?: number;
-      hint?: string;
-      highlights?: ReaderPanelHighlight[];
-    }
+  | { texts?: ReaderPanelTexts; count?: number; hint?: string; highlights?: ReaderPanelHighlight[] }
   | undefined,
   HTMLElement
 > {
   readonly popupLifecycle = { preserveOnTransientClose: true, kind: 'session-panel' } as const;
 
   private renderRoot: HTMLElement;
+  private styleAttachment: StyleAttachmentHandle | null = null;
   private readonly popupCoordinator: PopupCoordinator | null;
   private readonly collapsePersistence: SessionPanelCollapsePersistence;
   private unregisterPopup: (() => void) | null = null;
@@ -79,8 +76,8 @@ export class ReaderDialogPanel implements UiMountable<
     });
     this.renderRoot = createSessionPanelRenderRoot('aiob-reader-panel');
     const shadow = this.renderRoot.attachShadow({ mode: 'open' });
-    panelStyleSheetManager.applyStitchRuntimeStyles(shadow);
     this.rerender();
+    this.styleAttachment = panelStyleSheetManager.applyStitchRuntimeStyles(shadow);
     void this.collapsePersistence.restore();
   }
 
@@ -225,6 +222,9 @@ export class ReaderDialogPanel implements UiMountable<
     this.resizeDisposer = null;
     this.previewExpansionDisposer?.();
     this.previewExpansionDisposer = null;
+    const styleAttachment = this.styleAttachment;
+    this.styleAttachment = null;
+    if (styleAttachment) styleAttachment.dispose();
     this.renderRoot.remove();
   }
 
@@ -243,7 +243,7 @@ export class ReaderDialogPanel implements UiMountable<
     const surface = this.renderSurface();
     preserveSessionPanelIcon(shadow, surface);
     shadow.replaceChildren(surface);
-    panelStyleSheetManager.applyStitchRuntimeStyles(shadow);
+    if (this.styleAttachment) void this.styleAttachment.refresh();
     this.resizeDisposer = bindSessionPanelResize(surface);
     this.previewExpansionDisposer = bindSessionItemPreviewExpansion(surface);
     this.focusHighlightNoteInput(this.pendingNoteFocusHighlightId ?? this.editingHighlightId);
@@ -262,7 +262,7 @@ export class ReaderDialogPanel implements UiMountable<
       ]
     });
     if (this.collapsePersistence.value) {
-      content.surfaces.reader.labels.subtitle = '';
+      content.reader.labels.subtitle = '';
     }
     const surface = renderStitchRuntimeSurface({
       surfaceId: 'reader',

@@ -1,8 +1,8 @@
-import type { PreviewStoreState } from '@options/stitch/types';
+import type { RuntimeSurfaceTheme } from '@ui/stitch-runtime';
 import type { IOptionsRepository } from '@shared/repositories/IOptionsRepository';
 import type { InterfaceTheme, StoredOptions } from '@shared/types/options';
 
-type RuntimeTheme = PreviewStoreState['previewTheme'];
+type RuntimeTheme = RuntimeSurfaceTheme;
 type RuntimeThemePreference = InterfaceTheme;
 type MatchMediaLike = Pick<Window, 'matchMedia'>;
 

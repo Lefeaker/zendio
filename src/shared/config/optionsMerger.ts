@@ -1,6 +1,6 @@
 import type {
   StoredOptions,
-  OptionsState,
+  CompleteOptions,
   ClassifierOptions,
   FragmentClipperOptions,
   ReadingSessionOptions,
@@ -14,16 +14,16 @@ import type {
   PrivacyPreferencesOptions,
   SubtitleTranslationOptions
 } from '../types';
+import type { StoredOptions as SchemaStoredOptions } from '../schemas/options.schema';
 import { DEFAULT_OPTIONS } from './defaultOptions';
-import { sanitizeVaultRouterConfig } from './optionsSanitizer';
+import { sanitizeVaultRouterConfig, sanitizeYamlConfigValue } from './optionsSanitizer';
 import { resolveTaxonomy } from './taxonomyMigration';
 import { mergeVideoOptions } from './videoOptionsMerger';
-import { migrateSelectionTriggerOptions } from './selectionTriggerMigration';
 import { isFragmentSelectionTriggerMode } from './selectionTriggerMode';
 export { omitLegacyRestRootDir, omitLegacyRestRootDirFromOptions } from './legacyRestRootDir';
 
 function mergeClassifierOptions(
-  source?: StoredOptions['classifier']
+  source?: StoredOptions['classifier'] | SchemaStoredOptions['classifier']
 ): ClassifierOptions | undefined {
   const defaults = DEFAULT_OPTIONS.classifier;
   if (!defaults && !source) {
@@ -59,7 +59,7 @@ function resolveReaderHighlightTheme(
 }
 
 function mergeFragmentClipperOptions(
-  source?: StoredOptions['fragmentClipper']
+  source?: StoredOptions['fragmentClipper'] | SchemaStoredOptions['fragmentClipper']
 ): FragmentClipperOptions | undefined {
   const defaults = DEFAULT_OPTIONS.fragmentClipper;
   if (!defaults && !source) {
@@ -95,7 +95,7 @@ function mergeFragmentClipperOptions(
 }
 
 function mergeReadingSessionOptions(
-  source?: StoredOptions['readingSession']
+  source?: StoredOptions['readingSession'] | SchemaStoredOptions['readingSession']
 ): ReadingSessionOptions | undefined {
   const defaults = DEFAULT_OPTIONS.readingSession;
   if (!defaults && !source) {
@@ -113,7 +113,7 @@ function mergeReadingSessionOptions(
 }
 
 function mergeDeepResearchOptions(
-  source?: StoredOptions['deepResearch']
+  source?: StoredOptions['deepResearch'] | SchemaStoredOptions['deepResearch']
 ): DeepResearchOptions | undefined {
   const defaults = DEFAULT_OPTIONS.deepResearch;
   if (!defaults && !source) {
@@ -126,7 +126,9 @@ function mergeDeepResearchOptions(
   };
 }
 
-function mergeAiChatOptions(source?: StoredOptions['aiChat']): AiChatOptions | undefined {
+function mergeAiChatOptions(
+  source?: StoredOptions['aiChat'] | SchemaStoredOptions['aiChat']
+): AiChatOptions | undefined {
   const defaults = DEFAULT_OPTIONS.aiChat;
   if (!defaults && !source) {
     return undefined;
@@ -140,7 +142,7 @@ function mergeAiChatOptions(source?: StoredOptions['aiChat']): AiChatOptions | u
 }
 
 function mergeExperimentalAiOptions(
-  source?: StoredOptions['experimentalAi']
+  source?: StoredOptions['experimentalAi'] | SchemaStoredOptions['experimentalAi']
 ): ExperimentalAiOptions | undefined {
   const defaults = DEFAULT_OPTIONS.experimentalAi;
   if (!defaults && !source) {
@@ -161,7 +163,7 @@ function mergeExperimentalAiOptions(
 }
 
 function mergePageSummaryOptions(
-  source?: StoredOptions['pageSummary']
+  source?: StoredOptions['pageSummary'] | SchemaStoredOptions['pageSummary']
 ): PageSummaryOptions | undefined {
   const defaults = DEFAULT_OPTIONS.pageSummary;
   if (!defaults && !source) {
@@ -175,7 +177,7 @@ function mergePageSummaryOptions(
 }
 
 function mergeReadingOverlaySummaryOptions(
-  source?: StoredOptions['readingOverlaySummary']
+  source?: StoredOptions['readingOverlaySummary'] | SchemaStoredOptions['readingOverlaySummary']
 ): ReadingOverlaySummaryOptions | undefined {
   const defaults = DEFAULT_OPTIONS.readingOverlaySummary;
   if (!defaults && !source) {
@@ -189,7 +191,7 @@ function mergeReadingOverlaySummaryOptions(
 }
 
 function mergeSubtitleTranslationOptions(
-  source?: StoredOptions['subtitleTranslation']
+  source?: StoredOptions['subtitleTranslation'] | SchemaStoredOptions['subtitleTranslation']
 ): SubtitleTranslationOptions | undefined {
   const defaults = DEFAULT_OPTIONS.subtitleTranslation;
   if (!defaults && !source) {
@@ -207,7 +209,7 @@ function mergeSubtitleTranslationOptions(
 }
 
 function mergePrivacyPreferencesOptions(
-  source?: StoredOptions['privacyPreferences']
+  source?: StoredOptions['privacyPreferences'] | SchemaStoredOptions['privacyPreferences']
 ): PrivacyPreferencesOptions | undefined {
   const defaults = DEFAULT_OPTIONS.privacyPreferences;
   if (!defaults && !source) {
@@ -225,12 +227,19 @@ function mergePrivacyPreferencesOptions(
   };
 }
 
-function sanitizeVaultRouter(source: StoredOptions['vaultRouter']): StoredOptions['vaultRouter'] {
+function sanitizeVaultRouter(source: unknown): StoredOptions['vaultRouter'] {
   return sanitizeVaultRouterConfig(source);
 }
 
-export function mergeOptions(stored?: object | null): OptionsState {
-  const source = migrateSelectionTriggerOptions(stored).options as StoredOptions;
+function requireMerged<T>(value: T | undefined): T {
+  if (value === undefined) {
+    throw new Error('OPTIONS_DEFAULT_MISSING');
+  }
+  return value;
+}
+
+export function mergeOptions(stored?: StoredOptions | SchemaStoredOptions | null): CompleteOptions {
+  const source = stored ?? {};
   const defaults = DEFAULT_OPTIONS;
 
   const rest: RestOptions = {
@@ -267,22 +276,11 @@ export function mergeOptions(stored?: object | null): OptionsState {
     rest.localFolderName = sourceLocalFolderName;
   }
 
-  const storedTemplates = source.templates ?? {};
-  const legacyClipper =
-    typeof storedTemplates === 'object'
-      ? (storedTemplates as Record<string, unknown>).clipper
-      : undefined;
-  const legacyClipperString = typeof legacyClipper === 'string' ? legacyClipper : undefined;
-
   const templates = {
     article: source.templates?.article || defaults.templates.article,
     video: source.templates?.video || defaults.templates.video,
-    fragment: source.templates?.fragment || legacyClipperString || defaults.templates.fragment,
-    reading:
-      source.templates?.reading ||
-      source.templates?.fragment ||
-      legacyClipperString ||
-      defaults.templates.reading,
+    fragment: source.templates?.fragment || defaults.templates.fragment,
+    reading: source.templates?.reading || source.templates?.fragment || defaults.templates.reading,
     ai: source.templates?.ai || defaults.templates.ai
   };
 
@@ -290,7 +288,7 @@ export function mergeOptions(stored?: object | null): OptionsState {
     ? { ...source.domainMappings }
     : { ...defaults.domainMappings };
 
-  const options: OptionsState = {
+  const options: CompleteOptions = {
     interfaceTheme:
       source.interfaceTheme === 'light' ||
       source.interfaceTheme === 'dark' ||
@@ -299,102 +297,35 @@ export function mergeOptions(stored?: object | null): OptionsState {
         : (defaults.interfaceTheme ?? 'system'),
     rest,
     templates,
-    domainMappings
+    domainMappings,
+    classifier: requireMerged(mergeClassifierOptions(source.classifier)),
+    deepResearch: requireMerged(mergeDeepResearchOptions(source.deepResearch)),
+    fragmentClipper: requireMerged(mergeFragmentClipperOptions(source.fragmentClipper)),
+    readingSession: requireMerged(mergeReadingSessionOptions(source.readingSession)),
+    aiChat: requireMerged(mergeAiChatOptions(source.aiChat)),
+    video: requireMerged(mergeVideoOptions(source.video)),
+    experimentalAi: requireMerged(mergeExperimentalAiOptions(source.experimentalAi)),
+    pageSummary: requireMerged(mergePageSummaryOptions(source.pageSummary)),
+    readingOverlaySummary: requireMerged(
+      mergeReadingOverlaySummaryOptions(source.readingOverlaySummary)
+    ),
+    subtitleTranslation: requireMerged(mergeSubtitleTranslationOptions(source.subtitleTranslation)),
+    privacyPreferences: requireMerged(mergePrivacyPreferencesOptions(source.privacyPreferences))
   };
-
-  const knownKeys = new Set([
-    'rest',
-    'interfaceTheme',
-    'templates',
-    'domainMappings',
-    'aiChat',
-    'deepResearch',
-    'fragmentClipper',
-    'readingSession',
-    'video',
-    'classifier',
-    'experimentalAi',
-    'pageSummary',
-    'readingOverlaySummary',
-    'subtitleTranslation',
-    'privacyPreferences',
-    'vaultRouter',
-    'yamlConfig'
-  ]);
-
-  const classifier = mergeClassifierOptions(source.classifier);
-  if (classifier !== undefined) {
-    options.classifier = classifier;
-  }
-
-  const deepResearch = mergeDeepResearchOptions(source.deepResearch);
-  if (deepResearch !== undefined) {
-    options.deepResearch = deepResearch;
-  }
-
-  const fragmentClipper = mergeFragmentClipperOptions(source.fragmentClipper);
-  if (fragmentClipper !== undefined) {
-    options.fragmentClipper = fragmentClipper;
-  }
-
-  const readingSession = mergeReadingSessionOptions(source.readingSession);
-  if (readingSession !== undefined) {
-    options.readingSession = readingSession;
-  }
-
-  const aiChat = mergeAiChatOptions(source.aiChat);
-  if (aiChat !== undefined) {
-    options.aiChat = aiChat;
-  }
-
-  const video = mergeVideoOptions(source.video);
-  if (video !== undefined) {
-    options.video = video;
-  }
-
-  const experimentalAi = mergeExperimentalAiOptions(source.experimentalAi);
-  if (experimentalAi !== undefined) {
-    options.experimentalAi = experimentalAi;
-  }
-
-  const pageSummary = mergePageSummaryOptions(source.pageSummary);
-  if (pageSummary !== undefined) {
-    options.pageSummary = pageSummary;
-  }
-
-  const readingOverlaySummary = mergeReadingOverlaySummaryOptions(source.readingOverlaySummary);
-  if (readingOverlaySummary !== undefined) {
-    options.readingOverlaySummary = readingOverlaySummary;
-  }
-
-  const subtitleTranslation = mergeSubtitleTranslationOptions(source.subtitleTranslation);
-  if (subtitleTranslation !== undefined) {
-    options.subtitleTranslation = subtitleTranslation;
-  }
-
-  const privacyPreferences = mergePrivacyPreferencesOptions(source.privacyPreferences);
-  if (privacyPreferences !== undefined) {
-    options.privacyPreferences = privacyPreferences;
-  }
 
   const vaultRouter = sanitizeVaultRouter(source.vaultRouter);
   if (vaultRouter !== undefined) {
     options.vaultRouter = vaultRouter;
   }
 
-  if (source.yamlConfig !== undefined) {
-    options.yamlConfig = source.yamlConfig;
-  }
-
-  for (const [key, value] of Object.entries(source)) {
-    if (!knownKeys.has(key)) {
-      Object.assign(options, { [key]: value });
-    }
+  const yamlConfig = sanitizeYamlConfigValue(source.yamlConfig);
+  if (yamlConfig !== undefined) {
+    options.yamlConfig = yamlConfig;
   }
 
   return options;
 }
 
 export const optionsMerger = {
-  merge: (stored?: object | null) => mergeOptions(stored)
+  merge: (stored?: StoredOptions | SchemaStoredOptions | null) => mergeOptions(stored)
 };

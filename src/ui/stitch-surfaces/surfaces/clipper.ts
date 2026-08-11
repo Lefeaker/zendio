@@ -1,4 +1,4 @@
-import type { ResourceSchema } from '../../types';
+import type { ResourceSchema } from '@ui/stitch-runtime';
 import {
   clipperHeader,
   clipperActionBar,
@@ -11,13 +11,13 @@ import {
   surfaceStage
 } from '../builders/surfaces';
 import { div } from '../builders/primitives';
-import { classNames } from '../builders/classNames';
+import { runtimeClassNames as classNames } from '../builders/classNames';
 import { RUNTIME_SURFACE_FALLBACK_MESSAGES } from '@i18n/catalog/runtimeSurfaceFallbackMessages';
 
 const schema: ResourceSchema = {
   openMode: 'modal',
   createView(ctx) {
-    const surface = ctx.appData.surfaces.clipper;
+    const surface = ctx.appData.clipper;
     const t = ctx.t;
     const destinationLabels = {
       saveToLabel:

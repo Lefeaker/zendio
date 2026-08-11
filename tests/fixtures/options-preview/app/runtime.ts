@@ -1,4 +1,4 @@
-import { clear, el } from '@options/stitch/ui/dom';
+import { clear, el } from '@ui/stitch-runtime';
 import { createActionRuntime } from '@options/schema-runtime/actionRuntime';
 import { createSchemaRenderer } from '@options/schema-runtime/renderer';
 import { previewUi } from '@options/stitch/ui/components';

@@ -1,7 +1,7 @@
-import { el } from './dom';
+import { el, surfaceComponents, type RuntimeButtonOptions } from '@ui/stitch-runtime';
 import { renderUsageChart } from './usageChartRenderer';
 import { createUiIcon, UI_ICONS } from '@ui/foundation/icons';
-import type { SelectOption, SurfaceAction, UsageStat } from '../types';
+import type { SelectOption, UsageStat } from '../types';
 
 type IconName = keyof typeof ICON_MAP;
 type IconComponent = (typeof UI_ICONS)[keyof typeof UI_ICONS];
@@ -13,12 +13,9 @@ interface IconOptions {
   className?: string | undefined;
 }
 
-interface ButtonOptions {
-  variant?: SurfaceAction['variant'] | undefined;
+interface ButtonOptions extends RuntimeButtonOptions {
   icon?: IconName | undefined;
   iconFill?: boolean | undefined;
-  disabled?: boolean | undefined;
-  onClick?: ((event: MouseEvent) => void) | undefined;
 }
 
 interface CardOptions {
@@ -29,42 +26,10 @@ interface CardOptions {
   extraClass?: string | undefined;
 }
 
-interface InputOptions {
-  mono?: boolean | undefined;
-  className?: string | undefined;
-  type?: string | undefined;
-  placeholder?: string | undefined;
-  disabled?: boolean | undefined;
-  readOnly?: boolean | undefined;
-  min?: string | number | undefined;
-  max?: string | number | undefined;
-  step?: string | number | undefined;
-  dataset?: Record<string, string | number | boolean> | undefined;
-  onInput?: ((event: Event) => void) | undefined;
-  onChange?: ((event: Event) => void) | undefined;
-  onFocus?: ((event: Event) => void) | undefined;
-  onBlur?: ((event: Event) => void) | undefined;
-  onClick?: ((event: MouseEvent) => void) | undefined;
-  onKeyUp?: ((event: KeyboardEvent) => void) | undefined;
-  onSelect?: ((event: Event) => void) | undefined;
-  onMouseEnter?: ((event: MouseEvent) => void) | undefined;
-}
-
 interface SelectConfig {
   className?: string | undefined;
   disabled?: boolean | undefined;
   onChange?: ((event: Event) => void) | undefined;
-}
-
-interface TextareaOptions {
-  className?: string | undefined;
-  placeholder?: string | undefined;
-  disabled?: boolean | undefined;
-  dataset?: Record<string, string | number | boolean> | undefined;
-  onInput?: ((event: Event) => void) | undefined;
-  onChange?: ((event: Event) => void) | undefined;
-  onFocus?: ((event: Event) => void) | undefined;
-  onBlur?: ((event: Event) => void) | undefined;
 }
 
 interface SwitchRowOptions {
@@ -141,17 +106,6 @@ function Icon(name: string, options: IconOptions = {}): SVGElement {
   svg.setAttribute('aria-hidden', 'true');
   svg.setAttribute('class', ['preview-icon', options.className || ''].filter(Boolean).join(' '));
   return svg;
-}
-
-function Badge(label: string, variant = ''): HTMLSpanElement {
-  return el('span', {
-    className: ['badge', variant].filter(Boolean).join(' '),
-    text: label
-  });
-}
-
-function Pill(label: string): HTMLSpanElement {
-  return el('span', { className: 'pill', text: label });
 }
 
 function Button(label: string, options: ButtonOptions = {}): HTMLButtonElement {
@@ -233,31 +187,6 @@ function Field(label: string, control: Node): HTMLDivElement {
   return el('div', { className: 'field' }, el('label', { text: label }), control);
 }
 
-function Input(value: string | number, options: InputOptions = {}): HTMLInputElement {
-  return el('input', {
-    className: ['input', options.mono ? 'code' : '', options.className || '']
-      .filter(Boolean)
-      .join(' '),
-    value,
-    type: options.type || 'text',
-    placeholder: options.placeholder,
-    disabled: options.disabled,
-    readOnly: options.readOnly,
-    min: options.min,
-    max: options.max,
-    step: options.step,
-    dataset: options.dataset,
-    onInput: options.onInput,
-    onChange: options.onChange,
-    onFocus: options.onFocus,
-    onBlur: options.onBlur,
-    onClick: options.onClick,
-    onKeyup: options.onKeyUp,
-    onSelect: options.onSelect,
-    onMouseenter: options.onMouseEnter
-  });
-}
-
 function Select(
   options: SelectOption[],
   value: string | number | undefined,
@@ -278,20 +207,6 @@ function Select(
     );
   });
   return select;
-}
-
-function Textarea(value: string | number, options: TextareaOptions = {}): HTMLTextAreaElement {
-  return el('textarea', {
-    className: ['textarea', options.className || ''].filter(Boolean).join(' '),
-    value,
-    placeholder: options.placeholder,
-    disabled: options.disabled,
-    dataset: options.dataset,
-    onInput: options.onInput,
-    onChange: options.onChange,
-    onFocus: options.onFocus,
-    onBlur: options.onBlur
-  });
 }
 
 function SwitchRow({
@@ -457,17 +372,17 @@ function SegmentedNav(
 
 export const previewUi = {
   Icon,
-  Badge,
-  Pill,
+  Badge: surfaceComponents.Badge,
+  Pill: surfaceComponents.Pill,
   Button,
   Card,
   Group,
   Hero,
   StatsGrid,
   Field,
-  Input,
+  Input: surfaceComponents.Input,
   Select,
-  Textarea,
+  Textarea: surfaceComponents.Textarea,
   SwitchRow,
   Row,
   Rows,

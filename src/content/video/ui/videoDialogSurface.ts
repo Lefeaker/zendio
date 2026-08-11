@@ -1,5 +1,5 @@
 import type { VideoPanelCapture, VideoPanelTexts } from '../application/videoPanelModel';
-import type { ExportDestinationSurfacePreview } from '@options/stitch/types';
+import type { ExportDestinationSurfacePreview } from '@ui/stitch-runtime';
 import { createVideoSurfaceContent } from '@content/stitch/runtimeSurfaceContent';
 import { renderStitchRuntimeSurface } from '@content/stitch/runtimeSurfaceRenderer';
 import { applyVideoDialogPanelCompatibilityAttributes } from './videoDialogPanelCompatibility';
@@ -51,9 +51,9 @@ export function createVideoDialogSurface({
     ]
   });
   if (collapsed) {
-    content.surfaces.video.labels.subtitle = '';
+    content.video.labels.subtitle = '';
   }
-  content.surfaces.video.captures = content.surfaces.video.captures.map((capture) =>
+  content.video.captures = content.video.captures.map((capture) =>
     capture.id === editingCaptureId ? { ...capture, editing: true } : capture
   );
 

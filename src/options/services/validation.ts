@@ -1,86 +1,80 @@
 import { z } from 'zod';
 import {
   StoredOptionsSchema,
-  RestOptionsSchema,
+  RestOptionsReadinessSchema,
   TemplateOptionsSchema
 } from '../../shared/schemas/options.schema';
+import { TaxonomyConfigSchema } from '../../shared/schemas/taxonomy.schema';
+import type { ReadonlyDeep, TaxonomyConfig } from '../../shared/types/taxonomy';
+import { DEFAULT_TAXONOMY_CONFIG, isTaxonomyConfig } from '../../shared/types/taxonomy';
+import { parseBoundedJson } from '../../shared/config/losslessObjectBoundary';
 
-const TaxonomyConditionSchema = z.object({
-  type: z.string().min(1),
-  operator: z.string().min(1),
-  value: z.string()
-});
-
-const TaxonomyActionSchema = z.object({
-  type: z.string().min(1),
-  target: z.string().min(1),
-  value: z.string()
-});
-
-const TaxonomyCategorySchema = z.object({
-  id: z.string().min(1),
-  name: z.string().min(1)
-});
-
-const TaxonomyTagSchema = z.object({
-  id: z.string().min(1),
-  name: z.string().min(1)
-});
-
-const TaxonomyRuleSchema = z.object({
-  id: z.string().min(1),
-  name: z.string().min(1),
-  conditions: z.array(TaxonomyConditionSchema),
-  actions: z.array(TaxonomyActionSchema)
-});
-
-const TaxonomyValidationSchema = z.object({
-  version: z.string().min(1),
-  categories: z.array(TaxonomyCategorySchema),
-  tags: z.array(TaxonomyTagSchema),
-  rules: z.array(TaxonomyRuleSchema)
-});
+export interface OptionsValidationIssue {
+  readonly code: 'SCHEMA_INVALID';
+  readonly path: '$' | '$.<redacted>';
+}
 
 export class OptionsValidationError extends Error {
   readonly code: string;
-  readonly issues?: z.ZodIssue[];
+  readonly issues?: readonly OptionsValidationIssue[];
   readonly detail: string | undefined;
 
   constructor(code: string, zodError?: z.ZodError, detail?: string) {
     super(code);
     this.name = 'OptionsValidationError';
     this.code = code;
-    if (zodError) {
-      this.issues = zodError.issues;
+    if (zodError?.issues.length) {
+      this.issues = Object.freeze([
+        {
+          code: 'SCHEMA_INVALID',
+          path: zodError.issues.some((issue) => issue.path.length > 0) ? '$.<redacted>' : '$'
+        }
+      ]);
     }
     this.detail = detail ?? undefined;
   }
 }
 
 /**
- * Taxonomy Schema for classifier configuration
- */
-/**
  * Parse classifier taxonomy from JSON string
  */
 export function parseClassifierTaxonomy(
   input: string
-): z.infer<typeof TaxonomyValidationSchema> | Record<string, never> {
-  const trimmed = (input || '').trim();
-  if (!trimmed) {
-    return {};
-  }
+): z.infer<typeof TaxonomyConfigSchema> | Record<string, never> {
+  const text = input || '';
 
   try {
-    const parsed: unknown = JSON.parse(trimmed);
-    return TaxonomyValidationSchema.parse(parsed);
+    const parsed = parseBoundedJson(text);
+    if (!parsed.ok) {
+      if (parsed.code === 'INVALID_JSON' && !text.trim()) return {};
+      throw new OptionsValidationError('INVALID_TAXONOMY');
+    }
+    return TaxonomyConfigSchema.parse(parsed.value);
   } catch (error) {
     if (error instanceof z.ZodError) {
       throw new OptionsValidationError('INVALID_TAXONOMY', error);
     }
     if (error instanceof SyntaxError) {
-      const detail = error.message;
-      throw new OptionsValidationError('INVALID_TAXONOMY', undefined, detail);
+      throw new OptionsValidationError('INVALID_TAXONOMY');
+    }
+    throw error;
+  }
+}
+
+export type ClassifierTaxonomyEditorResult =
+  | { readonly success: true; readonly taxonomy: ReadonlyDeep<TaxonomyConfig> }
+  | { readonly success: false; readonly error: OptionsValidationError };
+
+export function resolveClassifierTaxonomyEditorText(input: string): ClassifierTaxonomyEditorResult {
+  try {
+    const parsed = parseClassifierTaxonomy(input);
+    return {
+      success: true,
+      taxonomy: isTaxonomyConfig(parsed) ? parsed : DEFAULT_TAXONOMY_CONFIG
+    };
+  } catch (error) {
+    if (error instanceof OptionsValidationError) {
+      return { success: false, error };
     }
     throw error;
   }
@@ -97,7 +91,7 @@ export function validateOptions(data: unknown) {
  * Validate REST connection options
  */
 export function validateRestOptions(data: unknown) {
-  return RestOptionsSchema.safeParse(data);
+  return RestOptionsReadinessSchema.safeParse(data);
 }
 
 /**

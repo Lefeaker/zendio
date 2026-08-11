@@ -14,7 +14,7 @@ import { getFooterView } from '@options/stitch/schema/registry';
 import { previewContent } from '@options/stitch/content';
 import { renderPreviewView, type RendererContext } from '@options/stitch/render/renderStitchView';
 import type { PreviewContent } from '@options/stitch/types';
-import { el } from '@options/stitch/ui/dom';
+import { el } from '@ui/stitch-runtime';
 import { previewUi } from '@options/stitch/ui/components';
 import { mergeOptions } from '@shared/config/optionsMerger';
 import type { CompleteOptions } from '@shared/types/options';

@@ -1,4 +1,4 @@
-import type { ResourceSchema } from '../../types';
+import type { ResourceSchema } from '@ui/stitch-runtime';
 import {
   sessionHeader,
   videoFooterBar,
@@ -9,13 +9,13 @@ import {
   videoCaptureItem
 } from '../builders/surfaces';
 import { div } from '../builders/primitives';
-import { classNames } from '../builders/classNames';
+import { runtimeClassNames as classNames } from '../builders/classNames';
 import { RUNTIME_SURFACE_FALLBACK_MESSAGES } from '@i18n/catalog/runtimeSurfaceFallbackMessages';
 
 const schema: ResourceSchema = {
   openMode: 'modal',
   createView(ctx) {
-    const surface = ctx.appData.surfaces.video;
+    const surface = ctx.appData.video;
     const t = ctx.t;
     const notePlaceholder =
       t?.('videoCaptureEditPlaceholder', surface.labels.notePlaceholder) ??
@@ -110,7 +110,6 @@ const schema: ResourceSchema = {
             [
               sessionHeader(
                 labels,
-                '▶',
                 surface.iconUrl,
                 t?.(
                   'schemaRuntimeSurfaceCollapsePanelAriaLabel',

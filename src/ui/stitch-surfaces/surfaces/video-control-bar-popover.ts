@@ -1,4 +1,4 @@
-import type { ResourceSchema } from '../../types';
+import type { ResourceSchema } from '@ui/stitch-runtime';
 import { element } from '../builders/primitives';
 
 function preferenceRow(preference: 'autoPauseEnabled' | 'captureScreenshotEnabled', label: string) {
@@ -24,7 +24,7 @@ function preferenceRow(preference: 'autoPauseEnabled' | 'captureScreenshotEnable
 const schema: ResourceSchema = {
   openMode: 'modal',
   createView(ctx) {
-    const surface = ctx.appData.surfaces.videoControlBarPopover ?? {
+    const surface = ctx.appData.videoControlBarPopover ?? {
       texts: {
         notePlaceholder: '',
         noteAriaLabel: '',
