@@ -1,3 +1,4 @@
+@import '../../../styles/design-tokens.css';
 @import './runtime/theme-tokens.css';
 @import './runtime/base.css';
 @import './runtime/onboarding.css';

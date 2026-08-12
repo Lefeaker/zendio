@@ -4,6 +4,13 @@
  */
 
 :root {
+  /* Canonical semantic inputs for the Stitch aliases below. */
+  --zendio-stitch-bg: #09090b;
+  --zendio-stitch-text: #fafafa;
+  --zendio-stitch-accent: #a78bfa;
+  --zendio-stitch-line: #27272a;
+  --zendio-stitch-radius-md: 8px;
+  --zendio-stitch-motion-fast: 140ms;
   /* ========================================
      基础色彩系统
      ======================================== */
@@ -316,6 +323,14 @@ html[data-theme='dark'] {
   --aobx-shadow-card: none;
   --accent: var(--aobx-accent);
   --accent-hover: color-mix(in srgb, var(--aobx-accent) 80%, #ffffff 20%);
+}
+
+html[data-preview-theme='light'],
+.stitch-runtime-surface[data-preview-theme='light'] {
+  --zendio-stitch-bg: #f5f6fb;
+  --zendio-stitch-text: #111114;
+  --zendio-stitch-accent: #7c3aed;
+  --zendio-stitch-line: #e4e4eb;
 }
 
 /* ========================================

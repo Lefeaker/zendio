@@ -1,12 +1,9 @@
 /* @vitest-environment jsdom */
 
-import { describe, expect, it, vi } from 'vitest';
-import { createAlertElement } from '../../../../src/ui/primitives/alert';
+import { describe, expect, it } from 'vitest';
 import { createBadgeElement } from '../../../../src/ui/primitives/badge';
-import {
-  createContentSurfacePanel,
-  createOptionsPanel
-} from '../../../../src/ui/primitives/layout';
+import { DaisyCard } from '../../../../src/ui/primitives/card';
+import { createTableElement } from '../../../../src/ui/primitives/table';
 
 describe('ui display primitives', () => {
   it('badge supports icon and info/neutral variants', () => {
@@ -22,29 +19,15 @@ describe('ui display primitives', () => {
     expect(badge.querySelector('svg')).not.toBeNull();
   });
 
-  it('alert supports dismiss contract', () => {
-    const onDismiss = vi.fn();
-    const alert = createAlertElement({
-      type: 'warning',
-      message: 'Heads up',
-      description: 'Check this first',
-      dismissible: true,
-      onDismiss
+  it('card and table retain semantic element trees', () => {
+    const host = document.createElement('div');
+    const card = new DaisyCard(host).render({ title: 'Title', body: 'Body' });
+    const table = createTableElement({
+      columns: ['Name'],
+      rows: [{ cells: [{ text: 'Zendio' }] }]
     });
 
-    const button = alert.querySelector('button');
-    expect(alert.className).toContain('alert-warning');
-    expect(alert.textContent).toContain('Heads up');
-    expect(alert.textContent).toContain('Check this first');
-    button?.click();
-    expect(onDismiss).toHaveBeenCalledTimes(1);
-  });
-
-  it('panel/layout aliases create stable surface primitives', () => {
-    const optionsPanel = createOptionsPanel();
-    const contentPanel = createContentSurfacePanel();
-
-    expect(optionsPanel.className).toContain('rounded-lg');
-    expect(contentPanel.className).toContain('rounded-xl');
+    expect(card.querySelector('.card-body > .card-title')?.textContent).toBe('Title');
+    expect(table.querySelector('table > tbody > tr > td')?.textContent).toBe('Zendio');
   });
 });

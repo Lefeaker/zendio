@@ -69,6 +69,17 @@ describe('DaisyCard', () => {
     });
   });
 
+  it('keeps the body and actions in their established card slots', async () => {
+    await withDomEnvironment(MARKUP, {}, ({ document }) => {
+      const card = new DaisyCard(document.body);
+      const action = document.createElement('button');
+      const element = card.render({ body: 'Body', actions: [action] });
+
+      expect(element.querySelector(':scope > .card-body > p')?.textContent).toBe('Body');
+      expect(element.querySelector(':scope > .card-body > .card-actions > button')).toBe(action);
+    });
+  });
+
   it('applies variant classes', async () => {
     await withDomEnvironment(MARKUP, {}, ({ document }) => {
       const card = new DaisyCard(document.body);

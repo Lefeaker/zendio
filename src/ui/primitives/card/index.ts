@@ -13,11 +13,55 @@ export interface CardProps {
   actions?: HTMLElement[];
 }
 
+export interface PrimitiveCardElementProps {
+  title?: string | undefined;
+  description?: string | undefined;
+  actions?: HTMLElement[];
+  body: Node;
+  className?: string;
+}
+
 const CARD_VARIANT_CLASS: Record<CardVariant, string> = {
   normal: 'card',
   compact: 'card-compact',
   side: 'card-side'
 };
+
+export function createCardElement({
+  title,
+  description,
+  actions = [],
+  body,
+  className = 'card'
+}: PrimitiveCardElementProps): HTMLElement {
+  const card = document.createElement('section');
+  card.className = className;
+  if (title || description || actions.length) {
+    const header = document.createElement('div');
+    header.className = 'card-header';
+    const copy = document.createElement('div');
+    if (title) {
+      const heading = document.createElement('h2');
+      heading.textContent = title;
+      copy.append(heading);
+    }
+    if (description) {
+      const paragraph = document.createElement('p');
+      paragraph.textContent = description;
+      copy.append(paragraph);
+    }
+    header.append(copy);
+    if (actions.length) {
+      const toolbar = document.createElement('div');
+      toolbar.className = 'toolbar';
+      toolbar.append(...actions);
+      header.append(toolbar);
+    }
+    card.append(header);
+  }
+  card.append(body);
+  return card;
+}
 
 /**
  * DaisyUI card wrapper retained as a UI primitive after old shared entry removal.

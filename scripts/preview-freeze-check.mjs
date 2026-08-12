@@ -115,11 +115,11 @@ const ALLOWED_PREVIEW_DRIFT = new Map([
         'The v0.2.1 user-facing changelog and version source-of-truth refresh updates the generated preview JS hash after replacing technical release-note prose with user-readable export stability copy, deriving manifest/build release metadata from package.json, and adding the release metadata guard while preserving the frozen reference, preview freeze logic, and Stitch runtime contract.',
         'The Zendio display-name punctuation refresh updates the generated preview JS hash after replacing the Chinese dash in Zendio-All in Obsidian with the product-approved ASCII hyphen across catalog-backed runtime/static copy and release artifact names while preserving the frozen reference, preview freeze logic, and Stitch runtime contract.',
         'The selection-trigger policy repair refreshes the generated preview JS hash after replacing the overloaded modifier boolean with explicit disabled, direct, and modifier states, conditionally rendering modifier-key controls, and keeping preview actions aligned with production persistence while preserving the frozen reference and Stitch runtime contract.',
-        'The O01 raw-first loss-aware Options codec, canonical strict taxonomy, persisted-empty REST credential boundary, and typed taxonomy-editor validation refresh the generated preview JS while preserving the frozen reference and Stitch DOM/visual/runtime contract. U02A refreshes the generated preview JS after the runtime-surface kernel moved the preview fixture onto the public Stitch runtime barrel, adding the concrete runtime renderer and surface graph while preserving the frozen reference and Stitch DOM/visual/runtime contract.'
+        'The O01 raw-first loss-aware Options codec, canonical strict taxonomy, persisted-empty REST credential boundary, and typed taxonomy-editor validation refresh the generated preview JS while preserving the frozen reference and Stitch DOM/visual/runtime contract. U02A refreshes the generated preview JS after the runtime-surface kernel moved the preview fixture onto the public Stitch runtime barrel, adding the concrete runtime renderer and surface graph while preserving the frozen reference and Stitch DOM/visual/runtime contract. U02B refreshes the generated preview JS after routing the Options surface primitives through their canonical semantic owners while preserving the frozen reference and Stitch DOM/visual/runtime contract.'
       ].join(' '),
       leftSha256: '9020ccbd91acd691eccd3fdf568b9a90efbddf0a35d79f36ef1caba702fa0c07',
-      // U02A runtime-surface kernel preview JS hash.
-      rightSha256: 'f6651d0073d9e0ef76067cef9f80532bf74f3b0c3a65e7445d8f45652da73f5f'
+      // U02A runtime-surface kernel hash; U02B primitive/token parity refresh (2026-08-12 UTC).
+      rightSha256: '1e3fb51631880992f16989c13c80d4d91c97b3d7bc9165c0d89611277b0cc706'
     }
   ]
 ]);

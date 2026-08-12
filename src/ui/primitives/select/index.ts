@@ -13,13 +13,14 @@ export interface PrimitiveSelectProps {
   id?: string;
   ariaLabel?: string;
   ariaDescribedBy?: string;
-  value?: string;
-  disabled?: boolean;
+  value?: string | undefined;
+  disabled?: boolean | undefined;
   className?: string;
   validationState?: InputValidationState;
   dataAttributes?: DataAttributes;
   options: PrimitiveSelectOption[];
-  onChange?: (value: string, event: Event) => void;
+  onChange?: ((value: string, event: Event) => void) | undefined;
+  classSlots?: readonly string[] | undefined;
 }
 
 export function createSelectElement(props: PrimitiveSelectProps): HTMLSelectElement {
@@ -30,21 +31,23 @@ export function createSelectElement(props: PrimitiveSelectProps): HTMLSelectElem
       : props.validationState === 'error'
         ? 'select-error'
         : '';
-  select.className = [
-    'select',
-    'select-bordered',
-    'w-full',
-    'min-h-[40px]',
-    'bg-base-100',
-    'text-base-content',
-    'transition-colors',
-    'focus:outline-none',
-    'focus:border-accent/60',
-    'focus:ring-2',
-    'focus:ring-accent/20',
-    validationClass,
-    props.className ?? ''
-  ]
+  select.className = (
+    props.classSlots ?? [
+      'select',
+      'select-bordered',
+      'w-full',
+      'min-h-[40px]',
+      'bg-base-100',
+      'text-base-content',
+      'transition-colors',
+      'focus:outline-none',
+      'focus:border-accent/60',
+      'focus:ring-2',
+      'focus:ring-accent/20',
+      validationClass,
+      props.className ?? ''
+    ]
+  )
     .filter(Boolean)
     .join(' ');
 

@@ -1,5 +1,9 @@
 import { el } from './dom';
 import type { SurfaceAction } from './types/surfaceTypes';
+import { createBadgeElement } from '../primitives/badge';
+import { createPrimitiveButtonElement } from '../primitives/button';
+import { createInputElement } from '../primitives/input';
+import { createTextareaElement } from '../primitives/textarea';
 
 export interface RuntimeButtonOptions {
   variant?: SurfaceAction['variant'] | undefined;
@@ -32,6 +36,7 @@ export interface RuntimeTextareaOptions {
   className?: string | undefined;
   placeholder?: string | undefined;
   disabled?: boolean | undefined;
+  readOnly?: boolean | undefined;
   dataset?: Record<string, string | number | boolean> | undefined;
   onInput?: ((event: Event) => void) | undefined;
   onChange?: ((event: Event) => void) | undefined;
@@ -40,7 +45,7 @@ export interface RuntimeTextareaOptions {
 }
 
 function Badge(label: string, variant = ''): HTMLSpanElement {
-  return el('span', { className: ['badge', variant].filter(Boolean).join(' '), text: label });
+  return createBadgeElement({ label, classSlots: ['badge', variant] });
 }
 
 function Pill(label: string): HTMLSpanElement {
@@ -48,25 +53,19 @@ function Pill(label: string): HTMLSpanElement {
 }
 
 function Button(label: string, options: RuntimeButtonOptions = {}): HTMLButtonElement {
-  return el(
-    'button',
-    {
-      type: 'button',
-      className: ['btn', options.variant].filter(Boolean).join(' '),
-      disabled: options.disabled,
-      onMousedown: (event: MouseEvent) => event.preventDefault(),
-      onClick: options.onClick
-    },
-    el('span', { text: label })
-  );
+  return createPrimitiveButtonElement({
+    label,
+    disabled: options.disabled,
+    onClick: options.onClick,
+    classSlots: ['btn', options.variant ?? ''],
+    onMouseDown: (event) => event.preventDefault()
+  });
 }
 
 function Input(value: string | number, options: RuntimeInputOptions = {}): HTMLInputElement {
-  return el('input', {
-    className: ['input', options.mono ? 'code' : '', options.className || '']
-      .filter(Boolean)
-      .join(' '),
-    value,
+  return createInputElement({
+    value: String(value),
+    classSlots: ['input', options.mono ? 'code' : '', options.className || ''],
     type: options.type || 'text',
     placeholder: options.placeholder,
     disabled: options.disabled,
@@ -76,13 +75,13 @@ function Input(value: string | number, options: RuntimeInputOptions = {}): HTMLI
     step: options.step,
     dataset: options.dataset,
     onInput: options.onInput,
-    onChange: options.onChange,
+    onNativeChange: options.onChange,
     onFocus: options.onFocus,
-    onBlur: options.onBlur,
+    onBlur: (_value, event) => options.onBlur?.(event),
     onClick: options.onClick,
-    onKeyup: options.onKeyUp,
+    onKeyUp: options.onKeyUp,
     onSelect: options.onSelect,
-    onMouseenter: options.onMouseEnter
+    onMouseEnter: options.onMouseEnter
   });
 }
 
@@ -90,16 +89,16 @@ function Textarea(
   value: string | number,
   options: RuntimeTextareaOptions = {}
 ): HTMLTextAreaElement {
-  return el('textarea', {
-    className: ['textarea', options.className || ''].filter(Boolean).join(' '),
-    value,
+  return createTextareaElement({
+    classSlots: ['textarea', options.className || ''],
+    value: String(value),
     placeholder: options.placeholder,
     disabled: options.disabled,
     dataset: options.dataset,
     onInput: options.onInput,
-    onChange: options.onChange,
+    onNativeChange: options.onChange,
     onFocus: options.onFocus,
-    onBlur: options.onBlur
+    onBlur: (_value, event) => options.onBlur?.(event)
   });
 }
 

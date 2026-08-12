@@ -1,4 +1,9 @@
 import { el, surfaceComponents, type RuntimeButtonOptions } from '@ui/stitch-runtime';
+import { createPrimitiveButtonElement } from '@ui/primitives/button';
+import { createCardElement } from '@ui/primitives/card';
+import { createSelectElement } from '@ui/primitives/select';
+import { createTableElement } from '@ui/primitives/table';
+import { createToggleElement } from '@ui/primitives/toggle';
 import { renderUsageChart } from './usageChartRenderer';
 import { createUiIcon, UI_ICONS } from '@ui/foundation/icons';
 import type { SelectOption, UsageStat } from '../types';
@@ -109,18 +114,16 @@ function Icon(name: string, options: IconOptions = {}): SVGElement {
 }
 
 function Button(label: string, options: ButtonOptions = {}): HTMLButtonElement {
-  return el(
-    'button',
-    {
-      type: 'button',
-      className: ['btn', options.variant].filter(Boolean).join(' '),
-      disabled: options.disabled,
-      onMousedown: (event: MouseEvent) => event.preventDefault(),
-      onClick: options.onClick
-    },
-    options.icon ? Icon(options.icon, { className: 'btn-icon', fill: options.iconFill }) : null,
-    el('span', { text: label })
-  );
+  return createPrimitiveButtonElement({
+    label,
+    disabled: options.disabled,
+    onClick: options.onClick,
+    classSlots: ['btn', options.variant ?? ''],
+    onMouseDown: (event) => event.preventDefault(),
+    leading: options.icon
+      ? Icon(options.icon, { className: 'btn-icon', fill: options.iconFill })
+      : null
+  });
 }
 
 function Card({
@@ -130,24 +133,13 @@ function Card({
   body,
   extraClass = ''
 }: CardOptions): HTMLElement {
-  const header = el(
-    'div',
-    { className: 'card-header' },
-    el(
-      'div',
-      {},
-      title ? el('h2', { text: title }) : null,
-      description ? el('p', { text: description }) : null
-    ),
-    actions.length ? el('div', { className: 'toolbar' }, actions) : null
-  );
-
-  return el(
-    'section',
-    { className: ['card', extraClass].filter(Boolean).join(' ') },
-    title || description || actions.length ? header : null,
-    body
-  );
+  return createCardElement({
+    title,
+    description,
+    actions,
+    body,
+    className: ['card', extraClass].filter(Boolean).join(' ')
+  });
 }
 
 function Group(title: string, content: Node): HTMLElement {
@@ -192,21 +184,13 @@ function Select(
   value: string | number | undefined,
   config: SelectConfig = {}
 ): HTMLSelectElement {
-  const select = el('select', {
-    className: ['select', config.className || ''].filter(Boolean).join(' '),
+  return createSelectElement({
+    value: value === undefined ? undefined : String(value),
     disabled: config.disabled,
-    onChange: config.onChange
+    classSlots: ['select', config.className || ''],
+    options: options.map((option) => ({ value: String(option.value), label: option.label })),
+    onChange: (_value, event) => config.onChange?.(event)
   });
-  options.forEach((option) => {
-    select.append(
-      el('option', {
-        value: option.value,
-        selected: option.value === value,
-        text: option.label
-      })
-    );
-  });
-  return select;
 }
 
 function SwitchRow({
@@ -215,7 +199,12 @@ function SwitchRow({
   onClick,
   onChange
 }: SwitchRowOptions): HTMLDivElement {
-  const input = el('input', { type: 'checkbox', checked, disabled, onChange });
+  const input = createToggleElement({
+    checked,
+    disabled,
+    classSlots: [],
+    onChange: (_checked, event) => onChange?.(event)
+  });
   return el(
     'div',
     { className: 'switch-line' },
@@ -242,44 +231,11 @@ function Rows(items: Node[]): HTMLDivElement {
 }
 
 function Table({ columns, rows, rowClassName }: TableOptions): HTMLDivElement {
-  return el(
-    'div',
-    { className: ['table-wrap', rowClassName].filter(Boolean).join(' ') },
-    el(
-      'table',
-      {},
-      el(
-        'thead',
-        {},
-        el(
-          'tr',
-          {},
-          columns.map((column) => el('th', { text: column }))
-        )
-      ),
-      el(
-        'tbody',
-        {},
-        rows.map((row) =>
-          el(
-            'tr',
-            row.rowProps || {},
-            row.cells.map((cell) =>
-              el(
-                'td',
-                cell.props || {},
-                cell.node !== undefined
-                  ? cell.node
-                  : cell.html
-                    ? el('span', { html: cell.html })
-                    : cell.text
-              )
-            )
-          )
-        )
-      )
-    )
-  );
+  return createTableElement({
+    columns,
+    rows,
+    wrapperClassName: ['table-wrap', rowClassName].filter(Boolean).join(' ')
+  });
 }
 
 function MiniCard(title: string, content: Node): HTMLDivElement {

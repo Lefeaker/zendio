@@ -17,6 +17,26 @@ describe('Stitch UI components', () => {
     expect(onClick).toHaveBeenCalledTimes(1);
   });
 
+  it('retains semantic select, switch and table slots through primitive entries', () => {
+    const select = previewUi.Select(
+      [
+        { value: 'a', label: 'Alpha' },
+        { value: 'b', label: 'Beta' }
+      ],
+      'b'
+    );
+    const switchRow = previewUi.SwitchRow({ checked: true });
+    const table = previewUi.Table({
+      columns: ['Name'],
+      rows: [{ cells: [{ text: 'Zendio' }] }]
+    });
+
+    expect(select).toBeInstanceOf(HTMLSelectElement);
+    expect(select.value).toBe('b');
+    expect(switchRow.querySelector('input[type="checkbox"]')?.checked).toBe(true);
+    expect(table.querySelector('table > thead th')?.getAttribute('scope')).toBe('col');
+  });
+
   it('renders zero-state usage chart coordinates without NaN SVG attributes', () => {
     const root = document.createElement('section');
     root.innerHTML = `
