@@ -99,7 +99,7 @@ export class DaisyCard extends BaseComponent<CardProps> {
     const figure = this.createElement('figure');
     const img = this.createElement('img');
     img.src = props.image.src;
-    img.alt = props.image.alt ?? props.title ?? 'Card image';
+    img.alt = props.image.alt ?? props.title ?? '';
     figure.append(img);
     return figure;
   }

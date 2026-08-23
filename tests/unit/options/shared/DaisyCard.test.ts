@@ -50,6 +50,26 @@ describe('DaisyCard', () => {
     });
   });
 
+  it('uses the title or decorative empty text when image alt is omitted', async () => {
+    await withDomEnvironment(MARKUP, {}, ({ document }) => {
+      const card = new DaisyCard(document.body);
+      const titledElement = card.render({
+        title: 'Image card',
+        body: 'content',
+        image: { src: '/image.png' }
+      });
+
+      expect(titledElement.querySelector('img')?.alt).toBe('Image card');
+
+      const decorativeElement = card.render({
+        body: 'content',
+        image: { src: '/decorative.png' }
+      });
+
+      expect(decorativeElement.querySelector('img')?.alt).toBe('');
+    });
+  });
+
   it('renders actions', async () => {
     await withDomEnvironment(MARKUP, {}, ({ document }) => {
       const container = document.createElement('div');
