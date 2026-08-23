@@ -4,7 +4,11 @@ import { createCardElement } from '@ui/primitives/card';
 import { createSelectElement } from '@ui/primitives/select';
 import { createTableElement } from '@ui/primitives/table';
 import { createToggleElement } from '@ui/primitives/toggle';
-import { renderUsageChart } from './usageChartRenderer';
+import {
+  createUsageChartShell,
+  renderUsageChart as renderUsageChartFromOwner,
+  type UsageChartSeriesPoint
+} from '@ui/domains/usage-chart';
 import { createUiIcon, UI_ICONS } from '@ui/foundation/icons';
 import type { SelectOption, UsageStat } from '../types';
 
@@ -324,6 +328,15 @@ function SegmentedNav(
       })
     )
   );
+}
+
+function renderUsageChart(root: HTMLElement, history: UsageChartSeriesPoint[]): void {
+  const { host, chart } = createUsageChartShell(
+    (tagName) => document.createElement(tagName),
+    'stitch'
+  );
+  root.replaceChildren(...Array.from(host.childNodes));
+  renderUsageChartFromOwner(chart, history);
 }
 
 export const previewUi = {

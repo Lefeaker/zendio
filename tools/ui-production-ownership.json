@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "closureState": "intermediate",
   "uiPathSetSha256": "816c7de2e370ccc8947988329d82ace64a229cdf80e3db9bb93e25532f7a7e87",
-  "uiContentSha256": "a719e92a8f45c5d3983db394eebbebd6c5fcc0f95c5fd0072b7cb409a8707754",
+  "uiContentSha256": "7319e5d7d411c61354adcad5c04139bb60b128bcaae5599255f423b69df3b857",
   "rows": [
     {
       "path": "src/ui/domains/privacy/index.ts",
@@ -276,11 +276,11 @@
     },
     {
       "path": "src/ui/domains/usage-chart/index.ts",
-      "disposition": "promote-u02c1",
-      "productionOwners": [],
+      "disposition": "production-runtime",
+      "productionOwners": ["src/options/index.ts", "src/options/runtimeEntry.ts"],
       "replacement": {
-        "owner": "src/options/app/usage-dashboard/usageDashboardLayout.ts",
-        "milestone": "U02C1"
+        "owner": "src/ui/domains/usage-chart/index.ts",
+        "milestone": "current-production"
       },
       "evidence": {
         "docs": ["docs/design-system-governance.md"],
@@ -290,15 +290,15 @@
           "tools/report-ui-production-ownership.mjs"
         ]
       },
-      "reason": "The neutral usage-chart owner is scheduled for real Options runtime promotion in U02C1."
+      "reason": "The neutral usage-chart owner is reached only by the Options production entrypoints."
     },
     {
       "path": "src/ui/domains/usage-chart/usageChart.ts",
-      "disposition": "promote-u02c1",
-      "productionOwners": [],
+      "disposition": "production-runtime",
+      "productionOwners": ["src/options/index.ts", "src/options/runtimeEntry.ts"],
       "replacement": {
-        "owner": "src/options/app/usage-dashboard/usageDashboardLayout.ts",
-        "milestone": "U02C1"
+        "owner": "src/ui/domains/usage-chart/usageChart.ts",
+        "milestone": "current-production"
       },
       "evidence": {
         "docs": ["docs/design-system-governance.md"],
@@ -308,15 +308,15 @@
           "tools/report-ui-production-ownership.mjs"
         ]
       },
-      "reason": "The neutral usage-chart owner is scheduled for real Options runtime promotion in U02C1."
+      "reason": "The neutral usage-chart owner is reached only by the Options production entrypoints."
     },
     {
       "path": "src/ui/domains/usage-chart/usageChartDomRenderers.ts",
-      "disposition": "promote-u02c1",
-      "productionOwners": [],
+      "disposition": "production-runtime",
+      "productionOwners": ["src/options/index.ts", "src/options/runtimeEntry.ts"],
       "replacement": {
-        "owner": "src/options/app/usage-dashboard/usageDashboardLayout.ts",
-        "milestone": "U02C1"
+        "owner": "src/ui/domains/usage-chart/usageChartDomRenderers.ts",
+        "milestone": "current-production"
       },
       "evidence": {
         "docs": ["docs/design-system-governance.md"],
@@ -326,15 +326,15 @@
           "tools/report-ui-production-ownership.mjs"
         ]
       },
-      "reason": "The neutral usage-chart owner is scheduled for real Options runtime promotion in U02C1."
+      "reason": "The neutral usage-chart owner is reached only by the Options production entrypoints."
     },
     {
       "path": "src/ui/domains/usage-chart/usageChartGeometry.ts",
-      "disposition": "promote-u02c1",
-      "productionOwners": [],
+      "disposition": "production-runtime",
+      "productionOwners": ["src/options/index.ts", "src/options/runtimeEntry.ts"],
       "replacement": {
-        "owner": "src/options/app/usage-dashboard/usageDashboardLayout.ts",
-        "milestone": "U02C1"
+        "owner": "src/ui/domains/usage-chart/usageChartGeometry.ts",
+        "milestone": "current-production"
       },
       "evidence": {
         "docs": ["docs/design-system-governance.md"],
@@ -344,15 +344,15 @@
           "tools/report-ui-production-ownership.mjs"
         ]
       },
-      "reason": "The neutral usage-chart owner is scheduled for real Options runtime promotion in U02C1."
+      "reason": "The neutral usage-chart owner is reached only by the Options production entrypoints."
     },
     {
       "path": "src/ui/domains/usage-chart/usageChartHistory.ts",
-      "disposition": "promote-u02c1",
-      "productionOwners": [],
+      "disposition": "production-runtime",
+      "productionOwners": ["src/options/index.ts", "src/options/runtimeEntry.ts"],
       "replacement": {
-        "owner": "src/options/app/usage-dashboard/usageDashboardLayout.ts",
-        "milestone": "U02C1"
+        "owner": "src/ui/domains/usage-chart/usageChartHistory.ts",
+        "milestone": "current-production"
       },
       "evidence": {
         "docs": ["docs/design-system-governance.md"],
@@ -362,15 +362,15 @@
           "tools/report-ui-production-ownership.mjs"
         ]
       },
-      "reason": "The neutral usage-chart owner is scheduled for real Options runtime promotion in U02C1."
+      "reason": "The neutral usage-chart owner is reached only by the Options production entrypoints."
     },
     {
       "path": "src/ui/domains/usage-chart/usageChartRenderers.ts",
-      "disposition": "promote-u02c1",
-      "productionOwners": [],
+      "disposition": "production-runtime",
+      "productionOwners": ["src/options/index.ts", "src/options/runtimeEntry.ts"],
       "replacement": {
-        "owner": "src/options/app/usage-dashboard/usageDashboardLayout.ts",
-        "milestone": "U02C1"
+        "owner": "src/ui/domains/usage-chart/usageChartRenderers.ts",
+        "milestone": "current-production"
       },
       "evidence": {
         "docs": ["docs/design-system-governance.md"],
@@ -380,15 +380,15 @@
           "tools/report-ui-production-ownership.mjs"
         ]
       },
-      "reason": "The neutral usage-chart owner is scheduled for real Options runtime promotion in U02C1."
+      "reason": "The neutral usage-chart owner is reached only by the Options production entrypoints."
     },
     {
       "path": "src/ui/domains/usage-chart/usageChartTypes.ts",
-      "disposition": "promote-u02c1",
-      "productionOwners": [],
+      "disposition": "production-runtime",
+      "productionOwners": ["src/options/index.ts", "src/options/runtimeEntry.ts"],
       "replacement": {
-        "owner": "src/options/app/usage-dashboard/usageDashboardLayout.ts",
-        "milestone": "U02C1"
+        "owner": "src/ui/domains/usage-chart/usageChartTypes.ts",
+        "milestone": "current-production"
       },
       "evidence": {
         "docs": ["docs/design-system-governance.md"],
@@ -398,7 +398,7 @@
           "tools/report-ui-production-ownership.mjs"
         ]
       },
-      "reason": "The neutral usage-chart owner is scheduled for real Options runtime promotion in U02C1."
+      "reason": "The neutral usage-chart owner is reached only by the Options production entrypoints."
     },
     {
       "path": "src/ui/domains/vault-router/index.ts",
