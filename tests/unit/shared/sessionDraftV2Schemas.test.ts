@@ -2,12 +2,18 @@ import { describe, expect, it } from 'vitest';
 
 import {
   DEFAULT_SESSION_DRAFT_RETENTION_POLICY,
+  DEFAULT_SESSION_DRAFT_STORAGE_POLICY,
+  FREE_SESSION_DRAFT_MAX_ITEMS_PER_PAGE,
+  FREE_SESSION_DRAFT_MAX_RESTORABLE_PAGES,
+  FREE_SESSION_DRAFT_RETENTION_MS,
   SESSION_DRAFT_INDEX_KEY,
   SESSION_DRAFT_LEASE_DURATION_MS,
   SESSION_DRAFT_LEASE_RENEWAL_INTERVAL_MS,
   SESSION_DRAFT_MAX_RECEIPTS,
+  SESSION_DRAFT_MAX_ENTRIES,
   SESSION_DRAFT_QUARANTINE_KEY,
   SessionDraftEnvelopeMutationResultSchema,
+  SessionDraftConflictCodeSchema,
   SessionDraftEnvelopeSchema,
   SessionDraftIndexSchema,
   SessionDraftListResultSchema,
@@ -19,13 +25,19 @@ import {
   SessionDraftRemovalTombstoneSchema,
   SessionDraftSaveRequestSchema,
   SessionDraftSelectAndClaimResultSchema,
+  SessionDraftStatusSchema,
   compareSessionDraftText,
+  createLegacySessionDraftPageKey,
   createSessionDraftIndex,
   createSessionDraftIndexEntry,
   createSessionDraftPageKey,
   createSessionDraftRemovalTombstone,
   createSessionDraftStorageKey,
+  createSessionDraftStoragePolicy,
+  filterSessionCommentDraftsForRetainedIds,
+  getSessionDraftEffectiveExpiresAt,
   normalizeLegacySessionDraftRecord,
+  normalizeSessionDraftRetentionPolicy,
   normalizeSessionDraftPageUrl,
   parseSessionDraftStorageKey,
   selectRetainedSessionDraftItems,
@@ -38,6 +50,10 @@ import {
 } from '@shared/sessionDrafts';
 
 const NOW = 1_000_000;
+const COLLIDING_PAGE_URLS: readonly [string, string] = [
+  'https://example.com/reader/1ctg9w7-1jx99je',
+  'https://example.com/reader/1d2u5vn-q239ae'
+];
 const LEASE = {
   leaseId: 'lease-1',
   owner: { tabId: 7, frameId: 0, windowId: 3 },
@@ -80,6 +96,49 @@ function createEntry(id: string, updatedAt: number, pageKey = id): SessionDraftI
 }
 
 describe('session draft v2 shared contract', () => {
+  it('preserves the frozen URL normalization and storage policy compatibility contract', () => {
+    expect(createSessionDraftPageKey('video', 'https://example.com/watch?v=1#t=12')).toBe(
+      createSessionDraftPageKey('video', 'https://example.com/watch?v=1#chapter-1')
+    );
+    expect(
+      normalizeSessionDraftPageUrl('reader', 'https://example.com/post#section:~:text=Alpha')
+    ).toBe('https://example.com/post#:~:text=Alpha');
+    expect(normalizeSessionDraftPageUrl('reader', 'https://example.com/post#section')).toBe(
+      'https://example.com/post'
+    );
+    const custom = createSessionDraftStoragePolicy({
+      retentionPolicy: { retentionMs: 123_456, maxRestorablePages: null, maxItemsPerPage: null }
+    });
+    expect(custom.videoScreenshotCacheTtlMs).toBe(123_456);
+    expect(DEFAULT_SESSION_DRAFT_STORAGE_POLICY.videoScreenshotCacheTtlMs).toBe(
+      DEFAULT_SESSION_DRAFT_RETENTION_POLICY.retentionMs
+    );
+    expect(
+      filterSessionCommentDraftsForRetainedIds({ retained: 'yes', removed: 'no' }, ['retained'])
+    ).toEqual({ retained: 'yes' });
+  });
+  it('uses collision-resistant physical page identities for the known FNV-1a/32 collision', () => {
+    const legacyKeys = COLLIDING_PAGE_URLS.map((pageUrl) =>
+      createLegacySessionDraftPageKey('reader', pageUrl)
+    );
+    const physicalKeys = COLLIDING_PAGE_URLS.map((pageUrl) =>
+      createSessionDraftStorageKey({
+        mode: 'reader',
+        pageKey: createSessionDraftPageKey('reader', pageUrl),
+        draftId: 'shared-draft'
+      })
+    );
+
+    expect(legacyKeys).toEqual(['1kqeq3k', '1kqeq3k']);
+    expect(
+      COLLIDING_PAGE_URLS.map((pageUrl) => createSessionDraftPageKey('reader', pageUrl))
+    ).toEqual([
+      '839e89718ebbfa291d1535c3413d5350803cb1fc6a85d7dd32eec4c07a5449ce',
+      '35099eec2f2f9107a27819ddba9d577ed0b59c80f64809bf9d0855cc7b46e229'
+    ]);
+    expect(new Set(physicalKeys).size).toBe(2);
+  });
+
   it('retains the physical v1 key grammar and parses encoded exact identities', () => {
     const pageUrl = 'https://example.com/post#section:~:text=Alpha';
     const pageKey = createSessionDraftPageKey('reader', pageUrl);
@@ -108,6 +167,14 @@ describe('session draft v2 shared contract', () => {
 
   it('enforces revision and lease/status invariants with trusted top-level ownership', () => {
     expect(SessionDraftEnvelopeSchema.safeParse(createEnvelope()).success).toBe(true);
+    expect(
+      SessionDraftEnvelopeSchema.safeParse(createEnvelope({ pageKey: 'legacy-page-key' })).success
+    ).toBe(false);
+    expect(
+      SessionDraftEnvelopeSchema.safeParse(
+        createEnvelope({ pageUrl: 'https://example.com/post#section:~:text=Alpha' })
+      ).success
+    ).toBe(false);
     expect(SessionDraftEnvelopeSchema.safeParse(createEnvelope({ revision: 0 })).success).toBe(
       false
     );
@@ -874,5 +941,262 @@ describe('session draft v2 shared contract', () => {
     expect(protectedSelection.retained).toHaveLength(5);
     expect(protectedSelection.retained.map((entry) => entry.key)).toContain(protectedEntry.key);
     expect(protectedSelection.removed.map((entry) => entry.key)).not.toContain(protectedEntry.key);
+  });
+});
+
+describe('S02 deleted-test semantic ledger', () => {
+  function legacyRecord(mode: 'reader' | 'video', payload: Record<string, unknown> = {}) {
+    return {
+      schemaVersion: 1,
+      draftId: `${mode}-legacy`,
+      mode,
+      pageKey: 'legacy-page',
+      pageUrl: `https://${mode}.example/item`,
+      pageTitle: `${mode} title`,
+      createdAt: 1,
+      updatedAt: 2,
+      expiresAt: 3,
+      status: 'restorable',
+      payload
+    };
+  }
+
+  it('S02-K01 normalizes equivalent non-text fragments deterministically', () => {
+    expect(createSessionDraftPageKey('video', 'https://example.com/watch?v=1#t=12')).toBe(
+      createSessionDraftPageKey('video', 'https://example.com/watch?v=1#chapter')
+    );
+  });
+
+  it('S02-K02 preserves reader text fragments while stripping unrelated fragments', () => {
+    expect(
+      normalizeSessionDraftPageUrl('reader', 'https://example.com/post#section:~:text=Alpha')
+    ).toBe('https://example.com/post#:~:text=Alpha');
+    expect(normalizeSessionDraftPageUrl('reader', 'https://example.com/post#section')).toBe(
+      'https://example.com/post'
+    );
+    expect(createSessionDraftPageKey('reader', 'https://example.com/post#:~:text=Alpha')).not.toBe(
+      createSessionDraftPageKey('reader', 'https://example.com/post#:~:text=Beta')
+    );
+  });
+
+  it('S02-K03 keeps raw page URLs out of physical storage keys', () => {
+    const pageUrl = 'https://example.com/private/path?token=secret#:~:text=Alpha';
+    const key = createSessionDraftStorageKey({
+      mode: 'reader',
+      pageKey: createSessionDraftPageKey('reader', pageUrl),
+      draftId: 'draft'
+    });
+    expect(key).not.toContain(pageUrl);
+    expect(key).not.toContain('private/path');
+    expect(parseSessionDraftStorageKey(key)).toMatchObject({ mode: 'reader', draftId: 'draft' });
+  });
+
+  it('S02-S01 preserves reader/video mode discrimination during legacy decode', () => {
+    expect(normalizeLegacySessionDraftRecord(legacyRecord('reader'))?.mode).toBe('reader');
+    expect(normalizeLegacySessionDraftRecord(legacyRecord('video'))?.mode).toBe('video');
+    expect(normalizeLegacySessionDraftRecord({ ...legacyRecord('reader'), mode: 'audio' })).toBe(
+      undefined
+    );
+  });
+
+  it('S02-S02 accepts safe comment-draft and passthrough payload extension points', () => {
+    expect(
+      SessionDraftPayloadSchema.safeParse({
+        commentDrafts: { item: 'note' },
+        extension: { screenshotRequested: true }
+      }).success
+    ).toBe(true);
+  });
+
+  it('S02-S03 freezes the owner-context rejection code', () => {
+    expect(SessionDraftConflictCodeSchema.safeParse('OWNER_CONTEXT_INVALID').success).toBe(true);
+    expect(SessionDraftConflictCodeSchema.safeParse('OWNER_MAYBE').success).toBe(false);
+  });
+
+  it('S02-S04 restores legacy records without owner context', () => {
+    const normalized = normalizeLegacySessionDraftRecord(
+      legacyRecord('reader', { commentDrafts: { item: 'note' } })
+    );
+    expect(normalized).toMatchObject({ mode: 'reader', revision: 0, status: 'restorable' });
+    expect(normalized?.legacyOwnerContext).toBeUndefined();
+  });
+
+  it('S02-S05 requires undefined optional payload fields to be omitted before persistence', () => {
+    expect(
+      SessionDraftPayloadSchema.safeParse({ commentDrafts: {}, mode: undefined }).success
+    ).toBe(false);
+    const canonical: unknown = JSON.parse(JSON.stringify({ commentDrafts: {}, mode: undefined }));
+    expect(SessionDraftPayloadSchema.safeParse(canonical).success).toBe(true);
+    expect(canonical).not.toHaveProperty('mode');
+  });
+
+  it('S02-S06 validates index entries and rejects unknown record schema versions', () => {
+    const valid = createSessionDraftIndex();
+    valid.entries = [createEntry('valid', NOW)];
+    expect(SessionDraftIndexSchema.safeParse(valid).success).toBe(true);
+    expect(
+      SessionDraftIndexSchema.safeParse({
+        ...valid,
+        entries: [{ ...valid.entries[0], recordSchemaVersion: 99 }]
+      }).success
+    ).toBe(false);
+  });
+
+  it('S02-S07 accepts both terminal statuses and rejects unknown status strings', () => {
+    expect(SessionDraftStatusSchema.safeParse('discarded').success).toBe(true);
+    expect(SessionDraftStatusSchema.safeParse('exported').success).toBe(true);
+    expect(SessionDraftStatusSchema.safeParse('terminal').success).toBe(false);
+  });
+
+  it('S02-P01 freezes the Free 48h, five-page, twenty-item defaults', () => {
+    expect(DEFAULT_SESSION_DRAFT_RETENTION_POLICY).toEqual({
+      retentionMs: FREE_SESSION_DRAFT_RETENTION_MS,
+      maxRestorablePages: FREE_SESSION_DRAFT_MAX_RESTORABLE_PAGES,
+      maxItemsPerPage: FREE_SESSION_DRAFT_MAX_ITEMS_PER_PAGE
+    });
+    expect(FREE_SESSION_DRAFT_RETENTION_MS).toBe(48 * 60 * 60 * 1000);
+    expect(FREE_SESSION_DRAFT_MAX_RESTORABLE_PAGES).toBe(5);
+    expect(FREE_SESSION_DRAFT_MAX_ITEMS_PER_PAGE).toBe(20);
+  });
+
+  it('S02-P02 maps default storage policy to the complete Free retention policy', () => {
+    expect(DEFAULT_SESSION_DRAFT_STORAGE_POLICY.retentionPolicy).toEqual(
+      DEFAULT_SESSION_DRAFT_RETENTION_POLICY
+    );
+    expect(DEFAULT_SESSION_DRAFT_STORAGE_POLICY.videoScreenshotCacheTtlMs).toBe(
+      FREE_SESSION_DRAFT_RETENTION_MS
+    );
+  });
+
+  it('S02-P03 maps injected retention to screenshot cache TTL', () => {
+    expect(
+      createSessionDraftStoragePolicy({
+        retentionPolicy: { retentionMs: 1234, maxRestorablePages: 2, maxItemsPerPage: 3 }
+      })
+    ).toMatchObject({
+      retentionPolicy: { retentionMs: 1234, maxRestorablePages: 2, maxItemsPerPage: 3 },
+      videoScreenshotCacheTtlMs: 1234
+    });
+  });
+
+  it('S02-P04 normalizes invalid injected policy values to Free defaults', () => {
+    expect(
+      normalizeSessionDraftRetentionPolicy({
+        retentionMs: Number.NaN,
+        maxRestorablePages: 0,
+        maxItemsPerPage: -1
+      })
+    ).toEqual(DEFAULT_SESSION_DRAFT_RETENTION_POLICY);
+  });
+
+  it('S02-P05 uses the shorter stored expiry and retention window', () => {
+    const policy = { retentionMs: 100, maxRestorablePages: 5, maxItemsPerPage: 20 };
+    expect(getSessionDraftEffectiveExpiresAt({ updatedAt: 10, expiresAt: 50 }, policy)).toBe(50);
+    expect(getSessionDraftEffectiveExpiresAt({ updatedAt: 10, expiresAt: 500 }, policy)).toBe(110);
+  });
+
+  it('S02-P06 keeps only the five newest restorable page identities', () => {
+    const entries = Array.from({ length: 6 }, (_, index) =>
+      createEntry(`draft-${index}`, NOW + index, `page-${index}`)
+    );
+    const result = selectSessionDraftRetentionRemovals(
+      entries,
+      NOW - 1,
+      DEFAULT_SESSION_DRAFT_RETENTION_POLICY
+    );
+    expect(result.retained.map((entry) => entry.pageKey)).toEqual([
+      'page-5',
+      'page-4',
+      'page-3',
+      'page-2',
+      'page-1'
+    ]);
+  });
+
+  it('S02-P07 prunes stale updatedAt despite a future stored expiry', () => {
+    const stale = createEntry('stale', NOW - FREE_SESSION_DRAFT_RETENTION_MS - 1);
+    stale.expiresAt = NOW + FREE_SESSION_DRAFT_RETENTION_MS;
+    const result = selectSessionDraftRetentionRemovals(
+      [stale],
+      NOW,
+      DEFAULT_SESSION_DRAFT_RETENTION_POLICY
+    );
+    expect(result.retained).toEqual([]);
+    expect(result.removed).toEqual([stale]);
+  });
+
+  it('S02-P08 removes every restorable entry for an over-limit page', () => {
+    const entries = [
+      ...Array.from({ length: 5 }, (_, index) =>
+        createEntry(`new-${index}`, NOW + index + 10, `page-${index}`)
+      ),
+      createEntry('old-a', NOW, 'old-page'),
+      createEntry('old-b', NOW + 1, 'old-page')
+    ];
+    const result = selectSessionDraftRetentionRemovals(
+      entries,
+      NOW - 1,
+      DEFAULT_SESSION_DRAFT_RETENTION_POLICY
+    );
+    expect(result.removed.filter((entry) => entry.pageKey === 'old-page')).toHaveLength(2);
+    expect(result.retained.some((entry) => entry.pageKey === 'old-page')).toBe(false);
+  });
+
+  it('S02-P09 excludes terminal drafts from the restorable page quota', () => {
+    const restorable = Array.from({ length: 5 }, (_, index) =>
+      createEntry(`active-${index}`, NOW + index, `active-page-${index}`)
+    );
+    const terminal = Array.from(
+      { length: 3 },
+      (_, index): SessionDraftIndexEntry => ({
+        ...createEntry(`terminal-${index}`, NOW - index, `terminal-page-${index}`),
+        status: 'exported'
+      })
+    );
+    const result = selectSessionDraftRetentionRemovals(
+      [...restorable, ...terminal],
+      NOW - 1,
+      DEFAULT_SESSION_DRAFT_RETENTION_POLICY
+    );
+    expect(result.retained).toHaveLength(8);
+  });
+
+  it('S02-P10 applies the technical entry cap after policy pruning', () => {
+    const unlimited = { retentionMs: 1000, maxRestorablePages: null, maxItemsPerPage: null };
+    const entries = Array.from({ length: SESSION_DRAFT_MAX_ENTRIES + 1 }, (_, index) =>
+      createEntry(`entry-${index}`, NOW + index, `page-${index}`)
+    );
+    expect(selectSessionDraftRetentionRemovals(entries, NOW - 1, unlimited).retained).toHaveLength(
+      SESSION_DRAFT_MAX_ENTRIES
+    );
+  });
+
+  it('S02-P11 selects the newest item window while preserving retained order', () => {
+    const items = Array.from({ length: 25 }, (_, index) => ({ id: index, createdAt: index }));
+    expect(
+      selectRetainedSessionDraftItems(items, DEFAULT_SESSION_DRAFT_RETENTION_POLICY).map(
+        (item) => item.id
+      )
+    ).toEqual(Array.from({ length: 20 }, (_, index) => index + 5));
+  });
+
+  it('S02-P12 treats a null item cap as unlimited', () => {
+    const policy = { ...DEFAULT_SESSION_DRAFT_RETENTION_POLICY, maxItemsPerPage: null };
+    const items = Array.from({ length: 25 }, (_, index) => ({ id: index, createdAt: index }));
+    expect(selectRetainedSessionDraftItems(items, policy)).toEqual(items);
+  });
+
+  it('S02-P13 treats a null page cap as unlimited', () => {
+    const policy = { ...DEFAULT_SESSION_DRAFT_RETENTION_POLICY, maxRestorablePages: null };
+    const entries = Array.from({ length: 8 }, (_, index) =>
+      createEntry(`entry-${index}`, NOW + index, `page-${index}`)
+    );
+    expect(selectSessionDraftRetentionRemovals(entries, NOW - 1, policy).retained).toHaveLength(8);
+  });
+
+  it('S02-P14 filters comment drafts to retained item IDs', () => {
+    expect(
+      filterSessionCommentDraftsForRetainedIds({ keep: 'yes', remove: 'no' }, ['keep'])
+    ).toEqual({ keep: 'yes' });
   });
 });

@@ -1,18 +1,71 @@
 /* @vitest-environment jsdom */
 
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   buildReaderSessionDraftEnvelope,
   loadLatestReaderSessionDraft,
   loadLatestReaderSessionDraftResult,
   restoreReaderSessionDraftHighlights
 } from '@content/reader/sessionDrafts';
-import type { ReaderHighlightRecord } from '@content/reader/services/highlightManager';
+import {
+  ReaderHighlightManager,
+  type ReaderHighlightRecord
+} from '@content/reader/services/highlightManager';
 import {
   FREE_SESSION_DRAFT_MAX_ITEMS_PER_PAGE,
-  createSessionDraftRepository
-} from '@content/sessionDrafts';
-import { createMemoryStorageArea } from '@platform/preview/memoryStorage';
+  normalizeSessionDraftStoredValue
+} from '@shared/sessionDrafts';
+import { createSessionDraftRepository } from '@content/sessionDrafts';
+import type { StorageAreaService, StorageValueMap } from '@platform/interfaces/storage';
+import { createSessionDraftStore } from '../../../../src/background/services/sessionDraftStore';
+import { handleSessionDraftMessage } from '../../../../src/background/listeners/sessionDraftMessages';
+import { configureSessionDraftRuntimeMessenger } from '../../../../src/content/sessionDrafts/sessionDraftTabContext';
+
+type EnumerableTestStorage = StorageAreaService & {
+  getAll(): Promise<StorageValueMap>;
+};
+
+function createDraftFixture(): EnumerableTestStorage {
+  const values = new Map<string, StorageValueMap[string]>();
+  const storage: EnumerableTestStorage = {
+    get: <T>(key: string) => Promise.resolve(values.get(key) as T | undefined),
+    getMany: <T>(keys: string[]) =>
+      Promise.resolve(
+        Object.fromEntries(keys.map((key) => [key, values.get(key) as T | undefined]))
+      ),
+    getAll: () => Promise.resolve(Object.fromEntries(values)),
+    set: <T>(key: string, value: T) => {
+      values.set(key, value);
+      return Promise.resolve();
+    },
+    setMany: <T>(entries: Record<string, T>) => {
+      for (const [key, value] of Object.entries(entries)) values.set(key, value);
+      return Promise.resolve();
+    },
+    remove: (keys: string | string[]) => {
+      for (const key of Array.isArray(keys) ? keys : [keys]) values.delete(key);
+      return Promise.resolve();
+    },
+    clear: () => {
+      values.clear();
+      return Promise.resolve();
+    },
+    watchKey: () => () => undefined,
+    watchAll: () => () => undefined
+  };
+  const created = createSessionDraftStore(storage, {
+    ownerLivenessProbe: () => Promise.resolve('inactive'),
+    createLeaseId: () => 'reader-test-lease'
+  });
+  if (!created.ok) throw new Error(created.code);
+  configureSessionDraftRuntimeMessenger((message) =>
+    handleSessionDraftMessage(created.store, normalizeSessionDraftStoredValue(message), {
+      tabId: 8,
+      frameId: 0
+    }).then((result) => result as never)
+  );
+  return storage;
+}
 
 function createHighlightRecord(
   overrides: Partial<ReaderHighlightRecord> = {}
@@ -34,8 +87,10 @@ function createHighlightRecord(
 }
 
 describe('readerSessionDrafts', () => {
+  afterEach(() => configureSessionDraftRuntimeMessenger(null));
+
   it('builds and loads a persisted reader draft with destination and comment drafts', async () => {
-    const repository = createSessionDraftRepository(createMemoryStorageArea());
+    const repository = createSessionDraftRepository(createDraftFixture());
     const now = Date.now();
     const envelope = buildReaderSessionDraftEnvelope({
       draftId: 'reader-draft-1',
@@ -82,7 +137,7 @@ describe('readerSessionDrafts', () => {
   });
 
   it('reports invalid persisted reader drafts with aggregate counts and removes the candidate', async () => {
-    const storage = createMemoryStorageArea();
+    const storage = createDraftFixture();
     const repository = createSessionDraftRepository(storage);
     const now = Date.now();
     const envelope = buildReaderSessionDraftEnvelope({
@@ -123,13 +178,12 @@ describe('readerSessionDrafts', () => {
       ...envelope,
       payload: {
         ...envelope.payload,
-        commentDrafts: [] as unknown as Record<string, string>
+        commentDrafts: []
       }
-    } as never);
+    });
 
     const result = await loadLatestReaderSessionDraftResult(
       repository,
-      storage,
       'https://example.com/article'
     );
 
@@ -281,11 +335,11 @@ describe('readerSessionDrafts', () => {
       }
     );
 
+    const highlightManager = new ReaderHighlightManager(document);
+    vi.spyOn(highlightManager, 'createHighlight').mockImplementation(createHighlight);
     const restored = restoreReaderSessionDraftHighlights({
       doc: document,
-      highlightManager: {
-        createHighlight
-      } as never,
+      highlightManager,
       highlights: [
         {
           id: 'saved-1',
@@ -338,11 +392,11 @@ describe('readerSessionDrafts', () => {
       }
     );
 
+    const highlightManager = new ReaderHighlightManager(document);
+    vi.spyOn(highlightManager, 'createHighlight').mockImplementation(createHighlight);
     const restored = restoreReaderSessionDraftHighlights({
       doc: document,
-      highlightManager: {
-        createHighlight
-      } as never,
+      highlightManager,
       highlights: [
         {
           id: 'saved-1',
@@ -388,11 +442,11 @@ describe('readerSessionDrafts', () => {
     document.body.innerHTML = '<article><p>Alpha Beta Gamma</p></article>';
     const createHighlight = vi.fn();
 
+    const highlightManager = new ReaderHighlightManager(document);
+    vi.spyOn(highlightManager, 'createHighlight').mockImplementation(createHighlight);
     const restored = restoreReaderSessionDraftHighlights({
       doc: document,
-      highlightManager: {
-        createHighlight
-      } as never,
+      highlightManager,
       highlights: [
         {
           id: 'detached-1',

@@ -51,6 +51,7 @@ type StoredOptionsFixture = {
 type VideoDraftEntry = {
   key: string;
   pageUrl: string | null;
+  status: string | null;
   captureCount: number;
   requestedScreenshotCount: number;
   screenshotRefCount: number;
@@ -116,6 +117,7 @@ type VideoDraftCapture = {
 
 type VideoDraftEnvelope = {
   pageUrl?: string;
+  status?: string;
   payload?: {
     captures?: VideoDraftCapture[];
     commentDrafts?: Record<string, string>;
@@ -617,6 +619,7 @@ async function readVideoStorageSummary(extensionPage: Page): Promise<VideoStorag
             return {
               key,
               pageUrl: envelope?.pageUrl ?? null,
+              status: envelope?.status ?? null,
               captureCount: captures.length,
               requestedScreenshotCount: captures.filter(
                 (capture) => capture.screenshotRequested === true
@@ -1252,10 +1255,36 @@ test.describe('Video Panel persistent browser relaunch flow', () => {
       await runStage(testInfo, 'create persistent screenshot capture', async () => {
         await initialPage.locator('[data-role="add-btn"]').click();
         await expect(initialPage.locator('[data-role="capture-item"]')).toHaveCount(1);
+      });
+      await runStage(testInfo, 'wait initial persistent capture save', async () => {
+        await expect
+          .poll(async () => {
+            const summary = await readVideoStorageSummary(initialHarness.extensionPage);
+            return (
+              summary.drafts.find((entry) => entry.pageUrl?.includes('persistent-relaunch'))
+                ?.captureCount ?? 0
+            );
+          })
+          .toBe(1);
+      });
+      await runStage(testInfo, 'fill persistent screenshot draft', async () => {
         await initialPage.locator('[data-capture-input]').first().fill(persistentDraft);
         await expect(initialPage.locator('[data-capture-input]').first()).toHaveValue(
           persistentDraft
         );
+      });
+      await runStage(testInfo, 'wait persistent note draft save', async () => {
+        await expect
+          .poll(async () => {
+            const summary = await readVideoStorageSummary(initialHarness.extensionPage);
+            const draft = summary.drafts.find((entry) =>
+              entry.pageUrl?.includes('persistent-relaunch')
+            );
+            return Object.values(draft?.commentDrafts ?? {}).filter(
+              (value) => value === persistentDraft
+            ).length;
+          })
+          .toBe(1);
       });
 
       const screenshotToggle = initialPage
@@ -1306,6 +1335,25 @@ test.describe('Video Panel persistent browser relaunch flow', () => {
         });
 
       const initialExtensionId = initialHarness.extensionId;
+      await runStage(testInfo, 'dispatch persistent pagehide', () =>
+        initialPage.evaluate(() => {
+          window.dispatchEvent(new PageTransitionEvent('pagehide', { persisted: false }));
+        })
+      );
+      await runStage(testInfo, 'wait persistent draft lease release', async () => {
+        await expect
+          .poll(
+            async () => {
+              const summary = await readVideoStorageSummary(initialHarness.extensionPage);
+              return (
+                summary.drafts.find((entry) => entry.pageUrl?.includes('persistent-relaunch'))
+                  ?.status ?? null
+              );
+            },
+            { timeout: 10000, message: 'pagehide did not release the persistent draft lease' }
+          )
+          .toBe('restorable');
+      });
       await runStage(testInfo, 'close initial fixture page before browser relaunch', () =>
         initialPage.close()
       );

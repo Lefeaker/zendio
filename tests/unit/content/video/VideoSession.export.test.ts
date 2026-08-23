@@ -4,7 +4,7 @@ import {
   __resetContentSessionRegistryForTests,
   isVideoSessionActive
 } from '@content/runtime/contentSessionRegistry';
-import { createSessionDraftStorageKey } from '@content/sessionDrafts/sessionDraftKeys';
+import { createSessionDraftStorageKey } from '@shared/sessionDrafts';
 import { createSessionDraftRepository } from '@content/sessionDrafts/sessionDraftRepository';
 import type { VideoPanelCallbacks } from '@content/video/application/videoPanelModel';
 import { VideoSession } from '@content/video/session';
@@ -88,7 +88,7 @@ describe('VideoSession export', () => {
     vi.useRealTimers();
   });
 
-  it('cleans up after export when exact-key draft removal fails after the terminal envelope is written', async () => {
+  it('keeps the session mounted when export exact-key removal fails after terminalization', async () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2026-03-14T10:00:00Z'));
     const deps = createDependencies();
@@ -131,16 +131,15 @@ describe('VideoSession export', () => {
 
     await requirePromise(requireMountedPanelCallbacks(mountedCallbacks).onFinish());
 
-    expect(view.destroy).toHaveBeenCalledTimes(1);
-    expect(isVideoSessionActive(document)).toBe(false);
-    await expect(loadLatestVideoDraft(deps)).resolves.toBeNull();
-    await expect(listVideoDraftCandidates(deps, document.location.href, null)).resolves.toEqual([]);
+    expect(view.destroy).not.toHaveBeenCalled();
+    expect(isVideoSessionActive(document)).toBe(true);
     expect(await readDraftIndex(deps)).toMatchObject({
-      entries: [expect.objectContaining({ draftId: currentDraft.draftId, status: 'exported' })]
+      entries: [],
+      pendingRemovals: [expect.objectContaining({ key: currentDraftKey })]
     });
-    await expect(readStoredVideoDraft(deps, currentDraftKey)).resolves.toMatchObject({
-      draftId: currentDraft.draftId,
-      status: 'exported'
+    await expect(deps.storage.local.get(currentDraftKey)).resolves.toMatchObject({
+      kind: 'session-draft-removal-tombstone',
+      key: currentDraftKey
     });
 
     vi.useRealTimers();
@@ -234,7 +233,7 @@ describe('VideoSession export', () => {
     expect(cleanupSpy).toHaveBeenCalled();
   });
 
-  it('writes exported terminal envelopes to the current and restored exact draft keys before cleanup', async () => {
+  it('retries superseded restored cleanup before exporting and removing the current exact draft', async () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2026-03-14T10:00:00Z'));
     const deps = createDependencies();
@@ -297,8 +296,8 @@ describe('VideoSession export', () => {
     );
 
     const beforeFinish = await listVideoDraftCandidates(deps, document.location.href, null);
-    expect(beforeFinish).toHaveLength(2);
-    const currentDraft = beforeFinish.find((candidate) => candidate.draftId !== 'restored-draft');
+    expect(beforeFinish).toHaveLength(1);
+    const currentDraft = beforeFinish[0];
     if (!currentDraft) {
       throw new Error('expected a current replacement draft');
     }
@@ -306,18 +305,6 @@ describe('VideoSession export', () => {
       mode: 'video',
       pageKey: currentDraft.pageKey,
       draftId: currentDraft.draftId
-    });
-
-    vi.mocked(deps.storage.local.remove).mockClear();
-    vi.mocked(deps.storage.local.remove).mockImplementation(async (...args) => {
-      const [value] = args;
-      if (
-        removalCallIncludesKey(value, currentDraftKey) ||
-        removalCallIncludesKey(value, restoredDraftKey)
-      ) {
-        throw new Error('terminal cleanup should be best-effort');
-      }
-      return await passthroughRemove(...args);
     });
 
     await requirePromise(requireMountedPanelCallbacks(mountedCallbacks).onFinish());
@@ -330,20 +317,9 @@ describe('VideoSession export', () => {
     if (!draftIndex) {
       throw new Error('Expected session draft index');
     }
-    expect(draftIndex.entries).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({ draftId: currentDraft.draftId, status: 'exported' }),
-        expect.objectContaining({ draftId: restoredDraft.draftId, status: 'exported' })
-      ])
-    );
-    await expect(readStoredVideoDraft(deps, currentDraftKey)).resolves.toMatchObject({
-      draftId: currentDraft.draftId,
-      status: 'exported'
-    });
-    await expect(readStoredVideoDraft(deps, restoredDraftKey)).resolves.toMatchObject({
-      draftId: restoredDraft.draftId,
-      status: 'exported'
-    });
+    expect(draftIndex).toMatchObject({ entries: [], pendingRemovals: [] });
+    await expect(readStoredVideoDraft(deps, currentDraftKey)).resolves.toBeUndefined();
+    await expect(readStoredVideoDraft(deps, restoredDraftKey)).resolves.toBeUndefined();
     expect(
       vi
         .mocked(deps.storage.local.remove)
@@ -353,7 +329,7 @@ describe('VideoSession export', () => {
       vi
         .mocked(deps.storage.local.remove)
         .mock.calls.filter(([value]) => removalCallIncludesKey(value, restoredDraftKey))
-    ).toHaveLength(1);
+    ).toHaveLength(2);
 
     vi.useRealTimers();
   });

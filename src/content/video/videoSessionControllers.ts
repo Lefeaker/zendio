@@ -1,7 +1,7 @@
 import type { VideoPlatformContext } from './platforms';
 import type { VideoFragmentCapture } from './types';
 import type { VideoSessionDependencies } from './sessionTypes';
-import { createSessionDraftPageKey } from '../sessionDrafts';
+import { createSessionDraftPageKey } from '@shared/sessionDrafts';
 import type { ContentExportDestinationState } from '../shared/exportDestinationState';
 import { FragmentHighlighter } from './fragmentHighlighter';
 import { PendingSelectionTracker } from './pendingSelectionTracker';
@@ -184,6 +184,12 @@ export function createVideoSessionControllers(args: {
     ...(dependencies.sessionDraftStoragePolicy
       ? { sessionDraftStoragePolicy: dependencies.sessionDraftStoragePolicy }
       : {}),
+    ...(dependencies.sessionDraftLeaseOwners
+      ? { leaseOwnerRegistry: dependencies.sessionDraftLeaseOwners }
+      : {}),
+    ...(dependencies.initialClaimedDraft
+      ? { initialClaimedDraft: dependencies.initialClaimedDraft }
+      : {}),
     screenshotCache,
     dom,
     trackDraftRestoreEvent: (params) =>
@@ -207,8 +213,9 @@ export function createVideoSessionControllers(args: {
       }
       return restored;
     },
-    onLegacyRestore: (storageKey) => draftController.handleLegacyRestore(storageKey)
+    onLegacyRestore: (capture) => draftController.handleLegacyRestore(capture)
   });
+  dependencies.onInitialDraftAdopted?.();
 
   return {
     fragmentHighlighter,

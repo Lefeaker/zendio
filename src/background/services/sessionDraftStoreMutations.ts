@@ -1,4 +1,23 @@
-import { createSessionDraftStorageIdentity } from '../../shared/sessionDrafts/keys';
+import {
+  createSessionDraftCanonicalPageFields,
+  createSessionDraftStorageIdentity,
+  matchesSessionDraftRecordPageIdentity,
+  SESSION_DRAFT_LEASE_DURATION_MS,
+  type SessionDraftLease,
+  type SessionDraftStatus,
+  type SessionDraftTrustedOwnerContext
+} from '../../shared/sessionDrafts/keys';
+import type { SessionDraftConflictCode } from '../../shared/sessionDrafts/schemas';
+import {
+  type SessionDraftEnvelope,
+  type SessionDraftIndex,
+  type SessionDraftMutationCommitPlan,
+  type SessionDraftMutationReceipt,
+  type SessionDraftPendingRemoval,
+  type SessionDraftRecord,
+  type SessionDraftRetentionPolicy,
+  type SessionDraftTransitionResult
+} from '../../shared/sessionDrafts/types';
 import type {
   SessionDraftFinalizeExactRequest,
   SessionDraftReleaseLeaseRequest,
@@ -6,19 +25,6 @@ import type {
   SessionDraftRenewLeaseRequest,
   SessionDraftSaveRequest
 } from '../../shared/sessionDrafts/messages';
-import { measureSessionDraftValueBytes } from '../../shared/sessionDrafts/retentionPolicy';
-import { SessionDraftEnvelopeSchema } from '../../shared/sessionDrafts/schemas';
-import {
-  SESSION_DRAFT_LEASE_DURATION_MS,
-  type SessionDraftConflictCode,
-  type SessionDraftEnvelope,
-  type SessionDraftLease,
-  type SessionDraftRecord,
-  type SessionDraftStatus,
-  type SessionDraftTransitionResult,
-  type SessionDraftTrustedOwnerContext
-} from '../../shared/sessionDrafts/types';
-
 export interface SessionDraftMutationContext {
   now: number;
   retentionMs: number;
@@ -34,7 +40,20 @@ export interface SessionDraftEnvelopeMutationDescriptor {
   operation: 'save' | 'finalize' | 'renew' | 'release';
   outcome: 'saved' | 'finalized' | 'renewed' | 'released';
 }
-
+export type SessionDraftStorageCommit = {
+  index: SessionDraftIndex;
+  envelope?: { key: string; value: SessionDraftEnvelope };
+  removals?: SessionDraftPendingRemoval[];
+};
+export interface SessionDraftMutationCommitInput<Snapshot> {
+  snapshot: Snapshot;
+  digest: string;
+  receipts: SessionDraftMutationReceipt[];
+  plan: SessionDraftMutationCommitPlan;
+  now: number;
+  retention: SessionDraftRetentionPolicy;
+  maxEntries: number;
+}
 function conflict(code: SessionDraftConflictCode): SessionDraftTransitionResult {
   return { outcome: 'conflict', code };
 }
@@ -100,7 +119,7 @@ function migrateLegacySave(
       ...withoutLegacyOwner(record),
       schemaVersion: 2,
       revision: 1,
-      pageUrl: request.draft.pageUrl,
+      ...createSessionDraftCanonicalPageFields(request.draft.mode, request.draft.pageUrl),
       pageTitle: request.draft.pageTitle,
       updatedAt: context.now,
       expiresAt: context.now + context.retentionMs,
@@ -127,7 +146,7 @@ export function saveSessionDraftTransition(
         schemaVersion: 2,
         revision: 1,
         ...request.draft,
-        pageKey: identity.pageKey,
+        ...createSessionDraftCanonicalPageFields(request.draft.mode, request.draft.pageUrl),
         createdAt: context.now,
         updatedAt: context.now,
         expiresAt: context.now + context.retentionMs,
@@ -138,9 +157,8 @@ export function saveSessionDraftTransition(
   }
   if (request.expectedRevision === null) return conflict('DRAFT_EXISTS');
   if (
-    record.pageKey !== identity.pageKey ||
     record.draftId !== request.draft.draftId ||
-    record.mode !== request.draft.mode
+    !matchesSessionDraftRecordPageIdentity(record, request.draft)
   ) {
     return conflict('STORAGE_KEY_MISMATCH');
   }
@@ -154,7 +172,7 @@ export function saveSessionDraftTransition(
     envelope: {
       ...record,
       revision: record.revision + 1,
-      pageUrl: request.draft.pageUrl,
+      ...createSessionDraftCanonicalPageFields(request.draft.mode, request.draft.pageUrl),
       pageTitle: request.draft.pageTitle,
       updatedAt: context.now,
       expiresAt: context.now + context.retentionMs,
@@ -210,19 +228,6 @@ export function describeSessionDraftEnvelopeMutation(
   return { operation: 'release', outcome: 'released' };
 }
 
-export function validateSessionDraftEnvelope(
-  envelope: SessionDraftEnvelope,
-  maxBytes: number
-): SessionDraftTransitionResult {
-  const parsed = SessionDraftEnvelopeSchema.safeParse(envelope);
-  const tooLarge =
-    parsed.success ||
-    parsed.error.issues.some((issue) => issue.message === 'SESSION_DRAFT_PAYLOAD_TOO_LARGE');
-  if (!parsed.success) return conflict(tooLarge ? 'PAYLOAD_TOO_LARGE' : 'STORAGE_FAILURE');
-  if (measureSessionDraftValueBytes(parsed.data) > maxBytes) return conflict('PAYLOAD_TOO_LARGE');
-  return { outcome: 'success', envelope: parsed.data };
-}
-
 export function claimSessionDraftTransition(
   record: SessionDraftRecord,
   context: SessionDraftMutationContext
@@ -234,6 +239,7 @@ export function claimSessionDraftTransition(
       ...withoutLegacyOwner(record),
       schemaVersion: 2,
       revision: record.schemaVersion === 1 ? 1 : record.revision + 1,
+      ...createSessionDraftCanonicalPageFields(record.mode, record.pageUrl),
       updatedAt: context.now,
       expiresAt: context.now + context.retentionMs,
       status: 'active',

@@ -2,8 +2,38 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createSessionDraftRepository } from '@content/sessionDrafts';
+import { normalizeSessionDraftStoredValue } from '@shared/sessionDrafts';
 import { VideoSessionState } from '@content/video/sessionState';
 import { createMemoryStorageArea } from '@platform/preview/memoryStorage';
+import { createSessionDraftStore } from '../../../../src/background/services/sessionDraftStore';
+import { handleSessionDraftMessage } from '../../../../src/background/listeners/sessionDraftMessages';
+
+function createEnumerableMemoryStorageArea() {
+  const base = createMemoryStorageArea();
+  const values = new Map<string, unknown>();
+  return {
+    ...base,
+    async set<T>(key: string, value: T) {
+      await base.set(key, value);
+      values.set(key, value);
+    },
+    async setMany<T>(entries: Record<string, T>) {
+      await base.setMany(entries);
+      for (const [key, value] of Object.entries(entries)) values.set(key, value);
+    },
+    async remove(keys: string | string[]) {
+      await base.remove(keys);
+      for (const key of Array.isArray(keys) ? keys : [keys]) values.delete(key);
+    },
+    async clear() {
+      await base.clear();
+      values.clear();
+    },
+    async getAll() {
+      return Object.fromEntries(values);
+    }
+  };
+}
 
 describe('VideoSessionDraftController title fallback', () => {
   beforeEach(() => {
@@ -13,7 +43,10 @@ describe('VideoSessionDraftController title fallback', () => {
     document.title = '';
   });
 
-  afterEach(() => {
+  afterEach(async () => {
+    const { configureSessionDraftRuntimeMessenger } =
+      await import('../../../../src/content/sessionDrafts/sessionDraftTabContext');
+    configureSessionDraftRuntimeMessenger(null);
     vi.doUnmock('../../../../src/i18n/catalog/runtimeFallbackMessages');
   });
 
@@ -32,8 +65,21 @@ describe('VideoSessionDraftController title fallback', () => {
 
     const { VideoSessionDraftController } =
       await import('../../../../src/content/video/videoSessionDraftController');
-    const storage = createMemoryStorageArea();
-    const repository = createSessionDraftRepository(storage);
+    const { configureSessionDraftRuntimeMessenger } =
+      await import('../../../../src/content/sessionDrafts/sessionDraftTabContext');
+    const storage = createEnumerableMemoryStorageArea();
+    const store = createSessionDraftStore(storage, {
+      ownerLivenessProbe: () => Promise.resolve('inactive'),
+      createLeaseId: () => 'title-fallback-lease'
+    });
+    if (!store.ok) throw new Error(store.code);
+    const sender = (message: unknown) =>
+      handleSessionDraftMessage(store.store, normalizeSessionDraftStoredValue(message), {
+        tabId: 9,
+        frameId: 0
+      }).then((result) => result as never);
+    configureSessionDraftRuntimeMessenger(sender);
+    const repository = createSessionDraftRepository(sender);
     const state = new VideoSessionState('gradient');
     state.captures = [
       {

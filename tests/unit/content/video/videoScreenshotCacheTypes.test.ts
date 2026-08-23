@@ -5,7 +5,7 @@ import {
   DEFAULT_SESSION_DRAFT_STORAGE_POLICY,
   SESSION_DRAFT_MAX_ENTRIES,
   createSessionDraftStoragePolicy
-} from '@content/sessionDrafts';
+} from '@shared/sessionDrafts';
 import {
   clearTimestampScreenshot,
   clearTimestampScreenshotRef,

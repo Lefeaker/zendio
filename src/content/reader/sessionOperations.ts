@@ -3,7 +3,8 @@ import type { ExportDestinationMetadata } from '@shared/exportDestination';
 import type { ClipPromptGateway } from '../clipper/application/clipPromptGateway';
 import { generateTextFragmentUrl } from '../clipper/utils/textFragment';
 import { clearReaderSession } from '../runtime/contentSessionRegistry';
-import type { SessionDraftTerminalStatus, SessionMutationTransaction } from '../sessionDrafts';
+import type { SessionDraftTerminalStatus } from '@shared/sessionDrafts';
+import type { SessionMutationTransaction } from '../sessionDrafts';
 import { clearHighlightThemeState } from '../shared/highlightThemeState';
 import type { ReaderPanelCoordinator } from './panelCoordinator';
 import type { ReaderHighlightManager, ReaderHighlightRecord } from './services/highlightManager';
@@ -19,7 +20,6 @@ import {
 import { resolveReaderExportDestination, trackReaderUsageEvent } from './sessionOperationTelemetry';
 import { createReaderHighlightId, type ReaderSessionState } from './sessionState';
 import type { ReaderSessionDependencies } from './sessionTypes';
-
 export { createDetachedReaderHighlight } from './sessionOperationSelection';
 export { trackReaderUsageEvent } from './sessionOperationTelemetry';
 

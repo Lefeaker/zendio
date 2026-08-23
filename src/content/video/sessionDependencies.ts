@@ -8,7 +8,8 @@ import type { MessagingService } from '../../platform/interfaces/messaging';
 import type { StorageService } from '../../platform/interfaces/storage';
 import type { RuntimeService } from '../../platform/interfaces/runtime';
 import type { SupportProgressReporter } from '../runtime/supportProgress';
-import type { SessionDraftStoragePolicy } from '../sessionDrafts';
+import type { SessionDraftStoragePolicy, VideoSessionDraftEnvelope } from '@shared/sessionDrafts';
+import type { SessionDraftLeaseOwnerRegistry } from '../sessionDrafts/sessionDraftLeaseOwnerRegistry';
 import {
   createVisibleTabVideoFrameScreenshotCapture,
   createVisibleTabVideoFrameScreenshotDataUrlCapture
@@ -25,6 +26,9 @@ export interface VideoSessionPlatformDependencies {
   runtime?: Pick<RuntimeService, 'getURL'>;
   messaging?: Pick<MessagingService, 'send'>;
   sessionDraftStoragePolicy?: SessionDraftStoragePolicy;
+  sessionDraftLeaseOwners?: SessionDraftLeaseOwnerRegistry;
+  initialClaimedDraft?: VideoSessionDraftEnvelope;
+  onInitialDraftAdopted?: () => void;
   showSupportProgress?: SupportProgressReporter;
 }
 
@@ -61,6 +65,11 @@ export function createVideoSessionDependencies(
     ...(deps.sessionDraftStoragePolicy
       ? { sessionDraftStoragePolicy: deps.sessionDraftStoragePolicy }
       : {}),
+    ...(deps.sessionDraftLeaseOwners
+      ? { sessionDraftLeaseOwners: deps.sessionDraftLeaseOwners }
+      : {}),
+    ...(deps.initialClaimedDraft ? { initialClaimedDraft: deps.initialClaimedDraft } : {}),
+    ...(deps.onInitialDraftAdopted ? { onInitialDraftAdopted: deps.onInitialDraftAdopted } : {}),
     ...(deps.showSupportProgress ? { showSupportProgress: deps.showSupportProgress } : {})
   };
 }

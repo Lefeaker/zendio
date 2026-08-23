@@ -4,7 +4,8 @@ import type { CaptureVisibleTabScreenshotResponse } from '../../../src/shared/ty
 import type { VideoScreenshotCacheResponse } from '../../../src/content/video/videoScreenshotCacheMessages';
 import type { StorageService } from '../../../src/platform/interfaces/storage';
 import type { TabsService } from '../../../src/platform/interfaces/tabs';
-import { createSessionDraftStoragePolicy } from '../../../src/content/sessionDrafts';
+import { createSessionDraftStoragePolicy } from '../../../src/shared/sessionDrafts';
+import type { SessionDraftSaveRequest } from '../../../src/shared/sessionDrafts';
 import { asType } from '../../utils/typeHelpers';
 
 const addListenerMock = vi.hoisted(() => vi.fn());
@@ -119,6 +120,20 @@ describe('runtime message listener', () => {
   });
 
   function createDependencies() {
+    const sessionDraftStore = {
+      readExact: vi.fn<() => Promise<{ outcome: 'missing' }>>(() =>
+        Promise.resolve({ outcome: 'missing' })
+      ),
+      save: vi.fn(),
+      finalizeExact: vi.fn(),
+      removeExact: vi.fn(),
+      renewLease: vi.fn(),
+      releaseLease: vi.fn(),
+      migrateLegacyVideoCapture: vi.fn(),
+      prune: vi.fn(),
+      list: vi.fn(),
+      selectAndClaim: vi.fn()
+    };
     return {
       messaging: { addListener: addListenerMock },
       clipPipeline: { sendSupportPrompt: vi.fn(() => Promise.resolve(undefined)) },
@@ -159,9 +174,59 @@ describe('runtime message listener', () => {
               ? { success: true, operation: 'pruneExpired' }
               : undefined
           )
+      ),
+      sessionDraftStore,
+      resolveSessionDraftOwner: vi.fn((sender: { tabId?: number; frameId?: number }) =>
+        Promise.resolve(
+          typeof sender.tabId === 'number' && typeof sender.frameId === 'number'
+            ? { tabId: sender.tabId, frameId: sender.frameId }
+            : null
+        )
       )
     };
   }
+
+  it('routes only strict draft messages and derives mutation ownership from the sender', async () => {
+    const dependencies = createDependencies();
+    dependencies.sessionDraftStore.save.mockResolvedValue({
+      outcome: 'conflict',
+      code: 'DRAFT_EXISTS'
+    });
+    const { registerRuntimeMessageListener } =
+      await import('../../../src/background/listeners/runtimeMessages');
+    registerRuntimeMessageListener(dependencies);
+
+    const request = {
+      operation: 'save',
+      requestId: 'save-1',
+      key: 'zendio:session-draft:v2:reader:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa:draft-1',
+      expectedRevision: null,
+      draft: {
+        draftId: 'draft-1',
+        mode: 'reader',
+        pageUrl: 'https://example.com/article',
+        pageTitle: 'Article',
+        payload: { text: 'draft' }
+      }
+    } satisfies SessionDraftSaveRequest;
+    await expect(
+      listener?.({ type: 'AIIOB_SESSION_DRAFT_V2', request }, { tabId: 4, frameId: 2 })
+    ).resolves.toEqual({ outcome: 'conflict', code: 'DRAFT_EXISTS' });
+    expect(dependencies.sessionDraftStore.save).toHaveBeenCalledWith(request, {
+      tabId: 4,
+      frameId: 2
+    });
+
+    await expect(
+      listener?.(
+        {
+          type: 'AIIOB_SESSION_DRAFT_V2',
+          request: { ...request, owner: { tabId: 99, frameId: 0 } }
+        },
+        { tabId: 4, frameId: 2 }
+      )
+    ).rejects.toThrow('SESSION_DRAFT_REQUEST_INVALID');
+  });
 
   it('registers listener and returns fallback responses for connection test failures', async () => {
     handleConnectionTestMock.mockRejectedValueOnce(new Error('offline'));
@@ -284,7 +349,7 @@ describe('runtime message listener', () => {
           url: 'http://vault.example'
         }
       ]
-    } as ConnectionTestResult);
+    } satisfies ConnectionTestResult);
 
     const { registerRuntimeMessageListener } =
       await import('../../../src/background/listeners/runtimeMessages');
@@ -382,9 +447,7 @@ describe('runtime message listener', () => {
       expect.objectContaining({ channel: 'clipper.error', title: 'notifyClipFailure' }),
       expect.any(Object)
     );
-    const dispatchOptions = dispatchFailedMock.mock.calls[0]?.[2] as
-      | { cause?: unknown }
-      | undefined;
+    const dispatchOptions = dispatchFailedMock.mock.calls[0]?.[2];
     expect(dispatchOptions?.cause).toBeInstanceOf(Error);
   });
 
@@ -646,6 +709,7 @@ describe('runtime message listener', () => {
         }),
         { getURL: vi.fn((path: string) => `chrome-extension://${path}`) },
         storage,
+        createDependencies(),
         { ttlMs: storagePolicy.videoScreenshotCacheTtlMs }
       );
 
@@ -684,7 +748,8 @@ describe('runtime message listener', () => {
       { addListener: addListenerMock },
       asType<Pick<TabsService, 'create' | 'get' | 'sendMessage' | 'captureVisibleTab'>>(tabs),
       runtime,
-      asType({ local: {} })
+      asType({ local: {} }),
+      createDependencies()
     );
     registerRuntimeMessageListener(dependencies);
 

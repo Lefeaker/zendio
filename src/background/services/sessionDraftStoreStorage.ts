@@ -7,20 +7,12 @@ import {
   createSessionDraftValueDigest,
   pruneSessionDraftMutationReceipts
 } from './sessionDraftStoreReceipts';
+import type * as Mutation from './sessionDraftStoreMutations';
 type StoredValue = Draft.SessionDraftStoredValue;
 type StorageArea = Storage.EnumerableStorageAreaService;
-export function isEnumerableSessionDraftStorage(
-  area: Storage.StorageAreaService
-): area is StorageArea {
-  return 'getAll' in area && typeof area.getAll === 'function';
-}
+const result = <const Result>(value: Result): Result => value;
 export type SessionDraftStoredRecord = { key: string; record: Draft.SessionDraftRecord };
-export type SessionDraftStorageCommit = {
-  index: Draft.SessionDraftIndex;
-  envelope?: { key: string; value: Draft.SessionDraftEnvelope };
-  removals?: Draft.SessionDraftPendingRemoval[];
-};
-function quarantine(value: StoredValue, capturedAt: number): Draft.SessionDraftIndexQuarantine {
+function quarantine(value: StoredValue, capturedAt: number) {
   const text = JSON.stringify(value);
   const byteLength = text === undefined ? 0 : new TextEncoder().encode(text).length;
   const retained =
@@ -34,7 +26,7 @@ function quarantine(value: StoredValue, capturedAt: number): Draft.SessionDraftI
 }
 function tombstoneWrites(
   index: Draft.SessionDraftIndex,
-  removals: readonly Draft.SessionDraftPendingRemoval[] = index.pendingRemovals
+  removals = index.pendingRemovals
 ): Storage.StorageValueMap {
   const writes: Storage.StorageValueMap = { [Draft.SESSION_DRAFT_INDEX_KEY]: index };
   for (const pending of removals)
@@ -71,29 +63,10 @@ function classify(values: readonly (readonly [string, StoredValue])[]) {
   invalidKeys.sort(Draft.compareSessionDraftText);
   return { records, pending, receipts, invalidKeys };
 }
-export type SessionDraftStorageSnapshot = ReturnType<
-  typeof Draft.repairSessionDraftIndex<SessionDraftStoredRecord>
->;
-export type SessionDraftStorageLoadResult =
-  | { ok: true; snapshot: SessionDraftStorageSnapshot }
-  | { ok: false; code: 'INDEX_RECOVERY_FAILED' };
-export type SessionDraftStorageCommitResult =
-  | { ok: true; index: Draft.SessionDraftIndex }
-  | { ok: false; code: 'STORAGE_FAILURE' };
-interface SessionDraftMutationCommitInput {
-  snapshot: SessionDraftStorageSnapshot;
-  digest: string;
-  receipts: Draft.SessionDraftMutationReceipt[];
-  plan: Draft.SessionDraftMutationCommitPlan;
-  now: number;
-  retention: Draft.SessionDraftRetentionPolicy;
-  maxEntries: number;
-}
+type RepairSessionDraftIndex = typeof Draft.repairSessionDraftIndex<SessionDraftStoredRecord>;
+export type SessionDraftStorageSnapshot = ReturnType<RepairSessionDraftIndex>;
 export function createSessionDraftStoreStorage(area: StorageArea, now: () => number = Date.now) {
-  async function drain(
-    index: Draft.SessionDraftIndex,
-    removals: readonly Draft.SessionDraftPendingRemoval[] = index.pendingRemovals
-  ): Promise<Draft.SessionDraftIndex> {
+  async function drain(index: Draft.SessionDraftIndex, removals = index.pendingRemovals) {
     if (removals.length === 0) return index;
     const removed = new Set(removals.map((pending) => pending.key));
     await area.setMany(tombstoneWrites(index, removals));
@@ -134,9 +107,7 @@ export function createSessionDraftStoreStorage(area: StorageArea, now: () => num
       );
     const clean =
       repaired.invalidRemovedKeys.length === 0 && repaired.index.pendingRemovals.length === 0;
-    if (rawIndex === undefined && legacyOnly && clean) {
-      return repaired;
-    }
+    if (rawIndex === undefined && legacyOnly && clean) return repaired;
     const writes: Storage.StorageValueMap = { [Draft.SESSION_DRAFT_INDEX_KEY]: repaired.index };
     if (rawIndex !== undefined)
       writes[Draft.SESSION_DRAFT_QUARANTINE_KEY] = quarantine(rawIndex, now());
@@ -145,18 +116,47 @@ export function createSessionDraftStoreStorage(area: StorageArea, now: () => num
     return repaired;
   }
   return {
-    async load(): Promise<SessionDraftStorageLoadResult> {
+    async readLegacyValue(key: string): Promise<StoredValue> {
+      return Draft.normalizeSessionDraftStoredValue(await area.get<StoredValue>(key));
+    },
+    async removeLegacyValue(key: string): Promise<boolean> {
+      try {
+        await area.remove([key]);
+        return (await area.get<StoredValue>(key)) === undefined;
+      } catch {
+        return false;
+      }
+    },
+    async verifyMigrationCommit(key: string, expected: Draft.SessionDraftLegacyCleanupObligation) {
+      try {
+        const values = await area.getMany<StoredValue>([Draft.SESSION_DRAFT_INDEX_KEY, key]);
+        const index = Draft.SessionDraftIndexSchema.safeParse(
+          values[Draft.SESSION_DRAFT_INDEX_KEY]
+        );
+        const envelope = Draft.SessionDraftEnvelopeSchema.safeParse(values[key]);
+        if (!index.success || !envelope.success) return false;
+        const entry = index.data.entries.find((candidate) => candidate.key === key);
+        return (
+          JSON.stringify(envelope.data.legacyCleanup) === JSON.stringify(expected) &&
+          JSON.stringify(entry) ===
+            JSON.stringify(Draft.createSessionDraftIndexEntry(key, envelope.data))
+        );
+      } catch {
+        return false;
+      }
+    },
+    async load() {
       try {
         const rawIndex = await area.get<StoredValue>(Draft.SESSION_DRAFT_INDEX_KEY);
         const normalized = Draft.decodeSessionDraftStoredIndex(rawIndex);
-        if (!normalized) return { ok: true, snapshot: await rebuild(rawIndex) };
+        if (!normalized) return result({ ok: true, snapshot: await rebuild(rawIndex) });
         const snapshot = await hydrate(normalized.index, normalized.keys);
-        return { ok: true, snapshot };
+        return result({ ok: true, snapshot });
       } catch {
-        return { ok: false, code: 'INDEX_RECOVERY_FAILED' };
+        return result({ ok: false, code: 'INDEX_RECOVERY_FAILED' });
       }
     },
-    async commit(input: SessionDraftStorageCommit): Promise<SessionDraftStorageCommitResult> {
+    async commit(input: Mutation.SessionDraftStorageCommit) {
       try {
         const requested = [...(input.removals ?? []), ...input.index.pendingRemovals];
         const removals = Draft.normalizeSessionDraftPendingRemovals(requested);
@@ -174,9 +174,8 @@ export function createSessionDraftStoreStorage(area: StorageArea, now: () => num
           !Draft.SessionDraftIndexSchema.safeParse(index).success ||
           (Draft.measureSessionDraftStoredValueBytes(index) ?? Infinity) >
             Draft.SESSION_DRAFT_MAX_INDEX_BYTES
-        ) {
-          return { ok: false, code: 'STORAGE_FAILURE' };
-        }
+        )
+          return result({ ok: false, code: 'STORAGE_FAILURE' });
         if (input.envelope) {
           const parsed = Draft.SessionDraftEnvelopeSchema.safeParse(input.envelope.value);
           const entry = index.entries.find((candidate) => candidate.key === input.envelope?.key);
@@ -189,32 +188,30 @@ export function createSessionDraftStoreStorage(area: StorageArea, now: () => num
             JSON.stringify(entry) !== JSON.stringify(expected) ||
             removed.has(input.envelope.key)
           )
-            return { ok: false, code: 'STORAGE_FAILURE' };
+            return result({ ok: false, code: 'STORAGE_FAILURE' });
         }
         const writes = tombstoneWrites(index, explicit);
         if (input.envelope) writes[input.envelope.key] = input.envelope.value;
         await area.setMany(writes);
-        return { ok: true, index: await drain(index, explicit) };
+        return result({ ok: true, index: await drain(index, explicit) });
       } catch {
-        return { ok: false, code: 'STORAGE_FAILURE' };
+        return result({ ok: false, code: 'STORAGE_FAILURE' });
       }
     }
   };
 }
 export type SessionDraftStoreStorage = ReturnType<typeof createSessionDraftStoreStorage>;
-
 export async function commitSessionDraftMutation(
   storage: SessionDraftStoreStorage,
-  input: SessionDraftMutationCommitInput
-): Promise<SessionDraftStorageCommitResult> {
-  const resultDigest = input.plan.envelope
-    ? await createSessionDraftValueDigest(input.plan.envelope)
-    : undefined;
+  input: Mutation.SessionDraftMutationCommitInput<SessionDraftStorageSnapshot>
+) {
   const receipt = createSessionDraftMutationReceipt(
     {
       ...input.plan.receipt,
       digest: input.digest,
-      ...(resultDigest === undefined ? {} : { resultDigest })
+      ...(input.plan.envelope
+        ? { resultDigest: await createSessionDraftValueDigest(input.plan.envelope) }
+        : {})
     },
     input.now
   );
@@ -222,9 +219,10 @@ export async function commitSessionDraftMutation(
     input.plan.keepReceipt === false
       ? input.receipts
       : addSessionDraftMutationReceipt(input.receipts, receipt, input.now);
+  const receiptEntries = input.plan.entries ?? input.snapshot.index.entries;
   const base = Draft.replaceSessionDraftIndexEntries(
     input.snapshot.index,
-    input.plan.entries ?? input.snapshot.index.entries,
+    receiptEntries,
     receipts
   );
   const envelopePlan = input.plan.envelope

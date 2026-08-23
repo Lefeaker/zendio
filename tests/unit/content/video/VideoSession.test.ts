@@ -5,7 +5,7 @@ import {
   isVideoSessionActive,
   registerVideoSession
 } from '@content/runtime/contentSessionRegistry';
-import { createSessionDraftStoragePolicy } from '@content/sessionDrafts';
+import { createSessionDraftStoragePolicy } from '@shared/sessionDrafts';
 import type { VideoPanelCallbacks } from '@content/video/application/videoPanelModel';
 import { VideoSession } from '@content/video/session';
 import { DEFAULT_SESSION_MESSAGES } from '@content/video/sessionMessages';
@@ -31,7 +31,8 @@ import {
   restoreVideoSessionHarnessGlobals,
   seedTimestampCaptures,
   toDraftControllerTestApi,
-  toSessionTestApi
+  toSessionTestApi,
+  waitForMockCalls
 } from './videoSessionTestHarness';
 
 const { ensureContentI18nMock, saveCaptureDataMock } = getVideoSessionHarnessMocks();
@@ -187,18 +188,22 @@ describe('VideoSession', () => {
   it('pauses add-note playback before the capture save resolves', async () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2026-03-14T10:00:00Z'));
-    const saveGate: { resolve?: () => void } = {};
     const deps = createDependencies();
-    vi.mocked(deps.storage.local.setMany).mockImplementationOnce(
-      () =>
-        new Promise<void>((resolve) => {
-          saveGate.resolve = () => resolve();
-        })
-    );
     const session = new VideoSession(document, deps);
     const sessionApi = toSessionTestApi(session);
 
     await session.start();
+    const setMany = vi.mocked(deps.storage.local.setMany);
+    const passthroughSetMany = setMany.getMockImplementation();
+    if (!passthroughSetMany) {
+      throw new Error('expected storage setMany implementation');
+    }
+    const saveGate = createDeferred<void>();
+    setMany.mockClear();
+    setMany.mockImplementationOnce(async (...args) => {
+      await saveGate.promise;
+      return passthroughSetMany(...args);
+    });
 
     const video = requireVideoElement();
     Object.defineProperty(video, 'currentTime', { value: 42, configurable: true });
@@ -206,18 +211,14 @@ describe('VideoSession', () => {
     const pauseSpy = vi.spyOn(video, 'pause').mockImplementation(() => undefined);
     const addPromise = sessionApi.handleAddCapture('note-input');
 
-    await vi.advanceTimersByTimeAsync(0);
+    await waitForMockCalls(setMany);
 
     const view = (deps.viewFactory.createView as ReturnType<typeof vi.fn>).mock.results[0]
       ?.value as TestView | undefined;
-    expect(deps.storage.local.setMany).toHaveBeenCalledTimes(1);
+    expect(setMany).toHaveBeenCalledTimes(1);
     expect(pauseSpy).toHaveBeenCalledTimes(1);
     expect(view?.beginEditingCapture).not.toHaveBeenCalled();
 
-    expect(saveGate.resolve).toBeTruthy();
-    if (!saveGate.resolve) {
-      throw new Error('capture save did not start');
-    }
     saveGate.resolve();
     await addPromise;
 
@@ -234,12 +235,13 @@ describe('VideoSession', () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2026-03-14T10:00:00Z'));
     const deps = createDependencies();
-    vi.mocked(deps.storage.local.setMany).mockRejectedValueOnce(new Error('save failed'));
     const view = createView();
     deps.viewFactory.createView = vi.fn(() => view);
     const session = new VideoSession(document, deps);
 
     await session.start();
+    vi.mocked(deps.storage.local.setMany).mockClear();
+    vi.mocked(deps.storage.local.setMany).mockRejectedValueOnce(new Error('save failed'));
 
     const video = document.querySelector('video');
     if (!(video instanceof HTMLVideoElement)) {
@@ -568,13 +570,17 @@ describe('VideoSession', () => {
       throw new Error('add-note did not create a capture');
     }
 
-    const submitGate: { resolve?: () => void } = {};
-    vi.mocked(deps.storage.local.setMany).mockImplementationOnce(
-      () =>
-        new Promise<void>((resolve) => {
-          submitGate.resolve = () => resolve();
-        })
-    );
+    const setMany = vi.mocked(deps.storage.local.setMany);
+    const passthroughSetMany = setMany.getMockImplementation();
+    if (!passthroughSetMany) {
+      throw new Error('expected storage setMany implementation');
+    }
+    const submitGate = createDeferred<void>();
+    setMany.mockClear();
+    setMany.mockImplementationOnce(async (...args) => {
+      await submitGate.promise;
+      return passthroughSetMany(...args);
+    });
     const callbacks = requireMountedPanelCallbacks(mountedCallbacks);
     const submitPromise = requirePromise(callbacks.onSubmitCaptureEdit(captureId, 'panel note'));
     await vi.advanceTimersByTimeAsync(0);
@@ -584,8 +590,7 @@ describe('VideoSession', () => {
     expect(pauseSpy).toHaveBeenCalledTimes(2);
     expect(playSpy).not.toHaveBeenCalled();
 
-    expect(submitGate.resolve).toBeTruthy();
-    submitGate.resolve?.();
+    submitGate.resolve();
     await submitPromise;
 
     expect(playSpy).toHaveBeenCalledTimes(1);

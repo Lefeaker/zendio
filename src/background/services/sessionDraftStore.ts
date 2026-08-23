@@ -1,5 +1,7 @@
-import type { StorageAreaService } from '../../platform/interfaces/storage';
+import type * as Storage from '../../platform/interfaces/storage';
 import * as Draft from '../../shared/sessionDrafts';
+import { migrateLegacyVideoCapture } from '../listeners/sessionDraftMessages';
+import { sessionDraftMutationIdentity } from '../listeners/sessionDraftMessages';
 import {
   createSessionDraftMutationQueue,
   cleanupInvalidRecords,
@@ -19,12 +21,11 @@ import {
   beginSessionDraftMutation,
   formatSessionDraftReceiptReplay
 } from './sessionDraftStoreReceipts';
+import { retrySessionDraftLegacyCleanup } from './sessionDraftOwnerLivenessProbe';
 import {
   createSessionDraftStoreStorage,
-  isEnumerableSessionDraftStorage,
   type SessionDraftStorageSnapshot
 } from './sessionDraftStoreStorage';
-
 type OwnerInput = object | null | undefined;
 type MutationRequest =
   | SessionDraftEnvelopeMutationRequest
@@ -36,24 +37,14 @@ type MutationResult =
   | Draft.SessionDraftRemoveResult
   | Draft.SessionDraftPruneResult
   | Draft.SessionDraftSelectAndClaimResult;
-type MutationIdentity = { operation: Draft.SessionDraftMutationOperation; key?: string };
 type Failure = Extract<MutationResult, { outcome: 'conflict' | 'recovery_failed' }>;
-function conflict(code: Draft.SessionDraftConflictCode): Failure {
-  return { outcome: 'conflict', code };
-}
+const conflict = (code: Draft.SessionDraftConflictCode): Failure => ({ outcome: 'conflict', code });
 function trustedOwner(value: OwnerInput): Draft.SessionDraftTrustedOwnerContext | undefined {
   const parsed = Draft.SessionDraftTrustedOwnerContextSchema.safeParse(value);
   return parsed.success ? parsed.data : undefined;
 }
 function record(snapshot: SessionDraftStorageSnapshot, key: string) {
   return snapshot.records.find((item) => item.key === key)?.record;
-}
-function identity(request: MutationRequest): MutationIdentity {
-  if (request.operation === 'removeExact') return { operation: 'remove', key: request.key };
-  if (request.operation === 'prune')
-    return { operation: 'prune', key: Draft.SESSION_DRAFT_INDEX_KEY };
-  if (request.operation === 'selectAndClaim') return { operation: 'claim' };
-  return { ...describeSessionDraftEnvelopeMutation(request), key: request.key };
 }
 async function replayResult(
   request: MutationRequest,
@@ -139,20 +130,23 @@ async function mutate(
     request.operation === 'save' &&
     !Draft.SessionDraftPayloadSchema.safeParse(request.draft.payload).success;
   if (invalidPayload) return conflict('PAYLOAD_INVALID');
-  const target = identity(request);
+  const target = sessionDraftMutationIdentity(request);
   const loaded = await context.storage.load();
   if (!loaded.ok) return { outcome: 'recovery_failed', code: loaded.code };
+  const cleanup = await retrySessionDraftLegacyCleanup(context, loaded.snapshot);
+  if (cleanup.blocked) return conflict('MIGRATION_CLEANUP_PENDING');
+  const snapshot = cleanup.snapshot;
   const started = await beginSessionDraftMutation({
     request,
     operation: target.operation,
-    receipts: loaded.snapshot.index.receipts,
+    receipts: snapshot.index.receipts,
     now: context.now(),
     ...(target.key ? { exactKey: target.key } : {}),
     ...(owner ? { owner } : {})
   });
   if (started.kind === 'reuse') return conflict('REQUEST_ID_REUSE');
-  if (started.kind === 'replay') return replayResult(request, loaded.snapshot, started.receipt);
-  const state: SessionDraftMutationReadyState = { ...started, snapshot: loaded.snapshot };
+  if (started.kind === 'replay') return replayResult(request, snapshot, started.receipt);
+  const state: SessionDraftMutationReadyState = { ...started, snapshot };
   if (request.operation === 'prune') return runReadySessionDraftPrune(context, state, request);
   if (!owner) return conflict('OWNER_CONTEXT_INVALID');
   if (request.operation === 'removeExact')
@@ -167,10 +161,12 @@ async function read(
 ): Promise<Draft.SessionDraftReadExactResult> {
   const loaded = await context.storage.load();
   if (!loaded.ok) return { outcome: 'recovery_failed', code: loaded.code };
-  const found = record(loaded.snapshot, request.key);
+  const cleanup = await retrySessionDraftLegacyCleanup(context, loaded.snapshot);
+  const snapshot = cleanup.snapshot;
+  const found = record(snapshot, request.key);
   if (found) return { outcome: 'found', envelope: withoutLegacyOwner(found) };
-  if (!loaded.snapshot.invalidRemovedKeys.includes(request.key)) return { outcome: 'missing' };
-  const cleaned = await cleanupInvalidRecords(context.storage, loaded.snapshot, [request.key]);
+  if (!snapshot.invalidRemovedKeys.includes(request.key)) return { outcome: 'missing' };
+  const cleaned = await cleanupInvalidRecords(context.storage, snapshot, [request.key]);
   if (!cleaned) return { outcome: 'recovery_failed', code: 'INDEX_RECOVERY_FAILED' };
   return { outcome: 'invalid_removed', invalidRemovedCount: 1 };
 }
@@ -180,23 +176,22 @@ async function list(
 ): Promise<Draft.SessionDraftListResult> {
   const loaded = await context.storage.load();
   if (!loaded.ok) return { outcome: 'recovery_failed', code: loaded.code };
-  const snapshot = loaded.snapshot;
+  const cleanup = await retrySessionDraftLegacyCleanup(context, loaded.snapshot);
+  const snapshot = cleanup.snapshot;
   const cleaned = await cleanupInvalidRecords(
     context.storage,
     snapshot,
     snapshot.invalidRemovedKeys
   );
   if (!cleaned) return { outcome: 'recovery_failed', code: 'INDEX_RECOVERY_FAILED' };
-  const pageKey = Draft.createSessionDraftPageKey(request.mode, request.pageUrl);
   return {
     outcome: 'listed',
     envelopes: snapshot.records
       .map((item) => withoutLegacyOwner(item.record))
-      .filter((item) => item.mode === request.mode && item.pageKey === pageKey),
+      .filter((item) => Draft.matchesSessionDraftPageIdentity(item, request)),
     invalidRemovedCount: snapshot.invalidRemovedCount
   };
 }
-
 function queuedStore(context: SessionDraftStoreTransactionContext) {
   const queue = createSessionDraftMutationQueue();
   return {
@@ -212,6 +207,11 @@ function queuedStore(context: SessionDraftStoreTransactionContext) {
       queue.run(() => mutate(context, request, owner)),
     releaseLease: (request: Draft.SessionDraftReleaseLeaseRequest, owner: OwnerInput) =>
       queue.run(() => mutate(context, request, owner)),
+    migrateLegacyVideoCapture: (
+      request: Draft.SessionDraftMigrateLegacyVideoCaptureRequest,
+      owner: OwnerInput,
+      senderUrl?: string
+    ) => queue.run(() => migrateLegacyVideoCapture(context, request, owner, senderUrl)),
     prune: (request: Draft.SessionDraftPruneRequest) => queue.run(() => mutate(context, request)),
     list: (request: Draft.SessionDraftListRequest) => queue.run(() => list(context, request)),
     selectAndClaim: (request: Draft.SessionDraftSelectAndClaimRequest, owner: OwnerInput) =>
@@ -222,18 +222,18 @@ export type SessionDraftStore = ReturnType<typeof queuedStore>;
 export type SessionDraftStoreCreationResult =
   | { ok: true; store: SessionDraftStore }
   | { ok: false; code: 'SESSION_DRAFT_STORAGE_ENUMERATION_UNAVAILABLE' };
-
 export function createSessionDraftStore(
-  area: StorageAreaService,
+  area: Storage.StorageAreaService,
   options: Draft.SessionDraftStoreOptions
 ): SessionDraftStoreCreationResult {
-  if (!isEnumerableSessionDraftStorage(area))
+  if (!('getAll' in area) || typeof area.getAll !== 'function')
     return { ok: false, code: 'SESSION_DRAFT_STORAGE_ENUMERATION_UNAVAILABLE' };
+  const enumerableArea = area as Storage.EnumerableStorageAreaService;
   const now = options.now ?? Date.now;
   return {
     ok: true,
     store: queuedStore({
-      storage: createSessionDraftStoreStorage(area, now),
+      storage: createSessionDraftStoreStorage(enumerableArea, now),
       now,
       leaseId: options.createLeaseId ?? (() => globalThis.crypto.randomUUID()),
       probe: options.ownerLivenessProbe,

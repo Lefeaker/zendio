@@ -5,6 +5,7 @@ import type {
   StorageValueMap
 } from '../../../src/platform/interfaces/storage';
 import {
+  createLegacySessionDraftPageKey,
   createSessionDraftPageKey,
   createSessionDraftStorageKey,
   compareSessionDraftText,
@@ -295,7 +296,7 @@ describe('sessionDraftStoreStorage', () => {
       draftId: 'legacy-draft',
       mode: 'video',
       pageUrl: 'https://example.com/video',
-      pageKey: createSessionDraftPageKey('video', 'https://example.com/video'),
+      pageKey: createLegacySessionDraftPageKey('video', 'https://example.com/video'),
       pageTitle: 'Legacy video',
       createdAt: BASE_TIME - 500,
       updatedAt: BASE_TIME - 100,
@@ -330,7 +331,7 @@ describe('sessionDraftStoreStorage', () => {
       draftId: 'legacy-index-draft',
       mode: 'reader',
       pageUrl: 'https://example.com/legacy-index',
-      pageKey: createSessionDraftPageKey('reader', 'https://example.com/legacy-index'),
+      pageKey: createLegacySessionDraftPageKey('reader', 'https://example.com/legacy-index'),
       pageTitle: 'Legacy index article',
       createdAt: BASE_TIME - 500,
       updatedAt: BASE_TIME - 100,

@@ -19,7 +19,7 @@ import {
   type SessionDraftMutationOperation,
   type SessionDraftMutationReceipt,
   type SessionDraftMutationSuccessOutcome
-} from '../../../src/shared/sessionDrafts/types';
+} from '../../../src/shared/sessionDrafts';
 
 const NOW = 2_000_000;
 const KEY = 'aiob.sessionDraft.v1.reader.page.draft-1';

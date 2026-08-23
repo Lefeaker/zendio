@@ -1,7 +1,9 @@
 import type { SerializedClipAttachmentBinaryContent } from '../../shared/attachments/clipAttachmentBinary';
 import { isObjectRecord } from '../../shared/guards/object';
-import { DEFAULT_SESSION_DRAFT_STORAGE_POLICY } from '../sessionDrafts/sessionDraftRetentionPolicy';
-import { SESSION_DRAFT_MAX_ENTRIES } from '../sessionDrafts/sessionDraftTypes';
+import {
+  DEFAULT_SESSION_DRAFT_STORAGE_POLICY,
+  SESSION_DRAFT_MAX_ENTRIES
+} from '../../shared/sessionDrafts';
 
 type Raw = Parameters<typeof isObjectRecord>[0];
 
@@ -222,7 +224,6 @@ function normalizeIdentity(value: Record<string, Raw>): VideoScreenshotCacheIden
   }
   return { pageKey, captureId, id };
 }
-
 function normalizePageKey(value: Raw): string | null {
   const normalized = normalizeNonEmptyString(value);
   if (normalized === null || !PAGE_KEY_PATTERN.test(normalized)) {
@@ -230,7 +231,6 @@ function normalizePageKey(value: Raw): string | null {
   }
   return normalized;
 }
-
 function normalizeStorageKey(
   value: Raw,
   identity: VideoScreenshotCacheIdentity | null

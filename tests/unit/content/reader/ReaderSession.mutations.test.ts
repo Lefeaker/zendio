@@ -205,11 +205,12 @@ describe('ReaderSession mutations', () => {
       }
     ]);
 
-    const saveError = new Error('durable save failed');
-    vi.spyOn(context.storageLocal, 'setMany').mockRejectedValueOnce(saveError);
+    vi.spyOn(context.storageLocal, 'setMany').mockRejectedValueOnce(
+      new Error('durable save failed')
+    );
 
     const persistPromise = getSessionHarness(context.session).persistDraftMutation();
-    const persistExpectation = expect(persistPromise).rejects.toThrow(saveError);
+    const persistExpectation = expect(persistPromise).rejects.toThrow('STORAGE_FAILURE');
     await vi.advanceTimersByTimeAsync(250);
 
     await persistExpectation;
@@ -362,7 +363,9 @@ describe('ReaderSession mutations', () => {
     });
     expect(wrapper.isConnected).toBe(true);
     expect(document.querySelectorAll('[data-reader-highlight-id="h-delete"]')).toHaveLength(1);
-    expect(context.view.updateHint).toHaveBeenLastCalledWith(DEFAULT_SESSION_MESSAGES.hintFailure);
+    await vi.waitFor(() =>
+      expect(context.view.updateHint).toHaveBeenLastCalledWith(DEFAULT_SESSION_MESSAGES.hintFailure)
+    );
     warnSpy.mockRestore();
   });
 
@@ -458,11 +461,33 @@ describe('ReaderSession mutations', () => {
     const initialPersist = getSessionHarness(context.session).persistDraftMutation();
     await flushDraftPersistence();
     await initialPersist;
-    const beforeDelete = await loadLatestReaderDraft(context);
-    if (!beforeDelete) {
+    const draftStorageKey = getDraftIdentity(context.session).draftStorageKey;
+    if (!draftStorageKey) throw new Error('reader draft key missing before delete');
+    const beforeDeleteResult = await context.draftRepository.readExact({
+      operation: 'readExact',
+      key: draftStorageKey
+    });
+    if (beforeDeleteResult.outcome !== 'found' || beforeDeleteResult.envelope.mode !== 'reader') {
       throw new Error('reader draft missing before delete');
     }
-    expect(beforeDelete.payload.highlights?.map(({ id }) => id)).toEqual(['h-delete']);
+    const beforeDelete = beforeDeleteResult.envelope;
+    const persistedHighlights = beforeDelete.payload.highlights;
+    if (!Array.isArray(persistedHighlights)) {
+      throw new Error('reader highlights missing before delete');
+    }
+    const persistedHighlightIds = persistedHighlights.map((entry) => {
+      const unknownEntry: unknown = entry;
+      if (typeof unknownEntry !== 'object' || unknownEntry === null || !('id' in unknownEntry)) {
+        throw new Error('reader highlight id missing before delete');
+      }
+      const record = unknownEntry;
+      const id: unknown = record.id;
+      if (typeof id !== 'string') {
+        throw new Error('reader highlight id is invalid before delete');
+      }
+      return id;
+    });
+    expect(persistedHighlightIds).toEqual(['h-delete']);
     expect(beforeDelete.payload.commentDrafts).toEqual({
       'h-delete': 'draft to keep'
     });
@@ -473,7 +498,7 @@ describe('ReaderSession mutations', () => {
       }
     );
     const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
-    vi.spyOn(context.storageLocal, 'remove').mockRejectedValueOnce(
+    vi.spyOn(context.storageLocal, 'setMany').mockRejectedValueOnce(
       new Error('durable delete failed')
     );
 
@@ -494,7 +519,9 @@ describe('ReaderSession mutations', () => {
       'h-delete': 'draft to keep'
     });
     expect(deleteWrapper.isConnected).toBe(true);
-    await expect(loadLatestReaderDraft(context)).resolves.toEqual(beforeDelete);
+    await expect(
+      context.draftRepository.readExact({ operation: 'readExact', key: draftStorageKey })
+    ).resolves.toEqual({ outcome: 'found', envelope: beforeDelete });
     warnSpy.mockRestore();
   });
 
@@ -820,7 +847,9 @@ describe('ReaderSession mutations', () => {
     expect(context.view.currentDrafts).toEqual({
       [highlight.id]: 'typed note'
     });
-    expect(context.view.updateHint).toHaveBeenLastCalledWith(DEFAULT_SESSION_MESSAGES.hintFailure);
+    await vi.waitFor(() =>
+      expect(context.view.updateHint).toHaveBeenLastCalledWith(DEFAULT_SESSION_MESSAGES.hintFailure)
+    );
     expect(getDraftIdentity(context.session)).toEqual(draftIdentity);
   });
 
@@ -849,11 +878,12 @@ describe('ReaderSession mutations', () => {
 
     getSessionHarness(context.session).__setTestHighlights([]);
 
-    const removeError = new Error('remove failed');
-    const removeSpy = vi.spyOn(context.storageLocal, 'remove').mockRejectedValueOnce(removeError);
+    const removeSpy = vi
+      .spyOn(context.storageLocal, 'remove')
+      .mockRejectedValueOnce(new Error('remove failed'));
 
     const removePromise = getSessionHarness(context.session).persistDraftMutation();
-    await expect(removePromise).rejects.toThrow(removeError);
+    await expect(removePromise).rejects.toThrow('STORAGE_FAILURE');
 
     expect(removeSpy).toHaveBeenCalledWith([persistedIdentity.draftStorageKey]);
     expect(getDraftIdentity(context.session)).toEqual(persistedIdentity);

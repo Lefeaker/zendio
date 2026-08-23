@@ -2,6 +2,7 @@ import {
   SessionDraftMutationReceiptSchema,
   SessionDraftPendingRemovalSchema
 } from '../../shared/sessionDrafts/schemas';
+import type { SessionDraftTrustedOwnerContext } from '../../shared/sessionDrafts/keys';
 import {
   SESSION_DRAFT_MAX_RECEIPTS,
   SESSION_DRAFT_RECEIPT_TTL_MS,
@@ -9,8 +10,7 @@ import {
   type SessionDraftEnvelope,
   type SessionDraftFormattedReceiptReplay,
   type SessionDraftMutationReceipt,
-  type SessionDraftPendingRemoval,
-  type SessionDraftTrustedOwnerContext
+  type SessionDraftPendingRemoval
 } from '../../shared/sessionDrafts/types';
 
 type ReceiptIdentity = Pick<SessionDraftMutationReceipt, 'requestId' | 'operation' | 'digest'> &

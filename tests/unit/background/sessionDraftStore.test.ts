@@ -11,17 +11,23 @@ import {
 } from '../../../src/background/services/sessionDraftStore';
 import {
   createSessionDraftIndex,
+  createLegacySessionDraftPageKey,
   createSessionDraftPageKey,
   createSessionDraftStorageKey,
   compareSessionDraftText,
+  decodeLegacyVideoCapture,
+  digestLegacyVideoCaptureJson,
   SESSION_DRAFT_INDEX_KEY,
   SessionDraftEnvelopeMutationResultSchema,
   SessionDraftEnvelopeSchema,
   SessionDraftIndexSchema,
+  SessionDraftPayloadSchema,
   SessionDraftReadExactResultSchema,
   SessionDraftSelectAndClaimResultSchema,
   type SessionDraftEnvelope,
+  type SessionDraftJsonValue,
   type SessionDraftFinalizeExactRequest,
+  type SessionDraftMigrateLegacyVideoCaptureRequest,
   type SessionDraftOwnerLivenessProbe,
   type SessionDraftPruneRequest,
   type SessionDraftReleaseLeaseRequest,
@@ -33,6 +39,10 @@ import {
 } from '../../../src/shared/sessionDrafts';
 
 const BASE_TIME = 4_000_000;
+const COLLIDING_PAGE_URLS: readonly [string, string] = [
+  'https://example.com/reader/1ctg9w7-1jx99je',
+  'https://example.com/reader/1d2u5vn-q239ae'
+];
 const OWNER: SessionDraftTrustedOwnerContext = { tabId: 7, frameId: 0, windowId: 2 };
 const FOREIGN_OWNER: SessionDraftTrustedOwnerContext = { tabId: 8, frameId: 0 };
 
@@ -63,6 +73,8 @@ class FakeEnumerableStorage {
   private setManyGate: Deferred<void> | undefined;
   private rejectBeforeSetMany = false;
   private rejectAfterSetMany = false;
+  private rejectBeforeRemove = false;
+  private rejectSetManyAfterRemove = false;
 
   constructor(initial: StorageValueMap = { [SESSION_DRAFT_INDEX_KEY]: createSessionDraftIndex() }) {
     this.values = structuredClone(initial);
@@ -100,7 +112,15 @@ class FakeEnumerableStorage {
       remove: (keyOrKeys: string | string[]): Promise<void> => {
         const keys = Array.isArray(keyOrKeys) ? [...keyOrKeys] : [keyOrKeys];
         this.removeAttempts.push(keys);
+        if (this.rejectBeforeRemove) {
+          this.rejectBeforeRemove = false;
+          return Promise.reject(new Error('remove rejected before mutation'));
+        }
         for (const key of keys) delete this.values[key];
+        if (this.rejectSetManyAfterRemove) {
+          this.rejectSetManyAfterRemove = false;
+          this.rejectBeforeSetMany = true;
+        }
         return Promise.resolve();
       },
       clear: (): Promise<void> => {
@@ -125,14 +145,27 @@ class FakeEnumerableStorage {
   failNextSetManyAfterCommit(): void {
     this.rejectAfterSetMany = true;
   }
+
+  failNextRemoveBeforeMutation(): void {
+    this.rejectBeforeRemove = true;
+  }
+
+  failNextSetManyAfterRemove(): void {
+    this.rejectSetManyAfterRemove = true;
+  }
 }
 
 function saveRequest(
   draftId: string,
   requestId: string,
-  options: { expectedRevision?: number; leaseId?: string; payload?: Record<string, string> } = {}
+  options: {
+    expectedRevision?: number;
+    leaseId?: string;
+    payload?: Record<string, string>;
+    pageUrl?: string;
+  } = {}
 ): SessionDraftSaveRequest {
-  const pageUrl = `https://example.com/${draftId}`;
+  const pageUrl = options.pageUrl ?? `https://example.com/${draftId}`;
   const pageKey = createSessionDraftPageKey('reader', pageUrl);
   return {
     operation: 'save',
@@ -152,6 +185,38 @@ function saveRequest(
 
 function selectRequest(pageUrl: string, requestId: string): SessionDraftSelectAndClaimRequest {
   return { operation: 'selectAndClaim', requestId, mode: 'reader', pageUrl };
+}
+
+async function legacyMigrationRequest(
+  raw: SessionDraftJsonValue,
+  requestId = 'migrate-legacy-video'
+): Promise<SessionDraftMigrateLegacyVideoCaptureRequest> {
+  const pageUrl = 'https://www.youtube.com/watch?v=video123';
+  const decoded = decodeLegacyVideoCapture(raw);
+  if (!decoded.ok) throw new Error('Expected a valid legacy migration fixture.');
+  const draftId = 'migrated-video-draft';
+  return {
+    operation: 'migrateLegacyVideoCapture',
+    requestId,
+    key: createSessionDraftStorageKey({
+      mode: 'video',
+      pageKey: createSessionDraftPageKey('video', pageUrl),
+      draftId
+    }),
+    legacyKey: 'yt:video123',
+    rawDigest: await digestLegacyVideoCaptureJson(decoded.rawCanonicalJson),
+    canonicalDigest: await digestLegacyVideoCaptureJson(decoded.canonicalJson),
+    canonicalLegacy: decoded.value,
+    draft: {
+      draftId,
+      mode: 'video',
+      pageUrl,
+      pageTitle: 'Migrated video',
+      payload: {
+        captures: SessionDraftPayloadSchema.parse({ captures: decoded.value.entries }).captures
+      }
+    }
+  };
 }
 
 function createStoreHarness(
@@ -228,6 +293,184 @@ async function expectLostResponseReplay(
 }
 
 describe('sessionDraftStore facade', () => {
+  it('atomically publishes a pending legacy obligation before exact cleanup and final receipt', async () => {
+    const raw = {
+      title: 'Legacy video',
+      url: 'https://www.youtube.com/watch?v=video123',
+      entries: [
+        {
+          id: 'legacy-capture',
+          timeSec: 12,
+          comment: 'note',
+          url: 'https://www.youtube.com/watch?v=video123&t=12',
+          createdAt: 10
+        }
+      ],
+      updatedAt: 10
+    };
+    const request = await legacyMigrationRequest(raw);
+    const storage = new FakeEnumerableStorage({
+      [SESSION_DRAFT_INDEX_KEY]: createSessionDraftIndex(),
+      [request.legacyKey]: raw
+    });
+    const { store } = createStoreHarness(storage);
+
+    const migrated = await store.migrateLegacyVideoCapture(request, OWNER, request.draft.pageUrl);
+    expect(migrated).toMatchObject({
+      outcome: 'migrated',
+      revision: 1,
+      envelope: { draftId: request.draft.draftId }
+    });
+    expect(migrated).not.toHaveProperty('envelope.legacyCleanup');
+    expect(storage.values[request.legacyKey]).toBeUndefined();
+    const pendingWrite = storage.setManyAttempts.find((write) => {
+      const value = SessionDraftEnvelopeSchema.safeParse(write[request.key]);
+      return value.success && value.data.legacyCleanup !== undefined;
+    });
+    expect(pendingWrite).toBeDefined();
+    const index = SessionDraftIndexSchema.parse(storage.values[SESSION_DRAFT_INDEX_KEY]);
+    expect(index.receipts).toContainEqual(
+      expect.objectContaining({
+        requestId: request.requestId,
+        operation: 'migrate',
+        outcome: 'migrated'
+      })
+    );
+  });
+
+  it('rejects changed legacy bytes before any v2 write or legacy removal', async () => {
+    const original = {
+      entries: [
+        {
+          id: 'legacy-capture',
+          timeSec: 12,
+          comment: 'original',
+          url: 'https://www.youtube.com/watch?v=video123&t=12',
+          createdAt: 10
+        }
+      ],
+      updatedAt: 10
+    };
+    const request = await legacyMigrationRequest(original, 'migrate-changed');
+    const changed = structuredClone(original);
+    changed.entries[0].comment = 'changed';
+    const storage = new FakeEnumerableStorage({
+      [SESSION_DRAFT_INDEX_KEY]: createSessionDraftIndex(),
+      [request.legacyKey]: changed
+    });
+    const { store } = createStoreHarness(storage);
+    const writesBefore = storage.setManyAttempts.length;
+
+    await expect(
+      store.migrateLegacyVideoCapture(request, OWNER, request.draft.pageUrl)
+    ).resolves.toEqual({
+      outcome: 'conflict',
+      code: 'MIGRATION_SOURCE_CHANGED'
+    });
+    expect(storage.setManyAttempts).toHaveLength(writesBefore);
+    expect(storage.removeAttempts).toEqual([]);
+    expect(storage.values[request.key]).toBeUndefined();
+  });
+
+  it('persists cleanup obligation across removal failure and blocks every ordinary mutation until retry', async () => {
+    const raw = {
+      entries: [
+        {
+          id: 'legacy-retry',
+          timeSec: 1,
+          comment: '',
+          url: 'https://www.youtube.com/watch?v=video123&t=1',
+          createdAt: 1
+        }
+      ],
+      updatedAt: 1
+    };
+    const request = await legacyMigrationRequest(raw, 'migrate-cleanup-retry');
+    const storage = new FakeEnumerableStorage({
+      [SESSION_DRAFT_INDEX_KEY]: createSessionDraftIndex(),
+      [request.legacyKey]: raw
+    });
+    const { store } = createStoreHarness(storage);
+    storage.failNextRemoveBeforeMutation();
+
+    await expect(
+      store.migrateLegacyVideoCapture(request, OWNER, request.draft.pageUrl)
+    ).resolves.toEqual({
+      outcome: 'conflict',
+      code: 'MIGRATION_CLEANUP_PENDING'
+    });
+    expect(storage.values[request.key]).toMatchObject({
+      legacyCleanup: { state: 'pending', legacyKey: request.legacyKey }
+    });
+    storage.failNextRemoveBeforeMutation();
+    await expect(
+      store.save(
+        {
+          operation: 'save',
+          requestId: 'ordinary-save-while-pending',
+          key: request.key,
+          expectedRevision: 1,
+          draft: request.draft
+        },
+        OWNER
+      )
+    ).resolves.toEqual({ outcome: 'conflict', code: 'MIGRATION_CLEANUP_PENDING' });
+    expect(storage.values[request.legacyKey]).toEqual(raw);
+    await expect(
+      store.migrateLegacyVideoCapture(request, OWNER, request.draft.pageUrl)
+    ).resolves.toMatchObject({ outcome: 'migrated', revision: 1 });
+    expect(storage.values[request.key]).not.toHaveProperty('legacyCleanup');
+  });
+
+  it('recovers after restart when legacy removal succeeds before the final receipt commit', async () => {
+    const raw = {
+      entries: [
+        {
+          id: 'legacy-restart',
+          timeSec: 2,
+          comment: 'restart-safe',
+          url: 'https://www.youtube.com/watch?v=video123&t=2',
+          createdAt: 2
+        }
+      ],
+      updatedAt: 2
+    };
+    const request = await legacyMigrationRequest(raw, 'migrate-cleanup-restart');
+    const storage = new FakeEnumerableStorage({
+      [SESSION_DRAFT_INDEX_KEY]: createSessionDraftIndex(),
+      [request.legacyKey]: raw
+    });
+    storage.failNextSetManyAfterRemove();
+
+    await expect(
+      createStoreHarness(storage).store.migrateLegacyVideoCapture(
+        request,
+        OWNER,
+        request.draft.pageUrl
+      )
+    ).resolves.toEqual({ outcome: 'conflict', code: 'MIGRATION_CLEANUP_PENDING' });
+    expect(storage.values[request.legacyKey]).toBeUndefined();
+    const storedAfterFailure = SessionDraftEnvelopeSchema.parse(storage.values[request.key]);
+    expect(storedAfterFailure.legacyCleanup?.requestDigest).toMatch(/^[0-9a-f]{64}$/);
+
+    const restarted = createStoreHarness(storage).store;
+    await expect(
+      restarted.migrateLegacyVideoCapture(request, OWNER, request.draft.pageUrl)
+    ).resolves.toMatchObject({
+      outcome: 'migrated',
+      revision: 1,
+      replay: { replayed: true }
+    });
+    expect(storage.values[request.key]).not.toHaveProperty('legacyCleanup');
+    const index = SessionDraftIndexSchema.parse(storage.values[SESSION_DRAFT_INDEX_KEY]);
+    expect(index.receipts).toContainEqual(
+      expect.objectContaining({
+        operation: 'migrate',
+        outcome: 'migrated',
+        key: request.key
+      })
+    );
+  });
   it('fails closed before any storage access when enumeration is unavailable', () => {
     let getCalls = 0;
     const baseOnly: StorageAreaService = {
@@ -273,6 +516,74 @@ describe('sessionDraftStore facade', () => {
         saveRequest('beta', 'ignored').key
       ])
     );
+  });
+
+  it('isolates same-draftId lifecycle and receipts across the known page-key collision', async () => {
+    const { store, storage } = createStoreHarness();
+    const [leftUrl, rightUrl] = COLLIDING_PAGE_URLS;
+    const left = saveRequest('shared-draft', 'save-collision-left', { pageUrl: leftUrl });
+    const right = saveRequest('shared-draft', 'save-collision-right', { pageUrl: rightUrl });
+
+    expect(left.key).not.toBe(right.key);
+    const leftEnvelope = expectSaved(await store.save(left, OWNER));
+    const rightEnvelope = expectSaved(await store.save(right, OWNER));
+    expect(leftEnvelope.pageUrl).toBe(leftUrl);
+    expect(rightEnvelope.pageUrl).toBe(rightUrl);
+
+    const leftLease = leftEnvelope.lease?.leaseId;
+    if (!leftLease) throw new Error('Expected the left collision lease.');
+    await expect(
+      store.finalizeExact(
+        {
+          operation: 'finalizeExact',
+          requestId: 'finalize-collision-left',
+          key: left.key,
+          expectedRevision: leftEnvelope.revision,
+          leaseId: leftLease,
+          status: 'exported'
+        },
+        OWNER
+      )
+    ).resolves.toMatchObject({ outcome: 'finalized', envelope: { pageUrl: leftUrl } });
+    await expect(
+      store.removeExact(
+        {
+          operation: 'removeExact',
+          requestId: 'remove-collision-left',
+          key: left.key,
+          expectedRevision: leftEnvelope.revision + 1,
+          leaseId: leftLease
+        },
+        OWNER
+      )
+    ).resolves.toMatchObject({ outcome: 'removed', key: left.key });
+
+    await expect(store.readExact({ operation: 'readExact', key: left.key })).resolves.toEqual({
+      outcome: 'missing'
+    });
+    await expect(
+      store.readExact({ operation: 'readExact', key: right.key })
+    ).resolves.toMatchObject({
+      outcome: 'found',
+      envelope: { pageUrl: rightUrl, draftId: 'shared-draft' }
+    });
+    await expect(
+      store.list({ operation: 'list', mode: 'reader', pageUrl: leftUrl })
+    ).resolves.toMatchObject({ outcome: 'listed', envelopes: [] });
+    await expect(
+      store.list({ operation: 'list', mode: 'reader', pageUrl: rightUrl })
+    ).resolves.toMatchObject({
+      outcome: 'listed',
+      envelopes: [{ pageUrl: rightUrl, draftId: 'shared-draft' }]
+    });
+
+    const index = SessionDraftIndexSchema.parse(storage.values[SESSION_DRAFT_INDEX_KEY]);
+    expect(
+      index.receipts.find((receipt) => receipt.requestId === 'save-collision-right')?.key
+    ).toBe(right.key);
+    expect(
+      index.receipts.find((receipt) => receipt.requestId === 'remove-collision-left')?.key
+    ).toBe(left.key);
   });
 
   it('retains the current envelope under a fixed-clock full-capacity tie', async () => {
@@ -992,7 +1303,7 @@ describe('sessionDraftStore facade', () => {
 
   it('reads v1 non-destructively and migrates only on the first successful claim', async () => {
     const pageUrl = 'https://example.com/legacy';
-    const pageKey = createSessionDraftPageKey('reader', pageUrl);
+    const pageKey = createLegacySessionDraftPageKey('reader', pageUrl);
     const key = createSessionDraftStorageKey({ mode: 'reader', pageKey, draftId: 'legacy' });
     const legacy = {
       schemaVersion: 1,
@@ -1042,15 +1353,13 @@ describe('sessionDraftStore facade', () => {
     }
     expect(storage.setManyAttempts).toHaveLength(0);
     expect(storage.values[key]).toEqual(legacy);
-    const claimed = await store.selectAndClaim(
-      {
-        operation: 'selectAndClaim',
-        requestId: 'claim-legacy',
-        mode: 'reader',
-        pageUrl
-      },
-      OWNER
-    );
+    const claimRequest: SessionDraftSelectAndClaimRequest = {
+      operation: 'selectAndClaim',
+      requestId: 'claim-legacy',
+      mode: 'reader',
+      pageUrl
+    };
+    const claimed = await store.selectAndClaim(claimRequest, OWNER);
     expect(claimed).toMatchObject({
       outcome: 'claimed',
       revision: 1,
@@ -1063,6 +1372,21 @@ describe('sessionDraftStore facade', () => {
     });
     if (claimed.outcome === 'claimed') {
       expect(claimed.envelope?.payload).not.toHaveProperty('ownerContext');
+      if (!claimed.envelope) throw new Error('Expected the migrated legacy envelope.');
+      const migratedKey = createSessionDraftStorageKey({
+        mode: claimed.envelope.mode,
+        pageKey: claimed.envelope.pageKey,
+        draftId: claimed.envelope.draftId
+      });
+      expect(migratedKey).not.toBe(key);
+      expect(storage.values[key]).toBeUndefined();
+      expect(storage.values[migratedKey]).toEqual(claimed.envelope);
+      await expect(store.selectAndClaim(claimRequest, OWNER)).resolves.toMatchObject({
+        outcome: 'claimed',
+        revision: 1,
+        replay: { replayed: true, requiresReadExact: false },
+        envelope: { pageKey: claimed.envelope.pageKey }
+      });
     }
   });
 

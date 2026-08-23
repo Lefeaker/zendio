@@ -1,12 +1,21 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { BackgroundStartupDependencies } from '../../../src/background/backgroundStartup';
+import type { createContextMenuListenerDependencies } from '../../../src/background/listeners/contextMenus';
+import type { createRuntimeMessageListenerDependencies } from '../../../src/background/listeners/runtimeMessages';
 import { asType } from '../../utils/typeHelpers';
+
+type ContextMenuDependencyArgs = Parameters<typeof createContextMenuListenerDependencies>;
+type RuntimeMessageDependencyArgs = Parameters<typeof createRuntimeMessageListenerDependencies>;
 
 const configureBackgroundDependencyStorageMock = vi.hoisted(() => vi.fn());
 const bootstrapBackgroundDependenciesMock = vi.hoisted(() => vi.fn());
-const createContextMenuListenerDependenciesMock = vi.hoisted(() => vi.fn((deps) => deps));
+const createContextMenuListenerDependenciesMock = vi.hoisted(() =>
+  vi.fn<(...args: ContextMenuDependencyArgs) => ContextMenuDependencyArgs[0]>((deps) => deps)
+);
 const registerContextMenuListenersMock = vi.hoisted(() => vi.fn());
-const createRuntimeMessageListenerDependenciesMock = vi.hoisted(() => vi.fn((...args) => args));
+const createRuntimeMessageListenerDependenciesMock = vi.hoisted(() =>
+  vi.fn<(...args: RuntimeMessageDependencyArgs) => RuntimeMessageDependencyArgs>((...args) => args)
+);
 const registerRuntimeMessageListenerMock = vi.hoisted(() => vi.fn());
 const ensureUsageStatsInitializedMock = vi.hoisted(() => vi.fn(() => Promise.resolve(undefined)));
 const resolveRepositoryMock = vi.hoisted(() => vi.fn(() => ({ onChange: vi.fn() })));
@@ -76,16 +85,19 @@ describe('backgroundStartup', () => {
     expect(configureBackgroundDependencyStorageMock).toHaveBeenCalledWith(deps.storage);
     expect(bootstrapBackgroundDependenciesMock).toHaveBeenCalledTimes(1);
     expect(resolveRepositoryMock).toHaveBeenCalledTimes(1);
-    expect(createContextMenuListenerDependenciesMock).toHaveBeenCalledWith(
-      expect.objectContaining({ optionsRepository: expect.any(Object) })
+    expect(createContextMenuListenerDependenciesMock.mock.calls[0]?.[0].optionsRepository).toEqual(
+      expect.any(Object)
     );
     expect(registerContextMenuListenersMock).toHaveBeenCalledTimes(1);
-    expect(createRuntimeMessageListenerDependenciesMock).toHaveBeenCalledWith(
+    const runtimeArgs = createRuntimeMessageListenerDependenciesMock.mock.calls[0];
+    expect(runtimeArgs?.slice(0, 4)).toEqual([
       deps.messaging,
       deps.tabs,
       deps.runtime,
       deps.storage
-    );
+    ]);
+    expect(runtimeArgs?.[4].sessionDraftStore).toEqual(expect.any(Object));
+    expect(typeof runtimeArgs?.[4].resolveSessionDraftOwner).toBe('function');
     expect(registerRuntimeMessageListenerMock).toHaveBeenCalledTimes(1);
     expect(ensureUsageStatsInitializedMock).toHaveBeenCalledTimes(1);
   });

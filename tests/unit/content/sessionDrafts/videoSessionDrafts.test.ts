@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { FREE_SESSION_DRAFT_MAX_ITEMS_PER_PAGE } from '@content/sessionDrafts';
+import { FREE_SESSION_DRAFT_MAX_ITEMS_PER_PAGE } from '@shared/sessionDrafts';
 import type { ExportDestinationMetadata } from '@shared/exportDestination';
 import type { VideoCapture, VideoCaptureScreenshot } from '@content/video/types';
 import type { VideoScreenshotCacheRef } from '@content/video/videoScreenshotCacheTypes';

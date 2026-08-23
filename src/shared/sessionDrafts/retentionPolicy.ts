@@ -1,9 +1,19 @@
 import {
   SESSION_DRAFT_MAX_ENTRIES,
+  type SessionDraftIndex,
   type SessionDraftIndexEntry,
-  type SessionDraftRetentionPolicy
+  type SessionDraftMutationReceipt,
+  type SessionDraftRecord,
+  type SessionDraftRetentionPolicy,
+  type SessionDraftStoragePolicy,
+  type SessionCommentDraftSnapshot
 } from './types';
-import { compareSessionDraftText } from './keys';
+import { compareSessionDraftText, createSessionDraftIndexEntry } from './keys';
+export type {
+  SessionCommentDraftSnapshot,
+  SessionDraftRetentionPolicy,
+  SessionDraftStoragePolicy
+} from './types';
 
 export const FREE_SESSION_DRAFT_RETENTION_MS = 48 * 60 * 60 * 1000;
 export const FREE_SESSION_DRAFT_MAX_RESTORABLE_PAGES = 5;
@@ -14,6 +24,37 @@ export const DEFAULT_SESSION_DRAFT_RETENTION_POLICY: SessionDraftRetentionPolicy
   maxRestorablePages: FREE_SESSION_DRAFT_MAX_RESTORABLE_PAGES,
   maxItemsPerPage: FREE_SESSION_DRAFT_MAX_ITEMS_PER_PAGE
 };
+
+export const DEFAULT_SESSION_DRAFT_TTL_MS = DEFAULT_SESSION_DRAFT_RETENTION_POLICY.retentionMs;
+
+export function createSessionDraftStoragePolicy(
+  options: {
+    retentionPolicy?: Partial<SessionDraftRetentionPolicy> | null;
+    videoScreenshotCacheTtlMs?: number;
+  } = {}
+): SessionDraftStoragePolicy {
+  const retentionPolicy = normalizeSessionDraftRetentionPolicy(
+    options.retentionPolicy ?? undefined
+  );
+  const cacheTtl = options.videoScreenshotCacheTtlMs;
+  return {
+    retentionPolicy,
+    videoScreenshotCacheTtlMs:
+      typeof cacheTtl === 'number' && Number.isFinite(cacheTtl) && cacheTtl > 0
+        ? cacheTtl
+        : retentionPolicy.retentionMs
+  };
+}
+
+export const DEFAULT_SESSION_DRAFT_STORAGE_POLICY = createSessionDraftStoragePolicy();
+
+export function filterSessionCommentDraftsForRetainedIds(
+  commentDrafts: SessionCommentDraftSnapshot,
+  retainedIds: Iterable<string>
+): SessionCommentDraftSnapshot {
+  const retained = new Set(retainedIds);
+  return Object.fromEntries(Object.entries(commentDrafts).filter(([id]) => retained.has(id)));
+}
 
 export function measureSessionDraftValueBytes(value: object): number {
   const serialized = JSON.stringify(value);
@@ -156,14 +197,51 @@ function prunePageLimit(
 
 export function selectRetainedSessionDraftItems<T extends { createdAt: number }>(
   items: readonly T[],
-  policy: SessionDraftRetentionPolicy
+  policy?: Partial<SessionDraftRetentionPolicy> | number | null
 ): T[] {
-  const maxItems = policy.maxItemsPerPage;
+  if (typeof policy === 'number') {
+    if (!Number.isInteger(policy) || policy <= 0 || items.length <= policy) return [...items];
+    return retainNewestSessionDraftItems(items, policy);
+  }
+  const maxItems = normalizeSessionDraftRetentionPolicy(policy ?? undefined).maxItemsPerPage;
   if (maxItems === null || items.length <= maxItems) return [...items];
+  return retainNewestSessionDraftItems(items, maxItems);
+}
+
+function retainNewestSessionDraftItems<T extends { createdAt: number }>(
+  items: readonly T[],
+  maxItems: number
+): T[] {
   return items
     .map((item, index) => ({ item, index }))
     .sort((left, right) => right.item.createdAt - left.item.createdAt || right.index - left.index)
     .slice(0, maxItems)
     .sort((left, right) => left.index - right.index)
     .map(({ item }) => item);
+}
+
+export function planSessionDraftEnvelopeIndex(input: {
+  index: SessionDraftIndex;
+  key: string;
+  record: SessionDraftRecord;
+  receipts: SessionDraftMutationReceipt[];
+  retention?: { now: number; policy: SessionDraftRetentionPolicy; maxEntries: number };
+}): { index: SessionDraftIndex; removedKeys: string[] } {
+  const entries = [
+    createSessionDraftIndexEntry(input.key, input.record),
+    ...input.index.entries.filter((entry) => entry.key !== input.key)
+  ];
+  const plan = input.retention
+    ? selectSessionDraftRetentionRemovals(
+        entries,
+        input.retention.now,
+        input.retention.policy,
+        input.retention.maxEntries,
+        input.key
+      )
+    : { retained: entries, removed: [] };
+  return {
+    index: { ...input.index, entries: plan.retained, receipts: input.receipts },
+    removedKeys: plan.removed.map((entry) => entry.key).filter((key) => key !== input.key)
+  };
 }

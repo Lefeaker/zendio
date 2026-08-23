@@ -1,57 +1,45 @@
 import type * as Draft from '../../shared/sessionDrafts';
-import { SESSION_DRAFT_INDEX_KEY } from '../../shared/sessionDrafts/keys';
+import * as Identity from '../../shared/sessionDrafts/keys';
 import {
   claimSessionDraftTransition,
   describeSessionDraftEnvelopeMutation,
   mutateSessionDraftLeaseTransition,
   saveSessionDraftTransition,
-  validateSessionDraftEnvelope,
   validateSessionDraftRemoveTransition,
   type SessionDraftEnvelopeMutationRequest
 } from './sessionDraftStoreMutations';
 import {
   planAndSelectSessionDraftClaim,
-  prepareSessionDraftPrune
+  prepareSessionDraftPrune,
+  validateSessionDraftEnvelope
 } from './sessionDraftStoreSelection';
 import {
   commitSessionDraftMutation,
   type SessionDraftStorageSnapshot,
   type SessionDraftStoreStorage
 } from './sessionDraftStoreStorage';
-
+import type { SessionDraftTransactionContext } from './sessionDraftOwnerLivenessProbe';
 export interface SessionDraftMutationQueue {
   run<Result>(operation: () => Promise<Result>): Promise<Result>;
 }
-export interface SessionDraftStoreTransactionContext {
-  storage: SessionDraftStoreStorage;
-  now: () => number;
-  leaseId: () => string;
-  probe: Draft.SessionDraftOwnerLivenessProbe;
-  retention: Draft.SessionDraftRetentionPolicy;
-  maxEntries: number;
-  maxBytes: number;
-}
+export type SessionDraftStoreTransactionContext =
+  SessionDraftTransactionContext<SessionDraftStoreStorage>;
 export interface SessionDraftMutationReadyState {
   snapshot: SessionDraftStorageSnapshot;
   digest: string;
   receipts: Draft.SessionDraftMutationReceipt[];
 }
-type Failure = { outcome: 'conflict'; code: Draft.SessionDraftConflictCode };
+const conflict = (code: Draft.SessionDraftConflictCode) => ({ outcome: 'conflict' as const, code });
 export function createSessionDraftMutationQueue(): SessionDraftMutationQueue {
   let tail: Promise<void> = Promise.resolve();
+  const settle = () => undefined;
   return {
     run<Result>(operation: () => Promise<Result>): Promise<Result> {
       const result = tail.then(operation);
-      tail = result.then(
-        () => undefined,
-        () => undefined
-      );
+      tail = result.then(settle, settle);
       return result;
     }
   };
-}
-function conflict(code: Draft.SessionDraftConflictCode): Failure {
-  return { outcome: 'conflict', code };
 }
 export async function cleanupInvalidRecords(
   storage: SessionDraftStoreStorage,
@@ -85,7 +73,10 @@ export async function runReadySessionDraftEnvelopeMutation(
   request: SessionDraftEnvelopeMutationRequest,
   owner: Draft.SessionDraftTrustedOwnerContext
 ): Promise<Draft.SessionDraftEnvelopeMutationResult> {
-  const current = state.snapshot.records.find((item) => item.key === request.key)?.record;
+  const [current, migratedKey] = Identity.resolveSessionDraftRecord(
+    state.snapshot.records,
+    request
+  );
   const mutationContext = {
     now: context.now(),
     retentionMs: context.retention.retentionMs,
@@ -108,6 +99,7 @@ export async function runReadySessionDraftEnvelopeMutation(
       revision: accepted.envelope.revision
     },
     envelope: accepted.envelope,
+    ...(migratedKey && migratedKey !== request.key ? { removedKeys: [migratedKey] } : {}),
     applyRetention: request.operation === 'save'
   });
   return saved.ok
@@ -204,7 +196,7 @@ export async function runReadySessionDraftClaim(
       receipt: {
         requestId: request.requestId,
         operation: 'claim',
-        key: SESSION_DRAFT_INDEX_KEY,
+        key: Identity.SESSION_DRAFT_INDEX_KEY,
         outcome: decision.outcome,
         invalidRemovedCount: decision.invalidRemovedCount
       },
@@ -222,11 +214,14 @@ export async function runReadySessionDraftClaim(
   if (transitioned.outcome === 'conflict') return transitioned;
   const accepted = validateSessionDraftEnvelope(transitioned.envelope, context.maxBytes);
   if (accepted.outcome === 'conflict') return accepted;
+  const target = Identity.resolveClaimRekey(decision.key, decision.record, accepted.envelope);
+  if (!target) return conflict('STORAGE_KEY_MISMATCH');
+  removedKeys.push(...target.removedKeys);
   const saved = await commit(context, state, {
     receipt: {
       requestId: request.requestId,
       operation: 'claim',
-      key: decision.key,
+      key: target.key,
       outcome: 'claimed',
       revision: accepted.envelope.revision,
       selectionReason: decision.selectionReason,

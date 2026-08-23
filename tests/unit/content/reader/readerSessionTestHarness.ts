@@ -28,18 +28,25 @@ import {
   buildReaderHighlightsMarkdown
 } from '@content/reader/utils/markdownBuilder';
 import type { ReadingOptions } from '@shared/repositories/IReaderRepository';
+import type { RuntimeMessageSender } from '@platform/interfaces/runtime';
 import {
   SESSION_DRAFT_INDEX_KEY,
-  createSessionDraftRepository,
+  normalizeSessionDraftStoredValue,
   type ReaderSessionDraftEnvelope,
+  type SessionDraftClientEnvelope,
   type SessionDraftEnvelope,
   type SessionDraftIndex,
+  type SessionDraftRequest,
   type SessionDraftStoragePolicy
-} from '@content/sessionDrafts';
+} from '@shared/sessionDrafts';
+import { createSessionDraftRepository } from '@content/sessionDrafts';
 import type { SessionCommentDraftSnapshot } from '@content/shared/panels/sessionCommentDrafts';
 import { createMemoryStorageArea } from '@platform/preview/memoryStorage';
 import { mergeOptions } from '@shared/config/optionsMerger';
 import { getTestRestUrls } from '../../../fixtures/configTestHelpers';
+import { createSessionDraftStore } from '../../../../src/background/services/sessionDraftStore';
+import { handleSessionDraftMessage } from '../../../../src/background/listeners/sessionDraftMessages';
+import { configureSessionDraftRuntimeMessenger } from '../../../../src/content/sessionDrafts/sessionDraftTabContext';
 
 const LOCAL_REST_URLS = getTestRestUrls('localhost');
 const LOCAL_REST_BASE_URL = LOCAL_REST_URLS.baseUrl.replace(/\/$/, '');
@@ -112,6 +119,57 @@ export function createDeferred<T>(): Deferred<T> {
     reject = rejectPromise;
   });
   return { promise, resolve, reject };
+}
+
+export type SessionDraftOperation = SessionDraftRequest['operation'];
+
+export interface SessionDraftMessageFixture {
+  readonly sender: RuntimeMessageSender;
+  readonly observed: SessionDraftRequest[];
+  deferNext(operation: SessionDraftOperation): Deferred<void>;
+  rejectNext(operation: SessionDraftOperation, error: Error): void;
+}
+
+export function createSessionDraftMessageFixture(
+  delegate: RuntimeMessageSender
+): SessionDraftMessageFixture {
+  const controls = new Map<
+    SessionDraftOperation,
+    Array<{ deferred?: Deferred<void>; error?: Error }>
+  >();
+  const observed: SessionDraftRequest[] = [];
+  const enqueue = (
+    operation: SessionDraftOperation,
+    control: { deferred?: Deferred<void>; error?: Error }
+  ) => {
+    const queue = controls.get(operation) ?? [];
+    queue.push(control);
+    controls.set(operation, queue);
+  };
+  const sender: RuntimeMessageSender = async (message) => {
+    const candidate = message as { request?: SessionDraftRequest };
+    const request = candidate.request;
+    if (request) {
+      observed.push(structuredClone(request));
+      const queue = controls.get(request.operation);
+      const control = queue?.shift();
+      if (control?.deferred) await control.deferred.promise;
+      if (control?.error) throw control.error;
+    }
+    return delegate(message);
+  };
+  return {
+    sender,
+    observed,
+    deferNext(operation) {
+      const deferred = createDeferred<void>();
+      enqueue(operation, { deferred });
+      return deferred;
+    },
+    rejectNext(operation, error) {
+      enqueue(operation, { error });
+    }
+  };
 }
 
 export function getSessionHarness(session: ReaderSession): ReaderSessionTestHarness {
@@ -322,7 +380,45 @@ export function createSessionContext(
     send: vi.fn().mockResolvedValue(undefined)
   };
   const syncStorageArea = createMemoryStorageArea();
-  const localStorageArea = createMemoryStorageArea();
+  const localStorageBase = createMemoryStorageArea();
+  const localValues = new Map<string, unknown>();
+  const localStorageArea = {
+    ...localStorageBase,
+    async set<T>(key: string, value: T) {
+      await localStorageBase.set(key, value);
+      localValues.set(key, value);
+    },
+    async setMany<T>(entries: Record<string, T>) {
+      await localStorageBase.setMany(entries);
+      for (const [key, value] of Object.entries(entries)) localValues.set(key, value);
+    },
+    async remove(keys: string | string[]) {
+      await localStorageBase.remove(keys);
+      for (const key of Array.isArray(keys) ? keys : [keys]) localValues.delete(key);
+    },
+    async clear() {
+      await localStorageBase.clear();
+      localValues.clear();
+    },
+    async getAll() {
+      return Object.fromEntries(localValues);
+    }
+  };
+  const draftStore = createSessionDraftStore(localStorageArea, {
+    ownerLivenessProbe: () => Promise.resolve('inactive'),
+    createLeaseId: () => 'reader-harness-lease',
+    ...(options.sessionDraftStoragePolicy
+      ? { retentionPolicy: options.sessionDraftStoragePolicy.retentionPolicy }
+      : {})
+  });
+  if (!draftStore.ok) throw new Error(draftStore.code);
+  const draftMessages = createSessionDraftMessageFixture((message) =>
+    handleSessionDraftMessage(draftStore.store, normalizeSessionDraftStoredValue(message), {
+      tabId: 8,
+      frameId: 0
+    }).then((result) => result as never)
+  );
+  configureSessionDraftRuntimeMessenger(draftMessages.sender);
   const highlightManager = {
     applyTheme: vi.fn((theme: string) => {
       document.body.dataset.aiobReaderHighlight = theme;
@@ -437,6 +533,7 @@ export function createSessionContext(
       local: localStorageArea
     },
     messaging,
+    sessionDraftSender: draftMessages.sender,
     readerRepository: {
       getReadingConfig,
       sendReadingClip: vi.fn(),
@@ -473,12 +570,8 @@ export function createSessionContext(
     session,
     view,
     storageLocal: localStorageArea,
-    draftRepository: createSessionDraftRepository(
-      localStorageArea,
-      options.sessionDraftStoragePolicy
-        ? { retentionPolicy: options.sessionDraftStoragePolicy.retentionPolicy }
-        : {}
-    ),
+    draftRepository: createSessionDraftRepository(draftMessages.sender),
+    draftMessages,
     clipPrompt,
     messaging,
     environment,
@@ -531,7 +624,7 @@ export async function listReaderDraftCandidates(
 ): Promise<ReaderSessionDraftEnvelope[]> {
   const candidates = await context.draftRepository.listCandidates('reader', pageUrl);
   return candidates.filter(
-    (candidate: SessionDraftEnvelope): candidate is ReaderSessionDraftEnvelope =>
+    (candidate: SessionDraftClientEnvelope): candidate is ReaderSessionDraftEnvelope =>
       candidate.mode === 'reader'
   );
 }
@@ -541,7 +634,7 @@ export async function readStoredReaderDraft(
   storageKey: string
 ): Promise<ReaderSessionDraftEnvelope | undefined> {
   const value = await context.storageLocal.get<SessionDraftEnvelope>(storageKey);
-  return value?.mode === 'reader' ? value : undefined;
+  return value?.mode === 'reader' ? (value as unknown as ReaderSessionDraftEnvelope) : undefined;
 }
 
 export async function readDraftIndex(

@@ -13,12 +13,15 @@ import type {
   VideoSessionAdapter
 } from '../clipper/services/selectionController';
 import type { SupportProgressReporter } from './supportProgress';
-import type { SessionDraftStoragePolicy } from '../sessionDrafts';
-
+import type {
+  ReaderSessionDraftEnvelope,
+  SessionDraftStoragePolicy,
+  VideoSessionDraftEnvelope
+} from '@shared/sessionDrafts';
+import type { SessionDraftLeaseOwnerRegistry } from '../sessionDrafts/sessionDraftLeaseOwnerRegistry';
 interface SupportPromptLike {
   show(options?: unknown): Promise<void> | void;
 }
-
 interface LocalVaultPermissionPromptLike {
   request(message: LocalVaultPermissionPromptMessage): Promise<LocalVaultPermissionPromptResponse>;
 }
@@ -30,12 +33,18 @@ interface LazyRuntimeDependencies {
   messaging: Pick<MessagingService, 'send'>;
   runtime: RuntimeService;
   sessionDraftStoragePolicy?: SessionDraftStoragePolicy;
+  sessionDraftLeaseOwners?: SessionDraftLeaseOwnerRegistry;
   showSupportProgress?: SupportProgressReporter;
 }
 
 type VideoPromptOnDemandDependencies = Pick<
   LazyRuntimeDependencies,
-  'optionsRepository' | 'storage' | 'runtime' | 'sessionDraftStoragePolicy' | 'showSupportProgress'
+  | 'optionsRepository'
+  | 'storage'
+  | 'runtime'
+  | 'sessionDraftStoragePolicy'
+  | 'sessionDraftLeaseOwners'
+  | 'showSupportProgress'
 > &
   Partial<Pick<LazyRuntimeDependencies, 'messaging'>>;
 
@@ -123,43 +132,46 @@ export function createLazyLocalVaultPermissionPrompt(
   };
 }
 
+function createAbortAwareAdapterLoader<Adapter>(
+  startSignal: AbortSignal | undefined,
+  loadAdapter: () => Promise<Adapter>
+): () => Promise<Adapter> {
+  let adapterPromise: Promise<Adapter> | null = null;
+  return async () => {
+    if (startSignal?.aborted) throw new Error('SESSION_DRAFT_AUTO_RESTORE_ABORTED');
+    adapterPromise ??= loadAdapter();
+    const adapter = await adapterPromise;
+    if (startSignal?.aborted) throw new Error('SESSION_DRAFT_AUTO_RESTORE_ABORTED');
+    return adapter;
+  };
+}
+
 export function createLazyReaderSessionFactory(
   dependencies: LazyRuntimeDependencies & {
     promptGateway: ClipPromptGateway;
   }
-): (doc: Document, url: string) => ReaderSessionAdapter {
+): (
+  doc: Document,
+  url: string,
+  initialClaimedDraft?: ReaderSessionDraftEnvelope,
+  startSignal?: AbortSignal,
+  onStartCommitted?: () => void
+) => ReaderSessionAdapter {
   let readerModulePromise: Promise<typeof import('../reader/readerLazyRuntime')> | null = null;
 
-  const loadModule = async () => {
-    if (!readerModulePromise) {
-      readerModulePromise = import('../reader/readerLazyRuntime');
-    }
-    return readerModulePromise;
-  };
-
-  return (doc: Document, url: string): ReaderSessionAdapter => {
-    let adapterPromise: Promise<ReaderSessionAdapter> | null = null;
-
-    const getAdapter = async (): Promise<ReaderSessionAdapter> => {
-      if (!adapterPromise) {
-        adapterPromise = loadModule().then(({ createReaderSessionAdapter }) =>
-          createReaderSessionAdapter(doc, url, {
-            optionsRepository: dependencies.optionsRepository,
-            storage: dependencies.storage,
-            messaging: dependencies.messaging as MessagingService,
-            runtime: dependencies.runtime,
-            promptGateway: dependencies.promptGateway,
-            ...(dependencies.sessionDraftStoragePolicy
-              ? { sessionDraftStoragePolicy: dependencies.sessionDraftStoragePolicy }
-              : {}),
-            ...(dependencies.showSupportProgress
-              ? { showSupportProgress: dependencies.showSupportProgress }
-              : {})
-          })
-        );
-      }
-      return adapterPromise;
-    };
+  return (
+    doc: Document,
+    url: string,
+    initialClaimedDraft?: ReaderSessionDraftEnvelope,
+    startSignal?: AbortSignal,
+    onStartCommitted?: () => void
+  ): ReaderSessionAdapter => {
+    const getAdapter = createAbortAwareAdapterLoader(startSignal, () => {
+      readerModulePromise ??= import('../reader/readerLazyRuntime');
+      return readerModulePromise.then(({ createReaderSessionAdapter }) =>
+        createReaderSessionAdapter(doc, url, dependencies, initialClaimedDraft, onStartCommitted)
+      );
+    });
 
     return {
       async start(initialHighlight) {
@@ -177,38 +189,26 @@ export function createLazyReaderSessionFactory(
 
 export function createLazyVideoSessionFactory(
   dependencies: LazyRuntimeDependencies
-): (doc: Document) => VideoSessionAdapter {
+): (
+  doc: Document,
+  initialClaimedDraft?: VideoSessionDraftEnvelope,
+  startSignal?: AbortSignal,
+  onStartCommitted?: () => void
+) => VideoSessionAdapter {
   let videoModulePromise: Promise<typeof import('../video/videoLazyRuntime')> | null = null;
 
-  const loadModule = async () => {
-    if (!videoModulePromise) {
-      videoModulePromise = import('../video/videoLazyRuntime');
-    }
-    return videoModulePromise;
-  };
-
-  return (doc: Document): VideoSessionAdapter => {
-    let adapterPromise: Promise<VideoSessionAdapter> | null = null;
-
-    const getAdapter = async (): Promise<VideoSessionAdapter> => {
-      if (!adapterPromise) {
-        adapterPromise = loadModule().then(({ createVideoSessionAdapter }) =>
-          createVideoSessionAdapter(doc, {
-            optionsRepository: dependencies.optionsRepository,
-            storage: dependencies.storage,
-            runtime: dependencies.runtime,
-            messaging: dependencies.messaging,
-            ...(dependencies.sessionDraftStoragePolicy
-              ? { sessionDraftStoragePolicy: dependencies.sessionDraftStoragePolicy }
-              : {}),
-            ...(dependencies.showSupportProgress
-              ? { showSupportProgress: dependencies.showSupportProgress }
-              : {})
-          })
-        );
-      }
-      return adapterPromise;
-    };
+  return (
+    doc: Document,
+    initialClaimedDraft?: VideoSessionDraftEnvelope,
+    startSignal?: AbortSignal,
+    onStartCommitted?: () => void
+  ): VideoSessionAdapter => {
+    const getAdapter = createAbortAwareAdapterLoader(startSignal, () => {
+      videoModulePromise ??= import('../video/videoLazyRuntime');
+      return videoModulePromise.then(({ createVideoSessionAdapter }) =>
+        createVideoSessionAdapter(doc, dependencies, initialClaimedDraft, onStartCommitted)
+      );
+    });
 
     return {
       async start() {

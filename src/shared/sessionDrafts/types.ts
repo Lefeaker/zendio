@@ -1,3 +1,13 @@
+import type { ExportDestinationMetadata } from '../exportDestination';
+import type {
+  SessionDraftLease,
+  SessionDraftLegacyCleanupObligation,
+  SessionDraftLegacyOwnerContext,
+  SessionDraftMode,
+  SessionDraftOwnerContext,
+  SessionDraftOwnerLivenessProbe,
+  SessionDraftStatus
+} from './pageIdentity';
 export const SESSION_DRAFT_SCHEMA_VERSION = 2;
 export const SESSION_DRAFT_LEGACY_SCHEMA_VERSION = 1;
 export const SESSION_DRAFT_MAX_ENTRIES = 100;
@@ -7,39 +17,85 @@ export const SESSION_DRAFT_MAX_QUARANTINE_BYTES = 512 * 1024;
 export const SESSION_DRAFT_MAX_RECEIPTS = 128;
 export const SESSION_DRAFT_RECEIPT_TTL_MS = 10 * 60 * 1000;
 export const SESSION_DRAFT_MAX_PENDING_REMOVALS = 100;
-export const SESSION_DRAFT_LEASE_DURATION_MS = 30 * 1000;
-export const SESSION_DRAFT_LEASE_RENEWAL_INTERVAL_MS = 10 * 1000;
-export type SessionDraftMode = 'reader' | 'video';
-export type SessionDraftStatus = 'active' | 'restorable' | 'discarded' | 'exported';
-export type SessionDraftTerminalStatus = 'discarded' | 'exported';
-export type SessionDraftJsonPrimitive = string | number | boolean | null;
-export type SessionDraftJsonValue =
-  | SessionDraftJsonPrimitive
-  | SessionDraftJsonValue[]
-  | { [key: string]: SessionDraftJsonValue };
-export type SessionDraftPayload = Record<string, SessionDraftJsonValue>;
+type SessionDraftConflictCodeGroups = [
+  ['OWNER_CONTEXT_INVALID', 'OWNER_CONFLICT', 'OWNER_ACTIVE', 'OWNER_LIVENESS_UNAVAILABLE'],
+  ['SESSION_DRAFT_STORAGE_ENUMERATION_UNAVAILABLE', 'INDEX_RECOVERY_FAILED', 'STORAGE_FAILURE'],
+  ['STORAGE_KEY_MISMATCH', 'CAPACITY_EXCEEDED', 'REQUEST_ID_REUSE'],
+  ['DRAFT_EXISTS', 'DRAFT_NOT_FOUND', 'REVISION_CONFLICT', 'RECORD_CHANGED'],
+  ['LEASE_REQUIRED', 'LEASE_CONFLICT', 'TERMINAL_DRAFT', 'TERMINAL_REQUIRED', 'REMOVAL_PENDING'],
+  ['MIGRATION_INPUT_INVALID', 'MIGRATION_SOURCE_CHANGED', 'MIGRATION_CLEANUP_PENDING'],
+  ['PAYLOAD_INVALID', 'PAYLOAD_TOO_LARGE']
+];
+export type SessionDraftConflictCode = SessionDraftConflictCodeGroups[number][number];
 export interface SessionDraftRetentionPolicy {
   retentionMs: number;
   maxRestorablePages: number | null;
   maxItemsPerPage: number | null;
 }
-
-export interface SessionDraftTrustedOwnerContext {
-  tabId: number;
-  frameId: number;
-  windowId?: number | undefined;
+export interface SessionDraftStoragePolicy {
+  retentionPolicy: SessionDraftRetentionPolicy;
+  videoScreenshotCacheTtlMs: number;
 }
-export interface SessionDraftLegacyOwnerContext {
-  tabId?: number | undefined;
-  frameId?: number | undefined;
-  windowId?: number | undefined;
+export type SessionCommentDraftSnapshot = Record<string, string>;
+export type SessionDraftJsonPrimitive = string | number | boolean | null;
+export type SessionDraftJsonValue = SessionDraftJsonPrimitive | SessionDraftJsonValue[] | object;
+export type SessionDraftPayload = Record<string, SessionDraftJsonValue>;
+export interface SessionDraftClientPayloadBase {
+  commentDrafts?: SessionCommentDraftSnapshot;
+  ownerContext?: SessionDraftOwnerContext;
+  [key: string]: SessionDraftJsonValue | undefined;
 }
-
-export interface SessionDraftLease {
-  leaseId: string;
-  owner: SessionDraftTrustedOwnerContext;
-  renewedAt: number;
-  leaseExpiresAt: number;
+export interface ReaderSessionDraftHighlightPayload {
+  id: string;
+  selectedHtml: string;
+  selectedText: string;
+  comment: string;
+  fragmentUrl: string;
+  createdAt: number;
+}
+export interface ReaderSessionDraftPayload extends SessionDraftClientPayloadBase {
+  mode?: 'reader';
+  url?: string;
+  title?: string;
+  destination?: ExportDestinationMetadata;
+  highlights?: ReaderSessionDraftHighlightPayload[];
+}
+export interface VideoSessionDraftPayload extends SessionDraftClientPayloadBase {}
+interface SessionDraftClientEnvelopeBase<
+  TMode extends SessionDraftMode,
+  TPayload extends SessionDraftClientPayloadBase
+> {
+  schemaVersion: typeof SESSION_DRAFT_SCHEMA_VERSION;
+  draftId: string;
+  mode: TMode;
+  pageKey: string;
+  pageUrl: string;
+  pageTitle: string;
+  createdAt: number;
+  updatedAt: number;
+  expiresAt: number;
+  status: SessionDraftStatus;
+  payload: TPayload;
+  revision?: number;
+  lease?: SessionDraftLease;
+  legacyCleanup?: SessionDraftLegacyCleanupObligation;
+}
+export type ReaderSessionDraftEnvelope = SessionDraftClientEnvelopeBase<
+  'reader',
+  ReaderSessionDraftPayload
+>;
+export type VideoSessionDraftEnvelope = SessionDraftClientEnvelopeBase<
+  'video',
+  VideoSessionDraftPayload
+>;
+export type SessionDraftClientEnvelope = ReaderSessionDraftEnvelope | VideoSessionDraftEnvelope;
+export function hasPersistedSessionDraftRevision<T extends { revision?: number }>(
+  envelope: T
+): envelope is T & { revision: number } {
+  return Number.isInteger(envelope.revision) && (envelope.revision ?? 0) >= 1;
+}
+export function isRestorableSessionDraftStatus(status: SessionDraftStatus): boolean {
+  return status === 'active' || status === 'restorable';
 }
 interface SessionDraftRecordBase {
   draftId: string;
@@ -62,6 +118,7 @@ export interface SessionDraftEnvelope extends SessionDraftRecordBase {
   schemaVersion: typeof SESSION_DRAFT_SCHEMA_VERSION;
   revision: number;
   lease?: SessionDraftLease | undefined;
+  legacyCleanup?: SessionDraftLegacyCleanupObligation | undefined;
 }
 export type SessionDraftRecord = SessionDraftLegacyRecord | SessionDraftEnvelope;
 
@@ -86,6 +143,7 @@ export type SessionDraftMutationOperation =
   | 'claim'
   | 'renew'
   | 'release'
+  | 'migrate'
   | 'prune';
 export type SessionDraftMutationSuccessOutcome =
   | 'saved'
@@ -94,11 +152,27 @@ export type SessionDraftMutationSuccessOutcome =
   | 'claimed'
   | 'renewed'
   | 'released'
+  | 'migrated'
   | 'pruned';
 export type SessionDraftMutationOutcome =
   | SessionDraftMutationSuccessOutcome
   | 'none'
   | 'invalid_removed';
+export const SESSION_DRAFT_MUTATION_OPERATION_BY_OUTCOME: Record<
+  SessionDraftMutationOutcome,
+  SessionDraftMutationOperation
+> = {
+  saved: 'save',
+  finalized: 'finalize',
+  removed: 'remove',
+  claimed: 'claim',
+  renewed: 'renew',
+  released: 'release',
+  migrated: 'migrate',
+  pruned: 'prune',
+  none: 'claim',
+  invalid_removed: 'claim'
+};
 export type SessionDraftSelectionReason =
   | 'restorable'
   | 'expired_owner_inactive'
@@ -146,48 +220,6 @@ export type SessionDraftCommitPreparation =
 export type SessionDraftTransitionResult =
   | { outcome: 'success'; envelope: SessionDraftEnvelope }
   | { outcome: 'conflict'; code: SessionDraftConflictCode };
-
-export interface SessionDraftIndexQuarantine {
-  capturedAt: number;
-  byteLength: number;
-  truncated: boolean;
-  value?: SessionDraftJsonValue | undefined;
-}
-
-export type SessionDraftConflictCode =
-  | 'OWNER_CONTEXT_INVALID'
-  | 'SESSION_DRAFT_STORAGE_ENUMERATION_UNAVAILABLE'
-  | 'REQUEST_ID_REUSE'
-  | 'INDEX_RECOVERY_FAILED'
-  | 'STORAGE_FAILURE'
-  | 'STORAGE_KEY_MISMATCH'
-  | 'DRAFT_EXISTS'
-  | 'DRAFT_NOT_FOUND'
-  | 'REVISION_CONFLICT'
-  | 'LEASE_REQUIRED'
-  | 'LEASE_CONFLICT'
-  | 'OWNER_CONFLICT'
-  | 'OWNER_ACTIVE'
-  | 'OWNER_LIVENESS_UNAVAILABLE'
-  | 'TERMINAL_DRAFT'
-  | 'TERMINAL_REQUIRED'
-  | 'REMOVAL_PENDING'
-  | 'PAYLOAD_INVALID'
-  | 'PAYLOAD_TOO_LARGE'
-  | 'CAPACITY_EXCEEDED'
-  | 'RECORD_CHANGED';
-
-export type SessionDraftOwnerLivenessTarget =
-  | {
-      kind: 'leased-v2';
-      key: string;
-      leaseId: string;
-      owner: SessionDraftTrustedOwnerContext;
-    }
-  | { kind: 'legacy-v1'; key: string; owner: SessionDraftTrustedOwnerContext };
-export type SessionDraftOwnerLivenessProbe = (
-  target: SessionDraftOwnerLivenessTarget
-) => Promise<'active' | 'inactive'>;
 
 export interface SessionDraftStoreOptions {
   ownerLivenessProbe: SessionDraftOwnerLivenessProbe;

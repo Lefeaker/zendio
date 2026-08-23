@@ -4,25 +4,29 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Mock, MockInstance } from 'vitest';
 import {
   createSessionDraftPageKey,
-  createSessionDraftRepository,
   createSessionDraftStorageKey,
   createSessionDraftStoragePolicy,
+  normalizeSessionDraftStoredValue,
   type SessionDraftStoragePolicy,
   type VideoSessionDraftEnvelope
-} from '@content/sessionDrafts';
+} from '@shared/sessionDrafts';
+import { createSessionDraftRepository } from '@content/sessionDrafts';
 import {
   buildVideoSessionDraftPayload,
   createVideoSessionDraftEnvelope,
   type VideoSessionDraftPayloadShape
 } from '@content/video/sessionDrafts';
 import { VideoSessionState } from '@content/video/sessionState';
-import { createMemoryStorageArea } from '@platform/preview/memoryStorage';
 import type { ExportDestinationMetadata } from '@shared/exportDestination';
 import type { UsageEventParamMap } from '@shared/types/analytics';
-import type { StorageAreaService } from '@platform/interfaces/storage';
+import type { StorageAreaService, StorageValueMap } from '@platform/interfaces/storage';
 import { VideoSessionDraftController } from '@content/video/videoSessionDraftController';
+import { loadStoredCaptureData } from '@content/video/captureStorage';
 import type { VideoCaptureScreenshot } from '@content/video/types';
 import { createVideoSessionDraftScreenshotCacheMaintenance } from '@content/video/videoSessionDraftScreenshotCache';
+import { createSessionDraftStore } from '../../../../src/background/services/sessionDraftStore';
+import { handleSessionDraftMessage } from '../../../../src/background/listeners/sessionDraftMessages';
+import { configureSessionDraftRuntimeMessenger } from '../../../../src/content/sessionDrafts/sessionDraftTabContext';
 import {
   createVideoScreenshotCacheStorageKey,
   type VideoScreenshotCacheRef
@@ -30,6 +34,7 @@ import {
 import type { VideoScreenshotCacheRepository } from '@content/video/videoScreenshotCacheRepository';
 
 type TrackedStorageArea = StorageAreaService & {
+  getAll(): Promise<StorageValueMap>;
   setMany: Mock<StorageAreaService['setMany']>;
   remove: Mock<StorageAreaService['remove']>;
 };
@@ -40,11 +45,60 @@ type TimestampDraftCapture = Extract<
 type VideoDraftRestoreTelemetryParams = UsageEventParamMap['video_draft_restored'];
 
 function createTrackedStorageArea(): TrackedStorageArea {
-  const area = createMemoryStorageArea();
+  const values = new Map<string, StorageValueMap[string]>();
+  const area: StorageAreaService & { getAll(): Promise<StorageValueMap> } = {
+    get: <T>(key: string) => Promise.resolve(values.get(key) as T | undefined),
+    getMany: <T>(keys: string[]) =>
+      Promise.resolve(
+        Object.fromEntries(keys.map((key) => [key, values.get(key) as T | undefined]))
+      ),
+    getAll: () => Promise.resolve(Object.fromEntries(values)),
+    set: <T>(key: string, value: T) => {
+      values.set(key, value);
+      return Promise.resolve();
+    },
+    setMany: <T>(entries: Record<string, T>) => {
+      for (const [key, value] of Object.entries(entries)) values.set(key, value);
+      return Promise.resolve();
+    },
+    remove: (keys: string | string[]) => {
+      for (const key of Array.isArray(keys) ? keys : [keys]) values.delete(key);
+      return Promise.resolve();
+    },
+    clear: () => {
+      values.clear();
+      return Promise.resolve();
+    },
+    watchKey: () => () => undefined,
+    watchAll: () => () => undefined
+  };
   return {
     ...area,
     setMany: vi.fn<StorageAreaService['setMany']>(area.setMany),
     remove: vi.fn<StorageAreaService['remove']>(area.remove)
+  };
+}
+
+function configureDraftMessageFixture(
+  storage: TrackedStorageArea,
+  retentionPolicy?: SessionDraftStoragePolicy['retentionPolicy']
+): (url: string | undefined) => void {
+  const created = createSessionDraftStore(storage, {
+    ownerLivenessProbe: () => Promise.resolve('inactive'),
+    createLeaseId: () => 'test-lease',
+    ...(retentionPolicy ? { retentionPolicy } : {})
+  });
+  if (!created.ok) throw new Error(created.code);
+  let senderUrl: string | undefined;
+  configureSessionDraftRuntimeMessenger((message) =>
+    handleSessionDraftMessage(created.store, normalizeSessionDraftStoredValue(message), {
+      tabId: 7,
+      frameId: 0,
+      ...(senderUrl ? { url: senderUrl } : {})
+    }).then((result) => result as never)
+  );
+  return (url) => {
+    senderUrl = url;
   };
 }
 
@@ -147,6 +201,10 @@ function createHarness(
 ) {
   const state = new VideoSessionState('gradient');
   const storage = createTrackedStorageArea();
+  const setDraftSenderUrl = configureDraftMessageFixture(
+    storage,
+    options.sessionDraftStoragePolicy?.retentionPolicy
+  );
   const destinationState = createDestinationState(options.destinationMetadata);
   let domDrafts: Record<string, string> = {};
   const dom = {
@@ -188,6 +246,7 @@ function createHarness(
     controller,
     destinationState,
     cleanupState,
+    setDraftSenderUrl,
     setDomDrafts: (drafts: Record<string, string>) => {
       domDrafts = { ...drafts };
     }
@@ -307,18 +366,17 @@ function readDraftRestoreTelemetryPayload(
 }
 
 describe('VideoSessionDraftController', () => {
-  let warnSpy: MockInstance<(...data: unknown[]) => void>;
+  let warnSpy: MockInstance<typeof console.warn>;
 
   beforeEach(() => {
     document.body.innerHTML = '<video></video>';
     document.title = 'Video Title';
     vi.useFakeTimers();
-    warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => undefined) as MockInstance<
-      (...data: unknown[]) => void
-    >;
+    warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
   });
 
   afterEach(() => {
+    configureSessionDraftRuntimeMessenger(null);
     warnSpy.mockRestore();
     vi.useRealTimers();
   });
@@ -427,30 +485,38 @@ describe('VideoSessionDraftController', () => {
 
     controller.bindPersistence();
     window.dispatchEvent(new Event('pagehide'));
-    await waitForAsyncWork();
+    await controller.dispose({ flush: true });
 
-    let latestDraft = await repository.loadLatest('video', document.location.href);
-    expect(latestDraft).toMatchObject({ status: 'restorable' });
+    let candidates = await repository.listCandidates('video', document.location.href);
+    expect(candidates).toEqual(
+      expect.arrayContaining([expect.objectContaining({ status: 'restorable' })])
+    );
 
     const callsAfterBind = storage.setMany.mock.calls.length;
-    await controller.dispose();
 
     window.dispatchEvent(new Event('pagehide'));
     window.dispatchEvent(new Event('beforeunload'));
     await waitForAsyncWork();
 
     expect(storage.setMany).toHaveBeenCalledTimes(callsAfterBind);
-    latestDraft = await repository.loadLatest('video', document.location.href);
-    expect(latestDraft).toMatchObject({ status: 'restorable' });
+    candidates = await repository.listCandidates('video', document.location.href);
+    expect(candidates).toEqual(
+      expect.arrayContaining([expect.objectContaining({ status: 'restorable' })])
+    );
   });
 
   it('hydrates captures, comment drafts, and destination state from a restored same-page draft', async () => {
-    const destination = {
+    const destinationFixture: ExportDestinationMetadata & {
+      adapterId: string;
+      title: string;
+      type: string;
+    } = {
       kind: 'downloads',
       adapterId: 'downloads',
       title: 'Downloads',
       type: 'folder'
-    } as const;
+    };
+    const destination: ExportDestinationMetadata = destinationFixture;
     const harness = createHarness();
     await seedRestorableDraft(harness.storage, { destination });
 
@@ -711,12 +777,11 @@ describe('VideoSessionDraftController', () => {
     expect(maxActiveLoads).toBeLessThanOrEqual(4);
     expect(screenshotCache.load).toHaveBeenCalledTimes(6);
     for (const capture of harness.state.captures) {
-      const hydratedCapture = capture as TimestampDraftCapture & {
-        screenshot?: VideoCaptureScreenshot;
-      };
-      expect(hydratedCapture.kind).toBe('timestamp');
-      expect(hydratedCapture.screenshotRequested).toBe(true);
-      expect(hydratedCapture.screenshot?.content).toMatchObject({ kind: 'blob' });
+      if (capture.kind !== 'timestamp') {
+        throw new Error('expected a restored timestamp capture');
+      }
+      expect(capture.screenshotRequested).toBe(true);
+      expect(capture.screenshot?.content).toMatchObject({ kind: 'blob' });
     }
   });
 
@@ -787,8 +852,9 @@ describe('VideoSessionDraftController', () => {
     expect(telemetryPayload).not.toContain(screenshotRef.captureId);
     expect(telemetryPayload).not.toContain('restored note');
 
-    await vi.advanceTimersByTimeAsync(150);
+    await vi.advanceTimersByTimeAsync(200);
     await waitForAsyncWork();
+    await harness.controller.flushNow('active');
     const storedDraft = await harness.repository.loadLatest('video', document.location.href);
     if (!storedDraft || storedDraft.mode !== 'video') {
       throw new Error('expected saved video draft after stale ref cleanup');
@@ -1036,7 +1102,7 @@ describe('VideoSessionDraftController', () => {
     expect(trackDraftRestoreEvent).toHaveBeenCalledTimes(1);
   });
 
-  it('writes exported terminal envelopes to the current and restored exact keys before cleanup', async () => {
+  it('finalizes and removes the current exact key after superseded recovery cleanup', async () => {
     const harness = createHarness();
     const { storage, controller, repository, state, setDomDrafts } = harness;
     const { draft: restoredDraft, storageKey: restoredDraftKey } = await seedRestorableDraft(
@@ -1075,26 +1141,18 @@ describe('VideoSessionDraftController', () => {
     const currentDraftKey = getDraftStorageKey(currentDraft);
 
     storage.remove.mockClear();
-    storage.remove.mockImplementation(async (...args) => {
-      const [value] = args;
-      if (matchesRemovalKey(value, currentDraftKey) || matchesRemovalKey(value, restoredDraftKey)) {
-        throw new Error('terminal cleanup should be best-effort');
-      }
-      return await passthroughRemove(...args);
-    });
+    storage.remove.mockImplementation(passthroughRemove);
 
     const terminalized = await controller.finalizeTerminal('exported');
 
     expect(terminalized).toBe(true);
     await expect(repository.loadLatest('video', document.location.href)).resolves.toBeNull();
-    await expect(storage.get<VideoSessionDraftEnvelope>(currentDraftKey)).resolves.toMatchObject({
-      draftId: currentDraft.draftId,
-      status: 'exported'
-    });
-    await expect(storage.get<VideoSessionDraftEnvelope>(restoredDraftKey)).resolves.toMatchObject({
-      draftId: restoredDraft.draftId,
-      status: 'exported'
-    });
+    await expect(storage.get<VideoSessionDraftEnvelope>(currentDraftKey)).resolves.toBeUndefined();
+    await expect(storage.get<VideoSessionDraftEnvelope>(restoredDraftKey)).resolves.toBeUndefined();
+    const removedKeys = storage.remove.mock.calls.flatMap(([value]) =>
+      Array.isArray(value) ? value : [value]
+    );
+    expect(removedKeys).toContain(currentDraftKey);
   });
 
   it('returns false on terminal persistence failure and keeps the active draft intact', async () => {
@@ -1245,29 +1303,46 @@ describe('VideoSessionDraftController', () => {
       prepare: async (harness: ReturnType<typeof createHarness>) => {
         const { storageKey } = await seedRestorableDraft(harness.storage, { commentDrafts: {} });
         await harness.controller.restoreDraftState();
-        return storageKey;
+        return { targetKey: storageKey, pageUrl: document.location.href };
       }
     },
     {
       label: 'legacy',
       prepare: async (harness: ReturnType<typeof createHarness>) => {
-        await harness.storage.set('legacy-video-captures', { legacy: true });
-        harness.controller.handleLegacyRestore('legacy-video-captures');
-        harness.state.captures = [createTimestampCapture()];
-        return 'legacy-video-captures';
+        const pageUrl = 'https://www.youtube.com/watch?v=video-1';
+        const targetKey = 'yt:video-1';
+        const legacyCapture = createTimestampCapture('ts-1');
+        harness.setDraftSenderUrl(pageUrl);
+        harness.controller.updateActivePageUrl(pageUrl);
+        await harness.storage.set(targetKey, {
+          entries: [legacyCapture],
+          updatedAt: 1
+        });
+        const loaded = await loadStoredCaptureData(harness.storage, targetKey);
+        if (!loaded) throw new Error('expected legacy capture data');
+        harness.controller.handleLegacyRestore(loaded);
+        harness.state.captures = [legacyCapture];
+        return { targetKey, pageUrl };
       }
     }
   ])('$label cleanup failures are warned but not fatal', async ({ prepare }) => {
     const harness = createHarness();
     const { controller, repository, state, setDomDrafts, storage } = harness;
-    const targetKey = await prepare(harness);
+    const { targetKey, pageUrl } = await prepare(harness);
     state.captures = [createTimestampCapture('ts-1')];
     setDomDrafts({});
-    storage.remove.mockImplementation(async (value) => {
-      if (matchesRemovalKey(value, targetKey)) {
+    const passthroughRemove = storage.remove.getMockImplementation();
+    if (!passthroughRemove) {
+      throw new Error('expected storage remove implementation');
+    }
+    let rejectTargetCleanupOnce = true;
+    storage.remove.mockImplementation(async (...args) => {
+      const [value] = args;
+      if (rejectTargetCleanupOnce && matchesRemovalKey(value, targetKey)) {
+        rejectTargetCleanupOnce = false;
         throw new Error(`cleanup failed for ${targetKey}`);
       }
-      return undefined;
+      return await passthroughRemove(...args);
     });
 
     const result = await controller.flushNow('active');
@@ -1277,7 +1352,7 @@ describe('VideoSessionDraftController', () => {
       '[VideoSession] Failed to clear superseded durable draft sources:',
       expect.any(Error)
     );
-    await expect(repository.listCandidates('video', document.location.href)).resolves.toEqual(
+    await expect(repository.listCandidates('video', pageUrl)).resolves.toEqual(
       expect.arrayContaining([expect.objectContaining({ status: 'active' })])
     );
   });

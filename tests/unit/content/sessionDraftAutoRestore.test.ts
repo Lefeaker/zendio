@@ -5,14 +5,23 @@ import type { StorageService } from '@platform/interfaces/storage';
 import { createMemoryStorageArea } from '@platform/preview/memoryStorage';
 import {
   SESSION_DRAFT_INDEX_KEY,
+  SessionDraftRuntimeMessageSchema,
+  createSessionDraftIndex,
+  createSessionDraftIndexEntry,
   createSessionDraftPageKey,
-  createSessionDraftRepository,
   createSessionDraftStoragePolicy,
   createSessionDraftStorageKey,
+  normalizeSessionDraftStoredValue,
+  SESSION_DRAFT_LEASE_DURATION_MS,
+  SessionDraftEnvelopeSchema,
+  type SessionDraftClientEnvelope,
   type SessionDraftEnvelope,
+  type SessionDraftRequest,
   type ReaderSessionDraftEnvelope,
-  type SessionDraftStoragePolicy
-} from '@content/sessionDrafts';
+  type SessionDraftStoragePolicy,
+  type VideoSessionDraftEnvelope
+} from '@shared/sessionDrafts';
+import { createSessionDraftRepository } from '@content/sessionDrafts';
 import type {
   ReaderSessionAdapter,
   VideoSessionAdapter
@@ -23,6 +32,9 @@ import {
   buildVideoSessionDraftPayload,
   createVideoSessionDraftEnvelope
 } from '@content/video/sessionDrafts';
+import { createSessionDraftStore } from '../../../src/background/services/sessionDraftStore';
+import { handleSessionDraftMessage } from '../../../src/background/listeners/sessionDraftMessages';
+import { configureSessionDraftRuntimeMessenger } from '../../../src/content/sessionDrafts/sessionDraftTabContext';
 
 function createHarness(
   initialUrl: string,
@@ -37,10 +49,52 @@ function createHarness(
   });
 
   let href = initialUrl;
+  const localBase = createMemoryStorageArea();
+  const localValues = new Map<string, unknown>();
+  const local = {
+    ...localBase,
+    async set<T>(key: string, value: T) {
+      await localBase.set(key, value);
+      localValues.set(key, value);
+    },
+    async setMany<T>(entries: Record<string, T>) {
+      await localBase.setMany(entries);
+      for (const [key, value] of Object.entries(entries)) localValues.set(key, value);
+    },
+    async remove(keys: string | string[]) {
+      await localBase.remove(keys);
+      for (const key of Array.isArray(keys) ? keys : [keys]) localValues.delete(key);
+    },
+    async clear() {
+      await localBase.clear();
+      localValues.clear();
+    },
+    getAll() {
+      return Promise.resolve(Object.fromEntries(localValues));
+    }
+  };
   const storage: StorageService = {
-    local: createMemoryStorageArea(),
+    local,
     sync: createMemoryStorageArea()
   };
+  const draftStore = createSessionDraftStore(storage.local, {
+    ownerLivenessProbe: () => Promise.resolve('inactive'),
+    createLeaseId: () => 'auto-restore-lease',
+    ...(options.sessionDraftStoragePolicy
+      ? { retentionPolicy: options.sessionDraftStoragePolicy.retentionPolicy }
+      : {})
+  });
+  if (!draftStore.ok) throw new Error(draftStore.code);
+  const operations: SessionDraftRequest[] = [];
+  configureSessionDraftRuntimeMessenger((message) => {
+    const normalized = normalizeSessionDraftStoredValue(message);
+    const parsed = SessionDraftRuntimeMessageSchema.safeParse(normalized);
+    if (parsed.success) operations.push(parsed.data.request);
+    return handleSessionDraftMessage(draftStore.store, normalized, {
+      tabId: 9,
+      frameId: 0
+    }).then((result) => result as never);
+  });
   const repository = createSessionDraftRepository(
     storage.local,
     options.sessionDraftStoragePolicy
@@ -49,11 +103,23 @@ function createHarness(
   );
   const readerStart = vi.fn<ReaderSessionAdapter['start']>().mockResolvedValue(undefined);
   const videoStart = vi.fn<VideoSessionAdapter['start']>().mockResolvedValue(undefined);
-  const createReaderSession = vi.fn<() => ReaderSessionAdapter>(() => ({
+  const createReaderSession = vi.fn<
+    (
+      draft: ReaderSessionDraftEnvelope,
+      signal: AbortSignal,
+      onStartCommitted: () => void
+    ) => ReaderSessionAdapter
+  >(() => ({
     start: readerStart,
     ingestExternalHighlight: vi.fn()
   }));
-  const createVideoSession = vi.fn<() => VideoSessionAdapter>(() => ({
+  const createVideoSession = vi.fn<
+    (
+      draft: VideoSessionDraftEnvelope,
+      signal: AbortSignal,
+      onStartCommitted: () => void
+    ) => VideoSessionAdapter
+  >(() => ({
     start: videoStart,
     ingestTextCapture: vi.fn()
   }));
@@ -63,6 +129,7 @@ function createHarness(
 
   return {
     repository,
+    operations,
     storage,
     currentUrl: () => href,
     setUrl: (url: string) => {
@@ -95,7 +162,7 @@ function createHarness(
 
 async function seedStoredDraft(
   harness: ReturnType<typeof createHarness>,
-  envelope: SessionDraftEnvelope
+  envelope: SessionDraftClientEnvelope
 ): Promise<void> {
   const storageKey = createSessionDraftStorageKey({
     mode: envelope.mode,
@@ -103,22 +170,25 @@ async function seedStoredDraft(
     draftId: envelope.draftId
   });
 
+  const record: SessionDraftEnvelope = SessionDraftEnvelopeSchema.parse({
+    ...envelope,
+    revision: 1,
+    ...(envelope.status === 'restorable'
+      ? {}
+      : {
+          lease: {
+            leaseId: `fixture-${envelope.draftId}`,
+            owner: { tabId: 9, frameId: 0 },
+            renewedAt: envelope.updatedAt,
+            leaseExpiresAt: envelope.updatedAt + SESSION_DRAFT_LEASE_DURATION_MS
+          }
+        })
+  });
   await harness.storage.local.setMany({
-    [storageKey]: envelope,
-    [SESSION_DRAFT_INDEX_KEY]: {
-      schemaVersion: 1,
-      entries: [
-        {
-          key: storageKey,
-          draftId: envelope.draftId,
-          mode: envelope.mode,
-          pageKey: envelope.pageKey,
-          updatedAt: envelope.updatedAt,
-          expiresAt: envelope.expiresAt,
-          status: envelope.status
-        }
-      ]
-    }
+    [storageKey]: record,
+    [SESSION_DRAFT_INDEX_KEY]: createSessionDraftIndex([
+      createSessionDraftIndexEntry(storageKey, record)
+    ])
   });
 }
 
@@ -218,7 +288,10 @@ describe('sessionDraftAutoRestore', () => {
     const stop = harness.start();
     await flushAsyncWork();
 
-    expect(harness.videoStart).toHaveBeenCalledTimes(1);
+    await vi.waitFor(() => expect(harness.videoStart).toHaveBeenCalledTimes(1));
+    const claimedVideoDraft = harness.createVideoSession.mock.calls[0]?.[0];
+    expect(claimedVideoDraft?.draftId).toMatch(/^video-/);
+    expect(claimedVideoDraft?.lease).toBeDefined();
     expect(harness.readerStart).not.toHaveBeenCalled();
     stop();
   });
@@ -231,7 +304,10 @@ describe('sessionDraftAutoRestore', () => {
     const stop = harness.start();
     await flushAsyncWork();
 
-    expect(harness.readerStart).toHaveBeenCalledTimes(1);
+    await vi.waitFor(() => expect(harness.readerStart).toHaveBeenCalledTimes(1));
+    const claimedReaderDraft = harness.createReaderSession.mock.calls[0]?.[0];
+    expect(claimedReaderDraft?.draftId).toMatch(/^reader-/);
+    expect(claimedReaderDraft?.lease).toBeDefined();
     expect(harness.readerStart.mock.calls[0]).toHaveLength(0);
     expect(harness.videoStart).not.toHaveBeenCalled();
     stop();
@@ -278,7 +354,7 @@ describe('sessionDraftAutoRestore', () => {
     const stop = harness.start();
     await flushAsyncWork();
 
-    expect(harness.readerStart).toHaveBeenCalledTimes(1);
+    await vi.waitFor(() => expect(harness.readerStart).toHaveBeenCalledTimes(1));
     expect(harness.videoStart).not.toHaveBeenCalled();
     stop();
   });
@@ -363,9 +439,106 @@ describe('sessionDraftAutoRestore', () => {
     const stop = harness.start();
     await flushAsyncWork();
 
-    expect(harness.videoStart).toHaveBeenCalledTimes(1);
+    await vi.waitFor(() => expect(harness.videoStart).toHaveBeenCalledTimes(1));
     expect(harness.readerStart).not.toHaveBeenCalled();
+    expect(
+      harness.operations
+        .filter((request) => request.operation === 'selectAndClaim')
+        .map((request) => request.mode)
+    ).toEqual(['video']);
     stop();
+  });
+
+  it('releases the auto-restore claim when session startup fails', async () => {
+    const url = 'https://www.youtube.com/watch?v=video-1';
+    const harness = createHarness(url);
+    document.body.appendChild(document.createElement('video'));
+    await harness.repository.save(createVideoDraftEnvelope(url));
+    harness.videoStart.mockRejectedValueOnce(new Error('startup failed'));
+    vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+
+    const stop = harness.start();
+    await flushAsyncWork();
+
+    await vi.waitFor(async () => {
+      const listed = await harness.repository.list({
+        operation: 'list',
+        mode: 'video',
+        pageUrl: url
+      });
+      expect(listed.outcome).toBe('listed');
+      if (listed.outcome === 'listed') {
+        expect(listed.envelopes[0]).toMatchObject({ status: 'restorable' });
+        expect(listed.envelopes[0]).not.toHaveProperty('lease');
+      }
+    });
+    stop();
+  });
+
+  it('releases the claim when auto-restore stops during pending startup', async () => {
+    const url = 'https://www.youtube.com/watch?v=video-1';
+    const harness = createHarness(url);
+    document.body.appendChild(document.createElement('video'));
+    await harness.repository.save(createVideoDraftEnvelope(url));
+    let finishStart: (() => void) | undefined;
+    harness.videoStart.mockImplementationOnce(
+      () =>
+        new Promise<void>((resolve) => {
+          finishStart = resolve;
+        })
+    );
+    vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+
+    const stop = harness.start();
+    await vi.waitFor(() => expect(harness.videoStart).toHaveBeenCalledTimes(1));
+    stop();
+
+    await vi.waitFor(async () => {
+      const listed = await harness.repository.list({
+        operation: 'list',
+        mode: 'video',
+        pageUrl: url
+      });
+      expect(listed.outcome).toBe('listed');
+      if (listed.outcome === 'listed') expect(listed.envelopes[0]).not.toHaveProperty('lease');
+    });
+    finishStart?.();
+  });
+
+  it('does not release a claim after the real session accepts startup ownership', async () => {
+    const url = 'https://www.youtube.com/watch?v=video-1';
+    const harness = createHarness(url);
+    document.body.appendChild(document.createElement('video'));
+    await harness.repository.save(createVideoDraftEnvelope(url));
+    let finishStart: (() => void) | undefined;
+    harness.createVideoSession.mockImplementationOnce((_draft, _signal, commit) => {
+      commit();
+      return {
+        start: () =>
+          new Promise<void>((resolve) => {
+            finishStart = resolve;
+          }),
+        ingestTextCapture: vi.fn()
+      };
+    });
+    vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+
+    const stop = harness.start();
+    await vi.waitFor(() => expect(harness.createVideoSession).toHaveBeenCalledTimes(1));
+    stop();
+
+    const listed = await harness.repository.list({
+      operation: 'list',
+      mode: 'video',
+      pageUrl: url
+    });
+    expect(listed.outcome).toBe('listed');
+    if (listed.outcome === 'listed') {
+      const envelope = listed.envelopes[0];
+      if (!envelope || !('lease' in envelope)) throw new Error('expected claimed draft lease');
+      expect(envelope.lease).toBeDefined();
+    }
+    finishStart?.();
   });
 
   it('reacts to navigation events and rechecks the new URL', async () => {
@@ -382,7 +555,7 @@ describe('sessionDraftAutoRestore', () => {
     window.dispatchEvent(new PopStateEvent('popstate'));
     await flushAsyncWork();
 
-    expect(harness.readerStart).toHaveBeenCalledTimes(1);
+    await vi.waitFor(() => expect(harness.readerStart).toHaveBeenCalledTimes(1));
     stop();
   });
 
@@ -401,7 +574,7 @@ describe('sessionDraftAutoRestore', () => {
     document.dispatchEvent(new Event('visibilitychange'));
     await flushAsyncWork();
 
-    expect(harness.videoStart).toHaveBeenCalledTimes(1);
+    await vi.waitFor(() => expect(harness.videoStart).toHaveBeenCalledTimes(1));
     stop();
   });
 });
