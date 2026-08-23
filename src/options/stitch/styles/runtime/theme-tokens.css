@@ -3,7 +3,7 @@
 .stitch-runtime-surface,
 html[data-preview-theme='dark'] {
   color-scheme: dark;
-  --bg: #09090b;
+  --bg: var(--zendio-stitch-bg);
   --bg-soft: #0c0c0f;
   --bg-muted: #121215;
   --sidebar: rgba(12, 12, 15, 0.84);
@@ -11,13 +11,13 @@ html[data-preview-theme='dark'] {
   --panel-strong: #18181b;
   --surface-muted: #0f0f12;
   --surface-muted-strong: #1e1e22;
-  --line: #27272a;
+  --line: var(--zendio-stitch-line);
   --line-strong: #52525b;
-  --text: #fafafa;
+  --text: var(--zendio-stitch-text);
   --text-dim: #d4d4d8;
   --text-faint: #a1a1aa;
   --text-subtle: #71717a;
-  --accent: #a78bfa;
+  --accent: var(--zendio-stitch-accent);
   --accent-strong: #7c3aed;
   --accent-soft: rgba(167, 139, 250, 0.16);
   --accent-soft-strong: rgba(167, 139, 250, 0.24);
@@ -37,7 +37,7 @@ html[data-preview-theme='dark'] {
   --shadow-switch-knob: 0 1px 4px rgba(0, 0, 0, 0.16);
   --shadow-toast-accent: 0 16px 32px rgba(17, 22, 45, 0.28);
   --radius-sm: 4px;
-  --radius-md: 8px;
+  --radius-md: var(--zendio-stitch-radius-md);
   --radius-lg: 12px;
   --radius-xl: 12px;
   --radius-full: 9999px;
@@ -149,7 +149,7 @@ html[data-preview-theme='dark'] {
   --z-modal: 60;
   --blur-sidebar: blur(22px);
   --blur-modal: blur(18px);
-  --motion-fast: 140ms;
+  --motion-fast: var(--zendio-stitch-motion-fast);
   --motion-base: 160ms;
   --ease-standard: ease;
   --transition-colors:
@@ -211,7 +211,7 @@ html[data-preview-theme='dark'] {
 html[data-preview-theme='light'],
 .stitch-runtime-surface[data-preview-theme='light'] {
   color-scheme: light;
-  --bg: #f5f6fb;
+  --bg: var(--zendio-stitch-bg);
   --bg-soft: #fcfcff;
   --bg-muted: #ffffff;
   --sidebar: rgba(255, 255, 255, 0.88);
@@ -219,13 +219,13 @@ html[data-preview-theme='light'],
   --panel-strong: #f5f3ff;
   --surface-muted: #f7f7fb;
   --surface-muted-strong: #efeff6;
-  --line: #e4e4eb;
+  --line: var(--zendio-stitch-line);
   --line-strong: #c9c9d4;
-  --text: #111114;
+  --text: var(--zendio-stitch-text);
   --text-dim: #3f3f46;
   --text-faint: #71717a;
   --text-subtle: #8d8d98;
-  --accent: #7c3aed;
+  --accent: var(--zendio-stitch-accent);
   --accent-strong: #6d28d9;
   --accent-soft: rgba(124, 58, 237, 0.12);
   --accent-soft-strong: rgba(124, 58, 237, 0.18);

@@ -17,6 +17,7 @@ export interface PrimitiveBadgeProps {
   size?: BadgeSize;
   iconName?: UiIconName;
   dataRole?: string;
+  classSlots?: readonly string[];
 }
 
 const BADGE_VARIANT_CLASS: Record<BadgeVariant, string> = {
@@ -37,12 +38,14 @@ const BADGE_SIZE_CLASS: Record<BadgeSize, string> = {
 
 export function createBadgeElement(props: PrimitiveBadgeProps): HTMLSpanElement {
   const badge = document.createElement('span');
-  badge.className = [
-    'badge',
-    BADGE_VARIANT_CLASS[props.variant ?? 'default'],
-    BADGE_SIZE_CLASS[props.size ?? 'md'],
-    'gap-1'
-  ]
+  badge.className = (
+    props.classSlots ?? [
+      'badge',
+      BADGE_VARIANT_CLASS[props.variant ?? 'default'],
+      BADGE_SIZE_CLASS[props.size ?? 'md'],
+      'gap-1'
+    ]
+  )
     .filter(Boolean)
     .join(' ')
     .trim();

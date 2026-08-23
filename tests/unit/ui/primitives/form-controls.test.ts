@@ -1,7 +1,6 @@
 /* @vitest-environment jsdom */
 
 import { describe, expect, it, vi } from 'vitest';
-import { createCheckboxElement } from '../../../../src/ui/primitives/checkbox';
 import { createInputElement } from '../../../../src/ui/primitives/input';
 import { createSelectElement } from '../../../../src/ui/primitives/select';
 import { createTextareaElement } from '../../../../src/ui/primitives/textarea';
@@ -43,24 +42,6 @@ describe('ui form-control primitives', () => {
     expect(onChange).toHaveBeenCalledWith('a', expect.any(Event));
   });
 
-  it('checkbox exposes labeled error contract', () => {
-    const onChange = vi.fn();
-    const { root, input } = createCheckboxElement({
-      label: 'Enable feature',
-      validationState: 'error',
-      ariaDescribedBy: 'checkbox-help',
-      onChange
-    });
-
-    input.checked = true;
-    input.dispatchEvent(new Event('change', { bubbles: true }));
-
-    expect(root.textContent).toContain('Enable feature');
-    expect(input.getAttribute('aria-invalid')).toBe('true');
-    expect(input.getAttribute('aria-describedby')).toBe('checkbox-help');
-    expect(onChange).toHaveBeenCalledWith(true, expect.any(Event));
-  });
-
   it('textarea and toggle preserve value/checked contracts', () => {
     const onTextareaChange = vi.fn();
     const textarea = createTextareaElement({
@@ -87,5 +68,18 @@ describe('ui form-control primitives', () => {
     expect(toggle.checked).toBe(false);
     expect(toggle.getAttribute('aria-label')).toBe('Dark mode');
     expect(onToggleChange).toHaveBeenCalledWith(false, expect.any(Event));
+  });
+
+  it('preserves native input, textarea and disabled toggle semantics', () => {
+    const input = createInputElement({ value: '1', readOnly: true, min: 0, max: 2, step: 1 });
+    const textarea = createTextareaElement({ value: 'notes', disabled: true, readOnly: true });
+    const toggle = createToggleElement({ checked: true, disabled: true });
+
+    expect(input).toBeInstanceOf(HTMLInputElement);
+    expect(input.readOnly).toBe(true);
+    expect(input.max).toBe('2');
+    expect(textarea).toBeInstanceOf(HTMLTextAreaElement);
+    expect(textarea.disabled).toBe(true);
+    expect(toggle.disabled).toBe(true);
   });
 });

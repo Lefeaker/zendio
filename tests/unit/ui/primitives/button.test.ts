@@ -32,4 +32,21 @@ describe('ui button primitive', () => {
     expect(button.dataset.role).toBe('open-dialog');
     expect(button.dataset.contractRole).toBe('open-button');
   });
+
+  it('keeps surface mousedown prevention ahead of click handling', () => {
+    const onClick = vi.fn();
+    const button = createOptionsButtonElement({
+      label: 'Open',
+      onClick,
+      classSlots: ['btn', 'primary'],
+      onMouseDown: (event) => event.preventDefault()
+    });
+    const down = new MouseEvent('mousedown', { bubbles: true, cancelable: true });
+    button.dispatchEvent(down);
+    button.click();
+
+    expect(down.defaultPrevented).toBe(true);
+    expect(onClick).toHaveBeenCalledTimes(1);
+    expect(button.firstElementChild?.tagName).toBe('SPAN');
+  });
 });
