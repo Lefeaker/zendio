@@ -33,7 +33,9 @@ describe('Stitch UI components', () => {
 
     expect(select).toBeInstanceOf(HTMLSelectElement);
     expect(select.value).toBe('b');
-    expect(switchRow.querySelector('input[type="checkbox"]')?.checked).toBe(true);
+    expect(
+      switchRow.querySelector<HTMLInputElement>('input[type="checkbox"]')?.checked
+    ).toBe(true);
     expect(table.querySelector('table > thead th')?.getAttribute('scope')).toBe('col');
   });
 
