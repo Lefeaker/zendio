@@ -6,6 +6,7 @@ import type {
 } from '../../shared/repositories/IClipRepository';
 import type { IOptionsRepository, IMessagingRepository } from '../../shared/repositories';
 import type { TemplateOptions } from '../../shared/types/options';
+import type { OptionsPatch } from '../../shared/types/optionsMutationMessages';
 
 function clone<T>(value: T): T {
   if (typeof globalThis.structuredClone === 'function') {
@@ -32,13 +33,44 @@ export class ChromeClipRepository implements IClipRepository {
   }
 
   async setFragmentConfig(config: Partial<FragmentConfig>): Promise<void> {
-    const current = await this.getFragmentConfig();
-    await this.optionsRepo.set({
-      fragmentClipper: {
-        ...current,
-        ...config
-      }
-    });
+    const patches: OptionsPatch[] = [];
+    if (config.useFootnoteFormat !== undefined) {
+      patches.push({
+        path: ['fragmentClipper', 'useFootnoteFormat'],
+        value: config.useFootnoteFormat
+      });
+    }
+    if (config.captureContext !== undefined) {
+      patches.push({
+        path: ['fragmentClipper', 'captureContext'],
+        value: config.captureContext
+      });
+    }
+    if (config.contextLength !== undefined) {
+      patches.push({ path: ['fragmentClipper', 'contextLength'], value: config.contextLength });
+    }
+    if (config.contextMode !== undefined) {
+      patches.push({ path: ['fragmentClipper', 'contextMode'], value: config.contextMode });
+    }
+    if (config.selectionTriggerMode !== undefined) {
+      patches.push({
+        path: ['fragmentClipper', 'selectionTriggerMode'],
+        value: config.selectionTriggerMode
+      });
+    }
+    if (config.selectionModifierKeys !== undefined) {
+      patches.push({
+        path: ['fragmentClipper', 'selectionModifierKeys'],
+        value: [...config.selectionModifierKeys]
+      });
+    }
+    if (config.keyboardShortcutsEnabled !== undefined) {
+      patches.push({
+        path: ['fragmentClipper', 'keyboardShortcutsEnabled'],
+        value: config.keyboardShortcutsEnabled
+      });
+    }
+    if (patches.length > 0) await this.optionsRepo.patch(patches);
   }
 
   async getTemplateConfig(): Promise<TemplateOptions> {

@@ -2,14 +2,25 @@ import { getPlatformServices } from '../platform';
 import { registerRepositories } from '../shared/di/serviceRegistry';
 import { startBackgroundRuntime } from './backgroundStartup';
 import { createDefaultTrialLifecycleDependencies, registerTrialLifecycle } from './trialLifecycle';
+import { ChromeOptionsRepository } from '../infrastructure/repositories/ChromeOptionsRepository';
+import {
+  createBackgroundOptionsRepository,
+  createOptionsMutationCoordinator
+} from './services/optionsMutationCoordinator';
 
 const platformServices = getPlatformServices();
+const optionsStorageRepository = new ChromeOptionsRepository(platformServices.storage);
+const optionsMutationCoordinator = createOptionsMutationCoordinator(optionsStorageRepository);
 
 registerRepositories({
   storage: platformServices.storage,
   messaging: platformServices.messaging,
   tabs: platformServices.tabs,
-  runtime: platformServices.runtime
+  runtime: platformServices.runtime,
+  optionsRepository: createBackgroundOptionsRepository(
+    optionsStorageRepository,
+    optionsMutationCoordinator
+  )
 });
 
 startBackgroundRuntime({
@@ -19,7 +30,8 @@ startBackgroundRuntime({
   runtime: platformServices.runtime,
   scripting: platformServices.scripting,
   storage: platformServices.storage,
-  tabs: platformServices.tabs
+  tabs: platformServices.tabs,
+  optionsMutationCoordinator
 });
 
 registerTrialLifecycle(

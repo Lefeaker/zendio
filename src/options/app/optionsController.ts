@@ -147,7 +147,11 @@ export class OptionsController {
     const payload = draft ?? this.formAdapter.read(this.snapshot);
     const cloned = deepClone(payload);
     try {
-      await this.persistence.save(cloned);
+      if (reason === 'import' && this.persistence.replace) {
+        await this.persistence.replace(cloned);
+      } else {
+        await this.persistence.save(cloned);
+      }
       this.snapshot = toStoredOptions(cloned);
       this.callbacks.onSaveSuccess?.(reason, cloned);
     } catch (error) {

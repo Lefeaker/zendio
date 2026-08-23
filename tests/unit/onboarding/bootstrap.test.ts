@@ -615,7 +615,8 @@ describe('onboarding bootstrap', () => {
           }
         })
       ),
-      set: vi.fn(() => Promise.resolve(undefined))
+      patch: vi.fn(() => Promise.resolve({} as never)),
+      onChange: vi.fn(() => () => undefined)
     };
     const controller = new OnboardingController(
       createNavigationRepoMock(),
@@ -634,24 +635,20 @@ describe('onboarding bootstrap', () => {
 
     analytics?.click();
     await vi.waitFor(() => {
-      expect(optionsRepository.set).toHaveBeenCalledWith({
-        privacyPreferences: {
-          analytics: true,
-          errorReporting: true,
-          debugMode: true
-        }
-      });
+      expect(optionsRepository.patch).toHaveBeenCalledWith([
+        { path: ['privacyPreferences', 'analytics'], value: true },
+        { path: ['privacyPreferences', 'errorReporting'], value: true },
+        { path: ['privacyPreferences', 'debugMode'], value: true }
+      ]);
     });
 
     errorReporting?.click();
     await vi.waitFor(() => {
-      expect(optionsRepository.set).toHaveBeenLastCalledWith({
-        privacyPreferences: {
-          analytics: true,
-          errorReporting: false,
-          debugMode: false
-        }
-      });
+      expect(optionsRepository.patch).toHaveBeenLastCalledWith([
+        { path: ['privacyPreferences', 'analytics'], value: true },
+        { path: ['privacyPreferences', 'errorReporting'], value: false },
+        { path: ['privacyPreferences', 'debugMode'], value: false }
+      ]);
     });
   });
 

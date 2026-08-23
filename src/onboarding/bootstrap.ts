@@ -390,9 +390,20 @@ export class OnboardingController {
       if ((!nextSnapshot.analytics || !nextSnapshot.errorReporting) && nextSnapshot.debugMode) {
         nextSnapshot.debugMode = false;
       }
-      await optionsRepository.set({
-        privacyPreferences: nextSnapshot
-      });
+      await optionsRepository.patch([
+        {
+          path: ['privacyPreferences', 'analytics'],
+          value: nextSnapshot.analytics
+        },
+        {
+          path: ['privacyPreferences', 'errorReporting'],
+          value: nextSnapshot.errorReporting
+        },
+        {
+          path: ['privacyPreferences', 'debugMode'],
+          value: nextSnapshot.debugMode
+        }
+      ]);
       this.applyPrivacySnapshotToControls(nextSnapshot);
       await this.applyRuntimePrivacySnapshot(nextSnapshot, field);
     } catch (error) {

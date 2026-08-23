@@ -47,7 +47,8 @@ export interface ProductionStitchActionContext {
     field: 'analytics' | 'errorReporting' | 'debugMode',
     value: boolean
   ): Promise<void>;
-  persistThemePreference(theme: InterfaceTheme): void;
+  persistThemePreference(theme: InterfaceTheme): Promise<void>;
+  runPersistenceTask(key: string, task: () => Promise<void>): void;
   refreshAppData(): void;
   render(): void;
   renderActiveResourceModal(): void;
@@ -80,16 +81,18 @@ export function createProductionStitchActions(
     ...createProductionSelectionTriggerActions(context),
     'preview:setTheme': ({ value, mutate: update }) => {
       const theme: InterfaceTheme = value === 'light' || value === 'system' ? value : 'dark';
-      update(
-        (next) => {
-          next.interfaceThemePreference = theme;
-          next.previewTheme = persistTheme(theme);
-        },
-        { silent: true }
-      );
-      context.persistThemePreference(theme);
-      context.syncPreviewThemeControls();
-      context.trackThemeChanged?.(theme);
+      context.runPersistenceTask('options:theme', async () => {
+        update(
+          (next) => {
+            next.interfaceThemePreference = theme;
+            next.previewTheme = persistTheme(theme);
+          },
+          { silent: true }
+        );
+        context.syncPreviewThemeControls();
+        await context.persistThemePreference(theme);
+        context.trackThemeChanged?.(theme);
+      });
     },
     'preview:setLanguage': ({ value, mutate: update }) => {
       const nextLanguage = String(value || context.getCurrentLanguage()) as Language;
@@ -99,14 +102,14 @@ export function createProductionStitchActions(
         },
         { silent: true }
       );
-      void (async () => {
+      context.runPersistenceTask('options:language', async () => {
         const nextResource = context.changeLanguage
           ? await context.changeLanguage(nextLanguage)
           : { messages: context.getMessages(), language: nextLanguage };
         context.setLanguageResource(nextResource);
         context.render();
         context.trackLanguageChanged?.(nextLanguage);
-      })();
+      });
     },
     'resource:close': () => {
       context.setState({ ...context.getState(), activeResource: null });
@@ -228,13 +231,15 @@ export function createProductionStitchActions(
         context.getDraft().subtitleTranslation.targetLanguage || state.subtitleTargetLanguage;
     },
     'overview:clearUsageData': () => {
-      void context.resetUsageData().finally(() => {
+      context.runPersistenceTask('usage:reset', async () => {
+        await context.resetUsageData();
         context.refreshAppData();
         context.render();
       });
     },
     'overview:clearAnalyticsData': () => {
-      void context.clearAnalyticsPrivacyData().finally(() => {
+      context.runPersistenceTask('privacy:clear', async () => {
+        await context.clearAnalyticsPrivacyData();
         context.refreshAppData();
         context.render();
       });
@@ -244,10 +249,15 @@ export function createProductionStitchActions(
       if (!['analytics', 'errorReporting', 'debugMode'].includes(field)) {
         return;
       }
-      void context.persistPrivacyPreference(field, Boolean(value)).finally(() => context.render());
+      context.runPersistenceTask(`privacy:${field}`, async () => {
+        await context.persistPrivacyPreference(field, Boolean(value));
+        context.render();
+      });
     },
     'maintenance:copyConfig': ({ value }) => {
-      void context.copyConfigurationToClipboard(context.eventButton(value));
+      context.runPersistenceTask('maintenance:copy', () =>
+        context.copyConfigurationToClipboard(context.eventButton(value))
+      );
     },
     'maintenance:diagnose': () => {
       context.setMaintenanceLog(
@@ -257,13 +267,15 @@ export function createProductionStitchActions(
       context.render();
     },
     'maintenance:importConfig': ({ value }) => {
-      void context.importConfigurationWithStatus(context.eventButton(value));
+      context.runPersistenceTask('options:import', () =>
+        context.importConfigurationWithStatus(context.eventButton(value))
+      );
     },
     'maintenance:repair': () => {
-      void context.repairConfiguration();
+      context.runPersistenceTask('options:repair', () => context.repairConfiguration());
     },
     'maintenance:reload': () => {
-      void context.reloadOptions();
+      context.runPersistenceTask('options:reload', () => context.reloadOptions());
     },
     'classifier:updateField': ({ args, value }) => {
       const result = context.updateClassifierField(String(args[0] ?? ''), value);

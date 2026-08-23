@@ -131,7 +131,8 @@ describe('options bootstrap', () => {
     repositoryContainer.reset();
     repositoryContainer.registerSingleton(DI_TOKENS.IOptionsRepository, () => ({
       get: vi.fn(),
-      set: vi.fn(),
+      patch: vi.fn(),
+      replace: vi.fn(),
       onChange: vi.fn(() => () => undefined)
     }));
     repositoryContainer.registerSingleton(DI_TOKENS.IMessagingRepository, () => ({

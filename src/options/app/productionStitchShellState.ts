@@ -16,28 +16,8 @@ import {
   toTemplateValues
 } from './productionStitchStateMapper';
 import { updateVideoDraftPath } from './productionStitchVideoDraftState';
+import { UnavailableOptionsRepository } from '../../infrastructure/repositories/UnavailableOptionsRepository';
 
-export function createLocalOptionsRepositoryFallback(): IOptionsRepository {
-  let snapshot = mergeOptions(null);
-  const listeners = new Set<(options: CompleteOptions) => void>();
-  return {
-    get() {
-      return Promise.resolve(snapshot);
-    },
-    set(options) {
-      snapshot = mergeOptions({ ...snapshot, ...options });
-      listeners.forEach((listener) => listener(snapshot));
-      return Promise.resolve();
-    },
-    onChange(callback) {
-      listeners.add(callback);
-      callback(snapshot);
-      return () => {
-        listeners.delete(callback);
-      };
-    }
-  };
-}
 export function createLocalMessagingRepositoryFallback(): IMessagingRepository {
   return {
     send<T>() {
@@ -53,7 +33,7 @@ export function resolveOptionsRepositoryFallback(): IOptionsRepository {
   try {
     return resolveRepository<IOptionsRepository>(DI_TOKENS.IOptionsRepository);
   } catch {
-    return createLocalOptionsRepositoryFallback();
+    return new UnavailableOptionsRepository();
   }
 }
 export function resolveMessagingRepositoryFallback(): IMessagingRepository {

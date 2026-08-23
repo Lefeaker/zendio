@@ -28,12 +28,9 @@ export class ChromeVideoRepository implements IVideoRepository {
   }
 
   async savePromptPosition(position: { x: number; y: number }): Promise<void> {
-    const current = await this.getVideoConfig();
-    await this.optionsRepo.set({
-      video: {
-        ...current,
-        promptPosition: position
-      }
+    await this.optionsRepo.patch({
+      path: ['video', 'promptPosition'],
+      value: position
     });
   }
 
@@ -41,14 +38,16 @@ export class ChromeVideoRepository implements IVideoRepository {
     autoPauseEnabled: boolean;
     captureScreenshotEnabled: boolean;
   }): Promise<void> {
-    const current = await this.getVideoConfig();
-    await this.optionsRepo.set({
-      video: {
-        ...current,
-        controlBarAutoPause: preferences.autoPauseEnabled,
-        controlBarScreenshot: preferences.captureScreenshotEnabled
+    await this.optionsRepo.patch([
+      {
+        path: ['video', 'controlBarAutoPause'],
+        value: preferences.autoPauseEnabled
+      },
+      {
+        path: ['video', 'controlBarScreenshot'],
+        value: preferences.captureScreenshotEnabled
       }
-    });
+    ]);
   }
 
   async getPromptPosition(): Promise<{ x: number; y: number } | null> {

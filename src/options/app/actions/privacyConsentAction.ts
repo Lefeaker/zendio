@@ -1,13 +1,15 @@
 import type { IOptionsRepository } from '@shared/repositories';
-import type { PrivacyConsentSnapshot } from '@ui/domains/privacy';
+import type { PrivacyPreferencesOptions } from '@shared/types/options';
 
 export async function persistPrivacyConsentAction(
-  snapshot: PrivacyConsentSnapshot,
+  snapshot: PrivacyPreferencesOptions,
   dependencies: {
-    optionsRepository: Pick<IOptionsRepository, 'set'>;
+    optionsRepository: Pick<IOptionsRepository, 'patch'>;
   }
 ): Promise<void> {
-  await dependencies.optionsRepository.set({
-    privacyPreferences: snapshot
-  });
+  await dependencies.optionsRepository.patch([
+    { path: ['privacyPreferences', 'analytics'], value: snapshot.analytics },
+    { path: ['privacyPreferences', 'errorReporting'], value: snapshot.errorReporting },
+    { path: ['privacyPreferences', 'debugMode'], value: snapshot.debugMode }
+  ]);
 }

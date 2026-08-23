@@ -1,10 +1,11 @@
-import type { CompleteOptions } from '../types/options';
+import type { OptionsPatch } from '../types/optionsMutationMessages';
+import type { CompleteOptions, StoredOptions } from '../types/options';
 
 /**
  * Options 存储访问接口
  *
  * 职责:
- * - 提供 Options 的读写访问
+ * - 提供 Options 的读取、显式 patch / strict replace 访问
  * - 管理 onChange 订阅,实现单一真相源
  * - 集中错误处理,屏蔽底层 storage API 差异
  */
@@ -16,12 +17,9 @@ export interface IOptionsRepository {
    */
   get: () => Promise<CompleteOptions>;
 
-  /**
-   * 更新部分配置
-   * @param options 要更新的配置字段(部分)
-   * @throws StorageError 当 storage 写入失败时
-   */
-  set: (options: Partial<CompleteOptions>) => Promise<void>;
+  patch: (patches: OptionsPatch | readonly OptionsPatch[]) => Promise<CompleteOptions>;
+
+  replace: (options: StoredOptions | CompleteOptions) => Promise<CompleteOptions>;
 
   /**
    * 订阅配置变更

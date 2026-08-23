@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { CompleteOptions } from '@shared/types/options';
 import { DEFAULT_OPTIONS } from '@shared/config/defaultOptions';
+import type { OptionsPatch } from '@shared/types/optionsMutationMessages';
 
 const clone = <T>(value: T): T => JSON.parse(JSON.stringify(value)) as T;
 
@@ -8,9 +9,12 @@ describe('optionsStore sanitization', () => {
   const onChangeMock = vi.fn<(...args: [(_: CompleteOptions) => void]) => () => void>(
     () => () => {}
   );
-  const setMock = vi
-    .fn<(...args: [Partial<CompleteOptions>]) => Promise<void>>()
-    .mockResolvedValue(undefined);
+  const patchMock = vi
+    .fn<(...args: [OptionsPatch | readonly OptionsPatch[]]) => Promise<CompleteOptions>>()
+    .mockResolvedValue(clone(DEFAULT_OPTIONS as CompleteOptions));
+  const replaceMock = vi
+    .fn<(...args: [CompleteOptions]) => Promise<CompleteOptions>>()
+    .mockImplementation((options) => Promise.resolve(options));
   const getMock = vi.fn<(...args: []) => Promise<CompleteOptions>>();
 
   beforeEach(() => {
@@ -25,7 +29,8 @@ describe('optionsStore sanitization', () => {
     repositoryContainer.reset();
     repositoryContainer.registerSingleton(DI_TOKENS.IOptionsRepository, () => ({
       get: getMock,
-      set: setMock,
+      patch: patchMock,
+      replace: replaceMock,
       onChange: onChangeMock
     }));
     const { optionsStore } = await import('../../../src/options/state/optionsStore');
@@ -51,16 +56,18 @@ describe('optionsStore sanitization', () => {
     expect(result.yamlConfig?.contentTypes?.article?.fields).toEqual([
       { name: 'title', type: 'text', enabled: true }
     ]);
-    expect(setMock).toHaveBeenCalledWith({
-      vaultRouter: undefined,
-      yamlConfig: {
-        contentTypes: {
-          article: {
-            fields: [{ name: 'title', type: 'text', enabled: true }]
+    expect(patchMock).toHaveBeenCalledWith([
+      {
+        path: ['yamlConfig'],
+        value: {
+          contentTypes: {
+            article: {
+              fields: [{ name: 'title', type: 'text', enabled: true }]
+            }
           }
         }
       }
-    });
+    ]);
   });
 
   it('clears snapshot on replace(null) and notifies subscribers with undefined', async () => {
@@ -69,7 +76,8 @@ describe('optionsStore sanitization', () => {
     repositoryContainer.reset();
     repositoryContainer.registerSingleton(DI_TOKENS.IOptionsRepository, () => ({
       get: getMock,
-      set: setMock,
+      patch: patchMock,
+      replace: replaceMock,
       onChange: onChangeMock
     }));
     const { optionsStore } = await import('../../../src/options/state/optionsStore');
@@ -91,7 +99,8 @@ describe('optionsStore sanitization', () => {
     repositoryContainer.reset();
     repositoryContainer.registerSingleton(DI_TOKENS.IOptionsRepository, () => ({
       get: getMock,
-      set: setMock,
+      patch: patchMock,
+      replace: replaceMock,
       onChange: onChangeMock
     }));
     const { optionsStore } = await import('../../../src/options/state/optionsStore');
@@ -102,14 +111,37 @@ describe('optionsStore sanitization', () => {
 
     await optionsStore.save(next);
 
-    expect(setMock).toHaveBeenCalledTimes(1);
-    expect(setMock).toHaveBeenCalledWith(
-      expect.objectContaining({
-        rest: expect.objectContaining({
-          baseUrl: 'https://options.example.com/'
-        }) as CompleteOptions['rest']
-      }) as Partial<CompleteOptions>
+    expect(patchMock).toHaveBeenCalledTimes(1);
+    expect(patchMock).toHaveBeenCalledWith(
+      expect.arrayContaining([
+        {
+          path: ['rest', 'baseUrl'],
+          value: 'https://options.example.com/'
+        }
+      ])
     );
+  });
+
+  it('uses strict replacement for imported or reset snapshots', async () => {
+    const { repositoryContainer } = await import('../../../src/shared/di/serviceRegistry');
+    const { DI_TOKENS } = await import('../../../src/shared/di/tokens');
+    repositoryContainer.reset();
+    repositoryContainer.registerSingleton(DI_TOKENS.IOptionsRepository, () => ({
+      get: getMock,
+      patch: patchMock,
+      replace: replaceMock,
+      onChange: onChangeMock
+    }));
+    const { replacePersisted, optionsStore } =
+      await import('../../../src/options/state/optionsStore');
+    optionsStore.reset();
+    const replacement = clone(DEFAULT_OPTIONS as CompleteOptions);
+    replacement.interfaceTheme = 'dark';
+
+    await replacePersisted(replacement);
+
+    expect(replaceMock).toHaveBeenCalledWith(replacement);
+    expect(patchMock).not.toHaveBeenCalled();
   });
 
   it('does not re-emit identical snapshots to subscribers', async () => {
@@ -118,7 +150,8 @@ describe('optionsStore sanitization', () => {
     repositoryContainer.reset();
     repositoryContainer.registerSingleton(DI_TOKENS.IOptionsRepository, () => ({
       get: getMock,
-      set: setMock,
+      patch: patchMock,
+      replace: replaceMock,
       onChange: onChangeMock
     }));
     const { optionsStore } = await import('../../../src/options/state/optionsStore');

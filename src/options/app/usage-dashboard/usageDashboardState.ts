@@ -1,6 +1,5 @@
 import type { UsageStats, UsageStatsHistoryEntry } from '@shared/types/usage';
 import { DEFAULT_USAGE_STATS, normalizeUsageStats } from '@shared/constants';
-import type { CompleteOptions } from '@shared/types/options';
 import { createAnalyticsEventMessage } from '@shared/types/analytics';
 import type { IMessagingRepository } from '@shared/repositories';
 
@@ -27,12 +26,8 @@ export function cloneDefaultUsageStats(): UsageStats {
   };
 }
 
-export function resolveUsageStatsFromOptions(options: CompleteOptions | null): UsageStats {
-  const snapshot = (options as (CompleteOptions & { usageStats?: unknown }) | null)?.usageStats;
-  if (!snapshot) {
-    return cloneDefaultUsageStats();
-  }
-  return normalizeUsageStats(snapshot);
+export function resolveUsageStatsFromOptions(snapshot: UsageStats | null): UsageStats {
+  return snapshot ? normalizeUsageStats(snapshot) : cloneDefaultUsageStats();
 }
 
 export function createUsageStatsEventDetail(

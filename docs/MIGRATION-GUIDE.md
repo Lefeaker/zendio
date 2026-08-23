@@ -1,7 +1,7 @@
 # Repository 迁移指南
 
-> 版本: v1.0  
-> 最近更新时间: 2025-11-30  
+> 版本: v1.1
+> 最近更新时间: 2026-08-23
 > 适用范围: Shared / Options / Content Scripts 重构阶段
 
 ## 目录
@@ -23,6 +23,8 @@
 ## 1. 概述
 
 - 目标：让 UI / Service 层零 `chrome.*`、零 `getPlatformServices()`，全部通过 Repository 访问平台能力。
+- Options 额外要求：所有生产 mutation 通过 runtime message 到一个 background coordinator；调用方只使用
+  `get`、typed `patch`、strict `replace`、`onChange`，绝不在 messaging 失败后直接写 storage。
 - 范围：Options、Content Script、Shared Service，包含 YAML、Video、Clipper、Reader 等模块。
 - 成功指标：`npm run test:unit` 与 `npm run test:e2e` 全绿，`rg 'getPlatformServices()'` 仅在入口命中。
 
@@ -52,7 +54,7 @@ rg -n \"getPlatformServices()\" src/options src/content | rg -v \"Dependencies\"
 class UsageDashboardView {
   async clearStats() {
     const { storage } = getPlatformServices();
-    await storage.sync.set({ usageStats: {} });
+    await storage.local.remove('usageStats');
     this.render();
   }
 }
@@ -62,15 +64,17 @@ class UsageDashboardView {
 
 ```ts
 class UsageDashboardView {
-  private readonly repo = resolveRepository<IOptionsRepository>(DI_TOKENS.IOptionsRepository);
+  constructor(private readonly usageStats: UsageStatsClientLike) {}
 
   async clearStats(): Promise<void> {
-    await this.repo.set({ usageStats: {} });
+    const stats = await this.usageStats.reset();
+    this.render(stats);
   }
 }
 ```
 
-迁移后 UI 不再关心 storage 细节，只与 Repository 对话。
+迁移后 UI 不再关心 storage 细节，只与 serialized background usage owner 对话。Forward-write key
+只有 local `usageStats`；legacy `usage_stats` 和旧 raw Options root 仅由 background migration 清理。
 
 ## 4. 迁移步骤
 
@@ -79,7 +83,8 @@ class UsageDashboardView {
 3. **实现 Provider**：在 `src/infrastructure/repositories` 中实现 Chrome 版本。
 4. **注册 DI**：更新 `src/shared/di/serviceRegistry.ts`。
 5. **注入 Consumer**：修改 UI 或 Service，通过 `resolveRepository` 获取实例。
-6. **添加测试**：至少覆盖 `get/set/onChange`，并为 Mock 提供对应实现。
+6. **添加测试**：Options 至少覆盖 `get/patch/replace/onChange`、messaging failure、FIFO 与 rollback；
+   其他 Repository 按自身契约覆盖。
 7. **更新文档**：在 `docs/REPOSITORY-PATTERN.md` 与 `src/shared/repositories/README.md` 记录。
 
 ## 5. 验证策略
@@ -106,6 +111,9 @@ class UsageDashboardView {
 2. 如果某个 Repository 出现严重问题，可在 `serviceRegistry` 中切换回旧实现。
 3. 通过 Feature Flag 控制新旧逻辑切换，避免一次性上线风险。
 
+Options 例外：不得回滚到 client direct-write 或 mutable in-memory fallback。安全回滚点是已验证的 Git
+commit；运行时缺少 authority 时必须使用 `UnavailableOptionsRepository` fail closed。
+
 ## 7. 常见问题
 
 ### Q: UI 仍需要访问 `chrome.runtime.sendMessage` 怎么办？
@@ -118,7 +126,9 @@ A: Repository 层实现去重与节流；UI 层在组件销毁时务必取消订
 
 ### Q: Mock 实现是否需要模拟 storage？
 
-A: 需要。Mock 应与 Chrome 行为一致，保证测试结果可信。
+A: Consumer 单测不需要模拟 Chrome storage；使用 typed Repository mock。只有
+`ChromeOptionsRepository`、`OptionsMutationClient` 或 coordinator 自身的测试才 mock platform adapter。
+读-only consumer 只提供 `get`；缺少 DI 的测试必须模拟稳定 rejection，而不是成功的本地持久化。
 
 ## 8. Checklist
 
@@ -127,7 +137,8 @@ A: 需要。Mock 应与 Chrome 行为一致，保证测试结果可信。
 - [ ] 订阅逻辑提供取消函数
 - [ ] 错误包装为 `RepositoryError`
 - [ ] UI 不再使用 `getPlatformServices()`
-- [ ] 测试覆盖 get/set/onChange
+- [ ] Options 测试覆盖 get/patch/replace/onChange、失败无 direct-write fallback
+- [ ] Usage 读取/重置通过 `UsageStatsClient`，不写 Options root
 - [ ] 文档已更新
 - [ ] `scripts/check-migration-progress.sh` 无新增报警
 
@@ -141,7 +152,7 @@ A: 需要。Mock 应与 Chrome 行为一致，保证测试结果可信。
 ```ts
 export interface IFooRepository {
   get(): Promise<Foo>;
-  set(patch: Partial<Foo>): Promise<void>;
+  replace(value: Foo): Promise<void>;
   onChange(listener: (foo: Foo) => void): () => void;
 }
 
@@ -153,9 +164,9 @@ export class ChromeFooRepository implements IFooRepository {
     return snapshot.foo ?? DEFAULT_FOO;
   }
 
-  async set(patch: Partial<Foo>): Promise<void> {
-    const current = await this.get();
-    await this.storage.sync.set({ foo: { ...current, ...patch } });
+  async replace(value: Foo): Promise<void> {
+    const validated = FooSchema.parse(value);
+    await this.storage.sync.set({ foo: structuredClone(validated) });
   }
 
   onChange(listener: (foo: Foo) => void): () => void {
@@ -190,7 +201,7 @@ export class ChromeFooRepository implements IFooRepository {
 ### Pattern 1: UI 直接写 storage
 
 - 位置：`src/options/components/usageDashboard.ts`
-- 处理：抽取 `IUsageStatsRepository`，UI 改为调用 `clear()`。
+- 处理：注入 `UsageStatsClientLike`，UI 调用 `reset()`；background queue 拥有 migration/read/reset。
 
 ### Pattern 2: Content Script 使用 messaging
 
@@ -215,7 +226,8 @@ pnpx hygen repo register --name Foo
 pnpx hygen repo test --name Foo
 ```
 
-> 若 hygen 不可用，可复制 `MockOptionsRepository` 与 `ChromeOptionsRepository` 结构。
+> 若 hygen 不可用，可参考普通 Repository 的同类实现。Options 是特殊的跨上下文 authority：
+> client 参考 `OptionsMutationClient`，raw IO/coordinator 与 mock 必须分别建模，不能复制成直写实现。
 
 ## 14. 迁移案例时间线
 

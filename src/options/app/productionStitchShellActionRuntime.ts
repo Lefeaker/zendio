@@ -22,12 +22,17 @@ import {
   updateDraftPath
 } from './productionStitchShellState';
 import type { ProductionStitchWidgetHost } from './productionStitchWidgetHost';
+import {
+  createProductionStitchActionTaskOwner,
+  type ProductionStitchActionTaskOwner
+} from './productionStitchActionTaskOwner';
+import { formatOptionsError, showStatusMessage } from '@options/components/messages';
 
 interface ProductionStitchShellActionRuntimeOptions {
   mountRoot: HTMLElement;
   buttonPressScrollGuard: ButtonPressScrollGuard;
   controller: Pick<OptionsController, 'loadRaw' | 'scheduleAutoSave'>;
-  optionsRepository: Pick<IOptionsRepository, 'set'>;
+  optionsRepository: Pick<IOptionsRepository, 'patch'>;
   changeLanguage?: (
     language: Language
   ) => Promise<{ messages: Messages | null; language: Language }>;
@@ -36,6 +41,8 @@ interface ProductionStitchShellActionRuntimeOptions {
   getCurrentMessages(): Messages | null;
   getDraft(): CompleteOptions;
   getState(): PreviewStoreState;
+  setAppData(appData: PreviewContent): void;
+  setDraft(draft: CompleteOptions): void;
   setConnectionNotice(notice: PreviewContent['storage']['connectionNotice']): void;
   setDomainMappingRows(entries: Array<[string, string]>): void;
   setLanguageResource(resource: { messages: Messages | null; language: Language }): void;
@@ -62,6 +69,19 @@ interface ProductionStitchShellActionRuntimeOptions {
 
 export interface ProductionStitchShellActionRuntime {
   dispatch(actionId: string, args?: unknown[], value?: unknown, event?: Event): void;
+  dispose(): void;
+  waitForIdle(): Promise<void>;
+}
+
+interface PersistenceSnapshot {
+  appData: PreviewContent;
+  draft: CompleteOptions;
+  state: PreviewStoreState;
+}
+
+function clone<T>(value: T): T {
+  if (typeof globalThis.structuredClone === 'function') return globalThis.structuredClone(value);
+  return JSON.parse(JSON.stringify(value)) as T;
 }
 
 type AnalyticsSection =
@@ -238,6 +258,31 @@ export function createProductionStitchShellActionRuntime(
     widgetHost
   } = options;
   const telemetry = createProductionOptionsTelemetry(persistence);
+  const taskOwner: ProductionStitchActionTaskOwner = createProductionStitchActionTaskOwner();
+
+  function refreshAppDataWithUsage(): void {
+    options.refreshAppData();
+    persistence.restoreUsageStatsView();
+  }
+
+  function runPersistenceTask(key: string, task: () => Promise<void>): void {
+    taskOwner.run<PersistenceSnapshot>({
+      key,
+      capture: () => ({
+        appData: clone(options.getAppData()),
+        draft: clone(options.getDraft()),
+        state: clone(options.getState())
+      }),
+      task,
+      rollback: (snapshot, error) => {
+        options.setAppData(snapshot.appData);
+        options.setDraft(snapshot.draft);
+        options.setState(snapshot.state);
+        options.render();
+        showStatusMessage('error', formatOptionsError(error, options.getCurrentMessages()));
+      }
+    });
+  }
   const actionRuntime = createActionRuntime<PreviewStoreState, PreviewContent>({
     getContext: () => options.createSchemaContext(),
     mutate: (mutator, mutationOptions) => options.mutate(mutator, mutationOptions),
@@ -258,7 +303,7 @@ export function createProductionStitchShellActionRuntime(
           draft: options.getDraft(),
           state: options.getState(),
           setDomainMappingRows: (entries) => options.setDomainMappingRows(entries),
-          refreshAppData: () => options.refreshAppData(),
+          refreshAppData: refreshAppDataWithUsage,
           scheduleDraftSave: () => options.scheduleDraftSave(),
           render: () => options.render(),
           name
@@ -282,10 +327,12 @@ export function createProductionStitchShellActionRuntime(
       },
       persistPrivacyPreference: (field, value) =>
         persistence.persistPrivacyPreference(field, value),
-      persistThemePreference: (theme) => {
-        void optionsRepository.set({ interfaceTheme: theme } as Partial<CompleteOptions>);
+      persistThemePreference: async (theme) => {
+        options.getDraft().interfaceTheme = theme;
+        await optionsRepository.patch({ path: ['interfaceTheme'], value: theme });
       },
-      refreshAppData: () => options.refreshAppData(),
+      runPersistenceTask,
+      refreshAppData: refreshAppDataWithUsage,
       render: () => options.render(),
       renderActiveResourceModal: () => options.renderActiveResourceModal(),
       repairConfiguration: async () => {
@@ -353,5 +400,9 @@ export function createProductionStitchShellActionRuntime(
     }
   }
 
-  return { dispatch };
+  return {
+    dispatch,
+    dispose: () => taskOwner.dispose(),
+    waitForIdle: () => taskOwner.waitForIdle()
+  };
 }

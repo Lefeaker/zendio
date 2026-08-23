@@ -165,9 +165,8 @@ describe('ReaderSession selection modifiers', () => {
       },
       optionsRepository: {
         get: vi.fn(),
-        set: vi.fn(),
         onChange: vi.fn(() => () => undefined)
-      },
+      } as never,
       storage: platformHarness.storage as never,
       messaging: {
         send: vi.fn()

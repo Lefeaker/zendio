@@ -37,7 +37,10 @@ describe('mountProductionStitchShell theme', () => {
     expect(document.documentElement.dataset.previewTheme).toBe('light');
     expect(document.body.dataset.previewTheme).toBe('light');
     expect(window.localStorage.getItem('aob-theme')).toBe('light');
-    expect(repository.set).toHaveBeenLastCalledWith({ interfaceTheme: 'light' });
+    expect(repository.patch).toHaveBeenLastCalledWith({
+      path: ['interfaceTheme'],
+      value: 'light'
+    });
 
     const darkButton = Array.from(
       document.querySelectorAll<HTMLButtonElement>('.chips button')
@@ -48,7 +51,10 @@ describe('mountProductionStitchShell theme', () => {
     expect(document.documentElement.dataset.previewTheme).toBe('dark');
     expect(document.body.dataset.previewTheme).toBe('dark');
     expect(window.localStorage.getItem('aob-theme')).toBe('dark');
-    expect(repository.set).toHaveBeenLastCalledWith({ interfaceTheme: 'dark' });
+    expect(repository.patch).toHaveBeenLastCalledWith({
+      path: ['interfaceTheme'],
+      value: 'dark'
+    });
   });
 
   it('adds a system theme preference and resolves it immediately from media changes', () => {
@@ -108,13 +114,16 @@ describe('mountProductionStitchShell theme', () => {
 
   it('routes theme dispatch through the production action owner', () => {
     const state = { interfaceThemePreference: 'dark', previewTheme: 'dark' };
-    const persistThemePreference = vi.fn();
+    const persistThemePreference = vi.fn(() => Promise.resolve());
     const syncPreviewThemeControls = vi.fn();
     const actions = createProductionStitchActions({
       getCurrentLanguage: () => 'en',
       getMessages: () => null,
       getState: () => state,
       persistThemePreference,
+      runPersistenceTask: (_key: string, task: () => Promise<void>) => {
+        void task();
+      },
       syncPreviewThemeControls
     } as never);
 

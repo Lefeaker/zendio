@@ -1,7 +1,7 @@
 # Repository 模式实践手册
 
-> 版本: v1.0  
-> 最近更新时间: 2025-11-30  
+> 版本: v1.1
+> 最近更新时间: 2026-08-23
 > 适用范围: Shared / Options / Content Scripts
 
 ## 目录
@@ -72,13 +72,21 @@
                │ 注入实现
 ┌──────────────▼─────────────┐
 │ Infrastructure Providers   │
+│ - OptionsMutationClient    │
 │ - Chrome*Repository        │
 │ - Mock*Repository          │
-│ - Memory*Repository        │
+└──────────────┬─────────────┘
+               │ Options mutation message
+┌──────────────▼─────────────┐
+│ Background authorities     │
+│ - OptionsMutationCoordinator│
+│ - UsageStatsStore          │
 └────────────────────────────┘
 ```
 
-数据流：UI 调用 Repository，Repository 调用平台 API，更新后通过 onChange 推送，UI 被动刷新。
+数据流：Options UI 通过 `OptionsMutationClient` 读取、订阅或发送 typed mutation；background
+coordinator 在一个 FIFO 中重读、校验、写入并验证 storage，随后 `onChange` 让各上下文收敛。
+只有 background raw-storage owner 可以写 `options` key。其他 Repository 继续按各自契约访问平台。
 
 ## 分层职责矩阵
 
@@ -106,11 +114,14 @@ export const DI_TOKENS = {
 ### 注册
 
 ```ts
-registerRepository(DI_TOKENS.IOptionsRepository, () => {
-  const platform = getService<PlatformServices>(TOKENS.platformServices);
-  return new ChromeOptionsRepository(platform.storage, platform.runtime);
-});
+repositoryContainer.register(
+  DI_TOKENS.IOptionsRepository,
+  () => new OptionsMutationClient(new ChromeOptionsRepository(services.storage), services.messaging)
+);
 ```
+
+缺少 messaging/DI 时注册 `UnavailableOptionsRepository`：它只返回不可变预览快照；
+`patch`、`replace` 和迁移清理都以 `OPTIONS_MUTATION_AUTHORITY_UNAVAILABLE` 失败，禁止模拟成功写入。
 
 ### 解析
 
@@ -122,8 +133,8 @@ const repo = resolveRepository<IOptionsRepository>(DI_TOKENS.IOptionsRepository)
 
 ## 接口设计准则
 
-1. 方法命名统一：`get`, `set`, `update`, `delete`, `onChange`。
-2. 参数使用 `Partial<T>` 或 `DeepPartial<T>`，避免 UI 手动构造完整对象。
+1. 方法命名反映语义；Options 固定为 `get`, typed `patch`, strict `replace`, `onChange`。
+2. Options 不接受 `Partial<T>` / `DeepPartial<T>` 写入，调用方必须提供 schema 允许的 path/value patch。
 3. 返回 Promise，不得混用回调。
 4. `onChange` 返回取消订阅函数。
 5. 不暴露平台类型：输入输出只使用共享类型。
@@ -140,13 +151,14 @@ const repo = resolveRepository<IOptionsRepository>(DI_TOKENS.IOptionsRepository)
 - 仅在构造函数中接收 `PlatformServices`，不在方法内部调用 `getPlatformServices()`。
 - Promise 化所有回调 API：`await storage.sync.get()`。
 - 订阅时缓存 listener，并提供取消逻辑。
+- Options 的 Chrome provider 只负责读/观察与 background raw IO；客户端不得直接写 storage。
 - 写入前做深拷贝，防止调用方意外修改。
 
 ### Mock 实现
 
 - 仅依赖内存对象，支持注入初始数据与延迟。
 - `onChange` 立刻推送初始值，模拟真实行为。
-- 支持错误注入：下一次 `set` 抛出自定义异常，帮助覆盖错误路径。
+- 支持按操作注入 `patch`/`replace` 错误，帮助覆盖 rollback 路径。
 
 ### Memory/Batched 实现
 
@@ -155,12 +167,13 @@ const repo = resolveRepository<IOptionsRepository>(DI_TOKENS.IOptionsRepository)
 
 ## 错误与异常处理
 
-| 错误              | 触发条件               | 行动                       |
-| ----------------- | ---------------------- | -------------------------- |
-| `RepositoryError` | 基础异常包装           | 记录日志，提示重试         |
-| `StorageError`    | storage 权限或空间不足 | 引导用户开启同步或释放空间 |
-| `MessagingError`  | Service Worker 未响应  | 重试 + 提示刷新页面        |
-| `ValidationError` | UI 违规输入            | UI 层前置校验              |
+| 错误                   | 触发条件                                        | 行动                            |
+| ---------------------- | ----------------------------------------------- | ------------------------------- |
+| `OptionsMutationError` | mutation 校验、quota、drift 或 authority 不可用 | 回滚乐观状态并显示 typed notice |
+| `RepositoryError`      | 其他 Repository 基础异常包装                    | 记录日志，提示重试              |
+| `StorageError`         | storage 权限或空间不足                          | 引导用户开启同步或释放空间      |
+| `MessagingError`       | 非 Options messaging 失败                       | 提示刷新页面                    |
+| `ValidationError`      | UI 违规输入                                     | UI 层前置校验                   |
 
 处理规范：Repository 捕获原始错误 -> 转换为语义异常 -> 附带 context（数据 key、payload 大小）。
 
@@ -174,33 +187,32 @@ const repo = resolveRepository<IOptionsRepository>(DI_TOKENS.IOptionsRepository)
 ## Options Repository 示例
 
 ```ts
-export class ChromeOptionsRepository implements IOptionsRepository {
-  constructor(private readonly storage: PlatformStorageService) {}
+const options = resolveRepository<IOptionsRepository>(DI_TOKENS.IOptionsRepository);
 
-  async get(): Promise<CompleteOptions> {
-    const snapshot = await this.storage.sync.get('options');
-    return snapshot.options ?? DEFAULT_OPTIONS;
-  }
+const current = await options.get();
 
-  async set(patch: Partial<CompleteOptions>): Promise<void> {
-    const current = await this.get();
-    const next = deepMerge(current, patch);
-    await this.storage.sync.set({ options: next });
-  }
+await options.patch({
+  path: ['privacyPreferences', 'analytics'],
+  value: false
+});
 
-  onChange(listener: (options: CompleteOptions) => void): () => void {
-    const wrapped = (changes: StorageChanges, area: string) => {
-      if (area !== 'sync' || !changes.options) {
-        return;
-      }
-      listener(structuredClone(changes.options.newValue as CompleteOptions));
-    };
-    this.storage.onChanged.addListener(wrapped);
-    void this.get().then(listener);
-    return () => this.storage.onChanged.removeListener(wrapped);
-  }
-}
+// Import/reset is exclusive and does not preserve old opaque roots.
+await options.replace(importedStoredOptions);
+
+const unsubscribe = options.onChange((snapshot) => render(snapshot));
 ```
+
+Options mutation rules:
+
+- `patch` accepts one typed path/value operation or an ordered batch. The background coordinator rereads
+  current raw state before each queued mutation, preserves untouched opaque data, preflights quota, and
+  verifies readback. A deep-equal patch performs no write.
+- `replace` validates and encodes the whole supplied stored snapshot. Use it only for import/reset.
+- Messaging failure never falls back to a direct storage write.
+- Continued external drift fails with `EXTERNAL_SYNC_CONFLICT`; the production Stitch task owner rolls back
+  the optimistic UI snapshot and surfaces the typed notice.
+- Usage statistics are not an Options root. `UsageStatsClient.get()` / `reset()` message the serialized
+  background usage owner; forward writes use only local `usageStats`.
 
 ## Yaml Repository 示例
 
@@ -237,18 +249,19 @@ Video Session 导出流程：在 exporter 中注入 Repository，并改用 `vide
 ## Mock 与测试策略
 
 - UI 单测：注入 Mock Repository，断言 UI 被动更新。
-- Repository 单测：使用 Chrome mock storage，验证 get/set/onChange。
+- Options client/coordinator 单测：分别验证 `get`/`patch`/`replace`/`onChange`、FIFO、quota、drift 与无 fallback 写入。
 - 集成测试：Playwright + Repository 注入，确保 wiring 正确。
 
 Mock 设计：
 
 ```ts
-const mockRepo = new MockOptionsRepository({
-  initialData,
-  latencyMs: 20,
-  failNextSet: true
-});
+const mockRepo = new MockOptionsRepository();
+mockRepo.setMockData(initialData);
+await mockRepo.patch({ path: ['interfaceTheme'], value: 'dark' });
 ```
+
+读-only consumer 只 mock `Pick<IOptionsRepository, 'get'>`。需要模拟缺失 DI 时使用
+`UnavailableOptionsRepository` 或等价的稳定 rejection；不要创建会在内存中成功持久化的 fallback。
 
 ## 调试与诊断
 
@@ -265,7 +278,7 @@ rg -n "getPlatformServices()" src -g"*.ts"
 
 ## 性能与资源管理
 
-- 避免频繁写入：Options Repository 提供 `setBatch`。
+- Options 的相关字段可作为一个有序 patch 数组提交，并由 background FIFO 串行处理。
 - 高频场景使用内存缓存后再 flush。
 - 网络 Repository 控制并发：`p-limit` 最大 4。
 - 订阅数量受控：Large UI 需在 destroy 中清除。
@@ -273,7 +286,7 @@ rg -n "getPlatformServices()" src -g"*.ts"
 ## 安全与隐私
 
 - 不记录敏感字段到日志。
-- set() 前调用 `sanitizeOptions`。
+- Options `patch`/`replace` 在共享 codec 和 background authority 中校验；日志只记录错误码、operation ID 与不可逆 raw signature。
 - Messaging 需校验 senderId。
 - Repository 不得执行 eval 或注入脚本。
 
@@ -290,20 +303,23 @@ rg -n "getPlatformServices()" src -g"*.ts"
 - [ ] 禁止 UI 使用 `getPlatformServices()`。
 - [ ] Repository 深拷贝返回结果。
 - [ ] onChange 立即推送初值并支持取消。
+- [ ] Options 只有 background raw-storage owner；客户端只使用 typed `patch` 或 strict `replace`。
+- [ ] 缺少 Options authority 时 mutation fail closed，不产生 listener success notification。
+- [ ] Usage reset 通过 `UsageStatsClient`，不写 Options root 或 local storage。
 - [ ] 错误包装为语义异常。
 - [ ] docs/README 已记录新接口。
 
 ## 附录 A: 接口一览
 
-| 接口                     | 说明                |
-| ------------------------ | ------------------- |
-| `IOptionsRepository`     | 管理 Options 配置   |
-| `IYamlRepository`        | 管理 YAML Overrides |
-| `IVideoClipRepository`   | 视频剪辑缓存        |
-| `IVaultRouterRepository` | Vault Router 配置   |
-| `IMessagingRepository`   | Runtime Messaging   |
-| `IUsageStatsRepository`  | 使用统计数据        |
-| `IFragmentRepository`    | Clipper 片段管理    |
+| 接口                     | 说明                    |
+| ------------------------ | ----------------------- |
+| `IOptionsRepository`     | 管理 Options 配置       |
+| `IYamlRepository`        | 管理 YAML Overrides     |
+| `IVideoClipRepository`   | 视频剪辑缓存            |
+| `IVaultRouterRepository` | Vault Router 配置       |
+| `IMessagingRepository`   | Runtime Messaging       |
+| `UsageStatsClientLike`   | Background usage client |
+| `IFragmentRepository`    | Clipper 片段管理        |
 
 ## 附录 B: 代码示例索引
 
@@ -318,7 +334,7 @@ rg -n "getPlatformServices()" src -g"*.ts"
 
 ```
 - [ ] 构造函数仅接收依赖
-- [ ] get/set 深拷贝
+- [ ] get/patch/replace 深拷贝且符合 codec
 - [ ] onChange 去重且可取消
 - [ ] 无 chrome.* 引用
 - [ ] 错误包装为 RepositoryError
@@ -339,7 +355,7 @@ rg -n "getPlatformServices()" src -g"*.ts"
 以下列表覆盖更多实践细节，供团队在不同阶段查阅：
 
 - [进阶实践 01] Repository 构造函数只注入依赖，不做任何 IO。
-- [进阶实践 02] get/set 均使用 `structuredClone` 或 `deepClone`。
+- [进阶实践 02] Repository 输入输出使用 `structuredClone` 或等价 snapshot boundary。
 - [进阶实践 03] onChange 回调需要 `try/catch` 以防 UI 订阅导致崩溃。
 - [进阶实践 04] 订阅回调立即触发一次初始值，确保 UI 渲染同步。
 - [进阶实践 05] Repository 不负责业务校验，校验应由领域 Service 完成。
@@ -350,14 +366,14 @@ rg -n "getPlatformServices()" src -g"*.ts"
 - [进阶实践 10] Repository 暴露的订阅应返回 `() => void`，不可返回 Promise。
 - [进阶实践 11] Mock 实现需支持延迟与错误注入，方便测试边界场景。
 - [进阶实践 12] 通过 `resolveRepository` 获取实例，避免直接访问容器。
-- [进阶实践 13] 对于批量写入场景提供 `setBatch` 或 `flush`。
+- [进阶实践 13] Options 批量写入使用一个 typed patch 数组；其他高吞吐 Repository 可提供 `flush`。
 - [进阶实践 14] Repository 内部缓存应有过期策略，避免 stale 数据。
 - [进阶实践 15] 每个 Repository 提供 README 或注释，说明用途与依赖。
 - [进阶实践 16] 订阅集合使用 `Set` 而非数组，方便去重与删除。
 - [进阶实践 17] onChange 回调参数应是不可变对象，可通过 `Object.freeze`。
 - [进阶实践 18] Repository 不得直接操作 DOM 或调用 UI 组件。
 - [进阶实践 19] Repository 可提供 `refresh()` 主动刷新接口。
-- [进阶实践 20] 通过 Vitest 覆盖 get/set/onChange，确保边界行为可靠。
+- [进阶实践 20] 通过 Vitest 覆盖接口的读取、mutation 与订阅边界。
 - [进阶实践 21] 所有 Repository 的 Token 在一个文件集中管理，防止重复。
 - [进阶实践 22] 对外暴露的类型统一存放在 `src/shared/types`。
 - [进阶实践 23] Repository 中的字符串常量放入 `shared/constants`。
@@ -440,7 +456,7 @@ rg -n "getPlatformServices()" src -g"*.ts"
 - [Review 提示 07] 确认没有 `chrome.*` 或 `browser.*` 泄漏到业务层。
 - [Review 提示 08] 如果 Repository 是新增的，README 是否同步。
 - [Review 提示 09] 对 Mock 实现的行为与 Chrome 版本逐项比对。
-- [Review 提示 10] 检查测试覆盖 critical path（get/set/onChange）。
+- [Review 提示 10] 检查测试覆盖 critical path（Options: get/patch/replace/onChange）。
 - [Review 提示 11] 确认 DI 注册在 `serviceRegistry` 中存在并包含依赖。
 - [Review 提示 12] 审核 payload 是否进行 sanitize 与 schema 校验。
 - [Review 提示 13] 检查重构是否更新相应文档与 audit 列表。

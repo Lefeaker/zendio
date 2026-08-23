@@ -1,10 +1,5 @@
 import { configProvider } from '@shared/config/provider';
-import {
-  DEFAULT_USAGE_STATS,
-  normalizeUsageStats,
-  USAGE_STATS_STORAGE_KEY
-} from '@shared/constants';
-import type { StorageService } from '@platform/interfaces/storage';
+import { DEFAULT_USAGE_STATS } from '@shared/constants';
 import type { IOptionsRepository, IMessagingRepository } from '@shared/repositories';
 import type { CompleteOptions } from '@shared/types/options';
 import {
@@ -25,11 +20,12 @@ import { updateErrorAnalyticsConfig } from '@shared/errors/analytics';
 import { serializeOptionsFullBackup } from './productionStitchConfigExport';
 import { readImportedConfigurationFromClipboard } from './productionStitchConfigImport';
 import { prepareAnalyticsDataClearedEvent } from './productionStitchFinalAnalyticsEvent';
-import { applyOptionsToState, LEGACY_USAGE_STATS_STORAGE_KEY } from './productionStitchStateMapper';
+import { applyOptionsToState, usageStatsToOverview } from './productionStitchStateMapper';
 import type { PreviewContent, PreviewStoreState } from '@options/stitch/types';
 import type { OptionsController } from './optionsController';
 import { getMessage, setButtonBusy } from './productionStitchPersistenceUi';
 import { repairTemplateOptions } from './productionStitchTemplateRepair';
+import type { UsageStatsClientLike } from './usage-dashboard/usageStatsClient';
 
 type PrivacyPreferenceField = 'analytics' | 'errorReporting' | 'debugMode';
 
@@ -41,9 +37,9 @@ interface PrivacySnapshot {
 
 interface ProductionStitchPersistenceOptions {
   controller: OptionsController;
-  optionsRepository: Pick<IOptionsRepository, 'get' | 'set' | 'onChange'>;
+  optionsRepository: Pick<IOptionsRepository, 'get' | 'patch' | 'replace' | 'onChange'>;
   messagingRepository: Pick<IMessagingRepository, 'send' | 'onMessage'>;
-  storage?: StorageService;
+  usageStatsClient: UsageStatsClientLike;
   now?: () => number;
   getAppData(): PreviewContent;
   getCurrentMessages(): Messages | null;
@@ -67,12 +63,35 @@ export interface ProductionStitchPersistence {
   persistPrivacyPreference(field: PrivacyPreferenceField, value: boolean): Promise<void>;
   repairConfiguration(): Promise<void>;
   resetUsageData(): Promise<void>;
+  restoreUsageStatsView(): void;
   trackUsageEvent(message: AnalyticsRuntimeEventPayload): Promise<void>;
 }
 
 export function createProductionStitchPersistence(
   options: ProductionStitchPersistenceOptions
 ): ProductionStitchPersistence {
+  let usageStatsSnapshot: UsageStats = {
+    ...DEFAULT_USAGE_STATS,
+    history: [...DEFAULT_USAGE_STATS.history]
+  };
+
+  function applyUsageStats(stats: UsageStats): void {
+    usageStatsSnapshot = { ...stats, history: stats.history.map((entry) => ({ ...entry })) };
+    const appData = options.getAppData();
+    options.setAppData({
+      ...appData,
+      overview: usageStatsToOverview(appData.overview, usageStatsSnapshot)
+    });
+  }
+
+  function restoreUsageStatsView(): void {
+    applyUsageStats(usageStatsSnapshot);
+  }
+
+  function refreshAppDataWithUsage(): void {
+    options.refreshAppData();
+    restoreUsageStatsView();
+  }
   async function trackUsageEvent(
     message: ReturnType<typeof createAnalyticsEventMessage>
   ): Promise<void> {
@@ -188,58 +207,35 @@ export function createProductionStitchPersistence(
       );
       options.controller.scheduleAutoSave(() => options.collectDraftWithWidgets());
     } catch (error) {
-      void error;
-      options.getState().privacyStatus = getMessage(
+      const failureMessage = getMessage(
         options.getCurrentMessages(),
         'clearDataError',
         DEFAULT_RUNTIME_MESSAGES.clearDataError
       );
+      options.getState().privacyStatus = failureMessage;
+      void error;
+      throw new Error(failureMessage);
     }
   }
 
   async function resetUsageData(): Promise<void> {
     const zeroStats = { ...DEFAULT_USAGE_STATS, history: [...DEFAULT_USAGE_STATS.history] };
-    (options.getDraft() as Record<string, unknown>).usageStats = zeroStats;
-    const appData = options.getAppData();
-    options.setAppData({
-      ...appData,
-      overview: {
-        ...appData.overview,
-        stats: appData.overview.stats.map((item) => ({ ...item, value: 0 })),
-        history: appData.overview.history.map((item) => ({ ...item, value: 0 }))
-      }
-    });
-    if (options.storage) {
-      await resetUsageStatsAction(zeroStats, {
-        optionsRepository: options.optionsRepository,
-        storage: options.storage,
+    applyUsageStats(zeroStats);
+    applyUsageStats(
+      await resetUsageStatsAction({
+        usageStatsClient: options.usageStatsClient,
         messagingRepository: options.messagingRepository,
-        storageKeys: ['usageStats', 'usage_stats'],
         ...(options.now ? { now: options.now } : {})
-      });
-    } else {
-      await options.optionsRepository.set({ usageStats: zeroStats } as Partial<CompleteOptions>);
-    }
-    options.controller.scheduleAutoSave(() => options.collectDraftWithWidgets());
+      })
+    );
   }
 
   async function loadUsageStatsFromStorage(): Promise<void> {
-    if (!options.storage) {
-      return;
-    }
     try {
-      const stored =
-        (await options.storage.local.get<UsageStats>(USAGE_STATS_STORAGE_KEY)) ??
-        (await options.storage.local.get<UsageStats>(LEGACY_USAGE_STATS_STORAGE_KEY));
-      if (!stored) {
-        return;
-      }
-      (options.getDraft() as CompleteOptions & { usageStats?: UsageStats }).usageStats =
-        normalizeUsageStats(stored);
-      options.refreshAppData();
+      applyUsageStats(await options.usageStatsClient.get());
       options.render();
     } catch (error) {
-      console.debug('[Options] Failed to read usage stats for Stitch dashboard:', error);
+      console.debug('[Options] Failed to load usage stats through the background owner:', error);
     }
   }
 
@@ -250,7 +246,7 @@ export function createProductionStitchPersistence(
   }): Promise<void> {
     await options.controller.applyImportedConfig(configuration.imported);
     options.setDraft(configuration.imported);
-    options.refreshAppData();
+    refreshAppDataWithUsage();
     options.setState(
       applyOptionsToState(options.getState(), configuration.imported, options.getAppData())
     );
@@ -286,7 +282,7 @@ export function createProductionStitchPersistence(
       options.setMaintenanceLog(`Copy failed: ${String(error)}`);
     } finally {
       setButtonBusy(button, false);
-      options.refreshAppData();
+      refreshAppDataWithUsage();
       options.render();
     }
   }
@@ -318,10 +314,12 @@ export function createProductionStitchPersistence(
           analytics_payload_present: analyticsPayloadPresent
         })
       );
-      options.setMaintenanceLog(`Import failed: ${String(error)}`);
+      const failureMessage = `Import failed: ${String(error)}`;
+      options.setMaintenanceLog(failureMessage);
+      throw new Error(failureMessage);
     } finally {
       setButtonBusy(button, false);
-      options.refreshAppData();
+      refreshAppDataWithUsage();
       options.render();
     }
   }
@@ -357,7 +355,7 @@ export function createProductionStitchPersistence(
     draft.templates = repairTemplateOptions(draft.templates, templateDefaults);
     options.syncDefaultVaultFromRest();
     options.setMaintenanceLog(log.join('\n'));
-    options.refreshAppData();
+    refreshAppDataWithUsage();
     await options.controller.saveSnapshot({
       reason: 'manual',
       draft: options.collectDraftWithWidgets()
@@ -373,6 +371,7 @@ export function createProductionStitchPersistence(
     persistPrivacyPreference,
     repairConfiguration,
     resetUsageData,
+    restoreUsageStatsView,
     trackUsageEvent
   };
 }

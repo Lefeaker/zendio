@@ -6,6 +6,7 @@ import type { Language, Messages } from '@i18n';
 import type { PreviewContent, SchemaContext, ViewSchema } from '@options/stitch/types';
 import type { OptionsController } from './optionsController';
 import type { ProductionStitchAssetUrlResolver } from './productionStitchAssetUrlResolver';
+import type { UsageStatsClientLike } from './usage-dashboard/usageStatsClient';
 
 export interface MountedProductionStitchShell {
   cleanup(): void;
@@ -27,8 +28,9 @@ export interface ProductionStitchShellDependencies {
   changeLanguage?: (
     language: Language
   ) => Promise<{ messages: Messages | null; language: Language }>;
-  optionsRepository?: Pick<IOptionsRepository, 'get' | 'set' | 'onChange'>;
+  optionsRepository?: Pick<IOptionsRepository, 'get' | 'patch' | 'replace' | 'onChange'>;
   messagingRepository?: Pick<IMessagingRepository, 'send' | 'onMessage'>;
+  usageStatsClient?: UsageStatsClientLike;
   storage?: StorageService;
   runtime?: Pick<RuntimeService, 'getURL' | 'getBrowserTarget'>;
   resolveAssetUrl?: ProductionStitchAssetUrlResolver;

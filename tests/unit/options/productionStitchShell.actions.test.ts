@@ -27,7 +27,6 @@ import {
   createActionRuntimeHarness,
   createMessaging,
   createRepository,
-  createStorage,
   findCardByTitle,
   findButton,
   findCheckboxInText,
@@ -39,7 +38,6 @@ import { mountProductionStitchShell } from '@options/app/productionStitchShell';
 import * as storageControllerModule from '@options/app/productionStitchStorageController';
 import { DEFAULT_RUNTIME_MESSAGES } from '@i18n';
 import { mergeOptions } from '@shared/config/optionsMerger';
-import type { StorageService } from '@platform/interfaces/storage';
 import type { CompleteOptions } from './productionStitchShell.helpers';
 import { getRestDefaults } from '../../utils/restDefaults';
 
@@ -459,13 +457,11 @@ describe('mountProductionStitchShell actions', () => {
     analytics.dispatchEvent(new Event('change', { bubbles: true }));
     await flushPromises();
 
-    expect(optionsRepository.set).toHaveBeenCalledWith({
-      privacyPreferences: {
-        analytics: true,
-        errorReporting: false,
-        debugMode: false
-      }
-    });
+    expect(optionsRepository.patch).toHaveBeenCalledWith([
+      { path: ['privacyPreferences', 'analytics'], value: true },
+      { path: ['privacyPreferences', 'errorReporting'], value: false },
+      { path: ['privacyPreferences', 'debugMode'], value: false }
+    ]);
     expect(mounted.collectDraft().privacyPreferences).toEqual({
       analytics: true,
       errorReporting: false,
@@ -529,13 +525,11 @@ describe('mountProductionStitchShell actions', () => {
     await flushPromises();
 
     expect(analyticsMocks.updateConfig).toHaveBeenCalledWith({ debugMode: true });
-    expect(optionsRepository.set).toHaveBeenLastCalledWith({
-      privacyPreferences: {
-        analytics: true,
-        errorReporting: true,
-        debugMode: true
-      }
-    });
+    expect(optionsRepository.patch).toHaveBeenLastCalledWith([
+      { path: ['privacyPreferences', 'analytics'], value: true },
+      { path: ['privacyPreferences', 'errorReporting'], value: true },
+      { path: ['privacyPreferences', 'debugMode'], value: true }
+    ]);
     expect(messagingRepository.send).toHaveBeenCalledWith({
       type: 'ANALYTICS_EVENT',
       event: 'privacy_consent_changed',
@@ -582,13 +576,11 @@ describe('mountProductionStitchShell actions', () => {
     await flushPromises();
 
     expect(analyticsMocks.clearAllData).toHaveBeenCalledTimes(1);
-    expect(optionsRepository.set).toHaveBeenCalledWith({
-      privacyPreferences: {
-        analytics: false,
-        errorReporting: false,
-        debugMode: false
-      }
-    });
+    expect(optionsRepository.patch).toHaveBeenCalledWith([
+      { path: ['privacyPreferences', 'analytics'], value: false },
+      { path: ['privacyPreferences', 'errorReporting'], value: false },
+      { path: ['privacyPreferences', 'debugMode'], value: false }
+    ]);
     expect(mounted.collectDraft().privacyPreferences).toEqual({
       analytics: false,
       errorReporting: false,
@@ -725,8 +717,18 @@ describe('mountProductionStitchShell actions', () => {
   it('clears usage data through the existing reset action dependencies', async () => {
     const controller = createController();
     const optionsRepository = createRepository();
-    const storage = createStorage();
     const messagingRepository = createMessaging();
+    const zeroStats = {
+      aiChatSaves: 0,
+      fragmentSaves: 0,
+      articleSaves: 0,
+      lastUpdatedISO: null,
+      history: []
+    };
+    const usageStatsClient = {
+      get: vi.fn(() => Promise.resolve(zeroStats)),
+      reset: vi.fn(() => Promise.resolve(zeroStats))
+    };
     mountProductionStitchShell({
       controller: asOptionsController(controller),
       initialOptions: {
@@ -741,7 +743,7 @@ describe('mountProductionStitchShell actions', () => {
       messages: null,
       language: 'en',
       optionsRepository,
-      storage: storage as unknown as StorageService,
+      usageStatsClient,
       messagingRepository,
       now: () => 1234
     } as never);
@@ -749,16 +751,7 @@ describe('mountProductionStitchShell actions', () => {
     findButton('Clear Usage Data').click();
     await flushPromises();
 
-    const zeroStats = {
-      aiChatSaves: 0,
-      fragmentSaves: 0,
-      articleSaves: 0,
-      lastUpdatedISO: null,
-      history: []
-    };
-    expect(vi.mocked(optionsRepository.set)).toHaveBeenCalledWith({ usageStats: zeroStats });
-    expect(vi.mocked(storage.local.set)).toHaveBeenCalledWith('usageStats', zeroStats);
-    expect(vi.mocked(storage.local.set)).toHaveBeenCalledWith('usage_stats', zeroStats);
+    expect(usageStatsClient.reset).toHaveBeenCalledTimes(1);
     expect(vi.mocked(messagingRepository.send)).toHaveBeenCalledWith({
       type: 'ANALYTICS_EVENT',
       event: 'clear_stats',

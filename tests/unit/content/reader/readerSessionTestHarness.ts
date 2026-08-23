@@ -525,9 +525,8 @@ export function createSessionContext(
           }
         })
       ),
-      set: vi.fn(),
       onChange: vi.fn(() => () => undefined)
-    },
+    } as never,
     storage: {
       sync: syncStorageArea,
       local: localStorageArea

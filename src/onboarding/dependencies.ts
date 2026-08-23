@@ -7,6 +7,7 @@ import { resolveRepository } from '../shared/di/serviceRegistry';
 import { DI_TOKENS, TOKENS } from '../shared/di/tokens';
 import type { IMessagingRepository } from '../shared/repositories/IMessagingRepository';
 import type { PrivacyPreferencesOptions } from '../shared/types/options';
+import type { IOptionsRepository } from '../shared/repositories/IOptionsRepository';
 
 export type OnboardingPrivacyField = 'analytics' | 'errorReporting';
 
@@ -22,7 +23,7 @@ export interface OnboardingPrivacyOptions {
 
 export interface OnboardingOptionsRepository {
   get: () => Promise<OnboardingPrivacyOptions>;
-  set: (options: { privacyPreferences: OnboardingPrivacySnapshot }) => Promise<void>;
+  patch: IOptionsRepository['patch'];
   onChange?: (callback: (options: OnboardingPrivacyOptions) => void) => () => void;
 }
 
@@ -120,7 +121,7 @@ function hasOptionsRepository(value: unknown): value is OnboardingOptionsReposit
     typeof candidate === 'object' &&
     candidate !== null &&
     typeof candidate.get === 'function' &&
-    typeof candidate.set === 'function'
+    typeof candidate.patch === 'function'
   );
 }
 

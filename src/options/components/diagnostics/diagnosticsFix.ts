@@ -109,7 +109,7 @@ export async function fixConfiguration(onAfterFix?: () => Promise<void> | void):
       await controller.saveSnapshot({ reason: 'manual', draft: newOptions });
     } else {
       const optionsRepository = resolveRepository<IOptionsRepository>(DI_TOKENS.IOptionsRepository);
-      await optionsRepository.set(newOptions as CompleteOptions);
+      await optionsRepository.replace(newOptions as CompleteOptions);
     }
     diagOutput.textContent += `${renderDiagnosticLine(
       createDiagnosticLine('ok', 'diagnosticsRepairSaved'),
