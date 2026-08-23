@@ -211,13 +211,38 @@ describe('usage chart renderers', () => {
       })
     );
 
-    expect(chart.svg?.getAttribute('viewBox')).toBe('0 0 240.00 180.00');
+    expect(chart.svg?.getAttribute('viewBox')).toBe('0 0 480 180');
     expect(chart.path?.getAttribute('d')).toContain('C');
     expect(chart.grid?.querySelectorAll('line').length).toBeGreaterThan(0);
-    expect(chart.points?.querySelectorAll('circle')).toHaveLength(30);
+    expect(chart.points).toBeNull();
     expect(chart.xAxis?.textContent).toContain('05/02');
 
     renderUsageChart(chart, createUsageStats());
-    expect(chart.path?.getAttribute('d')).toBe('M0 160 L240 160');
+    expect(chart.path?.getAttribute('d')).toBe('');
+  });
+
+  it('preserves the Stitch chart shell and zero-state rendering through the neutral owner', () => {
+    installSvgConstructors();
+
+    const { host, chart } = createUsageChartShell(
+      (tagName) => document.createElement(tagName),
+      'stitch'
+    );
+    document.body.append(host);
+
+    renderUsageChart(chart, [
+      { label: '06-27', value: 0 },
+      { label: '06-28', value: 0 },
+      { label: '06-29', value: 0 }
+    ]);
+
+    expect(host.className).toBe('usage-chart-shell');
+    expect(host.querySelector('.usage-axis')).toBeTruthy();
+    expect(host.querySelector('.usage-graph')).toBeTruthy();
+    expect(chart.svg?.getAttribute('viewBox')).toBe('0 0 480 180');
+    expect(chart.grid?.querySelectorAll('line')).toHaveLength(4);
+    expect(chart.points).toBeNull();
+    expect(chart.fillPath?.getAttribute('d')).not.toContain('NaN');
+    expect(chart.xAxis?.textContent).toContain('06-29');
   });
 });
