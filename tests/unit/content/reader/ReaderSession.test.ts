@@ -16,7 +16,7 @@ import {
   getSessionHarness,
   loadLatestReaderDraft
 } from './readerSessionTestHarness';
-import { createSessionDraftStoragePolicy } from '@content/sessionDrafts';
+import { createSessionDraftStoragePolicy } from '@shared/sessionDrafts';
 
 describe('ReaderSession', () => {
   beforeEach(() => {

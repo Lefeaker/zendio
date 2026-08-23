@@ -6,12 +6,16 @@ import {
   SESSION_DRAFT_INDEX_KEY
 } from './keys';
 import {
+  LegacyEnvelopeSchema,
+  SessionDraftEnvelopeSchema,
   SessionDraftIndexEntrySchema,
+  SessionDraftLegacyOwnerContextSchema,
   SessionDraftMutationReceiptSchema,
   SessionDraftPendingRemovalSchema
 } from './schemas';
 import {
   SESSION_DRAFT_LEGACY_SCHEMA_VERSION,
+  SESSION_DRAFT_MAX_ENVELOPE_BYTES,
   SESSION_DRAFT_MAX_ENTRIES,
   SESSION_DRAFT_MAX_INDEX_BYTES,
   SESSION_DRAFT_MAX_PENDING_REMOVALS,
@@ -19,12 +23,13 @@ import {
   SESSION_DRAFT_SCHEMA_VERSION,
   type SessionDraftIndex,
   type SessionDraftIndexEntry,
+  type SessionDraftLegacyRecord,
   type SessionDraftMutationReceipt,
   type SessionDraftPendingRemoval,
   type SessionDraftRecord,
-  type SessionDraftRetentionPolicy
+  type SessionDraftRemovalTombstone
 } from './types';
-import { selectSessionDraftRetentionRemovals } from './retentionPolicy';
+import { measureSessionDraftValueBytes } from './retentionPolicy';
 
 export type SessionDraftStoredValue = object | string | number | boolean | null | undefined;
 
@@ -146,6 +151,37 @@ export function decodeSessionDraftStoredIndex(value: SessionDraftStoredValue) {
   return { index, keys: [...new Set(keys)], readOnly: false };
 }
 
+export function normalizeLegacySessionDraftRecord(
+  value: unknown
+): SessionDraftLegacyRecord | undefined {
+  const parsed = LegacyEnvelopeSchema.safeParse(value);
+  if (!parsed.success) return;
+  if (measureSessionDraftValueBytes(parsed.data) > SESSION_DRAFT_MAX_ENVELOPE_BYTES) return;
+  const { ownerContext, ...payload } = parsed.data.payload;
+  const legacyOwner = SessionDraftLegacyOwnerContextSchema.safeParse(ownerContext);
+  return {
+    ...parsed.data,
+    revision: 0,
+    payload,
+    ...(legacyOwner.success ? { legacyOwnerContext: legacyOwner.data } : {})
+  };
+}
+
+export function parseSessionDraftRecord(value: unknown): SessionDraftRecord | undefined {
+  const current = SessionDraftEnvelopeSchema.safeParse(value);
+  return current.success ? current.data : normalizeLegacySessionDraftRecord(value);
+}
+
+export function createSessionDraftRemovalTombstone(
+  pending: SessionDraftPendingRemoval
+): SessionDraftRemovalTombstone {
+  return {
+    ...pending,
+    schemaVersion: SESSION_DRAFT_SCHEMA_VERSION,
+    kind: 'session-draft-removal-tombstone'
+  };
+}
+
 function createRecoveryPendingRemoval(key: string, timestamp: number): SessionDraftPendingRemoval {
   return {
     key,
@@ -204,37 +240,9 @@ export function replaceSessionDraftIndexEntries(
   return { ...index, entries, receipts };
 }
 
-export function planSessionDraftEnvelopeIndex(input: {
-  index: SessionDraftIndex;
-  key: string;
-  record: SessionDraftRecord;
-  receipts: SessionDraftMutationReceipt[];
-  retention?: {
-    now: number;
-    policy: SessionDraftRetentionPolicy;
-    maxEntries: number;
-  };
-}): { index: SessionDraftIndex; removedKeys: string[] } {
-  const entries = [
-    createSessionDraftIndexEntry(input.key, input.record),
-    ...input.index.entries.filter((entry) => entry.key !== input.key)
-  ];
-  const plan = input.retention
-    ? selectSessionDraftRetentionRemovals(
-        entries,
-        input.retention.now,
-        input.retention.policy,
-        input.retention.maxEntries,
-        input.key
-      )
-    : { retained: entries, removed: [] };
-  return {
-    index: replaceSessionDraftIndexEntries(input.index, plan.retained, input.receipts),
-    removedKeys: plan.removed.map((entry) => entry.key).filter((key) => key !== input.key)
-  };
-}
-
 export * from './keys';
+export * from './legacyVideoCaptureKey';
+export * from './legacyVideoCapture';
 export * from './messages';
 export * from './retentionPolicy';
 export * from './schemas';

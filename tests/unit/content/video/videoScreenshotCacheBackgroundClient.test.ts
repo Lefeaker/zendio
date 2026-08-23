@@ -2,7 +2,7 @@
 
 import { describe, expect, it } from 'vitest';
 import { serializeBlobAttachmentContent } from '@shared/attachments/clipAttachmentBinary';
-import { createSessionDraftStoragePolicy } from '@content/sessionDrafts';
+import { createSessionDraftStoragePolicy } from '@shared/sessionDrafts';
 import { createVideoScreenshotCacheClientRepository } from '@content/video/videoScreenshotCacheClientRepository';
 import { createVideoScreenshotCacheRepository } from '@content/video/videoScreenshotCacheRepository';
 import {

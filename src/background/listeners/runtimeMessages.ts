@@ -30,7 +30,6 @@ import type { TabsService } from '../../platform/interfaces/tabs';
 import type { RuntimeService } from '../../platform/interfaces/runtime';
 import type { ClipPayload } from '../../shared/types';
 import type { MessagePayload } from '../../platform/interfaces/messaging';
-import { isObjectRecord } from '../../shared/guards/object';
 import {
   CAPTURE_VISIBLE_TAB_SCREENSHOT_MESSAGE,
   type CaptureVisibleTabScreenshotResponse
@@ -44,30 +43,22 @@ import type { StorageService } from '../../platform/interfaces/storage';
 import {
   isGetTabContextMessage,
   isOpenOptionsPageMessage,
+  isRepositoryContentMessage,
   isTabContextActiveMessage,
+  resolveActivationMilestone,
+  toMessagePayload,
   toRuntimeMessageSender,
   type RuntimeMessageSender,
   type RuntimeTabContextPayload
 } from './runtimeMessageContracts';
+import {
+  handleSessionDraftMessage,
+  isSessionDraftMessageCandidate,
+  type SessionDraftRuntimeDependencies
+} from './sessionDraftMessages';
+import { normalizeSessionDraftStoredValue } from '../../shared/sessionDrafts';
 
 const INVALID_CLIP_PAYLOAD_ERROR = 'Invalid clip payload received.';
-
-function isRepositoryContentMessage(
-  message: unknown,
-  type: 'clip' | 'readingClip' | 'videoClip',
-  contentField: 'markdown' | 'content'
-): message is { data: Record<string, unknown>; type: string } {
-  return (
-    isObjectRecord(message) &&
-    message.type === type &&
-    isObjectRecord(message.data) &&
-    typeof message.data[contentField] === 'string'
-  );
-}
-
-function toMessagePayload(value: unknown): MessagePayload {
-  return value as MessagePayload;
-}
 
 function toReadingClipPayload(data: Record<string, unknown>): unknown {
   return {
@@ -124,7 +115,7 @@ async function processRepositoryClipPayload(payload: unknown): Promise<MessagePa
   }
 }
 
-export interface RuntimeMessageListenerDependencies {
+export interface RuntimeMessageListenerDependencies extends SessionDraftRuntimeDependencies {
   messaging: Pick<MessagingService, 'addListener'>;
   clipPipeline: ClipPipelineDependencies;
   openOptionsPage(section?: string): Promise<void>;
@@ -135,28 +126,16 @@ export interface RuntimeMessageListenerDependencies {
   ): Promise<CaptureVisibleTabScreenshotResponse>;
   handleVideoScreenshotCacheMessage: BackgroundVideoScreenshotCacheHandler;
 }
-function resolveActivationMilestone(
-  eventName: string
-): 'onboarding_completed' | 'first_reader_exported' | 'first_video_exported' | null {
-  switch (eventName) {
-    case 'onboarding_completed':
-      return 'onboarding_completed';
-    case 'reader_exported':
-      return 'first_reader_exported';
-    case 'video_exported':
-      return 'first_video_exported';
-    default:
-      return null;
-  }
-}
 export function createRuntimeMessageListenerDependencies(
   messaging: Pick<MessagingService, 'addListener'>,
   tabs: Pick<TabsService, 'create' | 'get' | 'sendMessage' | 'captureVisibleTab'>,
   runtime: Pick<RuntimeService, 'getURL'>,
   storage: Pick<StorageService, 'local'>,
+  sessionDrafts: SessionDraftRuntimeDependencies,
   cacheOptions: { ttlMs?: number } = {}
 ): RuntimeMessageListenerDependencies {
   return {
+    ...sessionDrafts,
     messaging,
     clipPipeline: createClipPipelineDependencies(tabs),
     handleVideoScreenshotCacheMessage: createScreenshotCacheHandler(storage, cacheOptions),
@@ -243,7 +222,19 @@ async function safeNotifyClipFailure(
 export function registerRuntimeMessageListener(
   dependencies: RuntimeMessageListenerDependencies
 ): void {
-  dependencies.messaging.addListener(async (message, sender) => {
+  const addListener = dependencies.messaging.addListener.bind(dependencies.messaging);
+  addListener(async (message, sender) => {
+    const storedMessage = normalizeSessionDraftStoredValue(message);
+    if (isSessionDraftMessageCandidate(storedMessage)) {
+      const result = await handleSessionDraftMessage(
+        dependencies.sessionDraftStore,
+        storedMessage,
+        sender,
+        (ownerSender) => dependencies.resolveSessionDraftOwner(ownerSender)
+      );
+      if (result === undefined) throw new Error('SESSION_DRAFT_REQUEST_INVALID');
+      return toMessagePayload(result);
+    }
     // Handle analytics messages before clip result messages so the generic
     // clip branch cannot swallow other payload shapes that also carry `event`.
     if (isTrackUsageEventMessage(message)) {

@@ -10,6 +10,22 @@ export interface TabsSendOptions {
   frameId?: number;
 }
 
+export type TabsBoundaryErrorCode = 'TAB_NOT_FOUND' | 'NO_RECEIVER';
+
+export class TabsBoundaryError extends Error {
+  constructor(readonly code: TabsBoundaryErrorCode) {
+    super(code);
+    this.name = 'TabsBoundaryError';
+  }
+}
+
+export function isTabsBoundaryError(
+  value: unknown,
+  code?: TabsBoundaryErrorCode
+): value is TabsBoundaryError {
+  return value instanceof TabsBoundaryError && (code === undefined || value.code === code);
+}
+
 export interface VisibleTabCaptureOptions {
   format?: 'jpeg' | 'png';
   quality?: number;

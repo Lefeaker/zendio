@@ -1,4 +1,8 @@
-import type { SessionDraftTerminalStatus } from '../sessionDrafts';
+import type {
+  SessionDraftStoragePolicy,
+  SessionDraftTerminalStatus,
+  VideoSessionDraftEnvelope
+} from '@shared/sessionDrafts';
 import type { ContentExportDestinationState } from '../shared/exportDestinationState';
 import type { StorageAreaService } from '../../platform/interfaces/storage';
 import type { UsageEventParamMap } from '../../shared/types/analytics';
@@ -6,7 +10,7 @@ import type { VideoCaptureMutationTransaction } from './videoCaptureMutationType
 import type { VideoSessionState } from './sessionState';
 import type { VideoHintState } from './videoHintManager';
 import type { VideoScreenshotCacheRepository } from './videoScreenshotCacheRepository';
-import type { SessionDraftStoragePolicy } from '../sessionDrafts';
+import type { SessionDraftLeaseOwnerRegistry } from '../sessionDrafts/sessionDraftLeaseOwnerRegistry';
 
 export interface VideoSessionDraftDomPort {
   readCommentDrafts(): Record<string, string>;
@@ -26,6 +30,8 @@ export interface VideoSessionDraftControllerOptions {
   destinationState: Pick<ContentExportDestinationState, 'metadata' | 'applyMetadata'>;
   storageArea: StorageAreaService;
   sessionDraftStoragePolicy?: SessionDraftStoragePolicy;
+  leaseOwnerRegistry?: SessionDraftLeaseOwnerRegistry;
+  initialClaimedDraft?: VideoSessionDraftEnvelope;
   screenshotCache?:
     | (Pick<VideoScreenshotCacheRepository, 'load' | 'removeMany'> &
         Partial<Pick<VideoScreenshotCacheRepository, 'save'>>)

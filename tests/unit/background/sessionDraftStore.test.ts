@@ -15,14 +15,19 @@ import {
   createSessionDraftPageKey,
   createSessionDraftStorageKey,
   compareSessionDraftText,
+  decodeLegacyVideoCapture,
+  digestLegacyVideoCaptureJson,
   SESSION_DRAFT_INDEX_KEY,
   SessionDraftEnvelopeMutationResultSchema,
   SessionDraftEnvelopeSchema,
   SessionDraftIndexSchema,
+  SessionDraftPayloadSchema,
   SessionDraftReadExactResultSchema,
   SessionDraftSelectAndClaimResultSchema,
   type SessionDraftEnvelope,
+  type SessionDraftJsonValue,
   type SessionDraftFinalizeExactRequest,
+  type SessionDraftMigrateLegacyVideoCaptureRequest,
   type SessionDraftOwnerLivenessProbe,
   type SessionDraftPruneRequest,
   type SessionDraftReleaseLeaseRequest,
@@ -34,10 +39,10 @@ import {
 } from '../../../src/shared/sessionDrafts';
 
 const BASE_TIME = 4_000_000;
-const COLLIDING_PAGE_URLS = [
+const COLLIDING_PAGE_URLS: readonly [string, string] = [
   'https://example.com/reader/1ctg9w7-1jx99je',
   'https://example.com/reader/1d2u5vn-q239ae'
-] as const;
+];
 const OWNER: SessionDraftTrustedOwnerContext = { tabId: 7, frameId: 0, windowId: 2 };
 const FOREIGN_OWNER: SessionDraftTrustedOwnerContext = { tabId: 8, frameId: 0 };
 
@@ -68,6 +73,8 @@ class FakeEnumerableStorage {
   private setManyGate: Deferred<void> | undefined;
   private rejectBeforeSetMany = false;
   private rejectAfterSetMany = false;
+  private rejectBeforeRemove = false;
+  private rejectSetManyAfterRemove = false;
 
   constructor(initial: StorageValueMap = { [SESSION_DRAFT_INDEX_KEY]: createSessionDraftIndex() }) {
     this.values = structuredClone(initial);
@@ -105,7 +112,15 @@ class FakeEnumerableStorage {
       remove: (keyOrKeys: string | string[]): Promise<void> => {
         const keys = Array.isArray(keyOrKeys) ? [...keyOrKeys] : [keyOrKeys];
         this.removeAttempts.push(keys);
+        if (this.rejectBeforeRemove) {
+          this.rejectBeforeRemove = false;
+          return Promise.reject(new Error('remove rejected before mutation'));
+        }
         for (const key of keys) delete this.values[key];
+        if (this.rejectSetManyAfterRemove) {
+          this.rejectSetManyAfterRemove = false;
+          this.rejectBeforeSetMany = true;
+        }
         return Promise.resolve();
       },
       clear: (): Promise<void> => {
@@ -129,6 +144,14 @@ class FakeEnumerableStorage {
 
   failNextSetManyAfterCommit(): void {
     this.rejectAfterSetMany = true;
+  }
+
+  failNextRemoveBeforeMutation(): void {
+    this.rejectBeforeRemove = true;
+  }
+
+  failNextSetManyAfterRemove(): void {
+    this.rejectSetManyAfterRemove = true;
   }
 }
 
@@ -162,6 +185,38 @@ function saveRequest(
 
 function selectRequest(pageUrl: string, requestId: string): SessionDraftSelectAndClaimRequest {
   return { operation: 'selectAndClaim', requestId, mode: 'reader', pageUrl };
+}
+
+async function legacyMigrationRequest(
+  raw: SessionDraftJsonValue,
+  requestId = 'migrate-legacy-video'
+): Promise<SessionDraftMigrateLegacyVideoCaptureRequest> {
+  const pageUrl = 'https://www.youtube.com/watch?v=video123';
+  const decoded = decodeLegacyVideoCapture(raw);
+  if (!decoded.ok) throw new Error('Expected a valid legacy migration fixture.');
+  const draftId = 'migrated-video-draft';
+  return {
+    operation: 'migrateLegacyVideoCapture',
+    requestId,
+    key: createSessionDraftStorageKey({
+      mode: 'video',
+      pageKey: createSessionDraftPageKey('video', pageUrl),
+      draftId
+    }),
+    legacyKey: 'yt:video123',
+    rawDigest: await digestLegacyVideoCaptureJson(decoded.rawCanonicalJson),
+    canonicalDigest: await digestLegacyVideoCaptureJson(decoded.canonicalJson),
+    canonicalLegacy: decoded.value,
+    draft: {
+      draftId,
+      mode: 'video',
+      pageUrl,
+      pageTitle: 'Migrated video',
+      payload: {
+        captures: SessionDraftPayloadSchema.parse({ captures: decoded.value.entries }).captures
+      }
+    }
+  };
 }
 
 function createStoreHarness(
@@ -238,6 +293,184 @@ async function expectLostResponseReplay(
 }
 
 describe('sessionDraftStore facade', () => {
+  it('atomically publishes a pending legacy obligation before exact cleanup and final receipt', async () => {
+    const raw = {
+      title: 'Legacy video',
+      url: 'https://www.youtube.com/watch?v=video123',
+      entries: [
+        {
+          id: 'legacy-capture',
+          timeSec: 12,
+          comment: 'note',
+          url: 'https://www.youtube.com/watch?v=video123&t=12',
+          createdAt: 10
+        }
+      ],
+      updatedAt: 10
+    };
+    const request = await legacyMigrationRequest(raw);
+    const storage = new FakeEnumerableStorage({
+      [SESSION_DRAFT_INDEX_KEY]: createSessionDraftIndex(),
+      [request.legacyKey]: raw
+    });
+    const { store } = createStoreHarness(storage);
+
+    const migrated = await store.migrateLegacyVideoCapture(request, OWNER, request.draft.pageUrl);
+    expect(migrated).toMatchObject({
+      outcome: 'migrated',
+      revision: 1,
+      envelope: { draftId: request.draft.draftId }
+    });
+    expect(migrated).not.toHaveProperty('envelope.legacyCleanup');
+    expect(storage.values[request.legacyKey]).toBeUndefined();
+    const pendingWrite = storage.setManyAttempts.find((write) => {
+      const value = SessionDraftEnvelopeSchema.safeParse(write[request.key]);
+      return value.success && value.data.legacyCleanup !== undefined;
+    });
+    expect(pendingWrite).toBeDefined();
+    const index = SessionDraftIndexSchema.parse(storage.values[SESSION_DRAFT_INDEX_KEY]);
+    expect(index.receipts).toContainEqual(
+      expect.objectContaining({
+        requestId: request.requestId,
+        operation: 'migrate',
+        outcome: 'migrated'
+      })
+    );
+  });
+
+  it('rejects changed legacy bytes before any v2 write or legacy removal', async () => {
+    const original = {
+      entries: [
+        {
+          id: 'legacy-capture',
+          timeSec: 12,
+          comment: 'original',
+          url: 'https://www.youtube.com/watch?v=video123&t=12',
+          createdAt: 10
+        }
+      ],
+      updatedAt: 10
+    };
+    const request = await legacyMigrationRequest(original, 'migrate-changed');
+    const changed = structuredClone(original);
+    changed.entries[0].comment = 'changed';
+    const storage = new FakeEnumerableStorage({
+      [SESSION_DRAFT_INDEX_KEY]: createSessionDraftIndex(),
+      [request.legacyKey]: changed
+    });
+    const { store } = createStoreHarness(storage);
+    const writesBefore = storage.setManyAttempts.length;
+
+    await expect(
+      store.migrateLegacyVideoCapture(request, OWNER, request.draft.pageUrl)
+    ).resolves.toEqual({
+      outcome: 'conflict',
+      code: 'MIGRATION_SOURCE_CHANGED'
+    });
+    expect(storage.setManyAttempts).toHaveLength(writesBefore);
+    expect(storage.removeAttempts).toEqual([]);
+    expect(storage.values[request.key]).toBeUndefined();
+  });
+
+  it('persists cleanup obligation across removal failure and blocks every ordinary mutation until retry', async () => {
+    const raw = {
+      entries: [
+        {
+          id: 'legacy-retry',
+          timeSec: 1,
+          comment: '',
+          url: 'https://www.youtube.com/watch?v=video123&t=1',
+          createdAt: 1
+        }
+      ],
+      updatedAt: 1
+    };
+    const request = await legacyMigrationRequest(raw, 'migrate-cleanup-retry');
+    const storage = new FakeEnumerableStorage({
+      [SESSION_DRAFT_INDEX_KEY]: createSessionDraftIndex(),
+      [request.legacyKey]: raw
+    });
+    const { store } = createStoreHarness(storage);
+    storage.failNextRemoveBeforeMutation();
+
+    await expect(
+      store.migrateLegacyVideoCapture(request, OWNER, request.draft.pageUrl)
+    ).resolves.toEqual({
+      outcome: 'conflict',
+      code: 'MIGRATION_CLEANUP_PENDING'
+    });
+    expect(storage.values[request.key]).toMatchObject({
+      legacyCleanup: { state: 'pending', legacyKey: request.legacyKey }
+    });
+    storage.failNextRemoveBeforeMutation();
+    await expect(
+      store.save(
+        {
+          operation: 'save',
+          requestId: 'ordinary-save-while-pending',
+          key: request.key,
+          expectedRevision: 1,
+          draft: request.draft
+        },
+        OWNER
+      )
+    ).resolves.toEqual({ outcome: 'conflict', code: 'MIGRATION_CLEANUP_PENDING' });
+    expect(storage.values[request.legacyKey]).toEqual(raw);
+    await expect(
+      store.migrateLegacyVideoCapture(request, OWNER, request.draft.pageUrl)
+    ).resolves.toMatchObject({ outcome: 'migrated', revision: 1 });
+    expect(storage.values[request.key]).not.toHaveProperty('legacyCleanup');
+  });
+
+  it('recovers after restart when legacy removal succeeds before the final receipt commit', async () => {
+    const raw = {
+      entries: [
+        {
+          id: 'legacy-restart',
+          timeSec: 2,
+          comment: 'restart-safe',
+          url: 'https://www.youtube.com/watch?v=video123&t=2',
+          createdAt: 2
+        }
+      ],
+      updatedAt: 2
+    };
+    const request = await legacyMigrationRequest(raw, 'migrate-cleanup-restart');
+    const storage = new FakeEnumerableStorage({
+      [SESSION_DRAFT_INDEX_KEY]: createSessionDraftIndex(),
+      [request.legacyKey]: raw
+    });
+    storage.failNextSetManyAfterRemove();
+
+    await expect(
+      createStoreHarness(storage).store.migrateLegacyVideoCapture(
+        request,
+        OWNER,
+        request.draft.pageUrl
+      )
+    ).resolves.toEqual({ outcome: 'conflict', code: 'MIGRATION_CLEANUP_PENDING' });
+    expect(storage.values[request.legacyKey]).toBeUndefined();
+    const storedAfterFailure = SessionDraftEnvelopeSchema.parse(storage.values[request.key]);
+    expect(storedAfterFailure.legacyCleanup?.requestDigest).toMatch(/^[0-9a-f]{64}$/);
+
+    const restarted = createStoreHarness(storage).store;
+    await expect(
+      restarted.migrateLegacyVideoCapture(request, OWNER, request.draft.pageUrl)
+    ).resolves.toMatchObject({
+      outcome: 'migrated',
+      revision: 1,
+      replay: { replayed: true }
+    });
+    expect(storage.values[request.key]).not.toHaveProperty('legacyCleanup');
+    const index = SessionDraftIndexSchema.parse(storage.values[SESSION_DRAFT_INDEX_KEY]);
+    expect(index.receipts).toContainEqual(
+      expect.objectContaining({
+        operation: 'migrate',
+        outcome: 'migrated',
+        key: request.key
+      })
+    );
+  });
   it('fails closed before any storage access when enumeration is unavailable', () => {
     let getCalls = 0;
     const baseOnly: StorageAreaService = {

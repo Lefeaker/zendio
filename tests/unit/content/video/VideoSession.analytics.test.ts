@@ -27,6 +27,7 @@ import {
   expectNoForbiddenAnalyticsKeys,
   flushMutationWork,
   getTrackUsageEventMock,
+  getSessionDraftMessageFixture,
   getVideoSessionHarnessMocks,
   loadLatestVideoDraft,
   readLatestVideoDraftCandidate,
@@ -81,8 +82,9 @@ describe('VideoSession analytics', () => {
     await sessionApi.handleAddCapture();
     trackUsageEvent.mockClear();
     view.updateHint.mockClear();
-    vi.mocked(deps.storage.local.setMany).mockImplementationOnce(() =>
-      Promise.reject(new Error('cancel terminal save failed'))
+    getSessionDraftMessageFixture(deps).rejectNext(
+      'finalizeExact',
+      new Error('cancel terminal save failed')
     );
 
     requireMountedPanelCallbacks(mountedCallbacks).onCancel();
@@ -145,9 +147,7 @@ describe('VideoSession analytics', () => {
   it('updates the panel immediately for fragment adds but emits analytics only after save succeeds', async () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2026-03-14T10:00:00Z'));
-    const deferredSave = createDeferred<void>();
     const deps = createDependencies();
-    vi.mocked(deps.storage.local.setMany).mockImplementationOnce(() => deferredSave.promise);
     const view = createView();
     deps.viewFactory.createView = vi.fn(() => view);
     const session = new VideoSession(document, deps);
@@ -156,6 +156,7 @@ describe('VideoSession analytics', () => {
 
     await session.start();
     trackUsageEvent.mockClear();
+    const deferredSave = getSessionDraftMessageFixture(deps).deferNext('save');
 
     const fragmentHost = document.createElement('p');
     fragmentHost.textContent = 'Selected text that should save';
@@ -525,7 +526,6 @@ describe('VideoSession analytics', () => {
   it('does not emit video_timestamp_added until the timestamp save succeeds', async () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2026-03-14T10:00:00Z'));
-    const deferredSave = createDeferred<void>();
     const deps = createDependencies();
     const view = createView();
     deps.viewFactory.createView = vi.fn(() => view);
@@ -534,18 +534,24 @@ describe('VideoSession analytics', () => {
 
     await session.start();
     trackUsageEvent.mockClear();
+    const draftMessages = getSessionDraftMessageFixture(deps);
+    const saveCountBefore = draftMessages.observed.filter(
+      (request) => request.operation === 'save'
+    ).length;
 
     Object.defineProperty(requireVideoElement(), 'currentTime', {
       value: 42,
       configurable: true
     });
-    vi.mocked(deps.storage.local.setMany).mockImplementationOnce(() => deferredSave.promise);
+    const deferredSave = draftMessages.deferNext('save');
 
     const addPromise = session.addCurrentTimestamp('button', { beginEditing: false });
     await vi.advanceTimersByTimeAsync(0);
     await Promise.resolve();
 
-    expect(deps.storage.local.setMany).toHaveBeenCalledTimes(1);
+    expect(draftMessages.observed.filter((request) => request.operation === 'save')).toHaveLength(
+      saveCountBefore + 1
+    );
     expect(trackUsageEvent).not.toHaveBeenCalled();
 
     deferredSave.resolve();
@@ -669,9 +675,7 @@ describe('VideoSession analytics', () => {
   it('updates the panel immediately for removals but emits removal analytics only after save succeeds', async () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2026-03-14T10:00:00Z'));
-    const deferredSave = createDeferred<void>();
     const deps = createDependencies();
-    vi.mocked(deps.storage.local.setMany).mockImplementationOnce(() => deferredSave.promise);
     const view = createView();
     let mountedCallbacks: VideoPanelCallbacks | null = null;
     deps.viewFactory.createView = vi.fn((callbacks: VideoPanelCallbacks) => {
@@ -684,6 +688,7 @@ describe('VideoSession analytics', () => {
 
     await session.start();
     trackUsageEvent.mockClear();
+    const deferredSave = getSessionDraftMessageFixture(deps).deferNext('save');
 
     sessionApi.state.captures = [
       {
@@ -799,8 +804,9 @@ describe('VideoSession analytics', () => {
     await sessionApi.handleAddCapture();
     trackUsageEvent.mockClear();
     view.updateHint.mockClear();
-    vi.mocked(deps.storage.local.setMany).mockImplementationOnce(() =>
-      Promise.reject(new Error('export terminal save failed'))
+    getSessionDraftMessageFixture(deps).rejectNext(
+      'finalizeExact',
+      new Error('export terminal save failed')
     );
 
     await requirePromise(requireMountedPanelCallbacks(mountedCallbacks).onFinish());

@@ -20,11 +20,8 @@ import { clearHighlightThemeState } from '../shared/highlightThemeState';
 import { ContentExportDestinationState } from '../shared/exportDestinationState';
 import type { ClipPayload } from '../../shared/types';
 import type { ReaderSessionDependencies as FullReaderSessionDependencies } from './sessionTypes';
-import {
-  createSessionMutationRunner,
-  type SessionDraftTerminalStatus,
-  type SessionMutationTransaction
-} from '../sessionDrafts';
+import { createSessionMutationRunner, type SessionMutationTransaction } from '../sessionDrafts';
+import type { SessionDraftTerminalStatus } from '@shared/sessionDrafts';
 import {
   applyReaderHighlightFromRange,
   cancelReaderSession,
@@ -39,11 +36,9 @@ import {
 } from './sessionOperations';
 import { restoreReaderSessionDraftHighlights } from './sessionDrafts';
 import { ReaderSessionDraftController } from './readerSessionDraftController';
-
+import { getSessionDraftRuntimeMessenger } from '../sessionDrafts/sessionDraftTabContext';
 const ADD_HIGHLIGHT_EVENT = 'aiob-reader:add-highlight';
-
 export type { ReaderSessionDependencies } from './sessionTypes';
-
 export class ReaderSession {
   private readonly state = new ReaderSessionState();
   private readonly highlightManager: ReaderHighlightManager;
@@ -52,22 +47,18 @@ export class ReaderSession {
   private readonly environment: ReaderEnvironmentController;
   private readonly lifecycle: ReaderSessionLifecycle;
   private readonly destinationState: ContentExportDestinationState;
-  private readonly draftController: ReaderSessionDraftController;
+  private readonly draftController: ReaderSessionDraftController | null;
   private readonly draftMutationRunner = createSessionMutationRunner();
   private pendingDraftMutations = 0;
-
   private get draftId(): string | null {
-    return this.draftController.identity.draftId;
+    return this.draftController?.identity.draftId ?? null;
   }
-
   private get draftCreatedAt(): number | null {
-    return this.draftController.identity.draftCreatedAt;
+    return this.draftController?.identity.draftCreatedAt ?? null;
   }
-
   private get draftStorageKey(): string | null {
-    return this.draftController.identity.draftStorageKey;
+    return this.draftController?.identity.draftStorageKey ?? null;
   }
-
   private get operationContext() {
     return {
       session: this,
@@ -89,7 +80,6 @@ export class ReaderSession {
         this.runDraftMutation(transaction)
     };
   }
-
   constructor(
     private readonly doc: Document,
     private readonly url: string,
@@ -166,20 +156,29 @@ export class ReaderSession {
     );
     const sessionDraftRetentionPolicy =
       this.dependencies.sessionDraftStoragePolicy?.retentionPolicy;
-    this.draftController = new ReaderSessionDraftController({
-      doc: this.doc,
-      pageUrl: this.url,
-      storageArea: this.dependencies.storage.local,
-      getPageTitle: () => this.getDraftPageTitle(),
-      getHighlights: () => this.state.highlights,
-      getCommentDrafts: () => this.panelCoordinator.snapshotCommentDrafts(),
-      getDestinationMetadata: () => this.destinationState.metadata,
-      onPersistenceFailure: () =>
-        this.panelCoordinator.applyHint('failure', this.state.highlights.length),
-      ...(sessionDraftRetentionPolicy ? { retentionPolicy: sessionDraftRetentionPolicy } : {})
-    });
+    const sessionDraftSender =
+      this.dependencies.sessionDraftSender ?? getSessionDraftRuntimeMessenger();
+    this.draftController = sessionDraftSender
+      ? new ReaderSessionDraftController({
+          doc: this.doc,
+          pageUrl: this.url,
+          sendMessage: sessionDraftSender,
+          getPageTitle: () => this.getDraftPageTitle(),
+          getHighlights: () => this.state.highlights,
+          getCommentDrafts: () => this.panelCoordinator.snapshotCommentDrafts(),
+          getDestinationMetadata: () => this.destinationState.metadata,
+          onPersistenceFailure: () =>
+            this.panelCoordinator.applyHint('failure', this.state.highlights.length),
+          ...(this.dependencies.sessionDraftLeaseOwners
+            ? { leaseOwnerRegistry: this.dependencies.sessionDraftLeaseOwners }
+            : {}),
+          ...(this.dependencies.initialClaimedDraft
+            ? { initialClaimedDraft: this.dependencies.initialClaimedDraft }
+            : {}),
+          ...(sessionDraftRetentionPolicy ? { retentionPolicy: sessionDraftRetentionPolicy } : {})
+        })
+      : null;
   }
-
   async initialize(
     initialHighlights?: ReaderBootstrapHighlight | ReaderBootstrapHighlight[]
   ): Promise<void> {
@@ -235,7 +234,7 @@ export class ReaderSession {
 
     try {
       await this.lifecycle.start();
-      this.draftController.bindLifecycleListeners();
+      this.draftController?.bindLifecycleListeners();
       this.state.analyticsTimer = createFeatureTimer();
       this.state.analyticsSource = 'unknown';
       this.applyInitialDestination(initialHighlights);
@@ -299,6 +298,7 @@ export class ReaderSession {
   }
 
   private async hydrateStoredDraft(): Promise<boolean> {
+    if (!this.draftController) return false;
     const restoreDurationBucket = this.state.analyticsTimer?.durationBucket() ?? 'under_100ms';
     try {
       const loadedDraftResult = await this.draftController.loadLatestResult();
@@ -474,7 +474,7 @@ export class ReaderSession {
   }
 
   private buildDraftEnvelope(status: Parameters<ReaderSessionDraftController['buildEnvelope']>[0]) {
-    return this.draftController.buildEnvelope(status);
+    return this.draftController?.buildEnvelope(status) ?? null;
   }
 
   private getDraftPageTitle(): string {
@@ -482,19 +482,19 @@ export class ReaderSession {
   }
 
   private async persistDraftMutation(): Promise<void> {
-    await this.draftController.persistMutation();
+    await this.draftController?.persistMutation();
   }
 
   private queueDraftPersistence(): void {
-    this.draftController.queuePersistence();
+    this.draftController?.queuePersistence();
   }
 
   private autosaveCommentDraftMutation(): void {
-    this.draftController.autosaveCommentDraftMutation();
+    this.draftController?.autosaveCommentDraftMutation();
   }
 
   private async finalizeTerminalDraft(status: SessionDraftTerminalStatus): Promise<boolean> {
-    return this.draftController.finalizeTerminalDraft(status);
+    return (await this.draftController?.finalizeTerminalDraft(status)) ?? true;
   }
 
   private async runDraftMutation<Result>(
@@ -512,19 +512,19 @@ export class ReaderSession {
   }
 
   private async clearPersistedDraft(): Promise<void> {
-    await this.draftController.clearPersistedDraft();
+    await this.draftController?.clearPersistedDraft();
   }
 
   private async discardStoredDraftCandidate(storageKey: string): Promise<void> {
-    await this.draftController.discardStoredDraftCandidate(storageKey);
+    await this.draftController?.discardStoredDraftCandidate(storageKey);
   }
 
   private async flushDraftForRestore(): Promise<void> {
-    await this.draftController.flushForRestore();
+    await this.draftController?.flushForRestore();
   }
 
   private async disposeDraftPersistence(): Promise<void> {
-    await this.draftController.dispose();
+    await this.draftController?.dispose();
   }
 
   private cleanup(): void {

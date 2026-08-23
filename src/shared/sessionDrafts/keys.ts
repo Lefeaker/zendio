@@ -1,9 +1,7 @@
+import { z } from 'zod';
 import {
-  SESSION_DRAFT_SCHEMA_VERSION,
-  type SessionDraftRemovalTombstone,
   type SessionDraftCommitMetadata,
   type SessionDraftIndexEntry,
-  type SessionDraftMode,
   type SessionDraftMutationOperation,
   type SessionDraftMutationOutcome,
   type SessionDraftMutationReceipt,
@@ -14,24 +12,17 @@ import {
   createLegacySessionDraftPageKey,
   createSessionDraftPageIdentity,
   matchesSessionDraftPageIdentity,
-  type SessionDraftIdentityRequest
+  type SessionDraftIdentityRequest,
+  type SessionDraftMode
 } from './pageIdentity';
 
 const SESSION_DRAFT_KEY_PREFIX = 'aiob.sessionDraft';
 const SESSION_DRAFT_VALUE_PREFIX = `${SESSION_DRAFT_KEY_PREFIX}.v1.`;
 export const SESSION_DRAFT_INDEX_KEY = `${SESSION_DRAFT_KEY_PREFIX}.index.v1`;
 export const SESSION_DRAFT_QUARANTINE_KEY = `${SESSION_DRAFT_INDEX_KEY}.quarantine.latest`;
+export const SESSION_DRAFT_OWNER_PROBE_MESSAGE_TYPE = 'AIIOB_SESSION_DRAFT_OWNER_PROBE_V2' as const;
 
-export {
-  createSessionDraftCanonicalPageFields,
-  createLegacySessionDraftPageKey,
-  createSessionDraftPageIdentity,
-  createSessionDraftPageKey,
-  hasCanonicalSessionDraftPageIdentity,
-  matchesSessionDraftPageIdentity,
-  matchesSessionDraftRecordPageIdentity,
-  normalizeSessionDraftPageUrl
-} from './pageIdentity';
+export * from './pageIdentity';
 
 export function createSessionDraftStorageKey(input: {
   mode: SessionDraftMode;
@@ -139,6 +130,21 @@ export function isExactSessionDraftStorageKey(key: string): boolean {
   return parsed !== undefined && createSessionDraftStorageKey(parsed) === key;
 }
 
+const ProbeIdSchema = z.string().min(1).max(128);
+export const SessionDraftOwnerProbeRequestSchema = z
+  .object({
+    type: z.literal(SESSION_DRAFT_OWNER_PROBE_MESSAGE_TYPE),
+    probeId: ProbeIdSchema,
+    key: z.string().min(1).max(1024).refine(isExactSessionDraftStorageKey),
+    leaseId: ProbeIdSchema
+  })
+  .strict();
+export const SessionDraftOwnerProbeResponseSchema = z
+  .object({ probeId: ProbeIdSchema, active: z.boolean() })
+  .strict();
+export type SessionDraftOwnerProbeRequest = z.infer<typeof SessionDraftOwnerProbeRequestSchema>;
+export type SessionDraftOwnerProbeResponse = z.infer<typeof SessionDraftOwnerProbeResponseSchema>;
+
 export function compareSessionDraftText(left: string, right: string): number {
   return left === right ? 0 : left < right ? -1 : 1;
 }
@@ -166,16 +172,6 @@ export function createSessionDraftIndexEntry(
     updatedAt: record.updatedAt,
     expiresAt: record.expiresAt,
     status: record.status
-  };
-}
-
-export function createSessionDraftRemovalTombstone(
-  pending: SessionDraftPendingRemoval
-): SessionDraftRemovalTombstone {
-  return {
-    ...pending,
-    schemaVersion: SESSION_DRAFT_SCHEMA_VERSION,
-    kind: 'session-draft-removal-tombstone'
   };
 }
 

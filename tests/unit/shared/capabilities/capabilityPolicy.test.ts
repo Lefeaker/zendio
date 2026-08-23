@@ -6,7 +6,7 @@ import {
   FREE_SESSION_DRAFT_MAX_ITEMS_PER_PAGE,
   FREE_SESSION_DRAFT_MAX_RESTORABLE_PAGES,
   FREE_SESSION_DRAFT_RETENTION_MS
-} from '../../../../src/content/sessionDrafts/sessionDraftRetentionPolicy';
+} from '../../../../src/shared/sessionDrafts';
 
 describe('restore capability policy', () => {
   it('keeps the public default policy equal to current Free restore limits', () => {

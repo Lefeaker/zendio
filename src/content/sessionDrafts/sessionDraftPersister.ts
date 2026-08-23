@@ -1,8 +1,35 @@
 import type {
-  SessionDraftEnvelope,
-  SessionDraftPersister,
-  SessionDraftPersisterOptions
-} from './sessionDraftTypes';
+  SessionDraftClientEnvelope,
+  SessionDraftEnvelope as PersistedSessionDraftEnvelope
+} from '../../shared/sessionDrafts';
+
+type MaybePromise<T> = T | Promise<T>;
+export interface SessionDraftPersisterOptions<
+  TEnvelope extends SessionDraftClientEnvelope = SessionDraftClientEnvelope,
+  TPersistedEnvelope = PersistedSessionDraftEnvelope
+> {
+  repository: {
+    save(envelope: TEnvelope, options?: { requestId?: string }): Promise<TPersistedEnvelope>;
+  };
+  buildEnvelope: () => MaybePromise<TEnvelope | null>;
+  delayMs?: number;
+  createRequestId?: () => string;
+  onPersistedEnvelope?: (envelope: TPersistedEnvelope) => void;
+}
+export interface SessionDraftPersister {
+  hasPending(): boolean;
+  scheduleSave(): Promise<void>;
+  flushNow(): Promise<void>;
+  dispose(options?: { flush?: boolean }): Promise<void>;
+}
+
+export async function settleSessionDraftPersister<Result>(
+  persister: Pick<SessionDraftPersister, 'hasPending' | 'flushNow'>,
+  after: () => Promise<Result>
+): Promise<void> {
+  if (persister.hasPending()) await persister.flushNow();
+  await after();
+}
 
 interface Deferred {
   promise: Promise<void>;
@@ -21,15 +48,28 @@ function createDeferred(): Deferred {
   return { promise, reject, resolve };
 }
 
-export function createSessionDraftPersister<TEnvelope extends SessionDraftEnvelope>({
+export function createSessionDraftPersister<
+  TEnvelope extends SessionDraftClientEnvelope,
+  TPersistedEnvelope = PersistedSessionDraftEnvelope
+>({
   repository,
   buildEnvelope,
-  delayMs = 150
-}: SessionDraftPersisterOptions<TEnvelope>): SessionDraftPersister {
+  delayMs = 150,
+  createRequestId = () =>
+    typeof globalThis.crypto?.randomUUID === 'function'
+      ? globalThis.crypto.randomUUID()
+      : `save-${Date.now()}-${Math.random().toString(16).slice(2)}`,
+  onPersistedEnvelope
+}: SessionDraftPersisterOptions<TEnvelope, TPersistedEnvelope>): SessionDraftPersister {
   let disposed = false;
   let timer: ReturnType<typeof setTimeout> | null = null;
   let pending: Deferred | null = null;
   let writeChain = Promise.resolve();
+  let retryRequestId: string | null = null;
+  let retryEnvelope: TEnvelope | null = null;
+  let retryGeneration = 0;
+  let scheduledGeneration = 0;
+  let activeRun = false;
 
   function ensurePending(): Deferred {
     pending ??= createDeferred();
@@ -41,17 +81,52 @@ export function createSessionDraftPersister<TEnvelope extends SessionDraftEnvelo
       clearTimeout(timer);
       timer = null;
     }
-    const deferred = pending;
+    const deferred = pending ?? (retryEnvelope && !activeRun ? createDeferred() : null);
     if (!deferred) {
-      await writeChain;
+      try {
+        await writeChain;
+      } catch (error) {
+        if (retryEnvelope && !activeRun) return flushPending();
+        throw error;
+      }
       return;
     }
 
     pending = null;
     const run = async (): Promise<void> => {
-      const envelope = await buildEnvelope();
-      if (envelope) {
-        await repository.save(envelope);
+      activeRun = true;
+      try {
+        const targetGeneration = scheduledGeneration;
+        const replayEnvelope = retryEnvelope;
+        const replayGeneration = retryGeneration;
+        const envelope = replayEnvelope ?? (await buildEnvelope());
+        if (envelope) {
+          retryRequestId ??= createRequestId();
+          retryEnvelope ??= envelope;
+          retryGeneration ||= targetGeneration;
+          const persisted = await repository.save(envelope, { requestId: retryRequestId });
+          retryRequestId = null;
+          retryEnvelope = null;
+          retryGeneration = 0;
+          onPersistedEnvelope?.(persisted);
+        }
+        if (replayEnvelope && targetGeneration > replayGeneration) {
+          const latestEnvelope = await buildEnvelope();
+          if (latestEnvelope) {
+            retryRequestId = createRequestId();
+            retryEnvelope = latestEnvelope;
+            retryGeneration = targetGeneration;
+            const persisted = await repository.save(latestEnvelope, {
+              requestId: retryRequestId
+            });
+            retryRequestId = null;
+            retryEnvelope = null;
+            retryGeneration = 0;
+            onPersistedEnvelope?.(persisted);
+          }
+        }
+      } finally {
+        activeRun = false;
       }
     };
 
@@ -66,10 +141,12 @@ export function createSessionDraftPersister<TEnvelope extends SessionDraftEnvelo
   }
 
   return {
+    hasPending: () => Boolean(timer || pending || retryEnvelope || activeRun),
     scheduleSave(): Promise<void> {
       if (disposed) {
         return Promise.reject(new Error('Session draft persister has been disposed.'));
       }
+      scheduledGeneration += 1;
       const deferred = ensurePending();
       if (timer) {
         clearTimeout(timer);
@@ -86,7 +163,7 @@ export function createSessionDraftPersister<TEnvelope extends SessionDraftEnvelo
 
     async dispose(options = {}): Promise<void> {
       disposed = true;
-      if (timer && options.flush) {
+      if (options.flush && (timer || pending || retryEnvelope)) {
         await flushPending();
         return;
       }

@@ -1,20 +1,67 @@
 import { z } from 'zod';
 import {
   hasCanonicalSessionDraftPageIdentity,
-  isValidSessionDraftMutationMetadata as validMutationMetadata,
-  isValidSessionDraftMutationReceipt as validMutationReceipt,
+  isExactSessionDraftStorageKey,
+  isValidSessionDraftMutationMetadata as validLegacyMutationMetadata,
+  isValidSessionDraftMutationReceipt as validLegacyMutationReceipt,
   isValidSessionDraftPendingRemoval as validPendingRemoval
 } from './keys';
+import {
+  SessionDraftLeaseSchema,
+  SessionDraftLegacyCleanupObligationSchema,
+  SessionDraftLegacyOwnerContextSchema,
+  SessionDraftModeSchema,
+  SessionDraftStatusSchema,
+  SessionDraftTrustedOwnerContextSchema
+} from './pageIdentity';
 import { measureSessionDraftValueBytes } from './retentionPolicy';
 import {
   SESSION_DRAFT_LEGACY_SCHEMA_VERSION,
-  SESSION_DRAFT_LEASE_DURATION_MS,
   SESSION_DRAFT_MAX_ENVELOPE_BYTES,
   SESSION_DRAFT_SCHEMA_VERSION,
-  type SessionDraftLegacyRecord,
-  type SessionDraftPayload,
-  type SessionDraftRecord
+  type SessionDraftCommitMetadata,
+  type SessionDraftMutationReceipt,
+  type SessionDraftPayload
 } from './types';
+
+export {
+  SessionDraftLeaseSchema,
+  SessionDraftLegacyCleanupObligationSchema,
+  SessionDraftLegacyOwnerContextSchema,
+  SessionDraftModeSchema,
+  SessionDraftStatusSchema,
+  SessionDraftTrustedOwnerContextSchema
+};
+
+export const SessionDraftConflictCodeSchema = z.union([
+  z.enum(['OWNER_CONTEXT_INVALID', 'SESSION_DRAFT_STORAGE_ENUMERATION_UNAVAILABLE']),
+  z.enum(['REQUEST_ID_REUSE', 'INDEX_RECOVERY_FAILED', 'STORAGE_FAILURE']),
+  z.enum(['STORAGE_KEY_MISMATCH', 'DRAFT_EXISTS', 'DRAFT_NOT_FOUND']),
+  z.enum(['REVISION_CONFLICT', 'LEASE_REQUIRED', 'LEASE_CONFLICT']),
+  z.enum(['OWNER_CONFLICT', 'OWNER_ACTIVE', 'OWNER_LIVENESS_UNAVAILABLE']),
+  z.enum(['TERMINAL_DRAFT', 'TERMINAL_REQUIRED', 'REMOVAL_PENDING']),
+  z.enum(['MIGRATION_INPUT_INVALID', 'MIGRATION_SOURCE_CHANGED', 'MIGRATION_CLEANUP_PENDING']),
+  z.enum(['PAYLOAD_INVALID', 'PAYLOAD_TOO_LARGE', 'CAPACITY_EXCEEDED', 'RECORD_CHANGED'])
+]);
+export type { SessionDraftConflictCode } from './types';
+
+function validMutationMetadata(value: SessionDraftCommitMetadata): boolean {
+  if (value.operation !== 'migrate') return validLegacyMutationMetadata(value);
+  return (
+    value.outcome === 'migrated' &&
+    isExactSessionDraftStorageKey(value.key) &&
+    value.revision !== undefined &&
+    value.revision >= 1 &&
+    value.removedCount === undefined &&
+    value.selectionReason === undefined &&
+    value.invalidRemovedCount === undefined
+  );
+}
+
+function validMutationReceipt(value: SessionDraftMutationReceipt): boolean {
+  if (value.operation !== 'migrate') return validLegacyMutationReceipt(value);
+  return validMutationMetadata(value) && value.resultDigest !== undefined;
+}
 const TimestampSchema = z.number().int().nonnegative().finite();
 const BoundedIdSchema = z.string().min(1).max(128);
 const StorageKeySchema = z.string().min(1).max(1024);
@@ -35,28 +82,6 @@ const forbiddenPayloadKeys = new Set([
   'binarycontent',
   'bytes'
 ]);
-export const SessionDraftModeSchema = z.enum(['reader', 'video']);
-export const SessionDraftStatusSchema = z.enum(['active', 'restorable', 'discarded', 'exported']);
-export const SessionDraftTrustedOwnerContextSchema = z
-  .object({
-    tabId: z.number().int().nonnegative(),
-    frameId: z.number().int().nonnegative(),
-    windowId: z.number().int().nonnegative().optional()
-  })
-  .strict();
-export const SessionDraftLegacyOwnerContextSchema = SessionDraftTrustedOwnerContextSchema.partial();
-export const SessionDraftLeaseSchema = z
-  .object({
-    leaseId: BoundedIdSchema,
-    owner: SessionDraftTrustedOwnerContextSchema,
-    renewedAt: TimestampSchema,
-    leaseExpiresAt: TimestampSchema
-  })
-  .strict()
-  .refine(
-    (lease) => lease.leaseExpiresAt === lease.renewedAt + SESSION_DRAFT_LEASE_DURATION_MS,
-    'SESSION_DRAFT_LEASE_EXPIRY_INVALID'
-  );
 function isAllowedJson(value: unknown, seen: Set<object>, allowLegacyOwner: boolean): boolean {
   if (value === null || typeof value === 'boolean' || typeof value === 'string') {
     return typeof value !== 'string' || !value.toLowerCase().includes('data:image/');
@@ -124,6 +149,7 @@ export const SessionDraftEnvelopeSchema = SessionDraftRecordMetadataSchema.exten
   schemaVersion: z.literal(SESSION_DRAFT_SCHEMA_VERSION),
   revision: z.number().int().min(1),
   lease: SessionDraftLeaseSchema.optional(),
+  legacyCleanup: SessionDraftLegacyCleanupObligationSchema.optional(),
   payload: SessionDraftPayloadSchema
 })
   .strict()
@@ -137,7 +163,7 @@ export const SessionDraftEnvelopeSchema = SessionDraftRecordMetadataSchema.exten
       context.addIssue({ code: z.ZodIssueCode.custom, message: 'SESSION_DRAFT_PAYLOAD_TOO_LARGE' });
     }
   });
-const LegacyEnvelopeSchema = SessionDraftRecordMetadataSchema.extend({
+export const LegacyEnvelopeSchema = SessionDraftRecordMetadataSchema.extend({
   schemaVersion: z.literal(SESSION_DRAFT_LEGACY_SCHEMA_VERSION),
   payload: LegacyPayloadSchema
 });
@@ -164,6 +190,7 @@ export const SessionDraftMutationOperationSchema = z.enum([
   'claim',
   'renew',
   'release',
+  'migrate',
   'prune'
 ]);
 export const SessionDraftMutationOutcomeSchema = z.enum([
@@ -173,6 +200,7 @@ export const SessionDraftMutationOutcomeSchema = z.enum([
   'claimed',
   'renewed',
   'released',
+  'migrated',
   'pruned',
   'none',
   'invalid_removed'
@@ -216,32 +244,3 @@ export const SessionDraftRemovalTombstoneSchema = PendingRemovalObject.extend({
   schemaVersion: z.literal(SESSION_DRAFT_SCHEMA_VERSION),
   kind: z.literal('session-draft-removal-tombstone')
 }).refine(validPendingRemoval, 'SESSION_DRAFT_RECEIPT_INVALID');
-export const SessionDraftLegacyRecordResponseSchema = SessionDraftRecordMetadataSchema.extend({
-  schemaVersion: z.literal(SESSION_DRAFT_LEGACY_SCHEMA_VERSION),
-  revision: z.literal(0),
-  payload: SessionDraftPayloadSchema
-}).strict();
-export const SessionDraftRecordResponseSchema = z.union([
-  SessionDraftEnvelopeSchema,
-  SessionDraftLegacyRecordResponseSchema
-]);
-export function normalizeLegacySessionDraftRecord(
-  value: unknown
-): SessionDraftLegacyRecord | undefined {
-  const parsed = LegacyEnvelopeSchema.safeParse(value);
-  if (!parsed.success) return undefined;
-  if (measureSessionDraftValueBytes(parsed.data) > SESSION_DRAFT_MAX_ENVELOPE_BYTES)
-    return undefined;
-  const { ownerContext, ...payload } = parsed.data.payload;
-  const legacyOwner = SessionDraftLegacyOwnerContextSchema.safeParse(ownerContext);
-  return {
-    ...parsed.data,
-    revision: 0,
-    payload,
-    ...(legacyOwner.success ? { legacyOwnerContext: legacyOwner.data } : {})
-  };
-}
-export function parseSessionDraftRecord(value: unknown): SessionDraftRecord | undefined {
-  const current = SessionDraftEnvelopeSchema.safeParse(value);
-  return current.success ? current.data : normalizeLegacySessionDraftRecord(value);
-}

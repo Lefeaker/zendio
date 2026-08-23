@@ -6,25 +6,22 @@ import {
   type SessionDraftSelectionDependencies,
   type SessionDraftSelectionInput
 } from '../../../src/background/services/sessionDraftStoreSelection';
-import { createSessionDraftIndexEntry } from '../../../src/shared/sessionDrafts';
 import {
+  SESSION_DRAFT_LEASE_DURATION_MS,
+  createSessionDraftIndexEntry,
   createLegacySessionDraftPageKey,
   createSessionDraftPageKey,
-  createSessionDraftStorageKey
-} from '../../../src/shared/sessionDrafts/keys';
-import type {
-  SessionDraftEnvelope,
-  SessionDraftIndexEntry,
-  SessionDraftLegacyRecord,
-  SessionDraftOwnerLivenessProbe,
-  SessionDraftRecord,
-  SessionDraftTrustedOwnerContext
-} from '../../../src/shared/sessionDrafts/types';
-import { SESSION_DRAFT_LEASE_DURATION_MS } from '../../../src/shared/sessionDrafts/types';
+  createSessionDraftStorageKey,
+  type SessionDraftEnvelope,
+  type SessionDraftIndexEntry,
+  type SessionDraftLegacyRecord,
+  type SessionDraftOwnerLivenessProbe,
+  type SessionDraftRecord,
+  type SessionDraftTrustedOwnerContext
+} from '../../../src/shared/sessionDrafts';
 
 const NOW = 100_000;
 const PAGE_URL = 'https://example.com/article?view=full';
-const PAGE_KEY = createSessionDraftPageKey('reader', PAGE_URL);
 const LEGACY_PAGE_KEY = createLegacySessionDraftPageKey('reader', PAGE_URL);
 const COLLIDING_PAGE_URLS = [
   'https://example.com/reader/1ctg9w7-1jx99je',

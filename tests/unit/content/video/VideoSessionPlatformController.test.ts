@@ -1,7 +1,6 @@
 /* @vitest-environment jsdom */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { serializeCaptures } from '@content/video/captureStorage';
 import { VideoSessionPlatformController } from '@content/video/sessionPlatformController';
 import { VideoSessionState } from '@content/video/sessionState';
 
@@ -27,7 +26,6 @@ function createController() {
   const onAdapterChange = vi.fn();
   const ensureCaptureHighlight = vi.fn();
   const loadStoredCaptureData = vi.fn(() => Promise.resolve(undefined));
-  const saveCaptureData = vi.fn(() => Promise.resolve(undefined));
   const detectVideoIdentity = vi.fn(() => ({
     platform: 'bilibili' as const,
     videoId: 'BV1xx411c7mD',
@@ -38,7 +36,7 @@ function createController() {
 
   const controller = new VideoSessionPlatformController({
     doc: document,
-    storage: { get: vi.fn(), set: vi.fn() },
+    storage: { get: vi.fn() },
     state,
     createPlatformContext: () => ({
       doc: document,
@@ -55,8 +53,7 @@ function createController() {
     ensureCaptureHighlight,
     detectVideoIdentity: detectVideoIdentity as never,
     createVideoPlatformAdapter: createVideoPlatformAdapter as never,
-    loadStoredCaptureData,
-    saveCaptureData
+    loadStoredCaptureData
   });
 
   return {
@@ -66,7 +63,6 @@ function createController() {
     ensureCaptureHighlight,
     onAdapterChange,
     loadStoredCaptureData,
-    saveCaptureData,
     detectVideoIdentity,
     dispose
   };
@@ -142,7 +138,7 @@ describe('VideoSessionPlatformController', () => {
     setup.loadStoredCaptureData.mockResolvedValueOnce({
       title: 'Restored Title',
       url: 'https://www.bilibili.com/video/BV1changed',
-      entries: serializeCaptures([
+      entries: [
         {
           kind: 'fragment',
           id: 'fragment-1',
@@ -152,8 +148,14 @@ describe('VideoSessionPlatformController', () => {
           fragmentUrl: 'https://www.bilibili.com/video/BV1changed#:~:text=Alpha',
           createdAt: 3
         }
-      ]),
-      updatedAt: Date.now()
+      ],
+      updatedAt: Date.now(),
+      migration: {
+        legacyKey: 'bili:BV1changed',
+        rawDigest: 'a'.repeat(64),
+        canonicalDigest: 'b'.repeat(64),
+        canonicalLegacy: { entries: [], updatedAt: Date.now() }
+      }
     } as never);
     setup.adapter.restoreHighlight.mockReturnValueOnce('fragment-wrapper' as never);
 

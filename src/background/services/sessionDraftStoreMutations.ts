@@ -1,8 +1,23 @@
 import {
   createSessionDraftCanonicalPageFields,
   createSessionDraftStorageIdentity,
-  matchesSessionDraftRecordPageIdentity
+  matchesSessionDraftRecordPageIdentity,
+  SESSION_DRAFT_LEASE_DURATION_MS,
+  type SessionDraftLease,
+  type SessionDraftStatus,
+  type SessionDraftTrustedOwnerContext
 } from '../../shared/sessionDrafts/keys';
+import type { SessionDraftConflictCode } from '../../shared/sessionDrafts/schemas';
+import {
+  type SessionDraftEnvelope,
+  type SessionDraftIndex,
+  type SessionDraftMutationCommitPlan,
+  type SessionDraftMutationReceipt,
+  type SessionDraftPendingRemoval,
+  type SessionDraftRecord,
+  type SessionDraftRetentionPolicy,
+  type SessionDraftTransitionResult
+} from '../../shared/sessionDrafts/types';
 import type {
   SessionDraftFinalizeExactRequest,
   SessionDraftReleaseLeaseRequest,
@@ -10,19 +25,6 @@ import type {
   SessionDraftRenewLeaseRequest,
   SessionDraftSaveRequest
 } from '../../shared/sessionDrafts/messages';
-import { measureSessionDraftValueBytes } from '../../shared/sessionDrafts/retentionPolicy';
-import { SessionDraftEnvelopeSchema } from '../../shared/sessionDrafts/schemas';
-import {
-  SESSION_DRAFT_LEASE_DURATION_MS,
-  type SessionDraftConflictCode,
-  type SessionDraftEnvelope,
-  type SessionDraftLease,
-  type SessionDraftRecord,
-  type SessionDraftStatus,
-  type SessionDraftTransitionResult,
-  type SessionDraftTrustedOwnerContext
-} from '../../shared/sessionDrafts/types';
-
 export interface SessionDraftMutationContext {
   now: number;
   retentionMs: number;
@@ -38,7 +40,20 @@ export interface SessionDraftEnvelopeMutationDescriptor {
   operation: 'save' | 'finalize' | 'renew' | 'release';
   outcome: 'saved' | 'finalized' | 'renewed' | 'released';
 }
-
+export type SessionDraftStorageCommit = {
+  index: SessionDraftIndex;
+  envelope?: { key: string; value: SessionDraftEnvelope };
+  removals?: SessionDraftPendingRemoval[];
+};
+export interface SessionDraftMutationCommitInput<Snapshot> {
+  snapshot: Snapshot;
+  digest: string;
+  receipts: SessionDraftMutationReceipt[];
+  plan: SessionDraftMutationCommitPlan;
+  now: number;
+  retention: SessionDraftRetentionPolicy;
+  maxEntries: number;
+}
 function conflict(code: SessionDraftConflictCode): SessionDraftTransitionResult {
   return { outcome: 'conflict', code };
 }
@@ -211,19 +226,6 @@ export function describeSessionDraftEnvelopeMutation(
   if (request.operation === 'finalizeExact') return { operation: 'finalize', outcome: 'finalized' };
   if (request.operation === 'renewLease') return { operation: 'renew', outcome: 'renewed' };
   return { operation: 'release', outcome: 'released' };
-}
-
-export function validateSessionDraftEnvelope(
-  envelope: SessionDraftEnvelope,
-  maxBytes: number
-): SessionDraftTransitionResult {
-  const parsed = SessionDraftEnvelopeSchema.safeParse(envelope);
-  const tooLarge =
-    parsed.success ||
-    parsed.error.issues.some((issue) => issue.message === 'SESSION_DRAFT_PAYLOAD_TOO_LARGE');
-  if (!parsed.success) return conflict(tooLarge ? 'PAYLOAD_TOO_LARGE' : 'STORAGE_FAILURE');
-  if (measureSessionDraftValueBytes(parsed.data) > maxBytes) return conflict('PAYLOAD_TOO_LARGE');
-  return { outcome: 'success', envelope: parsed.data };
 }
 
 export function claimSessionDraftTransition(

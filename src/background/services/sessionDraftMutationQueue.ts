@@ -5,31 +5,25 @@ import {
   describeSessionDraftEnvelopeMutation,
   mutateSessionDraftLeaseTransition,
   saveSessionDraftTransition,
-  validateSessionDraftEnvelope,
   validateSessionDraftRemoveTransition,
   type SessionDraftEnvelopeMutationRequest
 } from './sessionDraftStoreMutations';
 import {
   planAndSelectSessionDraftClaim,
-  prepareSessionDraftPrune
+  prepareSessionDraftPrune,
+  validateSessionDraftEnvelope
 } from './sessionDraftStoreSelection';
 import {
   commitSessionDraftMutation,
   type SessionDraftStorageSnapshot,
   type SessionDraftStoreStorage
 } from './sessionDraftStoreStorage';
+import type { SessionDraftTransactionContext } from './sessionDraftOwnerLivenessProbe';
 export interface SessionDraftMutationQueue {
   run<Result>(operation: () => Promise<Result>): Promise<Result>;
 }
-export interface SessionDraftStoreTransactionContext {
-  storage: SessionDraftStoreStorage;
-  now: () => number;
-  leaseId: () => string;
-  probe: Draft.SessionDraftOwnerLivenessProbe;
-  retention: Draft.SessionDraftRetentionPolicy;
-  maxEntries: number;
-  maxBytes: number;
-}
+export type SessionDraftStoreTransactionContext =
+  SessionDraftTransactionContext<SessionDraftStoreStorage>;
 export interface SessionDraftMutationReadyState {
   snapshot: SessionDraftStorageSnapshot;
   digest: string;

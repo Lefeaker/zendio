@@ -9,10 +9,7 @@ import {
   getReaderSession,
   isReaderSessionActive
 } from '@content/runtime/contentSessionRegistry';
-import {
-  createSessionDraftStorageKey,
-  type SessionDraftOwnerContext
-} from '@content/sessionDrafts';
+import { createSessionDraftStorageKey, type SessionDraftOwnerContext } from '@shared/sessionDrafts';
 import { configureSessionDraftRuntimeMessenger } from '@content/sessionDrafts/sessionDraftTabContext';
 import {
   createPersistedHighlightRecord,
@@ -28,7 +25,6 @@ import {
   loadLatestReaderDraft,
   readDraftIndex,
   readStoredReaderDraft,
-  removalCallIncludesKey,
   settleReaderMutation,
   type TabContextProbeResponse
 } from './readerSessionTestHarness';
@@ -163,7 +159,7 @@ describe('ReaderSession export', () => {
     expectCanonicalReaderTelemetry(getTelemetryMessages(context));
   });
 
-  it('cleans up after cancel when exact-key draft removal fails after the terminal envelope is written', async () => {
+  it('keeps the committed terminal draft retryable when exact-key cancel removal fails', async () => {
     vi.useFakeTimers();
     const context = createSessionContext();
     await context.session.initialize();
@@ -193,13 +189,10 @@ describe('ReaderSession export', () => {
       throw new Error('expected an active current draft');
     }
 
-    const passthroughRemove = context.storageLocal.remove.bind(context.storageLocal);
-    vi.spyOn(context.storageLocal, 'remove').mockImplementation(async (value) => {
-      if (removalCallIncludesKey(value, currentDraftKey)) {
-        throw new Error('remove current exact key after terminal cancel failed');
-      }
-      return await passthroughRemove(value);
-    });
+    context.draftMessages.rejectNext(
+      'removeExact',
+      new Error('remove current exact key after terminal cancel failed')
+    );
 
     const callbacks = context.getCallbacks();
     if (!callbacks) {
@@ -208,12 +201,18 @@ describe('ReaderSession export', () => {
 
     callbacks.onCancel();
     await vi.waitFor(() => {
-      expect(context.view.destroy).toHaveBeenCalledTimes(1);
+      expect(context.view.updateHint).toHaveBeenCalledWith(DEFAULT_SESSION_MESSAGES.hintFailure);
     });
 
-    expect(isReaderSessionActive(document)).toBe(false);
-    await expect(loadLatestReaderDraft(context)).resolves.toBeNull();
-    await expect(listReaderDraftCandidates(context)).resolves.toEqual([]);
+    expect(context.view.destroy).not.toHaveBeenCalled();
+    expect(isReaderSessionActive(document)).toBe(true);
+    await expect(loadLatestReaderDraft(context)).resolves.toMatchObject({
+      draftId: currentDraftId,
+      status: 'discarded'
+    });
+    await expect(listReaderDraftCandidates(context)).resolves.toEqual([
+      expect.objectContaining({ draftId: currentDraftId, status: 'discarded' })
+    ]);
     expect(await readDraftIndex(context)).toMatchObject({
       entries: [expect.objectContaining({ draftId: currentDraftId, status: 'discarded' })]
     });
@@ -221,6 +220,11 @@ describe('ReaderSession export', () => {
       draftId: currentDraftId,
       status: 'discarded'
     });
+
+    callbacks.onCancel();
+    await vi.waitFor(() => expect(context.view.destroy).toHaveBeenCalledTimes(1));
+    expect(isReaderSessionActive(document)).toBe(false);
+    await expect(readStoredReaderDraft(context, currentDraftKey)).resolves.toBeUndefined();
   });
 
   it('keeps the session active and suppresses cancel analytics when terminal draft persistence fails', async () => {
@@ -247,9 +251,7 @@ describe('ReaderSession export', () => {
     await flushDraftPersistence();
     context.messaging.send.mockClear();
     context.view.updateHint.mockClear();
-    vi.spyOn(context.storageLocal, 'setMany').mockImplementationOnce(() =>
-      Promise.reject(new Error('cancel terminal save failed'))
-    );
+    context.draftMessages.rejectNext('finalizeExact', new Error('cancel terminal save failed'));
 
     const callbacks = context.getCallbacks();
     if (!callbacks) {
@@ -364,15 +366,10 @@ describe('ReaderSession export', () => {
         pageKey: existing.pageKey,
         draftId: existing.draftId
       });
-      const passthroughRemove = context.storageLocal.remove.bind(context.storageLocal);
-      const removeSpy = vi
-        .spyOn(context.storageLocal, 'remove')
-        .mockImplementation(async (value) => {
-          if (removalCallIncludesKey(value, currentDraftKey)) {
-            throw new Error('keep current key to verify terminal suppression');
-          }
-          return await passthroughRemove(value);
-        });
+      context.draftMessages.rejectNext(
+        'removeExact',
+        new Error('keep current key to verify terminal suppression')
+      );
 
       const callbacks = context.getCallbacks();
       if (!callbacks) {
@@ -381,21 +378,29 @@ describe('ReaderSession export', () => {
 
       callbacks.onCancel();
       await vi.waitFor(() => {
-        expect(context.view.destroy).toHaveBeenCalledTimes(1);
+        expect(context.view.updateHint).toHaveBeenCalledWith(DEFAULT_SESSION_MESSAGES.hintFailure);
       });
 
+      expect(context.view.destroy).not.toHaveBeenCalled();
+      expect(isReaderSessionActive(document)).toBe(true);
       const afterCancel = await context.draftRepository.listCandidates(
         'reader',
         pageUrl,
         undefined,
         { ownerContext: null }
       );
-      expect(afterCancel).toHaveLength(1);
-      expect(afterCancel[0]?.draftId).toBe('existing-draft');
+      expect(afterCancel).toHaveLength(2);
+      expect(afterCancel).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ draftId: 'existing-draft', status: 'active' }),
+          expect.objectContaining({ draftId: currentDraft.draftId, status: 'discarded' })
+        ])
+      );
       await expect(
         context.draftRepository.loadLatest('reader', pageUrl, undefined, { ownerContext: null })
       ).resolves.toMatchObject({
-        draftId: 'existing-draft'
+        draftId: currentDraft.draftId,
+        status: 'discarded'
       });
       const draftIndex = await readDraftIndex(context);
       if (!draftIndex) {
@@ -412,11 +417,23 @@ describe('ReaderSession export', () => {
         status: 'discarded'
       });
       expect(
-        removeSpy.mock.calls.filter(([value]) => removalCallIncludesKey(value, currentDraftKey))
+        context.draftMessages.observed.filter(
+          (request) => request.operation === 'removeExact' && request.key === currentDraftKey
+        )
       ).toHaveLength(1);
       expect(
-        removeSpy.mock.calls.filter(([value]) => removalCallIncludesKey(value, existingDraftKey))
+        context.draftMessages.observed.filter(
+          (request) => request.operation === 'removeExact' && request.key === existingDraftKey
+        )
       ).toHaveLength(0);
+
+      callbacks.onCancel();
+      await vi.waitFor(() => expect(context.view.destroy).toHaveBeenCalledTimes(1));
+      await expect(readStoredReaderDraft(context, currentDraftKey)).resolves.toBeUndefined();
+      await expect(readStoredReaderDraft(context, existingDraftKey)).resolves.toMatchObject({
+        draftId: 'existing-draft',
+        status: 'active'
+      });
     } finally {
       configureSessionDraftRuntimeMessenger(null);
       if (previousChrome === undefined) {
@@ -464,9 +481,7 @@ describe('ReaderSession export', () => {
     });
     context.messaging.send.mockClear();
     context.view.updateHint.mockClear();
-    const setManySpy = vi
-      .spyOn(context.storageLocal, 'setMany')
-      .mockImplementationOnce(() => Promise.reject(new Error('cancel pending flush failed')));
+    context.draftMessages.rejectNext('save', new Error('cancel pending flush failed'));
 
     const callbacks = context.getCallbacks();
     if (!callbacks) {
@@ -487,14 +502,16 @@ describe('ReaderSession export', () => {
     expect(
       getTelemetryMessages(context).find((message) => message.event === 'reader_session_cancelled')
     ).toBeUndefined();
-    expect(setManySpy).toHaveBeenCalledTimes(1);
+    expect(
+      context.draftMessages.observed.filter((request) => request.operation === 'save')
+    ).not.toHaveLength(0);
     await expect(loadLatestReaderDraft(context)).resolves.toMatchObject({
       draftId: currentDraftId,
       status: 'active'
     });
   });
 
-  it('cleans up after export when exact-key draft removal fails after the terminal envelope is written', async () => {
+  it('keeps the committed terminal draft mounted when exact-key export removal fails', async () => {
     vi.useFakeTimers();
     const context = createSessionContext();
     await context.session.initialize();
@@ -524,13 +541,10 @@ describe('ReaderSession export', () => {
       throw new Error('expected an active current draft');
     }
 
-    const passthroughRemove = context.storageLocal.remove.bind(context.storageLocal);
-    vi.spyOn(context.storageLocal, 'remove').mockImplementation(async (value) => {
-      if (removalCallIncludesKey(value, currentDraftKey)) {
-        throw new Error('remove current exact key after terminal export failed');
-      }
-      return await passthroughRemove(value);
-    });
+    context.draftMessages.rejectNext(
+      'removeExact',
+      new Error('remove current exact key after terminal export failed')
+    );
 
     const callbacks = context.getCallbacks();
     if (!callbacks) {
@@ -540,10 +554,15 @@ describe('ReaderSession export', () => {
     await callbacks.onFinish();
 
     expect(context.dispatchClipResult).toHaveBeenCalledTimes(1);
-    expect(context.view.destroy).toHaveBeenCalledTimes(1);
-    expect(isReaderSessionActive(document)).toBe(false);
-    await expect(loadLatestReaderDraft(context)).resolves.toBeNull();
-    await expect(listReaderDraftCandidates(context)).resolves.toEqual([]);
+    expect(context.view.destroy).not.toHaveBeenCalled();
+    expect(isReaderSessionActive(document)).toBe(true);
+    await expect(loadLatestReaderDraft(context)).resolves.toMatchObject({
+      draftId: currentDraftId,
+      status: 'exported'
+    });
+    await expect(listReaderDraftCandidates(context)).resolves.toEqual([
+      expect.objectContaining({ draftId: currentDraftId, status: 'exported' })
+    ]);
     expect(await readDraftIndex(context)).toMatchObject({
       entries: [expect.objectContaining({ draftId: currentDraftId, status: 'exported' })]
     });
@@ -577,9 +596,7 @@ describe('ReaderSession export', () => {
     await flushDraftPersistence();
     context.messaging.send.mockClear();
     context.view.updateHint.mockClear();
-    vi.spyOn(context.storageLocal, 'setMany').mockImplementationOnce(() =>
-      Promise.reject(new Error('export terminal save failed'))
-    );
+    context.draftMessages.rejectNext('finalizeExact', new Error('export terminal save failed'));
 
     const callbacks = context.getCallbacks();
     if (!callbacks) {
@@ -632,9 +649,7 @@ describe('ReaderSession export', () => {
     });
     context.messaging.send.mockClear();
     context.view.updateHint.mockClear();
-    const setManySpy = vi
-      .spyOn(context.storageLocal, 'setMany')
-      .mockImplementationOnce(() => Promise.reject(new Error('export pending flush failed')));
+    context.draftMessages.rejectNext('save', new Error('export pending flush failed'));
 
     const callbacks = context.getCallbacks();
     if (!callbacks) {
@@ -657,7 +672,9 @@ describe('ReaderSession export', () => {
     expect(
       getTelemetryMessages(context).find((message) => message.event === 'reader_exported')
     ).toBeUndefined();
-    expect(setManySpy).toHaveBeenCalledTimes(1);
+    expect(
+      context.draftMessages.observed.filter((request) => request.operation === 'save')
+    ).not.toHaveLength(0);
     await expect(loadLatestReaderDraft(context)).resolves.toMatchObject({
       draftId: currentDraftId,
       status: 'active'

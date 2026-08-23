@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import '../../../setup/globalSetup';
 import { buildReaderSessionDraftEnvelope } from '@content/reader/sessionDrafts';
 import { __resetContentSessionRegistryForTests } from '@content/runtime/contentSessionRegistry';
-import { createSessionDraftStorageKey, type SessionDraftEnvelope } from '@content/sessionDrafts';
+import { createSessionDraftStorageKey, type SessionDraftEnvelope } from '@shared/sessionDrafts';
 import type { SessionCommentDraftSnapshot } from '@content/shared/panels/sessionCommentDrafts';
 import {
   createPersistedHighlightRecord,
@@ -345,14 +345,11 @@ describe('ReaderSession drafts', () => {
     );
 
     window.dispatchEvent(new PageTransitionEvent('pagehide', { persisted: false }));
-    await Promise.resolve();
-    await Promise.resolve();
+    await flushDraftPersistence();
 
     await expect(
-      context.draftRepository.loadLatest('reader', 'https://example.com/article')
-    ).resolves.toMatchObject({
-      status: 'restorable'
-    });
+      context.draftRepository.listCandidates('reader', 'https://example.com/article')
+    ).resolves.toEqual(expect.arrayContaining([expect.objectContaining({ status: 'restorable' })]));
   });
 
   it('does not create a durable reader draft when the session stays empty', async () => {

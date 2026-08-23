@@ -28,6 +28,7 @@ import type { IOptionsRepository } from '../shared/repositories/IOptionsReposito
 import { startRuntimeThemeSync } from './stitch/runtimeTheme';
 import type { SupportProgressUpdate } from './runtime/supportProgress';
 import { startLazyDraftRestore } from './runtime/sessionDraftAutoRestoreBootstrap';
+import { createSessionDraftLeaseOwnerRegistry } from './sessionDrafts/sessionDraftLeaseOwnerRegistry';
 
 if (markContentRuntimeInitialized(document)) {
   initializeClipperRuntime();
@@ -51,6 +52,7 @@ function initializeClipperRuntime(): void {
     optionsRepository: primaryOptionsRepository,
     window
   });
+  const sessionDraftLeaseOwners = createSessionDraftLeaseOwnerRegistry();
   const stopRuntimeThemeSync = startRuntimeThemeSync(primaryOptionsRepository, window);
   const clipPromptGateway = createClipperDialogPromptGateway();
   const supportPrompt = createLazySupportPrompt(document);
@@ -77,6 +79,7 @@ function initializeClipperRuntime(): void {
     messaging,
     runtime: extensionRuntime,
     promptGateway: clipPromptGateway,
+    sessionDraftLeaseOwners,
     showSupportProgress
   });
   const createVideoSession = createLazyVideoSessionFactory({
@@ -85,6 +88,7 @@ function initializeClipperRuntime(): void {
     storage,
     messaging,
     runtime: extensionRuntime,
+    sessionDraftLeaseOwners,
     showSupportProgress
   });
   const selectionController = createSelectionController({
@@ -110,6 +114,7 @@ function initializeClipperRuntime(): void {
       storage,
       messaging,
       runtime: extensionRuntime,
+      sessionDraftLeaseOwners,
       showSupportProgress
     },
     window.location.href
@@ -141,7 +146,8 @@ function initializeClipperRuntime(): void {
         restoreSelectionFromSnapshot: (snapshot) =>
           selectionTracker.restoreSelectionFromSnapshot(snapshot),
         getLastSelectionSnapshot: () => runtimeState.getLastSelectionSnapshot(),
-        clearLastSelectionSnapshot: () => runtimeState.setLastSelectionSnapshot(null)
+        clearLastSelectionSnapshot: () => runtimeState.setLastSelectionSnapshot(null),
+        sessionDraftLeaseOwners
       })
   });
   runtime.start();
@@ -152,8 +158,10 @@ function initializeClipperRuntime(): void {
       window,
       storage,
       currentUrl: () => window.location.href,
-      createReaderSession: () => createReaderSession(document, window.location.href),
-      createVideoSession: () => createVideoSession(document),
+      createReaderSession: (claimedDraft, signal, onStartCommitted) =>
+        createReaderSession(document, window.location.href, claimedDraft, signal, onStartCommitted),
+      createVideoSession: (claimedDraft, signal, onStartCommitted) =>
+        createVideoSession(document, claimedDraft, signal, onStartCommitted),
       isReaderSessionActive: () => isReaderSessionActive(document),
       isVideoSessionActive: () => isVideoSessionActive(document),
       isVideoCandidateUrl: isVideoPromptCandidateUrl
@@ -166,6 +174,7 @@ function initializeClipperRuntime(): void {
     'pagehide',
     () => {
       stopDraftRestore();
+      sessionDraftLeaseOwners.clear();
       stopRuntimeThemeSync();
       runtime.stop();
     },

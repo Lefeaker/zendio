@@ -1,5 +1,81 @@
-import type { SessionDraftMode } from './types';
-
+import { z } from 'zod';
+export const SESSION_DRAFT_LEASE_DURATION_MS = 30 * 1000;
+export const SESSION_DRAFT_LEASE_RENEWAL_INTERVAL_MS = 10 * 1000;
+export type SessionDraftMode = 'reader' | 'video';
+export type SessionDraftStatus = 'active' | 'restorable' | 'discarded' | 'exported';
+export type SessionDraftTerminalStatus = 'discarded' | 'exported';
+export interface SessionDraftTrustedOwnerContext {
+  tabId: number;
+  frameId: number;
+  windowId?: number | undefined;
+}
+export interface SessionDraftLegacyOwnerContext {
+  tabId?: number | undefined;
+  frameId?: number | undefined;
+  windowId?: number | undefined;
+}
+export type SessionDraftOwnerContext = SessionDraftLegacyOwnerContext;
+export interface SessionDraftLease {
+  leaseId: string;
+  owner: SessionDraftTrustedOwnerContext;
+  renewedAt: number;
+  leaseExpiresAt: number;
+}
+export interface SessionDraftLegacyCleanupObligation {
+  state: 'pending';
+  legacyKey: string;
+  v2Key: string;
+  rawDigest: string;
+  canonicalDigest: string;
+  v2PayloadDigest: string;
+  requestDigest: string;
+}
+export type SessionDraftOwnerLivenessTarget =
+  | {
+      kind: 'leased-v2';
+      key: string;
+      leaseId: string;
+      owner: SessionDraftTrustedOwnerContext;
+    }
+  | { kind: 'legacy-v1'; key: string; owner: SessionDraftTrustedOwnerContext };
+export type SessionDraftOwnerLivenessProbe = (
+  target: SessionDraftOwnerLivenessTarget
+) => Promise<'active' | 'inactive'>;
+const TimestampSchema = z.number().int().nonnegative().finite();
+const BoundedIdSchema = z.string().min(1).max(128);
+export const SessionDraftModeSchema = z.enum(['reader', 'video']);
+export const SessionDraftStatusSchema = z.enum(['active', 'restorable', 'discarded', 'exported']);
+export const SessionDraftTrustedOwnerContextSchema = z
+  .object({
+    tabId: z.number().int().nonnegative(),
+    frameId: z.number().int().nonnegative(),
+    windowId: z.number().int().nonnegative().optional()
+  })
+  .strict();
+export const SessionDraftLegacyOwnerContextSchema = SessionDraftTrustedOwnerContextSchema.partial();
+export const SessionDraftLeaseSchema = z
+  .object({
+    leaseId: BoundedIdSchema,
+    owner: SessionDraftTrustedOwnerContextSchema,
+    renewedAt: TimestampSchema,
+    leaseExpiresAt: TimestampSchema
+  })
+  .strict()
+  .refine(
+    (lease) => lease.leaseExpiresAt === lease.renewedAt + SESSION_DRAFT_LEASE_DURATION_MS,
+    'SESSION_DRAFT_LEASE_EXPIRY_INVALID'
+  );
+export const SessionDraftLegacyCleanupObligationSchema = z
+  .object({
+    state: z.literal('pending'),
+    legacyKey: z.string().min(1).max(128),
+    v2Key: z.string().min(1).max(1024),
+    rawDigest: z.string().regex(/^[0-9a-f]{64}$/),
+    canonicalDigest: z.string().regex(/^[0-9a-f]{64}$/),
+    v2PayloadDigest: z.string().regex(/^[0-9a-f]{64}$/),
+    requestDigest: z.string().regex(/^[0-9a-f]{64}$/)
+  })
+  .strict();
 const TEXT_FRAGMENT_MARKER = ':~:text=';
 const SHA256_INITIAL_STATE = [
   0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a, 0x510e527f, 0x9b05688c, 0x1f83d9ab, 0x5be0cd19
@@ -14,7 +90,6 @@ const SHA256_ROUND_CONSTANTS = [
   0x19a4c116, 0x1e376c08, 0x2748774c, 0x34b0bcb5, 0x391c0cb3, 0x4ed8aa4a, 0x5b9cca4f, 0x682e6ff3,
   0x748f82ee, 0x78a5636f, 0x84c87814, 0x8cc70208, 0x90befffa, 0xa4506ceb, 0xbef9a3f7, 0xc67178f2
 ] as const;
-
 export interface SessionDraftPageIdentity {
   mode: SessionDraftMode;
   normalizedPageUrl: string;
