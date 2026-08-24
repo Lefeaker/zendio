@@ -7,6 +7,7 @@ import type { ConnectionTestResult } from '@shared/types/connection';
 import type { PreviewContent, PreviewStoreState } from '@options/stitch/types';
 import type { VaultRouterConfig } from '@shared/types/vault';
 import { persistTheme } from './productionStitchStateMapper';
+import { isHighlightTheme } from './stateMapper/themeStateMapper';
 import {
   createProductionDomainActions,
   createProductionRoutingActions,
@@ -191,9 +192,10 @@ export function createProductionStitchActions(
     'output:applyPreset': ({ args }) => ctx.applyOutputPreset(String(args[0] ?? '')),
     'highlight:setTheme': ({ value }) => {
       const draft = ctx.getDraft();
-      draft.readingSession.highlightTheme = String(
-        value ?? 'gradient'
-      ) as CompleteOptions['readingSession']['highlightTheme'];
+      const highlightTheme = String(value ?? 'gradient');
+      draft.readingSession.highlightTheme = isHighlightTheme(highlightTheme)
+        ? highlightTheme
+        : 'gradient';
       ctx.getState().highlightTheme = draft.readingSession.highlightTheme;
       ctx.scheduleDraftSave();
       ctx.syncHighlightThemeControls();
@@ -203,8 +205,8 @@ export function createProductionStitchActions(
       ctx.scheduleDraftSave();
     },
     'experimental:updateAiConfigField': ({ args, value }) => {
-      const field = String(args[0] ?? '') as keyof CompleteOptions['experimentalAi'];
-      if (field) {
+      const field = String(args[0] ?? '');
+      if (field === 'provider' || field === 'model' || field === 'apiUrl' || field === 'apiKey') {
         ctx.getDraft().experimentalAi[field] = String(value ?? '');
         ctx.getState().experimentalAiConfig[field] = String(value ?? '');
         ctx.scheduleDraftSave();
@@ -251,8 +253,8 @@ export function createProductionStitchActions(
       });
     },
     'overview:updatePrivacyConsent': ({ args, value }) => {
-      const field = String(args[0] ?? '') as 'analytics' | 'errorReporting' | 'debugMode';
-      if (!['analytics', 'errorReporting', 'debugMode'].includes(field)) {
+      const field = String(args[0] ?? '');
+      if (field !== 'analytics' && field !== 'errorReporting' && field !== 'debugMode') {
         return;
       }
       ctx.runPersistenceTask(`privacy:${field}`, async () => {

@@ -22,6 +22,12 @@ function isPreviewContent(value: unknown): value is PreviewContent {
   return typeof value === 'object' && value !== null && 'brand' in value && 'nav' in value;
 }
 
+function isProductionStitchAppDataOptions(
+  value: CompleteOptions | ProductionStitchAppDataOptions | undefined
+): value is ProductionStitchAppDataOptions {
+  return typeof value === 'object' && value !== null && 'maintenanceLog' in value;
+}
+
 function resolveDefaultPreviewContent(): PreviewContent {
   const globalAssets = (
     globalThis as typeof globalThis & {
@@ -41,19 +47,24 @@ export function createProductionStitchAppData(
   draftOrOptions: CompleteOptions | ProductionStitchAppDataOptions,
   maybeOptions?: ProductionStitchAppDataOptions
 ): PreviewContent {
-  const previewContent = isPreviewContent(previewContentOrDraft)
-    ? previewContentOrDraft
-    : resolveDefaultPreviewContent();
-  const draft = isPreviewContent(previewContentOrDraft)
-    ? (draftOrOptions as CompleteOptions)
-    : previewContentOrDraft;
-  const options = isPreviewContent(previewContentOrDraft)
-    ? (maybeOptions as ProductionStitchAppDataOptions)
-    : (draftOrOptions as ProductionStitchAppDataOptions);
+  if (isPreviewContent(previewContentOrDraft)) {
+    if (isProductionStitchAppDataOptions(draftOrOptions) || !maybeOptions) {
+      throw new Error('[Options] Draft and app-data options are required.');
+    }
+    return createProductionContent(previewContentOrDraft, draftOrOptions, {
+      ...(maybeOptions.connectionNotice ? { connectionNotice: maybeOptions.connectionNotice } : {}),
+      maintenanceLog: maybeOptions.maintenanceLog
+    });
+  }
 
-  return createProductionContent(previewContent, draft, {
-    ...(options.connectionNotice ? { connectionNotice: options.connectionNotice } : {}),
-    maintenanceLog: options.maintenanceLog
+  if (!isProductionStitchAppDataOptions(draftOrOptions)) {
+    throw new Error('[Options] App-data options are required.');
+  }
+  return createProductionContent(resolveDefaultPreviewContent(), previewContentOrDraft, {
+    ...(draftOrOptions.connectionNotice
+      ? { connectionNotice: draftOrOptions.connectionNotice }
+      : {}),
+    maintenanceLog: draftOrOptions.maintenanceLog
   });
 }
 

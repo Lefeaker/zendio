@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { DEFAULT_OPTIONS } from '@shared/config';
 import { mergeOptions, optionsMerger } from '@shared/config/optionsMerger';
+import { CompleteOptionsSchema } from '@shared/schemas/options.schema';
 import type { StoredOptions } from '@shared/types';
 
 function requireDefaultOption<T>(value: T | undefined, label: string): T {
@@ -58,7 +59,7 @@ describe('shared optionsMerger', () => {
     const stored: StoredOptions = {
       rest: {
         baseUrl: 'https://example.com',
-        apiKey: 'token'
+        apiKey: 'token-12345'
       },
       classifier: {
         enabled: true,
@@ -72,7 +73,7 @@ describe('shared optionsMerger', () => {
 
     const result = mergeOptions(stored);
     expect(result.rest.baseUrl).toBe('https://example.com');
-    expect(result.rest.apiKey).toBe('token');
+    expect(result.rest.apiKey).toBe('token-12345');
     expect(result.rest.httpsUrl).toBe(DEFAULT_OPTIONS.rest.httpsUrl);
     expect(result.classifier?.enabled).toBe(true);
     expect(result.classifier?.provider).toBe('openai');
@@ -91,6 +92,17 @@ describe('shared optionsMerger', () => {
     );
     expect(result.templates.reading).toBe(DEFAULT_OPTIONS.templates.reading);
     expect(result.templates.video).toBe(DEFAULT_OPTIONS.templates.video);
+  });
+
+  it('preserves classifier timeout and returns a canonical complete schema result', () => {
+    const result = mergeOptions({
+      classifier: {
+        timeoutMs: 12_500
+      }
+    });
+
+    expect(result.classifier.timeoutMs).toBe(12_500);
+    expect(CompleteOptionsSchema.parse(result)).toEqual(result);
   });
 
   it('preserves explicit video template values without legacy default migration', () => {

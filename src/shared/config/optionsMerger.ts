@@ -14,7 +14,7 @@ import type {
   PrivacyPreferencesOptions,
   SubtitleTranslationOptions
 } from '../types';
-import type { StoredOptions as SchemaStoredOptions } from '../schemas/options.schema';
+import { CompleteOptionsSchema, ReaderHighlightThemeSchema } from '../schemas/options.schema';
 import { DEFAULT_OPTIONS } from './defaultOptions';
 import { sanitizeVaultRouterConfig, sanitizeYamlConfigValue } from './optionsSanitizer';
 import { resolveTaxonomy } from './taxonomyMigration';
@@ -23,7 +23,7 @@ import { isFragmentSelectionTriggerMode } from './selectionTriggerMode';
 export { omitLegacyRestRootDir, omitLegacyRestRootDirFromOptions } from './legacyRestRootDir';
 
 function mergeClassifierOptions(
-  source?: StoredOptions['classifier'] | SchemaStoredOptions['classifier']
+  source?: StoredOptions['classifier']
 ): ClassifierOptions | undefined {
   const defaults = DEFAULT_OPTIONS.classifier;
   if (!defaults && !source) {
@@ -31,12 +31,14 @@ function mergeClassifierOptions(
   }
 
   const base = source ?? {};
+  const timeoutMs = base.timeoutMs ?? defaults?.timeoutMs;
   return {
     enabled: base.enabled ?? defaults?.enabled ?? false,
     provider: base.provider || defaults?.provider || 'ollama',
     endpoint: base.endpoint || defaults?.endpoint || 'http://localhost:11434/api/chat',
     apiKey: base.apiKey || defaults?.apiKey || '',
     model: base.model || defaults?.model || 'llama3.1',
+    ...(timeoutMs !== undefined && { timeoutMs }),
     taxonomy: resolveTaxonomy(base.taxonomy ?? defaults?.taxonomy)
   };
 }
@@ -53,13 +55,12 @@ function resolveReaderHighlightTheme(
   theme: unknown,
   fallback: ReaderHighlightTheme
 ): ReaderHighlightTheme {
-  return READER_HIGHLIGHT_THEMES.includes(theme as ReaderHighlightTheme)
-    ? (theme as ReaderHighlightTheme)
-    : fallback;
+  const parsed = ReaderHighlightThemeSchema.safeParse(theme);
+  return parsed.success && READER_HIGHLIGHT_THEMES.includes(parsed.data) ? parsed.data : fallback;
 }
 
 function mergeFragmentClipperOptions(
-  source?: StoredOptions['fragmentClipper'] | SchemaStoredOptions['fragmentClipper']
+  source?: StoredOptions['fragmentClipper']
 ): FragmentClipperOptions | undefined {
   const defaults = DEFAULT_OPTIONS.fragmentClipper;
   if (!defaults && !source) {
@@ -95,7 +96,7 @@ function mergeFragmentClipperOptions(
 }
 
 function mergeReadingSessionOptions(
-  source?: StoredOptions['readingSession'] | SchemaStoredOptions['readingSession']
+  source?: StoredOptions['readingSession']
 ): ReadingSessionOptions | undefined {
   const defaults = DEFAULT_OPTIONS.readingSession;
   if (!defaults && !source) {
@@ -113,7 +114,7 @@ function mergeReadingSessionOptions(
 }
 
 function mergeDeepResearchOptions(
-  source?: StoredOptions['deepResearch'] | SchemaStoredOptions['deepResearch']
+  source?: StoredOptions['deepResearch']
 ): DeepResearchOptions | undefined {
   const defaults = DEFAULT_OPTIONS.deepResearch;
   if (!defaults && !source) {
@@ -126,9 +127,7 @@ function mergeDeepResearchOptions(
   };
 }
 
-function mergeAiChatOptions(
-  source?: StoredOptions['aiChat'] | SchemaStoredOptions['aiChat']
-): AiChatOptions | undefined {
+function mergeAiChatOptions(source?: StoredOptions['aiChat']): AiChatOptions | undefined {
   const defaults = DEFAULT_OPTIONS.aiChat;
   if (!defaults && !source) {
     return undefined;
@@ -142,7 +141,7 @@ function mergeAiChatOptions(
 }
 
 function mergeExperimentalAiOptions(
-  source?: StoredOptions['experimentalAi'] | SchemaStoredOptions['experimentalAi']
+  source?: StoredOptions['experimentalAi']
 ): ExperimentalAiOptions | undefined {
   const defaults = DEFAULT_OPTIONS.experimentalAi;
   if (!defaults && !source) {
@@ -163,7 +162,7 @@ function mergeExperimentalAiOptions(
 }
 
 function mergePageSummaryOptions(
-  source?: StoredOptions['pageSummary'] | SchemaStoredOptions['pageSummary']
+  source?: StoredOptions['pageSummary']
 ): PageSummaryOptions | undefined {
   const defaults = DEFAULT_OPTIONS.pageSummary;
   if (!defaults && !source) {
@@ -177,7 +176,7 @@ function mergePageSummaryOptions(
 }
 
 function mergeReadingOverlaySummaryOptions(
-  source?: StoredOptions['readingOverlaySummary'] | SchemaStoredOptions['readingOverlaySummary']
+  source?: StoredOptions['readingOverlaySummary']
 ): ReadingOverlaySummaryOptions | undefined {
   const defaults = DEFAULT_OPTIONS.readingOverlaySummary;
   if (!defaults && !source) {
@@ -191,7 +190,7 @@ function mergeReadingOverlaySummaryOptions(
 }
 
 function mergeSubtitleTranslationOptions(
-  source?: StoredOptions['subtitleTranslation'] | SchemaStoredOptions['subtitleTranslation']
+  source?: StoredOptions['subtitleTranslation']
 ): SubtitleTranslationOptions | undefined {
   const defaults = DEFAULT_OPTIONS.subtitleTranslation;
   if (!defaults && !source) {
@@ -209,7 +208,7 @@ function mergeSubtitleTranslationOptions(
 }
 
 function mergePrivacyPreferencesOptions(
-  source?: StoredOptions['privacyPreferences'] | SchemaStoredOptions['privacyPreferences']
+  source?: StoredOptions['privacyPreferences']
 ): PrivacyPreferencesOptions | undefined {
   const defaults = DEFAULT_OPTIONS.privacyPreferences;
   if (!defaults && !source) {
@@ -238,7 +237,7 @@ function requireMerged<T>(value: T | undefined): T {
   return value;
 }
 
-export function mergeOptions(stored?: StoredOptions | SchemaStoredOptions | null): CompleteOptions {
+export function mergeOptions(stored?: StoredOptions | null): CompleteOptions {
   const source = stored ?? {};
   const defaults = DEFAULT_OPTIONS;
 
@@ -323,9 +322,9 @@ export function mergeOptions(stored?: StoredOptions | SchemaStoredOptions | null
     options.yamlConfig = yamlConfig;
   }
 
-  return options;
+  return CompleteOptionsSchema.parse(options);
 }
 
 export const optionsMerger = {
-  merge: (stored?: StoredOptions | SchemaStoredOptions | null) => mergeOptions(stored)
+  merge: (stored?: StoredOptions | null) => mergeOptions(stored)
 };

@@ -5,6 +5,12 @@ import { DI_TOKENS } from '@shared/di/tokens';
 import { resolveRepository } from '@shared/di/serviceRegistry';
 import type { IMessagingRepository, IOptionsRepository } from '@shared/repositories';
 import type { CompleteOptions, StoredOptions } from '@shared/types/options';
+import {
+  ClassifierProviderSchema,
+  FragmentContextModeSchema,
+  ReadingExportModeSchema
+} from '@shared/schemas/options.schema';
+import { TaxonomyConfigSchema } from '@shared/schemas/taxonomy.schema';
 import type { PreviewStoreState } from '@options/stitch/types';
 import {
   type OptionsValidationError,
@@ -65,28 +71,24 @@ export function mergePartialIntoDraft(
   setDomainMappingRows: (entries: Array<[string, string]>) => void,
   partial: Partial<CompleteOptions>
 ): void {
-  if (partial.rest) {
-    draft.rest = { ...draft.rest, ...partial.rest };
+  const { rest, templates, domainMappings, vaultRouter, yamlConfig, ...remaining } = partial;
+  if (rest) {
+    draft.rest = { ...draft.rest, ...rest };
   }
-  if (partial.templates) {
-    draft.templates = { ...draft.templates, ...partial.templates };
+  if (templates) {
+    draft.templates = { ...draft.templates, ...templates };
   }
-  if (partial.domainMappings) {
-    draft.domainMappings = { ...partial.domainMappings };
+  if (domainMappings) {
+    draft.domainMappings = { ...domainMappings };
     setDomainMappingRows(Object.entries(draft.domainMappings));
   }
-  if (partial.vaultRouter) {
-    draft.vaultRouter = partial.vaultRouter;
+  if (vaultRouter) {
+    draft.vaultRouter = vaultRouter;
   }
-  if (partial.yamlConfig !== undefined) {
-    draft.yamlConfig = partial.yamlConfig;
+  if (yamlConfig !== undefined) {
+    draft.yamlConfig = yamlConfig;
   }
-  Object.entries(partial).forEach(([key, value]) => {
-    if (['rest', 'templates', 'domainMappings', 'vaultRouter', 'yamlConfig'].includes(key)) {
-      return;
-    }
-    (draft as Record<string, unknown>)[key] = value;
-  });
+  Object.assign(draft, remaining);
 }
 export function applyTemplateStateToDraft(draft: CompleteOptions, state: PreviewStoreState): void {
   draft.templates.article = state.templateValues.articleVideo ?? draft.templates.article;
@@ -147,9 +149,10 @@ export function updateClassifierField(
       state.classifierEnabled = draft.classifier.enabled;
       break;
     case 'provider':
-      draft.classifier.provider = String(
-        value ?? 'ollama'
-      ) as CompleteOptions['classifier']['provider'];
+      {
+        const provider = ClassifierProviderSchema.safeParse(String(value ?? 'ollama'));
+        draft.classifier.provider = provider.success ? provider.data : 'ollama';
+      }
       state.classifierProvider = draft.classifier.provider;
       break;
     case 'endpoint':
@@ -170,7 +173,7 @@ export function updateClassifierField(
       if (!result.success) {
         return result;
       }
-      draft.classifier.taxonomy = result.taxonomy;
+      draft.classifier.taxonomy = TaxonomyConfigSchema.parse(result.taxonomy);
       state.classifierTaxonomyText = editorText;
       break;
     }
@@ -195,9 +198,10 @@ export function updateDraftPath(
       state.aiUserName = draft.aiChat.userName;
       break;
     case 'readingSession.exportMode':
-      draft.readingSession.exportMode = String(
-        value ?? 'highlights'
-      ) as CompleteOptions['readingSession']['exportMode'];
+      {
+        const exportMode = ReadingExportModeSchema.safeParse(String(value ?? 'highlights'));
+        draft.readingSession.exportMode = exportMode.success ? exportMode.data : 'highlights';
+      }
       state.readingExportMode = draft.readingSession.exportMode;
       break;
     case 'fragmentClipper.useFootnoteFormat':
@@ -213,9 +217,10 @@ export function updateDraftPath(
       state.fragmentContextLength = draft.fragmentClipper.contextLength;
       break;
     case 'fragmentClipper.contextMode':
-      draft.fragmentClipper.contextMode = String(
-        value ?? 'chars'
-      ) as CompleteOptions['fragmentClipper']['contextMode'];
+      {
+        const contextMode = FragmentContextModeSchema.safeParse(String(value ?? 'chars'));
+        draft.fragmentClipper.contextMode = contextMode.success ? contextMode.data : 'chars';
+      }
       state.fragmentContextMode = draft.fragmentClipper.contextMode;
       break;
     case 'fragmentClipper.keyboardShortcutsEnabled':

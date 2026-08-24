@@ -12,7 +12,7 @@ export async function readImportedConfigurationFromClipboard(): Promise<{
   return {
     analytics: parsed.analytics,
     analyticsPayloadPresent: parsed.analytics !== undefined,
-    imported: mergeOptions(parsed.options) as CompleteOptions,
+    imported: mergeOptions(parsed.options),
     version: parsed.version
   };
 }

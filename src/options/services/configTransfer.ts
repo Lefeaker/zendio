@@ -1,15 +1,12 @@
-import type {
-  CompleteOptions,
-  StoredOptions as LegacyStoredOptions
-} from '../../shared/types/options';
-import type { StoredOptions as SchemaStoredOptions } from '../../shared/schemas/options.schema';
+import type { StoredOptions } from '../../shared/types/options';
 import { encodeStoredOptionsReplacement } from '../../shared/config/storedOptionsCodec';
 import { parseBoundedJson } from '../../shared/config/losslessObjectBoundary';
+import { isObjectRecord, type ObjectRecord } from '../../shared/guards/object';
 import type { AnalyticsTransferPayload } from './analyticsTransfer';
 
 export interface ConfigTransferPayload {
   version: number;
-  options: SchemaStoredOptions;
+  options: StoredOptions;
   analytics?: AnalyticsTransferPayload;
 }
 
@@ -34,9 +31,7 @@ export class ConfigTransferError extends Error {
   }
 }
 
-export async function copyOptionsToClipboard(
-  options: LegacyStoredOptions | CompleteOptions | ConfigTransferPayload
-): Promise<void> {
+export async function copyOptionsToClipboard(options: object): Promise<void> {
   const jsonText = JSON.stringify(options, null, 2);
   await writeToClipboard(jsonText);
 }
@@ -69,11 +64,13 @@ export async function readConfigTextFromClipboard(): Promise<string> {
   throw new ConfigTransferError('CLIPBOARD_READ_UNAVAILABLE');
 }
 
-function isPlainObject(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
+function isPlainObject(value: Parameters<typeof isObjectRecord>[0]): value is ObjectRecord {
+  return isObjectRecord(value) && !Array.isArray(value);
 }
 
-function sanitizeImportedOptions(candidate: unknown): SchemaStoredOptions {
+function sanitizeImportedOptions(
+  candidate: Parameters<typeof encodeStoredOptionsReplacement>[0]
+): StoredOptions {
   const encoded = encodeStoredOptionsReplacement(candidate);
   if (!encoded.success) {
     throw new ConfigTransferError('PARSE_FAILED');
@@ -81,7 +78,9 @@ function sanitizeImportedOptions(candidate: unknown): SchemaStoredOptions {
   return encoded.value;
 }
 
-function parseAnalyticsPayload(candidate: unknown): AnalyticsTransferPayload | undefined {
+function parseAnalyticsPayload(
+  candidate: ObjectRecord[string]
+): AnalyticsTransferPayload | undefined {
   if (!isPlainObject(candidate)) {
     return undefined;
   }

@@ -2,7 +2,6 @@ import { configProvider } from '@shared/config/provider';
 import { resolveRepository } from '@shared/di/serviceRegistry';
 import { DI_TOKENS } from '@shared/di/tokens';
 import type { IOptionsRepository } from '@shared/repositories';
-import type { CompleteOptions } from '@shared/types/options';
 import { getOptionsController } from '../../app/optionsControllerContext';
 import { getElementById } from '../../utils/dom';
 import {
@@ -109,7 +108,7 @@ export async function fixConfiguration(onAfterFix?: () => Promise<void> | void):
       await controller.saveSnapshot({ reason: 'manual', draft: newOptions });
     } else {
       const optionsRepository = resolveRepository<IOptionsRepository>(DI_TOKENS.IOptionsRepository);
-      await optionsRepository.replace(newOptions as CompleteOptions);
+      await optionsRepository.replace(newOptions);
     }
     diagOutput.textContent += `${renderDiagnosticLine(
       createDiagnosticLine('ok', 'diagnosticsRepairSaved'),

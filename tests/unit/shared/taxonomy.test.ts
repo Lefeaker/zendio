@@ -258,6 +258,16 @@ describe('Taxonomy Types', () => {
       expect(parsed).toEqual(FULL_TAXONOMY);
     });
 
+    it('returns canonical parsed data rather than the untrusted input reference', () => {
+      const candidate = structuredClone(FULL_TAXONOMY);
+      const migrated = migrateTaxonomyValue(candidate);
+
+      expect(migrated).toEqual({ success: true, value: FULL_TAXONOMY, migrated: false });
+      if (migrated.success) {
+        expect(migrated.value).not.toBe(candidate);
+      }
+    });
+
     it('should have valid categories in default config', () => {
       for (const category of DEFAULT_TAXONOMY_CONFIG.categories) {
         expect(isTaxonomyCategory(category)).toBe(true);
@@ -427,7 +437,8 @@ describe('Taxonomy Migration', () => {
       expect(result.success).toBe(true);
       if (result.success) {
         expect(result.migrated).toBe(false);
-        expect(result.value).toBe(FULL_TAXONOMY);
+        expect(result.value).toEqual(FULL_TAXONOMY);
+        expect(result.value).not.toBe(FULL_TAXONOMY);
       }
     });
 
@@ -475,7 +486,8 @@ describe('Taxonomy Migration', () => {
       const validConfig = DEFAULT_TAXONOMY_CONFIG;
       const resolved = resolveTaxonomy(validConfig);
 
-      expect(resolved).toBe(validConfig);
+      expect(resolved).toEqual(validConfig);
+      expect(resolved).not.toBe(validConfig);
     });
 
     it('should migrate legacy formats', () => {

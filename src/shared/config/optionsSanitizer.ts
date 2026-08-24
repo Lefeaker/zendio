@@ -1,19 +1,12 @@
 import type { CompleteOptions, StoredOptions } from '../types/options';
-import type { RoutingRule, VaultConfig, VaultRouterConfig } from '../types/vault';
-import type { YamlConfigOverrides } from '../types/yamlConfig';
 import {
-  StoredOptionsSchema,
-  VaultRouterConfigSchema,
-  YamlConfigOverridesSchema
+  OptionsVaultRouterConfigSchema,
+  OptionsYamlConfigOverridesSchema,
+  StoredOptionsSchema
 } from '../schemas';
 import { normalizeYamlConfigOverrides } from '../services/yamlConfigService';
 import { cloneValue } from '../utils/cloneValue';
 import type { ZodError } from 'zod';
-import type {
-  RoutingRule as SchemaRoutingRule,
-  VaultConfig as SchemaVaultConfig,
-  VaultRouterConfig as SchemaVaultRouterConfig
-} from '../schemas/vault.schema';
 import { plainStructuredDataEqual, snapshotPlainStructuredData } from './losslessObjectBoundary';
 import type { PlainStructuredValue } from './losslessObjectBoundaryTypes';
 import {
@@ -72,7 +65,15 @@ const FIELD_PATCH_ROOTS: Record<string, ReadonlySet<string>> = {
     'promptPosition',
     'screenshotAttachment'
   ]),
-  classifier: new Set(['enabled', 'provider', 'endpoint', 'apiKey', 'model', 'taxonomy']),
+  classifier: new Set([
+    'enabled',
+    'provider',
+    'endpoint',
+    'apiKey',
+    'model',
+    'timeoutMs',
+    'taxonomy'
+  ]),
   experimentalAi: new Set(['provider', 'model', 'apiUrl', 'apiKey']),
   pageSummary: new Set(['enabled']),
   readingOverlaySummary: new Set(['enabled']),
@@ -129,47 +130,11 @@ export function sanitizeVaultRouterConfig(value: unknown): StoredOptions['vaultR
     return undefined;
   }
 
-  const parsed = VaultRouterConfigSchema.safeParse(value);
-  return parsed.success ? toVaultRouterConfig(parsed.data) : undefined;
+  const parsed = OptionsVaultRouterConfigSchema.safeParse(value);
+  return parsed.success ? parsed.data : undefined;
 }
 
-function toRoutingRule(rule: SchemaRoutingRule): RoutingRule {
-  return {
-    id: rule.id,
-    vaultId: rule.vaultId,
-    type: rule.type,
-    pattern: rule.pattern,
-    enabled: rule.enabled,
-    priority: rule.priority,
-    ...(rule.description !== undefined && { description: rule.description })
-  };
-}
-
-function toVaultConfig(vault: SchemaVaultConfig): VaultConfig {
-  return {
-    id: vault.id,
-    name: vault.name,
-    httpsUrl: vault.httpsUrl,
-    httpUrl: vault.httpUrl,
-    vault: vault.vault,
-    apiKey: vault.apiKey,
-    ...(vault.localFolderId !== undefined && { localFolderId: vault.localFolderId }),
-    ...(vault.localFolderName !== undefined && { localFolderName: vault.localFolderName }),
-    ...(vault.isDefault !== undefined && { isDefault: vault.isDefault }),
-    ...(vault.enabled !== undefined && { enabled: vault.enabled }),
-    ...(vault.rules !== undefined && { rules: vault.rules.map(toRoutingRule) })
-  };
-}
-
-function toVaultRouterConfig(config: SchemaVaultRouterConfig): VaultRouterConfig {
-  return {
-    vaults: config.vaults.map(toVaultConfig),
-    ...(config.rules !== undefined && { rules: config.rules.map(toRoutingRule) }),
-    ...(config.defaultVaultId !== undefined && { defaultVaultId: config.defaultVaultId })
-  };
-}
-
-export function sanitizeYamlConfigValue(value: unknown): YamlConfigOverrides | null | undefined {
+export function sanitizeYamlConfigValue(value: unknown): StoredOptions['yamlConfig'] {
   if (value === undefined) {
     return undefined;
   }
@@ -178,14 +143,19 @@ export function sanitizeYamlConfigValue(value: unknown): YamlConfigOverrides | n
     return null;
   }
 
-  const schemaParsed = YamlConfigOverridesSchema.safeParse(value);
+  const schemaParsed = OptionsYamlConfigOverridesSchema.safeParse(value);
   const schemaBounded = schemaParsed.success ? schemaParsed.data : value;
-  return normalizeYamlConfigOverrides(schemaBounded);
+  const normalized = normalizeYamlConfigOverrides(schemaBounded);
+  if (normalized === null) {
+    return null;
+  }
+  const canonical = OptionsYamlConfigOverridesSchema.safeParse(normalized);
+  return canonical.success ? canonical.data : null;
 }
 
 export function sanitizeStoredOptionsSnapshot(options: StoredOptions | CompleteOptions): {
   normalized: StoredOptions;
-  sanitizedYaml: YamlConfigOverrides | null;
+  sanitizedYaml: NonNullable<StoredOptions['yamlConfig']> | null;
 } {
   const normalized: StoredOptions = cloneValue(options);
   const vaultRouter = sanitizeVaultRouterConfig(normalized.vaultRouter);

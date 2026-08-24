@@ -167,16 +167,9 @@ export function applyOptionsToState(
     highlightTheme: options.readingSession.highlightTheme,
     readingExportMode: options.readingSession.exportMode,
     aiUserName: options.aiChat.userName,
-    privacyAnalytics: Boolean(
-      (options as { privacyPreferences?: { analytics?: boolean } }).privacyPreferences?.analytics
-    ),
-    privacyErrorReporting: Boolean(
-      (options as { privacyPreferences?: { errorReporting?: boolean } }).privacyPreferences
-        ?.errorReporting
-    ),
-    privacyDebugMode: Boolean(
-      (options as { privacyPreferences?: { debugMode?: boolean } }).privacyPreferences?.debugMode
-    ),
+    privacyAnalytics: options.privacyPreferences.analytics,
+    privacyErrorReporting: options.privacyPreferences.errorReporting,
+    privacyDebugMode: options.privacyPreferences.debugMode,
     classifierEnabled: options.classifier.enabled,
     classifierProvider: options.classifier.provider,
     classifierEndpoint: options.classifier.endpoint,

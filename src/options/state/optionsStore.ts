@@ -7,7 +7,6 @@ import {
   sanitizeYamlConfigValue
 } from '../../shared/config/optionsSanitizer';
 import { setYamlConfigOverrides } from '../../shared/state/yamlConfigOverridesStore';
-import type { YamlConfigOverrides } from '../../shared/types/yamlConfig';
 import { resolveRepository } from '../../shared/di/serviceRegistry';
 import { DI_TOKENS } from '../../shared/di/tokens';
 import type { IOptionsRepository } from '../../shared/repositories';
@@ -18,6 +17,7 @@ import { isObjectRecord } from '../../shared/guards/object';
 
 type MigrationMessageKey = 'yamlConfigMigrated';
 type StateValue = Parameters<typeof areStateValuesEqual>[0];
+type CanonicalYamlConfig = NonNullable<StoredOptions['yamlConfig']>;
 
 // Options UI 主链固定走 IOptionsRepository，但延迟到实际调用时再解析，
 // 避免模块加载阶段通过隐式 fallback 偷偷注册依赖。
@@ -127,7 +127,7 @@ function createSnapshotPatches(
 
 function createSanitizationPatches(
   normalized: StoredOptions,
-  sanitizedYaml: YamlConfigOverrides | null
+  sanitizedYaml: CanonicalYamlConfig | null
 ): OptionsPatch[] {
   const patches: OptionsPatch[] = [];
   if (normalized.vaultRouter !== undefined) {
@@ -172,7 +172,7 @@ function sanitizeVaultRouter(value: unknown): {
 }
 
 function sanitizeYamlConfig(value: unknown): {
-  value: YamlConfigOverrides | null;
+  value: CanonicalYamlConfig | null;
   changed: boolean;
 } {
   const normalized = sanitizeYamlConfigValue(value);
@@ -182,15 +182,14 @@ function sanitizeYamlConfig(value: unknown): {
 
 function applySanitizedOptions(options: StoredOptions | CompleteOptions): {
   normalized: StoredOptions;
-  sanitizedYaml: YamlConfigOverrides | null;
+  sanitizedYaml: CanonicalYamlConfig | null;
   changed: boolean;
 } {
   const { normalized, sanitizedYaml } = sanitizeStoredOptionsSnapshot(options);
   const withoutLegacyRootDir = omitLegacyRestRootDirFromOptions(normalized);
-  const vaultResult = sanitizeVaultRouter((options as StoredOptions).vaultRouter);
+  const vaultResult = sanitizeVaultRouter(options.vaultRouter);
   const yamlResult = sanitizeYamlConfig(
-    (options as StoredOptions).yamlConfig ??
-      ((options as StoredOptions).yamlConfig === null ? null : undefined)
+    options.yamlConfig ?? (options.yamlConfig === null ? null : undefined)
   );
 
   return {

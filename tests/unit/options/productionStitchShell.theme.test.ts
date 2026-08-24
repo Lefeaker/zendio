@@ -5,17 +5,25 @@ import {
   asOptionsController,
   createController,
   createRepository,
+  flushPromises,
   queryRequired,
   requireElement,
   setupProductionStitchShellTest
 } from './productionStitchShell.helpers';
 import { createProductionStitchActions } from '@options/app/productionStitchActions';
 import { mountProductionStitchShell } from '@options/app/productionStitchShell';
+import {
+  applyOptionsToState,
+  createInitialStitchState,
+  createProductionContent
+} from '@options/app/productionStitchStateMapper';
+import { previewContent } from '@options/stitch/content';
+import { mergeOptions } from '@shared/config/optionsMerger';
 
 describe('mountProductionStitchShell theme', () => {
   beforeEach(setupProductionStitchShellTest);
 
-  it('persists theme changes through the Stitch segmented control', () => {
+  it('persists theme changes through the Stitch segmented control', async () => {
     const controller = createController();
     const repository = createRepository();
     mountProductionStitchShell({
@@ -31,6 +39,7 @@ describe('mountProductionStitchShell theme', () => {
       document.querySelectorAll<HTMLButtonElement>('.chips button')
     ).find((button) => button.textContent === 'Light');
     lightButton?.click();
+    await flushPromises();
 
     expect(document.querySelector('.main')).toBe(main);
     expect(document.documentElement.dataset.theme).toBe('light');
@@ -46,6 +55,7 @@ describe('mountProductionStitchShell theme', () => {
       document.querySelectorAll<HTMLButtonElement>('.chips button')
     ).find((button) => button.textContent === 'Dark');
     darkButton?.click();
+    await flushPromises();
 
     expect(document.documentElement.dataset.theme).toBe('dark');
     expect(document.documentElement.dataset.previewTheme).toBe('dark');
@@ -163,5 +173,21 @@ describe('mountProductionStitchShell theme', () => {
     expect(
       document.querySelector('.inline-highlight')?.classList.contains('highlight-purple')
     ).toBe(true);
+  });
+
+  it('maps required canonical privacy preferences without optional-shape fallbacks', () => {
+    const options = mergeOptions({
+      privacyPreferences: {
+        analytics: true,
+        errorReporting: true,
+        debugMode: true
+      }
+    });
+    const content = createProductionContent(previewContent, options);
+    const state = applyOptionsToState(createInitialStitchState(content), options, content);
+
+    expect(state.privacyAnalytics).toBe(true);
+    expect(state.privacyErrorReporting).toBe(true);
+    expect(state.privacyDebugMode).toBe(true);
   });
 });

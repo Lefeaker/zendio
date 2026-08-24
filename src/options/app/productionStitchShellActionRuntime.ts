@@ -66,9 +66,6 @@ export interface ProductionStitchShellActionRuntime {
   dispose(): void;
   waitForIdle(): Promise<void>;
 }
-type TrackablePersistence = ProductionStitchPersistence & {
-  trackUsageEvent?: (message: AnalyticsRuntimeEventPayload) => Promise<void>;
-};
 const PANEL_SECTION_MAP: Record<string, AnalyticsSection> = {
   overview: 'overview',
   storage: 'storage',
@@ -113,11 +110,9 @@ function sanitizeActionId(actionId: string): string {
 }
 
 function createProductionOptionsTelemetry(persistence: ProductionStitchPersistence) {
-  const trackablePersistence = persistence as TrackablePersistence;
-
   async function send(message: AnalyticsRuntimeEventPayload): Promise<void> {
     try {
-      await trackablePersistence.trackUsageEvent?.(message);
+      await persistence.trackUsageEvent(message);
     } catch {
       // Telemetry is best-effort and must not affect options behavior.
     }
