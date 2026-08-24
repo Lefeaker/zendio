@@ -1,25 +1,10 @@
-import type { OptionsRepository } from '@shared/interfaces/optionsRepository';
 import { configProvider } from '@shared/config';
-import type { FragmentClipperOptions, StoredOptions } from '@shared/types/options';
+import type { FragmentClipperOptions } from '@shared/types/options';
 import type { IOptionsRepository } from '@shared/repositories/IOptionsRepository';
 
 export const DEFAULT_FRAGMENT_CONFIG: FragmentClipperOptions =
   configProvider.getFragmentClipperDefaults();
-type FragmentConfigRepository = OptionsRepository | IOptionsRepository;
-
-function isLegacyOptionsRepository(
-  repository: FragmentConfigRepository
-): repository is OptionsRepository {
-  return 'load' in repository && typeof repository.load === 'function';
-}
-
-async function loadStoredOptions(repository: FragmentConfigRepository): Promise<StoredOptions> {
-  if (isLegacyOptionsRepository(repository)) {
-    return await repository.load();
-  }
-
-  return (await repository.get()) as StoredOptions;
-}
+type FragmentConfigRepository = Pick<IOptionsRepository, 'get'>;
 
 function isValidModifierKey(
   value: unknown
@@ -46,7 +31,7 @@ export async function loadFragmentConfig(
     if (!optionsRepository) {
       return DEFAULT_FRAGMENT_CONFIG;
     }
-    const options = await loadStoredOptions(optionsRepository);
+    const options = await optionsRepository.get();
     const fragmentConfig = options.fragmentClipper;
     const merged = {
       ...DEFAULT_FRAGMENT_CONFIG,

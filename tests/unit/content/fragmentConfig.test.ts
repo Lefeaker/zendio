@@ -1,7 +1,8 @@
 import { describe, it, expect, vi } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import type { OptionsRepository } from '@shared/interfaces/optionsRepository';
+import { mergeOptions } from '@shared/config/optionsMerger';
+import type { IOptionsRepository } from '@shared/repositories/IOptionsRepository';
 import {
   DEFAULT_FRAGMENT_CONFIG,
   loadFragmentConfig,
@@ -24,25 +25,25 @@ describe('fragmentConfig helpers', () => {
   });
 
   it('loads fragment config from the explicitly wired repository', async () => {
-    const repository: OptionsRepository = {
-      load: vi.fn().mockResolvedValue({
-        fragmentClipper: {
-          useFootnoteFormat: false,
-          captureContext: false,
-          selectionTriggerMode: 'modifier',
-          selectionModifierKeys: ['meta'],
-          keyboardShortcutsEnabled: false
-        }
-      }),
-      save: vi.fn(() => Promise.resolve(undefined)),
-      snapshot: vi.fn(() => null),
-      subscribe: vi.fn(() => () => undefined),
-      reset: vi.fn(() => undefined)
+    const repository: Pick<IOptionsRepository, 'get'> = {
+      get: vi.fn(() =>
+        Promise.resolve(
+          mergeOptions({
+            fragmentClipper: {
+              useFootnoteFormat: false,
+              captureContext: false,
+              selectionTriggerMode: 'modifier',
+              selectionModifierKeys: ['meta'],
+              keyboardShortcutsEnabled: false
+            }
+          })
+        )
+      )
     };
 
     const config = await loadFragmentConfig(repository);
 
-    expect(repository.load).toHaveBeenCalledTimes(1);
+    expect(repository.get).toHaveBeenCalledTimes(1);
     expect(config.selectionTriggerMode).toBe('modifier');
     expect(config.selectionModifierKeys).toEqual(['meta']);
     expect(config.keyboardShortcutsEnabled).toBe(false);
@@ -62,5 +63,8 @@ describe('fragmentConfig helpers', () => {
 
     expect(source).not.toContain('TOKENS.platformServices');
     expect(source).not.toContain('getService<PlatformServices>');
+    expect(source).not.toContain('shared/interfaces/optionsRepository');
+    expect(source).not.toContain('repository.load');
+    expect(source).not.toContain('repository.save');
   });
 });

@@ -25,14 +25,14 @@ export type ReadonlyDeep<T> = T extends (...args: never[]) => unknown
       ? { readonly [P in keyof T]: ReadonlyDeep<T[P]> }
       : T;
 
-// Canonical configuration types are projections of the runtime schemas.
-export type TaxonomyCategory = ReadonlyDeep<z.infer<typeof TaxonomyCategorySchema>>;
-export type TaxonomyTag = ReadonlyDeep<z.infer<typeof TaxonomyTagSchema>>;
-export type TaxonomyCondition = ReadonlyDeep<z.infer<typeof TaxonomyConditionSchema>>;
-export type TaxonomyAction = ReadonlyDeep<z.infer<typeof TaxonomyActionSchema>>;
-export type TaxonomyRule = ReadonlyDeep<z.infer<typeof TaxonomyRuleSchema>>;
-export type TaxonomySettings = ReadonlyDeep<z.infer<typeof TaxonomySettingsSchema>>;
-export type TaxonomyConfig = ReadonlyDeep<z.infer<typeof TaxonomyConfigSchema>>;
+// Canonical configuration types are exact projections of the runtime schemas.
+export type TaxonomyCategory = z.infer<typeof TaxonomyCategorySchema>;
+export type TaxonomyTag = z.infer<typeof TaxonomyTagSchema>;
+export type TaxonomyCondition = z.infer<typeof TaxonomyConditionSchema>;
+export type TaxonomyAction = z.infer<typeof TaxonomyActionSchema>;
+export type TaxonomyRule = z.infer<typeof TaxonomyRuleSchema>;
+export type TaxonomySettings = z.infer<typeof TaxonomySettingsSchema>;
+export type TaxonomyConfig = z.infer<typeof TaxonomyConfigSchema>;
 
 // Classification results
 export interface ClassificationResult {
@@ -90,7 +90,7 @@ export function isTaxonomyTag(value: unknown): value is TaxonomyTag {
 }
 
 // Default configurations
-export const DEFAULT_TAXONOMY_CONFIG: ReadonlyDeep<TaxonomyConfig> = {
+export const DEFAULT_TAXONOMY_CONFIG: TaxonomyConfig = {
   version: '1.0.0',
   name: 'Default Taxonomy',
   descriptionKey: 'taxonomy.default.description',

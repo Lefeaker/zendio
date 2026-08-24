@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { DEFAULT_OPTIONS } from '@shared/config';
 import { mergeOptions, optionsMerger } from '@shared/config/optionsMerger';
+import { CompleteOptionsSchema } from '@shared/schemas/options.schema';
 import type { StoredOptions } from '@shared/types';
 
 function requireDefaultOption<T>(value: T | undefined, label: string): T {
@@ -91,6 +92,17 @@ describe('shared optionsMerger', () => {
     );
     expect(result.templates.reading).toBe(DEFAULT_OPTIONS.templates.reading);
     expect(result.templates.video).toBe(DEFAULT_OPTIONS.templates.video);
+  });
+
+  it('preserves classifier timeout and returns a canonical complete schema result', () => {
+    const result = mergeOptions({
+      classifier: {
+        timeoutMs: 12_500
+      }
+    });
+
+    expect(result.classifier.timeoutMs).toBe(12_500);
+    expect(CompleteOptionsSchema.parse(result)).toEqual(result);
   });
 
   it('preserves explicit video template values without legacy default migration', () => {

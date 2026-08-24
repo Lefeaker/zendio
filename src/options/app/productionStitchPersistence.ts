@@ -28,11 +28,7 @@ import { repairTemplateOptions } from './productionStitchTemplateRepair';
 import type { UsageStatsClientLike } from './usage-dashboard/usageStatsClient';
 import { deepClone } from '../utils/clone';
 type PrivacyPreferenceField = 'analytics' | 'errorReporting' | 'debugMode';
-interface PrivacySnapshot {
-  analytics: boolean;
-  errorReporting: boolean;
-  debugMode: boolean;
-}
+type PrivacySnapshot = CompleteOptions['privacyPreferences'];
 interface ProductionStitchPersistenceOptions {
   controller: OptionsController;
   optionsRepository: Pick<IOptionsRepository, 'get' | 'patch' | 'replace' | 'onChange'>;
@@ -93,21 +89,17 @@ export function createProductionStitchPersistence(
     }
   }
   function getPrivacySnapshot(): PrivacySnapshot {
-    const current = (
-      options.getDraft() as {
-        privacyPreferences?: Partial<Record<PrivacyPreferenceField, boolean>>;
-      }
-    ).privacyPreferences;
+    const current = options.getDraft().privacyPreferences;
     return {
-      analytics: Boolean(current?.analytics),
-      errorReporting: Boolean(current?.errorReporting),
-      debugMode: Boolean(current?.debugMode)
+      analytics: current.analytics,
+      errorReporting: current.errorReporting,
+      debugMode: current.debugMode
     };
   }
   function syncPrivacySnapshotToState(nextSnapshot: PrivacySnapshot): void {
     const draft = options.getDraft();
     const state = options.getState();
-    (draft as Record<string, unknown>).privacyPreferences = nextSnapshot;
+    draft.privacyPreferences = nextSnapshot;
     state.privacyAnalytics = nextSnapshot.analytics;
     state.privacyErrorReporting = nextSnapshot.errorReporting;
     state.privacyDebugMode = nextSnapshot.debugMode;

@@ -31,9 +31,7 @@ type ProductionYamlWidget = YamlConfigEditorWidgetAdapter & {
 };
 
 function createWidget(widgetType: string): ProductionYamlWidget | null {
-  return widgetType === 'yaml-config'
-    ? (new YamlConfigEditorWidgetAdapter() as ProductionYamlWidget)
-    : null;
+  return widgetType === 'yaml-config' ? new YamlConfigEditorWidgetAdapter() : null;
 }
 
 function applyDisabledExperimentalState(
@@ -55,10 +53,10 @@ export function createProductionStitchWidgetHost(
 
   function collectBaseDraft(): CompleteOptions {
     const draft = options.getDraft();
-    const collected = {
+    const collected: CompleteOptions = {
       ...mergeOptions(draft),
       ...draft
-    } as CompleteOptions;
+    };
     return applyDisabledExperimentalState(
       omitLegacyRestRootDirFromOptions(collected),
       options.getState()
@@ -104,7 +102,7 @@ export function createProductionStitchWidgetHost(
       return;
     }
     widgetInstances.add(widget);
-    void widget.mount(
+    widget.mount(
       host,
       { options: options.getDraft(), messages: options.getMessages() },
       {

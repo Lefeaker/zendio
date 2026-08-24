@@ -1,13 +1,14 @@
 import { DEFAULT_DOMAIN_MAPPINGS } from '../constants';
 import { DEFAULT_CLASSIFIER_TAXONOMY_MIGRATED } from './taxonomyMigration';
 import type { CompleteOptions } from '../types';
+import { CompleteOptionsSchema } from '../schemas/options.schema';
 import { getDefaultFragmentClipper, getDefaultRestOptions, getDefaultTemplates } from './appConfig';
 
 const REST_DEFAULTS = getDefaultRestOptions();
 const TEMPLATE_DEFAULTS = getDefaultTemplates();
 const FRAGMENT_DEFAULTS = getDefaultFragmentClipper();
 
-export const DEFAULT_OPTIONS: CompleteOptions = {
+export const DEFAULT_OPTIONS: CompleteOptions = CompleteOptionsSchema.parse({
   interfaceTheme: 'system',
   rest: {
     baseUrl: REST_DEFAULTS.baseUrl,
@@ -86,4 +87,4 @@ export const DEFAULT_OPTIONS: CompleteOptions = {
     errorReporting: false,
     debugMode: false
   }
-};
+});

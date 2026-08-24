@@ -25,7 +25,6 @@ import { getOutputTemplatePreset } from '@shared/config';
 import { mergeOptions } from '@shared/config/optionsMerger';
 import { DEFAULT_DOMAIN_MAPPINGS } from '@shared/constants';
 import { registerService, TOKENS } from '@shared/di';
-import type { CompleteOptions } from './productionStitchShell.helpers';
 import type { StoredOptions } from '@shared/types';
 import { getTestRestUrls } from '../../fixtures/configTestHelpers';
 
@@ -253,7 +252,7 @@ describe('mountProductionStitchShell storage', () => {
         ],
         rules: []
       }
-    }) as CompleteOptions;
+    });
     const state = {
       activeLocalFolderVaultIndex: null,
       routingRules: [
@@ -501,7 +500,7 @@ describe('mountProductionStitchShell storage', () => {
           ],
           rules: []
         }
-      } as Partial<CompleteOptions>,
+      },
       messages: null,
       language: 'en',
       messagingRepository

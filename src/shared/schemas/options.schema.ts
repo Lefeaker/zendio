@@ -1,14 +1,16 @@
 import { z } from 'zod';
-import { TaxonomyConfigSchema } from './taxonomy.schema';
+import { exactOptionalSchema, schemaOutput, TaxonomyConfigSchema } from './taxonomy.schema';
 import { VaultRouterConfigSchema } from './vault.schema';
 import { YamlConfigOverridesSchema } from './yamlConfig.schema';
+import type { VaultRouterConfig } from '../types/vault';
+import type { YamlConfigOverrides } from '../types/yamlConfig';
 
 export const RestOptionsSchema = z.strictObject({
   baseUrl: z.string().url('Must be a valid URL'),
   httpsUrl: z.string().url().optional(),
   httpUrl: z.string().url().optional(),
   vault: z.string().min(1, 'Vault name is required'),
-  apiKey: z.union([z.literal(''), z.string().min(10, 'API key must be at least 10 characters')]),
+  apiKey: z.string(),
   localFolderId: z.string().optional(),
   localFolderName: z.string().optional()
 });
@@ -16,9 +18,6 @@ export const RestOptionsReadinessSchema = RestOptionsSchema.extend({
   apiKey: z.string().min(10, 'API key must be at least 10 characters')
 });
 
-/**
- * TemplateOptions Schema
- */
 export const TemplateOptionsSchema = z.strictObject({
   article: z.string(),
   video: z.string(),
@@ -27,40 +26,22 @@ export const TemplateOptionsSchema = z.strictObject({
   ai: z.string()
 });
 
-/**
- * AiChatOptions Schema
- */
 export const AiChatOptionsSchema = z.strictObject({
   includeTimestamps: z.boolean(),
   userName: z.string()
 });
 
-/**
- * DeepResearchOptions Schema
- */
 export const DeepResearchOptionsSchema = z.strictObject({
   pureMode: z.boolean()
 });
 
-/**
- * FragmentContextMode Schema
- */
 export const FragmentContextModeSchema = z.enum(['chars', 'sentences']);
 
-/**
- * FragmentModifierKey Schema
- */
 export const FragmentModifierKeySchema = z.enum(['alt', 'meta', 'ctrl', 'shift']);
 export const FragmentSelectionTriggerModeSchema = z.enum(['disabled', 'direct', 'modifier']);
 
-/**
- * ReadingExportMode Schema
- */
 export const ReadingExportModeSchema = z.enum(['highlights', 'full']);
 
-/**
- * ReaderHighlightTheme Schema
- */
 export const ReaderHighlightThemeSchema = z.enum([
   'gradient',
   'purple',
@@ -69,9 +50,6 @@ export const ReaderHighlightThemeSchema = z.enum([
   'neonOrange'
 ]);
 
-/**
- * ReadingSessionOptions Schema
- */
 export const ReadingSessionOptionsSchema = z.strictObject({
   exportMode: ReadingExportModeSchema,
   highlightTheme: ReaderHighlightThemeSchema
@@ -83,16 +61,13 @@ export const VideoScreenshotAttachmentOptionsSchema = z.strictObject({
   markdownUrlFormat: z.string()
 });
 
-/**
- * VideoOptions Schema
- */
 export const VideoOptionsSchema = z.strictObject({
   floatingPromptEnabled: z.boolean(),
   promptButtonLabel: z.string().min(1),
   promptShortcut: z.string().min(1),
-  controlBarAutoPause: z.boolean().optional(),
-  controlBarScreenshot: z.boolean().optional(),
-  commentEditorAutoPause: z.boolean().optional(),
+  controlBarAutoPause: z.boolean(),
+  controlBarScreenshot: z.boolean(),
+  commentEditorAutoPause: z.boolean(),
   promptPosition: z
     .strictObject({
       x: z.number(),
@@ -102,9 +77,6 @@ export const VideoOptionsSchema = z.strictObject({
   screenshotAttachment: VideoScreenshotAttachmentOptionsSchema
 });
 
-/**
- * FragmentClipperOptions Schema
- */
 export const FragmentClipperOptionsSchema = z.strictObject({
   useFootnoteFormat: z.boolean(),
   captureContext: z.boolean(),
@@ -115,20 +87,15 @@ export const FragmentClipperOptionsSchema = z.strictObject({
   keyboardShortcutsEnabled: z.boolean()
 });
 
-/**
- * ClassifierProvider Schema
- */
 export const ClassifierProviderSchema = z.enum(['openai', 'compatible', 'ollama']);
 
-/**
- * ClassifierOptions Schema
- */
 export const ClassifierOptionsSchema = z.strictObject({
   enabled: z.boolean(),
   provider: ClassifierProviderSchema,
   endpoint: z.string().url(),
   apiKey: z.string(),
   model: z.string(),
+  timeoutMs: z.number().finite().positive().optional(),
   taxonomy: TaxonomyConfigSchema
 });
 
@@ -160,6 +127,68 @@ export const PrivacyPreferencesOptionsSchema = z.strictObject({
 
 export const InterfaceThemeSchema = z.enum(['dark', 'light', 'system']);
 
+const CompleteRestOptionsSchema = RestOptionsSchema.transform((value) => ({
+  baseUrl: value.baseUrl,
+  vault: value.vault,
+  apiKey: value.apiKey,
+  ...(value.httpsUrl !== undefined && { httpsUrl: value.httpsUrl }),
+  ...(value.httpUrl !== undefined && { httpUrl: value.httpUrl }),
+  ...('localFolderId' in value && { localFolderId: value.localFolderId }),
+  ...('localFolderName' in value && { localFolderName: value.localFolderName })
+}));
+
+const CompleteVideoOptionsSchema = exactOptionalSchema(VideoOptionsSchema);
+const CompleteClassifierOptionsSchema = exactOptionalSchema(ClassifierOptionsSchema);
+
+const StoredRestOptionsSchema = RestOptionsSchema.partial().transform((value) => ({
+  ...(value.baseUrl !== undefined && { baseUrl: value.baseUrl }),
+  ...(value.httpsUrl !== undefined && { httpsUrl: value.httpsUrl }),
+  ...(value.httpUrl !== undefined && { httpUrl: value.httpUrl }),
+  ...(value.vault !== undefined && { vault: value.vault }),
+  ...(value.apiKey !== undefined && { apiKey: value.apiKey }),
+  ...('localFolderId' in value && { localFolderId: value.localFolderId }),
+  ...('localFolderName' in value && { localFolderName: value.localFolderName })
+}));
+
+const StoredTemplateOptionsSchema = exactOptionalSchema(TemplateOptionsSchema.partial());
+const StoredAiChatOptionsSchema = exactOptionalSchema(AiChatOptionsSchema.partial());
+const StoredDeepResearchOptionsSchema = exactOptionalSchema(DeepResearchOptionsSchema.partial());
+const StoredFragmentClipperOptionsSchema = exactOptionalSchema(
+  FragmentClipperOptionsSchema.partial()
+);
+const StoredReadingSessionOptionsSchema = exactOptionalSchema(
+  ReadingSessionOptionsSchema.partial()
+);
+const StoredVideoScreenshotAttachmentOptionsSchema = exactOptionalSchema(
+  VideoScreenshotAttachmentOptionsSchema.partial()
+);
+
+const StoredVideoOptionsObjectSchema = VideoOptionsSchema.partial().extend({
+  screenshotAttachment: StoredVideoScreenshotAttachmentOptionsSchema.optional()
+});
+const StoredVideoOptionsSchema = exactOptionalSchema(StoredVideoOptionsObjectSchema);
+const StoredClassifierOptionsSchema = exactOptionalSchema(ClassifierOptionsSchema.partial());
+const StoredExperimentalAiOptionsSchema = exactOptionalSchema(
+  ExperimentalAiOptionsSchema.partial()
+);
+const StoredPageSummaryOptionsSchema = exactOptionalSchema(PageSummaryOptionsSchema.partial());
+const StoredReadingOverlaySummaryOptionsSchema = exactOptionalSchema(
+  ReadingOverlaySummaryOptionsSchema.partial()
+);
+const StoredSubtitleTranslationOptionsSchema = exactOptionalSchema(
+  SubtitleTranslationOptionsSchema.partial()
+);
+const StoredPrivacyPreferencesOptionsSchema = exactOptionalSchema(
+  PrivacyPreferencesOptionsSchema.partial()
+);
+
+export const OptionsVaultRouterConfigSchema = VaultRouterConfigSchema.transform((config) =>
+  schemaOutput<VaultRouterConfig>(config)
+);
+export const OptionsYamlConfigOverridesSchema = YamlConfigOverridesSchema.transform((config) =>
+  schemaOutput<YamlConfigOverrides>(config)
+);
+
 /**
  * StoredOptions Schema（用于 chrome.storage 存储）
  *
@@ -169,31 +198,22 @@ export const InterfaceThemeSchema = z.enum(['dark', 'light', 'system']);
 export const StoredOptionsSchema = z
   .object({
     interfaceTheme: InterfaceThemeSchema.optional(),
-    rest: RestOptionsSchema.partial().optional(),
-    templates: TemplateOptionsSchema.partial()
-      .extend({
-        fragment: z.string().optional(),
-        reading: z.string().optional()
-      })
-      .optional(),
+    rest: StoredRestOptionsSchema.optional(),
+    templates: StoredTemplateOptionsSchema.optional(),
     domainMappings: z.record(z.string()).optional(),
-    aiChat: AiChatOptionsSchema.partial().optional(),
-    deepResearch: DeepResearchOptionsSchema.partial().optional(),
-    fragmentClipper: FragmentClipperOptionsSchema.partial().optional(),
-    readingSession: ReadingSessionOptionsSchema.partial().optional(),
-    video: VideoOptionsSchema.partial()
-      .extend({
-        screenshotAttachment: VideoScreenshotAttachmentOptionsSchema.partial().optional()
-      })
-      .optional(),
-    classifier: ClassifierOptionsSchema.partial().optional(),
-    experimentalAi: ExperimentalAiOptionsSchema.partial().optional(),
-    pageSummary: PageSummaryOptionsSchema.partial().optional(),
-    readingOverlaySummary: ReadingOverlaySummaryOptionsSchema.partial().optional(),
-    subtitleTranslation: SubtitleTranslationOptionsSchema.partial().optional(),
-    privacyPreferences: PrivacyPreferencesOptionsSchema.partial().optional(),
-    vaultRouter: VaultRouterConfigSchema.optional(),
-    yamlConfig: YamlConfigOverridesSchema.nullable().optional()
+    aiChat: StoredAiChatOptionsSchema.optional(),
+    deepResearch: StoredDeepResearchOptionsSchema.optional(),
+    fragmentClipper: StoredFragmentClipperOptionsSchema.optional(),
+    readingSession: StoredReadingSessionOptionsSchema.optional(),
+    video: StoredVideoOptionsSchema.optional(),
+    classifier: StoredClassifierOptionsSchema.optional(),
+    experimentalAi: StoredExperimentalAiOptionsSchema.optional(),
+    pageSummary: StoredPageSummaryOptionsSchema.optional(),
+    readingOverlaySummary: StoredReadingOverlaySummaryOptionsSchema.optional(),
+    subtitleTranslation: StoredSubtitleTranslationOptionsSchema.optional(),
+    privacyPreferences: StoredPrivacyPreferencesOptionsSchema.optional(),
+    vaultRouter: OptionsVaultRouterConfigSchema.optional(),
+    yamlConfig: OptionsYamlConfigOverridesSchema.nullable().optional()
   })
   .strict();
 
@@ -202,47 +222,23 @@ export const StoredOptionsSchema = z
  */
 export const CompleteOptionsSchema = z.strictObject({
   interfaceTheme: InterfaceThemeSchema.optional(),
-  rest: RestOptionsSchema,
+  rest: CompleteRestOptionsSchema,
   templates: TemplateOptionsSchema,
   aiChat: AiChatOptionsSchema,
   deepResearch: DeepResearchOptionsSchema,
   fragmentClipper: FragmentClipperOptionsSchema,
   readingSession: ReadingSessionOptionsSchema,
-  video: VideoOptionsSchema,
-  classifier: ClassifierOptionsSchema,
+  video: CompleteVideoOptionsSchema,
+  classifier: CompleteClassifierOptionsSchema,
   experimentalAi: ExperimentalAiOptionsSchema,
   pageSummary: PageSummaryOptionsSchema,
   readingOverlaySummary: ReadingOverlaySummaryOptionsSchema,
   subtitleTranslation: SubtitleTranslationOptionsSchema,
   privacyPreferences: PrivacyPreferencesOptionsSchema,
-  domainMappings: z.record(z.string())
+  domainMappings: z.record(z.string()),
+  vaultRouter: OptionsVaultRouterConfigSchema.optional(),
+  yamlConfig: OptionsYamlConfigOverridesSchema.nullable().optional()
 });
 
-/**
- * 自动生成 TypeScript 类型（替换手写类型）
- */
-export type RestOptions = z.infer<typeof RestOptionsSchema>;
-export type TemplateOptions = z.infer<typeof TemplateOptionsSchema>;
-export type AiChatOptions = z.infer<typeof AiChatOptionsSchema>;
-export type DeepResearchOptions = z.infer<typeof DeepResearchOptionsSchema>;
-export type FragmentContextMode = z.infer<typeof FragmentContextModeSchema>;
-export type FragmentModifierKey = z.infer<typeof FragmentModifierKeySchema>;
-export type FragmentSelectionTriggerMode = z.infer<typeof FragmentSelectionTriggerModeSchema>;
-export type ReadingExportMode = z.infer<typeof ReadingExportModeSchema>;
-export type ReaderHighlightTheme = z.infer<typeof ReaderHighlightThemeSchema>;
-export type ReadingSessionOptions = z.infer<typeof ReadingSessionOptionsSchema>;
-export type VideoScreenshotAttachmentOptions = z.infer<
-  typeof VideoScreenshotAttachmentOptionsSchema
->;
-export type VideoOptions = z.infer<typeof VideoOptionsSchema>;
-export type FragmentClipperOptions = z.infer<typeof FragmentClipperOptionsSchema>;
-export type ClassifierProvider = z.infer<typeof ClassifierProviderSchema>;
-export type ClassifierOptions = z.infer<typeof ClassifierOptionsSchema>;
-export type ExperimentalAiOptions = z.infer<typeof ExperimentalAiOptionsSchema>;
-export type PageSummaryOptions = z.infer<typeof PageSummaryOptionsSchema>;
-export type ReadingOverlaySummaryOptions = z.infer<typeof ReadingOverlaySummaryOptionsSchema>;
-export type SubtitleTranslationOptions = z.infer<typeof SubtitleTranslationOptionsSchema>;
-export type PrivacyPreferencesOptions = z.infer<typeof PrivacyPreferencesOptionsSchema>;
-export type InterfaceTheme = z.infer<typeof InterfaceThemeSchema>;
 export type StoredOptions = z.infer<typeof StoredOptionsSchema>;
 export type CompleteOptions = z.infer<typeof CompleteOptionsSchema>;

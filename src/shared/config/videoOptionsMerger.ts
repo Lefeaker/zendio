@@ -4,7 +4,6 @@ import type {
   VideoOptions,
   VideoScreenshotAttachmentOptions
 } from '../types';
-import type { StoredOptions as SchemaStoredOptions } from '../schemas/options.schema';
 import { DEFAULT_OPTIONS } from './defaultOptions';
 
 function normalizeTemplateValue(
@@ -25,9 +24,7 @@ function normalizeTemplateValue(
 }
 
 function mergeScreenshotAttachmentOptions(
-  source:
-    | StoredVideoOptions['screenshotAttachment']
-    | NonNullable<SchemaStoredOptions['video']>['screenshotAttachment'],
+  source: StoredVideoOptions['screenshotAttachment'],
   defaults: VideoScreenshotAttachmentOptions
 ): VideoScreenshotAttachmentOptions {
   const base = source ?? {};
@@ -41,9 +38,7 @@ function mergeScreenshotAttachmentOptions(
   };
 }
 
-export function mergeVideoOptions(
-  source?: StoredOptions['video'] | SchemaStoredOptions['video']
-): VideoOptions | undefined {
+export function mergeVideoOptions(source?: StoredOptions['video']): VideoOptions | undefined {
   const defaults = DEFAULT_OPTIONS.video;
   if (!defaults && !source) {
     return undefined;

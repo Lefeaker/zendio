@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import type { Mock } from 'vitest';
 import type { CompleteOptions, StoredOptions } from '@shared/types/options';
+import { mergeOptions } from '@shared/config/optionsMerger';
 import { createOptionsController } from '@options/app/optionsController';
 import type { OptionsFormAdapter } from '@options/components/optionsFormAdapter';
 import type { OptionsPersistenceService } from '@options/services/persistence';
@@ -42,11 +43,8 @@ describe('OptionsController', () => {
       getCached: getCachedMock
     };
 
-    readMock = vi.fn<(...args: [StoredOptions | null]) => CompleteOptions>(
-      (_snapshot) =>
-        ({
-          rest: { baseUrl: 'https://changed.example.com/' }
-        }) as CompleteOptions
+    readMock = vi.fn<(...args: [StoredOptions | null]) => CompleteOptions>((_snapshot) =>
+      mergeOptions({ rest: { baseUrl: 'https://changed.example.com/' } })
     );
     applyMock = vi.fn<(...args: [StoredOptions]) => Promise<void>>((_options) => Promise.resolve());
 
@@ -88,18 +86,13 @@ describe('OptionsController', () => {
     expect(readMock).toHaveBeenCalledTimes(1);
     expect(saveMock).toHaveBeenCalledTimes(1);
     expect(savedOptions[0]?.rest?.baseUrl).toBe('https://changed.example.com/');
-    expect(onSaveSuccess).toHaveBeenCalledWith(
-      'manual',
-      expect.objectContaining({
-        rest: { baseUrl: 'https://changed.example.com/' }
-      })
-    );
+    expect(onSaveSuccess).toHaveBeenCalledWith('manual', savedOptions[0]);
   });
 
   it('debounces auto save requests', async () => {
     vi.useFakeTimers();
 
-    const autoDraft = { rest: { baseUrl: 'https://auto.example.com/' } } as CompleteOptions;
+    const autoDraft = mergeOptions({ rest: { baseUrl: 'https://auto.example.com/' } });
     const collect = vi.fn(() => autoDraft);
 
     const controller = createOptionsController({
@@ -123,7 +116,7 @@ describe('OptionsController', () => {
   it('awaits async collectors before saving auto snapshot', async () => {
     vi.useFakeTimers();
 
-    const autoDraft = { rest: { baseUrl: 'https://async.example.com/' } } as CompleteOptions;
+    const autoDraft = mergeOptions({ rest: { baseUrl: 'https://async.example.com/' } });
     const collect = vi.fn(async () => {
       await Promise.resolve();
       return autoDraft;
@@ -147,9 +140,7 @@ describe('OptionsController', () => {
   it('uses strict replacement for imported configuration', async () => {
     const controller = createOptionsController({ persistence, formAdapter });
     await controller.loadInitialState();
-    const imported = {
-      rest: { baseUrl: 'https://import.example.com/' }
-    } as CompleteOptions;
+    const imported = mergeOptions({ rest: { baseUrl: 'https://import.example.com/' } });
 
     await controller.applyImportedConfig(imported);
 
@@ -184,7 +175,7 @@ describe('OptionsController', () => {
   it('syncs snapshot updates from persistence subscriptions', async () => {
     const listeners: Array<(options: StoredOptions) => void> = [];
     const unsubscribe = vi.fn();
-    persistence.subscribe = vi.fn((listener) => {
+    persistence.subscribe = vi.fn((listener: (options: StoredOptions) => void) => {
       listeners.push(listener);
       return unsubscribe;
     });
@@ -195,7 +186,7 @@ describe('OptionsController', () => {
     });
     await controller.loadInitialState();
 
-    const nextState = { rest: { baseUrl: 'https://external.example.com/' } } as StoredOptions;
+    const nextState: StoredOptions = { rest: { baseUrl: 'https://external.example.com/' } };
     listeners.forEach((listener) => listener(nextState));
 
     expect(controller.getSnapshot()?.rest?.baseUrl).toBe('https://external.example.com/');
@@ -207,11 +198,8 @@ describe('OptionsController', () => {
   it('dispose cancels pending auto save timer', async () => {
     vi.useFakeTimers();
 
-    const collect = vi.fn(
-      () =>
-        ({
-          rest: { baseUrl: 'https://dispose.example.com/' }
-        }) as CompleteOptions
+    const collect = vi.fn(() =>
+      mergeOptions({ rest: { baseUrl: 'https://dispose.example.com/' } })
     );
 
     const controller = createOptionsController({

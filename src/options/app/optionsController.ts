@@ -21,10 +21,6 @@ export interface SaveSnapshotOptions {
   draft?: CompleteOptions | StoredOptions;
 }
 
-function toStoredOptions(options: CompleteOptions | StoredOptions): StoredOptions {
-  return options as StoredOptions;
-}
-
 type AutoSaveCollector =
   | (() =>
       | CompleteOptions
@@ -152,7 +148,7 @@ export class OptionsController {
       } else {
         await this.persistence.save(cloned);
       }
-      this.snapshot = toStoredOptions(cloned);
+      this.snapshot = cloned;
       this.callbacks.onSaveSuccess?.(reason, cloned);
     } catch (error) {
       this.callbacks.onSaveError?.(reason, error);
@@ -166,7 +162,7 @@ export class OptionsController {
   }
 
   async applyImportedConfig(options: CompleteOptions): Promise<void> {
-    this.setSnapshot(toStoredOptions(options));
+    this.setSnapshot(options);
     // Fix null assignment error - applyToForm expects StoredOptions | undefined, not null
     await this.applyToForm(this.snapshot || undefined);
     await this.saveSnapshot({ reason: 'import', draft: options });

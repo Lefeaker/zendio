@@ -6,13 +6,8 @@
  */
 
 import { z } from 'zod';
-import type {
-  TaxonomyConfig,
-  TaxonomyCategory,
-  TaxonomyTag,
-  ReadonlyDeep
-} from '../types/taxonomy';
-import { DEFAULT_TAXONOMY_CONFIG, isTaxonomyConfig } from '../types/taxonomy';
+import type { TaxonomyConfig, TaxonomyCategory, TaxonomyTag } from '../types/taxonomy';
+import { DEFAULT_TAXONOMY_CONFIG } from '../types/taxonomy';
 import { TaxonomyConfigSchema } from '../schemas/taxonomy.schema';
 import { parseBoundedJson } from './losslessObjectBoundary';
 
@@ -41,7 +36,7 @@ export function isLegacyTaxonomy(value: unknown): value is LegacyTaxonomy {
 }
 
 // Migration function from legacy to new format
-export function migrateLegacyTaxonomy(legacy: LegacyTaxonomy): ReadonlyDeep<TaxonomyConfig> {
+export function migrateLegacyTaxonomy(legacy: LegacyTaxonomy): TaxonomyConfig {
   const parsed = LegacyTaxonomySchema.parse(legacy);
   const categories: TaxonomyCategory[] = [];
   const tags: TaxonomyTag[] = [];
@@ -113,8 +108,7 @@ export function migrateLegacyTaxonomy(legacy: LegacyTaxonomy): ReadonlyDeep<Taxo
     ...(defaultCategory !== undefined && { defaultCategory })
   };
 
-  TaxonomyConfigSchema.parse(result);
-  return result;
+  return TaxonomyConfigSchema.parse(result);
 }
 
 export type TaxonomyMigrationResult =
@@ -140,8 +134,9 @@ export function migrateTaxonomyValue(value: unknown): TaxonomyMigrationResult {
     migrated = true;
   }
 
-  if (isTaxonomyConfig(candidate)) {
-    return { success: true, value: candidate, migrated };
+  const canonical = TaxonomyConfigSchema.safeParse(candidate);
+  if (canonical.success) {
+    return { success: true, value: canonical.data, migrated };
   }
 
   const legacy = LegacyTaxonomySchema.safeParse(candidate);
@@ -158,13 +153,13 @@ export function migrateTaxonomyValue(value: unknown): TaxonomyMigrationResult {
 }
 
 // Runtime projection keeps the historical default fallback separate from persistence migration.
-export function resolveTaxonomy(value: unknown): ReadonlyDeep<TaxonomyConfig> {
+export function resolveTaxonomy(value: unknown): TaxonomyConfig {
   const result = migrateTaxonomyValue(value);
   return result.success ? result.value : DEFAULT_TAXONOMY_CONFIG;
 }
 
 // Create a backward-compatible default taxonomy
-export const LEGACY_COMPATIBLE_TAXONOMY: ReadonlyDeep<TaxonomyConfig> = migrateLegacyTaxonomy({
+export const LEGACY_COMPATIBLE_TAXONOMY: TaxonomyConfig = migrateLegacyTaxonomy({
   type: ['article', 'ai_chat'],
   topics: ['cs', 'math', 'product', 'research', 'howto', 'news', 'misc'],
   ai_platform: ['chatgpt', 'claude', 'gemini', 'copilot', 'perplexity', 'poe', 'other']
