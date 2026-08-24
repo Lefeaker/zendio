@@ -1,106 +1,81 @@
-import { spawn } from 'node:child_process';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { defaultConcurrency, resolveConcurrency } from './utils/taskGraphRunner.mjs';
+import { parseManagedCommandInvocationArgv } from './config/commandBoundaryProfiles.mjs';
+import { startBoundedCommand } from './utils/boundedCommand.mjs';
+import { runTaskGraph } from './utils/taskGraphRunner.mjs';
 import { createBrowserTestShardSuites } from './utils/testShards.mjs';
 
-export async function main(argv = process.argv, env = process.env) {
-  const suite = argv[2];
-  const browserTestShardSuites = createBrowserTestShardSuites();
-  const shards = Object.hasOwn(browserTestShardSuites, suite)
-    ? browserTestShardSuites[suite]
-    : undefined;
-
-  if (!shards) {
-    console.error('Usage: node scripts/run-browser-test-shards.mjs <e2e|visual>');
-    return { ok: false, failed: [] };
-  }
-
-  const concurrency = resolveConcurrency(env.BROWSER_TEST_CONCURRENCY, defaultConcurrency());
-  return runBrowserShards(shards, concurrency, env);
+export function createBrowserShardTaskGraph(suite) {
+  const suites = createBrowserTestShardSuites();
+  const shards = Object.hasOwn(suites, suite) ? suites[suite] : undefined;
+  if (!shards) throw new Error(`Unknown browser shard suite: ${String(suite)}`);
+  return {
+    policyId: 'browser-shards-v1',
+    tasks: [
+      {
+        id: 'verify-runtime',
+        name: 'Runtime engine guard',
+        profile: 'node-script-standard-v1',
+        args: ['scripts/verify-runtime.mjs'],
+        dependsOn: []
+      },
+      ...shards.map((shard) => ({
+        id: `shard:${shard.id}`,
+        name: `browser shard ${shard.id}`,
+        profile: 'playwright-v1',
+        args: [...shard.args],
+        dependsOn: ['verify-runtime']
+      }))
+    ]
+  };
 }
 
-async function runBrowserShards(shards, concurrency, env) {
-  const pending = [...shards];
-  const running = new Set();
-  const failed = [];
+export function createBrowserShardEnvironment(taskId, environment = process.env) {
+  if (!taskId.startsWith('shard:')) return { ...environment };
+  const shardId = sanitizeShardId(taskId.slice('shard:'.length));
+  return {
+    ...environment,
+    PLAYWRIGHT_SKIP_WEB_SERVER_BUILD: '1',
+    PLAYWRIGHT_DIST_DIR: 'build/dist',
+    PLAYWRIGHT_OUTPUT_DIR: path.join('test-results/browser-shards', shardId),
+    PLAYWRIGHT_HTML_REPORT_DIR: path.join('build/reports/playwright-shards', shardId)
+  };
+}
 
-  return await new Promise((resolve) => {
-    function schedule() {
-      if (failed.length > 0 && running.size === 0) {
-        resolve({ ok: false, failed });
-        return;
-      }
-      if (failed.length > 0) {
-        return;
-      }
-      while (running.size < concurrency && pending.length > 0) {
-        const shard = pending.shift();
-        const promise = runBrowserShard(shard, env).then((ok) => {
-          running.delete(promise);
-          if (!ok) {
-            failed.push(shard.id);
-          }
-          schedule();
-        });
-        running.add(promise);
-      }
-      if (pending.length === 0 && running.size === 0) {
-        resolve({ ok: failed.length === 0, failed });
-      }
-    }
-    schedule();
+export async function main(argv = process.argv.slice(2), options = {}) {
+  const directArguments = argv[0] === 'node' ? argv.slice(2) : argv;
+  const parsed = parseManagedCommandInvocationArgv([
+    'node',
+    'scripts/run-browser-test-shards.mjs',
+    ...directArguments
+  ]);
+  const [suite] = parsed.arguments;
+  const graph = createBrowserShardTaskGraph(suite);
+  const startOperation = options.startCommandOperation ?? startBoundedCommand;
+  const startCommand =
+    options.startCommand ??
+    ((task) =>
+      startOperation(
+        { profileId: task.profile, arguments: task.args },
+        { environment: createBrowserShardEnvironment(task.id, options.environment) }
+      ));
+  return runTaskGraph(graph.tasks, {
+    policyId: graph.policyId,
+    startCommand,
+    ...(options.taskGraphOptions ?? {})
   });
-}
-
-function runBrowserShard(shard, env) {
-  console.log(`⏳ browser shard ${shard.id}...`);
-  const child = spawn('node', ['scripts/run-playwright.mjs', ...shard.args], {
-    stdio: 'inherit',
-    shell: process.platform === 'win32',
-    env: {
-      ...env,
-      PLAYWRIGHT_SKIP_WEB_SERVER_BUILD: '1',
-      PLAYWRIGHT_DIST_DIR: env.PLAYWRIGHT_DIST_DIR ?? 'build/dist',
-      PLAYWRIGHT_OUTPUT_DIR: createShardOutputDir(shard.id, env),
-      PLAYWRIGHT_HTML_REPORT_DIR: createShardHtmlReportDir(shard.id, env)
-    }
-  });
-
-  return new Promise((resolve) => {
-    child.on('exit', (code, signal) => {
-      if (signal || code !== 0) {
-        console.error(`❌ browser shard ${shard.id} failed`);
-        resolve(false);
-      } else {
-        console.log(`✅ browser shard ${shard.id} passed`);
-        resolve(true);
-      }
-    });
-    child.on('error', (error) => {
-      console.error(`❌ browser shard ${shard.id} failed to start: ${error.message}`);
-      resolve(false);
-    });
-  });
-}
-
-function createShardOutputDir(shardId, env) {
-  const baseDir = env.PLAYWRIGHT_OUTPUT_DIR ?? 'test-results/browser-shards';
-  return path.join(baseDir, sanitizeShardId(shardId));
-}
-
-function createShardHtmlReportDir(shardId, env) {
-  const baseDir = env.PLAYWRIGHT_HTML_REPORT_DIR ?? 'build/reports/playwright-shards';
-  return path.join(baseDir, sanitizeShardId(shardId));
 }
 
 function sanitizeShardId(value) {
-  return value.replace(/[^a-zA-Z0-9._-]+/g, '-');
+  return value.replace(/[^a-zA-Z0-9._-]+/gu, '-');
 }
 
 if (process.argv[1] && pathToFileURL(path.resolve(process.argv[1])).href === import.meta.url) {
-  const result = await main();
-  if (!result.ok) {
+  try {
+    const result = await main();
+    if (!result.ok) process.exitCode = result.failed[0]?.code ?? 1;
+  } catch (error) {
+    console.error(error instanceof Error ? error.message : String(error));
     process.exitCode = 1;
   }
 }
