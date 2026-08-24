@@ -1,11 +1,13 @@
 import { execFileSync, spawn } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import {
+  chmodSync,
   closeSync,
   constants,
   fsyncSync,
   fstatSync,
   lstatSync,
+  mkdirSync,
   openSync,
   realpathSync,
   readFileSync,
@@ -34,6 +36,11 @@ const OUTPUT_NAMES = ['stdout', 'stderr', 'fd4', 'fd5'];
 function contained(root, candidate) {
   const rel = relative(root, candidate);
   return rel === '' || (rel !== '..' && !rel.startsWith(`..${sep}`) && !isAbsolute(rel));
+}
+
+function profileArgumentValue(args, flag) {
+  const index = args.indexOf(flag);
+  return index >= 0 ? args[index + 1] : undefined;
 }
 
 function resultBase(spec, startedAt) {
@@ -143,6 +150,172 @@ function publishCiInstallOutputs(spec) {
   } finally {
     closeSync(descriptor);
   }
+}
+
+function canonicalJson(value) {
+  if (Array.isArray(value)) return `[${value.map(canonicalJson).join(',')}]`;
+  if (value && typeof value === 'object') {
+    return `{${Object.keys(value)
+      .sort()
+      .map((key) => `${JSON.stringify(key)}:${canonicalJson(value[key])}`)
+      .join(',')}}`;
+  }
+  return JSON.stringify(value);
+}
+
+function sha256FileBounded(path, maximumBytes = 32 << 20) {
+  const stats = lstatSync(path);
+  if (
+    !stats.isFile() ||
+    stats.isSymbolicLink() ||
+    stats.uid !== process.getuid() ||
+    stats.nlink !== 1 ||
+    stats.size > maximumBytes
+  )
+    throw new Error('RELEASE_FILE_INVALID');
+  const before = realpathSync(path);
+  const bytes = readFileSync(path);
+  if (bytes.length !== stats.size || realpathSync(path) !== before)
+    throw new Error('RELEASE_FILE_CHANGED');
+  return createHash('sha256').update(bytes).digest('hex');
+}
+
+function ensurePrivateDirectory(path) {
+  try {
+    mkdirSync(path, { mode: 0o700 });
+    chmodSync(path, 0o700);
+  } catch (error) {
+    if (error?.code !== 'EEXIST') throw error;
+  }
+  const stats = lstatSync(path);
+  if (
+    !stats.isDirectory() ||
+    stats.isSymbolicLink() ||
+    stats.uid !== process.getuid() ||
+    (stats.mode & 0o777) !== 0o700 ||
+    realpathSync(path) !== path
+  )
+    throw new Error('RELEASE_DIRECTORY_INVALID');
+  return path;
+}
+
+function writeExclusiveCanonicalJson(path, value) {
+  const bytes = Buffer.from(`${canonicalJson(value)}\n`, 'utf8');
+  if (bytes.length > 64 * 1024) throw new Error('RELEASE_JSON_LIMIT');
+  const descriptor = openSync(
+    path,
+    constants.O_CREAT | constants.O_EXCL | constants.O_WRONLY | (constants.O_NOFOLLOW ?? 0),
+    0o600
+  );
+  try {
+    let offset = 0;
+    while (offset < bytes.length) offset += writeSync(descriptor, bytes, offset);
+    fsyncSync(descriptor);
+    const opened = fstatSync(descriptor);
+    if (!opened.isFile() || opened.uid !== process.getuid() || opened.nlink !== 1)
+      throw new Error('RELEASE_JSON_IDENTITY');
+  } finally {
+    closeSync(descriptor);
+  }
+  const stats = lstatSync(path);
+  if (
+    !stats.isFile() ||
+    stats.isSymbolicLink() ||
+    stats.uid !== process.getuid() ||
+    stats.nlink !== 1 ||
+    (stats.mode & 0o777) !== 0o600 ||
+    !readFileSync(path).equals(bytes)
+  )
+    throw new Error('RELEASE_JSON_PUBLICATION');
+  const parent = openSync(dirname(path), constants.O_RDONLY | (constants.O_DIRECTORY ?? 0));
+  try {
+    fsyncSync(parent);
+  } finally {
+    closeSync(parent);
+  }
+  return { bytes, sha256: createHash('sha256').update(bytes).digest('hex') };
+}
+
+function appendGithubOutput(path, lines, { requireEmpty = false } = {}) {
+  const before = lstatSync(path);
+  if (
+    !before.isFile() ||
+    before.isSymbolicLink() ||
+    before.uid !== process.getuid() ||
+    before.nlink !== 1 ||
+    (before.mode & 0o022) !== 0
+  )
+    throw new Error('CI_OUTPUT_INVALID');
+  const prefix = readFileSync(path);
+  if (requireEmpty && prefix.length !== 0) throw new Error('CI_OUTPUT_NOT_EMPTY');
+  const payload = Buffer.from(`${lines.join('\n')}\n`, 'utf8');
+  const descriptor = openSync(
+    path,
+    constants.O_WRONLY | constants.O_APPEND | (constants.O_NOFOLLOW ?? 0)
+  );
+  try {
+    const opened = fstatSync(descriptor);
+    if (opened.dev !== before.dev || opened.ino !== before.ino || opened.nlink !== 1)
+      throw new Error('CI_OUTPUT_CHANGED');
+    let offset = 0;
+    while (offset < payload.length) offset += writeSync(descriptor, payload, offset);
+    fsyncSync(descriptor);
+  } finally {
+    closeSync(descriptor);
+  }
+  const after = readFileSync(path);
+  if (
+    !after.subarray(0, prefix.length).equals(prefix) ||
+    !after.subarray(prefix.length).equals(payload)
+  )
+    throw new Error('CI_OUTPUT_CHANGED');
+}
+
+function releaseResult(spec) {
+  const context = spec.commandContext;
+  const value = readCanonicalJsonFileBounded(context.resultPath, 64 * 1024, 16);
+  const browser = context.browser;
+  const fields = browser === 'chrome' ? ['manifestPath', 'zipPath'] : ['manifestPath', 'xpiPath'];
+  const paths = fields.map((field) => value[field]);
+  if (paths.some((path) => typeof path !== 'string' || !isAbsolute(path) || resolve(path) !== path))
+    throw new Error('RELEASE_RESULT_INVALID');
+  if (new Set(paths).size !== paths.length) throw new Error('RELEASE_RESULT_ALIAS');
+  for (const path of paths) {
+    if (!contained(context.attemptRoot, path)) throw new Error('RELEASE_RESULT_OUTSIDE_ATTEMPT');
+    sha256FileBounded(path, 64 << 20);
+  }
+  return { value, fields, paths };
+}
+
+function releaseStatePaths(attemptRoot, browser) {
+  const root = join(attemptRoot, 'store-state', browser);
+  return {
+    root,
+    statePath: join(root, browser === 'chrome' ? 'publish-state.json' : 'submission-state.json'),
+    artifactReceiptPath: join(attemptRoot, 'receipts', `${browser}-artifact-verification.json`),
+    bindingReceiptPath: join(attemptRoot, 'receipts', `${browser}-state-binding.json`),
+    uuidPath: browser === 'firefox' ? join(root, 'web-ext-upload', 'upload-uuid.json') : null
+  };
+}
+
+function readCanonicalOwnedJson(path, maximumBytes = 64 * 1024) {
+  const stats = lstatSync(path);
+  if (
+    !stats.isFile() ||
+    stats.isSymbolicLink() ||
+    stats.uid !== process.getuid() ||
+    stats.nlink !== 1 ||
+    (stats.mode & 0o777) !== 0o600 ||
+    stats.size > maximumBytes
+  )
+    throw new Error('RELEASE_JSON_INVALID');
+  const bytes = readFileSync(path);
+  const value = JSON.parse(bytes.toString('utf8'));
+  if (!value || typeof value !== 'object' || Array.isArray(value))
+    throw new Error('RELEASE_JSON_INVALID');
+  if (!bytes.equals(Buffer.from(`${canonicalJson(value)}\n`, 'utf8')))
+    throw new Error('RELEASE_JSON_NONCANONICAL');
+  return { value, bytes, stats };
 }
 
 function startResolvedCommand(spec, dependencies = {}) {
@@ -415,6 +588,223 @@ function remapPhaseResult(profileId, result, terminalReason = result.terminalRea
   );
 }
 
+function currentReleaseIdentity() {
+  return {
+    releaseSha: gitValue(['rev-parse', 'HEAD']),
+    releaseTree: gitValue(['rev-parse', 'HEAD^{tree}']),
+    packageSha256: createHash('sha256')
+      .update(readFileSync(join(REPOSITORY_ROOT, 'package.json')))
+      .digest('hex'),
+    lockSha256: createHash('sha256')
+      .update(readFileSync(join(REPOSITORY_ROOT, 'package-lock.json')))
+      .digest('hex')
+  };
+}
+
+function executeInProcessProfile(spec) {
+  const context = spec.commandContext;
+  if (spec.operation === 'release-result-field-v1') {
+    const result = releaseResult(spec);
+    const selected = result.value[context.field];
+    return syntheticResult(spec.profileId, true, 'success', selected);
+  }
+  if (spec.operation === 'release-job-outputs-v1') {
+    if (typeof context.githubOutputPath !== 'string') throw new Error('CI_OUTPUT_INVALID');
+    const result = releaseResult(spec);
+    const identity = currentReleaseIdentity();
+    for (const [key, value] of Object.entries(identity)) {
+      if (result.value[key] !== undefined && result.value[key] !== value)
+        throw new Error('RELEASE_RESULT_IDENTITY_MISMATCH');
+    }
+    const releaseManifestSha256 = sha256FileBounded(result.value.manifestPath, 32 << 20);
+    appendGithubOutput(
+      context.githubOutputPath,
+      [
+        `release_sha=${identity.releaseSha}`,
+        `release_tree=${identity.releaseTree}`,
+        `package_sha256=${identity.packageSha256}`,
+        `lock_sha256=${identity.lockSha256}`,
+        `release_manifest_sha256=${releaseManifestSha256}`
+      ],
+      { requireEmpty: true }
+    );
+    return syntheticResult(spec.profileId, true, 'success');
+  }
+  if (spec.operation === 'release-state-init-v1') {
+    const paths = releaseStatePaths(context.attemptRoot, context.browser);
+    const artifact = readCanonicalOwnedJson(paths.artifactReceiptPath);
+    const identity = currentReleaseIdentity();
+    if (
+      artifact.value.schema !== 'zendio-artifact-verification-receipt-v1' ||
+      artifact.value.browser !== context.browser ||
+      artifact.value.attemptRoot !== context.attemptRoot ||
+      artifact.value.releaseSha !== identity.releaseSha ||
+      artifact.value.releaseTree !== identity.releaseTree
+    )
+      throw new Error('ARTIFACT_RECEIPT_INVALID');
+    for (const path of [join(context.attemptRoot, 'store-state'), paths.root]) {
+      try {
+        lstatSync(path);
+        throw new Error('RELEASE_STATE_ROOT_PREEXISTS');
+      } catch (error) {
+        if (error?.code !== 'ENOENT') throw error;
+      }
+    }
+    ensurePrivateDirectory(join(context.attemptRoot, 'store-state'));
+    ensurePrivateDirectory(paths.root);
+    if (context.browser === 'firefox') {
+      ensurePrivateDirectory(join(paths.root, 'web-ext-upload'));
+      ensurePrivateDirectory(join(paths.root, 'downloads'));
+      try {
+        lstatSync(paths.uuidPath);
+        throw new Error('FIREFOX_UUID_PREEXISTS');
+      } catch (error) {
+        if (error?.code !== 'ENOENT') throw error;
+      }
+    }
+    const state = {
+      schema: 'zendio-release-store-state-v1',
+      browser: context.browser,
+      releaseSha: identity.releaseSha,
+      releaseTree: identity.releaseTree,
+      artifactReceiptSha256: createHash('sha256').update(artifact.bytes).digest('hex'),
+      stage: 'preflight',
+      outcome: 'not-started',
+      mutationInvoked: false,
+      retrySafe: true
+    };
+    const publication = writeExclusiveCanonicalJson(paths.statePath, state);
+    const binding = {
+      schema: 'zendio-release-state-binding-v1',
+      browser: context.browser,
+      attemptRoot: context.attemptRoot,
+      statePath: paths.statePath,
+      stateSha256: publication.sha256,
+      artifactReceiptSha256: state.artifactReceiptSha256,
+      releaseSha: identity.releaseSha,
+      releaseTree: identity.releaseTree
+    };
+    writeExclusiveCanonicalJson(paths.bindingReceiptPath, binding);
+    return syntheticResult(spec.profileId, true, 'success');
+  }
+  if (spec.operation === 'release-state-check-v1') {
+    const paths = releaseStatePaths(context.attemptRoot, context.browser);
+    const { value } = readCanonicalOwnedJson(paths.statePath, 16 * 1024);
+    if (
+      value.schema !== 'zendio-release-store-state-v1' ||
+      value.browser !== context.browser ||
+      typeof value.stage !== 'string' ||
+      typeof value.outcome !== 'string' ||
+      typeof value.mutationInvoked !== 'boolean' ||
+      typeof value.retrySafe !== 'boolean' ||
+      !/^[0-9a-f]{40}$/u.test(value.releaseSha ?? '') ||
+      !/^[0-9a-f]{40}$/u.test(value.releaseTree ?? '')
+    )
+      throw new Error('RELEASE_STATE_INVALID');
+    return syntheticResult(
+      spec.profileId,
+      true,
+      'success',
+      `${canonicalJson({
+        browser: value.browser,
+        mutationInvoked: value.mutationInvoked,
+        outcome: value.outcome,
+        retrySafe: value.retrySafe,
+        stage: value.stage
+      })}\n`
+    );
+  }
+  throw new Error('IN_PROCESS_PROFILE_INVALID');
+}
+
+function startInProcessProfile(spec) {
+  let result;
+  try {
+    result = executeInProcessProfile(spec);
+  } catch (error) {
+    result = syntheticResult(
+      spec.profileId,
+      false,
+      error instanceof Error ? error.message : 'IN_PROCESS_PROFILE_FAILED'
+    );
+  }
+  return { cancel: () => false, completion: Promise.resolve(result), child: null, spec };
+}
+
+function publishArtifactVerificationReceipt(spec) {
+  const context = spec.commandContext;
+  if (!context || context.transport !== 'github-artifact-v1') return;
+  const actualDigest = sha256FileBounded(context.manifestPath, 32 << 20);
+  if (actualDigest !== context.expectedManifestSha256)
+    throw new Error('RELEASE_MANIFEST_DIGEST_MISMATCH');
+  const receipts = ensurePrivateDirectory(join(context.attemptRoot, 'receipts'));
+  const identity = currentReleaseIdentity();
+  const receipt = {
+    schema: 'zendio-artifact-verification-receipt-v1',
+    browser: context.browser,
+    transport: context.transport,
+    attemptRoot: context.attemptRoot,
+    jobClass: spec.env.ZENDIO_JOB_CLASS,
+    runId: spec.env.GITHUB_RUN_ID,
+    runAttempt: spec.env.GITHUB_RUN_ATTEMPT,
+    releaseSha: identity.releaseSha,
+    releaseTree: identity.releaseTree,
+    manifestPath: context.manifestPath,
+    manifestSha256: actualDigest
+  };
+  writeExclusiveCanonicalJson(
+    join(receipts, `${context.browser}-artifact-verification.json`),
+    receipt
+  );
+}
+
+function assertStoreProfilePreconditions(spec) {
+  if (!['chrome-publish-v1', 'firefox-submit-v1'].includes(spec.profileId)) return;
+  const context = spec.commandContext;
+  const paths = releaseStatePaths(context.attemptRoot, context.browser);
+  if (context.statePath !== paths.statePath) throw new Error('RELEASE_STATE_PATH_INVALID');
+  const artifact = readCanonicalOwnedJson(paths.artifactReceiptPath);
+  const binding = readCanonicalOwnedJson(paths.bindingReceiptPath);
+  const state = readCanonicalOwnedJson(paths.statePath, 16 * 1024);
+  const artifactDigest = createHash('sha256').update(artifact.bytes).digest('hex');
+  const stateDigest = createHash('sha256').update(state.bytes).digest('hex');
+  if (
+    artifact.value.schema !== 'zendio-artifact-verification-receipt-v1' ||
+    artifact.value.browser !== context.browser ||
+    binding.value.schema !== 'zendio-release-state-binding-v1' ||
+    binding.value.browser !== context.browser ||
+    binding.value.attemptRoot !== context.attemptRoot ||
+    binding.value.statePath !== paths.statePath ||
+    binding.value.artifactReceiptSha256 !== artifactDigest ||
+    binding.value.stateSha256 !== stateDigest ||
+    state.value.schema !== 'zendio-release-store-state-v1' ||
+    state.value.browser !== context.browser ||
+    state.value.stage !== 'preflight' ||
+    state.value.mutationInvoked !== false ||
+    state.value.retrySafe !== true
+  )
+    throw new Error('RELEASE_STATE_BINDING_INVALID');
+  if (context.browser === 'firefox') {
+    if (profileArgumentValue(spec.argv, '--saved-upload-uuid-path') !== paths.uuidPath)
+      throw new Error('FIREFOX_UUID_PATH_INVALID');
+    try {
+      lstatSync(paths.uuidPath);
+      throw new Error('FIREFOX_UUID_PREEXISTS');
+    } catch (error) {
+      if (error?.code !== 'ENOENT') throw error;
+    }
+  }
+}
+
+function validateActionOutput(spec) {
+  const context = spec.commandContext;
+  if (!context?.actionOutputKey) return;
+  if (typeof context.githubOutputPath !== 'string') throw new Error('CI_OUTPUT_INVALID');
+  const expected = Buffer.from(`${context.actionOutputKey}=${context.actionOutputValue}\n`, 'utf8');
+  if (!readFileSync(context.githubOutputPath).equals(expected))
+    throw new Error('CI_OUTPUT_CONTRACT_INVALID');
+}
+
 function startCompositeLifecycle(spec, dependencies, operation) {
   let activeHandle = null;
   let cancellationReason = null;
@@ -665,6 +1055,8 @@ async function runComposite(profileId, args, dependencies, lifecycle) {
 export function startBoundedCommand({ profileId, arguments: args = [] }, dependencies = {}) {
   const resolver = dependencies.resolveProfile ?? resolveCommandProfile;
   const spec = resolver(profileId, args, { environment: dependencies.environment ?? process.env });
+  if (spec.operation) return startInProcessProfile(spec);
+  assertStoreProfilePreconditions(spec);
   if (spec.composite || profileId === 'vitest-v1' || profileId === 'playwright-v1') {
     return startCompositeLifecycle(spec, dependencies, async (lifecycle) => {
       if (profileId === 'vitest-v1' || profileId === 'playwright-v1') {
@@ -690,7 +1082,29 @@ export async function runBoundedCommand(invocation, dependencies = {}) {
       }
     : null;
   const handle = startBoundedCommand(invocation, dependencies);
-  const result = await handle.completion;
+  let result = await handle.completion;
+  if (result.ok) {
+    try {
+      if (['chrome-verify-v1', 'firefox-verify-v1'].includes(invocation.profileId))
+        publishArtifactVerificationReceipt(handle.spec);
+      if (invocation.profileId === 'release-provenance-v1') validateActionOutput(handle.spec);
+    } catch (error) {
+      result = syntheticResult(
+        invocation.profileId,
+        false,
+        error instanceof Error ? error.message : 'PROFILE_POSTCONDITION_FAILED',
+        result.output.stdout.text,
+        result.output.stderr.text,
+        {
+          exitCode: result.exitCode,
+          signal: result.signal,
+          closeObserved: result.closeObserved,
+          pipeDrainObserved: result.pipeDrainObserved,
+          output: result.output
+        }
+      );
+    }
+  }
   if (hookInvariant) {
     const after = {
       tree: gitValue(['write-tree']),

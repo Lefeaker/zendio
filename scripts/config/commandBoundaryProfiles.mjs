@@ -4,10 +4,11 @@ import {
   lstatSync,
   mkdirSync,
   readFileSync,
+  readdirSync,
   realpathSync,
   writeFileSync
 } from 'node:fs';
-import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
+import { basename, dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { deepFreeze, sha256Buffer } from '../../tools/npm-audit-regression/canonical-json.mjs';
 import { detectNpmCommand } from '../../tools/npm-audit-regression/runtime-discovery.mjs';
@@ -77,6 +78,87 @@ export const COMMAND_LIMITS = deepFreeze({
     killMs: 5_000,
     stdoutBytes: 32 << 20,
     stderrBytes: 16 << 20,
+    fd4Bytes: 4 << 20,
+    fd5Bytes: 4 << 20
+  },
+  isolatedBuild: {
+    activeMs: 630_000,
+    termMs: 5_000,
+    killMs: 5_000,
+    stdoutBytes: 32 << 20,
+    stderrBytes: 16 << 20,
+    fd4Bytes: 4 << 20,
+    fd5Bytes: 4 << 20
+  },
+  firefoxSmoke: {
+    activeMs: 440_000,
+    termMs: 5_000,
+    killMs: 5_000,
+    stdoutBytes: 16 << 20,
+    stderrBytes: 16 << 20,
+    fd4Bytes: 4 << 20,
+    fd5Bytes: 4 << 20
+  },
+  chromePrepare: {
+    activeMs: 720_000,
+    termMs: 5_000,
+    killMs: 5_000,
+    stdoutBytes: 32 << 20,
+    stderrBytes: 16 << 20,
+    fd4Bytes: 4 << 20,
+    fd5Bytes: 4 << 20
+  },
+  chromeVerify: {
+    activeMs: 300_000,
+    termMs: 5_000,
+    killMs: 5_000,
+    stdoutBytes: 16 << 20,
+    stderrBytes: 16 << 20,
+    fd4Bytes: 4 << 20,
+    fd5Bytes: 4 << 20
+  },
+  chromePublish: {
+    activeMs: 720_000,
+    termMs: 5_000,
+    killMs: 5_000,
+    stdoutBytes: 32 << 20,
+    stderrBytes: 16 << 20,
+    fd4Bytes: 4 << 20,
+    fd5Bytes: 4 << 20
+  },
+  firefoxPrepare: {
+    activeMs: 1_200_000,
+    termMs: 5_000,
+    killMs: 5_000,
+    stdoutBytes: 64 << 20,
+    stderrBytes: 32 << 20,
+    fd4Bytes: 4 << 20,
+    fd5Bytes: 4 << 20
+  },
+  firefoxVerify: {
+    activeMs: 480_000,
+    termMs: 5_000,
+    killMs: 5_000,
+    stdoutBytes: 32 << 20,
+    stderrBytes: 16 << 20,
+    fd4Bytes: 4 << 20,
+    fd5Bytes: 4 << 20
+  },
+  firefoxSubmit: {
+    activeMs: 2_700_000,
+    termMs: 5_000,
+    killMs: 5_000,
+    stdoutBytes: 64 << 20,
+    stderrBytes: 32 << 20,
+    fd4Bytes: 4 << 20,
+    fd5Bytes: 4 << 20
+  },
+  stitch: {
+    activeMs: 3_780_000,
+    termMs: 35_000,
+    killMs: 15_000,
+    stdoutBytes: 64 << 20,
+    stderrBytes: 32 << 20,
     fd4Bytes: 4 << 20,
     fd5Bytes: 4 << 20
   },
@@ -186,6 +268,8 @@ export const STANDARD_NPM_SCRIPTS = deepFreeze([
   'audit:components:report',
   'audit:design-system-doc:report',
   'audit:design-tokens:report',
+  'audit:firefox-amo-release:check',
+  'audit:firefox-amo-release:report',
   'audit:ga:client-secret',
   'audit:ga:docs',
   'audit:ga:legacy-api',
@@ -235,25 +319,43 @@ export const BROWSER_NPM_SCRIPTS = deepFreeze([
 ]);
 
 export const PROFILE_IDS = deepFreeze([
+  'chrome-dry-run-v1',
+  'chrome-prepare-v1',
+  'chrome-publish-v1',
+  'chrome-verify-v1',
   'coverage-summary-v1',
   'dependency-cruiser-v1',
   'fixture-v1',
+  'firefox-prepare-v1',
+  'firefox-smoke-v1',
+  'firefox-submit-v1',
+  'firefox-verify-v1',
   'generated-artifact-check-v1',
   'github-ci-install-v1',
   'husky-provision-v1',
+  'isolated-build-v1',
   'lint-staged-hook-v1',
   'lint-staged-prepare-v1',
+  'local-install-v1',
+  'npm-audit-context-v1',
   'npm-ci-v1',
   'npm-script-browser-v1',
   'npm-script-build-v1',
   'npm-script-quick-v1',
   'npm-script-standard-v1',
+  'npm-tree-read-v1',
   'node-script-standard-v1',
   'playwright-browser-install-v1',
   'playwright-host-deps-platform-v1',
   'playwright-install-v1',
   'playwright-v1',
   'prettier-v1',
+  'release-job-outputs-v1',
+  'release-provenance-v1',
+  'release-result-field-v1',
+  'release-runtime-check-v1',
+  'release-state-check-v1',
+  'release-state-init-v1',
   'stitch-secondary-v1',
   'stylelint-v1',
   'vitest-v1'
@@ -286,6 +388,254 @@ function boundedToken(value, { path = false, glob = false } = {}) {
     if (!glob && /[*?{}[\]]/u.test(value)) invalid('PATH_INVALID');
   }
   return value;
+}
+
+const RELEASE_CONFIG_MODES = new Set(['standalone-synthetic', 'owner-public-vars']);
+const RELEASE_TRANSPORT_MODES = new Set(['local-private-v1', 'github-artifact-v1']);
+const RELEASE_BROWSERS = new Set(['chrome', 'firefox']);
+const FIXED_RELEASE_NODE_PATHS = new Set([
+  'scripts/build.mjs',
+  'scripts/package-firefox.mjs',
+  'scripts/package.mjs',
+  'scripts/prepare-chrome-release.mjs',
+  'scripts/prepare-firefox-release.mjs',
+  'scripts/publish-chrome-webstore.mjs',
+  'scripts/run-firefox-xpi-smoke.mjs',
+  'scripts/run-playwright.mjs',
+  'scripts/submit-firefox-amo-release.mjs',
+  'scripts/utils/releaseArtifactManifest.mjs',
+  'scripts/utils/releaseCiProvenance.mjs',
+  'scripts/utils/releasePublicBuildConfig.mjs',
+  'scripts/verify-chrome-release.mjs',
+  'scripts/verify-firefox-release.mjs',
+  'tools/check-npm-audit-regression.mjs'
+]);
+
+function absolutePathToken(value) {
+  boundedToken(value);
+  if (!isAbsolute(value) || resolve(value) !== value) invalid('ABSOLUTE_PATH_INVALID');
+  return value;
+}
+
+function exactArgs(args, expected, code = 'PROFILE_ARGUMENTS_INVALID') {
+  if (JSON.stringify(args) !== JSON.stringify(expected)) invalid(code);
+  return args;
+}
+
+function requireFlagValue(args, index, flag, validator = boundedToken) {
+  if (args[index] !== flag || args[index + 1] === undefined) invalid('PROFILE_ARGUMENTS_INVALID');
+  validator(args[index + 1]);
+  return args[index + 1];
+}
+
+function validatePrepareArgs(args, { firefox = false } = {}) {
+  let index = 0;
+  const configMode = requireFlagValue(args, index, '--config-mode');
+  if (!RELEASE_CONFIG_MODES.has(configMode)) invalid('RELEASE_CONFIG_MODE_INVALID');
+  index += 2;
+  if (firefox) {
+    const transport = requireFlagValue(args, index, '--transport-mode');
+    if (transport !== 'local-private-v1') invalid('RELEASE_TRANSPORT_MODE_INVALID');
+    index += 2;
+  }
+  const attemptRoot = requireFlagValue(args, index, '--attempt-root', absolutePathToken);
+  index += 2;
+  const distDir = requireFlagValue(args, index, '--dist-dir', absolutePathToken);
+  index += 2;
+  const releaseDir = requireFlagValue(args, index, '--release-dir', absolutePathToken);
+  index += 2;
+  let authorizationRecord;
+  if (args[index] === '--authorization-record') {
+    authorizationRecord = requireFlagValue(
+      args,
+      index,
+      '--authorization-record',
+      absolutePathToken
+    );
+    index += 2;
+  }
+  const resultJson = requireFlagValue(args, index, '--result-json', absolutePathToken);
+  index += 2;
+  if (index !== args.length) invalid('PROFILE_ARGUMENTS_INVALID');
+  if ((authorizationRecord !== undefined) !== (configMode === 'owner-public-vars'))
+    invalid('RELEASE_AUTHORIZATION_MODE_INVALID');
+  if (
+    new Set([attemptRoot, distDir, releaseDir, resultJson, authorizationRecord].filter(Boolean))
+      .size !==
+    [attemptRoot, distDir, releaseDir, resultJson, authorizationRecord].filter(Boolean).length
+  )
+    invalid('RELEASE_PATH_ALIAS_INVALID');
+  return args;
+}
+
+function validateReleaseProvenanceArgs(args) {
+  const [script, mode] = args;
+  if (script === 'scripts/utils/releaseArtifactManifest.mjs') {
+    if (mode === '--validate-upload-artifact-id') {
+      if (args.length !== 3 || !/^[1-9][0-9]{0,15}$/u.test(args[2])) invalid('ARTIFACT_ID_INVALID');
+      const numeric = Number(args[2]);
+      if (!Number.isSafeInteger(numeric) || String(numeric) !== args[2])
+        invalid('ARTIFACT_ID_INVALID');
+      return args;
+    }
+    if (mode === '--normalize-upload-artifact-digest') {
+      if (args.length !== 3 || !/^[0-9a-f]{64}$/u.test(args[2])) invalid('ARTIFACT_DIGEST_INVALID');
+      return args;
+    }
+    invalid('RELEASE_PROVENANCE_ARGUMENTS_INVALID');
+  }
+  if (script !== 'scripts/utils/releaseCiProvenance.mjs')
+    invalid('RELEASE_PROVENANCE_ARGUMENTS_INVALID');
+  if (mode === '--prepare-authorization') {
+    if (args.length !== 8) invalid('RELEASE_PROVENANCE_ARGUMENTS_INVALID');
+    requireFlagValue(args, 2, '--expected-sha', (value) => {
+      if (!/^[0-9a-f]{40}$/u.test(value)) invalid('RELEASE_SHA_INVALID');
+    });
+    exactArgs(
+      args.slice(4, 6),
+      ['--required-jobs-source', 'scripts/config/releaseRequiredCiJobs.mjs'],
+      'RELEASE_PROVENANCE_ARGUMENTS_INVALID'
+    );
+    requireFlagValue(args, 6, '--authorization-record', absolutePathToken);
+    return args;
+  }
+  if (mode === '--reauthorize') {
+    if (args.length !== 14) invalid('RELEASE_PROVENANCE_ARGUMENTS_INVALID');
+    requireFlagValue(args, 2, '--expected-sha', (value) => {
+      if (!/^[0-9a-f]{40}$/u.test(value)) invalid('RELEASE_SHA_INVALID');
+    });
+    const manifest = requireFlagValue(args, 4, '--artifact-manifest', absolutePathToken);
+    requireFlagValue(args, 6, '--artifact-id', (value) => {
+      if (!/^[1-9][0-9]{0,15}$/u.test(value) || !Number.isSafeInteger(Number(value)))
+        invalid('ARTIFACT_ID_INVALID');
+    });
+    requireFlagValue(args, 8, '--artifact-digest', (value) => {
+      if (!/^sha256:[0-9a-f]{64}$/u.test(value)) invalid('ARTIFACT_DIGEST_INVALID');
+    });
+    exactArgs(
+      args.slice(10, 12),
+      ['--required-jobs-source', 'scripts/config/releaseRequiredCiJobs.mjs'],
+      'RELEASE_PROVENANCE_ARGUMENTS_INVALID'
+    );
+    const output = requireFlagValue(args, 12, '--authorization-record', absolutePathToken);
+    if (manifest === output) invalid('RELEASE_PATH_ALIAS_INVALID');
+    return args;
+  }
+  invalid('RELEASE_PROVENANCE_ARGUMENTS_INVALID');
+}
+
+function validateReleaseProfileArguments(profileId, args) {
+  if (profileId === 'local-install-v1') return exactArgs(args, []);
+  if (profileId === 'npm-audit-context-v1') {
+    if (
+      args.length !== 3 ||
+      args[0] !== '--verify-baseline-context' ||
+      args[1] !== '--baseline-manifest'
+    )
+      invalid('NPM_AUDIT_CONTEXT_ARGUMENTS_INVALID');
+    absolutePathToken(args[2]);
+    return args;
+  }
+  if (profileId === 'npm-tree-read-v1') {
+    if (
+      JSON.stringify(args) !== JSON.stringify(['ls', '--all']) &&
+      JSON.stringify(args) !==
+        JSON.stringify(['ls', 'yauzl', 'crc-32', 'dependency-cruiser', 'yaml', '--all'])
+    )
+      invalid('NPM_TREE_ARGUMENTS_INVALID');
+    return args;
+  }
+  if (profileId === 'release-runtime-check-v1') {
+    if (args.length !== 3 || args[0] !== '--check' || args[1] !== '--config-mode')
+      invalid('RELEASE_RUNTIME_ARGUMENTS_INVALID');
+    if (!RELEASE_CONFIG_MODES.has(args[2])) invalid('RELEASE_CONFIG_MODE_INVALID');
+    return args;
+  }
+  if (profileId === 'isolated-build-v1') {
+    if (args.length !== 9 || args[0] !== '--run-isolated-build')
+      invalid('ISOLATED_BUILD_ARGUMENTS_INVALID');
+    const configMode = requireFlagValue(args, 1, '--config-mode');
+    if (!RELEASE_CONFIG_MODES.has(configMode)) invalid('RELEASE_CONFIG_MODE_INVALID');
+    const browser = requireFlagValue(args, 3, '--browser');
+    if (!RELEASE_BROWSERS.has(browser)) invalid('RELEASE_BROWSER_INVALID');
+    const dist = requireFlagValue(args, 5, '--dist-dir', absolutePathToken);
+    const temp = requireFlagValue(args, 7, '--temp-dir', absolutePathToken);
+    if (dist === temp) invalid('RELEASE_PATH_ALIAS_INVALID');
+    return args;
+  }
+  if (profileId === 'release-provenance-v1') return validateReleaseProvenanceArgs(args);
+  if (profileId === 'chrome-prepare-v1') return validatePrepareArgs(args);
+  if (profileId === 'firefox-prepare-v1') return validatePrepareArgs(args, { firefox: true });
+  if (profileId === 'chrome-verify-v1' || profileId === 'firefox-verify-v1') {
+    if (args.length !== 4) invalid('RELEASE_VERIFY_ARGUMENTS_INVALID');
+    requireFlagValue(args, 0, '--manifest', absolutePathToken);
+    const transport = requireFlagValue(args, 2, '--transport-mode');
+    if (!RELEASE_TRANSPORT_MODES.has(transport)) invalid('RELEASE_TRANSPORT_MODE_INVALID');
+    return args;
+  }
+  if (profileId === 'firefox-smoke-v1') {
+    if (args.length !== 6) invalid('FIREFOX_SMOKE_ARGUMENTS_INVALID');
+    requireFlagValue(args, 0, '--manifest', absolutePathToken);
+    if (requireFlagValue(args, 2, '--transport-mode') !== 'local-private-v1')
+      invalid('RELEASE_TRANSPORT_MODE_INVALID');
+    requireFlagValue(args, 4, '--result-json', absolutePathToken);
+    return args;
+  }
+  if (profileId === 'chrome-dry-run-v1') {
+    if (args.length !== 9 || args[0] !== '--dry-run') invalid('CHROME_DRY_RUN_ARGUMENTS_INVALID');
+    const zip = requireFlagValue(args, 1, '--zip', absolutePathToken);
+    const manifest = requireFlagValue(args, 3, '--artifact-manifest', absolutePathToken);
+    const state = requireFlagValue(args, 5, '--state-file', absolutePathToken);
+    if (requireFlagValue(args, 7, '--transport-mode') !== 'local-private-v1')
+      invalid('RELEASE_TRANSPORT_MODE_INVALID');
+    if (new Set([zip, manifest, state]).size !== 3) invalid('RELEASE_PATH_ALIAS_INVALID');
+    return args;
+  }
+  if (profileId === 'chrome-publish-v1') {
+    if (args.length !== 7 || args[0] !== '--publish') invalid('CHROME_PUBLISH_ARGUMENTS_INVALID');
+    const manifest = requireFlagValue(args, 1, '--artifact-manifest', absolutePathToken);
+    const state = requireFlagValue(args, 3, '--state-file', absolutePathToken);
+    if (requireFlagValue(args, 5, '--transport-mode') !== 'github-artifact-v1')
+      invalid('RELEASE_TRANSPORT_MODE_INVALID');
+    if (manifest === state) invalid('RELEASE_PATH_ALIAS_INVALID');
+    return args;
+  }
+  if (profileId === 'firefox-submit-v1') {
+    if (args.length !== 10) invalid('FIREFOX_SUBMIT_ARGUMENTS_INVALID');
+    const manifest = requireFlagValue(args, 0, '--artifact-manifest', absolutePathToken);
+    if (requireFlagValue(args, 2, '--transport-mode') !== 'github-artifact-v1')
+      invalid('RELEASE_TRANSPORT_MODE_INVALID');
+    const state = requireFlagValue(args, 4, '--submission-state-file', absolutePathToken);
+    const uuid = requireFlagValue(args, 6, '--saved-upload-uuid-path', absolutePathToken);
+    const channel = requireFlagValue(args, 8, '--channel');
+    if (!['listed', 'unlisted'].includes(channel)) invalid('FIREFOX_CHANNEL_INVALID');
+    if (new Set([manifest, state, uuid]).size !== 3) invalid('RELEASE_PATH_ALIAS_INVALID');
+    return args;
+  }
+  if (profileId === 'release-job-outputs-v1') {
+    if (args.length !== 4) invalid('RELEASE_JOB_OUTPUT_ARGUMENTS_INVALID');
+    const browser = requireFlagValue(args, 0, '--browser');
+    if (!RELEASE_BROWSERS.has(browser)) invalid('RELEASE_BROWSER_INVALID');
+    requireFlagValue(args, 2, '--result-json', absolutePathToken);
+    return args;
+  }
+  if (profileId === 'release-result-field-v1') {
+    if (args.length !== 6) invalid('RELEASE_RESULT_FIELD_ARGUMENTS_INVALID');
+    const browser = requireFlagValue(args, 0, '--browser');
+    if (!RELEASE_BROWSERS.has(browser)) invalid('RELEASE_BROWSER_INVALID');
+    requireFlagValue(args, 2, '--result-json', absolutePathToken);
+    const field = requireFlagValue(args, 4, '--field');
+    const accepted =
+      browser === 'chrome' ? ['manifestPath', 'zipPath'] : ['manifestPath', 'xpiPath'];
+    if (!accepted.includes(field)) invalid('RELEASE_RESULT_FIELD_INVALID');
+    return args;
+  }
+  if (profileId === 'release-state-init-v1' || profileId === 'release-state-check-v1') {
+    if (args.length !== 2 || args[0] !== '--browser' || !RELEASE_BROWSERS.has(args[1]))
+      invalid('RELEASE_STATE_ARGUMENTS_INVALID');
+    return args;
+  }
+  return null;
 }
 
 function validateVitestArgs(args) {
@@ -336,6 +686,8 @@ export function validateProfileArguments(profileId, args) {
   if (!PROFILE_ID_SET.has(profileId) || !Array.isArray(args)) invalid('PROFILE_INVALID');
   if (args.length > 256) invalid('ARGUMENT_COUNT_INVALID');
   for (const item of args) boundedToken(item);
+  const releaseArguments = validateReleaseProfileArguments(profileId, args);
+  if (releaseArguments) return releaseArguments;
   if (profileId === 'vitest-v1') return validateVitestArgs(args);
   if (profileId === 'prettier-v1') return validatePrettierArgs(args);
   if (profileId === 'stylelint-v1') return validateStylelintArgs(args);
@@ -384,6 +736,7 @@ export function validateProfileArguments(profileId, args) {
       (!script.startsWith('scripts/') && !script.startsWith('tools/'))
     )
       invalid('NODE_SCRIPT_ARGUMENTS_INVALID');
+    if (FIXED_RELEASE_NODE_PATHS.has(script)) invalid('NODE_SCRIPT_FIXED_OWNER_REQUIRED');
   }
   if (
     profileId === 'generated-artifact-check-v1' &&
@@ -480,6 +833,11 @@ function trackedOrStaged(relativePath) {
   }
 }
 
+function fixedTrackedFile(relativePath) {
+  trackedOrStaged(relativePath);
+  return regularFile(relativePath);
+}
+
 function lintStagedPath() {
   const directory = resolve(REPOSITORY_ROOT, 'node_modules/.bin');
   const stats = lstatSync(directory);
@@ -551,7 +909,10 @@ const PASS_ENV = new Set([
   'RUNNER_OS',
   'RUNNER_TEMP',
   'ZENDIO_JOB_CLASS',
-  'ZENDIO_JOB_TIMEOUT_MINUTES'
+  'ZENDIO_JOB_TIMEOUT_MINUTES',
+  'ZENDIO_RUNNER_ARCH',
+  'ZENDIO_RUNNER_ENVIRONMENT',
+  'ZENDIO_RUNNER_OS'
 ]);
 
 function isVerifiedNpmLifecycle(environment) {
@@ -621,8 +982,20 @@ const CI_JOB_TIMEOUTS = deepFreeze({
   'static-preflight-v1': 60,
   'package-extension-v1': 35,
   'generic-v1': 30,
-  'browser-v1': 60
+  'browser-v1': 60,
+  'chrome-prepare-v1': 75,
+  'chrome-publish-v1': 60,
+  'firefox-prepare-v1': 120,
+  'firefox-submit-v1': 90
 });
+
+const R03_CI_JOB_CLASSES = new Set([
+  'chrome-prepare-v1',
+  'chrome-publish-v1',
+  'firefox-prepare-v1',
+  'firefox-submit-v1'
+]);
+const PROTECTED_CI_JOB_CLASSES = new Set(['chrome-publish-v1', 'firefox-submit-v1']);
 
 const CI_ENVIRONMENT_KEYS = [
   'CI',
@@ -636,6 +1009,7 @@ const CI_ENVIRONMENT_KEYS = [
   'RUNNER_ARCH',
   'RUNNER_OS',
   'RUNNER_TEMP',
+  'ZENDIO_RUNNER_ENVIRONMENT',
   'ZENDIO_JOB_CLASS',
   'ZENDIO_JOB_TIMEOUT_MINUTES'
 ];
@@ -683,6 +1057,22 @@ function defaultUptimeCentiseconds() {
   return Number(seconds) * 100 + Number(`${fraction}00`.slice(0, 2));
 }
 
+function defaultGitValue(args) {
+  return execFileSync('/usr/bin/git', args, {
+    cwd: REPOSITORY_ROOT,
+    encoding: 'utf8',
+    env: { PATH: '/usr/bin:/bin', LANG: 'C', LC_ALL: 'C', TZ: 'UTC' }
+  }).trim();
+}
+
+function ciAttemptName(jobClass, runId, runAttempt, job) {
+  if (jobClass === 'chrome-prepare-v1') return `zendio-chrome-${runId}-${runAttempt}`;
+  if (jobClass === 'firefox-prepare-v1') return `zendio-firefox-${runId}-${runAttempt}`;
+  if (jobClass === 'chrome-publish-v1') return `zendio-chrome-publish-${runId}-${runAttempt}`;
+  if (jobClass === 'firefox-submit-v1') return `zendio-firefox-submit-${runId}-${runAttempt}`;
+  return `zendio-ci-node-${runId}-${runAttempt}-${job}`;
+}
+
 function prepareGithubCiInstall(environment, injected = {}) {
   buildClosedCommandEnvironment(environment);
   const operations = {
@@ -694,14 +1084,17 @@ function prepareGithubCiInstall(environment, injected = {}) {
     realpathOperation: realpathSync,
     writeFileOperation: writeFileSync,
     readUptimeCentiseconds: defaultUptimeCentiseconds,
+    gitValueOperation: defaultGitValue,
     ...injected
   };
   const controlled = new Map(CI_ENVIRONMENT_KEYS.map((key) => [key.toLowerCase(), key]));
   for (const key of Object.keys(environment)) {
     const canonical = controlled.get(key.toLowerCase());
     if (canonical && key !== canonical) invalid('CI_ENVIRONMENT_INVALID');
-    if (PROTECTED_EXPECTED_KEYS.some((expected) => expected.toLowerCase() === key.toLowerCase()))
-      invalid('CI_PROTECTED_INPUT_INVALID');
+    const protectedCanonical = PROTECTED_EXPECTED_KEYS.find(
+      (expected) => expected.toLowerCase() === key.toLowerCase()
+    );
+    if (protectedCanonical && key !== protectedCanonical) invalid('CI_PROTECTED_INPUT_INVALID');
   }
   if (environment.CI !== 'true' || environment.GITHUB_ACTIONS !== 'true')
     invalid('CI_ENVIRONMENT_INVALID');
@@ -711,6 +1104,37 @@ function prepareGithubCiInstall(environment, injected = {}) {
   const jobClass = requiredEnvironment(environment, 'ZENDIO_JOB_CLASS', /^[a-z0-9-]{1,64}$/u);
   const timeout = requiredEnvironment(environment, 'ZENDIO_JOB_TIMEOUT_MINUTES', /^[1-9][0-9]*$/u);
   if (String(CI_JOB_TIMEOUTS[jobClass]) !== timeout) invalid('CI_JOB_BUDGET_INVALID');
+  if (R03_CI_JOB_CLASSES.has(jobClass)) {
+    if (runAttempt !== '1' || environment.ZENDIO_RUNNER_ENVIRONMENT !== 'github-hosted')
+      invalid('CI_RELEASE_JOB_INVALID');
+  } else if (environment.ZENDIO_RUNNER_ENVIRONMENT !== undefined) {
+    invalid('CI_RELEASE_JOB_INVALID');
+  }
+  const protectedJob = PROTECTED_CI_JOB_CLASSES.has(jobClass);
+  for (const key of PROTECTED_EXPECTED_KEYS) {
+    const present = Object.hasOwn(environment, key);
+    if (present !== protectedJob) invalid('CI_PROTECTED_INPUT_INVALID');
+  }
+  if (protectedJob) {
+    const expected = {
+      ZENDIO_EXPECTED_RELEASE_SHA: operations.gitValueOperation(['rev-parse', 'HEAD']),
+      ZENDIO_EXPECTED_RELEASE_TREE: operations.gitValueOperation(['rev-parse', 'HEAD^{tree}']),
+      ZENDIO_EXPECTED_PACKAGE_SHA256: sha256Buffer(
+        operations.readFileOperation(join(REPOSITORY_ROOT, 'package.json'))
+      ),
+      ZENDIO_EXPECTED_LOCK_SHA256: sha256Buffer(
+        operations.readFileOperation(join(REPOSITORY_ROOT, 'package-lock.json'))
+      )
+    };
+    for (const [key, value] of Object.entries(expected)) {
+      const pattern =
+        key === 'ZENDIO_EXPECTED_RELEASE_SHA' || key === 'ZENDIO_EXPECTED_RELEASE_TREE'
+          ? /^[0-9a-f]{40}$/u
+          : /^[0-9a-f]{64}$/u;
+      if (!pattern.test(environment[key] ?? '') || environment[key] !== value)
+        invalid('CI_PROTECTED_INPUT_INVALID');
+    }
+  }
   if (
     environment.RUNNER_OS !== 'Linux' ||
     environment.RUNNER_ARCH !== 'X64' ||
@@ -769,7 +1193,7 @@ function prepareGithubCiInstall(environment, injected = {}) {
   const outputPath = requiredEnvironment(environment, 'GITHUB_OUTPUT', /^\/.{0,4095}$/u);
   const output = requireOwnedRegular(outputPath, runnerTemp, operations);
   if ((output.stats.mode & 0o022) !== 0) invalid('CI_OUTPUT_INVALID');
-  const attemptRoot = join(runnerTemp, `zendio-ci-node-${runId}-${runAttempt}-${job}`);
+  const attemptRoot = join(runnerTemp, ciAttemptName(jobClass, runId, runAttempt, job));
   if (lstatOrNull(attemptRoot, operations.lstatOperation)) invalid('CI_ATTEMPT_REUSED');
   operations.mkdirOperation(attemptRoot, { mode: 0o700 });
   operations.chmodOperation(attemptRoot, 0o700);
@@ -793,8 +1217,240 @@ function prepareGithubCiInstall(environment, injected = {}) {
     installRoot,
     userconfig,
     globalconfig,
+    jobClass,
+    protectedJob,
     githubOutputPath: output.canonical
   });
+}
+
+function prepareLocalInstall(environment, injected = {}) {
+  buildClosedCommandEnvironment(environment);
+  const operations = {
+    currentUid: process.getuid(),
+    chmodOperation: chmodSync,
+    lstatOperation: lstatSync,
+    mkdirOperation: mkdirSync,
+    readDirectoryOperation: readdirSync,
+    realpathOperation: realpathSync,
+    writeFileOperation: writeFileSync,
+    ...injected
+  };
+  const localKey = 'ZENDIO_LOCAL_ATTEMPT_ROOT';
+  for (const key of Object.keys(environment)) {
+    if (key.toLowerCase() === localKey.toLowerCase() && key !== localKey)
+      invalid('LOCAL_ATTEMPT_ROOT_INVALID');
+    if (
+      ['ci', 'github_actions', 'zendio_runner_environment', 'imageos', 'imageversion'].includes(
+        key.toLowerCase()
+      ) ||
+      key.toLowerCase().startsWith('runner_')
+    )
+      invalid('LOCAL_ENVIRONMENT_INVALID');
+  }
+  const rawRoot = environment[localKey];
+  if (typeof rawRoot !== 'string' || !isAbsolute(rawRoot) || resolve(rawRoot) !== rawRoot)
+    invalid('LOCAL_ATTEMPT_ROOT_INVALID');
+  const stats = operations.lstatOperation(rawRoot);
+  const root = operations.realpathOperation(rawRoot);
+  if (
+    root !== rawRoot ||
+    !stats.isDirectory() ||
+    stats.isSymbolicLink() ||
+    stats.uid !== operations.currentUid ||
+    (stats.mode & 0o777) !== 0o700 ||
+    operations.readDirectoryOperation(root).length !== 0
+  )
+    invalid('LOCAL_ATTEMPT_ROOT_INVALID');
+  const installRoot = join(root, 'install');
+  operations.mkdirOperation(installRoot, { mode: 0o700 });
+  operations.chmodOperation(installRoot, 0o700);
+  const userconfig = join(installRoot, 'npm-userconfig');
+  const globalconfig = join(installRoot, 'npm-globalconfig');
+  operations.writeFileOperation(userconfig, '', { flag: 'wx', mode: 0o600 });
+  operations.writeFileOperation(globalconfig, '', { flag: 'wx', mode: 0o600 });
+  operations.chmodOperation(userconfig, 0o600);
+  operations.chmodOperation(globalconfig, 0o600);
+  return deepFreeze({
+    attemptRoot: root,
+    installRoot: operations.realpathOperation(installRoot),
+    userconfig: operations.realpathOperation(userconfig),
+    globalconfig: operations.realpathOperation(globalconfig)
+  });
+}
+
+function profileArgumentValue(args, flag) {
+  const index = args.indexOf(flag);
+  return index >= 0 ? args[index + 1] : undefined;
+}
+
+function assertOwnedDirectory(path, mode = 0o700) {
+  const stats = lstatSync(path);
+  const canonical = realpathSync(path);
+  if (
+    canonical !== path ||
+    !stats.isDirectory() ||
+    stats.isSymbolicLink() ||
+    stats.uid !== process.getuid() ||
+    (stats.mode & 0o777) !== mode
+  )
+    invalid('RELEASE_DIRECTORY_INVALID');
+  return canonical;
+}
+
+function releaseAttemptRoot(environment) {
+  if (environment.CI === 'true' || environment.GITHUB_ACTIONS === 'true') {
+    const runnerTemp = environment.RUNNER_TEMP;
+    const runId = environment.GITHUB_RUN_ID;
+    const runAttempt = environment.GITHUB_RUN_ATTEMPT;
+    const job = environment.GITHUB_JOB;
+    const jobClass = environment.ZENDIO_JOB_CLASS;
+    if (
+      typeof runnerTemp !== 'string' ||
+      typeof runId !== 'string' ||
+      typeof runAttempt !== 'string' ||
+      typeof job !== 'string' ||
+      typeof jobClass !== 'string'
+    )
+      invalid('CI_ENVIRONMENT_INVALID');
+    return assertOwnedDirectory(
+      join(realpathSync(runnerTemp), ciAttemptName(jobClass, runId, runAttempt, job))
+    );
+  }
+  const root = environment.ZENDIO_LOCAL_ATTEMPT_ROOT;
+  if (typeof root !== 'string' || !isAbsolute(root) || resolve(root) !== root)
+    invalid('LOCAL_ATTEMPT_ROOT_INVALID');
+  return assertOwnedDirectory(root);
+}
+
+const CHROME_STORE_KEYS = [
+  'CWS_CLIENT_ID',
+  'CWS_CLIENT_SECRET',
+  'CWS_REFRESH_TOKEN',
+  'CWS_EXTENSION_ID',
+  'CWS_PUBLISHER_ID'
+];
+const FIREFOX_STORE_KEYS = ['WEB_EXT_API_KEY', 'WEB_EXT_API_SECRET'];
+const ALL_STORE_KEYS = [...CHROME_STORE_KEYS, ...FIREFOX_STORE_KEYS];
+
+function releaseProfileEnvironment(profileId, environment, additions = {}) {
+  const allowedSecrets =
+    profileId === 'chrome-publish-v1'
+      ? CHROME_STORE_KEYS
+      : profileId === 'firefox-submit-v1'
+        ? FIREFOX_STORE_KEYS
+        : [];
+  for (const key of Object.keys(environment)) {
+    const canonical = ALL_STORE_KEYS.find(
+      (candidate) => candidate.toLowerCase() === key.toLowerCase()
+    );
+    if (!canonical) continue;
+    if (key !== canonical || !allowedSecrets.includes(canonical))
+      invalid('STORE_CREDENTIAL_FORBIDDEN');
+  }
+  const secretEnvironment = {};
+  for (const key of allowedSecrets) {
+    const value = environment[key];
+    if (typeof value !== 'string' || value.length === 0 || Buffer.byteLength(value) > 4096)
+      invalid('STORE_CREDENTIAL_INVALID');
+    secretEnvironment[key] = value;
+  }
+  const gaEnvironment = {};
+  if (
+    [
+      'release-runtime-check-v1',
+      'isolated-build-v1',
+      'chrome-prepare-v1',
+      'firefox-prepare-v1'
+    ].includes(profileId)
+  ) {
+    for (const key of [
+      'ZENDIO_GA_MEASUREMENT_ID',
+      'ZENDIO_GA_TRANSPORT_MODE',
+      'ZENDIO_GA_PROXY_ENDPOINT'
+    ]) {
+      if (typeof environment[key] === 'string') gaEnvironment[key] = environment[key];
+    }
+  }
+  return buildClosedCommandEnvironment(environment, {
+    ...gaEnvironment,
+    ...secretEnvironment,
+    ...additions
+  });
+}
+
+function requireReleaseJob(environment, acceptedJobClasses) {
+  if (
+    environment.CI !== 'true' ||
+    environment.GITHUB_ACTIONS !== 'true' ||
+    environment.GITHUB_RUN_ATTEMPT !== '1' ||
+    environment.ZENDIO_RUNNER_ENVIRONMENT !== 'github-hosted' ||
+    !acceptedJobClasses.includes(environment.ZENDIO_JOB_CLASS)
+  )
+    invalid('RELEASE_JOB_CONTEXT_INVALID');
+  return releaseAttemptRoot(environment);
+}
+
+function validatedGithubOutput(environment) {
+  if (typeof environment.GITHUB_OUTPUT !== 'string' || typeof environment.RUNNER_TEMP !== 'string')
+    invalid('CI_OUTPUT_INVALID');
+  const runnerTemp = realpathSync(environment.RUNNER_TEMP);
+  const output = requireOwnedRegular(environment.GITHUB_OUTPUT, runnerTemp, {
+    currentUid: process.getuid(),
+    lstatOperation: lstatSync,
+    realpathOperation: realpathSync
+  });
+  if ((output.stats.mode & 0o022) !== 0) invalid('CI_OUTPUT_INVALID');
+  return output.canonical;
+}
+
+function requireLocalRelease(environment) {
+  if (environment.CI !== undefined || environment.GITHUB_ACTIONS !== undefined)
+    invalid('LOCAL_ENVIRONMENT_INVALID');
+  return releaseAttemptRoot(environment);
+}
+
+function profileFixedScript(profileId) {
+  const paths = {
+    'chrome-dry-run-v1': 'scripts/publish-chrome-webstore.mjs',
+    'chrome-prepare-v1': 'scripts/prepare-chrome-release.mjs',
+    'chrome-publish-v1': 'scripts/publish-chrome-webstore.mjs',
+    'chrome-verify-v1': 'scripts/verify-chrome-release.mjs',
+    'firefox-prepare-v1': 'scripts/prepare-firefox-release.mjs',
+    'firefox-smoke-v1': 'scripts/run-firefox-xpi-smoke.mjs',
+    'firefox-submit-v1': 'scripts/submit-firefox-amo-release.mjs',
+    'firefox-verify-v1': 'scripts/verify-firefox-release.mjs',
+    'isolated-build-v1': 'scripts/utils/releasePublicBuildConfig.mjs',
+    'release-runtime-check-v1': 'scripts/utils/releasePublicBuildConfig.mjs'
+  };
+  return paths[profileId];
+}
+
+function requireContainedArgument(root, value) {
+  const candidate = resolve(value);
+  if (!contained(root, candidate)) invalid('RELEASE_PATH_OUTSIDE_ATTEMPT');
+  return candidate;
+}
+
+function attemptNpmConfigEnvironment(root) {
+  const values = {};
+  for (const [key, name] of [
+    ['NPM_CONFIG_USERCONFIG', 'npm-userconfig'],
+    ['NPM_CONFIG_GLOBALCONFIG', 'npm-globalconfig']
+  ]) {
+    const path = join(root, 'install', name);
+    const stats = lstatSync(path);
+    if (
+      !stats.isFile() ||
+      stats.isSymbolicLink() ||
+      stats.uid !== process.getuid() ||
+      stats.nlink !== 1 ||
+      (stats.mode & 0o777) !== 0o600 ||
+      readFileSync(path).length !== 0
+    )
+      invalid('NPM_CONFIG_IDENTITY_INVALID');
+    values[key] = realpathSync(path);
+  }
+  return values;
 }
 
 function npmInvocation(args, limits) {
@@ -814,6 +1470,7 @@ export function resolveCommandProfile(
   { environment = process.env, operations = {} } = {}
 ) {
   validateProfileArguments(profileId, args);
+  const fixedFileOperation = operations.fixedTrackedFileOperation ?? fixedTrackedFile;
   let command;
   if (profileId === 'vitest-v1')
     command = {
@@ -884,6 +1541,259 @@ export function resolveCommandProfile(
           `npm-userconfig=${prepared.userconfig}`,
           `npm-globalconfig=${prepared.globalconfig}`
         ]
+      },
+      commandContext: {
+        attemptRoot: prepared.attemptRoot,
+        jobClass: prepared.jobClass,
+        protectedJob: prepared.protectedJob
+      }
+    };
+  } else if (profileId === 'local-install-v1') {
+    const prepared = prepareLocalInstall(environment, operations);
+    const npm = detectNpmCommand({ repositoryRoot: REPOSITORY_ROOT, environment: {} });
+    command = {
+      executable: npm.nodePath,
+      argv: [
+        npm.cliPath,
+        'ci',
+        '--ignore-scripts',
+        '--include=optional',
+        '--no-audit',
+        '--no-fund',
+        `--userconfig=${prepared.userconfig}`,
+        `--globalconfig=${prepared.globalconfig}`
+      ],
+      env: Object.freeze({
+        HOME: prepared.installRoot,
+        TMPDIR: prepared.attemptRoot,
+        PATH: `${dirname(npm.nodePath)}:/usr/bin:/bin`,
+        LANG: 'C',
+        LC_ALL: 'C',
+        TZ: 'UTC',
+        NPM_CONFIG_USERCONFIG: prepared.userconfig,
+        NPM_CONFIG_GLOBALCONFIG: prepared.globalconfig
+      }),
+      limits: COMMAND_LIMITS.install,
+      commandContext: { attemptRoot: prepared.attemptRoot, localInstall: true }
+    };
+  } else if (profileId === 'npm-audit-context-v1') {
+    requireLocalRelease(environment);
+    command = {
+      executable: process.execPath,
+      argv: [fixedFileOperation('tools/check-npm-audit-regression.mjs'), ...args],
+      env: releaseProfileEnvironment(profileId, environment),
+      limits: COMMAND_LIMITS.quick
+    };
+  } else if (profileId === 'npm-tree-read-v1') {
+    const root = requireLocalRelease(environment);
+    command = {
+      ...npmInvocation(args, COMMAND_LIMITS.quick),
+      env: releaseProfileEnvironment(profileId, environment, attemptNpmConfigEnvironment(root)),
+      commandContext: { attemptRoot: root }
+    };
+  } else if (
+    [
+      'release-result-field-v1',
+      'release-job-outputs-v1',
+      'release-state-init-v1',
+      'release-state-check-v1'
+    ].includes(profileId)
+  ) {
+    const browser = profileArgumentValue(args, '--browser');
+    let attemptRoot;
+    if (profileId === 'release-job-outputs-v1') {
+      attemptRoot = requireReleaseJob(environment, [`${browser}-prepare-v1`]);
+    } else if (profileId === 'release-state-init-v1' || profileId === 'release-state-check-v1') {
+      attemptRoot = requireReleaseJob(environment, [
+        browser === 'chrome' ? 'chrome-publish-v1' : 'firefox-submit-v1'
+      ]);
+    } else {
+      attemptRoot =
+        environment.CI === 'true' || environment.GITHUB_ACTIONS === 'true'
+          ? requireReleaseJob(environment, [`${browser}-prepare-v1`])
+          : requireLocalRelease(environment);
+    }
+    const resultPath = profileArgumentValue(args, '--result-json');
+    if (resultPath) requireContainedArgument(attemptRoot, resultPath);
+    command = {
+      operation: profileId,
+      argv: [...args],
+      limits: COMMAND_LIMITS.quick,
+      commandContext: {
+        attemptRoot,
+        browser,
+        resultPath,
+        field: profileArgumentValue(args, '--field'),
+        githubOutputPath:
+          profileId === 'release-job-outputs-v1' ? validatedGithubOutput(environment) : undefined
+      },
+      env: releaseProfileEnvironment(profileId, environment)
+    };
+  } else if (profileId === 'release-runtime-check-v1' || profileId === 'isolated-build-v1') {
+    const configMode = profileArgumentValue(args, '--config-mode');
+    const browser = profileArgumentValue(args, '--browser');
+    let attemptRoot;
+    if (configMode === 'owner-public-vars') {
+      attemptRoot = requireReleaseJob(
+        environment,
+        browser ? [`${browser}-prepare-v1`] : ['chrome-prepare-v1', 'firefox-prepare-v1']
+      );
+    } else {
+      attemptRoot = requireLocalRelease(environment);
+    }
+    for (const flag of ['--dist-dir', '--temp-dir']) {
+      const value = profileArgumentValue(args, flag);
+      if (value) requireContainedArgument(attemptRoot, value);
+    }
+    command = {
+      executable: process.execPath,
+      argv: [fixedFileOperation(profileFixedScript(profileId)), ...args],
+      env: releaseProfileEnvironment(
+        profileId,
+        environment,
+        attemptNpmConfigEnvironment(attemptRoot)
+      ),
+      limits:
+        profileId === 'isolated-build-v1' ? COMMAND_LIMITS.isolatedBuild : COMMAND_LIMITS.standard,
+      commandContext: { attemptRoot, browser, configMode }
+    };
+  } else if (profileId === 'release-provenance-v1') {
+    const [script, mode] = args;
+    for (const key of Object.keys(environment)) {
+      if (key.toLowerCase() === 'github_token' && key !== 'GITHUB_TOKEN')
+        invalid('RELEASE_TOKEN_INVALID');
+    }
+    const prepareLike =
+      mode === '--prepare-authorization' || script.endsWith('releaseArtifactManifest.mjs');
+    const attemptRoot = requireReleaseJob(
+      environment,
+      prepareLike
+        ? ['chrome-prepare-v1', 'firefox-prepare-v1']
+        : ['chrome-publish-v1', 'firefox-submit-v1']
+    );
+    for (const flag of ['--artifact-manifest', '--authorization-record']) {
+      const value = profileArgumentValue(args, flag);
+      if (value) requireContainedArgument(attemptRoot, value);
+    }
+    const additions = {};
+    if (script.endsWith('releaseCiProvenance.mjs')) {
+      if (typeof environment.GITHUB_TOKEN !== 'string' || environment.GITHUB_TOKEN.length === 0)
+        invalid('RELEASE_TOKEN_INVALID');
+      additions.GITHUB_TOKEN = environment.GITHUB_TOKEN;
+    } else if (environment.GITHUB_TOKEN !== undefined) {
+      invalid('RELEASE_TOKEN_FORBIDDEN');
+    }
+    command = {
+      executable: process.execPath,
+      argv: [fixedFileOperation(script), ...args.slice(1)],
+      env: releaseProfileEnvironment(profileId, environment, additions),
+      limits: COMMAND_LIMITS.standard,
+      commandContext: {
+        attemptRoot,
+        actionOutputKey:
+          mode === '--validate-upload-artifact-id'
+            ? 'artifact_id'
+            : mode === '--normalize-upload-artifact-digest'
+              ? 'artifact_digest'
+              : undefined,
+        actionOutputValue:
+          mode === '--validate-upload-artifact-id'
+            ? args[2]
+            : mode === '--normalize-upload-artifact-digest'
+              ? `sha256:${args[2]}`
+              : undefined,
+        githubOutputPath:
+          mode === '--validate-upload-artifact-id' || mode === '--normalize-upload-artifact-digest'
+            ? validatedGithubOutput(environment)
+            : undefined
+      }
+    };
+  } else if (
+    [
+      'chrome-prepare-v1',
+      'chrome-verify-v1',
+      'firefox-prepare-v1',
+      'firefox-verify-v1',
+      'firefox-smoke-v1',
+      'chrome-dry-run-v1',
+      'chrome-publish-v1',
+      'firefox-submit-v1'
+    ].includes(profileId)
+  ) {
+    const browser = profileId.startsWith('chrome-') ? 'chrome' : 'firefox';
+    const transport = profileArgumentValue(args, '--transport-mode');
+    const configMode = profileArgumentValue(args, '--config-mode');
+    let attemptRoot;
+    if (profileId === 'chrome-publish-v1' || profileId === 'firefox-submit-v1') {
+      attemptRoot = requireReleaseJob(environment, [
+        browser === 'chrome' ? 'chrome-publish-v1' : 'firefox-submit-v1'
+      ]);
+    } else if (transport === 'github-artifact-v1') {
+      attemptRoot = requireReleaseJob(environment, [
+        browser === 'chrome' ? 'chrome-publish-v1' : 'firefox-submit-v1'
+      ]);
+    } else if (configMode === 'owner-public-vars') {
+      attemptRoot = requireReleaseJob(environment, [`${browser}-prepare-v1`]);
+    } else {
+      attemptRoot = requireLocalRelease(environment);
+    }
+    const declaredAttemptRoot = profileArgumentValue(args, '--attempt-root');
+    if (declaredAttemptRoot && declaredAttemptRoot !== attemptRoot)
+      invalid('RELEASE_ATTEMPT_ROOT_MISMATCH');
+    for (const flag of [
+      '--manifest',
+      '--artifact-manifest',
+      '--zip',
+      '--state-file',
+      '--submission-state-file',
+      '--saved-upload-uuid-path',
+      '--dist-dir',
+      '--release-dir',
+      '--authorization-record',
+      '--result-json'
+    ]) {
+      const value = profileArgumentValue(args, flag);
+      if (value) requireContainedArgument(attemptRoot, value);
+    }
+    let expectedManifestSha256;
+    if (transport === 'github-artifact-v1') {
+      expectedManifestSha256 = environment.ZENDIO_EXPECTED_RELEASE_MANIFEST_SHA256;
+      if (!/^[0-9a-f]{64}$/u.test(expectedManifestSha256 ?? ''))
+        invalid('RELEASE_MANIFEST_DIGEST_INVALID');
+    } else if (environment.ZENDIO_EXPECTED_RELEASE_MANIFEST_SHA256 !== undefined) {
+      invalid('RELEASE_MANIFEST_DIGEST_FORBIDDEN');
+    }
+    command = {
+      executable: process.execPath,
+      argv: [fixedFileOperation(profileFixedScript(profileId)), ...args],
+      env: releaseProfileEnvironment(profileId, environment),
+      limits:
+        profileId === 'chrome-prepare-v1'
+          ? COMMAND_LIMITS.chromePrepare
+          : profileId === 'chrome-verify-v1'
+            ? COMMAND_LIMITS.chromeVerify
+            : profileId === 'chrome-publish-v1'
+              ? COMMAND_LIMITS.chromePublish
+              : profileId === 'firefox-prepare-v1'
+                ? COMMAND_LIMITS.firefoxPrepare
+                : profileId === 'firefox-verify-v1'
+                  ? COMMAND_LIMITS.firefoxVerify
+                  : profileId === 'firefox-smoke-v1'
+                    ? COMMAND_LIMITS.firefoxSmoke
+                    : profileId === 'firefox-submit-v1'
+                      ? COMMAND_LIMITS.firefoxSubmit
+                      : COMMAND_LIMITS.build,
+      commandContext: {
+        attemptRoot,
+        browser,
+        transport,
+        manifestPath:
+          profileArgumentValue(args, '--manifest') ??
+          profileArgumentValue(args, '--artifact-manifest'),
+        statePath:
+          profileArgumentValue(args, '--state-file') ??
+          profileArgumentValue(args, '--submission-state-file'),
+        expectedManifestSha256
       }
     };
   } else if (profileId === 'npm-script-quick-v1')
@@ -961,7 +1871,7 @@ export function resolveCommandProfile(
     command = {
       composite: profileId,
       argv: [...args],
-      limits: profileId === 'stitch-secondary-v1' ? COMMAND_LIMITS.browser : COMMAND_LIMITS.standard
+      limits: profileId === 'stitch-secondary-v1' ? COMMAND_LIMITS.stitch : COMMAND_LIMITS.standard
     };
   const environmentAdditions =
     profileId === 'lint-staged-hook-v1' || profileId === 'lint-staged-prepare-v1'

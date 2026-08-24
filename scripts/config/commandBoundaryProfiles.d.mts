@@ -1,23 +1,41 @@
 export type CommandBoundaryProfileId =
+  | 'chrome-dry-run-v1'
+  | 'chrome-prepare-v1'
+  | 'chrome-publish-v1'
+  | 'chrome-verify-v1'
   | 'coverage-summary-v1'
   | 'dependency-cruiser-v1'
   | 'fixture-v1'
+  | 'firefox-prepare-v1'
+  | 'firefox-smoke-v1'
+  | 'firefox-submit-v1'
+  | 'firefox-verify-v1'
   | 'generated-artifact-check-v1'
   | 'github-ci-install-v1'
   | 'husky-provision-v1'
+  | 'isolated-build-v1'
   | 'lint-staged-hook-v1'
   | 'lint-staged-prepare-v1'
+  | 'local-install-v1'
+  | 'npm-audit-context-v1'
   | 'npm-ci-v1'
   | 'npm-script-browser-v1'
   | 'npm-script-build-v1'
   | 'npm-script-quick-v1'
   | 'npm-script-standard-v1'
+  | 'npm-tree-read-v1'
   | 'node-script-standard-v1'
   | 'playwright-browser-install-v1'
   | 'playwright-host-deps-platform-v1'
   | 'playwright-install-v1'
   | 'playwright-v1'
   | 'prettier-v1'
+  | 'release-job-outputs-v1'
+  | 'release-provenance-v1'
+  | 'release-result-field-v1'
+  | 'release-runtime-check-v1'
+  | 'release-state-check-v1'
+  | 'release-state-init-v1'
   | 'stitch-secondary-v1'
   | 'stylelint-v1'
   | 'vitest-v1';
@@ -45,8 +63,10 @@ export interface ResolvedCommandProfile {
   readonly stdio: readonly ('ignore' | 'pipe')[];
   readonly limits: CommandLimits;
   readonly composite?: string;
+  readonly operation?: string;
   readonly fd3Input?: string;
   readonly platformOwned?: boolean;
+  readonly commandContext?: Readonly<Record<string, unknown>>;
   readonly ciInstallOutputs?: Readonly<{
     path: string;
     lines: readonly string[];
