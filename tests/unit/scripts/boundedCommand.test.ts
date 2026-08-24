@@ -11,7 +11,9 @@ import {
   mkdtempSync,
   openSync,
   readFileSync,
+  readdirSync,
   realpathSync,
+  renameSync,
   rmSync,
   symlinkSync,
   writeFileSync
@@ -23,6 +25,7 @@ import {
   COMMAND_LIMITS,
   DIRECT_ROOT_COORDINATOR_GRAMMARS,
   PROFILE_IDS,
+  R03_CI_JOB_SEQUENCE_RESERVATIONS,
   TASK_GRAPH_POLICIES,
   type CommandBoundaryProfileId,
   buildClosedCommandEnvironment,
@@ -216,6 +219,40 @@ function installAttemptConfigs(attemptRoot: string) {
     writeFileSync(path, '', { mode: 0o600 });
     chmodSync(path, 0o600);
   }
+}
+
+function firefoxPlaywrightPhaseFixture() {
+  const fixture = releaseAttemptFixture('firefox', 'prepare');
+  installAttemptConfigs(fixture.attemptRoot);
+  const userconfig = join(fixture.attemptRoot, 'install/npm-userconfig');
+  const globalconfig = join(fixture.attemptRoot, 'install/npm-globalconfig');
+  const browsersPath = join(fixture.attemptRoot, 'browsers');
+  return {
+    ...fixture,
+    browsersPath,
+    userconfig,
+    globalconfig,
+    phaseEnvironment: {
+      ...fixture.environment,
+      NPM_CONFIG_USERCONFIG: userconfig,
+      NPM_CONFIG_GLOBALCONFIG: globalconfig,
+      PLAYWRIGHT_BROWSERS_PATH: browsersPath,
+      ZENDIO_PLAYWRIGHT_ATTEMPT_ROOT: fixture.attemptRoot
+    }
+  };
+}
+
+function rewriteCanonicalOwnedJson(
+  path: string,
+  mutate: (value: Record<string, RequestValue>) => void
+) {
+  const value: Record<string, RequestValue> = JSON.parse(readFileSync(path, 'utf8'));
+  mutate(value);
+  const sorted = Object.fromEntries(
+    Object.entries(value).sort(([left], [right]) => left.localeCompare(right))
+  );
+  writeFileSync(path, `${JSON.stringify(sorted)}\n`);
+  chmodSync(path, 0o600);
 }
 
 function gitValue(args: string[]): string {
@@ -421,6 +458,86 @@ describe('bounded command ownership', () => {
     expect(Number(COMMAND_LIMITS.firefoxSmoke.activeMs) + 10_000).toBe(450_000);
     expect(Number(COMMAND_LIMITS.firefoxSubmit.activeMs) + 10_000).toBe(2_710_000);
     expect(Number(COMMAND_LIMITS.stitch.activeMs) + 50_000).toBe(3_830_000);
+    expect(
+      Object.fromEntries(
+        Object.entries(R03_CI_JOB_SEQUENCE_RESERVATIONS).map(([jobClass, rows]) => [
+          jobClass,
+          {
+            owners: rows.map((row) => row.owner),
+            totalMs: rows.reduce((total, row) => total + row.fullMs, 0),
+            frozen: Object.isFrozen(rows) && rows.every((row) => Object.isFrozen(row))
+          }
+        ])
+      )
+    ).toEqual({
+      'chrome-prepare-v1': {
+        owners: [
+          'github-ci-install-v1',
+          'release-runtime-check-v1',
+          'release-provenance-v1:prepare',
+          'isolated-build-v1',
+          'chrome-prepare-v1',
+          'release-job-outputs-v1',
+          'platform:upload-artifact-v1',
+          'release-provenance-v1:artifact-id',
+          'release-provenance-v1:artifact-digest',
+          'runner-finalization-v1'
+        ],
+        totalMs: 2_960_000,
+        frozen: true
+      },
+      'firefox-prepare-v1': {
+        owners: [
+          'github-ci-install-v1',
+          'release-runtime-check-v1',
+          'release-provenance-v1:prepare',
+          'platform:playwright-host-deps-v1',
+          'playwright-browser-install-v1',
+          'isolated-build-v1',
+          'firefox-prepare-v1',
+          'release-job-outputs-v1',
+          'firefox-verify-v1',
+          'firefox-smoke-v1',
+          'platform:upload-artifact-v1',
+          'release-provenance-v1:artifact-id',
+          'release-provenance-v1:artifact-digest',
+          'runner-finalization-v1'
+        ],
+        totalMs: 5_320_000,
+        frozen: true
+      },
+      'chrome-publish-v1': {
+        owners: [
+          'github-ci-install-v1',
+          'platform:download-artifact-v1',
+          'chrome-verify-v1',
+          'release-provenance-v1:reauthorize',
+          'release-state-init-v1',
+          'chrome-publish-v1',
+          'release-state-check-v1',
+          'platform:upload-state-v1',
+          'runner-finalization-v1'
+        ],
+        totalMs: 2_130_000,
+        frozen: true
+      },
+      'firefox-submit-v1': {
+        owners: [
+          'github-ci-install-v1',
+          'platform:download-artifact-v1',
+          'firefox-verify-v1',
+          'release-provenance-v1:reauthorize',
+          'release-state-init-v1',
+          'firefox-submit-v1',
+          'release-state-check-v1',
+          'platform:upload-state-v1',
+          'runner-finalization-v1'
+        ],
+        totalMs: 4_290_000,
+        frozen: true
+      }
+    });
+    expect(Object.isFrozen(R03_CI_JOB_SEQUENCE_RESERVATIONS)).toBe(true);
   });
 
   it('accepts only the exact finite release grammars', () => {
@@ -739,6 +856,64 @@ describe('bounded command ownership', () => {
     }
   });
 
+  it('reserves each full ordered release-job sequence at the stamp boundary before install', () => {
+    const cases = [
+      {
+        jobClass: 'chrome-prepare-v1',
+        timeoutMinutes: 75,
+        startCentiseconds: 300_000,
+        create: () => prepareCiInstallFixture('chrome')
+      },
+      {
+        jobClass: 'firefox-prepare-v1',
+        timeoutMinutes: 120,
+        startCentiseconds: 300_000,
+        create: () => prepareCiInstallFixture('firefox')
+      },
+      {
+        jobClass: 'chrome-publish-v1',
+        timeoutMinutes: 60,
+        startCentiseconds: 200_000,
+        create: () => protectedCiInstallFixture('chrome')
+      },
+      {
+        jobClass: 'firefox-submit-v1',
+        timeoutMinutes: 90,
+        startCentiseconds: 200_000,
+        create: () => protectedCiInstallFixture('firefox')
+      }
+    ];
+
+    for (const row of cases) {
+      const reservedCentiseconds = R03_CI_JOB_SEQUENCE_RESERVATIONS[row.jobClass].reduce(
+        (total, reservation) => total + reservation.fullMs / 10,
+        0
+      );
+      const boundaryUptime =
+        row.startCentiseconds + row.timeoutMinutes * 60 * 100 - reservedCentiseconds;
+      const passing = row.create();
+      expect(() =>
+        resolveCommandProfile('github-ci-install-v1', [], {
+          environment: passing.environment,
+          operations: { ...passing.operations, readUptimeCentiseconds: () => boundaryUptime }
+        })
+      ).not.toThrow();
+
+      const failing = row.create();
+      expect(() =>
+        resolveCommandProfile('github-ci-install-v1', [], {
+          environment: failing.environment,
+          operations: { ...failing.operations, readUptimeCentiseconds: () => boundaryUptime + 1 }
+        })
+      ).toThrow('CI_JOB_BUDGET_INVALID');
+      expect(
+        readdirSync(failing.runnerTemp).some(
+          (name) => name.startsWith('zendio-') && !name.startsWith('zendio-command-start-')
+        )
+      ).toBe(false);
+    }
+  });
+
   it.each(TEST_RELEASE_BROWSERS)(
     'binds the exact unprivileged %s prepare install root without protected outputs',
     (browser) => {
@@ -850,7 +1025,9 @@ describe('bounded command ownership', () => {
       'scripts/utils/releaseCiProvenance.mjs',
       'scripts/utils/releaseArtifactManifest.mjs',
       'scripts/package.mjs',
-      'scripts/package-firefox.mjs'
+      'scripts/package-firefox.mjs',
+      'tools/report-chrome-webstore-release-workflow.mjs',
+      'tools/report-firefox-amo-release-workflow.mjs'
     ]) {
       expect(() =>
         parseManagedCommandInvocationArgv([
@@ -864,7 +1041,11 @@ describe('bounded command ownership', () => {
       ).toThrow('NODE_SCRIPT_FIXED_OWNER_REQUIRED');
     }
 
-    for (const name of ['audit:firefox-amo-release:report', 'audit:firefox-amo-release:check']) {
+    for (const name of [
+      'audit:chrome-webstore-release:check',
+      'audit:firefox-amo-release:report',
+      'audit:firefox-amo-release:check'
+    ]) {
       expect(() =>
         parseManagedCommandInvocationArgv([
           'node',
@@ -876,6 +1057,50 @@ describe('bounded command ownership', () => {
         ])
       ).not.toThrow();
     }
+  });
+
+  it('admits only exact contained release-audit forwarded argument grammars', () => {
+    const root = realpathSync(temporaryRoot());
+    installAttemptConfigs(root);
+    const dist = join(root, 'dist');
+    const archive = join(root, 'release.zip');
+    const environment = cleanEnvironment({ ZENDIO_LOCAL_ATTEMPT_ROOT: root });
+    const names = [
+      'audit:release-surface:report',
+      'audit:ga:client-secret',
+      'audit:ga:release-surface'
+    ];
+    for (const name of names) {
+      for (const forwarded of [
+        ['--dist', dist],
+        ['--dist', dist, '--archive', archive]
+      ]) {
+        expect(() =>
+          resolveCommandProfile('npm-script-standard-v1', [name, '--', ...forwarded], {
+            environment
+          })
+        ).not.toThrow();
+      }
+    }
+
+    for (const args of [
+      ['audit:release-surface:report', '--', '--archive', archive, '--dist', dist],
+      ['audit:ga:client-secret', '--', '--dist', dist, '--archive', archive, '--extra'],
+      ['audit:ga:release-surface', '--', '--dist', 'dist'],
+      ['audit:ga:docs', '--', '--dist', dist],
+      ['audit:release-surface:report', '--', '--dist', dist, '--archive', dist]
+    ]) {
+      expect(() =>
+        resolveCommandProfile('npm-script-standard-v1', args, { environment })
+      ).toThrow();
+    }
+    expect(() =>
+      resolveCommandProfile(
+        'npm-script-standard-v1',
+        ['audit:ga:client-secret', '--', '--dist', join(realpathSync(temporaryRoot()), 'dist')],
+        { environment }
+      )
+    ).toThrow('RELEASE_PATH_OUTSIDE_ATTEMPT');
   });
 
   it('keeps the actions token and Chrome/Firefox credentials exclusive to their fixed profiles', () => {
@@ -1126,10 +1351,13 @@ describe('bounded command ownership', () => {
     const storeLeaf = {
       ...leaf,
       profileId: 'chrome-publish-v1',
+      env: fixture.environment,
       commandContext: {
         attemptRoot: fixture.attemptRoot,
         browser: 'chrome',
-        statePath
+        statePath,
+        manifestPath: manifest,
+        expectedManifestSha256
       }
     };
     await expect(
@@ -1138,6 +1366,24 @@ describe('bounded command ownership', () => {
         { resolveProfile: () => storeLeaf }
       ).completion
     ).resolves.toMatchObject({ ok: true });
+    for (const commandContext of [
+      { ...storeLeaf.commandContext, manifestPath: join(fixture.attemptRoot, 'other.json') },
+      { ...storeLeaf.commandContext, expectedManifestSha256: '0'.repeat(64) }
+    ]) {
+      expect(() =>
+        startBoundedCommand(
+          { profileId: 'chrome-publish-v1', arguments: [] },
+          { resolveProfile: () => ({ ...storeLeaf, commandContext }) }
+        )
+      ).toThrow();
+    }
+    writeFileSync(manifest, 'tampered-after-state-init');
+    expect(() =>
+      startBoundedCommand(
+        { profileId: 'chrome-publish-v1', arguments: [] },
+        { resolveProfile: () => storeLeaf }
+      )
+    ).toThrow('ARTIFACT_RECEIPT_MANIFEST_INVALID');
 
     expect(() =>
       startBoundedCommand(
@@ -1216,20 +1462,153 @@ describe('bounded command ownership', () => {
     expect(raced).toMatchObject({ ok: false, terminalReason: 'RELEASE_STATE_ROOT_PREEXISTS' });
   });
 
-  it('keeps privileged host dependencies separate from the bounded browser install phase', () => {
-    const environment = cleanEnvironment({ PLAYWRIGHT_BROWSERS_PATH: '/private/browsers' });
+  it('rejects verifier swap/restore, parent symlinks, stale identity, and rebound state tampering', async () => {
+    const leaf = resolveCommandProfile('fixture-v1', ['delay', '80'], {
+      environment: cleanEnvironment()
+    });
+    const swapped = releaseAttemptFixture('chrome', 'publish');
+    const swappedParent = join(swapped.attemptRoot, 'download');
+    mkdirSync(swappedParent, { mode: 0o700 });
+    const swappedManifest = join(swappedParent, 'manifest.json');
+    const replacement = join(swappedParent, 'replacement.json');
+    const held = join(swappedParent, 'held.json');
+    writeFileSync(swappedManifest, 'stable-manifest', { mode: 0o600 });
+    writeFileSync(replacement, 'stable-manifest', { mode: 0o600 });
+    const swappedDigest = sha256(swappedManifest);
+    const pending = runBoundedCommand(
+      { profileId: 'chrome-verify-v1', arguments: [] },
+      {
+        environment: swapped.environment,
+        resolveProfile: () => ({
+          ...leaf,
+          profileId: 'chrome-verify-v1',
+          env: swapped.environment,
+          commandContext: {
+            attemptRoot: swapped.attemptRoot,
+            browser: 'chrome',
+            transport: 'github-artifact-v1',
+            manifestPath: swappedManifest,
+            expectedManifestSha256: swappedDigest
+          }
+        })
+      }
+    );
+    await new Promise((resolvePromise) => setTimeout(resolvePromise, 20));
+    renameSync(swappedManifest, held);
+    renameSync(replacement, swappedManifest);
+    renameSync(swappedManifest, replacement);
+    renameSync(held, swappedManifest);
+    await expect(pending).resolves.toMatchObject({
+      ok: false,
+      terminalReason: 'RELEASE_MANIFEST_CHANGED'
+    });
+
+    const linked = releaseAttemptFixture('chrome', 'publish');
+    const foreign = realpathSync(temporaryRoot());
+    const foreignManifest = join(foreign, 'manifest.json');
+    writeFileSync(foreignManifest, 'linked-manifest', { mode: 0o600 });
+    symlinkSync(foreign, join(linked.attemptRoot, 'download'));
+    await expect(
+      runBoundedCommand(
+        { profileId: 'chrome-verify-v1', arguments: [] },
+        {
+          environment: linked.environment,
+          resolveProfile: () => ({
+            ...leaf,
+            profileId: 'chrome-verify-v1',
+            env: linked.environment,
+            commandContext: {
+              attemptRoot: linked.attemptRoot,
+              browser: 'chrome',
+              transport: 'github-artifact-v1',
+              manifestPath: join(linked.attemptRoot, 'download/manifest.json'),
+              expectedManifestSha256: sha256(foreignManifest)
+            }
+          })
+        }
+      )
+    ).rejects.toThrow('RELEASE_PATH_PARENT_INVALID');
+
+    async function initializedFixture() {
+      const fixture = releaseAttemptFixture('chrome', 'publish');
+      const manifest = join(fixture.attemptRoot, 'manifest.json');
+      writeFileSync(manifest, 'bound-manifest', { mode: 0o600 });
+      const expectedManifestSha256 = sha256(manifest);
+      const verification = await runBoundedCommand(
+        { profileId: 'chrome-verify-v1', arguments: [] },
+        {
+          environment: fixture.environment,
+          resolveProfile: () => ({
+            ...resolveCommandProfile('fixture-v1', ['success'], {
+              environment: cleanEnvironment()
+            }),
+            profileId: 'chrome-verify-v1',
+            env: fixture.environment,
+            commandContext: {
+              attemptRoot: fixture.attemptRoot,
+              browser: 'chrome',
+              transport: 'github-artifact-v1',
+              manifestPath: manifest,
+              expectedManifestSha256
+            }
+          })
+        }
+      );
+      if (!verification.ok) throw new Error('TEST_VERIFICATION_FAILED');
+      const initialized = await runBoundedCommand(
+        { profileId: 'release-state-init-v1', arguments: ['--browser', 'chrome'] },
+        { environment: fixture.environment }
+      );
+      if (!initialized.ok) throw new Error('TEST_STATE_INIT_FAILED');
+      return { fixture, manifest };
+    }
+
+    const stale = await initializedFixture();
+    rewriteCanonicalOwnedJson(
+      join(stale.fixture.attemptRoot, 'receipts/chrome-artifact-verification.json'),
+      (value) => {
+        value.releaseSha = '0'.repeat(40);
+      }
+    );
+    await expect(
+      runBoundedCommand(
+        { profileId: 'release-state-check-v1', arguments: ['--browser', 'chrome'] },
+        { environment: stale.fixture.environment }
+      )
+    ).resolves.toMatchObject({ ok: false, terminalReason: 'ARTIFACT_RECEIPT_INVALID' });
+
+    const tampered = await initializedFixture();
+    const statePath = join(tampered.fixture.attemptRoot, 'store-state/chrome/publish-state.json');
+    const bindingPath = join(tampered.fixture.attemptRoot, 'receipts/chrome-state-binding.json');
+    rewriteCanonicalOwnedJson(statePath, (value) => {
+      value.stage = 'tampered';
+    });
+    rewriteCanonicalOwnedJson(bindingPath, (value) => {
+      value.stateSha256 = sha256(statePath);
+      value.stateSize = String(lstatSync(statePath).size);
+    });
+    await expect(
+      runBoundedCommand(
+        { profileId: 'release-state-check-v1', arguments: ['--browser', 'chrome'] },
+        { environment: tampered.fixture.environment }
+      )
+    ).resolves.toMatchObject({ ok: false, terminalReason: 'RELEASE_STATE_INVALID' });
+  });
+
+  it('binds both Firefox Playwright phases to one fresh current-job root and owner configs', () => {
+    const fixture = firefoxPlaywrightPhaseFixture();
     const host = resolveCommandProfile(
       'playwright-host-deps-platform-v1',
-      ['chromium-with-host-deps'],
-      { environment }
+      ['firefox-with-host-deps'],
+      { environment: fixture.phaseEnvironment }
     );
     const browser = resolveCommandProfile(
       'playwright-browser-install-v1',
       ['firefox-with-host-deps'],
-      { environment }
+      { environment: fixture.phaseEnvironment }
     );
 
-    expect(host.argv.slice(-2)).toEqual(['install-deps', 'chromium']);
+    expect(host.argv.slice(-2)).toEqual(['install-deps', 'firefox']);
     expect(host).toMatchObject({ platformOwned: true, detached: false });
     expect(host.limits.activeMs).toBeNull();
     expect(browser.argv.slice(-2)).toEqual(['install', 'firefox']);
@@ -1240,6 +1619,103 @@ describe('bounded command ownership', () => {
     expect(browser.limits).toBe(COMMAND_LIMITS.browserInstall);
     expect(host.executable).toBe(process.execPath);
     expect(browser.executable).toBe(process.execPath);
+    expect(browser.env).toMatchObject({
+      NPM_CONFIG_USERCONFIG: fixture.userconfig,
+      NPM_CONFIG_GLOBALCONFIG: fixture.globalconfig,
+      PLAYWRIGHT_BROWSERS_PATH: fixture.browsersPath,
+      ZENDIO_PLAYWRIGHT_ATTEMPT_ROOT: fixture.attemptRoot
+    });
+    expect(browser.commandContext).toMatchObject({
+      attemptRoot: fixture.attemptRoot,
+      browsersPath: fixture.browsersPath,
+      userconfig: fixture.userconfig,
+      globalconfig: fixture.globalconfig,
+      hostDependencies: false
+    });
+    expect(lstatSync(fixture.browsersPath).mode & 0o777).toBe(0o700);
+    expect(readdirSync(fixture.browsersPath)).toEqual([]);
+
+    const ordinary = ciInstallFixture('browser-v1', '60');
+    const ordinaryInstall = resolveCommandProfile('github-ci-install-v1', [], {
+      environment: ordinary.environment,
+      operations: ordinary.operations
+    });
+    const ordinaryRoot = ordinaryInstall.commandContext?.attemptRoot;
+    if (typeof ordinaryRoot !== 'string') throw new Error('TEST_ATTEMPT_ROOT_INVALID');
+    const ordinaryEnvironment: NodeJS.ProcessEnv = {
+      ...ordinary.environment,
+      NPM_CONFIG_USERCONFIG: join(ordinaryRoot, 'install/npm-userconfig'),
+      NPM_CONFIG_GLOBALCONFIG: join(ordinaryRoot, 'install/npm-globalconfig'),
+      PLAYWRIGHT_BROWSERS_PATH: join(ordinaryRoot, 'browsers')
+    };
+    delete ordinaryEnvironment.ZENDIO_JOB_CLASS;
+    delete ordinaryEnvironment.ZENDIO_JOB_TIMEOUT_MINUTES;
+    expect(() =>
+      resolveCommandProfile('playwright-host-deps-platform-v1', ['firefox-with-host-deps'], {
+        environment: ordinaryEnvironment
+      })
+    ).not.toThrow();
+  });
+
+  it('rejects missing, foreign, swapped, reused, and late-mutated Firefox phase paths', () => {
+    const mutations = [
+      (fixture: ReturnType<typeof firefoxPlaywrightPhaseFixture>) => {
+        const environment: NodeJS.ProcessEnv = { ...fixture.phaseEnvironment };
+        delete environment.NPM_CONFIG_USERCONFIG;
+        return environment;
+      },
+      (fixture: ReturnType<typeof firefoxPlaywrightPhaseFixture>) => ({
+        ...fixture.phaseEnvironment,
+        NPM_CONFIG_USERCONFIG: fixture.globalconfig,
+        NPM_CONFIG_GLOBALCONFIG: fixture.userconfig
+      }),
+      (fixture: ReturnType<typeof firefoxPlaywrightPhaseFixture>) => ({
+        ...fixture.phaseEnvironment,
+        PLAYWRIGHT_BROWSERS_PATH: join(realpathSync(temporaryRoot()), 'browsers')
+      }),
+      (fixture: ReturnType<typeof firefoxPlaywrightPhaseFixture>) => ({
+        ...fixture.phaseEnvironment,
+        ZENDIO_PLAYWRIGHT_ATTEMPT_ROOT: realpathSync(temporaryRoot())
+      })
+    ];
+    for (const mutate of mutations) {
+      const fixture = firefoxPlaywrightPhaseFixture();
+      expect(() =>
+        resolveCommandProfile('playwright-host-deps-platform-v1', ['firefox-with-host-deps'], {
+          environment: mutate(fixture)
+        })
+      ).toThrow();
+    }
+
+    const wrongMode = firefoxPlaywrightPhaseFixture();
+    chmodSync(wrongMode.userconfig, 0o644);
+    expect(() =>
+      resolveCommandProfile('playwright-host-deps-platform-v1', ['firefox-with-host-deps'], {
+        environment: wrongMode.phaseEnvironment
+      })
+    ).toThrow('NPM_CONFIG_IDENTITY_INVALID');
+
+    const reused = firefoxPlaywrightPhaseFixture();
+    mkdirSync(reused.browsersPath, { mode: 0o700 });
+    expect(() =>
+      resolveCommandProfile('playwright-host-deps-platform-v1', ['firefox-with-host-deps'], {
+        environment: reused.phaseEnvironment
+      })
+    ).toThrow('PLAYWRIGHT_BROWSER_ROOT_REUSED');
+
+    const raced = firefoxPlaywrightPhaseFixture();
+    const profile = resolveCommandProfile(
+      'playwright-browser-install-v1',
+      ['firefox-with-host-deps'],
+      { environment: raced.phaseEnvironment }
+    );
+    writeFileSync(join(raced.browsersPath, 'foreign'), 'late');
+    expect(() =>
+      startBoundedCommand(
+        { profileId: 'playwright-browser-install-v1', arguments: ['firefox-with-host-deps'] },
+        { resolveProfile: () => profile }
+      )
+    ).toThrow('PLAYWRIGHT_BROWSER_ROOT_INVALID');
   });
 
   it('binds the five governed package bins to the accepted lock identities', () => {

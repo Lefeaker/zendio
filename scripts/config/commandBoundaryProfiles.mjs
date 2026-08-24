@@ -393,6 +393,11 @@ function boundedToken(value, { path = false, glob = false } = {}) {
 const RELEASE_CONFIG_MODES = new Set(['standalone-synthetic', 'owner-public-vars']);
 const RELEASE_TRANSPORT_MODES = new Set(['local-private-v1', 'github-artifact-v1']);
 const RELEASE_BROWSERS = new Set(['chrome', 'firefox']);
+const RELEASE_AUDIT_NPM_SCRIPTS = new Set([
+  'audit:release-surface:report',
+  'audit:ga:client-secret',
+  'audit:ga:release-surface'
+]);
 const FIXED_RELEASE_NODE_PATHS = new Set([
   'scripts/build.mjs',
   'scripts/package-firefox.mjs',
@@ -408,7 +413,9 @@ const FIXED_RELEASE_NODE_PATHS = new Set([
   'scripts/utils/releasePublicBuildConfig.mjs',
   'scripts/verify-chrome-release.mjs',
   'scripts/verify-firefox-release.mjs',
-  'tools/check-npm-audit-regression.mjs'
+  'tools/check-npm-audit-regression.mjs',
+  'tools/report-chrome-webstore-release-workflow.mjs',
+  'tools/report-firefox-amo-release-workflow.mjs'
 ]);
 
 function absolutePathToken(value) {
@@ -678,6 +685,18 @@ function validateNpmScriptArgs(args, accepted) {
   if (separator === undefined) return args;
   if (separator !== '--') invalid('NPM_SCRIPT_INVALID');
   if (name === 'lint' && JSON.stringify(forwarded) === JSON.stringify(['--quiet'])) return args;
+  if (RELEASE_AUDIT_NPM_SCRIPTS.has(name)) {
+    if (
+      ![2, 4].includes(forwarded.length) ||
+      forwarded[0] !== '--dist' ||
+      (forwarded.length === 4 && forwarded[2] !== '--archive')
+    )
+      invalid('NPM_SCRIPT_ARGUMENTS_INVALID');
+    const paths = [forwarded[1], ...(forwarded.length === 4 ? [forwarded[3]] : [])];
+    for (const path of paths) absolutePathToken(path);
+    if (new Set(paths).size !== paths.length) invalid('NPM_SCRIPT_ARGUMENTS_INVALID');
+    return args;
+  }
   if (forwarded.length !== 0) invalid('NPM_SCRIPT_ARGUMENTS_INVALID');
   return args;
 }
@@ -989,6 +1008,59 @@ const CI_JOB_TIMEOUTS = deepFreeze({
   'firefox-submit-v1': 90
 });
 
+export const R03_CI_JOB_SEQUENCE_RESERVATIONS = deepFreeze({
+  'chrome-prepare-v1': [
+    { owner: 'github-ci-install-v1', fullMs: 640_000 },
+    { owner: 'release-runtime-check-v1', fullMs: 190_000 },
+    { owner: 'release-provenance-v1:prepare', fullMs: 190_000 },
+    { owner: 'isolated-build-v1', fullMs: 640_000 },
+    { owner: 'chrome-prepare-v1', fullMs: 730_000 },
+    { owner: 'release-job-outputs-v1', fullMs: 70_000 },
+    { owner: 'platform:upload-artifact-v1', fullMs: 0 },
+    { owner: 'release-provenance-v1:artifact-id', fullMs: 190_000 },
+    { owner: 'release-provenance-v1:artifact-digest', fullMs: 190_000 },
+    { owner: 'runner-finalization-v1', fullMs: 120_000 }
+  ],
+  'firefox-prepare-v1': [
+    { owner: 'github-ci-install-v1', fullMs: 640_000 },
+    { owner: 'release-runtime-check-v1', fullMs: 190_000 },
+    { owner: 'release-provenance-v1:prepare', fullMs: 190_000 },
+    { owner: 'platform:playwright-host-deps-v1', fullMs: 0 },
+    { owner: 'playwright-browser-install-v1', fullMs: 940_000 },
+    { owner: 'isolated-build-v1', fullMs: 640_000 },
+    { owner: 'firefox-prepare-v1', fullMs: 1_210_000 },
+    { owner: 'release-job-outputs-v1', fullMs: 70_000 },
+    { owner: 'firefox-verify-v1', fullMs: 490_000 },
+    { owner: 'firefox-smoke-v1', fullMs: 450_000 },
+    { owner: 'platform:upload-artifact-v1', fullMs: 0 },
+    { owner: 'release-provenance-v1:artifact-id', fullMs: 190_000 },
+    { owner: 'release-provenance-v1:artifact-digest', fullMs: 190_000 },
+    { owner: 'runner-finalization-v1', fullMs: 120_000 }
+  ],
+  'chrome-publish-v1': [
+    { owner: 'github-ci-install-v1', fullMs: 640_000 },
+    { owner: 'platform:download-artifact-v1', fullMs: 0 },
+    { owner: 'chrome-verify-v1', fullMs: 310_000 },
+    { owner: 'release-provenance-v1:reauthorize', fullMs: 190_000 },
+    { owner: 'release-state-init-v1', fullMs: 70_000 },
+    { owner: 'chrome-publish-v1', fullMs: 730_000 },
+    { owner: 'release-state-check-v1', fullMs: 70_000 },
+    { owner: 'platform:upload-state-v1', fullMs: 0 },
+    { owner: 'runner-finalization-v1', fullMs: 120_000 }
+  ],
+  'firefox-submit-v1': [
+    { owner: 'github-ci-install-v1', fullMs: 640_000 },
+    { owner: 'platform:download-artifact-v1', fullMs: 0 },
+    { owner: 'firefox-verify-v1', fullMs: 490_000 },
+    { owner: 'release-provenance-v1:reauthorize', fullMs: 190_000 },
+    { owner: 'release-state-init-v1', fullMs: 70_000 },
+    { owner: 'firefox-submit-v1', fullMs: 2_710_000 },
+    { owner: 'release-state-check-v1', fullMs: 70_000 },
+    { owner: 'platform:upload-state-v1', fullMs: 0 },
+    { owner: 'runner-finalization-v1', fullMs: 120_000 }
+  ]
+});
+
 const R03_CI_JOB_CLASSES = new Set([
   'chrome-prepare-v1',
   'chrome-publish-v1',
@@ -1186,7 +1258,17 @@ function prepareGithubCiInstall(environment, injected = {}) {
       COMMAND_LIMITS.install.termMs +
       COMMAND_LIMITS.install.killMs) /
     10;
-  if (elapsedCentiseconds < 0 || availableCentiseconds < installFullCentiseconds)
+  const releaseSequence = R03_CI_JOB_SEQUENCE_RESERVATIONS[jobClass];
+  const releaseSequenceCentiseconds = releaseSequence
+    ? releaseSequence.reduce((total, row) => total + row.fullMs / 10, 0)
+    : null;
+  const remainingCentiseconds = Number(timeout) * 60 * 100 - elapsedCentiseconds;
+  if (
+    elapsedCentiseconds < 0 ||
+    (releaseSequenceCentiseconds === null
+      ? availableCentiseconds < installFullCentiseconds
+      : remainingCentiseconds < releaseSequenceCentiseconds)
+  )
     invalid('CI_JOB_BUDGET_INVALID');
   if (!operations.readFileOperation(stamp.canonical).equals(stampBytes))
     invalid('CI_STAMP_CHANGED');
@@ -1432,6 +1514,7 @@ function requireContainedArgument(root, value) {
 }
 
 function attemptNpmConfigEnvironment(root) {
+  assertOwnedDirectory(join(root, 'install'));
   const values = {};
   for (const [key, name] of [
     ['NPM_CONFIG_USERCONFIG', 'npm-userconfig'],
@@ -1453,15 +1536,98 @@ function attemptNpmConfigEnvironment(root) {
   return values;
 }
 
+function releaseAuditPathEnvironment(args, environment) {
+  const [name, separator, ...forwarded] = args;
+  if (!RELEASE_AUDIT_NPM_SCRIPTS.has(name) || separator === undefined) return {};
+  const root = releaseAttemptRoot(environment);
+  const paths = [forwarded[1], ...(forwarded.length === 4 ? [forwarded[3]] : [])];
+  for (const path of paths) requireContainedArgument(root, path);
+  return attemptNpmConfigEnvironment(root);
+}
+
+function firefoxPlaywrightPhaseEnvironment(environment, hostDependencies) {
+  if (environment.CI !== 'true' || environment.GITHUB_ACTIONS !== 'true')
+    invalid('PLAYWRIGHT_PHASE_CONTEXT_INVALID');
+  const runId = requiredEnvironment(environment, 'GITHUB_RUN_ID', /^[1-9][0-9]{0,19}$/u);
+  const runAttempt = requiredEnvironment(environment, 'GITHUB_RUN_ATTEMPT', /^[1-9][0-9]{0,9}$/u);
+  const job = requiredEnvironment(environment, 'GITHUB_JOB', /^[A-Za-z0-9_-]{1,128}$/u);
+  let root;
+  if (environment.ZENDIO_JOB_CLASS === 'firefox-prepare-v1') {
+    root = requireReleaseJob(environment, ['firefox-prepare-v1']);
+  } else {
+    if (environment.ZENDIO_JOB_CLASS !== undefined && environment.ZENDIO_JOB_CLASS !== 'browser-v1')
+      invalid('PLAYWRIGHT_PHASE_CONTEXT_INVALID');
+    const runnerTemp = environment.RUNNER_TEMP;
+    if (
+      typeof runnerTemp !== 'string' ||
+      !isAbsolute(runnerTemp) ||
+      resolve(runnerTemp) !== runnerTemp ||
+      realpathSync(runnerTemp) !== runnerTemp
+    )
+      invalid('PLAYWRIGHT_PHASE_CONTEXT_INVALID');
+    root = assertOwnedDirectory(
+      join(runnerTemp, ciAttemptName('browser-v1', runId, runAttempt, job))
+    );
+  }
+  if (
+    environment.ZENDIO_PLAYWRIGHT_ATTEMPT_ROOT !== undefined &&
+    environment.ZENDIO_PLAYWRIGHT_ATTEMPT_ROOT !== root
+  )
+    invalid('PLAYWRIGHT_PHASE_ATTEMPT_ROOT_INVALID');
+  if (
+    environment.ZENDIO_JOB_CLASS === 'firefox-prepare-v1' &&
+    environment.ZENDIO_PLAYWRIGHT_ATTEMPT_ROOT !== root
+  )
+    invalid('PLAYWRIGHT_PHASE_ATTEMPT_ROOT_INVALID');
+  const configs = attemptNpmConfigEnvironment(root);
+  if (
+    environment.NPM_CONFIG_USERCONFIG !== configs.NPM_CONFIG_USERCONFIG ||
+    environment.NPM_CONFIG_GLOBALCONFIG !== configs.NPM_CONFIG_GLOBALCONFIG
+  )
+    invalid('NPM_CONFIG_IDENTITY_INVALID');
+  const browsersPath = join(root, 'browsers');
+  if (environment.PLAYWRIGHT_BROWSERS_PATH !== browsersPath)
+    invalid('PLAYWRIGHT_BROWSERS_PATH_INVALID');
+  if (lstatOrNull(browsersPath)) invalid('PLAYWRIGHT_BROWSER_ROOT_REUSED');
+  if (!hostDependencies) {
+    mkdirSync(browsersPath, { mode: 0o700 });
+    chmodSync(browsersPath, 0o700);
+    assertOwnedDirectory(browsersPath);
+    if (readdirSync(browsersPath).length !== 0) invalid('PLAYWRIGHT_BROWSER_ROOT_INVALID');
+  }
+  return {
+    attemptRoot: root,
+    browsersPath,
+    userconfig: configs.NPM_CONFIG_USERCONFIG,
+    globalconfig: configs.NPM_CONFIG_GLOBALCONFIG,
+    environment: {
+      NPM_CONFIG_USERCONFIG: configs.NPM_CONFIG_USERCONFIG,
+      NPM_CONFIG_GLOBALCONFIG: configs.NPM_CONFIG_GLOBALCONFIG,
+      ZENDIO_PLAYWRIGHT_ATTEMPT_ROOT: root,
+      PLAYWRIGHT_BROWSERS_PATH: browsersPath
+    }
+  };
+}
+
 function npmInvocation(args, limits) {
   const npm = detectNpmCommand({ repositoryRoot: REPOSITORY_ROOT, environment: {} });
   return { executable: npm.nodePath, argv: [npm.cliPath, ...args], limits };
 }
 
-function npmScriptInvocation(args, accepted, limits) {
+function npmScriptInvocation(args, accepted, limits, environment) {
   validateNpmScriptArgs(args, accepted);
   const [name, separator, ...forwarded] = args;
-  return npmInvocation(['run', name, ...(separator ? ['--', ...forwarded] : [])], limits);
+  return {
+    ...npmInvocation(['run', name, ...(separator ? ['--', ...forwarded] : [])], limits),
+    ...(environment
+      ? {
+          env: buildClosedCommandEnvironment(
+            environment,
+            releaseAuditPathEnvironment(args, environment)
+          )
+        }
+      : {})
+  };
 }
 
 export function resolveCommandProfile(
@@ -1799,7 +1965,7 @@ export function resolveCommandProfile(
   } else if (profileId === 'npm-script-quick-v1')
     command = npmScriptInvocation(args, QUICK_NPM_SCRIPTS, COMMAND_LIMITS.quick);
   else if (profileId === 'npm-script-standard-v1')
-    command = npmScriptInvocation(args, STANDARD_NPM_SCRIPTS, COMMAND_LIMITS.standard);
+    command = npmScriptInvocation(args, STANDARD_NPM_SCRIPTS, COMMAND_LIMITS.standard, environment);
   else if (profileId === 'npm-script-build-v1')
     command = npmScriptInvocation(args, BUILD_NPM_SCRIPTS, COMMAND_LIMITS.build);
   else if (profileId === 'npm-script-browser-v1')
@@ -1823,6 +1989,10 @@ export function resolveCommandProfile(
   ) {
     const browser = args[0].startsWith('firefox') ? 'firefox' : 'chromium';
     const hostDependencies = profileId === 'playwright-host-deps-platform-v1';
+    const phaseEnvironment =
+      browser === 'firefox'
+        ? firefoxPlaywrightPhaseEnvironment(environment, hostDependencies)
+        : undefined;
     command = {
       executable: process.execPath,
       argv: [
@@ -1830,6 +2000,19 @@ export function resolveCommandProfile(
         hostDependencies ? 'install-deps' : 'install',
         browser
       ],
+      ...(phaseEnvironment
+        ? {
+            env: buildClosedCommandEnvironment(environment, phaseEnvironment.environment),
+            commandContext: {
+              playwrightPhase: true,
+              attemptRoot: phaseEnvironment.attemptRoot,
+              browsersPath: phaseEnvironment.browsersPath,
+              userconfig: phaseEnvironment.userconfig,
+              globalconfig: phaseEnvironment.globalconfig,
+              hostDependencies
+            }
+          }
+        : {}),
       limits: hostDependencies ? COMMAND_LIMITS.platform : COMMAND_LIMITS.browserInstall,
       platformOwned: hostDependencies,
       detached: hostDependencies ? false : process.platform !== 'win32'

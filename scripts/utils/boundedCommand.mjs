@@ -180,6 +180,111 @@ function sha256FileBounded(path, maximumBytes = 32 << 20) {
   return createHash('sha256').update(bytes).digest('hex');
 }
 
+function releaseDirectoryIdentity(path) {
+  const stats = lstatSync(path);
+  if (
+    !stats.isDirectory() ||
+    stats.isSymbolicLink() ||
+    stats.uid !== process.getuid() ||
+    (stats.mode & 0o022) !== 0 ||
+    realpathSync(path) !== path
+  )
+    throw new Error('RELEASE_PATH_PARENT_INVALID');
+  return {
+    path,
+    device: String(stats.dev),
+    inode: String(stats.ino),
+    mode: String(stats.mode & 0o777),
+    modified: String(stats.mtimeMs),
+    changed: String(stats.ctimeMs)
+  };
+}
+
+function releaseFileSnapshot(attemptRoot, path, maximumBytes = 32 << 20) {
+  if (
+    typeof path !== 'string' ||
+    !isAbsolute(path) ||
+    resolve(path) !== path ||
+    !contained(attemptRoot, path)
+  )
+    throw new Error('RELEASE_FILE_PATH_INVALID');
+  const parents = [];
+  let current = attemptRoot;
+  parents.push(releaseDirectoryIdentity(current));
+  const relativeParent = relative(attemptRoot, dirname(path));
+  if (relativeParent !== '') {
+    for (const part of relativeParent.split(sep)) {
+      current = join(current, part);
+      parents.push(releaseDirectoryIdentity(current));
+    }
+  }
+  const before = lstatSync(path);
+  if (
+    !before.isFile() ||
+    before.isSymbolicLink() ||
+    before.uid !== process.getuid() ||
+    before.nlink !== 1 ||
+    (before.mode & 0o022) !== 0 ||
+    before.size > maximumBytes ||
+    realpathSync(path) !== path
+  )
+    throw new Error('RELEASE_FILE_INVALID');
+  const descriptor = openSync(path, constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0));
+  let bytes;
+  let opened;
+  try {
+    opened = fstatSync(descriptor);
+    if (
+      !opened.isFile() ||
+      opened.dev !== before.dev ||
+      opened.ino !== before.ino ||
+      opened.uid !== before.uid ||
+      opened.nlink !== 1 ||
+      opened.size !== before.size
+    )
+      throw new Error('RELEASE_FILE_CHANGED');
+    bytes = readFileSync(descriptor);
+    const after = fstatSync(descriptor);
+    if (
+      after.dev !== opened.dev ||
+      after.ino !== opened.ino ||
+      after.mode !== opened.mode ||
+      after.size !== opened.size ||
+      after.mtimeMs !== opened.mtimeMs ||
+      after.ctimeMs !== opened.ctimeMs ||
+      bytes.length !== opened.size
+    )
+      throw new Error('RELEASE_FILE_CHANGED');
+  } finally {
+    closeSync(descriptor);
+  }
+  return {
+    path,
+    device: String(opened.dev),
+    inode: String(opened.ino),
+    mode: String(opened.mode & 0o777),
+    size: String(opened.size),
+    sha256: createHash('sha256').update(bytes).digest('hex'),
+    parents
+  };
+}
+
+function assertReleaseFileSnapshotStable(before, after) {
+  if (JSON.stringify(before) !== JSON.stringify(after)) throw new Error('RELEASE_MANIFEST_CHANGED');
+}
+
+function assertReleaseFileReceipt(snapshot, receipt) {
+  if (
+    receipt.manifestPath !== snapshot.path ||
+    receipt.manifestDevice !== snapshot.device ||
+    receipt.manifestInode !== snapshot.inode ||
+    receipt.manifestMode !== snapshot.mode ||
+    receipt.manifestSize !== snapshot.size ||
+    receipt.manifestSha256 !== snapshot.sha256
+  )
+    throw new Error('ARTIFACT_RECEIPT_MANIFEST_INVALID');
+}
+
 function ensurePrivateDirectory(path) {
   try {
     mkdirSync(path, { mode: 0o700 });
@@ -233,7 +338,14 @@ function writeExclusiveCanonicalJson(path, value) {
   } finally {
     closeSync(parent);
   }
-  return { bytes, sha256: createHash('sha256').update(bytes).digest('hex') };
+  return {
+    bytes,
+    sha256: createHash('sha256').update(bytes).digest('hex'),
+    device: String(stats.dev),
+    inode: String(stats.ino),
+    mode: String(stats.mode & 0o777),
+    size: String(stats.size)
+  };
 }
 
 function appendGithubOutput(path, lines, { requireEmpty = false } = {}) {
@@ -298,7 +410,19 @@ function releaseStatePaths(attemptRoot, browser) {
   };
 }
 
-function readCanonicalOwnedJson(path, maximumBytes = 64 * 1024) {
+function readCanonicalOwnedJson(path, maximumBytes = 64 * 1024, attemptRoot) {
+  if (attemptRoot) {
+    if (!contained(attemptRoot, path)) throw new Error('RELEASE_JSON_PATH_INVALID');
+    let current = attemptRoot;
+    releaseDirectoryIdentity(current);
+    const relativeParent = relative(attemptRoot, dirname(path));
+    if (relativeParent !== '') {
+      for (const part of relativeParent.split(sep)) {
+        current = join(current, part);
+        releaseDirectoryIdentity(current);
+      }
+    }
+  }
   const stats = lstatSync(path);
   if (
     !stats.isFile() ||
@@ -601,6 +725,195 @@ function currentReleaseIdentity() {
   };
 }
 
+const ARTIFACT_RECEIPT_KEYS = [
+  'schema',
+  'browser',
+  'transport',
+  'attemptRoot',
+  'jobClass',
+  'runId',
+  'runAttempt',
+  'verifierProfile',
+  'terminalStatus',
+  'releaseSha',
+  'releaseTree',
+  'manifestPath',
+  'manifestDevice',
+  'manifestInode',
+  'manifestMode',
+  'manifestSize',
+  'manifestSha256'
+];
+
+const RELEASE_STATE_REQUIRED_KEYS = [
+  'schema',
+  'browser',
+  'releaseSha',
+  'releaseTree',
+  'artifactReceiptSha256',
+  'manifestPath',
+  'manifestSha256',
+  'stage',
+  'outcome',
+  'mutationInvoked',
+  'retrySafe'
+];
+
+const RELEASE_STATE_OPTIONAL_KEYS = ['lastStartedOperation', 'lastCompletedOperation'];
+
+const STATE_BINDING_KEYS = [
+  'schema',
+  'browser',
+  'attemptRoot',
+  'statePath',
+  'stateDevice',
+  'stateInode',
+  'stateMode',
+  'stateSize',
+  'stateSha256',
+  'artifactReceiptSha256',
+  'manifestPath',
+  'manifestSha256',
+  'releaseSha',
+  'releaseTree'
+];
+
+function validateArtifactReceipt(spec, artifact, expectedManifestPath, expectedManifestSha256) {
+  const context = spec.commandContext;
+  const value = artifact.value;
+  assertClosedKeys(value, ARTIFACT_RECEIPT_KEYS, 'artifact verification receipt');
+  const identity = currentReleaseIdentity();
+  if (
+    value.schema !== 'zendio-artifact-verification-receipt-v1' ||
+    value.browser !== context.browser ||
+    value.transport !== 'github-artifact-v1' ||
+    value.attemptRoot !== context.attemptRoot ||
+    value.jobClass !== spec.env.ZENDIO_JOB_CLASS ||
+    value.runId !== spec.env.GITHUB_RUN_ID ||
+    value.runAttempt !== spec.env.GITHUB_RUN_ATTEMPT ||
+    value.verifierProfile !== `${context.browser}-verify-v1` ||
+    value.terminalStatus !== 'success' ||
+    value.releaseSha !== identity.releaseSha ||
+    value.releaseTree !== identity.releaseTree ||
+    !/^[0-9a-f]{64}$/u.test(value.manifestSha256 ?? '') ||
+    !/^[0-9]+$/u.test(value.manifestDevice ?? '') ||
+    !/^[0-9]+$/u.test(value.manifestInode ?? '') ||
+    !/^[0-9]+$/u.test(value.manifestMode ?? '') ||
+    !/^[0-9]+$/u.test(value.manifestSize ?? '') ||
+    (expectedManifestPath !== undefined && value.manifestPath !== expectedManifestPath) ||
+    (expectedManifestSha256 !== undefined && value.manifestSha256 !== expectedManifestSha256)
+  )
+    throw new Error('ARTIFACT_RECEIPT_INVALID');
+  const snapshot = releaseFileSnapshot(context.attemptRoot, value.manifestPath, 32 << 20);
+  assertReleaseFileReceipt(snapshot, value);
+  return { identity, snapshot };
+}
+
+function validateReleaseStateValue(value, context, artifactDigest, artifactValue, identity) {
+  const keys = Object.keys(value);
+  if (
+    RELEASE_STATE_REQUIRED_KEYS.some((key) => !keys.includes(key)) ||
+    keys.some(
+      (key) =>
+        !RELEASE_STATE_REQUIRED_KEYS.includes(key) && !RELEASE_STATE_OPTIONAL_KEYS.includes(key)
+    )
+  )
+    throw new Error('RELEASE_STATE_INVALID');
+  const operationValues = ['upload', 'version-submit', 'source-patch'];
+  const outcomeValues = [
+    'not-started',
+    'pre-mutation-failure',
+    'unknown-submission-state',
+    'success'
+  ];
+  for (const key of RELEASE_STATE_OPTIONAL_KEYS) {
+    if (value[key] !== undefined && !operationValues.includes(value[key]))
+      throw new Error('RELEASE_STATE_INVALID');
+  }
+  if (
+    value.schema !== 'zendio-release-store-state-v1' ||
+    value.browser !== context.browser ||
+    value.releaseSha !== identity.releaseSha ||
+    value.releaseTree !== identity.releaseTree ||
+    value.artifactReceiptSha256 !== artifactDigest ||
+    value.manifestPath !== artifactValue.manifestPath ||
+    value.manifestSha256 !== artifactValue.manifestSha256 ||
+    typeof value.stage !== 'string' ||
+    value.stage.length === 0 ||
+    Buffer.byteLength(value.stage) > 128 ||
+    typeof value.outcome !== 'string' ||
+    !outcomeValues.includes(value.outcome) ||
+    Buffer.byteLength(value.outcome) > 128 ||
+    typeof value.mutationInvoked !== 'boolean' ||
+    typeof value.retrySafe !== 'boolean' ||
+    (value.mutationInvoked && value.retrySafe) ||
+    (!value.mutationInvoked && !value.retrySafe) ||
+    (value.outcome === 'not-started' &&
+      (value.stage !== 'preflight' ||
+        value.mutationInvoked !== false ||
+        value.retrySafe !== true ||
+        value.lastStartedOperation !== undefined ||
+        value.lastCompletedOperation !== undefined)) ||
+    (value.outcome === 'pre-mutation-failure' && value.mutationInvoked !== false) ||
+    (['unknown-submission-state', 'success'].includes(value.outcome) &&
+      value.mutationInvoked !== true)
+  )
+    throw new Error('RELEASE_STATE_INVALID');
+}
+
+function validateStateBinding(spec, { requireInitial = false } = {}) {
+  const context = spec.commandContext;
+  const paths = releaseStatePaths(context.attemptRoot, context.browser);
+  const artifact = readCanonicalOwnedJson(
+    paths.artifactReceiptPath,
+    64 * 1024,
+    context.attemptRoot
+  );
+  const artifactValidation = validateArtifactReceipt(
+    spec,
+    artifact,
+    context.manifestPath,
+    context.expectedManifestSha256
+  );
+  const binding = readCanonicalOwnedJson(paths.bindingReceiptPath, 64 * 1024, context.attemptRoot);
+  const state = readCanonicalOwnedJson(paths.statePath, 16 * 1024, context.attemptRoot);
+  assertClosedKeys(binding.value, STATE_BINDING_KEYS, 'release state binding');
+  const artifactDigest = createHash('sha256').update(artifact.bytes).digest('hex');
+  const stateDigest = createHash('sha256').update(state.bytes).digest('hex');
+  if (
+    binding.value.schema !== 'zendio-release-state-binding-v1' ||
+    binding.value.browser !== context.browser ||
+    binding.value.attemptRoot !== context.attemptRoot ||
+    binding.value.statePath !== paths.statePath ||
+    binding.value.artifactReceiptSha256 !== artifactDigest ||
+    binding.value.manifestPath !== artifact.value.manifestPath ||
+    binding.value.manifestSha256 !== artifact.value.manifestSha256 ||
+    binding.value.releaseSha !== artifactValidation.identity.releaseSha ||
+    binding.value.releaseTree !== artifactValidation.identity.releaseTree
+  )
+    throw new Error('RELEASE_STATE_BINDING_INVALID');
+  validateReleaseStateValue(
+    state.value,
+    context,
+    artifactDigest,
+    artifact.value,
+    artifactValidation.identity
+  );
+  const initial = state.value.stage === 'preflight' && state.value.outcome === 'not-started';
+  if (
+    (requireInitial &&
+      (!initial || state.value.mutationInvoked !== false || state.value.retrySafe !== true)) ||
+    (initial &&
+      (binding.value.stateDevice !== String(state.stats.dev) ||
+        binding.value.stateInode !== String(state.stats.ino) ||
+        binding.value.stateMode !== String(state.stats.mode & 0o777) ||
+        binding.value.stateSize !== String(state.stats.size) ||
+        binding.value.stateSha256 !== stateDigest))
+  )
+    throw new Error('RELEASE_STATE_BINDING_INVALID');
+  return { paths, artifact, binding, state, artifactValidation };
+}
+
 function executeInProcessProfile(spec) {
   const context = spec.commandContext;
   if (spec.operation === 'release-result-field-v1') {
@@ -632,16 +945,14 @@ function executeInProcessProfile(spec) {
   }
   if (spec.operation === 'release-state-init-v1') {
     const paths = releaseStatePaths(context.attemptRoot, context.browser);
-    const artifact = readCanonicalOwnedJson(paths.artifactReceiptPath);
-    const identity = currentReleaseIdentity();
-    if (
-      artifact.value.schema !== 'zendio-artifact-verification-receipt-v1' ||
-      artifact.value.browser !== context.browser ||
-      artifact.value.attemptRoot !== context.attemptRoot ||
-      artifact.value.releaseSha !== identity.releaseSha ||
-      artifact.value.releaseTree !== identity.releaseTree
-    )
-      throw new Error('ARTIFACT_RECEIPT_INVALID');
+    const artifact = readCanonicalOwnedJson(
+      paths.artifactReceiptPath,
+      64 * 1024,
+      context.attemptRoot
+    );
+    const artifactValidation = validateArtifactReceipt(spec, artifact);
+    const identity = artifactValidation.identity;
+    const artifactDigest = createHash('sha256').update(artifact.bytes).digest('hex');
     for (const path of [join(context.attemptRoot, 'store-state'), paths.root]) {
       try {
         lstatSync(path);
@@ -667,7 +978,9 @@ function executeInProcessProfile(spec) {
       browser: context.browser,
       releaseSha: identity.releaseSha,
       releaseTree: identity.releaseTree,
-      artifactReceiptSha256: createHash('sha256').update(artifact.bytes).digest('hex'),
+      artifactReceiptSha256: artifactDigest,
+      manifestPath: artifact.value.manifestPath,
+      manifestSha256: artifact.value.manifestSha256,
       stage: 'preflight',
       outcome: 'not-started',
       mutationInvoked: false,
@@ -679,8 +992,14 @@ function executeInProcessProfile(spec) {
       browser: context.browser,
       attemptRoot: context.attemptRoot,
       statePath: paths.statePath,
+      stateDevice: publication.device,
+      stateInode: publication.inode,
+      stateMode: publication.mode,
+      stateSize: publication.size,
       stateSha256: publication.sha256,
       artifactReceiptSha256: state.artifactReceiptSha256,
+      manifestPath: state.manifestPath,
+      manifestSha256: state.manifestSha256,
       releaseSha: identity.releaseSha,
       releaseTree: identity.releaseTree
     };
@@ -688,19 +1007,8 @@ function executeInProcessProfile(spec) {
     return syntheticResult(spec.profileId, true, 'success');
   }
   if (spec.operation === 'release-state-check-v1') {
-    const paths = releaseStatePaths(context.attemptRoot, context.browser);
-    const { value } = readCanonicalOwnedJson(paths.statePath, 16 * 1024);
-    if (
-      value.schema !== 'zendio-release-store-state-v1' ||
-      value.browser !== context.browser ||
-      typeof value.stage !== 'string' ||
-      typeof value.outcome !== 'string' ||
-      typeof value.mutationInvoked !== 'boolean' ||
-      typeof value.retrySafe !== 'boolean' ||
-      !/^[0-9a-f]{40}$/u.test(value.releaseSha ?? '') ||
-      !/^[0-9a-f]{40}$/u.test(value.releaseTree ?? '')
-    )
-      throw new Error('RELEASE_STATE_INVALID');
+    const { state } = validateStateBinding(spec);
+    const value = state.value;
     return syntheticResult(
       spec.profileId,
       true,
@@ -731,11 +1039,13 @@ function startInProcessProfile(spec) {
   return { cancel: () => false, completion: Promise.resolve(result), child: null, spec };
 }
 
-function publishArtifactVerificationReceipt(spec) {
+function publishArtifactVerificationReceipt(spec, before) {
   const context = spec.commandContext;
   if (!context || context.transport !== 'github-artifact-v1') return;
-  const actualDigest = sha256FileBounded(context.manifestPath, 32 << 20);
-  if (actualDigest !== context.expectedManifestSha256)
+  if (!before) throw new Error('RELEASE_MANIFEST_PRECONDITION_MISSING');
+  const after = releaseFileSnapshot(context.attemptRoot, context.manifestPath, 32 << 20);
+  assertReleaseFileSnapshotStable(before, after);
+  if (after.sha256 !== context.expectedManifestSha256)
     throw new Error('RELEASE_MANIFEST_DIGEST_MISMATCH');
   const receipts = ensurePrivateDirectory(join(context.attemptRoot, 'receipts'));
   const identity = currentReleaseIdentity();
@@ -747,10 +1057,16 @@ function publishArtifactVerificationReceipt(spec) {
     jobClass: spec.env.ZENDIO_JOB_CLASS,
     runId: spec.env.GITHUB_RUN_ID,
     runAttempt: spec.env.GITHUB_RUN_ATTEMPT,
+    verifierProfile: spec.profileId,
+    terminalStatus: 'success',
     releaseSha: identity.releaseSha,
     releaseTree: identity.releaseTree,
     manifestPath: context.manifestPath,
-    manifestSha256: actualDigest
+    manifestDevice: after.device,
+    manifestInode: after.inode,
+    manifestMode: after.mode,
+    manifestSize: after.size,
+    manifestSha256: after.sha256
   };
   writeExclusiveCanonicalJson(
     join(receipts, `${context.browser}-artifact-verification.json`),
@@ -763,27 +1079,13 @@ function assertStoreProfilePreconditions(spec) {
   const context = spec.commandContext;
   const paths = releaseStatePaths(context.attemptRoot, context.browser);
   if (context.statePath !== paths.statePath) throw new Error('RELEASE_STATE_PATH_INVALID');
-  const artifact = readCanonicalOwnedJson(paths.artifactReceiptPath);
-  const binding = readCanonicalOwnedJson(paths.bindingReceiptPath);
-  const state = readCanonicalOwnedJson(paths.statePath, 16 * 1024);
-  const artifactDigest = createHash('sha256').update(artifact.bytes).digest('hex');
-  const stateDigest = createHash('sha256').update(state.bytes).digest('hex');
   if (
-    artifact.value.schema !== 'zendio-artifact-verification-receipt-v1' ||
-    artifact.value.browser !== context.browser ||
-    binding.value.schema !== 'zendio-release-state-binding-v1' ||
-    binding.value.browser !== context.browser ||
-    binding.value.attemptRoot !== context.attemptRoot ||
-    binding.value.statePath !== paths.statePath ||
-    binding.value.artifactReceiptSha256 !== artifactDigest ||
-    binding.value.stateSha256 !== stateDigest ||
-    state.value.schema !== 'zendio-release-store-state-v1' ||
-    state.value.browser !== context.browser ||
-    state.value.stage !== 'preflight' ||
-    state.value.mutationInvoked !== false ||
-    state.value.retrySafe !== true
+    context.manifestPath === undefined ||
+    context.expectedManifestSha256 === undefined ||
+    !/^[0-9a-f]{64}$/u.test(context.expectedManifestSha256)
   )
-    throw new Error('RELEASE_STATE_BINDING_INVALID');
+    throw new Error('RELEASE_MANIFEST_BINDING_MISSING');
+  validateStateBinding(spec, { requireInitial: true });
   if (context.browser === 'firefox') {
     if (profileArgumentValue(spec.argv, '--saved-upload-uuid-path') !== paths.uuidPath)
       throw new Error('FIREFOX_UUID_PATH_INVALID');
@@ -793,6 +1095,38 @@ function assertStoreProfilePreconditions(spec) {
     } catch (error) {
       if (error?.code !== 'ENOENT') throw error;
     }
+  }
+}
+
+function assertPlaywrightPhasePreconditions(spec) {
+  const context = spec.commandContext;
+  if (!context?.playwrightPhase) return;
+  releaseDirectoryIdentity(context.attemptRoot);
+  releaseDirectoryIdentity(join(context.attemptRoot, 'install'));
+  for (const path of [context.userconfig, context.globalconfig]) {
+    const stats = lstatSync(path);
+    if (
+      !stats.isFile() ||
+      stats.isSymbolicLink() ||
+      stats.uid !== process.getuid() ||
+      stats.nlink !== 1 ||
+      (stats.mode & 0o777) !== 0o600 ||
+      readFileSync(path).length !== 0 ||
+      realpathSync(path) !== path
+    )
+      throw new Error('NPM_CONFIG_IDENTITY_INVALID');
+  }
+  if (context.hostDependencies) {
+    try {
+      lstatSync(context.browsersPath);
+      throw new Error('PLAYWRIGHT_BROWSER_ROOT_REUSED');
+    } catch (error) {
+      if (error?.code !== 'ENOENT') throw error;
+    }
+  } else {
+    releaseDirectoryIdentity(context.browsersPath);
+    if (readdirSync(context.browsersPath).length !== 0)
+      throw new Error('PLAYWRIGHT_BROWSER_ROOT_INVALID');
   }
 }
 
@@ -1056,7 +1390,22 @@ export function startBoundedCommand({ profileId, arguments: args = [] }, depende
   const resolver = dependencies.resolveProfile ?? resolveCommandProfile;
   const spec = resolver(profileId, args, { environment: dependencies.environment ?? process.env });
   if (spec.operation) return startInProcessProfile(spec);
+  assertPlaywrightPhasePreconditions(spec);
   assertStoreProfilePreconditions(spec);
+  const verificationSnapshot =
+    ['chrome-verify-v1', 'firefox-verify-v1'].includes(profileId) &&
+    spec.commandContext?.transport === 'github-artifact-v1'
+      ? releaseFileSnapshot(
+          spec.commandContext.attemptRoot,
+          spec.commandContext.manifestPath,
+          32 << 20
+        )
+      : undefined;
+  if (
+    verificationSnapshot &&
+    verificationSnapshot.sha256 !== spec.commandContext.expectedManifestSha256
+  )
+    throw new Error('RELEASE_MANIFEST_DIGEST_MISMATCH');
   if (spec.composite || profileId === 'vitest-v1' || profileId === 'playwright-v1') {
     return startCompositeLifecycle(spec, dependencies, async (lifecycle) => {
       if (profileId === 'vitest-v1' || profileId === 'playwright-v1') {
@@ -1070,7 +1419,7 @@ export function startBoundedCommand({ profileId, arguments: args = [] }, depende
       return runComposite(profileId, args, dependencies, lifecycle);
     });
   }
-  return startResolvedCommand(spec, dependencies);
+  return { ...startResolvedCommand(spec, dependencies), verificationSnapshot };
 }
 
 export async function runBoundedCommand(invocation, dependencies = {}) {
@@ -1086,7 +1435,7 @@ export async function runBoundedCommand(invocation, dependencies = {}) {
   if (result.ok) {
     try {
       if (['chrome-verify-v1', 'firefox-verify-v1'].includes(invocation.profileId))
-        publishArtifactVerificationReceipt(handle.spec);
+        publishArtifactVerificationReceipt(handle.spec, handle.verificationSnapshot);
       if (invocation.profileId === 'release-provenance-v1') validateActionOutput(handle.spec);
     } catch (error) {
       result = syntheticResult(

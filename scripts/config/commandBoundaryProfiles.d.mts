@@ -94,6 +94,9 @@ export const COMMAND_BOUNDARY_VERSION: string;
 export const COMMAND_REQUEST_FILE: 'command-request.json';
 export const REPOSITORY_ROOT: string;
 export const COMMAND_LIMITS: Readonly<Record<string, CommandLimits>>;
+export const R03_CI_JOB_SEQUENCE_RESERVATIONS: Readonly<
+  Record<string, readonly Readonly<{ owner: string; fullMs: number }>[]>
+>;
 export const TASK_GRAPH_POLICIES: Readonly<
   Record<string, Readonly<{ concurrency: number; fullMs: number; terminalReserveMs: number }>>
 >;
