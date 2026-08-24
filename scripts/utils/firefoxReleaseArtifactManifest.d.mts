@@ -6,6 +6,7 @@ export type FirefoxReleaseArtifactBinding = Readonly<{
   releaseDir: string;
   geckoId: string;
   xpiPath: string;
+  sourceArchivePath: string;
 }>;
 
 export const FIREFOX_RELEASE_ARTIFACT_SCHEMA: 'portable-release-artifact-v1';
@@ -27,6 +28,7 @@ export function consumeVerifiedFirefoxArtifactBinding(
   transportMode: FirefoxReleaseTransportMode
 ): Readonly<{
   xpiPath: string;
+  sourceArchivePath: string;
   geckoId: string;
   transportMode: FirefoxReleaseTransportMode;
   manifest: Record<string, unknown>;

@@ -1,4 +1,4 @@
-import { chmod, mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { chmod, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
@@ -90,6 +90,7 @@ describe('Firefox release artifact manifest', () => {
     });
 
     expect(binding.geckoId).toBe('fixture@example.test');
+    expect(binding.sourceArchivePath).toContain('fixture-source.zip');
     expect(() => consumeVerifiedFirefoxArtifactBinding({ ...binding }, 'local-private-v1')).toThrow(
       'FIREFOX_RELEASE_BINDING_INVALID'
     );
@@ -99,6 +100,22 @@ describe('Firefox release artifact manifest', () => {
     expect(() => consumeVerifiedFirefoxArtifactBinding(binding, 'local-private-v1')).toThrow(
       'FIREFOX_RELEASE_BINDING_CONSUMED'
     );
+  });
+
+  it('rejects duplicate artifact roles before minting a capability', async () => {
+    const fixture = await createFixture();
+    const manifest = await readFile(fixture.manifestPath, 'utf8');
+    const duplicateRoles = manifest.replace('"role": "amo-source"', '"role": "unsigned-xpi"');
+    expect(duplicateRoles).not.toBe(manifest);
+    await writeFile(fixture.manifestPath, duplicateRoles);
+
+    await expect(
+      verifyFirefoxReleaseArtifactManifest({
+        manifestPath: fixture.manifestPath,
+        transportMode: 'local-private-v1',
+        expectedAttemptRoot: fixture.root
+      })
+    ).rejects.toThrow('FIREFOX_RELEASE_MEMBER_ROLE_SET');
   });
 
   it('rejects an extra release-directory member before minting a capability', async () => {

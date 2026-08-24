@@ -59,7 +59,8 @@ describe('exact-XPI Firefox smoke adapter', () => {
     roots.push(root);
     const binding = await mintBinding(root);
     const child = new EventEmitter();
-    Object.assign(child, { pid: 1234, kill: vi.fn(() => true) });
+    const kill = vi.fn(() => true);
+    Object.assign(child, { pid: 1234, kill });
     const remoteFirefox = {
       installTemporaryAddon: vi.fn().mockResolvedValue({ id: binding.geckoId }),
       getInstalledAddon: vi
@@ -104,12 +105,92 @@ describe('exact-XPI Firefox smoke adapter', () => {
     expect(remoteFirefox.installTemporaryAddon).toHaveBeenCalledWith(binding.xpiPath);
     expect(remoteFirefox.reloadAddon).toHaveBeenCalledWith(binding.geckoId);
     expect(exit).toHaveBeenCalledTimes(1);
+    expect(kill).not.toHaveBeenCalled();
     expect(child.listenerCount('close')).toBe(0);
     await expect(
       import('node:fs/promises').then(({ lstat }) => lstat(profilePath))
     ).rejects.toMatchObject({
       code: 'ENOENT'
     });
+  });
+
+  it('rejects a relative Firefox executable before launching web-ext', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'zendio-firefox-smoke-relative-'));
+    roots.push(root);
+    const binding = await mintBinding(root);
+    const run = vi.fn();
+
+    await expect(
+      runVerifiedFirefoxXpiSmoke(
+        {
+          binding,
+          firefoxExecutable: 'relative/firefox',
+          profilePath: join(root, 'profile'),
+          bootstrapSourceDir: '/private/bootstrap',
+          transportMode: 'local-private-v1'
+        },
+        { webExt: { cmd: { run } } }
+      )
+    ).rejects.toThrow('FIREFOX_SMOKE_EXECUTABLE');
+    expect(run).not.toHaveBeenCalled();
+  });
+
+  it('fails when the managed Firefox closes during XPI installation', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'zendio-firefox-smoke-early-close-'));
+    roots.push(root);
+    const binding = await mintBinding(root);
+    const child = new EventEmitter();
+    const kill = vi.fn(() => true);
+    Object.assign(child, { pid: 1234, kill });
+    const installTemporaryAddon = vi.fn(
+      () =>
+        new Promise((resolve) => {
+          queueMicrotask(() => child.emit('close', 1, null));
+          queueMicrotask(() => resolve({ id: binding.geckoId }));
+        })
+    );
+    const getInstalledAddon = vi.fn();
+    const reloadAddon = vi.fn();
+    const exit = vi.fn().mockResolvedValue(undefined);
+    const profilePath = join(root, 'profile');
+
+    await expect(
+      runVerifiedFirefoxXpiSmoke(
+        {
+          binding,
+          firefoxExecutable: '/private/firefox',
+          profilePath,
+          bootstrapSourceDir: '/private/bootstrap',
+          transportMode: 'local-private-v1'
+        },
+        {
+          webExt: {
+            cmd: {
+              run: vi.fn().mockResolvedValue({
+                extensionRunners: [
+                  {
+                    remoteFirefox: {
+                      installTemporaryAddon,
+                      getInstalledAddon,
+                      reloadAddon
+                    },
+                    runningInfo: { firefox: child },
+                    exit
+                  }
+                ]
+              })
+            }
+          }
+        }
+      )
+    ).rejects.toThrow('FIREFOX_SMOKE_PROCESS_CLOSED');
+    expect(getInstalledAddon).not.toHaveBeenCalled();
+    expect(reloadAddon).not.toHaveBeenCalled();
+    expect(exit).toHaveBeenCalledTimes(1);
+    expect(kill).not.toHaveBeenCalled();
+    await expect(
+      import('node:fs/promises').then(({ lstat }) => lstat(profilePath))
+    ).rejects.toMatchObject({ code: 'ENOENT' });
   });
 
   it('freezes the production timeout contract', () => {

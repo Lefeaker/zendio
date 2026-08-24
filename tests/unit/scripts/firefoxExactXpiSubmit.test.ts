@@ -88,11 +88,101 @@ describe('exact-XPI submission adapter', () => {
       expect.objectContaining({
         id: 'fixture@example.test',
         xpiPath: fixture.binding.xpiPath,
+        submissionSource: fixture.binding.sourceArchivePath,
         approvalCheckTimeout: 0
       })
     );
     expect(journal.beforeMutation).toHaveBeenCalledTimes(1);
     expect(journal.afterMutation).toHaveBeenCalledTimes(1);
+  });
+
+  it('rejects an in-release substitute source before credentials, journal, or signer', async () => {
+    const fixture = await createBoundRelease();
+    const substitutePath = join(fixture.releaseDir, 'substitute-source.zip');
+    await writeFile(substitutePath, buildZipFixture([{ path: 'README.md', content: '# other\n' }]));
+    await chmod(substitutePath, 0o600);
+    const credentialRead = vi.fn();
+    const journal = {
+      beforeMutation: vi.fn(),
+      afterMutation: vi.fn()
+    };
+    const signAddonImpl = vi.fn();
+
+    await expect(
+      submitVerifiedFirefoxXpi(
+        {
+          binding: fixture.binding,
+          transportMode: 'local-private-v1',
+          channel: 'listed',
+          id: fixture.binding.geckoId,
+          amoBaseUrl: FIREFOX_AMO_API_BASE_URL,
+          submissionSource: substitutePath,
+          savedUploadUuidPath: join(fixture.releaseDir, 'upload-state.json'),
+          downloadDir: fixture.downloadDir,
+          credentials: {
+            get apiKey() {
+              credentialRead();
+              return 'key';
+            },
+            get apiSecret() {
+              credentialRead();
+              return 'secret';
+            }
+          },
+          mutationJournal: journal
+        },
+        { signAddonImpl }
+      )
+    ).rejects.toThrow('FIREFOX_SUBMIT_SOURCE_MISMATCH');
+    expect(credentialRead).not.toHaveBeenCalled();
+    expect(journal.beforeMutation).not.toHaveBeenCalled();
+    expect(journal.afterMutation).not.toHaveBeenCalled();
+    expect(signAddonImpl).not.toHaveBeenCalled();
+  });
+
+  it('rejects bound source mutation before credentials, journal, or signer', async () => {
+    const fixture = await createBoundRelease();
+    await writeFile(
+      fixture.sourcePath,
+      buildZipFixture([{ path: 'README.md', content: '# replaced\n' }])
+    );
+    const credentialRead = vi.fn();
+    const journal = {
+      beforeMutation: vi.fn(),
+      afterMutation: vi.fn()
+    };
+    const signAddonImpl = vi.fn();
+
+    await expect(
+      submitVerifiedFirefoxXpi(
+        {
+          binding: fixture.binding,
+          transportMode: 'local-private-v1',
+          channel: 'listed',
+          id: fixture.binding.geckoId,
+          amoBaseUrl: FIREFOX_AMO_API_BASE_URL,
+          submissionSource: fixture.sourcePath,
+          savedUploadUuidPath: join(fixture.releaseDir, 'upload-state.json'),
+          downloadDir: fixture.downloadDir,
+          credentials: {
+            get apiKey() {
+              credentialRead();
+              return 'key';
+            },
+            get apiSecret() {
+              credentialRead();
+              return 'secret';
+            }
+          },
+          mutationJournal: journal
+        },
+        { signAddonImpl }
+      )
+    ).rejects.toThrow('FIREFOX_RELEASE_BINDING_DRIFT');
+    expect(credentialRead).not.toHaveBeenCalled();
+    expect(journal.beforeMutation).not.toHaveBeenCalled();
+    expect(journal.afterMutation).not.toHaveBeenCalled();
+    expect(signAddonImpl).not.toHaveBeenCalled();
   });
 
   it('rejects a structural clone without reading credentials or invoking the signer', async () => {

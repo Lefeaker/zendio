@@ -243,6 +243,11 @@ export async function verifyFirefoxReleaseArtifactManifest({
   if (!Array.isArray(manifest.members) || manifest.members.length !== 2) {
     fail('FIREFOX_RELEASE_MEMBER_SET');
   }
+  const xpiMembers = manifest.members.filter((member) => member?.role === 'unsigned-xpi');
+  const sourceMembers = manifest.members.filter((member) => member?.role === 'amo-source');
+  if (xpiMembers.length !== 1 || sourceMembers.length !== 1) {
+    fail('FIREFOX_RELEASE_MEMBER_ROLE_SET');
+  }
   const expectedNames = new Set([
     'manifest.json',
     ...manifest.members.map((row) => row.relativePath)
@@ -269,7 +274,12 @@ export async function verifyFirefoxReleaseArtifactManifest({
     contexts.push({ member, memberPath, ...snapshot });
   }
   const xpiContext = contexts.find(({ member }) => member.role === 'unsigned-xpi');
-  if (!xpiContext || !sameInventory(xpiContext.member.zipInventory, manifest.distInventory)) {
+  const sourceContext = contexts.find(({ member }) => member.role === 'amo-source');
+  if (
+    !xpiContext ||
+    !sourceContext ||
+    !sameInventory(xpiContext.member.zipInventory, manifest.distInventory)
+  ) {
     fail('FIREFOX_RELEASE_XPI_DIST_MISMATCH');
   }
   const binding = Object.freeze({
@@ -277,7 +287,8 @@ export async function verifyFirefoxReleaseArtifactManifest({
     transportMode,
     releaseDir,
     geckoId: manifest.package.geckoId,
-    xpiPath: xpiContext.memberPath
+    xpiPath: xpiContext.memberPath,
+    sourceArchivePath: sourceContext.memberPath
   });
   verifiedBindings.add(binding);
   bindingContexts.set(binding, { manifestPath: path, manifestSnapshot, contexts, manifest, modes });
@@ -311,6 +322,7 @@ export function consumeVerifiedFirefoxArtifactBinding(binding, transportMode) {
   consumedBindings.add(binding);
   return Object.freeze({
     xpiPath: binding.xpiPath,
+    sourceArchivePath: binding.sourceArchivePath,
     geckoId: binding.geckoId,
     transportMode,
     manifest: context.manifest

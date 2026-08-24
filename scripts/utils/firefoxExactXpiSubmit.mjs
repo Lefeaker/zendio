@@ -1,6 +1,7 @@
 import { basename, dirname, resolve, sep } from 'node:path';
 import { lstat } from 'node:fs/promises';
 import {
+  assertVerifiedFirefoxArtifactBinding,
   consumeVerifiedFirefoxArtifactBinding,
   getVerifiedFirefoxArtifactSnapshot
 } from './firefoxReleaseArtifactManifest.mjs';
@@ -71,27 +72,31 @@ export async function submitVerifiedFirefoxXpi(options, dependencies = {}) {
     credentials,
     mutationJournal
   } = options;
+  const verifiedBinding = assertVerifiedFirefoxArtifactBinding(binding);
   if (!['listed', 'unlisted'].includes(channel)) fail('FIREFOX_SUBMIT_CHANNEL');
   if (amoBaseUrl !== FIREFOX_AMO_API_BASE_URL) fail('FIREFOX_SUBMIT_BASE_URL');
-  if (!id || id !== binding?.geckoId || Buffer.byteLength(id, 'utf8') > 256) {
+  if (!id || id !== verifiedBinding.geckoId || Buffer.byteLength(id, 'utf8') > 256) {
     fail('FIREFOX_SUBMIT_GECKO_ID');
   }
   if (!savedUploadUuidPath || basename(savedUploadUuidPath) !== 'upload-state.json') {
     fail('FIREFOX_SUBMIT_STATE_PATH');
   }
-  const releaseRoot = binding.releaseDir;
-  assertContained(releaseRoot, submissionSource);
+  const releaseRoot = verifiedBinding.releaseDir;
+  const requestedSubmissionSource = assertContained(releaseRoot, submissionSource);
   assertContained(releaseRoot, savedUploadUuidPath);
   assertContained(releaseRoot, downloadDir);
   await assertFreshPrivateTarget(savedUploadUuidPath);
-  if (!mutationJournal?.beforeMutation || !mutationJournal?.afterMutation) {
-    fail('FIREFOX_SUBMIT_JOURNAL');
-  }
 
-  const consumed = consumeVerifiedFirefoxArtifactBinding(binding, transportMode);
-  const sourceStat = await lstat(submissionSource);
+  const consumed = consumeVerifiedFirefoxArtifactBinding(verifiedBinding, transportMode);
+  if (requestedSubmissionSource !== consumed.sourceArchivePath) {
+    fail('FIREFOX_SUBMIT_SOURCE_MISMATCH');
+  }
+  const sourceStat = await lstat(consumed.sourceArchivePath);
   if (!sourceStat.isFile() || sourceStat.isSymbolicLink() || sourceStat.nlink !== 1) {
     fail('FIREFOX_SUBMIT_SOURCE_TYPE');
+  }
+  if (!mutationJournal?.beforeMutation || !mutationJournal?.afterMutation) {
+    fail('FIREFOX_SUBMIT_JOURNAL');
   }
   const apiKey = credentials?.apiKey;
   const apiSecret = credentials?.apiSecret;
@@ -117,7 +122,7 @@ export async function submitVerifiedFirefoxXpi(options, dependencies = {}) {
       downloadDir,
       channel,
       savedUploadUuidPath,
-      submissionSource,
+      submissionSource: consumed.sourceArchivePath,
       SubmitClient: dependencies.SubmitClient
     });
     await mutationJournal.afterMutation('upload', { channel, id });

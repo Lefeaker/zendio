@@ -1,6 +1,6 @@
 import { lstat, mkdir, rm } from 'node:fs/promises';
 import process from 'node:process';
-import { resolve } from 'node:path';
+import { isAbsolute } from 'node:path';
 import { assertVerifiedFirefoxArtifactBinding } from './firefoxReleaseArtifactManifest.mjs';
 
 export const FIREFOX_XPI_SMOKE_TIMEOUTS = Object.freeze({
@@ -62,18 +62,64 @@ function assertRunnerShape(result) {
 
 function createCloseObserver(child) {
   let listener;
+  let closeResult =
+    child.exitCode != null || child.signalCode != null
+      ? { code: child.exitCode ?? null, signal: child.signalCode ?? null }
+      : null;
   const promise = new Promise((resolve) => {
-    listener = (code, signal) => resolve({ code, signal });
+    if (closeResult) {
+      resolve(closeResult);
+      return;
+    }
+    listener = (code, signal) => {
+      closeResult = { code, signal };
+      resolve(closeResult);
+    };
     child.once('close', listener);
   });
-  return { promise, remove: () => child.removeListener('close', listener) };
+  return {
+    promise,
+    hasClosed: () => closeResult !== null,
+    result: () => closeResult,
+    remove: () => {
+      if (listener) child.removeListener('close', listener);
+    }
+  };
+}
+
+function assertManagedChildOpen(closeObserver) {
+  if (!closeObserver.hasClosed()) return;
+  const result = closeObserver.result();
+  fail(
+    'FIREFOX_SMOKE_PROCESS_CLOSED',
+    `code=${String(result?.code ?? 'null')},signal=${String(result?.signal ?? 'null')}`
+  );
+}
+
+async function runManagedOperation(operation, closeObserver, timeoutMs, timeoutCode) {
+  assertManagedChildOpen(closeObserver);
+  try {
+    const result = await withTimeout(
+      Promise.race([
+        Promise.resolve().then(operation),
+        closeObserver.promise.then(() => assertManagedChildOpen(closeObserver))
+      ]),
+      timeoutMs,
+      timeoutCode
+    );
+    assertManagedChildOpen(closeObserver);
+    return result;
+  } catch (error) {
+    assertManagedChildOpen(closeObserver);
+    throw error;
+  }
 }
 
 export async function runVerifiedFirefoxXpiSmoke(options, dependencies = {}) {
   const { binding, firefoxExecutable, profilePath, bootstrapSourceDir, transportMode } = options;
   assertVerifiedFirefoxArtifactBinding(binding);
   if (binding.transportMode !== transportMode) fail('FIREFOX_SMOKE_TRANSPORT_MODE');
-  if (!resolve(firefoxExecutable).startsWith('/')) fail('FIREFOX_SMOKE_EXECUTABLE');
+  if (!isAbsolute(firefoxExecutable)) fail('FIREFOX_SMOKE_EXECUTABLE');
   await assertAbsent(profilePath);
   await mkdir(profilePath, { mode: 0o700 });
   const profileStat = await lstat(profilePath);
@@ -112,33 +158,38 @@ export async function runVerifiedFirefoxXpiSmoke(options, dependencies = {}) {
     );
     runnerShape = assertRunnerShape(result);
     closeObserver = createCloseObserver(runnerShape.child);
-    const installed = await withTimeout(
-      runnerShape.remote.installTemporaryAddon(binding.xpiPath),
+    const installed = await runManagedOperation(
+      () => runnerShape.remote.installTemporaryAddon(binding.xpiPath),
+      closeObserver,
       FIREFOX_XPI_SMOKE_TIMEOUTS.installMs,
       'FIREFOX_SMOKE_INSTALL_TIMEOUT'
     );
     if (installed?.id && installed.id !== binding.geckoId) fail('FIREFOX_SMOKE_ADDON_ID');
-    const first = await withTimeout(
-      runnerShape.remote.getInstalledAddon(binding.geckoId),
+    const first = await runManagedOperation(
+      () => runnerShape.remote.getInstalledAddon(binding.geckoId),
+      closeObserver,
       FIREFOX_XPI_SMOKE_TIMEOUTS.queryMs,
       'FIREFOX_SMOKE_QUERY_TIMEOUT'
     );
     if (first?.id !== binding.geckoId || first?.temporarilyInstalled !== true) {
       fail('FIREFOX_SMOKE_ADDON_STATE');
     }
-    await withTimeout(
-      runnerShape.remote.reloadAddon(binding.geckoId),
+    await runManagedOperation(
+      () => runnerShape.remote.reloadAddon(binding.geckoId),
+      closeObserver,
       FIREFOX_XPI_SMOKE_TIMEOUTS.reloadMs,
       'FIREFOX_SMOKE_RELOAD_TIMEOUT'
     );
-    const second = await withTimeout(
-      runnerShape.remote.getInstalledAddon(binding.geckoId),
+    const second = await runManagedOperation(
+      () => runnerShape.remote.getInstalledAddon(binding.geckoId),
+      closeObserver,
       FIREFOX_XPI_SMOKE_TIMEOUTS.queryMs,
       'FIREFOX_SMOKE_QUERY_TIMEOUT'
     );
     if (second?.id !== binding.geckoId || second?.temporarilyInstalled !== true) {
       fail('FIREFOX_SMOKE_ADDON_STATE');
     }
+    assertManagedChildOpen(closeObserver);
     if (Date.now() - started > FIREFOX_XPI_SMOKE_TIMEOUTS.wholeMs) {
       fail('FIREFOX_SMOKE_WHOLE_TIMEOUT');
     }
@@ -166,19 +217,23 @@ export async function runVerifiedFirefoxXpiSmoke(options, dependencies = {}) {
         );
         closed = true;
       } catch {
-        const killResult = runnerShape.child.kill('SIGKILL');
-        if (killResult !== true) {
-          if (!operationError) fail('FIREFOX_SMOKE_FORCE_KILL_FAILED');
+        if (closeObserver.hasClosed()) {
+          closed = true;
         } else {
-          try {
-            await withTimeout(
-              closeObserver.promise,
-              FIREFOX_XPI_SMOKE_TIMEOUTS.forcedCloseMs,
-              'FIREFOX_SMOKE_FORCED_CLOSE_TIMEOUT'
-            );
-            closed = true;
-          } catch (error) {
-            if (!operationError) throw error;
+          const killResult = runnerShape.child.kill('SIGKILL');
+          if (killResult !== true) {
+            if (!operationError) fail('FIREFOX_SMOKE_FORCE_KILL_FAILED');
+          } else {
+            try {
+              await withTimeout(
+                closeObserver.promise,
+                FIREFOX_XPI_SMOKE_TIMEOUTS.forcedCloseMs,
+                'FIREFOX_SMOKE_FORCED_CLOSE_TIMEOUT'
+              );
+              closed = true;
+            } catch (error) {
+              if (!operationError) throw error;
+            }
           }
         }
       } finally {
