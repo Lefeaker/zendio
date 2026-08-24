@@ -73,17 +73,6 @@ export interface ProductionStitchShellActionRuntime {
   waitForIdle(): Promise<void>;
 }
 
-interface PersistenceSnapshot {
-  appData: PreviewContent;
-  draft: CompleteOptions;
-  state: PreviewStoreState;
-}
-
-function clone<T>(value: T): T {
-  if (typeof globalThis.structuredClone === 'function') return globalThis.structuredClone(value);
-  return JSON.parse(JSON.stringify(value)) as T;
-}
-
 type AnalyticsSection =
   | 'overview'
   | 'vault'
@@ -265,19 +254,13 @@ export function createProductionStitchShellActionRuntime(
     persistence.restoreUsageStatsView();
   }
 
-  function runPersistenceTask(key: string, task: () => Promise<void>): void {
-    taskOwner.run<PersistenceSnapshot>({
+  function runPersistenceTask(key: string, task: () => Promise<void>, rollback?: () => void): void {
+    taskOwner.run<null>({
       key,
-      capture: () => ({
-        appData: clone(options.getAppData()),
-        draft: clone(options.getDraft()),
-        state: clone(options.getState())
-      }),
+      capture: () => null,
       task,
-      rollback: (snapshot, error) => {
-        options.setAppData(snapshot.appData);
-        options.setDraft(snapshot.draft);
-        options.setState(snapshot.state);
+      rollback: (_snapshot, error) => {
+        rollback?.();
         options.render();
         showStatusMessage('error', formatOptionsError(error, options.getCurrentMessages()));
       }

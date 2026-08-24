@@ -25,6 +25,7 @@ describe('production Stitch persistence action routing', () => {
     const actions = createProductionStitchActions(
       asType<ProductionStitchActionContext>({
         getCurrentLanguage: () => 'en',
+        getDraft: () => ({ interfaceTheme: 'system' }),
         getMessages: () => null,
         getState: () => state,
         runPersistenceTask,

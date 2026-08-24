@@ -39,12 +39,23 @@ import * as storageControllerModule from '@options/app/productionStitchStorageCo
 import { DEFAULT_RUNTIME_MESSAGES } from '@i18n';
 import { mergeOptions } from '@shared/config/optionsMerger';
 import type { CompleteOptions } from './productionStitchShell.helpers';
+import type { UsageStats } from '@shared/types/usage';
 import { getRestDefaults } from '../../utils/restDefaults';
 
 const REST_DEFAULTS = getRestDefaults();
 const LOCAL_HTTPS_URL = `https://localhost:${REST_DEFAULTS.httpsPort}`;
 const LOCAL_HTTP_URL = `http://localhost:${REST_DEFAULTS.httpPort}`;
 const LOCAL_HTTP_CONFLICT_URL = `http://localhost:${REST_DEFAULTS.httpsPort}`;
+
+function deferred<T>() {
+  let resolve = (_value: T): void => undefined;
+  let reject = (_error: Error): void => undefined;
+  const promise = new Promise<T>((resolvePromise, rejectPromise) => {
+    resolve = resolvePromise;
+    reject = rejectPromise;
+  });
+  return { promise, reject, resolve };
+}
 
 function mockStorageConnectionFailure(message: string) {
   const actualFactory = storageControllerModule.createProductionStitchStorageController;
@@ -757,6 +768,69 @@ describe('mountProductionStitchShell actions', () => {
       event: 'clear_stats',
       params: { timestamp: 1234 }
     });
+  });
+
+  it('keeps a committed usage reset when an earlier theme task fails', async () => {
+    const controller = createController();
+    const optionsRepository = createRepository();
+    const pendingTheme = deferred<CompleteOptions>();
+    optionsRepository.patch.mockImplementationOnce(() => pendingTheme.promise);
+    const previousUsage: UsageStats = {
+      aiChatSaves: 11,
+      fragmentSaves: 7,
+      articleSaves: 5,
+      lastUpdatedISO: '2026-08-23T00:00:00.000Z',
+      history: [{ date: '2026-08-23', aiChat: 11, fragment: 7, article: 5 }]
+    };
+    const resetUsage: UsageStats = {
+      aiChatSaves: 0,
+      fragmentSaves: 0,
+      articleSaves: 0,
+      lastUpdatedISO: null,
+      history: []
+    };
+    let durableUsage = previousUsage;
+    const usageStatsClient = {
+      get: vi.fn(() => Promise.resolve(durableUsage)),
+      reset: vi.fn(() => {
+        durableUsage = resetUsage;
+        return Promise.resolve(durableUsage);
+      })
+    };
+    const mounted = mountProductionStitchShell({
+      controller: asOptionsController(controller),
+      initialOptions: { interfaceTheme: 'dark' },
+      messages: null,
+      language: 'en',
+      optionsRepository,
+      usageStatsClient
+    });
+    const usageValues = () =>
+      Array.from(document.querySelectorAll<HTMLElement>('.stats-grid .stat-value')).map((node) =>
+        node.textContent?.trim()
+      );
+
+    await flushPromises();
+    expect(usageValues()).toEqual(['23', '11', '7', '5']);
+
+    findButton('Light').click();
+    expect(mounted.collectDraft().interfaceTheme).toBe('light');
+    expect(document.documentElement.dataset.theme).toBe('light');
+
+    findButton('Clear Usage Data').click();
+    await flushPromises();
+    expect(usageStatsClient.reset).toHaveBeenCalledTimes(1);
+    expect(durableUsage).toEqual(resetUsage);
+    expect(usageValues()).toEqual(['0', '0', '0', '0']);
+
+    pendingTheme.reject(new Error('theme persistence failed'));
+    await flushPromises();
+
+    expect(durableUsage).toEqual(resetUsage);
+    expect(usageValues()).toEqual(['0', '0', '0', '0']);
+    expect(mounted.collectDraft().interfaceTheme).toBe('dark');
+    expect(document.documentElement.dataset.theme).toBe('dark');
+    expect(window.localStorage.getItem('aob-theme')).toBe('dark');
   });
 
   it('emits canonical export telemetry without leaking exported option content', async () => {

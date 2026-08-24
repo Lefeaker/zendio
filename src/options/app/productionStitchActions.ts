@@ -48,7 +48,7 @@ export interface ProductionStitchActionContext {
     value: boolean
   ): Promise<void>;
   persistThemePreference(theme: InterfaceTheme): Promise<void>;
-  runPersistenceTask(key: string, task: () => Promise<void>): void;
+  runPersistenceTask(key: string, task: () => Promise<void>, rollback?: () => void): void;
   refreshAppData(): void;
   render(): void;
   renderActiveResourceModal(): void;
@@ -81,18 +81,30 @@ export function createProductionStitchActions(
     ...createProductionSelectionTriggerActions(context),
     'preview:setTheme': ({ value, mutate: update }) => {
       const theme: InterfaceTheme = value === 'light' || value === 'system' ? value : 'dark';
-      context.runPersistenceTask('options:theme', async () => {
-        update(
-          (next) => {
-            next.interfaceThemePreference = theme;
-            next.previewTheme = persistTheme(theme);
-          },
-          { silent: true }
-        );
-        context.syncPreviewThemeControls();
-        await context.persistThemePreference(theme);
-        context.trackThemeChanged?.(theme);
-      });
+      const previousStateTheme = context.getState().interfaceThemePreference ?? 'system';
+      const previousDraftTheme = context.getDraft().interfaceTheme ?? previousStateTheme;
+      context.runPersistenceTask(
+        'options:theme',
+        async () => {
+          update(
+            (next) => {
+              next.interfaceThemePreference = theme;
+              next.previewTheme = persistTheme(theme);
+            },
+            { silent: true }
+          );
+          context.syncPreviewThemeControls();
+          await context.persistThemePreference(theme);
+          context.trackThemeChanged?.(theme);
+        },
+        () => {
+          const state = context.getState();
+          state.interfaceThemePreference = previousStateTheme;
+          state.previewTheme = persistTheme(previousStateTheme);
+          context.getDraft().interfaceTheme = previousDraftTheme;
+          context.syncPreviewThemeControls();
+        }
+      );
     },
     'preview:setLanguage': ({ value, mutate: update }) => {
       const nextLanguage = String(value || context.getCurrentLanguage()) as Language;
