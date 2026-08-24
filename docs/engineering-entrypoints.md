@@ -1,17 +1,19 @@
 # 工程命令与入口
 
-最后更新：2026-07-01
+最后更新：2026-08-24
 
 ## 推荐运行环境
 
 - Node.js：`.nvmrc` pins `20.20.2`；package engines allow `>=20.19 <21`
 - npm：validated `10.8.2`；package engines allow `>=10 <11`
-- Playwright：`npx playwright install --with-deps chromium`
+- Playwright 本地安装：`node scripts/run-bounded-command.mjs --profile playwright-install-v1 -- chromium-with-deps`；CI 使用分离的 `playwright-host-deps-platform-v1` 与 `playwright-browser-install-v1`
+
+所有 direct tool 与 CI/project command 必须经 `scripts/run-bounded-command.mjs` 的固定 profile，或经 `quality-check.mjs`、`verify-preflight.mjs`、两个 shard runner 之一的 direct-root grammar。禁止 `npx`、bare tool、shell/data interpolation、ambient concurrency/env/cwd、caller-selected timeout/descriptor/output policy 与第二套 spawn/queue owner。
 
 ## 本轮统一门禁真值
 
 - `npm run quality`
-  - 由 `scripts/quality-check.mjs` 的 dependency-aware task graph 执行；`QUALITY_CONCURRENCY` 可控制本地并发，默认按 CPU 上限保守并行
+  - 由 `scripts/quality-check.mjs` 的 dependency-aware task graph 执行；`quality-v1` 并发固定为 `3`，拒绝 `QUALITY_CONCURRENCY` 等环境覆盖
   - 显式包含 `verify:runtime`，运行 `scripts/verify-runtime.mjs` 校验当前 Node.js 满足 `package.json` 的 `engines.node`
   - 显式包含 `release:metadata:check`；版本号单一来源为 `package.json` 的 `version` 字段，该 gate 校验 `package-lock.json` root version、`public/manifest.json`、`public/manifest.firefox.json` 与 `src/i18n/catalog/messages/*/runtime.json` 的 `versionNumber` 均已由 `npm run release:metadata:sync` 同步
   - 显式包含 `typecheck:app`
@@ -38,6 +40,7 @@
   - `i18n:catalog:generate` 当前从 `src/i18n/catalog/messages/<lang>/{runtime,static,schema}.json` 生成 `src/i18n/generated/*`、`src/i18n/generated/locales/*.generated.ts` 与 `public/_locales/**`；`npm run i18n:generate` 保持原命令名，但现在只是兼容包装层，实际委托给 catalog generator
   - `public/_locales/**` 是当前 catalog-owned WebExtension static source；root `_locales/**` 已退役并删除，不参与 production build/package ownership
 - `npm run verify:preflight`
+  - canonical direct root 为 `node scripts/verify-preflight.mjs`，使用固定 concurrency `1` 保留 20-leaf 左到右顺序
   - 显式包含 `verify:runtime`
   - 显式包含 `typecheck:app`
   - 显式包含 `typecheck:tests`
@@ -48,10 +51,10 @@
   - 显式包含 `audit:ga:proxy-contract`、`audit:ga:docs` 与 `audit:ga:legacy-api`
   - 串行继续执行 `lint -- --quiet`、`build:dev`、`audit:ga:client-secret`、`audit:ga:release-surface` 与其他 `audit:*` 报告
 - `npm run test*` 与 `npm run visual*`
-  - 每个 npm script entrypoint 显式前置 `verify:runtime`
+  - `test`、`test:unit`、`test:e2e` 与 `test:coverage` 直接进入 `vitest-v1`；该 profile 在启动 locked Vitest leaf 前拥有 runtime guard，其余现有 browser/visual aliases 仍保留显式 runtime guard
   - 本地 PATH 指向不受支持 Node 版本时，先在 runtime guard 失败，不启动 Vitest / Playwright
-  - `test:unit:shards` 与 `test:e2e:shards` 是本地加速入口：它们按进程级 shard 并行运行，单个 Vitest 进程仍使用现有 config，不改变 canonical `test:unit`、`test:e2e` 或 `test:coverage` 口径
-  - `test:e2e:browser:parallel` 与 `visual:test:parallel` 会先运行一次 `build:dev`，再通过 `PLAYWRIGHT_SKIP_WEB_SERVER_BUILD=1` 让各 Playwright shard 只读同一 dist；runner 会为每个 shard 注入独立 `PLAYWRIGHT_OUTPUT_DIR` 与 `PLAYWRIGHT_HTML_REPORT_DIR`，避免 failure artifacts / HTML report 互相覆盖；直接并行多个旧 browser 命令仍不推荐
+  - canonical shard roots 为 `node scripts/run-test-shards.mjs <unit|e2e> [registered-shard]`；全组固定最多 `3` 个 Vitest leaf，显式单 shard 固定为 `1`，不读取 CPU 或环境并发
+  - canonical browser shard root 为 `node scripts/run-browser-test-shards.mjs <e2e|visual>`；固定最多 `2` 个 Playwright leaf，并为每个 registered shard 使用 owner-defined `PLAYWRIGHT_OUTPUT_DIR` / `PLAYWRIGHT_HTML_REPORT_DIR`，caller 不能覆盖路径
   - `test:e2e:browser:parallel` 当前覆盖 YAML interaction、reader-panel 与 migration smoke 三组 shard；local-vault 与 Firefox browser checks 仍保留为独立专项命令
 - `npm run build*` 与 `npm run package*`
   - `build` 与 `build:firefox` 显式先运行一次 `quality`，随后调用 `scripts/build.mjs --skip-checks`，不得恢复为重复触发完整 `quality` 的形式
@@ -62,9 +65,10 @@
 - `.github/workflows/ci.yml`
   - 采用拆分后的并行 job 拓扑：`static-preflight`、`static-release-surface`、`static-generated-artifacts`、`static-style-and-locale`、`static-reporting-audits`、`coverage`、`visual` matrix、`e2e-vitest`、`browser-yaml`、`browser-reader-panel`、`browser-smoke` 并行执行
   - 使用 workflow-level `concurrency`，同一 PR / ref 的新 run 会取消旧 run
-  - `.github/actions/setup-node-deps` 统一 Node / npm cache / `npm ci`；`.github/actions/setup-playwright` 在此基础上缓存 `~/.cache/ms-playwright` 并安装 Chromium browser dependencies
+  - 每个 job 先运行 checkout 前 builtin-only bootstrap，随后使用 literal `ubuntu-24.04`；timeout taxonomy 为 Static preflight `60`、Package extension `35`、其他 generic `30`、browser/visual `60` 分钟
+  - `.github/actions/setup-node-deps` 禁用 setup-node package-manager cache，并只调用 `github-ci-install-v1` 输出 attempt root 与两个 private npm config；`.github/actions/setup-playwright` 不使用 default cache，而是按顺序调用 fixed Chromium host-deps/platform 与 bounded browser-install profile
   - 官方 JavaScript actions 使用 Node 24-compatible major：`actions/checkout@v6`、`actions/setup-node@v6`、`actions/upload-artifact@v7`、`actions/github-script@v8`
-  - `static-preflight` 显式运行 `npm run audit:ci-workflow:check`、`npm run i18n:catalog:check` 与 `npm run verify:preflight`；三项 typecheck 仍由 `verify:preflight` 显式覆盖
+  - `static-preflight` 通过 bounded profiles 运行 CI audit 与 i18n catalog，并直接调用 `node scripts/verify-preflight.mjs`；三项 typecheck 仍由 preflight 显式覆盖
   - `static-release-surface` 显式运行 `build:fast` 与 `audit:release-surface:report`
   - `static-style-and-locale` 保留 locale source alignment、Options CSS naming、hardcoded config guard 与 lint warning guard 的 hard gate 语义；`static-reporting-audits` 仅保留 report-only audit 的 per-step `continue-on-error`
   - `visual` 按 `chromium-desktop` / `chromium-tablet` / `chromium-mobile` matrix 拆分；Vitest E2E 与三组 browser E2E 拆成独立 job，失败报告 artifact 按 suite 命名
@@ -90,7 +94,7 @@
 - 2026-05-26 M10 source-of-truth sync 真值：maintainability-debt M0-M10 合入后的 integration branch 上，`quality`、`verify:preflight`、`lint:type-any`、`audit:performance:report`、`audit:build:report`、`audit:compatibility-duplicates:check` 与 `audit:non-production-source:report` 均已重新采集；当前 type/warning/non-production source 数值见下文
 - 2026-05-26 M10 budget ratchet 真值：`quality` 显式包含 `lint:type-any:ratchet`；`verify:preflight` 继续包含 `audit:performance:report`，且 performance report 覆盖当前全部 `src` >250 LOC 文件
 - 2026-06-01 Plan 09 compatibility duplicate 真值：`quality` 显式包含 `audit:compatibility-duplicates:check`；当前 usage/rest compatibility candidate files 为 `0`，exact duplicate groups 为 `0`，allowlist entries 为 `0`，因此没有生产 allowlist。工具中的旧 `src/options/components/sections/usage*.ts` / `src/options/widgets/shared/usage/**` scope 是 retired compatibility reintroduction guard，只用于防止已退役 usage compatibility shells 被重新引入并复制，不代表当前生产 owner。
-- 2026-06-13 test runtime guard 真值：`package.json` 中 `test` / `test:*` / `visual:*` npm scripts 均显式前置 `verify:runtime`；本地 PATH 指向 Node 23 等不支持版本时，测试入口会先失败在 runtime guard，不会启动 Vitest / Playwright。
+- 2026-08-24 command-boundary runtime truth：`test`、`test:unit`、`test:e2e`、`test:coverage` 由 `vitest-v1` 内部先执行 runtime guard，再启动 locked CLI；其他现有 test/browser/visual aliases 保留显式 guard。Unsupported Node 会在任何 Vitest / Playwright leaf 前失败。
 - 2026-05-25 post-gap runtime guard 真值：本轮验证使用 Node `v20.20.2` / npm `10.8.2`；`package.json` 与 `package-lock.json` root engines 要求 Node `>=20.19 <21`，`verify:runtime` 会读取 `package.json` 的 `engines.node` 并已接入 `quality` 与 `verify:preflight`
 - 2026-06-19 Vitest 4 / Vite 8 / release-tooling dependency-audit 真值：Node `v20.20.2` / npm `10.8.2` 下，root devDependencies 精确锁定为 `vitest 4.1.9` 与 `@vitest/coverage-v8 4.1.9`，解析出的 dev test toolchain 为 `vite 8.0.16`、`esbuild 0.28.1`。Firefox signing toolchain 仍通过 `web-ext 10.4.0 -> addons-linter 10.7.0 -> cheerio 1.2.0` 解析；`undici@>=7.0.0 <7.28.0` 已由 root override 锁定到 `7.28.0`，关闭 2026-06-19 发现的 `undici@7.27.2` dev/release-tooling audit 漂移。`npm audit --omit=dev --json` 与 `npm audit --audit-level=low --json` 当前均退出 `0`，total `0` vulnerabilities；此前 `vitest` / `vite` / `esbuild` dev/build/test-only high 链 release exception 已关闭。全量 dev audit 仍不是 `quality` / `verify:preflight` / CI hard gate，除非后续 owner 单独做 gate 决策。迁移兼容修复仅限测试侧：Vitest 4 stricter `Mock` typing、Chrome/Firefox downloads 测试中的 constructible `URL` stub、以及 `@mozilla/readability` constructible mock。coverage hard gate 保持启用并同步为 Vitest 4 口径 floor：statements `76.5`、lines `77`、functions `77.5`、branches `66.5`。
 - 2026-06-16 i18n hardcoded P22/post-strict-gap type-ratchet 真值：P16-P22 与 post-P22 strict gap 合入 integration 后，`lint:type-any` 扫描 `1231` files，fresh overall `0/1148/1973/47/3`、src `0/628/695/9/0`、tests `0/520/1278/38/3`；`lint:type-any:ratchet` checked-in 上限同步为 overall `0/1148/1973/53/4`、src `0/628/695/9/0`、tests `0/520/1278/46/4`。本次只同步 accepted integration current truth，`any` 继续保持 `0`，`ts-expect-error` 未增加，non-null 上限未放宽。
@@ -133,7 +137,7 @@ npm run audit:i18n-hardcoded-user-copy
 npm run audit:i18n-hardcoded-user-copy:check
 npm run audit:i18n-uncatalogued-user-copy
 npm run audit:i18n-uncatalogued-user-copy:check
-npx vitest run --config vitest.unit.config.ts tests/unit/i18n/hardcodedSurfaceCoverage.test.ts
+node scripts/run-bounded-command.mjs --profile vitest-v1 -- run --config vitest.unit.config.ts tests/unit/i18n/hardcodedSurfaceCoverage.test.ts
 ```
 
 `audit:i18n-hardcoded-user-copy` 只打印当前报告；`audit:i18n-hardcoded-user-copy:check` 是 standalone hard gate。`quality` 会先生成 `build/reports/production-build-graph.json` 再直接调用底层 check 脚本以复用同一个 graph；手动直接运行 `node scripts/audit-i18n-hardcoded-user-copy.mjs --check` 前必须先刷新 graph，普通本地使用仍优先 npm script。
@@ -155,7 +159,7 @@ npm run visual:test:parallel
 
 Reader/video browser E2E command truth:
 
-- `node scripts/run-playwright.mjs test tests/e2e/<file> --project=chromium-desktop` automatically uses `playwright.reader.config.ts` when no explicit `--config` is supplied.
+- `node scripts/run-bounded-command.mjs --profile playwright-v1 -- test tests/e2e/<file> --project=chromium-desktop` retains the verified Playwright runner behavior and selects `playwright.reader.config.ts` when no explicit `--config` is supplied.
 - `playwright.reader.config.ts` starts the local Playwright web server and runs `build:dev`, so reader/video browser E2E tests do not depend on a pre-existing `build/dist`.
 - Visual browser tests remain owned by `playwright.config.ts` and `tests/visual/**`.
 
@@ -281,10 +285,10 @@ npm run audit:ga:release-surface
 node scripts/run-ga-owner-smoke.mjs --mode proxy --event runtime_harness_open
 node scripts/run-ga-owner-smoke.mjs --mode directDebug --event runtime_harness_open
 node scripts/run-ga-owner-smoke.mjs --help
-npx vitest run --config vitest.unit.config.ts tests/unit/scripts/runGaOwnerSmoke.test.ts tests/unit/scripts/analyticsDeliverySmoke.test.ts
-npx vitest run tests/unit/background/analyticsEvents.test.ts tests/unit/shared/errors/analytics/index.test.ts tests/unit/shared/errors/analyticsConfig.test.ts
-npx vitest run tests/unit/content/video/videoScreenshotCacheRepository.test.ts tests/unit/content/video/videoScreenshotCacheBackgroundClient.test.ts tests/unit/content/video/VideoSession.test.ts tests/unit/content/video/videoFrameScreenshot.test.ts tests/unit/background/visibleTabScreenshot.test.ts tests/unit/background/runtimeMessages.test.ts
-node scripts/run-playwright.mjs test tests/e2e/videoPanelFlow.test.ts tests/e2e/videoListenerScope.browser.test.ts --project=chromium-desktop
+node scripts/run-bounded-command.mjs --profile vitest-v1 -- run --config vitest.unit.config.ts tests/unit/scripts/runGaOwnerSmoke.test.ts tests/unit/scripts/analyticsDeliverySmoke.test.ts
+node scripts/run-bounded-command.mjs --profile vitest-v1 -- run --config vitest.unit.config.ts tests/unit/background/analyticsEvents.test.ts tests/unit/shared/errors/analytics/index.test.ts tests/unit/shared/errors/analyticsConfig.test.ts
+node scripts/run-bounded-command.mjs --profile vitest-v1 -- run --config vitest.unit.config.ts tests/unit/content/video/videoScreenshotCacheRepository.test.ts tests/unit/content/video/videoScreenshotCacheBackgroundClient.test.ts tests/unit/content/video/VideoSession.test.ts tests/unit/content/video/videoFrameScreenshot.test.ts tests/unit/background/visibleTabScreenshot.test.ts tests/unit/background/runtimeMessages.test.ts
+node scripts/run-bounded-command.mjs --profile playwright-v1 -- test tests/e2e/videoPanelFlow.test.ts tests/e2e/videoListenerScope.browser.test.ts --project=chromium-desktop
 ```
 
 Use these commands to validate the settled GA consent/transport contract and the
@@ -406,7 +410,7 @@ warning `108` / hard stop `118`；2026-06-20 Options/onboarding closeout 将
 
 2026-06-17 video screenshot cache main integration build/type/regression truth:
 
-- 本轮集成保留 `node scripts/run-playwright.mjs test tests/e2e/videoPanelFlow.test.ts --project=chromium-desktop` 作为视频截图混合缓存 browser truth；该文件覆盖 reload、关闭页面后同 context 重开、关闭 persistent browser context 后用同一 `userDataDir` relaunch，以及删除 capture 后 IndexedDB cache entry 清理。
+- 本轮集成保留 `node scripts/run-bounded-command.mjs --profile playwright-v1 -- test tests/e2e/videoPanelFlow.test.ts --project=chromium-desktop` 作为视频截图混合缓存 browser truth；该文件覆盖 reload、关闭页面后同 context 重开、关闭 persistent browser context 后用同一 `userDataDir` relaunch，以及删除 capture 后 IndexedDB cache entry 清理。
 - P06 inherited restored-screenshot focused proof 与 P07 reader browser proof 继续作为历史补充证据；本轮不改变 production 截图 bytes owner，不把 Blob/data URL 写回 durable session draft。
 - 本轮 focused Vitest `5` 文件 / `79` tests、`VideoSessionDraftController.test.ts` `21` tests、`VideoSession.test.ts` `96` tests 与 Chromium `videoPanelFlow.test.ts` `3` tests 通过。`lint:type-any:ratchet` fresh overall `0/1141/1954/50/3`、src `0/627/692/9/0`、tests `0/514/1262/41/3`；`lint:warnings-guard` baseline `160`；English uncatalogued-copy audit 输出 `scanned=583 findings=0 unexpected=0 staleAllowlist=0`。
 - Fresh build/performance truth 已由 2026-06-18 GA telemetry acceptance gap fix 重新同步到 [`performance-baseline.md`](./performance-baseline.md)：production `content/runtime.js` raw `50,027` bytes、`onboarding/index.js` raw `10,023` bytes、chunks `104`；dev `content/runtime.js` raw `58,508` bytes、`onboarding/index.js` raw `17,566` bytes、chunks `118`；release-surface `Files=173`；performance `sourceFiles=814`、`hotspotsOver250=108`、`registeredLineBudgets=136`。

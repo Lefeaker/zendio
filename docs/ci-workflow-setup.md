@@ -1,146 +1,86 @@
 # CI 工作流配置指南
 
-本文档提供了为 AiiinOB 项目配置持续集成（CI）工作流的建议。
+当前 CI 真值由 `.github/workflows/ci.yml`、
+`.github/actions/setup-node-deps/action.yml`、
+`.github/actions/setup-playwright/action.yml` 与
+`tools/report-ci-workflow-contract.mjs` 共同定义。不要复制旧的
+`npm ci`、`npx`、默认 package-manager cache 或
+`~/.cache/ms-playwright` 示例。
 
-## GitHub Actions 配置
+## 命令边界
 
-如果使用 GitHub Actions，请在 `.github/workflows/ci.yml` 中添加以下配置：
+每个 job 的第一步都是 checkout 前的 `bootstrap-shell-v1`：
 
-```yaml
-name: CI
+- 只使用 Bash 3.2 builtin；
+- 拒绝 `NODE_OPTIONS`、`HUSKY` 与大小写变体的
+  `npm_config_*`；
+- 绑定 GitHub run/job、Ubuntu 24.04 image 与单调启动时间；
+- 只创建 mode-0600 的启动 stamp，不创建目录。
 
-on:
-  push:
-    branches: [main, develop]
-  pull_request:
-    branches: [main]
-
-jobs:
-  quality-check:
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version-file: '.nvmrc'
-          cache: 'npm'
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Run quality checks
-        run: npm run quality
-
-      - name: Build extension
-        run: npm run build
-
-      - name: Upload build artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: build-artifacts-node-nvmrc
-          path: dist/
-
-  e2e-tests:
-    runs-on: ubuntu-latest
-    needs: quality-check
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version-file: '.nvmrc'
-          cache: 'npm'
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Run E2E tests
-        run: npm run test:e2e
-```
-
-## 本地开发流程
-
-### 预提交检查
-
-项目已配置 Husky 预提交钩子，会在每次提交前自动运行：
-
-- ESLint 代码规范检查
-- Prettier 格式检查
-
-### 手动质量检查
-
-在提交前，建议运行完整的质量检查：
+checkout 与 pinned `actions/setup-node@v6` 后，第一个仓库 Node 入口是：
 
 ```bash
-npm run quality
+node scripts/run-bounded-command.mjs --profile github-ci-install-v1
 ```
 
-### 构建命令
+该 profile 验证 stamp、job class、总预算与 `GITHUB_OUTPUT`，原子保留
+attempt root 和 `install` 子目录，创建 private npm user/global config，
+再用绝对 npm CLI argv 执行 locked install。Composite 只输出：
 
-- `npm run build` - 完整构建（包含质量检查）
-- `npm run build:fast` - 快速构建（跳过质量检查，仅用于调试）
-- `npm run build:dev` - 开发构建（跳过质量检查）
+- `attempt-root`
+- `npm-userconfig`
+- `npm-globalconfig`
 
-## 质量门槛说明
+`actions/setup-node` 必须使用 literal `package-manager-cache: false`。
+不得添加 `cache:`、`actions/cache`、raw npm、`GITHUB_ENV` 或第二个
+setup/install fallback。
 
-### 必须通过的检查
+## Playwright
 
-1. **TypeScript 类型检查** - 确保类型安全
-2. **ESLint 规范检查** - 确保代码规范
-3. **Prettier 格式检查** - 确保代码格式一致
-4. **单元测试** - 确保核心功能正常
-
-### 可选检查
-
-- **E2E 测试** - 建议在 CI 中运行，本地可选
-
-## 逃生口机制
-
-在紧急情况下，可以使用以下命令跳过质量检查：
+Chromium setup 是两个顺序且不可合并的固定阶段：
 
 ```bash
-# 跳过质量检查的构建
-npm run build:fast
-
-# 跳过预提交钩子
-git commit --no-verify -m "emergency fix"
+node scripts/run-bounded-command.mjs --profile playwright-host-deps-platform-v1 -- chromium-with-host-deps
+node scripts/run-bounded-command.mjs --profile playwright-browser-install-v1 -- chromium-with-host-deps
 ```
 
-**注意：** 逃生口仅应在紧急修复或调试时使用，正常开发应始终通过质量检查。
+第一阶段只对 GitHub-hosted Ubuntu 的 privileged host dependencies
+负责，最终终止边界属于 job timeout；第二阶段安装 attempt-owned bundled
+browser，并由普通 bounded lifecycle 监督。Firefox job 使用同样的两个
+literal profile，参数固定为 `firefox-with-host-deps`。禁止 default
+browser cache、channel/executable override、raw Playwright CLI 或 shell
+插值。
 
-## 故障排除
+## Job 拓扑与预算
 
-### ESLint 错误过多
+所有 job 使用 literal `ubuntu-24.04`：
 
-如果 ESLint 报告大量错误，可以：
+- `static-preflight`：60 分钟；
+- `package`：35 分钟；
+- 其他 generic job：30 分钟；
+- browser/visual job：60 分钟。
 
-1. 运行自动修复：`npm run lint:fix`
-2. 逐步修复关键错误
-3. 考虑调整 ESLint 规则（需团队讨论）
+固定 job 集合为 static preflight/release/generated/style/reporting、
+coverage、visual matrix、E2E Vitest、YAML/reader/smoke/video/Firefox
+browser 与 package。Package 只依赖 `static-preflight`；报告型 audit
+可以保留 step-level `continue-on-error`，不得给 hard gate 或 browser
+test 添加 masking。
 
-### 格式问题
+每个 repository `run:` step 必须是 direct root coordinator 或
+`node scripts/run-bounded-command.mjs --profile ...`。不得使用 raw
+`npm`、`npx`、`pnpx`、bare Vitest/Prettier/Stylelint/Playwright、
+shell chain、caller-selected cwd/env/timeout/concurrency 或共享 browser
+output。
 
-运行 Prettier 自动格式化：
+## 本地验证
 
 ```bash
-npm run format
+node scripts/run-bounded-command.mjs --profile npm-script-quick-v1 -- audit:ci-workflow:check
+node scripts/run-bounded-command.mjs --profile vitest-v1 -- run --config vitest.unit.config.ts tests/unit/tools/ciWorkflow.test.ts
+node scripts/quality-check.mjs
+node scripts/verify-preflight.mjs
 ```
 
-### 测试失败
-
-1. 检查测试环境配置
-2. 更新测试用例
-3. 修复相关代码逻辑
-
-## 团队协作建议
-
-1. **代码审查**：PR 中应包含质量检查通过的证明
-2. **分支策略**：主分支应始终保持质量检查通过
-3. **发布流程**：发布前必须通过完整的质量检查
+Husky 的 tracked target 只能调用 `lint-staged-hook-v1`，正常提交不得使用
+`--no-verify`。格式化和修复应在提交前完成，使真实 hook 的第二次执行保持
+index tree 与 stash ref 不变。
