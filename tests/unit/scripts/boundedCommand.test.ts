@@ -29,7 +29,8 @@ import {
 } from '../../../scripts/config/commandBoundaryProfiles.mjs';
 import {
   readCanonicalCommandRequest,
-  runBoundedCommand
+  runBoundedCommand,
+  startBoundedCommand
 } from '../../../scripts/utils/boundedCommand.mjs';
 
 const temporaryRoots: string[] = [];
@@ -75,6 +76,18 @@ function verifiedNpmLifecycleEnvironment(extra: Record<string, string> = {}): No
     npm_package_version: '0.2.1',
     ...extra
   });
+}
+
+async function waitForActiveChild(
+  handle: ReturnType<typeof startBoundedCommand>,
+  previous: ReturnType<typeof startBoundedCommand>['child'] = null
+) {
+  for (let attempt = 0; attempt < 200; attempt += 1) {
+    const child = handle.child;
+    if (child && child !== previous) return child;
+    await new Promise((resolvePromise) => setTimeout(resolvePromise, 5));
+  }
+  throw new Error('TEST_ACTIVE_CHILD_NOT_OBSERVED');
 }
 
 function temporaryRoot(): string {
@@ -590,6 +603,129 @@ describe('bounded command ownership', () => {
     expect(held).toMatchObject({ ok: false, closeObserved: true, pipeDrainObserved: true });
     expect(overflow).toMatchObject({ ok: false, terminalReason: 'output-overflow' });
     expect(overflow.output.stdout).toMatchObject({ bytes: 70000, overflow: true });
+  });
+
+  it('delegates cancellation to the active runtime guard and waits for real close and drain', async () => {
+    const environment = cleanEnvironment();
+    const guardSpec = resolveCommandProfile('fixture-v1', ['ignore-term', '5000'], {
+      environment
+    });
+    const leafSpec = resolveCommandProfile('fixture-v1', ['success', 'leaf-must-not-start'], {
+      environment
+    });
+    const handle = startBoundedCommand(
+      { profileId: 'vitest-v1', arguments: ['run'] },
+      {
+        environment,
+        resolveProfile(profileId) {
+          return {
+            ...(profileId === 'vitest-v1' ? leafSpec : guardSpec),
+            profileId
+          };
+        }
+      }
+    );
+
+    const guardChild = await waitForActiveChild(handle);
+    await new Promise((resolvePromise) => setTimeout(resolvePromise, 50));
+    expect(handle.cancel('cancelled')).toBe(true);
+    const result = await handle.completion;
+
+    expect(guardChild.pid).toBeGreaterThan(1);
+    expect(handle.child).toBeNull();
+    expect(result).toMatchObject({
+      ok: false,
+      terminalReason: 'cancelled',
+      cancelled: true,
+      signal: 'SIGKILL',
+      closeObserved: true,
+      pipeDrainObserved: true
+    });
+    expect(result.escalation.map((entry) => entry.signal)).toEqual(['SIGTERM', 'SIGKILL']);
+  });
+
+  it.each(['vitest-v1', 'playwright-v1'])(
+    'delegates cancellation to the active %s leaf without allowing late success',
+    async (profileId) => {
+      const environment = cleanEnvironment();
+      const guardSpec = resolveCommandProfile('fixture-v1', ['delay', '100'], {
+        environment
+      });
+      const leafSpec = resolveCommandProfile('fixture-v1', ['ignore-term', '5000'], {
+        environment
+      });
+      const handle = startBoundedCommand(
+        {
+          profileId,
+          arguments: profileId === 'vitest-v1' ? ['run'] : ['test']
+        },
+        {
+          environment,
+          resolveProfile(resolvedProfileId) {
+            return {
+              ...(resolvedProfileId === 'node-script-standard-v1' ? guardSpec : leafSpec),
+              profileId: resolvedProfileId
+            };
+          }
+        }
+      );
+
+      const guardChild = await waitForActiveChild(handle);
+      const leafChild = await waitForActiveChild(handle, guardChild);
+      await new Promise((resolvePromise) => setTimeout(resolvePromise, 50));
+      expect(handle.cancel('root-deadline')).toBe(true);
+      const result = await handle.completion;
+
+      expect(leafChild.pid).not.toBe(guardChild.pid);
+      expect(handle.child).toBeNull();
+      expect(result).toMatchObject({
+        ok: false,
+        terminalReason: 'root-deadline',
+        cancelled: true,
+        closeObserved: true,
+        pipeDrainObserved: true
+      });
+      expect(['SIGTERM', 'SIGKILL']).toContain(result.signal);
+      expect(result.escalation[0]).toMatchObject({ signal: 'SIGTERM', delivered: true });
+    }
+  );
+
+  it('latches cancellation between real sequence phases and prevents later admission', async () => {
+    const environment = cleanEnvironment();
+    const phaseSpec = resolveCommandProfile('fixture-v1', ['delay', '100'], {
+      environment
+    });
+    const compositeSpec = {
+      ...phaseSpec,
+      profileId: 'stitch-secondary-v1',
+      composite: 'stitch-secondary-v1'
+    };
+    const resolvedProfiles: string[] = [];
+    const handle = startBoundedCommand(
+      { profileId: 'stitch-secondary-v1', arguments: [] },
+      {
+        environment,
+        resolveProfile(profileId) {
+          resolvedProfiles.push(profileId);
+          return profileId === 'stitch-secondary-v1' ? compositeSpec : { ...phaseSpec, profileId };
+        }
+      }
+    );
+
+    const firstPhaseChild = await waitForActiveChild(handle);
+    firstPhaseChild.prependOnceListener('close', () => handle.cancel('parent-signal'));
+    const result = await handle.completion;
+
+    expect(resolvedProfiles).toEqual(['stitch-secondary-v1', 'node-script-standard-v1']);
+    expect(handle.child).toBeNull();
+    expect(result).toMatchObject({
+      ok: false,
+      terminalReason: 'parent-signal',
+      cancelled: true,
+      closeObserved: true,
+      pipeDrainObserved: true
+    });
+    expect(result.output.stdout.text).toBe('late-success');
   });
 
   it('reports a synchronous spawn failure without leaking signal listeners', async () => {

@@ -1,3 +1,4 @@
+import type { ChildProcess } from 'node:child_process';
 import type { CommandBoundaryProfileId } from '../config/commandBoundaryProfiles.mjs';
 
 export interface BoundedOutputResult {
@@ -36,7 +37,7 @@ export interface BoundedCommandInvocation {
 
 export interface BoundedCommandHandle {
   readonly completion: Promise<BoundedCommandResult>;
-  readonly child: object | null;
+  readonly child: ChildProcess | null;
   readonly spec?: object;
   cancel(reason?: string): boolean;
 }

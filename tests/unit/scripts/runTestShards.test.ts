@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { createTestShardTaskGraph } from '../../../scripts/run-test-shards.mjs';
+import { createTestShardTaskGraph, main } from '../../../scripts/run-test-shards.mjs';
+import type { TestShardTask } from '../../../scripts/run-test-shards.mjs';
+import { resolveCommandProfile } from '../../../scripts/config/commandBoundaryProfiles.mjs';
+import { startBoundedCommand } from '../../../scripts/utils/boundedCommand.mjs';
+import type { BoundedCommandResult } from '../../../scripts/utils/boundedCommand.mjs';
 
 describe('Vitest shard command graph', () => {
   it('maps every unit and E2E shard to one locked direct Vitest leaf', () => {
@@ -51,5 +55,62 @@ describe('Vitest shard command graph', () => {
     expect(graph.tasks).toHaveLength(2);
     expect(graph.tasks[1]?.id).toBe('shard:tools');
     expect(graph.tasks[1]?.profile).toBe('vitest-v1');
+  });
+
+  it('cancels real active Vitest composites on first shard failure without a late wave', async () => {
+    const environment = { HOME: process.env.HOME, TMPDIR: '/tmp' };
+    const guardSpec = resolveCommandProfile('fixture-v1', ['success', 'guard-ok'], {
+      environment
+    });
+    const failedSpec = resolveCommandProfile('fixture-v1', ['exit', '7'], { environment });
+    const liveSpec = resolveCommandProfile('fixture-v1', ['ignore-term', '5000'], {
+      environment
+    });
+    const started: string[] = [];
+    const observed = new Map<string, BoundedCommandResult>();
+    const startCommand = (task: TestShardTask) => {
+      started.push(task.id);
+      const leafSpec = task.id === 'shard:background' ? failedSpec : liveSpec;
+      const handle = startBoundedCommand(
+        { profileId: task.profile, arguments: task.args },
+        {
+          environment,
+          resolveProfile(profileId) {
+            if (task.id === 'verify-runtime') return { ...guardSpec, profileId };
+            return {
+              ...(profileId === 'node-script-standard-v1' ? guardSpec : leafSpec),
+              profileId
+            };
+          }
+        }
+      );
+      void handle.completion.then((result) => observed.set(task.id, result));
+      return handle;
+    };
+
+    const result = await main(['unit'], { concurrency: 3, startCommand });
+
+    expect(result.ok).toBe(false);
+    expect(started).toEqual([
+      'verify-runtime',
+      'shard:background',
+      'shard:content',
+      'shard:options'
+    ]);
+    expect(observed.get('shard:background')).toMatchObject({
+      terminalReason: 'nonzero',
+      exitCode: 7
+    });
+    for (const id of ['shard:content', 'shard:options']) {
+      expect(observed.get(id)).toMatchObject({
+        ok: false,
+        terminalReason: 'nonzero',
+        cancelled: true,
+        closeObserved: true,
+        pipeDrainObserved: true
+      });
+    }
+    expect(started).not.toContain('shard:shared');
+    expect(started).not.toContain('shard:tools');
   });
 });

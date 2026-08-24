@@ -5,6 +5,9 @@ import {
   main
 } from '../../../scripts/run-browser-test-shards.mjs';
 import type { BrowserShardTask } from '../../../scripts/run-browser-test-shards.mjs';
+import { resolveCommandProfile } from '../../../scripts/config/commandBoundaryProfiles.mjs';
+import { startBoundedCommand } from '../../../scripts/utils/boundedCommand.mjs';
+import type { BoundedCommandResult } from '../../../scripts/utils/boundedCommand.mjs';
 
 function successfulHandle(profileId: string) {
   const emptyOutput = { bytes: 0, sha256: '', overflow: false, text: '' };
@@ -112,6 +115,55 @@ describe('browser shard command graph', () => {
 
     expect(result.ok).toBe(true);
     expect(started).toEqual(['verify-runtime', 'shard:yaml', 'shard:reader-panel', 'shard:smoke']);
+  });
+
+  it('cancels a real active Playwright composite after the first browser shard failure', async () => {
+    const environment = { HOME: process.env.HOME, TMPDIR: '/tmp' };
+    const guardSpec = resolveCommandProfile('fixture-v1', ['success', 'guard-ok'], {
+      environment
+    });
+    const failedSpec = resolveCommandProfile('fixture-v1', ['exit', '7'], { environment });
+    const liveSpec = resolveCommandProfile('fixture-v1', ['ignore-term', '5000'], {
+      environment
+    });
+    const started: string[] = [];
+    const observed = new Map<string, BoundedCommandResult>();
+    const startCommand = (task: BrowserShardTask) => {
+      started.push(task.id);
+      const leafSpec = task.id === 'shard:yaml' ? failedSpec : liveSpec;
+      const handle = startBoundedCommand(
+        { profileId: task.profile, arguments: task.args },
+        {
+          environment,
+          resolveProfile(profileId) {
+            if (task.id === 'verify-runtime') return { ...guardSpec, profileId };
+            return {
+              ...(profileId === 'node-script-standard-v1' ? guardSpec : leafSpec),
+              profileId
+            };
+          }
+        }
+      );
+      void handle.completion.then((result) => observed.set(task.id, result));
+      return handle;
+    };
+
+    const result = await main(['e2e'], { startCommand });
+
+    expect(result.ok).toBe(false);
+    expect(started).toEqual(['verify-runtime', 'shard:yaml', 'shard:reader-panel']);
+    expect(observed.get('shard:yaml')).toMatchObject({
+      terminalReason: 'nonzero',
+      exitCode: 7
+    });
+    expect(observed.get('shard:reader-panel')).toMatchObject({
+      ok: false,
+      terminalReason: 'nonzero',
+      cancelled: true,
+      closeObserved: true,
+      pipeDrainObserved: true
+    });
+    expect(started).not.toContain('shard:smoke');
   });
 
   it('rejects unknown suites before a command can start', async () => {

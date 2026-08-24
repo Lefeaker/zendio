@@ -103,6 +103,149 @@ describe('bounded task graph runner', () => {
     expect(result.graph.failed[1]).toMatchObject({ id: 'b', terminalReason: 'cancelled' });
   });
 
+  it('propagates first failure into real active composite siblings and waits for drain', () => {
+    const result = runModuleScenario(
+      `
+      import { runTaskGraph } from './scripts/utils/taskGraphRunner.mjs';
+      import { startBoundedCommand } from './scripts/utils/boundedCommand.mjs';
+      import { resolveCommandProfile } from './scripts/config/commandBoundaryProfiles.mjs';
+      const environment = { HOME: process.env.HOME, TMPDIR: '/tmp' };
+      const guard = resolveCommandProfile('fixture-v1', ['success', 'guard-ok'], { environment });
+      const failedLeaf = resolveCommandProfile('fixture-v1', ['exit', '7'], { environment });
+      const liveLeaf = resolveCommandProfile('fixture-v1', ['ignore-term', '5000'], { environment });
+      const tasks = [
+        { id: 'fail', profile: 'vitest-v1', args: ['run'], dependsOn: [] },
+        { id: 'sibling', profile: 'vitest-v1', args: ['run'], dependsOn: [] },
+        { id: 'late-wave', profile: 'fixture-v1', args: ['success'], dependsOn: ['fail'] }
+      ];
+      const graph = await runTaskGraph(tasks, {
+        policyId: 'quality-v1',
+        concurrency: 2,
+        startCommand(task) {
+          const leaf = task.id === 'fail' ? failedLeaf : liveLeaf;
+          return startBoundedCommand(
+            { profileId: task.profile, arguments: task.args },
+            {
+              environment,
+              resolveProfile(profileId) {
+                return {
+                  ...(profileId === 'node-script-standard-v1' ? guard : leaf),
+                  profileId
+                };
+              }
+            }
+          );
+        }
+      });
+      process.stdout.write(JSON.stringify({
+        ok: graph.ok,
+        cancelled: graph.cancelled,
+        failed: graph.results.fail,
+        sibling: graph.results.sibling
+      }));
+    `,
+      z.object({
+        ok: z.boolean(),
+        cancelled: z.array(z.string()),
+        failed: z.object({ terminalReason: z.string(), exitCode: z.number().nullable() }),
+        sibling: z.object({
+          ok: z.boolean(),
+          terminalReason: z.string(),
+          cancelled: z.boolean(),
+          signal: z.string().nullable(),
+          closeObserved: z.boolean(),
+          pipeDrainObserved: z.boolean()
+        })
+      })
+    );
+
+    expect(result.ok).toBe(false);
+    expect(result.cancelled).toEqual(['late-wave']);
+    expect(result.failed).toMatchObject({ terminalReason: 'nonzero', exitCode: 7 });
+    expect(result.sibling).toMatchObject({
+      ok: false,
+      terminalReason: 'nonzero',
+      cancelled: true,
+      closeObserved: true,
+      pipeDrainObserved: true
+    });
+    expect(['SIGTERM', 'SIGKILL']).toContain(result.sibling.signal);
+  });
+
+  it.each(['root-deadline', 'parent-signal'])(
+    'routes %s cancellation into a real active composite child',
+    (terminalReason) => {
+      const result = runModuleScenario(
+        `
+        import { EventEmitter } from 'node:events';
+        import { runTaskGraph } from './scripts/utils/taskGraphRunner.mjs';
+        import { startBoundedCommand } from './scripts/utils/boundedCommand.mjs';
+        import { resolveCommandProfile } from './scripts/config/commandBoundaryProfiles.mjs';
+        const environment = { HOME: process.env.HOME, TMPDIR: '/tmp' };
+        const guard = resolveCommandProfile('fixture-v1', ['success', 'guard-ok'], { environment });
+        const leaf = resolveCommandProfile('fixture-v1', ['ignore-term', '5000'], { environment });
+        const signalSource = new EventEmitter();
+        let deadline;
+        const pending = runTaskGraph([
+          { id: 'active', profile: 'vitest-v1', args: ['run'], dependsOn: [] },
+          { id: 'late-wave', profile: 'fixture-v1', args: ['success'], dependsOn: ['active'] }
+        ], {
+          policyId: 'quality-v1',
+          signalSource,
+          setTimeoutOperation(callback) { deadline = callback; return 1; },
+          clearTimeoutOperation() {},
+          startCommand(task) {
+            return startBoundedCommand(
+              { profileId: task.profile, arguments: task.args },
+              {
+                environment,
+                resolveProfile(profileId) {
+                  return {
+                    ...(profileId === 'node-script-standard-v1' ? guard : leaf),
+                    profileId
+                  };
+                }
+              }
+            );
+          }
+        });
+        await new Promise((resolve) => setTimeout(resolve, 50));
+        if (${JSON.stringify(terminalReason)} === 'root-deadline') deadline();
+        else signalSource.emit('SIGTERM');
+        const graph = await pending;
+        process.stdout.write(JSON.stringify({
+          ok: graph.ok,
+          cancelled: graph.cancelled,
+          active: graph.results.active
+        }));
+      `,
+        z.object({
+          ok: z.boolean(),
+          cancelled: z.array(z.string()),
+          active: z.object({
+            ok: z.boolean(),
+            terminalReason: z.string(),
+            cancelled: z.boolean(),
+            signal: z.string().nullable(),
+            closeObserved: z.boolean(),
+            pipeDrainObserved: z.boolean()
+          })
+        })
+      );
+
+      expect(result.ok).toBe(false);
+      expect(result.cancelled).toEqual(['late-wave']);
+      expect(result.active).toMatchObject({
+        ok: false,
+        terminalReason,
+        cancelled: true,
+        closeObserved: true,
+        pipeDrainObserved: true
+      });
+      expect(['SIGTERM', 'SIGKILL']).toContain(result.active.signal);
+    }
+  );
+
   it('uses fixed bounded concurrency and admits the next wave only after success', () => {
     const result = runModuleScenario(
       `

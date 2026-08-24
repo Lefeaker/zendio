@@ -350,22 +350,26 @@ function startResolvedCommand(spec, dependencies = {}) {
   return { cancel, completion, child, spec };
 }
 
-function syntheticResult(profileId, ok, terminalReason, stdout = '', stderr = '') {
+function syntheticResult(profileId, ok, terminalReason, stdout = '', stderr = '', details = {}) {
   const stamp = performance.now();
-  const output = Object.fromEntries(
-    OUTPUT_NAMES.map((name) => {
-      const text = name === 'stdout' ? stdout : name === 'stderr' ? stderr : '';
-      return [
-        name,
-        {
-          bytes: Buffer.byteLength(text),
-          sha256: createHash('sha256').update(text).digest('hex'),
-          overflow: false,
-          text
-        }
-      ];
-    })
-  );
+  const output =
+    details.output ??
+    Object.fromEntries(
+      OUTPUT_NAMES.map((name) => {
+        const text = name === 'stdout' ? stdout : name === 'stderr' ? stderr : '';
+        return [
+          name,
+          {
+            bytes: Buffer.byteLength(text),
+            sha256: createHash('sha256').update(text).digest('hex'),
+            overflow: false,
+            text
+          }
+        ];
+      })
+    );
+  const cancelled =
+    details.cancelled ?? ['cancelled', 'parent-signal', 'root-deadline'].includes(terminalReason);
   return immutableResult({
     version: COMMAND_BOUNDARY_VERSION,
     profileId,
@@ -377,16 +381,119 @@ function syntheticResult(profileId, ok, terminalReason, stdout = '', stderr = ''
     durationMs: 0,
     ok,
     terminalReason,
-    exitCode: ok ? 0 : 1,
-    signal: null,
-    spawnError: null,
-    timedOut: false,
-    cancelled: false,
-    escalation: [],
-    closeObserved: true,
-    pipeDrainObserved: true,
+    exitCode: Object.hasOwn(details, 'exitCode') ? details.exitCode : ok ? 0 : 1,
+    signal: details.signal ?? null,
+    spawnError: details.spawnError ?? null,
+    timedOut: details.timedOut ?? terminalReason === 'timeout',
+    cancelled,
+    escalation: [...(details.escalation ?? [])],
+    closeObserved: details.closeObserved ?? true,
+    pipeDrainObserved: details.pipeDrainObserved ?? true,
     output
   });
+}
+
+function remapPhaseResult(profileId, result, terminalReason = result.terminalReason, cancelled) {
+  const isCancelled = cancelled ?? result.cancelled;
+  return syntheticResult(
+    profileId,
+    terminalReason === 'success' && !isCancelled,
+    terminalReason,
+    result.output.stdout.text,
+    result.output.stderr.text,
+    {
+      exitCode: result.exitCode,
+      signal: result.signal,
+      spawnError: result.spawnError,
+      timedOut: result.timedOut || terminalReason === 'timeout',
+      cancelled: isCancelled,
+      escalation: result.escalation,
+      closeObserved: result.closeObserved,
+      pipeDrainObserved: result.pipeDrainObserved,
+      output: result.output
+    }
+  );
+}
+
+function startCompositeLifecycle(spec, dependencies, operation) {
+  let activeHandle = null;
+  let cancellationReason = null;
+  let settled = false;
+
+  async function awaitActive(handle, profileId) {
+    activeHandle = handle;
+    if (cancellationReason) handle.cancel(cancellationReason);
+    try {
+      const result = await handle.completion;
+      return cancellationReason
+        ? remapPhaseResult(profileId, result, cancellationReason, true)
+        : result;
+    } catch (error) {
+      if (!cancellationReason) throw error;
+      return syntheticResult(profileId, false, cancellationReason, '', '', {
+        spawnError: error instanceof Error ? error.message : String(error),
+        cancelled: true
+      });
+    } finally {
+      if (activeHandle === handle) activeHandle = null;
+    }
+  }
+
+  const lifecycle = Object.freeze({
+    get cancellationReason() {
+      return cancellationReason;
+    },
+    runInvocation(invocation) {
+      if (cancellationReason)
+        return Promise.resolve(
+          syntheticResult(invocation.profileId, false, cancellationReason, '', '', {
+            cancelled: true
+          })
+        );
+      return awaitActive(startBoundedCommand(invocation, dependencies), invocation.profileId);
+    },
+    runResolved(resolvedSpec) {
+      if (cancellationReason)
+        return Promise.resolve(
+          syntheticResult(resolvedSpec.profileId, false, cancellationReason, '', '', {
+            cancelled: true
+          })
+        );
+      return awaitActive(startResolvedCommand(resolvedSpec, dependencies), resolvedSpec.profileId);
+    }
+  });
+
+  const completion = (async () => {
+    try {
+      const result = await operation(lifecycle);
+      return cancellationReason
+        ? remapPhaseResult(spec.profileId, result, cancellationReason, true)
+        : result;
+    } catch (error) {
+      if (!cancellationReason) throw error;
+      return syntheticResult(spec.profileId, false, cancellationReason, '', '', {
+        spawnError: error instanceof Error ? error.message : String(error),
+        cancelled: true
+      });
+    }
+  })().finally(() => {
+    activeHandle = null;
+    settled = true;
+  });
+
+  return {
+    cancel(reason = 'cancelled') {
+      if (settled || cancellationReason) return false;
+      cancellationReason = reason;
+      activeHandle?.cancel(reason);
+      return true;
+    },
+    completion,
+    get child() {
+      return activeHandle?.child ?? null;
+    },
+    spec
+  };
 }
 
 function gitValue(args) {
@@ -419,11 +526,11 @@ function validateHuskyProvisioning() {
   }
 }
 
-async function runSequence(profileId, phases, dependencies) {
+async function runSequence(profileId, phases, lifecycle) {
   let combinedStdout = '';
   let combinedStderr = '';
   for (const phase of phases) {
-    const result = await runBoundedCommand(phase, dependencies);
+    const result = await lifecycle.runInvocation(phase);
     combinedStdout += result.output.stdout.text;
     combinedStderr += result.output.stderr.text;
     if (!result.ok)
@@ -432,13 +539,23 @@ async function runSequence(profileId, phases, dependencies) {
         false,
         result.terminalReason,
         combinedStdout,
-        combinedStderr
+        combinedStderr,
+        {
+          exitCode: result.exitCode,
+          signal: result.signal,
+          spawnError: result.spawnError,
+          timedOut: result.timedOut,
+          cancelled: result.cancelled,
+          escalation: result.escalation,
+          closeObserved: result.closeObserved,
+          pipeDrainObserved: result.pipeDrainObserved
+        }
       );
   }
   return syntheticResult(profileId, true, 'success', combinedStdout, combinedStderr);
 }
 
-async function runComposite(profileId, args, dependencies) {
+async function runComposite(profileId, args, dependencies, lifecycle) {
   if (profileId === 'coverage-summary-v1') {
     const path = resolve(REPOSITORY_ROOT, 'coverage/coverage-summary.json');
     const summary = JSON.parse(readFileSync(path, 'utf8')).total;
@@ -455,18 +572,11 @@ async function runComposite(profileId, args, dependencies) {
       args[0] === 'locales'
         ? ['public/_locales']
         : ['public/manifest.json', 'public/manifest.firefox.json'];
-    const first = await runBoundedCommand(
-      { profileId: generation[0], arguments: generation[1] },
-      dependencies
-    );
-    if (!first.ok)
-      return syntheticResult(
-        profileId,
-        false,
-        first.terminalReason,
-        first.output.stdout.text,
-        first.output.stderr.text
-      );
+    const first = await lifecycle.runInvocation({
+      profileId: generation[0],
+      arguments: generation[1]
+    });
+    if (!first.ok) return remapPhaseResult(profileId, first);
     const gitSpec = {
       profileId: 'generated-artifact-check-v1',
       cwd: realpathSync(REPOSITORY_ROOT),
@@ -488,7 +598,7 @@ async function runComposite(profileId, args, dependencies) {
       },
       argvDigest: ''
     };
-    const second = await startResolvedCommand(gitSpec, dependencies).completion;
+    const second = await lifecycle.runResolved(gitSpec);
     return second.ok
       ? syntheticResult(
           profileId,
@@ -502,7 +612,17 @@ async function runComposite(profileId, args, dependencies) {
           false,
           second.terminalReason,
           first.output.stdout.text + second.output.stdout.text,
-          first.output.stderr.text + second.output.stderr.text
+          first.output.stderr.text + second.output.stderr.text,
+          {
+            exitCode: second.exitCode,
+            signal: second.signal,
+            spawnError: second.spawnError,
+            timedOut: second.timedOut,
+            cancelled: second.cancelled,
+            escalation: second.escalation,
+            closeObserved: second.closeObserved,
+            pipeDrainObserved: second.pipeDrainObserved
+          }
         );
   }
   if (profileId === 'stitch-secondary-v1') {
@@ -536,7 +656,7 @@ async function runComposite(profileId, args, dependencies) {
           ]
         }
       ],
-      dependencies
+      lifecycle
     );
   }
   throw new Error(`Unsupported composite profile: ${profileId}`);
@@ -546,27 +666,17 @@ export function startBoundedCommand({ profileId, arguments: args = [] }, depende
   const resolver = dependencies.resolveProfile ?? resolveCommandProfile;
   const spec = resolver(profileId, args, { environment: dependencies.environment ?? process.env });
   if (spec.composite || profileId === 'vitest-v1' || profileId === 'playwright-v1') {
-    let cancelled = false;
-    const completion = (async () => {
+    return startCompositeLifecycle(spec, dependencies, async (lifecycle) => {
       if (profileId === 'vitest-v1' || profileId === 'playwright-v1') {
-        const guard = await runBoundedCommand(
-          { profileId: 'node-script-standard-v1', arguments: ['scripts/verify-runtime.mjs'] },
-          dependencies
-        );
-        if (!guard.ok)
-          return syntheticResult(
-            profileId,
-            false,
-            guard.terminalReason,
-            guard.output.stdout.text,
-            guard.output.stderr.text
-          );
-        if (cancelled) return syntheticResult(profileId, false, 'cancelled');
-        return startResolvedCommand(spec, dependencies).completion;
+        const guard = await lifecycle.runInvocation({
+          profileId: 'node-script-standard-v1',
+          arguments: ['scripts/verify-runtime.mjs']
+        });
+        if (!guard.ok) return remapPhaseResult(profileId, guard);
+        return lifecycle.runResolved(spec);
       }
-      return runComposite(profileId, args, dependencies);
-    })();
-    return { cancel: () => (cancelled = true), completion, child: null, spec };
+      return runComposite(profileId, args, dependencies, lifecycle);
+    });
   }
   return startResolvedCommand(spec, dependencies);
 }
