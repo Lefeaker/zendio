@@ -1,5 +1,18 @@
-import { createHash } from 'node:crypto';
-import { copyFile, mkdir, readdir, readFile, rm, stat, writeFile } from 'fs/promises';
+import { createHash, randomUUID } from 'node:crypto';
+import {
+  chmod,
+  copyFile,
+  link,
+  lstat,
+  mkdir,
+  open,
+  readdir,
+  readFile,
+  rm,
+  stat,
+  unlink,
+  writeFile
+} from 'fs/promises';
 import { join, resolve } from 'path';
 import process from 'process';
 import { fileURLToPath, pathToFileURL } from 'url';
@@ -76,9 +89,62 @@ export function requiresDownloadedSignedArtifact(channel) {
   return normalizeFirefoxSigningChannel(channel) === 'unlisted';
 }
 
-export async function createUnsignedXpi(distDir, _resolvedName, version) {
+function assertReleasePublication(publication) {
+  if (publication?.mode !== 'release-no-replace-v1') {
+    throw new Error('FIREFOX_RELEASE_PUBLICATION_REQUIRED');
+  }
+  if (!publication.outputDir || !publication.workDir) {
+    throw new Error('FIREFOX_RELEASE_PUBLICATION_PATHS_REQUIRED');
+  }
+  const outputDir = resolve(publication.outputDir);
+  const workDir = resolve(publication.workDir);
+  if (
+    outputDir === workDir ||
+    outputDir !== publication.outputDir ||
+    workDir !== publication.workDir
+  ) {
+    throw new Error('FIREFOX_RELEASE_PUBLICATION_PATH_INVALID');
+  }
+  return { outputDir, workDir };
+}
+
+async function fsyncDirectory(directory) {
+  const handle = await open(directory, 'r');
+  try {
+    await handle.sync();
+  } finally {
+    await handle.close();
+  }
+}
+
+export async function createUnsignedXpi(distDir, _resolvedName, version, options = {}) {
   const artifactBaseName = createReleaseArtifactBaseName(version);
   const xpiName = createReleaseArtifactFileName(version, 'xpi');
+  if (options.publication) {
+    const { outputDir, workDir } = assertReleasePublication(options.publication);
+    const outputPath = join(outputDir, xpiName);
+    try {
+      await lstat(outputPath);
+      throw new Error('FIREFOX_RELEASE_TARGET_EXISTS');
+    } catch (error) {
+      if (error?.code !== 'ENOENT') throw error;
+    }
+    const constructionPath = join(workDir, `.xpi-${randomUUID()}.tmp`);
+    await zipDirectory(distDir, constructionPath, { ignore: ['**/*.map', '**/.DS_Store'] });
+    await chmod(constructionPath, 0o600);
+    const handle = await open(constructionPath, 'r');
+    try {
+      await handle.sync();
+    } finally {
+      await handle.close();
+    }
+    await link(constructionPath, outputPath);
+    await fsyncDirectory(outputDir);
+    await unlink(constructionPath);
+    await fsyncDirectory(workDir);
+    await fsyncDirectory(outputDir);
+    return { xpiName, outputPath, artifactBaseName };
+  }
   const outputPath = resolve(xpiName);
 
   if (await pathExists(outputPath)) {
@@ -457,7 +523,7 @@ export async function resolveFirefoxAmoSourceArchiveForSigning(options, dependen
   return sourceArchive.archivePath;
 }
 
-export async function prepareFirefoxReleasePackage({ distDir }, dependencies = {}) {
+export async function prepareFirefoxReleasePackage({ distDir, publication }, dependencies = {}) {
   const {
     applyRestHostPermissionsImpl = applyRestHostPermissions,
     auditReleaseArchiveImpl = auditReleaseArchive,
@@ -486,11 +552,10 @@ export async function prepareFirefoxReleasePackage({ distDir }, dependencies = {
 
   await lintFirefoxExtensionImpl(distDir);
 
-  const { xpiName, outputPath, artifactBaseName } = await createUnsignedXpiImpl(
-    distDir,
-    resolvedName,
-    version
-  );
+  const xpiResult = publication
+    ? await createUnsignedXpiImpl(distDir, resolvedName, version, { publication })
+    : await createUnsignedXpiImpl(distDir, resolvedName, version);
+  const { xpiName, outputPath, artifactBaseName } = xpiResult;
   await auditReleaseArchiveImpl(outputPath);
 
   return {

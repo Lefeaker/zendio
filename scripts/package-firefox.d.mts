@@ -111,7 +111,14 @@ export type FirefoxReleasePackageDependencies = {
   createUnsignedXpiImpl?: (
     distDir: string,
     resolvedName: string,
-    version: string
+    version: string,
+    options?: {
+      publication?: {
+        mode: 'release-no-replace-v1';
+        outputDir: string;
+        workDir: string;
+      };
+    }
   ) => Promise<{ xpiName: string; outputPath: string; artifactBaseName: string }>;
   lintFirefoxExtensionImpl?: (distDir: string) => Promise<FirefoxLintResult | void>;
   logger?: {
@@ -164,7 +171,14 @@ export type FirefoxAmoSourceArchiveSigningDependencies = {
 export function createUnsignedXpi(
   distDir: string,
   resolvedName: string,
-  version: string
+  version: string,
+  options?: {
+    publication?: {
+      mode: 'release-no-replace-v1';
+      outputDir: string;
+      workDir: string;
+    };
+  }
 ): Promise<{ xpiName: string; outputPath: string; artifactBaseName: string }>;
 
 export function lintFirefoxExtension(
@@ -192,7 +206,14 @@ export function resolveFirefoxAmoSourceArchiveForSigning(
 ): Promise<string>;
 
 export function prepareFirefoxReleasePackage(
-  options: { distDir: string },
+  options: {
+    distDir: string;
+    publication?: {
+      mode: 'release-no-replace-v1';
+      outputDir: string;
+      workDir: string;
+    };
+  },
   dependencies?: FirefoxReleasePackageDependencies
 ): Promise<FirefoxReleasePackageResult>;
 

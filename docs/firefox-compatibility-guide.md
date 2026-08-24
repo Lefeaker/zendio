@@ -170,6 +170,28 @@ addBrowserClassToHtml(); // 添加 .is-firefox 类
 
 ## 🧪 测试
 
+### 本地发布工件验证
+
+正式 Firefox 发布候选不再把普通 `package:firefox:isolated` 输出直接当作发布证据。控制器会在私有 attempt 根内完成构建，然后依次运行：
+
+```bash
+node scripts/prepare-firefox-release.mjs \
+  --attempt-root "$ATTEMPT_ROOT" \
+  --config-mode standalone-synthetic \
+  --transport-mode local-private-v1 \
+  --dist-dir "$ATTEMPT_ROOT/dist-firefox" \
+  --release-dir "$ATTEMPT_ROOT/release-root/release" \
+  --result-json "$ATTEMPT_ROOT/prepare-result.json"
+
+node scripts/verify-firefox-release.mjs \
+  --manifest "$ATTEMPT_ROOT/release-root/release/manifest.json" \
+  --transport-mode local-private-v1
+```
+
+portable manifest 将 exact XPI、AMO source archive、dist inventory、Git tree、工具链和公开 GA 配置指纹绑定在一起。`local-private-v1` 仅接受 0700 目录和 0600 文件；工作流下载后的验证必须显式选择 `github-artifact-v1`，且不得由路径或文件 mode 自动推断 transport。
+
+exact-XPI smoke 使用经过验证的同进程 capability，临时安装、查询并 reload 同一 XPI。它不会把 unpacked source directory 冒充 XPI 安装证据，也不会读取用户 Firefox profile、系统 Firefox 或默认浏览器缓存。R02 只做本地、无凭据验证；AMO submit、push 和 publish 不属于这个阶段。
+
 Firefox lint 的发布契约由仓库包装层判定，而不是把 `web-ext` 的 warning exit code 当作零 warning 证明。第一方 warning 必须为 `0`，且必须返回恰好两条 `@mozilla/readability@0.6.0` 的 `UNSAFE_VAR_ASSIGNMENT` 记录；零条 warning 同样失败。Firefox production build 会在 XPI 之外生成 byte-bound JS/source-map provenance sidecar，包装层据此把每条完整 lint message 映射回 `Readability.js:1549` 或 `Readability.js:1928`，并校验 commit/tree、生成 JS 与 map、根 `package.json` 声明身份 SHA-256 `168f01305bab908fc4a75172e05eef6bab00e009f0c7e97709bcc02c8471b966`、lock entry 身份 SHA-256 `cd7a3c2b695164ef97fd4ff72a50ff8ce01cf45d6934c5f7e5889d6f967ac3c1` 以及 Readability source hash。生成 chunk 名称和列号不是长期 allowlist。任一 message、source、数量、identity 或 artifact 漂移都在 XPI 创建前失败；该契约不能用来接受其他依赖、其他位置或新增 warning，也不得通过编辑 bundle/vendor 输出闭合。
 
 ### 单元测试

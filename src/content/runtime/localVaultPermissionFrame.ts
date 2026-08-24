@@ -125,22 +125,57 @@ function render(
   doc.documentElement.setAttribute('dir', dir);
   doc.title = messages.localVaultPermissionTitle;
 
-  doc.body.innerHTML = `
-    <main class="permission-card">
-      <div class="permission-heading">
-        <span class="permission-kicker">Zendio</span>
-        <h1 data-role="frame-title"></h1>
-      </div>
-      <p class="permission-copy" data-role="description"></p>
-      <p class="permission-copy" data-role="reconfirm"></p>
-      <p class="permission-status" data-role="status" aria-live="polite" aria-atomic="true"></p>
-      <div class="permission-actions">
-        <button type="button" class="primary" data-action="authorize"></button>
-        <button type="button" class="secondary" data-action="rest-once"></button>
-        <button type="button" class="ghost" data-action="rest-always"></button>
-      </div>
-    </main>
-  `;
+  const createElement = <K extends keyof HTMLElementTagNameMap>(
+    tagName: K,
+    attributes: Record<string, string> = {}
+  ): HTMLElementTagNameMap[K] => {
+    const element = doc.createElement(tagName);
+    for (const [name, value] of Object.entries(attributes)) {
+      element.setAttribute(name, value);
+    }
+    return element;
+  };
+
+  const main = createElement('main', { class: 'permission-card' });
+  const heading = createElement('div', { class: 'permission-heading' });
+  const kicker = createElement('span', { class: 'permission-kicker' });
+  kicker.textContent = 'Zendio';
+  const frameTitleElement = createElement('h1', { 'data-role': 'frame-title' });
+  heading.append(kicker, frameTitleElement);
+
+  const descriptionElement = createElement('p', {
+    class: 'permission-copy',
+    'data-role': 'description'
+  });
+  const reconfirmElement = createElement('p', {
+    class: 'permission-copy',
+    'data-role': 'reconfirm'
+  });
+  const statusElement = createElement('p', {
+    class: 'permission-status',
+    'data-role': 'status',
+    'aria-live': 'polite',
+    'aria-atomic': 'true'
+  });
+  const actions = createElement('div', { class: 'permission-actions' });
+  const authorizeElement = createElement('button', {
+    type: 'button',
+    class: 'primary',
+    'data-action': 'authorize'
+  });
+  const restOnceElement = createElement('button', {
+    type: 'button',
+    class: 'secondary',
+    'data-action': 'rest-once'
+  });
+  const restAlwaysElement = createElement('button', {
+    type: 'button',
+    class: 'ghost',
+    'data-action': 'rest-always'
+  });
+  actions.append(authorizeElement, restOnceElement, restAlwaysElement);
+  main.append(heading, descriptionElement, reconfirmElement, statusElement, actions);
+  doc.body.replaceChildren(main);
 
   const frameTitle = doc.querySelector<HTMLElement>('[data-role="frame-title"]');
   const description = doc.querySelector<HTMLElement>('[data-role="description"]');

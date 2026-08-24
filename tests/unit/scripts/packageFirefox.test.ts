@@ -3,6 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
+  createUnsignedXpi,
   lintFirefoxExtension,
   normalizeFirefoxSigningChannel,
   prepareFirefoxReleasePackage,
@@ -431,6 +432,28 @@ describe('Firefox package signing audit', () => {
       version: '0.2.0',
       xpiName: `${RELEASE_ARTIFACT_BASE_NAME}.xpi`
     });
+  });
+
+  it('publishes a release XPI without replacing an existing final target', async () => {
+    const root = await createTempRoot();
+    const distDir = join(root, 'dist');
+    const outputDir = join(root, 'release');
+    const workDir = join(root, '.release.work');
+    await mkdir(distDir);
+    await mkdir(outputDir);
+    await mkdir(workDir);
+    await writeFile(join(distDir, 'manifest.json'), '{}\n');
+
+    const first = await createUnsignedXpi(distDir, RELEASE_DISPLAY_NAME, '0.2.0', {
+      publication: { mode: 'release-no-replace-v1', outputDir, workDir }
+    });
+
+    await expect(readFile(first.outputPath)).resolves.toBeInstanceOf(Buffer);
+    await expect(
+      createUnsignedXpi(distDir, RELEASE_DISPLAY_NAME, '0.2.0', {
+        publication: { mode: 'release-no-replace-v1', outputDir, workDir }
+      })
+    ).rejects.toThrow('FIREFOX_RELEASE_TARGET_EXISTS');
   });
 
   it('copies the signed XPI to the final path and audits that final artifact', async () => {
