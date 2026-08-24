@@ -1,0 +1,1225 @@
+{
+  "base": {
+    "head": "e190bdc2fea559c8a3e90bb7220286de2595a754",
+    "lockBlobSha1": "f7b0bd91f7df07f490040d2c877302a712fce094",
+    "lockSha256": "b28405152e74615816d02e0f2990d357a02761dad2690674d92e23502a5474d2",
+    "packageBlobSha1": "719119770f26c8c8e9ee5b3ef0b69a3a6169c715",
+    "packageSha256": "00216940c6325e628263e0def625c727a3106387d59457de2c480c109887d49b",
+    "tree": "e90eaff9b9c55260e9a12d7e5f076c1eef3d174e"
+  },
+  "closureNodes": [
+    {
+      "adjacency": {
+        "dependencies": [],
+        "optionalDependencies": [],
+        "peerDependencies": []
+      },
+      "key": "node_modules/acorn-jsx-walk",
+      "lockEntry": {
+        "dev": true,
+        "integrity": "sha512-uuo6iJj4D4ygkdzd6jPtcxs8vZgDX9YFIkqczGImoypX2fQ4dVImmu3UzA4ynixCIMTrEOWW+95M2HuBaCEOVA==",
+        "license": "MIT",
+        "resolved": "https://registry.npmjs.org/acorn-jsx-walk/-/acorn-jsx-walk-2.0.0.tgz",
+        "version": "2.0.0"
+      }
+    },
+    {
+      "adjacency": {
+        "dependencies": [
+          {
+            "name": "acorn",
+            "resolvedKey": "node_modules/acorn",
+            "spec": "^8.15.0"
+          }
+        ],
+        "optionalDependencies": [],
+        "peerDependencies": []
+      },
+      "key": "node_modules/acorn-loose",
+      "lockEntry": {
+        "dependencies": {
+          "acorn": "^8.15.0"
+        },
+        "dev": true,
+        "engines": {
+          "node": ">=0.4.0"
+        },
+        "integrity": "sha512-PPvV6g8UGMGgjrMu+n/f9E/tCSkNQ2Y97eFvuVdJfG11+xdIeDcLyNdC8SHcrHbRqkfwLASdplyR6B6sKM1U4A==",
+        "license": "MIT",
+        "resolved": "https://registry.npmjs.org/acorn-loose/-/acorn-loose-8.5.2.tgz",
+        "version": "8.5.2"
+      }
+    },
+    {
+      "adjacency": {
+        "dependencies": [
+          {
+            "name": "acorn",
+            "resolvedKey": "node_modules/acorn",
+            "spec": "^8.11.0"
+          }
+        ],
+        "optionalDependencies": [],
+        "peerDependencies": []
+      },
+      "key": "node_modules/acorn-walk",
+      "lockEntry": {
+        "dependencies": {
+          "acorn": "^8.11.0"
+        },
+        "dev": true,
+        "engines": {
+          "node": ">=0.4.0"
+        },
+        "integrity": "sha512-HEHNfbars9v4pgpW6SO1KSPkfoS0xVOM/9UzkJltjlsHZmJasxg8aXkuZa7SMf8vKGIBhpUsPluQSqhJFCqebw==",
+        "license": "MIT",
+        "resolved": "https://registry.npmjs.org/acorn-walk/-/acorn-walk-8.3.5.tgz",
+        "version": "8.3.5"
+      }
+    },
+    {
+      "adjacency": {
+        "dependencies": [
+          {
+            "name": "acorn",
+            "resolvedKey": "node_modules/acorn",
+            "spec": "^8.15.0"
+          },
+          {
+            "name": "acorn-jsx",
+            "resolvedKey": "node_modules/acorn-jsx",
+            "spec": "^5.3.2"
+          },
+          {
+            "name": "acorn-jsx-walk",
+            "resolvedKey": "node_modules/acorn-jsx-walk",
+            "spec": "^2.0.0"
+          },
+          {
+            "name": "acorn-loose",
+            "resolvedKey": "node_modules/acorn-loose",
+            "spec": "^8.5.2"
+          },
+          {
+            "name": "acorn-walk",
+            "resolvedKey": "node_modules/acorn-walk",
+            "spec": "^8.3.4"
+          },
+          {
+            "name": "ajv",
+            "resolvedKey": "node_modules/ajv",
+            "spec": "^8.17.1"
+          },
+          {
+            "name": "commander",
+            "resolvedKey": "node_modules/dependency-cruiser/node_modules/commander",
+            "spec": "^13.1.0"
+          },
+          {
+            "name": "enhanced-resolve",
+            "resolvedKey": "node_modules/enhanced-resolve",
+            "spec": "^5.18.2"
+          },
+          {
+            "name": "ignore",
+            "resolvedKey": "node_modules/dependency-cruiser/node_modules/ignore",
+            "spec": "^7.0.5"
+          },
+          {
+            "name": "interpret",
+            "resolvedKey": "node_modules/interpret",
+            "spec": "^3.1.1"
+          },
+          {
+            "name": "is-installed-globally",
+            "resolvedKey": "node_modules/is-installed-globally",
+            "spec": "^1.0.0"
+          },
+          {
+            "name": "json5",
+            "resolvedKey": "node_modules/json5",
+            "spec": "^2.2.3"
+          },
+          {
+            "name": "memoize",
+            "resolvedKey": "node_modules/memoize",
+            "spec": "^10.1.0"
+          },
+          {
+            "name": "picocolors",
+            "resolvedKey": "node_modules/picocolors",
+            "spec": "^1.1.1"
+          },
+          {
+            "name": "picomatch",
+            "resolvedKey": "node_modules/picomatch",
+            "spec": "^4.0.2"
+          },
+          {
+            "name": "prompts",
+            "resolvedKey": "node_modules/prompts",
+            "spec": "^2.4.2"
+          },
+          {
+            "name": "rechoir",
+            "resolvedKey": "node_modules/rechoir",
+            "spec": "^0.8.0"
+          },
+          {
+            "name": "safe-regex",
+            "resolvedKey": "node_modules/safe-regex",
+            "spec": "^2.1.1"
+          },
+          {
+            "name": "semver",
+            "resolvedKey": "node_modules/semver",
+            "spec": "^7.7.2"
+          },
+          {
+            "name": "teamcity-service-messages",
+            "resolvedKey": "node_modules/teamcity-service-messages",
+            "spec": "^0.1.14"
+          },
+          {
+            "name": "tsconfig-paths-webpack-plugin",
+            "resolvedKey": "node_modules/tsconfig-paths-webpack-plugin",
+            "spec": "^4.2.0"
+          },
+          {
+            "name": "watskeburt",
+            "resolvedKey": "node_modules/watskeburt",
+            "spec": "^4.2.3"
+          }
+        ],
+        "optionalDependencies": [],
+        "peerDependencies": []
+      },
+      "key": "node_modules/dependency-cruiser",
+      "lockEntry": {
+        "bin": {
+          "depcruise": "bin/dependency-cruise.mjs",
+          "depcruise-baseline": "bin/depcruise-baseline.mjs",
+          "depcruise-fmt": "bin/depcruise-fmt.mjs",
+          "depcruise-wrap-stream-in-html": "bin/wrap-stream-in-html.mjs",
+          "dependency-cruise": "bin/dependency-cruise.mjs",
+          "dependency-cruiser": "bin/dependency-cruise.mjs"
+        },
+        "dependencies": {
+          "acorn": "^8.15.0",
+          "acorn-jsx": "^5.3.2",
+          "acorn-jsx-walk": "^2.0.0",
+          "acorn-loose": "^8.5.2",
+          "acorn-walk": "^8.3.4",
+          "ajv": "^8.17.1",
+          "commander": "^13.1.0",
+          "enhanced-resolve": "^5.18.2",
+          "ignore": "^7.0.5",
+          "interpret": "^3.1.1",
+          "is-installed-globally": "^1.0.0",
+          "json5": "^2.2.3",
+          "memoize": "^10.1.0",
+          "picocolors": "^1.1.1",
+          "picomatch": "^4.0.2",
+          "prompts": "^2.4.2",
+          "rechoir": "^0.8.0",
+          "safe-regex": "^2.1.1",
+          "semver": "^7.7.2",
+          "teamcity-service-messages": "^0.1.14",
+          "tsconfig-paths-webpack-plugin": "^4.2.0",
+          "watskeburt": "^4.2.3"
+        },
+        "dev": true,
+        "engines": {
+          "node": "^18.17||>=20"
+        },
+        "integrity": "sha512-hrxVOjIm8idZ9ZVDGSyyG3SHiNcEUPhL6RTEmO/3wfQWLepH5pA3nuDMMrcJ1DkZztFA7xg3tk8OVO+MmwwH9w==",
+        "license": "MIT",
+        "resolved": "https://registry.npmjs.org/dependency-cruiser/-/dependency-cruiser-16.10.4.tgz",
+        "version": "16.10.4"
+      }
+    },
+    {
+      "adjacency": {
+        "dependencies": [],
+        "optionalDependencies": [],
+        "peerDependencies": []
+      },
+      "key": "node_modules/dependency-cruiser/node_modules/commander",
+      "lockEntry": {
+        "dev": true,
+        "engines": {
+          "node": ">=18"
+        },
+        "integrity": "sha512-/rFeCpNJQbhSZjGVwO9RFV3xPqbnERS8MmIQzCtD/zl6gpJuV/bMLuN92oG3F7d8oDEHHRrujSXNUr8fpjntKw==",
+        "license": "MIT",
+        "resolved": "https://registry.npmjs.org/commander/-/commander-13.1.0.tgz",
+        "version": "13.1.0"
+      }
+    },
+    {
+      "adjacency": {
+        "dependencies": [],
+        "optionalDependencies": [],
+        "peerDependencies": []
+      },
+      "key": "node_modules/dependency-cruiser/node_modules/ignore",
+      "lockEntry": {
+        "dev": true,
+        "engines": {
+          "node": ">= 4"
+        },
+        "integrity": "sha512-BAg6QkE8W+TuQLrrw0Ugr7HegXduRuuj8/ti2kSOc+jz1dmx8/WNcjr6XGnq5YpDWxFwwaavqD0+jIUOKelTsw==",
+        "license": "MIT",
+        "resolved": "https://registry.npmjs.org/ignore/-/ignore-7.0.6.tgz",
+        "version": "7.0.6"
+      }
+    },
+    {
+      "adjacency": {
+        "dependencies": [
+          {
+            "name": "graceful-fs",
+            "resolvedKey": "node_modules/graceful-fs",
+            "spec": "^4.2.4"
+          },
+          {
+            "name": "tapable",
+            "resolvedKey": "node_modules/tapable",
+            "spec": "^2.3.3"
+          }
+        ],
+        "optionalDependencies": [],
+        "peerDependencies": []
+      },
+      "key": "node_modules/enhanced-resolve",
+      "lockEntry": {
+        "dependencies": {
+          "graceful-fs": "^4.2.4",
+          "tapable": "^2.3.3"
+        },
+        "dev": true,
+        "engines": {
+          "node": ">=10.13.0"
+        },
+        "integrity": "sha512-PwKooW9JUzh5chmYfHM3IQl5OkK2u2Nm011MgeZrss3JmFraUx/fqrf78kk8GUMYoibx/14MdwTl/1WKkG7TpQ==",
+        "license": "MIT",
+        "resolved": "https://registry.npmjs.org/enhanced-resolve/-/enhanced-resolve-5.24.3.tgz",
+        "version": "5.24.3"
+      }
+    },
+    {
+      "adjacency": {
+        "dependencies": [],
+        "optionalDependencies": [],
+        "peerDependencies": []
+      },
+      "key": "node_modules/es-errors",
+      "lockEntry": {
+        "dev": true,
+        "engines": {
+          "node": ">= 0.4"
+        },
+        "integrity": "sha512-Zf5H2Kxt2xjTvbJvP2ZWLEICxA6j+hAmMzIlypy4xcBg1vKVnx89Wy0GbS+kf5cwCVFFzdCFh2XSCFNULS6csw==",
+        "license": "MIT",
+        "resolved": "https://registry.npmjs.org/es-errors/-/es-errors-1.3.0.tgz",
+        "version": "1.3.0"
+      }
+    },
+    {
+      "adjacency": {
+        "dependencies": [],
+        "optionalDependencies": [],
+        "peerDependencies": []
+      },
+      "key": "node_modules/function-bind",
+      "lockEntry": {
+        "dev": true,
+        "funding": {
+          "url": "https://github.com/sponsors/ljharb"
+        },
+        "integrity": "sha512-7XHNxH7qX9xG5mIwxkhumTox/MIRNcOgDrxWsMt2pAr23WHp6MrRlN7FBSFpCpr+oVO0F744iUgR82nJMfG2SA==",
+        "license": "MIT",
+        "resolved": "https://registry.npmjs.org/function-bind/-/function-bind-1.1.2.tgz",
+        "version": "1.1.2"
+      }
+    },
+    {
+      "adjacency": {
+        "dependencies": [
+          {
+            "name": "function-bind",
+            "resolvedKey": "node_modules/function-bind",
+            "spec": "^1.1.2"
+          }
+        ],
+        "optionalDependencies": [],
+        "peerDependencies": []
+      },
+      "key": "node_modules/hasown",
+      "lockEntry": {
+        "dependencies": {
+          "function-bind": "^1.1.2"
+        },
+        "dev": true,
+        "engines": {
+          "node": ">= 0.4"
+        },
+        "integrity": "sha512-T2UbfbBEF32wiepXIsMlTW9+dDYC6wMh/t/vYA4tuOMKqWz/n3vr1NFSxQiyP+zk2mXsoMA/i/7qV6LKut1t1A==",
+        "license": "MIT",
+        "resolved": "https://registry.npmjs.org/hasown/-/hasown-2.0.4.tgz",
+        "version": "2.0.4"
+      }
+    },
+    {
+      "adjacency": {
+        "dependencies": [],
+        "optionalDependencies": [],
+        "peerDependencies": []
+      },
+      "key": "node_modules/interpret",
+      "lockEntry": {
+        "dev": true,
+        "engines": {
+          "node": ">=10.13.0"
+        },
+        "integrity": "sha512-6xwYfHbajpoF0xLW+iwLkhwgvLoZDfjYfoFNu8ftMoXINzwuymNLd9u/KmwtdT2GbR+/Cz66otEGEVVUHX9QLQ==",
+        "license": "MIT",
+        "resolved": "https://registry.npmjs.org/interpret/-/interpret-3.1.1.tgz",
+        "version": "3.1.1"
+      }
+    },
+    {
+      "adjacency": {
+        "dependencies": [
+          {
+            "name": "hasown",
+            "resolvedKey": "node_modules/hasown",
+            "spec": "^2.0.3"
+          }
+        ],
+        "optionalDependencies": [],
+        "peerDependencies": []
+      },
+      "key": "node_modules/is-core-module",
+      "lockEntry": {
+        "dependencies": {
+          "hasown": "^2.0.3"
+        },
+        "dev": true,
+        "engines": {
+          "node": ">= 0.4"
+        },
+        "funding": {
+          "url": "https://github.com/sponsors/ljharb"
+        },
+        "integrity": "sha512-evOr8xfXKxE6qSR0hSXL2r3sd7ALj8+7jQEUvPYcm5sgZFdJ+AYzT6yNmJenvIYQBgIGwfwz08sL8zoL7yq2BA==",
+        "license": "MIT",
+        "resolved": "https://registry.npmjs.org/is-core-module/-/is-core-module-2.16.2.tgz",
+        "version": "2.16.2"
+      }
+    },
+    {
+      "adjacency": {
+        "dependencies": [],
+        "optionalDependencies": [],
+        "peerDependencies": []
+      },
+      "key": "node_modules/json5",
+      "lockEntry": {
+        "bin": {
+          "json5": "lib/cli.js"
+        },
+        "dev": true,
+        "engines": {
+          "node": ">=6"
+        },
+        "integrity": "sha512-XmOWe7eyHYH14cLdVPoyg+GOH3rYX++KpzrylJwSW98t3Nk+U8XOl8FWKOgwtzdb8lXGf6zYwDUzeHMWfxasyg==",
+        "license": "MIT",
+        "resolved": "https://registry.npmjs.org/json5/-/json5-2.2.3.tgz",
+        "version": "2.2.3"
+      }
+    },
+    {
+      "adjacency": {
+        "dependencies": [],
+        "optionalDependencies": [],
+        "peerDependencies": []
+      },
+      "key": "node_modules/kleur",
+      "lockEntry": {
+        "dev": true,
+        "engines": {
+          "node": ">=6"
+        },
+        "integrity": "sha512-eTIzlVOSUR+JxdDFepEYcBMtZ9Qqdef+rnzWdRZuMbOywu5tO2w2N7rqjoANZ5k9vywhL6Br1VRjUIgTQx4E8w==",
+        "license": "MIT",
+        "resolved": "https://registry.npmjs.org/kleur/-/kleur-3.0.3.tgz",
+        "version": "3.0.3"
+      }
+    },
+    {
+      "adjacency": {
+        "dependencies": [
+          {
+            "name": "mimic-function",
+            "resolvedKey": "node_modules/mimic-function",
+            "spec": "^5.0.1"
+          }
+        ],
+        "optionalDependencies": [],
+        "peerDependencies": []
+      },
+      "key": "node_modules/memoize",
+      "lockEntry": {
+        "dependencies": {
+          "mimic-function": "^5.0.1"
+        },
+        "dev": true,
+        "engines": {
+          "node": ">=18"
+        },
+        "funding": {
+          "url": "https://github.com/sindresorhus/memoize?sponsor=1"
+        },
+        "integrity": "sha512-DeC6b7QBrZsRs3Y02A6A7lQyzFbsQbqgjI6UW0GigGWV+u1s25TycMr0XHZE4cJce7rY/vyw2ctMQqfDkIhUEA==",
+        "license": "MIT",
+        "resolved": "https://registry.npmjs.org/memoize/-/memoize-10.2.0.tgz",
+        "version": "10.2.0"
+      }
+    },
+    {
+      "adjacency": {
+        "dependencies": [],
+        "optionalDependencies": [],
+        "peerDependencies": []
+      },
+      "key": "node_modules/path-parse",
+      "lockEntry": {
+        "dev": true,
+        "integrity": "sha512-LDJzPVEEEPR+y48z93A0Ed0yXb8pAByGWo/k5YYdYgpY2/2EsOsksJrq7lOHxryrVOn1ejG6oAp8ahvOIQD8sw==",
+        "license": "MIT",
+        "resolved": "https://registry.npmjs.org/path-parse/-/path-parse-1.0.7.tgz",
+        "version": "1.0.7"
+      }
+    },
+    {
+      "adjacency": {
+        "dependencies": [
+          {
+            "name": "kleur",
+            "resolvedKey": "node_modules/kleur",
+            "spec": "^3.0.3"
+          },
+          {
+            "name": "sisteransi",
+            "resolvedKey": "node_modules/sisteransi",
+            "spec": "^1.0.5"
+          }
+        ],
+        "optionalDependencies": [],
+        "peerDependencies": []
+      },
+      "key": "node_modules/prompts",
+      "lockEntry": {
+        "dependencies": {
+          "kleur": "^3.0.3",
+          "sisteransi": "^1.0.5"
+        },
+        "dev": true,
+        "engines": {
+          "node": ">= 6"
+        },
+        "integrity": "sha512-NxNv/kLguCA7p3jE8oL2aEBsrJWgAakBpgmgK6lpPWV+WuOmY6r2/zbAVnP+T8bQlA0nzHXSJSJW0Hq7ylaD2Q==",
+        "license": "MIT",
+        "resolved": "https://registry.npmjs.org/prompts/-/prompts-2.4.2.tgz",
+        "version": "2.4.2"
+      }
+    },
+    {
+      "adjacency": {
+        "dependencies": [
+          {
+            "name": "resolve",
+            "resolvedKey": "node_modules/resolve",
+            "spec": "^1.20.0"
+          }
+        ],
+        "optionalDependencies": [],
+        "peerDependencies": []
+      },
+      "key": "node_modules/rechoir",
+      "lockEntry": {
+        "dependencies": {
+          "resolve": "^1.20.0"
+        },
+        "dev": true,
+        "engines": {
+          "node": ">= 10.13.0"
+        },
+        "integrity": "sha512-/vxpCXddiX8NGfGO/mTafwjq4aFa/71pvamip0++IQk3zG8cbCj0fifNPrjjF1XMXUne91jL9OoxmdykoEtifQ==",
+        "license": "MIT",
+        "resolved": "https://registry.npmjs.org/rechoir/-/rechoir-0.8.0.tgz",
+        "version": "0.8.0"
+      }
+    },
+    {
+      "adjacency": {
+        "dependencies": [],
+        "optionalDependencies": [],
+        "peerDependencies": []
+      },
+      "key": "node_modules/regexp-tree",
+      "lockEntry": {
+        "bin": {
+          "regexp-tree": "bin/regexp-tree"
+        },
+        "dev": true,
+        "integrity": "sha512-iETxpjK6YoRWJG5o6hXLwvjYAoW+FEZn9os0PD/b6AP6xQwsa/Y7lCVgIixBbUPMfhu+i2LtdeAqVTgGlQarfA==",
+        "license": "MIT",
+        "resolved": "https://registry.npmjs.org/regexp-tree/-/regexp-tree-0.1.27.tgz",
+        "version": "0.1.27"
+      }
+    },
+    {
+      "adjacency": {
+        "dependencies": [
+          {
+            "name": "es-errors",
+            "resolvedKey": "node_modules/es-errors",
+            "spec": "^1.3.0"
+          },
+          {
+            "name": "is-core-module",
+            "resolvedKey": "node_modules/is-core-module",
+            "spec": "^2.16.1"
+          },
+          {
+            "name": "path-parse",
+            "resolvedKey": "node_modules/path-parse",
+            "spec": "^1.0.7"
+          },
+          {
+            "name": "supports-preserve-symlinks-flag",
+            "resolvedKey": "node_modules/supports-preserve-symlinks-flag",
+            "spec": "^1.0.0"
+          }
+        ],
+        "optionalDependencies": [],
+        "peerDependencies": []
+      },
+      "key": "node_modules/resolve",
+      "lockEntry": {
+        "bin": {
+          "resolve": "bin/resolve"
+        },
+        "dependencies": {
+          "es-errors": "^1.3.0",
+          "is-core-module": "^2.16.1",
+          "path-parse": "^1.0.7",
+          "supports-preserve-symlinks-flag": "^1.0.0"
+        },
+        "dev": true,
+        "engines": {
+          "node": ">= 0.4"
+        },
+        "funding": {
+          "url": "https://github.com/sponsors/ljharb"
+        },
+        "integrity": "sha512-TyeJ1zif53BPfHootBGwPRYT1RUt6oGWsaQr8UyZW/eAm9bKoijtvruSDEmZHm92CwS9nj7/fWttqPCgzep8CA==",
+        "license": "MIT",
+        "resolved": "https://registry.npmjs.org/resolve/-/resolve-1.22.12.tgz",
+        "version": "1.22.12"
+      }
+    },
+    {
+      "adjacency": {
+        "dependencies": [
+          {
+            "name": "regexp-tree",
+            "resolvedKey": "node_modules/regexp-tree",
+            "spec": "~0.1.1"
+          }
+        ],
+        "optionalDependencies": [],
+        "peerDependencies": []
+      },
+      "key": "node_modules/safe-regex",
+      "lockEntry": {
+        "dependencies": {
+          "regexp-tree": "~0.1.1"
+        },
+        "dev": true,
+        "integrity": "sha512-rx+x8AMzKb5Q5lQ95Zoi6ZbJqwCLkqi3XuJXp5P3rT8OEc6sZCJG5AE5dU3lsgRr/F4Bs31jSlVN+j5KrsGu9A==",
+        "license": "MIT",
+        "resolved": "https://registry.npmjs.org/safe-regex/-/safe-regex-2.1.1.tgz",
+        "version": "2.1.1"
+      }
+    },
+    {
+      "adjacency": {
+        "dependencies": [],
+        "optionalDependencies": [],
+        "peerDependencies": []
+      },
+      "key": "node_modules/sisteransi",
+      "lockEntry": {
+        "dev": true,
+        "integrity": "sha512-bLGGlR1QxBcynn2d5YmDX4MGjlZvy2MRBDRNHLJ8VI6l6+9FUiyTFNJ0IveOSP0bcXgVDPRcfGqA0pjaqUpfVg==",
+        "license": "MIT",
+        "resolved": "https://registry.npmjs.org/sisteransi/-/sisteransi-1.0.5.tgz",
+        "version": "1.0.5"
+      }
+    },
+    {
+      "adjacency": {
+        "dependencies": [],
+        "optionalDependencies": [],
+        "peerDependencies": []
+      },
+      "key": "node_modules/supports-preserve-symlinks-flag",
+      "lockEntry": {
+        "dev": true,
+        "engines": {
+          "node": ">= 0.4"
+        },
+        "funding": {
+          "url": "https://github.com/sponsors/ljharb"
+        },
+        "integrity": "sha512-ot0WnXS9fgdkgIcePe6RHNk1WA8+muPa6cSjeR3V8K27q9BB1rTE3R1p7Hv0z1ZyAc8s6Vvv8DIyWf681MAt0w==",
+        "license": "MIT",
+        "resolved": "https://registry.npmjs.org/supports-preserve-symlinks-flag/-/supports-preserve-symlinks-flag-1.0.0.tgz",
+        "version": "1.0.0"
+      }
+    },
+    {
+      "adjacency": {
+        "dependencies": [],
+        "optionalDependencies": [],
+        "peerDependencies": []
+      },
+      "key": "node_modules/tapable",
+      "lockEntry": {
+        "dev": true,
+        "engines": {
+          "node": ">=6"
+        },
+        "funding": {
+          "type": "opencollective",
+          "url": "https://opencollective.com/webpack"
+        },
+        "integrity": "sha512-uxc/zpqFg6x7C8vOE7lh6Lbda8eEL9zmVm/PLeTPBRhh1xCgdWaQ+J1CUieGpIfm2HdtsUpRv+HshiasBMcc6A==",
+        "license": "MIT",
+        "resolved": "https://registry.npmjs.org/tapable/-/tapable-2.3.3.tgz",
+        "version": "2.3.3"
+      }
+    },
+    {
+      "adjacency": {
+        "dependencies": [],
+        "optionalDependencies": [],
+        "peerDependencies": []
+      },
+      "key": "node_modules/teamcity-service-messages",
+      "lockEntry": {
+        "dev": true,
+        "integrity": "sha512-29aQwaHqm8RMX74u2o/h1KbMLP89FjNiMxD9wbF2BbWOnbM+q+d1sCEC+MqCc4QW3NJykn77OMpTFw/xTHIc0w==",
+        "license": "MIT",
+        "resolved": "https://registry.npmjs.org/teamcity-service-messages/-/teamcity-service-messages-0.1.14.tgz",
+        "version": "0.1.14"
+      }
+    },
+    {
+      "adjacency": {
+        "dependencies": [
+          {
+            "name": "json5",
+            "resolvedKey": "node_modules/json5",
+            "spec": "^2.2.2"
+          },
+          {
+            "name": "minimist",
+            "resolvedKey": "node_modules/minimist",
+            "spec": "^1.2.6"
+          },
+          {
+            "name": "strip-bom",
+            "resolvedKey": "node_modules/tsconfig-paths/node_modules/strip-bom",
+            "spec": "^3.0.0"
+          }
+        ],
+        "optionalDependencies": [],
+        "peerDependencies": []
+      },
+      "key": "node_modules/tsconfig-paths",
+      "lockEntry": {
+        "dependencies": {
+          "json5": "^2.2.2",
+          "minimist": "^1.2.6",
+          "strip-bom": "^3.0.0"
+        },
+        "dev": true,
+        "engines": {
+          "node": ">=6"
+        },
+        "integrity": "sha512-NoZ4roiN7LnbKn9QqE1amc9DJfzvZXxF4xDavcOWt1BPkdx+m+0gJuPM+S0vCe7zTJMYUP0R8pO2XMr+Y8oLIg==",
+        "license": "MIT",
+        "resolved": "https://registry.npmjs.org/tsconfig-paths/-/tsconfig-paths-4.2.0.tgz",
+        "version": "4.2.0"
+      }
+    },
+    {
+      "adjacency": {
+        "dependencies": [
+          {
+            "name": "chalk",
+            "resolvedKey": "node_modules/chalk",
+            "spec": "^4.1.0"
+          },
+          {
+            "name": "enhanced-resolve",
+            "resolvedKey": "node_modules/enhanced-resolve",
+            "spec": "^5.7.0"
+          },
+          {
+            "name": "tapable",
+            "resolvedKey": "node_modules/tapable",
+            "spec": "^2.2.1"
+          },
+          {
+            "name": "tsconfig-paths",
+            "resolvedKey": "node_modules/tsconfig-paths",
+            "spec": "^4.1.2"
+          }
+        ],
+        "optionalDependencies": [],
+        "peerDependencies": []
+      },
+      "key": "node_modules/tsconfig-paths-webpack-plugin",
+      "lockEntry": {
+        "dependencies": {
+          "chalk": "^4.1.0",
+          "enhanced-resolve": "^5.7.0",
+          "tapable": "^2.2.1",
+          "tsconfig-paths": "^4.1.2"
+        },
+        "dev": true,
+        "engines": {
+          "node": ">=10.13.0"
+        },
+        "integrity": "sha512-zbem3rfRS8BgeNK50Zz5SIQgXzLafiHjOwUAvk/38/o1jHn/V5QAgVUcz884or7WYcPaH3N2CIfUc2u0ul7UcA==",
+        "license": "MIT",
+        "resolved": "https://registry.npmjs.org/tsconfig-paths-webpack-plugin/-/tsconfig-paths-webpack-plugin-4.2.0.tgz",
+        "version": "4.2.0"
+      }
+    },
+    {
+      "adjacency": {
+        "dependencies": [],
+        "optionalDependencies": [],
+        "peerDependencies": []
+      },
+      "key": "node_modules/tsconfig-paths/node_modules/strip-bom",
+      "lockEntry": {
+        "dev": true,
+        "engines": {
+          "node": ">=4"
+        },
+        "integrity": "sha512-vavAMRXOgBVNF6nyEEmL3DBK19iRpDcoIwW+swQ+CbGiu7lju6t+JklA1MHweoWtadgt4ISVUsXLyDq34ddcwA==",
+        "license": "MIT",
+        "resolved": "https://registry.npmjs.org/strip-bom/-/strip-bom-3.0.0.tgz",
+        "version": "3.0.0"
+      }
+    },
+    {
+      "adjacency": {
+        "dependencies": [],
+        "optionalDependencies": [],
+        "peerDependencies": []
+      },
+      "key": "node_modules/watskeburt",
+      "lockEntry": {
+        "bin": {
+          "watskeburt": "dist/run-cli.js"
+        },
+        "dev": true,
+        "engines": {
+          "node": "^18||>=20"
+        },
+        "integrity": "sha512-uG9qtQYoHqAsnT711nG5iZc/8M5inSmkGCOp7pFaytKG2aTfIca7p//CjiVzAE4P7hzaYuCozMjNNaLgmhbK5g==",
+        "license": "MIT",
+        "resolved": "https://registry.npmjs.org/watskeburt/-/watskeburt-4.2.3.tgz",
+        "version": "4.2.3"
+      }
+    }
+  ],
+  "counts": {
+    "addedKeys": 29,
+    "closureNodes": 29,
+    "referencedUnchangedEntries": 11,
+    "removedKeys": 0,
+    "unchangedExistingNodes": 720
+  },
+  "internalDigest": "a463c6279e286e3a08d72ac7af5f832ca97c67132ae186207b5bd067c60f0603",
+  "lockDelta": {
+    "addedKeys": [
+      "node_modules/acorn-jsx-walk",
+      "node_modules/acorn-loose",
+      "node_modules/acorn-walk",
+      "node_modules/dependency-cruiser",
+      "node_modules/dependency-cruiser/node_modules/commander",
+      "node_modules/dependency-cruiser/node_modules/ignore",
+      "node_modules/enhanced-resolve",
+      "node_modules/es-errors",
+      "node_modules/function-bind",
+      "node_modules/hasown",
+      "node_modules/interpret",
+      "node_modules/is-core-module",
+      "node_modules/json5",
+      "node_modules/kleur",
+      "node_modules/memoize",
+      "node_modules/path-parse",
+      "node_modules/prompts",
+      "node_modules/rechoir",
+      "node_modules/regexp-tree",
+      "node_modules/resolve",
+      "node_modules/safe-regex",
+      "node_modules/sisteransi",
+      "node_modules/supports-preserve-symlinks-flag",
+      "node_modules/tapable",
+      "node_modules/teamcity-service-messages",
+      "node_modules/tsconfig-paths",
+      "node_modules/tsconfig-paths-webpack-plugin",
+      "node_modules/tsconfig-paths/node_modules/strip-bom",
+      "node_modules/watskeburt"
+    ],
+    "changedKeys": [""],
+    "removedKeys": []
+  },
+  "lockSha256": "82fb4d2baae2a93b02bf95165326e7182485673e7b0e5fb2ebb8666924f3b310",
+  "packageSha256": "f790a7b687bb431ff910cd45d122eee7ba63807df0d78255d0af4f955eea8604",
+  "packageTransition": {
+    "afterSha256": "f790a7b687bb431ff910cd45d122eee7ba63807df0d78255d0af4f955eea8604",
+    "beforeSha256": "00216940c6325e628263e0def625c727a3106387d59457de2c480c109887d49b",
+    "delta": {
+      "devDependenciesAdded": {
+        "crc-32": "1.2.2",
+        "dependency-cruiser": "16.10.4",
+        "yauzl": "3.3.2"
+      },
+      "script": {
+        "after": "npm run verify:runtime && node scripts/run-playwright.mjs test --config=playwright.config.ts",
+        "before": "npm run verify:runtime && playwright test --config=playwright.config.ts",
+        "name": "test:i18n:visual"
+      }
+    }
+  },
+  "referencedUnchangedEntries": [
+    {
+      "key": "node_modules/acorn",
+      "lockEntry": {
+        "bin": {
+          "acorn": "bin/acorn"
+        },
+        "dev": true,
+        "engines": {
+          "node": ">=0.4.0"
+        },
+        "integrity": "sha512-UVJyE9MttOsBQIDKw1skb9nAwQuR5wuGD3+82K6JgJlm/Y+KI92oNsMNGZCYdDsVtRHSak0pcV5Dno5+4jh9sw==",
+        "license": "MIT",
+        "resolved": "https://registry.npmjs.org/acorn/-/acorn-8.16.0.tgz",
+        "version": "8.16.0"
+      }
+    },
+    {
+      "key": "node_modules/acorn-jsx",
+      "lockEntry": {
+        "dev": true,
+        "integrity": "sha512-rq9s+JNhf0IChjtDXxllJ7g41oZk5SlXtp0LHwyA5cejwn7vKmKp4pPri6YEePv2PU65sAsegbXtIinmDFDXgQ==",
+        "license": "MIT",
+        "peerDependencies": {
+          "acorn": "^6.0.0 || ^7.0.0 || ^8.0.0"
+        },
+        "resolved": "https://registry.npmjs.org/acorn-jsx/-/acorn-jsx-5.3.2.tgz",
+        "version": "5.3.2"
+      }
+    },
+    {
+      "key": "node_modules/ajv",
+      "lockEntry": {
+        "dependencies": {
+          "fast-deep-equal": "^3.1.3",
+          "fast-uri": "^3.0.1",
+          "json-schema-traverse": "^1.0.0",
+          "require-from-string": "^2.0.2"
+        },
+        "dev": true,
+        "funding": {
+          "type": "github",
+          "url": "https://github.com/sponsors/epoberezkin"
+        },
+        "integrity": "sha512-Thbli+OlOj+iMPYFBVBfJ3OmCAnaSyNn4M1vz9T6Gka5Jt9ba/HIR56joy65tY6kx/FCF5VXNB819Y7/GUrBGA==",
+        "license": "MIT",
+        "resolved": "https://registry.npmjs.org/ajv/-/ajv-8.20.0.tgz",
+        "version": "8.20.0"
+      }
+    },
+    {
+      "key": "node_modules/chalk",
+      "lockEntry": {
+        "dependencies": {
+          "ansi-styles": "^4.1.0",
+          "supports-color": "^7.1.0"
+        },
+        "dev": true,
+        "engines": {
+          "node": ">=10"
+        },
+        "funding": {
+          "url": "https://github.com/chalk/chalk?sponsor=1"
+        },
+        "integrity": "sha512-oKnbhFyRIXpUuez8iBMmyEa4nbj4IOQyuhc/wy9kY7/WVPcwIO9VA668Pu8RkO7+0G76SLROeyw9CpQ061i4mA==",
+        "license": "MIT",
+        "resolved": "https://registry.npmjs.org/chalk/-/chalk-4.1.2.tgz",
+        "version": "4.1.2"
+      }
+    },
+    {
+      "key": "node_modules/graceful-fs",
+      "lockEntry": {
+        "dev": true,
+        "integrity": "sha512-RbJ5/jmFcNNCcDV5o9eTnBLJ/HszWV0P73bc+Ff4nS/rJj+YaS6IGyiOL0VoBYX+l1Wrl3k63h/KrH+nhJ0XvQ==",
+        "license": "ISC",
+        "resolved": "https://registry.npmjs.org/graceful-fs/-/graceful-fs-4.2.11.tgz",
+        "version": "4.2.11"
+      }
+    },
+    {
+      "key": "node_modules/is-installed-globally",
+      "lockEntry": {
+        "dependencies": {
+          "global-directory": "^4.0.1",
+          "is-path-inside": "^4.0.0"
+        },
+        "dev": true,
+        "engines": {
+          "node": ">=18"
+        },
+        "funding": {
+          "url": "https://github.com/sponsors/sindresorhus"
+        },
+        "integrity": "sha512-K55T22lfpQ63N4KEN57jZUAaAYqYHEe8veb/TycJRk9DdSCLLcovXz/mL6mOnhQaZsQGwPhuFopdQIlqGSEjiQ==",
+        "license": "MIT",
+        "resolved": "https://registry.npmjs.org/is-installed-globally/-/is-installed-globally-1.0.0.tgz",
+        "version": "1.0.0"
+      }
+    },
+    {
+      "key": "node_modules/mimic-function",
+      "lockEntry": {
+        "dev": true,
+        "engines": {
+          "node": ">=18"
+        },
+        "funding": {
+          "url": "https://github.com/sponsors/sindresorhus"
+        },
+        "integrity": "sha512-VP79XUPxV2CigYP3jWwAUFSku2aKqBH7uTAapFWCBqutsbmDo96KY5o8uh6U+/YSIn5OxJnXp73beVkpqMIGhA==",
+        "license": "MIT",
+        "resolved": "https://registry.npmjs.org/mimic-function/-/mimic-function-5.0.1.tgz",
+        "version": "5.0.1"
+      }
+    },
+    {
+      "key": "node_modules/minimist",
+      "lockEntry": {
+        "dev": true,
+        "funding": {
+          "url": "https://github.com/sponsors/ljharb"
+        },
+        "integrity": "sha512-2yyAR8qBkN3YuheJanUpWC5U3bb5osDywNB8RzDVlDwDHbocAJveqqj1u8+SVD7jkWT4yvsHCpWqqWqAxb0zCA==",
+        "license": "MIT",
+        "resolved": "https://registry.npmjs.org/minimist/-/minimist-1.2.8.tgz",
+        "version": "1.2.8"
+      }
+    },
+    {
+      "key": "node_modules/picocolors",
+      "lockEntry": {
+        "dev": true,
+        "integrity": "sha512-xceH2snhtb5M9liqDsmEw56le376mTZkEX/jEb/RxNFyegNul7eNslCXP9FDj/Lcu0X8KEyMceP2ntpaHrDEVA==",
+        "license": "ISC",
+        "resolved": "https://registry.npmjs.org/picocolors/-/picocolors-1.1.1.tgz",
+        "version": "1.1.1"
+      }
+    },
+    {
+      "key": "node_modules/picomatch",
+      "lockEntry": {
+        "dev": true,
+        "engines": {
+          "node": ">=12"
+        },
+        "funding": {
+          "url": "https://github.com/sponsors/jonschlinkert"
+        },
+        "integrity": "sha512-QP88BAKvMam/3NxH6vj2o21R6MjxZUAd6nlwAS/pnGvN9IVLocLHxGYIzFhg6fUQ+5th6P4dv4eW9jX3DSIj7A==",
+        "license": "MIT",
+        "resolved": "https://registry.npmjs.org/picomatch/-/picomatch-4.0.4.tgz",
+        "version": "4.0.4"
+      }
+    },
+    {
+      "key": "node_modules/semver",
+      "lockEntry": {
+        "bin": {
+          "semver": "bin/semver.js"
+        },
+        "dev": true,
+        "engines": {
+          "node": ">=10"
+        },
+        "integrity": "sha512-c8jsqUZm3omBOI66G90z1Dyw5z622G8oLG+omfsHBJf3CWQTlOcwOjvOG6wtiNfW6anKm/eA39LMwMtMez2TiQ==",
+        "license": "ISC",
+        "resolved": "https://registry.npmjs.org/semver/-/semver-7.8.2.tgz",
+        "version": "7.8.2"
+      }
+    }
+  ],
+  "rootLockAfter": {
+    "dependencies": {
+      "@mozilla/readability": "^0.6.0",
+      "focus-trap": "^7.6.6",
+      "intl-messageformat": "^10.7.18",
+      "lucide": "^0.554.0",
+      "turndown": "^7.2.0",
+      "zod": "^3.23.8"
+    },
+    "devDependencies": {
+      "@playwright/test": "^1.60.0",
+      "@types/chrome": "^0.1.42",
+      "@types/firefox-webext-browser": "^143.0.0",
+      "@types/jsdom": "^21.1.5",
+      "@types/node": "^22.19.19",
+      "@types/turndown": "^5.0.6",
+      "@typescript-eslint/eslint-plugin": "^8.59.4",
+      "@typescript-eslint/parser": "^8.59.4",
+      "@vitest/coverage-v8": "4.1.9",
+      "archiver": "^6.0.2",
+      "crc-32": "1.2.2",
+      "dependency-cruiser": "16.10.4",
+      "esbuild": "^0.28.1",
+      "eslint": "^8.57.1",
+      "eslint-config-prettier": "^10.1.8",
+      "eslint-plugin-prettier": "^5.5.5",
+      "husky": "^9.1.7",
+      "jsdom": "^27.4.0",
+      "lint-staged": "^16.4.0",
+      "prettier": "^3.8.3",
+      "rimraf": "^6.1.3",
+      "stylelint": "^16.26.1",
+      "tsx": "^4.22.3",
+      "typescript": "^5.5.4",
+      "vitest": "4.1.9",
+      "web-ext": "^10.4.0",
+      "yauzl": "3.3.2"
+    },
+    "engines": {
+      "node": ">=20.19 <21",
+      "npm": ">=10 <11"
+    },
+    "name": "zendio",
+    "version": "0.2.1"
+  },
+  "rootLockBefore": {
+    "dependencies": {
+      "@mozilla/readability": "^0.6.0",
+      "focus-trap": "^7.6.6",
+      "intl-messageformat": "^10.7.18",
+      "lucide": "^0.554.0",
+      "turndown": "^7.2.0",
+      "zod": "^3.23.8"
+    },
+    "devDependencies": {
+      "@playwright/test": "^1.60.0",
+      "@types/chrome": "^0.1.42",
+      "@types/firefox-webext-browser": "^143.0.0",
+      "@types/jsdom": "^21.1.5",
+      "@types/node": "^22.19.19",
+      "@types/turndown": "^5.0.6",
+      "@typescript-eslint/eslint-plugin": "^8.59.4",
+      "@typescript-eslint/parser": "^8.59.4",
+      "@vitest/coverage-v8": "4.1.9",
+      "archiver": "^6.0.2",
+      "esbuild": "^0.28.1",
+      "eslint": "^8.57.1",
+      "eslint-config-prettier": "^10.1.8",
+      "eslint-plugin-prettier": "^5.5.5",
+      "husky": "^9.1.7",
+      "jsdom": "^27.4.0",
+      "lint-staged": "^16.4.0",
+      "prettier": "^3.8.3",
+      "rimraf": "^6.1.3",
+      "stylelint": "^16.26.1",
+      "tsx": "^4.22.3",
+      "typescript": "^5.5.4",
+      "vitest": "4.1.9",
+      "web-ext": "^10.4.0"
+    },
+    "engines": {
+      "node": ">=20.19 <21",
+      "npm": ">=10 <11"
+    },
+    "name": "zendio",
+    "version": "0.2.1"
+  },
+  "runtime": {
+    "discoveryContract": "process-execPath-contained-npm-cli-v1",
+    "nodeEngine": ">=20.19 <21",
+    "nodeVersion": "v20.20.2",
+    "npmCliSha256": "8e5f6f3429f8cdbe693cdc29904e9d5a7b127a494bd15c804bd54c7403bfcbe7",
+    "npmEngine": ">=10 <11",
+    "npmPackageSha256": "5af906974b65fc1e48d709687e174a466614b9706f9479bea73c650bc3142fb5",
+    "npmVersion": "10.8.2",
+    "registry": "https://registry.npmjs.org/"
+  },
+  "schema": {
+    "name": "r02-transition-v10",
+    "rejectDuplicateFields": true,
+    "rejectUnknownFields": true,
+    "version": 10
+  },
+  "unchangedPromotions": [
+    {
+      "key": "node_modules/yauzl",
+      "lockEntry": {
+        "dependencies": {
+          "pend": "~1.2.0"
+        },
+        "dev": true,
+        "engines": {
+          "node": ">=12"
+        },
+        "integrity": "sha512-Md9ankxxN23wncAN8s7+Tn3Co52zLUPMtnrLAbVCnfG5d2tKBFfmygYSgXlqFgXObtzIgqkx7aNgDBpso9+4qA==",
+        "license": "MIT",
+        "resolved": "https://registry.npmjs.org/yauzl/-/yauzl-3.3.2.tgz",
+        "version": "3.3.2"
+      }
+    },
+    {
+      "key": "node_modules/crc-32",
+      "lockEntry": {
+        "bin": {
+          "crc32": "bin/crc32.njs"
+        },
+        "dev": true,
+        "engines": {
+          "node": ">=0.8"
+        },
+        "integrity": "sha512-ROmzCKrTnOwybPcJApAA6WBWij23HVfGVNKqqrZpuyZOHqK2CwHSvpGuyt/UNNvaIjEd8X5IFGp4Mh+Ie1IHJQ==",
+        "license": "Apache-2.0",
+        "resolved": "https://registry.npmjs.org/crc-32/-/crc-32-1.2.2.tgz",
+        "version": "1.2.2"
+      }
+    }
+  ]
+}

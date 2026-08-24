@@ -2,6 +2,7 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
+import { buildZipFixture } from '../../utils/zipFixtureBuilder';
 
 const scriptPath = resolve('tools/report-ga-release-surface.mjs');
 
@@ -12,60 +13,10 @@ function writeFile(root: string, relativePath: string, contents: string): void {
 }
 
 function createZipArchive(archivePath: string, entries: Record<string, string>): void {
-  const localEntries: Buffer[] = [];
-  const centralEntries: Buffer[] = [];
-  let offset = 0;
-
-  for (const [entry, contents] of Object.entries(entries)) {
-    const payload = Buffer.from(contents);
-    const localEntry = createLocalFileEntry(entry, payload);
-    localEntries.push(localEntry);
-    centralEntries.push(createCentralDirectoryEntry(entry, payload.length, offset));
-    offset += localEntry.length;
-  }
-
-  const centralDirectory = Buffer.concat(centralEntries);
-  const end = Buffer.alloc(22);
-  end.writeUInt32LE(0x06054b50, 0);
-  end.writeUInt16LE(Object.keys(entries).length, 8);
-  end.writeUInt16LE(Object.keys(entries).length, 10);
-  end.writeUInt32LE(centralDirectory.length, 12);
-  end.writeUInt32LE(offset, 16);
-  writeFileSync(archivePath, Buffer.concat([...localEntries, centralDirectory, end]));
-}
-
-function createLocalFileEntry(entry: string, payload: Buffer): Buffer {
-  const name = Buffer.from(entry);
-  const buffer = Buffer.alloc(30 + name.length + payload.length);
-  buffer.writeUInt32LE(0x04034b50, 0);
-  buffer.writeUInt16LE(20, 4);
-  buffer.writeUInt16LE(0, 6);
-  buffer.writeUInt16LE(0, 8);
-  buffer.writeUInt32LE(payload.length, 18);
-  buffer.writeUInt32LE(payload.length, 22);
-  buffer.writeUInt16LE(name.length, 26);
-  name.copy(buffer, 30);
-  payload.copy(buffer, 30 + name.length);
-  return buffer;
-}
-
-function createCentralDirectoryEntry(
-  entry: string,
-  size: number,
-  localHeaderOffset: number
-): Buffer {
-  const name = Buffer.from(entry);
-  const buffer = Buffer.alloc(46 + name.length);
-  buffer.writeUInt32LE(0x02014b50, 0);
-  buffer.writeUInt16LE(20, 4);
-  buffer.writeUInt16LE(20, 6);
-  buffer.writeUInt16LE(0, 10);
-  buffer.writeUInt32LE(size, 20);
-  buffer.writeUInt32LE(size, 24);
-  buffer.writeUInt16LE(name.length, 28);
-  buffer.writeUInt32LE(localHeaderOffset, 42);
-  name.copy(buffer, 46);
-  return buffer;
+  writeFileSync(
+    archivePath,
+    buildZipFixture(Object.entries(entries).map(([path, content]) => ({ path, content })))
+  );
 }
 
 function createFixture() {

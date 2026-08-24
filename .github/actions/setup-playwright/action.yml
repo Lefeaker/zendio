@@ -1,20 +1,39 @@
 name: Setup Playwright
-description: Install repository Node.js dependencies and cache Playwright browser binaries.
+description: Install locked dependencies and one bundled browser through split bounded phases.
+
+outputs:
+  attempt-root:
+    description: Canonical private command attempt root.
+    value: ${{ steps.node.outputs.attempt-root }}
+  npm-userconfig:
+    description: Canonical private npm user configuration.
+    value: ${{ steps.node.outputs.npm-userconfig }}
+  npm-globalconfig:
+    description: Canonical private npm global configuration.
+    value: ${{ steps.node.outputs.npm-globalconfig }}
+  playwright-browsers-path:
+    description: Attempt-owned bundled browser directory.
+    value: ${{ steps.node.outputs.attempt-root }}/browsers
 
 runs:
   using: composite
   steps:
     - name: Setup Node dependencies
+      id: node
       uses: ./.github/actions/setup-node-deps
 
-    - name: Cache Playwright browser binaries
-      uses: actions/cache@v4
-      with:
-        path: ~/.cache/ms-playwright
-        key: ${{ runner.os }}-playwright-${{ hashFiles('package-lock.json') }}
-        restore-keys: |
-          ${{ runner.os }}-playwright-
-
-    - name: Install Playwright dependencies
+    - name: Install Playwright host dependencies
       shell: bash
-      run: npx playwright install --with-deps chromium
+      env:
+        NPM_CONFIG_USERCONFIG: ${{ steps.node.outputs.npm-userconfig }}
+        NPM_CONFIG_GLOBALCONFIG: ${{ steps.node.outputs.npm-globalconfig }}
+        PLAYWRIGHT_BROWSERS_PATH: ${{ steps.node.outputs.attempt-root }}/browsers
+      run: node scripts/run-bounded-command.mjs --profile playwright-host-deps-platform-v1 -- chromium-with-host-deps
+
+    - name: Install bundled Playwright browser
+      shell: bash
+      env:
+        NPM_CONFIG_USERCONFIG: ${{ steps.node.outputs.npm-userconfig }}
+        NPM_CONFIG_GLOBALCONFIG: ${{ steps.node.outputs.npm-globalconfig }}
+        PLAYWRIGHT_BROWSERS_PATH: ${{ steps.node.outputs.attempt-root }}/browsers
+      run: node scripts/run-bounded-command.mjs --profile playwright-browser-install-v1 -- chromium-with-host-deps

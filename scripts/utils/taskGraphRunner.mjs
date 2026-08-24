@@ -1,161 +1,224 @@
-import { spawn } from 'node:child_process';
-import os from 'node:os';
-
-export function resolveConcurrency(value, fallback = 3) {
-  const parsed = Number(value);
-  if (Number.isFinite(parsed) && parsed > 0) {
-    return Math.floor(parsed);
-  }
-  return Math.max(1, fallback);
-}
-
-export function defaultConcurrency() {
-  return Math.max(1, Math.min(4, Math.floor(os.cpus().length / 2) || 1));
-}
-
-export function validateTaskGraph(tasks) {
-  const ids = new Set();
-  const problems = [];
-
-  for (const task of tasks) {
-    if (!task?.id) {
-      problems.push('task is missing id');
-      continue;
-    }
-    if (ids.has(task.id)) {
-      problems.push(`duplicate task id: ${task.id}`);
-    }
-    ids.add(task.id);
-    if (!Array.isArray(task.cmd) || task.cmd.length === 0) {
-      problems.push(`task ${task.id} is missing cmd`);
-    }
-  }
-
-  for (const task of tasks) {
-    for (const dependency of task.dependsOn ?? []) {
-      if (!ids.has(dependency)) {
-        problems.push(`task ${task.id} depends on unknown task ${dependency}`);
-      }
-    }
-  }
-
-  if (problems.length > 0) {
-    throw new Error(`Invalid task graph:\n- ${problems.join('\n- ')}`);
-  }
-}
-
-export async function runTaskGraph(tasks, options = {}) {
-  validateTaskGraph(tasks);
-
-  const concurrency = resolveConcurrency(
-    options.concurrency ?? process.env.QUALITY_CONCURRENCY,
-    defaultConcurrency()
-  );
-  const taskById = new Map(tasks.map((task) => [task.id, normalizeTask(task)]));
-  const pending = new Set(taskById.keys());
-  const running = new Map();
-  const completed = new Set();
-  const failed = [];
-
-  console.log(`🔍 开始质量检查（并发上限 ${concurrency}）...\n`);
-
-  return await new Promise((resolveResult) => {
-    function schedule() {
-      if (failed.length > 0 && running.size === 0) {
-        resolveResult({ ok: false, failed, completed: Array.from(completed) });
-        return;
-      }
-
-      if (failed.length > 0) {
-        return;
-      }
-
-      while (running.size < concurrency) {
-        const nextTask = Array.from(pending)
-          .map((id) => taskById.get(id))
-          .find((task) => task.dependsOn.every((dependency) => completed.has(dependency)));
-
-        if (!nextTask) {
-          break;
-        }
-
-        pending.delete(nextTask.id);
-        runOneTask(nextTask, running, completed, failed).finally(schedule);
-      }
-
-      if (pending.size > 0 && running.size === 0) {
-        failed.push({
-          id: 'task-graph',
-          name: 'Task graph dependency resolution',
-          code: 1,
-          error: new Error(`Unresolvable task dependencies: ${Array.from(pending).join(', ')}`)
-        });
-        resolveResult({ ok: false, failed, completed: Array.from(completed) });
-        return;
-      }
-
-      if (pending.size === 0 && running.size === 0) {
-        resolveResult({ ok: failed.length === 0, failed, completed: Array.from(completed) });
-      }
-    }
-
-    schedule();
-  });
-}
+import { performance } from 'node:perf_hooks';
+import {
+  TASK_GRAPH_POLICIES,
+  validateProfileArguments
+} from '../config/commandBoundaryProfiles.mjs';
+import { startBoundedCommand } from './boundedCommand.mjs';
 
 function normalizeTask(task) {
   return {
-    ...task,
+    id: task.id,
     name: task.name ?? task.id,
-    dependsOn: task.dependsOn ?? []
+    profile: task.profile,
+    args: [...(task.args ?? [])],
+    dependsOn: [...(task.dependsOn ?? [])]
   };
 }
 
-function runOneTask(task, running, completed, failed) {
-  console.log(`⏳ ${task.name}...`);
-  const startedAt = Date.now();
-  const child = spawn(task.cmd[0], task.cmd.slice(1), {
-    stdio: 'inherit',
-    shell: process.platform === 'win32',
-    env: {
-      ...process.env,
-      ...(task.env ?? {})
-    }
-  });
-  running.set(task.id, child);
-
-  return new Promise((resolve) => {
-    child.on('exit', (code, signal) => {
-      running.delete(task.id);
-      const elapsedSeconds = ((Date.now() - startedAt) / 1000).toFixed(1);
-      if (signal || code !== 0) {
-        failed.push({
-          id: task.id,
-          name: task.name,
-          code,
-          signal
-        });
-        console.error(
-          `❌ ${task.name} 失败 (${elapsedSeconds}s)${
-            signal ? `, signal=${signal}` : `, exit=${code ?? 1}`
-          }`
+export function validateTaskGraph(tasks) {
+  if (!Array.isArray(tasks) || tasks.length === 0) throw new Error('Invalid task graph: empty');
+  const ids = new Set();
+  const normalized = tasks.map(normalizeTask);
+  for (const task of normalized) {
+    if (typeof task.id !== 'string' || task.id.length === 0)
+      throw new Error('Invalid task graph: task is missing id');
+    if (ids.has(task.id)) throw new Error(`Invalid task graph: duplicate task id: ${task.id}`);
+    ids.add(task.id);
+    if (task.dependsOn.includes(task.id))
+      throw new Error(`Invalid task graph: task ${task.id} depends on itself`);
+    validateProfileArguments(task.profile, task.args);
+  }
+  for (const task of normalized) {
+    for (const dependency of task.dependsOn) {
+      if (!ids.has(dependency))
+        throw new Error(
+          `Invalid task graph: task ${task.id} depends on unknown task ${dependency}`
         );
-      } else {
-        completed.add(task.id);
-        console.log(`✅ ${task.name} 通过 (${elapsedSeconds}s)\n`);
-      }
-      resolve();
-    });
+    }
+  }
+  const visiting = new Set();
+  const visited = new Set();
+  const byId = new Map(normalized.map((task) => [task.id, task]));
+  const visit = (id) => {
+    if (visiting.has(id)) throw new Error(`Invalid task graph: dependency cycle at ${id}`);
+    if (visited.has(id)) return;
+    visiting.add(id);
+    for (const dependency of byId.get(id).dependsOn) visit(dependency);
+    visiting.delete(id);
+    visited.add(id);
+  };
+  for (const id of ids) visit(id);
+  return normalized;
+}
 
-    child.on('error', (error) => {
-      running.delete(task.id);
-      failed.push({
+export async function runTaskGraph(tasks, options = {}) {
+  const normalized = validateTaskGraph(tasks);
+  const policy = TASK_GRAPH_POLICIES[options.policyId];
+  if (!policy) throw new Error(`Unknown task graph policy: ${String(options.policyId)}`);
+  const concurrency = options.concurrency ?? policy.concurrency;
+  if (!Number.isInteger(concurrency) || concurrency < 1 || concurrency > policy.concurrency) {
+    throw new Error(`Invalid task graph concurrency for ${options.policyId}`);
+  }
+  const startCommand =
+    options.startCommand ??
+    ((task) => startBoundedCommand({ profileId: task.profile, arguments: task.args }));
+  const now = options.now ?? (() => performance.now());
+  const scheduleTimer = options.setTimeoutOperation ?? setTimeout;
+  const cancelTimer = options.clearTimeoutOperation ?? clearTimeout;
+  const signalSource = options.signalSource ?? process;
+  const byId = new Map(normalized.map((task) => [task.id, task]));
+  const pending = new Set(byId.keys());
+  const running = new Map();
+  const completed = new Set();
+  const failed = [];
+  const cancelled = new Set();
+  const results = new Map();
+  const startedAt = now();
+  const admissionDeadline = startedAt + policy.fullMs - policy.terminalReserveMs;
+  let admissionOpen = true;
+  let rootFailure = null;
+  let settled = false;
+  let deadlineTimer;
+  const parentSignals = new Map();
+  let resolveRoot;
+  const completion = new Promise((resolvePromise) => {
+    resolveRoot = resolvePromise;
+  });
+
+  function closeAdmission(failure) {
+    if (!admissionOpen) return;
+    admissionOpen = false;
+    rootFailure = failure;
+    for (const id of pending) cancelled.add(id);
+    pending.clear();
+    for (const { handle } of running.values()) handle.cancel(failure.terminalReason);
+  }
+
+  function clearResources() {
+    if (deadlineTimer) cancelTimer(deadlineTimer);
+    for (const [name, listener] of parentSignals) signalSource.off?.(name, listener);
+  }
+
+  function finish() {
+    if (settled || running.size > 0 || (admissionOpen && pending.size > 0)) return;
+    settled = true;
+    clearResources();
+    if (rootFailure && !failed.some((failure) => failure.id === rootFailure.id))
+      failed.push(rootFailure);
+    resolveRoot({
+      ok: failed.length === 0 && !rootFailure,
+      policyId: options.policyId,
+      completed: [...completed],
+      failed: [...failed],
+      cancelled: [...cancelled],
+      results: Object.fromEntries(results),
+      startedAt,
+      endedAt: now()
+    });
+  }
+
+  function handleCompletion(task, handle, result) {
+    running.delete(task.id);
+    results.set(task.id, result);
+    if (result.ok) {
+      completed.add(task.id);
+    } else {
+      const failure = {
         id: task.id,
         name: task.name,
-        error
+        terminalReason: result.terminalReason,
+        code: result.exitCode,
+        signal: result.signal
+      };
+      failed.push(failure);
+      closeAdmission(failure);
+    }
+    schedule();
+  }
+
+  function start(task) {
+    let handle;
+    try {
+      handle = startCommand(task);
+    } catch (error) {
+      const failure = {
+        id: task.id,
+        name: task.name,
+        terminalReason: 'spawn-error',
+        error: error instanceof Error ? error.message : String(error)
+      };
+      failed.push(failure);
+      closeAdmission(failure);
+      return;
+    }
+    running.set(task.id, { task, handle });
+    handle.completion.then(
+      (result) => handleCompletion(task, handle, result),
+      (error) =>
+        handleCompletion(task, handle, {
+          ok: false,
+          terminalReason: 'late-rejection',
+          exitCode: null,
+          signal: null,
+          error: error instanceof Error ? error.message : String(error)
+        })
+    );
+  }
+
+  function schedule() {
+    if (settled) return;
+    if (!admissionOpen) {
+      finish();
+      return;
+    }
+    while (running.size < concurrency) {
+      if (now() >= admissionDeadline) {
+        closeAdmission({
+          id: 'task-graph',
+          name: 'Task graph root deadline',
+          terminalReason: 'root-deadline'
+        });
+        break;
+      }
+      const task = [...pending]
+        .map((id) => byId.get(id))
+        .find((candidate) => candidate.dependsOn.every((dependency) => completed.has(dependency)));
+      if (!task) break;
+      pending.delete(task.id);
+      start(task);
+      if (!admissionOpen) break;
+    }
+    if (pending.size > 0 && running.size === 0 && admissionOpen) {
+      closeAdmission({
+        id: 'task-graph',
+        name: 'Task graph dependency resolution',
+        terminalReason: 'unresolvable'
       });
-      console.error(`❌ ${task.name} 启动失败: ${error.message}`);
-      resolve();
+    }
+    finish();
+  }
+
+  deadlineTimer = scheduleTimer(() => {
+    closeAdmission({
+      id: 'task-graph',
+      name: 'Task graph root deadline',
+      terminalReason: 'root-deadline'
     });
-  });
+    finish();
+  }, policy.fullMs - policy.terminalReserveMs);
+  for (const name of ['SIGINT', 'SIGTERM']) {
+    const listener = () => {
+      closeAdmission({
+        id: 'task-graph',
+        name: 'Task graph parent signal',
+        terminalReason: 'parent-signal',
+        signal: name
+      });
+      finish();
+    };
+    parentSignals.set(name, listener);
+    signalSource.on?.(name, listener);
+  }
+  schedule();
+  return completion;
 }

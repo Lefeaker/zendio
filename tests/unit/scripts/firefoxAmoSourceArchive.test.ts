@@ -1,4 +1,14 @@
-import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { spawnSync } from 'node:child_process';
+import {
+  chmod,
+  mkdir,
+  mkdtemp,
+  readFile,
+  realpath,
+  rm,
+  symlink,
+  writeFile
+} from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -7,8 +17,62 @@ import {
   createFirefoxAmoSourceArchive,
   readFirefoxAmoSourceArchiveEntries
 } from '../../../scripts/utils/firefoxAmoSourceArchive.mjs';
+import { buildZipFixture } from '../../utils/zipFixtureBuilder';
 
 const tempRoots: string[] = [];
+
+type JsonPrimitive = string | number | boolean | null;
+type JsonValue = JsonPrimitive | JsonObject | JsonValue[];
+interface JsonObject {
+  [key: string]: JsonValue;
+}
+
+type ReplayCommand = JsonObject & {
+  label: string;
+  argv: JsonValue[];
+  environment: JsonObject;
+  stdin: JsonObject;
+  result: JsonObject;
+};
+
+type ReplayReceipt = JsonObject & {
+  schema: string;
+  policy: string;
+  cwd: string;
+  input: JsonObject & { rows: JsonValue[]; rosterSha256: string };
+  commands: ReplayCommand[];
+  output: JsonObject;
+};
+
+function isRecord(value: unknown): value is JsonObject {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function isReplayCommand(value: unknown): value is ReplayCommand {
+  return (
+    isRecord(value) &&
+    typeof value.label === 'string' &&
+    Array.isArray(value.argv) &&
+    isRecord(value.environment) &&
+    isRecord(value.stdin) &&
+    isRecord(value.result)
+  );
+}
+
+function isReplayReceipt(value: unknown): value is ReplayReceipt {
+  return (
+    isRecord(value) &&
+    typeof value.schema === 'string' &&
+    typeof value.policy === 'string' &&
+    typeof value.cwd === 'string' &&
+    isRecord(value.input) &&
+    Array.isArray(value.input.rows) &&
+    typeof value.input.rosterSha256 === 'string' &&
+    Array.isArray(value.commands) &&
+    value.commands.every(isReplayCommand) &&
+    isRecord(value.output)
+  );
+}
 
 async function createTempRoot(): Promise<string> {
   const root = await mkdtemp(join(tmpdir(), 'aiiinob-firefox-amo-source-test-'));
@@ -16,76 +80,34 @@ async function createTempRoot(): Promise<string> {
   return root;
 }
 
-async function writeFixtureFile(root: string, relativePath: string, contents = ''): Promise<void> {
+async function writeFixtureFile(
+  root: string,
+  relativePath: string,
+  contents: string | Buffer = ''
+): Promise<void> {
   const target = join(root, relativePath);
   await mkdir(dirname(target), { recursive: true });
-  await writeFile(target, contents, 'utf8');
+  await writeFile(target, contents);
 }
 
 async function writeZipArchive(
   root: string,
   relativePath: string,
-  entries: Record<string, string>
+  entries: Record<string, string | Buffer>
 ): Promise<string> {
   const archivePath = join(root, relativePath);
-  const localEntries: Buffer[] = [];
-  const centralEntries: Buffer[] = [];
-  let offset = 0;
-
-  for (const [entry, contents] of Object.entries(entries)) {
-    const payload = Buffer.from(contents);
-    const localEntry = createLocalFileEntry(entry, payload);
-    localEntries.push(localEntry);
-    centralEntries.push(createCentralDirectoryEntry(entry, payload.length, offset));
-    offset += localEntry.length;
-  }
-
-  const centralDirectory = Buffer.concat(centralEntries);
-  const end = Buffer.alloc(22);
-  end.writeUInt32LE(0x06054b50, 0);
-  end.writeUInt16LE(Object.keys(entries).length, 8);
-  end.writeUInt16LE(Object.keys(entries).length, 10);
-  end.writeUInt32LE(centralDirectory.length, 12);
-  end.writeUInt32LE(offset, 16);
-  await writeFile(archivePath, Buffer.concat([...localEntries, centralDirectory, end]));
+  await writeFile(
+    archivePath,
+    buildZipFixture(Object.entries(entries).map(([path, content]) => ({ path, content })))
+  );
   return archivePath;
 }
 
-function createLocalFileEntry(entry: string, payload: Buffer): Buffer {
-  const name = Buffer.from(entry);
-  const buffer = Buffer.alloc(30 + name.length + payload.length);
-  buffer.writeUInt32LE(0x04034b50, 0);
-  buffer.writeUInt16LE(20, 4);
-  buffer.writeUInt16LE(0, 6);
-  buffer.writeUInt16LE(0, 8);
-  buffer.writeUInt32LE(payload.length, 18);
-  buffer.writeUInt32LE(payload.length, 22);
-  buffer.writeUInt16LE(name.length, 26);
-  name.copy(buffer, 30);
-  payload.copy(buffer, 30 + name.length);
-  return buffer;
-}
-
-function createCentralDirectoryEntry(
-  entry: string,
-  size: number,
-  localHeaderOffset: number
-): Buffer {
-  const name = Buffer.from(entry);
-  const buffer = Buffer.alloc(46 + name.length);
-  buffer.writeUInt32LE(0x02014b50, 0);
-  buffer.writeUInt16LE(20, 4);
-  buffer.writeUInt16LE(20, 6);
-  buffer.writeUInt16LE(0, 10);
-  buffer.writeUInt32LE(size, 20);
-  buffer.writeUInt32LE(size, 24);
-  buffer.writeUInt16LE(name.length, 28);
-  buffer.writeUInt32LE(localHeaderOffset, 42);
-  name.copy(buffer, 46);
-  return buffer;
-}
-
-async function createSourceFixture(root: string): Promise<void> {
+async function createSourceFixture(
+  root: string,
+  options: { localNoise?: boolean } = {}
+): Promise<void> {
+  const { localNoise = true } = options;
   await writeFixtureFile(root, '.nvmrc', '20.20.2\n');
   await writeFixtureFile(
     root,
@@ -106,8 +128,37 @@ async function createSourceFixture(root: string): Promise<void> {
   await writeFixtureFile(root, 'src/background/index.ts', 'console.info("source");\n');
   await writeFixtureFile(root, 'src/styles/design-tokens.css', ':root { --z: 1; }\n');
   await writeFixtureFile(root, 'public/manifest.firefox.json', '{"manifest_version":3}\n');
-  await writeFixtureFile(root, 'scripts/build.mjs', 'console.info("build");\n');
-  await writeFixtureFile(root, 'scripts/package-firefox.mjs', 'console.info("package");\n');
+  await writeFixtureFile(
+    root,
+    'scripts/build.mjs',
+    `import { mkdir, writeFile } from 'node:fs/promises';
+import { join } from 'node:path';
+
+const argv = process.argv.slice(2);
+if (JSON.stringify(argv.slice(0, 4)) !== JSON.stringify(['--mode=prod', '--skip-checks', '--firefox', '--outdir']) || argv.length !== 5) {
+  process.stderr.write('BUILD_ARGV_MISMATCH\\n');
+  process.exit(65);
+}
+await mkdir(argv[4], { recursive: true });
+await writeFile(join(argv[4], 'manifest.json'), '{"fixture":true}\\n');
+process.stdout.write('fixture build complete\\n');
+`
+  );
+  await writeFixtureFile(
+    root,
+    'scripts/package-firefox.mjs',
+    `import { readFile, writeFile } from 'node:fs/promises';
+
+const argv = process.argv.slice(2);
+if (argv.length !== 2 || argv[0] !== '--dist-dir') {
+  process.stderr.write('PACKAGE_ARGV_MISMATCH\\n');
+  process.exit(65);
+}
+const packageJson = JSON.parse(await readFile('package.json', 'utf8'));
+await writeFile('Zendio-All in Obsidian-v' + packageJson.version + '.xpi', 'fixture xpi\\n');
+process.stdout.write('fixture package complete\\n');
+`
+  );
   await writeFixtureFile(
     root,
     'scripts/setup-error-analytics.js',
@@ -117,12 +168,20 @@ async function createSourceFixture(root: string): Promise<void> {
   await writeFixtureFile(root, 'tools/audit-release-archive.mjs', 'console.info("audit");\n');
   await writeFixtureFile(root, 'tools/report-release-surface.mjs', 'console.info("surface");\n');
 
-  await writeFixtureFile(root, '.env.production.local', 'WEB_EXT_API_SECRET=secret\n');
-  await writeFixtureFile(root, 'build/dist/content/runtime.js', 'generated\n');
-  await writeFixtureFile(root, 'node_modules/web-ext/index.js', 'dependency\n');
-  await writeFixtureFile(root, '.worktrees/stale/file.txt', 'worktree\n');
-  await writeFixtureFile(root, 'Zendio-All in Obsidian-v0.2.1.xpi', 'package\n');
-  await writeFixtureFile(root, 'src/.DS_Store', 'finder metadata\n');
+  await writeFixtureFile(
+    root,
+    'public/icons/arbitrary-binary.bin',
+    Buffer.from([0x00, 0xff, 0xfe, 0x80, 0x41])
+  );
+
+  if (localNoise) {
+    await writeFixtureFile(root, '.env.production.local', 'WEB_EXT_API_SECRET=secret\n');
+    await writeFixtureFile(root, 'build/dist/content/runtime.js', 'generated\n');
+    await writeFixtureFile(root, 'node_modules/web-ext/index.js', 'dependency\n');
+    await writeFixtureFile(root, '.worktrees/stale/file.txt', 'worktree\n');
+    await writeFixtureFile(root, 'Zendio-All in Obsidian-v0.2.1.xpi', 'package\n');
+    await writeFixtureFile(root, 'src/.DS_Store', 'finder metadata\n');
+  }
 }
 
 describe('Firefox AMO source archive', () => {
@@ -160,6 +219,7 @@ describe('Firefox AMO source archive', () => {
     expect(entryPaths).toContain('package-lock.json');
     expect(entryPaths).toContain('src/background/index.ts');
     expect(entryPaths).toContain('public/manifest.firefox.json');
+    expect(entryPaths).toContain('public/icons/arbitrary-binary.bin');
     expect(entryPaths).toContain('scripts/build.mjs');
     expect(entryPaths).toContain('scripts/package-firefox.mjs');
     expect(entryPaths).toContain('tools/audit-release-archive.mjs');
@@ -170,12 +230,19 @@ describe('Firefox AMO source archive', () => {
     expect(entryPaths).not.toContain('Zendio-All in Obsidian-v0.2.1.xpi');
     expect(entryPaths).not.toContain('src/.DS_Store');
 
-    const readme = entries.find((entry) => entry.path === 'AMO_SOURCE_REVIEW.md')?.content;
+    const readme = entries
+      .find((entry) => entry.path === 'AMO_SOURCE_REVIEW.md')
+      ?.content?.toString('utf8');
     expect(readme).toContain('Zendio-All in Obsidian-v0.2.1.xpi');
     expect(readme).toContain('ZENDIO_GA_MEASUREMENT_ID');
-    expect(readme).toContain('ZENDIO_GA_TRANSPORT_MODE=proxy');
-    expect(readme).toContain('node scripts/build.mjs --mode=prod --skip-checks --firefox');
-    expect(readme).toContain('node scripts/package-firefox.mjs --dist-dir build/dist');
+    expect(readme).toContain('test "$ZENDIO_GA_TRANSPORT_MODE" = proxy');
+    expect(readme).toContain("'--ignore-scripts'");
+    expect(readme).toContain("'--node-options='");
+    expect(readme).toContain("join(root, 'scripts/build.mjs')");
+    expect(readme).toContain("join(root, 'scripts/package-firefox.mjs')");
+    expect(
+      entries.find((entry) => entry.path === 'public/icons/arbitrary-binary.bin')?.content
+    ).toEqual(Buffer.from([0x00, 0xff, 0xfe, 0x80, 0x41]));
 
     await expect(auditFirefoxAmoSourceArchive(result.archivePath)).resolves.toMatchObject({
       ok: true
@@ -209,7 +276,166 @@ describe('Firefox AMO source archive', () => {
       /missing required source entry: scripts\/build\.mjs/
     );
     await expect(auditFirefoxAmoSourceArchive(archivePath)).rejects.toThrow(
-      /AMO_SOURCE_REVIEW\.md is missing: ZENDIO_GA_MEASUREMENT_ID/
+      /package\.json version is missing/
+    );
+  });
+
+  it('applies fatal UTF-8 decoding only to required text entries', async () => {
+    const root = await createTempRoot();
+    const archivePath = await writeZipArchive(root, 'malformed-source.zip', {
+      'AMO_SOURCE_REVIEW.md': Buffer.from([0xff, 0xfe]),
+      'package.json': '{"version":"0.2.1"}\n'
+    });
+
+    await expect(auditFirefoxAmoSourceArchive(archivePath)).rejects.toThrow(
+      'ZIP_ENTRY_UTF8_INVALID:AMO_SOURCE_REVIEW.md'
+    );
+  });
+
+  it('emits a directly executable replay that binds the complete command and input contract', async () => {
+    const root = await createTempRoot();
+    const outputRoot = await createTempRoot();
+    const toolRoot = await createTempRoot();
+    const fakeBin = join(toolRoot, 'bin');
+    await mkdir(fakeBin, { recursive: true });
+    await symlink(process.execPath, join(fakeBin, 'node'));
+    const npmMarker = join(toolRoot, 'npm-invocation.txt');
+    await writeFile(
+      join(fakeBin, 'npm'),
+      `#!/bin/sh
+if test "$#" -eq 1 && test "$1" = --version; then
+  printf '10.8.2\\n'
+  exit 0
+fi
+if test "$#" -eq 9 && test "$1" = ci && test "$2" = --ignore-scripts && test "$3" = --no-audit && test "$4" = --no-fund && test "$5" = --include=optional && test "$6" = --registry=https://registry.npmjs.org/ && test "\${7#--userconfig=}" != "$7" && test "\${8#--globalconfig=}" != "$8" && test "$9" = --node-options=; then
+  printf '%s\\n' "$@" > ${JSON.stringify(npmMarker)}
+  printf 'fixture install complete\\n'
+  exit 0
+fi
+printf 'NPM_ARGV_MISMATCH\\n' >&2
+exit 65
+`
+    );
+    await chmod(join(fakeBin, 'npm'), 0o755);
+    await createSourceFixture(root, { localNoise: false });
+
+    const result = await createFirefoxAmoSourceArchive(
+      {
+        repoRoot: root,
+        outputDir: outputRoot,
+        artifactBaseName: 'Zendio-All in Obsidian-v0.2.1',
+        releaseXpiName: 'Zendio-All in Obsidian-v0.2.1.xpi',
+        version: '0.2.1'
+      },
+      { logger: { log: vi.fn(), warn: vi.fn() } }
+    );
+    const entries = await readFirefoxAmoSourceArchiveEntries(result.archivePath);
+    const extractedRoot = await createTempRoot();
+    for (const entry of entries) {
+      if (entry.content) await writeFixtureFile(extractedRoot, entry.path, entry.content);
+    }
+    const canonicalRoot = await realpath(extractedRoot);
+    const readme = entries
+      .find((entry) => entry.path === 'AMO_SOURCE_REVIEW.md')
+      ?.content?.toString('utf8');
+    const script = readme?.match(/```bash\n([\s\S]*?)\n```/)?.[1];
+    expect(script).toBeTruthy();
+
+    const replay = spawnSync('/bin/bash', ['-c', script ?? 'exit 99'], {
+      cwd: extractedRoot,
+      env: {
+        PATH: `${fakeBin}:/usr/bin:/bin`,
+        ZENDIO_GA_MEASUREMENT_ID: 'G-FIXTURE',
+        ZENDIO_GA_TRANSPORT_MODE: 'proxy',
+        ZENDIO_GA_PROXY_ENDPOINT: 'https://example.invalid/collect'
+      },
+      encoding: 'utf8',
+      timeout: 30_000
+    });
+
+    expect(replay).toMatchObject({ status: 0, signal: null });
+    expect(replay.stderr).toBe('');
+    const receiptPath = replay.stdout.match(/ZENDIO_REVIEW_RECEIPT=(.+)\n/)?.[1];
+    expect(receiptPath).toBeTruthy();
+    if (!receiptPath) throw new Error('missing replay receipt path');
+    tempRoots.push(dirname(receiptPath));
+    const receiptValue: unknown = JSON.parse(await readFile(receiptPath, 'utf8'));
+    if (!isReplayReceipt(receiptValue)) throw new Error('invalid replay receipt shape');
+    const receipt = receiptValue;
+    expect(receipt).toMatchObject({
+      schema: 'zendio-amo-source-review-replay/v1',
+      policy: 'release-build-env-v1',
+      cwd: canonicalRoot,
+      commands: [
+        {
+          label: 'install',
+          cwd: canonicalRoot,
+          stdin: { bytes: 0 },
+          result: { exitCode: 0, signal: null }
+        },
+        {
+          label: 'build',
+          cwd: canonicalRoot,
+          stdin: { bytes: 0 },
+          result: { exitCode: 0, signal: null }
+        },
+        {
+          label: 'package',
+          cwd: canonicalRoot,
+          stdin: { bytes: 0 },
+          result: { exitCode: 0, signal: null }
+        }
+      ]
+    });
+    expect(receipt.commands[0].argv).toEqual([
+      'ci',
+      '--ignore-scripts',
+      '--no-audit',
+      '--no-fund',
+      '--include=optional',
+      '--registry=https://registry.npmjs.org/',
+      expect.stringMatching(/^--userconfig=\/tmp\/zendio-amo-review\./),
+      expect.stringMatching(/^--globalconfig=\/tmp\/zendio-amo-review\./),
+      '--node-options='
+    ]);
+    expect(receipt.commands[1].argv).toEqual([
+      join(canonicalRoot, 'scripts/build.mjs'),
+      '--mode=prod',
+      '--skip-checks',
+      '--firefox',
+      '--outdir',
+      expect.stringMatching(/^\/tmp\/zendio-amo-review\..+\/tmp\/dist-firefox$/)
+    ]);
+    expect(receipt.commands[2].argv).toEqual([
+      join(canonicalRoot, 'scripts/package-firefox.mjs'),
+      '--dist-dir',
+      expect.stringMatching(/^\/tmp\/zendio-amo-review\..+\/tmp\/dist-firefox$/)
+    ]);
+    const packageLockRow = receipt.input.rows.find(
+      (row): row is JsonObject => isRecord(row) && row.path === 'package-lock.json'
+    );
+    const binaryRow = receipt.input.rows.find(
+      (row): row is JsonObject => isRecord(row) && row.path === 'public/icons/arbitrary-binary.bin'
+    );
+    expect(packageLockRow).toBeDefined();
+    expect(typeof packageLockRow?.sha256).toBe('string');
+    expect(binaryRow).toBeDefined();
+    expect(binaryRow?.size).toBe(5);
+    expect(typeof binaryRow?.sha256).toBe('string');
+    expect(receipt.input.rosterSha256).toMatch(/^[a-f0-9]{64}$/);
+    expect(receipt.input.rows).toHaveLength(
+      entries.filter((entry) => Buffer.isBuffer(entry.content)).length
+    );
+    for (const command of receipt.commands) {
+      const environmentNames = Object.keys(command.environment);
+      expect(environmentNames.includes('NODE_OPTIONS')).toBe(false);
+      expect(environmentNames.some((key) => /^npm_config_/i.test(key))).toBe(false);
+    }
+    expect(receipt.output.path).toBe(join(canonicalRoot, 'Zendio-All in Obsidian-v0.2.1.xpi'));
+    expect(receipt.output.size).toBe(12);
+    expect(receipt.output.sha256).toMatch(/^[a-f0-9]{64}$/);
+    expect((await readFile(npmMarker, 'utf8')).trim().split('\n')).toEqual(
+      receipt.commands[0].argv
     );
   });
 });

@@ -10,7 +10,8 @@ const PackageJsonSchema = z.object({
 const QualityTaskSchema = z.object({
   id: z.string(),
   name: z.string(),
-  cmd: z.array(z.string()),
+  profile: z.string(),
+  args: z.array(z.string()),
   dependsOn: z.array(z.string())
 });
 
@@ -178,6 +179,17 @@ describe('local command parallelization contract', () => {
     expect(taskById.get('audit-release-surface-report')?.dependsOn).toEqual(['build-fast']);
     expect(taskById.get('audit-ga-client-secret')?.dependsOn).toEqual(['build-fast']);
     expect(taskById.get('audit-ga-release-surface')?.dependsOn).toEqual(['build-fast']);
+    expect(taskById.get('lint-options-css')).toMatchObject({
+      profile: 'stylelint-v1',
+      args: ['src/options/**/*.css']
+    });
+    expect(taskById.get('audit-deps-report')).toMatchObject({
+      profile: 'dependency-cruiser-v1',
+      args: []
+    });
+    expect(graph.tasks.every((task) => !Object.prototype.hasOwnProperty.call(task, 'cmd'))).toBe(
+      true
+    );
   });
 
   it('adds process-level unit and e2e shard scripts without changing canonical coverage', () => {
@@ -203,7 +215,7 @@ describe('local command parallelization contract', () => {
     }
 
     expect(scripts['test:coverage']).toBe(
-      'npm run verify:runtime && vitest run --config vitest.unit.config.ts --coverage'
+      'node scripts/run-bounded-command.mjs --profile vitest-v1 -- run --config vitest.unit.config.ts --coverage'
     );
   });
 
@@ -257,6 +269,8 @@ describe('local command parallelization contract', () => {
     expect(playwrightServer).toContain('PLAYWRIGHT_DIST_DIR');
     expect(playwrightServer).toContain('PLAYWRIGHT_SKIP_WEB_SERVER_BUILD');
     expect(browserShardRunner).toContain('PLAYWRIGHT_OUTPUT_DIR');
+    expect(browserShardRunner).not.toContain('BROWSER_TEST_CONCURRENCY');
+    expect(browserShardRunner).not.toContain("from 'node:child_process'");
     expect(visualPlaywrightConfig).toContain('PLAYWRIGHT_OUTPUT_DIR');
     expect(readerPlaywrightConfig).toContain('PLAYWRIGHT_OUTPUT_DIR');
   });

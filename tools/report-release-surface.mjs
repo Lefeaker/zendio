@@ -1,6 +1,6 @@
 import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { dirname, extname, join, relative } from 'node:path';
-import { inflateRawSync } from 'node:zlib';
+import { inventoryBoundedZip, readBoundedZipText } from '../scripts/utils/boundedZipArchive.mjs';
 
 const REPORT_PATH = 'build/reports/release-surface.json';
 const DEFAULT_DIST_DIR = 'build/dist';
@@ -171,78 +171,7 @@ function scanForbiddenPseudoLocaleContent(path, content) {
   ).map(({ name }) => ({ path, pattern: name }));
 }
 
-function parseZipEntries(archivePath) {
-  const buffer = readFileSync(archivePath);
-  let endOffset = -1;
-  for (let index = buffer.length - 22; index >= 0; index -= 1) {
-    if (buffer.readUInt32LE(index) === 0x06054b50) {
-      endOffset = index;
-      break;
-    }
-  }
-
-  if (endOffset === -1) {
-    throw new Error(`Unable to locate ZIP end-of-central-directory record: ${archivePath}`);
-  }
-
-  const entryCount = buffer.readUInt16LE(endOffset + 10);
-  const centralDirectoryOffset = buffer.readUInt32LE(endOffset + 16);
-  const entries = [];
-  let offset = centralDirectoryOffset;
-
-  for (let index = 0; index < entryCount; index += 1) {
-    if (buffer.readUInt32LE(offset) !== 0x02014b50) {
-      throw new Error(`Invalid ZIP central directory entry in ${archivePath}`);
-    }
-    const compressionMethod = buffer.readUInt16LE(offset + 10);
-    const compressedSize = buffer.readUInt32LE(offset + 20);
-    const fileNameLength = buffer.readUInt16LE(offset + 28);
-    const extraLength = buffer.readUInt16LE(offset + 30);
-    const commentLength = buffer.readUInt16LE(offset + 32);
-    const localHeaderOffset = buffer.readUInt32LE(offset + 42);
-    const fileNameStart = offset + 46;
-    const fileNameEnd = fileNameStart + fileNameLength;
-    const path = buffer.subarray(fileNameStart, fileNameEnd).toString('utf8');
-    entries.push({
-      path,
-      content: readZipEntryContent(buffer, {
-        archivePath,
-        compressedSize,
-        compressionMethod,
-        localHeaderOffset,
-        path
-      })
-    });
-    offset = fileNameEnd + extraLength + commentLength;
-  }
-
-  return entries;
-}
-
-function readZipEntryContent(
-  buffer,
-  { archivePath, compressedSize, compressionMethod, localHeaderOffset, path }
-) {
-  if (path.endsWith('/')) {
-    return null;
-  }
-  if (buffer.readUInt32LE(localHeaderOffset) !== 0x04034b50) {
-    throw new Error(`Invalid ZIP local file header for ${path} in ${archivePath}`);
-  }
-  const fileNameLength = buffer.readUInt16LE(localHeaderOffset + 26);
-  const extraLength = buffer.readUInt16LE(localHeaderOffset + 28);
-  const contentStart = localHeaderOffset + 30 + fileNameLength + extraLength;
-  const compressed = buffer.subarray(contentStart, contentStart + compressedSize);
-  if (compressionMethod === 0) {
-    return compressed.toString('utf8');
-  }
-  if (compressionMethod === 8) {
-    return inflateRawSync(compressed).toString('utf8');
-  }
-  return null;
-}
-
-function buildReport({ distDir, archives }) {
+async function buildReport({ distDir, archives }) {
   const failures = [];
   if (!existsSync(distDir)) {
     return {
@@ -297,41 +226,46 @@ function buildReport({ distDir, archives }) {
     )
   );
 
-  const archiveReports = archives.map((archivePath) => {
-    const archiveEntries = parseZipEntries(archivePath).map((entry) => ({
-      ...entry,
-      path: normalizeManifestPath(entry.path)
-    }));
-    const entries = archiveEntries.map((entry) => entry.path);
-    const forbiddenEntries = entries.filter((entry) => FORBIDDEN_HARNESS_RE.test(entry));
-    const forbiddenPseudoLocaleEntries = entries.filter((entry) =>
-      FORBIDDEN_PSEUDO_LOCALE_RE.test(entry)
-    );
-    const forbiddenPseudoLocaleContent = archiveEntries.flatMap((entry) =>
-      typeof entry.content === 'string'
-        ? scanForbiddenPseudoLocaleContent(entry.path, entry.content)
-        : []
-    );
-    failures.push(
-      ...forbiddenEntries.map(
-        (entry) => `forbidden harness member in archive ${archivePath}: ${entry}`
-      ),
-      ...forbiddenPseudoLocaleEntries.map(
-        (entry) => `forbidden dev-only pseudo-locale member in archive ${archivePath}: ${entry}`
-      ),
-      ...forbiddenPseudoLocaleContent.map(
-        ({ path, pattern }) =>
-          `forbidden dev-only pseudo-locale content in archive ${archivePath}: ${path} (${pattern})`
-      )
-    );
-    return {
-      path: archivePath,
-      entryCount: entries.length,
-      forbiddenEntries,
-      forbiddenPseudoLocaleEntries,
-      forbiddenPseudoLocaleContent
-    };
-  });
+  const archiveReports = await Promise.all(
+    archives.map(async (archivePath) => {
+      const inventory = await inventoryBoundedZip(archivePath);
+      const archiveEntries = await Promise.all(
+        inventory.entries.map(async (entry) => ({
+          path: normalizeManifestPath(entry.path),
+          content: shouldScanContent(entry.path) ? await readBoundedZipText(entry) : null
+        }))
+      );
+      const entries = archiveEntries.map((entry) => entry.path);
+      const forbiddenEntries = entries.filter((entry) => FORBIDDEN_HARNESS_RE.test(entry));
+      const forbiddenPseudoLocaleEntries = entries.filter((entry) =>
+        FORBIDDEN_PSEUDO_LOCALE_RE.test(entry)
+      );
+      const forbiddenPseudoLocaleContent = archiveEntries.flatMap((entry) =>
+        typeof entry.content === 'string'
+          ? scanForbiddenPseudoLocaleContent(entry.path, entry.content)
+          : []
+      );
+      failures.push(
+        ...forbiddenEntries.map(
+          (entry) => `forbidden harness member in archive ${archivePath}: ${entry}`
+        ),
+        ...forbiddenPseudoLocaleEntries.map(
+          (entry) => `forbidden dev-only pseudo-locale member in archive ${archivePath}: ${entry}`
+        ),
+        ...forbiddenPseudoLocaleContent.map(
+          ({ path, pattern }) =>
+            `forbidden dev-only pseudo-locale content in archive ${archivePath}: ${path} (${pattern})`
+        )
+      );
+      return {
+        path: archivePath,
+        entryCount: entries.length,
+        forbiddenEntries,
+        forbiddenPseudoLocaleEntries,
+        forbiddenPseudoLocaleContent
+      };
+    })
+  );
 
   return {
     version: 1,
@@ -422,7 +356,7 @@ function formatReport(report) {
 }
 
 const options = parseArgs(process.argv.slice(2));
-const report = buildReport(options);
+const report = await buildReport(options);
 console.log(formatReport(report));
 
 if (options.writeJson) {

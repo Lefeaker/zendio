@@ -5,7 +5,7 @@ export function createUnitTestShards() {
   return [
     {
       id: 'background',
-      patterns: ['tests/unit/background/**/*.test.ts', 'tests/unit/chrome/**/*.test.ts']
+      patterns: ['tests/unit/background/**/*.test.ts']
     },
     {
       id: 'content',
@@ -79,6 +79,29 @@ export function createE2eTestShards() {
       patterns: ['tests/e2e/videoListenerScope.fixture.test.ts']
     }
   ];
+}
+
+export function createBrowserTestShardSuites() {
+  return {
+    e2e: [
+      {
+        id: 'yaml',
+        args: ['test', 'tests/visual/yaml-config.interaction.spec.ts']
+      },
+      {
+        id: 'reader-panel',
+        args: ['test', 'tests/e2e/readerPanelFlow.test.ts', '--config=playwright.reader.config.ts']
+      },
+      {
+        id: 'smoke',
+        args: ['test', 'tests/visual/migration-harness.spec.ts', '--project=chromium-desktop']
+      }
+    ],
+    visual: ['chromium-desktop', 'chromium-tablet', 'chromium-mobile'].map((project) => ({
+      id: project,
+      args: ['test', '--config=playwright.config.ts', `--project=${project}`]
+    }))
+  };
 }
 
 export function collectShardCoverage(shards, files) {

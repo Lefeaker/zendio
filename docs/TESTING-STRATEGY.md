@@ -33,12 +33,18 @@ Use unit tests for:
 Use flow tests for:
 
 - autosave and sync flows in Options
-- Reader / Video / Support Prompt user journeys
+- Support Prompt and repository-backed user journeys that run in Vitest
 - repository-backed content script integration
+
+Reader and Video browser files are excluded from `vitest.e2e.config.ts`; they are owned by the
+browser routes below rather than presented as Vitest E2E coverage.
 
 ### Browser Visual / Interaction
 
-- Command: `npm run test:e2e:browser`
+- YAML interaction: `npm run test:e2e:browser`
+- Reader panel: `npm run test:e2e:browser:reader-panel`
+- Complete Video matrix: `npm run test:e2e:browser:video`
+- Firefox browser compatibility: `npm run test:e2e:browser:firefox`
 - Command: `npm run visual:test`
 
 Use browser-based checks for:
@@ -60,9 +66,13 @@ npm run audit:components:report
 npm run audit:interaction-contract:report
 npm run audit:platform-services:report
 npm run lint:warnings-guard
+npm run audit:test-suite-ownership:check
 npm run test:coverage
 npm run test:e2e
 ```
+
+`npm run audit:test-suite-ownership:check` is a standalone ownership gate in R01. A generic full
+test or coverage invocation is verification evidence, not a second canonical collection owner.
 
 ### Coverage thresholds
 
@@ -120,7 +130,9 @@ npm run test:e2e -- optionsVaultRouterAutoSave.test.ts yamlOverridesFlow.test.ts
 npm run typecheck
 npm run lint
 npm run test:unit -- tests/unit/content/
-npm run test:e2e -- readerPanelFlow.test.ts videoPanelFlow.test.ts supportPromptFlow.test.ts
+npm run test:e2e -- supportPromptFlow.test.ts
+npm run test:e2e:browser:reader-panel
+npm run test:e2e:browser:video
 ```
 
 ## CI expectations
@@ -133,7 +145,13 @@ The GitHub Actions workflow in `.github/workflows/ci.yml` now checks:
 - `npm run test:coverage`
 - `npm run test:e2e`
 - `npm run test:e2e:browser`
+- `Browser video flow` runs only `npm run test:e2e:browser:video`
+- `Browser Firefox flow` runs only `npm run test:e2e:browser:firefox` after its distinct Firefox
+  browser installation step
 - build, i18n, and packaging steps
+
+The ownership report validates the collection topology locally. Its later CI/quality hard wiring is
+deferred until the convergence milestone gives every then-current browser file a canonical route.
 
 Pull requests also receive a coverage summary comment based on `coverage/coverage-summary.json`.
 

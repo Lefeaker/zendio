@@ -3,10 +3,10 @@ import { basename, extname, join, relative, resolve } from 'node:path';
 
 import {
   CLIENT_SECRET_PATTERNS,
-  parseZipEntries,
   scanArchiveWithPatterns,
   scanDirectoryWithPatterns
 } from './report-ga-client-secret.mjs';
+import { inventoryBoundedZip, readBoundedZipText } from '../scripts/utils/boundedZipArchive.mjs';
 
 const DEFAULT_DIST_DIR = 'build/dist';
 const TEXT_EXTENSIONS = new Set(['.js', '.mjs', '.cjs', '.json', '.html', '.css']);
@@ -74,7 +74,10 @@ function scanDebugLogContents(scope, filePath, contents) {
   }
 
   const segmentEnd = contents.indexOf(');', markerIndex);
-  const window = contents.slice(markerIndex, segmentEnd === -1 ? markerIndex + 240 : segmentEnd + 2);
+  const window = contents.slice(
+    markerIndex,
+    segmentEnd === -1 ? markerIndex + 240 : segmentEnd + 2
+  );
   const leaksPayloadVariable = /\bpayload\b/.test(window);
   const leaksInlineFields =
     window.includes('{') && /\b(?:params|client_id|measurement_id)\b/.test(window);
@@ -117,7 +120,7 @@ function scanDirectoryDebugLogs(root, scope) {
   return { scope, root, findings, failures: [] };
 }
 
-function scanArchiveDebugLogs(archivePath) {
+async function scanArchiveDebugLogs(archivePath) {
   if (!existsSync(archivePath)) {
     return {
       scope: basename(archivePath),
@@ -129,11 +132,15 @@ function scanArchiveDebugLogs(archivePath) {
 
   const scope = basename(archivePath);
   const findings = [];
-  for (const entry of parseZipEntries(archivePath)) {
-    if (typeof entry.content !== 'string' || !shouldScanContent(entry.path)) {
+  const inventory = await inventoryBoundedZip(archivePath);
+  for (const entry of inventory.entries) {
+    if (entry.directory || !shouldScanContent(entry.path)) {
       continue;
     }
-    findings.push(...scanDebugLogContents(scope, entry.path, entry.content));
+    const content = await readBoundedZipText(entry);
+    if (content !== null) {
+      findings.push(...scanDebugLogContents(scope, entry.path, content));
+    }
   }
 
   return {
@@ -144,7 +151,7 @@ function scanArchiveDebugLogs(archivePath) {
   };
 }
 
-function buildReleaseSurfaceReport({ distDir = DEFAULT_DIST_DIR, archives = [] } = {}) {
+async function buildReleaseSurfaceReport({ distDir = DEFAULT_DIST_DIR, archives = [] } = {}) {
   const resolvedDistDir = resolve(distDir);
   const resolvedArchives = archives.map((archivePath) => resolve(archivePath));
   const distSecretReport = scanDirectoryWithPatterns(
@@ -152,11 +159,15 @@ function buildReleaseSurfaceReport({ distDir = DEFAULT_DIST_DIR, archives = [] }
     'build/dist',
     CLIENT_SECRET_PATTERNS
   );
-  const archiveSecretReports = resolvedArchives.map((archivePath) =>
-    scanArchiveWithPatterns(archivePath, CLIENT_SECRET_PATTERNS)
+  const archiveSecretReports = await Promise.all(
+    resolvedArchives.map((archivePath) =>
+      scanArchiveWithPatterns(archivePath, CLIENT_SECRET_PATTERNS)
+    )
   );
   const distDebugReport = scanDirectoryDebugLogs(resolvedDistDir, 'build/dist');
-  const archiveDebugReports = resolvedArchives.map((archivePath) => scanArchiveDebugLogs(archivePath));
+  const archiveDebugReports = await Promise.all(
+    resolvedArchives.map((archivePath) => scanArchiveDebugLogs(archivePath))
+  );
 
   return {
     version: 1,
@@ -199,9 +210,7 @@ function formatReport(report) {
     lines.push('- none');
   } else {
     lines.push(
-      ...report.archiveSecretReports.map((archive) =>
-        `- ${basename(archive.archivePath)}`
-      )
+      ...report.archiveSecretReports.map((archive) => `- ${basename(archive.archivePath)}`)
     );
   }
 
@@ -222,9 +231,9 @@ function formatReport(report) {
   return `${lines.join('\n')}\n`;
 }
 
-function main() {
+async function main() {
   const options = parseArgs(process.argv.slice(2));
-  const report = buildReleaseSurfaceReport(options);
+  const report = await buildReleaseSurfaceReport(options);
   const failures = [
     ...report.distSecretReport.failures,
     ...report.archiveSecretReports.flatMap((archive) => archive.failures),
@@ -251,5 +260,5 @@ function main() {
 }
 
 if (process.argv[1] && resolve(process.argv[1]) === new URL(import.meta.url).pathname) {
-  main();
+  await main();
 }

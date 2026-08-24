@@ -1,5 +1,16 @@
 name: Setup Node dependencies
-description: Install repository Node.js dependencies with the shared npm cache.
+description: Install locked repository dependencies through the bounded CI owner.
+
+outputs:
+  attempt-root:
+    description: Canonical private command attempt root.
+    value: ${{ steps.install.outputs.attempt-root }}
+  npm-userconfig:
+    description: Canonical private npm user configuration.
+    value: ${{ steps.install.outputs.npm-userconfig }}
+  npm-globalconfig:
+    description: Canonical private npm global configuration.
+    value: ${{ steps.install.outputs.npm-globalconfig }}
 
 runs:
   using: composite
@@ -8,8 +19,9 @@ runs:
       uses: actions/setup-node@v6
       with:
         node-version-file: '.nvmrc'
-        cache: 'npm'
+        package-manager-cache: false
 
-    - name: Install dependencies
+    - name: Install locked dependencies
+      id: install
       shell: bash
-      run: npm ci
+      run: node scripts/run-bounded-command.mjs --profile github-ci-install-v1

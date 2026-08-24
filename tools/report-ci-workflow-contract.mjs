@@ -1,14 +1,18 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { getJobBlock } from './ciWorkflowContract/model.mjs';
+import { parseCiWorkflowJobs } from './ciWorkflowContract/yamlSubset.mjs';
 
-const ROOT = resolve(new URL('..', import.meta.url).pathname);
+const ROOT = resolve(fileURLToPath(new URL('..', import.meta.url)));
 const WORKFLOW_PATH = resolve(ROOT, '.github/workflows/ci.yml');
 const FIREFOX_RELEASE_WORKFLOW_PATH = resolve(ROOT, '.github/workflows/release-firefox-amo.yml');
 const NODE_ACTION_PATH = resolve(ROOT, '.github/actions/setup-node-deps/action.yml');
 const PLAYWRIGHT_ACTION_PATH = resolve(ROOT, '.github/actions/setup-playwright/action.yml');
 const PACKAGE_JSON_PATH = resolve(ROOT, 'package.json');
+const QUALITY_CHECK_PATH = resolve(ROOT, 'scripts/quality-check.mjs');
 
-const REQUIRED_JOB_IDS = [
+const JOB_ORDER = [
   'static-preflight',
   'static-release-surface',
   'static-generated-artifacts',
@@ -20,355 +24,281 @@ const REQUIRED_JOB_IDS = [
   'browser-yaml',
   'browser-reader-panel',
   'browser-smoke',
+  'browser-video',
+  'browser-firefox',
   'package'
 ];
 
-const REQUIRED_VISUAL_PROJECTS = ['chromium-desktop', 'chromium-tablet', 'chromium-mobile'];
+const JOB_POLICY = Object.freeze({
+  'static-preflight': ['static-preflight-v1', '60'],
+  'static-release-surface': ['generic-v1', '30'],
+  'static-generated-artifacts': ['generic-v1', '30'],
+  'static-style-and-locale': ['generic-v1', '30'],
+  'static-reporting-audits': ['generic-v1', '30'],
+  coverage: ['generic-v1', '30'],
+  visual: ['browser-v1', '60'],
+  'e2e-vitest': ['generic-v1', '30'],
+  'browser-yaml': ['browser-v1', '60'],
+  'browser-reader-panel': ['browser-v1', '60'],
+  'browser-smoke': ['browser-v1', '60'],
+  'browser-video': ['browser-v1', '60'],
+  'browser-firefox': ['browser-v1', '60'],
+  package: ['package-extension-v1', '35']
+});
 
-const REQUIRED_BROWSER_COMMANDS = new Map([
-  ['e2e-vitest', 'npm run test:e2e'],
-  ['browser-yaml', 'npm run test:e2e:browser'],
-  ['browser-reader-panel', 'npm run test:e2e:browser:reader-panel'],
-  ['browser-smoke', 'npm run test:e2e:browser:smoke']
-]);
+const EXPECTED_RUNS = Object.freeze({
+  'static-preflight': [
+    'node scripts/run-bounded-command.mjs --profile npm-script-quick-v1 -- audit:ci-workflow:check',
+    'node scripts/run-bounded-command.mjs --profile npm-script-standard-v1 -- i18n:catalog:check',
+    'node scripts/verify-preflight.mjs'
+  ],
+  'static-release-surface': [
+    'node scripts/run-bounded-command.mjs --profile npm-script-build-v1 -- build:fast',
+    'node scripts/run-bounded-command.mjs --profile npm-script-standard-v1 -- audit:release-surface:report'
+  ],
+  'static-generated-artifacts': [
+    'node scripts/run-bounded-command.mjs --profile generated-artifact-check-v1 -- locales',
+    'node scripts/run-bounded-command.mjs --profile generated-artifact-check-v1 -- manifests'
+  ],
+  'static-style-and-locale': [
+    'node scripts/run-bounded-command.mjs --profile npm-script-standard-v1 -- audit:locales:report',
+    'node scripts/run-bounded-command.mjs --profile npm-script-quick-v1 -- report:options-legacy',
+    'node scripts/run-bounded-command.mjs --profile stylelint-v1 -- "src/options/**/*.css"',
+    'node scripts/run-bounded-command.mjs --profile npm-script-standard-v1 -- lint:hardcoded',
+    'node scripts/run-bounded-command.mjs --profile npm-script-quick-v1 -- lint:warnings-guard'
+  ],
+  'static-reporting-audits': [
+    'node scripts/run-bounded-command.mjs --profile dependency-cruiser-v1',
+    'node scripts/run-bounded-command.mjs --profile npm-script-standard-v1 -- audit:platform-services:report',
+    'node scripts/run-bounded-command.mjs --profile npm-script-standard-v1 -- audit:design-tokens:report'
+  ],
+  coverage: [
+    'node scripts/run-bounded-command.mjs --profile vitest-v1 -- run --config vitest.unit.config.ts --coverage',
+    'node scripts/run-bounded-command.mjs --profile coverage-summary-v1'
+  ],
+  visual: [
+    'node scripts/run-bounded-command.mjs --profile playwright-v1 -- test --config=playwright.config.ts --project=${{ matrix.project }}'
+  ],
+  'e2e-vitest': [
+    'node scripts/run-bounded-command.mjs --profile vitest-v1 -- run --config vitest.e2e.config.ts'
+  ],
+  'browser-yaml': [
+    'node scripts/run-bounded-command.mjs --profile npm-script-browser-v1 -- test:e2e:browser'
+  ],
+  'browser-reader-panel': [
+    'node scripts/run-bounded-command.mjs --profile npm-script-browser-v1 -- test:e2e:browser:reader-panel'
+  ],
+  'browser-smoke': [
+    'node scripts/run-bounded-command.mjs --profile npm-script-browser-v1 -- test:e2e:browser:smoke'
+  ],
+  'browser-video': [
+    'node scripts/run-bounded-command.mjs --profile npm-script-browser-v1 -- test:e2e:browser:video'
+  ],
+  'browser-firefox': [
+    'node scripts/run-bounded-command.mjs --profile playwright-host-deps-platform-v1 -- firefox-with-host-deps',
+    'node scripts/run-bounded-command.mjs --profile playwright-browser-install-v1 -- firefox-with-host-deps',
+    'node scripts/run-bounded-command.mjs --profile npm-script-browser-v1 -- test:e2e:browser:firefox'
+  ],
+  package: [
+    'node scripts/run-bounded-command.mjs --profile npm-script-build-v1 -- build:fast',
+    'node scripts/run-bounded-command.mjs --profile npm-script-quick-v1 -- validate:i18n:budgets',
+    'node scripts/run-bounded-command.mjs --profile npm-script-standard-v1 -- layout:report',
+    'node scripts/run-bounded-command.mjs --profile npm-script-quick-v1 -- report:layout',
+    'node scripts/run-bounded-command.mjs --profile npm-script-quick-v1 -- report:release-summary',
+    'node scripts/run-bounded-command.mjs --profile npm-script-build-v1 -- package:ci'
+  ]
+});
 
 function readRequired(path) {
-  if (!existsSync(path)) {
-    throw new Error(`Required CI contract file is missing: ${path}`);
-  }
+  if (!existsSync(path)) throw new Error(`Required CI contract file is missing: ${path}`);
   return readFileSync(path, 'utf8');
 }
 
-function getJobBlock(workflow, jobId) {
-  const marker = `  ${jobId}:\n`;
-  const start = workflow.indexOf(marker);
-  if (start === -1) {
-    throw new Error(`CI workflow is missing job "${jobId}".`);
-  }
-  const rest = workflow.slice(start + marker.length);
-  const nextJob = rest.search(/\n  [a-zA-Z0-9_-]+:\n/);
-  return nextJob === -1
-    ? workflow.slice(start)
-    : workflow.slice(start, start + marker.length + nextJob + 1);
+function count(source, pattern) {
+  return [...source.matchAll(pattern)].length;
 }
 
-function assertIncludes(source, needle, label) {
-  if (!source.includes(needle)) {
-    throw new Error(`${label} is missing expected content: ${needle}`);
+function same(left, right) {
+  return JSON.stringify(left) === JSON.stringify(right);
+}
+
+function bootstrapContract(source) {
+  if (count(source, /\$\((?!\()/gu) !== 1 || !source.includes('$(compgen -e)')) {
+    throw new Error('bootstrap must contain only the bounded compgen substitution');
+  }
+  for (const required of [
+    'set -euo pipefail',
+    'shopt -s nocasematch',
+    'NODE_OPTIONS',
+    'npm_config_*',
+    '/proc/uptime',
+    'set -o noclobber',
+    'zendio-ci-command-start-v1',
+    'umask 077'
+  ]) {
+    if (!source.includes(required)) throw new Error(`bootstrap is missing ${required}`);
+  }
+  if (/^\s*(?:node|npm|npx|git|mkdir|rm|curl|wget)\b/imu.test(source)) {
+    throw new Error('bootstrap invokes an external command');
   }
 }
 
-function assertNotIncludes(source, needle, label) {
-  if (source.includes(needle)) {
-    throw new Error(`${label} still contains retired content: ${needle}`);
-  }
-}
-
-function assertJobUsesAction(jobBlock, actionPath, jobId) {
-  assertIncludes(jobBlock, `uses: ${actionPath}`, `job "${jobId}"`);
-}
+export { parseCiWorkflowJobs };
 
 export function checkCiWorkflowContract({
   workflow = readRequired(WORKFLOW_PATH),
   firefoxReleaseWorkflow = readRequired(FIREFOX_RELEASE_WORKFLOW_PATH),
   nodeAction = readRequired(NODE_ACTION_PATH),
   packageJson = readRequired(PACKAGE_JSON_PATH),
-  playwrightAction = readRequired(PLAYWRIGHT_ACTION_PATH)
+  playwrightAction = readRequired(PLAYWRIGHT_ACTION_PATH),
+  qualityCheck = readRequired(QUALITY_CHECK_PATH)
 } = {}) {
   const failures = [];
-
-  function recordCheck(label, callback) {
+  const check = (label, operation) => {
     try {
-      callback();
+      operation();
     } catch (error) {
       failures.push(`${label}: ${error instanceof Error ? error.message : String(error)}`);
     }
-  }
+  };
 
-  for (const jobId of REQUIRED_JOB_IDS) {
-    recordCheck(`job:${jobId}`, () => getJobBlock(workflow, jobId));
-  }
-
-  recordCheck('setup-node-deps-action', () => {
-    assertIncludes(nodeAction, 'uses: actions/setup-node@v6', 'setup-node-deps action');
-    assertIncludes(nodeAction, "node-version-file: '.nvmrc'", 'setup-node-deps action');
-    assertIncludes(nodeAction, "cache: 'npm'", 'setup-node-deps action');
-    assertIncludes(nodeAction, 'run: npm ci', 'setup-node-deps action');
+  let parsed;
+  check('workflow-parse', () => {
+    parsed = parseCiWorkflowJobs(workflow);
+    if (!same(parsed.order, JOB_ORDER)) throw new Error('job order changed');
+    if (parsed.topLevelFields.includes('defaults'))
+      throw new Error('workflow defaults are forbidden');
   });
 
-  recordCheck('setup-playwright-action', () => {
-    assertIncludes(
-      playwrightAction,
-      'uses: ./.github/actions/setup-node-deps',
-      'setup-playwright action'
-    );
-    assertIncludes(playwrightAction, 'uses: actions/cache@v4', 'setup-playwright action');
-    assertIncludes(playwrightAction, 'path: ~/.cache/ms-playwright', 'setup-playwright action');
-    assertIncludes(
-      playwrightAction,
-      'run: npx playwright install --with-deps chromium',
-      'setup-playwright action'
-    );
-  });
-
-  recordCheck('static-preflight-contract', () => {
-    const job = getJobBlock(workflow, 'static-preflight');
-    assertJobUsesAction(job, './.github/actions/setup-node-deps', 'static-preflight');
-    assertIncludes(job, 'npm run audit:ci-workflow:check', 'static-preflight job');
-    assertIncludes(job, 'npm run i18n:catalog:check', 'static-preflight job');
-    assertIncludes(job, 'npm run verify:preflight', 'static-preflight job');
-  });
-
-  recordCheck('static-release-surface-contract', () => {
-    const job = getJobBlock(workflow, 'static-release-surface');
-    assertJobUsesAction(job, './.github/actions/setup-node-deps', 'static-release-surface');
-    assertIncludes(job, 'npm run build:fast', 'static-release-surface job');
-    assertIncludes(job, 'npm run audit:release-surface:report', 'static-release-surface job');
-  });
-
-  recordCheck('static-generated-artifacts-contract', () => {
-    const job = getJobBlock(workflow, 'static-generated-artifacts');
-    assertJobUsesAction(job, './.github/actions/setup-node-deps', 'static-generated-artifacts');
-    assertIncludes(job, 'npm run i18n:generate', 'static-generated-artifacts job');
-    assertIncludes(
-      job,
-      'git diff --exit-code -- public/_locales',
-      'static-generated-artifacts job'
-    );
-    assertIncludes(job, 'npm run manifest:generate', 'static-generated-artifacts job');
-    assertIncludes(
-      job,
-      'git diff --exit-code -- public/manifest.json public/manifest.firefox.json',
-      'static-generated-artifacts job'
-    );
-  });
-
-  recordCheck('static-style-and-locale-contract', () => {
-    const job = getJobBlock(workflow, 'static-style-and-locale');
-    assertJobUsesAction(job, './.github/actions/setup-node-deps', 'static-style-and-locale');
-    assertIncludes(job, 'npm run audit:locales:report', 'static-style-and-locale job');
-    assertIncludes(job, 'npm run report:options-legacy', 'static-style-and-locale job');
-    assertIncludes(job, 'npm run lint:options-css', 'static-style-and-locale job');
-    assertIncludes(job, 'npm run lint:hardcoded', 'static-style-and-locale job');
-    assertIncludes(job, 'npm run lint:warnings-guard', 'static-style-and-locale job');
-  });
-
-  recordCheck('static-reporting-audits-contract', () => {
-    const job = getJobBlock(workflow, 'static-reporting-audits');
-    assertJobUsesAction(job, './.github/actions/setup-node-deps', 'static-reporting-audits');
-    assertIncludes(job, 'npm run audit:deps:report', 'static-reporting-audits job');
-    assertIncludes(job, 'npm run audit:platform-services:report', 'static-reporting-audits job');
-    assertIncludes(job, 'npm run audit:design-tokens:report', 'static-reporting-audits job');
-    assertIncludes(job, 'continue-on-error: true', 'static-reporting-audits job');
-  });
-
-  recordCheck('coverage-contract', () => {
-    const job = getJobBlock(workflow, 'coverage');
-    assertJobUsesAction(job, './.github/actions/setup-node-deps', 'coverage');
-    assertIncludes(job, 'npm run test:coverage', 'coverage job');
-  });
-
-  recordCheck('visual-matrix-contract', () => {
-    const job = getJobBlock(workflow, 'visual');
-    assertJobUsesAction(job, './.github/actions/setup-playwright', 'visual');
-    assertIncludes(job, 'strategy:', 'visual job');
-    assertIncludes(job, 'fail-fast: false', 'visual job');
-    assertIncludes(job, 'project:', 'visual job');
-    for (const project of REQUIRED_VISUAL_PROJECTS) {
-      assertIncludes(job, project, 'visual job');
+  check('setup-node-deps', () => {
+    if (count(nodeAction, /uses: actions\/setup-node@v6/gu) !== 1) {
+      throw new Error('setup-node@v6 must run exactly once');
     }
-    assertIncludes(job, 'npm run verify:runtime &&', 'visual job');
-    assertIncludes(job, '--project=${{ matrix.project }}', 'visual job');
-    assertIncludes(job, 'visual-reports-${{ matrix.project }}', 'visual job');
+    for (const required of [
+      "node-version-file: '.nvmrc'",
+      'package-manager-cache: false',
+      'id: install',
+      'node scripts/run-bounded-command.mjs --profile github-ci-install-v1',
+      'attempt-root:',
+      'npm-userconfig:',
+      'npm-globalconfig:'
+    ]) {
+      if (!nodeAction.includes(required)) throw new Error(`missing ${required}`);
+    }
+    if (/actions\/cache|^\s*cache:|run:\s+(?:npm|npx)\b|GITHUB_ENV/imu.test(nodeAction)) {
+      throw new Error('setup-node-deps exposes a cache or raw package-manager route');
+    }
   });
 
-  for (const [jobId, command] of REQUIRED_BROWSER_COMMANDS) {
-    recordCheck(`${jobId}-contract`, () => {
-      const job = getJobBlock(workflow, jobId);
+  check('setup-playwright', () => {
+    if (count(playwrightAction, /uses: \.\/\.github\/actions\/setup-node-deps/gu) !== 1) {
+      throw new Error('setup-playwright must call setup-node-deps exactly once');
+    }
+    for (const required of [
+      'playwright-host-deps-platform-v1 -- chromium-with-host-deps',
+      'playwright-browser-install-v1 -- chromium-with-host-deps',
+      'playwright-browsers-path:',
+      'NPM_CONFIG_USERCONFIG:',
+      'NPM_CONFIG_GLOBALCONFIG:',
+      'PLAYWRIGHT_BROWSERS_PATH:'
+    ]) {
+      if (!playwrightAction.includes(required)) throw new Error(`missing ${required}`);
+    }
+    if (
+      /actions\/cache|^\s*cache:|run:\s+(?:npm|npx)\b|GITHUB_ENV|\$\{\{\s*inputs\./imu.test(
+        playwrightAction
+      )
+    ) {
+      throw new Error(
+        'setup-playwright exposes cache, raw package-manager, or caller interpolation'
+      );
+    }
+  });
+
+  check('package-manager-declaration', () => {
+    const parsedPackage = JSON.parse(packageJson);
+    if (parsedPackage.packageManager || parsedPackage.devEngines?.packageManager) {
+      throw new Error('package-manager auto-cache declaration is forbidden');
+    }
+    if (parsedPackage.scripts?.quality !== 'node scripts/quality-check.mjs') {
+      throw new Error('quality route changed');
+    }
+    if (!qualityCheck.includes("policyId: 'quality-v1'"))
+      throw new Error('quality policy is missing');
+  });
+
+  for (const jobId of JOB_ORDER) {
+    check(`job:${jobId}`, () => {
+      const job = parsed?.jobs.get(jobId);
+      if (!job) throw new Error('job is missing');
+      const [jobClass, timeout] = JOB_POLICY[jobId];
+      if (job.runsOn !== 'ubuntu-24.04' || job.timeoutMinutes !== timeout) {
+        throw new Error('runner or timeout taxonomy changed');
+      }
+      const [bootstrap, checkout, setup] = job.steps;
+      if (
+        bootstrap?.name !== 'Bootstrap command boundary' ||
+        checkout?.uses !== 'actions/checkout@v6'
+      ) {
+        throw new Error('bootstrap and checkout must be the first two steps');
+      }
+      bootstrapContract(bootstrap.run ?? '');
       const setupAction =
-        jobId === 'e2e-vitest'
+        jobId === 'browser-firefox' || (!jobId.startsWith('browser-') && jobId !== 'visual')
           ? './.github/actions/setup-node-deps'
           : './.github/actions/setup-playwright';
-      assertJobUsesAction(job, setupAction, jobId);
-      assertIncludes(job, command, `job "${jobId}"`);
+      if (setup?.uses !== setupAction) throw new Error('setup action changed');
+      const block = getJobBlock(workflow, jobId);
+      if (
+        !block.includes(`ZENDIO_JOB_CLASS: ${jobClass}`) ||
+        !block.includes(`ZENDIO_JOB_TIMEOUT_MINUTES: '${timeout}'`)
+      ) {
+        throw new Error('job class or timeout input changed');
+      }
+      const runs = job.steps.slice(1).flatMap((step) => (step.run ? [step.run] : []));
+      if (!same(runs, EXPECTED_RUNS[jobId])) throw new Error('managed command sequence changed');
+      for (const run of runs) {
+        if (!run.startsWith('node ')) {
+          throw new Error('raw or non-Node command route found');
+        }
+      }
     });
   }
 
-  recordCheck('package-contract', () => {
-    const job = getJobBlock(workflow, 'package');
-    assertJobUsesAction(job, './.github/actions/setup-node-deps', 'package');
-    assertIncludes(job, 'needs: [static-preflight]', 'package job');
-    assertIncludes(job, 'npm run build:fast', 'package job');
-    assertIncludes(job, 'npm run package:ci', 'package job');
+  check('bootstrap-equality', () => {
+    const bodies = JOB_ORDER.map((jobId) => parsed?.jobs.get(jobId)?.steps[0]?.run);
+    if (new Set(bodies).size !== 1) throw new Error('bootstrap source differs between jobs');
   });
 
-  recordCheck('retired-serial-jobs', () => {
-    assertNotIncludes(workflow, '  static-gates:\n', 'workflow');
-    assertNotIncludes(workflow, '  e2e:\n', 'workflow');
-    assertNotIncludes(workflow, 'npm run visual:test', 'workflow');
-    assertNotIncludes(
-      workflow,
-      `npm run test:e2e
-          npm run test:e2e:browser
-          npm run test:e2e:browser:reader-panel
-          npm run test:e2e:browser:smoke`,
-      'workflow'
-    );
+  check('workflow-closed-routes', () => {
+    if (/actions\/cache|^\s*cache:|GITHUB_ENV|\bnpx\b|\bpnpx\b|\bnpm exec\b/imu.test(workflow)) {
+      throw new Error('workflow contains a cache, GITHUB_ENV, or raw executable route');
+    }
+    if (!workflow.includes('needs: [static-preflight]'))
+      throw new Error('package dependency changed');
+    if (!workflow.includes('fail-fast: false')) throw new Error('visual matrix policy changed');
   });
 
-  recordCheck('firefox-release-workflow-contract', () => {
-    assertIncludes(firefoxReleaseWorkflow, 'name: Release Firefox AMO', 'Firefox release workflow');
-    assertIncludes(firefoxReleaseWorkflow, 'workflow_dispatch:', 'Firefox release workflow');
-    assertIncludes(firefoxReleaseWorkflow, "tags:\n      - 'v*'", 'Firefox release workflow');
-    assertIncludes(
-      firefoxReleaseWorkflow,
-      'permissions:\n  contents: read',
-      'Firefox release workflow'
-    );
-    assertIncludes(firefoxReleaseWorkflow, 'uses: actions/checkout@v6', 'Firefox release workflow');
-    assertIncludes(
-      firefoxReleaseWorkflow,
+  check('firefox-release-regression', () => {
+    for (const required of [
+      'name: Release Firefox AMO',
+      'uses: actions/checkout@v6',
       'uses: ./.github/actions/setup-node-deps',
-      'Firefox release workflow'
-    );
-    assertIncludes(firefoxReleaseWorkflow, 'FIREFOX_RELEASE_CHANNEL:', 'Firefox release workflow');
-    assertIncludes(
-      firefoxReleaseWorkflow,
-      'FIREFOX_RELEASE_CHANNEL: listed',
-      'Firefox release workflow'
-    );
-    assertIncludes(firefoxReleaseWorkflow, 'id: release_channel', 'Firefox release workflow');
-    assertIncludes(firefoxReleaseWorkflow, 'GITHUB_EVENT_PATH', 'Firefox release workflow');
-    assertIncludes(
-      firefoxReleaseWorkflow,
-      "printf 'FIREFOX_RELEASE_CHANNEL=%s\\n'",
-      'Firefox release workflow'
-    );
-    assertIncludes(firefoxReleaseWorkflow, "printf 'channel=%s\\n'", 'Firefox release workflow');
-    assertIncludes(
-      firefoxReleaseWorkflow,
-      '${safe_ref//[!A-Za-z0-9._-]/-}',
-      'Firefox release workflow'
-    );
-    assertIncludes(firefoxReleaseWorkflow, "printf 'safe_ref=%s\\n'", 'Firefox release workflow');
-    assertIncludes(
-      firefoxReleaseWorkflow,
-      'ZENDIO_GA_MEASUREMENT_ID: ${{ secrets.ZENDIO_GA_MEASUREMENT_ID }}',
-      'Firefox release workflow'
-    );
-    assertIncludes(
-      firefoxReleaseWorkflow,
-      'ZENDIO_GA_TRANSPORT_MODE: proxy',
-      'Firefox release workflow'
-    );
-    assertIncludes(
-      firefoxReleaseWorkflow,
-      'ZENDIO_GA_PROXY_ENDPOINT: ${{ secrets.ZENDIO_GA_PROXY_ENDPOINT }}',
-      'Firefox release workflow'
-    );
-    assertIncludes(
-      firefoxReleaseWorkflow,
       'WEB_EXT_API_KEY: ${{ secrets.WEB_EXT_API_KEY }}',
-      'Firefox release workflow'
-    );
-    assertIncludes(
-      firefoxReleaseWorkflow,
-      'WEB_EXT_API_SECRET: ${{ secrets.WEB_EXT_API_SECRET }}',
-      'Firefox release workflow'
-    );
-    assertIncludes(
-      firefoxReleaseWorkflow,
-      'npm run analytics:validate:prod:required',
-      'Firefox release workflow'
-    );
-    assertIncludes(
-      firefoxReleaseWorkflow,
-      'npm run build:firefox:prod:ga:ci',
-      'Firefox release workflow'
-    );
-    assertIncludes(
-      firefoxReleaseWorkflow,
-      'node scripts/package-firefox.mjs "${sign_args[@]}"',
-      'Firefox release workflow'
-    );
-    assertIncludes(firefoxReleaseWorkflow, '--approval-timeout 0', 'Firefox release workflow');
-    assertIncludes(
-      firefoxReleaseWorkflow,
-      "find build/firefox-source -type f -name '*-source.zip'",
-      'Firefox release workflow'
-    );
-    assertIncludes(
-      firefoxReleaseWorkflow,
-      'Expected exactly one Firefox AMO source archive',
-      'Firefox release workflow'
-    );
-    assertIncludes(firefoxReleaseWorkflow, 'source_archive_path=%s\\n', 'Firefox release workflow');
-    assertIncludes(
-      firefoxReleaseWorkflow,
-      'npm run audit:ga:client-secret',
-      'Firefox release workflow'
-    );
-    assertIncludes(
-      firefoxReleaseWorkflow,
-      'npm run audit:ga:release-surface -- "${archive_args[@]}"',
-      'Firefox release workflow'
-    );
-    assertIncludes(
-      firefoxReleaseWorkflow,
-      'uses: actions/upload-artifact@v7',
-      'Firefox release workflow'
-    );
-    assertIncludes(
-      firefoxReleaseWorkflow,
-      'name: firefox-amo-${{ steps.release_channel.outputs.channel }}-${{ steps.release_channel.outputs.safe_ref }}-${{ github.run_number }}',
-      'Firefox release workflow'
-    );
-    assertIncludes(
-      firefoxReleaseWorkflow,
-      'build/firefox-source/**/*-source.zip',
-      'Firefox release workflow'
-    );
-    assertIncludes(firefoxReleaseWorkflow, 'if-no-files-found: error', 'Firefox release workflow');
-    assertNotIncludes(
-      firefoxReleaseWorkflow,
-      'node --env-file=.env.production.local',
-      'Firefox release workflow'
-    );
-    assertNotIncludes(firefoxReleaseWorkflow, 'inputs.channel ||', 'Firefox release workflow');
-    assertNotIncludes(firefoxReleaseWorkflow, 'github.ref_name }}', 'Firefox release workflow');
-    assertNotIncludes(
-      firefoxReleaseWorkflow,
-      'npm run package:firefox\n',
-      'Firefox release workflow'
-    );
+      'WEB_EXT_API_SECRET: ${{ secrets.WEB_EXT_API_SECRET }}'
+    ]) {
+      if (!firefoxReleaseWorkflow.includes(required)) throw new Error(`missing ${required}`);
+    }
   });
 
-  recordCheck('firefox-release-package-script-contract', () => {
-    assertIncludes(
-      packageJson,
-      '"analytics:validate:prod:required": "node scripts/setup-error-analytics.js --require-env --require-zendio-env --require-proxy-transport"',
-      'package scripts'
-    );
-    assertNotIncludes(
-      packageJson,
-      '"analytics:validate:prod:required": "node --env-file',
-      'package scripts'
-    );
-  });
-
-  return {
-    ok: failures.length === 0,
-    failures
-  };
+  return { ok: failures.length === 0, failures };
 }
 
-if (process.argv[1] === new URL(import.meta.url).pathname) {
+if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   const result = checkCiWorkflowContract();
   if (!result.ok) {
     console.error('CI workflow contract failed:');
-    for (const failure of result.failures) {
-      console.error(`- ${failure}`);
-    }
+    for (const failure of result.failures) console.error(`- ${failure}`);
     process.exitCode = 1;
   } else if (!process.argv.includes('--check')) {
     console.log('CI workflow contract passed.');

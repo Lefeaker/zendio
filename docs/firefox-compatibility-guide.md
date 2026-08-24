@@ -170,11 +170,13 @@ addBrowserClassToHtml(); // 添加 .is-firefox 类
 
 ## 🧪 测试
 
+Firefox lint 的发布契约由仓库包装层判定，而不是把 `web-ext` 的 warning exit code 当作零 warning 证明。第一方 warning 必须为 `0`，且必须返回恰好两条 `@mozilla/readability@0.6.0` 的 `UNSAFE_VAR_ASSIGNMENT` 记录；零条 warning 同样失败。Firefox production build 会在 XPI 之外生成 byte-bound JS/source-map provenance sidecar，包装层据此把每条完整 lint message 映射回 `Readability.js:1549` 或 `Readability.js:1928`，并校验 commit/tree、生成 JS 与 map、根 `package.json` 声明身份 SHA-256 `168f01305bab908fc4a75172e05eef6bab00e009f0c7e97709bcc02c8471b966`、lock entry 身份 SHA-256 `cd7a3c2b695164ef97fd4ff72a50ff8ce01cf45d6934c5f7e5889d6f967ac3c1` 以及 Readability source hash。生成 chunk 名称和列号不是长期 allowlist。任一 message、source、数量、identity 或 artifact 漂移都在 XPI 创建前失败；该契约不能用来接受其他依赖、其他位置或新增 warning，也不得通过编辑 bundle/vendor 输出闭合。
+
 ### 单元测试
 
 ```bash
 # 运行 Firefox 特定测试
-npm test tests/firefox/
+npm run verify:runtime && npx vitest run --config vitest.unit.config.ts tests/unit/platform/firefox
 
 # 运行所有测试
 npm test
@@ -184,7 +186,7 @@ npm test
 
 ```bash
 # Firefox E2E 测试（需要安装 Firefox）
-npm run test:e2e -- --browser=firefox
+npm run test:e2e:browser:firefox
 ```
 
 ## 📝 开发注意事项
