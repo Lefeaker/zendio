@@ -119,7 +119,7 @@ const ALLOWED_PREVIEW_DRIFT = new Map([
       ].join(' '),
       leftSha256: '9020ccbd91acd691eccd3fdf568b9a90efbddf0a35d79f36ef1caba702fa0c07',
       // U02A runtime-surface kernel hash; U02B primitive/token parity refresh (2026-08-12 UTC).
-      rightSha256: '0df6fe85133de4bf1d9748a65799ff26f98277368598e6b6e62059ee9fb270c9'
+      rightSha256: '41e0558af225ba21f255f310102a59f6c87c90fc96f9651d0a22faf6d725830c'
     }
   ]
 ]);

@@ -10,7 +10,7 @@ export const RestOptionsSchema = z.strictObject({
   httpsUrl: z.string().url().optional(),
   httpUrl: z.string().url().optional(),
   vault: z.string().min(1, 'Vault name is required'),
-  apiKey: z.string(),
+  apiKey: z.union([z.literal(''), z.string().min(10, 'API key must be at least 10 characters')]),
   localFolderId: z.string().optional(),
   localFolderName: z.string().optional()
 });

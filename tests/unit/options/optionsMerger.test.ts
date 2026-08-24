@@ -59,7 +59,7 @@ describe('shared optionsMerger', () => {
     const stored: StoredOptions = {
       rest: {
         baseUrl: 'https://example.com',
-        apiKey: 'token'
+        apiKey: 'token-12345'
       },
       classifier: {
         enabled: true,
@@ -73,7 +73,7 @@ describe('shared optionsMerger', () => {
 
     const result = mergeOptions(stored);
     expect(result.rest.baseUrl).toBe('https://example.com');
-    expect(result.rest.apiKey).toBe('token');
+    expect(result.rest.apiKey).toBe('token-12345');
     expect(result.rest.httpsUrl).toBe(DEFAULT_OPTIONS.rest.httpsUrl);
     expect(result.classifier?.enabled).toBe(true);
     expect(result.classifier?.provider).toBe('openai');
