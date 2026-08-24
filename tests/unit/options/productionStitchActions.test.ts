@@ -75,4 +75,50 @@ describe('production Stitch persistence action routing', () => {
     expect(resetUsageData).toHaveBeenCalledTimes(1);
     expect(importConfigurationWithStatus).toHaveBeenCalledWith(null);
   });
+
+  it('captures language rollback before the optimistic lane-head mutation', async () => {
+    const state = { previewLanguage: 'en' };
+    let activeLanguage = 'en';
+    const queued: Array<{ task: () => Promise<void>; capture: () => () => void }> = [];
+    const actions = createProductionStitchActions(
+      asType<ProductionStitchActionContext>({
+        getCurrentLanguage: () => activeLanguage,
+        getMessages: () => null,
+        getState: () => state,
+        setLanguageResource: (
+          resource: Parameters<ProductionStitchActionContext['setLanguageResource']>[0]
+        ) => {
+          activeLanguage = resource.language;
+          state.previewLanguage = resource.language;
+        },
+        changeLanguage: vi.fn(() => Promise.reject(new Error('language persistence failed'))),
+        runPersistenceTask: (
+          _key: string,
+          task: () => Promise<void>,
+          capture?: () => () => void
+        ) => {
+          if (capture) queued.push({ task, capture });
+        }
+      })
+    );
+
+    actions['preview:setLanguage'](
+      asType<Parameters<(typeof actions)['preview:setLanguage']>[0]>({
+        value: 'ja',
+        mutate: (mutator: (next: typeof state) => void) => mutator(state)
+      })
+    );
+    expect(state.previewLanguage).toBe('en');
+    const queuedTask = queued[0];
+    if (!queuedTask) throw new Error('Expected a queued language task with rollback capture.');
+
+    const rollback = queuedTask.capture();
+    const running = queuedTask.task();
+    expect(state.previewLanguage).toBe('ja');
+    await expect(running).rejects.toThrow('language persistence failed');
+    rollback();
+
+    expect(activeLanguage).toBe('en');
+    expect(state.previewLanguage).toBe('en');
+  });
 });

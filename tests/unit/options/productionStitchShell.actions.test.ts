@@ -33,11 +33,12 @@ import {
   findCheckboxInText,
   findInputByValue,
   flushPromises,
+  queryRequired,
   setupProductionStitchShellTest
 } from './productionStitchShell.helpers';
 import { mountProductionStitchShell } from '@options/app/productionStitchShell';
 import * as storageControllerModule from '@options/app/productionStitchStorageController';
-import { DEFAULT_RUNTIME_MESSAGES } from '@i18n';
+import { DEFAULT_RUNTIME_MESSAGES, type Language, type Messages } from '@i18n';
 import { mergeOptions } from '@shared/config/optionsMerger';
 import type { CompleteOptions } from './productionStitchShell.helpers';
 import type { UsageStats } from '@shared/types/usage';
@@ -345,6 +346,89 @@ describe('mountProductionStitchShell actions', () => {
         'options_resource_viewed'
       ])
     );
+  });
+
+  it('restores the active language and control when language persistence fails', async () => {
+    const englishMessages = await createEnglishPageMessages({
+      schemaOverviewInterfaceGroupTitle: 'English interface sentinel'
+    });
+    const pendingLanguage = deferred<{ messages: Messages | null; language: Language }>();
+    let activeLanguage: Language = 'en';
+    let durableLanguage: Language = 'en';
+    const changeLanguage = vi.fn(async (language: Language) => {
+      const resource = await pendingLanguage.promise;
+      activeLanguage = resource.language;
+      durableLanguage = language;
+      return resource;
+    });
+    const mounted = mountProductionStitchShell({
+      controller: asOptionsController(createController()),
+      initialOptions: null,
+      messages: englishMessages,
+      language: 'en',
+      changeLanguage
+    });
+    const languageSelect = queryRequired<HTMLSelectElement>('select');
+
+    languageSelect.value = 'ja';
+    languageSelect.dispatchEvent(new Event('change', { bubbles: true }));
+    expect(languageSelect.value).toBe('ja');
+    expect(activeLanguage).toBe('en');
+    expect(durableLanguage).toBe('en');
+
+    pendingLanguage.reject(new Error('language persistence failed'));
+    await flushPromises();
+
+    expect(changeLanguage).toHaveBeenCalledWith('ja');
+    expect(activeLanguage).toBe('en');
+    expect(durableLanguage).toBe('en');
+    expect(queryRequired<HTMLSelectElement>('select').value).toBe('en');
+    expect(document.body.textContent).toContain('English interface sentinel');
+    expect(document.body.textContent).not.toContain('Japanese interface sentinel');
+    expect(document.getElementById('msg')?.textContent).toContain('language persistence failed');
+
+    mounted.refreshOptions(mounted.collectDraft());
+    expect(queryRequired<HTMLSelectElement>('select').value).toBe('en');
+    expect(document.body.textContent).toContain('English interface sentinel');
+  });
+
+  it('keeps the active, shell, and durable language after persistence succeeds', async () => {
+    const englishMessages = await createEnglishPageMessages({
+      schemaOverviewInterfaceGroupTitle: 'English interface sentinel'
+    });
+    const japaneseMessages = await createEnglishPageMessages({
+      schemaOverviewInterfaceGroupTitle: 'Japanese interface sentinel'
+    });
+    let activeLanguage: Language = 'en';
+    let durableLanguage: Language = 'en';
+    const changeLanguage = vi.fn(async (language: Language) => {
+      activeLanguage = language;
+      durableLanguage = language;
+      return { messages: japaneseMessages, language };
+    });
+    const mounted = mountProductionStitchShell({
+      controller: asOptionsController(createController()),
+      initialOptions: null,
+      messages: englishMessages,
+      language: 'en',
+      changeLanguage
+    });
+    const languageSelect = queryRequired<HTMLSelectElement>('select');
+
+    languageSelect.value = 'ja';
+    languageSelect.dispatchEvent(new Event('change', { bubbles: true }));
+    await flushPromises();
+
+    expect(changeLanguage).toHaveBeenCalledWith('ja');
+    expect(activeLanguage).toBe('ja');
+    expect(durableLanguage).toBe('ja');
+    expect(queryRequired<HTMLSelectElement>('select').value).toBe('ja');
+    expect(document.body.textContent).toContain('Japanese interface sentinel');
+    expect(document.body.textContent).not.toContain('English interface sentinel');
+
+    mounted.refreshOptions(mounted.collectDraft());
+    expect(queryRequired<HTMLSelectElement>('select').value).toBe('ja');
+    expect(document.body.textContent).toContain('Japanese interface sentinel');
   });
 
   it('surfaces synchronous taxonomy validation failures in an accessible status message', () => {
