@@ -37,6 +37,7 @@ export interface BoundedCommandInvocation {
 export interface BoundedCommandHandle {
   readonly completion: Promise<BoundedCommandResult>;
   readonly child: object | null;
+  readonly spec?: object;
   cancel(reason?: string): boolean;
 }
 

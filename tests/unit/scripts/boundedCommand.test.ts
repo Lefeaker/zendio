@@ -2,8 +2,10 @@ import { spawnSync } from 'node:child_process';
 import {
   chmodSync,
   closeSync,
+  existsSync,
   fstatSync,
   linkSync,
+  lstatSync,
   mkdtempSync,
   openSync,
   readFileSync,
@@ -56,6 +58,53 @@ function temporaryRoot(): string {
   return root;
 }
 
+function ciInstallFixture(jobClass = 'generic-v1', timeout = '30') {
+  const runnerTemp = realpathSync(temporaryRoot());
+  const output = join(runnerTemp, 'github-output');
+  const startCentiseconds = '100000';
+  const environment = cleanEnvironment({
+    CI: 'true',
+    GITHUB_ACTIONS: 'true',
+    GITHUB_JOB: 'unit-contract',
+    GITHUB_OUTPUT: output,
+    GITHUB_RUN_ATTEMPT: '2',
+    GITHUB_RUN_ID: '123456',
+    ImageOS: 'ubuntu24',
+    ImageVersion: '20260818.1',
+    RUNNER_ARCH: 'X64',
+    RUNNER_OS: 'Linux',
+    RUNNER_TEMP: runnerTemp,
+    ZENDIO_JOB_CLASS: jobClass,
+    ZENDIO_JOB_TIMEOUT_MINUTES: timeout
+  });
+  writeFileSync(output, '', { mode: 0o600 });
+  chmodSync(output, 0o600);
+  writeFileSync(
+    join(runnerTemp, 'zendio-command-start-123456-2-unit-contract.receipt'),
+    [
+      'zendio-ci-command-start-v1',
+      '123456',
+      '2',
+      'unit-contract',
+      jobClass,
+      timeout,
+      'Linux',
+      'X64',
+      'ubuntu24',
+      '20260818.1',
+      startCentiseconds,
+      ''
+    ].join('\n'),
+    { mode: 0o600 }
+  );
+  return {
+    environment,
+    output,
+    runnerTemp,
+    operations: { readUptimeCentiseconds: () => 100010 }
+  };
+}
+
 function writeRequest(
   root: string,
   value: Record<string, RequestValue>,
@@ -81,6 +130,13 @@ describe('bounded command ownership', () => {
   it('deep-freezes the finite profile, coordinator, timing, and policy registries', () => {
     expect(PROFILE_IDS).toContain('vitest-v1');
     expect(PROFILE_IDS).toContain('fixture-v1');
+    expect(PROFILE_IDS).toEqual(
+      expect.arrayContaining([
+        'github-ci-install-v1',
+        'playwright-host-deps-platform-v1',
+        'playwright-browser-install-v1'
+      ])
+    );
     expect(new Set(PROFILE_IDS).size).toBe(PROFILE_IDS.length);
     expect(Object.isFrozen(PROFILE_IDS)).toBe(true);
     expect(Object.isFrozen(COMMAND_LIMITS)).toBe(true);
@@ -89,7 +145,18 @@ describe('bounded command ownership', () => {
     expect(DIRECT_ROOT_COORDINATOR_GRAMMARS.map((row) => row.path)).toEqual(
       [...DIRECT_ROOT_COORDINATOR_GRAMMARS].map((row) => row.path).sort()
     );
-    expect(COMMAND_LIMITS.browser.activeMs + 50_000).toBe(1_430_000);
+    expect(Number(COMMAND_LIMITS.browser.activeMs) + 50_000).toBe(1_430_000);
+    expect(
+      Number(COMMAND_LIMITS.install.activeMs) +
+        COMMAND_LIMITS.install.termMs +
+        COMMAND_LIMITS.install.killMs
+    ).toBe(640_000);
+    expect(
+      Number(COMMAND_LIMITS.browserInstall.activeMs) +
+        COMMAND_LIMITS.browserInstall.termMs +
+        COMMAND_LIMITS.browserInstall.killMs
+    ).toBe(940_000);
+    expect(COMMAND_LIMITS.platform.activeMs).toBeNull();
   });
 
   it('uses one closed parser for profile and direct-root invocations', () => {
@@ -111,6 +178,19 @@ describe('bounded command ownership', () => {
       separatorPresent: true
     });
     expect(
+      parseManagedCommandInvocationArgv([
+        'node',
+        'scripts/run-bounded-command.mjs',
+        '--profile',
+        'playwright-host-deps-platform-v1',
+        '--',
+        'firefox-with-host-deps'
+      ])
+    ).toMatchObject({
+      profileId: 'playwright-host-deps-platform-v1',
+      arguments: ['firefox-with-host-deps']
+    });
+    expect(
       parseManagedCommandInvocationArgv(['node', 'scripts/run-test-shards.mjs', 'unit', 'tools'])
     ).toEqual({
       kind: 'coordinator',
@@ -124,10 +204,123 @@ describe('bounded command ownership', () => {
       ['node', 'scripts/run-bounded-command.mjs', '--profile', 'vitest-v1', 'run'],
       ['node', 'scripts/run-bounded-command.mjs', '--profile', 'vitest-v1', '--'],
       ['node', 'scripts/run-test-shards.mjs', 'unit', 'video'],
-      ['node', 'scripts/run-browser-test-shards.mjs', 'firefox']
+      ['node', 'scripts/run-browser-test-shards.mjs', 'firefox'],
+      [
+        'node',
+        'scripts/run-bounded-command.mjs',
+        '--profile',
+        'github-ci-install-v1',
+        '--',
+        'unexpected'
+      ],
+      [
+        'node',
+        'scripts/run-bounded-command.mjs',
+        '--profile',
+        'playwright-browser-install-v1',
+        '--',
+        'webkit-with-host-deps'
+      ]
     ]) {
       expect(() => parseManagedCommandInvocationArgv(argv)).toThrow();
     }
+  });
+
+  it('reserves and binds the canonical GitHub CI install attempt before npm starts', () => {
+    const fixture = ciInstallFixture();
+    const profile = resolveCommandProfile('github-ci-install-v1', [], {
+      environment: fixture.environment,
+      operations: fixture.operations
+    });
+    const attemptRoot = join(fixture.runnerTemp, 'zendio-ci-node-123456-2-unit-contract');
+
+    expect(profile.argv.slice(1)).toEqual([
+      'ci',
+      '--ignore-scripts',
+      '--include=optional',
+      '--no-audit',
+      '--no-fund',
+      `--userconfig=${attemptRoot}/install/npm-userconfig`,
+      `--globalconfig=${attemptRoot}/install/npm-globalconfig`
+    ]);
+    expect(profile).toMatchObject({
+      shell: false,
+      tty: false,
+      detached: process.platform !== 'win32',
+      ciInstallOutputs: {
+        path: fixture.output,
+        lines: [
+          `attempt-root=${attemptRoot}`,
+          `npm-userconfig=${attemptRoot}/install/npm-userconfig`,
+          `npm-globalconfig=${attemptRoot}/install/npm-globalconfig`
+        ]
+      }
+    });
+    expect(profile.env).toMatchObject({
+      HOME: `${attemptRoot}/install`,
+      NPM_CONFIG_USERCONFIG: `${attemptRoot}/install/npm-userconfig`,
+      NPM_CONFIG_GLOBALCONFIG: `${attemptRoot}/install/npm-globalconfig`
+    });
+    expect(lstatSync(attemptRoot).mode & 0o777).toBe(0o700);
+    expect(lstatSync(`${attemptRoot}/install`).mode & 0o777).toBe(0o700);
+    expect(lstatSync(`${attemptRoot}/install/npm-userconfig`).mode & 0o777).toBe(0o600);
+    expect(() =>
+      resolveCommandProfile('github-ci-install-v1', [], {
+        environment: fixture.environment,
+        operations: fixture.operations
+      })
+    ).toThrow('CI_ATTEMPT_REUSED');
+  });
+
+  it('fails the CI install profile closed on stamp, budget, casing, output, and protected inputs', () => {
+    const mutations = [
+      (environment: NodeJS.ProcessEnv) => ({ ...environment, ZENDIO_JOB_TIMEOUT_MINUTES: '29' }),
+      (environment: NodeJS.ProcessEnv) => ({ ...environment, imageos: environment.ImageOS }),
+      (environment: NodeJS.ProcessEnv) => ({ ...environment, GITHUB_OUTPUT: '../output' }),
+      (environment: NodeJS.ProcessEnv) => ({
+        ...environment,
+        ZENDIO_EXPECTED_RELEASE_SHA: '0'.repeat(40)
+      })
+    ];
+
+    for (const mutate of mutations) {
+      const fixture = ciInstallFixture();
+      expect(() =>
+        resolveCommandProfile('github-ci-install-v1', [], {
+          environment: mutate(fixture.environment),
+          operations: fixture.operations
+        })
+      ).toThrow();
+      expect(existsSync(join(fixture.runnerTemp, 'zendio-ci-node-123456-2-unit-contract'))).toBe(
+        false
+      );
+    }
+  });
+
+  it('keeps privileged host dependencies separate from the bounded browser install phase', () => {
+    const environment = cleanEnvironment({ PLAYWRIGHT_BROWSERS_PATH: '/private/browsers' });
+    const host = resolveCommandProfile(
+      'playwright-host-deps-platform-v1',
+      ['chromium-with-host-deps'],
+      { environment }
+    );
+    const browser = resolveCommandProfile(
+      'playwright-browser-install-v1',
+      ['firefox-with-host-deps'],
+      { environment }
+    );
+
+    expect(host.argv.slice(-2)).toEqual(['install-deps', 'chromium']);
+    expect(host).toMatchObject({ platformOwned: true, detached: false });
+    expect(host.limits.activeMs).toBeNull();
+    expect(browser.argv.slice(-2)).toEqual(['install', 'firefox']);
+    expect(browser).toMatchObject({
+      platformOwned: false,
+      detached: process.platform !== 'win32'
+    });
+    expect(browser.limits).toBe(COMMAND_LIMITS.browserInstall);
+    expect(host.executable).toBe(process.execPath);
+    expect(browser.executable).toBe(process.execPath);
   });
 
   it('binds the five governed package bins to the accepted lock identities', () => {
@@ -367,6 +560,35 @@ describe('bounded command ownership', () => {
     expect(result.status).toBe(0);
     expect(result.stdout).toBe('external-ok');
     expect(result.stderr).toBe('');
+  });
+
+  it('publishes CI install outputs only after the bounded child succeeds', async () => {
+    const root = temporaryRoot();
+    const output = join(root, 'github-output');
+    writeFileSync(output, '', { mode: 0o600 });
+    chmodSync(output, 0o600);
+    const base = resolveCommandProfile('fixture-v1', ['success', 'installed'], {
+      environment: cleanEnvironment()
+    });
+    const result = await runBoundedCommand(
+      { profileId: 'github-ci-install-v1', arguments: [] },
+      {
+        environment: cleanEnvironment(),
+        resolveProfile: () => ({
+          ...base,
+          profileId: 'github-ci-install-v1',
+          ciInstallOutputs: {
+            path: output,
+            lines: ['attempt-root=/private/attempt', 'npm-userconfig=/private/userconfig']
+          }
+        })
+      }
+    );
+
+    expect(result.ok).toBe(true);
+    expect(readFileSync(output, 'utf8')).toBe(
+      'attempt-root=/private/attempt\nnpm-userconfig=/private/userconfig\n'
+    );
   });
 
   it('keeps the tracked hook target on the invariant boundary route', () => {

@@ -1,6 +1,17 @@
 import { execFileSync, spawn } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { lstatSync, realpathSync, readFileSync, readdirSync } from 'node:fs';
+import {
+  closeSync,
+  constants,
+  fsyncSync,
+  fstatSync,
+  lstatSync,
+  openSync,
+  realpathSync,
+  readFileSync,
+  readdirSync,
+  writeSync
+} from 'node:fs';
 import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { performance } from 'node:perf_hooks';
 import {
@@ -99,6 +110,41 @@ function safeSignal(child, spec, signal) {
   }
 }
 
+function publishCiInstallOutputs(spec) {
+  const record = spec.ciInstallOutputs;
+  if (!record) return;
+  const before = lstatSync(record.path);
+  if (
+    !before.isFile() ||
+    before.isSymbolicLink() ||
+    before.uid !== process.getuid() ||
+    before.nlink !== 1 ||
+    (before.mode & 0o022) !== 0
+  )
+    throw new Error('CI_OUTPUT_INVALID');
+  const payload = Buffer.from(`${record.lines.join('\n')}\n`, 'utf8');
+  const descriptor = openSync(
+    record.path,
+    constants.O_WRONLY | constants.O_APPEND | (constants.O_NOFOLLOW ?? 0)
+  );
+  try {
+    const opened = fstatSync(descriptor);
+    if (
+      opened.dev !== before.dev ||
+      opened.ino !== before.ino ||
+      !opened.isFile() ||
+      opened.uid !== process.getuid() ||
+      opened.nlink !== 1
+    )
+      throw new Error('CI_OUTPUT_CHANGED');
+    let offset = 0;
+    while (offset < payload.length) offset += writeSync(descriptor, payload, offset);
+    fsyncSync(descriptor);
+  } finally {
+    closeSync(descriptor);
+  }
+}
+
 function startResolvedCommand(spec, dependencies = {}) {
   const spawnOperation = dependencies.spawnOperation ?? spawn;
   const now = dependencies.now ?? (() => performance.now());
@@ -130,7 +176,8 @@ function startResolvedCommand(spec, dependencies = {}) {
     return {
       cancel: () => false,
       completion: Promise.resolve(immutableResult(result)),
-      child: null
+      child: null,
+      spec
     };
   }
 
@@ -226,6 +273,7 @@ function startResolvedCommand(spec, dependencies = {}) {
   }
 
   function cancel(reason = 'cancelled') {
+    if (spec.platformOwned) return false;
     if (settled || requestedReason) return false;
     requestedReason = reason;
     const delivered = safeSignal(child, spec, 'SIGTERM');
@@ -291,13 +339,15 @@ function startResolvedCommand(spec, dependencies = {}) {
     finishIfReady();
   });
 
-  timeoutTimer = scheduleTimer(() => cancel('timeout'), spec.limits.activeMs);
-  for (const name of ['SIGINT', 'SIGTERM']) {
-    const listener = () => cancel('parent-signal');
-    parentSignals.set(name, listener);
-    signalSource.on?.(name, listener);
+  if (!spec.platformOwned) {
+    timeoutTimer = scheduleTimer(() => cancel('timeout'), spec.limits.activeMs);
+    for (const name of ['SIGINT', 'SIGTERM']) {
+      const listener = () => cancel('parent-signal');
+      parentSignals.set(name, listener);
+      signalSource.on?.(name, listener);
+    }
   }
-  return { cancel, completion, child };
+  return { cancel, completion, child, spec };
 }
 
 function syntheticResult(profileId, ok, terminalReason, stdout = '', stderr = '') {
@@ -516,7 +566,7 @@ export function startBoundedCommand({ profileId, arguments: args = [] }, depende
       }
       return runComposite(profileId, args, dependencies);
     })();
-    return { cancel: () => (cancelled = true), completion, child: null };
+    return { cancel: () => (cancelled = true), completion, child: null, spec };
   }
   return startResolvedCommand(spec, dependencies);
 }
@@ -529,7 +579,8 @@ export async function runBoundedCommand(invocation, dependencies = {}) {
         stash: gitValue(['rev-parse', '-q', '--verify', 'refs/stash'])
       }
     : null;
-  const result = await startBoundedCommand(invocation, dependencies).completion;
+  const handle = startBoundedCommand(invocation, dependencies);
+  const result = await handle.completion;
   if (hookInvariant) {
     const after = {
       tree: gitValue(['write-tree']),
@@ -547,6 +598,17 @@ export async function runBoundedCommand(invocation, dependencies = {}) {
         invocation.profileId,
         false,
         error instanceof Error ? error.message : 'HUSKY_PROVISION_INVALID'
+      );
+    }
+  }
+  if (invocation.profileId === 'github-ci-install-v1' && result.ok) {
+    try {
+      publishCiInstallOutputs(handle.spec);
+    } catch (error) {
+      return syntheticResult(
+        invocation.profileId,
+        false,
+        error instanceof Error ? error.message : 'CI_OUTPUT_INVALID'
       );
     }
   }

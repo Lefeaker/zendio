@@ -3,6 +3,7 @@ export type CommandBoundaryProfileId =
   | 'dependency-cruiser-v1'
   | 'fixture-v1'
   | 'generated-artifact-check-v1'
+  | 'github-ci-install-v1'
   | 'husky-provision-v1'
   | 'lint-staged-hook-v1'
   | 'lint-staged-prepare-v1'
@@ -12,6 +13,8 @@ export type CommandBoundaryProfileId =
   | 'npm-script-quick-v1'
   | 'npm-script-standard-v1'
   | 'node-script-standard-v1'
+  | 'playwright-browser-install-v1'
+  | 'playwright-host-deps-platform-v1'
   | 'playwright-install-v1'
   | 'playwright-v1'
   | 'prettier-v1'
@@ -20,7 +23,7 @@ export type CommandBoundaryProfileId =
   | 'vitest-v1';
 
 export interface CommandLimits {
-  readonly activeMs: number;
+  readonly activeMs: number | null;
   readonly termMs: number;
   readonly killMs: number;
   readonly stdoutBytes: number;
@@ -43,6 +46,11 @@ export interface ResolvedCommandProfile {
   readonly limits: CommandLimits;
   readonly composite?: string;
   readonly fd3Input?: string;
+  readonly platformOwned?: boolean;
+  readonly ciInstallOutputs?: Readonly<{
+    path: string;
+    lines: readonly string[];
+  }>;
 }
 
 export type ManagedCommandInvocation =
@@ -93,5 +101,8 @@ export function buildClosedCommandEnvironment(
 export function resolveCommandProfile(
   profileId: CommandBoundaryProfileId,
   args: readonly string[],
-  options?: { environment?: NodeJS.ProcessEnv }
+  options?: {
+    environment?: NodeJS.ProcessEnv;
+    operations?: object;
+  }
 ): ResolvedCommandProfile;
