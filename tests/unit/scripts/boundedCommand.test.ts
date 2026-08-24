@@ -51,6 +51,32 @@ function cleanEnvironment(extra: Record<string, string> = {}): NodeJS.ProcessEnv
   };
 }
 
+function verifiedNpmLifecycleEnvironment(extra: Record<string, string> = {}): NodeJS.ProcessEnv {
+  const npmProfile = resolveCommandProfile('npm-script-quick-v1', ['verify:runtime'], {
+    environment: cleanEnvironment()
+  });
+  const nodePath = npmProfile.executable;
+  const cliPath = npmProfile.argv[0];
+  if (!nodePath || !cliPath) throw new Error('TEST_NPM_PROFILE_INVALID');
+  return cleanEnvironment({
+    INIT_CWD: resolve('.'),
+    NODE: nodePath,
+    PWD: resolve('.'),
+    npm_command: 'run-script',
+    npm_config_noproxy: '',
+    npm_config_npm_version: '10.8.2',
+    npm_execpath: cliPath,
+    npm_lifecycle_event: 'lint:options-css',
+    npm_lifecycle_script:
+      'node scripts/run-bounded-command.mjs --profile stylelint-v1 -- "src/options/**/*.css"',
+    npm_node_execpath: nodePath,
+    npm_package_json: resolve('package.json'),
+    npm_package_name: 'zendio',
+    npm_package_version: '0.2.1',
+    ...extra
+  });
+}
+
 function temporaryRoot(): string {
   const root = mkdtempSync(join(tmpdir(), 'zendio-command-boundary-'));
   chmodSync(root, 0o700);
@@ -351,6 +377,43 @@ describe('bounded command ownership', () => {
       TZ: 'UTC',
       PATH: `${resolve(process.execPath, '..')}:/usr/bin:/bin`
     });
+  });
+
+  it('strips the exact empty npm lifecycle no-proxy placeholder without admitting proxy authority', () => {
+    expect(buildClosedCommandEnvironment(verifiedNpmLifecycleEnvironment())).toEqual({
+      HOME: process.env.HOME ?? tmpdir(),
+      TMPDIR: tmpdir(),
+      LANG: 'C',
+      LC_ALL: 'C',
+      TZ: 'UTC',
+      PATH: `${resolve(process.execPath, '..')}:/usr/bin:/bin`
+    });
+    expect(() =>
+      buildClosedCommandEnvironment(
+        verifiedNpmLifecycleEnvironment({ npm_config_noproxy: 'localhost' })
+      )
+    ).toThrow('ENVIRONMENT_FORBIDDEN');
+    expect(() =>
+      buildClosedCommandEnvironment(verifiedNpmLifecycleEnvironment({ NPM_CONFIG_NOPROXY: '' }))
+    ).toThrow('ENVIRONMENT_FORBIDDEN');
+    expect(() =>
+      buildClosedCommandEnvironment(cleanEnvironment({ npm_config_noproxy: '' }))
+    ).toThrow('ENVIRONMENT_FORBIDDEN');
+  });
+
+  it.each([
+    ['HTTP_PROXY', ''],
+    ['HTTP_PROXY', 'http://127.0.0.1:8080'],
+    ['HTTPS_PROXY', ''],
+    ['HTTPS_PROXY', 'http://127.0.0.1:8080'],
+    ['npm_config_http_proxy', ''],
+    ['npm_config_https_proxy', ''],
+    ['npm_config_proxy', ''],
+    ['CUSTOM_PROXY_ROUTE', '']
+  ])('rejects direct or npm-lifecycle proxy authority %s', (key, value) => {
+    expect(() =>
+      buildClosedCommandEnvironment(verifiedNpmLifecycleEnvironment({ [key]: value }))
+    ).toThrow('ENVIRONMENT_FORBIDDEN');
   });
 
   it.each([

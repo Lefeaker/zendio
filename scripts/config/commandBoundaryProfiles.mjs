@@ -554,23 +554,53 @@ const PASS_ENV = new Set([
   'ZENDIO_JOB_TIMEOUT_MINUTES'
 ]);
 
+function isVerifiedNpmLifecycle(environment) {
+  try {
+    const npm = detectNpmCommand({ repositoryRoot: REPOSITORY_ROOT, environment: {} });
+    const { packageJson } = packageProjection();
+    const event = environment.npm_lifecycle_event;
+    const script = typeof event === 'string' ? packageJson.scripts?.[event] : undefined;
+    return (
+      typeof script === 'string' &&
+      environment.npm_command === 'run-script' &&
+      environment.npm_config_npm_version === npm.version &&
+      environment.npm_execpath === npm.cliPath &&
+      environment.npm_node_execpath === npm.nodePath &&
+      environment.NODE === npm.nodePath &&
+      environment.npm_package_json === resolve(REPOSITORY_ROOT, 'package.json') &&
+      environment.npm_package_name === packageJson.name &&
+      environment.npm_package_version === packageJson.version &&
+      environment.npm_lifecycle_script === script &&
+      environment.INIT_CWD === REPOSITORY_ROOT &&
+      environment.PWD === REPOSITORY_ROOT
+    );
+  } catch {
+    return false;
+  }
+}
+
 export function buildClosedCommandEnvironment(environment = process.env, additions = {}) {
   for (const key of Object.keys(environment)) {
     const lower = key.toLowerCase();
+    const emptyNpmNoProxy =
+      key === 'npm_config_noproxy' &&
+      environment[key] === '' &&
+      isVerifiedNpmLifecycle(environment);
     if (
-      [
+      !emptyNpmNoProxy &&
+      ([
         'node_options',
         'husky',
         'quality_concurrency',
         'test_shard_concurrency',
         'browser_test_concurrency'
       ].includes(lower) ||
-      lower.includes('preload') ||
-      lower.includes('loader') ||
-      lower.includes('proxy') ||
-      lower.includes('certificate') ||
-      lower === 'node_extra_ca_certs' ||
-      lower === 'ssl_cert_file'
+        lower.includes('preload') ||
+        lower.includes('loader') ||
+        lower.includes('proxy') ||
+        lower.includes('certificate') ||
+        lower === 'node_extra_ca_certs' ||
+        lower === 'ssl_cert_file')
     )
       invalid('ENVIRONMENT_FORBIDDEN');
   }
