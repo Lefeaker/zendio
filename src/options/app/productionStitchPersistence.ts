@@ -26,15 +26,13 @@ import type { OptionsController } from './optionsController';
 import { getMessage, setButtonBusy } from './productionStitchPersistenceUi';
 import { repairTemplateOptions } from './productionStitchTemplateRepair';
 import type { UsageStatsClientLike } from './usage-dashboard/usageStatsClient';
-
+import { deepClone } from '../utils/clone';
 type PrivacyPreferenceField = 'analytics' | 'errorReporting' | 'debugMode';
-
 interface PrivacySnapshot {
   analytics: boolean;
   errorReporting: boolean;
   debugMode: boolean;
 }
-
 interface ProductionStitchPersistenceOptions {
   controller: OptionsController;
   optionsRepository: Pick<IOptionsRepository, 'get' | 'patch' | 'replace' | 'onChange'>;
@@ -54,7 +52,6 @@ interface ProductionStitchPersistenceOptions {
   render(): void;
   syncDefaultVaultFromRest(): void;
 }
-
 export interface ProductionStitchPersistence {
   clearAnalyticsPrivacyData(): Promise<void>;
   copyConfigurationToClipboard(button: HTMLButtonElement | null): Promise<void>;
@@ -69,28 +66,26 @@ export interface ProductionStitchPersistence {
 export function createProductionStitchPersistence(
   options: ProductionStitchPersistenceOptions
 ): ProductionStitchPersistence {
-  let usageStatsSnapshot: UsageStats = {
+  let usageSnapshot: UsageStats = {
     ...DEFAULT_USAGE_STATS,
     history: [...DEFAULT_USAGE_STATS.history]
   };
   function applyUsageStats(stats: UsageStats): void {
-    usageStatsSnapshot = { ...stats, history: stats.history.map((entry) => ({ ...entry })) };
+    usageSnapshot = { ...stats, history: stats.history.map((entry) => ({ ...entry })) };
     const appData = options.getAppData();
     options.setAppData({
       ...appData,
-      overview: usageStatsToOverview(appData.overview, usageStatsSnapshot)
+      overview: usageStatsToOverview(appData.overview, usageSnapshot)
     });
   }
   function restoreUsageStatsView(): void {
-    applyUsageStats(usageStatsSnapshot);
+    applyUsageStats(usageSnapshot);
   }
-  function refreshAppDataWithUsage(): void {
+  function refreshWithUsage(): void {
     options.refreshAppData();
     restoreUsageStatsView();
   }
-  async function trackUsageEvent(
-    message: ReturnType<typeof createAnalyticsEventMessage>
-  ): Promise<void> {
+  async function track(message: ReturnType<typeof createAnalyticsEventMessage>): Promise<void> {
     try {
       await options.messagingRepository.send(message);
     } catch {
@@ -109,7 +104,6 @@ export function createProductionStitchPersistence(
       debugMode: Boolean(current?.debugMode)
     };
   }
-
   function syncPrivacySnapshotToState(nextSnapshot: PrivacySnapshot): void {
     const draft = options.getDraft();
     const state = options.getState();
@@ -124,23 +118,19 @@ export function createProductionStitchPersistence(
       debugMode: resolveAnalyticsDebugMode(nextSnapshot)
     };
   }
-
   async function applyRuntimePrivacySnapshot(
     nextSnapshot: PrivacySnapshot,
     field: PrivacyPreferenceField
   ): Promise<void> {
     const runtimeDebugMode = resolveAnalyticsDebugMode(nextSnapshot);
-
     if (field === 'debugMode') {
       await getAnalyticsConfigManager().updateConfig({ debugMode: runtimeDebugMode });
       return;
     }
-
     await setAnalyticsConsent(nextSnapshot.analytics, nextSnapshot.errorReporting);
     await getAnalyticsConfigManager().updateConfig({ debugMode: runtimeDebugMode });
     await updateErrorAnalyticsConfig(nextSnapshot.errorReporting);
   }
-
   async function persistPrivacyPreference(
     field: PrivacyPreferenceField,
     value: boolean
@@ -157,14 +147,13 @@ export function createProductionStitchPersistence(
     syncPrivacySnapshotToState(nextSnapshot);
     await applyRuntimePrivacySnapshot(nextSnapshot, field);
     options.controller.scheduleAutoSave(() => options.collectDraftWithWidgets());
-    await trackUsageEvent(
+    await track(
       createAnalyticsEventMessage('privacy_consent_changed', {
         field,
         enabled: nextSnapshot[field]
       })
     );
   }
-
   async function clearAnalyticsPrivacyData(): Promise<void> {
     const shouldClear =
       typeof window.confirm === 'function'
@@ -211,9 +200,8 @@ export function createProductionStitchPersistence(
       throw new Error(failureMessage);
     }
   }
-
   async function resetUsageData(): Promise<void> {
-    const previousStats = usageStatsSnapshot;
+    const previousStats = usageSnapshot;
     const zeroStats = { ...DEFAULT_USAGE_STATS, history: [...DEFAULT_USAGE_STATS.history] };
     applyUsageStats(zeroStats);
     try {
@@ -229,7 +217,6 @@ export function createProductionStitchPersistence(
       throw error;
     }
   }
-
   async function loadUsageStatsFromStorage(): Promise<void> {
     try {
       applyUsageStats(await options.usageStatsClient.get());
@@ -238,7 +225,6 @@ export function createProductionStitchPersistence(
       console.debug('[Options] Failed to load usage stats through the background owner:', error);
     }
   }
-
   async function importConfigurationFromClipboard(configuration: {
     analytics: Awaited<ReturnType<typeof readImportedConfigurationFromClipboard>>['analytics'];
     imported: CompleteOptions;
@@ -246,7 +232,7 @@ export function createProductionStitchPersistence(
   }): Promise<void> {
     await options.controller.applyImportedConfig(configuration.imported);
     options.setDraft(configuration.imported);
-    refreshAppDataWithUsage();
+    refreshWithUsage();
     options.setState(
       applyOptionsToState(options.getState(), configuration.imported, options.getAppData())
     );
@@ -261,7 +247,7 @@ export function createProductionStitchPersistence(
     setButtonBusy(button, true);
     try {
       await writeToClipboard(serializeOptionsFullBackup(options.collectDraftWithWidgets()));
-      await trackUsageEvent(
+      await track(
         createAnalyticsEventMessage('config_export_completed', {
           outcome: 'completed'
         })
@@ -274,7 +260,7 @@ export function createProductionStitchPersistence(
         )
       );
     } catch (error) {
-      await trackUsageEvent(
+      await track(
         createAnalyticsEventMessage('config_export_completed', {
           outcome: 'failed'
         })
@@ -282,7 +268,7 @@ export function createProductionStitchPersistence(
       options.setMaintenanceLog(`Copy failed: ${String(error)}`);
     } finally {
       setButtonBusy(button, false);
-      refreshAppDataWithUsage();
+      refreshWithUsage();
       options.render();
     }
   }
@@ -294,7 +280,7 @@ export function createProductionStitchPersistence(
       const configuration = await readImportedConfigurationFromClipboard();
       analyticsPayloadPresent = configuration.analyticsPayloadPresent;
       await importConfigurationFromClipboard(configuration);
-      await trackUsageEvent(
+      await track(
         createAnalyticsEventMessage('config_import_completed', {
           outcome: 'completed',
           analytics_payload_present: analyticsPayloadPresent
@@ -308,7 +294,7 @@ export function createProductionStitchPersistence(
         )
       );
     } catch (error) {
-      await trackUsageEvent(
+      await track(
         createAnalyticsEventMessage('config_import_completed', {
           outcome: 'failed',
           analytics_payload_present: analyticsPayloadPresent
@@ -319,13 +305,19 @@ export function createProductionStitchPersistence(
       throw new Error(failureMessage);
     } finally {
       setButtonBusy(button, false);
-      refreshAppDataWithUsage();
+      refreshWithUsage();
       options.render();
     }
   }
 
   async function repairConfiguration(): Promise<void> {
     const draft = options.getDraft();
+    const before = deepClone({
+      rest: draft.rest,
+      templates: draft.templates,
+      vaultRouter: draft.vaultRouter
+    });
+    const oldLog = options.getAppData().maintenanceLog;
     const restDefaults = configProvider.getRestDefaults();
     const templateDefaults = configProvider.getTemplates();
     let baseUrl = draft.rest.baseUrl || draft.rest.httpsUrl || restDefaults.baseUrl;
@@ -355,11 +347,18 @@ export function createProductionStitchPersistence(
     draft.templates = repairTemplateOptions(draft.templates, templateDefaults);
     options.syncDefaultVaultFromRest();
     options.setMaintenanceLog(log.join('\n'));
-    refreshAppDataWithUsage();
-    await options.controller.saveSnapshot({
-      reason: 'manual',
-      draft: options.collectDraftWithWidgets()
-    });
+    refreshWithUsage();
+    try {
+      await options.controller.saveSnapshot({
+        reason: 'manual',
+        draft: options.collectDraftWithWidgets()
+      });
+    } catch (error) {
+      Object.assign(options.getDraft(), before);
+      options.setMaintenanceLog(oldLog);
+      refreshWithUsage();
+      throw error;
+    }
     options.render();
   }
 
@@ -372,6 +371,6 @@ export function createProductionStitchPersistence(
     repairConfiguration,
     resetUsageData,
     restoreUsageStatsView,
-    trackUsageEvent
+    trackUsageEvent: track
   };
 }

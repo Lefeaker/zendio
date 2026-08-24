@@ -1168,7 +1168,12 @@ describe('mountProductionStitchShell actions', () => {
   });
 
   it('repairs configuration using the existing production repair rules', async () => {
-    const controller = createController();
+    let durableTemplate = 'Clippings/Before.md';
+    const saveSnapshot = vi.fn((snapshot: { draft: CompleteOptions }) => {
+      durableTemplate = snapshot.draft.templates.article;
+      return Promise.resolve();
+    });
+    const controller = { ...createController(), saveSnapshot };
     const messagingRepository = createMessaging();
     const mounted = mountProductionStitchShell({
       controller: asOptionsController(controller),
@@ -1180,7 +1185,7 @@ describe('mountProductionStitchShell actions', () => {
           httpUrl: LOCAL_HTTP_URL
         },
         templates: {
-          article: 'Clippings/{{title}}.md',
+          article: durableTemplate,
           fragment: '',
           ai: ''
         }
@@ -1196,7 +1201,8 @@ describe('mountProductionStitchShell actions', () => {
     const repaired = mounted.collectDraft();
     expect(repaired.rest.baseUrl).toBe(LOCAL_HTTPS_URL);
     expect(repaired.rest.httpsUrl).toBeTruthy();
-    expect(repaired.templates.article).toContain('Articles/');
+    expect(repaired.templates.article).toBe('Articles/Before.md');
+    expect(durableTemplate).toBe('Articles/Before.md');
     expect(repaired.templates.fragment).toBeTruthy();
     expect(repaired.templates.ai).toBeTruthy();
     expect(vi.mocked(controller.saveSnapshot)).toHaveBeenCalledWith({
@@ -1214,5 +1220,58 @@ describe('mountProductionStitchShell actions', () => {
         section: 'advanced'
       }
     });
+
+    findButton('Diagnose Configuration').click();
+    expect(mounted.collectDraft().templates.article).toBe('Articles/Before.md');
+    expect(document.body.textContent).toContain('Articles/Before.md');
+    expect(document.body.textContent).not.toContain('Clippings/Before.md');
+  });
+
+  it('restores repair-owned state when saving the repaired snapshot fails', async () => {
+    const pendingSave = deferred<void>();
+    let durableTemplate = 'Clippings/Before.md';
+    const saveSnapshot = vi.fn(async (snapshot: { draft: CompleteOptions }) => {
+      await pendingSave.promise;
+      durableTemplate = snapshot.draft.templates.article;
+    });
+    const controller = { ...createController(), saveSnapshot };
+    const optionsRepository = createRepository();
+    const mounted = mountProductionStitchShell({
+      controller: asOptionsController(controller),
+      initialOptions: {
+        interfaceTheme: 'dark',
+        templates: { article: durableTemplate }
+      },
+      messages: null,
+      language: 'en',
+      optionsRepository
+    });
+
+    findButton('Fix Configuration').click();
+    expect(mounted.collectDraft().templates.article).toBe('Articles/Before.md');
+    expect(saveSnapshot).toHaveBeenCalledWith({
+      reason: 'manual',
+      draft: expect.objectContaining({
+        templates: expect.objectContaining({ article: 'Articles/Before.md' })
+      })
+    });
+
+    findButton('Light').click();
+    await flushPromises();
+    expect(mounted.collectDraft().interfaceTheme).toBe('light');
+
+    pendingSave.reject(new Error('repair save failed'));
+    await flushPromises();
+
+    expect(mounted.collectDraft().templates.article).toBe('Clippings/Before.md');
+    expect(durableTemplate).toBe('Clippings/Before.md');
+    expect(mounted.collectDraft().interfaceTheme).toBe('light');
+    expect(window.localStorage.getItem('aob-theme')).toBe('light');
+    expect(document.getElementById('msg')?.textContent).toContain('repair save failed');
+
+    findButton('Diagnose Configuration').click();
+    expect(mounted.collectDraft().templates.article).toBe('Clippings/Before.md');
+    expect(document.body.textContent).toContain('Clippings/Before.md');
+    expect(document.body.textContent).not.toContain('Articles/Before.md');
   });
 });
