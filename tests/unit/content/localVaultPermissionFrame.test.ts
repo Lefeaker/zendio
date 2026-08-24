@@ -103,6 +103,22 @@ describe('localVaultPermissionFrame', () => {
     );
   });
 
+  it('constructs the permission surface without assigning string HTML', async () => {
+    const innerHtmlSetter = vi.spyOn(Element.prototype, 'innerHTML', 'set');
+    const { mountLocalVaultPermissionFrame } = await loadPermissionFrameModule();
+
+    mountLocalVaultPermissionFrame({
+      document,
+      window,
+      permissionService: { ensurePermission: vi.fn().mockResolvedValue('granted') }
+    });
+    await flushMicrotasks();
+
+    expect(document.querySelector('main.permission-card')).not.toBeNull();
+    expect(document.querySelectorAll('[data-action]')).toHaveLength(3);
+    expect(innerHtmlSetter).not.toHaveBeenCalled();
+  });
+
   it('renders English copy without CJK and uses the localized folder fallback', async () => {
     const messages = await loadPermissionMessages('en');
     const permissionService = {
