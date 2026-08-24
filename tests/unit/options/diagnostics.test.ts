@@ -33,10 +33,12 @@ const repoGetMock = vi.hoisted(() =>
     () => Promise.resolve({} as CompleteOptions)
   )
 );
-const repoSetMock = vi.hoisted(() =>
-  vi.fn<(...args: Parameters<IOptionsRepository['set']>) => ReturnType<IOptionsRepository['set']>>(
-    () => Promise.resolve(undefined)
-  )
+const repoReplaceMock = vi.hoisted(() =>
+  vi.fn<
+    (
+      ...args: Parameters<IOptionsRepository['replace']>
+    ) => ReturnType<IOptionsRepository['replace']>
+  >(() => Promise.resolve({} as CompleteOptions))
 );
 const getOptionsControllerMock = vi.hoisted(() =>
   vi.fn<(...args: []) => DiagnosticsController | null>(() => ({
@@ -52,7 +54,7 @@ vi.mock('../../../src/options/app/optionsControllerContext', () => ({
 }));
 vi.mock('@options/app/i18nContext', () => ({ getOptionsMessages: getOptionsMessagesMock }));
 vi.mock('@shared/di/serviceRegistry', () => ({
-  resolveRepository: () => ({ get: repoGetMock, set: repoSetMock })
+  resolveRepository: () => ({ get: repoGetMock, replace: repoReplaceMock })
 }));
 
 async function createDiagnosticsMessages(
@@ -73,12 +75,12 @@ describe('diagnostics', () => {
     loadRawMock.mockReset();
     saveSnapshotMock.mockReset();
     repoGetMock.mockReset();
-    repoSetMock.mockReset();
+    repoReplaceMock.mockReset();
     getOptionsControllerMock.mockReset();
     getOptionsMessagesMock.mockReset();
     saveSnapshotMock.mockResolvedValue({} as StoredOptions);
     repoGetMock.mockResolvedValue({} as CompleteOptions);
-    repoSetMock.mockResolvedValue(undefined);
+    repoReplaceMock.mockResolvedValue({} as CompleteOptions);
     getOptionsControllerMock.mockReturnValue({
       getSnapshot: getSnapshotMock,
       loadRaw: loadRawMock,
@@ -426,7 +428,7 @@ describe('diagnostics', () => {
     );
   });
 
-  it('uses repository set and reruns diagnostics after fix callback', async () => {
+  it('uses strict repository replacement and reruns diagnostics after fix callback', async () => {
     vi.useFakeTimers();
     getOptionsControllerMock.mockReturnValue(null);
     repoGetMock.mockResolvedValue({
@@ -437,8 +439,8 @@ describe('diagnostics', () => {
     const { fixConfiguration } = await import('@options/components/diagnostics');
     await fixConfiguration(onAfterFix);
 
-    expect(repoSetMock).toHaveBeenCalledTimes(1);
-    const payload = (repoSetMock.mock.calls[0] as unknown as [Record<string, unknown>])[0];
+    expect(repoReplaceMock).toHaveBeenCalledTimes(1);
+    const payload = (repoReplaceMock.mock.calls[0] as unknown as [Record<string, unknown>])[0];
     expect(payload).toBeTruthy();
     const templates = payload.templates as Record<string, string>;
     expect(templates.fragment).toBeTruthy();
@@ -451,7 +453,7 @@ describe('diagnostics', () => {
     vi.useRealTimers();
   });
 
-  it('uses repository set failure path and covers https-to-http port fix', async () => {
+  it('uses repository replacement failure path and covers https-to-http port fix', async () => {
     getOptionsMessagesMock.mockResolvedValue(
       await createDiagnosticsMessages({
         diagnosticsRepairSwitchedToHttp: 'Switched to HTTP sentinel {port}',
@@ -463,7 +465,7 @@ describe('diagnostics', () => {
       rest: { httpsUrl: '', httpUrl: '', baseUrl: 'https://localhost:27123', apiKey: 'key' },
       templates: { article: 'Clippings/{title}.md', fragment: '', ai: '' }
     } as unknown as CompleteOptions);
-    repoSetMock.mockRejectedValueOnce(new Error('repo save failed'));
+    repoReplaceMock.mockRejectedValueOnce(new Error('repo save failed'));
     const { fixConfiguration } = await import('../../../src/options/components/diagnostics');
     await fixConfiguration();
 

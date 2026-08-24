@@ -57,8 +57,40 @@ import {
   type SessionDraftRuntimeDependencies
 } from './sessionDraftMessages';
 import { normalizeSessionDraftStoredValue } from '../../shared/sessionDrafts';
+import { isObjectRecord } from '../../shared/guards/object';
+import type { OptionsMutationCoordinator } from '../services/optionsMutationCoordinator';
+import { handleOptionsMutationMessage as routeOptionsMutationMessage } from './optionsMutationMessages';
+import { getUsageStatsStore, UsageStatsStoreError } from '../services/usageStats';
+import {
+  createUsageStatsFailureResponse,
+  createUsageStatsSuccessResponse,
+  USAGE_STATS_MESSAGE_TYPE,
+  type UsageStatsErrorCode,
+  type UsageStatsRequest
+} from '../../shared/types/usageStatsMessages';
+import {
+  isOptionsMutationMessageCandidate,
+  isUsageStatsMessageCandidate
+} from './runtimeMessageContracts';
 
 const INVALID_CLIP_PAYLOAD_ERROR = 'Invalid clip payload received.';
+type RuntimeMessageValue = Parameters<typeof isUsageStatsMessageCandidate>[0];
+
+function isUsageStatsRequest(message: RuntimeMessageValue): message is UsageStatsRequest {
+  if (!isObjectRecord(message)) return false;
+  const keys = Object.keys(message).sort();
+  return (
+    keys.length === 3 &&
+    keys[0] === 'operation' &&
+    keys[1] === 'requestId' &&
+    keys[2] === 'type' &&
+    message.type === USAGE_STATS_MESSAGE_TYPE &&
+    typeof message.requestId === 'string' &&
+    message.requestId.length > 0 &&
+    message.requestId.length <= 128 &&
+    (message.operation === 'get' || message.operation === 'reset')
+  );
+}
 
 function toReadingClipPayload(data: Record<string, unknown>): unknown {
   return {
@@ -125,6 +157,8 @@ export interface RuntimeMessageListenerDependencies extends SessionDraftRuntimeD
     sender: RuntimeMessageSender
   ): Promise<CaptureVisibleTabScreenshotResponse>;
   handleVideoScreenshotCacheMessage: BackgroundVideoScreenshotCacheHandler;
+  handleOptionsMutationMessage(message: RuntimeMessageValue): Promise<MessagePayload | undefined>;
+  handleUsageStatsMessage(message: RuntimeMessageValue): Promise<MessagePayload | undefined>;
 }
 export function createRuntimeMessageListenerDependencies(
   messaging: Pick<MessagingService, 'addListener'>,
@@ -132,13 +166,44 @@ export function createRuntimeMessageListenerDependencies(
   runtime: Pick<RuntimeService, 'getURL'>,
   storage: Pick<StorageService, 'local'>,
   sessionDrafts: SessionDraftRuntimeDependencies,
-  cacheOptions: { ttlMs?: number } = {}
+  cacheOptions: { ttlMs?: number; optionsMutationCoordinator?: OptionsMutationCoordinator } = {}
 ): RuntimeMessageListenerDependencies {
   return {
     ...sessionDrafts,
     messaging,
     clipPipeline: createClipPipelineDependencies(tabs),
-    handleVideoScreenshotCacheMessage: createScreenshotCacheHandler(storage, cacheOptions),
+    handleVideoScreenshotCacheMessage: createScreenshotCacheHandler(
+      storage,
+      cacheOptions.ttlMs === undefined ? {} : { ttlMs: cacheOptions.ttlMs }
+    ),
+    handleOptionsMutationMessage: (message) =>
+      routeOptionsMutationMessage(cacheOptions.optionsMutationCoordinator, message),
+    async handleUsageStatsMessage(message) {
+      if (!isUsageStatsMessageCandidate(message)) return undefined;
+      const requestId =
+        typeof message === 'object' &&
+        message !== null &&
+        'requestId' in message &&
+        typeof message.requestId === 'string' &&
+        message.requestId.length > 0
+          ? message.requestId.slice(0, 128)
+          : 'invalid-usage-request';
+      if (!isUsageStatsRequest(message)) {
+        return toMessagePayload(
+          createUsageStatsFailureResponse(requestId, 'INVALID_USAGE_STATS_REQUEST')
+        );
+      }
+      try {
+        const store = getUsageStatsStore();
+        const stats =
+          message.operation === 'reset' ? await store.resetStats() : await store.getStats();
+        return toMessagePayload(createUsageStatsSuccessResponse(message.requestId, stats));
+      } catch (error) {
+        const errorCode: UsageStatsErrorCode =
+          error instanceof UsageStatsStoreError ? error.code : 'USAGE_STATS_STORAGE_FAILURE';
+        return toMessagePayload(createUsageStatsFailureResponse(message.requestId, errorCode));
+      }
+    },
     async openOptionsPage(section) {
       const optionsUrl = runtime.getURL('options/index.html');
       const normalizedSection = section?.trim();
@@ -234,6 +299,12 @@ export function registerRuntimeMessageListener(
       );
       if (result === undefined) throw new Error('SESSION_DRAFT_REQUEST_INVALID');
       return toMessagePayload(result);
+    }
+    if (isOptionsMutationMessageCandidate(message)) {
+      return dependencies.handleOptionsMutationMessage(message);
+    }
+    if (isUsageStatsMessageCandidate(message)) {
+      return dependencies.handleUsageStatsMessage(message);
     }
     // Handle analytics messages before clip result messages so the generic
     // clip branch cannot swallow other payload shapes that also carry `event`.

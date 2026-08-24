@@ -1,4 +1,4 @@
-import { normalizeUsageStats } from '@shared/constants';
+import { DEFAULT_USAGE_STATS, normalizeUsageStats } from '@shared/constants';
 import { prepareUsageHistory } from '@options/stitch/usageHistory';
 import type { CompleteOptions } from '@shared/types/options';
 import type { UsageStats } from '@shared/types/usage';
@@ -8,12 +8,6 @@ import { resolveExtensionVersionLabel } from '../productionStitchVersion';
 import { toTemplateValues } from './yamlStateMapper';
 import { toRoutingRules, toVaultRecord } from './vaultStateMapper';
 
-export const LEGACY_USAGE_STATS_STORAGE_KEY = 'usage_stats';
-
-function resolveUsageStatsFromOptions(options: CompleteOptions): UsageStats {
-  return normalizeUsageStats((options as CompleteOptions & { usageStats?: unknown }).usageStats);
-}
-
 function usageHistoryLabel(date: string): string {
   const parts = date.split('-');
   if (parts.length === 3) {
@@ -22,7 +16,7 @@ function usageHistoryLabel(date: string): string {
   return date;
 }
 
-function usageStatsToOverview(
+export function usageStatsToOverview(
   overview: PreviewContent['overview'],
   usageStats: UsageStats
 ): PreviewContent['overview'] {
@@ -57,9 +51,10 @@ export function createProductionContent(
   overrides: {
     connectionNotice?: PreviewContent['storage']['connectionNotice'];
     maintenanceLog?: string;
+    usageStats?: UsageStats;
   } = {}
 ): PreviewContent {
-  const usageStats = resolveUsageStatsFromOptions(options);
+  const usageStats = normalizeUsageStats(overrides.usageStats ?? DEFAULT_USAGE_STATS);
   return {
     ...base,
     brand: {

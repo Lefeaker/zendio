@@ -31,13 +31,26 @@ Use immutable snapshots for `get()` methods and clone them when needed.
 ```ts
 const snapshot = structuredClone(defaultOptions);
 const repository = {
-  get: vi.fn().mockResolvedValue(structuredClone(snapshot)),
-  set: vi.fn().mockResolvedValue(undefined),
-  onChange: vi.fn((listener) => {
-    listener(structuredClone(snapshot));
-    return () => {};
-  })
-};
+  get: vi.fn().mockImplementation(async () => structuredClone(snapshot))
+} satisfies Pick<IOptionsRepository, 'get'>;
+```
+
+Keep read-only consumers read-only. Do not add unused `patch` or `replace` members merely to resemble the
+full interface.
+
+For a consumer that really mutates Options, use `MockOptionsRepository`. It exposes the production
+`get` / typed `patch` / strict `replace` / `onChange` surface and applies the shared codec semantics:
+
+```ts
+const repository = new MockOptionsRepository();
+repository.setMockData(structuredClone(initialOptions));
+
+await repository.patch({
+  path: ['privacyPreferences', 'analytics'],
+  value: false
+});
+
+await repository.replace(importedStoredOptions);
 ```
 
 ### 3. Test subscription semantics explicitly
@@ -60,6 +73,12 @@ Use platform-level mocks only when the repository itself is the unit under test,
 
 In those cases, mock the platform storage or messaging adapter, not the repository contract.
 
+For Options, test the layers separately:
+
+- `ChromeOptionsRepository`: read/observe and background raw storage behavior
+- `OptionsMutationClient`: typed runtime request/response and zero direct-write fallback
+- `OptionsMutationCoordinator`: FIFO, raw rebase, quota, readback verification and drift conflict
+
 ## Content test guidance
 
 For Reader / Video / Support Prompt tests:
@@ -76,6 +95,9 @@ Avoid these patterns in unit tests:
 - sharing mutable mock state across suites
 - asserting internal implementation details instead of observable behavior
 - using `any`-heavy mocks when a small typed factory is enough
+- giving a read-only consumer a writer-shaped fake
+- modeling missing Options DI as a successful in-memory mutation
+- accepting broad partial objects for Options mutation instead of typed path/value patches
 
 ## Recommended factory style
 
@@ -83,22 +105,21 @@ When multiple tests need the same repository shape, build a tiny factory:
 
 ```ts
 function createOptionsRepositoryMock(initial = defaultOptions) {
-  let snapshot = structuredClone(initial);
-  const listeners = new Set<(value: typeof snapshot) => void>();
-
-  return {
-    get: vi.fn(async () => structuredClone(snapshot)),
-    set: vi.fn(async (patch) => {
-      snapshot = { ...snapshot, ...patch };
-      listeners.forEach((listener) => listener(structuredClone(snapshot)));
-    }),
-    onChange: vi.fn((listener) => {
-      listeners.add(listener);
-      listener(structuredClone(snapshot));
-      return () => listeners.delete(listener);
-    })
-  };
+  const repository = new MockOptionsRepository();
+  repository.setMockData(structuredClone(initial));
+  return repository;
 }
 ```
 
 Keep the factory close to the test domain unless it is reused broadly enough to justify promotion into shared test utilities.
+
+## Missing authority and usage stats
+
+Preview/render tests that intentionally omit Options DI should use `UnavailableOptionsRepository`. Assert
+that `patch` and `replace` reject with `OPTIONS_MUTATION_AUTHORITY_UNAVAILABLE`, the read snapshot stays
+unchanged, and listeners receive no success notification. Never rename a mutable local fallback and keep
+its successful behavior.
+
+Usage statistics have their own serialized background owner. Mock `UsageStatsClientLike.get()` and
+`reset()` for dashboard consumers; do not add a `usageStats` field to an Options fixture or write local
+storage from the test subject.

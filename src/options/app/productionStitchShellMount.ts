@@ -26,6 +26,7 @@ import { createProductionStitchShellRuntimeServices } from './productionStitchSh
 import { resolveProductionStitchAssets } from './productionStitchShellAssetResolver';
 import { createProductionStitchShellMutableState } from './productionStitchShellMutableState';
 import { createProductionStitchAssetUrlResolver } from './productionStitchAssetUrlResolver';
+import { createUnavailableUsageStatsClient } from './usage-dashboard/usageStatsClient';
 
 export function mountProductionStitchShellFromDependencies({
   root,
@@ -40,6 +41,7 @@ export function mountProductionStitchShellFromDependencies({
   changeLanguage,
   optionsRepository,
   messagingRepository,
+  usageStatsClient,
   storage,
   runtime,
   resolveAssetUrl: providedResolveAssetUrl,
@@ -56,6 +58,7 @@ export function mountProductionStitchShellFromDependencies({
   const buttonPressScrollGuard = installButtonPressScrollGuard(mountRoot);
   const resolvedOptionsRepository = optionsRepository ?? resolveOptionsRepositoryFallback();
   const resolvedMessagingRepository = messagingRepository ?? resolveMessagingRepositoryFallback();
+  const resolvedUsageStatsClient = usageStatsClient ?? createUnavailableUsageStatsClient();
   const resolveAssetUrl =
     providedResolveAssetUrl ?? createProductionStitchAssetUrlResolver(runtime);
   const browserTarget = providedBrowserTarget ?? runtime?.getBrowserTarget() ?? 'chrome';
@@ -113,6 +116,7 @@ export function mountProductionStitchShellFromDependencies({
       controller,
       optionsRepository: resolvedOptionsRepository,
       messagingRepository: resolvedMessagingRepository,
+      usageStatsClient: resolvedUsageStatsClient,
       ...(storage ? { storage } : {}),
       ...(now ? { now } : {}),
       getAppData,
@@ -143,6 +147,8 @@ export function mountProductionStitchShellFromDependencies({
     getCurrentMessages,
     getDraft,
     getState,
+    setAppData,
+    setDraft,
     setConnectionNotice,
     setDomainMappingRows,
     setLanguageResource,
@@ -199,11 +205,13 @@ export function mountProductionStitchShellFromDependencies({
 
   function scheduleDraftSave(): void {
     shellState.refreshAppData();
+    persistence.restoreUsageStatsView();
     controller.scheduleAutoSave(() => mounted.collectDraft());
   }
 
   const mounted: MountedProductionStitchShell = {
     cleanup() {
+      actionRuntime.dispose();
       renderLifecycle?.cleanup();
       cleanupProductionStitchShell({
         mountRoot,
@@ -219,6 +227,7 @@ export function mountProductionStitchShellFromDependencies({
     },
     refreshOptions(options = null) {
       shellState.resetOptions(options);
+      persistence.restoreUsageStatsView();
       widgetHost.resetDirty();
       renderDelegates.render();
     },

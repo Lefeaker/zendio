@@ -5,7 +5,6 @@ import {
   asOptionsController,
   createController,
   createMessaging,
-  createStorage,
   findButton,
   findCardByTitle,
   findInputByValue,
@@ -26,7 +25,6 @@ import { getOutputTemplatePreset } from '@shared/config';
 import { mergeOptions } from '@shared/config/optionsMerger';
 import { DEFAULT_DOMAIN_MAPPINGS } from '@shared/constants';
 import { registerService, TOKENS } from '@shared/di';
-import type { StorageService } from '@platform/interfaces/storage';
 import type { CompleteOptions } from './productionStitchShell.helpers';
 import type { StoredOptions } from '@shared/types';
 import { getTestRestUrls } from '../../fixtures/configTestHelpers';
@@ -121,8 +119,7 @@ describe('mountProductionStitchShell storage', () => {
 
   it('renders Usage Dashboard from real usage stats instead of preview fixtures', async () => {
     const controller = createController();
-    const storage = createStorage();
-    await storage.local.set('usageStats', {
+    const stats = {
       aiChatSaves: 7,
       fragmentSaves: 5,
       articleSaves: 3,
@@ -131,18 +128,22 @@ describe('mountProductionStitchShell storage', () => {
         { date: '2026-04-24', aiChat: 1, fragment: 2, article: 3 },
         { date: '2026-04-25', aiChat: 7, fragment: 5, article: 3 }
       ]
-    });
+    };
+    const usageStatsClient = {
+      get: vi.fn(() => Promise.resolve(stats)),
+      reset: vi.fn(() => Promise.resolve(stats))
+    };
 
     mountProductionStitchShell({
       controller: asOptionsController(controller),
       initialOptions: null,
       messages: null,
       language: 'en',
-      storage: storage as unknown as StorageService
+      usageStatsClient
     } as never);
     await flushPromises();
 
-    expect(storage.local.get).toHaveBeenCalledWith('usageStats');
+    expect(usageStatsClient.get).toHaveBeenCalledTimes(1);
     const statText = document.querySelector('.stats-grid')?.textContent ?? '';
     expect(statText).toContain('15');
     expect(statText).toContain('7');

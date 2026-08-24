@@ -8,11 +8,13 @@ import { createProductionStitchPersistence } from './productionStitchPersistence
 import { createProductionStitchStorageController } from './productionStitchStorageController';
 import { createProductionStitchWidgetHost } from './productionStitchWidgetHost';
 import { mergePartialIntoDraft } from './productionStitchShellState';
+import type { UsageStatsClientLike } from './usage-dashboard/usageStatsClient';
 
 interface ProductionStitchShellRuntimeServicesOptions {
   controller: OptionsController;
-  optionsRepository: Pick<IOptionsRepository, 'get' | 'set' | 'onChange'>;
+  optionsRepository: Pick<IOptionsRepository, 'get' | 'patch' | 'replace' | 'onChange'>;
   messagingRepository: Pick<IMessagingRepository, 'send' | 'onMessage'>;
+  usageStatsClient: UsageStatsClientLike;
   storage?: StorageService;
   now?: () => number;
   getAppData: () => PreviewContent;
@@ -34,7 +36,7 @@ interface ProductionStitchShellRuntimeServicesOptions {
 export function createProductionStitchShellRuntimeServices(
   options: ProductionStitchShellRuntimeServicesOptions
 ) {
-  const { controller, messagingRepository, now, optionsRepository, storage } = options;
+  const { controller, messagingRepository, now, optionsRepository, usageStatsClient } = options;
   const storageController = createProductionStitchStorageController({
     getConnectionNotice: () => options.getConnectionNotice(),
     getDraft: () => options.getDraft(),
@@ -63,7 +65,7 @@ export function createProductionStitchShellRuntimeServices(
     controller,
     optionsRepository,
     messagingRepository,
-    ...(storage ? { storage } : {}),
+    usageStatsClient,
     ...(now ? { now } : {}),
     getAppData: () => options.getAppData(),
     getCurrentMessages: () => options.getCurrentMessages(),

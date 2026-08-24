@@ -120,7 +120,6 @@ describe('ReaderEnvironmentController', () => {
           }
         } as CompleteOptions)
       ),
-      set: vi.fn(() => Promise.resolve(undefined)),
       onChange: vi.fn((callback: (options: CompleteOptions) => void) => {
         subscriberCallbacks.push(callback);
         return () => {
@@ -130,7 +129,7 @@ describe('ReaderEnvironmentController', () => {
           }
         };
       })
-    };
+    } as unknown as IOptionsRepository;
 
     messagesHandler = vi.fn<(...args: [ReaderSessionMessages]) => void>((messages) => {
       expect(messages).toBeDefined();

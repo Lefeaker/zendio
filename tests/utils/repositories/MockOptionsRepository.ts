@@ -1,6 +1,12 @@
 import { DEFAULT_OPTIONS } from '@shared/config';
 import type { IOptionsRepository } from '@shared/repositories';
-import type { CompleteOptions } from '@shared/types/options';
+import type { CompleteOptions, StoredOptions } from '@shared/types/options';
+import {
+  applyStoredOptionsPatch,
+  decodeStoredOptions,
+  encodeStoredOptionsReplacement
+} from '@shared/config/storedOptionsCodec';
+import type { OptionsPatch } from '@shared/types/optionsMutationMessages';
 
 function clone<T>(value: T): T {
   if (typeof globalThis.structuredClone === 'function') {
@@ -24,20 +30,24 @@ export class MockOptionsRepository implements IOptionsRepository {
     return Promise.resolve(clone(this.data));
   }
 
-  set(options: Partial<CompleteOptions>): Promise<void> {
-    this.data = {
-      ...this.data,
-      ...options
-    } as CompleteOptions;
+  async patch(patches: OptionsPatch | readonly OptionsPatch[]): Promise<CompleteOptions> {
+    let raw: unknown = this.data;
+    for (const patch of Array.isArray(patches) ? patches : [patches]) {
+      const result = applyStoredOptionsPatch(raw, patch);
+      if (!result.success) throw new Error('OPTIONS_MUTATION_REJECTED');
+      raw = result.value;
+    }
+    this.data = decodeStoredOptions(raw).runtime;
+    this.emit();
+    return clone(this.data);
+  }
 
-    this.listeners.forEach((listener) => {
-      try {
-        listener(this.data);
-      } catch (error) {
-        console.error('[MockOptionsRepository] listener error', error);
-      }
-    });
-    return Promise.resolve();
+  async replace(options: StoredOptions | CompleteOptions): Promise<CompleteOptions> {
+    const result = encodeStoredOptionsReplacement(options);
+    if (!result.success) throw new Error('OPTIONS_REPLACEMENT_REJECTED');
+    this.data = decodeStoredOptions(result.value).runtime;
+    this.emit();
+    return clone(this.data);
   }
 
   onChange(callback: (options: CompleteOptions) => void): () => void {
@@ -59,5 +69,15 @@ export class MockOptionsRepository implements IOptionsRepository {
 
   setMockData(value: CompleteOptions): void {
     this.data = clone(value);
+  }
+
+  private emit(): void {
+    this.listeners.forEach((listener) => {
+      try {
+        listener(clone(this.data));
+      } catch (error) {
+        console.error('[MockOptionsRepository] listener error', error);
+      }
+    });
   }
 }

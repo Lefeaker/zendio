@@ -105,9 +105,8 @@ describe('content selectionController service', () => {
             selectionModifierKeys: []
           }
         }),
-        set: vi.fn(),
         onChange: vi.fn().mockReturnValue(() => {})
-      },
+      } as never,
       createReaderSession: readerSessionFactory,
       createVideoSession: videoSessionFactory
     });

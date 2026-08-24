@@ -23,9 +23,7 @@ describe('Background Store (Phase B)', () => {
     const { DI_TOKENS } = await import('../../../src/shared/di/tokens');
     const getMock = vi.fn(async () => mockOptions);
     const testRepository = {
-      get: getMock,
-      set: vi.fn(async () => undefined),
-      onChange: vi.fn(() => () => undefined)
+      get: getMock
     };
 
     repositoryContainer.reset();
@@ -49,9 +47,7 @@ describe('Background Store (Phase B)', () => {
     const { repositoryContainer } = await import('../../../src/shared/di/serviceRegistry');
     const { DI_TOKENS } = await import('../../../src/shared/di/tokens');
     const testRepository = {
-      get: vi.fn(async () => partialOptions),
-      set: vi.fn(async () => undefined),
-      onChange: vi.fn(() => () => undefined)
+      get: vi.fn(async () => partialOptions)
     };
 
     repositoryContainer.reset();

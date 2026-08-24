@@ -199,7 +199,8 @@ export function createStorage() {
 export function createRepository() {
   return {
     get: vi.fn(() => Promise.resolve(createCompleteOptions(null))),
-    set: vi.fn(() => Promise.resolve()),
+    patch: vi.fn(() => Promise.resolve(createCompleteOptions(null))),
+    replace: vi.fn(() => Promise.resolve(createCompleteOptions(null))),
     onChange: vi.fn(() => () => {})
   };
 }
@@ -239,6 +240,12 @@ export function createActionRuntimeHarness() {
     getCurrentMessages: () => null,
     getDraft: () => draft,
     getState: () => state,
+    setAppData: (nextAppData) => {
+      appData = nextAppData;
+    },
+    setDraft: (nextDraft) => {
+      draft = nextDraft;
+    },
     setConnectionNotice: vi.fn(),
     setDomainMappingRows: vi.fn(),
     setLanguageResource: ({ language }) => {
@@ -282,6 +289,7 @@ export function createActionRuntimeHarness() {
       persistPrivacyPreference: vi.fn(() => Promise.resolve()),
       repairConfiguration: vi.fn(() => Promise.resolve()),
       resetUsageData: vi.fn(() => Promise.resolve()),
+      restoreUsageStatsView: vi.fn(),
       trackUsageEvent: trackUsageEventMock
     } as never,
     storageController: {

@@ -3,6 +3,7 @@ import type { ConnectionTestResult } from '../../../src/shared/types/connection'
 import type { CaptureVisibleTabScreenshotResponse } from '../../../src/shared/types/videoScreenshotMessages';
 import type { VideoScreenshotCacheResponse } from '../../../src/content/video/videoScreenshotCacheMessages';
 import type { StorageService } from '../../../src/platform/interfaces/storage';
+import type { MessagePayload } from '../../../src/platform/interfaces/messaging';
 import type { TabsService } from '../../../src/platform/interfaces/tabs';
 import { createSessionDraftStoragePolicy } from '../../../src/shared/sessionDrafts';
 import type { SessionDraftSaveRequest } from '../../../src/shared/sessionDrafts';
@@ -175,6 +176,12 @@ describe('runtime message listener', () => {
               : undefined
           )
       ),
+      handleOptionsMutationMessage: vi.fn<
+        (message: unknown) => Promise<MessagePayload | undefined>
+      >((_message) => Promise.resolve(undefined)),
+      handleUsageStatsMessage: vi.fn<(message: unknown) => Promise<MessagePayload | undefined>>(
+        (_message) => Promise.resolve(undefined)
+      ),
       sessionDraftStore,
       resolveSessionDraftOwner: vi.fn((sender: { tabId?: number; frameId?: number }) =>
         Promise.resolve(
@@ -226,6 +233,55 @@ describe('runtime message listener', () => {
         { tabId: 4, frameId: 2 }
       )
     ).rejects.toThrow('SESSION_DRAFT_REQUEST_INVALID');
+  });
+
+  it('routes typed Options and usage mutations through their background owners', async () => {
+    const dependencies = createDependencies();
+    dependencies.handleOptionsMutationMessage.mockResolvedValue({
+      type: 'ZENDIO_OPTIONS_MUTATION_RESPONSE',
+      requestId: 'options-request',
+      success: false,
+      errorCode: 'EXTERNAL_SYNC_CONFLICT'
+    });
+    dependencies.handleUsageStatsMessage.mockResolvedValue({
+      type: 'ZENDIO_USAGE_STATS_RESPONSE',
+      requestId: 'usage-request',
+      success: true,
+      stats: {
+        aiChatSaves: 0,
+        fragmentSaves: 0,
+        articleSaves: 0,
+        lastUpdatedISO: null,
+        history: []
+      }
+    });
+    const { registerRuntimeMessageListener } =
+      await import('../../../src/background/listeners/runtimeMessages');
+    registerRuntimeMessageListener(dependencies);
+
+    await expect(
+      listener?.(
+        {
+          type: 'ZENDIO_OPTIONS_MUTATION',
+          requestId: 'options-request',
+          command: { kind: 'migrate' }
+        },
+        {}
+      )
+    ).resolves.toMatchObject({ errorCode: 'EXTERNAL_SYNC_CONFLICT' });
+    await expect(
+      listener?.(
+        {
+          type: 'ZENDIO_USAGE_STATS',
+          requestId: 'usage-request',
+          operation: 'get'
+        },
+        {}
+      )
+    ).resolves.toMatchObject({ success: true, stats: { aiChatSaves: 0 } });
+
+    expect(dependencies.handleOptionsMutationMessage).toHaveBeenCalledTimes(1);
+    expect(dependencies.handleUsageStatsMessage).toHaveBeenCalledTimes(1);
   });
 
   it('registers listener and returns fallback responses for connection test failures', async () => {

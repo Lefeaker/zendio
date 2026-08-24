@@ -1,175 +1,193 @@
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   UsageStatsStore,
+  UsageStatsStoreError,
   configureUsageStatsStorage,
   createUsageStatsStore,
-  getUsageStatsStore,
+  ensureUsageStatsInitialized,
   getUsageStats,
   recordClipUsage,
-  ensureUsageStatsInitialized
+  resetUsageStats
 } from '../../../src/background/services/usageStats';
+import { OptionsMutationCoordinator } from '../../../src/background/services/optionsMutationCoordinator';
+import type { OptionsRawStorageRepository } from '../../../src/infrastructure/repositories/ChromeOptionsRepository';
+import type {
+  PlainStructuredObject,
+  PlainStructuredValue
+} from '../../../src/shared/config/losslessObjectBoundaryTypes';
+import { DEFAULT_USAGE_STATS } from '../../../src/shared/constants';
 import { setupDIForIntegrationTest, teardownDIAfterTest } from '../setup/diTestSetup';
 import { testPlatformHarness } from '../../setup/globalSetup';
 
-describe('UsageStatsStore', () => {
-  let store: UsageStatsStore;
+class RawOptionsRepository implements OptionsRawStorageRepository {
+  constructor(public raw: PlainStructuredValue | null = {}) {}
 
+  readRaw(): Promise<PlainStructuredValue | null> {
+    return Promise.resolve(structuredClone(this.raw));
+  }
+
+  writeRaw(value: PlainStructuredObject): Promise<void> {
+    this.raw = structuredClone(value);
+    return Promise.resolve();
+  }
+}
+
+function createStore(raw: PlainStructuredValue | null = {}) {
+  const rawRepository = new RawOptionsRepository(raw);
+  const coordinator = new OptionsMutationCoordinator(rawRepository, {
+    createOperationId: () => 'usage-migration',
+    yieldAfterWrite: () => Promise.resolve()
+  });
+  return {
+    rawRepository,
+    coordinator,
+    store: new UsageStatsStore(testPlatformHarness.storage, coordinator)
+  };
+}
+
+const validStats = {
+  aiChatSaves: 2,
+  fragmentSaves: 3,
+  articleSaves: 4,
+  lastUpdatedISO: '2026-08-23T00:00:00.000Z',
+  history: [{ date: '2026-08-23', aiChat: 2, fragment: 3, article: 4 }]
+};
+
+describe('UsageStatsStore', () => {
   beforeEach(() => {
     testPlatformHarness.configure();
-    configureUsageStatsStorage(testPlatformHarness.storage);
-    store = createUsageStatsStore();
   });
 
   afterEach(() => {
     testPlatformHarness.reset();
+    vi.restoreAllMocks();
   });
 
-  it('initializes with default stats', async () => {
-    await store.initialize();
-    const stats = await store.getStats();
+  it('prioritizes a valid own-present canonical value over stale legacy sources', async () => {
+    await testPlatformHarness.storage.local.set('usageStats', validStats);
+    await testPlatformHarness.storage.local.set('usage_stats', {
+      ...validStats,
+      aiChatSaves: 99
+    });
+    const { store, rawRepository } = createStore({
+      usageStats: { ...validStats, aiChatSaves: 77 },
+      opaqueRoot: { keep: true }
+    });
 
-    expect(stats).toEqual(
-      expect.objectContaining({
-        aiChatSaves: 0,
-        fragmentSaves: 0,
-        articleSaves: 0,
-        history: []
-      })
+    await expect(store.getStats()).resolves.toEqual(validStats);
+
+    expect(await testPlatformHarness.storage.local.get('usage_stats')).toBeUndefined();
+    expect(rawRepository.raw).toEqual({ opaqueRoot: { keep: true } });
+  });
+
+  it('reports malformed canonical data and never falls back to stale legacy values', async () => {
+    await testPlatformHarness.storage.local.set('usageStats', { aiChatSaves: 'invalid' });
+    await testPlatformHarness.storage.local.set('usage_stats', validStats);
+    const { store, rawRepository } = createStore({ usageStats: validStats });
+
+    await expect(store.getStats()).rejects.toEqual(
+      new UsageStatsStoreError('USAGE_STATS_CANONICAL_INVALID')
     );
+
+    expect(await testPlatformHarness.storage.local.get('usage_stats')).toEqual(validStats);
+    expect(rawRepository.raw).toEqual({ usageStats: validStats });
   });
 
-  it('records AI chat usage', async () => {
-    await store.initialize();
+  it('migrates local legacy before raw Options usage and cleans only after verified readback', async () => {
+    const localLegacy = { ...validStats, fragmentSaves: 8 };
+    await testPlatformHarness.storage.local.set('usage_stats', localLegacy);
+    const { store, rawRepository } = createStore({
+      usageStats: { ...validStats, articleSaves: 10 },
+      opaqueRoot: { keep: true }
+    });
 
-    const payload = {
-      type: 'ai_chat' as const,
-      content: 'test content',
-      markdown: 'test markdown',
-      metadata: {}
-    };
+    await expect(store.getStats()).resolves.toEqual(localLegacy);
 
-    const result = await store.recordUsage(payload);
-
-    expect(result).toEqual(
-      expect.objectContaining({
-        aiChatSaves: 1,
-        fragmentSaves: 0,
-        articleSaves: 0
-      })
-    );
+    expect(await testPlatformHarness.storage.local.get('usageStats')).toEqual(localLegacy);
+    expect(await testPlatformHarness.storage.local.get('usage_stats')).toBeUndefined();
+    expect(rawRepository.raw).toEqual({ opaqueRoot: { keep: true } });
   });
 
-  it('records fragment usage', async () => {
-    await store.initialize();
+  it('migrates raw Options usageStats when both local keys are absent', async () => {
+    const { store, rawRepository } = createStore({
+      usageStats: validStats,
+      opaqueRoot: { keep: true }
+    });
 
-    const payload = {
-      type: 'fragment' as const,
-      content: 'test fragment',
-      markdown: 'test markdown',
-      metadata: {}
-    };
-
-    const result = await store.recordUsage(payload);
-
-    expect(result).toEqual(
-      expect.objectContaining({
-        aiChatSaves: 0,
-        fragmentSaves: 1,
-        articleSaves: 0
-      })
-    );
+    await expect(store.initialize()).resolves.toBeUndefined();
+    await expect(store.getStats()).resolves.toEqual(validStats);
+    expect(await testPlatformHarness.storage.local.get('usageStats')).toEqual(validStats);
+    expect(rawRepository.raw).toEqual({ opaqueRoot: { keep: true } });
   });
 
-  it('records article usage', async () => {
-    await store.initialize();
-
-    const payload = {
-      type: 'article' as const,
-      content: 'test article',
-      markdown: 'test markdown',
-      metadata: {}
-    };
-
-    const result = await store.recordUsage(payload);
-
-    expect(result).toEqual(
-      expect.objectContaining({
-        aiChatSaves: 0,
-        fragmentSaves: 0,
-        articleSaves: 1
-      })
-    );
-  });
-
-  it('updates history when recording usage', async () => {
-    await store.initialize();
-
-    const payload = {
-      type: 'ai_chat' as const,
-      content: 'test content',
-      markdown: 'test markdown',
-      metadata: {}
-    };
-
-    const result = await store.recordUsage(payload);
-
-    expect(result?.history).toHaveLength(1);
-    const historyEntry = result?.history?.[0];
-    expect(historyEntry).toBeDefined();
-    expect(historyEntry?.aiChat).toBe(1);
-    expect(historyEntry?.fragment).toBe(0);
-    expect(historyEntry?.article).toBe(0);
-    expect(typeof historyEntry?.date).toBe('string');
-  });
-
-  it('persists stats to storage', async () => {
-    await store.initialize();
-
-    const payload = {
-      type: 'ai_chat' as const,
-      content: 'test content',
-      markdown: 'test markdown',
-      metadata: {}
-    };
-
-    await store.recordUsage(payload);
-
-    // Check that data was written to storage
-    const stored = await testPlatformHarness.storage.local.get('usage_stats');
-    const storedStats = (stored ?? {}) as Record<string, unknown>;
-    const aiChatSaves = typeof storedStats.aiChatSaves === 'number' ? storedStats.aiChatSaves : 0;
-    expect(aiChatSaves).toBe(1);
-  });
-
-  it('handles storage errors gracefully', async () => {
-    // Mock storage to throw error
+  it('preserves recoverable legacy input when canonical migration write fails', async () => {
+    await testPlatformHarness.storage.local.set('usage_stats', validStats);
+    const { store, rawRepository } = createStore({ usageStats: validStats });
     const setSpy = vi
       .spyOn(testPlatformHarness.storage.local, 'set')
-      .mockRejectedValue(new Error('Storage error'));
+      .mockRejectedValueOnce(new Error('write failed'));
 
+    await expect(store.getStats()).resolves.toEqual(validStats);
+
+    expect(await testPlatformHarness.storage.local.get('usage_stats')).toEqual(validStats);
+    expect(rawRepository.raw).toEqual({ usageStats: validStats });
+    setSpy.mockRestore();
+  });
+
+  it('increments every Promise.all record exactly once through the FIFO', async () => {
+    const { store } = createStore();
     await store.initialize();
-
     const payload = {
       type: 'ai_chat' as const,
-      content: 'test content',
-      markdown: 'test markdown',
+      content: 'content',
+      markdown: 'markdown',
       metadata: {}
     };
 
-    // Should not throw, but should still update memory stats
-    const result = await store.recordUsage(payload);
-    expect(result?.aiChatSaves).toBe(1);
+    await Promise.all(Array.from({ length: 12 }, () => store.recordUsage(payload)));
 
-    // Restore original method
-    setSpy.mockRestore();
+    await expect(store.getStats()).resolves.toMatchObject({ aiChatSaves: 12 });
+    expect(await testPlatformHarness.storage.local.get('usage_stats')).toBeUndefined();
+  });
+
+  it('orders record and reset deterministically and recovers after reset failure', async () => {
+    const { store } = createStore();
+    await store.initialize();
+    const payload = {
+      type: 'fragment' as const,
+      content: 'content',
+      markdown: 'markdown',
+      metadata: {}
+    };
+
+    await Promise.all([store.recordUsage(payload), store.resetStats(), store.recordUsage(payload)]);
+    await expect(store.getStats()).resolves.toMatchObject({ fragmentSaves: 1 });
+
+    vi.spyOn(testPlatformHarness.storage.local, 'set').mockRejectedValueOnce(
+      new Error('reset failed')
+    );
+    await expect(store.resetStats()).rejects.toMatchObject({
+      code: 'USAGE_STATS_STORAGE_FAILURE'
+    });
+    await expect(store.recordUsage(payload)).resolves.toMatchObject({ fragmentSaves: 2 });
+  });
+
+  it('initializes the default canonical key without any legacy forward write', async () => {
+    const { store } = createStore();
+
+    await store.initialize();
+
+    expect(await testPlatformHarness.storage.local.get('usageStats')).toEqual(DEFAULT_USAGE_STATS);
+    expect(await testPlatformHarness.storage.local.get('usage_stats')).toBeUndefined();
   });
 });
 
-describe('UsageStats DI Integration', () => {
+describe('UsageStats DI integration', () => {
   beforeEach(() => {
     setupDIForIntegrationTest();
     testPlatformHarness.configure();
-    configureUsageStatsStorage(testPlatformHarness.storage);
+    const { coordinator } = createStore();
+    configureUsageStatsStorage(testPlatformHarness.storage, coordinator);
   });
 
   afterEach(() => {
@@ -177,55 +195,16 @@ describe('UsageStats DI Integration', () => {
     testPlatformHarness.reset();
   });
 
-  it('getUsageStatsStore returns singleton instance', () => {
-    const store1 = getUsageStatsStore();
-    const store2 = getUsageStatsStore();
-
-    expect(store1).toBe(store2);
-    expect(store1).toBeInstanceOf(UsageStatsStore);
-  });
-
-  it('convenience functions use DI container', async () => {
+  it('routes convenience read, record, reset, and initialization through one owner', async () => {
     await ensureUsageStatsInitialized();
-
-    const payload = {
-      type: 'ai_chat' as const,
-      content: 'test content',
-      markdown: 'test markdown',
+    await recordClipUsage({
+      type: 'article',
+      content: 'content',
+      markdown: 'markdown',
       metadata: {}
-    };
-
-    const result = await recordClipUsage(payload);
-    expect(result?.aiChatSaves).toBe(1);
-
-    const stats = await getUsageStats();
-    expect(stats.aiChatSaves).toBe(1);
-  });
-
-  it('handles multiple usage recordings', async () => {
-    await ensureUsageStatsInitialized();
-
-    const aiChatPayload = {
-      type: 'ai_chat' as const,
-      content: 'ai chat content',
-      markdown: 'ai chat markdown',
-      metadata: {}
-    };
-
-    const fragmentPayload = {
-      type: 'fragment' as const,
-      content: 'fragment content',
-      markdown: 'fragment markdown',
-      metadata: {}
-    };
-
-    await recordClipUsage(aiChatPayload);
-    await recordClipUsage(fragmentPayload);
-    await recordClipUsage(aiChatPayload);
-
-    const stats = await getUsageStats();
-    expect(stats.aiChatSaves).toBe(2);
-    expect(stats.fragmentSaves).toBe(1);
-    expect(stats.articleSaves).toBe(0);
+    });
+    await expect(getUsageStats()).resolves.toMatchObject({ articleSaves: 1 });
+    await expect(resetUsageStats()).resolves.toEqual(DEFAULT_USAGE_STATS);
+    await expect(createUsageStatsStore().getStats()).resolves.toEqual(DEFAULT_USAGE_STATS);
   });
 });

@@ -4,7 +4,8 @@ import { mergeOptions } from '../../src/shared/config/optionsMerger';
 import { repositoryContainer } from '../../src/shared/di/serviceRegistry';
 import { DI_TOKENS } from '../../src/shared/di/tokens';
 import type { IOptionsRepository } from '../../src/shared/repositories/IOptionsRepository';
-import type { CompleteOptions, OptionsState } from '../../src/shared/types/options';
+import type { CompleteOptions, OptionsState, StoredOptions } from '../../src/shared/types/options';
+import type { OptionsPatch } from '../../src/shared/types/optionsMutationMessages';
 
 function completeOptions(state: OptionsState): CompleteOptions {
   return {
@@ -29,12 +30,18 @@ function completeOptions(state: OptionsState): CompleteOptions {
 export function createE2eOptionsRepository(
   overrides: Partial<CompleteOptions>
 ): IOptionsRepository {
-  const options = completeOptions(mergeOptions(overrides));
+  let options = completeOptions(mergeOptions(overrides));
 
   const repository: IOptionsRepository = {
     get: vi.fn<() => Promise<CompleteOptions>>(() => Promise.resolve(options)),
-    set: vi.fn<(_nextOptions: Partial<CompleteOptions>) => Promise<void>>(() =>
-      Promise.resolve(undefined)
+    patch: vi.fn<(patches: OptionsPatch | readonly OptionsPatch[]) => Promise<CompleteOptions>>(
+      () => Promise.resolve(options)
+    ),
+    replace: vi.fn<(nextOptions: StoredOptions | CompleteOptions) => Promise<CompleteOptions>>(
+      (nextOptions) => {
+        options = completeOptions(mergeOptions(nextOptions));
+        return Promise.resolve(options);
+      }
     ),
     onChange: vi.fn<(callback: (options: CompleteOptions) => void) => () => void>((callback) => {
       callback(options);

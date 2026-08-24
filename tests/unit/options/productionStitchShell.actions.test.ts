@@ -25,28 +25,45 @@ import {
   createController,
   createEnglishPageMessages,
   createActionRuntimeHarness,
+  createCompleteOptions,
   createMessaging,
   createRepository,
-  createStorage,
   findCardByTitle,
   findButton,
   findCheckboxInText,
   findInputByValue,
   flushPromises,
+  queryRequired,
   setupProductionStitchShellTest
 } from './productionStitchShell.helpers';
 import { mountProductionStitchShell } from '@options/app/productionStitchShell';
 import * as storageControllerModule from '@options/app/productionStitchStorageController';
-import { DEFAULT_RUNTIME_MESSAGES } from '@i18n';
+import { DEFAULT_RUNTIME_MESSAGES, type Language, type Messages } from '@i18n';
 import { mergeOptions } from '@shared/config/optionsMerger';
-import type { StorageService } from '@platform/interfaces/storage';
 import type { CompleteOptions } from './productionStitchShell.helpers';
+import type { UsageStats } from '@shared/types/usage';
 import { getRestDefaults } from '../../utils/restDefaults';
 
 const REST_DEFAULTS = getRestDefaults();
 const LOCAL_HTTPS_URL = `https://localhost:${REST_DEFAULTS.httpsPort}`;
 const LOCAL_HTTP_URL = `http://localhost:${REST_DEFAULTS.httpPort}`;
 const LOCAL_HTTP_CONFLICT_URL = `http://localhost:${REST_DEFAULTS.httpsPort}`;
+
+function deferred<T>() {
+  let resolve = (_value: T): void => undefined;
+  let reject = (_error: Error): void => undefined;
+  const promise = new Promise<T>((resolvePromise, rejectPromise) => {
+    resolve = resolvePromise;
+    reject = rejectPromise;
+  });
+  return { promise, reject, resolve };
+}
+
+function renderedUsageValues() {
+  return Array.from(document.querySelectorAll<HTMLElement>('.stats-grid .stat-value')).map((node) =>
+    node.textContent?.trim()
+  );
+}
 
 function mockStorageConnectionFailure(message: string) {
   const actualFactory = storageControllerModule.createProductionStitchStorageController;
@@ -331,6 +348,89 @@ describe('mountProductionStitchShell actions', () => {
     );
   });
 
+  it('restores the active language and control when language persistence fails', async () => {
+    const englishMessages = await createEnglishPageMessages({
+      schemaOverviewInterfaceGroupTitle: 'English interface sentinel'
+    });
+    const pendingLanguage = deferred<{ messages: Messages | null; language: Language }>();
+    let activeLanguage: Language = 'en';
+    let durableLanguage: Language = 'en';
+    const changeLanguage = vi.fn(async (language: Language) => {
+      const resource = await pendingLanguage.promise;
+      activeLanguage = resource.language;
+      durableLanguage = language;
+      return resource;
+    });
+    const mounted = mountProductionStitchShell({
+      controller: asOptionsController(createController()),
+      initialOptions: null,
+      messages: englishMessages,
+      language: 'en',
+      changeLanguage
+    });
+    const languageSelect = queryRequired<HTMLSelectElement>('select');
+
+    languageSelect.value = 'ja';
+    languageSelect.dispatchEvent(new Event('change', { bubbles: true }));
+    expect(languageSelect.value).toBe('ja');
+    expect(activeLanguage).toBe('en');
+    expect(durableLanguage).toBe('en');
+
+    pendingLanguage.reject(new Error('language persistence failed'));
+    await flushPromises();
+
+    expect(changeLanguage).toHaveBeenCalledWith('ja');
+    expect(activeLanguage).toBe('en');
+    expect(durableLanguage).toBe('en');
+    expect(queryRequired<HTMLSelectElement>('select').value).toBe('en');
+    expect(document.body.textContent).toContain('English interface sentinel');
+    expect(document.body.textContent).not.toContain('Japanese interface sentinel');
+    expect(document.getElementById('msg')?.textContent).toContain('language persistence failed');
+
+    mounted.refreshOptions(mounted.collectDraft());
+    expect(queryRequired<HTMLSelectElement>('select').value).toBe('en');
+    expect(document.body.textContent).toContain('English interface sentinel');
+  });
+
+  it('keeps the active, shell, and durable language after persistence succeeds', async () => {
+    const englishMessages = await createEnglishPageMessages({
+      schemaOverviewInterfaceGroupTitle: 'English interface sentinel'
+    });
+    const japaneseMessages = await createEnglishPageMessages({
+      schemaOverviewInterfaceGroupTitle: 'Japanese interface sentinel'
+    });
+    let activeLanguage: Language = 'en';
+    let durableLanguage: Language = 'en';
+    const changeLanguage = vi.fn(async (language: Language) => {
+      activeLanguage = language;
+      durableLanguage = language;
+      return { messages: japaneseMessages, language };
+    });
+    const mounted = mountProductionStitchShell({
+      controller: asOptionsController(createController()),
+      initialOptions: null,
+      messages: englishMessages,
+      language: 'en',
+      changeLanguage
+    });
+    const languageSelect = queryRequired<HTMLSelectElement>('select');
+
+    languageSelect.value = 'ja';
+    languageSelect.dispatchEvent(new Event('change', { bubbles: true }));
+    await flushPromises();
+
+    expect(changeLanguage).toHaveBeenCalledWith('ja');
+    expect(activeLanguage).toBe('ja');
+    expect(durableLanguage).toBe('ja');
+    expect(queryRequired<HTMLSelectElement>('select').value).toBe('ja');
+    expect(document.body.textContent).toContain('Japanese interface sentinel');
+    expect(document.body.textContent).not.toContain('English interface sentinel');
+
+    mounted.refreshOptions(mounted.collectDraft());
+    expect(queryRequired<HTMLSelectElement>('select').value).toBe('ja');
+    expect(document.body.textContent).toContain('Japanese interface sentinel');
+  });
+
   it('surfaces synchronous taxonomy validation failures in an accessible status message', () => {
     const { runtime } = createActionRuntimeHarness();
     expect(document.getElementById('msg')).toBeNull();
@@ -459,13 +559,11 @@ describe('mountProductionStitchShell actions', () => {
     analytics.dispatchEvent(new Event('change', { bubbles: true }));
     await flushPromises();
 
-    expect(optionsRepository.set).toHaveBeenCalledWith({
-      privacyPreferences: {
-        analytics: true,
-        errorReporting: false,
-        debugMode: false
-      }
-    });
+    expect(optionsRepository.patch).toHaveBeenCalledWith([
+      { path: ['privacyPreferences', 'analytics'], value: true },
+      { path: ['privacyPreferences', 'errorReporting'], value: false },
+      { path: ['privacyPreferences', 'debugMode'], value: false }
+    ]);
     expect(mounted.collectDraft().privacyPreferences).toEqual({
       analytics: true,
       errorReporting: false,
@@ -529,13 +627,11 @@ describe('mountProductionStitchShell actions', () => {
     await flushPromises();
 
     expect(analyticsMocks.updateConfig).toHaveBeenCalledWith({ debugMode: true });
-    expect(optionsRepository.set).toHaveBeenLastCalledWith({
-      privacyPreferences: {
-        analytics: true,
-        errorReporting: true,
-        debugMode: true
-      }
-    });
+    expect(optionsRepository.patch).toHaveBeenLastCalledWith([
+      { path: ['privacyPreferences', 'analytics'], value: true },
+      { path: ['privacyPreferences', 'errorReporting'], value: true },
+      { path: ['privacyPreferences', 'debugMode'], value: true }
+    ]);
     expect(messagingRepository.send).toHaveBeenCalledWith({
       type: 'ANALYTICS_EVENT',
       event: 'privacy_consent_changed',
@@ -582,13 +678,11 @@ describe('mountProductionStitchShell actions', () => {
     await flushPromises();
 
     expect(analyticsMocks.clearAllData).toHaveBeenCalledTimes(1);
-    expect(optionsRepository.set).toHaveBeenCalledWith({
-      privacyPreferences: {
-        analytics: false,
-        errorReporting: false,
-        debugMode: false
-      }
-    });
+    expect(optionsRepository.patch).toHaveBeenCalledWith([
+      { path: ['privacyPreferences', 'analytics'], value: false },
+      { path: ['privacyPreferences', 'errorReporting'], value: false },
+      { path: ['privacyPreferences', 'debugMode'], value: false }
+    ]);
     expect(mounted.collectDraft().privacyPreferences).toEqual({
       analytics: false,
       errorReporting: false,
@@ -725,8 +819,25 @@ describe('mountProductionStitchShell actions', () => {
   it('clears usage data through the existing reset action dependencies', async () => {
     const controller = createController();
     const optionsRepository = createRepository();
-    const storage = createStorage();
     const messagingRepository = createMessaging();
+    const previousStats = {
+      aiChatSaves: 3,
+      fragmentSaves: 2,
+      articleSaves: 1,
+      lastUpdatedISO: '2026-04-25T00:00:00.000Z',
+      history: [{ date: '2026-04-25', aiChat: 3, fragment: 2, article: 1 }]
+    };
+    const zeroStats = {
+      aiChatSaves: 0,
+      fragmentSaves: 0,
+      articleSaves: 0,
+      lastUpdatedISO: null,
+      history: []
+    };
+    const usageStatsClient = {
+      get: vi.fn(() => Promise.resolve(previousStats)),
+      reset: vi.fn(() => Promise.resolve(zeroStats))
+    };
     mountProductionStitchShell({
       controller: asOptionsController(controller),
       initialOptions: {
@@ -741,30 +852,206 @@ describe('mountProductionStitchShell actions', () => {
       messages: null,
       language: 'en',
       optionsRepository,
-      storage: storage as unknown as StorageService,
+      usageStatsClient,
       messagingRepository,
       now: () => 1234
     } as never);
 
+    await flushPromises();
+    expect(renderedUsageValues()).toEqual(['6', '3', '2', '1']);
+
     findButton('Clear Usage Data').click();
     await flushPromises();
 
-    const zeroStats = {
+    expect(usageStatsClient.reset).toHaveBeenCalledTimes(1);
+    expect(renderedUsageValues()).toEqual(['0', '0', '0', '0']);
+    expect(vi.mocked(messagingRepository.send)).toHaveBeenCalledWith({
+      type: 'ANALYTICS_EVENT',
+      event: 'clear_stats',
+      params: { timestamp: 1234 }
+    });
+
+    findButton('Diagnose Configuration').click();
+    expect(renderedUsageValues()).toEqual(['0', '0', '0', '0']);
+  });
+
+  it('restores the durable usage view and failure status when reset rejects', async () => {
+    const controller = createController();
+    const previousStats = {
+      aiChatSaves: 11,
+      fragmentSaves: 7,
+      articleSaves: 5,
+      lastUpdatedISO: '2026-08-24T00:00:00.000Z',
+      history: [{ date: '2026-08-24', aiChat: 11, fragment: 7, article: 5 }]
+    };
+    const usageStatsClient = {
+      get: vi.fn(() => Promise.resolve(previousStats)),
+      reset: vi.fn(() => Promise.reject(new Error('usage reset failed')))
+    };
+    const mounted = mountProductionStitchShell({
+      controller: asOptionsController(controller),
+      initialOptions: { interfaceTheme: 'dark' },
+      messages: null,
+      language: 'en',
+      usageStatsClient
+    });
+
+    await flushPromises();
+    expect(renderedUsageValues()).toEqual(['23', '11', '7', '5']);
+
+    findButton('Clear Usage Data').click();
+    await flushPromises();
+
+    expect(usageStatsClient.reset).toHaveBeenCalledTimes(1);
+    expect(renderedUsageValues()).toEqual(['23', '11', '7', '5']);
+    expect(document.getElementById('msg')?.textContent).toContain('usage reset failed');
+    expect(mounted.collectDraft().interfaceTheme).toBe('dark');
+
+    findButton('Diagnose Configuration').click();
+    expect(renderedUsageValues()).toEqual(['23', '11', '7', '5']);
+  });
+
+  it('keeps a committed usage reset when an earlier theme task fails', async () => {
+    const controller = createController();
+    const optionsRepository = createRepository();
+    const pendingTheme = deferred<CompleteOptions>();
+    optionsRepository.patch.mockImplementationOnce(() => pendingTheme.promise);
+    const previousUsage: UsageStats = {
+      aiChatSaves: 11,
+      fragmentSaves: 7,
+      articleSaves: 5,
+      lastUpdatedISO: '2026-08-23T00:00:00.000Z',
+      history: [{ date: '2026-08-23', aiChat: 11, fragment: 7, article: 5 }]
+    };
+    const resetUsage: UsageStats = {
       aiChatSaves: 0,
       fragmentSaves: 0,
       articleSaves: 0,
       lastUpdatedISO: null,
       history: []
     };
-    expect(vi.mocked(optionsRepository.set)).toHaveBeenCalledWith({ usageStats: zeroStats });
-    expect(vi.mocked(storage.local.set)).toHaveBeenCalledWith('usageStats', zeroStats);
-    expect(vi.mocked(storage.local.set)).toHaveBeenCalledWith('usage_stats', zeroStats);
-    expect(vi.mocked(messagingRepository.send)).toHaveBeenCalledWith({
-      type: 'ANALYTICS_EVENT',
-      event: 'clear_stats',
-      params: { timestamp: 1234 }
+    let durableUsage = previousUsage;
+    const usageStatsClient = {
+      get: vi.fn(() => Promise.resolve(durableUsage)),
+      reset: vi.fn(() => {
+        durableUsage = resetUsage;
+        return Promise.resolve(durableUsage);
+      })
+    };
+    const mounted = mountProductionStitchShell({
+      controller: asOptionsController(controller),
+      initialOptions: { interfaceTheme: 'dark' },
+      messages: null,
+      language: 'en',
+      optionsRepository,
+      usageStatsClient
     });
+    await flushPromises();
+    expect(renderedUsageValues()).toEqual(['23', '11', '7', '5']);
+
+    findButton('Light').click();
+    expect(mounted.collectDraft().interfaceTheme).toBe('light');
+    expect(document.documentElement.dataset.theme).toBe('light');
+
+    findButton('Clear Usage Data').click();
+    await flushPromises();
+    expect(usageStatsClient.reset).toHaveBeenCalledTimes(1);
+    expect(durableUsage).toEqual(resetUsage);
+    expect(renderedUsageValues()).toEqual(['0', '0', '0', '0']);
+
+    pendingTheme.reject(new Error('theme persistence failed'));
+    await flushPromises();
+
+    expect(durableUsage).toEqual(resetUsage);
+    expect(renderedUsageValues()).toEqual(['0', '0', '0', '0']);
+    expect(mounted.collectDraft().interfaceTheme).toBe('dark');
+    expect(document.documentElement.dataset.theme).toBe('dark');
+    expect(window.localStorage.getItem('aob-theme')).toBe('dark');
   });
+
+  it.each<{
+    first: 'success' | 'failure';
+    second: 'success' | 'failure';
+    expected: 'dark' | 'light' | 'system';
+  }>([
+    { first: 'failure', second: 'failure', expected: 'dark' },
+    { first: 'success', second: 'failure', expected: 'light' },
+    { first: 'failure', second: 'success', expected: 'system' },
+    { first: 'success', second: 'success', expected: 'system' }
+  ])(
+    'serializes theme persistence: Light $first + System $second => $expected',
+    async ({ first, second, expected }) => {
+      const controller = createController();
+      const optionsRepository = createRepository();
+      const predecessor = deferred<CompleteOptions>();
+      const successor = deferred<CompleteOptions>();
+      const successorStarted = deferred<void>();
+      const starts: string[] = [];
+      let durableTheme = 'dark';
+      optionsRepository.patch
+        .mockImplementationOnce(() => {
+          starts.push('light');
+          return predecessor.promise.then((stored) => {
+            durableTheme = 'light';
+            return stored;
+          });
+        })
+        .mockImplementationOnce(() => {
+          starts.push('system');
+          successorStarted.resolve();
+          return successor.promise.then((stored) => {
+            durableTheme = 'system';
+            return stored;
+          });
+        });
+      const mounted = mountProductionStitchShell({
+        controller: asOptionsController(controller),
+        initialOptions: { interfaceTheme: 'dark' },
+        messages: null,
+        language: 'en',
+        optionsRepository
+      });
+
+      findButton('Light').click();
+      findButton('System').click();
+
+      expect(starts).toEqual(['light']);
+      expect(mounted.collectDraft().interfaceTheme).toBe('light');
+      expect(window.localStorage.getItem('aob-theme')).toBe('light');
+
+      if (first === 'success') {
+        predecessor.resolve(createCompleteOptions({ interfaceTheme: 'light' }));
+      } else {
+        predecessor.reject(new Error('light failed'));
+      }
+      await successorStarted.promise;
+
+      expect(starts).toEqual(['light', 'system']);
+      expect(mounted.collectDraft().interfaceTheme).toBe('system');
+      expect(window.localStorage.getItem('aob-theme')).toBe('system');
+
+      if (second === 'success') {
+        successor.resolve(createCompleteOptions({ interfaceTheme: 'system' }));
+      } else {
+        successor.reject(new Error('system failed'));
+      }
+      await flushPromises();
+
+      const resolvedTheme = expected === 'system' ? 'light' : expected;
+      expect(durableTheme).toBe(expected);
+      expect(mounted.collectDraft().interfaceTheme).toBe(expected);
+      expect(document.documentElement.dataset.theme).toBe(resolvedTheme);
+      expect(window.localStorage.getItem('aob-theme')).toBe(expected);
+      expect(
+        findButton(expected[0]?.toUpperCase() + expected.slice(1)).getAttribute('aria-pressed')
+      ).toBe('true');
+
+      predecessor.reject(new Error('late predecessor completion'));
+      await flushPromises();
+      expect(durableTheme).toBe(expected);
+      expect(mounted.collectDraft().interfaceTheme).toBe(expected);
+    }
+  );
 
   it('emits canonical export telemetry without leaking exported option content', async () => {
     const controller = createController();
@@ -965,7 +1252,12 @@ describe('mountProductionStitchShell actions', () => {
   });
 
   it('repairs configuration using the existing production repair rules', async () => {
-    const controller = createController();
+    let durableTemplate = 'Clippings/Before.md';
+    const saveSnapshot = vi.fn((snapshot: { draft: CompleteOptions }) => {
+      durableTemplate = snapshot.draft.templates.article;
+      return Promise.resolve();
+    });
+    const controller = { ...createController(), saveSnapshot };
     const messagingRepository = createMessaging();
     const mounted = mountProductionStitchShell({
       controller: asOptionsController(controller),
@@ -977,7 +1269,7 @@ describe('mountProductionStitchShell actions', () => {
           httpUrl: LOCAL_HTTP_URL
         },
         templates: {
-          article: 'Clippings/{{title}}.md',
+          article: durableTemplate,
           fragment: '',
           ai: ''
         }
@@ -993,7 +1285,8 @@ describe('mountProductionStitchShell actions', () => {
     const repaired = mounted.collectDraft();
     expect(repaired.rest.baseUrl).toBe(LOCAL_HTTPS_URL);
     expect(repaired.rest.httpsUrl).toBeTruthy();
-    expect(repaired.templates.article).toContain('Articles/');
+    expect(repaired.templates.article).toBe('Articles/Before.md');
+    expect(durableTemplate).toBe('Articles/Before.md');
     expect(repaired.templates.fragment).toBeTruthy();
     expect(repaired.templates.ai).toBeTruthy();
     expect(vi.mocked(controller.saveSnapshot)).toHaveBeenCalledWith({
@@ -1011,5 +1304,58 @@ describe('mountProductionStitchShell actions', () => {
         section: 'advanced'
       }
     });
+
+    findButton('Diagnose Configuration').click();
+    expect(mounted.collectDraft().templates.article).toBe('Articles/Before.md');
+    expect(document.body.textContent).toContain('Articles/Before.md');
+    expect(document.body.textContent).not.toContain('Clippings/Before.md');
+  });
+
+  it('restores repair-owned state when saving the repaired snapshot fails', async () => {
+    const pendingSave = deferred<void>();
+    let durableTemplate = 'Clippings/Before.md';
+    const saveSnapshot = vi.fn(async (snapshot: { draft: CompleteOptions }) => {
+      await pendingSave.promise;
+      durableTemplate = snapshot.draft.templates.article;
+    });
+    const controller = { ...createController(), saveSnapshot };
+    const optionsRepository = createRepository();
+    const mounted = mountProductionStitchShell({
+      controller: asOptionsController(controller),
+      initialOptions: {
+        interfaceTheme: 'dark',
+        templates: { article: durableTemplate }
+      },
+      messages: null,
+      language: 'en',
+      optionsRepository
+    });
+
+    findButton('Fix Configuration').click();
+    expect(mounted.collectDraft().templates.article).toBe('Articles/Before.md');
+    expect(saveSnapshot).toHaveBeenCalledWith({
+      reason: 'manual',
+      draft: expect.objectContaining({
+        templates: expect.objectContaining({ article: 'Articles/Before.md' })
+      })
+    });
+
+    findButton('Light').click();
+    await flushPromises();
+    expect(mounted.collectDraft().interfaceTheme).toBe('light');
+
+    pendingSave.reject(new Error('repair save failed'));
+    await flushPromises();
+
+    expect(mounted.collectDraft().templates.article).toBe('Clippings/Before.md');
+    expect(durableTemplate).toBe('Clippings/Before.md');
+    expect(mounted.collectDraft().interfaceTheme).toBe('light');
+    expect(window.localStorage.getItem('aob-theme')).toBe('light');
+    expect(document.getElementById('msg')?.textContent).toContain('repair save failed');
+
+    findButton('Diagnose Configuration').click();
+    expect(mounted.collectDraft().templates.article).toBe('Clippings/Before.md');
+    expect(document.body.textContent).toContain('Clippings/Before.md');
+    expect(document.body.textContent).not.toContain('Articles/Before.md');
   });
 });

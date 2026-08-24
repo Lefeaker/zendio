@@ -26,6 +26,7 @@ type StorageAreaMock = StorageAreaService & {
   watchKey: ReturnType<typeof createMockFn<StorageAreaService['watchKey']>>;
   watchAll: ReturnType<typeof createMockFn<StorageAreaService['watchAll']>>;
 };
+type OptionsStorageChange = Parameters<StorageAreaService['watchKey']>[1];
 
 // ===========================
 // Helper Functions
@@ -89,21 +90,19 @@ describe('ChromeOptionsRepository', () => {
   // 核心验证：onChange 单次触发
   // ===========================
   describe('onChange triggering', () => {
-    it('should trigger onChange callback exactly ONCE when set() is called', async () => {
+    it('should trigger onChange callback exactly once for a storage watcher update', async () => {
       const initialOptions = cloneOptions(DEFAULT_COMPLETE_OPTIONS);
       initialOptions.rest.baseUrl = 'https://initial.example/';
 
       const updatedOptions = cloneOptions(DEFAULT_COMPLETE_OPTIONS);
       updatedOptions.rest.baseUrl = 'https://updated.example/';
 
-      // Setup: Initial get returns initial state
-      mockStorage.sync.get.mockResolvedValueOnce(initialOptions);
-
-      // Setup: Second get (for set() merge) returns initial state
-      mockStorage.sync.get.mockResolvedValueOnce(initialOptions);
-
-      // Setup: Third get (for notifyListeners) returns updated state
-      mockStorage.sync.get.mockResolvedValueOnce(updatedOptions);
+      mockStorage.sync.get.mockResolvedValue(initialOptions);
+      let externalChange: OptionsStorageChange | undefined;
+      mockStorage.sync.watchKey.mockImplementation((_key, callback) => {
+        externalChange = callback;
+        return vi.fn();
+      });
 
       const callback = vi.fn<(options: CompleteOptions) => void>();
 
@@ -118,13 +117,7 @@ describe('ChromeOptionsRepository', () => {
       // Clear initial trigger count
       callback.mockClear();
 
-      // Trigger set()
-      await repo.set({
-        rest: {
-          ...initialOptions.rest,
-          baseUrl: 'https://updated.example/'
-        }
-      });
+      externalChange?.(updatedOptions, { newValue: updatedOptions });
 
       // Wait for onChange to process
       await vi.waitFor(() => {
@@ -145,9 +138,9 @@ describe('ChromeOptionsRepository', () => {
       const externalOptions = cloneOptions(DEFAULT_COMPLETE_OPTIONS);
       externalOptions.interfaceTheme = 'light';
       mockStorage.sync.get.mockResolvedValue(initialOptions);
-      let externalChange: ((value: CompleteOptions | undefined) => void) | undefined;
+      let externalChange: OptionsStorageChange | undefined;
       mockStorage.sync.watchKey.mockImplementation((_key, callback) => {
-        externalChange = callback as (value: CompleteOptions | undefined) => void;
+        externalChange = callback;
         return vi.fn();
       });
 
@@ -160,7 +153,7 @@ describe('ChromeOptionsRepository', () => {
       callback.mockClear();
 
       expect(externalChange).toBeDefined();
-      externalChange?.(externalOptions);
+      externalChange?.(externalOptions, { newValue: externalOptions });
 
       await vi.waitFor(() => {
         expect(callback).toHaveBeenCalledTimes(1);
@@ -232,13 +225,8 @@ describe('ChromeOptionsRepository', () => {
       callback.mockClear();
       const newOptions = cloneOptions(DEFAULT_COMPLETE_OPTIONS);
       newOptions.rest.baseUrl = 'https://unsubscribed.example/';
-      mockStorage.sync.get.mockResolvedValue(newOptions);
-      await repo.set({
-        rest: {
-          ...initialOptions.rest,
-          baseUrl: 'https://unsubscribed.example/'
-        }
-      });
+      const watcher = mockStorage.sync.watchKey.mock.calls[0]?.[1];
+      watcher?.(newOptions, { newValue: newOptions });
 
       // Wait a bit to ensure callback is not called
       await new Promise((resolve) => setTimeout(resolve, 100));
@@ -254,11 +242,12 @@ describe('ChromeOptionsRepository', () => {
       const updatedOptions = cloneOptions(DEFAULT_COMPLETE_OPTIONS);
       updatedOptions.rest.baseUrl = 'https://multi.example/';
 
-      mockStorage.sync.get
-        .mockResolvedValueOnce(initialOptions) // subscriber 1 initial
-        .mockResolvedValueOnce(initialOptions) // subscriber 2 initial
-        .mockResolvedValueOnce(initialOptions) // repo.set merge
-        .mockResolvedValueOnce(updatedOptions); // notify listeners payload
+      mockStorage.sync.get.mockResolvedValue(initialOptions);
+      let externalChange: OptionsStorageChange | undefined;
+      mockStorage.sync.watchKey.mockImplementation((_key, callback) => {
+        externalChange = callback;
+        return vi.fn();
+      });
 
       const callback1 = vi.fn();
       const callback2 = vi.fn();
@@ -274,12 +263,7 @@ describe('ChromeOptionsRepository', () => {
       callback1.mockClear();
       callback2.mockClear();
 
-      await repo.set({
-        rest: {
-          ...initialOptions.rest,
-          baseUrl: 'https://multi.example/'
-        }
-      });
+      externalChange?.(updatedOptions, { newValue: updatedOptions });
 
       await vi.waitFor(() => {
         expect(callback1).toHaveBeenCalledTimes(1);
@@ -416,7 +400,7 @@ describe('ChromeOptionsRepository', () => {
       expect(mockStorage.sync.set).not.toHaveBeenCalled();
     });
 
-    it('should preserve the shipped empty REST apiKey through a real set/read round trip', async () => {
+    it('should preserve the shipped empty REST apiKey through a raw write/read round trip', async () => {
       let stored: unknown = cloneOptions(DEFAULT_COMPLETE_OPTIONS);
       mockStorage.sync.get.mockImplementation(() => Promise.resolve(stored));
       mockStorage.sync.set.mockImplementation((_key, value) => {
@@ -424,7 +408,7 @@ describe('ChromeOptionsRepository', () => {
         return Promise.resolve();
       });
 
-      await repo.set({
+      await repo.writeRaw({
         rest: {
           ...DEFAULT_COMPLETE_OPTIONS.rest,
           apiKey: ''
@@ -589,85 +573,43 @@ describe('ChromeOptionsRepository', () => {
       const attempt = repo.get();
 
       await expect(attempt).rejects.toBeInstanceOf(StorageError);
-      await expect(attempt).rejects.toThrow('Failed to get options from chrome.storage');
+      await expect(attempt).rejects.toThrow('Failed to read raw options from chrome.storage');
     });
   });
 
   // ===========================
-  // set() 测试
+  // background raw service tests
   // ===========================
-  describe('set()', () => {
-    it('should merge partial options and save to storage', async () => {
-      const currentOptions = cloneOptions(DEFAULT_COMPLETE_OPTIONS);
-      currentOptions.rest.baseUrl = 'https://current.example/';
-      const partialUpdate = {
-        rest: {
-          ...currentOptions.rest,
-          baseUrl: 'https://updated.example/'
-        }
-      };
+  describe('raw storage service', () => {
+    it('writes the exact coordinator-owned raw snapshot', async () => {
+      const next = { interfaceTheme: 'dark', opaqueRoot: { preserved: true } };
 
-      mockStorage.sync.get.mockResolvedValue(currentOptions);
+      await repo.writeRaw(next);
 
-      await repo.set(partialUpdate);
-
-      expect(mockStorage.sync.set).toHaveBeenCalledWith('options', {
-        ...currentOptions,
-        ...partialUpdate
-      });
+      expect(mockStorage.sync.set).toHaveBeenCalledWith('options', next);
     });
 
-    it('should not write legacy rootDir back when saving over an old snapshot', async () => {
-      const currentOptions = cloneOptions(DEFAULT_COMPLETE_OPTIONS);
-      withLegacyRootDir(currentOptions.rest, 'LegacyRoot/');
-      currentOptions.rest.localFolderId = 'local-folder';
-      currentOptions.rest.localFolderName = 'Local Folder';
-      const partialUpdate: Partial<CompleteOptions> = { interfaceTheme: 'dark' };
+    it('returns a clone of the raw snapshot', async () => {
+      const stored = { opaqueRoot: { preserved: true } };
+      mockStorage.sync.get.mockResolvedValue(stored);
 
-      mockStorage.sync.get.mockResolvedValue(currentOptions);
-
-      await repo.set(partialUpdate);
-
-      const saved = mockStorage.sync.set.mock.calls.at(-1)?.[1] as CompleteOptions | undefined;
-      expect(saved?.rest).not.toHaveProperty('rootDir');
-      expect(saved?.rest.localFolderId).toBe('local-folder');
-      expect(saved?.rest.localFolderName).toBe('Local Folder');
-      expect(saved?.rest.vault).toBe(currentOptions.rest.vault);
-      expect(saved?.interfaceTheme).toBe('dark');
+      const raw = await repo.readRaw();
+      expect(raw).toEqual(stored);
+      expect(raw).not.toBe(stored);
     });
 
     it('should throw StorageError when storage.set fails', async () => {
-      const currentOptions = cloneOptions(DEFAULT_COMPLETE_OPTIONS);
-      const partialUpdate = {
-        rest: {
-          ...currentOptions.rest,
-          baseUrl: 'https://updated.example/'
-        }
-      };
-
-      mockStorage.sync.get.mockResolvedValue(currentOptions);
       mockStorage.sync.set.mockRejectedValue(new Error('quota exceeded'));
 
-      const attempt = repo.set(partialUpdate);
+      const attempt = repo.writeRaw({ interfaceTheme: 'dark' });
 
       await expect(attempt).rejects.toBeInstanceOf(StorageError);
-      await expect(attempt).rejects.toThrow('Failed to set options to chrome.storage');
+      await expect(attempt).rejects.toThrow('Failed to write raw options to chrome.storage');
     });
 
-    it('should wrap errors thrown by get() while preparing the payload', async () => {
-      const getSpy = vi.spyOn(repo, 'get').mockRejectedValueOnce(new Error('pull failed'));
-
-      const attempt = repo.set({
-        rest: {
-          ...DEFAULT_COMPLETE_OPTIONS.rest,
-          baseUrl: 'https://should-not-write.example/'
-        }
-      });
-
-      await expect(attempt).rejects.toBeInstanceOf(StorageError);
-      await expect(attempt).rejects.toThrow('Failed to set options to chrome.storage');
-
-      getSpy.mockRestore();
+    it('maps undefined storage values to an empty raw boundary', async () => {
+      mockStorage.sync.get.mockResolvedValue(undefined);
+      await expect(repo.readRaw()).resolves.toBeNull();
     });
   });
 
@@ -676,12 +618,13 @@ describe('ChromeOptionsRepository', () => {
       const initialOptions = cloneOptions(DEFAULT_COMPLETE_OPTIONS);
       const updatedOptions = cloneOptions(DEFAULT_COMPLETE_OPTIONS);
       updatedOptions.rest.vault = 'ImmutableVault';
-
-      mockStorage.sync.get
-        .mockResolvedValueOnce(initialOptions) // initial snapshot for onChange
-        .mockResolvedValueOnce(initialOptions) // repo.set -> this.get()
-        .mockResolvedValueOnce(updatedOptions) // notifyListeners -> this.get()
-        .mockResolvedValueOnce(updatedOptions); // repo.get() after mutation check
+      let stored = initialOptions;
+      mockStorage.sync.get.mockImplementation(() => Promise.resolve(stored));
+      let externalChange: OptionsStorageChange | undefined;
+      mockStorage.sync.watchKey.mockImplementation((_key, callback) => {
+        externalChange = callback;
+        return vi.fn();
+      });
 
       let receivedOptions: CompleteOptions | null = null;
       repo.onChange((options) => {
@@ -694,12 +637,8 @@ describe('ChromeOptionsRepository', () => {
 
       receivedOptions = null;
 
-      await repo.set({
-        rest: {
-          ...initialOptions.rest,
-          vault: 'ImmutableVault'
-        }
-      });
+      stored = updatedOptions;
+      externalChange?.(updatedOptions, { newValue: updatedOptions });
 
       await vi.waitFor(() => {
         expect(receivedOptions).not.toBeNull();
@@ -720,11 +659,12 @@ describe('ChromeOptionsRepository', () => {
       const updatedOptions = cloneOptions(DEFAULT_COMPLETE_OPTIONS);
       updatedOptions.rest.baseUrl = 'https://listener.example/';
 
-      mockStorage.sync.get
-        .mockResolvedValueOnce(initialOptions) // faulty listener initial
-        .mockResolvedValueOnce(initialOptions) // healthy listener initial
-        .mockResolvedValueOnce(initialOptions) // repo.set -> this.get()
-        .mockResolvedValueOnce(updatedOptions); // notify listeners payload
+      mockStorage.sync.get.mockResolvedValue(initialOptions);
+      let externalChange: OptionsStorageChange | undefined;
+      mockStorage.sync.watchKey.mockImplementation((_key, callback) => {
+        externalChange = callback;
+        return vi.fn();
+      });
 
       const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
 
@@ -745,12 +685,7 @@ describe('ChromeOptionsRepository', () => {
       healthyListener.mockClear();
       consoleSpy.mockClear();
 
-      await repo.set({
-        rest: {
-          ...initialOptions.rest,
-          baseUrl: 'https://listener.example/'
-        }
-      });
+      externalChange?.(updatedOptions, { newValue: updatedOptions });
 
       await vi.waitFor(() => {
         expect(healthyListener).toHaveBeenCalledTimes(1);
@@ -775,26 +710,11 @@ describe('ChromeOptionsRepository', () => {
       const currentOptions = cloneOptions(DEFAULT_COMPLETE_OPTIONS);
       const updatedUrl = 'https://structured.example/';
 
-      mockStorage.sync.get
-        .mockResolvedValueOnce(currentOptions) // initial onChange snapshot
-        .mockResolvedValueOnce(currentOptions) // repo.set -> this.get()
-        .mockResolvedValueOnce({
-          ...currentOptions,
-          rest: {
-            ...currentOptions.rest,
-            baseUrl: updatedUrl
-          }
-        }); // notify listeners payload
+      mockStorage.sync.get.mockResolvedValue(currentOptions);
 
       try {
-        const callback = vi.fn();
-        repo.onChange(callback);
-        await vi.waitFor(() => {
-          expect(callback).toHaveBeenCalledTimes(1);
-        });
-        callback.mockClear();
-
-        await repo.set({
+        await repo.get();
+        await repo.writeRaw({
           rest: {
             ...currentOptions.rest,
             baseUrl: updatedUrl
@@ -815,18 +735,8 @@ describe('ChromeOptionsRepository', () => {
       const currentOptions = cloneOptions(DEFAULT_COMPLETE_OPTIONS);
       const updatedUrl = 'https://json-clone.example/';
 
-      mockStorage.sync.get
-        .mockResolvedValueOnce(currentOptions) // repo.set -> this.get()
-        .mockResolvedValueOnce({
-          ...currentOptions,
-          rest: {
-            ...currentOptions.rest,
-            baseUrl: updatedUrl
-          }
-        }); // notify listeners payload
-
       try {
-        await repo.set({
+        await repo.writeRaw({
           rest: {
             ...currentOptions.rest,
             baseUrl: updatedUrl
@@ -846,30 +756,22 @@ describe('ChromeOptionsRepository', () => {
   });
 
   describe('error handling around notifications', () => {
-    it('should log errors when notifyListeners fails to fetch options', async () => {
-      const currentOptions = cloneOptions(DEFAULT_COMPLETE_OPTIONS);
-      const getSpy = vi
-        .spyOn(repo, 'get')
-        .mockResolvedValueOnce(currentOptions)
-        .mockRejectedValueOnce(new Error('notify failed'));
-      const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
-
-      await repo.set({
-        rest: {
-          ...currentOptions.rest,
-          baseUrl: 'https://notify-error.example/'
-        }
-      });
-      await vi.waitFor(() => {
-        expect(consoleSpy).toHaveBeenCalled();
-      });
-      expect(consoleSpy).toHaveBeenCalledWith(
-        '[ChromeOptionsRepository] Failed to notify listeners:',
-        expect.any(Error)
+    it('suppresses late initial hydration after unsubscribe', async () => {
+      let resolveInitial: ((value: CompleteOptions) => void) | undefined;
+      mockStorage.sync.get.mockReturnValue(
+        new Promise<CompleteOptions>((resolve) => {
+          resolveInitial = resolve;
+        })
       );
+      const callback = vi.fn();
+      const unsubscribe = repo.onChange(callback);
 
-      consoleSpy.mockRestore();
-      getSpy.mockRestore();
+      unsubscribe();
+      resolveInitial?.(cloneOptions(DEFAULT_COMPLETE_OPTIONS));
+      await Promise.resolve();
+      await Promise.resolve();
+
+      expect(callback).not.toHaveBeenCalled();
     });
   });
 });

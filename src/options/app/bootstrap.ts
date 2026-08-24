@@ -27,10 +27,12 @@ import {
   type MountedProductionStitchShell
 } from './productionStitchShell';
 import { trackInitialOptionsTelemetry } from './productionStitchTelemetry';
+import type { UsageStatsClientLike } from './usage-dashboard/usageStatsClient';
 
 export interface OptionsAppBootstrapDependencies {
   storage: StorageService;
   runtime?: Pick<RuntimeService, 'getURL' | 'getBrowserTarget'>;
+  usageStatsClient?: UsageStatsClientLike;
 }
 
 type CleanupFn = () => void;
@@ -51,7 +53,11 @@ function resolveOptionsAppBootstrapDependencies(
 ): OptionsAppBootstrapDependencies {
   if (dependencies?.storage) {
     optionsAppBootstrapStorage = dependencies.storage;
-    return { storage: dependencies.storage };
+    return {
+      storage: dependencies.storage,
+      ...(dependencies.runtime ? { runtime: dependencies.runtime } : {}),
+      ...(dependencies.usageStatsClient ? { usageStatsClient: dependencies.usageStatsClient } : {})
+    };
   }
 
   if (!optionsAppBootstrapStorage) {
@@ -122,7 +128,8 @@ export async function bootstrapOptionsApp(
   disposeCleanupHandlers();
   ensureUnloadCleanup();
 
-  const { storage, runtime } = resolveOptionsAppBootstrapDependencies(dependencies);
+  const { storage, runtime, usageStatsClient } =
+    resolveOptionsAppBootstrapDependencies(dependencies);
   configureAnalyticsConfigManager(storage);
   configureGlobalStateManagerStorage(storage);
   configureI18nStorage(storage.sync);
@@ -144,6 +151,7 @@ export async function bootstrapOptionsApp(
     messages: resource?.messages ?? null,
     language: (resource?.language ?? 'zh-CN') as Language,
     ...(runtime ? { runtime } : {}),
+    ...(usageStatsClient ? { usageStatsClient } : {}),
     storage,
     optionsRepository: resolveRepository<IOptionsRepository>(DI_TOKENS.IOptionsRepository),
     messagingRepository: resolveRepository<IMessagingRepository>(DI_TOKENS.IMessagingRepository),

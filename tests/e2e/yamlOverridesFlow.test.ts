@@ -21,6 +21,10 @@ import { registerService, resetGlobalRegistry, TOKENS } from '../../src/shared/d
 import { repositoryContainer } from '../../src/shared/di/serviceRegistry';
 import { DI_TOKENS } from '../../src/shared/di/tokens';
 import { ChromeOptionsRepository } from '../../src/infrastructure/repositories/ChromeOptionsRepository';
+import {
+  createBackgroundOptionsRepository,
+  createOptionsMutationCoordinator
+} from '../../src/background/services/optionsMutationCoordinator';
 import type { OptionsStore } from '../../src/options/state/types';
 import { generateYamlFrontMatter } from '../../src/shared/utils/yamlGenerator';
 
@@ -269,10 +273,16 @@ describe('YAML overrides integration flow', () => {
     resetGlobalRegistry();
     registerService(TOKENS.platformServices, () => platformServices);
     repositoryContainer.reset();
-    repositoryContainer.registerSingleton(
-      DI_TOKENS.IOptionsRepository,
-      () => new ChromeOptionsRepository(storageService)
+    const rawOptionsRepository = new ChromeOptionsRepository(storageService);
+    const optionsMutationCoordinator = createOptionsMutationCoordinator(rawOptionsRepository, {
+      createOperationId: () => 'yaml-overrides-e2e',
+      yieldAfterWrite: () => Promise.resolve()
+    });
+    const optionsRepository = createBackgroundOptionsRepository(
+      rawOptionsRepository,
+      optionsMutationCoordinator
     );
+    repositoryContainer.registerSingleton(DI_TOKENS.IOptionsRepository, () => optionsRepository);
     optionsStore = (await import('../../src/options/state/optionsStore')).optionsStore;
     optionsStore.reset();
   });

@@ -1,12 +1,16 @@
 import { createActionRuntime } from '@options/schema-runtime/actionRuntime';
-import type { Language, Messages } from '@i18n';
+import type { Language } from '@i18n';
+import type { AnalyticsSection } from '@shared/analytics';
 import type { IOptionsRepository } from '@shared/repositories';
 import { createAnalyticsEventMessage } from '@shared/types/analytics';
 import type { AnalyticsRuntimeEventPayload } from '@shared/types/analytics';
 import type { CompleteOptions, StoredOptions } from '@shared/types/options';
-import type { PreviewContent, PreviewStoreState, SchemaContext } from '@options/stitch/types';
+import type { PreviewContent, PreviewStoreState } from '@options/stitch/types';
 import type { OptionsController } from './optionsController';
-import { createProductionStitchActions } from './productionStitchActions';
+import {
+  createProductionStitchActions,
+  type ProductionStitchActionContext
+} from './productionStitchActions';
 import type { ProductionStitchPersistence } from './productionStitchPersistence';
 import type { ButtonPressScrollGuard } from './productionStitchScrollGuard';
 import {
@@ -22,29 +26,26 @@ import {
   updateDraftPath
 } from './productionStitchShellState';
 import type { ProductionStitchWidgetHost } from './productionStitchWidgetHost';
+import {
+  createProductionStitchActionTaskOwner,
+  type ProductionStitchActionTaskOwner
+} from './productionStitchActionTaskOwner';
+import type { ProductionStitchShellMutableState } from './productionStitchShellMutableState';
+import { formatOptionsError, showStatusMessage } from '@options/components/messages';
 
-interface ProductionStitchShellActionRuntimeOptions {
+type RuntimeMutableState = Omit<
+  ProductionStitchShellMutableState,
+  'getConnectionNotice' | 'getDomainMappingRows' | 'resetOptions'
+>;
+
+interface ProductionStitchShellActionRuntimeOptions extends RuntimeMutableState {
   mountRoot: HTMLElement;
   buttonPressScrollGuard: ButtonPressScrollGuard;
   controller: Pick<OptionsController, 'loadRaw' | 'scheduleAutoSave'>;
-  optionsRepository: Pick<IOptionsRepository, 'set'>;
-  changeLanguage?: (
-    language: Language
-  ) => Promise<{ messages: Messages | null; language: Language }>;
-  getAppData(): PreviewContent;
-  getCurrentLanguage(): Language;
-  getCurrentMessages(): Messages | null;
-  getDraft(): CompleteOptions;
-  getState(): PreviewStoreState;
-  setConnectionNotice(notice: PreviewContent['storage']['connectionNotice']): void;
-  setDomainMappingRows(entries: Array<[string, string]>): void;
-  setLanguageResource(resource: { messages: Messages | null; language: Language }): void;
-  setMaintenanceLog(log: PreviewContent['maintenanceLog']): void;
-  setState(state: PreviewStoreState): void;
-  createSchemaContext(): SchemaContext;
+  optionsRepository: Pick<IOptionsRepository, 'patch'>;
+  changeLanguage?: ProductionStitchActionContext['changeLanguage'];
   mutate(mutator: (draftState: PreviewStoreState) => void, options?: { silent?: boolean }): void;
   currentDomainEntries(): Array<[string, string]>;
-  refreshAppData(): void;
   refreshOptions(options: StoredOptions | CompleteOptions | null): void;
   render(): void;
   renderActiveResourceModal(): void;
@@ -62,20 +63,9 @@ interface ProductionStitchShellActionRuntimeOptions {
 
 export interface ProductionStitchShellActionRuntime {
   dispatch(actionId: string, args?: unknown[], value?: unknown, event?: Event): void;
+  dispose(): void;
+  waitForIdle(): Promise<void>;
 }
-
-type AnalyticsSection =
-  | 'overview'
-  | 'vault'
-  | 'storage'
-  | 'templates'
-  | 'privacy'
-  | 'onboarding'
-  | 'usage'
-  | 'video'
-  | 'reader'
-  | 'advanced';
-
 type TrackablePersistence = ProductionStitchPersistence & {
   trackUsageEvent?: (message: AnalyticsRuntimeEventPayload) => Promise<void>;
 };
@@ -87,7 +77,6 @@ const PANEL_SECTION_MAP: Record<string, AnalyticsSection> = {
   'capture-behavior': 'advanced',
   maintenance: 'advanced'
 };
-
 const ACTION_SECTION_MAP: Record<string, AnalyticsSection> = {
   'maintenance:diagnose': 'advanced',
   'output:applyPreset': 'templates',
@@ -103,22 +92,18 @@ const ACTION_SECTION_MAP: Record<string, AnalyticsSection> = {
   'domain:add': 'templates',
   'domain:remove': 'templates'
 };
-
 const TRACKED_SYNCHRONOUS_ACTIONS = new Set(Object.keys(ACTION_SECTION_MAP));
-
 const RESOURCE_SECTION_MAP: Record<string, AnalyticsSection> = {
   'privacy-policy': 'privacy',
   'data-usage': 'privacy',
   'terms-of-use': 'privacy',
   'plugin-setup': 'onboarding'
 };
-
 function eventButton(value: unknown): HTMLButtonElement | null {
   return value instanceof Event && value.currentTarget instanceof HTMLButtonElement
     ? value.currentTarget
     : null;
 }
-
 function sanitizeActionId(actionId: string): string {
   return actionId
     .toLowerCase()
@@ -140,9 +125,7 @@ function createProductionOptionsTelemetry(persistence: ProductionStitchPersisten
 
   function trackSectionView(panelId: string): void {
     const section = PANEL_SECTION_MAP[panelId];
-    if (!section) {
-      return;
-    }
+    if (!section) return;
     void send(
       createAnalyticsEventMessage('options_section_viewed', {
         section
@@ -150,58 +133,42 @@ function createProductionOptionsTelemetry(persistence: ProductionStitchPersisten
     );
   }
 
-  function trackResourceOpen(resourceId: string): void {
-    const action = sanitizeActionId('resource:open');
-    const section = RESOURCE_SECTION_MAP[resourceId];
+  function trackAction(
+    actionId: string,
+    section?: AnalyticsSection,
+    outcome: 'completed' | 'failed' = 'completed'
+  ): void {
     void send(
       createAnalyticsEventMessage('options_action_completed', {
-        action,
-        outcome: 'completed',
+        action: sanitizeActionId(actionId),
+        outcome,
         ...(section ? { section } : {})
       })
     );
   }
 
+  function trackResourceOpen(resourceId: string): void {
+    trackAction('resource:open', RESOURCE_SECTION_MAP[resourceId]);
+  }
+
   function trackSynchronousAction(actionId: string): void {
-    if (!TRACKED_SYNCHRONOUS_ACTIONS.has(actionId)) {
-      return;
-    }
-    void send(
-      createAnalyticsEventMessage('options_action_completed', {
-        action: sanitizeActionId(actionId),
-        outcome: 'completed',
-        section: ACTION_SECTION_MAP[actionId]
-      })
-    );
+    if (TRACKED_SYNCHRONOUS_ACTIONS.has(actionId))
+      trackAction(actionId, ACTION_SECTION_MAP[actionId]);
   }
 
   function trackMaintenanceOutcome(
     actionId: 'maintenance:repair' | 'maintenance:reload',
     outcome: 'completed' | 'failed'
   ): void {
-    void send(
-      createAnalyticsEventMessage('options_action_completed', {
-        action: sanitizeActionId(actionId),
-        outcome,
-        section: 'advanced'
-      })
-    );
+    trackAction(actionId, 'advanced', outcome);
   }
 
   function trackThemeChanged(theme: 'light' | 'dark' | 'system'): void {
-    void send(
-      createAnalyticsEventMessage('options_theme_changed', {
-        theme
-      })
-    );
+    void send(createAnalyticsEventMessage('options_theme_changed', { theme }));
   }
 
   function trackLanguageChanged(language: Language): void {
-    void send(
-      createAnalyticsEventMessage('options_language_changed', {
-        language
-      })
-    );
+    void send(createAnalyticsEventMessage('options_language_changed', { language }));
   }
 
   function trackExperimentalFeatureToggle(featureKey: string, enabled: boolean): void {
@@ -238,6 +205,29 @@ export function createProductionStitchShellActionRuntime(
     widgetHost
   } = options;
   const telemetry = createProductionOptionsTelemetry(persistence);
+  const owner: ProductionStitchActionTaskOwner = createProductionStitchActionTaskOwner();
+
+  function refreshWithUsage(): void {
+    options.refreshAppData();
+    persistence.restoreUsageStatsView();
+  }
+
+  function runPersistenceTask(
+    key: string,
+    task: () => Promise<void>,
+    captureRollback?: () => () => void
+  ): void {
+    owner.run<(() => void) | undefined>({
+      key,
+      capture: () => captureRollback?.(),
+      task,
+      rollback: (rollback, error) => {
+        rollback?.();
+        options.render();
+        showStatusMessage('error', formatOptionsError(error, options.getCurrentMessages()));
+      }
+    });
+  }
   const actionRuntime = createActionRuntime<PreviewStoreState, PreviewContent>({
     getContext: () => options.createSchemaContext(),
     mutate: (mutator, mutationOptions) => options.mutate(mutator, mutationOptions),
@@ -258,7 +248,7 @@ export function createProductionStitchShellActionRuntime(
           draft: options.getDraft(),
           state: options.getState(),
           setDomainMappingRows: (entries) => options.setDomainMappingRows(entries),
-          refreshAppData: () => options.refreshAppData(),
+          refreshAppData: refreshWithUsage,
           scheduleDraftSave: () => options.scheduleDraftSave(),
           render: () => options.render(),
           name
@@ -282,10 +272,12 @@ export function createProductionStitchShellActionRuntime(
       },
       persistPrivacyPreference: (field, value) =>
         persistence.persistPrivacyPreference(field, value),
-      persistThemePreference: (theme) => {
-        void optionsRepository.set({ interfaceTheme: theme } as Partial<CompleteOptions>);
+      persistThemePreference: async (theme) => {
+        options.getDraft().interfaceTheme = theme;
+        await optionsRepository.patch({ path: ['interfaceTheme'], value: theme });
       },
-      refreshAppData: () => options.refreshAppData(),
+      runPersistenceTask,
+      refreshAppData: refreshWithUsage,
       render: () => options.render(),
       renderActiveResourceModal: () => options.renderActiveResourceModal(),
       repairConfiguration: async () => {
@@ -353,5 +345,9 @@ export function createProductionStitchShellActionRuntime(
     }
   }
 
-  return { dispatch };
+  return {
+    dispatch,
+    dispose: () => owner.dispose(),
+    waitForIdle: () => owner.waitForIdle()
+  };
 }

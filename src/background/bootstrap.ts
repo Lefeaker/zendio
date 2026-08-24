@@ -24,6 +24,7 @@ import {
 } from './services/analyticsEvents';
 import { configureI18nStorage } from '@i18n';
 import type { StorageService } from '../platform/interfaces/storage';
+import type { OptionsMutationCoordinator } from './services/optionsMutationCoordinator';
 
 let backgroundDependencyStorage: StorageService | null = null;
 let cleanupBackgroundErrorBoundary: (() => void) | null = null;
@@ -50,13 +51,20 @@ function resolveBackgroundDependencyStorage(storage?: StorageService): StorageSe
  * 引导背景页依赖
  * 注册所有必要的服务到全局注册表
  */
-export function bootstrapBackgroundDependencies(storage?: StorageService): void {
+export function bootstrapBackgroundDependencies(
+  storage?: StorageService,
+  optionsMutationCoordinator?: OptionsMutationCoordinator
+): void {
   console.log('[Background] Bootstrapping dependencies...');
   const resolvedStorage = resolveBackgroundDependencyStorage(storage);
   configureAnalyticsConfigManager(resolvedStorage);
   configureGlobalStateManagerStorage(resolvedStorage);
   configureI18nStorage(resolvedStorage.sync);
-  configureUsageStatsStorage(resolvedStorage);
+  if (optionsMutationCoordinator) {
+    configureUsageStatsStorage(resolvedStorage, optionsMutationCoordinator);
+  } else {
+    configureUsageStatsStorage(resolvedStorage);
+  }
   configureUsageAnalyticsQueueStorage(resolvedStorage);
   configureActivationAnalyticsStorage(resolvedStorage.local);
   const errorHandler = createErrorHandler();

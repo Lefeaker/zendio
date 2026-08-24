@@ -11,6 +11,7 @@ describe('OptionsController', () => {
   let savedOptions: Array<CompleteOptions | StoredOptions>;
   let loadMock: Mock<(...args: []) => Promise<StoredOptions>>;
   let saveMock: Mock<(...args: [CompleteOptions | StoredOptions]) => Promise<void>>;
+  let replaceMock: Mock<(...args: [CompleteOptions | StoredOptions]) => Promise<void>>;
   let getCachedMock: Mock<(...args: []) => StoredOptions | null>;
   let readMock: Mock<(...args: [StoredOptions | null]) => CompleteOptions>;
   let applyMock: Mock<(...args: [StoredOptions]) => Promise<void>>;
@@ -26,11 +27,18 @@ describe('OptionsController', () => {
       savedOptions.push(options);
       return Promise.resolve();
     });
+    replaceMock = vi.fn<(...args: [CompleteOptions | StoredOptions]) => Promise<void>>(
+      (options) => {
+        savedOptions.push(options);
+        return Promise.resolve();
+      }
+    );
     getCachedMock = vi.fn<(...args: []) => StoredOptions | null>(() => snapshot);
 
     persistence = {
       load: loadMock,
       save: saveMock,
+      replace: replaceMock,
       getCached: getCachedMock
     };
 
@@ -134,6 +142,19 @@ describe('OptionsController', () => {
     expect(collect).toHaveBeenCalledTimes(1);
     expect(saveMock).toHaveBeenCalledTimes(1);
     expect(savedOptions[0]?.rest?.baseUrl).toBe('https://async.example.com/');
+  });
+
+  it('uses strict replacement for imported configuration', async () => {
+    const controller = createOptionsController({ persistence, formAdapter });
+    await controller.loadInitialState();
+    const imported = {
+      rest: { baseUrl: 'https://import.example.com/' }
+    } as CompleteOptions;
+
+    await controller.applyImportedConfig(imported);
+
+    expect(replaceMock).toHaveBeenCalledWith(imported);
+    expect(saveMock).not.toHaveBeenCalled();
   });
 
   it('reports collector errors through onSaveError callback', async () => {

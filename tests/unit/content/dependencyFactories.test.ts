@@ -73,15 +73,15 @@ import {
 import { createMemoryStorageService } from '@platform/preview/memoryStorage';
 import { repositoryContainer } from '@shared/di/serviceRegistry';
 import { DI_TOKENS } from '@shared/di/tokens';
+import { asType } from '../../utils/typeHelpers';
 
 function createOptionsRepository(): VideoSessionPlatformDependencies['optionsRepository'] {
-  return {
+  return asType<VideoSessionPlatformDependencies['optionsRepository']>({
     get: vi.fn(() =>
       Promise.reject(new Error('Unexpected options get in dependency factory test'))
     ),
-    set: vi.fn(() => Promise.resolve()),
     onChange: vi.fn(() => () => undefined)
-  };
+  });
 }
 
 function createVideoPlatform(
@@ -120,7 +120,6 @@ describe('content dependency factories', () => {
     const platform = {
       optionsRepository: {
         get: vi.fn().mockResolvedValue({}),
-        set: vi.fn(),
         onChange: vi.fn(() => () => undefined)
       },
       storage: { sync: {}, local: {}, session: {} },
@@ -277,9 +276,7 @@ describe('content dependency factories', () => {
 
   it('wires AI chat extractors from the composition root repository', async () => {
     const optionsRepository = {
-      get: vi.fn().mockResolvedValue({}),
-      set: vi.fn(),
-      onChange: vi.fn(() => () => undefined)
+      get: vi.fn().mockResolvedValue({})
     };
     const registry = createDefaultExtractorRegistry({
       optionsRepository: optionsRepository as never

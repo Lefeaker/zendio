@@ -2,6 +2,7 @@ import type { IYamlRepository, IOptionsRepository } from '../../shared/repositor
 import type { YamlConfigOverrides } from '../../shared/types/yamlConfig';
 import type { CompleteOptions } from '../../shared/types/options';
 import { RepositoryError } from '../../shared/errors/repositoryErrors';
+import { isOptionsMutationAuthorityUnavailableError } from '../../shared/types/optionsMutationMessages';
 
 const clone = <T>(value: T): T => {
   if (value === undefined || value === null) {
@@ -55,8 +56,9 @@ export class ChromeYamlRepository implements IYamlRepository {
 
   async setOverrides(overrides: YamlConfigOverrides): Promise<void> {
     try {
-      await this.optionsRepository.set({ yamlConfig: clone(overrides) });
+      await this.optionsRepository.patch({ path: ['yamlConfig'], value: clone(overrides) });
     } catch (error) {
+      if (error instanceof Error && isOptionsMutationAuthorityUnavailableError(error)) throw error;
       throw new RepositoryError('Failed to save YAML overrides', 'YamlRepositoryError', {
         cause: error
       });

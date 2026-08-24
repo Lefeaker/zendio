@@ -12,8 +12,12 @@ import { resolveRepository } from '../../shared/di/serviceRegistry';
 import { DI_TOKENS } from '../../shared/di/tokens';
 import type { IOptionsRepository } from '../../shared/repositories';
 import { areStateValuesEqual, cloneStateValue } from './stateValue';
+import { STORED_OPTIONS_DELETE } from '../../shared/config/storedOptionsCodec';
+import type { OptionsPatch } from '../../shared/types/optionsMutationMessages';
+import { isObjectRecord } from '../../shared/guards/object';
 
 type MigrationMessageKey = 'yamlConfigMigrated';
+type StateValue = Parameters<typeof areStateValuesEqual>[0];
 
 // Options UI 主链固定走 IOptionsRepository，但延迟到实际调用时再解析，
 // 避免模块加载阶段通过隐式 fallback 偷偷注册依赖。
@@ -29,7 +33,121 @@ function getOptionsRepository(): IOptionsRepository {
 let pendingYamlMigrationNotice: MigrationMessageKey | null = null;
 let cachedSnapshot: StoredOptions | null = null;
 let unsubscribeRepo: (() => void) | null = null;
+let migrationWritebackTail: Promise<void> = Promise.resolve();
 const subscribers = new Set<OptionsSubscriber>();
+
+const PATCH_PATHS = [
+  ['interfaceTheme'],
+  ['rest', 'baseUrl'],
+  ['rest', 'httpsUrl'],
+  ['rest', 'httpUrl'],
+  ['rest', 'vault'],
+  ['rest', 'apiKey'],
+  ['rest', 'localFolderId'],
+  ['rest', 'localFolderName'],
+  ['templates', 'article'],
+  ['templates', 'video'],
+  ['templates', 'fragment'],
+  ['templates', 'reading'],
+  ['templates', 'ai'],
+  ['domainMappings'],
+  ['aiChat', 'includeTimestamps'],
+  ['aiChat', 'userName'],
+  ['deepResearch', 'pureMode'],
+  ['fragmentClipper', 'useFootnoteFormat'],
+  ['fragmentClipper', 'captureContext'],
+  ['fragmentClipper', 'contextLength'],
+  ['fragmentClipper', 'contextMode'],
+  ['fragmentClipper', 'selectionTriggerMode'],
+  ['fragmentClipper', 'selectionModifierKeys'],
+  ['fragmentClipper', 'keyboardShortcutsEnabled'],
+  ['readingSession', 'exportMode'],
+  ['readingSession', 'highlightTheme'],
+  ['video', 'floatingPromptEnabled'],
+  ['video', 'promptButtonLabel'],
+  ['video', 'promptShortcut'],
+  ['video', 'controlBarAutoPause'],
+  ['video', 'controlBarScreenshot'],
+  ['video', 'commentEditorAutoPause'],
+  ['video', 'promptPosition'],
+  ['video', 'screenshotAttachment'],
+  ['classifier', 'enabled'],
+  ['classifier', 'provider'],
+  ['classifier', 'endpoint'],
+  ['classifier', 'apiKey'],
+  ['classifier', 'model'],
+  ['classifier', 'taxonomy'],
+  ['experimentalAi', 'provider'],
+  ['experimentalAi', 'model'],
+  ['experimentalAi', 'apiUrl'],
+  ['experimentalAi', 'apiKey'],
+  ['pageSummary', 'enabled'],
+  ['readingOverlaySummary', 'enabled'],
+  ['subtitleTranslation', 'enabled'],
+  ['subtitleTranslation', 'targetLanguage'],
+  ['privacyPreferences', 'analytics'],
+  ['privacyPreferences', 'errorReporting'],
+  ['privacyPreferences', 'debugMode'],
+  ['vaultRouter'],
+  ['yamlConfig']
+] as const;
+
+function readPath(
+  value: StoredOptions | CompleteOptions | null,
+  path: readonly string[]
+): StateValue {
+  let current: StateValue = value;
+  for (const part of path) {
+    if (!isObjectRecord(current) || Array.isArray(current)) return undefined;
+    if (!Object.prototype.hasOwnProperty.call(current, part)) return undefined;
+    current = current[part];
+  }
+  return current;
+}
+
+function createPatch(path: readonly string[], value: StateValue): OptionsPatch {
+  return {
+    path,
+    value: value === undefined ? STORED_OPTIONS_DELETE : cloneStateValue(value)
+  } as OptionsPatch;
+}
+
+function createSnapshotPatches(
+  before: StoredOptions | CompleteOptions | null,
+  after: StoredOptions | CompleteOptions
+): OptionsPatch[] {
+  const patches: OptionsPatch[] = [];
+  for (const path of PATCH_PATHS) {
+    const previous = readPath(before, path);
+    const next = readPath(after, path);
+    if (!areStateValuesEqual(previous, next)) patches.push(createPatch(path, next));
+  }
+  return patches;
+}
+
+function createSanitizationPatches(
+  normalized: StoredOptions,
+  sanitizedYaml: YamlConfigOverrides | null
+): OptionsPatch[] {
+  const patches: OptionsPatch[] = [];
+  if (normalized.vaultRouter !== undefined) {
+    patches.push({ path: ['vaultRouter'], value: normalized.vaultRouter });
+  }
+  patches.push({ path: ['yamlConfig'], value: sanitizedYaml });
+  return patches;
+}
+
+function scheduleMigrationWriteback(patches: readonly OptionsPatch[], reason: string): void {
+  if (patches.length === 0) return;
+  migrationWritebackTail = migrationWritebackTail
+    .then(async () => {
+      await getOptionsRepository().patch(patches);
+      registerYamlMigration(reason);
+    })
+    .catch((error) => {
+      console.error('[optionsStore] migration writeback failed', error);
+    });
+}
 
 const registerYamlMigration = (reason: string): void => {
   pendingYamlMigrationNotice = 'yamlConfigMigrated';
@@ -107,11 +225,10 @@ function ensureRepositorySubscription(): void {
     setYamlConfigOverrides(sanitizedYaml);
     emitSnapshot(normalized);
     if (changed) {
-      void getOptionsRepository().set({
-        ...(normalized.vaultRouter !== undefined && { vaultRouter: normalized.vaultRouter }),
-        yamlConfig: sanitizedYaml ?? null
-      });
-      registerYamlMigration('repository subscription');
+      scheduleMigrationWriteback(
+        createSanitizationPatches(normalized, sanitizedYaml),
+        'repository subscription'
+      );
     }
   });
 }
@@ -121,10 +238,7 @@ export async function load(): Promise<StoredOptions> {
   const { normalized, sanitizedYaml, changed } = applySanitizedOptions(options);
   setYamlConfigOverrides(sanitizedYaml);
   if (changed) {
-    await getOptionsRepository().set({
-      ...(normalized.vaultRouter !== undefined && { vaultRouter: normalized.vaultRouter }),
-      yamlConfig: sanitizedYaml ?? null
-    });
+    await getOptionsRepository().patch(createSanitizationPatches(normalized, sanitizedYaml));
     registerYamlMigration('load');
   }
   ensureRepositorySubscription();
@@ -134,12 +248,21 @@ export async function load(): Promise<StoredOptions> {
 
 export async function save(options: StoredOptions | CompleteOptions): Promise<void> {
   const { normalized, sanitizedYaml, changed } = applySanitizedOptions(options);
-  await getOptionsRepository().set(normalized as CompleteOptions);
+  const patches = createSnapshotPatches(cachedSnapshot, normalized);
+  if (patches.length > 0) await getOptionsRepository().patch(patches);
   setYamlConfigOverrides(sanitizedYaml);
   emitSnapshot(normalized);
   if (changed) {
     registerYamlMigration('manual save');
   }
+}
+
+export async function replacePersisted(options: StoredOptions | CompleteOptions): Promise<void> {
+  const { normalized, sanitizedYaml, changed } = applySanitizedOptions(options);
+  const replaced = await getOptionsRepository().replace(normalized);
+  setYamlConfigOverrides(sanitizedYaml);
+  emitSnapshot(replaced);
+  if (changed) registerYamlMigration('strict replace');
 }
 
 export function snapshot(): StoredOptions | null {
@@ -165,6 +288,7 @@ export function reset(): void {
   setYamlConfigOverrides(null);
   pendingYamlMigrationNotice = null;
   optionsRepository = null;
+  migrationWritebackTail = Promise.resolve();
   if (unsubscribeRepo) {
     unsubscribeRepo();
     unsubscribeRepo = null;

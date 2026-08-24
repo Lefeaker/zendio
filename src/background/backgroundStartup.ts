@@ -21,6 +21,11 @@ import { createSessionDraftStore, type SessionDraftStore } from './services/sess
 import { ensureUsageStatsInitialized } from './services/usageStats';
 import { bootstrapBackgroundDependencies, configureBackgroundDependencyStorage } from './bootstrap';
 import { SessionDraftTrustedOwnerContextSchema } from '../shared/sessionDrafts';
+import { ChromeOptionsRepository } from '../infrastructure/repositories/ChromeOptionsRepository';
+import {
+  createOptionsMutationCoordinator,
+  type OptionsMutationCoordinator
+} from './services/optionsMutationCoordinator';
 
 export interface BackgroundStartupDependencies {
   action: ActionService;
@@ -30,6 +35,7 @@ export interface BackgroundStartupDependencies {
   scripting: ScriptingService;
   storage: StorageService;
   tabs: TabsService;
+  optionsMutationCoordinator?: OptionsMutationCoordinator;
 }
 
 function unavailableSessionDraftStore(code: string): SessionDraftStore {
@@ -85,8 +91,11 @@ async function resolveSessionDraftOwner(tabs: Pick<TabsService, 'get'>, sender: 
 }
 
 export function startBackgroundRuntime(dependencies: BackgroundStartupDependencies): void {
+  const optionsMutationCoordinator =
+    dependencies.optionsMutationCoordinator ??
+    createOptionsMutationCoordinator(new ChromeOptionsRepository(dependencies.storage));
   configureBackgroundDependencyStorage(dependencies.storage);
-  bootstrapBackgroundDependencies();
+  bootstrapBackgroundDependencies(undefined, optionsMutationCoordinator);
   const optionsRepository = resolveRepository<IOptionsRepository>(DI_TOKENS.IOptionsRepository);
 
   registerContextMenuListeners(
@@ -107,7 +116,8 @@ export function startBackgroundRuntime(dependencies: BackgroundStartupDependenci
       dependencies.tabs,
       dependencies.runtime,
       dependencies.storage,
-      createSessionDraftRuntimeDependencies(dependencies)
+      createSessionDraftRuntimeDependencies(dependencies),
+      { optionsMutationCoordinator }
     )
   );
 

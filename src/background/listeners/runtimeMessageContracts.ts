@@ -3,6 +3,8 @@ import type { MessagePayload } from '../../platform/interfaces/messaging';
 import { isTabsBoundaryError } from '../../platform/interfaces/tabs';
 import { isObjectRecord } from '../../shared/guards/object';
 import * as Draft from '../../shared/sessionDrafts';
+import { OPTIONS_MUTATION_MESSAGE_TYPE } from '../../shared/types/optionsMutationMessages';
+import { USAGE_STATS_MESSAGE_TYPE } from '../../shared/types/usageStatsMessages';
 
 type UntrustedValue = unknown;
 
@@ -97,6 +99,14 @@ export function isTabContextActiveMessage(
   message: UntrustedValue
 ): message is IsTabContextActiveMessage {
   return IsTabContextActiveMessageSchema.safeParse(message).success;
+}
+
+export function isOptionsMutationMessageCandidate(message: UntrustedValue): boolean {
+  return isObjectRecord(message) && message.type === OPTIONS_MUTATION_MESSAGE_TYPE;
+}
+
+export function isUsageStatsMessageCandidate(message: UntrustedValue): boolean {
+  return isObjectRecord(message) && message.type === USAGE_STATS_MESSAGE_TYPE;
 }
 
 export const SESSION_DRAFT_OWNER_PROBE_TIMEOUT_MS = 1_000;

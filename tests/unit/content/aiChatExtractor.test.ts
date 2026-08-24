@@ -126,13 +126,7 @@ describe('extractAIChat', () => {
     return {
       get: vi.fn(async () =>
         createCompleteOptions(await testPlatformHarness.storage.sync.get<StoredOptions>('options'))
-      ),
-      set: vi.fn(async (options: Partial<CompleteOptions>) => {
-        const current =
-          (await testPlatformHarness.storage.sync.get<StoredOptions>('options')) ?? {};
-        await testPlatformHarness.storage.sync.set('options', { ...current, ...options });
-      }),
-      onChange: vi.fn(() => () => undefined)
+      )
     };
   }
 

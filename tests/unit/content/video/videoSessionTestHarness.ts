@@ -422,9 +422,8 @@ export function createDependencies(
     },
     optionsRepository: {
       get: vi.fn(() => Promise.resolve({ readingSession: { highlightTheme: 'gradient' } })),
-      set: vi.fn(() => Promise.resolve(undefined)),
       onChange: vi.fn(() => () => {})
-    },
+    } as never,
     videoRepository: {
       getVideoConfig: vi.fn(() => Promise.resolve(videoConfig)),
       savePromptPosition: vi.fn(() => Promise.resolve(undefined)),

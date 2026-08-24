@@ -4,7 +4,6 @@ import { formatDateTime } from '../clipper/utils/datetime';
 import { isAIChat } from '../detect';
 import type { StoredOptions } from '../../shared/types/options';
 import type { ContentExtractor, ExtractionContext } from './types';
-import type { OptionsRepository } from '../../shared/interfaces/optionsRepository';
 import type { IOptionsRepository } from '../../shared/repositories/IOptionsRepository';
 import type { ParsedMessage, PlatformId } from '../../third_party/ai-chat-exporter/types';
 import { resolveAIChatPlatformByUrl } from '../../third_party/ai-chat-exporter/platformIdentity';
@@ -25,7 +24,7 @@ interface OptionsProvider {
 type AIChatFallbackMessages = Pick<Messages, AIChatFallbackTitleMessageKey>;
 
 export interface AIChatExtractorDeps {
-  optionsRepository?: OptionsRepository | IOptionsRepository;
+  optionsRepository?: Pick<IOptionsRepository, 'get'>;
   optionsProvider?: OptionsProvider;
   getMessages?(): Promise<AIChatFallbackMessages>;
   detectPlatform(url: string, doc?: Document): PlatformId | null;
@@ -39,62 +38,12 @@ interface ResolvedAIChatExtractorDeps {
   now(): Date;
 }
 
-function isLegacyOptionsRepository(
-  repository: OptionsRepository | IOptionsRepository
-): repository is OptionsRepository {
-  return 'load' in repository && typeof repository.load === 'function';
-}
-
 function createOptionsProviderFromRepository(
-  repository: OptionsRepository | IOptionsRepository
+  repository: Pick<IOptionsRepository, 'get'>
 ): OptionsProvider {
-  let cached: StoredOptions | undefined;
-  let pending: Promise<StoredOptions> | null = null;
-  let unsubscribe: (() => void) | null = null;
-
-  const ensureSubscription = () => {
-    if (unsubscribe) {
-      return;
-    }
-    if (isLegacyOptionsRepository(repository)) {
-      unsubscribe = repository.subscribe((value) => {
-        cached = value;
-      });
-      return;
-    }
-
-    unsubscribe = repository.onChange((value) => {
-      cached = value;
-    });
-  };
-
   return {
-    async get(): Promise<StoredOptions> {
-      ensureSubscription();
-
-      if (cached) {
-        return cached;
-      }
-
-      if (pending === null) {
-        pending = (isLegacyOptionsRepository(repository) ? repository.load() : repository.get())
-          .then((value) => {
-            cached = value;
-            return value;
-          })
-          .finally(() => {
-            pending = null;
-          });
-      }
-
-      return pending;
-    },
-    reset(): void {
-      cached = undefined;
-      pending = null;
-      unsubscribe?.();
-      unsubscribe = null;
-    }
+    get: () => repository.get(),
+    reset: () => undefined
   };
 }
 
