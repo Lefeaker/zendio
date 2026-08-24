@@ -143,6 +143,7 @@ function distInventory(root) {
       if (entry.isDirectory()) visit(path);
       else if (entry.isFile()) {
         const relativePath = relative(root, path).split(sep).join('/');
+        if (relativePath.endsWith('.map') || basename(relativePath) === '.DS_Store') continue;
         rows.push({
           path: relativePath,
           directory: false,

@@ -12,7 +12,7 @@ import {
 
 const roots: string[] = [];
 
-async function createFixture() {
+async function createFixture(extraDistMember: { path: string; content: string } | null = null) {
   const root = await mkdtemp(join(tmpdir(), 'zendio-firefox-release-manifest-'));
   roots.push(root);
   const releaseDir = join(root, 'release');
@@ -23,6 +23,11 @@ async function createFixture() {
   await mkdir(sourceDir, { mode: 0o700 });
   await writeFile(join(distDir, 'manifest.json'), '{"name":"fixture"}\n');
   await writeFile(join(distDir, 'runtime.js'), 'console.log("fixture");\n');
+  await writeFile(join(distDir, 'runtime.js.map'), '{"version":3}\n');
+  await writeFile(join(distDir, '.DS_Store'), 'ignored metadata');
+  if (extraDistMember) {
+    await writeFile(join(distDir, extraDistMember.path), extraDistMember.content);
+  }
   await writeFile(join(sourceDir, 'README.md'), '# Source\n');
   const xpiPath = join(releaseDir, 'fixture.xpi');
   const sourceArchivePath = join(releaseDir, 'fixture-source.zip');
@@ -64,6 +69,18 @@ afterEach(async () => {
 });
 
 describe('Firefox release artifact manifest', () => {
+  it('compares the XPI with the packaged dist inventory rather than omitted build metadata', async () => {
+    await expect(createFixture()).resolves.toMatchObject({
+      releaseDir: expect.stringContaining('release')
+    });
+  });
+
+  it('still rejects a non-ignored dist member that is absent from the XPI', async () => {
+    await expect(
+      createFixture({ path: 'unexpected.txt', content: 'not packaged\n' })
+    ).rejects.toThrow('FIREFOX_RELEASE_XPI_DIST_MISMATCH');
+  });
+
   it('verifies the portable inventory and mints a single-use identity capability', async () => {
     const fixture = await createFixture();
     const binding = await verifyFirefoxReleaseArtifactManifest({
