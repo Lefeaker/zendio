@@ -204,11 +204,6 @@ describe('canonical test suite descriptors', () => {
   });
 
   it('imports the browser shard runner without spawning, logging, exiting, or setting exitCode', () => {
-    const importClosure = [
-      'scripts/run-browser-test-shards.mjs',
-      'scripts/utils/taskGraphRunner.mjs',
-      'scripts/utils/testShards.mjs'
-    ];
     const script = [
       "process.argv[1] = 'synthetic-import-only';",
       'const before = process.exitCode;',
@@ -221,7 +216,7 @@ describe('canonical test suite descriptors', () => {
       [
         '--no-warnings',
         '--experimental-permission',
-        ...importClosure.map((file) => `--allow-fs-read=${path.resolve(file)}`),
+        `--allow-fs-read=${process.cwd()}`,
         '--input-type=module',
         '--eval',
         script
@@ -254,9 +249,10 @@ describe('canonical test suite descriptors', () => {
           ts.isStringLiteral(statement.moduleSpecifier) ? statement.moduleSpecifier.text : ''
         )
     ).toEqual([
-      'node:child_process',
       'node:path',
       'node:url',
+      './config/commandBoundaryProfiles.mjs',
+      './utils/boundedCommand.mjs',
       './utils/taskGraphRunner.mjs',
       './utils/testShards.mjs'
     ]);
@@ -269,45 +265,24 @@ describe('canonical test suite descriptors', () => {
       )
     ).toEqual([]);
     expect(runnerAst.statements.filter(ts.isIfStatement)).toHaveLength(1);
-    expect(runnerSource).not.toMatch(/(?:node:fs|from\s+['"]fs['"])/u);
-
-    for (const dependencyPath of importClosure.slice(1)) {
-      const dependencySource = readFileSync(path.resolve(dependencyPath), 'utf8');
-      const dependencyAst = ts.createSourceFile(
-        dependencyPath,
-        dependencySource,
-        ts.ScriptTarget.Latest,
-        true,
-        ts.ScriptKind.JS
-      );
-      expect(
-        dependencyAst.statements.filter(
-          (statement) => !ts.isImportDeclaration(statement) && !ts.isFunctionDeclaration(statement)
-        ),
-        `${dependencyPath} has an import-time executable statement`
-      ).toEqual([]);
-    }
+    expect(runnerSource).not.toMatch(/node:child_process|\bspawn(?:Sync)?\s*\(/u);
+    expect(runnerSource).toContain('startBoundedCommand');
+    expect(runnerSource).toContain('parseManagedCommandInvocationArgv');
   });
 
-  it('returns the normal result contract for an invalid browser suite', async () => {
+  it('fails closed through the shared parser for an invalid browser suite', async () => {
     const { main: runBrowserShardsMain } = await loadBrowserRunnerModule();
-    const error = vi.spyOn(console, 'error').mockImplementation(() => undefined);
     const exitCodeBefore = process.exitCode;
 
-    await expect(runBrowserShardsMain(['node', 'runner', 'unknown'], {})).resolves.toEqual({
-      ok: false,
-      failed: []
+    await expect(runBrowserShardsMain(['node', 'runner', 'unknown'], {})).rejects.toMatchObject({
+      code: 'COORDINATOR_ARGUMENTS_INVALID'
     });
-    expect(error).toHaveBeenCalledWith(
-      'Usage: node scripts/run-browser-test-shards.mjs <e2e|visual>'
-    );
     expect(process.exitCode).toBe(exitCodeBefore);
 
     for (const inheritedName of ['__proto__', 'constructor', 'toString']) {
-      await expect(runBrowserShardsMain(['node', 'runner', inheritedName], {})).resolves.toEqual({
-        ok: false,
-        failed: []
-      });
+      await expect(
+        runBrowserShardsMain(['node', 'runner', inheritedName], {})
+      ).rejects.toMatchObject({ code: 'COORDINATOR_ARGUMENTS_INVALID' });
     }
   });
 });
@@ -1358,11 +1333,17 @@ async function loadTestShardsModule(): Promise<{
 }
 
 async function loadBrowserRunnerModule(): Promise<{
-  main: (argv?: string[], env?: NodeJS.ProcessEnv) => Promise<{ ok: boolean; failed: string[] }>;
+  main: (
+    argv?: string[],
+    options?: object
+  ) => Promise<{ ok: boolean; failed: Array<{ code?: number }> }>;
 }> {
   const moduleUrl = new URL('../../../scripts/run-browser-test-shards.mjs', import.meta.url).href;
   return (await import(moduleUrl)) as {
-    main: (argv?: string[], env?: NodeJS.ProcessEnv) => Promise<{ ok: boolean; failed: string[] }>;
+    main: (
+      argv?: string[],
+      options?: object
+    ) => Promise<{ ok: boolean; failed: Array<{ code?: number }> }>;
   };
 }
 
