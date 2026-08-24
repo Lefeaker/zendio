@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
+import { z } from 'zod';
 import { runBoundedCommand } from '../../../scripts/utils/boundedCommand.mjs';
+
+const StylelintConfigSchema = z.object({
+  rules: z.record(z.unknown()).optional()
+});
 
 async function printStylelintConfig(filePath: string) {
   const result = await runBoundedCommand({
@@ -11,7 +16,7 @@ async function printStylelintConfig(filePath: string) {
       `Stylelint boundary failed: ${result.terminalReason}\n${result.output.stderr.text}`
     );
   }
-  return JSON.parse(result.output.stdout.text);
+  return StylelintConfigSchema.parse(JSON.parse(result.output.stdout.text));
 }
 
 describe('Options Stylelint config', () => {

@@ -1,17 +1,19 @@
 import { execFileSync } from 'node:child_process';
 import { describe, expect, it } from 'vitest';
+import { z } from 'zod';
 
-function runModuleScenario(source: string) {
+function runModuleScenario<T>(source: string, schema: z.ZodType<T>): T {
   const output = execFileSync(process.execPath, ['--input-type=module', '--eval', source], {
     cwd: process.cwd(),
     encoding: 'utf8'
   });
-  return JSON.parse(output);
+  return schema.parse(JSON.parse(output));
 }
 
 describe('bounded task graph runner', () => {
   it('rejects malformed dependencies and cycles before starting work', () => {
-    const result = runModuleScenario(`
+    const result = runModuleScenario(
+      `
       import { validateTaskGraph } from './scripts/utils/taskGraphRunner.mjs';
       const task = (id, dependsOn = []) => ({
         id, name: id, profile: 'fixture-v1', args: ['success', id], dependsOn
@@ -27,7 +29,9 @@ describe('bounded task graph runner', () => {
         catch (error) { return error.message; }
       });
       process.stdout.write(JSON.stringify(messages));
-    `);
+    `,
+      z.array(z.string())
+    );
 
     expect(result).toEqual([
       'Invalid task graph: duplicate task id: a',
@@ -38,7 +42,8 @@ describe('bounded task graph runner', () => {
   });
 
   it('closes admission on first failure, cancels siblings together, and drains them', () => {
-    const result = runModuleScenario(`
+    const result = runModuleScenario(
+      `
       import { runTaskGraph } from './scripts/utils/taskGraphRunner.mjs';
       const controls = new Map();
       const events = [];
@@ -71,7 +76,24 @@ describe('bounded task graph runner', () => {
       controls.get('b')({ ok: false, terminalReason: 'cancelled', exitCode: null, signal: 'SIGTERM' });
       const graph = await pending;
       process.stdout.write(JSON.stringify({ events, beforeDrain, graph }));
-    `);
+    `,
+      z.object({
+        events: z.array(z.string()),
+        beforeDrain: z.boolean(),
+        graph: z.object({
+          ok: z.boolean(),
+          cancelled: z.array(z.string()),
+          failed: z.array(
+            z.object({
+              id: z.string(),
+              terminalReason: z.string(),
+              code: z.number().nullable(),
+              signal: z.string().nullable()
+            })
+          )
+        })
+      })
+    );
 
     expect(result.beforeDrain).toBe(false);
     expect(result.events).toEqual(['start:a', 'start:b', 'cancel:b:nonzero']);
@@ -82,7 +104,8 @@ describe('bounded task graph runner', () => {
   });
 
   it('uses fixed bounded concurrency and admits the next wave only after success', () => {
-    const result = runModuleScenario(`
+    const result = runModuleScenario(
+      `
       import { runTaskGraph } from './scripts/utils/taskGraphRunner.mjs';
       const controls = new Map();
       const started = [];
@@ -109,7 +132,16 @@ describe('bounded task graph runner', () => {
       controls.get('c')({ ok: true, terminalReason: 'success', exitCode: 0, signal: null });
       const graph = await pending;
       process.stdout.write(JSON.stringify({ firstWave, secondWave, graph }));
-    `);
+    `,
+      z.object({
+        firstWave: z.array(z.string()),
+        secondWave: z.array(z.string()),
+        graph: z.object({
+          ok: z.boolean(),
+          completed: z.array(z.string())
+        })
+      })
+    );
 
     expect(result.firstWave).toEqual(['a', 'b']);
     expect(result.secondWave).toEqual(['a', 'b', 'c']);
@@ -118,7 +150,8 @@ describe('bounded task graph runner', () => {
   });
 
   it('uses the aggregate deadline to cancel and drain running work', () => {
-    const result = runModuleScenario(`
+    const result = runModuleScenario(
+      `
       import { runTaskGraph } from './scripts/utils/taskGraphRunner.mjs';
       let deadline;
       let complete;
@@ -141,7 +174,15 @@ describe('bounded task graph runner', () => {
       complete({ ok: false, terminalReason: 'root-deadline', exitCode: null, signal: null });
       const graph = await pending;
       process.stdout.write(JSON.stringify({ events, graph }));
-    `);
+    `,
+      z.object({
+        events: z.array(z.string()),
+        graph: z.object({
+          ok: z.boolean(),
+          cancelled: z.array(z.string())
+        })
+      })
+    );
 
     expect(result.events).toEqual(['cancel:root-deadline']);
     expect(result.graph.ok).toBe(false);
