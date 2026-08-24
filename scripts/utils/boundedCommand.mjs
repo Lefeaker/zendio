@@ -12,16 +12,16 @@ import {
   realpathSync,
   readFileSync,
   readdirSync,
+  renameSync,
   writeSync
 } from 'node:fs';
 import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { performance } from 'node:perf_hooks';
 import {
   assertClosedKeys,
-  assertSnapshotStable,
+  canonicalJsonBytes as canonicalPrettyJsonBytes,
   deepFreeze,
-  readCanonicalJsonFileBounded,
-  snapshotFile
+  parseJsonBytesStrict
 } from '../../tools/npm-audit-regression/canonical-json.mjs';
 import {
   COMMAND_BOUNDARY_VERSION,
@@ -163,21 +163,8 @@ function canonicalJson(value) {
   return JSON.stringify(value);
 }
 
-function sha256FileBounded(path, maximumBytes = 32 << 20) {
-  const stats = lstatSync(path);
-  if (
-    !stats.isFile() ||
-    stats.isSymbolicLink() ||
-    stats.uid !== process.getuid() ||
-    stats.nlink !== 1 ||
-    stats.size > maximumBytes
-  )
-    throw new Error('RELEASE_FILE_INVALID');
-  const before = realpathSync(path);
-  const bytes = readFileSync(path);
-  if (bytes.length !== stats.size || realpathSync(path) !== before)
-    throw new Error('RELEASE_FILE_CHANGED');
-  return createHash('sha256').update(bytes).digest('hex');
+function sha256FileBounded(path, maximumBytes, attemptRoot) {
+  return releaseFileSnapshot(attemptRoot, path, maximumBytes).sha256;
 }
 
 function releaseDirectoryIdentity(path) {
@@ -200,14 +187,8 @@ function releaseDirectoryIdentity(path) {
   };
 }
 
-function releaseFileSnapshot(attemptRoot, path, maximumBytes = 32 << 20) {
-  if (
-    typeof path !== 'string' ||
-    !isAbsolute(path) ||
-    resolve(path) !== path ||
-    !contained(attemptRoot, path)
-  )
-    throw new Error('RELEASE_FILE_PATH_INVALID');
+function releaseParentIdentityChain(attemptRoot, path) {
+  if (!contained(attemptRoot, path)) throw new Error('RELEASE_FILE_PATH_INVALID');
   const parents = [];
   let current = attemptRoot;
   parents.push(releaseDirectoryIdentity(current));
@@ -218,6 +199,31 @@ function releaseFileSnapshot(attemptRoot, path, maximumBytes = 32 << 20) {
       parents.push(releaseDirectoryIdentity(current));
     }
   }
+  return parents;
+}
+
+function stableFileStats(left, right) {
+  return (
+    left.dev === right.dev &&
+    left.ino === right.ino &&
+    left.mode === right.mode &&
+    left.uid === right.uid &&
+    left.nlink === right.nlink &&
+    left.size === right.size &&
+    left.mtimeMs === right.mtimeMs &&
+    left.ctimeMs === right.ctimeMs
+  );
+}
+
+function releaseFileSnapshot(attemptRoot, path, maximumBytes = 32 << 20) {
+  if (
+    typeof path !== 'string' ||
+    !isAbsolute(path) ||
+    resolve(path) !== path ||
+    !contained(attemptRoot, path)
+  )
+    throw new Error('RELEASE_FILE_PATH_INVALID');
+  const parents = releaseParentIdentityChain(attemptRoot, path);
   const before = lstatSync(path);
   if (
     !before.isFile() ||
@@ -269,6 +275,72 @@ function releaseFileSnapshot(attemptRoot, path, maximumBytes = 32 << 20) {
   };
 }
 
+function readStableOwnedFile(path, maximumBytes, attemptRoot, requiredMode = 0o600) {
+  if (
+    typeof path !== 'string' ||
+    !isAbsolute(path) ||
+    resolve(path) !== path ||
+    !contained(attemptRoot, path)
+  )
+    throw new Error('RELEASE_JSON_PATH_INVALID');
+  const parentsBefore = releaseParentIdentityChain(attemptRoot, path);
+  const before = lstatSync(path);
+  if (
+    !before.isFile() ||
+    before.isSymbolicLink() ||
+    before.uid !== process.getuid() ||
+    before.nlink !== 1 ||
+    (before.mode & 0o777) !== requiredMode ||
+    before.size > maximumBytes ||
+    realpathSync(path) !== path
+  )
+    throw new Error('RELEASE_JSON_INVALID');
+  const descriptor = openSync(path, constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0));
+  let bytes;
+  let opened;
+  try {
+    opened = fstatSync(descriptor);
+    if (!opened.isFile() || !stableFileStats(before, opened))
+      throw new Error('RELEASE_JSON_CHANGED');
+    bytes = readFileSync(descriptor);
+    const after = fstatSync(descriptor);
+    if (!stableFileStats(opened, after) || bytes.length !== opened.size)
+      throw new Error('RELEASE_JSON_CHANGED');
+  } finally {
+    closeSync(descriptor);
+  }
+  const current = lstatSync(path);
+  const parentsAfter = releaseParentIdentityChain(attemptRoot, path);
+  if (
+    !stableFileStats(opened, current) ||
+    realpathSync(path) !== path ||
+    JSON.stringify(parentsBefore) !== JSON.stringify(parentsAfter)
+  )
+    throw new Error('RELEASE_JSON_CHANGED');
+  return {
+    bytes,
+    stats: opened,
+    sha256: createHash('sha256').update(bytes).digest('hex')
+  };
+}
+
+function readCanonicalJsonDescriptor(
+  path,
+  maximumBytes,
+  maximumDepth,
+  attemptRoot,
+  format = 'compact'
+) {
+  const record = readStableOwnedFile(path, maximumBytes, attemptRoot);
+  const value = parseJsonBytesStrict(record.bytes, { path, maximumDepth });
+  const expected =
+    format === 'pretty'
+      ? canonicalPrettyJsonBytes(value)
+      : Buffer.from(`${canonicalJson(value)}\n`, 'utf8');
+  if (!record.bytes.equals(expected)) throw new Error('RELEASE_JSON_NONCANONICAL');
+  return { ...record, value };
+}
+
 function assertReleaseFileSnapshotStable(before, after) {
   if (JSON.stringify(before) !== JSON.stringify(after)) throw new Error('RELEASE_MANIFEST_CHANGED');
 }
@@ -304,7 +376,8 @@ function ensurePrivateDirectory(path) {
   return path;
 }
 
-function writeExclusiveCanonicalJson(path, value) {
+function writeExclusiveCanonicalJson(path, value, attemptRoot) {
+  releaseParentIdentityChain(attemptRoot, path);
   const bytes = Buffer.from(`${canonicalJson(value)}\n`, 'utf8');
   if (bytes.length > 64 * 1024) throw new Error('RELEASE_JSON_LIMIT');
   const descriptor = openSync(
@@ -312,11 +385,12 @@ function writeExclusiveCanonicalJson(path, value) {
     constants.O_CREAT | constants.O_EXCL | constants.O_WRONLY | (constants.O_NOFOLLOW ?? 0),
     0o600
   );
+  let opened;
   try {
     let offset = 0;
     while (offset < bytes.length) offset += writeSync(descriptor, bytes, offset);
     fsyncSync(descriptor);
-    const opened = fstatSync(descriptor);
+    opened = fstatSync(descriptor);
     if (!opened.isFile() || opened.uid !== process.getuid() || opened.nlink !== 1)
       throw new Error('RELEASE_JSON_IDENTITY');
   } finally {
@@ -324,12 +398,11 @@ function writeExclusiveCanonicalJson(path, value) {
   }
   const stats = lstatSync(path);
   if (
+    !stableFileStats(opened, stats) ||
     !stats.isFile() ||
     stats.isSymbolicLink() ||
-    stats.uid !== process.getuid() ||
-    stats.nlink !== 1 ||
     (stats.mode & 0o777) !== 0o600 ||
-    !readFileSync(path).equals(bytes)
+    realpathSync(path) !== path
   )
     throw new Error('RELEASE_JSON_PUBLICATION');
   const parent = openSync(dirname(path), constants.O_RDONLY | (constants.O_DIRECTORY ?? 0));
@@ -385,7 +458,13 @@ function appendGithubOutput(path, lines, { requireEmpty = false } = {}) {
 
 function releaseResult(spec) {
   const context = spec.commandContext;
-  const value = readCanonicalJsonFileBounded(context.resultPath, 64 * 1024, 16);
+  const { value } = readCanonicalJsonDescriptor(
+    context.resultPath,
+    64 * 1024,
+    16,
+    context.attemptRoot,
+    'pretty'
+  );
   const browser = context.browser;
   const fields = browser === 'chrome' ? ['manifestPath', 'zipPath'] : ['manifestPath', 'xpiPath'];
   const paths = fields.map((field) => value[field]);
@@ -394,7 +473,7 @@ function releaseResult(spec) {
   if (new Set(paths).size !== paths.length) throw new Error('RELEASE_RESULT_ALIAS');
   for (const path of paths) {
     if (!contained(context.attemptRoot, path)) throw new Error('RELEASE_RESULT_OUTSIDE_ATTEMPT');
-    sha256FileBounded(path, 64 << 20);
+    sha256FileBounded(path, 64 << 20, context.attemptRoot);
   }
   return { value, fields, paths };
 }
@@ -411,35 +490,8 @@ function releaseStatePaths(attemptRoot, browser) {
 }
 
 function readCanonicalOwnedJson(path, maximumBytes = 64 * 1024, attemptRoot) {
-  if (attemptRoot) {
-    if (!contained(attemptRoot, path)) throw new Error('RELEASE_JSON_PATH_INVALID');
-    let current = attemptRoot;
-    releaseDirectoryIdentity(current);
-    const relativeParent = relative(attemptRoot, dirname(path));
-    if (relativeParent !== '') {
-      for (const part of relativeParent.split(sep)) {
-        current = join(current, part);
-        releaseDirectoryIdentity(current);
-      }
-    }
-  }
-  const stats = lstatSync(path);
-  if (
-    !stats.isFile() ||
-    stats.isSymbolicLink() ||
-    stats.uid !== process.getuid() ||
-    stats.nlink !== 1 ||
-    (stats.mode & 0o777) !== 0o600 ||
-    stats.size > maximumBytes
-  )
-    throw new Error('RELEASE_JSON_INVALID');
-  const bytes = readFileSync(path);
-  const value = JSON.parse(bytes.toString('utf8'));
-  if (!value || typeof value !== 'object' || Array.isArray(value))
-    throw new Error('RELEASE_JSON_INVALID');
-  if (!bytes.equals(Buffer.from(`${canonicalJson(value)}\n`, 'utf8')))
-    throw new Error('RELEASE_JSON_NONCANONICAL');
-  return { value, bytes, stats };
+  if (!attemptRoot) throw new Error('RELEASE_JSON_ROOT_REQUIRED');
+  return readCanonicalJsonDescriptor(path, maximumBytes, 32, attemptRoot);
 }
 
 function startResolvedCommand(spec, dependencies = {}) {
@@ -761,6 +813,11 @@ const RELEASE_STATE_REQUIRED_KEYS = [
 
 const RELEASE_STATE_OPTIONAL_KEYS = ['lastStartedOperation', 'lastCompletedOperation'];
 
+const STORE_ACTION_SEQUENCES = deepFreeze({
+  chrome: ['upload', 'publish'],
+  firefox: ['upload', 'version-submit', 'source-patch']
+});
+
 const STATE_BINDING_KEYS = [
   'schema',
   'browser',
@@ -809,7 +866,14 @@ function validateArtifactReceipt(spec, artifact, expectedManifestPath, expectedM
   return { identity, snapshot };
 }
 
-function validateReleaseStateValue(value, context, artifactDigest, artifactValue, identity) {
+function validateReleaseStateValue(
+  value,
+  context,
+  artifactDigest,
+  artifactValue,
+  identity,
+  { childOk, allowInitial = true } = {}
+) {
   const keys = Object.keys(value);
   if (
     RELEASE_STATE_REQUIRED_KEYS.some((key) => !keys.includes(key)) ||
@@ -819,15 +883,10 @@ function validateReleaseStateValue(value, context, artifactDigest, artifactValue
     )
   )
     throw new Error('RELEASE_STATE_INVALID');
-  const operationValues = ['upload', 'version-submit', 'source-patch'];
-  const outcomeValues = [
-    'not-started',
-    'pre-mutation-failure',
-    'unknown-submission-state',
-    'success'
-  ];
+  const actions = STORE_ACTION_SEQUENCES[context.browser];
+  if (!actions) throw new Error('RELEASE_STATE_INVALID');
   for (const key of RELEASE_STATE_OPTIONAL_KEYS) {
-    if (value[key] !== undefined && !operationValues.includes(value[key]))
+    if (value[key] !== undefined && !actions.includes(value[key]))
       throw new Error('RELEASE_STATE_INVALID');
   }
   if (
@@ -842,23 +901,63 @@ function validateReleaseStateValue(value, context, artifactDigest, artifactValue
     value.stage.length === 0 ||
     Buffer.byteLength(value.stage) > 128 ||
     typeof value.outcome !== 'string' ||
-    !outcomeValues.includes(value.outcome) ||
+    !['not-started', 'pre-mutation-failure', 'unknown-submission-state', 'success'].includes(
+      value.outcome
+    ) ||
     Buffer.byteLength(value.outcome) > 128 ||
     typeof value.mutationInvoked !== 'boolean' ||
     typeof value.retrySafe !== 'boolean' ||
     (value.mutationInvoked && value.retrySafe) ||
-    (!value.mutationInvoked && !value.retrySafe) ||
-    (value.outcome === 'not-started' &&
+    (!value.mutationInvoked && !value.retrySafe)
+  )
+    throw new Error('RELEASE_STATE_INVALID');
+  const startedIndex =
+    value.lastStartedOperation === undefined ? -1 : actions.indexOf(value.lastStartedOperation);
+  const completedIndex =
+    value.lastCompletedOperation === undefined ? -1 : actions.indexOf(value.lastCompletedOperation);
+  if (
+    completedIndex > startedIndex ||
+    startedIndex - completedIndex > 1 ||
+    (startedIndex < 0 && completedIndex >= 0)
+  )
+    throw new Error('RELEASE_STATE_ACTION_SEQUENCE_INVALID');
+  const expectedStage =
+    startedIndex < 0
+      ? 'preflight'
+      : startedIndex === completedIndex
+        ? `${actions[startedIndex]}-completed`
+        : `${actions[startedIndex]}-started`;
+  const initial = value.outcome === 'not-started';
+  if (
+    (initial &&
+      (!allowInitial ||
+        value.stage !== 'preflight' ||
+        value.mutationInvoked !== false ||
+        value.retrySafe !== true ||
+        startedIndex !== -1 ||
+        completedIndex !== -1)) ||
+    (value.outcome === 'pre-mutation-failure' &&
       (value.stage !== 'preflight' ||
         value.mutationInvoked !== false ||
         value.retrySafe !== true ||
-        value.lastStartedOperation !== undefined ||
-        value.lastCompletedOperation !== undefined)) ||
-    (value.outcome === 'pre-mutation-failure' && value.mutationInvoked !== false) ||
-    (['unknown-submission-state', 'success'].includes(value.outcome) &&
-      value.mutationInvoked !== true)
+        startedIndex !== -1 ||
+        completedIndex !== -1 ||
+        childOk === true)) ||
+    (value.outcome === 'unknown-submission-state' &&
+      (value.stage !== expectedStage ||
+        value.mutationInvoked !== true ||
+        value.retrySafe !== false ||
+        startedIndex < 0 ||
+        childOk === true)) ||
+    (value.outcome === 'success' &&
+      (value.stage !== `${actions.at(-1)}-completed` ||
+        value.mutationInvoked !== true ||
+        value.retrySafe !== false ||
+        startedIndex !== actions.length - 1 ||
+        completedIndex !== actions.length - 1 ||
+        childOk === false))
   )
-    throw new Error('RELEASE_STATE_INVALID');
+    throw new Error('RELEASE_STATE_TERMINAL_INVALID');
 }
 
 function validateStateBinding(spec, { requireInitial = false } = {}) {
@@ -903,12 +1002,11 @@ function validateStateBinding(spec, { requireInitial = false } = {}) {
   if (
     (requireInitial &&
       (!initial || state.value.mutationInvoked !== false || state.value.retrySafe !== true)) ||
-    (initial &&
-      (binding.value.stateDevice !== String(state.stats.dev) ||
-        binding.value.stateInode !== String(state.stats.ino) ||
-        binding.value.stateMode !== String(state.stats.mode & 0o777) ||
-        binding.value.stateSize !== String(state.stats.size) ||
-        binding.value.stateSha256 !== stateDigest))
+    binding.value.stateDevice !== String(state.stats.dev) ||
+    binding.value.stateInode !== String(state.stats.ino) ||
+    binding.value.stateMode !== String(state.stats.mode & 0o777) ||
+    binding.value.stateSize !== String(state.stats.size) ||
+    binding.value.stateSha256 !== stateDigest
   )
     throw new Error('RELEASE_STATE_BINDING_INVALID');
   return { paths, artifact, binding, state, artifactValidation };
@@ -929,7 +1027,11 @@ function executeInProcessProfile(spec) {
       if (result.value[key] !== undefined && result.value[key] !== value)
         throw new Error('RELEASE_RESULT_IDENTITY_MISMATCH');
     }
-    const releaseManifestSha256 = sha256FileBounded(result.value.manifestPath, 32 << 20);
+    const releaseManifestSha256 = sha256FileBounded(
+      result.value.manifestPath,
+      32 << 20,
+      context.attemptRoot
+    );
     appendGithubOutput(
       context.githubOutputPath,
       [
@@ -986,7 +1088,7 @@ function executeInProcessProfile(spec) {
       mutationInvoked: false,
       retrySafe: true
     };
-    const publication = writeExclusiveCanonicalJson(paths.statePath, state);
+    const publication = writeExclusiveCanonicalJson(paths.statePath, state, context.attemptRoot);
     const binding = {
       schema: 'zendio-release-state-binding-v1',
       browser: context.browser,
@@ -1003,7 +1105,7 @@ function executeInProcessProfile(spec) {
       releaseSha: identity.releaseSha,
       releaseTree: identity.releaseTree
     };
-    writeExclusiveCanonicalJson(paths.bindingReceiptPath, binding);
+    writeExclusiveCanonicalJson(paths.bindingReceiptPath, binding, context.attemptRoot);
     return syntheticResult(spec.profileId, true, 'success');
   }
   if (spec.operation === 'release-state-check-v1') {
@@ -1070,7 +1172,8 @@ function publishArtifactVerificationReceipt(spec, before) {
   };
   writeExclusiveCanonicalJson(
     join(receipts, `${context.browser}-artifact-verification.json`),
-    receipt
+    receipt,
+    context.attemptRoot
   );
 }
 
@@ -1085,7 +1188,7 @@ function assertStoreProfilePreconditions(spec) {
     !/^[0-9a-f]{64}$/u.test(context.expectedManifestSha256)
   )
     throw new Error('RELEASE_MANIFEST_BINDING_MISSING');
-  validateStateBinding(spec, { requireInitial: true });
+  const validation = validateStateBinding(spec, { requireInitial: true });
   if (context.browser === 'firefox') {
     if (profileArgumentValue(spec.argv, '--saved-upload-uuid-path') !== paths.uuidPath)
       throw new Error('FIREFOX_UUID_PATH_INVALID');
@@ -1096,37 +1199,205 @@ function assertStoreProfilePreconditions(spec) {
       if (error?.code !== 'ENOENT') throw error;
     }
   }
+  return validation;
 }
 
-function assertPlaywrightPhasePreconditions(spec) {
+function assertCanonicalRecordEqual(actual, expected, code) {
+  if (!actual.bytes.equals(expected.bytes) || !stableFileStats(actual.stats, expected.stats))
+    throw new Error(code);
+}
+
+function refreshStoreStateBinding(spec, initial, result) {
+  if (!result.closeObserved || !result.pipeDrainObserved)
+    throw new Error('RELEASE_STORE_CHILD_NOT_DRAINED');
   const context = spec.commandContext;
-  if (!context?.playwrightPhase) return;
+  const currentArtifact = readCanonicalOwnedJson(
+    initial.paths.artifactReceiptPath,
+    64 * 1024,
+    context.attemptRoot
+  );
+  assertCanonicalRecordEqual(
+    currentArtifact,
+    initial.artifact,
+    'ARTIFACT_RECEIPT_CHANGED_DURING_STORE'
+  );
+  const artifactValidation = validateArtifactReceipt(
+    spec,
+    currentArtifact,
+    context.manifestPath,
+    context.expectedManifestSha256
+  );
+  const currentBinding = readCanonicalOwnedJson(
+    initial.paths.bindingReceiptPath,
+    64 * 1024,
+    context.attemptRoot
+  );
+  assertCanonicalRecordEqual(currentBinding, initial.binding, 'RELEASE_STATE_BINDING_CAS_MISMATCH');
+  const terminalState = readCanonicalOwnedJson(
+    initial.paths.statePath,
+    16 * 1024,
+    context.attemptRoot
+  );
+  const artifactDigest = createHash('sha256').update(currentArtifact.bytes).digest('hex');
+  validateReleaseStateValue(
+    terminalState.value,
+    context,
+    artifactDigest,
+    currentArtifact.value,
+    artifactValidation.identity,
+    { childOk: result.ok, allowInitial: false }
+  );
+  const nextBinding = {
+    ...initial.binding.value,
+    stateDevice: String(terminalState.stats.dev),
+    stateInode: String(terminalState.stats.ino),
+    stateMode: String(terminalState.stats.mode & 0o777),
+    stateSize: String(terminalState.stats.size),
+    stateSha256: terminalState.sha256
+  };
+  const nextPath = `${initial.paths.bindingReceiptPath}.next`;
+  writeExclusiveCanonicalJson(nextPath, nextBinding, context.attemptRoot);
+  const bindingCas = readCanonicalOwnedJson(
+    initial.paths.bindingReceiptPath,
+    64 * 1024,
+    context.attemptRoot
+  );
+  const stateCas = readCanonicalOwnedJson(initial.paths.statePath, 16 * 1024, context.attemptRoot);
+  assertCanonicalRecordEqual(bindingCas, initial.binding, 'RELEASE_STATE_BINDING_CAS_MISMATCH');
+  assertCanonicalRecordEqual(stateCas, terminalState, 'RELEASE_STATE_CAS_MISMATCH');
+  renameSync(nextPath, initial.paths.bindingReceiptPath);
+  const parent = openSync(
+    dirname(initial.paths.bindingReceiptPath),
+    constants.O_RDONLY | (constants.O_DIRECTORY ?? 0)
+  );
+  try {
+    fsyncSync(parent);
+  } finally {
+    closeSync(parent);
+  }
+  const publishedBinding = readCanonicalOwnedJson(
+    initial.paths.bindingReceiptPath,
+    64 * 1024,
+    context.attemptRoot
+  );
+  const publishedState = readCanonicalOwnedJson(
+    initial.paths.statePath,
+    16 * 1024,
+    context.attemptRoot
+  );
+  if (!publishedBinding.bytes.equals(Buffer.from(`${canonicalJson(nextBinding)}\n`, 'utf8')))
+    throw new Error('RELEASE_STATE_BINDING_PUBLICATION_INVALID');
+  assertCanonicalRecordEqual(publishedState, terminalState, 'RELEASE_STATE_CHANGED_AFTER_REFRESH');
+  validateStateBinding(spec);
+}
+
+function storePostconditionFailure(spec, result, error) {
+  return syntheticResult(
+    spec.profileId,
+    false,
+    error instanceof Error ? error.message : 'RELEASE_STORE_POSTCONDITION_FAILED',
+    result.output.stdout.text,
+    result.output.stderr.text,
+    {
+      exitCode: result.exitCode,
+      signal: result.signal,
+      timedOut: result.timedOut,
+      cancelled: result.cancelled,
+      escalation: result.escalation,
+      closeObserved: result.closeObserved,
+      pipeDrainObserved: result.pipeDrainObserved,
+      output: result.output
+    }
+  );
+}
+
+function wrapStoreCompletion(handle, initial) {
+  if (!initial) return handle;
+  return {
+    ...handle,
+    completion: handle.completion.then((result) => {
+      try {
+        refreshStoreStateBinding(handle.spec, initial, result);
+        return result;
+      } catch (error) {
+        return storePostconditionFailure(handle.spec, result, error);
+      }
+    })
+  };
+}
+
+function assertFirefoxExecutionPreconditions(spec) {
+  const context = spec.commandContext;
+  if (!context?.firefoxExecution) return;
+  const runId = spec.env.GITHUB_RUN_ID;
+  const runAttempt = spec.env.GITHUB_RUN_ATTEMPT;
+  const job = spec.env.GITHUB_JOB;
+  const runnerTemp = spec.env.RUNNER_TEMP;
+  const expectedAttemptRoot =
+    context.firefoxExecutionClass === 'release'
+      ? spec.env.CI === 'true'
+        ? join(realpathSync(runnerTemp), `zendio-firefox-${runId}-${runAttempt}`)
+        : spec.env.ZENDIO_PLAYWRIGHT_ATTEMPT_ROOT
+      : context.firefoxExecutionClass === 'ordinary-ci'
+        ? join(realpathSync(runnerTemp), `zendio-ci-node-${runId}-${runAttempt}-${job}`)
+        : context.firefoxExecutionClass === 'protected-verifier'
+          ? join(realpathSync(runnerTemp), `zendio-firefox-submit-${runId}-${runAttempt}`)
+          : null;
+  if (expectedAttemptRoot !== context.attemptRoot)
+    throw new Error('PLAYWRIGHT_PHASE_ATTEMPT_ROOT_INVALID');
   releaseDirectoryIdentity(context.attemptRoot);
   releaseDirectoryIdentity(join(context.attemptRoot, 'install'));
+  if (
+    context.userconfig !== join(context.attemptRoot, 'install/npm-userconfig') ||
+    context.globalconfig !== join(context.attemptRoot, 'install/npm-globalconfig')
+  )
+    throw new Error('NPM_CONFIG_IDENTITY_INVALID');
   for (const path of [context.userconfig, context.globalconfig]) {
-    const stats = lstatSync(path);
-    if (
-      !stats.isFile() ||
-      stats.isSymbolicLink() ||
-      stats.uid !== process.getuid() ||
-      stats.nlink !== 1 ||
-      (stats.mode & 0o777) !== 0o600 ||
-      readFileSync(path).length !== 0 ||
-      realpathSync(path) !== path
-    )
-      throw new Error('NPM_CONFIG_IDENTITY_INVALID');
+    const record = readStableOwnedFile(path, 0, context.attemptRoot);
+    if (record.bytes.length !== 0) throw new Error('NPM_CONFIG_IDENTITY_INVALID');
   }
-  if (context.hostDependencies) {
+  if (
+    spec.env.NPM_CONFIG_USERCONFIG !== context.userconfig ||
+    spec.env.NPM_CONFIG_GLOBALCONFIG !== context.globalconfig
+  )
+    throw new Error('NPM_CONFIG_IDENTITY_INVALID');
+  if (context.firefoxExecutionClass === 'protected-verifier') {
+    if (
+      context.browserRootState !== 'none' ||
+      context.browsersPath !== null ||
+      spec.env.PLAYWRIGHT_BROWSERS_PATH !== undefined ||
+      spec.env.ZENDIO_PLAYWRIGHT_ATTEMPT_ROOT !== undefined
+    )
+      throw new Error('PLAYWRIGHT_PROTECTED_VERIFIER_ISOLATION_INVALID');
+    return;
+  }
+  const expectedBrowserRoot = join(
+    context.attemptRoot,
+    context.firefoxExecutionClass === 'release' ? 'playwright-browsers' : 'browsers'
+  );
+  if (
+    context.browsersPath !== expectedBrowserRoot ||
+    spec.env.PLAYWRIGHT_BROWSERS_PATH !== context.browsersPath ||
+    (context.firefoxExecutionClass === 'release'
+      ? spec.env.ZENDIO_PLAYWRIGHT_ATTEMPT_ROOT !== context.attemptRoot
+      : spec.env.ZENDIO_PLAYWRIGHT_ATTEMPT_ROOT !== undefined)
+  )
+    throw new Error('PLAYWRIGHT_EXECUTION_BINDING_INVALID');
+  if (context.browserRootState === 'absent') {
     try {
       lstatSync(context.browsersPath);
       throw new Error('PLAYWRIGHT_BROWSER_ROOT_REUSED');
     } catch (error) {
       if (error?.code !== 'ENOENT') throw error;
     }
-  } else {
+  } else if (context.browserRootState === 'empty') {
     releaseDirectoryIdentity(context.browsersPath);
     if (readdirSync(context.browsersPath).length !== 0)
       throw new Error('PLAYWRIGHT_BROWSER_ROOT_INVALID');
+  } else if (context.browserRootState === 'existing') {
+    releaseDirectoryIdentity(context.browsersPath);
+  } else {
+    throw new Error('PLAYWRIGHT_BROWSER_ROOT_STATE_INVALID');
   }
 }
 
@@ -1390,8 +1661,8 @@ export function startBoundedCommand({ profileId, arguments: args = [] }, depende
   const resolver = dependencies.resolveProfile ?? resolveCommandProfile;
   const spec = resolver(profileId, args, { environment: dependencies.environment ?? process.env });
   if (spec.operation) return startInProcessProfile(spec);
-  assertPlaywrightPhasePreconditions(spec);
-  assertStoreProfilePreconditions(spec);
+  assertFirefoxExecutionPreconditions(spec);
+  const storeInitial = assertStoreProfilePreconditions(spec);
   const verificationSnapshot =
     ['chrome-verify-v1', 'firefox-verify-v1'].includes(profileId) &&
     spec.commandContext?.transport === 'github-artifact-v1'
@@ -1419,7 +1690,10 @@ export function startBoundedCommand({ profileId, arguments: args = [] }, depende
       return runComposite(profileId, args, dependencies, lifecycle);
     });
   }
-  return { ...startResolvedCommand(spec, dependencies), verificationSnapshot };
+  return wrapStoreCompletion(
+    { ...startResolvedCommand(spec, dependencies), verificationSnapshot },
+    storeInitial
+  );
 }
 
 export async function runBoundedCommand(invocation, dependencies = {}) {
@@ -1502,20 +1776,8 @@ export function readCanonicalCommandRequest(environment = process.env) {
   )
     throw new Error('COMMAND_REQUEST_ROOT_INVALID');
   const requestPath = join(root, COMMAND_REQUEST_FILE);
-  const requestStats = lstatSync(requestPath);
-  if (
-    !requestStats.isFile() ||
-    requestStats.isSymbolicLink() ||
-    requestStats.uid !== process.getuid() ||
-    requestStats.nlink !== 1 ||
-    (requestStats.mode & 0o777) !== 0o600
-  )
-    throw new Error('COMMAND_REQUEST_FILE_INVALID');
-  const canonicalPath = realpathSync(requestPath);
-  if (!contained(root, canonicalPath) || dirname(canonicalPath) !== root)
-    throw new Error('COMMAND_REQUEST_FILE_INVALID');
-  const snapshot = snapshotFile(canonicalPath, 64 * 1024);
-  const request = readCanonicalJsonFileBounded(canonicalPath, 64 * 1024, 4);
+  if (dirname(requestPath) !== root) throw new Error('COMMAND_REQUEST_FILE_INVALID');
+  const { value: request } = readCanonicalJsonDescriptor(requestPath, 64 * 1024, 4, root, 'pretty');
   assertClosedKeys(request, ['arguments', 'profileId'], 'command request');
   if (
     typeof request.profileId !== 'string' ||
@@ -1524,12 +1786,11 @@ export function readCanonicalCommandRequest(environment = process.env) {
   )
     throw new Error('COMMAND_REQUEST_SCHEMA_INVALID');
   validateProfileArguments(request.profileId, request.arguments);
-  assertSnapshotStable(snapshot, 64 * 1024);
   return deepFreeze({
     profileId: request.profileId,
     arguments: [...request.arguments],
     root,
-    requestPath: canonicalPath
+    requestPath
   });
 }
 

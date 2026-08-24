@@ -1,4 +1,4 @@
-import { spawnSync } from 'node:child_process';
+import { spawn, spawnSync, type SpawnOptions } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import {
   chmodSync,
@@ -19,7 +19,7 @@ import {
   writeFileSync
 } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join, resolve } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import {
   COMMAND_LIMITS,
@@ -226,7 +226,7 @@ function firefoxPlaywrightPhaseFixture() {
   installAttemptConfigs(fixture.attemptRoot);
   const userconfig = join(fixture.attemptRoot, 'install/npm-userconfig');
   const globalconfig = join(fixture.attemptRoot, 'install/npm-globalconfig');
-  const browsersPath = join(fixture.attemptRoot, 'browsers');
+  const browsersPath = join(fixture.attemptRoot, 'playwright-browsers');
   return {
     ...fixture,
     browsersPath,
@@ -253,6 +253,120 @@ function rewriteCanonicalOwnedJson(
   );
   writeFileSync(path, `${JSON.stringify(sorted)}\n`);
   chmodSync(path, 0o600);
+}
+
+function bindingAuthorityFields(path: string): string {
+  return readFileSync(path, 'utf8').replace(
+    /"state(?:Device|Inode|Mode|Size|Sha256)":"[^"]*",?/gu,
+    ''
+  );
+}
+
+function writeStoreTerminalState(
+  statePath: string,
+  terminal: {
+    outcome: 'pre-mutation-failure' | 'unknown-submission-state' | 'success';
+    started?: 'upload' | 'publish' | 'version-submit' | 'source-patch';
+    completed?: 'upload' | 'publish' | 'version-submit' | 'source-patch';
+  }
+) {
+  rewriteCanonicalOwnedJson(statePath, (value) => {
+    value.outcome = terminal.outcome;
+    value.mutationInvoked = terminal.outcome !== 'pre-mutation-failure';
+    value.retrySafe = terminal.outcome === 'pre-mutation-failure';
+    delete value.lastStartedOperation;
+    delete value.lastCompletedOperation;
+    if (terminal.started) value.lastStartedOperation = terminal.started;
+    if (terminal.completed) value.lastCompletedOperation = terminal.completed;
+    value.stage = terminal.started
+      ? terminal.started === terminal.completed
+        ? `${terminal.started}-completed`
+        : `${terminal.started}-started`
+      : 'preflight';
+  });
+}
+
+async function initializedStoreFixture(browser: 'chrome' | 'firefox') {
+  const fixture = releaseAttemptFixture(browser, browser === 'chrome' ? 'publish' : 'submit');
+  installAttemptConfigs(fixture.attemptRoot);
+  const manifest = join(fixture.attemptRoot, 'manifest.json');
+  writeFileSync(manifest, `${browser}-bound-manifest`, { mode: 0o600 });
+  const expectedManifestSha256 = sha256(manifest);
+  const leaf = resolveCommandProfile('fixture-v1', ['success'], {
+    environment: cleanEnvironment()
+  });
+  const verification = await runBoundedCommand(
+    { profileId: `${browser}-verify-v1`, arguments: [] },
+    {
+      environment: fixture.environment,
+      resolveProfile: () => ({
+        ...leaf,
+        profileId: `${browser}-verify-v1`,
+        env: fixture.environment,
+        commandContext: {
+          attemptRoot: fixture.attemptRoot,
+          browser,
+          transport: 'github-artifact-v1',
+          manifestPath: manifest,
+          expectedManifestSha256
+        }
+      })
+    }
+  );
+  if (!verification.ok) throw new Error('TEST_VERIFICATION_FAILED');
+  const initialized = await runBoundedCommand(
+    { profileId: 'release-state-init-v1', arguments: ['--browser', browser] },
+    { environment: fixture.environment }
+  );
+  if (!initialized.ok) throw new Error('TEST_STATE_INIT_FAILED');
+  const stateRoot = join(fixture.attemptRoot, 'store-state', browser);
+  return {
+    browser,
+    fixture,
+    manifest,
+    expectedManifestSha256,
+    statePath: join(
+      stateRoot,
+      browser === 'chrome' ? 'publish-state.json' : 'submission-state.json'
+    ),
+    bindingPath: join(fixture.attemptRoot, 'receipts', `${browser}-state-binding.json`),
+    uuidPath: join(stateRoot, 'web-ext-upload/upload-uuid.json')
+  };
+}
+
+function storeLeafSpec(
+  initialized: Awaited<ReturnType<typeof initializedStoreFixture>>,
+  childSuccess: boolean
+) {
+  const leaf = resolveCommandProfile('fixture-v1', childSuccess ? ['success'] : ['exit', '7'], {
+    environment: cleanEnvironment()
+  });
+  return {
+    ...leaf,
+    profileId: initialized.browser === 'chrome' ? 'chrome-publish-v1' : 'firefox-submit-v1',
+    env: initialized.fixture.environment,
+    argv:
+      initialized.browser === 'firefox'
+        ? [...leaf.argv, '--saved-upload-uuid-path', initialized.uuidPath]
+        : leaf.argv,
+    commandContext: {
+      attemptRoot: initialized.fixture.attemptRoot,
+      browser: initialized.browser,
+      statePath: initialized.statePath,
+      manifestPath: initialized.manifest,
+      expectedManifestSha256: initialized.expectedManifestSha256
+    }
+  };
+}
+
+function spawnAfter(action: () => void, afterClose?: () => void): typeof spawn {
+  const operation = (command: string, args: readonly string[], options: SpawnOptions) => {
+    action();
+    const child = spawn(command, args, options);
+    if (afterClose) child.once('close', afterClose);
+    return child;
+  };
+  return operation as typeof spawn;
 }
 
 function gitValue(args: string[]): string {
@@ -1363,8 +1477,23 @@ describe('bounded command ownership', () => {
     await expect(
       startBoundedCommand(
         { profileId: 'chrome-publish-v1', arguments: [] },
-        { resolveProfile: () => storeLeaf }
+        {
+          resolveProfile: () => storeLeaf,
+          spawnOperation: spawnAfter(() => {
+            writeStoreTerminalState(statePath, {
+              outcome: 'success',
+              started: 'publish',
+              completed: 'publish'
+            });
+          })
+        }
       ).completion
+    ).resolves.toMatchObject({ ok: true });
+    await expect(
+      runBoundedCommand(
+        { profileId: 'release-state-check-v1', arguments: ['--browser', 'chrome'] },
+        { environment: fixture.environment }
+      )
     ).resolves.toMatchObject({ ok: true });
     for (const commandContext of [
       { ...storeLeaf.commandContext, manifestPath: join(fixture.attemptRoot, 'other.json') },
@@ -1592,7 +1721,336 @@ describe('bounded command ownership', () => {
         { profileId: 'release-state-check-v1', arguments: ['--browser', 'chrome'] },
         { environment: tampered.fixture.environment }
       )
-    ).resolves.toMatchObject({ ok: false, terminalReason: 'RELEASE_STATE_INVALID' });
+    ).resolves.toMatchObject({ ok: false, terminalReason: 'RELEASE_STATE_TERMINAL_INVALID' });
+  });
+
+  it('reseals every legal Chrome and Firefox terminal action prefix before completion is visible', async () => {
+    const terminalCases: Array<{
+      browser: 'chrome' | 'firefox';
+      childSuccess: boolean;
+      terminal: Parameters<typeof writeStoreTerminalState>[1];
+    }> = [
+      {
+        browser: 'chrome',
+        childSuccess: false,
+        terminal: { outcome: 'pre-mutation-failure' }
+      },
+      {
+        browser: 'chrome',
+        childSuccess: false,
+        terminal: { outcome: 'unknown-submission-state', started: 'upload' }
+      },
+      {
+        browser: 'chrome',
+        childSuccess: false,
+        terminal: {
+          outcome: 'unknown-submission-state',
+          started: 'upload',
+          completed: 'upload'
+        }
+      },
+      {
+        browser: 'chrome',
+        childSuccess: false,
+        terminal: {
+          outcome: 'unknown-submission-state',
+          started: 'publish',
+          completed: 'upload'
+        }
+      },
+      {
+        browser: 'chrome',
+        childSuccess: false,
+        terminal: {
+          outcome: 'unknown-submission-state',
+          started: 'publish',
+          completed: 'publish'
+        }
+      },
+      {
+        browser: 'chrome',
+        childSuccess: true,
+        terminal: { outcome: 'success', started: 'publish', completed: 'publish' }
+      },
+      {
+        browser: 'firefox',
+        childSuccess: false,
+        terminal: { outcome: 'pre-mutation-failure' }
+      },
+      {
+        browser: 'firefox',
+        childSuccess: false,
+        terminal: { outcome: 'unknown-submission-state', started: 'upload' }
+      },
+      {
+        browser: 'firefox',
+        childSuccess: false,
+        terminal: {
+          outcome: 'unknown-submission-state',
+          started: 'upload',
+          completed: 'upload'
+        }
+      },
+      {
+        browser: 'firefox',
+        childSuccess: false,
+        terminal: {
+          outcome: 'unknown-submission-state',
+          started: 'version-submit',
+          completed: 'upload'
+        }
+      },
+      {
+        browser: 'firefox',
+        childSuccess: false,
+        terminal: {
+          outcome: 'unknown-submission-state',
+          started: 'version-submit',
+          completed: 'version-submit'
+        }
+      },
+      {
+        browser: 'firefox',
+        childSuccess: false,
+        terminal: {
+          outcome: 'unknown-submission-state',
+          started: 'source-patch',
+          completed: 'version-submit'
+        }
+      },
+      {
+        browser: 'firefox',
+        childSuccess: false,
+        terminal: {
+          outcome: 'unknown-submission-state',
+          started: 'source-patch',
+          completed: 'source-patch'
+        }
+      },
+      {
+        browser: 'firefox',
+        childSuccess: true,
+        terminal: {
+          outcome: 'success',
+          started: 'source-patch',
+          completed: 'source-patch'
+        }
+      }
+    ];
+
+    for (const row of terminalCases) {
+      const initialized = await initializedStoreFixture(row.browser);
+      const beforeBinding = bindingAuthorityFields(initialized.bindingPath);
+      const spec = storeLeafSpec(initialized, row.childSuccess);
+      const result = await startBoundedCommand(
+        { profileId: spec.profileId, arguments: [] },
+        {
+          resolveProfile: () => spec,
+          spawnOperation: spawnAfter(() => {
+            writeStoreTerminalState(initialized.statePath, row.terminal);
+          })
+        }
+      ).completion;
+      expect(result, JSON.stringify(row)).toMatchObject({ ok: row.childSuccess });
+      const bindingBeforeCheck = readFileSync(initialized.bindingPath);
+      const checked = await runBoundedCommand(
+        { profileId: 'release-state-check-v1', arguments: ['--browser', row.browser] },
+        { environment: initialized.fixture.environment }
+      );
+      expect(checked.ok).toBe(true);
+      expect(readFileSync(initialized.bindingPath)).toEqual(bindingBeforeCheck);
+      const afterBinding = readFileSync(initialized.bindingPath, 'utf8');
+      expect(bindingAuthorityFields(initialized.bindingPath)).toBe(beforeBinding);
+      expect(afterBinding).toContain(`"stateSha256":"${sha256(initialized.statePath)}"`);
+    }
+  });
+
+  it('rejects unrefreshed, reordered, cross-browser, result-mismatched, and CAS-drift states', async () => {
+    const invalidCases: Array<{
+      browser: 'chrome' | 'firefox';
+      childSuccess: boolean;
+      terminal?: Parameters<typeof writeStoreTerminalState>[1];
+    }> = [
+      {
+        browser: 'chrome',
+        childSuccess: false,
+        terminal: { outcome: 'unknown-submission-state', started: 'publish' }
+      },
+      {
+        browser: 'firefox',
+        childSuccess: false,
+        terminal: {
+          outcome: 'unknown-submission-state',
+          started: 'upload',
+          completed: 'source-patch'
+        }
+      },
+      {
+        browser: 'chrome',
+        childSuccess: false,
+        terminal: { outcome: 'unknown-submission-state', started: 'version-submit' }
+      },
+      {
+        browser: 'chrome',
+        childSuccess: false,
+        terminal: { outcome: 'success', started: 'publish', completed: 'publish' }
+      },
+      {
+        browser: 'chrome',
+        childSuccess: true,
+        terminal: { outcome: 'unknown-submission-state', started: 'upload' }
+      },
+      {
+        browser: 'firefox',
+        childSuccess: true,
+        terminal: { outcome: 'pre-mutation-failure' }
+      },
+      { browser: 'chrome', childSuccess: false }
+    ];
+    for (const row of invalidCases) {
+      const initialized = await initializedStoreFixture(row.browser);
+      const bindingBefore = readFileSync(initialized.bindingPath);
+      const spec = storeLeafSpec(initialized, row.childSuccess);
+      const result = await startBoundedCommand(
+        { profileId: spec.profileId, arguments: [] },
+        {
+          resolveProfile: () => spec,
+          spawnOperation: spawnAfter(() => {
+            if (row.terminal) writeStoreTerminalState(initialized.statePath, row.terminal);
+          })
+        }
+      ).completion;
+      expect(result.ok).toBe(false);
+      expect(readFileSync(initialized.bindingPath), JSON.stringify(row)).toEqual(bindingBefore);
+      if (row.terminal) {
+        const checked = await runBoundedCommand(
+          { profileId: 'release-state-check-v1', arguments: ['--browser', row.browser] },
+          { environment: initialized.fixture.environment }
+        );
+        expect(checked.ok).toBe(false);
+      }
+    }
+
+    const unrefreshed = await initializedStoreFixture('chrome');
+    writeStoreTerminalState(unrefreshed.statePath, {
+      outcome: 'success',
+      started: 'publish',
+      completed: 'publish'
+    });
+    await expect(
+      runBoundedCommand(
+        { profileId: 'release-state-check-v1', arguments: ['--browser', 'chrome'] },
+        { environment: unrefreshed.fixture.environment }
+      )
+    ).resolves.toMatchObject({ ok: false, terminalReason: 'RELEASE_STATE_BINDING_INVALID' });
+
+    const bindingDrift = await initializedStoreFixture('chrome');
+    const driftSpec = storeLeafSpec(bindingDrift, true);
+    const driftResult = await startBoundedCommand(
+      { profileId: driftSpec.profileId, arguments: [] },
+      {
+        resolveProfile: () => driftSpec,
+        spawnOperation: spawnAfter(() => {
+          writeStoreTerminalState(bindingDrift.statePath, {
+            outcome: 'success',
+            started: 'publish',
+            completed: 'publish'
+          });
+          rewriteCanonicalOwnedJson(bindingDrift.bindingPath, (value) => {
+            value.stateSha256 = '0'.repeat(64);
+          });
+        })
+      }
+    ).completion;
+    expect(driftResult).toMatchObject({
+      ok: false,
+      terminalReason: 'RELEASE_STATE_BINDING_CAS_MISMATCH'
+    });
+
+    const casBlocked = await initializedStoreFixture('chrome');
+    const casSpec = storeLeafSpec(casBlocked, true);
+    const casResult = await startBoundedCommand(
+      { profileId: casSpec.profileId, arguments: [] },
+      {
+        resolveProfile: () => casSpec,
+        spawnOperation: spawnAfter(() => {
+          writeStoreTerminalState(casBlocked.statePath, {
+            outcome: 'success',
+            started: 'publish',
+            completed: 'publish'
+          });
+          writeFileSync(`${casBlocked.bindingPath}.next`, 'occupied', { mode: 0o600 });
+        })
+      }
+    ).completion;
+    expect(casResult.ok).toBe(false);
+
+    const lateMutation = await initializedStoreFixture('chrome');
+    const lateSpec = storeLeafSpec(lateMutation, true);
+    const lateResult = await startBoundedCommand(
+      { profileId: lateSpec.profileId, arguments: [] },
+      {
+        resolveProfile: () => lateSpec,
+        spawnOperation: spawnAfter(
+          () => {
+            writeStoreTerminalState(lateMutation.statePath, {
+              outcome: 'success',
+              started: 'publish',
+              completed: 'publish'
+            });
+          },
+          () => {
+            rewriteCanonicalOwnedJson(lateMutation.statePath, (value) => {
+              value.manifestSha256 = '0'.repeat(64);
+            });
+          }
+        )
+      }
+    ).completion;
+    expect(lateResult.ok).toBe(false);
+
+    const rebound = await initializedStoreFixture('chrome');
+    const reboundSpec = storeLeafSpec(rebound, true);
+    await startBoundedCommand(
+      { profileId: reboundSpec.profileId, arguments: [] },
+      {
+        resolveProfile: () => reboundSpec,
+        spawnOperation: spawnAfter(() => {
+          writeStoreTerminalState(rebound.statePath, {
+            outcome: 'success',
+            started: 'publish',
+            completed: 'publish'
+          });
+        })
+      }
+    ).completion;
+    const beforeTamper = lstatSync(rebound.statePath);
+    rewriteCanonicalOwnedJson(rebound.statePath, (value) => {
+      value.manifestSha256 = `${String(value.manifestSha256).slice(0, -1)}0`;
+    });
+    const afterTamper = lstatSync(rebound.statePath);
+    expect({ inode: afterTamper.ino, size: afterTamper.size }).toEqual({
+      inode: beforeTamper.ino,
+      size: beforeTamper.size
+    });
+    await expect(
+      runBoundedCommand(
+        { profileId: 'release-state-check-v1', arguments: ['--browser', 'chrome'] },
+        { environment: rebound.fixture.environment }
+      )
+    ).resolves.toMatchObject({ ok: false });
+
+    const replaced = await initializedStoreFixture('chrome');
+    const replacement = join(dirname(replaced.statePath), 'replacement.json');
+    writeFileSync(replacement, readFileSync(replaced.statePath), { mode: 0o600 });
+    chmodSync(replacement, 0o600);
+    renameSync(replacement, replaced.statePath);
+    await expect(
+      runBoundedCommand(
+        { profileId: 'release-state-check-v1', arguments: ['--browser', 'chrome'] },
+        { environment: replaced.fixture.environment }
+      )
+    ).resolves.toMatchObject({ ok: false, terminalReason: 'RELEASE_STATE_BINDING_INVALID' });
   });
 
   it('binds both Firefox Playwright phases to one fresh current-job root and owner configs', () => {
@@ -1626,11 +2084,12 @@ describe('bounded command ownership', () => {
       ZENDIO_PLAYWRIGHT_ATTEMPT_ROOT: fixture.attemptRoot
     });
     expect(browser.commandContext).toMatchObject({
+      firefoxExecutionClass: 'release',
       attemptRoot: fixture.attemptRoot,
       browsersPath: fixture.browsersPath,
       userconfig: fixture.userconfig,
       globalconfig: fixture.globalconfig,
-      hostDependencies: false
+      browserRootState: 'empty'
     });
     expect(lstatSync(fixture.browsersPath).mode & 0o777).toBe(0o700);
     expect(readdirSync(fixture.browsersPath)).toEqual([]);
@@ -1650,11 +2109,17 @@ describe('bounded command ownership', () => {
     };
     delete ordinaryEnvironment.ZENDIO_JOB_CLASS;
     delete ordinaryEnvironment.ZENDIO_JOB_TIMEOUT_MINUTES;
-    expect(() =>
-      resolveCommandProfile('playwright-host-deps-platform-v1', ['firefox-with-host-deps'], {
-        environment: ordinaryEnvironment
-      })
-    ).not.toThrow();
+    const ordinaryHost = resolveCommandProfile(
+      'playwright-host-deps-platform-v1',
+      ['firefox-with-host-deps'],
+      { environment: ordinaryEnvironment }
+    );
+    expect(ordinaryHost.commandContext).toMatchObject({
+      firefoxExecutionClass: 'ordinary-ci',
+      browsersPath: join(ordinaryRoot, 'browsers'),
+      browserRootState: 'absent'
+    });
+    expect(ordinaryHost.env).not.toHaveProperty('ZENDIO_PLAYWRIGHT_ATTEMPT_ROOT');
   });
 
   it('rejects missing, foreign, swapped, reused, and late-mutated Firefox phase paths', () => {
@@ -1672,6 +2137,10 @@ describe('bounded command ownership', () => {
       (fixture: ReturnType<typeof firefoxPlaywrightPhaseFixture>) => ({
         ...fixture.phaseEnvironment,
         PLAYWRIGHT_BROWSERS_PATH: join(realpathSync(temporaryRoot()), 'browsers')
+      }),
+      (fixture: ReturnType<typeof firefoxPlaywrightPhaseFixture>) => ({
+        ...fixture.phaseEnvironment,
+        PLAYWRIGHT_BROWSERS_PATH: join(fixture.attemptRoot, 'browsers')
       }),
       (fixture: ReturnType<typeof firefoxPlaywrightPhaseFixture>) => ({
         ...fixture.phaseEnvironment,
@@ -1716,6 +2185,156 @@ describe('bounded command ownership', () => {
         { resolveProfile: () => profile }
       )
     ).toThrow('PLAYWRIGHT_BROWSER_ROOT_INVALID');
+  });
+
+  it('binds every Firefox release consumer and isolates the protected verifier class', () => {
+    const fixture = firefoxPlaywrightPhaseFixture();
+    resolveCommandProfile('playwright-browser-install-v1', ['firefox-with-host-deps'], {
+      environment: fixture.phaseEnvironment
+    });
+    const fixedTrackedFileOperation = () => resolve('tests/fixtures/bounded-command/child.mjs');
+    const consumerCases: Array<[CommandBoundaryProfileId, string[]]> = [
+      [
+        'firefox-prepare-v1',
+        [
+          '--config-mode',
+          'owner-public-vars',
+          '--transport-mode',
+          'local-private-v1',
+          '--attempt-root',
+          fixture.attemptRoot,
+          '--dist-dir',
+          join(fixture.attemptRoot, 'dist'),
+          '--release-dir',
+          join(fixture.attemptRoot, 'release'),
+          '--authorization-record',
+          join(fixture.attemptRoot, 'authorization.json'),
+          '--result-json',
+          join(fixture.attemptRoot, 'result.json')
+        ]
+      ],
+      [
+        'firefox-verify-v1',
+        [
+          '--manifest',
+          join(fixture.attemptRoot, 'manifest.json'),
+          '--transport-mode',
+          'local-private-v1'
+        ]
+      ],
+      [
+        'firefox-smoke-v1',
+        [
+          '--manifest',
+          join(fixture.attemptRoot, 'manifest.json'),
+          '--transport-mode',
+          'local-private-v1',
+          '--result-json',
+          join(fixture.attemptRoot, 'smoke.json')
+        ]
+      ]
+    ];
+    for (const [profileId, args] of consumerCases) {
+      const profile = resolveCommandProfile(profileId, args, {
+        environment: fixture.phaseEnvironment,
+        operations: { fixedTrackedFileOperation }
+      });
+      expect(profile.env).toMatchObject({
+        NPM_CONFIG_USERCONFIG: fixture.userconfig,
+        NPM_CONFIG_GLOBALCONFIG: fixture.globalconfig,
+        PLAYWRIGHT_BROWSERS_PATH: fixture.browsersPath,
+        ZENDIO_PLAYWRIGHT_ATTEMPT_ROOT: fixture.attemptRoot
+      });
+      expect(profile.commandContext).toMatchObject({
+        firefoxExecutionClass: 'release',
+        browserRootState: 'existing',
+        attemptRoot: fixture.attemptRoot,
+        browsersPath: fixture.browsersPath
+      });
+    }
+
+    const protectedFixture = releaseAttemptFixture('firefox', 'submit');
+    installAttemptConfigs(protectedFixture.attemptRoot);
+    const protectedManifest = join(protectedFixture.attemptRoot, 'manifest.json');
+    writeFileSync(protectedManifest, 'protected-manifest', { mode: 0o600 });
+    const protectedEnvironment = {
+      ...protectedFixture.environment,
+      NPM_CONFIG_USERCONFIG: join(protectedFixture.attemptRoot, 'install/npm-userconfig'),
+      NPM_CONFIG_GLOBALCONFIG: join(protectedFixture.attemptRoot, 'install/npm-globalconfig'),
+      ZENDIO_EXPECTED_RELEASE_MANIFEST_SHA256: sha256(protectedManifest)
+    };
+    const protectedProfile = resolveCommandProfile(
+      'firefox-verify-v1',
+      ['--manifest', protectedManifest, '--transport-mode', 'github-artifact-v1'],
+      {
+        environment: protectedEnvironment,
+        operations: { fixedTrackedFileOperation }
+      }
+    );
+    expect(protectedProfile.commandContext).toMatchObject({
+      firefoxExecutionClass: 'protected-verifier',
+      browserRootState: 'none',
+      browsersPath: null
+    });
+    expect(protectedProfile.env).not.toHaveProperty('PLAYWRIGHT_BROWSERS_PATH');
+    expect(protectedProfile.env).not.toHaveProperty('ZENDIO_PLAYWRIGHT_ATTEMPT_ROOT');
+    expect(() =>
+      resolveCommandProfile(
+        'firefox-verify-v1',
+        ['--manifest', protectedManifest, '--transport-mode', 'github-artifact-v1'],
+        {
+          environment: {
+            ...protectedEnvironment,
+            PLAYWRIGHT_BROWSERS_PATH: fixture.browsersPath,
+            ZENDIO_PLAYWRIGHT_ATTEMPT_ROOT: fixture.attemptRoot
+          },
+          operations: { fixedTrackedFileOperation }
+        }
+      )
+    ).toThrow('PLAYWRIGHT_PROTECTED_VERIFIER_ISOLATION_INVALID');
+    const missingProtectedConfig: NodeJS.ProcessEnv = { ...protectedEnvironment };
+    delete missingProtectedConfig.NPM_CONFIG_GLOBALCONFIG;
+    expect(() =>
+      resolveCommandProfile(
+        'firefox-verify-v1',
+        ['--manifest', protectedManifest, '--transport-mode', 'github-artifact-v1'],
+        {
+          environment: missingProtectedConfig,
+          operations: { fixedTrackedFileOperation }
+        }
+      )
+    ).toThrow('NPM_CONFIG_IDENTITY_INVALID');
+
+    for (const environment of [
+      {
+        ...fixture.phaseEnvironment,
+        PLAYWRIGHT_BROWSERS_PATH: join(fixture.attemptRoot, 'browsers')
+      },
+      {
+        ...fixture.phaseEnvironment,
+        NPM_CONFIG_USERCONFIG: fixture.globalconfig,
+        NPM_CONFIG_GLOBALCONFIG: fixture.userconfig
+      }
+    ]) {
+      expect(() =>
+        resolveCommandProfile('firefox-verify-v1', consumerCases[1][1], {
+          environment,
+          operations: { fixedTrackedFileOperation }
+        })
+      ).toThrow();
+    }
+
+    const late = resolveCommandProfile('firefox-verify-v1', consumerCases[1][1], {
+      environment: fixture.phaseEnvironment,
+      operations: { fixedTrackedFileOperation }
+    });
+    chmodSync(fixture.globalconfig, 0o644);
+    expect(() =>
+      startBoundedCommand(
+        { profileId: 'firefox-verify-v1', arguments: consumerCases[1][1] },
+        { resolveProfile: () => late }
+      )
+    ).toThrow();
   });
 
   it('binds the five governed package bins to the accepted lock identities', () => {

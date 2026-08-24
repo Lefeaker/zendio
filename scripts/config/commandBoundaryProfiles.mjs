@@ -398,6 +398,20 @@ const RELEASE_AUDIT_NPM_SCRIPTS = new Set([
   'audit:ga:client-secret',
   'audit:ga:release-surface'
 ]);
+const FIREFOX_EXECUTION_CLASSES = deepFreeze({
+  release: {
+    browserRootBasename: 'playwright-browsers',
+    requireAttemptEnvironment: true
+  },
+  'ordinary-ci': {
+    browserRootBasename: 'browsers',
+    requireAttemptEnvironment: false
+  },
+  'protected-verifier': {
+    browserRootBasename: null,
+    requireAttemptEnvironment: false
+  }
+});
 const FIXED_RELEASE_NODE_PATHS = new Set([
   'scripts/build.mjs',
   'scripts/package-firefox.mjs',
@@ -1545,6 +1559,16 @@ function releaseAuditPathEnvironment(args, environment) {
   return attemptNpmConfigEnvironment(root);
 }
 
+function exactAttemptConfigEnvironment(root, environment) {
+  const configs = attemptNpmConfigEnvironment(root);
+  if (
+    environment.NPM_CONFIG_USERCONFIG !== configs.NPM_CONFIG_USERCONFIG ||
+    environment.NPM_CONFIG_GLOBALCONFIG !== configs.NPM_CONFIG_GLOBALCONFIG
+  )
+    invalid('NPM_CONFIG_IDENTITY_INVALID');
+  return configs;
+}
+
 function firefoxPlaywrightPhaseEnvironment(environment, hostDependencies) {
   if (environment.CI !== 'true' || environment.GITHUB_ACTIONS !== 'true')
     invalid('PLAYWRIGHT_PHASE_CONTEXT_INVALID');
@@ -1552,8 +1576,10 @@ function firefoxPlaywrightPhaseEnvironment(environment, hostDependencies) {
   const runAttempt = requiredEnvironment(environment, 'GITHUB_RUN_ATTEMPT', /^[1-9][0-9]{0,9}$/u);
   const job = requiredEnvironment(environment, 'GITHUB_JOB', /^[A-Za-z0-9_-]{1,128}$/u);
   let root;
+  let executionClass;
   if (environment.ZENDIO_JOB_CLASS === 'firefox-prepare-v1') {
     root = requireReleaseJob(environment, ['firefox-prepare-v1']);
+    executionClass = 'release';
   } else {
     if (environment.ZENDIO_JOB_CLASS !== undefined && environment.ZENDIO_JOB_CLASS !== 'browser-v1')
       invalid('PLAYWRIGHT_PHASE_CONTEXT_INVALID');
@@ -1568,24 +1594,17 @@ function firefoxPlaywrightPhaseEnvironment(environment, hostDependencies) {
     root = assertOwnedDirectory(
       join(runnerTemp, ciAttemptName('browser-v1', runId, runAttempt, job))
     );
+    executionClass = 'ordinary-ci';
   }
+  const policy = FIREFOX_EXECUTION_CLASSES[executionClass];
   if (
-    environment.ZENDIO_PLAYWRIGHT_ATTEMPT_ROOT !== undefined &&
-    environment.ZENDIO_PLAYWRIGHT_ATTEMPT_ROOT !== root
+    policy.requireAttemptEnvironment
+      ? environment.ZENDIO_PLAYWRIGHT_ATTEMPT_ROOT !== root
+      : environment.ZENDIO_PLAYWRIGHT_ATTEMPT_ROOT !== undefined
   )
     invalid('PLAYWRIGHT_PHASE_ATTEMPT_ROOT_INVALID');
-  if (
-    environment.ZENDIO_JOB_CLASS === 'firefox-prepare-v1' &&
-    environment.ZENDIO_PLAYWRIGHT_ATTEMPT_ROOT !== root
-  )
-    invalid('PLAYWRIGHT_PHASE_ATTEMPT_ROOT_INVALID');
-  const configs = attemptNpmConfigEnvironment(root);
-  if (
-    environment.NPM_CONFIG_USERCONFIG !== configs.NPM_CONFIG_USERCONFIG ||
-    environment.NPM_CONFIG_GLOBALCONFIG !== configs.NPM_CONFIG_GLOBALCONFIG
-  )
-    invalid('NPM_CONFIG_IDENTITY_INVALID');
-  const browsersPath = join(root, 'browsers');
+  const configs = exactAttemptConfigEnvironment(root, environment);
+  const browsersPath = join(root, policy.browserRootBasename);
   if (environment.PLAYWRIGHT_BROWSERS_PATH !== browsersPath)
     invalid('PLAYWRIGHT_BROWSERS_PATH_INVALID');
   if (lstatOrNull(browsersPath)) invalid('PLAYWRIGHT_BROWSER_ROOT_REUSED');
@@ -1596,6 +1615,7 @@ function firefoxPlaywrightPhaseEnvironment(environment, hostDependencies) {
     if (readdirSync(browsersPath).length !== 0) invalid('PLAYWRIGHT_BROWSER_ROOT_INVALID');
   }
   return {
+    executionClass,
     attemptRoot: root,
     browsersPath,
     userconfig: configs.NPM_CONFIG_USERCONFIG,
@@ -1603,7 +1623,54 @@ function firefoxPlaywrightPhaseEnvironment(environment, hostDependencies) {
     environment: {
       NPM_CONFIG_USERCONFIG: configs.NPM_CONFIG_USERCONFIG,
       NPM_CONFIG_GLOBALCONFIG: configs.NPM_CONFIG_GLOBALCONFIG,
-      ZENDIO_PLAYWRIGHT_ATTEMPT_ROOT: root,
+      ...(policy.requireAttemptEnvironment ? { ZENDIO_PLAYWRIGHT_ATTEMPT_ROOT: root } : {}),
+      PLAYWRIGHT_BROWSERS_PATH: browsersPath
+    }
+  };
+}
+
+function firefoxReleaseConsumerEnvironment(profileId, environment, attemptRoot, transport) {
+  const executionClass =
+    profileId === 'firefox-verify-v1' && transport === 'github-artifact-v1'
+      ? 'protected-verifier'
+      : 'release';
+  const policy = FIREFOX_EXECUTION_CLASSES[executionClass];
+  const configs = exactAttemptConfigEnvironment(attemptRoot, environment);
+  if (executionClass === 'protected-verifier') {
+    if (
+      environment.ZENDIO_PLAYWRIGHT_ATTEMPT_ROOT !== undefined ||
+      environment.PLAYWRIGHT_BROWSERS_PATH !== undefined
+    )
+      invalid('PLAYWRIGHT_PROTECTED_VERIFIER_ISOLATION_INVALID');
+    return {
+      executionClass,
+      attemptRoot,
+      browsersPath: null,
+      userconfig: configs.NPM_CONFIG_USERCONFIG,
+      globalconfig: configs.NPM_CONFIG_GLOBALCONFIG,
+      environment: {
+        NPM_CONFIG_USERCONFIG: configs.NPM_CONFIG_USERCONFIG,
+        NPM_CONFIG_GLOBALCONFIG: configs.NPM_CONFIG_GLOBALCONFIG
+      }
+    };
+  }
+  const browsersPath = join(attemptRoot, policy.browserRootBasename);
+  if (
+    environment.ZENDIO_PLAYWRIGHT_ATTEMPT_ROOT !== attemptRoot ||
+    environment.PLAYWRIGHT_BROWSERS_PATH !== browsersPath
+  )
+    invalid('PLAYWRIGHT_RELEASE_CONSUMER_BINDING_INVALID');
+  assertOwnedDirectory(browsersPath);
+  return {
+    executionClass,
+    attemptRoot,
+    browsersPath,
+    userconfig: configs.NPM_CONFIG_USERCONFIG,
+    globalconfig: configs.NPM_CONFIG_GLOBALCONFIG,
+    environment: {
+      NPM_CONFIG_USERCONFIG: configs.NPM_CONFIG_USERCONFIG,
+      NPM_CONFIG_GLOBALCONFIG: configs.NPM_CONFIG_GLOBALCONFIG,
+      ZENDIO_PLAYWRIGHT_ATTEMPT_ROOT: attemptRoot,
       PLAYWRIGHT_BROWSERS_PATH: browsersPath
     }
   };
@@ -1889,15 +1956,33 @@ export function resolveCommandProfile(
     const browser = profileId.startsWith('chrome-') ? 'chrome' : 'firefox';
     const transport = profileArgumentValue(args, '--transport-mode');
     const configMode = profileArgumentValue(args, '--config-mode');
+    const firefoxReleaseConsumer = [
+      'firefox-prepare-v1',
+      'firefox-verify-v1',
+      'firefox-smoke-v1'
+    ].includes(profileId);
+    const firefoxProtectedVerifier =
+      profileId === 'firefox-verify-v1' && transport === 'github-artifact-v1';
+    if (
+      profileId === 'firefox-prepare-v1' &&
+      (environment.CI === 'true' || environment.GITHUB_ACTIONS === 'true') &&
+      configMode !== 'owner-public-vars'
+    )
+      invalid('RELEASE_CONFIG_MODE_INVALID');
     let attemptRoot;
     if (profileId === 'chrome-publish-v1' || profileId === 'firefox-submit-v1') {
       attemptRoot = requireReleaseJob(environment, [
         browser === 'chrome' ? 'chrome-publish-v1' : 'firefox-submit-v1'
       ]);
-    } else if (transport === 'github-artifact-v1') {
+    } else if (firefoxProtectedVerifier || transport === 'github-artifact-v1') {
       attemptRoot = requireReleaseJob(environment, [
         browser === 'chrome' ? 'chrome-publish-v1' : 'firefox-submit-v1'
       ]);
+    } else if (firefoxReleaseConsumer) {
+      attemptRoot =
+        environment.CI === 'true' || environment.GITHUB_ACTIONS === 'true'
+          ? requireReleaseJob(environment, ['firefox-prepare-v1'])
+          : requireLocalRelease(environment);
     } else if (configMode === 'owner-public-vars') {
       attemptRoot = requireReleaseJob(environment, [`${browser}-prepare-v1`]);
     } else {
@@ -1929,10 +2014,13 @@ export function resolveCommandProfile(
     } else if (environment.ZENDIO_EXPECTED_RELEASE_MANIFEST_SHA256 !== undefined) {
       invalid('RELEASE_MANIFEST_DIGEST_FORBIDDEN');
     }
+    const firefoxExecution = firefoxReleaseConsumer
+      ? firefoxReleaseConsumerEnvironment(profileId, environment, attemptRoot, transport)
+      : undefined;
     command = {
       executable: process.execPath,
       argv: [fixedFileOperation(profileFixedScript(profileId)), ...args],
-      env: releaseProfileEnvironment(profileId, environment),
+      env: releaseProfileEnvironment(profileId, environment, firefoxExecution?.environment),
       limits:
         profileId === 'chrome-prepare-v1'
           ? COMMAND_LIMITS.chromePrepare
@@ -1959,7 +2047,18 @@ export function resolveCommandProfile(
         statePath:
           profileArgumentValue(args, '--state-file') ??
           profileArgumentValue(args, '--submission-state-file'),
-        expectedManifestSha256
+        expectedManifestSha256,
+        ...(firefoxExecution
+          ? {
+              firefoxExecution: true,
+              firefoxExecutionClass: firefoxExecution.executionClass,
+              browsersPath: firefoxExecution.browsersPath,
+              userconfig: firefoxExecution.userconfig,
+              globalconfig: firefoxExecution.globalconfig,
+              browserRootState:
+                firefoxExecution.executionClass === 'protected-verifier' ? 'none' : 'existing'
+            }
+          : {})
       }
     };
   } else if (profileId === 'npm-script-quick-v1')
@@ -2004,12 +2103,13 @@ export function resolveCommandProfile(
         ? {
             env: buildClosedCommandEnvironment(environment, phaseEnvironment.environment),
             commandContext: {
-              playwrightPhase: true,
+              firefoxExecution: true,
+              firefoxExecutionClass: phaseEnvironment.executionClass,
               attemptRoot: phaseEnvironment.attemptRoot,
               browsersPath: phaseEnvironment.browsersPath,
               userconfig: phaseEnvironment.userconfig,
               globalconfig: phaseEnvironment.globalconfig,
-              hostDependencies
+              browserRootState: hostDependencies ? 'absent' : 'empty'
             }
           }
         : {}),
