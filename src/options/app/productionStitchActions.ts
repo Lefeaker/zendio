@@ -81,8 +81,8 @@ export function createProductionStitchActions(
     ...createProductionSelectionTriggerActions(context),
     'preview:setTheme': ({ value, mutate: update }) => {
       const theme: InterfaceTheme = value === 'light' || value === 'system' ? value : 'dark';
-      const previousStateTheme = context.getState().interfaceThemePreference ?? 'system';
-      const previousDraftTheme = context.getDraft().interfaceTheme ?? previousStateTheme;
+      const oldState = context.getState().interfaceThemePreference ?? 'system';
+      const oldDraft = context.getDraft().interfaceTheme ?? oldState;
       context.runPersistenceTask(
         'options:theme',
         async () => {
@@ -98,11 +98,9 @@ export function createProductionStitchActions(
           context.trackThemeChanged?.(theme);
         },
         () => {
-          const state = context.getState();
-          state.interfaceThemePreference = previousStateTheme;
-          state.previewTheme = persistTheme(previousStateTheme);
-          context.getDraft().interfaceTheme = previousDraftTheme;
-          context.syncPreviewThemeControls();
+          const next = context.getState();
+          next.previewTheme = persistTheme((next.interfaceThemePreference = oldState));
+          context.getDraft().interfaceTheme = oldDraft;
         }
       );
     },

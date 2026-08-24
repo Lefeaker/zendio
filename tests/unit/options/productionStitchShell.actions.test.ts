@@ -25,6 +25,7 @@ import {
   createController,
   createEnglishPageMessages,
   createActionRuntimeHarness,
+  createCompleteOptions,
   createMessaging,
   createRepository,
   findCardByTitle,
@@ -831,6 +832,101 @@ describe('mountProductionStitchShell actions', () => {
     expect(mounted.collectDraft().interfaceTheme).toBe('dark');
     expect(document.documentElement.dataset.theme).toBe('dark');
     expect(window.localStorage.getItem('aob-theme')).toBe('dark');
+  });
+
+  it('keeps the successor optimistic theme, then restores the chain baseline when both fail', async () => {
+    const controller = createController();
+    const optionsRepository = createRepository();
+    const predecessor = deferred<CompleteOptions>();
+    const successor = deferred<CompleteOptions>();
+    let durableTheme = 'dark';
+    optionsRepository.patch
+      .mockImplementationOnce(() =>
+        predecessor.promise.then((stored) => {
+          durableTheme = 'light';
+          return stored;
+        })
+      )
+      .mockImplementationOnce(() =>
+        successor.promise.then((stored) => {
+          durableTheme = 'system';
+          return stored;
+        })
+      );
+    const mounted = mountProductionStitchShell({
+      controller: asOptionsController(controller),
+      initialOptions: { interfaceTheme: 'dark' },
+      messages: null,
+      language: 'en',
+      optionsRepository
+    });
+
+    findButton('Light').click();
+    findButton('System').click();
+    expect(mounted.collectDraft().interfaceTheme).toBe('system');
+    expect(window.localStorage.getItem('aob-theme')).toBe('system');
+
+    predecessor.reject(new Error('predecessor failed'));
+    await flushPromises();
+
+    expect(mounted.collectDraft().interfaceTheme).toBe('system');
+    expect(window.localStorage.getItem('aob-theme')).toBe('system');
+    expect(findButton('System').getAttribute('aria-pressed')).toBe('true');
+
+    successor.reject(new Error('successor failed'));
+    await flushPromises();
+
+    expect(durableTheme).toBe('dark');
+    expect(mounted.collectDraft().interfaceTheme).toBe('dark');
+    expect(document.documentElement.dataset.theme).toBe('dark');
+    expect(window.localStorage.getItem('aob-theme')).toBe('dark');
+    expect(findButton('Dark').getAttribute('aria-pressed')).toBe('true');
+  });
+
+  it('keeps a successful successor theme after the predecessor fails late', async () => {
+    const controller = createController();
+    const optionsRepository = createRepository();
+    const predecessor = deferred<CompleteOptions>();
+    const successor = deferred<CompleteOptions>();
+    let durableTheme = 'dark';
+    optionsRepository.patch
+      .mockImplementationOnce(() =>
+        predecessor.promise.then((stored) => {
+          durableTheme = 'light';
+          return stored;
+        })
+      )
+      .mockImplementationOnce(() =>
+        successor.promise.then((stored) => {
+          durableTheme = 'system';
+          return stored;
+        })
+      );
+    const mounted = mountProductionStitchShell({
+      controller: asOptionsController(controller),
+      initialOptions: { interfaceTheme: 'dark' },
+      messages: null,
+      language: 'en',
+      optionsRepository
+    });
+
+    findButton('Light').click();
+    findButton('System').click();
+    successor.resolve(createCompleteOptions({ interfaceTheme: 'system' }));
+    await flushPromises();
+
+    expect(durableTheme).toBe('system');
+    expect(mounted.collectDraft().interfaceTheme).toBe('system');
+    expect(window.localStorage.getItem('aob-theme')).toBe('system');
+
+    predecessor.reject(new Error('late predecessor failure'));
+    await flushPromises();
+
+    expect(durableTheme).toBe('system');
+    expect(mounted.collectDraft().interfaceTheme).toBe('system');
+    expect(document.documentElement.dataset.theme).toBe('light');
+    expect(window.localStorage.getItem('aob-theme')).toBe('system');
+    expect(findButton('System').getAttribute('aria-pressed')).toBe('true');
   });
 
   it('emits canonical export telemetry without leaking exported option content', async () => {

@@ -247,23 +247,27 @@ export function createProductionStitchShellActionRuntime(
     widgetHost
   } = options;
   const telemetry = createProductionOptionsTelemetry(persistence);
-  const taskOwner: ProductionStitchActionTaskOwner = createProductionStitchActionTaskOwner();
+  const owner: ProductionStitchActionTaskOwner = createProductionStitchActionTaskOwner();
+  const roots = new Map<string, () => void>();
 
-  function refreshAppDataWithUsage(): void {
+  function refreshWithUsage(): void {
     options.refreshAppData();
     persistence.restoreUsageStatsView();
   }
 
   function runPersistenceTask(key: string, task: () => Promise<void>, rollback?: () => void): void {
-    taskOwner.run<null>({
+    const undo = roots.get(key) || rollback;
+    if (undo) roots.set(key, undo);
+    owner.run<(() => void) | undefined>({
       key,
-      capture: () => null,
+      capture: () => undo,
       task,
-      rollback: (_snapshot, error) => {
-        rollback?.();
+      rollback: (saved, error) => {
+        if (roots.delete(key)) saved?.();
         options.render();
         showStatusMessage('error', formatOptionsError(error, options.getCurrentMessages()));
-      }
+      },
+      onSuccess: () => roots.delete(key)
     });
   }
   const actionRuntime = createActionRuntime<PreviewStoreState, PreviewContent>({
@@ -286,7 +290,7 @@ export function createProductionStitchShellActionRuntime(
           draft: options.getDraft(),
           state: options.getState(),
           setDomainMappingRows: (entries) => options.setDomainMappingRows(entries),
-          refreshAppData: refreshAppDataWithUsage,
+          refreshAppData: refreshWithUsage,
           scheduleDraftSave: () => options.scheduleDraftSave(),
           render: () => options.render(),
           name
@@ -315,7 +319,7 @@ export function createProductionStitchShellActionRuntime(
         await optionsRepository.patch({ path: ['interfaceTheme'], value: theme });
       },
       runPersistenceTask,
-      refreshAppData: refreshAppDataWithUsage,
+      refreshAppData: refreshWithUsage,
       render: () => options.render(),
       renderActiveResourceModal: () => options.renderActiveResourceModal(),
       repairConfiguration: async () => {
@@ -385,7 +389,10 @@ export function createProductionStitchShellActionRuntime(
 
   return {
     dispatch,
-    dispose: () => taskOwner.dispose(),
-    waitForIdle: () => taskOwner.waitForIdle()
+    dispose: () => {
+      roots.clear();
+      owner.dispose();
+    },
+    waitForIdle: () => owner.waitForIdle()
   };
 }

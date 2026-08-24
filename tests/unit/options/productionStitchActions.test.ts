@@ -14,10 +14,13 @@ describe('production Stitch persistence action routing', () => {
       previewTheme: 'light'
     };
     const pending: Promise<void>[] = [];
-    const runPersistenceTask = vi.fn((key: string, task: () => Promise<void>) => {
-      void key;
-      pending.push(task());
-    });
+    const runPersistenceTask = vi.fn(
+      (key: string, task: () => Promise<void>, rollback?: () => void) => {
+        void rollback;
+        void key;
+        pending.push(task());
+      }
+    );
     const persistThemePreference = vi.fn(() => Promise.resolve());
     const persistPrivacyPreference = vi.fn(() => Promise.resolve());
     const resetUsageData = vi.fn(() => Promise.resolve());
@@ -66,6 +69,7 @@ describe('production Stitch persistence action routing', () => {
       'usage:reset',
       'options:import'
     ]);
+    expect(runPersistenceTask.mock.calls[0]?.[2]).toEqual(expect.any(Function));
     expect(persistThemePreference).toHaveBeenCalledWith('dark');
     expect(persistPrivacyPreference).toHaveBeenCalledWith('analytics', true);
     expect(resetUsageData).toHaveBeenCalledTimes(1);
