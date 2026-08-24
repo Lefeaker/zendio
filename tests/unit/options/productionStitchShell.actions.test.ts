@@ -834,100 +834,89 @@ describe('mountProductionStitchShell actions', () => {
     expect(window.localStorage.getItem('aob-theme')).toBe('dark');
   });
 
-  it('keeps the successor optimistic theme, then restores the chain baseline when both fail', async () => {
-    const controller = createController();
-    const optionsRepository = createRepository();
-    const predecessor = deferred<CompleteOptions>();
-    const successor = deferred<CompleteOptions>();
-    let durableTheme = 'dark';
-    optionsRepository.patch
-      .mockImplementationOnce(() =>
-        predecessor.promise.then((stored) => {
-          durableTheme = 'light';
-          return stored;
+  it.each<{
+    first: 'success' | 'failure';
+    second: 'success' | 'failure';
+    expected: 'dark' | 'light' | 'system';
+  }>([
+    { first: 'failure', second: 'failure', expected: 'dark' },
+    { first: 'success', second: 'failure', expected: 'light' },
+    { first: 'failure', second: 'success', expected: 'system' },
+    { first: 'success', second: 'success', expected: 'system' }
+  ])(
+    'serializes theme persistence: Light $first + System $second => $expected',
+    async ({ first, second, expected }) => {
+      const controller = createController();
+      const optionsRepository = createRepository();
+      const predecessor = deferred<CompleteOptions>();
+      const successor = deferred<CompleteOptions>();
+      const successorStarted = deferred<void>();
+      const starts: string[] = [];
+      let durableTheme = 'dark';
+      optionsRepository.patch
+        .mockImplementationOnce(() => {
+          starts.push('light');
+          return predecessor.promise.then((stored) => {
+            durableTheme = 'light';
+            return stored;
+          });
         })
-      )
-      .mockImplementationOnce(() =>
-        successor.promise.then((stored) => {
-          durableTheme = 'system';
-          return stored;
-        })
-      );
-    const mounted = mountProductionStitchShell({
-      controller: asOptionsController(controller),
-      initialOptions: { interfaceTheme: 'dark' },
-      messages: null,
-      language: 'en',
-      optionsRepository
-    });
+        .mockImplementationOnce(() => {
+          starts.push('system');
+          successorStarted.resolve();
+          return successor.promise.then((stored) => {
+            durableTheme = 'system';
+            return stored;
+          });
+        });
+      const mounted = mountProductionStitchShell({
+        controller: asOptionsController(controller),
+        initialOptions: { interfaceTheme: 'dark' },
+        messages: null,
+        language: 'en',
+        optionsRepository
+      });
 
-    findButton('Light').click();
-    findButton('System').click();
-    expect(mounted.collectDraft().interfaceTheme).toBe('system');
-    expect(window.localStorage.getItem('aob-theme')).toBe('system');
+      findButton('Light').click();
+      findButton('System').click();
 
-    predecessor.reject(new Error('predecessor failed'));
-    await flushPromises();
+      expect(starts).toEqual(['light']);
+      expect(mounted.collectDraft().interfaceTheme).toBe('light');
+      expect(window.localStorage.getItem('aob-theme')).toBe('light');
 
-    expect(mounted.collectDraft().interfaceTheme).toBe('system');
-    expect(window.localStorage.getItem('aob-theme')).toBe('system');
-    expect(findButton('System').getAttribute('aria-pressed')).toBe('true');
+      if (first === 'success') {
+        predecessor.resolve(createCompleteOptions({ interfaceTheme: 'light' }));
+      } else {
+        predecessor.reject(new Error('light failed'));
+      }
+      await successorStarted.promise;
 
-    successor.reject(new Error('successor failed'));
-    await flushPromises();
+      expect(starts).toEqual(['light', 'system']);
+      expect(mounted.collectDraft().interfaceTheme).toBe('system');
+      expect(window.localStorage.getItem('aob-theme')).toBe('system');
 
-    expect(durableTheme).toBe('dark');
-    expect(mounted.collectDraft().interfaceTheme).toBe('dark');
-    expect(document.documentElement.dataset.theme).toBe('dark');
-    expect(window.localStorage.getItem('aob-theme')).toBe('dark');
-    expect(findButton('Dark').getAttribute('aria-pressed')).toBe('true');
-  });
+      if (second === 'success') {
+        successor.resolve(createCompleteOptions({ interfaceTheme: 'system' }));
+      } else {
+        successor.reject(new Error('system failed'));
+      }
+      await flushPromises();
 
-  it('keeps a successful successor theme after the predecessor fails late', async () => {
-    const controller = createController();
-    const optionsRepository = createRepository();
-    const predecessor = deferred<CompleteOptions>();
-    const successor = deferred<CompleteOptions>();
-    let durableTheme = 'dark';
-    optionsRepository.patch
-      .mockImplementationOnce(() =>
-        predecessor.promise.then((stored) => {
-          durableTheme = 'light';
-          return stored;
-        })
-      )
-      .mockImplementationOnce(() =>
-        successor.promise.then((stored) => {
-          durableTheme = 'system';
-          return stored;
-        })
-      );
-    const mounted = mountProductionStitchShell({
-      controller: asOptionsController(controller),
-      initialOptions: { interfaceTheme: 'dark' },
-      messages: null,
-      language: 'en',
-      optionsRepository
-    });
+      const resolvedTheme = expected === 'system' ? 'light' : expected;
+      expect(durableTheme).toBe(expected);
+      expect(mounted.collectDraft().interfaceTheme).toBe(expected);
+      expect(document.documentElement.dataset.theme).toBe(resolvedTheme);
+      expect(window.localStorage.getItem('aob-theme')).toBe(expected);
+      expect(
+        findButton(expected[0]?.toUpperCase() + expected.slice(1)).getAttribute('aria-pressed')
+      ).toBe('true');
 
-    findButton('Light').click();
-    findButton('System').click();
-    successor.resolve(createCompleteOptions({ interfaceTheme: 'system' }));
-    await flushPromises();
-
-    expect(durableTheme).toBe('system');
-    expect(mounted.collectDraft().interfaceTheme).toBe('system');
-    expect(window.localStorage.getItem('aob-theme')).toBe('system');
-
-    predecessor.reject(new Error('late predecessor failure'));
-    await flushPromises();
-
-    expect(durableTheme).toBe('system');
-    expect(mounted.collectDraft().interfaceTheme).toBe('system');
-    expect(document.documentElement.dataset.theme).toBe('light');
-    expect(window.localStorage.getItem('aob-theme')).toBe('system');
-    expect(findButton('System').getAttribute('aria-pressed')).toBe('true');
-  });
+      predecessor.reject(new Error('late predecessor completion'));
+      await flushPromises();
+      expect(durableTheme).toBe(expected);
+      expect(mounted.collectDraft().interfaceTheme).toBe(expected);
+    }
+  );
 
   it('emits canonical export telemetry without leaking exported option content', async () => {
     const controller = createController();

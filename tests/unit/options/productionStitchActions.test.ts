@@ -15,8 +15,8 @@ describe('production Stitch persistence action routing', () => {
     };
     const pending: Promise<void>[] = [];
     const runPersistenceTask = vi.fn(
-      (key: string, task: () => Promise<void>, rollback?: () => void) => {
-        void rollback;
+      (key: string, task: () => Promise<void>, captureRollback?: () => () => void) => {
+        void captureRollback;
         void key;
         pending.push(task());
       }

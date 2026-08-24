@@ -17,43 +17,48 @@ export interface ProductionStitchActionTaskOwner {
 
 export function createProductionStitchActionTaskOwner(): ProductionStitchActionTaskOwner {
   let disposed = false;
-  const generations = new Map<string, number>();
-  const pending = new Map<object, Promise<void>>();
+  const tails = new Map<string, Promise<void>>();
+  const pending = new Set<Promise<void>>();
+
+  async function execute<TSnapshot, TResult>(
+    definition: ProductionStitchActionTask<TSnapshot, TResult>
+  ): Promise<void> {
+    const snapshot = definition.capture();
+    try {
+      const result = await definition.task();
+      if (!disposed) definition.onSuccess?.(result);
+    } catch (error) {
+      if (!disposed) {
+        definition.rollback(snapshot, error);
+        definition.onFailure?.(error);
+      }
+    }
+  }
 
   function run<TSnapshot, TResult = void>(
     definition: ProductionStitchActionTask<TSnapshot, TResult>
   ): void {
     if (disposed) return;
-    const generation = (generations.get(definition.key) ?? 0) + 1;
-    generations.set(definition.key, generation);
-    const snapshot = definition.capture();
-    const token = {};
-    const tracked = (async () => {
-      try {
-        const result = await definition.task();
-        if (!disposed && generations.get(definition.key) === generation) {
-          definition.onSuccess?.(result);
-        }
-      } catch (error) {
-        if (!disposed && generations.get(definition.key) === generation) {
-          definition.rollback(snapshot, error);
-          definition.onFailure?.(error);
-        }
-      } finally {
-        pending.delete(token);
-      }
-    })();
-    pending.set(token, tracked);
+    const start = (): Promise<void> => (disposed ? Promise.resolve() : execute(definition));
+    const previous = tails.get(definition.key);
+    const active = previous ? previous.then(start, start) : start();
+    let tracked: Promise<void>;
+    tracked = active.finally(() => {
+      pending.delete(tracked);
+      if (tails.get(definition.key) === tracked) tails.delete(definition.key);
+    });
+    tails.set(definition.key, tracked);
+    pending.add(tracked);
   }
 
   return {
     run,
     async waitForIdle(): Promise<void> {
-      await Promise.all([...pending.values()]);
+      while (pending.size > 0) await Promise.all([...pending]);
     },
     dispose(): void {
       disposed = true;
-      generations.clear();
+      tails.clear();
     }
   };
 }

@@ -48,7 +48,7 @@ export interface ProductionStitchActionContext {
     value: boolean
   ): Promise<void>;
   persistThemePreference(theme: InterfaceTheme): Promise<void>;
-  runPersistenceTask(key: string, task: () => Promise<void>, rollback?: () => void): void;
+  runPersistenceTask(key: string, task: () => Promise<void>, capture?: () => () => void): void;
   refreshAppData(): void;
   render(): void;
   renderActiveResourceModal(): void;
@@ -81,8 +81,6 @@ export function createProductionStitchActions(
     ...createProductionSelectionTriggerActions(context),
     'preview:setTheme': ({ value, mutate: update }) => {
       const theme: InterfaceTheme = value === 'light' || value === 'system' ? value : 'dark';
-      const oldState = context.getState().interfaceThemePreference ?? 'system';
-      const oldDraft = context.getDraft().interfaceTheme ?? oldState;
       context.runPersistenceTask(
         'options:theme',
         async () => {
@@ -98,9 +96,13 @@ export function createProductionStitchActions(
           context.trackThemeChanged?.(theme);
         },
         () => {
-          const next = context.getState();
-          next.previewTheme = persistTheme((next.interfaceThemePreference = oldState));
-          context.getDraft().interfaceTheme = oldDraft;
+          const stateTheme = context.getState().interfaceThemePreference ?? 'system';
+          const draftTheme = context.getDraft().interfaceTheme ?? stateTheme;
+          return () => {
+            const next = context.getState();
+            next.previewTheme = persistTheme((next.interfaceThemePreference = stateTheme));
+            context.getDraft().interfaceTheme = draftTheme;
+          };
         }
       );
     },
