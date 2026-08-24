@@ -58,6 +58,12 @@ function deferred<T>() {
   return { promise, reject, resolve };
 }
 
+function renderedUsageValues() {
+  return Array.from(document.querySelectorAll<HTMLElement>('.stats-grid .stat-value')).map((node) =>
+    node.textContent?.trim()
+  );
+}
+
 function mockStorageConnectionFailure(message: string) {
   const actualFactory = storageControllerModule.createProductionStitchStorageController;
   const factorySpy = vi.spyOn(storageControllerModule, 'createProductionStitchStorageController');
@@ -730,6 +736,13 @@ describe('mountProductionStitchShell actions', () => {
     const controller = createController();
     const optionsRepository = createRepository();
     const messagingRepository = createMessaging();
+    const previousStats = {
+      aiChatSaves: 3,
+      fragmentSaves: 2,
+      articleSaves: 1,
+      lastUpdatedISO: '2026-04-25T00:00:00.000Z',
+      history: [{ date: '2026-04-25', aiChat: 3, fragment: 2, article: 1 }]
+    };
     const zeroStats = {
       aiChatSaves: 0,
       fragmentSaves: 0,
@@ -738,7 +751,7 @@ describe('mountProductionStitchShell actions', () => {
       history: []
     };
     const usageStatsClient = {
-      get: vi.fn(() => Promise.resolve(zeroStats)),
+      get: vi.fn(() => Promise.resolve(previousStats)),
       reset: vi.fn(() => Promise.resolve(zeroStats))
     };
     mountProductionStitchShell({
@@ -760,15 +773,58 @@ describe('mountProductionStitchShell actions', () => {
       now: () => 1234
     } as never);
 
+    await flushPromises();
+    expect(renderedUsageValues()).toEqual(['6', '3', '2', '1']);
+
     findButton('Clear Usage Data').click();
     await flushPromises();
 
     expect(usageStatsClient.reset).toHaveBeenCalledTimes(1);
+    expect(renderedUsageValues()).toEqual(['0', '0', '0', '0']);
     expect(vi.mocked(messagingRepository.send)).toHaveBeenCalledWith({
       type: 'ANALYTICS_EVENT',
       event: 'clear_stats',
       params: { timestamp: 1234 }
     });
+
+    findButton('Diagnose Configuration').click();
+    expect(renderedUsageValues()).toEqual(['0', '0', '0', '0']);
+  });
+
+  it('restores the durable usage view and failure status when reset rejects', async () => {
+    const controller = createController();
+    const previousStats = {
+      aiChatSaves: 11,
+      fragmentSaves: 7,
+      articleSaves: 5,
+      lastUpdatedISO: '2026-08-24T00:00:00.000Z',
+      history: [{ date: '2026-08-24', aiChat: 11, fragment: 7, article: 5 }]
+    };
+    const usageStatsClient = {
+      get: vi.fn(() => Promise.resolve(previousStats)),
+      reset: vi.fn(() => Promise.reject(new Error('usage reset failed')))
+    };
+    const mounted = mountProductionStitchShell({
+      controller: asOptionsController(controller),
+      initialOptions: { interfaceTheme: 'dark' },
+      messages: null,
+      language: 'en',
+      usageStatsClient
+    });
+
+    await flushPromises();
+    expect(renderedUsageValues()).toEqual(['23', '11', '7', '5']);
+
+    findButton('Clear Usage Data').click();
+    await flushPromises();
+
+    expect(usageStatsClient.reset).toHaveBeenCalledTimes(1);
+    expect(renderedUsageValues()).toEqual(['23', '11', '7', '5']);
+    expect(document.getElementById('msg')?.textContent).toContain('usage reset failed');
+    expect(mounted.collectDraft().interfaceTheme).toBe('dark');
+
+    findButton('Diagnose Configuration').click();
+    expect(renderedUsageValues()).toEqual(['23', '11', '7', '5']);
   });
 
   it('keeps a committed usage reset when an earlier theme task fails', async () => {
@@ -806,13 +862,8 @@ describe('mountProductionStitchShell actions', () => {
       optionsRepository,
       usageStatsClient
     });
-    const usageValues = () =>
-      Array.from(document.querySelectorAll<HTMLElement>('.stats-grid .stat-value')).map((node) =>
-        node.textContent?.trim()
-      );
-
     await flushPromises();
-    expect(usageValues()).toEqual(['23', '11', '7', '5']);
+    expect(renderedUsageValues()).toEqual(['23', '11', '7', '5']);
 
     findButton('Light').click();
     expect(mounted.collectDraft().interfaceTheme).toBe('light');
@@ -822,13 +873,13 @@ describe('mountProductionStitchShell actions', () => {
     await flushPromises();
     expect(usageStatsClient.reset).toHaveBeenCalledTimes(1);
     expect(durableUsage).toEqual(resetUsage);
-    expect(usageValues()).toEqual(['0', '0', '0', '0']);
+    expect(renderedUsageValues()).toEqual(['0', '0', '0', '0']);
 
     pendingTheme.reject(new Error('theme persistence failed'));
     await flushPromises();
 
     expect(durableUsage).toEqual(resetUsage);
-    expect(usageValues()).toEqual(['0', '0', '0', '0']);
+    expect(renderedUsageValues()).toEqual(['0', '0', '0', '0']);
     expect(mounted.collectDraft().interfaceTheme).toBe('dark');
     expect(document.documentElement.dataset.theme).toBe('dark');
     expect(window.localStorage.getItem('aob-theme')).toBe('dark');

@@ -66,7 +66,6 @@ export interface ProductionStitchPersistence {
   restoreUsageStatsView(): void;
   trackUsageEvent(message: AnalyticsRuntimeEventPayload): Promise<void>;
 }
-
 export function createProductionStitchPersistence(
   options: ProductionStitchPersistenceOptions
 ): ProductionStitchPersistence {
@@ -74,7 +73,6 @@ export function createProductionStitchPersistence(
     ...DEFAULT_USAGE_STATS,
     history: [...DEFAULT_USAGE_STATS.history]
   };
-
   function applyUsageStats(stats: UsageStats): void {
     usageStatsSnapshot = { ...stats, history: stats.history.map((entry) => ({ ...entry })) };
     const appData = options.getAppData();
@@ -83,11 +81,9 @@ export function createProductionStitchPersistence(
       overview: usageStatsToOverview(appData.overview, usageStatsSnapshot)
     });
   }
-
   function restoreUsageStatsView(): void {
     applyUsageStats(usageStatsSnapshot);
   }
-
   function refreshAppDataWithUsage(): void {
     options.refreshAppData();
     restoreUsageStatsView();
@@ -101,7 +97,6 @@ export function createProductionStitchPersistence(
       // Telemetry is best-effort and must not block options actions.
     }
   }
-
   function getPrivacySnapshot(): PrivacySnapshot {
     const current = (
       options.getDraft() as {
@@ -123,7 +118,6 @@ export function createProductionStitchPersistence(
     state.privacyErrorReporting = nextSnapshot.errorReporting;
     state.privacyDebugMode = nextSnapshot.debugMode;
   }
-
   function normalizePrivacySnapshot(nextSnapshot: PrivacySnapshot): PrivacySnapshot {
     return {
       ...nextSnapshot,
@@ -219,15 +213,21 @@ export function createProductionStitchPersistence(
   }
 
   async function resetUsageData(): Promise<void> {
+    const previousStats = usageStatsSnapshot;
     const zeroStats = { ...DEFAULT_USAGE_STATS, history: [...DEFAULT_USAGE_STATS.history] };
     applyUsageStats(zeroStats);
-    applyUsageStats(
-      await resetUsageStatsAction({
-        usageStatsClient: options.usageStatsClient,
-        messagingRepository: options.messagingRepository,
-        ...(options.now ? { now: options.now } : {})
-      })
-    );
+    try {
+      applyUsageStats(
+        await resetUsageStatsAction({
+          usageStatsClient: options.usageStatsClient,
+          messagingRepository: options.messagingRepository,
+          ...(options.now ? { now: options.now } : {})
+        })
+      );
+    } catch (error) {
+      applyUsageStats(previousStats);
+      throw error;
+    }
   }
 
   async function loadUsageStatsFromStorage(): Promise<void> {
