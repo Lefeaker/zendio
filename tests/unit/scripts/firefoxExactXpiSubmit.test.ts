@@ -18,76 +18,90 @@ import {
 const roots: string[] = [];
 type MutationOperation = 'upload' | 'version-submit' | 'source-patch';
 type FailurePoint = { stage: 'before' | 'request' | 'after'; operation: MutationOperation };
-type AdmissionMode = 'normal' | 'duplicate-upload' | 'version-first';
 
-function createSubmissionHarness(failure?: FailurePoint, admissionMode: AdmissionMode = 'normal') {
-  const events: string[] = [];
-  const failAt = (stage: FailurePoint['stage'], operation: MutationOperation) => {
-    if (failure?.stage === stage && failure.operation === operation) {
-      throw new Error(`${stage}-${operation}-failed`);
-    }
-  };
-  const journal = {
+function failAt(
+  failure: FailurePoint | undefined,
+  stage: FailurePoint['stage'],
+  operation: MutationOperation
+): void {
+  if (failure?.stage === stage && failure.operation === operation) {
+    throw new Error(`${stage}-${operation}-failed`);
+  }
+}
+
+function createMutationJournal(events: string[], failure?: FailurePoint) {
+  return {
     beforeMutation: vi.fn((operation: MutationOperation): Promise<void> => {
       events.push(`before:${operation}`);
-      failAt('before', operation);
+      failAt(failure, 'before', operation);
       return Promise.resolve();
     }),
     afterMutation: vi.fn((operation: MutationOperation): Promise<void> => {
       events.push(`after:${operation}`);
-      failAt('after', operation);
+      failAt(failure, 'after', operation);
       return Promise.resolve();
     })
   };
+}
 
-  class SubmitClient {
-    fileFromSync(path: string) {
-      return { path };
-    }
-
-    fetchJson(_url: URL, method = 'GET') {
-      const operation: MutationOperation = method === 'POST' ? 'upload' : 'version-submit';
-      events.push(`request:${operation}`);
-      failAt('request', operation);
+function installPinnedFetch(events: string[], failure?: FailurePoint) {
+  const fetchMock = vi.fn((url: URL, init?: RequestInit): Promise<Response> => {
+    const method = init?.method ?? 'GET';
+    if (method === 'POST' && url.pathname.endsWith('/addons/upload/')) {
+      events.push('request:upload');
+      failAt(failure, 'request', 'upload');
       return Promise.resolve(
-        operation === 'upload'
-          ? { uuid: 'upload-uuid' }
-          : { version: { id: 42, edit_url: 'https://example.test/edit' } }
+        new Response(JSON.stringify({ uuid: 'upload-uuid' }), {
+          status: 200,
+          headers: { 'content-type': 'application/json' }
+        })
       );
     }
-
-    async getPreviousUuidOrUploadXpi() {
-      if (admissionMode === 'version-first') {
-        await this.fetchJson(
-          new URL('https://addons.mozilla.org/api/v5/addons/addon/fixture@example.test/'),
-          'PUT'
-        );
-        return 'unreachable-upload-uuid';
-      }
-      await this.fetchJson(new URL('https://addons.mozilla.org/api/v5/addons/upload/'), 'POST');
-      if (admissionMode === 'duplicate-upload') {
-        await this.fetchJson(new URL('https://addons.mozilla.org/api/v5/addons/upload/'), 'POST');
-      }
-      return 'upload-uuid';
+    if (method === 'GET' && url.pathname.endsWith('/addons/upload/upload-uuid/')) {
+      events.push('request:validation-read');
+      return Promise.resolve(
+        new Response(
+          JSON.stringify({
+            processed: true,
+            valid: true,
+            uuid: 'upload-uuid',
+            validation: { errors: 0 }
+          }),
+          { status: 200, headers: { 'content-type': 'application/json' } }
+        )
+      );
     }
-
-    doFormDataPatch() {
+    if (method === 'PUT' && /\/addons\/addon\/[^/]+\/$/u.test(url.pathname)) {
+      events.push('request:version-submit');
+      failAt(failure, 'request', 'version-submit');
+      return Promise.resolve(
+        new Response(
+          JSON.stringify({ version: { id: 42, edit_url: 'https://example.test/edit' } }),
+          { status: 200, headers: { 'content-type': 'application/json' } }
+        )
+      );
+    }
+    if (method === 'PATCH' && /\/addons\/addon\/[^/]+\/versions\/[^/]+\/$/u.test(url.pathname)) {
       events.push('request:source-patch');
-      failAt('request', 'source-patch');
-      return Promise.resolve();
-    }
-
-    async putVersion(_uploadUuid: string, addonId: string) {
-      await this.fetchJson(
-        new URL(`https://addons.mozilla.org/api/v5/addons/addon/${addonId}/`),
-        'PUT'
+      failAt(failure, 'request', 'source-patch');
+      return Promise.resolve(
+        new Response('{}', {
+          status: 200,
+          headers: { 'content-type': 'application/json' }
+        })
       );
-      await this.doFormDataPatch();
-      return { id: addonId };
     }
-  }
+    throw new Error(`unexpected-fetch:${method}:${url.href}`);
+  });
+  vi.stubGlobal('fetch', fetchMock);
+  return fetchMock;
+}
 
-  return { events, journal, SubmitClient };
+function createSubmissionHarness(failure?: FailurePoint) {
+  const events: string[] = [];
+  const journal = createMutationJournal(events, failure);
+  const fetchMock = installPinnedFetch(events, failure);
+  return { events, journal, fetchMock };
 }
 
 async function createBoundRelease() {
@@ -114,7 +128,7 @@ async function createBoundRelease() {
     packageMetadata: { geckoId: 'fixture@example.test' },
     toolchain: {},
     gaConfig: {},
-    buildEnvironment: {}
+    buildEnvironment: { configMode: 'standalone-synthetic' }
   });
   const manifestPath = join(releaseDir, 'manifest.json');
   await writeFile(manifestPath, canonicalArtifactJson(manifest), { mode: 0o600 });
@@ -129,6 +143,8 @@ async function createBoundRelease() {
 }
 
 afterEach(async () => {
+  vi.unstubAllGlobals();
+  vi.restoreAllMocks();
   await Promise.all(roots.splice(0).map((root) => rm(root, { recursive: true, force: true })));
 });
 
@@ -138,26 +154,24 @@ describe('exact-XPI submission adapter', () => {
     const harness = createSubmissionHarness();
 
     await expect(
-      submitVerifiedFirefoxXpi(
-        {
-          binding: fixture.binding,
-          transportMode: 'local-private-v1',
-          channel: 'listed',
-          id: fixture.binding.geckoId,
-          amoBaseUrl: FIREFOX_AMO_API_BASE_URL,
-          submissionSource: fixture.sourcePath,
-          savedUploadUuidPath: join(fixture.releaseDir, 'upload-state.json'),
-          downloadDir: fixture.downloadDir,
-          credentials: { apiKey: 'key', apiSecret: 'secret' },
-          mutationJournal: harness.journal
-        },
-        { SubmitClient: harness.SubmitClient }
-      )
+      submitVerifiedFirefoxXpi({
+        binding: fixture.binding,
+        transportMode: 'local-private-v1',
+        channel: 'listed',
+        id: fixture.binding.geckoId,
+        amoBaseUrl: FIREFOX_AMO_API_BASE_URL,
+        submissionSource: fixture.sourcePath,
+        savedUploadUuidPath: join(fixture.releaseDir, 'upload-state.json'),
+        downloadDir: fixture.downloadDir,
+        credentials: { apiKey: 'key', apiSecret: 'secret' },
+        mutationJournal: harness.journal
+      })
     ).resolves.toEqual({ id: 'fixture@example.test' });
     expect(harness.events).toEqual([
       'before:upload',
       'request:upload',
       'after:upload',
+      'request:validation-read',
       'before:version-submit',
       'request:version-submit',
       'after:version-submit',
@@ -196,42 +210,52 @@ describe('exact-XPI submission adapter', () => {
       failure: { stage: 'before', operation: 'version-submit' },
       code: 'unknown-submission-state',
       retrySafe: false,
-      requests: ['request:upload']
+      requests: ['request:upload', 'request:validation-read']
     },
     {
       name: 'version request',
       failure: { stage: 'request', operation: 'version-submit' },
       code: 'unknown-submission-state',
       retrySafe: false,
-      requests: ['request:upload', 'request:version-submit']
+      requests: ['request:upload', 'request:validation-read', 'request:version-submit']
     },
     {
       name: 'version after-hook',
       failure: { stage: 'after', operation: 'version-submit' },
       code: 'unknown-submission-state',
       retrySafe: false,
-      requests: ['request:upload', 'request:version-submit']
+      requests: ['request:upload', 'request:validation-read', 'request:version-submit']
     },
     {
       name: 'source before-hook after prior mutations',
       failure: { stage: 'before', operation: 'source-patch' },
       code: 'unknown-submission-state',
       retrySafe: false,
-      requests: ['request:upload', 'request:version-submit']
+      requests: ['request:upload', 'request:validation-read', 'request:version-submit']
     },
     {
       name: 'source request',
       failure: { stage: 'request', operation: 'source-patch' },
       code: 'unknown-submission-state',
       retrySafe: false,
-      requests: ['request:upload', 'request:version-submit', 'request:source-patch']
+      requests: [
+        'request:upload',
+        'request:validation-read',
+        'request:version-submit',
+        'request:source-patch'
+      ]
     },
     {
       name: 'source after-hook',
       failure: { stage: 'after', operation: 'source-patch' },
       code: 'unknown-submission-state',
       retrySafe: false,
-      requests: ['request:upload', 'request:version-submit', 'request:source-patch']
+      requests: [
+        'request:upload',
+        'request:validation-read',
+        'request:version-submit',
+        'request:source-patch'
+      ]
     }
   ] satisfies Array<{
     name: string;
@@ -246,33 +270,7 @@ describe('exact-XPI submission adapter', () => {
       const harness = createSubmissionHarness(failure);
 
       await expect(
-        submitVerifiedFirefoxXpi(
-          {
-            binding: fixture.binding,
-            transportMode: 'local-private-v1',
-            channel: 'listed',
-            id: fixture.binding.geckoId,
-            amoBaseUrl: FIREFOX_AMO_API_BASE_URL,
-            submissionSource: fixture.sourcePath,
-            savedUploadUuidPath: join(fixture.releaseDir, 'upload-state.json'),
-            downloadDir: fixture.downloadDir,
-            credentials: { apiKey: 'key', apiSecret: 'secret' },
-            mutationJournal: harness.journal
-          },
-          { SubmitClient: harness.SubmitClient }
-        )
-      ).rejects.toMatchObject({ code, retrySafe });
-      expect(harness.events.filter((event) => event.startsWith('request:'))).toEqual(requests);
-    }
-  );
-
-  it('rejects reversed and duplicate mutation admission before another request', async () => {
-    const fixture = await createBoundRelease();
-    const harness = createSubmissionHarness(undefined, 'duplicate-upload');
-
-    await expect(
-      submitVerifiedFirefoxXpi(
-        {
+        submitVerifiedFirefoxXpi({
           binding: fixture.binding,
           transportMode: 'local-private-v1',
           channel: 'listed',
@@ -283,144 +281,182 @@ describe('exact-XPI submission adapter', () => {
           downloadDir: fixture.downloadDir,
           credentials: { apiKey: 'key', apiSecret: 'secret' },
           mutationJournal: harness.journal
-        },
-        { SubmitClient: harness.SubmitClient }
-      )
-    ).rejects.toMatchObject({ code: 'unknown-submission-state', retrySafe: false });
-    expect(harness.events).toEqual(['before:upload', 'request:upload', 'after:upload']);
+        })
+      ).rejects.toMatchObject({ code, retrySafe });
+      expect(harness.events.filter((event) => event.startsWith('request:'))).toEqual(requests);
+    }
+  );
 
-    const reversedFixture = await createBoundRelease();
-    const reversedHarness = createSubmissionHarness(undefined, 'version-first');
+  it('rejects signer and client injection before binding, credentials, journal, or mutation', async () => {
+    for (const injectionKind of ['signer', 'client']) {
+      const fixture = await createBoundRelease();
+      const externalMutation = vi.fn();
+      const credentialRead = vi.fn();
+      const journal = {
+        beforeMutation: vi.fn(),
+        afterMutation: vi.fn()
+      };
+      const fetchMock = vi.fn();
+      vi.stubGlobal('fetch', fetchMock);
+      const injection =
+        injectionKind === 'signer'
+          ? {
+              signAddonImpl: () => {
+                externalMutation();
+                return Promise.resolve({ id: 'bypass' });
+              }
+            }
+          : {
+              SubmitClient: class InheritedSubmitClientBypass {
+                constructor() {
+                  externalMutation();
+                }
+              }
+            };
 
-    await expect(
-      submitVerifiedFirefoxXpi(
-        {
-          binding: reversedFixture.binding,
+      await expect(
+        submitVerifiedFirefoxXpi(
+          {
+            binding: fixture.binding,
+            transportMode: 'local-private-v1',
+            channel: 'listed',
+            id: fixture.binding.geckoId,
+            amoBaseUrl: FIREFOX_AMO_API_BASE_URL,
+            submissionSource: fixture.sourcePath,
+            savedUploadUuidPath: join(fixture.releaseDir, 'upload-state.json'),
+            downloadDir: fixture.downloadDir,
+            credentials: {
+              get apiKey() {
+                credentialRead();
+                return 'key';
+              },
+              get apiSecret() {
+                credentialRead();
+                return 'secret';
+              }
+            },
+            mutationJournal: journal
+          },
+          injection
+        )
+      ).rejects.toThrow('FIREFOX_SUBMIT_INJECTION_FORBIDDEN');
+      expect(externalMutation).not.toHaveBeenCalled();
+      expect(credentialRead).not.toHaveBeenCalled();
+      expect(journal.beforeMutation).not.toHaveBeenCalled();
+      expect(journal.afterMutation).not.toHaveBeenCalled();
+      expect(fetchMock).not.toHaveBeenCalled();
+
+      const harness = createSubmissionHarness();
+      await expect(
+        submitVerifiedFirefoxXpi({
+          binding: fixture.binding,
           transportMode: 'local-private-v1',
           channel: 'listed',
-          id: reversedFixture.binding.geckoId,
+          id: fixture.binding.geckoId,
           amoBaseUrl: FIREFOX_AMO_API_BASE_URL,
-          submissionSource: reversedFixture.sourcePath,
-          savedUploadUuidPath: join(reversedFixture.releaseDir, 'upload-state.json'),
-          downloadDir: reversedFixture.downloadDir,
+          submissionSource: fixture.sourcePath,
+          savedUploadUuidPath: join(fixture.releaseDir, 'upload-state.json'),
+          downloadDir: fixture.downloadDir,
           credentials: { apiKey: 'key', apiSecret: 'secret' },
-          mutationJournal: reversedHarness.journal
-        },
-        { SubmitClient: reversedHarness.SubmitClient }
-      )
-    ).rejects.toMatchObject({ code: 'pre-mutation-failure', retrySafe: true });
-    expect(reversedHarness.events).toEqual([]);
+          mutationJournal: harness.journal
+        })
+      ).resolves.toEqual({ id: 'fixture@example.test' });
+    }
   });
 
-  it('fences late completion and keeps separate submission attempts isolated', async () => {
-    const lateFixture = await createBoundRelease();
+  it('fences a late upload rejection without admitting a later pinned mutation', async () => {
+    const fixture = await createBoundRelease();
     const events: string[] = [];
+    const journal = createMutationJournal(events);
+    let resolveUpload: ((response: Response) => void) | undefined;
     let rejectUpload: ((error: Error) => void) | undefined;
-    const upload = new Promise<never>((_resolve, reject) => {
+    const pendingUpload = new Promise<Response>((resolve, reject) => {
+      resolveUpload = resolve;
       rejectUpload = reject;
     });
-    class PendingSubmitClient {
-      static instance: PendingSubmitClient | undefined;
+    const fetchMock = vi.fn((url: URL, init?: RequestInit): Promise<Response> => {
+      const method = init?.method ?? 'GET';
+      events.push(`request:${method}:${url.pathname}`);
+      return pendingUpload;
+    });
+    vi.stubGlobal('fetch', fetchMock);
 
-      constructor() {
-        PendingSubmitClient.instance = this;
-      }
-
-      fileFromSync(path: string) {
-        return { path };
-      }
-
-      fetchJson(_url: URL, method = 'GET') {
-        events.push(`request:${method}`);
-        return upload;
-      }
-
-      async getPreviousUuidOrUploadXpi() {
-        await this.fetchJson(new URL('https://addons.mozilla.org/api/v5/addons/upload/'), 'POST');
-        return 'unreachable-upload-uuid';
-      }
-    }
-    const submission = submitVerifiedFirefoxXpi(
-      {
-        binding: lateFixture.binding,
-        transportMode: 'local-private-v1',
-        channel: 'listed',
-        id: lateFixture.binding.geckoId,
-        amoBaseUrl: FIREFOX_AMO_API_BASE_URL,
-        submissionSource: lateFixture.sourcePath,
-        savedUploadUuidPath: join(lateFixture.releaseDir, 'upload-state.json'),
-        downloadDir: lateFixture.downloadDir,
-        credentials: { apiKey: 'key', apiSecret: 'secret' },
-        mutationJournal: {
-          beforeMutation: vi.fn().mockResolvedValue(undefined),
-          afterMutation: vi.fn().mockResolvedValue(undefined)
-        }
-      },
-      { SubmitClient: PendingSubmitClient }
-    );
-    await vi.waitFor(() => expect(events).toEqual(['request:POST']));
-    const activeClient = PendingSubmitClient.instance;
-    if (!activeClient) throw new Error('active-client-not-installed');
-    await expect(
-      activeClient.fetchJson(new URL('https://addons.mozilla.org/api/v5/addons/upload/'), 'POST')
-    ).rejects.toThrow('FIREFOX_SUBMIT_MUTATION_ORDER');
-    expect(events).toEqual(['request:POST']);
-    if (!rejectUpload) throw new Error('upload-rejector-not-installed');
+    const submission = submitVerifiedFirefoxXpi({
+      binding: fixture.binding,
+      transportMode: 'local-private-v1',
+      channel: 'listed',
+      id: fixture.binding.geckoId,
+      amoBaseUrl: FIREFOX_AMO_API_BASE_URL,
+      submissionSource: fixture.sourcePath,
+      savedUploadUuidPath: join(fixture.releaseDir, 'upload-state.json'),
+      downloadDir: fixture.downloadDir,
+      credentials: { apiKey: 'key', apiSecret: 'secret' },
+      mutationJournal: journal
+    });
+    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+    if (!rejectUpload || !resolveUpload) throw new Error('upload-controls-not-installed');
     rejectUpload(new Error('late-upload-failure'));
     await expect(submission).rejects.toMatchObject({
       code: 'unknown-submission-state',
       retrySafe: false
     });
-    const lateClient = PendingSubmitClient.instance;
-    if (!lateClient) throw new Error('late-client-not-installed');
-    await expect(
-      lateClient.fetchJson(
-        new URL('https://addons.mozilla.org/api/v5/addons/addon/fixture@example.test/'),
-        'PUT'
-      )
-    ).rejects.toThrow('FIREFOX_SUBMIT_MUTATION_ORDER');
-    expect(events).toEqual(['request:POST']);
+    resolveUpload(new Response('{}', { status: 200 }));
+    await Promise.resolve();
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(journal.afterMutation).not.toHaveBeenCalled();
+  });
 
+  it('keeps concurrent pinned submissions and journals isolated', async () => {
     const [leftFixture, rightFixture] = await Promise.all([
       createBoundRelease(),
       createBoundRelease()
     ]);
-    const left = createSubmissionHarness();
-    const right = createSubmissionHarness();
+    const networkEvents: string[] = [];
+    installPinnedFetch(networkEvents);
+    const leftEvents: string[] = [];
+    const rightEvents: string[] = [];
+    const leftJournal = createMutationJournal(leftEvents);
+    const rightJournal = createMutationJournal(rightEvents);
+
     await Promise.all([
-      submitVerifiedFirefoxXpi(
-        {
-          binding: leftFixture.binding,
-          transportMode: 'local-private-v1',
-          channel: 'listed',
-          id: leftFixture.binding.geckoId,
-          amoBaseUrl: FIREFOX_AMO_API_BASE_URL,
-          submissionSource: leftFixture.sourcePath,
-          savedUploadUuidPath: join(leftFixture.releaseDir, 'upload-state.json'),
-          downloadDir: leftFixture.downloadDir,
-          credentials: { apiKey: 'left-key', apiSecret: 'left-secret' },
-          mutationJournal: left.journal
-        },
-        { SubmitClient: left.SubmitClient }
-      ),
-      submitVerifiedFirefoxXpi(
-        {
-          binding: rightFixture.binding,
-          transportMode: 'local-private-v1',
-          channel: 'listed',
-          id: rightFixture.binding.geckoId,
-          amoBaseUrl: FIREFOX_AMO_API_BASE_URL,
-          submissionSource: rightFixture.sourcePath,
-          savedUploadUuidPath: join(rightFixture.releaseDir, 'upload-state.json'),
-          downloadDir: rightFixture.downloadDir,
-          credentials: { apiKey: 'right-key', apiSecret: 'right-secret' },
-          mutationJournal: right.journal
-        },
-        { SubmitClient: right.SubmitClient }
-      )
+      submitVerifiedFirefoxXpi({
+        binding: leftFixture.binding,
+        transportMode: 'local-private-v1',
+        channel: 'listed',
+        id: leftFixture.binding.geckoId,
+        amoBaseUrl: FIREFOX_AMO_API_BASE_URL,
+        submissionSource: leftFixture.sourcePath,
+        savedUploadUuidPath: join(leftFixture.releaseDir, 'upload-state.json'),
+        downloadDir: leftFixture.downloadDir,
+        credentials: { apiKey: 'left-key', apiSecret: 'left-secret' },
+        mutationJournal: leftJournal
+      }),
+      submitVerifiedFirefoxXpi({
+        binding: rightFixture.binding,
+        transportMode: 'local-private-v1',
+        channel: 'listed',
+        id: rightFixture.binding.geckoId,
+        amoBaseUrl: FIREFOX_AMO_API_BASE_URL,
+        submissionSource: rightFixture.sourcePath,
+        savedUploadUuidPath: join(rightFixture.releaseDir, 'upload-state.json'),
+        downloadDir: rightFixture.downloadDir,
+        credentials: { apiKey: 'right-key', apiSecret: 'right-secret' },
+        mutationJournal: rightJournal
+      })
     ]);
-    expect(left.events).toHaveLength(9);
-    expect(right.events).toHaveLength(9);
+    expect(leftEvents).toEqual([
+      'before:upload',
+      'after:upload',
+      'before:version-submit',
+      'after:version-submit',
+      'before:source-patch',
+      'after:source-patch'
+    ]);
+    expect(rightEvents).toEqual(leftEvents);
+    expect(networkEvents.filter((event) => event === 'request:upload')).toHaveLength(2);
+    expect(networkEvents.filter((event) => event === 'request:validation-read')).toHaveLength(2);
+    expect(networkEvents.filter((event) => event === 'request:version-submit')).toHaveLength(2);
+    expect(networkEvents.filter((event) => event === 'request:source-patch')).toHaveLength(2);
   });
 
   it('rejects an in-release substitute source before credentials, journal, or signer', async () => {
@@ -433,38 +469,36 @@ describe('exact-XPI submission adapter', () => {
       beforeMutation: vi.fn(),
       afterMutation: vi.fn()
     };
-    const signAddonImpl = vi.fn();
+    const fetchMock = vi.fn();
+    vi.stubGlobal('fetch', fetchMock);
 
     await expect(
-      submitVerifiedFirefoxXpi(
-        {
-          binding: fixture.binding,
-          transportMode: 'local-private-v1',
-          channel: 'listed',
-          id: fixture.binding.geckoId,
-          amoBaseUrl: FIREFOX_AMO_API_BASE_URL,
-          submissionSource: substitutePath,
-          savedUploadUuidPath: join(fixture.releaseDir, 'upload-state.json'),
-          downloadDir: fixture.downloadDir,
-          credentials: {
-            get apiKey() {
-              credentialRead();
-              return 'key';
-            },
-            get apiSecret() {
-              credentialRead();
-              return 'secret';
-            }
+      submitVerifiedFirefoxXpi({
+        binding: fixture.binding,
+        transportMode: 'local-private-v1',
+        channel: 'listed',
+        id: fixture.binding.geckoId,
+        amoBaseUrl: FIREFOX_AMO_API_BASE_URL,
+        submissionSource: substitutePath,
+        savedUploadUuidPath: join(fixture.releaseDir, 'upload-state.json'),
+        downloadDir: fixture.downloadDir,
+        credentials: {
+          get apiKey() {
+            credentialRead();
+            return 'key';
           },
-          mutationJournal: journal
+          get apiSecret() {
+            credentialRead();
+            return 'secret';
+          }
         },
-        { signAddonImpl }
-      )
+        mutationJournal: journal
+      })
     ).rejects.toThrow('FIREFOX_SUBMIT_SOURCE_MISMATCH');
     expect(credentialRead).not.toHaveBeenCalled();
     expect(journal.beforeMutation).not.toHaveBeenCalled();
     expect(journal.afterMutation).not.toHaveBeenCalled();
-    expect(signAddonImpl).not.toHaveBeenCalled();
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 
   it('rejects bound source mutation before credentials, journal, or signer', async () => {
@@ -478,38 +512,36 @@ describe('exact-XPI submission adapter', () => {
       beforeMutation: vi.fn(),
       afterMutation: vi.fn()
     };
-    const signAddonImpl = vi.fn();
+    const fetchMock = vi.fn();
+    vi.stubGlobal('fetch', fetchMock);
 
     await expect(
-      submitVerifiedFirefoxXpi(
-        {
-          binding: fixture.binding,
-          transportMode: 'local-private-v1',
-          channel: 'listed',
-          id: fixture.binding.geckoId,
-          amoBaseUrl: FIREFOX_AMO_API_BASE_URL,
-          submissionSource: fixture.sourcePath,
-          savedUploadUuidPath: join(fixture.releaseDir, 'upload-state.json'),
-          downloadDir: fixture.downloadDir,
-          credentials: {
-            get apiKey() {
-              credentialRead();
-              return 'key';
-            },
-            get apiSecret() {
-              credentialRead();
-              return 'secret';
-            }
+      submitVerifiedFirefoxXpi({
+        binding: fixture.binding,
+        transportMode: 'local-private-v1',
+        channel: 'listed',
+        id: fixture.binding.geckoId,
+        amoBaseUrl: FIREFOX_AMO_API_BASE_URL,
+        submissionSource: fixture.sourcePath,
+        savedUploadUuidPath: join(fixture.releaseDir, 'upload-state.json'),
+        downloadDir: fixture.downloadDir,
+        credentials: {
+          get apiKey() {
+            credentialRead();
+            return 'key';
           },
-          mutationJournal: journal
+          get apiSecret() {
+            credentialRead();
+            return 'secret';
+          }
         },
-        { signAddonImpl }
-      )
+        mutationJournal: journal
+      })
     ).rejects.toThrow('FIREFOX_RELEASE_BINDING_DRIFT');
     expect(credentialRead).not.toHaveBeenCalled();
     expect(journal.beforeMutation).not.toHaveBeenCalled();
     expect(journal.afterMutation).not.toHaveBeenCalled();
-    expect(signAddonImpl).not.toHaveBeenCalled();
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 
   it('rejects a structural clone without reading credentials or invoking the signer', async () => {
@@ -525,30 +557,28 @@ describe('exact-XPI submission adapter', () => {
         return '';
       }
     };
-    const signAddonImpl = vi.fn();
+    const fetchMock = vi.fn();
+    vi.stubGlobal('fetch', fetchMock);
 
     await expect(
-      submitVerifiedFirefoxXpi(
-        {
-          binding: { ...fixture.binding },
-          transportMode: 'local-private-v1',
-          channel: 'listed',
-          id: fixture.binding.geckoId,
-          amoBaseUrl: FIREFOX_AMO_API_BASE_URL,
-          submissionSource: fixture.sourcePath,
-          savedUploadUuidPath: join(fixture.releaseDir, 'upload-state.json'),
-          downloadDir: fixture.downloadDir,
-          credentials,
-          mutationJournal: {
-            beforeMutation: vi.fn(),
-            afterMutation: vi.fn()
-          }
-        },
-        { signAddonImpl }
-      )
+      submitVerifiedFirefoxXpi({
+        binding: { ...fixture.binding },
+        transportMode: 'local-private-v1',
+        channel: 'listed',
+        id: fixture.binding.geckoId,
+        amoBaseUrl: FIREFOX_AMO_API_BASE_URL,
+        submissionSource: fixture.sourcePath,
+        savedUploadUuidPath: join(fixture.releaseDir, 'upload-state.json'),
+        downloadDir: fixture.downloadDir,
+        credentials,
+        mutationJournal: {
+          beforeMutation: vi.fn(),
+          afterMutation: vi.fn()
+        }
+      })
     ).rejects.toThrow('FIREFOX_RELEASE_BINDING_INVALID');
     expect(credentialRead).not.toHaveBeenCalled();
-    expect(signAddonImpl).not.toHaveBeenCalled();
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 
   it('freezes the bounded production timing constants', () => {

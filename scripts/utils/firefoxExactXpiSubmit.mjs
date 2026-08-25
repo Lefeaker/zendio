@@ -1,5 +1,6 @@
 import { basename, dirname, resolve, sep } from 'node:path';
 import { lstat } from 'node:fs/promises';
+import PinnedSubmitClient, { signAddon as pinnedSignAddon } from 'web-ext/util/submit-addon';
 import {
   assertVerifiedFirefoxArtifactBinding,
   consumeVerifiedFirefoxArtifactBinding,
@@ -25,6 +26,27 @@ export const FIREFOX_SUBMISSION_MUTATIONS = Object.freeze([
   'version-submit',
   'source-patch'
 ]);
+const PINNED_CLIENT_METHOD_NAMES = Object.freeze([
+  'fileFromSync',
+  'nodeFetch',
+  'doUploadSubmit',
+  'waitRetry',
+  'waitForValidation',
+  'doNewAddonOrVersionSubmit',
+  'doFormDataPatch',
+  'doAfterSubmit',
+  'fetchJson',
+  'fetch',
+  'returnResult',
+  'hashXpiCrcs',
+  'getPreviousUuidOrUploadXpi',
+  'putVersion'
+]);
+const PINNED_CLIENT_METHODS = Object.freeze(
+  Object.fromEntries(
+    PINNED_CLIENT_METHOD_NAMES.map((name) => [name, PinnedSubmitClient.prototype[name]])
+  )
+);
 
 function fail(code, detail = '') {
   throw new Error(detail ? `${code}:${detail}` : code);
@@ -35,6 +57,17 @@ function assertContained(parent, child) {
   const path = resolve(child);
   if (!path.startsWith(`${root}${sep}`)) fail('FIREFOX_SUBMIT_PATH_ESCAPE');
   return path;
+}
+
+function assertPinnedSubmitImplementation() {
+  for (const name of PINNED_CLIENT_METHOD_NAMES) {
+    if (
+      typeof PINNED_CLIENT_METHODS[name] !== 'function' ||
+      PinnedSubmitClient.prototype[name] !== PINNED_CLIENT_METHODS[name]
+    ) {
+      fail('FIREFOX_SUBMIT_IMPLEMENTATION_DRIFT', name);
+    }
+  }
 }
 
 async function assertFreshPrivateTarget(path) {
@@ -125,7 +158,16 @@ export async function hashVerifiedXpiCrcs(binding) {
   return createHash('sha256').update(JSON.stringify(rows), 'utf8').digest('hex');
 }
 
-export async function submitVerifiedFirefoxXpi(options, dependencies = {}) {
+export async function submitVerifiedFirefoxXpi(options, unsupportedInjection) {
+  if (
+    arguments.length !== 1 ||
+    unsupportedInjection !== undefined ||
+    (options &&
+      typeof options === 'object' &&
+      (Object.hasOwn(options, 'signAddonImpl') || Object.hasOwn(options, 'SubmitClient')))
+  ) {
+    fail('FIREFOX_SUBMIT_INJECTION_FORBIDDEN');
+  }
   const {
     binding,
     transportMode,
@@ -164,23 +206,14 @@ export async function submitVerifiedFirefoxXpi(options, dependencies = {}) {
   if (!mutationJournal?.beforeMutation || !mutationJournal?.afterMutation) {
     fail('FIREFOX_SUBMIT_JOURNAL');
   }
+  assertPinnedSubmitImplementation();
   const apiKey = credentials?.apiKey;
   const apiSecret = credentials?.apiSecret;
   if (!apiKey || !apiSecret) fail('FIREFOX_SUBMIT_CREDENTIALS');
-  let signAddonImpl = dependencies.signAddonImpl;
-  let BaseSubmitClient = dependencies.SubmitClient;
-  if (typeof signAddonImpl !== 'function' || typeof BaseSubmitClient !== 'function') {
-    const submitModule = await import('web-ext/util/submit-addon');
-    signAddonImpl ??= submitModule.signAddon;
-    BaseSubmitClient ??= submitModule.default;
-  }
-  if (typeof signAddonImpl !== 'function' || typeof BaseSubmitClient !== 'function') {
-    fail('FIREFOX_SUBMIT_IMPLEMENTATION');
-  }
 
   let mutationInvoked = false;
   const journaled = createJournaledSubmitClient(
-    BaseSubmitClient,
+    PinnedSubmitClient,
     mutationJournal,
     Object.freeze({ channel, id, xpi: basename(consumed.xpiPath) }),
     () => {
@@ -188,7 +221,7 @@ export async function submitVerifiedFirefoxXpi(options, dependencies = {}) {
     }
   );
   try {
-    const result = await signAddonImpl({
+    const result = await pinnedSignAddon({
       apiKey,
       apiSecret,
       amoBaseUrl,

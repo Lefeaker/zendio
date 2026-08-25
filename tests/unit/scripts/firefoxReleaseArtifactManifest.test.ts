@@ -21,6 +21,7 @@ const prepareScriptPath = fileURLToPath(
 type FixtureOptions = {
   extraDistMember?: { path: string; content: string };
   authorization?: Record<string, unknown>;
+  configMode?: 'standalone-synthetic' | 'owner-public-vars';
 };
 
 function createAttachedAuthorization(releaseSha = 'a'.repeat(40)) {
@@ -48,7 +49,7 @@ function expectPrepareFailure(args: string[], message: string): void {
 }
 
 async function createFixture(options: FixtureOptions = {}) {
-  const { extraDistMember, authorization } = options;
+  const { extraDistMember, authorization, configMode = 'standalone-synthetic' } = options;
   const root = await mkdtemp(join(tmpdir(), 'zendio-firefox-release-manifest-'));
   roots.push(root);
   const releaseDir = join(root, 'release');
@@ -93,7 +94,7 @@ async function createFixture(options: FixtureOptions = {}) {
     },
     toolchain: { node: 'v20.20.2', npm: '10.8.2', webExt: '10.4.0', lockSha256: 'c'.repeat(64) },
     gaConfig: { digest: 'd'.repeat(64) },
-    buildEnvironment: { policy: 'release-build-env-v1' },
+    buildEnvironment: { policy: 'release-build-env-v1', configMode },
     authorization
   });
   const manifestPath = join(releaseDir, 'manifest.json');
@@ -128,7 +129,7 @@ describe('Firefox release artifact manifest', () => {
 
   it('binds one attached canonical CI provenance record without claiming eligibility', async () => {
     const authorization = createAttachedAuthorization();
-    const fixture = await createFixture({ authorization });
+    const fixture = await createFixture({ authorization, configMode: 'owner-public-vars' });
     expect(fixture.manifest.authorization).toEqual(authorization);
 
     await expect(
@@ -142,13 +143,66 @@ describe('Firefox release artifact manifest', () => {
 
   it('rejects attached provenance that is not bound to the release SHA or claims eligibility', async () => {
     await expect(
-      createFixture({ authorization: createAttachedAuthorization('c'.repeat(40)) })
+      createFixture({
+        authorization: createAttachedAuthorization('c'.repeat(40)),
+        configMode: 'owner-public-vars'
+      })
     ).rejects.toThrow('FIREFOX_RELEASE_AUTHORIZATION_INVALID');
     await expect(
       createFixture({
-        authorization: { ...createAttachedAuthorization(), releaseEligible: true }
+        authorization: { ...createAttachedAuthorization(), releaseEligible: true },
+        configMode: 'owner-public-vars'
       })
     ).rejects.toThrow('FIREFOX_RELEASE_AUTHORIZATION_INVALID');
+  });
+
+  it('enforces the config and authorization cross-product in create and verify helpers', async () => {
+    await expect(
+      createFixture({
+        authorization: createAttachedAuthorization(),
+        configMode: 'standalone-synthetic'
+      })
+    ).rejects.toThrow('FIREFOX_RELEASE_AUTHORIZATION_MODE');
+    await expect(createFixture({ configMode: 'owner-public-vars' })).rejects.toThrow(
+      'FIREFOX_RELEASE_AUTHORIZATION_MODE'
+    );
+
+    const standalone = await createFixture();
+    const standaloneManifest = await readFile(standalone.manifestPath, 'utf8');
+    await writeFile(
+      standalone.manifestPath,
+      standaloneManifest.replace(
+        '"configMode": "standalone-synthetic"',
+        '"configMode": "owner-public-vars"'
+      )
+    );
+    await expect(
+      verifyFirefoxReleaseArtifactManifest({
+        manifestPath: standalone.manifestPath,
+        transportMode: 'local-private-v1',
+        expectedAttemptRoot: standalone.root
+      })
+    ).rejects.toThrow('FIREFOX_RELEASE_AUTHORIZATION_MODE');
+
+    const attached = await createFixture({
+      authorization: createAttachedAuthorization(),
+      configMode: 'owner-public-vars'
+    });
+    const attachedManifest = await readFile(attached.manifestPath, 'utf8');
+    await writeFile(
+      attached.manifestPath,
+      attachedManifest.replace(
+        '"configMode": "owner-public-vars"',
+        '"configMode": "standalone-synthetic"'
+      )
+    );
+    await expect(
+      verifyFirefoxReleaseArtifactManifest({
+        manifestPath: attached.manifestPath,
+        transportMode: 'local-private-v1',
+        expectedAttemptRoot: attached.root
+      })
+    ).rejects.toThrow('FIREFOX_RELEASE_AUTHORIZATION_MODE');
   });
 
   it('rejects invalid config and authorization cross-products before publication', () => {

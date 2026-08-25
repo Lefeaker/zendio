@@ -42,8 +42,5 @@ export function submitVerifiedFirefoxXpi(
       ): Promise<void>;
     };
   },
-  dependencies?: {
-    signAddonImpl?: (options: Record<string, unknown>) => Promise<unknown>;
-    SubmitClient?: new (...args: never[]) => unknown;
-  }
+  unsupportedInjection?: object
 ): Promise<unknown>;
