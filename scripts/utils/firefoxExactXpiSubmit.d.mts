@@ -17,6 +17,7 @@ export const FIREFOX_SUBMISSION_LIMITS: Readonly<{
   approvalAttempts: 180;
   approvalTotalMs: 900000;
 }>;
+export const FIREFOX_SUBMISSION_MUTATIONS: readonly ['upload', 'version-submit', 'source-patch'];
 
 export function hashVerifiedXpiCrcs(binding: FirefoxReleaseArtifactBinding): Promise<string>;
 export function submitVerifiedFirefoxXpi(
@@ -31,12 +32,18 @@ export function submitVerifiedFirefoxXpi(
     downloadDir: string;
     credentials: { apiKey: string; apiSecret: string };
     mutationJournal: {
-      beforeMutation(operation: 'upload', metadata: Record<string, unknown>): Promise<void>;
-      afterMutation(operation: 'upload', metadata: Record<string, unknown>): Promise<void>;
+      beforeMutation(
+        operation: 'upload' | 'version-submit' | 'source-patch',
+        metadata: Record<string, unknown>
+      ): Promise<void>;
+      afterMutation(
+        operation: 'upload' | 'version-submit' | 'source-patch',
+        metadata: Record<string, unknown>
+      ): Promise<void>;
     };
   },
-  dependencies: {
-    signAddonImpl: (options: Record<string, unknown>) => Promise<unknown>;
+  dependencies?: {
+    signAddonImpl?: (options: Record<string, unknown>) => Promise<unknown>;
     SubmitClient?: new (...args: never[]) => unknown;
   }
 ): Promise<unknown>;

@@ -1,6 +1,9 @@
-import { chmod, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { createHash } from 'node:crypto';
+import { spawnSync } from 'node:child_process';
+import { chmod, lstat, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { afterEach, describe, expect, it } from 'vitest';
 import { buildZipFixture } from '../../utils/zipFixtureBuilder';
 import {
@@ -11,8 +14,41 @@ import {
 } from '../../../scripts/utils/firefoxReleaseArtifactManifest.mjs';
 
 const roots: string[] = [];
+const prepareScriptPath = fileURLToPath(
+  new URL('../../../scripts/prepare-firefox-release.mjs', import.meta.url)
+);
 
-async function createFixture(extraDistMember: { path: string; content: string } | null = null) {
+type FixtureOptions = {
+  extraDistMember?: { path: string; content: string };
+  authorization?: Record<string, unknown>;
+};
+
+function createAttachedAuthorization(releaseSha = 'a'.repeat(40)) {
+  const provenance = {
+    schema: 'zendio-ci-provenance-v1',
+    releaseSha,
+    workflowRunId: 123
+  };
+  return {
+    authorizationMode: 'attached-ci-provenance-v1',
+    provenance,
+    provenanceSha256: createHash('sha256').update(canonicalArtifactJson(provenance)).digest('hex'),
+    releaseEligible: false
+  };
+}
+
+function expectPrepareFailure(args: string[], message: string): void {
+  const result = spawnSync(process.execPath, [prepareScriptPath, ...args], {
+    cwd: process.cwd(),
+    encoding: 'utf8',
+    env: process.env
+  });
+  expect(result.status).toBe(1);
+  expect(result.stderr).toContain(message);
+}
+
+async function createFixture(options: FixtureOptions = {}) {
+  const { extraDistMember, authorization } = options;
   const root = await mkdtemp(join(tmpdir(), 'zendio-firefox-release-manifest-'));
   roots.push(root);
   const releaseDir = join(root, 'release');
@@ -57,11 +93,12 @@ async function createFixture(extraDistMember: { path: string; content: string } 
     },
     toolchain: { node: 'v20.20.2', npm: '10.8.2', webExt: '10.4.0', lockSha256: 'c'.repeat(64) },
     gaConfig: { digest: 'd'.repeat(64) },
-    buildEnvironment: { policy: 'release-build-env-v1' }
+    buildEnvironment: { policy: 'release-build-env-v1' },
+    authorization
   });
   const manifestPath = join(releaseDir, 'manifest.json');
   await writeFile(manifestPath, canonicalArtifactJson(manifest), { mode: 0o600 });
-  return { root, releaseDir, manifestPath };
+  return { root, releaseDir, manifestPath, manifest };
 }
 
 afterEach(async () => {
@@ -70,15 +107,119 @@ afterEach(async () => {
 
 describe('Firefox release artifact manifest', () => {
   it('compares the XPI with the packaged dist inventory rather than omitted build metadata', async () => {
-    await expect(createFixture()).resolves.toMatchObject({
-      releaseDir: expect.stringContaining('release')
-    });
+    const fixture = await createFixture();
+    expect(fixture.releaseDir).toContain('release');
   });
 
   it('still rejects a non-ignored dist member that is absent from the XPI', async () => {
     await expect(
-      createFixture({ path: 'unexpected.txt', content: 'not packaged\n' })
+      createFixture({ extraDistMember: { path: 'unexpected.txt', content: 'not packaged\n' } })
     ).rejects.toThrow('FIREFOX_RELEASE_XPI_DIST_MISMATCH');
+  });
+
+  it('keeps standalone artifacts explicitly unproven', async () => {
+    const fixture = await createFixture();
+    expect(fixture.manifest.authorization).toEqual({
+      authorizationMode: 'standalone-unproven',
+      provenance: null,
+      releaseEligible: false
+    });
+  });
+
+  it('binds one attached canonical CI provenance record without claiming eligibility', async () => {
+    const authorization = createAttachedAuthorization();
+    const fixture = await createFixture({ authorization });
+    expect(fixture.manifest.authorization).toEqual(authorization);
+
+    await expect(
+      verifyFirefoxReleaseArtifactManifest({
+        manifestPath: fixture.manifestPath,
+        transportMode: 'local-private-v1',
+        expectedAttemptRoot: fixture.root
+      })
+    ).resolves.toMatchObject({ geckoId: 'fixture@example.test' });
+  });
+
+  it('rejects attached provenance that is not bound to the release SHA or claims eligibility', async () => {
+    await expect(
+      createFixture({ authorization: createAttachedAuthorization('c'.repeat(40)) })
+    ).rejects.toThrow('FIREFOX_RELEASE_AUTHORIZATION_INVALID');
+    await expect(
+      createFixture({
+        authorization: { ...createAttachedAuthorization(), releaseEligible: true }
+      })
+    ).rejects.toThrow('FIREFOX_RELEASE_AUTHORIZATION_INVALID');
+  });
+
+  it('rejects invalid config and authorization cross-products before publication', () => {
+    const baseArgs = [
+      '--transport-mode',
+      'local-private-v1',
+      '--attempt-root',
+      '/tmp/firefox-prepare-contract',
+      '--dist-dir',
+      '/tmp/firefox-prepare-contract/dist',
+      '--release-dir',
+      '/tmp/firefox-prepare-contract/release',
+      '--result-json',
+      '/tmp/firefox-prepare-contract/result.json'
+    ];
+
+    expectPrepareFailure(
+      ['--config-mode', 'owner-public-vars', ...baseArgs],
+      'FIREFOX_RELEASE_AUTHORIZATION_MODE'
+    );
+    expectPrepareFailure(
+      [
+        '--config-mode',
+        'standalone-synthetic',
+        ...baseArgs,
+        '--authorization-record',
+        '/tmp/firefox-prepare-contract/authorization.json'
+      ],
+      'FIREFOX_RELEASE_AUTHORIZATION_MODE'
+    );
+    expectPrepareFailure(
+      [
+        '--config-mode',
+        'owner-public-vars',
+        ...baseArgs,
+        '--authorization-record',
+        '/tmp/firefox-prepare-contract/authorization.json',
+        '--authorization-record',
+        '/tmp/firefox-prepare-contract/second.json'
+      ],
+      'FIREFOX_RELEASE_ARGUMENT_CONTRACT'
+    );
+  });
+
+  it('rejects a malformed owner authorization record before creating release output', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'zendio-firefox-prepare-auth-'));
+    roots.push(root);
+    const authorizationPath = join(root, 'authorization.json');
+    await writeFile(authorizationPath, '{}\n', { mode: 0o600 });
+    const releaseDir = join(root, 'release');
+
+    expectPrepareFailure(
+      [
+        '--config-mode',
+        'owner-public-vars',
+        '--transport-mode',
+        'local-private-v1',
+        '--attempt-root',
+        root,
+        '--dist-dir',
+        join(root, 'dist'),
+        '--release-dir',
+        releaseDir,
+        '--authorization-record',
+        authorizationPath,
+        '--result-json',
+        join(root, 'result.json')
+      ],
+      'FIREFOX_RELEASE_AUTHORIZATION_INVALID'
+    );
+    await expect(lstat(releaseDir)).rejects.toMatchObject({ code: 'ENOENT' });
   });
 
   it('verifies the portable inventory and mints a single-use identity capability', async () => {

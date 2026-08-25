@@ -17,6 +17,10 @@ export const FIREFOX_RELEASE_TRANSPORT_MODES = Object.freeze([
   'local-private-v1',
   'github-artifact-v1'
 ]);
+export const FIREFOX_RELEASE_AUTHORIZATION_MODES = Object.freeze([
+  'standalone-unproven',
+  'attached-ci-provenance-v1'
+]);
 
 const verifiedBindings = new WeakSet();
 const consumedBindings = new WeakSet();
@@ -44,6 +48,52 @@ export function canonicalArtifactJson(value) {
 
 function sha256Bytes(bytes) {
   return createHash('sha256').update(bytes).digest('hex');
+}
+
+function isPlainObject(value) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
+  const prototype = Object.getPrototypeOf(value);
+  return prototype === Object.prototype || prototype === null;
+}
+
+function assertClosedKeys(value, expected, code) {
+  if (!isPlainObject(value)) fail(code);
+  const keys = Object.keys(value).sort();
+  const accepted = [...expected].sort();
+  if (canonicalArtifactJson(keys) !== canonicalArtifactJson(accepted)) fail(code);
+}
+
+function validateAuthorization(authorization, releaseSha) {
+  if (authorization?.authorizationMode === 'standalone-unproven') {
+    assertClosedKeys(
+      authorization,
+      ['authorizationMode', 'provenance', 'releaseEligible'],
+      'FIREFOX_RELEASE_AUTHORIZATION_INVALID'
+    );
+    if (authorization.provenance !== null || authorization.releaseEligible !== false) {
+      fail('FIREFOX_RELEASE_AUTHORIZATION_INVALID');
+    }
+    return canonicalize(authorization);
+  }
+  if (authorization?.authorizationMode === 'attached-ci-provenance-v1') {
+    assertClosedKeys(
+      authorization,
+      ['authorizationMode', 'provenance', 'provenanceSha256', 'releaseEligible'],
+      'FIREFOX_RELEASE_AUTHORIZATION_INVALID'
+    );
+    if (
+      !isPlainObject(authorization.provenance) ||
+      !/^[0-9a-f]{64}$/u.test(authorization.provenanceSha256 ?? '') ||
+      sha256Bytes(Buffer.from(canonicalArtifactJson(authorization.provenance), 'utf8')) !==
+        authorization.provenanceSha256 ||
+      authorization.provenance.releaseSha !== releaseSha ||
+      authorization.releaseEligible !== false
+    ) {
+      fail('FIREFOX_RELEASE_AUTHORIZATION_INVALID');
+    }
+    return canonicalize(authorization);
+  }
+  fail('FIREFOX_RELEASE_AUTHORIZATION_INVALID');
 }
 
 function readStableRegularFile(path, expectedMode) {
@@ -176,7 +226,11 @@ export async function createFirefoxReleaseArtifactManifest({
   toolchain,
   gaConfig,
   buildEnvironment,
-  authorization = { mode: 'standalone-unproven', provenance: null, releaseEligible: false }
+  authorization = {
+    authorizationMode: 'standalone-unproven',
+    provenance: null,
+    releaseEligible: false
+  }
 }) {
   const root = resolve(releaseDir);
   const xpi = assertContained(root, xpiPath);
@@ -216,7 +270,7 @@ export async function createFirefoxReleaseArtifactManifest({
     buildEnvironment,
     distInventory: distEntries,
     members,
-    authorization
+    authorization: validateAuthorization(authorization, git?.head)
   });
 }
 
@@ -240,6 +294,7 @@ export async function verifyFirefoxReleaseArtifactManifest({
     fail('FIREFOX_RELEASE_MANIFEST_NOT_CANONICAL');
   }
   if (manifest.schema !== FIREFOX_RELEASE_ARTIFACT_SCHEMA) fail('FIREFOX_RELEASE_SCHEMA');
+  validateAuthorization(manifest.authorization, manifest.git?.head);
   if (!Array.isArray(manifest.members) || manifest.members.length !== 2) {
     fail('FIREFOX_RELEASE_MEMBER_SET');
   }

@@ -11,6 +11,10 @@ export type FirefoxReleaseArtifactBinding = Readonly<{
 
 export const FIREFOX_RELEASE_ARTIFACT_SCHEMA: 'portable-release-artifact-v1';
 export const FIREFOX_RELEASE_TRANSPORT_MODES: readonly FirefoxReleaseTransportMode[];
+export const FIREFOX_RELEASE_AUTHORIZATION_MODES: readonly [
+  'standalone-unproven',
+  'attached-ci-provenance-v1'
+];
 export function canonicalArtifactJson(value: unknown): string;
 export function createFirefoxReleaseArtifactManifest(
   options: Record<string, unknown>

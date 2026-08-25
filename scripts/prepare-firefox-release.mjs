@@ -26,7 +26,8 @@ function parseArgs(argv) {
     '--dist-dir',
     '--release-dir',
     '--result-json',
-    '--transport-mode'
+    '--transport-mode',
+    '--authorization-record'
   ]);
   const values = new Map();
   for (let index = 0; index < argv.length; index += 2) {
@@ -37,8 +38,16 @@ function parseArgs(argv) {
     }
     values.set(key, value);
   }
-  if (values.size !== 6) fail('FIREFOX_RELEASE_ARGUMENT_CONTRACT');
-  return Object.fromEntries(values);
+  const parsed = Object.fromEntries(values);
+  if (!['standalone-synthetic', 'owner-public-vars'].includes(parsed['--config-mode'])) {
+    fail('FIREFOX_RELEASE_CONFIG_MODE');
+  }
+  const hasAuthorization = values.has('--authorization-record');
+  if (hasAuthorization !== (parsed['--config-mode'] === 'owner-public-vars')) {
+    fail('FIREFOX_RELEASE_AUTHORIZATION_MODE');
+  }
+  if (values.size !== (hasAuthorization ? 7 : 6)) fail('FIREFOX_RELEASE_ARGUMENT_CONTRACT');
+  return parsed;
 }
 
 async function assertPrivateDirectory(path) {
@@ -77,6 +86,60 @@ function sha256(bytes) {
   return createHash('sha256').update(bytes).digest('hex');
 }
 
+function isPlainObject(value) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
+  const prototype = Object.getPrototypeOf(value);
+  return prototype === Object.prototype || prototype === null;
+}
+
+async function resolveAuthorization(args, attemptRoot, releaseHead) {
+  if (args['--config-mode'] === 'standalone-synthetic') {
+    return {
+      authorizationMode: 'standalone-unproven',
+      provenance: null,
+      releaseEligible: false
+    };
+  }
+  const recordPath = assertContained(attemptRoot, args['--authorization-record']);
+  const stat = await lstat(recordPath);
+  if (
+    !stat.isFile() ||
+    stat.isSymbolicLink() ||
+    stat.nlink !== 1 ||
+    (stat.mode & 0o777) !== 0o600
+  ) {
+    fail('FIREFOX_RELEASE_AUTHORIZATION_FILE');
+  }
+  const bytes = await readFile(recordPath);
+  if (bytes.length === 0 || bytes.length > 256 * 1024) {
+    fail('FIREFOX_RELEASE_AUTHORIZATION_FILE');
+  }
+  let record;
+  try {
+    record = JSON.parse(bytes.toString('utf8'));
+  } catch {
+    fail('FIREFOX_RELEASE_AUTHORIZATION_JSON');
+  }
+  if (
+    !isPlainObject(record) ||
+    canonicalArtifactJson(record) !== bytes.toString('utf8') ||
+    typeof record.schema !== 'string' ||
+    record.schema.length === 0 ||
+    Buffer.byteLength(record.schema, 'utf8') > 128 ||
+    !/^[0-9a-f]{40}$/u.test(record.releaseSha ?? '') ||
+    record.releaseSha !== releaseHead ||
+    Object.hasOwn(record, 'releaseEligible')
+  ) {
+    fail('FIREFOX_RELEASE_AUTHORIZATION_INVALID');
+  }
+  return {
+    authorizationMode: 'attached-ci-provenance-v1',
+    provenance: record,
+    provenanceSha256: sha256(bytes),
+    releaseEligible: false
+  };
+}
+
 async function publishExistingArchive(sourcePath, finalPath) {
   try {
     await lstat(finalPath);
@@ -104,12 +167,13 @@ async function publishExistingArchive(sourcePath, finalPath) {
 export async function prepareFirefoxRelease(argv = process.argv.slice(2)) {
   const args = parseArgs(argv);
   if (args['--transport-mode'] !== 'local-private-v1') fail('FIREFOX_RELEASE_TRANSPORT_MODE');
-  if (args['--config-mode'] !== 'standalone-synthetic') fail('FIREFOX_RELEASE_CONFIG_MODE');
   const attemptRoot = resolve(args['--attempt-root']);
   const distDir = assertContained(attemptRoot, args['--dist-dir']);
   const releaseDir = assertContained(attemptRoot, args['--release-dir']);
   const resultPath = assertContained(attemptRoot, args['--result-json']);
   if (basename(releaseDir) !== 'release') fail('FIREFOX_RELEASE_DIRECTORY_NAME');
+  const releaseHead = gitValue(['rev-parse', 'HEAD']);
+  const authorization = await resolveAuthorization(args, attemptRoot, releaseHead);
   await assertPrivateDirectory(attemptRoot);
   await assertPrivateDirectory(dirname(releaseDir));
   await assertOwnedDirectory(distDir);
@@ -164,7 +228,7 @@ export async function prepareFirefoxRelease(argv = process.argv.slice(2)) {
       distDir,
       xpiPath: packaged.outputPath,
       sourceArchivePath: sourceFinalPath,
-      git: { head: gitValue(['rev-parse', 'HEAD']), tree: gitValue(['rev-parse', 'HEAD^{tree}']) },
+      git: { head: releaseHead, tree: gitValue(['rev-parse', 'HEAD^{tree}']) },
       packageMetadata: {
         version: packageJson.version,
         manifestVersion: packaged.manifest.version,
@@ -178,7 +242,8 @@ export async function prepareFirefoxRelease(argv = process.argv.slice(2)) {
         lockSha256: sha256(lockBytes)
       },
       gaConfig,
-      buildEnvironment: { policy: 'release-build-env-v1', configMode: args['--config-mode'] }
+      buildEnvironment: { policy: 'release-build-env-v1', configMode: args['--config-mode'] },
+      authorization
     });
     const manifestPath = join(releaseDir, 'manifest.json');
     await writeFile(manifestPath, canonicalArtifactJson(manifest), { flag: 'wx', mode: 0o600 });
