@@ -821,6 +821,18 @@ const RELEASE_STATE_REQUIRED_KEYS = [
 
 const RELEASE_STATE_OPTIONAL_KEYS = ['lastStartedOperation', 'lastCompletedOperation'];
 
+const RELEASE_STATE_BROWSER_KEYS = deepFreeze({
+  chrome: ['itemId', 'publisherIdFingerprint', 'packageVersion', 'archiveSha256', 'terminalResult'],
+  firefox: [
+    'geckoId',
+    'xpiSha256',
+    'sourceArchiveSha256',
+    'uploadUuidSha256',
+    'signedXpiSha256',
+    'terminalResult'
+  ]
+});
+
 const STORE_ACTION_SEQUENCES = deepFreeze({
   chrome: ['upload', 'publish'],
   firefox: ['upload', 'version-submit', 'source-patch']
@@ -883,11 +895,16 @@ function validateReleaseStateValue(
   { childOk, allowInitial = true } = {}
 ) {
   const keys = Object.keys(value);
+  const browserKeys = RELEASE_STATE_BROWSER_KEYS[context.browser];
   if (
+    !browserKeys ||
     RELEASE_STATE_REQUIRED_KEYS.some((key) => !keys.includes(key)) ||
+    browserKeys.some((key) => !keys.includes(key)) ||
     keys.some(
       (key) =>
-        !RELEASE_STATE_REQUIRED_KEYS.includes(key) && !RELEASE_STATE_OPTIONAL_KEYS.includes(key)
+        !RELEASE_STATE_REQUIRED_KEYS.includes(key) &&
+        !browserKeys.includes(key) &&
+        !RELEASE_STATE_OPTIONAL_KEYS.includes(key)
     )
   )
     throw new Error('RELEASE_STATE_INVALID');
@@ -953,6 +970,61 @@ function validateReleaseStateValue(
         ? `${actions[startedIndex]}-completed`
         : `${actions[startedIndex]}-started`;
   const initial = value.outcome === 'not-started';
+  const sha256OrNull = (input) => input === null || /^[0-9a-f]{64}$/u.test(input ?? '');
+  const boundedStringOrNull = (input, maximum = 512) =>
+    input === null ||
+    (typeof input === 'string' && input.length > 0 && Buffer.byteLength(input, 'utf8') <= maximum);
+  const chromeIdentityPresent =
+    context.browser === 'chrome' &&
+    value.itemId !== null &&
+    value.publisherIdFingerprint !== null &&
+    value.packageVersion !== null &&
+    value.archiveSha256 !== null;
+  const firefoxIdentityPresent =
+    context.browser === 'firefox' &&
+    value.geckoId !== null &&
+    value.xpiSha256 !== null &&
+    value.sourceArchiveSha256 !== null;
+  const identityPresent = chromeIdentityPresent || firefoxIdentityPresent;
+  const identityAbsent =
+    context.browser === 'chrome'
+      ? [
+          value.itemId,
+          value.publisherIdFingerprint,
+          value.packageVersion,
+          value.archiveSha256
+        ].every((entry) => entry === null)
+      : [value.geckoId, value.xpiSha256, value.sourceArchiveSha256].every(
+          (entry) => entry === null
+        );
+  if (
+    (!identityPresent && !identityAbsent) ||
+    (context.browser === 'chrome' &&
+      (!boundedStringOrNull(value.itemId) ||
+        !sha256OrNull(value.publisherIdFingerprint) ||
+        !boundedStringOrNull(value.packageVersion) ||
+        !sha256OrNull(value.archiveSha256) ||
+        ![null, 'PENDING_REVIEW', 'PUBLISHED'].includes(value.terminalResult))) ||
+    (context.browser === 'firefox' &&
+      (!boundedStringOrNull(value.geckoId, 256) ||
+        !sha256OrNull(value.xpiSha256) ||
+        !sha256OrNull(value.sourceArchiveSha256) ||
+        !sha256OrNull(value.uploadUuidSha256) ||
+        !sha256OrNull(value.signedXpiSha256) ||
+        ![null, 'listed', 'unlisted'].includes(value.terminalResult))) ||
+    (value.mutationInvoked && !identityPresent) ||
+    (context.browser === 'firefox' &&
+      ((completedIndex >= 0 && value.uploadUuidSha256 === null) ||
+        (value.channel === 'listed' && value.signedXpiSha256 !== null) ||
+        (value.outcome === 'success' &&
+          (value.terminalResult !== value.channel ||
+            (value.channel === 'unlisted') !== (value.signedXpiSha256 !== null))))) ||
+    (context.browser === 'chrome' &&
+      value.outcome === 'success' &&
+      !['PENDING_REVIEW', 'PUBLISHED'].includes(value.terminalResult)) ||
+    (value.outcome !== 'success' && value.terminalResult !== null)
+  )
+    throw new Error('RELEASE_STATE_EVIDENCE_INVALID');
   if (
     (initial &&
       (!allowInitial ||
@@ -1121,6 +1193,22 @@ function executeInProcessProfile(spec) {
       packageSha256: identity.packageSha256,
       lockSha256: identity.lockSha256,
       artifactRole: context.browser === 'chrome' ? 'extension-zip' : 'unsigned-xpi',
+      ...(context.browser === 'chrome'
+        ? {
+            itemId: null,
+            publisherIdFingerprint: null,
+            packageVersion: null,
+            archiveSha256: null,
+            terminalResult: null
+          }
+        : {
+            geckoId: null,
+            xpiSha256: null,
+            sourceArchiveSha256: null,
+            uploadUuidSha256: null,
+            signedXpiSha256: null,
+            terminalResult: null
+          }),
       errorCode: null,
       recovery: 'none',
       stage: 'preflight',
@@ -1393,7 +1481,12 @@ function assertFirefoxExecutionPreconditions(spec) {
   )
     throw new Error('NPM_CONFIG_IDENTITY_INVALID');
   for (const path of [context.userconfig, context.globalconfig]) {
-    const record = readStableOwnedFile(path, 0, context.attemptRoot);
+    let record;
+    try {
+      record = readStableOwnedFile(path, 0, context.attemptRoot);
+    } catch {
+      throw new Error('NPM_CONFIG_IDENTITY_INVALID');
+    }
     if (record.bytes.length !== 0) throw new Error('NPM_CONFIG_IDENTITY_INVALID');
   }
   if (
@@ -1489,6 +1582,42 @@ function assertCiInstallPreconditions(spec) {
     String(output.mode & 0o777) !== context.outputMode
   )
     throw new Error('CI_OUTPUT_CHANGED');
+}
+
+function assertAttemptConfigPreconditions(spec) {
+  const context = spec.commandContext;
+  if (!context?.attemptConfigAuthority) return;
+  releaseDirectoryIdentity(context.attemptRoot);
+  releaseDirectoryIdentity(join(context.attemptRoot, 'install'));
+  if (
+    context.userconfig !== join(context.attemptRoot, 'install/npm-userconfig') ||
+    context.globalconfig !== join(context.attemptRoot, 'install/npm-globalconfig') ||
+    spec.env.NPM_CONFIG_USERCONFIG !== context.userconfig ||
+    spec.env.NPM_CONFIG_GLOBALCONFIG !== context.globalconfig
+  )
+    throw new Error('NPM_CONFIG_IDENTITY_INVALID');
+  const npmConfigKeys = Object.keys(spec.env).filter((key) =>
+    key.toLowerCase().startsWith('npm_config_')
+  );
+  if (
+    JSON.stringify(npmConfigKeys.sort()) !==
+    JSON.stringify(['NPM_CONFIG_GLOBALCONFIG', 'NPM_CONFIG_USERCONFIG'])
+  )
+    throw new Error('NPM_CONFIG_IDENTITY_INVALID');
+  for (const path of [context.userconfig, context.globalconfig]) {
+    let record;
+    try {
+      record = readStableOwnedFile(path, 0, context.attemptRoot);
+    } catch {
+      throw new Error('NPM_CONFIG_IDENTITY_INVALID');
+    }
+    if (
+      record.bytes.length !== 0 ||
+      record.stats.nlink !== 1 ||
+      (record.stats.mode & 0o777) !== 0o600
+    )
+      throw new Error('NPM_CONFIG_IDENTITY_INVALID');
+  }
 }
 
 function assertFirefoxPhaseReceipt(spec) {
@@ -1990,6 +2119,7 @@ export function startBoundedCommand({ profileId, arguments: args = [] }, depende
   const spec = resolver(profileId, args, { environment: dependencies.environment ?? process.env });
   if (spec.operation) return startInProcessProfile(spec);
   assertCiInstallPreconditions(spec);
+  assertAttemptConfigPreconditions(spec);
   assertFirefoxExecutionPreconditions(spec);
   assertFirefoxPhaseReceipt(spec);
   const storeInitial = assertStoreProfilePreconditions(spec);

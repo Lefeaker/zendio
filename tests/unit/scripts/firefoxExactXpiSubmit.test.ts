@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { chmod, mkdir, mkdtemp, readFile, realpath, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -255,6 +256,66 @@ describe('exact-XPI submission adapter', () => {
       channel: 'listed',
       xpiCrcHash: await hashVerifiedXpiCrcs(fixture.binding)
     });
+    expect(await readFile(fixture.uuidPath, 'utf8')).toBe(
+      canonicalArtifactJson({
+        uploadUuid: 'upload-uuid',
+        channel: 'listed',
+        xpiCrcHash: await hashVerifiedXpiCrcs(fixture.binding)
+      })
+    );
+  });
+
+  it('treats upload/validation UUID drift as unknown state and admits no later mutation', async () => {
+    const fixture = await createBoundRelease();
+    const events: string[] = [];
+    const journal = createMutationJournal(events);
+    const fetchMock = vi.fn((url: URL, init?: RequestInit): Promise<Response> => {
+      const method = init?.method ?? 'GET';
+      if (method === 'POST' && url.pathname.endsWith('/addons/upload/')) {
+        events.push('request:upload');
+        return Promise.resolve(
+          new Response(JSON.stringify({ uuid: 'upload-uuid' }), { status: 200 })
+        );
+      }
+      if (method === 'GET' && url.pathname.endsWith('/addons/upload/upload-uuid/')) {
+        events.push('request:validation-read');
+        return Promise.resolve(
+          new Response(
+            JSON.stringify({
+              processed: true,
+              valid: true,
+              uuid: 'different-uuid',
+              validation: { errors: 0 }
+            }),
+            { status: 200 }
+          )
+        );
+      }
+      throw new Error(`unexpected:${method}:${url.href}`);
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(
+      submitVerifiedFirefoxXpi({
+        binding: fixture.binding,
+        transportMode: 'local-private-v1',
+        channel: 'listed',
+        id: fixture.binding.geckoId,
+        amoBaseUrl: FIREFOX_AMO_API_BASE_URL,
+        submissionSource: fixture.sourcePath,
+        savedUploadUuidPath: fixture.uuidPath,
+        downloadDir: fixture.downloadDir,
+        credentials: { apiKey: 'key', apiSecret: 'secret' },
+        mutationJournal: journal
+      })
+    ).rejects.toMatchObject({ code: 'unknown-submission-state', retrySafe: false });
+    expect(events.filter((event) => event.startsWith('request:'))).toEqual([
+      'request:upload',
+      'request:validation-read'
+    ]);
+    expect(journal.beforeMutation).toHaveBeenCalledTimes(1);
+    expect(journal.afterMutation).toHaveBeenCalledTimes(1);
+    await expect(readFile(fixture.uuidPath)).rejects.toMatchObject({ code: 'ENOENT' });
   });
 
   it.each([
@@ -770,7 +831,11 @@ describe('exact-XPI submission adapter', () => {
         credentials: { apiKey: 'key', apiSecret: 'secret' },
         mutationJournal: harness
       })
-    ).resolves.toEqual({ id: fixture.binding.geckoId, downloadedFiles: ['signed.xpi'] });
+    ).resolves.toEqual({
+      id: fixture.binding.geckoId,
+      downloadedFiles: ['signed.xpi'],
+      signedXpiSha256: createHash('sha256').update(signed).digest('hex')
+    });
     expect(await readFile(join(fixture.downloadDir, 'signed.xpi'))).toEqual(signed);
   });
 

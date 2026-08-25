@@ -6,6 +6,7 @@ import PinnedSubmitClient, { signAddon as pinnedSignAddon } from 'web-ext/util/s
 import { inventoryBoundedZip } from './boundedZipArchive.mjs';
 import {
   assertVerifiedFirefoxArtifactBinding,
+  canonicalArtifactJson,
   consumeVerifiedFirefoxArtifactBinding,
   getVerifiedFirefoxArtifactSnapshot,
   getVerifiedFirefoxArtifactSnapshots
@@ -130,7 +131,7 @@ async function publishCanonicalUuid(path, value) {
     !/^[0-9a-f]{64}$/u.test(value.xpiCrcHash ?? '')
   )
     fail('FIREFOX_SUBMIT_UUID_INVALID');
-  const bytes = Buffer.from(`${JSON.stringify(value)}\n`, 'utf8');
+  const bytes = Buffer.from(canonicalArtifactJson(value), 'utf8');
   const temp = join(dirname(path), `.${basename(path)}.${process.pid}.publication`);
   const handle = await open(
     temp,
@@ -336,6 +337,26 @@ function createJournaledSubmitClient(
       );
     }
 
+    async doUploadSubmit(xpiPath, channel) {
+      const url = new URL('upload/', this.apiUrl);
+      const formData = new FormData();
+      formData.set('channel', channel);
+      formData.set('upload', this.fileFromSync(xpiPath));
+      const response = await this.fetchJson(url, 'POST', formData, 'Upload failed');
+      if (
+        !response ||
+        typeof response !== 'object' ||
+        Array.isArray(response) ||
+        JSON.stringify(Object.keys(response).sort()) !== JSON.stringify(['uuid'])
+      )
+        fail('FIREFOX_SUBMIT_UUID_INVALID');
+      const uploadUuid = response?.uuid;
+      if (!/^[A-Za-z0-9_-]{1,256}$/u.test(uploadUuid ?? '')) fail('FIREFOX_SUBMIT_UUID_INVALID');
+      const validationUuid = await this.waitForValidation(uploadUuid);
+      if (validationUuid !== uploadUuid) fail('FIREFOX_SUBMIT_UUID_MISMATCH');
+      return uploadUuid;
+    }
+
     async getPreviousUuidOrUploadXpi(xpiPath, channel, savedUploadUuidPath) {
       if (savedUploadUuidPath !== topology.uuidPath || xpiPath !== snapshots['unsigned-xpi'].path)
         fail('FIREFOX_SUBMIT_UUID_CAPABILITY_INVALID');
@@ -457,6 +478,11 @@ function createJournaledSubmitClient(
 
     doFormDataPatch(data, addonId, versionId) {
       return runMutation('source-patch', () => super.doFormDataPatch(data, addonId, versionId));
+    }
+
+    returnResult(addonId, downloadedFiles) {
+      if (downloadedFiles !== undefined) fail('FIREFOX_SUBMIT_RESULT_INVALID');
+      return { id: addonId };
     }
 
     async downloadSignedFile(fileUrl, addonId) {
@@ -624,14 +650,44 @@ function createJournaledSubmitClient(
         signedManifest?.version !== snapshots.manifestVersion
       )
         fail('FIREFOX_SUBMIT_SIGNED_MANIFEST_INVALID');
-      const destinationStat = await lstat(destination);
+      const auditHandle = await open(
+        destination,
+        fsConstants.O_RDONLY | (fsConstants.O_NOFOLLOW ?? 0)
+      );
+      let destinationStat;
+      let publishedBytes;
+      try {
+        destinationStat = await auditHandle.stat();
+        publishedBytes = await auditHandle.readFile();
+        const after = await auditHandle.stat();
+        if (
+          after.dev !== destinationStat.dev ||
+          after.ino !== destinationStat.ino ||
+          after.mode !== destinationStat.mode ||
+          after.size !== destinationStat.size ||
+          after.mtimeMs !== destinationStat.mtimeMs ||
+          after.ctimeMs !== destinationStat.ctimeMs
+        )
+          fail('FIREFOX_SUBMIT_SIGNED_PUBLICATION_INVALID');
+      } finally {
+        await auditHandle.close();
+      }
+      const liveDestinationStat = await lstat(destination);
+      const signedXpiSha256 = createHash('sha256').update(bytes).digest('hex');
       if (
         !destinationStat.isFile() ||
-        destinationStat.isSymbolicLink() ||
         destinationStat.uid !== process.getuid?.() ||
         destinationStat.nlink !== 1 ||
         (destinationStat.mode & 0o777) !== 0o600 ||
-        destinationStat.size !== bytes.length
+        destinationStat.size !== bytes.length ||
+        liveDestinationStat.dev !== destinationStat.dev ||
+        liveDestinationStat.ino !== destinationStat.ino ||
+        liveDestinationStat.mode !== destinationStat.mode ||
+        liveDestinationStat.size !== destinationStat.size ||
+        liveDestinationStat.mtimeMs !== destinationStat.mtimeMs ||
+        liveDestinationStat.ctimeMs !== destinationStat.ctimeMs ||
+        !publishedBytes.equals(bytes) ||
+        createHash('sha256').update(publishedBytes).digest('hex') !== signedXpiSha256
       )
         fail('FIREFOX_SUBMIT_SIGNED_PUBLICATION_INVALID');
       if (JSON.stringify(await readdir(topology.downloadDir)) !== JSON.stringify([filename]))
@@ -642,7 +698,7 @@ function createJournaledSubmitClient(
       } finally {
         await directory.close();
       }
-      return this.returnResult(addonId, [filename]);
+      return { id: addonId, downloadedFiles: [filename], signedXpiSha256 };
     }
   }
 
@@ -819,15 +875,19 @@ export async function submitVerifiedFirefoxXpi(options, unsupportedInjection) {
     if (journaled.completed() !== FIREFOX_SUBMISSION_MUTATIONS.length) {
       fail('FIREFOX_SUBMIT_MUTATION_SEQUENCE_INCOMPLETE');
     }
+    const expectedResultKeys =
+      channel === 'listed' ? ['id'] : ['downloadedFiles', 'id', 'signedXpiSha256'];
     if (
       !result ||
       typeof result !== 'object' ||
+      Array.isArray(result) ||
+      JSON.stringify(Object.keys(result).sort()) !== JSON.stringify(expectedResultKeys) ||
       result.id !== id ||
-      (channel === 'listed'
-        ? result.downloadedFiles !== undefined
-        : !Array.isArray(result.downloadedFiles) ||
+      (channel === 'unlisted' &&
+        (!Array.isArray(result.downloadedFiles) ||
           result.downloadedFiles.length !== 1 ||
-          !safeXpiBasename(result.downloadedFiles[0]))
+          !safeXpiBasename(result.downloadedFiles[0]) ||
+          !/^[0-9a-f]{64}$/u.test(result.signedXpiSha256 ?? '')))
     )
       fail('FIREFOX_SUBMIT_RESULT_INVALID');
     return result;

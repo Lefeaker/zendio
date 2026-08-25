@@ -98,6 +98,7 @@ async function mintBinding(root: string) {
 }
 
 afterEach(async () => {
+  vi.useRealTimers();
   await Promise.all(roots.splice(0).map((root) => rm(root, { recursive: true, force: true })));
 });
 
@@ -181,6 +182,53 @@ describe('exact-XPI Firefox smoke adapter', () => {
       )
     ).rejects.toThrow('FIREFOX_SMOKE_EXECUTABLE');
     expect(run).not.toHaveBeenCalled();
+  });
+
+  it('awaits a late launch, closes the child, and removes the profile before rejecting', async () => {
+    const root = await realpath(await mkdtemp(join(tmpdir(), 'zendio-firefox-smoke-late-launch-')));
+    roots.push(root);
+    const binding = await mintBinding(root);
+    vi.useFakeTimers();
+    const child = new EventEmitter();
+    const kill = vi.fn(() => true);
+    Object.assign(child, { pid: 5678, kill });
+    const exit = vi.fn(() => {
+      queueMicrotask(() => child.emit('close', 0, null));
+      return Promise.resolve();
+    });
+    const remoteFirefox = {
+      installTemporaryAddon: vi.fn(),
+      getInstalledAddon: vi.fn(),
+      reloadAddon: vi.fn()
+    };
+    let resolveLaunch: ((value: object) => void) | undefined;
+    const launch = new Promise<object>((resolvePromise) => {
+      resolveLaunch = resolvePromise;
+    });
+    const run = vi.fn(() => launch);
+    const profilePath = join(root, 'profile');
+    const smoke = runVerifiedFirefoxXpiSmoke(
+      {
+        binding,
+        firefoxExecutable: '/private/firefox',
+        profilePath,
+        bootstrapSourceDir: '/private/bootstrap',
+        transportMode: 'local-private-v1'
+      },
+      { webExt: { cmd: { run } } }
+    );
+    await vi.waitFor(() => expect(run).toHaveBeenCalledTimes(1));
+    await vi.advanceTimersByTimeAsync(FIREFOX_XPI_SMOKE_TIMEOUTS.launchMs);
+    if (!resolveLaunch) throw new Error('late-launch-control-missing');
+    resolveLaunch({
+      extensionRunners: [{ remoteFirefox, runningInfo: { firefox: child }, exit }]
+    });
+    await expect(smoke).rejects.toThrow('FIREFOX_SMOKE_LAUNCH_TIMEOUT');
+    expect(exit).toHaveBeenCalledTimes(1);
+    expect(kill).not.toHaveBeenCalled();
+    expect(child.listenerCount('close')).toBe(0);
+    expect(vi.getTimerCount()).toBe(0);
+    await expect(lstat(profilePath)).rejects.toMatchObject({ code: 'ENOENT' });
   });
 
   it('fails when the managed Firefox closes during XPI installation', async () => {

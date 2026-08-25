@@ -220,8 +220,13 @@ describe('locked dependency-cruiser runtime', () => {
       NPM_CONFIG_USERCONFIG: join(installRoot, 'npm-userconfig'),
       NPM_CONFIG_GLOBALCONFIG: join(installRoot, 'npm-globalconfig')
     };
-    const distDir = join(attemptRoot, 'dist-firefox');
-    const tempDir = join(attemptRoot, 'build-temp');
+    const buildRoot = join(attemptRoot, 'build');
+    mkdirSync(buildRoot, { mode: 0o700 });
+    chmodSync(buildRoot, 0o700);
+    const distDir = join(buildRoot, 'dist-firefox');
+    const tempDir = join(buildRoot, 'tmp-firefox');
+    mkdirSync(tempDir, { mode: 0o700 });
+    chmodSync(tempDir, 0o700);
     const spawn = vi.fn((_command: string, args: readonly string[]) => {
       expect(args).toContain('--firefox');
       expect(args.slice(-2)).toEqual(['--outdir', distDir]);
@@ -236,10 +241,49 @@ describe('locked dependency-cruiser runtime', () => {
         tempDir,
         environment
       },
-      { spawnSync: spawn }
+      { repositoryStatusOperation: () => '', spawnSync: spawn }
     );
     expect(result).toMatchObject({ browser: 'firefox', distDir, tempDir });
     expect(spawn).toHaveBeenCalledTimes(1);
+
+    const chromeDist = join(buildRoot, 'dist-chrome');
+    const chromeTemp = join(buildRoot, 'tmp-chrome');
+    mkdirSync(chromeTemp, { mode: 0o700 });
+    chmodSync(chromeTemp, 0o700);
+    const dirtySpawn = vi.fn();
+    expect(() =>
+      runIsolatedReleaseBuild(
+        {
+          configMode: 'standalone-synthetic',
+          browser: 'chrome',
+          distDir: chromeDist,
+          tempDir: chromeTemp,
+          environment
+        },
+        { repositoryStatusOperation: () => ' M src/options/index.ts\n', spawnSync: dirtySpawn }
+      )
+    ).toThrow('RELEASE_BUILD_REPOSITORY_DIRTY');
+    expect(dirtySpawn).not.toHaveBeenCalled();
+
+    const chromeSpawn = vi.fn((_command: string, args: readonly string[]) => {
+      expect(args).not.toContain('--firefox');
+      expect(args.slice(-2)).toEqual(['--outdir', chromeDist]);
+      writeFileSync(join(chromeDist, 'manifest.json'), '{}\n');
+      return { status: 0, signal: null, stdout: Buffer.alloc(0), stderr: Buffer.alloc(0) };
+    });
+    expect(
+      runIsolatedReleaseBuild(
+        {
+          configMode: 'standalone-synthetic',
+          browser: 'chrome',
+          distDir: chromeDist,
+          tempDir: chromeTemp,
+          environment
+        },
+        { repositoryStatusOperation: () => '', spawnSync: chromeSpawn }
+      )
+    ).toMatchObject({ browser: 'chrome', distDir: chromeDist, tempDir: chromeTemp });
+    expect(chromeSpawn).toHaveBeenCalledTimes(1);
 
     const blocked = vi.fn((_command: string, _args: readonly string[]) => ({
       status: 0,
@@ -252,11 +296,11 @@ describe('locked dependency-cruiser runtime', () => {
         {
           configMode: 'standalone-synthetic',
           browser: 'chrome',
-          distDir: join(attemptRoot, 'nested/dist'),
-          tempDir: join(attemptRoot, 'other-temp'),
+          distDir: join(buildRoot, 'nested/dist'),
+          tempDir,
           environment
         },
-        { spawnSync: blocked }
+        { repositoryStatusOperation: () => '', spawnSync: blocked }
       )
     ).toThrow('RELEASE_BUILD_DIST_INVALID');
     expect(blocked).not.toHaveBeenCalled();

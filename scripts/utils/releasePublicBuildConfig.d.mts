@@ -92,6 +92,7 @@ export function runIsolatedReleaseBuild(
     environment?: Readonly<Record<string, string | undefined>>;
   },
   dependencies?: {
+    repositoryStatusOperation?: (repoRoot: string) => string;
     spawnSync?: (
       command: string,
       args: readonly string[],

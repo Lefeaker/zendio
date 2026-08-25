@@ -451,21 +451,35 @@ function releaseAttemptFromNpmConfigs(environment) {
   return root;
 }
 
-function requireAbsentDirectChild(root, path, code) {
+function requireExactBuildChild(root, path, browser, prefix, code) {
+  const buildRoot = join(root, 'build');
+  assertPrivateDirectory(buildRoot, 'RELEASE_BUILD_ROOT_INVALID');
   if (
     typeof path !== 'string' ||
     !isAbsolute(path) ||
     resolve(path) !== path ||
-    dirname(path) !== root
+    path !== join(buildRoot, `${prefix}-${browser}`)
   )
     fail(code);
+  return { buildRoot, path };
+}
+
+function requireAbsentBuildChild(root, path, browser, prefix, code) {
+  const validated = requireExactBuildChild(root, path, browser, prefix, code);
   try {
     lstatSync(path);
     fail(code, 'preexists');
   } catch (error) {
     if (error?.code !== 'ENOENT') throw error;
   }
-  return path;
+  return validated;
+}
+
+function requirePrivateEmptyBuildChild(root, path, browser, prefix, code) {
+  const validated = requireExactBuildChild(root, path, browser, prefix, code);
+  assertPrivateDirectory(path, code);
+  if (readdirSync(path).length !== 0) fail(code, 'not-empty');
+  return validated;
 }
 
 function assertClosedOwnedTree(root) {
@@ -489,16 +503,23 @@ export function runIsolatedReleaseBuild(options, dependencies = {}) {
   const browser = options?.browser;
   if (!['chrome', 'firefox'].includes(browser)) fail('RELEASE_BUILD_BROWSER_INVALID');
   const attemptRoot = releaseAttemptFromNpmConfigs(environment);
-  const distDir = requireAbsentDirectChild(
+  const dist = requireAbsentBuildChild(
     attemptRoot,
     options?.distDir,
+    browser,
+    'dist',
     'RELEASE_BUILD_DIST_INVALID'
   );
-  const tempDir = requireAbsentDirectChild(
+  const temp = requirePrivateEmptyBuildChild(
     attemptRoot,
     options?.tempDir,
+    browser,
+    'tmp',
     'RELEASE_BUILD_TEMP_INVALID'
   );
+  const distDir = dist.path;
+  const tempDir = temp.path;
+  if (dist.buildRoot !== temp.buildRoot) fail('RELEASE_BUILD_PATH_ALIAS');
   if (distDir === tempDir) fail('RELEASE_BUILD_PATH_ALIAS');
   const effectiveEnvironment =
     configMode === 'standalone-synthetic'
@@ -515,12 +536,22 @@ export function runIsolatedReleaseBuild(options, dependencies = {}) {
     environment: effectiveEnvironment,
     repoRoot: REPOSITORY_ROOT_FOR_BUILD
   });
-  mkdirSync(tempDir, { mode: 0o700 });
-  chmodSync(tempDir, 0o700);
-  assertPrivateDirectory(tempDir, 'RELEASE_BUILD_TEMP_INVALID');
+  const repositoryStatus =
+    dependencies.repositoryStatusOperation?.(REPOSITORY_ROOT_FOR_BUILD) ??
+    execFileSync('/usr/bin/git', ['status', '--porcelain=v1', '--untracked-files=all'], {
+      cwd: REPOSITORY_ROOT_FOR_BUILD,
+      encoding: 'utf8',
+      env: { PATH: '/usr/bin:/bin', LANG: 'C', LC_ALL: 'C', TZ: 'UTC' }
+    });
+  if (repositoryStatus !== '') fail('RELEASE_BUILD_REPOSITORY_DIRTY');
   mkdirSync(distDir, { mode: 0o700 });
   chmodSync(distDir, 0o700);
   assertPrivateDirectory(distDir, 'RELEASE_BUILD_DIST_INVALID');
+  if (readdirSync(distDir).length !== 0) fail('RELEASE_BUILD_DIST_INVALID', 'not-empty');
+  requirePrivateEmptyBuildChild(attemptRoot, tempDir, browser, 'tmp', 'RELEASE_BUILD_TEMP_INVALID');
+  assertPrivateDirectory(dist.buildRoot, 'RELEASE_BUILD_ROOT_INVALID');
+  if (releaseAttemptFromNpmConfigs(environment) !== attemptRoot)
+    fail('RELEASE_BUILD_ATTEMPT_AUTHORITY_INVALID');
   const buildScript = join(REPOSITORY_ROOT_FOR_BUILD, 'scripts/build.mjs');
   const scriptStat = lstatSync(buildScript);
   if (

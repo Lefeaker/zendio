@@ -287,6 +287,22 @@ function writeStoreTerminalState(
           ? 'none'
           : 'reconcile';
     if (value.browser === 'firefox') value.channel = 'listed';
+    if (terminal.outcome !== 'pre-mutation-failure') {
+      if (value.browser === 'chrome') {
+        value.itemId = 'fixture-item';
+        value.publisherIdFingerprint = 'a'.repeat(64);
+        value.packageVersion = '1.0.0';
+        value.archiveSha256 = 'b'.repeat(64);
+        value.terminalResult = terminal.outcome === 'success' ? 'PENDING_REVIEW' : null;
+      } else {
+        value.geckoId = 'fixture@example.test';
+        value.xpiSha256 = 'c'.repeat(64);
+        value.sourceArchiveSha256 = 'd'.repeat(64);
+        value.uploadUuidSha256 = terminal.completed ? 'e'.repeat(64) : null;
+        value.signedXpiSha256 = null;
+        value.terminalResult = terminal.outcome === 'success' ? 'listed' : null;
+      }
+    }
     delete value.lastStartedOperation;
     delete value.lastCompletedOperation;
     if (terminal.started) value.lastStartedOperation = terminal.started;
@@ -1275,6 +1291,72 @@ describe('bounded command ownership', () => {
     ).toThrow('RELEASE_PATH_OUTSIDE_ATTEMPT');
   });
 
+  it('propagates and revalidates the post-install npm-config authority for every R03 local leaf', () => {
+    const root = realpathSync(temporaryRoot());
+    installAttemptConfigs(root);
+    const configs = {
+      userconfig: join(root, 'install/npm-userconfig'),
+      globalconfig: join(root, 'install/npm-globalconfig')
+    };
+    const environment = cleanEnvironment({
+      NPM_CONFIG_USERCONFIG: configs.userconfig,
+      NPM_CONFIG_GLOBALCONFIG: configs.globalconfig
+    });
+    const rows: Array<[CommandBoundaryProfileId, string[]]> = [
+      [
+        'npm-audit-context-v1',
+        ['--verify-baseline-context', '--baseline-manifest', join(root, 'audit.json')]
+      ],
+      ['npm-script-quick-v1', ['audit:ci-workflow:check']],
+      ['npm-script-standard-v1', ['typecheck:strict']],
+      ['npm-script-standard-v1', ['lint', '--', '--quiet']],
+      ['npm-script-build-v1', ['build:fast']],
+      [
+        'vitest-v1',
+        ['run', '--config', 'vitest.unit.config.ts', 'tests/unit/scripts/boundedCommand.test.ts']
+      ],
+      ['stylelint-v1', ['src/options/**/*.css']],
+      ['node-script-standard-v1', ['scripts/verify-runtime.mjs']]
+    ];
+    for (const [profileId, args] of rows) {
+      const spec = resolveCommandProfile(profileId, args, { environment });
+      expect(spec.env).toMatchObject({
+        NPM_CONFIG_USERCONFIG: configs.userconfig,
+        NPM_CONFIG_GLOBALCONFIG: configs.globalconfig
+      });
+      expect(spec.commandContext).toMatchObject({
+        attemptConfigAuthority: true,
+        attemptRoot: root,
+        userconfig: configs.userconfig,
+        globalconfig: configs.globalconfig
+      });
+    }
+
+    for (const mutation of [
+      { NPM_CONFIG_USERCONFIG: configs.globalconfig },
+      { npm_config_userconfig: configs.userconfig },
+      { npm_config_registry: 'https://registry.invalid' },
+      { NPM_CONFIG_GLOBALCONFIG: undefined }
+    ]) {
+      expect(() =>
+        resolveCommandProfile('npm-script-quick-v1', ['audit:ci-workflow:check'], {
+          environment: { ...environment, ...mutation }
+        })
+      ).toThrow('NPM_CONFIG_AUTHORITY_INVALID');
+    }
+
+    const spec = resolveCommandProfile('npm-script-quick-v1', ['audit:ci-workflow:check'], {
+      environment
+    });
+    writeFileSync(configs.userconfig, 'late-poison');
+    expect(() =>
+      startBoundedCommand(
+        { profileId: 'npm-script-quick-v1', arguments: ['audit:ci-workflow:check'] },
+        { resolveProfile: () => spec }
+      )
+    ).toThrow('NPM_CONFIG_IDENTITY_INVALID');
+  });
+
   it('keeps the actions token and Chrome/Firefox credentials exclusive to their fixed profiles', () => {
     const fixedFileOperation = () => resolve('tests/fixtures/bounded-command/child.mjs');
     const chrome = releaseAttemptFixture('chrome', 'publish');
@@ -1921,6 +2003,64 @@ describe('bounded command ownership', () => {
       expect(bindingAuthorityFields(initialized.bindingPath)).toBe(beforeBinding);
       expect(afterBinding).toContain(`"stateSha256":"${sha256(initialized.statePath)}"`);
     }
+  });
+
+  it('enforces closed browser-specific store identity and exact listed/unlisted terminal evidence', async () => {
+    const invalidRows: Array<{
+      browser: 'chrome' | 'firefox';
+      mutate: (value: Record<string, RequestValue>) => void;
+    }> = [
+      { browser: 'chrome', mutate: (value) => delete value.archiveSha256 },
+      { browser: 'chrome', mutate: (value) => (value.WEB_EXT_API_SECRET = 'forbidden') },
+      { browser: 'firefox', mutate: (value) => (value.itemId = 'cross-browser') },
+      { browser: 'firefox', mutate: (value) => (value.terminalResult = 'unlisted') }
+    ];
+    for (const row of invalidRows) {
+      const initialized = await initializedStoreFixture(row.browser);
+      const spec = storeLeafSpec(initialized, true);
+      const result = await startBoundedCommand(
+        { profileId: spec.profileId, arguments: [] },
+        {
+          resolveProfile: () => spec,
+          spawnOperation: spawnAfter(() => {
+            writeStoreTerminalState(initialized.statePath, {
+              outcome: 'success',
+              started: row.browser === 'chrome' ? 'publish' : 'source-patch',
+              completed: row.browser === 'chrome' ? 'publish' : 'source-patch'
+            });
+            rewriteCanonicalOwnedJson(initialized.statePath, row.mutate);
+          })
+        }
+      ).completion;
+      expect(result.ok, row.browser).toBe(false);
+    }
+
+    const unlisted = await initializedStoreFixture('firefox');
+    const unlistedSpec = storeLeafSpec(unlisted, true);
+    const unlistedResult = await startBoundedCommand(
+      { profileId: unlistedSpec.profileId, arguments: [] },
+      {
+        resolveProfile: () => unlistedSpec,
+        spawnOperation: spawnAfter(() => {
+          writeStoreTerminalState(unlisted.statePath, {
+            outcome: 'success',
+            started: 'source-patch',
+            completed: 'source-patch'
+          });
+          rewriteCanonicalOwnedJson(unlisted.statePath, (value) => {
+            value.channel = 'unlisted';
+            value.terminalResult = 'unlisted';
+            value.signedXpiSha256 = 'f'.repeat(64);
+          });
+        })
+      }
+    ).completion;
+    expect(unlistedResult.ok).toBe(true);
+    expect(JSON.parse(readFileSync(unlisted.statePath, 'utf8'))).toMatchObject({
+      channel: 'unlisted',
+      terminalResult: 'unlisted',
+      signedXpiSha256: 'f'.repeat(64)
+    });
   });
 
   it('rejects unrefreshed, reordered, cross-browser, result-mismatched, and CAS-drift states', async () => {

@@ -29,6 +29,7 @@ function createDeadline(dependencies = {}) {
   const clearTimer = dependencies.clearTimeoutOperation ?? clearTimeout;
   const startedAt = now();
   let fenced = false;
+  const lateTasks = new Set();
   const remaining = () => FIREFOX_XPI_SMOKE_TIMEOUTS.wholeMs - (now() - startedAt);
   return {
     get fenced() {
@@ -46,22 +47,20 @@ function createDeadline(dependencies = {}) {
         fail('FIREFOX_SMOKE_WHOLE_TIMEOUT');
       }
       let timer;
-      let timedOut = false;
       const pending = Promise.resolve().then(operation);
-      pending.then(
-        (value) => {
-          if (timedOut) onLate?.(value);
-        },
-        () => undefined
-      );
+      pending.catch(() => undefined);
       try {
         return await Promise.race([
           pending,
           new Promise((_, reject) => {
             timer = setTimer(
               () => {
-                timedOut = true;
                 fenced = true;
+                if (onLate) {
+                  const lateTask = pending.then(onLate, () => undefined);
+                  lateTask.catch(() => undefined);
+                  lateTasks.add(lateTask);
+                }
                 reject(new Error(available < operationMs ? 'FIREFOX_SMOKE_WHOLE_TIMEOUT' : code));
               },
               Math.min(operationMs, available)
@@ -70,6 +69,26 @@ function createDeadline(dependencies = {}) {
         ]);
       } finally {
         clearTimer(timer);
+      }
+    },
+    async drainLate() {
+      if (lateTasks.size === 0) return;
+      const available = remaining();
+      if (available <= 0) fail('FIREFOX_SMOKE_WHOLE_TIMEOUT');
+      let timer;
+      try {
+        await Promise.race([
+          Promise.all([...lateTasks]),
+          new Promise((_, reject) => {
+            timer = setTimer(
+              () => reject(new Error('FIREFOX_SMOKE_LATE_LAUNCH_DRAIN_TIMEOUT')),
+              available
+            );
+          })
+        ]);
+      } finally {
+        clearTimer(timer);
+        lateTasks.clear();
       }
     }
   };
@@ -196,6 +215,47 @@ async function runManagedOperation(
   }
 }
 
+async function awaitManagedClose(closeObserver, deadline, timeoutMs, timeoutCode) {
+  if (closeObserver.hasClosed()) return closeObserver.result();
+  return deadline.run(() => closeObserver.promise, timeoutMs, timeoutCode, undefined, {
+    allowFenced: true
+  });
+}
+
+async function shutdownManagedRunner(shape, closeObserver, deadline) {
+  const identityStable =
+    shape.runner.runningInfo?.firefox === shape.child && shape.child.pid === shape.pid;
+  if (identityStable) {
+    try {
+      await deadline.run(
+        () => shape.runner.exit(),
+        FIREFOX_XPI_SMOKE_TIMEOUTS.exitMs,
+        'FIREFOX_SMOKE_EXIT_TIMEOUT',
+        undefined,
+        { allowFenced: true }
+      );
+      if (closeObserver.hasClosed()) return;
+      await awaitManagedClose(
+        closeObserver,
+        deadline,
+        FIREFOX_XPI_SMOKE_TIMEOUTS.gracefulCloseMs,
+        'FIREFOX_SMOKE_GRACEFUL_CLOSE_TIMEOUT'
+      );
+      return;
+    } catch {
+      if (closeObserver.hasClosed()) return;
+    }
+  }
+  if (closeObserver.hasClosed()) return;
+  shape.child.kill('SIGKILL');
+  await awaitManagedClose(
+    closeObserver,
+    deadline,
+    FIREFOX_XPI_SMOKE_TIMEOUTS.forcedCloseMs,
+    'FIREFOX_SMOKE_FORCED_CLOSE_TIMEOUT'
+  );
+}
+
 export async function runVerifiedFirefoxXpiSmoke(options, dependencies = {}) {
   const { binding, firefoxExecutable, profilePath, bootstrapSourceDir, transportMode } = options;
   assertVerifiedFirefoxArtifactBinding(binding);
@@ -225,7 +285,6 @@ export async function runVerifiedFirefoxXpiSmoke(options, dependencies = {}) {
   let runnerShape;
   let closeObserver;
   let closed = false;
-  let operationError;
   const deadline = createDeadline(dependencies);
   try {
     const result = await deadline.run(
@@ -245,13 +304,15 @@ export async function runVerifiedFirefoxXpiSmoke(options, dependencies = {}) {
         ),
       FIREFOX_XPI_SMOKE_TIMEOUTS.launchMs,
       'FIREFOX_SMOKE_LAUNCH_TIMEOUT',
-      (lateResult) => {
+      async (lateResult) => {
+        const late = assertRunnerShape(lateResult);
+        late.pid = late.child.pid;
+        const lateCloseObserver = createCloseObserver(late.child);
         try {
-          const late = assertRunnerShape(lateResult);
-          late.runner.exit().catch?.(() => undefined);
-          late.child.kill('SIGKILL');
-        } catch {
-          // A late malformed result has no trusted process identity to signal.
+          await shutdownManagedRunner(late, lateCloseObserver, deadline);
+          if (!lateCloseObserver.hasClosed()) fail('FIREFOX_SMOKE_LATE_PROCESS_NOT_CLOSED');
+        } finally {
+          lateCloseObserver.remove();
         }
       }
     );
@@ -308,79 +369,19 @@ export async function runVerifiedFirefoxXpiSmoke(options, dependencies = {}) {
       reloaded: true
     });
   } catch (error) {
-    operationError = error;
     throw error;
   } finally {
     if (runnerShape) {
       try {
-        const identityStable =
-          runnerShape.runner.runningInfo?.firefox === runnerShape.child &&
-          runnerShape.child.pid === runnerShape.pid;
-        if (!identityStable) {
-          const killResult = runnerShape.child.kill('SIGKILL');
-          if (killResult !== true) {
-            if (!operationError) fail('FIREFOX_SMOKE_FORCE_KILL_FAILED');
-          } else {
-            try {
-              await deadline.run(
-                () => closeObserver.promise,
-                FIREFOX_XPI_SMOKE_TIMEOUTS.forcedCloseMs,
-                'FIREFOX_SMOKE_FORCED_CLOSE_TIMEOUT',
-                undefined,
-                { allowFenced: true }
-              );
-              closed = true;
-            } catch (error) {
-              if (!operationError) throw error;
-            }
-          }
-        } else {
-          await deadline.run(
-            () => runnerShape.runner.exit(),
-            FIREFOX_XPI_SMOKE_TIMEOUTS.exitMs,
-            'FIREFOX_SMOKE_EXIT_TIMEOUT',
-            undefined,
-            { allowFenced: true }
-          );
-          await deadline.run(
-            () => closeObserver.promise,
-            FIREFOX_XPI_SMOKE_TIMEOUTS.gracefulCloseMs,
-            'FIREFOX_SMOKE_GRACEFUL_CLOSE_TIMEOUT',
-            undefined,
-            { allowFenced: true }
-          );
-          closed = true;
-        }
-      } catch {
-        if (closeObserver.hasClosed()) {
-          closed = true;
-        } else if (
-          runnerShape.runner.runningInfo?.firefox !== runnerShape.child ||
-          runnerShape.child.pid !== runnerShape.pid
-        ) {
-          if (!operationError) fail('FIREFOX_SMOKE_PROCESS_IDENTITY_CHANGED');
-        } else {
-          const killResult = runnerShape.child.kill('SIGKILL');
-          if (killResult !== true) {
-            if (!operationError) fail('FIREFOX_SMOKE_FORCE_KILL_FAILED');
-          } else {
-            try {
-              await deadline.run(
-                () => closeObserver.promise,
-                FIREFOX_XPI_SMOKE_TIMEOUTS.forcedCloseMs,
-                'FIREFOX_SMOKE_FORCED_CLOSE_TIMEOUT',
-                undefined,
-                { allowFenced: true }
-              );
-              closed = true;
-            } catch (error) {
-              if (!operationError) throw error;
-            }
-          }
-        }
+        await shutdownManagedRunner(runnerShape, closeObserver, deadline);
+        closed = closeObserver.hasClosed();
+        if (!closed) fail('FIREFOX_SMOKE_PROCESS_NOT_CLOSED');
       } finally {
         closeObserver?.remove();
       }
+    } else if (deadline.fenced) {
+      await deadline.drainLate();
+      closed = true;
     }
     if (closed || (!runnerShape && !deadline.fenced)) {
       deadline.fence();
