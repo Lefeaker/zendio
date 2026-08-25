@@ -855,6 +855,72 @@ const STATE_BINDING_KEYS = [
   'releaseTree'
 ];
 
+const FIREFOX_UUID_EVIDENCE_KEYS = ['channel', 'uploadUuid', 'xpiCrcHash'];
+
+function readFirefoxUuidEvidence(paths, attemptRoot) {
+  if (!paths.uuidPath) return null;
+  const parentsBefore = releaseParentIdentityChain(attemptRoot, paths.uuidPath);
+  try {
+    lstatSync(paths.uuidPath);
+  } catch (error) {
+    if (error?.code !== 'ENOENT') throw error;
+    const parentsAfter = releaseParentIdentityChain(attemptRoot, paths.uuidPath);
+    try {
+      lstatSync(paths.uuidPath);
+      throw new Error('FIREFOX_UUID_EVIDENCE_CHANGED');
+    } catch (afterError) {
+      if (afterError?.code !== 'ENOENT') throw afterError;
+    }
+    if (JSON.stringify(parentsBefore) !== JSON.stringify(parentsAfter))
+      throw new Error('FIREFOX_UUID_EVIDENCE_CHANGED');
+    return { present: false, parents: parentsAfter, path: paths.uuidPath };
+  }
+  const record = readCanonicalJsonDescriptor(paths.uuidPath, 16 * 1024, 8, attemptRoot, 'pretty');
+  const parentsAfter = releaseParentIdentityChain(attemptRoot, paths.uuidPath);
+  if (JSON.stringify(parentsBefore) !== JSON.stringify(parentsAfter))
+    throw new Error('FIREFOX_UUID_EVIDENCE_CHANGED');
+  return { ...record, present: true, parents: parentsAfter, path: paths.uuidPath };
+}
+
+function assertFirefoxUuidEvidenceEqual(actual, expected, code) {
+  if (
+    actual?.present !== expected?.present ||
+    actual?.path !== expected?.path ||
+    JSON.stringify(actual?.parents) !== JSON.stringify(expected?.parents) ||
+    (actual?.present &&
+      (!actual.bytes.equals(expected.bytes) || !stableFileStats(actual.stats, expected.stats)))
+  )
+    throw new Error(code);
+}
+
+function validateFirefoxUuidCorrelation(value, context, evidence) {
+  if (context.browser !== 'firefox') return;
+  if (!evidence) throw new Error('FIREFOX_UUID_EVIDENCE_INVALID');
+  const actions = STORE_ACTION_SEQUENCES.firefox;
+  const startedIndex =
+    value.lastStartedOperation === undefined ? -1 : actions.indexOf(value.lastStartedOperation);
+  const completedIndex =
+    value.lastCompletedOperation === undefined ? -1 : actions.indexOf(value.lastCompletedOperation);
+  const forbidden = startedIndex <= 0 && completedIndex < 0;
+  const required = startedIndex >= 1 || value.outcome === 'success';
+  if (
+    (value.uploadUuidSha256 === null) !== !evidence.present ||
+    (forbidden && evidence.present) ||
+    (required && !evidence.present)
+  )
+    throw new Error('FIREFOX_UUID_EVIDENCE_INVALID');
+  if (!evidence.present) return;
+  assertClosedKeys(evidence.value, FIREFOX_UUID_EVIDENCE_KEYS, 'firefox UUID evidence');
+  if (
+    !['listed', 'unlisted'].includes(evidence.value.channel) ||
+    evidence.value.channel !== value.channel ||
+    !/^[A-Za-z0-9_-]{1,256}$/u.test(evidence.value.uploadUuid ?? '') ||
+    !/^[0-9a-f]{64}$/u.test(evidence.value.xpiCrcHash ?? '') ||
+    value.uploadUuidSha256 !== evidence.sha256
+  )
+    throw new Error('FIREFOX_UUID_EVIDENCE_INVALID');
+}
+
 function validateArtifactReceipt(spec, artifact, expectedManifestPath, expectedManifestSha256) {
   const context = spec.commandContext;
   const value = artifact.value;
@@ -1014,8 +1080,7 @@ function validateReleaseStateValue(
         ![null, 'listed', 'unlisted'].includes(value.terminalResult))) ||
     (value.mutationInvoked && !identityPresent) ||
     (context.browser === 'firefox' &&
-      ((completedIndex >= 0 && value.uploadUuidSha256 === null) ||
-        (value.channel === 'listed' && value.signedXpiSha256 !== null) ||
+      ((value.channel === 'listed' && value.signedXpiSha256 !== null) ||
         (value.outcome === 'success' &&
           (value.terminalResult !== value.channel ||
             (value.channel === 'unlisted') !== (value.signedXpiSha256 !== null))))) ||
@@ -1081,6 +1146,7 @@ function validateStateBinding(spec, { requireInitial = false } = {}) {
   );
   const binding = readCanonicalOwnedJson(paths.bindingReceiptPath, 64 * 1024, context.attemptRoot);
   const state = readCanonicalOwnedJson(paths.statePath, 16 * 1024, context.attemptRoot);
+  const uuidEvidence = readFirefoxUuidEvidence(paths, context.attemptRoot);
   assertClosedKeys(binding.value, STATE_BINDING_KEYS, 'release state binding');
   const artifactDigest = createHash('sha256').update(artifact.bytes).digest('hex');
   const stateDigest = createHash('sha256').update(state.bytes).digest('hex');
@@ -1103,6 +1169,7 @@ function validateStateBinding(spec, { requireInitial = false } = {}) {
     artifact.value,
     artifactValidation.identity
   );
+  validateFirefoxUuidCorrelation(state.value, context, uuidEvidence);
   const initial = state.value.stage === 'preflight' && state.value.outcome === 'not-started';
   if (
     (requireInitial &&
@@ -1114,7 +1181,7 @@ function validateStateBinding(spec, { requireInitial = false } = {}) {
     binding.value.stateSha256 !== stateDigest
   )
     throw new Error('RELEASE_STATE_BINDING_INVALID');
-  return { paths, artifact, binding, state, artifactValidation };
+  return { paths, artifact, binding, state, uuidEvidence, artifactValidation };
 }
 
 function executeInProcessProfile(spec) {
@@ -1366,6 +1433,7 @@ function refreshStoreStateBinding(spec, initial, result) {
     16 * 1024,
     context.attemptRoot
   );
+  const terminalUuidEvidence = readFirefoxUuidEvidence(initial.paths, context.attemptRoot);
   const artifactDigest = createHash('sha256').update(currentArtifact.bytes).digest('hex');
   validateReleaseStateValue(
     terminalState.value,
@@ -1375,6 +1443,7 @@ function refreshStoreStateBinding(spec, initial, result) {
     artifactValidation.identity,
     { childOk: result.ok, allowInitial: false }
   );
+  validateFirefoxUuidCorrelation(terminalState.value, context, terminalUuidEvidence);
   const nextBinding = {
     ...initial.binding.value,
     stateDevice: String(terminalState.stats.dev),
@@ -1391,8 +1460,14 @@ function refreshStoreStateBinding(spec, initial, result) {
     context.attemptRoot
   );
   const stateCas = readCanonicalOwnedJson(initial.paths.statePath, 16 * 1024, context.attemptRoot);
+  const uuidCas = readFirefoxUuidEvidence(initial.paths, context.attemptRoot);
   assertCanonicalRecordEqual(bindingCas, initial.binding, 'RELEASE_STATE_BINDING_CAS_MISMATCH');
   assertCanonicalRecordEqual(stateCas, terminalState, 'RELEASE_STATE_CAS_MISMATCH');
+  assertFirefoxUuidEvidenceEqual(
+    uuidCas,
+    terminalUuidEvidence,
+    'FIREFOX_UUID_EVIDENCE_CAS_MISMATCH'
+  );
   renameSync(nextPath, initial.paths.bindingReceiptPath);
   const parent = openSync(
     dirname(initial.paths.bindingReceiptPath),
@@ -1413,9 +1488,15 @@ function refreshStoreStateBinding(spec, initial, result) {
     16 * 1024,
     context.attemptRoot
   );
+  const publishedUuidEvidence = readFirefoxUuidEvidence(initial.paths, context.attemptRoot);
   if (!publishedBinding.bytes.equals(Buffer.from(`${canonicalJson(nextBinding)}\n`, 'utf8')))
     throw new Error('RELEASE_STATE_BINDING_PUBLICATION_INVALID');
   assertCanonicalRecordEqual(publishedState, terminalState, 'RELEASE_STATE_CHANGED_AFTER_REFRESH');
+  assertFirefoxUuidEvidenceEqual(
+    publishedUuidEvidence,
+    terminalUuidEvidence,
+    'FIREFOX_UUID_EVIDENCE_CHANGED_AFTER_REFRESH'
+  );
   validateStateBinding(spec);
 }
 
