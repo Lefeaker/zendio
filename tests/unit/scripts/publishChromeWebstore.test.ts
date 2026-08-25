@@ -1,198 +1,218 @@
-import { Buffer } from 'node:buffer';
-import { readFileSync } from 'node:fs';
-import { describe, expect, it, vi } from 'vitest';
+import { createHash } from 'node:crypto';
+import { chmod, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { buildZipFixture } from '../../utils/zipFixtureBuilder';
 import {
-  createChromeWebStoreUrls,
-  dryRunChromeWebStoreRelease,
-  publishChromeWebStorePackage,
-  readChromeWebStoreConfig,
+  canonicalReleaseArtifactJson,
+  createChromeReleaseArtifactManifest,
+  verifyChromeReleaseArtifactManifest
+} from '../../../scripts/utils/releaseArtifactManifest.mjs';
+import {
+  CHROME_DEFAULT_PUBLIC_PUBLISH_REQUEST,
+  dryRunVerifiedChromeRelease,
+  publishVerifiedChromeWebStore,
   resolveReleaseOptionsFromArgs
 } from '../../../scripts/publish-chrome-webstore.mjs';
 
-const completeEnv = {
-  CWS_CLIENT_ID: 'client-id',
-  CWS_CLIENT_SECRET: 'client-secret',
-  CWS_REFRESH_TOKEN: 'refresh-token',
-  CWS_EXTENSION_ID: 'extension-id',
-  CWS_PUBLISHER_ID: 'publisher-id'
-};
+const roots: string[] = [];
+const sha = 'a'.repeat(40);
 
-describe('Chrome Web Store publisher script', () => {
-  it('uses Zendio for private package metadata while retaining store identity inputs', () => {
-    const packageJson = JSON.parse(readFileSync('package.json', 'utf8')) as { name?: string };
-    const packageLock = JSON.parse(readFileSync('package-lock.json', 'utf8')) as {
-      name?: string;
-      packages?: Record<string, { name?: string }>;
-    };
-
-    expect(packageJson.name).toBe('zendio');
-    expect(packageLock.name).toBe('zendio');
-    expect(packageLock.packages?.['']?.name).toBe('zendio');
-    expect(completeEnv.CWS_EXTENSION_ID).toBe('extension-id');
+async function fixture(transport: 'local-private-v1' | 'github-artifact-v1') {
+  const root = await mkdtemp(join(tmpdir(), 'zendio-cws-'));
+  roots.push(root);
+  await chmod(root, transport === 'local-private-v1' ? 0o700 : 0o755);
+  const releaseDir = join(root, 'release');
+  const distDir = join(root, 'dist');
+  await mkdir(releaseDir, { mode: transport === 'local-private-v1' ? 0o700 : 0o755 });
+  await mkdir(distDir, { mode: 0o700 });
+  const zipPath = join(releaseDir, 'fixture.zip');
+  const zipBytes = buildZipFixture([{ path: 'manifest.json', content: '{}\n' }]);
+  await writeFile(zipPath, zipBytes, { mode: transport === 'local-private-v1' ? 0o600 : 0o644 });
+  const manifest = await createChromeReleaseArtifactManifest({
+    releaseDir,
+    distDir,
+    zipPath,
+    repository: { name: 'zendio' },
+    git: { head: sha, tree: 'b'.repeat(40) },
+    packageMetadata: { version: '0.2.1' },
+    buildConfig: { configMode: 'standalone-synthetic' }
   });
-
-  it('requires all Chrome Web Store credentials including publisher id', () => {
-    expect(() =>
-      readChromeWebStoreConfig({
-        ...completeEnv,
-        CWS_PUBLISHER_ID: ''
-      })
-    ).toThrow('Missing required environment variables: CWS_PUBLISHER_ID');
-
-    expect(readChromeWebStoreConfig(completeEnv)).toEqual({
-      clientId: 'client-id',
-      clientSecret: 'client-secret',
-      refreshToken: 'refresh-token',
-      itemId: 'extension-id',
-      publisherId: 'publisher-id'
-    });
+  const manifestPath = join(releaseDir, 'manifest.json');
+  await writeFile(manifestPath, canonicalReleaseArtifactJson(manifest), {
+    mode: transport === 'local-private-v1' ? 0o600 : 0o644
   });
-
-  it('constructs publisher-scoped upload and publish URLs', () => {
-    expect(
-      createChromeWebStoreUrls({
-        publisherId: 'publisher id',
-        itemId: 'item/id'
-      })
-    ).toEqual({
-      upload:
-        'https://chromewebstore.googleapis.com/upload/v2/publishers/publisher%20id/items/item%2Fid:upload',
-      publish:
-        'https://chromewebstore.googleapis.com/v2/publishers/publisher%20id/items/item%2Fid:publish'
-    });
+  const binding = await verifyChromeReleaseArtifactManifest({
+    manifestPath,
+    transportMode: transport
   });
+  const stateFile = join(root, 'state.json');
+  const state = {
+    schema: 'zendio-release-store-state-v1',
+    browser: 'chrome',
+    releaseSha: sha,
+    releaseTree: 'b'.repeat(40),
+    artifactReceiptSha256: 'c'.repeat(64),
+    manifestPath,
+    manifestSha256: createHash('sha256')
+      .update(await readFile(manifestPath))
+      .digest('hex'),
+    store: 'chrome-web-store-v1',
+    channel: 'default',
+    packageSha256: 'd'.repeat(64),
+    lockSha256: 'e'.repeat(64),
+    artifactRole: 'extension-zip',
+    itemId: null,
+    publisherIdFingerprint: null,
+    packageVersion: null,
+    archiveSha256: null,
+    terminalResult: null,
+    errorCode: null,
+    recovery: 'none',
+    stage: 'preflight',
+    outcome: 'not-started',
+    mutationInvoked: false,
+    retrySafe: true
+  };
+  await writeFile(stateFile, `${JSON.stringify(state, null, 2)}\n`, { mode: 0o600 });
+  return { binding, stateFile, zipPath };
+}
 
-  it('defaults the CLI to dry-run and requires an explicit zip path', async () => {
-    await expect(resolveReleaseOptionsFromArgs([], '/repo')).rejects.toThrow(
-      'Dry-run requires --zip <path>. Refusing to auto-select release artifacts.'
-    );
+afterEach(async () => {
+  await Promise.all(roots.splice(0).map((root) => rm(root, { recursive: true, force: true })));
+});
 
-    await expect(resolveReleaseOptionsFromArgs(['--publish'], '/repo')).rejects.toThrow(
-      'Publish mode requires --zip <path>. Refusing to auto-select release artifacts.'
-    );
-
-    await expect(resolveReleaseOptionsFromArgs(['--zip', 'release.zip'], '/repo')).resolves.toEqual(
-      {
-        mode: 'dry-run',
-        zipPath: '/repo/release.zip'
+describe('Chrome Web Store publisher', () => {
+  it('publishes the verified byte snapshot with exact default-public request', async () => {
+    const value = await fixture('github-artifact-v1');
+    const calls: Array<{ url: string; init?: RequestInit }> = [];
+    const fetchImpl = vi.fn((url: string | URL, init?: RequestInit): Promise<Response> => {
+      calls.push({ url: String(url), init });
+      if (String(url).includes('oauth2')) {
+        return Promise.resolve(
+          new Response(JSON.stringify({ access_token: 'token' }), { status: 200 })
+        );
       }
-    );
-
-    await expect(
-      resolveReleaseOptionsFromArgs(['--publish', '--zip', 'release.zip'], '/repo')
-    ).resolves.toEqual({
-      mode: 'publish',
-      zipPath: '/repo/release.zip'
-    });
-  });
-
-  it('dry-runs with credentials and an explicit existing zip without network requests', async () => {
-    const accessImpl = vi.fn().mockResolvedValue(undefined);
-    const logger = { log: vi.fn(), error: vi.fn() };
-    const fetchImpl = vi.fn();
-    vi.stubGlobal('fetch', fetchImpl);
-
-    await expect(
-      dryRunChromeWebStoreRelease({
-        zipPath: '/repo/release.zip',
-        env: completeEnv,
-        accessImpl,
-        logger
-      })
-    ).resolves.toEqual({
-      mode: 'dry-run',
-      itemId: 'extension-id',
-      publisherId: 'publisher-id',
-      zipPath: '/repo/release.zip',
-      tokenUrl: 'https://oauth2.googleapis.com/token',
-      uploadUrl:
-        'https://chromewebstore.googleapis.com/upload/v2/publishers/publisher-id/items/extension-id:upload',
-      publishUrl:
-        'https://chromewebstore.googleapis.com/v2/publishers/publisher-id/items/extension-id:publish'
-    });
-
-    expect(accessImpl).toHaveBeenCalledWith('/repo/release.zip');
-    expect(fetchImpl).not.toHaveBeenCalled();
-    vi.unstubAllGlobals();
-  });
-
-  it('fails dry-run before network work when credentials are incomplete', async () => {
-    const accessImpl = vi.fn().mockResolvedValue(undefined);
-
-    await expect(
-      dryRunChromeWebStoreRelease({
-        zipPath: '/repo/release.zip',
-        env: {
-          ...completeEnv,
-          CWS_REFRESH_TOKEN: ''
-        },
-        accessImpl,
-        logger: { log: vi.fn(), error: vi.fn() }
-      })
-    ).rejects.toThrow('Missing required environment variables: CWS_REFRESH_TOKEN');
-
-    expect(accessImpl).not.toHaveBeenCalled();
-  });
-
-  it('exchanges the refresh token, uploads the zip, and publishes the existing item', async () => {
-    const fetchImpl = vi
-      .fn()
-      .mockResolvedValueOnce(
-        new Response(JSON.stringify({ access_token: 'access-token' }), {
-          status: 200,
-          headers: { 'content-type': 'application/json' }
-        })
-      )
-      .mockResolvedValueOnce(
-        new Response(JSON.stringify({ uploadState: 'SUCCESS' }), {
-          status: 200,
-          headers: { 'content-type': 'application/json' }
-        })
-      )
-      .mockResolvedValueOnce(
-        new Response(JSON.stringify({ itemId: 'extension-id' }), {
-          status: 200,
-          headers: { 'content-type': 'application/json' }
-        })
+      if (String(url).includes(':upload')) {
+        return Promise.resolve(
+          new Response(
+            JSON.stringify({
+              name: 'publishers/publisher/items/item',
+              itemId: 'item',
+              uploadState: 'SUCCEEDED',
+              crxVersion: '0.2.1'
+            }),
+            { status: 200 }
+          )
+        );
+      }
+      return Promise.resolve(
+        new Response(
+          JSON.stringify({
+            name: 'publishers/publisher/items/item',
+            itemId: 'item',
+            state: 'PENDING_REVIEW',
+            warnings: []
+          }),
+          { status: 200 }
+        )
       );
-    const readFileImpl = vi.fn().mockResolvedValue(Buffer.from('zip-bytes'));
-
+    });
     await expect(
-      publishChromeWebStorePackage({
-        zipPath: 'zendio-v0.2.1.zip',
-        env: completeEnv,
-        fetchImpl,
-        readFileImpl,
-        logger: { log: vi.fn(), error: vi.fn() }
-      })
-    ).resolves.toEqual({
-      upload: { uploadState: 'SUCCESS' },
-      publish: { itemId: 'extension-id' }
+      publishVerifiedChromeWebStore(
+        {
+          binding: value.binding,
+          stateFile: value.stateFile,
+          environment: {
+            CWS_CLIENT_ID: 'client',
+            CWS_CLIENT_SECRET: 'secret',
+            CWS_REFRESH_TOKEN: 'refresh',
+            CWS_EXTENSION_ID: 'item',
+            CWS_PUBLISHER_ID: 'publisher'
+          }
+        },
+        { fetchImpl }
+      )
+    ).resolves.toMatchObject({ terminalResult: 'PENDING_REVIEW' });
+    expect(calls).toHaveLength(3);
+    expect(calls[1].init?.body).toBeInstanceOf(Buffer);
+    expect(calls[2].init?.body).toBe(JSON.stringify(CHROME_DEFAULT_PUBLIC_PUBLISH_REQUEST));
+    expect(JSON.parse(await readFile(value.stateFile, 'utf8'))).toMatchObject({
+      stage: 'publish-completed',
+      outcome: 'success',
+      retrySafe: false,
+      terminalResult: 'PENDING_REVIEW'
+    });
+  });
+
+  it('keeps token failure retry-safe and upload failure unknown without publish', async () => {
+    const tokenFixture = await fixture('github-artifact-v1');
+    await expect(
+      publishVerifiedChromeWebStore(
+        {
+          binding: tokenFixture.binding,
+          stateFile: tokenFixture.stateFile,
+          environment: {
+            CWS_CLIENT_ID: 'client',
+            CWS_CLIENT_SECRET: 'secret',
+            CWS_REFRESH_TOKEN: 'refresh',
+            CWS_EXTENSION_ID: 'item',
+            CWS_PUBLISHER_ID: 'publisher'
+          }
+        },
+        { fetchImpl: () => Promise.resolve(new Response('{}', { status: 401 })) }
+      )
+    ).rejects.toThrow('CHROME_RESPONSE_HTTP');
+    expect(JSON.parse(await readFile(tokenFixture.stateFile, 'utf8'))).toMatchObject({
+      outcome: 'pre-mutation-failure',
+      mutationInvoked: false,
+      retrySafe: true
     });
 
-    expect(fetchImpl).toHaveBeenCalledTimes(3);
-    expect(fetchImpl.mock.calls[0]?.[0]).toBe('https://oauth2.googleapis.com/token');
-    expect(fetchImpl.mock.calls[0]?.[1]?.body.toString()).toContain('grant_type=refresh_token');
-    expect(fetchImpl.mock.calls[1]?.[0]).toBe(
-      'https://chromewebstore.googleapis.com/upload/v2/publishers/publisher-id/items/extension-id:upload'
-    );
-    expect(fetchImpl.mock.calls[1]?.[1]).toMatchObject({
-      method: 'POST',
-      headers: {
-        authorization: 'Bearer access-token',
-        'content-type': 'application/zip'
-      },
-      body: Buffer.from('zip-bytes')
-    });
-    expect(fetchImpl.mock.calls[2]?.[0]).toBe(
-      'https://chromewebstore.googleapis.com/v2/publishers/publisher-id/items/extension-id:publish'
-    );
-    expect(fetchImpl.mock.calls[2]?.[1]).toMatchObject({
-      method: 'POST',
-      headers: {
-        authorization: 'Bearer access-token'
-      }
-    });
-    expect(fetchImpl.mock.calls[2]?.[1]?.body).toBeUndefined();
+    const uploadFixture = await fixture('github-artifact-v1');
+    const fetchImpl = vi
+      .fn<(url: string | URL, init?: RequestInit) => Promise<Response>>()
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ access_token: 'token' }), { status: 200 })
+      )
+      .mockRejectedValueOnce(new Error('lost'));
+    await expect(
+      publishVerifiedChromeWebStore(
+        {
+          binding: uploadFixture.binding,
+          stateFile: uploadFixture.stateFile,
+          environment: {
+            CWS_CLIENT_ID: 'client',
+            CWS_CLIENT_SECRET: 'secret',
+            CWS_REFRESH_TOKEN: 'refresh',
+            CWS_EXTENSION_ID: 'item',
+            CWS_PUBLISHER_ID: 'publisher'
+          }
+        },
+        { fetchImpl }
+      )
+    ).rejects.toMatchObject({ code: 'unknown-submission-state', retrySafe: false });
+    expect(fetchImpl).toHaveBeenCalledTimes(2);
+  });
+
+  it('keeps dry-run credential- and network-free', async () => {
+    const value = await fixture('local-private-v1');
+    await expect(
+      dryRunVerifiedChromeRelease({ binding: value.binding, stateFile: value.stateFile })
+    ).resolves.toMatchObject({ mode: 'dry-run', packageVersion: '0.2.1' });
+    expect(() =>
+      resolveReleaseOptionsFromArgs([
+        '--publish',
+        '--zip',
+        value.zipPath,
+        '--artifact-manifest',
+        value.binding.manifestPath,
+        '--state-file',
+        value.stateFile,
+        '--transport-mode',
+        'github-artifact-v1'
+      ])
+    ).toThrow('CHROME_RELEASE_ARGUMENTS_INVALID');
   });
 });
