@@ -4,8 +4,8 @@ import { fileURLToPath } from 'node:url';
 import { parse } from 'yaml';
 
 const ROOT = resolve(fileURLToPath(new URL('..', import.meta.url)));
-const WORKFLOW_PATH = resolve(ROOT, '.github/workflows/release-chrome-webstore.yml');
-const EXACT_JOBS = ['release-attempt-policy', 'prepare', 'publish', 'release-attempt-verdict'];
+const WORKFLOW_PATH = resolve(ROOT, '.github/workflows/release-firefox-amo.yml');
+const EXACT_JOBS = ['release-attempt-policy', 'prepare', 'submit', 'release-attempt-verdict'];
 const EXACT_OUTPUTS = [
   'release_sha',
   'release_tree',
@@ -31,20 +31,20 @@ function exactKeys(value, expected, label) {
   }
 }
 
+function requireIncludes(source, values, label) {
+  for (const value of values) if (!source.includes(value)) fail(`${label} missing: ${value}`);
+}
+
 function stepNames(job) {
   if (!Array.isArray(job?.steps)) fail('job steps missing');
   return job.steps.map((step) => step.name);
-}
-
-function requireIncludes(source, values, label) {
-  for (const value of values) if (!source.includes(value)) fail(`${label} missing: ${value}`);
 }
 
 function count(source, pattern) {
   return [...source.matchAll(pattern)].length;
 }
 
-export function checkChromeWebstoreReleaseWorkflowContract({
+export function checkFirefoxAmoReleaseWorkflowContract({
   workflow = readFileSync(WORKFLOW_PATH, 'utf8')
 } = {}) {
   const failures = [];
@@ -64,23 +64,29 @@ export function checkChromeWebstoreReleaseWorkflowContract({
 
   check('topology', () => {
     exactKeys(value.jobs, EXACT_JOBS, 'job');
-    if (value.concurrency?.group !== 'zendio-chrome-webstore-release-v1') {
-      fail('constant Chrome concurrency group missing');
+    if (value.concurrency?.group !== 'zendio-firefox-amo-release-v1') {
+      fail('constant Firefox concurrency group missing');
     }
     if (value.concurrency?.['cancel-in-progress'] !== false)
       fail('concurrency cancellation changed');
     if (JSON.stringify(value.permissions) !== '{}') fail('workflow permissions must be empty');
-    if (!workflow.includes("      - 'v*'")) fail('tag trigger missing');
     requireIncludes(
       workflow,
-      ['expected_sha:', 'required: true', 'RAW_EXPECTED_SHA: ${{ github.event_name'],
-      'manual trigger'
+      [
+        'expected_sha:',
+        'channel:',
+        'default: listed',
+        '          - listed',
+        '          - unlisted',
+        "RAW_CHANNEL: ${{ github.event_name == 'workflow_dispatch' && inputs.channel || 'listed' }}"
+      ],
+      'trigger'
     );
   });
 
   const policy = value.jobs['release-attempt-policy'];
   const prepare = value.jobs.prepare;
-  const publish = value.jobs.publish;
+  const submit = value.jobs.submit;
   const verdict = value.jobs['release-attempt-verdict'];
 
   check('policy', () => {
@@ -94,93 +100,100 @@ export function checkChromeWebstoreReleaseWorkflowContract({
     ) {
       fail('policy authority widened');
     }
-    if (policy.steps[0].uses || !policy.steps[0].run.includes('github.run_attempt')) {
-      fail('policy must be one shell-only first-attempt guard');
-    }
+    exactKeys(policy.outputs, ['release_sha', 'channel'], 'policy output');
   });
 
   check('prepare', () => {
-    if (prepare['runs-on'] !== 'ubuntu-24.04' || prepare['timeout-minutes'] !== 75) {
+    if (prepare['runs-on'] !== 'ubuntu-24.04' || prepare['timeout-minutes'] !== 120) {
       fail('prepare runner or timeout changed');
     }
-    if (prepare.environment) fail('prepare must be unprivileged');
+    if (prepare.environment) fail('prepare must not bind AMO environment');
     exactKeys(prepare.outputs, EXACT_OUTPUTS, 'prepare output');
-    const names = stepNames(prepare);
     const expected = [
       'Bootstrap command boundary',
       'Checkout release commit',
       'Setup exact Node dependencies',
       'Validate release runtime',
       'Authorize exact release SHA and CI jobs',
-      'Build isolated Chrome release',
-      'Prepare immutable Chrome artifact',
+      'Install Firefox host dependencies',
+      'Install governed Firefox browser',
+      'Build isolated Firefox release',
+      'Prepare immutable Firefox artifact',
+      'Verify private Firefox artifact',
+      'Smoke exact Firefox XPI',
       'Publish closed release job outputs',
-      'Upload immutable Chrome release artifact',
+      'Upload immutable Firefox release artifact',
       'Validate upload artifact ID',
       'Normalize upload artifact digest'
     ];
-    if (JSON.stringify(names) !== JSON.stringify(expected)) fail('prepare step order changed');
+    if (JSON.stringify(stepNames(prepare)) !== JSON.stringify(expected)) {
+      fail('prepare step order changed');
+    }
     if (prepare.steps[1].uses !== 'actions/checkout@v6') fail('checkout pin changed');
     if (prepare.steps[2].uses !== './.github/actions/setup-node-deps')
       fail('install owner changed');
-    if (prepare.steps[8].uses !== 'actions/upload-artifact@v7') fail('upload pin changed');
-    if (prepare.steps[8].with?.name !== 'zendio-chrome-release-v1') {
+    if (prepare.steps[12].uses !== 'actions/upload-artifact@v7') fail('upload pin changed');
+    if (prepare.steps[12].with?.name !== 'zendio-firefox-release-v1') {
       fail('immutable artifact name changed');
     }
-    if (prepare.steps[8].with?.overwrite !== false) fail('artifact overwrite enabled');
+    if (prepare.steps[12].with?.overwrite !== false) fail('artifact overwrite enabled');
+    if (
+      !prepare.steps[5].run.includes('playwright-host-deps-platform-v1') ||
+      !prepare.steps[6].run.includes('playwright-browser-install-v1')
+    ) {
+      fail('Firefox browser phase ownership changed');
+    }
   });
 
-  check('protected-publish', () => {
-    if (publish['runs-on'] !== 'ubuntu-24.04' || publish['timeout-minutes'] !== 60) {
-      fail('publish runner or timeout changed');
+  check('protected-submit', () => {
+    if (submit['runs-on'] !== 'ubuntu-24.04' || submit['timeout-minutes'] !== 90) {
+      fail('submit runner or timeout changed');
     }
-    if (publish.environment?.name !== 'chrome-webstore-release')
-      fail('protected environment missing');
+    if (submit.environment?.name !== 'firefox-amo-release') fail('protected environment missing');
     if (
-      publish.if !==
+      submit.if !==
       "${{ github.run_attempt == 1 && needs.release-attempt-policy.result == 'success' && needs.prepare.result == 'success' }}"
     ) {
       fail('pre-environment first-attempt condition changed');
     }
-    const names = stepNames(publish);
     const expected = [
       'Bootstrap command boundary',
       'Checkout exact prepared commit',
       'Setup exact Node dependencies',
-      'Download exact Chrome artifact',
-      'Verify downloaded Chrome artifact',
+      'Download exact Firefox artifact',
+      'Verify downloaded Firefox artifact',
       'Reauthorize release provenance',
-      'Initialize Chrome submission state',
-      'Publish verified Chrome artifact',
-      'Validate Chrome submission evidence',
-      'Upload Chrome submission evidence'
+      'Initialize Firefox submission state',
+      'Submit verified Firefox artifact',
+      'Validate Firefox submission evidence',
+      'Upload Firefox submission evidence'
     ];
-    if (JSON.stringify(names) !== JSON.stringify(expected)) fail('publish step order changed');
-    if (publish.steps[3].uses !== 'actions/download-artifact@v8') fail('download pin changed');
+    if (JSON.stringify(stepNames(submit)) !== JSON.stringify(expected))
+      fail('submit step order changed');
+    if (submit.steps[3].uses !== 'actions/download-artifact@v8') fail('download pin changed');
     if (
-      publish.steps[3].with?.['artifact-ids'] !== '${{ needs.prepare.outputs.artifact_id }}' ||
-      Object.hasOwn(publish.steps[3].with ?? {}, 'name')
+      submit.steps[3].with?.['artifact-ids'] !== '${{ needs.prepare.outputs.artifact_id }}' ||
+      Object.hasOwn(submit.steps[3].with ?? {}, 'name')
     ) {
       fail('download is not bound only to the canonical artifact ID');
     }
-    if (publish.steps[3].with?.['digest-mismatch'] !== 'error')
-      fail('digest mismatch is not fatal');
-    if (publish.steps[9].uses !== 'actions/upload-artifact@v7') fail('state upload pin changed');
+    if (submit.steps[3].with?.['digest-mismatch'] !== 'error') fail('digest mismatch is not fatal');
+    if (submit.steps[9].uses !== 'actions/upload-artifact@v7') fail('state upload pin changed');
     if (
-      publish.steps[9].with?.name !== 'zendio-chrome-submission-state-v1' ||
-      publish.steps[9].with?.path !==
-        '${{ runner.temp }}/zendio-chrome-publish-${{ github.run_id }}-${{ github.run_attempt }}/store-state/chrome/publish-state.json'
+      submit.steps[9].with?.name !== 'zendio-firefox-submission-state-v1' ||
+      submit.steps[9].with?.path !==
+        '${{ runner.temp }}/zendio-firefox-submit-${{ github.run_id }}-${{ github.run_attempt }}/store-state/firefox/submission-state.json'
     ) {
-      fail('Chrome state evidence identity changed');
+      fail('Firefox state evidence identity changed');
     }
-    if (publish.steps[8].if !== '${{ always() }}' || publish.steps[9].if !== '${{ always() }}') {
+    if (submit.steps[8].if !== '${{ always() }}' || submit.steps[9].if !== '${{ always() }}') {
       fail('state evidence must always run');
     }
-    const secretSteps = publish.steps.filter((step) =>
+    const secretSteps = submit.steps.filter((step) =>
       JSON.stringify(step.env ?? {}).includes('secrets.')
     );
-    if (secretSteps.length !== 1 || secretSteps[0].name !== 'Publish verified Chrome artifact') {
-      fail('Chrome credentials escaped the final mutation step');
+    if (secretSteps.length !== 1 || secretSteps[0].name !== 'Submit verified Firefox artifact') {
+      fail('AMO credentials escaped the final mutation step');
     }
   });
 
@@ -203,16 +216,19 @@ export function checkChromeWebstoreReleaseWorkflowContract({
       [
         '--profile release-runtime-check-v1 -- --check --config-mode owner-public-vars',
         '--profile release-provenance-v1 -- scripts/utils/releaseCiProvenance.mjs --prepare-authorization',
-        '--profile isolated-build-v1 -- --run-isolated-build --config-mode owner-public-vars --browser chrome',
-        '--profile chrome-prepare-v1 -- --config-mode owner-public-vars',
-        '--profile release-job-outputs-v1 -- --browser chrome',
+        '--profile playwright-host-deps-platform-v1 -- firefox-with-host-deps',
+        '--profile playwright-browser-install-v1 -- firefox-with-host-deps',
+        '--profile isolated-build-v1 -- --run-isolated-build --config-mode owner-public-vars --browser firefox',
+        '--profile firefox-prepare-v1 -- --config-mode owner-public-vars --transport-mode local-private-v1',
+        '--profile firefox-verify-v1 -- --manifest',
+        '--profile firefox-smoke-v1 -- --manifest',
+        '--profile release-job-outputs-v1 -- --browser firefox',
         '--validate-upload-artifact-id "${{ steps.upload.outputs.artifact-id }}"',
         '--normalize-upload-artifact-digest "${{ steps.upload.outputs.artifact-digest }}"',
-        '--profile chrome-verify-v1 -- --manifest',
         '--profile release-provenance-v1 -- scripts/utils/releaseCiProvenance.mjs --reauthorize',
-        '--profile release-state-init-v1 -- --browser chrome',
-        '--profile chrome-publish-v1 -- --publish --artifact-manifest',
-        '--profile release-state-check-v1 -- --browser chrome'
+        '--profile release-state-init-v1 -- --browser firefox',
+        '--profile firefox-submit-v1 -- --artifact-manifest',
+        '--profile release-state-check-v1 -- --browser firefox'
       ],
       'fixed route'
     );
@@ -220,20 +236,15 @@ export function checkChromeWebstoreReleaseWorkflowContract({
       fail('exact prepare/reauthorize token mapping changed');
     }
     if (
-      /npm run release:chrome|publish-chrome-webstore\.mjs|\bnpx\b|GITHUB_ENV|actions\/cache/iu.test(
-        workflow
-      )
+      /package:firefox:sign|--sign|cmd\.sign|\bnpx\b|GITHUB_ENV|actions\/cache/iu.test(workflow)
     ) {
-      fail('retired or ambient executable route remains');
+      fail('retired or ambient Firefox route remains');
     }
-    for (const secret of [
-      'CWS_CLIENT_ID',
-      'CWS_CLIENT_SECRET',
-      'CWS_REFRESH_TOKEN',
-      'CWS_EXTENSION_ID',
-      'CWS_PUBLISHER_ID'
-    ]) {
+    for (const secret of ['WEB_EXT_API_KEY', 'WEB_EXT_API_SECRET']) {
       if (count(workflow, new RegExp(`${secret}:`, 'gu')) !== 1) fail(`${secret} scope changed`);
+    }
+    if (count(workflow, /firefox-submit-v1 -- --artifact-manifest/gu) !== 1) {
+      fail('Firefox submit owner must be unique');
     }
   });
 
@@ -249,14 +260,14 @@ function workflowOverride(argv) {
 }
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
-  const result = checkChromeWebstoreReleaseWorkflowContract({
+  const result = checkFirefoxAmoReleaseWorkflowContract({
     workflow: workflowOverride(process.argv.slice(2))
   });
   if (!result.ok) {
-    console.error('Chrome Web Store release workflow contract failed:');
+    console.error('Firefox AMO release workflow contract failed:');
     for (const failure of result.failures) console.error(`- ${failure}`);
     process.exitCode = 1;
   } else if (!process.argv.includes('--check')) {
-    console.log('Chrome Web Store release workflow contract passed.');
+    console.log('Firefox AMO release workflow contract passed.');
   }
 }

@@ -53,7 +53,7 @@ export function queryReleaseCiProvenance(
   options: {
     expectedSha: string;
     requiredJobs: readonly string[];
-    repositoryId: number;
+    repositoryId?: number;
     repositoryFullName: string;
     token: string;
   },
@@ -70,5 +70,11 @@ export function writeCanonicalAuthorizationRecord(
 export function readCanonicalAuthorizationRecord(path: string): Promise<ReleaseCiProvenanceRecord>;
 export function runReleaseCiProvenanceCli(
   argv?: readonly string[],
-  environment?: NodeJS.ProcessEnv
+  environment?: NodeJS.ProcessEnv,
+  dependencies?: {
+    fetchImpl?: (input: string | URL, init?: RequestInit) => Promise<Response>;
+    setTimeoutOperation?: typeof setTimeout;
+    clearTimeoutOperation?: typeof clearTimeout;
+    gitOperation?: (args: string[]) => string;
+  }
 ): Promise<ReleaseCiProvenanceRecord>;

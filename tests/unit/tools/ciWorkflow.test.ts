@@ -162,13 +162,17 @@ describe('bounded CI workflow contract', () => {
     }
   });
 
-  it('preserves the Firefox release workflow inputs while auditing ordinary CI', () => {
+  it('wires the protected Firefox release auditor into the ordinary CI contract', async () => {
+    const contract = await loadContract();
     const firefox = read('.github/workflows/release-firefox-amo.yml');
 
-    expect(firefox).toContain('name: Release Firefox AMO');
-    expect(firefox).toContain('uses: actions/checkout@v6');
-    expect(firefox).toContain('uses: ./.github/actions/setup-node-deps');
-    expect(firefox).toContain('WEB_EXT_API_KEY: ${{ secrets.WEB_EXT_API_KEY }}');
-    expect(firefox).toContain('WEB_EXT_API_SECRET: ${{ secrets.WEB_EXT_API_SECRET }}');
+    expect(contract.checkCiWorkflowContract({ firefoxReleaseWorkflow: firefox })).toEqual({
+      ok: true,
+      failures: []
+    });
+    const mutated = firefox.replace('digest-mismatch: error', 'digest-mismatch: warn');
+    const result = contract.checkCiWorkflowContract({ firefoxReleaseWorkflow: mutated });
+    expect(result.ok).toBe(false);
+    expect(result.failures.join('\n')).toContain('firefox-release-contract');
   });
 });

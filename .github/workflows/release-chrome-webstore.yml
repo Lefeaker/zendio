@@ -2,87 +2,375 @@ name: Release Chrome Web Store
 
 on:
   workflow_dispatch:
+    inputs:
+      expected_sha:
+        description: Exact current main commit to release.
+        required: true
+        type: string
   push:
     tags:
       - 'v*'
 
-permissions:
-  contents: read
+permissions: {}
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: zendio-chrome-webstore-release-v1
   cancel-in-progress: false
 
 jobs:
-  release:
-    name: Build and publish Chrome Web Store package
-    runs-on: ubuntu-latest
-    environment:
-      name: chrome-webstore-release
-    env:
-      ZENDIO_GA_MEASUREMENT_ID: ${{ vars.ZENDIO_GA_MEASUREMENT_ID }}
-      ZENDIO_GA_TRANSPORT_MODE: ${{ vars.ZENDIO_GA_TRANSPORT_MODE }}
-      ZENDIO_GA_PROXY_ENDPOINT: ${{ vars.ZENDIO_GA_PROXY_ENDPOINT }}
-
+  release-attempt-policy:
+    name: Release attempt policy
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions: {}
+    outputs:
+      release_sha: ${{ steps.policy.outputs.release_sha }}
     steps:
-      - name: Checkout repository
+      - name: Require a fresh first attempt
+        id: policy
+        shell: bash
+        env:
+          RAW_EXPECTED_SHA: ${{ github.event_name == 'workflow_dispatch' && inputs.expected_sha || github.sha }}
+        run: |
+          set -euo pipefail
+          [[ "${{ github.run_attempt }}" == 1 ]]
+          [[ $RAW_EXPECTED_SHA =~ ^[0-9A-Fa-f]{40}$ ]]
+          release_sha=${RAW_EXPECTED_SHA,,}
+          printf 'release_sha=%s\n' "$release_sha" >> "$GITHUB_OUTPUT"
+
+  prepare:
+    name: Prepare Chrome release
+    needs: release-attempt-policy
+    runs-on: ubuntu-24.04
+    timeout-minutes: 75
+    permissions:
+      actions: read
+      contents: read
+    outputs:
+      release_sha: ${{ steps.release.outputs.release_sha }}
+      release_tree: ${{ steps.release.outputs.release_tree }}
+      package_sha256: ${{ steps.release.outputs.package_sha256 }}
+      lock_sha256: ${{ steps.release.outputs.lock_sha256 }}
+      release_manifest_sha256: ${{ steps.release.outputs.release_manifest_sha256 }}
+      artifact_id: ${{ steps.artifact-id.outputs.artifact_id }}
+      artifact_digest: ${{ steps.artifact-digest.outputs.artifact_digest }}
+    steps:
+      - name: Bootstrap command boundary
+        shell: bash
+        env:
+          ZENDIO_JOB_CLASS: chrome-prepare-v1
+          ZENDIO_JOB_TIMEOUT_MINUTES: '75'
+        run: |
+          set -euo pipefail
+          export LC_ALL=C LANG=C
+          shopt -s nocasematch
+          env_count=0
+          for env_name in $(compgen -e); do
+            env_count=$((env_count + 1))
+            (( env_count <= 4096 )) || { printf 'too many environment names\n' >&2; exit 1; }
+            (( ${#env_name} <= 4096 )) || { printf 'environment name too large\n' >&2; exit 1; }
+            env_value=${!env_name-}
+            (( ${#env_value} <= 4096 )) || { printf 'environment value too large: %s\n' "$env_name" >&2; exit 1; }
+            case "$env_name" in
+              NODE_OPTIONS|HUSKY|npm_config_*) printf 'forbidden environment: %s\n' "$env_name" >&2; exit 1 ;;
+            esac
+          done
+          [[ $GITHUB_RUN_ID =~ ^[1-9][0-9]*$ ]]
+          [[ $GITHUB_RUN_ATTEMPT == 1 ]]
+          [[ $GITHUB_JOB =~ ^[A-Za-z0-9_-]{1,128}$ ]]
+          [[ $ZENDIO_JOB_CLASS == chrome-prepare-v1 ]]
+          [[ $ZENDIO_JOB_TIMEOUT_MINUTES == 75 ]]
+          [[ $RUNNER_OS == Linux && $RUNNER_ARCH == X64 ]]
+          [[ $ImageOS == ubuntu24 && $ImageVersion =~ ^[A-Za-z0-9._-]{1,128}$ ]]
+          [[ $RUNNER_TEMP == /* && ${#RUNNER_TEMP} -le 4096 && -d $RUNNER_TEMP && ! -L $RUNNER_TEMP ]]
+          IFS=' .' read -r uptime_seconds uptime_fraction _ < /proc/uptime
+          [[ $uptime_seconds =~ ^[0-9]{1,12}$ && $uptime_fraction =~ ^[0-9]{1,32}$ ]]
+          uptime_fraction="${uptime_fraction}00"
+          uptime_fraction="${uptime_fraction:0:2}"
+          start_centiseconds=$((10#$uptime_seconds * 100 + 10#$uptime_fraction))
+          attempt_root="$RUNNER_TEMP/zendio-chrome-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
+          stamp="$RUNNER_TEMP/zendio-command-start-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT-$GITHUB_JOB.receipt"
+          [[ ! -e $attempt_root && ! -L $attempt_root && ! -e $stamp && ! -L $stamp ]]
+          umask 077
+          set -o noclobber
+          printf 'zendio-ci-command-start-v1\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n' \
+            "$GITHUB_RUN_ID" "$GITHUB_RUN_ATTEMPT" "$GITHUB_JOB" \
+            "$ZENDIO_JOB_CLASS" "$ZENDIO_JOB_TIMEOUT_MINUTES" \
+            "$RUNNER_OS" "$RUNNER_ARCH" "$ImageOS" "$ImageVersion" "$start_centiseconds" > "$stamp"
+
+      - name: Checkout release commit
         uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          persist-credentials: false
 
-      - name: Setup Node dependencies
+      - name: Setup exact Node dependencies
         uses: ./.github/actions/setup-node-deps
+        env:
+          ZENDIO_JOB_CLASS: chrome-prepare-v1
+          ZENDIO_JOB_TIMEOUT_MINUTES: '75'
+          ZENDIO_RUNNER_ENVIRONMENT: ${{ runner.environment }}
 
-      - name: Require GA public release config
-        shell: bash
-        run: |
-          : "${ZENDIO_GA_MEASUREMENT_ID:?missing GitHub Environment variable ZENDIO_GA_MEASUREMENT_ID}"
-          : "${ZENDIO_GA_TRANSPORT_MODE:?missing GitHub Environment variable ZENDIO_GA_TRANSPORT_MODE}"
-          : "${ZENDIO_GA_PROXY_ENDPOINT:?missing GitHub Environment variable ZENDIO_GA_PROXY_ENDPOINT}"
-          if [ "$ZENDIO_GA_TRANSPORT_MODE" != "proxy" ]; then
-            printf 'ZENDIO_GA_TRANSPORT_MODE must be proxy for Chrome Web Store release\n' >&2
-            exit 1
-          fi
+      - name: Validate release runtime
+        env:
+          NPM_CONFIG_USERCONFIG: ${{ runner.temp }}/zendio-chrome-${{ github.run_id }}-${{ github.run_attempt }}/install/npm-userconfig
+          NPM_CONFIG_GLOBALCONFIG: ${{ runner.temp }}/zendio-chrome-${{ github.run_id }}-${{ github.run_attempt }}/install/npm-globalconfig
+          ZENDIO_CHROME_ATTEMPT_ROOT: ${{ runner.temp }}/zendio-chrome-${{ github.run_id }}-${{ github.run_attempt }}
+          ZENDIO_GA_MEASUREMENT_ID: ${{ vars.ZENDIO_GA_MEASUREMENT_ID }}
+          ZENDIO_GA_TRANSPORT_MODE: ${{ vars.ZENDIO_GA_TRANSPORT_MODE }}
+          ZENDIO_GA_PROXY_ENDPOINT: ${{ vars.ZENDIO_GA_PROXY_ENDPOINT }}
+          ZENDIO_JOB_CLASS: chrome-prepare-v1
+          ZENDIO_JOB_TIMEOUT_MINUTES: '75'
+          ZENDIO_RUNNER_ENVIRONMENT: ${{ runner.environment }}
+        run: node scripts/run-bounded-command.mjs --profile release-runtime-check-v1 -- --check --config-mode owner-public-vars
 
-      - name: Validate GA public release config
-        run: npm run analytics:validate:prod:required
+      - name: Authorize exact release SHA and CI jobs
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          NPM_CONFIG_USERCONFIG: ${{ runner.temp }}/zendio-chrome-${{ github.run_id }}-${{ github.run_attempt }}/install/npm-userconfig
+          NPM_CONFIG_GLOBALCONFIG: ${{ runner.temp }}/zendio-chrome-${{ github.run_id }}-${{ github.run_attempt }}/install/npm-globalconfig
+          ZENDIO_CHROME_ATTEMPT_ROOT: ${{ runner.temp }}/zendio-chrome-${{ github.run_id }}-${{ github.run_attempt }}
+          ZENDIO_JOB_CLASS: chrome-prepare-v1
+          ZENDIO_JOB_TIMEOUT_MINUTES: '75'
+          ZENDIO_RUNNER_ENVIRONMENT: ${{ runner.environment }}
+        run: node scripts/run-bounded-command.mjs --profile release-provenance-v1 -- scripts/utils/releaseCiProvenance.mjs --prepare-authorization --expected-sha "${{ needs.release-attempt-policy.outputs.release_sha }}" --required-jobs-source scripts/config/releaseRequiredCiJobs.mjs --authorization-record "${{ runner.temp }}/zendio-chrome-${{ github.run_id }}-${{ github.run_attempt }}/authorization.json"
 
-      - name: Run release quality gates
-        run: npm run quality
+      - name: Build isolated Chrome release
+        env:
+          NPM_CONFIG_USERCONFIG: ${{ runner.temp }}/zendio-chrome-${{ github.run_id }}-${{ github.run_attempt }}/install/npm-userconfig
+          NPM_CONFIG_GLOBALCONFIG: ${{ runner.temp }}/zendio-chrome-${{ github.run_id }}-${{ github.run_attempt }}/install/npm-globalconfig
+          ZENDIO_CHROME_ATTEMPT_ROOT: ${{ runner.temp }}/zendio-chrome-${{ github.run_id }}-${{ github.run_attempt }}
+          ZENDIO_GA_MEASUREMENT_ID: ${{ vars.ZENDIO_GA_MEASUREMENT_ID }}
+          ZENDIO_GA_TRANSPORT_MODE: ${{ vars.ZENDIO_GA_TRANSPORT_MODE }}
+          ZENDIO_GA_PROXY_ENDPOINT: ${{ vars.ZENDIO_GA_PROXY_ENDPOINT }}
+          ZENDIO_JOB_CLASS: chrome-prepare-v1
+          ZENDIO_JOB_TIMEOUT_MINUTES: '75'
+          ZENDIO_RUNNER_ENVIRONMENT: ${{ runner.environment }}
+        run: node scripts/run-bounded-command.mjs --profile isolated-build-v1 -- --run-isolated-build --config-mode owner-public-vars --browser chrome --dist-dir "${{ runner.temp }}/zendio-chrome-${{ github.run_id }}-${{ github.run_attempt }}/dist-chrome" --temp-dir "${{ runner.temp }}/zendio-chrome-${{ github.run_id }}-${{ github.run_attempt }}/build-temp"
 
-      - name: Build Chrome GA production bundle
-        run: node scripts/build.mjs --mode=prod --skip-checks
+      - name: Prepare immutable Chrome artifact
+        env:
+          NPM_CONFIG_USERCONFIG: ${{ runner.temp }}/zendio-chrome-${{ github.run_id }}-${{ github.run_attempt }}/install/npm-userconfig
+          NPM_CONFIG_GLOBALCONFIG: ${{ runner.temp }}/zendio-chrome-${{ github.run_id }}-${{ github.run_attempt }}/install/npm-globalconfig
+          ZENDIO_CHROME_ATTEMPT_ROOT: ${{ runner.temp }}/zendio-chrome-${{ github.run_id }}-${{ github.run_attempt }}
+          ZENDIO_GA_MEASUREMENT_ID: ${{ vars.ZENDIO_GA_MEASUREMENT_ID }}
+          ZENDIO_GA_TRANSPORT_MODE: ${{ vars.ZENDIO_GA_TRANSPORT_MODE }}
+          ZENDIO_GA_PROXY_ENDPOINT: ${{ vars.ZENDIO_GA_PROXY_ENDPOINT }}
+          ZENDIO_JOB_CLASS: chrome-prepare-v1
+          ZENDIO_JOB_TIMEOUT_MINUTES: '75'
+          ZENDIO_RUNNER_ENVIRONMENT: ${{ runner.environment }}
+        run: node scripts/run-bounded-command.mjs --profile chrome-prepare-v1 -- --config-mode owner-public-vars --attempt-root "${{ runner.temp }}/zendio-chrome-${{ github.run_id }}-${{ github.run_attempt }}" --dist-dir "${{ runner.temp }}/zendio-chrome-${{ github.run_id }}-${{ github.run_attempt }}/dist-chrome" --release-dir "${{ runner.temp }}/zendio-chrome-${{ github.run_id }}-${{ github.run_attempt }}/chrome-release" --authorization-record "${{ runner.temp }}/zendio-chrome-${{ github.run_id }}-${{ github.run_attempt }}/authorization.json" --result-json "${{ runner.temp }}/zendio-chrome-${{ github.run_id }}-${{ github.run_attempt }}/chrome-result.json"
 
-      - name: Package Chrome extension
-        run: npm run package:ci
+      - name: Publish closed release job outputs
+        id: release
+        env:
+          NPM_CONFIG_USERCONFIG: ${{ runner.temp }}/zendio-chrome-${{ github.run_id }}-${{ github.run_attempt }}/install/npm-userconfig
+          NPM_CONFIG_GLOBALCONFIG: ${{ runner.temp }}/zendio-chrome-${{ github.run_id }}-${{ github.run_attempt }}/install/npm-globalconfig
+          ZENDIO_CHROME_ATTEMPT_ROOT: ${{ runner.temp }}/zendio-chrome-${{ github.run_id }}-${{ github.run_attempt }}
+          ZENDIO_JOB_CLASS: chrome-prepare-v1
+          ZENDIO_JOB_TIMEOUT_MINUTES: '75'
+          ZENDIO_RUNNER_ENVIRONMENT: ${{ runner.environment }}
+        run: node scripts/run-bounded-command.mjs --profile release-job-outputs-v1 -- --browser chrome --result-json "${{ runner.temp }}/zendio-chrome-${{ github.run_id }}-${{ github.run_attempt }}/chrome-result.json"
 
-      - name: Resolve package path
-        id: package
-        shell: bash
-        run: |
-          mapfile -t zip_files < <(find . -maxdepth 1 -type f -name '*.zip' -print)
-          if [ "${#zip_files[@]}" -ne 1 ]; then
-            printf 'Expected exactly one root zip package, found %s\n' "${#zip_files[@]}" >&2
-            printf '%s\n' "${zip_files[@]}" >&2
-            exit 1
-          fi
-          printf 'zip_path=%s\n' "${zip_files[0]}" >> "$GITHUB_OUTPUT"
-
-      - name: Audit Chrome GA release package
-        run: |
-          npm run audit:ga:client-secret
-          npm run audit:ga:release-surface -- --archive "${{ steps.package.outputs.zip_path }}"
-
-      - name: Upload Chrome Web Store package artifact
+      - name: Upload immutable Chrome release artifact
+        id: upload
         uses: actions/upload-artifact@v7
         with:
-          name: chrome-webstore-package
-          path: ${{ steps.package.outputs.zip_path }}
+          name: zendio-chrome-release-v1
+          path: ${{ runner.temp }}/zendio-chrome-${{ github.run_id }}-${{ github.run_attempt }}/chrome-release
           if-no-files-found: error
+          overwrite: false
 
-      - name: Publish to Chrome Web Store
+      - name: Validate upload artifact ID
+        id: artifact-id
         env:
+          NPM_CONFIG_USERCONFIG: ${{ runner.temp }}/zendio-chrome-${{ github.run_id }}-${{ github.run_attempt }}/install/npm-userconfig
+          NPM_CONFIG_GLOBALCONFIG: ${{ runner.temp }}/zendio-chrome-${{ github.run_id }}-${{ github.run_attempt }}/install/npm-globalconfig
+          ZENDIO_CHROME_ATTEMPT_ROOT: ${{ runner.temp }}/zendio-chrome-${{ github.run_id }}-${{ github.run_attempt }}
+          ZENDIO_JOB_CLASS: chrome-prepare-v1
+          ZENDIO_JOB_TIMEOUT_MINUTES: '75'
+          ZENDIO_RUNNER_ENVIRONMENT: ${{ runner.environment }}
+        run: node scripts/run-bounded-command.mjs --profile release-provenance-v1 -- scripts/utils/releaseArtifactManifest.mjs --validate-upload-artifact-id "${{ steps.upload.outputs.artifact-id }}"
+
+      - name: Normalize upload artifact digest
+        id: artifact-digest
+        env:
+          NPM_CONFIG_USERCONFIG: ${{ runner.temp }}/zendio-chrome-${{ github.run_id }}-${{ github.run_attempt }}/install/npm-userconfig
+          NPM_CONFIG_GLOBALCONFIG: ${{ runner.temp }}/zendio-chrome-${{ github.run_id }}-${{ github.run_attempt }}/install/npm-globalconfig
+          ZENDIO_CHROME_ATTEMPT_ROOT: ${{ runner.temp }}/zendio-chrome-${{ github.run_id }}-${{ github.run_attempt }}
+          ZENDIO_JOB_CLASS: chrome-prepare-v1
+          ZENDIO_JOB_TIMEOUT_MINUTES: '75'
+          ZENDIO_RUNNER_ENVIRONMENT: ${{ runner.environment }}
+        run: node scripts/run-bounded-command.mjs --profile release-provenance-v1 -- scripts/utils/releaseArtifactManifest.mjs --normalize-upload-artifact-digest "${{ steps.upload.outputs.artifact-digest }}"
+
+  publish:
+    name: Publish Chrome Web Store
+    needs: [release-attempt-policy, prepare]
+    if: ${{ github.run_attempt == 1 && needs.release-attempt-policy.result == 'success' && needs.prepare.result == 'success' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    permissions:
+      actions: read
+      contents: read
+    environment:
+      name: chrome-webstore-release
+    steps:
+      - name: Bootstrap command boundary
+        shell: bash
+        env:
+          ZENDIO_JOB_CLASS: chrome-publish-v1
+          ZENDIO_JOB_TIMEOUT_MINUTES: '60'
+        run: |
+          set -euo pipefail
+          export LC_ALL=C LANG=C
+          shopt -s nocasematch
+          env_count=0
+          for env_name in $(compgen -e); do
+            env_count=$((env_count + 1))
+            (( env_count <= 4096 )) || { printf 'too many environment names\n' >&2; exit 1; }
+            (( ${#env_name} <= 4096 )) || { printf 'environment name too large\n' >&2; exit 1; }
+            env_value=${!env_name-}
+            (( ${#env_value} <= 4096 )) || { printf 'environment value too large: %s\n' "$env_name" >&2; exit 1; }
+            case "$env_name" in
+              NODE_OPTIONS|HUSKY|npm_config_*) printf 'forbidden environment: %s\n' "$env_name" >&2; exit 1 ;;
+            esac
+          done
+          [[ $GITHUB_RUN_ID =~ ^[1-9][0-9]*$ ]]
+          [[ $GITHUB_RUN_ATTEMPT == 1 ]]
+          [[ $GITHUB_JOB =~ ^[A-Za-z0-9_-]{1,128}$ ]]
+          [[ $ZENDIO_JOB_CLASS == chrome-publish-v1 ]]
+          [[ $ZENDIO_JOB_TIMEOUT_MINUTES == 60 ]]
+          [[ $RUNNER_OS == Linux && $RUNNER_ARCH == X64 ]]
+          [[ $ImageOS == ubuntu24 && $ImageVersion =~ ^[A-Za-z0-9._-]{1,128}$ ]]
+          [[ $RUNNER_TEMP == /* && ${#RUNNER_TEMP} -le 4096 && -d $RUNNER_TEMP && ! -L $RUNNER_TEMP ]]
+          IFS=' .' read -r uptime_seconds uptime_fraction _ < /proc/uptime
+          [[ $uptime_seconds =~ ^[0-9]{1,12}$ && $uptime_fraction =~ ^[0-9]{1,32}$ ]]
+          uptime_fraction="${uptime_fraction}00"
+          uptime_fraction="${uptime_fraction:0:2}"
+          start_centiseconds=$((10#$uptime_seconds * 100 + 10#$uptime_fraction))
+          attempt_root="$RUNNER_TEMP/zendio-chrome-publish-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
+          stamp="$RUNNER_TEMP/zendio-command-start-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT-$GITHUB_JOB.receipt"
+          [[ ! -e $attempt_root && ! -L $attempt_root && ! -e $stamp && ! -L $stamp ]]
+          umask 077
+          set -o noclobber
+          printf 'zendio-ci-command-start-v1\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n' \
+            "$GITHUB_RUN_ID" "$GITHUB_RUN_ATTEMPT" "$GITHUB_JOB" \
+            "$ZENDIO_JOB_CLASS" "$ZENDIO_JOB_TIMEOUT_MINUTES" \
+            "$RUNNER_OS" "$RUNNER_ARCH" "$ImageOS" "$ImageVersion" "$start_centiseconds" > "$stamp"
+
+      - name: Checkout exact prepared commit
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ needs.prepare.outputs.release_sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Setup exact Node dependencies
+        uses: ./.github/actions/setup-node-deps
+        env:
+          ZENDIO_JOB_CLASS: chrome-publish-v1
+          ZENDIO_JOB_TIMEOUT_MINUTES: '60'
+          ZENDIO_RUNNER_ENVIRONMENT: ${{ runner.environment }}
+          ZENDIO_EXPECTED_RELEASE_SHA: ${{ needs.prepare.outputs.release_sha }}
+          ZENDIO_EXPECTED_RELEASE_TREE: ${{ needs.prepare.outputs.release_tree }}
+          ZENDIO_EXPECTED_PACKAGE_SHA256: ${{ needs.prepare.outputs.package_sha256 }}
+          ZENDIO_EXPECTED_LOCK_SHA256: ${{ needs.prepare.outputs.lock_sha256 }}
+
+      - name: Download exact Chrome artifact
+        uses: actions/download-artifact@v8
+        with:
+          artifact-ids: ${{ needs.prepare.outputs.artifact_id }}
+          path: ${{ runner.temp }}/zendio-chrome-publish-${{ github.run_id }}-${{ github.run_attempt }}/download
+          digest-mismatch: error
+
+      - name: Verify downloaded Chrome artifact
+        env:
+          NPM_CONFIG_USERCONFIG: ${{ runner.temp }}/zendio-chrome-publish-${{ github.run_id }}-${{ github.run_attempt }}/install/npm-userconfig
+          NPM_CONFIG_GLOBALCONFIG: ${{ runner.temp }}/zendio-chrome-publish-${{ github.run_id }}-${{ github.run_attempt }}/install/npm-globalconfig
+          ZENDIO_CHROME_PUBLISH_ROOT: ${{ runner.temp }}/zendio-chrome-publish-${{ github.run_id }}-${{ github.run_attempt }}
+          ZENDIO_EXPECTED_RELEASE_MANIFEST_SHA256: ${{ needs.prepare.outputs.release_manifest_sha256 }}
+          ZENDIO_JOB_CLASS: chrome-publish-v1
+          ZENDIO_JOB_TIMEOUT_MINUTES: '60'
+          ZENDIO_RUNNER_ENVIRONMENT: ${{ runner.environment }}
+        run: node scripts/run-bounded-command.mjs --profile chrome-verify-v1 -- --manifest "${{ runner.temp }}/zendio-chrome-publish-${{ github.run_id }}-${{ github.run_attempt }}/download/manifest.json" --transport-mode github-artifact-v1
+
+      - name: Reauthorize release provenance
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          NPM_CONFIG_USERCONFIG: ${{ runner.temp }}/zendio-chrome-publish-${{ github.run_id }}-${{ github.run_attempt }}/install/npm-userconfig
+          NPM_CONFIG_GLOBALCONFIG: ${{ runner.temp }}/zendio-chrome-publish-${{ github.run_id }}-${{ github.run_attempt }}/install/npm-globalconfig
+          ZENDIO_CHROME_PUBLISH_ROOT: ${{ runner.temp }}/zendio-chrome-publish-${{ github.run_id }}-${{ github.run_attempt }}
+          ZENDIO_EXPECTED_RELEASE_MANIFEST_SHA256: ${{ needs.prepare.outputs.release_manifest_sha256 }}
+          ZENDIO_JOB_CLASS: chrome-publish-v1
+          ZENDIO_JOB_TIMEOUT_MINUTES: '60'
+          ZENDIO_RUNNER_ENVIRONMENT: ${{ runner.environment }}
+        run: node scripts/run-bounded-command.mjs --profile release-provenance-v1 -- scripts/utils/releaseCiProvenance.mjs --reauthorize --expected-sha "${{ needs.prepare.outputs.release_sha }}" --artifact-manifest "${{ runner.temp }}/zendio-chrome-publish-${{ github.run_id }}-${{ github.run_attempt }}/download/manifest.json" --artifact-id "${{ needs.prepare.outputs.artifact_id }}" --artifact-digest "${{ needs.prepare.outputs.artifact_digest }}" --required-jobs-source scripts/config/releaseRequiredCiJobs.mjs --authorization-record "${{ runner.temp }}/zendio-chrome-publish-${{ github.run_id }}-${{ github.run_attempt }}/reauthorization.json"
+
+      - name: Initialize Chrome submission state
+        env:
+          NPM_CONFIG_USERCONFIG: ${{ runner.temp }}/zendio-chrome-publish-${{ github.run_id }}-${{ github.run_attempt }}/install/npm-userconfig
+          NPM_CONFIG_GLOBALCONFIG: ${{ runner.temp }}/zendio-chrome-publish-${{ github.run_id }}-${{ github.run_attempt }}/install/npm-globalconfig
+          ZENDIO_CHROME_PUBLISH_ROOT: ${{ runner.temp }}/zendio-chrome-publish-${{ github.run_id }}-${{ github.run_attempt }}
+          ZENDIO_EXPECTED_RELEASE_MANIFEST_SHA256: ${{ needs.prepare.outputs.release_manifest_sha256 }}
+          ZENDIO_JOB_CLASS: chrome-publish-v1
+          ZENDIO_JOB_TIMEOUT_MINUTES: '60'
+          ZENDIO_RUNNER_ENVIRONMENT: ${{ runner.environment }}
+        run: node scripts/run-bounded-command.mjs --profile release-state-init-v1 -- --browser chrome
+
+      - name: Publish verified Chrome artifact
+        env:
+          NPM_CONFIG_USERCONFIG: ${{ runner.temp }}/zendio-chrome-publish-${{ github.run_id }}-${{ github.run_attempt }}/install/npm-userconfig
+          NPM_CONFIG_GLOBALCONFIG: ${{ runner.temp }}/zendio-chrome-publish-${{ github.run_id }}-${{ github.run_attempt }}/install/npm-globalconfig
+          ZENDIO_CHROME_PUBLISH_ROOT: ${{ runner.temp }}/zendio-chrome-publish-${{ github.run_id }}-${{ github.run_attempt }}
+          ZENDIO_EXPECTED_RELEASE_MANIFEST_SHA256: ${{ needs.prepare.outputs.release_manifest_sha256 }}
+          ZENDIO_JOB_CLASS: chrome-publish-v1
+          ZENDIO_JOB_TIMEOUT_MINUTES: '60'
+          ZENDIO_RUNNER_ENVIRONMENT: ${{ runner.environment }}
           CWS_CLIENT_ID: ${{ secrets.CWS_CLIENT_ID }}
           CWS_CLIENT_SECRET: ${{ secrets.CWS_CLIENT_SECRET }}
           CWS_REFRESH_TOKEN: ${{ secrets.CWS_REFRESH_TOKEN }}
           CWS_EXTENSION_ID: ${{ secrets.CWS_EXTENSION_ID }}
           CWS_PUBLISHER_ID: ${{ secrets.CWS_PUBLISHER_ID }}
-        run: node scripts/publish-chrome-webstore.mjs --publish --zip "${{ steps.package.outputs.zip_path }}"
+        run: node scripts/run-bounded-command.mjs --profile chrome-publish-v1 -- --publish --artifact-manifest "${{ runner.temp }}/zendio-chrome-publish-${{ github.run_id }}-${{ github.run_attempt }}/download/manifest.json" --state-file "${{ runner.temp }}/zendio-chrome-publish-${{ github.run_id }}-${{ github.run_attempt }}/store-state/chrome/publish-state.json" --transport-mode github-artifact-v1
+
+      - name: Validate Chrome submission evidence
+        if: ${{ always() }}
+        env:
+          NPM_CONFIG_USERCONFIG: ${{ runner.temp }}/zendio-chrome-publish-${{ github.run_id }}-${{ github.run_attempt }}/install/npm-userconfig
+          NPM_CONFIG_GLOBALCONFIG: ${{ runner.temp }}/zendio-chrome-publish-${{ github.run_id }}-${{ github.run_attempt }}/install/npm-globalconfig
+          ZENDIO_CHROME_PUBLISH_ROOT: ${{ runner.temp }}/zendio-chrome-publish-${{ github.run_id }}-${{ github.run_attempt }}
+          ZENDIO_EXPECTED_RELEASE_MANIFEST_SHA256: ${{ needs.prepare.outputs.release_manifest_sha256 }}
+          ZENDIO_JOB_CLASS: chrome-publish-v1
+          ZENDIO_JOB_TIMEOUT_MINUTES: '60'
+          ZENDIO_RUNNER_ENVIRONMENT: ${{ runner.environment }}
+        run: node scripts/run-bounded-command.mjs --profile release-state-check-v1 -- --browser chrome
+
+      - name: Upload Chrome submission evidence
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: zendio-chrome-submission-state-v1
+          path: ${{ runner.temp }}/zendio-chrome-publish-${{ github.run_id }}-${{ github.run_attempt }}/store-state/chrome/publish-state.json
+          if-no-files-found: error
+          overwrite: false
+
+  release-attempt-verdict:
+    name: Release attempt verdict
+    needs: [release-attempt-policy, prepare, publish]
+    if: ${{ always() }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions: {}
+    steps:
+      - name: Require complete first-attempt success
+        shell: bash
+        env:
+          POLICY_RESULT: ${{ needs.release-attempt-policy.result }}
+          PREPARE_RESULT: ${{ needs.prepare.result }}
+          STORE_RESULT: ${{ needs.publish.result }}
+        run: |
+          set -euo pipefail
+          [[ "${{ github.run_attempt }}" == 1 ]]
+          [[ $POLICY_RESULT == success ]]
+          [[ $PREPARE_RESULT == success ]]
+          [[ $STORE_RESULT == success ]]

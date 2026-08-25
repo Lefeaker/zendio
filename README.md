@@ -99,7 +99,7 @@
   - `npm run verify:preflight`
   - `npm run verify:stitch-secondary`
   - `npm run build`
-- Firefox AMO automation lives in `.github/workflows/release-firefox-amo.yml`; it builds the Firefox GA production package, submits listed/unlisted releases with `web-ext`, and audits generated XPI archives before uploading workflow artifacts.
+- Chrome and Firefox store automation use separate unprivileged prepare and protected mutation jobs. Both bind the current main SHA, a complete jobs-level CI provenance record, and an immutable artifact ID/digest before Environment approval; store credentials exist only in the final protected mutation step. Unknown store state is non-retriable until owner reconciliation.
 
 ## Permissions
 

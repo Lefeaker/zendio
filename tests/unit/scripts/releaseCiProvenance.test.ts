@@ -1,10 +1,11 @@
-import { chmod, mkdtemp, readFile, rm } from 'node:fs/promises';
+import { chmod, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   canonicalReleaseProvenanceJson,
   queryReleaseCiProvenance,
+  runReleaseCiProvenanceCli,
   selectReleaseCiProvenance,
   writeCanonicalAuthorizationRecord
 } from '../../../scripts/utils/releaseCiProvenance.mjs';
@@ -30,7 +31,22 @@ const requiredJobs: string[] = [
   'Package extension'
 ];
 
-function run(overrides: Record<string, unknown> = {}) {
+type RunFixture = {
+  id: number;
+  run_number: number;
+  run_attempt: number;
+  workflow_id: number;
+  created_at: string;
+  head_sha: string;
+  head_branch: string;
+  event: string;
+  path: string;
+  status: string;
+  conclusion: string | null;
+  repository?: { id: number; full_name: string };
+};
+
+function run(overrides: Partial<RunFixture> = {}): RunFixture {
   return {
     id: 20,
     run_number: 11,
@@ -43,6 +59,7 @@ function run(overrides: Record<string, unknown> = {}) {
     path: '.github/workflows/ci.yml',
     status: 'completed',
     conclusion: 'success',
+    repository: { id: 99, full_name: 'owner/repo' },
     ...overrides
   };
 }
@@ -171,5 +188,130 @@ describe('release CI provenance', () => {
     await expect(writeCanonicalAuthorizationRecord(path, record)).rejects.toMatchObject({
       code: 'EEXIST'
     });
+  });
+
+  it('reauthorizes fresh main and exact REST artifact identity before writing a new record', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'zendio-release-provenance-cli-'));
+    roots.push(root);
+    await chmod(root, 0o700);
+    const preparedPath = join(root, 'prepared.json');
+    const reauthorizedPath = join(root, 'reauthorized.json');
+    const manifestPath = join(root, 'manifest.json');
+    const environment = {
+      GITHUB_EVENT_NAME: 'workflow_dispatch',
+      GITHUB_REF: 'refs/heads/main',
+      GITHUB_SHA: sha,
+      GITHUB_TOKEN: 'token',
+      GITHUB_RUN_ID: '55',
+      ZENDIO_JOB_CLASS: 'chrome-prepare-v1'
+    };
+    const gitOperation = vi.fn((args: string[]) => {
+      const key = args.join(' ');
+      if (key === 'rev-parse HEAD') return sha;
+      if (key === 'rev-parse refs/remotes/origin/main^{commit}') return sha;
+      if (key === 'rev-parse HEAD^{tree}') return 'b'.repeat(40);
+      if (key === 'remote get-url origin') return 'https://github.com/owner/repo.git';
+      if (key.startsWith('fetch ')) return '';
+      throw new Error(`unexpected git call: ${key}`);
+    });
+    const fetchImpl = vi.fn((url: string | URL): Promise<Response> => {
+      const target = new URL(url);
+      if (target.pathname.endsWith('/runs')) {
+        return Promise.resolve(new Response(JSON.stringify({ workflow_runs: [run()] })));
+      }
+      if (target.pathname.endsWith('/jobs')) {
+        return Promise.resolve(new Response(JSON.stringify({ jobs: jobs() })));
+      }
+      return Promise.resolve(
+        new Response(
+          JSON.stringify({
+            id: 123,
+            digest: `sha256:${'c'.repeat(64)}`,
+            expired: false,
+            name: 'zendio-chrome-release-v1',
+            workflow_run: { id: 55, head_sha: sha }
+          })
+        )
+      );
+    });
+
+    const prepared = await runReleaseCiProvenanceCli(
+      [
+        '--prepare-authorization',
+        '--expected-sha',
+        sha,
+        '--required-jobs-source',
+        'scripts/config/releaseRequiredCiJobs.mjs',
+        '--authorization-record',
+        preparedPath
+      ],
+      environment,
+      { fetchImpl, gitOperation }
+    );
+    await writeFile(
+      manifestPath,
+      JSON.stringify({ authorization: { provenance: prepared } }),
+      'utf8'
+    );
+    environment.ZENDIO_JOB_CLASS = 'chrome-publish-v1';
+    await expect(
+      runReleaseCiProvenanceCli(
+        [
+          '--reauthorize',
+          '--expected-sha',
+          sha,
+          '--artifact-manifest',
+          manifestPath,
+          '--artifact-id',
+          '123',
+          '--artifact-digest',
+          `sha256:${'c'.repeat(64)}`,
+          '--required-jobs-source',
+          'scripts/config/releaseRequiredCiJobs.mjs',
+          '--authorization-record',
+          reauthorizedPath
+        ],
+        environment,
+        { fetchImpl, gitOperation }
+      )
+    ).resolves.toEqual(prepared);
+    expect(await readFile(reauthorizedPath, 'utf8')).toBe(canonicalReleaseProvenanceJson(prepared));
+    expect(fetchImpl).toHaveBeenCalledTimes(5);
+  });
+
+  it('fails before GitHub REST when main advances beyond the requested release SHA', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'zendio-release-provenance-main-'));
+    roots.push(root);
+    await chmod(root, 0o700);
+    const fetchImpl = vi.fn();
+    const gitOperation = vi.fn((args: string[]) => {
+      const key = args.join(' ');
+      if (key === 'rev-parse HEAD') return sha;
+      if (key === 'rev-parse refs/remotes/origin/main^{commit}') return 'd'.repeat(40);
+      if (key.startsWith('fetch ')) return '';
+      throw new Error(`unexpected git call: ${key}`);
+    });
+    await expect(
+      runReleaseCiProvenanceCli(
+        [
+          '--prepare-authorization',
+          '--expected-sha',
+          sha,
+          '--required-jobs-source',
+          'scripts/config/releaseRequiredCiJobs.mjs',
+          '--authorization-record',
+          join(root, 'authorization.json')
+        ],
+        {
+          GITHUB_EVENT_NAME: 'workflow_dispatch',
+          GITHUB_REF: 'refs/heads/main',
+          GITHUB_SHA: sha,
+          GITHUB_TOKEN: 'token',
+          ZENDIO_JOB_CLASS: 'chrome-prepare-v1'
+        },
+        { fetchImpl, gitOperation }
+      )
+    ).rejects.toThrow('RELEASE_CONTEXT_SHA_MISMATCH');
+    expect(fetchImpl).not.toHaveBeenCalled();
   });
 });

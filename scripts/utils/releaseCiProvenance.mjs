@@ -1,8 +1,13 @@
 import { createHash } from 'node:crypto';
+import { execFileSync } from 'node:child_process';
 import { open, readFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { RELEASE_REQUIRED_CI_JOBS } from '../config/releaseRequiredCiJobs.mjs';
+import {
+  parseCanonicalRestArtifactId,
+  parseRestArtifactDigest
+} from './releaseArtifactManifest.mjs';
 
 export const RELEASE_CI_PROVENANCE_SCHEMA = 'zendio-release-ci-provenance-v1';
 export const RELEASE_CI_PROVENANCE_LIMITS = Object.freeze({
@@ -344,6 +349,13 @@ export async function queryReleaseCiProvenance(options, dependencies = {}) {
   const selected = matching
     .filter((run) => Number(run.run_number) === selectedRunNumber)
     .sort((left, right) => Number(right.run_attempt ?? 1) - Number(left.run_attempt ?? 1))[0];
+  const selectedRepositoryId =
+    options.repositoryId ?? selected.repository?.id ?? selected.head_repository?.id;
+  const selectedRepositoryFullName =
+    selected.repository?.full_name ?? selected.head_repository?.full_name;
+  if (selectedRepositoryFullName !== undefined && selectedRepositoryFullName !== repository) {
+    fail('RELEASE_REPOSITORY_MISMATCH');
+  }
   const jobsUrl = new URL(
     `/repos/${encodedRepository}/actions/runs/${selected.id}/attempts/${selected.run_attempt ?? 1}/jobs`,
     API_ORIGIN
@@ -363,9 +375,99 @@ export async function queryReleaseCiProvenance(options, dependencies = {}) {
     jobs,
     expectedSha: sha,
     requiredJobs: options.requiredJobs,
-    repositoryId: options.repositoryId,
+    repositoryId: selectedRepositoryId,
     repositoryFullName: repository
   });
+}
+
+function gitValue(args, dependencies = {}) {
+  const operation =
+    dependencies.gitOperation ??
+    ((gitArgs) =>
+      execFileSync('/usr/bin/git', gitArgs, {
+        cwd: process.cwd(),
+        encoding: 'utf8',
+        env: { PATH: '/usr/bin:/bin', LANG: 'C', LC_ALL: 'C', TZ: 'UTC' }
+      }));
+  const value = operation(args);
+  return String(value).trim();
+}
+
+function repositoryFromRemote(remote) {
+  const value = String(remote).trim();
+  const match = value.match(
+    /^(?:https:\/\/github\.com\/|git@github\.com:)([A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+?)(?:\.git)?$/u
+  );
+  if (!match) fail('RELEASE_REPOSITORY_REMOTE_INVALID');
+  return match[1];
+}
+
+async function assertReleaseContext(expectedSha, environment, dependencies = {}) {
+  gitValue(
+    ['fetch', '--no-tags', '--force', 'origin', 'refs/heads/main:refs/remotes/origin/main'],
+    dependencies
+  );
+  const packageJson = JSON.parse(await readFile(resolve('package.json'), 'utf8'));
+  const headSha = exactSha(gitValue(['rev-parse', 'HEAD'], dependencies));
+  const mainSha = exactSha(
+    gitValue(['rev-parse', 'refs/remotes/origin/main^{commit}'], dependencies)
+  );
+  const eventSha = exactSha(environment.GITHUB_SHA);
+  if (headSha !== expectedSha || mainSha !== expectedSha || eventSha !== expectedSha) {
+    fail('RELEASE_CONTEXT_SHA_MISMATCH');
+  }
+  if (environment.GITHUB_EVENT_NAME === 'push') {
+    if (environment.GITHUB_REF !== `refs/tags/v${packageJson.version}`) {
+      fail('RELEASE_CONTEXT_TAG_INVALID');
+    }
+  } else if (
+    environment.GITHUB_EVENT_NAME !== 'workflow_dispatch' ||
+    environment.GITHUB_REF !== 'refs/heads/main'
+  ) {
+    fail('RELEASE_CONTEXT_EVENT_INVALID');
+  }
+  return Object.freeze({
+    repositoryFullName: repositoryFromRemote(
+      gitValue(['remote', 'get-url', 'origin'], dependencies)
+    ),
+    releaseSha: expectedSha,
+    releaseTree: exactSha(gitValue(['rev-parse', 'HEAD^{tree}'], dependencies)),
+    packageVersion: packageJson.version
+  });
+}
+
+async function assertReleaseArtifactMetadata(options, dependencies = {}) {
+  const encodedRepository = options.repositoryFullName
+    .split('/')
+    .map((part) => encodeURIComponent(part))
+    .join('/');
+  const artifactUrl = new URL(
+    `/repos/${encodedRepository}/actions/artifacts/${options.artifactId}`,
+    API_ORIGIN
+  );
+  const context = {
+    fetchImpl: dependencies.fetchImpl ?? fetch,
+    token: options.token,
+    cumulativeBytes: 0,
+    expectedPathPrefix: `/repos/${encodedRepository}/actions/artifacts/`,
+    setTimeoutOperation: dependencies.setTimeoutOperation ?? setTimeout,
+    clearTimeoutOperation: dependencies.clearTimeoutOperation ?? clearTimeout
+  };
+  const response = await fetchJson(artifactUrl.href, context);
+  if (response.next !== null || !isPlainObject(response.value)) {
+    fail('RELEASE_ARTIFACT_REST_SCHEMA');
+  }
+  const artifact = response.value;
+  if (
+    parseCanonicalRestArtifactId(artifact.id) !== options.artifactId ||
+    parseRestArtifactDigest(artifact.digest) !== options.artifactDigest ||
+    artifact.expired !== false ||
+    artifact.name !== options.artifactName ||
+    Number(artifact.workflow_run?.id) !== Number(options.workflowRunId) ||
+    artifact.workflow_run?.head_sha !== options.expectedSha
+  ) {
+    fail('RELEASE_ARTIFACT_REST_MISMATCH');
+  }
 }
 
 export async function writeCanonicalAuthorizationRecord(path, record) {
@@ -445,16 +547,20 @@ function parseArgs(argv) {
 
 export async function runReleaseCiProvenanceCli(
   argv = process.argv.slice(2),
-  environment = process.env
+  environment = process.env,
+  dependencies = {}
 ) {
   const args = parseArgs(argv);
-  const record = await queryReleaseCiProvenance({
-    expectedSha: args.expectedSha,
-    requiredJobs: RELEASE_REQUIRED_CI_JOBS,
-    repositoryId: Number(environment.GITHUB_REPOSITORY_ID),
-    repositoryFullName: environment.GITHUB_REPOSITORY,
-    token: environment.GITHUB_TOKEN
-  });
+  const context = await assertReleaseContext(args.expectedSha, environment, dependencies);
+  const record = await queryReleaseCiProvenance(
+    {
+      expectedSha: args.expectedSha,
+      requiredJobs: RELEASE_REQUIRED_CI_JOBS,
+      repositoryFullName: context.repositoryFullName,
+      token: environment.GITHUB_TOKEN
+    },
+    dependencies
+  );
   if (args.mode === 'reauthorize') {
     if (!/^[1-9][0-9]{0,15}$/u.test(args.artifactId)) fail('ARTIFACT_ID_INVALID');
     if (!/^sha256:[0-9a-f]{64}$/u.test(args.artifactDigest)) fail('ARTIFACT_DIGEST_INVALID');
@@ -463,6 +569,19 @@ export async function runReleaseCiProvenanceCli(
     if (canonicalReleaseProvenanceJson(bound) !== canonicalReleaseProvenanceJson(record)) {
       fail('RELEASE_PROVENANCE_MISMATCH');
     }
+    const browser = environment.ZENDIO_JOB_CLASS?.startsWith('firefox-') ? 'firefox' : 'chrome';
+    await assertReleaseArtifactMetadata(
+      {
+        repositoryFullName: context.repositoryFullName,
+        expectedSha: args.expectedSha,
+        artifactId: args.artifactId,
+        artifactDigest: args.artifactDigest,
+        artifactName: `zendio-${browser}-release-v1`,
+        workflowRunId: environment.GITHUB_RUN_ID,
+        token: environment.GITHUB_TOKEN
+      },
+      dependencies
+    );
   }
   await writeCanonicalAuthorizationRecord(args.output, record);
   return record;

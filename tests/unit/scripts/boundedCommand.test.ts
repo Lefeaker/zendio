@@ -1329,29 +1329,41 @@ describe('bounded command ownership', () => {
     expect(existsSync(attemptRoot)).toBe(false);
   });
 
-  it('keeps future fixed files dormant and blocks generic release-owner bypasses', () => {
+  it('routes active R03 fixed files through owned profiles and blocks generic bypasses', () => {
     const root = realpathSync(temporaryRoot());
     installAttemptConfigs(root);
     const environment = cleanEnvironment({ ZENDIO_LOCAL_ATTEMPT_ROOT: root });
 
+    const prepareArguments = [
+      '--config-mode',
+      'standalone-synthetic',
+      '--attempt-root',
+      root,
+      '--dist-dir',
+      join(root, 'dist-chrome'),
+      '--release-dir',
+      join(root, 'release'),
+      '--result-json',
+      join(root, 'result.json')
+    ];
+    const prepareProfile = resolveCommandProfile('chrome-prepare-v1', prepareArguments, {
+      environment
+    });
+    expect(prepareProfile.executable).toBe(process.execPath);
+    expect(prepareProfile.argv).toEqual([
+      resolve('scripts/prepare-chrome-release.mjs'),
+      ...prepareArguments
+    ]);
     expect(() =>
-      resolveCommandProfile(
+      parseManagedCommandInvocationArgv([
+        'node',
+        'scripts/run-bounded-command.mjs',
+        '--profile',
         'chrome-prepare-v1',
-        [
-          '--config-mode',
-          'standalone-synthetic',
-          '--attempt-root',
-          root,
-          '--dist-dir',
-          join(root, 'dist-chrome'),
-          '--release-dir',
-          join(root, 'release'),
-          '--result-json',
-          join(root, 'result.json')
-        ],
-        { environment }
-      )
-    ).toThrow('SOURCE_NOT_TRACKED');
+        '--',
+        ...prepareArguments
+      ])
+    ).not.toThrow();
 
     for (const path of [
       'scripts/prepare-chrome-release.mjs',

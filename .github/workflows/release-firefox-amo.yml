@@ -3,8 +3,12 @@ name: Release Firefox AMO
 on:
   workflow_dispatch:
     inputs:
+      expected_sha:
+        description: Exact current main commit to release.
+        required: true
+        type: string
       channel:
-        description: AMO release channel. listed submits for AMO review; unlisted downloads a signed XPI for self-distribution.
+        description: AMO release channel.
         required: true
         default: listed
         type: choice
@@ -15,125 +19,438 @@ on:
     tags:
       - 'v*'
 
-permissions:
-  contents: read
+permissions: {}
+
+concurrency:
+  group: zendio-firefox-amo-release-v1
+  cancel-in-progress: false
 
 jobs:
-  release:
-    name: Build and submit Firefox AMO package
-    runs-on: ubuntu-latest
-    timeout-minutes: 25
-    env:
-      FIREFOX_RELEASE_CHANNEL: listed
-      ZENDIO_GA_MEASUREMENT_ID: ${{ secrets.ZENDIO_GA_MEASUREMENT_ID }}
-      ZENDIO_GA_TRANSPORT_MODE: proxy
-      ZENDIO_GA_PROXY_ENDPOINT: ${{ secrets.ZENDIO_GA_PROXY_ENDPOINT }}
-      WEB_EXT_API_KEY: ${{ secrets.WEB_EXT_API_KEY }}
-      WEB_EXT_API_SECRET: ${{ secrets.WEB_EXT_API_SECRET }}
-
+  release-attempt-policy:
+    name: Release attempt policy
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions: {}
+    outputs:
+      release_sha: ${{ steps.policy.outputs.release_sha }}
+      channel: ${{ steps.policy.outputs.channel }}
     steps:
-      - name: Checkout repository
+      - name: Require a fresh first attempt
+        id: policy
+        shell: bash
+        env:
+          RAW_EXPECTED_SHA: ${{ github.event_name == 'workflow_dispatch' && inputs.expected_sha || github.sha }}
+          RAW_CHANNEL: ${{ github.event_name == 'workflow_dispatch' && inputs.channel || 'listed' }}
+        run: |
+          set -euo pipefail
+          [[ "${{ github.run_attempt }}" == 1 ]]
+          [[ $RAW_EXPECTED_SHA =~ ^[0-9A-Fa-f]{40}$ ]]
+          [[ $RAW_CHANNEL == listed || $RAW_CHANNEL == unlisted ]]
+          release_sha=${RAW_EXPECTED_SHA,,}
+          printf 'release_sha=%s\nchannel=%s\n' "$release_sha" "$RAW_CHANNEL" >> "$GITHUB_OUTPUT"
+
+  prepare:
+    name: Prepare Firefox release
+    needs: release-attempt-policy
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    permissions:
+      actions: read
+      contents: read
+    outputs:
+      release_sha: ${{ steps.release.outputs.release_sha }}
+      release_tree: ${{ steps.release.outputs.release_tree }}
+      package_sha256: ${{ steps.release.outputs.package_sha256 }}
+      lock_sha256: ${{ steps.release.outputs.lock_sha256 }}
+      release_manifest_sha256: ${{ steps.release.outputs.release_manifest_sha256 }}
+      artifact_id: ${{ steps.artifact-id.outputs.artifact_id }}
+      artifact_digest: ${{ steps.artifact-digest.outputs.artifact_digest }}
+    steps:
+      - name: Bootstrap command boundary
+        shell: bash
+        env:
+          ZENDIO_JOB_CLASS: firefox-prepare-v1
+          ZENDIO_JOB_TIMEOUT_MINUTES: '120'
+        run: |
+          set -euo pipefail
+          export LC_ALL=C LANG=C
+          shopt -s nocasematch
+          env_count=0
+          for env_name in $(compgen -e); do
+            env_count=$((env_count + 1))
+            (( env_count <= 4096 )) || { printf 'too many environment names\n' >&2; exit 1; }
+            (( ${#env_name} <= 4096 )) || { printf 'environment name too large\n' >&2; exit 1; }
+            env_value=${!env_name-}
+            (( ${#env_value} <= 4096 )) || { printf 'environment value too large: %s\n' "$env_name" >&2; exit 1; }
+            case "$env_name" in
+              NODE_OPTIONS|HUSKY|npm_config_*) printf 'forbidden environment: %s\n' "$env_name" >&2; exit 1 ;;
+            esac
+          done
+          [[ $GITHUB_RUN_ID =~ ^[1-9][0-9]*$ ]]
+          [[ $GITHUB_RUN_ATTEMPT == 1 ]]
+          [[ $GITHUB_JOB =~ ^[A-Za-z0-9_-]{1,128}$ ]]
+          [[ $ZENDIO_JOB_CLASS == firefox-prepare-v1 ]]
+          [[ $ZENDIO_JOB_TIMEOUT_MINUTES == 120 ]]
+          [[ $RUNNER_OS == Linux && $RUNNER_ARCH == X64 ]]
+          [[ $ImageOS == ubuntu24 && $ImageVersion =~ ^[A-Za-z0-9._-]{1,128}$ ]]
+          [[ $RUNNER_TEMP == /* && ${#RUNNER_TEMP} -le 4096 && -d $RUNNER_TEMP && ! -L $RUNNER_TEMP ]]
+          IFS=' .' read -r uptime_seconds uptime_fraction _ < /proc/uptime
+          [[ $uptime_seconds =~ ^[0-9]{1,12}$ && $uptime_fraction =~ ^[0-9]{1,32}$ ]]
+          uptime_fraction="${uptime_fraction}00"
+          uptime_fraction="${uptime_fraction:0:2}"
+          start_centiseconds=$((10#$uptime_seconds * 100 + 10#$uptime_fraction))
+          attempt_root="$RUNNER_TEMP/zendio-firefox-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
+          stamp="$RUNNER_TEMP/zendio-command-start-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT-$GITHUB_JOB.receipt"
+          [[ ! -e $attempt_root && ! -L $attempt_root && ! -e $stamp && ! -L $stamp ]]
+          umask 077
+          set -o noclobber
+          printf 'zendio-ci-command-start-v1\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n' \
+            "$GITHUB_RUN_ID" "$GITHUB_RUN_ATTEMPT" "$GITHUB_JOB" \
+            "$ZENDIO_JOB_CLASS" "$ZENDIO_JOB_TIMEOUT_MINUTES" \
+            "$RUNNER_OS" "$RUNNER_ARCH" "$ImageOS" "$ImageVersion" "$start_centiseconds" > "$stamp"
+
+      - name: Checkout release commit
         uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          persist-credentials: false
 
-      - name: Setup Node dependencies
+      - name: Setup exact Node dependencies
         uses: ./.github/actions/setup-node-deps
+        env:
+          ZENDIO_JOB_CLASS: firefox-prepare-v1
+          ZENDIO_JOB_TIMEOUT_MINUTES: '120'
+          ZENDIO_RUNNER_ENVIRONMENT: ${{ runner.environment }}
 
-      - name: Resolve release channel
-        id: release_channel
-        shell: bash
+      - name: Validate release runtime
+        env:
+          NPM_CONFIG_USERCONFIG: ${{ runner.temp }}/zendio-firefox-${{ github.run_id }}-${{ github.run_attempt }}/install/npm-userconfig
+          NPM_CONFIG_GLOBALCONFIG: ${{ runner.temp }}/zendio-firefox-${{ github.run_id }}-${{ github.run_attempt }}/install/npm-globalconfig
+          ZENDIO_FIREFOX_ATTEMPT_ROOT: ${{ runner.temp }}/zendio-firefox-${{ github.run_id }}-${{ github.run_attempt }}
+          ZENDIO_GA_MEASUREMENT_ID: ${{ vars.ZENDIO_GA_MEASUREMENT_ID }}
+          ZENDIO_GA_TRANSPORT_MODE: ${{ vars.ZENDIO_GA_TRANSPORT_MODE }}
+          ZENDIO_GA_PROXY_ENDPOINT: ${{ vars.ZENDIO_GA_PROXY_ENDPOINT }}
+          ZENDIO_JOB_CLASS: firefox-prepare-v1
+          ZENDIO_JOB_TIMEOUT_MINUTES: '120'
+          ZENDIO_RUNNER_ENVIRONMENT: ${{ runner.environment }}
+        run: node scripts/run-bounded-command.mjs --profile release-runtime-check-v1 -- --check --config-mode owner-public-vars
+
+      - name: Authorize exact release SHA and CI jobs
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          NPM_CONFIG_USERCONFIG: ${{ runner.temp }}/zendio-firefox-${{ github.run_id }}-${{ github.run_attempt }}/install/npm-userconfig
+          NPM_CONFIG_GLOBALCONFIG: ${{ runner.temp }}/zendio-firefox-${{ github.run_id }}-${{ github.run_attempt }}/install/npm-globalconfig
+          ZENDIO_FIREFOX_ATTEMPT_ROOT: ${{ runner.temp }}/zendio-firefox-${{ github.run_id }}-${{ github.run_attempt }}
+          ZENDIO_JOB_CLASS: firefox-prepare-v1
+          ZENDIO_JOB_TIMEOUT_MINUTES: '120'
+          ZENDIO_RUNNER_ENVIRONMENT: ${{ runner.environment }}
+        run: node scripts/run-bounded-command.mjs --profile release-provenance-v1 -- scripts/utils/releaseCiProvenance.mjs --prepare-authorization --expected-sha "${{ needs.release-attempt-policy.outputs.release_sha }}" --required-jobs-source scripts/config/releaseRequiredCiJobs.mjs --authorization-record "${{ runner.temp }}/zendio-firefox-${{ github.run_id }}-${{ github.run_attempt }}/authorization.json"
+
+      - name: Install Firefox host dependencies
+        env:
+          NPM_CONFIG_USERCONFIG: ${{ runner.temp }}/zendio-firefox-${{ github.run_id }}-${{ github.run_attempt }}/install/npm-userconfig
+          NPM_CONFIG_GLOBALCONFIG: ${{ runner.temp }}/zendio-firefox-${{ github.run_id }}-${{ github.run_attempt }}/install/npm-globalconfig
+          ZENDIO_FIREFOX_ATTEMPT_ROOT: ${{ runner.temp }}/zendio-firefox-${{ github.run_id }}-${{ github.run_attempt }}
+          ZENDIO_PLAYWRIGHT_ATTEMPT_ROOT: ${{ runner.temp }}/zendio-firefox-${{ github.run_id }}-${{ github.run_attempt }}
+          PLAYWRIGHT_BROWSERS_PATH: ${{ runner.temp }}/zendio-firefox-${{ github.run_id }}-${{ github.run_attempt }}/playwright-browsers
+          ZENDIO_JOB_CLASS: firefox-prepare-v1
+          ZENDIO_JOB_TIMEOUT_MINUTES: '120'
+          ZENDIO_RUNNER_ENVIRONMENT: ${{ runner.environment }}
+          ZENDIO_RUNNER_OS: ${{ runner.os }}
+          ZENDIO_RUNNER_ARCH: ${{ runner.arch }}
         run: |
-          release_channel="listed"
-          if [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ]; then
-            release_channel="$(node -e "const fs = require('node:fs'); const event = JSON.parse(fs.readFileSync(process.env.GITHUB_EVENT_PATH, 'utf8')); process.stdout.write(event.inputs?.channel || 'listed');")"
-          fi
+          [[ $ZENDIO_RUNNER_ENVIRONMENT == github-hosted ]]
+          [[ $ZENDIO_RUNNER_OS == Linux ]]
+          [[ $ZENDIO_RUNNER_ARCH == X64 ]]
+          node scripts/run-bounded-command.mjs --profile playwright-host-deps-platform-v1 -- firefox-with-host-deps
 
-          case "$release_channel" in
-            listed|unlisted)
-              printf 'Firefox release channel: %s\n' "$release_channel"
-              printf 'FIREFOX_RELEASE_CHANNEL=%s\n' "$release_channel" >> "$GITHUB_ENV"
-              printf 'channel=%s\n' "$release_channel" >> "$GITHUB_OUTPUT"
-              safe_ref="${GITHUB_REF_NAME:-unknown-ref}"
-              safe_ref="${safe_ref//[!A-Za-z0-9._-]/-}"
-              if [ -z "$safe_ref" ]; then
-                safe_ref="ref"
-              fi
-              printf 'safe_ref=%s\n' "$safe_ref" >> "$GITHUB_OUTPUT"
-              ;;
-            *)
-              printf 'Unsupported Firefox release channel: %s\n' "$release_channel" >&2
-              exit 1
-              ;;
-          esac
+      - name: Install governed Firefox browser
+        env:
+          NPM_CONFIG_USERCONFIG: ${{ runner.temp }}/zendio-firefox-${{ github.run_id }}-${{ github.run_attempt }}/install/npm-userconfig
+          NPM_CONFIG_GLOBALCONFIG: ${{ runner.temp }}/zendio-firefox-${{ github.run_id }}-${{ github.run_attempt }}/install/npm-globalconfig
+          ZENDIO_FIREFOX_ATTEMPT_ROOT: ${{ runner.temp }}/zendio-firefox-${{ github.run_id }}-${{ github.run_attempt }}
+          ZENDIO_PLAYWRIGHT_ATTEMPT_ROOT: ${{ runner.temp }}/zendio-firefox-${{ github.run_id }}-${{ github.run_attempt }}
+          PLAYWRIGHT_BROWSERS_PATH: ${{ runner.temp }}/zendio-firefox-${{ github.run_id }}-${{ github.run_attempt }}/playwright-browsers
+          ZENDIO_JOB_CLASS: firefox-prepare-v1
+          ZENDIO_JOB_TIMEOUT_MINUTES: '120'
+          ZENDIO_RUNNER_ENVIRONMENT: ${{ runner.environment }}
+          ZENDIO_RUNNER_OS: ${{ runner.os }}
+          ZENDIO_RUNNER_ARCH: ${{ runner.arch }}
+        run: node scripts/run-bounded-command.mjs --profile playwright-browser-install-v1 -- firefox-with-host-deps
 
-      - name: Validate required GA public config
-        run: npm run analytics:validate:prod:required
+      - name: Build isolated Firefox release
+        env:
+          NPM_CONFIG_USERCONFIG: ${{ runner.temp }}/zendio-firefox-${{ github.run_id }}-${{ github.run_attempt }}/install/npm-userconfig
+          NPM_CONFIG_GLOBALCONFIG: ${{ runner.temp }}/zendio-firefox-${{ github.run_id }}-${{ github.run_attempt }}/install/npm-globalconfig
+          ZENDIO_FIREFOX_ATTEMPT_ROOT: ${{ runner.temp }}/zendio-firefox-${{ github.run_id }}-${{ github.run_attempt }}
+          ZENDIO_PLAYWRIGHT_ATTEMPT_ROOT: ${{ runner.temp }}/zendio-firefox-${{ github.run_id }}-${{ github.run_attempt }}
+          PLAYWRIGHT_BROWSERS_PATH: ${{ runner.temp }}/zendio-firefox-${{ github.run_id }}-${{ github.run_attempt }}/playwright-browsers
+          ZENDIO_JOB_CLASS: firefox-prepare-v1
+          ZENDIO_JOB_TIMEOUT_MINUTES: '120'
+          ZENDIO_RUNNER_ENVIRONMENT: ${{ runner.environment }}
+          ZENDIO_RUNNER_OS: ${{ runner.os }}
+          ZENDIO_RUNNER_ARCH: ${{ runner.arch }}
+          ZENDIO_GA_MEASUREMENT_ID: ${{ vars.ZENDIO_GA_MEASUREMENT_ID }}
+          ZENDIO_GA_TRANSPORT_MODE: ${{ vars.ZENDIO_GA_TRANSPORT_MODE }}
+          ZENDIO_GA_PROXY_ENDPOINT: ${{ vars.ZENDIO_GA_PROXY_ENDPOINT }}
+        run: node scripts/run-bounded-command.mjs --profile isolated-build-v1 -- --run-isolated-build --config-mode owner-public-vars --browser firefox --dist-dir "${{ runner.temp }}/zendio-firefox-${{ github.run_id }}-${{ github.run_attempt }}/dist-firefox" --temp-dir "${{ runner.temp }}/zendio-firefox-${{ github.run_id }}-${{ github.run_attempt }}/build-temp"
 
-      - name: Build Firefox production bundle with GA config
-        run: npm run build:firefox:prod:ga:ci
+      - name: Prepare immutable Firefox artifact
+        env:
+          NPM_CONFIG_USERCONFIG: ${{ runner.temp }}/zendio-firefox-${{ github.run_id }}-${{ github.run_attempt }}/install/npm-userconfig
+          NPM_CONFIG_GLOBALCONFIG: ${{ runner.temp }}/zendio-firefox-${{ github.run_id }}-${{ github.run_attempt }}/install/npm-globalconfig
+          ZENDIO_FIREFOX_ATTEMPT_ROOT: ${{ runner.temp }}/zendio-firefox-${{ github.run_id }}-${{ github.run_attempt }}
+          ZENDIO_PLAYWRIGHT_ATTEMPT_ROOT: ${{ runner.temp }}/zendio-firefox-${{ github.run_id }}-${{ github.run_attempt }}
+          PLAYWRIGHT_BROWSERS_PATH: ${{ runner.temp }}/zendio-firefox-${{ github.run_id }}-${{ github.run_attempt }}/playwright-browsers
+          ZENDIO_JOB_CLASS: firefox-prepare-v1
+          ZENDIO_JOB_TIMEOUT_MINUTES: '120'
+          ZENDIO_RUNNER_ENVIRONMENT: ${{ runner.environment }}
+          ZENDIO_RUNNER_OS: ${{ runner.os }}
+          ZENDIO_RUNNER_ARCH: ${{ runner.arch }}
+          ZENDIO_GA_MEASUREMENT_ID: ${{ vars.ZENDIO_GA_MEASUREMENT_ID }}
+          ZENDIO_GA_TRANSPORT_MODE: ${{ vars.ZENDIO_GA_TRANSPORT_MODE }}
+          ZENDIO_GA_PROXY_ENDPOINT: ${{ vars.ZENDIO_GA_PROXY_ENDPOINT }}
+        run: node scripts/run-bounded-command.mjs --profile firefox-prepare-v1 -- --config-mode owner-public-vars --transport-mode local-private-v1 --attempt-root "${{ runner.temp }}/zendio-firefox-${{ github.run_id }}-${{ github.run_attempt }}" --dist-dir "${{ runner.temp }}/zendio-firefox-${{ github.run_id }}-${{ github.run_attempt }}/dist-firefox" --release-dir "${{ runner.temp }}/zendio-firefox-${{ github.run_id }}-${{ github.run_attempt }}/firefox-release" --authorization-record "${{ runner.temp }}/zendio-firefox-${{ github.run_id }}-${{ github.run_attempt }}/authorization.json" --result-json "${{ runner.temp }}/zendio-firefox-${{ github.run_id }}-${{ github.run_attempt }}/firefox-result.json"
 
-      - name: Submit Firefox package to AMO
-        shell: bash
-        run: |
-          sign_args=(--sign --channel "$FIREFOX_RELEASE_CHANNEL")
-          if [ "$FIREFOX_RELEASE_CHANNEL" = "listed" ]; then
-            sign_args+=(--approval-timeout 0)
-          fi
-          node scripts/package-firefox.mjs "${sign_args[@]}"
+      - name: Verify private Firefox artifact
+        env:
+          NPM_CONFIG_USERCONFIG: ${{ runner.temp }}/zendio-firefox-${{ github.run_id }}-${{ github.run_attempt }}/install/npm-userconfig
+          NPM_CONFIG_GLOBALCONFIG: ${{ runner.temp }}/zendio-firefox-${{ github.run_id }}-${{ github.run_attempt }}/install/npm-globalconfig
+          ZENDIO_FIREFOX_ATTEMPT_ROOT: ${{ runner.temp }}/zendio-firefox-${{ github.run_id }}-${{ github.run_attempt }}
+          ZENDIO_PLAYWRIGHT_ATTEMPT_ROOT: ${{ runner.temp }}/zendio-firefox-${{ github.run_id }}-${{ github.run_attempt }}
+          PLAYWRIGHT_BROWSERS_PATH: ${{ runner.temp }}/zendio-firefox-${{ github.run_id }}-${{ github.run_attempt }}/playwright-browsers
+          ZENDIO_JOB_CLASS: firefox-prepare-v1
+          ZENDIO_JOB_TIMEOUT_MINUTES: '120'
+          ZENDIO_RUNNER_ENVIRONMENT: ${{ runner.environment }}
+          ZENDIO_RUNNER_OS: ${{ runner.os }}
+          ZENDIO_RUNNER_ARCH: ${{ runner.arch }}
+        run: node scripts/run-bounded-command.mjs --profile firefox-verify-v1 -- --manifest "${{ runner.temp }}/zendio-firefox-${{ github.run_id }}-${{ github.run_attempt }}/firefox-release/manifest.json" --transport-mode local-private-v1
 
-      - name: Resolve Firefox release artifacts
-        id: artifacts
-        shell: bash
-        run: |
-          mapfile -t unsigned_xpi_files < <(find . -maxdepth 1 -type f -name '*.xpi' ! -name '*-signed.xpi' -print | sort)
-          if [ "${#unsigned_xpi_files[@]}" -ne 1 ]; then
-            printf 'Expected exactly one unsigned root XPI package, found %s\n' "${#unsigned_xpi_files[@]}" >&2
-            printf '%s\n' "${unsigned_xpi_files[@]}" >&2
-            exit 1
-          fi
+      - name: Smoke exact Firefox XPI
+        env:
+          NPM_CONFIG_USERCONFIG: ${{ runner.temp }}/zendio-firefox-${{ github.run_id }}-${{ github.run_attempt }}/install/npm-userconfig
+          NPM_CONFIG_GLOBALCONFIG: ${{ runner.temp }}/zendio-firefox-${{ github.run_id }}-${{ github.run_attempt }}/install/npm-globalconfig
+          ZENDIO_FIREFOX_ATTEMPT_ROOT: ${{ runner.temp }}/zendio-firefox-${{ github.run_id }}-${{ github.run_attempt }}
+          ZENDIO_PLAYWRIGHT_ATTEMPT_ROOT: ${{ runner.temp }}/zendio-firefox-${{ github.run_id }}-${{ github.run_attempt }}
+          PLAYWRIGHT_BROWSERS_PATH: ${{ runner.temp }}/zendio-firefox-${{ github.run_id }}-${{ github.run_attempt }}/playwright-browsers
+          ZENDIO_JOB_CLASS: firefox-prepare-v1
+          ZENDIO_JOB_TIMEOUT_MINUTES: '120'
+          ZENDIO_RUNNER_ENVIRONMENT: ${{ runner.environment }}
+          ZENDIO_RUNNER_OS: ${{ runner.os }}
+          ZENDIO_RUNNER_ARCH: ${{ runner.arch }}
+        run: node scripts/run-bounded-command.mjs --profile firefox-smoke-v1 -- --manifest "${{ runner.temp }}/zendio-firefox-${{ github.run_id }}-${{ github.run_attempt }}/firefox-release/manifest.json" --transport-mode local-private-v1 --result-json "${{ runner.temp }}/zendio-firefox-${{ github.run_id }}-${{ github.run_attempt }}/firefox-smoke-result.json"
 
-          mapfile -t signed_xpi_files < <(find . -maxdepth 1 -type f -name '*-signed.xpi' -print | sort)
-          if [ "$FIREFOX_RELEASE_CHANNEL" = "unlisted" ] && [ "${#signed_xpi_files[@]}" -ne 1 ]; then
-            printf 'Expected exactly one signed root XPI package for unlisted release, found %s\n' "${#signed_xpi_files[@]}" >&2
-            printf '%s\n' "${signed_xpi_files[@]}" >&2
-            exit 1
-          fi
-          if [ "$FIREFOX_RELEASE_CHANNEL" = "listed" ] && [ "${#signed_xpi_files[@]}" -gt 1 ]; then
-            printf 'Expected at most one signed root XPI package for listed release, found %s\n' "${#signed_xpi_files[@]}" >&2
-            printf '%s\n' "${signed_xpi_files[@]}" >&2
-            exit 1
-          fi
+      - name: Publish closed release job outputs
+        id: release
+        env:
+          NPM_CONFIG_USERCONFIG: ${{ runner.temp }}/zendio-firefox-${{ github.run_id }}-${{ github.run_attempt }}/install/npm-userconfig
+          NPM_CONFIG_GLOBALCONFIG: ${{ runner.temp }}/zendio-firefox-${{ github.run_id }}-${{ github.run_attempt }}/install/npm-globalconfig
+          ZENDIO_FIREFOX_ATTEMPT_ROOT: ${{ runner.temp }}/zendio-firefox-${{ github.run_id }}-${{ github.run_attempt }}
+          ZENDIO_PLAYWRIGHT_ATTEMPT_ROOT: ${{ runner.temp }}/zendio-firefox-${{ github.run_id }}-${{ github.run_attempt }}
+          PLAYWRIGHT_BROWSERS_PATH: ${{ runner.temp }}/zendio-firefox-${{ github.run_id }}-${{ github.run_attempt }}/playwright-browsers
+          ZENDIO_JOB_CLASS: firefox-prepare-v1
+          ZENDIO_JOB_TIMEOUT_MINUTES: '120'
+          ZENDIO_RUNNER_ENVIRONMENT: ${{ runner.environment }}
+          ZENDIO_RUNNER_OS: ${{ runner.os }}
+          ZENDIO_RUNNER_ARCH: ${{ runner.arch }}
+        run: node scripts/run-bounded-command.mjs --profile release-job-outputs-v1 -- --browser firefox --result-json "${{ runner.temp }}/zendio-firefox-${{ github.run_id }}-${{ github.run_attempt }}/firefox-result.json"
 
-          mapfile -t source_archive_files < <(find build/firefox-source -type f -name '*-source.zip' -print | sort)
-          if [ "${#source_archive_files[@]}" -ne 1 ]; then
-            printf 'Expected exactly one Firefox AMO source archive, found %s\n' "${#source_archive_files[@]}" >&2
-            printf '%s\n' "${source_archive_files[@]}" >&2
-            exit 1
-          fi
-
-          printf 'unsigned_xpi_path=%s\n' "${unsigned_xpi_files[0]}" >> "$GITHUB_OUTPUT"
-          printf 'source_archive_path=%s\n' "${source_archive_files[0]}" >> "$GITHUB_OUTPUT"
-          if [ "${#signed_xpi_files[@]}" -eq 1 ]; then
-            printf 'signed_xpi_path=%s\n' "${signed_xpi_files[0]}" >> "$GITHUB_OUTPUT"
-          else
-            printf 'signed_xpi_path=\n' >> "$GITHUB_OUTPUT"
-          fi
-
-      - name: Audit GA release surface
-        shell: bash
-        run: |
-          archive_args=(--archive "${{ steps.artifacts.outputs.unsigned_xpi_path }}")
-          if [ -n "${{ steps.artifacts.outputs.signed_xpi_path }}" ]; then
-            archive_args+=(--archive "${{ steps.artifacts.outputs.signed_xpi_path }}")
-          fi
-          npm run audit:ga:client-secret
-          npm run audit:ga:release-surface -- "${archive_args[@]}"
-
-      - name: Upload Firefox release artifacts
+      - name: Upload immutable Firefox release artifact
+        id: upload
         uses: actions/upload-artifact@v7
         with:
-          name: firefox-amo-${{ steps.release_channel.outputs.channel }}-${{ steps.release_channel.outputs.safe_ref }}-${{ github.run_number }}
-          path: |
-            ./*.xpi
-            build/firefox-artifacts/**/*.xpi
-            build/firefox-source/**/*-source.zip
+          name: zendio-firefox-release-v1
+          path: ${{ runner.temp }}/zendio-firefox-${{ github.run_id }}-${{ github.run_attempt }}/firefox-release
           if-no-files-found: error
+          overwrite: false
+
+      - name: Validate upload artifact ID
+        id: artifact-id
+        env:
+          NPM_CONFIG_USERCONFIG: ${{ runner.temp }}/zendio-firefox-${{ github.run_id }}-${{ github.run_attempt }}/install/npm-userconfig
+          NPM_CONFIG_GLOBALCONFIG: ${{ runner.temp }}/zendio-firefox-${{ github.run_id }}-${{ github.run_attempt }}/install/npm-globalconfig
+          ZENDIO_FIREFOX_ATTEMPT_ROOT: ${{ runner.temp }}/zendio-firefox-${{ github.run_id }}-${{ github.run_attempt }}
+          ZENDIO_JOB_CLASS: firefox-prepare-v1
+          ZENDIO_JOB_TIMEOUT_MINUTES: '120'
+          ZENDIO_RUNNER_ENVIRONMENT: ${{ runner.environment }}
+        run: node scripts/run-bounded-command.mjs --profile release-provenance-v1 -- scripts/utils/releaseArtifactManifest.mjs --validate-upload-artifact-id "${{ steps.upload.outputs.artifact-id }}"
+
+      - name: Normalize upload artifact digest
+        id: artifact-digest
+        env:
+          NPM_CONFIG_USERCONFIG: ${{ runner.temp }}/zendio-firefox-${{ github.run_id }}-${{ github.run_attempt }}/install/npm-userconfig
+          NPM_CONFIG_GLOBALCONFIG: ${{ runner.temp }}/zendio-firefox-${{ github.run_id }}-${{ github.run_attempt }}/install/npm-globalconfig
+          ZENDIO_FIREFOX_ATTEMPT_ROOT: ${{ runner.temp }}/zendio-firefox-${{ github.run_id }}-${{ github.run_attempt }}
+          ZENDIO_JOB_CLASS: firefox-prepare-v1
+          ZENDIO_JOB_TIMEOUT_MINUTES: '120'
+          ZENDIO_RUNNER_ENVIRONMENT: ${{ runner.environment }}
+        run: node scripts/run-bounded-command.mjs --profile release-provenance-v1 -- scripts/utils/releaseArtifactManifest.mjs --normalize-upload-artifact-digest "${{ steps.upload.outputs.artifact-digest }}"
+
+  submit:
+    name: Submit Firefox AMO
+    needs: [release-attempt-policy, prepare]
+    if: ${{ github.run_attempt == 1 && needs.release-attempt-policy.result == 'success' && needs.prepare.result == 'success' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    permissions:
+      actions: read
+      contents: read
+    environment:
+      name: firefox-amo-release
+    steps:
+      - name: Bootstrap command boundary
+        shell: bash
+        env:
+          ZENDIO_JOB_CLASS: firefox-submit-v1
+          ZENDIO_JOB_TIMEOUT_MINUTES: '90'
+        run: |
+          set -euo pipefail
+          export LC_ALL=C LANG=C
+          shopt -s nocasematch
+          env_count=0
+          for env_name in $(compgen -e); do
+            env_count=$((env_count + 1))
+            (( env_count <= 4096 )) || { printf 'too many environment names\n' >&2; exit 1; }
+            (( ${#env_name} <= 4096 )) || { printf 'environment name too large\n' >&2; exit 1; }
+            env_value=${!env_name-}
+            (( ${#env_value} <= 4096 )) || { printf 'environment value too large: %s\n' "$env_name" >&2; exit 1; }
+            case "$env_name" in
+              NODE_OPTIONS|HUSKY|npm_config_*) printf 'forbidden environment: %s\n' "$env_name" >&2; exit 1 ;;
+            esac
+          done
+          [[ $GITHUB_RUN_ID =~ ^[1-9][0-9]*$ ]]
+          [[ $GITHUB_RUN_ATTEMPT == 1 ]]
+          [[ $GITHUB_JOB =~ ^[A-Za-z0-9_-]{1,128}$ ]]
+          [[ $ZENDIO_JOB_CLASS == firefox-submit-v1 ]]
+          [[ $ZENDIO_JOB_TIMEOUT_MINUTES == 90 ]]
+          [[ $RUNNER_OS == Linux && $RUNNER_ARCH == X64 ]]
+          [[ $ImageOS == ubuntu24 && $ImageVersion =~ ^[A-Za-z0-9._-]{1,128}$ ]]
+          [[ $RUNNER_TEMP == /* && ${#RUNNER_TEMP} -le 4096 && -d $RUNNER_TEMP && ! -L $RUNNER_TEMP ]]
+          IFS=' .' read -r uptime_seconds uptime_fraction _ < /proc/uptime
+          [[ $uptime_seconds =~ ^[0-9]{1,12}$ && $uptime_fraction =~ ^[0-9]{1,32}$ ]]
+          uptime_fraction="${uptime_fraction}00"
+          uptime_fraction="${uptime_fraction:0:2}"
+          start_centiseconds=$((10#$uptime_seconds * 100 + 10#$uptime_fraction))
+          attempt_root="$RUNNER_TEMP/zendio-firefox-submit-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
+          stamp="$RUNNER_TEMP/zendio-command-start-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT-$GITHUB_JOB.receipt"
+          [[ ! -e $attempt_root && ! -L $attempt_root && ! -e $stamp && ! -L $stamp ]]
+          umask 077
+          set -o noclobber
+          printf 'zendio-ci-command-start-v1\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n' \
+            "$GITHUB_RUN_ID" "$GITHUB_RUN_ATTEMPT" "$GITHUB_JOB" \
+            "$ZENDIO_JOB_CLASS" "$ZENDIO_JOB_TIMEOUT_MINUTES" \
+            "$RUNNER_OS" "$RUNNER_ARCH" "$ImageOS" "$ImageVersion" "$start_centiseconds" > "$stamp"
+
+      - name: Checkout exact prepared commit
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ needs.prepare.outputs.release_sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Setup exact Node dependencies
+        uses: ./.github/actions/setup-node-deps
+        env:
+          ZENDIO_JOB_CLASS: firefox-submit-v1
+          ZENDIO_JOB_TIMEOUT_MINUTES: '90'
+          ZENDIO_RUNNER_ENVIRONMENT: ${{ runner.environment }}
+          ZENDIO_EXPECTED_RELEASE_SHA: ${{ needs.prepare.outputs.release_sha }}
+          ZENDIO_EXPECTED_RELEASE_TREE: ${{ needs.prepare.outputs.release_tree }}
+          ZENDIO_EXPECTED_PACKAGE_SHA256: ${{ needs.prepare.outputs.package_sha256 }}
+          ZENDIO_EXPECTED_LOCK_SHA256: ${{ needs.prepare.outputs.lock_sha256 }}
+
+      - name: Download exact Firefox artifact
+        uses: actions/download-artifact@v8
+        with:
+          artifact-ids: ${{ needs.prepare.outputs.artifact_id }}
+          path: ${{ runner.temp }}/zendio-firefox-submit-${{ github.run_id }}-${{ github.run_attempt }}/download
+          digest-mismatch: error
+
+      - name: Verify downloaded Firefox artifact
+        env:
+          NPM_CONFIG_USERCONFIG: ${{ runner.temp }}/zendio-firefox-submit-${{ github.run_id }}-${{ github.run_attempt }}/install/npm-userconfig
+          NPM_CONFIG_GLOBALCONFIG: ${{ runner.temp }}/zendio-firefox-submit-${{ github.run_id }}-${{ github.run_attempt }}/install/npm-globalconfig
+          ZENDIO_FIREFOX_SUBMIT_ROOT: ${{ runner.temp }}/zendio-firefox-submit-${{ github.run_id }}-${{ github.run_attempt }}
+          ZENDIO_EXPECTED_RELEASE_MANIFEST_SHA256: ${{ needs.prepare.outputs.release_manifest_sha256 }}
+          ZENDIO_JOB_CLASS: firefox-submit-v1
+          ZENDIO_JOB_TIMEOUT_MINUTES: '90'
+          ZENDIO_RUNNER_ENVIRONMENT: ${{ runner.environment }}
+        run: node scripts/run-bounded-command.mjs --profile firefox-verify-v1 -- --manifest "${{ runner.temp }}/zendio-firefox-submit-${{ github.run_id }}-${{ github.run_attempt }}/download/manifest.json" --transport-mode github-artifact-v1
+
+      - name: Reauthorize release provenance
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          NPM_CONFIG_USERCONFIG: ${{ runner.temp }}/zendio-firefox-submit-${{ github.run_id }}-${{ github.run_attempt }}/install/npm-userconfig
+          NPM_CONFIG_GLOBALCONFIG: ${{ runner.temp }}/zendio-firefox-submit-${{ github.run_id }}-${{ github.run_attempt }}/install/npm-globalconfig
+          ZENDIO_FIREFOX_SUBMIT_ROOT: ${{ runner.temp }}/zendio-firefox-submit-${{ github.run_id }}-${{ github.run_attempt }}
+          ZENDIO_EXPECTED_RELEASE_MANIFEST_SHA256: ${{ needs.prepare.outputs.release_manifest_sha256 }}
+          ZENDIO_JOB_CLASS: firefox-submit-v1
+          ZENDIO_JOB_TIMEOUT_MINUTES: '90'
+          ZENDIO_RUNNER_ENVIRONMENT: ${{ runner.environment }}
+        run: node scripts/run-bounded-command.mjs --profile release-provenance-v1 -- scripts/utils/releaseCiProvenance.mjs --reauthorize --expected-sha "${{ needs.prepare.outputs.release_sha }}" --artifact-manifest "${{ runner.temp }}/zendio-firefox-submit-${{ github.run_id }}-${{ github.run_attempt }}/download/manifest.json" --artifact-id "${{ needs.prepare.outputs.artifact_id }}" --artifact-digest "${{ needs.prepare.outputs.artifact_digest }}" --required-jobs-source scripts/config/releaseRequiredCiJobs.mjs --authorization-record "${{ runner.temp }}/zendio-firefox-submit-${{ github.run_id }}-${{ github.run_attempt }}/reauthorization.json"
+
+      - name: Initialize Firefox submission state
+        env:
+          NPM_CONFIG_USERCONFIG: ${{ runner.temp }}/zendio-firefox-submit-${{ github.run_id }}-${{ github.run_attempt }}/install/npm-userconfig
+          NPM_CONFIG_GLOBALCONFIG: ${{ runner.temp }}/zendio-firefox-submit-${{ github.run_id }}-${{ github.run_attempt }}/install/npm-globalconfig
+          ZENDIO_FIREFOX_SUBMIT_ROOT: ${{ runner.temp }}/zendio-firefox-submit-${{ github.run_id }}-${{ github.run_attempt }}
+          ZENDIO_EXPECTED_RELEASE_MANIFEST_SHA256: ${{ needs.prepare.outputs.release_manifest_sha256 }}
+          ZENDIO_JOB_CLASS: firefox-submit-v1
+          ZENDIO_JOB_TIMEOUT_MINUTES: '90'
+          ZENDIO_RUNNER_ENVIRONMENT: ${{ runner.environment }}
+        run: node scripts/run-bounded-command.mjs --profile release-state-init-v1 -- --browser firefox
+
+      - name: Submit verified Firefox artifact
+        env:
+          NPM_CONFIG_USERCONFIG: ${{ runner.temp }}/zendio-firefox-submit-${{ github.run_id }}-${{ github.run_attempt }}/install/npm-userconfig
+          NPM_CONFIG_GLOBALCONFIG: ${{ runner.temp }}/zendio-firefox-submit-${{ github.run_id }}-${{ github.run_attempt }}/install/npm-globalconfig
+          ZENDIO_FIREFOX_SUBMIT_ROOT: ${{ runner.temp }}/zendio-firefox-submit-${{ github.run_id }}-${{ github.run_attempt }}
+          ZENDIO_EXPECTED_RELEASE_MANIFEST_SHA256: ${{ needs.prepare.outputs.release_manifest_sha256 }}
+          ZENDIO_JOB_CLASS: firefox-submit-v1
+          ZENDIO_JOB_TIMEOUT_MINUTES: '90'
+          ZENDIO_RUNNER_ENVIRONMENT: ${{ runner.environment }}
+          WEB_EXT_API_KEY: ${{ secrets.WEB_EXT_API_KEY }}
+          WEB_EXT_API_SECRET: ${{ secrets.WEB_EXT_API_SECRET }}
+        run: node scripts/run-bounded-command.mjs --profile firefox-submit-v1 -- --artifact-manifest "${{ runner.temp }}/zendio-firefox-submit-${{ github.run_id }}-${{ github.run_attempt }}/download/manifest.json" --transport-mode github-artifact-v1 --submission-state-file "${{ runner.temp }}/zendio-firefox-submit-${{ github.run_id }}-${{ github.run_attempt }}/store-state/firefox/submission-state.json" --saved-upload-uuid-path "${{ runner.temp }}/zendio-firefox-submit-${{ github.run_id }}-${{ github.run_attempt }}/store-state/firefox/web-ext-upload/upload-uuid.json" --channel "${{ needs.release-attempt-policy.outputs.channel }}"
+
+      - name: Validate Firefox submission evidence
+        if: ${{ always() }}
+        env:
+          NPM_CONFIG_USERCONFIG: ${{ runner.temp }}/zendio-firefox-submit-${{ github.run_id }}-${{ github.run_attempt }}/install/npm-userconfig
+          NPM_CONFIG_GLOBALCONFIG: ${{ runner.temp }}/zendio-firefox-submit-${{ github.run_id }}-${{ github.run_attempt }}/install/npm-globalconfig
+          ZENDIO_FIREFOX_SUBMIT_ROOT: ${{ runner.temp }}/zendio-firefox-submit-${{ github.run_id }}-${{ github.run_attempt }}
+          ZENDIO_EXPECTED_RELEASE_MANIFEST_SHA256: ${{ needs.prepare.outputs.release_manifest_sha256 }}
+          ZENDIO_JOB_CLASS: firefox-submit-v1
+          ZENDIO_JOB_TIMEOUT_MINUTES: '90'
+          ZENDIO_RUNNER_ENVIRONMENT: ${{ runner.environment }}
+        run: node scripts/run-bounded-command.mjs --profile release-state-check-v1 -- --browser firefox
+
+      - name: Upload Firefox submission evidence
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: zendio-firefox-submission-state-v1
+          path: ${{ runner.temp }}/zendio-firefox-submit-${{ github.run_id }}-${{ github.run_attempt }}/store-state/firefox/submission-state.json
+          if-no-files-found: error
+          overwrite: false
+
+  release-attempt-verdict:
+    name: Release attempt verdict
+    needs: [release-attempt-policy, prepare, submit]
+    if: ${{ always() }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions: {}
+    steps:
+      - name: Require complete first-attempt success
+        shell: bash
+        env:
+          POLICY_RESULT: ${{ needs.release-attempt-policy.result }}
+          PREPARE_RESULT: ${{ needs.prepare.result }}
+          STORE_RESULT: ${{ needs.submit.result }}
+        run: |
+          set -euo pipefail
+          [[ "${{ github.run_attempt }}" == 1 ]]
+          [[ $POLICY_RESULT == success ]]
+          [[ $PREPARE_RESULT == success ]]
+          [[ $STORE_RESULT == success ]]
