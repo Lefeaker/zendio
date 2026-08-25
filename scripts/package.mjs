@@ -1,6 +1,17 @@
-import { readFile, rm, writeFile } from 'fs/promises';
-import { join, resolve } from 'path';
-import { pathToFileURL } from 'url';
+import {
+  chmod,
+  link,
+  lstat,
+  mkdtemp,
+  open,
+  readFile,
+  rm,
+  rmdir,
+  unlink,
+  writeFile
+} from 'node:fs/promises';
+import { basename, isAbsolute, join, resolve } from 'node:path';
+import { pathToFileURL } from 'node:url';
 import { zipDirectory } from './utils/archive.mjs';
 import { applyRestHostPermissions } from './utils/manifestHosts.mjs';
 import { pathExists, prepareLicenseArtifacts, resolveMessage } from './utils/packageHelpers.mjs';
@@ -11,158 +22,226 @@ const DEFAULT_TRIAL_DAYS = 7;
 const MIN_TRIAL_DAYS = 1;
 const MAX_TRIAL_DAYS = 30;
 
-function parseTrialDaysValue(value, flagName) {
-  if (!/^[1-9]\d*$/.test(value)) {
-    throw new Error(`${flagName} must be a base-10 integer from 1 to ${MAX_TRIAL_DAYS}`);
-  }
+function fail(message) {
+  throw new Error(message);
+}
 
+function parseTrialDaysValue(value, flagName) {
+  if (!/^[1-9]\d*$/u.test(value)) {
+    fail(`${flagName} must be a base-10 integer from 1 to ${MAX_TRIAL_DAYS}`);
+  }
   const days = Number(value);
   if (days < MIN_TRIAL_DAYS || days > MAX_TRIAL_DAYS) {
-    throw new Error(`${flagName} must be a base-10 integer from 1 to ${MAX_TRIAL_DAYS}`);
+    fail(`${flagName} must be a base-10 integer from 1 to ${MAX_TRIAL_DAYS}`);
   }
-
   return days;
 }
 
-/**
- * 获取试用天数参数
- */
 export function normalizeTrialDays(args = process.argv) {
   const trialArg = args.find((arg) => arg.startsWith('--trial-days='));
-  if (trialArg) {
-    return parseTrialDaysValue(trialArg.split('=')[1], '--trial-days');
-  }
-  return DEFAULT_TRIAL_DAYS;
-}
-
-function getTrialDays() {
-  return normalizeTrialDays();
+  return trialArg
+    ? parseTrialDaysValue(trialArg.slice('--trial-days='.length), '--trial-days')
+    : DEFAULT_TRIAL_DAYS;
 }
 
 export function createTrialConfig(trialDays, now = Date.now()) {
-  const expirationTime = now + trialDays * 24 * 60 * 60 * 1000;
-
   return {
     isTrial: true,
-    expirationTime,
+    expirationTime: now + trialDays * 24 * 60 * 60 * 1000,
     trialDays,
     createdAt: now,
     version: 'trial'
   };
 }
 
-/**
- * 注入试用配置到扩展中
- */
-async function injectTrialConfig(distDir, trialDays) {
-  const trialConfigPath = join(distDir, 'trial-config.json');
-  const now = Date.now();
-  const trialConfig = createTrialConfig(trialDays, now);
-
-  await writeFile(trialConfigPath, JSON.stringify(trialConfig, null, 2));
-  console.log(
-    `✅ 试用配置已注入，过期时间: ${new Date(trialConfig.expirationTime).toLocaleString('zh-CN')}`
-  );
-}
-
-async function packageExtension() {
-  console.log('📦 开始打包扩展...');
-  const distDir = getFlagValue('--dist-dir', { defaultValue: 'build/dist' });
-
-  // 检查 build/dist 目录是否存在
-  if (!(await pathExists(distDir))) {
-    console.error(`❌ ${distDir} 目录不存在，请先运行 npm run build`);
-    process.exit(1);
-  }
-
-  await prepareLicenseArtifacts(distDir);
-
-  // 读取版本号
-  const manifestPath = join(distDir, 'manifest.json');
-  const manifest = JSON.parse(await readFile(manifestPath, 'utf8'));
-  const manifestWithHosts = applyRestHostPermissions(manifest);
-
-  // 检查是否为试用版本打包
-  const isTrialBuild = process.argv.includes('--trial');
-  const trialDays = getTrialDays();
-
-  if (isTrialBuild) {
-    console.log(`🔄 正在创建 ${trialDays} 天试用版本...`);
-    await injectTrialConfig(distDir, trialDays);
-    manifestWithHosts.name = manifestWithHosts.name + ' (试用版)';
-    // Chrome 扩展版本号必须是数字格式，不能包含文本后缀
-    // 我们在名称中标识试用版本，版本号保持原样
-  }
-
-  await writeFile(manifestPath, JSON.stringify(manifestWithHosts, null, 2));
-
-  const version = manifestWithHosts.version;
-  const resolvedName = await resolveMessage(manifestWithHosts.name, manifestWithHosts, distDir);
-  const zipName = createReleaseArtifactFileName(version, 'zip');
-  const zipPath = resolve(zipName);
-
-  console.log(`📝 扩展名称: ${resolvedName}`);
-  console.log(`📝 版本号: ${version}`);
-  console.log(`📝 输出文件: ${zipName}`);
-
-  try {
-    // 删除旧的 zip 文件（如果存在）
-    if (await pathExists(zipPath)) {
-      await rm(zipPath, { force: true });
-      console.log('🗑️  删除旧的打包文件');
-    }
-
-    // 创建 zip 文件
-    console.log('🔨 正在创建 zip 文件...');
-    await zipDirectory(distDir, zipPath, { ignore: ['**/*.map', '**/.DS_Store'] });
-    await auditReleaseArchive(zipPath);
-
-    console.log('✅ 打包完成！');
-    console.log('');
-    console.log('📦 打包文件位置:');
-    console.log(`   ${zipPath}`);
-    console.log('');
-
-    if (isTrialBuild) {
-      console.log('🔄 试用版本信息:');
-      console.log(`   试用期限: ${trialDays} 天`);
-      console.log(
-        `   过期时间: ${new Date(Date.now() + trialDays * 24 * 60 * 60 * 1000).toLocaleString('zh-CN')}`
-      );
-      console.log('   ⚠️  试用版本会在过期后自动限制功能');
-      console.log('');
-    }
-
-    console.log('📖 安装说明:');
-    console.log('   1. 打开 Chrome 浏览器');
-    console.log('   2. 访问 chrome://extensions/');
-    console.log('   3. 开启右上角的"开发者模式"');
-    console.log('   4. 点击"加载已解压的扩展程序"');
-    console.log(`   5. 选择解压后的文件夹，或者直接拖拽 ${zipName} 到页面上`);
-    console.log('');
-    console.log(`💡 提示: 也可以将 ${distDir} 文件夹直接发送给朋友，让他们加载该文件夹`);
-  } catch (error) {
-    console.error('❌ 打包失败:', error.message);
-    process.exit(1);
-  }
-}
-
-function getFlagValue(flag, { defaultValue } = {}) {
-  const inline = process.argv.find((arg) => arg.startsWith(`${flag}=`));
-  if (inline) {
-    return inline.slice(flag.length + 1);
-  }
-  const index = process.argv.indexOf(flag);
-  if (index === -1) {
-    return defaultValue;
-  }
-  const value = process.argv[index + 1];
-  if (!value || value.startsWith('--')) {
-    throw new Error(`参数 ${flag} 缺少取值`);
-  }
+function absolutePath(value, code) {
+  if (!isAbsolute(value) || resolve(value) !== value) fail(code);
   return value;
 }
 
+export function parsePackageArguments(argv = process.argv.slice(2)) {
+  const releaseMode = argv.includes('--output-dir') || argv.includes('--require-absent-output');
+  if (releaseMode) {
+    if (
+      argv.length !== 5 ||
+      argv[0] !== '--dist-dir' ||
+      argv[2] !== '--output-dir' ||
+      argv[4] !== '--require-absent-output'
+    ) {
+      fail('PACKAGE_RELEASE_ARGUMENTS_INVALID');
+    }
+    const distDir = absolutePath(argv[1], 'PACKAGE_RELEASE_DIST_INVALID');
+    const outputDir = absolutePath(argv[3], 'PACKAGE_RELEASE_OUTPUT_INVALID');
+    if (distDir === outputDir) fail('PACKAGE_RELEASE_PATH_ALIAS');
+    return Object.freeze({
+      mode: 'release-no-replace-v1',
+      distDir,
+      outputDir,
+      trial: false,
+      trialDays: DEFAULT_TRIAL_DAYS
+    });
+  }
+  let distDir = 'build/dist';
+  let trial = false;
+  for (let index = 0; index < argv.length; index += 1) {
+    const value = argv[index];
+    if (value === '--dist-dir') {
+      if (argv[index + 1] === undefined || argv[index + 1].startsWith('--')) {
+        fail('参数 --dist-dir 缺少取值');
+      }
+      distDir = argv[index + 1];
+      index += 1;
+    } else if (value === '--trial') {
+      trial = true;
+    } else if (value.startsWith('--trial-days=')) {
+      parseTrialDaysValue(value.slice('--trial-days='.length), '--trial-days');
+    } else {
+      fail(`PACKAGE_ARGUMENT_INVALID:${value}`);
+    }
+  }
+  return Object.freeze({
+    mode: 'ordinary',
+    distDir,
+    outputDir: null,
+    trial,
+    trialDays: normalizeTrialDays(['node', 'scripts/package.mjs', ...argv])
+  });
+}
+
+async function syncDirectory(path) {
+  const handle = await open(path, 'r');
+  try {
+    await handle.sync();
+  } finally {
+    await handle.close();
+  }
+}
+
+async function assertPrivateOutputDirectory(path) {
+  const stat = await lstat(path);
+  if (
+    !stat.isDirectory() ||
+    stat.isSymbolicLink() ||
+    stat.uid !== process.getuid?.() ||
+    (stat.mode & 0o777) !== 0o700
+  ) {
+    fail('PACKAGE_RELEASE_OUTPUT_DIRECTORY_INVALID');
+  }
+  return { device: stat.dev, inode: stat.ino, mode: stat.mode & 0o777 };
+}
+
+async function publishReleaseArchive({ distDir, outputDir, zipName, dependencies }) {
+  const target = join(outputDir, zipName);
+  if (resolve(target) !== target || basename(target) !== zipName)
+    fail('PACKAGE_RELEASE_TARGET_INVALID');
+  const before = await assertPrivateOutputDirectory(outputDir);
+  try {
+    await lstat(target);
+    fail('PACKAGE_RELEASE_TARGET_EXISTS');
+  } catch (error) {
+    if (error?.code !== 'ENOENT') throw error;
+  }
+  const tempDir = await dependencies.mkdtempOperation(join(outputDir, '.zendio-package-'));
+  await chmod(tempDir, 0o700);
+  const tempPath = join(tempDir, 'archive.zip');
+  await dependencies.zipDirectoryImpl(distDir, tempPath, { ignore: ['**/*.map', '**/.DS_Store'] });
+  await dependencies.auditReleaseArchiveImpl(tempPath);
+  await chmod(tempPath, 0o600);
+  const file = await open(tempPath, 'r');
+  try {
+    await file.sync();
+  } finally {
+    await file.close();
+  }
+  const current = await assertPrivateOutputDirectory(outputDir);
+  if (JSON.stringify(current) !== JSON.stringify(before)) fail('PACKAGE_RELEASE_OUTPUT_CHANGED');
+  await dependencies.linkOperation(tempPath, target);
+  await syncDirectory(outputDir);
+  await dependencies.unlinkOperation(tempPath);
+  await dependencies.rmdirOperation(tempDir);
+  await syncDirectory(outputDir);
+  const after = await assertPrivateOutputDirectory(outputDir);
+  if (JSON.stringify(after) !== JSON.stringify(before)) fail('PACKAGE_RELEASE_OUTPUT_CHANGED');
+  const targetStat = await lstat(target);
+  if (
+    !targetStat.isFile() ||
+    targetStat.isSymbolicLink() ||
+    targetStat.nlink !== 1 ||
+    (targetStat.mode & 0o777) !== 0o600
+  ) {
+    fail('PACKAGE_RELEASE_TARGET_INVALID');
+  }
+  return target;
+}
+
+async function injectTrialConfig(distDir, trialDays) {
+  await writeFile(
+    join(distDir, 'trial-config.json'),
+    JSON.stringify(createTrialConfig(trialDays, Date.now()), null, 2)
+  );
+}
+
+export async function packageExtension(options = {}, dependencies = {}) {
+  const args = parsePackageArguments(options.argv ?? process.argv.slice(2));
+  const logger = dependencies.logger ?? console;
+  const operations = {
+    zipDirectoryImpl: dependencies.zipDirectoryImpl ?? zipDirectory,
+    auditReleaseArchiveImpl: dependencies.auditReleaseArchiveImpl ?? auditReleaseArchive,
+    mkdtempOperation: dependencies.mkdtempOperation ?? mkdtemp,
+    linkOperation: dependencies.linkOperation ?? link,
+    unlinkOperation: dependencies.unlinkOperation ?? unlink,
+    rmdirOperation: dependencies.rmdirOperation ?? rmdir
+  };
+  if (!(await pathExists(args.distDir))) fail(`${args.distDir} 目录不存在，请先运行 npm run build`);
+  await (dependencies.prepareLicenseArtifactsImpl ?? prepareLicenseArtifacts)(args.distDir);
+  const manifestPath = join(args.distDir, 'manifest.json');
+  const manifest = JSON.parse(await readFile(manifestPath, 'utf8'));
+  const manifestWithHosts = (dependencies.applyRestHostPermissionsImpl ?? applyRestHostPermissions)(
+    manifest
+  );
+  if (args.trial) {
+    await injectTrialConfig(args.distDir, args.trialDays);
+    manifestWithHosts.name = `${manifestWithHosts.name} (试用版)`;
+  }
+  await writeFile(manifestPath, JSON.stringify(manifestWithHosts, null, 2));
+  const version = manifestWithHosts.version;
+  const resolvedName = await (dependencies.resolveMessageImpl ?? resolveMessage)(
+    manifestWithHosts.name,
+    manifestWithHosts,
+    args.distDir
+  );
+  const zipName = createReleaseArtifactFileName(version, 'zip');
+  let zipPath;
+  if (args.mode === 'release-no-replace-v1') {
+    zipPath = await publishReleaseArchive({
+      distDir: args.distDir,
+      outputDir: args.outputDir,
+      zipName,
+      dependencies: operations
+    });
+  } else {
+    zipPath = resolve(zipName);
+    if (await pathExists(zipPath)) await rm(zipPath, { force: true });
+    await operations.zipDirectoryImpl(args.distDir, zipPath, {
+      ignore: ['**/*.map', '**/.DS_Store']
+    });
+    await operations.auditReleaseArchiveImpl(zipPath);
+  }
+  logger.log(`✅ 打包完成: ${zipPath}`);
+  return Object.freeze({
+    schema: 'zendio-chrome-package-result-v1',
+    distDir: resolve(args.distDir),
+    zipName,
+    zipPath,
+    version,
+    resolvedName,
+    mode: args.mode
+  });
+}
+
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
-  packageExtension();
+  packageExtension().catch((error) => {
+    console.error(error instanceof Error ? error.message : String(error));
+    process.exitCode = 1;
+  });
 }
