@@ -1,5 +1,6 @@
 import { basename, dirname, resolve, sep } from 'node:path';
 import { lstat } from 'node:fs/promises';
+import PinnedSubmitClient, { signAddon as pinnedSignAddon } from 'web-ext/util/submit-addon';
 import {
   assertVerifiedFirefoxArtifactBinding,
   consumeVerifiedFirefoxArtifactBinding,
@@ -20,6 +21,32 @@ export const FIREFOX_SUBMISSION_LIMITS = Object.freeze({
   approvalAttempts: 180,
   approvalTotalMs: 900_000
 });
+export const FIREFOX_SUBMISSION_MUTATIONS = Object.freeze([
+  'upload',
+  'version-submit',
+  'source-patch'
+]);
+const PINNED_CLIENT_METHOD_NAMES = Object.freeze([
+  'fileFromSync',
+  'nodeFetch',
+  'doUploadSubmit',
+  'waitRetry',
+  'waitForValidation',
+  'doNewAddonOrVersionSubmit',
+  'doFormDataPatch',
+  'doAfterSubmit',
+  'fetchJson',
+  'fetch',
+  'returnResult',
+  'hashXpiCrcs',
+  'getPreviousUuidOrUploadXpi',
+  'putVersion'
+]);
+const PINNED_CLIENT_METHODS = Object.freeze(
+  Object.fromEntries(
+    PINNED_CLIENT_METHOD_NAMES.map((name) => [name, PinnedSubmitClient.prototype[name]])
+  )
+);
 
 function fail(code, detail = '') {
   throw new Error(detail ? `${code}:${detail}` : code);
@@ -30,6 +57,17 @@ function assertContained(parent, child) {
   const path = resolve(child);
   if (!path.startsWith(`${root}${sep}`)) fail('FIREFOX_SUBMIT_PATH_ESCAPE');
   return path;
+}
+
+function assertPinnedSubmitImplementation() {
+  for (const name of PINNED_CLIENT_METHOD_NAMES) {
+    if (
+      typeof PINNED_CLIENT_METHODS[name] !== 'function' ||
+      PinnedSubmitClient.prototype[name] !== PINNED_CLIENT_METHODS[name]
+    ) {
+      fail('FIREFOX_SUBMIT_IMPLEMENTATION_DRIFT', name);
+    }
+  }
 }
 
 async function assertFreshPrivateTarget(path) {
@@ -50,6 +88,67 @@ async function assertFreshPrivateTarget(path) {
   }
 }
 
+function classifyJsonMutation(url, method) {
+  const target = url instanceof URL ? url : new URL(url);
+  if (method === 'POST' && target.pathname.endsWith('/addons/upload/')) return 'upload';
+  if (method === 'PUT' && /\/addons\/addon\/[^/]+\/$/u.test(target.pathname)) {
+    return 'version-submit';
+  }
+  if (method === 'POST' && target.pathname.endsWith('/addons/addon/')) return 'new-addon';
+  return null;
+}
+
+function createJournaledSubmitClient(BaseClient, mutationJournal, metadata, onMutationInvoked) {
+  let nextMutation = 0;
+  let fenced = false;
+  let active = false;
+  const runMutation = async (operation, invoke) => {
+    if (
+      fenced ||
+      active ||
+      operation !== FIREFOX_SUBMISSION_MUTATIONS[nextMutation] ||
+      !FIREFOX_SUBMISSION_MUTATIONS.includes(operation)
+    ) {
+      fail('FIREFOX_SUBMIT_MUTATION_ORDER');
+    }
+    active = true;
+    try {
+      await mutationJournal.beforeMutation(operation, metadata);
+      onMutationInvoked(operation);
+      const result = await invoke();
+      await mutationJournal.afterMutation(operation, metadata);
+      nextMutation += 1;
+      return result;
+    } catch (error) {
+      fenced = true;
+      throw error;
+    } finally {
+      active = false;
+    }
+  };
+
+  class JournaledSubmitClient extends BaseClient {
+    fetchJson(url, method = 'GET', body, errorMessage) {
+      const operation = classifyJsonMutation(url, method);
+      if (operation === 'new-addon') fail('FIREFOX_SUBMIT_NEW_ADDON_FORBIDDEN');
+      if (!operation) return super.fetchJson(url, method, body, errorMessage);
+      return runMutation(operation, () => super.fetchJson(url, method, body, errorMessage));
+    }
+
+    doFormDataPatch(data, addonId, versionId) {
+      return runMutation('source-patch', () => super.doFormDataPatch(data, addonId, versionId));
+    }
+  }
+
+  return {
+    SubmitClient: JournaledSubmitClient,
+    completed: () => nextMutation,
+    fence: () => {
+      fenced = true;
+    }
+  };
+}
+
 export async function hashVerifiedXpiCrcs(binding) {
   const { inventory } = getVerifiedFirefoxArtifactSnapshot(binding);
   const rows = inventory
@@ -59,7 +158,16 @@ export async function hashVerifiedXpiCrcs(binding) {
   return createHash('sha256').update(JSON.stringify(rows), 'utf8').digest('hex');
 }
 
-export async function submitVerifiedFirefoxXpi(options, dependencies = {}) {
+export async function submitVerifiedFirefoxXpi(options, unsupportedInjection) {
+  if (
+    arguments.length !== 1 ||
+    unsupportedInjection !== undefined ||
+    (options &&
+      typeof options === 'object' &&
+      (Object.hasOwn(options, 'signAddonImpl') || Object.hasOwn(options, 'SubmitClient')))
+  ) {
+    fail('FIREFOX_SUBMIT_INJECTION_FORBIDDEN');
+  }
   const {
     binding,
     transportMode,
@@ -98,20 +206,22 @@ export async function submitVerifiedFirefoxXpi(options, dependencies = {}) {
   if (!mutationJournal?.beforeMutation || !mutationJournal?.afterMutation) {
     fail('FIREFOX_SUBMIT_JOURNAL');
   }
+  assertPinnedSubmitImplementation();
   const apiKey = credentials?.apiKey;
   const apiSecret = credentials?.apiSecret;
   if (!apiKey || !apiSecret) fail('FIREFOX_SUBMIT_CREDENTIALS');
-  const signAddonImpl = dependencies.signAddonImpl;
-  if (typeof signAddonImpl !== 'function') fail('FIREFOX_SUBMIT_IMPLEMENTATION');
 
-  await mutationJournal.beforeMutation('upload', {
-    channel,
-    id,
-    xpi: basename(consumed.xpiPath)
-  });
-  let mutationStarted = true;
+  let mutationInvoked = false;
+  const journaled = createJournaledSubmitClient(
+    PinnedSubmitClient,
+    mutationJournal,
+    Object.freeze({ channel, id, xpi: basename(consumed.xpiPath) }),
+    () => {
+      mutationInvoked = true;
+    }
+  );
   try {
-    const result = await signAddonImpl({
+    const result = await pinnedSignAddon({
       apiKey,
       apiSecret,
       amoBaseUrl,
@@ -123,18 +233,23 @@ export async function submitVerifiedFirefoxXpi(options, dependencies = {}) {
       channel,
       savedUploadUuidPath,
       submissionSource: consumed.sourceArchivePath,
-      SubmitClient: dependencies.SubmitClient
+      SubmitClient: journaled.SubmitClient
     });
-    await mutationJournal.afterMutation('upload', { channel, id });
-    mutationStarted = false;
+    if (journaled.completed() !== FIREFOX_SUBMISSION_MUTATIONS.length) {
+      fail('FIREFOX_SUBMIT_MUTATION_SEQUENCE_INCOMPLETE');
+    }
     return result;
   } catch (error) {
-    if (mutationStarted) {
+    journaled.fence();
+    if (mutationInvoked) {
       const wrapped = new Error(`unknown-submission-state:${error?.message ?? error}`);
       wrapped.code = 'unknown-submission-state';
       wrapped.retrySafe = false;
       throw wrapped;
     }
-    throw error;
+    const wrapped = new Error(`pre-mutation-failure:${error?.message ?? error}`);
+    wrapped.code = 'pre-mutation-failure';
+    wrapped.retrySafe = true;
+    throw wrapped;
   }
 }
