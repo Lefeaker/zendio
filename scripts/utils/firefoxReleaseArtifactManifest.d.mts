@@ -3,6 +3,7 @@ export type FirefoxReleaseTransportMode = 'local-private-v1' | 'github-artifact-
 export type FirefoxReleaseArtifactBinding = Readonly<{
   schema: 'portable-release-artifact-v1';
   transportMode: FirefoxReleaseTransportMode;
+  attemptRoot: string;
   releaseDir: string;
   geckoId: string;
   xpiPath: string;
@@ -15,6 +16,16 @@ export const FIREFOX_RELEASE_AUTHORIZATION_MODES: readonly [
   'standalone-unproven',
   'attached-ci-provenance-v1'
 ];
+export const FIREFOX_RELEASE_ARTIFACT_LIMITS: Readonly<{
+  authorizationBytes: number;
+  manifestBytes: number;
+  artifactBytes: number;
+  resultBytes: number;
+  maximumDepth: number;
+  maximumRows: number;
+  maximumPathBytes: number;
+  maximumStringBytes: number;
+}>;
 export function canonicalArtifactJson(value: unknown): string;
 export function createFirefoxReleaseArtifactManifest(
   options: Record<string, unknown>
@@ -48,3 +59,30 @@ export function getVerifiedFirefoxArtifactSnapshot(binding: unknown): Readonly<{
     sha256: string | null;
   }>[];
 }>;
+export function getVerifiedFirefoxArtifactSnapshots(
+  binding: FirefoxReleaseArtifactBinding
+): Readonly<
+  Record<
+    'unsigned-xpi' | 'amo-source',
+    Readonly<{
+      path: string;
+      bytes: Buffer;
+      sha256: string;
+      size: number;
+      inventory: readonly Readonly<{
+        path: string;
+        directory: boolean;
+        size: number;
+        crc32: number;
+        sha256: string | null;
+      }>[];
+      device: number;
+      inode: number;
+      uid: number;
+      nlink: number;
+      mode: number;
+      mtimeMs: number;
+      ctimeMs: number;
+    }>
+  > & { readonly geckoId: string; readonly manifestVersion: string }
+>;

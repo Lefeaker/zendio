@@ -16,6 +16,10 @@ export const FIREFOX_SUBMISSION_LIMITS: Readonly<{
   approvalPollMs: 5000;
   approvalAttempts: 180;
   approvalTotalMs: 900000;
+  wholeMs: 2700000;
+  jsonResponseBytes: number;
+  cumulativeResponseBytes: number;
+  signedXpiBytes: number;
 }>;
 export const FIREFOX_SUBMISSION_MUTATIONS: readonly ['upload', 'version-submit', 'source-patch'];
 
@@ -34,11 +38,15 @@ export function submitVerifiedFirefoxXpi(
     mutationJournal: {
       beforeMutation(
         operation: 'upload' | 'version-submit' | 'source-patch',
-        metadata: Record<string, unknown>
+        metadata: Readonly<Record<string, string>>
       ): Promise<void>;
       afterMutation(
         operation: 'upload' | 'version-submit' | 'source-patch',
-        metadata: Record<string, unknown>
+        metadata: Readonly<Record<string, string>>
+      ): Promise<void>;
+      mutationInvoked(
+        operation: 'upload' | 'version-submit' | 'source-patch',
+        metadata: Readonly<Record<string, string>>
       ): Promise<void>;
     };
   },

@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
-import { chmod, lstat, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { chmod, lstat, mkdir, mkdtemp, readFile, realpath, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -12,6 +12,10 @@ import {
   createFirefoxReleaseArtifactManifest,
   verifyFirefoxReleaseArtifactManifest
 } from '../../../scripts/utils/firefoxReleaseArtifactManifest.mjs';
+import {
+  STANDALONE_SYNTHETIC_CONFIG,
+  validateReleasePublicBuildConfig
+} from '../../../scripts/utils/releasePublicBuildConfig.mjs';
 
 const roots: string[] = [];
 const prepareScriptPath = fileURLToPath(
@@ -33,8 +37,51 @@ function createAttachedAuthorization(releaseSha = 'a'.repeat(40)) {
   return {
     authorizationMode: 'attached-ci-provenance-v1',
     provenance,
+    provenanceRelativePath: 'ci-provenance.json',
     provenanceSha256: createHash('sha256').update(canonicalArtifactJson(provenance)).digest('hex'),
     releaseEligible: false
+  };
+}
+
+function fixtureIdentity(configMode: 'standalone-synthetic' | 'owner-public-vars') {
+  const raw = {
+    ZENDIO_GA_MEASUREMENT_ID:
+      configMode === 'standalone-synthetic'
+        ? STANDALONE_SYNTHETIC_CONFIG.measurementId
+        : 'G-OWNERPUBLIC1',
+    ZENDIO_GA_PROXY_ENDPOINT:
+      configMode === 'standalone-synthetic'
+        ? STANDALONE_SYNTHETIC_CONFIG.proxyEndpoint
+        : 'https://analytics.example.com/collect',
+    ZENDIO_GA_TRANSPORT_MODE: 'proxy'
+  };
+  const publicConfig = validateReleasePublicBuildConfig({ configMode, environment: raw });
+  const version = publicConfig.policy.sentry.release;
+  return {
+    git: { head: 'a'.repeat(40), tree: 'b'.repeat(40) },
+    packageMetadata: {
+      version,
+      manifestVersion: version,
+      geckoId: 'fixture@example.test'
+    },
+    toolchain: {
+      node: 'v20.20.2',
+      npm: '10.8.2',
+      webExt: '10.4.0',
+      lockSha256: publicConfig.esbuild.lockSha256,
+      esbuild: publicConfig.esbuild
+    },
+    gaConfig: {
+      raw,
+      fingerprints: publicConfig.rawFingerprints,
+      aggregateSha256: publicConfig.fingerprint
+    },
+    buildEnvironment: {
+      policy: 'release-build-env-v1',
+      policyDigest: publicConfig.policyDigest,
+      defaults: publicConfig.policy,
+      configMode
+    }
   };
 }
 
@@ -55,10 +102,16 @@ async function createFixture(options: FixtureOptions = {}) {
   const releaseDir = join(root, 'release');
   const distDir = join(root, 'dist');
   const sourceDir = join(root, 'source');
+  const identity = fixtureIdentity(configMode);
   await mkdir(releaseDir, { mode: 0o700 });
   await mkdir(distDir, { mode: 0o700 });
   await mkdir(sourceDir, { mode: 0o700 });
-  await writeFile(join(distDir, 'manifest.json'), '{"name":"fixture"}\n');
+  const extensionManifest = `${JSON.stringify({
+    name: 'fixture',
+    version: identity.packageMetadata.version,
+    browser_specific_settings: { gecko: { id: 'fixture@example.test' } }
+  })}\n`;
+  await writeFile(join(distDir, 'manifest.json'), extensionManifest);
   await writeFile(join(distDir, 'runtime.js'), 'console.log("fixture");\n');
   await writeFile(join(distDir, 'runtime.js.map'), '{"version":3}\n');
   await writeFile(join(distDir, '.DS_Store'), 'ignored metadata');
@@ -71,7 +124,7 @@ async function createFixture(options: FixtureOptions = {}) {
   await writeFile(
     xpiPath,
     buildZipFixture([
-      { path: 'manifest.json', content: '{"name":"fixture"}\n' },
+      { path: 'manifest.json', content: extensionManifest },
       { path: 'runtime.js', content: 'console.log("fixture");\n' }
     ])
   );
@@ -81,20 +134,19 @@ async function createFixture(options: FixtureOptions = {}) {
   );
   await chmod(xpiPath, 0o600);
   await chmod(sourceArchivePath, 0o600);
+  if (authorization?.authorizationMode === 'attached-ci-provenance-v1') {
+    await writeFile(
+      join(releaseDir, 'ci-provenance.json'),
+      canonicalArtifactJson(authorization.provenance),
+      { mode: 0o600 }
+    );
+  }
   const manifest = await createFirefoxReleaseArtifactManifest({
     releaseDir,
     distDir,
     xpiPath,
     sourceArchivePath,
-    git: { head: 'a'.repeat(40), tree: 'b'.repeat(40) },
-    packageMetadata: {
-      version: '1.0.0',
-      manifestVersion: '1.0.0',
-      geckoId: 'fixture@example.test'
-    },
-    toolchain: { node: 'v20.20.2', npm: '10.8.2', webExt: '10.4.0', lockSha256: 'c'.repeat(64) },
-    gaConfig: { digest: 'd'.repeat(64) },
-    buildEnvironment: { policy: 'release-build-env-v1', configMode },
+    ...identity,
     authorization
   });
   const manifestPath = join(releaseDir, 'manifest.json');
@@ -248,7 +300,7 @@ describe('Firefox release artifact manifest', () => {
   });
 
   it('rejects a malformed owner authorization record before creating release output', async () => {
-    const root = await mkdtemp(join(tmpdir(), 'zendio-firefox-prepare-auth-'));
+    const root = await realpath(await mkdtemp(join(tmpdir(), 'zendio-firefox-prepare-auth-')));
     roots.push(root);
     const authorizationPath = join(root, 'authorization.json');
     await writeFile(authorizationPath, '{}\n', { mode: 0o600 });

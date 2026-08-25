@@ -1,4 +1,12 @@
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  chmodSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  realpathSync,
+  rmSync,
+  writeFileSync
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -6,7 +14,9 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import {
   LOCKED_DEPENDENCY_CRUISER,
+  RELEASE_BUILD_FORBIDDEN_KEYS,
   STANDALONE_SYNTHETIC_CONFIG,
+  runIsolatedReleaseBuild,
   runLockedDependencyCruiser,
   validateReleasePublicBuildConfig
 } from '../../../scripts/utils/releasePublicBuildConfig.mjs';
@@ -100,10 +110,11 @@ describe('locked dependency-cruiser runtime', () => {
     const call = spawn.mock.calls[0];
     if (!call) throw new Error('DEPENDENCY_CRUISER_SPAWN_NOT_OBSERVED');
     const [command, args, options] = call;
+    const canonicalRoot = realpathSync(root);
     expect(command).toBe(process.execPath);
     expect(args.slice(1)).toEqual(LOCKED_DEPENDENCY_CRUISER.argv);
-    expect(args[0]).toBe(join(root, LOCKED_DEPENDENCY_CRUISER.packageRelativeCli));
-    expect(options.cwd).toBe(root);
+    expect(args[0]).toBe(join(canonicalRoot, LOCKED_DEPENDENCY_CRUISER.packageRelativeCli));
+    expect(options.cwd).toBe(canonicalRoot);
     expect(options.shell).toBe(false);
     expect(options.env).not.toHaveProperty('NODE_OPTIONS');
     expect(options.env).not.toHaveProperty('npm_config_registry');
@@ -171,5 +182,83 @@ describe('locked dependency-cruiser runtime', () => {
       configMode: 'standalone-synthetic',
       artifactConfigEligible: false
     });
+    expect(result.policy).toMatchObject({ id: 'release-build-env-v1' });
+    expect(result.esbuild).toMatchObject({
+      platform: process.platform,
+      architecture: process.arch
+    });
+  });
+
+  it('rejects every forbidden release semantic input by own-property presence', () => {
+    for (const key of RELEASE_BUILD_FORBIDDEN_KEYS) {
+      expect(() =>
+        validateReleasePublicBuildConfig({
+          configMode: 'standalone-synthetic',
+          environment: {
+            ZENDIO_GA_MEASUREMENT_ID: STANDALONE_SYNTHETIC_CONFIG.measurementId,
+            ZENDIO_GA_TRANSPORT_MODE: STANDALONE_SYNTHETIC_CONFIG.transportMode,
+            ZENDIO_GA_PROXY_ENDPOINT: STANDALONE_SYNTHETIC_CONFIG.proxyEndpoint,
+            [key]: ''
+          }
+        })
+      ).toThrow(`RELEASE_BUILD_ENVIRONMENT_FORBIDDEN:${key}`);
+    }
+    expect(RELEASE_BUILD_FORBIDDEN_KEYS).toHaveLength(24);
+  });
+
+  it('runs exactly one contained isolated Firefox build and rejects bad paths before spawn', () => {
+    const attemptRoot = realpathSync(mkdtempSync(join(tmpdir(), 'zendio-isolated-build-')));
+    roots.push(attemptRoot);
+    chmodSync(attemptRoot, 0o700);
+    const installRoot = join(attemptRoot, 'install');
+    mkdirSync(installRoot, { mode: 0o700 });
+    for (const name of ['npm-userconfig', 'npm-globalconfig']) {
+      writeFileSync(join(installRoot, name), '', { mode: 0o600 });
+      chmodSync(join(installRoot, name), 0o600);
+    }
+    const environment = {
+      NPM_CONFIG_USERCONFIG: join(installRoot, 'npm-userconfig'),
+      NPM_CONFIG_GLOBALCONFIG: join(installRoot, 'npm-globalconfig')
+    };
+    const distDir = join(attemptRoot, 'dist-firefox');
+    const tempDir = join(attemptRoot, 'build-temp');
+    const spawn = vi.fn((_command: string, args: readonly string[]) => {
+      expect(args).toContain('--firefox');
+      expect(args.slice(-2)).toEqual(['--outdir', distDir]);
+      writeFileSync(join(distDir, 'manifest.json'), '{}\n');
+      return { status: 0, signal: null, stdout: Buffer.alloc(0), stderr: Buffer.alloc(0) };
+    });
+    const result = runIsolatedReleaseBuild(
+      {
+        configMode: 'standalone-synthetic',
+        browser: 'firefox',
+        distDir,
+        tempDir,
+        environment
+      },
+      { spawnSync: spawn }
+    );
+    expect(result).toMatchObject({ browser: 'firefox', distDir, tempDir });
+    expect(spawn).toHaveBeenCalledTimes(1);
+
+    const blocked = vi.fn((_command: string, _args: readonly string[]) => ({
+      status: 0,
+      signal: null,
+      stdout: Buffer.alloc(0),
+      stderr: Buffer.alloc(0)
+    }));
+    expect(() =>
+      runIsolatedReleaseBuild(
+        {
+          configMode: 'standalone-synthetic',
+          browser: 'chrome',
+          distDir: join(attemptRoot, 'nested/dist'),
+          tempDir: join(attemptRoot, 'other-temp'),
+          environment
+        },
+        { spawnSync: blocked }
+      )
+    ).toThrow('RELEASE_BUILD_DIST_INVALID');
+    expect(blocked).not.toHaveBeenCalled();
   });
 });

@@ -1,8 +1,10 @@
 import { execFileSync, spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { lstatSync, readFileSync, realpathSync } from 'node:fs';
+import { chmodSync, lstatSync, mkdirSync, readFileSync, readdirSync, realpathSync } from 'node:fs';
 import { dirname, isAbsolute, join, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
+
+const REPOSITORY_ROOT_FOR_BUILD = resolve(fileURLToPath(new URL('../..', import.meta.url)));
 
 export const RELEASE_PUBLIC_CONFIG_KEYS = Object.freeze([
   'ZENDIO_GA_MEASUREMENT_ID',
@@ -14,6 +16,50 @@ export const RELEASE_PUBLIC_CONFIG_MODES = Object.freeze([
   'standalone-synthetic',
   'owner-public-vars'
 ]);
+
+export const RELEASE_BUILD_FORBIDDEN_KEYS = Object.freeze([
+  'AIIINOB_GA_MEASUREMENT_ID',
+  'AIIINOB_GA_TRANSPORT_MODE',
+  'AIIINOB_GA_PROXY_ENDPOINT',
+  'ZENDIO_SENTRY_DSN',
+  'ZENDIO_SENTRY_ENVIRONMENT',
+  'ZENDIO_SENTRY_RELEASE',
+  'ZENDIO_SENTRY_ENABLED',
+  'AIIINOB_SENTRY_DSN',
+  'AIIINOB_SENTRY_ENVIRONMENT',
+  'AIIINOB_SENTRY_RELEASE',
+  'AIIINOB_SENTRY_ENABLED',
+  'ZENDIO_REST_HTTPS_HOST',
+  'ZENDIO_REST_HTTPS_PORT',
+  'ZENDIO_REST_HTTP_HOST',
+  'ZENDIO_REST_HTTP_PORT',
+  'AIIINOB_REST_HTTPS_HOST',
+  'AIIINOB_REST_HTTPS_PORT',
+  'AIIINOB_REST_HTTP_HOST',
+  'AIIINOB_REST_HTTP_PORT',
+  'BUILD_DIST_DIR',
+  'ESBUILD_BINARY_PATH',
+  'ESBUILD_WORKER_THREADS',
+  'ESBUILD_MAX_BUFFER',
+  'NODE_OPTIONS'
+]);
+
+export const RELEASE_BUILD_ENVIRONMENT_POLICY = Object.freeze({
+  id: 'release-build-env-v1',
+  sentry: Object.freeze({
+    dsn: '',
+    enabled: false,
+    environment: 'production',
+    release: 'package-version'
+  }),
+  hostPermissions: Object.freeze([
+    '<all_urls>',
+    'http://127.0.0.1/*',
+    'https://127.0.0.1/*',
+    'https://127.0.0.1:27124/*',
+    'http://127.0.0.1:27123/*'
+  ])
+});
 
 export const STANDALONE_SYNTHETIC_CONFIG = Object.freeze({
   measurementId: 'G-ZENDIOFIXTURE1',
@@ -80,6 +126,84 @@ function readPublicEnvironment(environment) {
   });
 }
 
+function assertClosedReleaseEnvironment(environment) {
+  for (const key of RELEASE_BUILD_FORBIDDEN_KEYS) {
+    if (Object.hasOwn(environment, key)) fail('RELEASE_BUILD_ENVIRONMENT_FORBIDDEN', key);
+  }
+  for (const key of Object.keys(environment)) {
+    const lower = key.toLowerCase();
+    if (lower.startsWith('npm_config_')) {
+      if (
+        !['npm_config_userconfig', 'npm_config_globalconfig'].includes(lower) ||
+        (lower === 'npm_config_userconfig' && key !== 'NPM_CONFIG_USERCONFIG') ||
+        (lower === 'npm_config_globalconfig' && key !== 'NPM_CONFIG_GLOBALCONFIG')
+      )
+        fail('RELEASE_BUILD_NPM_CONFIG_FORBIDDEN', key);
+    }
+  }
+}
+
+function platformPackageName(platform = process.platform, architecture = process.arch) {
+  const platformName = platform === 'win32' ? 'win32' : platform;
+  const architectureName =
+    architecture === 'x64' || architecture === 'arm64' ? architecture : architecture;
+  return `@esbuild/${platformName}-${architectureName}`;
+}
+
+export function resolveReleaseEsbuildIdentity(repoRoot = REPOSITORY_ROOT_FOR_BUILD) {
+  const root = realpathSync(repoRoot);
+  const lockBytes = readFileSync(join(root, 'package-lock.json'));
+  const lock = JSON.parse(lockBytes.toString('utf8'));
+  const jsBytes = readFileSync(join(root, 'node_modules/esbuild/package.json'));
+  const jsPackage = JSON.parse(jsBytes.toString('utf8'));
+  const platformName = platformPackageName();
+  const platformRelative = `node_modules/${platformName}`;
+  const platformBytes = readFileSync(join(root, platformRelative, 'package.json'));
+  const platformPackage = JSON.parse(platformBytes.toString('utf8'));
+  const lockJs = lock.packages?.['node_modules/esbuild'];
+  const lockPlatform = lock.packages?.[platformRelative];
+  if (
+    jsPackage.name !== 'esbuild' ||
+    jsPackage.version !== '0.28.1' ||
+    lockJs?.version !== jsPackage.version ||
+    lockJs?.optionalDependencies?.[platformName] !== jsPackage.version ||
+    platformPackage.name !== platformName ||
+    platformPackage.version !== jsPackage.version ||
+    lockPlatform?.version !== jsPackage.version ||
+    lockPlatform?.optional !== true
+  )
+    fail('RELEASE_ESBUILD_IDENTITY_INVALID');
+  const packageRoot = realpathSync(join(root, platformRelative));
+  const executablePath = join(packageRoot, 'bin/esbuild');
+  const executableStat = lstatSync(executablePath);
+  if (
+    !executableStat.isFile() ||
+    executableStat.isSymbolicLink() ||
+    (executableStat.mode & 0o111) === 0 ||
+    realpathSync(executablePath) !== executablePath
+  )
+    fail('RELEASE_ESBUILD_EXECUTABLE_INVALID');
+  const executableBytes = readFileSync(executablePath);
+  return Object.freeze({
+    platform: process.platform,
+    architecture: process.arch,
+    jsPackage: Object.freeze({
+      name: 'esbuild',
+      version: jsPackage.version,
+      packageJsonSha256: sha256(jsBytes)
+    }),
+    platformPackage: Object.freeze({
+      name: platformName,
+      version: platformPackage.version,
+      packageJsonSha256: sha256(platformBytes),
+      executableRelativePath: `${platformRelative}/bin/esbuild`,
+      executableSize: executableBytes.length,
+      executableSha256: sha256(executableBytes)
+    }),
+    lockSha256: sha256(lockBytes)
+  });
+}
+
 function validateProxyEndpoint(raw, { allowInvalidHost }) {
   if (typeof raw !== 'string' || raw.length === 0 || raw.length > 2048) {
     fail('RELEASE_PUBLIC_PROXY_ENDPOINT_INVALID');
@@ -110,11 +234,18 @@ function validateProxyEndpoint(raw, { allowInvalidHost }) {
   return url.href;
 }
 
-export function validateReleasePublicBuildConfig({ configMode, environment }) {
+export function validateReleasePublicBuildConfig({
+  configMode,
+  environment,
+  repoRoot = process.cwd()
+}) {
   if (!RELEASE_PUBLIC_CONFIG_MODES.includes(configMode)) {
     fail('RELEASE_PUBLIC_CONFIG_MODE_INVALID');
   }
   if (!environment || typeof environment !== 'object') fail('RELEASE_PUBLIC_ENV_INVALID');
+  if (realpathSync(repoRoot) !== realpathSync(REPOSITORY_ROOT_FOR_BUILD))
+    fail('RELEASE_PUBLIC_REPOSITORY_ROOT_INVALID');
+  assertClosedReleaseEnvironment(environment);
   const raw = readPublicEnvironment(environment);
   if (raw.transportMode !== 'proxy') fail('RELEASE_PUBLIC_TRANSPORT_MODE_INVALID');
   if (typeof raw.measurementId !== 'string' || !/^G-[A-Z0-9]{6,32}$/u.test(raw.measurementId)) {
@@ -142,11 +273,30 @@ export function validateReleasePublicBuildConfig({ configMode, environment }) {
     transportMode: raw.transportMode,
     proxyEndpoint
   });
+  const rawValues = Object.freeze({
+    ZENDIO_GA_MEASUREMENT_ID: raw.measurementId,
+    ZENDIO_GA_TRANSPORT_MODE: raw.transportMode,
+    ZENDIO_GA_PROXY_ENDPOINT: raw.proxyEndpoint
+  });
+  const policy = Object.freeze({
+    ...RELEASE_BUILD_ENVIRONMENT_POLICY,
+    sentry: Object.freeze({
+      ...RELEASE_BUILD_ENVIRONMENT_POLICY.sentry,
+      release: JSON.parse(readFileSync(join(repoRoot, 'package.json'), 'utf8')).version
+    })
+  });
   return Object.freeze({
     configMode,
     values: canonical,
     fingerprint: sha256(Buffer.from(canonicalJson(canonical))),
-    artifactConfigEligible: configMode === 'owner-public-vars'
+    rawValues,
+    rawFingerprints: Object.freeze(
+      Object.fromEntries(Object.entries(rawValues).map(([key, value]) => [key, sha256(value)]))
+    ),
+    artifactConfigEligible: configMode === 'owner-public-vars',
+    policy,
+    policyDigest: sha256(Buffer.from(canonicalJson(policy))),
+    esbuild: resolveReleaseEsbuildIdentity(repoRoot)
   });
 }
 
@@ -251,6 +401,173 @@ function closedChildEnvironment(environment = process.env) {
   return result;
 }
 
+function assertPrivateDirectory(path, code) {
+  const stats = lstatSync(path);
+  if (
+    !stats.isDirectory() ||
+    stats.isSymbolicLink() ||
+    stats.uid !== process.getuid?.() ||
+    (stats.mode & 0o777) !== 0o700 ||
+    realpathSync(path) !== path
+  )
+    fail(code);
+  return path;
+}
+
+function releaseAttemptFromNpmConfigs(environment) {
+  const userconfig = environment.NPM_CONFIG_USERCONFIG;
+  const globalconfig = environment.NPM_CONFIG_GLOBALCONFIG;
+  if (
+    typeof userconfig !== 'string' ||
+    typeof globalconfig !== 'string' ||
+    !isAbsolute(userconfig) ||
+    !isAbsolute(globalconfig) ||
+    resolve(userconfig) !== userconfig ||
+    resolve(globalconfig) !== globalconfig ||
+    dirname(userconfig) !== dirname(globalconfig) ||
+    userconfig !== join(dirname(userconfig), 'npm-userconfig') ||
+    globalconfig !== join(dirname(globalconfig), 'npm-globalconfig') ||
+    dirname(userconfig) !== join(dirname(dirname(userconfig)), 'install')
+  )
+    fail('RELEASE_BUILD_ATTEMPT_AUTHORITY_INVALID');
+  const root = assertPrivateDirectory(
+    dirname(dirname(userconfig)),
+    'RELEASE_BUILD_ATTEMPT_INVALID'
+  );
+  assertPrivateDirectory(dirname(userconfig), 'RELEASE_BUILD_INSTALL_ROOT_INVALID');
+  for (const path of [userconfig, globalconfig]) {
+    const stat = lstatSync(path);
+    if (
+      !stat.isFile() ||
+      stat.isSymbolicLink() ||
+      stat.uid !== process.getuid?.() ||
+      stat.nlink !== 1 ||
+      (stat.mode & 0o777) !== 0o600 ||
+      readFileSync(path).length !== 0 ||
+      realpathSync(path) !== path
+    )
+      fail('RELEASE_BUILD_ATTEMPT_AUTHORITY_INVALID');
+  }
+  return root;
+}
+
+function requireAbsentDirectChild(root, path, code) {
+  if (
+    typeof path !== 'string' ||
+    !isAbsolute(path) ||
+    resolve(path) !== path ||
+    dirname(path) !== root
+  )
+    fail(code);
+  try {
+    lstatSync(path);
+    fail(code, 'preexists');
+  } catch (error) {
+    if (error?.code !== 'ENOENT') throw error;
+  }
+  return path;
+}
+
+function assertClosedOwnedTree(root) {
+  assertPrivateDirectory(root, 'RELEASE_BUILD_OUTPUT_INVALID');
+  const visit = (directory) => {
+    for (const entry of readdirSync(directory, { withFileTypes: true })) {
+      const path = join(directory, entry.name);
+      const stat = lstatSync(path);
+      if (stat.isSymbolicLink() || stat.uid !== process.getuid?.())
+        fail('RELEASE_BUILD_OUTPUT_INVALID');
+      if (entry.isDirectory()) visit(path);
+      else if (!entry.isFile()) fail('RELEASE_BUILD_OUTPUT_INVALID');
+    }
+  };
+  visit(root);
+}
+
+export function runIsolatedReleaseBuild(options, dependencies = {}) {
+  const environment = options?.environment ?? process.env;
+  const configMode = options?.configMode;
+  const browser = options?.browser;
+  if (!['chrome', 'firefox'].includes(browser)) fail('RELEASE_BUILD_BROWSER_INVALID');
+  const attemptRoot = releaseAttemptFromNpmConfigs(environment);
+  const distDir = requireAbsentDirectChild(
+    attemptRoot,
+    options?.distDir,
+    'RELEASE_BUILD_DIST_INVALID'
+  );
+  const tempDir = requireAbsentDirectChild(
+    attemptRoot,
+    options?.tempDir,
+    'RELEASE_BUILD_TEMP_INVALID'
+  );
+  if (distDir === tempDir) fail('RELEASE_BUILD_PATH_ALIAS');
+  const effectiveEnvironment =
+    configMode === 'standalone-synthetic'
+      ? {
+          ...environment,
+          ...Object.fromEntries(RELEASE_PUBLIC_CONFIG_KEYS.map((key) => [key, undefined])),
+          ZENDIO_GA_MEASUREMENT_ID: STANDALONE_SYNTHETIC_CONFIG.measurementId,
+          ZENDIO_GA_TRANSPORT_MODE: STANDALONE_SYNTHETIC_CONFIG.transportMode,
+          ZENDIO_GA_PROXY_ENDPOINT: STANDALONE_SYNTHETIC_CONFIG.proxyEndpoint
+        }
+      : environment;
+  const config = validateReleasePublicBuildConfig({
+    configMode,
+    environment: effectiveEnvironment,
+    repoRoot: REPOSITORY_ROOT_FOR_BUILD
+  });
+  mkdirSync(tempDir, { mode: 0o700 });
+  chmodSync(tempDir, 0o700);
+  assertPrivateDirectory(tempDir, 'RELEASE_BUILD_TEMP_INVALID');
+  mkdirSync(distDir, { mode: 0o700 });
+  chmodSync(distDir, 0o700);
+  assertPrivateDirectory(distDir, 'RELEASE_BUILD_DIST_INVALID');
+  const buildScript = join(REPOSITORY_ROOT_FOR_BUILD, 'scripts/build.mjs');
+  const scriptStat = lstatSync(buildScript);
+  if (
+    !scriptStat.isFile() ||
+    scriptStat.isSymbolicLink() ||
+    realpathSync(buildScript) !== buildScript
+  )
+    fail('RELEASE_BUILD_SCRIPT_INVALID');
+  const argv = [
+    buildScript,
+    '--mode=prod',
+    '--skip-checks',
+    ...(browser === 'firefox' ? ['--firefox'] : []),
+    '--outdir',
+    distDir
+  ];
+  const childEnvironment = Object.freeze({
+    HOME: tempDir,
+    TMPDIR: tempDir,
+    TMP: tempDir,
+    TEMP: tempDir,
+    PATH: `${dirname(process.execPath)}:/usr/bin:/bin`,
+    LANG: 'C',
+    LC_ALL: 'C',
+    TZ: 'UTC',
+    CI: '1',
+    ...config.rawValues
+  });
+  const spawn = dependencies.spawnSync ?? spawnSync;
+  const result = spawn(process.execPath, argv, {
+    cwd: REPOSITORY_ROOT_FOR_BUILD,
+    env: childEnvironment,
+    encoding: null,
+    shell: false,
+    timeout: 630_000,
+    maxBuffer: 32 * 1024 * 1024
+  });
+  if (result.error) fail('RELEASE_BUILD_SPAWN_FAILED', result.error.message);
+  if (result.signal) fail('RELEASE_BUILD_SIGNAL', result.signal);
+  if (result.status !== 0) fail('RELEASE_BUILD_EXIT', String(result.status));
+  chmodSync(distDir, 0o700);
+  assertClosedOwnedTree(distDir);
+  if (readdirSync(distDir).length === 0) fail('RELEASE_BUILD_OUTPUT_EMPTY');
+  assertPrivateDirectory(tempDir, 'RELEASE_BUILD_TEMP_INVALID');
+  return Object.freeze({ browser, attemptRoot, distDir, tempDir, config, argv, childEnvironment });
+}
+
 export function runLockedDependencyCruiser(options = {}, dependencies = {}) {
   const repoRoot = options.repoRoot ?? process.cwd();
   if (!isAbsolute(repoRoot)) fail('DEPENDENCY_CRUISER_ROOT_NOT_ABSOLUTE');
@@ -289,7 +606,7 @@ function parseClosedArgs(args) {
   for (let index = 0; index < args.length; index += 1) {
     const flag = args[index];
     if (!flag.startsWith('--') || values.has(flag)) fail('RELEASE_PUBLIC_ARGUMENT_INVALID', flag);
-    if (flag === '--check') {
+    if (flag === '--check' || flag === '--run-isolated-build') {
       values.set(flag, true);
       continue;
     }
@@ -303,19 +620,40 @@ function parseClosedArgs(args) {
 
 async function main(args = process.argv.slice(2)) {
   const parsed = parseClosedArgs(args);
-  if (parsed.size !== 2 || parsed.get('--check') !== true || !parsed.has('--config-mode')) {
-    fail('RELEASE_PUBLIC_ARGUMENT_SET_INVALID');
+  if (parsed.get('--run-isolated-build') === true) {
+    if (
+      parsed.size !== 5 ||
+      !parsed.has('--config-mode') ||
+      !parsed.has('--browser') ||
+      !parsed.has('--dist-dir') ||
+      !parsed.has('--temp-dir')
+    )
+      fail('RELEASE_PUBLIC_ARGUMENT_SET_INVALID');
+    const result = runIsolatedReleaseBuild({
+      configMode: parsed.get('--config-mode'),
+      browser: parsed.get('--browser'),
+      distDir: parsed.get('--dist-dir'),
+      tempDir: parsed.get('--temp-dir'),
+      environment: process.env
+    });
+    console.log(`RELEASE_ISOLATED_BUILD_OK browser=${result.browser} dist=${result.distDir}`);
+    return;
   }
+  if (parsed.size !== 2 || parsed.get('--check') !== true || !parsed.has('--config-mode'))
+    fail('RELEASE_PUBLIC_ARGUMENT_SET_INVALID');
+  const configMode = parsed.get('--config-mode');
   const result = validateReleasePublicBuildConfig({
-    configMode: parsed.get('--config-mode'),
+    configMode,
     environment:
-      parsed.get('--config-mode') === 'standalone-synthetic'
+      configMode === 'standalone-synthetic'
         ? {
+            ...process.env,
             ZENDIO_GA_MEASUREMENT_ID: STANDALONE_SYNTHETIC_CONFIG.measurementId,
             ZENDIO_GA_TRANSPORT_MODE: STANDALONE_SYNTHETIC_CONFIG.transportMode,
             ZENDIO_GA_PROXY_ENDPOINT: STANDALONE_SYNTHETIC_CONFIG.proxyEndpoint
           }
-        : process.env
+        : process.env,
+    repoRoot: REPOSITORY_ROOT_FOR_BUILD
   });
   console.log(
     `RELEASE_PUBLIC_CONFIG_OK mode=${result.configMode} artifactConfigEligible=${String(result.artifactConfigEligible)}`
