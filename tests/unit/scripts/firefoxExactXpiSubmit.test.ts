@@ -1,4 +1,5 @@
-import { chmod, mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { createHash } from 'node:crypto';
+import { chmod, mkdir, mkdtemp, readFile, realpath, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -12,12 +13,56 @@ import {
   FIREFOX_AMO_API_BASE_URL,
   FIREFOX_SUBMISSION_LIMITS,
   FIREFOX_SUBMISSION_MUTATIONS,
+  hashVerifiedXpiCrcs,
   submitVerifiedFirefoxXpi
 } from '../../../scripts/utils/firefoxExactXpiSubmit.mjs';
+import {
+  STANDALONE_SYNTHETIC_CONFIG,
+  validateReleasePublicBuildConfig
+} from '../../../scripts/utils/releasePublicBuildConfig.mjs';
 
 const roots: string[] = [];
 type MutationOperation = 'upload' | 'version-submit' | 'source-patch';
 type FailurePoint = { stage: 'before' | 'request' | 'after'; operation: MutationOperation };
+
+function fixtureIdentity() {
+  const raw = {
+    ZENDIO_GA_MEASUREMENT_ID: STANDALONE_SYNTHETIC_CONFIG.measurementId,
+    ZENDIO_GA_PROXY_ENDPOINT: STANDALONE_SYNTHETIC_CONFIG.proxyEndpoint,
+    ZENDIO_GA_TRANSPORT_MODE: 'proxy'
+  };
+  const publicConfig = validateReleasePublicBuildConfig({
+    configMode: 'standalone-synthetic',
+    environment: raw
+  });
+  const version = publicConfig.policy.sentry.release;
+  return {
+    git: { head: 'a'.repeat(40), tree: 'b'.repeat(40) },
+    packageMetadata: {
+      version,
+      manifestVersion: version,
+      geckoId: 'fixture@example.test'
+    },
+    toolchain: {
+      node: 'v20.20.2',
+      npm: '10.8.2',
+      webExt: '10.4.0',
+      lockSha256: publicConfig.esbuild.lockSha256,
+      esbuild: publicConfig.esbuild
+    },
+    gaConfig: {
+      raw,
+      fingerprints: publicConfig.rawFingerprints,
+      aggregateSha256: publicConfig.fingerprint
+    },
+    buildEnvironment: {
+      policy: 'release-build-env-v1',
+      policyDigest: publicConfig.policyDigest,
+      defaults: publicConfig.policy,
+      configMode: 'standalone-synthetic'
+    }
+  };
+}
 
 function failAt(
   failure: FailurePoint | undefined,
@@ -39,6 +84,10 @@ function createMutationJournal(events: string[], failure?: FailurePoint) {
     afterMutation: vi.fn((operation: MutationOperation): Promise<void> => {
       events.push(`after:${operation}`);
       failAt(failure, 'after', operation);
+      return Promise.resolve();
+    }),
+    mutationInvoked: vi.fn((operation: MutationOperation): Promise<void> => {
+      events.push(`invoked:${operation}`);
       return Promise.resolve();
     })
   };
@@ -105,17 +154,26 @@ function createSubmissionHarness(failure?: FailurePoint) {
 }
 
 async function createBoundRelease() {
-  const root = await mkdtemp(join(tmpdir(), 'zendio-firefox-submit-'));
+  const root = await realpath(await mkdtemp(join(tmpdir(), 'zendio-firefox-submit-')));
   roots.push(root);
   const releaseDir = join(root, 'release');
   const distDir = join(root, 'dist');
   const sourceDir = join(root, 'source');
+  const identity = fixtureIdentity();
   await Promise.all([releaseDir, distDir, sourceDir].map((path) => mkdir(path, { mode: 0o700 })));
-  await writeFile(join(distDir, 'manifest.json'), '{}\n');
+  const extensionManifest = `${JSON.stringify({
+    name: 'fixture',
+    version: identity.packageMetadata.version,
+    browser_specific_settings: { gecko: { id: 'fixture@example.test' } }
+  })}\n`;
+  await writeFile(join(distDir, 'manifest.json'), extensionManifest);
   await writeFile(join(sourceDir, 'README.md'), '# source\n');
   const xpiPath = join(releaseDir, 'fixture.xpi');
   const sourcePath = join(releaseDir, 'fixture-source.zip');
-  await writeFile(xpiPath, buildZipFixture([{ path: 'manifest.json', content: '{}\n' }]));
+  await writeFile(
+    xpiPath,
+    buildZipFixture([{ path: 'manifest.json', content: extensionManifest }])
+  );
   await writeFile(sourcePath, buildZipFixture([{ path: 'README.md', content: '# source\n' }]));
   await chmod(xpiPath, 0o600);
   await chmod(sourcePath, 0o600);
@@ -124,11 +182,7 @@ async function createBoundRelease() {
     distDir,
     xpiPath,
     sourceArchivePath: sourcePath,
-    git: {},
-    packageMetadata: { geckoId: 'fixture@example.test' },
-    toolchain: {},
-    gaConfig: {},
-    buildEnvironment: { configMode: 'standalone-synthetic' }
+    ...identity
   });
   const manifestPath = join(releaseDir, 'manifest.json');
   await writeFile(manifestPath, canonicalArtifactJson(manifest), { mode: 0o600 });
@@ -137,9 +191,21 @@ async function createBoundRelease() {
     transportMode: 'local-private-v1',
     expectedAttemptRoot: root
   });
-  const downloadDir = join(releaseDir, 'download');
+  const stateRoot = join(root, 'store-state/firefox');
+  const uuidRoot = join(stateRoot, 'web-ext-upload');
+  const downloadDir = join(stateRoot, 'downloads');
+  await mkdir(uuidRoot, { recursive: true, mode: 0o700 });
+  await chmod(stateRoot, 0o700);
+  await chmod(uuidRoot, 0o700);
   await mkdir(downloadDir, { mode: 0o700 });
-  return { binding, downloadDir, releaseDir, sourcePath };
+  return {
+    binding,
+    downloadDir,
+    releaseDir,
+    sourcePath,
+    version: identity.packageMetadata.version,
+    uuidPath: join(uuidRoot, 'upload-uuid.json')
+  };
 }
 
 afterEach(async () => {
@@ -161,7 +227,7 @@ describe('exact-XPI submission adapter', () => {
         id: fixture.binding.geckoId,
         amoBaseUrl: FIREFOX_AMO_API_BASE_URL,
         submissionSource: fixture.sourcePath,
-        savedUploadUuidPath: join(fixture.releaseDir, 'upload-state.json'),
+        savedUploadUuidPath: fixture.uuidPath,
         downloadDir: fixture.downloadDir,
         credentials: { apiKey: 'key', apiSecret: 'secret' },
         mutationJournal: harness.journal
@@ -170,17 +236,86 @@ describe('exact-XPI submission adapter', () => {
     expect(harness.events).toEqual([
       'before:upload',
       'request:upload',
+      'invoked:upload',
       'after:upload',
       'request:validation-read',
       'before:version-submit',
       'request:version-submit',
+      'invoked:version-submit',
       'after:version-submit',
       'before:source-patch',
       'request:source-patch',
+      'invoked:source-patch',
       'after:source-patch'
     ]);
     expect(harness.journal.beforeMutation).toHaveBeenCalledTimes(3);
     expect(harness.journal.afterMutation).toHaveBeenCalledTimes(3);
+    expect(harness.journal.mutationInvoked).toHaveBeenCalledTimes(3);
+    expect(JSON.parse(await readFile(fixture.uuidPath, 'utf8'))).toEqual({
+      uploadUuid: 'upload-uuid',
+      channel: 'listed',
+      xpiCrcHash: await hashVerifiedXpiCrcs(fixture.binding)
+    });
+    expect(await readFile(fixture.uuidPath, 'utf8')).toBe(
+      canonicalArtifactJson({
+        uploadUuid: 'upload-uuid',
+        channel: 'listed',
+        xpiCrcHash: await hashVerifiedXpiCrcs(fixture.binding)
+      })
+    );
+  });
+
+  it('treats upload/validation UUID drift as unknown state and admits no later mutation', async () => {
+    const fixture = await createBoundRelease();
+    const events: string[] = [];
+    const journal = createMutationJournal(events);
+    const fetchMock = vi.fn((url: URL, init?: RequestInit): Promise<Response> => {
+      const method = init?.method ?? 'GET';
+      if (method === 'POST' && url.pathname.endsWith('/addons/upload/')) {
+        events.push('request:upload');
+        return Promise.resolve(
+          new Response(JSON.stringify({ uuid: 'upload-uuid' }), { status: 200 })
+        );
+      }
+      if (method === 'GET' && url.pathname.endsWith('/addons/upload/upload-uuid/')) {
+        events.push('request:validation-read');
+        return Promise.resolve(
+          new Response(
+            JSON.stringify({
+              processed: true,
+              valid: true,
+              uuid: 'different-uuid',
+              validation: { errors: 0 }
+            }),
+            { status: 200 }
+          )
+        );
+      }
+      throw new Error(`unexpected:${method}:${url.href}`);
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(
+      submitVerifiedFirefoxXpi({
+        binding: fixture.binding,
+        transportMode: 'local-private-v1',
+        channel: 'listed',
+        id: fixture.binding.geckoId,
+        amoBaseUrl: FIREFOX_AMO_API_BASE_URL,
+        submissionSource: fixture.sourcePath,
+        savedUploadUuidPath: fixture.uuidPath,
+        downloadDir: fixture.downloadDir,
+        credentials: { apiKey: 'key', apiSecret: 'secret' },
+        mutationJournal: journal
+      })
+    ).rejects.toMatchObject({ code: 'unknown-submission-state', retrySafe: false });
+    expect(events.filter((event) => event.startsWith('request:'))).toEqual([
+      'request:upload',
+      'request:validation-read'
+    ]);
+    expect(journal.beforeMutation).toHaveBeenCalledTimes(1);
+    expect(journal.afterMutation).toHaveBeenCalledTimes(1);
+    await expect(readFile(fixture.uuidPath)).rejects.toMatchObject({ code: 'ENOENT' });
   });
 
   it.each([
@@ -277,7 +412,7 @@ describe('exact-XPI submission adapter', () => {
           id: fixture.binding.geckoId,
           amoBaseUrl: FIREFOX_AMO_API_BASE_URL,
           submissionSource: fixture.sourcePath,
-          savedUploadUuidPath: join(fixture.releaseDir, 'upload-state.json'),
+          savedUploadUuidPath: fixture.uuidPath,
           downloadDir: fixture.downloadDir,
           credentials: { apiKey: 'key', apiSecret: 'secret' },
           mutationJournal: harness.journal
@@ -294,7 +429,8 @@ describe('exact-XPI submission adapter', () => {
       const credentialRead = vi.fn();
       const journal = {
         beforeMutation: vi.fn(),
-        afterMutation: vi.fn()
+        afterMutation: vi.fn(),
+        mutationInvoked: vi.fn()
       };
       const fetchMock = vi.fn();
       vi.stubGlobal('fetch', fetchMock);
@@ -323,7 +459,7 @@ describe('exact-XPI submission adapter', () => {
             id: fixture.binding.geckoId,
             amoBaseUrl: FIREFOX_AMO_API_BASE_URL,
             submissionSource: fixture.sourcePath,
-            savedUploadUuidPath: join(fixture.releaseDir, 'upload-state.json'),
+            savedUploadUuidPath: fixture.uuidPath,
             downloadDir: fixture.downloadDir,
             credentials: {
               get apiKey() {
@@ -355,7 +491,7 @@ describe('exact-XPI submission adapter', () => {
           id: fixture.binding.geckoId,
           amoBaseUrl: FIREFOX_AMO_API_BASE_URL,
           submissionSource: fixture.sourcePath,
-          savedUploadUuidPath: join(fixture.releaseDir, 'upload-state.json'),
+          savedUploadUuidPath: fixture.uuidPath,
           downloadDir: fixture.downloadDir,
           credentials: { apiKey: 'key', apiSecret: 'secret' },
           mutationJournal: harness.journal
@@ -388,7 +524,7 @@ describe('exact-XPI submission adapter', () => {
       id: fixture.binding.geckoId,
       amoBaseUrl: FIREFOX_AMO_API_BASE_URL,
       submissionSource: fixture.sourcePath,
-      savedUploadUuidPath: join(fixture.releaseDir, 'upload-state.json'),
+      savedUploadUuidPath: fixture.uuidPath,
       downloadDir: fixture.downloadDir,
       credentials: { apiKey: 'key', apiSecret: 'secret' },
       mutationJournal: journal
@@ -426,7 +562,7 @@ describe('exact-XPI submission adapter', () => {
         id: leftFixture.binding.geckoId,
         amoBaseUrl: FIREFOX_AMO_API_BASE_URL,
         submissionSource: leftFixture.sourcePath,
-        savedUploadUuidPath: join(leftFixture.releaseDir, 'upload-state.json'),
+        savedUploadUuidPath: leftFixture.uuidPath,
         downloadDir: leftFixture.downloadDir,
         credentials: { apiKey: 'left-key', apiSecret: 'left-secret' },
         mutationJournal: leftJournal
@@ -438,7 +574,7 @@ describe('exact-XPI submission adapter', () => {
         id: rightFixture.binding.geckoId,
         amoBaseUrl: FIREFOX_AMO_API_BASE_URL,
         submissionSource: rightFixture.sourcePath,
-        savedUploadUuidPath: join(rightFixture.releaseDir, 'upload-state.json'),
+        savedUploadUuidPath: rightFixture.uuidPath,
         downloadDir: rightFixture.downloadDir,
         credentials: { apiKey: 'right-key', apiSecret: 'right-secret' },
         mutationJournal: rightJournal
@@ -446,10 +582,13 @@ describe('exact-XPI submission adapter', () => {
     ]);
     expect(leftEvents).toEqual([
       'before:upload',
+      'invoked:upload',
       'after:upload',
       'before:version-submit',
+      'invoked:version-submit',
       'after:version-submit',
       'before:source-patch',
+      'invoked:source-patch',
       'after:source-patch'
     ]);
     expect(rightEvents).toEqual(leftEvents);
@@ -467,7 +606,8 @@ describe('exact-XPI submission adapter', () => {
     const credentialRead = vi.fn();
     const journal = {
       beforeMutation: vi.fn(),
-      afterMutation: vi.fn()
+      afterMutation: vi.fn(),
+      mutationInvoked: vi.fn()
     };
     const fetchMock = vi.fn();
     vi.stubGlobal('fetch', fetchMock);
@@ -480,7 +620,7 @@ describe('exact-XPI submission adapter', () => {
         id: fixture.binding.geckoId,
         amoBaseUrl: FIREFOX_AMO_API_BASE_URL,
         submissionSource: substitutePath,
-        savedUploadUuidPath: join(fixture.releaseDir, 'upload-state.json'),
+        savedUploadUuidPath: fixture.uuidPath,
         downloadDir: fixture.downloadDir,
         credentials: {
           get apiKey() {
@@ -510,7 +650,8 @@ describe('exact-XPI submission adapter', () => {
     const credentialRead = vi.fn();
     const journal = {
       beforeMutation: vi.fn(),
-      afterMutation: vi.fn()
+      afterMutation: vi.fn(),
+      mutationInvoked: vi.fn()
     };
     const fetchMock = vi.fn();
     vi.stubGlobal('fetch', fetchMock);
@@ -523,7 +664,7 @@ describe('exact-XPI submission adapter', () => {
         id: fixture.binding.geckoId,
         amoBaseUrl: FIREFOX_AMO_API_BASE_URL,
         submissionSource: fixture.sourcePath,
-        savedUploadUuidPath: join(fixture.releaseDir, 'upload-state.json'),
+        savedUploadUuidPath: fixture.uuidPath,
         downloadDir: fixture.downloadDir,
         credentials: {
           get apiKey() {
@@ -568,17 +709,134 @@ describe('exact-XPI submission adapter', () => {
         id: fixture.binding.geckoId,
         amoBaseUrl: FIREFOX_AMO_API_BASE_URL,
         submissionSource: fixture.sourcePath,
-        savedUploadUuidPath: join(fixture.releaseDir, 'upload-state.json'),
+        savedUploadUuidPath: fixture.uuidPath,
         downloadDir: fixture.downloadDir,
         credentials,
         mutationJournal: {
           beforeMutation: vi.fn(),
-          afterMutation: vi.fn()
+          afterMutation: vi.fn(),
+          mutationInvoked: vi.fn()
         }
       })
     ).rejects.toThrow('FIREFOX_RELEASE_BINDING_INVALID');
     expect(credentialRead).not.toHaveBeenCalled();
     expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('rejects preexisting or cross-topology state before credentials or network access', async () => {
+    const fixture = await createBoundRelease();
+    await writeFile(fixture.uuidPath, 'occupied', { mode: 0o600 });
+    const fetchMock = vi.fn();
+    vi.stubGlobal('fetch', fetchMock);
+    await expect(
+      submitVerifiedFirefoxXpi({
+        binding: fixture.binding,
+        transportMode: 'local-private-v1',
+        channel: 'listed',
+        id: fixture.binding.geckoId,
+        amoBaseUrl: FIREFOX_AMO_API_BASE_URL,
+        submissionSource: fixture.sourcePath,
+        savedUploadUuidPath: fixture.uuidPath,
+        downloadDir: fixture.downloadDir,
+        credentials: { apiKey: 'key', apiSecret: 'secret' },
+        mutationJournal: createMutationJournal([])
+      })
+    ).rejects.toThrow('FIREFOX_SUBMIT_TARGET_EXISTS');
+    expect(fetchMock).not.toHaveBeenCalled();
+
+    const cross = await createBoundRelease();
+    await expect(
+      submitVerifiedFirefoxXpi({
+        binding: cross.binding,
+        transportMode: 'local-private-v1',
+        channel: 'listed',
+        id: cross.binding.geckoId,
+        amoBaseUrl: FIREFOX_AMO_API_BASE_URL,
+        submissionSource: cross.sourcePath,
+        savedUploadUuidPath: cross.uuidPath,
+        downloadDir: fixture.downloadDir,
+        credentials: { apiKey: 'key', apiSecret: 'secret' },
+        mutationJournal: createMutationJournal([])
+      })
+    ).rejects.toThrow('FIREFOX_SUBMIT_STATE_TOPOLOGY');
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('downloads and audits exactly one bounded unlisted signed XPI without redirect auth leakage', async () => {
+    const fixture = await createBoundRelease();
+    const signed = buildZipFixture([
+      {
+        path: 'manifest.json',
+        content: `${JSON.stringify({
+          name: 'fixture',
+          version: fixture.version,
+          browser_specific_settings: { gecko: { id: fixture.binding.geckoId } }
+        })}\n`
+      }
+    ]);
+    const harness = createMutationJournal([]);
+    const fetchMock = vi.fn((url: URL, init?: RequestInit): Promise<Response> => {
+      const method = init?.method ?? 'GET';
+      if (method === 'POST' && url.pathname.endsWith('/addons/upload/'))
+        return Promise.resolve(
+          new Response(JSON.stringify({ uuid: 'upload-uuid' }), { status: 200 })
+        );
+      if (method === 'GET' && url.pathname.endsWith('/addons/upload/upload-uuid/'))
+        return Promise.resolve(
+          new Response(
+            JSON.stringify({
+              processed: true,
+              valid: true,
+              uuid: 'upload-uuid',
+              validation: { errors: 0 }
+            }),
+            { status: 200 }
+          )
+        );
+      if (method === 'PUT')
+        return Promise.resolve(
+          new Response(
+            JSON.stringify({ version: { id: 42, edit_url: 'https://example.test/edit' } }),
+            { status: 200 }
+          )
+        );
+      if (method === 'PATCH') return Promise.resolve(new Response('{}', { status: 200 }));
+      if (method === 'GET' && url.pathname.endsWith('/versions/42/'))
+        return Promise.resolve(
+          new Response(
+            JSON.stringify({
+              file: { status: 'public', url: 'https://addons.mozilla.org/api/v5/file/7/signed.xpi' }
+            }),
+            { status: 200 }
+          )
+        );
+      if (method === 'GET' && url.pathname === '/api/v5/file/7/signed.xpi') {
+        expect(new Headers(init?.headers).has('authorization')).toBe(true);
+        expect(init?.redirect).toBe('manual');
+        return Promise.resolve(new Response(signed, { status: 200 }));
+      }
+      throw new Error(`unexpected:${method}:${url.href}`);
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    await expect(
+      submitVerifiedFirefoxXpi({
+        binding: fixture.binding,
+        transportMode: 'local-private-v1',
+        channel: 'unlisted',
+        id: fixture.binding.geckoId,
+        amoBaseUrl: FIREFOX_AMO_API_BASE_URL,
+        submissionSource: fixture.sourcePath,
+        savedUploadUuidPath: fixture.uuidPath,
+        downloadDir: fixture.downloadDir,
+        credentials: { apiKey: 'key', apiSecret: 'secret' },
+        mutationJournal: harness
+      })
+    ).resolves.toEqual({
+      id: fixture.binding.geckoId,
+      downloadedFiles: ['signed.xpi'],
+      signedXpiSha256: createHash('sha256').update(signed).digest('hex')
+    });
+    expect(await readFile(join(fixture.downloadDir, 'signed.xpi'))).toEqual(signed);
   });
 
   it('freezes the bounded production timing constants', () => {

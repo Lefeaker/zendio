@@ -20,7 +20,8 @@ import {
 } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { buildZipFixture } from '../../utils/zipFixtureBuilder';
 import {
   COMMAND_LIMITS,
   DIRECT_ROOT_COORDINATOR_GRAMMARS,
@@ -37,11 +38,40 @@ import {
   runBoundedCommand,
   startBoundedCommand
 } from '../../../scripts/utils/boundedCommand.mjs';
+import {
+  canonicalArtifactJson,
+  createFirefoxReleaseArtifactManifest,
+  verifyFirefoxReleaseArtifactManifest
+} from '../../../scripts/utils/firefoxReleaseArtifactManifest.mjs';
+import {
+  FIREFOX_AMO_API_BASE_URL,
+  FIREFOX_SUBMISSION_LIMITS,
+  submitVerifiedFirefoxXpi
+} from '../../../scripts/utils/firefoxExactXpiSubmit.mjs';
+import {
+  STANDALONE_SYNTHETIC_CONFIG,
+  validateReleasePublicBuildConfig
+} from '../../../scripts/utils/releasePublicBuildConfig.mjs';
 
 const temporaryRoots: string[] = [];
 const TEST_RELEASE_BROWSERS: ('chrome' | 'firefox')[] = ['chrome', 'firefox'];
 
-type RequestValue = string | boolean | string[];
+type RequestValue = string | boolean | string[] | null;
+type FirefoxMutation = 'upload' | 'version-submit' | 'source-patch';
+const UUID_FAILURE_MODES: ('mismatch' | 'malformed' | 'timeout' | 'pre-publication')[] = [
+  'mismatch',
+  'malformed',
+  'timeout',
+  'pre-publication'
+];
+const UUID_OPTIONAL_EVIDENCE: ('absent' | 'present')[] = ['absent', 'present'];
+const FIREFOX_CHANNELS: ('listed' | 'unlisted')[] = ['listed', 'unlisted'];
+const UUID_RACES: ('appearance' | 'disappearance' | 'replacement' | 'byte-drift')[] = [
+  'appearance',
+  'disappearance',
+  'replacement',
+  'byte-drift'
+];
 
 function canonicalJsonBytes(value: Record<string, RequestValue>): Buffer {
   const sorted = Object.fromEntries(
@@ -262,18 +292,72 @@ function bindingAuthorityFields(path: string): string {
   );
 }
 
+function publishFirefoxUuidEvidence(
+  statePath: string,
+  channel: 'listed' | 'unlisted' = 'listed',
+  uploadUuid = 'upload-uuid'
+): { path: string; sha256: string } {
+  const path = join(dirname(statePath), 'web-ext-upload/upload-uuid.json');
+  const bytes = canonicalJsonBytes({ channel, uploadUuid, xpiCrcHash: 'e'.repeat(64) });
+  writeFileSync(path, bytes, { flag: 'wx', mode: 0o600 });
+  chmodSync(path, 0o600);
+  return { path, sha256: createHash('sha256').update(bytes).digest('hex') };
+}
+
 function writeStoreTerminalState(
   statePath: string,
   terminal: {
     outcome: 'pre-mutation-failure' | 'unknown-submission-state' | 'success';
     started?: 'upload' | 'publish' | 'version-submit' | 'source-patch';
     completed?: 'upload' | 'publish' | 'version-submit' | 'source-patch';
+    uuidEvidence?: 'present' | 'absent';
+    channel?: 'listed' | 'unlisted';
+    signedXpiSha256?: string | null;
   }
 ) {
+  let uploadUuidSha256: string | null = null;
+  if (statePath.endsWith('/submission-state.json')) {
+    const channel = terminal.channel ?? 'listed';
+    const laterPrefix = ['version-submit', 'source-patch'].includes(terminal.started ?? '');
+    const defaultPresent =
+      laterPrefix || terminal.outcome === 'success' || terminal.completed !== undefined;
+    if ((terminal.uuidEvidence ?? (defaultPresent ? 'present' : 'absent')) === 'present') {
+      uploadUuidSha256 = publishFirefoxUuidEvidence(statePath, channel).sha256;
+    }
+  }
   rewriteCanonicalOwnedJson(statePath, (value) => {
     value.outcome = terminal.outcome;
     value.mutationInvoked = terminal.outcome !== 'pre-mutation-failure';
     value.retrySafe = terminal.outcome === 'pre-mutation-failure';
+    value.errorCode =
+      terminal.outcome === 'pre-mutation-failure'
+        ? 'PRE_MUTATION_FAILURE'
+        : terminal.outcome === 'success'
+          ? null
+          : 'UNKNOWN_SUBMISSION_STATE';
+    value.recovery =
+      terminal.outcome === 'pre-mutation-failure'
+        ? 'retry'
+        : terminal.outcome === 'success'
+          ? 'none'
+          : 'reconcile';
+    if (value.browser === 'firefox') value.channel = terminal.channel ?? 'listed';
+    if (terminal.outcome !== 'pre-mutation-failure') {
+      if (value.browser === 'chrome') {
+        value.itemId = 'fixture-item';
+        value.publisherIdFingerprint = 'a'.repeat(64);
+        value.packageVersion = '1.0.0';
+        value.archiveSha256 = 'b'.repeat(64);
+        value.terminalResult = terminal.outcome === 'success' ? 'PENDING_REVIEW' : null;
+      } else {
+        value.geckoId = 'fixture@example.test';
+        value.xpiSha256 = 'c'.repeat(64);
+        value.sourceArchiveSha256 = 'd'.repeat(64);
+        value.uploadUuidSha256 = uploadUuidSha256;
+        value.signedXpiSha256 = terminal.signedXpiSha256 ?? null;
+        value.terminalResult = terminal.outcome === 'success' ? value.channel : null;
+      }
+    }
     delete value.lastStartedOperation;
     delete value.lastCompletedOperation;
     if (terminal.started) value.lastStartedOperation = terminal.started;
@@ -334,6 +418,73 @@ async function initializedStoreFixture(browser: 'chrome' | 'firefox') {
   };
 }
 
+async function createFirefoxSubmissionBinding(attemptRoot: string) {
+  const releaseDir = join(attemptRoot, 'adapter-release');
+  const distDir = join(attemptRoot, 'adapter-dist');
+  const sourceDir = join(attemptRoot, 'adapter-source');
+  for (const path of [releaseDir, distDir, sourceDir]) mkdirSync(path, { mode: 0o700 });
+  const publicConfig = validateReleasePublicBuildConfig({
+    configMode: 'standalone-synthetic',
+    environment: {
+      ZENDIO_GA_MEASUREMENT_ID: STANDALONE_SYNTHETIC_CONFIG.measurementId,
+      ZENDIO_GA_TRANSPORT_MODE: STANDALONE_SYNTHETIC_CONFIG.transportMode,
+      ZENDIO_GA_PROXY_ENDPOINT: STANDALONE_SYNTHETIC_CONFIG.proxyEndpoint
+    }
+  });
+  const version = publicConfig.policy.sentry.release;
+  const extensionManifest = `${JSON.stringify({
+    name: 'fixture',
+    version,
+    browser_specific_settings: { gecko: { id: 'fixture@example.test' } }
+  })}\n`;
+  writeFileSync(join(distDir, 'manifest.json'), extensionManifest);
+  writeFileSync(join(sourceDir, 'README.md'), '# source\n');
+  const xpiPath = join(releaseDir, 'fixture.xpi');
+  const sourceArchivePath = join(releaseDir, 'fixture-source.zip');
+  writeFileSync(xpiPath, buildZipFixture([{ path: 'manifest.json', content: extensionManifest }]));
+  writeFileSync(sourceArchivePath, buildZipFixture([{ path: 'README.md', content: '# source\n' }]));
+  chmodSync(xpiPath, 0o600);
+  chmodSync(sourceArchivePath, 0o600);
+  const manifest = await createFirefoxReleaseArtifactManifest({
+    releaseDir,
+    distDir,
+    xpiPath,
+    sourceArchivePath,
+    git: { head: 'a'.repeat(40), tree: 'b'.repeat(40) },
+    packageMetadata: { version, manifestVersion: version, geckoId: 'fixture@example.test' },
+    toolchain: {
+      node: 'v20.20.2',
+      npm: '10.8.2',
+      webExt: '10.4.0',
+      lockSha256: publicConfig.esbuild.lockSha256,
+      esbuild: publicConfig.esbuild
+    },
+    gaConfig: {
+      raw: publicConfig.rawValues,
+      fingerprints: publicConfig.rawFingerprints,
+      aggregateSha256: publicConfig.fingerprint
+    },
+    buildEnvironment: {
+      policy: publicConfig.policy.id,
+      policyDigest: publicConfig.policyDigest,
+      defaults: publicConfig.policy,
+      configMode: 'standalone-synthetic'
+    }
+  });
+  const manifestPath = join(releaseDir, 'manifest.json');
+  writeFileSync(manifestPath, canonicalArtifactJson(manifest), { mode: 0o600 });
+  chmodSync(manifestPath, 0o600);
+  return {
+    binding: await verifyFirefoxReleaseArtifactManifest({
+      manifestPath,
+      transportMode: 'local-private-v1',
+      expectedAttemptRoot: attemptRoot
+    }),
+    sourceArchivePath,
+    xpiPath
+  };
+}
+
 function storeLeafSpec(
   initialized: Awaited<ReturnType<typeof initializedStoreFixture>>,
   childSuccess: boolean
@@ -352,6 +503,28 @@ function storeLeafSpec(
     commandContext: {
       attemptRoot: initialized.fixture.attemptRoot,
       browser: initialized.browser,
+      statePath: initialized.statePath,
+      manifestPath: initialized.manifest,
+      expectedManifestSha256: initialized.expectedManifestSha256
+    }
+  };
+}
+
+function pendingFirefoxStoreLeafSpec(
+  initialized: Awaited<ReturnType<typeof initializedStoreFixture>>,
+  delayMs = '700'
+) {
+  const leaf = resolveCommandProfile('fixture-v1', ['delay', delayMs], {
+    environment: cleanEnvironment()
+  });
+  return {
+    ...leaf,
+    profileId: 'firefox-submit-v1',
+    env: initialized.fixture.environment,
+    argv: [...leaf.argv, '--saved-upload-uuid-path', initialized.uuidPath],
+    commandContext: {
+      attemptRoot: initialized.fixture.attemptRoot,
+      browser: 'firefox',
       statePath: initialized.statePath,
       manifestPath: initialized.manifest,
       expectedManifestSha256: initialized.expectedManifestSha256
@@ -501,6 +674,8 @@ function writeRequest(
 }
 
 afterEach(() => {
+  vi.unstubAllGlobals();
+  vi.useRealTimers();
   while (temporaryRoots.length > 0) {
     const root = temporaryRoots.pop();
     if (root) rmSync(root, { force: true, recursive: true });
@@ -1037,7 +1212,7 @@ describe('bounded command ownership', () => {
         operations: fixture.operations
       });
       const expectedRoot = join(fixture.runnerTemp, `zendio-${browser}-876543-1`);
-      expect(profile.commandContext).toEqual({
+      expect(profile.commandContext).toMatchObject({
         attemptRoot: expectedRoot,
         jobClass: `${browser}-prepare-v1`,
         protectedJob: false
@@ -1059,7 +1234,7 @@ describe('bounded command ownership', () => {
         browser === 'chrome' ? 'zendio-chrome-publish-987654-1' : 'zendio-firefox-submit-987654-1'
       );
 
-      expect(profile.commandContext).toEqual({
+      expect(profile.commandContext).toMatchObject({
         attemptRoot: expectedRoot,
         jobClass: browser === 'chrome' ? 'chrome-publish-v1' : 'firefox-submit-v1',
         protectedJob: true
@@ -1107,6 +1282,51 @@ describe('bounded command ownership', () => {
         })
       })
     ).toThrow('LOCAL_ENVIRONMENT_INVALID');
+  });
+
+  it('recovers local post-install authority only from the exact empty owner npm configs', () => {
+    const root = realpathSync(temporaryRoot());
+    installAttemptConfigs(root);
+    const environment = cleanEnvironment({
+      NPM_CONFIG_USERCONFIG: join(root, 'install/npm-userconfig'),
+      NPM_CONFIG_GLOBALCONFIG: join(root, 'install/npm-globalconfig')
+    });
+    delete environment.ZENDIO_LOCAL_ATTEMPT_ROOT;
+    const profile = resolveCommandProfile('npm-tree-read-v1', ['ls', '--all'], { environment });
+    expect(profile.commandContext).toEqual({ attemptRoot: root });
+    expect(profile.env).toMatchObject({
+      NPM_CONFIG_USERCONFIG: join(root, 'install/npm-userconfig'),
+      NPM_CONFIG_GLOBALCONFIG: join(root, 'install/npm-globalconfig')
+    });
+    expect(() =>
+      resolveCommandProfile('npm-tree-read-v1', ['ls', '--all'], {
+        environment: { ...environment, npm_config_registry: 'https://example.invalid/' }
+      })
+    ).toThrow('NPM_CONFIG_AUTHORITY_INVALID');
+    expect(() =>
+      resolveCommandProfile('npm-tree-read-v1', ['ls', '--all'], {
+        environment: {
+          ...environment,
+          NPM_CONFIG_USERCONFIG: environment.NPM_CONFIG_GLOBALCONFIG,
+          NPM_CONFIG_GLOBALCONFIG: environment.NPM_CONFIG_USERCONFIG
+        }
+      })
+    ).toThrow('NPM_CONFIG_AUTHORITY_INVALID');
+  });
+
+  it('blocks every root .env-prefixed entry before creating a CI attempt or invoking npm', () => {
+    const fixture = ciInstallFixture('generic-v1', '30');
+    const attemptRoot = join(
+      fixture.runnerTemp,
+      `zendio-ci-node-${fixture.environment.GITHUB_RUN_ID}-${fixture.environment.GITHUB_RUN_ATTEMPT}-${fixture.environment.GITHUB_JOB}`
+    );
+    expect(() =>
+      resolveCommandProfile('github-ci-install-v1', [], {
+        environment: fixture.environment,
+        operations: { ...fixture.operations, readDirectoryOperation: () => ['.env.dangling'] }
+      })
+    ).toThrow('CI_ENV_FILE_FORBIDDEN');
+    expect(existsSync(attemptRoot)).toBe(false);
   });
 
   it('keeps future fixed files dormant and blocks generic release-owner bypasses', () => {
@@ -1215,6 +1435,72 @@ describe('bounded command ownership', () => {
         { environment }
       )
     ).toThrow('RELEASE_PATH_OUTSIDE_ATTEMPT');
+  });
+
+  it('propagates and revalidates the post-install npm-config authority for every R03 local leaf', () => {
+    const root = realpathSync(temporaryRoot());
+    installAttemptConfigs(root);
+    const configs = {
+      userconfig: join(root, 'install/npm-userconfig'),
+      globalconfig: join(root, 'install/npm-globalconfig')
+    };
+    const environment = cleanEnvironment({
+      NPM_CONFIG_USERCONFIG: configs.userconfig,
+      NPM_CONFIG_GLOBALCONFIG: configs.globalconfig
+    });
+    const rows: Array<[CommandBoundaryProfileId, string[]]> = [
+      [
+        'npm-audit-context-v1',
+        ['--verify-baseline-context', '--baseline-manifest', join(root, 'audit.json')]
+      ],
+      ['npm-script-quick-v1', ['audit:ci-workflow:check']],
+      ['npm-script-standard-v1', ['typecheck:strict']],
+      ['npm-script-standard-v1', ['lint', '--', '--quiet']],
+      ['npm-script-build-v1', ['build:fast']],
+      [
+        'vitest-v1',
+        ['run', '--config', 'vitest.unit.config.ts', 'tests/unit/scripts/boundedCommand.test.ts']
+      ],
+      ['stylelint-v1', ['src/options/**/*.css']],
+      ['node-script-standard-v1', ['scripts/verify-runtime.mjs']]
+    ];
+    for (const [profileId, args] of rows) {
+      const spec = resolveCommandProfile(profileId, args, { environment });
+      expect(spec.env).toMatchObject({
+        NPM_CONFIG_USERCONFIG: configs.userconfig,
+        NPM_CONFIG_GLOBALCONFIG: configs.globalconfig
+      });
+      expect(spec.commandContext).toMatchObject({
+        attemptConfigAuthority: true,
+        attemptRoot: root,
+        userconfig: configs.userconfig,
+        globalconfig: configs.globalconfig
+      });
+    }
+
+    for (const mutation of [
+      { NPM_CONFIG_USERCONFIG: configs.globalconfig },
+      { npm_config_userconfig: configs.userconfig },
+      { npm_config_registry: 'https://registry.invalid' },
+      { NPM_CONFIG_GLOBALCONFIG: undefined }
+    ]) {
+      expect(() =>
+        resolveCommandProfile('npm-script-quick-v1', ['audit:ci-workflow:check'], {
+          environment: { ...environment, ...mutation }
+        })
+      ).toThrow('NPM_CONFIG_AUTHORITY_INVALID');
+    }
+
+    const spec = resolveCommandProfile('npm-script-quick-v1', ['audit:ci-workflow:check'], {
+      environment
+    });
+    writeFileSync(configs.userconfig, 'late-poison');
+    expect(() =>
+      startBoundedCommand(
+        { profileId: 'npm-script-quick-v1', arguments: ['audit:ci-workflow:check'] },
+        { resolveProfile: () => spec }
+      )
+    ).toThrow('NPM_CONFIG_IDENTITY_INVALID');
   });
 
   it('keeps the actions token and Chrome/Firefox credentials exclusive to their fixed profiles', () => {
@@ -1865,6 +2151,652 @@ describe('bounded command ownership', () => {
     }
   });
 
+  it('enforces closed browser-specific store identity and exact listed/unlisted terminal evidence', async () => {
+    const invalidRows: Array<{
+      browser: 'chrome' | 'firefox';
+      mutate: (value: Record<string, RequestValue>) => void;
+    }> = [
+      { browser: 'chrome', mutate: (value) => delete value.archiveSha256 },
+      { browser: 'chrome', mutate: (value) => (value.WEB_EXT_API_SECRET = 'forbidden') },
+      { browser: 'firefox', mutate: (value) => (value.itemId = 'cross-browser') },
+      { browser: 'firefox', mutate: (value) => (value.terminalResult = 'unlisted') }
+    ];
+    for (const row of invalidRows) {
+      const initialized = await initializedStoreFixture(row.browser);
+      const spec = storeLeafSpec(initialized, true);
+      const result = await startBoundedCommand(
+        { profileId: spec.profileId, arguments: [] },
+        {
+          resolveProfile: () => spec,
+          spawnOperation: spawnAfter(() => {
+            writeStoreTerminalState(initialized.statePath, {
+              outcome: 'success',
+              started: row.browser === 'chrome' ? 'publish' : 'source-patch',
+              completed: row.browser === 'chrome' ? 'publish' : 'source-patch'
+            });
+            rewriteCanonicalOwnedJson(initialized.statePath, row.mutate);
+          })
+        }
+      ).completion;
+      expect(result.ok, row.browser).toBe(false);
+    }
+
+    const unlisted = await initializedStoreFixture('firefox');
+    const unlistedSpec = storeLeafSpec(unlisted, true);
+    const unlistedResult = await startBoundedCommand(
+      { profileId: unlistedSpec.profileId, arguments: [] },
+      {
+        resolveProfile: () => unlistedSpec,
+        spawnOperation: spawnAfter(() => {
+          writeStoreTerminalState(unlisted.statePath, {
+            outcome: 'success',
+            started: 'source-patch',
+            completed: 'source-patch',
+            channel: 'unlisted',
+            signedXpiSha256: 'f'.repeat(64)
+          });
+        })
+      }
+    ).completion;
+    expect(unlistedResult.ok).toBe(true);
+    expect(JSON.parse(readFileSync(unlisted.statePath, 'utf8'))).toMatchObject({
+      channel: 'unlisted',
+      terminalResult: 'unlisted',
+      signedXpiSha256: 'f'.repeat(64)
+    });
+  });
+
+  it.each(UUID_FAILURE_MODES)(
+    'accepts real adapter upload-completed unknown evidence after UUID %s failure',
+    async (failureMode) => {
+      const initialized = await initializedStoreFixture('firefox');
+      const artifact = await createFirefoxSubmissionBinding(initialized.fixture.attemptRoot);
+      const spec = pendingFirefoxStoreLeafSpec(initialized);
+      const handle = startBoundedCommand(
+        { profileId: 'firefox-submit-v1', arguments: [] },
+        { resolveProfile: () => spec }
+      );
+      const events: string[] = [];
+      const metadata = Object.freeze({ channel: 'listed', id: artifact.binding.geckoId });
+      const mutationJournal = {
+        beforeMutation: vi.fn((operation: FirefoxMutation): Promise<void> => {
+          events.push(`before:${operation}`);
+          rewriteCanonicalOwnedJson(initialized.statePath, (value) => {
+            value.channel = 'listed';
+            value.geckoId = artifact.binding.geckoId;
+            value.xpiSha256 = sha256(artifact.xpiPath);
+            value.sourceArchiveSha256 = sha256(artifact.sourceArchivePath);
+            value.lastStartedOperation = operation;
+            value.stage = `${operation}-started`;
+          });
+          return Promise.resolve();
+        }),
+        afterMutation: vi.fn((operation: FirefoxMutation): Promise<void> => {
+          events.push(`after:${operation}`);
+          rewriteCanonicalOwnedJson(initialized.statePath, (value) => {
+            value.lastCompletedOperation = operation;
+            value.stage = `${operation}-completed`;
+          });
+          return Promise.resolve();
+        }),
+        mutationInvoked: vi.fn((operation: FirefoxMutation): Promise<void> => {
+          events.push(`invoked:${operation}`);
+          rewriteCanonicalOwnedJson(initialized.statePath, (value) => {
+            value.outcome = 'unknown-submission-state';
+            value.mutationInvoked = true;
+            value.retrySafe = false;
+            value.errorCode = 'UNKNOWN_SUBMISSION_STATE';
+            value.recovery = 'reconcile';
+          });
+          return Promise.resolve();
+        })
+      };
+      const uuidParent = dirname(initialized.uuidPath);
+      const fetchMock = vi.fn((url: URL, init?: RequestInit): Promise<Response> => {
+        const method = init?.method ?? 'GET';
+        if (method === 'POST' && url.pathname.endsWith('/addons/upload/')) {
+          events.push('request:upload');
+          return Promise.resolve(
+            new Response(JSON.stringify({ uuid: 'upload-uuid' }), { status: 200 })
+          );
+        }
+        if (method === 'GET' && url.pathname.endsWith('/addons/upload/upload-uuid/')) {
+          events.push('request:validation');
+          if (failureMode === 'pre-publication') chmodSync(uuidParent, 0o500);
+          if (failureMode === 'malformed')
+            return Promise.resolve(new Response('{', { status: 200 }));
+          return Promise.resolve(
+            new Response(
+              JSON.stringify({
+                processed: failureMode !== 'timeout',
+                valid: failureMode !== 'timeout',
+                uuid: failureMode === 'mismatch' ? 'different-uuid' : 'upload-uuid',
+                validation: { errors: 0 }
+              }),
+              { status: 200 }
+            )
+          );
+        }
+        throw new Error(`unexpected:${method}:${url.href}`);
+      });
+      vi.stubGlobal('fetch', fetchMock);
+
+      if (failureMode === 'timeout') vi.useFakeTimers();
+      const submission = submitVerifiedFirefoxXpi({
+        binding: artifact.binding,
+        transportMode: 'local-private-v1',
+        channel: 'listed',
+        id: artifact.binding.geckoId,
+        amoBaseUrl: FIREFOX_AMO_API_BASE_URL,
+        submissionSource: artifact.sourceArchivePath,
+        savedUploadUuidPath: initialized.uuidPath,
+        downloadDir: join(dirname(initialized.statePath), 'downloads'),
+        credentials: { apiKey: 'key', apiSecret: 'secret' },
+        mutationJournal
+      });
+      const rejection = expect(submission).rejects.toMatchObject({
+        code: 'unknown-submission-state',
+        retrySafe: false
+      });
+      if (failureMode === 'timeout') {
+        await vi.waitFor(() => expect(events).toContain('request:validation'));
+        await vi.advanceTimersByTimeAsync(FIREFOX_SUBMISSION_LIMITS.validationTotalMs);
+      }
+      await rejection;
+      if (failureMode === 'timeout') vi.useRealTimers();
+      chmodSync(uuidParent, 0o700);
+      expect(events.slice(0, 5)).toEqual([
+        'before:upload',
+        'request:upload',
+        'invoked:upload',
+        'after:upload',
+        'request:validation'
+      ]);
+      expect(events.filter((event) => event === 'request:validation')).toHaveLength(
+        failureMode === 'timeout' ? FIREFOX_SUBMISSION_LIMITS.validationAttempts : 1
+      );
+      expect(events.filter((event) => event.startsWith('before:'))).toEqual(['before:upload']);
+      expect(metadata).toEqual({ channel: 'listed', id: artifact.binding.geckoId });
+      expect(existsSync(initialized.uuidPath)).toBe(false);
+      expect(handle.cancel('cancelled')).toBe(true);
+      await expect(handle.completion).resolves.toMatchObject({
+        ok: false,
+        terminalReason: 'cancelled'
+      });
+      await expect(
+        runBoundedCommand(
+          { profileId: 'release-state-check-v1', arguments: ['--browser', 'firefox'] },
+          { environment: initialized.fixture.environment }
+        )
+      ).resolves.toMatchObject({ ok: true, terminalReason: 'success' });
+    }
+  );
+
+  it.each(UUID_OPTIONAL_EVIDENCE)(
+    'accepts upload-completed unknown state with %s correlated UUID evidence',
+    async (uuidEvidence) => {
+      const initialized = await initializedStoreFixture('firefox');
+      const spec = storeLeafSpec(initialized, false);
+      const result = await startBoundedCommand(
+        { profileId: spec.profileId, arguments: [] },
+        {
+          resolveProfile: () => spec,
+          spawnOperation: spawnAfter(() => {
+            writeStoreTerminalState(initialized.statePath, {
+              outcome: 'unknown-submission-state',
+              started: 'upload',
+              completed: 'upload',
+              uuidEvidence
+            });
+          })
+        }
+      ).completion;
+      expect(result).toMatchObject({ ok: false, terminalReason: 'nonzero' });
+      expect(existsSync(initialized.uuidPath)).toBe(uuidEvidence === 'present');
+      await expect(
+        runBoundedCommand(
+          { profileId: 'release-state-check-v1', arguments: ['--browser', 'firefox'] },
+          { environment: initialized.fixture.environment }
+        )
+      ).resolves.toMatchObject({ ok: true });
+    }
+  );
+
+  it.each(FIREFOX_CHANNELS)(
+    'reseals real adapter %s success only with matching durable UUID and terminal evidence',
+    async (channel) => {
+      const initialized = await initializedStoreFixture('firefox');
+      const artifact = await createFirefoxSubmissionBinding(initialized.fixture.attemptRoot);
+      const spec = pendingFirefoxStoreLeafSpec(initialized, '500');
+      const handle = startBoundedCommand(
+        { profileId: 'firefox-submit-v1', arguments: [] },
+        { resolveProfile: () => spec }
+      );
+      const events: string[] = [];
+      const mutationJournal = {
+        beforeMutation: vi.fn((operation: FirefoxMutation): Promise<void> => {
+          events.push(`before:${operation}`);
+          rewriteCanonicalOwnedJson(initialized.statePath, (value) => {
+            value.channel = channel;
+            value.geckoId = artifact.binding.geckoId;
+            value.xpiSha256 = sha256(artifact.xpiPath);
+            value.sourceArchiveSha256 = sha256(artifact.sourceArchivePath);
+            if (operation !== 'upload') value.uploadUuidSha256 = sha256(initialized.uuidPath);
+            value.lastStartedOperation = operation;
+            value.stage = `${operation}-started`;
+          });
+          return Promise.resolve();
+        }),
+        afterMutation: vi.fn((operation: FirefoxMutation): Promise<void> => {
+          events.push(`after:${operation}`);
+          rewriteCanonicalOwnedJson(initialized.statePath, (value) => {
+            value.lastCompletedOperation = operation;
+            value.stage = `${operation}-completed`;
+          });
+          return Promise.resolve();
+        }),
+        mutationInvoked: vi.fn((operation: FirefoxMutation): Promise<void> => {
+          events.push(`invoked:${operation}`);
+          rewriteCanonicalOwnedJson(initialized.statePath, (value) => {
+            value.outcome = 'unknown-submission-state';
+            value.mutationInvoked = true;
+            value.retrySafe = false;
+            value.errorCode = 'UNKNOWN_SUBMISSION_STATE';
+            value.recovery = 'reconcile';
+          });
+          return Promise.resolve();
+        })
+      };
+      const signedBytes = readFileSync(artifact.xpiPath);
+      const signedDigest = createHash('sha256').update(signedBytes).digest('hex');
+      const fetchMock = vi.fn((url: URL, init?: RequestInit): Promise<Response> => {
+        const method = init?.method ?? 'GET';
+        if (method === 'POST' && url.pathname.endsWith('/addons/upload/')) {
+          events.push('request:upload');
+          return Promise.resolve(
+            new Response(JSON.stringify({ uuid: 'upload-uuid' }), { status: 200 })
+          );
+        }
+        if (method === 'GET' && url.pathname.endsWith('/addons/upload/upload-uuid/')) {
+          events.push('request:validation');
+          return Promise.resolve(
+            new Response(
+              JSON.stringify({
+                processed: true,
+                valid: true,
+                uuid: 'upload-uuid',
+                validation: { errors: 0 }
+              }),
+              { status: 200 }
+            )
+          );
+        }
+        if (method === 'PUT') {
+          events.push('request:version-submit');
+          return Promise.resolve(
+            new Response(
+              JSON.stringify({ version: { id: 42, edit_url: 'https://example.test/edit' } }),
+              { status: 200 }
+            )
+          );
+        }
+        if (method === 'PATCH') {
+          events.push('request:source-patch');
+          return Promise.resolve(new Response('{}', { status: 200 }));
+        }
+        if (method === 'GET' && url.pathname.endsWith('/versions/42/')) {
+          events.push('request:approval');
+          return Promise.resolve(
+            new Response(
+              JSON.stringify({
+                file: {
+                  status: 'public',
+                  url: 'https://addons.mozilla.org/api/v5/file/7/signed.xpi'
+                }
+              }),
+              { status: 200 }
+            )
+          );
+        }
+        if (method === 'GET' && url.pathname === '/api/v5/file/7/signed.xpi') {
+          events.push('request:signed-xpi');
+          return Promise.resolve(new Response(signedBytes, { status: 200 }));
+        }
+        throw new Error(`unexpected:${method}:${url.href}`);
+      });
+      vi.stubGlobal('fetch', fetchMock);
+
+      await expect(
+        submitVerifiedFirefoxXpi({
+          binding: artifact.binding,
+          transportMode: 'local-private-v1',
+          channel,
+          id: artifact.binding.geckoId,
+          amoBaseUrl: FIREFOX_AMO_API_BASE_URL,
+          submissionSource: artifact.sourceArchivePath,
+          savedUploadUuidPath: initialized.uuidPath,
+          downloadDir: join(dirname(initialized.statePath), 'downloads'),
+          credentials: { apiKey: 'key', apiSecret: 'secret' },
+          mutationJournal
+        })
+      ).resolves.toEqual(
+        channel === 'listed'
+          ? { id: artifact.binding.geckoId }
+          : {
+              id: artifact.binding.geckoId,
+              downloadedFiles: ['signed.xpi'],
+              signedXpiSha256: signedDigest
+            }
+      );
+      rewriteCanonicalOwnedJson(initialized.statePath, (value) => {
+        value.outcome = 'success';
+        value.errorCode = null;
+        value.recovery = 'none';
+        value.terminalResult = channel;
+        value.signedXpiSha256 = channel === 'unlisted' ? signedDigest : null;
+      });
+      await expect(handle.completion).resolves.toMatchObject({
+        ok: true,
+        terminalReason: 'success'
+      });
+      expect(events.slice(0, 13)).toEqual([
+        'before:upload',
+        'request:upload',
+        'invoked:upload',
+        'after:upload',
+        'request:validation',
+        'before:version-submit',
+        'request:version-submit',
+        'invoked:version-submit',
+        'after:version-submit',
+        'before:source-patch',
+        'request:source-patch',
+        'invoked:source-patch',
+        'after:source-patch'
+      ]);
+      await expect(
+        runBoundedCommand(
+          { profileId: 'release-state-check-v1', arguments: ['--browser', 'firefox'] },
+          { environment: initialized.fixture.environment }
+        )
+      ).resolves.toMatchObject({ ok: true });
+    }
+  );
+
+  it('rejects every UUID state/file correlation mismatch and any later prefix without evidence', async () => {
+    const rows: Array<{
+      name: string;
+      terminal: Parameters<typeof writeStoreTerminalState>[1];
+      mutate?: (initialized: Awaited<ReturnType<typeof initializedStoreFixture>>) => void;
+      childSuccess?: boolean;
+    }> = [
+      {
+        name: 'upload-started-present',
+        terminal: {
+          outcome: 'unknown-submission-state',
+          started: 'upload',
+          uuidEvidence: 'present'
+        }
+      },
+      {
+        name: 'upload-completed-null-present',
+        terminal: {
+          outcome: 'unknown-submission-state',
+          started: 'upload',
+          completed: 'upload',
+          uuidEvidence: 'absent'
+        },
+        mutate: (initialized) => publishFirefoxUuidEvidence(initialized.statePath)
+      },
+      {
+        name: 'upload-completed-digest-absent',
+        terminal: {
+          outcome: 'unknown-submission-state',
+          started: 'upload',
+          completed: 'upload'
+        },
+        mutate: (initialized) => rmSync(initialized.uuidPath)
+      },
+      {
+        name: 'wrong-digest',
+        terminal: {
+          outcome: 'unknown-submission-state',
+          started: 'upload',
+          completed: 'upload'
+        },
+        mutate: (initialized) =>
+          rewriteCanonicalOwnedJson(initialized.statePath, (value) => {
+            value.uploadUuidSha256 = '0'.repeat(64);
+          })
+      },
+      {
+        name: 'wrong-channel',
+        terminal: {
+          outcome: 'unknown-submission-state',
+          started: 'upload',
+          completed: 'upload'
+        },
+        mutate: (initialized) => {
+          const bytes = canonicalJsonBytes({
+            channel: 'unlisted',
+            uploadUuid: 'upload-uuid',
+            xpiCrcHash: 'e'.repeat(64)
+          });
+          writeFileSync(initialized.uuidPath, bytes);
+          chmodSync(initialized.uuidPath, 0o600);
+          rewriteCanonicalOwnedJson(initialized.statePath, (value) => {
+            value.uploadUuidSha256 = createHash('sha256').update(bytes).digest('hex');
+          });
+        }
+      },
+      {
+        name: 'noncanonical-evidence',
+        terminal: {
+          outcome: 'unknown-submission-state',
+          started: 'upload',
+          completed: 'upload'
+        },
+        mutate: (initialized) => {
+          const bytes = Buffer.from(
+            `${JSON.stringify({ channel: 'listed', uploadUuid: 'upload-uuid', xpiCrcHash: 'e'.repeat(64) })}\n`
+          );
+          writeFileSync(initialized.uuidPath, bytes);
+          chmodSync(initialized.uuidPath, 0o600);
+          rewriteCanonicalOwnedJson(initialized.statePath, (value) => {
+            value.uploadUuidSha256 = createHash('sha256').update(bytes).digest('hex');
+          });
+        }
+      },
+      {
+        name: 'extra-secret-field',
+        terminal: {
+          outcome: 'unknown-submission-state',
+          started: 'upload',
+          completed: 'upload'
+        },
+        mutate: (initialized) => {
+          const bytes = canonicalJsonBytes({
+            apiSecret: 'forbidden',
+            channel: 'listed',
+            uploadUuid: 'upload-uuid',
+            xpiCrcHash: 'e'.repeat(64)
+          });
+          writeFileSync(initialized.uuidPath, bytes);
+          chmodSync(initialized.uuidPath, 0o600);
+          rewriteCanonicalOwnedJson(initialized.statePath, (value) => {
+            value.uploadUuidSha256 = createHash('sha256').update(bytes).digest('hex');
+          });
+        }
+      },
+      {
+        name: 'wrong-mode',
+        terminal: {
+          outcome: 'unknown-submission-state',
+          started: 'upload',
+          completed: 'upload'
+        },
+        mutate: (initialized) => chmodSync(initialized.uuidPath, 0o644)
+      },
+      {
+        name: 'linked-evidence',
+        terminal: {
+          outcome: 'unknown-submission-state',
+          started: 'upload',
+          completed: 'upload'
+        },
+        mutate: (initialized) => linkSync(initialized.uuidPath, `${initialized.uuidPath}.alias`)
+      },
+      {
+        name: 'symlink-replacement',
+        terminal: {
+          outcome: 'unknown-submission-state',
+          started: 'upload',
+          completed: 'upload'
+        },
+        mutate: (initialized) => {
+          const target = `${initialized.uuidPath}.replacement`;
+          writeFileSync(target, readFileSync(initialized.uuidPath), { mode: 0o600 });
+          rmSync(initialized.uuidPath);
+          symlinkSync(target, initialized.uuidPath);
+        }
+      },
+      {
+        name: 'version-started-without-evidence',
+        terminal: {
+          outcome: 'unknown-submission-state',
+          started: 'version-submit',
+          completed: 'upload',
+          uuidEvidence: 'absent'
+        }
+      },
+      {
+        name: 'success-without-evidence',
+        terminal: {
+          outcome: 'success',
+          started: 'source-patch',
+          completed: 'source-patch',
+          uuidEvidence: 'absent'
+        },
+        childSuccess: true
+      }
+    ];
+
+    for (const row of rows) {
+      const initialized = await initializedStoreFixture('firefox');
+      const spec = storeLeafSpec(initialized, row.childSuccess ?? false);
+      const result = await startBoundedCommand(
+        { profileId: spec.profileId, arguments: [] },
+        {
+          resolveProfile: () => spec,
+          spawnOperation: spawnAfter(() => {
+            writeStoreTerminalState(initialized.statePath, row.terminal);
+            row.mutate?.(initialized);
+          })
+        }
+      ).completion;
+      expect(result.ok, row.name).toBe(false);
+      expect(result.terminalReason, row.name).toMatch(/UUID|RELEASE_JSON/u);
+    }
+
+    const preflight = await initializedStoreFixture('firefox');
+    const published = publishFirefoxUuidEvidence(preflight.statePath);
+    rewriteCanonicalOwnedJson(preflight.statePath, (value) => {
+      value.uploadUuidSha256 = published.sha256;
+    });
+    await expect(
+      runBoundedCommand(
+        { profileId: 'release-state-check-v1', arguments: ['--browser', 'firefox'] },
+        { environment: preflight.fixture.environment }
+      )
+    ).resolves.toMatchObject({ ok: false, terminalReason: 'FIREFOX_UUID_EVIDENCE_INVALID' });
+  });
+
+  it.each(UUID_RACES)(
+    'release-state-check rejects UUID %s after binding publication',
+    async (race) => {
+      const initialized = await initializedStoreFixture('firefox');
+      const uuidEvidence = race === 'appearance' ? 'absent' : 'present';
+      const spec = storeLeafSpec(initialized, false);
+      const result = await startBoundedCommand(
+        { profileId: spec.profileId, arguments: [] },
+        {
+          resolveProfile: () => spec,
+          spawnOperation: spawnAfter(() => {
+            writeStoreTerminalState(initialized.statePath, {
+              outcome: 'unknown-submission-state',
+              started: 'upload',
+              completed: 'upload',
+              uuidEvidence
+            });
+          })
+        }
+      ).completion;
+      expect(result).toMatchObject({ ok: false, terminalReason: 'nonzero' });
+
+      if (race === 'appearance') publishFirefoxUuidEvidence(initialized.statePath);
+      else if (race === 'disappearance') rmSync(initialized.uuidPath);
+      else if (race === 'replacement') {
+        const bytes = canonicalJsonBytes({
+          channel: 'listed',
+          uploadUuid: 'replacement-uuid',
+          xpiCrcHash: 'e'.repeat(64)
+        });
+        writeFileSync(initialized.uuidPath, bytes);
+        chmodSync(initialized.uuidPath, 0o600);
+      } else {
+        writeFileSync(initialized.uuidPath, '{}\n');
+        chmodSync(initialized.uuidPath, 0o600);
+      }
+
+      await expect(
+        runBoundedCommand(
+          { profileId: 'release-state-check-v1', arguments: ['--browser', 'firefox'] },
+          { environment: initialized.fixture.environment }
+        )
+      ).resolves.toMatchObject({ ok: false });
+    }
+  );
+
+  it.each(UUID_RACES)('binding reseal rejects close-boundary UUID %s races', async (race) => {
+    const initialized = await initializedStoreFixture('firefox');
+    const uuidEvidence = race === 'appearance' ? 'absent' : 'present';
+    const spec = storeLeafSpec(initialized, false);
+    const result = await startBoundedCommand(
+      { profileId: spec.profileId, arguments: [] },
+      {
+        resolveProfile: () => spec,
+        spawnOperation: spawnAfter(
+          () => {
+            writeStoreTerminalState(initialized.statePath, {
+              outcome: 'unknown-submission-state',
+              started: 'upload',
+              completed: 'upload',
+              uuidEvidence
+            });
+          },
+          () => {
+            if (race === 'appearance') publishFirefoxUuidEvidence(initialized.statePath);
+            else if (race === 'disappearance') rmSync(initialized.uuidPath);
+            else if (race === 'replacement') {
+              const bytes = canonicalJsonBytes({
+                channel: 'listed',
+                uploadUuid: 'replacement-uuid',
+                xpiCrcHash: 'e'.repeat(64)
+              });
+              writeFileSync(initialized.uuidPath, bytes);
+              chmodSync(initialized.uuidPath, 0o600);
+            } else {
+              writeFileSync(initialized.uuidPath, '{}\n');
+              chmodSync(initialized.uuidPath, 0o600);
+            }
+          }
+        )
+      }
+    ).completion;
+    expect(result.ok).toBe(false);
+    expect(result.terminalReason).toMatch(/UUID|RELEASE_JSON/u);
+  });
+
   it('rejects unrefreshed, reordered, cross-browser, result-mismatched, and CAS-drift states', async () => {
     const invalidCases: Array<{
       browser: 'chrome' | 'firefox';
@@ -2335,6 +3267,163 @@ describe('bounded command ownership', () => {
         { resolveProfile: () => late }
       )
     ).toThrow();
+  });
+
+  it('publishes immutable same-attempt Firefox phase receipts and requires them before consumers', async () => {
+    const fixture = firefoxPlaywrightPhaseFixture();
+    const leaf = resolveCommandProfile('fixture-v1', ['success'], {
+      environment: cleanEnvironment()
+    });
+    const host = resolveCommandProfile(
+      'playwright-host-deps-platform-v1',
+      ['firefox-with-host-deps'],
+      { environment: fixture.phaseEnvironment }
+    );
+    await expect(
+      runBoundedCommand(
+        { profileId: 'playwright-host-deps-platform-v1', arguments: ['firefox-with-host-deps'] },
+        {
+          environment: fixture.phaseEnvironment,
+          resolveProfile: () => ({
+            ...leaf,
+            profileId: 'playwright-host-deps-platform-v1',
+            env: host.env,
+            commandContext: host.commandContext
+          })
+        }
+      )
+    ).resolves.toMatchObject({ ok: true });
+
+    const browser = resolveCommandProfile(
+      'playwright-browser-install-v1',
+      ['firefox-with-host-deps'],
+      { environment: fixture.phaseEnvironment }
+    );
+    await expect(
+      runBoundedCommand(
+        { profileId: 'playwright-browser-install-v1', arguments: ['firefox-with-host-deps'] },
+        {
+          environment: fixture.phaseEnvironment,
+          resolveProfile: () => ({
+            ...leaf,
+            profileId: 'playwright-browser-install-v1',
+            env: browser.env,
+            commandContext: browser.commandContext
+          }),
+          spawnOperation: spawnAfter(() => {
+            writeFileSync(join(fixture.browsersPath, 'installed-browser'), 'verified');
+          })
+        }
+      )
+    ).resolves.toMatchObject({ ok: true });
+
+    const consumer = resolveCommandProfile(
+      'firefox-verify-v1',
+      [
+        '--manifest',
+        join(fixture.attemptRoot, 'release/manifest.json'),
+        '--transport-mode',
+        'local-private-v1'
+      ],
+      {
+        environment: fixture.phaseEnvironment,
+        operations: {
+          fixedTrackedFileOperation: () => resolve('tests/fixtures/bounded-command/child.mjs')
+        }
+      }
+    );
+    await expect(
+      runBoundedCommand(
+        { profileId: 'firefox-verify-v1', arguments: [] },
+        {
+          environment: fixture.phaseEnvironment,
+          resolveProfile: () => ({
+            ...leaf,
+            profileId: 'firefox-verify-v1',
+            env: consumer.env,
+            commandContext: consumer.commandContext
+          })
+        }
+      )
+    ).resolves.toMatchObject({ ok: true });
+
+    const missing = firefoxPlaywrightPhaseFixture();
+    mkdirSync(missing.browsersPath, { mode: 0o700 });
+    const missingConsumer = resolveCommandProfile(
+      'firefox-verify-v1',
+      [
+        '--manifest',
+        join(missing.attemptRoot, 'release/manifest.json'),
+        '--transport-mode',
+        'local-private-v1'
+      ],
+      {
+        environment: missing.phaseEnvironment,
+        operations: {
+          fixedTrackedFileOperation: () => resolve('tests/fixtures/bounded-command/child.mjs')
+        }
+      }
+    );
+    expect(() =>
+      startBoundedCommand(
+        { profileId: 'firefox-verify-v1', arguments: [] },
+        {
+          environment: missing.phaseEnvironment,
+          resolveProfile: () => ({
+            ...leaf,
+            profileId: 'firefox-verify-v1',
+            env: missingConsumer.env,
+            commandContext: missingConsumer.commandContext
+          })
+        }
+      )
+    ).toThrow();
+  });
+
+  it('keeps the local-private Firefox consumer reachable without inventing a CI phase receipt', async () => {
+    const root = realpathSync(temporaryRoot());
+    installAttemptConfigs(root);
+    const browsersPath = join(root, 'playwright-browsers');
+    mkdirSync(browsersPath, { mode: 0o700 });
+    writeFileSync(join(browsersPath, 'installed-browser'), 'verified');
+    const environment = cleanEnvironment({
+      NPM_CONFIG_USERCONFIG: join(root, 'install/npm-userconfig'),
+      NPM_CONFIG_GLOBALCONFIG: join(root, 'install/npm-globalconfig'),
+      ZENDIO_PLAYWRIGHT_ATTEMPT_ROOT: root,
+      PLAYWRIGHT_BROWSERS_PATH: browsersPath
+    });
+    const consumer = resolveCommandProfile(
+      'firefox-verify-v1',
+      ['--manifest', join(root, 'release/manifest.json'), '--transport-mode', 'local-private-v1'],
+      {
+        environment,
+        operations: {
+          fixedTrackedFileOperation: () => resolve('tests/fixtures/bounded-command/child.mjs')
+        }
+      }
+    );
+    expect(consumer.commandContext).toMatchObject({
+      attemptRoot: root,
+      firefoxExecutionClass: 'release',
+      phaseReceiptPath: undefined
+    });
+    const leaf = resolveCommandProfile('fixture-v1', ['success'], {
+      environment: cleanEnvironment()
+    });
+    await expect(
+      runBoundedCommand(
+        { profileId: 'firefox-verify-v1', arguments: [] },
+        {
+          environment,
+          resolveProfile: () => ({
+            ...leaf,
+            profileId: 'firefox-verify-v1',
+            env: consumer.env,
+            commandContext: consumer.commandContext
+          })
+        }
+      )
+    ).resolves.toMatchObject({ ok: true });
   });
 
   it('binds the five governed package bins to the accepted lock identities', () => {

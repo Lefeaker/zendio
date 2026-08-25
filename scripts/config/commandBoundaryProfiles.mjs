@@ -599,7 +599,9 @@ function validateReleaseProfileArguments(profileId, args) {
     requireFlagValue(args, 0, '--manifest', absolutePathToken);
     if (requireFlagValue(args, 2, '--transport-mode') !== 'local-private-v1')
       invalid('RELEASE_TRANSPORT_MODE_INVALID');
-    requireFlagValue(args, 4, '--result-json', absolutePathToken);
+    const manifest = args[1];
+    const result = requireFlagValue(args, 4, '--result-json', absolutePathToken);
+    if (manifest === result) invalid('RELEASE_PATH_ALIAS_INVALID');
     return args;
   }
   if (profileId === 'chrome-dry-run-v1') {
@@ -1167,12 +1169,15 @@ function prepareGithubCiInstall(environment, injected = {}) {
     lstatOperation: lstatSync,
     mkdirOperation: mkdirSync,
     readFileOperation: readFileSync,
+    readDirectoryOperation: readdirSync,
     realpathOperation: realpathSync,
     writeFileOperation: writeFileSync,
     readUptimeCentiseconds: defaultUptimeCentiseconds,
     gitValueOperation: defaultGitValue,
     ...injected
   };
+  if (operations.readDirectoryOperation(REPOSITORY_ROOT).some((name) => name.startsWith('.env')))
+    invalid('CI_ENV_FILE_FORBIDDEN');
   const controlled = new Map(CI_ENVIRONMENT_KEYS.map((key) => [key.toLowerCase(), key]));
   for (const key of Object.keys(environment)) {
     const canonical = controlled.get(key.toLowerCase());
@@ -1315,7 +1320,17 @@ function prepareGithubCiInstall(environment, injected = {}) {
     globalconfig,
     jobClass,
     protectedJob,
-    githubOutputPath: output.canonical
+    githubOutputPath: output.canonical,
+    stampPath: stamp.canonical,
+    stampDevice: String(stamp.stats.dev),
+    stampInode: String(stamp.stats.ino),
+    stampMode: String(stamp.stats.mode & 0o777),
+    stampSha256: sha256Buffer(stampBytes),
+    outputDevice: String(output.stats.dev),
+    outputInode: String(output.stats.ino),
+    outputMode: String(output.stats.mode & 0o777),
+    expectedAttemptEntries: ['install'],
+    expectedInstallEntries: ['npm-globalconfig', 'npm-userconfig']
   });
 }
 
@@ -1394,6 +1409,18 @@ function assertOwnedDirectory(path, mode = 0o700) {
 }
 
 function releaseAttemptRoot(environment) {
+  for (const key of Object.keys(environment)) {
+    const lower = key.toLowerCase();
+    if (
+      lower.startsWith('npm_config_') &&
+      !['npm_config_userconfig', 'npm_config_globalconfig'].includes(lower)
+    )
+      invalid('NPM_CONFIG_AUTHORITY_INVALID');
+    if (lower === 'npm_config_userconfig' && key !== 'NPM_CONFIG_USERCONFIG')
+      invalid('NPM_CONFIG_AUTHORITY_INVALID');
+    if (lower === 'npm_config_globalconfig' && key !== 'NPM_CONFIG_GLOBALCONFIG')
+      invalid('NPM_CONFIG_AUTHORITY_INVALID');
+  }
   if (environment.CI === 'true' || environment.GITHUB_ACTIONS === 'true') {
     const runnerTemp = environment.RUNNER_TEMP;
     const runId = environment.GITHUB_RUN_ID;
@@ -1412,10 +1439,47 @@ function releaseAttemptRoot(environment) {
       join(realpathSync(runnerTemp), ciAttemptName(jobClass, runId, runAttempt, job))
     );
   }
-  const root = environment.ZENDIO_LOCAL_ATTEMPT_ROOT;
-  if (typeof root !== 'string' || !isAbsolute(root) || resolve(root) !== root)
-    invalid('LOCAL_ATTEMPT_ROOT_INVALID');
-  return assertOwnedDirectory(root);
+  const declared = environment.ZENDIO_LOCAL_ATTEMPT_ROOT;
+  if (declared !== undefined) {
+    if (typeof declared !== 'string' || !isAbsolute(declared) || resolve(declared) !== declared)
+      invalid('LOCAL_ATTEMPT_ROOT_INVALID');
+    const root = assertOwnedDirectory(declared);
+    const hasUserconfig = environment.NPM_CONFIG_USERCONFIG !== undefined;
+    const hasGlobalconfig = environment.NPM_CONFIG_GLOBALCONFIG !== undefined;
+    if (hasUserconfig !== hasGlobalconfig) invalid('NPM_CONFIG_AUTHORITY_INVALID');
+    if (hasUserconfig) {
+      const configs = attemptNpmConfigEnvironment(root);
+      if (
+        environment.NPM_CONFIG_USERCONFIG !== configs.NPM_CONFIG_USERCONFIG ||
+        environment.NPM_CONFIG_GLOBALCONFIG !== configs.NPM_CONFIG_GLOBALCONFIG
+      )
+        invalid('NPM_CONFIG_AUTHORITY_INVALID');
+    }
+    return root;
+  }
+  const userconfig = environment.NPM_CONFIG_USERCONFIG;
+  const globalconfig = environment.NPM_CONFIG_GLOBALCONFIG;
+  if (
+    typeof userconfig !== 'string' ||
+    typeof globalconfig !== 'string' ||
+    !isAbsolute(userconfig) ||
+    !isAbsolute(globalconfig) ||
+    resolve(userconfig) !== userconfig ||
+    resolve(globalconfig) !== globalconfig ||
+    basename(userconfig) !== 'npm-userconfig' ||
+    basename(globalconfig) !== 'npm-globalconfig' ||
+    dirname(userconfig) !== dirname(globalconfig) ||
+    basename(dirname(userconfig)) !== 'install'
+  )
+    invalid('NPM_CONFIG_AUTHORITY_INVALID');
+  const root = assertOwnedDirectory(dirname(dirname(userconfig)));
+  const configs = attemptNpmConfigEnvironment(root);
+  if (
+    configs.NPM_CONFIG_USERCONFIG !== userconfig ||
+    configs.NPM_CONFIG_GLOBALCONFIG !== globalconfig
+  )
+    invalid('NPM_CONFIG_AUTHORITY_INVALID');
+  return root;
 }
 
 const CHROME_STORE_KEYS = [
@@ -1550,15 +1614,6 @@ function attemptNpmConfigEnvironment(root) {
   return values;
 }
 
-function releaseAuditPathEnvironment(args, environment) {
-  const [name, separator, ...forwarded] = args;
-  if (!RELEASE_AUDIT_NPM_SCRIPTS.has(name) || separator === undefined) return {};
-  const root = releaseAttemptRoot(environment);
-  const paths = [forwarded[1], ...(forwarded.length === 4 ? [forwarded[3]] : [])];
-  for (const path of paths) requireContainedArgument(root, path);
-  return attemptNpmConfigEnvironment(root);
-}
-
 function exactAttemptConfigEnvironment(root, environment) {
   const configs = attemptNpmConfigEnvironment(root);
   if (
@@ -1567,6 +1622,79 @@ function exactAttemptConfigEnvironment(root, environment) {
   )
     invalid('NPM_CONFIG_IDENTITY_INVALID');
   return configs;
+}
+
+function attemptConfigAuthority(environment, { required = false } = {}) {
+  const authorityIntent =
+    required ||
+    environment.ZENDIO_LOCAL_ATTEMPT_ROOT !== undefined ||
+    Object.keys(environment).some((key) =>
+      ['npm_config_userconfig', 'npm_config_globalconfig'].includes(key.toLowerCase())
+    );
+  if (!authorityIntent) return null;
+  for (const key of Object.keys(environment)) {
+    const lower = key.toLowerCase();
+    if (
+      lower.startsWith('npm_config_') &&
+      !['npm_config_userconfig', 'npm_config_globalconfig'].includes(lower)
+    )
+      invalid('NPM_CONFIG_AUTHORITY_INVALID');
+    if (lower === 'npm_config_userconfig' && key !== 'NPM_CONFIG_USERCONFIG')
+      invalid('NPM_CONFIG_AUTHORITY_INVALID');
+    if (lower === 'npm_config_globalconfig' && key !== 'NPM_CONFIG_GLOBALCONFIG')
+      invalid('NPM_CONFIG_AUTHORITY_INVALID');
+  }
+  const hasUserconfig = environment.NPM_CONFIG_USERCONFIG !== undefined;
+  const hasGlobalconfig = environment.NPM_CONFIG_GLOBALCONFIG !== undefined;
+  if (!hasUserconfig && !hasGlobalconfig) {
+    if (environment.ZENDIO_LOCAL_ATTEMPT_ROOT === undefined) {
+      if (required) invalid('NPM_CONFIG_AUTHORITY_INVALID');
+      return null;
+    }
+    const attemptRoot = releaseAttemptRoot(environment);
+    const configs = attemptNpmConfigEnvironment(attemptRoot);
+    return {
+      attemptRoot,
+      userconfig: configs.NPM_CONFIG_USERCONFIG,
+      globalconfig: configs.NPM_CONFIG_GLOBALCONFIG,
+      environment: configs,
+      commandContext: {
+        attemptConfigAuthority: true,
+        attemptRoot,
+        userconfig: configs.NPM_CONFIG_USERCONFIG,
+        globalconfig: configs.NPM_CONFIG_GLOBALCONFIG
+      }
+    };
+  }
+  if (!hasUserconfig || !hasGlobalconfig) invalid('NPM_CONFIG_AUTHORITY_INVALID');
+  const attemptRoot = releaseAttemptRoot(environment);
+  const configs = exactAttemptConfigEnvironment(attemptRoot, environment);
+  return {
+    attemptRoot,
+    userconfig: configs.NPM_CONFIG_USERCONFIG,
+    globalconfig: configs.NPM_CONFIG_GLOBALCONFIG,
+    environment: configs,
+    commandContext: {
+      attemptConfigAuthority: true,
+      attemptRoot,
+      userconfig: configs.NPM_CONFIG_USERCONFIG,
+      globalconfig: configs.NPM_CONFIG_GLOBALCONFIG
+    }
+  };
+}
+
+function releaseAuditPathAuthority(args, environment) {
+  const [name, separator, ...forwarded] = args;
+  const releaseAudit = RELEASE_AUDIT_NPM_SCRIPTS.has(name) && separator !== undefined;
+  const authority = attemptConfigAuthority(environment, { required: releaseAudit });
+  if (!releaseAudit) return authority;
+  const paths = [forwarded[1], ...(forwarded.length === 4 ? [forwarded[3]] : [])];
+  for (const path of paths) requireContainedArgument(authority.attemptRoot, path);
+  return authority;
+}
+
+function firefoxPhaseReceiptPath(root, phase) {
+  return join(root, 'receipts', `firefox-playwright-${phase}.json`);
 }
 
 function firefoxPlaywrightPhaseEnvironment(environment, hostDependencies) {
@@ -1625,7 +1753,21 @@ function firefoxPlaywrightPhaseEnvironment(environment, hostDependencies) {
       NPM_CONFIG_GLOBALCONFIG: configs.NPM_CONFIG_GLOBALCONFIG,
       ...(policy.requireAttemptEnvironment ? { ZENDIO_PLAYWRIGHT_ATTEMPT_ROOT: root } : {}),
       PLAYWRIGHT_BROWSERS_PATH: browsersPath
-    }
+    },
+    phaseReceiptPath: firefoxPhaseReceiptPath(
+      root,
+      hostDependencies ? 'host-deps' : 'browser-install'
+    ),
+    requiredPhaseReceiptPath:
+      !hostDependencies && executionClass === 'release'
+        ? firefoxPhaseReceiptPath(root, 'host-deps')
+        : undefined,
+    sequenceOwner:
+      executionClass === 'release'
+        ? hostDependencies
+          ? 'platform:playwright-host-deps-v1'
+          : 'playwright-browser-install-v1'
+        : undefined
   };
 }
 
@@ -1635,6 +1777,7 @@ function firefoxReleaseConsumerEnvironment(profileId, environment, attemptRoot, 
       ? 'protected-verifier'
       : 'release';
   const policy = FIREFOX_EXECUTION_CLASSES[executionClass];
+  const ciReleaseConsumer = executionClass === 'release' && environment.CI === 'true';
   const configs = exactAttemptConfigEnvironment(attemptRoot, environment);
   if (executionClass === 'protected-verifier') {
     if (
@@ -1667,6 +1810,13 @@ function firefoxReleaseConsumerEnvironment(profileId, environment, attemptRoot, 
     browsersPath,
     userconfig: configs.NPM_CONFIG_USERCONFIG,
     globalconfig: configs.NPM_CONFIG_GLOBALCONFIG,
+    phaseReceiptPath: ciReleaseConsumer
+      ? firefoxPhaseReceiptPath(attemptRoot, 'browser-install')
+      : undefined,
+    requiredPhaseReceiptPath: ciReleaseConsumer
+      ? firefoxPhaseReceiptPath(attemptRoot, 'browser-install')
+      : undefined,
+    sequenceOwner: ciReleaseConsumer ? profileId : undefined,
     environment: {
       NPM_CONFIG_USERCONFIG: configs.NPM_CONFIG_USERCONFIG,
       NPM_CONFIG_GLOBALCONFIG: configs.NPM_CONFIG_GLOBALCONFIG,
@@ -1684,18 +1834,28 @@ function npmInvocation(args, limits) {
 function npmScriptInvocation(args, accepted, limits, environment) {
   validateNpmScriptArgs(args, accepted);
   const [name, separator, ...forwarded] = args;
+  const authority = environment ? releaseAuditPathAuthority(args, environment) : null;
   return {
     ...npmInvocation(['run', name, ...(separator ? ['--', ...forwarded] : [])], limits),
-    ...(environment
+    ...(authority
       ? {
-          env: buildClosedCommandEnvironment(
-            environment,
-            releaseAuditPathEnvironment(args, environment)
-          )
+          env: buildClosedCommandEnvironment(environment, authority.environment),
+          commandContext: authority.commandContext
         }
       : {})
   };
 }
+
+const ATTEMPT_CONFIG_PROPAGATION_PROFILES = new Set([
+  'dependency-cruiser-v1',
+  'node-script-standard-v1',
+  'npm-script-build-v1',
+  'npm-script-quick-v1',
+  'npm-script-standard-v1',
+  'prettier-v1',
+  'stylelint-v1',
+  'vitest-v1'
+]);
 
 export function resolveCommandProfile(
   profileId,
@@ -1778,7 +1938,22 @@ export function resolveCommandProfile(
       commandContext: {
         attemptRoot: prepared.attemptRoot,
         jobClass: prepared.jobClass,
-        protectedJob: prepared.protectedJob
+        protectedJob: prepared.protectedJob,
+        installRoot: prepared.installRoot,
+        userconfig: prepared.userconfig,
+        globalconfig: prepared.globalconfig,
+        expectedAttemptEntries: prepared.expectedAttemptEntries,
+        expectedInstallEntries: prepared.expectedInstallEntries,
+        stampPath: prepared.stampPath,
+        stampDevice: prepared.stampDevice,
+        stampInode: prepared.stampInode,
+        stampMode: prepared.stampMode,
+        stampSha256: prepared.stampSha256,
+        githubOutputPath: prepared.githubOutputPath,
+        outputDevice: prepared.outputDevice,
+        outputInode: prepared.outputInode,
+        outputMode: prepared.outputMode,
+        ciInstall: true
       }
     };
   } else if (profileId === 'local-install-v1') {
@@ -1810,12 +1985,14 @@ export function resolveCommandProfile(
       commandContext: { attemptRoot: prepared.attemptRoot, localInstall: true }
     };
   } else if (profileId === 'npm-audit-context-v1') {
-    requireLocalRelease(environment);
+    const attemptRoot = requireLocalRelease(environment);
+    const authority = attemptConfigAuthority(environment, { required: true });
     command = {
       executable: process.execPath,
       argv: [fixedFileOperation('tools/check-npm-audit-regression.mjs'), ...args],
-      env: releaseProfileEnvironment(profileId, environment),
-      limits: COMMAND_LIMITS.quick
+      env: releaseProfileEnvironment(profileId, environment, authority.environment),
+      limits: COMMAND_LIMITS.quick,
+      commandContext: { ...authority.commandContext, attemptRoot }
     };
   } else if (profileId === 'npm-tree-read-v1') {
     const root = requireLocalRelease(environment);
@@ -2040,6 +2217,7 @@ export function resolveCommandProfile(
       commandContext: {
         attemptRoot,
         browser,
+        channel: profileArgumentValue(args, '--channel'),
         transport,
         manifestPath:
           profileArgumentValue(args, '--manifest') ??
@@ -2048,6 +2226,9 @@ export function resolveCommandProfile(
           profileArgumentValue(args, '--state-file') ??
           profileArgumentValue(args, '--submission-state-file'),
         expectedManifestSha256,
+        phaseReceiptPath: firefoxExecution?.phaseReceiptPath,
+        requiredPhaseReceiptPath: firefoxExecution?.requiredPhaseReceiptPath,
+        sequenceOwner: firefoxExecution?.sequenceOwner,
         ...(firefoxExecution
           ? {
               firefoxExecution: true,
@@ -2062,11 +2243,11 @@ export function resolveCommandProfile(
       }
     };
   } else if (profileId === 'npm-script-quick-v1')
-    command = npmScriptInvocation(args, QUICK_NPM_SCRIPTS, COMMAND_LIMITS.quick);
+    command = npmScriptInvocation(args, QUICK_NPM_SCRIPTS, COMMAND_LIMITS.quick, environment);
   else if (profileId === 'npm-script-standard-v1')
     command = npmScriptInvocation(args, STANDARD_NPM_SCRIPTS, COMMAND_LIMITS.standard, environment);
   else if (profileId === 'npm-script-build-v1')
-    command = npmScriptInvocation(args, BUILD_NPM_SCRIPTS, COMMAND_LIMITS.build);
+    command = npmScriptInvocation(args, BUILD_NPM_SCRIPTS, COMMAND_LIMITS.build, environment);
   else if (profileId === 'npm-script-browser-v1')
     command = npmScriptInvocation(args, BROWSER_NPM_SCRIPTS, COMMAND_LIMITS.browser);
   else if (profileId === 'node-script-standard-v1') {
@@ -2109,6 +2290,9 @@ export function resolveCommandProfile(
               browsersPath: phaseEnvironment.browsersPath,
               userconfig: phaseEnvironment.userconfig,
               globalconfig: phaseEnvironment.globalconfig,
+              phaseReceiptPath: phaseEnvironment.phaseReceiptPath,
+              requiredPhaseReceiptPath: phaseEnvironment.requiredPhaseReceiptPath,
+              sequenceOwner: phaseEnvironment.sequenceOwner,
               browserRootState: hostDependencies ? 'absent' : 'empty'
             }
           }
@@ -2156,6 +2340,16 @@ export function resolveCommandProfile(
       argv: [...args],
       limits: profileId === 'stitch-secondary-v1' ? COMMAND_LIMITS.stitch : COMMAND_LIMITS.standard
     };
+  if (ATTEMPT_CONFIG_PROPAGATION_PROFILES.has(profileId) && !command.commandContext) {
+    const authority = attemptConfigAuthority(environment);
+    if (authority) {
+      command = {
+        ...command,
+        env: buildClosedCommandEnvironment(environment, authority.environment),
+        commandContext: authority.commandContext
+      };
+    }
+  }
   const environmentAdditions =
     profileId === 'lint-staged-hook-v1' || profileId === 'lint-staged-prepare-v1'
       ? { PATH: lintStagedPath() }

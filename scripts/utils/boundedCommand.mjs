@@ -27,6 +27,7 @@ import {
   COMMAND_BOUNDARY_VERSION,
   COMMAND_REQUEST_FILE,
   REPOSITORY_ROOT,
+  R03_CI_JOB_SEQUENCE_RESERVATIONS,
   resolveCommandProfile,
   validateProfileArguments
 } from '../config/commandBoundaryProfiles.mjs';
@@ -805,6 +806,13 @@ const RELEASE_STATE_REQUIRED_KEYS = [
   'artifactReceiptSha256',
   'manifestPath',
   'manifestSha256',
+  'store',
+  'channel',
+  'packageSha256',
+  'lockSha256',
+  'artifactRole',
+  'errorCode',
+  'recovery',
   'stage',
   'outcome',
   'mutationInvoked',
@@ -812,6 +820,18 @@ const RELEASE_STATE_REQUIRED_KEYS = [
 ];
 
 const RELEASE_STATE_OPTIONAL_KEYS = ['lastStartedOperation', 'lastCompletedOperation'];
+
+const RELEASE_STATE_BROWSER_KEYS = deepFreeze({
+  chrome: ['itemId', 'publisherIdFingerprint', 'packageVersion', 'archiveSha256', 'terminalResult'],
+  firefox: [
+    'geckoId',
+    'xpiSha256',
+    'sourceArchiveSha256',
+    'uploadUuidSha256',
+    'signedXpiSha256',
+    'terminalResult'
+  ]
+});
 
 const STORE_ACTION_SEQUENCES = deepFreeze({
   chrome: ['upload', 'publish'],
@@ -834,6 +854,72 @@ const STATE_BINDING_KEYS = [
   'releaseSha',
   'releaseTree'
 ];
+
+const FIREFOX_UUID_EVIDENCE_KEYS = ['channel', 'uploadUuid', 'xpiCrcHash'];
+
+function readFirefoxUuidEvidence(paths, attemptRoot) {
+  if (!paths.uuidPath) return null;
+  const parentsBefore = releaseParentIdentityChain(attemptRoot, paths.uuidPath);
+  try {
+    lstatSync(paths.uuidPath);
+  } catch (error) {
+    if (error?.code !== 'ENOENT') throw error;
+    const parentsAfter = releaseParentIdentityChain(attemptRoot, paths.uuidPath);
+    try {
+      lstatSync(paths.uuidPath);
+      throw new Error('FIREFOX_UUID_EVIDENCE_CHANGED');
+    } catch (afterError) {
+      if (afterError?.code !== 'ENOENT') throw afterError;
+    }
+    if (JSON.stringify(parentsBefore) !== JSON.stringify(parentsAfter))
+      throw new Error('FIREFOX_UUID_EVIDENCE_CHANGED');
+    return { present: false, parents: parentsAfter, path: paths.uuidPath };
+  }
+  const record = readCanonicalJsonDescriptor(paths.uuidPath, 16 * 1024, 8, attemptRoot, 'pretty');
+  const parentsAfter = releaseParentIdentityChain(attemptRoot, paths.uuidPath);
+  if (JSON.stringify(parentsBefore) !== JSON.stringify(parentsAfter))
+    throw new Error('FIREFOX_UUID_EVIDENCE_CHANGED');
+  return { ...record, present: true, parents: parentsAfter, path: paths.uuidPath };
+}
+
+function assertFirefoxUuidEvidenceEqual(actual, expected, code) {
+  if (
+    actual?.present !== expected?.present ||
+    actual?.path !== expected?.path ||
+    JSON.stringify(actual?.parents) !== JSON.stringify(expected?.parents) ||
+    (actual?.present &&
+      (!actual.bytes.equals(expected.bytes) || !stableFileStats(actual.stats, expected.stats)))
+  )
+    throw new Error(code);
+}
+
+function validateFirefoxUuidCorrelation(value, context, evidence) {
+  if (context.browser !== 'firefox') return;
+  if (!evidence) throw new Error('FIREFOX_UUID_EVIDENCE_INVALID');
+  const actions = STORE_ACTION_SEQUENCES.firefox;
+  const startedIndex =
+    value.lastStartedOperation === undefined ? -1 : actions.indexOf(value.lastStartedOperation);
+  const completedIndex =
+    value.lastCompletedOperation === undefined ? -1 : actions.indexOf(value.lastCompletedOperation);
+  const forbidden = startedIndex <= 0 && completedIndex < 0;
+  const required = startedIndex >= 1 || value.outcome === 'success';
+  if (
+    (value.uploadUuidSha256 === null) !== !evidence.present ||
+    (forbidden && evidence.present) ||
+    (required && !evidence.present)
+  )
+    throw new Error('FIREFOX_UUID_EVIDENCE_INVALID');
+  if (!evidence.present) return;
+  assertClosedKeys(evidence.value, FIREFOX_UUID_EVIDENCE_KEYS, 'firefox UUID evidence');
+  if (
+    !['listed', 'unlisted'].includes(evidence.value.channel) ||
+    evidence.value.channel !== value.channel ||
+    !/^[A-Za-z0-9_-]{1,256}$/u.test(evidence.value.uploadUuid ?? '') ||
+    !/^[0-9a-f]{64}$/u.test(evidence.value.xpiCrcHash ?? '') ||
+    value.uploadUuidSha256 !== evidence.sha256
+  )
+    throw new Error('FIREFOX_UUID_EVIDENCE_INVALID');
+}
 
 function validateArtifactReceipt(spec, artifact, expectedManifestPath, expectedManifestSha256) {
   const context = spec.commandContext;
@@ -875,11 +961,16 @@ function validateReleaseStateValue(
   { childOk, allowInitial = true } = {}
 ) {
   const keys = Object.keys(value);
+  const browserKeys = RELEASE_STATE_BROWSER_KEYS[context.browser];
   if (
+    !browserKeys ||
     RELEASE_STATE_REQUIRED_KEYS.some((key) => !keys.includes(key)) ||
+    browserKeys.some((key) => !keys.includes(key)) ||
     keys.some(
       (key) =>
-        !RELEASE_STATE_REQUIRED_KEYS.includes(key) && !RELEASE_STATE_OPTIONAL_KEYS.includes(key)
+        !RELEASE_STATE_REQUIRED_KEYS.includes(key) &&
+        !browserKeys.includes(key) &&
+        !RELEASE_STATE_OPTIONAL_KEYS.includes(key)
     )
   )
     throw new Error('RELEASE_STATE_INVALID');
@@ -897,6 +988,23 @@ function validateReleaseStateValue(
     value.artifactReceiptSha256 !== artifactDigest ||
     value.manifestPath !== artifactValue.manifestPath ||
     value.manifestSha256 !== artifactValue.manifestSha256 ||
+    value.store !== (context.browser === 'chrome' ? 'chrome-web-store-v1' : 'firefox-amo-v1') ||
+    !(
+      value.channel === (context.browser === 'chrome' ? 'default' : 'pending') ||
+      (context.browser === 'firefox' && ['listed', 'unlisted'].includes(value.channel))
+    ) ||
+    (context.browser === 'firefox' &&
+      context.channel !== undefined &&
+      value.outcome !== 'not-started' &&
+      value.channel !== context.channel) ||
+    value.packageSha256 !== identity.packageSha256 ||
+    value.lockSha256 !== identity.lockSha256 ||
+    value.artifactRole !== (context.browser === 'chrome' ? 'extension-zip' : 'unsigned-xpi') ||
+    !(
+      value.errorCode === null ||
+      (typeof value.errorCode === 'string' && /^[A-Z0-9_:-]{1,128}$/u.test(value.errorCode))
+    ) ||
+    !['none', 'retry', 'reconcile'].includes(value.recovery) ||
     typeof value.stage !== 'string' ||
     value.stage.length === 0 ||
     Buffer.byteLength(value.stage) > 128 ||
@@ -928,18 +1036,76 @@ function validateReleaseStateValue(
         ? `${actions[startedIndex]}-completed`
         : `${actions[startedIndex]}-started`;
   const initial = value.outcome === 'not-started';
+  const sha256OrNull = (input) => input === null || /^[0-9a-f]{64}$/u.test(input ?? '');
+  const boundedStringOrNull = (input, maximum = 512) =>
+    input === null ||
+    (typeof input === 'string' && input.length > 0 && Buffer.byteLength(input, 'utf8') <= maximum);
+  const chromeIdentityPresent =
+    context.browser === 'chrome' &&
+    value.itemId !== null &&
+    value.publisherIdFingerprint !== null &&
+    value.packageVersion !== null &&
+    value.archiveSha256 !== null;
+  const firefoxIdentityPresent =
+    context.browser === 'firefox' &&
+    value.geckoId !== null &&
+    value.xpiSha256 !== null &&
+    value.sourceArchiveSha256 !== null;
+  const identityPresent = chromeIdentityPresent || firefoxIdentityPresent;
+  const identityAbsent =
+    context.browser === 'chrome'
+      ? [
+          value.itemId,
+          value.publisherIdFingerprint,
+          value.packageVersion,
+          value.archiveSha256
+        ].every((entry) => entry === null)
+      : [value.geckoId, value.xpiSha256, value.sourceArchiveSha256].every(
+          (entry) => entry === null
+        );
+  if (
+    (!identityPresent && !identityAbsent) ||
+    (context.browser === 'chrome' &&
+      (!boundedStringOrNull(value.itemId) ||
+        !sha256OrNull(value.publisherIdFingerprint) ||
+        !boundedStringOrNull(value.packageVersion) ||
+        !sha256OrNull(value.archiveSha256) ||
+        ![null, 'PENDING_REVIEW', 'PUBLISHED'].includes(value.terminalResult))) ||
+    (context.browser === 'firefox' &&
+      (!boundedStringOrNull(value.geckoId, 256) ||
+        !sha256OrNull(value.xpiSha256) ||
+        !sha256OrNull(value.sourceArchiveSha256) ||
+        !sha256OrNull(value.uploadUuidSha256) ||
+        !sha256OrNull(value.signedXpiSha256) ||
+        ![null, 'listed', 'unlisted'].includes(value.terminalResult))) ||
+    (value.mutationInvoked && !identityPresent) ||
+    (context.browser === 'firefox' &&
+      ((value.channel === 'listed' && value.signedXpiSha256 !== null) ||
+        (value.outcome === 'success' &&
+          (value.terminalResult !== value.channel ||
+            (value.channel === 'unlisted') !== (value.signedXpiSha256 !== null))))) ||
+    (context.browser === 'chrome' &&
+      value.outcome === 'success' &&
+      !['PENDING_REVIEW', 'PUBLISHED'].includes(value.terminalResult)) ||
+    (value.outcome !== 'success' && value.terminalResult !== null)
+  )
+    throw new Error('RELEASE_STATE_EVIDENCE_INVALID');
   if (
     (initial &&
       (!allowInitial ||
         value.stage !== 'preflight' ||
         value.mutationInvoked !== false ||
         value.retrySafe !== true ||
+        value.recovery !== 'none' ||
+        value.errorCode !== null ||
         startedIndex !== -1 ||
         completedIndex !== -1)) ||
     (value.outcome === 'pre-mutation-failure' &&
       (value.stage !== 'preflight' ||
         value.mutationInvoked !== false ||
         value.retrySafe !== true ||
+        value.recovery !== 'retry' ||
+        value.errorCode === null ||
         startedIndex !== -1 ||
         completedIndex !== -1 ||
         childOk === true)) ||
@@ -947,12 +1113,16 @@ function validateReleaseStateValue(
       (value.stage !== expectedStage ||
         value.mutationInvoked !== true ||
         value.retrySafe !== false ||
+        value.recovery !== 'reconcile' ||
+        value.errorCode === null ||
         startedIndex < 0 ||
         childOk === true)) ||
     (value.outcome === 'success' &&
       (value.stage !== `${actions.at(-1)}-completed` ||
         value.mutationInvoked !== true ||
         value.retrySafe !== false ||
+        value.recovery !== 'none' ||
+        value.errorCode !== null ||
         startedIndex !== actions.length - 1 ||
         completedIndex !== actions.length - 1 ||
         childOk === false))
@@ -976,6 +1146,7 @@ function validateStateBinding(spec, { requireInitial = false } = {}) {
   );
   const binding = readCanonicalOwnedJson(paths.bindingReceiptPath, 64 * 1024, context.attemptRoot);
   const state = readCanonicalOwnedJson(paths.statePath, 16 * 1024, context.attemptRoot);
+  const uuidEvidence = readFirefoxUuidEvidence(paths, context.attemptRoot);
   assertClosedKeys(binding.value, STATE_BINDING_KEYS, 'release state binding');
   const artifactDigest = createHash('sha256').update(artifact.bytes).digest('hex');
   const stateDigest = createHash('sha256').update(state.bytes).digest('hex');
@@ -998,6 +1169,7 @@ function validateStateBinding(spec, { requireInitial = false } = {}) {
     artifact.value,
     artifactValidation.identity
   );
+  validateFirefoxUuidCorrelation(state.value, context, uuidEvidence);
   const initial = state.value.stage === 'preflight' && state.value.outcome === 'not-started';
   if (
     (requireInitial &&
@@ -1009,7 +1181,7 @@ function validateStateBinding(spec, { requireInitial = false } = {}) {
     binding.value.stateSha256 !== stateDigest
   )
     throw new Error('RELEASE_STATE_BINDING_INVALID');
-  return { paths, artifact, binding, state, artifactValidation };
+  return { paths, artifact, binding, state, uuidEvidence, artifactValidation };
 }
 
 function executeInProcessProfile(spec) {
@@ -1083,6 +1255,29 @@ function executeInProcessProfile(spec) {
       artifactReceiptSha256: artifactDigest,
       manifestPath: artifact.value.manifestPath,
       manifestSha256: artifact.value.manifestSha256,
+      store: context.browser === 'chrome' ? 'chrome-web-store-v1' : 'firefox-amo-v1',
+      channel: context.browser === 'chrome' ? 'default' : 'pending',
+      packageSha256: identity.packageSha256,
+      lockSha256: identity.lockSha256,
+      artifactRole: context.browser === 'chrome' ? 'extension-zip' : 'unsigned-xpi',
+      ...(context.browser === 'chrome'
+        ? {
+            itemId: null,
+            publisherIdFingerprint: null,
+            packageVersion: null,
+            archiveSha256: null,
+            terminalResult: null
+          }
+        : {
+            geckoId: null,
+            xpiSha256: null,
+            sourceArchiveSha256: null,
+            uploadUuidSha256: null,
+            signedXpiSha256: null,
+            terminalResult: null
+          }),
+      errorCode: null,
+      recovery: 'none',
       stage: 'preflight',
       outcome: 'not-started',
       mutationInvoked: false,
@@ -1238,6 +1433,7 @@ function refreshStoreStateBinding(spec, initial, result) {
     16 * 1024,
     context.attemptRoot
   );
+  const terminalUuidEvidence = readFirefoxUuidEvidence(initial.paths, context.attemptRoot);
   const artifactDigest = createHash('sha256').update(currentArtifact.bytes).digest('hex');
   validateReleaseStateValue(
     terminalState.value,
@@ -1247,6 +1443,7 @@ function refreshStoreStateBinding(spec, initial, result) {
     artifactValidation.identity,
     { childOk: result.ok, allowInitial: false }
   );
+  validateFirefoxUuidCorrelation(terminalState.value, context, terminalUuidEvidence);
   const nextBinding = {
     ...initial.binding.value,
     stateDevice: String(terminalState.stats.dev),
@@ -1263,8 +1460,14 @@ function refreshStoreStateBinding(spec, initial, result) {
     context.attemptRoot
   );
   const stateCas = readCanonicalOwnedJson(initial.paths.statePath, 16 * 1024, context.attemptRoot);
+  const uuidCas = readFirefoxUuidEvidence(initial.paths, context.attemptRoot);
   assertCanonicalRecordEqual(bindingCas, initial.binding, 'RELEASE_STATE_BINDING_CAS_MISMATCH');
   assertCanonicalRecordEqual(stateCas, terminalState, 'RELEASE_STATE_CAS_MISMATCH');
+  assertFirefoxUuidEvidenceEqual(
+    uuidCas,
+    terminalUuidEvidence,
+    'FIREFOX_UUID_EVIDENCE_CAS_MISMATCH'
+  );
   renameSync(nextPath, initial.paths.bindingReceiptPath);
   const parent = openSync(
     dirname(initial.paths.bindingReceiptPath),
@@ -1285,9 +1488,15 @@ function refreshStoreStateBinding(spec, initial, result) {
     16 * 1024,
     context.attemptRoot
   );
+  const publishedUuidEvidence = readFirefoxUuidEvidence(initial.paths, context.attemptRoot);
   if (!publishedBinding.bytes.equals(Buffer.from(`${canonicalJson(nextBinding)}\n`, 'utf8')))
     throw new Error('RELEASE_STATE_BINDING_PUBLICATION_INVALID');
   assertCanonicalRecordEqual(publishedState, terminalState, 'RELEASE_STATE_CHANGED_AFTER_REFRESH');
+  assertFirefoxUuidEvidenceEqual(
+    publishedUuidEvidence,
+    terminalUuidEvidence,
+    'FIREFOX_UUID_EVIDENCE_CHANGED_AFTER_REFRESH'
+  );
   validateStateBinding(spec);
 }
 
@@ -1353,7 +1562,12 @@ function assertFirefoxExecutionPreconditions(spec) {
   )
     throw new Error('NPM_CONFIG_IDENTITY_INVALID');
   for (const path of [context.userconfig, context.globalconfig]) {
-    const record = readStableOwnedFile(path, 0, context.attemptRoot);
+    let record;
+    try {
+      record = readStableOwnedFile(path, 0, context.attemptRoot);
+    } catch {
+      throw new Error('NPM_CONFIG_IDENTITY_INVALID');
+    }
     if (record.bytes.length !== 0) throw new Error('NPM_CONFIG_IDENTITY_INVALID');
   }
   if (
@@ -1399,6 +1613,330 @@ function assertFirefoxExecutionPreconditions(spec) {
   } else {
     throw new Error('PLAYWRIGHT_BROWSER_ROOT_STATE_INVALID');
   }
+}
+
+function assertCiInstallPreconditions(spec) {
+  const context = spec.commandContext;
+  if (!context?.ciInstall) return;
+  if (readdirSync(REPOSITORY_ROOT).some((name) => name.startsWith('.env')))
+    throw new Error('CI_ENV_FILE_FORBIDDEN');
+  releaseDirectoryIdentity(context.attemptRoot);
+  releaseDirectoryIdentity(context.installRoot);
+  if (
+    JSON.stringify(readdirSync(context.attemptRoot).sort()) !==
+      JSON.stringify([...context.expectedAttemptEntries].sort()) ||
+    JSON.stringify(readdirSync(context.installRoot).sort()) !==
+      JSON.stringify([...context.expectedInstallEntries].sort())
+  )
+    throw new Error('CI_INSTALL_IDENTITY_CHANGED');
+  for (const path of [context.userconfig, context.globalconfig]) {
+    const record = readStableOwnedFile(path, 0, context.attemptRoot);
+    if (record.bytes.length !== 0 || (record.stats.mode & 0o777) !== 0o600)
+      throw new Error('CI_INSTALL_CONFIG_CHANGED');
+  }
+  if (
+    spec.env.NPM_CONFIG_USERCONFIG !== context.userconfig ||
+    spec.env.NPM_CONFIG_GLOBALCONFIG !== context.globalconfig
+  )
+    throw new Error('CI_INSTALL_CONFIG_CHANGED');
+  const stamp = lstatSync(context.stampPath);
+  if (
+    !stamp.isFile() ||
+    stamp.isSymbolicLink() ||
+    stamp.uid !== process.getuid() ||
+    stamp.nlink !== 1 ||
+    String(stamp.dev) !== context.stampDevice ||
+    String(stamp.ino) !== context.stampInode ||
+    String(stamp.mode & 0o777) !== context.stampMode ||
+    createHash('sha256').update(readFileSync(context.stampPath)).digest('hex') !==
+      context.stampSha256
+  )
+    throw new Error('CI_STAMP_CHANGED');
+  const output = lstatSync(context.githubOutputPath);
+  if (
+    !output.isFile() ||
+    output.isSymbolicLink() ||
+    output.uid !== process.getuid() ||
+    output.nlink !== 1 ||
+    String(output.dev) !== context.outputDevice ||
+    String(output.ino) !== context.outputInode ||
+    String(output.mode & 0o777) !== context.outputMode
+  )
+    throw new Error('CI_OUTPUT_CHANGED');
+}
+
+function assertAttemptConfigPreconditions(spec) {
+  const context = spec.commandContext;
+  if (!context?.attemptConfigAuthority) return;
+  releaseDirectoryIdentity(context.attemptRoot);
+  releaseDirectoryIdentity(join(context.attemptRoot, 'install'));
+  if (
+    context.userconfig !== join(context.attemptRoot, 'install/npm-userconfig') ||
+    context.globalconfig !== join(context.attemptRoot, 'install/npm-globalconfig') ||
+    spec.env.NPM_CONFIG_USERCONFIG !== context.userconfig ||
+    spec.env.NPM_CONFIG_GLOBALCONFIG !== context.globalconfig
+  )
+    throw new Error('NPM_CONFIG_IDENTITY_INVALID');
+  const npmConfigKeys = Object.keys(spec.env).filter((key) =>
+    key.toLowerCase().startsWith('npm_config_')
+  );
+  if (
+    JSON.stringify(npmConfigKeys.sort()) !==
+    JSON.stringify(['NPM_CONFIG_GLOBALCONFIG', 'NPM_CONFIG_USERCONFIG'])
+  )
+    throw new Error('NPM_CONFIG_IDENTITY_INVALID');
+  for (const path of [context.userconfig, context.globalconfig]) {
+    let record;
+    try {
+      record = readStableOwnedFile(path, 0, context.attemptRoot);
+    } catch {
+      throw new Error('NPM_CONFIG_IDENTITY_INVALID');
+    }
+    if (
+      record.bytes.length !== 0 ||
+      record.stats.nlink !== 1 ||
+      (record.stats.mode & 0o777) !== 0o600
+    )
+      throw new Error('NPM_CONFIG_IDENTITY_INVALID');
+  }
+}
+
+function assertFirefoxPhaseReceipt(spec) {
+  const context = spec.commandContext;
+  if (!context?.firefoxExecution || !context.phaseReceiptPath) return;
+  const phase =
+    spec.profileId === 'playwright-host-deps-platform-v1'
+      ? 'host-deps'
+      : spec.profileId === 'playwright-browser-install-v1'
+        ? 'browser-install'
+        : null;
+  if (context.requiredPhaseReceiptPath) {
+    const required = readCanonicalOwnedJson(
+      context.requiredPhaseReceiptPath,
+      64 * 1024,
+      context.attemptRoot
+    );
+    const value = required.value;
+    const expectedPhase = context.requiredPhaseReceiptPath.endsWith('host-deps.json')
+      ? 'host-deps'
+      : 'browser-install';
+    assertClosedKeys(
+      value,
+      [
+        'attemptRoot',
+        'browserRoot',
+        'browserRootDevice',
+        'browserRootInode',
+        'browserRootMode',
+        'browserRootState',
+        'globalconfig',
+        'jobClass',
+        'phase',
+        'runAttempt',
+        'runId',
+        'schema',
+        'terminalStatus',
+        'userconfig'
+      ],
+      'Firefox Playwright phase receipt'
+    );
+    if (
+      value.schema !== 'zendio-firefox-playwright-phase-v1' ||
+      value.phase !== expectedPhase ||
+      value.terminalStatus !== 'success' ||
+      value.attemptRoot !== context.attemptRoot ||
+      value.browserRoot !== context.browsersPath ||
+      value.browserRootState !== (expectedPhase === 'host-deps' ? 'absent' : 'installed') ||
+      (expectedPhase === 'host-deps'
+        ? value.browserRootDevice !== null ||
+          value.browserRootInode !== null ||
+          value.browserRootMode !== null
+        : (() => {
+            const browserRoot = lstatSync(context.browsersPath);
+            return (
+              value.browserRootDevice !== String(browserRoot.dev) ||
+              value.browserRootInode !== String(browserRoot.ino) ||
+              value.browserRootMode !== String(browserRoot.mode & 0o777)
+            );
+          })()) ||
+      value.userconfig !== context.userconfig ||
+      value.globalconfig !== context.globalconfig ||
+      value.jobClass !== spec.env.ZENDIO_JOB_CLASS ||
+      value.runId !== spec.env.GITHUB_RUN_ID ||
+      value.runAttempt !== spec.env.GITHUB_RUN_ATTEMPT
+    )
+      throw new Error('PLAYWRIGHT_PHASE_RECEIPT_INVALID');
+  }
+  if (context.sequenceOwner && process.platform === 'linux') {
+    const sequence = R03_CI_JOB_SEQUENCE_RESERVATIONS[spec.env.ZENDIO_JOB_CLASS];
+    const index = sequence?.findIndex((row) => row.owner === context.sequenceOwner) ?? -1;
+    const stampPath = join(
+      realpathSync(spec.env.RUNNER_TEMP),
+      `zendio-command-start-${spec.env.GITHUB_RUN_ID}-${spec.env.GITHUB_RUN_ATTEMPT}-${spec.env.GITHUB_JOB}.receipt`
+    );
+    const stampStats = lstatSync(stampPath);
+    if (
+      !stampStats.isFile() ||
+      stampStats.isSymbolicLink() ||
+      stampStats.uid !== process.getuid() ||
+      stampStats.nlink !== 1 ||
+      (stampStats.mode & 0o777) !== 0o600 ||
+      realpathSync(stampPath) !== stampPath
+    )
+      throw new Error('CI_STAMP_INVALID');
+    const stamp = readFileSync(stampPath, 'utf8').split('\n');
+    const expectedStamp = [
+      'zendio-ci-command-start-v1',
+      spec.env.GITHUB_RUN_ID,
+      spec.env.GITHUB_RUN_ATTEMPT,
+      spec.env.GITHUB_JOB,
+      spec.env.ZENDIO_JOB_CLASS,
+      spec.env.ZENDIO_JOB_TIMEOUT_MINUTES,
+      'Linux',
+      'X64',
+      'ubuntu24',
+      spec.env.ImageVersion,
+      stamp[10],
+      ''
+    ];
+    if (JSON.stringify(stamp) !== JSON.stringify(expectedStamp))
+      throw new Error('CI_STAMP_INVALID');
+    const [seconds, fraction] = readFileSync('/proc/uptime', 'utf8')
+      .trim()
+      .split(/\s+/u)[0]
+      .split('.');
+    const nowCentiseconds = Number(seconds) * 100 + Number(`${fraction}00`.slice(0, 2));
+    const startCentiseconds = Number(stamp[10]);
+    const requiredCentiseconds =
+      index < 0
+        ? Number.POSITIVE_INFINITY
+        : sequence.slice(index).reduce((sum, row) => sum + row.fullMs / 10, 0);
+    const remainingCentiseconds =
+      Number(spec.env.ZENDIO_JOB_TIMEOUT_MINUTES) * 60 * 100 -
+      (nowCentiseconds - startCentiseconds);
+    if (
+      !Number.isSafeInteger(startCentiseconds) ||
+      !Number.isFinite(requiredCentiseconds) ||
+      nowCentiseconds < startCentiseconds ||
+      remainingCentiseconds < requiredCentiseconds
+    )
+      throw new Error('CI_JOB_BUDGET_INVALID');
+  }
+  if (phase) {
+    try {
+      lstatSync(context.phaseReceiptPath);
+      throw new Error('PLAYWRIGHT_PHASE_RECEIPT_PREEXISTS');
+    } catch (error) {
+      if (error?.code !== 'ENOENT') throw error;
+    }
+    return;
+  }
+  const receipt = readCanonicalOwnedJson(context.phaseReceiptPath, 64 * 1024, context.attemptRoot);
+  const value = receipt.value;
+  assertClosedKeys(
+    value,
+    [
+      'attemptRoot',
+      'browserRoot',
+      'browserRootDevice',
+      'browserRootInode',
+      'browserRootMode',
+      'browserRootState',
+      'globalconfig',
+      'jobClass',
+      'phase',
+      'runAttempt',
+      'runId',
+      'schema',
+      'terminalStatus',
+      'userconfig'
+    ],
+    'Firefox Playwright phase receipt'
+  );
+  if (
+    value.schema !== 'zendio-firefox-playwright-phase-v1' ||
+    value.phase !== 'browser-install' ||
+    value.terminalStatus !== 'success' ||
+    value.attemptRoot !== context.attemptRoot ||
+    value.browserRoot !== context.browsersPath ||
+    value.browserRootState !== 'installed' ||
+    (() => {
+      const browserRoot = lstatSync(context.browsersPath);
+      return (
+        value.browserRootDevice !== String(browserRoot.dev) ||
+        value.browserRootInode !== String(browserRoot.ino) ||
+        value.browserRootMode !== String(browserRoot.mode & 0o777)
+      );
+    })() ||
+    value.userconfig !== context.userconfig ||
+    value.globalconfig !== context.globalconfig ||
+    value.jobClass !== spec.env.ZENDIO_JOB_CLASS ||
+    value.runId !== spec.env.GITHUB_RUN_ID ||
+    value.runAttempt !== spec.env.GITHUB_RUN_ATTEMPT
+  )
+    throw new Error('PLAYWRIGHT_PHASE_RECEIPT_INVALID');
+}
+
+function publishFirefoxPhaseReceipt(spec) {
+  const context = spec.commandContext;
+  if (!context?.firefoxExecution || !context.phaseReceiptPath) return;
+  const phase =
+    spec.profileId === 'playwright-host-deps-platform-v1'
+      ? 'host-deps'
+      : spec.profileId === 'playwright-browser-install-v1'
+        ? 'browser-install'
+        : null;
+  if (!phase) return;
+  releaseDirectoryIdentity(context.attemptRoot);
+  releaseDirectoryIdentity(join(context.attemptRoot, 'install'));
+  for (const path of [context.userconfig, context.globalconfig])
+    readStableOwnedFile(path, 0, context.attemptRoot);
+  if (phase === 'host-deps') {
+    try {
+      lstatSync(context.browsersPath);
+      throw new Error('PLAYWRIGHT_BROWSER_ROOT_REUSED');
+    } catch (error) {
+      if (error?.code !== 'ENOENT') throw error;
+    }
+  } else {
+    releaseDirectoryIdentity(context.browsersPath);
+    if (readdirSync(context.browsersPath).length === 0)
+      throw new Error('PLAYWRIGHT_BROWSER_INSTALL_EMPTY');
+  }
+  const browserRootIdentity =
+    phase === 'host-deps'
+      ? null
+      : (() => {
+          const stats = lstatSync(context.browsersPath);
+          return {
+            device: String(stats.dev),
+            inode: String(stats.ino),
+            mode: String(stats.mode & 0o777)
+          };
+        })();
+  const receipts = ensurePrivateDirectory(join(context.attemptRoot, 'receipts'));
+  if (dirname(context.phaseReceiptPath) !== receipts)
+    throw new Error('PLAYWRIGHT_PHASE_RECEIPT_PATH_INVALID');
+  writeExclusiveCanonicalJson(
+    context.phaseReceiptPath,
+    {
+      schema: 'zendio-firefox-playwright-phase-v1',
+      phase,
+      terminalStatus: 'success',
+      attemptRoot: context.attemptRoot,
+      browserRoot: context.browsersPath,
+      browserRootState: phase === 'host-deps' ? 'absent' : 'installed',
+      browserRootDevice: browserRootIdentity?.device ?? null,
+      browserRootInode: browserRootIdentity?.inode ?? null,
+      browserRootMode: browserRootIdentity?.mode ?? null,
+      userconfig: context.userconfig,
+      globalconfig: context.globalconfig,
+      jobClass: spec.env.ZENDIO_JOB_CLASS,
+      runId: spec.env.GITHUB_RUN_ID,
+      runAttempt: spec.env.GITHUB_RUN_ATTEMPT
+    },
+    context.attemptRoot
+  );
 }
 
 function validateActionOutput(spec) {
@@ -1661,7 +2199,10 @@ export function startBoundedCommand({ profileId, arguments: args = [] }, depende
   const resolver = dependencies.resolveProfile ?? resolveCommandProfile;
   const spec = resolver(profileId, args, { environment: dependencies.environment ?? process.env });
   if (spec.operation) return startInProcessProfile(spec);
+  assertCiInstallPreconditions(spec);
+  assertAttemptConfigPreconditions(spec);
   assertFirefoxExecutionPreconditions(spec);
+  assertFirefoxPhaseReceipt(spec);
   const storeInitial = assertStoreProfilePreconditions(spec);
   const verificationSnapshot =
     ['chrome-verify-v1', 'firefox-verify-v1'].includes(profileId) &&
@@ -1711,6 +2252,7 @@ export async function runBoundedCommand(invocation, dependencies = {}) {
       if (['chrome-verify-v1', 'firefox-verify-v1'].includes(invocation.profileId))
         publishArtifactVerificationReceipt(handle.spec, handle.verificationSnapshot);
       if (invocation.profileId === 'release-provenance-v1') validateActionOutput(handle.spec);
+      publishFirefoxPhaseReceipt(handle.spec);
     } catch (error) {
       result = syntheticResult(
         invocation.profileId,

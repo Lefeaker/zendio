@@ -1,5 +1,5 @@
 import { EventEmitter } from 'node:events';
-import { chmod, mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { chmod, lstat, mkdir, mkdtemp, realpath, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -13,19 +13,71 @@ import {
   FIREFOX_XPI_SMOKE_TIMEOUTS,
   runVerifiedFirefoxXpiSmoke
 } from '../../../scripts/utils/webExtFirefoxSmokeAdapter.mjs';
+import {
+  STANDALONE_SYNTHETIC_CONFIG,
+  validateReleasePublicBuildConfig
+} from '../../../scripts/utils/releasePublicBuildConfig.mjs';
 
 const roots: string[] = [];
+
+function fixtureIdentity() {
+  const raw = {
+    ZENDIO_GA_MEASUREMENT_ID: STANDALONE_SYNTHETIC_CONFIG.measurementId,
+    ZENDIO_GA_PROXY_ENDPOINT: STANDALONE_SYNTHETIC_CONFIG.proxyEndpoint,
+    ZENDIO_GA_TRANSPORT_MODE: 'proxy'
+  };
+  const publicConfig = validateReleasePublicBuildConfig({
+    configMode: 'standalone-synthetic',
+    environment: raw
+  });
+  const version = publicConfig.policy.sentry.release;
+  return {
+    git: { head: 'a'.repeat(40), tree: 'b'.repeat(40) },
+    packageMetadata: {
+      version,
+      manifestVersion: version,
+      geckoId: 'fixture@example.test'
+    },
+    toolchain: {
+      node: 'v20.20.2',
+      npm: '10.8.2',
+      webExt: '10.4.0',
+      lockSha256: publicConfig.esbuild.lockSha256,
+      esbuild: publicConfig.esbuild
+    },
+    gaConfig: {
+      raw,
+      fingerprints: publicConfig.rawFingerprints,
+      aggregateSha256: publicConfig.fingerprint
+    },
+    buildEnvironment: {
+      policy: 'release-build-env-v1',
+      policyDigest: publicConfig.policyDigest,
+      defaults: publicConfig.policy,
+      configMode: 'standalone-synthetic'
+    }
+  };
+}
 
 async function mintBinding(root: string) {
   const releaseDir = join(root, 'release');
   const distDir = join(root, 'dist');
   const sourceDir = join(root, 'source');
+  const identity = fixtureIdentity();
   await Promise.all([releaseDir, distDir, sourceDir].map((path) => mkdir(path, { mode: 0o700 })));
-  await writeFile(join(distDir, 'manifest.json'), '{}\n');
+  const extensionManifest = `${JSON.stringify({
+    name: 'fixture',
+    version: identity.packageMetadata.version,
+    browser_specific_settings: { gecko: { id: 'fixture@example.test' } }
+  })}\n`;
+  await writeFile(join(distDir, 'manifest.json'), extensionManifest);
   await writeFile(join(sourceDir, 'README.md'), '# source\n');
   const xpiPath = join(releaseDir, 'fixture.xpi');
   const sourcePath = join(releaseDir, 'fixture-source.zip');
-  await writeFile(xpiPath, buildZipFixture([{ path: 'manifest.json', content: '{}\n' }]));
+  await writeFile(
+    xpiPath,
+    buildZipFixture([{ path: 'manifest.json', content: extensionManifest }])
+  );
   await writeFile(sourcePath, buildZipFixture([{ path: 'README.md', content: '# source\n' }]));
   await chmod(xpiPath, 0o600);
   await chmod(sourcePath, 0o600);
@@ -34,11 +86,7 @@ async function mintBinding(root: string) {
     distDir,
     xpiPath,
     sourceArchivePath: sourcePath,
-    git: { head: 'a'.repeat(40), tree: 'b'.repeat(40) },
-    packageMetadata: { version: '1', manifestVersion: '1', geckoId: 'fixture@example.test' },
-    toolchain: {},
-    gaConfig: {},
-    buildEnvironment: {}
+    ...identity
   });
   const manifestPath = join(releaseDir, 'manifest.json');
   await writeFile(manifestPath, canonicalArtifactJson(manifest), { mode: 0o600 });
@@ -50,12 +98,13 @@ async function mintBinding(root: string) {
 }
 
 afterEach(async () => {
+  vi.useRealTimers();
   await Promise.all(roots.splice(0).map((root) => rm(root, { recursive: true, force: true })));
 });
 
 describe('exact-XPI Firefox smoke adapter', () => {
   it('uses the pinned runner seam and closes the managed Firefox before profile cleanup', async () => {
-    const root = await mkdtemp(join(tmpdir(), 'zendio-firefox-smoke-'));
+    const root = await realpath(await mkdtemp(join(tmpdir(), 'zendio-firefox-smoke-')));
     roots.push(root);
     const binding = await mintBinding(root);
     const child = new EventEmitter();
@@ -115,7 +164,7 @@ describe('exact-XPI Firefox smoke adapter', () => {
   });
 
   it('rejects a relative Firefox executable before launching web-ext', async () => {
-    const root = await mkdtemp(join(tmpdir(), 'zendio-firefox-smoke-relative-'));
+    const root = await realpath(await mkdtemp(join(tmpdir(), 'zendio-firefox-smoke-relative-')));
     roots.push(root);
     const binding = await mintBinding(root);
     const run = vi.fn();
@@ -135,8 +184,55 @@ describe('exact-XPI Firefox smoke adapter', () => {
     expect(run).not.toHaveBeenCalled();
   });
 
+  it('awaits a late launch, closes the child, and removes the profile before rejecting', async () => {
+    const root = await realpath(await mkdtemp(join(tmpdir(), 'zendio-firefox-smoke-late-launch-')));
+    roots.push(root);
+    const binding = await mintBinding(root);
+    vi.useFakeTimers();
+    const child = new EventEmitter();
+    const kill = vi.fn(() => true);
+    Object.assign(child, { pid: 5678, kill });
+    const exit = vi.fn(() => {
+      queueMicrotask(() => child.emit('close', 0, null));
+      return Promise.resolve();
+    });
+    const remoteFirefox = {
+      installTemporaryAddon: vi.fn(),
+      getInstalledAddon: vi.fn(),
+      reloadAddon: vi.fn()
+    };
+    let resolveLaunch: ((value: object) => void) | undefined;
+    const launch = new Promise<object>((resolvePromise) => {
+      resolveLaunch = resolvePromise;
+    });
+    const run = vi.fn(() => launch);
+    const profilePath = join(root, 'profile');
+    const smoke = runVerifiedFirefoxXpiSmoke(
+      {
+        binding,
+        firefoxExecutable: '/private/firefox',
+        profilePath,
+        bootstrapSourceDir: '/private/bootstrap',
+        transportMode: 'local-private-v1'
+      },
+      { webExt: { cmd: { run } } }
+    );
+    await vi.waitFor(() => expect(run).toHaveBeenCalledTimes(1));
+    await vi.advanceTimersByTimeAsync(FIREFOX_XPI_SMOKE_TIMEOUTS.launchMs);
+    if (!resolveLaunch) throw new Error('late-launch-control-missing');
+    resolveLaunch({
+      extensionRunners: [{ remoteFirefox, runningInfo: { firefox: child }, exit }]
+    });
+    await expect(smoke).rejects.toThrow('FIREFOX_SMOKE_LAUNCH_TIMEOUT');
+    expect(exit).toHaveBeenCalledTimes(1);
+    expect(kill).not.toHaveBeenCalled();
+    expect(child.listenerCount('close')).toBe(0);
+    expect(vi.getTimerCount()).toBe(0);
+    await expect(lstat(profilePath)).rejects.toMatchObject({ code: 'ENOENT' });
+  });
+
   it('fails when the managed Firefox closes during XPI installation', async () => {
-    const root = await mkdtemp(join(tmpdir(), 'zendio-firefox-smoke-early-close-'));
+    const root = await realpath(await mkdtemp(join(tmpdir(), 'zendio-firefox-smoke-early-close-')));
     roots.push(root);
     const binding = await mintBinding(root);
     const child = new EventEmitter();
@@ -191,6 +287,104 @@ describe('exact-XPI Firefox smoke adapter', () => {
     await expect(
       import('node:fs/promises').then(({ lstat }) => lstat(profilePath))
     ).rejects.toMatchObject({ code: 'ENOENT' });
+  });
+
+  it('uses one forced SIGKILL only after exit failure and still proves close before cleanup', async () => {
+    const root = await realpath(await mkdtemp(join(tmpdir(), 'zendio-firefox-smoke-force-')));
+    roots.push(root);
+    const binding = await mintBinding(root);
+    const child = new EventEmitter();
+    const kill = vi.fn((signal: string) => {
+      expect(signal).toBe('SIGKILL');
+      queueMicrotask(() => child.emit('close', null, 'SIGKILL'));
+      return true;
+    });
+    Object.assign(child, { pid: 4321, kill });
+    const remoteFirefox = {
+      installTemporaryAddon: vi.fn().mockResolvedValue({ id: binding.geckoId }),
+      getInstalledAddon: vi
+        .fn()
+        .mockResolvedValue({ id: binding.geckoId, temporarilyInstalled: true }),
+      reloadAddon: vi.fn().mockResolvedValue(undefined)
+    };
+    const exit = vi.fn().mockRejectedValue(new Error('graceful-exit-failed'));
+    const profilePath = join(root, 'profile');
+    await expect(
+      runVerifiedFirefoxXpiSmoke(
+        {
+          binding,
+          firefoxExecutable: '/private/firefox',
+          profilePath,
+          bootstrapSourceDir: '/private/bootstrap',
+          transportMode: 'local-private-v1'
+        },
+        {
+          webExt: {
+            cmd: {
+              run: vi.fn().mockResolvedValue({
+                extensionRunners: [{ remoteFirefox, runningInfo: { firefox: child }, exit }]
+              })
+            }
+          }
+        }
+      )
+    ).resolves.toMatchObject({ reloaded: true });
+    expect(exit).toHaveBeenCalledTimes(1);
+    expect(kill).toHaveBeenCalledTimes(1);
+    await expect(lstat(profilePath)).rejects.toMatchObject({ code: 'ENOENT' });
+  });
+
+  it('rejects a managed-process handle swap and never reports late success', async () => {
+    const root = await realpath(await mkdtemp(join(tmpdir(), 'zendio-firefox-smoke-swap-')));
+    roots.push(root);
+    const binding = await mintBinding(root);
+    const child = new EventEmitter();
+    const replacement = new EventEmitter();
+    const originalKill = vi.fn(() => {
+      queueMicrotask(() => child.emit('close', null, 'SIGKILL'));
+      return true;
+    });
+    Object.assign(child, { pid: 1111, kill: originalKill });
+    Object.assign(replacement, { pid: 2222, kill: vi.fn(() => true) });
+    const holder: { firefox: EventEmitter & { pid?: number; kill?: ReturnType<typeof vi.fn> } } = {
+      firefox: child
+    };
+    const remoteFirefox = {
+      installTemporaryAddon: vi.fn().mockImplementation(() => {
+        holder.firefox = replacement;
+        return Promise.resolve({ id: binding.geckoId });
+      }),
+      getInstalledAddon: vi.fn(),
+      reloadAddon: vi.fn()
+    };
+    const exit = vi.fn(() => {
+      queueMicrotask(() => child.emit('close', 0, null));
+      return Promise.resolve();
+    });
+    const profilePath = join(root, 'profile');
+    await expect(
+      runVerifiedFirefoxXpiSmoke(
+        {
+          binding,
+          firefoxExecutable: '/private/firefox',
+          profilePath,
+          bootstrapSourceDir: '/private/bootstrap',
+          transportMode: 'local-private-v1'
+        },
+        {
+          webExt: {
+            cmd: {
+              run: vi.fn().mockResolvedValue({
+                extensionRunners: [{ remoteFirefox, runningInfo: holder, exit }]
+              })
+            }
+          }
+        }
+      )
+    ).rejects.toThrow('FIREFOX_SMOKE_PROCESS_IDENTITY_CHANGED');
+    expect(remoteFirefox.getInstalledAddon).not.toHaveBeenCalled();
+    expect(exit).not.toHaveBeenCalled();
+    expect(originalKill).toHaveBeenCalledWith('SIGKILL');
   });
 
   it('freezes the production timeout contract', () => {

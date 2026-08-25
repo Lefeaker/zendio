@@ -32,6 +32,9 @@ export function runVerifiedFirefoxXpiSmoke(
         ): Promise<unknown>;
       };
     };
+    now?: () => number;
+    setTimeoutOperation?: typeof setTimeout;
+    clearTimeoutOperation?: typeof clearTimeout;
   }
 ): Promise<
   Readonly<{
