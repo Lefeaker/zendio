@@ -164,7 +164,22 @@ process.stdout.write('fixture package complete\\n');
     'scripts/setup-error-analytics.js',
     'console.info("analytics validator");\n'
   );
+  await writeFixtureFile(
+    root,
+    'scripts/provision-geckodriver.mjs',
+    'export const version = "0.37.1";\n'
+  );
   await writeFixtureFile(root, 'scripts/utils/archive.mjs', 'export const archive = true;\n');
+  await writeFixtureFile(
+    root,
+    'scripts/utils/firefoxExactXpiSubmit.mjs',
+    'export const client = "direct-v5";\n'
+  );
+  await writeFixtureFile(
+    root,
+    'scripts/utils/firefoxWebDriverBidiSmokeAdapter.mjs',
+    'export const adapter = "webdriver-bidi-v1";\n'
+  );
   await writeFixtureFile(root, 'tools/audit-release-archive.mjs', 'console.info("audit");\n');
   await writeFixtureFile(root, 'tools/report-release-surface.mjs', 'console.info("surface");\n');
 
@@ -222,6 +237,9 @@ describe('Firefox AMO source archive', () => {
     expect(entryPaths).toContain('public/icons/arbitrary-binary.bin');
     expect(entryPaths).toContain('scripts/build.mjs');
     expect(entryPaths).toContain('scripts/package-firefox.mjs');
+    expect(entryPaths).toContain('scripts/provision-geckodriver.mjs');
+    expect(entryPaths).toContain('scripts/utils/firefoxExactXpiSubmit.mjs');
+    expect(entryPaths).toContain('scripts/utils/firefoxWebDriverBidiSmokeAdapter.mjs');
     expect(entryPaths).toContain('tools/audit-release-archive.mjs');
     expect(entryPaths).not.toContain('.env.production.local');
     expect(entryPaths).not.toContain('build/dist/content/runtime.js');

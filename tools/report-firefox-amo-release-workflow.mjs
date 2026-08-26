@@ -117,6 +117,7 @@ export function checkFirefoxAmoReleaseWorkflowContract({
       'Authorize exact release SHA and CI jobs',
       'Install Firefox host dependencies',
       'Install governed Firefox browser',
+      'Provision pinned geckodriver',
       'Build isolated Firefox release',
       'Prepare immutable Firefox artifact',
       'Verify private Firefox artifact',
@@ -132,14 +133,15 @@ export function checkFirefoxAmoReleaseWorkflowContract({
     if (prepare.steps[1].uses !== 'actions/checkout@v6') fail('checkout pin changed');
     if (prepare.steps[2].uses !== './.github/actions/setup-node-deps')
       fail('install owner changed');
-    if (prepare.steps[12].uses !== 'actions/upload-artifact@v7') fail('upload pin changed');
-    if (prepare.steps[12].with?.name !== 'zendio-firefox-release-v1') {
+    if (prepare.steps[13].uses !== 'actions/upload-artifact@v7') fail('upload pin changed');
+    if (prepare.steps[13].with?.name !== 'zendio-firefox-release-v1') {
       fail('immutable artifact name changed');
     }
-    if (prepare.steps[12].with?.overwrite !== false) fail('artifact overwrite enabled');
+    if (prepare.steps[13].with?.overwrite !== false) fail('artifact overwrite enabled');
     if (
       !prepare.steps[5].run.includes('playwright-host-deps-platform-v1') ||
-      !prepare.steps[6].run.includes('playwright-browser-install-v1')
+      !prepare.steps[6].run.includes('playwright-browser-install-v1') ||
+      !prepare.steps[7].run.includes('firefox-geckodriver-provision-v1')
     ) {
       fail('Firefox browser phase ownership changed');
     }
@@ -218,6 +220,7 @@ export function checkFirefoxAmoReleaseWorkflowContract({
         '--profile release-provenance-v1 -- scripts/utils/releaseCiProvenance.mjs --prepare-authorization',
         '--profile playwright-host-deps-platform-v1 -- firefox-with-host-deps',
         '--profile playwright-browser-install-v1 -- firefox-with-host-deps',
+        '--profile firefox-geckodriver-provision-v1 -- --output-dir',
         '--profile isolated-build-v1 -- --run-isolated-build --config-mode owner-public-vars --browser firefox',
         '--profile firefox-prepare-v1 -- --config-mode owner-public-vars --transport-mode local-private-v1',
         '--profile firefox-verify-v1 -- --manifest',

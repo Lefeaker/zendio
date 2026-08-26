@@ -1,35 +1,19 @@
-import { createHash, randomUUID } from 'node:crypto';
+import { randomUUID } from 'node:crypto';
 import { chmod, link, lstat, open, readFile, rm, unlink, writeFile } from 'fs/promises';
 import { join, resolve } from 'path';
 import process from 'process';
-import { fileURLToPath, pathToFileURL } from 'url';
+import { pathToFileURL } from 'url';
 import { zipDirectory } from './utils/archive.mjs';
 import { applyRestHostPermissions } from './utils/manifestHosts.mjs';
+import { createBrowserManifest } from './utils/manifestSources.mjs';
 import { pathExists, prepareLicenseArtifacts, resolveMessage } from './utils/packageHelpers.mjs';
 import {
   createReleaseArtifactBaseName,
   createReleaseArtifactFileName
 } from './utils/releaseArtifactNames.mjs';
-import {
-  assertFirefoxLintProvenance,
-  FIREFOX_READABILITY_WARNING_CONTRACT as FIREFOX_READABILITY_SOURCE_CONTRACT
-} from './utils/firefoxLintProvenance.mjs';
 import { auditReleaseArchive } from '../tools/audit-release-archive.mjs';
 
 const args = process.argv.slice(2);
-const FIREFOX_LINT_PACKAGE_JSON_PATH = fileURLToPath(new URL('../package.json', import.meta.url));
-const FIREFOX_LINT_PACKAGE_LOCK_JSON_PATH = fileURLToPath(
-  new URL('../package-lock.json', import.meta.url)
-);
-const FIREFOX_READABILITY_WARNING_CONTRACT = Object.freeze({
-  dependency: '@mozilla/readability',
-  packageIdentitySha256: '168f01305bab908fc4a75172e05eef6bab00e009f0c7e97709bcc02c8471b966',
-  lockIdentitySha256: 'cd7a3c2b695164ef97fd4ff72a50ff8ce01cf45d6934c5f7e5889d6f967ac3c1',
-  rule: 'UNSAFE_VAR_ASSIGNMENT',
-  provenance: '@mozilla/readability@0.6.0/Readability.js:1549,1928',
-  warningCount: FIREFOX_READABILITY_SOURCE_CONTRACT.length,
-  warningMessage: FIREFOX_READABILITY_SOURCE_CONTRACT[0].message
-});
 
 function getFlagValue(flag, { defaultValue } = {}) {
   const index = args.indexOf(flag);
@@ -109,32 +93,6 @@ export async function createUnsignedXpi(distDir, _resolvedName, version, options
   return { xpiName, outputPath, artifactBaseName };
 }
 
-async function loadWebExt() {
-  const webExtModule = await import('web-ext');
-  return webExtModule.default ?? webExtModule;
-}
-
-function getLintCount(lintResult, key) {
-  const summaryCount = lintResult?.summary?.[key];
-  if (typeof summaryCount === 'number') {
-    return summaryCount;
-  }
-
-  const entries = lintResult?.[key];
-  return Array.isArray(entries) ? entries.length : 0;
-}
-
-function formatLintErrorCodes(errors) {
-  if (!Array.isArray(errors) || errors.length === 0) {
-    return 'unknown';
-  }
-
-  return errors
-    .map((error) => error?.code ?? error?.message ?? 'unknown')
-    .slice(0, 5)
-    .join(', ');
-}
-
 function canonicalizeJson(value) {
   if (Array.isArray(value)) {
     return value.map((entry) => canonicalizeJson(entry));
@@ -149,136 +107,40 @@ function canonicalizeJson(value) {
   return value;
 }
 
-function sha256Json(value) {
-  return createHash('sha256')
-    .update(JSON.stringify(canonicalizeJson(value)))
-    .digest('hex');
-}
-
-function parseFirefoxLintContractJson(serialized, label) {
-  try {
-    const parsed = JSON.parse(serialized);
-    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
-      throw new Error('root must be an object');
-    }
-    return parsed;
-  } catch (error) {
-    throw new Error(`FIREFOX_LINT_${label}_IDENTITY_DRIFT: ${error.message}`);
-  }
-}
-
-async function readFirefoxLintContractFiles() {
-  const [packageJson, packageLockJson] = await Promise.all([
-    readFile(FIREFOX_LINT_PACKAGE_JSON_PATH, 'utf8'),
-    readFile(FIREFOX_LINT_PACKAGE_LOCK_JSON_PATH, 'utf8')
-  ]);
-  return { packageJson, packageLockJson };
-}
-
-function assertReadabilityDependencyIdentity({ packageJson, packageLockJson }) {
-  const parsedPackage = parseFirefoxLintContractJson(packageJson, 'READABILITY_PACKAGE');
-  const parsedLock = parseFirefoxLintContractJson(packageLockJson, 'READABILITY_LOCK');
-  const dependency = FIREFOX_READABILITY_WARNING_CONTRACT.dependency;
-  const packageIdentity = {
-    name: dependency,
-    field: 'dependencies',
-    requested: parsedPackage.dependencies?.[dependency] ?? null
-  };
-  const lockEntry = parsedLock.packages?.[`node_modules/${dependency}`] ?? null;
-  const lockIdentity = { name: dependency, ...(lockEntry ?? {}) };
-
-  if (sha256Json(packageIdentity) !== FIREFOX_READABILITY_WARNING_CONTRACT.packageIdentitySha256) {
-    throw new Error('FIREFOX_LINT_READABILITY_PACKAGE_IDENTITY_DRIFT');
-  }
-  if (sha256Json(lockIdentity) !== FIREFOX_READABILITY_WARNING_CONTRACT.lockIdentitySha256) {
-    throw new Error('FIREFOX_LINT_READABILITY_LOCK_IDENTITY_DRIFT');
-  }
-}
-
-function assertPinnedReadabilityWarnings(warnings) {
-  const contract = FIREFOX_READABILITY_WARNING_CONTRACT;
-  if (warnings.length !== contract.warningCount) {
-    throw new Error(
-      `FIREFOX_LINT_THIRD_PARTY_WARNING_COUNT_DRIFT: expected=${contract.warningCount} actual=${warnings.length}`
-    );
-  }
-
-  for (const warning of warnings) {
-    if (warning?.code !== contract.rule) {
-      throw new Error(
-        `FIREFOX_LINT_THIRD_PARTY_WARNING_RULE_DRIFT: ${String(warning?.code ?? 'unknown')}`
-      );
-    }
-    if (warning?.message !== contract.warningMessage) {
-      throw new Error(
-        `FIREFOX_LINT_THIRD_PARTY_WARNING_MESSAGE_DRIFT: ${String(warning?.message ?? 'unknown')}`
-      );
-    }
-  }
-}
-
-export async function lintFirefoxExtension(distDir, dependencies = {}) {
+export async function validateFirefoxExtension(distDir, dependencies = {}) {
   const {
-    importWebExtImpl = loadWebExt,
+    applyRestHostPermissionsImpl = applyRestHostPermissions,
+    createBrowserManifestImpl = createBrowserManifest,
     logger = console,
-    assertFirefoxLintProvenanceImpl = assertFirefoxLintProvenance,
-    readFirefoxLintContractFilesImpl = readFirefoxLintContractFiles,
-    webExt
+    pathExistsImpl = pathExists,
+    readFileImpl = readFile
   } = dependencies;
-  const resolvedWebExt = webExt ?? (await importWebExtImpl());
-
-  if (typeof resolvedWebExt?.cmd?.lint !== 'function') {
-    throw new Error('Firefox web-ext lint API is unavailable.');
-  }
-
-  logger.log('🔎 正在运行 Firefox web-ext lint...');
-
-  let lintResult;
+  logger.log('🔎 正在运行 Firefox repository manifest/static checks...');
+  const manifestPath = join(distDir, 'manifest.json');
+  let actual;
   try {
-    lintResult = await resolvedWebExt.cmd.lint(
-      {
-        sourceDir: distDir,
-        selfHosted: true,
-        warningsAsErrors: false
-      },
-      { shouldExitProgram: false }
-    );
+    actual = JSON.parse(await readFileImpl(manifestPath, 'utf8'));
   } catch (error) {
-    throw new Error(`Firefox web-ext lint failed: ${error.message}`);
+    throw new Error(`FIREFOX_STATIC_MANIFEST_INVALID: ${error.message}`);
   }
-
-  const contractFiles = await readFirefoxLintContractFilesImpl();
-  assertReadabilityDependencyIdentity(contractFiles);
-
-  const errors = Array.isArray(lintResult?.errors) ? lintResult.errors : [];
-  const errorCount = getLintCount(lintResult, 'errors');
-  if (errorCount !== errors.length) {
-    throw new Error(
-      `FIREFOX_LINT_ERROR_COUNT_DRIFT: summary=${errorCount} entries=${errors.length}`
-    );
+  const expected = applyRestHostPermissionsImpl(createBrowserManifestImpl('firefox'));
+  if (JSON.stringify(canonicalizeJson(actual)) !== JSON.stringify(canonicalizeJson(expected))) {
+    throw new Error('FIREFOX_STATIC_MANIFEST_DRIFT');
   }
-  if (errorCount > 0) {
-    throw new Error(
-      `Firefox web-ext lint failed with ${errorCount} error(s): ${formatLintErrorCodes(errors)}`
-    );
+  if (
+    actual.manifest_version !== 3 ||
+    actual.background?.service_worker !== undefined ||
+    JSON.stringify(actual.background?.scripts) !== JSON.stringify(['background/index.js']) ||
+    actual.browser_specific_settings?.gecko?.strict_min_version !== '142.0' ||
+    actual.browser_specific_settings?.gecko_android?.strict_min_version !== '142.0' ||
+    JSON.stringify(actual.browser_specific_settings?.gecko?.data_collection_permissions) !==
+      JSON.stringify({ required: ['none'], optional: ['technicalAndInteraction'] }) ||
+    !(await pathExistsImpl(join(distDir, 'background/index.js')))
+  ) {
+    throw new Error('FIREFOX_STATIC_RELEASE_CONTRACT');
   }
-
-  const warningCount = getLintCount(lintResult, 'warnings');
-  const warnings = Array.isArray(lintResult?.warnings) ? lintResult.warnings : [];
-  if (warningCount !== warnings.length) {
-    throw new Error(
-      `FIREFOX_LINT_THIRD_PARTY_WARNING_COUNT_DRIFT: summary=${warningCount} entries=${warnings.length}`
-    );
-  }
-  assertPinnedReadabilityWarnings(warnings);
-  await assertFirefoxLintProvenanceImpl({ distDir, warnings });
-  logger.warn(
-    `Firefox web-ext lint accepted ${warningCount} pinned ${FIREFOX_READABILITY_WARNING_CONTRACT.dependency} warning(s): rule=${FIREFOX_READABILITY_WARNING_CONTRACT.rule} provenance=${FIREFOX_READABILITY_WARNING_CONTRACT.provenance} packageSha256=${FIREFOX_READABILITY_WARNING_CONTRACT.packageIdentitySha256} lockSha256=${FIREFOX_READABILITY_WARNING_CONTRACT.lockIdentitySha256}`
-  );
-  logger.log(
-    `✅ Firefox web-ext lint passed with ${warningCount} pinned ${FIREFOX_READABILITY_WARNING_CONTRACT.dependency} warning(s)`
-  );
-  return lintResult;
+  logger.log('✅ Firefox repository manifest/static checks passed');
+  return actual;
 }
 
 export async function prepareFirefoxReleasePackage({ distDir, publication }, dependencies = {}) {
@@ -286,7 +148,7 @@ export async function prepareFirefoxReleasePackage({ distDir, publication }, dep
     applyRestHostPermissionsImpl = applyRestHostPermissions,
     auditReleaseArchiveImpl = auditReleaseArchive,
     createUnsignedXpiImpl = createUnsignedXpi,
-    lintFirefoxExtensionImpl = lintFirefoxExtension,
+    validateFirefoxExtensionImpl = validateFirefoxExtension,
     logger = console,
     prepareLicenseArtifactsImpl = prepareLicenseArtifacts,
     readFileImpl = readFile,
@@ -308,7 +170,7 @@ export async function prepareFirefoxReleasePackage({ distDir, publication }, dep
   logger.log(`📝 扩展名称: ${resolvedName}`);
   logger.log(`📝 版本号: ${version}`);
 
-  await lintFirefoxExtensionImpl(distDir);
+  await validateFirefoxExtensionImpl(distDir);
 
   const xpiResult = publication
     ? await createUnsignedXpiImpl(distDir, resolvedName, version, { publication })

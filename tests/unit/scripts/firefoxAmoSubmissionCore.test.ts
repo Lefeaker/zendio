@@ -68,7 +68,10 @@ async function fixture() {
     toolchain: {
       node: 'v20.20.2',
       npm: '10.8.2',
-      webExt: '10.4.0',
+      amoClient: 'direct-v5',
+      bidiAdapter: 'webdriver-bidi-v1',
+      geckodriver: '0.37.1',
+      ws: '8.21.0',
       lockSha256: publicConfig.esbuild.lockSha256,
       esbuild: publicConfig.esbuild
     },
@@ -155,9 +158,15 @@ function installFetch(failure?: 'upload') {
       }
       if (method === 'GET' && url.pathname.endsWith('/addons/upload/upload-uuid/')) {
         return Promise.resolve(
-          new Response(JSON.stringify({ processed: true, valid: true, uuid: 'upload-uuid' }), {
-            status: 200
-          })
+          new Response(
+            JSON.stringify({
+              processed: true,
+              valid: true,
+              uuid: 'upload-uuid',
+              validation: { errors: 0 }
+            }),
+            { status: 200 }
+          )
         );
       }
       if (method === 'PUT') {

@@ -455,7 +455,10 @@ async function createFirefoxSubmissionBinding(attemptRoot: string) {
     toolchain: {
       node: 'v20.20.2',
       npm: '10.8.2',
-      webExt: '10.4.0',
+      amoClient: 'direct-v5',
+      bidiAdapter: 'webdriver-bidi-v1',
+      geckodriver: '0.37.1',
+      ws: '8.21.0',
       lockSha256: publicConfig.esbuild.lockSha256,
       esbuild: publicConfig.esbuild
     },
@@ -725,6 +728,7 @@ describe('bounded command ownership', () => {
       'chrome-dry-run-v1',
       'chrome-publish-v1',
       'firefox-prepare-v1',
+      'firefox-geckodriver-provision-v1',
       'firefox-verify-v1',
       'firefox-smoke-v1',
       'firefox-submit-v1',
@@ -745,6 +749,7 @@ describe('bounded command ownership', () => {
     expect(Number(COMMAND_LIMITS.firefoxPrepare.activeMs) + 10_000).toBe(1_210_000);
     expect(Number(COMMAND_LIMITS.firefoxVerify.activeMs) + 10_000).toBe(490_000);
     expect(Number(COMMAND_LIMITS.firefoxSmoke.activeMs) + 10_000).toBe(450_000);
+    expect(Number(COMMAND_LIMITS.geckodriverProvision.activeMs) + 10_000).toBe(910_000);
     expect(Number(COMMAND_LIMITS.firefoxSubmit.activeMs) + 10_000).toBe(2_710_000);
     expect(Number(COMMAND_LIMITS.stitch.activeMs) + 50_000).toBe(3_830_000);
     expect(
@@ -782,6 +787,7 @@ describe('bounded command ownership', () => {
           'release-provenance-v1:prepare',
           'platform:playwright-host-deps-v1',
           'playwright-browser-install-v1',
+          'firefox-geckodriver-provision-v1',
           'isolated-build-v1',
           'firefox-prepare-v1',
           'release-job-outputs-v1',
@@ -792,7 +798,7 @@ describe('bounded command ownership', () => {
           'release-provenance-v1:artifact-digest',
           'runner-finalization-v1'
         ],
-        totalMs: 5_320_000,
+        totalMs: 6_230_000,
         frozen: true
       },
       'chrome-publish-v1': {
@@ -1312,6 +1318,60 @@ describe('bounded command ownership', () => {
         }
       })
     ).toThrow('NPM_CONFIG_AUTHORITY_INVALID');
+  });
+
+  it('binds geckodriver provisioning to one exact attempt-local output without store authority', () => {
+    const root = realpathSync(temporaryRoot());
+    installAttemptConfigs(root);
+    const outputDir = join(root, 'geckodriver');
+    const environment = cleanEnvironment({
+      NPM_CONFIG_USERCONFIG: join(root, 'install/npm-userconfig'),
+      NPM_CONFIG_GLOBALCONFIG: join(root, 'install/npm-globalconfig'),
+      ZENDIO_LOCAL_ATTEMPT_ROOT: root
+    });
+    const profile = resolveCommandProfile(
+      'firefox-geckodriver-provision-v1',
+      ['--output-dir', outputDir],
+      {
+        environment,
+        operations: {
+          fixedTrackedFileOperation: () => resolve('scripts/provision-geckodriver.mjs')
+        }
+      }
+    );
+
+    expect(profile).toMatchObject({
+      executable: process.execPath,
+      argv: [resolve('scripts/provision-geckodriver.mjs'), '--output-dir', outputDir],
+      limits: COMMAND_LIMITS.geckodriverProvision,
+      commandContext: {
+        attemptRoot: root,
+        outputDir,
+        geckodriverProvision: true
+      }
+    });
+    expect(profile.env).not.toHaveProperty('WEB_EXT_API_KEY');
+    expect(profile.env).not.toHaveProperty('WEB_EXT_API_SECRET');
+    expect(() =>
+      resolveCommandProfile(
+        'firefox-geckodriver-provision-v1',
+        ['--output-dir', join(root, 'other')],
+        {
+          environment,
+          operations: {
+            fixedTrackedFileOperation: () => resolve('scripts/provision-geckodriver.mjs')
+          }
+        }
+      )
+    ).toThrow('GECKODRIVER_OUTPUT_DIRECTORY_INVALID');
+    expect(() =>
+      resolveCommandProfile('firefox-geckodriver-provision-v1', ['--output-dir', outputDir], {
+        environment: { ...environment, WEB_EXT_API_SECRET: 'forbidden' },
+        operations: {
+          fixedTrackedFileOperation: () => resolve('scripts/provision-geckodriver.mjs')
+        }
+      })
+    ).toThrow('STORE_CREDENTIAL_FORBIDDEN');
   });
 
   it('blocks every root .env-prefixed entry before creating a CI attempt or invoking npm', () => {

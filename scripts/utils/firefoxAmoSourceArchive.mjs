@@ -18,7 +18,10 @@ const REQUIRED_ARCHIVE_ENTRIES = Object.freeze([
   'public/manifest.firefox.json',
   'scripts/build.mjs',
   'scripts/package-firefox.mjs',
+  'scripts/provision-geckodriver.mjs',
   'scripts/setup-error-analytics.js',
+  'scripts/utils/firefoxExactXpiSubmit.mjs',
+  'scripts/utils/firefoxWebDriverBidiSmokeAdapter.mjs',
   'tools/audit-release-archive.mjs',
   'tools/report-release-surface.mjs'
 ]);

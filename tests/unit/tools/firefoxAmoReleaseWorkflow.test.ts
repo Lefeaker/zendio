@@ -41,6 +41,11 @@ describe('Firefox AMO release workflow contract', () => {
       'npx playwright install firefox'
     ],
     [
+      'geckodriver phase',
+      'firefox-geckodriver-provision-v1 -- --output-dir',
+      'curl -L https://github.com/mozilla/geckodriver'
+    ],
+    [
       'artifact transport',
       'artifact-ids: ${{ needs.prepare.outputs.artifact_id }}',
       'name: zendio-firefox-release-v1'

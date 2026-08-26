@@ -67,7 +67,10 @@ function fixtureIdentity(configMode: 'standalone-synthetic' | 'owner-public-vars
     toolchain: {
       node: 'v20.20.2',
       npm: '10.8.2',
-      webExt: '10.4.0',
+      amoClient: 'direct-v5',
+      bidiAdapter: 'webdriver-bidi-v1',
+      geckodriver: '0.37.1',
+      ws: '8.21.0',
       lockSha256: publicConfig.esbuild.lockSha256,
       esbuild: publicConfig.esbuild
     },

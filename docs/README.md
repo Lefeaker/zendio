@@ -1,6 +1,6 @@
 # 工程文档入口
 
-最后更新：2026-07-01
+最后更新：2026-08-26
 
 ## 当前真值入口
 
@@ -33,6 +33,7 @@
 - `lint:type-any` 当前 i18n hardcoded P22/post-strict-gap integration 口径为扫描 `1231` files，实测 overall `0/1148/1973/47/3`、src `0/628/695/9/0`、tests `0/520/1278/38/3`；`lint:type-any:ratchet` 守住 checked-in 上限 overall `0/1148/1973/53/4`、src `0/628/695/9/0`、tests `0/520/1278/46/4`，`any` 保持 `0`，`ts-expect-error` 未增加，non-null 上限未放宽
 - `quality` 与 CI 已包含 `lint:hardcoded`；当前 hardcoded config 守卫是 `0` errors / `8` warning-only findings
 - Chrome/Firefox release auditors 锁定 first-attempt policy、无凭据 prepare、exact SHA/CI provenance、immutable artifact ID/digest、受保护 Environment、fresh reauthorization、单一 mutation credential step、durable state evidence 与 terminal verdict
+- Firefox release tooling 不再依赖 `web-ext` / `addons-linter`：仓库内静态 manifest/release-surface 检查负责 XPI 前置门禁，AMO upload validation 提供完整 linter 结论；发布使用 first-party AMO API v5 adapter，exact-XPI smoke 使用 pinned geckodriver `0.37.1` 与 WebDriver BiDi install/bootstrap/uninstall/reinstall identity 契约
 - i18n production copy 当前不变量：production user-visible copy 只能来自 i18n catalog 或 `UserVisibleMessageDescriptor` key；background/content 边界传 descriptor/code/params；`quality` 已包含 CJK/descriptor hard gate `audit:i18n-hardcoded-user-copy:check`，当前 audit truth 为 `scanned=579 findings=19 unexpected=0 staleAllowlist=0`；English uncatalogued-copy hard gate `audit:i18n-uncatalogued-user-copy:check` 已接入 `quality` 与 `verify:preflight`，覆盖 raw English `defaultMessage` fallback 与 `subtitle` / `hint` / `body` 等 production-visible fields，当前 audit truth 为 `scanned=575 findings=0 unexpected=0 staleAllowlist=0`
 - i18n 当前由 `src/i18n/catalog/messages/<lang>/{runtime,static,schema}.json` 驱动生成 `src/i18n/generated/**` 与 `public/_locales/**`；root `_locales/**` 已退役，不再作为 compatibility duplicate 保留
 - Chrome ZIP 与 Firefox XPI 在 package 脚本中会解包后执行 release-surface 审计，最终包不得包含 `qps-ploc` loader/chunk 或 `_locales/qps-ploc/messages.json`
