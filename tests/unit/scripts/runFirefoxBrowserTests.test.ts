@@ -3,7 +3,12 @@ import { runFirefoxBrowserTests } from '../../../scripts/run-firefox-browser-tes
 
 describe('Firefox browser compatibility runner', () => {
   it('uses the lock-owned Playwright CLI without npx or implicit installation', () => {
-    const spawnSyncImpl = vi.fn(() => ({ status: 0, signal: null }));
+    const spawnSyncImpl = vi.fn(
+      (_command: string, _args: string[], _options: { env: Record<string, string> }) => ({
+        status: 0,
+        signal: null
+      })
+    );
     runFirefoxBrowserTests({
       existsImpl: () => true,
       spawnSyncImpl,

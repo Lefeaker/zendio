@@ -134,6 +134,14 @@ type CommandResponse =
   | { type: 'success'; result: Record<string, unknown> }
   | { type: 'error'; error: string };
 
+type AddonIdentity = {
+  id: string;
+  version: string;
+  isActive: boolean;
+  appDisabled: boolean;
+  userDisabled: boolean;
+};
+
 function createFakeWebSocket(commandResponses: CommandResponse[], commands: string[]) {
   return class FakeWebSocket extends EventEmitter {
     readyState = 0;
@@ -181,40 +189,29 @@ function createHarness(
   commandResponses: CommandResponse[] = [
     { type: 'success', result: { ready: false, message: 'session active' } },
     { type: 'success', result: { extension: geckoId } },
-    {
-      type: 'success',
-      result: { realms: [{ realm: 'realm-1', origin: 'moz-extension://fixture' }] }
-    },
-    {
-      type: 'success',
-      result: {
-        type: 'success',
-        result: {
-          type: 'string',
-          value: JSON.stringify({ runtimeId: geckoId, configuredId: geckoId })
-        }
-      }
-    },
     { type: 'success', result: {} },
-    { type: 'success', result: { extension: geckoId } },
+    { type: 'success', result: { extension: geckoId } }
+  ],
+  addonResponses: Array<AddonIdentity | null> = [
     {
-      type: 'success',
-      result: { realms: [{ realm: 'realm-2', origin: 'moz-extension://fixture' }] }
+      id: geckoId,
+      version: '0.2.1',
+      isActive: true,
+      appDisabled: false,
+      userDisabled: false
     },
     {
-      type: 'success',
-      result: {
-        type: 'success',
-        result: {
-          type: 'string',
-          value: JSON.stringify({ runtimeId: geckoId, configuredId: geckoId })
-        }
-      }
+      id: geckoId,
+      version: '0.2.1',
+      isActive: true,
+      appDisabled: false,
+      userDisabled: false
     }
   ]
 ) {
   const child = new FakeChild();
   const commands: string[] = [];
+  const webdriverEvents: string[] = [];
   const allocatePortImpl = vi
     .fn<() => Promise<number>>()
     .mockResolvedValueOnce(4444)
@@ -240,6 +237,17 @@ function createHarness(
         )
       );
     }
+    if (method === 'POST' && target.pathname.endsWith('/moz/context')) {
+      const body = JSON.parse(String(init?.body));
+      webdriverEvents.push(`context:${body.context}`);
+      return Promise.resolve(new Response(JSON.stringify({ value: null }), { status: 200 }));
+    }
+    if (method === 'POST' && target.pathname.endsWith('/execute/async')) {
+      webdriverEvents.push('execute:addon-manager');
+      return Promise.resolve(
+        new Response(JSON.stringify({ value: addonResponses.shift() ?? null }), { status: 200 })
+      );
+    }
     if (method === 'DELETE' && target.pathname === '/session/session-fixture') {
       return Promise.resolve(new Response(JSON.stringify({ value: null }), { status: 200 }));
     }
@@ -252,6 +260,7 @@ function createHarness(
   return {
     child,
     commands,
+    webdriverEvents,
     dependencies: {
       allocatePortImpl,
       fetchImpl,
@@ -302,17 +311,21 @@ describe('exact-XPI Firefox WebDriver BiDi smoke adapter', () => {
     expect(harness.commands).toEqual([
       'session.status',
       'webExtension.install',
-      'script.getRealms',
-      'script.callFunction',
       'webExtension.uninstall',
-      'webExtension.install',
-      'script.getRealms',
-      'script.callFunction'
+      'webExtension.install'
+    ]);
+    expect(harness.webdriverEvents).toEqual([
+      'context:chrome',
+      'execute:addon-manager',
+      'context:content',
+      'context:chrome',
+      'execute:addon-manager',
+      'context:content'
     ]);
     expect(harness.killProcessGroupImpl).toHaveBeenCalledWith(-4321, 'SIGTERM');
     expect(harness.dependencies.spawnImpl).toHaveBeenCalledWith(
       join(root, 'geckodriver', 'geckodriver'),
-      expect.any(Array),
+      expect.arrayContaining(['--allow-system-access']),
       expect.objectContaining({ env: createDriverEnvironment(root) })
     );
     await expect(lstat(profileRoot)).rejects.toMatchObject({ code: 'ENOENT' });
@@ -349,23 +362,6 @@ describe('exact-XPI Firefox WebDriver BiDi smoke adapter', () => {
     const harness = createHarness(binding.geckoId, [
       { type: 'success', result: { ready: false } },
       { type: 'success', result: { extension: binding.geckoId } },
-      {
-        type: 'success',
-        result: { realms: [{ realm: 'realm-1', origin: 'moz-extension://fixture' }] }
-      },
-      {
-        type: 'success',
-        result: {
-          type: 'success',
-          result: {
-            type: 'string',
-            value: JSON.stringify({
-              runtimeId: binding.geckoId,
-              configuredId: binding.geckoId
-            })
-          }
-        }
-      },
       { type: 'error', error: 'invalid argument' }
     ]);
     await expect(
@@ -384,8 +380,6 @@ describe('exact-XPI Firefox WebDriver BiDi smoke adapter', () => {
     expect(harness.commands).toEqual([
       'session.status',
       'webExtension.install',
-      'script.getRealms',
-      'script.callFunction',
       'webExtension.uninstall'
     ]);
   });
@@ -394,11 +388,14 @@ describe('exact-XPI Firefox WebDriver BiDi smoke adapter', () => {
     const root = await realpath(await mkdtemp(join(tmpdir(), 'zendio-firefox-bidi-bootstrap-')));
     roots.push(root);
     const binding = await mintBinding(root);
-    const harness = createHarness(binding.geckoId, [
-      { type: 'success', result: { ready: false } },
-      { type: 'success', result: { extension: binding.geckoId } },
-      { type: 'success', result: { realms: [] } }
-    ]);
+    const harness = createHarness(
+      binding.geckoId,
+      [
+        { type: 'success', result: { ready: false } },
+        { type: 'success', result: { extension: binding.geckoId } }
+      ],
+      [null]
+    );
     let now = 0;
     const dependencies = {
       ...harness.dependencies,
@@ -421,10 +418,11 @@ describe('exact-XPI Firefox WebDriver BiDi smoke adapter', () => {
         dependencies
       )
     ).rejects.toThrow('FIREFOX_SMOKE_BOOTSTRAP_IDENTITY_TIMEOUT');
-    expect(harness.commands).toEqual([
-      'session.status',
-      'webExtension.install',
-      'script.getRealms'
+    expect(harness.commands).toEqual(['session.status', 'webExtension.install']);
+    expect(harness.webdriverEvents).toEqual([
+      'context:chrome',
+      'execute:addon-manager',
+      'context:content'
     ]);
   });
 

@@ -3,7 +3,10 @@ import { createServer } from 'node:net';
 import { dirname, isAbsolute, join, resolve } from 'node:path';
 import { lstat, mkdir, realpath, rm } from 'node:fs/promises';
 import { WebSocket } from 'ws';
-import { assertVerifiedFirefoxArtifactBinding } from './firefoxReleaseArtifactManifest.mjs';
+import {
+  assertVerifiedFirefoxArtifactBinding,
+  getVerifiedFirefoxArtifactSnapshots
+} from './firefoxReleaseArtifactManifest.mjs';
 
 export const FIREFOX_WEBDRIVER_BIDI_SMOKE_SCHEMA = 'webdriver-bidi-v1';
 export const FIREFOX_XPI_SMOKE_TIMEOUTS = Object.freeze({
@@ -22,14 +25,20 @@ export const FIREFOX_XPI_SMOKE_TIMEOUTS = Object.freeze({
 
 const DRIVER_RESPONSE_LIMIT = 1024 * 1024;
 const DRIVER_LOG_LIMIT = 64 * 1024;
-const BOOTSTRAP_IDENTITY_FUNCTION = `() => {
-  const runtime = globalThis.browser?.runtime ?? globalThis.chrome?.runtime;
-  const manifest = runtime?.getManifest?.();
-  const configuredId = manifest?.browser_specific_settings?.gecko?.id
-    ?? manifest?.applications?.gecko?.id
-    ?? null;
-  return JSON.stringify({ runtimeId: runtime?.id ?? null, configuredId });
-}`;
+const ADDON_MANAGER_IDENTITY_SCRIPT = `
+const done = arguments[arguments.length - 1];
+const expectedId = arguments[0];
+const { AddonManager } = ChromeUtils.importESModule('resource://gre/modules/AddonManager.sys.mjs');
+AddonManager.getAddonByID(expectedId).then(
+  (addon) => done(addon ? {
+    id: addon.id,
+    version: addon.version,
+    isActive: addon.isActive,
+    appDisabled: addon.appDisabled,
+    userDisabled: addon.userDisabled
+  } : null),
+  () => done(null)
+);`;
 
 function fail(code, detail = '') {
   throw new Error(detail ? `${code}:${detail}` : code);
@@ -364,55 +373,63 @@ class BidiClient {
   }
 }
 
-function parseBootstrapIdentity(evaluation) {
-  if (evaluation?.type !== 'success' || evaluation?.result?.type !== 'string') return null;
-  try {
-    const value = JSON.parse(evaluation.result.value);
-    return typeof value?.runtimeId === 'string' && typeof value?.configuredId === 'string'
-      ? value
-      : null;
-  } catch {
-    return null;
-  }
+async function setFirefoxContext(fetchImpl, deadline, driverUrl, sessionId, context) {
+  await webdriverRequest(
+    fetchImpl,
+    deadline,
+    new URL(`session/${encodeURIComponent(sessionId)}/moz/context`, driverUrl),
+    'POST',
+    { context },
+    FIREFOX_XPI_SMOKE_TIMEOUTS.sessionStatusMs
+  );
 }
 
-async function waitForBootstrapIdentity(bidi, closeObserver, geckoId, sleepImpl, nowImpl) {
+async function waitForBootstrapIdentity({
+  fetchImpl,
+  deadline,
+  driverUrl,
+  sessionId,
+  closeObserver,
+  geckoId,
+  manifestVersion,
+  sleepImpl,
+  nowImpl
+}) {
   const startedAt = nowImpl();
   while (nowImpl() - startedAt < FIREFOX_XPI_SMOKE_TIMEOUTS.bootstrapMs) {
-    const realmResult = await runManagedOperation(
-      () => bidi.command('script.getRealms', {}, FIREFOX_XPI_SMOKE_TIMEOUTS.sessionStatusMs),
+    await runManagedOperation(
+      () => setFirefoxContext(fetchImpl, deadline, driverUrl, sessionId, 'chrome'),
       closeObserver
     );
-    const realms = Array.isArray(realmResult?.realms) ? realmResult.realms : [];
-    for (const realm of realms) {
-      if (
-        typeof realm?.realm !== 'string' ||
-        typeof realm?.origin !== 'string' ||
-        !realm.origin.startsWith('moz-extension://')
-      ) {
-        continue;
-      }
-      let evaluation;
-      try {
-        evaluation = await runManagedOperation(
-          () =>
-            bidi.command(
-              'script.callFunction',
-              {
-                functionDeclaration: BOOTSTRAP_IDENTITY_FUNCTION,
-                awaitPromise: false,
-                target: { realm: realm.realm }
-              },
-              FIREFOX_XPI_SMOKE_TIMEOUTS.sessionStatusMs
-            ),
-          closeObserver
-        );
-      } catch (error) {
-        if (!String(error?.message ?? '').startsWith('FIREFOX_SMOKE_BIDI_COMMAND:')) throw error;
-        continue;
-      }
-      const identity = parseBootstrapIdentity(evaluation);
-      if (identity?.runtimeId === geckoId && identity.configuredId === geckoId) return;
+    let identity;
+    try {
+      const response = await runManagedOperation(
+        () =>
+          webdriverRequest(
+            fetchImpl,
+            deadline,
+            new URL(`session/${encodeURIComponent(sessionId)}/execute/async`, driverUrl),
+            'POST',
+            { script: ADDON_MANAGER_IDENTITY_SCRIPT, args: [geckoId] },
+            FIREFOX_XPI_SMOKE_TIMEOUTS.sessionStatusMs
+          ),
+        closeObserver
+      );
+      identity = response?.value;
+    } finally {
+      await runManagedOperation(
+        () => setFirefoxContext(fetchImpl, deadline, driverUrl, sessionId, 'content'),
+        closeObserver
+      );
+    }
+    if (
+      identity?.id === geckoId &&
+      identity.version === manifestVersion &&
+      identity.isActive === true &&
+      identity.appDisabled === false &&
+      identity.userDisabled === false
+    ) {
+      return;
     }
     await sleepImpl(100);
   }
@@ -529,6 +546,7 @@ export async function runVerifiedFirefoxXpiSmoke(options, dependencies = {}) {
   const nowImpl = dependencies.now ?? Date.now;
   const killProcessGroupImpl = dependencies.killProcessGroupImpl ?? process.kill.bind(process);
   const closedDriverEnvironment = assertDriverEnvironment(driverEnvironment, binding.attemptRoot);
+  const snapshots = getVerifiedFirefoxArtifactSnapshots(binding);
   const deadline = createDeadline(dependencies);
   const [driverPort, websocketPort] = await Promise.all([allocatePortImpl(), allocatePortImpl()]);
   if (driverPort === websocketPort) fail('FIREFOX_SMOKE_PORT_ALIAS');
@@ -544,6 +562,7 @@ export async function runVerifiedFirefoxXpiSmoke(options, dependencies = {}) {
       String(websocketPort),
       '--profile-root',
       profileRoot,
+      '--allow-system-access',
       '--log',
       'error'
     ],
@@ -615,7 +634,17 @@ export async function runVerifiedFirefoxXpiSmoke(options, dependencies = {}) {
       closeObserver
     );
     if (first?.extension !== binding.geckoId) fail('FIREFOX_SMOKE_ADDON_ID');
-    await waitForBootstrapIdentity(bidi, closeObserver, binding.geckoId, sleepImpl, nowImpl);
+    await waitForBootstrapIdentity({
+      fetchImpl,
+      deadline,
+      driverUrl,
+      sessionId,
+      closeObserver,
+      geckoId: binding.geckoId,
+      manifestVersion: snapshots.manifestVersion,
+      sleepImpl,
+      nowImpl
+    });
     await runManagedOperation(
       () =>
         bidi.command(
@@ -635,7 +664,17 @@ export async function runVerifiedFirefoxXpiSmoke(options, dependencies = {}) {
       closeObserver
     );
     if (second?.extension !== binding.geckoId) fail('FIREFOX_SMOKE_ADDON_ID');
-    await waitForBootstrapIdentity(bidi, closeObserver, binding.geckoId, sleepImpl, nowImpl);
+    await waitForBootstrapIdentity({
+      fetchImpl,
+      deadline,
+      driverUrl,
+      sessionId,
+      closeObserver,
+      geckoId: binding.geckoId,
+      manifestVersion: snapshots.manifestVersion,
+      sleepImpl,
+      nowImpl
+    });
     lifecycleComplete = true;
     return Object.freeze({
       schema: 'firefox-exact-xpi-smoke-v2',
