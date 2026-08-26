@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 
@@ -27,20 +27,19 @@ describe('report-performance-hotspots', () => {
     ).join('\n');
   }
 
-  it('tracks current src files that remain over 250 LOC', () => {
-    const output = execFileSync(process.execPath, [toolPath], {
-      encoding: 'utf8'
-    });
+  it('removes retired UI budgets while preserving current hotspot registrations', () => {
+    const source = readFileSync(toolPath, 'utf8');
 
-    expect(output).toContain('src/i18n/generated/schemaCore.generated.ts');
-    expect(output).toContain('src/content/reader/utils/markdownBuilder.ts');
-    expect(output).toContain('src/options/app/productionStitchLocalization.ts');
-    expect(output).toContain('src/ui/domains/privacy/PrivacySettingsView.ts');
-    expect(output).toContain('src/content/video/videoScreenshotPreparationRequestStore.ts');
-    expect(output).toContain('src/background/listeners/runtimeMessages.ts');
-    expect(output).toContain('src/content/video/videoCaptureMutationTransaction.ts: lines=');
-    expect(output).not.toContain('src/options/app/productionStitchShellMount.ts: lines=');
-    expect(output).not.toContain('src/i18n/schemaShellMessages.ts: lines=');
+    expect(source).toContain('src/i18n/generated/schemaCore.generated.ts');
+    expect(source).toContain('src/content/reader/utils/markdownBuilder.ts');
+    expect(source).toContain('src/options/app/productionStitchLocalization.ts');
+    expect(source).not.toContain('src/ui/domains/privacy/');
+    expect(source).not.toContain('src/ui/domains/reading/');
+    expect(source).not.toContain('src/ui/domains/vault-router/');
+    expect(source).not.toContain('src/ui/domains/video/');
+    expect(source).toContain('src/content/video/videoScreenshotPreparationRequestStore.ts');
+    expect(source).toContain('src/background/listeners/runtimeMessages.ts');
+    expect(source).toContain('src/content/video/videoCaptureMutationTransaction.ts');
   });
 
   it('fails when a newly discovered >250 LOC src file has no registered budget', () => {

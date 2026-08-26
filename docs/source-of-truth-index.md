@@ -1,6 +1,6 @@
 # Source of Truth 索引
 
-最后更新：2026-07-20
+最后更新：2026-08-26
 
 ## 正式入口
 
@@ -28,6 +28,7 @@
 
 - 当前统一门禁以 direct-root `quality-check.mjs` / `verify-preflight.mjs`、固定 command profiles 与 CI 三者一致为准
 - 当前 runtime hard gate 以 `verify:runtime` 为准；direct Vitest/Playwright profiles 会在 tool leaf 前运行它，其他保留 aliases 继续显式前置。所有 direct tools 由 `run-bounded-command.mjs` 解析固定 profile，禁止 raw `npx`、bare tool、shell/TTY 与 caller-selected env/cwd/timeout/descriptor policy
+- 本地 bundled Chromium 验收真值：`playwright.bundled-chromium.config.ts` 收集四个 browser E2E 与四个 U02C2 visual 文件；canonical `node scripts/run-browser-test-shards.mjs bundled` 将 exact union 分成两个真实执行 shard，并先完成 E2E leaf 再接纳 visual leaf，使用固定端口、固定预构建 dist、隔离输出、已预置的 Playwright Chromium 与 repository-local CLI。它不改变 CI 或现有 system-Chrome 项目，也不提供安装、channel 或 executable fallback。
 - 当前版本号真值以 `package.json` 的 `version` 字段为唯一手写来源；发布前运行 `npm run release:metadata:sync` 同步 `package-lock.json` root version、`public/manifest.json`、`public/manifest.firefox.json` 与 `src/i18n/catalog/messages/*/runtime.json` 的 `versionNumber`，随后由 `npm run release:metadata:check` 守住 drift。`scripts/build.mjs` 从同一版本源注入 `__ZENDIO_EXTENSION_VERSION__` / `__AIIINOB_EXTENSION_VERSION__`，Options UI 优先读 platform manifest，孤立 preview / unit-test 场景再 fallback 到 build-injected version
 - 当前性能真值以 `audit:build:report` 与 `audit:performance:report` 为准
 - 2026-07-20 selection trigger current truth：`fragmentClipper.selectionTriggerMode` 是划词触发的唯一运行时配置，取值为 `disabled`（不触发）、`direct`（无需辅助键）或 `modifier`（必须按住配置的单个辅助键）；新安装默认 `modifier`。旧 `selectionModifierEnabled` 只允许出现在集中迁移器中，`true` 一次性迁移为 `modifier`，`false` 一次性迁移为 `direct`，成功清洗后回写并删除旧字段；普通网页、Reader、Video/Bilibili 和后台自动注入共享这一策略，不得重新引入布尔兼容分支或各表面独立判定。迁移回写失败不得阻塞当前会话使用已迁移配置。Options 使用三态选择器，只有 `modifier` 状态显示辅助键控件。

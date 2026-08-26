@@ -1,55 +1,74 @@
-import { createOptionsButtonElement } from '../ui/primitives/button';
-import { createCheckboxElement } from '../ui/primitives/checkbox';
-import { createInputElement } from '../ui/primitives/input';
 import {
-  createOptionsActionRow,
-  createOptionsHintText,
-  createOptionsPanel,
-  createContentActionRow,
-  createContentHintText,
-  createLayoutElement,
-  createContentSurfacePanel
-} from '../ui/primitives/layout';
+  el,
+  renderRuntimeSurface,
+  surfaceComponents,
+  type RuntimeRendererContext,
+  type RuntimeSchemaContext,
+  type RuntimeViewSchema
+} from '../ui/stitch-runtime';
+import { buttonNode, div, element } from '../ui/stitch-surfaces/builders/primitives';
 import { createSelectElement } from '../ui/primitives/select';
-import { createTextareaElement } from '../ui/primitives/textarea';
-import { UiButton } from '../ui/primitives/button';
-import { ContentDialogHost } from '../ui/hosts/content';
+
+type HarnessContext = RuntimeSchemaContext<Record<string, never>, { previewTheme: 'dark' }>;
+
+let activeDialog: HTMLElement | null = null;
+let runtimeContext: RuntimeRendererContext<HarnessContext>;
 
 function createOptionsContractPanel(): HTMLElement {
-  const panel = createOptionsPanel({
-    className: 'grid gap-4 rounded-xl border border-base-300 bg-base-100 p-5 shadow-sm'
-  });
-
-  const title = document.createElement('h2');
-  title.className = 'm-0 text-lg font-semibold text-base-content';
-  title.textContent = 'Options shared controls';
-
-  const row = createOptionsActionRow({
-    className: 'flex flex-wrap items-start gap-3'
-  });
-  row.append(
-    createOptionsButtonElement({
-      label: 'Primary',
-      variant: 'primary',
-      dataAttributes: { contractRole: 'primary-button' }
-    }),
-    createOptionsButtonElement({
-      label: 'Danger',
-      variant: 'danger',
-      loading: true,
-      dataAttributes: { contractRole: 'danger-loading-button' }
-    })
-  );
-
-  const fieldGrid = document.createElement('div');
-  fieldGrid.className = 'grid gap-3 md:grid-cols-2';
-  fieldGrid.append(
-    createInputElement({
-      value: 'invalid value',
-      validationState: 'error',
-      ariaDescribedBy: 'input-error',
-      dataAttributes: { contractRole: 'error-input' }
-    }),
+  const view: RuntimeViewSchema<HarnessContext> = {
+    id: 'options-interaction-contract',
+    kind: 'standalone-page',
+    className: 'grid gap-4 rounded-xl border border-base-300 bg-base-100 p-5 shadow-sm',
+    children: [
+      element<HarnessContext>('h2', {
+        className: 'm-0 text-lg font-semibold text-base-content',
+        text: 'Options shared controls'
+      }),
+      element<HarnessContext>('p', {
+        className: 'm-0 text-sm text-base-content/60',
+        text: 'Neutral runtime buttons and fields preserve the shared interaction contract.'
+      }),
+      div<HarnessContext>('flex flex-wrap items-start gap-3', [
+        buttonNode<HarnessContext>('Primary', 'primary', undefined, false, {
+          contractRole: 'primary-button'
+        }),
+        buttonNode<HarnessContext>('Danger', 'danger', undefined, false, {
+          contractRole: 'danger-button'
+        })
+      ]),
+      element<HarnessContext>(
+        'div',
+        {
+          className: 'grid gap-3 md:grid-cols-3',
+          dataset: { contractRole: 'field-grid' }
+        },
+        [
+          {
+            kind: 'input',
+            value: 'invalid value',
+            className: 'input is-error',
+            dataset: { contractRole: 'error-input' }
+          },
+          {
+            kind: 'textarea',
+            value: 'textarea content',
+            className: 'textarea',
+            dataset: { contractRole: 'textarea' }
+          }
+        ]
+      ),
+      element<HarnessContext>('label', { className: 'flex items-center gap-2' }, [
+        element<HarnessContext>('input', {
+          type: 'checkbox',
+          ariaLabel: 'Require confirmation',
+          dataset: { contractRole: 'confirmation-toggle' }
+        }),
+        element<HarnessContext>('span', { text: 'Require confirmation' })
+      ])
+    ]
+  };
+  const panel = renderRuntimeSurface(view, runtimeContext);
+  panel.querySelector('[data-contract-role="field-grid"]')?.append(
     createSelectElement({
       value: 'b',
       validationState: 'error',
@@ -61,97 +80,83 @@ function createOptionsContractPanel(): HTMLElement {
       ]
     })
   );
-
-  const textarea = createTextareaElement({
-    value: 'textarea content',
-    rows: 4,
-    dataAttributes: { contractRole: 'textarea' }
-  });
-
-  const checkbox = createCheckboxElement({
-    label: 'Require confirmation',
-    validationState: 'error',
-    dataAttributes: { contractRole: 'error-checkbox' }
-  }).root;
-
-  panel.append(
-    title,
-    createOptionsHintText({
-      text: 'The error input/select/checkbox should expose aria-invalid and the danger button should expose aria-busy.'
-    }),
-    row,
-    fieldGrid,
-    textarea,
-    checkbox
-  );
   return panel;
 }
 
 function createContentContractPanel(): HTMLElement {
-  const panel = createContentSurfacePanel({
-    className: 'grid gap-4 rounded-xl border border-base-300 bg-base-100 p-5'
-  });
-  const title = document.createElement('h2');
-  title.className = 'm-0 text-lg font-semibold text-base-content';
-  title.textContent = 'Content dialog contract';
-
-  const actions = createContentActionRow();
-  const dialog = new ContentDialogHost({
-    title: 'Contract dialog',
-    closeOnBackdrop: true
-  });
-
-  new UiButton(actions).render({
-    label: 'Open dialog',
-    variant: 'outline',
-    dataRole: 'open-dialog',
-    onClick: () => {
-      const body = createContentSurfacePanel({
-        className: 'grid gap-3 rounded-xl border border-base-300 bg-base-100/70 p-4'
-      });
-      body.append(
-        createLayoutElement({
-          tag: 'p',
-          textContent: 'Dialog body should expose header/body/footer markers and aria-labelledby.'
-        }),
-        createContentHintText({
-          textContent: 'Close with button or backdrop to validate dismissal.'
-        })
-      );
-      const footer = createContentActionRow({ className: 'flex justify-end gap-2' });
-      new UiButton(footer).render({
-        label: 'Dismiss',
-        variant: 'danger',
-        dataRole: 'dismiss-dialog',
-        onClick: () => dialog.hide()
-      });
-      dialog.setContent(body);
-      dialog.setFooter(footer);
-      dialog.show();
-    }
-  });
-
-  panel.append(
-    title,
-    createContentHintText({
-      textContent:
-        'The built dialog should expose role="dialog", aria-modal, and data-element markers.'
-    }),
-    actions,
-    dialog.render()
-  );
-
-  return panel;
+  const view: RuntimeViewSchema<HarnessContext> = {
+    id: 'content-interaction-contract',
+    kind: 'standalone-page',
+    className: 'grid gap-4 rounded-xl border border-base-300 bg-base-100 p-5',
+    children: [
+      element<HarnessContext>('h2', {
+        className: 'm-0 text-lg font-semibold text-base-content',
+        text: 'Content dialog contract'
+      }),
+      element<HarnessContext>('p', {
+        className: 'm-0 text-sm text-base-content/60',
+        text: 'The neutral surface renderer owns dialog semantics and dismissal.'
+      }),
+      div<HarnessContext>('flex justify-start', [
+        buttonNode<HarnessContext>('Open dialog', 'ghost', 'contract:open-dialog')
+      ])
+    ]
+  };
+  return renderRuntimeSurface(view, runtimeContext);
 }
 
-function mount(): void {
+function openContractDialog(): void {
+  closeContractDialog();
+  const view: RuntimeViewSchema<HarnessContext> = {
+    id: 'interaction-contract-dialog',
+    kind: 'modal',
+    title: 'Contract dialog',
+    description: 'Shared runtime dialog semantics remain visible in the dev harness.',
+    size: 'medium',
+    children: [
+      div<HarnessContext>('grid gap-3', [
+        element<HarnessContext>('p', {
+          text: 'Dialog body is rendered by the accepted neutral runtime.'
+        }),
+        div<HarnessContext>('flex justify-end', [
+          buttonNode<HarnessContext>('Dismiss', 'danger', 'contract:dismiss-dialog')
+        ])
+      ])
+    ]
+  };
+  activeDialog = renderRuntimeSurface(view, runtimeContext);
+  document.body.append(activeDialog);
+}
+
+function closeContractDialog(): void {
+  activeDialog?.remove();
+  activeDialog = null;
+}
+
+async function mount(): Promise<void> {
   const app = document.getElementById('app');
   if (!app) {
     return;
   }
 
+  runtimeContext = {
+    appData: {},
+    state: { previewTheme: 'dark' },
+    el,
+    ui: surfaceComponents,
+    dispatch(id) {
+      if (id === 'contract:open-dialog') {
+        openContractDialog();
+        return;
+      }
+      if (id === 'contract:dismiss-dialog' || id === 'resource:close') {
+        closeContractDialog();
+      }
+    }
+  };
+
   document.documentElement.classList.add('aobx-preview');
   app.replaceChildren(createOptionsContractPanel(), createContentContractPanel());
 }
 
-mount();
+void mount();

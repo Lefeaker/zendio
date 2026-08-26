@@ -272,6 +272,17 @@ describe('local command parallelization contract', () => {
     expect(browserShardRunner).not.toContain('BROWSER_TEST_CONCURRENCY');
     expect(browserShardRunner).not.toContain("from 'node:child_process'");
     expect(visualPlaywrightConfig).toContain('PLAYWRIGHT_OUTPUT_DIR');
+    expect(visualPlaywrightConfig).not.toContain("channel: 'chrome'");
     expect(readerPlaywrightConfig).toContain('PLAYWRIGHT_OUTPUT_DIR');
+    expect(readerPlaywrightConfig).toContain("...devices['Desktop Chrome']");
+    expect(readerPlaywrightConfig).not.toContain("channel: 'chrome'");
+    expect(readerPlaywrightConfig).not.toContain('executablePath');
+    for (const file of ['tests/e2e/readerPanelFlow.test.ts', 'tests/e2e/videoPanelFlow.test.ts']) {
+      const source = readFileSync(resolve(file), 'utf8');
+      expect(source).toContain("'--headless=new'");
+      expect(source).toContain('headless: false');
+      expect(source).not.toContain('channel:');
+      expect(source).not.toContain('executablePath');
+    }
   });
 });

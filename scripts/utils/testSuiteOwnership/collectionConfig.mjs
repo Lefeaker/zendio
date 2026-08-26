@@ -7,7 +7,11 @@ export const VITEST_CONFIG_PATHS = {
   e2e: 'vitest.e2e.config.ts'
 };
 
-export const PLAYWRIGHT_CONFIG_PATHS = ['playwright.config.ts', 'playwright.reader.config.ts'];
+export const PLAYWRIGHT_CONFIG_PATHS = [
+  'playwright.config.ts',
+  'playwright.reader.config.ts',
+  'playwright.bundled-chromium.config.ts'
+];
 
 export function parseVitestConfig(source, file = 'vitest.config.ts') {
   const config = findDefineConfigObject(source, file);

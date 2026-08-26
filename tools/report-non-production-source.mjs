@@ -5,8 +5,15 @@ import { pathToFileURL } from 'node:url';
 
 const ROOT = process.cwd();
 const PRODUCTION_GRAPH_PATH = 'build/reports/production-build-graph.json';
+const UI_OWNERSHIP_MANIFEST_PATH = 'tools/ui-production-ownership.json';
 const TEXT_EXTENSIONS = /\.(ts|tsx|js|mjs|cjs|json|html|css|md|yml|yaml)$/;
 const AUDIT_CLASSIFICATION_METADATA_PATH = 'tools/report-non-production-source.mjs';
+const TEST_OWNER_ROOTS = [
+  'tests',
+  'playwright.config.ts',
+  'playwright.reader.config.ts',
+  'playwright.bundled-chromium.config.ts'
+];
 const REQUIRED_VERIFICATION_SCRIPT_NAMES = new Set([
   'quality',
   'verify:preflight',
@@ -41,12 +48,6 @@ const EXPLICIT_RETAIN_PATTERNS = [
     decision: 'retain-production-facade',
     owner: 'video platform compatibility shell',
     deletionCondition: 'delete only after platform imports move to current video domain owner'
-  },
-  {
-    pattern: 'src/ui/domains/privacy/PrivacySettings.ts',
-    decision: 'retain-production-facade',
-    owner: 'privacy domain compatibility shell',
-    deletionCondition: 'delete only after imports use PrivacySettingsView directly'
   }
 ];
 
@@ -205,12 +206,6 @@ const EXPLICIT_CLASSIFICATION_PATTERNS = [
       'delete only after production Stitch state mapping no longer imports legacy selectors'
   },
   {
-    pattern: 'src/options/stitch/schema/surfaces/helpers.ts',
-    decision: 'retain-production-facade',
-    owner: 'Stitch schema surface helper contract',
-    deletionCondition: 'delete only after schema surfaces inline or replace this helper boundary'
-  },
-  {
     pattern: 'src/options/stitch/runtime/actions.ts',
     decision: 'retain-production-facade',
     owner: 'Stitch runtime action id contract',
@@ -312,56 +307,62 @@ const EXPLICIT_CLASSIFICATION_PATTERNS = [
       'delete only after design token tooling, docs, tests, and build copy steps no longer require this CSS token source',
     requiredAction:
       'Retain the exact design token CSS source until design system owners record a replacement or six-proof deletion.'
-  },
-  {
-    pattern: 'src/ui/foundation/tokens/index.ts',
-    decision: 'retain-production-facade',
-    owner: 'design token metadata source contract',
-    deletionCondition:
-      'delete only after design token reporting, UI architecture reporting, and token docs move to a current metadata owner',
-    requiredAction:
-      'Retain the exact design token metadata contract until design system tooling owners record a replacement or six-proof deletion.'
-  },
-  {
-    pattern: 'src/ui/foundation/keyboard/index.ts',
-    decision: 'retain-production-facade',
-    owner: 'UI foundation keyboard source-of-truth boundary',
-    deletionCondition:
-      'delete only after design-system governance and UI architecture audit move to a replacement keyboard owner',
-    requiredAction:
-      'Retain the exact keyboard foundation boundary until design-system tooling owners record a replacement or six-proof deletion.'
-  },
-  {
-    pattern: 'src/ui/hosts/options/index.ts',
-    decision: 'retain-production-facade',
-    owner: 'Options UI host source-of-truth boundary',
-    deletionCondition:
-      'delete only after architecture-boundary docs and UI architecture audit move to a replacement Options host owner',
-    requiredAction:
-      'Retain the exact Options host boundary until architecture tooling owners record a replacement or six-proof deletion.'
-  },
-  {
-    pattern: 'src/ui/domains/**',
-    decision: 'retain-production-facade',
-    owner: 'UI domain public boundary',
-    deletionCondition:
-      'delete only after source-of-truth docs and imports no longer require this domain boundary'
-  },
-  {
-    pattern: 'src/ui/patterns/**',
-    decision: 'retain-production-facade',
-    owner: 'UI pattern public boundary',
-    deletionCondition:
-      'delete only after source-of-truth docs and imports no longer require this pattern boundary'
-  },
-  {
-    pattern: 'src/ui/primitives/**',
-    decision: 'retain-production-facade',
-    owner: 'UI primitive public boundary',
-    deletionCondition:
-      'delete only after source-of-truth docs and imports no longer require this primitive boundary'
   }
 ];
+
+function createUiOwnershipClassificationPatterns(manifest) {
+  if (
+    !manifest ||
+    typeof manifest !== 'object' ||
+    Array.isArray(manifest) ||
+    !['intermediate', 'final'].includes(manifest.closureState) ||
+    !Array.isArray(manifest.rows)
+  ) {
+    throw new Error('UI ownership manifest has an invalid shape');
+  }
+
+  const seen = new Set();
+  return manifest.rows.map((row) => {
+    if (
+      !row ||
+      typeof row.path !== 'string' ||
+      !/^src\/ui\/.+\.ts$/.test(row.path) ||
+      /[*?\[\]{}]/.test(row.path) ||
+      seen.has(row.path)
+    ) {
+      throw new Error(`UI ownership manifest row is not an exact unique path: ${row?.path}`);
+    }
+    if (
+      !row.replacement ||
+      typeof row.replacement.owner !== 'string' ||
+      typeof row.replacement.milestone !== 'string'
+    ) {
+      throw new Error(`UI ownership manifest replacement is invalid: ${row.path}`);
+    }
+    seen.add(row.path);
+    const isCurrentProduction =
+      row.disposition === 'production-runtime' || row.disposition === 'production-compile';
+    return {
+      pattern: row.path,
+      decision: 'retain-production-facade',
+      owner: `UI ownership manifest: ${row.disposition}; owner ${row.replacement.owner}`,
+      deletionCondition: isCurrentProduction
+        ? 'not a deletion candidate while the ownership manifest records current production ownership'
+        : `delete only after the ownership manifest reaches ${row.replacement.milestone} and removes this exact row`,
+      requiredAction: isCurrentProduction
+        ? 'Retain the exact current production owner recorded by the UI ownership manifest.'
+        : `Follow the exact ${row.replacement.milestone} replacement recorded by the UI ownership manifest.`,
+      source: 'ui-ownership-manifest'
+    };
+  });
+}
+
+function loadUiOwnershipClassificationPatterns(manifestPath = UI_OWNERSHIP_MANIFEST_PATH) {
+  if (!existsSync(manifestPath)) {
+    throw new Error(`Missing ${manifestPath}; UI source classification fails closed.`);
+  }
+  return createUiOwnershipClassificationPatterns(JSON.parse(readFileSync(manifestPath, 'utf8')));
+}
 
 const EXPLICIT_DELETE_NOW_PATTERNS = [
   'src/options/widgets/UsageWidget.ts',
@@ -693,6 +694,21 @@ function classifySourceFile(input) {
     };
   }
 
+  const manifestRule = explicitClassificationRule(
+    input.file,
+    input.explicitClassificationPatterns ?? []
+  );
+  if (manifestRule && manifestRule.source === 'ui-ownership-manifest') {
+    return {
+      ...input,
+      ownerProofs: proofs,
+      decision: manifestRule.decision,
+      owner: manifestRule.owner,
+      deletionCondition: manifestRule.deletionCondition,
+      requiredAction: manifestRule.requiredAction
+    };
+  }
+
   if (retainedImportGraphReferences(input).length > 0) {
     return {
       ...input,
@@ -973,15 +989,12 @@ async function buildNonProductionSourceRows() {
   const scripts = parsePackageScripts();
   const sourceFiles = await listSourceFiles();
   const srcTextFiles = await readTextFiles(['src']);
-  const testTextFiles = await readTextFiles([
-    'tests',
-    'playwright.config.ts',
-    'playwright.reader.config.ts'
-  ]);
+  const testTextFiles = await readTextFiles(TEST_OWNER_ROOTS);
   const scriptTextFiles = await readTextFiles(['package.json', 'scripts', 'tools', '.github']);
   const publicTextFiles = await readTextFiles(['public']);
   const productionSources = new Set(Object.keys(graph.reachableSources ?? {}));
   const sourceImportGraph = collectSourceImportGraph(srcTextFiles, sourceFiles);
+  const uiOwnershipPatterns = loadUiOwnershipClassificationPatterns();
 
   return sourceFiles.map((file) => {
     const retainedSourceImportOwners = sourceImportGraph.ownersByTarget.get(file) ?? [];
@@ -1002,7 +1015,7 @@ async function buildNonProductionSourceRows() {
       publicAssetOwners: collectTextOwners(publicTextFiles, file),
       requiredVerificationOwners: collectRequiredVerificationOwners(file, scripts),
       explicitRetainPatterns: EXPLICIT_RETAIN_PATTERNS,
-      explicitClassificationPatterns: EXPLICIT_CLASSIFICATION_PATTERNS,
+      explicitClassificationPatterns: [...EXPLICIT_CLASSIFICATION_PATTERNS, ...uiOwnershipPatterns],
       explicitDeleteNowPatterns: EXPLICIT_DELETE_NOW_PATTERNS
     };
     return classifySourceFile(row);
@@ -1176,6 +1189,9 @@ export {
   validateNonProductionSourceThresholds,
   evaluateNonProductionSourceGates,
   buildNonProductionSourceRows,
+  createUiOwnershipClassificationPatterns,
+  TEST_OWNER_ROOTS,
+  loadUiOwnershipClassificationPatterns,
   parseArgs,
   resolveSourceImport,
   stripImportQueryHash

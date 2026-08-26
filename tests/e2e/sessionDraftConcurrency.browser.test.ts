@@ -2,10 +2,8 @@ import { chromium, expect, test, type BrowserContext, type Page } from '@playwri
 import { mkdtemp } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const extensionPath = path.resolve(__dirname, '../../build/dist');
+const extensionPath = path.resolve(process.env.PLAYWRIGHT_DIST_DIR ?? 'build/dist');
 const harnessName = 'content-orchestrator-harness.html';
 const draftPrefix = 'aiob.sessionDraft';
 const indexKey = `${draftPrefix}.index.v1`;
@@ -200,9 +198,12 @@ test.describe('session draft browser concurrency', () => {
   test.beforeEach(async () => {
     const userDataDir = await mkdtemp(path.join(tmpdir(), 'aiiob-s02-concurrency-'));
     context = await chromium.launchPersistentContext(userDataDir, {
-      headless: true,
-      channel: 'chromium',
-      args: [`--disable-extensions-except=${extensionPath}`, `--load-extension=${extensionPath}`]
+      headless: false,
+      args: [
+        '--headless=new',
+        `--disable-extensions-except=${extensionPath}`,
+        `--load-extension=${extensionPath}`
+      ]
     });
     let background = context.serviceWorkers()[0];
     background ??= await context.waitForEvent('serviceworker', { timeout: 15_000 });
@@ -232,12 +233,23 @@ test.describe('session draft browser concurrency', () => {
       secondInput.fill('concurrent note B')
     ]);
 
-    await expect.poll(async () => (await activeDrafts(first)).length, { timeout: 10_000 }).toBe(2);
+    await expect
+      .poll(
+        async () => {
+          const drafts = await activeDrafts(first);
+          const serialized = JSON.stringify(drafts);
+          return {
+            count: drafts.length,
+            hasFirstComment: serialized.includes('concurrent note A'),
+            hasSecondComment: serialized.includes('concurrent note B')
+          };
+        },
+        { timeout: 10_000 }
+      )
+      .toEqual({ count: 2, hasFirstComment: true, hasSecondComment: true });
     const before = await activeDrafts(first);
     expect(new Set(before.map(({ key }) => key)).size).toBe(2);
     expect(new Set(before.map(({ draft }) => draft.lease?.owner?.tabId)).size).toBe(2);
-    expect(JSON.stringify(before)).toContain('concurrent note A');
-    expect(JSON.stringify(before)).toContain('concurrent note B');
 
     const requestIds = await first.evaluate(async (key) => {
       const value = await chrome.storage.local.get(key);

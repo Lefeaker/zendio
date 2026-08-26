@@ -100,7 +100,34 @@ export function createBrowserTestShardSuites() {
     visual: ['chromium-desktop', 'chromium-tablet', 'chromium-mobile'].map((project) => ({
       id: project,
       args: ['test', '--config=playwright.config.ts', `--project=${project}`]
-    }))
+    })),
+    bundled: [
+      {
+        id: 'bundled-e2e',
+        args: [
+          'test',
+          '--config=playwright.bundled-chromium.config.ts',
+          '--project=chromium-desktop',
+          'tests/e2e/optionsCrossContextMutation.browser.test.ts',
+          'tests/e2e/sessionDraftConcurrency.browser.test.ts',
+          'tests/e2e/uiPrimitiveTokenParity.browser.test.ts',
+          'tests/e2e/videoScreenshotCacheMigration.browser.test.ts'
+        ]
+      },
+      {
+        id: 'bundled-visual',
+        dependsOn: ['bundled-e2e'],
+        args: [
+          'test',
+          '--config=playwright.bundled-chromium.config.ts',
+          '--project=chromium-desktop',
+          'tests/visual/options.stitch-secondary.parity.spec.ts',
+          'tests/visual/preview.runtime.alignment.spec.ts',
+          'tests/visual/preview.task-success.layout.spec.ts',
+          'tests/visual/migration-harness.spec.ts'
+        ]
+      }
+    ]
   };
 }
 

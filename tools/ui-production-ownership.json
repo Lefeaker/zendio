@@ -1,8 +1,8 @@
 {
   "schemaVersion": 1,
   "closureState": "intermediate",
-  "uiPathSetSha256": "816c7de2e370ccc8947988329d82ace64a229cdf80e3db9bb93e25532f7a7e87",
-  "uiContentSha256": "7319e5d7d411c61354adcad5c04139bb60b128bcaae5599255f423b69df3b857",
+  "uiPathSetSha256": "d0e98f4870041846642e7b4c2debea3d0526205692e5d01c1579c0d4751f3a66",
+  "uiContentSha256": "702e0df9345f9bf65929b41061001ec4f8dd348621cc828943a621dc339ac675",
   "rows": [
     {
       "path": "src/ui/domains/privacy/index.ts",
@@ -23,96 +23,6 @@
       "reason": "This temporary privacy contract remains only until state convergence permits U02C4 closure."
     },
     {
-      "path": "src/ui/domains/privacy/PrivacySettings.ts",
-      "disposition": "retire-u02c2",
-      "productionOwners": [],
-      "replacement": {
-        "owner": "src/options/stitch/schema/settings/overview.ts",
-        "milestone": "U02C2"
-      },
-      "evidence": {
-        "docs": ["docs/design-system-governance.md"],
-        "tests": ["tests/unit/tools/uiProductionOwnership.test.ts"],
-        "tools": [
-          "tools/report-production-build-graph.mjs",
-          "tools/report-ui-production-ownership.mjs"
-        ]
-      },
-      "reason": "This production-unreachable duplicate has an exact surviving replacement owner in U02C2."
-    },
-    {
-      "path": "src/ui/domains/privacy/privacySettingsAsyncActions.ts",
-      "disposition": "retire-u02c2",
-      "productionOwners": [],
-      "replacement": {
-        "owner": "src/options/app/actions/privacyConsentAction.ts",
-        "milestone": "U02C2"
-      },
-      "evidence": {
-        "docs": ["docs/design-system-governance.md"],
-        "tests": ["tests/unit/tools/uiProductionOwnership.test.ts"],
-        "tools": [
-          "tools/report-production-build-graph.mjs",
-          "tools/report-ui-production-ownership.mjs"
-        ]
-      },
-      "reason": "This production-unreachable duplicate has an exact surviving replacement owner in U02C2."
-    },
-    {
-      "path": "src/ui/domains/privacy/privacySettingsFooter.ts",
-      "disposition": "retire-u02c2",
-      "productionOwners": [],
-      "replacement": {
-        "owner": "src/options/stitch/schema/settings/overview.ts",
-        "milestone": "U02C2"
-      },
-      "evidence": {
-        "docs": ["docs/design-system-governance.md"],
-        "tests": ["tests/unit/tools/uiProductionOwnership.test.ts"],
-        "tools": [
-          "tools/report-production-build-graph.mjs",
-          "tools/report-ui-production-ownership.mjs"
-        ]
-      },
-      "reason": "This production-unreachable duplicate has an exact surviving replacement owner in U02C2."
-    },
-    {
-      "path": "src/ui/domains/privacy/privacySettingsLayout.ts",
-      "disposition": "retire-u02c2",
-      "productionOwners": [],
-      "replacement": {
-        "owner": "src/options/stitch/schema/settings/overview.ts",
-        "milestone": "U02C2"
-      },
-      "evidence": {
-        "docs": ["docs/design-system-governance.md"],
-        "tests": ["tests/unit/tools/uiProductionOwnership.test.ts"],
-        "tools": [
-          "tools/report-production-build-graph.mjs",
-          "tools/report-ui-production-ownership.mjs"
-        ]
-      },
-      "reason": "This production-unreachable duplicate has an exact surviving replacement owner in U02C2."
-    },
-    {
-      "path": "src/ui/domains/privacy/privacySettingsState.ts",
-      "disposition": "retire-u02c2",
-      "productionOwners": [],
-      "replacement": {
-        "owner": "src/options/app/stateMapper/themeStateMapper.ts",
-        "milestone": "U02C2"
-      },
-      "evidence": {
-        "docs": ["docs/design-system-governance.md"],
-        "tests": ["tests/unit/tools/uiProductionOwnership.test.ts"],
-        "tools": [
-          "tools/report-production-build-graph.mjs",
-          "tools/report-ui-production-ownership.mjs"
-        ]
-      },
-      "reason": "This production-unreachable duplicate has an exact surviving replacement owner in U02C2."
-    },
-    {
       "path": "src/ui/domains/privacy/privacySettingsTypes.ts",
       "disposition": "deferred-state-convergence",
       "productionOwners": [],
@@ -129,150 +39,6 @@
         ]
       },
       "reason": "This temporary privacy contract remains only until state convergence permits U02C4 closure."
-    },
-    {
-      "path": "src/ui/domains/privacy/PrivacySettingsView.ts",
-      "disposition": "retire-u02c2",
-      "productionOwners": [],
-      "replacement": {
-        "owner": "src/options/stitch/schema/settings/overview.ts",
-        "milestone": "U02C2"
-      },
-      "evidence": {
-        "docs": ["docs/design-system-governance.md"],
-        "tests": ["tests/unit/tools/uiProductionOwnership.test.ts"],
-        "tools": [
-          "tools/report-production-build-graph.mjs",
-          "tools/report-ui-production-ownership.mjs"
-        ]
-      },
-      "reason": "This production-unreachable duplicate has an exact surviving replacement owner in U02C2."
-    },
-    {
-      "path": "src/ui/domains/reading/index.ts",
-      "disposition": "retire-u02c2",
-      "productionOwners": [],
-      "replacement": {
-        "owner": "src/content/reader/ui/ReaderDialogPanel.ts",
-        "milestone": "U02C2"
-      },
-      "evidence": {
-        "docs": ["docs/design-system-governance.md"],
-        "tests": ["tests/unit/tools/uiProductionOwnership.test.ts"],
-        "tools": [
-          "tools/report-production-build-graph.mjs",
-          "tools/report-ui-production-ownership.mjs"
-        ]
-      },
-      "reason": "This production-unreachable duplicate has an exact surviving replacement owner in U02C2."
-    },
-    {
-      "path": "src/ui/domains/reading/ReaderDialog.ts",
-      "disposition": "retire-u02c2",
-      "productionOwners": [],
-      "replacement": {
-        "owner": "src/content/reader/ui/ReaderDialogPanel.ts",
-        "milestone": "U02C2"
-      },
-      "evidence": {
-        "docs": ["docs/design-system-governance.md"],
-        "tests": ["tests/unit/tools/uiProductionOwnership.test.ts"],
-        "tools": [
-          "tools/report-production-build-graph.mjs",
-          "tools/report-ui-production-ownership.mjs"
-        ]
-      },
-      "reason": "This production-unreachable duplicate has an exact surviving replacement owner in U02C2."
-    },
-    {
-      "path": "src/ui/domains/support-prompt/index.ts",
-      "disposition": "retire-u02c2",
-      "productionOwners": [],
-      "replacement": {
-        "owner": "src/content/ui/supportPrompt.ts",
-        "milestone": "U02C2"
-      },
-      "evidence": {
-        "docs": ["docs/design-system-governance.md"],
-        "tests": ["tests/unit/tools/uiProductionOwnership.test.ts"],
-        "tools": [
-          "tools/report-production-build-graph.mjs",
-          "tools/report-ui-production-ownership.mjs"
-        ]
-      },
-      "reason": "This production-unreachable duplicate has an exact surviving replacement owner in U02C2."
-    },
-    {
-      "path": "src/ui/domains/support-prompt/SupportPromptView.ts",
-      "disposition": "retire-u02c2",
-      "productionOwners": [],
-      "replacement": {
-        "owner": "src/content/ui/supportPrompt.ts",
-        "milestone": "U02C2"
-      },
-      "evidence": {
-        "docs": ["docs/design-system-governance.md"],
-        "tests": ["tests/unit/tools/uiProductionOwnership.test.ts"],
-        "tools": [
-          "tools/report-production-build-graph.mjs",
-          "tools/report-ui-production-ownership.mjs"
-        ]
-      },
-      "reason": "This production-unreachable duplicate has an exact surviving replacement owner in U02C2."
-    },
-    {
-      "path": "src/ui/domains/support-prompt/types.ts",
-      "disposition": "retire-u02c2",
-      "productionOwners": [],
-      "replacement": {
-        "owner": "src/content/ui/supportPrompt/types.ts",
-        "milestone": "U02C2"
-      },
-      "evidence": {
-        "docs": ["docs/design-system-governance.md"],
-        "tests": ["tests/unit/tools/uiProductionOwnership.test.ts"],
-        "tools": [
-          "tools/report-production-build-graph.mjs",
-          "tools/report-ui-production-ownership.mjs"
-        ]
-      },
-      "reason": "This production-unreachable duplicate has an exact surviving replacement owner in U02C2."
-    },
-    {
-      "path": "src/ui/domains/theme/index.ts",
-      "disposition": "retire-u02c2",
-      "productionOwners": [],
-      "replacement": {
-        "owner": "src/options/app/productionStitchActions.ts",
-        "milestone": "U02C2"
-      },
-      "evidence": {
-        "docs": ["docs/design-system-governance.md"],
-        "tests": ["tests/unit/tools/uiProductionOwnership.test.ts"],
-        "tools": [
-          "tools/report-production-build-graph.mjs",
-          "tools/report-ui-production-ownership.mjs"
-        ]
-      },
-      "reason": "This production-unreachable duplicate has an exact surviving replacement owner in U02C2."
-    },
-    {
-      "path": "src/ui/domains/theme/ThemeSwitcher.ts",
-      "disposition": "retire-u02c2",
-      "productionOwners": [],
-      "replacement": {
-        "owner": "src/options/app/productionStitchActions.ts",
-        "milestone": "U02C2"
-      },
-      "evidence": {
-        "docs": ["docs/design-system-governance.md"],
-        "tests": ["tests/unit/tools/uiProductionOwnership.test.ts"],
-        "tools": [
-          "tools/report-production-build-graph.mjs",
-          "tools/report-ui-production-ownership.mjs"
-        ]
-      },
-      "reason": "This production-unreachable duplicate has an exact surviving replacement owner in U02C2."
     },
     {
       "path": "src/ui/domains/usage-chart/index.ts",
@@ -401,96 +167,6 @@
       "reason": "The neutral usage-chart owner is reached only by the Options production entrypoints."
     },
     {
-      "path": "src/ui/domains/vault-router/index.ts",
-      "disposition": "retire-u02c2",
-      "productionOwners": [],
-      "replacement": {
-        "owner": "src/options/app/productionStitchShell.ts",
-        "milestone": "U02C2"
-      },
-      "evidence": {
-        "docs": ["docs/design-system-governance.md"],
-        "tests": ["tests/unit/tools/uiProductionOwnership.test.ts"],
-        "tools": [
-          "tools/report-production-build-graph.mjs",
-          "tools/report-ui-production-ownership.mjs"
-        ]
-      },
-      "reason": "This production-unreachable duplicate has an exact surviving replacement owner in U02C2."
-    },
-    {
-      "path": "src/ui/domains/vault-router/VaultRouterView.ts",
-      "disposition": "retire-u02c2",
-      "productionOwners": [],
-      "replacement": {
-        "owner": "src/options/app/productionStitchShell.ts",
-        "milestone": "U02C2"
-      },
-      "evidence": {
-        "docs": ["docs/design-system-governance.md"],
-        "tests": ["tests/unit/tools/uiProductionOwnership.test.ts"],
-        "tools": [
-          "tools/report-production-build-graph.mjs",
-          "tools/report-ui-production-ownership.mjs"
-        ]
-      },
-      "reason": "This production-unreachable duplicate has an exact surviving replacement owner in U02C2."
-    },
-    {
-      "path": "src/ui/domains/video/index.ts",
-      "disposition": "retire-u02c2",
-      "productionOwners": [],
-      "replacement": {
-        "owner": "src/content/video/ui/VideoDialogPanel.ts",
-        "milestone": "U02C2"
-      },
-      "evidence": {
-        "docs": ["docs/design-system-governance.md"],
-        "tests": ["tests/unit/tools/uiProductionOwnership.test.ts"],
-        "tools": [
-          "tools/report-production-build-graph.mjs",
-          "tools/report-ui-production-ownership.mjs"
-        ]
-      },
-      "reason": "This production-unreachable duplicate has an exact surviving replacement owner in U02C2."
-    },
-    {
-      "path": "src/ui/domains/video/types.ts",
-      "disposition": "retire-u02c2",
-      "productionOwners": [],
-      "replacement": {
-        "owner": "src/content/ui/supportPrompt/types.ts",
-        "milestone": "U02C2"
-      },
-      "evidence": {
-        "docs": ["docs/design-system-governance.md"],
-        "tests": ["tests/unit/tools/uiProductionOwnership.test.ts"],
-        "tools": [
-          "tools/report-production-build-graph.mjs",
-          "tools/report-ui-production-ownership.mjs"
-        ]
-      },
-      "reason": "This production-unreachable duplicate has an exact surviving replacement owner in U02C2."
-    },
-    {
-      "path": "src/ui/domains/video/VideoDialog.ts",
-      "disposition": "retire-u02c2",
-      "productionOwners": [],
-      "replacement": {
-        "owner": "src/content/video/ui/VideoDialogPanel.ts",
-        "milestone": "U02C2"
-      },
-      "evidence": {
-        "docs": ["docs/design-system-governance.md"],
-        "tests": ["tests/unit/tools/uiProductionOwnership.test.ts"],
-        "tools": [
-          "tools/report-production-build-graph.mjs",
-          "tools/report-ui-production-ownership.mjs"
-        ]
-      },
-      "reason": "This production-unreachable duplicate has an exact surviving replacement owner in U02C2."
-    },
-    {
       "path": "src/ui/foundation/a11y/index.ts",
       "disposition": "production-runtime",
       "productionOwners": [
@@ -541,24 +217,6 @@
       "reason": "Production runtime reachability is proven by the freshly generated build graph."
     },
     {
-      "path": "src/ui/foundation/keyboard/index.ts",
-      "disposition": "retire-u02c2",
-      "productionOwners": [],
-      "replacement": {
-        "owner": "src/content/clipper/services/selectionController.ts",
-        "milestone": "U02C2"
-      },
-      "evidence": {
-        "docs": ["docs/design-system-governance.md"],
-        "tests": ["tests/unit/tools/uiProductionOwnership.test.ts"],
-        "tools": [
-          "tools/report-production-build-graph.mjs",
-          "tools/report-ui-production-ownership.mjs"
-        ]
-      },
-      "reason": "This production-unreachable duplicate has an exact surviving replacement owner in U02C2."
-    },
-    {
       "path": "src/ui/foundation/lifecycle/BaseComponent.ts",
       "disposition": "production-compile",
       "productionOwners": ["src/ui/primitives/card/index.ts", "src/ui/primitives/table/index.ts"],
@@ -575,24 +233,6 @@
         ]
       },
       "reason": "A reachable production source imports this TypeScript contract although it emits no runtime graph node."
-    },
-    {
-      "path": "src/ui/foundation/lifecycle/index.ts",
-      "disposition": "retire-u02c2",
-      "productionOwners": [],
-      "replacement": {
-        "owner": "src/ui/foundation/lifecycle/BaseComponent.ts",
-        "milestone": "U02C2"
-      },
-      "evidence": {
-        "docs": ["docs/design-system-governance.md"],
-        "tests": ["tests/unit/tools/uiProductionOwnership.test.ts"],
-        "tools": [
-          "tools/report-production-build-graph.mjs",
-          "tools/report-ui-production-ownership.mjs"
-        ]
-      },
-      "reason": "This production-unreachable duplicate has an exact surviving replacement owner in U02C2."
     },
     {
       "path": "src/ui/foundation/style-host/index.ts",
@@ -645,24 +285,6 @@
       "reason": "Production runtime reachability is proven by the freshly generated build graph."
     },
     {
-      "path": "src/ui/foundation/tokens/index.ts",
-      "disposition": "retire-u02c2",
-      "productionOwners": [],
-      "replacement": {
-        "owner": "src/styles/design-tokens.css",
-        "milestone": "U02C2"
-      },
-      "evidence": {
-        "docs": ["docs/design-system-governance.md"],
-        "tests": ["tests/unit/tools/uiProductionOwnership.test.ts"],
-        "tools": [
-          "tools/report-production-build-graph.mjs",
-          "tools/report-ui-production-ownership.mjs"
-        ]
-      },
-      "reason": "This production-unreachable duplicate has an exact surviving replacement owner in U02C2."
-    },
-    {
       "path": "src/ui/foundation/types/index.ts",
       "disposition": "production-compile",
       "productionOwners": [
@@ -688,24 +310,6 @@
       "reason": "A reachable production source imports this TypeScript contract although it emits no runtime graph node."
     },
     {
-      "path": "src/ui/hosts/content/contentDialogControls.ts",
-      "disposition": "retire-u02c2",
-      "productionOwners": [],
-      "replacement": {
-        "owner": "src/content/reader/ui/ReaderDialogPanel.ts",
-        "milestone": "U02C2"
-      },
-      "evidence": {
-        "docs": ["docs/design-system-governance.md"],
-        "tests": ["tests/unit/tools/uiProductionOwnership.test.ts"],
-        "tools": [
-          "tools/report-production-build-graph.mjs",
-          "tools/report-ui-production-ownership.mjs"
-        ]
-      },
-      "reason": "This production-unreachable duplicate has an exact surviving replacement owner in U02C2."
-    },
-    {
       "path": "src/ui/hosts/content/contentDialogFocus.ts",
       "disposition": "production-runtime",
       "productionOwners": [
@@ -726,114 +330,6 @@
         ]
       },
       "reason": "Production runtime reachability is proven by the freshly generated build graph."
-    },
-    {
-      "path": "src/ui/hosts/content/ContentDialogHost.ts",
-      "disposition": "retire-u02c2",
-      "productionOwners": [],
-      "replacement": {
-        "owner": "src/content/runtime/popupCoordinator.ts",
-        "milestone": "U02C2"
-      },
-      "evidence": {
-        "docs": ["docs/design-system-governance.md"],
-        "tests": ["tests/unit/tools/uiProductionOwnership.test.ts"],
-        "tools": [
-          "tools/report-production-build-graph.mjs",
-          "tools/report-ui-production-ownership.mjs"
-        ]
-      },
-      "reason": "This production-unreachable duplicate has an exact surviving replacement owner in U02C2."
-    },
-    {
-      "path": "src/ui/hosts/content/contentHostMount.ts",
-      "disposition": "retire-u02c2",
-      "productionOwners": [],
-      "replacement": {
-        "owner": "src/content/runtime/popupCoordinator.ts",
-        "milestone": "U02C2"
-      },
-      "evidence": {
-        "docs": ["docs/design-system-governance.md"],
-        "tests": ["tests/unit/tools/uiProductionOwnership.test.ts"],
-        "tools": [
-          "tools/report-production-build-graph.mjs",
-          "tools/report-ui-production-ownership.mjs"
-        ]
-      },
-      "reason": "This production-unreachable duplicate has an exact surviving replacement owner in U02C2."
-    },
-    {
-      "path": "src/ui/hosts/content/index.ts",
-      "disposition": "retire-u02c2",
-      "productionOwners": [],
-      "replacement": {
-        "owner": "src/content/runtime/popupCoordinator.ts",
-        "milestone": "U02C2"
-      },
-      "evidence": {
-        "docs": ["docs/design-system-governance.md"],
-        "tests": ["tests/unit/tools/uiProductionOwnership.test.ts"],
-        "tools": [
-          "tools/report-production-build-graph.mjs",
-          "tools/report-ui-production-ownership.mjs"
-        ]
-      },
-      "reason": "This production-unreachable duplicate has an exact surviving replacement owner in U02C2."
-    },
-    {
-      "path": "src/ui/hosts/options/index.ts",
-      "disposition": "retire-u02c2",
-      "productionOwners": [],
-      "replacement": {
-        "owner": "src/options/app/productionStitchShellMount.ts",
-        "milestone": "U02C2"
-      },
-      "evidence": {
-        "docs": ["docs/design-system-governance.md"],
-        "tests": ["tests/unit/tools/uiProductionOwnership.test.ts"],
-        "tools": [
-          "tools/report-production-build-graph.mjs",
-          "tools/report-ui-production-ownership.mjs"
-        ]
-      },
-      "reason": "This production-unreachable duplicate has an exact surviving replacement owner in U02C2."
-    },
-    {
-      "path": "src/ui/hosts/shadow/index.ts",
-      "disposition": "retire-u02c2",
-      "productionOwners": [],
-      "replacement": {
-        "owner": "src/ui/foundation/style-host/index.ts",
-        "milestone": "U02C2"
-      },
-      "evidence": {
-        "docs": ["docs/design-system-governance.md"],
-        "tests": ["tests/unit/tools/uiProductionOwnership.test.ts"],
-        "tools": [
-          "tools/report-production-build-graph.mjs",
-          "tools/report-ui-production-ownership.mjs"
-        ]
-      },
-      "reason": "This production-unreachable duplicate has an exact surviving replacement owner in U02C2."
-    },
-    {
-      "path": "src/ui/hosts/shadow/ShadowDialogHost.ts",
-      "disposition": "retire-u02c2",
-      "productionOwners": [],
-      "replacement": {
-        "owner": "src/ui/stitch-runtime/render/renderRuntimeSurface.ts",
-        "milestone": "U02C2"
-      },
-      "evidence": {
-        "docs": ["docs/design-system-governance.md"],
-        "tests": ["tests/unit/tools/uiProductionOwnership.test.ts"],
-        "tools": [
-          "tools/report-production-build-graph.mjs",
-          "tools/report-ui-production-ownership.mjs"
-        ]
-      },
-      "reason": "This production-unreachable duplicate has an exact surviving replacement owner in U02C2."
     },
     {
       "path": "src/ui/hosts/shared/contract.ts",

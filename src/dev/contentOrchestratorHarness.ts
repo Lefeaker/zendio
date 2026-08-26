@@ -19,7 +19,6 @@ import { setControlledRuntimeTheme } from '../content/stitch/runtimeTheme';
 import { SupportPrompt } from '../content/ui/supportPrompt';
 import { createContentRuntimeState } from '../content/runtime/contentRuntimeState';
 import type { ReaderMarkdownPayload } from '../content/reader/utils/markdownBuilder';
-import type { StorageAreaService, StorageService } from '../platform/interfaces/storage';
 import type { MessagingService } from '../platform/interfaces/messaging';
 import type { ErrorHandler as SharedErrorHandler } from '../shared/errors/errorHandler';
 import type { StyleAttachmentHandle } from '../ui/foundation/style-host';
@@ -27,46 +26,12 @@ import { registerService, TOKENS } from '../shared/di';
 import { registerFallbackRepositories } from '../shared/di/serviceRegistry';
 import { createPreviewPlatformServices } from '../platform/preview/services';
 import { DEFAULT_RUNTIME_MESSAGES } from '@i18n';
+import { createContentOrchestratorHarnessStorage } from './contentOrchestratorSessionDraftHarness';
 const status = document.getElementById('status');
 function setStatus(message: string): void {
   status?.replaceChildren(message);
 }
-function createStorageArea(): StorageAreaService {
-  const values = new Map<string, Parameters<StorageAreaService['set']>[1]>();
-  return {
-    get<T>(key: string): Promise<T | undefined> {
-      return Promise.resolve(values.get(key) as T | undefined);
-    },
-    set<T>(key: string, value: T): Promise<void> {
-      return Promise.resolve(void values.set(key, value));
-    },
-    getMany<T>(keys: string[]): Promise<Record<string, T | undefined>> {
-      return Promise.resolve(
-        Object.fromEntries(keys.map((key) => [key, values.get(key) as T | undefined]))
-      );
-    },
-    setMany<T>(entries: Record<string, T>): Promise<void> {
-      return Promise.resolve(
-        void Object.entries(entries).forEach(([key, value]) => values.set(key, value))
-      );
-    },
-    remove(key: string | string[]): Promise<void> {
-      return Promise.resolve(
-        void (Array.isArray(key) ? key : [key]).forEach((item) => values.delete(item))
-      );
-    },
-    clear(): Promise<void> {
-      return Promise.resolve(values.clear());
-    },
-    watchKey: () => () => undefined,
-    watchAll: () => () => undefined
-  };
-}
-const storage: StorageService = {
-  local: createStorageArea(),
-  sync: createStorageArea(),
-  session: createStorageArea()
-};
+const storage = createContentOrchestratorHarnessStorage();
 const configuredInterfaceTheme =
   new URLSearchParams(window.location.search).get('interfaceTheme') === 'light' ? 'light' : 'dark';
 setControlledRuntimeTheme(window, configuredInterfaceTheme);

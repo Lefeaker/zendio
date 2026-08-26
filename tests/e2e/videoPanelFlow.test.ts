@@ -145,9 +145,9 @@ const testWithExtension = test.extend<{
     const userDataDir = `/tmp/p07-video-panel-${Date.now()}-${Math.random()}`;
     const context = await runStage(testInfo, 'launch context', () =>
       chromium.launchPersistentContext(userDataDir, {
-        headless: true,
-        channel: 'chromium',
+        headless: false,
         args: [
+          '--headless=new',
           `--disable-extensions-except=${EXTENSION_PATH}`,
           `--load-extension=${EXTENSION_PATH}`
         ]
@@ -225,9 +225,12 @@ async function launchVideoPanelExtensionContext(
 ): Promise<BrowserContext> {
   return runStage(testInfo, stage, () =>
     chromium.launchPersistentContext(userDataDir, {
-      headless: true,
-      channel: 'chromium',
-      args: [`--disable-extensions-except=${EXTENSION_PATH}`, `--load-extension=${EXTENSION_PATH}`]
+      headless: false,
+      args: [
+        '--headless=new',
+        `--disable-extensions-except=${EXTENSION_PATH}`,
+        `--load-extension=${EXTENSION_PATH}`
+      ]
     })
   );
 }

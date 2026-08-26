@@ -1,6 +1,6 @@
 # 工程命令与入口
 
-最后更新：2026-08-24
+最后更新：2026-08-26
 
 ## 推荐运行环境
 
@@ -54,7 +54,7 @@
   - `test`、`test:unit`、`test:e2e` 与 `test:coverage` 直接进入 `vitest-v1`；该 profile 在启动 locked Vitest leaf 前拥有 runtime guard，其余现有 browser/visual aliases 仍保留显式 runtime guard
   - 本地 PATH 指向不受支持 Node 版本时，先在 runtime guard 失败，不启动 Vitest / Playwright
   - canonical shard roots 为 `node scripts/run-test-shards.mjs <unit|e2e> [registered-shard]`；全组固定最多 `3` 个 Vitest leaf，显式单 shard 固定为 `1`，不读取 CPU 或环境并发
-  - canonical browser shard root 为 `node scripts/run-browser-test-shards.mjs <e2e|visual>`；固定最多 `2` 个 Playwright leaf，并为每个 registered shard 使用 owner-defined `PLAYWRIGHT_OUTPUT_DIR` / `PLAYWRIGHT_HTML_REPORT_DIR`，caller 不能覆盖路径
+  - canonical browser shard root 为 `node scripts/run-browser-test-shards.mjs <e2e|visual|bundled>`；固定最多 `2` 个 Playwright leaf，并为每个 registered shard 使用 owner-defined port / dist / `PLAYWRIGHT_OUTPUT_DIR` / `PLAYWRIGHT_HTML_REPORT_DIR`，caller 不能覆盖路径
   - `test:e2e:browser:parallel` 当前覆盖 YAML interaction、reader-panel 与 migration smoke 三组 shard；local-vault 与 Firefox browser checks 仍保留为独立专项命令
 - `npm run build*` 与 `npm run package*`
   - `build` 与 `build:firefox` 显式先运行一次 `quality`，随后调用 `scripts/build.mjs --skip-checks`，不得恢复为重复触发完整 `quality` 的形式
@@ -160,8 +160,9 @@ npm run visual:test:parallel
 Reader/video browser E2E command truth:
 
 - `node scripts/run-bounded-command.mjs --profile playwright-v1 -- test tests/e2e/<file> --project=chromium-desktop` retains the verified Playwright runner behavior and selects `playwright.reader.config.ts` when no explicit `--config` is supplied.
-- `playwright.reader.config.ts` starts the local Playwright web server and runs `build:dev`, so reader/video browser E2E tests do not depend on a pre-existing `build/dist`.
-- Visual browser tests remain owned by `playwright.config.ts` and `tests/visual/**`.
+- `playwright.reader.config.ts` starts the local Playwright web server, runs `build:dev`, and launches the lock-matched bundled Chromium without a system-browser channel or executable override, so reader/video browser E2E tests do not depend on a pre-existing `build/dist` or system Chrome.
+- Visual browser tests remain owned by `playwright.config.ts` and `tests/visual/**`; all Chromium projects use the lock-matched bundled browser without a channel override.
+- `playwright.bundled-chromium.config.ts` is the local-only eight-file collection for an already-provisioned lock-matched Playwright Chromium cache. Its canonical `node scripts/run-browser-test-shards.mjs bundled` route runs the four-file browser E2E leaf before the four-file visual leaf across fixed ports `43103` / `43104`, a fixed prebuilt dist and isolated outputs; extension leaves select the full bundled Chromium with `headless: false` plus Chromium `--headless=new`, without a channel or executable override. The route does not replace existing CI routes and never installs a browser.
 
 Local Vault / release handoff checks:
 

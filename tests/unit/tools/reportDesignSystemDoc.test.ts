@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 
@@ -14,18 +14,30 @@ function writeFile(root: string, path: string, content = ''): void {
 function writeFixture(overrides: Record<string, string> = {}): string {
   const root = mkdtempSync(join(tmpdir(), 'aiiinob-design-doc-'));
   const requiredRefs = [
-    'src/ui/foundation/tokens/index.ts',
+    'tools/ui-production-ownership.json',
+    'src/styles/design-tokens.css',
     'src/ui/foundation/icons/index.ts',
     'src/ui/primitives/button/index.ts',
-    'src/ui/primitives/layout/index.ts',
-    'src/ui/patterns/section-shell/index.ts',
-    'src/ui/hosts/shadow/index.ts',
-    'src/ui/domains/vault-router/index.ts',
+    'src/ui/stitch-runtime/index.ts',
+    'src/ui/stitch-surfaces/index.ts',
     'docs/archive/legacy-options-assets/obsidian-hybrid-preview.html'
   ];
   for (const ref of requiredRefs) {
     writeFile(root, ref);
   }
+
+  const uiRows = requiredRefs
+    .filter((ref) => ref.startsWith('src/ui/'))
+    .map((ref) => ({
+      path: ref,
+      disposition: 'production-runtime',
+      replacement: { owner: ref, milestone: 'current-production' }
+    }));
+  writeFile(
+    root,
+    'tools/ui-production-ownership.json',
+    `${JSON.stringify({ closureState: 'intermediate', rows: uiRows }, null, 2)}\n`
+  );
 
   writeFile(
     root,
@@ -170,6 +182,24 @@ describe('design system documentation report', () => {
     });
     try {
       expectReportFailure(root, 'src/options/components/README.md');
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it('fails when current governance references a UI path absent from the ownership manifest', () => {
+    const root = writeFixture();
+    try {
+      const governancePath = join(root, 'docs/design-system-governance.md');
+      const governance = readFileSync(governancePath, 'utf8');
+      writeFileSync(
+        governancePath,
+        `${governance}\n- stale UI owner: \`src/ui/unknown/retired.ts\`\n`,
+        'utf8'
+      );
+      writeFile(root, 'src/ui/unknown/retired.ts');
+
+      expectReportFailure(root, 'Document references UI paths absent from the ownership manifest');
     } finally {
       rmSync(root, { recursive: true, force: true });
     }

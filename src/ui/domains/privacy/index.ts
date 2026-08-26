@@ -1,2 +1,1 @@
-export * from './PrivacySettings';
-export { PrivacySettings as PrivacySettingsComponent } from './PrivacySettings';
+export type { PrivacyConsentSnapshot } from './privacySettingsTypes';

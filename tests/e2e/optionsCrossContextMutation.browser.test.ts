@@ -9,10 +9,8 @@ import {
 import { mkdtemp } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const extensionPath = path.resolve(__dirname, '../../build/dist');
+const extensionPath = path.resolve(process.env.PLAYWRIGHT_DIST_DIR ?? 'build/dist');
 
 type StorageValue = chrome.storage.StorageChange['newValue'];
 type JsonValue = StorageValue;
@@ -103,9 +101,12 @@ test.describe('Options cross-context mutation authority', () => {
   test.beforeEach(async () => {
     const userDataDir = await mkdtemp(path.join(tmpdir(), 'zendio-o02-options-'));
     context = await chromium.launchPersistentContext(userDataDir, {
-      headless: true,
-      channel: 'chromium',
-      args: [`--disable-extensions-except=${extensionPath}`, `--load-extension=${extensionPath}`]
+      headless: false,
+      args: [
+        '--headless=new',
+        `--disable-extensions-except=${extensionPath}`,
+        `--load-extension=${extensionPath}`
+      ]
     });
     background = context.serviceWorkers()[0];
     background ??= await context.waitForEvent('serviceworker', { timeout: 15_000 });

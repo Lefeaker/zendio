@@ -65,7 +65,6 @@ const MAX_LINE_BUDGETS = new Map([
   ['src/content/video/sessionOperations.ts', 433],
   ['src/content/video/platforms/bilibiliRichText.ts', 302],
   ['src/content/video/platforms/bilibiliPlatformObserver.ts', 286],
-  ['src/ui/domains/video/VideoDialog.ts', 468],
   // 2026-06-20 Options/onboarding closeout: keep current video prompt lifecycle
   // line count explicit so the hotspot gate reaches later CI checks.
   ['src/content/video/videoPromptLifecycle.ts', 491],
@@ -105,7 +104,6 @@ const MAX_LINE_BUDGETS = new Map([
   ['src/content/stitch/runtimeSurfaceContent.ts', 409],
   ['src/options/components/infrastructure/listBuilder.ts', 378],
   ['src/shared/exportDestination.ts', 369],
-  ['src/ui/domains/reading/ReaderDialog.ts', 371],
   // 2026-06-13 final combined integration: screenshot status dots and add-note
   // focus/layout regressions are covered in the panel while retaining the current UI.
   ['src/content/video/ui/VideoDialogPanel.ts', 392],
@@ -155,7 +153,6 @@ const MAX_LINE_BUDGETS = new Map([
   ['src/background/application/clipProcessor.ts', 470],
   ['src/infrastructure/restClient.ts', 266],
   ['src/shared/services/yamlConfigSanitize.ts', 277],
-  ['src/ui/domains/vault-router/VaultRouterView.ts', 277],
   // 2026-08-11 U02A owner transfer/current truth: keep the legacy Options
   // renderer at 286 lines and register its runtime successor at 276 lines.
   ['src/options/stitch/render/nodeRenderers.ts', 286],
@@ -186,7 +183,6 @@ const MAX_LINE_BUDGETS = new Map([
   ['src/shared/guards/dom.ts', 256],
   ['src/content/reader/services/exporter.ts', 255],
   ['src/content/video/fragmentHighlighter.ts', 254],
-  ['src/ui/domains/privacy/PrivacySettingsView.ts', 254],
   ['src/options/app/productionStitchShellMount.ts', 254],
   ['src/options/app/productionStitchRenderLifecycle.ts', 253],
   // 2026-06-19 Options YAML editor stabilization: row aggregation, editable

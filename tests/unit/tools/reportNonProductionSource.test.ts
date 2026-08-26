@@ -1,6 +1,9 @@
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 type NonProductionSourceModule = {
+  TEST_OWNER_ROOTS: string[];
   classifySourceFile: (input: Record<string, unknown>) => {
     decision: string;
     requiredAction: string;
@@ -46,11 +49,21 @@ type NonProductionSourceModule = {
     sourceFileSet: Set<string>
   ) => string | null;
   stripImportQueryHash: (specifier: string) => string;
+  createUiOwnershipClassificationPatterns: (manifest: Record<string, unknown>) => Array<{
+    pattern: string;
+    decision: string;
+    owner: string;
+    deletionCondition: string;
+    requiredAction: string;
+    source: string;
+  }>;
 };
 
 const {
+  TEST_OWNER_ROOTS,
   classifySourceFile,
   collectSourceImportGraph,
+  createUiOwnershipClassificationPatterns,
   evaluateNonProductionSourceGates,
   formatNonProductionSourceJson,
   formatNonProductionSourceReport,
@@ -106,6 +119,15 @@ function input(overrides: Record<string, unknown> = {}) {
 }
 
 describe('report-non-production-source', () => {
+  it('includes the bundled Chromium config in browser test ownership', () => {
+    expect(TEST_OWNER_ROOTS).toEqual([
+      'tests',
+      'playwright.config.ts',
+      'playwright.reader.config.ts',
+      'playwright.bundled-chromium.config.ts'
+    ]);
+  });
+
   it('marks source with production build ownership as retain-production', () => {
     expect(
       classifySourceFile(
@@ -226,21 +248,6 @@ describe('report-non-production-source', () => {
         pattern: 'src/styles/design-tokens.css',
         owner: 'design token source-of-truth asset',
         scriptOwners: ['scripts/build.mjs']
-      },
-      {
-        pattern: 'src/ui/foundation/tokens/index.ts',
-        owner: 'design token metadata source contract',
-        scriptOwners: ['tools/report-design-system-doc.mjs']
-      },
-      {
-        pattern: 'src/ui/foundation/keyboard/index.ts',
-        owner: 'UI foundation keyboard source-of-truth boundary',
-        scriptOwners: ['tools/report-ui-architecture-alignment.mjs']
-      },
-      {
-        pattern: 'src/ui/hosts/options/index.ts',
-        owner: 'Options UI host source-of-truth boundary',
-        scriptOwners: ['tools/report-ui-architecture-alignment.mjs']
       }
     ];
 
@@ -287,6 +294,71 @@ describe('report-non-production-source', () => {
     expect(classifySourceFile(input({ file: 'src/unknown/unused.ts' })).decision).toBe(
       'stop-unknown'
     );
+  });
+
+  it('derives exact UI classifications from the ownership manifest without wildcard broadening', () => {
+    const manifest = JSON.parse(
+      readFileSync(resolve('tools/ui-production-ownership.json'), 'utf8')
+    ) as Record<string, unknown>;
+    const patterns = createUiOwnershipClassificationPatterns(manifest);
+    const knownPattern = patterns.find((rule) => rule.source === 'ui-ownership-manifest');
+
+    expect(knownPattern).toBeDefined();
+    const known = classifySourceFile(
+      input({
+        file: knownPattern?.pattern,
+        retainedSourceImportTargets: ['src/shared/example.ts'],
+        explicitClassificationPatterns: patterns
+      })
+    );
+    expect(known.decision).toBe('retain-production-facade');
+    expect(known.owner).toContain('UI ownership manifest');
+    expect(
+      classifySourceFile(
+        input({
+          file: 'src/ui/unknown/synthetic.ts',
+          explicitClassificationPatterns: patterns
+        })
+      ).decision
+    ).toBe('stop-unknown');
+    expect(patterns.every((rule) => !/[*?\[\]{}]/.test(rule.pattern))).toBe(true);
+  });
+
+  it('contains no stale classification object for the retired schema helper', () => {
+    const source = readFileSync(resolve('tools/report-non-production-source.mjs'), 'utf8');
+    const stalePath = ['src', 'options', 'stitch', 'schema', 'surfaces', 'helpers.ts'].join('/');
+
+    expect(source).not.toContain(stalePath);
+  });
+
+  it('supports a final manifest and fails closed for malformed UI rows', () => {
+    expect(
+      createUiOwnershipClassificationPatterns({
+        closureState: 'final',
+        rows: [
+          {
+            path: 'src/ui/runtime/current.ts',
+            disposition: 'production-runtime',
+            replacement: {
+              owner: 'src/ui/runtime/current.ts',
+              milestone: 'current-production'
+            }
+          }
+        ]
+      })
+    ).toHaveLength(1);
+    expect(() =>
+      createUiOwnershipClassificationPatterns({
+        closureState: 'intermediate',
+        rows: [
+          {
+            path: 'src/ui/**',
+            disposition: 'deferred-state-convergence',
+            replacement: { owner: 'src/shared/current.ts', milestone: 'later' }
+          }
+        ]
+      })
+    ).toThrow('not an exact unique path');
   });
 
   it('matches explicit brace classification patterns without broadening ownership', () => {

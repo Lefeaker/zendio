@@ -375,25 +375,6 @@ function validateRequiredFiles() {
       fail(`${file} is missing`);
     }
   }
-
-  const legacyPrivacyView = 'src/ui/domains/privacy/PrivacySettingsView.ts';
-  if (!exists(legacyPrivacyView)) {
-    warn(
-      `${legacyPrivacyView} is absent; production validation now relies on Stitch privacy wiring`
-    );
-    return;
-  }
-
-  const legacyPrivacySource = read(legacyPrivacyView);
-  if (hasAll(legacyPrivacySource, ['toggleDebugMode', 'saveSettings'])) {
-    warn(
-      `${legacyPrivacyView} still exists as a legacy compatibility surface; it is no longer the production privacy owner`
-    );
-  } else {
-    warn(
-      `${legacyPrivacyView} changed from the legacy consent actions; production validation no longer depends on it`
-    );
-  }
 }
 
 function validateTrackedConfig() {

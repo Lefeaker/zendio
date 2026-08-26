@@ -1,18 +1,19 @@
 # 运行时观测与手动回归基线
 
-日期：2026-06-14
+日期：2026-08-26
 
 ## 1. 运行时观测
 
 - Analytics / consent / debug mode 统一入口：`src/shared/errors/analytics/*`
-- Options 隐私设置主链：`src/options/stitch/schema/settings/overview.ts` -> `src/ui/domains/privacy/PrivacySettingsView.ts` -> `src/options/app/productionStitchPersistence.ts`
+- Options 隐私设置主链：`src/options/stitch/schema/settings/overview.ts` -> `src/options/app/actions/privacyConsentAction.ts` -> `src/options/app/productionStitchPersistence.ts` -> `src/shared/schemas/options.schema.ts`
+- onboarding consent 使用同一 repository patch 与 schema-derived privacy contract：`src/onboarding/bootstrap.ts`
 - transfer payload 已覆盖 consent/debugMode：`src/options/services/analyticsTransfer.ts`
 - 真实浏览器联调 harness：`tmp/runtime-observability-harness.ts`
 
 建议联调命令：
 
 ```bash
-npx vitest run tests/unit/shared/errors/analytics/index.test.ts tests/unit/shared/errors/globalErrorBoundary.test.ts tests/unit/background/analyticsEvents.test.ts tests/unit/shared/errors/analyticsConfig.test.ts tests/unit/options/productionStitchShell.actions.test.ts
+node node_modules/vitest/vitest.mjs run --config vitest.unit.config.ts tests/unit/shared/errors/analytics/index.test.ts tests/unit/shared/errors/globalErrorBoundary.test.ts tests/unit/background/analyticsEvents.test.ts tests/unit/shared/errors/analyticsConfig.test.ts tests/unit/options/productionStitchShell.actions.test.ts
 npm run build:dev
 ```
 
@@ -22,11 +23,11 @@ npm run build:dev
 npm run analytics:validate:prod
 node scripts/run-ga-owner-smoke.mjs --mode proxy --event runtime_harness_open
 node scripts/run-ga-owner-smoke.mjs --mode directDebug --event runtime_harness_open
-npx vitest run --config vitest.unit.config.ts tests/unit/scripts/runGaOwnerSmoke.test.ts
+node node_modules/vitest/vitest.mjs run --config vitest.unit.config.ts tests/unit/scripts/runGaOwnerSmoke.test.ts
 node tools/report-ga-proxy-contract.mjs
 node tools/report-ga-docs-contract.mjs --check
-npx vitest run tests/unit/background/analyticsEvents.test.ts tests/unit/shared/errors/analytics/index.test.ts tests/unit/shared/errors/analyticsConfig.test.ts
-npx vitest run tests/unit/content/video/videoScreenshotPreparationQueue.test.ts tests/unit/content/video/VideoSession.test.ts
+node node_modules/vitest/vitest.mjs run --config vitest.unit.config.ts tests/unit/background/analyticsEvents.test.ts tests/unit/shared/errors/analytics/index.test.ts tests/unit/shared/errors/analyticsConfig.test.ts
+node node_modules/vitest/vitest.mjs run --config vitest.unit.config.ts tests/unit/content/video/videoScreenshotPreparationQueue.test.ts tests/unit/content/video/VideoSession.test.ts
 node scripts/run-playwright.mjs test tests/e2e/videoPanelFlow.test.ts tests/e2e/videoListenerScope.browser.test.ts --project=chromium-desktop
 ```
 
@@ -134,7 +135,7 @@ proxy/backend evidence。
 - `npm run audit:build:report`
 - `npm run test:unit`
 - `npm run test:e2e`
-- `npx vitest run tests/unit/shared/errors/analytics/index.test.ts tests/unit/shared/errors/globalErrorBoundary.test.ts tests/unit/background/analyticsEvents.test.ts tests/unit/shared/errors/analyticsConfig.test.ts tests/unit/options/productionStitchShell.actions.test.ts`
+- `node node_modules/vitest/vitest.mjs run --config vitest.unit.config.ts tests/unit/shared/errors/analytics/index.test.ts tests/unit/shared/errors/globalErrorBoundary.test.ts tests/unit/background/analyticsEvents.test.ts tests/unit/shared/errors/analyticsConfig.test.ts tests/unit/options/productionStitchShell.actions.test.ts`
 
 ## 6. 已知非阻塞警告
 

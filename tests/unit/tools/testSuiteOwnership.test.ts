@@ -154,6 +154,42 @@ describe('ownership module characterization', () => {
 });
 
 describe('canonical test suite descriptors', () => {
+  it('registers the closed bundled Chromium collection config', async () => {
+    const collectionConfigModuleUrl = new URL(
+      '../../../scripts/utils/testSuiteOwnership/collectionConfig.mjs',
+      import.meta.url
+    ).href;
+    const { PLAYWRIGHT_CONFIG_PATHS } = (await import(collectionConfigModuleUrl)) as {
+      PLAYWRIGHT_CONFIG_PATHS: string[];
+    };
+    const configPath = 'playwright.bundled-chromium.config.ts';
+
+    expect(PLAYWRIGHT_CONFIG_PATHS).toEqual([
+      'playwright.config.ts',
+      'playwright.reader.config.ts',
+      configPath
+    ]);
+    expect(
+      parsePlaywrightConfig(
+        readFileSync(path.resolve(process.cwd(), configPath), 'utf8'),
+        configPath
+      )
+    ).toEqual({
+      testDir: 'tests',
+      testMatch: [
+        '**/tests/e2e/optionsCrossContextMutation.browser.test.ts',
+        '**/tests/e2e/sessionDraftConcurrency.browser.test.ts',
+        '**/tests/e2e/uiPrimitiveTokenParity.browser.test.ts',
+        '**/tests/e2e/videoScreenshotCacheMigration.browser.test.ts',
+        '**/tests/visual/options.stitch-secondary.parity.spec.ts',
+        '**/tests/visual/preview.runtime.alignment.spec.ts',
+        '**/tests/visual/preview.task-success.layout.spec.ts',
+        '**/tests/visual/migration-harness.spec.ts'
+      ],
+      testIgnore: []
+    });
+  });
+
   it('returns fresh exact browser shard suites without process or logging access', async () => {
     const { createBrowserTestShardSuites } = await loadTestShardsModule();
     const cwd = vi.spyOn(process, 'cwd');
@@ -165,7 +201,7 @@ describe('canonical test suite descriptors', () => {
     const second = createBrowserTestShardSuites();
 
     expect(createBrowserTestShardSuites).toHaveLength(0);
-    expect(Object.keys(first)).toEqual(['e2e', 'visual']);
+    expect(Object.keys(first)).toEqual(['e2e', 'visual', 'bundled']);
     expect(first).toEqual({
       e2e: [
         {
@@ -188,7 +224,34 @@ describe('canonical test suite descriptors', () => {
       visual: ['chromium-desktop', 'chromium-tablet', 'chromium-mobile'].map((project) => ({
         id: project,
         args: ['test', '--config=playwright.config.ts', `--project=${project}`]
-      }))
+      })),
+      bundled: [
+        {
+          id: 'bundled-e2e',
+          args: [
+            'test',
+            '--config=playwright.bundled-chromium.config.ts',
+            '--project=chromium-desktop',
+            'tests/e2e/optionsCrossContextMutation.browser.test.ts',
+            'tests/e2e/sessionDraftConcurrency.browser.test.ts',
+            'tests/e2e/uiPrimitiveTokenParity.browser.test.ts',
+            'tests/e2e/videoScreenshotCacheMigration.browser.test.ts'
+          ]
+        },
+        {
+          id: 'bundled-visual',
+          dependsOn: ['bundled-e2e'],
+          args: [
+            'test',
+            '--config=playwright.bundled-chromium.config.ts',
+            '--project=chromium-desktop',
+            'tests/visual/options.stitch-secondary.parity.spec.ts',
+            'tests/visual/preview.runtime.alignment.spec.ts',
+            'tests/visual/preview.task-success.layout.spec.ts',
+            'tests/visual/migration-harness.spec.ts'
+          ]
+        }
+      ]
     });
     expect(first).not.toBe(second);
     expect(first.e2e).not.toBe(second.e2e);
@@ -1319,15 +1382,17 @@ function createGitFixture(): string {
 
 async function loadTestShardsModule(): Promise<{
   createBrowserTestShardSuites: () => {
-    e2e: Array<{ id: string; args: string[] }>;
-    visual: Array<{ id: string; args: string[] }>;
+    e2e: Array<{ id: string; args: string[]; dependsOn?: string[] }>;
+    visual: Array<{ id: string; args: string[]; dependsOn?: string[] }>;
+    bundled: Array<{ id: string; args: string[]; dependsOn?: string[] }>;
   };
 }> {
   const moduleUrl = new URL('../../../scripts/utils/testShards.mjs', import.meta.url).href;
   return (await import(moduleUrl)) as {
     createBrowserTestShardSuites: () => {
-      e2e: Array<{ id: string; args: string[] }>;
-      visual: Array<{ id: string; args: string[] }>;
+      e2e: Array<{ id: string; args: string[]; dependsOn?: string[] }>;
+      visual: Array<{ id: string; args: string[]; dependsOn?: string[] }>;
+      bundled: Array<{ id: string; args: string[]; dependsOn?: string[] }>;
     };
   };
 }

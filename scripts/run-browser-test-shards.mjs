@@ -24,7 +24,7 @@ export function createBrowserShardTaskGraph(suite) {
         name: `browser shard ${shard.id}`,
         profile: 'playwright-v1',
         args: [...shard.args],
-        dependsOn: ['verify-runtime']
+        dependsOn: shard.dependsOn?.map((dependency) => `shard:${dependency}`) ?? ['verify-runtime']
       }))
     ]
   };
@@ -33,10 +33,12 @@ export function createBrowserShardTaskGraph(suite) {
 export function createBrowserShardEnvironment(taskId, environment = process.env) {
   if (!taskId.startsWith('shard:')) return { ...environment };
   const shardId = sanitizeShardId(taskId.slice('shard:'.length));
+  const bundled = resolveBundledShardEnvironment(shardId);
   return {
     ...environment,
     PLAYWRIGHT_SKIP_WEB_SERVER_BUILD: '1',
-    PLAYWRIGHT_DIST_DIR: 'build/dist',
+    PLAYWRIGHT_DIST_DIR: bundled ? 'build/dist-u02c2-bundled-chromium' : 'build/dist',
+    ...(bundled ? { PLAYWRIGHT_WEB_SERVER_PORT: bundled.port } : {}),
     PLAYWRIGHT_OUTPUT_DIR: path.join('test-results/browser-shards', shardId),
     PLAYWRIGHT_HTML_REPORT_DIR: path.join('build/reports/playwright-shards', shardId)
   };
@@ -68,6 +70,12 @@ export async function main(argv = process.argv.slice(2), options = {}) {
 
 function sanitizeShardId(value) {
   return value.replace(/[^a-zA-Z0-9._-]+/gu, '-');
+}
+
+function resolveBundledShardEnvironment(shardId) {
+  if (shardId === 'bundled-e2e') return { port: '43103' };
+  if (shardId === 'bundled-visual') return { port: '43104' };
+  return undefined;
 }
 
 if (process.argv[1] && pathToFileURL(path.resolve(process.argv[1])).href === import.meta.url) {

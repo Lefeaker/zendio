@@ -74,9 +74,9 @@ const testWithExtension = test.extend<{
     const userDataDir = `/tmp/test-user-data-dir-${Date.now()}-${Math.random()}`;
     const context = await runStage(testInfo, 'launch context', () =>
       chromium.launchPersistentContext(userDataDir, {
-        headless: true,
-        channel: 'chromium',
+        headless: false,
         args: [
+          '--headless=new',
           `--disable-extensions-except=${EXTENSION_PATH}`,
           `--load-extension=${EXTENSION_PATH}`
         ]

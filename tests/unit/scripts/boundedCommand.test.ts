@@ -1045,6 +1045,13 @@ describe('bounded command ownership', () => {
       coordinatorId: 'scripts/run-test-shards.mjs',
       arguments: ['unit', 'tools']
     });
+    expect(
+      parseManagedCommandInvocationArgv(['node', 'scripts/run-browser-test-shards.mjs', 'bundled'])
+    ).toEqual({
+      kind: 'coordinator',
+      coordinatorId: 'scripts/run-browser-test-shards.mjs',
+      arguments: ['bundled']
+    });
 
     for (const argv of [
       ['npx', 'vitest'],
@@ -1072,6 +1079,26 @@ describe('bounded command ownership', () => {
     ]) {
       expect(() => parseManagedCommandInvocationArgv(argv)).toThrow();
     }
+  });
+
+  it('runs the bundled Chromium config through the locked local Playwright CLI', () => {
+    const environment = cleanEnvironment();
+    const ordinary = resolveCommandProfile('playwright-v1', ['test'], { environment });
+    const bundled = resolveCommandProfile(
+      'playwright-v1',
+      [
+        'test',
+        '--config=playwright.bundled-chromium.config.ts',
+        '--project=chromium-desktop',
+        'tests/e2e/uiPrimitiveTokenParity.browser.test.ts'
+      ],
+      { environment }
+    );
+
+    expect(ordinary.argv[0]).toBe(resolve('scripts/run-playwright.mjs'));
+    expect(bundled.executable).toBe(process.execPath);
+    expect(bundled.argv[0]).toBe(resolve('node_modules/@playwright/test/cli.js'));
+    expect(bundled.argv).not.toContain(resolve('scripts/run-playwright.mjs'));
   });
 
   it('reserves and binds the canonical GitHub CI install attempt before npm starts', () => {

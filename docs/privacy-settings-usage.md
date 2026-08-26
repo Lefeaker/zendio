@@ -1,140 +1,115 @@
 # Privacy Settings Usage
 
-最后更新：2026-06-20
+最后更新：2026-08-26
 
-本文描述 Zendio 当前隐私与数据设置的用户行为、实现边界与验证方式。
+本文描述 Zendio 当前隐私与数据设置的用户行为、生产实现边界与验证方式。
 
-## 当前 UI 归属
+## 当前生产归属
 
-当前隐私设置不再由旧的 options control path 驱动。当前真值入口：
+- UI schema：`src/options/stitch/schema/settings/overview.ts`
+- canonical schema：`src/shared/schemas/options.schema.ts`
+- schema-derived type：`src/shared/types/options.ts`
+- consent mutation：`src/options/app/actions/privacyConsentAction.ts`
+- Options persistence/runtime wiring：`src/options/app/productionStitchPersistence.ts`
+- onboarding consent wiring：`src/onboarding/bootstrap.ts`
+- repository contract：`src/shared/repositories/IOptionsRepository.ts`
 
-- `src/options/stitch/schema/settings/overview.ts`
-- `src/ui/domains/privacy/PrivacySettingsView.ts`
-- `src/options/app/productionStitchPersistence.ts`
-- `src/onboarding/bootstrap.ts`
+Options 和 onboarding 都读写同一 `privacyPreferences` 对象。生产 action 通过
+`IOptionsRepository.patch` 更新 analytics、errorReporting、debugMode 三个字段；
+Options persistence 随后同步运行时 analytics/error reporter 状态并调度保存。
+不存在第二套 privacy view/controller/persistence 实现。
 
-Onboarding 首启协议卡片也暴露同一组 `analytics` / `errorReporting`
-consent。用户在 onboarding 或 Options 任一位置切换，都会写回同一个
-`privacyPreferences` 状态；Options 侧变化会同步回已打开的 onboarding 控件。
-首启协议中的“使用协议”和“隐私政策”入口使用 Options 共享 resource modal，
-不维护第二套静态说明。
+UI ownership manifest 在当前 intermediate 状态保留恰好两条 U02C4
+`deferred-state-convergence` 类型契约。它们只维持编译边界，不拥有运行时行为；
+最终状态会删除这两条记录，并继续使用 schema-derived
+`PrivacyPreferencesOptions` 与 repository patch contract。
 
 ## 用户可控制的内容
 
 ### 匿名使用统计
 
-- 控制产品事件是否可发送
-- 影响 options、onboarding、clip、reader、video、usage dashboard 等产品遥测
+- 控制产品事件是否可发送。
+- 影响 Options、onboarding、clip、reader、video、usage dashboard 等产品遥测。
 
 ### 错误报告
 
-- 控制 `extension_error` 是否可发送
-- 仅用于匿名错误诊断
+- 控制 `extension_error` 是否可发送。
+- 仅用于经过清洗的匿名错误诊断。
 
 ### 调试模式
 
-- 仅开发环境可见
-- 需要 `analytics` 和 `errorReporting` 同时为 `on`
-- 任一 consent 关闭时，debug mode 会被自动关闭
+- 仅在 capability 允许时显示。
+- 需要 analytics 与 errorReporting 同时开启。
+- 任一 consent 关闭时会自动关闭 debug mode。
 
 ### 清空全部分析数据
 
-- 清除 analytics 相关 storage keys
-- 同时关闭 `analytics`、`errorReporting`、`debugMode`
-- 清理成功后记录一次 `analytics_data_cleared`；该最终事件只使用清理前已授权的 public GA 配置快照，清理失败时不发送 `completed`
+- 清除 analytics 相关 storage keys。
+- 同时关闭 analytics、errorReporting、debugMode。
+- 清理成功后记录一次 `analytics_data_cleared`；最终事件只使用清理前已授权的 public GA 配置快照。
+- 清理失败时不发送 completed 结果。
 
-## 会收集什么
+## Canonical schema
 
-按当前 catalog / sanitizer 真值，产品与错误遥测只收集：
+`PrivacyPreferencesOptionsSchema` 是三项 consent 的唯一结构真值：
 
-- 事件名与有限枚举参数
-- bucket 化后的次数与时长
-- 扩展版本、会话 ID、调试标志
-- 匿名错误码、错误域、严重度、可恢复性
-- 必要的浏览器大类 / 主版本信息
+- analytics: boolean
+- errorReporting: boolean
+- debugMode: boolean
 
-## 不会收集什么
-
-- 页面正文、聊天正文、阅读高亮正文、视频片段正文
-- Obsidian 文件路径、vault 名称、导出笔记路径
-- 完整 URL、查询参数、cookie、token、密码、secret
-- 邮箱、IP、用户名、电话、支付信息
-- 原始 `duration_ms`
-- 服务端 credential，包括 `api_secret`
+StoredOptions 允许该对象部分存在；CompleteOptions 要求完整对象。共享类型从
+CompleteOptions 推导，action、onboarding dependency 和 repository boundary
+不得重新声明另一套运行时 snapshot 类型。
 
 ## Consent 行为真值
 
-### `analytics = off`
+### analytics = off
 
-- `trackUsageEvent` 会直接退出
-- options / onboarding / clip / reader / video / usage dashboard 不发事件
+- 使用/产品事件直接停止。
+- Options、onboarding、clip、reader、video、usage dashboard 不发送产品遥测。
 
-### `errorReporting = off`
+### errorReporting = off
 
-- `extension_error` 不应发送
-- 其他产品事件是否发送仍由 `analytics` 决定
+- `extension_error` 不发送。
+- 其他产品事件仍由 analytics consent 决定。
 
-### `analytics = off` 且 `errorReporting = off`
+### 两项都关闭
 
-- 用户侧应视为完全关闭 telemetry
-- 即使 build-time public config 存在，也不应有实际事件流出
+- 用户侧视为完全关闭 telemetry。
+- 即使 public build config 存在，也不应有实际事件流出。
+- debugMode 必须归一化为 false。
 
-## 如何证明 “consent off 不发事件”
+## 数据边界
 
-1. 在概览页的“隐私与数据”卡片，或 onboarding 首启协议卡片中关闭两个 consent。
-2. 执行一组典型行为：
-   - 打开 options 并切换 section
-   - 执行一次 clip / reader / video 流程
-   - 触发一次连接测试
-3. 同时检查：
-   - owner proxy 没有接收到新事件
-   - 本地 debug proxy 模式没有新 proxy 事件；如该 proxy 接入 GA，也没有 DebugView 新事件
-   - 控制台不会出现 sent telemetry log
+允许发送的内容限于低基数事件名/枚举参数、bucket 后的次数或时长、扩展版本、
+匿名会话标识和经过清洗的错误分类。
 
-当前相关实现结构：
+不得发送页面/聊天/阅读/视频正文、Obsidian 路径或 vault 名、完整 URL、cookie、
+token、密码、secret、邮箱、IP、用户名、支付信息、原始 duration_ms 或服务端 credential。
 
-```
-AiiinOB/
-├── src/options/stitch/schema/settings/
-│   └── overview.ts                     # 隐私与数据卡片 schema
-├── src/ui/domains/privacy/
-│   └── PrivacySettingsView.ts          # privacy domain view
-├── src/options/app/
-│   └── productionStitchPersistence.ts  # consent / clear-data persistence wiring
-├── src/onboarding/
-│   └── bootstrap.ts                    # first-run agreement and consent wiring
-├── src/shared/errors/analytics/
-│   ├── analyticsConfig.ts              # GA4 配置管理
-│   ├── googleAnalyticsReporter.ts      # GA4 错误报告器
-│   ├── dataSanitizer.ts               # 数据匿名化工具
-│   └── index.ts                       # 统一导出
-├── src/i18n/
-│   ├── catalog/messages/              # runtime/static/schema catalog source
-│   ├── generated/                     # generated locale modules and registries
-│   └── runtime/                       # runtime locale loading
-└── docs/
-    ├── error-analytics-integration-guide.md
-    ├── google-analytics-dashboard-setup.md
-    └── privacy-settings-usage.md      # 本文档
+## 验证
+
+```bash
+node scripts/test-privacy-settings.cjs
+node node_modules/vitest/vitest.mjs run --config vitest.unit.config.ts \
+  tests/unit/options/productionStitchShell.actions.test.ts \
+  tests/unit/options/productionStitchShell.renderLifecycle.test.ts \
+  tests/unit/options/productionStitchSchemaPresence.test.ts \
+  tests/unit/shared/schemas/optionsBoundarySchemas.test.ts
 ```
 
-如果需要重置本地状态，使用“清空全部分析数据”。
+`scripts/test-privacy-settings.cjs` 只读取 production schema、action/persistence、
+onboarding、i18n 和 ownership manifest。它同时自测 intermediate/final manifest
+模式，并在任何缺失、错误 disposition 或 final repository boundary 漂移时返回非零。
 
-## 如何证明 “error 只在 errorReporting on 时发送”
+## 手动 consent-off 证明
 
-1. 打开 `analytics`，关闭 `errorReporting`。
-2. 触发一次受控错误。
-3. 应只看到普通产品事件，不应看到 `extension_error`。
-4. 再打开 `errorReporting` 并重复。
-5. 只有这时 `extension_error` 才应出现。
+1. 在 Options 概览页或 onboarding 中关闭 analytics 与 errorReporting。
+2. 执行 Options 导航、clip/reader/video 和连接测试。
+3. 确认 owner proxy 没有新事件、debug proxy 没有请求、控制台没有 sent telemetry log。
+4. 单独打开 analytics、保持 errorReporting 关闭，确认普通产品事件允许而
+   `extension_error` 仍被拒绝。
+5. 再打开 errorReporting，受控错误才允许产生经过清洗的 `extension_error`。
 
-## 用户说明建议
-
-对外说明应统一为：
-
-- analytics 用于匿名功能使用统计
-- error reporting 用于匿名错误诊断
-- 用户可以随时关闭或清空
-- 任何 server-side credential 都不在扩展内保存
-
-不要再沿用旧说法，例如旧 control path、旧 options component 路径，或要求用户在扩展内填写服务端 credential 的说明。
+对外说明统一为：遥测默认关闭、两项 consent 可独立控制、用户可随时关闭或清空，
+任何 server-side credential 都不会保存在扩展内。

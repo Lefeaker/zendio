@@ -1,4 +1,6 @@
 import { describe, expect, it } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import {
   createBrowserShardEnvironment,
   createBrowserShardTaskGraph,
@@ -44,7 +46,7 @@ function successfulHandle(profileId: string) {
 }
 
 describe('browser shard command graph', () => {
-  it('registers the exact E2E and visual Playwright leaves', () => {
+  it('registers the exact E2E, visual and bundled Chromium Playwright leaves', () => {
     expect(createBrowserShardTaskGraph('e2e').tasks).toEqual([
       {
         id: 'verify-runtime',
@@ -86,6 +88,38 @@ describe('browser shard command graph', () => {
         `--project=${project}`
       ])
     );
+    expect(createBrowserShardTaskGraph('bundled').tasks.slice(1)).toEqual([
+      {
+        id: 'shard:bundled-e2e',
+        name: 'browser shard bundled-e2e',
+        profile: 'playwright-v1',
+        args: [
+          'test',
+          '--config=playwright.bundled-chromium.config.ts',
+          '--project=chromium-desktop',
+          'tests/e2e/optionsCrossContextMutation.browser.test.ts',
+          'tests/e2e/sessionDraftConcurrency.browser.test.ts',
+          'tests/e2e/uiPrimitiveTokenParity.browser.test.ts',
+          'tests/e2e/videoScreenshotCacheMigration.browser.test.ts'
+        ],
+        dependsOn: ['verify-runtime']
+      },
+      {
+        id: 'shard:bundled-visual',
+        name: 'browser shard bundled-visual',
+        profile: 'playwright-v1',
+        args: [
+          'test',
+          '--config=playwright.bundled-chromium.config.ts',
+          '--project=chromium-desktop',
+          'tests/visual/options.stitch-secondary.parity.spec.ts',
+          'tests/visual/preview.runtime.alignment.spec.ts',
+          'tests/visual/preview.task-success.layout.spec.ts',
+          'tests/visual/migration-harness.spec.ts'
+        ],
+        dependsOn: ['shard:bundled-e2e']
+      }
+    ]);
   });
 
   it('owns fixed, isolated output directories instead of accepting caller-selected paths', () => {
@@ -102,6 +136,40 @@ describe('browser shard command graph', () => {
       PLAYWRIGHT_OUTPUT_DIR: 'test-results/browser-shards/reader-panel',
       PLAYWRIGHT_HTML_REPORT_DIR: 'build/reports/playwright-shards/reader-panel'
     });
+
+    expect(
+      createBrowserShardEnvironment('shard:bundled-e2e', {
+        PLAYWRIGHT_WEB_SERVER_PORT: '9999',
+        PLAYWRIGHT_DIST_DIR: '../../caller-dist'
+      })
+    ).toMatchObject({
+      PLAYWRIGHT_SKIP_WEB_SERVER_BUILD: '1',
+      PLAYWRIGHT_WEB_SERVER_PORT: '43103',
+      PLAYWRIGHT_DIST_DIR: 'build/dist-u02c2-bundled-chromium',
+      PLAYWRIGHT_OUTPUT_DIR: 'test-results/browser-shards/bundled-e2e',
+      PLAYWRIGHT_HTML_REPORT_DIR: 'build/reports/playwright-shards/bundled-e2e'
+    });
+    expect(createBrowserShardEnvironment('shard:bundled-visual')).toMatchObject({
+      PLAYWRIGHT_WEB_SERVER_PORT: '43104',
+      PLAYWRIGHT_DIST_DIR: 'build/dist-u02c2-bundled-chromium',
+      PLAYWRIGHT_OUTPUT_DIR: 'test-results/browser-shards/bundled-visual',
+      PLAYWRIGHT_HTML_REPORT_DIR: 'build/reports/playwright-shards/bundled-visual'
+    });
+  });
+
+  it('requires bundled extension leaves to consume the coordinator-owned dist directory', () => {
+    for (const file of [
+      'tests/e2e/optionsCrossContextMutation.browser.test.ts',
+      'tests/e2e/sessionDraftConcurrency.browser.test.ts',
+      'tests/e2e/videoScreenshotCacheMigration.browser.test.ts'
+    ]) {
+      const source = readFileSync(resolve(file), 'utf8');
+      expect(source).toContain('PLAYWRIGHT_DIST_DIR');
+      expect(source).toContain("'--headless=new'");
+      expect(source).toContain('headless: false');
+      expect(source).not.toContain('channel:');
+      expect(source).not.toContain('executablePath');
+    }
   });
 
   it('executes the graph through injected bounded handles without a second queue', async () => {

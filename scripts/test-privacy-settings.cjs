@@ -1,226 +1,193 @@
 #!/usr/bin/env node
 // @ts-check
 
-/**
- * 当前隐私与数据设置主链的只读校验脚本
- *
- * 这个脚本验证：
- * 1. Stitch overview schema 是否仍然承载隐私与数据卡片
- * 2. privacy domain view / persistence wiring 是否仍然存在
- * 3. i18n 消息与 options shell 根节点是否完整
- */
+const fs = require('node:fs');
+const path = require('node:path');
 
-const fs = require('fs');
-const path = require('path');
+const ROOT = path.resolve(__dirname, '..');
+const MANIFEST_PATH = 'tools/ui-production-ownership.json';
 
-// 颜色输出
-const colors = {
-  reset: '\x1b[0m',
-  red: '\x1b[31m',
-  green: '\x1b[32m',
-  yellow: '\x1b[33m',
-  blue: '\x1b[34m'
-};
-
-function colorLog(color, message) {
-  console.log(`${colors[color]}${message}${colors.reset}`);
-}
-
-function success(message) {
-  colorLog('green', `✅ ${message}`);
-}
-
-function warning(message) {
-  colorLog('yellow', `⚠️  ${message}`);
-}
-
-function error(message) {
-  colorLog('red', `❌ ${message}`);
-}
-
-function info(message) {
-  colorLog('blue', `ℹ️  ${message}`);
-}
-
-function hasMessageKey(content, key) {
-  return content.includes(`${key}:`) || content.includes(`"${key}":`);
-}
-
-// 读取文件内容
-function readFile(filePath) {
-  const fullPath = path.join(__dirname, '..', filePath);
+function read(relativePath, findings) {
+  const fullPath = path.join(ROOT, relativePath);
   try {
     return fs.readFileSync(fullPath, 'utf8');
-  } catch (err) {
-    return null;
+  } catch {
+    findings.push(`missing required file: ${relativePath}`);
+    return '';
   }
 }
 
-function checkPrivacyOverviewSchema() {
-  info('检查 overview schema 隐私卡片...');
-
-  const schemaPath = 'src/options/stitch/schema/settings/overview.ts';
-  const content = readFile(schemaPath);
-
-  if (!content) {
-    error(`无法读取 ${schemaPath}`);
-    return false;
-  }
-
-  const requiredSnippets = [
-    "title: '隐私与数据'",
-    "bind: 'privacyAnalytics'",
-    "bind: 'privacyErrorReporting'",
-    "bind: 'privacyDebugMode'",
-    "action: { id: 'overview:clearAnalyticsData' }",
-    "action: { id: 'resource:open', args: ['privacy-policy'] }",
-    "action: { id: 'resource:open', args: ['data-usage'] }"
-  ];
-
-  let schemaIsValid = true;
-  requiredSnippets.forEach((snippet) => {
-    if (content.includes(snippet)) {
-      success(`overview schema 片段存在：${snippet}`);
-    } else {
-      error(`overview schema 缺少片段：${snippet}`);
-      schemaIsValid = false;
+function requireSnippets(source, relativePath, snippets, findings) {
+  for (const snippet of snippets) {
+    if (!source.includes(snippet)) {
+      findings.push(`${relativePath} missing production contract: ${snippet}`);
     }
-  });
-
-  return schemaIsValid;
+  }
 }
 
-function checkPrivacyDomainView() {
-  info('检查 privacy domain view...');
-
-  const viewPath = 'src/ui/domains/privacy/PrivacySettingsView.ts';
-  const content = readFile(viewPath);
-
-  if (!content) {
-    error(`无法读取 ${viewPath}`);
-    return false;
-  }
-
-  const requiredSnippets = [
-    'applyConsentSnapshot(snapshot: PrivacyConsentSnapshot)',
-    'render(): HTMLElement | void',
-    'async saveSettings(',
-    'async getSettings(): Promise<{ analytics: boolean; errorReporting: boolean }>',
-    'async shouldShowPrivacyReminder(): Promise<boolean>'
-  ];
-
-  let allSnippetsExist = true;
-  requiredSnippets.forEach((snippet) => {
-    if (content.includes(snippet)) {
-      success(`privacy domain 片段存在：${snippet}`);
-    } else {
-      error(`privacy domain 缺少片段：${snippet}`);
-      allSnippetsExist = false;
-    }
-  });
-
-  return allSnippetsExist;
-}
-
-function checkOptionsShellHtml() {
-  info('检查 Options shell HTML 根节点...');
-
-  const htmlPath = 'src/options/index.html';
-  const content = readFile(htmlPath);
-
-  if (!content) {
-    error(`无法读取 ${htmlPath}`);
-    return false;
-  }
-
-  if (content.includes('optionsShellRoot')) {
-    success('Options Stitch shell 根节点存在');
-  } else {
-    error('Options Stitch shell 根节点不存在');
-    return false;
-  }
-
-  return true;
-}
-
-function checkPersistenceIntegration() {
-  info('检查 persistence / telemetry 接线...');
-
-  const persistencePath = 'src/options/app/productionStitchPersistence.ts';
-  const content = readFile(persistencePath);
-
-  if (!content) {
-    error(`无法读取 ${persistencePath}`);
-    return false;
-  }
-
-  const requiredSnippets = [
-    "createTrackUsageEventMessage('privacy_consent_changed'",
-    'enabled: nextSnapshot[field]',
-    'prepareAnalyticsDataClearedEvent()',
-    "outcome: 'completed'"
-  ];
-
-  let isValid = true;
-  requiredSnippets.forEach((snippet) => {
-    if (content.includes(snippet)) {
-      success(`persistence 片段存在：${snippet}`);
-    } else {
-      error(`persistence 缺少片段：${snippet}`);
-      isValid = false;
-    }
-  });
-
-  const actionPath = 'src/options/app/actions/privacyConsentAction.ts';
-  const actionContent = readFile(actionPath);
-  if (!actionContent) {
-    error(`无法读取 ${actionPath}`);
-    return false;
-  }
-
-  if (actionContent.includes('privacyPreferences: snapshot')) {
-    success('privacy consent action 会写入 privacyPreferences');
-  } else {
-    error('privacy consent action 未写入 privacyPreferences');
-    isValid = false;
-  }
-
-  const finalEventPath = 'src/options/app/productionStitchFinalAnalyticsEvent.ts';
-  const finalEventContent = readFile(finalEventPath);
-  if (!finalEventContent) {
-    error(`无法读取 ${finalEventPath}`);
-    return false;
-  }
-
+function validateOwnershipState(manifest, { finalBoundaryReady = false } = {}) {
+  const findings = [];
   if (
-    finalEventContent.includes("'analytics_data_cleared'") &&
-    finalEventContent.includes("outcome: 'completed'")
+    !manifest ||
+    typeof manifest !== 'object' ||
+    Array.isArray(manifest) ||
+    !Array.isArray(manifest.rows)
   ) {
-    success('analytics_data_cleared final event helper 存在');
-  } else {
-    error('analytics_data_cleared final event helper 不完整');
-    isValid = false;
+    return ['ownership manifest has an invalid shape'];
   }
-
-  return isValid;
+  const deferred = manifest.rows.filter((row) => row?.disposition === 'deferred-state-convergence');
+  if (manifest.closureState === 'intermediate') {
+    if (deferred.length !== 2) {
+      findings.push(
+        `intermediate ownership must contain exactly two deferred rows; found ${deferred.length}`
+      );
+    }
+    if (deferred.some((row) => row?.replacement?.milestone !== 'U02C4')) {
+      findings.push('every intermediate deferred row must name U02C4 as its replacement milestone');
+    }
+    return findings;
+  }
+  if (manifest.closureState === 'final') {
+    if (deferred.length !== 0) {
+      findings.push(`final ownership must contain zero deferred rows; found ${deferred.length}`);
+    }
+    if (
+      manifest.rows.some(
+        (row) =>
+          row?.disposition !== 'production-runtime' && row?.disposition !== 'production-compile'
+      )
+    ) {
+      findings.push('final ownership contains a non-production disposition');
+    }
+    if (!finalBoundaryReady) {
+      findings.push('final ownership requires the schema-derived repository action boundary');
+    }
+    return findings;
+  }
+  return [`ownership manifest has an invalid closureState: ${String(manifest.closureState)}`];
 }
 
-// 检查 i18n 消息
-function checkI18nMessages() {
-  info('检查 i18n 消息...');
+function hasSchemaDerivedRepositoryBoundary(actionSource, repositorySource) {
+  return (
+    actionSource.includes("from '@shared/types/options'") &&
+    actionSource.includes('PrivacyPreferencesOptions') &&
+    actionSource.includes("Pick<IOptionsRepository, 'patch'>") &&
+    actionSource.includes('optionsRepository.patch([') &&
+    repositorySource.includes('export interface IOptionsRepository') &&
+    repositorySource.includes('patch: (patches: OptionsPatch | readonly OptionsPatch[])')
+  );
+}
 
-  const languages = ['zh-CN', 'en', 'ja'];
-  let allMessagesExist = true;
+function validateProductionPrivacyContract() {
+  const findings = [];
+  const overviewPath = 'src/options/stitch/schema/settings/overview.ts';
+  const schemaPath = 'src/shared/schemas/options.schema.ts';
+  const sharedTypesPath = 'src/shared/types/options.ts';
+  const actionPath = 'src/options/app/actions/privacyConsentAction.ts';
+  const persistencePath = 'src/options/app/productionStitchPersistence.ts';
+  const repositoryPath = 'src/shared/repositories/IOptionsRepository.ts';
+  const onboardingPath = 'src/onboarding/bootstrap.ts';
+  const onboardingDependenciesPath = 'src/onboarding/dependencies.ts';
 
-  // 检查生成后的消息接口定义
-  const messagesPath = 'src/i18n/generated/messages.generated.ts';
-  const messagesContent = readFile(messagesPath);
+  const overview = read(overviewPath, findings);
+  requireSnippets(
+    overview,
+    overviewPath,
+    [
+      "bind: 'privacyAnalytics'",
+      "bind: 'privacyErrorReporting'",
+      "bind: 'privacyDebugMode'",
+      "id: 'overview:updatePrivacyConsent'",
+      "action: { id: 'overview:clearAnalyticsData' }",
+      "action: { id: 'resource:open', args: ['privacy-policy'] }",
+      "action: { id: 'resource:open', args: ['data-usage'] }"
+    ],
+    findings
+  );
 
-  if (!messagesContent) {
-    error(`无法读取 ${messagesPath}`);
-    return false;
+  const schema = read(schemaPath, findings);
+  requireSnippets(
+    schema,
+    schemaPath,
+    [
+      'export const PrivacyPreferencesOptionsSchema = z.strictObject({',
+      'analytics: z.boolean()',
+      'errorReporting: z.boolean()',
+      'debugMode: z.boolean()',
+      'privacyPreferences: PrivacyPreferencesOptionsSchema'
+    ],
+    findings
+  );
+
+  const sharedTypes = read(sharedTypesPath, findings);
+  requireSnippets(
+    sharedTypes,
+    sharedTypesPath,
+    ["export type PrivacyPreferencesOptions = CompleteOptions['privacyPreferences'];"],
+    findings
+  );
+
+  const action = read(actionPath, findings);
+  requireSnippets(
+    action,
+    actionPath,
+    [
+      'persistPrivacyConsentAction',
+      "{ path: ['privacyPreferences', 'analytics']",
+      "{ path: ['privacyPreferences', 'errorReporting']",
+      "{ path: ['privacyPreferences', 'debugMode']"
+    ],
+    findings
+  );
+
+  const persistence = read(persistencePath, findings);
+  requireSnippets(
+    persistence,
+    persistencePath,
+    [
+      'persistPrivacyConsentAction',
+      'setAnalyticsConsent',
+      'updateErrorAnalyticsConfig',
+      "createAnalyticsEventMessage('privacy_consent_changed'",
+      'prepareAnalyticsDataClearedEvent',
+      'clearAnalyticsPrivacyData'
+    ],
+    findings
+  );
+
+  const onboarding = read(onboardingPath, findings);
+  requireSnippets(
+    onboarding,
+    onboardingPath,
+    [
+      "path: ['privacyPreferences', 'analytics']",
+      "path: ['privacyPreferences', 'errorReporting']",
+      "path: ['privacyPreferences', 'debugMode']",
+      'setAnalyticsConsent',
+      'updateErrorAnalyticsConfig'
+    ],
+    findings
+  );
+  const onboardingDependencies = read(onboardingDependenciesPath, findings);
+  requireSnippets(
+    onboardingDependencies,
+    onboardingDependenciesPath,
+    ['PrivacyPreferencesOptions', "patch: IOptionsRepository['patch']"],
+    findings
+  );
+
+  const repository = read(repositoryPath, findings);
+  const finalBoundaryReady = hasSchemaDerivedRepositoryBoundary(action, repository);
+  const manifestSource = read(MANIFEST_PATH, findings);
+  if (manifestSource) {
+    try {
+      findings.push(...validateOwnershipState(JSON.parse(manifestSource), { finalBoundaryReady }));
+    } catch {
+      findings.push(`${MANIFEST_PATH} is not valid JSON`);
+    }
   }
 
+  const generatedMessagesPath = 'src/i18n/generated/messages.generated.ts';
   const requiredMessages = [
     'privacySettingsTitle',
     'privacySettingsDescription',
@@ -230,94 +197,78 @@ function checkI18nMessages() {
     'privacySettingsSaved',
     'privacyDataWillBeCleared'
   ];
+  requireSnippets(
+    read(generatedMessagesPath, findings),
+    generatedMessagesPath,
+    requiredMessages,
+    findings
+  );
+  for (const locale of ['zh-CN', 'en', 'ja']) {
+    const localePath = `src/i18n/catalog/messages/${locale}/runtime.json`;
+    requireSnippets(read(localePath, findings), localePath, requiredMessages, findings);
+  }
 
-  requiredMessages.forEach((message) => {
-    if (hasMessageKey(messagesContent, message)) {
-      success(`消息接口 ${message} 存在`);
-    } else {
-      error(`生成消息接口 ${message} 不存在`);
-      allMessagesExist = false;
-    }
-  });
+  return { findings, finalBoundaryReady };
+}
 
-  // 检查各语言 catalog runtime 源
-  languages.forEach((lang) => {
-    const langPath = `src/i18n/catalog/messages/${lang}/runtime.json`;
-    const langContent = readFile(langPath);
-
-    if (!langContent) {
-      error(`无法读取 ${langPath}`);
-      allMessagesExist = false;
-      return;
-    }
-
-    requiredMessages.forEach((message) => {
-      if (hasMessageKey(langContent, message)) {
-        success(`${lang} 语言的 ${message} 翻译存在`);
-      } else {
-        error(`${lang} 语言的 ${message} 翻译不存在`);
-        allMessagesExist = false;
+function validateModeFixtures() {
+  const boundary = true;
+  const intermediate = validateOwnershipState({
+    closureState: 'intermediate',
+    rows: [
+      {
+        path: 'src/ui/temporary/contract-a.ts',
+        disposition: 'deferred-state-convergence',
+        replacement: { owner: 'src/shared/current.ts', milestone: 'U02C4' }
+      },
+      {
+        path: 'src/ui/temporary/contract-b.ts',
+        disposition: 'deferred-state-convergence',
+        replacement: { owner: 'src/shared/current.ts', milestone: 'U02C4' }
       }
-    });
+    ]
   });
-
-  return allMessagesExist;
+  const final = validateOwnershipState(
+    {
+      closureState: 'final',
+      rows: [
+        {
+          path: 'src/ui/current/runtime.ts',
+          disposition: 'production-runtime',
+          replacement: { owner: 'src/ui/current/runtime.ts', milestone: 'current-production' }
+        }
+      ]
+    },
+    { finalBoundaryReady: boundary }
+  );
+  return [...intermediate, ...final];
 }
 
-// 生成测试报告
-function generateTestReport(results) {
-  console.log('\n' + '='.repeat(50));
-  colorLog('blue', '📊 测试报告');
-  console.log('='.repeat(50));
-
-  const totalTests = Object.keys(results).length;
-  const passedTests = Object.values(results).filter(Boolean).length;
-  const failedTests = totalTests - passedTests;
-
-  console.log(`总测试数: ${totalTests}`);
-  colorLog('green', `通过: ${passedTests}`);
-  if (failedTests > 0) {
-    colorLog('red', `失败: ${failedTests}`);
-  }
-
-  console.log('\n详细结果:');
-  Object.entries(results).forEach(([test, passed]) => {
-    const status = passed ? '✅ 通过' : '❌ 失败';
-    console.log(`  ${test}: ${status}`);
-  });
-
-  if (passedTests === totalTests) {
-    console.log('\n🎉 所有测试通过！隐私与数据主链校验通过。');
-  } else {
-    console.log('\n⚠️  部分测试失败，请检查上述问题。');
-  }
-}
-
-// 主函数
 function main() {
-  colorLog('blue', '🧪 隐私与数据主链校验');
-  console.log('');
-
-  const results = {
-    'Overview Schema': checkPrivacyOverviewSchema(),
-    'Privacy Domain View': checkPrivacyDomainView(),
-    'Options Shell HTML': checkOptionsShellHtml(),
-    'Persistence Integration': checkPersistenceIntegration(),
-    'i18n 消息': checkI18nMessages()
-  };
-
-  generateTestReport(results);
+  const { findings, finalBoundaryReady } = validateProductionPrivacyContract();
+  findings.push(...validateModeFixtures());
+  if (findings.length > 0) {
+    console.error('Privacy settings production contract failed:\n');
+    findings.forEach((finding) => console.error(`- ${finding}`));
+    process.exitCode = 1;
+    return;
+  }
+  const manifest = JSON.parse(fs.readFileSync(path.join(ROOT, MANIFEST_PATH), 'utf8'));
+  const deferred = manifest.rows.filter(
+    (row) => row.disposition === 'deferred-state-convergence'
+  ).length;
+  console.log(
+    `Privacy settings production contract passed: mode=${manifest.closureState}, deferred=${deferred}, schemaRepositoryBoundary=${finalBoundaryReady}.`
+  );
 }
 
-// 运行测试
 if (require.main === module) {
   main();
 }
 
 module.exports = {
-  checkPrivacyOverviewSchema,
-  checkPrivacyDomainView,
-  checkOptionsShellHtml,
-  checkPersistenceIntegration,
-  checkI18nMessages
+  hasSchemaDerivedRepositoryBoundary,
+  validateModeFixtures,
+  validateOwnershipState,
+  validateProductionPrivacyContract
 };

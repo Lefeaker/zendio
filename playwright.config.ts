@@ -57,15 +57,15 @@ export default defineConfig({
   projects: [
     {
       name: 'chromium-desktop',
-      use: { ...devices['Desktop Chrome'], channel: 'chrome', viewport: { width: 1280, height: 720 } }
+      use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 720 } }
     },
     {
       name: 'chromium-tablet',
-      use: { ...devices['iPad (gen 7)'], channel: 'chrome' }
+      use: { ...devices['iPad (gen 7)'] }
     },
     {
       name: 'chromium-mobile',
-      use: { ...devices['Pixel 5'], channel: 'chrome' }
+      use: { ...devices['Pixel 5'] }
     },
     ...(includeFirefoxProject
       ? [

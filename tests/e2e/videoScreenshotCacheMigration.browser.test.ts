@@ -2,7 +2,6 @@ import { chromium, expect, test, type BrowserContext, type Page } from '@playwri
 import fs from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
 import {
   readVideoScreenshotCacheIndexedDbSnapshot,
   seedVideoScreenshotCacheV1,
@@ -10,8 +9,7 @@ import {
   type VideoScreenshotCacheV1Seed
 } from './utils/videoScreenshotCacheIndexedDb';
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const EXTENSION_PATH = path.resolve(__dirname, '../../build/dist');
+const EXTENSION_PATH = path.resolve(process.env.PLAYWRIGHT_DIST_DIR ?? 'build/dist');
 const HARNESS_PATH = 'content-orchestrator-harness.html';
 const MESSAGE_TYPE = 'AIIOB_VIDEO_SCREENSHOT_CACHE';
 
@@ -19,9 +17,12 @@ type ExtensionHarness = { context: BrowserContext; page: Page; extensionId: stri
 
 async function launchExtension(userDataDir: string): Promise<ExtensionHarness> {
   const context = await chromium.launchPersistentContext(userDataDir, {
-    headless: true,
-    channel: 'chromium',
-    args: [`--disable-extensions-except=${EXTENSION_PATH}`, `--load-extension=${EXTENSION_PATH}`]
+    headless: false,
+    args: [
+      '--headless=new',
+      `--disable-extensions-except=${EXTENSION_PATH}`,
+      `--load-extension=${EXTENSION_PATH}`
+    ]
   });
   let worker = context.serviceWorkers()[0];
   if (!worker) worker = await context.waitForEvent('serviceworker', { timeout: 15_000 });

@@ -823,7 +823,7 @@ export function parseManagedCommandInvocationArgv(argv) {
   if (row.grammar === 'none' && args.length !== 0) invalid('COORDINATOR_ARGUMENTS_INVALID');
   if (
     row.grammar === 'browser-shards-v1' &&
-    (args.length !== 1 || !['e2e', 'visual'].includes(args[0]))
+    (args.length !== 1 || !['e2e', 'visual', 'bundled'].includes(args[0]))
   )
     invalid('COORDINATOR_ARGUMENTS_INVALID');
   if (row.grammar === 'test-shards-v1') {
@@ -2260,7 +2260,12 @@ export function resolveCommandProfile(
   } else if (profileId === 'playwright-v1')
     command = {
       executable: process.execPath,
-      argv: [regularFile('scripts/run-playwright.mjs'), ...args],
+      argv: [
+        args.includes('--config=playwright.bundled-chromium.config.ts')
+          ? resolveLockedBin('playwright')
+          : regularFile('scripts/run-playwright.mjs'),
+        ...args
+      ],
       limits: COMMAND_LIMITS.browser
     };
   else if (

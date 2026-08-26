@@ -8,7 +8,7 @@ export interface BrowserShardTask {
   readonly dependsOn: readonly string[];
 }
 
-export function createBrowserShardTaskGraph(suite: 'e2e' | 'visual'): Readonly<{
+export function createBrowserShardTaskGraph(suite: 'e2e' | 'visual' | 'bundled'): Readonly<{
   policyId: 'browser-shards-v1';
   tasks: readonly BrowserShardTask[];
 }>;
