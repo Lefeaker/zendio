@@ -200,10 +200,11 @@ portable manifest 将 exact XPI、AMO source archive、dist inventory、Git tree
 
 exact-XPI smoke 使用固定版本和 SHA-256 的官方 geckodriver `0.37.1` 启动锁匹配的
 Playwright Firefox，并通过 WebDriver BiDi 安装同一 XPI。门禁依次验证 install 返回的 Gecko
-ID、扩展后台 realm 中的 `browser.runtime.id` 与 manifest Gecko ID、uninstall、reinstall、再次
-bootstrap identity，以及有界关闭和私有 profile 清理。它不会把 unpacked source directory 冒充
-XPI 安装证据，也不会读取用户 Firefox profile、系统 Firefox 或默认浏览器缓存。该阶段只做
-本地、无凭据验证；AMO submit、push 和 publish 不属于这个阶段。
+ID、geckodriver system-access context 中 AddonManager 的相同 ID / manifest version / active state、
+uninstall、reinstall、再次 identity/state 验证，以及有界关闭和私有 profile 清理。system-access
+只对当前私有 smoke session 开启，子进程环境不含 AMO 凭据。它不会把 unpacked source
+directory 冒充 XPI 安装证据，也不会读取用户 Firefox profile、系统 Firefox 或默认浏览器缓存。
+该阶段只做本地、无凭据验证；AMO submit、push 和 publish 不属于这个阶段。
 
 本地 XPI 创建前执行仓库自有的 manifest 与 release-surface 静态检查，包括 Firefox MV3
 background、Gecko ID、最低版本、data-collection 声明、必需 background bundle 和 archive
