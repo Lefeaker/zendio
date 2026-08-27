@@ -100,14 +100,6 @@ vi.mock('../../src/content/clipper/shared/styleSheetManager', () => ({
   supportsAdoptedStyleSheets: () => true
 }));
 
-// Reuse real comment form implementation
-vi.mock('../../src/content/clipper/components/commentForm', async () => {
-  const actual = await vi.importActual<
-    typeof import('../../src/content/clipper/components/commentForm')
-  >('../../src/content/clipper/components/commentForm');
-  return actual;
-});
-
 const dialogMessages = partialOf<Messages>({
   clipDialogTitle: 'Clip Selection',
   clipDialogInstructions: 'Select text and press Alt+C',

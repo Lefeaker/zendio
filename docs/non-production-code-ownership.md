@@ -1,6 +1,6 @@
 # Non-Production Code Ownership
 
-Last updated: 2026-08-26
+Last updated: 2026-08-27
 
 ## 3.0 Definition
 
@@ -123,10 +123,12 @@ being duplicated in that tool:
 - `src/styles/design-tokens.css` — design token source-of-truth asset.
 
 For the current UI tree, manifest-backed classification is exact-path only. In
-the U02C2 intermediate state it contains 66 rows and exactly two U02C4
-`deferred-state-convergence` rows. The same classifier accepts the final state
-with zero deferred rows and does not grant ownership to an unknown synthetic UI
-path.
+the U02C3 intermediate state it contains 54 rows and exactly two U02C4
+`deferred-state-convergence` rows. U02C3 removed the twelve exact retired
+pattern/primitive rows only after their production, import, test, script,
+public/manifest, and required-verification owners were closed together. The
+same classifier accepts the final state with zero deferred rows and does not
+grant ownership to an unknown synthetic UI path.
 
 Future changes must not hide new rows with broad allowlists or promote unresolved
 report blockers into production hard gates. Each new blocker needs an exact owner

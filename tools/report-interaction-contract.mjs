@@ -98,7 +98,11 @@ function collectInteractionContractFindings(sources) {
       'interaction harness missing the retained loading danger button probe'
     ],
     [/createInputElement/, 'interaction harness missing the retained input validation probe'],
-    [/createCheckboxElement/, 'interaction harness missing the retained checkbox validation probe'],
+    [
+      /runtimeContext\.ui\.Input\(\s*['"]['"]\s*,\s*\{[\s\S]*?type:\s*['"]checkbox['"]/,
+      'interaction harness missing the neutral runtime checkbox validation probe'
+    ],
+    [/validated-checkbox/, 'interaction harness missing the executable checkbox state marker'],
     [/loading-danger-button/, 'interaction harness missing the loading danger state'],
     [/applyValidationA11y/, 'interaction harness missing executable validation state changes'],
     [/createOptionsContractPanel/, 'interaction harness missing Options contract panel'],
@@ -111,6 +115,7 @@ function collectInteractionContractFindings(sources) {
   for (const [pattern, message] of [
     [/\.\.\/ui\/hosts\//, 'interaction harness still imports a retired UI host'],
     [/\.\.\/ui\/primitives\/layout/, 'interaction harness still imports retired layout code'],
+    [/\.\.\/ui\/primitives\/checkbox/, 'interaction harness still imports retired checkbox code'],
     [/ContentDialogHost|ShadowDialogHost/, 'interaction harness still names a retired dialog host']
   ]) {
     if (pattern.test(sources.harness)) {

@@ -9,7 +9,6 @@ import {
 import { buttonNode, div, element } from '../ui/stitch-surfaces/builders/primitives';
 import { applyValidationA11y } from '../ui/foundation/a11y';
 import { createPrimitiveButtonElement } from '../ui/primitives/button';
-import { createCheckboxElement } from '../ui/primitives/checkbox';
 import { createInputElement } from '../ui/primitives/input';
 import { createSelectElement } from '../ui/primitives/select';
 
@@ -86,24 +85,31 @@ function createOptionsContractPanel(): HTMLElement {
   const checkboxError = document.createElement('p');
   checkboxError.id = 'contract-checkbox-error';
   checkboxError.textContent = 'Confirmation is required.';
-  const checkbox = createCheckboxElement({
-    label: 'Require confirmation',
-    ariaLabel: 'Require confirmation',
-    validationState: 'error',
-    ariaDescribedBy: checkboxError.id,
-    dataAttributes: { contractRole: 'validated-checkbox' },
-    onChange(checked, event) {
+  const checkbox = runtimeContext.ui.Input('', {
+    type: 'checkbox',
+    className: 'checkbox checkbox-error',
+    dataset: { contractRole: 'validated-checkbox' },
+    onChange(event) {
       const target = event.target as HTMLInputElement;
+      const checked = target.checked;
       applyValidationA11y(target, checked ? 'default' : 'error', checkboxError.id);
       target.classList.toggle('checkbox-error', !checked);
       target.classList.toggle('checkbox-accent', checked);
     }
   });
+  checkbox.setAttribute('aria-label', 'Require confirmation');
+  applyValidationA11y(checkbox, 'error', checkboxError.id);
+  const checkboxLabel = el(
+    'label',
+    { className: 'inline-flex items-center gap-2 text-sm text-base-content' },
+    checkbox,
+    document.createTextNode('Require confirmation')
+  );
 
   fieldGrid?.append(
     input,
     inputError,
-    checkbox.root,
+    checkboxLabel,
     checkboxError,
     createSelectElement({
       value: 'b',

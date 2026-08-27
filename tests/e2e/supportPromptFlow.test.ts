@@ -4,15 +4,6 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const flushMicrotasks = () => new Promise((resolve) => setTimeout(resolve, 0));
 
-vi.mock('focus-trap', () => ({
-  createFocusTrap: () => ({
-    activate: vi.fn(),
-    deactivate: vi.fn(),
-    pause: vi.fn(),
-    unpause: vi.fn()
-  })
-}));
-
 const loadExtensionStyleMock = vi.hoisted(() =>
   vi.fn<(...args: [string]) => Promise<string>>(() => Promise.resolve('.prompt{}'))
 );

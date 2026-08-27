@@ -1,8 +1,8 @@
 {
   "schemaVersion": 1,
   "closureState": "intermediate",
-  "uiPathSetSha256": "d0e98f4870041846642e7b4c2debea3d0526205692e5d01c1579c0d4751f3a66",
-  "uiContentSha256": "702e0df9345f9bf65929b41061001ec4f8dd348621cc828943a621dc339ac675",
+  "uiPathSetSha256": "cce6073d52f6623662d0b8e4456aa8882e5da3dff92f8d5ecd63755a392e1ec4",
+  "uiContentSha256": "46137ac7cc9bd27c0348cd48793c1ab06e854efd7e118ae3128c37b3f20918d5",
   "rows": [
     {
       "path": "src/ui/domains/privacy/index.ts",
@@ -290,7 +290,6 @@
       "productionOwners": [
         "src/ui/foundation/a11y/index.ts",
         "src/ui/primitives/button/index.ts",
-        "src/ui/primitives/dialog/index.ts",
         "src/ui/primitives/input/index.ts",
         "src/ui/primitives/select/index.ts",
         "src/ui/primitives/textarea/index.ts"
@@ -352,132 +351,6 @@
         ]
       },
       "reason": "A reachable production source imports this TypeScript contract although it emits no runtime graph node."
-    },
-    {
-      "path": "src/ui/patterns/confirm-flow/index.ts",
-      "disposition": "retire-u02c3",
-      "productionOwners": [],
-      "replacement": {
-        "owner": "src/options/app/productionStitchActions.ts",
-        "milestone": "U02C3"
-      },
-      "evidence": {
-        "docs": ["docs/design-system-governance.md"],
-        "tests": ["tests/unit/tools/uiProductionOwnership.test.ts"],
-        "tools": [
-          "tools/report-production-build-graph.mjs",
-          "tools/report-ui-production-ownership.mjs"
-        ]
-      },
-      "reason": "This unowned pattern or primitive closes with its dependent facade in U02C3."
-    },
-    {
-      "path": "src/ui/patterns/form-components/index.ts",
-      "disposition": "retire-u02c3",
-      "productionOwners": [],
-      "replacement": {
-        "owner": "src/options/stitch/schema/builders/controls.ts",
-        "milestone": "U02C3"
-      },
-      "evidence": {
-        "docs": ["docs/design-system-governance.md"],
-        "tests": ["tests/unit/tools/uiProductionOwnership.test.ts"],
-        "tools": [
-          "tools/report-production-build-graph.mjs",
-          "tools/report-ui-production-ownership.mjs"
-        ]
-      },
-      "reason": "This unowned pattern or primitive closes with its dependent facade in U02C3."
-    },
-    {
-      "path": "src/ui/patterns/form-field/index.ts",
-      "disposition": "retire-u02c3",
-      "productionOwners": [],
-      "replacement": {
-        "owner": "src/options/stitch/schema/builders/controls.ts",
-        "milestone": "U02C3"
-      },
-      "evidence": {
-        "docs": ["docs/design-system-governance.md"],
-        "tests": ["tests/unit/tools/uiProductionOwnership.test.ts"],
-        "tools": [
-          "tools/report-production-build-graph.mjs",
-          "tools/report-ui-production-ownership.mjs"
-        ]
-      },
-      "reason": "This unowned pattern or primitive closes with its dependent facade in U02C3."
-    },
-    {
-      "path": "src/ui/patterns/message-block/index.ts",
-      "disposition": "retire-u02c3",
-      "productionOwners": [],
-      "replacement": {
-        "owner": "src/options/stitch/schema/builders/chrome.ts",
-        "milestone": "U02C3"
-      },
-      "evidence": {
-        "docs": ["docs/design-system-governance.md"],
-        "tests": ["tests/unit/tools/uiProductionOwnership.test.ts"],
-        "tools": [
-          "tools/report-production-build-graph.mjs",
-          "tools/report-ui-production-ownership.mjs"
-        ]
-      },
-      "reason": "This unowned pattern or primitive closes with its dependent facade in U02C3."
-    },
-    {
-      "path": "src/ui/patterns/section-shell/index.ts",
-      "disposition": "retire-u02c3",
-      "productionOwners": [],
-      "replacement": {
-        "owner": "src/options/stitch/schema/builders/chrome.ts",
-        "milestone": "U02C3"
-      },
-      "evidence": {
-        "docs": ["docs/design-system-governance.md"],
-        "tests": ["tests/unit/tools/uiProductionOwnership.test.ts"],
-        "tools": [
-          "tools/report-production-build-graph.mjs",
-          "tools/report-ui-production-ownership.mjs"
-        ]
-      },
-      "reason": "This unowned pattern or primitive closes with its dependent facade in U02C3."
-    },
-    {
-      "path": "src/ui/patterns/setting-row/index.ts",
-      "disposition": "retire-u02c3",
-      "productionOwners": [],
-      "replacement": {
-        "owner": "src/options/stitch/schema/builders/controls.ts",
-        "milestone": "U02C3"
-      },
-      "evidence": {
-        "docs": ["docs/design-system-governance.md"],
-        "tests": ["tests/unit/tools/uiProductionOwnership.test.ts"],
-        "tools": [
-          "tools/report-production-build-graph.mjs",
-          "tools/report-ui-production-ownership.mjs"
-        ]
-      },
-      "reason": "This unowned pattern or primitive closes with its dependent facade in U02C3."
-    },
-    {
-      "path": "src/ui/primitives/alert/index.ts",
-      "disposition": "retire-u02c3",
-      "productionOwners": [],
-      "replacement": {
-        "owner": "src/options/app/productionStitchStorageFeedback.ts",
-        "milestone": "U02C3"
-      },
-      "evidence": {
-        "docs": ["docs/design-system-governance.md"],
-        "tests": ["tests/unit/tools/uiProductionOwnership.test.ts"],
-        "tools": [
-          "tools/report-production-build-graph.mjs",
-          "tools/report-ui-production-ownership.mjs"
-        ]
-      },
-      "reason": "This unowned pattern or primitive closes with its dependent facade in U02C3."
     },
     {
       "path": "src/ui/primitives/badge/index.ts",
@@ -548,46 +421,6 @@
       "reason": "Production runtime reachability is proven by the freshly generated build graph."
     },
     {
-      "path": "src/ui/primitives/checkbox/index.ts",
-      "disposition": "retire-u02c3",
-      "productionOwners": [],
-      "replacement": {
-        "owner": "src/options/stitch/schema/builders/controls.ts",
-        "milestone": "U02C3"
-      },
-      "evidence": {
-        "docs": ["docs/design-system-governance.md"],
-        "tests": ["tests/unit/tools/uiProductionOwnership.test.ts"],
-        "tools": [
-          "tools/report-production-build-graph.mjs",
-          "tools/report-ui-production-ownership.mjs"
-        ]
-      },
-      "reason": "This unowned pattern or primitive closes with its dependent facade in U02C3."
-    },
-    {
-      "path": "src/ui/primitives/dialog/index.ts",
-      "disposition": "production-runtime",
-      "productionOwners": [
-        "src/content/index.ts",
-        "src/content/reader/readerLazyRuntime.ts",
-        "src/content/video/videoLazyRuntime.ts"
-      ],
-      "replacement": {
-        "owner": "src/ui/primitives/dialog/index.ts",
-        "milestone": "current-production"
-      },
-      "evidence": {
-        "docs": ["docs/design-system-governance.md"],
-        "tests": ["tests/unit/tools/uiProductionOwnership.test.ts"],
-        "tools": [
-          "tools/report-production-build-graph.mjs",
-          "tools/report-ui-production-ownership.mjs"
-        ]
-      },
-      "reason": "Production runtime reachability is proven by the freshly generated build graph."
-    },
-    {
       "path": "src/ui/primitives/input/index.ts",
       "disposition": "production-runtime",
       "productionOwners": [
@@ -611,60 +444,6 @@
         ]
       },
       "reason": "Production runtime reachability is proven by the freshly generated build graph."
-    },
-    {
-      "path": "src/ui/primitives/layout/index.ts",
-      "disposition": "retire-u02c3",
-      "productionOwners": [],
-      "replacement": {
-        "owner": "src/ui/stitch-surfaces/builders/primitives.ts",
-        "milestone": "U02C3"
-      },
-      "evidence": {
-        "docs": ["docs/design-system-governance.md"],
-        "tests": ["tests/unit/tools/uiProductionOwnership.test.ts"],
-        "tools": [
-          "tools/report-production-build-graph.mjs",
-          "tools/report-ui-production-ownership.mjs"
-        ]
-      },
-      "reason": "This unowned pattern or primitive closes with its dependent facade in U02C3."
-    },
-    {
-      "path": "src/ui/primitives/panel/index.ts",
-      "disposition": "retire-u02c3",
-      "productionOwners": [],
-      "replacement": {
-        "owner": "src/ui/stitch-surfaces/builders/surfaceChrome.ts",
-        "milestone": "U02C3"
-      },
-      "evidence": {
-        "docs": ["docs/design-system-governance.md"],
-        "tests": ["tests/unit/tools/uiProductionOwnership.test.ts"],
-        "tools": [
-          "tools/report-production-build-graph.mjs",
-          "tools/report-ui-production-ownership.mjs"
-        ]
-      },
-      "reason": "This unowned pattern or primitive closes with its dependent facade in U02C3."
-    },
-    {
-      "path": "src/ui/primitives/radio-group/index.ts",
-      "disposition": "retire-u02c3",
-      "productionOwners": [],
-      "replacement": {
-        "owner": "src/options/stitch/schema/builders/controls.ts",
-        "milestone": "U02C3"
-      },
-      "evidence": {
-        "docs": ["docs/design-system-governance.md"],
-        "tests": ["tests/unit/tools/uiProductionOwnership.test.ts"],
-        "tools": [
-          "tools/report-production-build-graph.mjs",
-          "tools/report-ui-production-ownership.mjs"
-        ]
-      },
-      "reason": "This unowned pattern or primitive closes with its dependent facade in U02C3."
     },
     {
       "path": "src/ui/primitives/select/index.ts",

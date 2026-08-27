@@ -1,6 +1,6 @@
 # 设计系统治理基线
 
-日期：2026-08-26
+日期：2026-08-27
 
 适用范围：Options、content、onboarding 的共享 UI、样式宿主、运行时 surface 与长期守门规则。
 
@@ -49,6 +49,7 @@ background 或 platform feature。
 - content 的 Daisy wrapper、旧 ReaderDialog / VideoDialog wrapper
 - 旧 content/shadow/options host shell 与重复 domain view
 - 已删除的 theme、vault-router、reader、video、support-prompt UI-domain barrel
+- U02C3 删除的六个 patterns、六个 primitives、旧 focus-trap 与其专用 facades
 
 ## 2. 组件分层规则
 
@@ -59,7 +60,8 @@ background 或 platform feature。
 
 ### primitives
 
-- 统一基础语义：variant、size、loading、validationState、dialog marker 与 dismiss contract。
+- 保留的基础 owner 只承接仍由生产/runtime 使用的 button、input、select、textarea、toggle、badge、card 与 table 等能力。
+- checkbox 与 dialog 语义由 neutral runtime input/modal contract 持有，不恢复已删除的专用 primitive。
 - 不允许在 neutral runtime 之外复制 button、dialog 或表单控件语义。
 - manifest 中的每个 primitive 都必须有逐文件 disposition；目录存在本身不构成保留理由。
 
@@ -72,7 +74,7 @@ background 或 platform feature。
 ### patterns / hosts / domains
 
 - patterns、hosts、domains 不再享有目录级默认保留。
-- C3 待退役行只能按 ownership manifest 中的精确 path 和 replacement 执行。
+- U02C3 的十二条 retirement row 已随其完整 dependent closure 删除，manifest 不再保留这些路径。
 - 当前生产 owner 必须由生产 build graph 或 compile-import proof 支撑。
 - 最终 closureState 为 final 时，只允许 production-runtime 与 production-compile 行。
 
@@ -94,7 +96,7 @@ background 或 platform feature。
 
 - modal 由 neutral runtime 输出 `role="dialog"` 与 aria-modal。
 - 关闭行为通过显式 action/dispatch 实现，不复制旧 host lifecycle。
-- `src/dev/interactionContractHarness.ts` 仅消费 neutral runtime/surface builder，并保留 Open dialog 浏览器 smoke contract。
+- `src/dev/interactionContractHarness.ts` 仅消费 neutral runtime/surface builder；checkbox probe 使用 neutral runtime input 的 `type: checkbox` 路径，并保留真实 validation 与 Open dialog 浏览器 smoke contract。
 
 ## 4. 样式与 Token 真值
 
@@ -155,4 +157,5 @@ onboarding。Tailwind / DaisyUI 相关文档、注释或历史记录只用于迁
 - 先确认真实 production owner，再决定新增 neutral primitive、surface 或 feature-local 实现。
 - 新增 UI 路径必须同步 ownership manifest 的精确行、digest、生产图证据和 focused test。
 - 删除路径必须完成六类 owner proof，不得依赖目录约定或仅凭单测缺失判断。
+- 当前 U02C3 后的 manifest 为 54 条 UI 路径，并仍仅含两条 U02C4 `deferred-state-convergence` 行。
 - 若重新引入已退役 wrapper/alias，应视为架构回退并阻塞合并。

@@ -46,6 +46,17 @@ describe('interaction contract audit', () => {
     );
   });
 
+  it('rejects the retired checkbox primitive import', () => {
+    const sources = readInteractionContractSources();
+    const retiredCheckboxImport = `../ui/primitives/${'check'}${'box'}`;
+    const findings = collectInteractionContractFindings({
+      ...sources,
+      harness: `${sources.harness}\nimport '${retiredCheckboxImport}';\n`
+    });
+
+    expect(findings).toContain('interaction harness still imports retired checkbox code');
+  });
+
   it('requires the visible dialog smoke action and both neutral panels', () => {
     const sources = readInteractionContractSources();
     const findings = collectInteractionContractFindings({
@@ -72,7 +83,9 @@ describe('interaction contract audit', () => {
       harness: sources.harness
         .replaceAll('createPrimitiveButtonElement', 'removedButtonProbe')
         .replaceAll('createInputElement', 'removedInputProbe')
-        .replaceAll('createCheckboxElement', 'removedCheckboxProbe')
+        .replaceAll('runtimeContext.ui.Input', 'removedNeutralRuntimeInput')
+        .replace("type: 'checkbox'", "type: 'text'")
+        .replaceAll('validated-checkbox', 'removed-checkbox-state')
         .replaceAll('applyValidationA11y', 'removedValidationBehavior')
         .replaceAll('loading-danger-button', 'removed-loading-state')
     });
@@ -81,7 +94,8 @@ describe('interaction contract audit', () => {
       expect.arrayContaining([
         'interaction harness missing the retained loading danger button probe',
         'interaction harness missing the retained input validation probe',
-        'interaction harness missing the retained checkbox validation probe',
+        'interaction harness missing the neutral runtime checkbox validation probe',
+        'interaction harness missing the executable checkbox state marker',
         'interaction harness missing the loading danger state',
         'interaction harness missing executable validation state changes'
       ])

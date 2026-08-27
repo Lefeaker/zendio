@@ -11,15 +11,6 @@ import { panelStyleSheetManager } from '../../../../src/content/shared/panels/st
 import type { StyleAttachmentHandle } from '../../../../src/ui/foundation/style-host';
 import { testPlatformHarness } from '../../../setup/globalSetup';
 
-vi.mock('focus-trap', () => ({
-  createFocusTrap: () => ({
-    activate: vi.fn(),
-    deactivate: vi.fn(),
-    pause: vi.fn(),
-    unpause: vi.fn()
-  })
-}));
-
 vi.mock('@content/runtime/popupCoordinatorAccess', () => ({
   resolveContentPopupCoordinator: () => null
 }));

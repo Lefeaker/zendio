@@ -28,15 +28,6 @@ function createDeferred<T>(): Deferred<T> {
   return { promise, resolve, reject };
 }
 
-vi.mock('focus-trap', () => ({
-  createFocusTrap: () => ({
-    activate: vi.fn(),
-    deactivate: vi.fn(),
-    pause: vi.fn(),
-    unpause: vi.fn()
-  })
-}));
-
 const loadExtensionStyleMock = vi.hoisted(() =>
   vi.fn((path: string) => Promise.resolve(`/* ${path} */ .stitch-runtime{display:block;}`))
 );

@@ -52,15 +52,6 @@ function createStyleAttachmentHandle(root: ShadowRoot): StyleAttachmentHandleMoc
   };
 }
 
-vi.mock('focus-trap', () => ({
-  createFocusTrap: () => ({
-    activate: vi.fn(),
-    deactivate: vi.fn(),
-    pause: vi.fn(),
-    unpause: vi.fn()
-  })
-}));
-
 const ensureContentI18nMock = vi.hoisted(() => vi.fn(() => Promise.resolve(undefined)));
 const getContentI18nBinderMock = vi.hoisted(() => vi.fn(() => null));
 const getContentI18nResourceMock = vi.hoisted(() => vi.fn(() => ({ messages: null })));
