@@ -237,13 +237,6 @@ const EXPLICIT_CLASSIFICATION_PATTERNS = [
     deletionCondition: 'delete only after public utility imports move to concrete modules'
   },
   {
-    pattern: 'src/shared/config/types.ts',
-    decision: 'retain-production-facade',
-    owner: 'shared configuration type contract',
-    deletionCondition:
-      'delete only after all config type exports move to current shared schemas/types'
-  },
-  {
     pattern: 'src/shared/errors/analytics/analyticsConfig.template.ts',
     decision: 'retain-production-facade',
     owner: 'analytics error configuration template contract',

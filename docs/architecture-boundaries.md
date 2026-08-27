@@ -23,7 +23,7 @@
 - `src/ui/patterns/*`：结构组合层，不直接读 store / repository。
 - `src/ui/stitch-runtime/*` / `src/ui/stitch-surfaces/*`：neutral runtime 与共享 surface graph。
 - `src/ui/foundation/style-host/*`：共享样式注入边界；`src/ui/hosts/*` 只保留 content focus 与 shared host contract helper。
-- `src/ui/domains/usage-chart/*`：当前唯一共享 UI domain 实现；`src/ui/domains/privacy/*` 只保留 type compatibility。
+- `src/ui/domains/usage-chart/*`：当前唯一共享 UI domain 实现。
 
 ## 3. domains 与 features 的依赖方向
 

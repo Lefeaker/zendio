@@ -38,8 +38,8 @@ background 或 platform feature。
 - Support Prompt：`src/content/ui/supportPrompt.ts`
 - 使用量图表仍由 manifest 中的 usage-chart production-runtime 行持有
 
-旧 domain/host 壳已删除。隐私迁移期仅保留 manifest 中两条 U02C4
-`deferred-state-convergence` 类型契约；它们不是第二套 view、controller 或 persistence owner。
+旧 domain/host 壳已删除。隐私契约已收敛到 schema-derived
+`PrivacyPreferencesOptions` 与 repository patch owner，不再保留 UI-domain compatibility 类型。
 
 ### 已退役入口
 
@@ -157,5 +157,5 @@ onboarding。Tailwind / DaisyUI 相关文档、注释或历史记录只用于迁
 - 先确认真实 production owner，再决定新增 neutral primitive、surface 或 feature-local 实现。
 - 新增 UI 路径必须同步 ownership manifest 的精确行、digest、生产图证据和 focused test。
 - 删除路径必须完成六类 owner proof，不得依赖目录约定或仅凭单测缺失判断。
-- 当前 U02C3 后的 manifest 为 54 条 UI 路径，并仍仅含两条 U02C4 `deferred-state-convergence` 行。
+- 当前 U02C4 final manifest 为 52 条 UI 路径，只包含 production-runtime 与 production-compile 行。
 - 若重新引入已退役 wrapper/alias，应视为架构回退并阻塞合并。

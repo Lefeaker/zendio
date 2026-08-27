@@ -1,45 +1,9 @@
 {
   "schemaVersion": 1,
-  "closureState": "intermediate",
-  "uiPathSetSha256": "cce6073d52f6623662d0b8e4456aa8882e5da3dff92f8d5ecd63755a392e1ec4",
-  "uiContentSha256": "46137ac7cc9bd27c0348cd48793c1ab06e854efd7e118ae3128c37b3f20918d5",
+  "closureState": "final",
+  "uiPathSetSha256": "423c137c933bdb1fe42b13be3cd54726ccf7575a0d8416d2e775f42c3ddb17bd",
+  "uiContentSha256": "40d87aa45628ed6468982b106507adac0a1d5f093a73442ed1ea34c6c8f3418c",
   "rows": [
-    {
-      "path": "src/ui/domains/privacy/index.ts",
-      "disposition": "deferred-state-convergence",
-      "productionOwners": [],
-      "replacement": {
-        "owner": "src/shared/schemas/options.schema.ts",
-        "milestone": "U02C4"
-      },
-      "evidence": {
-        "docs": ["docs/design-system-governance.md"],
-        "tests": ["tests/unit/tools/uiProductionOwnership.test.ts"],
-        "tools": [
-          "tools/report-production-build-graph.mjs",
-          "tools/report-ui-production-ownership.mjs"
-        ]
-      },
-      "reason": "This temporary privacy contract remains only until state convergence permits U02C4 closure."
-    },
-    {
-      "path": "src/ui/domains/privacy/privacySettingsTypes.ts",
-      "disposition": "deferred-state-convergence",
-      "productionOwners": [],
-      "replacement": {
-        "owner": "src/shared/schemas/options.schema.ts",
-        "milestone": "U02C4"
-      },
-      "evidence": {
-        "docs": ["docs/design-system-governance.md"],
-        "tests": ["tests/unit/tools/uiProductionOwnership.test.ts"],
-        "tools": [
-          "tools/report-production-build-graph.mjs",
-          "tools/report-ui-production-ownership.mjs"
-        ]
-      },
-      "reason": "This temporary privacy contract remains only until state convergence permits U02C4 closure."
-    },
     {
       "path": "src/ui/domains/usage-chart/index.ts",
       "disposition": "production-runtime",

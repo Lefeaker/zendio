@@ -19,10 +19,8 @@ Options 和 onboarding 都读写同一 `privacyPreferences` 对象。生产 acti
 Options persistence 随后同步运行时 analytics/error reporter 状态并调度保存。
 不存在第二套 privacy view/controller/persistence 实现。
 
-UI ownership manifest 在当前 intermediate 状态保留恰好两条 U02C4
-`deferred-state-convergence` 类型契约。它们只维持编译边界，不拥有运行时行为；
-最终状态会删除这两条记录，并继续使用 schema-derived
-`PrivacyPreferencesOptions` 与 repository patch contract。
+UI ownership manifest 已进入 final 状态，不再保留 privacy UI-domain compatibility 类型。
+当前唯一契约为 schema-derived `PrivacyPreferencesOptions` 与 repository patch contract。
 
 ## 用户可控制的内容
 

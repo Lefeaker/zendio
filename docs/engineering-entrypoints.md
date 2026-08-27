@@ -445,7 +445,7 @@ warning `108` / hard stop `118`；2026-06-20 Options/onboarding closeout 将
 - patterns：`src/ui/patterns/*`
 - neutral runtime / surfaces：`src/ui/stitch-runtime/*`、`src/ui/stitch-surfaces/*`
 - retained shared host helpers：`src/ui/foundation/style-host/*`、`src/ui/hosts/content/contentDialogFocus.ts`、`src/ui/hosts/shared/contract.ts`
-- retained shared domain owner：`src/ui/domains/usage-chart/*`；`src/ui/domains/privacy/*` 只保留 type compatibility，不拥有 UI/runtime
+- retained shared domain owner：`src/ui/domains/usage-chart/*`
 - Options 主链：`src/options/index.ts -> src/options/app/bootstrap.ts`
 - content 主链：`src/content/index.ts -> src/content/runtime/*`
 
@@ -453,7 +453,6 @@ warning `108` / hard stop `118`；2026-06-20 Options/onboarding closeout 将
 
 - `src/content/video/session.ts`
 - `src/content/video/platforms/bilibiliPlatform.ts`
-- `src/ui/domains/privacy/index.ts`（type-only compatibility barrel）
 
 ## MCP / 本地浏览器调试入口
 
