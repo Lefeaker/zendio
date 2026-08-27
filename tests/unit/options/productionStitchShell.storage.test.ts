@@ -57,7 +57,7 @@ describe('mountProductionStitchShell storage', () => {
               vault: 'Research Vault',
               httpsUrl: LOCAL_HTTPS_URL,
               httpUrl: LOCAL_HTTP_URL,
-              apiKey: 'token',
+              apiKey: 'token-12345',
               enabled: false,
               isDefault: true
             }
@@ -190,7 +190,7 @@ describe('mountProductionStitchShell storage', () => {
               vault: 'Research Vault',
               httpsUrl: LOCAL_HTTPS_URL,
               httpUrl: LOCAL_HTTP_URL,
-              apiKey: 'token',
+              apiKey: 'token-12345',
               enabled: true,
               isDefault: true
             }
@@ -234,7 +234,7 @@ describe('mountProductionStitchShell storage', () => {
         baseUrl: LOCAL_HTTPS_URL,
         httpsUrl: LOCAL_HTTPS_URL,
         httpUrl: LOCAL_HTTP_URL,
-        apiKey: 'token'
+        apiKey: 'token-12345'
       },
       vaultRouter: {
         defaultVaultId: 'research',
@@ -245,7 +245,7 @@ describe('mountProductionStitchShell storage', () => {
             vault: 'Research Vault',
             httpsUrl: LOCAL_HTTPS_URL,
             httpUrl: LOCAL_HTTP_URL,
-            apiKey: 'token',
+            apiKey: 'token-12345',
             enabled: true,
             isDefault: true
           }
@@ -271,6 +271,7 @@ describe('mountProductionStitchShell storage', () => {
       getDraft: () => draft,
       getMessagingRepository: () => createMessaging({ success: true }) as never,
       getState: () => state as never,
+      isActive: () => true,
       setConnectionNotice: vi.fn(),
       refreshAppData: vi.fn(),
       render: vi.fn(),
@@ -310,7 +311,7 @@ describe('mountProductionStitchShell storage', () => {
             vault: 'Research Vault',
             httpsUrl: LOCAL_HTTPS_URL,
             httpUrl: LOCAL_HTTP_URL,
-            apiKey: 'token'
+            apiKey: 'token-12345'
           },
           'Inbox/'
         )
@@ -359,7 +360,7 @@ describe('mountProductionStitchShell storage', () => {
           vault: 'Research Vault',
           httpsUrl: LOCAL_HTTPS_URL,
           httpUrl: LOCAL_HTTP_URL,
-          apiKey: 'token'
+          apiKey: 'token-12345'
         }
       },
       messages: null,
@@ -478,7 +479,7 @@ describe('mountProductionStitchShell storage', () => {
           vault: 'Research Vault',
           httpsUrl: LOCAL_HTTPS_URL,
           httpUrl: LOCAL_HTTP_URL,
-          apiKey: 'token',
+          apiKey: 'token-12345',
           localFolderId: 'folder-main',
           localFolderName: 'Local Vault'
         },
@@ -491,7 +492,7 @@ describe('mountProductionStitchShell storage', () => {
               vault: 'Research Vault',
               httpsUrl: LOCAL_HTTPS_URL,
               httpUrl: LOCAL_HTTP_URL,
-              apiKey: 'token',
+              apiKey: 'token-12345',
               localFolderId: 'folder-main',
               localFolderName: 'Local Vault',
               enabled: true,
@@ -641,7 +642,7 @@ describe('mountProductionStitchShell storage', () => {
               vault: 'Research Vault',
               httpsUrl: LOCAL_HTTPS_URL,
               httpUrl: LOCAL_HTTP_URL,
-              apiKey: 'token',
+              apiKey: 'token-12345',
               enabled: true,
               isDefault: true,
               rules: [
@@ -772,7 +773,7 @@ describe('mountProductionStitchShell storage', () => {
         rest: {
           vault: 'Research Vault',
           httpsUrl: LOCAL_HTTPS_URL,
-          apiKey: 'bad-token'
+          apiKey: 'bad-token-1'
         },
         vaultRouter: {
           defaultVaultId: 'research',
@@ -783,7 +784,7 @@ describe('mountProductionStitchShell storage', () => {
               vault: 'Research Vault',
               httpsUrl: LOCAL_HTTPS_URL,
               httpUrl: LOCAL_HTTP_URL,
-              apiKey: 'bad-token',
+              apiKey: 'bad-token-1',
               localFolderId: 'folder-local',
               localFolderName: 'LocalFolder',
               enabled: true,

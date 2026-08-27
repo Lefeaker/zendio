@@ -158,6 +158,7 @@ describe('mountProductionStitchShell theme', () => {
     });
 
     const main = queryRequired<HTMLElement>('.main');
+    const overview = queryRequired<HTMLElement>('[data-panel-id="overview"]');
     const purpleButton = requireElement(
       Array.from(document.querySelectorAll<HTMLButtonElement>('.chips button')).find(
         (button) => button.textContent === 'Solid purple'
@@ -168,6 +169,7 @@ describe('mountProductionStitchShell theme', () => {
     purpleButton.click();
 
     expect(document.querySelector('.main')).toBe(main);
+    expect(document.querySelector('[data-panel-id="overview"]')).toBe(overview);
     expect(mounted.collectDraft().readingSession.highlightTheme).toBe('purple');
     expect(purpleButton?.getAttribute('aria-pressed')).toBe('true');
     expect(

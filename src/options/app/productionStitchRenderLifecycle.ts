@@ -6,12 +6,17 @@ import {
 } from '@options/stitch/render/shellBuilders';
 import { renderPreviewView } from '@options/stitch/render/renderStitchView';
 import { clear, el } from '@ui/stitch-runtime';
+import type {
+  SectionInvalidationOwner,
+  SectionInvalidationRequest
+} from '@ui/stitch-runtime/render/sectionInvalidation';
 import { previewUi } from '@options/stitch/ui/components';
 import type { PreviewStoreState } from '@options/stitch/types';
 import { RUNTIME_SURFACE_RESOURCE_IDS } from './productionStitchStateMapper';
 import { setScrollTopImmediately } from './productionStitchScrollGuard';
 import { createProductionStitchRenderControls } from './productionStitchRenderControls';
 import { installLocalFolderDismissal } from './productionStitchLocalFolderDismissal';
+import { type ProductionStitchSectionHandlers } from './productionStitchShellRenderDelegates';
 import type {
   ProductionStitchRenderLifecycle,
   ProductionStitchRenderLifecycleOptions,
@@ -32,30 +37,52 @@ export function createProductionStitchRenderLifecycle(
     options.getFooterView ?? testAssets?.getFooterView ?? (() => null);
   const getSettingsView: NonNullable<ProductionStitchRenderLifecycleOptions['getSettingsView']> =
     options.getSettingsView ?? testAssets?.getSettingsView ?? (() => null);
-  const { mountRoot } = options;
-  let explicitScrollIntentVersion = 0;
+  const { getState, mountRoot, setState } = options;
   const controls = createProductionStitchRenderControls({
     mountRoot,
-    getState: () => options.getState()
+    getState
   });
-
-  const setState = (state: PreviewStoreState): void => options.setState(state);
-  const folderDismissal = installLocalFolderDismissal(mountRoot, getState, setState, render);
-
-  function getState(): PreviewStoreState {
-    return options.getState();
-  }
-
+  const folderDismissal = installLocalFolderDismissal(mountRoot, getState, setState, () =>
+    render('storage')
+  );
+  const handlers: ProductionStitchSectionHandlers = {
+    theme: controls.syncPreviewThemeControls,
+    sidebar: syncActiveLinks,
+    'resource-modal': renderActiveResourceModal,
+    'overview-usage': () => {
+      replacePanel('overview');
+      renderUsageChart();
+    },
+    storage: () => replacePanel('storage'),
+    'capture-sources': () => replacePanel('capture-sources'),
+    'capture-behavior': () => {
+      replacePanel('capture-behavior');
+      controls.syncHighlightThemeControls();
+      controls.syncModifierControls();
+    },
+    output: () => replacePanel('output'),
+    maintenance: () => replacePanel('maintenance'),
+    'locale-schema': renderAll,
+    'all-invariant-recovery': renderAll
+  };
+  let disposed = false;
+  let invalidation: SectionInvalidationOwner | null = null;
+  void import('@ui/stitch-runtime/render/sectionInvalidation').then((owner) => {
+    if (!disposed)
+      invalidation = owner.createSectionInvalidationOwner({
+        handlers,
+        capture: () => owner.captureSectionDomSnapshot(mountRoot),
+        restore: (snapshot) => owner.restoreSectionDomSnapshot(mountRoot, snapshot)
+      });
+  });
   function createRenderContext() {
     return {
       ...options.createSchemaContext(),
       el,
       ui: previewUi,
-      dispatch: (actionId: string, args?: unknown[], value?: unknown, event?: Event) =>
-        options.dispatch(actionId, args, value, event),
+      dispatch: options.dispatch,
       resolveAssetUrl: options.resolveAssetUrl,
-      mountWidget: (widgetType: string, host: HTMLElement) =>
-        options.widgetHost.mountWidget(widgetType, host)
+      mountWidget: options.widgetHost.mountWidget
     };
   }
 
@@ -70,10 +97,6 @@ export function createProductionStitchRenderLifecycle(
       },
       settingsTitle: '',
       resourcesTitle: '',
-      /*
-       * Runtime surface previews remain available to tests and preview harnesses,
-       * but the production Options sidebar must not expose them as release UI.
-       */
       runtimeTitle: '',
       navItems: context.appData.nav,
       sidebarLinks: context.appData.sidebarLinks,
@@ -85,72 +108,58 @@ export function createProductionStitchRenderLifecycle(
     });
   }
 
-  function renderSectionStack(): HTMLElement {
-    return buildPanelStack({
-      el,
-      items: options.getAppData().nav,
-      renderSection: (panelId) => {
-        const view = getSettingsView(panelId, options.createSchemaContext());
-        const content = view ? options.schemaRenderer.renderView(view as never) : el('div');
-        return buildScrollSection({ el, panelId, content });
-      }
-    });
+  function renderSection(panelId: string): HTMLElement {
+    const view = getSettingsView(panelId, options.createSchemaContext());
+    const content = view ? options.schemaRenderer.renderView(view as never) : el('div');
+    return buildScrollSection({ el, panelId, content });
   }
 
-  function render(): void {
-    const previousMain = mountRoot.querySelector('.main');
-    const previousScrollTop = previousMain instanceof HTMLElement ? previousMain.scrollTop : 0;
-    const previousWindowScroll = {
-      x: window.scrollX,
-      y: window.scrollY
-    };
-    const restoreVersion = explicitScrollIntentVersion;
+  function renderUsageChart(): void {
+    const chartHost = mountRoot.querySelector<HTMLElement>('[data-role="usage-chart-shell"]');
+    if (chartHost) previewUi.renderUsageChart(chartHost, options.getAppData().overview.history);
+  }
+
+  function renderAll(): void {
     options.widgetHost.flushDirtyWidgets();
     options.widgetHost.destroyWidgets();
     clear(mountRoot).append(
       buildAppShell({
         el,
         sidebar: renderSidebar(),
-        panelStack: renderSectionStack()
+        panelStack: buildPanelStack({ el, items: options.getAppData().nav, renderSection })
       })
     );
-    const nextMain = mountRoot.querySelector('.main');
-    const restoreScroll = () => {
-      if (restoreVersion !== explicitScrollIntentVersion) {
-        return;
-      }
-      const currentMain = mountRoot.querySelector('.main');
-      if (currentMain instanceof HTMLElement) {
-        setScrollTopImmediately(currentMain, previousScrollTop);
-      }
-      if (window.scrollX !== previousWindowScroll.x || window.scrollY !== previousWindowScroll.y) {
-        window.scrollTo(previousWindowScroll.x, previousWindowScroll.y);
-      }
-    };
-    if (nextMain instanceof HTMLElement) {
-      restoreScroll();
-      bindScrollSync(nextMain);
-      queueMicrotask(restoreScroll);
-      window.requestAnimationFrame?.(() => restoreScroll());
-    }
-    const chartHost = mountRoot.querySelector<HTMLElement>('[data-role="usage-chart-shell"]');
-    if (chartHost) {
-      previewUi.renderUsageChart(chartHost, options.getAppData().overview.history);
-    }
+    const main = mountRoot.querySelector<HTMLElement>('.main');
+    if (main) bindScrollSync(main);
+    renderUsageChart();
     controls.syncPreviewThemeControls();
     controls.syncHighlightThemeControls();
     controls.syncModifierControls();
     renderActiveResourceModal();
   }
 
+  function replacePanel(panelId: string): void {
+    if (panelId === 'output') {
+      options.widgetHost.flushDirtyWidgets();
+      options.widgetHost.destroyWidgets();
+    }
+    mountRoot.querySelector(`[data-panel-id="${panelId}"]`)?.replaceWith(renderSection(panelId));
+  }
+
+  const render = (scopes: SectionInvalidationRequest): void => {
+    if (disposed) return;
+    if (invalidation) return invalidation.invalidate(scopes);
+    (typeof scopes === 'string' ? [scopes] : scopes).forEach((scope) => {
+      const handler = handlers[scope];
+      if (!handler) throw new Error(`UNKNOWN_SECTION_INVALIDATION_SCOPE:${scope}`);
+      handler();
+    });
+  };
+
   function openResource(resourceId: string): void {
-    if (RUNTIME_SURFACE_RESOURCE_IDS.has(resourceId)) {
-      return;
-    }
+    if (RUNTIME_SURFACE_RESOURCE_IDS.has(resourceId)) return;
     const meta = getFooterMeta(resourceId);
-    if (!meta) {
-      return;
-    }
+    if (!meta) return;
     if (meta.openMode === 'page') {
       const href = resourceId === 'onboarding' ? '../onboarding/index.html' : meta.href;
       window.open(href ?? `./${resourceId}.html`, '_blank', 'noopener,noreferrer');
@@ -166,18 +175,13 @@ export function createProductionStitchRenderLifecycle(
   function renderActiveResourceModal(): void {
     mountRoot.querySelectorAll('.resource-modal-overlay').forEach((modal) => modal.remove());
     const state = getState();
-    if (!state.activeResource) {
-      return;
-    }
+    if (!state.activeResource) return;
     const view = getFooterView(state.activeResource, options.createSchemaContext());
     const modal = view ? renderPreviewView(view, createRenderContext()) : null;
-    if (modal) {
-      mountRoot.querySelector<HTMLElement>('[data-modal-host="true"]')?.append(modal);
-    }
+    if (modal) mountRoot.querySelector<HTMLElement>('[data-modal-host="true"]')?.append(modal);
   }
 
   function scrollToPanel(panelId: string): void {
-    explicitScrollIntentVersion += 1;
     options.setState({
       ...getState(),
       activePanel: panelId
@@ -228,14 +232,18 @@ export function createProductionStitchRenderLifecycle(
   }
 
   return {
-    applySystemThemePreferenceChange: () => controls.applySystemThemePreferenceChange(),
-    cleanup: () => folderDismissal.cleanup(),
+    applySystemThemePreferenceChange: controls.applySystemThemePreferenceChange,
+    cleanup: () => {
+      disposed = true;
+      invalidation?.dispose();
+      folderDismissal.cleanup();
+    },
     openResource,
     render,
     renderActiveResourceModal,
     scrollToPanel,
-    syncHighlightThemeControls: () => controls.syncHighlightThemeControls(),
-    syncModifierControls: () => controls.syncModifierControls(),
-    syncPreviewThemeControls: () => controls.syncPreviewThemeControls()
+    syncHighlightThemeControls: controls.syncHighlightThemeControls,
+    syncModifierControls: controls.syncModifierControls,
+    syncPreviewThemeControls: controls.syncPreviewThemeControls
   };
 }

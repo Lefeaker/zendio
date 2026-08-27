@@ -1065,4 +1065,34 @@ describe('mountProductionStitchShell renderLifecycle', () => {
       })
     );
   });
+
+  it('replaces only the invalidated storage owner and preserves unrelated roots and widgets', async () => {
+    mountProductionStitchShell({
+      controller: asOptionsController(createController()),
+      initialOptions: null,
+      messages: null,
+      language: 'en'
+    });
+    await flushPromises();
+    const main = queryRequired<HTMLElement>('.main');
+    const storage = queryRequired<HTMLElement>('[data-panel-id="storage"]');
+    const unrelated = new Map(
+      ['overview', 'capture-sources', 'capture-behavior', 'output', 'maintenance'].map((id) => [
+        id,
+        queryRequired<HTMLElement>(`[data-panel-id="${id}"]`)
+      ])
+    );
+    const yamlWidget = queryRequired<HTMLElement>('.stitch-yaml-config-widget');
+    main.scrollTop = 512;
+
+    findButton('Add Vault').click();
+
+    expect(document.querySelector('[data-panel-id="storage"]')).not.toBe(storage);
+    unrelated.forEach((root, id) => {
+      expect(document.querySelector(`[data-panel-id="${id}"]`)).toBe(root);
+    });
+    expect(document.querySelector('.main')).toBe(main);
+    expect(document.querySelector('.stitch-yaml-config-widget')).toBe(yamlWidget);
+    expect(main.scrollTop).toBe(512);
+  });
 });

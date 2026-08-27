@@ -1,0 +1,122 @@
+/* @vitest-environment jsdom */
+
+import {
+  SECTION_INVALIDATION_SCOPES,
+  captureSectionDomSnapshot,
+  createSectionInvalidationOwner,
+  restoreSectionDomSnapshot,
+  type SectionInvalidationScope
+} from '@ui/stitch-runtime/render/sectionInvalidation';
+import { describe, expect, it, vi } from 'vitest';
+
+describe('section invalidation owner', () => {
+  it('publishes the closed Options invalidation union', () => {
+    expect(SECTION_INVALIDATION_SCOPES).toEqual([
+      'theme',
+      'sidebar',
+      'resource-modal',
+      'overview-usage',
+      'storage',
+      'capture-sources',
+      'capture-behavior',
+      'output',
+      'maintenance',
+      'locale-schema',
+      'all-invariant-recovery'
+    ]);
+  });
+
+  it('coalesces reentrant same-scope work without dropping cross-key scopes', () => {
+    const applied: SectionInvalidationScope[] = [];
+    let reentered = false;
+    let owner: ReturnType<typeof createSectionInvalidationOwner>;
+    owner = createSectionInvalidationOwner({
+      handlers: {
+        storage: () => {
+          applied.push('storage');
+          if (!reentered) {
+            reentered = true;
+            owner.invalidate(['storage', 'maintenance']);
+          }
+        },
+        maintenance: () => applied.push('maintenance'),
+        output: () => applied.push('output')
+      }
+    });
+
+    owner.invalidate(['storage', 'output']);
+
+    expect(applied).toEqual(['storage', 'output', 'storage', 'maintenance']);
+  });
+
+  it('rejects empty and unknown scopes instead of rebuilding the whole shell', () => {
+    const owner = createSectionInvalidationOwner({ handlers: {} });
+
+    expect(() => owner.invalidate([])).toThrow('SECTION_INVALIDATION_SCOPE_REQUIRED');
+    expect(() => owner.invalidate('unknown' as SectionInvalidationScope)).toThrow(
+      'UNKNOWN_SECTION_INVALIDATION_SCOPE:unknown'
+    );
+  });
+
+  it('uses explicit invariant recovery as the only dominant full-render scope', () => {
+    const calls: string[] = [];
+    const owner = createSectionInvalidationOwner({
+      handlers: {
+        storage: () => calls.push('storage'),
+        'all-invariant-recovery': () => calls.push('all')
+      }
+    });
+
+    owner.invalidate(['storage', 'all-invariant-recovery']);
+
+    expect(calls).toEqual(['all']);
+  });
+
+  it('restores focus, input selection, document selection, and scroll after owner replacement', () => {
+    const root = document.createElement('div');
+    root.innerHTML =
+      '<main class="main"><section><label>Prefix<input value="abcdef"></label><p>selection</p></section></main>';
+    document.body.append(root);
+    const main = root.querySelector<HTMLElement>('.main');
+    const input = root.querySelector<HTMLInputElement>('input');
+    const text = root.querySelector('p')?.firstChild;
+    if (!main || !input || !text) throw new Error('Expected invalidation fixture nodes.');
+    main.scrollTop = 88;
+    input.focus();
+    input.setSelectionRange(2, 5, 'forward');
+    const range = document.createRange();
+    range.setStart(text, 1);
+    range.setEnd(text, 4);
+    const selection = window.getSelection();
+    selection?.removeAllRanges();
+    selection?.addRange(range);
+    input.focus();
+    const snapshot = captureSectionDomSnapshot(root);
+
+    root.querySelector('section')?.replaceWith(
+      Object.assign(document.createElement('section'), {
+        innerHTML: '<label>Prefix<input value="abcdef"></label><p>selection</p>'
+      })
+    );
+    main.scrollTop = 0;
+    restoreSectionDomSnapshot(root, snapshot);
+
+    const nextInput = root.querySelector<HTMLInputElement>('input');
+    expect(document.activeElement).toBe(nextInput);
+    expect(nextInput?.selectionStart).toBe(2);
+    expect(nextInput?.selectionEnd).toBe(5);
+    expect(main.scrollTop).toBe(88);
+  });
+
+  it('makes late completion after dispose an idempotent no-op', () => {
+    const apply = vi.fn();
+    const owner = createSectionInvalidationOwner({ handlers: { storage: apply } });
+    owner.dispose();
+    owner.dispose();
+
+    owner.invalidate('storage');
+
+    expect(owner.active).toBe(false);
+    expect(apply).not.toHaveBeenCalled();
+  });
+});

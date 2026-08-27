@@ -70,42 +70,39 @@ export function mountProductionStitchShellFromDependencies({
     browserTarget
   });
   const themeMediaQuery = createThemeMediaQuery();
+  let shellActive = true;
 
   let renderLifecycle: ProductionStitchRenderLifecycle | null = null;
   const renderDelegates = createProductionStitchRenderDelegates(() => renderLifecycle);
-  const getAppData = () => shellState.getAppData();
-  const getConnectionNotice = () => shellState.getConnectionNotice();
-  const getCurrentLanguage = () => shellState.getCurrentLanguage();
-  const getCurrentMessages = () => shellState.getCurrentMessages();
-  const getDomainMappingRows = () => shellState.getDomainMappingRows();
-  const getDraft = () => shellState.getDraft();
-  const getState = () => shellState.getState();
-  const setAppData = (...args: Parameters<typeof shellState.setAppData>) =>
-    shellState.setAppData(...args);
-  const setConnectionNotice = (...args: Parameters<typeof shellState.setConnectionNotice>) =>
-    shellState.setConnectionNotice(...args);
-  const setDraft = (...args: Parameters<typeof shellState.setDraft>) =>
-    shellState.setDraft(...args);
-  const setDomainMappingRows = (...args: Parameters<typeof shellState.setDomainMappingRows>) =>
-    shellState.setDomainMappingRows(...args);
-  const setLanguageResource = (...args: Parameters<typeof shellState.setLanguageResource>) =>
-    shellState.setLanguageResource(...args);
-  const setMaintenanceLog = (...args: Parameters<typeof shellState.setMaintenanceLog>) =>
-    shellState.setMaintenanceLog(...args);
-  const setState = (...args: Parameters<typeof shellState.setState>) =>
-    shellState.setState(...args);
-  const createSchemaContext = () => shellState.createSchemaContext();
-  const refreshAppData = () => shellState.refreshAppData();
-  const render = () => renderDelegates.render();
-  const applySystemThemePreferenceChange = () => renderDelegates.applySystemThemePreferenceChange();
-  const renderActiveResourceModal = () => renderDelegates.renderActiveResourceModal();
-  const scrollToPanel = (...args: Parameters<typeof renderDelegates.scrollToPanel>) =>
-    renderDelegates.scrollToPanel(...args);
-  const syncHighlightThemeControls = () => renderDelegates.syncHighlightThemeControls();
-  const syncModifierControls = () => renderDelegates.syncModifierControls();
-  const syncPreviewThemeControls = () => renderDelegates.syncPreviewThemeControls();
-  const openResource = (...args: Parameters<typeof renderDelegates.openResource>) =>
-    renderDelegates.openResource(...args);
+  const {
+    createSchemaContext,
+    getAppData,
+    getConnectionNotice,
+    getCurrentLanguage,
+    getCurrentMessages,
+    getDomainMappingRows,
+    getDraft,
+    getState,
+    refreshAppData,
+    resetOptions,
+    setAppData,
+    setConnectionNotice,
+    setDomainMappingRows,
+    setDraft,
+    setLanguageResource,
+    setMaintenanceLog,
+    setState
+  } = shellState;
+  const {
+    applySystemThemePreferenceChange,
+    openResource,
+    render,
+    renderActiveResourceModal,
+    scrollToPanel,
+    syncHighlightThemeControls,
+    syncModifierControls,
+    syncPreviewThemeControls
+  } = renderDelegates;
   const mutate = createProductionStitchMutator({
     getState,
     render
@@ -123,6 +120,7 @@ export function mountProductionStitchShellFromDependencies({
       getCurrentMessages,
       getDraft,
       getState,
+      isActive: () => shellActive,
       setAppData,
       setConnectionNotice,
       setDraft,
@@ -211,6 +209,7 @@ export function mountProductionStitchShellFromDependencies({
 
   const mounted: MountedProductionStitchShell = {
     cleanup() {
+      shellActive = false;
       actionRuntime.dispose();
       renderLifecycle?.cleanup();
       cleanupProductionStitchShell({
@@ -226,23 +225,23 @@ export function mountProductionStitchShellFromDependencies({
       return widgetHost.collectDraftWithWidgets();
     },
     refreshOptions(options = null) {
-      shellState.resetOptions(options);
+      resetOptions(options);
       persistence.restoreUsageStatsView();
       widgetHost.resetDirty();
-      renderDelegates.render();
+      renderDelegates.render('all-invariant-recovery');
     },
     setMessages(nextMessages, nextLanguage) {
       shellState.setLanguageResource({
         messages: nextMessages,
         language: nextLanguage
       });
-      renderDelegates.render();
+      renderDelegates.render('locale-schema');
     }
   };
 
   themeMediaQuery.addEventListener?.('change', applySystemThemePreferenceChange);
 
-  render();
+  render('all-invariant-recovery');
   void persistence.loadUsageStatsFromStorage();
   return mounted;
 }

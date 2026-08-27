@@ -68,6 +68,7 @@ background 或 platform feature。
 ### runtime / surfaces
 
 - stitch-runtime 负责通用节点渲染、动作适配与 modal 语义。
+- `src/ui/stitch-runtime/render/sectionInvalidation.ts` 是 Options section invalidation 的 neutral runtime owner；它不导入 feature 状态、仓储或 telemetry，只执行闭合 scope 合并、DOM 状态保存/恢复与幂等 dispose。
 - stitch-surfaces 负责无业务依赖的 schema/builder；feature 通过 context、binding 与 dispatch 接入。
 - 新增 runtime kind 必须同时有生产 caller、类型契约和 focused test。
 
@@ -159,5 +160,5 @@ onboarding。Tailwind / DaisyUI 相关文档、注释或历史记录只用于迁
 - 先确认真实 production owner，再决定新增 neutral primitive、surface 或 feature-local 实现。
 - 新增 UI 路径必须同步 ownership manifest 的精确行、digest、生产图证据和 focused test。
 - 删除路径必须完成六类 owner proof，不得依赖目录约定或仅凭单测缺失判断。
-- 当前 U02C4 final manifest 为 52 条 UI 路径，只包含 production-runtime 与 production-compile 行。
+- 当前 final manifest 为 `56 = 47 production-runtime + 9 production-compile` 条 UI 路径；新增 section invalidation 行的 production owners 精确为 `src/options/index.ts`、`src/options/runtimeEntry.ts` 与 esbuild lazy chunk self-owner `src/ui/stitch-runtime/render/sectionInvalidation.ts`，closureState 继续为 `final`。
 - 若重新引入已退役 wrapper/alias，应视为架构回退并阻塞合并。

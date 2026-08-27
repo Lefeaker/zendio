@@ -23,6 +23,7 @@ import {
 } from './productionStitchStateMapper';
 import { updateVideoDraftPath } from './productionStitchVideoDraftState';
 import { UnavailableOptionsRepository } from '../../infrastructure/repositories/UnavailableOptionsRepository';
+import type { SectionInvalidationScope } from '@ui/stitch-runtime/render/sectionInvalidation';
 
 export function createLocalMessagingRepositoryFallback(): IMessagingRepository {
   return {
@@ -110,7 +111,7 @@ export function applyOutputPresetToDraft(options: {
   setDomainMappingRows(entries: Array<[string, string]>): void;
   refreshAppData(): void;
   scheduleDraftSave(): void;
-  render(): void;
+  render(scope: SectionInvalidationScope): void;
   name: string;
 }): void {
   const { draft, state, name } = options;
@@ -130,7 +131,7 @@ export function applyOutputPresetToDraft(options: {
   state.readingPathMode = resolveReadingPathMode(draft);
   options.refreshAppData();
   options.scheduleDraftSave();
-  options.render();
+  options.render('output');
 }
 
 export type ClassifierFieldUpdateResult =

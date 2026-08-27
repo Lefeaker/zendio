@@ -9,6 +9,7 @@ import { createProductionStitchStorageController } from './productionStitchStora
 import { createProductionStitchWidgetHost } from './productionStitchWidgetHost';
 import { mergePartialIntoDraft } from './productionStitchShellState';
 import type { UsageStatsClientLike } from './usage-dashboard/usageStatsClient';
+import type { SectionInvalidationRequest } from '@ui/stitch-runtime/render/sectionInvalidation';
 
 interface ProductionStitchShellRuntimeServicesOptions {
   controller: OptionsController;
@@ -21,6 +22,7 @@ interface ProductionStitchShellRuntimeServicesOptions {
   getCurrentMessages: () => Messages | null;
   getDraft: () => CompleteOptions;
   getState: () => PreviewStoreState;
+  isActive: () => boolean;
   setAppData: (appData: PreviewContent) => void;
   setConnectionNotice: (notice: PreviewContent['storage']['connectionNotice']) => void;
   setDraft: (draft: CompleteOptions) => void;
@@ -29,7 +31,7 @@ interface ProductionStitchShellRuntimeServicesOptions {
   setState: (state: PreviewStoreState) => void;
   getConnectionNotice: () => PreviewContent['storage']['connectionNotice'] | undefined;
   refreshAppData: () => void;
-  render: () => void;
+  render: (scopes: SectionInvalidationRequest) => void;
   scheduleDraftSave: () => void;
 }
 
@@ -38,27 +40,28 @@ export function createProductionStitchShellRuntimeServices(
 ) {
   const { controller, messagingRepository, now, optionsRepository, usageStatsClient } = options;
   const storageController = createProductionStitchStorageController({
-    getConnectionNotice: () => options.getConnectionNotice(),
-    getDraft: () => options.getDraft(),
+    getConnectionNotice: options.getConnectionNotice,
+    getDraft: options.getDraft,
     getMessagingRepository: () => messagingRepository,
-    getMessages: () => options.getCurrentMessages(),
-    getState: () => options.getState(),
-    setConnectionNotice: (notice) => options.setConnectionNotice(notice),
-    refreshAppData: () => options.refreshAppData(),
-    render: () => options.render(),
-    scheduleDraftSave: () => options.scheduleDraftSave()
+    getMessages: options.getCurrentMessages,
+    getState: options.getState,
+    isActive: options.isActive,
+    setConnectionNotice: options.setConnectionNotice,
+    refreshAppData: options.refreshAppData,
+    render: options.render,
+    scheduleDraftSave: options.scheduleDraftSave
   });
 
   const widgetHost = createProductionStitchWidgetHost({
-    getDraft: () => options.getDraft(),
-    getState: () => options.getState(),
-    getMessages: () => options.getCurrentMessages(),
+    getDraft: options.getDraft,
+    getState: options.getState,
+    getMessages: options.getCurrentMessages,
     ensureVaultRouter: () => storageController.ensureVaultRouter(),
     mergePartialIntoDraft: (partial) =>
       mergePartialIntoDraft(options.getDraft(), options.setDomainMappingRows, partial),
     syncDefaultVaultFromRest: () => storageController.syncDefaultVaultFromRest(),
-    refreshAppData: () => options.refreshAppData(),
-    scheduleDraftSave: () => options.scheduleDraftSave()
+    refreshAppData: options.refreshAppData,
+    scheduleDraftSave: options.scheduleDraftSave
   });
 
   const persistence = createProductionStitchPersistence({
@@ -67,17 +70,18 @@ export function createProductionStitchShellRuntimeServices(
     messagingRepository,
     usageStatsClient,
     ...(now ? { now } : {}),
-    getAppData: () => options.getAppData(),
-    getCurrentMessages: () => options.getCurrentMessages(),
-    getDraft: () => options.getDraft(),
-    getState: () => options.getState(),
-    setAppData: (appData) => options.setAppData(appData),
-    setDraft: (draft) => options.setDraft(draft),
-    setMaintenanceLog: (log) => options.setMaintenanceLog(log),
-    setState: (state) => options.setState(state),
+    getAppData: options.getAppData,
+    getCurrentMessages: options.getCurrentMessages,
+    getDraft: options.getDraft,
+    getState: options.getState,
+    isActive: options.isActive,
+    setAppData: options.setAppData,
+    setDraft: options.setDraft,
+    setMaintenanceLog: options.setMaintenanceLog,
+    setState: options.setState,
     collectDraftWithWidgets: () => widgetHost.collectDraftWithWidgets(),
-    refreshAppData: () => options.refreshAppData(),
-    render: () => options.render(),
+    refreshAppData: options.refreshAppData,
+    render: options.render,
     syncDefaultVaultFromRest: () => storageController.syncDefaultVaultFromRest()
   });
 

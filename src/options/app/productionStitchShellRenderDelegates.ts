@@ -11,12 +11,21 @@ import type {
 import type { ProductionStitchWidgetHost } from './productionStitchWidgetHost';
 import type { ProductionStitchRenderLifecycle } from './productionStitchRenderLifecycleTypes';
 import type { ProductionStitchAssetUrlResolver } from './productionStitchAssetUrlResolver';
+import type {
+  SectionInvalidationRequest,
+  SectionInvalidationScope
+} from '@ui/stitch-runtime/render/sectionInvalidation';
+
+export type ProductionStitchSectionHandlers = Partial<Record<SectionInvalidationScope, () => void>>;
 
 interface ProductionStitchShellSchemaRendererOptions {
   createSchemaContext(): SchemaContext;
   dispatch(actionId: string, args?: unknown[], value?: unknown, event?: Event): void;
-  mutate(mutator: (draftState: PreviewStoreState) => void, options?: { silent?: boolean }): void;
-  render(): void;
+  mutate(
+    mutator: (draftState: PreviewStoreState) => void,
+    options?: { silent?: boolean; scope?: SectionInvalidationScope }
+  ): void;
+  render(scopes: SectionInvalidationRequest): void;
   resolveAssetUrl: ProductionStitchAssetUrlResolver;
   widgetHost: ProductionStitchWidgetHost;
 }
@@ -29,17 +38,15 @@ export function createProductionStitchShellSchemaRenderer(
       ...options.createSchemaContext(),
       el,
       ui: previewUi,
-      dispatch: (actionId: string, args?: unknown[], value?: unknown, event?: Event) =>
-        options.dispatch(actionId, args, value, event),
+      dispatch: options.dispatch,
       resolveAssetUrl: options.resolveAssetUrl,
-      mountWidget: (widgetType: string, host: HTMLElement) =>
-        options.widgetHost.mountWidget(widgetType, host)
+      mountWidget: options.widgetHost.mountWidget
     };
   }
 
   return createSchemaRenderer<PreviewStoreState, PreviewContent>(
     {
-      getContext: () => options.createSchemaContext(),
+      getContext: options.createSchemaContext,
       dispatch: (action, payload) => {
         if (typeof action === 'string') {
           options.dispatch(action, [], payload);
@@ -47,9 +54,10 @@ export function createProductionStitchShellSchemaRenderer(
         }
         options.dispatch(action.id, action.args ?? [], payload);
       },
-      mutate: (mutator, mutationOptions) => options.mutate(mutator, mutationOptions),
-      requestRerender: () => options.render(),
-      getWidgetFactory: (widgetType) => options.widgetHost.createWidgetFactory(widgetType)
+      mutate: (mutator, mutationOptions) =>
+        options.mutate(mutator, { ...mutationOptions, scope: 'output' }),
+      requestRerender: () => options.render('output'),
+      getWidgetFactory: options.widgetHost.createWidgetFactory
     },
     {
       renderView: (view) => renderPreviewView(view as ViewSchema, createRenderContext())
@@ -65,7 +73,7 @@ export function createProductionStitchRenderDelegates(
       getRenderLifecycle()?.applySystemThemePreferenceChange(),
     cleanup: () => getRenderLifecycle()?.cleanup(),
     openResource: (resourceId) => getRenderLifecycle()?.openResource(resourceId),
-    render: () => getRenderLifecycle()?.render(),
+    render: (scopes) => getRenderLifecycle()?.render(scopes),
     renderActiveResourceModal: () => getRenderLifecycle()?.renderActiveResourceModal(),
     scrollToPanel: (panelId) => getRenderLifecycle()?.scrollToPanel(panelId),
     syncHighlightThemeControls: () => getRenderLifecycle()?.syncHighlightThemeControls(),

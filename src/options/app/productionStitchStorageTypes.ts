@@ -4,6 +4,7 @@ import type { CompleteOptions } from '@shared/types/options';
 import type { VaultConfig, VaultRouterConfig } from '@shared/types/vault';
 import type { Messages } from '@i18n';
 import type { PreviewContent, PreviewStoreState } from '@options/stitch/types';
+import type { SectionInvalidationRequest } from '@ui/stitch-runtime/render/sectionInvalidation';
 
 export interface ProductionStitchStorageControllerOptions {
   getConnectionNotice(): PreviewContent['storage']['connectionNotice'] | undefined;
@@ -11,9 +12,10 @@ export interface ProductionStitchStorageControllerOptions {
   getMessagingRepository(): Pick<IMessagingRepository, 'send' | 'onMessage'>;
   getMessages?(): Messages | null;
   getState(): PreviewStoreState;
+  isActive(): boolean;
   setConnectionNotice(notice: PreviewContent['storage']['connectionNotice'] | undefined): void;
   refreshAppData(): void;
-  render(): void;
+  render(scopes: SectionInvalidationRequest): void;
   scheduleDraftSave(): void;
 }
 

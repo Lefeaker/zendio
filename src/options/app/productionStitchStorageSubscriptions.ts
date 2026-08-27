@@ -64,6 +64,7 @@ export function createProductionStitchStorageSubscriptions(
       ).fileSystemAccess.chooseDirectory({
         suggestedName: vault.name || vault.vault
       });
+      if (!options.isActive()) return;
       emitLocalVaultPermissionResolved(options.getMessagingRepository(), 'completed');
       state.activeLocalFolderVaultIndex = null;
       vault.localFolderId = selection.id;
@@ -73,11 +74,12 @@ export function createProductionStitchStorageSubscriptions(
       }
       draft.vaultRouter = router;
       options.scheduleDraftSave();
-      options.render();
+      options.render('storage');
       if (previousFolderId !== selection.id) {
         void removeStoredLocalFolder(previousFolderId);
       }
     } catch (error) {
+      if (!options.isActive()) return;
       const messages = resolveCurrentMessages();
       emitLocalVaultPermissionResolved(
         options.getMessagingRepository(),
@@ -90,7 +92,7 @@ export function createProductionStitchStorageSubscriptions(
         variant: 'warning'
       });
       options.refreshAppData();
-      options.render();
+      options.render('storage');
     }
   }
 
@@ -111,7 +113,7 @@ export function createProductionStitchStorageSubscriptions(
     }
     draft.vaultRouter = router;
     options.scheduleDraftSave();
-    options.render();
+    options.render('storage');
     void removeStoredLocalFolder(previousFolderId);
   }
 
@@ -128,13 +130,14 @@ export function createProductionStitchStorageSubscriptions(
     }
 
     state.activeLocalFolderVaultIndex = state.activeLocalFolderVaultIndex === index ? null : index;
-    options.render();
+    options.render('storage');
 
     try {
       emitLocalVaultPermissionPrompted(options.getMessagingRepository(), 'options');
       const permission = await getService<PlatformServices>(
         TOKENS.platformServices
       ).fileSystemAccess.ensurePermission(vault.localFolderId);
+      if (!options.isActive()) return;
       const messages = resolveCurrentMessages();
       emitLocalVaultPermissionResolved(
         options.getMessagingRepository(),
@@ -149,7 +152,7 @@ export function createProductionStitchStorageSubscriptions(
           variant: 'warning'
         });
         options.refreshAppData();
-        options.render();
+        options.render('storage');
         return;
       }
       options.setConnectionNotice({
@@ -160,6 +163,7 @@ export function createProductionStitchStorageSubscriptions(
         variant: 'success'
       });
     } catch (error) {
+      if (!options.isActive()) return;
       const messages = resolveCurrentMessages();
       emitLocalVaultPermissionResolved(
         options.getMessagingRepository(),
@@ -172,12 +176,12 @@ export function createProductionStitchStorageSubscriptions(
         variant: 'warning'
       });
       options.refreshAppData();
-      options.render();
+      options.render('storage');
       return;
     }
 
     options.refreshAppData();
-    options.render();
+    options.render('storage');
   }
 
   return {

@@ -27,6 +27,7 @@ import { getMessage, setButtonBusy } from './productionStitchPersistenceUi';
 import { repairTemplateOptions } from './productionStitchTemplateRepair';
 import type { UsageStatsClientLike } from './usage-dashboard/usageStatsClient';
 import { deepClone } from '../utils/clone';
+import type { SectionInvalidationRequest } from '@ui/stitch-runtime/render/sectionInvalidation';
 type PrivacyPreferenceField = 'analytics' | 'errorReporting' | 'debugMode';
 type PrivacySnapshot = CompleteOptions['privacyPreferences'];
 interface ProductionStitchPersistenceOptions {
@@ -39,13 +40,14 @@ interface ProductionStitchPersistenceOptions {
   getCurrentMessages(): Messages | null;
   getDraft(): CompleteOptions;
   getState(): PreviewStoreState;
+  isActive(): boolean;
   setAppData(appData: PreviewContent): void;
   setDraft(draft: CompleteOptions): void;
   setMaintenanceLog(log: string): void;
   setState(state: PreviewStoreState): void;
   collectDraftWithWidgets(): CompleteOptions;
   refreshAppData(): void;
-  render(): void;
+  render(scopes: SectionInvalidationRequest): void;
   syncDefaultVaultFromRest(): void;
 }
 export interface ProductionStitchPersistence {
@@ -77,15 +79,16 @@ export function createProductionStitchPersistence(
   function restoreUsageStatsView(): void {
     applyUsageStats(usageSnapshot);
   }
-  function refreshWithUsage(): void {
+  function refresh(): void {
     options.refreshAppData();
     restoreUsageStatsView();
   }
   async function track(message: ReturnType<typeof createAnalyticsEventMessage>): Promise<void> {
+    if (!options.isActive()) return;
     try {
       await options.messagingRepository.send(message);
     } catch {
-      // Telemetry is best-effort and must not block options actions.
+      // Best-effort only.
     }
   }
   function getPrivacySnapshot(): PrivacySnapshot {
@@ -211,8 +214,10 @@ export function createProductionStitchPersistence(
   }
   async function loadUsageStatsFromStorage(): Promise<void> {
     try {
-      applyUsageStats(await options.usageStatsClient.get());
-      options.render();
+      const stats = await options.usageStatsClient.get();
+      if (!options.isActive()) return;
+      applyUsageStats(stats);
+      options.render('overview-usage');
     } catch (error) {
       console.debug('[Options] Failed to load usage stats through the background owner:', error);
     }
@@ -223,18 +228,17 @@ export function createProductionStitchPersistence(
     version: Awaited<ReturnType<typeof readImportedConfigurationFromClipboard>>['version'];
   }): Promise<void> {
     await options.controller.applyImportedConfig(configuration.imported);
+    if (!options.isActive()) return;
     options.setDraft(configuration.imported);
-    refreshWithUsage();
+    refresh();
     options.setState(
       applyOptionsToState(options.getState(), configuration.imported, options.getAppData())
     );
-    options.render();
     await applyAnalyticsTransferPayload(configuration.analytics);
     options.setMaintenanceLog(
       JSON.stringify({ imported: true, version: configuration.version }, null, 2)
     );
   }
-
   async function copyConfigurationToClipboard(button: HTMLButtonElement | null): Promise<void> {
     setButtonBusy(button, true);
     try {
@@ -260,18 +264,22 @@ export function createProductionStitchPersistence(
       options.setMaintenanceLog(`Copy failed: ${String(error)}`);
     } finally {
       setButtonBusy(button, false);
-      refreshWithUsage();
-      options.render();
+      if (options.isActive()) {
+        refresh();
+        options.render('maintenance');
+      }
     }
   }
 
   async function importConfigurationWithStatus(button: HTMLButtonElement | null): Promise<void> {
     setButtonBusy(button, true);
     let analyticsPayloadPresent = false;
+    let imported = false;
     try {
       const configuration = await readImportedConfigurationFromClipboard();
       analyticsPayloadPresent = configuration.analyticsPayloadPresent;
       await importConfigurationFromClipboard(configuration);
+      imported = true;
       await track(
         createAnalyticsEventMessage('config_import_completed', {
           outcome: 'completed',
@@ -297,8 +305,10 @@ export function createProductionStitchPersistence(
       throw new Error(failureMessage);
     } finally {
       setButtonBusy(button, false);
-      refreshWithUsage();
-      options.render();
+      if (options.isActive()) {
+        refresh();
+        options.render(imported ? 'all-invariant-recovery' : 'maintenance');
+      }
     }
   }
 
@@ -339,7 +349,7 @@ export function createProductionStitchPersistence(
     draft.templates = repairTemplateOptions(draft.templates, templateDefaults);
     options.syncDefaultVaultFromRest();
     options.setMaintenanceLog(log.join('\n'));
-    refreshWithUsage();
+    refresh();
     try {
       await options.controller.saveSnapshot({
         reason: 'manual',
@@ -348,10 +358,10 @@ export function createProductionStitchPersistence(
     } catch (error) {
       Object.assign(options.getDraft(), before);
       options.setMaintenanceLog(oldLog);
-      refreshWithUsage();
+      refresh();
       throw error;
     }
-    options.render();
+    options.render(['storage', 'output', 'maintenance']);
   }
 
   return {

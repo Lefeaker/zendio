@@ -130,6 +130,33 @@ describe('mountProductionStitchShell actions', () => {
     expect(findInputByValue('Reloaded')).toBeTruthy();
   });
 
+  it('suppresses late reload DOM and telemetry callbacks after cleanup', async () => {
+    const pendingReload = deferred<CompleteOptions>();
+    const loadRaw = vi.fn(() => pendingReload.promise);
+    const messaging = createMessaging();
+    const mounted = mountProductionStitchShell({
+      controller: asOptionsController({ ...createController(), loadRaw }),
+      initialOptions: null,
+      messages: null,
+      language: 'en',
+      messagingRepository: messaging as never
+    });
+
+    findButton('Reload').click();
+    expect(loadRaw).toHaveBeenCalledTimes(1);
+    mounted.cleanup();
+    pendingReload.reject(new Error('late reload failure'));
+    await flushPromises();
+
+    expect(document.getElementById('optionsShellRoot')?.innerHTML).toBe('');
+    expect(messaging.send).not.toHaveBeenCalledWith(
+      expect.objectContaining({
+        event: 'options_action_completed',
+        params: expect.objectContaining({ action: 'maintenance_reload' })
+      })
+    );
+  });
+
   it('uses localized storage connection error titles when the storage test action throws', async () => {
     const controller = createController();
     const factorySpy = mockStorageConnectionFailure('storage connection failed');
@@ -589,7 +616,6 @@ describe('mountProductionStitchShell actions', () => {
       messagingRepository: messagingRepository as never,
       optionsRepository
     });
-
     const analytics = findCheckboxInText('Usage analytics');
     analytics.checked = true;
     analytics.dispatchEvent(new Event('change', { bubbles: true }));
@@ -1330,6 +1356,14 @@ describe('mountProductionStitchShell actions', () => {
       language: 'en',
       optionsRepository
     });
+    const stableOverview = queryRequired<HTMLElement>('[data-panel-id="overview"]');
+    const stableCaptureSources = queryRequired<HTMLElement>('[data-panel-id="capture-sources"]');
+    const repairedOwners = new Map(
+      ['storage', 'output', 'maintenance'].map((id) => [
+        id,
+        queryRequired<HTMLElement>(`[data-panel-id="${id}"]`)
+      ])
+    );
 
     findButton('Fix Configuration').click();
     expect(mounted.collectDraft().templates.article).toBe('Articles/Before.md');
@@ -1352,6 +1386,11 @@ describe('mountProductionStitchShell actions', () => {
     expect(mounted.collectDraft().interfaceTheme).toBe('light');
     expect(window.localStorage.getItem('aob-theme')).toBe('light');
     expect(document.getElementById('msg')?.textContent).toContain('repair save failed');
+    expect(document.querySelector('[data-panel-id="overview"]')).toBe(stableOverview);
+    expect(document.querySelector('[data-panel-id="capture-sources"]')).toBe(stableCaptureSources);
+    repairedOwners.forEach((root, id) => {
+      expect(document.querySelector(`[data-panel-id="${id}"]`)).not.toBe(root);
+    });
 
     findButton('Diagnose Configuration').click();
     expect(mounted.collectDraft().templates.article).toBe('Clippings/Before.md');

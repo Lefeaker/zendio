@@ -5,6 +5,7 @@ import {
   createProductionStitchActions,
   type ProductionStitchActionContext
 } from '../../../src/options/app/productionStitchActions';
+import { resolveProductionStitchTaskInvalidation } from '../../../src/options/app/productionStitchShellContext';
 import { asType } from '../../utils/typeHelpers';
 
 describe('production Stitch persistence action routing', () => {
@@ -120,5 +121,34 @@ describe('production Stitch persistence action routing', () => {
 
     expect(activeLanguage).toBe('en');
     expect(state.previewLanguage).toBe('en');
+  });
+
+  it('maps every detached persistence key to a finite success and rollback scope', () => {
+    expect(
+      [
+        'options:theme',
+        'options:language',
+        'usage:reset',
+        'privacy:clear',
+        'privacy:analytics',
+        'maintenance:copy',
+        'options:import',
+        'options:repair',
+        'options:reload'
+      ].map((key) => [key, resolveProductionStitchTaskInvalidation(key)])
+    ).toEqual([
+      ['options:theme', 'theme'],
+      ['options:language', 'locale-schema'],
+      ['usage:reset', 'overview-usage'],
+      ['privacy:clear', 'overview-usage'],
+      ['privacy:analytics', 'overview-usage'],
+      ['maintenance:copy', 'maintenance'],
+      ['options:import', 'maintenance'],
+      ['options:repair', ['storage', 'output', 'maintenance']],
+      ['options:reload', 'maintenance']
+    ]);
+    expect(() => resolveProductionStitchTaskInvalidation('unknown')).toThrow(
+      'UNKNOWN_OPTIONS_PERSISTENCE_TASK:unknown'
+    );
   });
 });
