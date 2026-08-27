@@ -88,6 +88,7 @@ npm run visual:stitch
 ```bash
 test ! -d build/dist/options/styles
 find build/dist/options -maxdepth 4 -type f | sort
+find build/dist/ui/stitch-runtime/styles -maxdepth 1 -type f | sort
 ```
 
 期望输出中应包含：

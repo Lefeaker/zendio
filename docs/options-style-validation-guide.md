@@ -27,6 +27,7 @@ npm run build:dev
 ```bash
 test ! -d build/dist/options/styles
 find build/dist/options -maxdepth 4 -type f | sort
+find build/dist/ui/stitch-runtime/styles -maxdepth 1 -type f | sort
 ```
 
 期望只看到：
