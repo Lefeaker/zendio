@@ -12,9 +12,32 @@ describe('design token alignment', () => {
         encoding: 'utf8'
       }
     );
-    const report = JSON.parse(output) as { theme: string; entries: string[]; failures: string[] };
+    const report = JSON.parse(output) as {
+      theme: string;
+      entries: string[];
+      surfaceCanonicalValues: Record<string, Record<string, string>>;
+      failures: string[];
+    };
     expect(report.theme).toBe('src/ui/stitch-runtime/styles/runtime/theme-tokens.css');
     expect(report.entries).toHaveLength(6);
+    expect(report.surfaceCanonicalValues).toEqual({
+      dark: {
+        '--zendio-stitch-bg': '#09090b',
+        '--zendio-stitch-text': '#fafafa',
+        '--zendio-stitch-accent': '#a78bfa',
+        '--zendio-stitch-line': '#27272a',
+        '--zendio-stitch-radius-md': '8px',
+        '--zendio-stitch-motion-fast': '140ms'
+      },
+      light: {
+        '--zendio-stitch-bg': '#f5f6fb',
+        '--zendio-stitch-text': '#111114',
+        '--zendio-stitch-accent': '#7c3aed',
+        '--zendio-stitch-line': '#e4e4eb',
+        '--zendio-stitch-radius-md': '8px',
+        '--zendio-stitch-motion-fast': '140ms'
+      }
+    });
     expect(report.failures).toEqual([]);
   });
 });

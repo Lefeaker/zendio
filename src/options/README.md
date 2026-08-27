@@ -29,7 +29,7 @@
 
 ### 0.2 样式规范速览
 
-- 样式入口固定为 `src/options/stitch/styles/entries/options.css` 与 `src/options/stitch/styles/variants/stitch-secondary.css` 的静态产物链路。
+- Options 源入口固定为 `src/options/stitch/styles/entries/options.css`；`variants/stitch-secondary.css` 只作为源码被展平进适用的 Options/Onboarding pack，不生成独立产物。Content runtime 使用 Clipper、Reader、Video、Prompt/Task 四个中性入口。
 - `src/options/styles/*` legacy 样式链路已退出正式构建；真实 token 真值源只有 `src/styles/design-tokens.css`。
 - `.aobx-*` 采用 BEM 语义，优先复用 Token/Utility，例如 `.aobx-card`、`.aobx-alert` 等。
 - 禁止新增 `.aob-*` 或内联颜色；Dark/Light 模式需同步维护。
@@ -88,11 +88,11 @@ DOM-heavy 场景如需直接拿到按钮元素，统一使用 `src/ui/primitives
 
 - 懒加载/自动保存/I18n 等运行时问题详见 §6《常见问题》。
 - 暗色模式不生效：检查是否复用 Token、Utility，并参考 `docs/options-style-validation-guide.md`。
-- Stitch 样式异常：先确认 `src/options/stitch/styles/entries/options.css` 与 `variants/stitch-secondary.css` 是否覆盖当前 surface，再检查构建产物中的静态 CSS 路径。
+- Stitch 样式异常：先确认当前 surface 所属的六个入口 pack 及其展平依赖是否完整，再检查 `build/dist/ui/stitch-runtime/styles/` 下的对应 CSS。
 
 ### 0.6 任务前置指南
 
-- 在执行 Options/Stitch runtime 样式任务前，优先确认 `src/options/stitch/styles/entries/options.css` 与 `variants/stitch-secondary.css` 是否已经覆盖对应 runtime surface；不要恢复 Options、Clipper 或 Video 的 Tailwind bridge。
+- 在执行 Options/Stitch runtime 样式任务前，优先确认 Options、Onboarding、Clipper、Reader、Video、Prompt/Task 六个入口中哪一个拥有该 surface；secondary variant 仅通过入口展平，不得恢复独立输出或旧 Tailwind bridge。
 - 旧 Tailwind 迁移材料只保留在归档文档中用于追溯，不再作为新开发指南或验收依据。
 
 ---
@@ -181,7 +181,7 @@ src/options/
 
 ## 4. 样式与命名约束（2025-11 更新）
 
-- **唯一样式入口**：Options 页主要依赖 `src/options/stitch/styles/entries/options.css` 与 `src/options/stitch/styles/variants/stitch-secondary.css` 的构建产物；`src/options/styles/*` legacy 样式链路已删除。
+- **唯一样式输出**：构建只生成 `ui/stitch-runtime/styles/{options,onboarding,clipper,reader,video,prompt-task}.css` 六个展平 pack；Options 的 secondary variant 是入口依赖，不是独立产物。`src/options/styles/*` legacy 样式链路已删除。
 - **命名统一**：所有 DOM、控件、弹窗必须使用 `.aobx-*` 前缀（如 `.aobx-section__header`、`.aobx-btn`、`.aobx-input`、`.aobx-modal`）。新增功能严禁引入 `.aob-*` 类名。
 - **CSS 编写准则**：
   - 正式 Options 与 content runtime 样式优先落在 Stitch schema / renderer / `stitch/styles/entries/options.css`。
@@ -235,7 +235,7 @@ src/options/
 - **自动保存未触发**：确认 Section 改动后调用了 `markPendingAutoSave(sectionId)`，且 `OptionsController` 的 `onSaveSuccess` 钩子没有被异常拦截。
 - **文案未更新**：先确认 schema/builders 是否通过 `SchemaContext.t()` 或当前 `Messages` 取值，再检查 `ensureDeclarativeI18nController()`、`section.setMessages(messages)` 与静态模板 `data-i18n` 绑定是否完整。
 - **暗色模式异常**：确认样式使用共享 Token（`--aobx-color-*` 等），并同时在 `.aobx-theme--dark` 下提供覆盖；禁止写入硬编码色值。
-- **Stitch 样式未生效**：确认页面或 runtime surface 是否加载 `stitch.css` 与 `stitch-secondary.css`，并检查是否遗漏对应 schema slot 或 renderer class。
+- **Stitch 样式未生效**：确认页面或 runtime surface 是否加载自身的六个展平 pack 之一，并检查该入口是否遗漏对应 schema slot、renderer class 或 secondary variant 源依赖。
 
 ---
 

@@ -1,4 +1,13 @@
 /* Neutral runtime theme tokens */
+.stitch-runtime-surface {
+  --zendio-stitch-bg: #09090b;
+  --zendio-stitch-text: #fafafa;
+  --zendio-stitch-accent: #a78bfa;
+  --zendio-stitch-line: #27272a;
+  --zendio-stitch-radius-md: 8px;
+  --zendio-stitch-motion-fast: 140ms;
+}
+
 :root,
 .stitch-runtime-surface,
 html[data-preview-theme='dark'] {
@@ -206,6 +215,15 @@ html[data-preview-theme='dark'] {
   --page-gradient-a: rgba(124, 58, 237, 0.12);
   --page-gradient-b: rgba(167, 139, 250, 0.08);
   --page-gradient-c: rgba(52, 211, 153, 0.05);
+}
+
+.stitch-runtime-surface[data-preview-theme='light'] {
+  --zendio-stitch-bg: #f5f6fb;
+  --zendio-stitch-text: #111114;
+  --zendio-stitch-accent: #7c3aed;
+  --zendio-stitch-line: #e4e4eb;
+  --zendio-stitch-radius-md: 8px;
+  --zendio-stitch-motion-fast: 140ms;
 }
 
 html[data-preview-theme='light'],

@@ -10,7 +10,7 @@ Options 当前以 Stitch 为正式样式链路。验证重点不是继续维护 
 - 不存在 Options 专用 `tailwind.config.cjs`
 - `package.json` 不包含 `tailwind:build` / `tailwind:watch`
 - `scripts/build.mjs` 不执行 Options Tailwind 构建，也不复制 `build/dist/options/styles`
-- `build/dist/options` 只输出 Stitch 样式
+- Stitch CSS 只输出 `build/dist/ui/stitch-runtime/styles/` 下的六个展平 pack；secondary variant 不单独输出
 
 ## 必跑检查
 
@@ -36,7 +36,11 @@ build/dist/options/index.html
 build/dist/options/index.js
 build/dist/options/index.js.map
 build/dist/ui/stitch-runtime/styles/options.css
-build/dist/options/stitch/styles/variants/stitch-secondary.css
+build/dist/ui/stitch-runtime/styles/onboarding.css
+build/dist/ui/stitch-runtime/styles/clipper.css
+build/dist/ui/stitch-runtime/styles/reader.css
+build/dist/ui/stitch-runtime/styles/video.css
+build/dist/ui/stitch-runtime/styles/prompt-task.css
 ```
 
 ## Pre-commit / CI
@@ -44,7 +48,7 @@ build/dist/options/stitch/styles/variants/stitch-secondary.css
 Options 相关代码提交前应通过当前仓库 pre-commit 链路：
 
 ```bash
-npx lint-staged
+node scripts/run-bounded-command.mjs --profile lint-staged-hook-v1
 ```
 
 其中 `report:options-legacy` 必须继续保留，用于阻断旧 `.aob-*` / `.aobx-*` 样式入口回流。CI 或合并前验证应继续覆盖：
