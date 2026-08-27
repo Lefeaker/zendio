@@ -4,6 +4,7 @@ import type {
 } from './firefoxReleaseArtifactManifest.mjs';
 
 export const FIREFOX_AMO_API_BASE_URL: 'https://addons.mozilla.org/api/v5/';
+export const FIREFOX_AMO_CLIENT_ID: 'direct-v5';
 export const FIREFOX_SUBMISSION_LIMITS: Readonly<{
   uploadMs: 120000;
   submitMs: 120000;

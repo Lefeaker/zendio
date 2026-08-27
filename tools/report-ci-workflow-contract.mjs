@@ -1,6 +1,7 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { checkFirefoxAmoReleaseWorkflowContract } from './report-firefox-amo-release-workflow.mjs';
 import { getJobBlock } from './ciWorkflowContract/model.mjs';
 import { parseCiWorkflowJobs } from './ciWorkflowContract/yamlSubset.mjs';
 
@@ -279,16 +280,9 @@ export function checkCiWorkflowContract({
     if (!workflow.includes('fail-fast: false')) throw new Error('visual matrix policy changed');
   });
 
-  check('firefox-release-regression', () => {
-    for (const required of [
-      'name: Release Firefox AMO',
-      'uses: actions/checkout@v6',
-      'uses: ./.github/actions/setup-node-deps',
-      'WEB_EXT_API_KEY: ${{ secrets.WEB_EXT_API_KEY }}',
-      'WEB_EXT_API_SECRET: ${{ secrets.WEB_EXT_API_SECRET }}'
-    ]) {
-      if (!firefoxReleaseWorkflow.includes(required)) throw new Error(`missing ${required}`);
-    }
+  check('firefox-release-contract', () => {
+    const result = checkFirefoxAmoReleaseWorkflowContract({ workflow: firefoxReleaseWorkflow });
+    if (!result.ok) throw new Error(result.failures.join('; '));
   });
 
   return { ok: failures.length === 0, failures };

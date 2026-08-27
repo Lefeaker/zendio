@@ -32,7 +32,7 @@ function assertContained(root, path) {
   return target;
 }
 
-export function replaceWithFirefoxSmokeEnvironment({ attemptRoot, browserPath }) {
+export function createFirefoxSmokeEnvironment({ attemptRoot, browserPath }) {
   const next = {
     PATH: `${dirname(process.execPath)}:/usr/bin:/bin`,
     HOME: join(attemptRoot, 'home'),
@@ -45,8 +45,6 @@ export function replaceWithFirefoxSmokeEnvironment({ attemptRoot, browserPath })
     CI: '1',
     PLAYWRIGHT_BROWSERS_PATH: browserPath
   };
-  for (const key of Object.keys(process.env)) delete process.env[key];
-  Object.assign(process.env, next);
   return Object.freeze({ ...next });
 }
 
@@ -95,27 +93,35 @@ export async function runFirefoxXpiSmoke(argv = process.argv.slice(2), dependenc
     }
     await mkdir(path, { mode: 0o700 });
   }
-  replaceWithFirefoxSmokeEnvironment({ attemptRoot, browserPath });
+  const driverEnvironment = createFirefoxSmokeEnvironment({ attemptRoot, browserPath });
   const importPlaywrightImpl = dependencies.importPlaywrightImpl ?? (() => import('playwright'));
-  const importWebExtImpl = dependencies.importWebExtImpl ?? (() => import('web-ext'));
   const importAdapterImpl =
-    dependencies.importAdapterImpl ?? (() => import('./utils/webExtFirefoxSmokeAdapter.mjs'));
-  const [playwright, webExtModule, adapter] = await Promise.all([
-    importPlaywrightImpl(),
-    importWebExtImpl(),
-    importAdapterImpl()
-  ]);
+    dependencies.importAdapterImpl ??
+    (() => import('./utils/firefoxWebDriverBidiSmokeAdapter.mjs'));
+  const [playwright, adapter] = await Promise.all([importPlaywrightImpl(), importAdapterImpl()]);
   const firefoxExecutable = playwright.firefox.executablePath();
   if (!assertContained(browserPath, firefoxExecutable)) fail('FIREFOX_SMOKE_EXECUTABLE');
-  const profilePath = join(attemptRoot, 'firefox-xpi-smoke-profile');
-  const bootstrapSourceDir = resolve(
-    dirname(new URL(import.meta.url).pathname),
-    '../tests/fixtures/firefox-xpi-smoke-bootstrap'
-  );
-  const result = await adapter.runVerifiedFirefoxXpiSmoke(
-    { binding, firefoxExecutable, profilePath, bootstrapSourceDir, transportMode },
-    { webExt: webExtModule.default ?? webExtModule }
-  );
+  const geckodriverExecutable = join(attemptRoot, 'geckodriver', 'geckodriver');
+  const geckodriverStat = await lstat(geckodriverExecutable);
+  if (
+    !geckodriverStat.isFile() ||
+    geckodriverStat.isSymbolicLink() ||
+    geckodriverStat.uid !== process.getuid?.() ||
+    geckodriverStat.nlink !== 1 ||
+    (geckodriverStat.mode & 0o777) !== 0o700 ||
+    (await realpath(geckodriverExecutable)) !== geckodriverExecutable
+  ) {
+    fail('FIREFOX_SMOKE_GECKODRIVER');
+  }
+  const profileRoot = join(attemptRoot, 'firefox-xpi-smoke-profile-root');
+  const result = await adapter.runVerifiedFirefoxXpiSmoke({
+    binding,
+    firefoxExecutable,
+    geckodriverExecutable,
+    profileRoot,
+    transportMode,
+    driverEnvironment
+  });
   const bytes = Buffer.from(canonicalArtifactJson(result), 'utf8');
   if (bytes.length > 64 * 1024) fail('FIREFOX_SMOKE_RESULT_LIMIT');
   const handle = await open(

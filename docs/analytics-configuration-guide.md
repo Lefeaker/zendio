@@ -27,7 +27,7 @@ ZENDIO_GA_PROXY_ENDPOINT=https://analytics.example.com/ga4
 
 这些值在运行时由 `src/shared/analytics/analyticsEnvironment.ts` 读取，并装配到 `DEFAULT_ANALYTICS_CONFIG`。旧版 `AIIINOB_GA_*` 名称仍作为兼容 alias 可读，但新配置和文档应优先使用 `ZENDIO_GA_*`。
 
-当前生产 owner public config 只应存在于 ignored local file：
+ignored local file 只用于明确标注的非发布开发构建和 analytics smoke：
 
 ```bash
 .env.production.local
@@ -43,7 +43,7 @@ ZENDIO_GA_TRANSPORT_MODE=proxy
 ZENDIO_GA_PROXY_ENDPOINT=https://analytics.example.com/ga4
 ```
 
-生产构建与打包优先使用已封装脚本：
+本地非发布验证可使用已封装脚本：
 
 ```bash
 npm run analytics:validate:prod
@@ -96,7 +96,7 @@ proxy 至少应满足：
 - 对 `proxyEndpoint` 仅允许 HTTPS
 - 对异常 payload 做 structured logging
 
-### 3. 在 release 环境注入 public config
+### 3. 区分本地 smoke 与 GitHub release ownership
 
 ```bash
 npm run analytics:validate:prod
@@ -104,7 +104,15 @@ npm run analytics:smoke:delivery -- --dry-run
 npm run package:prod:ga
 ```
 
-默认生产配置由 `.env.production.local` 注入。临时覆盖仍可使用 shell `export`，但不得把 owner release 值写回 tracked source。
+上面的本地命令不是 immutable release evidence。正式 GitHub release 的 `prepare` job 只从
+repository/organization Variables 读取 `ZENDIO_GA_MEASUREMENT_ID`、
+`ZENDIO_GA_TRANSPORT_MODE` 和 `ZENDIO_GA_PROXY_ENDPOINT`，并把 exact raw config digest 绑定到
+同 SHA 的 Chrome/Firefox artifact manifest。`chrome-webstore-release` 与 `firefox-amo-release`
+Environments 只保存 store credentials 与 reviewer policy，不保存或覆盖 public GA build values。
+
+本地 immutable prepare/verify 必须使用显式 shell values 和 `releasePublicBuildConfig`；它不会加载
+`.env.production.local`，也不接受任何 env-file route。该 ignored file 当前可能包含 legacy alias，
+因此不能被提升为发布证据。
 
 ### 4. 保持 tracked config 非敏感
 
@@ -283,7 +291,7 @@ npm run analytics:smoke:delivery -- --event-name support_link_clicked
 - `GA4 DebugView`：本地 debug proxy 模式只能证明客户端事件路径、字段形状和 proxy 请求；真实 property 的 DebugView 可见性仍需要 owner 持有的 GA4 访问权限、debug proxy 服务端 `api_secret` 注入，以及 consent-enabled 测试 profile。
 - `Proxy acceptance smoke`：`analytics:smoke:delivery` 只证明 owner proxy endpoint 接受 synthetic payload；它不证明 server-side forwarding 成功、GA4 property 已接收事件，或 dashboard / DebugView 已可见。
 - `Proxy api_secret injection`：只有 owner 控制的 staging/production proxy log 或 server trace 才能证明 `api_secret` 由服务端注入，且没有回流到扩展源码、构建产物或客户端请求参数。
-- `Chrome Web Store credentials`：repo 内只能安全验证 dry-run 与脚本接线；真实上传/发布仍需要 owner 的 Chrome Web Store dashboard credential 与人工确认。
+- `Store credentials`：repo 内只做无凭据 fixtures、dry-run 与 workflow contract；真实 Chrome/Firefox mutation 只能在受保护 Environment 的最后一步发生，并且任何 unknown state 都必须先完成 dashboard reconciliation。
 - `Real Obsidian vault / proxy credentials`：任何涉及真实 local-folder handle、REST API key、vault name、proxy secret 或 owner endpoint 的联调都必须由 owner 在受控环境下执行，且不得回写到 tracked source、fixtures 或 handoff 日志。
 
 ## 最小 release 检查

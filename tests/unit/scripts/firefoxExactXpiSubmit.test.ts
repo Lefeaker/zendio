@@ -46,7 +46,10 @@ function fixtureIdentity() {
     toolchain: {
       node: 'v20.20.2',
       npm: '10.8.2',
-      webExt: '10.4.0',
+      amoClient: 'direct-v5',
+      bidiAdapter: 'webdriver-bidi-v1',
+      geckodriver: '0.37.1',
+      ws: '8.21.0',
       lockSha256: publicConfig.esbuild.lockSha256,
       esbuild: publicConfig.esbuild
     },
@@ -100,10 +103,19 @@ function installPinnedFetch(events: string[], failure?: FailurePoint) {
       events.push('request:upload');
       failAt(failure, 'request', 'upload');
       return Promise.resolve(
-        new Response(JSON.stringify({ uuid: 'upload-uuid' }), {
-          status: 200,
-          headers: { 'content-type': 'application/json' }
-        })
+        new Response(
+          JSON.stringify({
+            uuid: 'upload-uuid',
+            channel: 'listed',
+            processed: false,
+            submitted: false,
+            url: `${FIREFOX_AMO_API_BASE_URL}addons/upload/upload-uuid/`
+          }),
+          {
+            status: 200,
+            headers: { 'content-type': 'application/json' }
+          }
+        )
       );
     }
     if (method === 'GET' && url.pathname.endsWith('/addons/upload/upload-uuid/')) {
@@ -251,6 +263,16 @@ describe('exact-XPI submission adapter', () => {
     expect(harness.journal.beforeMutation).toHaveBeenCalledTimes(3);
     expect(harness.journal.afterMutation).toHaveBeenCalledTimes(3);
     expect(harness.journal.mutationInvoked).toHaveBeenCalledTimes(3);
+    const authorization = new Headers(harness.fetchMock.mock.calls[0]?.[1]?.headers).get(
+      'authorization'
+    );
+    expect(authorization).toMatch(/^JWT [A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/u);
+    if (!authorization) throw new Error('authorization header missing');
+    const [, payload] = authorization.slice(4).split('.');
+    const claims = JSON.parse(Buffer.from(payload, 'base64url').toString('utf8'));
+    expect(claims).toMatchObject({ iss: 'key' });
+    expect(claims.jti).toMatch(/^[0-9a-f-]{36}$/u);
+    expect(claims.exp - claims.iat).toBe(60);
     expect(JSON.parse(await readFile(fixture.uuidPath, 'utf8'))).toEqual({
       uploadUuid: 'upload-uuid',
       channel: 'listed',
@@ -723,7 +745,74 @@ describe('exact-XPI submission adapter', () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
-  it('rejects preexisting or cross-topology state before credentials or network access', async () => {
+  it('reuses a matching saved upload UUID without issuing a second upload mutation', async () => {
+    const fixture = await createBoundRelease();
+    await writeFile(
+      fixture.uuidPath,
+      canonicalArtifactJson({
+        channel: 'listed',
+        uploadUuid: 'saved-upload-uuid',
+        xpiCrcHash: await hashVerifiedXpiCrcs(fixture.binding)
+      }),
+      { mode: 0o600 }
+    );
+    const events: string[] = [];
+    const journal = createMutationJournal(events);
+    const fetchMock = vi.fn((url: URL, init?: RequestInit): Promise<Response> => {
+      const method = init?.method ?? 'GET';
+      if (method === 'POST') throw new Error('duplicate-upload');
+      if (method === 'GET' && url.pathname.endsWith('/addons/upload/saved-upload-uuid/')) {
+        events.push('request:validation-read');
+        return Promise.resolve(
+          new Response(
+            JSON.stringify({
+              processed: true,
+              valid: true,
+              uuid: 'saved-upload-uuid',
+              validation: { errors: 0 }
+            }),
+            { status: 200 }
+          )
+        );
+      }
+      if (method === 'PUT') {
+        events.push('request:version-submit');
+        return Promise.resolve(
+          new Response(
+            JSON.stringify({ version: { id: 42, edit_url: 'https://example.test/edit' } }),
+            { status: 200 }
+          )
+        );
+      }
+      if (method === 'PATCH') {
+        events.push('request:source-patch');
+        return Promise.resolve(new Response('{}', { status: 200 }));
+      }
+      throw new Error(`unexpected:${method}:${url.href}`);
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(
+      submitVerifiedFirefoxXpi({
+        binding: fixture.binding,
+        transportMode: 'local-private-v1',
+        channel: 'listed',
+        id: fixture.binding.geckoId,
+        amoBaseUrl: FIREFOX_AMO_API_BASE_URL,
+        submissionSource: fixture.sourcePath,
+        savedUploadUuidPath: fixture.uuidPath,
+        downloadDir: fixture.downloadDir,
+        credentials: { apiKey: 'key', apiSecret: 'secret' },
+        mutationJournal: journal
+      })
+    ).resolves.toEqual({ id: fixture.binding.geckoId });
+    expect(fetchMock.mock.calls.some(([, init]) => (init?.method ?? 'GET') === 'POST')).toBe(false);
+    expect(journal.beforeMutation).toHaveBeenCalledTimes(3);
+    expect(journal.afterMutation).toHaveBeenCalledTimes(3);
+    expect(journal.mutationInvoked).toHaveBeenCalledTimes(2);
+  });
+
+  it('rejects invalid preexisting or cross-topology state before network access', async () => {
     const fixture = await createBoundRelease();
     await writeFile(fixture.uuidPath, 'occupied', { mode: 0o600 });
     const fetchMock = vi.fn();
@@ -741,7 +830,7 @@ describe('exact-XPI submission adapter', () => {
         credentials: { apiKey: 'key', apiSecret: 'secret' },
         mutationJournal: createMutationJournal([])
       })
-    ).rejects.toThrow('FIREFOX_SUBMIT_TARGET_EXISTS');
+    ).rejects.toThrow('FIREFOX_UUID_EVIDENCE_INVALID');
     expect(fetchMock).not.toHaveBeenCalled();
 
     const cross = await createBoundRelease();
@@ -775,6 +864,7 @@ describe('exact-XPI submission adapter', () => {
       }
     ]);
     const harness = createMutationJournal([]);
+    const signedDigest = createHash('sha256').update(signed).digest('hex');
     const fetchMock = vi.fn((url: URL, init?: RequestInit): Promise<Response> => {
       const method = init?.method ?? 'GET';
       if (method === 'POST' && url.pathname.endsWith('/addons/upload/'))
@@ -805,14 +895,30 @@ describe('exact-XPI submission adapter', () => {
         return Promise.resolve(
           new Response(
             JSON.stringify({
-              file: { status: 'public', url: 'https://addons.mozilla.org/api/v5/file/7/signed.xpi' }
+              file: {
+                status: 'public',
+                hash: `sha256:${signedDigest}`,
+                url: 'https://addons.mozilla.org/firefox/downloads/file/7/signed.xpi'
+              }
             }),
             { status: 200 }
           )
         );
-      if (method === 'GET' && url.pathname === '/api/v5/file/7/signed.xpi') {
+      if (method === 'GET' && url.pathname === '/firefox/downloads/file/7/signed.xpi') {
         expect(new Headers(init?.headers).has('authorization')).toBe(true);
         expect(init?.redirect).toBe('manual');
+        return Promise.resolve(
+          new Response(null, {
+            status: 302,
+            headers: {
+              location: `https://addons.cdn.mozilla.net/user-media/addons/7/signed.xpi?filehash=sha256%3A${signedDigest}`
+            }
+          })
+        );
+      }
+      if (method === 'GET' && url.hostname === 'addons.cdn.mozilla.net') {
+        expect(new Headers(init?.headers).has('authorization')).toBe(false);
+        expect(init?.redirect).toBe('error');
         return Promise.resolve(new Response(signed, { status: 200 }));
       }
       throw new Error(`unexpected:${method}:${url.href}`);
@@ -834,7 +940,7 @@ describe('exact-XPI submission adapter', () => {
     ).resolves.toEqual({
       id: fixture.binding.geckoId,
       downloadedFiles: ['signed.xpi'],
-      signedXpiSha256: createHash('sha256').update(signed).digest('hex')
+      signedXpiSha256: signedDigest
     });
     expect(await readFile(join(fixture.downloadDir, 'signed.xpi'))).toEqual(signed);
   });

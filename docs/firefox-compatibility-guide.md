@@ -37,11 +37,11 @@ src/platform/
 | Promise 支持  | 需要 polyfill      | 原生支持                            |
 | Scripting API | `chrome.scripting` | `browser.tabs.executeScript` (回退) |
 
-> ℹ️ 0.2.0 的 Firefox release manifest 使用 `background.scripts`，避免 AMO / `web-ext`
+> ℹ️ 0.2.0 的 Firefox release manifest 使用 `background.scripts`，避免 AMO
 > 对 MV3 `background.service_worker` fallback 的阻断错误。Firefox manifest 同步声明
 > `browser_specific_settings.gecko.data_collection_permissions`，并将桌面与 Android
-> `strict_min_version` 设为 `142.0`，这是当前 `web-ext 10.4.0` lint 可证明无
-> `storage.session` 与 data-collection min-version 兼容警告的最低统一版本。
+> `strict_min_version` 设为 `142.0`。仓库内静态 manifest 契约会在创建 XPI 前验证这些
+> 字段；AMO upload validation 是完整 Firefox linter 的发布权威。
 
 #### Messaging 监听器契约
 
@@ -104,7 +104,7 @@ npm run build:firefox:fast
    - 需要签名的 .xpi 文件
    - 或使用 Firefox Developer Edition / Nightly
 
-## 📦 打包与签名
+## 📦 打包与受保护发布
 
 ### 本地打包
 
@@ -116,32 +116,30 @@ npm run package:firefox
 - 输出：`<扩展名>-v<版本号>.xpi`，位于仓库根目录，可用于开发者模式临时加载。
 - 脚本会自动复制许可证文件，并复用 `manifest.firefox.json`。
 
-### Mozilla 签名发布
+### Mozilla AMO 受保护发布
 
-```bash
-# 使用 AMO API 进行签名（需要先配置凭据）
-WEB_EXT_API_KEY=xxx WEB_EXT_API_SECRET=yyy npm run package:firefox:sign
+本地脚本只构建、打包和验证无凭据工件。正式发布唯一入口是
+`.github/workflows/release-firefox-amo.yml`：tag 事件固定使用 `listed`；手动事件必须提供
+当前 `main` 的 exact `expected_sha`，并显式选择 `listed` 或 `unlisted`。
 
-# 使用本机 GA public config 构建 Firefox production 包，再提交 AMO
-WEB_EXT_API_KEY=xxx WEB_EXT_API_SECRET=yyy npm run package:firefox:prod:ga -- --sign --channel listed
-```
+工作流先在无 Environment、无商店凭据的 `prepare` job 中完成同 SHA 的 CI provenance、
+public GA config、isolated Firefox build、portable manifest、pinned geckodriver、exact-XPI smoke 和 immutable artifact
+上传。受保护的 `submit` job 通过 `firefox-amo-release` Environment 审批后，在新 runner 上
+重新安装锁定依赖，按 exact artifact ID/digest 下载并验证相同工件，再执行 fresh main/CI
+reauthorization。AMO 凭据只在最后一个 `firefox-submit-v1` mutation step 可见，并由仓库自有的
+AMO API v5 adapter 使用；prepare、verify 和 smoke 均不接收这些凭据。
 
-- 需要在 [Mozilla Add-on Developer Hub](https://addons.mozilla.org/) 生成 API Key 与 Secret。
-- 签名产物默认输出到 `build/firefox-artifacts/`，同时复制一份形如 `<扩展名>-v<版本号>-signed.xpi` 到仓库根目录。
-- 支持可选参数：
-  - `--channel listed|unlisted`：默认 `listed`，用于选择发布渠道。
-    - `listed`：提交到 AMO 公开列表审核；脚本默认传递 `approvalTimeout=0`，避免 CI 长时间等待审核完成。审核通过后由 AMO 侧提供签名产物。
-    - `unlisted`：用于自分发签名；脚本要求 Mozilla 返回 signed XPI，并对最终 signed XPI 重新执行 release archive audit。
-  - `--artifacts-dir <path>`：自定义签名产物目录。
-  - `--source-archive-dir <path>`：自定义 AMO source archive 输出目录；默认 `build/firefox-source`。
-  - `--upload-source-code <path>`：复用并上传已有 AMO source archive；脚本会先审计该 archive，再传给 `web-ext.cmd.sign` 的 `uploadSourceCode`。
-  - `--timeout <ms>`：覆盖 web-ext 等待验证的毫秒值。
-  - `--approval-timeout <ms>`：覆盖 web-ext 等待审核的毫秒值；`listed` 自动发布默认使用 `0`。
-  - `--api-key` / `--api-secret`：覆盖环境变量传入凭据。
-- 签名模式会默认生成 `<扩展名>-v<版本号>-source.zip` AMO source archive，并随 `web-ext` signing submission 上传。源码包由白名单 staging 生成，包含 `src/`、`public/`、`scripts/`、`tools/`、锁文件、构建配置和 `AMO_SOURCE_REVIEW.md`，并拒绝 `.env*`、`node_modules/`、`build/`、`.worktrees/`、XPI/ZIP 以及私钥类文件进入 archive。
-- `AMO_SOURCE_REVIEW.md` 记录审核员复现未签名 XPI 的命令：`npm ci`、设置公开的 `ZENDIO_GA_MEASUREMENT_ID` / `ZENDIO_GA_TRANSPORT_MODE=proxy` / `ZENDIO_GA_PROXY_ENDPOINT`、运行 `node scripts/setup-error-analytics.js --require-env --require-zendio-env --require-proxy-transport`、`node scripts/build.mjs --mode=prod --skip-checks --firefox` 与 `node scripts/package-firefox.mjs --dist-dir build/dist`。AMO API credentials、GA client secret、本机 `.env.production.local` 不应进入源码包，也不需要提供给审核员。
-- 通过 `npm run package:firefox:sign -- --channel unlisted` 可传递附加参数。
-- GitHub 自动发布入口为 `.github/workflows/release-firefox-amo.yml`。该 workflow 支持 tag `v*` 触发与手动触发，默认 `listed`，手动触发可选择 `unlisted`；它会强制校验 canonical `ZENDIO_GA_MEASUREMENT_ID`、`ZENDIO_GA_TRANSPORT_MODE=proxy`、`ZENDIO_GA_PROXY_ENDPOINT`、`WEB_EXT_API_KEY`、`WEB_EXT_API_SECRET`，运行 Firefox GA production build，提交 AMO source archive + XPI，并对生成的 XPI 执行 GA release-surface archive audit。GitHub artifact 同时保留 XPI 和 `build/firefox-source/**/*-source.zip`，方便审核追溯或手动补交源码。
+- `listed` 使用零审核等待，成功意味着 AMO 已接受并进入审核流程。
+- `unlisted` 使用有界等待，并要求唯一下载的 signed XPI 通过重新审计。
+- upload、version submit 或 source patch 任一 mutation 开始后出现超时、连接丢失或未知响应，
+  结果一律是 `unknown-submission-state`，不得 rerun job 或重试 CLI。owner 必须先在 AMO
+  后台核对 exact add-on ID/version/channel，并记录 recovery decision。
+- 只有 durable state 明确证明 mutation call count 为零的 pre-mutation failure，才允许通过新的、
+  再次审批的手动 workflow run 重试；GitHub 的 Re-run jobs 永远不具备发布资格。
+- Environment 只保存 AMO store credentials 和 reviewer policy；三项 `ZENDIO_GA_*` public
+  build values 来自冻结的 repository/organization Variables。
+- 已保存的 upload UUID 继续使用兼容路径 `store-state/firefox/web-ext-upload/upload-uuid.json`；
+  这个目录名是历史状态格式，不表示运行时仍依赖 `web-ext`。
 
 ## 🎨 样式适配
 
@@ -186,19 +184,39 @@ node scripts/prepare-firefox-release.mjs \
 node scripts/verify-firefox-release.mjs \
   --manifest "$ATTEMPT_ROOT/release-root/release/manifest.json" \
   --transport-mode local-private-v1
+
+node scripts/run-bounded-command.mjs \
+  --profile firefox-geckodriver-provision-v1 -- \
+  --output-dir "$ATTEMPT_ROOT/geckodriver"
+
+node scripts/run-bounded-command.mjs \
+  --profile firefox-smoke-v1 -- \
+  --manifest "$ATTEMPT_ROOT/release-root/release/manifest.json" \
+  --transport-mode local-private-v1 \
+  --result-json "$ATTEMPT_ROOT/firefox-smoke-result.json"
 ```
 
 portable manifest 将 exact XPI、AMO source archive、dist inventory、Git tree、工具链和公开 GA 配置指纹绑定在一起。`local-private-v1` 仅接受 0700 目录和 0600 文件；工作流下载后的验证必须显式选择 `github-artifact-v1`，且不得由路径或文件 mode 自动推断 transport。
 
-exact-XPI smoke 使用经过验证的同进程 capability，临时安装、查询并 reload 同一 XPI。它不会把 unpacked source directory 冒充 XPI 安装证据，也不会读取用户 Firefox profile、系统 Firefox 或默认浏览器缓存。R02 只做本地、无凭据验证；AMO submit、push 和 publish 不属于这个阶段。
+exact-XPI smoke 使用固定版本和 SHA-256 的官方 geckodriver `0.37.1` 启动锁匹配的
+Playwright Firefox，并通过 WebDriver BiDi 安装同一 XPI。门禁依次验证 install 返回的 Gecko
+ID、geckodriver system-access context 中 AddonManager 的相同 ID / manifest version / active state、
+uninstall、reinstall、再次 identity/state 验证，以及有界关闭和私有 profile 清理。system-access
+只对当前私有 smoke session 开启，子进程环境不含 AMO 凭据。它不会把 unpacked source
+directory 冒充 XPI 安装证据，也不会读取用户 Firefox profile、系统 Firefox 或默认浏览器缓存。
+该阶段只做本地、无凭据验证；AMO submit、push 和 publish 不属于这个阶段。
 
-Firefox lint 的发布契约由仓库包装层判定，而不是把 `web-ext` 的 warning exit code 当作零 warning 证明。第一方 warning 必须为 `0`，且必须返回恰好两条 `@mozilla/readability@0.6.0` 的 `UNSAFE_VAR_ASSIGNMENT` 记录；零条 warning 同样失败。Firefox production build 会在 XPI 之外生成 byte-bound JS/source-map provenance sidecar，包装层据此把每条完整 lint message 映射回 `Readability.js:1549` 或 `Readability.js:1928`，并校验 commit/tree、生成 JS 与 map、根 `package.json` 声明身份 SHA-256 `168f01305bab908fc4a75172e05eef6bab00e009f0c7e97709bcc02c8471b966`、lock entry 身份 SHA-256 `cd7a3c2b695164ef97fd4ff72a50ff8ce01cf45d6934c5f7e5889d6f967ac3c1` 以及 Readability source hash。生成 chunk 名称和列号不是长期 allowlist。任一 message、source、数量、identity 或 artifact 漂移都在 XPI 创建前失败；该契约不能用来接受其他依赖、其他位置或新增 warning，也不得通过编辑 bundle/vendor 输出闭合。
+本地 XPI 创建前执行仓库自有的 manifest 与 release-surface 静态检查，包括 Firefox MV3
+background、Gecko ID、最低版本、data-collection 声明、必需 background bundle 和 archive
+inventory。完整 addons-linter 判定由 AMO upload validation 提供；validation 非成功、超时或返回
+错误时不会进入 version/source mutation。这里不声明本地静态检查与 AMO linter 等价，也不允许
+用 audit suppression、warning allowlist 或 advisory 重分类替代 AMO validation。
 
 ### 单元测试
 
 ```bash
 # 运行 Firefox 特定测试
-npm run verify:runtime && npx vitest run --config vitest.unit.config.ts tests/unit/platform/firefox
+npm run verify:runtime && node scripts/run-bounded-command.mjs --profile vitest-v1 -- run --config vitest.unit.config.ts tests/unit/platform/firefox
 
 # 运行所有测试
 npm test
@@ -270,8 +288,9 @@ if (capabilities.serviceWorker) {
 - 检查 `manifest.firefox.json` 语法
 - 确保 `browser_specific_settings.gecko.id` 已设置
 - 检查最低版本要求 `strict_min_version`
-- 本地发布前运行 `npm run package:firefox`，该命令会在生成 XPI 前对最终
-  `build/dist` 执行 `web-ext lint --self-hosted`
+- 本地发布前运行 `npm run package:firefox`；该命令会在生成 XPI 前验证最终
+  `build/dist` 的 Firefox manifest、background bundle 与 release-surface，再审计 XPI inventory
+- 完整 linter 结论只来自 AMO upload validation，不把本地打包成功解释为 AMO validation 成功
 
 ### 2. API 不可用
 
@@ -326,6 +345,9 @@ Firefox 版本与 Chrome 版本保持同步：
 ## 📚 参考资源
 
 - [Firefox WebExtensions API](https://developer.mozilla.org/en-US/docs/Mozilla/Add-ons/WebExtensions)
+- [Firefox WebDriver BiDi WebExtension module](https://firefox-source-docs.mozilla.org/remote/WebDriverBiDi/webExtension.html)
+- [Mozilla geckodriver releases](https://github.com/mozilla/geckodriver/releases)
+- [AMO Add-ons API v5](https://mozilla.github.io/addons-server/topics/api/addons.html)
 - [Chrome Extension API](https://developer.chrome.com/docs/extensions/)
 - [WebExtensions Polyfill](https://github.com/mozilla/webextension-polyfill)
 - [Browser Compatibility](https://developer.mozilla.org/en-US/docs/Mozilla/Add-ons/WebExtensions/Browser_compatibility_for_manifest.json)
@@ -334,6 +356,6 @@ Firefox 版本与 Chrome 版本保持同步：
 
 **维护者**：前端团队
 
-**最后更新**：2026-07-21
+**最后更新**：2026-08-26
 
 **适用版本**：Zendio v0.2.0+

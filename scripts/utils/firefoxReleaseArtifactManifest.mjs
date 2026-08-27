@@ -446,13 +446,16 @@ function validateManifestShape(manifest) {
     fail('FIREFOX_RELEASE_PACKAGE_IDENTITY');
   assertClosedKeys(
     manifest.toolchain,
-    ['esbuild', 'lockSha256', 'node', 'npm', 'webExt'],
+    ['amoClient', 'bidiAdapter', 'esbuild', 'geckodriver', 'lockSha256', 'node', 'npm', 'ws'],
     'FIREFOX_RELEASE_TOOLCHAIN_IDENTITY'
   );
   if (
     manifest.toolchain.node !== 'v20.20.2' ||
     manifest.toolchain.npm !== '10.8.2' ||
-    manifest.toolchain.webExt !== '10.4.0' ||
+    manifest.toolchain.amoClient !== 'direct-v5' ||
+    manifest.toolchain.bidiAdapter !== 'webdriver-bidi-v1' ||
+    manifest.toolchain.geckodriver !== '0.37.1' ||
+    manifest.toolchain.ws !== '8.21.0' ||
     !/^[0-9a-f]{64}$/u.test(manifest.toolchain.lockSha256 ?? '')
   )
     fail('FIREFOX_RELEASE_TOOLCHAIN_IDENTITY');

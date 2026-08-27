@@ -391,7 +391,10 @@ export async function prepareFirefoxRelease(argv = process.argv.slice(2)) {
       toolchain: {
         node: process.version,
         npm: npmVersion.stdout.trim(),
-        webExt: lock.packages?.['node_modules/web-ext']?.version,
+        amoClient: 'direct-v5',
+        bidiAdapter: 'webdriver-bidi-v1',
+        geckodriver: '0.37.1',
+        ws: lock.packages?.['node_modules/ws']?.version,
         esbuild: publicConfig.esbuild,
         lockSha256: sha256(lockBytes)
       },

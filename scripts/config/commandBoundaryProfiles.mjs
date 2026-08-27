@@ -81,6 +81,15 @@ export const COMMAND_LIMITS = deepFreeze({
     fd4Bytes: 4 << 20,
     fd5Bytes: 4 << 20
   },
+  geckodriverProvision: {
+    activeMs: 900_000,
+    termMs: 5_000,
+    killMs: 5_000,
+    stdoutBytes: 16 << 20,
+    stderrBytes: 16 << 20,
+    fd4Bytes: 4 << 20,
+    fd5Bytes: 4 << 20
+  },
   isolatedBuild: {
     activeMs: 630_000,
     termMs: 5_000,
@@ -326,6 +335,7 @@ export const PROFILE_IDS = deepFreeze([
   'coverage-summary-v1',
   'dependency-cruiser-v1',
   'fixture-v1',
+  'firefox-geckodriver-provision-v1',
   'firefox-prepare-v1',
   'firefox-smoke-v1',
   'firefox-submit-v1',
@@ -414,6 +424,7 @@ const FIREFOX_EXECUTION_CLASSES = deepFreeze({
 });
 const FIXED_RELEASE_NODE_PATHS = new Set([
   'scripts/build.mjs',
+  'scripts/provision-geckodriver.mjs',
   'scripts/package-firefox.mjs',
   'scripts/package.mjs',
   'scripts/prepare-chrome-release.mjs',
@@ -587,6 +598,11 @@ function validateReleaseProfileArguments(profileId, args) {
   if (profileId === 'release-provenance-v1') return validateReleaseProvenanceArgs(args);
   if (profileId === 'chrome-prepare-v1') return validatePrepareArgs(args);
   if (profileId === 'firefox-prepare-v1') return validatePrepareArgs(args, { firefox: true });
+  if (profileId === 'firefox-geckodriver-provision-v1') {
+    if (args.length !== 2) invalid('GECKODRIVER_ARGUMENTS_INVALID');
+    requireFlagValue(args, 0, '--output-dir', absolutePathToken);
+    return args;
+  }
   if (profileId === 'chrome-verify-v1' || profileId === 'firefox-verify-v1') {
     if (args.length !== 4) invalid('RELEASE_VERIFY_ARGUMENTS_INVALID');
     requireFlagValue(args, 0, '--manifest', absolutePathToken);
@@ -1044,6 +1060,7 @@ export const R03_CI_JOB_SEQUENCE_RESERVATIONS = deepFreeze({
     { owner: 'release-provenance-v1:prepare', fullMs: 190_000 },
     { owner: 'platform:playwright-host-deps-v1', fullMs: 0 },
     { owner: 'playwright-browser-install-v1', fullMs: 940_000 },
+    { owner: 'firefox-geckodriver-provision-v1', fullMs: 910_000 },
     { owner: 'isolated-build-v1', fullMs: 640_000 },
     { owner: 'firefox-prepare-v1', fullMs: 1_210_000 },
     { owner: 'release-job-outputs-v1', fullMs: 70_000 },
@@ -1577,6 +1594,7 @@ function profileFixedScript(profileId) {
     'chrome-publish-v1': 'scripts/publish-chrome-webstore.mjs',
     'chrome-verify-v1': 'scripts/verify-chrome-release.mjs',
     'firefox-prepare-v1': 'scripts/prepare-firefox-release.mjs',
+    'firefox-geckodriver-provision-v1': 'scripts/provision-geckodriver.mjs',
     'firefox-smoke-v1': 'scripts/run-firefox-xpi-smoke.mjs',
     'firefox-submit-v1': 'scripts/submit-firefox-amo-release.mjs',
     'firefox-verify-v1': 'scripts/verify-firefox-release.mjs',
@@ -2001,6 +2019,25 @@ export function resolveCommandProfile(
       ...npmInvocation(args, COMMAND_LIMITS.quick),
       env: releaseProfileEnvironment(profileId, environment, attemptNpmConfigEnvironment(root)),
       commandContext: { attemptRoot: root }
+    };
+  } else if (profileId === 'firefox-geckodriver-provision-v1') {
+    const attemptRoot =
+      environment.CI === 'true' || environment.GITHUB_ACTIONS === 'true'
+        ? requireReleaseJob(environment, ['firefox-prepare-v1'])
+        : requireLocalRelease(environment);
+    const outputDir = requireContainedArgument(
+      attemptRoot,
+      profileArgumentValue(args, '--output-dir')
+    );
+    if (outputDir !== join(attemptRoot, 'geckodriver')) {
+      invalid('GECKODRIVER_OUTPUT_DIRECTORY_INVALID');
+    }
+    command = {
+      executable: process.execPath,
+      argv: [fixedFileOperation(profileFixedScript(profileId)), ...args],
+      env: releaseProfileEnvironment(profileId, environment),
+      limits: COMMAND_LIMITS.geckodriverProvision,
+      commandContext: { attemptRoot, outputDir, geckodriverProvision: true }
     };
   } else if (
     [
