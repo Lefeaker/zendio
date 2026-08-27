@@ -2523,14 +2523,15 @@ describe('bounded command ownership', () => {
               JSON.stringify({
                 file: {
                   status: 'public',
-                  url: 'https://addons.mozilla.org/api/v5/file/7/signed.xpi'
+                  hash: `sha256:${signedDigest}`,
+                  url: 'https://addons.mozilla.org/firefox/downloads/file/7/signed.xpi'
                 }
               }),
               { status: 200 }
             )
           );
         }
-        if (method === 'GET' && url.pathname === '/api/v5/file/7/signed.xpi') {
+        if (method === 'GET' && url.pathname === '/firefox/downloads/file/7/signed.xpi') {
           events.push('request:signed-xpi');
           return Promise.resolve(new Response(signedBytes, { status: 200 }));
         }

@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 import { chmodSync, writeFileSync } from 'node:fs';
-import { lstat, mkdtemp, readFile, rm } from 'node:fs/promises';
+import { lstat, mkdtemp, readFile, realpath, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -41,7 +41,8 @@ afterEach(async () => {
 
 describe('geckodriver provisioner', () => {
   it('downloads, verifies and atomically publishes one pinned host binary', async () => {
-    const root = await mkdtemp(join(tmpdir(), 'zendio-geckodriver-'));
+    const root = await realpath(await mkdtemp(join(tmpdir(), 'zendio-geckodriver-')));
+    chmodSync(root, 0o700);
     roots.push(root);
     const archive = Buffer.from('fixture archive');
     const asset = {
@@ -84,7 +85,8 @@ describe('geckodriver provisioner', () => {
   });
 
   it('rejects a downloaded archive that does not match the pinned digest', async () => {
-    const root = await mkdtemp(join(tmpdir(), 'zendio-geckodriver-digest-'));
+    const root = await realpath(await mkdtemp(join(tmpdir(), 'zendio-geckodriver-digest-')));
+    chmodSync(root, 0o700);
     roots.push(root);
     const outputDir = join(root, 'geckodriver');
     await expect(
@@ -100,7 +102,8 @@ describe('geckodriver provisioner', () => {
   });
 
   it('fails closed on a platform without an official pinned asset', async () => {
-    const root = await mkdtemp(join(tmpdir(), 'zendio-geckodriver-platform-'));
+    const root = await realpath(await mkdtemp(join(tmpdir(), 'zendio-geckodriver-platform-')));
+    chmodSync(root, 0o700);
     roots.push(root);
     await expect(
       provisionGeckodriver(['--output-dir', join(root, 'geckodriver')], {

@@ -1,6 +1,6 @@
 # 工程命令与入口
 
-最后更新：2026-08-24
+最后更新：2026-08-27
 
 ## 推荐运行环境
 
@@ -29,7 +29,7 @@
   - i18n 产品范围决策为 `release-13-languages`：release-supported human UI locales 为 `en`、`zh-CN`、`ja`、`de`、`fr`、`es-ES`、`es-419`、`it`、`ko`、`pt-BR`、`ru`、`zh-TW`
   - `qps-ploc` 分类为 `dev-test-only`；production build/package output 与 release-surface audit 不允许出现 `qps-ploc` loader/chunk 或 `_locales/qps-ploc/messages.json`
   - Chrome ZIP 与 Firefox XPI package 脚本会解包最终产物并通过 `tools/audit-release-archive.mjs` 复用 release-surface 审计
-  - Firefox XPI package 脚本会在生成未签名 XPI 前对最终 `build/dist` 执行 `web-ext lint --self-hosted`；Firefox source manifest 当前使用 `background.scripts`，声明 `browser_specific_settings.gecko.data_collection_permissions.required=["none"]` / `optional=["technicalAndInteraction"]`，并将 desktop / Android `strict_min_version` 统一为 `142.0`，避免 `BACKGROUND_SERVICE_WORKER_NOFALLBACK`、`storage.session` min-version 与 AMO data-collection min-version 漂移静默进入 release artifact
+  - Firefox XPI package 脚本会在生成未签名 XPI 前执行仓库自有的 manifest、background bundle、Gecko ID / version / data-collection 与 release-surface 静态检查；Firefox source manifest 当前使用 `background.scripts`，声明 `browser_specific_settings.gecko.data_collection_permissions.required=["none"]` / `optional=["technicalAndInteraction"]`，并将 desktop / Android `strict_min_version` 统一为 `142.0`。仓库静态检查不声称等价于完整 linter；受保护提交阶段的 AMO upload validation 是完整 Firefox linter 权威
   - `npm run test:i18n` 包含 `layout:report`；clean worktree 中需先运行 `npm run build:dev` 或 `npm run build` 生成 `build/dist`
   - `lint:options-css` 的当前有效规则覆盖 `src/options/**/*.css`；`src/options/stitch/styles/**` 的 `--print-config` 必须包含非空 `selector-class-pattern`
   - 显式包含 `lint:hardcoded`；当前 standalone 输出为 `0` hardcoded findings
@@ -54,14 +54,14 @@
   - `test`、`test:unit`、`test:e2e` 与 `test:coverage` 直接进入 `vitest-v1`；该 profile 在启动 locked Vitest leaf 前拥有 runtime guard，其余现有 browser/visual aliases 仍保留显式 runtime guard
   - 本地 PATH 指向不受支持 Node 版本时，先在 runtime guard 失败，不启动 Vitest / Playwright
   - canonical shard roots 为 `node scripts/run-test-shards.mjs <unit|e2e> [registered-shard]`；全组固定最多 `3` 个 Vitest leaf，显式单 shard 固定为 `1`，不读取 CPU 或环境并发
-  - canonical browser shard root 为 `node scripts/run-browser-test-shards.mjs <e2e|visual>`；固定最多 `2` 个 Playwright leaf，并为每个 registered shard 使用 owner-defined `PLAYWRIGHT_OUTPUT_DIR` / `PLAYWRIGHT_HTML_REPORT_DIR`，caller 不能覆盖路径
+  - canonical browser shard root 为 `node scripts/run-browser-test-shards.mjs <e2e|visual|bundled>`；固定最多 `2` 个 Playwright leaf，并为每个 registered shard 使用 owner-defined port / dist / `PLAYWRIGHT_OUTPUT_DIR` / `PLAYWRIGHT_HTML_REPORT_DIR`，caller 不能覆盖路径。`bundled` route 会在 admission 前取得共享 Playwright build lease，经 `npm-script-build-v1` 的 fixed `build:dev` owner 与 coordinator-owned `BUILD_DIST_DIR=build/dist-u02c2-bundled-chromium` 生成 fresh dist，并持有 lease 直到 E2E 与 visual leaf 全部结束
   - `test:e2e:browser:parallel` 当前覆盖 YAML interaction、reader-panel 与 migration smoke 三组 shard；local-vault 与 Firefox browser checks 仍保留为独立专项命令
 - `npm run build*` 与 `npm run package*`
   - `build` 与 `build:firefox` 显式先运行一次 `quality`，随后调用 `scripts/build.mjs --skip-checks`，不得恢复为重复触发完整 `quality` 的形式
   - `scripts/build.mjs` 从 `package.json` 读取版本号，并注入 `__ZENDIO_EXTENSION_VERSION__` / `__AIIINOB_EXTENSION_VERSION__` 作为 Options 等无 platform manifest 场景的版本 fallback；不要在 UI 代码中硬编码 release version
   - `scripts/build.mjs` 支持 `--outdir` / `BUILD_DIST_DIR`；`scripts/package.mjs` 与 `scripts/package-firefox.mjs` 支持 `--dist-dir`
   - `build:chrome:isolated` / `build:firefox:isolated` 与 `package:chrome:isolated` / `package:firefox:isolated` 使用独立 dist 目录，作为 Chrome / Firefox package 并行化的安全入口
-  - Firefox AMO 自动发布入口为 `.github/workflows/release-firefox-amo.yml`；该 workflow 在 tag `v*` 与手动触发时使用 repository secrets 注入 GA public config 与 AMO API credentials，运行 `analytics:validate:prod:required`、`build:firefox:prod:ga:ci`、生成并审计 AMO source archive、`web-ext` signing submission、GA secret / release-surface archive audits，并上传生成的 XPI 与 `build/firefox-source/**/*-source.zip` artifact
+  - Firefox AMO 自动发布入口为 `.github/workflows/release-firefox-amo.yml`；无凭据 `prepare` job 绑定 exact release SHA、required CI、Git tree、package/lock hash 与 immutable artifact ID/digest，执行 public GA config 验证、isolated Firefox build、AMO source archive、pinned geckodriver `0.37.1` + WebDriver BiDi exact-XPI smoke 和 archive audits。受保护 `submit` job 在 fresh runner 上重新验证/授权同一工件，并只在唯一 mutation step 向 first-party AMO API v5 adapter 注入 AMO credentials
 - `.github/workflows/ci.yml`
   - 采用拆分后的并行 job 拓扑：`static-preflight`、`static-release-surface`、`static-generated-artifacts`、`static-style-and-locale`、`static-reporting-audits`、`coverage`、`visual` matrix、`e2e-vitest`、`browser-yaml`、`browser-reader-panel`、`browser-smoke` 并行执行
   - 使用 workflow-level `concurrency`，同一 PR / ref 的新 run 会取消旧 run
@@ -75,9 +75,9 @@
   - `package` job 通过 `needs: [static-preflight]` 提前启动，并继续使用 `npm run build:fast`，避免在 CI 后段通过 `npm run build` 重复触发完整 `quality`；测试、visual、release-surface 与静态拆分 job 仍应作为独立 required checks 参与合并判断
 - `.github/workflows/release-firefox-amo.yml`
   - Firefox AMO 自动发布支持 tag `v*` 触发与 `workflow_dispatch` 手动触发；手动触发可选择 `listed` 或 `unlisted`，tag 触发默认 `listed`
-  - Workflow 只读取 `contents: read` 权限，不写 GitHub release；发布凭据只来自 `WEB_EXT_API_KEY` / `WEB_EXT_API_SECRET` repository secrets，GA public config 只来自 `ZENDIO_GA_MEASUREMENT_ID` / `ZENDIO_GA_PROXY_ENDPOINT` secrets 与固定 `ZENDIO_GA_TRANSPORT_MODE=proxy`
-  - `listed` 渠道使用 `--approval-timeout 0` 提交 AMO 审核，不要求 CI 立即下载 signed XPI；`unlisted` 渠道必须产出根目录 signed XPI，并与 unsigned XPI 一起进入 GA release-surface archive audit
-  - 签名流程默认生成 `<扩展名>-v<版本号>-source.zip` 并通过 `web-ext.cmd.sign({ uploadSourceCode })` 上传；源码包包含 `AMO_SOURCE_REVIEW.md` 与复现构建所需白名单输入，并拒绝 `.env*`、`node_modules/`、`build/`、`.worktrees/`、XPI/ZIP 与私钥类文件
+  - Workflow 不写 GitHub release；三项 `ZENDIO_GA_*` public build values 来自冻结的 repository / organization Variables。AMO credentials 只来自受保护 `firefox-amo-release` Environment，并只暴露给 `firefox-submit-v1` mutation step；兼容环境变量名 `WEB_EXT_API_KEY` / `WEB_EXT_API_SECRET` 不表示依赖 `web-ext`
+  - `listed` 渠道使用零审核等待，成功表示 AMO 已接受并进入审核流程；`unlisted` 渠道使用有界等待，并要求唯一下载的 signed XPI 通过 SHA-256、manifest identity/version 与 release-surface 复核
+  - first-party AMO API v5 adapter 复用已保存 upload UUID，等待 AMO upload validation 成功后提交 version，并上传 `<扩展名>-v<版本号>-source.zip`。源码包包含 `AMO_SOURCE_REVIEW.md` 与复现构建所需白名单输入，并拒绝 `.env*`、`node_modules/`、`build/`、`.worktrees/`、XPI/ZIP 与私钥类文件；upload/version/source mutation 开始后的未知响应必须进入 reconciliation，不得自动重试
   - `.github/workflows/release-firefox-amo.yml` 的核心契约由 `npm run audit:ci-workflow:check` 与 `tests/unit/tools/ciWorkflow.test.ts` 守住；不要把该 workflow 改回依赖本机 `.env.production.local` 的命令
 - 2026-06-23 post-0.2.0 P07 performance observability truth：在 branch `codex/aiiinob-post-020-p07-performance-observability-2026-06-22` / source baseline commit `7495ab47` 重新采集 production `build:fast`、dev `build:dev`、`audit:build:report`、`audit:release-surface:report`、`audit:performance:report`、`audit:deps:report`、`audit:platform-boundary:report`、`audit:non-production-source:report`、`lint:type-any` 与 `lint:warnings-guard`；P07 后续只同步 docs、tool budget ratchets 与对应 tool test expectation。Fresh production build report 为 `content/runtime.js` raw `50,167` bytes、`onboarding/index.js` raw `1,130` bytes、chunks `86`；fresh dev report 为 `content/runtime.js` raw `58,694` bytes、`onboarding/index.js` raw `1,751` bytes、chunks `100`。Dev `content/runtime.js` remains above warning target `58,564` but below hard stop `58,752`; P07 intentionally did not loosen this build budget. `audit:release-surface:report` 为 `Files=180`、forbidden harness/pseudo-locale `none`；`audit:performance:report` 为 `sourceFiles=875`、`hotspotsOver250=111`、`registeredLineBudgets=149`，并将 36 个 stale line budgets 收紧到 fresh line count；`audit:deps:report` 为 `modules=993`、`dependencies=3032`、`violations=0`；`audit:platform-boundary:report` 为 total `141`；`audit:non-production-source:report` decision counts 为 `retain-production: 718`、`migrate-import-owner: 164`、`retain-production-facade: 17`；`lint:type-any` 为 overall `0/1187/1987/49/3`、src `0/666/715/8/0`、tests `0/521/1272/41/3`；`lint:warnings-guard` 当前 warning count 为 `157`（baseline `160`）。
 - 2026-05-22 final exit gate 真值：在 Node `v20.20.2` / npm `10.8.2` 下，`quality`、`verify:preflight`、`test:unit`、`clean`、`build:dev`、`audit:build:report`、`audit:performance:report`、`verify:stitch-secondary`、`visual:test`、browser smoke、reader-panel、local-vault 均已通过；`build/dist/content/runtime.js` raw `54,554` bytes，低于当时 `57,600` stop gate
@@ -96,7 +96,7 @@
 - 2026-06-01 Plan 09 compatibility duplicate 真值：`quality` 显式包含 `audit:compatibility-duplicates:check`；当前 usage/rest compatibility candidate files 为 `0`，exact duplicate groups 为 `0`，allowlist entries 为 `0`，因此没有生产 allowlist。工具中的旧 `src/options/components/sections/usage*.ts` / `src/options/widgets/shared/usage/**` scope 是 retired compatibility reintroduction guard，只用于防止已退役 usage compatibility shells 被重新引入并复制，不代表当前生产 owner。
 - 2026-08-24 command-boundary runtime truth：`test`、`test:unit`、`test:e2e`、`test:coverage` 由 `vitest-v1` 内部先执行 runtime guard，再启动 locked CLI；其他现有 test/browser/visual aliases 保留显式 guard。Unsupported Node 会在任何 Vitest / Playwright leaf 前失败。
 - 2026-05-25 post-gap runtime guard 真值：本轮验证使用 Node `v20.20.2` / npm `10.8.2`；`package.json` 与 `package-lock.json` root engines 要求 Node `>=20.19 <21`，`verify:runtime` 会读取 `package.json` 的 `engines.node` 并已接入 `quality` 与 `verify:preflight`
-- 2026-06-19 Vitest 4 / Vite 8 / release-tooling dependency-audit 真值：Node `v20.20.2` / npm `10.8.2` 下，root devDependencies 精确锁定为 `vitest 4.1.9` 与 `@vitest/coverage-v8 4.1.9`，解析出的 dev test toolchain 为 `vite 8.0.16`、`esbuild 0.28.1`。Firefox signing toolchain 仍通过 `web-ext 10.4.0 -> addons-linter 10.7.0 -> cheerio 1.2.0` 解析；`undici@>=7.0.0 <7.28.0` 已由 root override 锁定到 `7.28.0`，关闭 2026-06-19 发现的 `undici@7.27.2` dev/release-tooling audit 漂移。`npm audit --omit=dev --json` 与 `npm audit --audit-level=low --json` 当前均退出 `0`，total `0` vulnerabilities；此前 `vitest` / `vite` / `esbuild` dev/build/test-only high 链 release exception 已关闭。全量 dev audit 仍不是 `quality` / `verify:preflight` / CI hard gate，除非后续 owner 单独做 gate 决策。迁移兼容修复仅限测试侧：Vitest 4 stricter `Mock` typing、Chrome/Firefox downloads 测试中的 constructible `URL` stub、以及 `@mozilla/readability` constructible mock。coverage hard gate 保持启用并同步为 Vitest 4 口径 floor：statements `76.5`、lines `77`、functions `77.5`、branches `66.5`。
+- 2026-08-27 Firefox release-tooling dependency-audit 真值：`web-ext`、`addons-linter` 与其 vulnerable `image-size` 链已从 direct/lock dependency graph 删除；AMO submission 由仓库 first-party API v5 adapter 承担，exact-XPI smoke 通过唯一新增 direct devDependency `ws 8.21.0` 驱动 WebDriver BiDi，并使用固定版本与 SHA-256 的官方 geckodriver `0.37.1`。Release acceptance 要求在 clean candidate 上分别执行 production `npm audit --omit=dev --audit-level=low --json` 与 all-dependency `npm audit --audit-level=low --json`，两者的 info/low/moderate/high/critical/total 必须全部为 `0`；不得通过 suppression、override pin 或 advisory 重分类制造通过
 - 2026-06-16 i18n hardcoded P22/post-strict-gap type-ratchet 真值：P16-P22 与 post-P22 strict gap 合入 integration 后，`lint:type-any` 扫描 `1231` files，fresh overall `0/1148/1973/47/3`、src `0/628/695/9/0`、tests `0/520/1278/38/3`；`lint:type-any:ratchet` checked-in 上限同步为 overall `0/1148/1973/53/4`、src `0/628/695/9/0`、tests `0/520/1278/46/4`。本次只同步 accepted integration current truth，`any` 继续保持 `0`，`ts-expect-error` 未增加，non-null 上限未放宽。
 - 2026-06-18 GA telemetry post-main type-ratchet 真值：GA integration 合入 current `origin/main` 后，`lint:type-any` 扫描 `1285` files，fresh overall `0/1190/1996/50/3`、src `0/668/715/9/0`、tests `0/522/1281/41/3`；`lint:type-any:ratchet` checked-in 上限同步为 exact current counts。`any` 继续保持 `0`，overall / tests 的 non-null 与 `ts-expect-error` 上限较旧值收紧；tests 下降不得抵消 src 增长。
 - 2026-06-18 GA telemetry post-main quality 真值：`quality` fresh run 在 Node `v20.20.2` 下通过；`lint:warnings-guard` checked-in baseline 为 `160`，fresh warning count 为 `159`；`audit:non-production-source:check` decision counts 为 `retain-production: 685`、`migrate-import-owner: 137`、`retain-production-facade: 16`；`audit:deps:report` 输出 `modules=927`、`dependencies=2840`、`violations=0`。本次没有同步 warning baseline，也没有把 dependency / non-production source 报告改成新的 hard threshold。
@@ -160,8 +160,9 @@ npm run visual:test:parallel
 Reader/video browser E2E command truth:
 
 - `node scripts/run-bounded-command.mjs --profile playwright-v1 -- test tests/e2e/<file> --project=chromium-desktop` retains the verified Playwright runner behavior and selects `playwright.reader.config.ts` when no explicit `--config` is supplied.
-- `playwright.reader.config.ts` starts the local Playwright web server and runs `build:dev`, so reader/video browser E2E tests do not depend on a pre-existing `build/dist`.
-- Visual browser tests remain owned by `playwright.config.ts` and `tests/visual/**`.
+- `playwright.reader.config.ts` starts the local Playwright web server, runs `build:dev`, and launches the lock-matched bundled Chromium without a system-browser channel or executable override, so reader/video browser E2E tests do not depend on a pre-existing `build/dist` or system Chrome.
+- Visual browser tests remain owned by `playwright.config.ts` and `tests/visual/**`; all Chromium projects use the lock-matched bundled browser without a channel override.
+- `playwright.bundled-chromium.config.ts` is the local-only eight-file collection for an already-provisioned lock-matched Playwright Chromium cache. Its canonical `node scripts/run-browser-test-shards.mjs bundled` route acquires the existing Playwright build lease, creates a fresh fixed dist, then runs the four-file browser E2E leaf before the four-file visual leaf across fixed ports `43103` / `43104` while retaining that lease and isolated outputs for the entire lifecycle. Extension leaves select the full bundled Chromium with `headless: false` plus Chromium `--headless=new`, without a channel or executable override. The route does not consume a caller-prebuilt dist, replace existing CI routes or install a browser.
 
 Local Vault / release handoff checks:
 
@@ -442,8 +443,9 @@ warning `108` / hard stop `118`；2026-06-20 Options/onboarding closeout 将
 - foundation：`src/ui/foundation/*`
 - primitives：`src/ui/primitives/*`
 - patterns：`src/ui/patterns/*`
-- hosts：`src/ui/hosts/*`
-- domains：`src/ui/domains/*`
+- neutral runtime / surfaces：`src/ui/stitch-runtime/*`、`src/ui/stitch-surfaces/*`
+- retained shared host helpers：`src/ui/foundation/style-host/*`、`src/ui/hosts/content/contentDialogFocus.ts`、`src/ui/hosts/shared/contract.ts`
+- retained shared domain owner：`src/ui/domains/usage-chart/*`；`src/ui/domains/privacy/*` 只保留 type compatibility，不拥有 UI/runtime
 - Options 主链：`src/options/index.ts -> src/options/app/bootstrap.ts`
 - content 主链：`src/content/index.ts -> src/content/runtime/*`
 
@@ -451,7 +453,7 @@ warning `108` / hard stop `118`；2026-06-20 Options/onboarding closeout 将
 
 - `src/content/video/session.ts`
 - `src/content/video/platforms/bilibiliPlatform.ts`
-- `src/ui/domains/privacy/PrivacySettings.ts`
+- `src/ui/domains/privacy/index.ts`（type-only compatibility barrel）
 
 ## MCP / 本地浏览器调试入口
 

@@ -94,12 +94,13 @@
 - Node.js: `.nvmrc` pins `20.20.2`; package engines allow `>=20.19 <21`.
 - npm: validated with `10.8.2`; package engines allow `>=10 <11`.
 - `npm run test*` and `npm run visual*` entrypoints run `verify:runtime` first.
+- Local bundled-Chromium acceptance uses the fixed two-leaf `node scripts/run-browser-test-shards.mjs bundled` route, `playwright.bundled-chromium.config.ts`, the repository-local Playwright CLI and an already-provisioned cache. The coordinator owns a fresh fixed-dist build and keeps the shared Playwright build lease through both leaves; it does not replace CI visual routes or use a system-browser fallback.
 - Common local gates:
   - `npm run quality`
   - `npm run verify:preflight`
   - `npm run verify:stitch-secondary`
   - `npm run build`
-- Chrome and Firefox store automation use separate unprivileged prepare and protected mutation jobs. Both bind the current main SHA, a complete jobs-level CI provenance record, and an immutable artifact ID/digest before Environment approval; store credentials exist only in the final protected mutation step. Unknown store state is non-retriable until owner reconciliation.
+- Firefox AMO automation lives in `.github/workflows/release-firefox-amo.yml`. Its credential-free prepare job binds the exact release SHA, CI provenance and immutable artifact, then runs repository static checks plus a pinned geckodriver `0.37.1` WebDriver BiDi exact-XPI smoke. The protected submit job is the only credentialed mutation boundary and uses the first-party AMO API v5 adapter for listed/unlisted submission, upload validation, source upload and signed-XPI retrieval.
 
 ## Permissions
 
