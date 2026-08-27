@@ -55,14 +55,14 @@ npm run verify:stitch-secondary # Stitch Secondary 主链回归
 
 #### 基础组件优先级 (当前正式口径)
 
-| 语义        | 首选入口                                                | 说明                                                                                     |
-| ----------- | ------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
-| 按钮        | `UiButton` / `createOptionsButtonElement`               | 正式入口：`src/ui/primitives/button/index.ts`                                            |
-| 输入框      | `UiInput` / `createInputElement`                        | 正式入口：`src/ui/primitives/input/index.ts`                                             |
-| 选择框      | `UiSelect` / `createSelectElement`                      | 正式入口：`src/ui/primitives/select/index.ts`                                            |
-| 复选框      | `UiCheckbox` / `createCheckboxElement`                  | 正式入口：`src/ui/primitives/checkbox/index.ts`                                          |
-| 表格/伪表格 | table primitive (`DaisyTable` compatibility class name) | 统一表头、行区与滚动容器；class name is historical compatibility, not DaisyUI guidance   |
-| 对话框      | `createDialogFrame` / `ShadowDialogHost`                | 正式入口：`src/ui/primitives/dialog/index.ts`、`src/ui/hosts/shadow/ShadowDialogHost.ts` |
+| 语义        | 首选入口                                                | 说明                                                                                                                                                                                        |
+| ----------- | ------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 按钮        | `UiButton` / `createOptionsButtonElement`               | 正式入口：`src/ui/primitives/button/index.ts`                                                                                                                                               |
+| 输入框      | `UiInput` / `createInputElement`                        | 正式入口：`src/ui/primitives/input/index.ts`                                                                                                                                                |
+| 选择框      | `UiSelect` / `createSelectElement`                      | 正式入口：`src/ui/primitives/select/index.ts`                                                                                                                                               |
+| 复选框      | `UiCheckbox` / `createCheckboxElement`                  | 正式入口：`src/ui/primitives/checkbox/index.ts`                                                                                                                                             |
+| 表格/伪表格 | table primitive (`DaisyTable` compatibility class name) | 统一表头、行区与滚动容器；class name is historical compatibility, not DaisyUI guidance                                                                                                      |
+| 对话框      | `renderRuntimeSurface` / `createDialogFrame`            | Options resource modal 正式入口：`src/options/stitch/render/renderStitchView.ts` -> `src/ui/stitch-runtime/render/renderRuntimeSurface.ts`；低层 frame：`src/ui/primitives/dialog/index.ts` |
 
 DOM-heavy 场景如需直接拿到按钮元素，统一使用 `src/ui/primitives/button/index.ts` 导出的 `createOptionsButtonElement()`。
 
@@ -148,7 +148,7 @@ src/options/
 4. **Helper/Controller 迁移边界**
 
 - 旧 `DomainMappingsController`、`YamlConfigTable` 等 helper/controller 的 `render()` / `collect()` / `destroy()` 约定仅用于理解兼容残留，不作为新增生产功能模板。
-- 新增或重写生产 UI 行为应落到 `src/options/stitch/*` 的 schema、renderer、runtime action、content、class slot 与 CSS，复杂领域控件落到当前 `src/ui/domains/*` owner。
+- 新增或重写生产 UI 行为应落到 `src/options/stitch/*` 的 schema、renderer、runtime action、content、class slot 与 CSS；只有真实跨 feature 复用的能力才进入 retained `src/ui/primitives/*`、`patterns/*` 或现有 shared domain owner。
 - 通用控件复用 `src/ui/primitives/*` 与 `src/ui/patterns/*`；shell 级状态、自动保存、资源弹层或语言切换才进入 `src/options/app/productionStitchShell.ts` 相关模块。
 
 ---
@@ -158,7 +158,7 @@ src/options/
 - **新增生产 Options UI 行为**
   1. 优先修改 `src/options/stitch/content.ts`、`src/options/stitch/schema/**`、`src/options/stitch/render/**`、`src/options/stitch/runtime/**` 与 `src/options/stitch/styles/**`，保持 preview / production 共享同一 Stitch 真值。
   2. 仅在 shell 级生命周期、资源弹层、语言切换、状态订阅或自动保存需要调整时，修改 `src/options/app/productionStitchShell.ts` 及其相邻 production shell 模块。
-  3. 复杂领域控件应归属当前 `src/ui/domains/*` owner；可复用能力放入 `src/ui/primitives/*` 或 `src/ui/patterns/*`，不得新增旧 section/form owner。
+  3. Options 领域行为归属当前 `src/options/stitch/*` / `src/options/app/*` owner；可复用能力放入 retained `src/ui/primitives/*`、`src/ui/patterns/*` 或 neutral runtime，不得恢复已删除的 generic host/domain 或旧 section/form owner。
   4. 自动保存应沿用 production shell/action adapter 与 `OptionsController` 的当前链路；不要为新增生产功能恢复旧表单注册链。
   5. 测试应覆盖 Stitch schema/render/runtime、production shell、domain UI 或当前 controller 行为；不要新增旧 `tests/unit/options/sections/<Section>.test.ts` 作为生产实现模板。
 

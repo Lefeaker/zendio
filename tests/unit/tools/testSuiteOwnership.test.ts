@@ -317,6 +317,7 @@ describe('canonical test suite descriptors', () => {
       './config/commandBoundaryProfiles.mjs',
       './utils/boundedCommand.mjs',
       './utils/taskGraphRunner.mjs',
+      './utils/playwrightBuildLease.mjs',
       './utils/testShards.mjs'
     ]);
     expect(

@@ -1,6 +1,6 @@
 # 工程命令与入口
 
-最后更新：2026-08-26
+最后更新：2026-08-27
 
 ## 推荐运行环境
 
@@ -54,7 +54,7 @@
   - `test`、`test:unit`、`test:e2e` 与 `test:coverage` 直接进入 `vitest-v1`；该 profile 在启动 locked Vitest leaf 前拥有 runtime guard，其余现有 browser/visual aliases 仍保留显式 runtime guard
   - 本地 PATH 指向不受支持 Node 版本时，先在 runtime guard 失败，不启动 Vitest / Playwright
   - canonical shard roots 为 `node scripts/run-test-shards.mjs <unit|e2e> [registered-shard]`；全组固定最多 `3` 个 Vitest leaf，显式单 shard 固定为 `1`，不读取 CPU 或环境并发
-  - canonical browser shard root 为 `node scripts/run-browser-test-shards.mjs <e2e|visual|bundled>`；固定最多 `2` 个 Playwright leaf，并为每个 registered shard 使用 owner-defined port / dist / `PLAYWRIGHT_OUTPUT_DIR` / `PLAYWRIGHT_HTML_REPORT_DIR`，caller 不能覆盖路径
+  - canonical browser shard root 为 `node scripts/run-browser-test-shards.mjs <e2e|visual|bundled>`；固定最多 `2` 个 Playwright leaf，并为每个 registered shard 使用 owner-defined port / dist / `PLAYWRIGHT_OUTPUT_DIR` / `PLAYWRIGHT_HTML_REPORT_DIR`，caller 不能覆盖路径。`bundled` route 会在 admission 前取得共享 Playwright build lease，经 `npm-script-build-v1` 的 fixed `build:dev` owner 与 coordinator-owned `BUILD_DIST_DIR=build/dist-u02c2-bundled-chromium` 生成 fresh dist，并持有 lease 直到 E2E 与 visual leaf 全部结束
   - `test:e2e:browser:parallel` 当前覆盖 YAML interaction、reader-panel 与 migration smoke 三组 shard；local-vault 与 Firefox browser checks 仍保留为独立专项命令
 - `npm run build*` 与 `npm run package*`
   - `build` 与 `build:firefox` 显式先运行一次 `quality`，随后调用 `scripts/build.mjs --skip-checks`，不得恢复为重复触发完整 `quality` 的形式
@@ -162,7 +162,7 @@ Reader/video browser E2E command truth:
 - `node scripts/run-bounded-command.mjs --profile playwright-v1 -- test tests/e2e/<file> --project=chromium-desktop` retains the verified Playwright runner behavior and selects `playwright.reader.config.ts` when no explicit `--config` is supplied.
 - `playwright.reader.config.ts` starts the local Playwright web server, runs `build:dev`, and launches the lock-matched bundled Chromium without a system-browser channel or executable override, so reader/video browser E2E tests do not depend on a pre-existing `build/dist` or system Chrome.
 - Visual browser tests remain owned by `playwright.config.ts` and `tests/visual/**`; all Chromium projects use the lock-matched bundled browser without a channel override.
-- `playwright.bundled-chromium.config.ts` is the local-only eight-file collection for an already-provisioned lock-matched Playwright Chromium cache. Its canonical `node scripts/run-browser-test-shards.mjs bundled` route runs the four-file browser E2E leaf before the four-file visual leaf across fixed ports `43103` / `43104`, a fixed prebuilt dist and isolated outputs; extension leaves select the full bundled Chromium with `headless: false` plus Chromium `--headless=new`, without a channel or executable override. The route does not replace existing CI routes and never installs a browser.
+- `playwright.bundled-chromium.config.ts` is the local-only eight-file collection for an already-provisioned lock-matched Playwright Chromium cache. Its canonical `node scripts/run-browser-test-shards.mjs bundled` route acquires the existing Playwright build lease, creates a fresh fixed dist, then runs the four-file browser E2E leaf before the four-file visual leaf across fixed ports `43103` / `43104` while retaining that lease and isolated outputs for the entire lifecycle. Extension leaves select the full bundled Chromium with `headless: false` plus Chromium `--headless=new`, without a channel or executable override. The route does not consume a caller-prebuilt dist, replace existing CI routes or install a browser.
 
 Local Vault / release handoff checks:
 
@@ -443,8 +443,9 @@ warning `108` / hard stop `118`；2026-06-20 Options/onboarding closeout 将
 - foundation：`src/ui/foundation/*`
 - primitives：`src/ui/primitives/*`
 - patterns：`src/ui/patterns/*`
-- hosts：`src/ui/hosts/*`
-- domains：`src/ui/domains/*`
+- neutral runtime / surfaces：`src/ui/stitch-runtime/*`、`src/ui/stitch-surfaces/*`
+- retained shared host helpers：`src/ui/foundation/style-host/*`、`src/ui/hosts/content/contentDialogFocus.ts`、`src/ui/hosts/shared/contract.ts`
+- retained shared domain owner：`src/ui/domains/usage-chart/*`；`src/ui/domains/privacy/*` 只保留 type compatibility，不拥有 UI/runtime
 - Options 主链：`src/options/index.ts -> src/options/app/bootstrap.ts`
 - content 主链：`src/content/index.ts -> src/content/runtime/*`
 
@@ -452,7 +453,7 @@ warning `108` / hard stop `118`；2026-06-20 Options/onboarding closeout 将
 
 - `src/content/video/session.ts`
 - `src/content/video/platforms/bilibiliPlatform.ts`
-- `src/ui/domains/privacy/PrivacySettings.ts`
+- `src/ui/domains/privacy/index.ts`（type-only compatibility barrel）
 
 ## MCP / 本地浏览器调试入口
 

@@ -64,4 +64,27 @@ describe('interaction contract audit', () => {
       ])
     );
   });
+
+  it('requires executable retained primitive probes in addition to source contracts', () => {
+    const sources = readInteractionContractSources();
+    const findings = collectInteractionContractFindings({
+      ...sources,
+      harness: sources.harness
+        .replaceAll('createPrimitiveButtonElement', 'removedButtonProbe')
+        .replaceAll('createInputElement', 'removedInputProbe')
+        .replaceAll('createCheckboxElement', 'removedCheckboxProbe')
+        .replaceAll('applyValidationA11y', 'removedValidationBehavior')
+        .replaceAll('loading-danger-button', 'removed-loading-state')
+    });
+
+    expect(findings).toEqual(
+      expect.arrayContaining([
+        'interaction harness missing the retained loading danger button probe',
+        'interaction harness missing the retained input validation probe',
+        'interaction harness missing the retained checkbox validation probe',
+        'interaction harness missing the loading danger state',
+        'interaction harness missing executable validation state changes'
+      ])
+    );
+  });
 });

@@ -14,7 +14,8 @@ export function createBrowserShardTaskGraph(suite: 'e2e' | 'visual' | 'bundled')
 }>;
 export function createBrowserShardEnvironment(
   taskId: string,
-  environment?: NodeJS.ProcessEnv
+  environment?: NodeJS.ProcessEnv,
+  options?: Readonly<{ coordinatorOwnsBuild?: boolean }>
 ): NodeJS.ProcessEnv;
 export function main(
   argv?: readonly string[],
@@ -25,6 +26,9 @@ export function main(
       invocation: Readonly<{ profileId: string; arguments: readonly string[] }>,
       dependencies: Readonly<{ environment: NodeJS.ProcessEnv }>
     ) => BoundedCommandHandle;
+    acquireBuildLeaseOperation?: (
+      options?: Readonly<{ rootDir?: string }>
+    ) => Promise<() => Promise<void>>;
     taskGraphOptions?: object;
   }>
 ): Promise<Readonly<{ ok: boolean; failed: readonly Readonly<{ code?: number }>[] }>>;

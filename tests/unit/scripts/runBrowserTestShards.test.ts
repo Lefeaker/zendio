@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { access, mkdtemp, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join, resolve } from 'node:path';
 import {
   createBrowserShardEnvironment,
   createBrowserShardTaskGraph,
@@ -10,6 +12,10 @@ import type { BrowserShardTask } from '../../../scripts/run-browser-test-shards.
 import { resolveCommandProfile } from '../../../scripts/config/commandBoundaryProfiles.mjs';
 import { startBoundedCommand } from '../../../scripts/utils/boundedCommand.mjs';
 import type { BoundedCommandResult } from '../../../scripts/utils/boundedCommand.mjs';
+import {
+  acquirePlaywrightBuildLease,
+  resolvePlaywrightBuildLeaseDir
+} from '../../../scripts/utils/playwrightBuildLease.mjs';
 
 function successfulHandle(profileId: string) {
   const emptyOutput = { bytes: 0, sha256: '', overflow: false, text: '' };
@@ -90,6 +96,13 @@ describe('browser shard command graph', () => {
     );
     expect(createBrowserShardTaskGraph('bundled').tasks.slice(1)).toEqual([
       {
+        id: 'build:bundled-dist',
+        name: 'fresh bundled Chromium dist',
+        profile: 'npm-script-build-v1',
+        args: ['build:dev'],
+        dependsOn: ['verify-runtime']
+      },
+      {
         id: 'shard:bundled-e2e',
         name: 'browser shard bundled-e2e',
         profile: 'playwright-v1',
@@ -102,7 +115,7 @@ describe('browser shard command graph', () => {
           'tests/e2e/uiPrimitiveTokenParity.browser.test.ts',
           'tests/e2e/videoScreenshotCacheMigration.browser.test.ts'
         ],
-        dependsOn: ['verify-runtime']
+        dependsOn: ['build:bundled-dist']
       },
       {
         id: 'shard:bundled-visual',
@@ -138,10 +151,14 @@ describe('browser shard command graph', () => {
     });
 
     expect(
-      createBrowserShardEnvironment('shard:bundled-e2e', {
-        PLAYWRIGHT_WEB_SERVER_PORT: '9999',
-        PLAYWRIGHT_DIST_DIR: '../../caller-dist'
-      })
+      createBrowserShardEnvironment(
+        'shard:bundled-e2e',
+        {
+          PLAYWRIGHT_WEB_SERVER_PORT: '9999',
+          PLAYWRIGHT_DIST_DIR: '../../caller-dist'
+        },
+        { coordinatorOwnsBuild: true }
+      )
     ).toMatchObject({
       PLAYWRIGHT_SKIP_WEB_SERVER_BUILD: '1',
       PLAYWRIGHT_WEB_SERVER_PORT: '43103',
@@ -149,12 +166,151 @@ describe('browser shard command graph', () => {
       PLAYWRIGHT_OUTPUT_DIR: 'test-results/browser-shards/bundled-e2e',
       PLAYWRIGHT_HTML_REPORT_DIR: 'build/reports/playwright-shards/bundled-e2e'
     });
-    expect(createBrowserShardEnvironment('shard:bundled-visual')).toMatchObject({
+    expect(
+      createBrowserShardEnvironment('shard:bundled-visual', undefined, {
+        coordinatorOwnsBuild: true
+      })
+    ).toMatchObject({
+      PLAYWRIGHT_SKIP_WEB_SERVER_BUILD: '1',
       PLAYWRIGHT_WEB_SERVER_PORT: '43104',
       PLAYWRIGHT_DIST_DIR: 'build/dist-u02c2-bundled-chromium',
       PLAYWRIGHT_OUTPUT_DIR: 'test-results/browser-shards/bundled-visual',
       PLAYWRIGHT_HTML_REPORT_DIR: 'build/reports/playwright-shards/bundled-visual'
     });
+    expect(createBrowserShardEnvironment('shard:bundled-e2e')).not.toHaveProperty(
+      'PLAYWRIGHT_SKIP_WEB_SERVER_BUILD'
+    );
+    expect(
+      createBrowserShardEnvironment('build:bundled-dist', {
+        BUILD_DIST_DIR: '../../caller-dist'
+      })
+    ).toMatchObject({ BUILD_DIST_DIR: 'build/dist-u02c2-bundled-chromium' });
+  });
+
+  it('uses one real build lease for the fresh bundled dist and both sequential leaves', async () => {
+    const events: string[] = [];
+    const startCommand = (task: BrowserShardTask) => {
+      events.push(`start:${task.id}`);
+      return successfulHandle(task.profile);
+    };
+
+    const result = await main(['bundled'], {
+      startCommand,
+      acquireBuildLeaseOperation: async () => {
+        events.push('lease:acquire');
+        return async () => {
+          events.push('lease:release');
+        };
+      }
+    });
+
+    expect(result.ok).toBe(true);
+    expect(events).toEqual([
+      'lease:acquire',
+      'start:verify-runtime',
+      'start:build:bundled-dist',
+      'start:shard:bundled-e2e',
+      'start:shard:bundled-visual',
+      'lease:release'
+    ]);
+  });
+
+  it('releases the bundled build lease when the fresh dist build fails', async () => {
+    const events: string[] = [];
+    const startCommand = (task: BrowserShardTask) => {
+      events.push(`start:${task.id}`);
+      if (task.id !== 'build:bundled-dist') return successfulHandle(task.profile);
+      const handle = successfulHandle(task.profile);
+      return {
+        ...handle,
+        completion: handle.completion.then((result) => ({
+          ...result,
+          ok: false,
+          terminalReason: 'nonzero' as const,
+          exitCode: 7
+        }))
+      };
+    };
+
+    const result = await main(['bundled'], {
+      startCommand,
+      acquireBuildLeaseOperation: async () => {
+        events.push('lease:acquire');
+        return async () => {
+          events.push('lease:release');
+        };
+      }
+    });
+
+    expect(result.ok).toBe(false);
+    expect(events).toEqual([
+      'lease:acquire',
+      'start:verify-runtime',
+      'start:build:bundled-dist',
+      'lease:release'
+    ]);
+  });
+
+  it('keeps the visual leaf unadmitted and releases the lease after bundled E2E failure', async () => {
+    const events: string[] = [];
+    const startCommand = (task: BrowserShardTask) => {
+      events.push(`start:${task.id}`);
+      if (task.id !== 'shard:bundled-e2e') return successfulHandle(task.profile);
+      const handle = successfulHandle(task.profile);
+      return {
+        ...handle,
+        completion: handle.completion.then((result) => ({
+          ...result,
+          ok: false,
+          terminalReason: 'nonzero' as const,
+          exitCode: 9
+        }))
+      };
+    };
+
+    const result = await main(['bundled'], {
+      startCommand,
+      acquireBuildLeaseOperation: async () => {
+        events.push('lease:acquire');
+        return async () => {
+          events.push('lease:release');
+        };
+      }
+    });
+
+    expect(result.ok).toBe(false);
+    expect(events).toEqual([
+      'lease:acquire',
+      'start:verify-runtime',
+      'start:build:bundled-dist',
+      'start:shard:bundled-e2e',
+      'lease:release'
+    ]);
+  });
+
+  it('acquires and idempotently releases the shared Playwright build lease', async () => {
+    const rootDir = await mkdtemp(join(tmpdir(), 'zendio-playwright-build-lease-'));
+    const leaseDir = resolvePlaywrightBuildLeaseDir(rootDir);
+    try {
+      const release = await acquirePlaywrightBuildLease({ rootDir, timeoutMs: 100 });
+      await expect(access(leaseDir)).resolves.toBeUndefined();
+      let contentionObserved = false;
+      const secondRelease = await acquirePlaywrightBuildLease({
+        rootDir,
+        timeoutMs: 100,
+        pollIntervalMs: 0,
+        delay: async () => {
+          contentionObserved = true;
+          await release();
+        }
+      });
+      expect(contentionObserved).toBe(true);
+      await secondRelease();
+      await release();
+      await expect(access(leaseDir)).rejects.toMatchObject({ code: 'ENOENT' });
+    } finally {
+      await rm(rootDir, { recursive: true, force: true });
+    }
   });
 
   it('requires bundled extension leaves to consume the coordinator-owned dist directory', () => {

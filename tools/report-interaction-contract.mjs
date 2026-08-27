@@ -93,6 +93,14 @@ function collectInteractionContractFindings(sources) {
       'interaction harness not consuming neutral surface builders'
     ],
     [/renderRuntimeSurface/, 'interaction harness not rendering runtime surfaces'],
+    [
+      /createPrimitiveButtonElement/,
+      'interaction harness missing the retained loading danger button probe'
+    ],
+    [/createInputElement/, 'interaction harness missing the retained input validation probe'],
+    [/createCheckboxElement/, 'interaction harness missing the retained checkbox validation probe'],
+    [/loading-danger-button/, 'interaction harness missing the loading danger state'],
+    [/applyValidationA11y/, 'interaction harness missing executable validation state changes'],
     [/createOptionsContractPanel/, 'interaction harness missing Options contract panel'],
     [/createContentContractPanel/, 'interaction harness missing content contract panel'],
     [/Open dialog/, 'interaction harness missing its visible dialog smoke action']
@@ -102,10 +110,7 @@ function collectInteractionContractFindings(sources) {
 
   for (const [pattern, message] of [
     [/\.\.\/ui\/hosts\//, 'interaction harness still imports a retired UI host'],
-    [
-      /\.\.\/ui\/primitives\/(?:layout|checkbox)/,
-      'interaction harness still imports retired control/layout code'
-    ],
+    [/\.\.\/ui\/primitives\/layout/, 'interaction harness still imports retired layout code'],
     [/ContentDialogHost|ShadowDialogHost/, 'interaction harness still names a retired dialog host']
   ]) {
     if (pattern.test(sources.harness)) {

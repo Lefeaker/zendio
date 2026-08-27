@@ -1,6 +1,6 @@
 # 平台、UI 宿主与领域边界基线
 
-日期：2026-05-11
+日期：2026-08-27
 
 当前技术栈：TypeScript、esbuild、Vitest、Playwright、ESLint、Prettier、Stylelint、Zod、Stitch runtime CSS、WebExtension APIs。正式计划与规格文档归属外层 workspace `docs/codex-superpowers/*`。
 
@@ -21,28 +21,29 @@
 - `src/ui/foundation/*`：横切真值，不承载业务。
 - `src/ui/primitives/*`：统一基础语义，不感知仓储与 feature 生命周期。
 - `src/ui/patterns/*`：结构组合层，不直接读 store / repository。
-- `src/ui/hosts/*`：宿主与样式注入边界。
-- `src/ui/domains/*`：稳定领域控件与真实实现所有权边界。
+- `src/ui/stitch-runtime/*` / `src/ui/stitch-surfaces/*`：neutral runtime 与共享 surface graph。
+- `src/ui/foundation/style-host/*`：共享样式注入边界；`src/ui/hosts/*` 只保留 content focus 与 shared host contract helper。
+- `src/ui/domains/usage-chart/*`：当前唯一共享 UI domain 实现；`src/ui/domains/privacy/*` 只保留 type compatibility。
 
 ## 3. domains 与 features 的依赖方向
 
 允许：
 
-- `Options section / content session / presentation` → `src/ui/domains/*`
-- `domains` → `src/ui/primitives/*` / `patterns/*` / `hosts/*` / `foundation/*`
+- `Options section / content session / presentation` → `src/ui/stitch-runtime/*` / `src/ui/stitch-surfaces/*` / retained primitives and patterns
+- `usage-chart domain` → `src/ui/primitives/*` / `patterns/*` / `foundation/*`
+- feature-local Options / Clipper / Reader / Video UI → shared neutral runtime or primitives, without recreating a generic host layer
 
 禁止：
 
-- `src/ui/domains/*` → `src/options/*`
-- `src/ui/domains/*` → `src/content/*` 旧 feature 文件
+- shared `src/ui/*` → `src/options/*` or `src/content/*` feature implementation
 - `foundation / primitives` 反向依赖 feature 或 repository
 
 ## 4. 宿主与 style host 边界
 
-- `src/ui/hosts/options/index.ts` 统一承接 Options main host / section host contract
-- `src/ui/hosts/content/index.ts` 与 `ContentDialogHost.ts` 统一承接 content host mount / unmount / dialog shell
-- `src/ui/hosts/shadow/index.ts` 与 `ShadowDialogHost.ts` 承接 shadow host 与 shadow dialog contract
 - `src/ui/foundation/style-host/index.ts` 承接 stylesheet bridge 真值
+- `src/ui/hosts/content/contentDialogFocus.ts` 只承接共享 focus lifecycle；`src/ui/hosts/shared/contract.ts` 只承接 host type contract
+- Options modal 由 `src/options/stitch/render/renderStitchView.ts` 经 neutral runtime 渲染
+- Clipper host 由 `src/content/clipper/components/clipperDialogHostAdapter.ts` feature-local 挂载；Reader / Video panel 分别由 `src/content/reader/ui/ReaderDialogPanel.ts` 与 `src/content/video/ui/VideoDialogPanel.ts` 拥有
 - `src/content/shared/panels/styleSheetManager.ts` 与 `src/content/clipper/shared/styleSheetManager.ts` 只能经由 foundation/style-host 访问 shadow bridge
 
 ## 5. Repository 与状态边界
@@ -65,7 +66,7 @@
 
 - `sectionRegistry.ts` 仅保留极少量兼容协调，不再接受新增职责
 - 新增协作优先采用 typed controller、explicit callback 或 state-driven rendering
-- `privacy`、`vault-router`、`reading`、`video` 的真实 UI 所有权已进入 `src/ui/domains/*`；YAML 配置 UI 的当前 owner 是 `src/options/yaml-config-editor/**`。
+- Privacy 与 vault-router 的真实 Options UI 所有权在 `src/options/stitch/**`、`src/options/app/**`；Reader / Video 与 support prompt 的真实 UI 所有权在 `src/content/**` feature-local modules。共享 `src/ui/domains/*` 不再声明这些 owner；YAML 配置 UI 的当前 owner 是 `src/options/yaml-config-editor/**`。
 - 旧 Options preview 验证源码已迁到 `tests/fixtures/options-preview/**`；retired preview 源树不再是生产或验证 owner
 - `src/options/widgets/**` 不得重新获得非 YAML production UI ownership；非 YAML widget 只能在明确 owner 与删除条件下作为迁移资产保留。
 - compatibility shells、barrel/type-only files 与 source aliases 不是 source-of-truth docs；它们必须有明确 owner 与删除条件，且删除前必须通过 Non-Production Code 3.0 六项 owner proof。

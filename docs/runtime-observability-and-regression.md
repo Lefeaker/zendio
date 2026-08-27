@@ -13,7 +13,7 @@
 建议联调命令：
 
 ```bash
-node node_modules/vitest/vitest.mjs run --config vitest.unit.config.ts tests/unit/shared/errors/analytics/index.test.ts tests/unit/shared/errors/globalErrorBoundary.test.ts tests/unit/background/analyticsEvents.test.ts tests/unit/shared/errors/analyticsConfig.test.ts tests/unit/options/productionStitchShell.actions.test.ts
+node scripts/run-bounded-command.mjs --profile vitest-v1 -- run --config vitest.unit.config.ts tests/unit/shared/errors/analytics/index.test.ts tests/unit/shared/errors/globalErrorBoundary.test.ts tests/unit/background/analyticsEvents.test.ts tests/unit/shared/errors/analyticsConfig.test.ts tests/unit/options/productionStitchShell.actions.test.ts
 npm run build:dev
 ```
 
@@ -23,11 +23,11 @@ npm run build:dev
 npm run analytics:validate:prod
 node scripts/run-ga-owner-smoke.mjs --mode proxy --event runtime_harness_open
 node scripts/run-ga-owner-smoke.mjs --mode directDebug --event runtime_harness_open
-node node_modules/vitest/vitest.mjs run --config vitest.unit.config.ts tests/unit/scripts/runGaOwnerSmoke.test.ts
+node scripts/run-bounded-command.mjs --profile vitest-v1 -- run --config vitest.unit.config.ts tests/unit/scripts/runGaOwnerSmoke.test.ts
 node tools/report-ga-proxy-contract.mjs
 node tools/report-ga-docs-contract.mjs --check
-node node_modules/vitest/vitest.mjs run --config vitest.unit.config.ts tests/unit/background/analyticsEvents.test.ts tests/unit/shared/errors/analytics/index.test.ts tests/unit/shared/errors/analyticsConfig.test.ts
-node node_modules/vitest/vitest.mjs run --config vitest.unit.config.ts tests/unit/content/video/videoScreenshotPreparationQueue.test.ts tests/unit/content/video/VideoSession.test.ts
+node scripts/run-bounded-command.mjs --profile vitest-v1 -- run --config vitest.unit.config.ts tests/unit/background/analyticsEvents.test.ts tests/unit/shared/errors/analytics/index.test.ts tests/unit/shared/errors/analyticsConfig.test.ts
+node scripts/run-bounded-command.mjs --profile vitest-v1 -- run --config vitest.unit.config.ts tests/unit/content/video/videoScreenshotPreparationQueue.test.ts tests/unit/content/video/VideoSession.test.ts
 node scripts/run-playwright.mjs test tests/e2e/videoPanelFlow.test.ts tests/e2e/videoListenerScope.browser.test.ts --project=chromium-desktop
 ```
 
@@ -135,7 +135,7 @@ proxy/backend evidence。
 - `npm run audit:build:report`
 - `npm run test:unit`
 - `npm run test:e2e`
-- `node node_modules/vitest/vitest.mjs run --config vitest.unit.config.ts tests/unit/shared/errors/analytics/index.test.ts tests/unit/shared/errors/globalErrorBoundary.test.ts tests/unit/background/analyticsEvents.test.ts tests/unit/shared/errors/analyticsConfig.test.ts tests/unit/options/productionStitchShell.actions.test.ts`
+- `node scripts/run-bounded-command.mjs --profile vitest-v1 -- run --config vitest.unit.config.ts tests/unit/shared/errors/analytics/index.test.ts tests/unit/shared/errors/globalErrorBoundary.test.ts tests/unit/background/analyticsEvents.test.ts tests/unit/shared/errors/analyticsConfig.test.ts tests/unit/options/productionStitchShell.actions.test.ts`
 
 ## 6. 已知非阻塞警告
 

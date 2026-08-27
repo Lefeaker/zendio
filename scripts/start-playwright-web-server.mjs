@@ -1,23 +1,22 @@
 import http from 'node:http';
 import { spawn } from 'node:child_process';
 import { access, createReadStream } from 'node:fs';
-import { mkdir, rm, stat } from 'node:fs/promises';
+import { stat } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createCleanCliEnv } from './utils/cleanCliEnv.mjs';
+import { acquirePlaywrightBuildLease } from './utils/playwrightBuildLease.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const rootDir = path.resolve(__dirname, '..');
-const buildDir = path.resolve(rootDir, 'build');
 const distDir = path.resolve(rootDir, process.env.PLAYWRIGHT_DIST_DIR ?? 'build/dist');
-const buildLockDir = path.resolve(buildDir, '.playwright-build.lock');
 const host = process.env.PLAYWRIGHT_WEB_SERVER_HOST ?? '127.0.0.1';
 const port = Number(process.env.PLAYWRIGHT_WEB_SERVER_PORT ?? '4173');
 const skipBuild = process.env.PLAYWRIGHT_SKIP_WEB_SERVER_BUILD === '1';
 
 if (!skipBuild) {
-  const releaseBuildLock = await acquireBuildLock();
+  const releaseBuildLock = await acquirePlaywrightBuildLease({ rootDir });
   try {
     await runBuild();
   } finally {
@@ -96,29 +95,6 @@ function runBuild() {
 
     child.on('error', reject);
   });
-}
-
-async function acquireBuildLock(timeoutMs = 180_000) {
-  const startedAt = Date.now();
-  while (true) {
-    try {
-      await mkdir(buildDir, { recursive: true });
-      await mkdir(buildLockDir);
-      return async () => {
-        await rm(buildLockDir, { recursive: true, force: true });
-      };
-    } catch (error) {
-      if (error?.code !== 'EEXIST') {
-        throw error;
-      }
-      if (Date.now() - startedAt > timeoutMs) {
-        throw new Error(
-          `[playwright-web-server] Timed out waiting for build lock: ${buildLockDir}`
-        );
-      }
-      await new Promise((resolve) => setTimeout(resolve, 250));
-    }
-  }
 }
 
 function assertDistExists() {

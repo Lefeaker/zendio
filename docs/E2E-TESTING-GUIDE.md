@@ -57,9 +57,12 @@ environment, cwd, output path, shell, TTY or concurrency.
 the lock-matched Playwright Chromium cache. The canonical `bundled` coordinator
 splits its exact eight-file collection into four browser E2E files and four
 visual files. Both leaves use the repository-local Playwright CLI with no
-system-browser fallback, fixed ports (`43103` / `43104`), one fixed prebuilt
-dist and isolated output/report directories. The visual leaf depends on the E2E
-leaf, so an E2E failure never cancels a live Playwright web server:
+system-browser fallback, fixed ports (`43103` / `43104`), one fixed coordinator-built
+dist and isolated output/report directories. The coordinator acquires the
+existing Playwright build lease, creates that dist from a fresh `build:dev`,
+and holds the lease until both leaves finish. The visual leaf depends on the
+E2E leaf, so an E2E failure prevents visual admission without leaving a live
+Playwright web server or releasing the dist to another lease-aware build.
 
 The extension leaves select Playwright's full bundled Chromium with
 `headless: false`, then use Chromium's own `--headless=new` mode. They do not
@@ -67,15 +70,15 @@ set a browser channel or executable path and therefore never fall back to a
 system browser.
 
 ```bash
-BUILD_DIST_DIR=build/dist-u02c2-bundled-chromium npm run build:dev
 PLAYWRIGHT_BROWSERS_PATH=/absolute/cache/path \
   node scripts/run-browser-test-shards.mjs bundled
 ```
 
 The cache must already contain the locked revisions. This route never installs
-browsers, does not accept caller-selected ports/dist/output paths, and does not
-replace the existing CI visual routes. The standard Chromium visual projects
-also use the lock-matched bundled browser without a channel override.
+browsers, does not consume a caller-prebuilt dist, does not accept
+caller-selected ports/dist/output paths, and does not replace the existing CI
+visual routes. The standard Chromium visual projects also use the lock-matched
+bundled browser without a channel override.
 
 ## Current focus areas
 

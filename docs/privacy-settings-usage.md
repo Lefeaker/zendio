@@ -91,7 +91,7 @@ token、密码、secret、邮箱、IP、用户名、支付信息、原始 durati
 
 ```bash
 node scripts/test-privacy-settings.cjs
-node node_modules/vitest/vitest.mjs run --config vitest.unit.config.ts \
+node scripts/run-bounded-command.mjs --profile vitest-v1 -- run --config vitest.unit.config.ts \
   tests/unit/options/productionStitchShell.actions.test.ts \
   tests/unit/options/productionStitchShell.renderLifecycle.test.ts \
   tests/unit/options/productionStitchSchemaPresence.test.ts \

@@ -923,6 +923,7 @@ function resolveLockedBin(name) {
 }
 
 const PASS_ENV = new Set([
+  'BUILD_DIST_DIR',
   'CI',
   'GITHUB_ACTIONS',
   'GITHUB_EVENT_NAME',

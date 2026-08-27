@@ -268,7 +268,10 @@ describe('local command parallelization contract', () => {
     expect(firefoxPackageScript).toContain('--dist-dir');
     expect(playwrightServer).toContain('PLAYWRIGHT_DIST_DIR');
     expect(playwrightServer).toContain('PLAYWRIGHT_SKIP_WEB_SERVER_BUILD');
+    expect(playwrightServer).toContain('acquirePlaywrightBuildLease');
     expect(browserShardRunner).toContain('PLAYWRIGHT_OUTPUT_DIR');
+    expect(browserShardRunner).toContain('build:bundled-dist');
+    expect(browserShardRunner).toContain('acquirePlaywrightBuildLease');
     expect(browserShardRunner).not.toContain('BROWSER_TEST_CONCURRENCY');
     expect(browserShardRunner).not.toContain("from 'node:child_process'");
     expect(visualPlaywrightConfig).toContain('PLAYWRIGHT_OUTPUT_DIR');

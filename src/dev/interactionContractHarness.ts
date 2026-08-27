@@ -7,6 +7,10 @@ import {
   type RuntimeViewSchema
 } from '../ui/stitch-runtime';
 import { buttonNode, div, element } from '../ui/stitch-surfaces/builders/primitives';
+import { applyValidationA11y } from '../ui/foundation/a11y';
+import { createPrimitiveButtonElement } from '../ui/primitives/button';
+import { createCheckboxElement } from '../ui/primitives/checkbox';
+import { createInputElement } from '../ui/primitives/input';
 import { createSelectElement } from '../ui/primitives/select';
 
 type HarnessContext = RuntimeSchemaContext<Record<string, never>, { previewTheme: 'dark' }>;
@@ -31,9 +35,6 @@ function createOptionsContractPanel(): HTMLElement {
       div<HarnessContext>('flex flex-wrap items-start gap-3', [
         buttonNode<HarnessContext>('Primary', 'primary', undefined, false, {
           contractRole: 'primary-button'
-        }),
-        buttonNode<HarnessContext>('Danger', 'danger', undefined, false, {
-          contractRole: 'danger-button'
         })
       ]),
       element<HarnessContext>(
@@ -44,31 +45,66 @@ function createOptionsContractPanel(): HTMLElement {
         },
         [
           {
-            kind: 'input',
-            value: 'invalid value',
-            className: 'input is-error',
-            dataset: { contractRole: 'error-input' }
-          },
-          {
             kind: 'textarea',
             value: 'textarea content',
             className: 'textarea',
             dataset: { contractRole: 'textarea' }
           }
         ]
-      ),
-      element<HarnessContext>('label', { className: 'flex items-center gap-2' }, [
-        element<HarnessContext>('input', {
-          type: 'checkbox',
-          ariaLabel: 'Require confirmation',
-          dataset: { contractRole: 'confirmation-toggle' }
-        }),
-        element<HarnessContext>('span', { text: 'Require confirmation' })
-      ])
+      )
     ]
   };
   const panel = renderRuntimeSurface(view, runtimeContext);
-  panel.querySelector('[data-contract-role="field-grid"]')?.append(
+  const buttonRow = panel.querySelector('[data-contract-role="primary-button"]')?.parentElement;
+  buttonRow?.append(
+    createPrimitiveButtonElement({
+      label: 'Saving destructive change',
+      variant: 'danger',
+      loading: true,
+      dataAttributes: { contractRole: 'loading-danger-button' }
+    })
+  );
+
+  const fieldGrid = panel.querySelector('[data-contract-role="field-grid"]');
+  const inputError = document.createElement('p');
+  inputError.id = 'contract-input-error';
+  inputError.textContent = 'A value is required.';
+  const input = createInputElement({
+    value: '',
+    ariaLabel: 'Required contract value',
+    validationState: 'error',
+    ariaDescribedBy: inputError.id,
+    dataAttributes: { contractRole: 'validated-input' },
+    onChange(value, event) {
+      const target = event.target as HTMLInputElement;
+      const invalid = value.trim().length === 0;
+      applyValidationA11y(target, invalid ? 'error' : 'default', inputError.id);
+      target.classList.toggle('input-error', invalid);
+    }
+  });
+
+  const checkboxError = document.createElement('p');
+  checkboxError.id = 'contract-checkbox-error';
+  checkboxError.textContent = 'Confirmation is required.';
+  const checkbox = createCheckboxElement({
+    label: 'Require confirmation',
+    ariaLabel: 'Require confirmation',
+    validationState: 'error',
+    ariaDescribedBy: checkboxError.id,
+    dataAttributes: { contractRole: 'validated-checkbox' },
+    onChange(checked, event) {
+      const target = event.target as HTMLInputElement;
+      applyValidationA11y(target, checked ? 'default' : 'error', checkboxError.id);
+      target.classList.toggle('checkbox-error', !checked);
+      target.classList.toggle('checkbox-accent', checked);
+    }
+  });
+
+  fieldGrid?.append(
+    input,
+    inputError,
+    checkbox.root,
+    checkboxError,
     createSelectElement({
       value: 'b',
       validationState: 'error',
