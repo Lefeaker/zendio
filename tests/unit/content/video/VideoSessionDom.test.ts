@@ -239,4 +239,25 @@ describe('VideoSessionDomController', () => {
 
     expect(view.stopEditing).toHaveBeenCalledWith('capture-1');
   });
+
+  it.each([
+    ['surface root', 'data-stitch-surface', 'video', true],
+    ['surface window', 'class', 'video-surface-window', true],
+    ['capture input', 'data-capture-input', 'c-1', true],
+    ['capture item', 'data-capture-id', 'c-1', true],
+    ['outside node', 'class', 'outside', false]
+  ] as const)(
+    'classifies %s in the stable video panel event boundary',
+    (_label, attribute, value, expected) => {
+      const element = document.createElement('div');
+      element.setAttribute(attribute, value);
+      const controller = new VideoSessionDomController(
+        document,
+        { createView: vi.fn(() => createView()) },
+        new VideoHintManager(() => DEFAULT_SESSION_MESSAGES)
+      );
+      const event = { composedPath: () => [element, document.body, document] } as unknown as Event;
+      expect(controller.isEventInsidePanel(event)).toBe(expected);
+    }
+  );
 });

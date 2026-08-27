@@ -289,6 +289,7 @@
   "schemaRuntimeReaderHint": "閱讀模式浮動面板",
   "schemaRuntimeReaderTitle": "閱讀模式",
   "schemaRuntimeSurfaceCollapsePanelAriaLabel": "收合面板",
+  "schemaRuntimeSurfaceExpandPanelAriaLabel": "展開面板",
   "schemaRuntimeSurfaceConfigureVaultLabel": "設定倉庫",
   "schemaRuntimeSurfaceResizePanelAriaLabel": "調整面板大小",
   "schemaRuntimeSurfaceResizePanelHeightAriaLabel": "調整面板高度",

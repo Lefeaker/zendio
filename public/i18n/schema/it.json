@@ -356,6 +356,7 @@
   "schemaRuntimeReaderTitle": "Modalità lettura",
   "schemaRuntimeSurfaceCollapsePanelAriaLabel": "Comprimi pannello",
   "schemaRuntimeSurfaceConfigureVaultLabel": "Configura vault",
+  "schemaRuntimeSurfaceExpandPanelAriaLabel": "Espandi pannello",
   "schemaRuntimeSurfaceResizePanelAriaLabel": "Ridimensiona pannello",
   "schemaRuntimeSurfaceResizePanelHeightAriaLabel": "Ridimensiona altezza pannello",
   "schemaRuntimeSurfaceSaveToLabel": "Salva in",

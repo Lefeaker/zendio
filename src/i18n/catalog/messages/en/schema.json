@@ -289,6 +289,7 @@
   "schemaRuntimeReaderHint": "Floating reader panel",
   "schemaRuntimeReaderTitle": "Reader Mode",
   "schemaRuntimeSurfaceCollapsePanelAriaLabel": "Collapse panel",
+  "schemaRuntimeSurfaceExpandPanelAriaLabel": "Expand panel",
   "schemaRuntimeSurfaceConfigureVaultLabel": "Configure vault",
   "schemaRuntimeSurfaceResizePanelAriaLabel": "Resize panel",
   "schemaRuntimeSurfaceResizePanelHeightAriaLabel": "Resize panel height",

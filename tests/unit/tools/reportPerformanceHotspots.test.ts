@@ -40,6 +40,9 @@ describe('report-performance-hotspots', () => {
     expect(source).toContain('src/content/video/videoScreenshotPreparationRequestStore.ts');
     expect(source).toContain('src/background/listeners/runtimeMessages.ts');
     expect(source).toContain('src/content/video/videoCaptureMutationTransaction.ts');
+    expect(source).not.toContain('src/content/reader/ui/ReaderDialogPanel.ts');
+    expect(source).not.toContain('src/content/video/ui/VideoDialogPanel.ts');
+    expect(source).toContain('src/dev/contentOrchestratorHarness.ts');
   });
 
   it('fails when a newly discovered >250 LOC src file has no registered budget', () => {

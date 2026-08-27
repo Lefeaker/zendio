@@ -289,6 +289,7 @@
   "schemaRuntimeReaderHint": "읽기 모드 플로팅 패널",
   "schemaRuntimeReaderTitle": "읽기 모드",
   "schemaRuntimeSurfaceCollapsePanelAriaLabel": "패널 접기",
+  "schemaRuntimeSurfaceExpandPanelAriaLabel": "패널 펼치기",
   "schemaRuntimeSurfaceConfigureVaultLabel": "볼트 설정",
   "schemaRuntimeSurfaceResizePanelAriaLabel": "패널 크기 조절",
   "schemaRuntimeSurfaceResizePanelHeightAriaLabel": "패널 높이 조절",

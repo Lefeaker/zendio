@@ -356,6 +356,7 @@
   "schemaRuntimeReaderTitle": "Режим чтения",
   "schemaRuntimeSurfaceCollapsePanelAriaLabel": "Свернуть панель",
   "schemaRuntimeSurfaceConfigureVaultLabel": "Настроить хранилище",
+  "schemaRuntimeSurfaceExpandPanelAriaLabel": "Развернуть панель",
   "schemaRuntimeSurfaceResizePanelAriaLabel": "Изменить размер панели",
   "schemaRuntimeSurfaceResizePanelHeightAriaLabel": "Изменить высоту панели",
   "schemaRuntimeSurfaceSaveToLabel": "Сохранить в",

@@ -146,7 +146,7 @@ export function createReaderSurfaceContent(input: {
       iconUrl: input.iconUrl,
       labels: {
         title: input.texts.title,
-        subtitle: input.texts.status,
+        subtitle: input.texts.hint || input.texts.status,
         exitTriggerLabel: input.texts.cancel,
         exitTitle: input.texts.cancel,
         exitCancelLabel: input.texts.highlightCancelLabel,
@@ -189,7 +189,7 @@ export function createVideoSurfaceContent(input: {
       iconUrl: input.iconUrl,
       labels: {
         title: input.texts.title,
-        subtitle: input.texts.status,
+        subtitle: input.texts.hint || input.texts.status,
         exitTriggerLabel: input.texts.cancel,
         exitTitle: input.texts.cancel,
         exitCancelLabel: input.texts.captureCancelLabel,
@@ -202,6 +202,7 @@ export function createVideoSurfaceContent(input: {
         addLabel: input.texts.add,
         emptyCapturePlaceholder: input.texts.captureEditPlaceholder
       },
+      status: input.texts.status,
       hint: input.texts.hint,
       counter: input.counter,
       ...(input.destination ? { destination: input.destination } : {}),

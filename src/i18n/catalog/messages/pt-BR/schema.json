@@ -289,6 +289,7 @@
   "schemaRuntimeReaderHint": "Painel flutuante de leitura",
   "schemaRuntimeReaderTitle": "Modo de leitura",
   "schemaRuntimeSurfaceCollapsePanelAriaLabel": "Recolher painel",
+  "schemaRuntimeSurfaceExpandPanelAriaLabel": "Expandir painel",
   "schemaRuntimeSurfaceConfigureVaultLabel": "Configurar vault",
   "schemaRuntimeSurfaceResizePanelAriaLabel": "Redimensionar painel",
   "schemaRuntimeSurfaceResizePanelHeightAriaLabel": "Redimensionar altura do painel",

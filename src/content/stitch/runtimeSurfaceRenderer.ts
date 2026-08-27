@@ -8,6 +8,11 @@ import {
   type RuntimeSurfaceTheme,
   type RuntimeSurfaceRendererContext
 } from '@ui/stitch-runtime';
+import {
+  createRuntimeSurfaceHandle,
+  type RuntimeSessionSurfaceId,
+  type RuntimeSurfaceHandle
+} from '@ui/stitch-runtime/render/renderRuntimeSurface';
 import { getControlledRuntimeTheme, registerRuntimeSurfaceThemeRoot } from './runtimeTheme';
 
 export type RuntimeSurfaceActionArgs = Parameters<RuntimeSurfaceRendererContext['dispatch']>[1];
@@ -31,12 +36,14 @@ export interface RuntimeSurfaceRenderOptions {
   actions?: Record<string, RuntimeSurfaceActionHandler>;
 }
 
+export type { RuntimeSurfaceHandle } from '@ui/stitch-runtime/render/renderRuntimeSurface';
+
 function resolveRuntimeTheme(explicitTheme?: RuntimeSurfaceTheme): RuntimeSurfaceTheme {
   if (explicitTheme === 'light' || explicitTheme === 'dark') return explicitTheme;
   return getControlledRuntimeTheme() ?? 'dark';
 }
 
-export function renderStitchRuntimeSurface(options: RuntimeSurfaceRenderOptions): HTMLElement {
+function renderStitchRuntimeSurfaceElement(options: RuntimeSurfaceRenderOptions): HTMLElement {
   const state: RuntimeSurfaceState = {
     previewTheme: resolveRuntimeTheme(options.state?.previewTheme)
   };
@@ -58,6 +65,28 @@ export function renderStitchRuntimeSurface(options: RuntimeSurfaceRenderOptions)
   rendered.dataset.stitchSurface = options.surfaceId;
   rendered.setAttribute('data-preview-skin', 'stitch-secondary');
   rendered.setAttribute('data-preview-theme', state.previewTheme);
+  return rendered;
+}
+
+export function renderStitchRuntimeSurface(options: RuntimeSurfaceRenderOptions): HTMLElement {
+  const rendered = renderStitchRuntimeSurfaceElement(options);
   registerRuntimeSurfaceThemeRoot(rendered);
   return rendered;
+}
+
+export function renderStitchRuntimeSessionSurface(
+  options: RuntimeSurfaceRenderOptions & { surfaceId: RuntimeSessionSurfaceId }
+): RuntimeSurfaceHandle {
+  const eventfulTemplate = renderStitchRuntimeSurfaceElement(options);
+  const root = eventfulTemplate.cloneNode(true) as HTMLElement;
+  const unregisterThemeRoot = registerRuntimeSurfaceThemeRoot(root);
+  return createRuntimeSurfaceHandle(root, options.surfaceId, unregisterThemeRoot);
+}
+
+export function renderStitchRuntimeSessionTemplate(
+  options: RuntimeSurfaceRenderOptions & { surfaceId: RuntimeSessionSurfaceId }
+): HTMLElement {
+  const root = renderStitchRuntimeSurfaceElement(options).cloneNode(true) as HTMLElement;
+  createRuntimeSurfaceHandle(root, options.surfaceId).dispose();
+  return root;
 }

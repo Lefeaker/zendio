@@ -356,6 +356,7 @@
   "schemaRuntimeReaderTitle": "リーダーモード",
   "schemaRuntimeSurfaceCollapsePanelAriaLabel": "パネルを折りたたむ",
   "schemaRuntimeSurfaceConfigureVaultLabel": "Vault を設定",
+  "schemaRuntimeSurfaceExpandPanelAriaLabel": "パネルを展開",
   "schemaRuntimeSurfaceResizePanelAriaLabel": "パネルのサイズを変更",
   "schemaRuntimeSurfaceResizePanelHeightAriaLabel": "パネルの高さを変更",
   "schemaRuntimeSurfaceSaveToLabel": "保存先",

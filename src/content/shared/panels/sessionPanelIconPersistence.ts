@@ -28,5 +28,5 @@ export function preserveSessionPanelIcon(currentRoot: ParentNode, nextSurface: H
   }
 
   copyImagePresentationAttributes(currentIcon, nextIcon);
-  nextIcon.replaceWith(currentIcon);
+  currentIcon.src = nextIcon.src;
 }

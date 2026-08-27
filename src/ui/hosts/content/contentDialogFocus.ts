@@ -27,6 +27,17 @@ export function focusContentDialogElementByDataset(
   return true;
 }
 
+export function queueContentDialogElementByDataset(
+  root: ParentNode | null | undefined,
+  datasetKey: string,
+  value: string,
+  shouldFocus: () => boolean = () => true
+): void {
+  queueMicrotask(() => {
+    if (shouldFocus()) focusContentDialogElementByDataset(root, datasetKey, value);
+  });
+}
+
 export function restoreContentDialogFocus(element: HTMLElement | null | undefined): void {
   if (!element) {
     return;

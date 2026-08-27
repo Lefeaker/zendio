@@ -116,7 +116,7 @@ describe('ReaderDialogPanel', () => {
     const [firstHandle, secondHandle] = handles;
     if (!firstHandle || !secondHandle) throw new Error('fresh style handles missing');
     expect(firstHandle).not.toBe(secondHandle);
-    expect(firstHandle.refresh).toHaveBeenCalledTimes(1);
+    expect(firstHandle.refresh).not.toHaveBeenCalled();
     expect(secondHandle.refresh).not.toHaveBeenCalled();
     await expect(firstHandle.ready).resolves.toEqual({ status: 'ready' });
     await expect(secondHandle.ready).resolves.toEqual({ status: 'ready' });
@@ -154,11 +154,11 @@ describe('ReaderDialogPanel', () => {
     expect(panel.element.hasAttribute('aria-busy')).toBe(false);
 
     panel.updateHint('Updated after styles resolve');
-    expect(handle.refresh).toHaveBeenCalledTimes(1);
+    expect(handle.refresh).not.toHaveBeenCalled();
     panel.destroy();
   });
 
-  it('restores managed fallback styles after replacing the shadow contents', async () => {
+  it('keeps the managed fallback style node stable across incremental updates', async () => {
     const applyStyles = panelStyleSheetManager.applyReaderStyles.bind(panelStyleSheetManager);
     const attachments: StyleAttachmentHandle[] = [];
     vi.spyOn(panelStyleSheetManager, 'applyReaderStyles').mockImplementation((root) => {
@@ -185,21 +185,19 @@ describe('ReaderDialogPanel', () => {
     );
 
     panel.updateHint('Rerendered');
-    await vi.waitFor(() => {
-      const current = shadow?.querySelector(
-        'style[data-aiob-style-bridge="panel-reader-style-pack"]'
-      );
-      expect(current).toBeTruthy();
-      expect(current).not.toBe(initialStyle);
-    });
+    await vi.waitFor(() =>
+      expect(shadow?.querySelector('style[data-aiob-style-bridge="panel-reader-style-pack"]')).toBe(
+        initialStyle
+      )
+    );
     const restoredStyle = shadow?.querySelector<HTMLStyleElement>(
       'style[data-aiob-style-bridge="panel-reader-style-pack"]'
     );
 
     expect(initialStyle).toBeTruthy();
-    expect(initialStyle?.isConnected).toBe(false);
+    expect(initialStyle?.isConnected).toBe(true);
     expect(restoredStyle).toBeTruthy();
-    expect(restoredStyle).not.toBe(initialStyle);
+    expect(restoredStyle).toBe(initialStyle);
     panel.destroy();
     expect(restoredStyle?.isConnected).toBe(false);
   });
@@ -587,6 +585,37 @@ describe('ReaderDialogPanel', () => {
       panel.element.shadowRoot?.querySelector('[data-highlight-input="h-1"]')
     );
 
+    panel.destroy();
+  });
+
+  it('keeps the reader shell, status and unchanged keyed items stable across 100 updates', () => {
+    const panel = new ReaderDialogPanel({
+      texts: createReaderPanelTexts(),
+      callbacks: createReaderPanelCallbacks()
+    });
+    const highlights = Array.from({ length: 20 }, (_, index) =>
+      createHighlight({ id: `h-${index + 1}`, index: index + 1, excerpt: `Excerpt ${index + 1}` })
+    );
+    panel.setHighlights(highlights);
+    const shadow = panel.element.shadowRoot;
+    const shell = shadow?.querySelector('.reader-surface-window');
+    const list = shadow?.querySelector('.session-item-list');
+    const first = shadow?.querySelector('[data-highlight-id="h-1"]');
+    const last = shadow?.querySelector('[data-highlight-id="h-20"]');
+    const status = shadow?.querySelector('[data-session-status]');
+
+    for (let index = 0; index < 100; index += 1) panel.updateHint(`Status ${index}`);
+    panel.setHighlights(
+      highlights.map((item) => (item.id === 'h-10' ? { ...item, excerpt: 'Changed' } : item))
+    );
+
+    expect(shadow?.querySelector('.reader-surface-window')).toBe(shell);
+    expect(shadow?.querySelector('.session-item-list')).toBe(list);
+    expect(shadow?.querySelector('[data-highlight-id="h-1"]')).toBe(first);
+    expect(shadow?.querySelector('[data-highlight-id="h-20"]')).toBe(last);
+    expect(shadow?.querySelector('[data-session-status]')).toBe(status);
+    expect(status?.getAttribute('role')).toBe('status');
+    expect(status?.getAttribute('aria-live')).toBe('polite');
     panel.destroy();
   });
 });

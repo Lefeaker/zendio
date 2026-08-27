@@ -8,58 +8,47 @@ import type {
   ReaderPanelRenderOptions
 } from '../application/readerSessionView';
 import type { UiMountable } from '@ui/hosts/shared/contract';
-import type { StyleAttachmentHandle } from '@ui/foundation/style-host';
-import type { PopupCoordinator } from '@content/runtime/popupCoordinator';
 import { resolveContentPopupCoordinator } from '@content/runtime/popupCoordinatorAccess';
 import { createReaderSurfaceContent } from '@content/stitch/runtimeSurfaceContent';
-import { renderStitchRuntimeSurface } from '@content/stitch/runtimeSurfaceRenderer';
+import {
+  renderStitchRuntimeSessionSurface,
+  renderStitchRuntimeSessionTemplate
+} from '@content/stitch/runtimeSurfaceRenderer';
 import {
   panelStyleSheetManager,
   prepareStyleHost,
   revealStyleHost
 } from '@content/shared/panels/styleSheetManager';
-import { bindSessionPanelResize } from '@content/shared/panels/sessionPanelResize';
 import { SessionPanelCollapsePersistence } from '@content/shared/panels/sessionPanelCollapsePersistence';
 import { createSessionPanelRenderRoot } from '@content/shared/panels/sessionPanelRoot';
-import { bindSessionItemPreviewExpansion } from '@content/shared/panels/sessionItemPreviewExpansion';
-import { preserveSessionPanelIcon } from '@content/shared/panels/sessionPanelIconPersistence';
 import {
   SessionCommentDraftController,
   type SessionCommentDraftSnapshot
 } from '@content/shared/panels/sessionCommentDrafts';
-import { patchExportDestinationRow } from '@content/shared/exportDestinationDom';
 import type { ExportDestinationSurfacePreview } from '@ui/stitch-runtime';
 import { focusContentDialogElementByDataset } from '@ui/hosts/content/contentDialogFocus';
-import {
-  applyReaderPanelCompatibilityAttributes,
-  bindReaderHighlightInteractions
-} from './readerDialogPanelDom';
+import { ReaderDialogPanelController } from './readerDialogPanelController';
+import { createReaderDialogPanelEventHandlers } from './readerDialogPanelEvents';
+
 interface ReaderDialogPanelOptions {
   callbacks: ReaderPanelCallbacks;
   texts: ReaderPanelTexts;
   resolveAssetUrl?: (path: string) => string;
   onCommentDraftChange?: (drafts: SessionCommentDraftSnapshot) => void;
 }
+
+type ReaderUpdate =
+  | { texts?: ReaderPanelTexts; count?: number; hint?: string; highlights?: ReaderPanelHighlight[] }
+  | undefined;
+
 export class ReaderDialogPanel implements UiMountable<
   HTMLElement | undefined,
-  | { texts?: ReaderPanelTexts; count?: number; hint?: string; highlights?: ReaderPanelHighlight[] }
-  | undefined,
+  ReaderUpdate,
   HTMLElement
 > {
   readonly popupLifecycle = { preserveOnTransientClose: true, kind: 'session-panel' } as const;
-  private renderRoot: HTMLElement;
-  private styleAttachment: StyleAttachmentHandle | null = null;
-  private styleReady = false;
-  private readonly popupCoordinator: PopupCoordinator | null;
+  private readonly renderRoot = createSessionPanelRenderRoot('aiob-reader-panel');
   private readonly collapsePersistence: SessionPanelCollapsePersistence;
-  private unregisterPopup: (() => void) | null = null;
-  private resizeDisposer: (() => void) | null = null;
-  private previewExpansionDisposer: (() => void) | null = null;
-  private texts: ReaderPanelTexts;
-  private highlights: ReaderPanelHighlight[] = [];
-  private destination: ExportDestinationSurfacePreview | undefined;
-  private highlightCount = 0;
-  private editingHighlightId: string | null = null;
   private readonly commentDrafts = new SessionCommentDraftController<ReaderPanelHighlight>({
     datasetKey: 'highlightInput',
     inputSelector: '[data-highlight-input]',
@@ -68,89 +57,76 @@ export class ReaderDialogPanel implements UiMountable<
     submitDraft: (id, draft) => this.options.callbacks.onSubmitHighlightEdit(id, draft),
     onChange: (drafts) => this.options.onCommentDraftChange?.(drafts)
   });
+  private readonly controller: ReaderDialogPanelController;
+  private texts: ReaderPanelTexts;
+  private highlights: ReaderPanelHighlight[] = [];
+  private destination: ExportDestinationSurfacePreview | undefined;
+  private highlightCount = 0;
+  private editingHighlightId: string | null = null;
   private pendingNoteFocusHighlightId: string | null = null;
+
   constructor(private readonly options: ReaderDialogPanelOptions) {
     this.texts = options.texts;
-    this.popupCoordinator = resolveContentPopupCoordinator();
     this.collapsePersistence = new SessionPanelCollapsePersistence({
       rerender: () => this.rerender()
     });
-    this.renderRoot = createSessionPanelRenderRoot('aiob-reader-panel');
     const shadow = this.renderRoot.attachShadow({ mode: 'open' });
     prepareStyleHost(this.renderRoot);
-    this.rerender();
-    const styleAttachment = panelStyleSheetManager.applyReaderStyles(shadow);
-    this.styleAttachment = styleAttachment;
-    void revealStyleHost(this.renderRoot, styleAttachment).then((ready) => {
-      if (this.styleAttachment !== styleAttachment) return;
-      if (!ready) {
-        this.destroy();
-        return;
-      }
-      this.styleReady = true;
+    this.controller = new ReaderDialogPanelController({
+      host: this.renderRoot,
+      shadow,
+      popupOwner: this,
+      popupCoordinator: resolveContentPopupCoordinator(),
+      applyStyles: (root) => panelStyleSheetManager.applyReaderStyles(root),
+      revealStyles: revealStyleHost,
+      createHandle: () => renderStitchRuntimeSessionSurface(this.surfaceOptions()),
+      createTemplate: () => renderStitchRuntimeSessionTemplate(this.surfaceOptions()),
+      isCollapsed: () => this.collapsePersistence.value,
+      events: createReaderDialogPanelEventHandlers({
+        callbacks: options.callbacks,
+        drafts: this.commentDrafts,
+        collapse: this.collapsePersistence,
+        setEditing: (id) => {
+          this.editingHighlightId = id;
+        }
+      })
     });
     void this.collapsePersistence.restore();
   }
+
   get element(): HTMLElement {
     return this.renderRoot;
   }
   mount(target: HTMLElement = document.body): HTMLElement {
-    if (!this.renderRoot.isConnected) {
-      target.append(this.renderRoot);
-    }
-    return this.renderRoot;
+    return this.controller.mount(target);
   }
   show(): void {
-    this.renderRoot.dataset.aiobStyleReveal = 'true';
-    this.mount();
-    if (!this.renderRoot.hasAttribute('aria-busy')) this.renderRoot.hidden = false;
-    if (!this.unregisterPopup && this.popupCoordinator) {
-      this.unregisterPopup = this.popupCoordinator.register(this);
-    }
+    this.controller.show();
   }
   hide(): void {
-    delete this.renderRoot.dataset.aiobStyleReveal;
-    this.unregisterPopup?.();
-    this.unregisterPopup = null;
-    this.renderRoot.hidden = true;
+    this.controller.hide();
   }
-  update(payload?: {
-    texts?: ReaderPanelTexts;
-    count?: number;
-    hint?: string;
-    highlights?: ReaderPanelHighlight[];
-  }): HTMLElement {
-    if (!payload) {
-      return this.renderRoot;
-    }
-    if (payload.texts) {
-      this.texts = payload.texts;
-    }
-    if (typeof payload.count === 'number') {
-      this.highlightCount = payload.count;
-    }
-    if (typeof payload.hint === 'string') {
-      this.texts = { ...this.texts, hint: payload.hint };
-    }
+
+  update(payload?: ReaderUpdate): HTMLElement {
+    if (!payload) return this.renderRoot;
+    if (payload.texts) this.texts = payload.texts;
+    if (typeof payload.count === 'number') this.highlightCount = payload.count;
+    if (typeof payload.hint === 'string') this.texts = { ...this.texts, hint: payload.hint };
     if (payload.highlights) {
-      const focusTargetHighlight = this.applyHighlights(payload.highlights);
+      const focus = this.applyHighlights(payload.highlights);
       this.rerender({ captureDrafts: false });
-      this.focusHighlightNoteInput(focusTargetHighlight?.id);
-      return this.renderRoot;
-    }
-    this.rerender();
+      this.focusHighlightNoteInput(focus?.id);
+    } else this.rerender();
     return this.renderRoot;
   }
+
   updateTexts(texts: ReaderPanelTexts): void {
     this.texts = texts;
     this.rerender();
   }
   updateDestination(destination: ExportDestinationSurfacePreview | undefined): void {
     this.destination = destination;
-    const shadow = this.renderRoot.shadowRoot;
-    if (!shadow || !patchExportDestinationRow(shadow, destination)) {
-      this.rerender();
-    }
+    this.rerender();
   }
   updateCount(count: number): void {
     this.highlightCount = count;
@@ -161,9 +137,9 @@ export class ReaderDialogPanel implements UiMountable<
     this.rerender();
   }
   setHighlights(highlights: ReaderPanelHighlight[], options: ReaderPanelRenderOptions = {}): void {
-    const focusTargetHighlight = this.applyHighlights(highlights, options);
+    const focus = this.applyHighlights(highlights, options);
     this.rerender();
-    this.focusHighlightNoteInput(focusTargetHighlight?.id);
+    this.focusHighlightNoteInput(focus?.id);
   }
   stopEditing(): void {
     this.commentDrafts.clear(this.editingHighlightId);
@@ -201,110 +177,61 @@ export class ReaderDialogPanel implements UiMountable<
     this.rerender({ captureDrafts: false });
   }
   isEditing(): boolean {
-    const activeElement = this.renderRoot.shadowRoot?.activeElement;
+    const active = this.renderRoot.shadowRoot?.activeElement;
     return (
-      activeElement instanceof HTMLInputElement &&
-      activeElement.dataset.highlightInput === this.editingHighlightId
+      active instanceof HTMLInputElement &&
+      active.dataset.highlightInput === this.editingHighlightId
     );
   }
+
   destroy(): void {
     this.collapsePersistence.destroy();
-    this.unregisterPopup?.();
-    this.unregisterPopup = null;
-    this.resizeDisposer?.();
-    this.resizeDisposer = null;
-    this.previewExpansionDisposer?.();
-    this.previewExpansionDisposer = null;
-    const styleAttachment = this.styleAttachment;
-    this.styleAttachment = null;
-    this.styleReady = false;
-    if (styleAttachment) styleAttachment.dispose();
-    this.renderRoot.remove();
+    this.controller.dispose();
   }
+
   private rerender(options: { captureDrafts?: boolean } = {}): void {
-    const shadow = this.renderRoot.shadowRoot;
-    if (!shadow) {
-      return;
-    }
-    if (options.captureDrafts !== false) {
-      this.commentDrafts.captureRenderedInputs();
-    }
-    this.resizeDisposer?.();
-    this.resizeDisposer = null;
-    this.previewExpansionDisposer?.();
-    this.previewExpansionDisposer = null;
-    const surface = this.renderSurface();
-    preserveSessionPanelIcon(shadow, surface);
-    shadow.replaceChildren(surface);
-    if (this.styleReady && this.styleAttachment) void this.styleAttachment.refresh();
-    this.resizeDisposer = bindSessionPanelResize(surface);
-    this.previewExpansionDisposer = bindSessionItemPreviewExpansion(surface);
+    if (options.captureDrafts !== false) this.commentDrafts.captureRenderedInputs();
+    this.controller.update();
     this.focusHighlightNoteInput(this.pendingNoteFocusHighlightId ?? this.editingHighlightId);
   }
-  private renderSurface(): HTMLElement {
-    const content = createReaderSurfaceContent({
-      texts: this.texts,
-      highlights: this.highlights.map((highlight) => this.commentDrafts.withDraft(highlight)),
-      counter: this.formatCounter(this.highlightCount),
-      iconUrl: this.resolveAssetUrl('icons/60x60/zendio_icon_readingt.png'),
-      ...(this.destination ? { destination: this.destination } : {}),
-      actions: [
-        { id: 'reader:finish', label: this.texts.finish, variant: 'primary' },
-        { id: 'reader:cancel', label: this.texts.cancel, variant: 'ghost' }
-      ]
-    });
-    if (this.collapsePersistence.value) {
-      content.reader.labels.subtitle = '';
+  private surfaceOptions() {
+    return {
+      surfaceId: 'reader' as const,
+      appData: createReaderSurfaceContent({
+        texts: this.texts,
+        highlights: this.highlights.map((item) => this.commentDrafts.withDraft(item)),
+        counter: this.formatCounter(this.highlightCount),
+        iconUrl: this.resolveAssetUrl('icons/60x60/zendio_icon_readingt.png'),
+        ...(this.destination ? { destination: this.destination } : {}),
+        actions: [
+          { id: 'reader:finish', label: this.texts.finish, variant: 'primary' as const },
+          { id: 'reader:cancel', label: this.texts.cancel, variant: 'ghost' as const }
+        ]
+      })
+    };
+  }
+  private applyHighlights(
+    highlights: ReaderPanelHighlight[],
+    options: ReaderPanelRenderOptions = {}
+  ): ReaderPanelHighlight | undefined {
+    this.commentDrafts.captureRenderedInputs();
+    const focus = options.focusHighlightId
+      ? highlights.find((item) => item.id === options.focusHighlightId)
+      : undefined;
+    if (this.collapsePersistence.value && this.highlights.length > 0 && focus)
+      this.collapsePersistence.set(false, { persist: true, rerender: false });
+    this.highlights = [...highlights];
+    this.highlightCount = highlights.length;
+    this.commentDrafts.reconcile(this.highlights);
+    if (focus) {
+      this.editingHighlightId = focus.id;
+      this.pendingNoteFocusHighlightId = focus.id;
     }
-    const surface = renderStitchRuntimeSurface({
-      surfaceId: 'reader',
-      appData: content,
-      actions: {
-        'reader:finish': () => {
-          void this.commentDrafts.runAfterFlush(() => this.options.callbacks.onFinish());
-        },
-        'reader:cancel': () => this.options.callbacks.onCancel(),
-        'export-destination:select': (event) => {
-          const id = this.resolveActionId(event, 'destinationId');
-          if (id) {
-            void this.options.callbacks.onSelectDestination?.(id);
-          }
-        },
-        'session:toggleCollapse': () => {
-          this.collapsePersistence.toggle({ persist: true });
-        },
-        'resource:close': () => this.options.callbacks.onCancel(),
-        'reader:delete': (event) => {
-          const id = this.resolveActionId(event, 'highlightId');
-          if (id) {
-            this.observeAsync(this.handleDeleteHighlight(id));
-          }
-        },
-        'reader:save': (event) => {
-          const id = this.resolveActionId(event, 'highlightId');
-          const input = id
-            ? surface.querySelector<HTMLInputElement>(`[data-highlight-input="${CSS.escape(id)}"]`)
-            : null;
-          if (id && input) {
-            void this.commentDrafts.submit(id, input.value);
-          }
-        }
-      }
-    });
-    applyReaderPanelCompatibilityAttributes(surface, {
-      collapsed: this.collapsePersistence.value,
-      onExpand: () => {
-        this.collapsePersistence.set(false, { persist: true });
-      }
-    });
-    bindReaderHighlightInteractions(surface, {
-      onFocusHighlight: (id) => this.options.callbacks.onFocusHighlight(id),
-      onInputFocus: (id) => {
-        this.editingHighlightId = id;
-      },
-      bindInput: (input, id) => this.commentDrafts.bindInput(input, id)
-    });
-    return surface;
+    return focus;
+  }
+  private focusHighlightNoteInput(id: string | null | undefined): void {
+    if (id && focusContentDialogElementByDataset(this.renderRoot.shadowRoot, 'highlightInput', id))
+      this.pendingNoteFocusHighlightId = null;
   }
   private resolveAssetUrl(path: string): string {
     try {
@@ -313,76 +240,9 @@ export class ReaderDialogPanel implements UiMountable<
       return path;
     }
   }
-  private resolveActionId(
-    event: Event,
-    datasetKey: 'highlightId' | 'destinationId'
-  ): string | null {
-    const target = event.currentTarget instanceof HTMLElement ? event.currentTarget : null;
-    if (datasetKey === 'destinationId') {
-      return target?.dataset.destinationId ?? null;
-    }
-    return (
-      target?.dataset[datasetKey] ??
-      target?.closest<HTMLElement>('[data-highlight-id]')?.dataset.highlightId ??
-      null
-    );
-  }
-  private applyHighlights(
-    highlights: ReaderPanelHighlight[],
-    options: ReaderPanelRenderOptions = {}
-  ): ReaderPanelHighlight | undefined {
-    this.commentDrafts.captureRenderedInputs();
-    const previousCount = this.highlights.length;
-    const focusTargetHighlight = this.resolveHighlightFocusTarget(
-      highlights,
-      options.focusHighlightId
-    );
-    const shouldExpandForNewHighlight = previousCount > 0 && Boolean(focusTargetHighlight);
-    if (this.collapsePersistence.value && shouldExpandForNewHighlight) {
-      this.collapsePersistence.set(false, { persist: true, rerender: false });
-    }
-    this.highlights = [...highlights];
-    this.highlightCount = highlights.length;
-    this.commentDrafts.reconcile(this.highlights);
-    if (focusTargetHighlight?.id) {
-      this.editingHighlightId = focusTargetHighlight.id;
-      this.pendingNoteFocusHighlightId = focusTargetHighlight.id;
-    }
-    return focusTargetHighlight;
-  }
-  private resolveHighlightFocusTarget(
-    highlights: ReaderPanelHighlight[],
-    focusHighlightId: string | null | undefined
-  ): ReaderPanelHighlight | undefined {
-    if (!focusHighlightId) {
-      return undefined;
-    }
-    return highlights.find((highlight) => highlight.id === focusHighlightId);
-  }
-  private focusHighlightNoteInput(highlightId: string | null | undefined): void {
-    if (!highlightId) {
-      return;
-    }
-    if (
-      focusContentDialogElementByDataset(this.renderRoot.shadowRoot, 'highlightInput', highlightId)
-    ) {
-      this.pendingNoteFocusHighlightId = null;
-    }
-  }
   private formatCounter(count: number): string {
-    if (count <= 0) {
-      return this.texts.counterZero;
-    }
-    return this.texts.counter.replace('{count}', String(count));
-  }
-  private async handleDeleteHighlight(id: string): Promise<void> {
-    this.commentDrafts.captureRenderedInputs();
-    await this.options.callbacks.onDeleteHighlight(id);
-    this.commentDrafts.clear(id);
-  }
-  private observeAsync(task: Promise<void>): void {
-    void task.catch((error) => {
-      console.warn('[ReaderDialogPanel] Failed to complete async panel action:', error);
-    });
+    return count <= 0
+      ? this.texts.counterZero
+      : this.texts.counter.replace('{count}', String(count));
   }
 }

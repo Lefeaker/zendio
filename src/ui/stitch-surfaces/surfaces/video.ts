@@ -89,6 +89,16 @@ const schema: ResourceSchema = {
           RUNTIME_SURFACE_FALLBACK_MESSAGES.schemaRuntimeSurfaceResizePanelAriaLabel
         ) ?? RUNTIME_SURFACE_FALLBACK_MESSAGES.schemaRuntimeSurfaceResizePanelAriaLabel
     };
+    const expandPanelLabel =
+      t?.(
+        'schemaRuntimeSurfaceExpandPanelAriaLabel',
+        RUNTIME_SURFACE_FALLBACK_MESSAGES.schemaRuntimeSurfaceExpandPanelAriaLabel
+      ) ?? RUNTIME_SURFACE_FALLBACK_MESSAGES.schemaRuntimeSurfaceExpandPanelAriaLabel;
+    const collapsePanelLabel =
+      t?.(
+        'schemaRuntimeSurfaceCollapsePanelAriaLabel',
+        RUNTIME_SURFACE_FALLBACK_MESSAGES.schemaRuntimeSurfaceCollapsePanelAriaLabel
+      ) ?? RUNTIME_SURFACE_FALLBACK_MESSAGES.schemaRuntimeSurfaceCollapsePanelAriaLabel;
 
     return {
       id: 'video',
@@ -103,19 +113,13 @@ const schema: ResourceSchema = {
         ) ?? RUNTIME_SURFACE_FALLBACK_MESSAGES.schemaRuntimeVideoDescription,
       surfacePlacement: 'floating-bottom-right',
       surfaceSkin: 'session',
+      dataset: { expandPanelLabel, collapsePanelLabel },
       children: [
         div('resource-modal-stack', [
           sessionPanelShell(
             'video-surface-window',
             [
-              sessionHeader(
-                labels,
-                surface.iconUrl,
-                t?.(
-                  'schemaRuntimeSurfaceCollapsePanelAriaLabel',
-                  RUNTIME_SURFACE_FALLBACK_MESSAGES.schemaRuntimeSurfaceCollapsePanelAriaLabel
-                ) ?? RUNTIME_SURFACE_FALLBACK_MESSAGES.schemaRuntimeSurfaceCollapsePanelAriaLabel
-              ),
+              sessionHeader(labels, surface.iconUrl, collapsePanelLabel),
               surfaceBody(classNames.session.bodyVideo, [
                 sessionItemList([
                   ...surface.captures.map((capture) =>

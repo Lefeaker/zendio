@@ -137,7 +137,7 @@ describe('VideoDialogPanel', () => {
     const [firstHandle, secondHandle] = handles;
     if (!firstHandle || !secondHandle) throw new Error('fresh style handles missing');
     expect(firstHandle).not.toBe(secondHandle);
-    expect(firstHandle.refresh).toHaveBeenCalledTimes(1);
+    expect(firstHandle.refresh).not.toHaveBeenCalled();
     expect(secondHandle.refresh).not.toHaveBeenCalled();
     await expect(firstHandle.ready).resolves.toEqual({ status: 'ready' });
     await expect(secondHandle.ready).resolves.toEqual({ status: 'ready' });
@@ -172,11 +172,11 @@ describe('VideoDialogPanel', () => {
     expect(panel.element.hasAttribute('aria-busy')).toBe(false);
 
     panel.updateHint('Updated after styles resolve');
-    expect(handle.refresh).toHaveBeenCalledTimes(1);
+    expect(handle.refresh).not.toHaveBeenCalled();
     panel.destroy();
   });
 
-  it('restores managed fallback styles after replacing the shadow contents', async () => {
+  it('keeps the managed fallback style node stable across incremental updates', async () => {
     const applyStyles = panelStyleSheetManager.applyVideoStyles.bind(panelStyleSheetManager);
     const attachments: StyleAttachmentHandle[] = [];
     vi.spyOn(panelStyleSheetManager, 'applyVideoStyles').mockImplementation((root) => {
@@ -200,21 +200,19 @@ describe('VideoDialogPanel', () => {
     );
 
     panel.updateHint('Rerendered');
-    await vi.waitFor(() => {
-      const current = shadow?.querySelector(
-        'style[data-aiob-style-bridge="panel-video-style-pack"]'
-      );
-      expect(current).toBeTruthy();
-      expect(current).not.toBe(initialStyle);
-    });
+    await vi.waitFor(() =>
+      expect(shadow?.querySelector('style[data-aiob-style-bridge="panel-video-style-pack"]')).toBe(
+        initialStyle
+      )
+    );
     const restoredStyle = shadow?.querySelector<HTMLStyleElement>(
       'style[data-aiob-style-bridge="panel-video-style-pack"]'
     );
 
     expect(initialStyle).toBeTruthy();
-    expect(initialStyle?.isConnected).toBe(false);
+    expect(initialStyle?.isConnected).toBe(true);
     expect(restoredStyle).toBeTruthy();
-    expect(restoredStyle).not.toBe(initialStyle);
+    expect(restoredStyle).toBe(initialStyle);
     panel.destroy();
     expect(restoredStyle?.isConnected).toBe(false);
   });
@@ -568,9 +566,9 @@ describe('VideoDialogPanel', () => {
       throw new Error('cancel button missing');
     }
 
-    input.dispatchEvent(new FocusEvent('focus'));
-    input.dispatchEvent(new FocusEvent('blur', { relatedTarget: cancelButton }));
-    input.dispatchEvent(new FocusEvent('blur'));
+    input.dispatchEvent(new FocusEvent('focusin', { bubbles: true }));
+    input.dispatchEvent(new FocusEvent('focusout', { bubbles: true, relatedTarget: cancelButton }));
+    input.dispatchEvent(new FocusEvent('focusout', { bubbles: true }));
 
     expect(lifecycleCallbacks.onCaptureEditorFocus).toHaveBeenCalledWith('capture-1');
     expect(lifecycleCallbacks.onCaptureEditorBlur).toHaveBeenNthCalledWith(
@@ -1199,6 +1197,31 @@ describe('VideoDialogPanel', () => {
       shadow?.querySelector('[data-capture-id="frag-1"] .session-item-marker-time')
     ).toBeNull();
 
+    panel.destroy();
+  });
+
+  it('keeps the video shell, input and keyed items stable across 100 status updates', () => {
+    const panel = new VideoDialogPanel({ callbacks, texts });
+    const captures = createCaptures(20);
+    panel.setCaptures(captures);
+    const shadow = panel.element.shadowRoot;
+    const shell = shadow?.querySelector('.video-surface-window');
+    const list = shadow?.querySelector('.session-item-list');
+    const first = shadow?.querySelector('[data-capture-id="capture-1"]');
+    const input = shadow?.querySelector('[data-capture-input="capture-20"]');
+    const status = shadow?.querySelector('[data-session-status]');
+
+    for (let index = 0; index < 100; index += 1) panel.updateHint(`Status ${index}`);
+    panel.setCaptures(
+      captures.map((item) => (item.id === 'capture-1' ? { ...item, screenshotState: 'on' } : item))
+    );
+
+    expect(shadow?.querySelector('.video-surface-window')).toBe(shell);
+    expect(shadow?.querySelector('.session-item-list')).toBe(list);
+    expect(shadow?.querySelector('[data-capture-id="capture-1"]')).toBe(first);
+    expect(shadow?.querySelector('[data-capture-input="capture-20"]')).toBe(input);
+    expect(shadow?.querySelector('[data-session-status]')).toBe(status);
+    expect(status?.getAttribute('aria-live')).toBe('polite');
     panel.destroy();
   });
 });

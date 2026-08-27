@@ -4,53 +4,48 @@ import type {
   VideoPanelTexts
 } from '../application/videoPanelModel';
 import type { UiMountable } from '@ui/hosts/shared/contract';
-import type { StyleAttachmentHandle } from '@ui/foundation/style-host';
-import type { PopupCoordinator } from '@content/runtime/popupCoordinator';
 import { resolveContentPopupCoordinator } from '@content/runtime/popupCoordinatorAccess';
 import {
   panelStyleSheetManager,
   prepareStyleHost,
   revealStyleHost
 } from '@content/shared/panels/styleSheetManager';
-import { bindSessionPanelResize } from '@content/shared/panels/sessionPanelResize';
 import { SessionPanelCollapsePersistence } from '@content/shared/panels/sessionPanelCollapsePersistence';
 import { createSessionPanelRenderRoot } from '@content/shared/panels/sessionPanelRoot';
-import { bindSessionItemPreviewExpansion } from '@content/shared/panels/sessionItemPreviewExpansion';
-import { preserveSessionPanelIcon } from '@content/shared/panels/sessionPanelIconPersistence';
 import { SessionCommentDraftController } from '@content/shared/panels/sessionCommentDrafts';
-import { patchExportDestinationRow } from '@content/shared/exportDestinationDom';
 import type { ExportDestinationSurfacePreview } from '@ui/stitch-runtime';
-import { focusContentDialogElementByDataset } from '@ui/hosts/content/contentDialogFocus';
+import { queueContentDialogElementByDataset } from '@ui/hosts/content/contentDialogFocus';
+import { createInvalidationScope } from '@ui/stitch-runtime/render/invalidation';
 import { bindVideoInputKeyboardIsolationBoundary } from '../videoInputEventIsolation';
-import { createVideoDialogSurface } from './videoDialogSurface';
+import {
+  createVideoDialogSurfaceContent,
+  renderVideoDialogSurface,
+  renderVideoDialogSurfaceTemplate
+} from './videoDialogSurface';
+import { VideoDialogPanelController } from './videoDialogPanelController';
+import { createVideoDialogPanelEventHandlers } from './videoDialogPanelEvents';
 import { VIDEO_MODE_PANEL_ICON_PATH } from '@shared/assets/iconPaths';
+
 interface VideoDialogPanelOptions {
   callbacks: VideoPanelCallbacks;
   texts: VideoPanelTexts;
   resolveAssetUrl?: (path: string) => string;
   initialCollapsed?: boolean;
 }
+
+type VideoUpdate =
+  | { texts?: VideoPanelTexts; count?: number; hint?: string; captures?: VideoPanelCapture[] }
+  | undefined;
+
 export class VideoDialogPanel implements UiMountable<
   HTMLElement | undefined,
-  | { texts?: VideoPanelTexts; count?: number; hint?: string; captures?: VideoPanelCapture[] }
-  | undefined,
+  VideoUpdate,
   HTMLElement
 > {
   readonly popupLifecycle = { preserveOnTransientClose: true, kind: 'session-panel' } as const;
-  private renderRoot: HTMLElement;
-  private styleAttachment: StyleAttachmentHandle | null = null;
-  private styleReady = false;
-  private readonly popupCoordinator: PopupCoordinator | null;
+  private readonly renderRoot = createSessionPanelRenderRoot();
   private readonly collapsePersistence: SessionPanelCollapsePersistence;
-  private unregisterPopup: (() => void) | null = null;
-  private resizeDisposer: (() => void) | null = null;
-  private previewExpansionDisposer: (() => void) | null = null;
-  private keyboardIsolationDisposer: (() => void) | null = null;
-  private texts: VideoPanelTexts;
-  private captures: VideoPanelCapture[] = [];
-  private destination: ExportDestinationSurfacePreview | undefined;
-  private captureCount = 0;
-  private editingCaptureId: string | null = null;
+  private readonly invalidation = createInvalidationScope();
   private readonly commentDrafts = new SessionCommentDraftController<VideoPanelCapture>({
     datasetKey: 'captureInput',
     inputSelector: '[data-capture-input]',
@@ -59,94 +54,83 @@ export class VideoDialogPanel implements UiMountable<
     submitDraft: (id, draft) => this.options.callbacks.onSubmitCaptureEdit(id, draft),
     onChange: (drafts) => this.options.callbacks.onCommentDraftChange?.(drafts)
   });
+  private readonly controller: VideoDialogPanelController;
+  private disposeKeyboardIsolation: (() => void) | null = null;
+  private texts: VideoPanelTexts;
+  private captures: VideoPanelCapture[] = [];
+  private destination: ExportDestinationSurfacePreview | undefined;
+  private captureCount = 0;
+  private editingCaptureId: string | null = null;
   private keepCollapsedForNextCaptureUpdate = false;
-  private suppressCaptureEditorBlur = false;
-  private renderBlurSuppressionToken = 0;
+
   constructor(private readonly options: VideoDialogPanelOptions) {
     this.texts = options.texts;
     this.keepCollapsedForNextCaptureUpdate = Boolean(options.initialCollapsed);
-    this.popupCoordinator = resolveContentPopupCoordinator();
     this.collapsePersistence = new SessionPanelCollapsePersistence({
       initialCollapsed: Boolean(options.initialCollapsed),
       restoreFromStorage: !options.initialCollapsed,
       rerender: () => this.rerender()
     });
-    this.renderRoot = createSessionPanelRenderRoot();
     const shadow = this.renderRoot.attachShadow({ mode: 'open' });
     prepareStyleHost(this.renderRoot);
-    this.keyboardIsolationDisposer = bindVideoInputKeyboardIsolationBoundary(shadow);
-    this.rerender();
-    const styleAttachment = panelStyleSheetManager.applyVideoStyles(shadow);
-    this.styleAttachment = styleAttachment;
-    void revealStyleHost(this.renderRoot, styleAttachment).then((ready) => {
-      if (this.styleAttachment !== styleAttachment) return;
-      if (!ready) {
-        this.destroy();
-        return;
-      }
-      this.styleReady = true;
+    this.disposeKeyboardIsolation = bindVideoInputKeyboardIsolationBoundary(shadow);
+    this.controller = new VideoDialogPanelController({
+      host: this.renderRoot,
+      shadow,
+      popupOwner: this,
+      popupCoordinator: resolveContentPopupCoordinator(),
+      applyStyles: (root) => panelStyleSheetManager.applyVideoStyles(root),
+      revealStyles: revealStyleHost,
+      createHandle: () => renderVideoDialogSurface(this.surfaceContent()),
+      createTemplate: () => renderVideoDialogSurfaceTemplate(this.surfaceContent()),
+      isCollapsed: () => this.collapsePersistence.value,
+      events: createVideoDialogPanelEventHandlers({
+        callbacks: options.callbacks,
+        root: this.renderRoot,
+        drafts: this.commentDrafts,
+        collapse: this.collapsePersistence,
+        getEditing: () => this.editingCaptureId,
+        setEditing: (id) => {
+          this.editingCaptureId = id;
+        },
+        cancelActiveEditor: () => this.cancelActiveEditor()
+      })
     });
     void this.collapsePersistence.restore();
   }
+
   get element(): HTMLElement {
     return this.renderRoot;
   }
   mount(target: HTMLElement = document.body): HTMLElement {
-    if (!this.renderRoot.isConnected) {
-      target.append(this.renderRoot);
-    }
-    return this.renderRoot;
+    return this.controller.mount(target);
   }
   show(): void {
-    this.renderRoot.dataset.aiobStyleReveal = 'true';
-    this.mount();
-    if (!this.renderRoot.hasAttribute('aria-busy')) this.renderRoot.hidden = false;
-    if (!this.unregisterPopup && this.popupCoordinator) {
-      this.unregisterPopup = this.popupCoordinator.register(this);
-    }
+    this.controller.show();
   }
   hide(): void {
-    delete this.renderRoot.dataset.aiobStyleReveal;
-    this.unregisterPopup?.();
-    this.unregisterPopup = null;
-    this.renderRoot.hidden = true;
+    this.controller.hide();
   }
-  update(payload?: {
-    texts?: VideoPanelTexts;
-    count?: number;
-    hint?: string;
-    captures?: VideoPanelCapture[];
-  }): HTMLElement {
-    if (!payload) {
-      return this.renderRoot;
-    }
-    if (payload.texts) {
-      this.texts = payload.texts;
-    }
-    if (typeof payload.count === 'number') {
-      this.captureCount = payload.count;
-    }
-    if (typeof payload.hint === 'string') {
-      this.texts = { ...this.texts, hint: payload.hint };
-    }
+
+  update(payload?: VideoUpdate): HTMLElement {
+    if (!payload) return this.renderRoot;
+    if (payload.texts) this.texts = payload.texts;
+    if (typeof payload.count === 'number') this.captureCount = payload.count;
+    if (typeof payload.hint === 'string') this.texts = { ...this.texts, hint: payload.hint };
     if (payload.captures) {
       this.applyCaptures(payload.captures);
       this.rerender({ captureDrafts: false });
-      return this.renderRoot;
-    }
-    this.rerender();
+    } else this.rerender();
     return this.renderRoot;
   }
+
   updateTexts(texts: VideoPanelTexts): void {
     this.texts = texts;
     this.rerender();
   }
   updateDestination(destination: ExportDestinationSurfacePreview | undefined): void {
     this.destination = destination;
-    const shadow = this.renderRoot.shadowRoot;
-    if (!shadow || !patchExportDestinationRow(shadow, destination)) {
-      this.rerender();
-    }
+    this.rerender();
   }
   updateCount(count: number): void {
     this.captureCount = count;
@@ -169,11 +153,9 @@ export class VideoDialogPanel implements UiMountable<
   }
   stopEditing(captureId?: string): void {
     this.commentDrafts.captureRenderedInputs();
-    const idToClear = captureId ?? this.editingCaptureId;
-    this.commentDrafts.clear(idToClear);
-    if (!captureId || this.editingCaptureId === captureId) {
-      this.editingCaptureId = null;
-    }
+    const id = captureId ?? this.editingCaptureId;
+    this.commentDrafts.clear(id);
+    if (!captureId || this.editingCaptureId === captureId) this.editingCaptureId = null;
     this.rerender({ captureDrafts: false });
   }
   snapshotCommentDrafts(): Record<string, string> {
@@ -181,105 +163,72 @@ export class VideoDialogPanel implements UiMountable<
   }
   hydrateCommentDrafts(drafts: Record<string, string>): void {
     this.commentDrafts.hydrate(drafts);
+    this.rerender({ captureDrafts: false });
   }
   collapse(): void {
     this.collapsePersistence.set(true, { rerender: false });
     this.keepCollapsedForNextCaptureUpdate = true;
     this.rerender();
   }
+
   destroy(): void {
+    if (!this.invalidation.active) return;
     this.cancelActiveEditor();
+    this.invalidation.dispose();
     this.collapsePersistence.destroy();
-    this.unregisterPopup?.();
-    this.unregisterPopup = null;
-    this.resizeDisposer?.();
-    this.resizeDisposer = null;
-    this.previewExpansionDisposer?.();
-    this.previewExpansionDisposer = null;
-    this.keyboardIsolationDisposer?.();
-    this.keyboardIsolationDisposer = null;
-    const styleAttachment = this.styleAttachment;
-    this.styleAttachment = null;
-    this.styleReady = false;
-    if (styleAttachment) styleAttachment.dispose();
-    this.renderRoot.remove();
+    this.controller.dispose();
+    this.disposeKeyboardIsolation?.();
+    this.disposeKeyboardIsolation = null;
   }
+
   private rerender(options: { captureDrafts?: boolean } = {}): void {
-    const shadow = this.renderRoot.shadowRoot;
-    if (!shadow) {
-      return;
-    }
-    const restoreFocusCaptureId = this.resolveFocusedEditingCaptureId(shadow);
-    if (options.captureDrafts !== false) {
-      this.commentDrafts.captureRenderedInputs();
-    }
-    this.resizeDisposer?.();
-    this.resizeDisposer = null;
-    this.previewExpansionDisposer?.();
-    this.previewExpansionDisposer = null;
-    const surface = this.renderSurface();
-    preserveSessionPanelIcon(shadow, surface);
-    this.suppressCaptureEditorBlurForInternalRender();
-    shadow.replaceChildren(surface);
-    if (this.styleReady && this.styleAttachment) void this.styleAttachment.refresh();
-    this.resizeDisposer = bindSessionPanelResize(surface);
-    this.previewExpansionDisposer = bindSessionItemPreviewExpansion(surface);
-    if (restoreFocusCaptureId) {
-      this.queueCaptureInputFocus(restoreFocusCaptureId);
-    }
+    if (options.captureDrafts !== false) this.commentDrafts.captureRenderedInputs();
+    const focused = this.focusedCaptureId();
+    this.controller.update();
+    if (focused) this.queueCaptureInputFocus(focused);
   }
-  private suppressCaptureEditorBlurForInternalRender(): void {
-    this.suppressCaptureEditorBlur = true;
-    const token = (this.renderBlurSuppressionToken += 1);
-    queueMicrotask(() => {
-      if (this.renderBlurSuppressionToken === token) {
-        this.suppressCaptureEditorBlur = false;
-      }
-    });
-  }
-  private renderSurface(): HTMLElement {
-    const surface = createVideoDialogSurface({
+  private surfaceContent() {
+    return createVideoDialogSurfaceContent({
       texts: this.texts,
-      captures: this.captures.map((capture) => this.commentDrafts.withDraft(capture)),
+      captures: this.captures.map((item) => this.commentDrafts.withDraft(item)),
       counter: this.formatCounter(this.captureCount),
       iconUrl: this.resolveAssetUrl(VIDEO_MODE_PANEL_ICON_PATH),
       destination: this.destination,
-      collapsed: this.collapsePersistence.value,
-      editingCaptureId: this.editingCaptureId,
-      actions: {
-        addCapture: (source) => {
-          void this.commentDrafts.runAfterFlush(() => this.options.callbacks.onAddCapture(source));
-        },
-        finish: () => {
-          void this.commentDrafts.runAfterFlush(() => this.options.callbacks.onFinish());
-        },
-        cancel: () => {
-          this.cancelActiveEditor();
-          this.options.callbacks.onCancel();
-        },
-        selectDestination: (id) => {
-          void this.options.callbacks.onSelectDestination?.(id);
-        },
-        toggleCollapse: () => {
-          this.collapsePersistence.toggle({ persist: true });
-        },
-        closeResource: () => this.options.callbacks.onCancel(),
-        deleteCapture: (id) => {
-          if (id === this.editingCaptureId) {
-            this.options.callbacks.onCaptureEditorCancel?.(id);
-            this.editingCaptureId = null;
-          }
-          this.commentDrafts.clear(id);
-          this.options.callbacks.onDeleteCapture(id);
-        },
-        toggleScreenshot: (id) => {
-          void this.options.callbacks.onToggleScreenshot(id);
-        },
-        expandCollapsedPanel: () => this.collapsePersistence.set(false, { persist: true })
-      }
+      editingCaptureId: this.editingCaptureId
     });
-    this.bindCaptureInteractions(surface);
-    return surface;
+  }
+  private applyCaptures(captures: VideoPanelCapture[]): void {
+    this.commentDrafts.captureRenderedInputs();
+    const shouldExpand = this.captures.length > 0 && captures.length > this.captures.length;
+    if (this.collapsePersistence.value && shouldExpand && !this.keepCollapsedForNextCaptureUpdate)
+      this.collapsePersistence.set(false, { persist: true, rerender: false });
+    this.keepCollapsedForNextCaptureUpdate = false;
+    this.captures = [...captures];
+    this.captureCount = captures.length;
+    this.commentDrafts.reconcile(this.captures);
+  }
+  private focusedCaptureId(): string | null {
+    const active = this.renderRoot.shadowRoot?.activeElement;
+    return active instanceof HTMLInputElement &&
+      active.dataset.captureInput === this.editingCaptureId
+      ? this.editingCaptureId
+      : null;
+  }
+  private queueCaptureInputFocus(id: string): void {
+    const token = this.invalidation.capture();
+    queueContentDialogElementByDataset(
+      this.renderRoot.shadowRoot,
+      'captureInput',
+      id,
+      () => this.invalidation.isCurrent(token) && this.editingCaptureId === id
+    );
+  }
+  private cancelActiveEditor(): void {
+    const id = this.editingCaptureId;
+    if (!id) return;
+    this.options.callbacks.onCaptureEditorCancel?.(id);
+    this.commentDrafts.clear(id);
+    this.editingCaptureId = null;
   }
   private resolveAssetUrl(path: string): string {
     try {
@@ -287,92 +236,6 @@ export class VideoDialogPanel implements UiMountable<
     } catch {
       return path;
     }
-  }
-  private resolveFocusedEditingCaptureId(shadow: ShadowRoot): string | null {
-    if (!this.editingCaptureId) {
-      return null;
-    }
-    const activeElement = shadow.activeElement instanceof HTMLElement ? shadow.activeElement : null;
-    return activeElement?.dataset.captureInput === this.editingCaptureId
-      ? this.editingCaptureId
-      : null;
-  }
-  private queueCaptureInputFocus(id: string): void {
-    queueMicrotask(() => {
-      if (this.editingCaptureId !== id) {
-        return;
-      }
-      focusContentDialogElementByDataset(this.renderRoot.shadowRoot, 'captureInput', id);
-    });
-  }
-  private bindCaptureInteractions(surface: HTMLElement): void {
-    surface.querySelectorAll<HTMLElement>('[data-capture-id]').forEach((item) => {
-      const id = item.dataset.captureId;
-      if (!id) {
-        return;
-      }
-      item.addEventListener('click', (event) => {
-        const target = event.target instanceof Element ? event.target : null;
-        if (this.isInteractiveCaptureTarget(target)) {
-          return;
-        }
-        this.options.callbacks.onFocusCapture(id);
-      });
-      const input = item.querySelector<HTMLInputElement>('[data-capture-input]');
-      this.commentDrafts.bindInput(input, id);
-      input?.addEventListener('focus', () => this.options.callbacks.onCaptureEditorFocus?.(id));
-      input?.addEventListener('blur', (event) => {
-        if (this.suppressCaptureEditorBlur) {
-          return;
-        }
-        this.options.callbacks.onCaptureEditorBlur?.(
-          id,
-          this.isTargetInsidePanel(event.relatedTarget) ? 'inside-panel' : 'outside-panel'
-        );
-      });
-    });
-  }
-  private applyCaptures(captures: VideoPanelCapture[]): void {
-    this.commentDrafts.captureRenderedInputs();
-    const shouldExpandForNewCapture =
-      this.captures.length > 0 && captures.length > this.captures.length;
-    if (
-      this.collapsePersistence.value &&
-      shouldExpandForNewCapture &&
-      !this.keepCollapsedForNextCaptureUpdate
-    ) {
-      this.collapsePersistence.set(false, { persist: true, rerender: false });
-    }
-    this.keepCollapsedForNextCaptureUpdate = false;
-    this.captures = [...captures];
-    this.captureCount = captures.length;
-    this.commentDrafts.reconcile(this.captures);
-  }
-  private isInteractiveCaptureTarget(target: Element | null): boolean {
-    return Boolean(
-      target?.closest(
-        'button, input, textarea, select, a, [contenteditable="true"], [data-action-id]'
-      )
-    );
-  }
-  private cancelActiveEditor(): void {
-    const id = this.editingCaptureId;
-    if (!id) {
-      return;
-    }
-    this.options.callbacks.onCaptureEditorCancel?.(id);
-    this.commentDrafts.clear(id);
-    this.editingCaptureId = null;
-  }
-  private isTargetInsidePanel(target: EventTarget | null): boolean {
-    if (!(target instanceof Node)) {
-      return false;
-    }
-    return (
-      target === this.renderRoot ||
-      this.renderRoot.contains(target) ||
-      Boolean(this.renderRoot.shadowRoot?.contains(target))
-    );
   }
   private formatCounter(count: number): string {
     return count <= 0

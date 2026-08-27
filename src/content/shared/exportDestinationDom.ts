@@ -78,3 +78,77 @@ export function patchExportDestinationRow(
   row.querySelector<HTMLDetailsElement>('.export-destination-menu')?.removeAttribute('open');
   return syncSetupLink(row, destination);
 }
+
+export function reconcileExportDestinationRow(currentRoot: ParentNode, nextRoot: ParentNode): void {
+  const current = findDestinationRow(currentRoot);
+  const next = findDestinationRow(nextRoot);
+  if (!next) {
+    current?.remove();
+    return;
+  }
+  if (current) {
+    if (patchDestinationTemplate(current, next)) return;
+    current.replaceWith(next.cloneNode(true));
+    return;
+  }
+  const footer = currentRoot.querySelector<HTMLElement>('.surface-window-footer');
+  footer?.before(next.cloneNode(true));
+}
+
+function patchDestinationTemplate(current: HTMLElement, next: HTMLElement): boolean {
+  const currentButtons = Array.from(
+    current.querySelectorAll<HTMLButtonElement>('[data-destination-id]')
+  );
+  const nextButtons = Array.from(next.querySelectorAll<HTMLButtonElement>('[data-destination-id]'));
+  if (
+    currentButtons.length !== nextButtons.length ||
+    nextButtons.some(
+      (button) =>
+        !currentButtons.some(
+          (currentButton) => currentButton.dataset.destinationId === button.dataset.destinationId
+        )
+    )
+  ) {
+    return false;
+  }
+  syncText(
+    current,
+    '.export-destination-eyebrow',
+    next.querySelector('.export-destination-eyebrow')?.textContent ?? ''
+  );
+  syncText(
+    current,
+    '.export-destination-label',
+    next.querySelector('.export-destination-label')?.textContent ?? ''
+  );
+  syncText(
+    current,
+    '.export-destination-path',
+    next.querySelector('.export-destination-path')?.textContent ?? ''
+  );
+  nextButtons.forEach((nextButton) => {
+    const currentButton = currentButtons.find(
+      (button) => button.dataset.destinationId === nextButton.dataset.destinationId
+    );
+    if (!currentButton) return;
+    currentButton.className = nextButton.className;
+    syncText(
+      currentButton,
+      '.export-destination-option-label',
+      nextButton.querySelector('.export-destination-option-label')?.textContent ?? ''
+    );
+    syncText(
+      currentButton,
+      '.export-destination-option-path',
+      nextButton.querySelector('.export-destination-option-path')?.textContent ?? ''
+    );
+  });
+  const currentLink = current.querySelector<HTMLAnchorElement>('.export-destination-setup-link');
+  const nextLink = next.querySelector<HTMLAnchorElement>('.export-destination-setup-link');
+  if (!nextLink) currentLink?.remove();
+  else if (currentLink) {
+    currentLink.href = nextLink.href;
+    currentLink.textContent = nextLink.textContent;
+  } else current.append(nextLink.cloneNode(true));
+  return true;
+}

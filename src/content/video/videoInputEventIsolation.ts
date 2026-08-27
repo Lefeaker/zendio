@@ -79,7 +79,10 @@ export function bindVideoInputKeyboardIsolationBoundary(
         })
       : () => undefined
   ];
+  let disposed = false;
   return () => {
+    if (disposed) return;
+    disposed = true;
     disposers.forEach((dispose) => dispose());
   };
 }

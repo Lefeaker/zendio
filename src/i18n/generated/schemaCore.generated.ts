@@ -368,6 +368,7 @@ export const GENERATED_SCHEMA_MESSAGE_KEYS = [
   'schemaRuntimeReaderTitle',
   'schemaRuntimeSurfaceCollapsePanelAriaLabel',
   'schemaRuntimeSurfaceConfigureVaultLabel',
+  'schemaRuntimeSurfaceExpandPanelAriaLabel',
   'schemaRuntimeSurfaceResizePanelAriaLabel',
   'schemaRuntimeSurfaceResizePanelHeightAriaLabel',
   'schemaRuntimeSurfaceSaveToLabel',

@@ -228,6 +228,28 @@ async function startVideoSession(): Promise<void> {
   setStatus('VideoSession mounted and one capture added');
 }
 
+function setReaderHighlightCount(count: number): void {
+  const wrapper = document.createElement('mark');
+  activeReader?.__setTestHighlights(
+    Array.from({ length: count }, (_, index) => ({
+      id: `harness-highlight-${index + 1}`,
+      selectedHtml: `Highlight ${index + 1}`,
+      selectedText: `Highlight ${index + 1}`,
+      comment: `Note ${index + 1}`,
+      fragmentUrl: `${location.href}#:~:text=${index + 1}`,
+      wrapper
+    }))
+  );
+}
+async function addVideoCaptureCount(count: number): Promise<void> {
+  const video = document.querySelector('video');
+  if (!(video instanceof HTMLVideoElement) || !activeVideo) return;
+  for (let index = 1; index < count; index += 1) {
+    video.currentTime = index * 5;
+    await activeVideo.addCurrentTimestamp();
+  }
+}
+
 async function showVideoFloatingPrompt(): Promise<void> {
   removeVideoFloatingPrompt();
   const generation = activeVideoPromptGeneration;
@@ -314,6 +336,8 @@ document.getElementById('show-support-prompt')?.addEventListener('click', () => 
       startVideoSession: () => Promise<void>;
       showVideoFloatingPrompt: () => Promise<void>;
       showSupportPrompt: () => Promise<void>;
+      setReaderHighlightCount: (count: number) => void;
+      addVideoCaptureCount: (count: number) => Promise<void>;
     };
   }
 ).harness = {
@@ -321,7 +345,9 @@ document.getElementById('show-support-prompt')?.addEventListener('click', () => 
   startReaderSession,
   startVideoSession,
   showVideoFloatingPrompt,
-  showSupportPrompt
+  showSupportPrompt,
+  setReaderHighlightCount,
+  addVideoCaptureCount
 };
 
 void runtimeState.refreshFragmentConfig().finally(() => {

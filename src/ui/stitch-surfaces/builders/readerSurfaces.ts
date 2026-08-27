@@ -11,7 +11,7 @@ export function readerHighlightItem(
     'article',
     {
       className: [classNames.session.item, classNames.session.readerItem].join(' '),
-      dataset: { highlightId: highlight.id }
+      dataset: { highlightId: highlight.id, role: 'highlight-item' }
     },
     [
       sessionItemMarker(String(highlight.index), 'index'),

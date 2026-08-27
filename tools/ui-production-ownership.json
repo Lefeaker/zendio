@@ -1,8 +1,8 @@
 {
   "schemaVersion": 1,
   "closureState": "final",
-  "uiPathSetSha256": "423c137c933bdb1fe42b13be3cd54726ccf7575a0d8416d2e775f42c3ddb17bd",
-  "uiContentSha256": "40d87aa45628ed6468982b106507adac0a1d5f093a73442ed1ea34c6c8f3418c",
+  "uiPathSetSha256": "1fd3add61ff7d5edfcb7536bac1f2d73fb894bb697ec50e0d0f5b743c0b2b820",
+  "uiContentSha256": "6337ede4ed3552c1107c8817b9e403154b418980e8ed48a6334c0260a036fced",
   "rows": [
     {
       "path": "src/ui/domains/usage-chart/index.ts",
@@ -651,6 +651,50 @@
       "reason": "Production runtime reachability is proven by the freshly generated build graph."
     },
     {
+      "path": "src/ui/stitch-runtime/render/invalidation.ts",
+      "disposition": "production-runtime",
+      "productionOwners": [
+        "src/content/index.ts",
+        "src/content/reader/readerLazyRuntime.ts",
+        "src/content/video/videoLazyRuntime.ts"
+      ],
+      "replacement": {
+        "owner": "src/ui/stitch-runtime/render/invalidation.ts",
+        "milestone": "current-production"
+      },
+      "evidence": {
+        "docs": ["docs/design-system-governance.md"],
+        "tests": ["tests/unit/tools/uiProductionOwnership.test.ts"],
+        "tools": [
+          "tools/report-production-build-graph.mjs",
+          "tools/report-ui-production-ownership.mjs"
+        ]
+      },
+      "reason": "Production runtime reachability is proven by the freshly generated build graph."
+    },
+    {
+      "path": "src/ui/stitch-runtime/render/keyedSessionList.ts",
+      "disposition": "production-runtime",
+      "productionOwners": [
+        "src/content/index.ts",
+        "src/content/reader/readerLazyRuntime.ts",
+        "src/content/video/videoLazyRuntime.ts"
+      ],
+      "replacement": {
+        "owner": "src/ui/stitch-runtime/render/keyedSessionList.ts",
+        "milestone": "current-production"
+      },
+      "evidence": {
+        "docs": ["docs/design-system-governance.md"],
+        "tests": ["tests/unit/tools/uiProductionOwnership.test.ts"],
+        "tools": [
+          "tools/report-production-build-graph.mjs",
+          "tools/report-ui-production-ownership.mjs"
+        ]
+      },
+      "reason": "Production runtime reachability is proven by the freshly generated build graph."
+    },
+    {
       "path": "src/ui/stitch-runtime/render/nodeRenderers.ts",
       "disposition": "production-runtime",
       "productionOwners": [
@@ -688,6 +732,28 @@
       ],
       "replacement": {
         "owner": "src/ui/stitch-runtime/render/renderRuntimeSurface.ts",
+        "milestone": "current-production"
+      },
+      "evidence": {
+        "docs": ["docs/design-system-governance.md"],
+        "tests": ["tests/unit/tools/uiProductionOwnership.test.ts"],
+        "tools": [
+          "tools/report-production-build-graph.mjs",
+          "tools/report-ui-production-ownership.mjs"
+        ]
+      },
+      "reason": "Production runtime reachability is proven by the freshly generated build graph."
+    },
+    {
+      "path": "src/ui/stitch-runtime/render/rootActionDispatcher.ts",
+      "disposition": "production-runtime",
+      "productionOwners": [
+        "src/content/index.ts",
+        "src/content/reader/readerLazyRuntime.ts",
+        "src/content/video/videoLazyRuntime.ts"
+      ],
+      "replacement": {
+        "owner": "src/ui/stitch-runtime/render/rootActionDispatcher.ts",
         "milestone": "current-production"
       },
       "evidence": {

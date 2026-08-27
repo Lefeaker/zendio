@@ -43,6 +43,7 @@ type RuntimeSurfaceFallbackMessageKey =
   | 'schemaRuntimeReaderTitle'
   | 'schemaRuntimeReaderDescription'
   | 'schemaRuntimeSurfaceCollapsePanelAriaLabel'
+  | 'schemaRuntimeSurfaceExpandPanelAriaLabel'
   | 'schemaRuntimeSurfaceConfigureVaultLabel'
   | 'schemaRuntimeSurfaceResizePanelAriaLabel'
   | 'schemaRuntimeSurfaceResizePanelHeightAriaLabel'
@@ -100,6 +101,7 @@ export const RUNTIME_SURFACE_FALLBACK_MESSAGES = {
   schemaRuntimeReaderDescription:
     'Floating reader panel with real highlight lists and inline note editing.',
   schemaRuntimeSurfaceCollapsePanelAriaLabel: 'Collapse panel',
+  schemaRuntimeSurfaceExpandPanelAriaLabel: 'Expand panel',
   schemaRuntimeSurfaceConfigureVaultLabel: 'Configure vault',
   schemaRuntimeSurfaceResizePanelAriaLabel: 'Resize panel',
   schemaRuntimeSurfaceResizePanelHeightAriaLabel: 'Resize panel height',

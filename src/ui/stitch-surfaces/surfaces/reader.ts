@@ -66,6 +66,16 @@ const schema: ResourceSchema = {
           RUNTIME_SURFACE_FALLBACK_MESSAGES.schemaRuntimeSurfaceResizePanelAriaLabel
         ) ?? RUNTIME_SURFACE_FALLBACK_MESSAGES.schemaRuntimeSurfaceResizePanelAriaLabel
     };
+    const expandPanelLabel =
+      t?.(
+        'schemaRuntimeSurfaceExpandPanelAriaLabel',
+        RUNTIME_SURFACE_FALLBACK_MESSAGES.schemaRuntimeSurfaceExpandPanelAriaLabel
+      ) ?? RUNTIME_SURFACE_FALLBACK_MESSAGES.schemaRuntimeSurfaceExpandPanelAriaLabel;
+    const collapsePanelLabel =
+      t?.(
+        'schemaRuntimeSurfaceCollapsePanelAriaLabel',
+        RUNTIME_SURFACE_FALLBACK_MESSAGES.schemaRuntimeSurfaceCollapsePanelAriaLabel
+      ) ?? RUNTIME_SURFACE_FALLBACK_MESSAGES.schemaRuntimeSurfaceCollapsePanelAriaLabel;
 
     return {
       id: 'reader',
@@ -82,19 +92,13 @@ const schema: ResourceSchema = {
         ) ?? RUNTIME_SURFACE_FALLBACK_MESSAGES.schemaRuntimeReaderDescription,
       surfacePlacement: 'floating-bottom-right',
       surfaceSkin: 'session',
+      dataset: { expandPanelLabel, collapsePanelLabel },
       children: [
         div('resource-modal-stack', [
           sessionPanelShell(
             'reader-surface-window',
             [
-              sessionHeader(
-                labels,
-                surface.iconUrl,
-                t?.(
-                  'schemaRuntimeSurfaceCollapsePanelAriaLabel',
-                  RUNTIME_SURFACE_FALLBACK_MESSAGES.schemaRuntimeSurfaceCollapsePanelAriaLabel
-                ) ?? RUNTIME_SURFACE_FALLBACK_MESSAGES.schemaRuntimeSurfaceCollapsePanelAriaLabel
-              ),
+              sessionHeader(labels, surface.iconUrl, collapsePanelLabel),
               surfaceBody(classNames.session.bodyReader, [
                 sessionItemList(
                   surface.highlights.map((highlight) => readerHighlightItem(highlight, labels))

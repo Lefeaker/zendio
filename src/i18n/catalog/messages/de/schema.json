@@ -289,6 +289,7 @@
   "schemaRuntimeReaderHint": "Schwebendes Lesepanel",
   "schemaRuntimeReaderTitle": "Lesemodus",
   "schemaRuntimeSurfaceCollapsePanelAriaLabel": "Panel einklappen",
+  "schemaRuntimeSurfaceExpandPanelAriaLabel": "Panel ausklappen",
   "schemaRuntimeSurfaceConfigureVaultLabel": "Vault konfigurieren",
   "schemaRuntimeSurfaceResizePanelAriaLabel": "Panelgröße ändern",
   "schemaRuntimeSurfaceResizePanelHeightAriaLabel": "Panelhöhe ändern",

@@ -1,7 +1,10 @@
 /* @vitest-environment jsdom */
 
 import { describe, expect, it } from 'vitest';
-import { patchExportDestinationRow } from '@content/shared/exportDestinationDom';
+import {
+  patchExportDestinationRow,
+  reconcileExportDestinationRow
+} from '@content/shared/exportDestinationDom';
 import type { ExportDestinationSurfacePreview } from '@options/stitch/types';
 
 function createDestination(
@@ -110,5 +113,26 @@ describe('patchExportDestinationRow', () => {
 
     expect(patched).toBe(true);
     expect(root.querySelector('.export-destination-setup-link')).toBeNull();
+  });
+
+  it('adds, replaces and removes a destination row from a detached session template', () => {
+    const current = document.createElement('div');
+    current.innerHTML = '<div class="surface-window-footer"></div>';
+    const next = createRow({ setupLabel: 'Configure next vault' });
+
+    reconcileExportDestinationRow(current, next);
+    expect(current.querySelector('.export-destination-setup-link')?.textContent).toBe(
+      'Configure next vault'
+    );
+
+    const replacement = createRow({ setupLabel: 'Replacement label' });
+    reconcileExportDestinationRow(current, replacement);
+    expect(current.querySelectorAll('.export-destination-row')).toHaveLength(1);
+    expect(current.querySelector('.export-destination-setup-link')?.textContent).toBe(
+      'Replacement label'
+    );
+
+    reconcileExportDestinationRow(current, document.createElement('div'));
+    expect(current.querySelector('.export-destination-row')).toBeNull();
   });
 });

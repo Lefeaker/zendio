@@ -356,6 +356,7 @@
   "schemaRuntimeReaderTitle": "阅读模式",
   "schemaRuntimeSurfaceCollapsePanelAriaLabel": "收起面板",
   "schemaRuntimeSurfaceConfigureVaultLabel": "配置仓库",
+  "schemaRuntimeSurfaceExpandPanelAriaLabel": "展开面板",
   "schemaRuntimeSurfaceResizePanelAriaLabel": "调整面板大小",
   "schemaRuntimeSurfaceResizePanelHeightAriaLabel": "调整面板高度",
   "schemaRuntimeSurfaceSaveToLabel": "保存到",

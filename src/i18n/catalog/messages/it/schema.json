@@ -289,6 +289,7 @@
   "schemaRuntimeReaderHint": "Pannello di lettura flottante",
   "schemaRuntimeReaderTitle": "Modalità lettura",
   "schemaRuntimeSurfaceCollapsePanelAriaLabel": "Comprimi pannello",
+  "schemaRuntimeSurfaceExpandPanelAriaLabel": "Espandi pannello",
   "schemaRuntimeSurfaceConfigureVaultLabel": "Configura vault",
   "schemaRuntimeSurfaceResizePanelAriaLabel": "Ridimensiona pannello",
   "schemaRuntimeSurfaceResizePanelHeightAriaLabel": "Ridimensiona altezza pannello",

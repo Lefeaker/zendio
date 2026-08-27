@@ -4,12 +4,16 @@ import { runtimeClassNames as classNames } from './classNames';
 import { div, element } from './primitives';
 
 export function sessionItemMarker(label: string, kind: 'index' | 'time' = 'index'): NodeSchema {
-  return div(classNames.session.marker, [
-    element('span', {
-      className: kind === 'time' ? classNames.session.markerTime : classNames.session.markerIndex,
-      text: label
-    })
-  ]);
+  return element(
+    'div',
+    { className: classNames.session.marker, dataset: { role: 'session-item-marker' } },
+    [
+      element('span', {
+        className: kind === 'time' ? classNames.session.markerTime : classNames.session.markerIndex,
+        text: label
+      })
+    ]
+  );
 }
 
 export function videoTimestampMarker(

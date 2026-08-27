@@ -10,10 +10,10 @@ const MAX_LINE_BUDGETS = new Map([
   ['src/i18n/generated/schemaMessages.generated.ts', 481],
   // 2026-06-29 v0.2.1 changelog sync: schema core now carries the accepted
   // Options/Stitch release-note keys in addition to existing resource copy.
-  ['src/i18n/generated/schemaCore.generated.ts', 444],
+  ['src/i18n/generated/schemaCore.generated.ts', 445],
   // 2026-07-20 selection-trigger policy: generated runtime messages carry the
   // explicit disabled, direct, and modifier mode copy plus diagnostics copy.
-  ['src/i18n/generated/messages.generated.ts', 1141],
+  ['src/i18n/generated/messages.generated.ts', 1142],
   ['src/i18n/generated/locales/fr.generated.ts', 785],
   ['src/i18n/generated/locales/es-419.generated.ts', 777],
   ['src/i18n/generated/locales/es-ES.generated.ts', 777],
@@ -96,7 +96,6 @@ const MAX_LINE_BUDGETS = new Map([
   // enforce the screenshot preparation split without cycles.
   ['src/content/video/videoScreenshotPreparationRequestStore.ts', 294],
   ['src/content/video/videoScreenshotPreparationCoordinator.ts', 147],
-  ['src/content/reader/ui/ReaderDialogPanel.ts', 405],
   ['src/content/reader/session.ts', 575],
   ['src/content/video/videoControlBarButton.ts', 299],
   // 2026-06-20 support-link closeout: runtime surface copy now uses the shared
@@ -106,7 +105,6 @@ const MAX_LINE_BUDGETS = new Map([
   ['src/shared/exportDestination.ts', 369],
   // 2026-06-13 final combined integration: screenshot status dots and add-note
   // focus/layout regressions are covered in the panel while retaining the current UI.
-  ['src/content/video/ui/VideoDialogPanel.ts', 392],
   ['src/options/app/productionStitchPersistence.ts', 379],
   ['src/shared/errors/analytics/analyticsConfig.template.ts', 364],
   ['src/shared/errors/analytics/analyticsConfig.ts', 383],

@@ -14,6 +14,7 @@ export class SessionPanelCollapsePersistence {
   private changedBeforeRestore = false;
   private destroyed = false;
   private collapsed: boolean;
+  private revision = 0;
 
   constructor(private readonly options: SessionPanelCollapsePersistenceOptions) {
     this.collapsed = Boolean(options.initialCollapsed);
@@ -26,6 +27,7 @@ export class SessionPanelCollapsePersistence {
   set(collapsed: boolean, options: { persist?: boolean; rerender?: boolean } = {}): boolean {
     const changed = this.collapsed !== collapsed;
     this.collapsed = collapsed;
+    if (changed) this.revision += 1;
     if (options.persist) {
       this.persist(collapsed);
     }
@@ -49,11 +51,13 @@ export class SessionPanelCollapsePersistence {
       return Promise.resolve();
     }
     if (!this.restoreTask) {
+      const restoreRevision = this.revision;
       this.restoreTask = loadPersistedSessionPanelLayout()
         .then((layout) => {
           if (
             this.destroyed ||
             this.changedBeforeRestore ||
+            this.revision !== restoreRevision ||
             typeof layout.collapsed !== 'boolean'
           ) {
             return;
@@ -67,5 +71,6 @@ export class SessionPanelCollapsePersistence {
 
   destroy(): void {
     this.destroyed = true;
+    this.revision += 1;
   }
 }

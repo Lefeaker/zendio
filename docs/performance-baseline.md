@@ -18,6 +18,8 @@ npm run audit:build:report
 
 2026-08-11 U02A current-truth sync 基于 endpoint `34baa51aa59f397aea3d0ceb6ffe39b404792973` / tree `d8dc8dde7d04bcf12d8dd6e223b366612a9ef01e`（parent `1c86951a056eec06f6fe47c6e510c59d3e2c3c78`）重新确认 performance gate ownership：sourceFiles=`913`、hotspotsOver250=`107`、registeredLineBudgets=`151`。本次只将 `src/options/stitch/render/nodeRenderers.ts <= 286`、`src/ui/stitch-runtime/render/nodeRenderers.ts <= 276` 与 `src/ui/stitch-surfaces/surfaces/task-success.ts <= 277` 同步为 U02A 当前实测上界；不修改运行时代码、gate 算法、package scripts 或其他构建预算。
 
+2026-08-27 U04A session-panel incremental-render 重新采集 `audit:performance:report`：sourceFiles=`892`、hotspotsOver250=`101`、registeredLineBudgets=`145`。Reader / Video facade 分别收敛为 `248` / `245` 行并移除旧 `405` / `392` hotspot rows；controller 与 event owner 全部 `<250`，`contentOrchestratorHarness.ts = 356` 继续受既有 `<=359` 预算约束。新增 Expand-panel schema key 只把 generated exact budgets 同步为 `messages.generated.ts <= 1142` 与 `schemaCore.generated.ts <= 445`。报告剩余失败与 accepted base 完全一致：缺少 `optionsMutationCoordinator.ts` / `optionsStore.ts` budgets，以及 onboarding bootstrap、runtimeMessages、localVaultPermissionFrame、usageStats 四项既有 overage；本节点未放宽这些旧 gate。
+
 2026-05-24 M2.5 budget ratchet 复核在 Node `v20.20.2` / npm `10.8.2` 下完成，输入为 M2.1-M2.4 全部合入后的 integration baseline。
 
 2026-05-25 M4.3 dev build surface budget 复核在同一 Node/npm 版本下完成。Production fast build 继续排除 dev/test harness 与 `qps-ploc` pseudo-locale，并由 `audit:release-surface:report` 证明 forbidden harness members 与 forbidden dev/test pseudo-locale members 均为 `none`。当时 dev build 保留本地浏览器 harness 与 `qps-ploc`，但仍必须通过当时更严格的 `audit:build:report` 预算；该预算已经严于本轮 plan 的 `content/runtime.js <= 57,600 bytes`、`chunk count <= 132` 和 locale chunk `<= 60 KB` 约束。
@@ -181,11 +183,9 @@ npm run audit:performance:report
 - `src/content/stitch/runtimeSurfaceContent.ts`: `409` 行
 - `src/options/stitch/render/contentRenderers.ts`: `406` 行
 - `src/shared/config/optionsMerger.ts`: `406` 行
-- `src/content/reader/ui/ReaderDialogPanel.ts`: `405` 行
 - `src/content/video/videoScreenshotPreparationQueue.ts`: `401` 行
 - `src/content/video/videoSessionDraftController.ts`: `401` 行
 - `src/content/sessionDrafts/sessionDraftRepository.ts`: `398` 行
-- `src/content/video/ui/VideoDialogPanel.ts`: `392` 行
 - `src/shared/errors/analytics/analyticsConfig.ts`: `383` 行
 - `src/options/app/productionStitchPersistence.ts`: `379` 行
 - `src/options/components/infrastructure/listBuilder.ts`: `378` 行
@@ -197,7 +197,7 @@ npm run audit:performance:report
 - `src/shared/errors/analytics/analyticsConfig.template.ts`: `364` 行
 - `src/background/services/analyticsEvents.ts`: `363` 行
 - `src/utils/trial-manager.ts`: `363` 行
-- `src/dev/contentOrchestratorHarness.ts`: `359` 行
+- `src/dev/contentOrchestratorHarness.ts`: `356` 行（hard budget 仍为 `<=359`）
 - `src/options/app/productionStitchShellActionRuntime.ts`: `358` 行
 - `src/options/app/productionStitchLocalization.ts`: `350` 行
 - `src/content/runtime/localVaultPermissionFrame.ts`: `345` 行
@@ -214,7 +214,7 @@ npm run audit:performance:report
 - P07 将 36 个已低于 checked-in line budget 的 current hotspots 收紧到 fresh line count；standalone `npm run audit:performance:report` 已在 ratchet 后通过。本次不通过 runtime-code line-count edits 改善指标。
 - 当前高信号热点实测：`messages.generated.ts = 1137`、`connectionTest.ts = 697`、`reader/sessionOperations.ts = 643`、`stitch/ui/components.ts = 592`、`onboarding/resourceModal.ts = 585`、`gemini.ts = 576`、`reader/session.ts = 575`、`onboarding/bootstrap.ts = 556`、`videoSessionRuntime.ts = 531`、`analyticsSchema.ts = 527`、`videoSessionDraftController.ts = 401`、`videoScreenshotPreparationQueue.ts = 401`、`videoScreenshotPreparationRequestStore.ts = 294`、`videoScreenshotCacheRepository.ts = 423`、`videoScreenshotCacheIndexedDbStore.ts = 331`、`videoSessionDraftScreenshotCache.ts = 251`、`aiChatExtractor.ts = 277`、`tongyi.ts = 254`。`tools/report-performance-hotspots.mjs` 中的 line budgets 是当前 upper-bound hard gate；进一步收紧必须 standalone 通过后再同步。
 - M12/P01 current truth：`src/i18n/messages.ts` 已演进为 runtime/schema message split entrypoint；generated i18n 当前实测包括 `messages.generated.ts = 1137` 与 `schemaCore.generated.ts = 444`。Schema/options copy 仍通过 schema split 与 dynamic locale loading 避免重新压回 content/runtime locale chunks。
-- 当前业务/运行时/GA 重点实测：`videoSessionRuntime.ts = 531`、`videoSessionDraftController.ts = 401`、`videoScreenshotPreparationQueue.ts = 401`、`videoScreenshotPreparationRequestStore.ts = 294`、`videoScreenshotCacheRepository.ts = 423`、`videoScreenshotCacheIndexedDbStore.ts = 331`、`videoSessionDraftScreenshotCache.ts = 251`、`videoCaptureMutationTransaction.ts = 257`、`VideoDialogPanel.ts = 392`、`videoControlBarButton.ts = 299`、`sessionDraftRepository.ts = 398`、`runtimeMessages.ts = 375`、`bilibiliRichText.ts = 302`、`bilibiliPlatformObserver.ts = 286`、`markdownBuilder.ts = 288`、`yaml-config-editor/rowModel.ts = 269`、`analyticsSchema.ts = 527`、`analyticsEvents.ts = 363`、`analyticsActivation.ts = 265`、`analyticsTransport.ts = 265`、`eventCatalog.ts = 78`、`analyticsSanitizers.ts = 95`、`analyticsConfig.ts = 383`、`analyticsConfig.template.ts = 364`、`googleAnalyticsReporter.ts = 260`。
+- 当前业务/运行时/GA 重点实测：`videoSessionRuntime.ts = 531`、`videoSessionDraftController.ts = 401`、`videoScreenshotPreparationQueue.ts = 401`、`videoScreenshotPreparationRequestStore.ts = 294`、`videoScreenshotCacheRepository.ts = 423`、`videoScreenshotCacheIndexedDbStore.ts = 331`、`videoSessionDraftScreenshotCache.ts = 251`、`videoCaptureMutationTransaction.ts = 257`、`videoControlBarButton.ts = 299`、`sessionDraftRepository.ts = 372`、`runtimeMessages.ts = 436`、`bilibiliRichText.ts = 302`、`bilibiliPlatformObserver.ts = 286`、`markdownBuilder.ts = 288`、`yaml-config-editor/rowModel.ts = 269`、`analyticsSchema.ts = 527`、`analyticsEvents.ts = 363`、`analyticsActivation.ts = 265`、`analyticsTransport.ts = 265`、`eventCatalog.ts = 78`、`analyticsSanitizers.ts = 95`、`analyticsConfig.ts = 383`、`analyticsConfig.template.ts = 364`、`googleAnalyticsReporter.ts = 260`。
 - U02C2 删除 production-unreachable duplicate UI 后，同步移除了四条 stale hotspot budget；没有把预算转移给无关文件，也没有提高任何保留预算。
 - P09 hybrid-cache support files 当前实测：`src/content/video/videoScreenshotCacheStore.ts = 97`、`src/content/video/videoScreenshotEncoding.ts = 152`、`src/content/video/videoSessionDraftScreenshotCache.ts = 251`、`src/background/services/videoScreenshotCacheIndexedDbStore.ts = 331`、`tests/e2e/utils/videoScreenshotCacheIndexedDb.ts = 220`。`videoScreenshotCacheIndexedDbStore.ts` 与 `videoSessionDraftScreenshotCache.ts` 已进入 guarded hotspot，并分别由 `tools/report-performance-hotspots.mjs` 的 `<= 335` / `<= 251` 预算约束；其余路径仍低于新增 hard budget 阈值。
 - 2026-06-01 YAML i18n repair only raised release-locale line budgets by the exact newly added YAML field error/save-blocked message keys; runtime owner budgets are tracked by `tools/report-performance-hotspots.mjs` and must not be loosened without fresh evidence.
