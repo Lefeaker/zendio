@@ -1,7 +1,7 @@
 import { bucketCount } from '../../shared/analytics';
 import type { ReaderHighlightTheme } from '../../shared/types/options';
 import type { VideoAddCaptureSource } from './application/videoPanelModel';
-import type { VideoFragmentCapture } from './types';
+import type { VideoFragmentCapture, VideoTimestampCapture } from './types';
 import { FragmentHighlighter, DEFAULT_HIGHLIGHT_THEME } from './fragmentHighlighter';
 import { DEFAULT_SESSION_MESSAGES, type VideoSessionMessages } from './sessionMessages';
 import { VideoHintManager, type VideoHintState } from './videoHintManager';
@@ -63,10 +63,9 @@ import { VideoScreenshotPreparationCoordinator } from './videoScreenshotPreparat
 import { applyVideoSessionCommentDrafts } from './videoSessionDraftSync';
 import { createVideoSessionDestinationPayload } from './videoSessionDestinationPayload';
 import { hasRequestedTimestampScreenshot, setTimestampScreenshotRef } from './screenshotIntent';
-import type { VideoTimestampCapture } from './types';
 import { VideoSessionMutationCoordinator } from './videoSessionMutationCoordinator';
 import { emitVideoUsageEvent } from './videoCaptureMutationTransaction';
-
+import { acquireDocumentMutationHub } from '../runtime/documentMutationHub';
 export class VideoSession {
   private readonly state = new VideoSessionState(DEFAULT_HIGHLIGHT_THEME);
   private messages: VideoSessionMessages = DEFAULT_SESSION_MESSAGES;
@@ -91,7 +90,6 @@ export class VideoSession {
   private readonly mutationCoordinator: VideoSessionMutationCoordinator;
   private controllersReadyPromise: Promise<void> | null = null;
   private isCleaningUp = false;
-
   private get operationContext() {
     return createVideoSessionRuntimeOperationContext({
       session: this,
@@ -122,7 +120,6 @@ export class VideoSession {
       drafts: this.draftController
     });
   }
-
   constructor(
     private readonly doc: Document,
     private readonly dependencies: VideoSessionDependencies
@@ -158,8 +155,10 @@ export class VideoSession {
 
     this.controllersReadyPromise = import('./videoSessionControllers')
       .then(({ createVideoSessionControllers }) => {
+        const documentMutationHub = acquireDocumentMutationHub(this.doc);
         const controllers: VideoSessionControllers = createVideoSessionControllers({
           doc: this.doc,
+          documentMutationHub,
           dependencies: this.dependencies,
           state: this.state,
           destinationState: this.destinationState,
@@ -178,12 +177,13 @@ export class VideoSession {
               this.screenshotPreparation.requestPendingScreenshots();
             }
           },
-          createPlatformContext: () =>
+          createPlatformContext: (sharedDocumentMutationHub) =>
             createVideoSessionPlatformContext({
               doc: this.doc,
               fragmentHighlighter: this.fragmentHighlighter,
               fragmentHighlightCoordinator: this.fragmentHighlightCoordinator,
-              shadowSelectionBridge: this.shadowSelectionBridge
+              shadowSelectionBridge: this.shadowSelectionBridge,
+              documentMutationHub: sharedDocumentMutationHub
             }),
           getDocumentSelection: () => getVideoDocumentSelection(this.doc),
           isRangeInsideUi: (range) => isVideoRangeInsideUi(range),

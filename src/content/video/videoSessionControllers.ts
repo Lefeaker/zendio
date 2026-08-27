@@ -23,6 +23,7 @@ import type {
   VideoScreenshotCacheSaveResult
 } from './videoScreenshotCacheRepository';
 import { emitVideoUsageEvent } from './videoCaptureMutationTransaction';
+import type { DocumentMutationHubApi } from '../runtime/documentMutationTypes';
 
 export interface VideoSessionControllers {
   fragmentHighlighter: FragmentHighlighter;
@@ -71,7 +72,8 @@ export function createVideoSessionControllers(args: {
   onDraftScreenshotHydrationStart?: () => void;
   onDraftScreenshotHydrated?: () => void;
   onDraftScreenshotHydrationSettled?: ((result: { isCurrent: boolean }) => void) | undefined;
-  createPlatformContext: () => VideoPlatformContext;
+  documentMutationHub: DocumentMutationHubApi;
+  createPlatformContext: (documentMutationHub: DocumentMutationHubApi) => VideoPlatformContext;
   getDocumentSelection: () => Selection | null;
   isRangeInsideUi: (range: Range | null) => boolean;
   ensureCaptureHighlight: (capture: VideoFragmentCapture) => void;
@@ -95,6 +97,7 @@ export function createVideoSessionControllers(args: {
     onDraftScreenshotHydrationStart,
     onDraftScreenshotHydrated,
     onDraftScreenshotHydrationSettled,
+    documentMutationHub,
     createPlatformContext,
     getDocumentSelection,
     isRangeInsideUi,
@@ -109,7 +112,7 @@ export function createVideoSessionControllers(args: {
   const hintManager = new VideoHintManager(getMessages);
   const pendingSelection = new PendingSelectionTracker();
   const fragmentHighlightCoordinator = new FragmentHighlightCoordinator({
-    doc,
+    documentMutationHub,
     highlighter: fragmentHighlighter,
     getFragments: () =>
       state.captures.filter(
@@ -203,7 +206,7 @@ export function createVideoSessionControllers(args: {
     doc,
     storage: dependencies.storage.local,
     state,
-    createPlatformContext,
+    createPlatformContext: () => createPlatformContext(documentMutationHub),
     onAdapterChange: (adapter) => fragmentHighlightCoordinator.updateAdapter(adapter),
     ensureCaptureHighlight,
     restoreDraftState: async () => {

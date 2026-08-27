@@ -29,6 +29,7 @@ import type { UsageEventName, UsageEventParamMap } from '@shared/types/analytics
 import { createSessionDraftStore } from '../../../../src/background/services/sessionDraftStore';
 import { handleSessionDraftMessage } from '../../../../src/background/listeners/sessionDraftMessages';
 import { configureSessionDraftRuntimeMessenger } from '../../../../src/content/sessionDrafts/sessionDraftTabContext';
+import type { VideoPlatformContext } from '@content/video/platforms';
 
 const ensureContentI18nMock = vi.hoisted(() =>
   vi.fn(() =>
@@ -80,21 +81,42 @@ const detectVideoIdentityMock = vi.hoisted(() =>
   }))
 );
 const exportMock = vi.hoisted(() => vi.fn(() => Promise.resolve({ success: true })));
-const createVideoPlatformAdapterMock = vi.hoisted(() =>
-  vi.fn(() => ({
-    platform: 'bilibili',
-    shouldActivate: vi.fn(() => true),
-    resolveSelection: vi.fn(() => null),
-    findTextRange: vi.fn(() => null),
-    highlight: vi.fn(() => undefined),
-    restoreHighlight: vi.fn(() => undefined),
-    observeDomChanges: vi.fn(),
-    handleMutations: vi.fn(),
-    buildTimestampUrl: vi.fn((timeSec: number) => `https://video.example/watch?t=${timeSec}`),
-    formatVideoTitle: vi.fn((title: string) => title.replace(/_+哔哩哔哩.*/i, '').trim() || null),
-    dispose: vi.fn()
-  }))
-);
+const { createVideoPlatformAdapterMock, disposePlatformHubSubscriptions } = vi.hoisted(() => {
+  const activeDisposers = new Set<() => void>();
+  return {
+    createVideoPlatformAdapterMock: vi.fn((_platform: string, context: VideoPlatformContext) => {
+      const unsubscribe = context.documentMutationHub.subscribe({
+        subscriberId: 'video-session-harness-bilibili',
+        filter: () => false,
+        callback: () => undefined
+      });
+      activeDisposers.add(unsubscribe);
+      let disposed = false;
+      return {
+        platform: 'bilibili',
+        shouldActivate: vi.fn(() => true),
+        resolveSelection: vi.fn(() => null),
+        findTextRange: vi.fn(() => null),
+        highlight: vi.fn(() => undefined),
+        restoreHighlight: vi.fn(() => undefined),
+        buildTimestampUrl: vi.fn((timeSec: number) => `https://video.example/watch?t=${timeSec}`),
+        formatVideoTitle: vi.fn(
+          (title: string) => title.replace(/_+哔哩哔哩.*/i, '').trim() || null
+        ),
+        dispose: vi.fn(() => {
+          if (disposed) return;
+          disposed = true;
+          activeDisposers.delete(unsubscribe);
+          unsubscribe();
+        })
+      };
+    }),
+    disposePlatformHubSubscriptions: () => {
+      for (const dispose of activeDisposers) dispose();
+      activeDisposers.clear();
+    }
+  };
+});
 const originalMutationObserver = globalThis.MutationObserver;
 const draftRuntimeFixtureByDependencies = new WeakMap<
   VideoSessionDependencies,
@@ -158,6 +180,7 @@ vi.mock('../../../../src/content/video/videoSessionExporter', async () => {
 });
 
 export function resetVideoSessionHarnessMocks(): void {
+  disposePlatformHubSubscriptions();
   vi.clearAllMocks();
   saveCaptureDataMock.mockResolvedValue(undefined);
 }
@@ -378,7 +401,7 @@ export function createDependencies(
       localValues.set(key, value);
     }),
     getMany: vi.fn(<T = unknown>(keys: string[]) => localArea.getMany<T>(keys)),
-    getAll: vi.fn(async () => Object.fromEntries(localValues)),
+    getAll: vi.fn(() => Promise.resolve(Object.fromEntries(localValues))),
     setMany: vi.fn(async <T>(entries: Record<string, T>) => {
       await localArea.setMany(entries);
       for (const [key, value] of Object.entries(entries)) localValues.set(key, value);

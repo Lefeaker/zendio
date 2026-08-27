@@ -32,6 +32,59 @@ import {
 
 export function registerVideoListenerScopeBilibiliTests(): void {
   testWithExtension(
+    'discovers a late nested Bilibili shadow root while the active session has zero fragments',
+    async ({ context, extensionPage }) => {
+      const { page, tabId } = await openFixtureWithRuntime(
+        context,
+        extensionPage,
+        `${BILIBILI_URL}?late-zero-fragment-shadow=1`,
+        bilibiliFixtureHtml()
+      );
+      await page.evaluate(() => {
+        document.querySelectorAll('bili-comments').forEach((element) => element.remove());
+      });
+      await startVideoMode(extensionPage, tabId);
+      await expandVideoPanel(page);
+      await expect(page.locator('[data-role="capture-item"]')).toHaveCount(0);
+
+      await page.evaluate(() => {
+        const outer = document.createElement('bili-comments');
+        outer.dataset.fixture = 'late-comments';
+        outer.attachShadow({ mode: 'open' }).innerHTML = '<div id="contents"></div>';
+        document.body.append(outer);
+      });
+      await page.waitForTimeout(180);
+      await page.evaluate(() => {
+        const outer = document.querySelector<HTMLElement>(
+          'bili-comments[data-fixture="late-comments"]'
+        );
+        const contents = outer?.shadowRoot?.querySelector('#contents');
+        if (!contents) throw new Error('late outer comments root was not mounted');
+        const thread = document.createElement('bili-comment-thread-renderer');
+        thread.dataset.fixture = 'late-thread';
+        const threadRoot = thread.attachShadow({ mode: 'open' });
+        const comment = document.createElement('bili-comment-renderer');
+        const commentRoot = comment.attachShadow({ mode: 'open' });
+        const richText = document.createElement('bili-rich-text');
+        richText.dataset.fixture = 'late-zero-fragment-rich-text';
+        richText.attachShadow({ mode: 'open' }).innerHTML =
+          '<div id="contents">Late nested comment without fragments</div>';
+        commentRoot.append(richText);
+        threadRoot.append(comment);
+        contents.append(thread);
+      });
+
+      await dragSelectBilibiliRichText(page, 'late-zero-fragment-rich-text', {
+        modifierKey: null
+      });
+      await expect(page.locator('[data-role="capture-item"]')).toHaveCount(1);
+      await expect(page.locator('[data-role="capture-item"]').last()).toContainText(
+        'Late nested comment without fragments'
+      );
+    }
+  );
+
+  testWithExtension(
     'keeps Bilibili danmaku churn out of prompt startup work',
     async ({ context, extensionPage }) => {
       const { page, tabId } = await openFixtureWithRuntime(

@@ -56,6 +56,7 @@ describe('VideoSession', () => {
   it('requires explicit dependencies', () => {
     const deps = createDependencies();
     expect(() => new VideoSession(document, deps)).not.toThrow();
+    expect('set' in deps.optionsRepository).toBe(false);
   });
 
   it('returns early when a session is already active', async () => {
@@ -347,10 +348,11 @@ describe('VideoSession', () => {
     expect(
       trackUsageEvent.mock.calls.some(([eventName]) => eventName === 'video_fragment_added')
     ).toBe(false);
-    expect(RecordingMutationObserver.instances[0]?.disconnect).toHaveBeenCalledTimes(1);
+    expect(RecordingMutationObserver.instances[0]?.disconnect).not.toHaveBeenCalled();
     expect(RecordingMutationObserver.instances).toHaveLength(1);
 
     sessionApi.cleanup();
+    expect(RecordingMutationObserver.instances[0]?.disconnect).toHaveBeenCalledTimes(1);
     restoreMutationObserver();
     vi.useRealTimers();
   });
@@ -881,7 +883,7 @@ describe('VideoSession', () => {
     vi.useRealTimers();
   });
 
-  it('stops fragment restore observation when the last fragment capture is deleted', async () => {
+  it('keeps the shared body observer until adapter cleanup after the last fragment is deleted', async () => {
     vi.useFakeTimers();
     const deps = createDependencies();
     const view = createView();
@@ -925,9 +927,10 @@ describe('VideoSession', () => {
     await flushMutationWork();
 
     expect(sessionApi.state.captures).toEqual([]);
-    expect(RecordingMutationObserver.instances[0]?.disconnect).toHaveBeenCalledTimes(1);
+    expect(RecordingMutationObserver.instances[0]?.disconnect).not.toHaveBeenCalled();
 
     sessionApi.cleanup();
+    expect(RecordingMutationObserver.instances[0]?.disconnect).toHaveBeenCalledTimes(1);
     restoreMutationObserver();
     vi.useRealTimers();
   });

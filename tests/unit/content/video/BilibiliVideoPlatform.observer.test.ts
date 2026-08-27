@@ -12,6 +12,7 @@ import {
   mountBiliCommentsFixture,
   withScheduledRestore
 } from './bilibiliVideoPlatformFixtures';
+import { mutationRecord } from '../../../utils/typeHelpers';
 
 describe('BilibiliVideoPlatform observer', () => {
   beforeEach(() => {
@@ -24,9 +25,9 @@ describe('BilibiliVideoPlatform observer', () => {
     vi.useFakeTimers();
     const scheduleRestore = vi.fn();
     const context = withScheduledRestore(createContext(document), scheduleRestore);
-    const platform = new BilibiliVideoPlatform(context);
+    new BilibiliVideoPlatform(context);
 
-    platform.handleMutations([
+    context.__mocks.emitDocumentMutations([
       {
         type: 'childList',
         addedNodes: [document.createElement('bili-comment-renderer')],
@@ -60,9 +61,6 @@ describe('BilibiliVideoPlatform observer', () => {
     commentRoot.appendChild(richTextHost);
     document.body.appendChild(commentHost);
 
-    const observer = new MutationObserver(() => undefined);
-    platform.observeDomChanges(observer);
-
     const range = document.createRange();
     const textNode = content.firstChild;
     if (!textNode) {
@@ -82,7 +80,7 @@ describe('BilibiliVideoPlatform observer', () => {
     } = context.__mocks;
     expect(ensureHighlightStyles).toHaveBeenCalledWith(commentRoot);
     expect(registerShadowSelectionBridge).toHaveBeenCalledWith(commentRoot);
-    expect(observeWithFragmentObserver).toHaveBeenCalledWith(commentRoot, {
+    expect(observeWithFragmentObserver).toHaveBeenCalledWith(expect.any(Object), commentRoot, {
       childList: true,
       subtree: true
     });
@@ -112,9 +110,6 @@ describe('BilibiliVideoPlatform observer', () => {
     const context = createContext(document);
     const platform = new BilibiliVideoPlatform(context);
     const { root, thread, comment, richText, content } = mountBiliCommentsFixture();
-    const observer = new MutationObserver(() => undefined);
-    platform.observeDomChanges(observer);
-
     const range = document.createRange();
     const textNode = content.querySelector('span')?.firstChild;
     if (!textNode) {
@@ -140,9 +135,53 @@ describe('BilibiliVideoPlatform observer', () => {
     expect(registeredRoots.size).toBe(4);
   });
 
+  it('discovers a late nested comment root through the one scoped observer with zero fragments', () => {
+    const context = createContext(document);
+    const outer = document.createElement('bili-comments');
+    const outerRoot = outer.attachShadow({ mode: 'open' });
+    document.body.append(outer);
+    const observer = new BilibiliShadowObserver(document, context);
+    const nested = document.createElement('bili-comment-renderer');
+    const nestedRoot = nested.attachShadow({ mode: 'open' });
+    outerRoot.append(nested);
+
+    context.__mocks.emitScopedMutations([
+      mutationRecord({
+        type: 'childList',
+        addedNodes: outerRoot.childNodes,
+        target: outerRoot
+      })
+    ]);
+
+    expect(context.__mocks.scopedObservers).toHaveLength(1);
+    expect(context.__mocks.registerShadowSelectionBridge).toHaveBeenCalledWith(nestedRoot);
+    expect(observer.getObservedCommentRootsForSearch()).toContain(nestedRoot);
+  });
+
+  it('routes non-danmaku scoped-root churn through the bounded fragment restore owner', () => {
+    const scheduleRestore = vi.fn();
+    const context = withScheduledRestore(createContext(document), scheduleRestore);
+    const outer = document.createElement('bili-comments');
+    const root = outer.attachShadow({ mode: 'open' });
+    document.body.append(outer);
+    new BilibiliShadowObserver(document, context);
+    const replacement = document.createElement('span');
+    root.append(replacement);
+
+    context.__mocks.emitScopedMutations([
+      mutationRecord({
+        type: 'childList',
+        addedNodes: root.childNodes,
+        target: root
+      })
+    ]);
+
+    expect(scheduleRestore).toHaveBeenCalledTimes(1);
+  });
+
   it('registers Bilibili comment shadow roots for selection even without fragment captures', () => {
     const context = createContext(document);
-    const { root, thread, comment, richText } = mountBiliCommentsFixture();
+    const { commentsHost, root, thread, comment, richText } = mountBiliCommentsFixture();
     const observer = new BilibiliShadowObserver(document, context);
 
     observer.ensureObservedRoots();
@@ -151,6 +190,25 @@ describe('BilibiliVideoPlatform observer', () => {
     expect(context.__mocks.registerShadowSelectionBridge).toHaveBeenCalledWith(thread.shadowRoot);
     expect(context.__mocks.registerShadowSelectionBridge).toHaveBeenCalledWith(comment.shadowRoot);
     expect(context.__mocks.registerShadowSelectionBridge).toHaveBeenCalledWith(richText.shadowRoot);
+    commentsHost.remove();
+    expect(observer.getObservedCommentRootsForSearch()).toEqual([]);
+    const registeredRootCount = context.__mocks.registerShadowSelectionBridge.mock.calls.length;
+    observer.dispose();
+    observer.dispose();
+    const lateHost = document.createElement('bili-comment-renderer');
+    lateHost.attachShadow({ mode: 'open' });
+    root.append(lateHost);
+    context.__mocks.emitScopedMutations([
+      mutationRecord({
+        type: 'childList',
+        addedNodes: root.childNodes,
+        target: root
+      })
+    ]);
+    expect(context.__mocks.scopedObservers[0]?.disconnect).toHaveBeenCalledTimes(1);
+    expect(context.__mocks.registerShadowSelectionBridge).toHaveBeenCalledTimes(
+      registeredRootCount
+    );
   });
 
   it('observes late-attached Bilibili shadow roots through scoped polling', () => {
@@ -172,10 +230,14 @@ describe('BilibiliVideoPlatform observer', () => {
 
     expect(context.__mocks.ensureHighlightStyles).toHaveBeenCalledWith(root);
     expect(context.__mocks.registerShadowSelectionBridge).toHaveBeenCalledWith(root);
-    expect(context.__mocks.observeWithFragmentObserver).toHaveBeenCalledWith(root, {
-      childList: true,
-      subtree: true
-    });
+    expect(context.__mocks.observeWithFragmentObserver).toHaveBeenCalledWith(
+      expect.any(Object),
+      root,
+      {
+        childList: true,
+        subtree: true
+      }
+    );
   });
 
   it('cancels pending late-shadow polling work when the observer is disposed', () => {
@@ -234,24 +296,26 @@ describe('BilibiliVideoPlatform observer', () => {
 
     expect(context.__mocks.registerShadowSelectionBridge).toHaveBeenCalledWith(root);
     expect(context.__mocks.registerShadowSelectionBridge).toHaveBeenCalledWith(richText.shadowRoot);
-    expect(context.__mocks.observeWithFragmentObserver).toHaveBeenCalledWith(root, {
-      childList: true,
-      subtree: true
-    });
+    expect(context.__mocks.observeWithFragmentObserver).toHaveBeenCalledWith(
+      expect.any(Object),
+      root,
+      {
+        childList: true,
+        subtree: true
+      }
+    );
   });
 
   it('batches comment-root mutation refreshes to one restore', () => {
     vi.useFakeTimers();
     const scheduleRestore = vi.fn();
     const context = createContext(document);
-    const platform = new BilibiliVideoPlatform(withScheduledRestore(context, scheduleRestore));
-    platform.observeDomChanges({} as MutationObserver);
-
+    new BilibiliVideoPlatform(withScheduledRestore(context, scheduleRestore));
     const first = document.createElement('bili-comment-renderer');
     const second = document.createElement('bili-comment-reply-renderer');
     document.body.append(first, second);
 
-    platform.handleMutations([
+    context.__mocks.emitDocumentMutations([
       {
         type: 'childList',
         addedNodes: [first, second],
@@ -274,15 +338,13 @@ describe('BilibiliVideoPlatform observer', () => {
     vi.useFakeTimers();
     const scheduleRestore = vi.fn();
     const context = createContext(document);
-    const platform = new BilibiliVideoPlatform(withScheduledRestore(context, scheduleRestore));
+    new BilibiliVideoPlatform(withScheduledRestore(context, scheduleRestore));
     const region = document.createElement('div');
     region.id = 'comment';
     const commentHost = document.createElement('bili-comment-renderer');
     commentHost.attachShadow({ mode: 'open' });
     region.append(commentHost);
     document.body.append(region);
-    platform.observeDomChanges({} as MutationObserver);
-
     const danmakuWrap = document.createElement('div');
     danmakuWrap.className = 'bpx-player-render-dm-wrap';
     for (let index = 0; index < 20; index += 1) {
@@ -293,7 +355,7 @@ describe('BilibiliVideoPlatform observer', () => {
     }
     document.body.append(danmakuWrap);
 
-    platform.handleMutations([
+    context.__mocks.emitDocumentMutations([
       {
         type: 'childList',
         addedNodes: Array.from(danmakuWrap.childNodes),
@@ -318,16 +380,13 @@ describe('BilibiliVideoPlatform observer', () => {
     const scheduleRestore = vi.fn();
     const platform = new BilibiliVideoPlatform(withScheduledRestore(baseContext, scheduleRestore));
 
-    const observer = new MutationObserver(() => undefined);
-    platform.observeDomChanges(observer);
-
     const pendingHost = document.createElement('bili-comment-renderer');
     const region = document.createElement('div');
     region.id = 'comment';
     region.appendChild(pendingHost);
     document.body.appendChild(region);
 
-    platform.handleMutations([
+    baseContext.__mocks.emitDocumentMutations([
       {
         type: 'childList',
         addedNodes: [pendingHost],
@@ -350,17 +409,14 @@ describe('BilibiliVideoPlatform observer', () => {
   it('polls pending comment hosts until a shadow root becomes available', () => {
     vi.useFakeTimers();
     const context = createContext(document);
-    const platform = new BilibiliVideoPlatform(context);
-    const observer = new MutationObserver(() => undefined);
-    platform.observeDomChanges(observer);
-
+    new BilibiliVideoPlatform(context);
     const region = document.createElement('div');
     region.id = 'comment';
     const host = document.createElement('bili-rich-text');
     region.appendChild(host);
     document.body.appendChild(region);
 
-    platform.handleMutations([
+    context.__mocks.emitDocumentMutations([
       {
         type: 'childList',
         addedNodes: [host],
@@ -381,25 +437,26 @@ describe('BilibiliVideoPlatform observer', () => {
 
     expect(context.__mocks.ensureHighlightStyles).toHaveBeenCalledWith(root);
     expect(context.__mocks.registerShadowSelectionBridge).toHaveBeenCalledWith(root);
-    expect(context.__mocks.observeWithFragmentObserver).toHaveBeenCalledWith(root, {
-      childList: true,
-      subtree: true
-    });
+    expect(context.__mocks.observeWithFragmentObserver).toHaveBeenCalledWith(
+      expect.any(Object),
+      root,
+      {
+        childList: true,
+        subtree: true
+      }
+    );
     expect(context.__mocks.scheduleFragmentHighlightRestore).toHaveBeenCalled();
   });
 
   it('ignores shadow hosts that are outside comment regions', () => {
     const context = createContext(document);
-    const platform = new BilibiliVideoPlatform(context);
-    const observer = new MutationObserver(() => undefined);
-    platform.observeDomChanges(observer);
-
+    new BilibiliVideoPlatform(context);
     const host = document.createElement('bili-rich-text');
     const root = host.attachShadow({ mode: 'open' });
     root.innerHTML = '<div class="rich-text-content">outside region</div>';
     document.body.appendChild(host);
 
-    platform.handleMutations([
+    context.__mocks.emitDocumentMutations([
       {
         type: 'childList',
         addedNodes: [host],
@@ -421,17 +478,14 @@ describe('BilibiliVideoPlatform observer', () => {
     vi.useFakeTimers();
     const scheduleRestore = vi.fn();
     const context = createContext(document);
-    const platform = new BilibiliVideoPlatform(withScheduledRestore(context, scheduleRestore));
-    const observer = new MutationObserver(() => undefined);
-    platform.observeDomChanges(observer);
-
+    new BilibiliVideoPlatform(withScheduledRestore(context, scheduleRestore));
     const region = document.createElement('div');
     region.id = 'comment';
     const host = document.createElement('bili-comment-renderer');
     region.appendChild(host);
     document.body.appendChild(region);
 
-    platform.handleMutations([
+    context.__mocks.emitDocumentMutations([
       {
         type: 'childList',
         addedNodes: [host],
@@ -456,10 +510,7 @@ describe('BilibiliVideoPlatform observer', () => {
     vi.useFakeTimers();
     const context = createContext(document);
     const platform = new BilibiliVideoPlatform(context);
-    const observer = {} as MutationObserver;
-
-    platform.observeDomChanges(observer);
-    platform.handleMutations([
+    context.__mocks.emitDocumentMutations([
       {
         type: 'childList',
         addedNodes: [document.createElement('section')],
@@ -481,15 +532,13 @@ describe('BilibiliVideoPlatform observer', () => {
 
   it('ignores Bilibili danmaku nodes for fragment observation', () => {
     const context = createContext(document);
-    const platform = new BilibiliVideoPlatform(context);
-    const observer = {} as MutationObserver;
+    new BilibiliVideoPlatform(context);
     const danmaku = document.createElement('div');
     danmaku.className = 'bpx-player-render-dm-wrap';
     danmaku.innerHTML = '<span class="bili-danmaku-x-dm">dm</span>';
     document.body.appendChild(danmaku);
 
-    platform.observeDomChanges(observer);
-    platform.handleMutations([
+    context.__mocks.emitDocumentMutations([
       {
         type: 'childList',
         addedNodes: [danmaku],
@@ -512,9 +561,8 @@ describe('BilibiliVideoPlatform observer', () => {
   it('keeps polling state stable for repeated pending hosts and ignores disconnected hosts before restore', () => {
     vi.useFakeTimers();
     const scheduleRestore = vi.fn();
-    const platform = new BilibiliVideoPlatform(
-      withScheduledRestore(createContext(document), scheduleRestore)
-    );
+    const context = withScheduledRestore(createContext(document), scheduleRestore);
+    const platform = new BilibiliVideoPlatform(context);
     const host = document.createElement('bili-rich-text');
     const wrapper = document.createElement('div');
     wrapper.className = 'comment-wrap';
@@ -525,7 +573,6 @@ describe('BilibiliVideoPlatform observer', () => {
       ensureShadowHostObservation: (host: Element) => void;
     };
 
-    platform.observeDomChanges({} as MutationObserver);
     platformAny.ensureShadowHostObservation(host);
     platformAny.ensureShadowHostObservation(host);
     host.remove();
@@ -533,7 +580,7 @@ describe('BilibiliVideoPlatform observer', () => {
     vi.advanceTimersByTime(2000);
     expect(scheduleRestore).not.toHaveBeenCalled();
 
-    platform.handleMutations([
+    context.__mocks.emitDocumentMutations([
       {
         type: 'childList',
         addedNodes: [host],
@@ -553,16 +600,14 @@ describe('BilibiliVideoPlatform observer', () => {
   it('drops pending shadow hosts after polling exhausts without a shadow root', () => {
     vi.useFakeTimers();
     const context = createContext(document);
-    const platform = new BilibiliVideoPlatform(context);
-    platform.observeDomChanges({} as MutationObserver);
-
+    new BilibiliVideoPlatform(context);
     const wrapper = document.createElement('div');
     wrapper.id = 'comment';
     const host = document.createElement('bili-rich-text');
     wrapper.appendChild(host);
     document.body.appendChild(wrapper);
 
-    platform.handleMutations([
+    context.__mocks.emitDocumentMutations([
       {
         type: 'childList',
         addedNodes: [host],
@@ -586,13 +631,13 @@ describe('BilibiliVideoPlatform observer', () => {
     vi.useFakeTimers();
     const scheduleRestore = vi.fn();
     const context = createContext(document);
-    const platform = new BilibiliVideoPlatform(withScheduledRestore(context, scheduleRestore));
+    new BilibiliVideoPlatform(withScheduledRestore(context, scheduleRestore));
 
     const wrapper = document.createElement('div');
     wrapper.innerHTML = '<div class="comment-shell"><span class="comment-body">hello</span></div>';
     document.body.appendChild(wrapper);
 
-    platform.handleMutations([
+    context.__mocks.emitDocumentMutations([
       {
         type: 'childList',
         addedNodes: [wrapper],

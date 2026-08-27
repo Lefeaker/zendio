@@ -328,9 +328,8 @@ describe('BilibiliVideoPlatform rich text', () => {
     });
 
     const scheduleRestore = vi.fn();
-    const platform = new BilibiliVideoPlatform(
-      withScheduledRestore(createContext(document), scheduleRestore)
-    );
+    const context = withScheduledRestore(createContext(document), scheduleRestore);
+    const platform = new BilibiliVideoPlatform(context);
     const result = platform.resolveSelection({
       range,
       selectedText: '',
@@ -340,7 +339,7 @@ describe('BilibiliVideoPlatform rich text', () => {
     expect(result?.text).toBe('Range wins');
     expect(result?.range?.toString()).toBe('Range wins');
 
-    platform.handleMutations([
+    context.__mocks.emitDocumentMutations([
       {
         type: 'attributes',
         addedNodes: [],
@@ -414,10 +413,9 @@ describe('BilibiliVideoPlatform rich text', () => {
     });
 
     const scheduleRestore = vi.fn();
-    const inertPlatform = new BilibiliVideoPlatform(
-      withScheduledRestore(createContext(document), scheduleRestore)
-    );
-    inertPlatform.handleMutations([
+    const inertContext = withScheduledRestore(createContext(document), scheduleRestore);
+    new BilibiliVideoPlatform(inertContext);
+    inertContext.__mocks.emitDocumentMutations([
       {
         type: 'attributes',
         addedNodes: [],

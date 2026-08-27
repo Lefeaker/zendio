@@ -62,12 +62,20 @@ function createRangeSelection(text = 'Selected text'): { range: Range; selection
 function createPlatformContext(): VideoPlatformContext {
   return {
     doc: document,
+    documentMutationHub: { subscribe: vi.fn(() => vi.fn()) },
     highlightSelection: vi.fn(() => undefined),
     decorateHighlight: vi.fn(),
     scheduleFragmentHighlightRestore: vi.fn(),
     getElementByIdDeep: vi.fn(() => null),
     querySelectorDeep: vi.fn(() => null),
-    observeWithFragmentObserver: vi.fn(),
+    createScopedMutationObserver: vi.fn((callback: MutationCallback) => ({
+      callback,
+      observe: vi.fn(),
+      disconnect: vi.fn()
+    })),
+    observeWithFragmentObserver: vi.fn<VideoPlatformContext['observeWithFragmentObserver']>(
+      (observer, target, options) => observer.observe(target, options)
+    ),
     registerShadowSelectionBridge: vi.fn(),
     ensureHighlightStyles: vi.fn()
   };

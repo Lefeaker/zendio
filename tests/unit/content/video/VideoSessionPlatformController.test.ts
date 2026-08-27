@@ -3,6 +3,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { VideoSessionPlatformController } from '@content/video/sessionPlatformController';
 import { VideoSessionState } from '@content/video/sessionState';
+import type { DocumentMutationHubApi } from '@content/runtime/documentMutationTypes';
 
 function createController() {
   const state = new VideoSessionState('gradient');
@@ -15,8 +16,6 @@ function createController() {
     findTextRange: vi.fn(() => null),
     highlight: vi.fn(() => undefined),
     restoreHighlight,
-    observeDomChanges: vi.fn(),
-    handleMutations: vi.fn(),
     buildTimestampUrl: vi.fn(() => null),
     formatVideoTitle: vi.fn(
       (rawTitle: string) => rawTitle.replace(/_+哔哩哔哩.*/i, '').trim() || null
@@ -33,22 +32,26 @@ function createController() {
     storageKey: 'video:test'
   }));
   const createVideoPlatformAdapter = vi.fn(() => adapter as never);
+  const documentMutationHub: DocumentMutationHubApi = { subscribe: vi.fn(() => vi.fn()) };
+  const createPlatformContext = vi.fn(() => ({
+    doc: document,
+    documentMutationHub,
+    highlightSelection: vi.fn(),
+    decorateHighlight: vi.fn(),
+    scheduleFragmentHighlightRestore: vi.fn(),
+    getElementByIdDeep: vi.fn(() => null),
+    querySelectorDeep: vi.fn(() => null),
+    createScopedMutationObserver: vi.fn(() => null),
+    observeWithFragmentObserver: vi.fn(),
+    registerShadowSelectionBridge: vi.fn(),
+    ensureHighlightStyles: vi.fn()
+  }));
 
   const controller = new VideoSessionPlatformController({
     doc: document,
     storage: { get: vi.fn() },
     state,
-    createPlatformContext: () => ({
-      doc: document,
-      highlightSelection: vi.fn(),
-      decorateHighlight: vi.fn(),
-      scheduleFragmentHighlightRestore: vi.fn(),
-      getElementByIdDeep: vi.fn(() => null),
-      querySelectorDeep: vi.fn(() => null),
-      observeWithFragmentObserver: vi.fn(),
-      registerShadowSelectionBridge: vi.fn(),
-      ensureHighlightStyles: vi.fn()
-    }),
+    createPlatformContext,
     onAdapterChange,
     ensureCaptureHighlight,
     detectVideoIdentity: detectVideoIdentity as never,
@@ -64,7 +67,10 @@ function createController() {
     onAdapterChange,
     loadStoredCaptureData,
     detectVideoIdentity,
-    dispose
+    dispose,
+    documentMutationHub,
+    createPlatformContext,
+    createVideoPlatformAdapter
   };
 }
 
@@ -186,6 +192,25 @@ describe('VideoSessionPlatformController', () => {
         videoId: null
       })
     ).toBeNull();
+  });
+
+  it('disposes a superseded adapter before creating the replacement with the shared hub', () => {
+    const setup = createController();
+    const previousDispose = vi.fn();
+    setup.state.platform = 'bilibili';
+    setup.state.platformAdapter = {
+      ...setup.adapter,
+      platform: 'youtube',
+      dispose: previousDispose
+    } as never;
+
+    setup.controller.syncPlatformAdapter();
+
+    expect(previousDispose).toHaveBeenCalledTimes(1);
+    expect(setup.createVideoPlatformAdapter).toHaveBeenCalledWith(
+      'bilibili',
+      expect.objectContaining({ documentMutationHub: setup.documentMutationHub })
+    );
   });
 
   it('uses heading, og:title, and formatted document title in fallback order', () => {

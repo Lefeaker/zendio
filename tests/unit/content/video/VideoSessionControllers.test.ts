@@ -1,12 +1,42 @@
 /* @vitest-environment jsdom */
 
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createVideoSessionControllers } from '@content/video/videoSessionControllers';
 import { VideoSessionState } from '@content/video/sessionState';
 import type { VideoSessionDependencies } from '@content/video/sessionTypes';
-import type { PlatformSelectionInput, VideoPlatformAdapter } from '@content/video/platforms';
+import type {
+  PlatformSelectionInput,
+  VideoPlatformAdapter,
+  VideoPlatformContext
+} from '@content/video/platforms';
 import type { FragmentClipperOptions } from '@shared/types/options';
 import { asType, selection as mkSelection } from '../../../utils/typeHelpers';
+import type { DocumentMutationHubApi } from '@content/runtime/documentMutationTypes';
+import { configureSessionDraftRuntimeMessenger } from '@content/sessionDrafts/sessionDraftTabContext';
+
+function createDocumentMutationHub(): {
+  hub: DocumentMutationHubApi;
+  subscribe: ReturnType<typeof vi.fn>;
+} {
+  const subscribe = vi.fn(() => vi.fn());
+  return { hub: { subscribe }, subscribe };
+}
+
+function createPlatformContext(documentMutationHub: DocumentMutationHubApi): VideoPlatformContext {
+  return {
+    doc: document,
+    documentMutationHub,
+    highlightSelection: vi.fn(),
+    decorateHighlight: vi.fn(),
+    scheduleFragmentHighlightRestore: vi.fn(),
+    getElementByIdDeep: vi.fn(() => null),
+    querySelectorDeep: <T extends Element>(): T | null => null,
+    createScopedMutationObserver: vi.fn(() => null),
+    observeWithFragmentObserver: vi.fn(),
+    registerShadowSelectionBridge: vi.fn(),
+    ensureHighlightStyles: vi.fn()
+  };
+}
 
 function createFragmentConfig(): FragmentClipperOptions {
   return {
@@ -21,9 +51,18 @@ function createFragmentConfig(): FragmentClipperOptions {
 }
 
 describe('createVideoSessionControllers', () => {
+  beforeEach(() => {
+    configureSessionDraftRuntimeMessenger(vi.fn().mockResolvedValue({ success: true }));
+  });
+
+  afterEach(() => {
+    configureSessionDraftRuntimeMessenger(null);
+  });
+
   it('returns a stable code when no screenshot cache repository is wired', async () => {
     const state = new VideoSessionState('gradient');
     state.fragmentConfig = createFragmentConfig();
+    const documentMutationHub = createDocumentMutationHub();
 
     const controllers = createVideoSessionControllers({
       doc: document,
@@ -46,10 +85,8 @@ describe('createVideoSessionControllers', () => {
           ready: 'ready'
         }),
       readCleanupState: () => ({ isCleaningUp: false, shouldTrackSavingState: true }),
-      createPlatformContext: () =>
-        asType({
-          doc: document
-        }),
+      documentMutationHub: documentMutationHub.hub,
+      createPlatformContext,
       getDocumentSelection: () => null,
       isRangeInsideUi: () => false,
       ensureCaptureHighlight: vi.fn(),
@@ -68,6 +105,53 @@ describe('createVideoSessionControllers', () => {
     });
   });
 
+  it('passes the same hub identity to fragment and platform composition', () => {
+    const state = new VideoSessionState('gradient');
+    state.fragmentConfig = createFragmentConfig();
+    state.platform = 'bilibili';
+    state.captures = [
+      {
+        kind: 'fragment',
+        id: 'fragment-identity',
+        comment: '',
+        selectedText: 'Identity',
+        selectedHtml: '<p>Identity</p>',
+        fragmentUrl: 'https://www.bilibili.com/video/BV1/#:~:text=Identity',
+        createdAt: 1
+      }
+    ];
+    const documentMutationHub = createDocumentMutationHub();
+    const createPlatformContextSpy = vi.fn(createPlatformContext);
+    const controllers = createVideoSessionControllers({
+      doc: document,
+      dependencies: asType<VideoSessionDependencies>({
+        viewFactory: {},
+        optionsRepository: {},
+        videoRepository: {},
+        storage: { local: {}, sync: {} }
+      }),
+      state,
+      destinationState: asType({ metadata: undefined, applyMetadata: vi.fn() }),
+      getMessages: () => asType({ ready: 'ready' }),
+      readCleanupState: () => ({ isCleaningUp: false, shouldTrackSavingState: true }),
+      documentMutationHub: documentMutationHub.hub,
+      createPlatformContext: createPlatformContextSpy,
+      getDocumentSelection: () => null,
+      isRangeInsideUi: () => false,
+      ensureCaptureHighlight: vi.fn(),
+      onSelectionAccepted: vi.fn(),
+      findVideoElement: () => null,
+      handleUrlChange: vi.fn(),
+      handleVideoElementChange: vi.fn()
+    });
+
+    controllers.fragmentHighlightCoordinator.ensureStartedForFragments();
+    controllers.platformController.syncPlatformAdapter();
+
+    expect(documentMutationHub.subscribe).toHaveBeenCalledTimes(2);
+    expect(createPlatformContextSpy).toHaveBeenCalledWith(documentMutationHub.hub);
+  });
+
   it('passes shadow drag event fallback activation through the session controller wiring', async () => {
     document.body.innerHTML = '<div id="host"></div>';
     const host = document.getElementById('host');
@@ -77,6 +161,7 @@ describe('createVideoSessionControllers', () => {
 
     const state = new VideoSessionState('gradient');
     state.fragmentConfig = createFragmentConfig();
+    const documentMutationHub = createDocumentMutationHub();
     state.platformAdapter = asType<VideoPlatformAdapter>({
       platform: 'bilibili',
       shouldActivate: vi.fn(() => true),
@@ -91,8 +176,6 @@ describe('createVideoSessionControllers', () => {
       findTextRange: vi.fn(() => null),
       highlight: vi.fn(() => undefined),
       restoreHighlight: vi.fn(() => undefined),
-      observeDomChanges: vi.fn(),
-      handleMutations: vi.fn(),
       buildTimestampUrl: vi.fn(() => null),
       formatVideoTitle: vi.fn(() => null),
       dispose: vi.fn()
@@ -120,10 +203,8 @@ describe('createVideoSessionControllers', () => {
           ready: 'ready'
         }),
       readCleanupState: () => ({ isCleaningUp: false, shouldTrackSavingState: true }),
-      createPlatformContext: () =>
-        asType({
-          doc: document
-        }),
+      documentMutationHub: documentMutationHub.hub,
+      createPlatformContext,
       getDocumentSelection: () =>
         mkSelection({
           rangeCount: 0,
@@ -166,5 +247,6 @@ describe('createVideoSessionControllers', () => {
         range: null
       })
     );
+    expect(documentMutationHub.subscribe).not.toHaveBeenCalled();
   });
 });
