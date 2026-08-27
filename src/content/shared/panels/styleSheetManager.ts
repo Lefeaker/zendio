@@ -1,4 +1,4 @@
-import { loadExtensionStyle } from '../../clipper/shared/styleRegistry';
+import { loadExtensionStyle, type ContentStylePack } from '../../clipper/shared/styleRegistry';
 import {
   createManagedStyleSheet,
   ManagedShadowStyleHost,
@@ -7,19 +7,34 @@ import {
   type StyleAttachmentHandle
 } from '@ui/foundation/style-host';
 
-const PANEL_STITCH_RUNTIME_KEY = 'panel-stitch-runtime';
-const PANEL_STITCH_SECONDARY_RUNTIME_KEY = 'panel-stitch-secondary-runtime';
+type PanelStylePack = Exclude<ContentStylePack, 'clipper'>;
+type PackState = {
+  cssText: string | null;
+  sheet: CSSStyleSheet | null;
+  pending: Promise<readonly ManagedStyleEntry[]> | null;
+};
+
+export function prepareStyleHost(host: HTMLElement): void {
+  host.hidden = true;
+  host.setAttribute('aria-busy', 'true');
+}
+
+export async function revealStyleHost(
+  host: HTMLElement,
+  attachment: StyleAttachmentHandle
+): Promise<boolean> {
+  const result = await attachment.ready;
+  if (result.status !== 'ready') return false;
+  host.removeAttribute('aria-busy');
+  if (host.dataset.aiobStyleReveal === 'true') host.hidden = false;
+  return true;
+}
 
 class PanelStyleSheetManager {
   private static instance: PanelStyleSheetManager | null = null;
   private readonly styleHost = new ManagedShadowStyleHost();
-  private initialized = false;
+  private readonly states = new Map<PanelStylePack, PackState>();
   private assetGeneration = 0;
-  private stitchPendingLoad: Promise<boolean> | null = null;
-  private stitchSheet: CSSStyleSheet | null = null;
-  private stitchSecondarySheet: CSSStyleSheet | null = null;
-  private stitchStyles: string | null = null;
-  private stitchSecondaryStyles: string | null = null;
 
   static getInstance(): PanelStyleSheetManager {
     if (!PanelStyleSheetManager.instance) {
@@ -28,127 +43,64 @@ class PanelStyleSheetManager {
     return PanelStyleSheetManager.instance;
   }
 
-  initialize(): Promise<void> {
-    if (this.initialized) {
-      return this.whenStitchStylesReady();
-    }
-    this.initialized = true;
-    return this.loadStitchStyles().then(() => undefined);
-  }
-
-  whenVideoStylesReady(): Promise<void> {
-    return Promise.resolve();
-  }
-
-  whenStitchStylesReady(): Promise<void> {
-    return this.stitchPendingLoad?.then(() => undefined) ?? Promise.resolve();
-  }
-
   applyReaderStyles(root: ShadowRoot): StyleAttachmentHandle {
-    return this.attachStitchStyles(root);
+    return this.attach(root, 'reader');
   }
 
   applyVideoStyles(root: ShadowRoot): StyleAttachmentHandle {
-    return this.attachStitchStyles(root);
+    return this.attach(root, 'video');
   }
 
-  applyStitchRuntimeStyles(root: ShadowRoot): StyleAttachmentHandle {
-    return this.attachStitchStyles(root);
+  applyPromptTaskStyles(root: ShadowRoot): StyleAttachmentHandle {
+    return this.attach(root, 'prompt-task');
   }
 
   destroy(): void {
     this.styleHost.destroy();
     this.assetGeneration += 1;
-    this.stitchPendingLoad = null;
-    this.stitchSheet = null;
-    this.stitchSecondarySheet = null;
-    this.stitchStyles = null;
-    this.stitchSecondaryStyles = null;
-    this.initialized = false;
+    this.states.clear();
   }
 
   getRegistrationCount(): number {
     return this.styleHost.getRegistrationCount();
   }
 
-  private attachStitchStyles(root: ShadowRoot): StyleAttachmentHandle {
-    if (!this.initialized) {
-      void this.initialize();
-    }
-    const loaded = this.stitchStyles !== null && this.stitchSecondaryStyles !== null;
-    return this.styleHost.attach(
-      root,
-      loaded ? this.getLoadedEntries() : () => this.getStitchEntries()
-    );
+  private attach(root: ShadowRoot, pack: PanelStylePack): StyleAttachmentHandle {
+    return this.styleHost.attach(root, () => this.getEntries(pack));
   }
 
-  private async getStitchEntries(): Promise<readonly ManagedStyleEntry[]> {
-    if (!(await this.loadStitchStyles())) {
-      throw new Error('Panel style assets are unavailable');
-    }
-    return this.getLoadedEntries();
-  }
-
-  private getLoadedEntries(): readonly ManagedStyleEntry[] {
-    return [
-      {
-        key: PANEL_STITCH_RUNTIME_KEY,
-        cssText: this.stitchStyles ?? '',
-        sheet: this.stitchSheet
-      },
-      {
-        key: PANEL_STITCH_SECONDARY_RUNTIME_KEY,
-        cssText: this.stitchSecondaryStyles ?? '',
-        sheet: this.stitchSecondarySheet
-      }
-    ];
-  }
-
-  private loadStitchStyles(): Promise<boolean> {
-    if (this.stitchStyles !== null && this.stitchSecondaryStyles !== null) {
-      return Promise.resolve(true);
-    }
-    if (this.stitchPendingLoad) {
-      return this.stitchPendingLoad;
-    }
+  private getEntries(pack: PanelStylePack): Promise<readonly ManagedStyleEntry[]> {
+    const state = this.state(pack);
+    if (state.cssText !== null) return Promise.resolve(this.loadedEntries(pack, state));
+    if (state.pending) return state.pending;
 
     const generation = this.assetGeneration;
-    const pending = Promise.all([
-      loadExtensionStyle('options/stitch/styles/stitch.css'),
-      loadExtensionStyle('options/stitch/styles/variants/stitch-secondary.css')
-    ])
-      .then(([stitchCss, stitchSecondaryCss]) => {
+    const pending = loadExtensionStyle(`ui/stitch-runtime/styles/${pack}.css`)
+      .then((cssText) => {
         if (generation !== this.assetGeneration) {
-          return false;
+          throw new Error(`${pack} style load was superseded`);
         }
-        this.stitchStyles = stitchCss;
-        this.stitchSecondaryStyles = stitchSecondaryCss;
-        if (supportsAdoptedStyleSheets()) {
-          this.stitchSheet = createManagedStyleSheet(stitchCss);
-          this.stitchSecondarySheet = createManagedStyleSheet(stitchSecondaryCss);
-        } else {
-          this.stitchSheet = null;
-          this.stitchSecondarySheet = null;
-        }
-        return true;
-      })
-      .catch((error) => {
-        if (generation === this.assetGeneration) {
-          console.warn('[PanelStyleSheetManager] Failed to load stitch styles:', error);
-          this.stitchSheet = null;
-          this.stitchSecondarySheet = null;
-          this.stitchStyles = null;
-          this.stitchSecondaryStyles = null;
-        }
-        return false;
+        state.cssText = cssText;
+        state.sheet = supportsAdoptedStyleSheets() ? createManagedStyleSheet(cssText) : null;
+        return this.loadedEntries(pack, state);
       })
       .finally(() => {
-        if (this.stitchPendingLoad === pending) {
-          this.stitchPendingLoad = null;
-        }
+        if (state.pending === pending) state.pending = null;
       });
-    this.stitchPendingLoad = pending;
+    state.pending = pending;
     return pending;
+  }
+
+  private state(pack: PanelStylePack): PackState {
+    const existing = this.states.get(pack);
+    if (existing) return existing;
+    const created: PackState = { cssText: null, sheet: null, pending: null };
+    this.states.set(pack, created);
+    return created;
+  }
+
+  private loadedEntries(pack: PanelStylePack, state: PackState): readonly ManagedStyleEntry[] {
+    return [{ key: `panel-${pack}-style-pack`, cssText: state.cssText ?? '', sheet: state.sheet }];
   }
 }
 

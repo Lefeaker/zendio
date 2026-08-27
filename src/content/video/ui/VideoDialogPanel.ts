@@ -7,7 +7,11 @@ import type { UiMountable } from '@ui/hosts/shared/contract';
 import type { StyleAttachmentHandle } from '@ui/foundation/style-host';
 import type { PopupCoordinator } from '@content/runtime/popupCoordinator';
 import { resolveContentPopupCoordinator } from '@content/runtime/popupCoordinatorAccess';
-import { panelStyleSheetManager } from '@content/shared/panels/styleSheetManager';
+import {
+  panelStyleSheetManager,
+  prepareStyleHost,
+  revealStyleHost
+} from '@content/shared/panels/styleSheetManager';
 import { bindSessionPanelResize } from '@content/shared/panels/sessionPanelResize';
 import { SessionPanelCollapsePersistence } from '@content/shared/panels/sessionPanelCollapsePersistence';
 import { createSessionPanelRenderRoot } from '@content/shared/panels/sessionPanelRoot';
@@ -20,7 +24,6 @@ import { focusContentDialogElementByDataset } from '@ui/hosts/content/contentDia
 import { bindVideoInputKeyboardIsolationBoundary } from '../videoInputEventIsolation';
 import { createVideoDialogSurface } from './videoDialogSurface';
 import { VIDEO_MODE_PANEL_ICON_PATH } from '@shared/assets/iconPaths';
-
 interface VideoDialogPanelOptions {
   callbacks: VideoPanelCallbacks;
   texts: VideoPanelTexts;
@@ -36,6 +39,7 @@ export class VideoDialogPanel implements UiMountable<
   readonly popupLifecycle = { preserveOnTransientClose: true, kind: 'session-panel' } as const;
   private renderRoot: HTMLElement;
   private styleAttachment: StyleAttachmentHandle | null = null;
+  private styleReady = false;
   private readonly popupCoordinator: PopupCoordinator | null;
   private readonly collapsePersistence: SessionPanelCollapsePersistence;
   private unregisterPopup: (() => void) | null = null;
@@ -69,9 +73,19 @@ export class VideoDialogPanel implements UiMountable<
     });
     this.renderRoot = createSessionPanelRenderRoot();
     const shadow = this.renderRoot.attachShadow({ mode: 'open' });
+    prepareStyleHost(this.renderRoot);
     this.keyboardIsolationDisposer = bindVideoInputKeyboardIsolationBoundary(shadow);
     this.rerender();
-    this.styleAttachment = panelStyleSheetManager.applyStitchRuntimeStyles(shadow);
+    const styleAttachment = panelStyleSheetManager.applyVideoStyles(shadow);
+    this.styleAttachment = styleAttachment;
+    void revealStyleHost(this.renderRoot, styleAttachment).then((ready) => {
+      if (this.styleAttachment !== styleAttachment) return;
+      if (!ready) {
+        this.destroy();
+        return;
+      }
+      this.styleReady = true;
+    });
     void this.collapsePersistence.restore();
   }
   get element(): HTMLElement {
@@ -83,21 +97,20 @@ export class VideoDialogPanel implements UiMountable<
     }
     return this.renderRoot;
   }
-
   show(): void {
+    this.renderRoot.dataset.aiobStyleReveal = 'true';
     this.mount();
-    this.renderRoot.hidden = false;
+    if (!this.renderRoot.hasAttribute('aria-busy')) this.renderRoot.hidden = false;
     if (!this.unregisterPopup && this.popupCoordinator) {
       this.unregisterPopup = this.popupCoordinator.register(this);
     }
   }
-
   hide(): void {
+    delete this.renderRoot.dataset.aiobStyleReveal;
     this.unregisterPopup?.();
     this.unregisterPopup = null;
     this.renderRoot.hidden = true;
   }
-
   update(payload?: {
     texts?: VideoPanelTexts;
     count?: number;
@@ -124,12 +137,10 @@ export class VideoDialogPanel implements UiMountable<
     this.rerender();
     return this.renderRoot;
   }
-
   updateTexts(texts: VideoPanelTexts): void {
     this.texts = texts;
     this.rerender();
   }
-
   updateDestination(destination: ExportDestinationSurfacePreview | undefined): void {
     this.destination = destination;
     const shadow = this.renderRoot.shadowRoot;
@@ -137,22 +148,18 @@ export class VideoDialogPanel implements UiMountable<
       this.rerender();
     }
   }
-
   updateCount(count: number): void {
     this.captureCount = count;
     this.rerender();
   }
-
   updateHint(text: string): void {
     this.texts = { ...this.texts, hint: text };
     this.rerender();
   }
-
   setCaptures(captures: VideoPanelCapture[]): void {
     this.applyCaptures(captures);
     this.rerender({ captureDrafts: false });
   }
-
   beginEditingCapture(id: string, draft: string): void {
     this.commentDrafts.captureRenderedInputs();
     this.editingCaptureId = id;
@@ -160,7 +167,6 @@ export class VideoDialogPanel implements UiMountable<
     this.rerender({ captureDrafts: false });
     this.queueCaptureInputFocus(id);
   }
-
   stopEditing(captureId?: string): void {
     this.commentDrafts.captureRenderedInputs();
     const idToClear = captureId ?? this.editingCaptureId;
@@ -170,21 +176,17 @@ export class VideoDialogPanel implements UiMountable<
     }
     this.rerender({ captureDrafts: false });
   }
-
   snapshotCommentDrafts(): Record<string, string> {
     return this.commentDrafts.snapshot();
   }
-
   hydrateCommentDrafts(drafts: Record<string, string>): void {
     this.commentDrafts.hydrate(drafts);
   }
-
   collapse(): void {
     this.collapsePersistence.set(true, { rerender: false });
     this.keepCollapsedForNextCaptureUpdate = true;
     this.rerender();
   }
-
   destroy(): void {
     this.cancelActiveEditor();
     this.collapsePersistence.destroy();
@@ -198,10 +200,10 @@ export class VideoDialogPanel implements UiMountable<
     this.keyboardIsolationDisposer = null;
     const styleAttachment = this.styleAttachment;
     this.styleAttachment = null;
+    this.styleReady = false;
     if (styleAttachment) styleAttachment.dispose();
     this.renderRoot.remove();
   }
-
   private rerender(options: { captureDrafts?: boolean } = {}): void {
     const shadow = this.renderRoot.shadowRoot;
     if (!shadow) {
@@ -219,14 +221,13 @@ export class VideoDialogPanel implements UiMountable<
     preserveSessionPanelIcon(shadow, surface);
     this.suppressCaptureEditorBlurForInternalRender();
     shadow.replaceChildren(surface);
-    if (this.styleAttachment) void this.styleAttachment.refresh();
+    if (this.styleReady && this.styleAttachment) void this.styleAttachment.refresh();
     this.resizeDisposer = bindSessionPanelResize(surface);
     this.previewExpansionDisposer = bindSessionItemPreviewExpansion(surface);
     if (restoreFocusCaptureId) {
       this.queueCaptureInputFocus(restoreFocusCaptureId);
     }
   }
-
   private suppressCaptureEditorBlurForInternalRender(): void {
     this.suppressCaptureEditorBlur = true;
     const token = (this.renderBlurSuppressionToken += 1);
@@ -236,7 +237,6 @@ export class VideoDialogPanel implements UiMountable<
       }
     });
   }
-
   private renderSurface(): HTMLElement {
     const surface = createVideoDialogSurface({
       texts: this.texts,
@@ -281,7 +281,6 @@ export class VideoDialogPanel implements UiMountable<
     this.bindCaptureInteractions(surface);
     return surface;
   }
-
   private resolveAssetUrl(path: string): string {
     try {
       return this.options.resolveAssetUrl?.(path) ?? path;
@@ -289,7 +288,6 @@ export class VideoDialogPanel implements UiMountable<
       return path;
     }
   }
-
   private resolveFocusedEditingCaptureId(shadow: ShadowRoot): string | null {
     if (!this.editingCaptureId) {
       return null;
@@ -299,7 +297,6 @@ export class VideoDialogPanel implements UiMountable<
       ? this.editingCaptureId
       : null;
   }
-
   private queueCaptureInputFocus(id: string): void {
     queueMicrotask(() => {
       if (this.editingCaptureId !== id) {
@@ -308,7 +305,6 @@ export class VideoDialogPanel implements UiMountable<
       focusContentDialogElementByDataset(this.renderRoot.shadowRoot, 'captureInput', id);
     });
   }
-
   private bindCaptureInteractions(surface: HTMLElement): void {
     surface.querySelectorAll<HTMLElement>('[data-capture-id]').forEach((item) => {
       const id = item.dataset.captureId;
@@ -336,7 +332,6 @@ export class VideoDialogPanel implements UiMountable<
       });
     });
   }
-
   private applyCaptures(captures: VideoPanelCapture[]): void {
     this.commentDrafts.captureRenderedInputs();
     const shouldExpandForNewCapture =
@@ -353,7 +348,6 @@ export class VideoDialogPanel implements UiMountable<
     this.captureCount = captures.length;
     this.commentDrafts.reconcile(this.captures);
   }
-
   private isInteractiveCaptureTarget(target: Element | null): boolean {
     return Boolean(
       target?.closest(
@@ -361,7 +355,6 @@ export class VideoDialogPanel implements UiMountable<
       )
     );
   }
-
   private cancelActiveEditor(): void {
     const id = this.editingCaptureId;
     if (!id) {
@@ -371,7 +364,6 @@ export class VideoDialogPanel implements UiMountable<
     this.commentDrafts.clear(id);
     this.editingCaptureId = null;
   }
-
   private isTargetInsidePanel(target: EventTarget | null): boolean {
     if (!(target instanceof Node)) {
       return false;
@@ -382,7 +374,6 @@ export class VideoDialogPanel implements UiMountable<
       Boolean(this.renderRoot.shadowRoot?.contains(target))
     );
   }
-
   private formatCounter(count: number): string {
     return count <= 0
       ? this.texts.counterZero

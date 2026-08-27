@@ -22,19 +22,11 @@ const initializeStylesMock =
       ...args: Parameters<StyleSheetManagerModule['clipperStyleSheetManager']['initialize']>
     ) => ReturnType<StyleSheetManagerModule['clipperStyleSheetManager']['initialize']>
   >();
-const applyStylesMock =
+const applyClipperStylesMock =
   vi.fn<
     (
-      ...args: Parameters<StyleSheetManagerModule['clipperStyleSheetManager']['applyTo']>
-    ) => ReturnType<StyleSheetManagerModule['clipperStyleSheetManager']['applyTo']>
-  >();
-const applyStitchRuntimeStylesMock =
-  vi.fn<
-    (
-      ...args: Parameters<
-        StyleSheetManagerModule['clipperStyleSheetManager']['applyStitchRuntimeStyles']
-      >
-    ) => ReturnType<StyleSheetManagerModule['clipperStyleSheetManager']['applyStitchRuntimeStyles']>
+      ...args: Parameters<StyleSheetManagerModule['clipperStyleSheetManager']['applyClipperStyles']>
+    ) => ReturnType<StyleSheetManagerModule['clipperStyleSheetManager']['applyClipperStyles']>
   >();
 const ensureContentI18nMock = vi.fn();
 const getContentI18nBinderMock = vi.fn();
@@ -53,8 +45,7 @@ vi.mock('../../../src/content/i18n/context', () => ({
 vi.mock('../../../src/content/clipper/shared/styleSheetManager', () => ({
   clipperStyleSheetManager: {
     initialize: initializeStylesMock,
-    applyTo: applyStylesMock,
-    applyStitchRuntimeStyles: applyStitchRuntimeStylesMock
+    applyClipperStyles: applyClipperStylesMock
   },
   supportsAdoptedStyleSheets: () => true
 }));
@@ -154,8 +145,7 @@ describe('ClipperDialog Keyboard Shortcuts', () => {
     getContentI18nBinderMock.mockReturnValue(null);
     getContentMessagesMock.mockResolvedValue(dialogMessages);
     initializeStylesMock.mockResolvedValue(undefined);
-    applyStylesMock.mockImplementation(createStyleAttachmentHandleMock);
-    applyStitchRuntimeStylesMock.mockImplementation(createStyleAttachmentHandleMock);
+    applyClipperStylesMock.mockImplementation(createStyleAttachmentHandleMock);
     document.body.innerHTML = '';
     document.head.innerHTML = '';
     clipRepo = new MockClipRepository();

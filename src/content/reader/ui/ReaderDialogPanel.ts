@@ -13,7 +13,11 @@ import type { PopupCoordinator } from '@content/runtime/popupCoordinator';
 import { resolveContentPopupCoordinator } from '@content/runtime/popupCoordinatorAccess';
 import { createReaderSurfaceContent } from '@content/stitch/runtimeSurfaceContent';
 import { renderStitchRuntimeSurface } from '@content/stitch/runtimeSurfaceRenderer';
-import { panelStyleSheetManager } from '@content/shared/panels/styleSheetManager';
+import {
+  panelStyleSheetManager,
+  prepareStyleHost,
+  revealStyleHost
+} from '@content/shared/panels/styleSheetManager';
 import { bindSessionPanelResize } from '@content/shared/panels/sessionPanelResize';
 import { SessionPanelCollapsePersistence } from '@content/shared/panels/sessionPanelCollapsePersistence';
 import { createSessionPanelRenderRoot } from '@content/shared/panels/sessionPanelRoot';
@@ -30,14 +34,12 @@ import {
   applyReaderPanelCompatibilityAttributes,
   bindReaderHighlightInteractions
 } from './readerDialogPanelDom';
-
 interface ReaderDialogPanelOptions {
   callbacks: ReaderPanelCallbacks;
   texts: ReaderPanelTexts;
   resolveAssetUrl?: (path: string) => string;
   onCommentDraftChange?: (drafts: SessionCommentDraftSnapshot) => void;
 }
-
 export class ReaderDialogPanel implements UiMountable<
   HTMLElement | undefined,
   | { texts?: ReaderPanelTexts; count?: number; hint?: string; highlights?: ReaderPanelHighlight[] }
@@ -45,9 +47,9 @@ export class ReaderDialogPanel implements UiMountable<
   HTMLElement
 > {
   readonly popupLifecycle = { preserveOnTransientClose: true, kind: 'session-panel' } as const;
-
   private renderRoot: HTMLElement;
   private styleAttachment: StyleAttachmentHandle | null = null;
+  private styleReady = false;
   private readonly popupCoordinator: PopupCoordinator | null;
   private readonly collapsePersistence: SessionPanelCollapsePersistence;
   private unregisterPopup: (() => void) | null = null;
@@ -67,7 +69,6 @@ export class ReaderDialogPanel implements UiMountable<
     onChange: (drafts) => this.options.onCommentDraftChange?.(drafts)
   });
   private pendingNoteFocusHighlightId: string | null = null;
-
   constructor(private readonly options: ReaderDialogPanelOptions) {
     this.texts = options.texts;
     this.popupCoordinator = resolveContentPopupCoordinator();
@@ -76,36 +77,43 @@ export class ReaderDialogPanel implements UiMountable<
     });
     this.renderRoot = createSessionPanelRenderRoot('aiob-reader-panel');
     const shadow = this.renderRoot.attachShadow({ mode: 'open' });
+    prepareStyleHost(this.renderRoot);
     this.rerender();
-    this.styleAttachment = panelStyleSheetManager.applyStitchRuntimeStyles(shadow);
+    const styleAttachment = panelStyleSheetManager.applyReaderStyles(shadow);
+    this.styleAttachment = styleAttachment;
+    void revealStyleHost(this.renderRoot, styleAttachment).then((ready) => {
+      if (this.styleAttachment !== styleAttachment) return;
+      if (!ready) {
+        this.destroy();
+        return;
+      }
+      this.styleReady = true;
+    });
     void this.collapsePersistence.restore();
   }
-
   get element(): HTMLElement {
     return this.renderRoot;
   }
-
   mount(target: HTMLElement = document.body): HTMLElement {
     if (!this.renderRoot.isConnected) {
       target.append(this.renderRoot);
     }
     return this.renderRoot;
   }
-
   show(): void {
+    this.renderRoot.dataset.aiobStyleReveal = 'true';
     this.mount();
-    this.renderRoot.hidden = false;
+    if (!this.renderRoot.hasAttribute('aria-busy')) this.renderRoot.hidden = false;
     if (!this.unregisterPopup && this.popupCoordinator) {
       this.unregisterPopup = this.popupCoordinator.register(this);
     }
   }
-
   hide(): void {
+    delete this.renderRoot.dataset.aiobStyleReveal;
     this.unregisterPopup?.();
     this.unregisterPopup = null;
     this.renderRoot.hidden = true;
   }
-
   update(payload?: {
     texts?: ReaderPanelTexts;
     count?: number;
@@ -133,12 +141,10 @@ export class ReaderDialogPanel implements UiMountable<
     this.rerender();
     return this.renderRoot;
   }
-
   updateTexts(texts: ReaderPanelTexts): void {
     this.texts = texts;
     this.rerender();
   }
-
   updateDestination(destination: ExportDestinationSurfacePreview | undefined): void {
     this.destination = destination;
     const shadow = this.renderRoot.shadowRoot;
@@ -146,66 +152,54 @@ export class ReaderDialogPanel implements UiMountable<
       this.rerender();
     }
   }
-
   updateCount(count: number): void {
     this.highlightCount = count;
     this.rerender();
   }
-
   updateHint(text: string): void {
     this.texts = { ...this.texts, hint: text };
     this.rerender();
   }
-
   setHighlights(highlights: ReaderPanelHighlight[], options: ReaderPanelRenderOptions = {}): void {
     const focusTargetHighlight = this.applyHighlights(highlights, options);
     this.rerender();
     this.focusHighlightNoteInput(focusTargetHighlight?.id);
   }
-
   stopEditing(): void {
     this.commentDrafts.clear(this.editingHighlightId);
     this.finishEditing();
   }
-
   snapshotCommentDrafts(): SessionCommentDraftSnapshot {
     return this.commentDrafts.snapshot();
   }
-
   hydrateCommentDrafts(drafts: SessionCommentDraftSnapshot): void {
     this.commentDrafts.hydrate(drafts);
     this.rerender({ captureDrafts: false });
   }
-
   clearCommentDraft(id: string): void {
     this.commentDrafts.clear(id, { notify: false });
     this.rerender({ captureDrafts: false });
   }
-
   restoreCommentDraft(id: string, draft: string | undefined): void {
     this.commentDrafts.restore(id, draft, { notify: false });
     this.rerender({ captureDrafts: false });
   }
-
   snapshotEditingState(): ReaderPanelEditingSnapshot {
     return {
       editingHighlightId: this.editingHighlightId,
       pendingNoteFocusHighlightId: this.pendingNoteFocusHighlightId
     };
   }
-
   restoreEditingState(snapshot: ReaderPanelEditingSnapshot): void {
     this.editingHighlightId = snapshot.editingHighlightId;
     this.pendingNoteFocusHighlightId = snapshot.pendingNoteFocusHighlightId;
     this.rerender({ captureDrafts: false });
   }
-
   finishEditing(): void {
     this.editingHighlightId = null;
     this.pendingNoteFocusHighlightId = null;
     this.rerender({ captureDrafts: false });
   }
-
   isEditing(): boolean {
     const activeElement = this.renderRoot.shadowRoot?.activeElement;
     return (
@@ -213,7 +207,6 @@ export class ReaderDialogPanel implements UiMountable<
       activeElement.dataset.highlightInput === this.editingHighlightId
     );
   }
-
   destroy(): void {
     this.collapsePersistence.destroy();
     this.unregisterPopup?.();
@@ -224,10 +217,10 @@ export class ReaderDialogPanel implements UiMountable<
     this.previewExpansionDisposer = null;
     const styleAttachment = this.styleAttachment;
     this.styleAttachment = null;
+    this.styleReady = false;
     if (styleAttachment) styleAttachment.dispose();
     this.renderRoot.remove();
   }
-
   private rerender(options: { captureDrafts?: boolean } = {}): void {
     const shadow = this.renderRoot.shadowRoot;
     if (!shadow) {
@@ -243,12 +236,11 @@ export class ReaderDialogPanel implements UiMountable<
     const surface = this.renderSurface();
     preserveSessionPanelIcon(shadow, surface);
     shadow.replaceChildren(surface);
-    if (this.styleAttachment) void this.styleAttachment.refresh();
+    if (this.styleReady && this.styleAttachment) void this.styleAttachment.refresh();
     this.resizeDisposer = bindSessionPanelResize(surface);
     this.previewExpansionDisposer = bindSessionItemPreviewExpansion(surface);
     this.focusHighlightNoteInput(this.pendingNoteFocusHighlightId ?? this.editingHighlightId);
   }
-
   private renderSurface(): HTMLElement {
     const content = createReaderSurfaceContent({
       texts: this.texts,
@@ -314,7 +306,6 @@ export class ReaderDialogPanel implements UiMountable<
     });
     return surface;
   }
-
   private resolveAssetUrl(path: string): string {
     try {
       return this.options.resolveAssetUrl?.(path) ?? path;
@@ -322,7 +313,6 @@ export class ReaderDialogPanel implements UiMountable<
       return path;
     }
   }
-
   private resolveActionId(
     event: Event,
     datasetKey: 'highlightId' | 'destinationId'
@@ -337,7 +327,6 @@ export class ReaderDialogPanel implements UiMountable<
       null
     );
   }
-
   private applyHighlights(
     highlights: ReaderPanelHighlight[],
     options: ReaderPanelRenderOptions = {}
@@ -361,7 +350,6 @@ export class ReaderDialogPanel implements UiMountable<
     }
     return focusTargetHighlight;
   }
-
   private resolveHighlightFocusTarget(
     highlights: ReaderPanelHighlight[],
     focusHighlightId: string | null | undefined
@@ -371,7 +359,6 @@ export class ReaderDialogPanel implements UiMountable<
     }
     return highlights.find((highlight) => highlight.id === focusHighlightId);
   }
-
   private focusHighlightNoteInput(highlightId: string | null | undefined): void {
     if (!highlightId) {
       return;
@@ -382,20 +369,17 @@ export class ReaderDialogPanel implements UiMountable<
       this.pendingNoteFocusHighlightId = null;
     }
   }
-
   private formatCounter(count: number): string {
     if (count <= 0) {
       return this.texts.counterZero;
     }
     return this.texts.counter.replace('{count}', String(count));
   }
-
   private async handleDeleteHighlight(id: string): Promise<void> {
     this.commentDrafts.captureRenderedInputs();
     await this.options.callbacks.onDeleteHighlight(id);
     this.commentDrafts.clear(id);
   }
-
   private observeAsync(task: Promise<void>): void {
     void task.catch((error) => {
       console.warn('[ReaderDialogPanel] Failed to complete async panel action:', error);

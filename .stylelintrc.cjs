@@ -2,7 +2,7 @@ module.exports = {
   rules: {},
   overrides: [
     {
-      files: ['src/options/**/*.css'],
+      files: ['src/options/**/*.css', 'src/onboarding/**/*.css', 'src/ui/**/*.css'],
       rules: {
         'selector-class-pattern': [
           '^(?!aob-)[a-z0-9_-]+$',

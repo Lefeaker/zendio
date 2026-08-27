@@ -1,4 +1,4 @@
-/* Theme Tokens */
+/* Neutral runtime theme tokens */
 :root,
 .stitch-runtime-surface,
 html[data-preview-theme='dark'] {
@@ -264,4 +264,8 @@ html[data-preview-theme='light'],
   --page-gradient-a: rgba(124, 58, 237, 0.08);
   --page-gradient-b: rgba(168, 85, 247, 0.06);
   --page-gradient-c: rgba(59, 130, 246, 0.04);
+}
+
+.stitch-runtime-surface[data-preview-skin='stitch-secondary'] {
+  --stitch-secondary-bridge: 1;
 }

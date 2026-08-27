@@ -469,7 +469,7 @@ describe('SupportPrompt', () => {
     }> = [];
     const { panelStyleSheetManager } =
       await import('../../../src/content/shared/panels/styleSheetManager');
-    vi.spyOn(panelStyleSheetManager, 'applyStitchRuntimeStyles').mockImplementation((root) => {
+    vi.spyOn(panelStyleSheetManager, 'applyPromptTaskStyles').mockImplementation((root) => {
       const connectedOnDispose: boolean[] = [];
       const handle: StyleAttachmentHandle & {
         dispose: ReturnType<typeof vi.fn>;
@@ -703,45 +703,36 @@ describe('SupportPrompt', () => {
     expect(document.getElementById('aiob-support-prompt')).toBeNull();
   });
 
-  it('replays Stitch runtime styles after async load on first toast render', async () => {
+  it('keeps the first prompt hidden and busy until its exact pack is ready', async () => {
     const stitchDeferred = createDeferred<string>();
-    const stitchSecondaryDeferred = createDeferred<string>();
     loadExtensionStyleMock.mockImplementation((path: string) => {
-      if (path === 'options/stitch/styles/stitch.css') {
+      if (path === 'ui/stitch-runtime/styles/prompt-task.css') {
         return stitchDeferred.promise;
-      }
-      if (path === 'options/stitch/styles/variants/stitch-secondary.css') {
-        return stitchSecondaryDeferred.promise;
       }
       return Promise.resolve('');
     });
 
     const { SupportPrompt } = await import('../../../src/content/ui/supportPrompt');
     const prompt = new SupportPrompt(document);
-    await prompt.show({ status: 'success' });
-
-    getPromptHost().shadowRoot?.querySelector<HTMLButtonElement>('[data-role="like-btn"]')?.click();
+    const showPromise = prompt.show({ status: 'success' });
     await flushMicrotasks();
-
-    const toastShadow = getToastShadow();
+    const host = getPromptHost();
+    expect(host.hidden).toBe(true);
+    expect(host.getAttribute('aria-busy')).toBe('true');
     expect(
-      toastShadow.querySelector('style[data-aiob-style-bridge="panel-stitch-runtime"]')
-    ).toBeNull();
-    expect(
-      toastShadow.querySelector('style[data-aiob-style-bridge="panel-clipper-tailwind"]')
+      host.shadowRoot?.querySelector('style[data-aiob-style-bridge="panel-prompt-task-style-pack"]')
     ).toBeNull();
 
     stitchDeferred.resolve('.stitch-ready{opacity:1;}');
-    stitchSecondaryDeferred.resolve('.stitch-secondary-ready{opacity:1;}');
-    await flushMicrotasks();
+    await showPromise;
     await flushMicrotasks();
 
+    expect(host.hidden).toBe(false);
+    expect(host.hasAttribute('aria-busy')).toBe(false);
     expect(
-      toastShadow.querySelector('style[data-aiob-style-bridge="panel-stitch-runtime"]')?.textContent
-    ).toContain('.stitch-ready');
-    expect(
-      toastShadow.querySelector('style[data-aiob-style-bridge="panel-stitch-secondary-runtime"]')
+      host.shadowRoot?.querySelector('style[data-aiob-style-bridge="panel-prompt-task-style-pack"]')
         ?.textContent
-    ).toContain('.stitch-secondary-ready');
+    ).toContain('.stitch-ready');
+    expect(host.shadowRoot?.querySelectorAll('[data-aiob-style-bridge]')).toHaveLength(1);
   });
 });

@@ -38,9 +38,6 @@ export async function mountClipperDialogHost(
   surface: HTMLElement,
   mountToken: HostMountToken
 ): Promise<ClipperDialogHostParts | null> {
-  await clipperStyleSheetManager.initialize();
-  if (!mountToken.valid || activeMountToken !== mountToken) return null;
-
   const host = document.createElement('div');
   host.id = 'obsidian-clipper-dialog';
   host.setAttribute('role', 'dialog');
@@ -49,14 +46,28 @@ export async function mountClipperDialogHost(
   host.style.position = 'fixed';
   host.style.inset = '0';
   host.style.zIndex = '2147483647';
+  host.hidden = true;
+  host.setAttribute('aria-busy', 'true');
 
   const shadowRoot = host.attachShadow({ mode: 'open' });
-  const styleAttachment = clipperStyleSheetManager.applyStitchRuntimeStyles(shadowRoot);
+  const styleAttachment = clipperStyleSheetManager.applyClipperStyles(shadowRoot);
+  const lifecycle: ClipperDialogHostLifecycle = { styleAttachment, mountToken, disposed: false };
   Object.defineProperty(host, CLIPPER_DIALOG_HOST_LIFECYCLE, {
-    value: { styleAttachment, mountToken, disposed: false } satisfies ClipperDialogHostLifecycle
+    value: lifecycle
   });
   shadowRoot.append(surface);
   document.body.append(host);
+  const styleResult = await styleAttachment.ready;
+  if (styleResult.status !== 'ready' || !mountToken.valid || activeMountToken !== mountToken) {
+    if (!lifecycle.disposed) {
+      lifecycle.disposed = true;
+      styleAttachment.dispose();
+    }
+    host.remove();
+    return null;
+  }
+  host.removeAttribute('aria-busy');
+  host.hidden = false;
   document.documentElement.dataset.aiobClipperDialog = 'open';
 
   return { host, shadowRoot };

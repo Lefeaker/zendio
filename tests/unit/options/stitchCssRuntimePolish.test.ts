@@ -5,9 +5,12 @@ import { describe, expect, it } from 'vitest';
 const CSS_IMPORT_PATTERN =
   /^\s*@import\s+(?:url\(\s*)?(?:"([^"]+)"|'([^']+)'|([^"')\s]+))\s*\)?\s*;/;
 
-const stitchCss = readCssWithImports(
-  resolve(process.cwd(), 'src/options/stitch/styles/stitch.css')
-);
+const stitchCss = [
+  'src/options/stitch/styles/entries/options.css',
+  'src/options/stitch/styles/entries/onboarding.css'
+]
+  .map((path) => readCssWithImports(resolve(process.cwd(), path)))
+  .join('\n');
 const previewFixtureCss = readFileSync(
   resolve(process.cwd(), 'tests/fixtures/options-preview/styles/preview.css'),
   'utf8'

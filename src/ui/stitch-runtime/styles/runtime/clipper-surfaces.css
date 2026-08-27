@@ -1,3 +1,4 @@
+/* Neutral clipper surfaces */
 .clipper-preview-block {
   display: grid;
   gap: var(--space-2-5);
@@ -35,6 +36,7 @@
   border-radius: var(--clipper-comment-radius);
   border-color: var(--runtime-line);
   background: var(--runtime-panel-2);
+  color: var(--text);
   resize: none;
   overflow-y: auto;
   font-size: var(--clipper-comment-font-size);

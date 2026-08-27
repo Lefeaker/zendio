@@ -43,17 +43,19 @@ describe('phase4/shadow-dom adoptedStyleSheets', () => {
           const firstHost = document.createElement('div');
           document.body.append(firstHost);
           const firstShadow = firstHost.attachShadow({ mode: 'open' });
-          clipperStyleSheetManager.applyTo(firstShadow);
+          const firstAttachment = clipperStyleSheetManager.applyClipperStyles(firstShadow);
+          await firstAttachment.ready;
 
-          expect(firstShadow.adoptedStyleSheets).toHaveLength(2);
+          expect(firstShadow.adoptedStyleSheets).toHaveLength(1);
           const firstSheets = firstShadow.adoptedStyleSheets;
 
           const secondHost = document.createElement('div');
           document.body.append(secondHost);
           const secondShadow = secondHost.attachShadow({ mode: 'open' });
-          clipperStyleSheetManager.applyTo(secondShadow);
+          const secondAttachment = clipperStyleSheetManager.applyClipperStyles(secondShadow);
+          await secondAttachment.ready;
 
-          expect(secondShadow.adoptedStyleSheets).toHaveLength(2);
+          expect(secondShadow.adoptedStyleSheets).toHaveLength(1);
           expect(secondShadow.adoptedStyleSheets).toEqual(firstSheets);
         } finally {
           restore();
@@ -77,8 +79,9 @@ describe('phase4/shadow-dom adoptedStyleSheets', () => {
           document.body.append(host);
           const shadow = host.attachShadow({ mode: 'open' });
 
-          expect(() => clipperStyleSheetManager.applyTo(shadow)).not.toThrow();
-          expect(Array.from(shadow.adoptedStyleSheets)).toHaveLength(2);
+          const attachment = clipperStyleSheetManager.applyClipperStyles(shadow);
+          await expect(attachment.ready).resolves.toEqual({ status: 'ready' });
+          expect(Array.from(shadow.adoptedStyleSheets)).toHaveLength(1);
           expect(shadow.querySelectorAll('style')).toHaveLength(0);
         } finally {
           restore();
@@ -102,8 +105,9 @@ describe('phase4/shadow-dom adoptedStyleSheets', () => {
           document.body.append(host);
           const shadow = host.attachShadow({ mode: 'open' });
 
-          expect(() => clipperStyleSheetManager.applyTo(shadow)).not.toThrow();
-          expect(shadow.querySelectorAll('style')).toHaveLength(2);
+          const attachment = clipperStyleSheetManager.applyClipperStyles(shadow);
+          await expect(attachment.ready).resolves.toEqual({ status: 'ready' });
+          expect(shadow.querySelectorAll('style')).toHaveLength(1);
         } finally {
           restore();
           restoreFetch();
@@ -123,7 +127,8 @@ describe('phase4/shadow-dom adoptedStyleSheets', () => {
           const host = document.createElement('div');
           document.body.append(host);
           const shadow = host.attachShadow({ mode: 'open' });
-          clipperStyleSheetManager.applyTo(shadow);
+          const attachment = clipperStyleSheetManager.applyClipperStyles(shadow);
+          await expect(attachment.ready).resolves.toEqual({ status: 'ready' });
 
           expect(shadow.adoptedStyleSheets ?? []).toHaveLength(0);
           expect(shadow.querySelectorAll('style').length).toBeGreaterThan(0);
@@ -148,10 +153,7 @@ function stubClipperFetch(window: WindowShim): () => void {
   } as Response;
   const fetchStub = ((input: RequestInfo | URL) => {
     const value = String(input);
-    if (
-      value.includes('options/stitch/styles/stitch.css') ||
-      value.includes('options/stitch/styles/variants/stitch-secondary.css')
-    ) {
+    if (value.includes('ui/stitch-runtime/styles/clipper.css')) {
       return Promise.resolve(cssResponse);
     }
     return Promise.reject(new Error(`Unexpected fetch: ${value}`));

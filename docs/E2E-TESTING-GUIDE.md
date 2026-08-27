@@ -55,7 +55,7 @@ environment, cwd, output path, shell, TTY or concurrency.
 
 `playwright.bundled-chromium.config.ts` is the local-only acceptance config for
 the lock-matched Playwright Chromium cache. The canonical `bundled` coordinator
-splits its exact eight-file collection into four browser E2E files and four
+splits its exact nine-file collection into five browser E2E files and four
 visual files. Both leaves use the repository-local Playwright CLI with no
 system-browser fallback, fixed ports (`43103` / `43104`), one fixed coordinator-built
 dist and isolated output/report directories. The coordinator acquires the

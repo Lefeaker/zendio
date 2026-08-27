@@ -16,7 +16,7 @@ Options 当前以 Stitch 为正式样式链路。验证重点不是继续维护 
 
 ```bash
 npm run report:options-legacy
-npm run lint:options-css
+node scripts/run-bounded-command.mjs --profile stylelint-v1 -- "src/options/**/*.css" "src/onboarding/**/*.css" "src/ui/**/*.css"
 npm run audit:options-mainline:report
 npm run audit:ui-architecture:report
 npm run build:dev
@@ -35,7 +35,7 @@ find build/dist/options -maxdepth 4 -type f | sort
 build/dist/options/index.html
 build/dist/options/index.js
 build/dist/options/index.js.map
-build/dist/options/stitch/styles/stitch.css
+build/dist/ui/stitch-runtime/styles/options.css
 build/dist/options/stitch/styles/variants/stitch-secondary.css
 ```
 

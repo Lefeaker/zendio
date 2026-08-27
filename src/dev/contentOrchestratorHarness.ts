@@ -14,7 +14,11 @@ import {
 } from '../content/reader/utils/markdownBuilder';
 import { VideoSession } from '../content/video/session';
 import { createPromptElement } from '../content/video/videoPromptRenderer';
-import { panelStyleSheetManager } from '../content/shared/panels/styleSheetManager';
+import {
+  panelStyleSheetManager,
+  prepareStyleHost,
+  revealStyleHost
+} from '../content/shared/panels/styleSheetManager';
 import { setControlledRuntimeTheme } from '../content/stitch/runtimeTheme';
 import { SupportPrompt } from '../content/ui/supportPrompt';
 import { createContentRuntimeState } from '../content/runtime/contentRuntimeState';
@@ -227,13 +231,13 @@ async function startVideoSession(): Promise<void> {
 async function showVideoFloatingPrompt(): Promise<void> {
   removeVideoFloatingPrompt();
   const generation = activeVideoPromptGeneration;
-  await panelStyleSheetManager.initialize();
-  if (generation !== activeVideoPromptGeneration) return;
   const host = document.createElement('div');
+  prepareStyleHost(host);
+  host.dataset.aiobStyleReveal = 'true';
   const shadow = host.attachShadow({ mode: 'open' });
   const pending = {
     host,
-    styleAttachment: panelStyleSheetManager.applyStitchRuntimeStyles(shadow)
+    styleAttachment: panelStyleSheetManager.applyVideoStyles(shadow)
   };
   try {
     const { container } = createPromptElement({
@@ -252,6 +256,8 @@ async function showVideoFloatingPrompt(): Promise<void> {
     shadow.appendChild(container);
     if (generation !== activeVideoPromptGeneration) return;
     document.body.appendChild(host);
+    if (!(await revealStyleHost(host, pending.styleAttachment))) return;
+    if (generation !== activeVideoPromptGeneration) return;
     setStatus('Video floating prompt mounted');
     activeVideoPrompt = pending;
   } finally {

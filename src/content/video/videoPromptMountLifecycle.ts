@@ -1,6 +1,10 @@
 import type { Messages } from '@i18n';
 import type { StyleAttachmentHandle } from '@ui/foundation/style-host';
-import { panelStyleSheetManager } from '../shared/panels/styleSheetManager';
+import {
+  panelStyleSheetManager,
+  prepareStyleHost,
+  revealStyleHost
+} from '../shared/panels/styleSheetManager';
 import { attachDragHandlers, createPromptElement, updatePromptLabels } from './videoPromptRenderer';
 import {
   applySideClass,
@@ -22,7 +26,6 @@ import {
   type VideoPromptDebugCounters,
   type VideoPromptDebugState
 } from './videoPromptState';
-
 interface VideoPromptMountLifecycleOptions {
   getDocument(): Document;
   getWindow(): Window;
@@ -54,11 +57,9 @@ export function createVideoPromptMountLifecycle(options: VideoPromptMountLifecyc
   function getDebugCountersSnapshot(): VideoPromptDebugCounters {
     return { ...promptDebugCounters };
   }
-
   function getStateSnapshot() {
     return getLayoutStateSnapshot(layoutState);
   }
-
   function getDebugPositionFields() {
     const promptElement = promptMount?.element ?? null;
     return {
@@ -71,14 +72,12 @@ export function createVideoPromptMountLifecycle(options: VideoPromptMountLifecyc
       elementLeft: promptElement ? promptElement.getBoundingClientRect().left : null
     };
   }
-
   function updateDebugPosition(): void {
     if (!promptDebugState) {
       return;
     }
     Object.assign(promptDebugState, getDebugPositionFields());
   }
-
   function removePrompt(): void {
     promptMountGeneration += 1;
     const mount = promptMount;
@@ -93,7 +92,6 @@ export function createVideoPromptMountLifecycle(options: VideoPromptMountLifecyc
       promptDebugState.elementLeft = null;
     }
   }
-
   async function savePromptPosition(): Promise<void> {
     try {
       await options.saveStoredPromptPosition({
@@ -104,7 +102,6 @@ export function createVideoPromptMountLifecycle(options: VideoPromptMountLifecyc
       console.warn('[VideoPrompt] Failed to save prompt position:', error);
     }
   }
-
   function applyPromptPositionFromConfig(
     position: { x: number; y: number } | null | undefined
   ): void {
@@ -112,20 +109,17 @@ export function createVideoPromptMountLifecycle(options: VideoPromptMountLifecyc
       setLayoutState(layoutState, { hasCustomPosition: false });
       return;
     }
-
     setLayoutState(layoutState, {
       hasCustomPosition: true,
       left: position.x,
       top: position.y,
       side: deriveSideFromPosition(position.x)
     });
-
     if (promptMount) {
       applyStoredPosition(layoutState, promptMount.element);
       updateDebugPosition();
     }
   }
-
   async function loadPromptPosition(): Promise<void> {
     try {
       const position = await options.getStoredPromptPosition();
@@ -134,7 +128,6 @@ export function createVideoPromptMountLifecycle(options: VideoPromptMountLifecyc
       console.warn('[VideoPrompt] Failed to load prompt position:', error);
     }
   }
-
   function handleWindowResize(): void {
     if (!promptMount) {
       return;
@@ -142,7 +135,6 @@ export function createVideoPromptMountLifecycle(options: VideoPromptMountLifecyc
     adjustLayoutForResize(layoutState, promptMount.element);
     updateDebugPosition();
   }
-
   async function mountPrompt(): Promise<void> {
     if (promptMount) {
       return;
@@ -151,7 +143,6 @@ export function createVideoPromptMountLifecycle(options: VideoPromptMountLifecyc
       await promptMountTask;
       return;
     }
-
     const mountGeneration = ++promptMountGeneration;
     const shouldAbortMount = (): boolean =>
       Boolean(
@@ -162,17 +153,14 @@ export function createVideoPromptMountLifecycle(options: VideoPromptMountLifecyc
         options.isVideoSessionActive() ||
         options.getWindow() !== options.getWindow().top
       );
-
     promptMountTask = (async () => {
       let pendingMount: { host: HTMLDivElement; styleAttachment: StyleAttachmentHandle } | null =
         null;
       try {
         const messages = await options.getMessages();
-
         if (shouldAbortMount()) {
           return;
         }
-
         const doc = options.getDocument();
         if (!doc.body) {
           await new Promise<void>((resolve) => {
@@ -182,21 +170,16 @@ export function createVideoPromptMountLifecycle(options: VideoPromptMountLifecyc
             return;
           }
         }
-
-        await panelStyleSheetManager.initialize();
-        if (shouldAbortMount()) {
-          return;
-        }
-
         const previewTheme = await options.getRuntimeTheme();
         if (shouldAbortMount()) {
           return;
         }
         const host = doc.createElement('div');
+        prepareStyleHost(host);
+        host.dataset.aiobStyleReveal = 'true';
         const shadow = host.attachShadow({ mode: 'open' });
-        const styleAttachment = panelStyleSheetManager.applyStitchRuntimeStyles(shadow);
+        const styleAttachment = panelStyleSheetManager.applyVideoStyles(shadow);
         pendingMount = { host, styleAttachment };
-
         const { container, bubble } = createPromptElement({
           id: VIDEO_PROMPT_ID,
           label: options.getLabel(),
@@ -214,9 +197,9 @@ export function createVideoPromptMountLifecycle(options: VideoPromptMountLifecyc
             removePrompt();
           }
         });
-
         shadow.appendChild(container);
         doc.body.appendChild(host);
+        if (!(await revealStyleHost(host, styleAttachment)) || shouldAbortMount()) return;
         applyStoredPosition(layoutState, container);
         attachDragHandlers({
           container,
@@ -260,14 +243,12 @@ export function createVideoPromptMountLifecycle(options: VideoPromptMountLifecyc
         }
       }
     })();
-
     try {
       await promptMountTask;
     } finally {
       promptMountTask = null;
     }
   }
-
   return {
     applyPromptPositionFromConfig,
     getDebugCountersSnapshot,

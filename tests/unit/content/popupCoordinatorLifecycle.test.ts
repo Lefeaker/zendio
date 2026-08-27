@@ -114,9 +114,6 @@ vi.mock('../../../src/content/i18n/context', () => ({
 const initializeClipperStylesMock = vi.hoisted(() => vi.fn(() => Promise.resolve(undefined)));
 const clipperStyleHandles = vi.hoisted<StyleAttachmentHandleMock[]>(() => []);
 const applyClipperStylesMock = vi.hoisted(() =>
-  vi.fn((root: ShadowRoot) => createStyleAttachmentHandle(root))
-);
-const applyClipperStitchRuntimeStylesMock = vi.hoisted(() =>
   vi.fn((root: ShadowRoot) => {
     const handle = createStyleAttachmentHandle(root);
     clipperStyleHandles.push(handle);
@@ -126,17 +123,13 @@ const applyClipperStitchRuntimeStylesMock = vi.hoisted(() =>
 vi.mock('../../../src/content/clipper/shared/styleSheetManager', () => ({
   clipperStyleSheetManager: {
     initialize: initializeClipperStylesMock,
-    applyTo: applyClipperStylesMock,
-    applyStitchRuntimeStyles: applyClipperStitchRuntimeStylesMock
+    applyClipperStyles: applyClipperStylesMock
   }
 }));
 
 const initializePanelStylesMock = vi.hoisted(() => vi.fn());
 const panelStyleHandles = vi.hoisted<StyleAttachmentHandleMock[]>(() => []);
 const applyReaderStylesMock = vi.hoisted(() =>
-  vi.fn((root: ShadowRoot) => createStyleAttachmentHandle(root))
-);
-const applyStitchRuntimeStylesMock = vi.hoisted(() =>
   vi.fn((root: ShadowRoot) => {
     const handle = createStyleAttachmentHandle(root);
     panelStyleHandles.push(handle);
@@ -144,10 +137,22 @@ const applyStitchRuntimeStylesMock = vi.hoisted(() =>
   })
 );
 vi.mock('../../../src/content/shared/panels/styleSheetManager', () => ({
+  prepareStyleHost: (host: HTMLElement) => {
+    host.hidden = true;
+    host.setAttribute('aria-busy', 'true');
+  },
+  revealStyleHost: async (host: HTMLElement, attachment: StyleAttachmentHandle) => {
+    const result = await attachment.ready;
+    if (result.status !== 'ready') return false;
+    host.removeAttribute('aria-busy');
+    if (host.dataset.aiobStyleReveal === 'true') host.hidden = false;
+    return true;
+  },
   panelStyleSheetManager: {
     initialize: initializePanelStylesMock,
     applyReaderStyles: applyReaderStylesMock,
-    applyStitchRuntimeStyles: applyStitchRuntimeStylesMock
+    applyVideoStyles: applyReaderStylesMock,
+    applyPromptTaskStyles: applyReaderStylesMock
   }
 }));
 

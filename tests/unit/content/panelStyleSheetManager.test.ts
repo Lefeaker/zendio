@@ -20,128 +20,90 @@ describe('panelStyleSheetManager', () => {
     const { panelStyleSheetManager } =
       await import('../../../src/content/shared/panels/styleSheetManager');
     panelStyleSheetManager.destroy();
-    loadExtensionStyleMock.mockClear();
     document.body.innerHTML = '';
   });
 
-  it('loads only Stitch runtime CSS for reader/non-video initialization', async () => {
+  it('loads exactly the requested reader, video and prompt-task packs', async () => {
     const { panelStyleSheetManager } =
       await import('../../../src/content/shared/panels/styleSheetManager');
-    const host = document.createElement('div');
-    document.body.append(host);
-    const shadowRoot = host.attachShadow({ mode: 'open' });
+    const reader = document.createElement('div').attachShadow({ mode: 'open' });
+    const video = document.createElement('div').attachShadow({ mode: 'open' });
+    const prompt = document.createElement('div').attachShadow({ mode: 'open' });
+    const readerHandle = panelStyleSheetManager.applyReaderStyles(reader);
+    const videoHandle = panelStyleSheetManager.applyVideoStyles(video);
+    const promptHandle = panelStyleSheetManager.applyPromptTaskStyles(prompt);
+    await Promise.all([readerHandle.ready, videoHandle.ready, promptHandle.ready]);
 
-    await panelStyleSheetManager.initialize();
-    const attachment = panelStyleSheetManager.applyReaderStyles(shadowRoot);
+    expect(loadExtensionStyleMock.mock.calls.map(([path]) => path)).toEqual([
+      'ui/stitch-runtime/styles/reader.css',
+      'ui/stitch-runtime/styles/video.css',
+      'ui/stitch-runtime/styles/prompt-task.css'
+    ]);
+    expect(reader.querySelector('[data-aiob-style-bridge="panel-reader-style-pack"]')).toBeTruthy();
+    expect(video.querySelector('[data-aiob-style-bridge="panel-video-style-pack"]')).toBeTruthy();
     expect(
-      shadowRoot.querySelector('[data-aiob-style-bridge="panel-stitch-runtime"]')
+      prompt.querySelector('[data-aiob-style-bridge="panel-prompt-task-style-pack"]')
     ).toBeTruthy();
-    await expect(attachment.ready).resolves.toEqual({ status: 'ready' });
+    readerHandle.dispose();
+    videoHandle.dispose();
+    promptHandle.dispose();
+  });
 
-    expect(loadExtensionStyleMock).toHaveBeenCalledWith('options/stitch/styles/stitch.css');
-    expect(loadExtensionStyleMock).toHaveBeenCalledWith(
-      'options/stitch/styles/variants/stitch-secondary.css'
+  it('deduplicates the same pack without sharing rival pack state', async () => {
+    const { panelStyleSheetManager } =
+      await import('../../../src/content/shared/panels/styleSheetManager');
+    const first = panelStyleSheetManager.applyReaderStyles(
+      document.createElement('div').attachShadow({ mode: 'open' })
     );
-    expect(
-      shadowRoot.querySelector('[data-aiob-style-bridge="panel-stitch-runtime"]')
-    ).toBeTruthy();
-    expect(
-      shadowRoot.querySelector('[data-aiob-style-bridge="panel-stitch-secondary-runtime"]')
-    ).toBeTruthy();
-    expect(
-      shadowRoot.querySelector('[data-aiob-style-bridge="panel-clipper-tailwind"]')
-    ).toBeNull();
-    expect(shadowRoot.querySelector('[data-aiob-style-bridge="panel-video-tailwind"]')).toBeNull();
-    attachment.dispose();
-  });
-
-  it('does not load a video Tailwind bridge when video styles are applied', async () => {
-    const { panelStyleSheetManager } =
-      await import('../../../src/content/shared/panels/styleSheetManager');
-    const host = document.createElement('div');
-    document.body.append(host);
-    const shadowRoot = host.attachShadow({ mode: 'open' });
-
-    await panelStyleSheetManager.initialize();
-    const attachment = panelStyleSheetManager.applyVideoStyles(shadowRoot);
-    await panelStyleSheetManager.whenVideoStylesReady();
-    await expect(attachment.ready).resolves.toEqual({ status: 'ready' });
-
-    expect(
-      shadowRoot.querySelector('[data-aiob-style-bridge="panel-stitch-runtime"]')
-    ).toBeTruthy();
-    expect(
-      shadowRoot.querySelector('[data-aiob-style-bridge="panel-stitch-secondary-runtime"]')
-    ).toBeTruthy();
-    expect(shadowRoot.querySelector('[data-aiob-style-bridge="panel-video-tailwind"]')).toBeNull();
-    attachment.dispose();
-  });
-
-  it('settles pending attachments on destroy and ignores a stale load completion', async () => {
-    let resolvePrimary!: (css: string) => void;
-    loadExtensionStyleMock.mockImplementation((path) =>
-      path.endsWith('/stitch.css')
-        ? new Promise<string>((resolve) => {
-            resolvePrimary = resolve;
-          })
-        : Promise.resolve('.secondary {}')
+    const second = panelStyleSheetManager.applyReaderStyles(
+      document.createElement('div').attachShadow({ mode: 'open' })
     );
-    const { panelStyleSheetManager } =
-      await import('../../../src/content/shared/panels/styleSheetManager');
-    const root = document.createElement('div').attachShadow({ mode: 'open' });
-    const attachment = panelStyleSheetManager.applyStitchRuntimeStyles(root);
-
-    panelStyleSheetManager.destroy();
-
-    await expect(attachment.ready).resolves.toEqual({
-      status: 'failed',
-      code: 'STYLE_ATTACHMENT_DISPOSED'
-    });
-    resolvePrimary('.stale {}');
-    await Promise.resolve();
-    await Promise.resolve();
-    expect(root.querySelector('[data-aiob-style-bridge]')).toBeNull();
-    expect(panelStyleSheetManager.getRegistrationCount()).toBe(0);
+    const video = panelStyleSheetManager.applyVideoStyles(
+      document.createElement('div').attachShadow({ mode: 'open' })
+    );
+    await Promise.all([first.ready, second.ready, video.ready]);
+    expect(loadExtensionStyleMock.mock.calls.map(([path]) => path)).toEqual([
+      'ui/stitch-runtime/styles/reader.css',
+      'ui/stitch-runtime/styles/video.css'
+    ]);
+    first.dispose();
+    second.dispose();
+    video.dispose();
   });
 
-  it('keeps initialize non-throwing while a handle reports failure and refresh retries', async () => {
+  it('retries a failed pack through the same attachment handle', async () => {
     loadExtensionStyleMock.mockRejectedValueOnce(new Error('load failed'));
     const { panelStyleSheetManager } =
       await import('../../../src/content/shared/panels/styleSheetManager');
     const root = document.createElement('div').attachShadow({ mode: 'open' });
-
     const attachment = panelStyleSheetManager.applyReaderStyles(root);
-    await expect(panelStyleSheetManager.initialize()).resolves.toBeUndefined();
     await expect(attachment.ready).resolves.toEqual({
       status: 'failed',
       code: 'STYLE_ASSET_LOAD_FAILED'
     });
-
-    loadExtensionStyleMock.mockImplementation((path) => Promise.resolve(`/* retry ${path} */`));
+    loadExtensionStyleMock.mockResolvedValue('/* retry */');
     await expect(attachment.refresh()).resolves.toEqual({ status: 'ready' });
     expect(root.querySelector('[data-aiob-style-bridge]')?.textContent).toContain('retry');
     attachment.dispose();
   });
 
-  it('makes a failed handle terminal when manager destroy advances the generation', async () => {
-    loadExtensionStyleMock.mockRejectedValueOnce(new Error('load failed'));
+  it('settles pending handles and ignores late completion after destroy', async () => {
+    let resolveLoad!: (css: string) => void;
+    loadExtensionStyleMock.mockImplementation(
+      () => new Promise<string>((resolve) => (resolveLoad = resolve))
+    );
     const { panelStyleSheetManager } =
       await import('../../../src/content/shared/panels/styleSheetManager');
     const root = document.createElement('div').attachShadow({ mode: 'open' });
-    const attachment = panelStyleSheetManager.applyReaderStyles(root);
-    await expect(attachment.ready).resolves.toEqual({
-      status: 'failed',
-      code: 'STYLE_ASSET_LOAD_FAILED'
-    });
-    expect(panelStyleSheetManager.getRegistrationCount()).toBe(0);
-    const callsBeforeDestroy = loadExtensionStyleMock.mock.calls.length;
-
+    const attachment = panelStyleSheetManager.applyVideoStyles(root);
     panelStyleSheetManager.destroy();
-
-    await expect(attachment.refresh()).resolves.toEqual({
+    await expect(attachment.ready).resolves.toEqual({
       status: 'failed',
       code: 'STYLE_ATTACHMENT_DISPOSED'
     });
-    expect(loadExtensionStyleMock).toHaveBeenCalledTimes(callsBeforeDestroy);
+    resolveLoad('/* late */');
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(root.querySelector('[data-aiob-style-bridge]')).toBeNull();
   });
 });

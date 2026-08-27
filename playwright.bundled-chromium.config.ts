@@ -12,6 +12,7 @@ export default defineConfig({
   testMatch: [
     '**/tests/e2e/optionsCrossContextMutation.browser.test.ts',
     '**/tests/e2e/sessionDraftConcurrency.browser.test.ts',
+    '**/tests/e2e/contentIdleCss.browser.test.ts',
     '**/tests/e2e/uiPrimitiveTokenParity.browser.test.ts',
     '**/tests/e2e/videoScreenshotCacheMigration.browser.test.ts',
     '**/tests/visual/options.stitch-secondary.parity.spec.ts',

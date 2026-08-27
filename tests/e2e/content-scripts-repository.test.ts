@@ -68,20 +68,11 @@ const initializeStylesMock = vi.hoisted(() =>
     ) => ReturnType<StyleSheetManagerModule['clipperStyleSheetManager']['initialize']>
   >()
 );
-const applyStylesMock = vi.hoisted(() =>
+const applyClipperStylesMock = vi.hoisted(() =>
   vi.fn<
     (
-      ...args: Parameters<StyleSheetManagerModule['clipperStyleSheetManager']['applyTo']>
-    ) => ReturnType<StyleSheetManagerModule['clipperStyleSheetManager']['applyTo']>
-  >()
-);
-const applyStitchRuntimeStylesMock = vi.hoisted(() =>
-  vi.fn<
-    (
-      ...args: Parameters<
-        StyleSheetManagerModule['clipperStyleSheetManager']['applyStitchRuntimeStyles']
-      >
-    ) => ReturnType<StyleSheetManagerModule['clipperStyleSheetManager']['applyStitchRuntimeStyles']>
+      ...args: Parameters<StyleSheetManagerModule['clipperStyleSheetManager']['applyClipperStyles']>
+    ) => ReturnType<StyleSheetManagerModule['clipperStyleSheetManager']['applyClipperStyles']>
   >()
 );
 
@@ -94,8 +85,7 @@ vi.mock('../../src/content/i18n/context', () => ({
 vi.mock('../../src/content/clipper/shared/styleSheetManager', () => ({
   clipperStyleSheetManager: {
     initialize: initializeStylesMock,
-    applyTo: applyStylesMock,
-    applyStitchRuntimeStyles: applyStitchRuntimeStylesMock
+    applyClipperStyles: applyClipperStylesMock
   },
   supportsAdoptedStyleSheets: () => true
 }));
@@ -121,8 +111,7 @@ const createStyleAttachmentHandleMock = (): StyleAttachmentHandleMock => ({
 });
 const resetStyleAttachmentMocks = (): void => {
   styleAttachmentHandles.length = 0;
-  applyStylesMock.mockImplementation(createStyleAttachmentHandleMock);
-  applyStitchRuntimeStylesMock.mockImplementation(() => {
+  applyClipperStylesMock.mockImplementation(() => {
     const handle = createStyleAttachmentHandleMock();
     styleAttachmentHandles.push(handle);
     return handle;

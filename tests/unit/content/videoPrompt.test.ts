@@ -908,13 +908,9 @@ describe('video prompt', () => {
 
   it('replays Stitch runtime styles after async load on first prompt mount', async () => {
     const stitchDeferred = createDeferred<string>();
-    const stitchSecondaryDeferred = createDeferred<string>();
     loadExtensionStyleMock.mockImplementation((path: string) => {
-      if (path === 'options/stitch/styles/stitch.css') {
+      if (path === 'ui/stitch-runtime/styles/video.css') {
         return stitchDeferred.promise;
-      }
-      if (path === 'options/stitch/styles/variants/stitch-secondary.css') {
-        return stitchSecondaryDeferred.promise;
       }
       return Promise.resolve('');
     });
@@ -926,7 +922,6 @@ describe('video prompt', () => {
 
     const initPromise = module.initVideoPrompt();
     stitchDeferred.resolve('.stitch-ready{opacity:1;}');
-    stitchSecondaryDeferred.resolve('.stitch-secondary-ready{opacity:1;}');
     await initPromise;
     await flushMicrotasks();
     observerCallbacks.forEach((callback) => callback());
@@ -938,12 +933,9 @@ describe('video prompt', () => {
     const shadow = host?.shadowRoot ?? null;
     expect(shadow).toBeTruthy();
     expect(
-      shadow?.querySelector('style[data-aiob-style-bridge="panel-stitch-runtime"]')?.textContent
+      shadow?.querySelector('style[data-aiob-style-bridge="panel-video-style-pack"]')?.textContent
     ).toContain('.stitch-ready');
-    expect(
-      shadow?.querySelector('style[data-aiob-style-bridge="panel-stitch-secondary-runtime"]')
-        ?.textContent
-    ).toContain('.stitch-secondary-ready');
+    expect(shadow?.querySelectorAll('[data-aiob-style-bridge]')).toHaveLength(1);
   });
 
   it('invalidates late prompt work before creating style ownership', async () => {
@@ -951,7 +943,7 @@ describe('video prompt', () => {
     const disposals: boolean[] = [];
     const { panelStyleSheetManager } =
       await import('../../../src/content/shared/panels/styleSheetManager');
-    vi.spyOn(panelStyleSheetManager, 'applyStitchRuntimeStyles').mockImplementation((root) => ({
+    vi.spyOn(panelStyleSheetManager, 'applyVideoStyles').mockImplementation((root) => ({
       ready: Promise.resolve({ status: 'ready' }),
       refresh: () => Promise.resolve({ status: 'ready' }),
       dispose: vi.fn(() => disposals.push(root.host.isConnected))
@@ -984,7 +976,7 @@ describe('video prompt', () => {
     lifecycle.removePrompt();
 
     expect(getPromptFromShadowDom()).toBeNull();
-    expect(panelStyleSheetManager.applyStitchRuntimeStyles).not.toHaveBeenCalled();
+    expect(panelStyleSheetManager.applyVideoStyles).not.toHaveBeenCalled();
     expect(disposals).toEqual([]);
   });
 
@@ -992,7 +984,7 @@ describe('video prompt', () => {
     const dispose = vi.fn();
     const { panelStyleSheetManager } =
       await import('../../../src/content/shared/panels/styleSheetManager');
-    vi.spyOn(panelStyleSheetManager, 'applyStitchRuntimeStyles').mockReturnValue({
+    vi.spyOn(panelStyleSheetManager, 'applyVideoStyles').mockReturnValue({
       ready: Promise.resolve({ status: 'ready' }),
       refresh: () => Promise.resolve({ status: 'ready' }),
       dispose
@@ -1029,7 +1021,7 @@ describe('video prompt', () => {
     const dispose = vi.fn(() => expect(attached.root?.host.isConnected).toBe(true));
     const { panelStyleSheetManager } =
       await import('../../../src/content/shared/panels/styleSheetManager');
-    vi.spyOn(panelStyleSheetManager, 'applyStitchRuntimeStyles').mockImplementation((root) => {
+    vi.spyOn(panelStyleSheetManager, 'applyVideoStyles').mockImplementation((root) => {
       attached.root = root;
       return {
         ready: Promise.resolve({ status: 'ready' }),
@@ -1073,7 +1065,7 @@ describe('video prompt', () => {
     > = [];
     const { panelStyleSheetManager } =
       await import('../../../src/content/shared/panels/styleSheetManager');
-    vi.spyOn(panelStyleSheetManager, 'applyStitchRuntimeStyles').mockImplementation((root) => {
+    vi.spyOn(panelStyleSheetManager, 'applyVideoStyles').mockImplementation((root) => {
       const handle: StyleAttachmentHandle & {
         dispose: ReturnType<typeof vi.fn<StyleAttachmentHandle['dispose']>>;
       } = {

@@ -29,7 +29,7 @@
 
 ### 0.2 样式规范速览
 
-- 样式入口固定为 `src/options/stitch/styles/stitch.css` 与 `src/options/stitch/styles/variants/stitch-secondary.css` 的静态产物链路。
+- 样式入口固定为 `src/options/stitch/styles/entries/options.css` 与 `src/options/stitch/styles/variants/stitch-secondary.css` 的静态产物链路。
 - `src/options/styles/*` legacy 样式链路已退出正式构建；真实 token 真值源只有 `src/styles/design-tokens.css`。
 - `.aobx-*` 采用 BEM 语义，优先复用 Token/Utility，例如 `.aobx-card`、`.aobx-alert` 等。
 - 禁止新增 `.aob-*` 或内联颜色；Dark/Light 模式需同步维护。
@@ -41,7 +41,7 @@
 
 ```bash
 npm run lint                 # Typescript + ESLint/Stylelint 基线
-npm run lint:options-css     # 限定 Options CSS 的 Stylelint
+node scripts/run-bounded-command.mjs --profile stylelint-v1 -- "src/options/**/*.css" "src/onboarding/**/*.css" "src/ui/**/*.css"     # 限定 Options CSS 的 Stylelint
 npm run report:options-legacy # 确保无 `.aob-*` 遗留
 npm run test:unit            # Stitch shell / controller 的最小回归
 npm run verify:stitch-secondary # Stitch Secondary 主链回归
@@ -88,11 +88,11 @@ DOM-heavy 场景如需直接拿到按钮元素，统一使用 `src/ui/primitives
 
 - 懒加载/自动保存/I18n 等运行时问题详见 §6《常见问题》。
 - 暗色模式不生效：检查是否复用 Token、Utility，并参考 `docs/options-style-validation-guide.md`。
-- Stitch 样式异常：先确认 `src/options/stitch/styles/stitch.css` 与 `variants/stitch-secondary.css` 是否覆盖当前 surface，再检查构建产物中的静态 CSS 路径。
+- Stitch 样式异常：先确认 `src/options/stitch/styles/entries/options.css` 与 `variants/stitch-secondary.css` 是否覆盖当前 surface，再检查构建产物中的静态 CSS 路径。
 
 ### 0.6 任务前置指南
 
-- 在执行 Options/Stitch runtime 样式任务前，优先确认 `src/options/stitch/styles/stitch.css` 与 `variants/stitch-secondary.css` 是否已经覆盖对应 runtime surface；不要恢复 Options、Clipper 或 Video 的 Tailwind bridge。
+- 在执行 Options/Stitch runtime 样式任务前，优先确认 `src/options/stitch/styles/entries/options.css` 与 `variants/stitch-secondary.css` 是否已经覆盖对应 runtime surface；不要恢复 Options、Clipper 或 Video 的 Tailwind bridge。
 - 旧 Tailwind 迁移材料只保留在归档文档中用于追溯，不再作为新开发指南或验收依据。
 
 ---
@@ -181,18 +181,18 @@ src/options/
 
 ## 4. 样式与命名约束（2025-11 更新）
 
-- **唯一样式入口**：Options 页主要依赖 `src/options/stitch/styles/stitch.css` 与 `src/options/stitch/styles/variants/stitch-secondary.css` 的构建产物；`src/options/styles/*` legacy 样式链路已删除。
+- **唯一样式入口**：Options 页主要依赖 `src/options/stitch/styles/entries/options.css` 与 `src/options/stitch/styles/variants/stitch-secondary.css` 的构建产物；`src/options/styles/*` legacy 样式链路已删除。
 - **命名统一**：所有 DOM、控件、弹窗必须使用 `.aobx-*` 前缀（如 `.aobx-section__header`、`.aobx-btn`、`.aobx-input`、`.aobx-modal`）。新增功能严禁引入 `.aob-*` 类名。
 - **CSS 编写准则**：
-  - 正式 Options 与 content runtime 样式优先落在 Stitch schema / renderer / `stitch/styles/stitch.css`。
+  - 正式 Options 与 content runtime 样式优先落在 Stitch schema / renderer / `stitch/styles/entries/options.css`。
   - 不再新增或恢复模块级 legacy CSS；结构与视觉规则应优先落在 Stitch runtime CSS 或 token 链路。
   - 组件级样式优先靠 Token/Utility（如 `--aobx-space-*`、`.aobx-button-row`），避免复制粘贴局部颜色/间距。
   - SVG icon 主题化必须显式绑定 document 与 runtime surface 的暗色主题宿主；不要为了修暗色图标可读性而在基础选择器中写无条件 `filter: invert()`。
   - 如需实验性样式，请放在局部容器，并在 PR 描述中说明范围与回滚方式。
 - **开发流程建议**：
   1. 修改 DOM → 使用统一 helper 输出 `.aobx-*` 类。
-  2. 在 Stitch schema / renderer / `stitch/styles/stitch.css` 中补齐对应规则。
-  3. 执行 `npm run report:options-legacy && npm run lint:options-css`，确认没有 `.aob-*` 残留且命名符合 `.aobx-*` 规范；如命令输出命中需立刻处理。
+  2. 在 Stitch schema / renderer / `stitch/styles/entries/options.css` 中补齐对应规则。
+  3. 执行 `npm run report:options-legacy && node scripts/run-bounded-command.mjs --profile stylelint-v1 -- "src/options/**/*.css" "src/onboarding/**/*.css" "src/ui/**/*.css"`，确认没有 `.aob-*` 残留且命名符合 `.aobx-*` 规范；如命令输出命中需立刻处理。
   4. 运行 `npm run test:unit` 或必要的 UI 回归（可配合 `npm run build:dev` + `chrome://extensions` 刷新）。
   5. 若需要对照 Legacy → `.aobx-*` 的映射，可参见 `docs/options-css-naming-map.md`。
 - **通用 Utility/组件清单**（与 §0.4 对应）：
@@ -207,7 +207,7 @@ src/options/
 - **验证命令示例**：
   ```bash
   npm run report:options-legacy   # 需返回 “No legacy .aob-* classes detected”
-  npm run lint:options-css        # 限定在 Options CSS 的 Stylelint 校验
+  node scripts/run-bounded-command.mjs --profile stylelint-v1 -- "src/options/**/*.css" "src/onboarding/**/*.css" "src/ui/**/*.css"        # 限定在 Options CSS 的 Stylelint 校验
   npm run test:unit               # 基本回归
   rg -n "aob-" src/options        # 手动确认未引入旧命名
   ```
@@ -242,7 +242,7 @@ src/options/
 ## 7. 维护流程与历史参考
 
 - **文档更新责任**：凡是改动 Options DOM、样式、运行时或命令的 PR，作者必须同步更新本 README / 相关指南，并在 PR 模板勾选“文档已更新或无需更新”条目。
-- **校验流程**：在提交 PR 前务必运行 `npm run lint`、`npm run lint:options-css`、`npm run report:options-legacy`；必要时附上 `npm run test:unit` 结果截图或日志。
+- **校验流程**：在提交 PR 前务必运行 `npm run lint`、`node scripts/run-bounded-command.mjs --profile stylelint-v1 -- "src/options/**/*.css" "src/onboarding/**/*.css" "src/ui/**/*.css"`、`npm run report:options-legacy`；必要时附上 `npm run test:unit` 结果截图或日志。
 - **定期复查**：Options 模块维护人（默认由当期版本负责人承担）需在每季度迭代结束后检查 README 是否覆盖最新规范，并同步核对 `docs/README.md` 与 `docs/engineering-entrypoints.md`。
 - **历史资料**：有关 Batch1/Batch2/Legacy Removal 的阶段总结均已迁移至 `trash/options-css/`，若需追溯决策过程，请参阅 `docs/options-css-full-cleanup-guide.md` 与相关归档文档。
 - **沟通渠道**：若发现 README 与实际实现不一致，请在 Issue/看板中 @Options 维护人，并把修复纳入后续文档刷新日志。

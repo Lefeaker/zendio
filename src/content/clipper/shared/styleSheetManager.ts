@@ -7,19 +7,15 @@ import {
   type StyleAttachmentHandle
 } from '@ui/foundation/style-host';
 
-const STITCH_RUNTIME_KEY = 'clipper-stitch-runtime';
-const STITCH_SECONDARY_RUNTIME_KEY = 'clipper-stitch-secondary-runtime';
+const CLIPPER_STYLE_KEY = 'clipper-style-pack';
 
 class ClipperStyleSheetManager {
   private static instance: ClipperStyleSheetManager | null = null;
   private readonly styleHost = new ManagedShadowStyleHost();
-  private initialized = false;
   private assetGeneration = 0;
-  private stitchSheet: CSSStyleSheet | null = null;
-  private stitchSecondarySheet: CSSStyleSheet | null = null;
-  private stitchStyles: string | null = null;
-  private stitchSecondaryStyles: string | null = null;
-  private pendingLoad: Promise<boolean> | null = null;
+  private cssText: string | null = null;
+  private sheet: CSSStyleSheet | null = null;
+  private pendingLoad: Promise<readonly ManagedStyleEntry[]> | null = null;
 
   static getInstance(): ClipperStyleSheetManager {
     if (!ClipperStyleSheetManager.instance) {
@@ -29,122 +25,48 @@ class ClipperStyleSheetManager {
   }
 
   async initialize(): Promise<void> {
-    if (this.initialized) {
-      return;
-    }
-    const generation = this.assetGeneration;
-    await this.loadStitchStyles();
-    if (generation === this.assetGeneration) {
-      this.initialized = true;
-    }
+    await this.getEntries();
   }
 
-  getSheets(): CSSStyleSheet[] {
-    if (!this.initialized) {
-      throw new Error('[ClipperStyleSheetManager] initialize() must be called first');
-    }
-    return [this.stitchSheet, this.stitchSecondarySheet].filter((sheet): sheet is CSSStyleSheet =>
-      Boolean(sheet)
-    );
-  }
-
-  applyTo(root: ShadowRoot): StyleAttachmentHandle {
-    return this.applyStitchRuntimeStyles(root);
-  }
-
-  applyStitchRuntimeStyles(root: ShadowRoot): StyleAttachmentHandle {
-    if (!this.initialized) {
-      void this.initialize();
-    }
-    const loaded = this.stitchStyles !== null && this.stitchSecondaryStyles !== null;
-    return this.styleHost.attach(
-      root,
-      loaded ? this.getLoadedEntries() : () => this.getStitchEntries()
-    );
+  applyClipperStyles(root: ShadowRoot): StyleAttachmentHandle {
+    return this.styleHost.attach(root, () => this.getEntries());
   }
 
   destroy(): void {
     this.styleHost.destroy();
     this.assetGeneration += 1;
-    this.stitchSheet = null;
-    this.stitchSecondarySheet = null;
-    this.stitchStyles = null;
-    this.stitchSecondaryStyles = null;
+    this.cssText = null;
+    this.sheet = null;
     this.pendingLoad = null;
-    this.initialized = false;
   }
 
   getRegistrationCount(): number {
     return this.styleHost.getRegistrationCount();
   }
 
-  private async getStitchEntries(): Promise<readonly ManagedStyleEntry[]> {
-    if (!(await this.loadStitchStyles())) {
-      throw new Error('Clipper style assets are unavailable');
-    }
-    return this.getLoadedEntries();
-  }
-
-  private getLoadedEntries(): readonly ManagedStyleEntry[] {
-    return [
-      {
-        key: STITCH_RUNTIME_KEY,
-        cssText: this.stitchStyles ?? '',
-        sheet: this.stitchSheet
-      },
-      {
-        key: STITCH_SECONDARY_RUNTIME_KEY,
-        cssText: this.stitchSecondaryStyles ?? '',
-        sheet: this.stitchSecondarySheet
-      }
-    ];
-  }
-
-  private loadStitchStyles(): Promise<boolean> {
-    if (this.stitchStyles !== null && this.stitchSecondaryStyles !== null) {
-      return Promise.resolve(true);
-    }
-    if (this.pendingLoad) {
-      return this.pendingLoad;
-    }
+  private getEntries(): Promise<readonly ManagedStyleEntry[]> {
+    if (this.cssText !== null) return Promise.resolve(this.loadedEntries());
+    if (this.pendingLoad) return this.pendingLoad;
 
     const generation = this.assetGeneration;
-    const pending = Promise.all([
-      loadExtensionStyle('options/stitch/styles/stitch.css'),
-      loadExtensionStyle('options/stitch/styles/variants/stitch-secondary.css')
-    ])
-      .then(([stitchStyles, stitchSecondaryStyles]) => {
+    const pending = loadExtensionStyle('ui/stitch-runtime/styles/clipper.css')
+      .then((cssText) => {
         if (generation !== this.assetGeneration) {
-          return false;
+          throw new Error('Clipper style load was superseded');
         }
-        this.stitchStyles = stitchStyles;
-        this.stitchSecondaryStyles = stitchSecondaryStyles;
-        if (supportsAdoptedStyleSheets()) {
-          this.stitchSheet = createManagedStyleSheet(stitchStyles);
-          this.stitchSecondarySheet = createManagedStyleSheet(stitchSecondaryStyles);
-        } else {
-          this.stitchSheet = null;
-          this.stitchSecondarySheet = null;
-        }
-        return true;
-      })
-      .catch((error) => {
-        if (generation === this.assetGeneration) {
-          console.warn('[ClipperStyleSheetManager] Failed to load styles:', error);
-          this.stitchSheet = null;
-          this.stitchSecondarySheet = null;
-          this.stitchStyles = null;
-          this.stitchSecondaryStyles = null;
-        }
-        return false;
+        this.cssText = cssText;
+        this.sheet = supportsAdoptedStyleSheets() ? createManagedStyleSheet(cssText) : null;
+        return this.loadedEntries();
       })
       .finally(() => {
-        if (this.pendingLoad === pending) {
-          this.pendingLoad = null;
-        }
+        if (this.pendingLoad === pending) this.pendingLoad = null;
       });
     this.pendingLoad = pending;
     return pending;
+  }
+
+  private loadedEntries(): readonly ManagedStyleEntry[] {
+    return [{ key: CLIPPER_STYLE_KEY, cssText: this.cssText ?? '', sheet: this.sheet }];
   }
 }
 

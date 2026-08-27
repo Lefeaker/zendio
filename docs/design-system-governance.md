@@ -111,7 +111,9 @@ onboarding。Tailwind / DaisyUI 相关文档、注释或历史记录只用于迁
 
 ### 正式样式入口
 
-- Options：`src/options/stitch/styles/stitch.css` 与 `src/options/stitch/styles/variants/stitch-secondary.css`
+- Options/onboarding：`src/options/stitch/styles/entries/{options,onboarding}.css`
+- Content runtime：`src/ui/stitch-runtime/styles/entries/{clipper,reader,video,prompt-task}.css`
+- 构建产物固定为 `build/dist/ui/stitch-runtime/styles/*.css` 六包，必须 flattened 且 content idle 不预载
 - content runtime：同一 Stitch 样式经 `src/ui/foundation/style-host/index.ts` 注入
 - onboarding：同一 Stitch 样式链
 - reader highlight themes：`src/styles/clipper/highlight-themes.css`

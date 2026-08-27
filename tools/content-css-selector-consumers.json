@@ -1,0 +1,96 @@
+{
+  "schemaVersion": "zendio-content-css-consumers-v1",
+  "entries": ["options", "onboarding", "clipper", "reader", "video", "prompt-task"],
+  "sourceInputs": [
+    {
+      "path": "src/options/stitch/styles/runtime/onboarding.css",
+      "preimageSha256": "80edb3a82559d5c8d17d67a42713fcead8178a691d3c9506b584266654ec944f",
+      "entries": ["onboarding"]
+    },
+    {
+      "path": "src/options/stitch/styles/runtime/app-shell.css",
+      "preimageSha256": "9d52b5d05ca38fa6bd8a53c29de30955c743960ee3bb67ca58db5cabad0e570c",
+      "entries": ["options"]
+    },
+    {
+      "path": "src/options/stitch/styles/runtime/option-cards.css",
+      "preimageSha256": "fb99d05defe6c43e965c826e9e7e59f8a21d6f3c03f40b34f920a3b964139f8e",
+      "entries": ["options"]
+    },
+    {
+      "path": "src/options/stitch/styles/runtime/option-controls.css",
+      "preimageSha256": "6ce509555256ca5d742df4ddb4f26f615e424e61e797c300f2fd9891ef07b9ea",
+      "entries": ["options", "onboarding"]
+    },
+    {
+      "path": "src/options/stitch/styles/runtime/option-forms.css",
+      "preimageSha256": "eafd78d8ff80654f9c084fe49ad084f97120ac5cd203e98f3280dd65d6b89484",
+      "entries": ["options"]
+    },
+    {
+      "path": "src/options/stitch/styles/runtime/option-data.css",
+      "preimageSha256": "55c15cdd429000b0e1b580bc2b06f2f946a1844b5714d984b3ca147d9c841315",
+      "entries": ["options"]
+    },
+    {
+      "path": "src/options/stitch/styles/runtime/yaml-config.css",
+      "preimageSha256": "6fff95e8d62f95ee9e89654d92353d7d3ab550f6f8ba850ef9a03399952db858",
+      "entries": ["options"]
+    },
+    {
+      "path": "src/options/stitch/styles/runtime/responsive.css",
+      "preimageSha256": "35ea8c549c74013992285ee3cba69429deaa5c056060654bdcc15917c478189f",
+      "entries": ["options"]
+    },
+    {
+      "path": "src/options/stitch/styles/runtime/theme-tokens.css",
+      "preimageSha256": "190cca1cf8178da392956a06d200a5122ccd4bec30625bee973ce19096c3f423",
+      "entries": ["options", "onboarding", "clipper", "reader", "video", "prompt-task"]
+    },
+    {
+      "path": "src/options/stitch/styles/runtime/base.css",
+      "preimageSha256": "0f7a7f744f1e5dfbbdd188b5889ae8662b837fce4b46b7e8ab0e4c8af49f792b",
+      "entries": ["options", "onboarding", "clipper", "reader", "video", "prompt-task"]
+    },
+    {
+      "path": "src/options/stitch/styles/runtime/surface-windows.css",
+      "preimageSha256": "03114edb5130c7b5040faf6fe2e21a3452599326fd98babedbf7e339e1087a4c",
+      "entries": ["options", "clipper", "reader", "video", "prompt-task"]
+    },
+    {
+      "path": "src/options/stitch/styles/runtime/clipper-surfaces.css",
+      "preimageSha256": "273a6bcb957d5100509a92253cb94f222c71043725ceded2c2070abe461f27b7",
+      "entries": ["options", "clipper"]
+    },
+    {
+      "path": "src/options/stitch/styles/runtime/surface-status.css",
+      "preimageSha256": "a40a647da96a7f40b668a61ce73bef6c4f3fadd523b32e6659b3ac60f755e64f",
+      "entries": ["options", "clipper", "reader", "video", "prompt-task"]
+    },
+    {
+      "path": "src/options/stitch/styles/runtime/session-panel.css",
+      "preimageSha256": "313b801d08115e0526877fe0916442417af3061c146d81f882e5111e1c86c271",
+      "entries": ["options", "reader", "video"]
+    },
+    {
+      "path": "src/options/stitch/styles/runtime/session-items.css",
+      "preimageSha256": "af0a19a5ae81416f31f4d4f7647ab02b79b3e428ab1be6d7b0fdc88791fe1705",
+      "entries": ["options", "reader", "video"]
+    },
+    {
+      "path": "src/options/stitch/styles/runtime/runtime-list.css",
+      "preimageSha256": "a7aa7e1819567df8e4369ac675dc52d07104f6adf8db188151f06583439945ff",
+      "entries": ["options", "reader", "video"]
+    },
+    {
+      "path": "src/options/stitch/styles/runtime/task-success.css",
+      "preimageSha256": "26b7d58c5226c1cd811d42ea60ae67d541539df7f280caa1f903b0bffbd1fb15",
+      "entries": ["options", "prompt-task"]
+    },
+    {
+      "path": "src/options/stitch/styles/runtime/toasts.css",
+      "preimageSha256": "12726804094fd9597cbb62f0f3c878b66c468a6095ce925428b1a4310798fa64",
+      "entries": ["video", "prompt-task"]
+    }
+  ]
+}
