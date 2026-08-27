@@ -63,7 +63,9 @@ export function bindReaderDialogPanelEvents(
 ): () => void {
   const dispatcher = createRootActionDispatcher(handle.root);
   const disposers = [
-    dispatcher.register(handle.root, 'click', () => handlers.cancel()),
+    dispatcher.register(handle.root, 'click', (event) => {
+      if (!isInsideDialog(event, handle.dialog)) handlers.cancel();
+    }),
     dispatcher.register(handle.sessionWindow, 'click', (event) => {
       const target = event.target instanceof Element ? event.target : null;
       if (handlers.isCollapsed()) {
@@ -103,6 +105,12 @@ export function bindReaderDialogPanelEvents(
     disposers.forEach((dispose) => dispose());
     dispatcher.dispose();
   };
+}
+
+function isInsideDialog(event: Event, dialog: HTMLElement): boolean {
+  const path = typeof event.composedPath === 'function' ? event.composedPath() : [];
+  if (path.length > 0) return path.includes(dialog);
+  return event.target instanceof Node && dialog.contains(event.target);
 }
 
 function routeAction(target: HTMLElement, handlers: ReaderDialogPanelEventHandlers): void {

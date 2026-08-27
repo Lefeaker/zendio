@@ -495,6 +495,44 @@ describe('ReaderDialogPanel', () => {
     panel.destroy();
   });
 
+  it('cancels only for the true outside-dialog overlay', () => {
+    const callbacks = createReaderPanelCallbacks();
+    const panel = new ReaderDialogPanel({
+      texts: createReaderPanelTexts(),
+      callbacks
+    });
+    panel.show();
+    const shadow = panel.element.shadowRoot;
+    const insideSelectors = [
+      '.resource-modal-header',
+      '.resource-modal-body',
+      '.session-panel-rail',
+      '.session-panel-resize-handle',
+      '.session-panel-height-resize-handle',
+      '.reader-surface-window'
+    ];
+
+    insideSelectors.forEach((selector) => {
+      const element = shadow?.querySelector<HTMLElement>(selector);
+      if (!element) throw new Error(`reader dialog target missing: ${selector}`);
+      element.dispatchEvent(new MouseEvent('click', { bubbles: true, composed: true }));
+    });
+
+    expect(callbacks.onCancel).not.toHaveBeenCalled();
+
+    shadow
+      ?.querySelector<HTMLButtonElement>('[data-action-id="reader:cancel"]')
+      ?.dispatchEvent(new MouseEvent('click', { bubbles: true, composed: true }));
+    expect(callbacks.onCancel).toHaveBeenCalledTimes(1);
+
+    shadow
+      ?.querySelector<HTMLElement>('.resource-modal-overlay')
+      ?.dispatchEvent(new MouseEvent('click', { bubbles: true, composed: true }));
+    expect(callbacks.onCancel).toHaveBeenCalledTimes(2);
+
+    panel.destroy();
+  });
+
   it('restores and persists the reader floating panel collapsed state', async () => {
     await testPlatformHarness.storage.local.set('aiob.sessionPanel.collapsed', true);
     const panel = new ReaderDialogPanel({
@@ -603,8 +641,11 @@ describe('ReaderDialogPanel', () => {
     const first = shadow?.querySelector('[data-highlight-id="h-1"]');
     const last = shadow?.querySelector('[data-highlight-id="h-20"]');
     const status = shadow?.querySelector('[data-session-status]');
+    const preview = first?.querySelector<HTMLElement>('.session-item-primary-line');
+    preview?.click();
 
     for (let index = 0; index < 100; index += 1) panel.updateHint(`Status ${index}`);
+    panel.updateCount(21);
     panel.setHighlights(
       highlights.map((item) => (item.id === 'h-10' ? { ...item, excerpt: 'Changed' } : item))
     );
@@ -616,6 +657,11 @@ describe('ReaderDialogPanel', () => {
     expect(shadow?.querySelector('[data-session-status]')).toBe(status);
     expect(status?.getAttribute('role')).toBe('status');
     expect(status?.getAttribute('aria-live')).toBe('polite');
+    expect(first?.querySelector('.session-item-primary-line')).toBe(preview);
+    expect(preview?.classList.contains('is-expanded')).toBe(true);
+    expect(preview?.getAttribute('role')).toBe('button');
+    expect(preview?.getAttribute('tabindex')).toBe('0');
+    expect(preview?.getAttribute('aria-expanded')).toBe('true');
     panel.destroy();
   });
 });

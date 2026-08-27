@@ -1024,7 +1024,12 @@ describe('VideoDialogPanel', () => {
   });
 
   it('keeps cancel and capture editor focus behavior stable', async () => {
-    const panel = new VideoDialogPanel({ callbacks, texts });
+    const onCancel = vi.fn();
+    const onCaptureEditorCancel = vi.fn();
+    const panel = new VideoDialogPanel({
+      callbacks: { ...callbacks, onCancel, onCaptureEditorCancel },
+      texts
+    });
     const capture = createCapture({ comment: 'draft', commentPreview: 'draft' });
     panel.show();
     panel.setCaptures([capture]);
@@ -1039,7 +1044,51 @@ describe('VideoDialogPanel', () => {
     panel.element.shadowRoot
       ?.querySelector<HTMLButtonElement>('[data-action-id="video:cancel"]')
       ?.click();
-    expect(callbacks.onCancel).toHaveBeenCalledTimes(1);
+    expect(onCaptureEditorCancel).toHaveBeenCalledWith(capture.id);
+    expect(onCancel).toHaveBeenCalledTimes(1);
+
+    panel.destroy();
+  });
+
+  it('cancels only for the true outside-dialog overlay and keeps editor cancellation ordering', async () => {
+    const onCancel = vi.fn();
+    const onCaptureEditorCancel = vi.fn();
+    const panel = new VideoDialogPanel({
+      callbacks: { ...callbacks, onCancel, onCaptureEditorCancel },
+      texts
+    });
+    panel.show();
+    panel.setCaptures([createCapture({ id: 'capture-1' })]);
+    panel.beginEditingCapture('capture-1', 'draft');
+    await Promise.resolve();
+    const shadow = panel.element.shadowRoot;
+    const insideSelectors = [
+      '.resource-modal-header',
+      '.resource-modal-body',
+      '.session-panel-rail',
+      '.session-panel-resize-handle',
+      '.session-panel-height-resize-handle',
+      '.video-surface-window'
+    ];
+
+    insideSelectors.forEach((selector) => {
+      const element = shadow?.querySelector<HTMLElement>(selector);
+      if (!element) throw new Error(`video dialog target missing: ${selector}`);
+      element.dispatchEvent(new MouseEvent('click', { bubbles: true, composed: true }));
+    });
+
+    expect(onCaptureEditorCancel).not.toHaveBeenCalled();
+    expect(onCancel).not.toHaveBeenCalled();
+
+    shadow
+      ?.querySelector<HTMLElement>('.resource-modal-overlay')
+      ?.dispatchEvent(new MouseEvent('click', { bubbles: true, composed: true }));
+
+    expect(onCaptureEditorCancel).toHaveBeenCalledWith('capture-1');
+    expect(onCancel).toHaveBeenCalledTimes(1);
+    expect(onCaptureEditorCancel.mock.invocationCallOrder[0]).toBeLessThan(
+      onCancel.mock.invocationCallOrder[0] ?? 0
+    );
 
     panel.destroy();
   });
@@ -1196,6 +1245,40 @@ describe('VideoDialogPanel', () => {
     expect(
       shadow?.querySelector('[data-capture-id="frag-1"] .session-item-marker-time')
     ).toBeNull();
+
+    panel.destroy();
+  });
+
+  it('retains expanded fragment preview state across unrelated incremental updates', () => {
+    const panel = new VideoDialogPanel({ callbacks, texts });
+    const timestamp = createCapture({ id: 'ts-1', kind: 'timestamp', timeLabel: '00:42' });
+    const fragment = createCapture({
+      id: 'frag-1',
+      index: 1,
+      kind: 'fragment',
+      fragmentLabel: 'Captured page text',
+      selectionPreview: 'Captured page text'
+    });
+    panel.setCaptures([timestamp, fragment]);
+    const shadow = panel.element.shadowRoot;
+    const item = shadow?.querySelector<HTMLElement>('[data-capture-id="frag-1"]');
+    const preview = item?.querySelector<HTMLElement>('.session-item-primary-line');
+    preview?.click();
+
+    panel.updateHint('Saving');
+    panel.updateCount(3);
+    panel.setCaptures([
+      { ...timestamp, screenshotState: 'on' },
+      { ...fragment, selectionPreview: 'Updated captured page text' }
+    ]);
+
+    expect(shadow?.querySelector('[data-capture-id="frag-1"]')).toBe(item);
+    expect(item?.querySelector('.session-item-primary-line')).toBe(preview);
+    expect(preview?.textContent).toBe('Updated captured page text');
+    expect(preview?.classList.contains('is-expanded')).toBe(true);
+    expect(preview?.getAttribute('role')).toBe('button');
+    expect(preview?.getAttribute('tabindex')).toBe('0');
+    expect(preview?.getAttribute('aria-expanded')).toBe('true');
 
     panel.destroy();
   });

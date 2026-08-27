@@ -77,7 +77,9 @@ export function createKeyedSessionList<T>(
 }
 
 export function patchSessionElement(current: HTMLElement, next: HTMLElement): void {
+  const previewState = capturePreviewInteractionState(current, next);
   syncAttributes(current, next);
+  restorePreviewInteractionState(current, previewState);
   const currentChildren = Array.from(current.childNodes);
   const nextChildren = Array.from(next.childNodes);
   const length = Math.max(currentChildren.length, nextChildren.length);
@@ -114,6 +116,50 @@ export function patchSessionElement(current: HTMLElement, next: HTMLElement): vo
     if (!focused && current.value !== next.value) current.value = next.value;
     current.defaultValue = next.defaultValue;
   }
+}
+
+interface PreviewInteractionState {
+  expanded: boolean;
+  role: string | null;
+  tabIndex: string | null;
+  ariaExpanded: string | null;
+}
+
+function capturePreviewInteractionState(
+  element: HTMLElement,
+  next: HTMLElement
+): PreviewInteractionState | null {
+  if (
+    !element.matches('.session-item-primary-line') ||
+    !next.matches('.session-item-primary-line') ||
+    !element.hasAttribute('role') ||
+    !element.hasAttribute('tabindex') ||
+    !element.hasAttribute('aria-expanded')
+  ) {
+    return null;
+  }
+  return {
+    expanded: element.classList.contains('is-expanded'),
+    role: element.getAttribute('role'),
+    tabIndex: element.getAttribute('tabindex'),
+    ariaExpanded: element.getAttribute('aria-expanded')
+  };
+}
+
+function restorePreviewInteractionState(
+  element: HTMLElement,
+  state: PreviewInteractionState | null
+): void {
+  if (!state) return;
+  element.classList.toggle('is-expanded', state.expanded);
+  restoreAttribute(element, 'role', state.role);
+  restoreAttribute(element, 'tabindex', state.tabIndex);
+  restoreAttribute(element, 'aria-expanded', state.ariaExpanded);
+}
+
+function restoreAttribute(element: HTMLElement, name: string, value: string | null): void {
+  if (value === null) element.removeAttribute(name);
+  else element.setAttribute(name, value);
 }
 
 function validateKeys<T>(items: readonly T[], keyOf: (item: T) => string): string[] {

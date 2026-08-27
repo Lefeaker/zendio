@@ -86,7 +86,9 @@ export function bindVideoDialogPanelEvents(
 ): () => void {
   const dispatcher = createRootActionDispatcher(handle.root);
   const disposers = [
-    dispatcher.register(handle.root, 'click', () => handlers.cancel()),
+    dispatcher.register(handle.root, 'click', (event) => {
+      if (!isInsideDialog(event, handle.dialog)) handlers.cancel();
+    }),
     dispatcher.register(handle.sessionWindow, 'mousedown', (event) => {
       if (handlers.isCollapsed()) event.preventDefault();
     }),
@@ -134,6 +136,12 @@ export function bindVideoDialogPanelEvents(
     disposers.forEach((dispose) => dispose());
     dispatcher.dispose();
   };
+}
+
+function isInsideDialog(event: Event, dialog: HTMLElement): boolean {
+  const path = typeof event.composedPath === 'function' ? event.composedPath() : [];
+  if (path.length > 0) return path.includes(dialog);
+  return event.target instanceof Node && dialog.contains(event.target);
 }
 
 function routeAction(target: HTMLElement, handlers: VideoDialogPanelEventHandlers): void {
