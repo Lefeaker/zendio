@@ -26,6 +26,7 @@ export interface VideoPlatformContextMocks {
     (...args: [ScopedMutationObserver, Node, MutationObserverInit]) => void
   >;
   registerShadowSelectionBridge: Mock<(...args: [ShadowRoot]) => void>;
+  unregisterShadowSelectionBridge: Mock<(...args: [ShadowRoot]) => void>;
   ensureHighlightStyles: Mock<(...args: [ShadowRoot]) => void>;
 }
 
@@ -94,6 +95,7 @@ export function createContext(doc: Document): VideoPlatformContextWithMocks {
       observer.observe(target, options)
     ),
     registerShadowSelectionBridge: vi.fn<(...args: [ShadowRoot]) => void>(),
+    unregisterShadowSelectionBridge: vi.fn<(...args: [ShadowRoot]) => void>(),
     ensureHighlightStyles: vi.fn<(...args: [ShadowRoot]) => void>()
   };
 

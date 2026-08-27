@@ -44,6 +44,7 @@ function createController() {
     createScopedMutationObserver: vi.fn(() => null),
     observeWithFragmentObserver: vi.fn(),
     registerShadowSelectionBridge: vi.fn(),
+    unregisterShadowSelectionBridge: vi.fn(),
     ensureHighlightStyles: vi.fn()
   }));
 

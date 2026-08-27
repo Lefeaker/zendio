@@ -143,23 +143,23 @@ export class ShadowSelectionBridge {
     });
   }
 
+  unregister(root: ShadowRoot): void {
+    const listeners = this.registeredRoots.get(root);
+    if (!listeners) return;
+    const view = root.ownerDocument.defaultView ?? window;
+    for (const timerId of this.scheduledTimeouts.get(root) ?? []) view.clearTimeout(timerId);
+    this.scheduledTimeouts.delete(root);
+    root.removeEventListener('selectionchange', listeners.syncSelection, true);
+    root.removeEventListener('mousedown', listeners.handleMouseDown, true);
+    root.removeEventListener('mouseup', listeners.scheduleSync, true);
+    root.removeEventListener('touchend', listeners.scheduleSync, true);
+    root.removeEventListener('keyup', listeners.scheduleSync, true);
+    this.registeredRoots.delete(root);
+    this.pointerStarts.delete(root);
+  }
+
   reset(): void {
-    for (const [root, listeners] of this.registeredRoots) {
-      const view = root.ownerDocument.defaultView ?? window;
-      const rootTimeouts = this.scheduledTimeouts.get(root);
-      if (rootTimeouts) {
-        for (const timerId of rootTimeouts) {
-          view.clearTimeout(timerId);
-        }
-      }
-      root.removeEventListener('selectionchange', listeners.syncSelection, true);
-      root.removeEventListener('mousedown', listeners.handleMouseDown, true);
-      root.removeEventListener('mouseup', listeners.scheduleSync, true);
-      root.removeEventListener('touchend', listeners.scheduleSync, true);
-      root.removeEventListener('keyup', listeners.scheduleSync, true);
-    }
-    this.registeredRoots.clear();
-    this.scheduledTimeouts.clear();
+    for (const root of [...this.registeredRoots.keys()]) this.unregister(root);
     this.pointerStarts = new WeakMap();
     this.activatedEvents = new WeakSet();
   }

@@ -85,7 +85,7 @@ describe('FragmentHighlightCoordinator', () => {
     expect(hub.subscribe).not.toHaveBeenCalled();
   });
 
-  it('subscribes once, rejects danmaku before coalescing, and restores relevant changes', () => {
+  it('subscribes once, rejects unrelated churn, and routes relevant changes through the scheduler', async () => {
     const capture = createFragmentCapture({ id: 'frag-1', wrapperId: 'missing-wrapper' });
     const hub = createHubHarness();
     const ensureCaptureHighlight = vi.fn();
@@ -100,16 +100,32 @@ describe('FragmentHighlightCoordinator', () => {
     });
     const danmaku = document.createElement('div');
     danmaku.className = 'bpx-player-render-dm-wrap';
+    document.body.append(danmaku);
+    const unrelated = document.createElement('article');
+    unrelated.textContent = 'Unrelated content';
+    document.body.append(unrelated);
+    const removedText = document.createTextNode('Detached text');
 
     coordinator.ensureStartedForFragments();
     coordinator.ensureStartedForFragments();
     hub.emit([mutationRecord({ type: 'childList', addedNodes: asNodeList([danmaku]) })]);
-    expect(ensureCaptureHighlight).not.toHaveBeenCalled();
-
+    hub.emit([mutationRecord({ type: 'childList', addedNodes: asNodeList([unrelated]) })]);
     hub.emit([
       mutationRecord({
         type: 'childList',
-        addedNodes: asNodeList([document.createElement('article')])
+        removedNodes: asNodeList([removedText]),
+        target: document.body
+      })
+    ]);
+    expect(ensureCaptureHighlight).not.toHaveBeenCalled();
+
+    const relevant = document.createElement('article');
+    relevant.textContent = 'Selected text';
+    document.body.append(relevant);
+    hub.emit([
+      mutationRecord({
+        type: 'childList',
+        addedNodes: asNodeList([relevant])
       })
     ]);
 
@@ -117,12 +133,14 @@ describe('FragmentHighlightCoordinator', () => {
     expect(hub.readOptions()).toMatchObject({
       subscriberId: 'video-fragment-highlights',
       coalescingKey: 'restore',
-      delayMs: 120
+      delayMs: 0
     });
+    expect(ensureCaptureHighlight).not.toHaveBeenCalled();
+    await vi.advanceTimersByTimeAsync(120);
     expect(ensureCaptureHighlight).toHaveBeenCalledWith(capture);
   });
 
-  it('decorates existing connected highlight wrappers during restore', () => {
+  it('decorates existing connected highlight wrappers during restore', async () => {
     const wrapper = document.createElement('mark');
     document.body.append(wrapper);
     const capture = createFragmentCapture({ id: 'frag-existing', wrapperId: 'wrapper-existing' });
@@ -139,12 +157,16 @@ describe('FragmentHighlightCoordinator', () => {
     });
 
     coordinator.start();
+    const relevant = document.createElement('article');
+    relevant.textContent = 'Selected text';
+    document.body.append(relevant);
     hub.emit([
       mutationRecord({
         type: 'childList',
-        addedNodes: asNodeList([document.createElement('article')])
+        addedNodes: asNodeList([relevant])
       })
     ]);
+    await vi.advanceTimersByTimeAsync(120);
 
     expect(highlighter.decorateElement).toHaveBeenCalledWith(wrapper);
   });
@@ -170,7 +192,7 @@ describe('FragmentHighlightCoordinator', () => {
     expect(hub.dispose).toHaveBeenCalledTimes(1);
   });
 
-  it('disposes the fragment subscriber when captures disappear before delivery', () => {
+  it('disposes the fragment subscriber and queued restore when captures disappear', async () => {
     const fragments = [createFragmentCapture({ id: 'frag-stop', wrapperId: 'missing' })];
     const hub = createHubHarness();
     const ensureCaptureHighlight = vi.fn();
@@ -182,13 +204,10 @@ describe('FragmentHighlightCoordinator', () => {
     });
 
     coordinator.start();
+    coordinator.scheduleRestore();
     fragments.splice(0, fragments.length);
-    hub.emit([
-      mutationRecord({
-        type: 'childList',
-        addedNodes: asNodeList([document.createElement('article')])
-      })
-    ]);
+    coordinator.stopIfNoFragments();
+    await vi.advanceTimersByTimeAsync(120);
 
     expect(hub.dispose).toHaveBeenCalledTimes(1);
     expect(ensureCaptureHighlight).not.toHaveBeenCalled();

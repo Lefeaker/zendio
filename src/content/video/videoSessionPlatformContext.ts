@@ -33,6 +33,7 @@ export function createVideoSessionPlatformContext(args: {
     },
     observeWithFragmentObserver: (observer, target, options) => observer.observe(target, options),
     registerShadowSelectionBridge: (root) => shadowSelectionBridge.register(root),
+    unregisterShadowSelectionBridge: (root) => shadowSelectionBridge.unregister(root),
     ensureHighlightStyles: (root) => fragmentHighlighter.ensureHighlightStyles(root)
   };
 }

@@ -44,9 +44,11 @@ Hub 的固定契约如下：
 - disposer 幂等，并取消该订阅者尚未执行的工作；
 - observer generation 与 subscriber generation 阻止释放后的迟到回调。
 
-Fragment 高亮订阅只在至少存在一个 fragment capture 时有效。它忽略弹幕节点，并在最后一个
-fragment 消失时立即释放自己的队列。Bilibili 适配器的 body 订阅与 fragment 数量无关，因此
-零 fragment 会话仍能发现之后加入页面的评论 host。
+Fragment 高亮订阅只在至少存在一个 fragment capture 时有效。它在 coalescing 前拒绝弹幕、
+无关文本和无有效高亮关系的移除事件；相关记录只进入 `FragmentHighlightCoordinator` 的既有
+有界 restore scheduler，不直接扫描全局 DOM。Bilibili body 订阅只负责评论 root 发现，不为同一
+记录再次触发全局 restore。最后一个 fragment 消失时 fragment 队列立即释放；零 fragment 会话
+仍保留 Bilibili 发现订阅。
 
 ## Bilibili ShadowRoot 发现
 
@@ -56,12 +58,14 @@ observer：
 1. body 订阅发现外层评论 host；
 2. 外层 open ShadowRoot 由唯一 scoped observer 注册；
 3. scoped callback 发现稍后加入的嵌套评论 host；
-4. 每个新评论 root 注入高亮样式并注册 selection bridge；
-5. adapter 释放时 scoped observer、轮询 timer 和 body disposer 一起清理。
+4. 每个新评论 root 注入高亮样式，并由当前 adapter 显式拥有 selection bridge 注册；
+5. root 断开时立即注销 selection listener/强映射并重建 scoped 观察集合；同一 root 重连可再次注册；
+6. adapter 释放时注销其全部 selection root，scoped observer、轮询 timer 和 body disposer 一起清理。
 
 搜索用评论 root 只保存 `WeakRef<ShadowRoot>`，每次读取时剔除已回收或已断开的 root。
-等待 `shadowRoot` 出现的 host 只作为 WeakMap/WeakRef 身份参与最多 20 次有界轮询；同一 host
-不会启动第二条轮询链，成功、断开、耗尽、替换或释放都会停止后续工作。
+等待 `shadowRoot` 出现的 host 只作为 WeakMap/WeakRef 身份参与最多 20 次有界轮询；第 20 次
+回调仍先检查 `host.shadowRoot`，再判定耗尽。同一 host 不会启动第二条轮询链，成功、断开、
+耗尽、替换或释放都会停止后续工作。
 
 `observeWithFragmentObserver` 仍是平台 context 的低层 scoped 能力：它把 Bilibili 自己创建的
 scoped observer 连接到具体 Element/ShadowRoot。它不能用于 `document.body`，也不代表 fragment
@@ -78,6 +82,7 @@ scoped observer 连接到具体 Element/ShadowRoot。它不能用于 `document.b
 | 最后一个 body 订阅释放 | 取消队列并断开 observer 一次                                  |
 | 外层评论 host 出现     | 注册外层 ShadowRoot                                           |
 | 嵌套评论 host 稍后出现 | scoped observer 注册嵌套 root，即使 fragment 数量为零         |
+| 评论 root 断开并重连   | 注销旧 listener/强映射；同一 root 重连后重新注册              |
 | 弹幕或无关变更         | 在 coalescing 前拒绝，不触发全局高亮恢复                      |
 | 会话完成、取消或失败   | fragment、平台和其余会话 owner 都沿现有 cleanup 路径释放      |
 

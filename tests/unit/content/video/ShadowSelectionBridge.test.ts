@@ -97,6 +97,26 @@ describe('ShadowSelectionBridge', () => {
     expect(pendingSelection.capture).toHaveBeenCalledTimes(1);
   });
 
+  it('unregisters one owned root, cancels late work, and allows the same root to register again', async () => {
+    const { bridge, root, pendingSelection, activatePendingSelection, setActiveSelection } =
+      createHarness();
+    const removeSpy = vi.spyOn(root, 'removeEventListener');
+
+    bridge.register(root);
+    root.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, button: 0 }));
+    bridge.unregister(root);
+    await vi.runAllTimersAsync();
+
+    expect(removeSpy).toHaveBeenCalledWith('selectionchange', expect.any(Function), true);
+    expect(activatePendingSelection).not.toHaveBeenCalled();
+
+    setActiveSelection();
+    bridge.register(root);
+    root.dispatchEvent(new Event('selectionchange', { bubbles: true }));
+
+    expect(pendingSelection.capture).toHaveBeenCalledTimes(1);
+  });
+
   it('removes registered root listeners on reset and stops post-reset activation', async () => {
     const { bridge, root, activatePendingSelection } = createHarness();
     const removeSpy = vi.spyOn(root, 'removeEventListener');

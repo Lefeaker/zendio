@@ -34,6 +34,7 @@ export interface VideoPlatformContext {
     options: MutationObserverInit
   ): void;
   registerShadowSelectionBridge(root: ShadowRoot): void;
+  unregisterShadowSelectionBridge(root: ShadowRoot): void;
   ensureHighlightStyles(root: ShadowRoot): void;
 }
 

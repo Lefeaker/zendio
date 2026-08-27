@@ -77,6 +77,7 @@ function createPlatformContext(): VideoPlatformContext {
       (observer, target, options) => observer.observe(target, options)
     ),
     registerShadowSelectionBridge: vi.fn(),
+    unregisterShadowSelectionBridge: vi.fn(),
     ensureHighlightStyles: vi.fn()
   };
 }

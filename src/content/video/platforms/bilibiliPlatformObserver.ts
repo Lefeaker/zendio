@@ -43,6 +43,7 @@ type BilibiliObserverContext = Pick<
   | 'ensureHighlightStyles'
   | 'observeWithFragmentObserver'
   | 'registerShadowSelectionBridge'
+  | 'unregisterShadowSelectionBridge'
   | 'scheduleFragmentHighlightRestore'
 >;
 
@@ -50,8 +51,7 @@ export class BilibiliShadowObserver {
   private disposed = false;
   private generation = 0;
   private scopedObserver: ScopedMutationObserver | null = null;
-  private readonly observedShadowRoots = new WeakSet<ShadowRoot>();
-  private observedCommentRoots: Array<WeakRef<ShadowRoot>> = [];
+  private observedShadowRoots: Array<WeakRef<ShadowRoot>> = [];
   private pendingShadowHosts = new WeakMap<HTMLElement, number>();
   private pendingHostGeneration = 0;
   private readonly timeoutScheduler = new ScopedTimeoutScheduler(() => this.getView());
@@ -66,7 +66,7 @@ export class BilibiliShadowObserver {
       filter: isBilibiliMutationRelevant,
       coalescingKey: 'shadow-refresh',
       delayMs: 100,
-      callback: () => this.refreshFromBody()
+      callback: () => this.ensureObservedRoots()
     });
     this.ensureObservedRoots();
   }
@@ -74,6 +74,7 @@ export class BilibiliShadowObserver {
   ensureObservedRoots(): void {
     if (this.disposed) return;
     try {
+      this.pruneDisconnectedShadowRoots();
       queryBilibiliShadowHosts(this.document).forEach((host) =>
         this.ensureShadowHostObservation(host)
       );
@@ -87,10 +88,10 @@ export class BilibiliShadowObserver {
   }
 
   getObservedCommentRootsForSearch(): ShadowRoot[] {
-    this.pruneDisconnectedCommentRoots();
-    return this.observedCommentRoots.flatMap((reference) => {
+    this.pruneDisconnectedShadowRoots();
+    return this.observedShadowRoots.flatMap((reference) => {
       const root = reference.deref();
-      return root ? [root] : [];
+      return root && isBilibiliCommentRegionNode(root) ? [root] : [];
     });
   }
 
@@ -101,15 +102,13 @@ export class BilibiliShadowObserver {
     this.disposeBodySubscription();
     this.scopedObserver?.disconnect();
     this.scopedObserver = null;
+    for (const reference of this.observedShadowRoots) {
+      const root = reference.deref();
+      if (root) this.context.unregisterShadowSelectionBridge(root);
+    }
+    this.observedShadowRoots = [];
     this.timeoutScheduler.clearAll();
     this.pendingShadowHosts = new WeakMap();
-    this.observedCommentRoots = [];
-  }
-
-  private refreshFromBody(): void {
-    if (this.disposed) return;
-    this.ensureObservedRoots();
-    if (!this.disposed) this.context.scheduleFragmentHighlightRestore();
   }
 
   private ensureShadowHostObservation(host: Element): void {
@@ -141,7 +140,7 @@ export class BilibiliShadowObserver {
     try {
       if (this.disposed || observerGeneration !== this.generation) return;
       if (!host || this.pendingShadowHosts.get(host) !== pollGeneration) return;
-      if (!host.isConnected || attempt >= 20) {
+      if (!host.isConnected) {
         this.pendingShadowHosts.delete(host);
         return;
       }
@@ -149,6 +148,10 @@ export class BilibiliShadowObserver {
         this.pendingShadowHosts.delete(host);
         this.observeShadowRootRecursive(host.shadowRoot);
         this.context.scheduleFragmentHighlightRestore();
+        return;
+      }
+      if (attempt >= 20) {
+        this.pendingShadowHosts.delete(host);
         return;
       }
       this.timeoutScheduler.schedule(
@@ -162,14 +165,18 @@ export class BilibiliShadowObserver {
   }
 
   private observeShadowRootRecursive(root: ShadowRoot | null): void {
-    if (this.disposed || !root || this.observedShadowRoots.has(root)) return;
+    if (
+      this.disposed ||
+      !root ||
+      this.observedShadowRoots.some((reference) => reference.deref() === root)
+    )
+      return;
     const observer = this.ensureScopedObserver();
     if (!observer) return;
     this.context.ensureHighlightStyles(root);
     this.context.registerShadowSelectionBridge(root);
     this.context.observeWithFragmentObserver(observer, root, { childList: true, subtree: true });
-    this.observedShadowRoots.add(root);
-    if (isBilibiliCommentRegionNode(root)) this.observedCommentRoots.push(new WeakRef(root));
+    this.observedShadowRoots.push(new WeakRef(root));
     root
       .querySelectorAll<HTMLElement>(BILIBILI_COMMENT_SHADOW_HOST_SELECTOR)
       .forEach((element) => this.ensureShadowHostObservation(element));
@@ -190,6 +197,7 @@ export class BilibiliShadowObserver {
   }
 
   private processScopedMutations(mutations: MutationRecord[]): void {
+    this.pruneDisconnectedShadowRoots();
     let shouldRestore = false;
     for (const mutation of mutations) {
       if (mutation.type !== 'childList') continue;
@@ -211,11 +219,25 @@ export class BilibiliShadowObserver {
     if (shouldRestore && !this.disposed) this.context.scheduleFragmentHighlightRestore();
   }
 
-  private pruneDisconnectedCommentRoots(): void {
-    this.observedCommentRoots = this.observedCommentRoots.filter((reference) => {
+  private pruneDisconnectedShadowRoots(): void {
+    let pruned = false;
+    this.observedShadowRoots = this.observedShadowRoots.filter((reference) => {
       const root = reference.deref();
-      return Boolean(root && isBilibiliCommentRegionNode(root));
+      if (root?.host.isConnected) return true;
+      if (root) this.context.unregisterShadowSelectionBridge(root);
+      pruned = true;
+      return false;
     });
+    if (!pruned || !this.scopedObserver) return;
+    this.scopedObserver.disconnect();
+    for (const reference of this.observedShadowRoots) {
+      const root = reference.deref();
+      if (root)
+        this.context.observeWithFragmentObserver(this.scopedObserver, root, {
+          childList: true,
+          subtree: true
+        });
+    }
   }
 
   private getView(): Window {
@@ -238,7 +260,7 @@ export function isBilibiliDanmakuNode(node: Node | null): boolean {
 
 function isBilibiliMutationRelevant(mutation: MutationRecord): boolean {
   if (mutation.type !== 'childList') return false;
-  return Array.from(mutation.addedNodes).some(
+  return [...Array.from(mutation.addedNodes), ...Array.from(mutation.removedNodes)].some(
     (node) =>
       node instanceof Element && !isBilibiliDanmakuNode(node) && isPotentialCommentHost(node)
   );

@@ -12,7 +12,10 @@ import {
   mountBiliCommentsFixture,
   withScheduledRestore
 } from './bilibiliVideoPlatformFixtures';
-import { mutationRecord } from '../../../utils/typeHelpers';
+import { asType, mutationRecord } from '../../../utils/typeHelpers';
+import { FragmentHighlightCoordinator } from '@content/video/fragmentHighlightCoordinator';
+import type { FragmentHighlighter } from '@content/video/fragmentHighlighter';
+import type { VideoFragmentCapture } from '@content/video/types';
 
 describe('BilibiliVideoPlatform observer', () => {
   beforeEach(() => {
@@ -21,7 +24,7 @@ describe('BilibiliVideoPlatform observer', () => {
     vi.useRealTimers();
   });
 
-  it('schedules restore when comment hosts are added through mutations', () => {
+  it('keeps comment-host body discovery separate from global restore ownership', () => {
     vi.useFakeTimers();
     const scheduleRestore = vi.fn();
     const context = withScheduledRestore(createContext(document), scheduleRestore);
@@ -43,7 +46,7 @@ describe('BilibiliVideoPlatform observer', () => {
 
     expect(scheduleRestore).not.toHaveBeenCalled();
     vi.advanceTimersByTime(110);
-    expect(scheduleRestore).toHaveBeenCalledTimes(1);
+    expect(scheduleRestore).not.toHaveBeenCalled();
   });
 
   it('observes comment shadow roots and delegates highlight/restore through base behavior', () => {
@@ -192,6 +195,14 @@ describe('BilibiliVideoPlatform observer', () => {
     expect(context.__mocks.registerShadowSelectionBridge).toHaveBeenCalledWith(richText.shadowRoot);
     commentsHost.remove();
     expect(observer.getObservedCommentRootsForSearch()).toEqual([]);
+    expect(context.__mocks.unregisterShadowSelectionBridge).toHaveBeenCalledWith(root);
+    expect(context.__mocks.unregisterShadowSelectionBridge).toHaveBeenCalledWith(thread.shadowRoot);
+    expect(context.__mocks.unregisterShadowSelectionBridge).toHaveBeenCalledWith(
+      comment.shadowRoot
+    );
+    expect(context.__mocks.unregisterShadowSelectionBridge).toHaveBeenCalledWith(
+      richText.shadowRoot
+    );
     const registeredRootCount = context.__mocks.registerShadowSelectionBridge.mock.calls.length;
     observer.dispose();
     observer.dispose();
@@ -205,10 +216,56 @@ describe('BilibiliVideoPlatform observer', () => {
         target: root
       })
     ]);
-    expect(context.__mocks.scopedObservers[0]?.disconnect).toHaveBeenCalledTimes(1);
+    expect(context.__mocks.scopedObservers[0]?.disconnect).toHaveBeenCalledTimes(2);
     expect(context.__mocks.registerShadowSelectionBridge).toHaveBeenCalledTimes(
       registeredRootCount
     );
+  });
+
+  it('unregisters detached roots and registers the same root again after reconnect', async () => {
+    vi.useFakeTimers();
+    const context = createContext(document);
+    const host = document.createElement('bili-comment-renderer');
+    const root = host.attachShadow({ mode: 'open' });
+    document.body.append(host);
+    const platform = new BilibiliVideoPlatform(context);
+
+    expect(context.__mocks.registerShadowSelectionBridge).toHaveBeenCalledWith(root);
+    host.remove();
+    const removedHost = document.createDocumentFragment();
+    removedHost.append(host);
+    context.__mocks.emitDocumentMutations([
+      mutationRecord({
+        type: 'childList',
+        removedNodes: removedHost.childNodes,
+        target: document.body
+      })
+    ]);
+    await vi.advanceTimersByTimeAsync(100);
+    expect(context.__mocks.unregisterShadowSelectionBridge).toHaveBeenCalledWith(root);
+
+    document.body.append(host);
+    context.__mocks.emitDocumentMutations([
+      mutationRecord({
+        type: 'childList',
+        addedNodes: document.body.childNodes,
+        target: document.body
+      })
+    ]);
+    await vi.advanceTimersByTimeAsync(100);
+
+    expect(context.__mocks.scopedObservers).toHaveLength(1);
+    expect(
+      context.__mocks.registerShadowSelectionBridge.mock.calls.filter(
+        ([registeredRoot]) => registeredRoot === root
+      )
+    ).toHaveLength(2);
+    platform.dispose();
+    expect(
+      context.__mocks.unregisterShadowSelectionBridge.mock.calls.filter(
+        ([unregisteredRoot]) => unregisteredRoot === root
+      )
+    ).toHaveLength(2);
   });
 
   it('observes late-attached Bilibili shadow roots through scoped polling', () => {
@@ -237,6 +294,30 @@ describe('BilibiliVideoPlatform observer', () => {
         childList: true,
         subtree: true
       }
+    );
+  });
+
+  it('discovers a shadow root that appears in the final attempt-20 polling window', () => {
+    vi.useFakeTimers();
+    const context = createContext(document);
+    const observer = new BilibiliShadowObserver(document, context);
+    const region = document.createElement('div');
+    region.id = 'comment';
+    const host = document.createElement('bili-rich-text');
+    region.append(host);
+    document.body.append(region);
+
+    observer.ensureShadowHostObservationForTests(host);
+    vi.advanceTimersByTime(3160);
+    const root = host.attachShadow({ mode: 'open' });
+    root.textContent = 'final polling window';
+    vi.advanceTimersByTime(160);
+
+    expect(context.__mocks.registerShadowSelectionBridge).toHaveBeenCalledWith(root);
+    expect(context.__mocks.observeWithFragmentObserver).toHaveBeenCalledWith(
+      expect.any(Object),
+      root,
+      { childList: true, subtree: true }
     );
   });
 
@@ -306,19 +387,42 @@ describe('BilibiliVideoPlatform observer', () => {
     );
   });
 
-  it('batches comment-root mutation refreshes to one restore', () => {
+  it('routes one relevant body record through one fragment restore owner', async () => {
     vi.useFakeTimers();
-    const scheduleRestore = vi.fn();
     const context = createContext(document);
-    new BilibiliVideoPlatform(withScheduledRestore(context, scheduleRestore));
-    const first = document.createElement('bili-comment-renderer');
-    const second = document.createElement('bili-comment-reply-renderer');
-    document.body.append(first, second);
+    const capture: VideoFragmentCapture = {
+      kind: 'fragment',
+      id: 'fragment-body-record',
+      comment: '',
+      selectedText: 'Selected body record text',
+      selectedHtml: '<p>Selected body record text</p>',
+      fragmentUrl: 'https://example.com/#:~:text=Selected%20body%20record%20text',
+      wrapperId: 'missing-wrapper',
+      createdAt: 1
+    };
+    const ensureCaptureHighlight = vi.fn();
+    const coordinator = new FragmentHighlightCoordinator({
+      documentMutationHub: context.documentMutationHub,
+      highlighter: asType<FragmentHighlighter>({ getElementByIdDeep: vi.fn(() => null) }),
+      getFragments: () => [capture],
+      ensureCaptureHighlight
+    });
+    const scheduleRestore = vi.spyOn(coordinator, 'scheduleRestore');
+    withScheduledRestore(
+      context,
+      vi.fn(() => coordinator.scheduleRestore())
+    );
+    coordinator.start();
+    new BilibiliVideoPlatform(context);
+    const host = document.createElement('bili-comment-renderer');
+    const root = host.attachShadow({ mode: 'open' });
+    root.textContent = capture.selectedText;
+    document.body.append(host);
 
     context.__mocks.emitDocumentMutations([
       {
         type: 'childList',
-        addedNodes: [first, second],
+        addedNodes: [host],
         removedNodes: [],
         target: document.body,
         attributeName: null,
@@ -328,10 +432,12 @@ describe('BilibiliVideoPlatform observer', () => {
         previousSibling: null
       } as unknown as MutationRecord
     ]);
-
-    vi.advanceTimersByTime(120);
-
+    await vi.advanceTimersByTimeAsync(100);
     expect(scheduleRestore).toHaveBeenCalledTimes(1);
+    expect(context.__mocks.registerShadowSelectionBridge).toHaveBeenCalledWith(root);
+    expect(ensureCaptureHighlight).not.toHaveBeenCalled();
+    await vi.advanceTimersByTimeAsync(20);
+    expect(ensureCaptureHighlight).toHaveBeenCalledWith(capture);
   });
 
   it('does not refresh comment roots for danmaku-only mutation bursts', () => {
@@ -503,7 +609,7 @@ describe('BilibiliVideoPlatform observer', () => {
 
     expect(context.__mocks.ensureHighlightStyles).not.toHaveBeenCalled();
     expect(context.__mocks.observeWithFragmentObserver).not.toHaveBeenCalled();
-    expect(scheduleRestore).toHaveBeenCalledTimes(1);
+    expect(scheduleRestore).not.toHaveBeenCalled();
   });
 
   it('ignores non-comment hosts during mutation refresh and clears observer state on dispose', () => {
@@ -594,40 +700,31 @@ describe('BilibiliVideoPlatform observer', () => {
       } as unknown as MutationRecord
     ]);
     vi.advanceTimersByTime(120);
-    expect(scheduleRestore).toHaveBeenCalledTimes(1);
+    expect(scheduleRestore).not.toHaveBeenCalled();
   });
 
   it('drops pending shadow hosts after polling exhausts without a shadow root', () => {
     vi.useFakeTimers();
     const context = createContext(document);
-    new BilibiliVideoPlatform(context);
+    const observer = new BilibiliShadowObserver(document, context);
     const wrapper = document.createElement('div');
     wrapper.id = 'comment';
     const host = document.createElement('bili-rich-text');
     wrapper.appendChild(host);
     document.body.appendChild(wrapper);
 
-    context.__mocks.emitDocumentMutations([
-      {
-        type: 'childList',
-        addedNodes: [host],
-        removedNodes: [],
-        target: wrapper,
-        attributeName: null,
-        attributeNamespace: null,
-        nextSibling: null,
-        oldValue: null,
-        previousSibling: null
-      } as unknown as MutationRecord
-    ]);
-
-    vi.advanceTimersByTime(5000);
+    observer.ensureShadowHostObservationForTests(host);
+    vi.advanceTimersByTime(3320);
+    const root = host.attachShadow({ mode: 'open' });
+    vi.advanceTimersByTime(1000);
 
     expect(context.__mocks.ensureHighlightStyles).not.toHaveBeenCalled();
     expect(context.__mocks.observeWithFragmentObserver).not.toHaveBeenCalled();
+    observer.ensureShadowHostObservationForTests(host);
+    expect(context.__mocks.registerShadowSelectionBridge).toHaveBeenCalledWith(root);
   });
 
-  it('treats generic added nodes with comment descendants as potential hosts and schedules a single restore', () => {
+  it('treats generic added nodes with comment descendants as discovery-only body work', () => {
     vi.useFakeTimers();
     const scheduleRestore = vi.fn();
     const context = createContext(document);
@@ -652,6 +749,6 @@ describe('BilibiliVideoPlatform observer', () => {
     ]);
 
     vi.advanceTimersByTime(120);
-    expect(scheduleRestore).toHaveBeenCalledTimes(1);
+    expect(scheduleRestore).not.toHaveBeenCalled();
   });
 });
