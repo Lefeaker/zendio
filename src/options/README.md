@@ -225,7 +225,7 @@ src/options/
   npm run test:unit
   npm run test:e2e
   ```
-- **多语言校验**：若改动文案、locale 或 descriptor-backed visible state，追加执行 `npm run test:i18n`、`npm run audit:i18n-hardcoded-user-copy:check` 与 `npx vitest run --config vitest.unit.config.ts tests/unit/i18n/hardcodedSurfaceCoverage.test.ts`；仅需检查文本预算时可单独运行 `npm run validate:i18n:budgets`。
+- **多语言校验**：若改动文案、locale 或 descriptor-backed visible state，追加执行 `npm run test:i18n`、`npm run audit:i18n-hardcoded-user-copy:check` 与 `node scripts/run-bounded-command.mjs --profile vitest-v1 -- run --config vitest.unit.config.ts tests/unit/i18n/hardcodedSurfaceCoverage.test.ts`；仅需检查文本预算时可单独运行 `npm run validate:i18n:budgets`。
 
 ---
 
