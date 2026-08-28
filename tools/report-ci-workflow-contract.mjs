@@ -66,12 +66,39 @@ const G00_BROWSER_JOB_CONTRACTS = Object.freeze({
   }
 });
 
+const G01_STATIC_PREFLIGHT_SUFFIX = Object.freeze([
+  {
+    name: 'Verify UI production ownership',
+    run: 'node scripts/run-bounded-command.mjs --profile npm-script-standard-v1 -- audit:ui-production-ownership:check'
+  },
+  {
+    name: 'Build production bundle for CSS ownership',
+    run: 'node scripts/run-bounded-command.mjs --profile npm-script-build-v1 -- build:fast'
+  },
+  {
+    name: 'Verify content CSS packs',
+    run: 'node scripts/run-bounded-command.mjs --profile npm-script-standard-v1 -- audit:content-css-packs:check'
+  },
+  {
+    name: 'Verify design token alignment',
+    run: 'node scripts/run-bounded-command.mjs --profile npm-script-standard-v1 -- audit:design-tokens:check'
+  },
+  {
+    name: 'Verify active document governance',
+    run: 'node scripts/run-bounded-command.mjs --profile npm-script-standard-v1 -- audit:active-documents:check'
+  }
+]);
+
+const G01_STYLELINT_RUN =
+  'node scripts/run-bounded-command.mjs --profile stylelint-v1 -- "src/options/**/*.css" "src/onboarding/**/*.css" "src/ui/**/*.css"';
+
 const EXPECTED_RUNS = Object.freeze({
   'static-preflight': [
     'node scripts/run-bounded-command.mjs --profile npm-script-quick-v1 -- audit:ci-workflow:check',
     'node scripts/run-bounded-command.mjs --profile npm-script-standard-v1 -- audit:test-suite-ownership:check',
     'node scripts/run-bounded-command.mjs --profile npm-script-standard-v1 -- i18n:catalog:check',
-    'node scripts/verify-preflight.mjs'
+    'node scripts/verify-preflight.mjs',
+    ...G01_STATIC_PREFLIGHT_SUFFIX.map(({ run }) => run)
   ],
   'static-release-surface': [
     'node scripts/run-bounded-command.mjs --profile npm-script-build-v1 -- build:fast',
@@ -84,7 +111,7 @@ const EXPECTED_RUNS = Object.freeze({
   'static-style-and-locale': [
     'node scripts/run-bounded-command.mjs --profile npm-script-standard-v1 -- audit:locales:report',
     'node scripts/run-bounded-command.mjs --profile npm-script-quick-v1 -- report:options-legacy',
-    'node scripts/run-bounded-command.mjs --profile stylelint-v1 -- "src/options/**/*.css"',
+    G01_STYLELINT_RUN,
     'node scripts/run-bounded-command.mjs --profile npm-script-standard-v1 -- lint:hardcoded',
     'node scripts/run-bounded-command.mjs --profile npm-script-quick-v1 -- lint:warnings-guard'
   ],
@@ -208,6 +235,51 @@ function staticOwnershipStepContract(job) {
     step.continueOnError !== undefined
   ) {
     throw new Error('Static preflight ownership step changed or became conditional');
+  }
+}
+
+function staticG01GateContract(job) {
+  const preflightIndex = job.steps.findIndex(
+    (step) => step.run === 'node scripts/verify-preflight.mjs'
+  );
+  if (preflightIndex < 0) throw new Error('Static preflight baseline step is missing');
+
+  for (const [offset, expected] of G01_STATIC_PREFLIGHT_SUFFIX.entries()) {
+    const matches = job.steps.filter(
+      (step) => step.name === expected.name || step.run === expected.run
+    );
+    if (matches.length !== 1) throw new Error(`Static preflight ${expected.name} is not unique`);
+    const [step] = matches;
+    if (
+      step.name !== expected.name ||
+      step.run !== expected.run ||
+      step.if !== undefined ||
+      step.continueOnError !== undefined ||
+      job.steps[preflightIndex + offset + 1] !== step
+    ) {
+      throw new Error(`Static preflight ${expected.name} changed, reordered, or became masked`);
+    }
+  }
+
+  const runs = job.steps.flatMap((step) => (step.run ? [step.run] : []));
+  if (runs.some((run) => run.includes('audit:performance:report') || /\bquality\b/u.test(run))) {
+    throw new Error('Static preflight duplicates performance or invokes quality');
+  }
+}
+
+function staticStylelintStepContract(job) {
+  const matches = job.steps.filter(
+    (step) => step.name === 'Lint Options CSS' || step.run === G01_STYLELINT_RUN
+  );
+  if (matches.length !== 1) throw new Error('Static style Stylelint step is not unique');
+  const [step] = matches;
+  if (
+    step.name !== 'Lint Options CSS' ||
+    step.run !== G01_STYLELINT_RUN ||
+    step.if !== undefined ||
+    step.continueOnError !== undefined
+  ) {
+    throw new Error('Static style Stylelint command changed or became masked');
   }
 }
 
@@ -353,7 +425,11 @@ export function checkCiWorkflowContract({
       }
       const g00Contract = G00_BROWSER_JOB_CONTRACTS[jobId];
       if (g00Contract) g00BrowserJobContract(job, block, g00Contract);
-      if (jobId === 'static-preflight') staticOwnershipStepContract(job);
+      if (jobId === 'static-preflight') {
+        staticOwnershipStepContract(job);
+        staticG01GateContract(job);
+      }
+      if (jobId === 'static-style-and-locale') staticStylelintStepContract(job);
     });
   }
 

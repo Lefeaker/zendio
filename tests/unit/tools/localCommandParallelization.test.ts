@@ -12,13 +12,15 @@ const PackageJsonSchema = z.object({
   scripts: z.record(z.string())
 });
 
-const QualityTaskSchema = z.object({
-  id: z.string(),
-  name: z.string(),
-  profile: z.string(),
-  args: z.array(z.string()),
-  dependsOn: z.array(z.string())
-});
+const QualityTaskSchema = z
+  .object({
+    id: z.string(),
+    name: z.string(),
+    profile: z.string(),
+    args: z.array(z.string()),
+    dependsOn: z.array(z.string())
+  })
+  .strict();
 
 const QualityTaskGraphSchema = z.object({
   tasks: z.array(QualityTaskSchema)
@@ -166,13 +168,16 @@ describe('local command parallelization contract', () => {
     const ids = graph.tasks.map((task) => task.id).sort();
 
     expect(ids).toEqual([
+      'audit-active-documents-check',
       'audit-build-graph-report',
       'audit-chrome-webstore-release-check',
       'audit-ci-workflow-check',
       'audit-compatibility-duplicates-check',
       'audit-components-report',
+      'audit-content-css-packs-check',
       'audit-deps-report',
       'audit-design-system-doc-report',
+      'audit-design-tokens-check',
       'audit-ga-client-secret',
       'audit-ga-docs',
       'audit-ga-legacy-api',
@@ -184,17 +189,19 @@ describe('local command parallelization contract', () => {
       'audit-locales-report',
       'audit-non-production-source-check',
       'audit-options-mainline-report',
+      'audit-performance-report',
       'audit-platform-services-report',
       'audit-production-shape-report',
       'audit-release-surface-report',
       'audit-retired-code-report',
       'audit-test-suite-ownership-check',
       'audit-ui-architecture-report',
+      'audit-ui-production-ownership-check',
       'build-fast',
       'i18n-catalog-check',
       'i18n-lint',
+      'lint-css',
       'lint-hardcoded',
-      'lint-options-css',
       'lint-type-any-ratchet',
       'lint-warnings-guard',
       'release-metadata-check',
@@ -220,9 +227,47 @@ describe('local command parallelization contract', () => {
     expect(taskById.get('audit-release-surface-report')?.dependsOn).toEqual(['build-fast']);
     expect(taskById.get('audit-ga-client-secret')?.dependsOn).toEqual(['build-fast']);
     expect(taskById.get('audit-ga-release-surface')?.dependsOn).toEqual(['build-fast']);
-    expect(taskById.get('lint-options-css')).toMatchObject({
+    expect(taskById.get('lint-css')).toEqual({
+      id: 'lint-css',
+      name: 'Options/onboarding/UI CSS 命名校验',
       profile: 'stylelint-v1',
-      args: ['src/options/**/*.css']
+      args: ['src/options/**/*.css', 'src/onboarding/**/*.css', 'src/ui/**/*.css'],
+      dependsOn: ['verify-runtime']
+    });
+    expect(taskById.get('audit-ui-production-ownership-check')).toEqual({
+      id: 'audit-ui-production-ownership-check',
+      name: 'UI production ownership 守卫',
+      profile: 'npm-script-standard-v1',
+      args: ['audit:ui-production-ownership:check'],
+      dependsOn: ['verify-runtime']
+    });
+    expect(taskById.get('audit-content-css-packs-check')).toEqual({
+      id: 'audit-content-css-packs-check',
+      name: 'Content CSS packs 守卫',
+      profile: 'npm-script-standard-v1',
+      args: ['audit:content-css-packs:check'],
+      dependsOn: ['build-fast']
+    });
+    expect(taskById.get('audit-design-tokens-check')).toEqual({
+      id: 'audit-design-tokens-check',
+      name: 'Design token alignment 守卫',
+      profile: 'npm-script-standard-v1',
+      args: ['audit:design-tokens:check'],
+      dependsOn: ['verify-runtime']
+    });
+    expect(taskById.get('audit-performance-report')).toEqual({
+      id: 'audit-performance-report',
+      name: 'Performance hotspot budget 守卫',
+      profile: 'npm-script-standard-v1',
+      args: ['audit:performance:report'],
+      dependsOn: ['verify-runtime']
+    });
+    expect(taskById.get('audit-active-documents-check')).toEqual({
+      id: 'audit-active-documents-check',
+      name: 'Active document contract 守卫',
+      profile: 'npm-script-standard-v1',
+      args: ['audit:active-documents:check'],
+      dependsOn: ['verify-runtime']
     });
     expect(taskById.get('audit-deps-report')).toMatchObject({
       profile: 'dependency-cruiser-v1',
@@ -238,9 +283,12 @@ describe('local command parallelization contract', () => {
     expect(
       graph.tasks.flatMap((task) => task.args).filter((argument) => argument.includes('browser:'))
     ).toEqual([]);
-    expect(graph.tasks.every((task) => !Object.prototype.hasOwnProperty.call(task, 'cmd'))).toBe(
-      true
-    );
+    expect(
+      graph.tasks.filter((task) => task.args.includes('audit:performance:report'))
+    ).toHaveLength(1);
+    expect(
+      graph.tasks.filter((task) => task.args.includes('audit:active-documents:check'))
+    ).toHaveLength(1);
   });
 
   it('adds process-level unit and e2e shard scripts without changing canonical coverage', () => {

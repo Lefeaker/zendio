@@ -20,7 +20,7 @@ node scripts/run-bounded-command.mjs --profile node-script-standard-v1 -- tools/
 node scripts/run-bounded-command.mjs --profile node-script-standard-v1 -- tools/report-active-document-contract.mjs --check
 ```
 
-- 当前只使用以上 direct-tool 命令；package-script alias、quality 与 CI 接线不属于本页现有入口。
+- `audit:active-documents:{report,check}` 是以上 direct tool 的维护型 package aliases；`quality` 与 CI Static preflight 使用 check alias，并始终按当前 tree 动态要求 tracked/classified 相等且 findings 为空，不冻结某次分类计数或摘要。
 
 ## 本轮统一门禁真值
 
@@ -49,6 +49,8 @@ node scripts/run-bounded-command.mjs --profile node-script-standard-v1 -- tools/
   - 显式包含 `audit:i18n-uncatalogued-user-copy:check`；英文 uncatalogued-copy audit 已作为 hard gate 接入 `quality`，覆盖 `normalizeToAppError` 的 raw English `defaultMessage` fallback、`subtitle` / `hint` / `body` 等 production-visible fields，并且不会把带编号的多词英文 UI title 误判为 technical token list；当前输出 `scanned=578 findings=0 unexpected=0 staleAllowlist=0`，allowlist rules 为 `0`
   - 显式包含 `i18n:catalog:check`；catalog/generated artifact drift 会在 `quality`、`verify:preflight` 与 CI 中阻塞
   - `audit:design-system-doc:report` 只检查 tracked / non-ignored 的 active style guidance；被 `.gitignore` 标记的本地过程 archive 不进入当前样式真值口径
+  - 显式包含 UI production ownership、design-token alignment、performance hotspot 与 active-document hard gates；content CSS packs check 复用同一 `build-fast` 结果后执行，不创建第二个 build owner
+  - CSS selector gate 的 typed task 使用 Options、onboarding 与 neutral UI 三个现有 glob；active-document gate 动态消费 D01 schema/status/tool，不硬编码分类计数、Git OID 或报告摘要
   - `i18n:catalog:generate` 当前从 `src/i18n/catalog/messages/<lang>/{runtime,static,schema}.json` 生成 `src/i18n/generated/*`、`src/i18n/generated/locales/*.generated.ts` 与 `public/_locales/**`；`npm run i18n:generate` 保持原命令名，但现在只是兼容包装层，实际委托给 catalog generator
   - `public/_locales/**` 是当前 catalog-owned WebExtension static source；root `_locales/**` 已退役并删除，不参与 production build/package ownership
 - `npm run verify:preflight`
@@ -76,14 +78,14 @@ node scripts/run-bounded-command.mjs --profile node-script-standard-v1 -- tools/
   - `build:chrome:isolated` / `build:firefox:isolated` 与 `package:chrome:isolated` / `package:firefox:isolated` 使用独立 dist 目录，作为 Chrome / Firefox package 并行化的安全入口
   - Firefox AMO 自动发布入口为 `.github/workflows/release-firefox-amo.yml`；无凭据 `prepare` job 绑定 exact release SHA、required CI、Git tree、package/lock hash 与 immutable artifact ID/digest，执行 public GA config 验证、isolated Firefox build、AMO source archive、pinned geckodriver `0.37.1` + WebDriver BiDi exact-XPI smoke 和 archive audits。受保护 `submit` job 在 fresh runner 上重新验证/授权同一工件，并只在唯一 mutation step 向 first-party AMO API v5 adapter 注入 AMO credentials
 - `.github/workflows/ci.yml`
-  - 采用拆分后的并行 job 拓扑：`static-preflight`、`static-release-surface`、`static-generated-artifacts`、`static-style-and-locale`、`static-reporting-audits`、`coverage`、`visual` matrix、`e2e-vitest`、`browser-yaml`、`browser-reader-panel`、`browser-smoke` 并行执行
+  - 采用 16 个固定 job ID / 18 个 required display names 的拆分拓扑；G00 browser state/architecture jobs、required-job source 与 release provenance owners 保持不变
   - 使用 workflow-level `concurrency`，同一 PR / ref 的新 run 会取消旧 run
   - 每个 job 先运行 checkout 前 builtin-only bootstrap，随后使用 literal `ubuntu-24.04`；timeout taxonomy 为 Static preflight `60`、Package extension `35`、其他 generic `30`、browser/visual `60` 分钟
   - `.github/actions/setup-node-deps` 禁用 setup-node package-manager cache，并只调用 `github-ci-install-v1` 输出 attempt root 与两个 private npm config；`.github/actions/setup-playwright` 不使用 default cache，而是按顺序调用 fixed Chromium host-deps/platform 与 bounded browser-install profile
   - 官方 JavaScript actions 使用 Node 24-compatible major：`actions/checkout@v6`、`actions/setup-node@v6`、`actions/upload-artifact@v7`、`actions/github-script@v8`
-  - `static-preflight` 通过 bounded profiles 运行 CI audit 与 i18n catalog，并直接调用 `node scripts/verify-preflight.mjs`；三项 typecheck 仍由 preflight 显式覆盖
+  - `static-preflight` 保留 CI topology、test-suite ownership、i18n catalog 与 direct `verify-preflight` 前缀，随后按顺序执行 unmasked UI production ownership check、一次 production build、content CSS packs check、design-token check 与动态 active-document check；performance 继续只由 `verify-preflight` 的既有 owner 执行，不重复接线，也不从 Static preflight 调用 `quality`
   - `static-release-surface` 显式运行 `build:fast` 与 `audit:release-surface:report`
-  - `static-style-and-locale` 保留 locale source alignment、Options CSS naming、hardcoded config guard 与 lint warning guard 的 hard gate 语义；`static-reporting-audits` 仅保留 report-only audit 的 per-step `continue-on-error`
+  - `static-style-and-locale` 保留 locale source alignment、hardcoded config guard 与 lint warning guard，并以 direct Stylelint profile 覆盖 Options、onboarding 与 neutral UI 三个 canonical globs；`static-reporting-audits` 仅保留 report-only audit 的 per-step `continue-on-error`
   - `visual` 按 `chromium-desktop` / `chromium-tablet` / `chromium-mobile` matrix 拆分；Vitest E2E 与三组 browser E2E 拆成独立 job，失败报告 artifact 按 suite 命名
   - `package` job 通过 `needs: [static-preflight]` 提前启动，并继续使用 `npm run build:fast`，避免在 CI 后段通过 `npm run build` 重复触发完整 `quality`；测试、visual、release-surface 与静态拆分 job 仍应作为独立 required checks 参与合并判断
 - `.github/workflows/release-firefox-amo.yml`

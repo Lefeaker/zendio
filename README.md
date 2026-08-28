@@ -101,6 +101,7 @@
   - `npm run verify:preflight`
   - `npm run verify:stitch-secondary`
   - `npm run build`
+- The common quality/CI path now hard-gates current UI production ownership, the canonical CSS selector scope, built content CSS packs, design-token alignment, performance hotspots, and dynamic active-document governance. See [docs/engineering-entrypoints.md](docs/engineering-entrypoints.md) for the maintained entrypoints instead of duplicating their command grammar here.
 - Firefox AMO automation lives in `.github/workflows/release-firefox-amo.yml`. Its credential-free prepare job binds the exact release SHA, CI provenance and immutable artifact, then runs repository static checks plus a pinned geckodriver `0.37.1` WebDriver BiDi exact-XPI smoke. The protected submit job is the only credentialed mutation boundary and uses the first-party AMO API v5 adapter for listed/unlisted submission, upload validation, source upload and signed-XPI retrieval.
 
 ## Permissions

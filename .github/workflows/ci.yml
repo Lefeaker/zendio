@@ -107,6 +107,36 @@ jobs:
           NPM_CONFIG_GLOBALCONFIG: ${{ steps.node.outputs.npm-globalconfig }}
         run: node scripts/verify-preflight.mjs
 
+      - name: Verify UI production ownership
+        env:
+          NPM_CONFIG_USERCONFIG: ${{ steps.node.outputs.npm-userconfig }}
+          NPM_CONFIG_GLOBALCONFIG: ${{ steps.node.outputs.npm-globalconfig }}
+        run: node scripts/run-bounded-command.mjs --profile npm-script-standard-v1 -- audit:ui-production-ownership:check
+
+      - name: Build production bundle for CSS ownership
+        env:
+          NPM_CONFIG_USERCONFIG: ${{ steps.node.outputs.npm-userconfig }}
+          NPM_CONFIG_GLOBALCONFIG: ${{ steps.node.outputs.npm-globalconfig }}
+        run: node scripts/run-bounded-command.mjs --profile npm-script-build-v1 -- build:fast
+
+      - name: Verify content CSS packs
+        env:
+          NPM_CONFIG_USERCONFIG: ${{ steps.node.outputs.npm-userconfig }}
+          NPM_CONFIG_GLOBALCONFIG: ${{ steps.node.outputs.npm-globalconfig }}
+        run: node scripts/run-bounded-command.mjs --profile npm-script-standard-v1 -- audit:content-css-packs:check
+
+      - name: Verify design token alignment
+        env:
+          NPM_CONFIG_USERCONFIG: ${{ steps.node.outputs.npm-userconfig }}
+          NPM_CONFIG_GLOBALCONFIG: ${{ steps.node.outputs.npm-globalconfig }}
+        run: node scripts/run-bounded-command.mjs --profile npm-script-standard-v1 -- audit:design-tokens:check
+
+      - name: Verify active document governance
+        env:
+          NPM_CONFIG_USERCONFIG: ${{ steps.node.outputs.npm-userconfig }}
+          NPM_CONFIG_GLOBALCONFIG: ${{ steps.node.outputs.npm-globalconfig }}
+        run: node scripts/run-bounded-command.mjs --profile npm-script-standard-v1 -- audit:active-documents:check
+
   static-release-surface:
     name: Static release surface
     runs-on: ubuntu-24.04
@@ -348,7 +378,7 @@ jobs:
         env:
           NPM_CONFIG_USERCONFIG: ${{ steps.node.outputs.npm-userconfig }}
           NPM_CONFIG_GLOBALCONFIG: ${{ steps.node.outputs.npm-globalconfig }}
-        run: node scripts/run-bounded-command.mjs --profile stylelint-v1 -- "src/options/**/*.css"
+        run: node scripts/run-bounded-command.mjs --profile stylelint-v1 -- "src/options/**/*.css" "src/onboarding/**/*.css" "src/ui/**/*.css"
 
       - name: Enforce hardcoded config guard
         env:

@@ -241,6 +241,68 @@ describe('bounded CI workflow contract', () => {
     );
   });
 
+  it('appends the five unmasked G01 Static-preflight gates and expands the CSS owner', async () => {
+    const contract = await loadContract();
+    const workflow = read('.github/workflows/ci.yml');
+    const parsed = contract.parseCiWorkflowJobs(workflow);
+    const preflight = parsed.jobs.get('static-preflight');
+    const steps = preflight?.steps ?? [];
+    const expectedSuffix = [
+      [
+        'Verify UI production ownership',
+        'node scripts/run-bounded-command.mjs --profile npm-script-standard-v1 -- audit:ui-production-ownership:check'
+      ],
+      [
+        'Build production bundle for CSS ownership',
+        'node scripts/run-bounded-command.mjs --profile npm-script-build-v1 -- build:fast'
+      ],
+      [
+        'Verify content CSS packs',
+        'node scripts/run-bounded-command.mjs --profile npm-script-standard-v1 -- audit:content-css-packs:check'
+      ],
+      [
+        'Verify design token alignment',
+        'node scripts/run-bounded-command.mjs --profile npm-script-standard-v1 -- audit:design-tokens:check'
+      ],
+      [
+        'Verify active document governance',
+        'node scripts/run-bounded-command.mjs --profile npm-script-standard-v1 -- audit:active-documents:check'
+      ]
+    ];
+    const preflightIndex = steps.findIndex(
+      (step) => step.run === 'node scripts/verify-preflight.mjs'
+    );
+
+    expect(preflightIndex).toBeGreaterThan(-1);
+    expect(steps.slice(preflightIndex + 1).map((step) => [step.name, step.run])).toEqual(
+      expectedSuffix
+    );
+    for (const [name, run] of expectedSuffix) {
+      expect(steps.filter((step) => step.name === name || step.run === run)).toEqual([
+        expect.objectContaining({ name, run })
+      ]);
+      const step = steps.find((candidate) => candidate.run === run);
+      expect(step?.if).toBeUndefined();
+      expect(step?.continueOnError).toBeUndefined();
+    }
+    const runs = steps.flatMap((step) => (step.run ? [step.run] : []));
+    expect(runs.some((run) => run.includes('audit:performance:report'))).toBe(false);
+    expect(runs.some((run) => /\bquality\b/u.test(run))).toBe(false);
+
+    const styleSteps = parsed.jobs
+      .get('static-style-and-locale')
+      ?.steps.filter(
+        (step) => step.name === 'Lint Options CSS' || step.run?.includes('stylelint-v1')
+      );
+    expect(styleSteps).toEqual([
+      {
+        name: 'Lint Options CSS',
+        env: '',
+        run: 'node scripts/run-bounded-command.mjs --profile stylelint-v1 -- "src/options/**/*.css" "src/onboarding/**/*.css" "src/ui/**/*.css"'
+      }
+    ]);
+  });
+
   it('fails closed on bootstrap, command, runner, timeout, cache, and interpolation mutations', async () => {
     const contract = await loadContract();
     const workflow = read('.github/workflows/ci.yml');
@@ -304,6 +366,45 @@ describe('bounded CI workflow contract', () => {
         workflow: workflow.replace(
           'node scripts/run-bounded-command.mjs --profile npm-script-standard-v1 -- audit:test-suite-ownership:check',
           'node scripts/run-bounded-command.mjs --profile npm-script-standard-v1 -- audit:test-suite-ownership:check && true'
+        )
+      },
+      {
+        workflow: workflow.replace(
+          'audit:ui-production-ownership:check',
+          'audit:ui-production-ownership:report'
+        )
+      },
+      {
+        workflow: workflow
+          .replace(
+            'node scripts/run-bounded-command.mjs --profile npm-script-standard-v1 -- audit:ui-production-ownership:check',
+            '__G01_TEMP_COMMAND__'
+          )
+          .replace(
+            'node scripts/run-bounded-command.mjs --profile npm-script-build-v1 -- build:fast',
+            'node scripts/run-bounded-command.mjs --profile npm-script-standard-v1 -- audit:ui-production-ownership:check'
+          )
+          .replace(
+            '__G01_TEMP_COMMAND__',
+            'node scripts/run-bounded-command.mjs --profile npm-script-build-v1 -- build:fast'
+          )
+      },
+      {
+        workflow: workflow.replace(
+          '      - name: Verify design token alignment\n',
+          '      - name: Verify design token alignment\n        continue-on-error: true\n'
+        )
+      },
+      {
+        workflow: workflow.replace(
+          'node scripts/run-bounded-command.mjs --profile npm-script-standard-v1 -- audit:active-documents:check',
+          'node scripts/run-bounded-command.mjs --profile npm-script-standard-v1 -- audit:performance:report'
+        )
+      },
+      {
+        workflow: workflow.replace(
+          'node scripts/run-bounded-command.mjs --profile stylelint-v1 -- "src/options/**/*.css" "src/onboarding/**/*.css" "src/ui/**/*.css"',
+          'node scripts/run-bounded-command.mjs --profile stylelint-v1 -- "src/options/**/*.css" "src/ui/**/*.css"'
         )
       }
     ];

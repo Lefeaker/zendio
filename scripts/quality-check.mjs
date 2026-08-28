@@ -17,7 +17,18 @@ export function createQualityTaskGraph() {
         'release:metadata:check'
       ),
       standard('audit-ui-architecture-report', 'UI 架构迁移守卫', 'audit:ui-architecture:report'),
+      standard(
+        'audit-ui-production-ownership-check',
+        'UI production ownership 守卫',
+        'audit:ui-production-ownership:check'
+      ),
       standard('audit-components-report', '组件入口统一守卫', 'audit:components:report'),
+      standard(
+        'audit-content-css-packs-check',
+        'Content CSS packs 守卫',
+        'audit:content-css-packs:check',
+        ['build-fast']
+      ),
       standard(
         'audit-compatibility-duplicates-check',
         '兼容壳重复审计',
@@ -27,6 +38,16 @@ export function createQualityTaskGraph() {
         'audit-design-system-doc-report',
         '设计系统文档真值守卫',
         'audit:design-system-doc:report'
+      ),
+      standard(
+        'audit-design-tokens-check',
+        'Design token alignment 守卫',
+        'audit:design-tokens:check'
+      ),
+      standard(
+        'audit-active-documents-check',
+        'Active document contract 守卫',
+        'audit:active-documents:check'
       ),
       standard(
         'audit-interaction-contract-report',
@@ -39,7 +60,11 @@ export function createQualityTaskGraph() {
         'audit:options-mainline:report'
       ),
       quick('report-options-legacy', 'Options 旧前缀扫描', 'report:options-legacy'),
-      task('lint-options-css', 'Options CSS 命名校验', 'stylelint-v1', ['src/options/**/*.css']),
+      task('lint-css', 'Options/onboarding/UI CSS 命名校验', 'stylelint-v1', [
+        'src/options/**/*.css',
+        'src/onboarding/**/*.css',
+        'src/ui/**/*.css'
+      ]),
       standard('lint-hardcoded', 'Hardcoded config 守卫', 'lint:hardcoded'),
       standard('typecheck-app', 'TypeScript 类型检查（应用代码）', 'typecheck:app'),
       standard('typecheck-tests', 'TypeScript 类型检查（测试代码）', 'typecheck:tests'),
@@ -61,6 +86,11 @@ export function createQualityTaskGraph() {
         'audit-production-shape-report',
         'Production shape 守卫',
         'audit:production-shape:report'
+      ),
+      standard(
+        'audit-performance-report',
+        'Performance hotspot budget 守卫',
+        'audit:performance:report'
       ),
       quick('audit-ci-workflow-check', 'CI workflow 拓扑守卫', 'audit:ci-workflow:check'),
       standard(
