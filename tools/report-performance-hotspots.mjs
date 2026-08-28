@@ -1,11 +1,12 @@
 import { execFileSync } from 'node:child_process';
-import { existsSync, readFileSync } from 'node:fs';
+import { lstatSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
+import { TextDecoder } from 'node:util';
 
 const ROOT = process.cwd();
 
-const MAX_LINE_BUDGETS = new Map([
+export const MAX_LINE_BUDGETS = new Map([
   ['src/i18n/generated/localeRegistry.generated.ts', 8899],
   ['src/i18n/generated/schemaMessages.generated.ts', 481],
   // 2026-06-29 v0.2.1 changelog sync: schema core now carries the accepted
@@ -96,6 +97,7 @@ const MAX_LINE_BUDGETS = new Map([
   // enforce the screenshot preparation split without cycles.
   ['src/content/video/videoScreenshotPreparationRequestStore.ts', 294],
   ['src/content/video/videoScreenshotPreparationCoordinator.ts', 147],
+  ['src/content/video/videoScreenshotPreparationQueueOwner.ts', 180],
   ['src/content/reader/session.ts', 575],
   ['src/content/video/videoControlBarButton.ts', 299],
   // 2026-06-20 support-link closeout: runtime surface copy now uses the shared
@@ -106,8 +108,9 @@ const MAX_LINE_BUDGETS = new Map([
   // 2026-06-13 final combined integration: screenshot status dots and add-note
   // focus/layout regressions are covered in the panel while retaining the current UI.
   ['src/options/app/productionStitchPersistence.ts', 379],
-  ['src/shared/errors/analytics/analyticsConfig.template.ts', 364],
-  ['src/shared/errors/analytics/analyticsConfig.ts', 383],
+  ['src/shared/analytics/analyticsConfigContract.ts', 40],
+  ['src/shared/analytics/analyticsRuntimeConfig.ts', 190],
+  ['src/shared/errors/analytics/analyticsConfig.ts', 330],
   ['src/dev/contentOrchestratorHarness.ts', 359],
   ['src/options/app/productionStitchShellActionRuntime.ts', 358],
   ['src/background/services/obsidianWriter.ts', 423],
@@ -163,6 +166,8 @@ const MAX_LINE_BUDGETS = new Map([
   // screenshot request boundary used by video export preparation.
   ['src/background/listeners/runtimeMessages.ts', 374],
   ['src/background/services/usageStats.ts', 266],
+  ['src/background/services/optionsMutationCoordinator.ts', 360],
+  ['src/options/state/optionsStore.ts', 319],
   ['src/background/application/videoScreenshotAttachmentPlanner.ts', 269],
   ['src/third_party/ai-chat-exporter/platforms/tongyi.ts', 274],
   ['src/options/utils/localizedText.ts', 264],
@@ -306,27 +311,41 @@ function isSourceModulePath(relativePath) {
   );
 }
 
-function readGitPaths(root, args) {
-  const output = execFileSync('git', ['-C', root, 'ls-files', ...args], {
-    encoding: 'utf8'
-  });
-
-  return output
-    .split('\n')
-    .map((line) => line.trim())
-    .filter(Boolean)
-    .map(normalizeRelativePath)
-    .filter(isSourceModulePath)
-    .filter((relativePath) => existsSync(join(root, relativePath)));
+function decodeGitPath(pathBuffer) {
+  return normalizeRelativePath(new TextDecoder('utf-8', { fatal: true }).decode(pathBuffer));
 }
 
-function listCurrentSourceFiles(root) {
-  return [
-    ...new Set([
-      ...readGitPaths(root, ['--', 'src']),
-      ...readGitPaths(root, ['--others', '--exclude-standard', '--', 'src'])
-    ])
-  ].sort((left, right) => left.localeCompare(right));
+function isMissingPathError(error) {
+  return typeof error === 'object' && error !== null && error.code === 'ENOENT';
+}
+
+function listCurrentRegularSourceFiles(root) {
+  const output = execFileSync(
+    'git',
+    ['-C', root, 'ls-files', '-z', '--cached', '--others', '--exclude-standard', '--', 'src'],
+    { encoding: null }
+  );
+  const paths = [];
+  let start = 0;
+  for (let index = 0; index < output.length; index += 1) {
+    if (output[index] !== 0) continue;
+    if (index > start) paths.push(decodeGitPath(output.subarray(start, index)));
+    start = index + 1;
+  }
+  if (start !== output.length) {
+    throw new Error('git ls-files returned a non-NUL-terminated path inventory');
+  }
+
+  return [...new Set(paths)]
+    .filter((relativePath) => {
+      try {
+        return lstatSync(join(root, relativePath)).isFile();
+      } catch (error) {
+        if (isMissingPathError(error)) return false;
+        throw error;
+      }
+    })
+    .sort((left, right) => left.localeCompare(right));
 }
 
 function countMatches(source) {
@@ -335,30 +354,60 @@ function countMatches(source) {
   );
 }
 
-function countLines(source) {
-  return source.split('\n').length;
+export function countPhysicalLines(source) {
+  const bytes = Buffer.isBuffer(source) ? source : Buffer.from(source, 'utf8');
+  if (bytes.length === 0) return 0;
+  let lineCount = bytes[bytes.length - 1] === 0x0a ? 0 : 1;
+  for (const byte of bytes) {
+    if (byte === 0x0a) lineCount += 1;
+  }
+  return lineCount;
+}
+
+function countByteOccurrences(source, needle) {
+  let count = 0;
+  let offset = 0;
+  while (offset <= source.length - needle.length) {
+    const index = source.indexOf(needle, offset);
+    if (index < 0) break;
+    count += 1;
+    offset = index + needle.length;
+  }
+  return count;
+}
+
+function decodeSource(source, relativePath) {
+  try {
+    return new TextDecoder('utf-8', { fatal: true }).decode(source);
+  } catch {
+    throw new Error(`Source file is not valid UTF-8: ${relativePath}`);
+  }
 }
 
 export function collectPerformanceHotspots({
   root = ROOT,
   budgets = new Map(MAX_LINE_BUDGETS),
-  sourceFiles = listCurrentSourceFiles(root)
+  currentFiles = listCurrentRegularSourceFiles(root)
 } = {}) {
+  const sourceFiles = currentFiles.filter(isSourceModulePath);
   const trackedSourceSet = new Set(sourceFiles);
   const staleBudgetPaths = [...budgets.keys()].filter(
     (relativePath) => !trackedSourceSet.has(relativePath)
   );
-
-  const rows = sourceFiles
-    .map((relativePath) => {
-      const source = readFileSync(join(root, relativePath), 'utf8');
-      return {
-        relativePath,
-        lineCount: countLines(source),
-        counters: countMatches(source),
-        lineBudget: budgets.get(relativePath)
-      };
-    })
+  const fileBuffers = new Map(
+    currentFiles.map((relativePath) => [relativePath, readFileSync(join(root, relativePath))])
+  );
+  const sourceRows = sourceFiles.map((relativePath) => {
+    const sourceBuffer = fileBuffers.get(relativePath);
+    const source = decodeSource(sourceBuffer, relativePath);
+    return {
+      relativePath,
+      lineCount: countPhysicalLines(sourceBuffer),
+      counters: countMatches(source),
+      lineBudget: budgets.get(relativePath)
+    };
+  });
+  const rows = sourceRows
     .filter((row) => row.lineCount > 250)
     .sort(
       (left, right) =>
@@ -368,19 +417,31 @@ export function collectPerformanceHotspots({
   const missingBudgetPaths = rows
     .filter((row) => row.lineBudget === undefined)
     .map((row) => row.relativePath);
-  const exceededBudgetRows = rows.filter(
+  const exceededBudgetRows = sourceRows.filter(
     (row) => row.lineBudget !== undefined && row.lineCount > row.lineBudget
   );
+  const prettierIgnoreToken = Buffer.from('prettier-ignore', 'utf8');
+  const prettierIgnoreRows = currentFiles
+    .map((relativePath) => ({
+      relativePath,
+      count: countByteOccurrences(fileBuffers.get(relativePath), prettierIgnoreToken)
+    }))
+    .filter((row) => row.count > 0);
+  const prettierIgnoreCount = prettierIgnoreRows.reduce((total, row) => total + row.count, 0);
 
   return {
     rows,
+    currentRegularFileCount: currentFiles.length,
     sourceFileCount: sourceFiles.length,
     dynamicHotspotCount: rows.length,
     registeredBudgetCount: budgets.size,
     missingBudgetPaths,
     staleBudgetPaths,
     exceededBudgetRows,
+    prettierIgnoreRows,
+    prettierIgnoreCount,
     ok:
+      prettierIgnoreCount === 0 &&
       missingBudgetPaths.length === 0 &&
       staleBudgetPaths.length === 0 &&
       exceededBudgetRows.length === 0
@@ -394,13 +455,21 @@ export function formatPerformanceHotspots(report) {
   });
 
   lines.push(
-    `dynamic hotspot coverage: sourceFiles=${report.sourceFileCount}, hotspotsOver250=${report.dynamicHotspotCount}, registeredLineBudgets=${report.registeredBudgetCount}`
+    `dynamic hotspot coverage: sourceFiles=${report.sourceFileCount}, hotspotsOver250=${report.dynamicHotspotCount}, registeredLineBudgets=${report.registeredBudgetCount}, currentRegularFiles=${report.currentRegularFileCount}`,
+    `violations: prettierIgnore=${report.prettierIgnoreCount}, missing=${report.missingBudgetPaths.length}, stale=${report.staleBudgetPaths.length}, exceeded=${report.exceededBudgetRows.length}`
   );
 
   return lines.join('\n');
 }
 
 function printFailures(report) {
+  if (report.prettierIgnoreRows.length > 0) {
+    console.error(
+      `prettier-ignore suppressions found in current src files:\n${report.prettierIgnoreRows
+        .map((row) => `- ${row.relativePath}: ${row.count}`)
+        .join('\n')}`
+    );
+  }
   if (report.missingBudgetPaths.length > 0) {
     console.error(
       `Missing line budgets for dynamically discovered hotspots:\n${report.missingBudgetPaths
@@ -436,7 +505,8 @@ export function runCli(argv = process.argv.slice(2)) {
   }
 }
 
-if (import.meta.url === pathToFileURL(process.argv[1]).href) {
+const entryPoint = process.argv[1];
+if (entryPoint && import.meta.url === pathToFileURL(entryPoint).href) {
   try {
     runCli();
   } catch (error) {

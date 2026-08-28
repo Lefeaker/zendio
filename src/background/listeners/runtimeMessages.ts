@@ -1,8 +1,4 @@
-import {
-  createClipPipelineDependencies,
-  handleClipResult,
-  type ClipPipelineDependencies
-} from '../pipelines/clipPipeline';
+import { handleClipResult } from '../pipelines/clipPipeline';
 import { handleConnectionTest, handleVaultConnectionTest } from '../pipelines/connectionTest';
 import { toConnectionTestPayload } from './connectionTestPayload';
 import { notifyClipFailure, notifyExtractionError } from '../services/notifications';
@@ -25,21 +21,9 @@ import {
   processClipPayload,
   readClipProcessingFailureCategory
 } from '../application/clipProcessor';
-import type { MessagingService } from '../../platform/interfaces/messaging';
-import type { TabsService } from '../../platform/interfaces/tabs';
-import type { RuntimeService } from '../../platform/interfaces/runtime';
 import type { ClipPayload } from '../../shared/types';
 import type { MessagePayload } from '../../platform/interfaces/messaging';
-import {
-  CAPTURE_VISIBLE_TAB_SCREENSHOT_MESSAGE,
-  type CaptureVisibleTabScreenshotResponse
-} from '../../shared/types/videoScreenshotMessages';
-import { captureVisibleTabScreenshotForSender } from './visibleTabScreenshot';
-import {
-  createBackgroundVideoScreenshotCacheHandler as createScreenshotCacheHandler,
-  type BackgroundVideoScreenshotCacheHandler
-} from '../services/videoScreenshotCacheService';
-import type { StorageService } from '../../platform/interfaces/storage';
+import { CAPTURE_VISIBLE_TAB_SCREENSHOT_MESSAGE } from '../../shared/types/videoScreenshotMessages';
 import {
   isGetTabContextMessage,
   isOpenOptionsPageMessage,
@@ -47,50 +31,20 @@ import {
   isTabContextActiveMessage,
   resolveActivationMilestone,
   toMessagePayload,
-  toRuntimeMessageSender,
-  type RuntimeMessageSender,
-  type RuntimeTabContextPayload
+  toRuntimeMessageSender
 } from './runtimeMessageContracts';
-import {
-  handleSessionDraftMessage,
-  isSessionDraftMessageCandidate,
-  type SessionDraftRuntimeDependencies
-} from './sessionDraftMessages';
+import { handleSessionDraftMessage, isSessionDraftMessageCandidate } from './sessionDraftMessages';
 import { normalizeSessionDraftStoredValue } from '../../shared/sessionDrafts';
-import { isObjectRecord } from '../../shared/guards/object';
-import type { OptionsMutationCoordinator } from '../services/optionsMutationCoordinator';
-import { handleOptionsMutationMessage as routeOptionsMutationMessage } from './optionsMutationMessages';
-import { getUsageStatsStore, UsageStatsStoreError } from '../services/usageStats';
-import {
-  createUsageStatsFailureResponse,
-  createUsageStatsSuccessResponse,
-  USAGE_STATS_MESSAGE_TYPE,
-  type UsageStatsErrorCode,
-  type UsageStatsRequest
-} from '../../shared/types/usageStatsMessages';
 import {
   isOptionsMutationMessageCandidate,
   isUsageStatsMessageCandidate
 } from './runtimeMessageContracts';
+import type { RuntimeMessageListenerDependencies } from './runtimeMessageDependencies';
+
+export { createRuntimeMessageListenerDependencies } from './runtimeMessageDependencies';
+export type { RuntimeMessageListenerDependencies } from './runtimeMessageDependencies';
 
 const INVALID_CLIP_PAYLOAD_ERROR = 'Invalid clip payload received.';
-type RuntimeMessageValue = Parameters<typeof isUsageStatsMessageCandidate>[0];
-
-function isUsageStatsRequest(message: RuntimeMessageValue): message is UsageStatsRequest {
-  if (!isObjectRecord(message)) return false;
-  const keys = Object.keys(message).sort();
-  return (
-    keys.length === 3 &&
-    keys[0] === 'operation' &&
-    keys[1] === 'requestId' &&
-    keys[2] === 'type' &&
-    message.type === USAGE_STATS_MESSAGE_TYPE &&
-    typeof message.requestId === 'string' &&
-    message.requestId.length > 0 &&
-    message.requestId.length <= 128 &&
-    (message.operation === 'get' || message.operation === 'reset')
-  );
-}
 
 function toReadingClipPayload(data: Record<string, unknown>): unknown {
   return {
@@ -145,113 +99,6 @@ async function processRepositoryClipPayload(payload: unknown): Promise<MessagePa
       ...(failureCategory ? { failureCategory } : {})
     };
   }
-}
-
-export interface RuntimeMessageListenerDependencies extends SessionDraftRuntimeDependencies {
-  messaging: Pick<MessagingService, 'addListener'>;
-  clipPipeline: ClipPipelineDependencies;
-  openOptionsPage(section?: string): Promise<void>;
-  getTabContext(sender: RuntimeMessageSender): Promise<RuntimeTabContextPayload>;
-  isTabContextActive(ownerContext: RuntimeMessageSender): Promise<RuntimeTabContextPayload>;
-  captureVisibleTabScreenshot(
-    sender: RuntimeMessageSender
-  ): Promise<CaptureVisibleTabScreenshotResponse>;
-  handleVideoScreenshotCacheMessage: BackgroundVideoScreenshotCacheHandler;
-  handleOptionsMutationMessage(message: RuntimeMessageValue): Promise<MessagePayload | undefined>;
-  handleUsageStatsMessage(message: RuntimeMessageValue): Promise<MessagePayload | undefined>;
-}
-export function createRuntimeMessageListenerDependencies(
-  messaging: Pick<MessagingService, 'addListener'>,
-  tabs: Pick<TabsService, 'create' | 'get' | 'sendMessage' | 'captureVisibleTab'>,
-  runtime: Pick<RuntimeService, 'getURL'>,
-  storage: Pick<StorageService, 'local'>,
-  sessionDrafts: SessionDraftRuntimeDependencies,
-  cacheOptions: { ttlMs?: number; optionsMutationCoordinator?: OptionsMutationCoordinator } = {}
-): RuntimeMessageListenerDependencies {
-  return {
-    ...sessionDrafts,
-    messaging,
-    clipPipeline: createClipPipelineDependencies(tabs),
-    handleVideoScreenshotCacheMessage: createScreenshotCacheHandler(
-      storage,
-      cacheOptions.ttlMs === undefined ? {} : { ttlMs: cacheOptions.ttlMs }
-    ),
-    handleOptionsMutationMessage: (message) =>
-      routeOptionsMutationMessage(cacheOptions.optionsMutationCoordinator, message),
-    async handleUsageStatsMessage(message) {
-      if (!isUsageStatsMessageCandidate(message)) return undefined;
-      const requestId =
-        typeof message === 'object' &&
-        message !== null &&
-        'requestId' in message &&
-        typeof message.requestId === 'string' &&
-        message.requestId.length > 0
-          ? message.requestId.slice(0, 128)
-          : 'invalid-usage-request';
-      if (!isUsageStatsRequest(message)) {
-        return toMessagePayload(
-          createUsageStatsFailureResponse(requestId, 'INVALID_USAGE_STATS_REQUEST')
-        );
-      }
-      try {
-        const store = getUsageStatsStore();
-        const stats =
-          message.operation === 'reset' ? await store.resetStats() : await store.getStats();
-        return toMessagePayload(createUsageStatsSuccessResponse(message.requestId, stats));
-      } catch (error) {
-        const errorCode: UsageStatsErrorCode =
-          error instanceof UsageStatsStoreError ? error.code : 'USAGE_STATS_STORAGE_FAILURE';
-        return toMessagePayload(createUsageStatsFailureResponse(message.requestId, errorCode));
-      }
-    },
-    async openOptionsPage(section) {
-      const optionsUrl = runtime.getURL('options/index.html');
-      const normalizedSection = section?.trim();
-      const url = normalizedSection ? `${optionsUrl}#${normalizedSection}` : optionsUrl;
-      await tabs.create({ url });
-    },
-    async getTabContext(sender) {
-      const tabId = typeof sender.tabId === 'number' ? sender.tabId : undefined;
-      const frameId = typeof sender.frameId === 'number' ? sender.frameId : undefined;
-      let windowId = typeof sender.windowId === 'number' ? sender.windowId : undefined;
-
-      if (windowId === undefined && tabId !== undefined) {
-        try {
-          windowId = (await tabs.get(tabId))?.windowId;
-        } catch {
-          windowId = undefined;
-        }
-      }
-
-      return {
-        success: true,
-        ...(tabId !== undefined ? { tabId } : {}),
-        ...(windowId !== undefined ? { windowId } : {}),
-        ...(frameId !== undefined ? { frameId } : {})
-      };
-    },
-    async isTabContextActive(ownerContext) {
-      const tabId = typeof ownerContext.tabId === 'number' ? ownerContext.tabId : undefined;
-      if (tabId === undefined) {
-        return { success: true, active: false };
-      }
-
-      try {
-        const tab = await tabs.get(tabId);
-        const expectedWindowId =
-          typeof ownerContext.windowId === 'number' ? ownerContext.windowId : undefined;
-        const active =
-          tab !== undefined &&
-          (expectedWindowId === undefined || tab.windowId === expectedWindowId);
-        return { success: true, active };
-      } catch {
-        return { success: true, active: false };
-      }
-    },
-    captureVisibleTabScreenshot(sender) {
-      return captureVisibleTabScreenshotForSender(tabs, sender);
-    }
-  };
 }
 
 async function safeNotifyExtraction(message: string): Promise<void> {

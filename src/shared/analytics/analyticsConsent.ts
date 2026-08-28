@@ -1,4 +1,4 @@
-import type { AnalyticsConfig } from '../errors/analytics/analyticsConfig';
+import type { AnalyticsConfig } from './analyticsConfigContract';
 import type { AnalyticsConsentScope } from './schema/analyticsSchema';
 import { getAnalyticsConsentScope } from './schema/analyticsSchemaDerived';
 import type { AnalyticsEventName } from './eventCatalog';

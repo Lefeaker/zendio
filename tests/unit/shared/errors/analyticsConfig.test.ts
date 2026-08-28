@@ -1,4 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { existsSync, readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import type {
   StorageAreaService,
   StorageService
@@ -204,6 +206,31 @@ describe('analyticsConfig', () => {
     expect(
       runtimeConfigModule.hasAnalyticsSendConsent(errorOnlyRuntimeConfig, 'support_like_clicked')
     ).toBe(false);
+  });
+
+  it('keeps analytics config types in the neutral contract with no shared-to-errors edge', () => {
+    const sharedModules = [
+      'analyticsConsent.ts',
+      'analyticsQueue.ts',
+      'analyticsRuntimeConfig.ts',
+      'analyticsTransport.ts'
+    ];
+    for (const fileName of sharedModules) {
+      const source = readFileSync(resolve('src/shared/analytics', fileName), 'utf8');
+      expect(source).toContain('analyticsConfigContract');
+      expect(source).not.toContain('../errors/analytics/analyticsConfig');
+    }
+
+    const managerSource = readFileSync(
+      resolve('src/shared/errors/analytics/analyticsConfig.ts'),
+      'utf8'
+    );
+    expect(managerSource).toContain(
+      "export type { AnalyticsConfig, UserConsent } from '../../analytics/analyticsConfigContract'"
+    );
+    expect(existsSync(resolve('src/shared/errors/analytics/analyticsConfig.template.ts'))).toBe(
+      false
+    );
   });
 
   it('retains the public proxy endpoint when stored config uses proxy-backed directDebug mode', async () => {

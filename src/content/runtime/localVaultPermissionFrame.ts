@@ -13,6 +13,7 @@ import {
   resolveLocalVaultPermissionService,
   type LocalVaultPermissionService
 } from './localVaultPermissionFrameAdapter';
+import permissionFrameCssText from './local-vault-permission-frame.css?inline';
 
 export interface LocalVaultPermissionFrameOptions {
   document?: Document;
@@ -264,103 +265,7 @@ function ensureStyles(doc: Document): void {
   }
   const style = doc.createElement('style');
   style.id = 'aiob-local-vault-permission-frame-style';
-  style.textContent = `
-  :root {
-    color-scheme: light;
-    font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  }
-
-  * {
-    box-sizing: border-box;
-  }
-
-  body {
-    margin: 0;
-    min-height: 100vh;
-    background: #ffffff;
-    color: #172033;
-  }
-
-  .permission-card {
-    min-height: 100vh;
-    display: flex;
-    flex-direction: column;
-    gap: 14px;
-    padding: 22px;
-  }
-
-  .permission-kicker {
-    display: block;
-    margin-bottom: 5px;
-    color: #667085;
-    font-size: 12px;
-    font-weight: 700;
-  }
-
-  h1 {
-    margin: 0;
-    font-size: 19px;
-    line-height: 1.28;
-    font-weight: 760;
-  }
-
-  .permission-copy {
-    margin: 0;
-    color: #475467;
-    font-size: 14px;
-    line-height: 1.58;
-  }
-
-  strong {
-    color: #172033;
-    font-weight: 750;
-  }
-
-  .permission-status {
-    min-height: 19px;
-    margin: 0;
-    color: #2f6b4f;
-    font-size: 13px;
-  }
-
-  .permission-actions {
-    display: flex;
-    gap: 8px;
-    margin-top: auto;
-  }
-
-  button {
-    min-height: 36px;
-    border: 1px solid transparent;
-    border-radius: 8px;
-    padding: 0 12px;
-    font: inherit;
-    font-size: 13px;
-    font-weight: 700;
-    cursor: pointer;
-  }
-
-  button:disabled {
-    cursor: wait;
-    opacity: 0.64;
-  }
-
-  .primary {
-    background: #13795b;
-    color: #ffffff;
-  }
-
-  .secondary {
-    border-color: #d0d5dd;
-    background: #ffffff;
-    color: #344054;
-  }
-
-  .ghost {
-    background: transparent;
-    color: #667085;
-  }
-`;
+  style.textContent = permissionFrameCssText;
   doc.head.appendChild(style);
 }
 

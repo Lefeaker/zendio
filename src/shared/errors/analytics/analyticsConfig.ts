@@ -1,13 +1,10 @@
 import type { StorageService } from '@platform/interfaces/storage';
 import {
-  normalizeAnalyticsDebugModeFlag,
+  isAnalyticsDebugModeControlAvailable,
   resolveAnalyticsDebugMode
 } from '../../analytics/analyticsDebugModeCapability';
 import {
   DEFAULT_ANALYTICS_MEASUREMENT_ID,
-  normalizeAnalyticsTransportMode,
-  normalizeMeasurementId,
-  normalizeProxyEndpoint,
   readAnalyticsPublicBuildConfig,
   type AnalyticsTransportMode
 } from '../../analytics/analyticsEnvironment';
@@ -16,6 +13,13 @@ import {
   createAnalyticsSessionId,
   redactAnalyticsIdentity
 } from '../../analytics/analyticsIdentity';
+import type { AnalyticsConfig, UserConsent } from '../../analytics/analyticsConfigContract';
+import {
+  normalizeStoredAnalyticsConfig,
+  resolveAnalyticsRuntimeEnabled
+} from '../../analytics/analyticsRuntimeConfig';
+
+export type { AnalyticsConfig, UserConsent } from '../../analytics/analyticsConfigContract';
 
 export const GA4_CONFIG = {
   MEASUREMENT_ID: DEFAULT_ANALYTICS_MEASUREMENT_ID,
@@ -47,27 +51,6 @@ export const GA4_CONFIG = {
     LAST_REPORT_TIME: 'analytics_last_report_time'
   }
 } as const;
-
-export interface UserConsent {
-  analytics: boolean;
-  errorReporting: boolean;
-  timestamp: number;
-  version: string;
-}
-
-export interface AnalyticsConfig {
-  enabled: boolean;
-  debugMode: boolean;
-  measurementId: string;
-  transportMode: AnalyticsTransportMode;
-  proxyEndpoint?: string;
-  clientId?: string;
-  sessionId?: string;
-  userConsent?: UserConsent;
-  reportingInterval: number;
-  maxErrorsPerSession: number;
-  batchSize: number;
-}
 
 const PUBLIC_BUILD_ANALYTICS_CONFIG = readAnalyticsPublicBuildConfig();
 
@@ -104,16 +87,24 @@ export class AnalyticsConfigManager {
     const { userConsent: storedConfigConsent, ...storedConfigWithoutConsent } = storedConfig ?? {};
     // Consent is intentionally sourced from the dedicated storage key, not legacy config payloads.
     void storedConfigConsent;
-    const normalizedConfig = normalizeAnalyticsConfig(storedConfigWithoutConsent);
+    const debugControlAvailable = isAnalyticsDebugModeControlAvailable();
+    const normalizedConfig = normalizeStoredAnalyticsConfig(
+      storedConfigWithoutConsent,
+      DEFAULT_ANALYTICS_CONFIG,
+      debugControlAvailable
+    );
     const clientId = storedClientId ?? normalizedConfig.clientId ?? this.config.clientId;
     const sessionId = storedSessionId ?? normalizedConfig.sessionId ?? this.config.sessionId;
     const debugMode = storedConsent
-      ? resolveAnalyticsDebugMode({
-          analytics: storedConsent.analytics,
-          errorReporting: storedConsent.errorReporting,
-          debugMode: normalizedConfig.debugMode
-        })
-      : normalizeAnalyticsDebugModeFlag(normalizedConfig.debugMode);
+      ? resolveAnalyticsDebugMode(
+          {
+            analytics: storedConsent.analytics,
+            errorReporting: storedConsent.errorReporting,
+            debugMode: normalizedConfig.debugMode
+          },
+          debugControlAvailable
+        )
+      : normalizedConfig.debugMode;
 
     this.config = {
       ...normalizedConfig,
@@ -313,70 +304,21 @@ export function shouldReportErrors(): boolean {
   return config.enabled && config.userConsent?.errorReporting === true;
 }
 
-// prettier-ignore
-export async function setAnalyticsConsent(analytics: boolean, errorReporting: boolean): Promise<void> { await getAnalyticsConfigManager().setUserConsent({ analytics, errorReporting }); }
-
-// prettier-ignore
-export function getAnalyticsConfig(): AnalyticsConfig { return getAnalyticsConfigManager().getConfig(); }
-
-// prettier-ignore
-function normalizeAnalyticsConfig(storedConfig: Partial<AnalyticsConfig>): AnalyticsConfig { return normalizeStoredAnalyticsConfig(storedConfig, DEFAULT_ANALYTICS_CONFIG); }
-
-const hasOwn = (value: object, key: string): boolean =>
-  Object.prototype.hasOwnProperty.call(value, key);
-const normalizeOptionalString = (value: unknown): string | undefined =>
-  typeof value === 'string' && value.length > 0 ? value : undefined;
-const normalizePositiveInteger = (value: unknown, fallback: number): number =>
-  typeof value === 'number' && Number.isSafeInteger(value) && value > 0 ? value : fallback;
-const resolveAnalyticsRuntimeEnabled = (consent: Partial<UserConsent> | undefined): boolean =>
-  Boolean(consent?.analytics || consent?.errorReporting);
-
-function normalizeStoredAnalyticsConfig(
-  storedConfig: Partial<AnalyticsConfig> | undefined,
-  defaults: AnalyticsConfig
-): AnalyticsConfig {
-  const config = storedConfig ?? {};
-  const consent = normalizeUserConsent(config.userConsent);
-  const transportMode = hasOwn(config, 'transportMode')
-    ? (normalizeAnalyticsTransportMode(config.transportMode, 'disabled') ?? 'disabled')
-    : defaults.transportMode;
-  const clientId = normalizeOptionalString(config.clientId);
-  const sessionId = normalizeOptionalString(config.sessionId);
-  const proxyEndpoint =
-    transportMode === 'proxy' || transportMode === 'directDebug'
-      ? hasOwn(config, 'proxyEndpoint')
-        ? normalizeProxyEndpoint(config.proxyEndpoint)
-        : defaults.proxyEndpoint
-      : undefined;
-
-  return {
-    enabled: resolveAnalyticsRuntimeEnabled(consent),
-    debugMode: normalizeAnalyticsDebugModeFlag(
-      typeof config.debugMode === 'boolean' ? config.debugMode : defaults.debugMode
-    ),
-    measurementId:
-      normalizeMeasurementId(config.measurementId, defaults.measurementId) ??
-      defaults.measurementId,
-    transportMode,
-    ...(proxyEndpoint ? { proxyEndpoint } : {}),
-    ...(clientId ? { clientId } : {}),
-    ...(sessionId ? { sessionId } : {}),
-    ...(consent ? { userConsent: consent } : {}),
-    reportingInterval: normalizePositiveInteger(
-      config.reportingInterval,
-      defaults.reportingInterval
-    ),
-    maxErrorsPerSession: normalizePositiveInteger(
-      config.maxErrorsPerSession,
-      defaults.maxErrorsPerSession
-    ),
-    batchSize: normalizePositiveInteger(config.batchSize, defaults.batchSize)
-  };
+export async function setAnalyticsConsent(
+  analytics: boolean,
+  errorReporting: boolean
+): Promise<void> {
+  await getAnalyticsConfigManager().setUserConsent({ analytics, errorReporting });
 }
 
-function normalizeUserConsent(value: unknown): UserConsent | undefined {
-  if (typeof value !== 'object' || value === null) return undefined;
-  const consent = value as Partial<UserConsent>;
-  // prettier-ignore
-  return { analytics: consent.analytics === true, errorReporting: consent.errorReporting === true, timestamp: typeof consent.timestamp === 'number' ? consent.timestamp : 0, version: typeof consent.version === 'string' ? consent.version : '1.0' };
+export function getAnalyticsConfig(): AnalyticsConfig {
+  return getAnalyticsConfigManager().getConfig();
+}
+
+function normalizeAnalyticsConfig(storedConfig: Partial<AnalyticsConfig>): AnalyticsConfig {
+  return normalizeStoredAnalyticsConfig(
+    storedConfig,
+    DEFAULT_ANALYTICS_CONFIG,
+    isAnalyticsDebugModeControlAvailable()
+  );
 }

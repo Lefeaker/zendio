@@ -19,7 +19,7 @@ import {
   createAnalyticsBrowserContextParams,
   isAnalyticsBrowserFamily
 } from './analyticsBrowserFamily';
-import type { AnalyticsConfig } from '../errors/analytics/analyticsConfig';
+import type { AnalyticsConfig } from './analyticsConfigContract';
 
 export interface AnalyticsTransportPayload {
   client_id: string;

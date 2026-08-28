@@ -1,7 +1,29 @@
 import { execFileSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { createHash } from 'node:crypto';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
+import { pathToFileURL } from 'node:url';
+
+const TARGET_BUDGETS: Record<string, number> = {
+  'src/background/services/optionsMutationCoordinator.ts': 360,
+  'src/content/video/videoScreenshotPreparationCoordinator.ts': 147,
+  'src/content/video/videoScreenshotPreparationQueueOwner.ts': 180,
+  'src/options/state/optionsStore.ts': 319,
+  'src/shared/analytics/analyticsConfigContract.ts': 40,
+  'src/shared/analytics/analyticsRuntimeConfig.ts': 190,
+  'src/shared/errors/analytics/analyticsConfig.ts': 330
+};
+
+const CHANGED_BUDGET_PATHS = new Set([
+  'src/background/services/optionsMutationCoordinator.ts',
+  'src/content/video/videoScreenshotPreparationQueueOwner.ts',
+  'src/options/state/optionsStore.ts',
+  'src/shared/analytics/analyticsConfigContract.ts',
+  'src/shared/analytics/analyticsRuntimeConfig.ts',
+  'src/shared/errors/analytics/analyticsConfig.ts',
+  'src/shared/errors/analytics/analyticsConfig.template.ts'
+]);
 
 describe('report-performance-hotspots', () => {
   const toolPath = resolve('tools/report-performance-hotspots.mjs');
@@ -26,6 +48,63 @@ describe('report-performance-hotspots', () => {
       (_, index) => `export const line${index} = ${index};`
     ).join('\n');
   }
+
+  function writeBudgets(root: string, budgets: Record<string, number>): string {
+    const budgetPath = join(root, 'budgets.json');
+    writeFileSync(budgetPath, JSON.stringify(budgets));
+    return budgetPath;
+  }
+
+  function runTool(root: string, budgetPath: string): string {
+    return execFileSync(process.execPath, [toolPath, '--root', root, '--budget-json', budgetPath], {
+      encoding: 'utf8',
+      stdio: 'pipe'
+    });
+  }
+
+  function readRegisteredBudgets(): Map<string, number> {
+    const source = readFileSync(toolPath, 'utf8');
+    return new Map(
+      [...source.matchAll(/\['([^']+)', (\d+)\]/gu)].map((match) => [
+        match[1] ?? '',
+        Number(match[2])
+      ])
+    );
+  }
+
+  it('counts physical lines without adding a phantom final line', () => {
+    const moduleUrl = pathToFileURL(toolPath).href;
+    const output = execFileSync(
+      process.execPath,
+      [
+        '--input-type=module',
+        '--eval',
+        `const { countPhysicalLines } = await import(${JSON.stringify(moduleUrl)}); process.stdout.write(JSON.stringify(['', 'one', 'one\\n', 'one\\ntwo', 'one\\ntwo\\n', 'one\\r\\ntwo\\r\\n'].map(countPhysicalLines)));`
+      ],
+      { encoding: 'utf8', stdio: 'pipe' }
+    );
+    expect(JSON.parse(output)).toEqual([0, 1, 1, 2, 2, 2]);
+  });
+
+  it('keeps the exact normalized budget transitions and every other budget unchanged', () => {
+    const registeredBudgets = readRegisteredBudgets();
+    expect(registeredBudgets.size).toBe(149);
+    for (const [relativePath, budget] of Object.entries(TARGET_BUDGETS)) {
+      expect(registeredBudgets.get(relativePath)).toBe(budget);
+    }
+    expect(registeredBudgets.has('src/shared/errors/analytics/analyticsConfig.template.ts')).toBe(
+      false
+    );
+
+    const unchangedBudgetRows = [...registeredBudgets.entries()]
+      .filter(([relativePath]) => !CHANGED_BUDGET_PATHS.has(relativePath))
+      .sort(([left], [right]) => (left < right ? -1 : left > right ? 1 : 0))
+      .map(([relativePath, budget]) => `${relativePath}\t${String(budget)}\n`)
+      .join('');
+    expect(createHash('sha256').update(unchangedBudgetRows).digest('hex')).toBe(
+      '2916a0253a323a71f2702e65cb86d6ed1e95cd5279eff128a83e0f06c00fcb67'
+    );
+  });
 
   it('removes retired UI budgets while preserving current hotspot registrations', () => {
     const source = readFileSync(toolPath, 'utf8');
@@ -63,6 +142,26 @@ describe('report-performance-hotspots', () => {
       rmSync(root, { recursive: true, force: true });
     }
   });
+
+  it.each(Object.entries(TARGET_BUDGETS))(
+    'checks the registered %s budget even when it is below hotspot discovery',
+    (relativePath, budget) => {
+      const root = createFixtureRepo({
+        [relativePath]: createSourceWithLines(budget)
+      });
+      const budgetPath = writeBudgets(root, { [relativePath]: budget });
+
+      try {
+        expect(runTool(root, budgetPath)).toContain('exceeded=0');
+        writeFileSync(join(root, relativePath), createSourceWithLines(budget + 1));
+        expect(() => runTool(root, budgetPath)).toThrow(
+          new RegExp(`${relativePath.replaceAll('/', '\\/')} exceeds hotspot line budget`)
+        );
+      } finally {
+        rmSync(root, { recursive: true, force: true });
+      }
+    }
+  );
 
   it('fails when a registered budget points to a file that no longer exists', () => {
     const root = createFixtureRepo({
@@ -113,6 +212,42 @@ describe('report-performance-hotspots', () => {
     }
   });
 
+  it('uses a NUL-safe current regular-file inventory without following symlinks', () => {
+    const root = createFixtureRepo({
+      'src/ leading space.ts': 'export const leading = true;',
+      'src/line\nbreak.ts': 'export const newline = true;'
+    });
+    const outsideTarget = join(root, 'outside-target.ts');
+    writeFileSync(outsideTarget, createSourceWithLines(400));
+    symlinkSync(outsideTarget, join(root, 'src/symlink.ts'));
+    execFileSync('git', ['add', 'src/symlink.ts'], { cwd: root, stdio: 'ignore' });
+    const budgetPath = writeBudgets(root, {});
+
+    try {
+      const output = runTool(root, budgetPath);
+      expect(output).toContain('dynamic hotspot coverage: sourceFiles=2');
+      expect(output).toContain('currentRegularFiles=2');
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it('searches every current regular src file for prettier-ignore bytes', () => {
+    const root = createFixtureRepo({
+      'src/currentSmallFile.ts': 'export const current = true;',
+      'src/styles.css': '/* prettier-ignore */\n.rule { color: red; }'
+    });
+    const budgetPath = writeBudgets(root, {});
+
+    try {
+      expect(() => runTool(root, budgetPath)).toThrow(
+        /prettier-ignore suppressions.*src\/styles\.css/s
+      );
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
   it('includes untracked current src files in hotspot coverage truth', () => {
     const root = createFixtureRepo({
       'src/currentSmallFile.ts': createSourceWithLines(20)
@@ -141,5 +276,20 @@ describe('report-performance-hotspots', () => {
     } finally {
       rmSync(root, { recursive: true, force: true });
     }
+  });
+
+  it('is import-safe and the checked-in tree has explicit zero violations', () => {
+    const importOutput = execFileSync(
+      process.execPath,
+      ['--input-type=module', '--eval', `await import(${JSON.stringify(toolPath)});`],
+      { encoding: 'utf8', stdio: 'pipe' }
+    );
+    expect(importOutput).toBe('');
+
+    const output = execFileSync(process.execPath, [toolPath], {
+      encoding: 'utf8',
+      stdio: 'pipe'
+    });
+    expect(output).toContain('violations: prettierIgnore=0, missing=0, stale=0, exceeded=0');
   });
 });

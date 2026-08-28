@@ -1,15 +1,5 @@
-import type {
-  ClipPayload,
-  UsageStatCategory,
-  UsageStats,
-  UsageStatsHistoryEntry
-} from '../../shared/types';
-import {
-  DEFAULT_USAGE_STATS,
-  USAGE_STATS_STORAGE_KEY,
-  normalizeUsageStats
-} from '../../shared/constants';
-import { isObjectRecord, type RuntimePropertyValue } from '../../shared/guards/object';
+import type { ClipPayload, UsageStats } from '../../shared/types';
+import { DEFAULT_USAGE_STATS, USAGE_STATS_STORAGE_KEY } from '../../shared/constants';
 import type { StorageService } from '../../platform/interfaces/storage';
 import { PlatformError } from '../../platform/errors';
 import { registry, TOKENS } from '../../shared/di';
@@ -19,9 +9,17 @@ import {
   OptionsMutationCoordinator,
   createOptionsMutationCoordinator
 } from './optionsMutationCoordinator';
+import {
+  cloneUsageStats,
+  isCanonicalUsageStats,
+  normalizeLegacyUsageStatsCandidate,
+  resolveUsageCategory,
+  updateUsageHistory,
+  usageStatsEqual
+} from './usageStatsModel';
 
 const LEGACY_USAGE_STATS_STORAGE_KEY = 'usage_stats';
-type UntrustedValue = Parameters<typeof normalizeUsageStats>[0];
+type UntrustedValue = unknown;
 
 export class UsageStatsStoreError extends Error {
   constructor(readonly code: UsageStatsErrorCode) {
@@ -30,68 +28,9 @@ export class UsageStatsStoreError extends Error {
   }
 }
 
-function cloneStats(stats: UsageStats): UsageStats {
-  return {
-    ...stats,
-    history: stats.history.map((entry) => ({ ...entry }))
-  };
-}
-
-function statsEqual(left: UsageStats, right: UsageStats): boolean {
-  return JSON.stringify(left) === JSON.stringify(right);
-}
-
-function hasExactKeys(value: Record<string, RuntimePropertyValue>, expected: readonly string[]) {
-  const actual = Object.keys(value).sort();
-  const sortedExpected = [...expected].sort();
-  return (
-    actual.length === sortedExpected.length &&
-    actual.every((key, index) => key === sortedExpected[index])
-  );
-}
-
-function isCount(value: RuntimePropertyValue): value is number {
-  return Number.isSafeInteger(value) && Number(value) >= 0;
-}
-
-function isHistoryEntry(value: RuntimePropertyValue): value is UsageStatsHistoryEntry {
-  return (
-    isObjectRecord(value) &&
-    hasExactKeys(value, ['date', 'aiChat', 'fragment', 'article']) &&
-    typeof value.date === 'string' &&
-    /^\d{4}-\d{2}-\d{2}$/u.test(value.date) &&
-    isCount(value.aiChat) &&
-    isCount(value.fragment) &&
-    isCount(value.article)
-  );
-}
-
-function isUsageStats(value: UntrustedValue): value is UsageStats {
-  return (
-    isObjectRecord(value) &&
-    hasExactKeys(value, [
-      'aiChatSaves',
-      'fragmentSaves',
-      'articleSaves',
-      'lastUpdatedISO',
-      'history'
-    ]) &&
-    isCount(value.aiChatSaves) &&
-    isCount(value.fragmentSaves) &&
-    isCount(value.articleSaves) &&
-    (value.lastUpdatedISO === null || typeof value.lastUpdatedISO === 'string') &&
-    Array.isArray(value.history) &&
-    value.history.every(isHistoryEntry)
-  );
-}
-
-function legacyCandidate(value: UntrustedValue): UsageStats | null {
-  return typeof value === 'object' && value !== null ? normalizeUsageStats(value) : null;
-}
-
 /** One FIFO owner for usage read, migration, record, and reset. */
 export class UsageStatsStore {
-  private memoryStats: UsageStats = cloneStats(DEFAULT_USAGE_STATS);
+  private memoryStats: UsageStats = cloneUsageStats(DEFAULT_USAGE_STATS);
   private tail: Promise<void> = Promise.resolve();
   private volatileDirty = false;
   private migrationSettled = false;
@@ -103,8 +42,8 @@ export class UsageStatsStore {
 
   getStats(): Promise<UsageStats> {
     return this.enqueue(async () => {
-      if (this.volatileDirty) return cloneStats(this.memoryStats);
-      return cloneStats(await this.loadAndMigrate());
+      if (this.volatileDirty) return cloneUsageStats(this.memoryStats);
+      return cloneUsageStats(await this.loadAndMigrate());
     });
   }
 
@@ -113,7 +52,7 @@ export class UsageStatsStore {
     if (!category) return Promise.resolve(null);
     return this.enqueue(async () => {
       const current = this.volatileDirty
-        ? cloneStats(this.memoryStats)
+        ? cloneUsageStats(this.memoryStats)
         : await this.loadAndMigrate();
       const updated: UsageStats = {
         ...current,
@@ -121,7 +60,7 @@ export class UsageStatsStore {
         fragmentSaves: current.fragmentSaves + (category === 'fragment' ? 1 : 0),
         articleSaves: current.articleSaves + (category === 'article' ? 1 : 0),
         lastUpdatedISO: new Date().toISOString(),
-        history: updateHistory(current.history, category)
+        history: updateUsageHistory(current.history, category)
       };
       try {
         await this.persistCanonical(updated);
@@ -132,17 +71,17 @@ export class UsageStatsStore {
         void error;
       }
       this.updateMemoryStats(updated);
-      return cloneStats(updated);
+      return cloneUsageStats(updated);
     });
   }
 
   resetStats(): Promise<UsageStats> {
     return this.enqueue(async () => {
-      const reset = cloneStats(DEFAULT_USAGE_STATS);
+      const reset = cloneUsageStats(DEFAULT_USAGE_STATS);
       await this.persistCanonical(reset);
       this.volatileDirty = false;
       this.updateMemoryStats(reset);
-      return cloneStats(reset);
+      return cloneUsageStats(reset);
     });
   }
 
@@ -170,43 +109,43 @@ export class UsageStatsStore {
       ]);
     } catch (error) {
       if (isRecoverableStorageError(error) || isChromeUnavailableError(error)) {
-        return cloneStats(this.memoryStats);
+        return cloneUsageStats(this.memoryStats);
       }
       throw new UsageStatsStoreError('USAGE_STATS_STORAGE_FAILURE');
     }
 
     const canonical = local[USAGE_STATS_STORAGE_KEY];
     if (canonical !== undefined) {
-      if (!isUsageStats(canonical)) {
+      if (!isCanonicalUsageStats(canonical)) {
         throw new UsageStatsStoreError('USAGE_STATS_CANONICAL_INVALID');
       }
-      const stats = cloneStats(canonical);
+      const stats = cloneUsageStats(canonical);
       this.updateMemoryStats(stats);
       if (!this.migrationSettled) await this.cleanupLegacySources();
       return stats;
     }
 
-    const localLegacy = legacyCandidate(local[LEGACY_USAGE_STATS_STORAGE_KEY]);
+    const localLegacy = normalizeLegacyUsageStatsCandidate(local[LEGACY_USAGE_STATS_STORAGE_KEY]);
     const optionsLegacy = localLegacy
       ? null
-      : legacyCandidate(await this.optionsCoordinator.readLegacyUsageStats());
-    const selected = localLegacy ?? optionsLegacy ?? cloneStats(DEFAULT_USAGE_STATS);
+      : normalizeLegacyUsageStatsCandidate(await this.optionsCoordinator.readLegacyUsageStats());
+    const selected = localLegacy ?? optionsLegacy ?? cloneUsageStats(DEFAULT_USAGE_STATS);
     this.updateMemoryStats(selected);
 
     try {
       await this.persistCanonical(selected);
     } catch {
-      return cloneStats(selected);
+      return cloneUsageStats(selected);
     }
     await this.cleanupLegacySources();
-    return cloneStats(selected);
+    return cloneUsageStats(selected);
   }
 
   private async persistCanonical(stats: UsageStats): Promise<void> {
     try {
-      await this.storage.local.set(USAGE_STATS_STORAGE_KEY, cloneStats(stats));
+      await this.storage.local.set(USAGE_STATS_STORAGE_KEY, cloneUsageStats(stats));
       const readback = await this.storage.local.get<UntrustedValue>(USAGE_STATS_STORAGE_KEY);
-      if (!isUsageStats(readback) || !statsEqual(readback, stats)) {
+      if (!isCanonicalUsageStats(readback) || !usageStatsEqual(readback, stats)) {
         throw new UsageStatsStoreError('USAGE_STATS_STORAGE_FAILURE');
       }
     } catch (error) {
@@ -229,7 +168,7 @@ export class UsageStatsStore {
   }
 
   private updateMemoryStats(stats: UsageStats): void {
-    this.memoryStats = cloneStats(stats);
+    this.memoryStats = cloneUsageStats(stats);
   }
 }
 
@@ -284,14 +223,6 @@ export async function ensureUsageStatsInitialized(): Promise<void> {
   await getUsageStatsStore().initialize();
 }
 
-function resolveUsageCategory(payload: ClipPayload): UsageStatCategory {
-  if (payload.type === 'ai_chat') return 'ai_chat';
-  if (payload.type === 'clipper' || payload.type === 'fragment' || payload.type === 'video') {
-    return 'fragment';
-  }
-  return 'article';
-}
-
 function isRecoverableStorageError(error: UntrustedValue): boolean {
   if (!error) return false;
   const message = error instanceof Error ? error.message : String(error);
@@ -300,48 +231,4 @@ function isRecoverableStorageError(error: UntrustedValue): boolean {
 
 function isChromeUnavailableError(error: UntrustedValue): boolean {
   return error instanceof PlatformError && error.code === 'CHROME_UNAVAILABLE';
-}
-
-function updateHistory(
-  history: UsageStatsHistoryEntry[] | undefined,
-  category: UsageStatCategory
-): UsageStatsHistoryEntry[] {
-  const today = formatDate(new Date());
-  const historyMap = new Map<string, UsageStatsHistoryEntry>();
-  for (const entry of history ?? []) {
-    if (!entry?.date) continue;
-    historyMap.set(entry.date, {
-      date: entry.date,
-      aiChat: entry.aiChat ?? 0,
-      fragment: entry.fragment ?? 0,
-      article: entry.article ?? 0
-    });
-  }
-  const todayEntry = historyMap.get(today) ?? {
-    date: today,
-    aiChat: 0,
-    fragment: 0,
-    article: 0
-  };
-  todayEntry[category === 'ai_chat' ? 'aiChat' : category] += 1;
-  historyMap.set(today, todayEntry);
-  return trimHistory(
-    Array.from(historyMap.values()).sort((left, right) => left.date.localeCompare(right.date)),
-    30
-  );
-}
-
-function trimHistory(entries: UsageStatsHistoryEntry[], limit: number): UsageStatsHistoryEntry[] {
-  const cutoff = new Date();
-  cutoff.setDate(cutoff.getDate() - (limit - 1));
-  const cutoffKey = formatDate(cutoff);
-  const filtered = entries.filter((entry) => entry.date >= cutoffKey);
-  return filtered.length > limit ? filtered.slice(filtered.length - limit) : filtered;
-}
-
-function formatDate(date: Date): string {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
 }

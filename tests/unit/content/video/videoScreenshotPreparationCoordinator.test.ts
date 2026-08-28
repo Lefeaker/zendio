@@ -2,6 +2,10 @@
 
 import { describe, expect, it, vi } from 'vitest';
 import { VideoScreenshotPreparationCoordinator } from '@content/video/videoScreenshotPreparationCoordinator';
+import {
+  VideoScreenshotPreparationQueueOwner,
+  type VideoScreenshotPreparationQueuePort
+} from '@content/video/videoScreenshotPreparationQueueOwner';
 import type { VideoCaptureScreenshot, VideoTimestampCapture } from '@content/video/types';
 
 function createTimestampCapture(
@@ -87,7 +91,112 @@ async function flushAsyncWork(turns = 8): Promise<void> {
   });
 }
 
+function createDeferred<T>() {
+  let resolveValue: ((value: T) => void) | null = null;
+  const promise = new Promise<T>((resolve) => {
+    resolveValue = resolve;
+  });
+  return {
+    promise,
+    resolve(value: T) {
+      if (!resolveValue) throw new Error('Deferred promise resolver is unavailable.');
+      resolveValue(value);
+    }
+  };
+}
+
+function createQueueHarness() {
+  const request = vi.fn();
+  const requestAll = vi.fn();
+  const handleVideoElementChange = vi.fn();
+  const dispose = vi.fn();
+  const queue: VideoScreenshotPreparationQueuePort = {
+    request,
+    requestAll,
+    handleVideoElementChange,
+    dispose
+  };
+  return { queue, request, requestAll, handleVideoElementChange, dispose };
+}
+
+function createQueueOwnerArgs(
+  loadQueueModule: NonNullable<
+    ConstructorParameters<typeof VideoScreenshotPreparationQueueOwner>[0]['loadQueueModule']
+  >
+) {
+  return {
+    doc: document,
+    getCaptures: () => [],
+    getVisibleVideo: () => null,
+    syncPanel: vi.fn(),
+    loadQueueModule
+  };
+}
+
 describe('VideoScreenshotPreparationCoordinator', () => {
+  it('coalesces concurrent lazy queue creation and disposes the installed queue once', async () => {
+    const deferred = createDeferred<{
+      createVideoScreenshotPreparationQueue: () => VideoScreenshotPreparationQueuePort;
+    }>();
+    const queueHarness = createQueueHarness();
+    const { queue } = queueHarness;
+    const createQueue = vi.fn(() => queue);
+    const loadQueueModule = vi.fn(() => deferred.promise);
+    const owner = new VideoScreenshotPreparationQueueOwner(createQueueOwnerArgs(loadQueueModule));
+
+    const first = owner.ensureQueue();
+    const second = owner.ensureQueue();
+    expect(first).toBe(second);
+    expect(loadQueueModule).toHaveBeenCalledTimes(1);
+
+    deferred.resolve({ createVideoScreenshotPreparationQueue: createQueue });
+    await expect(Promise.all([first, second])).resolves.toEqual([queue, queue]);
+    expect(createQueue).toHaveBeenCalledTimes(1);
+    expect(queueHarness.handleVideoElementChange).toHaveBeenCalledTimes(1);
+
+    owner.dispose();
+    owner.dispose();
+    expect(queueHarness.dispose).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not create a queue when disposal wins before the lazy module resolves', async () => {
+    const deferred = createDeferred<{
+      createVideoScreenshotPreparationQueue: () => VideoScreenshotPreparationQueuePort;
+    }>();
+    const createQueue = vi.fn(() => createQueueHarness().queue);
+    const owner = new VideoScreenshotPreparationQueueOwner(
+      createQueueOwnerArgs(() => deferred.promise)
+    );
+
+    const pending = owner.ensureQueue();
+    owner.dispose();
+    deferred.resolve({ createVideoScreenshotPreparationQueue: createQueue });
+
+    await expect(pending).resolves.toBeNull();
+    expect(createQueue).not.toHaveBeenCalled();
+  });
+
+  it('disposes a queue exactly once when factory creation reentrantly invalidates its generation', async () => {
+    const queueHarness = createQueueHarness();
+    const { queue } = queueHarness;
+    let owner: VideoScreenshotPreparationQueueOwner | null = null;
+    const createQueue = vi.fn(() => {
+      owner?.dispose();
+      return queue;
+    });
+    owner = new VideoScreenshotPreparationQueueOwner(
+      createQueueOwnerArgs(() =>
+        Promise.resolve({ createVideoScreenshotPreparationQueue: createQueue })
+      )
+    );
+
+    await expect(owner.ensureQueue()).resolves.toBeNull();
+    expect(queueHarness.dispose).toHaveBeenCalledTimes(1);
+    expect(queueHarness.handleVideoElementChange).not.toHaveBeenCalled();
+    owner.dispose();
+    expect(queueHarness.dispose).toHaveBeenCalledTimes(1);
+  });
+
   it('restores same-session cached screenshots without repeating durable write-through', async () => {
     const screenshot = createScreenshot(42);
     const capture = createTimestampCapture('ts-1', 42, screenshot);
