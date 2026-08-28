@@ -91,6 +91,7 @@
 
 ## Development Baseline
 
+- Current documentation status and maintenance rules live in [docs/document-status-governance.md](docs/document-status-governance.md).
 - Node.js: `.nvmrc` pins `20.20.2`; package engines allow `>=20.19 <21`.
 - npm: validated with `10.8.2`; package engines allow `>=10 <11`.
 - `npm run test*` and `npm run visual*` entrypoints run `verify:runtime` first.

@@ -1,0 +1,577 @@
+{
+  "schemaVersion": 1,
+  "documents": [
+    {
+      "path": ".github/PULL_REQUEST_TEMPLATE.md",
+      "status": "active"
+    },
+    {
+      "path": "AGENTS.md",
+      "status": "active"
+    },
+    {
+      "path": "README.ja-JP.md",
+      "status": "active"
+    },
+    {
+      "path": "README.md",
+      "status": "active"
+    },
+    {
+      "path": "README.zh-CN.md",
+      "status": "active"
+    },
+    {
+      "path": "THIRD_PARTY_NOTICES.md",
+      "status": "active"
+    },
+    {
+      "path": "docs/DESIGN-SYSTEM-INDEX.md",
+      "status": "active"
+    },
+    {
+      "path": "docs/E2E-TESTING-GUIDE.md",
+      "status": "active"
+    },
+    {
+      "path": "docs/MIGRATION-GUIDE.md",
+      "status": "active"
+    },
+    {
+      "path": "docs/MOCK-REPOSITORY-GUIDE.md",
+      "status": "active"
+    },
+    {
+      "path": "docs/README.md",
+      "status": "active"
+    },
+    {
+      "path": "docs/REPOSITORY-PATTERN.md",
+      "status": "active"
+    },
+    {
+      "path": "docs/TESTING-STRATEGY.md",
+      "status": "active"
+    },
+    {
+      "path": "docs/ai-chat-parser-extraction-and-sync-strategy.md",
+      "status": "active"
+    },
+    {
+      "path": "docs/analytics-configuration-guide.md",
+      "status": "active"
+    },
+    {
+      "path": "docs/analytics-operations-runbook.md",
+      "status": "active"
+    },
+    {
+      "path": "docs/architecture-boundaries.md",
+      "status": "active"
+    },
+    {
+      "path": "docs/archive/README.md",
+      "status": "active"
+    },
+    {
+      "path": "docs/archive/legacy-options-assets/optionuicsssuggest.md",
+      "status": "historical"
+    },
+    {
+      "path": "docs/bilibili-comment-capture-remediation-guide.md",
+      "status": "active"
+    },
+    {
+      "path": "docs/bilibili-comment-shadow-dom-fix.md",
+      "status": "historical"
+    },
+    {
+      "path": "docs/chrome-api-decoupling-guide.md",
+      "status": "active"
+    },
+    {
+      "path": "docs/ci-workflow-setup.md",
+      "status": "active"
+    },
+    {
+      "path": "docs/clipper-dialog-architecture-improvements.md",
+      "status": "historical"
+    },
+    {
+      "path": "docs/comment-form-style-decoupling-guide.md",
+      "status": "active"
+    },
+    {
+      "path": "docs/commercial-capability-boundary.md",
+      "status": "active"
+    },
+    {
+      "path": "docs/current-delivery-batches-2026-04-13.md",
+      "status": "historical"
+    },
+    {
+      "path": "docs/design-system-governance.md",
+      "status": "active"
+    },
+    {
+      "path": "docs/development-guidelines.md",
+      "status": "active"
+    },
+    {
+      "path": "docs/document-status-governance.md",
+      "status": "active"
+    },
+    {
+      "path": "docs/en/branding/LOGO_AND_PACKAGING_SUMMARY.md",
+      "status": "historical"
+    },
+    {
+      "path": "docs/en/branding/UI_VISUAL_PREVIEW.md",
+      "status": "historical"
+    },
+    {
+      "path": "docs/en/guides/AI_CHAT_PARSER_MAINTENANCE.md",
+      "status": "active"
+    },
+    {
+      "path": "docs/en/guides/DISTRIBUTION_GUIDE.md",
+      "status": "active"
+    },
+    {
+      "path": "docs/en/guides/INSTALL_GUIDE.md",
+      "status": "active"
+    },
+    {
+      "path": "docs/en/guides/MULTILINGUAL_QUICK_START.md",
+      "status": "active"
+    },
+    {
+      "path": "docs/en/guides/QUICKSTART.md",
+      "status": "active"
+    },
+    {
+      "path": "docs/en/testing/UI_OPTIMIZATION_SUMMARY.md",
+      "status": "historical"
+    },
+    {
+      "path": "docs/en/testing/UI_TEST_GUIDE.md",
+      "status": "active"
+    },
+    {
+      "path": "docs/engineering-entrypoints.md",
+      "status": "active"
+    },
+    {
+      "path": "docs/error-analytics-integration-guide.md",
+      "status": "active"
+    },
+    {
+      "path": "docs/error-analytics-system-overview.md",
+      "status": "active"
+    },
+    {
+      "path": "docs/error-location-guide.md",
+      "status": "historical"
+    },
+    {
+      "path": "docs/firefox-compatibility-guide.md",
+      "status": "active"
+    },
+    {
+      "path": "docs/ga4-telemetry-reference.md",
+      "status": "active"
+    },
+    {
+      "path": "docs/google-analytics-dashboard-setup.md",
+      "status": "active"
+    },
+    {
+      "path": "docs/i18n-production-copy-governance.md",
+      "status": "active"
+    },
+    {
+      "path": "docs/keyboard-shortcuts-i18n-theme-update.md",
+      "status": "historical"
+    },
+    {
+      "path": "docs/keyboard-shortcuts-testing.md",
+      "status": "active"
+    },
+    {
+      "path": "docs/long-term-maintenance-backlog-2026-03-29.md",
+      "status": "historical"
+    },
+    {
+      "path": "docs/multilingual-weekly-maintenance.md",
+      "status": "active"
+    },
+    {
+      "path": "docs/non-production-code-ownership.md",
+      "status": "active"
+    },
+    {
+      "path": "docs/options-event-binding-migration-guide.md",
+      "status": "historical"
+    },
+    {
+      "path": "docs/options-multilingual-adaptation-guide.md",
+      "status": "active"
+    },
+    {
+      "path": "docs/options-style-customization-guide.md",
+      "status": "active"
+    },
+    {
+      "path": "docs/options-style-validation-guide.md",
+      "status": "active"
+    },
+    {
+      "path": "docs/performance-baseline.md",
+      "status": "active"
+    },
+    {
+      "path": "docs/plugins-analysis.md",
+      "status": "historical"
+    },
+    {
+      "path": "docs/privacy-policy.md",
+      "status": "active"
+    },
+    {
+      "path": "docs/privacy-settings-usage.md",
+      "status": "active"
+    },
+    {
+      "path": "docs/production-code-hotspots.md",
+      "status": "active"
+    },
+    {
+      "path": "docs/project-stabilization-plan-2026-04-13.md",
+      "status": "historical"
+    },
+    {
+      "path": "docs/reader-panel-style-decoupling-guide.md",
+      "status": "active"
+    },
+    {
+      "path": "docs/reference-fixtures/README.md",
+      "status": "active"
+    },
+    {
+      "path": "docs/release-readiness-handoff-2026-05-20.md",
+      "status": "historical"
+    },
+    {
+      "path": "docs/retired-code-inventory.md",
+      "status": "active"
+    },
+    {
+      "path": "docs/runtime-observability-and-regression.md",
+      "status": "active"
+    },
+    {
+      "path": "docs/source-of-truth-index.md",
+      "status": "active"
+    },
+    {
+      "path": "docs/structure/clipper-dialog-a11y-update.md",
+      "status": "historical"
+    },
+    {
+      "path": "docs/structure/duoyuyan.md",
+      "status": "historical"
+    },
+    {
+      "path": "docs/structure/video-session-platform-refactor.md",
+      "status": "active"
+    },
+    {
+      "path": "docs/terms-of-use.md",
+      "status": "active"
+    },
+    {
+      "path": "docs/trial-version-guide.md",
+      "status": "active"
+    },
+    {
+      "path": "docs/video-screenshot-attachment-location.md",
+      "status": "active"
+    },
+    {
+      "path": "docs/video-screenshot-capture-analysis.md",
+      "status": "active"
+    },
+    {
+      "path": "docs/zh-cn/chinese-ai-platform/AI平台支持列表.md",
+      "status": "active"
+    },
+    {
+      "path": "docs/zh-cn/chinese-ai-platform/Gemini图片捕捉改进说明.md",
+      "status": "historical"
+    },
+    {
+      "path": "docs/zh-cn/chinese-ai-platform/中国AI平台支持说明.md",
+      "status": "historical"
+    },
+    {
+      "path": "docs/zh-cn/chinese-ai-platform/中国AI平台更新日志.md",
+      "status": "historical"
+    },
+    {
+      "path": "docs/zh-cn/chinese-ai-platform/完成总结.md",
+      "status": "historical"
+    },
+    {
+      "path": "docs/zh-cn/chinese-ai-platform/快速开始-中国AI平台.md",
+      "status": "historical"
+    },
+    {
+      "path": "docs/zh-cn/chinese-ai-platform/快速测试指南.md",
+      "status": "historical"
+    },
+    {
+      "path": "docs/zh-cn/chinese-ai-platform/文档索引.md",
+      "status": "historical"
+    },
+    {
+      "path": "docs/zh-cn/chinese-ai-platform/新增功能总结.md",
+      "status": "historical"
+    },
+    {
+      "path": "docs/zh-cn/chinese-ai-platform/测试Gemini图片捕捉.md",
+      "status": "historical"
+    },
+    {
+      "path": "docs/zh-cn/chinese-ai-platform/测试指南-中国AI平台.md",
+      "status": "active"
+    },
+    {
+      "path": "docs/zh-cn/chinese-ai-platform/通义千问支持说明.md",
+      "status": "historical"
+    },
+    {
+      "path": "docs/zh-cn/clipper/ChatGPT剪藏优化说明.md",
+      "status": "historical"
+    },
+    {
+      "path": "docs/zh-cn/clipper/ChatGPT角色识别测试.md",
+      "status": "active"
+    },
+    {
+      "path": "docs/zh-cn/clipper/ChatGPT调试指南.md",
+      "status": "active"
+    },
+    {
+      "path": "docs/zh-cn/clipper/Text-Fragment-优化说明.md",
+      "status": "historical"
+    },
+    {
+      "path": "docs/zh-cn/clipper/上下文提取问题修复说明.md",
+      "status": "historical"
+    },
+    {
+      "path": "docs/zh-cn/clipper/功能完成总结.md",
+      "status": "historical"
+    },
+    {
+      "path": "docs/zh-cn/clipper/图片捕捉问题分析.md",
+      "status": "historical"
+    },
+    {
+      "path": "docs/zh-cn/clipper/弹窗优化说明.md",
+      "status": "historical"
+    },
+    {
+      "path": "docs/zh-cn/clipper/弹窗拖动功能测试指南.md",
+      "status": "active"
+    },
+    {
+      "path": "docs/zh-cn/clipper/快速开始-选中内容剪藏.md",
+      "status": "active"
+    },
+    {
+      "path": "docs/zh-cn/clipper/更新总结-弹窗优化.md",
+      "status": "historical"
+    },
+    {
+      "path": "docs/zh-cn/clipper/更新总结-片段剪藏增强.md",
+      "status": "historical"
+    },
+    {
+      "path": "docs/zh-cn/clipper/最终格式说明.md",
+      "status": "active"
+    },
+    {
+      "path": "docs/zh-cn/clipper/格式优化说明.md",
+      "status": "historical"
+    },
+    {
+      "path": "docs/zh-cn/clipper/测试选中内容剪藏.md",
+      "status": "active"
+    },
+    {
+      "path": "docs/zh-cn/clipper/灰色图标问题完整排查.md",
+      "status": "historical"
+    },
+    {
+      "path": "docs/zh-cn/clipper/片段剪藏-快速配置指南.md",
+      "status": "active"
+    },
+    {
+      "path": "docs/zh-cn/clipper/片段剪藏-脚注格式和上下文捕捉功能说明.md",
+      "status": "historical"
+    },
+    {
+      "path": "docs/zh-cn/clipper/过滤重试序号说明.md",
+      "status": "historical"
+    },
+    {
+      "path": "docs/zh-cn/clipper/选中内容剪藏功能说明.md",
+      "status": "historical"
+    },
+    {
+      "path": "docs/zh-cn/clipper/选中内容剪藏更新日志.md",
+      "status": "historical"
+    },
+    {
+      "path": "docs/zh-cn/clipper/选中内容剪藏演示.md",
+      "status": "historical"
+    },
+    {
+      "path": "docs/zh-cn/guides/Chrome扩展上架全流程指南.md",
+      "status": "active"
+    },
+    {
+      "path": "docs/zh-cn/guides/快速使用指南.md",
+      "status": "active"
+    },
+    {
+      "path": "docs/zh-cn/guides/文件命名说明.md",
+      "status": "active"
+    },
+    {
+      "path": "docs/zh-cn/guides/新功能演示.md",
+      "status": "historical"
+    },
+    {
+      "path": "docs/zh-cn/guides/演示视频制作指南.md",
+      "status": "historical"
+    },
+    {
+      "path": "docs/zh-cn/guides/设置页面使用指南.md",
+      "status": "active"
+    },
+    {
+      "path": "docs/zh-cn/guides/配置指南.md",
+      "status": "active"
+    },
+    {
+      "path": "docs/zh-cn/incognito/无痕模式启用指南.md",
+      "status": "active"
+    },
+    {
+      "path": "docs/zh-cn/incognito/无痕模式调试指南.md",
+      "status": "active"
+    },
+    {
+      "path": "docs/zh-cn/incognito/无痕模式问题解决方案.md",
+      "status": "historical"
+    },
+    {
+      "path": "docs/zh-cn/multi-vault/CHANGELOG_MULTI_VAULT.md",
+      "status": "historical"
+    },
+    {
+      "path": "docs/zh-cn/multi-vault/testing-guide.md",
+      "status": "active"
+    },
+    {
+      "path": "docs/zh-cn/multi-vault/多仓库使用说明-简化版.md",
+      "status": "active"
+    },
+    {
+      "path": "docs/zh-cn/multi-vault/多仓库功能-最终版说明.md",
+      "status": "historical"
+    },
+    {
+      "path": "docs/zh-cn/multi-vault/多仓库功能说明.md",
+      "status": "historical"
+    },
+    {
+      "path": "docs/zh-cn/multi-vault/多仓库快速开始.md",
+      "status": "active"
+    },
+    {
+      "path": "docs/zh-cn/multilingual/多语言功能说明.md",
+      "status": "active"
+    },
+    {
+      "path": "docs/zh-cn/multilingual/多语言测试指南.md",
+      "status": "active"
+    },
+    {
+      "path": "docs/zh-cn/permissions-usage-notes.md",
+      "status": "active"
+    },
+    {
+      "path": "docs/zh-cn/release-notes/CHANGELOG.md",
+      "status": "active"
+    },
+    {
+      "path": "docs/zh-cn/release-notes/CHANGELOG_v2.md",
+      "status": "historical"
+    },
+    {
+      "path": "docs/zh-cn/release-notes/CHANGELOG_段落间距优化.md",
+      "status": "historical"
+    },
+    {
+      "path": "docs/zh-cn/support-contact.md",
+      "status": "active"
+    },
+    {
+      "path": "docs/zh-cn/troubleshooting/诊断-右键菜单问题.md",
+      "status": "active"
+    },
+    {
+      "path": "docs/zod-integration-guide.md",
+      "status": "active"
+    },
+    {
+      "path": "docs/zod-quick-checklist.md",
+      "status": "active"
+    },
+    {
+      "path": "marketing/chrome-web-store/listing.md",
+      "status": "active"
+    },
+    {
+      "path": "src/options/README.md",
+      "status": "active"
+    },
+    {
+      "path": "src/options/components/README.md",
+      "status": "active"
+    },
+    {
+      "path": "src/shared/repositories/README.md",
+      "status": "active"
+    },
+    {
+      "path": "tests/e2e/README.md",
+      "status": "active"
+    },
+    {
+      "path": "tests/fixtures/ai-chat/README.md",
+      "status": "active"
+    },
+    {
+      "path": "tests/fixtures/ai-chat/current-dom/README.md",
+      "status": "active"
+    },
+    {
+      "path": "tests/fixtures/tools/production-code-shape/missing-hotspot/docs/production-code-hotspots.md",
+      "status": "fixture"
+    }
+  ]
+}

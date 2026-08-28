@@ -96,7 +96,6 @@ function isHistoricalStyleDoc(file) {
   return (
     file.startsWith('docs/archive/') ||
     file.startsWith('docs/screenshots/') ||
-    file === 'docs/债务.md' ||
     /^docs\/final-acceptance-report-.*\.md$/.test(file) ||
     /^docs\/目标架构迁移.*\.md$/.test(file)
   );

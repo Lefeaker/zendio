@@ -1,10 +1,11 @@
 # Source of Truth 索引
 
-最后更新：2026-08-27
+最后更新：2026-08-28
 
 ## 正式入口
 
-- 工程命令与门禁：[`engineering-entrypoints.md`](./engineering-entrypoints.md)
+- 工程命令、类型与门禁：[`engineering-entrypoints.md`](./engineering-entrypoints.md)
+- 文档状态治理：[`document-status-governance.md`](./document-status-governance.md)
 - i18n production copy 治理：[`i18n-production-copy-governance.md`](./i18n-production-copy-governance.md)
 - GA telemetry 事件与字段真值：[`ga4-telemetry-reference.md`](./ga4-telemetry-reference.md)
 - GA docs / dashboard contract checker：`node tools/report-ga-docs-contract.mjs --check`
@@ -14,15 +15,10 @@
 - 使用协议：[`terms-of-use.md`](./terms-of-use.md)
 - 隐私政策：[`privacy-policy.md`](./privacy-policy.md)
 - 性能与热点真值：[`performance-baseline.md`](./performance-baseline.md)
-- 类型收口路线：[`typescript-strict-roadmap.md`](./typescript-strict-roadmap.md)
-- 当前执行计划：[`project-stabilization-plan-2026-04-13.md`](./project-stabilization-plan-2026-04-13.md)
-- 当前工作树批次归属：[`current-delivery-batches-2026-04-13.md`](./current-delivery-batches-2026-04-13.md)
 - 架构边界：[`architecture-boundaries.md`](./architecture-boundaries.md)
 - 设计系统治理：[`design-system-governance.md`](./design-system-governance.md)
 - Options 主链说明：[`../src/options/README.md`](../src/options/README.md)
 - 视频截图附件模板：[`video-screenshot-attachment-location.md`](./video-screenshot-attachment-location.md)
-- 长期维护 backlog：[`long-term-maintenance-backlog-2026-03-29.md`](./long-term-maintenance-backlog-2026-03-29.md)
-- 2026-05-20 release readiness handoff：[`release-readiness-handoff-2026-05-20.md`](./release-readiness-handoff-2026-05-20.md)
 
 ## 当前执行主线
 
@@ -36,7 +32,6 @@
 - 2026-06-25 AI chat parser productionization P09 repair current truth：Perplexity parser 选择器恢复为可读数组结构后显式纳入 hotspot line budget，`tools/report-performance-hotspots.mjs` 预算为 `src/third_party/ai-chat-exporter/platforms/perplexity.ts <= 281`；当时分支 fresh `audit:performance:report` 输出 `sourceFiles=843`、`hotspotsOver250=113`、`registeredLineBudgets=142`。本轮只同步 line-budget feature truth，没有提高 build hard stop、single/shared chunk、locale chunk、YAML chunk size budget 或 runtime parser lazy boundary。
 - 2026-06-29 post-0.2 governance / AI chat abstraction merge historical verification truth：当时 merge branch fresh `i18n:catalog:check`、`audit:imports:check`、`audit:performance:report`、production `build:fast` + `audit:build:report` + `audit:release-surface:report`、dev `build:dev` + `audit:build:report`、`test:i18n`、`package:firefox:isolated`、`package:chrome:isolated` 与 `test:e2e:browser:smoke` 通过；`audit:performance:report` 输出 `sourceFiles=887`、`hotspotsOver250=109`、`registeredLineBudgets=150`。Production build report 为 `content/runtime.js=50,170` raw bytes、`onboarding/index.js=1,130` raw bytes、chunks `87`；dev build report 为 `content/runtime.js=58,501` raw bytes、`onboarding/index.js=1,751` raw bytes、chunks `101`。Production release surface 为 `Files=181`、forbidden harness / pseudo-locale `none`；isolated Chrome ZIP 与 Firefox XPI archive audits 均为 `Files=188`、forbidden harness / pseudo-locale `none`，当时 Firefox `web-ext` 为既有 `innerHTML` warnings `3`。v0.2.1 Options/Stitch changelog sync 只新增 release-note catalog keys，并将 generated catalog exact line budgets 同步为 `src/i18n/generated/messages.generated.ts <= 1137` 与 `src/i18n/generated/schemaCore.generated.ts <= 444`；同时保留 `src/third_party/ai-chat-exporter/platforms/perplexity.ts <= 281`。本轮没有通过 runtime-code line-count edits 改善指标，也没有提高 build hard stop、single/shared chunk、locale chunk、YAML chunk size budget 或 runtime parser lazy boundary。
 - 当前 `M4` 已按重定义口径通过；旧版工作树/批次规模预算已下沉到 backlog
-- 2026-05-18 stabilization 的 audit-time dirty tree 归属以 [`current-delivery-batches-2026-04-13.md`](./current-delivery-batches-2026-04-13.md) 为准；该文档不再声明当前工作树为 `0` open paths
 - 2026-05-19 gap closure 后，batch handoff 使用 post-fact amended ownership；不要再声称历史 committed path manifests exactly once
 - Local Vault / offscreen / manifest / release 风险的当前真值来自 2026-05-18 stabilization ledger、2026-05-19 gap closure ledger、集成提交和 `audit:local-vault-release:report`
 - Release surface 当前真值：production builds/package outputs 不包含 dev/test harness HTML/JS；dev builds 保留 harness 页面；`audit:release-surface:report` 校验 manifest 文件引用与 forbidden harness package members，并已接入 `quality` 与 CI release-surface 步骤；Chrome ZIP 与 Firefox XPI package 脚本会先解包最终产物，再对解包目录执行同一 release-surface 审计
@@ -111,6 +106,8 @@
 - `archive/status-*`、历史 milestone 文档、旧迁移方案只用于追溯
 - `archive/legacy-options-assets/` 与 `reference-fixtures/legacy-options/` 仅作参考夹具
 - 看到 `archive` / `legacy` / `compatibility` / `retired` 时，默认不要把它当成生产真值
+- dated execution / batch：[`project-stabilization-plan-2026-04-13.md`](./project-stabilization-plan-2026-04-13.md)、[`current-delivery-batches-2026-04-13.md`](./current-delivery-batches-2026-04-13.md)
+- historical backlog / handoff：[`long-term-maintenance-backlog-2026-03-29.md`](./long-term-maintenance-backlog-2026-03-29.md)、[`release-readiness-handoff-2026-05-20.md`](./release-readiness-handoff-2026-05-20.md)
 
 ## 使用规则
 
@@ -119,5 +116,4 @@
 - 想知道“当前 telemetry 事件、字段、分类与隐私边界”，先看 [`ga4-telemetry-reference.md`](./ga4-telemetry-reference.md)
 - 想知道“GA dashboard / proxy / DebugView / retention 的 public-safe 运维流程”，先看 [`analytics-operations-runbook.md`](./analytics-operations-runbook.md)
 - 想知道“现在包体和热点是多少”，先看 [`performance-baseline.md`](./performance-baseline.md)
-- 想知道“审计时的脏工作树属于哪个交付批次”，先看 [`current-delivery-batches-2026-04-13.md`](./current-delivery-batches-2026-04-13.md)
 - 如果新增正式入口、门禁口径或批次归属规则，必须同步更新本页与 [`README.md`](./README.md)

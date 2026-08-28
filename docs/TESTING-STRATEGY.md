@@ -164,4 +164,3 @@ The current handoff baseline is documented in:
 - [`runtime-observability-and-regression.md`](./runtime-observability-and-regression.md)
 - [`privacy-settings-usage.md`](./privacy-settings-usage.md)
 - [`performance-baseline.md`](./performance-baseline.md)
-- [`final-acceptance-report-2026-03-20.md`](./final-acceptance-report-2026-03-20.md)

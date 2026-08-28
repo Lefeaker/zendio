@@ -10,6 +10,18 @@
 
 所有 direct tool 与 CI/project command 必须经 `scripts/run-bounded-command.mjs` 的固定 profile，或经 `quality-check.mjs`、`verify-preflight.mjs`、两个 shard runner 之一的 direct-root grammar。禁止 `npx`、bare tool、shell/data interpolation、ambient concurrency/env/cwd、caller-selected timeout/descriptor/output policy 与第二套 spawn/queue owner。
 
+## 文档状态治理
+
+- 当前 Markdown 状态、分类边界与维护流程见 [`document-status-governance.md`](./document-status-governance.md)。
+- 检查清单与当前 Git 跟踪 Markdown 是否一致：
+
+```bash
+node scripts/run-bounded-command.mjs --profile node-script-standard-v1 -- tools/report-active-document-contract.mjs --report
+node scripts/run-bounded-command.mjs --profile node-script-standard-v1 -- tools/report-active-document-contract.mjs --check
+```
+
+- 当前只使用以上 direct-tool 命令；package-script alias、quality 与 CI 接线不属于本页现有入口。
+
 ## 本轮统一门禁真值
 
 - `npm run quality`
