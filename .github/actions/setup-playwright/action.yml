@@ -1,5 +1,5 @@
 name: Setup Playwright
-description: Install locked dependencies and one bundled browser through split bounded phases.
+description: Reuse the repository-owned dependency composite and install one bundled browser through split bounded phases.
 
 outputs:
   attempt-root:

@@ -139,6 +139,10 @@ describe('local command parallelization contract', () => {
       'audit:test-suite-ownership:report',
       'audit:test-suite-ownership:check'
     ];
+    const supplyChainScripts = [
+      'audit:github-actions-supply-chain:report',
+      'audit:github-actions-supply-chain:check'
+    ];
     const environment = { HOME: process.env.HOME ?? '/tmp', TMPDIR: '/tmp' };
 
     expect(scripts['test:e2e:browser:state']).toBe(stateScript);
@@ -151,12 +155,21 @@ describe('local command parallelization contract', () => {
       'audit:test-suite-ownership:check',
       'audit:test-suite-ownership:report'
     ]);
+    expect(STANDARD_NPM_SCRIPTS.filter((name) => supplyChainScripts.includes(name))).toEqual([
+      'audit:github-actions-supply-chain:check',
+      'audit:github-actions-supply-chain:report'
+    ]);
     for (const script of browserScripts) {
       expect(() =>
         resolveCommandProfile('npm-script-browser-v1', [script], { environment })
       ).not.toThrow();
     }
     for (const script of ownershipScripts) {
+      expect(() =>
+        resolveCommandProfile('npm-script-standard-v1', [script], { environment })
+      ).not.toThrow();
+    }
+    for (const script of supplyChainScripts) {
       expect(() =>
         resolveCommandProfile('npm-script-standard-v1', [script], { environment })
       ).not.toThrow();
@@ -183,6 +196,7 @@ describe('local command parallelization contract', () => {
       'audit-ga-legacy-api',
       'audit-ga-proxy-contract',
       'audit-ga-release-surface',
+      'audit-github-actions-supply-chain-check',
       'audit-hardcoded-user-copy-check',
       'audit-imports-report',
       'audit-interaction-contract-report',
@@ -269,6 +283,13 @@ describe('local command parallelization contract', () => {
       args: ['audit:active-documents:check'],
       dependsOn: ['verify-runtime']
     });
+    expect(taskById.get('audit-github-actions-supply-chain-check')).toEqual({
+      id: 'audit-github-actions-supply-chain-check',
+      name: 'GitHub Actions immutable dependency guard',
+      profile: 'npm-script-standard-v1',
+      args: ['audit:github-actions-supply-chain:check'],
+      dependsOn: ['verify-runtime']
+    });
     expect(taskById.get('audit-deps-report')).toMatchObject({
       profile: 'dependency-cruiser-v1',
       args: []
@@ -288,6 +309,9 @@ describe('local command parallelization contract', () => {
     ).toHaveLength(1);
     expect(
       graph.tasks.filter((task) => task.args.includes('audit:active-documents:check'))
+    ).toHaveLength(1);
+    expect(
+      graph.tasks.filter((task) => task.args.includes('audit:github-actions-supply-chain:check'))
     ).toHaveLength(1);
   });
 

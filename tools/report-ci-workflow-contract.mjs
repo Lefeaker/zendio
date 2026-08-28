@@ -1,7 +1,9 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { GITHUB_ACTION_PINS } from '../scripts/config/githubActionPins.mjs';
 import { checkFirefoxAmoReleaseWorkflowContract } from './report-firefox-amo-release-workflow.mjs';
+import { scanGitHubActionsSupplyChain } from './report-github-actions-supply-chain.mjs';
 import { getJobBlock } from './ciWorkflowContract/model.mjs';
 import { parseCiWorkflowJobs } from './ciWorkflowContract/yamlSubset.mjs';
 
@@ -12,6 +14,18 @@ const NODE_ACTION_PATH = resolve(ROOT, '.github/actions/setup-node-deps/action.y
 const PLAYWRIGHT_ACTION_PATH = resolve(ROOT, '.github/actions/setup-playwright/action.yml');
 const PACKAGE_JSON_PATH = resolve(ROOT, 'package.json');
 const QUALITY_CHECK_PATH = resolve(ROOT, 'scripts/quality-check.mjs');
+const PIN_BY_ACTION = new Map(GITHUB_ACTION_PINS.map((pin) => [pin.action, pin]));
+
+function pinnedUse(action, includeComment = false) {
+  const pin = PIN_BY_ACTION.get(action);
+  if (!pin) throw new Error(`Missing GitHub Action pin: ${action}`);
+  const reference = `${pin.action}@${pin.commit}`;
+  return includeComment ? `${reference} # ${pin.alias}` : reference;
+}
+
+const CHECKOUT_USE_WITH_COMMENT = pinnedUse('actions/checkout', true);
+const SETUP_NODE_USE_WITH_COMMENT = pinnedUse('actions/setup-node', true);
+const UPLOAD_ARTIFACT_USE_WITH_COMMENT = pinnedUse('actions/upload-artifact', true);
 
 const JOB_ORDER = [
   'static-preflight',
@@ -89,6 +103,11 @@ const G01_STATIC_PREFLIGHT_SUFFIX = Object.freeze([
   }
 ]);
 
+const G02_STATIC_PREFLIGHT_SUFFIX = Object.freeze({
+  name: 'Verify immutable GitHub Actions supply chain',
+  run: 'node scripts/run-bounded-command.mjs --profile npm-script-standard-v1 -- audit:github-actions-supply-chain:check'
+});
+
 const G01_STYLELINT_RUN =
   'node scripts/run-bounded-command.mjs --profile stylelint-v1 -- "src/options/**/*.css" "src/onboarding/**/*.css" "src/ui/**/*.css"';
 
@@ -98,7 +117,8 @@ const EXPECTED_RUNS = Object.freeze({
     'node scripts/run-bounded-command.mjs --profile npm-script-standard-v1 -- audit:test-suite-ownership:check',
     'node scripts/run-bounded-command.mjs --profile npm-script-standard-v1 -- i18n:catalog:check',
     'node scripts/verify-preflight.mjs',
-    ...G01_STATIC_PREFLIGHT_SUFFIX.map(({ run }) => run)
+    ...G01_STATIC_PREFLIGHT_SUFFIX.map(({ run }) => run),
+    G02_STATIC_PREFLIGHT_SUFFIX.run
   ],
   'static-release-surface': [
     'node scripts/run-bounded-command.mjs --profile npm-script-build-v1 -- build:fast',
@@ -192,7 +212,7 @@ function g00BrowserJobContract(job, block, contract) {
   ) {
     throw new Error('canonical browser test step changed or became conditional');
   }
-  const uploadSteps = job.steps.filter((step) => step.uses === 'actions/upload-artifact@v7');
+  const uploadSteps = job.steps.filter((step) => step.uses === UPLOAD_ARTIFACT_USE_WITH_COMMENT);
   if (
     uploadSteps.length !== 1 ||
     uploadSteps[0].if !== 'failure()' ||
@@ -267,6 +287,34 @@ function staticG01GateContract(job) {
   }
 }
 
+function staticG02GateContract(job) {
+  const preflightIndex = job.steps.findIndex(
+    (step) => step.run === 'node scripts/verify-preflight.mjs'
+  );
+  if (preflightIndex < 0) throw new Error('Static preflight baseline step is missing');
+  const matches = job.steps.filter(
+    (step) =>
+      step.name === G02_STATIC_PREFLIGHT_SUFFIX.name || step.run === G02_STATIC_PREFLIGHT_SUFFIX.run
+  );
+  if (matches.length !== 1) {
+    throw new Error('Static preflight GitHub Actions supply-chain step is not unique');
+  }
+  const [step] = matches;
+  const expectedIndex = preflightIndex + G01_STATIC_PREFLIGHT_SUFFIX.length + 1;
+  if (
+    step.name !== G02_STATIC_PREFLIGHT_SUFFIX.name ||
+    step.run !== G02_STATIC_PREFLIGHT_SUFFIX.run ||
+    step.if !== undefined ||
+    step.continueOnError !== undefined ||
+    job.steps[expectedIndex] !== step ||
+    expectedIndex !== job.steps.length - 1
+  ) {
+    throw new Error(
+      'Static preflight GitHub Actions supply-chain step changed, reordered, or became masked'
+    );
+  }
+}
+
 function staticStylelintStepContract(job) {
   const matches = job.steps.filter(
     (step) => step.name === 'Lint Options CSS' || step.run === G01_STYLELINT_RUN
@@ -332,8 +380,8 @@ export function checkCiWorkflowContract({
   });
 
   check('setup-node-deps', () => {
-    if (count(nodeAction, /uses: actions\/setup-node@v6/gu) !== 1) {
-      throw new Error('setup-node@v6 must run exactly once');
+    if (nodeAction.split(`uses: ${SETUP_NODE_USE_WITH_COMMENT}`).length - 1 !== 1) {
+      throw new Error('pinned setup-node must run exactly once');
     }
     for (const required of [
       "node-version-file: '.nvmrc'",
@@ -386,6 +434,30 @@ export function checkCiWorkflowContract({
     }
     if (!qualityCheck.includes("policyId: 'quality-v1'"))
       throw new Error('quality policy is missing');
+    if (
+      count(qualityCheck, /'audit-github-actions-supply-chain-check'/gu) !== 1 ||
+      count(qualityCheck, /'audit:github-actions-supply-chain:check'/gu) !== 1
+    ) {
+      throw new Error('quality GitHub Actions supply-chain task changed or duplicated');
+    }
+  });
+
+  check('github-actions-supply-chain', () => {
+    const report = scanGitHubActionsSupplyChain();
+    if (
+      !report.ok ||
+      !same(report.summary, {
+        yamlFiles: 5,
+        workflowFiles: 3,
+        actionFiles: 2,
+        externalUses: 38,
+        localUses: 21,
+        compositeActions: 2,
+        findings: 0
+      })
+    ) {
+      throw new Error('shared GitHub Actions supply-chain inventory is not green');
+    }
   });
 
   for (const jobId of JOB_ORDER) {
@@ -399,7 +471,7 @@ export function checkCiWorkflowContract({
       const [bootstrap, checkout, setup] = job.steps;
       if (
         bootstrap?.name !== 'Bootstrap command boundary' ||
-        checkout?.uses !== 'actions/checkout@v6'
+        checkout?.uses !== CHECKOUT_USE_WITH_COMMENT
       ) {
         throw new Error('bootstrap and checkout must be the first two steps');
       }
@@ -428,6 +500,7 @@ export function checkCiWorkflowContract({
       if (jobId === 'static-preflight') {
         staticOwnershipStepContract(job);
         staticG01GateContract(job);
+        staticG02GateContract(job);
       }
       if (jobId === 'static-style-and-locale') staticStylelintStepContract(job);
     });

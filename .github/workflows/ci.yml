@@ -75,7 +75,7 @@ jobs:
             "$RUNNER_OS" "$RUNNER_ARCH" "$ImageOS" "$ImageVersion" "$start_centiseconds" > "$stamp"
 
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
 
       - name: Setup Node dependencies
         id: node
@@ -137,6 +137,12 @@ jobs:
           NPM_CONFIG_GLOBALCONFIG: ${{ steps.node.outputs.npm-globalconfig }}
         run: node scripts/run-bounded-command.mjs --profile npm-script-standard-v1 -- audit:active-documents:check
 
+      - name: Verify immutable GitHub Actions supply chain
+        env:
+          NPM_CONFIG_USERCONFIG: ${{ steps.node.outputs.npm-userconfig }}
+          NPM_CONFIG_GLOBALCONFIG: ${{ steps.node.outputs.npm-globalconfig }}
+        run: node scripts/run-bounded-command.mjs --profile npm-script-standard-v1 -- audit:github-actions-supply-chain:check
+
   static-release-surface:
     name: Static release surface
     runs-on: ubuntu-24.04
@@ -196,7 +202,7 @@ jobs:
             "$RUNNER_OS" "$RUNNER_ARCH" "$ImageOS" "$ImageVersion" "$start_centiseconds" > "$stamp"
 
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
 
       - name: Setup Node dependencies
         id: node
@@ -275,7 +281,7 @@ jobs:
             "$RUNNER_OS" "$RUNNER_ARCH" "$ImageOS" "$ImageVersion" "$start_centiseconds" > "$stamp"
 
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
 
       - name: Setup Node dependencies
         id: node
@@ -354,7 +360,7 @@ jobs:
             "$RUNNER_OS" "$RUNNER_ARCH" "$ImageOS" "$ImageVersion" "$start_centiseconds" > "$stamp"
 
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
 
       - name: Setup Node dependencies
         id: node
@@ -451,7 +457,7 @@ jobs:
             "$RUNNER_OS" "$RUNNER_ARCH" "$ImageOS" "$ImageVersion" "$start_centiseconds" > "$stamp"
 
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
 
       - name: Setup Node dependencies
         id: node
@@ -539,7 +545,7 @@ jobs:
             "$RUNNER_OS" "$RUNNER_ARCH" "$ImageOS" "$ImageVersion" "$start_centiseconds" > "$stamp"
 
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
 
       - name: Setup Node dependencies
         id: node
@@ -560,7 +566,7 @@ jobs:
         run: node scripts/run-bounded-command.mjs --profile coverage-summary-v1
 
       - name: Upload coverage reports
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: coverage-reports
           path: |
@@ -571,7 +577,7 @@ jobs:
       - name: Comment PR with coverage summary
         if: github.event_name == 'pull_request'
         continue-on-error: true
-        uses: actions/github-script@v8
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
         with:
           script: |
             const fs = require('fs');
@@ -675,7 +681,7 @@ jobs:
             "$RUNNER_OS" "$RUNNER_ARCH" "$ImageOS" "$ImageVersion" "$start_centiseconds" > "$stamp"
 
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
 
       - name: Setup Playwright
         id: playwright
@@ -692,7 +698,7 @@ jobs:
 
       - name: Upload visual reports
         if: failure()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: visual-reports-${{ matrix.project }}
           path: |
@@ -759,7 +765,7 @@ jobs:
             "$RUNNER_OS" "$RUNNER_ARCH" "$ImageOS" "$ImageVersion" "$start_centiseconds" > "$stamp"
 
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
 
       - name: Setup Node dependencies
         id: node
@@ -832,7 +838,7 @@ jobs:
             "$RUNNER_OS" "$RUNNER_ARCH" "$ImageOS" "$ImageVersion" "$start_centiseconds" > "$stamp"
 
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
 
       - name: Setup Playwright
         id: playwright
@@ -849,7 +855,7 @@ jobs:
 
       - name: Upload browser YAML reports
         if: failure()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: browser-yaml-reports
           path: |
@@ -917,7 +923,7 @@ jobs:
             "$RUNNER_OS" "$RUNNER_ARCH" "$ImageOS" "$ImageVersion" "$start_centiseconds" > "$stamp"
 
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
 
       - name: Setup Playwright
         id: playwright
@@ -934,7 +940,7 @@ jobs:
 
       - name: Upload browser reader panel reports
         if: failure()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: browser-reader-panel-reports
           path: |
@@ -1002,7 +1008,7 @@ jobs:
             "$RUNNER_OS" "$RUNNER_ARCH" "$ImageOS" "$ImageVersion" "$start_centiseconds" > "$stamp"
 
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
 
       - name: Setup Playwright
         id: playwright
@@ -1019,7 +1025,7 @@ jobs:
 
       - name: Upload browser smoke reports
         if: failure()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: browser-smoke-reports
           path: |
@@ -1087,7 +1093,7 @@ jobs:
             "$RUNNER_OS" "$RUNNER_ARCH" "$ImageOS" "$ImageVersion" "$start_centiseconds" > "$stamp"
 
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
 
       - name: Setup Playwright
         id: playwright
@@ -1104,7 +1110,7 @@ jobs:
 
       - name: Upload browser video reports
         if: failure()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: browser-video-reports
           path: |
@@ -1170,7 +1176,7 @@ jobs:
             "$RUNNER_OS" "$RUNNER_ARCH" "$ImageOS" "$ImageVersion" "$start_centiseconds" > "$stamp"
 
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
 
       - name: Setup Node dependencies
         id: node
@@ -1201,7 +1207,7 @@ jobs:
 
       - name: Upload browser Firefox reports
         if: failure()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: browser-firefox-reports
           path: |
@@ -1268,7 +1274,7 @@ jobs:
             "$RUNNER_OS" "$RUNNER_ARCH" "$ImageOS" "$ImageVersion" "$start_centiseconds" > "$stamp"
 
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
 
       - name: Setup Playwright
         id: playwright
@@ -1286,7 +1292,7 @@ jobs:
 
       - name: Upload browser state reports
         if: failure()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: browser-state-reports
           path: |
@@ -1352,7 +1358,7 @@ jobs:
             "$RUNNER_OS" "$RUNNER_ARCH" "$ImageOS" "$ImageVersion" "$start_centiseconds" > "$stamp"
 
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
 
       - name: Setup Playwright
         id: playwright
@@ -1370,7 +1376,7 @@ jobs:
 
       - name: Upload browser architecture reports
         if: failure()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: browser-architecture-reports
           path: |
@@ -1437,7 +1443,7 @@ jobs:
             "$RUNNER_OS" "$RUNNER_ARCH" "$ImageOS" "$ImageVersion" "$start_centiseconds" > "$stamp"
 
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
 
       - name: Setup Node dependencies
         id: node
@@ -1476,7 +1482,7 @@ jobs:
         run: node scripts/run-bounded-command.mjs --profile npm-script-quick-v1 -- report:release-summary
 
       - name: Upload release summary
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: release-summary
           path: |

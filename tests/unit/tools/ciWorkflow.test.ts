@@ -2,6 +2,17 @@ import { spawnSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
+import { GITHUB_ACTION_PINS } from '../../../scripts/config/githubActionPins.mjs';
+
+function pinnedUse(action: string, includeComment = false): string {
+  const pin = GITHUB_ACTION_PINS.find((row) => row.action === action);
+  if (!pin) throw new Error(`Missing GitHub Action pin: ${action}`);
+  const reference = `${pin.action}@${pin.commit}`;
+  return includeComment ? `${reference} # ${pin.alias}` : reference;
+}
+
+const checkoutUseWithComment = pinnedUse('actions/checkout', true);
+const uploadArtifactUseWithComment = pinnedUse('actions/upload-artifact', true);
 
 interface ParsedStep {
   id?: string;
@@ -114,7 +125,7 @@ describe('bounded CI workflow contract', () => {
     for (const id of parsed.order) {
       const steps = parsed.jobs.get(id)?.steps ?? [];
       expect(steps[0]?.name, id).toBe('Bootstrap command boundary');
-      expect(steps[1]?.uses, id).toBe('actions/checkout@v6');
+      expect(steps[1]?.uses, id).toBe(checkoutUseWithComment);
     }
   });
 
@@ -186,7 +197,7 @@ describe('bounded CI workflow contract', () => {
       ).toEqual([expect.objectContaining({ id: 'playwright' })]);
       expect(job?.steps.filter((step) => step.run === expected.command)).toHaveLength(1);
       expect(job?.steps.find((step) => step.run === expected.command)?.if).toBeUndefined();
-      expect(job?.steps.find((step) => step.uses === 'actions/upload-artifact@v7')).toMatchObject({
+      expect(job?.steps.find((step) => step.uses === uploadArtifactUseWithComment)).toMatchObject({
         if: 'failure()',
         with: {
           name: expected.artifact,
@@ -241,7 +252,7 @@ describe('bounded CI workflow contract', () => {
     );
   });
 
-  it('appends the five unmasked G01 Static-preflight gates and expands the CSS owner', async () => {
+  it('appends the five G01 gates and the final unmasked supply-chain gate', async () => {
     const contract = await loadContract();
     const workflow = read('.github/workflows/ci.yml');
     const parsed = contract.parseCiWorkflowJobs(workflow);
@@ -267,6 +278,10 @@ describe('bounded CI workflow contract', () => {
       [
         'Verify active document governance',
         'node scripts/run-bounded-command.mjs --profile npm-script-standard-v1 -- audit:active-documents:check'
+      ],
+      [
+        'Verify immutable GitHub Actions supply chain',
+        'node scripts/run-bounded-command.mjs --profile npm-script-standard-v1 -- audit:github-actions-supply-chain:check'
       ]
     ];
     const preflightIndex = steps.findIndex(
@@ -399,6 +414,12 @@ describe('bounded CI workflow contract', () => {
         workflow: workflow.replace(
           'node scripts/run-bounded-command.mjs --profile npm-script-standard-v1 -- audit:active-documents:check',
           'node scripts/run-bounded-command.mjs --profile npm-script-standard-v1 -- audit:performance:report'
+        )
+      },
+      {
+        workflow: workflow.replace(
+          '      - name: Verify immutable GitHub Actions supply chain\n',
+          '      - name: Verify immutable GitHub Actions supply chain\n        continue-on-error: true\n'
         )
       },
       {

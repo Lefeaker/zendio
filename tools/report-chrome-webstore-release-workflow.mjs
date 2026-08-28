@@ -2,6 +2,9 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parse } from 'yaml';
+import { R03_CI_JOB_SEQUENCE_RESERVATIONS } from '../scripts/config/commandBoundaryProfiles.mjs';
+import { GITHUB_ACTION_PINS } from '../scripts/config/githubActionPins.mjs';
+import { scanGitHubActionsSupplyChain } from './report-github-actions-supply-chain.mjs';
 
 const ROOT = resolve(fileURLToPath(new URL('..', import.meta.url)));
 const WORKFLOW_PATH = resolve(ROOT, '.github/workflows/release-chrome-webstore.yml');
@@ -15,6 +18,19 @@ const EXACT_OUTPUTS = [
   'artifact_id',
   'artifact_digest'
 ];
+const PIN_BY_ACTION = new Map(GITHUB_ACTION_PINS.map((pin) => [pin.action, pin]));
+
+function pinnedUse(action) {
+  const pin = PIN_BY_ACTION.get(action);
+  if (!pin) throw new Error(`Missing GitHub Action pin: ${action}`);
+  return `${pin.action}@${pin.commit}`;
+}
+
+const CHECKOUT_USE = pinnedUse('actions/checkout');
+const UPLOAD_ARTIFACT_USE = pinnedUse('actions/upload-artifact');
+const DOWNLOAD_ARTIFACT_USE = pinnedUse('actions/download-artifact');
+const SUPPLY_CHAIN_RUN =
+  'node scripts/run-bounded-command.mjs --profile npm-script-standard-v1 -- audit:github-actions-supply-chain:check';
 
 function fail(message) {
   throw new Error(message);
@@ -61,6 +77,25 @@ export function checkChromeWebstoreReleaseWorkflowContract({
     if (!value || typeof value !== 'object') fail('workflow root missing');
   });
   if (!value) return { ok: false, failures };
+
+  check('github-actions-supply-chain', () => {
+    const report = scanGitHubActionsSupplyChain();
+    if (
+      !report.ok ||
+      JSON.stringify(report.summary) !==
+        JSON.stringify({
+          yamlFiles: 5,
+          workflowFiles: 3,
+          actionFiles: 2,
+          externalUses: 38,
+          localUses: 21,
+          compositeActions: 2,
+          findings: 0
+        })
+    ) {
+      fail('shared GitHub Actions supply-chain inventory is not green');
+    }
+  });
 
   check('topology', () => {
     exactKeys(value.jobs, EXACT_JOBS, 'job');
@@ -110,6 +145,7 @@ export function checkChromeWebstoreReleaseWorkflowContract({
       'Bootstrap command boundary',
       'Checkout release commit',
       'Setup exact Node dependencies',
+      'Verify immutable GitHub Actions supply chain',
       'Validate release runtime',
       'Authorize exact release SHA and CI jobs',
       'Build isolated Chrome release',
@@ -120,14 +156,43 @@ export function checkChromeWebstoreReleaseWorkflowContract({
       'Normalize upload artifact digest'
     ];
     if (JSON.stringify(names) !== JSON.stringify(expected)) fail('prepare step order changed');
-    if (prepare.steps[1].uses !== 'actions/checkout@v6') fail('checkout pin changed');
+    if (prepare.steps[1].uses !== CHECKOUT_USE) fail('checkout pin changed');
     if (prepare.steps[2].uses !== './.github/actions/setup-node-deps')
       fail('install owner changed');
-    if (prepare.steps[8].uses !== 'actions/upload-artifact@v7') fail('upload pin changed');
-    if (prepare.steps[8].with?.name !== 'zendio-chrome-release-v1') {
+    const supplyChain = prepare.steps[3];
+    exactKeys(
+      supplyChain.env,
+      [
+        'NPM_CONFIG_USERCONFIG',
+        'NPM_CONFIG_GLOBALCONFIG',
+        'ZENDIO_CHROME_ATTEMPT_ROOT',
+        'ZENDIO_JOB_CLASS',
+        'ZENDIO_JOB_TIMEOUT_MINUTES',
+        'ZENDIO_RUNNER_ENVIRONMENT'
+      ],
+      'supply-chain environment'
+    );
+    if (
+      supplyChain.run !== SUPPLY_CHAIN_RUN ||
+      supplyChain.if !== undefined ||
+      supplyChain['continue-on-error'] !== undefined ||
+      JSON.stringify(supplyChain.env).includes('secrets.') ||
+      Object.hasOwn(supplyChain.env ?? {}, 'GITHUB_TOKEN')
+    ) {
+      fail('prepare supply-chain guard changed, became masked, or gained authority');
+    }
+    if (prepare.steps[9].uses !== UPLOAD_ARTIFACT_USE) fail('upload pin changed');
+    if (prepare.steps[9].with?.name !== 'zendio-chrome-release-v1') {
       fail('immutable artifact name changed');
     }
-    if (prepare.steps[8].with?.overwrite !== false) fail('artifact overwrite enabled');
+    if (prepare.steps[9].with?.overwrite !== false) fail('artifact overwrite enabled');
+    const reservedMs = R03_CI_JOB_SEQUENCE_RESERVATIONS['chrome-prepare-v1'].reduce(
+      (total, reservation) => total + reservation.fullMs,
+      0
+    );
+    if (reservedMs !== 3_150_000 || 75 * 60_000 - reservedMs !== 1_350_000) {
+      fail('prepare reservation budget changed');
+    }
   });
 
   check('protected-publish', () => {
@@ -156,7 +221,7 @@ export function checkChromeWebstoreReleaseWorkflowContract({
       'Upload Chrome submission evidence'
     ];
     if (JSON.stringify(names) !== JSON.stringify(expected)) fail('publish step order changed');
-    if (publish.steps[3].uses !== 'actions/download-artifact@v8') fail('download pin changed');
+    if (publish.steps[3].uses !== DOWNLOAD_ARTIFACT_USE) fail('download pin changed');
     if (
       publish.steps[3].with?.['artifact-ids'] !== '${{ needs.prepare.outputs.artifact_id }}' ||
       Object.hasOwn(publish.steps[3].with ?? {}, 'name')
@@ -165,7 +230,7 @@ export function checkChromeWebstoreReleaseWorkflowContract({
     }
     if (publish.steps[3].with?.['digest-mismatch'] !== 'error')
       fail('digest mismatch is not fatal');
-    if (publish.steps[9].uses !== 'actions/upload-artifact@v7') fail('state upload pin changed');
+    if (publish.steps[9].uses !== UPLOAD_ARTIFACT_USE) fail('state upload pin changed');
     if (
       publish.steps[9].with?.name !== 'zendio-chrome-submission-state-v1' ||
       publish.steps[9].with?.path !==
@@ -181,6 +246,15 @@ export function checkChromeWebstoreReleaseWorkflowContract({
     );
     if (secretSteps.length !== 1 || secretSteps[0].name !== 'Publish verified Chrome artifact') {
       fail('Chrome credentials escaped the final mutation step');
+    }
+    if (
+      publish.steps.some(
+        (step) =>
+          step.name === 'Verify immutable GitHub Actions supply chain' ||
+          step.run === SUPPLY_CHAIN_RUN
+      )
+    ) {
+      fail('supply-chain guard entered protected publish');
     }
   });
 
@@ -202,6 +276,7 @@ export function checkChromeWebstoreReleaseWorkflowContract({
       workflow,
       [
         '--profile release-runtime-check-v1 -- --check --config-mode owner-public-vars',
+        SUPPLY_CHAIN_RUN,
         '--profile release-provenance-v1 -- scripts/utils/releaseCiProvenance.mjs --prepare-authorization',
         '--profile isolated-build-v1 -- --run-isolated-build --config-mode owner-public-vars --browser chrome',
         '--profile chrome-prepare-v1 -- --config-mode owner-public-vars',

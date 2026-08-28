@@ -3,8 +3,24 @@ import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
+import { R03_CI_JOB_SEQUENCE_RESERVATIONS } from '../../../scripts/config/commandBoundaryProfiles.mjs';
+import { GITHUB_ACTION_PINS } from '../../../scripts/config/githubActionPins.mjs';
 
 const workflow = readFileSync('.github/workflows/release-chrome-webstore.yml', 'utf8');
+const supplyChainRun =
+  'node scripts/run-bounded-command.mjs --profile npm-script-standard-v1 -- audit:github-actions-supply-chain:check';
+
+function pinnedUse(action: string): string {
+  const pin = GITHUB_ACTION_PINS.find((row) => row.action === action);
+  if (!pin) throw new Error(`Missing GitHub Action pin: ${action}`);
+  return `${pin.action}@${pin.commit} # ${pin.alias}`;
+}
+
+function jobBlock(source: string, startMarker: string, endMarker: string): string {
+  const start = source.indexOf(startMarker);
+  const end = source.indexOf(endMarker, start + startMarker.length);
+  return source.slice(start, end < 0 ? source.length : end);
+}
 
 function check(candidate?: string) {
   let root: string | undefined;
@@ -56,7 +72,9 @@ describe('Chrome Web Store release workflow contract', () => {
       'node scripts/publish-chrome-webstore.mjs --publish'
     ],
     ['always evidence', 'if: ${{ always() }}', 'if: ${{ success() }}'],
-    ['constant state name', 'zendio-chrome-submission-state-v1', 'zendio-${{ github.ref }}-state']
+    ['constant state name', 'zendio-chrome-submission-state-v1', 'zendio-${{ github.ref }}-state'],
+    ['prepare supply-chain gate', supplyChainRun, `${supplyChainRun} && true`],
+    ['immutable checkout pin', pinnedUse('actions/checkout'), 'actions/checkout@v6']
   ])('rejects %s mutation', (_label, before, after) => {
     const result = check(workflow.replace(before, after));
     expect(result.status).not.toBe(0);
@@ -75,5 +93,30 @@ describe('Chrome Web Store release workflow contract', () => {
     }
     expect(workflow).not.toContain('npm run release:chrome');
     expect(workflow).not.toContain('publish-chrome-webstore.mjs');
+  });
+
+  it('keeps one early unprivileged supply-chain guard and the exact prepare budget', () => {
+    const prepare = jobBlock(workflow, '  prepare:\n', '  publish:\n');
+    const publish = jobBlock(workflow, '  publish:\n', '  release-attempt-verdict:\n');
+    expect(prepare.match(new RegExp(supplyChainRun, 'gu'))).toHaveLength(1);
+    expect(prepare.indexOf(supplyChainRun)).toBeLessThan(
+      prepare.indexOf('Validate release runtime')
+    );
+    expect(prepare).toContain(
+      'ZENDIO_CHROME_ATTEMPT_ROOT: ${{ runner.temp }}/zendio-chrome-${{ github.run_id }}-${{ github.run_attempt }}'
+    );
+    expect(publish).not.toContain(supplyChainRun);
+    expect(publish).not.toContain('Verify immutable GitHub Actions supply chain');
+    expect(
+      R03_CI_JOB_SEQUENCE_RESERVATIONS['chrome-prepare-v1'].reduce(
+        (total, reservation) => total + reservation.fullMs,
+        0
+      )
+    ).toBe(3_150_000);
+    expect(workflow.match(new RegExp(pinnedUse('actions/checkout'), 'gu'))).toHaveLength(2);
+    expect(workflow.match(new RegExp(pinnedUse('actions/upload-artifact'), 'gu'))).toHaveLength(2);
+    expect(workflow.match(new RegExp(pinnedUse('actions/download-artifact'), 'gu'))).toHaveLength(
+      1
+    );
   });
 });

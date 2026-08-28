@@ -502,9 +502,28 @@ describe('local composite closure', () => {
   });
 });
 
-describe('current repository expected-red boundary', () => {
-  it('reports the finite five-file mutable-alias inventory without extra findings', () => {
-    const report = scanGitHubActionsSupplyChain();
+describe('repository lifecycle boundary', () => {
+  it('reports the finite five-file mutable-alias inventory from a synthetic pre-wiring tree', () => {
+    const mutableSteps = [
+      ...Array.from({ length: 20 }, () => '- uses: actions/checkout@v6'),
+      ...Array.from({ length: 14 }, () => '- uses: actions/upload-artifact@v7'),
+      ...Array.from({ length: 2 }, () => '- uses: actions/download-artifact@v8'),
+      '- uses: actions/github-script@v8',
+      ...Array.from({ length: 13 }, () => '- uses: ./.github/actions/setup-node-deps'),
+      ...Array.from({ length: 7 }, () => '- uses: ./.github/actions/setup-playwright')
+    ];
+    const root = createFixture({
+      '.github/actions/setup-node-deps/action.yml': simpleComposite([
+        '- uses: actions/setup-node@v6'
+      ]),
+      '.github/actions/setup-playwright/action.yml': simpleComposite([
+        '- uses: ./.github/actions/setup-node-deps'
+      ]),
+      '.github/workflows/ci.yml': workflowWithSteps(mutableSteps),
+      '.github/workflows/release-chrome-webstore.yml': workflowWithSteps(['- run: echo chrome']),
+      '.github/workflows/release-firefox-amo.yml': workflowWithSteps(['- run: echo firefox'])
+    });
+    const report = scan(root);
     expect(report.ok).toBe(false);
     expect(report.summary).toEqual({
       yamlFiles: 5,
@@ -520,8 +539,21 @@ describe('current repository expected-red boundary', () => {
     );
   });
 
-  it('keeps report mode successful and check mode nonzero on the same deterministic JSON', () => {
-    const report = spawnSync(
+  it('keeps report and check mode successful on the same deterministic JSON', () => {
+    const currentReport = scanGitHubActionsSupplyChain();
+    expect(currentReport.ok).toBe(true);
+    expect(currentReport.summary).toEqual({
+      yamlFiles: 5,
+      workflowFiles: 3,
+      actionFiles: 2,
+      externalUses: 38,
+      localUses: 21,
+      compositeActions: 2,
+      findings: 0
+    });
+    expect(currentReport.findings).toEqual([]);
+
+    const reportProcess = spawnSync(
       process.execPath,
       ['tools/report-github-actions-supply-chain.mjs', '--report'],
       {
@@ -537,9 +569,12 @@ describe('current repository expected-red boundary', () => {
         encoding: 'utf8'
       }
     );
-    expect({ status: report.status, stderr: report.stderr }).toEqual({ status: 0, stderr: '' });
-    expect({ status: check.status, stderr: check.stderr }).toEqual({ status: 1, stderr: '' });
-    expect(JSON.parse(report.stdout)).toEqual(JSON.parse(check.stdout));
+    expect({ status: reportProcess.status, stderr: reportProcess.stderr }).toEqual({
+      status: 0,
+      stderr: ''
+    });
+    expect({ status: check.status, stderr: check.stderr }).toEqual({ status: 0, stderr: '' });
+    expect(JSON.parse(reportProcess.stdout)).toEqual(JSON.parse(check.stdout));
   });
 
   it('keeps the scanner source as a regular repository-owned file', () => {

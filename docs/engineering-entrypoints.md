@@ -33,6 +33,7 @@ node scripts/run-bounded-command.mjs --profile node-script-standard-v1 -- tools/
   - 显式包含 `typecheck:strict`
   - 显式包含 `audit:ga:proxy-contract`、`audit:ga:docs` 与 `audit:ga:legacy-api`
   - 显式包含 `audit:chrome-webstore-release:check`，守住 Chrome Web Store 自动发布 workflow 必须绑定受保护 `chrome-webstore-release` Environment、使用 GA public config、archive-level GA 审计与显式 `--publish`
+  - 显式包含唯一 typed `audit:github-actions-supply-chain:check` task；该 gate 以 `scripts/config/githubActionPins.mjs` 为五行 reviewed pin 真值，结构化扫描完整 Git-visible `.github/**/*.yml|yaml` 闭包，要求 external `uses:` 使用 full 40-hex commit 与同一行精确 `# vN` 注释，并递归验证本地 composite actions
   - `audit:ga:proxy-contract` check mode 以 source-derived contract 为当前真值，并刷新 ignored `build/reports/ga-proxy-contract.json` 供 `audit:ga:docs` 复用；stale / missing / invalid report 不得阻塞当前 source contract
   - 显式执行 production `build:fast` 后运行 `audit:release-surface:report`
   - 显式在 production `build:fast` 后运行 `audit:ga:client-secret` 与 `audit:ga:release-surface`
@@ -82,8 +83,8 @@ node scripts/run-bounded-command.mjs --profile node-script-standard-v1 -- tools/
   - 使用 workflow-level `concurrency`，同一 PR / ref 的新 run 会取消旧 run
   - 每个 job 先运行 checkout 前 builtin-only bootstrap，随后使用 literal `ubuntu-24.04`；timeout taxonomy 为 Static preflight `60`、Package extension `35`、其他 generic `30`、browser/visual `60` 分钟
   - `.github/actions/setup-node-deps` 禁用 setup-node package-manager cache，并只调用 `github-ci-install-v1` 输出 attempt root 与两个 private npm config；`.github/actions/setup-playwright` 不使用 default cache，而是按顺序调用 fixed Chromium host-deps/platform 与 bounded browser-install profile
-  - 官方 JavaScript actions 使用 Node 24-compatible major：`actions/checkout@v6`、`actions/setup-node@v6`、`actions/upload-artifact@v7`、`actions/github-script@v8`
-  - `static-preflight` 保留 CI topology、test-suite ownership、i18n catalog 与 direct `verify-preflight` 前缀，随后按顺序执行 unmasked UI production ownership check、一次 production build、content CSS packs check、design-token check 与动态 active-document check；performance 继续只由 `verify-preflight` 的既有 owner 执行，不重复接线，也不从 Static preflight 调用 `quality`
+  - 官方 JavaScript actions 使用 `scripts/config/githubActionPins.mjs` 中 2026-08-28 reviewed 的 Node 24-compatible full commits；workflow 同行 `# v6` / `# v7` / `# v8` 只保留 human review alias，不是 executable ref。`audit:github-actions-supply-chain:{report,check}` 是唯一 inventory 入口
+  - `static-preflight` 保留 CI topology、test-suite ownership、i18n catalog 与 direct `verify-preflight` 前缀，随后按顺序执行 unmasked UI production ownership check、一次 production build、content CSS packs check、design-token check、动态 active-document check 与 final GitHub Actions supply-chain check；performance 继续只由 `verify-preflight` 的既有 owner 执行，不重复接线，也不从 Static preflight 调用 `quality`
   - `static-release-surface` 显式运行 `build:fast` 与 `audit:release-surface:report`
   - `static-style-and-locale` 保留 locale source alignment、hardcoded config guard 与 lint warning guard，并以 direct Stylelint profile 覆盖 Options、onboarding 与 neutral UI 三个 canonical globs；`static-reporting-audits` 仅保留 report-only audit 的 per-step `continue-on-error`
   - `visual` 按 `chromium-desktop` / `chromium-tablet` / `chromium-mobile` matrix 拆分；Vitest E2E 与三组 browser E2E 拆成独立 job，失败报告 artifact 按 suite 命名
@@ -91,6 +92,7 @@ node scripts/run-bounded-command.mjs --profile node-script-standard-v1 -- tools/
 - `.github/workflows/release-firefox-amo.yml`
   - Firefox AMO 自动发布支持 tag `v*` 触发与 `workflow_dispatch` 手动触发；手动触发可选择 `listed` 或 `unlisted`，tag 触发默认 `listed`
   - Workflow 不写 GitHub release；三项 `ZENDIO_GA_*` public build values 来自冻结的 repository / organization Variables。AMO credentials 只来自受保护 `firefox-amo-release` Environment，并只暴露给 `firefox-submit-v1` mutation step；兼容环境变量名 `WEB_EXT_API_KEY` / `WEB_EXT_API_SECRET` 不表示依赖 `web-ext`
+  - 无凭据 `prepare` 在 dependency setup 后、runtime/provenance/browser/build 前运行一次 unmasked supply-chain check；受保护 `submit` 不重复运行且不接收该 check 的额外 authority。Chrome release workflow 保持同一相对边界，publish 同样不包含该 step
   - `listed` 渠道使用零审核等待，成功表示 AMO 已接受并进入审核流程；`unlisted` 渠道使用有界等待，并要求唯一下载的 signed XPI 通过 SHA-256、manifest identity/version 与 release-surface 复核
   - first-party AMO API v5 adapter 复用已保存 upload UUID，等待 AMO upload validation 成功后提交 version，并上传 `<扩展名>-v<版本号>-source.zip`。源码包包含 `AMO_SOURCE_REVIEW.md` 与复现构建所需白名单输入，并拒绝 `.env*`、`node_modules/`、`build/`、`.worktrees/`、XPI/ZIP 与私钥类文件；upload/version/source mutation 开始后的未知响应必须进入 reconciliation，不得自动重试
   - `.github/workflows/release-firefox-amo.yml` 的核心契约由 `npm run audit:ci-workflow:check` 与 `tests/unit/tools/ciWorkflow.test.ts` 守住；不要把该 workflow 改回依赖本机 `.env.production.local` 的命令

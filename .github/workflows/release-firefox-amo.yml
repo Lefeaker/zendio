@@ -110,7 +110,7 @@ jobs:
             "$RUNNER_OS" "$RUNNER_ARCH" "$ImageOS" "$ImageVersion" "$start_centiseconds" > "$stamp"
 
       - name: Checkout release commit
-        uses: actions/checkout@v6
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           fetch-depth: 0
           persist-credentials: false
@@ -121,6 +121,16 @@ jobs:
           ZENDIO_JOB_CLASS: firefox-prepare-v1
           ZENDIO_JOB_TIMEOUT_MINUTES: '120'
           ZENDIO_RUNNER_ENVIRONMENT: ${{ runner.environment }}
+
+      - name: Verify immutable GitHub Actions supply chain
+        env:
+          NPM_CONFIG_USERCONFIG: ${{ runner.temp }}/zendio-firefox-${{ github.run_id }}-${{ github.run_attempt }}/install/npm-userconfig
+          NPM_CONFIG_GLOBALCONFIG: ${{ runner.temp }}/zendio-firefox-${{ github.run_id }}-${{ github.run_attempt }}/install/npm-globalconfig
+          ZENDIO_FIREFOX_ATTEMPT_ROOT: ${{ runner.temp }}/zendio-firefox-${{ github.run_id }}-${{ github.run_attempt }}
+          ZENDIO_JOB_CLASS: firefox-prepare-v1
+          ZENDIO_JOB_TIMEOUT_MINUTES: '120'
+          ZENDIO_RUNNER_ENVIRONMENT: ${{ runner.environment }}
+        run: node scripts/run-bounded-command.mjs --profile npm-script-standard-v1 -- audit:github-actions-supply-chain:check
 
       - name: Validate release runtime
         env:
@@ -267,7 +277,7 @@ jobs:
 
       - name: Upload immutable Firefox release artifact
         id: upload
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: zendio-firefox-release-v1
           path: ${{ runner.temp }}/zendio-firefox-${{ github.run_id }}-${{ github.run_attempt }}/firefox-release
@@ -352,7 +362,7 @@ jobs:
             "$RUNNER_OS" "$RUNNER_ARCH" "$ImageOS" "$ImageVersion" "$start_centiseconds" > "$stamp"
 
       - name: Checkout exact prepared commit
-        uses: actions/checkout@v6
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           ref: ${{ needs.prepare.outputs.release_sha }}
           fetch-depth: 0
@@ -370,7 +380,7 @@ jobs:
           ZENDIO_EXPECTED_LOCK_SHA256: ${{ needs.prepare.outputs.lock_sha256 }}
 
       - name: Download exact Firefox artifact
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
         with:
           artifact-ids: ${{ needs.prepare.outputs.artifact_id }}
           path: ${{ runner.temp }}/zendio-firefox-submit-${{ github.run_id }}-${{ github.run_attempt }}/download
@@ -437,7 +447,7 @@ jobs:
 
       - name: Upload Firefox submission evidence
         if: ${{ always() }}
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: zendio-firefox-submission-state-v1
           path: ${{ runner.temp }}/zendio-firefox-submit-${{ github.run_id }}-${{ github.run_attempt }}/store-state/firefox/submission-state.json
