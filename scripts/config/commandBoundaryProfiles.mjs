@@ -284,6 +284,8 @@ export const STANDARD_NPM_SCRIPTS = deepFreeze([
   'audit:design-tokens:report',
   'audit:firefox-amo-release:check',
   'audit:firefox-amo-release:report',
+  'audit:github-actions-supply-chain:check',
+  'audit:github-actions-supply-chain:report',
   'audit:ga:client-secret',
   'audit:ga:docs',
   'audit:ga:legacy-api',
@@ -1055,6 +1057,7 @@ const CI_JOB_TIMEOUTS = deepFreeze({
 export const R03_CI_JOB_SEQUENCE_RESERVATIONS = deepFreeze({
   'chrome-prepare-v1': [
     { owner: 'github-ci-install-v1', fullMs: 640_000 },
+    { owner: 'npm-script-standard-v1:github-actions-supply-chain', fullMs: 190_000 },
     { owner: 'release-runtime-check-v1', fullMs: 190_000 },
     { owner: 'release-provenance-v1:prepare', fullMs: 190_000 },
     { owner: 'isolated-build-v1', fullMs: 640_000 },
@@ -1067,6 +1070,7 @@ export const R03_CI_JOB_SEQUENCE_RESERVATIONS = deepFreeze({
   ],
   'firefox-prepare-v1': [
     { owner: 'github-ci-install-v1', fullMs: 640_000 },
+    { owner: 'npm-script-standard-v1:github-actions-supply-chain', fullMs: 190_000 },
     { owner: 'release-runtime-check-v1', fullMs: 190_000 },
     { owner: 'release-provenance-v1:prepare', fullMs: 190_000 },
     { owner: 'platform:playwright-host-deps-v1', fullMs: 0 },

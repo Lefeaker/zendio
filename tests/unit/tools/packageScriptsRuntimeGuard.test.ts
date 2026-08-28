@@ -23,6 +23,10 @@ const LockSchema = z.object({
 const exactTransitions = {
   'audit:active-documents:check': 'node tools/report-active-document-contract.mjs --check',
   'audit:active-documents:report': 'node tools/report-active-document-contract.mjs --report',
+  'audit:github-actions-supply-chain:check':
+    'node tools/report-github-actions-supply-chain.mjs --check',
+  'audit:github-actions-supply-chain:report':
+    'node tools/report-github-actions-supply-chain.mjs --report',
   'audit:content-css-packs:check': 'node tools/report-content-css-packs.mjs --check',
   'audit:content-css-packs:report': 'node tools/report-content-css-packs.mjs --report',
   'audit:design-tokens:check': 'node tools/report-design-token-alignment.mjs --check',
@@ -68,7 +72,7 @@ function findForbiddenRoutes(scripts: Record<string, string>): string[] {
 }
 
 describe('package command-boundary routes', () => {
-  it('freezes the exact sixteen script-value transitions', () => {
+  it('freezes the exact eighteen script-value transitions', () => {
     const { scripts } = readPackage();
 
     expect(

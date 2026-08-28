@@ -30,6 +30,8 @@
     "audit:platform-services:report": "node tools/report-platform-services-allowlist.mjs",
     "audit:active-documents:report": "node tools/report-active-document-contract.mjs --report",
     "audit:active-documents:check": "node tools/report-active-document-contract.mjs --check",
+    "audit:github-actions-supply-chain:report": "node tools/report-github-actions-supply-chain.mjs --report",
+    "audit:github-actions-supply-chain:check": "node tools/report-github-actions-supply-chain.mjs --check",
     "audit:content-css-packs:report": "node tools/report-content-css-packs.mjs --report",
     "audit:content-css-packs:check": "node tools/report-content-css-packs.mjs --check",
     "audit:design-tokens:report": "node tools/report-design-token-alignment.mjs",
@@ -194,6 +196,7 @@
     "typescript": "^5.5.4",
     "vitest": "4.1.9",
     "ws": "8.21.0",
+    "yaml": "2.9.0",
     "yauzl": "3.3.2"
   },
   "overrides": {

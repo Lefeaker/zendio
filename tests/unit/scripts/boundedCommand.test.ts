@@ -767,6 +767,7 @@ describe('bounded command ownership', () => {
       'chrome-prepare-v1': {
         owners: [
           'github-ci-install-v1',
+          'npm-script-standard-v1:github-actions-supply-chain',
           'release-runtime-check-v1',
           'release-provenance-v1:prepare',
           'isolated-build-v1',
@@ -777,12 +778,13 @@ describe('bounded command ownership', () => {
           'release-provenance-v1:artifact-digest',
           'runner-finalization-v1'
         ],
-        totalMs: 2_960_000,
+        totalMs: 3_150_000,
         frozen: true
       },
       'firefox-prepare-v1': {
         owners: [
           'github-ci-install-v1',
+          'npm-script-standard-v1:github-actions-supply-chain',
           'release-runtime-check-v1',
           'release-provenance-v1:prepare',
           'platform:playwright-host-deps-v1',
@@ -798,7 +800,7 @@ describe('bounded command ownership', () => {
           'release-provenance-v1:artifact-digest',
           'runner-finalization-v1'
         ],
-        totalMs: 6_230_000,
+        totalMs: 6_420_000,
         frozen: true
       },
       'chrome-publish-v1': {
@@ -1477,7 +1479,9 @@ describe('bounded command ownership', () => {
     for (const name of [
       'audit:chrome-webstore-release:check',
       'audit:firefox-amo-release:report',
-      'audit:firefox-amo-release:check'
+      'audit:firefox-amo-release:check',
+      'audit:github-actions-supply-chain:report',
+      'audit:github-actions-supply-chain:check'
     ]) {
       expect(() =>
         parseManagedCommandInvocationArgv([
