@@ -387,16 +387,16 @@ describe('BilibiliVideoPlatform observer', () => {
     );
   });
 
-  it('routes one relevant body record through one fragment restore owner', async () => {
+  it('routes complete nested Bilibili host add and replacement through one restore owner', async () => {
     vi.useFakeTimers();
     const context = createContext(document);
     const capture: VideoFragmentCapture = {
       kind: 'fragment',
       id: 'fragment-body-record',
       comment: '',
-      selectedText: 'Selected body record text',
-      selectedHtml: '<p>Selected body record text</p>',
-      fragmentUrl: 'https://example.com/#:~:text=Selected%20body%20record%20text',
+      selectedText: 'fixture comment',
+      selectedHtml: '<p>fixture comment</p>',
+      fragmentUrl: 'https://example.com/#:~:text=fixture%20comment',
       wrapperId: 'missing-wrapper',
       createdAt: 1
     };
@@ -414,30 +414,41 @@ describe('BilibiliVideoPlatform observer', () => {
     );
     coordinator.start();
     new BilibiliVideoPlatform(context);
-    const host = document.createElement('bili-comment-renderer');
-    const root = host.attachShadow({ mode: 'open' });
-    root.textContent = capture.selectedText;
-    document.body.append(host);
+    const initial = mountBiliCommentsFixture();
 
     context.__mocks.emitDocumentMutations([
-      {
+      mutationRecord({
         type: 'childList',
-        addedNodes: [host],
-        removedNodes: [],
-        target: document.body,
-        attributeName: null,
-        attributeNamespace: null,
-        nextSibling: null,
-        oldValue: null,
-        previousSibling: null
-      } as unknown as MutationRecord
+        addedNodes: document.body.childNodes,
+        target: document.body
+      })
     ]);
     await vi.advanceTimersByTimeAsync(100);
     expect(scheduleRestore).toHaveBeenCalledTimes(1);
-    expect(context.__mocks.registerShadowSelectionBridge).toHaveBeenCalledWith(root);
+    expect(context.__mocks.registerShadowSelectionBridge).toHaveBeenCalledWith(initial.root);
     expect(ensureCaptureHighlight).not.toHaveBeenCalled();
     await vi.advanceTimersByTimeAsync(20);
     expect(ensureCaptureHighlight).toHaveBeenCalledWith(capture);
+
+    scheduleRestore.mockClear();
+    ensureCaptureHighlight.mockClear();
+    initial.commentsHost.remove();
+    const removedHost = document.createDocumentFragment();
+    removedHost.append(initial.commentsHost);
+    const replacement = mountBiliCommentsFixture();
+    context.__mocks.emitDocumentMutations([
+      mutationRecord({
+        type: 'childList',
+        addedNodes: document.body.childNodes,
+        removedNodes: removedHost.childNodes,
+        target: document.body
+      })
+    ]);
+    await vi.advanceTimersByTimeAsync(100);
+    expect(scheduleRestore).toHaveBeenCalledTimes(1);
+    expect(context.__mocks.registerShadowSelectionBridge).toHaveBeenCalledWith(replacement.root);
+    await vi.advanceTimersByTimeAsync(20);
+    expect(ensureCaptureHighlight).toHaveBeenCalledTimes(1);
   });
 
   it('does not refresh comment roots for danmaku-only mutation bursts', () => {

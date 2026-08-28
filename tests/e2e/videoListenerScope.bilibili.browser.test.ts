@@ -535,6 +535,58 @@ export function registerVideoListenerScopeBilibiliTests(): void {
       await expect
         .poll(() => isBilibiliRichTextHighlightVisible(page, 'reply-rich-text'))
         .toBe(true);
+
+      await page.evaluate(
+        ({ mainText, replyText }) => {
+          const current = document.querySelector('bili-comments');
+          if (!current) throw new Error('Missing current Bilibili comments host.');
+          const createRichText = (fixtureId: string, html: string): HTMLElement => {
+            const host = document.createElement('bili-rich-text');
+            host.dataset.fixture = fixtureId;
+            host.attachShadow({ mode: 'open' }).innerHTML =
+              `<div id="contents" class="rich-text-content">${html}</div>`;
+            return host;
+          };
+          const createComment = (
+            tagName: 'bili-comment-renderer' | 'bili-comment-reply-renderer',
+            fixtureId: string,
+            richText: HTMLElement
+          ): HTMLElement => {
+            const host = document.createElement(tagName);
+            host.dataset.fixture = fixtureId;
+            const root = host.attachShadow({ mode: 'open' });
+            root.append(richText);
+            return host;
+          };
+          const replacement = document.createElement('bili-comments');
+          replacement.dataset.fixture = 'comments-replacement';
+          const replacementRoot = replacement.attachShadow({ mode: 'open' });
+          const contents = document.createElement('div');
+          contents.id = 'contents';
+          const thread = document.createElement('bili-comment-thread-renderer');
+          const threadRoot = thread.attachShadow({ mode: 'open' });
+          threadRoot.append(
+            createComment(
+              'bili-comment-renderer',
+              'main-comment-replacement',
+              createRichText('main-rich-text', `<span>${mainText}</span>`)
+            ),
+            createComment(
+              'bili-comment-reply-renderer',
+              'reply-comment-replacement',
+              createRichText('reply-rich-text', `<span>${replyText}</span>`)
+            )
+          );
+          contents.append(thread);
+          replacementRoot.append(contents);
+          current.replaceWith(replacement);
+        },
+        { mainText: BILIBILI_MAIN_COMMENT_TEXT, replyText: BILIBILI_REPLY_COMMENT_TEXT }
+      );
+
+      await expect(page.locator('[data-role="capture-item"]')).toHaveCount(2);
+      await expect.poll(() => countBilibiliRichTextHighlights(page, 'main-rich-text')).toBe(1);
+      await expect.poll(() => countBilibiliRichTextHighlights(page, 'reply-rich-text')).toBe(1);
     }
   );
 }

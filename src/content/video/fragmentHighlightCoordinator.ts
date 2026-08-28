@@ -90,7 +90,8 @@ export class FragmentHighlightCoordinator {
     return Array.from(record.removedNodes).some((node) => {
       const removed = mutationElement(node);
       return Boolean(
-        (removed && isFragmentHighlightElement(removed)) || isFragmentHighlightElement(target)
+        (removed && (isBilibiliCommentBoundary(removed) || isFragmentHighlightElement(removed))) ||
+        isFragmentHighlightElement(target)
       );
     });
   }
@@ -98,7 +99,7 @@ export class FragmentHighlightCoordinator {
   private isRelevantAddedNode(node: Node): boolean {
     const element = mutationElement(node);
     if (!element?.isConnected || isBilibiliDanmakuElement(element)) return false;
-    if (isFragmentHighlightElement(element)) return true;
+    if (isBilibiliCommentBoundary(element) || isFragmentHighlightElement(element)) return true;
     const text = normalizeMutationText(
       `${node.textContent ?? ''} ${element.shadowRoot?.textContent ?? ''}`
     );
@@ -130,6 +131,18 @@ const BILIBILI_DANMAKU_SELECTOR =
   '.bili-danmaku-x-dm,.bili-danmaku-x-dm-vip';
 
 const FRAGMENT_HIGHLIGHT_SELECTOR = '.aiob-video-fragment-highlight,[data-video-fragment-id]';
+const BILIBILI_COMMENT_BOUNDARY_SELECTOR = [
+  'bili-comments',
+  'bili-comment-thread-renderer',
+  'bili-comment-renderer',
+  'bili-comment-reply-renderer',
+  'bili-rich-text',
+  'bili-emoji',
+  'bili-avatar',
+  'bili-at',
+  'bili-link',
+  'bili-dyn-content'
+].join(',');
 
 function mutationElement(node: Node): Element | null {
   return node instanceof Element ? node : node.parentElement;
@@ -139,6 +152,10 @@ function isBilibiliDanmakuElement(element: Element): boolean {
   return Boolean(
     element.matches(BILIBILI_DANMAKU_SELECTOR) || element.closest(BILIBILI_DANMAKU_SELECTOR)
   );
+}
+
+function isBilibiliCommentBoundary(element: Element): boolean {
+  return element.matches(BILIBILI_COMMENT_BOUNDARY_SELECTOR);
 }
 
 function isFragmentHighlightElement(element: Element): boolean {
