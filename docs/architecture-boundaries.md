@@ -1,6 +1,6 @@
 # 平台、UI 宿主与领域边界基线
 
-日期：2026-08-27
+日期：2026-08-28
 
 当前技术栈：TypeScript、esbuild、Vitest、Playwright、ESLint、Prettier、Stylelint、Zod、Stitch runtime CSS、WebExtension APIs。正式计划与规格文档归属外层 workspace `docs/codex-superpowers/*`。
 
@@ -46,6 +46,9 @@
 - Clipper host 由 `src/content/clipper/components/clipperDialogHostAdapter.ts` feature-local 挂载；Reader / Video panel 分别由 `src/content/reader/ui/ReaderDialogPanel.ts` 与 `src/content/video/ui/VideoDialogPanel.ts` 拥有
 - Reader / Video session panel 的固定 shell、named refs、keyed item reconciliation 与 root action dispatch 由 `src/ui/stitch-runtime/render/{renderRuntimeSurface,keyedSessionList,rootActionDispatcher}.ts` 提供；feature facade 只注入 surface content、回调与生命周期，routine update 不得替换 shadow root、完整 window 或未变化 item
 - Reader / Video action 成功、失败、取消、dismiss、supersede 与 late completion 继续由 feature session/mutation owner 决定；neutral renderer 只负责稳定 DOM、可访问 status 与幂等 dispose，不得持久化业务状态或发送 telemetry
+- Options routine update 通过 feature callback 进入 lazy `src/ui/stitch-runtime/render/sectionInvalidation.ts` runtime chunk；该 neutral owner 只接受 `theme`、`sidebar`、`resource-modal`、六个 section owner、`locale-schema` 与显式 `all-invariant-recovery` 的闭合集合，不得把未知 caller 降级为整页重建
+- Options feature 层负责 scope-to-action、success/failure/cancel/dismiss/dispose/retry/late-completion 与 rollback 语义；neutral invalidator 只合并 pending scopes、保存/恢复 focus/selection/scroll 并在 dispose 后 no-op。普通 section invalidation 保留 `.main`、sidebar、未变化 section、modal 与 YAML widget 身份
+- Options invalidation loader 拒绝或 owned root 缺失时只进入已枚举 `all-invariant-recovery`；privacy 字段共享同一串行 persistence owner，连接/文件夹/usage 等异步完成使用 active generation guard。dirty YAML 只在 `output`、`locale-schema`、`all-invariant-recovery` 或最终 collect/teardown 边界 flush/destroy；durable import 成功后先重置完整 draft/state/domain/widget truth，再对所有依赖 owner 做全量 invalidation，即使 analytics transfer 随后失败也不得保留 stale DOM
 - `src/content/shared/panels/styleSheetManager.ts` 与 `src/content/clipper/shared/styleSheetManager.ts` 只能经由 foundation/style-host 访问 shadow bridge
 
 ## 5. Repository 与状态边界

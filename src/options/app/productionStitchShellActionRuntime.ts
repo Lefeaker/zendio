@@ -11,7 +11,7 @@ import {
   createProductionStitchActions,
   type ProductionStitchActionContext
 } from './productionStitchActions';
-import type { ProductionStitchPersistence } from './productionStitchPersistence';
+import type { ProductionStitchPersistence } from './productionStitchStorageTypes';
 import type { ButtonPressScrollGuard } from './productionStitchScrollGuard';
 import {
   captureOptionsScroll,
@@ -32,6 +32,11 @@ import {
 } from './productionStitchActionTaskOwner';
 import type { ProductionStitchShellMutableState } from './productionStitchShellMutableState';
 import { formatOptionsError, showStatusMessage } from '@options/components/messages';
+import type { SectionInvalidationRequest } from '@ui/stitch-runtime/render/sectionInvalidation';
+import {
+  resolveProductionStitchTaskInvalidation,
+  resolveProductionStitchTaskOwner
+} from './productionStitchShellContext';
 
 type RuntimeMutableState = Omit<
   ProductionStitchShellMutableState,
@@ -47,7 +52,7 @@ interface ProductionStitchShellActionRuntimeOptions extends RuntimeMutableState 
   mutate(mutator: (draftState: PreviewStoreState) => void, options?: { silent?: boolean }): void;
   currentDomainEntries(): Array<[string, string]>;
   refreshOptions(options: StoredOptions | CompleteOptions | null): void;
-  render(): void;
+  render(scopes: SectionInvalidationRequest): void;
   renderActiveResourceModal(): void;
   scheduleDraftSave(): void;
   scrollToPanel(panelId: string): void;
@@ -109,12 +114,13 @@ function sanitizeActionId(actionId: string): string {
     .slice(0, 64);
 }
 
-function createProductionOptionsTelemetry(persistence: ProductionStitchPersistence) {
+function createOptionsTelemetry(persistence: ProductionStitchPersistence, isActive: () => boolean) {
   async function send(message: AnalyticsRuntimeEventPayload): Promise<void> {
+    if (!isActive()) return;
     try {
       await persistence.trackUsageEvent(message);
     } catch {
-      // Telemetry is best-effort and must not affect options behavior.
+      // Best-effort only.
     }
   }
 
@@ -199,82 +205,83 @@ export function createProductionStitchShellActionRuntime(
     storageController,
     widgetHost
   } = options;
-  const telemetry = createProductionOptionsTelemetry(persistence);
+  let disposed = false;
+  const telemetry = createOptionsTelemetry(persistence, () => !disposed);
   const owner: ProductionStitchActionTaskOwner = createProductionStitchActionTaskOwner();
 
-  function refreshWithUsage(): void {
+  function refresh(): void {
     options.refreshAppData();
     persistence.restoreUsageStatsView();
   }
-
   function runPersistenceTask(
     key: string,
     task: () => Promise<void>,
     captureRollback?: () => () => void
   ): void {
+    const scopes = resolveProductionStitchTaskInvalidation(key);
     owner.run<(() => void) | undefined>({
-      key,
+      key: resolveProductionStitchTaskOwner(key),
       capture: () => captureRollback?.(),
       task,
       rollback: (rollback, error) => {
         rollback?.();
-        options.render();
+        options.render(scopes);
         showStatusMessage('error', formatOptionsError(error, options.getCurrentMessages()));
       }
     });
   }
   const actionRuntime = createActionRuntime<PreviewStoreState, PreviewContent>({
-    getContext: () => options.createSchemaContext(),
-    mutate: (mutator, mutationOptions) => options.mutate(mutator, mutationOptions),
+    getContext: options.createSchemaContext,
+    mutate: options.mutate,
     handlers: createProductionStitchActions({
-      getAppData: () => options.getAppData(),
-      getCurrentLanguage: () => options.getCurrentLanguage(),
-      getDraft: () => options.getDraft(),
-      getMessages: () => options.getCurrentMessages(),
-      getState: () => options.getState(),
-      setConnectionNotice: (notice) => options.setConnectionNotice(notice),
-      setLanguageResource: (resource) => options.setLanguageResource(resource),
-      setMaintenanceLog: (log) => options.setMaintenanceLog(log),
-      setState: (state) => options.setState(state),
-      activateVaultLocalFolder: (index) => storageController.activateVaultLocalFolder(index),
-      applyConnectionNotice: (result) => storageController.applyConnectionNotice(result),
+      getAppData: options.getAppData,
+      getCurrentLanguage: options.getCurrentLanguage,
+      getDraft: options.getDraft,
+      getMessages: options.getCurrentMessages,
+      getState: options.getState,
+      isActive: () => !disposed,
+      setConnectionNotice: options.setConnectionNotice,
+      setLanguageResource: options.setLanguageResource,
+      setMaintenanceLog: options.setMaintenanceLog,
+      setState: options.setState,
+      activateVaultLocalFolder: storageController.activateVaultLocalFolder,
+      applyConnectionNotice: storageController.applyConnectionNotice,
       applyOutputPreset: (name) =>
         applyOutputPresetToDraft({
           draft: options.getDraft(),
           state: options.getState(),
           setDomainMappingRows: (entries) => options.setDomainMappingRows(entries),
-          refreshAppData: refreshWithUsage,
+          refreshAppData: refresh,
           scheduleDraftSave: () => options.scheduleDraftSave(),
-          render: () => options.render(),
+          render: (scope) => options.render(scope),
           name
         }),
       applyTemplateStateToDraft: () =>
         applyTemplateStateToDraft(options.getDraft(), options.getState()),
       ...(changeLanguage ? { changeLanguage } : {}),
-      chooseVaultLocalFolder: (index) => storageController.chooseVaultLocalFolder(index),
-      clearAnalyticsPrivacyData: () => persistence.clearAnalyticsPrivacyData(),
-      clearVaultLocalFolder: (index) => storageController.clearVaultLocalFolder(index),
-      collectDraftWithWidgets: () => widgetHost.collectDraftWithWidgets(),
-      copyConfigurationToClipboard: (button) => persistence.copyConfigurationToClipboard(button),
-      currentDomainEntries: () => options.currentDomainEntries(),
+      chooseVaultLocalFolder: storageController.chooseVaultLocalFolder,
+      clearAnalyticsPrivacyData: persistence.clearAnalyticsPrivacyData,
+      clearVaultLocalFolder: storageController.clearVaultLocalFolder,
+      collectDraftWithWidgets: widgetHost.collectDraftWithWidgets,
+      copyConfigurationToClipboard: persistence.copyConfigurationToClipboard,
+      currentDomainEntries: options.currentDomainEntries,
       eventButton,
-      ensureVaultRouter: () => storageController.ensureVaultRouter(),
-      importConfigurationWithStatus: (button) => persistence.importConfigurationWithStatus(button),
-      markWidgetDirty: (key) => widgetHost.markDirty(key),
+      ensureVaultRouter: storageController.ensureVaultRouter,
+      importConfigurationWithStatus: persistence.importConfigurationWithStatus,
+      markWidgetDirty: widgetHost.markDirty,
       openResource: (resourceId) => {
         options.openResource(resourceId);
         telemetry.trackResourceOpen(resourceId);
       },
-      persistPrivacyPreference: (field, value) =>
-        persistence.persistPrivacyPreference(field, value),
+      persistPrivacyPreference: persistence.persistPrivacyPreference,
       persistThemePreference: async (theme) => {
         options.getDraft().interfaceTheme = theme;
         await optionsRepository.patch({ path: ['interfaceTheme'], value: theme });
       },
       runPersistenceTask,
-      refreshAppData: refreshWithUsage,
-      render: () => options.render(),
-      renderActiveResourceModal: () => options.renderActiveResourceModal(),
+      refreshAppData: refresh,
+      render: options.render,
+      renderActiveResourceModal: options.renderActiveResourceModal,
       repairConfiguration: async () => {
         try {
           await persistence.repairConfiguration();
@@ -287,6 +294,7 @@ export function createProductionStitchShellActionRuntime(
       reloadOptions: async () => {
         try {
           const loaded = await controller.loadRaw();
+          if (disposed) return;
           options.refreshOptions(loaded);
           telemetry.trackMaintenanceOutcome('maintenance:reload', 'completed');
         } catch (error) {
@@ -294,22 +302,21 @@ export function createProductionStitchShellActionRuntime(
           throw error;
         }
       },
-      resetUsageData: () => persistence.resetUsageData(),
-      runVaultListConnectionTest: () => storageController.runVaultListConnectionTest(),
-      scheduleDraftSave: () => options.scheduleDraftSave(),
+      resetUsageData: persistence.resetUsageData,
+      runVaultListConnectionTest: storageController.runVaultListConnectionTest,
+      scheduleDraftSave: options.scheduleDraftSave,
       scrollToPanel: (panelId) => {
         options.scrollToPanel(panelId);
         telemetry.trackSectionView(panelId);
       },
-      syncDomainEntries: (entries) => options.syncDomainEntries(entries),
-      syncHighlightThemeControls: () => options.syncHighlightThemeControls(),
-      syncModifierControls: () => options.syncModifierControls(),
-      syncPreviewThemeControls: () => options.syncPreviewThemeControls(),
-      syncRoutingRulesToDraft: () => storageController.syncRoutingRulesToDraft(),
-      trackExperimentalFeatureToggle: (featureKey, enabled) =>
-        telemetry.trackExperimentalFeatureToggle(featureKey, enabled),
-      trackLanguageChanged: (language) => telemetry.trackLanguageChanged(language),
-      trackThemeChanged: (theme) => telemetry.trackThemeChanged(theme),
+      syncDomainEntries: options.syncDomainEntries,
+      syncHighlightThemeControls: options.syncHighlightThemeControls,
+      syncModifierControls: options.syncModifierControls,
+      syncPreviewThemeControls: options.syncPreviewThemeControls,
+      syncRoutingRulesToDraft: storageController.syncRoutingRulesToDraft,
+      trackExperimentalFeatureToggle: telemetry.trackExperimentalFeatureToggle,
+      trackLanguageChanged: telemetry.trackLanguageChanged,
+      trackThemeChanged: telemetry.trackThemeChanged,
       updateClassifierField: (field, value) =>
         updateClassifierField(
           options.getDraft(),
@@ -320,8 +327,7 @@ export function createProductionStitchShellActionRuntime(
         ),
       updateDraftPath: (path, value) =>
         updateDraftPath(options.getDraft(), options.getState(), path, value),
-      updateVaultField: (index, field, value) =>
-        storageController.updateVaultField(index, field, value)
+      updateVaultField: storageController.updateVaultField
     }),
     onUnhandledAction: () => {
       controller.scheduleAutoSave(() => options.getDraft());
@@ -329,10 +335,10 @@ export function createProductionStitchShellActionRuntime(
   });
 
   function dispatch(actionId: string, args: unknown[] = [], value?: unknown, event?: Event): void {
+    if (disposed) return;
     const scrollSnapshot = shouldPreserveButtonActionScroll(actionId)
       ? (buttonPressScrollGuard.getSnapshot() ?? captureOptionsScroll(mountRoot))
       : null;
-    widgetHost.flushDirtyWidgets();
     actionRuntime.dispatch({ id: actionId, args }, value === undefined ? event : value);
     telemetry.trackSynchronousAction(actionId);
     if (scrollSnapshot) {
@@ -342,7 +348,10 @@ export function createProductionStitchShellActionRuntime(
 
   return {
     dispatch,
-    dispose: () => owner.dispose(),
+    dispose: () => {
+      disposed = true;
+      owner.dispose();
+    },
     waitForIdle: () => owner.waitForIdle()
   };
 }

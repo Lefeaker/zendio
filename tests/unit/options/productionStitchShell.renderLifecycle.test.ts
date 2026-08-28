@@ -21,6 +21,7 @@ import { createProductionStitchRenderLifecycle } from '@options/app/productionSt
 import { mountProductionStitchShell } from '@options/app/productionStitchShell';
 import { previewContent } from '@options/stitch/content';
 import { getFooterMeta, getFooterView, getSettingsView } from '@options/stitch/schema/registry';
+import { YamlConfigEditorWidgetAdapter } from '@options/yaml-config-editor/widgetAdapter';
 import { mergeOptions } from '@shared/config/optionsMerger';
 import type { StoredOptions } from '@shared/types';
 
@@ -520,8 +521,10 @@ describe('mountProductionStitchShell renderLifecycle', () => {
     expect(document.querySelector('[data-role="yaml-config-view"]')).toBeFalsy();
   });
 
-  it('flushes dirty widget edits before actions that rerender the shell', async () => {
+  it('flushes dirty YAML only for output replacement, not unrelated theme or storage actions', async () => {
     const controller = createController();
+    const collectSpy = vi.spyOn(YamlConfigEditorWidgetAdapter.prototype, 'collect');
+    const destroySpy = vi.spyOn(YamlConfigEditorWidgetAdapter.prototype, 'destroy');
     const mounted = mountProductionStitchShell({
       controller: asOptionsController(controller),
       initialOptions: {
@@ -539,6 +542,8 @@ describe('mountProductionStitchShell renderLifecycle', () => {
     } as never);
 
     await flushPromises();
+    collectSpy.mockClear();
+    destroySpy.mockClear();
 
     const authorRow = requireElement(findYamlRowByField('author'), 'author YAML row');
     const authorArticleToggle = queryRequired<HTMLInputElement>(
@@ -547,13 +552,26 @@ describe('mountProductionStitchShell renderLifecycle', () => {
     );
     authorArticleToggle.checked = true;
     authorArticleToggle.dispatchEvent(new Event('change', { bubbles: true }));
+    const yamlWidget = queryRequired<HTMLElement>('.stitch-yaml-config-widget');
 
+    findButton('Dark').click();
     findButton('Test Connection').click();
     await flushPromises();
 
+    expect(document.querySelector('.stitch-yaml-config-widget')).toBe(yamlWidget);
+    expect(collectSpy).not.toHaveBeenCalled();
+    expect(destroySpy).not.toHaveBeenCalled();
+
+    queryRequired<HTMLButtonElement>('[data-action-id="domain:add"]').click();
+
+    expect(document.querySelector('.stitch-yaml-config-widget')).not.toBe(yamlWidget);
+    expect(collectSpy).toHaveBeenCalledTimes(1);
+    expect(destroySpy).toHaveBeenCalledTimes(1);
     expect(mounted.collectDraft().yamlConfig?.contentTypes?.article?.fields?.[0]).toEqual(
       expect.objectContaining({ name: 'author', enabled: true })
     );
+    collectSpy.mockRestore();
+    destroySpy.mockRestore();
   });
 
   it('does not render fake interactive YAML summary buttons outside the structured YAML widget', () => {
@@ -1064,5 +1082,59 @@ describe('mountProductionStitchShell renderLifecycle', () => {
         enabled: true
       })
     );
+  });
+
+  it('replaces only the invalidated storage owner and preserves unrelated roots and widgets', async () => {
+    mountProductionStitchShell({
+      controller: asOptionsController(createController()),
+      initialOptions: null,
+      messages: null,
+      language: 'en'
+    });
+    await flushPromises();
+    const main = queryRequired<HTMLElement>('.main');
+    const storage = queryRequired<HTMLElement>('[data-panel-id="storage"]');
+    const unrelated = new Map(
+      ['overview', 'capture-sources', 'capture-behavior', 'output', 'maintenance'].map((id) => [
+        id,
+        queryRequired<HTMLElement>(`[data-panel-id="${id}"]`)
+      ])
+    );
+    const yamlWidget = queryRequired<HTMLElement>('.stitch-yaml-config-widget');
+    main.scrollTop = 512;
+
+    findButton('Add Vault').click();
+
+    expect(document.querySelector('[data-panel-id="storage"]')).not.toBe(storage);
+    unrelated.forEach((root, id) => {
+      expect(document.querySelector(`[data-panel-id="${id}"]`)).toBe(root);
+    });
+    expect(document.querySelector('.main')).toBe(main);
+    expect(document.querySelector('.stitch-yaml-config-widget')).toBe(yamlWidget);
+    expect(main.scrollTop).toBe(512);
+  });
+
+  it('routes a missing owned panel through the enumerated all-invariant recovery scope', async () => {
+    mountProductionStitchShell({
+      controller: asOptionsController(createController()),
+      initialOptions: null,
+      messages: null,
+      language: 'en'
+    });
+    await flushPromises();
+    const main = queryRequired<HTMLElement>('.main');
+    const addVault = findButton('Add Vault');
+    const roots = Array.from(document.querySelectorAll<HTMLElement>('[data-panel-id]'));
+    queryRequired<HTMLElement>('[data-panel-id="storage"]').remove();
+
+    addVault.click();
+
+    expect(document.querySelectorAll('[data-panel-id]')).toHaveLength(6);
+    expect(document.querySelector('.main')).not.toBe(main);
+    expect(
+      roots.every(
+        (root) => document.querySelector(`[data-panel-id="${root.dataset.panelId}"]`) !== root
+      )
+    ).toBe(true);
   });
 });

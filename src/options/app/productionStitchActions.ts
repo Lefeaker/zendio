@@ -16,12 +16,14 @@ import {
 } from './productionStitchActionGroups';
 import { createProductionSelectionTriggerActions } from './productionStitchSelectionTriggerActions';
 import type { ClassifierFieldUpdateResult } from './productionStitchShellState';
+import type { SectionInvalidationRequest } from '@ui/stitch-runtime/render/sectionInvalidation';
 export interface ProductionStitchActionContext {
   getAppData(): PreviewContent;
   getCurrentLanguage(): Language;
   getDraft(): CompleteOptions;
   getMessages(): Messages | null;
   getState(): PreviewStoreState;
+  isActive(): boolean;
   setConnectionNotice(notice: PreviewContent['storage']['connectionNotice']): void;
   setLanguageResource(resource: { messages: Messages | null; language: Language }): void;
   setMaintenanceLog(log: string): void;
@@ -51,7 +53,7 @@ export interface ProductionStitchActionContext {
   persistThemePreference(theme: InterfaceTheme): Promise<void>;
   runPersistenceTask(key: string, task: () => Promise<void>, capture?: () => () => void): void;
   refreshAppData(): void;
-  render(): void;
+  render(scopes: SectionInvalidationRequest): void;
   renderActiveResourceModal(): void;
   repairConfiguration(): Promise<void>;
   reloadOptions(): Promise<void>;
@@ -115,8 +117,9 @@ export function createProductionStitchActions(
           const nextResource = ctx.changeLanguage
             ? await ctx.changeLanguage(nextLanguage)
             : { messages: ctx.getMessages(), language: nextLanguage };
+          if (!ctx.isActive()) return;
           ctx.setLanguageResource(nextResource);
-          ctx.render();
+          ctx.render('locale-schema');
           ctx.trackLanguageChanged?.(nextLanguage);
         },
         () => {
@@ -150,7 +153,7 @@ export function createProductionStitchActions(
     },
     'yaml:setFilter': ({ args }) => {
       ctx.getState().yamlFilter = String(args[0] ?? 'all');
-      ctx.render();
+      ctx.render('output');
     },
     'yaml:toggleFieldState': ({ args }) => {
       const field = String(args[0] ?? '');
@@ -160,7 +163,7 @@ export function createProductionStitchActions(
       state.yamlFieldStates[key] = state.yamlFieldStates[key] === 'On' ? 'Off' : 'On';
       ctx.markWidgetDirty('yamlConfig');
       ctx.scheduleDraftSave();
-      ctx.render();
+      ctx.render('output');
     },
     'template:setActiveField': ({ args }) => {
       ctx.getState().activeTemplateField = String(args[0] ?? 'articleVideo');
@@ -180,14 +183,14 @@ export function createProductionStitchActions(
         state.templateValues[field] = `${state.templateValues[field] ?? ''}${String(value ?? '')}`;
         ctx.applyTemplateStateToDraft();
         ctx.scheduleDraftSave();
-        ctx.render();
+        ctx.render('output');
       }
     },
     'output:setReadingPathMode': ({ value }) => {
       ctx.getState().readingPathMode = String(value ?? 'custom');
       ctx.applyTemplateStateToDraft();
       ctx.scheduleDraftSave();
-      ctx.render();
+      ctx.render('output');
     },
     'output:applyPreset': ({ args }) => ctx.applyOutputPreset(String(args[0] ?? '')),
     'highlight:setTheme': ({ value }) => {
@@ -241,15 +244,17 @@ export function createProductionStitchActions(
     'overview:clearUsageData': () => {
       ctx.runPersistenceTask('usage:reset', async () => {
         await ctx.resetUsageData();
+        if (!ctx.isActive()) return;
         ctx.refreshAppData();
-        ctx.render();
+        ctx.render('overview-usage');
       });
     },
     'overview:clearAnalyticsData': () => {
       ctx.runPersistenceTask('privacy:clear', async () => {
         await ctx.clearAnalyticsPrivacyData();
+        if (!ctx.isActive()) return;
         ctx.refreshAppData();
-        ctx.render();
+        ctx.render('overview-usage');
       });
     },
     'overview:updatePrivacyConsent': ({ args, value }) => {
@@ -259,7 +264,8 @@ export function createProductionStitchActions(
       }
       ctx.runPersistenceTask(`privacy:${field}`, async () => {
         await ctx.persistPrivacyPreference(field, Boolean(value));
-        ctx.render();
+        if (!ctx.isActive()) return;
+        ctx.render('overview-usage');
       });
     },
     'maintenance:copyConfig': ({ value }) => {
@@ -272,7 +278,7 @@ export function createProductionStitchActions(
         buildDiagnosticsReport(ctx.collectDraftWithWidgets(), ctx.getMessages())
       );
       ctx.refreshAppData();
-      ctx.render();
+      ctx.render('maintenance');
     },
     'maintenance:importConfig': ({ value }) => {
       ctx.runPersistenceTask('options:import', () =>

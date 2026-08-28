@@ -23,6 +23,7 @@ export function createProductionStitchStorageSubscriptions(
   options: ProductionStitchStorageControllerOptions,
   load: ProductionStitchStorageLoad
 ): ProductionStitchStorageSubscriptions {
+  let folderGeneration = 0;
   function resolveCurrentMessages(): Messages | null {
     return options.getMessages?.() ?? null;
   }
@@ -56,6 +57,8 @@ export function createProductionStitchStorageSubscriptions(
     if (!vault) {
       return;
     }
+    const generation = ++folderGeneration;
+    const isCurrent = () => options.isActive() && generation === folderGeneration;
     try {
       emitLocalVaultPermissionPrompted(options.getMessagingRepository(), 'options');
       const previousFolderId = vault.localFolderId;
@@ -64,6 +67,7 @@ export function createProductionStitchStorageSubscriptions(
       ).fileSystemAccess.chooseDirectory({
         suggestedName: vault.name || vault.vault
       });
+      if (!isCurrent()) return;
       emitLocalVaultPermissionResolved(options.getMessagingRepository(), 'completed');
       state.activeLocalFolderVaultIndex = null;
       vault.localFolderId = selection.id;
@@ -73,11 +77,12 @@ export function createProductionStitchStorageSubscriptions(
       }
       draft.vaultRouter = router;
       options.scheduleDraftSave();
-      options.render();
+      options.render('storage');
       if (previousFolderId !== selection.id) {
         void removeStoredLocalFolder(previousFolderId);
       }
     } catch (error) {
+      if (!isCurrent()) return;
       const messages = resolveCurrentMessages();
       emitLocalVaultPermissionResolved(
         options.getMessagingRepository(),
@@ -90,11 +95,12 @@ export function createProductionStitchStorageSubscriptions(
         variant: 'warning'
       });
       options.refreshAppData();
-      options.render();
+      options.render('storage');
     }
   }
 
   function clearVaultLocalFolder(index: number): void {
+    folderGeneration += 1;
     const draft = options.getDraft();
     const state = options.getState();
     const router = load.ensureVaultRouter();
@@ -111,7 +117,7 @@ export function createProductionStitchStorageSubscriptions(
     }
     draft.vaultRouter = router;
     options.scheduleDraftSave();
-    options.render();
+    options.render('storage');
     void removeStoredLocalFolder(previousFolderId);
   }
 
@@ -126,15 +132,18 @@ export function createProductionStitchStorageSubscriptions(
       void chooseVaultLocalFolder(index);
       return;
     }
+    const generation = ++folderGeneration;
+    const isCurrent = () => options.isActive() && generation === folderGeneration;
 
     state.activeLocalFolderVaultIndex = state.activeLocalFolderVaultIndex === index ? null : index;
-    options.render();
+    options.render('storage');
 
     try {
       emitLocalVaultPermissionPrompted(options.getMessagingRepository(), 'options');
       const permission = await getService<PlatformServices>(
         TOKENS.platformServices
       ).fileSystemAccess.ensurePermission(vault.localFolderId);
+      if (!isCurrent()) return;
       const messages = resolveCurrentMessages();
       emitLocalVaultPermissionResolved(
         options.getMessagingRepository(),
@@ -149,7 +158,7 @@ export function createProductionStitchStorageSubscriptions(
           variant: 'warning'
         });
         options.refreshAppData();
-        options.render();
+        options.render('storage');
         return;
       }
       options.setConnectionNotice({
@@ -160,6 +169,7 @@ export function createProductionStitchStorageSubscriptions(
         variant: 'success'
       });
     } catch (error) {
+      if (!isCurrent()) return;
       const messages = resolveCurrentMessages();
       emitLocalVaultPermissionResolved(
         options.getMessagingRepository(),
@@ -172,12 +182,12 @@ export function createProductionStitchStorageSubscriptions(
         variant: 'warning'
       });
       options.refreshAppData();
-      options.render();
+      options.render('storage');
       return;
     }
 
     options.refreshAppData();
-    options.render();
+    options.render('storage');
   }
 
   return {

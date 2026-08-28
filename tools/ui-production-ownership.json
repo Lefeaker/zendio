@@ -1,8 +1,8 @@
 {
   "schemaVersion": 1,
   "closureState": "final",
-  "uiPathSetSha256": "1fd3add61ff7d5edfcb7536bac1f2d73fb894bb697ec50e0d0f5b743c0b2b820",
-  "uiContentSha256": "d150454f2d8f41b0595d6067acc70820cfdf1bac54ad9b8d0e381183a91e3a58",
+  "uiPathSetSha256": "71d388228c9475ea3719f5e61b1b95f0223ecf902c6802139de6c96fde71d536",
+  "uiContentSha256": "dd61ce30e0c6d4e300c9d6ed0c116c91515b60a513ee14b0172cbe90cd01fdf0",
   "rows": [
     {
       "path": "src/ui/domains/usage-chart/index.ts",
@@ -765,6 +765,28 @@
         ]
       },
       "reason": "Production runtime reachability is proven by the freshly generated build graph."
+    },
+    {
+      "path": "src/ui/stitch-runtime/render/sectionInvalidation.ts",
+      "disposition": "production-runtime",
+      "productionOwners": [
+        "src/options/index.ts",
+        "src/options/runtimeEntry.ts",
+        "src/ui/stitch-runtime/render/sectionInvalidation.ts"
+      ],
+      "replacement": {
+        "owner": "src/ui/stitch-runtime/render/sectionInvalidation.ts",
+        "milestone": "current-production"
+      },
+      "evidence": {
+        "docs": ["docs/design-system-governance.md"],
+        "tests": ["tests/unit/tools/uiProductionOwnership.test.ts"],
+        "tools": [
+          "tools/report-production-build-graph.mjs",
+          "tools/report-ui-production-ownership.mjs"
+        ]
+      },
+      "reason": "The neutral section invalidation owner is reached only by the Options production entrypoints."
     },
     {
       "path": "src/ui/stitch-runtime/surfaceComponents.ts",

@@ -1,4 +1,5 @@
 import type { PreviewStoreState } from '@options/stitch/types';
+import type { SectionInvalidationScope } from '@ui/stitch-runtime/render/sectionInvalidation';
 
 interface LocalFolderDismissal {
   cleanup(): void;
@@ -8,7 +9,7 @@ export function installLocalFolderDismissal(
   mountRoot: HTMLElement,
   getState: () => PreviewStoreState,
   setState: (state: PreviewStoreState) => void,
-  render: () => void
+  render: (scope: SectionInvalidationScope) => void
 ): LocalFolderDismissal {
   const dismiss = (event: MouseEvent): void => {
     const state = getState();
@@ -26,7 +27,7 @@ export function installLocalFolderDismissal(
       ...state,
       activeLocalFolderVaultIndex: null
     });
-    render();
+    render('storage');
   };
 
   mountRoot.addEventListener('click', dismiss);

@@ -12,6 +12,10 @@ import {
 } from './productionStitchStateMapper';
 import { localizeStitchContent } from './productionStitchLocalization';
 import { resolveZendioOfficialWebsiteUrl } from '@shared/links/zendioOfficialWebsite';
+import type {
+  SectionInvalidationRequest,
+  SectionInvalidationScope
+} from '@ui/stitch-runtime/render/sectionInvalidation';
 
 type ProductionStitchAppDataOptions = {
   connectionNotice?: PreviewContent['storage']['connectionNotice'];
@@ -130,15 +134,40 @@ export function resolveProductionDomainEntries(
 
 export function createProductionStitchMutator(options: {
   getState(): PreviewStoreState;
-  render(): void;
+  render(scopes: SectionInvalidationRequest): void;
 }) {
   return (
     mutator: (draftState: PreviewStoreState) => void,
-    mutateOptions: { silent?: boolean } = {}
+    mutateOptions: { silent?: boolean; scope?: SectionInvalidationScope } = {}
   ) => {
     mutator(options.getState());
     if (!mutateOptions.silent) {
-      options.render();
+      if (!mutateOptions.scope) throw new Error('SECTION_INVALIDATION_SCOPE_REQUIRED');
+      options.render(mutateOptions.scope);
     }
   };
+}
+
+const PERSISTENCE_TASK_INVALIDATION: Record<string, SectionInvalidationRequest> = {
+  'maintenance:copy': 'maintenance',
+  'options:import': 'maintenance',
+  'options:language': 'locale-schema',
+  'options:reload': 'maintenance',
+  'options:repair': ['storage', 'output', 'maintenance'],
+  'options:theme': 'theme',
+  'privacy:clear': 'overview-usage',
+  'usage:reset': 'overview-usage'
+};
+
+export function resolveProductionStitchTaskInvalidation(key: string): SectionInvalidationRequest {
+  const scopes = key.startsWith('privacy:') ? 'overview-usage' : PERSISTENCE_TASK_INVALIDATION[key];
+  if (!scopes) throw new Error(`UNKNOWN_OPTIONS_PERSISTENCE_TASK:${key}`);
+  return scopes;
+}
+
+export function resolveProductionStitchTaskOwner(key: string): string {
+  if (key.startsWith('privacy:')) return 'privacy';
+  return ['maintenance:copy', 'options:import', 'options:repair', 'options:reload'].includes(key)
+    ? 'maintenance'
+    : key;
 }
