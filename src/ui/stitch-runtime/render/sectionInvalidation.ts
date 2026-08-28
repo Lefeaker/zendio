@@ -28,8 +28,8 @@ export interface SectionDomSnapshot {
   activePath: number[] | null;
   inputSelection: {
     direction: 'backward' | 'forward' | 'none' | null;
-    end: number | null;
-    start: number | null;
+    end: number;
+    start: number;
   } | null;
   mainScrollTop: number;
   selection: SelectionSnapshot | null;
@@ -43,6 +43,12 @@ export interface SectionInvalidationOwner {
 }
 
 const VALID_SCOPES = new Set<string>(SECTION_INVALIDATION_SCOPES);
+const TEXT_INPUT_TYPES = new Set(['password', 'search', 'tel', 'text', 'url']);
+
+function selectionControl(active: Element | null): HTMLInputElement | HTMLTextAreaElement | null {
+  if (active instanceof HTMLTextAreaElement) return active;
+  return active instanceof HTMLInputElement && TEXT_INPUT_TYPES.has(active.type) ? active : null;
+}
 
 function pathFromRoot(root: Node, node: Node | null): number[] | null {
   if (!node || (node !== root && !root.contains(node))) return null;
@@ -63,9 +69,19 @@ function nodeFromPath(root: Node, path: readonly number[]): Node | null {
   return current;
 }
 
+function selectionOffsetLimit(node: Node): number {
+  return node instanceof Text ? node.data.length : node.childNodes.length;
+}
+
 function captureSelection(root: HTMLElement): SelectionSnapshot | null {
   const selection = window.getSelection?.();
-  if (!selection?.anchorNode || !selection.focusNode || selection.rangeCount === 0) return null;
+  if (
+    !selection?.anchorNode ||
+    !selection.focusNode ||
+    selection.rangeCount === 0 ||
+    selection.isCollapsed
+  )
+    return null;
   const anchorPath = pathFromRoot(root, selection.anchorNode);
   const focusPath = pathFromRoot(root, selection.focusNode);
   return anchorPath && focusPath
@@ -80,38 +96,32 @@ function captureSelection(root: HTMLElement): SelectionSnapshot | null {
 
 export function captureSectionDomSnapshot(root: HTMLElement): SectionDomSnapshot {
   const active = document.activeElement;
-  const input =
-    active instanceof HTMLInputElement || active instanceof HTMLTextAreaElement ? active : null;
+  const input = selectionControl(active);
+  const start = input?.selectionStart;
+  const end = input?.selectionEnd;
   return {
     activePath: active instanceof Node ? pathFromRoot(root, active) : null,
-    inputSelection: input
-      ? {
-          direction: input.selectionDirection,
-          end: input.selectionEnd,
-          start: input.selectionStart
-        }
-      : null,
+    inputSelection:
+      input && typeof start === 'number' && typeof end === 'number'
+        ? {
+            direction: input.selectionDirection,
+            end,
+            start
+          }
+        : null,
     mainScrollTop: root.querySelector<HTMLElement>('.main')?.scrollTop ?? 0,
-    selection: input ? null : captureSelection(root),
+    selection: captureSelection(root),
     windowScroll: { x: window.scrollX, y: window.scrollY }
   };
 }
 
 export function restoreSectionDomSnapshot(root: HTMLElement, snapshot: SectionDomSnapshot): void {
-  const main = root.querySelector<HTMLElement>('.main');
-  if (main) main.scrollTop = snapshot.mainScrollTop;
-  if (window.scrollX !== snapshot.windowScroll.x || window.scrollY !== snapshot.windowScroll.y) {
-    window.scrollTo(snapshot.windowScroll.x, snapshot.windowScroll.y);
-  }
-
   const active = snapshot.activePath ? nodeFromPath(root, snapshot.activePath) : null;
   if (active instanceof HTMLElement) {
     active.focus({ preventScroll: true });
-    if (
-      snapshot.inputSelection &&
-      (active instanceof HTMLInputElement || active instanceof HTMLTextAreaElement)
-    ) {
-      active.setSelectionRange(
+    const input = selectionControl(active);
+    if (snapshot.inputSelection && input) {
+      input.setSelectionRange(
         snapshot.inputSelection.start,
         snapshot.inputSelection.end,
         snapshot.inputSelection.direction ?? undefined
@@ -119,18 +129,26 @@ export function restoreSectionDomSnapshot(root: HTMLElement, snapshot: SectionDo
     }
   }
 
-  if (!snapshot.selection) return;
-  const anchor = nodeFromPath(root, snapshot.selection.anchorPath);
-  const focus = nodeFromPath(root, snapshot.selection.focusPath);
-  const selection = window.getSelection?.();
-  if (!anchor || !focus || !selection) return;
-  selection.removeAllRanges();
-  selection.setBaseAndExtent(
-    anchor,
-    Math.min(snapshot.selection.anchorOffset, anchor.textContent?.length ?? 0),
-    focus,
-    Math.min(snapshot.selection.focusOffset, focus.textContent?.length ?? 0)
-  );
+  if (snapshot.selection) {
+    const anchor = nodeFromPath(root, snapshot.selection.anchorPath);
+    const focus = nodeFromPath(root, snapshot.selection.focusPath);
+    const selection = window.getSelection?.();
+    if (anchor && focus && selection) {
+      selection.removeAllRanges();
+      selection.setBaseAndExtent(
+        anchor,
+        Math.min(snapshot.selection.anchorOffset, selectionOffsetLimit(anchor)),
+        focus,
+        Math.min(snapshot.selection.focusOffset, selectionOffsetLimit(focus))
+      );
+    }
+  }
+
+  const main = root.querySelector<HTMLElement>('.main');
+  if (main) main.scrollTop = snapshot.mainScrollTop;
+  if (window.scrollX !== snapshot.windowScroll.x || window.scrollY !== snapshot.windowScroll.y) {
+    window.scrollTo(snapshot.windowScroll.x, snapshot.windowScroll.y);
+  }
 }
 
 function normalizeRequest(request: SectionInvalidationRequest): SectionInvalidationScope[] {

@@ -72,30 +72,22 @@ describe('section invalidation owner', () => {
     expect(calls).toEqual(['all']);
   });
 
-  it('restores focus, input selection, document selection, and scroll after owner replacement', () => {
+  it('restores text-input focus, selection, and scroll after owner replacement', () => {
     const root = document.createElement('div');
     root.innerHTML =
-      '<main class="main"><section><label>Prefix<input value="abcdef"></label><p>selection</p></section></main>';
+      '<main class="main"><section><label>Prefix<input value="abcdef"></label></section></main>';
     document.body.append(root);
     const main = root.querySelector<HTMLElement>('.main');
     const input = root.querySelector<HTMLInputElement>('input');
-    const text = root.querySelector('p')?.firstChild;
-    if (!main || !input || !text) throw new Error('Expected invalidation fixture nodes.');
+    if (!main || !input) throw new Error('Expected invalidation fixture nodes.');
     main.scrollTop = 88;
     input.focus();
     input.setSelectionRange(2, 5, 'forward');
-    const range = document.createRange();
-    range.setStart(text, 1);
-    range.setEnd(text, 4);
-    const selection = window.getSelection();
-    selection?.removeAllRanges();
-    selection?.addRange(range);
-    input.focus();
     const snapshot = captureSectionDomSnapshot(root);
 
     root.querySelector('section')?.replaceWith(
       Object.assign(document.createElement('section'), {
-        innerHTML: '<label>Prefix<input value="abcdef"></label><p>selection</p>'
+        innerHTML: '<label>Prefix<input value="abcdef"></label>'
       })
     );
     main.scrollTop = 0;
@@ -107,6 +99,56 @@ describe('section invalidation owner', () => {
     expect(nextInput?.selectionEnd).toBe(5);
     expect(main.scrollTop).toBe(88);
   });
+
+  it('restores a true document selection without focusing an input first', () => {
+    const root = document.createElement('div');
+    root.innerHTML = '<main class="main"><section><p>selection</p></section></main>';
+    document.body.append(root);
+    const text = root.querySelector('p')?.firstChild;
+    if (!text) throw new Error('Expected document selection text.');
+    const range = document.createRange();
+    range.setStart(text, 1);
+    range.setEnd(text, 5);
+    const selection = window.getSelection();
+    selection?.removeAllRanges();
+    selection?.addRange(range);
+    const snapshot = captureSectionDomSnapshot(root);
+
+    root
+      .querySelector('section')
+      ?.replaceWith(
+        Object.assign(document.createElement('section'), { innerHTML: '<p>selection</p>' })
+      );
+    selection?.removeAllRanges();
+    restoreSectionDomSnapshot(root, snapshot);
+
+    expect(window.getSelection()?.toString()).toBe('elec');
+  });
+
+  it.each(['checkbox', 'radio', 'number'])(
+    'restores %s focus without text selection APIs',
+    (type) => {
+      const root = document.createElement('div');
+      root.innerHTML = `<main class="main"><section><input type="${type}"></section></main>`;
+      document.body.append(root);
+      const input = root.querySelector<HTMLInputElement>('input');
+      if (!input) throw new Error('Expected focus control.');
+      input.focus();
+      const snapshot = captureSectionDomSnapshot(root);
+      const selectionSpy = vi.spyOn(HTMLInputElement.prototype, 'setSelectionRange');
+
+      root.querySelector('section')?.replaceWith(
+        Object.assign(document.createElement('section'), {
+          innerHTML: `<input type="${type}">`
+        })
+      );
+      restoreSectionDomSnapshot(root, snapshot);
+
+      expect(document.activeElement).toBe(root.querySelector('input'));
+      expect(selectionSpy).not.toHaveBeenCalled();
+      selectionSpy.mockRestore();
+    }
+  );
 
   it('makes late completion after dispose an idempotent no-op', () => {
     const apply = vi.fn();

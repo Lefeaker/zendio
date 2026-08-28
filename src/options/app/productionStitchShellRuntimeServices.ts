@@ -4,12 +4,12 @@ import type { CompleteOptions } from '@shared/types/options';
 import type { Messages } from '@i18n';
 import type { PreviewContent, PreviewStoreState } from '@options/stitch/types';
 import type { OptionsController } from './optionsController';
-import { createProductionStitchPersistence } from './productionStitchPersistence';
 import { createProductionStitchStorageController } from './productionStitchStorageController';
 import { createProductionStitchWidgetHost } from './productionStitchWidgetHost';
 import { mergePartialIntoDraft } from './productionStitchShellState';
 import type { UsageStatsClientLike } from './usage-dashboard/usageStatsClient';
 import type { SectionInvalidationRequest } from '@ui/stitch-runtime/render/sectionInvalidation';
+const { createProductionStitchPersistence } = await import('./productionStitchPersistence');
 
 interface ProductionStitchShellRuntimeServicesOptions {
   controller: OptionsController;
@@ -23,12 +23,11 @@ interface ProductionStitchShellRuntimeServicesOptions {
   getDraft: () => CompleteOptions;
   getState: () => PreviewStoreState;
   isActive: () => boolean;
+  resetOptions: (options: CompleteOptions) => void;
   setAppData: (appData: PreviewContent) => void;
   setConnectionNotice: (notice: PreviewContent['storage']['connectionNotice']) => void;
-  setDraft: (draft: CompleteOptions) => void;
   setDomainMappingRows: (entries: Array<[string, string]>) => void;
   setMaintenanceLog: (log: PreviewContent['maintenanceLog']) => void;
-  setState: (state: PreviewStoreState) => void;
   getConnectionNotice: () => PreviewContent['storage']['connectionNotice'] | undefined;
   refreshAppData: () => void;
   render: (scopes: SectionInvalidationRequest) => void;
@@ -75,10 +74,12 @@ export function createProductionStitchShellRuntimeServices(
     getDraft: options.getDraft,
     getState: options.getState,
     isActive: options.isActive,
+    installImportedOptions: (imported) => {
+      options.resetOptions(imported);
+      widgetHost.resetDirty();
+    },
     setAppData: options.setAppData,
-    setDraft: options.setDraft,
     setMaintenanceLog: options.setMaintenanceLog,
-    setState: options.setState,
     collectDraftWithWidgets: () => widgetHost.collectDraftWithWidgets(),
     refreshAppData: options.refreshAppData,
     render: options.render,

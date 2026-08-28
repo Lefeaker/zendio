@@ -1,13 +1,9 @@
 import { configProvider } from '@shared/config/provider';
 import { DEFAULT_USAGE_STATS } from '@shared/constants';
-import type { IOptionsRepository, IMessagingRepository } from '@shared/repositories';
 import type { CompleteOptions } from '@shared/types/options';
-import {
-  createAnalyticsEventMessage,
-  type AnalyticsRuntimeEventPayload
-} from '@shared/types/analytics';
+import { createAnalyticsEventMessage } from '@shared/types/analytics';
 import type { UsageStats } from '@shared/types/usage';
-import { DEFAULT_RUNTIME_MESSAGES, type Messages } from '@i18n';
+import { DEFAULT_RUNTIME_MESSAGES } from '@i18n';
 import { isAnalyticsDebugModeControlAvailable, resolveAnalyticsDebugMode } from '@shared/analytics';
 import { persistPrivacyConsentAction, resetUsageStatsAction } from '@options/app/actions';
 import { applyAnalyticsTransferPayload } from '@options/services/analyticsTransfer';
@@ -20,50 +16,20 @@ import { updateErrorAnalyticsConfig } from '@shared/errors/analytics';
 import { serializeOptionsFullBackup } from './productionStitchConfigExport';
 import { readImportedConfigurationFromClipboard } from './productionStitchConfigImport';
 import { prepareAnalyticsDataClearedEvent } from './productionStitchFinalAnalyticsEvent';
-import { applyOptionsToState, usageStatsToOverview } from './productionStitchStateMapper';
-import type { PreviewContent, PreviewStoreState } from '@options/stitch/types';
-import type { OptionsController } from './optionsController';
+import { usageStatsToOverview } from './productionStitchStateMapper';
 import { getMessage, setButtonBusy } from './productionStitchPersistenceUi';
 import { repairTemplateOptions } from './productionStitchTemplateRepair';
-import type { UsageStatsClientLike } from './usage-dashboard/usageStatsClient';
 import { deepClone } from '../utils/clone';
-import type { SectionInvalidationRequest } from '@ui/stitch-runtime/render/sectionInvalidation';
-type PrivacyPreferenceField = 'analytics' | 'errorReporting' | 'debugMode';
+import type {
+  PrivacyPreferenceField,
+  ProductionStitchPersistence,
+  ProductionStitchPersistenceOptions
+} from './productionStitchStorageTypes';
 type PrivacySnapshot = CompleteOptions['privacyPreferences'];
-interface ProductionStitchPersistenceOptions {
-  controller: OptionsController;
-  optionsRepository: Pick<IOptionsRepository, 'get' | 'patch' | 'replace' | 'onChange'>;
-  messagingRepository: Pick<IMessagingRepository, 'send' | 'onMessage'>;
-  usageStatsClient: UsageStatsClientLike;
-  now?: () => number;
-  getAppData(): PreviewContent;
-  getCurrentMessages(): Messages | null;
-  getDraft(): CompleteOptions;
-  getState(): PreviewStoreState;
-  isActive(): boolean;
-  setAppData(appData: PreviewContent): void;
-  setDraft(draft: CompleteOptions): void;
-  setMaintenanceLog(log: string): void;
-  setState(state: PreviewStoreState): void;
-  collectDraftWithWidgets(): CompleteOptions;
-  refreshAppData(): void;
-  render(scopes: SectionInvalidationRequest): void;
-  syncDefaultVaultFromRest(): void;
-}
-export interface ProductionStitchPersistence {
-  clearAnalyticsPrivacyData(): Promise<void>;
-  copyConfigurationToClipboard(button: HTMLButtonElement | null): Promise<void>;
-  importConfigurationWithStatus(button: HTMLButtonElement | null): Promise<void>;
-  loadUsageStatsFromStorage(): Promise<void>;
-  persistPrivacyPreference(field: PrivacyPreferenceField, value: boolean): Promise<void>;
-  repairConfiguration(): Promise<void>;
-  resetUsageData(): Promise<void>;
-  restoreUsageStatsView(): void;
-  trackUsageEvent(message: AnalyticsRuntimeEventPayload): Promise<void>;
-}
 export function createProductionStitchPersistence(
   options: ProductionStitchPersistenceOptions
 ): ProductionStitchPersistence {
+  let usageGeneration = 0;
   let usageSnapshot: UsageStats = {
     ...DEFAULT_USAGE_STATS,
     history: [...DEFAULT_USAGE_STATS.history]
@@ -123,7 +89,9 @@ export function createProductionStitchPersistence(
       return;
     }
     await setAnalyticsConsent(nextSnapshot.analytics, nextSnapshot.errorReporting);
+    if (!options.isActive()) return;
     await getAnalyticsConfigManager().updateConfig({ debugMode: runtimeDebugMode });
+    if (!options.isActive()) return;
     await updateErrorAnalyticsConfig(nextSnapshot.errorReporting);
   }
   async function persistPrivacyPreference(
@@ -139,8 +107,10 @@ export function createProductionStitchPersistence(
     await persistPrivacyConsentAction(nextSnapshot, {
       optionsRepository: options.optionsRepository
     });
+    if (!options.isActive()) return;
     syncPrivacySnapshotToState(nextSnapshot);
     await applyRuntimePrivacySnapshot(nextSnapshot, field);
+    if (!options.isActive()) return;
     options.controller.scheduleAutoSave(() => options.collectDraftWithWidgets());
     await track(
       createAnalyticsEventMessage('privacy_consent_changed', {
@@ -165,6 +135,7 @@ export function createProductionStitchPersistence(
     }
     try {
       const sendAnalyticsDataClearedEvent = await prepareAnalyticsDataClearedEvent();
+      if (!options.isActive()) return;
       const nextSnapshot = {
         analytics: false,
         errorReporting: false,
@@ -173,11 +144,16 @@ export function createProductionStitchPersistence(
       await persistPrivacyConsentAction(nextSnapshot, {
         optionsRepository: options.optionsRepository
       });
+      if (!options.isActive()) return;
       syncPrivacySnapshotToState(nextSnapshot);
       await setAnalyticsConsent(false, false);
+      if (!options.isActive()) return;
       await getAnalyticsConfigManager().clearAllData();
+      if (!options.isActive()) return;
       await updateErrorAnalyticsConfig(false);
+      if (!options.isActive()) return;
       await sendAnalyticsDataClearedEvent();
+      if (!options.isActive()) return;
       options.getState().privacyStatus = getMessage(
         options.getCurrentMessages(),
         'allDataCleared',
@@ -185,6 +161,7 @@ export function createProductionStitchPersistence(
       );
       options.controller.scheduleAutoSave(() => options.collectDraftWithWidgets());
     } catch (error) {
+      if (!options.isActive()) return;
       const failureMessage = getMessage(
         options.getCurrentMessages(),
         'clearDataError',
@@ -196,58 +173,65 @@ export function createProductionStitchPersistence(
     }
   }
   async function resetUsageData(): Promise<void> {
+    const generation = ++usageGeneration;
     const previousStats = usageSnapshot;
     const zeroStats = { ...DEFAULT_USAGE_STATS, history: [...DEFAULT_USAGE_STATS.history] };
     applyUsageStats(zeroStats);
     try {
-      applyUsageStats(
-        await resetUsageStatsAction({
-          usageStatsClient: options.usageStatsClient,
-          messagingRepository: options.messagingRepository,
-          ...(options.now ? { now: options.now } : {})
-        })
-      );
+      const stats = await resetUsageStatsAction({
+        usageStatsClient: options.usageStatsClient,
+        messagingRepository: options.messagingRepository,
+        ...(options.now ? { now: options.now } : {})
+      });
+      if (!options.isActive() || generation !== usageGeneration) return;
+      applyUsageStats(stats);
     } catch (error) {
+      if (!options.isActive() || generation !== usageGeneration) return;
       applyUsageStats(previousStats);
       throw error;
     }
   }
   async function loadUsageStatsFromStorage(): Promise<void> {
+    const generation = ++usageGeneration;
     try {
       const stats = await options.usageStatsClient.get();
-      if (!options.isActive()) return;
+      if (!options.isActive() || generation !== usageGeneration) return;
       applyUsageStats(stats);
       options.render('overview-usage');
     } catch (error) {
       console.debug('[Options] Failed to load usage stats through the background owner:', error);
     }
   }
-  async function importConfigurationFromClipboard(configuration: {
-    analytics: Awaited<ReturnType<typeof readImportedConfigurationFromClipboard>>['analytics'];
-    imported: CompleteOptions;
-    version: Awaited<ReturnType<typeof readImportedConfigurationFromClipboard>>['version'];
-  }): Promise<void> {
+  async function importConfigurationFromClipboard(
+    configuration: {
+      analytics: Awaited<ReturnType<typeof readImportedConfigurationFromClipboard>>['analytics'];
+      imported: CompleteOptions;
+      version: Awaited<ReturnType<typeof readImportedConfigurationFromClipboard>>['version'];
+    },
+    markInstalled: () => void
+  ): Promise<void> {
     await options.controller.applyImportedConfig(configuration.imported);
     if (!options.isActive()) return;
-    options.setDraft(configuration.imported);
-    refresh();
-    options.setState(
-      applyOptionsToState(options.getState(), configuration.imported, options.getAppData())
-    );
+    markInstalled();
+    options.installImportedOptions(configuration.imported);
+    restoreUsageStatsView();
     await applyAnalyticsTransferPayload(configuration.analytics);
+    if (!options.isActive()) return;
     options.setMaintenanceLog(
       JSON.stringify({ imported: true, version: configuration.version }, null, 2)
     );
   }
   async function copyConfigurationToClipboard(button: HTMLButtonElement | null): Promise<void> {
-    setButtonBusy(button, true);
+    if (options.isActive() && button?.isConnected !== false) setButtonBusy(button, true);
     try {
       await writeToClipboard(serializeOptionsFullBackup(options.collectDraftWithWidgets()));
+      if (!options.isActive()) return;
       await track(
         createAnalyticsEventMessage('config_export_completed', {
           outcome: 'completed'
         })
       );
+      if (!options.isActive()) return;
       options.setMaintenanceLog(
         getMessage(
           options.getCurrentMessages(),
@@ -256,14 +240,16 @@ export function createProductionStitchPersistence(
         )
       );
     } catch (error) {
+      if (!options.isActive()) return;
       await track(
         createAnalyticsEventMessage('config_export_completed', {
           outcome: 'failed'
         })
       );
+      if (!options.isActive()) return;
       options.setMaintenanceLog(`Copy failed: ${String(error)}`);
     } finally {
-      setButtonBusy(button, false);
+      if (options.isActive() && button?.isConnected !== false) setButtonBusy(button, false);
       if (options.isActive()) {
         refresh();
         options.render('maintenance');
@@ -272,20 +258,22 @@ export function createProductionStitchPersistence(
   }
 
   async function importConfigurationWithStatus(button: HTMLButtonElement | null): Promise<void> {
-    setButtonBusy(button, true);
+    if (options.isActive() && button?.isConnected !== false) setButtonBusy(button, true);
     let analyticsPayloadPresent = false;
-    let imported = false;
+    let installed = false;
     try {
       const configuration = await readImportedConfigurationFromClipboard();
+      if (!options.isActive()) return;
       analyticsPayloadPresent = configuration.analyticsPayloadPresent;
-      await importConfigurationFromClipboard(configuration);
-      imported = true;
+      await importConfigurationFromClipboard(configuration, () => (installed = true));
+      if (!options.isActive()) return;
       await track(
         createAnalyticsEventMessage('config_import_completed', {
           outcome: 'completed',
           analytics_payload_present: analyticsPayloadPresent
         })
       );
+      if (!options.isActive()) return;
       options.setMaintenanceLog(
         getMessage(
           options.getCurrentMessages(),
@@ -294,20 +282,22 @@ export function createProductionStitchPersistence(
         )
       );
     } catch (error) {
+      if (!options.isActive()) return;
       await track(
         createAnalyticsEventMessage('config_import_completed', {
           outcome: 'failed',
           analytics_payload_present: analyticsPayloadPresent
         })
       );
+      if (!options.isActive()) return;
       const failureMessage = `Import failed: ${String(error)}`;
       options.setMaintenanceLog(failureMessage);
       throw new Error(failureMessage);
     } finally {
-      setButtonBusy(button, false);
+      if (options.isActive() && button?.isConnected !== false) setButtonBusy(button, false);
       if (options.isActive()) {
         refresh();
-        options.render(imported ? 'all-invariant-recovery' : 'maintenance');
+        options.render(installed ? 'all-invariant-recovery' : 'maintenance');
       }
     }
   }
@@ -356,11 +346,13 @@ export function createProductionStitchPersistence(
         draft: options.collectDraftWithWidgets()
       });
     } catch (error) {
+      if (!options.isActive()) return;
       Object.assign(options.getDraft(), before);
       options.setMaintenanceLog(oldLog);
       refresh();
       throw error;
     }
+    if (!options.isActive()) return;
     options.render(['storage', 'output', 'maintenance']);
   }
 

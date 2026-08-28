@@ -6,17 +6,17 @@ import {
 } from '@options/stitch/render/shellBuilders';
 import { renderPreviewView } from '@options/stitch/render/renderStitchView';
 import { clear, el } from '@ui/stitch-runtime';
-import type {
-  SectionInvalidationOwner,
-  SectionInvalidationRequest
-} from '@ui/stitch-runtime/render/sectionInvalidation';
+import type { SectionInvalidationRequest } from '@ui/stitch-runtime/render/sectionInvalidation';
 import { previewUi } from '@options/stitch/ui/components';
 import type { PreviewStoreState } from '@options/stitch/types';
 import { RUNTIME_SURFACE_RESOURCE_IDS } from './productionStitchStateMapper';
 import { setScrollTopImmediately } from './productionStitchScrollGuard';
 import { createProductionStitchRenderControls } from './productionStitchRenderControls';
 import { installLocalFolderDismissal } from './productionStitchLocalFolderDismissal';
-import { type ProductionStitchSectionHandlers } from './productionStitchShellRenderDelegates';
+import {
+  createProductionStitchInvalidationBridge,
+  type ProductionStitchSectionHandlers
+} from './productionStitchShellRenderDelegates';
 import type {
   ProductionStitchRenderLifecycle,
   ProductionStitchRenderLifecycleOptions,
@@ -66,14 +66,10 @@ export function createProductionStitchRenderLifecycle(
     'all-invariant-recovery': renderAll
   };
   let disposed = false;
-  let invalidation: SectionInvalidationOwner | null = null;
-  void import('@ui/stitch-runtime/render/sectionInvalidation').then((owner) => {
-    if (!disposed)
-      invalidation = owner.createSectionInvalidationOwner({
-        handlers,
-        capture: () => owner.captureSectionDomSnapshot(mountRoot),
-        restore: (snapshot) => owner.restoreSectionDomSnapshot(mountRoot, snapshot)
-      });
+  const invalidation = createProductionStitchInvalidationBridge({
+    handlers,
+    isActive: () => !disposed,
+    mountRoot
   });
   function createRenderContext() {
     return {
@@ -143,17 +139,13 @@ export function createProductionStitchRenderLifecycle(
       options.widgetHost.flushDirtyWidgets();
       options.widgetHost.destroyWidgets();
     }
-    mountRoot.querySelector(`[data-panel-id="${panelId}"]`)?.replaceWith(renderSection(panelId));
+    const panel = mountRoot.querySelector(`[data-panel-id="${panelId}"]`);
+    if (!panel) return render('all-invariant-recovery');
+    panel.replaceWith(renderSection(panelId));
   }
 
   const render = (scopes: SectionInvalidationRequest): void => {
-    if (disposed) return;
-    if (invalidation) return invalidation.invalidate(scopes);
-    (typeof scopes === 'string' ? [scopes] : scopes).forEach((scope) => {
-      const handler = handlers[scope];
-      if (!handler) throw new Error(`UNKNOWN_SECTION_INVALIDATION_SCOPE:${scope}`);
-      handler();
-    });
+    invalidation.render(scopes);
   };
 
   function openResource(resourceId: string): void {
@@ -178,7 +170,9 @@ export function createProductionStitchRenderLifecycle(
     if (!state.activeResource) return;
     const view = getFooterView(state.activeResource, options.createSchemaContext());
     const modal = view ? renderPreviewView(view, createRenderContext()) : null;
-    if (modal) mountRoot.querySelector<HTMLElement>('[data-modal-host="true"]')?.append(modal);
+    const host = mountRoot.querySelector<HTMLElement>('[data-modal-host="true"]');
+    if (modal && !host) return render('all-invariant-recovery');
+    if (modal) host?.append(modal);
   }
 
   function scrollToPanel(panelId: string): void {
@@ -235,7 +229,7 @@ export function createProductionStitchRenderLifecycle(
     applySystemThemePreferenceChange: controls.applySystemThemePreferenceChange,
     cleanup: () => {
       disposed = true;
-      invalidation?.dispose();
+      invalidation.dispose();
       folderDismissal.cleanup();
     },
     openResource,

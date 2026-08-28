@@ -41,6 +41,7 @@ import * as storageControllerModule from '@options/app/productionStitchStorageCo
 import { DEFAULT_RUNTIME_MESSAGES, type Language, type Messages } from '@i18n';
 import { mergeOptions } from '@shared/config/optionsMerger';
 import type { CompleteOptions } from './productionStitchShell.helpers';
+import type { ConnectionTestResult } from '@shared/types/connection';
 import type { UsageStats } from '@shared/types/usage';
 import { getRestDefaults } from '../../utils/restDefaults';
 
@@ -157,6 +158,55 @@ describe('mountProductionStitchShell actions', () => {
     );
   });
 
+  it('does not mutate detached copy/import controls or callbacks after cleanup', async () => {
+    const pendingCopy = deferred<void>();
+    Object.defineProperty(navigator, 'clipboard', {
+      configurable: true,
+      value: { writeText: vi.fn(() => pendingCopy.promise) }
+    });
+    const copyMount = mountProductionStitchShell({
+      controller: asOptionsController(createController()),
+      initialOptions: null,
+      messages: null,
+      language: 'en'
+    });
+    const copyButton = findButton('Copy Configuration');
+
+    copyButton.click();
+    expect(copyButton.getAttribute('aria-busy')).toBe('true');
+    copyMount.cleanup();
+    pendingCopy.resolve();
+    await flushPromises();
+
+    expect(copyButton.isConnected).toBe(false);
+    expect(copyButton.getAttribute('aria-busy')).toBe('true');
+    expect(document.getElementById('optionsShellRoot')?.innerHTML).toBe('');
+
+    const pendingImport = deferred<string>();
+    const importController = createController();
+    Object.defineProperty(navigator, 'clipboard', {
+      configurable: true,
+      value: { readText: vi.fn(() => pendingImport.promise) }
+    });
+    const importMount = mountProductionStitchShell({
+      controller: asOptionsController(importController),
+      initialOptions: null,
+      messages: null,
+      language: 'en'
+    });
+    const importButton = findButton('Import and Save');
+
+    importButton.click();
+    expect(importButton.getAttribute('aria-busy')).toBe('true');
+    importMount.cleanup();
+    pendingImport.resolve(JSON.stringify({ options: { aiChat: { userName: 'Late' } } }));
+    await flushPromises();
+
+    expect(importButton.isConnected).toBe(false);
+    expect(importButton.getAttribute('aria-busy')).toBe('true');
+    expect(importController.applyImportedConfig).not.toHaveBeenCalled();
+  });
+
   it('uses localized storage connection error titles when the storage test action throws', async () => {
     const controller = createController();
     const factorySpy = mockStorageConnectionFailure('storage connection failed');
@@ -204,6 +254,50 @@ describe('mountProductionStitchShell actions', () => {
     );
     expect(vaultList.textContent).toContain('storage connection failed');
 
+    factorySpy.mockRestore();
+  });
+
+  it('keeps only the latest connection completion and suppresses completion after cleanup', async () => {
+    const first = deferred<ConnectionTestResult>();
+    const second = deferred<ConnectionTestResult>();
+    const late = deferred<ConnectionTestResult>();
+    const runConnection = vi
+      .fn()
+      .mockImplementationOnce(() => first.promise)
+      .mockImplementationOnce(() => second.promise)
+      .mockImplementationOnce(() => late.promise);
+    const actualFactory = storageControllerModule.createProductionStitchStorageController;
+    const factorySpy = vi
+      .spyOn(storageControllerModule, 'createProductionStitchStorageController')
+      .mockImplementation((options) => ({
+        ...actualFactory(options),
+        runVaultListConnectionTest: () => runConnection()
+      }));
+    const mounted = mountProductionStitchShell({
+      controller: asOptionsController(createController()),
+      initialOptions: null,
+      messages: null,
+      language: 'en'
+    });
+    const testButton = findButton('Test Connection');
+
+    testButton.click();
+    testButton.click();
+    expect(runConnection).toHaveBeenCalledTimes(2);
+    second.resolve({ success: true, message: '', error: 'latest connection result' });
+    await flushPromises();
+    expect(findCardByTitle('Vault List').textContent).toContain('latest connection result');
+
+    first.resolve({ success: false, message: '', error: 'stale connection result' });
+    await flushPromises();
+    expect(findCardByTitle('Vault List').textContent).not.toContain('stale connection result');
+
+    findButton('Test Connection').click();
+    expect(runConnection).toHaveBeenCalledTimes(3);
+    mounted.cleanup();
+    late.resolve({ success: false, message: '', error: 'disposed connection result' });
+    await flushPromises();
+    expect(document.getElementById('optionsShellRoot')?.innerHTML).toBe('');
     factorySpy.mockRestore();
   });
 
@@ -594,6 +688,48 @@ describe('mountProductionStitchShell actions', () => {
     expect(mounted.collectDraft().privacyPreferences).toEqual({
       analytics: true,
       errorReporting: false,
+      debugMode: false
+    });
+  });
+
+  it('serializes cross-field privacy updates against the latest committed snapshot', async () => {
+    const firstPatch = deferred<CompleteOptions>();
+    const optionsRepository = createRepository();
+    optionsRepository.patch
+      .mockImplementationOnce(() => firstPatch.promise)
+      .mockImplementation(() => Promise.resolve(createCompleteOptions(null)));
+    const mounted = mountProductionStitchShell({
+      controller: asOptionsController(createController()),
+      initialOptions: {
+        privacyPreferences: { analytics: false, errorReporting: false, debugMode: false }
+      },
+      messages: null,
+      language: 'en',
+      optionsRepository
+    });
+
+    const analytics = findCheckboxInText('Usage analytics');
+    const errorReporting = findCheckboxInText('Error reporting');
+    analytics.checked = true;
+    analytics.dispatchEvent(new Event('change', { bubbles: true }));
+    errorReporting.checked = true;
+    errorReporting.dispatchEvent(new Event('change', { bubbles: true }));
+    await Promise.resolve();
+
+    expect(optionsRepository.patch).toHaveBeenCalledTimes(1);
+    firstPatch.resolve(createCompleteOptions(null));
+    await flushPromises();
+    await flushPromises();
+
+    expect(optionsRepository.patch).toHaveBeenCalledTimes(2);
+    expect(optionsRepository.patch).toHaveBeenLastCalledWith([
+      { path: ['privacyPreferences', 'analytics'], value: true },
+      { path: ['privacyPreferences', 'errorReporting'], value: true },
+      { path: ['privacyPreferences', 'debugMode'], value: false }
+    ]);
+    expect(mounted.collectDraft().privacyPreferences).toEqual({
+      analytics: true,
+      errorReporting: true,
       debugMode: false
     });
   });
@@ -1100,7 +1236,6 @@ describe('mountProductionStitchShell actions', () => {
       language: 'en',
       messagingRepository: messagingRepository as never
     });
-
     findButton('Copy Configuration').click();
     await flushPromises();
 
@@ -1240,7 +1375,11 @@ describe('mountProductionStitchShell actions', () => {
         readText: vi.fn(() =>
           Promise.resolve(
             JSON.stringify({
-              options: { aiChat: { userName: 'Imported' } },
+              options: {
+                aiChat: { userName: 'Imported' },
+                interfaceTheme: 'light',
+                rest: { vault: 'Imported Vault' }
+              },
               analytics: {
                 consent: { analytics: true, errorReporting: false },
                 debugMode: false
@@ -1251,7 +1390,7 @@ describe('mountProductionStitchShell actions', () => {
       }
     });
 
-    mountProductionStitchShell({
+    const mounted = mountProductionStitchShell({
       controller: asOptionsController(controller),
       initialOptions: { aiChat: { userName: 'Before' } },
       messages: {
@@ -1260,11 +1399,21 @@ describe('mountProductionStitchShell actions', () => {
       language: 'en',
       messagingRepository: messagingRepository as never
     });
+    const panelRoots = Array.from(document.querySelectorAll<HTMLElement>('[data-panel-id]'));
 
     findButton('Import and Save').click();
     await flushPromises();
 
     expect(vi.mocked(controller.applyImportedConfig)).toHaveBeenCalledTimes(1);
+    expect(mounted.collectDraft().aiChat.userName).toBe('Imported');
+    expect(mounted.collectDraft().interfaceTheme).toBe('light');
+    expect(document.documentElement.dataset.theme).toBe('light');
+    expect(findButton('Light').getAttribute('aria-pressed')).toBe('true');
+    expect(
+      panelRoots.every(
+        (root) => document.querySelector(`[data-panel-id="${root.dataset.panelId}"]`) !== root
+      )
+    ).toBe(true);
     expect(document.body.textContent).toContain('Import failed: Error: analytics failed');
     expect(document.body.textContent).not.toContain('Imported config');
     expect(messagingRepository.send).toHaveBeenCalledWith({

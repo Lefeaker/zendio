@@ -23,6 +23,7 @@ export interface ProductionStitchActionContext {
   getDraft(): CompleteOptions;
   getMessages(): Messages | null;
   getState(): PreviewStoreState;
+  isActive(): boolean;
   setConnectionNotice(notice: PreviewContent['storage']['connectionNotice']): void;
   setLanguageResource(resource: { messages: Messages | null; language: Language }): void;
   setMaintenanceLog(log: string): void;
@@ -116,6 +117,7 @@ export function createProductionStitchActions(
           const nextResource = ctx.changeLanguage
             ? await ctx.changeLanguage(nextLanguage)
             : { messages: ctx.getMessages(), language: nextLanguage };
+          if (!ctx.isActive()) return;
           ctx.setLanguageResource(nextResource);
           ctx.render('locale-schema');
           ctx.trackLanguageChanged?.(nextLanguage);
@@ -242,6 +244,7 @@ export function createProductionStitchActions(
     'overview:clearUsageData': () => {
       ctx.runPersistenceTask('usage:reset', async () => {
         await ctx.resetUsageData();
+        if (!ctx.isActive()) return;
         ctx.refreshAppData();
         ctx.render('overview-usage');
       });
@@ -249,6 +252,7 @@ export function createProductionStitchActions(
     'overview:clearAnalyticsData': () => {
       ctx.runPersistenceTask('privacy:clear', async () => {
         await ctx.clearAnalyticsPrivacyData();
+        if (!ctx.isActive()) return;
         ctx.refreshAppData();
         ctx.render('overview-usage');
       });
@@ -260,6 +264,7 @@ export function createProductionStitchActions(
       }
       ctx.runPersistenceTask(`privacy:${field}`, async () => {
         await ctx.persistPrivacyPreference(field, Boolean(value));
+        if (!ctx.isActive()) return;
         ctx.render('overview-usage');
       });
     },

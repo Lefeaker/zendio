@@ -164,3 +164,10 @@ export function resolveProductionStitchTaskInvalidation(key: string): SectionInv
   if (!scopes) throw new Error(`UNKNOWN_OPTIONS_PERSISTENCE_TASK:${key}`);
   return scopes;
 }
+
+export function resolveProductionStitchTaskOwner(key: string): string {
+  if (key.startsWith('privacy:')) return 'privacy';
+  return ['maintenance:copy', 'options:import', 'options:repair', 'options:reload'].includes(key)
+    ? 'maintenance'
+    : key;
+}

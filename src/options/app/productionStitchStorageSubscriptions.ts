@@ -23,6 +23,7 @@ export function createProductionStitchStorageSubscriptions(
   options: ProductionStitchStorageControllerOptions,
   load: ProductionStitchStorageLoad
 ): ProductionStitchStorageSubscriptions {
+  let folderGeneration = 0;
   function resolveCurrentMessages(): Messages | null {
     return options.getMessages?.() ?? null;
   }
@@ -56,6 +57,8 @@ export function createProductionStitchStorageSubscriptions(
     if (!vault) {
       return;
     }
+    const generation = ++folderGeneration;
+    const isCurrent = () => options.isActive() && generation === folderGeneration;
     try {
       emitLocalVaultPermissionPrompted(options.getMessagingRepository(), 'options');
       const previousFolderId = vault.localFolderId;
@@ -64,7 +67,7 @@ export function createProductionStitchStorageSubscriptions(
       ).fileSystemAccess.chooseDirectory({
         suggestedName: vault.name || vault.vault
       });
-      if (!options.isActive()) return;
+      if (!isCurrent()) return;
       emitLocalVaultPermissionResolved(options.getMessagingRepository(), 'completed');
       state.activeLocalFolderVaultIndex = null;
       vault.localFolderId = selection.id;
@@ -79,7 +82,7 @@ export function createProductionStitchStorageSubscriptions(
         void removeStoredLocalFolder(previousFolderId);
       }
     } catch (error) {
-      if (!options.isActive()) return;
+      if (!isCurrent()) return;
       const messages = resolveCurrentMessages();
       emitLocalVaultPermissionResolved(
         options.getMessagingRepository(),
@@ -97,6 +100,7 @@ export function createProductionStitchStorageSubscriptions(
   }
 
   function clearVaultLocalFolder(index: number): void {
+    folderGeneration += 1;
     const draft = options.getDraft();
     const state = options.getState();
     const router = load.ensureVaultRouter();
@@ -128,6 +132,8 @@ export function createProductionStitchStorageSubscriptions(
       void chooseVaultLocalFolder(index);
       return;
     }
+    const generation = ++folderGeneration;
+    const isCurrent = () => options.isActive() && generation === folderGeneration;
 
     state.activeLocalFolderVaultIndex = state.activeLocalFolderVaultIndex === index ? null : index;
     options.render('storage');
@@ -137,7 +143,7 @@ export function createProductionStitchStorageSubscriptions(
       const permission = await getService<PlatformServices>(
         TOKENS.platformServices
       ).fileSystemAccess.ensurePermission(vault.localFolderId);
-      if (!options.isActive()) return;
+      if (!isCurrent()) return;
       const messages = resolveCurrentMessages();
       emitLocalVaultPermissionResolved(
         options.getMessagingRepository(),
@@ -163,7 +169,7 @@ export function createProductionStitchStorageSubscriptions(
         variant: 'success'
       });
     } catch (error) {
-      if (!options.isActive()) return;
+      if (!isCurrent()) return;
       const messages = resolveCurrentMessages();
       emitLocalVaultPermissionResolved(
         options.getMessagingRepository(),

@@ -14,6 +14,7 @@ interface ProductionStitchActionGroupContext {
   getDraft(): CompleteOptions;
   getMessages(): Messages | null;
   getState(): PreviewStoreState;
+  isActive(): boolean;
   setConnectionNotice(notice: PreviewContent['storage']['connectionNotice']): void;
   activateVaultLocalFolder(index: number): Promise<void>;
   applyConnectionNotice(result: ConnectionTestResult): void;
@@ -83,6 +84,7 @@ export function createProductionRoutingActions(
 export function createProductionStorageActions(
   context: ProductionStitchActionGroupContext
 ): ProductionStitchActions {
+  let connectionGeneration = 0;
   return {
     'storage:addVault': () => {
       const draft = context.getDraft();
@@ -133,10 +135,15 @@ export function createProductionStorageActions(
       context.render('storage');
     },
     'storage:testConnection': () => {
+      const generation = ++connectionGeneration;
+      const isCurrent = () => context.isActive() && generation === connectionGeneration;
       void (async () => {
         try {
-          context.applyConnectionNotice(await context.runVaultListConnectionTest());
+          const result = await context.runVaultListConnectionTest();
+          if (!isCurrent()) return;
+          context.applyConnectionNotice(result);
         } catch (error) {
+          if (!isCurrent()) return;
           context.setConnectionNotice({
             title: resolveSchemaMessage(
               context.getMessages(),
@@ -147,7 +154,7 @@ export function createProductionStorageActions(
           });
           context.refreshAppData();
         }
-        context.render('storage');
+        if (isCurrent()) context.render('storage');
       })();
     }
   };

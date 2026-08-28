@@ -5,7 +5,10 @@ import {
   createProductionStitchActions,
   type ProductionStitchActionContext
 } from '../../../src/options/app/productionStitchActions';
-import { resolveProductionStitchTaskInvalidation } from '../../../src/options/app/productionStitchShellContext';
+import {
+  resolveProductionStitchTaskInvalidation,
+  resolveProductionStitchTaskOwner
+} from '../../../src/options/app/productionStitchShellContext';
 import { asType } from '../../utils/typeHelpers';
 
 describe('production Stitch persistence action routing', () => {
@@ -32,6 +35,7 @@ describe('production Stitch persistence action routing', () => {
         getDraft: () => ({ interfaceTheme: 'system' }),
         getMessages: () => null,
         getState: () => state,
+        isActive: () => true,
         runPersistenceTask,
         persistThemePreference,
         persistPrivacyPreference,
@@ -86,6 +90,7 @@ describe('production Stitch persistence action routing', () => {
         getCurrentLanguage: () => activeLanguage,
         getMessages: () => null,
         getState: () => state,
+        isActive: () => true,
         setLanguageResource: (
           resource: Parameters<ProductionStitchActionContext['setLanguageResource']>[0]
         ) => {
@@ -150,5 +155,15 @@ describe('production Stitch persistence action routing', () => {
     expect(() => resolveProductionStitchTaskInvalidation('unknown')).toThrow(
       'UNKNOWN_OPTIONS_PERSISTENCE_TASK:unknown'
     );
+    expect(
+      ['privacy:analytics', 'privacy:errorReporting', 'privacy:debugMode'].map(
+        resolveProductionStitchTaskOwner
+      )
+    ).toEqual(['privacy', 'privacy', 'privacy']);
+    expect(
+      ['maintenance:copy', 'options:import', 'options:repair', 'options:reload'].map(
+        resolveProductionStitchTaskOwner
+      )
+    ).toEqual(['maintenance', 'maintenance', 'maintenance', 'maintenance']);
   });
 });

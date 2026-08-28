@@ -11,7 +11,7 @@ import {
   createProductionStitchActions,
   type ProductionStitchActionContext
 } from './productionStitchActions';
-import type { ProductionStitchPersistence } from './productionStitchPersistence';
+import type { ProductionStitchPersistence } from './productionStitchStorageTypes';
 import type { ButtonPressScrollGuard } from './productionStitchScrollGuard';
 import {
   captureOptionsScroll,
@@ -33,7 +33,10 @@ import {
 import type { ProductionStitchShellMutableState } from './productionStitchShellMutableState';
 import { formatOptionsError, showStatusMessage } from '@options/components/messages';
 import type { SectionInvalidationRequest } from '@ui/stitch-runtime/render/sectionInvalidation';
-import { resolveProductionStitchTaskInvalidation } from './productionStitchShellContext';
+import {
+  resolveProductionStitchTaskInvalidation,
+  resolveProductionStitchTaskOwner
+} from './productionStitchShellContext';
 
 type RuntimeMutableState = Omit<
   ProductionStitchShellMutableState,
@@ -210,7 +213,6 @@ export function createProductionStitchShellActionRuntime(
     options.refreshAppData();
     persistence.restoreUsageStatsView();
   }
-
   function runPersistenceTask(
     key: string,
     task: () => Promise<void>,
@@ -218,7 +220,7 @@ export function createProductionStitchShellActionRuntime(
   ): void {
     const scopes = resolveProductionStitchTaskInvalidation(key);
     owner.run<(() => void) | undefined>({
-      key,
+      key: resolveProductionStitchTaskOwner(key),
       capture: () => captureRollback?.(),
       task,
       rollback: (rollback, error) => {
@@ -237,6 +239,7 @@ export function createProductionStitchShellActionRuntime(
       getDraft: options.getDraft,
       getMessages: options.getCurrentMessages,
       getState: options.getState,
+      isActive: () => !disposed,
       setConnectionNotice: options.setConnectionNotice,
       setLanguageResource: options.setLanguageResource,
       setMaintenanceLog: options.setMaintenanceLog,
@@ -336,7 +339,6 @@ export function createProductionStitchShellActionRuntime(
     const scrollSnapshot = shouldPreserveButtonActionScroll(actionId)
       ? (buttonPressScrollGuard.getSnapshot() ?? captureOptionsScroll(mountRoot))
       : null;
-    widgetHost.flushDirtyWidgets();
     actionRuntime.dispatch({ id: actionId, args }, value === undefined ? event : value);
     telemetry.trackSynchronousAction(actionId);
     if (scrollSnapshot) {
