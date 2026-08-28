@@ -103,9 +103,9 @@ function verifiedNpmLifecycleEnvironment(extra: Record<string, string> = {}): No
     npm_config_noproxy: '',
     npm_config_npm_version: '10.8.2',
     npm_execpath: cliPath,
-    npm_lifecycle_event: 'lint:options-css',
+    npm_lifecycle_event: 'lint:css',
     npm_lifecycle_script:
-      'node scripts/run-bounded-command.mjs --profile stylelint-v1 -- "src/options/**/*.css"',
+      'node scripts/run-bounded-command.mjs --profile stylelint-v1 -- "src/options/**/*.css" "src/onboarding/**/*.css" "src/ui/**/*.css"',
     npm_node_execpath: nodePath,
     npm_package_json: resolve('package.json'),
     npm_package_name: 'zendio',
@@ -1534,6 +1534,34 @@ describe('bounded command ownership', () => {
         { environment }
       )
     ).toThrow('RELEASE_PATH_OUTSIDE_ATTEMPT');
+  });
+
+  it('admits the seven G01 audit aliases only through the standard npm profile', () => {
+    const environment = cleanEnvironment();
+    const aliases = [
+      'audit:active-documents:check',
+      'audit:active-documents:report',
+      'audit:content-css-packs:check',
+      'audit:content-css-packs:report',
+      'audit:design-tokens:check',
+      'audit:ui-production-ownership:check',
+      'audit:ui-production-ownership:report'
+    ];
+
+    for (const alias of aliases) {
+      expect(() =>
+        resolveCommandProfile('npm-script-standard-v1', [alias], { environment })
+      ).not.toThrow();
+      expect(() => resolveCommandProfile('npm-script-quick-v1', [alias], { environment })).toThrow(
+        'NPM_SCRIPT_INVALID'
+      );
+    }
+
+    expect(() =>
+      resolveCommandProfile('npm-script-standard-v1', ['audit:unknown-g01-check'], {
+        environment
+      })
+    ).toThrow('NPM_SCRIPT_INVALID');
   });
 
   it('propagates and revalidates the post-install npm-config authority for every R03 local leaf', () => {

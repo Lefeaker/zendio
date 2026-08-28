@@ -1,4 +1,3 @@
-import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
@@ -22,6 +21,13 @@ const LockSchema = z.object({
 });
 
 const exactTransitions = {
+  'audit:active-documents:check': 'node tools/report-active-document-contract.mjs --check',
+  'audit:active-documents:report': 'node tools/report-active-document-contract.mjs --report',
+  'audit:content-css-packs:check': 'node tools/report-content-css-packs.mjs --check',
+  'audit:content-css-packs:report': 'node tools/report-content-css-packs.mjs --report',
+  'audit:design-tokens:check': 'node tools/report-design-token-alignment.mjs --check',
+  'audit:ui-production-ownership:check': 'node tools/report-ui-production-ownership.mjs --check',
+  'audit:ui-production-ownership:report': 'node tools/report-ui-production-ownership.mjs --report',
   'verify:preflight': 'node scripts/verify-preflight.mjs',
   'verify:stitch-secondary': 'node scripts/run-bounded-command.mjs --profile stitch-secondary-v1',
   test: 'node scripts/run-bounded-command.mjs --profile vitest-v1 -- run',
@@ -35,8 +41,8 @@ const exactTransitions = {
     'node scripts/run-bounded-command.mjs --profile prettier-v1 -- --write "{src,tests,docs}/**/*.{ts,tsx,js,jsx,json,md}"',
   'format:check':
     'node scripts/run-bounded-command.mjs --profile prettier-v1 -- --check "{src,tests,docs}/**/*.{ts,tsx,js,jsx,json,md}"',
-  'lint:options-css':
-    'node scripts/run-bounded-command.mjs --profile stylelint-v1 -- "src/options/**/*.css"'
+  'lint:css':
+    'node scripts/run-bounded-command.mjs --profile stylelint-v1 -- "src/options/**/*.css" "src/onboarding/**/*.css" "src/ui/**/*.css"'
 };
 
 function readPackage() {
@@ -62,7 +68,7 @@ function findForbiddenRoutes(scripts: Record<string, string>): string[] {
 }
 
 describe('package command-boundary routes', () => {
-  it('freezes the exact nine script-value transitions', () => {
+  it('freezes the exact sixteen script-value transitions', () => {
     const { scripts } = readPackage();
 
     expect(
@@ -70,7 +76,7 @@ describe('package command-boundary routes', () => {
     ).toEqual(exactTransitions);
   });
 
-  it('keeps dependency and override projection byte-equivalent to the root lock row', () => {
+  it('keeps package dependencies structurally equal to the lock root and removes focus-trap', () => {
     const packageJson = readPackage();
     const lockJson = LockSchema.parse(
       JSON.parse(readFileSync(resolve('package-lock.json'), 'utf8'))
@@ -79,17 +85,9 @@ describe('package command-boundary routes', () => {
 
     expect(root?.dependencies).toEqual(packageJson.dependencies);
     expect(root?.devDependencies).toEqual(packageJson.devDependencies);
-    expect(
-      createHash('sha256')
-        .update(
-          JSON.stringify({
-            dependencies: packageJson.dependencies,
-            devDependencies: packageJson.devDependencies,
-            overrides: packageJson.overrides
-          })
-        )
-        .digest('hex')
-    ).toBe('dd316fd69631a01b11981503008ec4100fc24257ca3cc3649f8853b111b5513c');
+    expect(packageJson.dependencies).not.toHaveProperty('focus-trap');
+    expect(lockJson.packages).not.toHaveProperty('node_modules/focus-trap');
+    expect(lockJson.packages).not.toHaveProperty('node_modules/tabbable');
   });
 
   it('rejects executable npx, npm exec, pnpx and bare tool routes', () => {

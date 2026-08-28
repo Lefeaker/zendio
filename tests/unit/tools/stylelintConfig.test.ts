@@ -20,8 +20,11 @@ async function printStylelintConfig(filePath: string) {
 }
 
 describe('Options Stylelint config', () => {
-  it('applies non-empty rules through the locked Stylelint boundary', async () => {
-    const config = await printStylelintConfig('src/options/stitch/styles/runtime/responsive.css');
+  it.each([
+    ['retained Options CSS', 'src/options/stitch/styles/runtime/responsive.css'],
+    ['neutral UI CSS', 'src/ui/stitch-runtime/styles/runtime/base.css']
+  ])('applies non-empty rules to %s through the locked Stylelint boundary', async (_name, path) => {
+    const config = await printStylelintConfig(path);
 
     expect(Object.keys(config.rules ?? {})).toContain('selector-class-pattern');
   });
