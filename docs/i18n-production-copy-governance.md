@@ -141,7 +141,7 @@ npm run build:dev
 npm run test:i18n
 npm run audit:i18n-hardcoded-user-copy:check
 npm run audit:i18n-uncatalogued-user-copy:check
-npx vitest run --config vitest.unit.config.ts tests/unit/i18n/hardcodedSurfaceCoverage.test.ts
+node scripts/run-bounded-command.mjs --profile vitest-v1 -- run --config vitest.unit.config.ts tests/unit/i18n/hardcodedSurfaceCoverage.test.ts
 ```
 
 Run broader `npm run quality`, `npm run test`, and browser/visual checks when the change touches shared runtime boundaries, Options shell rendering, exported content, package scripts, generated catalog artifacts, or release surface behavior.

@@ -1,234 +1,84 @@
-# 扩展分发指南
+# 扩展构建与分发指南
 
-## 📦 如何打包和分发扩展
+最后更新：2026-08-28
 
-### 快速开始
+## 当前输出路径
 
-运行以下命令创建可分发的扩展包：
+- `npm run build`：运行标准质量门禁并生成 Chrome production tree `build/dist/`。
+- `npm run package`：从当前 Chrome build 生成并审计 `zendio-v<package-version>.zip`。
+- `npm run release`：生成 `build/releases/zendio-v<package-version>-release.zip`，内部包含
+  `extension/`、安装指南和 README。
+- `npm run package:chrome:isolated` / `npm run package:firefox:isolated`：分别使用
+  `build/dist-chrome` / `build/dist-firefox`，不得跨浏览器复用 dist。
+
+`build/` 和压缩包都是 disposable generated output，不提交到 Git。
+
+## 版本唯一来源
+
+版本号只手写在根 `package.json`。修改后运行：
+
+```bash
+npm run release:metadata:sync
+npm run release:metadata:check
+```
+
+同步命令会更新 package-lock root version、`public/manifest.json`、
+`public/manifest.firefox.json` 与各 release locale runtime catalog 的 `versionNumber`。
+不要另建第二个 manifest 版本来源，也不要在 UI 或文档中硬编码 release version。
+
+## 本地开发者模式安装
+
+Chrome/Edge：
+
+1. 运行 `npm run build`。
+2. 打开 `chrome://extensions/` 或 `edge://extensions/`。
+3. 启用开发者模式，选择“加载已解压的扩展程序”。
+4. 选择仓库中的 `build/dist/`。
+
+Firefox：
+
+1. 运行 `npm run build:firefox`。
+2. 打开 `about:debugging#/runtime/this-firefox`。
+3. 临时加载 `build/dist/manifest.json`。
+
+## 离线分发包
 
 ```bash
 npm run release
 ```
 
-这会在 `releases/` 目录下生成一个完整的发布包，包含：
+将 `build/releases/zendio-v<package-version>-release.zip` 交给接收者。接收者解压后在
+Chrome/Edge 开发者模式中选择 `extension/` 文件夹。该方式是本地 side-load，不等同于
+Chrome Web Store 或 AMO 发布。
 
-- `extension/` - 扩展文件夹（可直接加载）
-- `安装指南.md` - 详细的安装说明
-- `README.txt` - 快速开始指南
+## 发布前工程验证
 
-### 可用的打包命令
+至少运行当前 source-of-truth 中的标准门禁：
 
-#### 1. `npm run release` （推荐）
-
-创建完整的发布包，包含扩展文件和安装文档。
-
-**输出：** `releases/zendio-v{version}-release.zip`
-
-**适用场景：** 分发给朋友或用户
-
-**包含内容：**
-
-- 扩展文件夹
-- 安装指南
-- 快速开始文档
-
-#### 2. `npm run package`
-
-仅打包扩展文件为 zip。
-
-**输出：** `zendio-v{version}.zip`
-
-**适用场景：** 快速打包，不需要文档
-
-#### 3. `npm run build`
-
-仅构建扩展到 `dist/` 目录。
-
-**输出：** `dist/` 目录
-
-**适用场景：** 开发测试，或直接分发 dist 文件夹
-
-## 📤 分发方式
-
-### 方式一：分发完整发布包（推荐）
-
-1. 运行 `npm run release`
-2. 将生成的 `releases/zendio-v{version}-release.zip` 发送给用户
-3. 用户解压后会看到清晰的文件结构和安装说明
-
-**优点：**
-
-- 包含详细的安装文档
-- 用户体验最好
-- 文件结构清晰
-
-### 方式二：分发 dist 文件夹
-
-1. 运行 `npm run build`
-2. 将整个 `dist/` 文件夹压缩或直接发送给用户
-3. 用户直接加载这个文件夹
-
-**优点：**
-
-- 文件最小
-- 适合技术用户
-
-**缺点：**
-
-- 没有安装说明
-- 需要单独提供使用指南
-
-### 方式三：通过 Git 仓库
-
-1. 将代码推送到 GitHub/GitLab
-2. 用户克隆仓库
-3. 用户运行 `npm install && npm run build`
-4. 用户加载 `dist/` 文件夹
-
-**优点：**
-
-- 用户可以看到源代码
-- 方便更新和贡献
-
-**缺点：**
-
-- 需要用户有开发环境
-- 步骤较多
-
-## 📋 给用户的安装说明
-
-当你分发扩展时，可以给用户以下简短说明：
-
-```
-# Zendio 安装说明
-
-1. 解压收到的 zip 文件
-2. 打开 Chrome，访问 chrome://extensions/
-3. 开启右上角的"开发者模式"
-4. 点击"加载已解压的扩展程序"
-5. 选择解压后的 extension 文件夹
-
-详细说明请查看压缩包内的"安装指南.md"
+```bash
+npm run release:metadata:check
+npm run quality
+npm run verify:preflight
+npm run build
+npm run audit:release-surface:report
 ```
 
-## 🔄 版本更新
+Firefox package 还必须使用自身 isolated build/package 与 manifest/release-surface checks。
+完整命令见 [`../../engineering-entrypoints.md`](../../engineering-entrypoints.md)。
 
-### 更新版本号
+## Store handoff
 
-编辑 `src/manifest.json`：
+本地 package alias 不拥有真实发布 authority。Chrome Web Store 与 Firefox AMO 的 live
+delivery 分别由受保护 workflow 拥有：
 
-```json
-{
-  "version": "0.2.0"
-}
-```
+- `.github/workflows/release-chrome-webstore.yml`
+- `.github/workflows/release-firefox-amo.yml`
 
-### 发布新版本
+两者都先由无凭据 prepare job 绑定 exact SHA、required CI、package/lock 与 immutable
+artifact；credentials 只进入受保护 Environment 中唯一 mutation step。upload/submit 开始后的
+未知响应必须先在 store dashboard/API reconciliation，禁止盲目重试。
 
-1. 更新版本号
-2. 运行 `npm run release`
-3. 分发新的 zip 文件
+## 用户更新
 
-### 用户如何更新
-
-**方法一：覆盖更新**
-
-1. 用新版本文件覆盖旧文件夹
-2. 在 chrome://extensions/ 点击"重新加载"
-
-**方法二：重新安装**
-
-1. 移除旧版本
-2. 加载新版本
-
-## 🎨 自定义图标
-
-扩展图标位于：
-
-- `assets/icons/icon16.png` - 16x16 (工具栏小图标)
-- `assets/icons/icon48.png` - 48x48 (扩展管理页面)
-- `assets/icons/icon128.png` - 128x128 (Chrome 应用商店)
-
-修改图标后，运行 `npm run build` 重新构建。
-
-## 📝 自定义扩展信息
-
-编辑 `src/manifest.json`：
-
-```json
-{
-  "name": "你的扩展名称",
-  "version": "版本号",
-  "description": "扩展描述"
-}
-```
-
-## ⚠️ 注意事项
-
-### 对于开发者
-
-1. **不要提交 dist/ 和 releases/ 到 Git**
-   - 这些是构建产物
-   - 添加到 `.gitignore`
-
-2. **版本号管理**
-   - 遵循语义化版本 (Semantic Versioning)
-   - 格式：`主版本.次版本.修订号`
-
-3. **测试后再分发**
-   - 在本地充分测试
-   - 确保所有功能正常
-
-### 对于用户
-
-1. **不要删除扩展文件夹**
-   - Chrome 需要从这个位置运行扩展
-   - 删除后扩展会失效
-
-2. **开发者模式警告**
-   - Chrome 会提示"请停用以开发者模式运行的扩展"
-   - 这是正常的，点击"取消"即可
-   - 每次启动 Chrome 可能都会提示
-
-3. **企业/学校环境**
-   - 某些环境可能禁用开发者模式
-   - 这种情况下无法安装未上架的扩展
-
-## 🚀 未来：上架 Chrome 应用商店
-
-如果将来想上架到 Chrome 应用商店：
-
-1. **注册开发者账号**
-   - 访问 [Chrome Web Store Developer Dashboard](https://chrome.google.com/webstore/devconsole)
-   - 支付一次性注册费（$5）
-
-2. **准备材料**
-   - 扩展 zip 包（使用 `npm run package` 生成）
-   - 应用图标（已有）
-   - 截图和宣传图
-   - 详细描述
-
-3. **提交审核**
-   - 上传 zip 文件
-   - 填写商店信息
-   - 等待审核（通常 1-3 天）
-
-4. **优点**
-   - 用户可以直接安装
-   - 自动更新
-   - 更高的信任度
-   - 不会有开发者模式警告
-
-## 📞 技术支持
-
-如果用户遇到问题，常见的排查步骤：
-
-1. 检查 Chrome 版本（需要较新版本）
-2. 确认开发者模式已开启
-3. 查看扩展详情页的错误信息
-4. 尝试重新加载扩展
-5. 检查 Obsidian Local REST API 是否运行
-
----
-
-**祝你的扩展分发顺利！** 🎉
+Side-load 用户可用新 `extension/` 覆盖旧目录并在扩展管理页重新加载，或移除后重新加载。
+Store 用户按商店更新策略接收版本。无论哪种方式，先保留上一版本工件作为可回滚输入。

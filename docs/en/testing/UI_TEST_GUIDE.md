@@ -5,7 +5,7 @@
 ### 1. 构建项目
 
 ```bash
-cd AiiinOB/your-extension
+cd /Users/mac/Documents/Dev/AI2OB_Plg/AiiinOB
 npm run build
 ```
 
@@ -16,13 +16,13 @@ npm run build
 1. 打开 `chrome://extensions/` 或 `edge://extensions/`
 2. 启用右上角的"开发者模式"
 3. 点击"加载已解压的扩展程序"
-4. 选择 `AiiinOB/your-extension/dist` 目录
+4. 选择仓库生成的 `build/dist` 目录
 
 #### Firefox
 
 1. 打开 `about:debugging#/runtime/this-firefox`
 2. 点击"临时载入附加组件"
-3. 选择 `AiiinOB/your-extension/dist/manifest.json`
+3. 先运行 `npm run build:firefox`，选择 `build/dist/manifest.json`
 
 ---
 
@@ -153,7 +153,7 @@ npm run build
 
 **打开方式：**
 
-- 直接打开 `dist/options/test-connection.html`
+- 在正式 Options 页面打开连接设置并使用 production connection-test action；该独立页面已退役
 
 **测试项目：**
 
@@ -187,7 +187,7 @@ npm run build
 
 **打开方式：**
 
-- 直接打开 `dist/options/vault-manager.html`
+- 在正式 Options 页面打开 Vault/Local Folder section；该独立页面已退役
 
 **测试项目：**
 
@@ -265,8 +265,8 @@ npm run build
 
 **解决方法：**
 
-1. 检查 `dist/styles/` 目录是否存在
-2. 检查 CSS 文件是否正确复制
+1. 检查 `build/dist/ui/stitch-runtime/styles/` 下对应 generated pack 是否存在
+2. 检查 surface 是否加载自己的 Options/Reader/Video/Clipper/Prompt pack
 3. 重新运行 `npm run build`
 4. 检查浏览器控制台是否有 404 错误
 
@@ -276,7 +276,7 @@ npm run build
 
 **解决方法：**
 
-1. 检查 `dist/assets/icons/bannerlogo-128.png` 是否存在
+1. 检查 `build/dist/assets/icons/bannerlogo-128.png` 是否存在
 2. 检查文件权限
 3. 重新运行 `npm run build`
 

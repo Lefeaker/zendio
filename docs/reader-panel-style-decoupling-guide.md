@@ -1,12 +1,14 @@
 # Reader Panel 样式边界真值说明
 
-更新时间：2026-03-21
+更新时间：2026-08-28
 适用范围：`src/content/reader/**`、`src/styles/clipper/highlight-themes.css`
 
 ## 当前真值
 
 - 运行时主路径已经不是 legacy `ReaderPanel`。
-  - 当前生产主路径通过 `ReaderDialogPanel` / `ReaderDialog` 提供阅读模式 UI。
+  - 当前生产主路径由 feature-local `ReaderDialogPanel` 注入
+    `src/ui/stitch-runtime/*` / `src/ui/stitch-surfaces/*` neutral renderer，并加载 generated
+    Reader runtime CSS pack。
 - legacy `ReaderPanel` / `VideoPanel` fallback 实现已从生产代码与测试主路径退役并删除。
 - `reader-panel.css` 已不存在。
   - 任何继续引用 `src/styles/clipper/reader-panel.css` 的方案都已过期。
@@ -27,10 +29,11 @@
 
 ## 已验证结果
 
-- `npx vitest run tests/unit/content/reader/highlightManager.test.ts tests/unit/content/video/FragmentHighlighter.test.ts tests/unit/content/reader/ReaderSession.test.ts`
+- `node scripts/run-bounded-command.mjs --profile vitest-v1 -- run --config vitest.unit.config.ts tests/unit/content/reader/highlightManager.test.ts tests/unit/content/video/FragmentHighlighter.test.ts tests/unit/content/reader/ReaderSession.test.ts`
 - `npm run typecheck:app`
 - `npm run typecheck:strict -- --pretty false`
 - `npm run build:dev`
+- `node scripts/run-browser-test-shards.mjs e2e`（canonical Reader/YAML/smoke owner）
 
 浏览器抽查：
 

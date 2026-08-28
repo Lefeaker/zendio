@@ -193,9 +193,9 @@ git status --short
   - `stylelint --fix`
   - `npm run report:options-legacy`
 
-如需手动预跑，可在仓库根目录执行：
+如需手动预跑，可在仓库根目录执行与真实 hook 相同的 locked owner：
 
-- `npx lint-staged`
+- `node scripts/run-bounded-command.mjs --profile lint-staged-hook-v1`
 
 ### 5.3 与 commit 的关系
 

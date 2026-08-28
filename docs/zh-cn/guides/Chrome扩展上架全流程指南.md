@@ -70,7 +70,8 @@
 
 - Environment name: `chrome-webstore-release`
 - Deployment protection rules: 启用 Required reviewers，至少加入一名发布 owner
-- 只在该 Environment 下配置 Chrome Web Store 发布 Secrets 和 GA public Variables；配置完成后删除同名 repository-level Variables / Secrets，避免后续 workflow 绕过 Environment 保护误用
+- 只在该 Environment 下配置 Chrome Web Store 发布 Secrets；三项 GA public values 固定在
+  repository/organization Variables，供无凭据 prepare job 读取
 
 不要依赖 workflow 首次运行自动创建 Environment；自动创建出的 Environment 不会自带 Required reviewers、Secrets 或 Variables。发布 owner 必须在第一次触发 `Release Chrome Web Store` 前手动完成上述 Environment 配置。
 
@@ -82,7 +83,7 @@
 - `CWS_EXTENSION_ID`
 - `CWS_PUBLISHER_ID`
 
-发布前确认 `chrome-webstore-release` Environment Variables 已配置：
+发布前确认 repository/organization Variables 已冻结：
 
 - `ZENDIO_GA_MEASUREMENT_ID`
 - `ZENDIO_GA_TRANSPORT_MODE`（生产发布必须为 `proxy`）

@@ -27,7 +27,7 @@
 修改 REST URL、Vault 路径或候选协议逻辑时，运行聚焦测试：
 
 ```bash
-npx vitest run --config vitest.unit.config.ts \
+node scripts/run-bounded-command.mjs --profile vitest-v1 -- run --config vitest.unit.config.ts \
   tests/unit/infrastructure/restClient.test.ts \
   tests/unit/shared/restCandidates.test.ts
 ```
@@ -39,7 +39,7 @@ npx vitest run --config vitest.unit.config.ts \
 修改写入编排、接口契约或平台服务时，运行：
 
 ```bash
-npx vitest run --config vitest.unit.config.ts \
+node scripts/run-bounded-command.mjs --profile vitest-v1 -- run --config vitest.unit.config.ts \
   tests/unit/background/obsidianWriter.test.ts \
   tests/unit/shared/interfaces.test.ts \
   tests/unit/platform/preview/services.test.ts
