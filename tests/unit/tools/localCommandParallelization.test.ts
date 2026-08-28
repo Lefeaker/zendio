@@ -2,6 +2,11 @@ import { execFileSync } from 'node:child_process';
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, relative, resolve } from 'node:path';
 import { z } from 'zod';
+import {
+  BROWSER_NPM_SCRIPTS,
+  STANDARD_NPM_SCRIPTS,
+  resolveCommandProfile
+} from '../../../scripts/config/commandBoundaryProfiles.mjs';
 
 const PackageJsonSchema = z.object({
   scripts: z.record(z.string())
@@ -121,6 +126,41 @@ describe('local command parallelization contract', () => {
     );
   });
 
+  it('admits the exact G00 browser and ownership routes through their fixed profiles', () => {
+    const scripts = readPackageScripts();
+    const stateScript =
+      'npm run verify:runtime && node scripts/run-playwright.mjs test tests/e2e/sessionDraftConcurrency.browser.test.ts tests/e2e/optionsCrossContextMutation.browser.test.ts tests/e2e/videoScreenshotCacheMigration.browser.test.ts --project=chromium-desktop';
+    const architectureScript =
+      'npm run verify:runtime && node scripts/run-playwright.mjs test tests/e2e/uiPrimitiveTokenParity.browser.test.ts tests/e2e/contentIdleCss.browser.test.ts tests/e2e/sessionPanelsIncremental.browser.test.ts tests/e2e/optionsIncrementalRender.browser.test.ts --project=chromium-desktop';
+    const browserScripts = ['test:e2e:browser:state', 'test:e2e:browser:architecture'];
+    const ownershipScripts = [
+      'audit:test-suite-ownership:report',
+      'audit:test-suite-ownership:check'
+    ];
+    const environment = { HOME: process.env.HOME ?? '/tmp', TMPDIR: '/tmp' };
+
+    expect(scripts['test:e2e:browser:state']).toBe(stateScript);
+    expect(scripts['test:e2e:browser:architecture']).toBe(architectureScript);
+    expect(BROWSER_NPM_SCRIPTS.filter((name) => browserScripts.includes(name))).toEqual([
+      'test:e2e:browser:architecture',
+      'test:e2e:browser:state'
+    ]);
+    expect(STANDARD_NPM_SCRIPTS.filter((name) => ownershipScripts.includes(name))).toEqual([
+      'audit:test-suite-ownership:check',
+      'audit:test-suite-ownership:report'
+    ]);
+    for (const script of browserScripts) {
+      expect(() =>
+        resolveCommandProfile('npm-script-browser-v1', [script], { environment })
+      ).not.toThrow();
+    }
+    for (const script of ownershipScripts) {
+      expect(() =>
+        resolveCommandProfile('npm-script-standard-v1', [script], { environment })
+      ).not.toThrow();
+    }
+  });
+
   it('defines a complete dependency-aware quality task graph', () => {
     const graph = readQualityTaskGraph();
     const ids = graph.tasks.map((task) => task.id).sort();
@@ -148,6 +188,7 @@ describe('local command parallelization contract', () => {
       'audit-production-shape-report',
       'audit-release-surface-report',
       'audit-retired-code-report',
+      'audit-test-suite-ownership-check',
       'audit-ui-architecture-report',
       'build-fast',
       'i18n-catalog-check',
@@ -187,6 +228,16 @@ describe('local command parallelization contract', () => {
       profile: 'dependency-cruiser-v1',
       args: []
     });
+    expect(taskById.get('audit-test-suite-ownership-check')).toEqual({
+      id: 'audit-test-suite-ownership-check',
+      name: 'Test suite canonical owner guard',
+      profile: 'npm-script-standard-v1',
+      args: ['audit:test-suite-ownership:check'],
+      dependsOn: ['verify-runtime']
+    });
+    expect(
+      graph.tasks.flatMap((task) => task.args).filter((argument) => argument.includes('browser:'))
+    ).toEqual([]);
     expect(graph.tasks.every((task) => !Object.prototype.hasOwnProperty.call(task, 'cmd'))).toBe(
       true
     );

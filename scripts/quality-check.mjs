@@ -64,6 +64,11 @@ export function createQualityTaskGraph() {
       ),
       quick('audit-ci-workflow-check', 'CI workflow 拓扑守卫', 'audit:ci-workflow:check'),
       standard(
+        'audit-test-suite-ownership-check',
+        'Test suite canonical owner guard',
+        'audit:test-suite-ownership:check'
+      ),
+      standard(
         'audit-chrome-webstore-release-check',
         'Chrome Web Store GA 发布流程守卫',
         'audit:chrome-webstore-release:check'

@@ -16,6 +16,8 @@ export const RELEASE_REQUIRED_CI_JOBS = Object.freeze([
   'Browser smoke flow',
   'Browser video flow',
   'Browser Firefox flow',
+  'Browser state flow',
+  'Browser architecture flow',
   'Package extension'
 ]);
 

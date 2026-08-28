@@ -27,6 +27,8 @@ const JOB_ORDER = [
   'browser-smoke',
   'browser-video',
   'browser-firefox',
+  'browser-state',
+  'browser-architecture',
   'package'
 ];
 
@@ -44,12 +46,30 @@ const JOB_POLICY = Object.freeze({
   'browser-smoke': ['browser-v1', '60'],
   'browser-video': ['browser-v1', '60'],
   'browser-firefox': ['browser-v1', '60'],
+  'browser-state': ['browser-v1', '60'],
+  'browser-architecture': ['browser-v1', '60'],
   package: ['package-extension-v1', '35']
+});
+
+const G00_BROWSER_JOB_CONTRACTS = Object.freeze({
+  'browser-state': {
+    displayName: 'Browser state flow',
+    command:
+      'node scripts/run-bounded-command.mjs --profile npm-script-browser-v1 -- test:e2e:browser:state',
+    artifactName: 'browser-state-reports'
+  },
+  'browser-architecture': {
+    displayName: 'Browser architecture flow',
+    command:
+      'node scripts/run-bounded-command.mjs --profile npm-script-browser-v1 -- test:e2e:browser:architecture',
+    artifactName: 'browser-architecture-reports'
+  }
 });
 
 const EXPECTED_RUNS = Object.freeze({
   'static-preflight': [
     'node scripts/run-bounded-command.mjs --profile npm-script-quick-v1 -- audit:ci-workflow:check',
+    'node scripts/run-bounded-command.mjs --profile npm-script-standard-v1 -- audit:test-suite-ownership:check',
     'node scripts/run-bounded-command.mjs --profile npm-script-standard-v1 -- i18n:catalog:check',
     'node scripts/verify-preflight.mjs'
   ],
@@ -100,6 +120,8 @@ const EXPECTED_RUNS = Object.freeze({
     'node scripts/run-bounded-command.mjs --profile playwright-browser-install-v1 -- firefox-with-host-deps',
     'node scripts/run-bounded-command.mjs --profile npm-script-browser-v1 -- test:e2e:browser:firefox'
   ],
+  'browser-state': [G00_BROWSER_JOB_CONTRACTS['browser-state'].command],
+  'browser-architecture': [G00_BROWSER_JOB_CONTRACTS['browser-architecture'].command],
   package: [
     'node scripts/run-bounded-command.mjs --profile npm-script-build-v1 -- build:fast',
     'node scripts/run-bounded-command.mjs --profile npm-script-quick-v1 -- validate:i18n:budgets',
@@ -121,6 +143,72 @@ function count(source, pattern) {
 
 function same(left, right) {
   return JSON.stringify(left) === JSON.stringify(right);
+}
+
+function g00BrowserJobContract(job, block, contract) {
+  if (!same(job.fields, ['name', 'runs-on', 'timeout-minutes', 'steps'])) {
+    throw new Error('top-level job fields changed');
+  }
+  if (job.name !== contract.displayName) throw new Error('display name changed');
+  if (job.needs !== undefined || job.if !== undefined || job.continueOnError !== undefined) {
+    throw new Error('job must remain unconditional and independent');
+  }
+  const setupSteps = job.steps.filter((step) => step.uses === './.github/actions/setup-playwright');
+  if (setupSteps.length !== 1 || setupSteps[0].id !== 'playwright') {
+    throw new Error('setup Playwright step changed');
+  }
+  const testSteps = job.steps.filter((step) => step.run === contract.command);
+  if (
+    testSteps.length !== 1 ||
+    testSteps[0].if !== undefined ||
+    testSteps[0].continueOnError !== undefined
+  ) {
+    throw new Error('canonical browser test step changed or became conditional');
+  }
+  const uploadSteps = job.steps.filter((step) => step.uses === 'actions/upload-artifact@v7');
+  if (
+    uploadSteps.length !== 1 ||
+    uploadSteps[0].if !== 'failure()' ||
+    uploadSteps[0].with?.name !== contract.artifactName ||
+    uploadSteps[0].with?.path !== 'test-results/' ||
+    uploadSteps[0].with?.['if-no-files-found'] !== 'ignore'
+  ) {
+    throw new Error('failure artifact contract changed');
+  }
+  for (const binding of [
+    'ZENDIO_PLAYWRIGHT_ATTEMPT_ROOT: ${{ steps.playwright.outputs.attempt-root }}',
+    'PLAYWRIGHT_BROWSERS_PATH: ${{ steps.playwright.outputs.playwright-browsers-path }}',
+    'NPM_CONFIG_USERCONFIG: ${{ steps.playwright.outputs.npm-userconfig }}',
+    'NPM_CONFIG_GLOBALCONFIG: ${{ steps.playwright.outputs.npm-globalconfig }}'
+  ]) {
+    if (count(block, new RegExp(binding.replace(/[.*+?^${}()|[\]\\]/gu, '\\$&'), 'gu')) !== 1) {
+      throw new Error(`missing or duplicate setup output binding: ${binding}`);
+    }
+  }
+  if (/\b(?:needs|matrix|continue-on-error):|GITHUB_ENV|\bnpx\b|\bnpm exec\b/imu.test(block)) {
+    throw new Error('browser job exposes masking, aggregation, or raw executable routes');
+  }
+}
+
+function staticOwnershipStepContract(job) {
+  const ownershipSteps = job.steps.filter(
+    (step) =>
+      step.name === 'Verify canonical test suite ownership' ||
+      String(step.run ?? '').includes('audit:test-suite-ownership')
+  );
+  if (ownershipSteps.length !== 1) {
+    throw new Error('Static preflight must contain exactly one ownership step');
+  }
+  const [step] = ownershipSteps;
+  if (
+    step.name !== 'Verify canonical test suite ownership' ||
+    step.run !==
+      'node scripts/run-bounded-command.mjs --profile npm-script-standard-v1 -- audit:test-suite-ownership:check' ||
+    step.if !== undefined ||
+    step.continueOnError !== undefined
+  ) {
+    throw new Error('Static preflight ownership step changed or became conditional');
+  }
 }
 
 function bootstrapContract(source) {
@@ -263,6 +351,9 @@ export function checkCiWorkflowContract({
           throw new Error('raw or non-Node command route found');
         }
       }
+      const g00Contract = G00_BROWSER_JOB_CONTRACTS[jobId];
+      if (g00Contract) g00BrowserJobContract(job, block, g00Contract);
+      if (jobId === 'static-preflight') staticOwnershipStepContract(job);
     });
   }
 

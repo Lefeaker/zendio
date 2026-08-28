@@ -28,6 +28,8 @@ const requiredJobs: string[] = [
   'Browser smoke flow',
   'Browser video flow',
   'Browser Firefox flow',
+  'Browser state flow',
+  'Browser architecture flow',
   'Package extension'
 ];
 
@@ -129,6 +131,51 @@ describe('release CI provenance', () => {
         repositoryFullName: 'owner/repo'
       })
     ).toThrow(/RELEASE_CI_JOB/u);
+  });
+
+  it.each(['Browser state flow', 'Browser architecture flow'])(
+    'fails closed when required job %s is failed, cancelled, skipped, neutral, or incomplete',
+    (requiredName) => {
+      const unsuccessfulStates: Array<{ status: string; conclusion: string | null }> = [
+        { status: 'completed', conclusion: 'failure' },
+        { status: 'completed', conclusion: 'cancelled' },
+        { status: 'completed', conclusion: 'skipped' },
+        { status: 'completed', conclusion: 'neutral' },
+        { status: 'in_progress', conclusion: null }
+      ];
+      for (const { status, conclusion } of unsuccessfulStates) {
+        expect(() =>
+          selectReleaseCiProvenance({
+            runs: [run()],
+            jobs: jobs().map((job) =>
+              job.name === requiredName ? { ...job, status, conclusion } : job
+            ),
+            expectedSha: sha,
+            requiredJobs,
+            repositoryId: 99,
+            repositoryFullName: 'owner/repo'
+          })
+        ).toThrow(`RELEASE_CI_JOB_NOT_SUCCESSFUL:${requiredName}`);
+      }
+    }
+  );
+
+  it('fails closed while a newer same-SHA attempt is incomplete or unsuccessful', () => {
+    for (const latest of [
+      run({ id: 30, run_attempt: 2, status: 'in_progress', conclusion: null }),
+      run({ id: 31, run_attempt: 2, conclusion: 'failure' })
+    ]) {
+      expect(() =>
+        selectReleaseCiProvenance({
+          runs: [run({ run_attempt: 1 }), latest],
+          jobs: jobs(),
+          expectedSha: sha,
+          requiredJobs,
+          repositoryId: 99,
+          repositoryFullName: 'owner/repo'
+        })
+      ).toThrow('RELEASE_CI_RUN_NOT_SUCCESSFUL');
+    }
   });
 
   it('fully paginates runs and jobs with closed GitHub headers', async () => {

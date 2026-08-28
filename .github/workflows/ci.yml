@@ -89,6 +89,12 @@ jobs:
           NPM_CONFIG_GLOBALCONFIG: ${{ steps.node.outputs.npm-globalconfig }}
         run: node scripts/run-bounded-command.mjs --profile npm-script-quick-v1 -- audit:ci-workflow:check
 
+      - name: Verify canonical test suite ownership
+        env:
+          NPM_CONFIG_USERCONFIG: ${{ steps.node.outputs.npm-userconfig }}
+          NPM_CONFIG_GLOBALCONFIG: ${{ steps.node.outputs.npm-globalconfig }}
+        run: node scripts/run-bounded-command.mjs --profile npm-script-standard-v1 -- audit:test-suite-ownership:check
+
       - name: Verify generated i18n catalog artifacts are up to date
         env:
           NPM_CONFIG_USERCONFIG: ${{ steps.node.outputs.npm-userconfig }}
@@ -1171,6 +1177,174 @@ jobs:
           path: |
             tests/visual/__output__/
             build/reports/playwright/
+          if-no-files-found: ignore
+
+  browser-state:
+    name: Browser state flow
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+
+    steps:
+      - name: Bootstrap command boundary
+        shell: bash
+        env:
+          ZENDIO_JOB_CLASS: browser-v1
+          ZENDIO_JOB_TIMEOUT_MINUTES: '60'
+        run: |
+          set -euo pipefail
+          export LC_ALL=C LANG=C
+          shopt -s nocasematch
+          env_count=0
+          for env_name in $(compgen -e); do
+            env_count=$((env_count + 1))
+            (( env_count <= 4096 )) || { printf 'too many environment names\n' >&2; exit 1; }
+            (( ${#env_name} <= 4096 )) || { printf 'environment name too large\n' >&2; exit 1; }
+            env_value=${!env_name-}
+            (( ${#env_value} <= 4096 )) || { printf 'environment value too large: %s\n' "$env_name" >&2; exit 1; }
+            if [[ $env_name == NODE_OPTIONS || $env_name == HUSKY || $env_name == npm_config_* ]]; then
+              printf 'forbidden bootstrap environment: %s\n' "$env_name" >&2
+              exit 1
+            fi
+          done
+          [[ $GITHUB_RUN_ID =~ ^[1-9][0-9]*$ ]]
+          [[ $GITHUB_RUN_ATTEMPT =~ ^[1-9][0-9]*$ ]]
+          [[ $GITHUB_JOB =~ ^[A-Za-z0-9_-]{1,128}$ ]]
+          [[ $ZENDIO_JOB_TIMEOUT_MINUTES =~ ^[1-9][0-9]*$ ]]
+          [[ $ZENDIO_JOB_CLASS =~ ^[a-z0-9-]{1,64}$ ]]
+          (( ${#GITHUB_RUN_ID} <= 20 && ${#GITHUB_RUN_ATTEMPT} <= 10 ))
+          [[ $RUNNER_OS == Linux && $RUNNER_ARCH == X64 ]]
+          [[ $ImageOS == ubuntu24 && $ImageVersion =~ ^[A-Za-z0-9._-]{1,128}$ ]]
+          [[ $RUNNER_TEMP == /* && ${#RUNNER_TEMP} -le 4096 && -d $RUNNER_TEMP && ! -L $RUNNER_TEMP ]]
+          IFS=' .' read -r uptime_seconds uptime_fraction _ < /proc/uptime
+          [[ $uptime_seconds =~ ^[0-9]+$ && $uptime_fraction =~ ^[0-9]+$ ]]
+          (( ${#uptime_seconds} <= 12 && ${#uptime_fraction} <= 32 ))
+          uptime_fraction="${uptime_fraction}00"
+          uptime_fraction="${uptime_fraction:0:2}"
+          start_centiseconds=$((10#$uptime_seconds * 100 + 10#$uptime_fraction))
+          (( start_centiseconds >= 0 ))
+          case "$ZENDIO_JOB_CLASS" in
+            static-preflight-v1|package-extension-v1|generic-v1|browser-v1)
+              attempt_name="zendio-ci-node-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT-$GITHUB_JOB" ;;
+            *) printf 'unknown job class\n' >&2; exit 1 ;;
+          esac
+          attempt_root="$RUNNER_TEMP/$attempt_name"
+          stamp="$RUNNER_TEMP/zendio-command-start-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT-$GITHUB_JOB.receipt"
+          [[ ! -e $attempt_root && ! -L $attempt_root && ! -e $stamp && ! -L $stamp ]]
+          umask 077
+          set -o noclobber
+          printf 'zendio-ci-command-start-v1\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n' \
+            "$GITHUB_RUN_ID" "$GITHUB_RUN_ATTEMPT" "$GITHUB_JOB" \
+            "$ZENDIO_JOB_CLASS" "$ZENDIO_JOB_TIMEOUT_MINUTES" \
+            "$RUNNER_OS" "$RUNNER_ARCH" "$ImageOS" "$ImageVersion" "$start_centiseconds" > "$stamp"
+
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Setup Playwright
+        id: playwright
+        uses: ./.github/actions/setup-playwright
+        env:
+          ZENDIO_JOB_CLASS: browser-v1
+          ZENDIO_JOB_TIMEOUT_MINUTES: '60'
+      - name: Run browser state tests
+        env:
+          ZENDIO_PLAYWRIGHT_ATTEMPT_ROOT: ${{ steps.playwright.outputs.attempt-root }}
+          PLAYWRIGHT_BROWSERS_PATH: ${{ steps.playwright.outputs.playwright-browsers-path }}
+          NPM_CONFIG_USERCONFIG: ${{ steps.playwright.outputs.npm-userconfig }}
+          NPM_CONFIG_GLOBALCONFIG: ${{ steps.playwright.outputs.npm-globalconfig }}
+        run: node scripts/run-bounded-command.mjs --profile npm-script-browser-v1 -- test:e2e:browser:state
+
+      - name: Upload browser state reports
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: browser-state-reports
+          path: |
+            test-results/
+          if-no-files-found: ignore
+
+  browser-architecture:
+    name: Browser architecture flow
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+
+    steps:
+      - name: Bootstrap command boundary
+        shell: bash
+        env:
+          ZENDIO_JOB_CLASS: browser-v1
+          ZENDIO_JOB_TIMEOUT_MINUTES: '60'
+        run: |
+          set -euo pipefail
+          export LC_ALL=C LANG=C
+          shopt -s nocasematch
+          env_count=0
+          for env_name in $(compgen -e); do
+            env_count=$((env_count + 1))
+            (( env_count <= 4096 )) || { printf 'too many environment names\n' >&2; exit 1; }
+            (( ${#env_name} <= 4096 )) || { printf 'environment name too large\n' >&2; exit 1; }
+            env_value=${!env_name-}
+            (( ${#env_value} <= 4096 )) || { printf 'environment value too large: %s\n' "$env_name" >&2; exit 1; }
+            if [[ $env_name == NODE_OPTIONS || $env_name == HUSKY || $env_name == npm_config_* ]]; then
+              printf 'forbidden bootstrap environment: %s\n' "$env_name" >&2
+              exit 1
+            fi
+          done
+          [[ $GITHUB_RUN_ID =~ ^[1-9][0-9]*$ ]]
+          [[ $GITHUB_RUN_ATTEMPT =~ ^[1-9][0-9]*$ ]]
+          [[ $GITHUB_JOB =~ ^[A-Za-z0-9_-]{1,128}$ ]]
+          [[ $ZENDIO_JOB_TIMEOUT_MINUTES =~ ^[1-9][0-9]*$ ]]
+          [[ $ZENDIO_JOB_CLASS =~ ^[a-z0-9-]{1,64}$ ]]
+          (( ${#GITHUB_RUN_ID} <= 20 && ${#GITHUB_RUN_ATTEMPT} <= 10 ))
+          [[ $RUNNER_OS == Linux && $RUNNER_ARCH == X64 ]]
+          [[ $ImageOS == ubuntu24 && $ImageVersion =~ ^[A-Za-z0-9._-]{1,128}$ ]]
+          [[ $RUNNER_TEMP == /* && ${#RUNNER_TEMP} -le 4096 && -d $RUNNER_TEMP && ! -L $RUNNER_TEMP ]]
+          IFS=' .' read -r uptime_seconds uptime_fraction _ < /proc/uptime
+          [[ $uptime_seconds =~ ^[0-9]+$ && $uptime_fraction =~ ^[0-9]+$ ]]
+          (( ${#uptime_seconds} <= 12 && ${#uptime_fraction} <= 32 ))
+          uptime_fraction="${uptime_fraction}00"
+          uptime_fraction="${uptime_fraction:0:2}"
+          start_centiseconds=$((10#$uptime_seconds * 100 + 10#$uptime_fraction))
+          (( start_centiseconds >= 0 ))
+          case "$ZENDIO_JOB_CLASS" in
+            static-preflight-v1|package-extension-v1|generic-v1|browser-v1)
+              attempt_name="zendio-ci-node-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT-$GITHUB_JOB" ;;
+            *) printf 'unknown job class\n' >&2; exit 1 ;;
+          esac
+          attempt_root="$RUNNER_TEMP/$attempt_name"
+          stamp="$RUNNER_TEMP/zendio-command-start-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT-$GITHUB_JOB.receipt"
+          [[ ! -e $attempt_root && ! -L $attempt_root && ! -e $stamp && ! -L $stamp ]]
+          umask 077
+          set -o noclobber
+          printf 'zendio-ci-command-start-v1\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n' \
+            "$GITHUB_RUN_ID" "$GITHUB_RUN_ATTEMPT" "$GITHUB_JOB" \
+            "$ZENDIO_JOB_CLASS" "$ZENDIO_JOB_TIMEOUT_MINUTES" \
+            "$RUNNER_OS" "$RUNNER_ARCH" "$ImageOS" "$ImageVersion" "$start_centiseconds" > "$stamp"
+
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Setup Playwright
+        id: playwright
+        uses: ./.github/actions/setup-playwright
+        env:
+          ZENDIO_JOB_CLASS: browser-v1
+          ZENDIO_JOB_TIMEOUT_MINUTES: '60'
+      - name: Run browser architecture tests
+        env:
+          ZENDIO_PLAYWRIGHT_ATTEMPT_ROOT: ${{ steps.playwright.outputs.attempt-root }}
+          PLAYWRIGHT_BROWSERS_PATH: ${{ steps.playwright.outputs.playwright-browsers-path }}
+          NPM_CONFIG_USERCONFIG: ${{ steps.playwright.outputs.npm-userconfig }}
+          NPM_CONFIG_GLOBALCONFIG: ${{ steps.playwright.outputs.npm-globalconfig }}
+        run: node scripts/run-bounded-command.mjs --profile npm-script-browser-v1 -- test:e2e:browser:architecture
+
+      - name: Upload browser architecture reports
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: browser-architecture-reports
+          path: |
+            test-results/
           if-no-files-found: ignore
 
   package:

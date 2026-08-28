@@ -4,15 +4,23 @@ import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 interface ParsedStep {
+  id?: string;
   name?: string;
   uses?: string;
   run?: string;
+  if?: string;
+  continueOnError?: string;
+  with?: Record<string, string>;
 }
 
 interface ParsedJob {
   id: string;
+  name?: string;
   runsOn?: string;
   timeoutMinutes?: string;
+  needs?: string;
+  if?: string;
+  continueOnError?: string;
   steps: ParsedStep[];
 }
 
@@ -34,6 +42,14 @@ interface CiContractModule {
 
 function read(path: string): string {
   return readFileSync(resolve(path), 'utf8');
+}
+
+function jobBlock(workflow: string, jobId: string): string {
+  const marker = `  ${jobId}:\n`;
+  const start = workflow.indexOf(marker);
+  const rest = workflow.slice(start + marker.length);
+  const next = rest.search(/\n {2}[A-Za-z0-9_-]+:\n/u);
+  return next < 0 ? workflow.slice(start) : workflow.slice(start, start + marker.length + next + 1);
 }
 
 async function loadContract(): Promise<CiContractModule> {
@@ -58,7 +74,7 @@ describe('bounded CI workflow contract', () => {
     }).toEqual({ status: 0, signal: null, stdout: '', stderr: '' });
   });
 
-  it('locks the fourteen jobs, Ubuntu image, and timeout taxonomy', async () => {
+  it('locks the sixteen jobs, Ubuntu image, and timeout taxonomy', async () => {
     const contract = await loadContract();
     const parsed = contract.parseCiWorkflowJobs(read('.github/workflows/ci.yml'));
     const expected = [
@@ -75,6 +91,8 @@ describe('bounded CI workflow contract', () => {
       ['browser-smoke', '60'],
       ['browser-video', '60'],
       ['browser-firefox', '60'],
+      ['browser-state', '60'],
+      ['browser-architecture', '60'],
       ['package', '35']
     ];
 
@@ -131,6 +149,98 @@ describe('bounded CI workflow contract', () => {
     );
   });
 
+  it('locks both G00 browser jobs to one setup, four outputs, one route, and failure artifacts', async () => {
+    const contract = await loadContract();
+    const workflow = read('.github/workflows/ci.yml');
+    const parsed = contract.parseCiWorkflowJobs(workflow);
+    const jobs = [
+      {
+        id: 'browser-state',
+        name: 'Browser state flow',
+        command:
+          'node scripts/run-bounded-command.mjs --profile npm-script-browser-v1 -- test:e2e:browser:state',
+        artifact: 'browser-state-reports'
+      },
+      {
+        id: 'browser-architecture',
+        name: 'Browser architecture flow',
+        command:
+          'node scripts/run-bounded-command.mjs --profile npm-script-browser-v1 -- test:e2e:browser:architecture',
+        artifact: 'browser-architecture-reports'
+      }
+    ];
+
+    for (const expected of jobs) {
+      const job = parsed.jobs.get(expected.id);
+      const block = jobBlock(workflow, expected.id);
+      expect(job).toMatchObject({
+        name: expected.name,
+        runsOn: 'ubuntu-24.04',
+        timeoutMinutes: '60'
+      });
+      expect(job?.needs).toBeUndefined();
+      expect(job?.if).toBeUndefined();
+      expect(job?.continueOnError).toBeUndefined();
+      expect(
+        job?.steps.filter((step) => step.uses === './.github/actions/setup-playwright')
+      ).toEqual([expect.objectContaining({ id: 'playwright' })]);
+      expect(job?.steps.filter((step) => step.run === expected.command)).toHaveLength(1);
+      expect(job?.steps.find((step) => step.run === expected.command)?.if).toBeUndefined();
+      expect(job?.steps.find((step) => step.uses === 'actions/upload-artifact@v7')).toMatchObject({
+        if: 'failure()',
+        with: {
+          name: expected.artifact,
+          path: 'test-results/',
+          'if-no-files-found': 'ignore'
+        }
+      });
+      for (const output of [
+        'ZENDIO_PLAYWRIGHT_ATTEMPT_ROOT: ${{ steps.playwright.outputs.attempt-root }}',
+        'PLAYWRIGHT_BROWSERS_PATH: ${{ steps.playwright.outputs.playwright-browsers-path }}',
+        'NPM_CONFIG_USERCONFIG: ${{ steps.playwright.outputs.npm-userconfig }}',
+        'NPM_CONFIG_GLOBALCONFIG: ${{ steps.playwright.outputs.npm-globalconfig }}'
+      ]) {
+        expect(
+          block.match(new RegExp(output.replace(/[.*+?^${}()|[\]\\]/gu, '\\$&'), 'gu'))
+        ).toHaveLength(1);
+      }
+      expect(block).not.toMatch(
+        /\b(?:needs|matrix|continue-on-error):|GITHUB_ENV|\bnpx\b|\bnpm exec\b/imu
+      );
+    }
+  });
+
+  it('wires one unmasked ownership check into Static preflight without browser execution', async () => {
+    const contract = await loadContract();
+    const workflow = read('.github/workflows/ci.yml');
+    const job = contract.parseCiWorkflowJobs(workflow).jobs.get('static-preflight');
+    const steps = job?.steps ?? [];
+    const ownershipSteps = steps.filter(
+      (step) =>
+        step.name === 'Verify canonical test suite ownership' ||
+        step.run?.includes('audit:test-suite-ownership')
+    );
+
+    expect(ownershipSteps).toEqual([
+      {
+        name: 'Verify canonical test suite ownership',
+        env: '',
+        run: 'node scripts/run-bounded-command.mjs --profile npm-script-standard-v1 -- audit:test-suite-ownership:check'
+      }
+    ]);
+    const topologyIndex = steps.findIndex((step) => step.name === 'Verify CI workflow topology');
+    const ownershipIndex = steps.findIndex(
+      (step) => step.name === 'Verify canonical test suite ownership'
+    );
+    const preflightIndex = steps.findIndex((step) => step.name === 'Verify preflight baseline');
+    expect(topologyIndex).toBeGreaterThan(-1);
+    expect(ownershipIndex).toBe(topologyIndex + 1);
+    expect(preflightIndex).toBeGreaterThan(ownershipIndex);
+    expect(jobBlock(workflow, 'static-preflight')).not.toMatch(
+      /test:e2e:browser:(?:state|architecture)/u
+    );
+  });
+
   it('fails closed on bootstrap, command, runner, timeout, cache, and interpolation mutations', async () => {
     const contract = await loadContract();
     const workflow = read('.github/workflows/ci.yml');
@@ -151,6 +261,49 @@ describe('bounded CI workflow contract', () => {
         playwrightAction: playwrightAction.replace(
           'chromium-with-host-deps',
           '${{ inputs.browser-profile }}'
+        )
+      },
+      { workflow: workflow.replace('name: Browser state flow', 'name: Browser state aggregate') },
+      {
+        workflow: workflow.replace('test:e2e:browser:state', 'test:e2e:browser:architecture')
+      },
+      {
+        workflow: workflow.replace(
+          'ZENDIO_PLAYWRIGHT_ATTEMPT_ROOT: ${{ steps.playwright.outputs.attempt-root }}',
+          'ZENDIO_PLAYWRIGHT_ATTEMPT_ROOT: /tmp/caller-selected'
+        )
+      },
+      {
+        workflow: workflow.replace(
+          '  browser-state:\n    name: Browser state flow',
+          '  browser-state:\n    name: Browser state flow\n    continue-on-error: true'
+        )
+      },
+      {
+        workflow: workflow.replace('name: browser-state-reports', 'name: browser-state-optional')
+      },
+      {
+        workflow: workflow.replace(
+          'name: Verify canonical test suite ownership',
+          'name: Report canonical test suite ownership'
+        )
+      },
+      {
+        workflow: workflow.replace(
+          'audit:test-suite-ownership:check',
+          'audit:test-suite-ownership:report'
+        )
+      },
+      {
+        workflow: workflow.replace(
+          '      - name: Verify canonical test suite ownership\n',
+          '      - name: Verify canonical test suite ownership\n        if: false\n'
+        )
+      },
+      {
+        workflow: workflow.replace(
+          'node scripts/run-bounded-command.mjs --profile npm-script-standard-v1 -- audit:test-suite-ownership:check',
+          'node scripts/run-bounded-command.mjs --profile npm-script-standard-v1 -- audit:test-suite-ownership:check && true'
         )
       }
     ];

@@ -32,6 +32,20 @@ import {
 } from './fixtures/testSuiteOwnershipCharacterization';
 
 const temporaryRoots: string[] = [];
+const G00_STATE_BROWSER_FILES = [
+  'tests/e2e/sessionDraftConcurrency.browser.test.ts',
+  'tests/e2e/optionsCrossContextMutation.browser.test.ts',
+  'tests/e2e/videoScreenshotCacheMigration.browser.test.ts'
+];
+const G00_OPTIONS_INCREMENTAL_BROWSER_FILE = 'tests/e2e/optionsIncrementalRender.browser.test.ts';
+const G00_ARCHITECTURE_BROWSER_FILES = [
+  'tests/e2e/uiPrimitiveTokenParity.browser.test.ts',
+  'tests/e2e/contentIdleCss.browser.test.ts',
+  'tests/e2e/sessionPanelsIncremental.browser.test.ts',
+  G00_OPTIONS_INCREMENTAL_BROWSER_FILE
+];
+const G00_STATE_BROWSER_SCRIPT = `npm run verify:runtime && node scripts/run-playwright.mjs test ${G00_STATE_BROWSER_FILES.join(' ')} --project=chromium-desktop`;
+const G00_ARCHITECTURE_BROWSER_SCRIPT = `npm run verify:runtime && node scripts/run-playwright.mjs test ${G00_ARCHITECTURE_BROWSER_FILES.join(' ')} --project=chromium-desktop`;
 const R01_CASE_MIGRATION_LEDGER = [
   {
     sourceCase: 'Chrome: setBadgeText 应该调用 chrome.action.setBadgeText 并返回 Promise',
@@ -233,10 +247,8 @@ describe('canonical test suite descriptors', () => {
             'test',
             '--config=playwright.bundled-chromium.config.ts',
             '--project=chromium-desktop',
-            'tests/e2e/optionsCrossContextMutation.browser.test.ts',
             'tests/e2e/sessionDraftConcurrency.browser.test.ts',
-            'tests/e2e/contentIdleCss.browser.test.ts',
-            'tests/e2e/uiPrimitiveTokenParity.browser.test.ts',
+            'tests/e2e/optionsCrossContextMutation.browser.test.ts',
             'tests/e2e/videoScreenshotCacheMigration.browser.test.ts'
           ]
         },
@@ -1302,6 +1314,76 @@ describe('structured ownership analysis', () => {
     });
     expect(overlapping.multipleOwners).toHaveLength(1);
     expect(overlapping.multipleOwners[0]?.file).toBe(fileA);
+  });
+
+  it('binds the exact G00 state and architecture routes without weakening generic ownership', () => {
+    const files = [...G00_STATE_BROWSER_FILES, ...G00_ARCHITECTURE_BROWSER_FILES];
+    const sources = new Map(
+      files.map((file) => [
+        file,
+        "import { test } from '@playwright/test';\ntest('works', async () => undefined);\n"
+      ])
+    );
+    const packageScripts = {
+      'verify:runtime': 'node scripts/verify-runtime.mjs',
+      'test:e2e:browser:state': G00_STATE_BROWSER_SCRIPT,
+      'test:e2e:browser:architecture': G00_ARCHITECTURE_BROWSER_SCRIPT
+    };
+    const browserSuites = {
+      bundled: [
+        {
+          id: 'bundled-e2e',
+          args: ['test', ...G00_STATE_BROWSER_FILES]
+        }
+      ]
+    };
+    const exact = buildFixtureReport(sources, { browserSuites, packageScripts });
+
+    expect(exact.zeroOwner).toEqual([]);
+    expect(exact.multipleOwners).toEqual([]);
+    expect(exact.duplicateRouteMembers).toEqual([]);
+    expect(exact.ok).toBe(true);
+    for (const file of files) {
+      expect(exact.owners.find((row) => row.file === file)?.owners).toHaveLength(1);
+    }
+
+    const missingArchitectureMember = buildFixtureReport(sources, {
+      browserSuites,
+      packageScripts: {
+        ...packageScripts,
+        'test:e2e:browser:architecture': G00_ARCHITECTURE_BROWSER_SCRIPT.replace(
+          ` ${G00_OPTIONS_INCREMENTAL_BROWSER_FILE}`,
+          ''
+        )
+      }
+    });
+    expect(missingArchitectureMember.zeroOwner).toEqual([G00_OPTIONS_INCREMENTAL_BROWSER_FILE]);
+
+    const duplicateStateMember = buildFixtureReport(sources, {
+      browserSuites,
+      packageScripts: {
+        ...packageScripts,
+        'test:e2e:browser:state': G00_STATE_BROWSER_SCRIPT.replace(
+          G00_STATE_BROWSER_FILES[1],
+          `${G00_STATE_BROWSER_FILES[1]} ${G00_STATE_BROWSER_FILES[1]}`
+        )
+      }
+    });
+    expect(duplicateStateMember.duplicateRouteMembers.map((row) => row.file)).toContain(
+      G00_STATE_BROWSER_FILES[1]
+    );
+
+    const secondCanonicalRoute = buildFixtureReport(sources, {
+      browserSuites,
+      packageScripts: {
+        ...packageScripts,
+        'test:e2e:browser:cross-lane': `node scripts/run-playwright.mjs test ${G00_STATE_BROWSER_FILES[0]} ${G00_ARCHITECTURE_BROWSER_FILES[0]}`
+      }
+    });
+    expect(secondCanonicalRoute.multipleOwners.map((row) => row.file)).toEqual([
+      G00_STATE_BROWSER_FILES[0],
+      G00_ARCHITECTURE_BROWSER_FILES[0]
+    ]);
   });
 
   it('derives the live registrar set and keeps every retained shard pattern non-empty', () => {
