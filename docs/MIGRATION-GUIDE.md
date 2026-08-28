@@ -22,9 +22,12 @@
 
 ## 1. 概述
 
-- 目标：让 UI / Service 层零 `chrome.*`、零 `getPlatformServices()`，全部通过 Repository 访问平台能力。
-- Options 额外要求：所有生产 mutation 通过 runtime message 到一个 background coordinator；调用方只使用
-  `get`、typed `patch`、strict `replace`、`onChange`，绝不在 messaging 失败后直接写 storage。
+- 目标：让 feature UI / Service 不直接散布 `chrome.*`；平台调用留在 composition root、
+  platform adapter 与明确的 infrastructure owner，consumer 通过窄 Repository/Client 合同访问。
+- Options 额外要求：`ChromeOptionsRepository` 只负责 raw read/observe，并只把 raw write
+  暴露给 background `OptionsMutationCoordinator`。Options/onboarding 通过
+  `OptionsMutationClient` 使用 `get`、typed `patch`、strict `replace`、`onChange`；content
+  consumer 只获得所需的 read/observe pick。messaging 失败必须 fail closed，绝不直写 storage。
 - 范围：Options、Content Script、Shared Service，包含 YAML、Video、Clipper、Reader 等模块。
 - 成功指标：`npm run test:unit` 与 `npm run test:e2e` 全绿，`rg 'getPlatformServices()'` 仅在入口命中。
 
@@ -85,7 +88,8 @@ class UsageDashboardView {
 5. **注入 Consumer**：修改 UI 或 Service，通过 `resolveRepository` 获取实例。
 6. **添加测试**：Options 至少覆盖 `get/patch/replace/onChange`、messaging failure、FIFO 与 rollback；
    其他 Repository 按自身契约覆盖。
-7. **更新文档**：在 `docs/REPOSITORY-PATTERN.md` 与 `src/shared/repositories/README.md` 记录。
+7. **更新文档**：在 `src/shared/repositories/README.md` 记录合同，并按影响同步
+   `docs/architecture-boundaries.md` 或 `docs/chrome-api-decoupling-guide.md`。
 
 ## 5. 验证策略
 
@@ -215,29 +219,23 @@ export class ChromeFooRepository implements IFooRepository {
 
 ## 13. 迁移脚手架
 
-```bash
-# 1. 创建接口与实现
-pnpx hygen repo new --name Foo
+仓库没有受支持的 Repository 代码生成入口。新增普通 Repository 时，复制同类接口、
+Chrome/Firefox adapter 与现有测试的最小结构，并逐项审查真实调用者；不要隐式安装或解析
+脚手架包。
 
-# 2. 更新 serviceRegistry
-pnpx hygen repo register --name Foo
-
-# 3. 生成测试骨架
-pnpx hygen repo test --name Foo
-```
-
-> 若 hygen 不可用，可参考普通 Repository 的同类实现。Options 是特殊的跨上下文 authority：
-> client 参考 `OptionsMutationClient`，raw IO/coordinator 与 mock 必须分别建模，不能复制成直写实现。
+Options 是特殊的跨上下文 authority：reader 参考 `ChromeOptionsRepository`，client 参考
+`OptionsMutationClient`，唯一生产写 owner 参考 background `OptionsMutationCoordinator`。
+raw IO、message client、coordinator 与 mock 必须分别建模，不能复制成直写实现。
 
 ## 14. 迁移案例时间线
 
-| Day | 任务                          | 产出                                                    |
-| --- | ----------------------------- | ------------------------------------------------------- |
-| 1   | 梳理 YAML Service chrome 依赖 | `YAML-CONFIG-SERVICE-REFACTOR-NOTES.md`                 |
-| 2   | 编写 `IYamlRepository` 接口   | `src/shared/repositories/IYamlRepository.ts`            |
-| 3   | Chrome 实现 + 测试            | `ChromeYamlRepository.ts` + 单测                        |
-| 4   | 替换 Options Section          | production Stitch YAML owner 更新                       |
-| 5   | 更新模板、文档、审计报告      | `REPOSITORY-PATTERN.md` / `REPO-MONTH3-SHARED-AUDIT.md` |
+| Day | 任务                          | 产出                                                                    |
+| --- | ----------------------------- | ----------------------------------------------------------------------- |
+| 1   | 梳理 YAML Service chrome 依赖 | `YAML-CONFIG-SERVICE-REFACTOR-NOTES.md`                                 |
+| 2   | 编写 `IYamlRepository` 接口   | `src/shared/repositories/IYamlRepository.ts`                            |
+| 3   | Chrome 实现 + 测试            | `ChromeYamlRepository.ts` + 单测                                        |
+| 4   | 替换 Options Section          | production Stitch YAML owner 更新                                       |
+| 5   | 更新长期文档与验证入口        | `src/shared/repositories/README.md` / `docs/architecture-boundaries.md` |
 
 ## 15. 实战 Tips
 
@@ -245,14 +243,13 @@ pnpx hygen repo test --name Foo
 - 先写 Mock，再写 Chrome，实现时可对照行为。
 - 遇到多个模块共享字段时，纵向优先：先迁移 Repository，再依次替换 Consumer。
 - 迁移完单个模块后立刻运行相关测试，避免问题积累。
-- 及时更新 `GET-PLATFORM-SERVICES-CLEANUP.md`，保持审计透明。
+- 及时更新当前 source-of-truth 文档；dated cleanup/POC 记录只保留历史用途。
 
 ## 16. 扩展 Checklist
 
 - [ ] 迁移 PR 描述包含：影响范围、风险、测试项。
 - [ ] `npm run test:unit -- tests/unit/content/...` 覆盖受影响模块。
-- [ ] `docs/REPO-MONTH*-EXECUTION-PLAN.md` 对应任务标记完成。
-- [ ] 在 `MONTH*-WEEK*-COMPLETION-REPORT.md` 中登记代码行数。
+- [ ] 当前 source-of-truth 文档已同步，不以 dated execution/POC 文档替代长期指南。
 - [ ] 如果涉及用户数据，确认隐私政策未受影响。
 - [ ] 对 messaging 场景，确认 Background 端也改用 Repository。
 - [ ] 审核 release note，确保对用户透明。
@@ -288,13 +285,12 @@ pnpx hygen repo test --name Foo
 2. `rg 'getPlatformServices()' src/options src/content | rg -v 'Dependencies'` 输出 0。
 3. `npm run test:unit -- tests/unit/shared/yamlConfigService.test.ts --coverage` 覆盖率 > 90%。
 4. `npm run test:e2e` 通过。
-5. `docs/REPOSITORY-PATTERN.md` 与 `src/shared/repositories/README.md` 有更新记录。
+5. `src/shared/repositories/README.md` 与受影响的当前架构/入口文档有更新记录。
 
 ## 20. 资源索引
 
-- `docs/251126-design-system-poc/REPO-MONTH3-EXECUTION-PLAN.md`
-- `docs/251126-design-system-poc/GET-PLATFORM-SERVICES-CLEANUP.md`
-- `docs/251126-design-system-poc/MONTH3-WEEK1-AUDIT-REPORT.md`
+- `docs/chrome-api-decoupling-guide.md`
+- `docs/architecture-boundaries.md`
 - `src/shared/repositories/README.md`
 - `tests/utils/repositories/` Mock 实现
 
@@ -320,6 +316,6 @@ pnpx hygen repo test --name Foo
 
 ### Week 4
 
-- [ ] 文档（REPOSITORY-PATTERN / MIGRATION-GUIDE / README）更新
-- [ ] Completion Report 输出行数与测试结果
+- [ ] 当前 Repository / architecture / entrypoint 文档更新
+- [ ] PR 或 controller ledger 记录标准测试结果；不新增过程型 tracked report
 - [ ] Feature Flag / Rollout 策略确认

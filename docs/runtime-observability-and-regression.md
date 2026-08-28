@@ -1,13 +1,23 @@
 # 运行时观测与手动回归基线
 
-日期：2026-08-26
+日期：2026-08-28
 
 ## 1. 运行时观测
 
-- Analytics / consent / debug mode 统一入口：`src/shared/errors/analytics/*`
-- Options 隐私设置主链：`src/options/stitch/schema/settings/overview.ts` -> `src/options/app/actions/privacyConsentAction.ts` -> `src/options/app/productionStitchPersistence.ts` -> `src/shared/schemas/options.schema.ts`
-- onboarding consent 使用同一 repository patch 与 schema-derived privacy contract：`src/onboarding/bootstrap.ts`
+- Analytics consent/config 唯一归一化入口：
+  `src/shared/analytics/analyticsRuntimeConfig.ts#normalizeStoredAnalyticsConfig`；reporter
+  adapter 不得再实现第二套 consent/debug/transport normalize
+- Options 隐私设置主链：`src/options/stitch/schema/settings/overview.ts` ->
+  `src/options/app/actions/privacyConsentAction.ts` ->
+  `src/infrastructure/repositories/OptionsMutationClient.ts` -> background
+  `src/background/services/optionsMutationCoordinator.ts`
+- `ChromeOptionsRepository` 只拥有 raw read/observe 与 coordinator-internal raw IO；
+  onboarding 使用同一 schema-derived contract 和 typed mutation client：
+  `src/onboarding/bootstrap.ts`
 - transfer payload 已覆盖 consent/debugMode：`src/options/services/analyticsTransfer.ts`
+- session draft durable writes 由 background `sessionDraftMutationQueue` / `sessionDraftStore`
+  及其 receipt/liveness/lease owners 串行化；截图 bytes 由 background
+  `videoScreenshotCacheService` + IndexedDB store 持有
 - 真实浏览器联调 harness：`tmp/runtime-observability-harness.ts`
 
 建议联调命令：
@@ -28,7 +38,7 @@ node tools/report-ga-proxy-contract.mjs
 node tools/report-ga-docs-contract.mjs --check
 node scripts/run-bounded-command.mjs --profile vitest-v1 -- run --config vitest.unit.config.ts tests/unit/background/analyticsEvents.test.ts tests/unit/shared/errors/analytics/index.test.ts tests/unit/shared/errors/analyticsConfig.test.ts
 node scripts/run-bounded-command.mjs --profile vitest-v1 -- run --config vitest.unit.config.ts tests/unit/content/video/videoScreenshotPreparationQueue.test.ts tests/unit/content/video/VideoSession.test.ts
-node scripts/run-playwright.mjs test tests/e2e/videoPanelFlow.test.ts tests/e2e/videoListenerScope.browser.test.ts --project=chromium-desktop
+node scripts/run-bounded-command.mjs --profile npm-script-browser-v1 -- test:e2e:browser:video
 ```
 
 ## 2. 浏览器手动回归口径
@@ -97,7 +107,10 @@ node scripts/run-playwright.mjs test tests/e2e/videoPanelFlow.test.ts tests/e2e/
   `google-analytics-dashboard-setup.md` 绑定到当前 schema / proxy contract，但它不替代
   owner proxy / DebugView smoke checks。
 - runtime config 的 `enabled` 是 `analytics || errorReporting`；usage/product 事件需要 `analytics` consent，`extension_error` 需要 `errorReporting` consent。
-- 视频截图的 durable state 只保存 `screenshotRequested` intent；runtime screenshot bytes 维持在 `Blob` / binary 路径，导出边界再序列化为兼容 payload。
+- 视频 draft durable state 只保存 `screenshotRequested` intent 与 metadata-only
+  `screenshotRef`；runtime screenshot bytes 维持在 background-owned IndexedDB `Blob` 路径，
+  cache/message/export 边界才使用 JSON-safe serialized binary payload。missing/stale/corrupt
+  ref 会清理并回落到现有低并发 preparation owner，不会恢复 base64 draft 持久化。
 
 ## 5. Owner Smoke Evidence Template
 

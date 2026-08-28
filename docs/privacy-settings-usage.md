@@ -1,6 +1,6 @@
 # Privacy Settings Usage
 
-最后更新：2026-08-26
+最后更新：2026-08-28
 
 本文描述 Zendio 当前隐私与数据设置的用户行为、生产实现边界与验证方式。
 
@@ -12,15 +12,23 @@
 - consent mutation：`src/options/app/actions/privacyConsentAction.ts`
 - Options persistence/runtime wiring：`src/options/app/productionStitchPersistence.ts`
 - onboarding consent wiring：`src/onboarding/bootstrap.ts`
-- repository contract：`src/shared/repositories/IOptionsRepository.ts`
+- typed repository contract：`src/shared/repositories/IOptionsRepository.ts`
+- raw read/observe adapter：`src/infrastructure/repositories/ChromeOptionsRepository.ts`
+- cross-context mutation client：`src/infrastructure/repositories/OptionsMutationClient.ts`
+- sole production write owner：`src/background/services/optionsMutationCoordinator.ts`
 
-Options 和 onboarding 都读写同一 `privacyPreferences` 对象。生产 action 通过
-`IOptionsRepository.patch` 更新 analytics、errorReporting、debugMode 三个字段；
-Options persistence 随后同步运行时 analytics/error reporter 状态并调度保存。
-不存在第二套 privacy view/controller/persistence 实现。
+Options 和 onboarding 都消费同一 schema-derived `privacyPreferences` 对象。生产 action
+调用 typed `IOptionsRepository.patch`；Options/onboarding 中的
+`OptionsMutationClient` 将 patch/strict replace 发给 background，唯一
+`OptionsMutationCoordinator` 以 FIFO 顺序读取 raw snapshot、应用 schema codec、写入并
+read-back 验证。`ChromeOptionsRepository` 在 UI context 只提供 read/observe，不给 caller
+raw-write authority。不存在第二套 privacy view/controller/persistence 实现。
 
 UI ownership manifest 已进入 final 状态，不再保留 privacy UI-domain compatibility 类型。
-当前唯一契约为 schema-derived `PrivacyPreferencesOptions` 与 repository patch contract。
+当前唯一契约为 schema-derived `PrivacyPreferencesOptions`、typed patch/strict replace
+message contract 与 background coordinator。message failure、invalid response、quota/storage
+failure 或 external sync conflict 都 fail closed；调用方保留上一个 durable snapshot，不得
+fallback 为直接 storage 写入。
 
 ## 用户可控制的内容
 
@@ -56,8 +64,9 @@ UI ownership manifest 已进入 final 状态，不再保留 privacy UI-domain co
 - debugMode: boolean
 
 StoredOptions 允许该对象部分存在；CompleteOptions 要求完整对象。共享类型从
-CompleteOptions 推导，action、onboarding dependency 和 repository boundary
-不得重新声明另一套运行时 snapshot 类型。
+CompleteOptions 推导，action、onboarding dependency、client 与 coordinator boundary
+不得重新声明另一套运行时 snapshot 类型。Patch 只修改声明路径；strict replace 在写入
+前重新编码完整 replacement，失败时不得部分提交。
 
 ## Consent 行为真值
 

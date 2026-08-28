@@ -23,8 +23,9 @@ Compatibility shells, barrel files, type-only entrypoints, and public UI boundar
 
 Every current `src/ui/**/*.ts` file is classified by an exact row in
 `tools/ui-production-ownership.json`. UI directory membership is never an owner:
-production, compile-only, deferred, and future-retirement decisions come from the
-row disposition plus its production graph/replacement evidence. Wildcard UI
+production-runtime、production-compile 与 future-retirement decisions come from the
+row disposition plus its production graph/replacement evidence. The final manifest has
+`56 = 47 production-runtime + 9 production-compile` rows and zero deferred rows. Wildcard UI
 retention rules are forbidden.
 
 ## Test Fixtures
@@ -122,13 +123,13 @@ being duplicated in that tool:
 - `src/styles/clipper/highlight-themes.css` — reader and video highlight theme build asset contract.
 - `src/styles/design-tokens.css` — design token source-of-truth asset.
 
-For the current UI tree, manifest-backed classification is exact-path only. In
-the U02C3 intermediate state it contains 54 rows and exactly two U02C4
-`deferred-state-convergence` rows. U02C3 removed the twelve exact retired
-pattern/primitive rows only after their production, import, test, script,
-public/manifest, and required-verification owners were closed together. The
-same classifier accepts the final state with zero deferred rows and does not
-grant ownership to an unknown synthetic UI path.
+For the current UI tree, manifest-backed classification is exact-path only. The
+executable final state contains 56 rows: 47 `production-runtime`, 9
+`production-compile`, and zero deferred rows. Earlier U02C3 54-row/two-deferred
+numbers are intermediate history only. The retired pattern/primitive rows were removed
+only after their production, import, test, script, public/manifest, and
+required-verification owners closed together. The classifier does not grant ownership
+to an unknown synthetic UI path.
 
 Future changes must not hide new rows with broad allowlists or promote unresolved
 report blockers into production hard gates. Each new blocker needs an exact owner

@@ -11,8 +11,10 @@
 | Options startup and production state binding               | `src/options/index.ts`, `src/options/app/bootstrap.ts`, `src/options/app/productionStitchShell.ts` |
 | Options schema, render contract, content, and runtime CSS  | `src/options/stitch/*`                                                                             |
 | Foundation tokens, icons, lifecycle, a11y, and style hosts | `src/ui/foundation/*`                                                                              |
-| Reusable controls                                          | `src/ui/primitives/*` and `src/ui/patterns/*`                                                      |
-| Stable domain widgets                                      | `src/ui/domains/*`                                                                                 |
+| Reusable controls                                          | retained `src/ui/primitives/*`                                                                     |
+| Neutral runtime and shared surface graph                   | `src/ui/stitch-runtime/*`, `src/ui/stitch-surfaces/*`                                              |
+| Exact shared usage chart                                   | `src/ui/domains/usage-chart/*`                                                                     |
+| Shared style/host helpers                                  | `src/ui/foundation/style-host/*` plus the two retained `src/ui/hosts/**` helpers                   |
 | Production design tokens                                   | `src/styles/design-tokens.css`                                                                     |
 
 ## Directory Map
@@ -34,8 +36,10 @@ src/options/components/
 ## Development Rules
 
 1. For new production Options UI behavior, edit `src/options/stitch/*` and the production shell/state owners.
-2. For shared UI primitives or patterns, edit `src/ui/primitives/*` or `src/ui/patterns/*`.
-3. For domain-owned UI, prefer `src/ui/domains/*`.
+2. For shared controls, edit retained `src/ui/primitives/*`; for stable DOM/surface behavior use
+   `src/ui/stitch-runtime/*` or `src/ui/stitch-surfaces/*`.
+3. `src/ui/domains/usage-chart/*` is the only retained shared domain owner. New feature behavior
+   stays in Options/content feature owners unless a reviewed exact shared owner already exists.
 4. For compatibility work in this directory, keep changes targeted and add or update tests that prove the current behavior.
 5. Before deleting any `src/options/components/**` path, prove it is owner-free with production build graph, import graph, package/build scripts, public/manifest assets, tests/visual checks, required verification commands, and a committed `docs/retired-code-inventory.md` `delete-now` decision.
 

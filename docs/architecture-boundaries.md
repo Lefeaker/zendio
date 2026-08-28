@@ -20,23 +20,24 @@
 
 - `src/ui/foundation/*`：横切真值，不承载业务。
 - `src/ui/primitives/*`：统一基础语义，不感知仓储与 feature 生命周期。
-- `src/ui/patterns/*`：结构组合层，不直接读 store / repository。
 - `src/ui/stitch-runtime/*` / `src/ui/stitch-surfaces/*`：neutral runtime 与共享 surface graph。
 - `src/ui/foundation/style-host/*`：共享样式注入边界；`src/ui/hosts/*` 只保留 content focus 与 shared host contract helper。
-- `src/ui/domains/usage-chart/*`：当前唯一共享 UI domain 实现。
+- `src/ui/domains/usage-chart/*`：当前唯一保留的共享 usage-chart 实现；该精确 owner
+  不授权恢复通用 `patterns` 或其他 generic domain。
 
-## 3. domains 与 features 的依赖方向
+## 3. neutral shared UI 与 feature owner 的依赖方向
 
 允许：
 
-- `Options section / content session / presentation` → `src/ui/stitch-runtime/*` / `src/ui/stitch-surfaces/*` / retained primitives and patterns
-- `usage-chart domain` → `src/ui/primitives/*` / `patterns/*` / `foundation/*`
+- `Options section / content session / presentation` → `src/ui/stitch-runtime/*` /
+  `src/ui/stitch-surfaces/*` / retained primitives and foundation helpers
+- exact `usage-chart` owner → `src/ui/primitives/*` / `src/ui/foundation/*`
 - feature-local Options / Clipper / Reader / Video UI → shared neutral runtime or primitives, without recreating a generic host layer
 
 禁止：
 
 - shared `src/ui/*` → `src/options/*` or `src/content/*` feature implementation
-- `foundation / primitives` 反向依赖 feature 或 repository
+- `foundation / primitives / neutral runtime` 反向依赖 feature 或 repository
 
 ## 4. 宿主与 style host 边界
 

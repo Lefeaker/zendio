@@ -202,27 +202,28 @@ before running the Firefox audit; do not reuse a Firefox build for Chrome audit 
 a Chrome build for Firefox audit. `build:fast` / `build:firefox:fast` are only
 acceptable when a surrounding standalone quality gate has already passed.
 
-`release:chrome` is a dry-run alias. A real Chrome Web Store publish must use
-`npm run release:chrome:publish -- --zip <release.zip>` with owner-provided
-credentials and manual confirmation.
-`.github/workflows/release-chrome-webstore.yml` is the automated Chrome Web
-Store publish path. Its release job must bind `environment:
-chrome-webstore-release`; owner-managed GitHub Environment protection rules must
-enable Required reviewers for that Environment. The job reads
-`ZENDIO_GA_MEASUREMENT_ID`, `ZENDIO_GA_TRANSPORT_MODE`, and
-`ZENDIO_GA_PROXY_ENDPOINT` from Environment Variables, fails closed when any are
-missing or when `ZENDIO_GA_TRANSPORT_MODE` is not `proxy`, runs
-`analytics:validate:prod:required`, `quality`, a production Chrome build,
-`package:ci`, archive-level `audit:ga:client-secret` /
-`audit:ga:release-surface`, and only then calls
-`node scripts/publish-chrome-webstore.mjs --publish --zip <zip>`.
-The workflow contract is guarded by `npm run audit:chrome-webstore-release:check`.
+Local `release:chrome*` aliases are build/dry-run diagnostics; they are not the
+authoritative live-delivery path. `.github/workflows/release-chrome-webstore.yml`
+owns Chrome Web Store delivery. It accepts only a fresh first workflow attempt,
+then an unprivileged `prepare` job reads the three public `ZENDIO_GA_*` values from
+frozen repository/organization Variables, validates exact SHA/required CI, builds
+an isolated package, and uploads one immutable artifact without credentials or a
+protected Environment.
+
+The separate `publish` job binds `environment: chrome-webstore-release`, downloads
+the artifact by ID with digest mismatch fail-closed behavior, reauthorizes the
+exact SHA/tree/package/lock/artifact tuple, and injects Chrome credentials only
+into the single `chrome-publish-v1 --publish` mutation step. Once upload or publish
+has started, an unknown response is `unknown-submission-state` and requires store
+reconciliation; do not retry the workflow attempt. The contract is guarded by
+`npm run audit:chrome-webstore-release:check`.
 
 GA production release public config is loaded from ignored
-`.env.production.local` for local owner runs. The Chrome Web Store GitHub
-Actions release workflow reads the same public values from the protected
-`chrome-webstore-release` Environment Variables; Chrome Web Store credentials
-belong in the same Environment Secrets, not repository-level Secrets.
+`.env.production.local` only for explicit local owner diagnostics. GitHub release
+prepare jobs read the same public values from repository/organization Variables;
+they do not receive Environment secrets. Chrome credentials belong only in the
+protected `chrome-webstore-release` Environment and are exposed only to the
+single publish mutation step.
 The reusable owner commands are:
 
 ```bash
@@ -253,16 +254,14 @@ and public env shape, but it still does not prove real GA property delivery,
 DebugView visibility, or server-side `api_secret` injection. If
 `.env.production.local` is absent, the validator still runs and reports missing
 public values as warnings.
-The Chrome Web Store release workflow adds its own fail-closed shell checks for
-missing protected Environment public GA build config and non-`proxy` transport
-before any production package is built.
+The Chrome prepare job fails closed on missing public repository/organization
+Variables or non-`proxy` transport before any production package is built.
 `analytics:validate:prod:required` runs the same contract but is the strict CI /
 release automation entry: it does not load `.env.production.local`, requires
 canonical `ZENDIO_GA_MEASUREMENT_ID` / `ZENDIO_GA_TRANSPORT_MODE` /
 `ZENDIO_GA_PROXY_ENDPOINT`, and requires `ZENDIO_GA_TRANSPORT_MODE=proxy`. The
 `*:ci` Firefox GA package scripts likewise do not load `.env.production.local`;
-they expect CI environment variables or repository secrets to be injected by the
-caller.
+release prepare injects only public repository/organization Variables.
 `audit:ga:proxy-contract` / `audit:ga:docs` / `audit:ga:legacy-api` are
 deterministic static gates and are wired into `quality` and `verify:preflight`.
 `audit:ga:client-secret` scans client runtime `src/**` plus the current
@@ -308,7 +307,7 @@ node scripts/run-ga-owner-smoke.mjs --help
 node scripts/run-bounded-command.mjs --profile vitest-v1 -- run --config vitest.unit.config.ts tests/unit/scripts/runGaOwnerSmoke.test.ts tests/unit/scripts/analyticsDeliverySmoke.test.ts
 node scripts/run-bounded-command.mjs --profile vitest-v1 -- run --config vitest.unit.config.ts tests/unit/background/analyticsEvents.test.ts tests/unit/shared/errors/analytics/index.test.ts tests/unit/shared/errors/analyticsConfig.test.ts
 node scripts/run-bounded-command.mjs --profile vitest-v1 -- run --config vitest.unit.config.ts tests/unit/content/video/videoScreenshotCacheRepository.test.ts tests/unit/content/video/videoScreenshotCacheBackgroundClient.test.ts tests/unit/content/video/VideoSession.test.ts tests/unit/content/video/videoFrameScreenshot.test.ts tests/unit/background/visibleTabScreenshot.test.ts tests/unit/background/runtimeMessages.test.ts
-node scripts/run-bounded-command.mjs --profile playwright-v1 -- test tests/e2e/videoPanelFlow.test.ts tests/e2e/videoListenerScope.browser.test.ts --project=chromium-desktop
+node scripts/run-bounded-command.mjs --profile npm-script-browser-v1 -- test:e2e:browser:video
 ```
 
 Use these commands to validate the settled GA consent/transport contract and the
@@ -461,10 +460,9 @@ warning `108` / hard stop `118`；2026-06-20 Options/onboarding closeout 将
 
 - foundation：`src/ui/foundation/*`
 - primitives：`src/ui/primitives/*`
-- patterns：`src/ui/patterns/*`
 - neutral runtime / surfaces：`src/ui/stitch-runtime/*`、`src/ui/stitch-surfaces/*`
 - retained shared host helpers：`src/ui/foundation/style-host/*`、`src/ui/hosts/content/contentDialogFocus.ts`、`src/ui/hosts/shared/contract.ts`
-- retained shared domain owner：`src/ui/domains/usage-chart/*`
+- exact retained usage-chart owner：`src/ui/domains/usage-chart/*`；不授权恢复 generic domain/pattern layer
 - Options 主链：`src/options/index.ts -> src/options/app/bootstrap.ts`
 - content 主链：`src/content/index.ts -> src/content/runtime/*`
 

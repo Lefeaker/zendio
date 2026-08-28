@@ -20,7 +20,7 @@ Use unit tests for:
 
 - repository behavior and error wrapping
 - options store / merger normalization
-- overview privacy consent persistence and privacy-domain view-model behavior
+- schema-derived privacy consent、typed Options mutation client 与 background coordinator behavior
 - section controllers and view-model logic
 - content helpers, presenters, prompt state, dialog orchestration
 
@@ -41,11 +41,13 @@ browser routes below rather than presented as Vitest E2E coverage.
 
 ### Browser Visual / Interaction
 
-- YAML interaction: `npm run test:e2e:browser`
-- Reader panel: `npm run test:e2e:browser:reader-panel`
-- Complete Video matrix: `npm run test:e2e:browser:video`
-- Firefox browser compatibility: `npm run test:e2e:browser:firefox`
-- Command: `npm run visual:test`
+- Canonical YAML/Reader/smoke collection: `node scripts/run-browser-test-shards.mjs e2e`
+- Complete Video owner: `node scripts/run-bounded-command.mjs --profile npm-script-browser-v1 -- test:e2e:browser:video`
+- State/concurrency owner: `node scripts/run-bounded-command.mjs --profile npm-script-browser-v1 -- test:e2e:browser:state`
+- Architecture/incremental-render owner: `node scripts/run-bounded-command.mjs --profile npm-script-browser-v1 -- test:e2e:browser:architecture`
+- Local Vault owner: `node scripts/run-bounded-command.mjs --profile npm-script-browser-v1 -- test:e2e:browser:local-vault`
+- Firefox compatibility owner: `node scripts/run-bounded-command.mjs --profile npm-script-browser-v1 -- test:e2e:browser:firefox`
+- Visual collection: `node scripts/run-browser-test-shards.mjs visual`
 
 Use browser-based checks for:
 
@@ -131,27 +133,17 @@ npm run typecheck
 npm run lint
 npm run test:unit -- tests/unit/content/
 npm run test:e2e -- supportPromptFlow.test.ts
-npm run test:e2e:browser:reader-panel
-npm run test:e2e:browser:video
+node scripts/run-browser-test-shards.mjs e2e
+node scripts/run-bounded-command.mjs --profile npm-script-browser-v1 -- test:e2e:browser:video
 ```
 
 ## CI expectations
 
-The GitHub Actions workflow in `.github/workflows/ci.yml` now checks:
-
-- `npm run typecheck`
-- `npm run lint`
-- `npm run lint:warnings-guard`
-- `npm run test:coverage`
-- `npm run test:e2e`
-- `npm run test:e2e:browser`
-- `Browser video flow` runs only `npm run test:e2e:browser:video`
-- `Browser Firefox flow` runs only `npm run test:e2e:browser:firefox` after its distinct Firefox
-  browser installation step
-- build, i18n, and packaging steps
-
-The ownership report validates the collection topology locally. Its later CI/quality hard wiring is
-deferred until the convergence milestone gives every then-current browser file a canonical route.
+`.github/workflows/ci.yml` owns the current split topology; do not duplicate its job inventory here.
+The authoritative required-check names live in `scripts/config/releaseRequiredCiJobs.mjs`, while
+`audit:test-suite-ownership:check` validates each Vitest/browser/visual file has one canonical
+collection owner. The ownership gate is already wired into the standard engineering path; new test
+files must update the existing registry/route instead of adding an ad-hoc CI command.
 
 Pull requests also receive a coverage summary comment based on `coverage/coverage-summary.json`.
 

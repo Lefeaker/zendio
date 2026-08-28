@@ -108,7 +108,7 @@ src/options/
 │   └── optionsControllerContext.ts
 ├── stitch/                   # preview/production 共享的 Stitch Secondary 真值
 ├── components/
-│   ├── infrastructure/       # 选项页专属兼容控件；新增生产弹层优先走 Stitch/domain UI
+│   ├── infrastructure/       # 选项页专属兼容控件；新增生产弹层优先走 Stitch/neutral runtime
 │   └── services/             # 配置传输等选项页专用服务
 └── utils/                     # 选项页工具（如 optionsTransfer.ts）
 ```
@@ -129,11 +129,21 @@ src/options/
 
 2. **Options 主状态链（Phase 3 当前口径）**
 
-- 长期合同：`IOptionsRepository` 是唯一主读写/订阅合同。
-- 主状态适配：`optionsStore` 负责基于 `IOptionsRepository` 做 normalize、缓存与订阅分发。
+- 长期合同：`IOptionsRepository` 是 typed `get/patch/replace/onChange` 合同；它不把 raw
+  storage write 暴露给 feature caller。
+- raw reader：`ChromeOptionsRepository` 负责 `readRaw/readDecoded/get/onChange`；`writeRaw`
+  只由 background `OptionsMutationCoordinator` 依赖，不通过 DI 暴露给 UI。
+- cross-context client：Options/onboarding 解析到 `OptionsMutationClient`，mutation 通过
+  runtime message 交给唯一 background coordinator；content consumer 只获得所需的
+  read/observe pick。
+- 主状态适配：`optionsStore` 基于 typed repository 做 normalize、缓存与订阅分发；成功
+  response 才安装新 snapshot，failure/cancel/supersede/late completion 不得直写 storage
+  或覆盖当前 generation。
 - 兼容层：`chromeOptionsPersistence` 仅作为 `OptionsController` 仍在消费的适配器，不再被视为独立主链。
 - 平台桥接：`PlatformServices.optionsRepository` 已退役；Options UI 与 content/background 主链统一不得再依赖该桥接。
-- 主链职责：`ChromeOptionsRepository` 负责 `get/set/onChange` 与默认值合并，`optionsStore` 负责 normalize、缓存、迁移提示与对 Options UI 的订阅分发。
+- 主链职责：background coordinator FIFO 执行 typed patch、strict replace 与 lossless
+  migration writeback，并做 quota、readback 与 external-drift 验证；messaging/storage
+  failure fail closed。`optionsStore` 只负责 normalize、缓存、迁移提示与 Options UI 订阅。
 - 已清退项：legacy infrastructure compatibility adapter 与 infrastructure barrel export 已删除；不要恢复 `ChromeSyncOptionsRepository`、`LegacyOptionsRepositoryAdapter`、`adaptOptionsRepository` 或 `createCompatibilityOptionsRepository`。
 - 当前 residual consumers：`src/shared/interfaces/optionsRepository.ts` 仍保留 historical `load/save/snapshot/subscribe/reset` 类型合同，供尚未迁移的内容侧 helper 和测试夹具使用；它不是 Options UI 主状态链，也不再有 infrastructure adapter owner。
 - 退役路径：后续如需继续清理，应先把内容侧 `OptionsRepository` 类型消费者迁移到 `IOptionsRepository` 或更小的读取合同，再删除 shared legacy interface。
@@ -148,8 +158,12 @@ src/options/
 4. **Helper/Controller 迁移边界**
 
 - 旧 `DomainMappingsController`、`YamlConfigTable` 等 helper/controller 的 `render()` / `collect()` / `destroy()` 约定仅用于理解兼容残留，不作为新增生产功能模板。
-- 新增或重写生产 UI 行为应落到 `src/options/stitch/*` 的 schema、renderer、runtime action、content、class slot 与 CSS；只有真实跨 feature 复用的能力才进入 retained `src/ui/primitives/*`、`patterns/*` 或现有 shared domain owner。
-- 通用控件复用 `src/ui/primitives/*` 与 `src/ui/patterns/*`；shell 级状态、自动保存、资源弹层或语言切换才进入 `src/options/app/productionStitchShell.ts` 相关模块。
+- 新增或重写生产 UI 行为应落到 `src/options/stitch/*` 的 schema、renderer、runtime
+  action、content、class slot 与 CSS；只有既有 exact shared contract 才进入 retained
+  `src/ui/primitives/*`、neutral runtime/surfaces 或 `src/ui/domains/usage-chart/*`。
+- 通用控件复用 `src/ui/primitives/*`；稳定 surface/DOM 生命周期复用
+  `src/ui/stitch-runtime/*` / `src/ui/stitch-surfaces/*`。shell 级状态、自动保存、资源弹层
+  或语言切换才进入 `src/options/app/productionStitchShell.ts` 相邻模块。
 
 ---
 
@@ -158,9 +172,12 @@ src/options/
 - **新增生产 Options UI 行为**
   1. 优先修改 `src/options/stitch/content.ts`、`src/options/stitch/schema/**`、`src/options/stitch/render/**`、`src/options/stitch/runtime/**` 与 `src/options/stitch/styles/**`，保持 preview / production 共享同一 Stitch 真值。
   2. 仅在 shell 级生命周期、资源弹层、语言切换、状态订阅或自动保存需要调整时，修改 `src/options/app/productionStitchShell.ts` 及其相邻 production shell 模块。
-  3. Options 领域行为归属当前 `src/options/stitch/*` / `src/options/app/*` owner；可复用能力放入 retained `src/ui/primitives/*`、`src/ui/patterns/*` 或 neutral runtime，不得恢复已删除的 generic host/domain 或旧 section/form owner。
+  3. Options 领域行为归属当前 `src/options/stitch/*` / `src/options/app/*` owner；可复用
+     能力只放入 retained primitives、neutral runtime/surfaces 或既有 usage-chart exact
+     owner，不得恢复已删除的 generic pattern/host/domain 或旧 section/form owner。
   4. 自动保存应沿用 production shell/action adapter 与 `OptionsController` 的当前链路；不要为新增生产功能恢复旧表单注册链。
-  5. 测试应覆盖 Stitch schema/render/runtime、production shell、domain UI 或当前 controller 行为；不要新增旧 `tests/unit/options/sections/<Section>.test.ts` 作为生产实现模板。
+  5. 测试应覆盖 Stitch schema/render/runtime、production shell、usage-chart exact owner 或
+     当前 controller 行为；不要新增旧 `tests/unit/options/sections/<Section>.test.ts` 作为生产实现模板。
 
 - **旧 Options compatibility 说明**
   - 旧 section/form compatibility source 已退役；如果 audit 显示其他旧资产仍有 owner，应先迁移 owner 或补齐 retained-contract 分类。
