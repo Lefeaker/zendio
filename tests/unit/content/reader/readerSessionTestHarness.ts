@@ -52,6 +52,7 @@ const LOCAL_REST_URLS = getTestRestUrls('localhost');
 const LOCAL_REST_BASE_URL = LOCAL_REST_URLS.baseUrl.replace(/\/$/, '');
 const LOCAL_REST_HTTPS_URL = LOCAL_REST_URLS.httpsUrl.replace(/\/$/, '');
 const LOCAL_REST_HTTP_URL = LOCAL_REST_URLS.httpUrl.replace(/\/$/, '');
+const VALID_TEST_REST_API_KEY = 'token-12345';
 
 export type TestView = ReaderSessionView & {
   updateCount: Mock<(...args: [count: number]) => void>;
@@ -496,7 +497,7 @@ export function createSessionContext(
           rest: {
             vault: 'Default Vault',
             baseUrl: LOCAL_REST_BASE_URL,
-            apiKey: 'token'
+            apiKey: VALID_TEST_REST_API_KEY
           },
           vaultRouter: {
             defaultVaultId: 'default',
@@ -507,7 +508,7 @@ export function createSessionContext(
                 vault: 'Default Vault',
                 httpsUrl: LOCAL_REST_HTTPS_URL,
                 httpUrl: LOCAL_REST_HTTP_URL,
-                apiKey: 'token',
+                apiKey: VALID_TEST_REST_API_KEY,
                 enabled: true,
                 isDefault: true
               },
@@ -517,7 +518,7 @@ export function createSessionContext(
                 vault: 'Research Vault',
                 httpsUrl: 'https://localhost:27125',
                 httpUrl: 'http://localhost:27122',
-                apiKey: 'token',
+                apiKey: VALID_TEST_REST_API_KEY,
                 enabled: true
               }
             ],
