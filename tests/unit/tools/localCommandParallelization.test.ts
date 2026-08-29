@@ -110,22 +110,145 @@ function walkFiles(root: string): string[] {
 }
 
 describe('local command parallelization contract', () => {
-  it('keeps production build scripts from running quality twice', () => {
+  it('keeps full production build routes fail-closed with one in-process quality owner', async () => {
+    const { buildQualityCommandEnvironment } =
+      await import('../../../scripts/utils/buildQualityCommandEnvironment.mjs');
     const scripts = readPackageScripts();
+    const buildScript = readFileSync(resolve('scripts/build.mjs'), 'utf8');
+    const fullProductionRoutes = {
+      build: 'node scripts/build.mjs --mode=prod',
+      'build:firefox': 'node scripts/build.mjs --mode=prod --firefox',
+      'build:prod:ga': 'node --env-file=.env.production.local scripts/build.mjs --mode=prod',
+      'build:firefox:prod:ga':
+        'node --env-file=.env.production.local scripts/build.mjs --mode=prod --firefox',
+      'build:firefox:prod:ga:ci': 'node scripts/build.mjs --mode=prod --firefox'
+    };
+    const intentionalSkipCheckRoutes = {
+      'build:fast': 'node scripts/build.mjs --mode=prod --skip-checks',
+      'build:dev': 'node scripts/build.mjs --skip-checks',
+      'build:firefox:fast': 'node scripts/build.mjs --mode=prod --skip-checks --firefox',
+      'build:firefox:dev': 'node scripts/build.mjs --skip-checks --firefox',
+      'build:prod:ga:fast':
+        'node --env-file=.env.production.local scripts/build.mjs --mode=prod --skip-checks',
+      'build:firefox:prod:ga:fast':
+        'node --env-file=.env.production.local scripts/build.mjs --mode=prod --skip-checks --firefox',
+      dev: 'node scripts/build.mjs --watch --skip-checks',
+      'dev:firefox': 'node scripts/build.mjs --watch --skip-checks --firefox'
+    };
+    const gaBuildEnvironmentKeys = [
+      'ZENDIO_GA_MEASUREMENT_ID',
+      'ZENDIO_GA_TRANSPORT_MODE',
+      'ZENDIO_GA_PROXY_ENDPOINT',
+      'AIIINOB_GA_MEASUREMENT_ID',
+      'AIIINOB_GA_TRANSPORT_MODE',
+      'AIIINOB_GA_PROXY_ENDPOINT'
+    ];
+    const sourceProcessEnvironment = Object.freeze({
+      HOME: process.env.HOME ?? '/tmp',
+      TMPDIR: '/tmp/c06-build-quality-unit-test',
+      ZENDIO_GA_MEASUREMENT_ID: 'G-CURRENT-UNIT-TEST',
+      ZENDIO_GA_TRANSPORT_MODE: 'current-unit-test-transport',
+      ZENDIO_GA_PROXY_ENDPOINT: 'https://unit-test.invalid/current-ga-proxy',
+      AIIINOB_GA_MEASUREMENT_ID: 'G-LEGACY-UNIT-TEST',
+      AIIINOB_GA_TRANSPORT_MODE: 'legacy-unit-test-transport',
+      AIIINOB_GA_PROXY_ENDPOINT: 'https://unit-test.invalid/legacy-ga-proxy'
+    });
+    const sourceProcessEnvironmentSnapshot = { ...sourceProcessEnvironment };
+    const qualityChildEnvironment = buildQualityCommandEnvironment(sourceProcessEnvironment);
 
-    expect(scripts.build).toBe(
-      'npm run quality && node scripts/build.mjs --mode=prod --skip-checks'
+    for (const key of gaBuildEnvironmentKeys) {
+      expect(qualityChildEnvironment).not.toHaveProperty(key);
+    }
+    expect(qualityChildEnvironment).toMatchObject({
+      HOME: sourceProcessEnvironment.HOME,
+      TMPDIR: sourceProcessEnvironment.TMPDIR,
+      LANG: 'C',
+      LC_ALL: 'C',
+      TZ: 'UTC'
+    });
+    expect(qualityChildEnvironment.PATH).toBeTruthy();
+    expect(sourceProcessEnvironment).toEqual(sourceProcessEnvironmentSnapshot);
+    expect(() =>
+      buildQualityCommandEnvironment({
+        ...sourceProcessEnvironment,
+        HTTPS_PROXY: 'https://unit-test.invalid/unrelated-proxy'
+      })
+    ).toThrow('ENVIRONMENT_FORBIDDEN');
+
+    expect(
+      Object.fromEntries(Object.keys(fullProductionRoutes).map((name) => [name, scripts[name]]))
+    ).toEqual(fullProductionRoutes);
+    for (const route of Object.values(fullProductionRoutes)) {
+      expect(route).not.toContain('npm run quality');
+      expect(route).not.toContain('--skip-checks');
+    }
+    expect(
+      Object.fromEntries(
+        Object.keys(intentionalSkipCheckRoutes).map((name) => [name, scripts[name]])
+      )
+    ).toEqual(intentionalSkipCheckRoutes);
+    for (const route of Object.values(intentionalSkipCheckRoutes)) {
+      expect(route).toContain('--skip-checks');
+    }
+
+    expect(scripts['build:chrome:isolated']).toBe(
+      'npm run build:fast -- --outdir build/dist-chrome'
     );
-    expect(scripts['build:firefox']).toBe(
-      'npm run quality && node scripts/build.mjs --mode=prod --skip-checks --firefox'
+    expect(scripts['build:firefox:isolated']).toBe(
+      'npm run build:firefox:fast -- --outdir build/dist-firefox'
     );
-    expect(scripts.package).toBe('npm run build && node scripts/package.mjs');
+    expect(scripts['package:firefox:ci']).toBe('node scripts/package-firefox.mjs');
+    expect(scripts['package:firefox:ci']).not.toMatch(/sign|credential/iu);
+    expect(scripts['package:firefox:prod:ga:ci']).toBeUndefined();
+
+    expect(
+      Object.fromEntries(
+        [
+          'package',
+          'package:prod:ga',
+          'package:firefox',
+          'package:firefox:prod:ga',
+          'release',
+          'release:prod:ga'
+        ].map((name) => [name, scripts[name]])
+      )
+    ).toEqual({
+      package: 'npm run build && node scripts/package.mjs',
+      'package:prod:ga': 'npm run build:prod:ga && node scripts/package.mjs',
+      'package:firefox': 'npm run build:firefox && node scripts/package-firefox.mjs',
+      'package:firefox:prod:ga':
+        'npm run build:firefox:prod:ga && node scripts/package-firefox.mjs',
+      release: 'npm run build && node scripts/create-release.mjs',
+      'release:prod:ga': 'npm run build:prod:ga && node scripts/create-release.mjs'
+    });
     expect(scripts['package:chrome:isolated']).toBe(
       'npm run build:chrome:isolated && node scripts/package.mjs --dist-dir build/dist-chrome'
     );
     expect(scripts['package:firefox:isolated']).toBe(
       'npm run build:firefox:isolated && node scripts/package-firefox.mjs --dist-dir build/dist-firefox'
     );
+
+    const closedEnvironment =
+      'const qualityEnvironment = buildQualityCommandEnvironment(process.env);';
+    const qualityInvocation = 'const qualityResult = await runQualityChecks({';
+    const failureGuard = 'if (!qualityResult.ok) {';
+    const nonzeroFailure = 'process.exitCode = qualityResult.failed[0]?.code || 1;';
+    const buildAbort =
+      "throw new Error('Production build aborted because quality checks failed.');";
+    const distCleanup = 'await rm(distDir, { recursive: true, force: true });';
+    expect(buildScript).toContain(closedEnvironment);
+    expect(buildScript).toContain(qualityInvocation);
+    expect(buildScript).toContain('startBoundedCommand(');
+    expect(buildScript.indexOf(closedEnvironment)).toBeLessThan(
+      buildScript.indexOf(qualityInvocation)
+    );
+    expect(buildScript).toContain(failureGuard);
+    expect(buildScript).toContain(nonzeroFailure);
+    expect(buildScript).toContain(buildAbort);
+    expect(buildScript.indexOf(qualityInvocation)).toBeLessThan(buildScript.indexOf(failureGuard));
+    expect(buildScript.indexOf(failureGuard)).toBeLessThan(buildScript.indexOf(nonzeroFailure));
+    expect(buildScript.indexOf(nonzeroFailure)).toBeLessThan(buildScript.indexOf(buildAbort));
+    expect(buildScript.indexOf(buildAbort)).toBeLessThan(buildScript.indexOf(distCleanup));
   });
 
   it('admits the exact G00 browser and ownership routes through their fixed profiles', () => {

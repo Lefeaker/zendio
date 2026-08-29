@@ -1634,6 +1634,101 @@ describe('bounded command ownership', () => {
     ).toThrow('NPM_CONFIG_IDENTITY_INVALID');
   });
 
+  it('preserves only current public GA config for the four release build profiles', () => {
+    const root = realpathSync(temporaryRoot());
+    installAttemptConfigs(root);
+    const browsersPath = join(root, 'playwright-browsers');
+    mkdirSync(browsersPath, { mode: 0o700 });
+    chmodSync(browsersPath, 0o700);
+    const gaEnvironment = {
+      ZENDIO_GA_MEASUREMENT_ID: 'G-BOUNDARY-UNIT-TEST',
+      ZENDIO_GA_TRANSPORT_MODE: 'proxy',
+      ZENDIO_GA_PROXY_ENDPOINT: 'https://ga-proxy.unit.test/collect'
+    };
+    const environment = cleanEnvironment({
+      ZENDIO_LOCAL_ATTEMPT_ROOT: root,
+      NPM_CONFIG_USERCONFIG: join(root, 'install/npm-userconfig'),
+      NPM_CONFIG_GLOBALCONFIG: join(root, 'install/npm-globalconfig'),
+      ZENDIO_PLAYWRIGHT_ATTEMPT_ROOT: root,
+      PLAYWRIGHT_BROWSERS_PATH: browsersPath,
+      ...gaEnvironment
+    });
+    const originalEnvironment = { ...environment };
+    const cases: Array<[CommandBoundaryProfileId, string[]]> = [
+      ['release-runtime-check-v1', ['--check', '--config-mode', 'standalone-synthetic']],
+      [
+        'isolated-build-v1',
+        [
+          '--run-isolated-build',
+          '--config-mode',
+          'standalone-synthetic',
+          '--browser',
+          'chrome',
+          '--dist-dir',
+          join(root, 'isolated-dist'),
+          '--temp-dir',
+          join(root, 'isolated-temp')
+        ]
+      ],
+      [
+        'chrome-prepare-v1',
+        [
+          '--config-mode',
+          'standalone-synthetic',
+          '--attempt-root',
+          root,
+          '--dist-dir',
+          join(root, 'chrome-dist'),
+          '--release-dir',
+          join(root, 'chrome-release'),
+          '--result-json',
+          join(root, 'chrome-result.json')
+        ]
+      ],
+      [
+        'firefox-prepare-v1',
+        [
+          '--config-mode',
+          'standalone-synthetic',
+          '--transport-mode',
+          'local-private-v1',
+          '--attempt-root',
+          root,
+          '--dist-dir',
+          join(root, 'firefox-dist'),
+          '--release-dir',
+          join(root, 'firefox-release'),
+          '--result-json',
+          join(root, 'firefox-result.json')
+        ]
+      ]
+    ];
+
+    for (const [profileId, args] of cases) {
+      const profile = resolveCommandProfile(profileId, args, { environment });
+      expect(profile.env).toMatchObject(gaEnvironment);
+      expect(
+        Object.keys(profile.env)
+          .filter((key) => key.includes('_GA_'))
+          .sort()
+      ).toEqual(Object.keys(gaEnvironment).sort());
+      expect(environment).toEqual(originalEnvironment);
+      expect(() =>
+        resolveCommandProfile(profileId, args, {
+          environment: { ...environment, HTTPS_PROXY: 'https://unrelated-proxy.unit.test' }
+        })
+      ).toThrow('ENVIRONMENT_FORBIDDEN');
+      expect(() =>
+        resolveCommandProfile(profileId, args, {
+          environment: {
+            ...environment,
+            AIIINOB_GA_PROXY_ENDPOINT: 'https://legacy-proxy.unit.test/collect'
+          }
+        })
+      ).toThrow('ENVIRONMENT_FORBIDDEN');
+    }
+  });
+
   it('keeps the actions token and Chrome/Firefox credentials exclusive to their fixed profiles', () => {
     const fixedFileOperation = () => resolve('tests/fixtures/bounded-command/child.mjs');
     const chrome = releaseAttemptFixture('chrome', 'publish');
@@ -1677,6 +1772,27 @@ describe('bounded command ownership', () => {
     ]);
     expect(chromeProfile.env).not.toHaveProperty('ZENDIO_EXPECTED_RELEASE_MANIFEST_SHA256');
     expect(chromeProfile.env).not.toHaveProperty('WEB_EXT_API_KEY');
+    expect(() =>
+      resolveCommandProfile(
+        'chrome-publish-v1',
+        [
+          '--publish',
+          '--artifact-manifest',
+          chromeManifest,
+          '--state-file',
+          chromeState,
+          '--transport-mode',
+          'github-artifact-v1'
+        ],
+        {
+          environment: {
+            ...chromeEnvironment,
+            ZENDIO_GA_PROXY_ENDPOINT: 'https://ga-proxy.unit.test/collect'
+          },
+          operations: { fixedTrackedFileOperation: fixedFileOperation }
+        }
+      )
+    ).toThrow('ENVIRONMENT_FORBIDDEN');
 
     expect(() =>
       resolveCommandProfile(
