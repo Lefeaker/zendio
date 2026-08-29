@@ -353,7 +353,9 @@ const COVERAGE: readonly SurfaceCoverage[] = [
     evidence: [
       {
         file: 'tests/unit/content/runtimeSurfaceContent.test.ts',
-        includes: ['does not restore optional icon inputs or fallback expressions']
+        includes: [
+          'keeps runtime compatibility fallback labels empty and free of Chinese synthesized copy'
+        ]
       },
       {
         file: 'tests/unit/content/exportDestinationDom.test.ts',

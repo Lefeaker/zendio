@@ -43,6 +43,8 @@ const videoTexts = {
   captureFocusLabel: 'Focus'
 };
 
+const HAN_REGEX = /[\u3400-\u9fff\uf900-\ufaff]/u;
+
 describe('runtimeSurfaceContent', () => {
   it('preserves the explicit Clipper, Reader, and Video icon URLs', () => {
     const clipper = createClipperSurfaceContent({
@@ -88,6 +90,53 @@ describe('runtimeSurfaceContent', () => {
     expect(content).not.toHaveProperty('brand');
     expect(content).not.toHaveProperty('resources');
     expect(content).not.toHaveProperty('storage');
+  });
+
+  it('keeps runtime compatibility fallback labels empty and free of Chinese synthesized copy', () => {
+    const content = createTaskSuccessSurfaceContent();
+    const videoControlBarPopover = content.videoControlBarPopover;
+    if (!videoControlBarPopover) {
+      throw new Error('Missing runtime compatibility video control-bar popover defaults');
+    }
+    const userVisibleFallbackLabels = [
+      ...Object.values(content.clipper.labels),
+      ...Object.values(content.clipper.source),
+      content.clipper.commentPlaceholder,
+      content.clipper.helper,
+      ...Object.values(content.reader.labels),
+      content.reader.hint,
+      content.reader.counter,
+      content.reader.overlaySummary,
+      ...Object.values(content.video.labels),
+      content.video.status,
+      content.video.hint,
+      content.video.counter,
+      ...Object.values(videoControlBarPopover.texts),
+      ...Object.values(content.videoFloatingPrompt),
+      content.taskSuccess.statusMessage,
+      content.taskSuccess.feedbackLabel,
+      content.taskSuccess.likeLabel,
+      content.taskSuccess.dislikeLabel,
+      content.taskSuccess.dismissLabel,
+      content.taskSuccess.likeToast.title,
+      content.taskSuccess.likeToast.detail,
+      content.taskSuccess.dislikeToast.title,
+      content.taskSuccess.dislikeToast.detail
+    ];
+
+    expect(userVisibleFallbackLabels).not.toHaveLength(0);
+    expect(userVisibleFallbackLabels.every((label) => label === '')).toBe(true);
+    expect(content.reader.labels.fragmentNotePlaceholder).toBe('');
+    expect(JSON.stringify(content)).not.toMatch(HAN_REGEX);
+    expect([
+      content.clipper.hero.title,
+      content.reader.hero.title,
+      content.video.hero.title,
+      content.taskSuccess.hero.title
+    ]).toEqual(['Clipper Dialog', 'Reader Mode', 'Video Mode', 'Task Success']);
+    expect(content.taskSuccess.supportChannels).toEqual([
+      expect.objectContaining({ title: 'GitHub', subtitle: '' })
+    ]);
   });
 
   it('does not restore optional icon inputs or fallback expressions', () => {
