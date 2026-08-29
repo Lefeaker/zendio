@@ -1,6 +1,6 @@
 # 工程命令与入口
 
-最后更新：2026-08-28
+最后更新：2026-08-29
 
 ## 推荐运行环境
 
@@ -73,7 +73,9 @@ node scripts/run-bounded-command.mjs --profile node-script-standard-v1 -- tools/
   - `test:e2e:browser:parallel` 当前覆盖 YAML interaction、reader-panel 与 migration smoke 三组 shard；local-vault 与 Firefox browser checks 仍保留为独立专项命令
   - Reader / Video session panel 当前使用固定 shell、keyed item list 与一个 bounded root dispatcher；专项浏览器回归为 `tests/e2e/sessionPanelsIncremental.browser.test.ts`，要求 20-item / 100-update 下 shell、list、未变化 item、input、status、listener/style handle 身份稳定，并覆盖 screenshot/draft/collapse 的真实 Chromium 路径
 - `npm run build*` 与 `npm run package*`
-  - `build` 与 `build:firefox` 显式先运行一次 `quality`，随后调用 `scripts/build.mjs --skip-checks`，不得恢复为重复触发完整 `quality` 的形式
+  - `build`、`build:firefox`、`build:prod:ga`、`build:firefox:prod:ga` 与 `build:firefox:prod:ga:ci` 直接进入 `scripts/build.mjs`，由其在 production build 进程内执行且仅执行一次完整 `quality`；任一 quality task 失败都必须在清理 `build/dist` 或开始构建前以非零状态 fail closed
+  - `build:fast` / `build:firefox:fast`、dev、isolated 与 release replay 等明确由外层门禁持有的路线保留 `--skip-checks`；不得将它们替换为无外层 quality owner 的完整 production 入口
+  - `package:ci` 与 `package:firefox:ci` 分别是已有 Chrome / Firefox build 的 packaging-only 入口；`package:firefox:ci` 只生成未签名 XPI，不获取凭据、不签名也不提交 AMO
   - `scripts/build.mjs` 从 `package.json` 读取版本号，并注入 `__ZENDIO_EXTENSION_VERSION__` / `__AIIINOB_EXTENSION_VERSION__` 作为 Options 等无 platform manifest 场景的版本 fallback；不要在 UI 代码中硬编码 release version
   - `scripts/build.mjs` 支持 `--outdir` / `BUILD_DIST_DIR`；`scripts/package.mjs` 与 `scripts/package-firefox.mjs` 支持 `--dist-dir`
   - `build:chrome:isolated` / `build:firefox:isolated` 与 `package:chrome:isolated` / `package:firefox:isolated` 使用独立 dist 目录，作为 Chrome / Firefox package 并行化的安全入口
@@ -191,8 +193,11 @@ npm run clean
 npm run build
 npm run audit:release-surface:report
 npm run audit:local-vault-release:report -- --browser chrome
+npm run package:ci
 npm run build:firefox
+npm run audit:release-surface:report
 npm run audit:local-vault-release:report -- --browser firefox
+npm run package:firefox:ci
 npm run release:chrome -- --zip <release.zip>
 ```
 
@@ -234,7 +239,7 @@ npm run build:prod:ga
 npm run package:prod:ga
 npm run package:firefox:prod:ga
 npm run build:firefox:prod:ga:ci
-npm run package:firefox:prod:ga:ci
+npm run package:firefox:ci
 npm run release:prod:ga
 node scripts/run-ga-owner-smoke.mjs --mode proxy --event runtime_harness_open
 node scripts/run-ga-owner-smoke.mjs --mode directDebug --event runtime_harness_open
@@ -260,8 +265,9 @@ Variables or non-`proxy` transport before any production package is built.
 release automation entry: it does not load `.env.production.local`, requires
 canonical `ZENDIO_GA_MEASUREMENT_ID` / `ZENDIO_GA_TRANSPORT_MODE` /
 `ZENDIO_GA_PROXY_ENDPOINT`, and requires `ZENDIO_GA_TRANSPORT_MODE=proxy`. The
-`*:ci` Firefox GA package scripts likewise do not load `.env.production.local`;
-release prepare injects only public repository/organization Variables.
+`build:firefox:prod:ga:ci` 不加载 `.env.production.local`；release prepare 只注入
+public repository/organization Variables，构建完成后交给未签名、packaging-only
+`package:firefox:ci`。
 `audit:ga:proxy-contract` / `audit:ga:docs` / `audit:ga:legacy-api` are
 deterministic static gates and are wired into `quality` and `verify:preflight`.
 `audit:ga:client-secret` scans client runtime `src/**` plus the current
