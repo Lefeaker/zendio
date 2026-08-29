@@ -8,9 +8,8 @@ describe('deepseek parser', () => {
   });
 
   it('returns empty result when no DeepSeek messages exist', async () => {
-    const { deepseekParser } = await import(
-      '../../../src/third_party/ai-chat-exporter/platforms/deepseek'
-    );
+    const { deepseekParser } =
+      await import('../../../src/third_party/ai-chat-exporter/platforms/deepseek');
     const doc = new DOMParser().parseFromString(
       '<html><head><title>DeepSeek</title></head><body></body></html>',
       'text/html'
@@ -20,9 +19,8 @@ describe('deepseek parser', () => {
   });
 
   it('uses an injected fallback title when no product title is available', async () => {
-    const { deepseekParser } = await import(
-      '../../../src/third_party/ai-chat-exporter/platforms/deepseek'
-    );
+    const { deepseekParser } =
+      await import('../../../src/third_party/ai-chat-exporter/platforms/deepseek');
     const doc = new DOMParser().parseFromString(
       `
       <html>
@@ -43,9 +41,8 @@ describe('deepseek parser', () => {
   });
 
   it('throws when no source title or injected fallback title is available', async () => {
-    const { deepseekParser } = await import(
-      '../../../src/third_party/ai-chat-exporter/platforms/deepseek'
-    );
+    const { deepseekParser } =
+      await import('../../../src/third_party/ai-chat-exporter/platforms/deepseek');
     const doc = new DOMParser().parseFromString(
       `
       <html>
@@ -63,9 +60,8 @@ describe('deepseek parser', () => {
   });
 
   it('preserves user-provided Chinese titles instead of replacing them', async () => {
-    const { deepseekParser } = await import(
-      '../../../src/third_party/ai-chat-exporter/platforms/deepseek'
-    );
+    const { deepseekParser } =
+      await import('../../../src/third_party/ai-chat-exporter/platforms/deepseek');
     const doc = new DOMParser().parseFromString(
       `
       <html>

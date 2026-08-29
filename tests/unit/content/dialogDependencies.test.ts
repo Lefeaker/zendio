@@ -33,9 +33,8 @@ describe('createClipperDialogDependencies', () => {
     resolveRepositoryMock.mockReturnValueOnce(clipRepo).mockReturnValueOnce(optionsRepository);
     getErrorHandlerInstanceMock.mockReturnValue(errorHandler);
 
-    const { createClipperDialogDependencies } = await import(
-      '../../../src/content/clipper/components/dialogDependencies'
-    );
+    const { createClipperDialogDependencies } =
+      await import('../../../src/content/clipper/components/dialogDependencies');
     const deps = createClipperDialogDependencies();
 
     expect(getServiceMock).toHaveBeenCalledTimes(1);
