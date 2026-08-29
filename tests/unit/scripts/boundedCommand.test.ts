@@ -141,16 +141,44 @@ function cleanEnvironment(extra: Record<string, string> = {}): NodeJS.ProcessEnv
   };
 }
 
+function githubActionsLifecycleAttempt(): {
+  attemptRoot: string;
+  environment: Record<string, string>;
+} {
+  const runnerTemp = realpathSync(temporaryRoot());
+  const runId = '123456';
+  const runAttempt = '1';
+  const job = 'lifecycle-contract';
+  const attemptRoot = join(runnerTemp, `zendio-ci-node-${runId}-${runAttempt}-${job}`);
+  mkdirSync(attemptRoot, { mode: 0o700 });
+  chmodSync(attemptRoot, 0o700);
+  return {
+    attemptRoot,
+    environment: {
+      CI: 'true',
+      GITHUB_ACTIONS: 'true',
+      GITHUB_JOB: job,
+      GITHUB_RUN_ATTEMPT: runAttempt,
+      GITHUB_RUN_ID: runId,
+      RUNNER_TEMP: runnerTemp,
+      ZENDIO_JOB_CLASS: 'generic-v1'
+    }
+  };
+}
+
 function verifiedNpmLifecycleEnvironment({
   event = 'lint:css',
+  githubActions = false,
   includeLowercaseUserconfig = true,
   extra = {}
 }: {
   event?: keyof typeof packageJson.scripts;
+  githubActions?: boolean;
   includeLowercaseUserconfig?: boolean;
   extra?: Record<string, string>;
 } = {}): NodeJS.ProcessEnv {
-  const root = realpathSync(temporaryRoot());
+  const githubAttempt = githubActions ? githubActionsLifecycleAttempt() : null;
+  const root = githubAttempt?.attemptRoot ?? realpathSync(temporaryRoot());
   installAttemptConfigs(root);
   const home = join(root, 'home');
   mkdirSync(home, { mode: 0o700 });
@@ -166,6 +194,7 @@ function verifiedNpmLifecycleEnvironment({
   const userconfig = join(root, 'install/npm-userconfig');
   const globalconfig = join(root, 'install/npm-globalconfig');
   return cleanEnvironment({
+    ...(githubAttempt?.environment ?? {}),
     HOME: home,
     INIT_CWD: resolve('.'),
     NODE: nodePath,
@@ -182,7 +211,7 @@ function verifiedNpmLifecycleEnvironment({
     npm_config_noproxy: '',
     npm_config_npm_version: '10.8.2',
     npm_config_prefix: runtimePrefix,
-    npm_config_user_agent: `npm/10.8.2 node/${process.version} ${process.platform} ${process.arch} workspaces/false`,
+    npm_config_user_agent: `npm/10.8.2 node/${process.version} ${process.platform} ${process.arch} workspaces/false${githubActions ? ' ci/github-actions' : ''}`,
     ...(includeLowercaseUserconfig ? { npm_config_userconfig: userconfig } : {}),
     npm_execpath: cliPath,
     npm_lifecycle_event: event,
@@ -1685,6 +1714,39 @@ describe('bounded command ownership', () => {
     }
   );
 
+  it.each(ATTEMPT_CONFIG_PROPAGATION_CASES)(
+    'normalizes the complete verified GitHub Actions npm lifecycle config for %s',
+    (profileId, args) => {
+      const environment = verifiedNpmLifecycleEnvironment({ githubActions: true });
+      const originalEnvironment = { ...environment };
+      const userconfig = environment.NPM_CONFIG_USERCONFIG;
+      const globalconfig = environment.NPM_CONFIG_GLOBALCONFIG;
+      if (typeof userconfig !== 'string' || typeof globalconfig !== 'string')
+        throw new Error('TEST_NPM_CONFIG_INVALID');
+
+      const spec = resolveCommandProfile(profileId, args, { environment });
+
+      expect(spec.env).toMatchObject({
+        CI: 'true',
+        GITHUB_ACTIONS: 'true',
+        NPM_CONFIG_USERCONFIG: userconfig,
+        NPM_CONFIG_GLOBALCONFIG: globalconfig
+      });
+      expect(
+        Object.keys(spec.env)
+          .filter((key) => key.toLowerCase().startsWith('npm_config_'))
+          .sort()
+      ).toEqual(['NPM_CONFIG_GLOBALCONFIG', 'NPM_CONFIG_USERCONFIG']);
+      expect(spec.commandContext).toMatchObject({
+        attemptConfigAuthority: true,
+        attemptRoot: dirname(dirname(userconfig)),
+        userconfig,
+        globalconfig
+      });
+      expect(environment).toEqual(originalEnvironment);
+    }
+  );
+
   it.each(NPM_LIFECYCLE_ALIASES)(
     'admits the verified npm lifecycle projection for active alias %s',
     (event) => {
@@ -1709,6 +1771,43 @@ describe('bounded command ownership', () => {
     }
   );
 
+  it.each(NPM_LIFECYCLE_ALIASES)(
+    'admits the verified GitHub Actions npm lifecycle projection for active alias %s',
+    (event) => {
+      const environment = verifiedNpmLifecycleEnvironment({
+        event,
+        githubActions: true,
+        includeLowercaseUserconfig: false
+      });
+      const spec = resolveCommandProfile(
+        'node-script-standard-v1',
+        ['scripts/verify-runtime.mjs'],
+        {
+          environment
+        }
+      );
+
+      expect(spec.env).toMatchObject({ CI: 'true', GITHUB_ACTIONS: 'true' });
+      expect(spec.commandContext).toMatchObject({ attemptConfigAuthority: true });
+      expect(
+        Object.keys(spec.env)
+          .filter((key) => key.toLowerCase().startsWith('npm_config_'))
+          .sort()
+      ).toEqual(['NPM_CONFIG_GLOBALCONFIG', 'NPM_CONFIG_USERCONFIG']);
+    }
+  );
+
+  it('retains the local user-agent projection with exact CI=1 notifier suppression', () => {
+    const environment = verifiedNpmLifecycleEnvironment({ extra: { CI: '1' } });
+    const spec = resolveCommandProfile('stylelint-v1', ['src/options/**/*.css'], {
+      environment
+    });
+
+    expect(environment.npm_config_user_agent).not.toContain(' ci/');
+    expect(spec.env).toMatchObject({ CI: '1' });
+    expect(spec.commandContext).toMatchObject({ attemptConfigAuthority: true });
+  });
+
   it.each(VERIFIED_NPM_LIFECYCLE_CONFIG_KEYS)(
     'rejects a value-mismatched verified npm lifecycle field %s',
     (key) => {
@@ -1716,6 +1815,146 @@ describe('bounded command ownership', () => {
       environment[key] = `${environment[key]}-mismatch`;
       expect(() =>
         resolveCommandProfile('npm-script-quick-v1', ['audit:ci-workflow:check'], {
+          environment
+        })
+      ).toThrow('NPM_CONFIG_AUTHORITY_INVALID');
+    }
+  );
+
+  it.each([
+    [
+      'local suffix injection',
+      false,
+      (environment: NodeJS.ProcessEnv) => {
+        environment.npm_config_user_agent = `${environment.npm_config_user_agent} ci/github-actions`;
+      }
+    ],
+    [
+      'GitHub suffix omission',
+      true,
+      (environment: NodeJS.ProcessEnv) => {
+        environment.npm_config_user_agent = environment.npm_config_user_agent?.replace(
+          ' ci/github-actions',
+          ''
+        );
+      }
+    ],
+    [
+      'GitHub provider suffix mutation',
+      true,
+      (environment: NodeJS.ProcessEnv) => {
+        environment.npm_config_user_agent = environment.npm_config_user_agent?.replace(
+          'ci/github-actions',
+          'ci/gitlab-ci'
+        );
+      }
+    ],
+    [
+      'GitHub suffix case mutation',
+      true,
+      (environment: NodeJS.ProcessEnv) => {
+        environment.npm_config_user_agent = environment.npm_config_user_agent?.replace(
+          'ci/github-actions',
+          'ci/GitHub-Actions'
+        );
+      }
+    ],
+    [
+      'missing CI flag',
+      true,
+      (environment: NodeJS.ProcessEnv) => {
+        delete environment.CI;
+      }
+    ],
+    [
+      'missing GitHub Actions flag',
+      true,
+      (environment: NodeJS.ProcessEnv) => {
+        delete environment.GITHUB_ACTIONS;
+      }
+    ],
+    [
+      'CI value mutation',
+      true,
+      (environment: NodeJS.ProcessEnv) => {
+        environment.CI = '1';
+      }
+    ],
+    [
+      'GitHub Actions value mutation',
+      true,
+      (environment: NodeJS.ProcessEnv) => {
+        environment.GITHUB_ACTIONS = '1';
+      }
+    ],
+    [
+      'CI value case mutation',
+      true,
+      (environment: NodeJS.ProcessEnv) => {
+        environment.CI = 'TRUE';
+      }
+    ],
+    [
+      'GitHub Actions value case mutation',
+      true,
+      (environment: NodeJS.ProcessEnv) => {
+        environment.GITHUB_ACTIONS = 'TRUE';
+      }
+    ],
+    [
+      'CI key case mutation',
+      true,
+      (environment: NodeJS.ProcessEnv) => {
+        environment.ci = environment.CI;
+        delete environment.CI;
+      }
+    ],
+    [
+      'GitHub Actions key case mutation',
+      true,
+      (environment: NodeJS.ProcessEnv) => {
+        environment.github_actions = environment.GITHUB_ACTIONS;
+        delete environment.GITHUB_ACTIONS;
+      }
+    ],
+    [
+      'unsupported local provider',
+      false,
+      (environment: NodeJS.ProcessEnv) => {
+        environment.CI = 'true';
+        environment.GITLAB_CI = 'true';
+        environment.npm_config_user_agent = `${environment.npm_config_user_agent} ci/gitlab-ci`;
+      }
+    ],
+    [
+      'additional GitHub Actions provider',
+      true,
+      (environment: NodeJS.ProcessEnv) => {
+        environment.CIRCLECI = 'true';
+      }
+    ],
+    [
+      'non-provider CI=true local projection',
+      false,
+      (environment: NodeJS.ProcessEnv) => {
+        environment.CI = 'true';
+      }
+    ],
+    [
+      'GitHub Actions flag without CI',
+      false,
+      (environment: NodeJS.ProcessEnv) => {
+        environment.GITHUB_ACTIONS = 'true';
+        environment.npm_config_user_agent = `${environment.npm_config_user_agent} ci/github-actions`;
+      }
+    ]
+  ] as Array<[string, boolean, (environment: NodeJS.ProcessEnv) => void]>)(
+    'rejects npm lifecycle CI authority mutation %s',
+    (_label, githubActions, mutate) => {
+      const environment = verifiedNpmLifecycleEnvironment({ githubActions });
+      mutate(environment);
+      expect(() =>
+        resolveCommandProfile('stylelint-v1', ['src/options/**/*.css'], {
           environment
         })
       ).toThrow('NPM_CONFIG_AUTHORITY_INVALID');

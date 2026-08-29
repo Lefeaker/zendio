@@ -1005,6 +1005,104 @@ function isVerifiedNpmLifecycle(environment) {
   }
 }
 
+function readLockedNpmJson(npm, relativePath) {
+  const npmRoot = realpathSync(dirname(npm.packagePath));
+  const path = join(npmRoot, relativePath);
+  const canonical = realpathSync(path);
+  const stats = lstatSync(path);
+  if (
+    !contained(npmRoot, canonical) ||
+    !stats.isFile() ||
+    stats.isSymbolicLink() ||
+    stats.nlink !== 1 ||
+    stats.uid !== process.getuid()
+  )
+    invalid('NPM_CONFIG_AUTHORITY_INVALID');
+  const bytes = readFileSync(path);
+  if (bytes.length > 1024 * 1024) invalid('NPM_CONFIG_AUTHORITY_INVALID');
+  try {
+    return JSON.parse(bytes);
+  } catch {
+    invalid('NPM_CONFIG_AUTHORITY_INVALID');
+  }
+}
+
+function matchesLockedCiInfoEnvironment(descriptor, environment) {
+  if (typeof descriptor === 'string') return Boolean(environment[descriptor]);
+  if (!descriptor || typeof descriptor !== 'object' || Array.isArray(descriptor))
+    invalid('NPM_CONFIG_AUTHORITY_INVALID');
+  if (Object.hasOwn(descriptor, 'env')) {
+    if (typeof descriptor.env !== 'string' || typeof descriptor.includes !== 'string')
+      invalid('NPM_CONFIG_AUTHORITY_INVALID');
+    const value = environment[descriptor.env];
+    return typeof value === 'string' && value.length > 0 && value.includes(descriptor.includes);
+  }
+  if (Object.hasOwn(descriptor, 'any')) {
+    if (!Array.isArray(descriptor.any) || descriptor.any.some((key) => typeof key !== 'string'))
+      invalid('NPM_CONFIG_AUTHORITY_INVALID');
+    return descriptor.any.some((key) => Boolean(environment[key]));
+  }
+  return Object.entries(descriptor).every(
+    ([key, value]) => typeof value === 'string' && environment[key] === value
+  );
+}
+
+function lockedNpmCiProviders(npm, environment) {
+  const configPackage = readLockedNpmJson(npm, 'node_modules/@npmcli/config/package.json');
+  const ciInfoPackage = readLockedNpmJson(npm, 'node_modules/ci-info/package.json');
+  const vendors = readLockedNpmJson(npm, 'node_modules/ci-info/vendors.json');
+  if (
+    configPackage?.name !== '@npmcli/config' ||
+    configPackage.version !== '8.3.4' ||
+    ciInfoPackage?.name !== 'ci-info' ||
+    ciInfoPackage.version !== '4.0.0' ||
+    !Array.isArray(vendors)
+  )
+    invalid('NPM_CONFIG_AUTHORITY_INVALID');
+  const providers = [];
+  for (const vendor of vendors) {
+    if (
+      !vendor ||
+      typeof vendor !== 'object' ||
+      Array.isArray(vendor) ||
+      typeof vendor.name !== 'string' ||
+      vendor.env === undefined
+    )
+      invalid('NPM_CONFIG_AUTHORITY_INVALID');
+    const descriptors = Array.isArray(vendor.env) ? vendor.env : [vendor.env];
+    if (descriptors.every((descriptor) => matchesLockedCiInfoEnvironment(descriptor, environment)))
+      providers.push(vendor.name.toLowerCase().split(' ').join('-'));
+  }
+  return providers;
+}
+
+function verifiedNpmLifecycleUserAgent(npm, environment) {
+  for (const key of Object.keys(environment)) {
+    const lower = key.toLowerCase();
+    if (lower === 'ci' && key !== 'CI') invalid('NPM_CONFIG_AUTHORITY_INVALID');
+    if (lower === 'github_actions' && key !== 'GITHUB_ACTIONS')
+      invalid('NPM_CONFIG_AUTHORITY_INVALID');
+  }
+  const providers = lockedNpmCiProviders(npm, environment);
+  const prefix = `npm/${npm.version} node/${npm.policy.nodeVersion} ${process.platform} ${process.arch} workspaces/false`;
+  if (providers.length === 0) {
+    if (
+      environment.GITHUB_ACTIONS !== undefined ||
+      (environment.CI !== undefined && environment.CI !== '1')
+    )
+      invalid('NPM_CONFIG_AUTHORITY_INVALID');
+    return prefix;
+  }
+  if (
+    providers.length !== 1 ||
+    providers[0] !== 'github-actions' ||
+    environment.CI !== 'true' ||
+    environment.GITHUB_ACTIONS !== 'true'
+  )
+    invalid('NPM_CONFIG_AUTHORITY_INVALID');
+  return `${prefix} ci/github-actions`;
+}
+
 function normalizeVerifiedNpmLifecycleConfig(environment) {
   if (
     environment.npm_command !== 'run-script' ||
@@ -1034,7 +1132,7 @@ function normalizeVerifiedNpmLifecycleConfig(environment) {
     npm_config_noproxy: '',
     npm_config_npm_version: npm.version,
     npm_config_prefix: npm.runtimePrefix,
-    npm_config_user_agent: `npm/${npm.version} node/${npm.policy.nodeVersion} ${process.platform} ${process.arch} workspaces/false`
+    npm_config_user_agent: verifiedNpmLifecycleUserAgent(npm, environment)
   };
   const normalized = { ...environment };
   for (const [key, value] of Object.entries(projection)) {
