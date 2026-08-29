@@ -1,6 +1,6 @@
 # 工程文档入口
 
-最后更新：2026-08-28
+最后更新：2026-08-29
 
 ## 当前真值入口
 
@@ -34,6 +34,10 @@
 - 文档治理由 `audit:active-documents:{report,check}` 动态验证当前 Git tree；当前
   `143 tracked = 143 classified = 93 active + 49 historical + 1 fixture`，零 findings，
   但后续验收仍以每次 fresh report/check 为准
+- 文档治理 supersession：历史 F01 的 `181-document` / template-era registry 只保留为
+  dated historical contract；最终 accepted normalized model 是 fresh tool-derived
+  `143 tracked = 143 classified = 93 active + 49 historical + 1 fixture`。历史记录不重写，
+  但不再与 normalized model 共同声明当前真值
 - UI production ownership manifest 已是 `final`：共 `56` rows，其中
   `47 production-runtime + 9 production-compile`，零 deferred rows；完整 exact-path 真值只来自
   `tools/ui-production-ownership.json` 与对应 report/check
