@@ -1548,6 +1548,7 @@ function releaseProfileEnvironment(profileId, environment, additions = {}) {
     secretEnvironment[key] = value;
   }
   const gaEnvironment = {};
+  const closedSourceEnvironment = { ...environment };
   if (
     [
       'release-runtime-check-v1',
@@ -1562,9 +1563,10 @@ function releaseProfileEnvironment(profileId, environment, additions = {}) {
       'ZENDIO_GA_PROXY_ENDPOINT'
     ]) {
       if (typeof environment[key] === 'string') gaEnvironment[key] = environment[key];
+      delete closedSourceEnvironment[key];
     }
   }
-  return buildClosedCommandEnvironment(environment, {
+  return buildClosedCommandEnvironment(closedSourceEnvironment, {
     ...gaEnvironment,
     ...secretEnvironment,
     ...additions
@@ -2416,7 +2418,7 @@ export function resolveCommandProfile(
     profileId,
     version: COMMAND_BOUNDARY_VERSION,
     cwd: realpathSync(REPOSITORY_ROOT),
-    env: buildClosedCommandEnvironment(environment, environmentAdditions),
+    env: command.env ?? buildClosedCommandEnvironment(environment, environmentAdditions),
     shell: false,
     tty: false,
     detached: process.platform !== 'win32',
