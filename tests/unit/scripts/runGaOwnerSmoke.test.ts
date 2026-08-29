@@ -34,6 +34,45 @@ type SmokeRunResult = {
   stderr: string;
 };
 
+type GaOwnerSmokeRequestBody = {
+  measurement_id?: string;
+  events?: Array<{
+    name?: string;
+    params?: { source?: string };
+  }>;
+  validation_behavior?: string;
+};
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
+}
+
+function isGaOwnerSmokeRequestBody(value: unknown): value is GaOwnerSmokeRequestBody {
+  if (!isRecord(value)) return false;
+  if (value.measurement_id !== undefined && typeof value.measurement_id !== 'string') return false;
+  if (value.validation_behavior !== undefined && typeof value.validation_behavior !== 'string')
+    return false;
+  if (value.events === undefined) return true;
+  if (!Array.isArray(value.events)) return false;
+  return value.events.every((event) => {
+    if (!isRecord(event)) return false;
+    if (event.name !== undefined && typeof event.name !== 'string') return false;
+    if (event.params === undefined) return true;
+    return (
+      isRecord(event.params) &&
+      (event.params.source === undefined || typeof event.params.source === 'string')
+    );
+  });
+}
+
+function parseGaOwnerSmokeRequestBody(bodyText: string): GaOwnerSmokeRequestBody {
+  const value: unknown = JSON.parse(bodyText);
+  if (!isGaOwnerSmokeRequestBody(value)) {
+    throw new Error('Proxy fixture received an invalid GA owner-smoke request body');
+  }
+  return value;
+}
+
 async function runOwnerSmoke(
   args: string[],
   env: Record<string, string | undefined> = {}
@@ -49,39 +88,50 @@ async function runOwnerSmoke(
     stdio: ['ignore', 'pipe', 'pipe']
   });
 
-  const stdoutChunks: Buffer[] = [];
-  const stderrChunks: Buffer[] = [];
-  child.stdout.on('data', (chunk) => stdoutChunks.push(Buffer.from(chunk)));
-  child.stderr.on('data', (chunk) => stderrChunks.push(Buffer.from(chunk)));
-  const [status] = await once(child, 'close');
+  let stdout = '';
+  let stderr = '';
+  child.stdout.setEncoding('utf8');
+  child.stderr.setEncoding('utf8');
+  child.stdout.on('data', (chunk: string) => {
+    stdout += chunk;
+  });
+  child.stderr.on('data', (chunk: string) => {
+    stderr += chunk;
+  });
+  const status = await new Promise<number | null>((resolve, reject) => {
+    child.once('error', reject);
+    child.once('close', (code) => resolve(code));
+  });
 
   return {
-    status: typeof status === 'number' ? status : null,
-    stdout: Buffer.concat(stdoutChunks).toString('utf8'),
-    stderr: Buffer.concat(stderrChunks).toString('utf8')
+    status,
+    stdout,
+    stderr
   };
 }
 
 async function startProxyFixture(responseSpec: FixtureResponseSpec = {}): Promise<ProxyFixture> {
   const requests: FixtureRequest[] = [];
-  const server = createServer(async (request: IncomingMessage, response: ServerResponse) => {
-    const bodyChunks: Buffer[] = [];
-    for await (const chunk of request) {
-      bodyChunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
-    }
-
-    requests.push({
-      method: request.method ?? 'GET',
-      url: request.url ?? '/',
-      headers: request.headers,
-      bodyText: Buffer.concat(bodyChunks).toString('utf8')
+  const server = createServer((request: IncomingMessage, response: ServerResponse) => {
+    const bodyChunks: string[] = [];
+    request.setEncoding('utf8');
+    request.on('data', (chunk: string) => {
+      bodyChunks.push(chunk);
     });
+    request.once('end', () => {
+      requests.push({
+        method: request.method ?? 'GET',
+        url: request.url ?? '/',
+        headers: request.headers,
+        bodyText: bodyChunks.join('')
+      });
 
-    response.writeHead(responseSpec.status ?? 200, {
-      'content-type': 'application/json',
-      ...(responseSpec.headers ?? {})
+      response.writeHead(responseSpec.status ?? 200, {
+        'content-type': 'application/json',
+        ...(responseSpec.headers ?? {})
+      });
+      response.end(responseSpec.body ?? '{"ok":true}');
     });
-    response.end(responseSpec.body ?? '{"ok":true}');
   });
 
   server.listen(0, '127.0.0.1');
@@ -187,7 +237,7 @@ describe('run-ga-owner-smoke script', () => {
     expect(request?.url).toBe('/ga-owner-smoke');
     expect(fixture.url).not.toContain('google-analytics.com');
 
-    const requestBody = JSON.parse(request?.bodyText ?? '{}');
+    const requestBody = parseGaOwnerSmokeRequestBody(request?.bodyText ?? '{}');
     expect(requestBody.measurement_id).toBe('G-TEST1234');
     expect(requestBody.events?.[0]?.name).toBe('runtime_harness_open');
     expect(requestBody.events?.[0]?.params?.source).toBe('runtime-observability-harness');
@@ -226,7 +276,7 @@ describe('run-ga-owner-smoke script', () => {
     expect(fixture.requests).toHaveLength(1);
 
     const [request] = fixture.requests;
-    const requestBody = JSON.parse(request?.bodyText ?? '{}');
+    const requestBody = parseGaOwnerSmokeRequestBody(request?.bodyText ?? '{}');
     expect(requestBody.validation_behavior).toBe('ENFORCE_RECOMMENDATIONS');
 
     const output = `${result.stdout}${result.stderr}`;

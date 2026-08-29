@@ -37,7 +37,6 @@ import {
   resolveProductionStitchTaskInvalidation,
   resolveProductionStitchTaskOwner
 } from './productionStitchShellContext';
-
 type RuntimeMutableState = Omit<
   ProductionStitchShellMutableState,
   'getConnectionNotice' | 'getDomainMappingRows' | 'resetOptions'
@@ -232,7 +231,7 @@ export function createProductionStitchShellActionRuntime(
   }
   const actionRuntime = createActionRuntime<PreviewStoreState, PreviewContent>({
     getContext: options.createSchemaContext,
-    mutate: options.mutate,
+    mutate: (mutator, mutationOptions) => options.mutate(mutator, mutationOptions),
     handlers: createProductionStitchActions({
       getAppData: options.getAppData,
       getCurrentLanguage: options.getCurrentLanguage,
@@ -260,28 +259,29 @@ export function createProductionStitchShellActionRuntime(
         applyTemplateStateToDraft(options.getDraft(), options.getState()),
       ...(changeLanguage ? { changeLanguage } : {}),
       chooseVaultLocalFolder: storageController.chooseVaultLocalFolder,
-      clearAnalyticsPrivacyData: persistence.clearAnalyticsPrivacyData,
-      clearVaultLocalFolder: storageController.clearVaultLocalFolder,
-      collectDraftWithWidgets: widgetHost.collectDraftWithWidgets,
-      copyConfigurationToClipboard: persistence.copyConfigurationToClipboard,
-      currentDomainEntries: options.currentDomainEntries,
+      clearAnalyticsPrivacyData: (...args) => persistence.clearAnalyticsPrivacyData(...args),
+      clearVaultLocalFolder: (...args) => storageController.clearVaultLocalFolder(...args),
+      collectDraftWithWidgets: (...args) => widgetHost.collectDraftWithWidgets(...args),
+      copyConfigurationToClipboard: (...args) => persistence.copyConfigurationToClipboard(...args),
+      currentDomainEntries: () => options.currentDomainEntries(),
       eventButton,
-      ensureVaultRouter: storageController.ensureVaultRouter,
-      importConfigurationWithStatus: persistence.importConfigurationWithStatus,
-      markWidgetDirty: widgetHost.markDirty,
+      ensureVaultRouter: (...args) => storageController.ensureVaultRouter(...args),
+      importConfigurationWithStatus: (...args) =>
+        persistence.importConfigurationWithStatus(...args),
+      markWidgetDirty: (...args) => widgetHost.markDirty(...args),
       openResource: (resourceId) => {
         options.openResource(resourceId);
         telemetry.trackResourceOpen(resourceId);
       },
-      persistPrivacyPreference: persistence.persistPrivacyPreference,
+      persistPrivacyPreference: (...args) => persistence.persistPrivacyPreference(...args),
       persistThemePreference: async (theme) => {
         options.getDraft().interfaceTheme = theme;
         await optionsRepository.patch({ path: ['interfaceTheme'], value: theme });
       },
       runPersistenceTask,
       refreshAppData: refresh,
-      render: options.render,
-      renderActiveResourceModal: options.renderActiveResourceModal,
+      render: (scopes) => options.render(scopes),
+      renderActiveResourceModal: () => options.renderActiveResourceModal(),
       repairConfiguration: async () => {
         try {
           await persistence.repairConfiguration();
@@ -302,18 +302,19 @@ export function createProductionStitchShellActionRuntime(
           throw error;
         }
       },
-      resetUsageData: persistence.resetUsageData,
-      runVaultListConnectionTest: storageController.runVaultListConnectionTest,
-      scheduleDraftSave: options.scheduleDraftSave,
+      resetUsageData: (...args) => persistence.resetUsageData(...args),
+      runVaultListConnectionTest: (...args) =>
+        storageController.runVaultListConnectionTest(...args),
+      scheduleDraftSave: () => options.scheduleDraftSave(),
       scrollToPanel: (panelId) => {
         options.scrollToPanel(panelId);
         telemetry.trackSectionView(panelId);
       },
-      syncDomainEntries: options.syncDomainEntries,
-      syncHighlightThemeControls: options.syncHighlightThemeControls,
-      syncModifierControls: options.syncModifierControls,
-      syncPreviewThemeControls: options.syncPreviewThemeControls,
-      syncRoutingRulesToDraft: storageController.syncRoutingRulesToDraft,
+      syncDomainEntries: (entries) => options.syncDomainEntries(entries),
+      syncHighlightThemeControls: () => options.syncHighlightThemeControls(),
+      syncModifierControls: () => options.syncModifierControls(),
+      syncPreviewThemeControls: () => options.syncPreviewThemeControls(),
+      syncRoutingRulesToDraft: (...args) => storageController.syncRoutingRulesToDraft(...args),
       trackExperimentalFeatureToggle: telemetry.trackExperimentalFeatureToggle,
       trackLanguageChanged: telemetry.trackLanguageChanged,
       trackThemeChanged: telemetry.trackThemeChanged,
@@ -327,7 +328,7 @@ export function createProductionStitchShellActionRuntime(
         ),
       updateDraftPath: (path, value) =>
         updateDraftPath(options.getDraft(), options.getState(), path, value),
-      updateVaultField: storageController.updateVaultField
+      updateVaultField: (...args) => storageController.updateVaultField(...args)
     }),
     onUnhandledAction: () => {
       controller.scheduleAutoSave(() => options.getDraft());

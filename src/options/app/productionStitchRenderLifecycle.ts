@@ -4,11 +4,10 @@ import {
   buildScrollSection,
   buildSidebar
 } from '@options/stitch/render/shellBuilders';
-import { renderPreviewView } from '@options/stitch/render/renderStitchView';
+import { renderPreviewView, type RendererContext } from '@options/stitch/render/renderStitchView';
 import { clear, el } from '@ui/stitch-runtime';
 import type { SectionInvalidationRequest } from '@ui/stitch-runtime/render/sectionInvalidation';
 import { previewUi } from '@options/stitch/ui/components';
-import type { PreviewStoreState } from '@options/stitch/types';
 import { RUNTIME_SURFACE_RESOURCE_IDS } from './productionStitchStateMapper';
 import { setScrollTopImmediately } from './productionStitchScrollGuard';
 import { createProductionStitchRenderControls } from './productionStitchRenderControls';
@@ -37,7 +36,10 @@ export function createProductionStitchRenderLifecycle(
     options.getFooterView ?? testAssets?.getFooterView ?? (() => null);
   const getSettingsView: NonNullable<ProductionStitchRenderLifecycleOptions['getSettingsView']> =
     options.getSettingsView ?? testAssets?.getSettingsView ?? (() => null);
-  const { getState, mountRoot, setState } = options;
+  const { mountRoot } = options;
+  const getState = () => options.getState();
+  const setState: ProductionStitchRenderLifecycleOptions['setState'] = (state) =>
+    options.setState(state);
   const controls = createProductionStitchRenderControls({
     mountRoot,
     getState
@@ -71,14 +73,14 @@ export function createProductionStitchRenderLifecycle(
     isActive: () => !disposed,
     mountRoot
   });
-  function createRenderContext() {
+  function createRenderContext(): RendererContext {
     return {
       ...options.createSchemaContext(),
       el,
       ui: previewUi,
-      dispatch: options.dispatch,
-      resolveAssetUrl: options.resolveAssetUrl,
-      mountWidget: options.widgetHost.mountWidget
+      dispatch: (actionId, args, value, event) => options.dispatch(actionId, args, value, event),
+      resolveAssetUrl: (path) => options.resolveAssetUrl(path),
+      mountWidget: (widgetType, host) => options.widgetHost.mountWidget(widgetType, host)
     };
   }
 

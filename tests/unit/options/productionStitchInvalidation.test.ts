@@ -29,20 +29,24 @@ describe('section invalidation owner', () => {
   it('coalesces reentrant same-scope work without dropping cross-key scopes', () => {
     const applied: SectionInvalidationScope[] = [];
     let reentered = false;
-    let owner: ReturnType<typeof createSectionInvalidationOwner>;
-    owner = createSectionInvalidationOwner({
-      handlers: {
-        storage: () => {
-          applied.push('storage');
-          if (!reentered) {
-            reentered = true;
-            owner.invalidate(['storage', 'maintenance']);
-          }
-        },
-        maintenance: () => applied.push('maintenance'),
-        output: () => applied.push('output')
+    function invalidateReentrantScopes(): void {
+      owner.invalidate(['storage', 'maintenance']);
+    }
+    const owner: ReturnType<typeof createSectionInvalidationOwner> = createSectionInvalidationOwner(
+      {
+        handlers: {
+          storage: () => {
+            applied.push('storage');
+            if (!reentered) {
+              reentered = true;
+              invalidateReentrantScopes();
+            }
+          },
+          maintenance: () => applied.push('maintenance'),
+          output: () => applied.push('output')
+        }
       }
-    });
+    );
 
     owner.invalidate(['storage', 'output']);
 

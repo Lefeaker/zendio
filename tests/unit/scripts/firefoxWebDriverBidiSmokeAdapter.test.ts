@@ -142,6 +142,35 @@ type AddonIdentity = {
   userDisabled: boolean;
 };
 
+type BiDiCommand = {
+  id: number;
+  method: string;
+};
+
+type WebDriverContextRequest = {
+  context: string;
+};
+
+function isBiDiCommand(value: unknown): value is BiDiCommand {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    'id' in value &&
+    typeof value.id === 'number' &&
+    'method' in value &&
+    typeof value.method === 'string'
+  );
+}
+
+function isWebDriverContextRequest(value: unknown): value is WebDriverContextRequest {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    'context' in value &&
+    typeof value.context === 'string'
+  );
+}
+
 function createFakeWebSocket(commandResponses: CommandResponse[], commands: string[]) {
   return class FakeWebSocket extends EventEmitter {
     readyState = 0;
@@ -155,7 +184,11 @@ function createFakeWebSocket(commandResponses: CommandResponse[], commands: stri
     }
 
     send(serialized: string, callback: (error?: Error) => void) {
-      const command = JSON.parse(serialized);
+      const command: unknown = JSON.parse(serialized);
+      if (!isBiDiCommand(command)) {
+        callback(new Error('invalid fake BiDi command'));
+        return;
+      }
       commands.push(command.method);
       const response = commandResponses.shift();
       if (!response) {
@@ -238,7 +271,10 @@ function createHarness(
       );
     }
     if (method === 'POST' && target.pathname.endsWith('/moz/context')) {
-      const body = JSON.parse(String(init?.body));
+      const body: unknown = JSON.parse(String(init?.body));
+      if (!isWebDriverContextRequest(body)) {
+        throw new Error('invalid fake WebDriver context request');
+      }
       webdriverEvents.push(`context:${body.context}`);
       return Promise.resolve(new Response(JSON.stringify({ value: null }), { status: 200 }));
     }

@@ -7,7 +7,7 @@ export interface KeyedSessionListMetrics {
 
 export interface KeyedSessionListOptions<T> {
   container: HTMLElement;
-  keyOf(item: T): string;
+  keyOf(this: void, item: T): string;
   create(item: T): HTMLElement;
   update(element: HTMLElement, item: T): void;
   before?: ChildNode | null;
