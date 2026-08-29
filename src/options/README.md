@@ -66,7 +66,7 @@ npm run verify:stitch-secondary # Stitch Secondary 主链回归
 
 DOM-heavy 场景如需直接拿到按钮元素，统一使用 `src/ui/primitives/button/index.ts` 导出的 `createOptionsButtonElement()`。
 
-#### 传统组件类 (逐步迁移中)
+#### 传统组件类（retained compatibility vocabulary）
 
 | 名称                                                                 | 用途                           | 备注                                                              |
 | -------------------------------------------------------------------- | ------------------------------ | ----------------------------------------------------------------- |
@@ -145,8 +145,8 @@ src/options/
   migration writeback，并做 quota、readback 与 external-drift 验证；messaging/storage
   failure fail closed。`optionsStore` 只负责 normalize、缓存、迁移提示与 Options UI 订阅。
 - 已清退项：legacy infrastructure compatibility adapter 与 infrastructure barrel export 已删除；不要恢复 `ChromeSyncOptionsRepository`、`LegacyOptionsRepositoryAdapter`、`adaptOptionsRepository` 或 `createCompatibilityOptionsRepository`。
-- 当前 residual consumers：`src/shared/interfaces/optionsRepository.ts` 仍保留 historical `load/save/snapshot/subscribe/reset` 类型合同，供尚未迁移的内容侧 helper 和测试夹具使用；它不是 Options UI 主状态链，也不再有 infrastructure adapter owner。
-- 退役路径：后续如需继续清理，应先把内容侧 `OptionsRepository` 类型消费者迁移到 `IOptionsRepository` 或更小的读取合同，再删除 shared legacy interface。
+- 当前 canonical repository contract owner 是 `src/shared/repositories/IOptionsRepository.ts`；Options 主链通过其 typed `get/patch/replace/onChange` 合同工作，窄消费者只应依赖所需的 `Pick<IOptionsRepository, ...>` 能力。
+- 过去的 `load/save/snapshot/subscribe/reset` legacy interface 已删除并保持退役；它不是 residual consumer contract 或待删除项，不得恢复。
 - 清理方向：Phase 3 接受前，不启动新的 Options 结构拆分；先收口这条主链定义。
 
 3. **旧 Options compatibility 边界**
