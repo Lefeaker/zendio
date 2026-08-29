@@ -40,6 +40,40 @@ vi.mock('../../../src/shared/di', () => ({
   resolveRepository: resolveRepositoryMock
 }));
 
+function createDependencies(): BackgroundStartupDependencies {
+  return {
+    action: { onClicked: vi.fn() },
+    contextMenus: {
+      create: vi.fn(),
+      update: vi.fn(),
+      removeAll: vi.fn(),
+      onClicked: vi.fn(),
+      onShown: vi.fn()
+    },
+    messaging: { addListener: vi.fn(), send: vi.fn(), sendToTab: vi.fn() },
+    runtime: {
+      onInstalled: vi.fn(),
+      onStartup: vi.fn(),
+      getURL: vi.fn(),
+      getBrowserTarget: vi.fn<() => 'chrome'>(() => 'chrome'),
+      openOptionsPage: vi.fn()
+    },
+    scripting: { executeScript: vi.fn() },
+    storage: asType<BackgroundStartupDependencies['storage']>({ sync: {}, local: {} }),
+    tabs: {
+      query: vi.fn(),
+      get: vi.fn(),
+      create: vi.fn(),
+      sendMessage: vi.fn(),
+      onActivated: vi.fn(),
+      onUpdated: vi.fn(),
+      onRemoved: vi.fn(),
+      remove: vi.fn(),
+      getCurrent: vi.fn()
+    }
+  };
+}
+
 describe('backgroundStartup', () => {
   beforeEach(() => {
     vi.resetModules();
@@ -48,37 +82,7 @@ describe('backgroundStartup', () => {
 
   it('bootstraps background runtime and registers listeners', async () => {
     const { startBackgroundRuntime } = await import('../../../src/background/backgroundStartup');
-    const deps: BackgroundStartupDependencies = {
-      action: { onClicked: vi.fn() },
-      contextMenus: {
-        create: vi.fn(),
-        update: vi.fn(),
-        removeAll: vi.fn(),
-        onClicked: vi.fn(),
-        onShown: vi.fn()
-      },
-      messaging: { addListener: vi.fn(), send: vi.fn(), sendToTab: vi.fn() },
-      runtime: {
-        onInstalled: vi.fn(),
-        onStartup: vi.fn(),
-        getURL: vi.fn(),
-        getBrowserTarget: vi.fn<() => 'chrome'>(() => 'chrome'),
-        openOptionsPage: vi.fn()
-      },
-      scripting: { executeScript: vi.fn() },
-      storage: asType<BackgroundStartupDependencies['storage']>({ sync: {}, local: {} }),
-      tabs: {
-        query: vi.fn(),
-        get: vi.fn(),
-        create: vi.fn(),
-        sendMessage: vi.fn(),
-        onActivated: vi.fn(),
-        onUpdated: vi.fn(),
-        onRemoved: vi.fn(),
-        remove: vi.fn(),
-        getCurrent: vi.fn()
-      }
-    };
+    const deps = createDependencies();
 
     startBackgroundRuntime(deps);
 
@@ -100,5 +104,30 @@ describe('backgroundStartup', () => {
     expect(typeof runtimeArgs?.[4].resolveSessionDraftOwner).toBe('function');
     expect(registerRuntimeMessageListenerMock).toHaveBeenCalledTimes(1);
     expect(ensureUsageStatsInitializedMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('uses the trusted sender snapshot when the tab closes before owner resolution', async () => {
+    const { startBackgroundRuntime } = await import('../../../src/background/backgroundStartup');
+    const deps = createDependencies();
+    startBackgroundRuntime(deps);
+
+    const runtimeArgs = createRuntimeMessageListenerDependenciesMock.mock.calls[0];
+    const resolveSessionDraftOwner = runtimeArgs?.[4].resolveSessionDraftOwner;
+    if (!resolveSessionDraftOwner) throw new Error('expected session-draft owner resolver');
+    const getTab = vi.mocked(deps.tabs.get);
+    getTab.mockRejectedValue(new Error('tab already closed'));
+
+    await expect(
+      resolveSessionDraftOwner({ tabId: 17, windowId: 23, frameId: 0 })
+    ).resolves.toEqual({ tabId: 17, windowId: 23, frameId: 0 });
+    expect(getTab).not.toHaveBeenCalled();
+
+    getTab.mockResolvedValue(asType<chrome.tabs.Tab>({ id: 17, windowId: 29 }));
+    await expect(resolveSessionDraftOwner({ tabId: 17, frameId: 0 })).resolves.toEqual({
+      tabId: 17,
+      windowId: 29,
+      frameId: 0
+    });
+    expect(getTab).toHaveBeenCalledWith(17);
   });
 });

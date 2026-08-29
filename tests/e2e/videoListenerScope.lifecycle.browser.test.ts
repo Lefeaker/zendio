@@ -238,7 +238,7 @@ export function registerVideoListenerScopeLifecycleTests(): void {
           legacyStorageCacheEntryCount: 0
         });
 
-      await page.goto('about:blank', { waitUntil: 'domcontentloaded' });
+      await page.close();
       await expect
         .poll(() => readStoredVideoDraftHandoff(extensionPage, url))
         .toEqual({
@@ -249,7 +249,7 @@ export function registerVideoListenerScopeLifecycleTests(): void {
       await removeDraftScreenshotRefs(extensionPage, url);
       await clearVideoScreenshotCacheStorage(extensionPage);
 
-      const restoredPage = page;
+      const restoredPage = await context.newPage();
       await restoredPage.goto(url, { waitUntil: 'domcontentloaded' });
       const restoredTabId = await findCurrentTabId(extensionPage, restoredPage.url());
       await installVideoScreenshotProbe(extensionPage, restoredTabId);
@@ -377,7 +377,7 @@ export function registerVideoListenerScopeLifecycleTests(): void {
           legacyStorageCacheEntryCount: 0
         });
 
-      await page.goto('about:blank', { waitUntil: 'domcontentloaded' });
+      await page.close();
       await expect
         .poll(() => readStoredVideoDraftHandoff(extensionPage, url))
         .toEqual({
@@ -387,7 +387,7 @@ export function registerVideoListenerScopeLifecycleTests(): void {
         });
       await clearVideoScreenshotCacheStorage(extensionPage);
 
-      const restoredPage = page;
+      const restoredPage = await context.newPage();
       await restoredPage.goto(url, { waitUntil: 'domcontentloaded' });
       const restoredTabId = await findCurrentTabId(extensionPage, restoredPage.url());
       await installVideoScreenshotProbe(extensionPage, restoredTabId);
