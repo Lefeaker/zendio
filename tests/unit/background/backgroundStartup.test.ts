@@ -112,22 +112,24 @@ describe('backgroundStartup', () => {
     startBackgroundRuntime(deps);
 
     const runtimeArgs = createRuntimeMessageListenerDependenciesMock.mock.calls[0];
-    const resolveSessionDraftOwner = runtimeArgs?.[4].resolveSessionDraftOwner;
-    if (!resolveSessionDraftOwner) throw new Error('expected session-draft owner resolver');
-    const getTab = vi.mocked(deps.tabs.get);
-    getTab.mockRejectedValue(new Error('tab already closed'));
+    const runtimeDependencies = runtimeArgs?.[4];
+    if (!runtimeDependencies) throw new Error('expected runtime message dependencies');
+    const tabs = vi.mocked(deps.tabs);
+    tabs.get.mockRejectedValue(new Error('tab already closed'));
 
     await expect(
-      resolveSessionDraftOwner({ tabId: 17, windowId: 23, frameId: 0 })
+      runtimeDependencies.resolveSessionDraftOwner({ tabId: 17, windowId: 23, frameId: 0 })
     ).resolves.toEqual({ tabId: 17, windowId: 23, frameId: 0 });
-    expect(getTab).not.toHaveBeenCalled();
+    expect(tabs.get.mock.calls).toHaveLength(0);
 
-    getTab.mockResolvedValue(asType<chrome.tabs.Tab>({ id: 17, windowId: 29 }));
-    await expect(resolveSessionDraftOwner({ tabId: 17, frameId: 0 })).resolves.toEqual({
+    tabs.get.mockResolvedValue(asType<chrome.tabs.Tab>({ id: 17, windowId: 29 }));
+    await expect(
+      runtimeDependencies.resolveSessionDraftOwner({ tabId: 17, frameId: 0 })
+    ).resolves.toEqual({
       tabId: 17,
       windowId: 29,
       frameId: 0
     });
-    expect(getTab).toHaveBeenCalledWith(17);
+    expect(tabs.get.mock.calls).toEqual([[17]]);
   });
 });

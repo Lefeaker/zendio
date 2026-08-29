@@ -43,12 +43,19 @@ import { mergeOptions } from '@shared/config/optionsMerger';
 import type { CompleteOptions } from './productionStitchShell.helpers';
 import type { ConnectionTestResult } from '@shared/types/connection';
 import type { UsageStats } from '@shared/types/usage';
+import type { Message } from '@shared/repositories/IMessagingRepository';
+import type { AnalyticsRuntimeEventPayload } from '@shared/types/analytics';
 import { getRestDefaults } from '../../utils/restDefaults';
 
 const REST_DEFAULTS = getRestDefaults();
 const LOCAL_HTTPS_URL = `https://localhost:${REST_DEFAULTS.httpsPort}`;
 const LOCAL_HTTP_URL = `http://localhost:${REST_DEFAULTS.httpPort}`;
 const LOCAL_HTTP_CONFLICT_URL = `http://localhost:${REST_DEFAULTS.httpsPort}`;
+
+type CopiedConfiguration = {
+  rest?: { apiKey?: string };
+  customKey?: object;
+};
 
 function deferred<T>() {
   let resolve = (_value: T): void => undefined;
@@ -115,11 +122,8 @@ describe('mountProductionStitchShell actions', () => {
     findButton('Copy Configuration').click();
     await Promise.resolve();
     expect(writeText).toHaveBeenCalledWith(expect.stringContaining('"aiChat"'));
-    const writtenConfig = JSON.parse(String(writeText.mock.calls[0]?.[0])) as Record<
-      string,
-      unknown
-    >;
-    expect((writtenConfig.rest as { apiKey?: string }).apiKey).toBe('REST_SECRET_TOKEN');
+    const writtenConfig = JSON.parse(String(writeText.mock.calls[0]?.[0])) as CopiedConfiguration;
+    expect(writtenConfig.rest?.apiKey).toBe('REST_SECRET_TOKEN');
     expect(writtenConfig.customKey).toBeUndefined();
 
     findButton('Diagnose Configuration').click();
@@ -150,12 +154,15 @@ describe('mountProductionStitchShell actions', () => {
     await flushPromises();
 
     expect(document.getElementById('optionsShellRoot')?.innerHTML).toBe('');
-    expect(messaging.send).not.toHaveBeenCalledWith(
-      expect.objectContaining({
-        event: 'options_action_completed',
-        params: expect.objectContaining({ action: 'maintenance_reload' })
-      })
-    );
+    const sendMock = vi.mocked(messaging.send as <Result>(message: Message) => Promise<Result>);
+    expect(
+      sendMock.mock.calls.some(
+        ([message]) =>
+          message.type === 'ANALYTICS_EVENT' &&
+          message.event === 'options_action_completed' &&
+          message.params?.action === 'maintenance_reload'
+      )
+    ).toBe(false);
   });
 
   it('does not mutate detached copy/import controls or callbacks after cleanup', async () => {
@@ -262,7 +269,7 @@ describe('mountProductionStitchShell actions', () => {
     const second = deferred<ConnectionTestResult>();
     const late = deferred<ConnectionTestResult>();
     const runConnection = vi
-      .fn()
+      .fn<() => Promise<ConnectionTestResult>>()
       .mockImplementationOnce(() => first.promise)
       .mockImplementationOnce(() => second.promise)
       .mockImplementationOnce(() => late.promise);
@@ -454,9 +461,10 @@ describe('mountProductionStitchShell actions', () => {
     expect(trackedPayloads).not.toContain('Articles/secret.md');
     expect(trackedPayloads).not.toContain('SECRET_TOKEN');
 
-    const emittedEvents = (trackUsageEventMock.mock.calls as unknown as Array<[unknown]>).map(
-      ([message]) => (message as { event?: string } | undefined)?.event
+    const trackedEventMock = vi.mocked(
+      trackUsageEventMock as (message: AnalyticsRuntimeEventPayload) => Promise<void>
     );
+    const emittedEvents = trackedEventMock.mock.calls.map(([message]) => message.event);
     expect(emittedEvents).not.toEqual(
       expect.arrayContaining([
         'theme_changed',
@@ -522,10 +530,10 @@ describe('mountProductionStitchShell actions', () => {
     });
     let activeLanguage: Language = 'en';
     let durableLanguage: Language = 'en';
-    const changeLanguage = vi.fn(async (language: Language) => {
+    const changeLanguage = vi.fn((language: Language) => {
       activeLanguage = language;
       durableLanguage = language;
-      return { messages: japaneseMessages, language };
+      return Promise.resolve({ messages: japaneseMessages, language });
     });
     const mounted = mountProductionStitchShell({
       controller: asOptionsController(createController()),
@@ -1264,7 +1272,10 @@ describe('mountProductionStitchShell actions', () => {
   });
 
   it('imports configuration before analytics payload application and emits sanitized import telemetry', async () => {
-    const controller = createController();
+    const applyImportedConfig = vi.fn<(options: CompleteOptions) => Promise<void>>(() =>
+      Promise.resolve()
+    );
+    const controller = { ...createController(), applyImportedConfig };
     const messagingRepository = createMessaging();
     Object.defineProperty(navigator, 'clipboard', {
       configurable: true,
@@ -1294,12 +1305,10 @@ describe('mountProductionStitchShell actions', () => {
     findButton('Import and Save').click();
     await flushPromises();
 
-    expect(vi.mocked(controller.applyImportedConfig)).toHaveBeenCalledWith(
-      expect.objectContaining({
-        aiChat: expect.objectContaining({ userName: 'Imported' }) as unknown
-      })
-    );
-    expect(controller.applyImportedConfig.mock.invocationCallOrder[0]).toBeLessThan(
+    const importCall = applyImportedConfig.mock.calls[0];
+    if (!importCall) throw new Error('Expected imported configuration application');
+    expect(importCall[0].aiChat.userName).toBe('Imported');
+    expect(applyImportedConfig.mock.invocationCallOrder[0]).toBeLessThan(
       applyAnalyticsTransferPayloadMock.mock.invocationCallOrder[0]
     );
     expect(applyAnalyticsTransferPayloadMock).toHaveBeenCalledWith({
@@ -1428,7 +1437,7 @@ describe('mountProductionStitchShell actions', () => {
 
   it('repairs configuration using the existing production repair rules', async () => {
     let durableTemplate = 'Clippings/Before.md';
-    const saveSnapshot = vi.fn((snapshot: { draft: CompleteOptions }) => {
+    const saveSnapshot = vi.fn((snapshot: { reason: 'manual'; draft: CompleteOptions }) => {
       durableTemplate = snapshot.draft.templates.article;
       return Promise.resolve();
     });
@@ -1464,12 +1473,11 @@ describe('mountProductionStitchShell actions', () => {
     expect(durableTemplate).toBe('Articles/Before.md');
     expect(repaired.templates.fragment).toBeTruthy();
     expect(repaired.templates.ai).toBeTruthy();
-    expect(vi.mocked(controller.saveSnapshot)).toHaveBeenCalledWith({
-      reason: 'manual',
-      draft: expect.objectContaining({
-        rest: expect.objectContaining({ baseUrl: LOCAL_HTTPS_URL }) as unknown
-      }) as unknown
-    });
+    const repairSaveCall = saveSnapshot.mock.calls[0];
+    if (!repairSaveCall) throw new Error('Expected repaired configuration save');
+    const [repairSnapshot] = repairSaveCall;
+    expect(repairSnapshot.reason).toBe('manual');
+    expect(repairSnapshot.draft.rest.baseUrl).toBe(LOCAL_HTTPS_URL);
     expect(messagingRepository.send).toHaveBeenCalledWith({
       type: 'ANALYTICS_EVENT',
       event: 'options_action_completed',
@@ -1489,7 +1497,7 @@ describe('mountProductionStitchShell actions', () => {
   it('restores repair-owned state when saving the repaired snapshot fails', async () => {
     const pendingSave = deferred<void>();
     let durableTemplate = 'Clippings/Before.md';
-    const saveSnapshot = vi.fn(async (snapshot: { draft: CompleteOptions }) => {
+    const saveSnapshot = vi.fn(async (snapshot: { reason: 'manual'; draft: CompleteOptions }) => {
       await pendingSave.promise;
       durableTemplate = snapshot.draft.templates.article;
     });
@@ -1516,12 +1524,11 @@ describe('mountProductionStitchShell actions', () => {
 
     findButton('Fix Configuration').click();
     expect(mounted.collectDraft().templates.article).toBe('Articles/Before.md');
-    expect(saveSnapshot).toHaveBeenCalledWith({
-      reason: 'manual',
-      draft: expect.objectContaining({
-        templates: expect.objectContaining({ article: 'Articles/Before.md' })
-      })
-    });
+    const saveCall = saveSnapshot.mock.calls[0];
+    if (!saveCall) throw new Error('Expected the repaired snapshot save call');
+    const [savedSnapshot] = saveCall;
+    expect(savedSnapshot.reason).toBe('manual');
+    expect(savedSnapshot.draft.templates.article).toBe('Articles/Before.md');
 
     findButton('Light').click();
     await flushPromises();

@@ -51,7 +51,7 @@ export function createReaderDialogPanelEventHandlers(options: {
       void options.drafts.submit(id, input.value);
     },
     focusHighlight: (id) => options.callbacks.onFocusHighlight(id),
-    focusInput: options.setEditing,
+    focusInput: (id) => options.setEditing(id),
     input: (id, input) => options.drafts.handleInput(input, id),
     keydown: (id, input, event) => options.drafts.handleKeydown(event, input, id)
   };

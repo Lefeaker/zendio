@@ -195,11 +195,12 @@ describe('browser shard command graph', () => {
 
     const result = await main(['bundled'], {
       startCommand,
-      acquireBuildLeaseOperation: async () => {
+      acquireBuildLeaseOperation: () => {
         events.push('lease:acquire');
-        return async () => {
+        return Promise.resolve(() => {
           events.push('lease:release');
-        };
+          return Promise.resolve();
+        });
       }
     });
 
@@ -233,11 +234,12 @@ describe('browser shard command graph', () => {
 
     const result = await main(['bundled'], {
       startCommand,
-      acquireBuildLeaseOperation: async () => {
+      acquireBuildLeaseOperation: () => {
         events.push('lease:acquire');
-        return async () => {
+        return Promise.resolve(() => {
           events.push('lease:release');
-        };
+          return Promise.resolve();
+        });
       }
     });
 
@@ -269,11 +271,12 @@ describe('browser shard command graph', () => {
 
     const result = await main(['bundled'], {
       startCommand,
-      acquireBuildLeaseOperation: async () => {
+      acquireBuildLeaseOperation: () => {
         events.push('lease:acquire');
-        return async () => {
+        return Promise.resolve(() => {
           events.push('lease:release');
-        };
+          return Promise.resolve();
+        });
       }
     });
 

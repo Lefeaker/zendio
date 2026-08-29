@@ -52,17 +52,35 @@ test('Options invalidates owned sections while preserving unrelated browser stat
   expect(new Set(ROUTING_TEMPLATE_ROWS.map(([action]) => action)).size).toBe(20);
 
   await page.addInitScript(() => {
-    const originalAdd = EventTarget.prototype.addEventListener;
-    const originalRemove = EventTarget.prototype.removeEventListener;
+    const addDescriptor = Object.getOwnPropertyDescriptor(
+      EventTarget.prototype,
+      'addEventListener'
+    ) as { value?: typeof EventTarget.prototype.addEventListener } | undefined;
+    const originalAdd = addDescriptor?.value;
+    if (typeof originalAdd !== 'function') {
+      throw new Error('EventTarget.addEventListener descriptor missing');
+    }
+    const removeDescriptor = Object.getOwnPropertyDescriptor(
+      EventTarget.prototype,
+      'removeEventListener'
+    ) as { value?: typeof EventTarget.prototype.removeEventListener } | undefined;
+    const originalRemove = removeDescriptor?.value;
+    if (typeof originalRemove !== 'function') {
+      throw new Error('EventTarget.removeEventListener descriptor missing');
+    }
     const counts = { added: 0, removed: 0 };
     Object.defineProperty(window, '__u04bListenerCounts', { value: counts });
-    EventTarget.prototype.addEventListener = function (...args) {
+    EventTarget.prototype.addEventListener = function (
+      ...args: Parameters<EventTarget['addEventListener']>
+    ) {
       counts.added += 1;
-      return originalAdd.apply(this, args);
+      return Reflect.apply(originalAdd, this, args);
     };
-    EventTarget.prototype.removeEventListener = function (...args) {
+    EventTarget.prototype.removeEventListener = function (
+      ...args: Parameters<EventTarget['removeEventListener']>
+    ) {
       counts.removed += 1;
-      return originalRemove.apply(this, args);
+      return Reflect.apply(originalRemove, this, args);
     };
   });
 
@@ -80,6 +98,12 @@ test('Options invalidates owned sections while preserving unrelated browser stat
     input.focus();
     input.setSelectionRange(1, Math.min(4, input.value.length));
     main.scrollTop = 420;
+    const roots: Record<string, HTMLElement> = {};
+    for (const root of document.querySelectorAll<HTMLElement>('[data-panel-id]')) {
+      const panelId = root.dataset.panelId;
+      if (!panelId) throw new Error('Options panel is missing its owned panel id.');
+      roots[panelId] = root;
+    }
     Object.defineProperty(window, '__u04bIdentity', {
       configurable: true,
       value: {
@@ -87,12 +111,7 @@ test('Options invalidates owned sections while preserving unrelated browser stat
         input,
         output,
         yaml: document.querySelector('.stitch-yaml-config-widget'),
-        roots: Object.fromEntries(
-          Array.from(document.querySelectorAll<HTMLElement>('[data-panel-id]')).map((root) => [
-            root.dataset.panelId,
-            root
-          ])
-        )
+        roots
       }
     });
     Array.from(document.querySelectorAll('button'))
@@ -237,8 +256,20 @@ test('built invalidation owner dispatches the finite scope and lifecycle matrix'
   await page.goto(optionsUrl());
   const result = await page.evaluate(
     async ({ chunkUrl, rows, scopes }) => {
-      const module: typeof import('../../src/ui/stitch-runtime/render/sectionInvalidation') =
-        await import(chunkUrl);
+      const moduleValue = (await import(chunkUrl)) as object;
+      const isSectionInvalidationModule = (
+        value: object
+      ): value is typeof import('../../src/ui/stitch-runtime/render/sectionInvalidation') =>
+        'createSectionInvalidationOwner' in value &&
+        typeof value.createSectionInvalidationOwner === 'function' &&
+        'captureSectionDomSnapshot' in value &&
+        typeof value.captureSectionDomSnapshot === 'function' &&
+        'restoreSectionDomSnapshot' in value &&
+        typeof value.restoreSectionDomSnapshot === 'function';
+      if (!isSectionInvalidationModule(moduleValue)) {
+        throw new Error('Built section invalidation module is missing required exports.');
+      }
+      const module = moduleValue;
       const sandbox = document.createElement('div');
       sandbox.innerHTML = `<main class="main" style="height:20px;overflow:auto"><section data-fixture="controls"><input data-control="text" value="abcdef"><input data-control="checkbox" type="checkbox"><input data-control="radio" type="radio"><input data-control="number" type="number" value="7"><p data-selection>selection</p></section>${scopes
         .map(
@@ -250,8 +281,10 @@ test('built invalidation owner dispatches the finite scope and lifecycle matrix'
         .join('')}<div style="height:200px"></div></main>`;
       document.body.append(sandbox);
       const calls: string[] = [];
-      let owner: ReturnType<typeof module.createSectionInvalidationOwner>;
       let reenterStorage = false;
+      function invalidateReentrantScopes(): void {
+        owner.invalidate(['maintenance', 'output']);
+      }
       const replaceOwned = (scope: string) => {
         const current = sandbox.querySelector<HTMLElement>(`[data-owned="${scope}"]`);
         if (!current) return;
@@ -268,16 +301,17 @@ test('built invalidation owner dispatches the finite scope and lifecycle matrix'
             replaceOwned(scope);
             if (scope === 'storage' && reenterStorage) {
               reenterStorage = false;
-              owner.invalidate(['maintenance', 'output']);
+              invalidateReentrantScopes();
             }
           }
         ])
       );
-      owner = module.createSectionInvalidationOwner({
-        handlers,
-        capture: () => module.captureSectionDomSnapshot(sandbox),
-        restore: (snapshot) => module.restoreSectionDomSnapshot(sandbox, snapshot)
-      });
+      const owner: ReturnType<typeof module.createSectionInvalidationOwner> =
+        module.createSectionInvalidationOwner({
+          handlers,
+          capture: () => module.captureSectionDomSnapshot(sandbox),
+          restore: (snapshot) => module.restoreSectionDomSnapshot(sandbox, snapshot)
+        });
 
       const widget = sandbox.querySelector('[data-widget="yaml"]');
       owner.invalidate('storage');

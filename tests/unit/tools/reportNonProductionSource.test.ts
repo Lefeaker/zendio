@@ -2,14 +2,80 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
+type NonProductionSourceOwnerProofState = 'empty' | 'owned' | 'unknown';
+
+type NonProductionSourceOwnerProofs = {
+  productionBuildGraph: NonProductionSourceOwnerProofState;
+  importGraph: NonProductionSourceOwnerProofState;
+  packageBuildScripts: NonProductionSourceOwnerProofState;
+  publicManifestAssets: NonProductionSourceOwnerProofState;
+  testsVisualBrowser: NonProductionSourceOwnerProofState;
+  requiredVerification: NonProductionSourceOwnerProofState;
+};
+
+type NonProductionSourcePattern = {
+  pattern: string;
+  decision: string;
+  owner: string;
+  deletionCondition: string;
+  requiredAction?: string;
+  source?: string;
+};
+
+type NonProductionSourceInput = {
+  file: string;
+  productionBuildGraphOwners: string[];
+  productionImportOwners: string[];
+  retainedSourceImportOwners?: string[];
+  retainedSourceImportTargets?: string[];
+  testOwners: string[];
+  scriptOwners: string[];
+  publicAssetOwners: string[];
+  requiredVerificationOwners: string[];
+  explicitRetainPatterns: Array<string | NonProductionSourcePattern>;
+  explicitClassificationPatterns: Array<string | NonProductionSourcePattern>;
+  explicitDeleteNowPatterns: Array<string | { pattern: string }>;
+  ownerProofs?: NonProductionSourceOwnerProofs;
+};
+
+type NonProductionSourceRow = {
+  file: string;
+  decision: string;
+  requiredAction?: string;
+  owner?: string;
+  deletionCondition?: string;
+  ownerProofs?: NonProductionSourceOwnerProofs;
+  productionBuildGraphOwners?: string[];
+  productionImportOwners?: string[];
+  retainedSourceImportOwners?: string[];
+  retainedSourceImportTargets?: string[];
+  testOwners?: string[];
+  scriptOwners?: string[];
+  publicAssetOwners?: string[];
+  requiredVerificationOwners?: string[];
+};
+
+type NonProductionSourceClassification = NonProductionSourceInput &
+  NonProductionSourceRow & {
+    requiredAction: string;
+    ownerProofs: NonProductionSourceOwnerProofs;
+  };
+
+type UiOwnershipManifest = {
+  closureState: 'intermediate' | 'final';
+  rows: Array<{
+    path: string;
+    disposition: string;
+    replacement: {
+      owner: string;
+      milestone: string;
+    };
+  }>;
+};
+
 type NonProductionSourceModule = {
   TEST_OWNER_ROOTS: string[];
-  classifySourceFile: (input: Record<string, unknown>) => {
-    decision: string;
-    requiredAction: string;
-    owner?: string;
-    deletionCondition?: string;
-  };
+  classifySourceFile: (input: NonProductionSourceInput) => NonProductionSourceClassification;
   collectSourceImportGraph: (
     files: Array<{ path: string; source: string }>,
     sourceFiles: string[]
@@ -17,14 +83,14 @@ type NonProductionSourceModule = {
     ownersByTarget: Map<string, string[]>;
     targetsByOwner: Map<string, string[]>;
   };
-  formatNonProductionSourceReport: (rows: Array<Record<string, unknown>>) => string;
-  formatNonProductionSourceJson: (rows: Array<Record<string, unknown>>) => string;
-  validateNonProductionSourceCheck: (rows: Array<Record<string, unknown>>) => {
+  formatNonProductionSourceReport: (rows: NonProductionSourceRow[]) => string;
+  formatNonProductionSourceJson: (rows: NonProductionSourceRow[]) => string;
+  validateNonProductionSourceCheck: (rows: NonProductionSourceRow[]) => {
     ok: boolean;
     violations: Array<{ file: string; reason: string }>;
   };
   validateNonProductionSourceThresholds: (
-    rows: Array<Record<string, unknown>>,
+    rows: NonProductionSourceRow[],
     limits: { maxMigrateImportOwner?: number }
   ) => {
     ok: boolean;
@@ -49,14 +115,9 @@ type NonProductionSourceModule = {
     sourceFileSet: Set<string>
   ) => string | null;
   stripImportQueryHash: (specifier: string) => string;
-  createUiOwnershipClassificationPatterns: (manifest: Record<string, unknown>) => Array<{
-    pattern: string;
-    decision: string;
-    owner: string;
-    deletionCondition: string;
-    requiredAction: string;
-    source: string;
-  }>;
+  createUiOwnershipClassificationPatterns: (
+    manifest: UiOwnershipManifest
+  ) => NonProductionSourcePattern[];
 };
 
 const {
@@ -102,7 +163,7 @@ const approvedSectionDependencyDeleteCandidate = [
 ].join('/');
 const approvedZagComboboxDeleteCandidate = ['src', 'ui', 'ZagCombobox.js'].join('/');
 
-function input(overrides: Record<string, unknown> = {}) {
+function input(overrides: Partial<NonProductionSourceInput> = {}): NonProductionSourceInput {
   return {
     file: 'src/options/widgets/ExampleWidget.ts',
     productionBuildGraphOwners: [],
@@ -299,7 +360,7 @@ describe('report-non-production-source', () => {
   it('derives exact UI classifications from the ownership manifest without wildcard broadening', () => {
     const manifest = JSON.parse(
       readFileSync(resolve('tools/ui-production-ownership.json'), 'utf8')
-    ) as Record<string, unknown>;
+    ) as UiOwnershipManifest;
     const patterns = createUiOwnershipClassificationPatterns(manifest);
     const knownPattern = patterns.find((rule) => rule.source === 'ui-ownership-manifest');
 
@@ -321,7 +382,12 @@ describe('report-non-production-source', () => {
         })
       ).decision
     ).toBe('stop-unknown');
-    expect(patterns.every((rule) => !/[*?\[\]{}]/.test(rule.pattern))).toBe(true);
+    const wildcardCharacters = ['*', '?', '[', ']', '{', '}'];
+    expect(
+      patterns.every(
+        (rule) => !wildcardCharacters.some((character) => rule.pattern.includes(character))
+      )
+    ).toBe(true);
   });
 
   it('contains no stale classification object for the retired schema helper', () => {
@@ -474,7 +540,7 @@ describe('report-non-production-source', () => {
   it('blocks delete-now when any deletion-proof owner surface is still referenced', () => {
     const ownerSurfaces: Array<{
       name: string;
-      overrides: Record<string, unknown>;
+      overrides: Partial<NonProductionSourceInput>;
       expectedDecision: string;
     }> = [
       {

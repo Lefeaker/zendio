@@ -23,23 +23,29 @@ interface ProductionStitchShellMutableStateOptions {
 }
 
 export interface ProductionStitchShellMutableState {
-  createSchemaContext(): SchemaContext;
-  getAppData(): PreviewContent;
-  setAppData(appData: PreviewContent): void;
-  refreshAppData(): void;
-  getConnectionNotice(): PreviewContent['storage']['connectionNotice'] | undefined;
-  setConnectionNotice(notice: PreviewContent['storage']['connectionNotice'] | undefined): void;
-  getCurrentLanguage(): Language;
-  getCurrentMessages(): Messages | null;
-  setLanguageResource(resource: { messages: Messages | null; language: Language }): void;
-  getDomainMappingRows(): Array<[string, string]>;
-  setDomainMappingRows(entries: Array<[string, string]>): void;
-  getDraft(): CompleteOptions;
-  setDraft(draft: CompleteOptions): void;
-  setMaintenanceLog(log: PreviewContent['maintenanceLog']): void;
-  getState(): PreviewStoreState;
-  setState(state: PreviewStoreState): void;
-  resetOptions(options?: StoredOptions | CompleteOptions | null): void;
+  createSchemaContext(this: void): SchemaContext;
+  getAppData(this: void): PreviewContent;
+  setAppData(this: void, appData: PreviewContent): void;
+  refreshAppData(this: void): void;
+  getConnectionNotice(this: void): PreviewContent['storage']['connectionNotice'] | undefined;
+  setConnectionNotice(
+    this: void,
+    notice: PreviewContent['storage']['connectionNotice'] | undefined
+  ): void;
+  getCurrentLanguage(this: void): Language;
+  getCurrentMessages(this: void): Messages | null;
+  setLanguageResource(
+    this: void,
+    resource: { messages: Messages | null; language: Language }
+  ): void;
+  getDomainMappingRows(this: void): Array<[string, string]>;
+  setDomainMappingRows(this: void, entries: Array<[string, string]>): void;
+  getDraft(this: void): CompleteOptions;
+  setDraft(this: void, draft: CompleteOptions): void;
+  setMaintenanceLog(this: void, log: PreviewContent['maintenanceLog']): void;
+  getState(this: void): PreviewStoreState;
+  setState(this: void, state: PreviewStoreState): void;
+  resetOptions(this: void, options?: StoredOptions | CompleteOptions | null): void;
 }
 
 export function createProductionStitchShellMutableState({

@@ -4,7 +4,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type {
   StorageAreaChangeCallback,
   StorageChangeMap,
-  StorageService
+  StorageService,
+  StorageValueMap
 } from '@platform/interfaces/storage';
 import { createMemoryStorageArea } from '@platform/preview/memoryStorage';
 import {
@@ -54,7 +55,7 @@ function createHarness(
 
   let href = initialUrl;
   const localBase = createMemoryStorageArea();
-  const localValues = new Map<string, unknown>();
+  const localValues = new Map<string, StorageValueMap[string]>();
   const localWatchers = new Set<StorageAreaChangeCallback>();
   const notifyLocalWatchers = (changes: StorageChangeMap): void => {
     localWatchers.forEach((watcher) => watcher(changes));
@@ -462,7 +463,8 @@ describe('sessionDraftAutoRestore', () => {
     const storageKey = createSessionDraftStorageKey(activeEnvelope);
     const activeRecord = await harness.storage.local.get<SessionDraftEnvelope>(storageKey);
     if (!activeRecord) throw new Error('Expected active video draft record');
-    const { lease: _lease, ...recordWithoutLease } = activeRecord;
+    const { lease, ...recordWithoutLease } = activeRecord;
+    void lease;
     const restorableRecord = SessionDraftEnvelopeSchema.parse({
       ...recordWithoutLease,
       status: 'restorable',
@@ -478,11 +480,12 @@ describe('sessionDraftAutoRestore', () => {
     await flushAsyncWork();
 
     await vi.waitFor(() => expect(harness.videoStart).toHaveBeenCalledTimes(1));
-    expect(harness.createVideoSession.mock.calls[0]?.[0]).toMatchObject({
-      draftId: activeEnvelope.draftId,
-      status: 'active',
-      lease: expect.any(Object)
-    });
+    const startCall = harness.createVideoSession.mock.calls[0];
+    if (!startCall) throw new Error('Expected one Video session factory call');
+    const [claimedDraft] = startCall;
+    expect(claimedDraft.draftId).toBe(activeEnvelope.draftId);
+    expect(claimedDraft.status).toBe('active');
+    expect(claimedDraft.lease).toBeDefined();
     stop();
   });
 

@@ -1,5 +1,5 @@
 import { createSchemaRenderer } from '@options/schema-runtime/renderer';
-import { renderPreviewView } from '@options/stitch/render/renderStitchView';
+import { renderPreviewView, type RendererContext } from '@options/stitch/render/renderStitchView';
 import { el } from '@ui/stitch-runtime';
 import { previewUi } from '@options/stitch/ui/components';
 import type {
@@ -85,20 +85,20 @@ interface ProductionStitchShellSchemaRendererOptions {
 export function createProductionStitchShellSchemaRenderer(
   options: ProductionStitchShellSchemaRendererOptions
 ) {
-  function createRenderContext() {
+  function createRenderContext(): RendererContext {
     return {
       ...options.createSchemaContext(),
       el,
       ui: previewUi,
-      dispatch: options.dispatch,
-      resolveAssetUrl: options.resolveAssetUrl,
-      mountWidget: options.widgetHost.mountWidget
+      dispatch: (actionId, args, value, event) => options.dispatch(actionId, args, value, event),
+      resolveAssetUrl: (path) => options.resolveAssetUrl(path),
+      mountWidget: (widgetType, host) => options.widgetHost.mountWidget(widgetType, host)
     };
   }
 
   return createSchemaRenderer<PreviewStoreState, PreviewContent>(
     {
-      getContext: options.createSchemaContext,
+      getContext: () => options.createSchemaContext(),
       dispatch: (action, payload) => {
         if (typeof action === 'string') {
           options.dispatch(action, [], payload);
@@ -109,7 +109,7 @@ export function createProductionStitchShellSchemaRenderer(
       mutate: (mutator, mutationOptions) =>
         options.mutate(mutator, { ...mutationOptions, scope: 'output' }),
       requestRerender: () => options.render('output'),
-      getWidgetFactory: options.widgetHost.createWidgetFactory
+      getWidgetFactory: (...args) => options.widgetHost.createWidgetFactory(...args)
     },
     {
       renderView: (view) => renderPreviewView(view as ViewSchema, createRenderContext())

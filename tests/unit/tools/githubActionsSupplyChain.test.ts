@@ -46,10 +46,22 @@ interface SupplyChainModule {
   }): SupplyChainReport;
 }
 
+function isSupplyChainModule(value: object): value is SupplyChainModule {
+  return (
+    'GITHUB_ACTION_SUPPLY_CHAIN_REPORT_VERSION' in value &&
+    typeof value.GITHUB_ACTION_SUPPLY_CHAIN_REPORT_VERSION === 'string' &&
+    'scanGitHubActionsSupplyChain' in value &&
+    typeof value.scanGitHubActionsSupplyChain === 'function'
+  );
+}
+
 const moduleUrl = pathToFileURL(resolve('tools/report-github-actions-supply-chain.mjs')).href;
-const supplyChainModule: SupplyChainModule = await import(moduleUrl);
-const { GITHUB_ACTION_SUPPLY_CHAIN_REPORT_VERSION, scanGitHubActionsSupplyChain } =
-  supplyChainModule;
+const supplyChainModuleValue = (await import(moduleUrl)) as object;
+if (!isSupplyChainModule(supplyChainModuleValue)) {
+  throw new Error('GitHub Actions supply-chain tool is missing required executable exports');
+}
+const supplyChainModule = supplyChainModuleValue;
+const { GITHUB_ACTION_SUPPLY_CHAIN_REPORT_VERSION } = supplyChainModule;
 
 const fixtureRoots: string[] = [];
 
@@ -120,7 +132,7 @@ function createFixture(
 }
 
 function scan(root: string, pins: readonly Readonly<GithubActionPin>[] = GITHUB_ACTION_PINS) {
-  return scanGitHubActionsSupplyChain({ root, pins });
+  return supplyChainModule.scanGitHubActionsSupplyChain({ root, pins });
 }
 
 function codes(report: SupplyChainReport): string[] {
@@ -540,7 +552,7 @@ describe('repository lifecycle boundary', () => {
   });
 
   it('keeps report and check mode successful on the same deterministic JSON', () => {
-    const currentReport = scanGitHubActionsSupplyChain();
+    const currentReport = supplyChainModule.scanGitHubActionsSupplyChain();
     expect(currentReport.ok).toBe(true);
     expect(currentReport.summary).toEqual({
       yamlFiles: 5,

@@ -146,20 +146,12 @@ export function buildVideoDraftEnvelopeFromRuntime(
   });
 }
 
-interface VideoSessionCommentDraftHydrator {
-  setCommentDrafts(drafts: Record<string, string>): void;
-}
-
-interface VideoSessionCommentDraftReader {
-  readCommentDrafts(): Record<string, string>;
-}
-
 export function applyVideoSessionCommentDrafts(
   state: VideoSessionState,
   drafts: Record<string, string>,
   options: {
     hydrateDom?: boolean;
-    dom?: VideoSessionCommentDraftHydrator | null;
+    dom?: VideoSessionDraftControllerOptions['dom'] | null;
   } = {}
 ): void {
   state.commentDrafts = { ...drafts };
@@ -170,7 +162,7 @@ export function applyVideoSessionCommentDrafts(
 
 export function syncVideoSessionCommentDraftsFromDom(
   state: VideoSessionState,
-  dom: VideoSessionCommentDraftReader
+  dom: VideoSessionDraftControllerOptions['dom']
 ): Record<string, string> {
   const drafts = dom.readCommentDrafts();
   applyVideoSessionCommentDrafts(state, drafts);

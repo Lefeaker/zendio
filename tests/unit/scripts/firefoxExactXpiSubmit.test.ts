@@ -269,7 +269,21 @@ describe('exact-XPI submission adapter', () => {
     expect(authorization).toMatch(/^JWT [A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/u);
     if (!authorization) throw new Error('authorization header missing');
     const [, payload] = authorization.slice(4).split('.');
-    const claims = JSON.parse(Buffer.from(payload, 'base64url').toString('utf8'));
+    const claims: unknown = JSON.parse(Buffer.from(payload, 'base64url').toString('utf8'));
+    if (
+      typeof claims !== 'object' ||
+      claims === null ||
+      !('iss' in claims) ||
+      typeof claims.iss !== 'string' ||
+      !('jti' in claims) ||
+      typeof claims.jti !== 'string' ||
+      !('exp' in claims) ||
+      typeof claims.exp !== 'number' ||
+      !('iat' in claims) ||
+      typeof claims.iat !== 'number'
+    ) {
+      throw new Error('AMO authorization JWT is missing required claims');
+    }
     expect(claims).toMatchObject({ iss: 'key' });
     expect(claims.jti).toMatch(/^[0-9a-f-]{36}$/u);
     expect(claims.exp - claims.iat).toBe(60);

@@ -17,10 +17,23 @@ type UiArchitectureModule = {
   collectManifestTreeFindings: (root: string, manifest: OwnershipManifest) => string[];
 };
 
-const { collectManifestTreeFindings } = (await import(
-  // @ts-expect-error Executable ESM tools do not publish declaration files.
-  '../../../tools/report-ui-architecture-alignment.mjs'
-)) as UiArchitectureModule;
+function isUiArchitectureModule(value: object): value is UiArchitectureModule {
+  return (
+    'collectManifestTreeFindings' in value &&
+    typeof value.collectManifestTreeFindings === 'function'
+  );
+}
+
+async function loadUiArchitectureModule(): Promise<UiArchitectureModule> {
+  const modulePath: string = '../../../tools/report-ui-architecture-alignment.mjs';
+  const moduleValue = (await import(modulePath)) as object;
+  if (!isUiArchitectureModule(moduleValue)) {
+    throw new Error('UI architecture tool is missing its manifest tree validator export');
+  }
+  return moduleValue;
+}
+
+const { collectManifestTreeFindings } = await loadUiArchitectureModule();
 
 function write(root: string, relativePath: string): void {
   const fullPath = join(root, relativePath);

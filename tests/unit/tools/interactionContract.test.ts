@@ -16,14 +16,31 @@ type InteractionContractModule = {
   runInteractionContractAudit: (root?: string) => string[];
 };
 
+function isInteractionContractModule(value: object): value is InteractionContractModule {
+  return (
+    'collectInteractionContractFindings' in value &&
+    typeof value.collectInteractionContractFindings === 'function' &&
+    'readInteractionContractSources' in value &&
+    typeof value.readInteractionContractSources === 'function' &&
+    'runInteractionContractAudit' in value &&
+    typeof value.runInteractionContractAudit === 'function'
+  );
+}
+
+async function loadInteractionContractModule(): Promise<InteractionContractModule> {
+  const modulePath: string = '../../../tools/report-interaction-contract.mjs';
+  const moduleValue = (await import(modulePath)) as object;
+  if (!isInteractionContractModule(moduleValue)) {
+    throw new Error('Interaction contract tool is missing required executable exports');
+  }
+  return moduleValue;
+}
+
 const {
   collectInteractionContractFindings,
   readInteractionContractSources,
   runInteractionContractAudit
-} = (await import(
-  // @ts-expect-error Executable ESM tools do not publish declaration files.
-  '../../../tools/report-interaction-contract.mjs'
-)) as InteractionContractModule;
+} = await loadInteractionContractModule();
 
 describe('interaction contract audit', () => {
   it('accepts the production neutral runtime and rewritten dev harness', () => {

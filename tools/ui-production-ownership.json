@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "closureState": "final",
   "uiPathSetSha256": "71d388228c9475ea3719f5e61b1b95f0223ecf902c6802139de6c96fde71d536",
-  "uiContentSha256": "dd61ce30e0c6d4e300c9d6ed0c116c91515b60a513ee14b0172cbe90cd01fdf0",
+  "uiContentSha256": "6e0246cac94ca202148eb54cf0a5487b02f078c009806ffcf5eb36d10f56e45a",
   "rows": [
     {
       "path": "src/ui/domains/usage-chart/index.ts",
@@ -747,11 +747,7 @@
     {
       "path": "src/ui/stitch-runtime/render/rootActionDispatcher.ts",
       "disposition": "production-runtime",
-      "productionOwners": [
-        "src/content/index.ts",
-        "src/content/reader/readerLazyRuntime.ts",
-        "src/content/video/videoLazyRuntime.ts"
-      ],
+      "productionOwners": ["src/content/index.ts", "src/content/reader/readerLazyRuntime.ts"],
       "replacement": {
         "owner": "src/ui/stitch-runtime/render/rootActionDispatcher.ts",
         "milestone": "current-production"

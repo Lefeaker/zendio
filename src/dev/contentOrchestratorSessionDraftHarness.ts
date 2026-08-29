@@ -5,6 +5,7 @@ import {
   SESSION_DRAFT_TAB_CONTEXT_MESSAGE_TYPE,
   configureSessionDraftRuntimeMessenger
 } from '../content/sessionDrafts/sessionDraftTabContext';
+import type { RuntimeMessageSender } from '../platform/interfaces/runtime';
 import type { EnumerableStorageAreaService, StorageService } from '../platform/interfaces/storage';
 import { normalizeSessionDraftStoredValue } from '../shared/sessionDrafts';
 
@@ -51,9 +52,10 @@ export function createContentOrchestratorHarnessStorage(): StorageService {
     session: createStorageArea()
   };
   if (typeof chrome !== 'undefined' && chrome.runtime?.sendMessage) {
-    configureSessionDraftRuntimeMessenger(
-      <Result = unknown>(message: unknown) => chrome.runtime.sendMessage(message) as Promise<Result>
-    );
+    const runtimeMessenger: RuntimeMessageSender = <Result>(
+      message: Parameters<RuntimeMessageSender>[0]
+    ) => chrome.runtime.sendMessage(message) as Promise<Result>;
+    configureSessionDraftRuntimeMessenger(runtimeMessenger);
     return storage;
   }
   const sessionDraftStore = createSessionDraftStore(local, {
@@ -61,7 +63,9 @@ export function createContentOrchestratorHarnessStorage(): StorageService {
     createLeaseId: () => 'content-orchestrator-harness'
   });
   if (!sessionDraftStore.ok) throw new Error(sessionDraftStore.code);
-  configureSessionDraftRuntimeMessenger(async <Result = unknown>(message: unknown) => {
+  const runtimeMessenger: RuntimeMessageSender = async <Result>(
+    message: Parameters<RuntimeMessageSender>[0]
+  ) => {
     if (message && typeof message === 'object' && 'type' in message) {
       if (message.type === SESSION_DRAFT_TAB_CONTEXT_MESSAGE_TYPE) {
         return { success: true, tabId: 1, windowId: 1, frameId: 0 } as Result;
@@ -75,6 +79,7 @@ export function createContentOrchestratorHarnessStorage(): StorageService {
       normalizeSessionDraftStoredValue(message),
       { tabId: 1, frameId: 0 }
     )) as Result;
-  });
+  };
+  configureSessionDraftRuntimeMessenger(runtimeMessenger);
   return storage;
 }
