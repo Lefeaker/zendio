@@ -1005,6 +1005,49 @@ function isVerifiedNpmLifecycle(environment) {
   }
 }
 
+function normalizeVerifiedNpmLifecycleConfig(environment) {
+  if (
+    environment.npm_command !== 'run-script' ||
+    typeof environment.npm_lifecycle_event !== 'string'
+  )
+    return environment;
+  if (!isVerifiedNpmLifecycle(environment)) return environment;
+  const npm = detectNpmCommand({ repositoryRoot: REPOSITORY_ROOT, environment: {} });
+  const home = environment.HOME;
+  const userconfig = environment.NPM_CONFIG_USERCONFIG;
+  const globalconfig = environment.NPM_CONFIG_GLOBALCONFIG;
+  if (
+    typeof home !== 'string' ||
+    !isAbsolute(home) ||
+    resolve(home) !== home ||
+    typeof userconfig !== 'string' ||
+    typeof globalconfig !== 'string'
+  )
+    invalid('NPM_CONFIG_AUTHORITY_INVALID');
+  const projection = {
+    npm_config_cache: join(home, '.npm'),
+    npm_config_global_prefix: npm.runtimePrefix,
+    npm_config_globalconfig: globalconfig,
+    npm_config_init_module: join(home, '.npm-init.js'),
+    npm_config_local_prefix: REPOSITORY_ROOT,
+    npm_config_node_gyp: join(dirname(npm.packagePath), 'node_modules/node-gyp/bin/node-gyp.js'),
+    npm_config_noproxy: '',
+    npm_config_npm_version: npm.version,
+    npm_config_prefix: npm.runtimePrefix,
+    npm_config_user_agent: `npm/${npm.version} node/${npm.policy.nodeVersion} ${process.platform} ${process.arch} workspaces/false`
+  };
+  const normalized = { ...environment };
+  for (const [key, value] of Object.entries(projection)) {
+    if (environment[key] !== value) invalid('NPM_CONFIG_AUTHORITY_INVALID');
+    delete normalized[key];
+  }
+  if (Object.hasOwn(environment, 'npm_config_userconfig')) {
+    if (environment.npm_config_userconfig !== userconfig) invalid('NPM_CONFIG_AUTHORITY_INVALID');
+    delete normalized.npm_config_userconfig;
+  }
+  return normalized;
+}
+
 export function buildClosedCommandEnvironment(environment = process.env, additions = {}) {
   for (const key of Object.keys(environment)) {
     const lower = key.toLowerCase();
@@ -1661,14 +1704,15 @@ function exactAttemptConfigEnvironment(root, environment) {
 }
 
 function attemptConfigAuthority(environment, { required = false } = {}) {
+  const normalizedEnvironment = normalizeVerifiedNpmLifecycleConfig(environment);
   const authorityIntent =
     required ||
-    environment.ZENDIO_LOCAL_ATTEMPT_ROOT !== undefined ||
-    Object.keys(environment).some((key) =>
+    normalizedEnvironment.ZENDIO_LOCAL_ATTEMPT_ROOT !== undefined ||
+    Object.keys(normalizedEnvironment).some((key) =>
       ['npm_config_userconfig', 'npm_config_globalconfig'].includes(key.toLowerCase())
     );
   if (!authorityIntent) return null;
-  for (const key of Object.keys(environment)) {
+  for (const key of Object.keys(normalizedEnvironment)) {
     const lower = key.toLowerCase();
     if (
       lower.startsWith('npm_config_') &&
@@ -1680,14 +1724,14 @@ function attemptConfigAuthority(environment, { required = false } = {}) {
     if (lower === 'npm_config_globalconfig' && key !== 'NPM_CONFIG_GLOBALCONFIG')
       invalid('NPM_CONFIG_AUTHORITY_INVALID');
   }
-  const hasUserconfig = environment.NPM_CONFIG_USERCONFIG !== undefined;
-  const hasGlobalconfig = environment.NPM_CONFIG_GLOBALCONFIG !== undefined;
+  const hasUserconfig = normalizedEnvironment.NPM_CONFIG_USERCONFIG !== undefined;
+  const hasGlobalconfig = normalizedEnvironment.NPM_CONFIG_GLOBALCONFIG !== undefined;
   if (!hasUserconfig && !hasGlobalconfig) {
-    if (environment.ZENDIO_LOCAL_ATTEMPT_ROOT === undefined) {
+    if (normalizedEnvironment.ZENDIO_LOCAL_ATTEMPT_ROOT === undefined) {
       if (required) invalid('NPM_CONFIG_AUTHORITY_INVALID');
       return null;
     }
-    const attemptRoot = releaseAttemptRoot(environment);
+    const attemptRoot = releaseAttemptRoot(normalizedEnvironment);
     const configs = attemptNpmConfigEnvironment(attemptRoot);
     return {
       attemptRoot,
@@ -1703,8 +1747,8 @@ function attemptConfigAuthority(environment, { required = false } = {}) {
     };
   }
   if (!hasUserconfig || !hasGlobalconfig) invalid('NPM_CONFIG_AUTHORITY_INVALID');
-  const attemptRoot = releaseAttemptRoot(environment);
-  const configs = exactAttemptConfigEnvironment(attemptRoot, environment);
+  const attemptRoot = releaseAttemptRoot(normalizedEnvironment);
+  const configs = exactAttemptConfigEnvironment(attemptRoot, normalizedEnvironment);
   return {
     attemptRoot,
     userconfig: configs.NPM_CONFIG_USERCONFIG,

@@ -52,9 +52,62 @@ import {
   STANDALONE_SYNTHETIC_CONFIG,
   validateReleasePublicBuildConfig
 } from '../../../scripts/utils/releasePublicBuildConfig.mjs';
+import packageJson from '../../../package.json';
 
 const temporaryRoots: string[] = [];
 const TEST_RELEASE_BROWSERS: ('chrome' | 'firefox')[] = ['chrome', 'firefox'];
+const NPM_LIFECYCLE_ALIASES = [
+  'test',
+  'test:unit',
+  'test:e2e',
+  'test:coverage',
+  'format',
+  'format:check',
+  'lint:css',
+  'quality',
+  'verify:preflight',
+  'test:unit:shards',
+  'test:unit:shard:background',
+  'test:unit:shard:content',
+  'test:unit:shard:options',
+  'test:unit:shard:shared',
+  'test:unit:shard:tools',
+  'test:e2e:shards',
+  'test:e2e:shard:ai-chat',
+  'test:e2e:shard:content',
+  'test:e2e:shard:options',
+  'test:e2e:shard:video',
+  'test:e2e:browser:parallel',
+  'visual:test:parallel',
+  'test:ci',
+  'verify:preflight:full'
+] as const satisfies readonly (keyof typeof packageJson.scripts)[];
+const ATTEMPT_CONFIG_PROPAGATION_CASES: Array<[CommandBoundaryProfileId, string[]]> = [
+  ['dependency-cruiser-v1', []],
+  ['node-script-standard-v1', ['scripts/verify-runtime.mjs']],
+  ['npm-script-build-v1', ['build:fast']],
+  ['npm-script-quick-v1', ['audit:ci-workflow:check']],
+  ['npm-script-standard-v1', ['typecheck:strict']],
+  ['prettier-v1', ['--check', 'tests/unit/scripts/boundedCommand.test.ts']],
+  ['stylelint-v1', ['src/options/**/*.css']],
+  [
+    'vitest-v1',
+    ['run', '--config', 'vitest.unit.config.ts', 'tests/unit/scripts/boundedCommand.test.ts']
+  ]
+];
+const VERIFIED_NPM_LIFECYCLE_CONFIG_KEYS = [
+  'npm_config_cache',
+  'npm_config_global_prefix',
+  'npm_config_globalconfig',
+  'npm_config_init_module',
+  'npm_config_local_prefix',
+  'npm_config_node_gyp',
+  'npm_config_noproxy',
+  'npm_config_npm_version',
+  'npm_config_prefix',
+  'npm_config_user_agent',
+  'npm_config_userconfig'
+];
 
 type RequestValue = string | boolean | string[] | null;
 type FirefoxMutation = 'upload' | 'version-submit' | 'source-patch';
@@ -88,28 +141,56 @@ function cleanEnvironment(extra: Record<string, string> = {}): NodeJS.ProcessEnv
   };
 }
 
-function verifiedNpmLifecycleEnvironment(extra: Record<string, string> = {}): NodeJS.ProcessEnv {
+function verifiedNpmLifecycleEnvironment({
+  event = 'lint:css',
+  includeLowercaseUserconfig = true,
+  extra = {}
+}: {
+  event?: keyof typeof packageJson.scripts;
+  includeLowercaseUserconfig?: boolean;
+  extra?: Record<string, string>;
+} = {}): NodeJS.ProcessEnv {
+  const root = realpathSync(temporaryRoot());
+  installAttemptConfigs(root);
+  const home = join(root, 'home');
+  mkdirSync(home, { mode: 0o700 });
+  chmodSync(home, 0o700);
   const npmProfile = resolveCommandProfile('npm-script-quick-v1', ['verify:runtime'], {
     environment: cleanEnvironment()
   });
   const nodePath = npmProfile.executable;
   const cliPath = npmProfile.argv[0];
   if (!nodePath || !cliPath) throw new Error('TEST_NPM_PROFILE_INVALID');
+  const runtimePrefix = resolve(dirname(nodePath), '..');
+  const npmRoot = resolve(dirname(cliPath), '..');
+  const userconfig = join(root, 'install/npm-userconfig');
+  const globalconfig = join(root, 'install/npm-globalconfig');
   return cleanEnvironment({
+    HOME: home,
     INIT_CWD: resolve('.'),
     NODE: nodePath,
+    NPM_CONFIG_GLOBALCONFIG: globalconfig,
+    NPM_CONFIG_USERCONFIG: userconfig,
     PWD: resolve('.'),
     npm_command: 'run-script',
+    npm_config_cache: join(home, '.npm'),
+    npm_config_global_prefix: runtimePrefix,
+    npm_config_globalconfig: globalconfig,
+    npm_config_init_module: join(home, '.npm-init.js'),
+    npm_config_local_prefix: resolve('.'),
+    npm_config_node_gyp: join(npmRoot, 'node_modules/node-gyp/bin/node-gyp.js'),
     npm_config_noproxy: '',
     npm_config_npm_version: '10.8.2',
+    npm_config_prefix: runtimePrefix,
+    npm_config_user_agent: `npm/10.8.2 node/${process.version} ${process.platform} ${process.arch} workspaces/false`,
+    ...(includeLowercaseUserconfig ? { npm_config_userconfig: userconfig } : {}),
     npm_execpath: cliPath,
-    npm_lifecycle_event: 'lint:css',
-    npm_lifecycle_script:
-      'node scripts/run-bounded-command.mjs --profile stylelint-v1 -- "src/options/**/*.css" "src/onboarding/**/*.css" "src/ui/**/*.css"',
+    npm_lifecycle_event: event,
+    npm_lifecycle_script: packageJson.scripts[event],
     npm_node_execpath: nodePath,
     npm_package_json: resolve('package.json'),
-    npm_package_name: 'zendio',
-    npm_package_version: '0.2.1',
+    npm_package_name: packageJson.name,
+    npm_package_version: packageJson.version,
     ...extra
   });
 }
@@ -1568,64 +1649,177 @@ describe('bounded command ownership', () => {
     ).toThrow('NPM_SCRIPT_INVALID');
   });
 
-  it('propagates and revalidates the post-install npm-config authority for every R03 local leaf', () => {
-    const root = realpathSync(temporaryRoot());
-    installAttemptConfigs(root);
-    const configs = {
-      userconfig: join(root, 'install/npm-userconfig'),
-      globalconfig: join(root, 'install/npm-globalconfig')
-    };
-    const environment = cleanEnvironment({
-      NPM_CONFIG_USERCONFIG: configs.userconfig,
-      NPM_CONFIG_GLOBALCONFIG: configs.globalconfig
-    });
-    const rows: Array<[CommandBoundaryProfileId, string[]]> = [
-      [
-        'npm-audit-context-v1',
-        ['--verify-baseline-context', '--baseline-manifest', join(root, 'audit.json')]
-      ],
-      ['npm-script-quick-v1', ['audit:ci-workflow:check']],
-      ['npm-script-standard-v1', ['typecheck:strict']],
-      ['npm-script-standard-v1', ['lint', '--', '--quiet']],
-      ['npm-script-build-v1', ['build:fast']],
-      [
-        'vitest-v1',
-        ['run', '--config', 'vitest.unit.config.ts', 'tests/unit/scripts/boundedCommand.test.ts']
-      ],
-      ['stylelint-v1', ['src/options/**/*.css']],
-      ['node-script-standard-v1', ['scripts/verify-runtime.mjs']]
-    ];
-    for (const [profileId, args] of rows) {
+  it.each(ATTEMPT_CONFIG_PROPAGATION_CASES)(
+    'normalizes the complete verified npm lifecycle config for %s',
+    (profileId, args) => {
+      const environment = verifiedNpmLifecycleEnvironment();
+      const originalEnvironment = { ...environment };
+      const userconfig = environment.NPM_CONFIG_USERCONFIG;
+      const globalconfig = environment.NPM_CONFIG_GLOBALCONFIG;
+      if (typeof userconfig !== 'string' || typeof globalconfig !== 'string')
+        throw new Error('TEST_NPM_CONFIG_INVALID');
+      expect(
+        Object.keys(environment)
+          .filter((key) => key.startsWith('npm_config_'))
+          .sort()
+      ).toEqual(VERIFIED_NPM_LIFECYCLE_CONFIG_KEYS);
+
       const spec = resolveCommandProfile(profileId, args, { environment });
+
       expect(spec.env).toMatchObject({
-        NPM_CONFIG_USERCONFIG: configs.userconfig,
-        NPM_CONFIG_GLOBALCONFIG: configs.globalconfig
+        NPM_CONFIG_USERCONFIG: userconfig,
+        NPM_CONFIG_GLOBALCONFIG: globalconfig
       });
+      expect(
+        Object.keys(spec.env)
+          .filter((key) => key.toLowerCase().startsWith('npm_config_'))
+          .sort()
+      ).toEqual(['NPM_CONFIG_GLOBALCONFIG', 'NPM_CONFIG_USERCONFIG']);
       expect(spec.commandContext).toMatchObject({
         attemptConfigAuthority: true,
-        attemptRoot: root,
-        userconfig: configs.userconfig,
-        globalconfig: configs.globalconfig
+        attemptRoot: dirname(dirname(userconfig)),
+        userconfig,
+        globalconfig
       });
+      expect(environment).toEqual(originalEnvironment);
     }
+  );
 
-    for (const mutation of [
-      { NPM_CONFIG_USERCONFIG: configs.globalconfig },
-      { npm_config_userconfig: configs.userconfig },
-      { npm_config_registry: 'https://registry.invalid' },
-      { NPM_CONFIG_GLOBALCONFIG: undefined }
-    ]) {
+  it.each(NPM_LIFECYCLE_ALIASES)(
+    'admits the verified npm lifecycle projection for active alias %s',
+    (event) => {
+      const environment = verifiedNpmLifecycleEnvironment({
+        event,
+        includeLowercaseUserconfig: false
+      });
+      const spec = resolveCommandProfile(
+        'node-script-standard-v1',
+        ['scripts/verify-runtime.mjs'],
+        {
+          environment
+        }
+      );
+
+      expect(spec.commandContext).toMatchObject({ attemptConfigAuthority: true });
+      expect(
+        Object.keys(spec.env)
+          .filter((key) => key.toLowerCase().startsWith('npm_config_'))
+          .sort()
+      ).toEqual(['NPM_CONFIG_GLOBALCONFIG', 'NPM_CONFIG_USERCONFIG']);
+    }
+  );
+
+  it.each(VERIFIED_NPM_LIFECYCLE_CONFIG_KEYS)(
+    'rejects a value-mismatched verified npm lifecycle field %s',
+    (key) => {
+      const environment = verifiedNpmLifecycleEnvironment();
+      environment[key] = `${environment[key]}-mismatch`;
       expect(() =>
         resolveCommandProfile('npm-script-quick-v1', ['audit:ci-workflow:check'], {
-          environment: { ...environment, ...mutation }
+          environment
         })
       ).toThrow('NPM_CONFIG_AUTHORITY_INVALID');
     }
+  );
 
+  it.each([
+    [
+      'registry',
+      (environment: NodeJS.ProcessEnv) => {
+        environment.npm_config_registry = 'https://registry.invalid/';
+      }
+    ],
+    [
+      'proxy',
+      (environment: NodeJS.ProcessEnv) => {
+        environment.npm_config_proxy = 'http://127.0.0.1:8080';
+      }
+    ],
+    [
+      'certificate',
+      (environment: NodeJS.ProcessEnv) => {
+        environment.npm_config_cafile = join(tmpdir(), 'forbidden-ca.pem');
+      }
+    ],
+    [
+      'script-shell',
+      (environment: NodeJS.ProcessEnv) => {
+        environment.npm_config_script_shell = '/bin/sh';
+      }
+    ],
+    [
+      'loader',
+      (environment: NodeJS.ProcessEnv) => {
+        environment.npm_config_node_options = '--loader=forbidden-loader';
+      }
+    ],
+    [
+      'credential',
+      (environment: NodeJS.ProcessEnv) => {
+        environment.npm_config__authToken = 'forbidden-token';
+      }
+    ],
+    [
+      'case-spoofed projection',
+      (environment: NodeJS.ProcessEnv) => {
+        environment.NPM_CONFIG_PREFIX = environment.npm_config_prefix;
+        delete environment.npm_config_prefix;
+      }
+    ],
+    [
+      'extra npm config',
+      (environment: NodeJS.ProcessEnv) => {
+        environment.npm_config_color = 'false';
+      }
+    ],
+    [
+      'incomplete projection',
+      (environment: NodeJS.ProcessEnv) => {
+        delete environment.npm_config_cache;
+      }
+    ],
+    [
+      'swapped uppercase config pair',
+      (environment: NodeJS.ProcessEnv) => {
+        const userconfig = environment.NPM_CONFIG_USERCONFIG;
+        environment.NPM_CONFIG_USERCONFIG = environment.NPM_CONFIG_GLOBALCONFIG;
+        environment.NPM_CONFIG_GLOBALCONFIG = userconfig;
+      }
+    ],
+    [
+      'missing uppercase config pair member',
+      (environment: NodeJS.ProcessEnv) => {
+        delete environment.NPM_CONFIG_GLOBALCONFIG;
+      }
+    ],
+    [
+      'mismatched lowercase config projection',
+      (environment: NodeJS.ProcessEnv) => {
+        environment.npm_config_userconfig = environment.NPM_CONFIG_GLOBALCONFIG;
+      }
+    ]
+  ] as Array<[string, (environment: NodeJS.ProcessEnv) => void]>)(
+    'rejects forbidden npm lifecycle authority class %s',
+    (_label, mutate) => {
+      const environment = verifiedNpmLifecycleEnvironment();
+      mutate(environment);
+      expect(() =>
+        resolveCommandProfile('npm-script-quick-v1', ['audit:ci-workflow:check'], {
+          environment
+        })
+      ).toThrow('NPM_CONFIG_AUTHORITY_INVALID');
+    }
+  );
+
+  it('accepts npm canonical omission of lowercase userconfig and revalidates configs at start', () => {
+    const environment = verifiedNpmLifecycleEnvironment({ includeLowercaseUserconfig: false });
+    const userconfig = environment.NPM_CONFIG_USERCONFIG;
     const spec = resolveCommandProfile('npm-script-quick-v1', ['audit:ci-workflow:check'], {
       environment
     });
-    writeFileSync(configs.userconfig, 'late-poison');
+
+    if (typeof userconfig !== 'string') throw new Error('TEST_NPM_CONFIG_INVALID');
+    writeFileSync(userconfig, 'late-poison');
     expect(() =>
       startBoundedCommand(
         { profileId: 'npm-script-quick-v1', arguments: ['audit:ci-workflow:check'] },
@@ -3703,8 +3897,9 @@ describe('bounded command ownership', () => {
   });
 
   it('strips the exact empty npm lifecycle no-proxy placeholder without admitting proxy authority', () => {
-    expect(buildClosedCommandEnvironment(verifiedNpmLifecycleEnvironment())).toEqual({
-      HOME: process.env.HOME ?? tmpdir(),
+    const environment = verifiedNpmLifecycleEnvironment();
+    expect(buildClosedCommandEnvironment(environment)).toEqual({
+      HOME: environment.HOME,
       TMPDIR: tmpdir(),
       LANG: 'C',
       LC_ALL: 'C',
@@ -3713,11 +3908,13 @@ describe('bounded command ownership', () => {
     });
     expect(() =>
       buildClosedCommandEnvironment(
-        verifiedNpmLifecycleEnvironment({ npm_config_noproxy: 'localhost' })
+        verifiedNpmLifecycleEnvironment({ extra: { npm_config_noproxy: 'localhost' } })
       )
     ).toThrow('ENVIRONMENT_FORBIDDEN');
     expect(() =>
-      buildClosedCommandEnvironment(verifiedNpmLifecycleEnvironment({ NPM_CONFIG_NOPROXY: '' }))
+      buildClosedCommandEnvironment(
+        verifiedNpmLifecycleEnvironment({ extra: { NPM_CONFIG_NOPROXY: '' } })
+      )
     ).toThrow('ENVIRONMENT_FORBIDDEN');
     expect(() =>
       buildClosedCommandEnvironment(cleanEnvironment({ npm_config_noproxy: '' }))
@@ -3735,7 +3932,7 @@ describe('bounded command ownership', () => {
     ['CUSTOM_PROXY_ROUTE', '']
   ])('rejects direct or npm-lifecycle proxy authority %s', (key, value) => {
     expect(() =>
-      buildClosedCommandEnvironment(verifiedNpmLifecycleEnvironment({ [key]: value }))
+      buildClosedCommandEnvironment(verifiedNpmLifecycleEnvironment({ extra: { [key]: value } }))
     ).toThrow('ENVIRONMENT_FORBIDDEN');
   });
 
