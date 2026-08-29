@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "closureState": "final",
   "uiPathSetSha256": "71d388228c9475ea3719f5e61b1b95f0223ecf902c6802139de6c96fde71d536",
-  "uiContentSha256": "6e0246cac94ca202148eb54cf0a5487b02f078c009806ffcf5eb36d10f56e45a",
+  "uiContentSha256": "07a625df864700fd1c756de27f5570d9f4e402d72d5686da58999010ab7fe87d",
   "rows": [
     {
       "path": "src/ui/domains/usage-chart/index.ts",

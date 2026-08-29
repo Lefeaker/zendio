@@ -7,7 +7,7 @@ export interface KeyedSessionListMetrics {
 
 export interface KeyedSessionListOptions<T> {
   container: HTMLElement;
-  keyOf(item: T): string;
+  keyOf(this: void, item: T): string;
   create(item: T): HTMLElement;
   update(element: HTMLElement, item: T): void;
   before?: ChildNode | null;
@@ -31,7 +31,7 @@ export function createKeyedSessionList<T>(
   return {
     reconcile(items) {
       if (disposed) throw new Error('Cannot reconcile a disposed keyed session list');
-      const keys = validateKeys(items, (item) => options.keyOf(item));
+      const keys = validateKeys(items, options.keyOf);
       const retained = new Set(keys);
       const metrics: KeyedSessionListMetrics = { created: 0, moved: 0, removed: 0, updated: 0 };
 
