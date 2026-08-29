@@ -353,7 +353,7 @@ const COVERAGE: readonly SurfaceCoverage[] = [
     evidence: [
       {
         file: 'tests/unit/content/runtimeSurfaceContent.test.ts',
-        includes: ['uses non-Chinese compatibility defaults for renderer labels']
+        includes: ['does not restore optional icon inputs or fallback expressions']
       },
       {
         file: 'tests/unit/content/exportDestinationDom.test.ts',

@@ -104,7 +104,21 @@ describe('OptionsController baseline integration', () => {
     expect(saved.rest.vault).toBe('ManagedVault');
     expect(saved.domainMappings).toEqual(DEFAULT_OPTIONS.domainMappings);
     expect(saved.vaultRouter).toEqual(fixtures.vaultRouterSnapshot);
-    expect((saved as StoredOptions).yamlConfig).toEqual(persisted.yamlConfig);
+    expect((saved as StoredOptions).yamlConfig).toEqual({
+      contentTypes: {
+        article: {
+          customFields: [
+            {
+              name: 'managed_field',
+              type: 'text',
+              enabled: true,
+              defaultValue: 'managed',
+              isCustom: true
+            }
+          ]
+        }
+      }
+    });
   });
 
   it('preserves imported snapshot and reconstitutes defaults on subsequent save', async () => {
@@ -171,6 +185,20 @@ describe('OptionsController baseline integration', () => {
     expect(savedAfterImport.rest.httpUrl).toBe(DEFAULT_OPTIONS.rest.httpUrl);
     expect(savedAfterImport.domainMappings).toEqual(DEFAULT_OPTIONS.domainMappings);
     expect(savedAfterImport.vaultRouter).toEqual(importedOptions.vaultRouter);
-    expect((savedAfterImport as StoredOptions).yamlConfig).toEqual(importedOptions.yamlConfig);
+    expect((savedAfterImport as StoredOptions).yamlConfig).toEqual({
+      contentTypes: {
+        article: {
+          customFields: [
+            {
+              name: 'imported_template',
+              type: 'text',
+              enabled: true,
+              defaultValue: 'imported',
+              isCustom: true
+            }
+          ]
+        }
+      }
+    });
   });
 });

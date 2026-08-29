@@ -64,7 +64,7 @@ describe('storage settings', () => {
         baseUrl: LOCALHOST_BASE_URL,
         httpsUrl: REST_DEFAULTS.httpsUrl,
         httpUrl: REST_DEFAULTS.httpUrl,
-        apiKey: 'secret',
+        apiKey: 'secret-key',
         rootDir: 'Research/'
       }
     } as Partial<CompleteOptions>) as CompleteOptions;
@@ -78,7 +78,7 @@ describe('storage settings', () => {
         name: 'Research',
         https: REST_DEFAULTS.httpsUrl,
         http: REST_DEFAULTS.httpUrl,
-        key: 'secret',
+        key: 'secret-key',
         enabled: true,
         isDefault: true
       })

@@ -255,7 +255,7 @@ describe('mountProductionStitchShell storage i18n', () => {
         rest: {
           vault: 'Research Vault',
           httpsUrl: LOCAL_HTTPS_URL,
-          apiKey: 'bad-token'
+          apiKey: 'bad-token-1'
         }
       },
       messages: storageSentinelMessages,
@@ -304,7 +304,7 @@ describe('mountProductionStitchShell storage i18n', () => {
         rest: {
           vault: 'Research Vault',
           httpsUrl: LOCAL_HTTPS_URL,
-          apiKey: 'bad-token'
+          apiKey: 'bad-token-1'
         }
       },
       messages: storageSentinelMessages,
@@ -347,7 +347,7 @@ describe('mountProductionStitchShell storage i18n', () => {
         rest: {
           vault: 'Research Vault',
           httpsUrl: LOCAL_HTTPS_URL,
-          apiKey: 'token'
+          apiKey: 'token-value'
         }
       },
       messages: storageSentinelMessages,

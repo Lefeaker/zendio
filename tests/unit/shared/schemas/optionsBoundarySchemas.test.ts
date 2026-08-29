@@ -4,6 +4,7 @@ import {
   VaultRouterConfigSchema,
   YamlConfigOverridesSchema
 } from '@shared/schemas';
+import { decodeStoredOptions } from '@shared/config/storedOptionsCodec';
 
 describe('options boundary schemas', () => {
   it('accepts legacy-compatible vaultRouter config', () => {
@@ -103,8 +104,8 @@ describe('options boundary schemas', () => {
     expect(result.success).toBe(false);
   });
 
-  it('documents StoredOptions root unknown-field policy as strip while preserving known settings', () => {
-    const result = StoredOptionsSchema.parse({
+  it('rejects unknown StoredOptions roots while the loss-aware codec preserves opaque data', () => {
+    const raw = {
       rest: {
         baseUrl: 'https://example.com',
         apiKey: 'REST_SECRET_TOKEN'
@@ -115,27 +116,37 @@ describe('options boundary schemas', () => {
       customKey: {
         hello: 'world'
       }
-    });
+    };
+    const result = StoredOptionsSchema.safeParse(raw);
+    const decoded = decodeStoredOptions(raw);
 
-    expect(result.rest?.apiKey).toBe('REST_SECRET_TOKEN');
-    expect(result.aiChat?.userName).toBe('Researcher');
-    expect((result as Record<string, unknown>).customKey).toBeUndefined();
+    expect(result.success).toBe(false);
+    expect(decoded.canonical.rest?.apiKey).toBe('REST_SECRET_TOKEN');
+    expect(decoded.canonical.aiChat?.userName).toBe('Researcher');
+    expect(decoded.preserved.unknownRoots.customKey).toEqual({ hello: 'world' });
+    expect(decoded.automaticWritebackIsLossless).toBe(false);
   });
 
-  it('preserves privacy consent preferences at the storage boundary', () => {
-    const result = StoredOptionsSchema.parse({
+  it('rejects unknown privacy keys while the loss-aware codec preserves the invalid section', () => {
+    const raw = {
       privacyPreferences: {
         analytics: true,
         errorReporting: true,
         debugMode: false,
         extraConsentKey: true
       }
-    });
+    };
+    const result = StoredOptionsSchema.safeParse(raw);
+    const decoded = decodeStoredOptions(raw);
 
-    expect(result.privacyPreferences).toEqual({
+    expect(result.success).toBe(false);
+    expect(decoded.canonical).not.toHaveProperty('privacyPreferences');
+    expect(decoded.preserved.invalidSections.privacyPreferences).toEqual({
       analytics: true,
       errorReporting: true,
-      debugMode: false
+      debugMode: false,
+      extraConsentKey: true
     });
+    expect(decoded.automaticWritebackIsLossless).toBe(false);
   });
 });

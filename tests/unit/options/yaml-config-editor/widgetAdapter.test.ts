@@ -118,7 +118,15 @@ describe('YamlConfigEditorWidgetAdapter', () => {
       yamlConfig: {
         contentTypes: {
           article: {
-            customFields: [{ name: 'score', type: 'number', enabled: true, defaultValue: 42 }]
+            customFields: [
+              {
+                name: 'score',
+                type: 'number',
+                enabled: true,
+                defaultValue: 42,
+                isCustom: true
+              }
+            ]
           }
         }
       }
