@@ -113,9 +113,10 @@ export class VideoSessionDraftController implements VideoSessionDraftRuntimePort
     if (!view) {
       return;
     }
-    const flush = () => void this.flushNow('restorable');
+    const flushActive = () => void this.flushNow('active');
+    const flushRestorable = () => void this.flushNow('restorable');
     const pruneToLimits = () => this.screenshotCacheMaintenance.pruneToLimitsBestEffort();
-    const stop = bindVideoSessionDraftPersistence(view, flush);
+    const stop = bindVideoSessionDraftPersistence(view, flushRestorable, flushActive);
     view.addEventListener('pagehide', pruneToLimits, { passive: true });
     this.stopDraftPersistence = () => {
       stop();
@@ -245,7 +246,7 @@ export class VideoSessionDraftController implements VideoSessionDraftRuntimePort
   }
 
   async flushNow(status: SessionDraftStatus = 'active'): Promise<VideoHintState | null> {
-    this.pendingDraftStatus = 'active';
+    this.pendingDraftStatus = status;
     const cleanupState = this.options.readCleanupState();
     try {
       const result = await flushVideoSessionDraftNow({

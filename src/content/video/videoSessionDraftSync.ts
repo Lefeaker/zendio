@@ -179,13 +179,21 @@ export function syncVideoSessionCommentDraftsFromDom(
 
 export function bindVideoSessionDraftPersistence(
   view: Window,
-  flushDraftNow: () => void
+  flushRestorableDraftNow: () => void,
+  flushActiveDraftNow: () => void
 ): () => void {
-  view.addEventListener('pagehide', flushDraftNow, { passive: true });
-  view.addEventListener('beforeunload', flushDraftNow, true);
+  const flushActiveWhenHidden = (): void => {
+    if (view.document.visibilityState === 'hidden') {
+      flushActiveDraftNow();
+    }
+  };
+  view.document.addEventListener('visibilitychange', flushActiveWhenHidden, { passive: true });
+  view.addEventListener('pagehide', flushRestorableDraftNow, { capture: true, passive: true });
+  view.addEventListener('beforeunload', flushRestorableDraftNow, true);
   return () => {
-    view.removeEventListener('pagehide', flushDraftNow);
-    view.removeEventListener('beforeunload', flushDraftNow, true);
+    view.document.removeEventListener('visibilitychange', flushActiveWhenHidden);
+    view.removeEventListener('pagehide', flushRestorableDraftNow, true);
+    view.removeEventListener('beforeunload', flushRestorableDraftNow, true);
   };
 }
 

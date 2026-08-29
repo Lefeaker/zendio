@@ -76,6 +76,14 @@ async function resolveSessionDraftOwner(tabs: Pick<TabsService, 'get'>, sender: 
     sender.frameId < 0
   )
     return null;
+  const trustedSnapshot = SessionDraftTrustedOwnerContextSchema.safeParse({
+    tabId: sender.tabId,
+    frameId: sender.frameId,
+    ...(typeof sender.windowId === 'number' ? { windowId: sender.windowId } : {})
+  });
+  if (typeof sender.windowId === 'number' && trustedSnapshot.success) {
+    return trustedSnapshot.data;
+  }
   try {
     const tab = await tabs.get(sender.tabId);
     if (!tab) return null;

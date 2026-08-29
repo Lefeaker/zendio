@@ -1,7 +1,9 @@
 import type { RuntimeSurfaceHandle } from '@content/stitch/runtimeSurfaceRenderer';
-import { createRootActionDispatcher } from '@ui/stitch-runtime/render/rootActionDispatcher';
 import type { VideoPanelCallbacks, VideoPanelCapture } from '../application/videoPanelModel';
-import type { SessionCommentDraftController } from '@content/shared/panels/sessionCommentDrafts';
+import type {
+  SessionCommentDraftController,
+  SessionCommentDraftKeyboardEvent
+} from '@content/shared/panels/sessionCommentDrafts';
 import type { SessionPanelCollapsePersistence } from '@content/shared/panels/sessionPanelCollapsePersistence';
 
 const INTERACTIVE_TARGET_SELECTOR =
@@ -21,7 +23,7 @@ export interface VideoDialogPanelEventHandlers {
   focusInput(id: string): void;
   blurInput(id: string, relatedTarget: EventTarget | null): void;
   input(id: string, input: HTMLInputElement): void;
-  keydown(id: string, input: HTMLInputElement, event: KeyboardEvent): void;
+  keydown(id: string, input: HTMLInputElement, event: SessionCommentDraftKeyboardEvent): void;
 }
 
 export function createVideoDialogPanelEventHandlers(options: {
@@ -74,9 +76,10 @@ export function createVideoDialogPanelEventHandlers(options: {
 }
 
 function isTargetInsidePanel(root: HTMLElement, target: EventTarget | null): boolean {
+  const node = asNode(root.ownerDocument, target);
   return (
-    target instanceof Node &&
-    (target === root || root.contains(target) || Boolean(root.shadowRoot?.contains(target)))
+    node !== null &&
+    (node === root || root.contains(node) || Boolean(root.shadowRoot?.contains(node)))
   );
 }
 
@@ -84,16 +87,12 @@ export function bindVideoDialogPanelEvents(
   handle: RuntimeSurfaceHandle,
   handlers: VideoDialogPanelEventHandlers
 ): () => void {
-  const dispatcher = createRootActionDispatcher(handle.root);
   const disposers = [
-    dispatcher.register(handle.root, 'click', (event) => {
+    bindEvent(handle.root, 'click', (event) => {
       if (!isInsideDialog(event, handle.dialog)) handlers.cancel();
     }),
-    dispatcher.register(handle.sessionWindow, 'mousedown', (event) => {
-      if (handlers.isCollapsed()) event.preventDefault();
-    }),
-    dispatcher.register(handle.sessionWindow, 'click', (event) => {
-      const target = event.target instanceof Element ? event.target : null;
+    bindEvent(handle.sessionWindow, 'click', (event) => {
+      const target = asElement(event.target);
       if (handlers.isCollapsed()) {
         handlers.expandCollapsedPanel();
         return;
@@ -109,24 +108,25 @@ export function bindVideoDialogPanelEvents(
         if (id) handlers.focusCapture(id);
       }
     }),
-    dispatcher.register(handle.sessionWindow, 'input', (event) => {
-      const input = event.target instanceof HTMLInputElement ? event.target : null;
+    bindEvent(handle.sessionWindow, 'input', (event) => {
+      const input = asInput(event.target);
       const id = input?.dataset.captureInput;
       if (input && id) handlers.input(id, input);
     }),
-    dispatcher.register(handle.sessionWindow, 'focusin', (event) => {
-      const input = event.target instanceof HTMLInputElement ? event.target : null;
+    bindEvent(handle.sessionWindow, 'focusin', (event) => {
+      const input = asInput(event.target);
       const id = input?.dataset.captureInput;
       if (id) handlers.focusInput(id);
     }),
-    dispatcher.register(handle.sessionWindow, 'focusout', (event) => {
-      const input = event.target instanceof HTMLInputElement ? event.target : null;
+    bindEvent(handle.sessionWindow, 'focusout', (event) => {
+      const input = asInput(event.target);
       const id = input?.dataset.captureInput;
-      if (id) handlers.blurInput(id, event instanceof FocusEvent ? event.relatedTarget : null);
+      const relatedTarget = 'relatedTarget' in event ? event.relatedTarget : null;
+      if (id) handlers.blurInput(id, isEventTarget(relatedTarget) ? relatedTarget : null);
     }),
-    dispatcher.register(handle.sessionWindow, 'keydown', (event) => {
-      if (!(event instanceof KeyboardEvent)) return;
-      const input = event.target instanceof HTMLInputElement ? event.target : null;
+    bindEvent(handle.sessionWindow, 'keydown', (event) => {
+      if (!isSessionCommentDraftKeyboardEvent(event)) return;
+      const input = asInput(event.target);
       const id = input?.dataset.captureInput;
       if (input && id) handlers.keydown(id, input, event);
     })
@@ -134,14 +134,60 @@ export function bindVideoDialogPanelEvents(
 
   return () => {
     disposers.forEach((dispose) => dispose());
-    dispatcher.dispose();
   };
+}
+
+function bindEvent(
+  target: HTMLElement,
+  type: 'click' | 'input' | 'focusin' | 'focusout' | 'keydown',
+  handler: (event: Event) => void
+): () => void {
+  target.addEventListener(type, handler);
+  return () => target.removeEventListener(type, handler);
+}
+
+function asElement(target: EventTarget | null): Element | null {
+  if (
+    !target ||
+    typeof target !== 'object' ||
+    !('closest' in target) ||
+    typeof target.closest !== 'function'
+  ) {
+    return null;
+  }
+  return target as Element;
+}
+
+function asInput(target: EventTarget | null): HTMLInputElement | null {
+  const element = asElement(target);
+  return element?.tagName === 'INPUT' ? (element as HTMLInputElement) : null;
+}
+
+function isEventTarget(value: unknown): value is EventTarget {
+  return typeof value === 'object' && value !== null && 'addEventListener' in value;
+}
+
+function asNode(document: Document, target: EventTarget | null): Node | null {
+  const NodeConstructor = document.defaultView?.Node;
+  return NodeConstructor && target instanceof NodeConstructor ? (target as Node) : null;
+}
+
+function isSessionCommentDraftKeyboardEvent(
+  event: Event
+): event is Event & SessionCommentDraftKeyboardEvent {
+  return (
+    'key' in event &&
+    typeof event.key === 'string' &&
+    'isComposing' in event &&
+    typeof event.isComposing === 'boolean'
+  );
 }
 
 function isInsideDialog(event: Event, dialog: HTMLElement): boolean {
   const path = typeof event.composedPath === 'function' ? event.composedPath() : [];
   if (path.length > 0) return path.includes(dialog);
-  return event.target instanceof Node && dialog.contains(event.target);
+  const target = asNode(dialog.ownerDocument, event.target);
+  return target !== null && dialog.contains(target);
 }
 
 function routeAction(target: HTMLElement, handlers: VideoDialogPanelEventHandlers): void {

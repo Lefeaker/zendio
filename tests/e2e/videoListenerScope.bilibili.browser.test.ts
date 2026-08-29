@@ -1,4 +1,4 @@
-import { expect } from '@playwright/test';
+import { expect, type BrowserContext, type Page } from '@playwright/test';
 import {
   BILIBILI_MAIN_COMMENT_TEXT,
   BILIBILI_REPLY_COMMENT_TEXT,
@@ -12,7 +12,6 @@ import {
   dragSelectBilibiliRichText,
   expandVideoPanel,
   expectPxWithin,
-  installDelayedVideoCaptureStorageWrites,
   installPlaybackFixture,
   installVideoScreenshotProbe,
   isBilibiliRichTextHighlightVisible,
@@ -29,6 +28,120 @@ import {
   testWithExtension,
   waitForPanelCaptureInputReady
 } from './utils/videoListenerScopeHarness';
+
+async function installDelayedVideoDraftStorageWrites(
+  context: BrowserContext,
+  extensionPage: Page,
+  expectedComment: string
+): Promise<{
+  release: () => Promise<void>;
+  readDelayedWriteCount: () => Promise<number>;
+}> {
+  const keepAliveName = 'aiob-test-video-draft-storage-gate';
+  const background =
+    context.serviceWorkers()[0] ??
+    (await context.waitForEvent('serviceworker', { timeout: 15000 }));
+  await background.evaluate(
+    ({ committedComment, portName }) => {
+      const workerGlobal = globalThis as typeof globalThis & {
+        __delayedVideoDraftStorageWritesForTests?: {
+          readDelayedWriteCount: () => number;
+          release: () => void;
+        };
+        __videoDraftStorageGatePortForTests?: chrome.runtime.Port;
+      };
+      chrome.runtime.onConnect.addListener((port) => {
+        if (port.name === portName) {
+          workerGlobal.__videoDraftStorageGatePortForTests = port;
+        }
+      });
+      const storageArea = chrome.storage.local;
+      const originalSet = storageArea.set.bind(storageArea) as (
+        items: Record<string, unknown>,
+        callback?: () => void
+      ) => void;
+      const pendingWrites: Array<() => void> = [];
+      let delayedWriteCount = 0;
+      let released = false;
+      const containsCommittedCapture = (value: unknown): boolean => {
+        if (typeof value !== 'object' || value === null || !('payload' in value)) return false;
+        const payload = value.payload;
+        if (typeof payload !== 'object' || payload === null || !('captures' in payload)) {
+          return false;
+        }
+        const captures = payload.captures;
+        return (
+          Array.isArray(captures) &&
+          captures.some(
+            (capture) =>
+              typeof capture === 'object' &&
+              capture !== null &&
+              'comment' in capture &&
+              capture.comment === committedComment
+          )
+        );
+      };
+      Object.defineProperty(storageArea, 'set', {
+        configurable: true,
+        value: (items: Record<string, unknown>, callback?: () => void) => {
+          const write = () => originalSet(items, callback);
+          if (released || !Object.values(items).some(containsCommittedCapture)) {
+            write();
+            return;
+          }
+          delayedWriteCount += 1;
+          pendingWrites.push(write);
+        }
+      });
+      workerGlobal.__delayedVideoDraftStorageWritesForTests = {
+        readDelayedWriteCount: () => delayedWriteCount,
+        release: () => {
+          released = true;
+          pendingWrites.splice(0).forEach((write) => write());
+        }
+      };
+    },
+    { committedComment: expectedComment, portName: keepAliveName }
+  );
+  await extensionPage.evaluate((portName) => {
+    const extensionGlobal = globalThis as typeof globalThis & {
+      __videoDraftStorageGatePortForTests?: chrome.runtime.Port;
+    };
+    extensionGlobal.__videoDraftStorageGatePortForTests = chrome.runtime.connect({
+      name: portName
+    });
+  }, keepAliveName);
+
+  return {
+    readDelayedWriteCount: () =>
+      background.evaluate(
+        () =>
+          (
+            globalThis as typeof globalThis & {
+              __delayedVideoDraftStorageWritesForTests?: {
+                readDelayedWriteCount: () => number;
+              };
+            }
+          ).__delayedVideoDraftStorageWritesForTests?.readDelayedWriteCount() ?? 0
+      ),
+    release: async () => {
+      await background.evaluate(() => {
+        (
+          globalThis as typeof globalThis & {
+            __delayedVideoDraftStorageWritesForTests?: { release: () => void };
+          }
+        ).__delayedVideoDraftStorageWritesForTests?.release();
+      });
+      await extensionPage.evaluate(() => {
+        const extensionGlobal = globalThis as typeof globalThis & {
+          __videoDraftStorageGatePortForTests?: chrome.runtime.Port;
+        };
+        extensionGlobal.__videoDraftStorageGatePortForTests?.disconnect();
+        delete extensionGlobal.__videoDraftStorageGatePortForTests;
+      });
+    }
+  };
+}
 
 export function registerVideoListenerScopeBilibiliTests(): void {
   testWithExtension(
@@ -166,9 +279,10 @@ export function registerVideoListenerScopeBilibiliTests(): void {
         )
         .toBe(2);
 
-      const delayedStorage = await installDelayedVideoCaptureStorageWrites(
+      const delayedStorage = await installDelayedVideoDraftStorageWrites(
+        context,
         extensionPage,
-        playingTabId
+        'Panel add note'
       );
       await playingInput.fill('Panel add note');
       await playingInput.press('Enter');
@@ -179,30 +293,24 @@ export function registerVideoListenerScopeBilibiliTests(): void {
         )
         .toBe(0);
       await delayedStorage.release();
+      await expect(playingInput).toHaveValue('Panel add note');
       await expect
-        .poll(() =>
-          readPlaybackCounters(extensionPage, playingTabId).then((counters) => counters.play)
-        )
-        .toBe(1);
+        .poll(async () => ({
+          delayedWriteCount: await delayedStorage.readDelayedWriteCount(),
+          play: (await readPlaybackCounters(extensionPage, playingTabId)).play
+        }))
+        .toEqual({ delayedWriteCount: 1, play: 1 });
 
-      const { page: pausedPage, tabId: pausedTabId } = await openFixtureWithRuntime(
-        context,
-        extensionPage,
-        `${BILIBILI_URL}?paused=1`,
-        bilibiliFixtureHtml()
-      );
-      await installPlaybackFixture(extensionPage, pausedTabId, true);
-      await openVideoPanelFromControlBar(pausedPage, 'Seed paused panel note test');
-      await expandVideoPanel(pausedPage);
-      await resetPlaybackCounters(extensionPage, pausedTabId);
+      await installPlaybackFixture(extensionPage, playingTabId, true);
+      await resetPlaybackCounters(extensionPage, playingTabId);
 
-      await pausedPage.locator('[data-action-id="video:add-note"]').click();
-      const pausedInput = pausedPage.locator('[data-capture-input]').last();
+      await playingPage.locator('[data-action-id="video:add-note"]').click();
+      const pausedInput = playingPage.locator('[data-capture-input]').last();
       await waitForPanelCaptureInputReady(pausedInput);
       await pausedInput.fill('Paused panel note');
       await pausedInput.press('Enter');
       await expect
-        .poll(() => readPlaybackCounters(extensionPage, pausedTabId), {
+        .poll(() => readPlaybackCounters(extensionPage, playingTabId), {
           timeout: 10000,
           message: 'paused panel add-note unexpectedly changed playback counters'
         })
@@ -228,11 +336,11 @@ export function registerVideoListenerScopeBilibiliTests(): void {
       );
 
       await openVideoPanelFromControlBar(page, 'Bilibili seed capture');
-      await expandVideoPanel(page);
       const initialCount = await page.locator('[data-role="capture-item"]').count();
 
       await dragSelectBilibiliRichText(page, 'main-rich-text');
       await expect(page.locator('[data-role="capture-item"]')).toHaveCount(initialCount + 1);
+      await expandVideoPanel(page);
       await expect(page.locator('[data-role="capture-item"]').last()).toContainText(
         BILIBILI_MAIN_COMMENT_TEXT
       );
@@ -241,8 +349,11 @@ export function registerVideoListenerScopeBilibiliTests(): void {
         .poll(() => isBilibiliRichTextHighlightVisible(page, 'main-rich-text'))
         .toBe(true);
 
+      await page.locator('[data-action-id="session:toggleCollapse"]').click();
+      await expect(page.locator('.video-surface-window').first()).toHaveClass(/is-collapsed/);
       await dragSelectBilibiliRichText(page, 'reply-rich-text');
       await expect(page.locator('[data-role="capture-item"]')).toHaveCount(initialCount + 2);
+      await expandVideoPanel(page);
       await expect(page.locator('[data-role="capture-item"]').last()).toContainText(
         BILIBILI_REPLY_COMMENT_TEXT
       );
@@ -320,13 +431,14 @@ export function registerVideoListenerScopeBilibiliTests(): void {
       await expect
         .poll(async () => await screenshotToggle.getAttribute('data-screenshot-state'))
         .toMatch(/^(pending|on)$/);
+      await expect(screenshotToggle).toBeVisible();
 
       const toggleBox = await screenshotToggle.boundingBox();
-      expect(toggleBox?.width).toBeGreaterThanOrEqual(24);
-      expect(toggleBox?.height).toBeGreaterThanOrEqual(24);
       if (!toggleBox) {
         throw new Error('Missing Bilibili screenshot toggle hit area.');
       }
+      expect(toggleBox.width).toBeGreaterThanOrEqual(24);
+      expect(toggleBox.height).toBeGreaterThanOrEqual(24);
 
       await page.mouse.click(toggleBox.x + 16, toggleBox.y + toggleBox.height / 2);
 
