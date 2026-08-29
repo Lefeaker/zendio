@@ -1,7 +1,11 @@
 /* @vitest-environment jsdom */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { StorageService } from '@platform/interfaces/storage';
+import type {
+  StorageAreaChangeCallback,
+  StorageChangeMap,
+  StorageService
+} from '@platform/interfaces/storage';
 import { createMemoryStorageArea } from '@platform/preview/memoryStorage';
 import {
   SESSION_DRAFT_INDEX_KEY,
@@ -51,26 +55,61 @@ function createHarness(
   let href = initialUrl;
   const localBase = createMemoryStorageArea();
   const localValues = new Map<string, unknown>();
+  const localWatchers = new Set<StorageAreaChangeCallback>();
+  const notifyLocalWatchers = (changes: StorageChangeMap): void => {
+    localWatchers.forEach((watcher) => watcher(changes));
+  };
   const local = {
     ...localBase,
     async set<T>(key: string, value: T) {
+      const oldValue = localValues.get(key);
       await localBase.set(key, value);
       localValues.set(key, value);
+      notifyLocalWatchers({
+        [key]: {
+          ...(oldValue !== undefined ? { oldValue } : {}),
+          newValue: value
+        }
+      });
     },
     async setMany<T>(entries: Record<string, T>) {
+      const changes: StorageChangeMap = {};
+      for (const [key, value] of Object.entries(entries)) {
+        const oldValue = localValues.get(key);
+        changes[key] = {
+          ...(oldValue !== undefined ? { oldValue } : {}),
+          newValue: value
+        };
+      }
       await localBase.setMany(entries);
       for (const [key, value] of Object.entries(entries)) localValues.set(key, value);
+      notifyLocalWatchers(changes);
     },
     async remove(keys: string | string[]) {
-      await localBase.remove(keys);
-      for (const key of Array.isArray(keys) ? keys : [keys]) localValues.delete(key);
+      const normalizedKeys = Array.isArray(keys) ? keys : [keys];
+      const changes: StorageChangeMap = {};
+      for (const key of normalizedKeys) {
+        const oldValue = localValues.get(key);
+        if (oldValue !== undefined) changes[key] = { oldValue };
+      }
+      await localBase.remove(normalizedKeys);
+      for (const key of normalizedKeys) localValues.delete(key);
+      notifyLocalWatchers(changes);
     },
     async clear() {
+      const changes: StorageChangeMap = Object.fromEntries(
+        Array.from(localValues, ([key, oldValue]) => [key, { oldValue }])
+      );
       await localBase.clear();
       localValues.clear();
+      notifyLocalWatchers(changes);
     },
     getAll() {
       return Promise.resolve(Object.fromEntries(localValues));
+    },
+    watchAll(callback: StorageAreaChangeCallback) {
+      localWatchers.add(callback);
+      return () => localWatchers.delete(callback);
     }
   };
   const storage: StorageService = {
@@ -403,6 +442,47 @@ describe('sessionDraftAutoRestore', () => {
 
     expect(harness.readerStart).not.toHaveBeenCalled();
     expect(harness.videoStart).not.toHaveBeenCalled();
+    stop();
+  });
+
+  it('rechecks when a live-page draft handoff becomes restorable after startup', async () => {
+    const url = 'https://www.youtube.com/watch?v=video-1';
+    const harness = createHarness(url);
+    document.body.appendChild(document.createElement('video'));
+    const activeEnvelope = {
+      ...createVideoDraftEnvelope(url),
+      status: 'active' as const
+    };
+    await seedStoredDraft(harness, activeEnvelope);
+
+    const stop = harness.start();
+    await flushAsyncWork();
+    expect(harness.videoStart).not.toHaveBeenCalled();
+
+    const storageKey = createSessionDraftStorageKey(activeEnvelope);
+    const activeRecord = await harness.storage.local.get<SessionDraftEnvelope>(storageKey);
+    if (!activeRecord) throw new Error('Expected active video draft record');
+    const { lease: _lease, ...recordWithoutLease } = activeRecord;
+    const restorableRecord = SessionDraftEnvelopeSchema.parse({
+      ...recordWithoutLease,
+      status: 'restorable',
+      revision: activeRecord.revision + 1,
+      updatedAt: activeRecord.updatedAt + 1
+    });
+    await harness.storage.local.setMany({
+      [storageKey]: restorableRecord,
+      [SESSION_DRAFT_INDEX_KEY]: createSessionDraftIndex([
+        createSessionDraftIndexEntry(storageKey, restorableRecord)
+      ])
+    });
+    await flushAsyncWork();
+
+    await vi.waitFor(() => expect(harness.videoStart).toHaveBeenCalledTimes(1));
+    expect(harness.createVideoSession.mock.calls[0]?.[0]).toMatchObject({
+      draftId: activeEnvelope.draftId,
+      status: 'active',
+      lease: expect.any(Object)
+    });
     stop();
   });
 

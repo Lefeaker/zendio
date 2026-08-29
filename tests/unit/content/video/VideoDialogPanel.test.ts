@@ -988,6 +988,38 @@ describe('VideoDialogPanel', () => {
     panel.destroy();
   });
 
+  it('submits Enter from a structurally valid keyboard event with a different constructor', async () => {
+    const panel = new VideoDialogPanel({ callbacks, texts });
+    panel.show();
+    panel.setCaptures([createCapture({ id: 'capture-1', index: 1 })]);
+    panel.beginEditingCapture('capture-1', '');
+    await Promise.resolve();
+
+    const input = panel.element.shadowRoot?.querySelector<HTMLInputElement>(
+      '[data-capture-input="capture-1"]'
+    );
+    expect(input).toBeTruthy();
+    if (!input) {
+      throw new Error('capture input missing');
+    }
+    input.value = 'Cross-realm timestamp';
+    const event = new Event('keydown', { bubbles: true, cancelable: true });
+    Object.defineProperties(event, {
+      key: { value: 'Enter' },
+      isComposing: { value: false }
+    });
+
+    input.dispatchEvent(event);
+    await flushPanelPersistence();
+
+    expect(event.defaultPrevented).toBe(true);
+    expect(callbacks.onSubmitCaptureEdit).toHaveBeenCalledWith(
+      'capture-1',
+      'Cross-realm timestamp'
+    );
+    panel.destroy();
+  });
+
   it('does not submit capture edits while IME composition owns Enter', async () => {
     const hostKeydown = vi.fn();
     document.addEventListener('keydown', hostKeydown);

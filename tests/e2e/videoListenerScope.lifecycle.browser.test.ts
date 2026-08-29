@@ -1,4 +1,4 @@
-import { expect } from '@playwright/test';
+import { expect, type Page } from '@playwright/test';
 import {
   captureFixtureSelectionWithShift,
   clearVideoScreenshotCacheStorage,
@@ -19,6 +19,31 @@ import {
   YOUTUBE_URL,
   youtubeFixtureHtml
 } from './utils/videoListenerScopeHarness';
+
+async function readStoredVideoDraftHandoff(extensionPage: Page, pageUrl: string) {
+  return extensionPage.evaluate(async (targetPageUrl) => {
+    const storage = await chrome.storage.local.get(null);
+    const draft = Object.entries(storage).find(([key, value]) => {
+      if (!key.startsWith('aiob.sessionDraft') || key === 'aiob.sessionDraft.index.v1') {
+        return false;
+      }
+      return (
+        typeof value === 'object' &&
+        value !== null &&
+        'pageUrl' in value &&
+        value.pageUrl === targetPageUrl
+      );
+    })?.[1];
+    if (!draft || typeof draft !== 'object') {
+      return null;
+    }
+    return {
+      status: 'status' in draft ? draft.status : undefined,
+      revision: 'revision' in draft ? draft.revision : undefined,
+      hasLease: 'lease' in draft && draft.lease !== undefined
+    };
+  }, pageUrl);
+}
 
 export function registerVideoListenerScopeLifecycleTests(): void {
   testWithExtension(
@@ -213,11 +238,18 @@ export function registerVideoListenerScopeLifecycleTests(): void {
           legacyStorageCacheEntryCount: 0
         });
 
-      await page.close();
+      await page.goto('about:blank', { waitUntil: 'domcontentloaded' });
+      await expect
+        .poll(() => readStoredVideoDraftHandoff(extensionPage, url))
+        .toEqual({
+          status: 'restorable',
+          revision: expect.any(Number),
+          hasLease: false
+        });
       await removeDraftScreenshotRefs(extensionPage, url);
       await clearVideoScreenshotCacheStorage(extensionPage);
 
-      const restoredPage = await context.newPage();
+      const restoredPage = page;
       await restoredPage.goto(url, { waitUntil: 'domcontentloaded' });
       const restoredTabId = await findCurrentTabId(extensionPage, restoredPage.url());
       await installVideoScreenshotProbe(extensionPage, restoredTabId);
@@ -345,10 +377,17 @@ export function registerVideoListenerScopeLifecycleTests(): void {
           legacyStorageCacheEntryCount: 0
         });
 
-      await page.close();
+      await page.goto('about:blank', { waitUntil: 'domcontentloaded' });
+      await expect
+        .poll(() => readStoredVideoDraftHandoff(extensionPage, url))
+        .toEqual({
+          status: 'restorable',
+          revision: expect.any(Number),
+          hasLease: false
+        });
       await clearVideoScreenshotCacheStorage(extensionPage);
 
-      const restoredPage = await context.newPage();
+      const restoredPage = page;
       await restoredPage.goto(url, { waitUntil: 'domcontentloaded' });
       const restoredTabId = await findCurrentTabId(extensionPage, restoredPage.url());
       await installVideoScreenshotProbe(extensionPage, restoredTabId);

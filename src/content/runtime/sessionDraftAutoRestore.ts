@@ -1,6 +1,8 @@
 import {
   createSessionDraftStorageKey,
   DEFAULT_SESSION_DRAFT_STORAGE_POLICY,
+  isSessionDraftStorageKey,
+  SessionDraftEnvelopeSchema,
   type ReaderSessionDraftEnvelope,
   type SessionDraftEnvelope,
   type VideoSessionDraftEnvelope
@@ -30,6 +32,7 @@ export function startSessionDraftAutoRestore(
   const repository = createSessionDraftRepository(options.storage.local, {
     retentionPolicy: sessionDraftStoragePolicy.retentionPolicy
   });
+  const releasingClaimKeys = new Set<string>();
   const selectDraft = async (mode: 'reader' | 'video', pageUrl: string) => {
     const result = await repository.selectAndClaim({
       operation: 'selectAndClaim',
@@ -49,19 +52,25 @@ export function startSessionDraftAutoRestore(
   };
   const releaseClaim = async (envelope: SessionDraftEnvelope): Promise<void> => {
     if (!envelope.lease) return;
-    const result = await repository.releaseLease({
-      operation: 'releaseLease',
-      requestId:
-        typeof globalThis.crypto?.randomUUID === 'function'
-          ? globalThis.crypto.randomUUID()
-          : `restore-release-${Date.now()}-${Math.random().toString(16).slice(2)}`,
-      key: createSessionDraftStorageKey(envelope),
-      expectedRevision: envelope.revision,
-      leaseId: envelope.lease.leaseId
-    });
-    if (result.outcome !== 'released') {
-      const code: unknown = 'code' in result ? result.code : undefined;
-      throw new Error(typeof code === 'string' ? code : 'SESSION_DRAFT_RELEASE_FAILED');
+    const key = createSessionDraftStorageKey(envelope);
+    releasingClaimKeys.add(key);
+    try {
+      const result = await repository.releaseLease({
+        operation: 'releaseLease',
+        requestId:
+          typeof globalThis.crypto?.randomUUID === 'function'
+            ? globalThis.crypto.randomUUID()
+            : `restore-release-${Date.now()}-${Math.random().toString(16).slice(2)}`,
+        key,
+        expectedRevision: envelope.revision,
+        leaseId: envelope.lease.leaseId
+      });
+      if (result.outcome !== 'released') {
+        const code: unknown = 'code' in result ? result.code : undefined;
+        throw new Error(typeof code === 'string' ? code : 'SESSION_DRAFT_RELEASE_FAILED');
+      }
+    } finally {
+      releasingClaimKeys.delete(key);
     }
   };
   const abortController = new AbortController();
@@ -92,6 +101,23 @@ export function startSessionDraftAutoRestore(
         }
       });
   };
+
+  const stopDraftStorageWatcher = options.storage.local.watchAll((changes) => {
+    const hasRestorableDraft = Object.entries(changes).some(([key, change]) => {
+      if (
+        releasingClaimKeys.has(key) ||
+        !isSessionDraftStorageKey(key) ||
+        change.newValue === undefined
+      ) {
+        return false;
+      }
+      const parsed = SessionDraftEnvelopeSchema.safeParse(change.newValue);
+      return parsed.success && parsed.data.status === 'restorable' && !parsed.data.lease;
+    });
+    if (hasRestorableDraft) {
+      queueRestore();
+    }
+  });
 
   const navigationWatcher: VideoNavigationWatcher = watchVideoNavigation(options.document, () => {
     queueRestore();
@@ -172,6 +198,7 @@ export function startSessionDraftAutoRestore(
   return () => {
     stopped = true;
     abortController.abort();
+    stopDraftStorageWatcher();
     navigationWatcher.stop();
   };
 }

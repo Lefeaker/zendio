@@ -371,6 +371,10 @@ describe('VideoSessionDraftController', () => {
   beforeEach(() => {
     document.body.innerHTML = '<video></video>';
     document.title = 'Video Title';
+    Object.defineProperty(document, 'visibilityState', {
+      configurable: true,
+      value: 'visible'
+    });
     vi.useFakeTimers();
     warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
   });
@@ -478,6 +482,38 @@ describe('VideoSessionDraftController', () => {
     });
   });
 
+  it('flushes the latest capture state after an earlier autosave write completes', async () => {
+    const { controller, repository, state, setDomDrafts, storage } = createHarness();
+    const capture = createTimestampCapture();
+    capture.comment = '';
+    state.captures = [capture];
+    setDomDrafts({ 'timestamp-1': 'Panel add note' });
+    const passthroughSetMany = storage.setMany.getMockImplementation();
+    if (!passthroughSetMany) throw new Error('Expected tracked storage implementation');
+    const firstWriteGate = createDeferred<void>();
+    storage.setMany.mockImplementationOnce(async (...args) => {
+      await firstWriteGate.promise;
+      return passthroughSetMany(...args);
+    });
+
+    const autosave = controller.scheduleSave();
+    await vi.advanceTimersByTimeAsync(200);
+    capture.comment = 'Panel add note';
+    setDomDrafts({});
+    const committedFlush = controller.flushNow('active');
+    firstWriteGate.resolve();
+
+    await expect(autosave).resolves.toBeUndefined();
+    await expect(committedFlush).resolves.toBe('ready');
+    const latestDraft = await repository.loadLatest('video', document.location.href);
+    expect(latestDraft).toMatchObject({
+      payload: {
+        captures: [expect.objectContaining({ comment: 'Panel add note' })],
+        commentDrafts: {}
+      }
+    });
+  });
+
   it('binds pagehide and beforeunload persistence and unregisters cleanly on dispose', async () => {
     const { controller, repository, state, setDomDrafts, storage } = createHarness();
     state.captures = [createTimestampCapture()];
@@ -503,6 +539,65 @@ describe('VideoSessionDraftController', () => {
     expect(candidates).toEqual(
       expect.arrayContaining([expect.objectContaining({ status: 'restorable' })])
     );
+  });
+
+  it('releases an active draft before an earlier pagehide teardown listener disposes the session', async () => {
+    const { controller, repository, state, setDomDrafts } = createHarness();
+    state.captures = [createTimestampCapture()];
+    setDomDrafts({ 'timestamp-1': 'draft note' });
+
+    await controller.flushNow('active');
+    const activeDraft = await repository.loadLatest('video', document.location.href);
+    expect(activeDraft).toMatchObject({ status: 'active', lease: expect.any(Object) });
+
+    const disposeOnPageHide = () => {
+      void controller.dispose();
+    };
+    window.addEventListener('pagehide', disposeOnPageHide);
+    controller.bindPersistence();
+    window.dispatchEvent(new Event('pagehide'));
+
+    await vi.waitFor(async () => {
+      const candidates = await repository.listCandidates('video', document.location.href);
+      const restorable = candidates.find((candidate) => candidate.status === 'restorable');
+      expect(restorable).toBeDefined();
+      expect(restorable).not.toHaveProperty('lease');
+    });
+    window.removeEventListener('pagehide', disposeOnPageHide);
+  });
+
+  it('preflushes a hidden document as active before pagehide releases its lease', async () => {
+    const { controller, repository, state, setDomDrafts } = createHarness();
+    state.captures = [createTimestampCapture()];
+    setDomDrafts({ 'timestamp-1': 'draft before hide' });
+    await controller.flushNow('active');
+    controller.bindPersistence();
+
+    setDomDrafts({ 'timestamp-1': 'draft while hiding' });
+    Object.defineProperty(document, 'visibilityState', {
+      configurable: true,
+      value: 'hidden'
+    });
+    document.dispatchEvent(new Event('visibilitychange'));
+
+    await vi.waitFor(async () => {
+      const activeDraft = await repository.loadLatest('video', document.location.href);
+      expect(activeDraft).toMatchObject({
+        status: 'active',
+        lease: expect.any(Object),
+        payload: {
+          commentDrafts: { 'timestamp-1': 'draft while hiding' }
+        }
+      });
+    });
+
+    window.dispatchEvent(new Event('pagehide'));
+    await vi.waitFor(async () => {
+      const candidates = await repository.listCandidates('video', document.location.href);
+      const restorable = candidates.find((candidate) => candidate.status === 'restorable');
+      expect(restorable).toBeDefined();
+      expect(restorable).not.toHaveProperty('lease');
+    });
   });
 
   it('hydrates captures, comment drafts, and destination state from a restored same-page draft', async () => {
