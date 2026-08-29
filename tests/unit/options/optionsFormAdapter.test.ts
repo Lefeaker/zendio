@@ -51,17 +51,23 @@ describe('optionsFormAdapter.read', () => {
     expect(result.subtitleTranslation).toEqual(DEFAULT_OPTIONS.subtitleTranslation);
   });
 
-  it('merges previous snapshot data and preserves unknown keys', () => {
+  it('merges previous snapshot data without leaking unknown roots into runtime options', () => {
     const adapter = createOptionsFormAdapter();
     const previous = {
       rest: {
         httpsUrl: 'https://custom.local/',
         httpUrl: 'http://custom.local/',
         vault: 'CustomVault',
-        apiKey: 'TOKEN'
+        apiKey: 'TOKEN-12345'
       },
       aiChat: { includeTimestamps: true, userName: 'Tester' },
-      yamlConfig: { contentTypes: { article: { customFields: [] } } },
+      yamlConfig: {
+        contentTypes: {
+          article: {
+            customFields: [{ name: 'priority', type: 'number', enabled: true, defaultValue: 1 }]
+          }
+        }
+      },
       legacyFeature: { enabled: true }
     } as StoredOptions & { legacyFeature: { enabled: boolean } };
 
@@ -70,10 +76,24 @@ describe('optionsFormAdapter.read', () => {
     expect(result.rest.httpsUrl).toBe('https://custom.local/');
     expect(result.rest.httpUrl).toBe('http://custom.local/');
     expect(result.rest.vault).toBe('CustomVault');
-    expect(result.rest.apiKey).toBe('TOKEN');
+    expect(result.rest.apiKey).toBe('TOKEN-12345');
     expect(result.aiChat.includeTimestamps).toBe(true);
-    expect((result as Record<string, unknown>).legacyFeature).toEqual({ enabled: true });
-    expect((result as StoredOptions).yamlConfig).toEqual(previous.yamlConfig);
+    expect(result).not.toHaveProperty('legacyFeature');
+    expect((result as StoredOptions).yamlConfig).toEqual({
+      contentTypes: {
+        article: {
+          customFields: [
+            {
+              name: 'priority',
+              type: 'number',
+              enabled: true,
+              defaultValue: 1,
+              isCustom: true
+            }
+          ]
+        }
+      }
+    });
   });
 
   it('merges experimental snapshot values with defaults', () => {

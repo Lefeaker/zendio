@@ -39,8 +39,14 @@ describe('production build graph report', () => {
         'src/dev/runtimeObservabilityHarness.ts': { bytes: 10 },
         'src/offscreen/localVault.ts': { bytes: 10 },
         'src/onboarding/index.ts': { bytes: 10 },
+        'src/options/stitch/styles/entries/onboarding.css': { bytes: 10 },
+        'src/options/stitch/styles/entries/options.css': { bytes: 10 },
         'src/options/widgets/fake.ts': { bytes: 10 },
-        'src/options/index.ts': { bytes: 10 }
+        'src/options/index.ts': { bytes: 10 },
+        'src/ui/stitch-runtime/styles/entries/clipper.css': { bytes: 10 },
+        'src/ui/stitch-runtime/styles/entries/prompt-task.css': { bytes: 10 },
+        'src/ui/stitch-runtime/styles/entries/reader.css': { bytes: 10 },
+        'src/ui/stitch-runtime/styles/entries/video.css': { bytes: 10 }
       },
       outputs: {
         'build/audit/background/index.js': {
@@ -103,6 +109,42 @@ describe('production build graph report', () => {
           inputs: {
             'src/dev/localVaultWriteHarness.ts': { bytesInOutput: 10 }
           }
+        },
+        'build/audit/ui/stitch-runtime/styles/options.css': {
+          entryPoint: 'src/options/stitch/styles/entries/options.css',
+          inputs: {
+            'src/options/stitch/styles/entries/options.css': { bytesInOutput: 10 }
+          }
+        },
+        'build/audit/ui/stitch-runtime/styles/onboarding.css': {
+          entryPoint: 'src/options/stitch/styles/entries/onboarding.css',
+          inputs: {
+            'src/options/stitch/styles/entries/onboarding.css': { bytesInOutput: 10 }
+          }
+        },
+        'build/audit/ui/stitch-runtime/styles/clipper.css': {
+          entryPoint: 'src/ui/stitch-runtime/styles/entries/clipper.css',
+          inputs: {
+            'src/ui/stitch-runtime/styles/entries/clipper.css': { bytesInOutput: 10 }
+          }
+        },
+        'build/audit/ui/stitch-runtime/styles/reader.css': {
+          entryPoint: 'src/ui/stitch-runtime/styles/entries/reader.css',
+          inputs: {
+            'src/ui/stitch-runtime/styles/entries/reader.css': { bytesInOutput: 10 }
+          }
+        },
+        'build/audit/ui/stitch-runtime/styles/video.css': {
+          entryPoint: 'src/ui/stitch-runtime/styles/entries/video.css',
+          inputs: {
+            'src/ui/stitch-runtime/styles/entries/video.css': { bytesInOutput: 10 }
+          }
+        },
+        'build/audit/ui/stitch-runtime/styles/prompt-task.css': {
+          entryPoint: 'src/ui/stitch-runtime/styles/entries/prompt-task.css',
+          inputs: {
+            'src/ui/stitch-runtime/styles/entries/prompt-task.css': { bytesInOutput: 10 }
+          }
         }
       }
     });
@@ -118,7 +160,7 @@ describe('production build graph report', () => {
         }
       );
       expect(output).toContain('Production Build Graph Report');
-      expect(output).toContain('Source count: 11');
+      expect(output).toContain('Source count: 17');
       expect(output).toContain('src/options/widgets/fake.ts');
       expect(output).toContain('src/dev/contentOrchestratorHarness.ts');
       expect(readCanonicalReport()).toBe(canonicalReportBefore);

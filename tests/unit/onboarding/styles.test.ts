@@ -57,9 +57,10 @@ describe('onboarding styles', () => {
 
   it('keeps first-run feature copy focused on shipped capabilities', () => {
     const html = readFileSync(onboardingHtmlPath, 'utf8');
+    const normalizedHtml = html.replace(/\s+/gu, ' ');
 
     expect(html).toContain('data-i18n="step3Section3Detail5"');
-    expect(html).toContain(
+    expect(normalizedHtml).toContain(
       'Save video screenshots with timestamps so Obsidian exports keep the visual context.'
     );
     expect(html).not.toContain('data-i18n="step5Detail1"');
