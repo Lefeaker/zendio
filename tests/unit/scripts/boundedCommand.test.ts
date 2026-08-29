@@ -2370,34 +2370,31 @@ describe('bounded command ownership', () => {
     }
   ];
 
-  it.each(terminalCases)(
-    'reseals every legal Chrome and Firefox terminal action prefix before completion is visible (%j)',
-    async (row) => {
-      const initialized = await initializedStoreFixture(row.browser);
-      const beforeBinding = bindingAuthorityFields(initialized.bindingPath);
-      const spec = storeLeafSpec(initialized, row.childSuccess);
-      const result = await startBoundedCommand(
-        { profileId: spec.profileId, arguments: [] },
-        {
-          resolveProfile: () => spec,
-          spawnOperation: spawnAfter(() => {
-            writeStoreTerminalState(initialized.statePath, row.terminal);
-          })
-        }
-      ).completion;
-      expect(result, JSON.stringify(row)).toMatchObject({ ok: row.childSuccess });
-      const bindingBeforeCheck = readFileSync(initialized.bindingPath);
-      const checked = await runBoundedCommand(
-        { profileId: 'release-state-check-v1', arguments: ['--browser', row.browser] },
-        { environment: initialized.fixture.environment }
-      );
-      expect(checked.ok).toBe(true);
-      expect(readFileSync(initialized.bindingPath)).toEqual(bindingBeforeCheck);
-      const afterBinding = readFileSync(initialized.bindingPath, 'utf8');
-      expect(bindingAuthorityFields(initialized.bindingPath)).toBe(beforeBinding);
-      expect(afterBinding).toContain(`"stateSha256":"${sha256(initialized.statePath)}"`);
-    }
-  );
+  it.each(terminalCases)('reseals terminal case before completion is visible (%j)', async (row) => {
+    const initialized = await initializedStoreFixture(row.browser);
+    const beforeBinding = bindingAuthorityFields(initialized.bindingPath);
+    const spec = storeLeafSpec(initialized, row.childSuccess);
+    const result = await startBoundedCommand(
+      { profileId: spec.profileId, arguments: [] },
+      {
+        resolveProfile: () => spec,
+        spawnOperation: spawnAfter(() => {
+          writeStoreTerminalState(initialized.statePath, row.terminal);
+        })
+      }
+    ).completion;
+    expect(result, JSON.stringify(row)).toMatchObject({ ok: row.childSuccess });
+    const bindingBeforeCheck = readFileSync(initialized.bindingPath);
+    const checked = await runBoundedCommand(
+      { profileId: 'release-state-check-v1', arguments: ['--browser', row.browser] },
+      { environment: initialized.fixture.environment }
+    );
+    expect(checked.ok).toBe(true);
+    expect(readFileSync(initialized.bindingPath)).toEqual(bindingBeforeCheck);
+    const afterBinding = readFileSync(initialized.bindingPath, 'utf8');
+    expect(bindingAuthorityFields(initialized.bindingPath)).toBe(beforeBinding);
+    expect(afterBinding).toContain(`"stateSha256":"${sha256(initialized.statePath)}"`);
+  });
 
   it('enforces closed browser-specific store identity and exact listed/unlisted terminal evidence', async () => {
     const invalidRows: Array<{
