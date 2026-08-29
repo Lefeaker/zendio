@@ -2257,121 +2257,122 @@ describe('bounded command ownership', () => {
     ).resolves.toMatchObject({ ok: false, terminalReason: 'RELEASE_STATE_TERMINAL_INVALID' });
   });
 
-  it('reseals every legal Chrome and Firefox terminal action prefix before completion is visible', async () => {
-    const terminalCases: Array<{
-      browser: 'chrome' | 'firefox';
-      childSuccess: boolean;
-      terminal: Parameters<typeof writeStoreTerminalState>[1];
-    }> = [
-      {
-        browser: 'chrome',
-        childSuccess: false,
-        terminal: { outcome: 'pre-mutation-failure' }
-      },
-      {
-        browser: 'chrome',
-        childSuccess: false,
-        terminal: { outcome: 'unknown-submission-state', started: 'upload' }
-      },
-      {
-        browser: 'chrome',
-        childSuccess: false,
-        terminal: {
-          outcome: 'unknown-submission-state',
-          started: 'upload',
-          completed: 'upload'
-        }
-      },
-      {
-        browser: 'chrome',
-        childSuccess: false,
-        terminal: {
-          outcome: 'unknown-submission-state',
-          started: 'publish',
-          completed: 'upload'
-        }
-      },
-      {
-        browser: 'chrome',
-        childSuccess: false,
-        terminal: {
-          outcome: 'unknown-submission-state',
-          started: 'publish',
-          completed: 'publish'
-        }
-      },
-      {
-        browser: 'chrome',
-        childSuccess: true,
-        terminal: { outcome: 'success', started: 'publish', completed: 'publish' }
-      },
-      {
-        browser: 'firefox',
-        childSuccess: false,
-        terminal: { outcome: 'pre-mutation-failure' }
-      },
-      {
-        browser: 'firefox',
-        childSuccess: false,
-        terminal: { outcome: 'unknown-submission-state', started: 'upload' }
-      },
-      {
-        browser: 'firefox',
-        childSuccess: false,
-        terminal: {
-          outcome: 'unknown-submission-state',
-          started: 'upload',
-          completed: 'upload'
-        }
-      },
-      {
-        browser: 'firefox',
-        childSuccess: false,
-        terminal: {
-          outcome: 'unknown-submission-state',
-          started: 'version-submit',
-          completed: 'upload'
-        }
-      },
-      {
-        browser: 'firefox',
-        childSuccess: false,
-        terminal: {
-          outcome: 'unknown-submission-state',
-          started: 'version-submit',
-          completed: 'version-submit'
-        }
-      },
-      {
-        browser: 'firefox',
-        childSuccess: false,
-        terminal: {
-          outcome: 'unknown-submission-state',
-          started: 'source-patch',
-          completed: 'version-submit'
-        }
-      },
-      {
-        browser: 'firefox',
-        childSuccess: false,
-        terminal: {
-          outcome: 'unknown-submission-state',
-          started: 'source-patch',
-          completed: 'source-patch'
-        }
-      },
-      {
-        browser: 'firefox',
-        childSuccess: true,
-        terminal: {
-          outcome: 'success',
-          started: 'source-patch',
-          completed: 'source-patch'
-        }
+  const terminalCases: Array<{
+    browser: 'chrome' | 'firefox';
+    childSuccess: boolean;
+    terminal: Parameters<typeof writeStoreTerminalState>[1];
+  }> = [
+    {
+      browser: 'chrome',
+      childSuccess: false,
+      terminal: { outcome: 'pre-mutation-failure' }
+    },
+    {
+      browser: 'chrome',
+      childSuccess: false,
+      terminal: { outcome: 'unknown-submission-state', started: 'upload' }
+    },
+    {
+      browser: 'chrome',
+      childSuccess: false,
+      terminal: {
+        outcome: 'unknown-submission-state',
+        started: 'upload',
+        completed: 'upload'
       }
-    ];
+    },
+    {
+      browser: 'chrome',
+      childSuccess: false,
+      terminal: {
+        outcome: 'unknown-submission-state',
+        started: 'publish',
+        completed: 'upload'
+      }
+    },
+    {
+      browser: 'chrome',
+      childSuccess: false,
+      terminal: {
+        outcome: 'unknown-submission-state',
+        started: 'publish',
+        completed: 'publish'
+      }
+    },
+    {
+      browser: 'chrome',
+      childSuccess: true,
+      terminal: { outcome: 'success', started: 'publish', completed: 'publish' }
+    },
+    {
+      browser: 'firefox',
+      childSuccess: false,
+      terminal: { outcome: 'pre-mutation-failure' }
+    },
+    {
+      browser: 'firefox',
+      childSuccess: false,
+      terminal: { outcome: 'unknown-submission-state', started: 'upload' }
+    },
+    {
+      browser: 'firefox',
+      childSuccess: false,
+      terminal: {
+        outcome: 'unknown-submission-state',
+        started: 'upload',
+        completed: 'upload'
+      }
+    },
+    {
+      browser: 'firefox',
+      childSuccess: false,
+      terminal: {
+        outcome: 'unknown-submission-state',
+        started: 'version-submit',
+        completed: 'upload'
+      }
+    },
+    {
+      browser: 'firefox',
+      childSuccess: false,
+      terminal: {
+        outcome: 'unknown-submission-state',
+        started: 'version-submit',
+        completed: 'version-submit'
+      }
+    },
+    {
+      browser: 'firefox',
+      childSuccess: false,
+      terminal: {
+        outcome: 'unknown-submission-state',
+        started: 'source-patch',
+        completed: 'version-submit'
+      }
+    },
+    {
+      browser: 'firefox',
+      childSuccess: false,
+      terminal: {
+        outcome: 'unknown-submission-state',
+        started: 'source-patch',
+        completed: 'source-patch'
+      }
+    },
+    {
+      browser: 'firefox',
+      childSuccess: true,
+      terminal: {
+        outcome: 'success',
+        started: 'source-patch',
+        completed: 'source-patch'
+      }
+    }
+  ];
 
-    for (const row of terminalCases) {
+  it.each(terminalCases)(
+    'reseals every legal Chrome and Firefox terminal action prefix before completion is visible (%j)',
+    async (row) => {
       const initialized = await initializedStoreFixture(row.browser);
       const beforeBinding = bindingAuthorityFields(initialized.bindingPath);
       const spec = storeLeafSpec(initialized, row.childSuccess);
@@ -2396,7 +2397,7 @@ describe('bounded command ownership', () => {
       expect(bindingAuthorityFields(initialized.bindingPath)).toBe(beforeBinding);
       expect(afterBinding).toContain(`"stateSha256":"${sha256(initialized.statePath)}"`);
     }
-  });
+  );
 
   it('enforces closed browser-specific store identity and exact listed/unlisted terminal evidence', async () => {
     const invalidRows: Array<{
