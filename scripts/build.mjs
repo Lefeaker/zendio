@@ -1,13 +1,13 @@
 import { build, context } from 'esbuild';
 import { mkdir, cp, readdir, rm, writeFile } from 'fs/promises';
 import { join } from 'path';
-import { buildClosedCommandEnvironment } from './config/commandBoundaryProfiles.mjs';
 import { applyRestHostPermissions } from './utils/manifestHosts.mjs';
 import { createBrowserManifest } from './utils/manifestSources.mjs';
 import { readPackageVersion } from './utils/packageMetadata.mjs';
 import { cssTextPlugin } from './plugins/cssTextPlugin.mjs';
 import { runQualityChecks } from './quality-check.mjs';
 import { startBoundedCommand } from './utils/boundedCommand.mjs';
+import { buildQualityCommandEnvironment } from './utils/buildQualityCommandEnvironment.mjs';
 
 const args = process.argv.slice(2);
 const watch = args.includes('--watch');
@@ -53,7 +53,7 @@ function resolveGaEnv(name, fallback = '') {
 // 运行质量检查（仅在生产模式且未跳过检查时）
 if (prod && !skipChecks && !watch) {
   console.log('🔍 运行质量检查...');
-  const qualityEnvironment = buildClosedCommandEnvironment();
+  const qualityEnvironment = buildQualityCommandEnvironment(process.env);
   const qualityResult = await runQualityChecks({
     startCommand: (task) =>
       startBoundedCommand(

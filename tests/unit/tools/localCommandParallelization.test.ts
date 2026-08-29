@@ -110,7 +110,9 @@ function walkFiles(root: string): string[] {
 }
 
 describe('local command parallelization contract', () => {
-  it('keeps full production build routes fail-closed with one in-process quality owner', () => {
+  it('keeps full production build routes fail-closed with one in-process quality owner', async () => {
+    const { buildQualityCommandEnvironment } =
+      await import('../../../scripts/utils/buildQualityCommandEnvironment.mjs');
     const scripts = readPackageScripts();
     const buildScript = readFileSync(resolve('scripts/build.mjs'), 'utf8');
     const fullProductionRoutes = {
@@ -133,6 +135,45 @@ describe('local command parallelization contract', () => {
       dev: 'node scripts/build.mjs --watch --skip-checks',
       'dev:firefox': 'node scripts/build.mjs --watch --skip-checks --firefox'
     };
+    const gaBuildEnvironmentKeys = [
+      'ZENDIO_GA_MEASUREMENT_ID',
+      'ZENDIO_GA_TRANSPORT_MODE',
+      'ZENDIO_GA_PROXY_ENDPOINT',
+      'AIIINOB_GA_MEASUREMENT_ID',
+      'AIIINOB_GA_TRANSPORT_MODE',
+      'AIIINOB_GA_PROXY_ENDPOINT'
+    ];
+    const sourceProcessEnvironment = Object.freeze({
+      HOME: process.env.HOME ?? '/tmp',
+      TMPDIR: '/tmp/c06-build-quality-unit-test',
+      ZENDIO_GA_MEASUREMENT_ID: 'G-CURRENT-UNIT-TEST',
+      ZENDIO_GA_TRANSPORT_MODE: 'current-unit-test-transport',
+      ZENDIO_GA_PROXY_ENDPOINT: 'https://unit-test.invalid/current-ga-proxy',
+      AIIINOB_GA_MEASUREMENT_ID: 'G-LEGACY-UNIT-TEST',
+      AIIINOB_GA_TRANSPORT_MODE: 'legacy-unit-test-transport',
+      AIIINOB_GA_PROXY_ENDPOINT: 'https://unit-test.invalid/legacy-ga-proxy'
+    });
+    const sourceProcessEnvironmentSnapshot = { ...sourceProcessEnvironment };
+    const qualityChildEnvironment = buildQualityCommandEnvironment(sourceProcessEnvironment);
+
+    for (const key of gaBuildEnvironmentKeys) {
+      expect(qualityChildEnvironment).not.toHaveProperty(key);
+    }
+    expect(qualityChildEnvironment).toMatchObject({
+      HOME: sourceProcessEnvironment.HOME,
+      TMPDIR: sourceProcessEnvironment.TMPDIR,
+      LANG: 'C',
+      LC_ALL: 'C',
+      TZ: 'UTC'
+    });
+    expect(qualityChildEnvironment.PATH).toBeTruthy();
+    expect(sourceProcessEnvironment).toEqual(sourceProcessEnvironmentSnapshot);
+    expect(() =>
+      buildQualityCommandEnvironment({
+        ...sourceProcessEnvironment,
+        HTTPS_PROXY: 'https://unit-test.invalid/unrelated-proxy'
+      })
+    ).toThrow('ENVIRONMENT_FORBIDDEN');
 
     expect(
       Object.fromEntries(Object.keys(fullProductionRoutes).map((name) => [name, scripts[name]]))
@@ -187,7 +228,8 @@ describe('local command parallelization contract', () => {
       'npm run build:firefox:isolated && node scripts/package-firefox.mjs --dist-dir build/dist-firefox'
     );
 
-    const closedEnvironment = 'const qualityEnvironment = buildClosedCommandEnvironment();';
+    const closedEnvironment =
+      'const qualityEnvironment = buildQualityCommandEnvironment(process.env);';
     const qualityInvocation = 'const qualityResult = await runQualityChecks({';
     const failureGuard = 'if (!qualityResult.ok) {';
     const nonzeroFailure = 'process.exitCode = qualityResult.failed[0]?.code || 1;';
