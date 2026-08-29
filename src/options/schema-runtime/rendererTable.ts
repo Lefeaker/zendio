@@ -13,10 +13,10 @@ export function isTableCellSchema<State, AppData>(
 ): value is TableCellSchema<State, AppData> {
   return Boolean(
     value &&
-      typeof value === 'object' &&
-      !Array.isArray(value) &&
-      !('kind' in value) &&
-      ('text' in value || 'node' in value)
+    typeof value === 'object' &&
+    !Array.isArray(value) &&
+    !('kind' in value) &&
+    ('text' in value || 'node' in value)
   );
 }
 

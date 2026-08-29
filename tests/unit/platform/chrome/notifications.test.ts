@@ -34,9 +34,8 @@ describe('chromeNotificationsService', () => {
   });
 
   it('creates and clears notifications', async () => {
-    const { chromeNotificationsService } = await import(
-      '../../../../src/platform/chrome/notifications'
-    );
+    const { chromeNotificationsService } =
+      await import('../../../../src/platform/chrome/notifications');
     await expect(
       chromeNotificationsService.create('n1', {
         type: 'basic',

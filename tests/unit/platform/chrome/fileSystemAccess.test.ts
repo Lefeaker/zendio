@@ -44,9 +44,8 @@ describe('chromeFileSystemAccessService', () => {
   });
 
   it('starts the offscreen writer after choosing a local vault directory', async () => {
-    const { chromeFileSystemAccessService } = await import(
-      '../../../../src/platform/chrome/fileSystemAccess'
-    );
+    const { chromeFileSystemAccessService } =
+      await import('../../../../src/platform/chrome/fileSystemAccess');
 
     await expect(
       chromeFileSystemAccessService.chooseDirectory({ suggestedName: 'Vault' })
@@ -61,9 +60,8 @@ describe('chromeFileSystemAccessService', () => {
   it('uses the offscreen writer when direct local vault writing fails', async () => {
     const directError = new Error('permission lost in service worker');
     writeLocalVaultFileMock.mockRejectedValue(directError);
-    const { chromeFileSystemAccessService } = await import(
-      '../../../../src/platform/chrome/fileSystemAccess'
-    );
+    const { chromeFileSystemAccessService } =
+      await import('../../../../src/platform/chrome/fileSystemAccess');
     const request = {
       folderId: 'folder-1',
       filePath: 'Inbox/test.md',
@@ -78,9 +76,8 @@ describe('chromeFileSystemAccessService', () => {
   });
 
   it('preflights local vault permission without writing a test file', async () => {
-    const { chromeFileSystemAccessService } = await import(
-      '../../../../src/platform/chrome/fileSystemAccess'
-    );
+    const { chromeFileSystemAccessService } =
+      await import('../../../../src/platform/chrome/fileSystemAccess');
 
     await expect(chromeFileSystemAccessService.ensurePermission('folder-1')).resolves.toBe(
       'granted'

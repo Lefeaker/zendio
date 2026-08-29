@@ -60,9 +60,8 @@ describe('chromeContextMenusService', () => {
   });
 
   it('creates updates removes and refreshes menus and listeners', async () => {
-    const { chromeContextMenusService } = await import(
-      '../../../../src/platform/chrome/contextMenus'
-    );
+    const { chromeContextMenusService } =
+      await import('../../../../src/platform/chrome/contextMenus');
     await expect(
       chromeContextMenusService.create({ id: 'menu-1', title: 'Title', contexts: ['all'] })
     ).resolves.toBe('menu-1');
@@ -99,9 +98,8 @@ describe('chromeContextMenusService', () => {
   });
 
   it('rejects create when chrome lastError is present', async () => {
-    const { chromeContextMenusService } = await import(
-      '../../../../src/platform/chrome/contextMenus'
-    );
+    const { chromeContextMenusService } =
+      await import('../../../../src/platform/chrome/contextMenus');
     lastErrorMock.mockReturnValueOnce({ message: 'create failed' } as chrome.runtime.LastError);
     await expect(
       chromeContextMenusService.create({ id: 'bad-menu', title: 'Bad', contexts: ['all'] })
