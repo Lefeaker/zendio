@@ -578,7 +578,7 @@ describe('video prompt', () => {
       captureScreenshot: true,
       beginEditing: false,
       resumePlayback: false,
-      collapseAfterCapture: true
+      collapseAfterCapture: false
     });
   });
 
@@ -614,8 +614,56 @@ describe('video prompt', () => {
       captureScreenshot: true,
       beginEditing: false,
       resumePlayback: false,
-      collapseAfterCapture: true
+      collapseAfterCapture: false
     });
+  });
+
+  it('keeps existing-session control-bar captures collapsed after capture', async () => {
+    const controls = document.createElement('div');
+    controls.className = 'ytp-right-controls';
+    document.body.appendChild(controls);
+    controlTargetState.current = controls;
+    const module = await loadPromptModule();
+    currentTestUtils = module.__videoPromptTestUtils;
+    const deps = createTestDependencies();
+    currentTestUtils.setDependenciesForTests(deps);
+
+    await module.initVideoPrompt();
+    await flushMicrotasks();
+
+    const existingSessionAddCurrentTimestamp = vi.fn(() => Promise.resolve());
+    const existingSession = {
+      addCurrentTimestamp: existingSessionAddCurrentTimestamp
+    };
+    const { clearVideoSession, registerVideoSession } =
+      await import('../../../src/content/runtime/contentSessionRegistry');
+    registerVideoSession(existingSession, document);
+
+    try {
+      const controlOptions = ensureVideoControlBarButtonMock.mock.calls.at(-1)?.[0];
+      await controlOptions?.onPrimaryAction(
+        {
+          autoPauseEnabled: false,
+          captureScreenshotEnabled: true
+        },
+        {
+          comment: 'existing session note',
+          source: 'note-input'
+        }
+      );
+
+      expect(videoSessionFactoryMock).not.toHaveBeenCalled();
+      expect(existingSessionAddCurrentTimestamp).toHaveBeenCalledWith('note-input', {
+        comment: 'existing session note',
+        pauseVideo: false,
+        captureScreenshot: true,
+        beginEditing: false,
+        resumePlayback: false,
+        collapseAfterCapture: true
+      });
+    } finally {
+      clearVideoSession(existingSession, document);
+    }
   });
 
   it('keeps auto-paused playback leased until an async control-bar capture finishes', async () => {
@@ -753,7 +801,7 @@ describe('video prompt', () => {
       pauseVideo: false,
       captureScreenshot: true,
       beginEditing: true,
-      collapseAfterCapture: true
+      collapseAfterCapture: false
     });
   });
 
