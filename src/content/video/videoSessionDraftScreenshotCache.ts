@@ -38,9 +38,7 @@ export function createVideoSessionDraftScreenshotCacheMaintenance(
   return {
     pruneExpiredOnce() {
       const pruneExpired = readMaintenanceMethod(screenshotCache, 'pruneExpired');
-      if (didScheduleExpiredPrune || !pruneExpired) {
-        return;
-      }
+      if (didScheduleExpiredPrune || !pruneExpired) return;
       didScheduleExpiredPrune = true;
       void pruneExpired().catch((error) => {
         console.warn('[VideoSession] Failed to prune expired cached screenshots:', error);
@@ -123,22 +121,24 @@ export async function cleanupVideoDraftTerminalArtifacts(options: {
   captures: readonly VideoCapture[];
   screenshotCache?: Pick<VideoSessionDraftScreenshotCache, 'removeMany'> | undefined;
 }): Promise<void> {
-  const cleanupErrors: Error[] = [];
+  const captures = [...options.captures];
+  let draftCleanupError: Error | null = null;
 
   try {
     await options.removeDraft();
   } catch (error) {
-    cleanupErrors.push(error instanceof Error ? error : new Error(String(error)));
+    draftCleanupError = error instanceof Error ? error : new Error(String(error));
   }
 
-  try {
-    await removeVideoDraftCachedScreenshots(options.captures, options.screenshotCache);
-  } catch (error) {
-    cleanupErrors.push(error instanceof Error ? error : new Error(String(error)));
-  }
+  void removeVideoDraftCachedScreenshots(captures, options.screenshotCache).catch((error) => {
+    console.warn(
+      '[VideoSession] Failed to remove terminal session draft after finalization:',
+      error
+    );
+  });
 
-  if (cleanupErrors.length > 0) {
-    throw cleanupErrors[0];
+  if (draftCleanupError) {
+    throw draftCleanupError;
   }
 }
 

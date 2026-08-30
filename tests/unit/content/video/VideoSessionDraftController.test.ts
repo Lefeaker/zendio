@@ -1296,6 +1296,62 @@ describe('VideoSessionDraftController', () => {
     expect(screenshotCache.removeMany).toHaveBeenCalledWith([screenshotRef]);
   });
 
+  it('completes terminal draft removal before best-effort screenshot cache cleanup settles', async () => {
+    const screenshotRef = createScreenshotCacheRef({ captureId: 'ts-1' });
+    const cacheCleanup = createDeferred<void>();
+    const screenshotCache = {
+      load: vi.fn(),
+      removeMany: vi.fn().mockReturnValue(cacheCleanup.promise)
+    };
+    const harness = createHarness({ screenshotCache });
+    harness.state.captures = [
+      {
+        ...createTimestampCapture('ts-1'),
+        screenshotRequested: true,
+        screenshotRef
+      }
+    ];
+    await harness.controller.flushNow('active');
+
+    const terminalized = await harness.controller.finalizeTerminal('discarded');
+
+    expect(terminalized).toBe(true);
+    await expect(
+      harness.repository.loadLatest('video', document.location.href)
+    ).resolves.toBeNull();
+    expect(screenshotCache.removeMany).toHaveBeenCalledWith([screenshotRef]);
+
+    cacheCleanup.resolve();
+    await waitForAsyncWork();
+  });
+
+  it('warns when best-effort screenshot cache cleanup rejects after terminal completion', async () => {
+    const screenshotRef = createScreenshotCacheRef({ captureId: 'ts-1' });
+    const cleanupError = new Error('late screenshot cache cleanup failed');
+    const screenshotCache = {
+      load: vi.fn(),
+      removeMany: vi.fn().mockRejectedValue(cleanupError)
+    };
+    const harness = createHarness({ screenshotCache });
+    harness.state.captures = [
+      {
+        ...createTimestampCapture('ts-1'),
+        screenshotRequested: true,
+        screenshotRef
+      }
+    ];
+    await harness.controller.flushNow('active');
+
+    const terminalized = await harness.controller.finalizeTerminal('discarded');
+
+    expect(terminalized).toBe(true);
+    await waitForAsyncWork();
+    expect(warnSpy).toHaveBeenCalledWith(
+      '[VideoSession] Failed to remove terminal session draft after finalization:',
+      cleanupError
+    );
+  });
+
   it('deduplicates screenshot refs during terminal cleanup before calling removeMany', async () => {
     const firstRef = createScreenshotCacheRef({ captureId: 'ts-1', id: 'shot-1' });
     const duplicateFirstRef = { ...firstRef };
