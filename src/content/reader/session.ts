@@ -239,7 +239,9 @@ export class ReaderSession {
       this.state.analyticsSource = 'unknown';
       this.applyInitialDestination(initialHighlights);
       const loadedDraft = await this.hydrateStoredDraft();
-      await this.refreshDestinationPreview();
+      await this.destinationState.startWatching((preview) =>
+        this.panelCoordinator.updateDestination(preview)
+      );
       this.applyReadingConfig(await this.loadReadingConfig());
       this.watchReadingConfig();
       void trackReaderUsageEvent(this.operationContext, 'reader_session_started', {
@@ -524,10 +526,12 @@ export class ReaderSession {
   }
 
   private async disposeDraftPersistence(): Promise<void> {
+    this.destinationState.dispose();
     await this.draftController?.dispose();
   }
 
   private cleanup(): void {
+    this.destinationState.dispose();
     this.lifecycle.cleanup();
     this.state.stopReadingConfigWatcher?.();
     this.state.stopReadingConfigWatcher = null;

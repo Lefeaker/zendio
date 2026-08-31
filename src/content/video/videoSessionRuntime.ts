@@ -301,7 +301,7 @@ export class VideoSession {
       });
       this.draftController.bindPersistence();
       this.screenshotPreparation.requestPendingScreenshots();
-      await this.refreshDestinationPreview();
+      await this.destinationState.startWatching((preview) => this.dom.updateDestination(preview));
     } catch (error) {
       this.cleanup();
       throw error;
@@ -520,6 +520,7 @@ export class VideoSession {
       return;
     }
     this.isCleaningUp = true;
+    this.destinationState.dispose();
     this.screenshotPreparation.dispose();
     void this.draftController.dispose().catch((error) => {
       console.warn('[VideoSession] Failed to dispose draft persister:', error);

@@ -935,11 +935,15 @@ describe('VideoSession', () => {
     vi.useRealTimers();
   });
 
-  it('stops watchers and tears down the active session on cleanup', async () => {
-    const stopOptionsWatcher = vi.fn();
+  it('stops theme and destination watchers and tears down the active session on cleanup', async () => {
+    const stopHighlightThemeWatcher = vi.fn();
+    const stopDestinationWatcher = vi.fn();
     const stopLanguageWatcher = vi.fn();
     const deps = createDependencies();
-    deps.optionsRepository.onChange = vi.fn(() => stopOptionsWatcher) as never;
+    deps.optionsRepository.onChange = vi
+      .fn()
+      .mockImplementationOnce(() => stopHighlightThemeWatcher)
+      .mockImplementationOnce(() => stopDestinationWatcher) as never;
     deps.storage.sync.watchKey = vi.fn(() => stopLanguageWatcher) as never;
     const session = new VideoSession(document, deps);
     const sessionApi = toSessionTestApi(session);
@@ -947,7 +951,8 @@ describe('VideoSession', () => {
     await session.start();
     sessionApi.cleanup();
 
-    expect(stopOptionsWatcher).toHaveBeenCalledTimes(1);
+    expect(stopHighlightThemeWatcher).toHaveBeenCalledTimes(1);
+    expect(stopDestinationWatcher).toHaveBeenCalledTimes(1);
     expect(stopLanguageWatcher).toHaveBeenCalledTimes(1);
     expect(isVideoSessionActive(document)).toBe(false);
   });
