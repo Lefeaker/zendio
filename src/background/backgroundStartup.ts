@@ -102,9 +102,7 @@ export function startBackgroundRuntime(dependencies: BackgroundStartupDependenci
   const fallbackOptionsStorageRepository = new ChromeOptionsRepository(dependencies.storage);
   const optionsMutationCoordinator =
     dependencies.optionsMutationCoordinator ??
-    createOptionsMutationCoordinator(fallbackOptionsStorageRepository, {
-      deviceLocalPrivacy: fallbackOptionsStorageRepository
-    });
+    createOptionsMutationCoordinator(fallbackOptionsStorageRepository);
   configureBackgroundDependencyStorage(dependencies.storage);
   bootstrapBackgroundDependencies(undefined, optionsMutationCoordinator);
   const optionsRepository = resolveRepository<IOptionsRepository>(DI_TOKENS.IOptionsRepository);

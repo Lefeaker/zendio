@@ -1,4 +1,5 @@
 import type { StorageService } from '../../platform/interfaces/storage';
+import { plainStructuredDataEqual } from '../../shared/config/losslessObjectBoundary';
 import {
   decodeStoredOptions,
   type DecodedStoredOptions
@@ -9,17 +10,14 @@ import type {
 } from '../../shared/config/losslessObjectBoundaryTypes';
 import {
   composeDeviceLocalPrivacy,
-  createDeviceLocalPrivacyTransaction,
-  createDeviceLocalPrivacyConsent,
+  DeviceLocalPrivacyStore,
   DEVICE_LOCAL_PRIVACY_CONFIG_KEY,
   DEVICE_LOCAL_PRIVACY_CONSENT_KEY,
-  DEVICE_LOCAL_PRIVACY_TRANSACTION_KEY,
-  mergeDeviceLocalPrivacyConfig,
-  readDeviceLocalPrivacyTransaction,
-  resolveDeviceLocalPrivacy
+  DEVICE_LOCAL_PRIVACY_TRANSACTION_KEY
 } from '../../shared/config/deviceLocalPrivacy';
 import { StorageError } from '../../shared/errors/repositoryErrors';
 import type { CompleteOptions, PrivacyPreferencesOptions } from '../../shared/types/options';
+import type { OptionsMutationCommand } from '../../shared/types/optionsMutationMessages';
 
 export const OPTIONS_STORAGE_KEY = 'options';
 
@@ -35,15 +33,75 @@ export interface OptionsRawStorageRepository {
   writeRaw(value: PlainStructuredObject): Promise<void>;
 }
 
-export interface DeviceLocalPrivacyRepository {
-  readPrivacy(portableRaw?: PlainStructuredValue | null): Promise<PrivacyPreferencesOptions>;
-  ensurePrivacyBaseline(
-    portableRaw: PlainStructuredValue | null
-  ): Promise<PrivacyPreferencesOptions>;
-  recoverPrivacyCommit(): Promise<void>;
-  beginPrivacyCommit(preferences: PrivacyPreferencesOptions): Promise<void>;
-  commitPrivacy(preferences: PrivacyPreferencesOptions): Promise<void>;
-  rollbackPrivacyCommit(): Promise<void>;
+export type OptionsMutationVerification =
+  | { readonly kind: 'full'; readonly expected: PlainStructuredObject }
+  | {
+      readonly kind: 'paths';
+      readonly expected: ReadonlyArray<{
+        readonly path: readonly string[];
+        readonly value: PlainStructuredValue | undefined;
+      }>;
+    };
+
+export interface DeviceLocalPrivacyCommitter {
+  execute(
+    command: OptionsMutationCommand,
+    applyCommand: (
+      raw: PlainStructuredObject,
+      command: OptionsMutationCommand
+    ) => { next: PlainStructuredObject; verification: OptionsMutationVerification },
+    quotaBytesPerItem: number
+  ): Promise<{
+    raw: PlainStructuredObject;
+    privacy?: PrivacyPreferencesOptions;
+    didWrite: boolean;
+  }>;
+}
+
+export function optionsEnvelopeBytes(raw: PlainStructuredObject): number {
+  return new TextEncoder().encode(JSON.stringify({ options: raw })).byteLength;
+}
+
+export function optionsRawSignature(raw: PlainStructuredObject): string {
+  const bytes = new TextEncoder().encode(JSON.stringify(raw));
+  let hash = 0x811c9dc5;
+  for (const byte of bytes) {
+    hash ^= byte;
+    hash = Math.imul(hash, 0x01000193) >>> 0;
+  }
+  return `fnv1a32:${hash.toString(16).padStart(8, '0')}:${bytes.byteLength}`;
+}
+
+export function optionsValuesEqual(
+  left: PlainStructuredValue | undefined,
+  right: PlainStructuredValue | undefined
+): boolean {
+  if (left === undefined || right === undefined) return left === right;
+  const result = plainStructuredDataEqual(left, right);
+  return result.ok && result.equal;
+}
+
+function readOptionsPath(
+  raw: PlainStructuredObject,
+  path: readonly string[]
+): PlainStructuredValue | undefined {
+  let current: PlainStructuredValue | undefined = raw;
+  for (const part of path) {
+    if (typeof current !== 'object' || current === null || Array.isArray(current)) return undefined;
+    current = current[part];
+  }
+  return current;
+}
+
+export function optionsVerificationMatches(
+  raw: PlainStructuredObject,
+  verification: OptionsMutationVerification
+): boolean {
+  return verification.kind === 'full'
+    ? optionsValuesEqual(raw, verification.expected)
+    : verification.expected.every(({ path, value }) =>
+        optionsValuesEqual(readOptionsPath(raw, path), value)
+      );
 }
 
 /**
@@ -56,8 +114,11 @@ export class ChromeOptionsRepository implements OptionsRawStorageRepository {
   private stopWatchingPrivacy: Array<() => void> = [];
   private notificationTail: Promise<void> = Promise.resolve();
   private notificationGeneration = 0;
+  private readonly privacyStore: DeviceLocalPrivacyStore;
 
-  constructor(private readonly storage: StorageService) {}
+  constructor(private readonly storage: StorageService) {
+    this.privacyStore = new DeviceLocalPrivacyStore(storage.local);
+  }
 
   async readRaw(): Promise<PlainStructuredValue | null> {
     try {
@@ -97,139 +158,13 @@ export class ChromeOptionsRepository implements OptionsRawStorageRepository {
     portableRaw: PlainStructuredValue | null = null
   ): Promise<PrivacyPreferencesOptions> {
     try {
-      return (await this.readPrivacyStorageState(portableRaw)).preferences;
+      return (await this.privacyStore.read(portableRaw)).preferences;
     } catch (error) {
       throw new StorageError('Failed to read device-local privacy from chrome.storage', {
         cause: error,
         context: { storageKey: DEVICE_LOCAL_PRIVACY_CONSENT_KEY }
       });
     }
-  }
-
-  async ensurePrivacyBaseline(
-    portableRaw: PlainStructuredValue | null
-  ): Promise<PrivacyPreferencesOptions> {
-    try {
-      const state = await this.readPrivacyStorageState(portableRaw);
-      if (!state.requiresLocalWrite) return state.preferences;
-      await this.storage.local.setMany({
-        [DEVICE_LOCAL_PRIVACY_CONSENT_KEY]: createDeviceLocalPrivacyConsent(
-          state.preferences,
-          Date.now()
-        ),
-        [DEVICE_LOCAL_PRIVACY_CONFIG_KEY]: mergeDeviceLocalPrivacyConfig(
-          state.currentConfig,
-          state.preferences
-        )
-      });
-      return state.preferences;
-    } catch (error) {
-      throw new StorageError('Failed to preserve device-local privacy baseline', {
-        cause: error,
-        context: { storageKey: DEVICE_LOCAL_PRIVACY_CONSENT_KEY }
-      });
-    }
-  }
-
-  async recoverPrivacyCommit(): Promise<void> {
-    await this.rollbackPrivacyCommit();
-  }
-
-  async beginPrivacyCommit(preferences: PrivacyPreferencesOptions): Promise<void> {
-    void preferences;
-    try {
-      await this.rollbackPrivacyCommit();
-      const [previousConsent, previousConfig] = await Promise.all([
-        this.storage.local.get<PlainStructuredValue>(DEVICE_LOCAL_PRIVACY_CONSENT_KEY),
-        this.storage.local.get<PlainStructuredValue>(DEVICE_LOCAL_PRIVACY_CONFIG_KEY)
-      ]);
-      await this.storage.local.set(
-        DEVICE_LOCAL_PRIVACY_TRANSACTION_KEY,
-        createDeviceLocalPrivacyTransaction(previousConsent, previousConfig)
-      );
-    } catch (error) {
-      throw new StorageError('Failed to stage device-local privacy in chrome.storage', {
-        cause: error,
-        context: { storageKey: DEVICE_LOCAL_PRIVACY_CONSENT_KEY }
-      });
-    }
-  }
-
-  async commitPrivacy(preferences: PrivacyPreferencesOptions): Promise<void> {
-    try {
-      const rawTransaction = await this.storage.local.get<PlainStructuredValue>(
-        DEVICE_LOCAL_PRIVACY_TRANSACTION_KEY
-      );
-      const transaction = readDeviceLocalPrivacyTransaction(rawTransaction);
-      if (!transaction) throw new Error('DEVICE_LOCAL_PRIVACY_TRANSACTION_MISSING');
-      await this.storage.local.set(
-        DEVICE_LOCAL_PRIVACY_TRANSACTION_KEY,
-        createDeviceLocalPrivacyTransaction(
-          transaction.previousConsent,
-          transaction.previousConfig,
-          'commit-ready'
-        )
-      );
-      const currentConfig = await this.storage.local.get<PlainStructuredValue>(
-        DEVICE_LOCAL_PRIVACY_CONFIG_KEY
-      );
-      await this.storage.local.setMany({
-        [DEVICE_LOCAL_PRIVACY_CONSENT_KEY]: createDeviceLocalPrivacyConsent(
-          preferences,
-          Date.now()
-        ),
-        [DEVICE_LOCAL_PRIVACY_CONFIG_KEY]: mergeDeviceLocalPrivacyConfig(
-          currentConfig,
-          preferences
-        )
-      });
-    } catch (error) {
-      throw new StorageError('Failed to commit device-local privacy in chrome.storage', {
-        cause: error,
-        context: { storageKey: DEVICE_LOCAL_PRIVACY_TRANSACTION_KEY }
-      });
-    }
-    try {
-      await this.storage.local.remove(DEVICE_LOCAL_PRIVACY_TRANSACTION_KEY);
-    } catch (error) {
-      console.warn('[ChromeOptionsRepository] Failed to clear committed privacy transaction:', error);
-    }
-  }
-
-  async rollbackPrivacyCommit(): Promise<void> {
-    try {
-      const rawTransaction = await this.storage.local.get<PlainStructuredValue>(
-        DEVICE_LOCAL_PRIVACY_TRANSACTION_KEY
-      );
-      const transaction = readDeviceLocalPrivacyTransaction(rawTransaction);
-      if (!transaction) return;
-      await this.storage.local.remove(DEVICE_LOCAL_PRIVACY_TRANSACTION_KEY);
-    } catch (error) {
-      throw new StorageError('Failed to roll back device-local privacy in chrome.storage', {
-        cause: error,
-        context: { storageKey: DEVICE_LOCAL_PRIVACY_TRANSACTION_KEY }
-      });
-    }
-  }
-
-  private async readPrivacyStorageState(portableRaw: PlainStructuredValue | null): Promise<{
-    preferences: PrivacyPreferencesOptions;
-    requiresLocalWrite: boolean;
-    currentConfig: PlainStructuredValue | undefined;
-  }> {
-    const [currentConsent, currentConfig, rawTransaction] = await Promise.all([
-      this.storage.local.get<PlainStructuredValue>(DEVICE_LOCAL_PRIVACY_CONSENT_KEY),
-      this.storage.local.get<PlainStructuredValue>(DEVICE_LOCAL_PRIVACY_CONFIG_KEY),
-      this.storage.local.get<PlainStructuredValue>(DEVICE_LOCAL_PRIVACY_TRANSACTION_KEY)
-    ]);
-    const transaction = readDeviceLocalPrivacyTransaction(rawTransaction);
-    const usePrevious = transaction?.phase === 'prepared';
-    const localConsent = usePrevious ? transaction.previousConsent : currentConsent;
-    const localConfig = usePrevious ? transaction.previousConfig : currentConfig;
-    return {
-      ...resolveDeviceLocalPrivacy(localConsent, localConfig, portableRaw),
-      currentConfig
-    };
   }
 
   onChange(callback: (options: CompleteOptions) => void): () => void {
@@ -269,16 +204,15 @@ export class ChromeOptionsRepository implements OptionsRawStorageRepository {
     ];
   }
 
-  private async composeStoredOptions(stored: PlainStructuredValue | null): Promise<CompleteOptions> {
+  private async composeStoredOptions(
+    stored: PlainStructuredValue | null
+  ): Promise<CompleteOptions> {
     const decoded = decodeStoredOptions(stored);
     const privacy = await this.readPrivacy(stored);
     return composeDeviceLocalPrivacy(decoded.runtime, privacy);
   }
 
-  private requestNotification(
-    read: () => Promise<CompleteOptions>,
-    reason: string
-  ): void {
+  private requestNotification(read: () => Promise<CompleteOptions>, reason: string): void {
     const generation = ++this.notificationGeneration;
     const queued = this.notificationTail.then(async () => {
       const options = await read();

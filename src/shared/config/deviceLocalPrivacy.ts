@@ -1,8 +1,6 @@
 import { resolveAnalyticsDebugMode } from '../analytics/analyticsDebugModeCapability';
-import type {
-  PlainStructuredObject,
-  PlainStructuredValue
-} from './losslessObjectBoundaryTypes';
+import type { StorageAreaService } from '../../platform/interfaces/storage';
+import type { PlainStructuredObject, PlainStructuredValue } from './losslessObjectBoundaryTypes';
 import type { CompleteOptions, PrivacyPreferencesOptions } from '../types/options';
 
 export const DEVICE_LOCAL_PRIVACY_CONSENT_KEY = 'analytics_user_consent';
@@ -20,9 +18,7 @@ export interface DeviceLocalPrivacyTransactionSnapshot {
   readonly previousConfig: PlainStructuredValue | undefined;
 }
 
-function isObject(
-  value: PlainStructuredValue | undefined
-): value is PlainStructuredObject {
+function isObject(value: PlainStructuredValue | undefined): value is PlainStructuredObject {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
@@ -156,4 +152,89 @@ export function readDeviceLocalPrivacyTransaction(
     previousConsent: value.previousConsentPresent ? value.previousConsent : undefined,
     previousConfig: value.previousConfigPresent ? value.previousConfig : undefined
   };
+}
+
+export class DeviceLocalPrivacyStore {
+  constructor(private readonly storage: StorageAreaService) {}
+
+  async read(portableRaw: PlainStructuredValue | null): Promise<DeviceLocalPrivacyResolution> {
+    const [currentConsent, currentConfig, rawTransaction] = await Promise.all([
+      this.storage.get<PlainStructuredValue>(DEVICE_LOCAL_PRIVACY_CONSENT_KEY),
+      this.storage.get<PlainStructuredValue>(DEVICE_LOCAL_PRIVACY_CONFIG_KEY),
+      this.storage.get<PlainStructuredValue>(DEVICE_LOCAL_PRIVACY_TRANSACTION_KEY)
+    ]);
+    const transaction = readDeviceLocalPrivacyTransaction(rawTransaction);
+    const usePrevious = transaction?.phase === 'prepared';
+    return resolveDeviceLocalPrivacy(
+      usePrevious ? transaction.previousConsent : currentConsent,
+      usePrevious ? transaction.previousConfig : currentConfig,
+      portableRaw
+    );
+  }
+
+  async ensureBaseline(
+    portableRaw: PlainStructuredValue | null
+  ): Promise<PrivacyPreferencesOptions> {
+    const state = await this.read(portableRaw);
+    if (!state.requiresLocalWrite) return state.preferences;
+    const currentConfig = await this.storage.get<PlainStructuredValue>(
+      DEVICE_LOCAL_PRIVACY_CONFIG_KEY
+    );
+    await this.storage.setMany({
+      [DEVICE_LOCAL_PRIVACY_CONSENT_KEY]: createDeviceLocalPrivacyConsent(
+        state.preferences,
+        Date.now()
+      ),
+      [DEVICE_LOCAL_PRIVACY_CONFIG_KEY]: mergeDeviceLocalPrivacyConfig(
+        currentConfig,
+        state.preferences
+      )
+    });
+    return state.preferences;
+  }
+
+  async begin(): Promise<void> {
+    await this.rollback();
+    const [previousConsent, previousConfig] = await Promise.all([
+      this.storage.get<PlainStructuredValue>(DEVICE_LOCAL_PRIVACY_CONSENT_KEY),
+      this.storage.get<PlainStructuredValue>(DEVICE_LOCAL_PRIVACY_CONFIG_KEY)
+    ]);
+    await this.storage.set(
+      DEVICE_LOCAL_PRIVACY_TRANSACTION_KEY,
+      createDeviceLocalPrivacyTransaction(previousConsent, previousConfig)
+    );
+  }
+
+  async commit(preferences: PrivacyPreferencesOptions): Promise<void> {
+    const raw = await this.storage.get<PlainStructuredValue>(DEVICE_LOCAL_PRIVACY_TRANSACTION_KEY);
+    const transaction = readDeviceLocalPrivacyTransaction(raw);
+    if (!transaction) throw new Error('DEVICE_LOCAL_PRIVACY_TRANSACTION_MISSING');
+    await this.storage.set(
+      DEVICE_LOCAL_PRIVACY_TRANSACTION_KEY,
+      createDeviceLocalPrivacyTransaction(
+        transaction.previousConsent,
+        transaction.previousConfig,
+        'commit-ready'
+      )
+    );
+    const currentConfig = await this.storage.get<PlainStructuredValue>(
+      DEVICE_LOCAL_PRIVACY_CONFIG_KEY
+    );
+    await this.storage.setMany({
+      [DEVICE_LOCAL_PRIVACY_CONSENT_KEY]: createDeviceLocalPrivacyConsent(preferences, Date.now()),
+      [DEVICE_LOCAL_PRIVACY_CONFIG_KEY]: mergeDeviceLocalPrivacyConfig(currentConfig, preferences)
+    });
+    try {
+      await this.storage.remove(DEVICE_LOCAL_PRIVACY_TRANSACTION_KEY);
+    } catch (error) {
+      console.warn('[DeviceLocalPrivacyStore] Failed to clear committed transaction:', error);
+    }
+  }
+
+  async rollback(): Promise<void> {
+    const raw = await this.storage.get<PlainStructuredValue>(DEVICE_LOCAL_PRIVACY_TRANSACTION_KEY);
+    if (readDeviceLocalPrivacyTransaction(raw)) {
+      await this.storage.remove(DEVICE_LOCAL_PRIVACY_TRANSACTION_KEY);
+    }
+  }
 }

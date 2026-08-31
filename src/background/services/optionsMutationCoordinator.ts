@@ -4,22 +4,20 @@ import {
   encodeStoredOptionsReplacement,
   type DecodedStoredOptions
 } from '../../shared/config/storedOptionsCodec';
-import {
-  plainStructuredDataEqual,
-  snapshotPlainStructuredData
-} from '../../shared/config/losslessObjectBoundary';
+import { snapshotPlainStructuredData } from '../../shared/config/losslessObjectBoundary';
 import type {
   PlainStructuredObject,
   PlainStructuredValue
 } from '../../shared/config/losslessObjectBoundaryTypes';
+import { composeDeviceLocalPrivacy } from '../../shared/config/deviceLocalPrivacy';
 import {
-  composeDeviceLocalPrivacy,
-  containsDeviceLocalPrivacy,
-  omitDeviceLocalPrivacy
-} from '../../shared/config/deviceLocalPrivacy';
-import type {
-  DeviceLocalPrivacyRepository,
-  OptionsRawStorageRepository
+  optionsEnvelopeBytes,
+  optionsRawSignature,
+  optionsValuesEqual,
+  optionsVerificationMatches,
+  type DeviceLocalPrivacyCommitter,
+  type OptionsMutationVerification,
+  type OptionsRawStorageRepository
 } from '../../infrastructure/repositories/ChromeOptionsRepository';
 import type { IOptionsRepository } from '../../shared/repositories/IOptionsRepository';
 import type { CompleteOptions, StoredOptions } from '../../shared/types/options';
@@ -38,7 +36,7 @@ export interface OptionsMutationCoordinatorOptions {
   maxExternalDriftRetries?: number;
   createOperationId?: () => string;
   yieldAfterWrite?: () => Promise<void>;
-  deviceLocalPrivacy?: DeviceLocalPrivacyRepository;
+  deviceLocalPrivacyCommitter?: DeviceLocalPrivacyCommitter;
 }
 
 export interface BackgroundOptionsReader {
@@ -46,16 +44,6 @@ export interface BackgroundOptionsReader {
   readDecoded(): Promise<DecodedStoredOptions>;
   onChange(callback: (options: CompleteOptions) => void): () => void;
 }
-
-type Verification =
-  | { readonly kind: 'full'; readonly expected: PlainStructuredObject }
-  | {
-      readonly kind: 'paths';
-      readonly expected: ReadonlyArray<{
-        readonly path: readonly string[];
-        readonly value: PlainStructuredValue | undefined;
-      }>;
-    };
 
 function isObject(value: PlainStructuredValue | null): value is PlainStructuredObject {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -88,20 +76,6 @@ function resolveQuotaBytesPerItem(configured?: number): number {
   return Math.min(...candidates);
 }
 
-function envelopeBytes(raw: PlainStructuredObject): number {
-  return new TextEncoder().encode(JSON.stringify({ options: raw })).byteLength;
-}
-
-function rawSignature(raw: PlainStructuredObject): string {
-  const bytes = new TextEncoder().encode(JSON.stringify(raw));
-  let hash = 0x811c9dc5;
-  for (const byte of bytes) {
-    hash ^= byte;
-    hash = Math.imul(hash, 0x01000193) >>> 0;
-  }
-  return `fnv1a32:${hash.toString(16).padStart(8, '0')}:${bytes.byteLength}`;
-}
-
 function readPath(
   raw: PlainStructuredObject,
   path: readonly string[]
@@ -117,23 +91,10 @@ function readPath(
   return current;
 }
 
-type ComparableValue = Parameters<typeof plainStructuredDataEqual>[0];
-
-function valuesEqual(left: ComparableValue, right: ComparableValue): boolean {
-  if (left === undefined || right === undefined) return left === right;
-  const comparison = plainStructuredDataEqual(left, right);
-  return comparison.ok && comparison.equal;
-}
-
-function verificationMatches(raw: PlainStructuredObject, verification: Verification): boolean {
-  if (verification.kind === 'full') return valuesEqual(raw, verification.expected);
-  return verification.expected.every(({ path, value }) => valuesEqual(readPath(raw, path), value));
-}
-
 function expectedPatchValues(
   raw: PlainStructuredObject,
   patches: readonly OptionsPatch[]
-): Extract<Verification, { kind: 'paths' }> {
+): Extract<OptionsMutationVerification, { kind: 'paths' }> {
   const paths = new Map<string, readonly string[]>();
   for (const patch of patches) paths.set(JSON.stringify(patch.path), patch.path);
   return {
@@ -144,7 +105,7 @@ function expectedPatchValues(
 
 function migrationVerification(
   raw: PlainStructuredObject
-): Extract<Verification, { kind: 'paths' }> {
+): Extract<OptionsMutationVerification, { kind: 'paths' }> {
   const decoded = decodeStoredOptions(raw);
   const sections = new Set(decoded.migrations.map((migration) => migration.section));
   return {
@@ -171,7 +132,7 @@ export class OptionsMutationCoordinator {
   private readonly maxExternalDriftRetries: number;
   private readonly createOperationId: () => string;
   private readonly yieldAfterWrite: () => Promise<void>;
-  private readonly deviceLocalPrivacy?: DeviceLocalPrivacyRepository;
+  private readonly deviceLocalPrivacyCommitter?: DeviceLocalPrivacyCommitter;
 
   constructor(
     private readonly repository: OptionsRawStorageRepository,
@@ -184,7 +145,7 @@ export class OptionsMutationCoordinator {
     this.yieldAfterWrite =
       options.yieldAfterWrite ??
       (() => new Promise<void>((resolve) => globalThis.setTimeout(resolve, 0)));
-    this.deviceLocalPrivacy = options.deviceLocalPrivacy;
+    this.deviceLocalPrivacyCommitter = options.deviceLocalPrivacyCommitter;
   }
 
   execute(command: OptionsMutationCommand): Promise<OptionsMutationSuccessResult> {
@@ -229,82 +190,32 @@ export class OptionsMutationCoordinator {
     command: OptionsMutationCommand
   ): Promise<OptionsMutationSuccessResult> {
     const operationId = this.createOperationId();
-    try {
-      await this.deviceLocalPrivacy?.recoverPrivacyCommit();
-    } catch {
-      throw new OptionsMutationError('OPTIONS_STORAGE_FAILURE');
+    if (this.deviceLocalPrivacyCommitter) {
+      try {
+        const result = await this.deviceLocalPrivacyCommitter.execute(
+          command,
+          (raw, queuedCommand) => this.applyCommand(raw, queuedCommand),
+          this.quotaBytesPerItem
+        );
+        const runtime = decodeStoredOptions(result.raw).runtime;
+        return {
+          snapshot: result.privacy ? composeDeviceLocalPrivacy(runtime, result.privacy) : runtime,
+          operationId,
+          rawSignature: optionsRawSignature(result.raw),
+          didWrite: result.didWrite
+        };
+      } catch (error) {
+        if (error instanceof OptionsMutationError) throw error;
+        throw new OptionsMutationError('OPTIONS_STORAGE_FAILURE');
+      }
     }
-    return this.writeWithRetry(operationId, async (raw) => {
-      const privacy = await this.deviceLocalPrivacy?.ensurePrivacyBaseline(raw);
-      const composed = privacy
-        ? { ...raw, privacyPreferences: clone(privacy) }
-        : raw;
-      const mutation = this.applyCommand(composed, command);
-      const mutatesPrivacy = this.commandMutatesPrivacy(command);
-      const nextPrivacy = privacy
-        ? mutatesPrivacy
-          ? decodeStoredOptions(mutation.next).runtime.privacyPreferences
-          : privacy
-        : undefined;
-      const next = privacy ? omitDeviceLocalPrivacy(mutation.next) : mutation.next;
-      return {
-        next,
-        verification: privacy
-          ? this.createPortableVerification(raw, next, command)
-          : mutation.verification,
-        privacy: nextPrivacy,
-        writePrivacy:
-          nextPrivacy !== undefined &&
-          (containsDeviceLocalPrivacy(raw) || mutatesPrivacy)
-      };
-    });
-  }
-
-  private commandMutatesPrivacy(command: OptionsMutationCommand): boolean {
-    if (command.kind === 'patch') {
-      return command.patches.some((patch) => patch.path[0] === 'privacyPreferences');
-    }
-    if (command.kind === 'replace') {
-      return Object.prototype.hasOwnProperty.call(command.replacement, 'privacyPreferences');
-    }
-    return false;
-  }
-
-  private createPortableVerification(
-    raw: PlainStructuredObject,
-    next: PlainStructuredObject,
-    command: OptionsMutationCommand
-  ): Verification {
-    if (command.kind === 'replace') return { kind: 'full', expected: next };
-    if (command.kind === 'migrate') {
-      const verification = migrationVerification(raw);
-      return verification.kind === 'paths'
-        ? {
-            kind: 'paths',
-            expected: [
-              ...verification.expected.filter(({ path }) => path[0] !== 'privacyPreferences'),
-              { path: ['privacyPreferences'], value: undefined }
-            ]
-          }
-        : verification;
-    }
-    const portablePatches = command.patches.filter(
-      (patch) => patch.path[0] !== 'privacyPreferences'
-    );
-    const verification = expectedPatchValues(next, portablePatches);
-    return {
-      kind: 'paths',
-      expected: [
-        ...verification.expected,
-        { path: ['privacyPreferences'], value: undefined }
-      ]
-    };
+    return this.writeWithRetry(operationId, (raw) => this.applyCommand(raw, command));
   }
 
   private applyCommand(
     raw: PlainStructuredObject,
     command: OptionsMutationCommand
-  ): { next: PlainStructuredObject; verification: Verification } {
+  ): { next: PlainStructuredObject; verification: OptionsMutationVerification } {
     if (command.kind === 'patch') {
       let next = raw;
       for (const patch of command.patches) {
@@ -338,7 +249,7 @@ export class OptionsMutationCoordinator {
 
   private async deleteLegacyUsageStatsRootQueued(): Promise<OptionsMutationSuccessResult> {
     const operationId = this.createOperationId();
-    return this.writeWithRetry(operationId, async (raw) => {
+    return this.writeWithRetry(operationId, (raw) => {
       if (!Object.prototype.hasOwnProperty.call(raw, 'usageStats')) {
         return { next: raw, verification: { kind: 'full', expected: raw } };
       }
@@ -356,12 +267,10 @@ export class OptionsMutationCoordinator {
 
   private async writeWithRetry(
     operationId: string,
-    createMutation: (raw: PlainStructuredObject) => Promise<{
+    createMutation: (raw: PlainStructuredObject) => {
       next: PlainStructuredObject;
-      verification: Verification;
-      privacy?: CompleteOptions['privacyPreferences'];
-      writePrivacy?: boolean;
-    }>
+      verification: OptionsMutationVerification;
+    }
   ): Promise<OptionsMutationSuccessResult> {
     for (let attempt = 0; attempt <= this.maxExternalDriftRetries; attempt += 1) {
       let raw: PlainStructuredObject;
@@ -371,93 +280,36 @@ export class OptionsMutationCoordinator {
         if (error instanceof OptionsMutationError) throw error;
         throw new OptionsMutationError('OPTIONS_STORAGE_FAILURE');
       }
-      const { next, verification, privacy, writePrivacy } = await createMutation(raw);
-      const portableWriteRequired = !valuesEqual(raw, next);
-      if (portableWriteRequired && envelopeBytes(next) > this.quotaBytesPerItem) {
-        throw new OptionsMutationError('OPTIONS_QUOTA_EXCEEDED');
-      }
-      const privacyCommitRequired = writePrivacy && privacy && this.deviceLocalPrivacy;
-      if (privacyCommitRequired) {
-        try {
-          await this.deviceLocalPrivacy.beginPrivacyCommit(privacy);
-        } catch {
-          await this.rollbackPrivacyAfterFailure();
-          throw new OptionsMutationError('OPTIONS_STORAGE_FAILURE');
-        }
-      }
-      if (!portableWriteRequired) {
-        if (privacyCommitRequired) await this.commitPrivacyOrRollback(privacy);
-        const runtime = decodeStoredOptions(next).runtime;
+      const { next, verification } = createMutation(raw);
+      if (optionsValuesEqual(raw, next)) {
         return {
-          snapshot: privacy ? composeDeviceLocalPrivacy(runtime, privacy) : runtime,
+          snapshot: decodeStoredOptions(next).runtime,
           operationId,
-          rawSignature: rawSignature(next),
-          didWrite: writePrivacy === true
+          rawSignature: optionsRawSignature(next),
+          didWrite: false
         };
+      }
+      if (optionsEnvelopeBytes(next) > this.quotaBytesPerItem) {
+        throw new OptionsMutationError('OPTIONS_QUOTA_EXCEEDED');
       }
       try {
         await this.repository.writeRaw(next);
         await this.yieldAfterWrite();
         const readback = normalizeRaw(await this.repository.readRaw());
-        if (verificationMatches(readback, verification)) {
-          if (privacyCommitRequired) await this.commitPrivacyOrRollback(privacy, raw);
-          const runtime = decodeStoredOptions(readback).runtime;
+        if (optionsVerificationMatches(readback, verification)) {
           return {
-            snapshot: privacy ? composeDeviceLocalPrivacy(runtime, privacy) : runtime,
+            snapshot: decodeStoredOptions(readback).runtime,
             operationId,
-            rawSignature: rawSignature(readback),
+            rawSignature: optionsRawSignature(readback),
             didWrite: true
           };
         }
       } catch (error) {
-        if (privacyCommitRequired) await this.rollbackPrivacyAfterFailure();
         if (error instanceof OptionsMutationError) throw error;
         throw new OptionsMutationError('OPTIONS_STORAGE_FAILURE');
       }
-      if (privacyCommitRequired) await this.rollbackPrivacyAfterFailure();
     }
     throw new OptionsMutationError('EXTERNAL_SYNC_CONFLICT');
-  }
-
-  private async commitPrivacyOrRollback(
-    privacy: CompleteOptions['privacyPreferences'],
-    previousRaw?: PlainStructuredObject
-  ): Promise<void> {
-    try {
-      await this.deviceLocalPrivacy?.commitPrivacy(privacy);
-    } catch {
-      if (previousRaw && containsDeviceLocalPrivacy(previousRaw)) {
-        await this.restorePrivacyMirror(previousRaw.privacyPreferences);
-      }
-      await this.rollbackPrivacyAfterFailure();
-      throw new OptionsMutationError('OPTIONS_STORAGE_FAILURE');
-    }
-  }
-
-  private async restorePrivacyMirror(previousPrivacy: PlainStructuredValue): Promise<void> {
-    for (let attempt = 0; attempt <= this.maxExternalDriftRetries; attempt += 1) {
-      try {
-        const current = normalizeRaw(await this.repository.readRaw());
-        await this.repository.writeRaw({
-          ...current,
-          privacyPreferences: clone(previousPrivacy)
-        });
-        await this.yieldAfterWrite();
-        const readback = normalizeRaw(await this.repository.readRaw());
-        if (valuesEqual(readback.privacyPreferences, previousPrivacy)) return;
-      } catch {
-        // Retry the bounded compensation against the newest observed raw snapshot.
-      }
-    }
-    throw new OptionsMutationError('OPTIONS_STORAGE_FAILURE');
-  }
-
-  private async rollbackPrivacyAfterFailure(): Promise<void> {
-    try {
-      await this.deviceLocalPrivacy?.rollbackPrivacyCommit();
-    } catch {
-      throw new OptionsMutationError('OPTIONS_STORAGE_FAILURE');
-    }
   }
 }
 
