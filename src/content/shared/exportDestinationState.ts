@@ -10,10 +10,55 @@ import type { IOptionsRepository } from '@shared/repositories/IOptionsRepository
 import type { ClipPayload, CompleteOptions } from '@shared/types';
 import type { ExportDestinationSurfacePreview } from '@ui/stitch-runtime';
 import { mergeOptions } from '@shared/config/optionsMerger';
+import { patchExportDestinationRow } from './exportDestinationDom';
 
 interface DestinationRefreshResult {
   applied: boolean;
   preview: ExportDestinationSurfacePreview | undefined;
+}
+
+export function reconcileLiveExportDestinationRow(
+  root: ParentNode,
+  destination: ExportDestinationSurfacePreview | undefined
+): boolean {
+  if (patchExportDestinationRow(root, destination)) {
+    return true;
+  }
+  if (!destination) {
+    return false;
+  }
+
+  const row = root.querySelector<HTMLElement>('.export-destination-row');
+  const optionsContainer = row?.querySelector<HTMLElement>('.export-destination-options');
+  const existingButtons = Array.from(
+    optionsContainer?.querySelectorAll<HTMLButtonElement>(
+      '.export-destination-option[data-destination-id]'
+    ) ?? []
+  );
+  const template = existingButtons[0];
+  if (!row || !optionsContainer || !template) {
+    return false;
+  }
+
+  const buttonsById = new Map(
+    existingButtons.flatMap((button) =>
+      button.dataset.destinationId ? [[button.dataset.destinationId, button] as const] : []
+    )
+  );
+  const desiredIds = new Set(destination.options.map((option) => option.id));
+  for (const option of destination.options) {
+    const button = buttonsById.get(option.id) ?? (template.cloneNode(true) as HTMLButtonElement);
+    button.dataset.destinationId = option.id;
+    optionsContainer.appendChild(button);
+  }
+  for (const button of existingButtons) {
+    const id = button.dataset.destinationId;
+    if (!id || !desiredIds.has(id)) {
+      button.remove();
+    }
+  }
+
+  return patchExportDestinationRow(root, destination);
 }
 
 export class ContentExportDestinationState {

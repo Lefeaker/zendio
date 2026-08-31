@@ -20,8 +20,10 @@ import {
 } from './dialogServices';
 import { updateDialogPosition } from './dialogPresenter';
 import { restoreContentDialogFocus } from '@ui/hosts/content/contentDialogFocus';
-import { ContentExportDestinationState } from '@content/shared/exportDestinationState';
-import { patchExportDestinationRow } from '@content/shared/exportDestinationDom';
+import {
+  ContentExportDestinationState,
+  reconcileLiveExportDestinationRow
+} from '@content/shared/exportDestinationState';
 import { DialogSessionState } from './dialogSessionState';
 import {
   DOUBLE_ENTER_TIMEOUT,
@@ -185,7 +187,7 @@ export class ClipperDialog {
     }
     this.destinationState.watch((destination) => {
       if (this.shadowRoot) {
-        patchExportDestinationRow(this.shadowRoot, destination);
+        reconcileLiveExportDestinationRow(this.shadowRoot, destination);
       }
     });
     this.lifecycleListeners.attachLifecycleEventListeners();
@@ -386,7 +388,7 @@ export class ClipperDialog {
     this.sessionState.initialComment = comment;
     const destination = await this.destinationState?.refresh();
     if (this.shadowRoot) {
-      patchExportDestinationRow(this.shadowRoot, destination);
+      reconcileLiveExportDestinationRow(this.shadowRoot, destination);
     }
   }
 

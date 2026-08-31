@@ -12,29 +12,21 @@ import {
 } from './utils/videoListenerScopeHarness';
 
 const VAULT_ID = 'live-runtime-vault';
-const INITIAL_VAULT_NAME = 'Unconfigured Runtime Vault';
 const LIVE_VAULT_NAME = 'Current Live Vault';
 const RENAMED_VAULT_NAME = 'Live Renamed Vault';
 
-function createStoredOptions(vaultName: string, configured: boolean) {
+declare global {
+  interface Window {
+    __b10DestinationRows?: Record<string, Element>;
+  }
+}
+
+function createStoredOptions() {
   return {
     ...createOptionsFixture(),
     vaultRouter: {
-      defaultVaultId: VAULT_ID,
-      vaults: [
-        {
-          id: VAULT_ID,
-          name: vaultName,
-          vault: vaultName,
-          localFolderId: configured ? 'live-runtime-folder' : '',
-          localFolderName: configured ? vaultName : '',
-          httpsUrl: 'https://127.0.0.1:27124',
-          httpUrl: 'http://127.0.0.1:27123',
-          apiKey: '',
-          enabled: true,
-          isDefault: true
-        }
-      ],
+      defaultVaultId: 'default',
+      vaults: [],
       rules: []
     }
   };
@@ -93,6 +85,8 @@ async function markDestinationRow(page: Page, marker: string): Promise<void> {
   await expect(row).toBeVisible();
   await row.evaluate((element, value) => {
     (element as HTMLElement).dataset.liveRuntimeMarker = value;
+    const rows = (window.__b10DestinationRows ??= {});
+    rows[value] = element;
   }, marker);
 }
 
@@ -106,6 +100,22 @@ async function expectProjectedDestination(
     'data-live-runtime-marker',
     marker
   );
+  await expect
+    .poll(() =>
+      page.locator('.export-destination-row').evaluate((element, value) => {
+        return window.__b10DestinationRows?.[value] === element;
+      }, marker)
+    )
+    .toBe(true);
+  await expect
+    .poll(() =>
+      page
+        .locator('.export-destination-option[data-destination-id]')
+        .evaluateAll((buttons) =>
+          buttons.map((button) => (button as HTMLElement).dataset.destinationId)
+        )
+    )
+    .toEqual([VAULT_ID, 'downloads']);
 }
 
 testWithExtension.describe('Options live runtime destination projection', () => {
@@ -115,7 +125,7 @@ testWithExtension.describe('Options live runtime destination projection', () => 
   testWithExtension(
     'updates already-open Clipper, Reader, and Video rows without replacing them',
     async ({ context, extensionPage }) => {
-      const initialOptions = createStoredOptions(INITIAL_VAULT_NAME, false);
+      const initialOptions = createStoredOptions();
       const clipper = await openFixtureWithRuntime(
         context,
         extensionPage,
