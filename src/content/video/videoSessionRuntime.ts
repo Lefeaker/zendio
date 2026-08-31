@@ -56,10 +56,7 @@ import type { VideoFragmentSelectionController } from './videoFragmentSelectionC
 import type { VideoSessionPlatformController } from './sessionPlatformController';
 import type { VideoSessionDomController } from './sessionDom';
 import type { VideoSessionControllers } from './videoSessionControllers';
-import {
-  ContentExportDestinationState,
-  reconcileLiveExportDestinationRow
-} from '../shared/exportDestinationState';
+import { ContentExportDestinationState } from '../shared/exportDestinationState';
 import type { ClipPayload } from '../../shared/types';
 import { VideoCommentEditorPlaybackController } from './videoCommentEditorPlaybackController';
 import { VideoScreenshotPreparationCoordinator } from './videoScreenshotPreparationCoordinator';
@@ -69,7 +66,6 @@ import { hasRequestedTimestampScreenshot, setTimestampScreenshotRef } from './sc
 import { VideoSessionMutationCoordinator } from './videoSessionMutationCoordinator';
 import { emitVideoUsageEvent } from './videoCaptureMutationTransaction';
 import { acquireDocumentMutationHub } from '../runtime/documentMutationHub';
-import type { ExportDestinationSurfacePreview } from '@ui/stitch-runtime';
 export class VideoSession {
   private readonly state = new VideoSessionState(DEFAULT_HIGHLIGHT_THEME);
   private messages: VideoSessionMessages = DEFAULT_SESSION_MESSAGES;
@@ -305,9 +301,7 @@ export class VideoSession {
       });
       this.draftController.bindPersistence();
       this.screenshotPreparation.requestPendingScreenshots();
-      await this.destinationState.startWatching((preview) =>
-        this.updateDestinationPreview(preview)
-      );
+      await this.destinationState.startWatching((preview) => this.dom.updateDestination(preview));
     } catch (error) {
       this.cleanup();
       throw error;
@@ -364,18 +358,7 @@ export class VideoSession {
   }
 
   private async refreshDestinationPreview(): Promise<void> {
-    const preview = await this.destinationState.refresh();
-    this.updateDestinationPreview(preview);
-  }
-
-  private updateDestinationPreview(preview: ExportDestinationSurfacePreview | undefined): void {
-    const root = Array.from(
-      this.doc.querySelectorAll<HTMLElement>('[data-session-panel-root="true"]')
-    ).find((host) => host.shadowRoot?.querySelector('[data-stitch-surface="video"]'))?.shadowRoot;
-    if (root) {
-      reconcileLiveExportDestinationRow(root, preview);
-    }
-    this.dom.updateDestination(preview);
+    this.dom.updateDestination(await this.destinationState.refresh());
   }
 
   private releasePlaybackEditLeaseOnOutsidePointer(event: MouseEvent): void {

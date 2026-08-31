@@ -941,10 +941,10 @@ describe('VideoSession', () => {
     const stopLanguageWatcher = vi.fn();
     const deps = createDependencies();
     deps.optionsRepository.onChange = vi
-      .fn()
+      .fn<typeof deps.optionsRepository.onChange>()
       .mockImplementationOnce(() => stopHighlightThemeWatcher)
-      .mockImplementationOnce(() => stopDestinationWatcher) as never;
-    deps.storage.sync.watchKey = vi.fn(() => stopLanguageWatcher) as never;
+      .mockImplementationOnce(() => stopDestinationWatcher);
+    vi.spyOn(deps.storage.sync, 'watchKey').mockImplementation(() => stopLanguageWatcher);
     const session = new VideoSession(document, deps);
     const sessionApi = toSessionTestApi(session);
 

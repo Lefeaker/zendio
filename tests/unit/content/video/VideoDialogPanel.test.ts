@@ -13,6 +13,7 @@ import { VideoDialogPanel } from '@content/video/ui/VideoDialogPanel';
 import { VIDEO_MODE_PANEL_ICON_PATH } from '@shared/assets/iconPaths';
 import { panelStyleSheetManager } from '@content/shared/panels/styleSheetManager';
 import type { StyleAttachmentHandle } from '@ui/foundation/style-host';
+import type { ExportDestinationSurfacePreview } from '@ui/stitch-runtime';
 import { testPlatformHarness } from '../../../setup/globalSetup';
 
 const callbacks: VideoPanelCallbacks = {
@@ -72,6 +73,22 @@ function createCaptures(count: number): VideoPanelCapture[] {
       hasScreenshot: false
     })
   );
+}
+
+function createDestination(
+  label: string,
+  options: ExportDestinationSurfacePreview['options'],
+  overrides: Partial<ExportDestinationSurfacePreview> = {}
+): ExportDestinationSurfacePreview {
+  return {
+    id: options.find((option) => option.selected)?.id ?? 'downloads',
+    kind: options.find((option) => option.selected)?.kind ?? 'downloads',
+    label,
+    path: `${label}/video.md`,
+    hasConfiguredVault: options.some((option) => option.kind === 'vault'),
+    options,
+    ...overrides
+  };
 }
 
 function flushPanelPersistence(): Promise<void> {
@@ -272,6 +289,153 @@ describe('VideoDialogPanel', () => {
     expect(iconAfterAdd).toBe(iconBefore);
     expect(iconAfterStatusChange).toBe(iconBefore);
     expect(iconAfterDelete).toBe(iconBefore);
+
+    panel.destroy();
+  });
+
+  it('projects destination insertion and rename without replacing live video state', async () => {
+    const panel = new VideoDialogPanel({ callbacks, texts });
+    panel.show();
+    panel.updateDestination(
+      createDestination(
+        'Downloads',
+        [
+          {
+            id: 'downloads',
+            kind: 'downloads',
+            label: 'Downloads',
+            path: 'Downloads/video.md',
+            selected: true
+          }
+        ],
+        {
+          hasConfiguredVault: false,
+          setupUrl: 'chrome-extension://test/options/index.html#storage'
+        }
+      )
+    );
+    panel.setCaptures([
+      createCapture({
+        id: 'capture-1',
+        comment: 'Saved capture note',
+        commentPreview: 'Saved capture note'
+      })
+    ]);
+    panel.beginEditingCapture('capture-1', 'Live capture draft');
+    await Promise.resolve();
+
+    const shadow = panel.element.shadowRoot;
+    const mountedRow = shadow?.querySelector<HTMLElement>('.export-destination-row');
+    const mountedCapture = shadow?.querySelector<HTMLElement>('[data-capture-id="capture-1"]');
+    const mountedInput = requireCaptureInput(panel, 'capture-1');
+    if (!mountedRow || !mountedCapture) throw new Error('mounted Video state missing');
+    mountedRow.dataset.liveRuntimeMarker = 'video-row';
+    mountedInput.value = 'Live capture draft';
+    mountedInput.dispatchEvent(new Event('input', { bubbles: true }));
+    mountedInput.focus();
+
+    panel.updateDestination(
+      createDestination('Current Live Vault', [
+        {
+          id: 'live-vault',
+          kind: 'vault',
+          label: 'Current Live Vault',
+          path: 'Current Live Vault/video.md',
+          selected: true
+        },
+        {
+          id: 'downloads',
+          kind: 'downloads',
+          label: 'Downloads',
+          path: 'Downloads/video.md',
+          selected: false
+        }
+      ])
+    );
+
+    expect(shadow?.querySelector('.export-destination-row')).toBe(mountedRow);
+    expect(mountedRow.dataset.liveRuntimeMarker).toBe('video-row');
+    expect(mountedRow.querySelector('.export-destination-label')?.textContent).toBe(
+      'Current Live Vault'
+    );
+    expect(mountedRow.querySelector('.export-destination-path')?.textContent).toBe(
+      'Current Live Vault/video.md'
+    );
+    expect(
+      Array.from(mountedRow.querySelectorAll<HTMLElement>('.export-destination-option')).map(
+        (button) => ({
+          id: button.dataset.destinationId,
+          selected: button.classList.contains('is-selected')
+        })
+      )
+    ).toEqual([
+      { id: 'live-vault', selected: true },
+      { id: 'downloads', selected: false }
+    ]);
+    expect(mountedRow.querySelector('.export-destination-setup-link')).toBeNull();
+    expect(shadow?.querySelector('[data-capture-id="capture-1"]')).toBe(mountedCapture);
+    expect(requireCaptureInput(panel, 'capture-1')).toBe(mountedInput);
+    expect(mountedInput.value).toBe('Live capture draft');
+    expect(panel.snapshotCommentDrafts()).toEqual({ 'capture-1': 'Live capture draft' });
+    expect(shadow?.activeElement).toBe(mountedInput);
+    expect(
+      shadow?.querySelector('.resource-modal--session')?.classList.contains('is-collapsed')
+    ).toBe(false);
+
+    panel.updateDestination(
+      createDestination('Live Renamed Vault', [
+        {
+          id: 'live-vault',
+          kind: 'vault',
+          label: 'Live Renamed Vault',
+          path: 'Live Renamed Vault/video.md',
+          selected: true
+        },
+        {
+          id: 'downloads',
+          kind: 'downloads',
+          label: 'Downloads',
+          path: 'Downloads/video.md',
+          selected: false
+        }
+      ])
+    );
+
+    expect(shadow?.querySelector('.export-destination-row')).toBe(mountedRow);
+    expect(mountedRow.dataset.liveRuntimeMarker).toBe('video-row');
+    expect(mountedRow.querySelector('.export-destination-label')?.textContent).toBe(
+      'Live Renamed Vault'
+    );
+    expect(shadow?.querySelector('[data-capture-id="capture-1"]')).toBe(mountedCapture);
+    expect(requireCaptureInput(panel, 'capture-1')).toBe(mountedInput);
+    expect(mountedInput.value).toBe('Live capture draft');
+    expect(shadow?.activeElement).toBe(mountedInput);
+
+    panel.updateHint('Force a normal Video rerender');
+    await Promise.resolve();
+    expect(shadow?.querySelector('.export-destination-label')?.textContent).toBe(
+      'Live Renamed Vault'
+    );
+    expect(shadow?.querySelector('.export-destination-path')?.textContent).toBe(
+      'Live Renamed Vault/video.md'
+    );
+    expect(shadow?.querySelector('[data-capture-id="capture-1"]')).toBe(mountedCapture);
+    expect(requireCaptureInput(panel, 'capture-1')).toBe(mountedInput);
+    expect(mountedInput.value).toBe('Live capture draft');
+    expect(shadow?.activeElement).toBe(mountedInput);
+
+    panel.collapse();
+    expect(
+      shadow?.querySelector('.resource-modal--session')?.classList.contains('is-collapsed')
+    ).toBe(true);
+    expect(shadow?.querySelector('.video-surface-window')?.classList.contains('is-collapsed')).toBe(
+      true
+    );
+    expect(shadow?.querySelector('.export-destination-label')?.textContent).toBe(
+      'Live Renamed Vault'
+    );
+    expect(shadow?.querySelector('[data-capture-id="capture-1"]')).toBe(mountedCapture);
+    expect(requireCaptureInput(panel, 'capture-1').value).toBe('Live capture draft');
 
     panel.destroy();
   });

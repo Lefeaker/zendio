@@ -17,10 +17,7 @@ import {
   registerReaderSession
 } from '../runtime/contentSessionRegistry';
 import { clearHighlightThemeState } from '../shared/highlightThemeState';
-import {
-  ContentExportDestinationState,
-  reconcileLiveExportDestinationRow
-} from '../shared/exportDestinationState';
+import { ContentExportDestinationState } from '../shared/exportDestinationState';
 import type { ClipPayload } from '../../shared/types';
 import type { ReaderSessionDependencies as FullReaderSessionDependencies } from './sessionTypes';
 import { createSessionMutationRunner, type SessionMutationTransaction } from '../sessionDrafts';
@@ -40,7 +37,6 @@ import {
 import { restoreReaderSessionDraftHighlights } from './sessionDrafts';
 import { ReaderSessionDraftController } from './readerSessionDraftController';
 import { getSessionDraftRuntimeMessenger } from '../sessionDrafts/sessionDraftTabContext';
-import type { ExportDestinationSurfacePreview } from '@ui/stitch-runtime';
 const ADD_HIGHLIGHT_EVENT = 'aiob-reader:add-highlight';
 export type { ReaderSessionDependencies } from './sessionTypes';
 export class ReaderSession {
@@ -244,7 +240,7 @@ export class ReaderSession {
       this.applyInitialDestination(initialHighlights);
       const loadedDraft = await this.hydrateStoredDraft();
       await this.destinationState.startWatching((preview) =>
-        this.updateDestinationPreview(preview)
+        this.panelCoordinator.updateDestination(preview)
       );
       this.applyReadingConfig(await this.loadReadingConfig());
       this.watchReadingConfig();
@@ -414,18 +410,8 @@ export class ReaderSession {
   }
 
   private async refreshDestinationPreview(): Promise<void> {
-    const preview = await this.destinationState.refresh();
-    this.updateDestinationPreview(preview);
+    this.panelCoordinator.updateDestination(await this.destinationState.refresh());
   }
-
-  private updateDestinationPreview(preview: ExportDestinationSurfacePreview | undefined): void {
-    const root = this.panelCoordinator.getElement()?.shadowRoot;
-    if (root) {
-      reconcileLiveExportDestinationRow(root, preview);
-    }
-    this.panelCoordinator.updateDestination(preview);
-  }
-
   private async selectDestination(id: string): Promise<void> {
     const previousMetadata = this.destinationState.metadata;
     const previousPreview = this.destinationState.currentPreview;
@@ -444,7 +430,7 @@ export class ReaderSession {
         if (previousMetadata) {
           await this.refreshDestinationPreview();
         } else {
-          this.updateDestinationPreview(previousPreview);
+          this.panelCoordinator.updateDestination(previousPreview);
         }
         this.panelCoordinator.applyHint('failure', this.state.highlights.length);
       },
@@ -541,7 +527,6 @@ export class ReaderSession {
     this.destinationState.dispose();
     await this.draftController?.dispose();
   }
-
   private cleanup(): void {
     this.destinationState.dispose();
     this.lifecycle.cleanup();

@@ -20,10 +20,8 @@ import {
 } from './dialogServices';
 import { updateDialogPosition } from './dialogPresenter';
 import { restoreContentDialogFocus } from '@ui/hosts/content/contentDialogFocus';
-import {
-  ContentExportDestinationState,
-  reconcileLiveExportDestinationRow
-} from '@content/shared/exportDestinationState';
+import { ContentExportDestinationState } from '@content/shared/exportDestinationState';
+import { reconcileLiveExportDestinationRow } from '@content/shared/exportDestinationState';
 import { DialogSessionState } from './dialogSessionState';
 import {
   DOUBLE_ENTER_TIMEOUT,
@@ -185,11 +183,9 @@ export class ClipperDialog {
     if (!(await this.buildDialog(selectedText, hostMountToken))) {
       return { action: 'cancel', comment: '' };
     }
-    this.destinationState.watch((destination) => {
-      if (this.shadowRoot) {
-        reconcileLiveExportDestinationRow(this.shadowRoot, destination);
-      }
-    });
+    this.destinationState.watch(
+      (value) => this.shadowRoot && reconcileLiveExportDestinationRow(this.shadowRoot, value)
+    );
     this.lifecycleListeners.attachLifecycleEventListeners();
     this.sessionState.shortcutsTemporarilyActivated = false;
     this.sessionState.resetPendingEnter();
@@ -197,7 +193,6 @@ export class ClipperDialog {
       this.resolve = resolve;
     });
   }
-
   remove(): void {
     cancelHostMount(this.hostMountToken);
     this.hostMountToken = null;
@@ -386,12 +381,9 @@ export class ClipperDialog {
     const comment = this.getCurrentComment();
     this.destinationState?.select(id);
     this.sessionState.initialComment = comment;
-    const destination = await this.destinationState?.refresh();
-    if (this.shadowRoot) {
-      reconcileLiveExportDestinationRow(this.shadowRoot, destination);
-    }
+    if (this.shadowRoot)
+      reconcileLiveExportDestinationRow(this.shadowRoot, await this.destinationState?.refresh());
   }
-
   private syncTextareaHeight(): void {
     syncClipperTextareaHeight(this.textarea);
   }
@@ -419,7 +411,8 @@ export class ClipperDialog {
     this.resolve = null;
     const destination = this.destinationState?.metadata;
     const shouldForwardDestination =
-      (action !== 'reader' && action !== 'video') ||
+      action === 'clip' ||
+      action === 'cancel' ||
       Boolean(this.destinationState?.hasExplicitSelection);
     resolver?.({
       action,

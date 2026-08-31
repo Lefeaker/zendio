@@ -9,6 +9,7 @@ import type {
 } from '../../../../src/content/reader/application/readerPanelModel';
 import { panelStyleSheetManager } from '../../../../src/content/shared/panels/styleSheetManager';
 import type { StyleAttachmentHandle } from '../../../../src/ui/foundation/style-host';
+import type { ExportDestinationSurfacePreview } from '../../../../src/ui/stitch-runtime';
 import { testPlatformHarness } from '../../../setup/globalSetup';
 
 vi.mock('@content/runtime/popupCoordinatorAccess', () => ({
@@ -53,6 +54,22 @@ function createHighlight(overrides: Partial<ReaderPanelHighlight> = {}): ReaderP
     comment: '',
     commentPreview: '',
     timestamp: Date.now(),
+    ...overrides
+  };
+}
+
+function createDestination(
+  label: string,
+  options: ExportDestinationSurfacePreview['options'],
+  overrides: Partial<ExportDestinationSurfacePreview> = {}
+): ExportDestinationSurfacePreview {
+  return {
+    id: options.find((option) => option.selected)?.id ?? 'downloads',
+    kind: options.find((option) => option.selected)?.kind ?? 'downloads',
+    label,
+    path: `${label}/reader.md`,
+    hasConfiguredVault: options.some((option) => option.kind === 'vault'),
+    options,
     ...overrides
   };
 }
@@ -212,6 +229,112 @@ describe('ReaderDialogPanel', () => {
 
     expect(panel.element.id).toBe('aiob-reader-panel');
     expect(document.getElementById('aiob-reader-panel')).toBe(panel.element);
+
+    panel.destroy();
+  });
+
+  it('projects destination insertion and rename without replacing the mounted row', () => {
+    const panel = new ReaderDialogPanel({
+      texts: createReaderPanelTexts(),
+      callbacks: createReaderPanelCallbacks()
+    });
+    panel.mount(document.body);
+    panel.updateDestination(
+      createDestination(
+        'Downloads',
+        [
+          {
+            id: 'downloads',
+            kind: 'downloads',
+            label: 'Downloads',
+            path: 'Downloads/reader.md',
+            selected: true
+          }
+        ],
+        {
+          hasConfiguredVault: false,
+          setupUrl: 'chrome-extension://test/options/index.html#storage'
+        }
+      )
+    );
+
+    const shadow = panel.element.shadowRoot;
+    const mountedRow = shadow?.querySelector<HTMLElement>('.export-destination-row');
+    if (!mountedRow) throw new Error('mounted Reader destination row missing');
+    mountedRow.dataset.liveRuntimeMarker = 'reader-row';
+
+    panel.updateDestination(
+      createDestination('Current Live Vault', [
+        {
+          id: 'live-vault',
+          kind: 'vault',
+          label: 'Current Live Vault',
+          path: 'Current Live Vault/reader.md',
+          selected: true
+        },
+        {
+          id: 'downloads',
+          kind: 'downloads',
+          label: 'Downloads',
+          path: 'Downloads/reader.md',
+          selected: false
+        }
+      ])
+    );
+
+    expect(shadow?.querySelector('.export-destination-row')).toBe(mountedRow);
+    expect(mountedRow.dataset.liveRuntimeMarker).toBe('reader-row');
+    expect(mountedRow.querySelector('.export-destination-label')?.textContent).toBe(
+      'Current Live Vault'
+    );
+    expect(mountedRow.querySelector('.export-destination-path')?.textContent).toBe(
+      'Current Live Vault/reader.md'
+    );
+    expect(
+      Array.from(mountedRow.querySelectorAll<HTMLElement>('.export-destination-option')).map(
+        (button) => ({
+          id: button.dataset.destinationId,
+          selected: button.classList.contains('is-selected')
+        })
+      )
+    ).toEqual([
+      { id: 'live-vault', selected: true },
+      { id: 'downloads', selected: false }
+    ]);
+    expect(mountedRow.querySelector('.export-destination-setup-link')).toBeNull();
+
+    panel.updateDestination(
+      createDestination('Live Renamed Vault', [
+        {
+          id: 'live-vault',
+          kind: 'vault',
+          label: 'Live Renamed Vault',
+          path: 'Live Renamed Vault/reader.md',
+          selected: true
+        },
+        {
+          id: 'downloads',
+          kind: 'downloads',
+          label: 'Downloads',
+          path: 'Downloads/reader.md',
+          selected: false
+        }
+      ])
+    );
+
+    expect(shadow?.querySelector('.export-destination-row')).toBe(mountedRow);
+    expect(mountedRow.dataset.liveRuntimeMarker).toBe('reader-row');
+    expect(mountedRow.querySelector('.export-destination-label')?.textContent).toBe(
+      'Live Renamed Vault'
+    );
+
+    panel.updateHint('Force a normal Reader rerender');
+    expect(shadow?.querySelector('.export-destination-label')?.textContent).toBe(
+      'Live Renamed Vault'
+    );
+    expect(shadow?.querySelector('.export-destination-path')?.textContent).toBe(
+      'Live Renamed Vault/reader.md'
+    );
 
     panel.destroy();
   });

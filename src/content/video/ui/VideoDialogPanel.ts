@@ -13,6 +13,7 @@ import {
 import { SessionPanelCollapsePersistence } from '@content/shared/panels/sessionPanelCollapsePersistence';
 import { createSessionPanelRenderRoot } from '@content/shared/panels/sessionPanelRoot';
 import { SessionCommentDraftController } from '@content/shared/panels/sessionCommentDrafts';
+import { reconcileLiveExportDestinationRow } from '@content/shared/exportDestinationState';
 import type { ExportDestinationSurfacePreview } from '@ui/stitch-runtime';
 import { queueContentDialogElementByDataset } from '@ui/hosts/content/contentDialogFocus';
 import { createInvalidationScope } from '@ui/stitch-runtime/render/invalidation';
@@ -130,6 +131,8 @@ export class VideoDialogPanel implements UiMountable<
   }
   updateDestination(destination: ExportDestinationSurfacePreview | undefined): void {
     this.destination = destination;
+    const shadow = this.renderRoot.shadowRoot;
+    if (shadow && reconcileLiveExportDestinationRow(shadow, destination)) return;
     this.rerender();
   }
   updateCount(count: number): void {

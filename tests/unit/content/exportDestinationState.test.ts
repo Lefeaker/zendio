@@ -54,13 +54,15 @@ function createPayload() {
 function createRepository(initial: CompleteOptions) {
   let listener: ((options: CompleteOptions) => void) | undefined;
   const unsubscribe = vi.fn();
-  const repository = {
+  const repository: IOptionsRepository = {
     get: vi.fn(() => Promise.resolve(initial)),
+    patch: vi.fn(() => Promise.resolve(initial)),
+    replace: vi.fn(() => Promise.resolve(initial)),
     onChange: vi.fn((nextListener: (options: CompleteOptions) => void) => {
       listener = nextListener;
       return unsubscribe;
     })
-  } as unknown as IOptionsRepository;
+  };
 
   return {
     repository,

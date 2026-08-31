@@ -1,6 +1,16 @@
-import { chromium, expect, test } from '@playwright/test';
+import { chromium, expect, test, type Page } from '@playwright/test';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import {
+  bilibiliFixtureHtml,
+  createOptionsFixture,
+  expandVideoPanel,
+  findCurrentTabId,
+  openFixtureWithRuntime,
+  openVideoPanelFromControlBar,
+  selectFixtureText,
+  testWithExtension
+} from './utils/videoListenerScopeHarness';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const extensionPath = path.resolve(__dirname, '../../build/dist');
@@ -45,6 +55,7 @@ declare global {
     __u04aMetrics: SessionPanelMetrics;
     __u04aReaderRefs: ReaderSessionPanelRefs;
     __u04aVideoPreview: HTMLElement;
+    __b10DestinationRows?: Record<string, Element>;
   }
 }
 
@@ -312,3 +323,194 @@ test('Reader and Video session panels retain stable incremental shells', async (
     await context.close();
   }
 });
+
+const B10_VAULT_ID = 'live-runtime-vault';
+const B10_LIVE_VAULT_NAME = 'Current Live Vault';
+const B10_RENAMED_VAULT_NAME = 'Live Renamed Vault';
+type B10MutationResponse = { success: boolean };
+
+function b10ArticleFixtureHtml(title: string): string {
+  return `<!doctype html>
+    <html>
+      <head><title>${title}</title></head>
+      <body>
+        <main>
+          <article>
+            <h1>${title}</h1>
+            <p id="selectable">Selectable article text for the live destination fixture.</p>
+          </article>
+        </main>
+      </body>
+    </html>`;
+}
+
+function createB10StoredOptions() {
+  return {
+    ...createOptionsFixture(),
+    vaultRouter: {
+      defaultVaultId: 'default',
+      vaults: [],
+      rules: []
+    }
+  };
+}
+
+async function openB10Clipper(page: Page, extensionPage: Page): Promise<void> {
+  await selectFixtureText(page);
+  const tabId = await findCurrentTabId(extensionPage, page.url());
+  const readiness = await extensionPage.evaluate(async (targetTabId) => {
+    return chrome.scripting.executeScript({
+      target: { tabId: targetTabId },
+      world: 'ISOLATED',
+      func: async () => {
+        const runtimePromise = (
+          globalThis as typeof globalThis & {
+            __AIIINOB_CONTENT_RUNTIME_PROMISE__?: PromiseLike<object>;
+          }
+        ).__AIIINOB_CONTENT_RUNTIME_PROMISE__;
+        if (!runtimePromise) return false;
+        await runtimePromise;
+        return document.documentElement.dataset.aiobContentRuntime === 'true';
+      }
+    });
+  }, tabId);
+  expect(readiness[0]?.result).toBe(true);
+  const result = await extensionPage.evaluate(async (targetTabId) => {
+    return chrome.tabs.sendMessage<{ action: string }, B10MutationResponse>(targetTabId, {
+      action: 'clipSelection'
+    });
+  }, tabId);
+  expect(result).toMatchObject({ success: true });
+  await expect(page.locator('[data-stitch-surface="clipper"]')).toBeVisible();
+}
+
+async function updateB10Vault(extensionPage: Page, vaultName: string): Promise<void> {
+  const result = await extensionPage.evaluate(
+    async ({ vaultId, nextName }) =>
+      chrome.runtime.sendMessage<object, B10MutationResponse>({
+        type: 'ZENDIO_OPTIONS_MUTATION',
+        requestId: `live-runtime-${crypto.randomUUID()}`,
+        command: {
+          kind: 'patch',
+          patches: [
+            {
+              path: ['vaultRouter'],
+              value: {
+                defaultVaultId: vaultId,
+                vaults: [
+                  {
+                    id: vaultId,
+                    name: nextName,
+                    vault: nextName,
+                    localFolderId: 'live-runtime-folder',
+                    localFolderName: nextName,
+                    httpsUrl: 'https://127.0.0.1:27124',
+                    httpUrl: 'http://127.0.0.1:27123',
+                    apiKey: '',
+                    enabled: true,
+                    isDefault: true
+                  }
+                ],
+                rules: []
+              }
+            }
+          ]
+        }
+      }),
+    { vaultId: B10_VAULT_ID, nextName: vaultName }
+  );
+  expect(result).toMatchObject({ success: true });
+}
+
+async function markB10DestinationRow(page: Page, marker: string): Promise<void> {
+  const row = page.locator('.export-destination-row');
+  await expect(row).toBeVisible();
+  await row.evaluate((element, value) => {
+    if (!(element instanceof HTMLElement)) throw new Error('destination row must be HTML');
+    element.dataset.liveRuntimeMarker = value;
+    const rows = (window.__b10DestinationRows ??= {});
+    rows[value] = element;
+  }, marker);
+}
+
+async function expectB10Destination(page: Page, marker: string, label: string): Promise<void> {
+  await expect(page.locator('.export-destination-label')).toHaveText(label);
+  await expect(page.locator('.export-destination-row')).toHaveAttribute(
+    'data-live-runtime-marker',
+    marker
+  );
+  await expect
+    .poll(() =>
+      page.locator('.export-destination-row').evaluate((element, value) => {
+        return window.__b10DestinationRows?.[value] === element;
+      }, marker)
+    )
+    .toBe(true);
+  await expect
+    .poll(() =>
+      page
+        .locator('.export-destination-option[data-destination-id]')
+        .evaluateAll((buttons) =>
+          buttons.map((button) =>
+            button instanceof HTMLElement ? button.dataset.destinationId : undefined
+          )
+        )
+    )
+    .toEqual([B10_VAULT_ID, 'downloads']);
+}
+
+testWithExtension(
+  'projects inserted and renamed vaults into stable Clipper, Reader, and Video rows',
+  async ({ context, extensionPage }) => {
+    const initialOptions = createB10StoredOptions();
+    const clipper = await openFixtureWithRuntime(
+      context,
+      extensionPage,
+      'https://example.com/b10-live-destination-clipper',
+      b10ArticleFixtureHtml('Clipper live destination article'),
+      initialOptions
+    );
+    await openB10Clipper(clipper.page, extensionPage);
+
+    const reader = await openFixtureWithRuntime(
+      context,
+      extensionPage,
+      'https://example.org/b10-live-destination-reader',
+      b10ArticleFixtureHtml('Reader live destination article'),
+      initialOptions
+    );
+    await openB10Clipper(reader.page, extensionPage);
+    await reader.page.locator('[data-stitch-surface="clipper"] [data-action-id="reader"]').click();
+    await expect(reader.page.locator('[data-stitch-surface="reader"]')).toBeVisible();
+
+    const video = await openFixtureWithRuntime(
+      context,
+      extensionPage,
+      'https://www.bilibili.com/video/BV1liveRuntimeProjection/',
+      bilibiliFixtureHtml(),
+      initialOptions
+    );
+    await openVideoPanelFromControlBar(video.page, 'Live runtime projection');
+    await expandVideoPanel(video.page);
+
+    await markB10DestinationRow(clipper.page, 'clipper-row');
+    await markB10DestinationRow(reader.page, 'reader-row');
+    await markB10DestinationRow(video.page, 'video-row');
+
+    await updateB10Vault(extensionPage, B10_LIVE_VAULT_NAME);
+    await Promise.all([
+      expectB10Destination(clipper.page, 'clipper-row', B10_LIVE_VAULT_NAME),
+      expectB10Destination(reader.page, 'reader-row', B10_LIVE_VAULT_NAME),
+      expectB10Destination(video.page, 'video-row', B10_LIVE_VAULT_NAME)
+    ]);
+
+    await updateB10Vault(extensionPage, B10_RENAMED_VAULT_NAME);
+    await Promise.all([
+      expectB10Destination(clipper.page, 'clipper-row', B10_RENAMED_VAULT_NAME),
+      expectB10Destination(reader.page, 'reader-row', B10_RENAMED_VAULT_NAME),
+      expectB10Destination(video.page, 'video-row', B10_RENAMED_VAULT_NAME)
+    ]);
+
+    await Promise.all([clipper.page.close(), reader.page.close(), video.page.close()]);
+  }
+);
