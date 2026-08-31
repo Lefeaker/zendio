@@ -10,7 +10,9 @@ import {
 
 const platformServices = getPlatformServices();
 const optionsStorageRepository = new ChromeOptionsRepository(platformServices.storage);
-const optionsMutationCoordinator = createOptionsMutationCoordinator(optionsStorageRepository);
+const optionsMutationCoordinator = createOptionsMutationCoordinator(optionsStorageRepository, {
+  deviceLocalPrivacy: optionsStorageRepository
+});
 
 registerRepositories({
   storage: platformServices.storage,

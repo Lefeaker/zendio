@@ -50,6 +50,55 @@ function createCoordinator(
 }
 
 describe('OptionsMutationCoordinator', () => {
+  it('stores privacy patches locally and scrubs the synchronized mirror', async () => {
+    const repository = new RawRepository({
+      interfaceTheme: 'system',
+      privacyPreferences: {
+        analytics: false,
+        errorReporting: true,
+        debugMode: false
+      },
+      opaqueRoot: { keep: true }
+    });
+    let privacy = { analytics: false, errorReporting: false, debugMode: false };
+    const readPrivacy = vi.fn(() => Promise.resolve(privacy));
+    const writePrivacy = vi.fn((next: typeof privacy) => {
+      privacy = clone(next);
+      return Promise.resolve();
+    });
+    const coordinatorOptions = {
+      yieldAfterWrite: () => Promise.resolve(),
+      deviceLocalPrivacy: { readPrivacy, writePrivacy }
+    };
+    const coordinator = createCoordinator(repository, coordinatorOptions);
+
+    const result = await coordinator.patch([
+      { path: ['privacyPreferences', 'analytics'], value: true },
+      { path: ['privacyPreferences', 'errorReporting'], value: false },
+      { path: ['privacyPreferences', 'debugMode'], value: true }
+    ]);
+
+    expect(writePrivacy).toHaveBeenCalledWith({
+      analytics: true,
+      errorReporting: false,
+      debugMode: false
+    });
+    expect(repository.raw).toEqual({
+      interfaceTheme: 'system',
+      opaqueRoot: { keep: true }
+    });
+    expect(result.snapshot.privacyPreferences).toEqual({
+      analytics: true,
+      errorReporting: false,
+      debugMode: false
+    });
+
+    const replacement = await coordinator.replace({ interfaceTheme: 'dark' });
+    expect(repository.raw).toEqual({ interfaceTheme: 'dark' });
+    expect(replacement.snapshot.privacyPreferences).toEqual(privacy);
+    expect(writePrivacy).toHaveBeenCalledTimes(1);
+  });
+
   it('serializes disjoint patches and preserves opaque or malformed untouched roots', async () => {
     const repository = new RawRepository({
       templates: { article: 'Before' },

@@ -99,12 +99,21 @@ async function resolveSessionDraftOwner(tabs: Pick<TabsService, 'get'>, sender: 
 }
 
 export function startBackgroundRuntime(dependencies: BackgroundStartupDependencies): void {
+  const fallbackOptionsStorageRepository = new ChromeOptionsRepository(dependencies.storage);
   const optionsMutationCoordinator =
     dependencies.optionsMutationCoordinator ??
-    createOptionsMutationCoordinator(new ChromeOptionsRepository(dependencies.storage));
+    createOptionsMutationCoordinator(fallbackOptionsStorageRepository, {
+      deviceLocalPrivacy: fallbackOptionsStorageRepository
+    });
   configureBackgroundDependencyStorage(dependencies.storage);
   bootstrapBackgroundDependencies(undefined, optionsMutationCoordinator);
   const optionsRepository = resolveRepository<IOptionsRepository>(DI_TOKENS.IOptionsRepository);
+
+  if (dependencies.optionsMutationCoordinator) {
+    void optionsMutationCoordinator.migrate().catch((error) => {
+      console.error('[background] Failed to migrate device-local privacy:', error);
+    });
+  }
 
   registerContextMenuListeners(
     createContextMenuListenerDependencies({

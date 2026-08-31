@@ -82,7 +82,13 @@ describe('ChromeOptionsRepository', () => {
     mockStorage.sync.set.mockReset();
     mockStorage.sync.watchKey.mockReset();
     mockStorage.sync.watchAll.mockReset();
+    mockStorage.local.get.mockReset();
+    mockStorage.local.set.mockReset();
+    mockStorage.local.watchKey.mockReset();
+    mockStorage.local.watchAll.mockReset();
     mockStorage.sync.set.mockResolvedValue(undefined);
+    mockStorage.local.set.mockResolvedValue(undefined);
+    mockStorage.local.watchKey.mockReturnValue(vi.fn());
     repo = new ChromeOptionsRepository(mockStorage);
   });
 
@@ -530,21 +536,34 @@ describe('ChromeOptionsRepository', () => {
       expect((result as Record<string, unknown>).customKey).toBeUndefined();
     });
 
-    it('should preserve persisted privacy preferences after schema sanitization', async () => {
+    it('composes device-local privacy instead of synchronized privacy preferences', async () => {
       mockStorage.sync.get.mockResolvedValue({
         privacyPreferences: {
-          analytics: true,
+          analytics: false,
           errorReporting: true,
-          debugMode: false
-        }
+          debugMode: true
+        },
+        opaqueRoot: { keep: true }
       } as Partial<CompleteOptions>);
+      mockStorage.local.get.mockImplementation((key) => {
+        if (key === 'analytics_user_consent') {
+          return Promise.resolve({
+            analytics: true,
+            errorReporting: false,
+            timestamp: 1,
+            version: '1.0'
+          });
+        }
+        if (key === 'analytics_config') return Promise.resolve({ debugMode: true });
+        return Promise.resolve(undefined);
+      });
 
       const result = await repo.get();
 
       expect(result.privacyPreferences).toEqual({
         analytics: true,
-        errorReporting: true,
-        debugMode: false
+        errorReporting: false,
+        debugMode: true
       });
     });
 

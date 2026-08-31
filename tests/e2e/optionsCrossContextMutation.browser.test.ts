@@ -92,6 +92,35 @@ async function readRaw(page: Page): Promise<JsonRecord> {
   });
 }
 
+async function readPrivacyStorage(page: Page) {
+  return page.evaluate(async () => {
+    const [local, sync] = await Promise.all([
+      chrome.storage.local.get(['analytics_user_consent', 'analytics_config']),
+      chrome.storage.sync.get('options')
+    ]);
+    const consent = local.analytics_user_consent;
+    const options = sync.options;
+    return {
+      consentAnalytics:
+        typeof consent === 'object' && consent !== null && 'analytics' in consent
+          ? consent.analytics === true
+          : false,
+      syncHasPrivacy:
+        typeof options === 'object' &&
+        options !== null &&
+        Object.prototype.hasOwnProperty.call(options, 'privacyPreferences'),
+      opaqueKeep:
+        typeof options === 'object' &&
+        options !== null &&
+        'opaqueRoot' in options &&
+        typeof options.opaqueRoot === 'object' &&
+        options.opaqueRoot !== null &&
+        'keep' in options.opaqueRoot &&
+        options.opaqueRoot.keep === true
+    };
+  });
+}
+
 test.describe('Options cross-context mutation authority', () => {
   let context: BrowserContext;
   let background: Worker;
@@ -119,7 +148,12 @@ test.describe('Options cross-context mutation authority', () => {
       first.goto(optionsUrl, { waitUntil: 'domcontentloaded' }),
       second.goto(optionsUrl, { waitUntil: 'domcontentloaded' })
     ]);
-    await first.evaluate(() => chrome.storage.sync.remove('options'));
+    await first.evaluate(() =>
+      Promise.all([
+        chrome.storage.sync.remove('options'),
+        chrome.storage.local.remove(['analytics_user_consent', 'analytics_config'])
+      ])
+    );
   });
 
   test.afterEach(async () => {
@@ -164,6 +198,40 @@ test.describe('Options cross-context mutation authority', () => {
       interfaceTheme: 'dark',
       templates: { article: 'Imported' }
     });
+  });
+
+  test('keeps privacy consent device-local across a fresh Options context', async () => {
+    await first.evaluate(() =>
+      chrome.storage.sync.set({
+        options: {
+          privacyPreferences: {
+            analytics: false,
+            errorReporting: false,
+            debugMode: false
+          },
+          opaqueRoot: { keep: true }
+        }
+      })
+    );
+    await first.reload({ waitUntil: 'domcontentloaded' });
+
+    const analyticsItem = first
+      .locator('.consent-inline-item:visible')
+      .filter({ hasText: 'Usage analytics' });
+    const analyticsControl = analyticsItem.locator('input[type="checkbox"]');
+    await expect(analyticsControl).toHaveCount(1);
+    await analyticsItem.locator('label').click();
+
+    await expect.poll(async () => (await readPrivacyStorage(first)).consentAnalytics).toBe(true);
+    await expect.poll(async () => (await readPrivacyStorage(first)).syncHasPrivacy).toBe(false);
+    await expect.poll(async () => (await readPrivacyStorage(first)).opaqueKeep).toBe(true);
+
+    await second.reload({ waitUntil: 'domcontentloaded' });
+    const reloadedAnalyticsControl = second
+      .locator('.consent-inline-item:visible')
+      .filter({ hasText: 'Usage analytics' })
+      .locator('input[type="checkbox"]');
+    await expect(reloadedAnalyticsControl).toBeChecked();
   });
 
   test('surfaces continued same-field external drift as a conflict', async () => {
