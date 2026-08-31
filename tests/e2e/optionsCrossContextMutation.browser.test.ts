@@ -116,7 +116,9 @@ async function readPrivacyStorage(page: Page) {
         typeof options.opaqueRoot === 'object' &&
         options.opaqueRoot !== null &&
         'keep' in options.opaqueRoot &&
-        options.opaqueRoot.keep === true
+        options.opaqueRoot.keep === true,
+      transactionPresent:
+        local.zendio_device_local_privacy_transaction !== undefined
     };
   });
 }
@@ -232,6 +234,158 @@ test.describe('Options cross-context mutation authority', () => {
       .filter({ hasText: 'Usage analytics' })
       .locator('input[type="checkbox"]');
     await expect(reloadedAnalyticsControl).toBeChecked();
+  });
+
+  test('does not publish staged privacy when the synchronized scrub fails', async () => {
+    await first.evaluate(() =>
+      Promise.all([
+        chrome.storage.local.set({
+          analytics_user_consent: {
+            analytics: false,
+            errorReporting: false,
+            timestamp: 1,
+            version: '1.0'
+          },
+          analytics_config: { debugMode: false }
+        }),
+        chrome.storage.sync.set({
+          options: {
+            privacyPreferences: {
+              analytics: false,
+              errorReporting: false,
+              debugMode: false
+            },
+            opaqueRoot: { keep: true }
+          }
+        })
+      ])
+    );
+    await Promise.all([
+      first.reload({ waitUntil: 'domcontentloaded' }),
+      second.reload({ waitUntil: 'domcontentloaded' })
+    ]);
+    const gateHandle = await background.evaluateHandle(() => {
+      const storage = chrome.storage.sync;
+      const originalSet = storage.set.bind(storage);
+      const state = { failed: false, originalSet };
+      const readRecord = (value: StorageValue): JsonRecord | null => {
+        const isRecord = (candidate: StorageValue): candidate is JsonRecord =>
+          typeof candidate === 'object' && candidate !== null && !Array.isArray(candidate);
+        return isRecord(value) ? value : null;
+      };
+      const gatedSet = (items: JsonRecord, callback?: () => void) => {
+        const options = readRecord(items.options);
+        if (
+          !state.failed &&
+          options &&
+          !Object.prototype.hasOwnProperty.call(options, 'privacyPreferences')
+        ) {
+          state.failed = true;
+          throw new Error('B05_FORCED_SYNC_FAILURE');
+        }
+        return callback ? originalSet(items, callback) : originalSet(items);
+      };
+      Object.defineProperty(storage, 'set', { configurable: true, value: gatedSet });
+      return state;
+    });
+
+    const analyticsItem = first
+      .locator('.consent-inline-item:visible')
+      .filter({ hasText: 'Usage analytics' });
+    await analyticsItem.locator('label').click();
+    await expect.poll(() => gateHandle.evaluate((state) => state.failed)).toBe(true);
+    const gateFailed = await gateHandle.evaluate((state) => {
+      Object.defineProperty(chrome.storage.sync, 'set', {
+        configurable: true,
+        value: state.originalSet
+      });
+      return state.failed;
+    });
+    await gateHandle.dispose();
+
+    expect(gateFailed).toBe(true);
+    await expect.poll(async () => (await readPrivacyStorage(first)).transactionPresent).toBe(false);
+    await expect.poll(async () => (await readPrivacyStorage(first)).consentAnalytics).toBe(false);
+    await expect.poll(async () => (await readPrivacyStorage(first)).syncHasPrivacy).toBe(true);
+    await expect.poll(async () => (await readPrivacyStorage(first)).opaqueKeep).toBe(true);
+    const secondAnalyticsControl = second
+      .locator('.consent-inline-item:visible')
+      .filter({ hasText: 'Usage analytics' })
+      .locator('input[type="checkbox"]');
+    await expect(secondAnalyticsControl).not.toBeChecked();
+  });
+
+  test('restores the synchronized mirror when the local privacy commit fails', async () => {
+    await first.evaluate(() =>
+      Promise.all([
+        chrome.storage.local.set({
+          analytics_user_consent: {
+            analytics: false,
+            errorReporting: false,
+            timestamp: 1,
+            version: '1.0'
+          },
+          analytics_config: { debugMode: false }
+        }),
+        chrome.storage.sync.set({
+          options: {
+            privacyPreferences: {
+              analytics: false,
+              errorReporting: false,
+              debugMode: false
+            },
+            opaqueRoot: { keep: true }
+          }
+        })
+      ])
+    );
+    await Promise.all([
+      first.reload({ waitUntil: 'domcontentloaded' }),
+      second.reload({ waitUntil: 'domcontentloaded' })
+    ]);
+    const gateHandle = await background.evaluateHandle(() => {
+      const storage = chrome.storage.local;
+      const originalSet = storage.set.bind(storage);
+      const state = { failed: false, originalSet };
+      const gatedSet = (items: JsonRecord, callback?: () => void) => {
+        if (
+          !state.failed &&
+          Object.prototype.hasOwnProperty.call(items, 'analytics_user_consent') &&
+          Object.prototype.hasOwnProperty.call(items, 'analytics_config')
+        ) {
+          state.failed = true;
+          throw new Error('B05_FORCED_LOCAL_COMMIT_FAILURE');
+        }
+        return callback ? originalSet(items, callback) : originalSet(items);
+      };
+      Object.defineProperty(storage, 'set', { configurable: true, value: gatedSet });
+      return state;
+    });
+
+    const analyticsItem = first
+      .locator('.consent-inline-item:visible')
+      .filter({ hasText: 'Usage analytics' });
+    await analyticsItem.locator('label').click();
+    await expect.poll(() => gateHandle.evaluate((state) => state.failed)).toBe(true);
+    const gateFailed = await gateHandle.evaluate((state) => {
+      Object.defineProperty(chrome.storage.local, 'set', {
+        configurable: true,
+        value: state.originalSet
+      });
+      return state.failed;
+    });
+    await gateHandle.dispose();
+
+    expect(gateFailed).toBe(true);
+    await expect.poll(async () => (await readPrivacyStorage(first)).transactionPresent).toBe(false);
+    await expect.poll(async () => (await readPrivacyStorage(first)).consentAnalytics).toBe(false);
+    await expect.poll(async () => (await readPrivacyStorage(first)).syncHasPrivacy).toBe(true);
+    await expect.poll(async () => (await readPrivacyStorage(first)).opaqueKeep).toBe(true);
+    const secondAnalyticsControl = second
+      .locator('.consent-inline-item:visible')
+      .filter({ hasText: 'Usage analytics' })
+      .locator('input[type="checkbox"]');
+    await expect(secondAnalyticsControl).not.toBeChecked();
   });
 
   test('surfaces continued same-field external drift as a conflict', async () => {

@@ -2,7 +2,9 @@ import { describe, expect, it } from 'vitest';
 import { DEFAULT_OPTIONS } from '../../../src/shared/config/defaultOptions';
 import {
   composeDeviceLocalPrivacy,
+  createDeviceLocalPrivacyTransaction,
   omitDeviceLocalPrivacy,
+  readDeviceLocalPrivacyTransaction,
   resolveDeviceLocalPrivacy
 } from '../../../src/shared/config/deviceLocalPrivacy';
 
@@ -44,6 +46,22 @@ describe('device-local privacy contract', () => {
     ).toEqual({
       preferences: { analytics: true, errorReporting: true, debugMode: true },
       requiresLocalWrite: true
+    });
+  });
+
+  it('preserves exact previous local values in a pending privacy transaction', () => {
+    const previousConsent = {
+      analytics: false,
+      errorReporting: true,
+      timestamp: 1,
+      version: '1.0'
+    };
+    const transaction = createDeviceLocalPrivacyTransaction(previousConsent, undefined);
+
+    expect(readDeviceLocalPrivacyTransaction(transaction)).toEqual({
+      phase: 'prepared',
+      previousConsent,
+      previousConfig: undefined
     });
   });
 });

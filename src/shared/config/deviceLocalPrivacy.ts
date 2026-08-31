@@ -7,10 +7,17 @@ import type { CompleteOptions, PrivacyPreferencesOptions } from '../types/option
 
 export const DEVICE_LOCAL_PRIVACY_CONSENT_KEY = 'analytics_user_consent';
 export const DEVICE_LOCAL_PRIVACY_CONFIG_KEY = 'analytics_config';
+export const DEVICE_LOCAL_PRIVACY_TRANSACTION_KEY = 'zendio_device_local_privacy_transaction';
 
 export interface DeviceLocalPrivacyResolution {
   readonly preferences: PrivacyPreferencesOptions;
   readonly requiresLocalWrite: boolean;
+}
+
+export interface DeviceLocalPrivacyTransactionSnapshot {
+  readonly phase: 'prepared' | 'commit-ready';
+  readonly previousConsent: PlainStructuredValue | undefined;
+  readonly previousConfig: PlainStructuredValue | undefined;
 }
 
 function isObject(
@@ -114,5 +121,39 @@ export function mergeDeviceLocalPrivacyConfig(
   return {
     ...(isObject(storedConfig) ? storedConfig : {}),
     debugMode: resolveAnalyticsDebugMode(preferences)
+  };
+}
+
+export function createDeviceLocalPrivacyTransaction(
+  previousConsent: PlainStructuredValue | undefined,
+  previousConfig: PlainStructuredValue | undefined,
+  phase: DeviceLocalPrivacyTransactionSnapshot['phase'] = 'prepared'
+): PlainStructuredObject {
+  return {
+    version: 1,
+    phase,
+    previousConsentPresent: previousConsent !== undefined,
+    previousConsent: previousConsent ?? null,
+    previousConfigPresent: previousConfig !== undefined,
+    previousConfig: previousConfig ?? null
+  };
+}
+
+export function readDeviceLocalPrivacyTransaction(
+  value: PlainStructuredValue | undefined
+): DeviceLocalPrivacyTransactionSnapshot | null {
+  if (
+    !isObject(value) ||
+    value.version !== 1 ||
+    (value.phase !== 'prepared' && value.phase !== 'commit-ready') ||
+    typeof value.previousConsentPresent !== 'boolean' ||
+    typeof value.previousConfigPresent !== 'boolean'
+  ) {
+    return null;
+  }
+  return {
+    phase: value.phase,
+    previousConsent: value.previousConsentPresent ? value.previousConsent : undefined,
+    previousConfig: value.previousConfigPresent ? value.previousConfig : undefined
   };
 }

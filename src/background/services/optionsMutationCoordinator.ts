@@ -229,8 +229,13 @@ export class OptionsMutationCoordinator {
     command: OptionsMutationCommand
   ): Promise<OptionsMutationSuccessResult> {
     const operationId = this.createOperationId();
+    try {
+      await this.deviceLocalPrivacy?.recoverPrivacyCommit();
+    } catch {
+      throw new OptionsMutationError('OPTIONS_STORAGE_FAILURE');
+    }
     return this.writeWithRetry(operationId, async (raw) => {
-      const privacy = await this.deviceLocalPrivacy?.readPrivacy(raw);
+      const privacy = await this.deviceLocalPrivacy?.ensurePrivacyBaseline(raw);
       const composed = privacy
         ? { ...raw, privacyPreferences: clone(privacy) }
         : raw;
@@ -371,14 +376,17 @@ export class OptionsMutationCoordinator {
       if (portableWriteRequired && envelopeBytes(next) > this.quotaBytesPerItem) {
         throw new OptionsMutationError('OPTIONS_QUOTA_EXCEEDED');
       }
-      if (writePrivacy && privacy && this.deviceLocalPrivacy) {
+      const privacyCommitRequired = writePrivacy && privacy && this.deviceLocalPrivacy;
+      if (privacyCommitRequired) {
         try {
-          await this.deviceLocalPrivacy.writePrivacy(privacy);
+          await this.deviceLocalPrivacy.beginPrivacyCommit(privacy);
         } catch {
+          await this.rollbackPrivacyAfterFailure();
           throw new OptionsMutationError('OPTIONS_STORAGE_FAILURE');
         }
       }
       if (!portableWriteRequired) {
+        if (privacyCommitRequired) await this.commitPrivacyOrRollback(privacy);
         const runtime = decodeStoredOptions(next).runtime;
         return {
           snapshot: privacy ? composeDeviceLocalPrivacy(runtime, privacy) : runtime,
@@ -392,6 +400,7 @@ export class OptionsMutationCoordinator {
         await this.yieldAfterWrite();
         const readback = normalizeRaw(await this.repository.readRaw());
         if (verificationMatches(readback, verification)) {
+          if (privacyCommitRequired) await this.commitPrivacyOrRollback(privacy, raw);
           const runtime = decodeStoredOptions(readback).runtime;
           return {
             snapshot: privacy ? composeDeviceLocalPrivacy(runtime, privacy) : runtime,
@@ -401,11 +410,54 @@ export class OptionsMutationCoordinator {
           };
         }
       } catch (error) {
+        if (privacyCommitRequired) await this.rollbackPrivacyAfterFailure();
         if (error instanceof OptionsMutationError) throw error;
         throw new OptionsMutationError('OPTIONS_STORAGE_FAILURE');
       }
+      if (privacyCommitRequired) await this.rollbackPrivacyAfterFailure();
     }
     throw new OptionsMutationError('EXTERNAL_SYNC_CONFLICT');
+  }
+
+  private async commitPrivacyOrRollback(
+    privacy: CompleteOptions['privacyPreferences'],
+    previousRaw?: PlainStructuredObject
+  ): Promise<void> {
+    try {
+      await this.deviceLocalPrivacy?.commitPrivacy(privacy);
+    } catch {
+      if (previousRaw && containsDeviceLocalPrivacy(previousRaw)) {
+        await this.restorePrivacyMirror(previousRaw.privacyPreferences);
+      }
+      await this.rollbackPrivacyAfterFailure();
+      throw new OptionsMutationError('OPTIONS_STORAGE_FAILURE');
+    }
+  }
+
+  private async restorePrivacyMirror(previousPrivacy: PlainStructuredValue): Promise<void> {
+    for (let attempt = 0; attempt <= this.maxExternalDriftRetries; attempt += 1) {
+      try {
+        const current = normalizeRaw(await this.repository.readRaw());
+        await this.repository.writeRaw({
+          ...current,
+          privacyPreferences: clone(previousPrivacy)
+        });
+        await this.yieldAfterWrite();
+        const readback = normalizeRaw(await this.repository.readRaw());
+        if (valuesEqual(readback.privacyPreferences, previousPrivacy)) return;
+      } catch {
+        // Retry the bounded compensation against the newest observed raw snapshot.
+      }
+    }
+    throw new OptionsMutationError('OPTIONS_STORAGE_FAILURE');
+  }
+
+  private async rollbackPrivacyAfterFailure(): Promise<void> {
+    try {
+      await this.deviceLocalPrivacy?.rollbackPrivacyCommit();
+    } catch {
+      throw new OptionsMutationError('OPTIONS_STORAGE_FAILURE');
+    }
   }
 }
 

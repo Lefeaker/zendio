@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ChromeOptionsRepository } from '../../../src/infrastructure/repositories/ChromeOptionsRepository';
 import { DEFAULT_OPTIONS } from '@shared/config/defaultOptions';
 import { StorageError } from '@shared/errors';
+import type { PlainStructuredValue } from '@shared/config/losslessObjectBoundaryTypes';
 import type { CompleteOptions } from '@shared/types/options';
 import type {
   StorageAreaService,
@@ -84,10 +85,14 @@ describe('ChromeOptionsRepository', () => {
     mockStorage.sync.watchAll.mockReset();
     mockStorage.local.get.mockReset();
     mockStorage.local.set.mockReset();
+    mockStorage.local.setMany.mockReset();
+    mockStorage.local.remove.mockReset();
     mockStorage.local.watchKey.mockReset();
     mockStorage.local.watchAll.mockReset();
     mockStorage.sync.set.mockResolvedValue(undefined);
     mockStorage.local.set.mockResolvedValue(undefined);
+    mockStorage.local.setMany.mockResolvedValue(undefined);
+    mockStorage.local.remove.mockResolvedValue(undefined);
     mockStorage.local.watchKey.mockReturnValue(vi.fn());
     repo = new ChromeOptionsRepository(mockStorage);
   });
@@ -281,6 +286,70 @@ describe('ChromeOptionsRepository', () => {
       const callbackArg2 = callback2Calls[0]?.[0];
       expect(callbackArg1?.rest.baseUrl).toBe('https://multi.example/');
       expect(callbackArg2?.rest.baseUrl).toBe('https://multi.example/');
+    });
+
+    it('suppresses a deferred stale privacy read after a newer local event', async () => {
+      let releaseInitialConsent: ((value: PlainStructuredValue) => void) | undefined;
+      const initialConsent = new Promise<PlainStructuredValue>((resolve) => {
+        releaseInitialConsent = resolve;
+      });
+      let consentReads = 0;
+      let localConsentChange: StorageChangeCallback<PlainStructuredValue> | undefined;
+      let syncOptionsChange: OptionsStorageChange | undefined;
+      mockStorage.sync.get.mockResolvedValue({ interfaceTheme: 'system' });
+      mockStorage.sync.watchKey.mockImplementation((_key, callback) => {
+        syncOptionsChange = callback;
+        return vi.fn();
+      });
+      mockStorage.local.get.mockImplementation((key) => {
+        if (key === 'analytics_user_consent') {
+          consentReads += 1;
+          return consentReads === 1
+            ? initialConsent
+            : Promise.resolve({
+                analytics: true,
+                errorReporting: false,
+                timestamp: 2,
+                version: '1.0'
+              });
+        }
+        return Promise.resolve(undefined);
+      });
+      mockStorage.local.watchKey.mockImplementation((key, callback) => {
+        if (key === 'analytics_user_consent') localConsentChange = callback;
+        return vi.fn();
+      });
+      const callback = vi.fn<(options: CompleteOptions) => void>();
+
+      repo.onChange(callback);
+      await vi.waitFor(() => expect(consentReads).toBe(1));
+      syncOptionsChange?.(
+        { interfaceTheme: 'light' },
+        { newValue: { interfaceTheme: 'light' } }
+      );
+      mockStorage.sync.get.mockResolvedValue({ interfaceTheme: 'light' });
+      localConsentChange?.(
+        { analytics: true, errorReporting: false, timestamp: 2, version: '1.0' },
+        { newValue: { analytics: true, errorReporting: false, timestamp: 2, version: '1.0' } }
+      );
+      releaseInitialConsent?.({
+        analytics: false,
+        errorReporting: false,
+        timestamp: 1,
+        version: '1.0'
+      });
+
+      await vi.waitFor(() => expect(callback).toHaveBeenCalledTimes(1));
+      expect(callback).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          interfaceTheme: 'light',
+          privacyPreferences: {
+            analytics: true,
+            errorReporting: false,
+            debugMode: false
+          }
+        })
+      );
     });
   });
 

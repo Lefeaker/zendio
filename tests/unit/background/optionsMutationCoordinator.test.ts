@@ -61,14 +61,36 @@ describe('OptionsMutationCoordinator', () => {
       opaqueRoot: { keep: true }
     });
     let privacy = { analytics: false, errorReporting: false, debugMode: false };
+    let pendingPrivacy: typeof privacy | null = null;
     const readPrivacy = vi.fn(() => Promise.resolve(privacy));
-    const writePrivacy = vi.fn((next: typeof privacy) => {
-      privacy = clone(next);
+    const ensurePrivacyBaseline = vi.fn(() => Promise.resolve(privacy));
+    const recoverPrivacyCommit = vi.fn(() => {
+      pendingPrivacy = null;
+      return Promise.resolve();
+    });
+    const beginPrivacyCommit = vi.fn((next: typeof privacy) => {
+      pendingPrivacy = clone(next);
+      return Promise.resolve();
+    });
+    const commitPrivacy = vi.fn(() => {
+      if (pendingPrivacy) privacy = clone(pendingPrivacy);
+      pendingPrivacy = null;
+      return Promise.resolve();
+    });
+    const rollbackPrivacyCommit = vi.fn(() => {
+      pendingPrivacy = null;
       return Promise.resolve();
     });
     const coordinatorOptions = {
       yieldAfterWrite: () => Promise.resolve(),
-      deviceLocalPrivacy: { readPrivacy, writePrivacy }
+      deviceLocalPrivacy: {
+        readPrivacy,
+        ensurePrivacyBaseline,
+        recoverPrivacyCommit,
+        beginPrivacyCommit,
+        commitPrivacy,
+        rollbackPrivacyCommit
+      }
     };
     const coordinator = createCoordinator(repository, coordinatorOptions);
 
@@ -78,7 +100,7 @@ describe('OptionsMutationCoordinator', () => {
       { path: ['privacyPreferences', 'debugMode'], value: true }
     ]);
 
-    expect(writePrivacy).toHaveBeenCalledWith({
+    expect(beginPrivacyCommit).toHaveBeenCalledWith({
       analytics: true,
       errorReporting: false,
       debugMode: false
@@ -96,7 +118,87 @@ describe('OptionsMutationCoordinator', () => {
     const replacement = await coordinator.replace({ interfaceTheme: 'dark' });
     expect(repository.raw).toEqual({ interfaceTheme: 'dark' });
     expect(replacement.snapshot.privacyPreferences).toEqual(privacy);
-    expect(writePrivacy).toHaveBeenCalledTimes(1);
+    expect(beginPrivacyCommit).toHaveBeenCalledTimes(1);
+    expect(commitPrivacy).toHaveBeenCalledTimes(1);
+    expect(rollbackPrivacyCommit).not.toHaveBeenCalled();
+  });
+
+  it('rolls back staged privacy when the synchronized scrub fails', async () => {
+    const originalRaw = {
+      privacyPreferences: { analytics: false, errorReporting: false, debugMode: false },
+      opaqueRoot: { keep: true }
+    };
+    const repository = new RawRepository(originalRaw);
+    repository.failNextWrite = true;
+    let committedPrivacy = { analytics: false, errorReporting: false, debugMode: false };
+    let pendingPrivacy: typeof committedPrivacy | null = null;
+    const privacyRepository = {
+      readPrivacy: vi.fn(() => Promise.resolve(committedPrivacy)),
+      ensurePrivacyBaseline: vi.fn(() => Promise.resolve(committedPrivacy)),
+      recoverPrivacyCommit: vi.fn(() => Promise.resolve()),
+      beginPrivacyCommit: vi.fn((next: typeof committedPrivacy) => {
+        pendingPrivacy = clone(next);
+        return Promise.resolve();
+      }),
+      commitPrivacy: vi.fn(() => {
+        if (pendingPrivacy) committedPrivacy = clone(pendingPrivacy);
+        pendingPrivacy = null;
+        return Promise.resolve();
+      }),
+      rollbackPrivacyCommit: vi.fn(() => {
+        pendingPrivacy = null;
+        return Promise.resolve();
+      })
+    };
+    const coordinator = createCoordinator(repository, {
+      deviceLocalPrivacy: privacyRepository
+    });
+
+    await expect(
+      coordinator.patch([{ path: ['privacyPreferences', 'analytics'], value: true }])
+    ).rejects.toEqual(new OptionsMutationError('OPTIONS_STORAGE_FAILURE'));
+
+    expect(repository.raw).toEqual(originalRaw);
+    expect(committedPrivacy).toEqual({
+      analytics: false,
+      errorReporting: false,
+      debugMode: false
+    });
+    expect(pendingPrivacy).toBeNull();
+    expect(privacyRepository.beginPrivacyCommit).toHaveBeenCalledOnce();
+    expect(privacyRepository.commitPrivacy).not.toHaveBeenCalled();
+    expect(privacyRepository.rollbackPrivacyCommit).toHaveBeenCalledOnce();
+  });
+
+  it('restores the synchronized mirror when the local privacy commit fails', async () => {
+    const originalRaw = {
+      privacyPreferences: { analytics: false, errorReporting: false, debugMode: false },
+      opaqueRoot: { keep: true }
+    };
+    const repository = new RawRepository(originalRaw);
+    const previousPrivacy = { analytics: false, errorReporting: false, debugMode: false };
+    const privacyRepository = {
+      readPrivacy: vi.fn(() => Promise.resolve(previousPrivacy)),
+      ensurePrivacyBaseline: vi.fn(() => Promise.resolve(previousPrivacy)),
+      recoverPrivacyCommit: vi.fn(() => Promise.resolve()),
+      beginPrivacyCommit: vi.fn(() => Promise.resolve()),
+      commitPrivacy: vi.fn(() => Promise.reject(new Error('local commit failed'))),
+      rollbackPrivacyCommit: vi.fn(() => Promise.resolve())
+    };
+    const coordinator = createCoordinator(repository, {
+      deviceLocalPrivacy: privacyRepository
+    });
+
+    await expect(
+      coordinator.patch([{ path: ['privacyPreferences', 'analytics'], value: true }])
+    ).rejects.toEqual(new OptionsMutationError('OPTIONS_STORAGE_FAILURE'));
+
+    expect(repository.raw).toEqual(originalRaw);
+    expect(repository.writes).toEqual([
+      { opaqueRoot: { keep: true } },
+      originalRaw
+    ]);
+    expect(privacyRepository.rollbackPrivacyCommit).toHaveBeenCalled();
   });
 
   it('serializes disjoint patches and preserves opaque or malformed untouched roots', async () => {
