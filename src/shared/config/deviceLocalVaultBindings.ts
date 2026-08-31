@@ -15,18 +15,14 @@ import type {
 } from '../types/optionsMutationMessages';
 import type { CompleteOptions, StoredOptions } from '../types/options';
 export const DEVICE_LOCAL_VAULT_BINDINGS_KEY = 'deviceLocalVaultBindings';
-const DEFAULT_VAULT_ID = 'default';
 type VaultBinding = { readonly folderId: string; readonly folderName: string };
-type VaultBindingBoundary = unknown;
+type VaultBindingBoundary = PlainStructuredValue | object | undefined;
 export interface DeviceLocalVaultBindingSnapshot {
   readonly version: 1;
   readonly bindings: Readonly<Record<string, VaultBinding>>;
 }
 const record = (value: VaultBindingBoundary): value is PlainStructuredObject =>
   typeof value === 'object' && value !== null && !Array.isArray(value);
-export function optionsEnvelopeBytes(raw: PlainStructuredObject): number {
-  return new TextEncoder().encode(JSON.stringify({ options: raw })).byteLength;
-}
 export function optionsRawSignature(raw: PlainStructuredObject): string {
   const bytes = new TextEncoder().encode(JSON.stringify(raw));
   let hash = 0x811c9dc5;
@@ -92,19 +88,19 @@ export function normalizeDeviceLocalVaultBindingSnapshot(
 }
 const defaultVaultId = (options: CompleteOptions) => {
   const router = options.vaultRouter;
-  if (!router) return DEFAULT_VAULT_ID;
+  if (!router) return 'default';
   return (
     router.vaults.find(({ id }) => id === router.defaultVaultId)?.id ??
     router.vaults.find(({ isDefault }) => isDefault)?.id ??
     router.vaults[0]?.id ??
-    DEFAULT_VAULT_ID
+    'default'
   );
 };
 export function reconcileDeviceLocalVaultBindings(
   options: CompleteOptions,
   snapshot: DeviceLocalVaultBindingSnapshot
 ): DeviceLocalVaultBindingSnapshot {
-  const ids = new Set(options.vaultRouter?.vaults.map(({ id }) => id) ?? [DEFAULT_VAULT_ID]);
+  const ids = new Set(options.vaultRouter?.vaults.map(({ id }) => id) ?? ['default']);
   return {
     version: 1,
     bindings: Object.fromEntries(Object.entries(snapshot.bindings).filter(([id]) => ids.has(id)))
@@ -170,10 +166,7 @@ const composeRaw = (raw: PlainStructuredObject, snapshot: DeviceLocalVaultBindin
 const supportsBindings = (
   repository: OptionsRawStorageRepository
 ): repository is OptionsRawStorageRepository & DeviceLocalVaultBindingRepository =>
-  typeof (repository as Partial<DeviceLocalVaultBindingRepository>).readVaultBindings ===
-    'function' &&
-  typeof (repository as Partial<DeviceLocalVaultBindingRepository>).writeVaultBindings ===
-    'function';
+  'readVaultBindings' in repository && 'writeVaultBindings' in repository;
 const touchesBindings = (command: OptionsMutationCommand) =>
   command.kind !== 'patch' ||
   command.patches.some(({ path }) => path[0] === 'rest' || path[0] === 'vaultRouter');
@@ -199,8 +192,10 @@ export async function executeDeviceLocalVaultBindingMutation(
 ): Promise<OptionsMutationSuccessResult | null> {
   if (!supportsBindings(repository) || !touchesBindings(command)) return null;
   let previous: DeviceLocalVaultBindingSnapshot;
+  let preparedRaw: PlainStructuredValue | null;
   try {
     previous = await repository.readVaultBindings();
+    preparedRaw = await repository.readRaw();
   } catch {
     throw new OptionsMutationError('OPTIONS_STORAGE_FAILURE');
   }
@@ -224,20 +219,25 @@ export async function executeDeviceLocalVaultBindingMutation(
           };
     return { next: portable, verification };
   };
+  const raw = preparedRaw ?? {};
+  if (!record(raw)) throw new OptionsMutationError('OPTIONS_MUTATION_REJECTED');
+  apply(raw, command);
+  const changed = JSON.stringify(previous) !== JSON.stringify(next);
+  const writeBindings = async (snapshot: DeviceLocalVaultBindingSnapshot) => {
+    try {
+      await repository.writeVaultBindings(snapshot);
+    } catch {
+      throw new OptionsMutationError('OPTIONS_STORAGE_FAILURE');
+    }
+  };
+  if (changed) await writeBindings(next);
   let result: Awaited<ReturnType<DeviceLocalPrivacyCommitter['execute']>>;
   try {
     result = await committer.execute(command, apply, quotaBytesPerItem);
   } catch (error) {
+    if (changed) await writeBindings(previous);
     if (error instanceof OptionsMutationError) throw error;
     throw new OptionsMutationError('OPTIONS_STORAGE_FAILURE');
-  }
-  const changed = JSON.stringify(previous) !== JSON.stringify(next);
-  if (changed) {
-    try {
-      await repository.writeVaultBindings(next);
-    } catch {
-      throw new OptionsMutationError('OPTIONS_STORAGE_FAILURE');
-    }
   }
   let snapshot = decodeStoredOptions(result.raw).runtime;
   if (result.privacy) snapshot = composeDeviceLocalPrivacy(snapshot, result.privacy);

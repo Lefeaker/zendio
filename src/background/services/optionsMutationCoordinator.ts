@@ -12,11 +12,11 @@ import type {
 import { composeDeviceLocalPrivacy } from '../../shared/config/deviceLocalPrivacy';
 import {
   executeDeviceLocalVaultBindingMutation,
-  optionsEnvelopeBytes,
   optionsRawSignature,
   optionsValuesEqual,
   optionsVerificationMatches
 } from '../../shared/config/deviceLocalVaultBindings';
+import { optionsEnvelopeBytes } from '../../infrastructure/repositories/ChromeOptionsRepository';
 import type {
   DeviceLocalPrivacyCommitter,
   OptionsMutationVerification,

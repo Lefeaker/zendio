@@ -48,12 +48,17 @@ class RawRepository implements OptionsRawStorageRepository {
 
 class VaultRawRepository extends RawRepository implements DeviceLocalVaultBindingRepository {
   bindings: DeviceLocalVaultBindingSnapshot = { version: 1, bindings: {} };
+  failNextBindingWrite = false;
 
   readVaultBindings(): Promise<DeviceLocalVaultBindingSnapshot> {
     return Promise.resolve(clone(this.bindings));
   }
 
   writeVaultBindings(snapshot: DeviceLocalVaultBindingSnapshot): Promise<void> {
+    if (this.failNextBindingWrite) {
+      this.failNextBindingWrite = false;
+      return Promise.reject(new Error('binding write failed'));
+    }
     this.bindings = clone(snapshot);
     return Promise.resolve();
   }
@@ -131,6 +136,134 @@ describe('OptionsMutationCoordinator', () => {
     });
     expect(result.snapshot.vaultRouter?.vaults[0]?.localFolderId).toBe('folder-primary');
     expect(result.snapshot.privacyPreferences).toEqual(privacy);
+  });
+
+  it('does not commit synchronized options or privacy when the local vault binding write fails', async () => {
+    const originalRaw: PlainStructuredObject = {
+      privacyPreferences: { analytics: false, errorReporting: false, debugMode: false },
+      vaultRouter: {
+        defaultVaultId: 'primary',
+        vaults: [
+          {
+            id: 'primary',
+            name: 'Primary',
+            vault: 'Primary',
+            httpsUrl: '',
+            httpUrl: '',
+            apiKey: ''
+          }
+        ]
+      },
+      opaqueRoot: { keep: true }
+    };
+    const repository = new VaultRawRepository(originalRaw);
+    repository.bindings = {
+      version: 1,
+      bindings: { primary: { folderId: 'folder-old', folderName: 'Old Folder' } }
+    };
+    repository.failNextBindingWrite = true;
+    let privacy = { analytics: false, errorReporting: false, debugMode: false };
+    const execute = vi.fn<DeviceLocalPrivacyCommitter['execute']>((command, applyCommand) => {
+      const mutation = applyCommand({ ...originalRaw, privacyPreferences: privacy }, command);
+      privacy = clone(decodeStoredOptions(mutation.next).runtime.privacyPreferences);
+      repository.raw = clone(mutation.next);
+      return Promise.resolve({ raw: mutation.next, privacy, didWrite: true });
+    });
+    const coordinator = createCoordinator(repository, {
+      deviceLocalPrivacyCommitter: { execute }
+    });
+
+    await expect(
+      coordinator.patch([
+        { path: ['privacyPreferences', 'analytics'], value: true },
+        {
+          path: ['vaultRouter'],
+          value: {
+            defaultVaultId: 'primary',
+            vaults: [
+              {
+                id: 'primary',
+                name: 'Primary',
+                vault: 'Primary',
+                httpsUrl: '',
+                httpUrl: '',
+                apiKey: '',
+                localFolderId: 'folder-new',
+                localFolderName: 'New Folder'
+              }
+            ]
+          }
+        }
+      ])
+    ).rejects.toEqual(new OptionsMutationError('OPTIONS_STORAGE_FAILURE'));
+
+    expect(execute).not.toHaveBeenCalled();
+    expect(repository.raw).toEqual(originalRaw);
+    expect(repository.bindings).toEqual({
+      version: 1,
+      bindings: { primary: { folderId: 'folder-old', folderName: 'Old Folder' } }
+    });
+    expect(privacy).toEqual({ analytics: false, errorReporting: false, debugMode: false });
+  });
+
+  it('restores the previous vault binding when the coordinated commit fails', async () => {
+    const originalRaw: PlainStructuredObject = {
+      vaultRouter: {
+        defaultVaultId: 'primary',
+        vaults: [
+          {
+            id: 'primary',
+            name: 'Primary',
+            vault: 'Primary',
+            httpsUrl: '',
+            httpUrl: '',
+            apiKey: ''
+          }
+        ]
+      },
+      opaqueRoot: { keep: true }
+    };
+    const repository = new VaultRawRepository(originalRaw);
+    repository.bindings = {
+      version: 1,
+      bindings: { primary: { folderId: 'folder-old', folderName: 'Old Folder' } }
+    };
+    const execute = vi.fn<DeviceLocalPrivacyCommitter['execute']>(() =>
+      Promise.reject(new OptionsMutationError('OPTIONS_STORAGE_FAILURE'))
+    );
+    const coordinator = createCoordinator(repository, {
+      deviceLocalPrivacyCommitter: { execute }
+    });
+
+    await expect(
+      coordinator.patch([
+        {
+          path: ['vaultRouter'],
+          value: {
+            defaultVaultId: 'primary',
+            vaults: [
+              {
+                id: 'primary',
+                name: 'Primary',
+                vault: 'Primary',
+                httpsUrl: '',
+                httpUrl: '',
+                apiKey: '',
+                localFolderId: 'folder-new',
+                localFolderName: 'New Folder'
+              }
+            ]
+          }
+        }
+      ])
+    ).rejects.toEqual(new OptionsMutationError('OPTIONS_STORAGE_FAILURE'));
+
+    expect(execute).toHaveBeenCalledOnce();
+    expect(repository.raw).toEqual(originalRaw);
+    expect(repository.bindings).toEqual({
+      version: 1,
+      bindings: { primary: { folderId: 'folder-old', folderName: 'Old Folder' } }
+    });
   });
 
   it('stores privacy patches locally and scrubs the synchronized mirror', async () => {

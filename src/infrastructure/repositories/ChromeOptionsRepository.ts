@@ -22,7 +22,6 @@ import {
   type DeviceLocalVaultBindingSnapshot
 } from '../../shared/config/deviceLocalVaultBindings';
 export {
-  optionsEnvelopeBytes,
   optionsRawSignature,
   optionsValuesEqual,
   optionsVerificationMatches
@@ -71,6 +70,10 @@ export interface DeviceLocalPrivacyCommitter {
     privacy?: PrivacyPreferencesOptions;
     didWrite: boolean;
   }>;
+}
+
+export function optionsEnvelopeBytes(raw: PlainStructuredObject): number {
+  return new TextEncoder().encode(JSON.stringify({ options: raw })).byteLength;
 }
 
 /**

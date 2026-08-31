@@ -57,20 +57,27 @@ async function sendPatch(
   pathParts: string[],
   value: JsonValue
 ): Promise<MutationResponse> {
+  return sendPatches(page, [{ path: pathParts, value }]);
+}
+
+async function sendPatches(
+  page: Page,
+  patches: Array<{ path: string[]; value: JsonValue }>
+): Promise<MutationResponse> {
   return page.evaluate<
     MutationResponse,
-    { pathParts: string[]; value: JsonValue; requestId: string }
+    { patches: Array<{ path: string[]; value: JsonValue }>; requestId: string }
   >(
-    async ({ pathParts: patchPath, value: patchValue, requestId }) =>
+    async ({ patches: mutationPatches, requestId }) =>
       chrome.runtime.sendMessage({
         type: 'ZENDIO_OPTIONS_MUTATION',
         requestId,
         command: {
           kind: 'patch',
-          patches: [{ path: patchPath, value: patchValue }]
+          patches: mutationPatches
         }
       }),
-    { pathParts, value, requestId: `patch-${crypto.randomUUID()}` }
+    { patches, requestId: `patch-${crypto.randomUUID()}` }
   );
 }
 
@@ -371,6 +378,187 @@ test.describe('Options cross-context mutation authority', () => {
       await expect(
         freshPage.locator('.local-folder-trigger').filter({ hasText: 'Primary Folder' })
       ).toHaveCount(0);
+    } finally {
+      await freshContext.close();
+    }
+  });
+
+  test('keeps mixed privacy and vault state atomic when the binding write fails', async () => {
+    const portablePrestate = {
+      rest: { vault: 'Primary' },
+      vaultRouter: {
+        defaultVaultId: 'primary',
+        vaults: [
+          {
+            id: 'primary',
+            name: 'Primary',
+            vault: 'Primary',
+            httpsUrl: '',
+            httpUrl: '',
+            apiKey: ''
+          }
+        ]
+      },
+      opaqueRoot: { keep: ['failure-atomic', 1] }
+    };
+    await first.evaluate(
+      ({ options }) =>
+        Promise.all([
+          chrome.storage.sync.set({ options }),
+          chrome.storage.local.set({
+            analytics_user_consent: {
+              analytics: false,
+              errorReporting: false,
+              timestamp: 1,
+              version: '1.0'
+            },
+            analytics_config: { debugMode: false },
+            deviceLocalVaultBindings: {
+              version: 1,
+              bindings: {
+                primary: { folderId: 'folder-old', folderName: 'Old Folder' }
+              }
+            }
+          })
+        ]),
+      { options: portablePrestate }
+    );
+    await Promise.all([
+      first.reload({ waitUntil: 'domcontentloaded' }),
+      second.reload({ waitUntil: 'domcontentloaded' })
+    ]);
+
+    const observation = await second.evaluateHandle(() => {
+      const state = { changes: 0 };
+      const listener = (changes: Record<string, chrome.storage.StorageChange>) => {
+        if (
+          changes.options ||
+          changes.analytics_user_consent ||
+          changes.analytics_config ||
+          changes.deviceLocalVaultBindings
+        ) {
+          state.changes += 1;
+        }
+      };
+      chrome.storage.onChanged.addListener(listener);
+      return { state, listener };
+    });
+    const gateHandle = await background.evaluateHandle(() => {
+      const storage = chrome.storage.local;
+      const originalSet = storage.set.bind(storage);
+      const state = { failed: false, originalSet };
+      const gatedSet = (items: JsonRecord, callback?: () => void) => {
+        if (
+          !state.failed &&
+          Object.prototype.hasOwnProperty.call(items, 'deviceLocalVaultBindings')
+        ) {
+          state.failed = true;
+          throw new Error('B06_FORCED_BINDING_WRITE_FAILURE');
+        }
+        return callback ? originalSet(items, callback) : originalSet(items);
+      };
+      Object.defineProperty(storage, 'set', { configurable: true, value: gatedSet });
+      return state;
+    });
+
+    const response = await sendPatches(first, [
+      { path: ['privacyPreferences', 'analytics'], value: true },
+      {
+        path: ['vaultRouter'],
+        value: {
+          ...portablePrestate.vaultRouter,
+          vaults: [
+            {
+              ...portablePrestate.vaultRouter.vaults[0],
+              localFolderId: 'folder-new',
+              localFolderName: 'New Folder'
+            }
+          ]
+        }
+      }
+    ]);
+    await expect.poll(() => gateHandle.evaluate((state) => state.failed)).toBe(true);
+    await gateHandle.evaluate((state) => {
+      Object.defineProperty(chrome.storage.local, 'set', {
+        configurable: true,
+        value: state.originalSet
+      });
+    });
+    await gateHandle.dispose();
+
+    expect(response.success).toBe(false);
+    expect(response.errorCode).toBe('OPTIONS_STORAGE_FAILURE');
+    const stateAfterFailure = await first.evaluate(async () => {
+      const [sync, local] = await Promise.all([
+        chrome.storage.sync.get('options'),
+        chrome.storage.local.get([
+          'analytics_user_consent',
+          'analytics_config',
+          'deviceLocalVaultBindings'
+        ])
+      ]);
+      return { sync: sync.options, local };
+    });
+    expect(stateAfterFailure.sync).toEqual(portablePrestate);
+    expect(stateAfterFailure.local.analytics_user_consent).toMatchObject({ analytics: false });
+    expect(stateAfterFailure.local.analytics_config).toMatchObject({ debugMode: false });
+    expect(stateAfterFailure.local.deviceLocalVaultBindings).toEqual({
+      version: 1,
+      bindings: { primary: { folderId: 'folder-old', folderName: 'Old Folder' } }
+    });
+    const publishedChanges = await observation.evaluate(({ state, listener }) => {
+      chrome.storage.onChanged.removeListener(listener);
+      return state.changes;
+    });
+    await observation.dispose();
+    expect(publishedChanges).toBe(0);
+
+    await second.reload({ waitUntil: 'domcontentloaded' });
+    const secondStorageNav = second.locator('[data-nav-panel="storage"]');
+    await secondStorageNav.click();
+    await expect(secondStorageNav).toHaveClass(/is-active/u);
+    await expect(
+      second.locator('.local-folder-trigger').filter({ hasText: 'Old Folder' })
+    ).toHaveCount(1);
+    await expect(
+      second
+        .locator('.consent-inline-item:visible')
+        .filter({ hasText: 'Usage analytics' })
+        .locator('input[type="checkbox"]')
+    ).not.toBeChecked();
+
+    const freshUserDataDir = await mkdtemp(path.join(tmpdir(), 'zendio-b06-failed-profile-'));
+    const freshContext = await chromium.launchPersistentContext(freshUserDataDir, {
+      headless: false,
+      args: [
+        '--headless=new',
+        `--disable-extensions-except=${extensionPath}`,
+        `--load-extension=${extensionPath}`
+      ]
+    });
+    try {
+      let freshBackground = freshContext.serviceWorkers()[0];
+      freshBackground ??= await freshContext.waitForEvent('serviceworker', { timeout: 15_000 });
+      const freshExtensionId = freshBackground.url().split('/')[2];
+      if (!freshExtensionId) throw new Error('Unable to resolve failed-profile extension id.');
+      const freshPage = await freshContext.newPage();
+      await freshPage.goto(`chrome-extension://${freshExtensionId}/options/index.html`, {
+        waitUntil: 'domcontentloaded'
+      });
+      await freshPage.evaluate((options) => chrome.storage.sync.set({ options }), portablePrestate);
+      await freshPage.reload({ waitUntil: 'domcontentloaded' });
+      const freshStorageNav = freshPage.locator('[data-nav-panel="storage"]');
+      await freshStorageNav.click();
+      await expect(freshStorageNav).toHaveClass(/is-active/u);
+      await expect(
+        freshPage.locator('.local-folder-trigger').filter({ hasText: 'New Folder' })
+      ).toHaveCount(0);
+      expect(
+        await freshPage.evaluate(async () => {
+          const stored = await chrome.storage.local.get('deviceLocalVaultBindings');
+          return stored.deviceLocalVaultBindings;
+        })
+      ).toBeUndefined();
     } finally {
       await freshContext.close();
     }
