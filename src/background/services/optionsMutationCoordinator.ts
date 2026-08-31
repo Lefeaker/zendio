@@ -11,13 +11,16 @@ import type {
 } from '../../shared/config/losslessObjectBoundaryTypes';
 import { composeDeviceLocalPrivacy } from '../../shared/config/deviceLocalPrivacy';
 import {
+  executeDeviceLocalVaultBindingMutation,
   optionsEnvelopeBytes,
   optionsRawSignature,
   optionsValuesEqual,
-  optionsVerificationMatches,
-  type DeviceLocalPrivacyCommitter,
-  type OptionsMutationVerification,
-  type OptionsRawStorageRepository
+  optionsVerificationMatches
+} from '../../shared/config/deviceLocalVaultBindings';
+import type {
+  DeviceLocalPrivacyCommitter,
+  OptionsMutationVerification,
+  OptionsRawStorageRepository
 } from '../../infrastructure/repositories/ChromeOptionsRepository';
 import type { IOptionsRepository } from '../../shared/repositories/IOptionsRepository';
 import type { CompleteOptions, StoredOptions } from '../../shared/types/options';
@@ -27,7 +30,6 @@ import {
   type OptionsMutationSuccessResult,
   type OptionsPatch
 } from '../../shared/types/optionsMutationMessages';
-
 const DEFAULT_OPTIONS_QUOTA_BYTES_PER_ITEM = 8_192;
 const DEFAULT_EXTERNAL_DRIFT_RETRIES = 2;
 
@@ -44,21 +46,15 @@ export interface BackgroundOptionsReader {
   readDecoded(): Promise<DecodedStoredOptions>;
   onChange(callback: (options: CompleteOptions) => void): () => void;
 }
-
-function isObject(value: PlainStructuredValue | null): value is PlainStructuredObject {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
-
-function clone<T>(value: T): T {
-  if (value === undefined || value === null) return value;
-  return globalThis.structuredClone(value);
-}
+const isObject = (value: PlainStructuredValue | null): value is PlainStructuredObject =>
+  typeof value === 'object' && value !== null && !Array.isArray(value);
+const clone = <T>(value: T): T =>
+  value === undefined || value === null ? value : globalThis.structuredClone(value);
 
 function createDefaultOperationId(): string {
-  if (typeof globalThis.crypto?.randomUUID === 'function') {
-    return `options-${globalThis.crypto.randomUUID()}`;
-  }
-  return `options-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+  return typeof globalThis.crypto?.randomUUID === 'function'
+    ? `options-${globalThis.crypto.randomUUID()}`
+    : `options-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
 }
 
 function platformQuotaBytesPerItem(): number | undefined {
@@ -132,7 +128,7 @@ export class OptionsMutationCoordinator {
   private readonly maxExternalDriftRetries: number;
   private readonly createOperationId: () => string;
   private readonly yieldAfterWrite: () => Promise<void>;
-  private readonly deviceLocalPrivacyCommitter?: DeviceLocalPrivacyCommitter;
+  private readonly deviceLocalPrivacyCommitter: DeviceLocalPrivacyCommitter | undefined;
 
   constructor(
     private readonly repository: OptionsRawStorageRepository,
@@ -190,6 +186,17 @@ export class OptionsMutationCoordinator {
     command: OptionsMutationCommand
   ): Promise<OptionsMutationSuccessResult> {
     const operationId = this.createOperationId();
+    const vaultResult = this.deviceLocalPrivacyCommitter
+      ? await executeDeviceLocalVaultBindingMutation(
+          command,
+          this.repository,
+          this.deviceLocalPrivacyCommitter,
+          this.quotaBytesPerItem,
+          operationId,
+          (raw, queued) => this.applyCommand(raw, queued)
+        )
+      : null;
+    if (vaultResult) return vaultResult;
     if (this.deviceLocalPrivacyCommitter) {
       try {
         const result = await this.deviceLocalPrivacyCommitter.execute(

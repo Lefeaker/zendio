@@ -1,5 +1,4 @@
 import type { StorageService } from '../../platform/interfaces/storage';
-import { plainStructuredDataEqual } from '../../shared/config/losslessObjectBoundary';
 import {
   decodeStoredOptions,
   type DecodedStoredOptions
@@ -15,6 +14,19 @@ import {
   DEVICE_LOCAL_PRIVACY_CONSENT_KEY,
   DEVICE_LOCAL_PRIVACY_TRANSACTION_KEY
 } from '../../shared/config/deviceLocalPrivacy';
+import {
+  composeDeviceLocalVaultBindings,
+  DEVICE_LOCAL_VAULT_BINDINGS_KEY,
+  normalizeDeviceLocalVaultBindingSnapshot,
+  reconcileDeviceLocalVaultBindings,
+  type DeviceLocalVaultBindingSnapshot
+} from '../../shared/config/deviceLocalVaultBindings';
+export {
+  optionsEnvelopeBytes,
+  optionsRawSignature,
+  optionsValuesEqual,
+  optionsVerificationMatches
+} from '../../shared/config/deviceLocalVaultBindings';
 import { StorageError } from '../../shared/errors/repositoryErrors';
 import type { CompleteOptions, PrivacyPreferencesOptions } from '../../shared/types/options';
 import type { OptionsMutationCommand } from '../../shared/types/optionsMutationMessages';
@@ -28,11 +40,14 @@ function clone<T>(value: T): T {
   return JSON.parse(JSON.stringify(value)) as T;
 }
 
+export interface DeviceLocalVaultBindingRepository {
+  readVaultBindings(): Promise<DeviceLocalVaultBindingSnapshot>;
+  writeVaultBindings(snapshot: DeviceLocalVaultBindingSnapshot): Promise<void>;
+}
 export interface OptionsRawStorageRepository {
   readRaw(): Promise<PlainStructuredValue | null>;
   writeRaw(value: PlainStructuredObject): Promise<void>;
 }
-
 export type OptionsMutationVerification =
   | { readonly kind: 'full'; readonly expected: PlainStructuredObject }
   | {
@@ -58,57 +73,13 @@ export interface DeviceLocalPrivacyCommitter {
   }>;
 }
 
-export function optionsEnvelopeBytes(raw: PlainStructuredObject): number {
-  return new TextEncoder().encode(JSON.stringify({ options: raw })).byteLength;
-}
-
-export function optionsRawSignature(raw: PlainStructuredObject): string {
-  const bytes = new TextEncoder().encode(JSON.stringify(raw));
-  let hash = 0x811c9dc5;
-  for (const byte of bytes) {
-    hash ^= byte;
-    hash = Math.imul(hash, 0x01000193) >>> 0;
-  }
-  return `fnv1a32:${hash.toString(16).padStart(8, '0')}:${bytes.byteLength}`;
-}
-
-export function optionsValuesEqual(
-  left: PlainStructuredValue | undefined,
-  right: PlainStructuredValue | undefined
-): boolean {
-  if (left === undefined || right === undefined) return left === right;
-  const result = plainStructuredDataEqual(left, right);
-  return result.ok && result.equal;
-}
-
-function readOptionsPath(
-  raw: PlainStructuredObject,
-  path: readonly string[]
-): PlainStructuredValue | undefined {
-  let current: PlainStructuredValue | undefined = raw;
-  for (const part of path) {
-    if (typeof current !== 'object' || current === null || Array.isArray(current)) return undefined;
-    current = current[part];
-  }
-  return current;
-}
-
-export function optionsVerificationMatches(
-  raw: PlainStructuredObject,
-  verification: OptionsMutationVerification
-): boolean {
-  return verification.kind === 'full'
-    ? optionsValuesEqual(raw, verification.expected)
-    : verification.expected.every(({ path, value }) =>
-        optionsValuesEqual(readOptionsPath(raw, path), value)
-      );
-}
-
 /**
  * Local Options reads and storage observation. Raw writes are intentionally
  * exposed only to the background mutation coordinator, never through DI.
  */
-export class ChromeOptionsRepository implements OptionsRawStorageRepository {
+export class ChromeOptionsRepository
+  implements OptionsRawStorageRepository, DeviceLocalVaultBindingRepository
+{
   private readonly changeListeners = new Map<(options: CompleteOptions) => void, string | null>();
   private stopWatchingOptions: (() => void) | null = null;
   private stopWatchingPrivacy: Array<() => void> = [];
@@ -135,8 +106,13 @@ export class ChromeOptionsRepository implements OptionsRawStorageRepository {
   async readDecoded(): Promise<DecodedStoredOptions> {
     const raw = await this.readRaw();
     const decoded = decodeStoredOptions(raw);
-    const privacy = await this.readPrivacy(raw);
-    return { ...decoded, runtime: composeDeviceLocalPrivacy(decoded.runtime, privacy) };
+    const [privacy, storedBindings] = await Promise.all([
+      this.readPrivacy(raw),
+      this.readVaultBindings()
+    ]);
+    const runtime = composeDeviceLocalPrivacy(decoded.runtime, privacy);
+    const bindings = reconcileDeviceLocalVaultBindings(runtime, storedBindings);
+    return { ...decoded, runtime: composeDeviceLocalVaultBindings(runtime, bindings) };
   }
 
   async get(): Promise<CompleteOptions> {
@@ -165,6 +141,19 @@ export class ChromeOptionsRepository implements OptionsRawStorageRepository {
         context: { storageKey: DEVICE_LOCAL_PRIVACY_CONSENT_KEY }
       });
     }
+  }
+
+  async readVaultBindings(): Promise<DeviceLocalVaultBindingSnapshot> {
+    return normalizeDeviceLocalVaultBindingSnapshot(
+      await this.storage.local.get(DEVICE_LOCAL_VAULT_BINDINGS_KEY)
+    );
+  }
+
+  async writeVaultBindings(snapshot: DeviceLocalVaultBindingSnapshot): Promise<void> {
+    await this.storage.local.set(
+      DEVICE_LOCAL_VAULT_BINDINGS_KEY,
+      normalizeDeviceLocalVaultBindingSnapshot(snapshot)
+    );
   }
 
   onChange(callback: (options: CompleteOptions) => void): () => void {
@@ -200,7 +189,8 @@ export class ChromeOptionsRepository implements OptionsRawStorageRepository {
     this.stopWatchingPrivacy = [
       this.storage.local.watchKey(DEVICE_LOCAL_PRIVACY_CONSENT_KEY, emitLocalPrivacyChange),
       this.storage.local.watchKey(DEVICE_LOCAL_PRIVACY_CONFIG_KEY, emitLocalPrivacyChange),
-      this.storage.local.watchKey(DEVICE_LOCAL_PRIVACY_TRANSACTION_KEY, emitLocalPrivacyChange)
+      this.storage.local.watchKey(DEVICE_LOCAL_PRIVACY_TRANSACTION_KEY, emitLocalPrivacyChange),
+      this.storage.local.watchKey(DEVICE_LOCAL_VAULT_BINDINGS_KEY, emitLocalPrivacyChange)
     ];
   }
 
@@ -208,8 +198,15 @@ export class ChromeOptionsRepository implements OptionsRawStorageRepository {
     stored: PlainStructuredValue | null
   ): Promise<CompleteOptions> {
     const decoded = decodeStoredOptions(stored);
-    const privacy = await this.readPrivacy(stored);
-    return composeDeviceLocalPrivacy(decoded.runtime, privacy);
+    const [privacy, storedBindings] = await Promise.all([
+      this.readPrivacy(stored),
+      this.readVaultBindings()
+    ]);
+    const runtime = composeDeviceLocalPrivacy(decoded.runtime, privacy);
+    return composeDeviceLocalVaultBindings(
+      runtime,
+      reconcileDeviceLocalVaultBindings(runtime, storedBindings)
+    );
   }
 
   private requestNotification(read: () => Promise<CompleteOptions>, reason: string): void {

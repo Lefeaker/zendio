@@ -1,6 +1,7 @@
 import { mergeOptions, omitLegacyRestRootDir } from '../../shared/config/optionsMerger';
 import { sanitizeYamlConfigValue } from '../../shared/config/optionsSanitizer';
 import { decodeStoredOptions } from '../../shared/config/storedOptionsCodec';
+import { scrubDeviceLocalVaultBindings } from '../../shared/config/deviceLocalVaultBindings';
 import {
   isObjectRecord,
   type ObjectRecord,
@@ -109,7 +110,9 @@ export function normalizeOptionsForTransfer(
     normalized.yamlConfig = sanitized ? deepClone(sanitized) : null;
   }
 
+  const portable = scrubDeviceLocalVaultBindings(normalized);
+
   return mode === 'portable'
-    ? StoredOptionsSchema.parse(redactSensitiveValues(normalized))
-    : normalized;
+    ? StoredOptionsSchema.parse(redactSensitiveValues(portable))
+    : portable;
 }

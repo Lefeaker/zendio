@@ -1,5 +1,6 @@
 import type { StoredOptions } from '../../shared/types/options';
 import { encodeStoredOptionsReplacement } from '../../shared/config/storedOptionsCodec';
+import { scrubDeviceLocalVaultBindings } from '../../shared/config/deviceLocalVaultBindings';
 import { parseBoundedJson } from '../../shared/config/losslessObjectBoundary';
 import { isObjectRecord, type ObjectRecord } from '../../shared/guards/object';
 import type { AnalyticsTransferPayload } from './analyticsTransfer';
@@ -75,7 +76,7 @@ function sanitizeImportedOptions(
   if (!encoded.success) {
     throw new ConfigTransferError('PARSE_FAILED');
   }
-  return encoded.value;
+  return scrubDeviceLocalVaultBindings(encoded.value);
 }
 
 function parseAnalyticsPayload(

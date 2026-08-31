@@ -323,10 +323,7 @@ describe('ChromeOptionsRepository', () => {
 
       repo.onChange(callback);
       await vi.waitFor(() => expect(consentReads).toBe(1));
-      syncOptionsChange?.(
-        { interfaceTheme: 'light' },
-        { newValue: { interfaceTheme: 'light' } }
-      );
+      syncOptionsChange?.({ interfaceTheme: 'light' }, { newValue: { interfaceTheme: 'light' } });
       mockStorage.sync.get.mockResolvedValue({ interfaceTheme: 'light' });
       localConsentChange?.(
         { analytics: true, errorReporting: false, timestamp: 2, version: '1.0' },
@@ -634,6 +631,49 @@ describe('ChromeOptionsRepository', () => {
         errorReporting: false,
         debugMode: true
       });
+    });
+
+    it('composes device-local vault bindings over synchronized folder mirrors', async () => {
+      mockStorage.sync.get.mockResolvedValue({
+        rest: {
+          vault: 'Primary',
+          localFolderId: 'foreign-sync-id',
+          localFolderName: 'Foreign Sync Name'
+        },
+        vaultRouter: {
+          defaultVaultId: 'primary',
+          vaults: [
+            {
+              id: 'primary',
+              name: 'Primary',
+              vault: 'Primary',
+              httpsUrl: '',
+              httpUrl: '',
+              apiKey: '',
+              localFolderId: 'foreign-sync-id',
+              localFolderName: 'Foreign Sync Name'
+            }
+          ]
+        }
+      });
+      mockStorage.local.get.mockImplementation((key) => {
+        if (key === 'deviceLocalVaultBindings') {
+          return Promise.resolve({
+            version: 1,
+            bindings: {
+              primary: { folderId: 'folder-local', folderName: 'Local Folder' }
+            }
+          });
+        }
+        return Promise.resolve(undefined);
+      });
+
+      const result = await repo.get();
+
+      expect(result.rest.localFolderId).toBe('folder-local');
+      expect(result.rest.localFolderName).toBe('Local Folder');
+      expect(result.vaultRouter?.vaults[0]?.localFolderId).toBe('folder-local');
+      expect(result.vaultRouter?.vaults[0]?.localFolderName).toBe('Local Folder');
     });
 
     it('should still load old stored options with legacy rootDir while stripping it', async () => {

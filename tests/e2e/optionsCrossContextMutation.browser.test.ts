@@ -16,6 +16,10 @@ type StorageValue = chrome.storage.StorageChange['newValue'];
 type JsonValue = StorageValue;
 type JsonRecord = Record<string, StorageValue>;
 
+function isJsonRecord(value: JsonValue): value is JsonRecord {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
 type MutationResponse = {
   success?: boolean;
   errorCode?: string;
@@ -117,8 +121,7 @@ async function readPrivacyStorage(page: Page) {
         options.opaqueRoot !== null &&
         'keep' in options.opaqueRoot &&
         options.opaqueRoot.keep === true,
-      transactionPresent:
-        local.zendio_device_local_privacy_transaction !== undefined
+      transactionPresent: local.zendio_device_local_privacy_transaction !== undefined
     };
   });
 }
@@ -153,7 +156,11 @@ test.describe('Options cross-context mutation authority', () => {
     await first.evaluate(() =>
       Promise.all([
         chrome.storage.sync.remove('options'),
-        chrome.storage.local.remove(['analytics_user_consent', 'analytics_config'])
+        chrome.storage.local.remove([
+          'analytics_user_consent',
+          'analytics_config',
+          'deviceLocalVaultBindings'
+        ])
       ])
     );
   });
@@ -234,6 +241,139 @@ test.describe('Options cross-context mutation authority', () => {
       .filter({ hasText: 'Usage analytics' })
       .locator('input[type="checkbox"]');
     await expect(reloadedAnalyticsControl).toBeChecked();
+  });
+
+  test('keeps vault bindings device-local while composing them across Options contexts', async () => {
+    await first.evaluate(() =>
+      chrome.storage.sync.set({
+        options: {
+          rest: {
+            vault: 'Primary',
+            localFolderId: 'foreign-rest-folder',
+            localFolderName: 'Foreign Rest Folder'
+          },
+          vaultRouter: {
+            defaultVaultId: 'primary',
+            vaults: [
+              {
+                id: 'primary',
+                name: 'Primary',
+                vault: 'Primary',
+                httpsUrl: '',
+                httpUrl: '',
+                apiKey: '',
+                localFolderId: 'foreign-routed-folder',
+                localFolderName: 'Foreign Routed Folder'
+              }
+            ]
+          },
+          opaqueRoot: { keep: ['b06', 1] }
+        }
+      })
+    );
+
+    const mutation = await sendPatch(first, ['vaultRouter'], {
+      defaultVaultId: 'primary',
+      vaults: [
+        {
+          id: 'primary',
+          name: 'Primary',
+          vault: 'Primary',
+          httpsUrl: '',
+          httpUrl: '',
+          apiKey: '',
+          localFolderId: 'folder-primary',
+          localFolderName: 'Primary Folder'
+        }
+      ]
+    });
+
+    expect(mutation.success).toBe(true);
+    expect(mutation.result?.snapshot).toMatchObject({
+      rest: {
+        localFolderId: 'folder-primary',
+        localFolderName: 'Primary Folder'
+      },
+      vaultRouter: {
+        vaults: [
+          {
+            id: 'primary',
+            localFolderId: 'folder-primary',
+            localFolderName: 'Primary Folder'
+          }
+        ]
+      }
+    });
+
+    const localBindings = await first.evaluate(async () => {
+      const stored = await chrome.storage.local.get('deviceLocalVaultBindings');
+      return stored.deviceLocalVaultBindings;
+    });
+    expect(localBindings).toEqual({
+      version: 1,
+      bindings: {
+        primary: { folderId: 'folder-primary', folderName: 'Primary Folder' }
+      }
+    });
+
+    const portable = await readRaw(first);
+    expect(portable).toMatchObject({ opaqueRoot: { keep: ['b06', 1] } });
+    expect(portable.rest).not.toHaveProperty('localFolderId');
+    expect(portable.rest).not.toHaveProperty('localFolderName');
+    const portableRouter = isJsonRecord(portable.vaultRouter) ? portable.vaultRouter : {};
+    const portableVaults = Array.isArray(portableRouter.vaults) ? portableRouter.vaults : [];
+    for (const vault of portableVaults) {
+      if (!isJsonRecord(vault)) continue;
+      expect(vault).not.toHaveProperty('localFolderId');
+      expect(vault).not.toHaveProperty('localFolderName');
+    }
+
+    await second.reload({ waitUntil: 'domcontentloaded' });
+    const storageNav = second.locator('[data-nav-panel="storage"]');
+    await storageNav.click();
+    await expect(storageNav).toHaveClass(/is-active/u);
+    await expect(
+      second.locator('.local-folder-trigger').filter({ hasText: 'Primary Folder' })
+    ).toHaveCount(1);
+
+    const freshUserDataDir = await mkdtemp(path.join(tmpdir(), 'zendio-b06-fresh-profile-'));
+    const freshContext = await chromium.launchPersistentContext(freshUserDataDir, {
+      headless: false,
+      args: [
+        '--headless=new',
+        `--disable-extensions-except=${extensionPath}`,
+        `--load-extension=${extensionPath}`
+      ]
+    });
+    try {
+      let freshBackground = freshContext.serviceWorkers()[0];
+      freshBackground ??= await freshContext.waitForEvent('serviceworker', { timeout: 15_000 });
+      const freshExtensionId = freshBackground.url().split('/')[2];
+      if (!freshExtensionId) throw new Error('Unable to resolve fresh extension id.');
+      const freshPage = await freshContext.newPage();
+      await freshPage.goto(`chrome-extension://${freshExtensionId}/options/index.html`, {
+        waitUntil: 'domcontentloaded'
+      });
+      await freshPage.evaluate(
+        (scrubbed) => chrome.storage.sync.set({ options: scrubbed }),
+        portable
+      );
+      await freshPage.reload({ waitUntil: 'domcontentloaded' });
+
+      const freshLocalBindings = await freshPage.evaluate(async () => {
+        const stored = await chrome.storage.local.get('deviceLocalVaultBindings');
+        return stored.deviceLocalVaultBindings;
+      });
+      expect(freshLocalBindings).toBeUndefined();
+      const freshStorageNav = freshPage.locator('[data-nav-panel="storage"]');
+      await freshStorageNav.click();
+      await expect(freshStorageNav).toHaveClass(/is-active/u);
+      await expect(
+        freshPage.locator('.local-folder-trigger').filter({ hasText: 'Primary Folder' })
+      ).toHaveCount(0);
+    } finally {
+      await freshContext.close();
+    }
   });
 
   test('does not publish staged privacy when the synchronized scrub fails', async () => {

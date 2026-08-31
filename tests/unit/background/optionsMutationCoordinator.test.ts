@@ -6,9 +6,11 @@ import {
 } from '../../../src/background/services/optionsMutationCoordinator';
 import { decodeStoredOptions } from '../../../src/shared/config/storedOptionsCodec';
 import type {
+  DeviceLocalVaultBindingRepository,
   DeviceLocalPrivacyCommitter,
   OptionsRawStorageRepository
 } from '../../../src/infrastructure/repositories/ChromeOptionsRepository';
+import type { DeviceLocalVaultBindingSnapshot } from '../../../src/shared/config/deviceLocalVaultBindings';
 import type {
   PlainStructuredObject,
   PlainStructuredValue
@@ -44,6 +46,19 @@ class RawRepository implements OptionsRawStorageRepository {
   }
 }
 
+class VaultRawRepository extends RawRepository implements DeviceLocalVaultBindingRepository {
+  bindings: DeviceLocalVaultBindingSnapshot = { version: 1, bindings: {} };
+
+  readVaultBindings(): Promise<DeviceLocalVaultBindingSnapshot> {
+    return Promise.resolve(clone(this.bindings));
+  }
+
+  writeVaultBindings(snapshot: DeviceLocalVaultBindingSnapshot): Promise<void> {
+    this.bindings = clone(snapshot);
+    return Promise.resolve();
+  }
+}
+
 function createCoordinator(
   repository: RawRepository,
   options: OptionsMutationCoordinatorOptions = {}
@@ -56,6 +71,68 @@ function createCoordinator(
 }
 
 describe('OptionsMutationCoordinator', () => {
+  it('stores selected vault bindings locally while the privacy owner scrubs synchronized bytes', async () => {
+    let portable: PlainStructuredObject = {
+      privacyPreferences: { analytics: false, errorReporting: false, debugMode: false },
+      opaqueRoot: { keep: true }
+    };
+    const repository = new VaultRawRepository(portable);
+    const privacy = { analytics: false, errorReporting: false, debugMode: false };
+    const execute: DeviceLocalPrivacyCommitter['execute'] = (command, applyCommand) => {
+      const mutation = applyCommand({ ...portable, privacyPreferences: privacy }, command);
+      portable = { ...mutation.next };
+      delete portable.privacyPreferences;
+      repository.raw = clone(portable);
+      return Promise.resolve({ raw: portable, privacy, didWrite: true });
+    };
+    const coordinator = createCoordinator(repository, {
+      deviceLocalPrivacyCommitter: { execute }
+    });
+
+    const result = await coordinator.patch([
+      {
+        path: ['vaultRouter'],
+        value: {
+          defaultVaultId: 'primary',
+          vaults: [
+            {
+              id: 'primary',
+              name: 'Primary',
+              vault: 'Primary',
+              httpsUrl: '',
+              httpUrl: '',
+              apiKey: '',
+              localFolderId: 'folder-primary',
+              localFolderName: 'Primary Folder'
+            }
+          ]
+        }
+      }
+    ]);
+
+    expect(repository.raw).toEqual({
+      vaultRouter: {
+        defaultVaultId: 'primary',
+        vaults: [
+          {
+            id: 'primary',
+            name: 'Primary',
+            vault: 'Primary',
+            httpsUrl: '',
+            httpUrl: '',
+            apiKey: ''
+          }
+        ]
+      },
+      opaqueRoot: { keep: true }
+    });
+    expect(repository.bindings.bindings).toEqual({
+      primary: { folderId: 'folder-primary', folderName: 'Primary Folder' }
+    });
+    expect(result.snapshot.vaultRouter?.vaults[0]?.localFolderId).toBe('folder-primary');
+    expect(result.snapshot.privacyPreferences).toEqual(privacy);
+  });
+
   it('stores privacy patches locally and scrubs the synchronized mirror', async () => {
     let portable: PlainStructuredObject = {
       interfaceTheme: 'system',
@@ -68,7 +145,7 @@ describe('OptionsMutationCoordinator', () => {
     };
     const repository = new RawRepository(portable);
     let privacy = { analytics: false, errorReporting: false, debugMode: false };
-    const execute: DeviceLocalPrivacyCommitter['execute'] = vi.fn(async (command, applyCommand) => {
+    const execute = vi.fn<DeviceLocalPrivacyCommitter['execute']>((command, applyCommand) => {
       const mutation = applyCommand({ ...portable, privacyPreferences: privacy }, command);
       if (
         command.kind === 'patch' &&
@@ -79,7 +156,7 @@ describe('OptionsMutationCoordinator', () => {
       portable = { ...mutation.next };
       delete portable.privacyPreferences;
       repository.raw = clone(portable);
-      return { raw: portable, privacy, didWrite: true };
+      return Promise.resolve({ raw: portable, privacy, didWrite: true });
     });
     const coordinatorOptions = {
       yieldAfterWrite: () => Promise.resolve(),
