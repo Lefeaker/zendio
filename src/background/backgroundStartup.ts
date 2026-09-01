@@ -26,6 +26,7 @@ import {
   createOptionsMutationCoordinator,
   type OptionsMutationCoordinator
 } from './services/optionsMutationCoordinator';
+import type { DeviceLocalVaultCleanupJournal } from '../shared/config/deviceLocalVaultCleanupJournal';
 
 export interface BackgroundStartupDependencies {
   action: ActionService;
@@ -36,6 +37,7 @@ export interface BackgroundStartupDependencies {
   storage: StorageService;
   tabs: TabsService;
   optionsMutationCoordinator?: OptionsMutationCoordinator;
+  deviceLocalVaultCleanupJournal?: DeviceLocalVaultCleanupJournal;
 }
 
 function unavailableSessionDraftStore(code: string): SessionDraftStore {
@@ -99,12 +101,20 @@ async function resolveSessionDraftOwner(tabs: Pick<TabsService, 'get'>, sender: 
 }
 
 export function startBackgroundRuntime(dependencies: BackgroundStartupDependencies): void {
+  const fallbackOptionsStorageRepository = new ChromeOptionsRepository(dependencies.storage);
   const optionsMutationCoordinator =
     dependencies.optionsMutationCoordinator ??
-    createOptionsMutationCoordinator(new ChromeOptionsRepository(dependencies.storage));
+    createOptionsMutationCoordinator(fallbackOptionsStorageRepository);
   configureBackgroundDependencyStorage(dependencies.storage);
   bootstrapBackgroundDependencies(undefined, optionsMutationCoordinator);
   const optionsRepository = resolveRepository<IOptionsRepository>(DI_TOKENS.IOptionsRepository);
+
+  if (dependencies.optionsMutationCoordinator) {
+    dependencies.deviceLocalVaultCleanupJournal?.schedulePending();
+    void optionsMutationCoordinator.migrate().catch((error) => {
+      console.error('[background] Failed to migrate device-local privacy:', error);
+    });
+  }
 
   registerContextMenuListeners(
     createContextMenuListenerDependencies({

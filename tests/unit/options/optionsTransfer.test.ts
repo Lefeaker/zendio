@@ -1,5 +1,8 @@
 import { describe, it, expect } from 'vitest';
-import { normalizeOptionsForTransfer } from '@options/utils/optionsTransfer';
+import {
+  normalizeOptionsForTransfer,
+  type ConfigTransferMode
+} from '@options/utils/optionsTransfer';
 import type { StoredOptions } from '@shared/types';
 import { getRestDefaults } from '../../utils/restDefaults';
 
@@ -176,6 +179,42 @@ describe('options transfer normalizer', () => {
     expect(normalized.vaultRouter?.vaults[0]?.apiKey).toBe('');
     expect(getScreenshotAttachment(normalized)).toEqual(screenshotAttachmentSettings);
   });
+
+  it.each(['portable', 'fullBackup'] satisfies ConfigTransferMode[])(
+    'removes device-local vault bindings from %s exports',
+    (mode) => {
+      const normalized = normalizeOptionsForTransfer(
+        {
+          rest: {
+            vault: 'MainVault',
+            localFolderId: 'folder-main',
+            localFolderName: 'Local Main'
+          },
+          vaultRouter: {
+            defaultVaultId: 'main',
+            vaults: [
+              {
+                id: 'main',
+                name: 'MainVault',
+                vault: 'MainVault',
+                httpsUrl: '',
+                httpUrl: '',
+                apiKey: '',
+                localFolderId: 'folder-main',
+                localFolderName: 'Local Main'
+              }
+            ]
+          }
+        },
+        { mode }
+      );
+
+      expect(normalized.rest).not.toHaveProperty('localFolderId');
+      expect(normalized.rest).not.toHaveProperty('localFolderName');
+      expect(normalized.vaultRouter?.vaults[0]).not.toHaveProperty('localFolderId');
+      expect(normalized.vaultRouter?.vaults[0]).not.toHaveProperty('localFolderName');
+    }
+  );
 
   it('preserves sensitive fields in explicit fullBackup mode without preserving unknown keys', () => {
     const normalized = normalizeOptionsForTransfer(

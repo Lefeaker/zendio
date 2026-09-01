@@ -477,6 +477,29 @@ describe('mountProductionStitchShell actions', () => {
     );
   });
 
+  it('keeps the local-folder clear action owned until its durable acknowledgement settles', async () => {
+    const pendingClear = deferred<void>();
+    const { runtime, clearVaultLocalFolderMock } = createActionRuntimeHarness({
+      clearVaultLocalFolder: () => pendingClear.promise
+    });
+
+    runtime.dispatch('storage:deleteLocalFolder', [0]);
+    expect(clearVaultLocalFolderMock).toHaveBeenCalledTimes(1);
+    expect(clearVaultLocalFolderMock).toHaveBeenCalledWith(0);
+
+    let idleSettled = false;
+    const idle = runtime.waitForIdle().then(() => {
+      idleSettled = true;
+    });
+    await Promise.resolve();
+    expect(idleSettled).toBe(false);
+
+    pendingClear.resolve();
+    await idle;
+    expect(idleSettled).toBe(true);
+    expect(clearVaultLocalFolderMock).toHaveBeenCalledTimes(1);
+  });
+
   it('restores the active language and control when language persistence fails', async () => {
     const englishMessages = await createEnglishPageMessages({
       schemaOverviewInterfaceGroupTitle: 'English interface sentinel'

@@ -4,16 +4,26 @@ import {
   encodeStoredOptionsReplacement,
   type DecodedStoredOptions
 } from '../../shared/config/storedOptionsCodec';
-import {
-  plainStructuredDataEqual,
-  snapshotPlainStructuredData
-} from '../../shared/config/losslessObjectBoundary';
+import { snapshotPlainStructuredData } from '../../shared/config/losslessObjectBoundary';
 import type {
   PlainStructuredObject,
   PlainStructuredValue
 } from '../../shared/config/losslessObjectBoundaryTypes';
-import type { OptionsRawStorageRepository } from '../../infrastructure/repositories/ChromeOptionsRepository';
+import { composeDeviceLocalPrivacy } from '../../shared/config/deviceLocalPrivacy';
+import {
+  executeDeviceLocalVaultBindingMutation,
+  optionsRawSignature,
+  optionsValuesEqual,
+  optionsVerificationMatches
+} from '../../shared/config/deviceLocalVaultBindings';
+import { optionsEnvelopeBytes } from '../../infrastructure/repositories/ChromeOptionsRepository';
+import type {
+  DeviceLocalPrivacyCommitter,
+  OptionsMutationVerification,
+  OptionsRawStorageRepository
+} from '../../infrastructure/repositories/ChromeOptionsRepository';
 import type { IOptionsRepository } from '../../shared/repositories/IOptionsRepository';
+import type { DeviceLocalVaultCleanupJournal } from '../../shared/config/deviceLocalVaultCleanupJournal';
 import type { CompleteOptions, StoredOptions } from '../../shared/types/options';
 import {
   OptionsMutationError,
@@ -21,49 +31,30 @@ import {
   type OptionsMutationSuccessResult,
   type OptionsPatch
 } from '../../shared/types/optionsMutationMessages';
-
 const DEFAULT_OPTIONS_QUOTA_BYTES_PER_ITEM = 8_192;
 const DEFAULT_EXTERNAL_DRIFT_RETRIES = 2;
-
 export interface OptionsMutationCoordinatorOptions {
   quotaBytesPerItem?: number;
   maxExternalDriftRetries?: number;
   createOperationId?: () => string;
   yieldAfterWrite?: () => Promise<void>;
+  deviceLocalPrivacyCommitter?: DeviceLocalPrivacyCommitter;
+  deviceLocalVaultCleanupJournal?: DeviceLocalVaultCleanupJournal;
 }
-
 export interface BackgroundOptionsReader {
   get(): Promise<CompleteOptions>;
   readDecoded(): Promise<DecodedStoredOptions>;
   onChange(callback: (options: CompleteOptions) => void): () => void;
 }
-
-type Verification =
-  | { readonly kind: 'full'; readonly expected: PlainStructuredObject }
-  | {
-      readonly kind: 'paths';
-      readonly expected: ReadonlyArray<{
-        readonly path: readonly string[];
-        readonly value: PlainStructuredValue | undefined;
-      }>;
-    };
-
-function isObject(value: PlainStructuredValue | null): value is PlainStructuredObject {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
-
-function clone<T>(value: T): T {
-  if (value === undefined || value === null) return value;
-  return globalThis.structuredClone(value);
-}
-
+const isObject = (value: PlainStructuredValue | null): value is PlainStructuredObject =>
+  typeof value === 'object' && value !== null && !Array.isArray(value);
+const clone = <T>(value: T): T =>
+  value === undefined || value === null ? value : globalThis.structuredClone(value);
 function createDefaultOperationId(): string {
-  if (typeof globalThis.crypto?.randomUUID === 'function') {
-    return `options-${globalThis.crypto.randomUUID()}`;
-  }
-  return `options-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+  return typeof globalThis.crypto?.randomUUID === 'function'
+    ? `options-${globalThis.crypto.randomUUID()}`
+    : `options-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
 }
-
 function platformQuotaBytesPerItem(): number | undefined {
   if (typeof chrome === 'undefined') return undefined;
   const candidate = chrome.storage?.sync?.QUOTA_BYTES_PER_ITEM;
@@ -77,20 +68,6 @@ function resolveQuotaBytesPerItem(configured?: number): number {
     .filter((value): value is number => typeof value === 'number')
     .filter((value) => Number.isFinite(value) && value > 0);
   return Math.min(...candidates);
-}
-
-function envelopeBytes(raw: PlainStructuredObject): number {
-  return new TextEncoder().encode(JSON.stringify({ options: raw })).byteLength;
-}
-
-function rawSignature(raw: PlainStructuredObject): string {
-  const bytes = new TextEncoder().encode(JSON.stringify(raw));
-  let hash = 0x811c9dc5;
-  for (const byte of bytes) {
-    hash ^= byte;
-    hash = Math.imul(hash, 0x01000193) >>> 0;
-  }
-  return `fnv1a32:${hash.toString(16).padStart(8, '0')}:${bytes.byteLength}`;
 }
 
 function readPath(
@@ -108,23 +85,10 @@ function readPath(
   return current;
 }
 
-type ComparableValue = Parameters<typeof plainStructuredDataEqual>[0];
-
-function valuesEqual(left: ComparableValue, right: ComparableValue): boolean {
-  if (left === undefined || right === undefined) return left === right;
-  const comparison = plainStructuredDataEqual(left, right);
-  return comparison.ok && comparison.equal;
-}
-
-function verificationMatches(raw: PlainStructuredObject, verification: Verification): boolean {
-  if (verification.kind === 'full') return valuesEqual(raw, verification.expected);
-  return verification.expected.every(({ path, value }) => valuesEqual(readPath(raw, path), value));
-}
-
 function expectedPatchValues(
   raw: PlainStructuredObject,
   patches: readonly OptionsPatch[]
-): Verification {
+): Extract<OptionsMutationVerification, { kind: 'paths' }> {
   const paths = new Map<string, readonly string[]>();
   for (const patch of patches) paths.set(JSON.stringify(patch.path), patch.path);
   return {
@@ -133,7 +97,9 @@ function expectedPatchValues(
   };
 }
 
-function migrationVerification(raw: PlainStructuredObject): Verification {
+function migrationVerification(
+  raw: PlainStructuredObject
+): Extract<OptionsMutationVerification, { kind: 'paths' }> {
   const decoded = decodeStoredOptions(raw);
   const sections = new Set(decoded.migrations.map((migration) => migration.section));
   return {
@@ -160,10 +126,11 @@ export class OptionsMutationCoordinator {
   private readonly maxExternalDriftRetries: number;
   private readonly createOperationId: () => string;
   private readonly yieldAfterWrite: () => Promise<void>;
+  private readonly deviceLocalPrivacyCommitter: DeviceLocalPrivacyCommitter | undefined;
 
   constructor(
     private readonly repository: OptionsRawStorageRepository,
-    options: OptionsMutationCoordinatorOptions = {}
+    private readonly options: OptionsMutationCoordinatorOptions = {}
   ) {
     this.quotaBytesPerItem = resolveQuotaBytesPerItem(options.quotaBytesPerItem);
     this.maxExternalDriftRetries =
@@ -172,6 +139,7 @@ export class OptionsMutationCoordinator {
     this.yieldAfterWrite =
       options.yieldAfterWrite ??
       (() => new Promise<void>((resolve) => globalThis.setTimeout(resolve, 0)));
+    this.deviceLocalPrivacyCommitter = options.deviceLocalPrivacyCommitter;
   }
 
   execute(command: OptionsMutationCommand): Promise<OptionsMutationSuccessResult> {
@@ -216,13 +184,44 @@ export class OptionsMutationCoordinator {
     command: OptionsMutationCommand
   ): Promise<OptionsMutationSuccessResult> {
     const operationId = this.createOperationId();
+    const vaultResult = this.deviceLocalPrivacyCommitter
+      ? await executeDeviceLocalVaultBindingMutation(
+          command,
+          this.repository,
+          this.deviceLocalPrivacyCommitter,
+          this.quotaBytesPerItem,
+          operationId,
+          this.options.deviceLocalVaultCleanupJournal,
+          (raw, queued) => this.applyCommand(raw, queued)
+        )
+      : null;
+    if (vaultResult) return vaultResult;
+    if (this.deviceLocalPrivacyCommitter) {
+      try {
+        const result = await this.deviceLocalPrivacyCommitter.execute(
+          command,
+          (raw, queuedCommand) => this.applyCommand(raw, queuedCommand),
+          this.quotaBytesPerItem
+        );
+        const runtime = decodeStoredOptions(result.raw).runtime;
+        return {
+          snapshot: result.privacy ? composeDeviceLocalPrivacy(runtime, result.privacy) : runtime,
+          operationId,
+          rawSignature: optionsRawSignature(result.raw),
+          didWrite: result.didWrite
+        };
+      } catch (error) {
+        if (error instanceof OptionsMutationError) throw error;
+        throw new OptionsMutationError('OPTIONS_STORAGE_FAILURE');
+      }
+    }
     return this.writeWithRetry(operationId, (raw) => this.applyCommand(raw, command));
   }
 
   private applyCommand(
     raw: PlainStructuredObject,
     command: OptionsMutationCommand
-  ): { next: PlainStructuredObject; verification: Verification } {
+  ): { next: PlainStructuredObject; verification: OptionsMutationVerification } {
     if (command.kind === 'patch') {
       let next = raw;
       for (const patch of command.patches) {
@@ -276,7 +275,7 @@ export class OptionsMutationCoordinator {
     operationId: string,
     createMutation: (raw: PlainStructuredObject) => {
       next: PlainStructuredObject;
-      verification: Verification;
+      verification: OptionsMutationVerification;
     }
   ): Promise<OptionsMutationSuccessResult> {
     for (let attempt = 0; attempt <= this.maxExternalDriftRetries; attempt += 1) {
@@ -288,26 +287,26 @@ export class OptionsMutationCoordinator {
         throw new OptionsMutationError('OPTIONS_STORAGE_FAILURE');
       }
       const { next, verification } = createMutation(raw);
-      if (valuesEqual(raw, next)) {
+      if (optionsValuesEqual(raw, next)) {
         return {
           snapshot: decodeStoredOptions(next).runtime,
           operationId,
-          rawSignature: rawSignature(next),
+          rawSignature: optionsRawSignature(next),
           didWrite: false
         };
       }
-      if (envelopeBytes(next) > this.quotaBytesPerItem) {
+      if (optionsEnvelopeBytes(next) > this.quotaBytesPerItem) {
         throw new OptionsMutationError('OPTIONS_QUOTA_EXCEEDED');
       }
       try {
         await this.repository.writeRaw(next);
         await this.yieldAfterWrite();
         const readback = normalizeRaw(await this.repository.readRaw());
-        if (verificationMatches(readback, verification)) {
+        if (optionsVerificationMatches(readback, verification)) {
           return {
             snapshot: decodeStoredOptions(readback).runtime,
             operationId,
-            rawSignature: rawSignature(readback),
+            rawSignature: optionsRawSignature(readback),
             didWrite: true
           };
         }

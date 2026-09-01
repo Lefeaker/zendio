@@ -308,6 +308,41 @@ describe('configTransfer service', () => {
     expect(parsed.options.vaultRouter?.vaults[0]?.apiKey).toBe('VAULT_SECRET_TOKEN');
   });
 
+  it('strips machine-local vault bindings from imported configuration', () => {
+    const parsed = parseConfigInput(
+      JSON.stringify({
+        version: 2,
+        options: {
+          rest: {
+            vault: 'MainVault',
+            localFolderId: 'foreign-folder',
+            localFolderName: 'Foreign Folder'
+          },
+          vaultRouter: {
+            defaultVaultId: 'main',
+            vaults: [
+              {
+                id: 'main',
+                name: 'MainVault',
+                vault: 'MainVault',
+                httpsUrl: '',
+                httpUrl: '',
+                apiKey: '',
+                localFolderId: 'foreign-folder',
+                localFolderName: 'Foreign Folder'
+              }
+            ]
+          }
+        }
+      })
+    );
+
+    expect(parsed.options.rest).not.toHaveProperty('localFolderId');
+    expect(parsed.options.rest).not.toHaveProperty('localFolderName');
+    expect(parsed.options.vaultRouter?.vaults[0]).not.toHaveProperty('localFolderId');
+    expect(parsed.options.vaultRouter?.vaults[0]).not.toHaveProperty('localFolderName');
+  });
+
   it('round-trips a full optional taxonomy through strict import without stripping data', () => {
     const taxonomy = {
       version: '2.0.0',

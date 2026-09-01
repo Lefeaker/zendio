@@ -5,13 +5,27 @@ import {
   type OptionsMutationCoordinatorOptions
 } from '../../../src/background/services/optionsMutationCoordinator';
 import { decodeStoredOptions } from '../../../src/shared/config/storedOptionsCodec';
-import type { OptionsRawStorageRepository } from '../../../src/infrastructure/repositories/ChromeOptionsRepository';
+import { captureDeviceLocalVaultBindings } from '../../../src/shared/config/deviceLocalVaultBindings';
+import { createMemoryStorageService } from '../../../src/platform/preview/memoryStorage';
+import {
+  DEVICE_LOCAL_VAULT_CLEANUP_JOURNAL_KEY,
+  DeviceLocalVaultCleanupJournal
+} from '../../../src/shared/config/deviceLocalVaultCleanupJournal';
+import type {
+  DeviceLocalVaultBindingRepository,
+  DeviceLocalPrivacyCommitter,
+  OptionsRawStorageRepository
+} from '../../../src/infrastructure/repositories/ChromeOptionsRepository';
+import type { DeviceLocalVaultBindingSnapshot } from '../../../src/shared/config/deviceLocalVaultBindings';
 import type {
   PlainStructuredObject,
   PlainStructuredValue
 } from '../../../src/shared/config/losslessObjectBoundaryTypes';
 import type { CompleteOptions } from '../../../src/shared/types/options';
-import { OptionsMutationError } from '../../../src/shared/types/optionsMutationMessages';
+import {
+  OptionsMutationError,
+  type OptionsPatch
+} from '../../../src/shared/types/optionsMutationMessages';
 
 function clone<T>(value: T): T {
   return structuredClone(value);
@@ -38,6 +52,24 @@ class RawRepository implements OptionsRawStorageRepository {
   }
 }
 
+class VaultRawRepository extends RawRepository implements DeviceLocalVaultBindingRepository {
+  bindings: DeviceLocalVaultBindingSnapshot = { version: 1, bindings: {} };
+  failNextBindingWrite = false;
+
+  readVaultBindings(): Promise<DeviceLocalVaultBindingSnapshot> {
+    return Promise.resolve(clone(this.bindings));
+  }
+
+  writeVaultBindings(snapshot: DeviceLocalVaultBindingSnapshot): Promise<void> {
+    if (this.failNextBindingWrite) {
+      this.failNextBindingWrite = false;
+      return Promise.reject(new Error('binding write failed'));
+    }
+    this.bindings = clone(snapshot);
+    return Promise.resolve();
+  }
+}
+
 function createCoordinator(
   repository: RawRepository,
   options: OptionsMutationCoordinatorOptions = {}
@@ -50,6 +82,576 @@ function createCoordinator(
 }
 
 describe('OptionsMutationCoordinator', () => {
+  it('does not recapture the composed REST binding during an explicit vaultRouter clear', () => {
+    const runtime = decodeStoredOptions({}).runtime;
+    runtime.rest.localFolderId = 'folder-old';
+    runtime.rest.localFolderName = 'Old Folder';
+    runtime.vaultRouter = {
+      defaultVaultId: 'primary',
+      vaults: [
+        {
+          id: 'primary',
+          name: 'Primary',
+          vault: 'Primary',
+          httpsUrl: '',
+          httpUrl: '',
+          apiKey: ''
+        }
+      ]
+    };
+
+    expect(captureDeviceLocalVaultBindings(runtime, 'vaultRouter')).toEqual({
+      version: 1,
+      bindings: {}
+    });
+  });
+
+  it('stores selected vault bindings locally while the privacy owner scrubs synchronized bytes', async () => {
+    let portable: PlainStructuredObject = {
+      privacyPreferences: { analytics: false, errorReporting: false, debugMode: false },
+      opaqueRoot: { keep: true }
+    };
+    const repository = new VaultRawRepository(portable);
+    const privacy = { analytics: false, errorReporting: false, debugMode: false };
+    const execute: DeviceLocalPrivacyCommitter['execute'] = (command, applyCommand) => {
+      const mutation = applyCommand({ ...portable, privacyPreferences: privacy }, command);
+      portable = { ...mutation.next };
+      delete portable.privacyPreferences;
+      repository.raw = clone(portable);
+      return Promise.resolve({ raw: portable, privacy, didWrite: true });
+    };
+    const coordinator = createCoordinator(repository, {
+      deviceLocalPrivacyCommitter: { execute }
+    });
+
+    const result = await coordinator.patch([
+      {
+        path: ['vaultRouter'],
+        value: {
+          defaultVaultId: 'primary',
+          vaults: [
+            {
+              id: 'primary',
+              name: 'Primary',
+              vault: 'Primary',
+              httpsUrl: '',
+              httpUrl: '',
+              apiKey: '',
+              localFolderId: 'folder-primary',
+              localFolderName: 'Primary Folder'
+            }
+          ]
+        }
+      }
+    ]);
+
+    expect(repository.raw).toEqual({
+      vaultRouter: {
+        defaultVaultId: 'primary',
+        vaults: [
+          {
+            id: 'primary',
+            name: 'Primary',
+            vault: 'Primary',
+            httpsUrl: '',
+            httpUrl: '',
+            apiKey: ''
+          }
+        ]
+      },
+      opaqueRoot: { keep: true }
+    });
+    expect(repository.bindings.bindings).toEqual({
+      primary: { folderId: 'folder-primary', folderName: 'Primary Folder' }
+    });
+    expect(result.snapshot.vaultRouter?.vaults[0]?.localFolderId).toBe('folder-primary');
+    expect(result.snapshot.privacyPreferences).toEqual(privacy);
+  });
+
+  it('does not commit synchronized options or privacy when the local vault binding write fails', async () => {
+    const originalRaw: PlainStructuredObject = {
+      privacyPreferences: { analytics: false, errorReporting: false, debugMode: false },
+      vaultRouter: {
+        defaultVaultId: 'primary',
+        vaults: [
+          {
+            id: 'primary',
+            name: 'Primary',
+            vault: 'Primary',
+            httpsUrl: '',
+            httpUrl: '',
+            apiKey: ''
+          }
+        ]
+      },
+      opaqueRoot: { keep: true }
+    };
+    const repository = new VaultRawRepository(originalRaw);
+    repository.bindings = {
+      version: 1,
+      bindings: { primary: { folderId: 'folder-old', folderName: 'Old Folder' } }
+    };
+    repository.failNextBindingWrite = true;
+    let privacy = { analytics: false, errorReporting: false, debugMode: false };
+    const execute = vi.fn<DeviceLocalPrivacyCommitter['execute']>((command, applyCommand) => {
+      const mutation = applyCommand({ ...originalRaw, privacyPreferences: privacy }, command);
+      privacy = clone(decodeStoredOptions(mutation.next).runtime.privacyPreferences);
+      repository.raw = clone(mutation.next);
+      return Promise.resolve({ raw: mutation.next, privacy, didWrite: true });
+    });
+    const coordinator = createCoordinator(repository, {
+      deviceLocalPrivacyCommitter: { execute }
+    });
+
+    await expect(
+      coordinator.patch([
+        { path: ['privacyPreferences', 'analytics'], value: true },
+        {
+          path: ['vaultRouter'],
+          value: {
+            defaultVaultId: 'primary',
+            vaults: [
+              {
+                id: 'primary',
+                name: 'Primary',
+                vault: 'Primary',
+                httpsUrl: '',
+                httpUrl: '',
+                apiKey: '',
+                localFolderId: 'folder-new',
+                localFolderName: 'New Folder'
+              }
+            ]
+          }
+        }
+      ])
+    ).rejects.toEqual(new OptionsMutationError('OPTIONS_STORAGE_FAILURE'));
+
+    expect(execute).not.toHaveBeenCalled();
+    expect(repository.raw).toEqual(originalRaw);
+    expect(repository.bindings).toEqual({
+      version: 1,
+      bindings: { primary: { folderId: 'folder-old', folderName: 'Old Folder' } }
+    });
+    expect(privacy).toEqual({ analytics: false, errorReporting: false, debugMode: false });
+  });
+
+  it('restores the previous vault binding when the coordinated commit fails', async () => {
+    const originalRaw: PlainStructuredObject = {
+      vaultRouter: {
+        defaultVaultId: 'primary',
+        vaults: [
+          {
+            id: 'primary',
+            name: 'Primary',
+            vault: 'Primary',
+            httpsUrl: '',
+            httpUrl: '',
+            apiKey: ''
+          }
+        ]
+      },
+      opaqueRoot: { keep: true }
+    };
+    const repository = new VaultRawRepository(originalRaw);
+    repository.bindings = {
+      version: 1,
+      bindings: { primary: { folderId: 'folder-old', folderName: 'Old Folder' } }
+    };
+    const execute = vi.fn<DeviceLocalPrivacyCommitter['execute']>(() =>
+      Promise.reject(new OptionsMutationError('OPTIONS_STORAGE_FAILURE'))
+    );
+    const coordinator = createCoordinator(repository, {
+      deviceLocalPrivacyCommitter: { execute }
+    });
+
+    await expect(
+      coordinator.patch([
+        {
+          path: ['vaultRouter'],
+          value: {
+            defaultVaultId: 'primary',
+            vaults: [
+              {
+                id: 'primary',
+                name: 'Primary',
+                vault: 'Primary',
+                httpsUrl: '',
+                httpUrl: '',
+                apiKey: '',
+                localFolderId: 'folder-new',
+                localFolderName: 'New Folder'
+              }
+            ]
+          }
+        }
+      ])
+    ).rejects.toEqual(new OptionsMutationError('OPTIONS_STORAGE_FAILURE'));
+
+    expect(execute).toHaveBeenCalledOnce();
+    expect(repository.raw).toEqual(originalRaw);
+    expect(repository.bindings).toEqual({
+      version: 1,
+      bindings: { primary: { folderId: 'folder-old', folderName: 'Old Folder' } }
+    });
+  });
+
+  it('journals a removed handle before clearing its binding and acknowledges before deletion', async () => {
+    const originalRaw: PlainStructuredObject = {
+      rest: {
+        vault: 'Primary',
+        httpsUrl: '',
+        httpUrl: '',
+        apiKey: ''
+      },
+      vaultRouter: {
+        defaultVaultId: 'primary',
+        vaults: [
+          {
+            id: 'primary',
+            name: 'Primary',
+            vault: 'Primary',
+            httpsUrl: '',
+            httpUrl: '',
+            apiKey: ''
+          }
+        ]
+      },
+      opaqueRoot: { keep: true }
+    };
+    const repository = new VaultRawRepository(originalRaw);
+    repository.bindings = {
+      version: 1,
+      bindings: { primary: { folderId: 'folder-old', folderName: 'Old Folder' } }
+    };
+    const storage = createMemoryStorageService();
+    let releaseCleanup: (() => void) | undefined;
+    const removeDirectory = vi.fn(
+      () =>
+        new Promise<void>((resolve) => {
+          releaseCleanup = resolve;
+        })
+    );
+    const journal = new DeviceLocalVaultCleanupJournal(
+      storage.local,
+      () => repository.readVaultBindings(),
+      removeDirectory
+    );
+    const journalWrite = vi.spyOn(storage.local, 'set');
+    const bindingWrite = vi.spyOn(repository, 'writeVaultBindings');
+    const execute = vi.fn<DeviceLocalPrivacyCommitter['execute']>((command, applyCommand) => {
+      const mutation = applyCommand(originalRaw, command);
+      repository.raw = clone(mutation.next);
+      return Promise.resolve({ raw: mutation.next, didWrite: true });
+    });
+    const coordinator = createCoordinator(repository, {
+      deviceLocalPrivacyCommitter: { execute },
+      deviceLocalVaultCleanupJournal: journal
+    });
+
+    await coordinator.patch([
+      {
+        path: ['vaultRouter'],
+        value: {
+          defaultVaultId: 'primary',
+          vaults: [
+            {
+              id: 'primary',
+              name: 'Primary',
+              vault: 'Primary',
+              httpsUrl: '',
+              httpUrl: '',
+              apiKey: ''
+            }
+          ]
+        }
+      }
+    ]);
+
+    expect(journalWrite.mock.invocationCallOrder[0]).toBeLessThan(
+      bindingWrite.mock.invocationCallOrder[0] ?? Number.POSITIVE_INFINITY
+    );
+    expect(repository.bindings).toEqual({ version: 1, bindings: {} });
+    expect(repository.raw).toEqual(originalRaw);
+    await vi.waitFor(() => expect(removeDirectory).toHaveBeenCalledWith('folder-old'));
+    await expect(storage.local.get(DEVICE_LOCAL_VAULT_CLEANUP_JOURNAL_KEY)).resolves.toEqual({
+      version: 1,
+      folderIds: ['folder-old']
+    });
+
+    releaseCleanup?.();
+    await journal.retryPending();
+    await expect(
+      storage.local.get(DEVICE_LOCAL_VAULT_CLEANUP_JOURNAL_KEY)
+    ).resolves.toBeUndefined();
+  });
+
+  it('does not change bindings or synchronized state when the journal cannot become durable', async () => {
+    const originalRaw: PlainStructuredObject = {
+      vaultRouter: {
+        defaultVaultId: 'primary',
+        vaults: [
+          {
+            id: 'primary',
+            name: 'Primary',
+            vault: 'Primary',
+            httpsUrl: '',
+            httpUrl: '',
+            apiKey: ''
+          }
+        ]
+      },
+      opaqueRoot: { keep: true }
+    };
+    const repository = new VaultRawRepository(originalRaw);
+    repository.bindings = {
+      version: 1,
+      bindings: { primary: { folderId: 'folder-old', folderName: 'Old Folder' } }
+    };
+    const storage = createMemoryStorageService();
+    storage.local.set = vi.fn(() => Promise.reject(new Error('local storage unavailable')));
+    const journal = new DeviceLocalVaultCleanupJournal(
+      storage.local,
+      () => repository.readVaultBindings(),
+      () => Promise.resolve()
+    );
+    const execute = vi.fn<DeviceLocalPrivacyCommitter['execute']>();
+    const coordinator = createCoordinator(repository, {
+      deviceLocalPrivacyCommitter: { execute },
+      deviceLocalVaultCleanupJournal: journal
+    });
+
+    await expect(
+      coordinator.patch([
+        {
+          path: ['vaultRouter'],
+          value: {
+            defaultVaultId: 'primary',
+            vaults: [
+              {
+                id: 'primary',
+                name: 'Primary',
+                vault: 'Primary',
+                httpsUrl: '',
+                httpUrl: '',
+                apiKey: ''
+              }
+            ]
+          }
+        }
+      ])
+    ).rejects.toEqual(new OptionsMutationError('OPTIONS_STORAGE_FAILURE'));
+
+    expect(execute).not.toHaveBeenCalled();
+    expect(repository.raw).toEqual(originalRaw);
+    expect(repository.bindings).toEqual({
+      version: 1,
+      bindings: { primary: { folderId: 'folder-old', folderName: 'Old Folder' } }
+    });
+  });
+
+  it('retries a durable failed cleanup from a fresh coordinator', async () => {
+    const repository = new VaultRawRepository({ opaqueRoot: { keep: true } });
+    const storage = createMemoryStorageService();
+    await storage.local.set(DEVICE_LOCAL_VAULT_CLEANUP_JOURNAL_KEY, {
+      version: 1,
+      folderIds: ['folder-old']
+    });
+    const removeDirectory = vi
+      .fn<(folderId: string) => Promise<void>>()
+      .mockRejectedValueOnce(new Error('indexeddb transaction aborted'))
+      .mockResolvedValue(undefined);
+    const warning = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    const createFreshJournal = () =>
+      new DeviceLocalVaultCleanupJournal(
+        storage.local,
+        () => repository.readVaultBindings(),
+        removeDirectory
+      );
+
+    await createFreshJournal().retryPending();
+    await expect(storage.local.get(DEVICE_LOCAL_VAULT_CLEANUP_JOURNAL_KEY)).resolves.toEqual({
+      version: 1,
+      folderIds: ['folder-old']
+    });
+
+    await createFreshJournal().retryPending();
+
+    expect(removeDirectory).toHaveBeenCalledTimes(2);
+    await expect(
+      storage.local.get(DEVICE_LOCAL_VAULT_CLEANUP_JOURNAL_KEY)
+    ).resolves.toBeUndefined();
+    expect(warning).toHaveBeenCalled();
+  });
+
+  it('cancels a pending cleanup intent when the same handle is rebound through the FIFO', async () => {
+    const originalRaw: PlainStructuredObject = {
+      vaultRouter: {
+        defaultVaultId: 'primary',
+        vaults: [
+          {
+            id: 'primary',
+            name: 'Primary',
+            vault: 'Primary',
+            httpsUrl: '',
+            httpUrl: '',
+            apiKey: ''
+          }
+        ]
+      }
+    };
+    const repository = new VaultRawRepository(originalRaw);
+    const storage = createMemoryStorageService();
+    await storage.local.set(DEVICE_LOCAL_VAULT_CLEANUP_JOURNAL_KEY, {
+      version: 1,
+      folderIds: ['folder-old']
+    });
+    const removeDirectory = vi.fn(() => Promise.resolve());
+    const journal = new DeviceLocalVaultCleanupJournal(
+      storage.local,
+      () => repository.readVaultBindings(),
+      removeDirectory
+    );
+    const execute = vi.fn<DeviceLocalPrivacyCommitter['execute']>((command, applyCommand) => {
+      const mutation = applyCommand(originalRaw, command);
+      repository.raw = clone(mutation.next);
+      return Promise.resolve({ raw: mutation.next, didWrite: true });
+    });
+    const coordinator = createCoordinator(repository, {
+      deviceLocalPrivacyCommitter: { execute },
+      deviceLocalVaultCleanupJournal: journal
+    });
+
+    await coordinator.patch([
+      {
+        path: ['vaultRouter'],
+        value: {
+          defaultVaultId: 'primary',
+          vaults: [
+            {
+              id: 'primary',
+              name: 'Primary',
+              vault: 'Primary',
+              httpsUrl: '',
+              httpUrl: '',
+              apiKey: '',
+              localFolderId: 'folder-old',
+              localFolderName: 'Old Folder'
+            }
+          ]
+        }
+      }
+    ]);
+
+    expect(repository.bindings).toEqual({
+      version: 1,
+      bindings: { primary: { folderId: 'folder-old', folderName: 'Old Folder' } }
+    });
+    await expect(
+      storage.local.get(DEVICE_LOCAL_VAULT_CLEANUP_JOURNAL_KEY)
+    ).resolves.toBeUndefined();
+    expect(removeDirectory).not.toHaveBeenCalled();
+  });
+
+  it('stores privacy patches locally and scrubs the synchronized mirror', async () => {
+    let portable: PlainStructuredObject = {
+      interfaceTheme: 'system',
+      privacyPreferences: {
+        analytics: false,
+        errorReporting: true,
+        debugMode: false
+      },
+      opaqueRoot: { keep: true }
+    };
+    const repository = new RawRepository(portable);
+    let privacy = { analytics: false, errorReporting: false, debugMode: false };
+    const execute = vi.fn<DeviceLocalPrivacyCommitter['execute']>((command, applyCommand) => {
+      const mutation = applyCommand({ ...portable, privacyPreferences: privacy }, command);
+      if (
+        command.kind === 'patch' &&
+        command.patches.some((patch: OptionsPatch) => patch.path[0] === 'privacyPreferences')
+      ) {
+        privacy = clone(decodeStoredOptions(mutation.next).runtime.privacyPreferences);
+      }
+      portable = { ...mutation.next };
+      delete portable.privacyPreferences;
+      repository.raw = clone(portable);
+      return Promise.resolve({ raw: portable, privacy, didWrite: true });
+    });
+    const coordinatorOptions = {
+      yieldAfterWrite: () => Promise.resolve(),
+      deviceLocalPrivacyCommitter: { execute }
+    };
+    const coordinator = createCoordinator(repository, coordinatorOptions);
+
+    const result = await coordinator.patch([
+      { path: ['privacyPreferences', 'analytics'], value: true },
+      { path: ['privacyPreferences', 'errorReporting'], value: false },
+      { path: ['privacyPreferences', 'debugMode'], value: true }
+    ]);
+
+    expect(repository.raw).toEqual({
+      interfaceTheme: 'system',
+      opaqueRoot: { keep: true }
+    });
+    expect(result.snapshot.privacyPreferences).toEqual({
+      analytics: true,
+      errorReporting: false,
+      debugMode: false
+    });
+
+    const replacement = await coordinator.replace({ interfaceTheme: 'dark' });
+    expect(repository.raw).toEqual({ interfaceTheme: 'dark' });
+    expect(replacement.snapshot.privacyPreferences).toEqual(privacy);
+    expect(execute).toHaveBeenCalledTimes(2);
+  });
+
+  it('rolls back staged privacy when the synchronized scrub fails', async () => {
+    const originalRaw = {
+      privacyPreferences: { analytics: false, errorReporting: false, debugMode: false },
+      opaqueRoot: { keep: true }
+    };
+    const repository = new RawRepository(originalRaw);
+    repository.failNextWrite = true;
+    const execute: DeviceLocalPrivacyCommitter['execute'] = vi.fn(() =>
+      Promise.reject(new OptionsMutationError('OPTIONS_STORAGE_FAILURE'))
+    );
+    const coordinator = createCoordinator(repository, {
+      deviceLocalPrivacyCommitter: { execute }
+    });
+
+    await expect(
+      coordinator.patch([{ path: ['privacyPreferences', 'analytics'], value: true }])
+    ).rejects.toEqual(new OptionsMutationError('OPTIONS_STORAGE_FAILURE'));
+
+    expect(repository.raw).toEqual(originalRaw);
+    expect(execute).toHaveBeenCalledOnce();
+  });
+
+  it('restores the synchronized mirror when the local privacy commit fails', async () => {
+    const originalRaw = {
+      privacyPreferences: { analytics: false, errorReporting: false, debugMode: false },
+      opaqueRoot: { keep: true }
+    };
+    const repository = new RawRepository(originalRaw);
+    const execute: DeviceLocalPrivacyCommitter['execute'] = vi.fn(async () => {
+      await repository.writeRaw({ opaqueRoot: { keep: true } });
+      await repository.writeRaw(originalRaw);
+      throw new OptionsMutationError('OPTIONS_STORAGE_FAILURE');
+    });
+    const coordinator = createCoordinator(repository, {
+      deviceLocalPrivacyCommitter: { execute }
+    });
+
+    await expect(
+      coordinator.patch([{ path: ['privacyPreferences', 'analytics'], value: true }])
+    ).rejects.toEqual(new OptionsMutationError('OPTIONS_STORAGE_FAILURE'));
+
+    expect(repository.raw).toEqual(originalRaw);
+    expect(repository.writes).toEqual([{ opaqueRoot: { keep: true } }, originalRaw]);
+    expect(execute).toHaveBeenCalledOnce();
+  });
+
   it('serializes disjoint patches and preserves opaque or malformed untouched roots', async () => {
     const repository = new RawRepository({
       templates: { article: 'Before' },

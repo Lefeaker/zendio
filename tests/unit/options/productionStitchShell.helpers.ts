@@ -212,7 +212,11 @@ export function createMessaging(result: unknown = undefined) {
   };
 }
 
-export function createActionRuntimeHarness() {
+export function createActionRuntimeHarness(
+  overrides: {
+    clearVaultLocalFolder?: (index: number) => Promise<void>;
+  } = {}
+) {
   const mountRoot = document.createElement('div');
   document.body.append(mountRoot);
 
@@ -222,6 +226,9 @@ export function createActionRuntimeHarness() {
   const trackUsageEventMock = vi.fn(() => Promise.resolve(undefined));
   const scrollToPanelMock = vi.fn();
   const openResourceMock = vi.fn();
+  const clearVaultLocalFolderMock = vi.fn(
+    overrides.clearVaultLocalFolder ?? (() => Promise.resolve())
+  );
 
   const runtime = createProductionStitchShellActionRuntime({
     mountRoot,
@@ -296,7 +303,7 @@ export function createActionRuntimeHarness() {
       activateVaultLocalFolder: vi.fn(() => Promise.resolve()),
       applyConnectionNotice: vi.fn(),
       chooseVaultLocalFolder: vi.fn(() => Promise.resolve()),
-      clearVaultLocalFolder: vi.fn(),
+      clearVaultLocalFolder: clearVaultLocalFolderMock,
       ensureVaultRouter: vi.fn(() => ({ vaults: [], rules: [], defaultVaultId: '' })),
       runVaultListConnectionTest: vi.fn(() => Promise.resolve({ success: true, message: 'ok' })),
       syncRoutingRulesToDraft: vi.fn(),
@@ -311,6 +318,7 @@ export function createActionRuntimeHarness() {
 
   return {
     runtime,
+    clearVaultLocalFolderMock,
     scrollToPanelMock,
     openResourceMock,
     trackUsageEventMock

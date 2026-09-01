@@ -81,6 +81,55 @@ describe('production Stitch persistence action routing', () => {
     expect(importConfigurationWithStatus).toHaveBeenCalledWith(null);
   });
 
+  it('owns local-folder clear as one pending durable action task', async () => {
+    let releaseClear = (): void => undefined;
+    const clearVaultLocalFolder = vi.fn(
+      () =>
+        new Promise<void>((resolve) => {
+          releaseClear = resolve;
+        })
+    );
+    let ownedTask: (() => Promise<void>) | undefined;
+    const runPersistenceTask = vi.fn(
+      (_key: string, task: () => Promise<void>, _capture?: () => () => void) => {
+        ownedTask = task;
+      }
+    );
+    const actions = createProductionStitchActions(
+      asType<ProductionStitchActionContext>({
+        clearVaultLocalFolder,
+        getDraft: () => ({}),
+        getState: () => ({}),
+        runPersistenceTask
+      })
+    );
+
+    actions['storage:deleteLocalFolder'](
+      asType<Parameters<(typeof actions)['storage:deleteLocalFolder']>[0]>({ args: [2] })
+    );
+
+    expect(runPersistenceTask).toHaveBeenCalledWith(
+      'storage:deleteLocalFolder',
+      expect.any(Function)
+    );
+    expect(clearVaultLocalFolder).not.toHaveBeenCalled();
+    if (!ownedTask) throw new Error('Expected the clear action to register a durable task.');
+
+    let settled = false;
+    const running = ownedTask().then(() => {
+      settled = true;
+    });
+    expect(clearVaultLocalFolder).toHaveBeenCalledTimes(1);
+    expect(clearVaultLocalFolder).toHaveBeenCalledWith(2);
+    await Promise.resolve();
+    expect(settled).toBe(false);
+
+    releaseClear();
+    await running;
+    expect(settled).toBe(true);
+    expect(clearVaultLocalFolder).toHaveBeenCalledTimes(1);
+  });
+
   it('captures language rollback before the optimistic lane-head mutation', async () => {
     const state = { previewLanguage: 'en' };
     let activeLanguage = 'en';

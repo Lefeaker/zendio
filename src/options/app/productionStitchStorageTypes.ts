@@ -60,7 +60,7 @@ export interface ProductionStitchStorageController {
   activateVaultLocalFolder: (index: number) => Promise<void>;
   applyConnectionNotice: (result: ConnectionTestResult) => void;
   chooseVaultLocalFolder: (index: number) => Promise<void>;
-  clearVaultLocalFolder: (index: number) => void;
+  clearVaultLocalFolder: (index: number) => Promise<void>;
   ensureVaultRouter: () => VaultRouterConfig;
   runVaultListConnectionTest: () => Promise<ConnectionTestResult>;
   syncDefaultVaultFromRest: () => void;
