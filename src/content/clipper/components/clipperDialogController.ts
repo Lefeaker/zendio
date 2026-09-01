@@ -70,6 +70,7 @@ export interface ClipperDialogResult {
   action: ClipperDialogAction;
   comment: string;
   destination?: ExportDestinationMetadata;
+  destinationSelectionIsExplicit?: boolean;
 }
 export interface ClipperDialogOptions {
   allowReaderMode?: boolean;
@@ -405,19 +406,22 @@ export class ClipperDialog {
       event.preventDefault();
     }
   };
-
   private finalize(action: ClipperDialogAction, comment: string): void {
     const resolver = this.resolve;
     this.resolve = null;
     const destination = this.destinationState?.metadata;
-    resolver?.({
+    const result: ClipperDialogResult = {
       action,
       comment,
       ...(destination ? { destination } : {})
-    });
+    };
+    if (destination && action !== 'clip' && action !== 'cancel')
+      Object.defineProperty(result, 'destinationSelectionIsExplicit', {
+        value: this.destinationState?.hasExplicitSelection ?? false
+      });
+    resolver?.(result);
     this.remove();
   }
-
   private detachDialogEventListeners(): void {
     this.lifecycleListeners.detachDialogEventListeners();
     this.detachDragHandlers();

@@ -174,38 +174,46 @@ describe('content selectionController service', () => {
     expect(args.commentHeading).toBe('Catalog Comment Heading');
   });
 
-  it('passes the selected export destination into confirmed selection clips', async () => {
-    promptMock.mockResolvedValue({
-      action: 'clip',
-      comment: '',
-      destination: { kind: 'downloads' }
-    });
-    const selection = createSelection('Selected text');
-    const clipResult: SelectionClipResult = {
-      type: 'clipper',
-      title: 'note',
-      pageTitle: 'note',
-      markdown: '# note',
-      meta: {
-        url: 'https://example.com/',
-        fragmentUrl: 'https://example.com/#:~:text=Selected%20text',
-        domain: 'example.com',
-        clippedAtISO: '1970-01-01T00:00:00.000Z',
-        hasComment: false,
-        selectedTextPreview: 'Selected text',
-        sourceUrl: 'https://example.com',
-        resolvedUrl: 'https://example.com/'
-      }
-    };
-    extractSelectionClipMock.mockResolvedValue(clipResult);
+  it.each([false, true, undefined])(
+    'passes the effective export destination into confirmed selection clips with provenance %s',
+    async (destinationSelectionIsExplicit) => {
+      promptMock.mockResolvedValue({
+        action: 'clip',
+        comment: '',
+        destination: { kind: 'downloads' },
+        ...(destinationSelectionIsExplicit === undefined ? {} : { destinationSelectionIsExplicit })
+      });
+      const selection = createSelection('Selected text');
+      const clipResult: SelectionClipResult = {
+        type: 'clipper',
+        title: 'note',
+        pageTitle: 'note',
+        markdown: '# note',
+        meta: {
+          url: 'https://example.com/',
+          fragmentUrl: 'https://example.com/#:~:text=Selected%20text',
+          domain: 'example.com',
+          clippedAtISO: '1970-01-01T00:00:00.000Z',
+          hasComment: false,
+          selectedTextPreview: 'Selected text',
+          sourceUrl: 'https://example.com',
+          resolvedUrl: 'https://example.com/'
+        }
+      };
+      extractSelectionClipMock.mockResolvedValue(clipResult);
 
-    const { controller } = await createController();
-    const result = await controller.handleSelectionClip(document, 'https://example.com', selection);
+      const { controller } = await createController();
+      const result = await controller.handleSelectionClip(
+        document,
+        'https://example.com',
+        selection
+      );
 
-    expect(result?.meta).toMatchObject({
-      exportDestination: { kind: 'downloads' }
-    });
-  });
+      expect(result?.meta).toMatchObject({
+        exportDestination: { kind: 'downloads' }
+      });
+    }
+  );
 
   it('throws when selection is empty', async () => {
     promptMock.mockResolvedValue({ action: 'clip', comment: '' });
@@ -266,11 +274,55 @@ describe('content selectionController service', () => {
     expect(readerSessionFactory).not.toHaveBeenCalled();
   });
 
-  it('passes the selected export destination into a new reader session', async () => {
+  it('does not pin an implicit default destination into a new reader session', async () => {
     promptMock.mockResolvedValue({
       action: 'reader',
       comment: 'note',
-      destination: { kind: 'vault', vaultId: 'research' }
+      destination: { kind: 'downloads' },
+      destinationSelectionIsExplicit: false
+    });
+    const selection = createSelection('Selected text');
+
+    const { controller, readerSessionFactory } = await createController();
+    await controller.handleSelectionClip(document, 'https://example.com', selection);
+
+    const readerSession = readerSessionFactory.mock.results[0]?.value;
+    expect(readerSession.start).toHaveBeenCalledWith(
+      expect.not.objectContaining({
+        destination: expect.anything()
+      })
+    );
+  });
+
+  it.each([{ kind: 'downloads' } as const, { kind: 'vault', vaultId: 'research' } as const])(
+    'pins an explicitly selected $kind destination into a new reader session',
+    async (destination) => {
+      promptMock.mockResolvedValue({
+        action: 'reader',
+        comment: 'note',
+        destination,
+        destinationSelectionIsExplicit: true
+      });
+      const selection = createSelection('Selected text');
+
+      const { controller, readerSessionFactory } = await createController();
+      await controller.handleSelectionClip(document, 'https://example.com', selection);
+
+      const readerSession = readerSessionFactory.mock.results[0]?.value;
+      expect(readerSession.start).toHaveBeenCalledWith(
+        expect.objectContaining({
+          comment: 'note',
+          destination
+        })
+      );
+    }
+  );
+
+  it('preserves legacy destination-bearing reader prompts without provenance', async () => {
+    promptMock.mockResolvedValue({
+      action: 'reader',
+      comment: 'note',
+      destination: { kind: 'vault', vaultId: 'legacy' }
     });
     const selection = createSelection('Selected text');
 
@@ -280,8 +332,7 @@ describe('content selectionController service', () => {
     const readerSession = readerSessionFactory.mock.results[0]?.value;
     expect(readerSession.start).toHaveBeenCalledWith(
       expect.objectContaining({
-        comment: 'note',
-        destination: { kind: 'vault', vaultId: 'research' }
+        destination: { kind: 'vault', vaultId: 'legacy' }
       })
     );
   });
