@@ -137,6 +137,48 @@ describe('OptionsController', () => {
     expect(savedOptions[0]?.rest?.baseUrl).toBe('https://async.example.com/');
   });
 
+  it('serializes a reversal behind an earlier pending durable autosave', async () => {
+    vi.useFakeTimers();
+
+    let releaseFirstSave: (() => void) | undefined;
+    saveMock
+      .mockImplementationOnce(
+        () =>
+          new Promise<void>((resolve) => {
+            releaseFirstSave = resolve;
+          })
+      )
+      .mockResolvedValue(undefined);
+
+    const controller = createOptionsController({
+      persistence,
+      formAdapter,
+      autoSaveDebounceMs: 10
+    });
+    await controller.loadInitialState();
+
+    const temporaryDraft = mergeOptions({ fragmentClipper: { captureContext: true } });
+    const baselineDraft = mergeOptions({ fragmentClipper: { captureContext: false } });
+
+    controller.scheduleAutoSave(() => temporaryDraft);
+    await vi.advanceTimersByTimeAsync(10);
+    expect(saveMock).toHaveBeenCalledTimes(1);
+
+    controller.scheduleAutoSave(() => baselineDraft);
+    await vi.advanceTimersByTimeAsync(10);
+
+    expect(saveMock).toHaveBeenCalledTimes(1);
+
+    releaseFirstSave?.();
+    await vi.waitFor(() => {
+      expect(saveMock).toHaveBeenCalledTimes(2);
+    });
+    expect(saveMock.mock.calls.map(([draft]) => draft.fragmentClipper?.captureContext)).toEqual([
+      true,
+      false
+    ]);
+  });
+
   it('uses strict replacement for imported configuration', async () => {
     const controller = createOptionsController({ persistence, formAdapter });
     await controller.loadInitialState();

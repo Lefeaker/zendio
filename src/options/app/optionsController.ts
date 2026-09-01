@@ -2,6 +2,10 @@ import type { CompleteOptions, StoredOptions } from '../../shared/types/options'
 import { deepClone } from '../utils/clone';
 import type { OptionsPersistenceService } from '../services/persistence';
 import type { OptionsFormAdapter } from '../components/optionsFormAdapter';
+import {
+  createOptionsControllerDurability,
+  type OptionsControllerDurability
+} from './optionsControllerDurability';
 
 export type SaveReason = 'manual' | 'auto' | 'import';
 
@@ -48,6 +52,7 @@ export class OptionsController {
   private readonly formAdapter: OptionsFormAdapter;
   private readonly autoSaveDebounceMs: number;
   private readonly callbacks: OptionsControllerCallbacks;
+  private readonly autoSaveDurability: OptionsControllerDurability;
   private unsubscribePersistence: (() => void) | null = null;
 
   constructor({
@@ -63,6 +68,11 @@ export class OptionsController {
     this.callbacks = buildCallbacks({
       ...(onSaveError !== undefined && { onSaveError }),
       ...(onSaveSuccess !== undefined && { onSaveSuccess })
+    });
+    this.autoSaveDurability = createOptionsControllerDurability({
+      persist: async (draft) => {
+        await this.saveSnapshot({ reason: 'auto', draft });
+      }
     });
 
     if (typeof persistence.subscribe === 'function') {
@@ -107,14 +117,8 @@ export class OptionsController {
           }
         }
 
-        const saveOptions: SaveSnapshotOptions =
-          draft === null || draft === undefined ? { reason: 'auto' } : { reason: 'auto', draft };
-
-        try {
-          await this.saveSnapshot(saveOptions);
-        } catch {
-          // saveSnapshot already triggers onSaveError callback; no further action required.
-        }
+        const desired = draft ?? this.formAdapter.read(this.snapshot);
+        this.autoSaveDurability.enqueue(desired);
       })();
     }, this.autoSaveDebounceMs);
   }

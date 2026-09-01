@@ -1,6 +1,9 @@
-import { expect, test } from '@playwright/test';
+import { chromium, expect, test, type Page } from '@playwright/test';
 import { readdirSync, statSync } from 'node:fs';
-import { join } from 'node:path';
+import { mkdtemp } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join, resolve } from 'node:path';
+import type { MessagePayload } from '../../src/platform/interfaces/messaging';
 import { SECTION_INVALIDATION_SCOPES } from '../../src/ui/stitch-runtime/render/sectionInvalidation';
 
 const ROUTING_TEMPLATE_ROWS = [
@@ -25,6 +28,63 @@ const ROUTING_TEMPLATE_ROWS = [
   ['template:updateValue', 'output'],
   ['template:insertToken', 'output']
 ] as const;
+
+const extensionPath = resolve(process.env.PLAYWRIGHT_DIST_DIR ?? 'build/dist');
+
+type OrderedAutosaveProbe = {
+  held: boolean;
+  released: boolean;
+  values: boolean[];
+  release(): void;
+};
+
+type B07GlobalThis = typeof global &
+  Window & {
+    __zendioB07OrderedAutosaveProbe?: OrderedAutosaveProbe;
+  };
+declare const globalThis: B07GlobalThis;
+
+type StoredCaptureContextResult = {
+  options?: { fragmentClipper?: { captureContext?: boolean } };
+};
+
+type RuntimeMessageCallback = (response: MessagePayload) => void;
+type RuntimeSendMessageArgs = [
+  message: MessagePayload,
+  optionsOrCallback?: chrome.runtime.MessageOptions | RuntimeMessageCallback,
+  callback?: RuntimeMessageCallback
+];
+type RuntimeSendMessage = <Arguments extends RuntimeSendMessageArgs>(
+  ...args: Arguments
+) => object | void;
+
+async function readOrderedAutosaveProbe(
+  page: Page
+): Promise<Omit<OrderedAutosaveProbe, 'release'>> {
+  return page.evaluate(() => {
+    const probe = globalThis.__zendioB07OrderedAutosaveProbe;
+    if (!probe) throw new Error('Ordered autosave probe was not installed.');
+    return { held: probe.held, released: probe.released, values: [...probe.values] };
+  });
+}
+
+async function readDurableCaptureContext(page: Page): Promise<boolean | undefined> {
+  return page.evaluate(async () => {
+    const result = await chrome.storage.sync.get<StoredCaptureContextResult>('options');
+    const options = result.options;
+    if (typeof options !== 'object' || options === null || Array.isArray(options)) return undefined;
+    const fragmentClipper = options.fragmentClipper;
+    if (
+      typeof fragmentClipper !== 'object' ||
+      fragmentClipper === null ||
+      Array.isArray(fragmentClipper)
+    ) {
+      return undefined;
+    }
+    const captureContext = fragmentClipper.captureContext;
+    return typeof captureContext === 'boolean' ? captureContext : undefined;
+  });
+}
 
 function optionsUrl(): string {
   const port = process.env.PLAYWRIGHT_WEB_SERVER_PORT ?? '4181';
@@ -528,4 +588,150 @@ test('lazy invalidation rejection recovers without an unhandled page error', asy
 
   expect(recovery).toEqual({ mainReplaced: true, panelCount: 6, storageRecovered: true });
   expect(pageErrors).toEqual([]);
+});
+
+test('Options serializes a durable reversal behind the held first transport', async () => {
+  const userDataDir = await mkdtemp(join(tmpdir(), 'zendio-b07-options-'));
+  const context = await chromium.launchPersistentContext(userDataDir, {
+    headless: false,
+    args: [
+      '--headless=new',
+      `--disable-extensions-except=${extensionPath}`,
+      `--load-extension=${extensionPath}`
+    ]
+  });
+
+  try {
+    const background =
+      context.serviceWorkers()[0] ??
+      (await context.waitForEvent('serviceworker', { timeout: 15_000 }));
+    const extensionId = background.url().split('/')[2];
+    if (!extensionId) throw new Error('Unable to resolve extension id.');
+
+    await background.evaluate(() =>
+      chrome.storage.sync.set({ options: { fragmentClipper: { captureContext: false } } })
+    );
+    await context.addInitScript(() => {
+      const runtime = globalThis.chrome?.runtime;
+      if (!runtime || typeof runtime.sendMessage !== 'function') return;
+
+      const originalSendMessage: RuntimeSendMessage = runtime.sendMessage.bind(runtime);
+      let pendingArgs: RuntimeSendMessageArgs | null = null;
+      const readCaptureContextPatch = (message: MessagePayload): boolean | undefined => {
+        if (typeof message !== 'object' || message === null || Array.isArray(message)) {
+          return undefined;
+        }
+        const record = message;
+        if (record.type !== 'ZENDIO_OPTIONS_MUTATION') return undefined;
+        const command = record.command;
+        if (typeof command !== 'object' || command === null || Array.isArray(command)) {
+          return undefined;
+        }
+        const patches = command.patches;
+        if (!Array.isArray(patches)) return undefined;
+        for (const patch of patches) {
+          if (typeof patch !== 'object' || patch === null || Array.isArray(patch)) continue;
+          const patchRecord = patch;
+          const patchPath = patchRecord.path;
+          if (
+            Array.isArray(patchPath) &&
+            patchPath.length === 2 &&
+            patchPath[0] === 'fragmentClipper' &&
+            patchPath[1] === 'captureContext' &&
+            typeof patchRecord.value === 'boolean'
+          ) {
+            return patchRecord.value;
+          }
+        }
+        return undefined;
+      };
+      const probe: OrderedAutosaveProbe = {
+        held: false,
+        released: false,
+        values: [],
+        release() {
+          if (!pendingArgs) throw new Error('No ordered autosave mutation is pending.');
+          const args = pendingArgs;
+          pendingArgs = null;
+          probe.released = true;
+          Reflect.apply(originalSendMessage, runtime, args);
+        }
+      };
+      const gatedSendMessage = (...args: RuntimeSendMessageArgs) => {
+        const captureContext = readCaptureContextPatch(args[0]);
+        if (captureContext !== undefined) probe.values.push(captureContext);
+        const callback = args.at(-1);
+        if (captureContext === true && !probe.held && typeof callback === 'function') {
+          probe.held = true;
+          pendingArgs = args;
+          return undefined;
+        }
+        return Reflect.apply(originalSendMessage, runtime, args);
+      };
+      Object.defineProperty(runtime, 'sendMessage', {
+        configurable: true,
+        value: gatedSendMessage
+      });
+      Object.defineProperty(globalThis, '__zendioB07OrderedAutosaveProbe', {
+        configurable: true,
+        value: probe
+      });
+    });
+
+    const optionsPage = await context.newPage();
+    await optionsPage.goto(`chrome-extension://${extensionId}/options/index.html`, {
+      waitUntil: 'domcontentloaded'
+    });
+
+    const captureBehaviorNav = optionsPage.locator('[data-nav-panel="capture-behavior"]');
+    await captureBehaviorNav.click();
+    await expect(captureBehaviorNav).toHaveClass(/is-active/u);
+    const captureContextRow = optionsPage
+      .locator('[data-panel-id="capture-behavior"] .row')
+      .filter({ has: optionsPage.getByText('Capture Context', { exact: true }) });
+    const captureContextSwitch = captureContextRow.locator('label.switch');
+    const captureContextInput = captureContextSwitch.locator('input[type="checkbox"]');
+    await expect(captureContextRow).toBeVisible();
+    await expect(captureContextSwitch).toBeVisible();
+    await expect(captureContextSwitch).toBeEnabled();
+    await expect(captureContextInput).not.toBeChecked();
+
+    await captureContextSwitch.click();
+    await expect
+      .poll(() => readOrderedAutosaveProbe(optionsPage))
+      .toEqual({
+        held: true,
+        released: false,
+        values: [true]
+      });
+
+    await captureContextSwitch.click();
+    await expect(captureContextInput).not.toBeChecked();
+    await optionsPage.waitForTimeout(500);
+    await expect
+      .poll(() => readOrderedAutosaveProbe(optionsPage))
+      .toEqual({
+        held: true,
+        released: false,
+        values: [true]
+      });
+
+    await optionsPage.evaluate(() => {
+      const probe = globalThis.__zendioB07OrderedAutosaveProbe;
+      if (!probe) throw new Error('Ordered autosave probe was not installed.');
+      probe.release();
+    });
+
+    await expect
+      .poll(() => readOrderedAutosaveProbe(optionsPage))
+      .toEqual({
+        held: true,
+        released: true,
+        values: [true, false]
+      });
+    await expect.poll(() => readDurableCaptureContext(optionsPage)).toBe(false);
+    await expect(captureContextInput).not.toBeChecked();
+  } finally {
+    await context.close();
+  }
 });
