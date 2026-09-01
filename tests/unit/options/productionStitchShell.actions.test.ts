@@ -721,6 +721,49 @@ describe('mountProductionStitchShell actions', () => {
       errorReporting: false,
       debugMode: false
     });
+    expect(controller.scheduleAutoSave).not.toHaveBeenCalled();
+  });
+
+  it('does not publish privacy state or autosave when the typed privacy mutation fails', async () => {
+    const controller = createController();
+    const optionsRepository = createRepository();
+    const messagingRepository = createMessaging();
+    optionsRepository.patch.mockRejectedValueOnce(new Error('privacy mutation failed'));
+    const mounted = mountProductionStitchShell({
+      controller: asOptionsController(controller),
+      initialOptions: {
+        privacyPreferences: {
+          analytics: false,
+          errorReporting: false,
+          debugMode: false
+        }
+      },
+      messages: null,
+      language: 'en',
+      messagingRepository: messagingRepository as never,
+      optionsRepository
+    });
+
+    const analytics = findCheckboxInText('Usage analytics');
+    analytics.checked = true;
+    analytics.dispatchEvent(new Event('change', { bubbles: true }));
+    await flushPromises();
+
+    expect(optionsRepository.patch).toHaveBeenCalledTimes(1);
+    expect(mounted.collectDraft().privacyPreferences).toEqual({
+      analytics: false,
+      errorReporting: false,
+      debugMode: false
+    });
+    expect(analyticsMocks.setAnalyticsConsent).not.toHaveBeenCalledWith(true, false);
+    expect(updateErrorAnalyticsConfigMock).not.toHaveBeenCalledWith(false);
+    expect(controller.scheduleAutoSave).not.toHaveBeenCalled();
+    expect(messagingRepository.send).not.toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: 'ANALYTICS_EVENT',
+        event: 'privacy_consent_changed'
+      })
+    );
   });
 
   it('serializes cross-field privacy updates against the latest committed snapshot', async () => {

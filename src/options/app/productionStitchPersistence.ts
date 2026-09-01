@@ -111,7 +111,6 @@ export function createProductionStitchPersistence(
     syncPrivacySnapshotToState(nextSnapshot);
     await applyRuntimePrivacySnapshot(nextSnapshot, field);
     if (!options.isActive()) return;
-    options.controller.scheduleAutoSave(() => options.collectDraftWithWidgets());
     await track(
       createAnalyticsEventMessage('privacy_consent_changed', {
         field,
