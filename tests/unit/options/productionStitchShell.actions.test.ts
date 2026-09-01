@@ -43,7 +43,7 @@ import { mergeOptions } from '@shared/config/optionsMerger';
 import type { CompleteOptions } from './productionStitchShell.helpers';
 import type { ConnectionTestResult } from '@shared/types/connection';
 import type { UsageStats } from '@shared/types/usage';
-import type { Message } from '@shared/repositories/IMessagingRepository';
+import type { IMessagingRepository, Message } from '@shared/repositories/IMessagingRepository';
 import type { AnalyticsRuntimeEventPayload } from '@shared/types/analytics';
 import { getRestDefaults } from '../../utils/restDefaults';
 
@@ -727,7 +727,13 @@ describe('mountProductionStitchShell actions', () => {
   it('does not publish privacy state or autosave when the typed privacy mutation fails', async () => {
     const controller = createController();
     const optionsRepository = createRepository();
-    const messagingRepository = createMessaging();
+    const messagingRepository: Pick<IMessagingRepository, 'send' | 'onMessage'> = {
+      async send<Result>(_message: Message): Promise<Result> {
+        throw new Error('Unexpected messaging send on failed privacy mutation.');
+      },
+      onMessage: vi.fn<IMessagingRepository['onMessage']>(() => () => {})
+    };
+    const sendSpy = vi.spyOn(messagingRepository, 'send');
     optionsRepository.patch.mockRejectedValueOnce(new Error('privacy mutation failed'));
     const mounted = mountProductionStitchShell({
       controller: asOptionsController(controller),
@@ -740,7 +746,7 @@ describe('mountProductionStitchShell actions', () => {
       },
       messages: null,
       language: 'en',
-      messagingRepository: messagingRepository as never,
+      messagingRepository,
       optionsRepository
     });
 
@@ -758,7 +764,7 @@ describe('mountProductionStitchShell actions', () => {
     expect(analyticsMocks.setAnalyticsConsent).not.toHaveBeenCalledWith(true, false);
     expect(updateErrorAnalyticsConfigMock).not.toHaveBeenCalledWith(false);
     expect(controller.scheduleAutoSave).not.toHaveBeenCalled();
-    expect(messagingRepository.send).not.toHaveBeenCalledWith(
+    expect(sendSpy).not.toHaveBeenCalledWith(
       expect.objectContaining({
         type: 'ANALYTICS_EVENT',
         event: 'privacy_consent_changed'

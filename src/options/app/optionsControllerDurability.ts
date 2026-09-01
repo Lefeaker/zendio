@@ -11,21 +11,21 @@ export class OptionsControllerDurability {
   private pendingDesired: DurableOptionsDraft | null = null;
   private drainPromise: Promise<void> | null = null;
   private retryBlocked = false;
-  private retryFailure: unknown = null;
+  private rethrowRetryFailure: (() => never) | null = null;
 
   constructor(private readonly persist: OptionsControllerDurabilityDeps['persist']) {}
 
   enqueue(draft: DurableOptionsDraft): void {
     this.pendingDesired = deepClone(draft);
     this.retryBlocked = false;
-    this.retryFailure = null;
+    this.rethrowRetryFailure = null;
     this.ensureDrain();
   }
 
   async flush(): Promise<void> {
     if (this.retryBlocked) {
       this.retryBlocked = false;
-      this.retryFailure = null;
+      this.rethrowRetryFailure = null;
     }
     this.ensureDrain();
 
@@ -36,7 +36,11 @@ export class OptionsControllerDurability {
     }
 
     if (this.retryBlocked) {
-      throw this.retryFailure ?? new Error('OPTIONS_DURABILITY_HANDOFF_FAILED');
+      const rethrowRetryFailure = this.rethrowRetryFailure;
+      if (rethrowRetryFailure) {
+        rethrowRetryFailure();
+      }
+      throw new Error('OPTIONS_DURABILITY_HANDOFF_FAILED');
     }
   }
 
@@ -65,7 +69,9 @@ export class OptionsControllerDurability {
         if (!this.pendingDesired) {
           this.pendingDesired = desired;
           this.retryBlocked = true;
-          this.retryFailure = error;
+          this.rethrowRetryFailure = () => {
+            throw error;
+          };
         }
       }
     }
