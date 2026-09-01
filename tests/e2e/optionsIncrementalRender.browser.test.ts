@@ -735,3 +735,81 @@ test('Options serializes a durable reversal behind the held first transport', as
     await context.close();
   }
 });
+
+test('Options hands pending edits off across immediate reload and close', async () => {
+  const userDataDir = await mkdtemp(join(tmpdir(), 'zendio-b08-options-'));
+  const context = await chromium.launchPersistentContext(userDataDir, {
+    headless: false,
+    args: [
+      '--headless=new',
+      `--disable-extensions-except=${extensionPath}`,
+      `--load-extension=${extensionPath}`
+    ]
+  });
+
+  try {
+    const background =
+      context.serviceWorkers()[0] ??
+      (await context.waitForEvent('serviceworker', { timeout: 15_000 }));
+    const extensionId = background.url().split('/')[2];
+    if (!extensionId) throw new Error('Unable to resolve extension id.');
+
+    await background.evaluate(() =>
+      chrome.storage.sync.set({ options: { fragmentClipper: { captureContext: false } } })
+    );
+
+    let optionsPage = await context.newPage();
+    await optionsPage.goto(`chrome-extension://${extensionId}/options/index.html`, {
+      waitUntil: 'domcontentloaded'
+    });
+    const captureBehaviorNav = optionsPage.locator('[data-nav-panel="capture-behavior"]');
+    await captureBehaviorNav.click();
+    await expect(captureBehaviorNav).toHaveClass(/is-active/u);
+    const captureContextRow = optionsPage
+      .locator('[data-panel-id="capture-behavior"] .row')
+      .filter({ has: optionsPage.getByText('Capture Context', { exact: true }) });
+    const captureContextSwitch = captureContextRow.locator('label.switch');
+    const captureContextInput = captureContextSwitch.locator('input[type="checkbox"]');
+    await expect(captureContextRow).toBeVisible();
+    await expect(captureContextSwitch).toBeVisible();
+    await expect(captureContextSwitch).toBeEnabled();
+    await expect(captureContextInput).not.toBeChecked();
+
+    // Reload immediately after the visible user interaction without polling storage or awaiting
+    // the debounce. The page-exit handoff must synchronously start the durable mutation.
+    await captureContextSwitch.click();
+    await optionsPage.reload({ waitUntil: 'domcontentloaded' });
+
+    const captureContextAfterReload = optionsPage
+      .locator('[data-panel-id="capture-behavior"] .row')
+      .filter({ has: optionsPage.getByText('Capture Context', { exact: true }) });
+    const switchAfterReload = captureContextAfterReload.locator('label.switch');
+    const inputAfterReload = switchAfterReload.locator('input[type="checkbox"]');
+    await expect(captureContextAfterReload).toBeVisible();
+    await expect(switchAfterReload).toBeVisible();
+    await expect(inputAfterReload).toBeChecked();
+    await expect.poll(() => readDurableCaptureContext(optionsPage)).toBe(true);
+
+    // Exercise the close path with the reverse edit and verify it from a fresh Options page.
+    await switchAfterReload.click();
+    await optionsPage.close();
+    optionsPage = await context.newPage();
+    await optionsPage.goto(`chrome-extension://${extensionId}/options/index.html`, {
+      waitUntil: 'domcontentloaded'
+    });
+    const freshCaptureBehaviorNav = optionsPage.locator('[data-nav-panel="capture-behavior"]');
+    await freshCaptureBehaviorNav.click();
+    await expect(freshCaptureBehaviorNav).toHaveClass(/is-active/u);
+    const freshCaptureContextRow = optionsPage
+      .locator('[data-panel-id="capture-behavior"] .row')
+      .filter({ has: optionsPage.getByText('Capture Context', { exact: true }) });
+    const freshCaptureContextSwitch = freshCaptureContextRow.locator('label.switch');
+    const freshCaptureContextInput = freshCaptureContextSwitch.locator('input[type="checkbox"]');
+    await expect(freshCaptureContextRow).toBeVisible();
+    await expect(freshCaptureContextSwitch).toBeVisible();
+    await expect(freshCaptureContextInput).not.toBeChecked();
+    await expect.poll(() => readDurableCaptureContext(optionsPage)).toBe(false);
+  } finally {
+    await context.close();
+  }
+});

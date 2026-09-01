@@ -11,13 +11,33 @@ export class OptionsControllerDurability {
   private pendingDesired: DurableOptionsDraft | null = null;
   private drainPromise: Promise<void> | null = null;
   private retryBlocked = false;
+  private retryFailure: unknown = null;
 
   constructor(private readonly persist: OptionsControllerDurabilityDeps['persist']) {}
 
   enqueue(draft: DurableOptionsDraft): void {
     this.pendingDesired = deepClone(draft);
     this.retryBlocked = false;
+    this.retryFailure = null;
     this.ensureDrain();
+  }
+
+  async flush(): Promise<void> {
+    if (this.retryBlocked) {
+      this.retryBlocked = false;
+      this.retryFailure = null;
+    }
+    this.ensureDrain();
+
+    while (this.drainPromise) {
+      const activeDrain = this.drainPromise;
+      await activeDrain;
+      this.completeDrain(activeDrain);
+    }
+
+    if (this.retryBlocked) {
+      throw this.retryFailure ?? new Error('OPTIONS_DURABILITY_HANDOFF_FAILED');
+    }
   }
 
   private ensureDrain(): void {
@@ -25,11 +45,13 @@ export class OptionsControllerDurability {
 
     const drain = this.drain();
     this.drainPromise = drain;
-    void drain.finally(() => {
-      if (this.drainPromise !== drain) return;
-      this.drainPromise = null;
-      this.ensureDrain();
-    });
+    void drain.then(() => this.completeDrain(drain));
+  }
+
+  private completeDrain(drain: Promise<void>): void {
+    if (this.drainPromise !== drain) return;
+    this.drainPromise = null;
+    this.ensureDrain();
   }
 
   private async drain(): Promise<void> {
@@ -39,10 +61,11 @@ export class OptionsControllerDurability {
 
       try {
         await this.persist(desired);
-      } catch {
+      } catch (error) {
         if (!this.pendingDesired) {
           this.pendingDesired = desired;
           this.retryBlocked = true;
+          this.retryFailure = error;
         }
       }
     }

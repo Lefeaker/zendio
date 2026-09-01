@@ -233,11 +233,11 @@ describe('OptionsController', () => {
 
     expect(controller.getSnapshot()?.rest?.baseUrl).toBe('https://external.example.com/');
 
-    controller.dispose();
+    await controller.dispose();
     expect(unsubscribe).toHaveBeenCalled();
   });
 
-  it('dispose cancels pending auto save timer', async () => {
+  it('dispose drains a pending auto save instead of dropping it', async () => {
     vi.useFakeTimers();
 
     const collect = vi.fn(() =>
@@ -251,11 +251,104 @@ describe('OptionsController', () => {
     await controller.loadInitialState();
 
     controller.scheduleAutoSave(collect);
-    controller.dispose();
+    await controller.dispose();
 
-    await vi.advanceTimersByTimeAsync(400);
+    expect(collect).toHaveBeenCalledOnce();
+    expect(saveMock).toHaveBeenCalledOnce();
+    expect(savedOptions[0]?.rest?.baseUrl).toBe('https://dispose.example.com/');
+  });
 
-    expect(collect).not.toHaveBeenCalled();
-    expect(saveMock).not.toHaveBeenCalled();
+  it('drains a newer pending desired state before a bounded flush resolves', async () => {
+    vi.useFakeTimers();
+
+    let releaseFirstSave: (() => void) | undefined;
+    saveMock
+      .mockImplementationOnce(
+        () =>
+          new Promise<void>((resolve) => {
+            releaseFirstSave = resolve;
+          })
+      )
+      .mockResolvedValue(undefined);
+
+    const controller = createOptionsController({
+      persistence,
+      formAdapter,
+      autoSaveDebounceMs: 10
+    });
+    await controller.loadInitialState();
+
+    controller.scheduleAutoSave(() =>
+      mergeOptions({ rest: { baseUrl: 'https://first.example.com/' } })
+    );
+    await vi.advanceTimersByTimeAsync(10);
+
+    controller.scheduleAutoSave(() =>
+      mergeOptions({ rest: { baseUrl: 'https://second.example.com/' } })
+    );
+    const flush = controller.flushPendingAutoSave();
+
+    expect(saveMock).toHaveBeenCalledTimes(1);
+    releaseFirstSave?.();
+    await flush;
+
+    expect(saveMock).toHaveBeenCalledTimes(2);
+    expect(saveMock.mock.calls.map(([draft]) => draft.rest?.baseUrl)).toEqual([
+      'https://first.example.com/',
+      'https://second.example.com/'
+    ]);
+  });
+
+  it('hands a synchronous pending collector to persistence before flush yields', async () => {
+    let releaseSave: (() => void) | undefined;
+    saveMock.mockImplementationOnce(
+      () =>
+        new Promise<void>((resolve) => {
+          releaseSave = resolve;
+        })
+    );
+
+    const controller = createOptionsController({
+      persistence,
+      formAdapter,
+      autoSaveDebounceMs: 400
+    });
+    await controller.loadInitialState();
+    controller.scheduleAutoSave(() =>
+      mergeOptions({ rest: { baseUrl: 'https://page-exit.example.com/' } })
+    );
+
+    const flush = controller.flushPendingAutoSave();
+
+    expect(saveMock).toHaveBeenCalledOnce();
+    releaseSave?.();
+    await flush;
+  });
+
+  it('keeps a failed handoff retryable for the next bounded flush without looping', async () => {
+    vi.useFakeTimers();
+
+    const failure = new Error('durable handoff failed');
+    saveMock.mockRejectedValueOnce(failure).mockResolvedValue(undefined);
+
+    const controller = createOptionsController({
+      persistence,
+      formAdapter,
+      autoSaveDebounceMs: 10
+    });
+    await controller.loadInitialState();
+    controller.scheduleAutoSave(() =>
+      mergeOptions({ rest: { baseUrl: 'https://retry.example.com/' } })
+    );
+
+    await expect(controller.flushPendingAutoSave()).rejects.toBe(failure);
+    expect(saveMock).toHaveBeenCalledTimes(1);
+
+    await expect(controller.flushPendingAutoSave()).resolves.toBeUndefined();
+    expect(saveMock).toHaveBeenCalledTimes(2);
+    expect(saveMock.mock.calls.map(([draft]) => draft.rest?.baseUrl)).toEqual([
+      'https://retry.example.com/',
+      'https://retry.example.com/'
+    ]);
   });
 });
