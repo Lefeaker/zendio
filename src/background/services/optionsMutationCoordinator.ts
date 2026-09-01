@@ -23,6 +23,7 @@ import type {
   OptionsRawStorageRepository
 } from '../../infrastructure/repositories/ChromeOptionsRepository';
 import type { IOptionsRepository } from '../../shared/repositories/IOptionsRepository';
+import type { DeviceLocalVaultCleanupJournal } from '../../shared/config/deviceLocalVaultCleanupJournal';
 import type { CompleteOptions, StoredOptions } from '../../shared/types/options';
 import {
   OptionsMutationError,
@@ -32,15 +33,14 @@ import {
 } from '../../shared/types/optionsMutationMessages';
 const DEFAULT_OPTIONS_QUOTA_BYTES_PER_ITEM = 8_192;
 const DEFAULT_EXTERNAL_DRIFT_RETRIES = 2;
-
 export interface OptionsMutationCoordinatorOptions {
   quotaBytesPerItem?: number;
   maxExternalDriftRetries?: number;
   createOperationId?: () => string;
   yieldAfterWrite?: () => Promise<void>;
   deviceLocalPrivacyCommitter?: DeviceLocalPrivacyCommitter;
+  deviceLocalVaultCleanupJournal?: DeviceLocalVaultCleanupJournal;
 }
-
 export interface BackgroundOptionsReader {
   get(): Promise<CompleteOptions>;
   readDecoded(): Promise<DecodedStoredOptions>;
@@ -50,13 +50,11 @@ const isObject = (value: PlainStructuredValue | null): value is PlainStructuredO
   typeof value === 'object' && value !== null && !Array.isArray(value);
 const clone = <T>(value: T): T =>
   value === undefined || value === null ? value : globalThis.structuredClone(value);
-
 function createDefaultOperationId(): string {
   return typeof globalThis.crypto?.randomUUID === 'function'
     ? `options-${globalThis.crypto.randomUUID()}`
     : `options-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
 }
-
 function platformQuotaBytesPerItem(): number | undefined {
   if (typeof chrome === 'undefined') return undefined;
   const candidate = chrome.storage?.sync?.QUOTA_BYTES_PER_ITEM;
@@ -132,7 +130,7 @@ export class OptionsMutationCoordinator {
 
   constructor(
     private readonly repository: OptionsRawStorageRepository,
-    options: OptionsMutationCoordinatorOptions = {}
+    private readonly options: OptionsMutationCoordinatorOptions = {}
   ) {
     this.quotaBytesPerItem = resolveQuotaBytesPerItem(options.quotaBytesPerItem);
     this.maxExternalDriftRetries =
@@ -193,6 +191,7 @@ export class OptionsMutationCoordinator {
           this.deviceLocalPrivacyCommitter,
           this.quotaBytesPerItem,
           operationId,
+          this.options.deviceLocalVaultCleanupJournal,
           (raw, queued) => this.applyCommand(raw, queued)
         )
       : null;

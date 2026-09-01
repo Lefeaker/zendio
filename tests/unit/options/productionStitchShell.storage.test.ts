@@ -25,12 +25,48 @@ import { getOutputTemplatePreset } from '@shared/config';
 import { mergeOptions } from '@shared/config/optionsMerger';
 import { DEFAULT_DOMAIN_MAPPINGS } from '@shared/constants';
 import { registerService, TOKENS } from '@shared/di';
+import { createMockPlatformServices } from '@shared/di/testHelpers';
 import type { StoredOptions } from '@shared/types';
 import { getTestRestUrls } from '../../fixtures/configTestHelpers';
+import { asType } from '../../utils/typeHelpers';
 
 const LOCAL_REST_URLS = getTestRestUrls('localhost');
 const LOCAL_HTTPS_URL = LOCAL_REST_URLS.httpsUrl.replace(/\/$/, '');
 const LOCAL_HTTP_URL = LOCAL_REST_URLS.httpUrl.replace(/\/$/, '');
+
+function deferred<T>() {
+  let resolve = (_value: T): void => undefined;
+  let reject = (_error: Error): void => undefined;
+  const promise = new Promise<T>((resolvePromise, rejectPromise) => {
+    resolve = resolvePromise;
+    reject = rejectPromise;
+  });
+  return { promise, reject, resolve };
+}
+
+function createMutationAwareMessaging() {
+  return {
+    send: vi.fn((message: object) => {
+      const type = 'type' in message ? message.type : undefined;
+      const requestId = 'requestId' in message ? message.requestId : undefined;
+      if (type !== 'ZENDIO_OPTIONS_MUTATION' || typeof requestId !== 'string') {
+        return Promise.resolve(undefined);
+      }
+      return Promise.resolve({
+        type: 'ZENDIO_OPTIONS_MUTATION_RESPONSE',
+        requestId,
+        success: true,
+        result: {
+          snapshot: {},
+          operationId: 'storage-test-operation',
+          rawSignature: 'storage-test-signature',
+          didWrite: true
+        }
+      });
+    }),
+    onMessage: vi.fn(() => () => {})
+  };
+}
 
 function withLegacyRootDir<TRest extends NonNullable<StoredOptions['rest']>>(
   rest: TRest,
@@ -335,7 +371,7 @@ describe('mountProductionStitchShell storage', () => {
 
   it('renders and persists Chromium local folders in the production Vault List', async () => {
     const controller = createController();
-    const messagingRepository = createMessaging(undefined);
+    const messagingRepository = createMutationAwareMessaging();
     const chooseDirectory = vi.fn(() =>
       Promise.resolve({ id: 'folder-main', name: 'Local Vault' })
     );
@@ -390,13 +426,45 @@ describe('mountProductionStitchShell storage', () => {
         localFolderName: 'Local Vault'
       })
     );
+    const chooseMutation = vi
+      .mocked(messagingRepository.send)
+      .mock.calls.map(([message]) => message)
+      .find((message) => 'type' in message && message.type === 'ZENDIO_OPTIONS_MUTATION');
+    expect(chooseMutation).toBeTruthy();
+    if (
+      !chooseMutation ||
+      !('command' in chooseMutation) ||
+      typeof chooseMutation.command !== 'object' ||
+      chooseMutation.command === null
+    ) {
+      throw new Error('Expected a typed vault selection mutation command.');
+    }
+    expect(chooseMutation.command).toMatchObject({
+      kind: 'patch',
+      patches: [
+        {
+          path: ['vaultRouter'],
+          value: {
+            vaults: [
+              {
+                localFolderId: 'folder-main',
+                localFolderName: 'Local Vault'
+              }
+            ]
+          }
+        }
+      ]
+    });
 
-    const refreshedVaultList = findCardByTitle('Vault List');
-    expect(refreshedVaultList.textContent).not.toContain('Delete Local Folder');
-    const selectedFolderButton = Array.from(
-      refreshedVaultList.querySelectorAll<HTMLButtonElement>('button')
-    ).find((button) => button.textContent?.trim() === 'Local Vault');
-    expect(selectedFolderButton).toBeTruthy();
+    let selectedFolderButton: HTMLButtonElement | undefined;
+    await vi.waitFor(() => {
+      const refreshedVaultList = findCardByTitle('Vault List');
+      expect(refreshedVaultList.textContent).not.toContain('Delete Local Folder');
+      selectedFolderButton = Array.from(
+        refreshedVaultList.querySelectorAll<HTMLButtonElement>('button')
+      ).find((button) => button.textContent?.trim() === 'Local Vault');
+      expect(selectedFolderButton).toBeTruthy();
+    });
     expect(selectedFolderButton?.getAttribute('title')).toContain('Local Vault');
     expect(selectedFolderButton?.getAttribute('title')).not.toMatch(/(^\/|[A-Za-z]:\\)/);
     selectedFolderButton?.click();
@@ -456,7 +524,7 @@ describe('mountProductionStitchShell storage', () => {
 
   it('still allows clearing a selected local folder when Chrome returns prompt', async () => {
     const controller = createController();
-    const messagingRepository = createMessaging(undefined);
+    const messagingRepository = createMutationAwareMessaging();
     const ensurePermission = vi.fn(() => Promise.resolve('prompt'));
     const removeDirectory = vi.fn(() => Promise.resolve());
     registerService(
@@ -532,7 +600,36 @@ describe('mountProductionStitchShell storage', () => {
     expect(cleared.rest.localFolderName).toBeUndefined();
     expect(cleared.vaultRouter?.vaults?.[0]?.localFolderId).toBeUndefined();
     expect(cleared.vaultRouter?.vaults?.[0]?.localFolderName).toBeUndefined();
-    expect(removeDirectory).toHaveBeenCalledWith('folder-main');
+    expect(removeDirectory).not.toHaveBeenCalled();
+    const clearMutation = vi
+      .mocked(messagingRepository.send)
+      .mock.calls.map(([message]) => message)
+      .find((message) => 'type' in message && message.type === 'ZENDIO_OPTIONS_MUTATION');
+    expect(clearMutation).toBeTruthy();
+    if (
+      !clearMutation ||
+      !('command' in clearMutation) ||
+      typeof clearMutation.command !== 'object' ||
+      clearMutation.command === null
+    ) {
+      throw new Error('Expected a typed vault clear mutation command.');
+    }
+    expect(clearMutation.command).toMatchObject({
+      kind: 'patch',
+      patches: [
+        {
+          path: ['vaultRouter'],
+          value: {
+            vaults: [
+              {
+                localFolderId: undefined,
+                localFolderName: undefined
+              }
+            ]
+          }
+        }
+      ]
+    });
     expectAnalyticsMessage(
       vi.mocked(messagingRepository.send).mock.calls,
       'local_vault_permission_prompted',
@@ -550,6 +647,139 @@ describe('mountProductionStitchShell storage', () => {
       ['outcome']
     );
   });
+
+  it.each(['failed', 'malformed', 'rejected', 'no-op'])(
+    'restores an actionable local-folder row after a %s binding-clear acknowledgement',
+    async (failureKind) => {
+      const controller = createController();
+      const pendingMutation = deferred<object>();
+      const messagingRepository = {
+        send: vi.fn((message: object) => {
+          const type = 'type' in message ? message.type : undefined;
+          return type === 'ZENDIO_OPTIONS_MUTATION'
+            ? pendingMutation.promise
+            : Promise.resolve(undefined);
+        }),
+        onMessage: vi.fn(() => () => {})
+      };
+      const removeDirectory = vi.fn(() => Promise.resolve());
+      const platformServices = createMockPlatformServices();
+      platformServices.fileSystemAccess.chooseDirectory = vi.fn();
+      platformServices.fileSystemAccess.ensurePermission = vi.fn<
+        typeof platformServices.fileSystemAccess.ensurePermission
+      >(() => Promise.resolve('granted'));
+      platformServices.fileSystemAccess.removeDirectory = removeDirectory;
+      registerService(TOKENS.platformServices, () => platformServices);
+
+      const mounted = mountProductionStitchShell(
+        asType<Parameters<typeof mountProductionStitchShell>[0]>({
+          controller: asOptionsController(controller),
+          initialOptions: {
+            rest: {
+              baseUrl: LOCAL_HTTPS_URL,
+              vault: 'Research Vault',
+              httpsUrl: LOCAL_HTTPS_URL,
+              httpUrl: LOCAL_HTTP_URL,
+              apiKey: 'token-12345',
+              localFolderId: 'folder-main',
+              localFolderName: 'Local Vault'
+            },
+            vaultRouter: {
+              defaultVaultId: 'vault-default',
+              vaults: [
+                {
+                  id: 'vault-default',
+                  name: 'Research Vault',
+                  vault: 'Research Vault',
+                  httpsUrl: LOCAL_HTTPS_URL,
+                  httpUrl: LOCAL_HTTP_URL,
+                  apiKey: 'token-12345',
+                  localFolderId: 'folder-main',
+                  localFolderName: 'Local Vault',
+                  enabled: true,
+                  isDefault: true
+                }
+              ],
+              rules: []
+            }
+          },
+          messages: null,
+          language: 'en',
+          messagingRepository
+        })
+      );
+
+      const localFolderButton = Array.from(
+        findCardByTitle('Vault List').querySelectorAll<HTMLButtonElement>('button')
+      ).find((button) => button.textContent?.trim() === 'Local Vault');
+      localFolderButton?.click();
+      await flushPromises();
+      const deleteButton = Array.from(
+        findCardByTitle('Vault List').querySelectorAll<HTMLButtonElement>(
+          '.local-folder-cell button'
+        )
+      ).find((button) => button.textContent?.trim() === 'Delete Local Folder');
+      expect(deleteButton).toBeTruthy();
+      deleteButton?.click();
+
+      expect(mounted.collectDraft().rest.localFolderId).toBeUndefined();
+      const mutation = vi
+        .mocked(messagingRepository.send)
+        .mock.calls.map(([message]) => message)
+        .find((message) => 'type' in message && message.type === 'ZENDIO_OPTIONS_MUTATION');
+      expect(mutation).toBeTruthy();
+      const requestId = mutation && 'requestId' in mutation ? mutation.requestId : undefined;
+
+      if (failureKind === 'rejected') {
+        pendingMutation.reject(new Error('response channel closed'));
+      } else if (failureKind === 'malformed') {
+        pendingMutation.resolve({ type: 'ZENDIO_OPTIONS_MUTATION_RESPONSE' });
+      } else if (failureKind === 'no-op') {
+        pendingMutation.resolve({
+          type: 'ZENDIO_OPTIONS_MUTATION_RESPONSE',
+          requestId,
+          success: true,
+          result: {
+            snapshot: {},
+            operationId: 'no-op-operation',
+            rawSignature: 'no-op-signature',
+            didWrite: false
+          }
+        });
+      } else {
+        pendingMutation.resolve({
+          type: 'ZENDIO_OPTIONS_MUTATION_RESPONSE',
+          requestId,
+          success: false,
+          errorCode: 'OPTIONS_MUTATION_REJECTED'
+        });
+      }
+
+      await vi.waitFor(() => {
+        const restored = mounted.collectDraft();
+        expect(restored.rest.localFolderId).toBe('folder-main');
+        expect(restored.vaultRouter?.vaults[0]).toEqual(
+          expect.objectContaining({
+            localFolderId: 'folder-main',
+            localFolderName: 'Local Vault'
+          })
+        );
+      });
+      const restoredDeleteButton = Array.from(
+        findCardByTitle('Vault List').querySelectorAll<HTMLButtonElement>('button')
+      ).find((button) => button.textContent?.trim() === 'Delete Local Folder');
+      expect(restoredDeleteButton).toBeTruthy();
+      expect(restoredDeleteButton?.disabled).toBe(false);
+      expect(
+        vi
+          .mocked(messagingRepository.send)
+          .mock.calls.filter(
+            ([message]) => 'type' in message && message.type === 'ZENDIO_OPTIONS_MUTATION'
+          )
+      ).toHaveLength(1);
+      expect(removeDirectory).not.toHaveBeenCalled();
+    }
+  );
 
   it('persists domain mapping edits and delete actions', () => {
     const controller = createController();

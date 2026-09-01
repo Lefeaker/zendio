@@ -64,7 +64,6 @@ interface ProductionStitchShellActionRuntimeOptions extends RuntimeMutableState 
   storageController: ProductionStitchStorageController;
   widgetHost: ProductionStitchWidgetHost;
 }
-
 export interface ProductionStitchShellActionRuntime {
   dispatch(actionId: string, args?: unknown[], value?: unknown, event?: Event): void;
   dispose(): void;
@@ -207,7 +206,6 @@ export function createProductionStitchShellActionRuntime(
   let disposed = false;
   const telemetry = createOptionsTelemetry(persistence, () => !disposed);
   const owner: ProductionStitchActionTaskOwner = createProductionStitchActionTaskOwner();
-
   function refresh(): void {
     options.refreshAppData();
     persistence.restoreUsageStatsView();
@@ -217,9 +215,12 @@ export function createProductionStitchShellActionRuntime(
     task: () => Promise<void>,
     captureRollback?: () => () => void
   ): void {
-    const scopes = resolveProductionStitchTaskInvalidation(key);
+    const scopes =
+      key === 'storage:deleteLocalFolder'
+        ? 'storage'
+        : resolveProductionStitchTaskInvalidation(key);
     owner.run<(() => void) | undefined>({
-      key: resolveProductionStitchTaskOwner(key),
+      key: key === 'storage:deleteLocalFolder' ? key : resolveProductionStitchTaskOwner(key),
       capture: () => captureRollback?.(),
       task,
       rollback: (rollback, error) => {
@@ -346,7 +347,6 @@ export function createProductionStitchShellActionRuntime(
       restoreOptionsScrollSoon(mountRoot, scrollSnapshot);
     }
   }
-
   return {
     dispatch,
     dispose: () => {

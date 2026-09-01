@@ -11,6 +11,10 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 
 const extensionPath = path.resolve(process.env.PLAYWRIGHT_DIST_DIR ?? 'build/dist');
+const localVaultDatabaseName = 'ai2ob-local-vault-folders';
+const localVaultStoreName = 'folders';
+const cleanupFolderId = 'folder-cleanup-journal';
+const cleanupJournalKey = 'deviceLocalVaultCleanupJournal';
 
 type StorageValue = chrome.storage.StorageChange['newValue'];
 type JsonValue = StorageValue;
@@ -133,14 +137,112 @@ async function readPrivacyStorage(page: Page) {
   });
 }
 
+async function seedCleanupDirectoryHandle(worker: Worker): Promise<void> {
+  await worker.evaluate(
+    ({ databaseName, storeName, folderId }) =>
+      new Promise<void>((resolve, reject) => {
+        const request = indexedDB.open(databaseName, 1);
+        request.onupgradeneeded = () => {
+          if (!request.result.objectStoreNames.contains(storeName)) {
+            request.result.createObjectStore(storeName, { keyPath: 'id' });
+          }
+        };
+        request.onerror = () =>
+          reject(request.error ?? new Error('Failed to open Local Vault DB.'));
+        request.onsuccess = () => {
+          const database = request.result;
+          const transaction = database.transaction(storeName, 'readwrite');
+          transaction.onabort = () => reject(transaction.error ?? new Error('Seed aborted.'));
+          transaction.onerror = () => reject(transaction.error ?? new Error('Seed failed.'));
+          transaction.oncomplete = () => {
+            database.close();
+            resolve();
+          };
+          transaction.objectStore(storeName).put({
+            id: folderId,
+            name: 'Cleanup Journal Vault',
+            handle: {}
+          });
+        };
+      }),
+    {
+      databaseName: localVaultDatabaseName,
+      storeName: localVaultStoreName,
+      folderId: cleanupFolderId
+    }
+  );
+}
+
+async function hasCleanupDirectoryHandle(worker: Worker): Promise<boolean> {
+  return worker.evaluate(
+    ({ databaseName, storeName, folderId }) =>
+      new Promise<boolean>((resolve, reject) => {
+        const request = indexedDB.open(databaseName, 1);
+        request.onerror = () =>
+          reject(request.error ?? new Error('Failed to open Local Vault DB.'));
+        request.onsuccess = () => {
+          const database = request.result;
+          const transaction = database.transaction(storeName, 'readonly');
+          const getRequest = transaction.objectStore(storeName).get(folderId);
+          getRequest.onerror = () => reject(getRequest.error ?? new Error('Read failed.'));
+          getRequest.onsuccess = () => {
+            database.close();
+            resolve(getRequest.result !== undefined);
+          };
+        };
+      }),
+    {
+      databaseName: localVaultDatabaseName,
+      storeName: localVaultStoreName,
+      folderId: cleanupFolderId
+    }
+  );
+}
+
+async function armNextCleanupAbort(target: Page | Worker): Promise<void> {
+  await target.evaluate(
+    ({ storeName }) => {
+      const prototype = IDBDatabase.prototype;
+      // eslint-disable-next-line @typescript-eslint/unbound-method -- The wrapper restores the live database receiver with call(this, ...).
+      const original = prototype.transaction;
+      let armed = true;
+      Object.defineProperty(prototype, 'transaction', {
+        configurable: true,
+        value: function transaction(
+          this: IDBDatabase,
+          storeNames: string | string[],
+          mode?: IDBTransactionMode,
+          options?: IDBTransactionOptions
+        ) {
+          const created = original.call(this, storeNames, mode, options);
+          const names = typeof storeNames === 'string' ? [storeNames] : [...storeNames];
+          if (armed && mode === 'readwrite' && names.includes(storeName)) {
+            armed = false;
+            queueMicrotask(() => {
+              try {
+                created.abort();
+              } catch {
+                // Ignore a transaction that completed before the deterministic abort microtask.
+              }
+            });
+          }
+          return created;
+        }
+      });
+    },
+    { storeName: localVaultStoreName }
+  );
+}
+
 test.describe('Options cross-context mutation authority', () => {
   let context: BrowserContext;
   let background: Worker;
   let first: Page;
   let second: Page;
+  let userDataDir: string;
 
   test.beforeEach(async () => {
-    const userDataDir = await mkdtemp(path.join(tmpdir(), 'zendio-o02-options-'));
+    userDataDir = await mkdtemp(path.join(tmpdir(), 'zendio-o02-options-'));
     context = await chromium.launchPersistentContext(userDataDir, {
       headless: false,
       args: [
@@ -822,5 +924,112 @@ test.describe('Options cross-context mutation authority', () => {
     expect(result).toMatchObject({ success: false, errorCode: 'EXTERNAL_SYNC_CONFLICT' });
     expect(driftCount).toBe(3);
     expect(gate).toEqual({ remaining: 0, released: 3, pending: 0 });
+  });
+
+  test('retries an aborted Local Vault cleanup after a fresh background restart', async () => {
+    await first.evaluate(
+      ({ cleanupKey, folderId }) =>
+        Promise.all([
+          chrome.storage.sync.set({
+            options: {
+              rest: { vault: 'Primary' },
+              vaultRouter: {
+                defaultVaultId: 'primary',
+                vaults: [
+                  {
+                    id: 'primary',
+                    name: 'Primary',
+                    vault: 'Primary',
+                    httpsUrl: '',
+                    httpUrl: '',
+                    apiKey: ''
+                  }
+                ]
+              },
+              opaqueRoot: { keep: ['b09', 1] }
+            }
+          }),
+          chrome.storage.local.set({
+            deviceLocalVaultBindings: {
+              version: 1,
+              bindings: {
+                primary: { folderId, folderName: 'Cleanup Journal Vault' }
+              }
+            }
+          }),
+          chrome.storage.local.remove(cleanupKey)
+        ]),
+      { cleanupKey: cleanupJournalKey, folderId: cleanupFolderId }
+    );
+    await seedCleanupDirectoryHandle(background);
+    await first.reload({ waitUntil: 'domcontentloaded' });
+    await first.locator('[data-nav-panel="storage"]').click();
+    const selectedFolder = first
+      .locator('.local-folder-trigger')
+      .filter({ hasText: 'Cleanup Journal Vault' });
+    await expect(selectedFolder).toHaveCount(1);
+    await selectedFolder.click();
+    const deleteButton = first
+      .locator('.local-folder-cell button')
+      .filter({ hasText: 'Delete Local Folder' });
+    await expect(deleteButton).toHaveCount(1);
+
+    await Promise.all([armNextCleanupAbort(first), armNextCleanupAbort(background)]);
+    await deleteButton.click();
+
+    await expect
+      .poll(() =>
+        first.evaluate(
+          async ({ cleanupKey }) => {
+            const local = await chrome.storage.local.get(['deviceLocalVaultBindings', cleanupKey]);
+            return {
+              bindings: local.deviceLocalVaultBindings,
+              journal: local[cleanupKey]
+            };
+          },
+          { cleanupKey: cleanupJournalKey }
+        )
+      )
+      .toEqual({
+        bindings: { version: 1, bindings: {} },
+        journal: { version: 1, folderIds: [cleanupFolderId] }
+      });
+    expect(await hasCleanupDirectoryHandle(background)).toBe(true);
+
+    await context.close();
+    context = await chromium.launchPersistentContext(userDataDir, {
+      headless: false,
+      args: [
+        '--headless=new',
+        `--disable-extensions-except=${extensionPath}`,
+        `--load-extension=${extensionPath}`
+      ]
+    });
+    background = context.serviceWorkers()[0];
+    background ??= await context.waitForEvent('serviceworker', { timeout: 15_000 });
+    const extensionId = background.url().split('/')[2];
+    if (!extensionId) throw new Error('Unable to resolve restarted extension id.');
+    first = await context.newPage();
+    await first.goto(`chrome-extension://${extensionId}/options/index.html`, {
+      waitUntil: 'domcontentloaded'
+    });
+
+    await expect
+      .poll(() =>
+        first.evaluate(
+          async ({ cleanupKey }) => {
+            const local = await chrome.storage.local.get(cleanupKey);
+            return local[cleanupKey];
+          },
+          { cleanupKey: cleanupJournalKey }
+        )
+      )
+      .toBeUndefined();
+    await expect.poll(() => hasCleanupDirectoryHandle(background)).toBe(false);
+    const portable = await first.evaluate(async () => {
+      const stored = await chrome.storage.sync.get('options');
+      return stored.options;
+    });
+    expect(portable).toMatchObject({ opaqueRoot: { keep: ['b09', 1] } });
   });
 });

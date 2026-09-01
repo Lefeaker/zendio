@@ -37,7 +37,7 @@ export interface ProductionStitchActionContext {
   ) => Promise<{ messages: Messages | null; language: Language }>;
   chooseVaultLocalFolder(index: number): Promise<void>;
   clearAnalyticsPrivacyData(): Promise<void>;
-  clearVaultLocalFolder(index: number): void;
+  clearVaultLocalFolder(index: number): Promise<void>;
   collectDraftWithWidgets(): CompleteOptions;
   copyConfigurationToClipboard(button: HTMLButtonElement | null): Promise<void>;
   currentDomainEntries(): Array<[string, string]>;

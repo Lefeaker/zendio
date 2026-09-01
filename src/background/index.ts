@@ -31,6 +31,7 @@ import {
   createBackgroundOptionsRepository,
   createOptionsMutationCoordinator
 } from './services/optionsMutationCoordinator';
+import { DeviceLocalVaultCleanupJournal } from '../shared/config/deviceLocalVaultCleanupJournal';
 
 function rawObject(value: PlainStructuredValue | null): PlainStructuredObject {
   if (value === null) return {};
@@ -150,11 +151,17 @@ function createDeviceLocalPrivacyCommitter(
 
 const platformServices = getPlatformServices();
 const optionsStorageRepository = new ChromeOptionsRepository(platformServices.storage);
+const deviceLocalVaultCleanupJournal = new DeviceLocalVaultCleanupJournal(
+  platformServices.storage.local,
+  () => optionsStorageRepository.readVaultBindings(),
+  (folderId) => platformServices.fileSystemAccess.removeDirectory(folderId)
+);
 const optionsMutationCoordinator = createOptionsMutationCoordinator(optionsStorageRepository, {
   deviceLocalPrivacyCommitter: createDeviceLocalPrivacyCommitter(
     platformServices.storage,
     optionsStorageRepository
-  )
+  ),
+  deviceLocalVaultCleanupJournal
 });
 
 registerRepositories({
@@ -176,7 +183,8 @@ startBackgroundRuntime({
   scripting: platformServices.scripting,
   storage: platformServices.storage,
   tabs: platformServices.tabs,
-  optionsMutationCoordinator
+  optionsMutationCoordinator,
+  deviceLocalVaultCleanupJournal
 });
 
 registerTrialLifecycle(

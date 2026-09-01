@@ -19,11 +19,12 @@ interface ProductionStitchActionGroupContext {
   activateVaultLocalFolder(index: number): Promise<void>;
   applyConnectionNotice(result: ConnectionTestResult): void;
   chooseVaultLocalFolder(index: number): Promise<void>;
-  clearVaultLocalFolder(index: number): void;
+  clearVaultLocalFolder(index: number): Promise<void>;
   currentDomainEntries(): Array<[string, string]>;
   ensureVaultRouter(): VaultRouterConfig;
   refreshAppData(): void;
   render(scope: SectionInvalidationScope): void;
+  runPersistenceTask(key: string, task: () => Promise<void>): void;
   runVaultListConnectionTest(): Promise<ConnectionTestResult>;
   scheduleDraftSave(): void;
   syncDomainEntries(entries: Array<[string, string]>): void;
@@ -128,7 +129,10 @@ export function createProductionStorageActions(
       void context.chooseVaultLocalFolder(Number(args[0] ?? -1));
     },
     'storage:deleteLocalFolder': ({ args }) => {
-      context.clearVaultLocalFolder(Number(args[0] ?? -1));
+      const index = Number(args[0] ?? -1);
+      context.runPersistenceTask('storage:deleteLocalFolder', () =>
+        context.clearVaultLocalFolder(index)
+      );
     },
     'storage:cancelLocalFolderDelete': () => {
       context.getState().activeLocalFolderVaultIndex = null;
