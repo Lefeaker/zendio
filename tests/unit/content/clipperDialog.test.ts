@@ -529,11 +529,70 @@ describe('ClipperDialog UI', () => {
 
     shadow?.querySelector<HTMLButtonElement>('[data-action-id="reader"]')?.click();
 
-    await expect(promise).resolves.toEqual({
+    const result = await promise;
+    expect(result).toEqual({
       action: 'reader',
       comment: '',
       destination: { kind: 'vault', vaultId: 'research' }
     });
+    expect(result.destinationSelectionIsExplicit).toBe(true);
+  });
+
+  it('marks the effective default destination as implicit when entering reader mode', async () => {
+    const { ClipperDialog } = await import('../../../src/content/clipper/components/dialog');
+    const dialog = new ClipperDialog(createDialogDeps());
+
+    const promise = dialog.show('Implicit reader destination');
+    await vi.waitFor(() => expect(getHost()).not.toBeNull());
+
+    getDialogRoot()?.querySelector<HTMLButtonElement>('[data-action-id="reader"]')?.click();
+
+    const result = await promise;
+    expect(result).toEqual({
+      action: 'reader',
+      comment: '',
+      destination: { kind: 'downloads' }
+    });
+    expect(result.destinationSelectionIsExplicit).toBe(false);
+  });
+
+  it('marks explicitly selected downloads as explicit when entering reader mode', async () => {
+    const { ClipperDialog } = await import('../../../src/content/clipper/components/dialog');
+    const deps = createDialogDeps();
+    const optionsRepository = deps.optionsRepository;
+    if (!optionsRepository) {
+      throw new Error('options repository missing');
+    }
+    vi.mocked(optionsRepository.get).mockResolvedValue(createVaultOptions() as never);
+    const dialog = new ClipperDialog(deps);
+
+    const promise = dialog.show('Explicit downloads destination');
+    await vi.waitFor(() => expect(getHost()).not.toBeNull());
+
+    const shadow = getDialogRoot();
+    await vi.waitFor(() =>
+      expect(
+        shadow?.querySelector<HTMLButtonElement>(
+          '.export-destination-option[data-destination-id="downloads"]'
+        )
+      ).toBeTruthy()
+    );
+    shadow
+      ?.querySelector<HTMLButtonElement>(
+        '.export-destination-option[data-destination-id="downloads"]'
+      )
+      ?.click();
+    await flushPromises();
+
+    shadow?.querySelector<HTMLButtonElement>('[data-action-id="reader"]')?.click();
+
+    const result = await promise;
+    expect(result).toEqual({
+      action: 'reader',
+      comment: '',
+      destination: { kind: 'downloads' }
+    });
+    expect(result.destinationSelectionIsExplicit).toBe(true);
   });
 
   it('renders comment form with class-based styles only', async () => {

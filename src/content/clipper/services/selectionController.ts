@@ -118,13 +118,11 @@ export function createSelectionController(deps: SelectionClipDependencies): Sele
     });
     const action = promptResult.action;
     const comment = promptResult.comment.trim();
-
     if (action === 'cancel') {
       promptLifecycle?.onPromptCancelled?.();
       selection.removeAllRanges();
       return null;
     }
-
     if (action === 'video') {
       // 启动视频模式并捕获选择的内容
       const videoSession = deps.createVideoSession(doc);
@@ -149,12 +147,16 @@ export function createSelectionController(deps: SelectionClipDependencies): Sele
         doc.dispatchEvent(event);
       } else {
         const session = deps.createReaderSession(doc, url);
+        const destination =
+          promptResult.destinationSelectionIsExplicit === false
+            ? undefined
+            : promptResult.destination;
         await session.start({
           range: savedRange,
           selectedHtml,
           selectedText,
           comment,
-          ...(promptResult.destination ? { destination: promptResult.destination } : {})
+          ...(destination ? { destination } : {})
         });
       }
       selection.removeAllRanges();
