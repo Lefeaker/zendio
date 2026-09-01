@@ -410,14 +410,10 @@ export class ClipperDialog {
     const resolver = this.resolve;
     this.resolve = null;
     const destination = this.destinationState?.metadata;
-    const shouldForwardDestination =
-      action === 'clip' ||
-      action === 'cancel' ||
-      Boolean(this.destinationState?.hasExplicitSelection);
     resolver?.({
       action,
       comment,
-      ...(destination && shouldForwardDestination ? { destination } : {})
+      ...(destination ? { destination } : {})
     });
     this.remove();
   }
