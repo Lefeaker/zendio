@@ -2,6 +2,10 @@ import type { CompleteOptions, StoredOptions } from '../../shared/types/options'
 import { deepClone } from '../utils/clone';
 import type { OptionsPersistenceService } from '../services/persistence';
 import type { OptionsFormAdapter } from '../components/optionsFormAdapter';
+import {
+  createOptionsControllerDurability,
+  type OptionsControllerDurability
+} from './optionsControllerDurability';
 
 export type SaveReason = 'manual' | 'auto' | 'import';
 
@@ -30,6 +34,17 @@ type AutoSaveCollector =
       | Promise<CompleteOptions | StoredOptions | null | undefined>)
   | undefined;
 
+function isAsyncAutoSaveDraft(
+  value:
+    | CompleteOptions
+    | StoredOptions
+    | null
+    | undefined
+    | Promise<CompleteOptions | StoredOptions | null | undefined>
+): value is Promise<CompleteOptions | StoredOptions | null | undefined> {
+  return typeof value === 'object' && value !== null && 'then' in value;
+}
+
 function buildCallbacks(callbacks: OptionsControllerCallbacks): OptionsControllerCallbacks {
   const result: Partial<OptionsControllerCallbacks> = {};
   if (callbacks.onSaveError) {
@@ -44,10 +59,13 @@ function buildCallbacks(callbacks: OptionsControllerCallbacks): OptionsControlle
 export class OptionsController {
   private snapshot: StoredOptions | null = null;
   private autoSaveTimer: ReturnType<typeof setTimeout> | null = null;
+  private pendingAutoSaveCollector: AutoSaveCollector;
+  private hasPendingAutoSave = false;
   private readonly persistence: OptionsPersistenceService;
   private readonly formAdapter: OptionsFormAdapter;
   private readonly autoSaveDebounceMs: number;
   private readonly callbacks: OptionsControllerCallbacks;
+  private readonly autoSaveDurability: OptionsControllerDurability;
   private unsubscribePersistence: (() => void) | null = null;
 
   constructor({
@@ -63,6 +81,11 @@ export class OptionsController {
     this.callbacks = buildCallbacks({
       ...(onSaveError !== undefined && { onSaveError }),
       ...(onSaveSuccess !== undefined && { onSaveSuccess })
+    });
+    this.autoSaveDurability = createOptionsControllerDurability({
+      persist: async (draft) => {
+        await this.saveSnapshot({ reason: 'auto', draft });
+      }
     });
 
     if (typeof persistence.subscribe === 'function') {
@@ -89,34 +112,60 @@ export class OptionsController {
       clearTimeout(this.autoSaveTimer);
       this.autoSaveTimer = null;
     }
+    this.pendingAutoSaveCollector = undefined;
+    this.hasPendingAutoSave = false;
   }
 
   scheduleAutoSave(collect?: AutoSaveCollector): void {
     this.cancelAutoSave();
+    this.pendingAutoSaveCollector = collect;
+    this.hasPendingAutoSave = true;
     this.autoSaveTimer = setTimeout(() => {
       this.autoSaveTimer = null;
-      void (async () => {
-        let draft: CompleteOptions | StoredOptions | null | undefined;
-
-        if (collect) {
-          try {
-            draft = await collect();
-          } catch (error) {
-            this.callbacks.onSaveError?.('auto', error);
-            return;
-          }
-        }
-
-        const saveOptions: SaveSnapshotOptions =
-          draft === null || draft === undefined ? { reason: 'auto' } : { reason: 'auto', draft };
-
-        try {
-          await this.saveSnapshot(saveOptions);
-        } catch {
-          // saveSnapshot already triggers onSaveError callback; no further action required.
-        }
-      })();
+      void this.handoffPendingAutoSave().catch(() => undefined);
     }, this.autoSaveDebounceMs);
+  }
+
+  async flushPendingAutoSave(): Promise<void> {
+    while (this.hasPendingAutoSave) {
+      await this.handoffPendingAutoSave();
+    }
+    await this.autoSaveDurability.flush();
+    while (this.hasPendingAutoSave) {
+      await this.handoffPendingAutoSave();
+      await this.autoSaveDurability.flush();
+    }
+  }
+
+  private async handoffPendingAutoSave(): Promise<void> {
+    if (!this.hasPendingAutoSave) return;
+    if (this.autoSaveTimer) {
+      clearTimeout(this.autoSaveTimer);
+      this.autoSaveTimer = null;
+    }
+
+    const collect = this.pendingAutoSaveCollector;
+    this.pendingAutoSaveCollector = undefined;
+    this.hasPendingAutoSave = false;
+
+    let draft: CompleteOptions | StoredOptions | null | undefined;
+    if (collect) {
+      try {
+        const collected = collect();
+        draft = isAsyncAutoSaveDraft(collected) ? await collected : collected;
+      } catch (error) {
+        this.callbacks.onSaveError?.('auto', error);
+        if (!this.hasPendingAutoSave) {
+          this.pendingAutoSaveCollector = collect;
+          this.hasPendingAutoSave = true;
+          throw error;
+        }
+        return;
+      }
+    }
+
+    const desired = draft ?? this.formAdapter.read(this.snapshot);
+    this.autoSaveDurability.enqueue(desired);
   }
 
   async loadInitialState(): Promise<StoredOptions> {
@@ -168,8 +217,8 @@ export class OptionsController {
     await this.saveSnapshot({ reason: 'import', draft: options });
   }
 
-  dispose(): void {
-    this.cancelAutoSave();
+  async dispose(): Promise<void> {
+    await this.flushPendingAutoSave();
     if (this.unsubscribePersistence) {
       this.unsubscribePersistence();
       this.unsubscribePersistence = null;

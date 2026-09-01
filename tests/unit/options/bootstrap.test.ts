@@ -37,9 +37,13 @@ const controllerLoadInitialStateMock = vi.hoisted(() =>
   vi.fn(() => Promise.resolve({ rest: { vault: 'Demo' } }))
 );
 const controllerScheduleAutoSaveMock = vi.hoisted(() => vi.fn());
+const controllerFlushPendingAutoSaveMock = vi.hoisted(() =>
+  vi.fn<(...args: []) => Promise<void>>(() => Promise.resolve())
+);
 const createOptionsControllerMock = vi.hoisted(() =>
   vi.fn((config) => ({
     dispose: controllerDisposeMock,
+    flushPendingAutoSave: controllerFlushPendingAutoSaveMock,
     loadInitialState: controllerLoadInitialStateMock,
     scheduleAutoSave: controllerScheduleAutoSaveMock,
     __config: config
@@ -186,6 +190,42 @@ describe('options bootstrap', () => {
 
     expect(shellCleanupMock).toHaveBeenCalledTimes(cleanupCallsAfterFirstBootstrap + 1);
     expect(mountProductionStitchShellMock).toHaveBeenCalledTimes(2);
+  });
+
+  it('awaits pending durability before tearing down the mounted shell', async () => {
+    await bootstrapOptionsApp();
+    const flushCallsBeforeSecondBootstrap = controllerFlushPendingAutoSaveMock.mock.calls.length;
+    const cleanupCallsBeforeSecondBootstrap = shellCleanupMock.mock.calls.length;
+    let releaseFlush: (() => void) | undefined;
+    controllerFlushPendingAutoSaveMock.mockImplementationOnce(
+      () =>
+        new Promise<void>((resolve) => {
+          releaseFlush = resolve;
+        })
+    );
+
+    const secondBootstrap = bootstrapOptionsApp();
+    await Promise.resolve();
+
+    expect(controllerFlushPendingAutoSaveMock).toHaveBeenCalledTimes(
+      flushCallsBeforeSecondBootstrap + 1
+    );
+    expect(shellCleanupMock).toHaveBeenCalledTimes(cleanupCallsBeforeSecondBootstrap);
+
+    releaseFlush?.();
+    await secondBootstrap;
+
+    expect(shellCleanupMock).toHaveBeenCalledTimes(cleanupCallsBeforeSecondBootstrap + 1);
+  });
+
+  it.each(['pagehide', 'beforeunload'])('hands off pending durability on %s', async (eventName) => {
+    await bootstrapOptionsApp();
+    const callsBeforeExit = controllerFlushPendingAutoSaveMock.mock.calls.length;
+
+    window.dispatchEvent(new Event(eventName));
+    await Promise.resolve();
+
+    expect(controllerFlushPendingAutoSaveMock).toHaveBeenCalledTimes(callsBeforeExit + 1);
   });
 
   it('shows yaml migration notice after initial options refresh', async () => {

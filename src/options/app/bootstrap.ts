@@ -35,8 +35,7 @@ export interface OptionsAppBootstrapDependencies {
   usageStatsClient?: UsageStatsClientLike;
 }
 
-type CleanupFn = () => void;
-
+type CleanupFn = () => void | Promise<void>;
 const cleanupHandlers: CleanupFn[] = [];
 let optionsAppBootstrapStorage: StorageService | null = null;
 let declarativeI18nController: PageI18nController | null = null;
@@ -84,9 +83,9 @@ async function ensureDeclarativeI18nController(): Promise<PageI18nController> {
   return declarativeI18nController;
 }
 
-function initializeOptionsController(): OptionsController {
+async function initializeOptionsController(): Promise<OptionsController> {
   if (optionsController) {
-    optionsController.dispose();
+    await optionsController.dispose();
     optionsController = null;
   }
 
@@ -112,11 +111,11 @@ function initializeOptionsController(): OptionsController {
 
   optionsController = controller;
   registerOptionsController(controller);
-  registerCleanup(() => {
+  registerCleanup(async () => {
+    await controller.dispose();
     if (optionsController === controller) {
       optionsController = null;
     }
-    controller.dispose();
   });
   return controller;
 }
@@ -124,8 +123,8 @@ function initializeOptionsController(): OptionsController {
 export async function bootstrapOptionsApp(
   dependencies?: Partial<OptionsAppBootstrapDependencies>
 ): Promise<void> {
+  await disposeCleanupHandlers();
   teardownMountedShell();
-  disposeCleanupHandlers();
   ensureUnloadCleanup();
 
   const { storage, runtime, usageStatsClient } =
@@ -136,7 +135,7 @@ export async function bootstrapOptionsApp(
 
   const i18nController = await ensureDeclarativeI18nController();
   const resource = i18nController.getCurrentResource();
-  const controller = initializeOptionsController();
+  const controller = await initializeOptionsController();
   const stored = await controller.loadInitialState();
   const { getFooterMeta, getFooterView, getSettingsView, previewContent } =
     await import('./productionStitchAssets');
@@ -209,25 +208,30 @@ function ensureUnloadCleanup(): void {
   if (unloadCleanupRegistered) {
     return;
   }
-
-  const disposeOnUnload = (): void => {
-    disposeCleanupHandlers();
+  const handoffOnPageExit = (): void => {
+    void optionsController?.flushPendingAutoSave().catch((error) => {
+      console.error('[Options] page-exit durability handoff failed:', error);
+    });
   };
 
-  window.addEventListener('beforeunload', disposeOnUnload);
+  window.addEventListener('pagehide', handoffOnPageExit);
+  window.addEventListener('beforeunload', handoffOnPageExit);
   cleanupHandlers.push(() => {
-    window.removeEventListener('beforeunload', disposeOnUnload);
+    window.removeEventListener('pagehide', handoffOnPageExit);
+    window.removeEventListener('beforeunload', handoffOnPageExit);
   });
   unloadCleanupRegistered = true;
 }
-
-function disposeCleanupHandlers(): void {
+async function disposeCleanupHandlers(): Promise<void> {
+  await optionsController?.flushPendingAutoSave();
   while (cleanupHandlers.length > 0) {
-    const handler = cleanupHandlers.pop();
+    const handler = cleanupHandlers[cleanupHandlers.length - 1];
     try {
-      handler?.();
+      await handler?.();
+      cleanupHandlers.pop();
     } catch (error) {
       console.error('[Options] cleanup failed:', error);
+      throw error;
     }
   }
   unloadCleanupRegistered = false;
