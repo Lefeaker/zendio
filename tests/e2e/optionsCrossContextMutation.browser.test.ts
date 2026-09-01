@@ -110,7 +110,11 @@ async function readRaw(page: Page): Promise<JsonRecord> {
 async function readPrivacyStorage(page: Page) {
   return page.evaluate(async () => {
     const [local, sync] = await Promise.all([
-      chrome.storage.local.get(['analytics_user_consent', 'analytics_config']),
+      chrome.storage.local.get([
+        'analytics_user_consent',
+        'analytics_config',
+        'zendio_device_local_privacy_transaction'
+      ]),
       chrome.storage.sync.get('options')
     ]);
     const consent = local.analytics_user_consent;
@@ -667,6 +671,16 @@ test.describe('Options cross-context mutation authority', () => {
   });
 
   test('does not publish staged privacy when the synchronized scrub fails', async () => {
+    const analyticsItem = first
+      .locator('.consent-inline-item:visible')
+      .filter({ hasText: 'Usage analytics' });
+    const firstAnalyticsControl = analyticsItem.locator('input[type="checkbox"]');
+    const secondAnalyticsControl = second
+      .locator('.consent-inline-item:visible')
+      .filter({ hasText: 'Usage analytics' })
+      .locator('input[type="checkbox"]');
+    await expect(firstAnalyticsControl).not.toBeChecked();
+    await expect(secondAnalyticsControl).not.toBeChecked();
     await first.evaluate(() =>
       Promise.all([
         chrome.storage.local.set({
@@ -690,10 +704,14 @@ test.describe('Options cross-context mutation authority', () => {
         })
       ])
     );
-    await Promise.all([
-      first.reload({ waitUntil: 'domcontentloaded' }),
-      second.reload({ waitUntil: 'domcontentloaded' })
-    ]);
+    expect(await readPrivacyStorage(first)).toEqual({
+      consentAnalytics: false,
+      syncHasPrivacy: true,
+      opaqueKeep: true,
+      transactionPresent: false
+    });
+    await expect(firstAnalyticsControl).not.toBeChecked();
+    await expect(secondAnalyticsControl).not.toBeChecked();
     const gateHandle = await background.evaluateHandle(() => {
       const storage = chrome.storage.sync;
       const originalSet = storage.set.bind(storage);
@@ -719,9 +737,6 @@ test.describe('Options cross-context mutation authority', () => {
       return state;
     });
 
-    const analyticsItem = first
-      .locator('.consent-inline-item:visible')
-      .filter({ hasText: 'Usage analytics' });
     await analyticsItem.locator('label').click();
     await expect.poll(() => gateHandle.evaluate((state) => state.failed)).toBe(true);
     const gateFailed = await gateHandle.evaluate((state) => {
@@ -738,14 +753,20 @@ test.describe('Options cross-context mutation authority', () => {
     await expect.poll(async () => (await readPrivacyStorage(first)).consentAnalytics).toBe(false);
     await expect.poll(async () => (await readPrivacyStorage(first)).syncHasPrivacy).toBe(true);
     await expect.poll(async () => (await readPrivacyStorage(first)).opaqueKeep).toBe(true);
-    const secondAnalyticsControl = second
-      .locator('.consent-inline-item:visible')
-      .filter({ hasText: 'Usage analytics' })
-      .locator('input[type="checkbox"]');
     await expect(secondAnalyticsControl).not.toBeChecked();
   });
 
   test('restores the synchronized mirror when the local privacy commit fails', async () => {
+    const analyticsItem = first
+      .locator('.consent-inline-item:visible')
+      .filter({ hasText: 'Usage analytics' });
+    const firstAnalyticsControl = analyticsItem.locator('input[type="checkbox"]');
+    const secondAnalyticsControl = second
+      .locator('.consent-inline-item:visible')
+      .filter({ hasText: 'Usage analytics' })
+      .locator('input[type="checkbox"]');
+    await expect(firstAnalyticsControl).not.toBeChecked();
+    await expect(secondAnalyticsControl).not.toBeChecked();
     await first.evaluate(() =>
       Promise.all([
         chrome.storage.local.set({
@@ -769,10 +790,14 @@ test.describe('Options cross-context mutation authority', () => {
         })
       ])
     );
-    await Promise.all([
-      first.reload({ waitUntil: 'domcontentloaded' }),
-      second.reload({ waitUntil: 'domcontentloaded' })
-    ]);
+    expect(await readPrivacyStorage(first)).toEqual({
+      consentAnalytics: false,
+      syncHasPrivacy: true,
+      opaqueKeep: true,
+      transactionPresent: false
+    });
+    await expect(firstAnalyticsControl).not.toBeChecked();
+    await expect(secondAnalyticsControl).not.toBeChecked();
     const gateHandle = await background.evaluateHandle(() => {
       const storage = chrome.storage.local;
       const originalSet = storage.set.bind(storage);
@@ -792,9 +817,6 @@ test.describe('Options cross-context mutation authority', () => {
       return state;
     });
 
-    const analyticsItem = first
-      .locator('.consent-inline-item:visible')
-      .filter({ hasText: 'Usage analytics' });
     await analyticsItem.locator('label').click();
     await expect.poll(() => gateHandle.evaluate((state) => state.failed)).toBe(true);
     const gateFailed = await gateHandle.evaluate((state) => {
@@ -811,10 +833,6 @@ test.describe('Options cross-context mutation authority', () => {
     await expect.poll(async () => (await readPrivacyStorage(first)).consentAnalytics).toBe(false);
     await expect.poll(async () => (await readPrivacyStorage(first)).syncHasPrivacy).toBe(true);
     await expect.poll(async () => (await readPrivacyStorage(first)).opaqueKeep).toBe(true);
-    const secondAnalyticsControl = second
-      .locator('.consent-inline-item:visible')
-      .filter({ hasText: 'Usage analytics' })
-      .locator('input[type="checkbox"]');
     await expect(secondAnalyticsControl).not.toBeChecked();
   });
 
