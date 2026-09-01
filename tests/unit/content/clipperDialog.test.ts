@@ -3,6 +3,8 @@
 import type { PageI18nController, Messages, I18nBinder } from '../../../src/i18n';
 import type { StorageAreaService, StorageService } from '../../../src/platform/interfaces/storage';
 import type { ClipperDialogDependencies } from '@content/clipper/components/dialogDependencies';
+import { mergeOptions } from '@shared/config/optionsMerger';
+import type { CompleteOptions } from '@shared/types/options';
 import type { StyleAttachmentHandle } from '@ui/foundation/style-host';
 
 import { describe, it, expect, beforeEach, beforeAll, vi } from 'vitest';
@@ -179,10 +181,9 @@ const createDialogDeps = (
   };
 };
 
-function createVaultOptions() {
-  return {
+function createVaultOptions(): CompleteOptions {
+  return mergeOptions({
     rest: {
-      rootDir: '',
       vault: 'Default Vault',
       baseUrl: LOCAL_REST_BASE_URL,
       apiKey: 'test-token-123'
@@ -219,7 +220,7 @@ function createVaultOptions() {
       ],
       rules: []
     }
-  };
+  });
 }
 
 beforeAll(() => {
@@ -506,7 +507,7 @@ describe('ClipperDialog UI', () => {
     if (!optionsRepository) {
       throw new Error('options repository missing');
     }
-    vi.mocked(optionsRepository.get).mockResolvedValue(createVaultOptions() as never);
+    vi.mocked(optionsRepository.get).mockResolvedValue(createVaultOptions());
     const dialog = new ClipperDialog(deps);
 
     const promise = dialog.show('Reader destination');
@@ -563,7 +564,7 @@ describe('ClipperDialog UI', () => {
     if (!optionsRepository) {
       throw new Error('options repository missing');
     }
-    vi.mocked(optionsRepository.get).mockResolvedValue(createVaultOptions() as never);
+    vi.mocked(optionsRepository.get).mockResolvedValue(createVaultOptions());
     const dialog = new ClipperDialog(deps);
 
     const promise = dialog.show('Explicit downloads destination');

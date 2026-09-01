@@ -29,6 +29,10 @@ vi.mock('@content/i18n/context', () => ({
 }));
 
 const extractSelectionClipMock = vi.spyOn(selectionExtractor, 'extractSelectionClip');
+const explicitDestinations: ReadonlyArray<NonNullable<ClipPromptResponse['destination']>> = [
+  { kind: 'downloads' },
+  { kind: 'vault', vaultId: 'research' }
+];
 let promptMock: ReturnType<
   typeof vi.fn<(...args: [ClipPromptRequest]) => Promise<ClipPromptResponse>>
 >;
@@ -294,7 +298,7 @@ describe('content selectionController service', () => {
     );
   });
 
-  it.each([{ kind: 'downloads' } as const, { kind: 'vault', vaultId: 'research' } as const])(
+  it.each(explicitDestinations)(
     'pins an explicitly selected $kind destination into a new reader session',
     async (destination) => {
       promptMock.mockResolvedValue({
