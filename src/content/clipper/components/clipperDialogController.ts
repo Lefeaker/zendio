@@ -21,7 +21,7 @@ import {
 import { updateDialogPosition } from './dialogPresenter';
 import { restoreContentDialogFocus } from '@ui/hosts/content/contentDialogFocus';
 import { ContentExportDestinationState } from '@content/shared/exportDestinationState';
-import { patchExportDestinationRow } from '@content/shared/exportDestinationDom';
+import { reconcileLiveExportDestinationRow } from '@content/shared/exportDestinationState';
 import { DialogSessionState } from './dialogSessionState';
 import {
   DOUBLE_ENTER_TIMEOUT,
@@ -183,6 +183,9 @@ export class ClipperDialog {
     if (!(await this.buildDialog(selectedText, hostMountToken))) {
       return { action: 'cancel', comment: '' };
     }
+    this.destinationState.watch(
+      (value) => this.shadowRoot && reconcileLiveExportDestinationRow(this.shadowRoot, value)
+    );
     this.lifecycleListeners.attachLifecycleEventListeners();
     this.sessionState.shortcutsTemporarilyActivated = false;
     this.sessionState.resetPendingEnter();
@@ -190,10 +193,10 @@ export class ClipperDialog {
       this.resolve = resolve;
     });
   }
-
   remove(): void {
     cancelHostMount(this.hostMountToken);
     this.hostMountToken = null;
+    this.destinationState?.dispose();
     this.unsubscribeFragmentConfig?.();
     this.unsubscribeFragmentConfig = null;
     if (this.unregisterDialog) {
@@ -378,16 +381,9 @@ export class ClipperDialog {
     const comment = this.getCurrentComment();
     this.destinationState?.select(id);
     this.sessionState.initialComment = comment;
-    const destination = await this.destinationState?.refresh();
-    const patched = this.shadowRoot
-      ? patchExportDestinationRow(this.shadowRoot, destination)
-      : false;
-    if (!patched) {
-      const hostMountToken = (this.hostMountToken = reserveHostMount());
-      await this.buildDialog(this.selectedText, hostMountToken);
-    }
+    if (this.shadowRoot)
+      reconcileLiveExportDestinationRow(this.shadowRoot, await this.destinationState?.refresh());
   }
-
   private syncTextareaHeight(): void {
     syncClipperTextareaHeight(this.textarea);
   }
@@ -413,10 +409,15 @@ export class ClipperDialog {
   private finalize(action: ClipperDialogAction, comment: string): void {
     const resolver = this.resolve;
     this.resolve = null;
+    const destination = this.destinationState?.metadata;
+    const shouldForwardDestination =
+      action === 'clip' ||
+      action === 'cancel' ||
+      Boolean(this.destinationState?.hasExplicitSelection);
     resolver?.({
       action,
       comment,
-      ...(this.destinationState?.metadata ? { destination: this.destinationState.metadata } : {})
+      ...(destination && shouldForwardDestination ? { destination } : {})
     });
     this.remove();
   }

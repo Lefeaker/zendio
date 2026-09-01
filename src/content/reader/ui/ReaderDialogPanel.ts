@@ -25,6 +25,7 @@ import {
   SessionCommentDraftController,
   type SessionCommentDraftSnapshot
 } from '@content/shared/panels/sessionCommentDrafts';
+import { reconcileLiveExportDestinationRow } from '@content/shared/exportDestinationState';
 import type { ExportDestinationSurfacePreview } from '@ui/stitch-runtime';
 import { focusContentDialogElementByDataset } from '@ui/hosts/content/contentDialogFocus';
 import { ReaderDialogPanelController } from './readerDialogPanelController';
@@ -106,7 +107,6 @@ export class ReaderDialogPanel implements UiMountable<
   hide(): void {
     this.controller.hide();
   }
-
   update(payload?: ReaderUpdate): HTMLElement {
     if (!payload) return this.renderRoot;
     if (payload.texts) this.texts = payload.texts;
@@ -126,6 +126,8 @@ export class ReaderDialogPanel implements UiMountable<
   }
   updateDestination(destination: ExportDestinationSurfacePreview | undefined): void {
     this.destination = destination;
+    const shadow = this.renderRoot.shadowRoot;
+    if (shadow && reconcileLiveExportDestinationRow(shadow, destination)) return;
     this.rerender();
   }
   updateCount(count: number): void {

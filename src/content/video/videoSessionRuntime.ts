@@ -301,7 +301,7 @@ export class VideoSession {
       });
       this.draftController.bindPersistence();
       this.screenshotPreparation.requestPendingScreenshots();
-      await this.refreshDestinationPreview();
+      await this.destinationState.startWatching((preview) => this.dom.updateDestination(preview));
     } catch (error) {
       this.cleanup();
       throw error;
@@ -358,8 +358,7 @@ export class VideoSession {
   }
 
   private async refreshDestinationPreview(): Promise<void> {
-    const preview = await this.destinationState.refresh();
-    this.dom.updateDestination(preview);
+    this.dom.updateDestination(await this.destinationState.refresh());
   }
 
   private releasePlaybackEditLeaseOnOutsidePointer(event: MouseEvent): void {
@@ -520,6 +519,7 @@ export class VideoSession {
       return;
     }
     this.isCleaningUp = true;
+    this.destinationState.dispose();
     this.screenshotPreparation.dispose();
     void this.draftController.dispose().catch((error) => {
       console.warn('[VideoSession] Failed to dispose draft persister:', error);
