@@ -3,6 +3,7 @@ import { chmod, link, lstat, open, readFile, rm, unlink, writeFile } from 'fs/pr
 import { join, resolve } from 'path';
 import process from 'process';
 import { pathToFileURL } from 'url';
+import { runBoundedCommand } from './utils/boundedCommand.mjs';
 import { zipDirectory } from './utils/archive.mjs';
 import { applyRestHostPermissions } from './utils/manifestHosts.mjs';
 import { createBrowserManifest } from './utils/manifestSources.mjs';
@@ -143,11 +144,77 @@ export async function validateFirefoxExtension(distDir, dependencies = {}) {
   return actual;
 }
 
+function parseFirefoxLintOutput(result) {
+  const stdout = result?.output?.stdout?.text?.trim() ?? '';
+  let parsed;
+  try {
+    parsed = JSON.parse(stdout);
+  } catch {
+    const stderr = result?.output?.stderr?.text?.trim() || 'none';
+    throw new Error(
+      `FIREFOX_ADDONS_LINT_COMMAND_FAILED: exit=${String(result?.exitCode ?? 1)} reason=${String(result?.terminalReason ?? 'unknown')} stderr=${stderr}`
+    );
+  }
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+    throw new Error('FIREFOX_ADDONS_LINT_OUTPUT_INVALID');
+  }
+  const errors = Array.isArray(parsed.errors) ? parsed.errors : [];
+  const warnings = Array.isArray(parsed.warnings) ? parsed.warnings : [];
+  const notices = Array.isArray(parsed.notices) ? parsed.notices : [];
+  const summary = parsed.summary;
+  if (
+    !summary ||
+    summary.errors !== errors.length ||
+    summary.warnings !== warnings.length ||
+    summary.notices !== notices.length
+  ) {
+    throw new Error('FIREFOX_ADDONS_LINT_OUTPUT_INVALID');
+  }
+  return { errors, warnings, notices };
+}
+
+export async function lintFirefoxExtension(distDir, dependencies = {}) {
+  const { logger = console, runBoundedCommandImpl = runBoundedCommand } = dependencies;
+  logger.log('🔎 正在运行 bounded Firefox addons-linter...');
+  const result = await runBoundedCommandImpl(
+    { profileId: 'firefox-addons-lint-v1', arguments: [distDir] },
+    { mirrorOutput: false }
+  );
+  const findings = parseFirefoxLintOutput(result);
+  if (findings.errors.length > 0) {
+    const codes = findings.errors
+      .map((entry) => entry?.code ?? 'unknown')
+      .slice(0, 8)
+      .join(',');
+    throw new Error(`FIREFOX_ADDONS_LINT_ERRORS: count=${findings.errors.length} codes=${codes}`);
+  }
+  if (!result.ok) {
+    const stderr = result.output?.stderr?.text?.trim() || 'none';
+    throw new Error(
+      `FIREFOX_ADDONS_LINT_COMMAND_FAILED: exit=${String(result.exitCode ?? 1)} reason=${result.terminalReason} stderr=${stderr}`
+    );
+  }
+  if (findings.warnings.length > 0 || findings.notices.length > 0) {
+    logger.warn(
+      `Firefox addons-linter completed with ${findings.warnings.length} warning(s) and ${findings.notices.length} notice(s).`
+    );
+  }
+  logger.log(
+    `✅ Firefox addons-linter passed: errors=0 warnings=${findings.warnings.length} notices=${findings.notices.length}`
+  );
+  return {
+    errors: findings.errors.length,
+    warnings: findings.warnings.length,
+    notices: findings.notices.length
+  };
+}
+
 export async function prepareFirefoxReleasePackage({ distDir, publication }, dependencies = {}) {
   const {
     applyRestHostPermissionsImpl = applyRestHostPermissions,
     auditReleaseArchiveImpl = auditReleaseArchive,
     createUnsignedXpiImpl = createUnsignedXpi,
+    lintFirefoxExtensionImpl = lintFirefoxExtension,
     validateFirefoxExtensionImpl = validateFirefoxExtension,
     logger = console,
     prepareLicenseArtifactsImpl = prepareLicenseArtifacts,
@@ -171,6 +238,7 @@ export async function prepareFirefoxReleasePackage({ distDir, publication }, dep
   logger.log(`📝 版本号: ${version}`);
 
   await validateFirefoxExtensionImpl(distDir);
+  await lintFirefoxExtensionImpl(distDir);
 
   const xpiResult = publication
     ? await createUnsignedXpiImpl(distDir, resolvedName, version, { publication })
@@ -209,8 +277,19 @@ export async function packageFirefoxExtension() {
   console.log(`   3. 选择 ${xpiName}`);
 }
 
+export async function lintFirefoxExtensionOnly() {
+  const distDir = getFlagValue('--dist-dir', { defaultValue: 'build/dist-firefox' });
+  if (!(await pathExists(distDir))) {
+    throw new Error(`FIREFOX_LINT_SOURCE_MISSING: ${distDir}`);
+  }
+  await lintFirefoxExtension(distDir);
+}
+
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
-  packageFirefoxExtension().catch((error) => {
+  const command = args.includes('--lint-only')
+    ? lintFirefoxExtensionOnly()
+    : packageFirefoxExtension();
+  command.catch((error) => {
     console.error('❌ Firefox 打包流程失败:', error);
     process.exit(1);
   });
