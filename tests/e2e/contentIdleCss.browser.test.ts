@@ -133,11 +133,11 @@ test('idle content loads zero packs and the first feature requests one exact fla
     const background = context.serviceWorkers()[0] ?? (await context.waitForEvent('serviceworker'));
     const extensionId = background.url().split('/')[2];
     if (!extensionId) throw new Error('Unable to resolve extension id');
+    const page = await context.newPage();
     const packRequests: string[] = [];
-    context.on('request', (request) => {
+    page.on('request', (request) => {
       if (request.url().includes('/ui/stitch-runtime/styles/')) packRequests.push(request.url());
     });
-    const page = await context.newPage();
     const port = process.env.PLAYWRIGHT_WEB_SERVER_PORT ?? '43103';
     await page.goto(`http://127.0.0.1:${port}/manifest.json`, {
       waitUntil: 'domcontentloaded'
