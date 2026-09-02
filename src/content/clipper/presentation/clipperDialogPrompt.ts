@@ -30,14 +30,7 @@ class ClipperDialogPromptGateway implements ClipPromptGateway {
       ...dialogOptions,
       ...(popupCoordinator ? { dialogRegistry: popupCoordinator } : {})
     });
-    return {
-      action: result.action,
-      comment: result.comment ?? '',
-      ...(result.destination ? { destination: result.destination } : {}),
-      ...(result.destinationSelectionIsExplicit === undefined
-        ? {}
-        : { destinationSelectionIsExplicit: result.destinationSelectionIsExplicit })
-    };
+    return result;
   }
 }
 
