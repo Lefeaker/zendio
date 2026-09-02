@@ -8,6 +8,10 @@ import type {
   ClipPromptRequest,
   ClipPromptResponse
 } from '@content/clipper/application/clipPromptGateway';
+import type {
+  ReaderSessionAdapter,
+  SelectionClipDependencies
+} from '@content/clipper/services/selectionController';
 import * as selectionExtractor from '@content/extractors/selectionExtractor';
 import type { SelectionClipResult } from '@content/extractors/selectionExtractor';
 import {
@@ -86,10 +90,14 @@ describe('content selectionController service', () => {
 
   async function createController() {
     const module = await import('@content/clipper/services/selectionController');
-    const readerSessionFactory = vi.fn().mockReturnValue({
-      ingestExternalHighlight: vi.fn(),
-      start: vi.fn()
-    });
+    const readerSessionStart = vi.fn<ReaderSessionAdapter['start']>().mockResolvedValue(undefined);
+    const readerSession: ReaderSessionAdapter = {
+      ingestExternalHighlight: vi.fn<ReaderSessionAdapter['ingestExternalHighlight']>(),
+      start: readerSessionStart
+    };
+    const readerSessionFactory = vi.fn<SelectionClipDependencies['createReaderSession']>(
+      () => readerSession
+    );
     const videoSessionFactory = vi.fn().mockReturnValue({
       start: vi.fn(),
       ingestTextCapture: vi.fn()
@@ -114,7 +122,7 @@ describe('content selectionController service', () => {
       createReaderSession: readerSessionFactory,
       createVideoSession: videoSessionFactory
     });
-    return { controller, readerSessionFactory, videoSessionFactory };
+    return { controller, readerSessionFactory, readerSessionStart, videoSessionFactory };
   }
 
   it('returns null when dialog is cancelled', async () => {
@@ -287,11 +295,10 @@ describe('content selectionController service', () => {
     });
     const selection = createSelection('Selected text');
 
-    const { controller, readerSessionFactory } = await createController();
+    const { controller, readerSessionStart } = await createController();
     await controller.handleSelectionClip(document, 'https://example.com', selection);
 
-    const readerSession = readerSessionFactory.mock.results[0]?.value;
-    expect(readerSession.start).toHaveBeenCalledWith(
+    expect(readerSessionStart).toHaveBeenCalledWith(
       expect.not.objectContaining({
         destination: expect.anything()
       })
@@ -309,11 +316,10 @@ describe('content selectionController service', () => {
       });
       const selection = createSelection('Selected text');
 
-      const { controller, readerSessionFactory } = await createController();
+      const { controller, readerSessionStart } = await createController();
       await controller.handleSelectionClip(document, 'https://example.com', selection);
 
-      const readerSession = readerSessionFactory.mock.results[0]?.value;
-      expect(readerSession.start).toHaveBeenCalledWith(
+      expect(readerSessionStart).toHaveBeenCalledWith(
         expect.objectContaining({
           comment: 'note',
           destination
@@ -330,11 +336,10 @@ describe('content selectionController service', () => {
     });
     const selection = createSelection('Selected text');
 
-    const { controller, readerSessionFactory } = await createController();
+    const { controller, readerSessionStart } = await createController();
     await controller.handleSelectionClip(document, 'https://example.com', selection);
 
-    const readerSession = readerSessionFactory.mock.results[0]?.value;
-    expect(readerSession.start).toHaveBeenCalledWith(
+    expect(readerSessionStart).toHaveBeenCalledWith(
       expect.objectContaining({
         destination: { kind: 'vault', vaultId: 'legacy' }
       })
