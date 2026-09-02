@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   createUnsignedXpi,
+  lintFirefoxExtension,
   prepareFirefoxReleasePackage,
   validateFirefoxExtension
 } from '../../../scripts/package-firefox.mjs';
@@ -85,6 +86,10 @@ describe('Firefox package audit', () => {
       steps.push('validate');
       return Promise.resolve();
     });
+    const lintFirefoxExtensionImpl = vi.fn(() => {
+      steps.push('lint');
+      return Promise.resolve({ errors: 0, warnings: 2, notices: 0 });
+    });
     const createUnsignedXpiImpl = vi.fn(() => {
       steps.push('xpi');
       return Promise.resolve({
@@ -103,6 +108,7 @@ describe('Firefox package audit', () => {
       {
         auditReleaseArchiveImpl,
         createUnsignedXpiImpl,
+        lintFirefoxExtensionImpl,
         validateFirefoxExtensionImpl,
         logger: { log: vi.fn() },
         prepareLicenseArtifactsImpl: vi.fn(() => {
@@ -113,8 +119,9 @@ describe('Firefox package audit', () => {
       }
     );
 
-    expect(steps).toEqual(['prepare', 'validate', 'xpi', 'audit']);
+    expect(steps).toEqual(['prepare', 'validate', 'lint', 'xpi', 'audit']);
     expect(validateFirefoxExtensionImpl).toHaveBeenCalledWith(distDir);
+    expect(lintFirefoxExtensionImpl).toHaveBeenCalledWith(distDir);
     expect(createUnsignedXpiImpl).toHaveBeenCalledWith(distDir, RELEASE_DISPLAY_NAME, '0.2.0');
     expect(auditReleaseArchiveImpl).toHaveBeenCalledWith(
       join(root, `${RELEASE_ARTIFACT_BASE_NAME}.xpi`)
@@ -125,6 +132,73 @@ describe('Firefox package audit', () => {
       version: '0.2.0',
       xpiName: `${RELEASE_ARTIFACT_BASE_NAME}.xpi`
     });
+  });
+
+  it('reports warnings and notices while allowing a warning-only lint result', async () => {
+    const logger = { log: vi.fn(), warn: vi.fn() };
+    const runBoundedCommandImpl = vi.fn().mockResolvedValue({
+      ok: true,
+      exitCode: 0,
+      terminalReason: 'exit',
+      output: {
+        stdout: {
+          text: JSON.stringify({
+            summary: { errors: 0, warnings: 2, notices: 1 },
+            errors: [],
+            warnings: [{ code: 'WARNING_A' }, { code: 'WARNING_B' }],
+            notices: [{ code: 'NOTICE_A' }]
+          })
+        },
+        stderr: { text: '' }
+      }
+    });
+
+    await expect(
+      lintFirefoxExtension('build/dist-firefox', { logger, runBoundedCommandImpl })
+    ).resolves.toEqual({ errors: 0, warnings: 2, notices: 1 });
+    expect(runBoundedCommandImpl).toHaveBeenCalledWith(
+      { profileId: 'firefox-addons-lint-v1', arguments: ['build/dist-firefox'] },
+      { mirrorOutput: false }
+    );
+    expect(logger.warn).toHaveBeenCalledWith(
+      'Firefox addons-linter completed with 2 warning(s) and 1 notice(s).'
+    );
+  });
+
+  it('blocks lint errors even when the bounded command returns structured findings', async () => {
+    const runBoundedCommandImpl = vi.fn().mockResolvedValue({
+      ok: false,
+      exitCode: 1,
+      terminalReason: 'exit',
+      output: {
+        stdout: {
+          text: JSON.stringify({
+            summary: { errors: 2, warnings: 1, notices: 0 },
+            errors: [{ code: 'ERROR_A' }, { code: 'ERROR_B' }],
+            warnings: [{ code: 'WARNING_A' }],
+            notices: []
+          })
+        },
+        stderr: { text: '' }
+      }
+    });
+
+    await expect(
+      lintFirefoxExtension('build/dist-firefox', { runBoundedCommandImpl })
+    ).rejects.toThrow('FIREFOX_ADDONS_LINT_ERRORS: count=2 codes=ERROR_A,ERROR_B');
+  });
+
+  it('fails closed when the bounded linter command does not return valid JSON', async () => {
+    const runBoundedCommandImpl = vi.fn().mockResolvedValue({
+      ok: false,
+      exitCode: 1,
+      terminalReason: 'exit',
+      output: { stdout: { text: '' }, stderr: { text: 'boom' } }
+    });
+
+    await expect(
+      lintFirefoxExtension('build/dist-firefox', { runBoundedCommandImpl })
+    ).rejects.toThrow('FIREFOX_ADDONS_LINT_COMMAND_FAILED: exit=1 reason=exit stderr=boom');
   });
 
   it('publishes a release XPI without replacing an existing final target', async () => {

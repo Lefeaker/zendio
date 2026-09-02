@@ -241,6 +241,13 @@ const LOCKED_PACKAGES = deepFreeze({
     packageSha256: '8f3966c3b43a59e4b8e13fdfe8eb00a7ab66dfeb235515f7c19c8e0f5ca530e1',
     binSha256: 'c6965589a83667d43c4dc22f90dccfa91c133f8ed23629b896ce326f0a6c5cc8'
   },
+  'addons-linter': {
+    rootSpec: '10.10.0',
+    version: '10.10.0',
+    binName: 'addons-linter',
+    packageSha256: '1802674a0e0132234637c9c36985f04dc21c7abc05186f9ed29770d706f15dca',
+    binSha256: 'aa09a480e82225bbe0dd103726db23e1a0e709566ce66ecce53611333e56024b'
+  },
   playwright: {
     rootName: '@playwright/test',
     packageName: '@playwright/test',
@@ -349,6 +356,7 @@ export const PROFILE_IDS = deepFreeze([
   'dependency-cruiser-v1',
   'fixture-v1',
   'firefox-geckodriver-provision-v1',
+  'firefox-addons-lint-v1',
   'firefox-prepare-v1',
   'firefox-smoke-v1',
   'firefox-submit-v1',
@@ -704,6 +712,20 @@ function validateVitestArgs(args) {
   return args;
 }
 
+function validateFirefoxAddonsLintArgs(args) {
+  if (args.length !== 1) invalid('FIREFOX_ADDONS_LINT_ARGUMENTS_INVALID');
+  const sourceDir = args[0];
+  if (isAbsolute(sourceDir)) {
+    absolutePathToken(sourceDir);
+  } else if (!['build/dist', 'build/dist-firefox'].includes(sourceDir.replaceAll('\\', '/'))) {
+    boundedToken(sourceDir, { path: true });
+    invalid('FIREFOX_ADDONS_LINT_SOURCE_INVALID');
+  } else {
+    boundedToken(sourceDir, { path: true });
+  }
+  return args;
+}
+
 function validatePrettierArgs(args) {
   if (!['--check', '--write'].includes(args[0]) || args.length < 2 || args.length > 257)
     invalid('PRETTIER_ARGUMENTS_INVALID');
@@ -752,6 +774,7 @@ export function validateProfileArguments(profileId, args) {
   for (const item of args) boundedToken(item);
   const releaseArguments = validateReleaseProfileArguments(profileId, args);
   if (releaseArguments) return releaseArguments;
+  if (profileId === 'firefox-addons-lint-v1') return validateFirefoxAddonsLintArgs(args);
   if (profileId === 'vitest-v1') return validateVitestArgs(args);
   if (profileId === 'prettier-v1') return validatePrettierArgs(args);
   if (profileId === 'stylelint-v1') return validateStylelintArgs(args);
@@ -2009,6 +2032,26 @@ function npmInvocation(args, limits) {
   return { executable: npm.nodePath, argv: [npm.cliPath, ...args], limits };
 }
 
+function resolveFirefoxAddonsLintSource(sourceDir, environment) {
+  const absolute = isAbsolute(sourceDir) ? resolve(sourceDir) : resolve(REPOSITORY_ROOT, sourceDir);
+  const canonical = realpathSync(absolute);
+  const stats = lstatSync(absolute);
+  if (
+    canonical !== absolute ||
+    !stats.isDirectory() ||
+    stats.isSymbolicLink() ||
+    stats.uid !== process.getuid()
+  ) {
+    invalid('FIREFOX_ADDONS_LINT_SOURCE_INVALID');
+  }
+  const repositoryRoot = realpathSync(REPOSITORY_ROOT);
+  if (!contained(repositoryRoot, canonical)) {
+    const attemptRoot = releaseAttemptRoot(environment);
+    if (!contained(attemptRoot, canonical)) invalid('FIREFOX_ADDONS_LINT_SOURCE_INVALID');
+  }
+  return canonical;
+}
+
 function npmScriptInvocation(args, accepted, limits, environment) {
   validateNpmScriptArgs(args, accepted);
   const [name, separator, ...forwarded] = args;
@@ -2049,7 +2092,21 @@ export function resolveCommandProfile(
       argv: [resolveLockedBin('vitest'), ...args],
       limits: COMMAND_LIMITS.vitest
     };
-  else if (profileId === 'prettier-v1')
+  else if (profileId === 'firefox-addons-lint-v1') {
+    const sourceDir = resolveFirefoxAddonsLintSource(args[0], environment);
+    command = {
+      executable: process.execPath,
+      argv: [
+        resolveLockedBin('addons-linter'),
+        '--output=json',
+        '--self-hosted',
+        '--boring',
+        sourceDir
+      ],
+      limits: COMMAND_LIMITS.build,
+      commandContext: { sourceDir, firefoxAddonsLint: true }
+    };
+  } else if (profileId === 'prettier-v1')
     command = {
       executable: process.execPath,
       argv: [resolveLockedBin('prettier'), ...args],

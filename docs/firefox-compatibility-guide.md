@@ -41,7 +41,8 @@ src/platform/
 > 对 MV3 `background.service_worker` fallback 的阻断错误。Firefox manifest 同步声明
 > `browser_specific_settings.gecko.data_collection_permissions`，并将桌面与 Android
 > `strict_min_version` 设为 `142.0`。仓库内静态 manifest 契约会在创建 XPI 前验证这些
-> 字段；AMO upload validation 是完整 Firefox linter 的发布权威。
+> 字段。本地 `addons-linter 10.10.0` 在 XPI 创建前对相同最终 dist 执行 bounded
+> self-hosted lint；AMO upload validation 仍是商店提交阶段的独立权威校验。
 
 #### Messaging 监听器契约
 
@@ -111,6 +112,9 @@ npm run build:firefox:fast
 ```bash
 # 构建 Firefox 版本并生成未签名 XPI
 npm run package:firefox
+
+# 对已生成的 isolated Firefox dist 单独运行同一个 bounded linter
+npm run lint:firefox:addons
 ```
 
 - 输出：`<扩展名>-v<版本号>.xpi`，位于仓库根目录，可用于开发者模式临时加载。
@@ -206,11 +210,15 @@ uninstall、reinstall、再次 identity/state 验证，以及有界关闭和私�
 directory 冒充 XPI 安装证据，也不会读取用户 Firefox profile、系统 Firefox 或默认浏览器缓存。
 该阶段只做本地、无凭据验证；AMO submit、push 和 publish 不属于这个阶段。
 
-本地 XPI 创建前执行仓库自有的 manifest 与 release-surface 静态检查，包括 Firefox MV3
+本地 XPI 创建前先执行仓库自有的 manifest 与 release-surface 静态检查，包括 Firefox MV3
 background、Gecko ID、最低版本、data-collection 声明、必需 background bundle 和 archive
-inventory。完整 addons-linter 判定由 AMO upload validation 提供；validation 非成功、超时或返回
-错误时不会进入 version/source mutation。这里不声明本地静态检查与 AMO linter 等价，也不允许
-用 audit suppression、warning allowlist 或 advisory 重分类替代 AMO validation。
+inventory；随后由 `firefox-addons-lint-v1` 调用锁定的 `addons-linter 10.10.0`，固定
+`--self-hosted --output=json --boring`。errors/command failure 阻断 package，warnings/notices 原样
+可见。其 `image-size` 依赖通过 root `$image-size` override 指向 tracked、真实命名的
+`@zendio/addons-linter-image-metadata-adapter 0.1.0`；adapter 不冒充上游补丁、不访问网络，binary
+解析委托 `probe-image-size 7.4.0`，只保留 bounded SVG/CgBI compatibility。AMO validation 非成功、
+超时或返回错误时仍不会进入 version/source mutation；不得用 audit suppression、warning 隐藏、
+advisory 重分类或 caller-selected timeout/args 绕过任一层。
 
 ### 单元测试
 
@@ -289,8 +297,8 @@ if (capabilities.serviceWorker) {
 - 确保 `browser_specific_settings.gecko.id` 已设置
 - 检查最低版本要求 `strict_min_version`
 - 本地发布前运行 `npm run package:firefox`；该命令会在生成 XPI 前验证最终
-  `build/dist` 的 Firefox manifest、background bundle 与 release-surface，再审计 XPI inventory
-- 完整 linter 结论只来自 AMO upload validation，不把本地打包成功解释为 AMO validation 成功
+  `build/dist` 的 Firefox manifest/background/release-surface，运行 bounded addons-linter，再审计 XPI inventory
+- 可对 isolated dist 运行 `npm run lint:firefox:addons`；本地 lint/package 成功不等于 AMO 商店提交成功
 
 ### 2. API 不可用
 

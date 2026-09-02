@@ -200,6 +200,10 @@ describe('local command parallelization contract', () => {
     expect(scripts['package:firefox:ci']).toBe('node scripts/package-firefox.mjs');
     expect(scripts['package:firefox:ci']).not.toMatch(/sign|credential/iu);
     expect(scripts['package:firefox:prod:ga:ci']).toBeUndefined();
+    expect(scripts['lint:firefox:addons']).toBe(
+      'node scripts/package-firefox.mjs --lint-only --dist-dir build/dist-firefox'
+    );
+    expect(scripts['lint:firefox:addons']).not.toMatch(/npx|web-ext|credential|sign|publish/iu);
 
     expect(
       Object.fromEntries(

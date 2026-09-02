@@ -7,6 +7,7 @@ export type CommandBoundaryProfileId =
   | 'dependency-cruiser-v1'
   | 'fixture-v1'
   | 'firefox-geckodriver-provision-v1'
+  | 'firefox-addons-lint-v1'
   | 'firefox-prepare-v1'
   | 'firefox-smoke-v1'
   | 'firefox-submit-v1'

@@ -799,6 +799,7 @@ describe('bounded command ownership', () => {
   it('deep-freezes the finite profile, coordinator, timing, and policy registries', () => {
     expect(PROFILE_IDS).toContain('vitest-v1');
     expect(PROFILE_IDS).toContain('fixture-v1');
+    expect(PROFILE_IDS).toContain('firefox-addons-lint-v1');
     expect(PROFILE_IDS).toEqual(
       expect.arrayContaining([
         'github-ci-install-v1',
@@ -4121,6 +4122,51 @@ describe('bounded command ownership', () => {
       expect(profile.shell).toBe(false);
       expect(profile.tty).toBe(false);
       expect(profile.cwd).toBe(resolve('.'));
+    }
+  });
+
+  it('binds Firefox lint to the locked addons-linter and a contained source directory', () => {
+    const attemptRoot = realpathSync(temporaryRoot());
+    installAttemptConfigs(attemptRoot);
+    const sourceDir = join(attemptRoot, 'firefox-dist');
+    mkdirSync(sourceDir, { mode: 0o700 });
+    const environment = cleanEnvironment({
+      ZENDIO_LOCAL_ATTEMPT_ROOT: attemptRoot,
+      NPM_CONFIG_USERCONFIG: join(attemptRoot, 'install/npm-userconfig'),
+      NPM_CONFIG_GLOBALCONFIG: join(attemptRoot, 'install/npm-globalconfig')
+    });
+    const profile = resolveCommandProfile('firefox-addons-lint-v1', [sourceDir], {
+      environment
+    });
+
+    expect(profile.executable).toBe(process.execPath);
+    expect(profile.argv).toEqual([
+      resolve('node_modules/addons-linter/bin/addons-linter'),
+      '--output=json',
+      '--self-hosted',
+      '--boring',
+      sourceDir
+    ]);
+    expect(profile.commandContext).toEqual({ sourceDir, firefoxAddonsLint: true });
+    expect(profile.env).not.toHaveProperty('WEB_EXT_API_KEY');
+    expect(profile.env).not.toHaveProperty('WEB_EXT_API_SECRET');
+
+    for (const invalidArgs of [
+      [],
+      ['build/other'],
+      ['build/dist-firefox', '--warnings-as-errors'],
+      ['../outside']
+    ]) {
+      expect(() =>
+        parseManagedCommandInvocationArgv([
+          'node',
+          'scripts/run-bounded-command.mjs',
+          '--profile',
+          'firefox-addons-lint-v1',
+          '--',
+          ...invalidArgs
+        ])
+      ).toThrow();
     }
   });
 
