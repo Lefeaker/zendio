@@ -728,8 +728,10 @@ describe('mountProductionStitchShell actions', () => {
     const controller = createController();
     const optionsRepository = createRepository();
     const messagingRepository: Pick<IMessagingRepository, 'send' | 'onMessage'> = {
-      async send<Result>(_message: Message): Promise<Result> {
-        throw new Error('Unexpected messaging send on failed privacy mutation.');
+      send<Result>(_message: Message): Promise<Result> {
+        return Promise.reject<Result>(
+          new Error('Unexpected messaging send on failed privacy mutation.')
+        );
       },
       onMessage: vi.fn<IMessagingRepository['onMessage']>(() => () => {})
     };
