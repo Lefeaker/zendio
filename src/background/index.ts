@@ -97,8 +97,8 @@ function createDeviceLocalPrivacyCommitter(
     throw new OptionsMutationError('OPTIONS_STORAGE_FAILURE');
   };
   return {
-    async execute(command, applyCommand, quotaBytesPerItem) {
-      await local.rollback();
+    recover: rollback,
+    async execute(command, applyCommand, quotaBytesPerItem, lifecycle) {
       for (let attempt = 0; attempt <= 2; attempt += 1) {
         const raw = rawObject(await repository.readRaw());
         const privacy = await local.ensureBaseline(raw);
@@ -113,21 +113,31 @@ function createDeviceLocalPrivacyCommitter(
         const next = omitDeviceLocalPrivacy(mutation.next);
         const writePrivacy = containsDeviceLocalPrivacy(raw) || privacyChanged;
         const writePortable = !optionsValuesEqual(raw, next);
+        const verification = portableVerification(mutation.verification, next);
         if (writePortable && optionsEnvelopeBytes(next) > quotaBytesPerItem) {
           throw new OptionsMutationError('OPTIONS_QUOTA_EXCEEDED');
         }
+        await lifecycle?.beforePortableDecision({
+          portablePreimage: omitDeviceLocalPrivacy(raw),
+          portableProposal: next,
+          writeRequired: writePortable,
+          verification
+        });
         if (writePrivacy) await local.begin();
         if (!writePortable) {
-          if (writePrivacy) await local.commit(nextPrivacy);
+          try {
+            if (writePrivacy) await local.commit(nextPrivacy);
+          } catch {
+            await rollback();
+            throw new OptionsMutationError('OPTIONS_STORAGE_FAILURE');
+          }
           return { raw: next, privacy: nextPrivacy, didWrite: writePrivacy };
         }
         try {
           await repository.writeRaw(next);
           await yieldWrite();
           const readback = rawObject(await repository.readRaw());
-          if (
-            optionsVerificationMatches(readback, portableVerification(mutation.verification, next))
-          ) {
+          if (optionsVerificationMatches(readback, verification)) {
             try {
               if (writePrivacy) await local.commit(nextPrivacy);
             } catch {
@@ -154,7 +164,11 @@ const optionsStorageRepository = new ChromeOptionsRepository(platformServices.st
 const deviceLocalVaultCleanupJournal = new DeviceLocalVaultCleanupJournal(
   platformServices.storage.local,
   () => optionsStorageRepository.readVaultBindings(),
-  (folderId) => platformServices.fileSystemAccess.removeDirectory(folderId)
+  (folderId) => platformServices.fileSystemAccess.removeDirectory(folderId),
+  {
+    readPortableRaw: async () => rawObject(await optionsStorageRepository.readRaw()),
+    writeBindings: (snapshot) => optionsStorageRepository.writeVaultBindings(snapshot)
+  }
 );
 const optionsMutationCoordinator = createOptionsMutationCoordinator(optionsStorageRepository, {
   deviceLocalPrivacyCommitter: createDeviceLocalPrivacyCommitter(
@@ -183,8 +197,7 @@ startBackgroundRuntime({
   scripting: platformServices.scripting,
   storage: platformServices.storage,
   tabs: platformServices.tabs,
-  optionsMutationCoordinator,
-  deviceLocalVaultCleanupJournal
+  optionsMutationCoordinator
 });
 
 registerTrialLifecycle(

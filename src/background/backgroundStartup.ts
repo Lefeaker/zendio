@@ -26,7 +26,6 @@ import {
   createOptionsMutationCoordinator,
   type OptionsMutationCoordinator
 } from './services/optionsMutationCoordinator';
-import type { DeviceLocalVaultCleanupJournal } from '../shared/config/deviceLocalVaultCleanupJournal';
 
 export interface BackgroundStartupDependencies {
   action: ActionService;
@@ -37,7 +36,6 @@ export interface BackgroundStartupDependencies {
   storage: StorageService;
   tabs: TabsService;
   optionsMutationCoordinator?: OptionsMutationCoordinator;
-  deviceLocalVaultCleanupJournal?: DeviceLocalVaultCleanupJournal;
 }
 
 function unavailableSessionDraftStore(code: string): SessionDraftStore {
@@ -110,9 +108,8 @@ export function startBackgroundRuntime(dependencies: BackgroundStartupDependenci
   const optionsRepository = resolveRepository<IOptionsRepository>(DI_TOKENS.IOptionsRepository);
 
   if (dependencies.optionsMutationCoordinator) {
-    dependencies.deviceLocalVaultCleanupJournal?.schedulePending();
-    void optionsMutationCoordinator.migrate().catch((error) => {
-      console.error('[background] Failed to migrate device-local privacy:', error);
+    void optionsMutationCoordinator.initialize().catch((error) => {
+      console.error('[background] Failed to initialize options persistence:', error);
     });
   }
 

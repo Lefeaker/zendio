@@ -24,6 +24,7 @@ import type {
 } from '../../infrastructure/repositories/ChromeOptionsRepository';
 import type { IOptionsRepository } from '../../shared/repositories/IOptionsRepository';
 import type { DeviceLocalVaultCleanupJournal } from '../../shared/config/deviceLocalVaultCleanupJournal';
+import type { DeviceLocalVaultBindingRepository } from '../../shared/config/deviceLocalVaultRecoveryTransaction';
 import type { CompleteOptions, StoredOptions } from '../../shared/types/options';
 import {
   OptionsMutationError,
@@ -42,7 +43,6 @@ export interface OptionsMutationCoordinatorOptions {
   deviceLocalVaultCleanupJournal?: DeviceLocalVaultCleanupJournal;
 }
 export interface BackgroundOptionsReader {
-  get(): Promise<CompleteOptions>;
   readDecoded(): Promise<DecodedStoredOptions>;
   onChange(callback: (options: CompleteOptions) => void): () => void;
 }
@@ -56,35 +56,28 @@ function createDefaultOperationId(): string {
     : `options-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
 }
 function platformQuotaBytesPerItem(): number | undefined {
-  if (typeof chrome === 'undefined') return undefined;
-  const candidate = chrome.storage?.sync?.QUOTA_BYTES_PER_ITEM;
-  return typeof candidate === 'number' && Number.isFinite(candidate) && candidate > 0
-    ? candidate
-    : undefined;
+  const candidate =
+    typeof chrome === 'undefined' ? undefined : chrome.storage?.sync?.QUOTA_BYTES_PER_ITEM;
+  if (typeof candidate === 'number' && Number.isFinite(candidate) && candidate > 0)
+    return candidate;
+  return undefined;
 }
-
 function resolveQuotaBytesPerItem(configured?: number): number {
   const candidates = [DEFAULT_OPTIONS_QUOTA_BYTES_PER_ITEM, configured, platformQuotaBytesPerItem()]
     .filter((value): value is number => typeof value === 'number')
     .filter((value) => Number.isFinite(value) && value > 0);
   return Math.min(...candidates);
 }
-
 function readPath(
   raw: PlainStructuredObject,
   path: readonly string[]
 ): PlainStructuredValue | undefined {
-  let current: PlainStructuredValue | undefined = raw;
-  for (const part of path) {
-    const candidate: PlainStructuredValue | null = current ?? null;
-    if (!isObject(candidate) || !Object.prototype.hasOwnProperty.call(candidate, part)) {
-      return undefined;
-    }
-    current = candidate[part];
-  }
-  return current;
+  return path.reduce<PlainStructuredValue | undefined>(
+    (current, part) =>
+      isObject(current ?? null) ? (current as PlainStructuredObject)[part] : undefined,
+    raw
+  );
 }
-
 function expectedPatchValues(
   raw: PlainStructuredObject,
   patches: readonly OptionsPatch[]
@@ -96,7 +89,6 @@ function expectedPatchValues(
     expected: [...paths.values()].map((path) => ({ path, value: readPath(raw, path) }))
   };
 }
-
 function migrationVerification(
   raw: PlainStructuredObject
 ): Extract<OptionsMutationVerification, { kind: 'paths' }> {
@@ -110,24 +102,41 @@ function migrationVerification(
     }))
   };
 }
-
 function normalizeRaw(value: PlainStructuredValue | null): PlainStructuredObject {
   if (value === null) return {};
   const snapshot = snapshotPlainStructuredData(value);
-  if (!snapshot.ok || !isObject(snapshot.value)) {
+  if (!snapshot.ok || !isObject(snapshot.value))
     throw new OptionsMutationError('OPTIONS_MUTATION_REJECTED');
-  }
   return snapshot.value;
 }
-
+function resolveVaultContext(
+  repository: OptionsRawStorageRepository,
+  command: OptionsMutationCommand
+) {
+  const candidate = repository as Partial<DeviceLocalVaultBindingRepository>;
+  if (
+    typeof candidate.readVaultBindings !== 'function' ||
+    typeof candidate.writeVaultBindings !== 'function'
+  )
+    return null;
+  const roots = command.kind === 'patch' ? command.patches.map(({ path }) => path[0]) : [];
+  if (command.kind === 'patch' && !roots.some((root) => root === 'rest' || root === 'vaultRouter'))
+    return null;
+  const source = roots.includes('vaultRouter')
+    ? 'vaultRouter'
+    : command.kind === 'replace' && !('vaultRouter' in command.replacement)
+      ? 'rest'
+      : 'vaultRouter';
+  return { repository: candidate as DeviceLocalVaultBindingRepository, source } as const;
+}
 export class OptionsMutationCoordinator {
   private tail: Promise<void> = Promise.resolve();
+  private initialization: Promise<void> | undefined;
   private readonly quotaBytesPerItem: number;
   private readonly maxExternalDriftRetries: number;
   private readonly createOperationId: () => string;
   private readonly yieldAfterWrite: () => Promise<void>;
   private readonly deviceLocalPrivacyCommitter: DeviceLocalPrivacyCommitter | undefined;
-
   constructor(
     private readonly repository: OptionsRawStorageRepository,
     private readonly options: OptionsMutationCoordinatorOptions = {}
@@ -141,36 +150,38 @@ export class OptionsMutationCoordinator {
       (() => new Promise<void>((resolve) => globalThis.setTimeout(resolve, 0)));
     this.deviceLocalPrivacyCommitter = options.deviceLocalPrivacyCommitter;
   }
-
   execute(command: OptionsMutationCommand): Promise<OptionsMutationSuccessResult> {
-    return this.enqueue(() => this.executeQueued(command));
+    return this.initialize().then(() => this.enqueue(() => this.executeQueued(command)));
   }
-
+  initialize(): Promise<void> {
+    return (this.initialization ??= this.enqueue(async () => {
+      await this.deviceLocalPrivacyCommitter?.recover?.();
+      await this.options.deviceLocalVaultCleanupJournal?.recover();
+      await this.executeQueued({ kind: 'migrate' }, false);
+    }));
+  }
   patch(patches: readonly OptionsPatch[]): Promise<OptionsMutationSuccessResult> {
     return this.execute({ kind: 'patch', patches });
   }
-
   replace(
     replacement: Extract<OptionsMutationCommand, { kind: 'replace' }>['replacement']
   ): Promise<OptionsMutationSuccessResult> {
     return this.execute({ kind: 'replace', replacement });
   }
-
   migrate(): Promise<OptionsMutationSuccessResult> {
     return this.execute({ kind: 'migrate' });
   }
-
-  readLegacyUsageStats(): Promise<PlainStructuredValue | undefined> {
+  async readLegacyUsageStats(): Promise<PlainStructuredValue | undefined> {
+    await this.initialize();
     return this.enqueue(async () => {
       const raw = await this.repository.readRaw();
       return isObject(raw) ? clone(raw.usageStats) : undefined;
     });
   }
-
-  deleteLegacyUsageStatsRoot(): Promise<OptionsMutationSuccessResult> {
+  async deleteLegacyUsageStatsRoot(): Promise<OptionsMutationSuccessResult> {
+    await this.initialize();
     return this.enqueue(() => this.deleteLegacyUsageStatsRootQueued());
   }
-
   private enqueue<T>(operation: () => Promise<T>): Promise<T> {
     const queued = this.tail.then(operation);
     this.tail = queued.then(
@@ -179,15 +190,16 @@ export class OptionsMutationCoordinator {
     );
     return queued;
   }
-
   private async executeQueued(
-    command: OptionsMutationCommand
+    command: OptionsMutationCommand,
+    recoverVault = true
   ): Promise<OptionsMutationSuccessResult> {
+    if (recoverVault) await this.options.deviceLocalVaultCleanupJournal?.recover();
     const operationId = this.createOperationId();
     const vaultResult = this.deviceLocalPrivacyCommitter
       ? await executeDeviceLocalVaultBindingMutation(
           command,
-          this.repository,
+          resolveVaultContext(this.repository, command),
           this.deviceLocalPrivacyCommitter,
           this.quotaBytesPerItem,
           operationId,
@@ -217,7 +229,6 @@ export class OptionsMutationCoordinator {
     }
     return this.writeWithRetry(operationId, (raw) => this.applyCommand(raw, command));
   }
-
   private applyCommand(
     raw: PlainStructuredObject,
     command: OptionsMutationCommand
@@ -252,7 +263,6 @@ export class OptionsMutationCoordinator {
       verification: migrationVerification(raw)
     };
   }
-
   private async deleteLegacyUsageStatsRootQueued(): Promise<OptionsMutationSuccessResult> {
     const operationId = this.createOperationId();
     return this.writeWithRetry(operationId, (raw) => {
@@ -270,7 +280,6 @@ export class OptionsMutationCoordinator {
       };
     });
   }
-
   private async writeWithRetry(
     operationId: string,
     createMutation: (raw: PlainStructuredObject) => {
@@ -318,18 +327,10 @@ export class OptionsMutationCoordinator {
     throw new OptionsMutationError('EXTERNAL_SYNC_CONFLICT');
   }
 }
-
-export function createOptionsMutationCoordinator(
+export const createOptionsMutationCoordinator = (
   repository: OptionsRawStorageRepository,
   options?: OptionsMutationCoordinatorOptions
-): OptionsMutationCoordinator {
-  return new OptionsMutationCoordinator(repository, options);
-}
-
-/**
- * Background callers share the coordinator directly. They never message the
- * service worker back into itself and never gain access to raw storage writes.
- */
+): OptionsMutationCoordinator => new OptionsMutationCoordinator(repository, options);
 export function createBackgroundOptionsRepository(
   reader: BackgroundOptionsReader,
   coordinator: OptionsMutationCoordinator

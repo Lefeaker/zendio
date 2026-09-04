@@ -5,7 +5,10 @@ import {
   type OptionsMutationCoordinatorOptions
 } from '../../../src/background/services/optionsMutationCoordinator';
 import { decodeStoredOptions } from '../../../src/shared/config/storedOptionsCodec';
-import { captureDeviceLocalVaultBindings } from '../../../src/shared/config/deviceLocalVaultBindings';
+import {
+  captureDeviceLocalVaultBindings,
+  optionsValuesEqual
+} from '../../../src/shared/config/deviceLocalVaultBindings';
 import { createMemoryStorageService } from '../../../src/platform/preview/memoryStorage';
 import {
   DEVICE_LOCAL_VAULT_CLEANUP_JOURNAL_KEY,
@@ -81,7 +84,81 @@ function createCoordinator(
   });
 }
 
+function createVaultJournal(
+  storage: ReturnType<typeof createMemoryStorageService>,
+  repository: VaultRawRepository,
+  removeDirectory: (folderId: string) => Promise<void> = () => Promise.resolve()
+): DeviceLocalVaultCleanupJournal {
+  return new DeviceLocalVaultCleanupJournal(
+    storage.local,
+    () => repository.readVaultBindings(),
+    removeDirectory,
+    {
+      readPortableRaw: async () => {
+        const raw = await repository.readRaw();
+        return typeof raw === 'object' && raw !== null && !Array.isArray(raw) ? raw : {};
+      },
+      writeBindings: (snapshot) => repository.writeVaultBindings(snapshot)
+    }
+  );
+}
+
+function commitPortable(repository: VaultRawRepository): DeviceLocalPrivacyCommitter['execute'] {
+  return async (command, applyCommand, _quotaBytesPerItem, lifecycle) => {
+    const raw = repository.raw;
+    if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) {
+      throw new OptionsMutationError('OPTIONS_MUTATION_REJECTED');
+    }
+    const mutation = applyCommand(raw, command);
+    const writeRequired = !optionsValuesEqual(raw, mutation.next);
+    await lifecycle?.beforePortableDecision({
+      portablePreimage: raw,
+      portableProposal: mutation.next,
+      writeRequired,
+      verification: mutation.verification
+    });
+    if (writeRequired) repository.raw = clone(mutation.next);
+    return { raw: mutation.next, didWrite: writeRequired };
+  };
+}
+
 describe('OptionsMutationCoordinator', () => {
+  it('admits commands only after privacy recovery, vault recovery, and migration', async () => {
+    const events: string[] = [];
+    const repository = new RawRepository({ interfaceTheme: 'system' });
+    const execute: DeviceLocalPrivacyCommitter['execute'] = async (command, applyCommand) => {
+      events.push(command.kind);
+      const raw = repository.raw as PlainStructuredObject;
+      const mutation = applyCommand(raw, command);
+      repository.raw = clone(mutation.next);
+      return { raw: mutation.next, didWrite: command.kind !== 'migrate' };
+    };
+    const journal = {
+      recover: vi.fn(async () => {
+        events.push('vault-recovery');
+      })
+    } as unknown as DeviceLocalVaultCleanupJournal;
+    const coordinator = createCoordinator(repository, {
+      deviceLocalPrivacyCommitter: {
+        recover: async () => {
+          events.push('privacy-recovery');
+        },
+        execute
+      },
+      deviceLocalVaultCleanupJournal: journal
+    });
+
+    await coordinator.patch([{ path: ['interfaceTheme'], value: 'dark' }]);
+
+    expect(events).toEqual([
+      'privacy-recovery',
+      'vault-recovery',
+      'migrate',
+      'vault-recovery',
+      'patch'
+    ]);
+  });
+
   it('does not recapture the composed REST binding during an explicit vaultRouter clear', () => {
     const runtime = decodeStoredOptions({}).runtime;
     runtime.rest.localFolderId = 'folder-old';
@@ -168,7 +245,67 @@ describe('OptionsMutationCoordinator', () => {
     expect(result.snapshot.privacyPreferences).toEqual(privacy);
   });
 
-  it('does not commit synchronized options or privacy when the local vault binding write fails', async () => {
+  it('commits a local-only binding change through an exact no-write portable decision', async () => {
+    const portable: PlainStructuredObject = {
+      vaultRouter: {
+        defaultVaultId: 'primary',
+        vaults: [
+          {
+            id: 'primary',
+            name: 'Primary',
+            vault: 'Primary',
+            httpsUrl: '',
+            httpUrl: '',
+            apiKey: ''
+          }
+        ]
+      }
+    };
+    const repository = new VaultRawRepository(portable);
+    repository.bindings = {
+      version: 1,
+      bindings: { primary: { folderId: 'folder-old', folderName: 'Old Folder' } }
+    };
+    const storage = createMemoryStorageService();
+    const journal = createVaultJournal(storage, repository);
+    const prepare = vi.spyOn(journal, 'prepare');
+    const execute = vi.fn<DeviceLocalPrivacyCommitter['execute']>(commitPortable(repository));
+    const coordinator = createCoordinator(repository, {
+      deviceLocalPrivacyCommitter: { execute },
+      deviceLocalVaultCleanupJournal: journal
+    });
+
+    const result = await coordinator.patch([
+      {
+        path: ['vaultRouter'],
+        value: {
+          defaultVaultId: 'primary',
+          vaults: [
+            {
+              id: 'primary',
+              name: 'Primary',
+              vault: 'Primary',
+              httpsUrl: '',
+              httpUrl: '',
+              apiKey: '',
+              localFolderId: 'folder-new',
+              localFolderName: 'New Folder'
+            }
+          ]
+        }
+      }
+    ]);
+
+    expect(result.didWrite).toBe(true);
+    expect(repository.raw).toEqual(portable);
+    expect(repository.bindings.bindings.primary).toEqual({
+      folderId: 'folder-new',
+      folderName: 'New Folder'
+    });
+    expect(prepare).toHaveBeenCalledWith(expect.objectContaining({ writeRequired: false }));
+  });
+
+  it('keeps portable commit evidence when the local vault binding write fails', async () => {
     const originalRaw: PlainStructuredObject = {
       privacyPreferences: { analytics: false, errorReporting: false, debugMode: false },
       vaultRouter: {
@@ -191,17 +328,30 @@ describe('OptionsMutationCoordinator', () => {
       version: 1,
       bindings: { primary: { folderId: 'folder-old', folderName: 'Old Folder' } }
     };
-    repository.failNextBindingWrite = true;
     let privacy = { analytics: false, errorReporting: false, debugMode: false };
-    const execute = vi.fn<DeviceLocalPrivacyCommitter['execute']>((command, applyCommand) => {
-      const mutation = applyCommand({ ...originalRaw, privacyPreferences: privacy }, command);
-      privacy = clone(decodeStoredOptions(mutation.next).runtime.privacyPreferences);
-      repository.raw = clone(mutation.next);
-      return Promise.resolve({ raw: mutation.next, privacy, didWrite: true });
-    });
+    const storage = createMemoryStorageService();
+    const journal = createVaultJournal(storage, repository);
+    const execute = vi.fn<DeviceLocalPrivacyCommitter['execute']>(
+      async (command, applyCommand, _quotaBytesPerItem, lifecycle) => {
+        const mutation = applyCommand({ ...originalRaw, privacyPreferences: privacy }, command);
+        privacy = clone(decodeStoredOptions(mutation.next).runtime.privacyPreferences);
+        await lifecycle?.beforePortableDecision({
+          portablePreimage: originalRaw,
+          portableProposal: mutation.next,
+          writeRequired: true,
+          verification: mutation.verification
+        });
+        repository.raw = clone(mutation.next);
+        return { raw: mutation.next, privacy, didWrite: true };
+      }
+    );
     const coordinator = createCoordinator(repository, {
-      deviceLocalPrivacyCommitter: { execute }
+      deviceLocalPrivacyCommitter: { execute },
+      deviceLocalVaultCleanupJournal: journal
     });
+    await coordinator.initialize();
+    execute.mockClear();
+    repository.failNextBindingWrite = true;
 
     await expect(
       coordinator.patch([
@@ -227,13 +377,15 @@ describe('OptionsMutationCoordinator', () => {
       ])
     ).rejects.toEqual(new OptionsMutationError('OPTIONS_STORAGE_FAILURE'));
 
-    expect(execute).not.toHaveBeenCalled();
-    expect(repository.raw).toEqual(originalRaw);
+    expect(execute).toHaveBeenCalledOnce();
+    expect(repository.raw).not.toEqual(originalRaw);
     expect(repository.bindings).toEqual({
       version: 1,
       bindings: { primary: { folderId: 'folder-old', folderName: 'Old Folder' } }
     });
-    expect(privacy).toEqual({ analytics: false, errorReporting: false, debugMode: false });
+    await expect(storage.local.get(DEVICE_LOCAL_VAULT_CLEANUP_JOURNAL_KEY)).resolves.toMatchObject({
+      phase: 'portable-committed'
+    });
   });
 
   it('restores the previous vault binding when the coordinated commit fails', async () => {
@@ -296,7 +448,7 @@ describe('OptionsMutationCoordinator', () => {
     });
   });
 
-  it('journals a removed handle before clearing its binding and acknowledges before deletion', async () => {
+  it('persists local commit before a bounded cleanup failure and recovers later', async () => {
     const originalRaw: PlainStructuredObject = {
       rest: {
         vault: 'Primary',
@@ -325,29 +477,37 @@ describe('OptionsMutationCoordinator', () => {
       bindings: { primary: { folderId: 'folder-old', folderName: 'Old Folder' } }
     };
     const storage = createMemoryStorageService();
-    let releaseCleanup: (() => void) | undefined;
-    const removeDirectory = vi.fn(
-      () =>
-        new Promise<void>((resolve) => {
-          releaseCleanup = resolve;
-        })
-    );
-    const journal = new DeviceLocalVaultCleanupJournal(
-      storage.local,
-      () => repository.readVaultBindings(),
-      removeDirectory
-    );
+    const removeDirectory = vi
+      .fn<(folderId: string) => Promise<void>>()
+      .mockRejectedValueOnce(new Error('indexeddb unavailable'))
+      .mockResolvedValue(undefined);
+    const journal = createVaultJournal(storage, repository, removeDirectory);
     const journalWrite = vi.spyOn(storage.local, 'set');
     const bindingWrite = vi.spyOn(repository, 'writeVaultBindings');
-    const execute = vi.fn<DeviceLocalPrivacyCommitter['execute']>((command, applyCommand) => {
-      const mutation = applyCommand(originalRaw, command);
-      repository.raw = clone(mutation.next);
-      return Promise.resolve({ raw: mutation.next, didWrite: true });
-    });
+    const portableWrite = vi.fn();
+    const execute = vi.fn<DeviceLocalPrivacyCommitter['execute']>(
+      async (command, applyCommand, _quotaBytesPerItem, lifecycle) => {
+        const mutation = applyCommand(repository.raw as PlainStructuredObject, command);
+        await lifecycle?.beforePortableDecision({
+          portablePreimage: repository.raw as PlainStructuredObject,
+          portableProposal: mutation.next,
+          writeRequired: true,
+          verification: mutation.verification
+        });
+        portableWrite();
+        repository.raw = clone(mutation.next);
+        return { raw: mutation.next, didWrite: true };
+      }
+    );
     const coordinator = createCoordinator(repository, {
       deviceLocalPrivacyCommitter: { execute },
       deviceLocalVaultCleanupJournal: journal
     });
+    await coordinator.initialize();
+    execute.mockClear();
+    portableWrite.mockClear();
+    journalWrite.mockClear();
+    bindingWrite.mockClear();
 
     await coordinator.patch([
       {
@@ -369,18 +529,21 @@ describe('OptionsMutationCoordinator', () => {
     ]);
 
     expect(journalWrite.mock.invocationCallOrder[0]).toBeLessThan(
+      portableWrite.mock.invocationCallOrder[0] ?? Number.POSITIVE_INFINITY
+    );
+    expect(portableWrite.mock.invocationCallOrder[0]).toBeLessThan(
       bindingWrite.mock.invocationCallOrder[0] ?? Number.POSITIVE_INFINITY
     );
     expect(repository.bindings).toEqual({ version: 1, bindings: {} });
     expect(repository.raw).toEqual(originalRaw);
-    await vi.waitFor(() => expect(removeDirectory).toHaveBeenCalledWith('folder-old'));
-    await expect(storage.local.get(DEVICE_LOCAL_VAULT_CLEANUP_JOURNAL_KEY)).resolves.toEqual({
-      version: 1,
-      folderIds: ['folder-old']
+    expect(removeDirectory).toHaveBeenCalledWith('folder-old');
+    await expect(storage.local.get(DEVICE_LOCAL_VAULT_CLEANUP_JOURNAL_KEY)).resolves.toMatchObject({
+      version: 2,
+      phase: 'local-committed',
+      remainingCleanupCandidates: ['folder-old']
     });
 
-    releaseCleanup?.();
-    await journal.retryPending();
+    await journal.recover();
     await expect(
       storage.local.get(DEVICE_LOCAL_VAULT_CLEANUP_JOURNAL_KEY)
     ).resolves.toBeUndefined();
@@ -409,17 +572,15 @@ describe('OptionsMutationCoordinator', () => {
       bindings: { primary: { folderId: 'folder-old', folderName: 'Old Folder' } }
     };
     const storage = createMemoryStorageService();
-    storage.local.set = vi.fn(() => Promise.reject(new Error('local storage unavailable')));
-    const journal = new DeviceLocalVaultCleanupJournal(
-      storage.local,
-      () => repository.readVaultBindings(),
-      () => Promise.resolve()
-    );
-    const execute = vi.fn<DeviceLocalPrivacyCommitter['execute']>();
+    const journal = createVaultJournal(storage, repository);
+    const execute = vi.fn<DeviceLocalPrivacyCommitter['execute']>(commitPortable(repository));
     const coordinator = createCoordinator(repository, {
       deviceLocalPrivacyCommitter: { execute },
       deviceLocalVaultCleanupJournal: journal
     });
+    await coordinator.initialize();
+    execute.mockClear();
+    storage.local.set = vi.fn(() => Promise.reject(new Error('local storage unavailable')));
 
     await expect(
       coordinator.patch([
@@ -442,7 +603,7 @@ describe('OptionsMutationCoordinator', () => {
       ])
     ).rejects.toEqual(new OptionsMutationError('OPTIONS_STORAGE_FAILURE'));
 
-    expect(execute).not.toHaveBeenCalled();
+    expect(execute).toHaveBeenCalledOnce();
     expect(repository.raw).toEqual(originalRaw);
     expect(repository.bindings).toEqual({
       version: 1,
@@ -450,32 +611,46 @@ describe('OptionsMutationCoordinator', () => {
     });
   });
 
-  it('retries a durable failed cleanup from a fresh coordinator', async () => {
-    const repository = new VaultRawRepository({ opaqueRoot: { keep: true } });
-    const storage = createMemoryStorageService();
-    await storage.local.set(DEVICE_LOCAL_VAULT_CLEANUP_JOURNAL_KEY, {
+  it('lets two fresh coordinator instances resume one durable cleanup transaction', async () => {
+    const portablePreimage = { opaqueRoot: { keep: true } };
+    const portableProposal = { opaqueRoot: { keep: false } };
+    const repository = new VaultRawRepository(portablePreimage);
+    repository.bindings = {
       version: 1,
-      folderIds: ['folder-old']
-    });
+      bindings: { primary: { folderId: 'folder-old', folderName: 'Old Folder' } }
+    };
+    const storage = createMemoryStorageService();
     const removeDirectory = vi
       .fn<(folderId: string) => Promise<void>>()
       .mockRejectedValueOnce(new Error('indexeddb transaction aborted'))
       .mockResolvedValue(undefined);
     const warning = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
-    const createFreshJournal = () =>
-      new DeviceLocalVaultCleanupJournal(
-        storage.local,
-        () => repository.readVaultBindings(),
-        removeDirectory
-      );
+    const seedJournal = createVaultJournal(storage, repository, removeDirectory);
+    await seedJournal.prepare({
+      transactionId: 'operation-crashed',
+      previousBindings: repository.bindings,
+      proposedBindings: { version: 1, bindings: {} },
+      portablePreimage,
+      portableProposal,
+      writeRequired: true
+    });
+    repository.raw = portableProposal;
 
-    await createFreshJournal().retryPending();
-    await expect(storage.local.get(DEVICE_LOCAL_VAULT_CLEANUP_JOURNAL_KEY)).resolves.toEqual({
-      version: 1,
-      folderIds: ['folder-old']
+    const first = createCoordinator(repository, {
+      deviceLocalPrivacyCommitter: { execute: commitPortable(repository) },
+      deviceLocalVaultCleanupJournal: createVaultJournal(storage, repository, removeDirectory)
+    });
+    await expect(first.initialize()).rejects.toMatchObject({ code: 'OPTIONS_STORAGE_FAILURE' });
+    await expect(storage.local.get(DEVICE_LOCAL_VAULT_CLEANUP_JOURNAL_KEY)).resolves.toMatchObject({
+      phase: 'local-committed',
+      remainingCleanupCandidates: ['folder-old']
     });
 
-    await createFreshJournal().retryPending();
+    const second = createCoordinator(repository, {
+      deviceLocalPrivacyCommitter: { execute: commitPortable(repository) },
+      deviceLocalVaultCleanupJournal: createVaultJournal(storage, repository, removeDirectory)
+    });
+    await second.initialize();
 
     expect(removeDirectory).toHaveBeenCalledTimes(2);
     await expect(
@@ -507,16 +682,8 @@ describe('OptionsMutationCoordinator', () => {
       folderIds: ['folder-old']
     });
     const removeDirectory = vi.fn(() => Promise.resolve());
-    const journal = new DeviceLocalVaultCleanupJournal(
-      storage.local,
-      () => repository.readVaultBindings(),
-      removeDirectory
-    );
-    const execute = vi.fn<DeviceLocalPrivacyCommitter['execute']>((command, applyCommand) => {
-      const mutation = applyCommand(originalRaw, command);
-      repository.raw = clone(mutation.next);
-      return Promise.resolve({ raw: mutation.next, didWrite: true });
-    });
+    const journal = createVaultJournal(storage, repository, removeDirectory);
+    const execute = vi.fn<DeviceLocalPrivacyCommitter['execute']>(commitPortable(repository));
     const coordinator = createCoordinator(repository, {
       deviceLocalPrivacyCommitter: { execute },
       deviceLocalVaultCleanupJournal: journal
@@ -603,7 +770,7 @@ describe('OptionsMutationCoordinator', () => {
     const replacement = await coordinator.replace({ interfaceTheme: 'dark' });
     expect(repository.raw).toEqual({ interfaceTheme: 'dark' });
     expect(replacement.snapshot.privacyPreferences).toEqual(privacy);
-    expect(execute).toHaveBeenCalledTimes(2);
+    expect(execute).toHaveBeenCalledTimes(3);
   });
 
   it('rolls back staged privacy when the synchronized scrub fails', async () => {
