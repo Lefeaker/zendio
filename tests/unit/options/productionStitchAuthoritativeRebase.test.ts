@@ -3,6 +3,7 @@ import type { CompleteOptions } from '@shared/types/options';
 import { DEFAULT_OPTIONS } from '@shared/config/defaultOptions';
 import {
   applyProductionStitchAuthoritativeRebase,
+  createProductionStitchAuthoritativeRebase,
   resolveAuthoritativeRebaseScopes
 } from '@options/app/productionStitchAuthoritativeRebase';
 
@@ -35,9 +36,26 @@ describe('production Stitch authoritative rebase', () => {
     expect(render).not.toHaveBeenCalledWith('all-invariant-recovery');
   });
 
-  it('keeps a dirty YAML widget mounted during an unrelated output rebase', () => {
-    expect(resolveAuthoritativeRebaseScopes([['templates', 'article']], ['yamlConfig'])).toEqual(
-      []
-    );
+  it('defers a protected finite scope and releases it after protection reconciliation', () => {
+    const render = vi.fn();
+    let protectionKeys = ['yamlConfig'];
+    const rebase = createProductionStitchAuthoritativeRebase({
+      resetOptions: vi.fn(),
+      getRenderProtectionKeys: () => protectionKeys,
+      reconcileRenderProtection: (persistentDirtyPathKeys) => {
+        if (!persistentDirtyPathKeys.includes('yamlConfig')) protectionKeys = [];
+      },
+      render
+    });
+    const next = clone(DEFAULT_OPTIONS as CompleteOptions);
+
+    rebase(next, {
+      changedPaths: [['templates', 'article']],
+      dirtyPathKeys: ['yamlConfig']
+    });
+    expect(render).not.toHaveBeenCalled();
+
+    rebase(next, { changedPaths: [], dirtyPathKeys: [] });
+    expect(render).toHaveBeenCalledWith(['output']);
   });
 });

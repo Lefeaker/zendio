@@ -209,6 +209,8 @@ export function mountProductionStitchShellFromDependencies({
   const rebaseOptions = createProductionStitchAuthoritativeRebase({
     resetOptions,
     afterReset: persistence.restoreUsageStatsView,
+    getRenderProtectionKeys: widgetHost.getRenderProtectionKeys,
+    reconcileRenderProtection: widgetHost.reconcileRenderProtection,
     render: renderDelegates.render
   });
 

@@ -178,6 +178,7 @@ describe('OptionsController', () => {
     const local = structuredClone(repositorySnapshot);
     local.fragmentClipper.captureContext = true;
     controller.scheduleAutoSave(() => local);
+    rebase.mockClear();
 
     const remote = structuredClone(repositorySnapshot);
     remote.interfaceTheme = 'dark';
@@ -191,6 +192,50 @@ describe('OptionsController', () => {
       changedPaths: [['interfaceTheme']],
       dirtyPathKeys: ['fragmentClipper.captureContext']
     });
+  });
+
+  it('keeps a later mounted notification when an in-flight older acknowledgement clears ownership', async () => {
+    const listeners: Array<(options: StoredOptions) => void> = [];
+    persistence.subscribe = vi.fn((listener: (options: StoredOptions) => void) => {
+      listeners.push(listener);
+      return () => undefined;
+    });
+    let releaseSave: (() => void) | undefined;
+    saveMock.mockImplementationOnce(
+      () =>
+        new Promise<StoredOptions>((resolve) => {
+          const olderAcknowledgement = structuredClone(repositorySnapshot);
+          olderAcknowledgement.fragmentClipper.captureContext = true;
+          releaseSave = () => resolve(olderAcknowledgement);
+        })
+    );
+    const controller = createOptionsController({ persistence, formAdapter });
+    await controller.loadInitialState();
+    const rebase = vi.fn();
+    controller.bindMountedDraftRebase(rebase);
+
+    const local = structuredClone(repositorySnapshot);
+    local.fragmentClipper.captureContext = true;
+    controller.scheduleAutoSave(() => local);
+    const flush = controller.flushPendingAutoSave();
+    rebase.mockClear();
+
+    const remote = structuredClone(repositorySnapshot);
+    remote.interfaceTheme = 'dark';
+    repositorySnapshot = remote;
+    listeners.forEach((listener) => listener(remote));
+    expect(rebase).toHaveBeenCalledOnce();
+    expect((rebase.mock.calls[0]?.[0] as CompleteOptions).interfaceTheme).toBe('dark');
+
+    releaseSave?.();
+    await flush;
+
+    expect(controller.getSnapshot()?.interfaceTheme).toBe('dark');
+    expect(rebase.mock.calls.at(-1)?.[1]).toEqual({
+      changedPaths: [],
+      dirtyPathKeys: []
+    });
+    expect((rebase.mock.calls.at(-1)?.[0] as CompleteOptions).interfaceTheme).toBe('dark');
   });
 
   it('serializes a reversal behind an earlier pending durable autosave', async () => {

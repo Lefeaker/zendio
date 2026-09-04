@@ -31,6 +31,7 @@ export interface OptionsMutationIntent {
 export interface OptionsDraftSessionTransition {
   readonly changed: boolean;
   readonly changedPaths: readonly OptionsPath[];
+  readonly ownershipChanged: boolean;
 }
 
 export interface MountedDraftRebase {
@@ -75,6 +76,7 @@ export class OptionsDraftSession {
   }
 
   captureLocalDraft(nextDraft: CompleteOptions): OptionsDraftSessionTransition {
+    const previousDirtyKeys = this.getDirtyPathKeys();
     const changedPaths = diffOptionsPaths(this.working, nextDraft);
     for (const path of changedPaths) {
       const key = optionsPathKey(path);
@@ -98,19 +100,19 @@ export class OptionsDraftSession {
       }
     }
     this.working = this.composeWorkingDraft();
-    return { changed: changedPaths.length > 0, changedPaths };
+    return this.transition(changedPaths, previousDirtyKeys);
   }
 
   observeAuthoritative(nextSnapshot: CompleteOptions): OptionsDraftSessionTransition {
     if (areOptionsSnapshotsEqual(this.authoritative, nextSnapshot)) {
-      return { changed: false, changedPaths: [] };
+      return { changed: false, changedPaths: [], ownershipChanged: false };
     }
     const previousWorking = this.working;
     this.authoritative = deepClone(nextSnapshot);
     this.revision += 1;
     this.working = this.composeWorkingDraft();
     const changedPaths = diffOptionsPaths(previousWorking, this.working);
-    return { changed: true, changedPaths };
+    return { changed: true, changedPaths, ownershipChanged: false };
   }
 
   createIntent(): OptionsMutationIntent | null {
@@ -147,6 +149,7 @@ export class OptionsDraftSession {
     acknowledgedSnapshot: CompleteOptions
   ): OptionsDraftSessionTransition {
     const previousWorking = this.working;
+    const previousDirtyKeys = this.getDirtyPathKeys();
     this.admitted.delete(intent.intentId);
     let nextAuthoritative =
       this.revision === intent.baseRevision
@@ -172,7 +175,7 @@ export class OptionsDraftSession {
     }
     this.working = this.composeWorkingDraft();
     const changedPaths = diffOptionsPaths(previousWorking, this.working);
-    return { changed: changedPaths.length > 0, changedPaths };
+    return this.transition(changedPaths, previousDirtyKeys);
   }
 
   fail(_intent: OptionsMutationIntent): void {
@@ -182,13 +185,28 @@ export class OptionsDraftSession {
 
   resetAuthoritative(nextSnapshot: CompleteOptions): OptionsDraftSessionTransition {
     const previousWorking = this.working;
+    const previousDirtyKeys = this.getDirtyPathKeys();
     this.authoritative = deepClone(nextSnapshot);
     this.dirty.clear();
     this.admitted.clear();
     this.revision += 1;
     this.working = deepClone(nextSnapshot);
     const changedPaths = diffOptionsPaths(previousWorking, this.working);
-    return { changed: changedPaths.length > 0, changedPaths };
+    return this.transition(changedPaths, previousDirtyKeys);
+  }
+
+  private transition(
+    changedPaths: readonly OptionsPath[],
+    previousDirtyKeys: readonly string[]
+  ): OptionsDraftSessionTransition {
+    const currentDirtyKeys = this.getDirtyPathKeys();
+    return {
+      changed: changedPaths.length > 0,
+      changedPaths,
+      ownershipChanged:
+        currentDirtyKeys.length !== previousDirtyKeys.length ||
+        currentDirtyKeys.some((key, index) => key !== previousDirtyKeys[index])
+    };
   }
 
   private composeWorkingDraft(): CompleteOptions {

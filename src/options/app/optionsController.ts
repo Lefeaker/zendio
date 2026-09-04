@@ -121,7 +121,10 @@ export class OptionsController {
       this.callbacks.onSaveError?.('auto', error);
       return;
     }
-    if (draft) this.requireDraftSession().captureLocalDraft(mergeOptions(draft));
+    if (draft) {
+      const transition = this.requireDraftSession().captureLocalDraft(mergeOptions(draft));
+      this.applyMountedTransition({ ...transition, changed: false, changedPaths: [] }, true);
+    }
     this.hasPendingAutoSave = true;
     this.autoSaveTimer = setTimeout(() => {
       this.autoSaveTimer = null;
@@ -219,8 +222,11 @@ export class OptionsController {
     }
     return this.draftSession;
   }
-  private applyMountedTransition(transition: OptionsDraftSessionTransition): void {
-    if (!transition.changed || transition.changedPaths.length === 0) return;
+  private applyMountedTransition(
+    transition: OptionsDraftSessionTransition,
+    forceReconcile = false
+  ): void {
+    if (!forceReconcile && !transition.changed && !transition.ownershipChanged) return;
     this.mountedDraftRebase?.(this.requireDraftSession().getWorkingDraft(), {
       changedPaths: transition.changedPaths,
       dirtyPathKeys: this.requireDraftSession().getDirtyPathKeys()

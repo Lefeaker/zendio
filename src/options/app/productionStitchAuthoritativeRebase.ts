@@ -1,6 +1,6 @@
 import type { CompleteOptions } from '../../shared/types/options';
 import type { SectionInvalidationScope } from '../../ui/stitch-runtime/render/sectionInvalidation';
-import { optionsPathKey, type OptionsPath } from '../state/optionsPatchModel';
+import { OPTIONS_PATCH_PATHS, optionsPathKey, type OptionsPath } from '../state/optionsPatchModel';
 import type { OptionsController } from './optionsController';
 import type { MountedProductionStitchShell } from './productionStitchShellTypes';
 
@@ -25,46 +25,65 @@ const ROOT_SCOPES: Record<OptionsPath[0], SectionInvalidationScope> = {
 };
 
 export function resolveAuthoritativeRebaseScopes(
-  changedPaths: readonly OptionsPath[],
-  dirtyPathKeys: readonly string[] = []
+  changedPaths: readonly OptionsPath[]
 ): SectionInvalidationScope[] {
   const scopes = new Set<SectionInvalidationScope>();
   changedPaths.forEach((path) => scopes.add(ROOT_SCOPES[path[0]]));
-  if (dirtyPathKeys.includes(optionsPathKey(['yamlConfig']))) scopes.delete('output');
   return [...scopes];
 }
 
+const PATH_SCOPES = new Map(
+  OPTIONS_PATCH_PATHS.map((path) => [optionsPathKey(path), ROOT_SCOPES[path[0]]] as const)
+);
+
+interface AuthoritativeRebaseOwners {
+  resetOptions(options: CompleteOptions): void;
+  afterReset?(): void;
+  getRenderProtectionKeys?(): readonly string[];
+  reconcileRenderProtection?(persistentDirtyPathKeys: readonly string[]): void;
+  render(scopes: readonly SectionInvalidationScope[]): void;
+}
+
+function resolveProtectedScopes(keys: readonly string[]): Set<SectionInvalidationScope> {
+  return new Set(keys.flatMap((key) => (PATH_SCOPES.get(key) ? [PATH_SCOPES.get(key)!] : [])));
+}
+
 export function applyProductionStitchAuthoritativeRebase(
-  owners: {
-    resetOptions(options: CompleteOptions): void;
-    afterReset?(): void;
-    render(scopes: readonly SectionInvalidationScope[]): void;
-  },
+  owners: AuthoritativeRebaseOwners,
   nextDraft: CompleteOptions,
   transition: {
     changedPaths: readonly OptionsPath[];
     dirtyPathKeys: readonly string[];
-  }
+  },
+  deferredScopes: Set<SectionInvalidationScope> = new Set()
 ): void {
+  owners.reconcileRenderProtection?.(transition.dirtyPathKeys);
   owners.resetOptions(nextDraft);
   owners.afterReset?.();
-  const scopes = resolveAuthoritativeRebaseScopes(
-    transition.changedPaths,
-    transition.dirtyPathKeys
-  );
-  if (scopes.length > 0) owners.render(scopes);
+  const protectedScopes = resolveProtectedScopes(owners.getRenderProtectionKeys?.() ?? []);
+  const toRender = new Set<SectionInvalidationScope>();
+  resolveAuthoritativeRebaseScopes(transition.changedPaths).forEach((scope) => {
+    if (protectedScopes.has(scope)) deferredScopes.add(scope);
+    else toRender.add(scope);
+  });
+  deferredScopes.forEach((scope) => {
+    if (!protectedScopes.has(scope)) {
+      deferredScopes.delete(scope);
+      toRender.add(scope);
+    }
+  });
+  if (toRender.size > 0) owners.render([...toRender]);
 }
 
-export function createProductionStitchAuthoritativeRebase(owners: {
-  resetOptions(options: CompleteOptions): void;
-  afterReset?(): void;
-  render(scopes: readonly SectionInvalidationScope[]): void;
-}): (
+export function createProductionStitchAuthoritativeRebase(
+  owners: AuthoritativeRebaseOwners
+): (
   nextDraft: CompleteOptions,
   transition: { changedPaths: readonly OptionsPath[]; dirtyPathKeys: readonly string[] }
 ) => void {
+  const deferredScopes = new Set<SectionInvalidationScope>();
   return (nextDraft, transition) =>
-    applyProductionStitchAuthoritativeRebase(owners, nextDraft, transition);
+    applyProductionStitchAuthoritativeRebase(owners, nextDraft, transition, deferredScopes);
 }
 
 export function bindProductionStitchAuthoritativeRebase(
