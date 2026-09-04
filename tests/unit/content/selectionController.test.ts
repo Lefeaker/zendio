@@ -19,6 +19,7 @@ import {
   registerReaderSession,
   registerVideoSession
 } from '@content/runtime/contentSessionRegistry';
+import type { VideoSessionStartOptions } from '@content/video/application/videoSessionPort';
 
 const getContentI18nResourceMock = vi.hoisted(() => vi.fn(() => null));
 const getContentMessagesMock = vi.hoisted(() =>
@@ -99,16 +100,7 @@ describe('content selectionController service', () => {
       () => readerSession
     );
     const videoSessionStart = vi
-      .fn<
-        (options?: {
-          destinationBootstrap?:
-            | { provenance: 'implicit-default' }
-            | {
-                provenance: 'explicit';
-                destination: NonNullable<ClipPromptResponse['destination']>;
-              };
-        }) => Promise<void>
-      >()
+      .fn<(options?: VideoSessionStartOptions) => Promise<void>>()
       .mockResolvedValue(undefined);
     const videoSessionIngest = vi.fn();
     const videoSessionFactory = vi.fn().mockReturnValue({
