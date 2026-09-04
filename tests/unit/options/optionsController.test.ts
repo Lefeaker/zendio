@@ -1,8 +1,11 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import type { Mock } from 'vitest';
 import type { CompleteOptions, StoredOptions } from '@shared/types/options';
+import type { OptionsPatch } from '@shared/types/optionsMutationMessages';
 import { mergeOptions } from '@shared/config/optionsMerger';
+import { STORED_OPTIONS_DELETE } from '@shared/config/storedOptionsCodec';
 import { createOptionsController } from '@options/app/optionsController';
+import { replaceOptionsPath, type OptionsPath } from '@options/state/optionsPatchModel';
 import type { OptionsFormAdapter } from '@options/components/optionsFormAdapter';
 import type { OptionsPersistenceService } from '@options/services/persistence';
 
@@ -10,9 +13,10 @@ describe('OptionsController', () => {
   let persistence: OptionsPersistenceService;
   let formAdapter: OptionsFormAdapter;
   let savedOptions: Array<CompleteOptions | StoredOptions>;
+  let repositorySnapshot: CompleteOptions;
   let loadMock: Mock<(...args: []) => Promise<StoredOptions>>;
-  let saveMock: Mock<(...args: [CompleteOptions | StoredOptions]) => Promise<void>>;
-  let replaceMock: Mock<(...args: [CompleteOptions | StoredOptions]) => Promise<void>>;
+  let saveMock: Mock<(...args: [readonly OptionsPatch[]]) => Promise<StoredOptions>>;
+  let replaceMock: Mock<(...args: [CompleteOptions | StoredOptions]) => Promise<StoredOptions>>;
   let getCachedMock: Mock<(...args: []) => StoredOptions | null>;
   let readMock: Mock<(...args: [StoredOptions | null]) => CompleteOptions>;
   let applyMock: Mock<(...args: [StoredOptions]) => Promise<void>>;
@@ -22,16 +26,32 @@ describe('OptionsController', () => {
     const snapshot: StoredOptions = {
       rest: { baseUrl: 'https://example.com/' }
     };
+    repositorySnapshot = mergeOptions(snapshot);
+
+    const commitPatches = (patches: readonly OptionsPatch[]): StoredOptions => {
+      for (const patch of patches) {
+        const value = patch.value === STORED_OPTIONS_DELETE ? undefined : patch.value;
+        repositorySnapshot = replaceOptionsPath(
+          repositorySnapshot,
+          patch.path as OptionsPath,
+          value
+        );
+      }
+      const acknowledged = structuredClone(repositorySnapshot);
+      savedOptions.push(acknowledged);
+      return acknowledged;
+    };
 
     loadMock = vi.fn<(...args: []) => Promise<StoredOptions>>(() => Promise.resolve(snapshot));
-    saveMock = vi.fn<(...args: [CompleteOptions | StoredOptions]) => Promise<void>>((options) => {
-      savedOptions.push(options);
-      return Promise.resolve();
-    });
-    replaceMock = vi.fn<(...args: [CompleteOptions | StoredOptions]) => Promise<void>>(
+    saveMock = vi.fn<(...args: [readonly OptionsPatch[]]) => Promise<StoredOptions>>((patches) =>
+      Promise.resolve(commitPatches(patches))
+    );
+    replaceMock = vi.fn<(...args: [CompleteOptions | StoredOptions]) => Promise<StoredOptions>>(
       (options) => {
-        savedOptions.push(options);
-        return Promise.resolve();
+        repositorySnapshot = mergeOptions(options);
+        const acknowledged = structuredClone(repositorySnapshot);
+        savedOptions.push(acknowledged);
+        return Promise.resolve(acknowledged);
       }
     );
     getCachedMock = vi.fn<(...args: []) => StoredOptions | null>(() => snapshot);
@@ -104,23 +124,25 @@ describe('OptionsController', () => {
     controller.scheduleAutoSave(collect);
     controller.scheduleAutoSave(collect);
 
-    expect(collect).not.toHaveBeenCalled();
+    expect(collect).toHaveBeenCalledTimes(2);
+    expect(saveMock).not.toHaveBeenCalled();
 
     await vi.advanceTimersByTimeAsync(400);
 
-    expect(collect).toHaveBeenCalledTimes(1);
+    expect(collect).toHaveBeenCalledTimes(2);
     expect(saveMock).toHaveBeenCalledTimes(1);
     expect(savedOptions[0]?.rest?.baseUrl).toBe('https://auto.example.com/');
   });
 
-  it('awaits async collectors before saving auto snapshot', async () => {
+  it('captures local ownership before a repository notification during debounce', async () => {
     vi.useFakeTimers();
-
-    const autoDraft = mergeOptions({ rest: { baseUrl: 'https://async.example.com/' } });
-    const collect = vi.fn(async () => {
-      await Promise.resolve();
-      return autoDraft;
+    const listeners: Array<(options: StoredOptions) => void> = [];
+    persistence.subscribe = vi.fn((listener: (options: StoredOptions) => void) => {
+      listeners.push(listener);
+      return () => undefined;
     });
+    const autoDraft = structuredClone(repositorySnapshot);
+    autoDraft.fragmentClipper.captureContext = true;
 
     const controller = createOptionsController({
       persistence,
@@ -128,13 +150,47 @@ describe('OptionsController', () => {
     });
     await controller.loadInitialState();
 
-    controller.scheduleAutoSave(collect);
+    controller.scheduleAutoSave(() => autoDraft);
+    const remote = structuredClone(repositorySnapshot);
+    remote.interfaceTheme = 'dark';
+    repositorySnapshot = structuredClone(remote);
+    listeners.forEach((listener) => listener(remote));
     await vi.advanceTimersByTimeAsync(400);
-    await Promise.resolve();
 
-    expect(collect).toHaveBeenCalledTimes(1);
     expect(saveMock).toHaveBeenCalledTimes(1);
-    expect(savedOptions[0]?.rest?.baseUrl).toBe('https://async.example.com/');
+    expect(saveMock).toHaveBeenCalledWith([
+      { path: ['fragmentClipper', 'captureContext'], value: true }
+    ]);
+    expect(savedOptions[0]?.interfaceTheme).toBe('dark');
+  });
+
+  it('rebases mounted non-dirty values while preserving captured local ownership', async () => {
+    const listeners: Array<(options: StoredOptions) => void> = [];
+    persistence.subscribe = vi.fn((listener: (options: StoredOptions) => void) => {
+      listeners.push(listener);
+      return () => undefined;
+    });
+    const controller = createOptionsController({ persistence, formAdapter });
+    await controller.loadInitialState();
+    const rebase = vi.fn();
+    controller.bindMountedDraftRebase(rebase);
+
+    const local = structuredClone(repositorySnapshot);
+    local.fragmentClipper.captureContext = true;
+    controller.scheduleAutoSave(() => local);
+
+    const remote = structuredClone(repositorySnapshot);
+    remote.interfaceTheme = 'dark';
+    listeners.forEach((listener) => listener(remote));
+
+    expect(rebase).toHaveBeenCalledOnce();
+    const rebased = rebase.mock.calls[0]?.[0] as CompleteOptions;
+    expect(rebased.interfaceTheme).toBe('dark');
+    expect(rebased.fragmentClipper.captureContext).toBe(true);
+    expect(rebase.mock.calls[0]?.[1]).toEqual({
+      changedPaths: [['interfaceTheme']],
+      dirtyPathKeys: ['fragmentClipper.captureContext']
+    });
   });
 
   it('serializes a reversal behind an earlier pending durable autosave', async () => {
@@ -143,12 +199,36 @@ describe('OptionsController', () => {
     let releaseFirstSave: (() => void) | undefined;
     saveMock
       .mockImplementationOnce(
-        () =>
-          new Promise<void>((resolve) => {
-            releaseFirstSave = resolve;
+        (patches) =>
+          new Promise<StoredOptions>((resolve) => {
+            releaseFirstSave = () => {
+              for (const patch of patches) {
+                const value = patch.value === STORED_OPTIONS_DELETE ? undefined : patch.value;
+                repositorySnapshot = replaceOptionsPath(
+                  repositorySnapshot,
+                  patch.path as OptionsPath,
+                  value
+                );
+              }
+              const acknowledged = structuredClone(repositorySnapshot);
+              savedOptions.push(acknowledged);
+              resolve(acknowledged);
+            };
           })
       )
-      .mockResolvedValue(undefined);
+      .mockImplementation(async (patches) => {
+        for (const patch of patches) {
+          const value = patch.value === STORED_OPTIONS_DELETE ? undefined : patch.value;
+          repositorySnapshot = replaceOptionsPath(
+            repositorySnapshot,
+            patch.path as OptionsPath,
+            value
+          );
+        }
+        const acknowledged = structuredClone(repositorySnapshot);
+        savedOptions.push(acknowledged);
+        return acknowledged;
+      });
 
     const controller = createOptionsController({
       persistence,
@@ -157,8 +237,8 @@ describe('OptionsController', () => {
     });
     await controller.loadInitialState();
 
-    const temporaryDraft = mergeOptions({ fragmentClipper: { captureContext: true } });
-    const baselineDraft = mergeOptions({ fragmentClipper: { captureContext: false } });
+    const temporaryDraft = mergeOptions({ fragmentClipper: { captureContext: false } });
+    const baselineDraft = mergeOptions({ fragmentClipper: { captureContext: true } });
 
     controller.scheduleAutoSave(() => temporaryDraft);
     await vi.advanceTimersByTimeAsync(10);
@@ -173,9 +253,9 @@ describe('OptionsController', () => {
     await vi.waitFor(() => {
       expect(saveMock).toHaveBeenCalledTimes(2);
     });
-    expect(saveMock.mock.calls.map(([draft]) => draft.fragmentClipper?.captureContext)).toEqual([
-      true,
-      false
+    expect(savedOptions.map((draft) => draft.fragmentClipper?.captureContext)).toEqual([
+      false,
+      true
     ]);
   });
 
@@ -188,6 +268,27 @@ describe('OptionsController', () => {
 
     expect(replaceMock).toHaveBeenCalledWith(imported);
     expect(saveMock).not.toHaveBeenCalled();
+  });
+
+  it('preserves the pre-import dirty intent when strict replacement fails', async () => {
+    vi.useFakeTimers();
+    const failure = new Error('replace failed');
+    replaceMock.mockRejectedValueOnce(failure);
+    const controller = createOptionsController({ persistence, formAdapter });
+    await controller.loadInitialState();
+    const local = structuredClone(repositorySnapshot);
+    local.aiChat.userName = 'local-before-import';
+    controller.scheduleAutoSave(() => local);
+
+    await expect(
+      controller.applyImportedConfig(mergeOptions({ interfaceTheme: 'dark' }))
+    ).rejects.toBe(failure);
+    await controller.flushPendingAutoSave();
+
+    expect(saveMock).toHaveBeenCalledWith([
+      { path: ['aiChat', 'userName'], value: 'local-before-import' }
+    ]);
+    expect(savedOptions.at(-1)?.aiChat?.userName).toBe('local-before-import');
   });
 
   it('reports collector errors through onSaveError callback', async () => {
@@ -264,12 +365,36 @@ describe('OptionsController', () => {
     let releaseFirstSave: (() => void) | undefined;
     saveMock
       .mockImplementationOnce(
-        () =>
-          new Promise<void>((resolve) => {
-            releaseFirstSave = resolve;
+        (patches) =>
+          new Promise<StoredOptions>((resolve) => {
+            releaseFirstSave = () => {
+              for (const patch of patches) {
+                const value = patch.value === STORED_OPTIONS_DELETE ? undefined : patch.value;
+                repositorySnapshot = replaceOptionsPath(
+                  repositorySnapshot,
+                  patch.path as OptionsPath,
+                  value
+                );
+              }
+              const acknowledged = structuredClone(repositorySnapshot);
+              savedOptions.push(acknowledged);
+              resolve(acknowledged);
+            };
           })
       )
-      .mockResolvedValue(undefined);
+      .mockImplementation(async (patches) => {
+        for (const patch of patches) {
+          const value = patch.value === STORED_OPTIONS_DELETE ? undefined : patch.value;
+          repositorySnapshot = replaceOptionsPath(
+            repositorySnapshot,
+            patch.path as OptionsPath,
+            value
+          );
+        }
+        const acknowledged = structuredClone(repositorySnapshot);
+        savedOptions.push(acknowledged);
+        return acknowledged;
+      });
 
     const controller = createOptionsController({
       persistence,
@@ -293,7 +418,7 @@ describe('OptionsController', () => {
     await flush;
 
     expect(saveMock).toHaveBeenCalledTimes(2);
-    expect(saveMock.mock.calls.map(([draft]) => draft.rest?.baseUrl)).toEqual([
+    expect(savedOptions.map((draft) => draft.rest?.baseUrl)).toEqual([
       'https://first.example.com/',
       'https://second.example.com/'
     ]);
@@ -302,9 +427,21 @@ describe('OptionsController', () => {
   it('hands a synchronous pending collector to persistence before flush yields', async () => {
     let releaseSave: (() => void) | undefined;
     saveMock.mockImplementationOnce(
-      () =>
-        new Promise<void>((resolve) => {
-          releaseSave = resolve;
+      (patches) =>
+        new Promise<StoredOptions>((resolve) => {
+          releaseSave = () => {
+            for (const patch of patches) {
+              const value = patch.value === STORED_OPTIONS_DELETE ? undefined : patch.value;
+              repositorySnapshot = replaceOptionsPath(
+                repositorySnapshot,
+                patch.path as OptionsPath,
+                value
+              );
+            }
+            const acknowledged = structuredClone(repositorySnapshot);
+            savedOptions.push(acknowledged);
+            resolve(acknowledged);
+          };
         })
     );
 
@@ -329,7 +466,7 @@ describe('OptionsController', () => {
     vi.useFakeTimers();
 
     const failure = new Error('durable handoff failed');
-    saveMock.mockRejectedValueOnce(failure).mockResolvedValue(undefined);
+    saveMock.mockRejectedValueOnce(failure);
 
     const controller = createOptionsController({
       persistence,
@@ -346,9 +483,26 @@ describe('OptionsController', () => {
 
     await expect(controller.flushPendingAutoSave()).resolves.toBeUndefined();
     expect(saveMock).toHaveBeenCalledTimes(2);
-    expect(saveMock.mock.calls.map(([draft]) => draft.rest?.baseUrl)).toEqual([
-      'https://retry.example.com/',
+    expect(saveMock.mock.calls[0]).toEqual(saveMock.mock.calls[1]);
+    expect(savedOptions.map((draft) => draft.rest?.baseUrl)).toEqual([
       'https://retry.example.com/'
     ]);
+  });
+
+  it('lets a user reversal discard a failed retry without writing the obsolete value', async () => {
+    const failure = new Error('durable handoff failed');
+    saveMock.mockRejectedValueOnce(failure);
+    const controller = createOptionsController({ persistence, formAdapter });
+    await controller.loadInitialState();
+    const changed = structuredClone(repositorySnapshot);
+    changed.aiChat.userName = 'obsolete';
+    controller.scheduleAutoSave(() => changed);
+
+    await expect(controller.flushPendingAutoSave()).rejects.toBe(failure);
+    controller.scheduleAutoSave(() => structuredClone(repositorySnapshot));
+    await controller.flushPendingAutoSave();
+
+    expect(saveMock).toHaveBeenCalledTimes(1);
+    expect(savedOptions).toEqual([]);
   });
 });

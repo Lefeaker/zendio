@@ -64,6 +64,7 @@ describe('mountProductionStitchShell renderLifecycle', () => {
     expect(document.querySelector('[data-footer-panel="clipper"]')).toBeNull();
     expect(typeof mounted.cleanup).toBe('function');
     expect(typeof mounted.collectDraft).toBe('function');
+    expect(typeof mounted.rebaseOptions).toBe('function');
     expect(typeof mounted.refreshOptions).toBe('function');
     expect(typeof mounted.setMessages).toBe('function');
   });
@@ -103,6 +104,44 @@ describe('mountProductionStitchShell renderLifecycle', () => {
 
     mounted.refreshOptions({ aiChat: { userName: 'Alice' } });
     expect(mounted.collectDraft().aiChat.userName).toBe('Alice');
+  });
+
+  it('rebases an authoritative output field without replacing shell owners or losing selection', async () => {
+    const mounted = mountProductionStitchShell({
+      controller: asOptionsController(createController()),
+      initialOptions: { templates: { article: 'Alice' } },
+      messages: null,
+      language: 'en'
+    });
+    await flushPromises();
+
+    const root = queryRequired<HTMLElement>('#optionsShellRoot');
+    const main = queryRequired<HTMLElement>('.main');
+    const sidebar = queryRequired<HTMLElement>('.sidebar');
+    const storage = queryRequired<HTMLElement>('[data-panel-id="storage"]');
+    const input = findInputByValue('Alice');
+    input.focus();
+    input.setSelectionRange(1, 4, 'forward');
+    main.scrollTop = 377;
+
+    const next = mounted.collectDraft();
+    next.templates.article = 'Bobbie';
+    mounted.rebaseOptions(next, {
+      changedPaths: [['templates', 'article']],
+      dirtyPathKeys: []
+    });
+    await flushPromises();
+
+    const rebasedInput = findInputByValue('Bobbie');
+    expect(queryRequired<HTMLElement>('#optionsShellRoot')).toBe(root);
+    expect(queryRequired<HTMLElement>('.main')).toBe(main);
+    expect(queryRequired<HTMLElement>('.sidebar')).toBe(sidebar);
+    expect(queryRequired<HTMLElement>('[data-panel-id="storage"]')).toBe(storage);
+    expect(document.activeElement).toBe(rebasedInput);
+    expect(rebasedInput.selectionStart).toBe(1);
+    expect(rebasedInput.selectionEnd).toBe(4);
+    expect(rebasedInput.selectionDirection).toBe('forward');
+    expect(main.scrollTop).toBe(377);
   });
 
   it('setMessages recreates schema context with the new language while keeping the version subtitle', () => {
@@ -768,6 +807,44 @@ describe('mountProductionStitchShell renderLifecycle', () => {
 
     expect(document.querySelector('.main')).toBe(main);
     expect(document.querySelector('[data-stitch-widget="yaml-config"]')).toBe(widgetHost);
+  });
+
+  it('keeps a locally dirty YAML widget and its scroll state during an output rebase', () => {
+    const mounted = mountProductionStitchShell({
+      controller: asOptionsController(createController()),
+      initialOptions: {
+        yamlConfig: {
+          contentTypes: {
+            article: {
+              customFields: [{ name: 'score', type: 'number', enabled: true, defaultValue: 42 }]
+            }
+          }
+        }
+      },
+      messages: null,
+      language: 'en'
+    });
+    const widget = queryRequired<HTMLElement>('[data-stitch-widget="yaml-config"]');
+    const table = queryRequired<HTMLElement>('.stitch-yaml-config-table', widget);
+    const row = requireElement(findYamlRowByField('score'), 'score YAML row');
+    const input = queryRequired<HTMLInputElement>('input[data-yaml-field="defaultValue"]', row);
+    input.value = '43';
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    table.scrollTop = 91;
+
+    const rebased = mounted.collectDraft();
+    rebased.templates.article = 'remote-template';
+    mounted.rebaseOptions(rebased, {
+      changedPaths: [['templates', 'article']],
+      dirtyPathKeys: ['yamlConfig']
+    });
+
+    expect(queryRequired<HTMLElement>('[data-stitch-widget="yaml-config"]')).toBe(widget);
+    expect(queryRequired<HTMLElement>('.stitch-yaml-config-table', widget).scrollTop).toBe(91);
+    expect(
+      queryRequired<HTMLInputElement>('input[data-yaml-field="defaultValue"]', row).value
+    ).toBe('43');
+    expect(mounted.collectDraft().templates.article).toBe('remote-template');
   });
 
   it('keeps disabled default YAML custom fields in production collectDraft', () => {

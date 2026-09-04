@@ -1,4 +1,5 @@
 import type { CompleteOptions, StoredOptions } from '../../shared/types/options';
+import type { OptionsPatch } from '../../shared/types/optionsMutationMessages';
 import type { UsageStats } from '../../shared/types/usage';
 
 export interface OptionsState {
@@ -24,7 +25,7 @@ export type OptionsSubscriber = (options: StoredOptions | undefined) => void;
 
 export interface OptionsStore {
   load(): Promise<StoredOptions>;
-  save(options: StoredOptions | CompleteOptions): Promise<void>;
+  save(patches: readonly OptionsPatch[]): Promise<StoredOptions>;
   snapshot(): StoredOptions | null;
   replace(options: StoredOptions | CompleteOptions | null): void;
   reset(): void;

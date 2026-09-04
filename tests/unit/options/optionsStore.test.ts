@@ -93,7 +93,7 @@ describe('optionsStore sanitization', () => {
     unsubscribe();
   });
 
-  it('saves through IOptionsRepository only', async () => {
+  it('sends only caller-owned patches and returns the verified repository snapshot', async () => {
     const { repositoryContainer } = await import('../../../src/shared/di/serviceRegistry');
     const { DI_TOKENS } = await import('../../../src/shared/di/tokens');
     repositoryContainer.reset();
@@ -106,20 +106,68 @@ describe('optionsStore sanitization', () => {
     const { optionsStore } = await import('../../../src/options/state/optionsStore');
     optionsStore.reset();
 
-    const next = clone(DEFAULT_OPTIONS as CompleteOptions);
-    next.rest.baseUrl = 'https://options.example.com/';
+    const acknowledged = clone(DEFAULT_OPTIONS as CompleteOptions);
+    acknowledged.rest.baseUrl = 'https://options.example.com/';
+    patchMock.mockResolvedValueOnce(acknowledged);
 
-    await optionsStore.save(next);
+    const result = await optionsStore.save([
+      {
+        path: ['rest', 'baseUrl'],
+        value: 'https://options.example.com/'
+      }
+    ]);
 
     expect(patchMock).toHaveBeenCalledTimes(1);
-    expect(patchMock).toHaveBeenCalledWith(
-      expect.arrayContaining([
-        {
-          path: ['rest', 'baseUrl'],
-          value: 'https://options.example.com/'
+    expect(patchMock).toHaveBeenCalledWith([
+      {
+        path: ['rest', 'baseUrl'],
+        value: 'https://options.example.com/'
+      }
+    ]);
+    expect(result).toEqual(acknowledged);
+  });
+
+  it('keeps scoped YAML mutation sanitation in the repository adapter', async () => {
+    const { repositoryContainer } = await import('../../../src/shared/di/serviceRegistry');
+    const { DI_TOKENS } = await import('../../../src/shared/di/tokens');
+    repositoryContainer.reset();
+    repositoryContainer.registerSingleton(DI_TOKENS.IOptionsRepository, () => ({
+      get: getMock,
+      patch: patchMock,
+      replace: replaceMock,
+      onChange: onChangeMock
+    }));
+    const { optionsStore } = await import('../../../src/options/state/optionsStore');
+    optionsStore.reset();
+
+    await optionsStore.save([
+      {
+        path: ['yamlConfig'],
+        value: {
+          contentTypes: {
+            article: {
+              fields: [
+                { name: 'title', type: 'text', enabled: 'true' },
+                { name: '', type: 'text', enabled: true }
+              ]
+            }
+          }
         }
-      ])
-    );
+      } as unknown as OptionsPatch
+    ]);
+
+    expect(patchMock).toHaveBeenCalledWith([
+      {
+        path: ['yamlConfig'],
+        value: {
+          contentTypes: {
+            article: {
+              fields: [{ name: 'title', type: 'text', enabled: true }]
+            }
+          }
+        }
+      }
+    ]);
   });
 
   it('uses strict replacement for imported or reset snapshots', async () => {
