@@ -2,7 +2,7 @@ import type { RuntimeService } from '../../platform/interfaces/runtime';
 import type { StorageService } from '../../platform/interfaces/storage';
 import type { MessagingService } from '../../platform/interfaces/messaging';
 import type { IOptionsRepository } from '../../shared/repositories/IOptionsRepository';
-import type { VideoSessionAdapter } from '../clipper/services/selectionController';
+import type { VideoSessionAdapter } from './application/videoSessionPort';
 import type { SupportProgressReporter } from '../runtime/supportProgress';
 import type { SessionDraftStoragePolicy, VideoSessionDraftEnvelope } from '@shared/sessionDrafts';
 import type { SessionDraftLeaseOwnerRegistry } from '../sessionDrafts/sessionDraftLeaseOwnerRegistry';
@@ -61,9 +61,9 @@ export function createVideoSessionAdapter(
   };
 
   return {
-    async start() {
+    async start(options) {
       const session = await getSession();
-      await session.start();
+      await session.start(options);
     },
     ingestTextCapture(selectedHtml, selectedText, comment, selectionRange) {
       void getSession().then((session) => {

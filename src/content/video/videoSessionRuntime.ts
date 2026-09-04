@@ -6,6 +6,7 @@ import { FragmentHighlighter, DEFAULT_HIGHLIGHT_THEME } from './fragmentHighligh
 import { DEFAULT_SESSION_MESSAGES, type VideoSessionMessages } from './sessionMessages';
 import { VideoHintManager, type VideoHintState } from './videoHintManager';
 import type { VideoSessionAddCaptureOptions, VideoSessionDependencies } from './sessionTypes';
+import type { VideoSessionStartOptions } from './application/videoSessionPort';
 import { VideoSessionState } from './sessionState';
 import {
   getVideoDocumentSelection,
@@ -148,7 +149,7 @@ export class VideoSession {
     });
   }
 
-  private async ensureControllers(): Promise<void> {
+  private async ensureControllers(suppressDraftDestinationRestore = false): Promise<void> {
     if (this.controllersReadyPromise) {
       return this.controllersReadyPromise;
     }
@@ -162,12 +163,12 @@ export class VideoSession {
           dependencies: this.dependencies,
           state: this.state,
           destinationState: this.destinationState,
+          suppressDraftDestinationRestore,
           getMessages: () => this.messages,
           readCleanupState: () => ({
             isCleaningUp: this.isCleaningUp,
             shouldTrackSavingState: !this.mutationCoordinator.hasPendingMutations()
           }),
-          onDraftRestored: () => undefined,
           onDraftScreenshotHydrationStart: () =>
             this.screenshotPreparation.suspendPendingRequests(),
           onDraftScreenshotHydrated: () => this.syncPanel(),
@@ -192,9 +193,7 @@ export class VideoSession {
             this.ingestTextCapture(selectedHtml, selectedText, '', range ?? undefined);
           },
           findVideoElement: () => this.doc.querySelector('video'),
-          handleUrlChange: () => {
-            void this.handleUrlChange();
-          },
+          handleUrlChange: () => void this.handleUrlChange(),
           handleVideoElementChange: (element) => this.handleVideoElementChange(element)
         });
         this.fragmentHighlighter = controllers.fragmentHighlighter;
@@ -218,15 +217,14 @@ export class VideoSession {
     return this.controllersReadyPromise;
   }
 
-  async start(options: { initialCollapsed?: boolean } = {}): Promise<void> {
-    await this.ensureControllers();
-    this.isCleaningUp = false;
-
+  async start(options: VideoSessionStartOptions = {}): Promise<void> {
     if (isVideoSessionActive(this.doc)) {
+      await this.ensureControllers();
       this.applyHint('ready');
       return;
     }
-
+    await this.ensureControllers(options.destinationBootstrap !== undefined);
+    this.isCleaningUp = false;
     const highlightThemePromise = loadVideoSessionHighlightTheme(this.dependencies).catch(
       () => DEFAULT_HIGHLIGHT_THEME
     );
@@ -268,6 +266,8 @@ export class VideoSession {
         dom: this.dom,
         messages: this.messages,
         initialCollapsed: Boolean(options.initialCollapsed),
+        destinationState: this.destinationState,
+        destinationBootstrap: options.destinationBootstrap,
         platformController: this.platformController,
         lifecycle: this.lifecycle,
         operationContext: this.operationContext,

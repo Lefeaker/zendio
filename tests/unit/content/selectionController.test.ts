@@ -98,9 +98,22 @@ describe('content selectionController service', () => {
     const readerSessionFactory = vi.fn<SelectionClipDependencies['createReaderSession']>(
       () => readerSession
     );
+    const videoSessionStart = vi
+      .fn<
+        (options?: {
+          destinationBootstrap?:
+            | { provenance: 'implicit-default' }
+            | {
+                provenance: 'explicit';
+                destination: NonNullable<ClipPromptResponse['destination']>;
+              };
+        }) => Promise<void>
+      >()
+      .mockResolvedValue(undefined);
+    const videoSessionIngest = vi.fn();
     const videoSessionFactory = vi.fn().mockReturnValue({
-      start: vi.fn(),
-      ingestTextCapture: vi.fn()
+      start: videoSessionStart,
+      ingestTextCapture: videoSessionIngest
     });
     const controller = module.createSelectionController({
       prompt: {
@@ -122,7 +135,14 @@ describe('content selectionController service', () => {
       createReaderSession: readerSessionFactory,
       createVideoSession: videoSessionFactory
     });
-    return { controller, readerSessionFactory, readerSessionStart, videoSessionFactory };
+    return {
+      controller,
+      readerSessionFactory,
+      readerSessionStart,
+      videoSessionFactory,
+      videoSessionStart,
+      videoSessionIngest
+    };
   }
 
   it('returns null when dialog is cancelled', async () => {
@@ -343,6 +363,121 @@ describe('content selectionController service', () => {
       expect.objectContaining({
         destination: { kind: 'vault', vaultId: 'legacy' }
       })
+    );
+  });
+
+  it('keeps an implicit Video destination live without pinning effective metadata', async () => {
+    promptMock.mockResolvedValue({
+      action: 'video',
+      comment: 'note',
+      destination: { kind: 'downloads' },
+      destinationSelectionIsExplicit: false
+    });
+
+    const { controller, videoSessionStart } = await createController();
+    await controller.handleSelectionClip(
+      document,
+      'https://www.youtube.com/watch?v=video',
+      createSelection('Selected text')
+    );
+
+    expect(videoSessionStart).toHaveBeenCalledWith({
+      destinationBootstrap: { provenance: 'implicit-default' }
+    });
+  });
+
+  it.each(explicitDestinations)(
+    'pins an explicitly selected $kind destination into a new Video session',
+    async (destination) => {
+      promptMock.mockResolvedValue({
+        action: 'video',
+        comment: 'note',
+        destination,
+        destinationSelectionIsExplicit: true
+      });
+
+      const { controller, videoSessionStart } = await createController();
+      await controller.handleSelectionClip(
+        document,
+        'https://www.youtube.com/watch?v=video',
+        createSelection('Selected text')
+      );
+
+      expect(videoSessionStart).toHaveBeenCalledWith({
+        destinationBootstrap: { provenance: 'explicit', destination }
+      });
+    }
+  );
+
+  it('preserves legacy destination-bearing Video prompts as explicit', async () => {
+    promptMock.mockResolvedValue({
+      action: 'video',
+      comment: 'note',
+      destination: { kind: 'vault', vaultId: 'legacy' }
+    });
+
+    const { controller, videoSessionStart } = await createController();
+    await controller.handleSelectionClip(
+      document,
+      'https://www.youtube.com/watch?v=video',
+      createSelection('Selected text')
+    );
+
+    expect(videoSessionStart).toHaveBeenCalledWith({
+      destinationBootstrap: {
+        provenance: 'explicit',
+        destination: { kind: 'vault', vaultId: 'legacy' }
+      }
+    });
+  });
+
+  it('rejects explicit Video provenance without a destination before ingestion', async () => {
+    promptMock.mockResolvedValue({
+      action: 'video',
+      comment: 'note',
+      destinationSelectionIsExplicit: true
+    });
+
+    const { controller, videoSessionFactory, videoSessionIngest } = await createController();
+
+    await expect(
+      controller.handleSelectionClip(
+        document,
+        'https://www.youtube.com/watch?v=video',
+        createSelection('Selected text')
+      )
+    ).rejects.toThrow('VIDEO_DESTINATION_BOOTSTRAP_INVALID');
+    expect(videoSessionFactory).not.toHaveBeenCalled();
+    expect(videoSessionIngest).not.toHaveBeenCalled();
+  });
+
+  it('awaits Video bootstrap completion before ingesting the selection', async () => {
+    promptMock.mockResolvedValue({
+      action: 'video',
+      comment: 'note',
+      destination: { kind: 'downloads' },
+      destinationSelectionIsExplicit: true
+    });
+    let resolveStart!: () => void;
+    const startPending = new Promise<void>((resolve) => {
+      resolveStart = resolve;
+    });
+    const { controller, videoSessionStart, videoSessionIngest } = await createController();
+    videoSessionStart.mockReturnValueOnce(startPending);
+
+    const result = controller.handleSelectionClip(
+      document,
+      'https://www.youtube.com/watch?v=video',
+      createSelection('Selected text')
+    );
+    await Promise.resolve();
+
+    expect(videoSessionIngest).not.toHaveBeenCalled();
+    resolveStart();
+    await result;
+    expect(videoSessionIngest).toHaveBeenCalledTimes(1);
+    expect(videoSessionStart.mock.invocationCallOrder[0]).toBeLessThan(
+      videoSessionIngest.mock.invocationCallOrder[0] ?? 0
     );
   });
 
