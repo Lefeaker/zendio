@@ -106,6 +106,22 @@ describe('backgroundStartup', () => {
     expect(ensureUsageStatsInitializedMock).toHaveBeenCalledTimes(1);
   });
 
+  it('starts the coordinator initialization barrier before registering mutation listeners', async () => {
+    const { startBackgroundRuntime } = await import('../../../src/background/backgroundStartup');
+    const deps = createDependencies();
+    const initialize = vi.fn(() => Promise.resolve());
+    deps.optionsMutationCoordinator = asType<
+      NonNullable<BackgroundStartupDependencies['optionsMutationCoordinator']>
+    >({ initialize });
+
+    startBackgroundRuntime(deps);
+
+    expect(initialize).toHaveBeenCalledOnce();
+    expect(initialize.mock.invocationCallOrder[0]).toBeLessThan(
+      registerRuntimeMessageListenerMock.mock.invocationCallOrder[0] ?? Number.POSITIVE_INFINITY
+    );
+  });
+
   it('uses the trusted sender snapshot when the tab closes before owner resolution', async () => {
     const { startBackgroundRuntime } = await import('../../../src/background/backgroundStartup');
     const deps = createDependencies();

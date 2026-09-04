@@ -21,6 +21,18 @@ import {
   reconcileDeviceLocalVaultBindings,
   type DeviceLocalVaultBindingSnapshot
 } from '../../shared/config/deviceLocalVaultBindings';
+import type {
+  DeviceLocalPrivacyCommitter,
+  DeviceLocalVaultBindingRepository,
+  OptionsMutationVerification,
+  OptionsRawStorageRepository
+} from '../../shared/config/deviceLocalVaultRecoveryTransaction';
+export type {
+  DeviceLocalPrivacyCommitter,
+  DeviceLocalVaultBindingRepository,
+  OptionsMutationVerification,
+  OptionsRawStorageRepository
+} from '../../shared/config/deviceLocalVaultRecoveryTransaction';
 export {
   optionsRawSignature,
   optionsValuesEqual,
@@ -28,7 +40,6 @@ export {
 } from '../../shared/config/deviceLocalVaultBindings';
 import { StorageError } from '../../shared/errors/repositoryErrors';
 import type { CompleteOptions, PrivacyPreferencesOptions } from '../../shared/types/options';
-import type { OptionsMutationCommand } from '../../shared/types/optionsMutationMessages';
 
 export const OPTIONS_STORAGE_KEY = 'options';
 
@@ -37,39 +48,6 @@ function clone<T>(value: T): T {
     return globalThis.structuredClone(value);
   }
   return JSON.parse(JSON.stringify(value)) as T;
-}
-
-export interface DeviceLocalVaultBindingRepository {
-  readVaultBindings(): Promise<DeviceLocalVaultBindingSnapshot>;
-  writeVaultBindings(snapshot: DeviceLocalVaultBindingSnapshot): Promise<void>;
-}
-export interface OptionsRawStorageRepository {
-  readRaw(): Promise<PlainStructuredValue | null>;
-  writeRaw(value: PlainStructuredObject): Promise<void>;
-}
-export type OptionsMutationVerification =
-  | { readonly kind: 'full'; readonly expected: PlainStructuredObject }
-  | {
-      readonly kind: 'paths';
-      readonly expected: ReadonlyArray<{
-        readonly path: readonly string[];
-        readonly value: PlainStructuredValue | undefined;
-      }>;
-    };
-
-export interface DeviceLocalPrivacyCommitter {
-  execute(
-    command: OptionsMutationCommand,
-    applyCommand: (
-      raw: PlainStructuredObject,
-      command: OptionsMutationCommand
-    ) => { next: PlainStructuredObject; verification: OptionsMutationVerification },
-    quotaBytesPerItem: number
-  ): Promise<{
-    raw: PlainStructuredObject;
-    privacy?: PrivacyPreferencesOptions;
-    didWrite: boolean;
-  }>;
 }
 
 export function optionsEnvelopeBytes(raw: PlainStructuredObject): number {
