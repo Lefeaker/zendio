@@ -16,6 +16,10 @@ import {
   isReaderSessionActive,
   isVideoSessionActive
 } from '../../runtime/contentSessionRegistry';
+import type {
+  VideoDestinationBootstrap,
+  VideoSessionAdapter
+} from '../../video/application/videoSessionPort';
 
 const ADD_HIGHLIGHT_EVENT = 'aiob-reader:add-highlight';
 
@@ -43,16 +47,6 @@ export interface ReaderSessionAdapter {
   start(initialHighlight?: ReaderBootstrapHighlight): Promise<void>;
 }
 
-export interface VideoSessionAdapter {
-  start(): Promise<void>;
-  ingestTextCapture(
-    selectedHtml: string,
-    selectedText: string,
-    comment: string,
-    selectionRange?: Range | null
-  ): void;
-}
-
 export interface SelectionClipDependencies {
   prompt: ClipPromptGateway;
   optionsRepository: IOptionsRepository;
@@ -75,6 +69,21 @@ export interface SelectionController {
     selectedText: string,
     comment?: string
   ): Promise<void>;
+}
+
+function resolveVideoDestinationBootstrap(
+  promptResult: Awaited<ReturnType<ClipPromptGateway['requestSelectionAction']>>
+): VideoDestinationBootstrap {
+  if (promptResult.destinationSelectionIsExplicit === true) {
+    if (!promptResult.destination) {
+      throw new Error('VIDEO_DESTINATION_BOOTSTRAP_INVALID');
+    }
+    return { provenance: 'explicit', destination: promptResult.destination };
+  }
+  if (promptResult.destinationSelectionIsExplicit === false || !promptResult.destination) {
+    return { provenance: 'implicit-default' };
+  }
+  return { provenance: 'explicit', destination: promptResult.destination };
 }
 
 export function createSelectionController(deps: SelectionClipDependencies): SelectionController {
@@ -125,8 +134,9 @@ export function createSelectionController(deps: SelectionClipDependencies): Sele
     }
     if (action === 'video') {
       // 启动视频模式并捕获选择的内容
+      const destinationBootstrap = resolveVideoDestinationBootstrap(promptResult);
       const videoSession = deps.createVideoSession(doc);
-      await videoSession.start();
+      await videoSession.start({ destinationBootstrap });
       videoSession.ingestTextCapture(selectedHtml, selectedText, comment, savedRange);
       selection.removeAllRanges();
       return null;

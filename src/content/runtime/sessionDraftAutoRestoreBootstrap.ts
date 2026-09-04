@@ -1,8 +1,6 @@
 import type { StorageService } from '../../platform/interfaces/storage';
-import type {
-  ReaderSessionAdapter,
-  VideoSessionAdapter
-} from '../clipper/services/selectionController';
+import type { ReaderSessionAdapter } from '../clipper/services/selectionController';
+import type { VideoSessionAdapter } from '../video/application/videoSessionPort';
 import type {
   ReaderSessionDraftEnvelope,
   SessionDraftStoragePolicy,

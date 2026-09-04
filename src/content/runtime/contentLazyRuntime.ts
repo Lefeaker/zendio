@@ -8,10 +8,8 @@ import type {
 } from '../../shared/types';
 import type { ExtractorRegistryApi } from '../extractors/registry';
 import type { ClipPromptGateway } from '../clipper/application/clipPromptGateway';
-import type {
-  ReaderSessionAdapter,
-  VideoSessionAdapter
-} from '../clipper/services/selectionController';
+import type { ReaderSessionAdapter } from '../clipper/services/selectionController';
+import type { VideoSessionAdapter } from '../video/application/videoSessionPort';
 import type { SupportProgressReporter } from './supportProgress';
 import type {
   ReaderSessionDraftEnvelope,
@@ -211,9 +209,9 @@ export function createLazyVideoSessionFactory(
     });
 
     return {
-      async start() {
+      async start(options) {
         const adapter = await getAdapter();
-        await adapter.start();
+        await adapter.start(options);
       },
       ingestTextCapture(selectedHtml, selectedText, comment, selectionRange) {
         void getAdapter().then((adapter) => {

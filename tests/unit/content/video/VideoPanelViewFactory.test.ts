@@ -101,4 +101,24 @@ describe('createVideoPanelViewFactory', () => {
       initialCollapsed: true
     });
   });
+
+  it('passes the prepared destination into the panel before show', () => {
+    const factory = createVideoPanelViewFactory();
+    const initialDestination = {
+      id: 'downloads',
+      kind: 'downloads' as const,
+      label: 'Downloads',
+      path: 'video.md',
+      hasConfiguredVault: false,
+      options: []
+    };
+
+    factory.createView(callbacks, texts, { initialDestination });
+
+    expect(mocks.dialogCtor).toHaveBeenCalledWith({
+      callbacks,
+      texts,
+      initialDestination
+    });
+  });
 });

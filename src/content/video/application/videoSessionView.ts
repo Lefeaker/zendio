@@ -15,10 +15,15 @@ export interface VideoSessionView {
   destroy(): void;
 }
 
+export interface VideoSessionViewOptions {
+  initialCollapsed?: boolean;
+  initialDestination?: ExportDestinationSurfacePreview;
+}
+
 export interface VideoSessionViewFactory {
   createView(
     callbacks: VideoPanelCallbacks,
     texts: VideoPanelTexts,
-    options?: { initialCollapsed?: boolean }
+    options?: VideoSessionViewOptions
   ): VideoSessionView;
 }

@@ -162,6 +162,44 @@ describe('VideoSessionDomController', () => {
     );
   });
 
+  it('forwards the prepared destination into first view construction', () => {
+    const view = createView();
+    const createViewMock = vi.fn(() => view);
+    const controller = new VideoSessionDomController(
+      document,
+      { createView: createViewMock },
+      new VideoHintManager(() => DEFAULT_SESSION_MESSAGES)
+    );
+    const initialDestination = {
+      id: 'downloads',
+      kind: 'downloads' as const,
+      label: 'Downloads',
+      path: 'video.md',
+      hasConfiguredVault: false,
+      options: []
+    };
+
+    controller.mountPanel(
+      {
+        onAddCapture: vi.fn(),
+        onFinish: vi.fn(),
+        onCancel: vi.fn(),
+        onDeleteCapture: vi.fn(),
+        onSubmitCaptureEdit: vi.fn(),
+        onToggleScreenshot: vi.fn(),
+        onFocusCapture: vi.fn()
+      },
+      DEFAULT_SESSION_MESSAGES.panel,
+      { initialCollapsed: true, initialDestination }
+    );
+
+    expect(createViewMock).toHaveBeenCalledWith(
+      expect.any(Object),
+      DEFAULT_SESSION_MESSAGES.panel,
+      { initialCollapsed: true, initialDestination }
+    );
+  });
+
   it('keeps unrelated draft state when another rendered capture input changes', () => {
     const host = document.createElement('div');
     const shadow = host.attachShadow({ mode: 'open' });

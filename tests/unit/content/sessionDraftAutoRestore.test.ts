@@ -27,10 +27,8 @@ import {
   type VideoSessionDraftEnvelope
 } from '@shared/sessionDrafts';
 import { createSessionDraftRepository } from '@content/sessionDrafts';
-import type {
-  ReaderSessionAdapter,
-  VideoSessionAdapter
-} from '@content/clipper/services/selectionController';
+import type { ReaderSessionAdapter } from '@content/clipper/services/selectionController';
+import type { VideoSessionAdapter } from '@content/video/application/videoSessionPort';
 import { buildReaderSessionDraftEnvelope } from '@content/reader/sessionDrafts';
 import { startSessionDraftAutoRestore } from '@content/runtime/sessionDraftAutoRestore';
 import {

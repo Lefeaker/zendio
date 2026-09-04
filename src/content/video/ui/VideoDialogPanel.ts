@@ -32,6 +32,7 @@ interface VideoDialogPanelOptions {
   texts: VideoPanelTexts;
   resolveAssetUrl?: (path: string) => string;
   initialCollapsed?: boolean;
+  initialDestination?: ExportDestinationSurfacePreview;
 }
 
 type VideoUpdate =
@@ -66,6 +67,7 @@ export class VideoDialogPanel implements UiMountable<
 
   constructor(private readonly options: VideoDialogPanelOptions) {
     this.texts = options.texts;
+    this.destination = options.initialDestination;
     this.keepCollapsedForNextCaptureUpdate = Boolean(options.initialCollapsed);
     this.collapsePersistence = new SessionPanelCollapsePersistence({
       initialCollapsed: Boolean(options.initialCollapsed),

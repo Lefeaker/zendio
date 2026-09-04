@@ -1341,6 +1341,29 @@ describe('VideoDialogPanel', () => {
     panel.destroy();
   });
 
+  it('renders a constructor-provided destination on the first shown surface', () => {
+    const initialDestination = createDestination('Downloads', [
+      {
+        id: 'downloads',
+        kind: 'downloads',
+        label: 'Downloads',
+        path: 'Downloads/video.md',
+        selected: true
+      }
+    ]);
+    const panel = new VideoDialogPanel({ callbacks, texts, initialDestination });
+
+    panel.show();
+
+    expect(panel.element.shadowRoot?.querySelector('.export-destination-label')?.textContent).toBe(
+      'Downloads'
+    );
+    expect(panel.element.shadowRoot?.querySelector('.export-destination-path')?.textContent).toBe(
+      'Downloads/video.md'
+    );
+    panel.destroy();
+  });
+
   it('restores user-collapsed video floating panels from local storage', async () => {
     await testPlatformHarness.storage.local.set('aiob.sessionPanel.collapsed', true);
     const panel = new VideoDialogPanel({ callbacks, texts });

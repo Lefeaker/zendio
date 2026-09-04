@@ -66,6 +66,7 @@ export function createVideoSessionControllers(args: {
   dependencies: VideoSessionDependencies;
   state: VideoSessionState;
   destinationState: Pick<ContentExportDestinationState, 'metadata' | 'applyMetadata'>;
+  suppressDraftDestinationRestore?: boolean;
   getMessages: () => VideoSessionMessages;
   readCleanupState: () => { isCleaningUp: boolean; shouldTrackSavingState: boolean };
   onDraftRestored?: () => void;
@@ -91,6 +92,7 @@ export function createVideoSessionControllers(args: {
     dependencies,
     state,
     destinationState,
+    suppressDraftDestinationRestore,
     getMessages,
     readCleanupState,
     onDraftRestored,
@@ -179,10 +181,18 @@ export function createVideoSessionControllers(args: {
       screenshot
     });
   const dom = new VideoSessionDomController(doc, dependencies.viewFactory, hintManager);
+  const draftDestinationState = suppressDraftDestinationRestore
+    ? {
+        get metadata() {
+          return destinationState.metadata;
+        },
+        applyMetadata: () => undefined
+      }
+    : destinationState;
   const draftController = new VideoSessionDraftController({
     doc,
     state,
-    destinationState,
+    destinationState: draftDestinationState,
     storageArea: dependencies.storage.local,
     ...(dependencies.sessionDraftStoragePolicy
       ? { sessionDraftStoragePolicy: dependencies.sessionDraftStoragePolicy }
