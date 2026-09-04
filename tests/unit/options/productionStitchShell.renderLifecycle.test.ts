@@ -18,12 +18,15 @@ import {
   setupProductionStitchShellTest
 } from './productionStitchShell.helpers';
 import { createProductionStitchRenderLifecycle } from '@options/app/productionStitchRenderLifecycle';
+import { createOptionsController } from '@options/app/optionsController';
+import { bindProductionStitchAuthoritativeRebase } from '@options/app/productionStitchAuthoritativeRebase';
 import { mountProductionStitchShell } from '@options/app/productionStitchShell';
 import { previewContent } from '@options/stitch/content';
 import { getFooterMeta, getFooterView, getSettingsView } from '@options/stitch/schema/registry';
 import { YamlConfigEditorWidgetAdapter } from '@options/yaml-config-editor/widgetAdapter';
 import { mergeOptions } from '@shared/config/optionsMerger';
-import type { StoredOptions } from '@shared/types';
+import type { CompleteOptions, StoredOptions } from '@shared/types';
+import type { OptionsPatch } from '@shared/types/optionsMutationMessages';
 
 function withLegacyRootDir<TRest extends NonNullable<StoredOptions['rest']>>(
   rest: TRest,
@@ -64,6 +67,7 @@ describe('mountProductionStitchShell renderLifecycle', () => {
     expect(document.querySelector('[data-footer-panel="clipper"]')).toBeNull();
     expect(typeof mounted.cleanup).toBe('function');
     expect(typeof mounted.collectDraft).toBe('function');
+    expect(typeof mounted.rebaseOptions).toBe('function');
     expect(typeof mounted.refreshOptions).toBe('function');
     expect(typeof mounted.setMessages).toBe('function');
   });
@@ -103,6 +107,242 @@ describe('mountProductionStitchShell renderLifecycle', () => {
 
     mounted.refreshOptions({ aiChat: { userName: 'Alice' } });
     expect(mounted.collectDraft().aiChat.userName).toBe('Alice');
+  });
+
+  it('rebases an authoritative output field without replacing shell owners or losing selection', async () => {
+    const mounted = mountProductionStitchShell({
+      controller: asOptionsController(createController()),
+      initialOptions: { templates: { article: 'Alice' } },
+      messages: null,
+      language: 'en'
+    });
+    await flushPromises();
+
+    const root = queryRequired<HTMLElement>('#optionsShellRoot');
+    const main = queryRequired<HTMLElement>('.main');
+    const sidebar = queryRequired<HTMLElement>('.sidebar');
+    const storage = queryRequired<HTMLElement>('[data-panel-id="storage"]');
+    const input = findInputByValue('Alice');
+    input.focus();
+    input.setSelectionRange(1, 4, 'forward');
+    main.scrollTop = 377;
+
+    const next = mounted.collectDraft();
+    next.templates.article = 'Bobbie';
+    mounted.rebaseOptions(next, {
+      changedPaths: [['templates', 'article']],
+      dirtyPathKeys: []
+    });
+    await flushPromises();
+
+    const rebasedInput = findInputByValue('Bobbie');
+    expect(queryRequired<HTMLElement>('#optionsShellRoot')).toBe(root);
+    expect(queryRequired<HTMLElement>('.main')).toBe(main);
+    expect(queryRequired<HTMLElement>('.sidebar')).toBe(sidebar);
+    expect(queryRequired<HTMLElement>('[data-panel-id="storage"]')).toBe(storage);
+    expect(document.activeElement).toBe(rebasedInput);
+    expect(rebasedInput.selectionStart).toBe(1);
+    expect(rebasedInput.selectionEnd).toBe(4);
+    expect(rebasedInput.selectionDirection).toBe('forward');
+    expect(main.scrollTop).toBe(377);
+  });
+
+  it('preserves invalid UI-local YAML without creating a persistence intent', async () => {
+    const initial = mergeOptions({
+      templates: { article: 'local-template' },
+      yamlConfig: {
+        contentTypes: {
+          article: {
+            customFields: [{ name: 'score', type: 'number', enabled: true, defaultValue: 42 }]
+          }
+        }
+      }
+    });
+    const listeners: Array<(options: StoredOptions) => void> = [];
+    const save = vi.fn(async (_patches: readonly OptionsPatch[]) => initial);
+    const controller = createOptionsController({
+      persistence: {
+        load: async () => initial,
+        save,
+        getCached: () => initial,
+        subscribe: (listener) => {
+          listeners.push(listener);
+          return () => undefined;
+        }
+      },
+      formAdapter: { read: (snapshot) => mergeOptions(snapshot), apply: async () => undefined }
+    });
+    await controller.loadInitialState();
+    const mounted = mountProductionStitchShell({
+      controller,
+      initialOptions: initial,
+      messages: null,
+      language: 'en'
+    });
+    const unbind = bindProductionStitchAuthoritativeRebase(controller, mounted);
+    await flushPromises();
+
+    const widget = queryRequired<HTMLElement>('[data-stitch-widget="yaml-config"]');
+    const row = requireElement(findYamlRowByField('score'), 'score YAML row');
+    const invalidInput = queryRequired<HTMLInputElement>(
+      'input[data-yaml-field="defaultValue"]',
+      row
+    );
+    invalidInput.value = 'not-a-number';
+    invalidInput.dispatchEvent(new Event('input', { bubbles: true }));
+
+    const remote = structuredClone(initial);
+    remote.templates.article = 'remote-template';
+    listeners.forEach((listener) => listener(remote));
+
+    expect(queryRequired<HTMLElement>('[data-stitch-widget="yaml-config"]')).toBe(widget);
+    expect(invalidInput.value).toBe('not-a-number');
+    expect(findInputByValue('local-template')).toBeTruthy();
+    expect(save).not.toHaveBeenCalled();
+
+    unbind();
+    mounted.cleanup();
+    await controller.dispose();
+  });
+
+  it('releases a deferred remote output scope after valid YAML acknowledgement', async () => {
+    const initial = mergeOptions({
+      templates: { article: 'local-template' },
+      yamlConfig: {
+        contentTypes: {
+          article: {
+            customFields: [{ name: 'score', type: 'number', enabled: true, defaultValue: 42 }]
+          }
+        }
+      }
+    });
+    let repositorySnapshot = structuredClone(initial);
+    const listeners: Array<(options: StoredOptions) => void> = [];
+    let mounted: ReturnType<typeof mountProductionStitchShell>;
+    let releaseSave: (() => void) | undefined;
+    const save = vi.fn(
+      (_patches: readonly OptionsPatch[]) =>
+        new Promise<StoredOptions>((resolve) => {
+          releaseSave = () => {
+            const acknowledged = structuredClone(repositorySnapshot);
+            acknowledged.yamlConfig = mounted.collectDraft().yamlConfig;
+            resolve(acknowledged);
+          };
+        })
+    );
+    const controller = createOptionsController({
+      persistence: {
+        load: async () => initial,
+        save,
+        getCached: () => repositorySnapshot,
+        subscribe: (listener) => {
+          listeners.push(listener);
+          return () => undefined;
+        }
+      },
+      formAdapter: { read: (snapshot) => mergeOptions(snapshot), apply: async () => undefined }
+    });
+    await controller.loadInitialState();
+    mounted = mountProductionStitchShell({
+      controller,
+      initialOptions: initial,
+      messages: null,
+      language: 'en'
+    });
+    const unbind = bindProductionStitchAuthoritativeRebase(controller, mounted);
+    await flushPromises();
+
+    const widget = queryRequired<HTMLElement>('[data-stitch-widget="yaml-config"]');
+    const row = requireElement(findYamlRowByField('score'), 'score YAML row');
+    const input = queryRequired<HTMLInputElement>('input[data-yaml-field="defaultValue"]', row);
+    input.value = '43';
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    const flush = controller.flushPendingAutoSave();
+
+    const remote = structuredClone(initial);
+    remote.templates.article = 'remote-template';
+    repositorySnapshot = remote;
+    listeners.forEach((listener) => listener(remote));
+    expect(queryRequired<HTMLElement>('[data-stitch-widget="yaml-config"]')).toBe(widget);
+    expect(findInputByValue('local-template')).toBeTruthy();
+
+    releaseSave?.();
+    await flush;
+    await flushPromises();
+
+    expect(findInputByValue('remote-template')).toBeTruthy();
+    expect(save).toHaveBeenCalledTimes(1);
+    const savedPaths = save.mock.calls[0]?.[0].map((patch) => patch.path);
+    expect(savedPaths).toContainEqual(['yamlConfig']);
+    expect(savedPaths).not.toContainEqual(['templates', 'article']);
+    expect(
+      mounted.collectDraft().yamlConfig?.contentTypes?.article?.customFields?.[0]?.defaultValue
+    ).toBe(43);
+
+    unbind();
+    mounted.cleanup();
+    await controller.dispose();
+  });
+
+  it('rebases a same-panel remote field around a focused ordinary dirty control', async () => {
+    const initial = mergeOptions({
+      templates: { article: 'article-old', video: 'video-old' }
+    });
+    const listeners: Array<(options: StoredOptions) => void> = [];
+    const controller = createOptionsController({
+      persistence: {
+        load: async () => initial,
+        save: async () => initial,
+        getCached: () => initial,
+        subscribe: (listener) => {
+          listeners.push(listener);
+          return () => undefined;
+        }
+      },
+      formAdapter: { read: (snapshot) => mergeOptions(snapshot), apply: async () => undefined }
+    });
+    await controller.loadInitialState();
+    const mounted = mountProductionStitchShell({
+      controller,
+      initialOptions: initial,
+      messages: null,
+      language: 'en'
+    });
+    const unbind = bindProductionStitchAuthoritativeRebase(controller, mounted);
+    await flushPromises();
+
+    const root = queryRequired<HTMLElement>('#optionsShellRoot');
+    const main = queryRequired<HTMLElement>('.main');
+    const storage = queryRequired<HTMLElement>('[data-panel-id="storage"]');
+    const articleInput = findInputByValue('article-old');
+    articleInput.value = 'article-local-edit';
+    articleInput.dispatchEvent(new Event('input', { bubbles: true }));
+    articleInput.focus();
+    articleInput.setSelectionRange(2, 9, 'backward');
+    main.scrollTop = 463;
+    const windowScroll = { x: window.scrollX, y: window.scrollY };
+
+    const remote = structuredClone(initial);
+    remote.templates.video = 'video-remote';
+    listeners.forEach((listener) => listener(remote));
+    await flushPromises();
+
+    const rebasedArticle = findInputByValue('article-local-edit');
+    expect(queryRequired<HTMLElement>('#optionsShellRoot')).toBe(root);
+    expect(queryRequired<HTMLElement>('.main')).toBe(main);
+    expect(queryRequired<HTMLElement>('[data-panel-id="storage"]')).toBe(storage);
+    expect(findInputByValue('video-remote')).toBeTruthy();
+    expect(document.activeElement).toBe(rebasedArticle);
+    expect(rebasedArticle.selectionStart).toBe(2);
+    expect(rebasedArticle.selectionEnd).toBe(9);
+    expect(rebasedArticle.selectionDirection).toBe('backward');
+    expect(main.scrollTop).toBe(463);
+    expect({ x: window.scrollX, y: window.scrollY }).toEqual(windowScroll);
+
+    controller.cancelAutoSave();
+    unbind();
+    mounted.cleanup();
+    await controller.dispose();
   });
 
   it('setMessages recreates schema context with the new language while keeping the version subtitle', () => {
@@ -768,6 +1008,44 @@ describe('mountProductionStitchShell renderLifecycle', () => {
 
     expect(document.querySelector('.main')).toBe(main);
     expect(document.querySelector('[data-stitch-widget="yaml-config"]')).toBe(widgetHost);
+  });
+
+  it('keeps a locally dirty YAML widget and its scroll state during an output rebase', () => {
+    const mounted = mountProductionStitchShell({
+      controller: asOptionsController(createController()),
+      initialOptions: {
+        yamlConfig: {
+          contentTypes: {
+            article: {
+              customFields: [{ name: 'score', type: 'number', enabled: true, defaultValue: 42 }]
+            }
+          }
+        }
+      },
+      messages: null,
+      language: 'en'
+    });
+    const widget = queryRequired<HTMLElement>('[data-stitch-widget="yaml-config"]');
+    const table = queryRequired<HTMLElement>('.stitch-yaml-config-table', widget);
+    const row = requireElement(findYamlRowByField('score'), 'score YAML row');
+    const input = queryRequired<HTMLInputElement>('input[data-yaml-field="defaultValue"]', row);
+    input.value = '43';
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    table.scrollTop = 91;
+
+    const rebased = mounted.collectDraft();
+    rebased.templates.article = 'remote-template';
+    mounted.rebaseOptions(rebased, {
+      changedPaths: [['templates', 'article']],
+      dirtyPathKeys: ['yamlConfig']
+    });
+
+    expect(queryRequired<HTMLElement>('[data-stitch-widget="yaml-config"]')).toBe(widget);
+    expect(queryRequired<HTMLElement>('.stitch-yaml-config-table', widget).scrollTop).toBe(91);
+    expect(
+      queryRequired<HTMLInputElement>('input[data-yaml-field="defaultValue"]', row).value
+    ).toBe('43');
+    expect(mounted.collectDraft().templates.article).toBe('remote-template');
   });
 
   it('keeps disabled default YAML custom fields in production collectDraft', () => {

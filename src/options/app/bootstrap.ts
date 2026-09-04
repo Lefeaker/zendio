@@ -9,7 +9,6 @@ import { configureGlobalStateManagerStorage } from '../../shared/state/globalSta
 import { DI_TOKENS } from '../../shared/di/tokens';
 import { resolveRepository } from '../../shared/di/serviceRegistry';
 import type { IOptionsRepository, IMessagingRepository } from '../../shared/repositories';
-import type { StoredOptions } from '../../shared/types/options';
 import type { RuntimeService } from '../../platform/interfaces/runtime';
 import type { StorageService } from '../../platform/interfaces/storage';
 import { showStatusMessage } from '../components/messages';
@@ -28,6 +27,7 @@ import {
 } from './productionStitchShell';
 import { trackInitialOptionsTelemetry } from './productionStitchTelemetry';
 import type { UsageStatsClientLike } from './usage-dashboard/usageStatsClient';
+import { bindProductionStitchAuthoritativeRebase } from './productionStitchAuthoritativeRebase';
 
 export interface OptionsAppBootstrapDependencies {
   storage: StorageService;
@@ -164,17 +164,17 @@ export async function bootstrapOptionsApp(
       };
     }
   });
+  registerCleanup(bindProductionStitchAuthoritativeRebase(controller, mountedShell));
   registerCleanup(() => {
     teardownMountedShell();
   });
 
-  await applyOptionsSnapshot(stored);
+  mountedShell.refreshOptions(controller.getSnapshot?.() ?? stored);
+  await applyOptionsSnapshot();
   await trackInitialOptionsTelemetry();
 }
 
-async function applyOptionsSnapshot(options: StoredOptions): Promise<void> {
-  mountedShell?.refreshOptions(options);
-
+async function applyOptionsSnapshot(): Promise<void> {
   const migrationNotice = consumeYamlMigrationNotice();
   if (migrationNotice) {
     const msgs = await getOptionsMessages();

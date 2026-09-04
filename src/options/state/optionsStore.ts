@@ -11,12 +11,11 @@ import { resolveRepository } from '../../shared/di/serviceRegistry';
 import { DI_TOKENS } from '../../shared/di/tokens';
 import type { IOptionsRepository } from '../../shared/repositories';
 import { areStateValuesEqual, cloneStateValue } from './stateValue';
-import { STORED_OPTIONS_DELETE } from '../../shared/config/storedOptionsCodec';
 import type { OptionsPatch } from '../../shared/types/optionsMutationMessages';
+import { STORED_OPTIONS_DELETE } from '../../shared/config/storedOptionsCodec';
 import { isObjectRecord } from '../../shared/guards/object';
 
 type MigrationMessageKey = 'yamlConfigMigrated';
-type StateValue = Parameters<typeof areStateValuesEqual>[0];
 type CanonicalYamlConfig = NonNullable<StoredOptions['yamlConfig']>;
 
 // Options UI 主链固定走 IOptionsRepository，但延迟到实际调用时再解析，
@@ -36,93 +35,32 @@ let unsubscribeRepo: (() => void) | null = null;
 let migrationWritebackTail: Promise<void> = Promise.resolve();
 const subscribers = new Set<OptionsSubscriber>();
 
-const PATCH_PATHS = [
-  ['interfaceTheme'],
-  ['rest', 'baseUrl'],
-  ['rest', 'httpsUrl'],
-  ['rest', 'httpUrl'],
-  ['rest', 'vault'],
-  ['rest', 'apiKey'],
-  ['rest', 'localFolderId'],
-  ['rest', 'localFolderName'],
-  ['templates', 'article'],
-  ['templates', 'video'],
-  ['templates', 'fragment'],
-  ['templates', 'reading'],
-  ['templates', 'ai'],
-  ['domainMappings'],
-  ['aiChat', 'includeTimestamps'],
-  ['aiChat', 'userName'],
-  ['deepResearch', 'pureMode'],
-  ['fragmentClipper', 'useFootnoteFormat'],
-  ['fragmentClipper', 'captureContext'],
-  ['fragmentClipper', 'contextLength'],
-  ['fragmentClipper', 'contextMode'],
-  ['fragmentClipper', 'selectionTriggerMode'],
-  ['fragmentClipper', 'selectionModifierKeys'],
-  ['fragmentClipper', 'keyboardShortcutsEnabled'],
-  ['readingSession', 'exportMode'],
-  ['readingSession', 'highlightTheme'],
-  ['video', 'floatingPromptEnabled'],
-  ['video', 'promptButtonLabel'],
-  ['video', 'promptShortcut'],
-  ['video', 'controlBarAutoPause'],
-  ['video', 'controlBarScreenshot'],
-  ['video', 'commentEditorAutoPause'],
-  ['video', 'promptPosition'],
-  ['video', 'screenshotAttachment'],
-  ['classifier', 'enabled'],
-  ['classifier', 'provider'],
-  ['classifier', 'endpoint'],
-  ['classifier', 'apiKey'],
-  ['classifier', 'model'],
-  ['classifier', 'taxonomy'],
-  ['experimentalAi', 'provider'],
-  ['experimentalAi', 'model'],
-  ['experimentalAi', 'apiUrl'],
-  ['experimentalAi', 'apiKey'],
-  ['pageSummary', 'enabled'],
-  ['readingOverlaySummary', 'enabled'],
-  ['subtitleTranslation', 'enabled'],
-  ['subtitleTranslation', 'targetLanguage'],
-  ['privacyPreferences', 'analytics'],
-  ['privacyPreferences', 'errorReporting'],
-  ['privacyPreferences', 'debugMode'],
-  ['vaultRouter'],
-  ['yamlConfig']
-] as const;
-
-function readPath(
-  value: StoredOptions | CompleteOptions | null,
-  path: readonly string[]
-): StateValue {
-  let current: StateValue = value;
-  for (const part of path) {
-    if (!isObjectRecord(current) || Array.isArray(current)) return undefined;
-    if (!Object.prototype.hasOwnProperty.call(current, part)) return undefined;
-    current = current[part];
-  }
-  return current;
+function isDeletePatchValue(value: unknown): boolean {
+  return (
+    isObjectRecord(value) &&
+    !Array.isArray(value) &&
+    Object.keys(value).length === 1 &&
+    value['$zendio'] === 'delete'
+  );
 }
 
-function createPatch(path: readonly string[], value: StateValue): OptionsPatch {
-  return {
-    path,
-    value: value === undefined ? STORED_OPTIONS_DELETE : cloneStateValue(value)
-  } as OptionsPatch;
-}
-
-function createSnapshotPatches(
-  before: StoredOptions | CompleteOptions | null,
-  after: StoredOptions | CompleteOptions
-): OptionsPatch[] {
-  const patches: OptionsPatch[] = [];
-  for (const path of PATCH_PATHS) {
-    const previous = readPath(before, path);
-    const next = readPath(after, path);
-    if (!areStateValuesEqual(previous, next)) patches.push(createPatch(path, next));
-  }
-  return patches;
+function normalizeMutationPatches(patches: readonly OptionsPatch[]): {
+  changed: boolean;
+  patches: OptionsPatch[];
+} {
+  let changed = false;
+  const normalized = patches.map((patch) => {
+    if (isDeletePatchValue(patch.value)) return patch;
+    let value: unknown = patch.value;
+    if (patch.path[0] === 'vaultRouter') {
+      value = sanitizeVaultRouterConfig(value) ?? STORED_OPTIONS_DELETE;
+    } else if (patch.path[0] === 'yamlConfig') {
+      value = sanitizeYamlConfigValue(value) ?? null;
+    }
+    changed ||= !areStateValuesEqual(value, patch.value);
+    return { path: patch.path, value } as OptionsPatch;
+  });
+  return { changed, patches: normalized };
 }
 
 function createSanitizationPatches(
@@ -245,23 +183,31 @@ export async function load(): Promise<StoredOptions> {
   return cloneStateValue(normalized);
 }
 
-export async function save(options: StoredOptions | CompleteOptions): Promise<void> {
-  const { normalized, sanitizedYaml, changed } = applySanitizedOptions(options);
-  const patches = createSnapshotPatches(cachedSnapshot, normalized);
-  if (patches.length > 0) await getOptionsRepository().patch(patches);
+export async function save(patches: readonly OptionsPatch[]): Promise<StoredOptions> {
+  const mutation = normalizeMutationPatches(patches);
+  const acknowledged = await getOptionsRepository().patch(mutation.patches);
+  const { normalized, sanitizedYaml, changed } = applySanitizedOptions(acknowledged);
   setYamlConfigOverrides(sanitizedYaml);
   emitSnapshot(normalized);
   if (changed) {
-    registerYamlMigration('manual save');
+    scheduleMigrationWriteback(
+      createSanitizationPatches(normalized, sanitizedYaml),
+      'mutation acknowledgement'
+    );
   }
+  if (mutation.changed) registerYamlMigration('mutation input');
+  return cloneStateValue(normalized);
 }
 
-export async function replacePersisted(options: StoredOptions | CompleteOptions): Promise<void> {
+export async function replacePersisted(
+  options: StoredOptions | CompleteOptions
+): Promise<StoredOptions> {
   const { normalized, sanitizedYaml, changed } = applySanitizedOptions(options);
   const replaced = await getOptionsRepository().replace(normalized);
   setYamlConfigOverrides(sanitizedYaml);
   emitSnapshot(replaced);
   if (changed) registerYamlMigration('strict replace');
+  return cloneStateValue(replaced);
 }
 
 export function snapshot(): StoredOptions | null {

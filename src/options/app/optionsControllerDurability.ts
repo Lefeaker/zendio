@@ -1,25 +1,34 @@
-import type { CompleteOptions, StoredOptions } from '../../shared/types/options';
 import { deepClone } from '../utils/clone';
+import type { OptionsMutationIntent } from './optionsDraftSession';
 
-type DurableOptionsDraft = CompleteOptions | StoredOptions;
+export interface DurableOptionsMutation {
+  readonly intent: OptionsMutationIntent;
+  readonly reason: 'auto' | 'manual';
+}
 
 export interface OptionsControllerDurabilityDeps {
-  persist(this: void, draft: DurableOptionsDraft): Promise<void>;
+  persist(this: void, mutation: DurableOptionsMutation): Promise<void>;
 }
 
 export class OptionsControllerDurability {
-  private pendingDesired: DurableOptionsDraft | null = null;
+  private pendingDesired: DurableOptionsMutation | null = null;
   private drainPromise: Promise<void> | null = null;
   private retryBlocked = false;
   private rethrowRetryFailure: (() => never) | null = null;
 
   constructor(private readonly persist: OptionsControllerDurabilityDeps['persist']) {}
 
-  enqueue(draft: DurableOptionsDraft): void {
-    this.pendingDesired = deepClone(draft);
+  enqueue(mutation: DurableOptionsMutation): void {
+    this.pendingDesired = deepClone(mutation);
     this.retryBlocked = false;
     this.rethrowRetryFailure = null;
     this.ensureDrain();
+  }
+
+  discardRetryable(): void {
+    this.pendingDesired = null;
+    this.retryBlocked = false;
+    this.rethrowRetryFailure = null;
   }
 
   async flush(): Promise<void> {

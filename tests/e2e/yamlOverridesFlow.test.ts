@@ -311,7 +311,7 @@ describe('YAML overrides integration flow', () => {
       }
     };
 
-    await optionsStore.save(overrides);
+    await optionsStore.save([{ path: ['yamlConfig'], value: overrides.yamlConfig ?? null }]);
 
     const persisted = await syncArea.get<StoredOptions>('options');
     expect(persisted?.yamlConfig?.contentTypes?.article?.customFields?.[0]?.isCustom).toBe(true);

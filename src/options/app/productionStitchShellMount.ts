@@ -27,6 +27,7 @@ import { resolveProductionStitchAssets } from './productionStitchShellAssetResol
 import { createProductionStitchShellMutableState } from './productionStitchShellMutableState';
 import { createProductionStitchAssetUrlResolver } from './productionStitchAssetUrlResolver';
 import { createUnavailableUsageStatsClient } from './usage-dashboard/usageStatsClient';
+import { createProductionStitchAuthoritativeRebase } from './productionStitchAuthoritativeRebase';
 
 export function mountProductionStitchShellFromDependencies({
   root,
@@ -205,6 +206,13 @@ export function mountProductionStitchShellFromDependencies({
     persistence.restoreUsageStatsView();
     controller.scheduleAutoSave(() => mounted.collectDraft());
   }
+  const rebaseOptions = createProductionStitchAuthoritativeRebase({
+    resetOptions,
+    afterReset: persistence.restoreUsageStatsView,
+    getRenderProtectionKeys: widgetHost.getRenderProtectionKeys,
+    reconcileRenderProtection: widgetHost.reconcileRenderProtection,
+    render: renderDelegates.render
+  });
 
   const mounted: MountedProductionStitchShell = {
     cleanup() {
@@ -223,6 +231,7 @@ export function mountProductionStitchShellFromDependencies({
     collectDraft() {
       return widgetHost.collectDraftWithWidgets();
     },
+    rebaseOptions,
     refreshOptions(options = null) {
       resetOptions(options);
       persistence.restoreUsageStatsView();
@@ -237,7 +246,6 @@ export function mountProductionStitchShellFromDependencies({
       renderDelegates.render('locale-schema');
     }
   };
-
   themeMediaQuery.addEventListener?.('change', applySystemThemePreferenceChange);
 
   render('all-invariant-recovery');

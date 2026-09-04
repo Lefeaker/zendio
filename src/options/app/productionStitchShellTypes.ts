@@ -5,12 +5,14 @@ import type { CompleteOptions, StoredOptions } from '@shared/types/options';
 import type { Language, Messages } from '@i18n';
 import type { PreviewContent, SchemaContext, ViewSchema } from '@options/stitch/types';
 import type { OptionsController } from './optionsController';
+import type { MountedDraftRebase } from './optionsDraftSession';
 import type { ProductionStitchAssetUrlResolver } from './productionStitchAssetUrlResolver';
 import type { UsageStatsClientLike } from './usage-dashboard/usageStatsClient';
 
 export interface MountedProductionStitchShell {
   cleanup(): void;
   collectDraft(): CompleteOptions;
+  rebaseOptions(options: CompleteOptions, transition: MountedDraftRebase): void;
   refreshOptions(options?: StoredOptions | CompleteOptions | null): void;
   setMessages(messages: Messages | null, language: Language): void;
 }
