@@ -19,12 +19,12 @@ import {
 import { optionsEnvelopeBytes } from '../../infrastructure/repositories/ChromeOptionsRepository';
 import type {
   DeviceLocalPrivacyCommitter,
+  DeviceLocalVaultBindingRepository,
   OptionsMutationVerification,
   OptionsRawStorageRepository
 } from '../../infrastructure/repositories/ChromeOptionsRepository';
 import type { IOptionsRepository } from '../../shared/repositories/IOptionsRepository';
 import type { DeviceLocalVaultCleanupJournal } from '../../shared/config/deviceLocalVaultCleanupJournal';
-import type { DeviceLocalVaultBindingRepository } from '../../shared/config/deviceLocalVaultRecoveryTransaction';
 import type { CompleteOptions, StoredOptions } from '../../shared/types/options';
 import {
   OptionsMutationError,
@@ -50,14 +50,12 @@ const isObject = (value: PlainStructuredValue | null): value is PlainStructuredO
   typeof value === 'object' && value !== null && !Array.isArray(value);
 const clone = <T>(value: T): T =>
   value === undefined || value === null ? value : globalThis.structuredClone(value);
-function createDefaultOperationId(): string {
-  return typeof globalThis.crypto?.randomUUID === 'function'
+const createDefaultOperationId = (): string =>
+  typeof globalThis.crypto?.randomUUID === 'function'
     ? `options-${globalThis.crypto.randomUUID()}`
     : `options-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
-}
 function platformQuotaBytesPerItem(): number | undefined {
-  const candidate =
-    typeof chrome === 'undefined' ? undefined : chrome.storage?.sync?.QUOTA_BYTES_PER_ITEM;
+  const candidate = globalThis.chrome?.storage?.sync?.QUOTA_BYTES_PER_ITEM;
   if (typeof candidate === 'number' && Number.isFinite(candidate) && candidate > 0)
     return candidate;
   return undefined;
@@ -68,16 +66,15 @@ function resolveQuotaBytesPerItem(configured?: number): number {
     .filter((value) => Number.isFinite(value) && value > 0);
   return Math.min(...candidates);
 }
-function readPath(
+const readPath = (
   raw: PlainStructuredObject,
   path: readonly string[]
-): PlainStructuredValue | undefined {
-  return path.reduce<PlainStructuredValue | undefined>(
+): PlainStructuredValue | undefined =>
+  path.reduce<PlainStructuredValue | undefined>(
     (current, part) =>
       isObject(current ?? null) ? (current as PlainStructuredObject)[part] : undefined,
     raw
   );
-}
 function expectedPatchValues(
   raw: PlainStructuredObject,
   patches: readonly OptionsPatch[]
@@ -154,10 +151,15 @@ export class OptionsMutationCoordinator {
     return this.initialize().then(() => this.enqueue(() => this.executeQueued(command)));
   }
   initialize(): Promise<void> {
-    return (this.initialization ??= this.enqueue(async () => {
+    if (this.initialization) return this.initialization;
+    const pending = this.enqueue(async () => {
       await this.deviceLocalPrivacyCommitter?.recover?.();
       await this.options.deviceLocalVaultCleanupJournal?.recover();
       await this.executeQueued({ kind: 'migrate' }, false);
+    });
+    return (this.initialization = pending.catch((error: unknown) => {
+      this.initialization = undefined;
+      throw error;
     }));
   }
   patch(patches: readonly OptionsPatch[]): Promise<OptionsMutationSuccessResult> {
@@ -353,8 +355,6 @@ export function createBackgroundOptionsRepository(
       if (!encoded.success) throw new OptionsMutationError('OPTIONS_REPLACEMENT_REJECTED');
       return clone((await coordinator.replace(encoded.value)).snapshot);
     },
-    onChange(callback: (options: CompleteOptions) => void): () => void {
-      return reader.onChange(callback);
-    }
+    onChange: (callback: (options: CompleteOptions) => void) => reader.onChange(callback)
   };
 }

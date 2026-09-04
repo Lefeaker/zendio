@@ -659,6 +659,56 @@ describe('OptionsMutationCoordinator', () => {
     expect(warning).toHaveBeenCalled();
   });
 
+  it('retries a rejected initialization on the next command using the same FIFO', async () => {
+    const portablePreimage = { opaqueRoot: { keep: true } };
+    const portableProposal = { opaqueRoot: { keep: false } };
+    const repository = new VaultRawRepository(portablePreimage);
+    repository.bindings = {
+      version: 1,
+      bindings: { primary: { folderId: 'folder-old', folderName: 'Old Folder' } }
+    };
+    const storage = createMemoryStorageService();
+    const removeDirectory = vi
+      .fn<(folderId: string) => Promise<void>>()
+      .mockRejectedValueOnce(new Error('indexeddb transaction aborted'))
+      .mockResolvedValue(undefined);
+    const warning = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    const journal = createVaultJournal(storage, repository, removeDirectory);
+    warning.mockClear();
+    await journal.prepare({
+      transactionId: 'operation-crashed',
+      previousBindings: repository.bindings,
+      proposedBindings: { version: 1, bindings: {} },
+      portablePreimage,
+      portableProposal,
+      writeRequired: true
+    });
+    repository.raw = portableProposal;
+    const execute = vi.fn<DeviceLocalPrivacyCommitter['execute']>(commitPortable(repository));
+    const recoverPrivacy = vi.fn(() => Promise.resolve());
+    const coordinator = createCoordinator(repository, {
+      deviceLocalPrivacyCommitter: { recover: recoverPrivacy, execute },
+      deviceLocalVaultCleanupJournal: journal
+    });
+
+    const firstInitialization = coordinator.initialize();
+    expect(coordinator.initialize()).toBe(firstInitialization);
+    await expect(firstInitialization).rejects.toMatchObject({
+      code: 'OPTIONS_STORAGE_FAILURE'
+    });
+    await expect(
+      coordinator.patch([{ path: ['interfaceTheme'], value: 'dark' }])
+    ).resolves.toMatchObject({ snapshot: { interfaceTheme: 'dark' } });
+
+    expect(recoverPrivacy).toHaveBeenCalledTimes(2);
+    expect(execute.mock.calls.map(([command]) => command.kind)).toEqual(['migrate', 'patch']);
+    expect(removeDirectory).toHaveBeenCalledTimes(2);
+    expect(warning).toHaveBeenCalledOnce();
+    await expect(
+      storage.local.get(DEVICE_LOCAL_VAULT_CLEANUP_JOURNAL_KEY)
+    ).resolves.toBeUndefined();
+  });
+
   it('cancels a pending cleanup intent when the same handle is rebound through the FIFO', async () => {
     const originalRaw: PlainStructuredObject = {
       vaultRouter: {
