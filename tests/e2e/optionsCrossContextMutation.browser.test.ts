@@ -232,6 +232,24 @@ async function readForwardState(page: Page) {
   }, cleanupJournalKey);
 }
 
+async function readForwardSemanticState(page: Page) {
+  const state = await readForwardState(page);
+  const consent = isJsonRecord(state.local.analytics_user_consent)
+    ? state.local.analytics_user_consent
+    : {};
+  const config = isJsonRecord(state.local.analytics_config) ? state.local.analytics_config : {};
+  return {
+    portable: state.portable,
+    privacy: {
+      analytics: consent.analytics === true,
+      errorReporting: consent.errorReporting === true,
+      debugMode: config.debugMode === true
+    },
+    bindings: state.local.deviceLocalVaultBindings,
+    journalPresent: state.local[cleanupJournalKey] !== undefined
+  };
+}
+
 type MountedMutationProbe = {
   held: boolean;
   released: boolean;
@@ -542,38 +560,6 @@ async function hasCleanupDirectoryHandle(worker: Worker): Promise<boolean> {
             database.close();
             resolve(getRequest.result !== undefined);
           };
-        };
-      }),
-    {
-      databaseName: localVaultDatabaseName,
-      storeName: localVaultStoreName,
-      folderId: cleanupFolderId
-    }
-  );
-}
-
-async function removeCleanupDirectoryHandle(worker: Worker): Promise<void> {
-  await worker.evaluate(
-    ({ databaseName, storeName, folderId }) =>
-      new Promise<void>((resolve, reject) => {
-        const request = indexedDB.open(databaseName, 1);
-        request.onupgradeneeded = () => {
-          if (!request.result.objectStoreNames.contains(storeName)) {
-            request.result.createObjectStore(storeName, { keyPath: 'id' });
-          }
-        };
-        request.onerror = () =>
-          reject(request.error ?? new Error('Failed to open Local Vault DB.'));
-        request.onsuccess = () => {
-          const database = request.result;
-          const transaction = database.transaction(storeName, 'readwrite');
-          transaction.onabort = () => reject(transaction.error ?? new Error('Delete aborted.'));
-          transaction.onerror = () => reject(transaction.error ?? new Error('Delete failed.'));
-          transaction.oncomplete = () => {
-            database.close();
-            resolve();
-          };
-          transaction.objectStore(storeName).delete(folderId);
         };
       }),
     {
@@ -979,6 +965,17 @@ test.describe('Options cross-context mutation authority', () => {
       )
       .toEqual([true, true]);
     await clickTheme(first, 'dark');
+    await expect.poll(async () => (await readRaw(first)).interfaceTheme).toBe('dark');
+    expect(
+      await first.evaluate(
+        () =>
+          (
+            globalThis as typeof globalThis & {
+              __m05MountedMutationProbe?: MountedMutationProbe;
+            }
+          ).__m05MountedMutationProbe?.captureValues ?? []
+      )
+    ).toEqual([true, true]);
     await first.reload({ waitUntil: 'domcontentloaded' });
     const reloaded = await openCaptureBehavior(first);
     await expect(reloaded.input).toBeChecked();
@@ -1665,28 +1662,27 @@ test.describe('Options cross-context mutation authority', () => {
   });
 
   test('retries an aborted Local Vault cleanup after a fresh background restart', async () => {
+    const cleanupPortablePreimage: JsonRecord = {
+      rest: { vault: 'Primary' },
+      vaultRouter: {
+        defaultVaultId: 'primary',
+        vaults: [
+          {
+            id: 'primary',
+            name: 'Primary',
+            vault: 'Primary',
+            httpsUrl: '',
+            httpUrl: '',
+            apiKey: ''
+          }
+        ]
+      },
+      opaqueRoot: { keep: ['b09', 1] }
+    };
     await first.evaluate(
-      ({ cleanupKey, folderId }) =>
+      ({ cleanupKey, folderId, portable }) =>
         Promise.all([
-          chrome.storage.sync.set({
-            options: {
-              rest: { vault: 'Primary' },
-              vaultRouter: {
-                defaultVaultId: 'primary',
-                vaults: [
-                  {
-                    id: 'primary',
-                    name: 'Primary',
-                    vault: 'Primary',
-                    httpsUrl: '',
-                    httpUrl: '',
-                    apiKey: ''
-                  }
-                ]
-              },
-              opaqueRoot: { keep: ['b09', 1] }
-            }
-          }),
+          chrome.storage.sync.set({ options: portable }),
           chrome.storage.local.set({
             deviceLocalVaultBindings: {
               version: 1,
@@ -1697,7 +1693,11 @@ test.describe('Options cross-context mutation authority', () => {
           }),
           chrome.storage.local.remove(cleanupKey)
         ]),
-      { cleanupKey: cleanupJournalKey, folderId: cleanupFolderId }
+      {
+        cleanupKey: cleanupJournalKey,
+        folderId: cleanupFolderId,
+        portable: cleanupPortablePreimage
+      }
     );
     await seedCleanupDirectoryHandle(background);
     await first.reload({ waitUntil: 'domcontentloaded' });
@@ -1715,38 +1715,58 @@ test.describe('Options cross-context mutation authority', () => {
     await Promise.all([armNextCleanupAbort(first), armNextCleanupAbort(background)]);
     await deleteButton.click();
 
+    const readCleanupState = () =>
+      first.evaluate(
+        async ({ cleanupKey }) => {
+          const local = await chrome.storage.local.get(['deviceLocalVaultBindings', cleanupKey]);
+          return {
+            bindings: local.deviceLocalVaultBindings,
+            journal: local[cleanupKey]
+          };
+        },
+        { cleanupKey: cleanupJournalKey }
+      );
     await expect
-      .poll(() =>
-        first.evaluate(
-          async ({ cleanupKey }) => {
-            const local = await chrome.storage.local.get(['deviceLocalVaultBindings', cleanupKey]);
-            return {
-              bindings: local.deviceLocalVaultBindings,
-              journal: local[cleanupKey]
-            };
-          },
-          { cleanupKey: cleanupJournalKey }
-        )
-      )
-      .toMatchObject({
-        bindings: { version: 1, bindings: {} },
-        journal: {
-          version: 3,
-          phase: 'local-committed',
-          previousBindings: {
-            version: 1,
-            bindings: {
-              primary: {
-                folderId: cleanupFolderId,
-                folderName: 'Cleanup Journal Vault'
-              }
-            }
-          },
-          proposedBindings: { version: 1, bindings: {} },
-          cleanupCandidates: [cleanupFolderId],
-          remainingCleanupCandidates: [cleanupFolderId]
+      .poll(async () => {
+        const state = await readCleanupState();
+        return isJsonRecord(state.journal) ? state.journal.phase : undefined;
+      })
+      .toBe('local-committed');
+    const cleanupState = await readCleanupState();
+    if (!isJsonRecord(cleanupState.journal)) throw new Error('Expected v3 cleanup journal.');
+    const transactionId = cleanupState.journal.transactionId;
+    expect(transactionId).toEqual(expect.any(String));
+    expect(String(transactionId)).toMatch(
+      /^options-[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u
+    );
+    const identity = forwardIdentity(cleanupPortablePreimage);
+    expect(cleanupState).toEqual({
+      bindings: { version: 1, bindings: {} },
+      journal: {
+        version: 3,
+        protocol: 'forward-privacy-v1',
+        transactionId,
+        phase: 'local-committed',
+        previousBindings: forwardPreviousBindings,
+        proposedBindings: forwardProposedBindings,
+        cleanupCandidates: [cleanupFolderId],
+        remainingCleanupCandidates: [cleanupFolderId],
+        portable: {
+          identityAlgorithm: 'sha256-canonical-plain-json-v1',
+          preimage: cleanupPortablePreimage,
+          preimageIdentity: identity,
+          proposedIdentity: identity,
+          observedCommittedIdentity: identity,
+          writeRequired: false
+        },
+        privacy: {
+          restoreTarget: privacyRestore,
+          forwardTarget: privacyRestore,
+          writeRequired: false,
+          observedForward: 'exact-target-readback'
         }
-      });
+      }
+    });
     expect(await hasCleanupDirectoryHandle(background)).toBe(true);
 
     await context.close();
@@ -1852,7 +1872,7 @@ const forwardRows = [
     success: false
   },
   {
-    id: 'F6 preserves third portable domain',
+    id: 'F6 preserves third portable with exact forward privacy',
     phase: 'forward-inflight' as const,
     portable: { ...forwardPortablePreimage, interfaceTheme: 'dark', opaqueRoot: { third: true } },
     privacy: privacyForward,
@@ -1863,6 +1883,19 @@ const forwardRows = [
       opaqueRoot: { third: true }
     },
     expectedPrivacy: privacyRestore,
+    expectedBindings: forwardPreviousBindings,
+    expectedHandle: true,
+    success: false,
+    errorCode: 'EXTERNAL_SYNC_CONFLICT'
+  },
+  {
+    id: 'F6 preserves third privacy with exact portable proposal',
+    phase: 'forward-inflight' as const,
+    portable: forwardPortableProposal,
+    privacy: { analytics: false, errorReporting: true, debugMode: true },
+    bindings: forwardProposedBindings,
+    expectedPortable: forwardPortablePreimage,
+    expectedPrivacy: { analytics: false, errorReporting: true, debugMode: true },
     expectedBindings: forwardPreviousBindings,
     expectedHandle: true,
     success: false,
@@ -1947,10 +1980,35 @@ for (const row of forwardRows) {
         waitUntil: 'domcontentloaded'
       });
       await expectPublishedPreimage(newOptionsPage);
-      expect((await readForwardState(seedPage)).local[cleanupJournalKey]).toMatchObject({
-        version: 3,
-        phase: row.phase
-      });
+      expect((await readForwardState(seedPage)).local[cleanupJournalKey]).toEqual(
+        createForwardJournal(row.id, row.phase)
+      );
+
+      const expectedPortable = row.expectedPortable as JsonRecord;
+      const recoveryResponse = await sendPatch(
+        seedPage,
+        ['interfaceTheme'],
+        expectedPortable.interfaceTheme
+      );
+      expect(recoveryResponse.success, `${row.id} recovery command success`).toBe(row.success);
+      if (row.success) {
+        expect(recoveryResponse.errorCode, `${row.id} recovery command error`).toBeUndefined();
+      } else {
+        expect(recoveryResponse.errorCode, `${row.id} recovery command error`).toBe(
+          'errorCode' in row ? row.errorCode : 'OPTIONS_STORAGE_FAILURE'
+        );
+      }
+      await expect
+        .poll(() => readForwardSemanticState(seedPage))
+        .toEqual({
+          portable: row.expectedPortable,
+          privacy: row.expectedPrivacy,
+          bindings: row.expectedBindings,
+          journalPresent: false
+        });
+      expect(await hasCleanupDirectoryHandle(worker), `${row.id} pre-relaunch handle`).toBe(
+        row.expectedHandle
+      );
 
       await context.close();
       context = await chromium.launchPersistentContext(userDataDir, {
@@ -1969,30 +2027,24 @@ for (const row of forwardRows) {
       await restarted.goto(`chrome-extension://${restartedId}/options/index.html`, {
         waitUntil: 'domcontentloaded'
       });
-      const expectedPortable = row.expectedPortable as JsonRecord;
       const response = await sendPatch(
         restarted,
         ['interfaceTheme'],
         expectedPortable.interfaceTheme
       );
-      expect(response.success, `${row.id} post-recovery command`).toBe(true);
+      expect(response.success, `${row.id} post-relaunch command`).toBe(true);
+      expect(response.errorCode, `${row.id} post-relaunch command error`).toBeUndefined();
       await expect
-        .poll(() => readForwardState(restarted))
-        .toMatchObject({
+        .poll(() => readForwardSemanticState(restarted))
+        .toEqual({
           portable: row.expectedPortable,
-          local: {
-            analytics_user_consent: {
-              analytics: row.expectedPrivacy.analytics,
-              errorReporting: row.expectedPrivacy.errorReporting
-            },
-            analytics_config: { debugMode: row.expectedPrivacy.debugMode },
-            deviceLocalVaultBindings: row.expectedBindings
-          }
+          privacy: row.expectedPrivacy,
+          bindings: row.expectedBindings,
+          journalPresent: false
         });
-      await expect
-        .poll(async () => (await readForwardState(restarted)).local[cleanupJournalKey])
-        .toBeUndefined();
-      expect(await hasCleanupDirectoryHandle(worker), row.id).toBe(row.expectedHandle);
+      expect(await hasCleanupDirectoryHandle(worker), `${row.id} post-relaunch handle`).toBe(
+        row.expectedHandle
+      );
     } finally {
       await context.close().catch(() => undefined);
       await rm(userDataDir, { recursive: true, force: true });
@@ -2201,19 +2253,77 @@ test('recovers corrected-v3 F8 post-delete progress and F9 no-write barriers', a
       bindings: forwardProposedBindings,
       journal: createForwardJournal('f8', 'local-committed')
     });
-    await Promise.all([armNextCleanupAbort(page), armNextCleanupAbort(worker)]);
+    const progressFault = await worker.evaluateHandle((journalKey) => {
+      const storage = chrome.storage.local;
+      const originalSet = storage.set.bind(storage);
+      const state = {
+        failed: false,
+        failures: 0,
+        transactionIds: [] as string[],
+        originalSet
+      };
+      const gatedSet = (items: JsonRecord, callback?: () => void) => {
+        const candidate = items[journalKey];
+        const candidateRecord =
+          typeof candidate === 'object' && candidate !== null && !Array.isArray(candidate)
+            ? (candidate as JsonRecord)
+            : null;
+        const isProgressWrite =
+          !state.failed &&
+          candidateRecord?.version === 3 &&
+          candidateRecord.protocol === 'forward-privacy-v1' &&
+          candidateRecord.transactionId === 'm05-f8' &&
+          candidateRecord.phase === 'local-committed' &&
+          Array.isArray(candidateRecord.remainingCleanupCandidates) &&
+          candidateRecord.remainingCleanupCandidates.length === 0;
+        if (isProgressWrite) {
+          state.failed = true;
+          state.failures += 1;
+          state.transactionIds.push(String(candidateRecord.transactionId));
+          throw new Error('M05_FORCED_CLEANUP_PROGRESS_WRITE_FAILURE');
+        }
+        return callback ? originalSet(items, callback) : originalSet(items);
+      };
+      Object.defineProperty(storage, 'set', { configurable: true, value: gatedSet });
+      return state;
+    }, cleanupJournalKey);
     const deferred = await sendPatch(page, ['interfaceTheme'], 'dark');
     expect(deferred.success).toBe(false);
-    await expect
-      .poll(() => readForwardState(page))
-      .toMatchObject({
-        portable: forwardPortableProposal,
-        local: {
-          deviceLocalVaultBindings: forwardProposedBindings,
-          [cleanupJournalKey]: { version: 3, phase: 'local-committed' }
-        }
+    expect(deferred.errorCode).toBe('OPTIONS_STORAGE_FAILURE');
+    await expect.poll(() => progressFault.evaluate((state) => state.failed)).toBe(true);
+    const faultEvidence = await progressFault.evaluate((state) => {
+      Object.defineProperty(chrome.storage.local, 'set', {
+        configurable: true,
+        value: state.originalSet
       });
-    expect(await hasCleanupDirectoryHandle(worker)).toBe(true);
+      return {
+        failed: state.failed,
+        failures: state.failures,
+        transactionIds: state.transactionIds
+      };
+    });
+    await progressFault.dispose();
+    expect(faultEvidence).toEqual({
+      failed: true,
+      failures: 1,
+      transactionIds: ['m05-f8']
+    });
+    expect(await hasCleanupDirectoryHandle(worker)).toBe(false);
+    const deferredState = await readForwardState(page);
+    expect(deferredState).toEqual({
+      portable: forwardPortableProposal,
+      local: {
+        analytics_user_consent: {
+          analytics: true,
+          errorReporting: false,
+          timestamp: 1,
+          version: '1.0'
+        },
+        analytics_config: { debugMode: false },
+        deviceLocalVaultBindings: forwardProposedBindings,
+        [cleanupJournalKey]: createForwardJournal('f8', 'local-committed')
+      }
+    });
 
     await context.close();
     context = await chromium.launchPersistentContext(userDataDir, {
@@ -2236,6 +2346,18 @@ test('recovers corrected-v3 F8 post-delete progress and F9 no-write barriers', a
     await expect
       .poll(async () => (await readForwardState(page)).local[cleanupJournalKey])
       .toBeUndefined();
+    const completion = await sendPatch(page, ['interfaceTheme'], 'dark');
+    expect(completion.success).toBe(true);
+    expect(completion.errorCode).toBeUndefined();
+    await expect
+      .poll(() => readForwardSemanticState(page))
+      .toEqual({
+        portable: forwardPortableProposal,
+        privacy: privacyForward,
+        bindings: forwardProposedBindings,
+        journalPresent: false
+      });
+    expect(await hasCleanupDirectoryHandle(worker)).toBe(false);
 
     const noWriteJournal = createForwardJournal('f9-prepared', 'prepared', {
       portableProposal: forwardPortablePreimage,
