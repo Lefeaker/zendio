@@ -71,6 +71,8 @@ export class OptionsController {
           const transition = this.requireDraftSession().acknowledge(intent, acknowledged);
           this.snapshot = this.requireDraftSession().getAuthoritativeSnapshot();
           this.applyMountedTransition(transition);
+          if (this.requireDraftSession().getDirtyPathKeys().length === 0)
+            this.autoSaveDurability.discardRetryable();
           this.callbacks.onSaveSuccess?.(reason, this.requireDraftSession().getWorkingDraft());
         } catch (error) {
           this.draftSession?.fail(intent);
@@ -95,6 +97,7 @@ export class OptionsController {
     const transition = this.draftSession.observeAuthoritative(mergeOptions(options));
     this.snapshot = this.draftSession.getAuthoritativeSnapshot();
     this.applyMountedTransition(transition);
+    if (!this.draftSession.getDirtyPathKeys().length) this.autoSaveDurability.discardRetryable();
   }
   bindMountedDraftRebase(listener: MountedDraftRebaseListener): () => void {
     this.mountedDraftRebase = listener;
@@ -198,6 +201,7 @@ export class OptionsController {
       this.autoSaveDurability.enqueue({ intent, reason });
       await this.autoSaveDurability.flush();
     } else {
+      this.autoSaveDurability.discardRetryable();
       this.callbacks.onSaveSuccess?.(reason, this.requireDraftSession().getWorkingDraft());
     }
     return this.requireDraftSession().getWorkingDraft();

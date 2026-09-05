@@ -5,6 +5,10 @@ import type { OptionsPatch } from '@shared/types/optionsMutationMessages';
 import { mergeOptions } from '@shared/config/optionsMerger';
 import { STORED_OPTIONS_DELETE } from '@shared/config/storedOptionsCodec';
 import { createOptionsController } from '@options/app/optionsController';
+import {
+  createOptionsControllerDurability,
+  type DurableOptionsMutation
+} from '@options/app/optionsControllerDurability';
 import { replaceOptionsPath, type OptionsPath } from '@options/state/optionsPatchModel';
 import type { OptionsFormAdapter } from '@options/components/optionsFormAdapter';
 import type { OptionsPersistenceService } from '@options/services/persistence';
@@ -549,5 +553,127 @@ describe('OptionsController', () => {
 
     expect(saveMock).toHaveBeenCalledTimes(1);
     expect(savedOptions).toEqual([]);
+  });
+
+  it('discards a failed retry after a manual reversal before page exit', async () => {
+    const failure = new Error('EXTERNAL_SYNC_CONFLICT');
+    saveMock.mockRejectedValueOnce(failure);
+    const controller = createOptionsController({ persistence, formAdapter });
+    await controller.loadInitialState();
+    const desired = structuredClone(repositorySnapshot);
+    desired.fragmentClipper.captureContext = true;
+
+    controller.scheduleAutoSave(() => desired);
+    await expect(controller.flushPendingAutoSave()).rejects.toBe(failure);
+    await controller.saveSnapshot({
+      reason: 'manual',
+      draft: structuredClone(repositorySnapshot)
+    });
+    await controller.flushPendingAutoSave();
+
+    expect(saveMock).toHaveBeenCalledTimes(1);
+    expect(savedOptions).toEqual([]);
+  });
+
+  it('does not let the same synthetic admission silently unblock a failed mutation', async () => {
+    const failure = new Error('EXTERNAL_SYNC_CONFLICT');
+    const persist = vi.fn().mockRejectedValueOnce(failure).mockResolvedValue(undefined);
+    const durability = createOptionsControllerDurability({ persist });
+    const mutation = (admissionGeneration: number): DurableOptionsMutation => ({
+      intent: {
+        intentId: admissionGeneration,
+        baseRevision: 1,
+        admissionGeneration,
+        owned: [],
+        patches: []
+      },
+      reason: 'auto'
+    });
+
+    durability.enqueue(mutation(1));
+    await expect(durability.flush()).rejects.toBe(failure);
+    durability.enqueue(mutation(1));
+    durability.enqueue(mutation(0));
+    await Promise.resolve();
+
+    expect(persist).toHaveBeenCalledTimes(1);
+    await expect(durability.flush()).resolves.toBeUndefined();
+    expect(persist).toHaveBeenCalledTimes(2);
+  });
+
+  it('discards a failed admission when the authoritative base already satisfies it', async () => {
+    const failure = new Error('EXTERNAL_SYNC_CONFLICT');
+    saveMock.mockRejectedValueOnce(failure);
+    const controller = createOptionsController({ persistence, formAdapter });
+    await controller.loadInitialState();
+    const desired = structuredClone(repositorySnapshot);
+    desired.fragmentClipper.captureContext = true;
+
+    controller.scheduleAutoSave(() => desired);
+    await expect(controller.flushPendingAutoSave()).rejects.toBe(failure);
+    controller.setSnapshot(desired);
+    controller.scheduleAutoSave(() => structuredClone(desired));
+    await controller.flushPendingAutoSave();
+
+    expect(saveMock).toHaveBeenCalledTimes(1);
+    expect(savedOptions).toEqual([]);
+  });
+
+  it('discards a failed retry when an authoritative notification satisfies it before page exit', async () => {
+    const failure = new Error('EXTERNAL_SYNC_CONFLICT');
+    saveMock.mockRejectedValueOnce(failure);
+    const controller = createOptionsController({ persistence, formAdapter });
+    await controller.loadInitialState();
+    const desired = structuredClone(repositorySnapshot);
+    desired.fragmentClipper.captureContext = true;
+
+    controller.scheduleAutoSave(() => desired);
+    await expect(controller.flushPendingAutoSave()).rejects.toBe(failure);
+    controller.setSnapshot(desired);
+    await controller.flushPendingAutoSave();
+
+    expect(saveMock).toHaveBeenCalledTimes(1);
+    expect(savedOptions).toEqual([]);
+  });
+
+  it('re-drains one newer real admission even when its final patches match the failure', async () => {
+    const failure = new Error('EXTERNAL_SYNC_CONFLICT');
+    saveMock.mockRejectedValueOnce(failure);
+    const controller = createOptionsController({ persistence, formAdapter });
+    await controller.loadInitialState();
+    const desired = structuredClone(repositorySnapshot);
+    desired.fragmentClipper.captureContext = true;
+
+    controller.scheduleAutoSave(() => desired);
+    await expect(controller.flushPendingAutoSave()).rejects.toBe(failure);
+    controller.scheduleAutoSave(() => structuredClone(desired));
+    await controller.flushPendingAutoSave();
+
+    expect(saveMock).toHaveBeenCalledTimes(2);
+    expect(saveMock.mock.calls[0]).toEqual(saveMock.mock.calls[1]);
+    expect(savedOptions.at(-1)?.fragmentClipper?.captureContext).toBe(true);
+  });
+
+  it('combines a failed dirty value with an unrelated newer interaction', async () => {
+    const failure = new Error('EXTERNAL_SYNC_CONFLICT');
+    saveMock.mockRejectedValueOnce(failure);
+    const controller = createOptionsController({ persistence, formAdapter });
+    await controller.loadInitialState();
+    const failed = structuredClone(repositorySnapshot);
+    failed.fragmentClipper.captureContext = true;
+
+    controller.scheduleAutoSave(() => failed);
+    await expect(controller.flushPendingAutoSave()).rejects.toBe(failure);
+    const combined = structuredClone(failed);
+    combined.interfaceTheme = 'dark';
+    controller.scheduleAutoSave(() => combined);
+    await controller.flushPendingAutoSave();
+
+    expect(saveMock).toHaveBeenLastCalledWith([
+      { path: ['interfaceTheme'], value: 'dark' },
+      { path: ['fragmentClipper', 'captureContext'], value: true }
+    ]);
+    expect(savedOptions.at(-1)?.interfaceTheme).toBe('dark');
+    expect(savedOptions.at(-1)?.fragmentClipper?.captureContext).toBe(true);
   });
 });
