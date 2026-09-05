@@ -15,6 +15,11 @@ import {
 } from './services/optionsMutationCoordinator';
 import { DeviceLocalVaultCleanupJournal } from '../shared/config/deviceLocalVaultCleanupJournal';
 import { createDeviceLocalPrivacyCommitter } from './services/deviceLocalPrivacyCommitter';
+import {
+  DeviceLocalVaultCleanupExecutor,
+  DeviceLocalVaultLocalCommitter,
+  DeviceLocalVaultRecoveryStorage
+} from '../shared/config/deviceLocalVaultCleanupExecutor';
 
 function rawObject(value: PlainStructuredValue | null): PlainStructuredObject {
   if (value === null) return {};
@@ -29,26 +34,27 @@ function rawObject(value: PlainStructuredValue | null): PlainStructuredObject {
   }
   return snapshot.value;
 }
-
 const platformServices = getPlatformServices();
 const optionsStorageRepository = new ChromeOptionsRepository(platformServices.storage);
 const deviceLocalPrivacyCommitter = createDeviceLocalPrivacyCommitter(
   platformServices.storage,
   optionsStorageRepository
 );
-const deviceLocalVaultCleanupJournal = new DeviceLocalVaultCleanupJournal(
+const { observe, compensate } = deviceLocalPrivacyCommitter;
+if (!observe || !compensate) throw new OptionsMutationError('OPTIONS_STORAGE_FAILURE');
+const recoveryStorage = new DeviceLocalVaultRecoveryStorage(
   platformServices.storage.local,
   () => optionsStorageRepository.readVaultBindings(),
-  (folderId) => platformServices.fileSystemAccess.removeDirectory(folderId),
-  {
-    readPortableRaw: async () => rawObject(await optionsStorageRepository.readRaw()),
-    writeBindings: (snapshot) => optionsStorageRepository.writeVaultBindings(snapshot),
-    compensate: (request) => {
-      const compensate = deviceLocalPrivacyCommitter.compensate;
-      if (!compensate) throw new OptionsMutationError('OPTIONS_STORAGE_FAILURE');
-      return compensate(request);
-    }
-  }
+  (snapshot) => optionsStorageRepository.writeVaultBindings(snapshot),
+  async () => rawObject(await optionsStorageRepository.readRaw())
+);
+const deviceLocalVaultCleanupJournal = new DeviceLocalVaultCleanupJournal(
+  recoveryStorage,
+  new DeviceLocalVaultCleanupExecutor(recoveryStorage, (folderId) =>
+    platformServices.fileSystemAccess.removeDirectory(folderId)
+  ),
+  new DeviceLocalVaultLocalCommitter(recoveryStorage),
+  { observe, compensate }
 );
 const optionsMutationCoordinator = createOptionsMutationCoordinator(optionsStorageRepository, {
   deviceLocalPrivacyCommitter,

@@ -23,7 +23,8 @@ async function localCommitted(): Promise<DeviceLocalVaultRecoveryTransactionV3> 
     portablePreimage: { revision: 0 },
     portableProposal: { revision: 1 },
     writeRequired: true,
-    privacyTarget: { analytics: false, errorReporting: false, debugMode: false },
+    privacyRestoreTarget: { analytics: false, errorReporting: false, debugMode: false },
+    privacyForwardTarget: { analytics: true, errorReporting: false, debugMode: false },
     privacyWriteRequired: true
   });
   return {
@@ -32,7 +33,8 @@ async function localCommitted(): Promise<DeviceLocalVaultRecoveryTransactionV3> 
     portable: {
       ...prepared.portable,
       observedCommittedIdentity: prepared.portable.proposedIdentity
-    }
+    },
+    privacy: { ...prepared.privacy, observedForward: 'exact-target-readback' }
   };
 }
 

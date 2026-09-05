@@ -2,21 +2,20 @@ import { plainStructuredDataEqual } from './losslessObjectBoundary';
 import type { PlainStructuredObject, PlainStructuredValue } from './losslessObjectBoundaryTypes';
 import { decodeStoredOptions } from './storedOptionsCodec';
 import { composeDeviceLocalPrivacy } from './deviceLocalPrivacy';
+import type { DeviceLocalVaultCleanupJournal } from './deviceLocalVaultCleanupJournal';
 import {
-  DeviceLocalVaultRecoveryError,
-  type DeviceLocalVaultCleanupJournal
-} from './deviceLocalVaultCleanupJournal';
-import type {
-  DeviceLocalPrivacyCommitter,
-  DeviceLocalVaultBindingRepository,
-  DeviceLocalVaultBindingSnapshot,
-  OptionsMutationVerification
+  asOptionsMutationError,
+  deviceLocalVaultRecoveryCode,
+  type DeviceLocalPrivacyCommitter,
+  type DeviceLocalVaultBindingRepository,
+  type DeviceLocalVaultBindingSnapshot,
+  type OptionsMutationVerification
 } from './deviceLocalVaultRecoveryTransaction';
-import type {
-  OptionsMutationCommand,
-  OptionsMutationSuccessResult
+import {
+  OptionsMutationError,
+  type OptionsMutationCommand,
+  type OptionsMutationSuccessResult
 } from '../types/optionsMutationMessages';
-import { OptionsMutationError } from '../types/optionsMutationMessages';
 import type { CompleteOptions, StoredOptions } from '../types/options';
 export const DEVICE_LOCAL_VAULT_BINDINGS_KEY = 'deviceLocalVaultBindings';
 type VaultBinding = { readonly folderId: string; readonly folderName: string };
@@ -38,12 +37,11 @@ export function optionsValuesEqual(
   const result = plainStructuredDataEqual(left, right);
   return result.ok && result.equal;
 }
-const readPath = (raw: PlainStructuredObject, path: readonly string[]) => {
-  return path.reduce<PlainStructuredValue | undefined>(
+const readPath = (raw: PlainStructuredObject, path: readonly string[]) =>
+  path.reduce<PlainStructuredValue | undefined>(
     (current, part) => (record(current) ? current[part] : undefined),
     raw
   );
-};
 export const optionsVerificationMatches = (
   raw: PlainStructuredObject,
   verification: OptionsMutationVerification
@@ -114,8 +112,7 @@ export function captureDeviceLocalVaultBindings(
     if (vault.id.trim() && binding) bindings[vault.id.trim()] = binding;
   }
   const rest = folderBinding(options.rest);
-  const defaultId = defaultVaultId(options);
-  if (rest && source === 'rest') bindings[defaultId] = rest;
+  if (rest && source === 'rest') bindings[defaultVaultId(options)] = rest;
   return reconcileDeviceLocalVaultBindings(options, { version: 1, bindings });
 }
 export function composeDeviceLocalVaultBindings(
@@ -202,6 +199,8 @@ export async function executeDeviceLocalVaultBindingMutation(
     return { next: portable, verification };
   };
   let result: Awaited<ReturnType<DeviceLocalPrivacyCommitter['execute']>>;
+  let recoveredCommit = false,
+    prepared = false;
   try {
     result = await committer.execute(command, apply, quotaBytesPerItem, {
       beforePortableDecision: async (attempt) => {
@@ -212,28 +211,32 @@ export async function executeDeviceLocalVaultBindingMutation(
           previousBindings: previous,
           proposedBindings: next
         });
+        prepared = true;
+      },
+      beforeForwardMutation: async () => {
+        if (!cleanupJournal || !prepared) return false;
+        await cleanupJournal.beginForward();
+        return true;
       }
     });
   } catch (error) {
     try {
-      await cleanupJournal?.recover(false);
+      const code = deviceLocalVaultRecoveryCode(error);
+      const recovery = await cleanupJournal?.recover(false, code, true);
+      if (recovery) {
+        result = recovery;
+        recoveredCommit = true;
+      } else throw asOptionsMutationError(error);
     } catch (recoveryError) {
-      if (recoveryError instanceof DeviceLocalVaultRecoveryError) {
-        throw new OptionsMutationError(recoveryError.code);
-      }
-      throw new OptionsMutationError('OPTIONS_STORAGE_FAILURE');
+      throw asOptionsMutationError(recoveryError);
     }
-    if (error instanceof OptionsMutationError) throw error;
-    throw new OptionsMutationError('OPTIONS_STORAGE_FAILURE');
   }
   try {
-    if (cleanupJournal && bindingsChanged) await cleanupJournal.completePortableCommit(result.raw);
-    else if (bindingsChanged) await vaultRepository.writeVaultBindings(next);
+    if (!recoveredCommit && bindingsChanged)
+      await (cleanupJournal?.recover(false, 'OPTIONS_STORAGE_FAILURE', true) ??
+        vaultRepository.writeVaultBindings(next));
   } catch (error) {
-    if (error instanceof DeviceLocalVaultRecoveryError) {
-      throw new OptionsMutationError(error.code);
-    }
-    throw new OptionsMutationError('OPTIONS_STORAGE_FAILURE');
+    throw asOptionsMutationError(error);
   }
   let snapshot = decodeStoredOptions(result.raw).runtime;
   if (result.privacy) snapshot = composeDeviceLocalPrivacy(snapshot, result.privacy);

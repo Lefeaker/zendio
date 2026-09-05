@@ -9,18 +9,19 @@ import {
   DeviceLocalPrivacyStore,
   resolveDeviceLocalPrivacy
 } from '@shared/config/deviceLocalPrivacy';
-import { portableOptionsIdentity } from '@shared/config/deviceLocalVaultRecoveryTransaction';
+import { createPreparedDeviceLocalVaultRecoveryTransaction } from '@shared/config/deviceLocalVaultRecoveryTransaction';
 import type {
   PlainStructuredObject,
   PlainStructuredValue
 } from '@shared/config/losslessObjectBoundaryTypes';
+import type { PrivacyPreferencesOptions } from '@shared/types/options';
 
 const privacy0 = { analytics: false, errorReporting: false, debugMode: false } as const;
 const privacy1 = { analytics: true, errorReporting: false, debugMode: false } as const;
 
 async function seedPrivacy(
   storage: Awaited<ReturnType<typeof harness>>['storage'],
-  privacy = privacy1
+  privacy: PrivacyPreferencesOptions = privacy1
 ) {
   await storage.local.setMany({
     [DEVICE_LOCAL_PRIVACY_CONSENT_KEY]: {
@@ -47,24 +48,91 @@ async function harness(raw: PlainStructuredObject) {
   return { storage, committer, writeRaw, current: () => current };
 }
 
-async function request() {
+async function transaction() {
   const portablePreimage = { nested: { a: 1, b: 2 }, revision: 0 };
   const portableProposal = { revision: 1 };
-  return {
+  return createPreparedDeviceLocalVaultRecoveryTransaction({
+    transactionId: 'operation-1',
+    previousBindings: { version: 1, bindings: {} },
+    proposedBindings: { version: 1, bindings: {} },
     portablePreimage,
-    preimageIdentity: await portableOptionsIdentity(portablePreimage),
-    proposedIdentity: await portableOptionsIdentity(portableProposal),
-    privacyTarget: privacy0,
-    privacyRestoreRequired: true
-  } as const;
+    portableProposal,
+    writeRequired: true,
+    privacyRestoreTarget: privacy0,
+    privacyForwardTarget: privacy1,
+    privacyWriteRequired: true
+  });
 }
 
 describe('createDeviceLocalPrivacyCommitter compensation', () => {
+  it('observes prepared as R and commit-ready current values as F', async () => {
+    const state = await harness({ revision: 1 });
+    await seedPrivacy(state.storage, privacy1);
+    const previousConsent = {
+      analytics: false,
+      errorReporting: false,
+      timestamp: 0,
+      version: '1.0'
+    };
+    const previousConfig = { debugMode: false };
+    const recoveryTransaction = await transaction();
+    await state.storage.local.set(
+      DEVICE_LOCAL_PRIVACY_TRANSACTION_KEY,
+      createDeviceLocalPrivacyTransaction(previousConsent, previousConfig, 'prepared')
+    );
+
+    await expect(state.committer.observe?.(recoveryTransaction, 'forward')).resolves.toMatchObject({
+      portableState: 'proposal',
+      privacyState: 'restore',
+      privacy: privacy0
+    });
+
+    await state.storage.local.set(
+      DEVICE_LOCAL_PRIVACY_TRANSACTION_KEY,
+      createDeviceLocalPrivacyTransaction(previousConsent, previousConfig, 'commit-ready')
+    );
+    await expect(state.committer.observe?.(recoveryTransaction, 'forward')).resolves.toMatchObject({
+      portableState: 'proposal',
+      privacyState: 'forward',
+      privacy: privacy1
+    });
+  });
+
+  it('keeps forward success when only the committed marker cleanup fails', async () => {
+    const state = await harness({ revision: 0 });
+    await seedPrivacy(state.storage, privacy0);
+    const warning = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    const originalRemove = state.storage.local.remove.bind(state.storage.local);
+    state.storage.local.remove = vi.fn((key) =>
+      key === DEVICE_LOCAL_PRIVACY_TRANSACTION_KEY
+        ? Promise.reject(new Error('marker cleanup unavailable'))
+        : originalRemove(key)
+    );
+
+    const result = await state.committer.execute(
+      {
+        kind: 'patch',
+        patches: [{ path: ['privacyPreferences', 'analytics'], value: true }]
+      },
+      (raw) => ({
+        next: { ...raw, privacyPreferences: privacy1 },
+        verification: { kind: 'paths', expected: [] }
+      }),
+      8_192
+    );
+
+    expect(result.privacy).toEqual(privacy1);
+    expect(warning).toHaveBeenCalledOnce();
+    const observed = await state.committer.observe?.(await transaction(), 'forward');
+    expect(observed?.privacyState).toBe('forward');
+  });
+
   it('restores P0 then privacy0 in one attempt when the proposal is current', async () => {
     const state = await harness({ revision: 1 });
 
-    await expect(state.committer.compensate?.(await request())).resolves.toMatchObject({
-      portableState: 'proposal'
+    await expect(state.committer.compensate?.(await transaction())).resolves.toMatchObject({
+      portableState: 'preimage',
+      privacyState: 'restore'
     });
 
     expect(state.current()).toEqual({ nested: { a: 1, b: 2 }, revision: 0 });
@@ -80,7 +148,7 @@ describe('createDeviceLocalPrivacyCommitter compensation', () => {
   it('accepts reordered P0 without a portable write', async () => {
     const state = await harness({ revision: 0, nested: { b: 2, a: 1 } });
 
-    await expect(state.committer.compensate?.(await request())).resolves.toMatchObject({
+    await expect(state.committer.compensate?.(await transaction())).resolves.toMatchObject({
       portableState: 'preimage'
     });
     expect(state.writeRaw).not.toHaveBeenCalled();
@@ -89,7 +157,7 @@ describe('createDeviceLocalPrivacyCommitter compensation', () => {
   it('preserves a third portable value while restoring device-local privacy', async () => {
     const state = await harness({ external: true });
 
-    await expect(state.committer.compensate?.(await request())).resolves.toMatchObject({
+    await expect(state.committer.compensate?.(await transaction())).resolves.toMatchObject({
       portableState: 'third'
     });
     expect(state.current()).toEqual({ external: true });
@@ -113,7 +181,7 @@ describe('createDeviceLocalPrivacyCommitter compensation', () => {
       );
 
       await state.committer.recover?.();
-      await state.committer.compensate?.(await request());
+      await state.committer.compensate?.(await transaction());
 
       const restored = await new DeviceLocalPrivacyStore(state.storage.local).read(state.current());
       expect(restored.preferences).toEqual(privacy0);
@@ -136,14 +204,14 @@ describe('createDeviceLocalPrivacyCommitter compensation', () => {
       await originalSetMany(values);
     });
 
-    await expect(state.committer.compensate?.(await request())).rejects.toMatchObject({
+    await expect(state.committer.compensate?.(await transaction())).rejects.toMatchObject({
       code: 'OPTIONS_STORAGE_FAILURE'
     });
     expect(state.current()).toEqual({ nested: { a: 1, b: 2 }, revision: 0 });
     expect(state.writeRaw).toHaveBeenCalledOnce();
 
     await state.committer.recover?.();
-    await state.committer.compensate?.(await request());
+    await state.committer.compensate?.(await transaction());
     const restored = await new DeviceLocalPrivacyStore(state.storage.local).read(state.current());
     expect(restored.preferences).toEqual(privacy0);
     expect(state.writeRaw).toHaveBeenCalledOnce();

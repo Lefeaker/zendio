@@ -18,15 +18,18 @@ import type {
   PlainStructuredValue
 } from '../../shared/config/losslessObjectBoundaryTypes';
 import { decodeStoredOptions } from '../../shared/config/storedOptionsCodec';
-import { portableOptionsIdentity } from '../../shared/config/deviceLocalVaultRecoveryTransaction';
+import {
+  portableOptionsIdentity,
+  type DeviceLocalVaultRecoveryObservation,
+  type DeviceLocalVaultRecoveryTransactionV3
+} from '../../shared/config/deviceLocalVaultRecoveryTransaction';
 import {
   OptionsMutationError,
   type OptionsMutationCommand
 } from '../../shared/types/optionsMutationMessages';
 
 function rawObject(value: PlainStructuredValue | null): PlainStructuredObject {
-  if (value === null) return {};
-  const snapshot = snapshotPlainStructuredData(value);
+  const snapshot = snapshotPlainStructuredData(value ?? {});
   if (
     !snapshot.ok ||
     typeof snapshot.value !== 'object' ||
@@ -37,14 +40,11 @@ function rawObject(value: PlainStructuredValue | null): PlainStructuredObject {
   }
   return snapshot.value;
 }
-
-function mutatesPrivacy(command: OptionsMutationCommand): boolean {
-  return command.kind === 'patch'
+const mutatesPrivacy = (command: OptionsMutationCommand) =>
+  command.kind === 'patch'
     ? command.patches.some((patch) => patch.path[0] === 'privacyPreferences')
     : command.kind === 'replace' &&
-        Object.prototype.hasOwnProperty.call(command.replacement, 'privacyPreferences');
-}
-
+      Object.prototype.hasOwnProperty.call(command.replacement, 'privacyPreferences');
 function portableVerification(
   verification: OptionsMutationVerification,
   next: PlainStructuredObject
@@ -59,6 +59,14 @@ function portableVerification(
         ]
       };
 }
+const recoveryRequest = (transaction: DeviceLocalVaultRecoveryTransactionV3) => ({
+  portablePreimage: transaction.portable.preimage,
+  preimageIdentity: transaction.portable.preimageIdentity,
+  proposedIdentity: transaction.portable.proposedIdentity,
+  privacyRestoreTarget: transaction.privacy.restoreTarget,
+  privacyForwardTarget: transaction.privacy.forwardTarget
+});
+type RecoveryRequest = ReturnType<typeof recoveryRequest>;
 
 export function createDeviceLocalPrivacyCommitter(
   storage: StorageService,
@@ -73,58 +81,84 @@ export function createDeviceLocalPrivacyCommitter(
       throw new OptionsMutationError('OPTIONS_STORAGE_FAILURE');
     }
   };
+  const observe = async (
+    transaction: DeviceLocalVaultRecoveryTransactionV3,
+    direction: 'forward' | 'restore'
+  ): Promise<DeviceLocalVaultRecoveryObservation> => {
+    try {
+      const request = recoveryRequest(transaction);
+      const portableRaw = rawObject(await repository.readRaw());
+      const identity = await portableOptionsIdentity(portableRaw);
+      const primaryIdentity =
+        direction === 'forward' ? request.proposedIdentity : request.preimageIdentity;
+      const secondaryIdentity =
+        direction === 'forward' ? request.preimageIdentity : request.proposedIdentity;
+      const portableState =
+        identity === primaryIdentity
+          ? direction === 'forward'
+            ? 'proposal'
+            : 'preimage'
+          : identity === secondaryIdentity
+            ? direction === 'forward'
+              ? 'preimage'
+              : 'proposal'
+            : 'third';
+      const privacy = (await local.read(portableRaw)).preferences;
+      const primary =
+        direction === 'forward' ? request.privacyForwardTarget : request.privacyRestoreTarget;
+      const secondary =
+        direction === 'forward' ? request.privacyRestoreTarget : request.privacyForwardTarget;
+      const privacyState = optionsValuesEqual(privacy, primary)
+        ? direction
+        : optionsValuesEqual(privacy, secondary)
+          ? direction === 'forward'
+            ? 'restore'
+            : 'forward'
+          : 'third';
+      return { portableState, privacyState, portableRaw, privacy };
+    } catch (error) {
+      if (error instanceof OptionsMutationError) throw error;
+      throw new OptionsMutationError('OPTIONS_STORAGE_FAILURE');
+    }
+  };
+  const restorePortable = async (request: RecoveryRequest) => {
+    await repository.writeRaw(structuredClone(request.portablePreimage));
+    await yieldWrite();
+    const raw = rawObject(await repository.readRaw());
+    if ((await portableOptionsIdentity(raw)) !== request.preimageIdentity)
+      throw new Error('PORTABLE_RESTORE_UNVERIFIED');
+  };
+  const restorePrivacy = async (request: RecoveryRequest) => {
+    await local.begin();
+    await local.commit(request.privacyRestoreTarget);
+    const restored = (await local.read(await repository.readRaw())).preferences;
+    if (!optionsValuesEqual(restored, request.privacyRestoreTarget))
+      throw new Error('PRIVACY_RESTORE_UNVERIFIED');
+  };
   const restoreMirror = async (privacy: PlainStructuredValue) => {
     for (let attempt = 0; attempt <= 2; attempt += 1) {
-      try {
-        const current = rawObject(await repository.readRaw());
-        await repository.writeRaw({ ...current, privacyPreferences: structuredClone(privacy) });
-        await yieldWrite();
-        const restored = rawObject(await repository.readRaw()).privacyPreferences;
-        if (optionsValuesEqual(restored, privacy)) return;
-      } catch {
-        // Existing bounded forward compensation observes the newest raw snapshot.
-      }
+      const current = rawObject(await repository.readRaw());
+      await repository.writeRaw({ ...current, privacyPreferences: structuredClone(privacy) });
+      await yieldWrite();
+      if (optionsValuesEqual(rawObject(await repository.readRaw()).privacyPreferences, privacy))
+        return;
     }
     throw new OptionsMutationError('OPTIONS_STORAGE_FAILURE');
   };
   return {
     recover: rollback,
-    async compensate(request) {
-      let raw = rawObject(await repository.readRaw());
-      const currentIdentity = await portableOptionsIdentity(raw);
-      const portableState =
-        currentIdentity === request.proposedIdentity
-          ? 'proposal'
-          : currentIdentity === request.preimageIdentity
-            ? 'preimage'
-            : 'third';
-      if (portableState === 'proposal') {
-        try {
-          await repository.writeRaw(structuredClone(request.portablePreimage));
-          await yieldWrite();
-          raw = rawObject(await repository.readRaw());
-          if ((await portableOptionsIdentity(raw)) !== request.preimageIdentity) {
-            throw new OptionsMutationError('OPTIONS_STORAGE_FAILURE');
-          }
-        } catch (error) {
-          if (error instanceof OptionsMutationError) throw error;
-          throw new OptionsMutationError('OPTIONS_STORAGE_FAILURE');
-        }
+    observe,
+    async compensate(transaction) {
+      try {
+        const request = recoveryRequest(transaction);
+        const current = await observe(transaction, 'restore');
+        if (current.portableState === 'proposal') await restorePortable(request);
+        if (current.privacyState === 'forward') await restorePrivacy(request);
+        return await observe(transaction, 'restore');
+      } catch (error) {
+        if (error instanceof OptionsMutationError) throw error;
+        throw new OptionsMutationError('OPTIONS_STORAGE_FAILURE');
       }
-      if (request.privacyRestoreRequired) {
-        try {
-          await local.begin();
-          await local.commit(request.privacyTarget);
-          const restored = await local.read(raw);
-          if (!optionsValuesEqual(restored.preferences, request.privacyTarget)) {
-            throw new OptionsMutationError('OPTIONS_STORAGE_FAILURE');
-          }
-        } catch (error) {
-          if (error instanceof OptionsMutationError) throw error;
-          throw new OptionsMutationError('OPTIONS_STORAGE_FAILURE');
-        }
-      }
-      return { portableState };
     },
     async execute(command, applyCommand, quotaBytesPerItem, lifecycle) {
       for (let attempt = 0; attempt <= 2; attempt += 1) {
@@ -142,17 +176,18 @@ export function createDeviceLocalPrivacyCommitter(
         const writePrivacy = containsDeviceLocalPrivacy(raw) || privacyChanged;
         const writePortable = !optionsValuesEqual(raw, next);
         const verification = portableVerification(mutation.verification, next);
-        if (writePortable && optionsEnvelopeBytes(next) > quotaBytesPerItem) {
+        if (writePortable && optionsEnvelopeBytes(next) > quotaBytesPerItem)
           throw new OptionsMutationError('OPTIONS_QUOTA_EXCEEDED');
-        }
         await lifecycle?.beforePortableDecision({
           portablePreimage: omitDeviceLocalPrivacy(raw),
           portableProposal: next,
           writeRequired: writePortable,
           verification,
-          privacyTarget: privacy,
+          privacyRestoreTarget: privacy,
+          privacyForwardTarget: nextPrivacy,
           privacyWriteRequired: writePrivacy
         });
+        const journalled = (await lifecycle?.beforeForwardMutation()) === true;
         if (writePrivacy) await local.begin();
         if (!writePortable) {
           try {
@@ -171,7 +206,8 @@ export function createDeviceLocalPrivacyCommitter(
             try {
               if (writePrivacy) await local.commit(nextPrivacy);
             } catch {
-              if (containsDeviceLocalPrivacy(raw)) await restoreMirror(raw.privacyPreferences);
+              if (!journalled && containsDeviceLocalPrivacy(raw))
+                await restoreMirror(raw.privacyPreferences);
               await rollback();
               throw new OptionsMutationError('OPTIONS_STORAGE_FAILURE');
             }
@@ -183,6 +219,7 @@ export function createDeviceLocalPrivacyCommitter(
           throw new OptionsMutationError('OPTIONS_STORAGE_FAILURE');
         }
         if (writePrivacy) await rollback();
+        if (journalled) throw new OptionsMutationError('EXTERNAL_SYNC_CONFLICT');
       }
       throw new OptionsMutationError('EXTERNAL_SYNC_CONFLICT');
     }

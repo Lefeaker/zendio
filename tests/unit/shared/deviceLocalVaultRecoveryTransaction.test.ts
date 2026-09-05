@@ -36,12 +36,14 @@ describe('device-local vault recovery transaction', () => {
       portablePreimage: { vaultRouter: { defaultVaultId: 'primary' } },
       portableProposal: { vaultRouter: { defaultVaultId: 'primary', vaults: [] } },
       writeRequired: true,
-      privacyTarget: { analytics: false, errorReporting: false, debugMode: false },
+      privacyRestoreTarget: { analytics: false, errorReporting: false, debugMode: false },
+      privacyForwardTarget: { analytics: true, errorReporting: false, debugMode: false },
       privacyWriteRequired: true
     });
 
     expect(transaction).toMatchObject({
       version: 3,
+      protocol: 'forward-privacy-v1',
       transactionId: 'operation-1',
       phase: 'prepared',
       cleanupCandidates: ['folder-old'],
@@ -51,8 +53,9 @@ describe('device-local vault recovery transaction', () => {
         writeRequired: true
       },
       privacy: {
-        restoreRequired: true,
-        target: { analytics: false, errorReporting: false, debugMode: false }
+        writeRequired: true,
+        restoreTarget: { analytics: false, errorReporting: false, debugMode: false },
+        forwardTarget: { analytics: true, errorReporting: false, debugMode: false }
       }
     });
     expect(transaction.portable.preimage).toEqual({
@@ -99,6 +102,25 @@ describe('device-local vault recovery transaction', () => {
     });
   });
 
+  it('classifies the rejected undiscriminated v3 shape as legacy-v3-unproven', async () => {
+    const corrected = await createPreparedDeviceLocalVaultRecoveryTransaction({
+      transactionId: 'operation-legacy-v3',
+      previousBindings: bindings('folder-old'),
+      proposedBindings: bindings(),
+      portablePreimage: { value: 'before' },
+      portableProposal: { value: 'after' },
+      writeRequired: true,
+      privacyRestoreTarget: { analytics: false, errorReporting: false, debugMode: false },
+      privacyForwardTarget: { analytics: true, errorReporting: false, debugMode: false },
+      privacyWriteRequired: true
+    });
+    const { protocol: _protocol, ...legacyV3 } = corrected;
+
+    expect(await decodeDeviceLocalVaultRecoveryTransaction(legacyV3)).toEqual({
+      kind: 'legacy-v3-unproven'
+    });
+  });
+
   it('rejects bounded-shape and phase invariant violations', async () => {
     const valid = await createPreparedDeviceLocalVaultRecoveryTransaction({
       transactionId: 'operation-1',
@@ -107,16 +129,43 @@ describe('device-local vault recovery transaction', () => {
       portablePreimage: { value: 'before' },
       portableProposal: { value: 'after' },
       writeRequired: true,
-      privacyTarget: { analytics: false, errorReporting: false, debugMode: false },
+      privacyRestoreTarget: { analytics: false, errorReporting: false, debugMode: false },
+      privacyForwardTarget: { analytics: true, errorReporting: false, debugMode: false },
       privacyWriteRequired: true
     });
+    const forwardProof = {
+      portable: {
+        ...valid.portable,
+        observedCommittedIdentity: valid.portable.proposedIdentity
+      },
+      privacy: { ...valid.privacy, observedForward: 'exact-target-readback' as const }
+    };
     const invalid = [
       { ...valid, transactionId: 'x'.repeat(129) },
       { ...valid, cleanupCandidates: ['folder-not-in-preimage'] },
       { ...valid, portable: { ...valid.portable, writeRequired: false } },
       { ...valid, portable: { ...valid.portable, preimage: { value: 'tampered' } } },
-      { ...valid, privacy: { ...valid.privacy, target: { analytics: false } } },
-      { ...valid, failureCode: 'OPTIONS_STORAGE_FAILURE' },
+      { ...valid, privacy: { ...valid.privacy, restoreTarget: { analytics: false } } },
+      {
+        ...valid,
+        privacy: { ...valid.privacy, writeRequired: false }
+      },
+      { ...valid, phase: 'forward-committed' },
+      {
+        ...valid,
+        phase: 'forward-committed',
+        portable: forwardProof.portable
+      },
+      { ...valid, phase: 'compensating' },
+      {
+        ...valid,
+        ...forwardProof,
+        phase: 'portable-privacy-restored',
+        recovery: {
+          outcomeCode: 'OPTIONS_STORAGE_FAILURE',
+          bindingWriteMayHaveOccurred: true
+        }
+      },
       { ...valid, abortReason: 'external-sync-conflict' },
       {
         ...valid,
