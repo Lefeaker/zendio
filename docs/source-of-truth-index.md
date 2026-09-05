@@ -1,6 +1,6 @@
 # Source of Truth 索引
 
-最后更新：2026-08-29
+最后更新：2026-09-05
 
 ## 正式入口
 
@@ -22,6 +22,10 @@
 
 ## 当前执行主线
 
+- Options 并发持久化真值：`src/options/app/optionsDraftSession.ts` 将 authoritative revision、逐路径 edit generation 与 admission generation 分开；ack 只清除对应 generation 的 dirty path，远端快照通过 `productionStitchAuthoritativeRebase.ts` 更新可替换的 mounted 控件并延后受保护区域。`optionsControllerDurability.ts` 保留一个串行写入 owner；失败后新的真实交互即使生成相同 patch 也可重新接纳，显式 bounded flush 可重试仍有效的 dirty intent，撤销或 authoritative reconciliation 后不再有 dirty intent 时丢弃 blocked/pending 状态。生产浏览器验真入口为 `test:e2e:browser:state` 中的 `optionsCrossContextMutation.browser.test.ts`
+- Local Vault 恢复真值：`deviceLocalVaultRecoverySchema.ts` / `deviceLocalVaultRecoveryCodec.ts` 定义和验证 v3 `forward-privacy-v1` journal。`forward-inflight` durable 后先 stage/readback 新 binding，再推进 portable/privacy；`ChromeOptionsRepository` 经 `deviceLocalVaultAuthoritativePublication.ts` 的至多两次 journal sampling，在有效非终态 v3 期间投影 durable preimage。storage 通知仅作 invalidation，重新读取当前物理状态，避免延迟事件发布已经回滚的值。`local-committed` 是首次开放 publication 与授权 cleanup 的阶段；之前的可恢复失败由 journal 协调 portable/privacy/binding 补偿，第三方状态保留并返回 `EXTERNAL_SYNC_CONFLICT`。之后 cleanup 失败只延后清理，`deviceLocalVaultCleanupExecutor.ts` 不拥有 compensation 能力。`src/background/listeners/optionsMutationMessages.ts` 复用 `asOptionsMutationError()` 保留 recovery typed error；v1/v2 与 malformed record 不启用 v3 publication barrier
+- Video destination bootstrap 真值：`videoSessionPort.ts` 的 `resolveVideoDestinationBootstrap()` 消费显式选择来源；`selectionIsExplicit=false` 为 implicit default，显式 Downloads 与显式 Vault 均保留原选择，缺省 provenance 且有 destination 的旧调用仍按 explicit 处理。显式 `true` 却缺少 destination 在 session creation/ingestion 前以 `VIDEO_DESTINATION_BOOTSTRAP_INVALID` 失败。`test:e2e:browser:architecture` 中 `sessionPanelsIncremental.browser.test.ts` 覆盖已安装扩展的显式 Downloads 与 draft 恢复，完整 Video 用户路径使用 `test:e2e:browser:video`
+- 依赖真值：`package-lock.json` 的 `node_modules/fast-uri` 当前锁定 `3.1.6`；该更新未修改 direct dependency range 或 npm audit 门槛。安全结论必须来自当前 lock-exact 安装后的 production 与 all-dependency audit，不能继承旧报告的零 findings。上述实现入口说明不构成 M06/M07 全量验收、mainline 合并或远端发布完成声明
 - 当前统一门禁以 direct-root `quality-check.mjs` / `verify-preflight.mjs`、固定 command profiles 与 CI 三者一致为准
 - 当前文档治理由 `audit:active-documents:{report,check}`、`quality` 与 CI Static preflight 共同消费；每次都从当前 Git tree 动态验证 tracked/classified equality 与零 findings，不把 D01 的一次性计数、commit/tree 或报告摘要固化为后续契约
 - GitHub Actions supply-chain 当前真值：`scripts/config/githubActionPins.mjs` 固定 2026-08-28 reviewed 的五个 external action full commits 与 action manifest/runtime/capability contract；`tools/report-github-actions-supply-chain.mjs` 结构化扫描完整 Git-visible `.github/**/*.yml|yaml`，当前闭包为 `5` files / `38` external uses / `21` local uses / `2` composite actions。External ref 必须为 full lowercase 40-hex commit，并在同一行保留精确 `# vN` review alias；本地 action 必须 regular、Git-visible、composite-only 且递归无 cycle。`audit:github-actions-supply-chain:{report,check}` 经 standard command boundary，check 由 `quality`、CI Static final suffix 与两个无凭据 release prepare job 消费，受保护 publish/submit 不消费
