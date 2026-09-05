@@ -1,7 +1,11 @@
 import { describe, expect, it, vi } from 'vitest';
-import { DeviceLocalVaultBindingCommitter } from '@shared/config/deviceLocalVaultBindingCommitter';
+import {
+  DeviceLocalVaultBindingCommitter,
+  type DeviceLocalVaultBindingStageOutcome
+} from '@shared/config/deviceLocalVaultBindingCommitter';
 import {
   createPreparedDeviceLocalVaultRecoveryTransaction,
+  type DeviceLocalVaultRecoveryTransactionV3,
   type DeviceLocalVaultBindingSnapshot
 } from '@shared/config/deviceLocalVaultRecoveryTransaction';
 
@@ -12,7 +16,7 @@ const bindings = (folderId: string): DeviceLocalVaultBindingSnapshot => ({
 const previous = bindings('folder-old');
 const proposed = bindings('folder-new');
 
-async function transaction() {
+async function transaction(): Promise<DeviceLocalVaultRecoveryTransactionV3> {
   const prepared = await createPreparedDeviceLocalVaultRecoveryTransaction({
     transactionId: 'binding-stage-1',
     previousBindings: previous,
@@ -24,7 +28,7 @@ async function transaction() {
     privacyForwardTarget: { analytics: true, errorReporting: false, debugMode: false },
     privacyWriteRequired: true
   });
-  return { ...prepared, phase: 'forward-inflight' as const };
+  return { ...prepared, phase: 'forward-inflight' };
 }
 
 describe('DeviceLocalVaultBindingCommitter', () => {
@@ -48,20 +52,27 @@ describe('DeviceLocalVaultBindingCommitter', () => {
     expect(recoveryStorage.replace).not.toHaveBeenCalled();
   });
 
-  it.each([
+  const ambiguousReadbacks: readonly {
+    current: DeviceLocalVaultBindingSnapshot;
+    expected: DeviceLocalVaultBindingStageOutcome['kind'];
+  }[] = [
     { current: proposed, expected: 'staged' },
     { current: previous, expected: 'previous' },
     { current: bindings('folder-third'), expected: 'third' }
-  ] as const)('classifies an ambiguous write readback as $expected', async (input) => {
-    const current = input.current;
-    const recoveryStorage = {
-      readBindings: vi.fn(() => Promise.resolve(structuredClone(current))),
-      writeBindings: vi.fn(() => Promise.reject(new Error('ambiguous write'))),
-      replace: vi.fn(() => Promise.resolve())
-    };
+  ];
+  it.each(ambiguousReadbacks)(
+    'classifies an ambiguous write readback as $expected',
+    async (input) => {
+      const current = input.current;
+      const recoveryStorage = {
+        readBindings: vi.fn(() => Promise.resolve(structuredClone(current))),
+        writeBindings: vi.fn(() => Promise.reject(new Error('ambiguous write'))),
+        replace: vi.fn(() => Promise.resolve())
+      };
 
-    await expect(
-      new DeviceLocalVaultBindingCommitter(recoveryStorage).execute(await transaction(), true)
-    ).resolves.toEqual({ kind: input.expected });
-  });
+      await expect(
+        new DeviceLocalVaultBindingCommitter(recoveryStorage).execute(await transaction(), true)
+      ).resolves.toEqual({ kind: input.expected });
+    }
+  );
 });

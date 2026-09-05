@@ -1,3 +1,4 @@
+import type { PrivacyPreferencesOptions } from '@shared/types/options';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   readDeviceLocalVaultAuthoritativePublication,
@@ -5,17 +6,26 @@ import {
 } from '@shared/config/deviceLocalVaultAuthoritativePublication';
 import {
   createPreparedDeviceLocalVaultRecoveryTransaction,
+  type DeviceLocalVaultBindingSnapshot,
   type DeviceLocalVaultRecoveryTransactionV3
 } from '@shared/config/deviceLocalVaultRecoveryTransaction';
 
-const privacy0 = { analytics: false, errorReporting: false, debugMode: false } as const;
-const privacy1 = { analytics: true, errorReporting: false, debugMode: false } as const;
-const bindings0 = {
-  version: 1 as const,
+const privacy0: PrivacyPreferencesOptions = {
+  analytics: false,
+  errorReporting: false,
+  debugMode: false
+};
+const privacy1: PrivacyPreferencesOptions = {
+  analytics: true,
+  errorReporting: false,
+  debugMode: false
+};
+const bindings0: DeviceLocalVaultBindingSnapshot = {
+  version: 1,
   bindings: { primary: { folderId: 'folder-old', folderName: 'Old Folder' } }
 };
-const bindings1 = {
-  version: 1 as const,
+const bindings1: DeviceLocalVaultBindingSnapshot = {
+  version: 1,
   bindings: { primary: { folderId: 'folder-new', folderName: 'New Folder' } }
 };
 
@@ -33,41 +43,39 @@ async function transaction(
     privacyForwardTarget: privacy1,
     privacyWriteRequired: true
   });
-  const forwardProof = [
-    'forward-committed',
-    'local-commit-inflight',
-    'local-committed',
-    'cleanup-complete'
-  ].includes(phase)
-    ? {
-        portable: {
-          ...prepared.portable,
-          observedCommittedIdentity: prepared.portable.proposedIdentity
-        },
-        privacy: { ...prepared.privacy, observedForward: 'exact-target-readback' as const }
-      }
-    : {};
-  const recovery = ['compensating', 'portable-privacy-restored'].includes(phase)
-    ? {
-        recovery: {
-          outcomeCode: 'OPTIONS_STORAGE_FAILURE' as const,
-          bindingWriteMayHaveOccurred: true,
-          ...(phase === 'portable-privacy-restored'
-            ? {
-                portableRestoreEvidence: 'preimage' as const,
-                privacyRestoreEvidence: 'restore-target' as const
-              }
-            : {})
-        }
-      }
-    : {};
+  let portable: DeviceLocalVaultRecoveryTransactionV3['portable'] = prepared.portable;
+  let privacy: DeviceLocalVaultRecoveryTransactionV3['privacy'] = prepared.privacy;
+  let recovery: DeviceLocalVaultRecoveryTransactionV3['recovery'];
+  if (
+    ['forward-committed', 'local-commit-inflight', 'local-committed', 'cleanup-complete'].includes(
+      phase
+    )
+  ) {
+    portable = {
+      ...prepared.portable,
+      observedCommittedIdentity: prepared.portable.proposedIdentity
+    };
+    privacy = { ...prepared.privacy, observedForward: 'exact-target-readback' };
+  }
+  if (phase === 'compensating' || phase === 'portable-privacy-restored') {
+    recovery =
+      phase === 'portable-privacy-restored'
+        ? {
+            outcomeCode: 'OPTIONS_STORAGE_FAILURE',
+            bindingWriteMayHaveOccurred: true,
+            portableRestoreEvidence: 'preimage',
+            privacyRestoreEvidence: 'restore-target'
+          }
+        : { outcomeCode: 'OPTIONS_STORAGE_FAILURE', bindingWriteMayHaveOccurred: true };
+  }
   return {
     ...prepared,
-    ...forwardProof,
-    ...recovery,
+    portable,
+    privacy,
     phase,
+    ...(recovery ? { recovery } : {}),
     ...(phase === 'cleanup-complete' ? { remainingCleanupCandidates: [] } : {}),
-    ...(phase === 'aborted' ? { abortReason: 'local-commit-failed' as const } : {})
+    ...(phase === 'aborted' ? { abortReason: 'local-commit-failed' } : {})
   };
 }
 
@@ -75,14 +83,15 @@ afterEach(() => vi.unstubAllGlobals());
 
 describe('device local vault authoritative publication', () => {
   it('projects the durable preimage for every valid nonterminal v3 phase', async () => {
-    for (const phase of [
+    const phases: readonly DeviceLocalVaultRecoveryTransactionV3['phase'][] = [
       'prepared',
       'forward-inflight',
       'forward-committed',
       'local-commit-inflight',
       'compensating',
       'portable-privacy-restored'
-    ] as const) {
+    ];
+    for (const phase of phases) {
       await expect(
         resolveDeviceLocalVaultAuthoritativePublication(await transaction(phase))
       ).resolves.toMatchObject({
@@ -128,7 +137,7 @@ describe('device local vault authoritative publication', () => {
   it('discards a partial physical snapshot when the second sample closes', async () => {
     const prepared = await transaction('prepared');
     const readJournal = vi
-      .fn<() => Promise<unknown>>()
+      .fn<() => Promise<DeviceLocalVaultRecoveryTransactionV3 | undefined>>()
       .mockResolvedValueOnce(undefined)
       .mockResolvedValueOnce(prepared);
 

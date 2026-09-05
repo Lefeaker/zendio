@@ -36,14 +36,27 @@ import type {
   PlainStructuredObject,
   PlainStructuredValue
 } from '../../../src/shared/config/losslessObjectBoundaryTypes';
-import { portableOptionsIdentity } from '../../../src/shared/config/deviceLocalVaultRecoveryTransaction';
-import type { CompleteOptions } from '../../../src/shared/types/options';
+import {
+  portableOptionsIdentity,
+  type DeviceLocalVaultRecoveryObservation
+} from '../../../src/shared/config/deviceLocalVaultRecoveryTransaction';
+import type { CompleteOptions, PrivacyPreferencesOptions } from '../../../src/shared/types/options';
 import {
   OptionsMutationError,
   type OptionsPatch
 } from '../../../src/shared/types/optionsMutationMessages';
 
-const privacy0 = { analytics: false, errorReporting: false, debugMode: false } as const;
+const privacy0: PrivacyPreferencesOptions = {
+  analytics: false,
+  errorReporting: false,
+  debugMode: false
+};
+
+function requirePlainStructuredObject(value: PlainStructuredValue | null): PlainStructuredObject {
+  if (typeof value !== 'object' || value === null || Array.isArray(value))
+    throw new Error('EXPECTED_PLAIN_STRUCTURED_OBJECT');
+  return value;
+}
 
 function clone<T>(value: T): T {
   return structuredClone(value);
@@ -106,8 +119,8 @@ function createVaultJournal(
   const observe = async (
     transaction: Parameters<NonNullable<DeviceLocalPrivacyCommitter['observe']>>[0],
     direction: 'forward' | 'restore'
-  ) => {
-    const raw = repository.raw as PlainStructuredObject;
+  ): Promise<DeviceLocalVaultRecoveryObservation> => {
+    const raw = requirePlainStructuredObject(repository.raw);
     const identity = await portableOptionsIdentity(raw);
     const request = {
       preimageIdentity: transaction.portable.preimageIdentity,
@@ -119,27 +132,30 @@ function createVaultJournal(
       direction === 'forward' ? request.proposedIdentity : request.preimageIdentity;
     const secondaryIdentity =
       direction === 'forward' ? request.preimageIdentity : request.proposedIdentity;
-    const portableState =
+    const portableState: DeviceLocalVaultRecoveryObservation['portableState'] =
       identity === primaryIdentity
         ? direction === 'forward'
-          ? ('proposal' as const)
-          : ('preimage' as const)
+          ? 'proposal'
+          : 'preimage'
         : identity === secondaryIdentity
           ? direction === 'forward'
-            ? ('preimage' as const)
-            : ('proposal' as const)
-          : ('third' as const);
+            ? 'preimage'
+            : 'proposal'
+          : 'third';
     const primary =
       direction === 'forward' ? request.privacyForwardTarget : request.privacyRestoreTarget;
     const secondary =
       direction === 'forward' ? request.privacyRestoreTarget : request.privacyForwardTarget;
-    const privacyState = optionsValuesEqual(privacy0, primary)
+    const privacyState: DeviceLocalVaultRecoveryObservation['privacyState'] = optionsValuesEqual(
+      privacy0,
+      primary
+    )
       ? direction
       : optionsValuesEqual(privacy0, secondary)
         ? direction === 'forward'
-          ? ('restore' as const)
-          : ('forward' as const)
-        : ('third' as const);
+          ? 'restore'
+          : 'forward'
+        : 'third';
     return { portableState, privacyState, portableRaw: clone(raw), privacy: clone(privacy0) };
   };
   const recoveryStorage = new DeviceLocalVaultRecoveryStorage(
@@ -179,7 +195,7 @@ function createConcreteVaultJournal(
     storage.local,
     () => repository.readVaultBindings(),
     (snapshot) => repository.writeVaultBindings(snapshot),
-    async () => (await repository.readRaw()) as PlainStructuredObject
+    async () => requirePlainStructuredObject(await repository.readRaw())
   );
   return new DeviceLocalVaultCleanupJournal(
     recoveryStorage,
@@ -215,19 +231,19 @@ function commitPortable(repository: VaultRawRepository): DeviceLocalPrivacyCommi
 describe('OptionsMutationCoordinator', () => {
   it('admits commands only after privacy recovery, vault recovery, and migration', async () => {
     const events: string[] = [];
-    const repository = new RawRepository({ interfaceTheme: 'system' });
+    const repository = new VaultRawRepository({ interfaceTheme: 'system' });
     const execute: DeviceLocalPrivacyCommitter['execute'] = async (command, applyCommand) => {
       events.push(command.kind);
-      const raw = repository.raw as PlainStructuredObject;
+      const raw = requirePlainStructuredObject(repository.raw);
       const mutation = applyCommand(raw, command);
       repository.raw = clone(mutation.next);
       return { raw: mutation.next, didWrite: command.kind !== 'migrate' };
     };
-    const journal = {
-      recover: vi.fn(async () => {
-        events.push('vault-recovery');
-      })
-    } as unknown as DeviceLocalVaultCleanupJournal;
+    const journal = createVaultJournal(createMemoryStorageService(), repository);
+    vi.spyOn(journal, 'recover').mockImplementation(async () => {
+      events.push('vault-recovery');
+      return null;
+    });
     const coordinator = createCoordinator(repository, {
       deviceLocalPrivacyCommitter: {
         recover: async () => {
@@ -838,9 +854,9 @@ describe('OptionsMutationCoordinator', () => {
     const portableWrite = vi.fn();
     const execute = vi.fn<DeviceLocalPrivacyCommitter['execute']>(
       async (command, applyCommand, _quotaBytesPerItem, lifecycle) => {
-        const mutation = applyCommand(repository.raw as PlainStructuredObject, command);
+        const mutation = applyCommand(requirePlainStructuredObject(repository.raw), command);
         await lifecycle?.beforePortableDecision({
-          portablePreimage: repository.raw as PlainStructuredObject,
+          portablePreimage: requirePlainStructuredObject(repository.raw),
           portableProposal: mutation.next,
           writeRequired: true,
           verification: mutation.verification,

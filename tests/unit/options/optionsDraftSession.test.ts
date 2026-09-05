@@ -1,13 +1,22 @@
 import { describe, expect, it } from 'vitest';
-import { DEFAULT_OPTIONS } from '@shared/config/defaultOptions';
+import { mergeOptions } from '@shared/config/optionsMerger';
 import type { CompleteOptions } from '@shared/types/options';
-import { createOptionsDraftSession } from '@options/app/optionsDraftSession';
+import {
+  createOptionsDraftSession,
+  type OptionsMutationIntent
+} from '@options/app/optionsDraftSession';
 import { OPTIONS_PATCH_PATHS, optionsPathKey } from '@options/state/optionsPatchModel';
 
 const clone = <T>(value: T): T => structuredClone(value);
 
 function baseline(): CompleteOptions {
-  return clone(DEFAULT_OPTIONS as CompleteOptions);
+  return mergeOptions({});
+}
+
+function requireIntent(value: OptionsMutationIntent | null): OptionsMutationIntent {
+  expect(value).not.toBeNull();
+  if (value === null) throw new Error('EXPECTED_OPTIONS_MUTATION_INTENT');
+  return value;
 }
 
 describe('OptionsDraftSession', () => {
@@ -71,9 +80,8 @@ describe('OptionsDraftSession', () => {
     const local = clone(initial);
     local.fragmentClipper.captureContext = !initial.fragmentClipper.captureContext;
     session.captureLocalDraft(local);
-    const intent = session.createIntent();
-    expect(intent).not.toBeNull();
-    session.admit(intent!);
+    const intent = requireIntent(session.createIntent());
+    session.admit(intent);
 
     const remote = clone(initial);
     remote.interfaceTheme = 'dark';
@@ -81,7 +89,7 @@ describe('OptionsDraftSession', () => {
 
     const oldAck = clone(initial);
     oldAck.fragmentClipper.captureContext = local.fragmentClipper.captureContext;
-    session.acknowledge(intent!, oldAck);
+    session.acknowledge(intent, oldAck);
 
     expect(session.getWorkingDraft().interfaceTheme).toBe('dark');
     expect(session.getDirtyPathKeys()).toEqual([]);
@@ -93,9 +101,8 @@ describe('OptionsDraftSession', () => {
     const first = clone(initial);
     first.aiChat.userName = 'first';
     session.captureLocalDraft(first);
-    const firstIntent = session.createIntent();
-    expect(firstIntent).not.toBeNull();
-    session.admit(firstIntent!);
+    const firstIntent = requireIntent(session.createIntent());
+    session.admit(firstIntent);
 
     const second = clone(first);
     second.aiChat.userName = 'second';
@@ -103,7 +110,7 @@ describe('OptionsDraftSession', () => {
 
     const firstAck = clone(initial);
     firstAck.aiChat.userName = 'first';
-    session.acknowledge(firstIntent!, firstAck);
+    session.acknowledge(firstIntent, firstAck);
 
     expect(session.getWorkingDraft().aiChat.userName).toBe('second');
     expect(session.createIntent()?.patches).toEqual([
@@ -118,16 +125,15 @@ describe('OptionsDraftSession', () => {
     const first = clone(initial);
     first.fragmentClipper.captureContext = true;
     session.captureLocalDraft(first);
-    const firstIntent = session.createIntent();
-    expect(firstIntent).not.toBeNull();
-    session.admit(firstIntent!);
+    const firstIntent = requireIntent(session.createIntent());
+    session.admit(firstIntent);
 
     session.captureLocalDraft(initial);
     expect(session.createIntent()?.patches).toEqual([
       { path: ['fragmentClipper', 'captureContext'], value: false }
     ]);
 
-    session.acknowledge(firstIntent!, first);
+    session.acknowledge(firstIntent, first);
     expect(session.getWorkingDraft().fragmentClipper.captureContext).toBe(false);
     expect(session.getDirtyPathKeys()).toEqual(['fragmentClipper.captureContext']);
   });
@@ -138,11 +144,10 @@ describe('OptionsDraftSession', () => {
     const local = clone(initial);
     local.interfaceTheme = 'dark';
     session.captureLocalDraft(local);
-    const intent = session.createIntent();
-    expect(intent).not.toBeNull();
+    const intent = requireIntent(session.createIntent());
 
-    session.admit(intent!);
-    session.fail(intent!);
+    session.admit(intent);
+    session.fail(intent);
     expect(session.getDirtyPathKeys()).toEqual(['interfaceTheme']);
 
     session.captureLocalDraft(initial);
@@ -157,15 +162,14 @@ describe('OptionsDraftSession', () => {
     const local = clone(initial);
     local.fragmentClipper.captureContext = true;
     session.captureLocalDraft(local);
-    const failed = session.createIntent();
-    expect(failed).not.toBeNull();
-    session.admit(failed!);
-    session.fail(failed!);
+    const failed = requireIntent(session.createIntent());
+    session.admit(failed);
+    session.fail(failed);
 
     session.captureLocalDraft(clone(local));
     const retried = session.createIntent();
 
-    expect(retried?.admissionGeneration).toBeGreaterThan(failed!.admissionGeneration);
+    expect(retried?.admissionGeneration).toBeGreaterThan(failed.admissionGeneration);
     expect(retried?.patches).toEqual(failed?.patches);
   });
 
@@ -176,10 +180,9 @@ describe('OptionsDraftSession', () => {
     const local = clone(initial);
     local.fragmentClipper.captureContext = true;
     session.captureLocalDraft(local);
-    const failed = session.createIntent();
-    expect(failed).not.toBeNull();
-    session.admit(failed!);
-    session.fail(failed!);
+    const failed = requireIntent(session.createIntent());
+    session.admit(failed);
+    session.fail(failed);
 
     session.observeAuthoritative(local);
 
@@ -209,8 +212,7 @@ describe('OptionsDraftSession', () => {
   it('fails closed when a draft changes a path outside the canonical registry', () => {
     const initial = baseline();
     const session = createOptionsDraftSession(initial);
-    const local = clone(initial) as CompleteOptions & { futureSetting?: boolean };
-    local.futureSetting = true;
+    const local = { ...clone(initial), futureSetting: true };
 
     expect(() => session.captureLocalDraft(local)).toThrow('UNREGISTERED_OPTIONS_DRAFT_PATH');
   });

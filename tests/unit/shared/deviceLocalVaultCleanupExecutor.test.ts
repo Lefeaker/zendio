@@ -7,6 +7,7 @@ import {
 } from '@shared/config/deviceLocalVaultCleanupExecutor';
 import {
   createPreparedDeviceLocalVaultRecoveryTransaction,
+  decodeDeviceLocalVaultRecoveryTransaction,
   type DeviceLocalVaultBindingSnapshot,
   type DeviceLocalVaultRecoveryTransactionV3
 } from '@shared/config/deviceLocalVaultRecoveryTransaction';
@@ -88,8 +89,10 @@ describe('DeviceLocalVaultCleanupExecutor', () => {
     const removeDirectory = vi.fn(() => Promise.resolve());
     const originalSet = storage.local.set.bind(storage.local);
     storage.local.set = vi.fn(async (key, value) => {
-      const record = value as { remainingCleanupCandidates?: unknown[] };
-      if (record.remainingCleanupCandidates?.length === 0) throw new Error('progress failed');
+      const decoded = await decodeDeviceLocalVaultRecoveryTransaction(value);
+      if (decoded.kind !== 'v3-transaction') throw new Error('EXPECTED_VALID_CLEANUP_TRANSACTION');
+      if (decoded.transaction.remainingCleanupCandidates.length === 0)
+        throw new Error('progress failed');
       await originalSet(key, value);
     });
     const recoveryStorage = new DeviceLocalVaultRecoveryStorage(

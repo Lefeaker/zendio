@@ -8,13 +8,27 @@ import type { OptionsPatch } from '@shared/types/optionsMutationMessages';
 import { STORED_OPTIONS_DELETE } from '@shared/config/storedOptionsCodec';
 import { createOptionsController } from '@options/app/optionsController';
 import { mergeOptions } from '@shared/config/optionsMerger';
-import { replaceOptionsPath, type OptionsPath } from '@options/state/optionsPatchModel';
+import {
+  OPTIONS_PATCH_PATHS,
+  replaceOptionsPath,
+  type OptionsPath
+} from '@options/state/optionsPatchModel';
 import { createOptionsFormAdapter } from '@options/components/optionsFormAdapter';
 import type { OptionsPersistenceService } from '@options/services/persistence';
 import {
   createOptionsManagedFixtures,
   resetOptionsManagedFixtures
 } from '../../utils/optionsFixtures';
+
+function requireOptionsPath(path: readonly string[]): OptionsPath {
+  const registered = OPTIONS_PATCH_PATHS.find(
+    (candidate) =>
+      candidate.length === path.length &&
+      candidate.every((segment, index) => segment === path[index])
+  );
+  if (!registered) throw new Error('UNREGISTERED_OPTIONS_DRAFT_PATH');
+  return registered;
+}
 
 const fixturesRef: { current: ReturnType<typeof createOptionsManagedFixtures> | null } = {
   current: null
@@ -52,7 +66,7 @@ describe('OptionsController baseline integration', () => {
         for (const patch of patches) {
           repositorySnapshot = replaceOptionsPath(
             repositorySnapshot,
-            patch.path as OptionsPath,
+            requireOptionsPath(patch.path),
             patch.value === STORED_OPTIONS_DELETE ? undefined : patch.value
           );
         }

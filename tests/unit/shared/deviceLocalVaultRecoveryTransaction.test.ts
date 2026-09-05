@@ -4,10 +4,13 @@ import {
   decodeDeviceLocalVaultRecoveryTransaction,
   portableOptionsIdentity
 } from '@shared/config/deviceLocalVaultRecoveryTransaction';
-import type { DeviceLocalVaultBindingSnapshot } from '@shared/config/deviceLocalVaultRecoveryTransaction';
+import type {
+  DeviceLocalVaultBindingSnapshot,
+  DeviceLocalVaultRecoveryTransactionV3
+} from '@shared/config/deviceLocalVaultRecoveryTransaction';
 
 const bindings = (folderId?: string): DeviceLocalVaultBindingSnapshot => ({
-  version: 1 as const,
+  version: 1,
   bindings: folderId
     ? { primary: { folderId, folderName: folderId === 'folder-old' ? 'Old' : 'New' } }
     : {}
@@ -133,12 +136,12 @@ describe('device-local vault recovery transaction', () => {
       privacyForwardTarget: { analytics: true, errorReporting: false, debugMode: false },
       privacyWriteRequired: true
     });
-    const forwardProof = {
+    const forwardProof: Pick<DeviceLocalVaultRecoveryTransactionV3, 'portable' | 'privacy'> = {
       portable: {
         ...valid.portable,
         observedCommittedIdentity: valid.portable.proposedIdentity
       },
-      privacy: { ...valid.privacy, observedForward: 'exact-target-readback' as const }
+      privacy: { ...valid.privacy, observedForward: 'exact-target-readback' }
     };
     const invalid = [
       { ...valid, transactionId: 'x'.repeat(129) },

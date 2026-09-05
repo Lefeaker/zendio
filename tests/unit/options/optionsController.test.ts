@@ -9,9 +9,24 @@ import {
   createOptionsControllerDurability,
   type DurableOptionsMutation
 } from '@options/app/optionsControllerDurability';
-import { replaceOptionsPath, type OptionsPath } from '@options/state/optionsPatchModel';
+import {
+  OPTIONS_PATCH_PATHS,
+  replaceOptionsPath,
+  type OptionsPath
+} from '@options/state/optionsPatchModel';
+import type { MountedDraftRebase } from '@options/app/optionsDraftSession';
 import type { OptionsFormAdapter } from '@options/components/optionsFormAdapter';
 import type { OptionsPersistenceService } from '@options/services/persistence';
+
+function requireOptionsPath(path: readonly string[]): OptionsPath {
+  const registered = OPTIONS_PATCH_PATHS.find(
+    (candidate) =>
+      candidate.length === path.length &&
+      candidate.every((segment, index) => segment === path[index])
+  );
+  if (!registered) throw new Error('UNREGISTERED_OPTIONS_DRAFT_PATH');
+  return registered;
+}
 
 describe('OptionsController', () => {
   let persistence: OptionsPersistenceService;
@@ -37,7 +52,7 @@ describe('OptionsController', () => {
         const value = patch.value === STORED_OPTIONS_DELETE ? undefined : patch.value;
         repositorySnapshot = replaceOptionsPath(
           repositorySnapshot,
-          patch.path as OptionsPath,
+          requireOptionsPath(patch.path),
           value
         );
       }
@@ -176,7 +191,7 @@ describe('OptionsController', () => {
     });
     const controller = createOptionsController({ persistence, formAdapter });
     await controller.loadInitialState();
-    const rebase = vi.fn();
+    const rebase = vi.fn<(options: CompleteOptions, transition: MountedDraftRebase) => void>();
     controller.bindMountedDraftRebase(rebase);
 
     const local = structuredClone(repositorySnapshot);
@@ -189,7 +204,8 @@ describe('OptionsController', () => {
     listeners.forEach((listener) => listener(remote));
 
     expect(rebase).toHaveBeenCalledOnce();
-    const rebased = rebase.mock.calls[0]?.[0] as CompleteOptions;
+    const rebased = rebase.mock.calls[0]?.[0];
+    if (!rebased) throw new Error('EXPECTED_MOUNTED_REBASE');
     expect(rebased.interfaceTheme).toBe('dark');
     expect(rebased.fragmentClipper.captureContext).toBe(true);
     expect(rebase.mock.calls[0]?.[1]).toEqual({
@@ -215,7 +231,7 @@ describe('OptionsController', () => {
     );
     const controller = createOptionsController({ persistence, formAdapter });
     await controller.loadInitialState();
-    const rebase = vi.fn();
+    const rebase = vi.fn<(options: CompleteOptions, transition: MountedDraftRebase) => void>();
     controller.bindMountedDraftRebase(rebase);
 
     const local = structuredClone(repositorySnapshot);
@@ -229,7 +245,7 @@ describe('OptionsController', () => {
     repositorySnapshot = remote;
     listeners.forEach((listener) => listener(remote));
     expect(rebase).toHaveBeenCalledOnce();
-    expect((rebase.mock.calls[0]?.[0] as CompleteOptions).interfaceTheme).toBe('dark');
+    expect(rebase.mock.calls[0]?.[0].interfaceTheme).toBe('dark');
 
     releaseSave?.();
     await flush;
@@ -239,7 +255,7 @@ describe('OptionsController', () => {
       changedPaths: [],
       dirtyPathKeys: []
     });
-    expect((rebase.mock.calls.at(-1)?.[0] as CompleteOptions).interfaceTheme).toBe('dark');
+    expect(rebase.mock.calls.at(-1)?.[0].interfaceTheme).toBe('dark');
   });
 
   it('serializes a reversal behind an earlier pending durable autosave', async () => {
@@ -255,7 +271,7 @@ describe('OptionsController', () => {
                 const value = patch.value === STORED_OPTIONS_DELETE ? undefined : patch.value;
                 repositorySnapshot = replaceOptionsPath(
                   repositorySnapshot,
-                  patch.path as OptionsPath,
+                  requireOptionsPath(patch.path),
                   value
                 );
               }
@@ -270,7 +286,7 @@ describe('OptionsController', () => {
           const value = patch.value === STORED_OPTIONS_DELETE ? undefined : patch.value;
           repositorySnapshot = replaceOptionsPath(
             repositorySnapshot,
-            patch.path as OptionsPath,
+            requireOptionsPath(patch.path),
             value
           );
         }
@@ -421,7 +437,7 @@ describe('OptionsController', () => {
                 const value = patch.value === STORED_OPTIONS_DELETE ? undefined : patch.value;
                 repositorySnapshot = replaceOptionsPath(
                   repositorySnapshot,
-                  patch.path as OptionsPath,
+                  requireOptionsPath(patch.path),
                   value
                 );
               }
@@ -436,7 +452,7 @@ describe('OptionsController', () => {
           const value = patch.value === STORED_OPTIONS_DELETE ? undefined : patch.value;
           repositorySnapshot = replaceOptionsPath(
             repositorySnapshot,
-            patch.path as OptionsPath,
+            requireOptionsPath(patch.path),
             value
           );
         }
@@ -483,7 +499,7 @@ describe('OptionsController', () => {
               const value = patch.value === STORED_OPTIONS_DELETE ? undefined : patch.value;
               repositorySnapshot = replaceOptionsPath(
                 repositorySnapshot,
-                patch.path as OptionsPath,
+                requireOptionsPath(patch.path),
                 value
               );
             }

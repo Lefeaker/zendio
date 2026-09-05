@@ -1,5 +1,7 @@
 /* @vitest-environment jsdom */
 
+import type { VideoDestinationBootstrap } from '@content/video/application/videoSessionPort';
+import type { ExportDestinationSurfacePreview } from '@ui/stitch-runtime/types/surfaceTypes';
 import { __resetContentSessionRegistryForTests } from '@content/runtime/contentSessionRegistry';
 import { createSessionDraftRepository } from '@content/sessionDrafts/sessionDraftRepository';
 import { mergeOptions } from '@shared/config/optionsMerger';
@@ -133,18 +135,23 @@ describe('VideoSession destination bootstrap', () => {
     restoreVideoSessionHarnessGlobals();
   });
 
-  it.each([
+  const explicitCases: {
+    label: string;
+    bootstrap: Extract<VideoDestinationBootstrap, { provenance: 'explicit' }>;
+    initial: CompleteOptions;
+    expected: Pick<ExportDestinationSurfacePreview, 'kind' | 'id'>;
+  }[] = [
     {
       label: 'Downloads',
-      bootstrap: { provenance: 'explicit' as const, destination: { kind: 'downloads' as const } },
+      bootstrap: { provenance: 'explicit', destination: { kind: 'downloads' } },
       initial: createOptions([createVault('default', 'Default Vault')]),
       expected: { kind: 'downloads', id: 'downloads' }
     },
     {
       label: 'Vault',
       bootstrap: {
-        provenance: 'explicit' as const,
-        destination: { kind: 'vault' as const, vaultId: 'selected' }
+        provenance: 'explicit',
+        destination: { kind: 'vault', vaultId: 'selected' }
       },
       initial: createOptions(
         [createVault('default', 'Default Vault'), createVault('selected', 'Selected Vault')],
@@ -152,28 +159,32 @@ describe('VideoSession destination bootstrap', () => {
       ),
       expected: { kind: 'vault', id: 'selected' }
     }
-  ])('uses explicit $label for first view, first draft, and export', async (fixture) => {
-    const deps = createDependencies();
-    installOptionsRepository(deps, fixture.initial);
-    const createViewMock = vi.fn((_callbacks, _texts, options?: VideoSessionViewOptions) =>
-      createView()
-    );
-    deps.viewFactory.createView = createViewMock;
-    const session = new VideoSession(document, deps);
+  ];
+  it.each(explicitCases)(
+    'uses explicit $label for first view, first draft, and export',
+    async (fixture) => {
+      const deps = createDependencies();
+      installOptionsRepository(deps, fixture.initial);
+      const createViewMock = vi.fn((_callbacks, _texts, options?: VideoSessionViewOptions) =>
+        createView()
+      );
+      deps.viewFactory.createView = createViewMock;
+      const session = new VideoSession(document, deps);
 
-    await session.start({ destinationBootstrap: fixture.bootstrap });
+      await session.start({ destinationBootstrap: fixture.bootstrap });
 
-    expect(createViewMock.mock.calls[0]?.[2]?.initialDestination).toMatchObject(fixture.expected);
-    session.ingestTextCapture('<p>Selected</p>', 'Selected', 'note');
-    await toDraftControllerTestApi(session).flushNow('active');
-    expect(readVideoDraftPayload(await loadLatestVideoDraft(deps))?.destination).toEqual(
-      fixture.bootstrap.destination
-    );
-    await toSessionTestApi(session).finish();
-    expect(exportMock).toHaveBeenCalledWith(
-      expect.objectContaining({ exportDestination: fixture.bootstrap.destination })
-    );
-  });
+      expect(createViewMock.mock.calls[0]?.[2]?.initialDestination).toMatchObject(fixture.expected);
+      session.ingestTextCapture('<p>Selected</p>', 'Selected', 'note');
+      await toDraftControllerTestApi(session).flushNow('active');
+      expect(readVideoDraftPayload(await loadLatestVideoDraft(deps))?.destination).toEqual(
+        fixture.bootstrap.destination
+      );
+      await toSessionTestApi(session).finish();
+      expect(exportMock).toHaveBeenCalledWith(
+        expect.objectContaining({ exportDestination: fixture.bootstrap.destination })
+      );
+    }
+  );
 
   it('keeps implicit bootstrap live while preserving restored capture and comment state', async () => {
     const deps = createDependencies();

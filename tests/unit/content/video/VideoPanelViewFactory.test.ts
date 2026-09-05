@@ -1,5 +1,6 @@
 /* @vitest-environment jsdom */
 
+import type { ExportDestinationSurfacePreview } from '@ui/stitch-runtime/types/surfaceTypes';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type {
   VideoPanelCallbacks,
@@ -104,9 +105,9 @@ describe('createVideoPanelViewFactory', () => {
 
   it('passes the prepared destination into the panel before show', () => {
     const factory = createVideoPanelViewFactory();
-    const initialDestination = {
+    const initialDestination: ExportDestinationSurfacePreview = {
       id: 'downloads',
-      kind: 'downloads' as const,
+      kind: 'downloads',
       label: 'Downloads',
       path: 'video.md',
       hasConfiguredVault: false,
