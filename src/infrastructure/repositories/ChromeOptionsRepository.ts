@@ -162,13 +162,8 @@ export class ChromeOptionsRepository
     if (this.stopWatchingOptions) return;
     this.stopWatchingOptions = this.storage.sync.watchKey<PlainStructuredValue | null>(
       OPTIONS_STORAGE_KEY,
-      (stored) => {
-        this.requestNotification(
-          async () =>
-            (await this.readAuthoritativeDecoded(() => this.readPhysicalStored(stored ?? null)))
-              .runtime,
-          'sync options change'
-        );
+      () => {
+        this.requestNotification(() => this.get(), 'sync options change');
       }
     );
     const emitLocalPrivacyChange = (): void => {

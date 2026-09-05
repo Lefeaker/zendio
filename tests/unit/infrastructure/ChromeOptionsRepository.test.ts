@@ -121,6 +121,73 @@ const mockStorage: StorageService & {
   session: createStorageAreaMock()
 };
 
+type PublicationNotificationState = {
+  raw: PlainStructuredValue;
+  consent: {
+    analytics: boolean;
+    errorReporting: boolean;
+    timestamp: number;
+    version: string;
+  };
+  bindings: typeof publicationBindings0;
+  journal: unknown;
+};
+
+async function setupPublicationNotifications(repo: ChromeOptionsRepository) {
+  const state: PublicationNotificationState = {
+    raw: publicationPortable0,
+    consent: {
+      analytics: false,
+      errorReporting: false,
+      timestamp: 1,
+      version: '1.0'
+    },
+    bindings: publicationBindings0,
+    journal: undefined
+  };
+  let journalReads = 0;
+  let syncChange: OptionsStorageChange | undefined;
+  const localChanges = new Map<string, OptionsStorageChange>();
+  mockStorage.sync.get.mockImplementation(() => Promise.resolve(structuredClone(state.raw)));
+  mockStorage.sync.watchKey.mockImplementation((_key, callback) => {
+    syncChange = callback;
+    return vi.fn();
+  });
+  mockStorage.local.get.mockImplementation((key) => {
+    if (key === DEVICE_LOCAL_VAULT_CLEANUP_JOURNAL_KEY) {
+      journalReads += 1;
+      return Promise.resolve(structuredClone(state.journal));
+    }
+    if (key === 'analytics_user_consent') {
+      return Promise.resolve(structuredClone(state.consent));
+    }
+    if (key === 'analytics_config') return Promise.resolve({ debugMode: false });
+    if (key === 'deviceLocalVaultBindings') {
+      return Promise.resolve(structuredClone(state.bindings));
+    }
+    return Promise.resolve(undefined);
+  });
+  mockStorage.local.watchKey.mockImplementation((key, callback) => {
+    localChanges.set(key, callback);
+    return vi.fn();
+  });
+  const callback = vi.fn<(options: CompleteOptions) => void>();
+  repo.onChange(callback);
+  await vi.waitFor(() => expect(callback).toHaveBeenCalledTimes(1));
+  callback.mockClear();
+
+  return {
+    state,
+    callback,
+    journalReads: () => journalReads,
+    emitSync: (stored: PlainStructuredValue) => syncChange?.(stored, { newValue: stored }),
+    emitJournal: () =>
+      localChanges.get(DEVICE_LOCAL_VAULT_CLEANUP_JOURNAL_KEY)?.(state.journal, {
+        newValue: state.journal
+      })
+  };
+}
+
 // ===========================
 // Test Suite
 // ===========================
@@ -279,6 +346,90 @@ describe('ChromeOptionsRepository', () => {
       await vi.waitFor(() => expect(journalReads).toBeGreaterThanOrEqual(7));
       expect(callback).not.toHaveBeenCalled();
     });
+
+    it('rejects a delayed proposal event after rollback has removed the journal', async () => {
+      const scenario = await setupPublicationNotifications(repo);
+
+      scenario.state.journal = await publicationTransaction('prepared');
+      scenario.state.raw = publicationPortable1;
+      scenario.state.consent = { ...scenario.state.consent, analytics: true, timestamp: 2 };
+      scenario.state.bindings = publicationBindings1;
+      scenario.emitSync(publicationPortable1);
+      await vi.waitFor(() => expect(scenario.journalReads()).toBeGreaterThanOrEqual(3));
+      expect(scenario.callback).not.toHaveBeenCalled();
+
+      scenario.state.raw = publicationPortable0;
+      scenario.state.consent = { ...scenario.state.consent, analytics: false, timestamp: 3 };
+      scenario.state.bindings = publicationBindings0;
+      scenario.state.journal = await publicationTransaction('aborted');
+      scenario.emitJournal();
+      await vi.waitFor(() => expect(scenario.journalReads()).toBeGreaterThanOrEqual(5));
+      scenario.state.journal = undefined;
+      scenario.emitJournal();
+      await vi.waitFor(() => expect(scenario.journalReads()).toBeGreaterThanOrEqual(7));
+
+      scenario.emitSync(publicationPortable1);
+      await vi.waitFor(() => expect(scenario.journalReads()).toBeGreaterThanOrEqual(9));
+      expect(scenario.callback).not.toHaveBeenCalled();
+    });
+
+    it('deduplicates a delayed matching proposal event after successful publication', async () => {
+      const scenario = await setupPublicationNotifications(repo);
+
+      scenario.state.journal = await publicationTransaction('prepared');
+      scenario.state.raw = publicationPortable1;
+      scenario.state.consent = { ...scenario.state.consent, analytics: true, timestamp: 2 };
+      scenario.state.bindings = publicationBindings1;
+      scenario.emitSync(publicationPortable1);
+      await vi.waitFor(() => expect(scenario.journalReads()).toBeGreaterThanOrEqual(3));
+      expect(scenario.callback).not.toHaveBeenCalled();
+
+      scenario.state.journal = await publicationTransaction('local-committed');
+      scenario.emitJournal();
+      await vi.waitFor(() => expect(scenario.callback).toHaveBeenCalledTimes(1));
+      scenario.state.journal = undefined;
+      scenario.emitJournal();
+      await vi.waitFor(() => expect(scenario.journalReads()).toBeGreaterThanOrEqual(7));
+      scenario.emitSync(publicationPortable1);
+      await vi.waitFor(() => expect(scenario.journalReads()).toBeGreaterThanOrEqual(9));
+
+      expect(scenario.callback).toHaveBeenCalledTimes(1);
+      expect(scenario.callback).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          interfaceTheme: 'dark',
+          privacyPreferences: expect.objectContaining({ analytics: true }),
+          rest: expect.objectContaining({ localFolderId: 'folder-new' })
+        })
+      );
+    });
+
+    it('publishes the current third state once when a delayed proposal event arrives last', async () => {
+      const scenario = await setupPublicationNotifications(repo);
+
+      scenario.state.journal = await publicationTransaction('prepared');
+      scenario.state.raw = publicationPortable1;
+      scenario.emitSync(publicationPortable1);
+      await vi.waitFor(() => expect(scenario.journalReads()).toBeGreaterThanOrEqual(3));
+      expect(scenario.callback).not.toHaveBeenCalled();
+
+      scenario.state.raw = { interfaceTheme: 'light', rest: { vault: 'Third' } };
+      scenario.state.journal = await publicationTransaction('aborted');
+      scenario.emitJournal();
+      await vi.waitFor(() => expect(scenario.callback).toHaveBeenCalledTimes(1));
+      scenario.state.journal = undefined;
+      scenario.emitJournal();
+      await vi.waitFor(() => expect(scenario.journalReads()).toBeGreaterThanOrEqual(7));
+      scenario.emitSync(publicationPortable1);
+      await vi.waitFor(() => expect(scenario.journalReads()).toBeGreaterThanOrEqual(9));
+
+      expect(scenario.callback).toHaveBeenCalledTimes(1);
+      expect(scenario.callback).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          interfaceTheme: 'light',
+          rest: expect.objectContaining({ vault: 'Third' })
+        })
+      );
+    });
     it('should trigger onChange callback exactly once for a storage watcher update', async () => {
       const initialOptions = cloneOptions(DEFAULT_COMPLETE_OPTIONS);
       initialOptions.rest.baseUrl = 'https://initial.example/';
@@ -306,6 +457,7 @@ describe('ChromeOptionsRepository', () => {
       // Clear initial trigger count
       callback.mockClear();
 
+      mockStorage.sync.get.mockResolvedValue(updatedOptions);
       externalChange?.(updatedOptions, { newValue: updatedOptions });
 
       // Wait for onChange to process
@@ -342,6 +494,7 @@ describe('ChromeOptionsRepository', () => {
       callback.mockClear();
 
       expect(externalChange).toBeDefined();
+      mockStorage.sync.get.mockResolvedValue(externalOptions);
       externalChange?.(externalOptions, { newValue: externalOptions });
 
       await vi.waitFor(() => {
@@ -366,6 +519,7 @@ describe('ChromeOptionsRepository', () => {
         templates: { clipper: 'Watched legacy template' },
         fragmentClipper: { selectionModifierEnabled: false }
       };
+      mockStorage.sync.get.mockResolvedValue(watchedValue);
       externalChange?.(watchedValue, { newValue: watchedValue });
 
       await vi.waitFor(() => expect(callback).toHaveBeenCalledTimes(1));
@@ -452,6 +606,7 @@ describe('ChromeOptionsRepository', () => {
       callback1.mockClear();
       callback2.mockClear();
 
+      mockStorage.sync.get.mockResolvedValue(updatedOptions);
       externalChange?.(updatedOptions, { newValue: updatedOptions });
 
       await vi.waitFor(() => {
@@ -1011,6 +1166,7 @@ describe('ChromeOptionsRepository', () => {
       healthyListener.mockClear();
       consoleSpy.mockClear();
 
+      mockStorage.sync.get.mockResolvedValue(updatedOptions);
       externalChange?.(updatedOptions, { newValue: updatedOptions });
 
       await vi.waitFor(() => {
