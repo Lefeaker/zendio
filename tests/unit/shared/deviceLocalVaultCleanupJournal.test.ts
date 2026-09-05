@@ -4,9 +4,24 @@ import {
   DEVICE_LOCAL_VAULT_CLEANUP_JOURNAL_KEY,
   DeviceLocalVaultCleanupJournal
 } from '@shared/config/deviceLocalVaultCleanupJournal';
+import {
+  DeviceLocalVaultCleanupExecutor,
+  DeviceLocalVaultLocalCommitter,
+  DeviceLocalVaultRecoveryStorage
+} from '@shared/config/deviceLocalVaultCleanupExecutor';
 import type { PlainStructuredObject } from '@shared/config/losslessObjectBoundaryTypes';
 import type { DeviceLocalVaultBindingSnapshot } from '@shared/config/deviceLocalVaultBindings';
+import type { PrivacyPreferencesOptions } from '@shared/types/options';
+import {
+  portableOptionsIdentity,
+  type DeviceLocalVaultRecoveryObservation,
+  type DeviceLocalVaultRecoveryTransactionV3
+} from '@shared/config/deviceLocalVaultRecoveryTransaction';
+import { OptionsMutationError } from '@shared/types/optionsMutationMessages';
 
+const privacy0 = { analytics: false, errorReporting: false, debugMode: false } as const;
+const privacy1 = { analytics: true, errorReporting: false, debugMode: false } as const;
+const privacyX = { analytics: false, errorReporting: true, debugMode: false } as const;
 function bindings(
   entries: Readonly<Record<string, { folderId: string; folderName?: string }>>
 ): DeviceLocalVaultBindingSnapshot {
@@ -20,68 +35,174 @@ function bindings(
     )
   };
 }
-
-function harness(options?: {
-  current?: DeviceLocalVaultBindingSnapshot;
-  portable?: PlainStructuredObject;
-  removeDirectory?: (folderId: string) => Promise<void>;
-  onPortableRead?: (count: number) => void;
-}) {
-  const storage = createMemoryStorageService();
-  let current = options?.current ?? bindings({});
-  let portable = options?.portable ?? {};
-  const removeDirectory = vi.fn(options?.removeDirectory ?? (() => Promise.resolve()));
-  let portableReads = 0;
-  const createJournal = () =>
-    new DeviceLocalVaultCleanupJournal(
-      storage.local,
-      () => Promise.resolve(structuredClone(current)),
-      removeDirectory,
-      {
-        readPortableRaw: () => {
-          options?.onPortableRead?.(++portableReads);
-          return Promise.resolve(structuredClone(portable));
-        },
-        writeBindings: (snapshot) => {
-          current = structuredClone(snapshot);
-          return Promise.resolve();
-        }
-      }
-    );
-  return {
-    storage,
-    removeDirectory,
-    createJournal,
-    current: () => current,
-    setCurrent: (snapshot: DeviceLocalVaultBindingSnapshot) => {
-      current = snapshot;
-    },
-    setPortable: (raw: PlainStructuredObject) => {
-      portable = raw;
-    }
-  };
-}
-
 const previous = bindings({ primary: { folderId: 'folder-old', folderName: 'Old' } });
 const proposed = bindings({});
+const thirdBindings = bindings({ external: { folderId: 'folder-external' } });
 const portablePreimage = { vaultRouter: { defaultVaultId: 'primary' } };
 const portableProposal = { vaultRouter: { defaultVaultId: 'primary', vaults: [] } };
+const portableThird = { external: { revision: 3 } };
 const preparation = {
   transactionId: 'operation-1',
   previousBindings: previous,
   proposedBindings: proposed,
   portablePreimage,
   portableProposal,
-  writeRequired: true
+  writeRequired: true,
+  privacyRestoreTarget: privacy0,
+  privacyForwardTarget: privacy1,
+  privacyWriteRequired: true
 } as const;
+function harness(options?: {
+  current?: DeviceLocalVaultBindingSnapshot;
+  portable?: PlainStructuredObject;
+  privacy?: PrivacyPreferencesOptions;
+  removeDirectory?: (folderId: string) => Promise<void>;
+  failObserve?: boolean;
+  writeBindings?: (snapshot: DeviceLocalVaultBindingSnapshot) => Promise<void>;
+}) {
+  const storage = createMemoryStorageService();
+  let current = structuredClone(options?.current ?? previous);
+  let portable = structuredClone(options?.portable ?? portablePreimage);
+  let privacy = structuredClone(options?.privacy ?? privacy0);
+  const removeDirectory = vi.fn(options?.removeDirectory ?? (() => Promise.resolve()));
+  const observe = async (
+    transaction: DeviceLocalVaultRecoveryTransactionV3,
+    direction: 'forward' | 'restore'
+  ): Promise<DeviceLocalVaultRecoveryObservation> => {
+    if (options?.failObserve) throw new OptionsMutationError('OPTIONS_STORAGE_FAILURE');
+    const request = {
+      preimageIdentity: transaction.portable.preimageIdentity,
+      proposedIdentity: transaction.portable.proposedIdentity,
+      privacyRestoreTarget: transaction.privacy.restoreTarget,
+      privacyForwardTarget: transaction.privacy.forwardTarget
+    };
+    const identity = await portableOptionsIdentity(portable);
+    const primaryIdentity =
+      direction === 'forward' ? request.proposedIdentity : request.preimageIdentity;
+    const secondaryIdentity =
+      direction === 'forward' ? request.preimageIdentity : request.proposedIdentity;
+    const portableState =
+      identity === primaryIdentity
+        ? direction === 'forward'
+          ? 'proposal'
+          : 'preimage'
+        : identity === secondaryIdentity
+          ? direction === 'forward'
+            ? 'preimage'
+            : 'proposal'
+          : 'third';
+    const primary =
+      direction === 'forward' ? request.privacyForwardTarget : request.privacyRestoreTarget;
+    const secondary =
+      direction === 'forward' ? request.privacyRestoreTarget : request.privacyForwardTarget;
+    const equal = (left: PrivacyPreferencesOptions, right: PrivacyPreferencesOptions) =>
+      left.analytics === right.analytics &&
+      left.errorReporting === right.errorReporting &&
+      left.debugMode === right.debugMode;
+    const privacyState = equal(privacy, primary)
+      ? direction
+      : equal(privacy, secondary)
+        ? direction === 'forward'
+          ? 'restore'
+          : 'forward'
+        : 'third';
+    return {
+      portableState,
+      privacyState,
+      portableRaw: structuredClone(portable),
+      privacy: structuredClone(privacy)
+    };
+  };
+  const createJournal = () => {
+    const recoveryStorage = new DeviceLocalVaultRecoveryStorage(
+      storage.local,
+      () => Promise.resolve(structuredClone(current)),
+      options?.writeBindings ??
+        ((snapshot) => {
+          current = structuredClone(snapshot);
+          return Promise.resolve();
+        }),
+      () => Promise.resolve(structuredClone(portable))
+    );
+    return new DeviceLocalVaultCleanupJournal(
+      recoveryStorage,
+      new DeviceLocalVaultCleanupExecutor(recoveryStorage, removeDirectory),
+      new DeviceLocalVaultLocalCommitter(recoveryStorage),
+      {
+        observe,
+        compensate: async (transaction) => {
+          const before = await observe(transaction, 'restore');
+          if (before.portableState === 'proposal')
+            portable = structuredClone(transaction.portable.preimage);
+          if (before.privacyState === 'forward')
+            privacy = structuredClone(transaction.privacy.restoreTarget);
+          return observe(transaction, 'restore');
+        }
+      }
+    );
+  };
+  return {
+    storage,
+    removeDirectory,
+    createJournal,
+    current: () => current,
+    portable: () => portable,
+    privacy: () => privacy,
+    setCurrent: (value: DeviceLocalVaultBindingSnapshot) => {
+      current = structuredClone(value);
+    },
+    setPortable: (value: PlainStructuredObject) => {
+      portable = structuredClone(value);
+    },
+    setPrivacy: (value: PrivacyPreferencesOptions) => {
+      privacy = structuredClone(value);
+    }
+  };
+}
+
+async function phaseRecord(
+  phase: DeviceLocalVaultRecoveryTransactionV3['phase'],
+  bindingWriteMayHaveOccurred = false
+): Promise<DeviceLocalVaultRecoveryTransactionV3> {
+  const state = harness();
+  const transaction = await state.createJournal().prepare(preparation);
+  await state.storage.local.remove(DEVICE_LOCAL_VAULT_CLEANUP_JOURNAL_KEY);
+  const forwardEvidence = [
+    'forward-committed',
+    'local-commit-inflight',
+    'local-committed'
+  ].includes(phase)
+    ? {
+        portable: {
+          ...transaction.portable,
+          observedCommittedIdentity: transaction.portable.proposedIdentity
+        },
+        privacy: { ...transaction.privacy, observedForward: 'exact-target-readback' as const }
+      }
+    : {};
+  const recovery = ['compensating', 'portable-privacy-restored'].includes(phase)
+    ? {
+        recovery: {
+          outcomeCode: 'OPTIONS_STORAGE_FAILURE' as const,
+          bindingWriteMayHaveOccurred,
+          ...(phase === 'portable-privacy-restored'
+            ? {
+                portableRestoreEvidence: 'preimage' as const,
+                privacyRestoreEvidence: 'restore-target' as const
+              }
+            : {})
+        }
+      }
+    : {};
+  return { ...transaction, ...forwardEvidence, ...recovery, phase };
+}
 
 afterEach(() => vi.restoreAllMocks());
 
-describe('DeviceLocalVaultCleanupJournal', () => {
-  it('restores the binding preimage and preserves the handle after a pre-portable crash', async () => {
-    const state = harness({ current: previous, portable: portablePreimage });
+describe('DeviceLocalVaultCleanupJournal forward privacy protocol', () => {
+  it('aborts an untouched prepared record without changing B0 or deleting', async () => {
+    const state = harness();
     await state.createJournal().prepare(preparation);
-    state.setCurrent(proposed);
 
     await state.createJournal().recover();
 
@@ -93,31 +214,44 @@ describe('DeviceLocalVaultCleanupJournal', () => {
   });
 
   it.each([
-    { version: 1, folderIds: ['folder-old'] },
-    { version: 2, transactionId: 'broken', phase: 'prepared' },
-    { version: 99, folderIds: ['folder-old'] }
-  ])('quarantines v1, unknown, and invalid rows without deleting: %#', async (record) => {
-    const state = harness({ current: previous, portable: portablePreimage });
+    { portable: portableProposal, privacy: privacy0, current: previous },
+    { portable: portableProposal, privacy: privacy1, current: previous },
+    { portable: portablePreimage, privacy: privacy0, current: proposed }
+  ])('never advances an externally changed prepared record: %#', async (input) => {
+    const state = harness(input);
+    await state.createJournal().prepare(preparation);
+
+    await expect(state.createJournal().recover()).rejects.toMatchObject({
+      code: 'EXTERNAL_SYNC_CONFLICT'
+    });
+
+    expect(state.current()).toEqual(input.current);
+    expect(state.removeDirectory).not.toHaveBeenCalled();
+  });
+
+  it('quarantines rejected v3 without a protocol discriminator', async () => {
+    const state = harness();
+    const oldV3 = await state.createJournal().prepare(preparation);
+    const { protocol: _protocol, ...unproven } = oldV3;
+    await state.storage.local.set(DEVICE_LOCAL_VAULT_CLEANUP_JOURNAL_KEY, unproven);
     const warning = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
-    await state.storage.local.set(DEVICE_LOCAL_VAULT_CLEANUP_JOURNAL_KEY, record);
 
     await state.createJournal().recover();
 
-    expect(state.current()).toEqual(previous);
-    expect(state.removeDirectory).not.toHaveBeenCalled();
     expect(warning).toHaveBeenCalledOnce();
+    expect(state.removeDirectory).not.toHaveBeenCalled();
     await expect(
       state.storage.local.get(DEVICE_LOCAL_VAULT_CLEANUP_JOURNAL_KEY)
     ).resolves.toBeUndefined();
   });
 
-  it('rolls portable-committed state forward through bindings and cleanup', async () => {
-    const state = harness({ current: previous, portable: portablePreimage });
+  it('advances only forward-inflight P1/F through B1 and cleanup', async () => {
+    const state = harness({ portable: portableProposal, privacy: privacy1 });
     const journal = state.createJournal();
     await journal.prepare(preparation);
-    state.setPortable(portableProposal);
+    await journal.beginForward();
 
-    await state.createJournal().recover();
+    await journal.recover(false, 'OPTIONS_STORAGE_FAILURE', true);
 
     expect(state.current()).toEqual(proposed);
     expect(state.removeDirectory).toHaveBeenCalledWith('folder-old');
@@ -126,149 +260,205 @@ describe('DeviceLocalVaultCleanupJournal', () => {
     ).resolves.toBeUndefined();
   });
 
-  it('advances a no-portable-write transaction only when all identities match', async () => {
-    const state = harness({ current: previous, portable: portablePreimage });
-    await state.createJournal().prepare({
-      ...preparation,
-      portableProposal: portablePreimage,
-      writeRequired: false
+  it('compensates forward-inflight P1/R without writing B1 or deleting', async () => {
+    const state = harness({ portable: portableProposal, privacy: privacy0 });
+    await state.storage.local.set(
+      DEVICE_LOCAL_VAULT_CLEANUP_JOURNAL_KEY,
+      await phaseRecord('forward-inflight')
+    );
+
+    await expect(state.createJournal().recover()).rejects.toMatchObject({
+      code: 'OPTIONS_STORAGE_FAILURE'
     });
+
+    expect(state.portable()).toEqual(portablePreimage);
+    expect(state.privacy()).toEqual(privacy0);
+    expect(state.current()).toEqual(previous);
+    expect(state.removeDirectory).not.toHaveBeenCalled();
+  });
+
+  it('restores R for forward-inflight P0/F without rewriting P0', async () => {
+    const state = harness({ portable: portablePreimage, privacy: privacy1 });
+    await state.storage.local.set(
+      DEVICE_LOCAL_VAULT_CLEANUP_JOURNAL_KEY,
+      await phaseRecord('forward-inflight')
+    );
+
+    await expect(state.createJournal().recover()).rejects.toMatchObject({
+      code: 'OPTIONS_STORAGE_FAILURE'
+    });
+
+    expect(state.portable()).toEqual(portablePreimage);
+    expect(state.privacy()).toEqual(privacy0);
+    expect(state.current()).toEqual(previous);
+  });
+
+  it.each([
+    {
+      portable: portableThird,
+      privacy: privacy1,
+      expectedPortable: portableThird,
+      expectedPrivacy: privacy0
+    },
+    {
+      portable: portableProposal,
+      privacy: privacyX,
+      expectedPortable: portablePreimage,
+      expectedPrivacy: privacyX
+    }
+  ])('preserves third state and compensates only the owned counterpart: %#', async (input) => {
+    const state = harness(input);
+    await state.storage.local.set(
+      DEVICE_LOCAL_VAULT_CLEANUP_JOURNAL_KEY,
+      await phaseRecord('forward-inflight')
+    );
+
+    await expect(state.createJournal().recover()).rejects.toMatchObject({
+      code: 'EXTERNAL_SYNC_CONFLICT'
+    });
+
+    expect(state.portable()).toEqual(input.expectedPortable);
+    expect(state.privacy()).toEqual(input.expectedPrivacy);
+    expect(state.current()).toEqual(previous);
+    expect(state.removeDirectory).not.toHaveBeenCalled();
+  });
+
+  it('does not restore an unowned B1 when compensation started before binding write', async () => {
+    const state = harness({ current: proposed, portable: portableProposal, privacy: privacy0 });
+    await state.storage.local.set(
+      DEVICE_LOCAL_VAULT_CLEANUP_JOURNAL_KEY,
+      await phaseRecord('forward-inflight')
+    );
+
+    await expect(state.createJournal().recover()).rejects.toMatchObject({
+      code: 'EXTERNAL_SYNC_CONFLICT'
+    });
+
+    expect(state.current()).toEqual(proposed);
+    expect(state.portable()).toEqual(portablePreimage);
+    expect(state.removeDirectory).not.toHaveBeenCalled();
+  });
+
+  it('compensates P1/F from local-commit-inflight B0 with binding-write ownership', async () => {
+    const state = harness({ portable: portableProposal, privacy: privacy1, current: previous });
+    await state.storage.local.set(
+      DEVICE_LOCAL_VAULT_CLEANUP_JOURNAL_KEY,
+      await phaseRecord('local-commit-inflight', true)
+    );
+
+    await expect(state.createJournal().recover()).rejects.toMatchObject({
+      code: 'OPTIONS_STORAGE_FAILURE'
+    });
+
+    expect(state.portable()).toEqual(portablePreimage);
+    expect(state.privacy()).toEqual(privacy0);
+    expect(state.current()).toEqual(previous);
+  });
+
+  it('treats local-commit-inflight B1 as irreversible and cleans', async () => {
+    const state = harness({ portable: portableProposal, privacy: privacy1, current: proposed });
+    await state.storage.local.set(
+      DEVICE_LOCAL_VAULT_CLEANUP_JOURNAL_KEY,
+      await phaseRecord('local-commit-inflight', true)
+    );
 
     await state.createJournal().recover();
 
-    expect(state.current()).toEqual(proposed);
+    expect(state.portable()).toEqual(portableProposal);
+    expect(state.privacy()).toEqual(privacy1);
     expect(state.removeDirectory).toHaveBeenCalledWith('folder-old');
   });
 
-  it('aborts a no-write prepared record when the live enclosing commit failed', async () => {
-    const state = harness({ current: previous, portable: portablePreimage });
-    await state.createJournal().prepare({
+  it('preserves a third binding while compensating P1/F', async () => {
+    const state = harness({
+      portable: portableProposal,
+      privacy: privacy1,
+      current: thirdBindings
+    });
+    await state.storage.local.set(
+      DEVICE_LOCAL_VAULT_CLEANUP_JOURNAL_KEY,
+      await phaseRecord('local-commit-inflight', true)
+    );
+
+    await expect(state.createJournal().recover()).rejects.toMatchObject({
+      code: 'EXTERNAL_SYNC_CONFLICT'
+    });
+
+    expect(state.current()).toEqual(thirdBindings);
+    expect(state.portable()).toEqual(portablePreimage);
+    expect(state.privacy()).toEqual(privacy0);
+  });
+
+  it('requires forward-inflight even when both writes are no-ops', async () => {
+    const noWrite = {
       ...preparation,
       portableProposal: portablePreimage,
-      writeRequired: false
+      writeRequired: false,
+      privacyForwardTarget: privacy0,
+      privacyWriteRequired: false
+    } as const;
+    const aborted = harness();
+    await aborted.createJournal().prepare(noWrite);
+    await aborted.createJournal().recover();
+    expect(aborted.current()).toEqual(previous);
+
+    const committed = harness();
+    const journal = committed.createJournal();
+    await journal.prepare(noWrite);
+    await journal.beginForward();
+    await journal.recover(false, 'OPTIONS_STORAGE_FAILURE', true);
+    expect(committed.current()).toEqual(proposed);
+  });
+
+  it('leaves forward-inflight durable when portable/privacy observation is unavailable', async () => {
+    const state = harness({ failObserve: true });
+    await state.storage.local.set(
+      DEVICE_LOCAL_VAULT_CLEANUP_JOURNAL_KEY,
+      await phaseRecord('forward-inflight')
+    );
+
+    await expect(state.createJournal().recover()).rejects.toMatchObject({
+      code: 'OPTIONS_STORAGE_FAILURE'
     });
-    state.setCurrent(proposed);
 
-    await state.createJournal().recover(false);
-
-    expect(state.current()).toEqual(previous);
-    expect(state.removeDirectory).not.toHaveBeenCalled();
-  });
-
-  it('preserves the preimage and handle for a third portable state', async () => {
-    const state = harness({ current: previous, portable: portablePreimage });
-    await state.createJournal().prepare(preparation);
-    state.setPortable({ external: { revision: 3 } });
-
-    await state.createJournal().recover();
-
-    expect(state.current()).toEqual(previous);
-    expect(state.removeDirectory).not.toHaveBeenCalled();
-  });
-
-  it('does not overwrite a third local binding snapshot or delete its handle', async () => {
-    const state = harness({ current: previous, portable: portablePreimage });
-    await state.createJournal().prepare(preparation);
-    state.setPortable(portableProposal);
-    const third = bindings({ external: { folderId: 'folder-external' } });
-    state.setCurrent(third);
-
-    await state.createJournal().recover();
-
-    expect(state.current()).toEqual(third);
-    expect(state.removeDirectory).not.toHaveBeenCalled();
-  });
-
-  it('records a rebound candidate as complete without deleting it', async () => {
-    let state: ReturnType<typeof harness>;
-    state = harness({
-      current: previous,
-      portable: portablePreimage,
-      onPortableRead: (count) => {
-        if (count === 2) {
-          state.setCurrent(bindings({ rebound: { folderId: 'folder-old' } }));
-        }
-      }
+    await expect(
+      state.storage.local.get(DEVICE_LOCAL_VAULT_CLEANUP_JOURNAL_KEY)
+    ).resolves.toMatchObject({
+      phase: 'forward-inflight'
     });
-    await state.createJournal().prepare(preparation);
-    state.setPortable(portableProposal);
-
-    await state.createJournal().recover();
-
     expect(state.removeDirectory).not.toHaveBeenCalled();
   });
 
-  it('keeps a failed delete durable for one bounded later pass', async () => {
+  it('keeps local-committed durable when cleanup fails and never compensates', async () => {
     const removeDirectory = vi
       .fn<(folderId: string) => Promise<void>>()
-      .mockRejectedValueOnce(new Error('indexeddb transaction aborted'))
+      .mockRejectedValueOnce(new Error('indexeddb unavailable'))
       .mockResolvedValue(undefined);
-    const state = harness({ current: previous, portable: portablePreimage, removeDirectory });
     const warning = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
-    await state.createJournal().prepare(preparation);
-    state.setPortable(portableProposal);
+    const state = harness({
+      portable: portableProposal,
+      privacy: privacy1,
+      current: proposed,
+      removeDirectory
+    });
+    await state.storage.local.set(
+      DEVICE_LOCAL_VAULT_CLEANUP_JOURNAL_KEY,
+      await phaseRecord('local-committed', true)
+    );
 
     await expect(state.createJournal().recover()).rejects.toMatchObject({
       code: 'OPTIONS_STORAGE_FAILURE'
     });
-    const pending = await state.storage.local.get<Record<string, unknown>>(
-      DEVICE_LOCAL_VAULT_CLEANUP_JOURNAL_KEY
-    );
-    expect(pending).toMatchObject({ phase: 'local-committed' });
-
-    await state.createJournal().recover();
-
-    expect(removeDirectory).toHaveBeenCalledTimes(2);
-    expect(warning).toHaveBeenCalledOnce();
+    expect(state.portable()).toEqual(portableProposal);
+    expect(state.privacy()).toEqual(privacy1);
     await expect(
       state.storage.local.get(DEVICE_LOCAL_VAULT_CLEANUP_JOURNAL_KEY)
-    ).resolves.toBeUndefined();
-  });
-
-  it('stops after a progress-write failure and replays only bounded candidates', async () => {
-    const twoPrevious = bindings({
-      first: { folderId: 'folder-a' },
-      second: { folderId: 'folder-b' }
+    ).resolves.toMatchObject({
+      phase: 'local-committed'
     });
-    const state = harness({ current: twoPrevious, portable: portablePreimage });
-    await state.createJournal().prepare({ ...preparation, previousBindings: twoPrevious });
-    state.setPortable(portableProposal);
-    const originalSet = state.storage.local.set.bind(state.storage.local);
-    let failed = false;
-    state.storage.local.set = vi.fn(async (key, value) => {
-      const candidate = value as { phase?: string; remainingCleanupCandidates?: unknown[] };
-      if (
-        !failed &&
-        candidate.phase === 'local-committed' &&
-        candidate.remainingCleanupCandidates?.length === 1
-      ) {
-        failed = true;
-        throw new Error('progress unavailable');
-      }
-      await originalSet(key, value);
-    });
-
-    await expect(state.createJournal().recover()).rejects.toThrow('progress unavailable');
-    expect(state.removeDirectory.mock.calls).toEqual([['folder-a']]);
-
-    state.storage.local.set = originalSet;
-    await state.createJournal().recover();
-    expect(state.removeDirectory.mock.calls).toEqual([['folder-a'], ['folder-a'], ['folder-b']]);
-  });
-
-  it('does not restore B0 over B1 when local-committed portable state drifts third', async () => {
-    const removeDirectory = vi.fn(() => Promise.reject(new Error('indexeddb unavailable')));
-    const state = harness({ current: previous, portable: portablePreimage, removeDirectory });
-    await state.createJournal().prepare(preparation);
-    state.setPortable(portableProposal);
-    await expect(state.createJournal().recover()).rejects.toMatchObject({
-      code: 'OPTIONS_STORAGE_FAILURE'
-    });
-    state.setPortable({ external: { revision: 4 } });
 
     await state.createJournal().recover();
-
-    expect(state.current()).toEqual(proposed);
-    expect(removeDirectory).toHaveBeenCalledOnce();
+    expect(removeDirectory).toHaveBeenCalledTimes(2);
+    expect(warning).toHaveBeenCalledOnce();
   });
 });
