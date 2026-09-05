@@ -150,6 +150,44 @@ describe('OptionsDraftSession', () => {
     expect(session.createIntent()).toBeNull();
   });
 
+  it('creates a newer admission after failure even when the collected draft is identical', () => {
+    const initial = baseline();
+    initial.fragmentClipper.captureContext = false;
+    const session = createOptionsDraftSession(initial);
+    const local = clone(initial);
+    local.fragmentClipper.captureContext = true;
+    session.captureLocalDraft(local);
+    const failed = session.createIntent();
+    expect(failed).not.toBeNull();
+    session.admit(failed!);
+    session.fail(failed!);
+
+    session.captureLocalDraft(clone(local));
+    const retried = session.createIntent();
+
+    expect(retried?.admissionGeneration).toBeGreaterThan(failed!.admissionGeneration);
+    expect(retried?.patches).toEqual(failed?.patches);
+  });
+
+  it('clears failed no-op ownership when the authoritative base already matches', () => {
+    const initial = baseline();
+    initial.fragmentClipper.captureContext = false;
+    const session = createOptionsDraftSession(initial);
+    const local = clone(initial);
+    local.fragmentClipper.captureContext = true;
+    session.captureLocalDraft(local);
+    const failed = session.createIntent();
+    expect(failed).not.toBeNull();
+    session.admit(failed!);
+    session.fail(failed!);
+
+    session.observeAuthoritative(local);
+    session.captureLocalDraft(clone(local));
+
+    expect(session.getDirtyPathKeys()).toEqual([]);
+    expect(session.createIntent()).toBeNull();
+  });
+
   it('ignores identical notifications and strict reset clears all dirty generations', () => {
     const initial = baseline();
     const session = createOptionsDraftSession(initial);

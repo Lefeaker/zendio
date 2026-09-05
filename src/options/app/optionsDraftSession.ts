@@ -24,6 +24,7 @@ export interface DirtyPathOwnership {
 export interface OptionsMutationIntent {
   readonly intentId: number;
   readonly baseRevision: number;
+  readonly admissionGeneration: number;
   readonly owned: readonly DirtyPathOwnership[];
   readonly patches: readonly OptionsPatch[];
 }
@@ -51,6 +52,7 @@ export class OptionsDraftSession {
   private revision = 1;
   private nextEditGeneration = 1;
   private nextIntentId = 1;
+  private admissionGeneration = 0;
   private readonly dirty = new Map<string, MutableDirtyPathOwnership>();
   private readonly admitted = new Map<number, readonly DirtyPathOwnership[]>();
 
@@ -78,18 +80,15 @@ export class OptionsDraftSession {
   captureLocalDraft(nextDraft: CompleteOptions): OptionsDraftSessionTransition {
     const previousDirtyKeys = this.getDirtyPathKeys();
     const changedPaths = diffOptionsPaths(this.working, nextDraft);
+    this.admissionGeneration += 1;
     for (const path of changedPaths) {
       const key = optionsPathKey(path);
       const nextValue = readOptionsPath(nextDraft, path);
       const authoritativeValue = readOptionsPath(this.authoritative, path);
-      const admittedValueWillChangeBase = [...this.admitted.values()].some((ownedPaths) =>
-        ownedPaths.some(
-          (owned) =>
-            optionsPathKey(owned.path) === key &&
-            !areStateValuesEqual(owned.value, authoritativeValue)
-        )
-      );
-      if (areStateValuesEqual(nextValue, authoritativeValue) && !admittedValueWillChangeBase) {
+      if (
+        areStateValuesEqual(nextValue, authoritativeValue) &&
+        !this.admittedValueWillChangeBase(key, authoritativeValue)
+      ) {
         this.dirty.delete(key);
       } else {
         this.dirty.set(key, {
@@ -97,6 +96,15 @@ export class OptionsDraftSession {
           editGeneration: this.nextEditGeneration++,
           value: cloneStateValue(nextValue)
         });
+      }
+    }
+    for (const [key, owned] of this.dirty) {
+      const authoritativeValue = readOptionsPath(this.authoritative, owned.path);
+      if (
+        areStateValuesEqual(owned.value, authoritativeValue) &&
+        !this.admittedValueWillChangeBase(key, authoritativeValue)
+      ) {
+        this.dirty.delete(key);
       }
     }
     this.working = this.composeWorkingDraft();
@@ -132,6 +140,7 @@ export class OptionsDraftSession {
     return {
       intentId: this.nextIntentId++,
       baseRevision: this.revision,
+      admissionGeneration: this.admissionGeneration,
       owned,
       patches: owned.map(({ path, value }) => createOptionsPatch(path, value))
     };
@@ -207,6 +216,16 @@ export class OptionsDraftSession {
         currentDirtyKeys.length !== previousDirtyKeys.length ||
         currentDirtyKeys.some((key, index) => key !== previousDirtyKeys[index])
     };
+  }
+
+  private admittedValueWillChangeBase(key: string, authoritativeValue: StateValue): boolean {
+    return [...this.admitted.values()].some((ownedPaths) =>
+      ownedPaths.some(
+        (owned) =>
+          optionsPathKey(owned.path) === key &&
+          !areStateValuesEqual(owned.value, authoritativeValue)
+      )
+    );
   }
 
   private composeWorkingDraft(): CompleteOptions {

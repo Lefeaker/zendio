@@ -468,6 +468,35 @@ describe('mountProductionStitchShell renderLifecycle', () => {
     expect(mounted.collectDraft().rest.vault).toBe('Alice Vault');
   });
 
+  it('captures each real persisted switch interaction through the controller boundary', () => {
+    const controller = createController();
+    const mounted = mountProductionStitchShell({
+      controller: asOptionsController(controller),
+      initialOptions: { fragmentClipper: { captureContext: false } },
+      messages: null,
+      language: 'en'
+    });
+    const captureRow = Array.from(document.querySelectorAll<HTMLElement>('.row')).find((row) =>
+      row.textContent?.includes('Capture Context')
+    );
+    const captureSwitch = requireElement(
+      captureRow?.querySelector<HTMLInputElement>('input[type="checkbox"]'),
+      'capture context switch'
+    );
+
+    captureSwitch.checked = true;
+    captureSwitch.dispatchEvent(new Event('change', { bubbles: true }));
+    const firstCollector = vi.mocked(controller.scheduleAutoSave).mock.calls[0]?.[0];
+    expect(firstCollector?.()?.fragmentClipper.captureContext).toBe(true);
+
+    captureSwitch.checked = false;
+    captureSwitch.dispatchEvent(new Event('change', { bubbles: true }));
+    const secondCollector = vi.mocked(controller.scheduleAutoSave).mock.calls[1]?.[0];
+    expect(secondCollector?.()?.fragmentClipper.captureContext).toBe(false);
+    expect(vi.mocked(controller.scheduleAutoSave)).toHaveBeenCalledTimes(2);
+    expect(mounted.collectDraft().fragmentClipper.captureContext).toBe(false);
+  });
+
   it('prevents mouse button presses from moving the production Options scroller', async () => {
     const controller = createController();
     mountProductionStitchShell({

@@ -71,6 +71,8 @@ export class OptionsController {
           const transition = this.requireDraftSession().acknowledge(intent, acknowledged);
           this.snapshot = this.requireDraftSession().getAuthoritativeSnapshot();
           this.applyMountedTransition(transition);
+          if (this.requireDraftSession().getDirtyPathKeys().length === 0)
+            this.autoSaveDurability.discardRetryable();
           this.callbacks.onSaveSuccess?.(reason, this.requireDraftSession().getWorkingDraft());
         } catch (error) {
           this.draftSession?.fail(intent);

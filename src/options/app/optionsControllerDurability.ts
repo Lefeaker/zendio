@@ -10,31 +10,50 @@ export interface OptionsControllerDurabilityDeps {
   persist(this: void, mutation: DurableOptionsMutation): Promise<void>;
 }
 
+interface BlockedAdmission {
+  readonly mutation: DurableOptionsMutation;
+  readonly admissionGeneration: number;
+  readonly error: unknown;
+}
+
 export class OptionsControllerDurability {
   private pendingDesired: DurableOptionsMutation | null = null;
   private drainPromise: Promise<void> | null = null;
-  private retryBlocked = false;
-  private rethrowRetryFailure: (() => never) | null = null;
+  private blockedAdmission: BlockedAdmission | null = null;
+  private activeAdmissionGeneration: number | null = null;
+  private discardedThroughGeneration = 0;
 
   constructor(private readonly persist: OptionsControllerDurabilityDeps['persist']) {}
 
   enqueue(mutation: DurableOptionsMutation): void {
+    const generation = mutation.intent.admissionGeneration;
+    const admissionFloor = Math.max(
+      this.discardedThroughGeneration,
+      this.activeAdmissionGeneration ?? 0,
+      this.pendingDesired?.intent.admissionGeneration ?? 0,
+      this.blockedAdmission?.admissionGeneration ?? 0
+    );
+    if (generation <= admissionFloor) return;
     this.pendingDesired = deepClone(mutation);
-    this.retryBlocked = false;
-    this.rethrowRetryFailure = null;
+    this.blockedAdmission = null;
     this.ensureDrain();
   }
 
   discardRetryable(): void {
+    this.discardedThroughGeneration = Math.max(
+      this.discardedThroughGeneration,
+      this.activeAdmissionGeneration ?? 0,
+      this.pendingDesired?.intent.admissionGeneration ?? 0,
+      this.blockedAdmission?.admissionGeneration ?? 0
+    );
     this.pendingDesired = null;
-    this.retryBlocked = false;
-    this.rethrowRetryFailure = null;
+    this.blockedAdmission = null;
   }
 
   async flush(): Promise<void> {
-    if (this.retryBlocked) {
-      this.retryBlocked = false;
-      this.rethrowRetryFailure = null;
+    if (this.blockedAdmission) {
+      this.pendingDesired = this.blockedAdmission.mutation;
+      this.blockedAdmission = null;
     }
     this.ensureDrain();
 
@@ -44,17 +63,12 @@ export class OptionsControllerDurability {
       this.completeDrain(activeDrain);
     }
 
-    if (this.retryBlocked) {
-      const rethrowRetryFailure = this.rethrowRetryFailure;
-      if (rethrowRetryFailure) {
-        rethrowRetryFailure();
-      }
-      throw new Error('OPTIONS_DURABILITY_HANDOFF_FAILED');
-    }
+    const blockedAdmission = this.readBlockedAdmission();
+    if (blockedAdmission) throw blockedAdmission.error;
   }
 
   private ensureDrain(): void {
-    if (this.drainPromise || this.retryBlocked || !this.pendingDesired) return;
+    if (this.drainPromise || this.blockedAdmission || !this.pendingDesired) return;
 
     const drain = this.drain();
     this.drainPromise = drain;
@@ -68,22 +82,35 @@ export class OptionsControllerDurability {
   }
 
   private async drain(): Promise<void> {
-    while (this.pendingDesired && !this.retryBlocked) {
+    while (this.pendingDesired && !this.blockedAdmission) {
       const desired = this.pendingDesired;
       this.pendingDesired = null;
+      this.activeAdmissionGeneration = desired.intent.admissionGeneration;
 
       try {
         await this.persist(desired);
       } catch (error) {
-        if (!this.pendingDesired) {
-          this.pendingDesired = desired;
-          this.retryBlocked = true;
-          this.rethrowRetryFailure = () => {
-            throw error;
-          };
+        const generation = desired.intent.admissionGeneration;
+        const pendingDesired = this.readPendingDesired();
+        if (
+          generation > this.discardedThroughGeneration &&
+          (!pendingDesired || pendingDesired.intent.admissionGeneration <= generation)
+        ) {
+          this.pendingDesired = null;
+          this.blockedAdmission = { mutation: desired, admissionGeneration: generation, error };
         }
+      } finally {
+        this.activeAdmissionGeneration = null;
       }
     }
+  }
+
+  private readBlockedAdmission(): BlockedAdmission | null {
+    return this.blockedAdmission;
+  }
+
+  private readPendingDesired(): DurableOptionsMutation | null {
+    return this.pendingDesired;
   }
 }
 
