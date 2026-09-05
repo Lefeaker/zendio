@@ -182,7 +182,6 @@ describe('OptionsDraftSession', () => {
     session.fail(failed!);
 
     session.observeAuthoritative(local);
-    session.captureLocalDraft(clone(local));
 
     expect(session.getDirtyPathKeys()).toEqual([]);
     expect(session.createIntent()).toBeNull();

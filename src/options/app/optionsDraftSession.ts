@@ -98,15 +98,7 @@ export class OptionsDraftSession {
         });
       }
     }
-    for (const [key, owned] of this.dirty) {
-      const authoritativeValue = readOptionsPath(this.authoritative, owned.path);
-      if (
-        areStateValuesEqual(owned.value, authoritativeValue) &&
-        !this.admittedValueWillChangeBase(key, authoritativeValue)
-      ) {
-        this.dirty.delete(key);
-      }
-    }
+    this.reconcileDirtyWithAuthoritative();
     this.working = this.composeWorkingDraft();
     return this.transition(changedPaths, previousDirtyKeys);
   }
@@ -116,11 +108,13 @@ export class OptionsDraftSession {
       return { changed: false, changedPaths: [], ownershipChanged: false };
     }
     const previousWorking = this.working;
+    const previousDirtyKeys = this.getDirtyPathKeys();
     this.authoritative = deepClone(nextSnapshot);
     this.revision += 1;
+    this.reconcileDirtyWithAuthoritative();
     this.working = this.composeWorkingDraft();
     const changedPaths = diffOptionsPaths(previousWorking, this.working);
-    return { changed: true, changedPaths, ownershipChanged: false };
+    return this.transition(changedPaths, previousDirtyKeys);
   }
 
   createIntent(): OptionsMutationIntent | null {
@@ -226,6 +220,17 @@ export class OptionsDraftSession {
           !areStateValuesEqual(owned.value, authoritativeValue)
       )
     );
+  }
+
+  private reconcileDirtyWithAuthoritative(): void {
+    for (const [key, owned] of this.dirty) {
+      const authoritativeValue = readOptionsPath(this.authoritative, owned.path);
+      if (
+        areStateValuesEqual(owned.value, authoritativeValue) &&
+        !this.admittedValueWillChangeBase(key, authoritativeValue)
+      )
+        this.dirty.delete(key);
+    }
   }
 
   private composeWorkingDraft(): CompleteOptions {

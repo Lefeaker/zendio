@@ -555,6 +555,26 @@ describe('OptionsController', () => {
     expect(savedOptions).toEqual([]);
   });
 
+  it('discards a failed retry after a manual reversal before page exit', async () => {
+    const failure = new Error('EXTERNAL_SYNC_CONFLICT');
+    saveMock.mockRejectedValueOnce(failure);
+    const controller = createOptionsController({ persistence, formAdapter });
+    await controller.loadInitialState();
+    const desired = structuredClone(repositorySnapshot);
+    desired.fragmentClipper.captureContext = true;
+
+    controller.scheduleAutoSave(() => desired);
+    await expect(controller.flushPendingAutoSave()).rejects.toBe(failure);
+    await controller.saveSnapshot({
+      reason: 'manual',
+      draft: structuredClone(repositorySnapshot)
+    });
+    await controller.flushPendingAutoSave();
+
+    expect(saveMock).toHaveBeenCalledTimes(1);
+    expect(savedOptions).toEqual([]);
+  });
+
   it('does not let the same synthetic admission silently unblock a failed mutation', async () => {
     const failure = new Error('EXTERNAL_SYNC_CONFLICT');
     const persist = vi.fn().mockRejectedValueOnce(failure).mockResolvedValue(undefined);
@@ -593,6 +613,23 @@ describe('OptionsController', () => {
     await expect(controller.flushPendingAutoSave()).rejects.toBe(failure);
     controller.setSnapshot(desired);
     controller.scheduleAutoSave(() => structuredClone(desired));
+    await controller.flushPendingAutoSave();
+
+    expect(saveMock).toHaveBeenCalledTimes(1);
+    expect(savedOptions).toEqual([]);
+  });
+
+  it('discards a failed retry when an authoritative notification satisfies it before page exit', async () => {
+    const failure = new Error('EXTERNAL_SYNC_CONFLICT');
+    saveMock.mockRejectedValueOnce(failure);
+    const controller = createOptionsController({ persistence, formAdapter });
+    await controller.loadInitialState();
+    const desired = structuredClone(repositorySnapshot);
+    desired.fragmentClipper.captureContext = true;
+
+    controller.scheduleAutoSave(() => desired);
+    await expect(controller.flushPendingAutoSave()).rejects.toBe(failure);
+    controller.setSnapshot(desired);
     await controller.flushPendingAutoSave();
 
     expect(saveMock).toHaveBeenCalledTimes(1);
