@@ -1,247 +1,249 @@
 import type { StorageAreaService } from '../../platform/interfaces/storage';
 import type { PlainStructuredObject } from './losslessObjectBoundaryTypes';
-import type {
-  DeviceLocalVaultBindingSnapshot,
-  DeviceLocalVaultRecoveryTransaction
-} from './deviceLocalVaultRecoveryTransaction';
 import {
+  DeviceLocalVaultCleanupExecutor,
+  DeviceLocalVaultLegacyV2Recovery,
+  DeviceLocalVaultLocalCommitter,
+  DeviceLocalVaultRecoveryStorage,
+  sameDeviceLocalVaultBindings
+} from './deviceLocalVaultCleanupExecutor';
+import {
+  DEVICE_LOCAL_VAULT_CLEANUP_JOURNAL_KEY,
+  DeviceLocalVaultRecoveryError,
   createPreparedDeviceLocalVaultRecoveryTransaction,
   decodeDeviceLocalVaultRecoveryTransaction,
-  portableOptionsIdentity
+  portableOptionsIdentity,
+  type DeviceLocalVaultBindingSnapshot,
+  type DeviceLocalVaultRecoveryTransaction,
+  type DeviceLocalVaultRecoveryOperations,
+  type DeviceLocalVaultRecoveryTransactionV3,
+  withDeviceLocalVaultRecoveryPhase
 } from './deviceLocalVaultRecoveryTransaction';
 
-export const DEVICE_LOCAL_VAULT_CLEANUP_JOURNAL_KEY = 'deviceLocalVaultCleanupJournal';
+export { DEVICE_LOCAL_VAULT_CLEANUP_JOURNAL_KEY, DeviceLocalVaultRecoveryError };
 type PreparationInput = Parameters<typeof createPreparedDeviceLocalVaultRecoveryTransaction>[0];
 
-export class DeviceLocalVaultRecoveryError extends Error {
-  constructor(readonly code: 'OPTIONS_STORAGE_FAILURE' | 'EXTERNAL_SYNC_CONFLICT') {
-    super(code);
-    this.name = 'DeviceLocalVaultRecoveryError';
-  }
-}
-
-const folderIds = (snapshot: DeviceLocalVaultBindingSnapshot) =>
-  new Set(Object.values(snapshot.bindings).map(({ folderId }) => folderId));
-const canonicalBindings = (snapshot: DeviceLocalVaultBindingSnapshot) =>
-  JSON.stringify(
-    Object.entries(snapshot.bindings).sort(([left], [right]) => left.localeCompare(right))
-  );
-const sameBindings = (
-  left: DeviceLocalVaultBindingSnapshot,
-  right: DeviceLocalVaultBindingSnapshot
-) => canonicalBindings(left) === canonicalBindings(right);
-const withPhase = (
-  transaction: DeviceLocalVaultRecoveryTransaction,
-  update: Partial<DeviceLocalVaultRecoveryTransaction>
-) => ({ ...transaction, ...update }) as DeviceLocalVaultRecoveryTransaction;
-
 export class DeviceLocalVaultCleanupJournal {
-  constructor(
-    private readonly storage: StorageAreaService,
-    private readonly readBindings: () => Promise<DeviceLocalVaultBindingSnapshot>,
-    private readonly removeDirectory: (folderId: string) => Promise<void>,
-    private readonly operations: {
-      readonly readPortableRaw: () => Promise<PlainStructuredObject>;
-      readonly writeBindings: (snapshot: DeviceLocalVaultBindingSnapshot) => Promise<void>;
-    }
-  ) {}
+  private readonly cleanup: DeviceLocalVaultCleanupExecutor;
+  private readonly legacyRecovery: DeviceLocalVaultLegacyV2Recovery;
+  private readonly localCommitter: DeviceLocalVaultLocalCommitter;
+  private readonly recoveryStorage: DeviceLocalVaultRecoveryStorage;
 
-  async prepare(input: PreparationInput): Promise<DeviceLocalVaultRecoveryTransaction> {
+  constructor(
+    storage: StorageAreaService,
+    readBindings: () => Promise<DeviceLocalVaultBindingSnapshot>,
+    removeDirectory: (folderId: string) => Promise<void>,
+    private readonly operations: DeviceLocalVaultRecoveryOperations
+  ) {
+    this.recoveryStorage = new DeviceLocalVaultRecoveryStorage(
+      storage,
+      readBindings,
+      operations.writeBindings,
+      operations.readPortableRaw
+    );
+    this.cleanup = new DeviceLocalVaultCleanupExecutor(this.recoveryStorage, removeDirectory);
+    this.legacyRecovery = new DeviceLocalVaultLegacyV2Recovery(this.recoveryStorage, this.cleanup);
+    this.localCommitter = new DeviceLocalVaultLocalCommitter(this.recoveryStorage);
+  }
+
+  async prepare(input: PreparationInput): Promise<DeviceLocalVaultRecoveryTransactionV3> {
     const transaction = await createPreparedDeviceLocalVaultRecoveryTransaction(input);
-    await this.replaceDirect(transaction);
+    await this.recoveryStorage.replace(transaction);
     return transaction;
   }
 
   async completePortableCommit(observedRaw: PlainStructuredObject): Promise<void> {
-    const transaction = await this.requireTransaction();
+    const transaction = await this.requireV3();
     const identity = await portableOptionsIdentity(observedRaw);
     if (identity !== transaction.portable.proposedIdentity) {
       throw new DeviceLocalVaultRecoveryError('EXTERNAL_SYNC_CONFLICT');
     }
-    const portableCommitted = withPhase(transaction, {
+    const portableCommitted = withDeviceLocalVaultRecoveryPhase(transaction, {
       phase: 'portable-committed',
       portable: { ...transaction.portable, observedCommittedIdentity: identity }
     });
-    await this.replaceDirect(portableCommitted);
-    const localCommitted = await this.commitLocalDirect(portableCommitted);
-    if (localCommitted) await this.cleanupDirect(localCommitted, false);
+    await this.recoveryStorage.replace(portableCommitted);
+    const committed = await this.attemptLocalCommit(portableCommitted);
+    try {
+      await this.cleanup.execute(committed);
+    } catch (error) {
+      console.warn('[background] Local vault cleanup deferred after commit:', error);
+    }
   }
 
   async recover(allowNoWriteCommit = true): Promise<void> {
-    const raw = await this.storage.get(DEVICE_LOCAL_VAULT_CLEANUP_JOURNAL_KEY);
+    const raw = await this.recoveryStorage.getRaw();
     if (raw === undefined) return;
-    const decoded = decodeDeviceLocalVaultRecoveryTransaction(raw);
-    if (decoded.kind !== 'transaction') {
+    const decoded = await decodeDeviceLocalVaultRecoveryTransaction(raw);
+    if (decoded.kind === 'legacy-unproven' || decoded.kind === 'invalid') {
       console.warn('[background] Local vault cleanup journal quarantined:', decoded.kind);
-      await this.storage.remove(DEVICE_LOCAL_VAULT_CLEANUP_JOURNAL_KEY);
+      await this.recoveryStorage.remove();
       return;
     }
-    let transaction = decoded.transaction;
+    if (decoded.kind === 'legacy-v2-transaction') {
+      await this.legacyRecovery.execute(decoded.transaction, allowNoWriteCommit);
+      return;
+    }
+    await this.recoverV3(decoded.transaction, allowNoWriteCommit);
+  }
+
+  private async recoverV3(
+    transaction: DeviceLocalVaultRecoveryTransactionV3,
+    allowNoWriteCommit: boolean
+  ): Promise<void> {
     if (transaction.phase === 'cleanup-complete' || transaction.phase === 'aborted') {
-      await this.storage.remove(DEVICE_LOCAL_VAULT_CLEANUP_JOURNAL_KEY);
+      await this.recoveryStorage.remove();
+      return;
+    }
+    if (transaction.phase === 'local-committed') {
+      await this.cleanup.execute(transaction);
       return;
     }
     if (transaction.phase === 'prepared') {
-      const currentIdentity = await this.readPortableIdentity();
-      const noWriteCommitted =
+      const current = await this.recoveryStorage.readPortableIdentity();
+      const noWrite =
         allowNoWriteCommit &&
         !transaction.portable.writeRequired &&
-        transaction.portable.preimageIdentity === transaction.portable.proposedIdentity &&
-        currentIdentity === transaction.portable.proposedIdentity;
+        transaction.portable.preimageIdentity === transaction.portable.proposedIdentity;
       if (
-        currentIdentity === transaction.portable.proposedIdentity &&
-        (noWriteCommitted || transaction.portable.writeRequired)
+        current === transaction.portable.proposedIdentity &&
+        (transaction.portable.writeRequired || noWrite)
       ) {
-        transaction = withPhase(transaction, {
+        transaction = withDeviceLocalVaultRecoveryPhase(transaction, {
           phase: 'portable-committed',
-          portable: { ...transaction.portable, observedCommittedIdentity: currentIdentity }
+          portable: { ...transaction.portable, observedCommittedIdentity: current }
         });
-        await this.replaceDirect(transaction);
+        await this.recoveryStorage.replace(transaction);
       } else {
-        const reason =
-          currentIdentity === transaction.portable.preimageIdentity
-            ? 'portable-not-committed'
-            : 'external-sync-conflict';
-        await this.restorePreviousIfOwned(transaction);
-        await this.abortDirect(transaction, reason);
+        const code: DeviceLocalVaultRecoveryError['code'] =
+          current === transaction.portable.preimageIdentity
+            ? 'OPTIONS_STORAGE_FAILURE'
+            : 'EXTERNAL_SYNC_CONFLICT';
+        await this.recoveryStorage.restorePreviousIfOwned(transaction);
+        await this.abort(
+          transaction,
+          code === 'EXTERNAL_SYNC_CONFLICT' ? 'external-sync-conflict' : 'portable-not-committed'
+        );
+        if (code === 'EXTERNAL_SYNC_CONFLICT') throw new DeviceLocalVaultRecoveryError(code);
         return;
       }
     }
     if (transaction.phase === 'portable-committed') {
-      const committed = await this.commitLocalDirect(transaction);
-      if (!committed) return;
-      transaction = committed;
-    }
-    await this.cleanupDirect(transaction, true);
-  }
-
-  private async commitLocalDirect(
-    transaction: DeviceLocalVaultRecoveryTransaction
-  ): Promise<DeviceLocalVaultRecoveryTransaction | null> {
-    if (!(await this.portableStillCommitted(transaction))) {
-      await this.restorePreviousIfOwned(transaction, true);
-      await this.abortDirect(transaction, 'external-sync-conflict');
-      return null;
-    }
-    const current = await this.readBindings();
-    if (sameBindings(current, transaction.previousBindings)) {
-      if (!sameBindings(current, transaction.proposedBindings)) {
-        await this.writeBindingsVerified(transaction.proposedBindings);
-      }
-    } else if (!sameBindings(current, transaction.proposedBindings)) {
-      await this.abortDirect(transaction, 'external-sync-conflict');
-      return null;
-    }
-    const committed = withPhase(transaction, { phase: 'local-committed' });
-    await this.replaceDirect(committed);
-    return committed;
-  }
-
-  private async cleanupDirect(
-    transaction: DeviceLocalVaultRecoveryTransaction,
-    failOnDeleteError: boolean
-  ): Promise<boolean> {
-    let currentTransaction = transaction;
-    for (const candidate of currentTransaction.remainingCleanupCandidates) {
-      if (!(await this.portableStillCommitted(currentTransaction))) {
-        await this.restorePreviousIfOwned(currentTransaction, true);
-        await this.abortDirect(currentTransaction, 'external-sync-conflict');
-        return false;
-      }
-      const currentBindings = await this.readBindings();
-      if (folderIds(currentBindings).has(candidate)) {
-        currentTransaction = await this.recordCandidateComplete(currentTransaction, candidate);
-        continue;
-      }
-      if (!sameBindings(currentBindings, currentTransaction.proposedBindings)) {
-        await this.abortDirect(currentTransaction, 'external-sync-conflict');
-        return false;
-      }
-      try {
-        await this.removeDirectory(candidate);
-      } catch (error) {
-        console.warn('[background] Local vault handle cleanup deferred:', {
-          folderId: candidate,
-          error
-        });
-        if (failOnDeleteError) throw new DeviceLocalVaultRecoveryError('OPTIONS_STORAGE_FAILURE');
-        return false;
-      }
-      currentTransaction = await this.recordCandidateComplete(currentTransaction, candidate);
-    }
-    await this.replaceDirect(
-      withPhase(currentTransaction, {
-        phase: 'cleanup-complete',
-        remainingCleanupCandidates: []
-      })
-    );
-    await this.storage.remove(DEVICE_LOCAL_VAULT_CLEANUP_JOURNAL_KEY);
-    return true;
-  }
-
-  private async recordCandidateComplete(
-    transaction: DeviceLocalVaultRecoveryTransaction,
-    candidate: string
-  ): Promise<DeviceLocalVaultRecoveryTransaction> {
-    const next = withPhase(transaction, {
-      remainingCleanupCandidates: transaction.remainingCleanupCandidates.filter(
-        (folderId) => folderId !== candidate
-      )
-    });
-    await this.replaceDirect(next);
-    return next;
-  }
-
-  private async restorePreviousIfOwned(
-    transaction: DeviceLocalVaultRecoveryTransaction,
-    requirePortablePreimage = false
-  ): Promise<void> {
-    if (
-      requirePortablePreimage &&
-      (await this.readPortableIdentity()) !== transaction.portable.preimageIdentity
-    )
+      const committed = await this.attemptLocalCommit(transaction);
+      await this.cleanup.execute(committed);
       return;
-    const current = await this.readBindings();
-    if (sameBindings(current, transaction.proposedBindings)) {
-      await this.writeBindingsVerified(transaction.previousBindings);
     }
-  }
-
-  private async abortDirect(
-    transaction: DeviceLocalVaultRecoveryTransaction,
-    abortReason: 'portable-not-committed' | 'external-sync-conflict'
-  ): Promise<void> {
-    await this.replaceDirect(withPhase(transaction, { phase: 'aborted', abortReason }));
-    await this.storage.remove(DEVICE_LOCAL_VAULT_CLEANUP_JOURNAL_KEY);
-  }
-
-  private async portableStillCommitted(transaction: DeviceLocalVaultRecoveryTransaction) {
-    return (await this.readPortableIdentity()) === transaction.portable.observedCommittedIdentity;
-  }
-
-  private async readPortableIdentity(): Promise<string> {
-    return portableOptionsIdentity(await this.operations.readPortableRaw());
-  }
-
-  private async writeBindingsVerified(snapshot: DeviceLocalVaultBindingSnapshot): Promise<void> {
-    await this.operations.writeBindings(snapshot);
-    if (!sameBindings(await this.readBindings(), snapshot)) {
-      throw new DeviceLocalVaultRecoveryError('OPTIONS_STORAGE_FAILURE');
+    if (transaction.phase === 'local-commit-inflight') {
+      const outcome = await this.localCommitter.execute(transaction, false);
+      if (outcome.kind === 'committed') {
+        const committed = outcome.transaction;
+        await this.cleanup.execute(committed);
+        return;
+      }
+      await this.compensate(
+        transaction,
+        outcome.kind === 'previous' ? 'OPTIONS_STORAGE_FAILURE' : 'EXTERNAL_SYNC_CONFLICT'
+      );
+      return;
     }
-  }
-
-  private async requireTransaction(): Promise<DeviceLocalVaultRecoveryTransaction> {
-    const decoded = decodeDeviceLocalVaultRecoveryTransaction(
-      await this.storage.get(DEVICE_LOCAL_VAULT_CLEANUP_JOURNAL_KEY)
+    if (transaction.phase === 'compensating') {
+      await this.compensate(
+        transaction,
+        transaction.failureCode ? 'OPTIONS_STORAGE_FAILURE' : 'EXTERNAL_SYNC_CONFLICT'
+      );
+      return;
+    }
+    await this.finishBindingCompensation(
+      transaction,
+      transaction.failureCode ? 'OPTIONS_STORAGE_FAILURE' : 'EXTERNAL_SYNC_CONFLICT'
     );
-    if (decoded.kind !== 'transaction')
-      throw new DeviceLocalVaultRecoveryError('OPTIONS_STORAGE_FAILURE');
-    return decoded.transaction;
   }
 
-  private async replaceDirect(transaction: DeviceLocalVaultRecoveryTransaction): Promise<void> {
-    if (decodeDeviceLocalVaultRecoveryTransaction(transaction).kind !== 'transaction')
+  private async attemptLocalCommit(
+    transaction: DeviceLocalVaultRecoveryTransactionV3
+  ): Promise<DeviceLocalVaultRecoveryTransactionV3> {
+    const outcome = await this.localCommitter.execute(transaction, true);
+    if (outcome.kind === 'committed') return outcome.transaction;
+    return this.compensate(
+      withDeviceLocalVaultRecoveryPhase(transaction, { phase: 'local-commit-inflight' }),
+      outcome.kind === 'previous' ? 'OPTIONS_STORAGE_FAILURE' : 'EXTERNAL_SYNC_CONFLICT'
+    );
+  }
+
+  private async compensate(
+    transaction: DeviceLocalVaultRecoveryTransactionV3,
+    code: DeviceLocalVaultRecoveryError['code']
+  ): Promise<never> {
+    const operation = this.operations.compensate;
+    if (!operation) throw new DeviceLocalVaultRecoveryError('OPTIONS_STORAGE_FAILURE');
+    const compensating = withDeviceLocalVaultRecoveryPhase(transaction, {
+      phase: 'compensating',
+      ...(code === 'OPTIONS_STORAGE_FAILURE' ? { failureCode: code } : {})
+    });
+    await this.recoveryStorage.replace(compensating);
+    let portableState: 'proposal' | 'preimage' | 'third';
+    try {
+      ({ portableState } = await operation({
+        portablePreimage: compensating.portable.preimage,
+        preimageIdentity: compensating.portable.preimageIdentity,
+        proposedIdentity: compensating.portable.proposedIdentity,
+        privacyTarget: compensating.privacy.target,
+        privacyRestoreRequired: compensating.privacy.restoreRequired
+      }));
+    } catch {
       throw new DeviceLocalVaultRecoveryError('OPTIONS_STORAGE_FAILURE');
-    await this.storage.set(DEVICE_LOCAL_VAULT_CLEANUP_JOURNAL_KEY, transaction);
+    }
+    const { failureCode: _failureCode, ...conflictBase } = compensating;
+    const restored =
+      portableState === 'third'
+        ? withDeviceLocalVaultRecoveryPhase(conflictBase as DeviceLocalVaultRecoveryTransactionV3, {
+            phase: 'portable-privacy-restored'
+          })
+        : withDeviceLocalVaultRecoveryPhase(compensating, {
+            phase: 'portable-privacy-restored'
+          });
+    await this.recoveryStorage.replace(restored);
+    return this.finishBindingCompensation(
+      restored,
+      portableState === 'third' ? 'EXTERNAL_SYNC_CONFLICT' : code
+    );
+  }
+
+  private async finishBindingCompensation(
+    transaction: DeviceLocalVaultRecoveryTransactionV3,
+    code: DeviceLocalVaultRecoveryError['code']
+  ): Promise<never> {
+    const current = await this.recoveryStorage.readBindings();
+    let finalCode = code;
+    if (sameDeviceLocalVaultBindings(current, transaction.proposedBindings)) {
+      await this.recoveryStorage.writeBindingsVerified(transaction.previousBindings);
+    } else if (!sameDeviceLocalVaultBindings(current, transaction.previousBindings)) {
+      finalCode = 'EXTERNAL_SYNC_CONFLICT';
+    }
+    await this.abort(
+      transaction,
+      finalCode === 'EXTERNAL_SYNC_CONFLICT' ? 'external-sync-conflict' : 'local-commit-failed'
+    );
+    throw new DeviceLocalVaultRecoveryError(finalCode);
+  }
+
+  private async abort(
+    transaction: DeviceLocalVaultRecoveryTransactionV3,
+    abortReason: NonNullable<DeviceLocalVaultRecoveryTransactionV3['abortReason']>
+  ) {
+    await this.recoveryStorage.replace(
+      withDeviceLocalVaultRecoveryPhase(transaction, { phase: 'aborted', abortReason })
+    );
+    await this.recoveryStorage.remove();
+  }
+
+  private async requireV3() {
+    const decoded = await decodeDeviceLocalVaultRecoveryTransaction(
+      await this.recoveryStorage.getRaw()
+    );
+    if (decoded.kind !== 'v3-transaction') {
+      throw new DeviceLocalVaultRecoveryError('OPTIONS_STORAGE_FAILURE');
+    }
+    return decoded.transaction;
   }
 }

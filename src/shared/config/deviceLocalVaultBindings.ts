@@ -186,7 +186,8 @@ export async function executeDeviceLocalVaultBindingMutation(
   const apply = (raw: PlainStructuredObject, queued: OptionsMutationCommand) => {
     const mutation = applyCommand(composeRaw(raw, previous), queued);
     next = captureDeviceLocalVaultBindings(decodeStoredOptions(mutation.next).runtime, source);
-    bindingsChanged = JSON.stringify(previous) !== JSON.stringify(next);
+    const equality = plainStructuredDataEqual(previous, next);
+    bindingsChanged = !equality.ok || !equality.equal;
     const portable = scrubDeviceLocalVaultBindings(mutation.next);
     const verification: OptionsMutationVerification =
       mutation.verification.kind === 'full'
@@ -203,15 +204,13 @@ export async function executeDeviceLocalVaultBindingMutation(
   let result: Awaited<ReturnType<DeviceLocalPrivacyCommitter['execute']>>;
   try {
     result = await committer.execute(command, apply, quotaBytesPerItem, {
-      beforePortableDecision: async ({ portablePreimage, portableProposal, writeRequired }) => {
+      beforePortableDecision: async (attempt) => {
         if (!cleanupJournal || !bindingsChanged) return;
         await cleanupJournal.prepare({
+          ...attempt,
           transactionId: operationId,
           previousBindings: previous,
-          proposedBindings: next,
-          portablePreimage,
-          portableProposal,
-          writeRequired
+          proposedBindings: next
         });
       }
     });

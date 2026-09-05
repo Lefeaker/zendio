@@ -35,11 +35,13 @@ describe('device-local vault recovery transaction', () => {
       proposedBindings: bindings('folder-new'),
       portablePreimage: { vaultRouter: { defaultVaultId: 'primary' } },
       portableProposal: { vaultRouter: { defaultVaultId: 'primary', vaults: [] } },
-      writeRequired: true
+      writeRequired: true,
+      privacyTarget: { analytics: false, errorReporting: false, debugMode: false },
+      privacyWriteRequired: true
     });
 
     expect(transaction).toMatchObject({
-      version: 2,
+      version: 3,
       transactionId: 'operation-1',
       phase: 'prepared',
       cleanupCandidates: ['folder-old'],
@@ -47,10 +49,17 @@ describe('device-local vault recovery transaction', () => {
       portable: {
         identityAlgorithm: 'sha256-canonical-plain-json-v1',
         writeRequired: true
+      },
+      privacy: {
+        restoreRequired: true,
+        target: { analytics: false, errorReporting: false, debugMode: false }
       }
     });
-    expect(decodeDeviceLocalVaultRecoveryTransaction(transaction)).toEqual({
-      kind: 'transaction',
+    expect(transaction.portable.preimage).toEqual({
+      vaultRouter: { defaultVaultId: 'primary' }
+    });
+    expect(await decodeDeviceLocalVaultRecoveryTransaction(transaction)).toEqual({
+      kind: 'v3-transaction',
       transaction
     });
   });
@@ -59,8 +68,35 @@ describe('device-local vault recovery transaction', () => {
     { version: 1, folderIds: ['folder-old'] },
     { version: 2, transactionId: 'operation-1', phase: 'prepared' },
     { version: 99, folderIds: ['folder-old'] }
-  ])('quarantines legacy or invalid records without authorizing cleanup: %#', (value) => {
-    expect(decodeDeviceLocalVaultRecoveryTransaction(value).kind).not.toBe('transaction');
+  ])('quarantines legacy or invalid records without authorizing cleanup: %#', async (value) => {
+    expect((await decodeDeviceLocalVaultRecoveryTransaction(value)).kind).not.toBe(
+      'v3-transaction'
+    );
+  });
+
+  it('decodes accepted v2 forward-recovery records without inventing compensation intent', async () => {
+    const preimageIdentity = await portableOptionsIdentity({ value: 'before' });
+    const proposedIdentity = await portableOptionsIdentity({ value: 'after' });
+    const transaction = {
+      version: 2,
+      transactionId: 'legacy-v2',
+      phase: 'prepared',
+      previousBindings: bindings('folder-old'),
+      proposedBindings: bindings(),
+      cleanupCandidates: ['folder-old'],
+      remainingCleanupCandidates: ['folder-old'],
+      portable: {
+        identityAlgorithm: 'sha256-canonical-plain-json-v1',
+        preimageIdentity,
+        proposedIdentity,
+        writeRequired: true
+      }
+    };
+
+    expect(await decodeDeviceLocalVaultRecoveryTransaction(transaction)).toEqual({
+      kind: 'legacy-v2-transaction',
+      transaction
+    });
   });
 
   it('rejects bounded-shape and phase invariant violations', async () => {
@@ -70,12 +106,17 @@ describe('device-local vault recovery transaction', () => {
       proposedBindings: bindings(),
       portablePreimage: { value: 'before' },
       portableProposal: { value: 'after' },
-      writeRequired: true
+      writeRequired: true,
+      privacyTarget: { analytics: false, errorReporting: false, debugMode: false },
+      privacyWriteRequired: true
     });
     const invalid = [
       { ...valid, transactionId: 'x'.repeat(129) },
       { ...valid, cleanupCandidates: ['folder-not-in-preimage'] },
       { ...valid, portable: { ...valid.portable, writeRequired: false } },
+      { ...valid, portable: { ...valid.portable, preimage: { value: 'tampered' } } },
+      { ...valid, privacy: { ...valid.privacy, target: { analytics: false } } },
+      { ...valid, failureCode: 'OPTIONS_STORAGE_FAILURE' },
       { ...valid, abortReason: 'external-sync-conflict' },
       {
         ...valid,
@@ -87,7 +128,7 @@ describe('device-local vault recovery transaction', () => {
     ];
 
     for (const candidate of invalid) {
-      expect(decodeDeviceLocalVaultRecoveryTransaction(candidate).kind).toBe('invalid');
+      expect((await decodeDeviceLocalVaultRecoveryTransaction(candidate)).kind).toBe('invalid');
     }
   });
 });

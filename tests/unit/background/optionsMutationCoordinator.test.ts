@@ -24,11 +24,14 @@ import type {
   PlainStructuredObject,
   PlainStructuredValue
 } from '../../../src/shared/config/losslessObjectBoundaryTypes';
+import { portableOptionsIdentity } from '../../../src/shared/config/deviceLocalVaultRecoveryTransaction';
 import type { CompleteOptions } from '../../../src/shared/types/options';
 import {
   OptionsMutationError,
   type OptionsPatch
 } from '../../../src/shared/types/optionsMutationMessages';
+
+const privacy0 = { analytics: false, errorReporting: false, debugMode: false } as const;
 
 function clone<T>(value: T): T {
   return structuredClone(value);
@@ -87,7 +90,8 @@ function createCoordinator(
 function createVaultJournal(
   storage: ReturnType<typeof createMemoryStorageService>,
   repository: VaultRawRepository,
-  removeDirectory: (folderId: string) => Promise<void> = () => Promise.resolve()
+  removeDirectory: (folderId: string) => Promise<void> = () => Promise.resolve(),
+  compensate?: NonNullable<DeviceLocalPrivacyCommitter['compensate']>
 ): DeviceLocalVaultCleanupJournal {
   return new DeviceLocalVaultCleanupJournal(
     storage.local,
@@ -98,7 +102,21 @@ function createVaultJournal(
         const raw = await repository.readRaw();
         return typeof raw === 'object' && raw !== null && !Array.isArray(raw) ? raw : {};
       },
-      writeBindings: (snapshot) => repository.writeVaultBindings(snapshot)
+      writeBindings: (snapshot) => repository.writeVaultBindings(snapshot),
+      compensate:
+        compensate ??
+        (async (request) => {
+          const raw = repository.raw as PlainStructuredObject;
+          const identity = await portableOptionsIdentity(raw);
+          const portableState =
+            identity === request.proposedIdentity
+              ? 'proposal'
+              : identity === request.preimageIdentity
+                ? 'preimage'
+                : 'third';
+          if (portableState === 'proposal') repository.raw = clone(request.portablePreimage);
+          return { portableState };
+        })
     }
   );
 }
@@ -115,7 +133,9 @@ function commitPortable(repository: VaultRawRepository): DeviceLocalPrivacyCommi
       portablePreimage: raw,
       portableProposal: mutation.next,
       writeRequired,
-      verification: mutation.verification
+      verification: mutation.verification,
+      privacyTarget: privacy0,
+      privacyWriteRequired: false
     });
     if (writeRequired) repository.raw = clone(mutation.next);
     return { raw: mutation.next, didWrite: writeRequired };
@@ -305,7 +325,7 @@ describe('OptionsMutationCoordinator', () => {
     expect(prepare).toHaveBeenCalledWith(expect.objectContaining({ writeRequired: false }));
   });
 
-  it('keeps portable commit evidence when the local vault binding write fails', async () => {
+  it('keeps mixed privacy and vault state atomic when the binding write fails', async () => {
     const originalRaw: PlainStructuredObject = {
       privacyPreferences: { analytics: false, errorReporting: false, debugMode: false },
       vaultRouter: {
@@ -339,7 +359,9 @@ describe('OptionsMutationCoordinator', () => {
           portablePreimage: originalRaw,
           portableProposal: mutation.next,
           writeRequired: true,
-          verification: mutation.verification
+          verification: mutation.verification,
+          privacyTarget: privacy0,
+          privacyWriteRequired: true
         });
         repository.raw = clone(mutation.next);
         return { raw: mutation.next, privacy, didWrite: true };
@@ -378,14 +400,14 @@ describe('OptionsMutationCoordinator', () => {
     ).rejects.toEqual(new OptionsMutationError('OPTIONS_STORAGE_FAILURE'));
 
     expect(execute).toHaveBeenCalledOnce();
-    expect(repository.raw).not.toEqual(originalRaw);
+    expect(repository.raw).toEqual(originalRaw);
     expect(repository.bindings).toEqual({
       version: 1,
       bindings: { primary: { folderId: 'folder-old', folderName: 'Old Folder' } }
     });
-    await expect(storage.local.get(DEVICE_LOCAL_VAULT_CLEANUP_JOURNAL_KEY)).resolves.toMatchObject({
-      phase: 'portable-committed'
-    });
+    await expect(
+      storage.local.get(DEVICE_LOCAL_VAULT_CLEANUP_JOURNAL_KEY)
+    ).resolves.toBeUndefined();
   });
 
   it('restores the previous vault binding when the coordinated commit fails', async () => {
@@ -492,7 +514,9 @@ describe('OptionsMutationCoordinator', () => {
           portablePreimage: repository.raw as PlainStructuredObject,
           portableProposal: mutation.next,
           writeRequired: true,
-          verification: mutation.verification
+          verification: mutation.verification,
+          privacyTarget: privacy0,
+          privacyWriteRequired: false
         });
         portableWrite();
         repository.raw = clone(mutation.next);
@@ -538,7 +562,7 @@ describe('OptionsMutationCoordinator', () => {
     expect(repository.raw).toEqual(originalRaw);
     expect(removeDirectory).toHaveBeenCalledWith('folder-old');
     await expect(storage.local.get(DEVICE_LOCAL_VAULT_CLEANUP_JOURNAL_KEY)).resolves.toMatchObject({
-      version: 2,
+      version: 3,
       phase: 'local-committed',
       remainingCleanupCandidates: ['folder-old']
     });
@@ -632,7 +656,9 @@ describe('OptionsMutationCoordinator', () => {
       proposedBindings: { version: 1, bindings: {} },
       portablePreimage,
       portableProposal,
-      writeRequired: true
+      writeRequired: true,
+      privacyTarget: privacy0,
+      privacyWriteRequired: false
     });
     repository.raw = portableProposal;
 
@@ -681,7 +707,9 @@ describe('OptionsMutationCoordinator', () => {
       proposedBindings: { version: 1, bindings: {} },
       portablePreimage,
       portableProposal,
-      writeRequired: true
+      writeRequired: true,
+      privacyTarget: privacy0,
+      privacyWriteRequired: false
     });
     repository.raw = portableProposal;
     const execute = vi.fn<DeviceLocalPrivacyCommitter['execute']>(commitPortable(repository));
