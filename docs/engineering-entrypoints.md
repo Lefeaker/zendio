@@ -482,6 +482,7 @@ warning `108` / hard stop `118`；2026-06-20 Options/onboarding closeout 将
 - Local Vault 事务：`src/background/services/optionsMutationCoordinator.ts` 的 FIFO 在 mutation 前完成 privacy、Local Vault recovery 与 migration；初始化失败后允许下一次外部请求重新进入 barrier。`src/shared/config/deviceLocalVaultCleanupJournal.ts` 与 `deviceLocalVaultRecovery{Schema,Codec,Transaction}.ts` 持有 v3 journal；`deviceLocalVaultBindingCommitter.ts`、`deviceLocalVaultAuthoritativePublication.ts`、`deviceLocalVaultCleanupExecutor.ts` 分别负责 binding、repository publication 与 commit 后 cleanup。对应 unit 入口在 `tests/unit/background/optionsMutationCoordinator.test.ts`、`tests/unit/infrastructure/ChromeOptionsRepository.test.ts` 和 `tests/unit/shared/deviceLocalVault*.test.ts`
 - Video bootstrap：`src/content/clipper/services/selectionController.ts` 调用 `src/content/video/application/videoSessionPort.ts` 的 `resolveVideoDestinationBootstrap()`，先 await session start，再 ingest capture；选择来源由 `destinationBootstrap.provenance` 显式携带。专项 unit 入口为 `tests/unit/content/selectionController.test.ts` 与 `tests/unit/content/video/VideoSession.test.ts`
 - content 主链：`src/content/index.ts -> src/content/runtime/*`
+- 动态导出目标事件：`surfaceChrome.ts` 将选择 action 绑定在稳定的 `.export-destination-options` 容器；实时 reconciliation 克隆新按钮时不会复制原生监听器，因此 Clipper 从真实事件目标解析容器内未禁用的按钮。Reader/Video 克隆 surface template 后仍由各自现有根事件 owner 单次分发，不额外绑定选择监听。回归入口为 `exportDestinationState.test.ts`、`clipperDialog.test.ts` 与 `sessionPanelsIncremental.browser.test.ts`；覆盖新增 Vault 的嵌套点击、显式 A 在默认值变为 B 后保留，以及首个 Video 视图和持久化 draft。
 
 ## 已降级为兼容壳的入口
 

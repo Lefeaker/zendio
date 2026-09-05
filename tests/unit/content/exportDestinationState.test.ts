@@ -10,8 +10,149 @@ import type { IOptionsRepository } from '@shared/repositories/IOptionsRepository
 import type { CompleteOptions } from '@shared/types/options';
 import { getRestDefaults } from '../../utils/restDefaults';
 import type { ExportDestinationSurfacePreview } from '@ui/stitch-runtime';
+import { el, renderRuntimeNode, surfaceComponents } from '@ui/stitch-runtime';
+import { exportDestinationRow } from '@ui/stitch-surfaces/builders/surfaceChrome';
+import { resolveClipperDestinationId } from '@content/clipper/components/clipperDialogBuildContext';
+import { createTaskSuccessSurfaceContent } from '@content/stitch/runtimeSurfaceContent';
+import { bindReaderDialogPanelEvents } from '@content/reader/ui/readerDialogPanelEvents';
+import { bindVideoDialogPanelEvents } from '@content/video/ui/videoDialogPanelEvents';
 
 const REST_DEFAULTS = getRestDefaults();
+
+function eventPreview(ids: string[]): ExportDestinationSurfacePreview {
+  const selected = ids[0] ?? 'downloads';
+  return {
+    id: selected,
+    kind: selected === 'downloads' ? 'downloads' : 'vault',
+    label: selected,
+    path: 'notes/item.md',
+    hasConfiguredVault: ids.some((id) => id !== 'downloads'),
+    options: ids.map((id) => ({
+      id,
+      kind: id === 'downloads' ? 'downloads' : 'vault',
+      label: id,
+      path: `notes/${id}.md`,
+      selected: id === selected
+    }))
+  };
+}
+
+function renderedDestination(onSelect: (id: string) => void): HTMLElement {
+  const row = renderRuntimeNode(exportDestinationRow(eventPreview(['downloads'])), {
+    appData: createTaskSuccessSurfaceContent(),
+    state: { previewTheme: 'dark' },
+    el,
+    ui: surfaceComponents,
+    dispatch: (_id, _args, _value, event) => {
+      const id = resolveClipperDestinationId(event);
+      if (id) onSelect(id);
+    }
+  });
+  if (!(row instanceof HTMLElement)) throw new Error('Destination row missing');
+  return row;
+}
+
+function requiredElement(root: ParentNode, selector: string): HTMLElement {
+  const element = root.querySelector(selector);
+  if (!(element instanceof HTMLElement)) throw new Error(`Element missing: ${selector}`);
+  return element;
+}
+
+describe('real destination renderer event ownership', () => {
+  it('dispatches newly inserted nested options exactly once through a stable container', () => {
+    const seen: string[] = [];
+    const root = document.createElement('div');
+    const row = renderedDestination((id) => seen.push(id));
+    root.append(row);
+    const container = requiredElement(row, '.export-destination-options');
+    const downloads = requiredElement(row, '[data-destination-id="downloads"]');
+    downloads.click();
+    expect(seen).toEqual(['downloads']);
+    seen.length = 0;
+    expect(reconcileLiveExportDestinationRow(root, eventPreview(['vault-a', 'downloads']))).toBe(
+      true
+    );
+    expect(root.firstChild).toBe(row);
+    expect(requiredElement(row, '.export-destination-options')).toBe(container);
+    expect(requiredElement(row, '[data-destination-id="downloads"]')).toBe(downloads);
+    const inserted = requiredElement(row, '[data-destination-id="vault-a"]');
+    requiredElement(inserted, 'span').click();
+    expect(seen).toEqual(['vault-a']);
+    for (let index = 0; index < 20; index += 1) {
+      expect(reconcileLiveExportDestinationRow(root, eventPreview(['vault-a', 'downloads']))).toBe(
+        true
+      );
+    }
+    seen.length = 0;
+    inserted.click();
+    requiredElement(downloads, 'span').click();
+    expect(seen).toEqual(['vault-a', 'downloads']);
+    seen.length = 0;
+    container.click();
+    requiredElement(row, 'summary').click();
+    if (!(inserted instanceof HTMLButtonElement)) throw new Error('Expected native button');
+    inserted.disabled = true;
+    requiredElement(inserted, 'span').dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    expect(seen).toEqual([]);
+    inserted.disabled = false;
+    expect(reconcileLiveExportDestinationRow(root, eventPreview(['downloads']))).toBe(true);
+    requiredElement(inserted, 'span').click();
+    expect(seen).toEqual([]);
+  });
+
+  it.each([
+    { name: 'Reader', bind: bindReaderDialogPanelEvents },
+    { name: 'Video', bind: bindVideoDialogPanelEvents }
+  ])('$name retains one delegated owner after cloning and disposes it', ({ bind }) => {
+    const direct = vi.fn<(id: string) => void>();
+    const root = document.createElement('div');
+    root.append(renderedDestination(direct).cloneNode(true));
+    const selectDestination = vi.fn<(id: string) => void>();
+    const noop = () => undefined;
+    const handle = {
+      root,
+      dialog: root,
+      sessionWindow: root,
+      sessionModal: root,
+      collapseTrigger: document.createElement('button'),
+      itemList: root,
+      status: root,
+      patchChrome: noop,
+      updateSessionPresentation: noop,
+      dispose: noop
+    };
+    const handlers = {
+      isCollapsed: () => false,
+      expandCollapsedPanel: noop,
+      finish: noop,
+      cancel: noop,
+      toggleCollapse: noop,
+      selectDestination,
+      deleteHighlight: noop,
+      saveHighlight: noop,
+      focusHighlight: noop,
+      focusInput: noop,
+      input: noop,
+      keydown: noop,
+      addCapture: noop,
+      deleteCapture: noop,
+      toggleScreenshot: noop,
+      focusCapture: noop,
+      blurInput: noop
+    };
+    const dispose = bind(handle, handlers);
+    expect(reconcileLiveExportDestinationRow(root, eventPreview(['vault-a', 'downloads']))).toBe(
+      true
+    );
+    requiredElement(root, '[data-destination-id="vault-a"] span').click();
+    requiredElement(root, '[data-destination-id="downloads"]').click();
+    expect(selectDestination.mock.calls).toEqual([['vault-a'], ['downloads']]);
+    expect(direct).not.toHaveBeenCalled();
+    dispose();
+    requiredElement(root, '[data-destination-id="vault-a"]').click();
+    expect(selectDestination).toHaveBeenCalledTimes(2);
+  });
+});
 
 function createOptions(
   vaults: NonNullable<CompleteOptions['vaultRouter']>['vaults']

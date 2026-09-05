@@ -133,8 +133,12 @@ export function exportDestinationRow(
           element('span', { className: 'export-destination-path', text: destination.path })
         ])
       ]),
-      div(
-        'export-destination-options',
+      element(
+        'div',
+        {
+          className: 'export-destination-options',
+          onClick: { id: 'export-destination:select' }
+        },
         destination.options.map((option) =>
           element(
             'button',
@@ -146,8 +150,7 @@ export function exportDestinationRow(
               dataset: {
                 actionId: 'export-destination:select',
                 destinationId: option.id
-              },
-              onClick: { id: 'export-destination:select' }
+              }
             },
             [
               element('span', { className: 'export-destination-option-label', text: option.label }),
