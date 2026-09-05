@@ -9,7 +9,6 @@ import {
   DEVICE_LOCAL_VAULT_CLEANUP_JOURNAL_KEY,
   DeviceLocalVaultRecoveryError,
   createPreparedDeviceLocalVaultRecoveryTransaction,
-  decodeDeviceLocalVaultRecoveryTransaction,
   type DeviceLocalPrivacyCommitter,
   type DeviceLocalVaultRecoveryObservation,
   type DeviceLocalVaultRecoveryTransactionV3,
@@ -20,10 +19,6 @@ export { DEVICE_LOCAL_VAULT_CLEANUP_JOURNAL_KEY, DeviceLocalVaultRecoveryError }
 type PreparationInput = Parameters<typeof createPreparedDeviceLocalVaultRecoveryTransaction>[0];
 type RecoveryCode = DeviceLocalVaultRecoveryError['code'];
 type RecoveryOperations = Required<Pick<DeviceLocalPrivacyCommitter, 'observe' | 'compensate'>>;
-const committedResult = (observation?: DeviceLocalVaultRecoveryObservation) =>
-  observation
-    ? { raw: observation.portableRaw, privacy: observation.privacy, didWrite: true as const }
-    : null;
 const isConflict = (observation: DeviceLocalVaultRecoveryObservation) =>
   observation.portableState === 'third' || observation.privacyState === 'third';
 
@@ -57,9 +52,8 @@ export class DeviceLocalVaultCleanupJournal {
     outcomeCode: RecoveryCode = 'OPTIONS_STORAGE_FAILURE',
     deferCleanupFailure = false
   ) {
-    const raw = await this.recoveryStorage.getRaw();
-    if (raw === undefined) return null;
-    const decoded = await decodeDeviceLocalVaultRecoveryTransaction(raw);
+    const decoded = await this.recoveryStorage.readRecord();
+    if (decoded === null) return null;
     if (
       decoded.kind === 'legacy-unproven' ||
       decoded.kind === 'legacy-v3-unproven' ||
@@ -155,7 +149,11 @@ export class DeviceLocalVaultCleanupJournal {
     observation: DeviceLocalVaultRecoveryObservation | undefined,
     allowWrite: boolean,
     deferCleanupFailure: boolean
-  ) {
+  ): Promise<{
+    raw: DeviceLocalVaultRecoveryObservation['portableRaw'];
+    privacy: DeviceLocalVaultRecoveryObservation['privacy'];
+    didWrite: true;
+  } | null> {
     const inflight =
       transaction.phase === 'forward-committed'
         ? withDeviceLocalVaultRecoveryPhase(transaction, { phase: 'local-commit-inflight' })
@@ -169,7 +167,9 @@ export class DeviceLocalVaultCleanupJournal {
         if (!deferCleanupFailure) throw error;
         console.warn('[background] Local vault cleanup deferred after commit:', error);
       }
-      return committedResult(observation);
+      return observation
+        ? { raw: observation.portableRaw, privacy: observation.privacy, didWrite: true }
+        : null;
     }
     const code = outcome.kind === 'third' ? 'EXTERNAL_SYNC_CONFLICT' : 'OPTIONS_STORAGE_FAILURE';
     return this.compensate(inflight, code, true);
@@ -180,8 +180,8 @@ export class DeviceLocalVaultCleanupJournal {
     bindingWriteMayHaveOccurred: boolean
   ): Promise<never> {
     const priorConflict = transaction.recovery?.outcomeCode === 'EXTERNAL_SYNC_CONFLICT';
-    const recovery = {
-      outcomeCode: priorConflict ? ('EXTERNAL_SYNC_CONFLICT' as const) : code,
+    const recovery: NonNullable<DeviceLocalVaultRecoveryTransactionV3['recovery']> = {
+      outcomeCode: priorConflict ? 'EXTERNAL_SYNC_CONFLICT' : code,
       bindingWriteMayHaveOccurred
     };
     const compensating = withDeviceLocalVaultRecoveryPhase(transaction, {
@@ -238,10 +238,8 @@ export class DeviceLocalVaultCleanupJournal {
     await this.recoveryStorage.remove();
   }
   private async requireV3() {
-    const decoded = await decodeDeviceLocalVaultRecoveryTransaction(
-      await this.recoveryStorage.getRaw()
-    );
-    if (decoded.kind !== 'v3-transaction')
+    const decoded = await this.recoveryStorage.readRecord();
+    if (decoded?.kind !== 'v3-transaction')
       throw new DeviceLocalVaultRecoveryError('OPTIONS_STORAGE_FAILURE');
     return decoded.transaction;
   }

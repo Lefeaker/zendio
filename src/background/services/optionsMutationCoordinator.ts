@@ -46,7 +46,7 @@ export interface BackgroundOptionsReader {
   readDecoded(): Promise<DecodedStoredOptions>;
   onChange(callback: (options: CompleteOptions) => void): () => void;
 }
-const isObject = (value: PlainStructuredValue | null): value is PlainStructuredObject =>
+const isObject = (value: PlainStructuredValue | undefined): value is PlainStructuredObject =>
   typeof value === 'object' && value !== null && !Array.isArray(value);
 const clone = <T>(value: T): T =>
   value === undefined || value === null ? value : globalThis.structuredClone(value);
@@ -71,8 +71,7 @@ const readPath = (
   path: readonly string[]
 ): PlainStructuredValue | undefined =>
   path.reduce<PlainStructuredValue | undefined>(
-    (current, part) =>
-      isObject(current ?? null) ? (current as PlainStructuredObject)[part] : undefined,
+    (current, part) => (isObject(current) ? current[part] : undefined),
     raw
   );
 function expectedPatchValues(
@@ -106,25 +105,24 @@ function normalizeRaw(value: PlainStructuredValue | null): PlainStructuredObject
     throw new OptionsMutationError('OPTIONS_MUTATION_REJECTED');
   return snapshot.value;
 }
+const hasVaultBindings = (
+  repository: OptionsRawStorageRepository
+): repository is OptionsRawStorageRepository & DeviceLocalVaultBindingRepository =>
+  'readVaultBindings' in repository &&
+  typeof repository.readVaultBindings === 'function' &&
+  'writeVaultBindings' in repository &&
+  typeof repository.writeVaultBindings === 'function';
 function resolveVaultContext(
   repository: OptionsRawStorageRepository,
   command: OptionsMutationCommand
-) {
-  const candidate = repository as Partial<DeviceLocalVaultBindingRepository>;
-  if (
-    typeof candidate.readVaultBindings !== 'function' ||
-    typeof candidate.writeVaultBindings !== 'function'
-  )
-    return null;
+): { repository: DeviceLocalVaultBindingRepository; source: 'rest' | 'vaultRouter' } | null {
+  if (!hasVaultBindings(repository)) return null;
   const roots = command.kind === 'patch' ? command.patches.map(({ path }) => path[0]) : [];
   if (command.kind === 'patch' && !roots.some((root) => root === 'rest' || root === 'vaultRouter'))
     return null;
-  const source = roots.includes('vaultRouter')
-    ? 'vaultRouter'
-    : command.kind === 'replace' && !('vaultRouter' in command.replacement)
-      ? 'rest'
-      : 'vaultRouter';
-  return { repository: candidate as DeviceLocalVaultBindingRepository, source } as const;
+  const source =
+    command.kind === 'replace' && !('vaultRouter' in command.replacement) ? 'rest' : 'vaultRouter';
+  return { repository, source };
 }
 export class OptionsMutationCoordinator {
   private tail: Promise<void> = Promise.resolve();
@@ -157,7 +155,7 @@ export class OptionsMutationCoordinator {
       await this.options.deviceLocalVaultCleanupJournal?.recover();
       await this.executeQueued({ kind: 'migrate' }, false);
     });
-    return (this.initialization = pending.catch((error: unknown) => {
+    return (this.initialization = pending.catch((error) => {
       this.initialization = undefined;
       throw error;
     }));
