@@ -260,6 +260,26 @@ describe('DeviceLocalVaultCleanupJournal forward privacy protocol', () => {
     ).resolves.toBeUndefined();
   });
 
+  it('aborts before portable or privacy forward work when the B1 stage fails', async () => {
+    const state = harness({
+      writeBindings: () => Promise.reject(new Error('binding storage unavailable'))
+    });
+    const journal = state.createJournal();
+    await journal.prepare(preparation);
+
+    await expect(journal.beginForward()).rejects.toMatchObject({
+      code: 'OPTIONS_STORAGE_FAILURE'
+    });
+
+    expect(state.portable()).toEqual(portablePreimage);
+    expect(state.privacy()).toEqual(privacy0);
+    expect(state.current()).toEqual(previous);
+    expect(state.removeDirectory).not.toHaveBeenCalled();
+    await expect(
+      state.storage.local.get(DEVICE_LOCAL_VAULT_CLEANUP_JOURNAL_KEY)
+    ).resolves.toBeUndefined();
+  });
+
   it('compensates forward-inflight P1/R without writing B1 or deleting', async () => {
     const state = harness({ portable: portableProposal, privacy: privacy0 });
     await state.storage.local.set(
@@ -323,7 +343,7 @@ describe('DeviceLocalVaultCleanupJournal forward privacy protocol', () => {
     expect(state.removeDirectory).not.toHaveBeenCalled();
   });
 
-  it('does not restore an unowned B1 when compensation started before binding write', async () => {
+  it('restores a staged B1 from every forward-inflight compensation', async () => {
     const state = harness({ current: proposed, portable: portableProposal, privacy: privacy0 });
     await state.storage.local.set(
       DEVICE_LOCAL_VAULT_CLEANUP_JOURNAL_KEY,
@@ -331,10 +351,10 @@ describe('DeviceLocalVaultCleanupJournal forward privacy protocol', () => {
     );
 
     await expect(state.createJournal().recover()).rejects.toMatchObject({
-      code: 'EXTERNAL_SYNC_CONFLICT'
+      code: 'OPTIONS_STORAGE_FAILURE'
     });
 
-    expect(state.current()).toEqual(proposed);
+    expect(state.current()).toEqual(previous);
     expect(state.portable()).toEqual(portablePreimage);
     expect(state.removeDirectory).not.toHaveBeenCalled();
   });

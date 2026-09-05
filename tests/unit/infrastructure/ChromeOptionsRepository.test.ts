@@ -9,6 +9,11 @@ import type {
   StorageChangeCallback,
   StorageService
 } from '../../../src/platform/interfaces/storage';
+import {
+  DEVICE_LOCAL_VAULT_CLEANUP_JOURNAL_KEY,
+  createPreparedDeviceLocalVaultRecoveryTransaction,
+  type DeviceLocalVaultRecoveryTransactionV3
+} from '../../../src/shared/config/deviceLocalVaultRecoveryTransaction';
 
 type MockableFunction = (...args: never[]) => void;
 
@@ -16,6 +21,51 @@ const createMockFn = <T extends MockableFunction>() =>
   vi.fn<(...args: Parameters<T>) => ReturnType<T>>();
 
 const DEFAULT_COMPLETE_OPTIONS = DEFAULT_OPTIONS as CompleteOptions;
+const publicationPrivacy0 = {
+  analytics: false,
+  errorReporting: false,
+  debugMode: false
+} as const;
+const publicationPrivacy1 = { ...publicationPrivacy0, analytics: true } as const;
+const publicationBindings0 = {
+  version: 1 as const,
+  bindings: { default: { folderId: 'folder-old', folderName: 'Old Folder' } }
+};
+const publicationBindings1 = {
+  version: 1 as const,
+  bindings: { default: { folderId: 'folder-new', folderName: 'New Folder' } }
+};
+const publicationPortable0 = { interfaceTheme: 'system', rest: { vault: 'Primary' } } as const;
+const publicationPortable1 = { interfaceTheme: 'dark', rest: { vault: 'Primary' } } as const;
+
+async function publicationTransaction(
+  phase: 'prepared' | 'local-committed' | 'aborted'
+): Promise<DeviceLocalVaultRecoveryTransactionV3> {
+  const prepared = await createPreparedDeviceLocalVaultRecoveryTransaction({
+    transactionId: 'repository-publication-1',
+    previousBindings: publicationBindings0,
+    proposedBindings: publicationBindings1,
+    portablePreimage: publicationPortable0,
+    portableProposal: publicationPortable1,
+    writeRequired: true,
+    privacyRestoreTarget: publicationPrivacy0,
+    privacyForwardTarget: publicationPrivacy1,
+    privacyWriteRequired: true
+  });
+  if (phase === 'prepared') return prepared;
+  if (phase === 'aborted') {
+    return { ...prepared, phase, abortReason: 'local-commit-failed' };
+  }
+  return {
+    ...prepared,
+    phase,
+    portable: {
+      ...prepared.portable,
+      observedCommittedIdentity: prepared.portable.proposedIdentity
+    },
+    privacy: { ...prepared.privacy, observedForward: 'exact-target-readback' }
+  };
+}
 
 type StorageAreaMock = StorageAreaService & {
   get: ReturnType<typeof createMockFn<StorageAreaService['get']>>;
@@ -71,6 +121,73 @@ const mockStorage: StorageService & {
   session: createStorageAreaMock()
 };
 
+type PublicationNotificationState = {
+  raw: PlainStructuredValue;
+  consent: {
+    analytics: boolean;
+    errorReporting: boolean;
+    timestamp: number;
+    version: string;
+  };
+  bindings: typeof publicationBindings0;
+  journal: unknown;
+};
+
+async function setupPublicationNotifications(repo: ChromeOptionsRepository) {
+  const state: PublicationNotificationState = {
+    raw: publicationPortable0,
+    consent: {
+      analytics: false,
+      errorReporting: false,
+      timestamp: 1,
+      version: '1.0'
+    },
+    bindings: publicationBindings0,
+    journal: undefined
+  };
+  let journalReads = 0;
+  let syncChange: OptionsStorageChange | undefined;
+  const localChanges = new Map<string, OptionsStorageChange>();
+  mockStorage.sync.get.mockImplementation(() => Promise.resolve(structuredClone(state.raw)));
+  mockStorage.sync.watchKey.mockImplementation((_key, callback) => {
+    syncChange = callback;
+    return vi.fn();
+  });
+  mockStorage.local.get.mockImplementation((key) => {
+    if (key === DEVICE_LOCAL_VAULT_CLEANUP_JOURNAL_KEY) {
+      journalReads += 1;
+      return Promise.resolve(structuredClone(state.journal));
+    }
+    if (key === 'analytics_user_consent') {
+      return Promise.resolve(structuredClone(state.consent));
+    }
+    if (key === 'analytics_config') return Promise.resolve({ debugMode: false });
+    if (key === 'deviceLocalVaultBindings') {
+      return Promise.resolve(structuredClone(state.bindings));
+    }
+    return Promise.resolve(undefined);
+  });
+  mockStorage.local.watchKey.mockImplementation((key, callback) => {
+    localChanges.set(key, callback);
+    return vi.fn();
+  });
+  const callback = vi.fn<(options: CompleteOptions) => void>();
+  repo.onChange(callback);
+  await vi.waitFor(() => expect(callback).toHaveBeenCalledTimes(1));
+  callback.mockClear();
+
+  return {
+    state,
+    callback,
+    journalReads: () => journalReads,
+    emitSync: (stored: PlainStructuredValue) => syncChange?.(stored, { newValue: stored }),
+    emitJournal: () =>
+      localChanges.get(DEVICE_LOCAL_VAULT_CLEANUP_JOURNAL_KEY)?.(state.journal, {
+        newValue: state.journal
+      })
+  };
+}
+
 // ===========================
 // Test Suite
 // ===========================
@@ -101,6 +218,218 @@ describe('ChromeOptionsRepository', () => {
   // 核心验证：onChange 单次触发
   // ===========================
   describe('onChange triggering', () => {
+    it('publishes no partial snapshot and one final snapshot when the journal opens', async () => {
+      let raw: PlainStructuredValue = publicationPortable0;
+      let consent = {
+        analytics: false,
+        errorReporting: false,
+        timestamp: 1,
+        version: '1.0'
+      };
+      let currentBindings = publicationBindings0;
+      let journal: unknown;
+      let journalReads = 0;
+      let syncChange: OptionsStorageChange | undefined;
+      const localChanges = new Map<string, OptionsStorageChange>();
+      mockStorage.sync.get.mockImplementation(() => Promise.resolve(structuredClone(raw)));
+      mockStorage.sync.watchKey.mockImplementation((_key, callback) => {
+        syncChange = callback;
+        return vi.fn();
+      });
+      mockStorage.local.get.mockImplementation((key) => {
+        if (key === DEVICE_LOCAL_VAULT_CLEANUP_JOURNAL_KEY) {
+          journalReads += 1;
+          return Promise.resolve(structuredClone(journal));
+        }
+        if (key === 'analytics_user_consent') return Promise.resolve(structuredClone(consent));
+        if (key === 'analytics_config') return Promise.resolve({ debugMode: false });
+        if (key === 'deviceLocalVaultBindings')
+          return Promise.resolve(structuredClone(currentBindings));
+        return Promise.resolve(undefined);
+      });
+      mockStorage.local.watchKey.mockImplementation((key, callback) => {
+        localChanges.set(key, callback);
+        return vi.fn();
+      });
+      const callback = vi.fn<(options: CompleteOptions) => void>();
+      repo.onChange(callback);
+      await vi.waitFor(() => expect(callback).toHaveBeenCalledTimes(1));
+      callback.mockClear();
+
+      journal = await publicationTransaction('prepared');
+      raw = publicationPortable1;
+      consent = { ...consent, analytics: true, timestamp: 2 };
+      currentBindings = publicationBindings1;
+      syncChange?.(raw, { newValue: raw });
+      localChanges.get('analytics_user_consent')?.(consent, { newValue: consent });
+      localChanges.get('deviceLocalVaultBindings')?.(currentBindings, {
+        newValue: currentBindings
+      });
+      await vi.waitFor(() => expect(journalReads).toBeGreaterThanOrEqual(5));
+      expect(callback).not.toHaveBeenCalled();
+
+      journal = await publicationTransaction('local-committed');
+      localChanges.get(DEVICE_LOCAL_VAULT_CLEANUP_JOURNAL_KEY)?.(journal, {
+        newValue: journal
+      });
+      await vi.waitFor(() => expect(callback).toHaveBeenCalledTimes(1));
+      expect(callback).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          interfaceTheme: 'dark',
+          privacyPreferences: expect.objectContaining({ analytics: true }),
+          rest: expect.objectContaining({ localFolderId: 'folder-new' })
+        })
+      );
+
+      journal = undefined;
+      localChanges.get(DEVICE_LOCAL_VAULT_CLEANUP_JOURNAL_KEY)?.(undefined, {
+        newValue: undefined
+      });
+      await vi.waitFor(() => expect(journalReads).toBeGreaterThanOrEqual(9));
+      expect(callback).toHaveBeenCalledTimes(1);
+    });
+
+    it('publishes zero changes when a closed transaction rolls back to its preimage', async () => {
+      let raw: PlainStructuredValue = publicationPortable0;
+      let consent = {
+        analytics: false,
+        errorReporting: false,
+        timestamp: 1,
+        version: '1.0'
+      };
+      let currentBindings = publicationBindings0;
+      let journal: unknown;
+      let journalReads = 0;
+      let syncChange: OptionsStorageChange | undefined;
+      let journalChange: OptionsStorageChange | undefined;
+      mockStorage.sync.get.mockImplementation(() => Promise.resolve(structuredClone(raw)));
+      mockStorage.sync.watchKey.mockImplementation((_key, callback) => {
+        syncChange = callback;
+        return vi.fn();
+      });
+      mockStorage.local.get.mockImplementation((key) => {
+        if (key === DEVICE_LOCAL_VAULT_CLEANUP_JOURNAL_KEY) {
+          journalReads += 1;
+          return Promise.resolve(structuredClone(journal));
+        }
+        if (key === 'analytics_user_consent') return Promise.resolve(structuredClone(consent));
+        if (key === 'analytics_config') return Promise.resolve({ debugMode: false });
+        if (key === 'deviceLocalVaultBindings')
+          return Promise.resolve(structuredClone(currentBindings));
+        return Promise.resolve(undefined);
+      });
+      mockStorage.local.watchKey.mockImplementation((key, callback) => {
+        if (key === DEVICE_LOCAL_VAULT_CLEANUP_JOURNAL_KEY) journalChange = callback;
+        return vi.fn();
+      });
+      const callback = vi.fn<(options: CompleteOptions) => void>();
+      repo.onChange(callback);
+      await vi.waitFor(() => expect(callback).toHaveBeenCalledTimes(1));
+      callback.mockClear();
+
+      journal = await publicationTransaction('prepared');
+      raw = publicationPortable1;
+      consent = { ...consent, analytics: true, timestamp: 2 };
+      currentBindings = publicationBindings1;
+      syncChange?.(raw, { newValue: raw });
+      await vi.waitFor(() => expect(journalReads).toBeGreaterThanOrEqual(3));
+      expect(callback).not.toHaveBeenCalled();
+
+      raw = publicationPortable0;
+      consent = { ...consent, analytics: false, timestamp: 3 };
+      currentBindings = publicationBindings0;
+      journal = await publicationTransaction('aborted');
+      journalChange?.(journal, { newValue: journal });
+      await vi.waitFor(() => expect(journalReads).toBeGreaterThanOrEqual(5));
+      journal = undefined;
+      journalChange?.(undefined, { newValue: undefined });
+      await vi.waitFor(() => expect(journalReads).toBeGreaterThanOrEqual(7));
+      expect(callback).not.toHaveBeenCalled();
+    });
+
+    it('rejects a delayed proposal event after rollback has removed the journal', async () => {
+      const scenario = await setupPublicationNotifications(repo);
+
+      scenario.state.journal = await publicationTransaction('prepared');
+      scenario.state.raw = publicationPortable1;
+      scenario.state.consent = { ...scenario.state.consent, analytics: true, timestamp: 2 };
+      scenario.state.bindings = publicationBindings1;
+      scenario.emitSync(publicationPortable1);
+      await vi.waitFor(() => expect(scenario.journalReads()).toBeGreaterThanOrEqual(3));
+      expect(scenario.callback).not.toHaveBeenCalled();
+
+      scenario.state.raw = publicationPortable0;
+      scenario.state.consent = { ...scenario.state.consent, analytics: false, timestamp: 3 };
+      scenario.state.bindings = publicationBindings0;
+      scenario.state.journal = await publicationTransaction('aborted');
+      scenario.emitJournal();
+      await vi.waitFor(() => expect(scenario.journalReads()).toBeGreaterThanOrEqual(5));
+      scenario.state.journal = undefined;
+      scenario.emitJournal();
+      await vi.waitFor(() => expect(scenario.journalReads()).toBeGreaterThanOrEqual(7));
+
+      scenario.emitSync(publicationPortable1);
+      await vi.waitFor(() => expect(scenario.journalReads()).toBeGreaterThanOrEqual(9));
+      expect(scenario.callback).not.toHaveBeenCalled();
+    });
+
+    it('deduplicates a delayed matching proposal event after successful publication', async () => {
+      const scenario = await setupPublicationNotifications(repo);
+
+      scenario.state.journal = await publicationTransaction('prepared');
+      scenario.state.raw = publicationPortable1;
+      scenario.state.consent = { ...scenario.state.consent, analytics: true, timestamp: 2 };
+      scenario.state.bindings = publicationBindings1;
+      scenario.emitSync(publicationPortable1);
+      await vi.waitFor(() => expect(scenario.journalReads()).toBeGreaterThanOrEqual(3));
+      expect(scenario.callback).not.toHaveBeenCalled();
+
+      scenario.state.journal = await publicationTransaction('local-committed');
+      scenario.emitJournal();
+      await vi.waitFor(() => expect(scenario.callback).toHaveBeenCalledTimes(1));
+      scenario.state.journal = undefined;
+      scenario.emitJournal();
+      await vi.waitFor(() => expect(scenario.journalReads()).toBeGreaterThanOrEqual(7));
+      scenario.emitSync(publicationPortable1);
+      await vi.waitFor(() => expect(scenario.journalReads()).toBeGreaterThanOrEqual(9));
+
+      expect(scenario.callback).toHaveBeenCalledTimes(1);
+      expect(scenario.callback).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          interfaceTheme: 'dark',
+          privacyPreferences: expect.objectContaining({ analytics: true }),
+          rest: expect.objectContaining({ localFolderId: 'folder-new' })
+        })
+      );
+    });
+
+    it('publishes the current third state once when a delayed proposal event arrives last', async () => {
+      const scenario = await setupPublicationNotifications(repo);
+
+      scenario.state.journal = await publicationTransaction('prepared');
+      scenario.state.raw = publicationPortable1;
+      scenario.emitSync(publicationPortable1);
+      await vi.waitFor(() => expect(scenario.journalReads()).toBeGreaterThanOrEqual(3));
+      expect(scenario.callback).not.toHaveBeenCalled();
+
+      scenario.state.raw = { interfaceTheme: 'light', rest: { vault: 'Third' } };
+      scenario.state.journal = await publicationTransaction('aborted');
+      scenario.emitJournal();
+      await vi.waitFor(() => expect(scenario.callback).toHaveBeenCalledTimes(1));
+      scenario.state.journal = undefined;
+      scenario.emitJournal();
+      await vi.waitFor(() => expect(scenario.journalReads()).toBeGreaterThanOrEqual(7));
+      scenario.emitSync(publicationPortable1);
+      await vi.waitFor(() => expect(scenario.journalReads()).toBeGreaterThanOrEqual(9));
+
+      expect(scenario.callback).toHaveBeenCalledTimes(1);
+      expect(scenario.callback).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          interfaceTheme: 'light',
+          rest: expect.objectContaining({ vault: 'Third' })
+        })
+      );
+    });
     it('should trigger onChange callback exactly once for a storage watcher update', async () => {
       const initialOptions = cloneOptions(DEFAULT_COMPLETE_OPTIONS);
       initialOptions.rest.baseUrl = 'https://initial.example/';
@@ -128,6 +457,7 @@ describe('ChromeOptionsRepository', () => {
       // Clear initial trigger count
       callback.mockClear();
 
+      mockStorage.sync.get.mockResolvedValue(updatedOptions);
       externalChange?.(updatedOptions, { newValue: updatedOptions });
 
       // Wait for onChange to process
@@ -164,6 +494,7 @@ describe('ChromeOptionsRepository', () => {
       callback.mockClear();
 
       expect(externalChange).toBeDefined();
+      mockStorage.sync.get.mockResolvedValue(externalOptions);
       externalChange?.(externalOptions, { newValue: externalOptions });
 
       await vi.waitFor(() => {
@@ -188,6 +519,7 @@ describe('ChromeOptionsRepository', () => {
         templates: { clipper: 'Watched legacy template' },
         fragmentClipper: { selectionModifierEnabled: false }
       };
+      mockStorage.sync.get.mockResolvedValue(watchedValue);
       externalChange?.(watchedValue, { newValue: watchedValue });
 
       await vi.waitFor(() => expect(callback).toHaveBeenCalledTimes(1));
@@ -274,6 +606,7 @@ describe('ChromeOptionsRepository', () => {
       callback1.mockClear();
       callback2.mockClear();
 
+      mockStorage.sync.get.mockResolvedValue(updatedOptions);
       externalChange?.(updatedOptions, { newValue: updatedOptions });
 
       await vi.waitFor(() => {
@@ -354,6 +687,26 @@ describe('ChromeOptionsRepository', () => {
   // get() 测试
   // ===========================
   describe('get()', () => {
+    it('projects P0/R/B0 while a valid v3 transaction is nonterminal', async () => {
+      mockStorage.local.get.mockImplementation((key) =>
+        key === DEVICE_LOCAL_VAULT_CLEANUP_JOURNAL_KEY
+          ? publicationTransaction('prepared')
+          : Promise.resolve(undefined)
+      );
+      mockStorage.sync.get.mockResolvedValue(publicationPortable1);
+
+      const result = await repo.get();
+
+      expect(result.interfaceTheme).toBe('system');
+      expect(result.privacyPreferences).toEqual(publicationPrivacy0);
+      expect(result.rest).toMatchObject({
+        vault: 'Primary',
+        localFolderId: 'folder-old',
+        localFolderName: 'Old Folder'
+      });
+      expect(mockStorage.sync.get).not.toHaveBeenCalled();
+      await expect(repo.readRaw()).resolves.toEqual(publicationPortable1);
+    });
     it('should return merged options from storage', async () => {
       const storedOptions = cloneOptions(DEFAULT_COMPLETE_OPTIONS);
       storedOptions.rest.baseUrl = 'https://stored.example/';
@@ -813,6 +1166,7 @@ describe('ChromeOptionsRepository', () => {
       healthyListener.mockClear();
       consoleSpy.mockClear();
 
+      mockStorage.sync.get.mockResolvedValue(updatedOptions);
       externalChange?.(updatedOptions, { newValue: updatedOptions });
 
       await vi.waitFor(() => {

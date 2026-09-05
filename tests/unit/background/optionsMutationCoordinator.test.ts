@@ -482,6 +482,94 @@ describe('OptionsMutationCoordinator', () => {
     ).resolves.toBeUndefined();
   });
 
+  it('attempts B1 before any real portable or privacy forward write', async () => {
+    const portablePreimage = {
+      vaultRouter: {
+        defaultVaultId: 'primary',
+        vaults: [
+          {
+            id: 'primary',
+            name: 'Primary',
+            vault: 'Primary',
+            httpsUrl: '',
+            httpUrl: '',
+            apiKey: ''
+          }
+        ]
+      }
+    } satisfies PlainStructuredObject;
+    const previousBindings: DeviceLocalVaultBindingSnapshot = {
+      version: 1,
+      bindings: { primary: { folderId: 'folder-old', folderName: 'Old Folder' } }
+    };
+    const storage = createMemoryStorageService();
+    await storage.sync.set('options', portablePreimage);
+    await storage.local.set(DEVICE_LOCAL_PRIVACY_CONSENT_KEY, {
+      analytics: false,
+      errorReporting: false,
+      timestamp: 1,
+      version: '1.0'
+    });
+    await storage.local.set(DEVICE_LOCAL_PRIVACY_CONFIG_KEY, { debugMode: false });
+    await storage.local.set(DEVICE_LOCAL_VAULT_BINDINGS_KEY, previousBindings);
+    const repository = new ChromeOptionsRepository(storage);
+    const committer = createDeviceLocalPrivacyCommitter(storage, repository);
+    const journal = createConcreteVaultJournal(storage, repository, committer, () =>
+      Promise.resolve()
+    );
+    const coordinator = createCoordinator(repository, {
+      deviceLocalPrivacyCommitter: committer,
+      deviceLocalVaultCleanupJournal: journal
+    });
+    await coordinator.initialize();
+    const forwardEvents: string[] = [];
+    const originalSyncSet = storage.sync.set.bind(storage.sync);
+    const originalLocalSet = storage.local.set.bind(storage.local);
+    const originalSetMany = storage.local.setMany.bind(storage.local);
+    let failedBinding = false;
+    storage.sync.set = vi.fn(async (key, value) => {
+      forwardEvents.push('portable');
+      await originalSyncSet(key, value);
+    });
+    storage.local.setMany = vi.fn(async (entries) => {
+      forwardEvents.push('privacy-forward');
+      await originalSetMany(entries);
+    });
+    storage.local.set = vi.fn(async (key, value) => {
+      if (key === DEVICE_LOCAL_VAULT_BINDINGS_KEY && !failedBinding) {
+        failedBinding = true;
+        forwardEvents.push('binding-stage');
+        throw new Error('binding stage failed');
+      }
+      if (key === 'deviceLocalPrivacyTransaction') forwardEvents.push('privacy-begin');
+      await originalLocalSet(key, value);
+    });
+
+    await expect(
+      coordinator.patch([
+        { path: ['privacyPreferences', 'analytics'], value: true },
+        {
+          path: ['vaultRouter'],
+          value: {
+            ...portablePreimage.vaultRouter,
+            vaults: [
+              {
+                ...portablePreimage.vaultRouter.vaults[0],
+                localFolderId: 'folder-new',
+                localFolderName: 'New Folder'
+              }
+            ]
+          }
+        }
+      ])
+    ).rejects.toEqual(new OptionsMutationError('OPTIONS_STORAGE_FAILURE'));
+
+    expect(forwardEvents).toEqual(['binding-stage']);
+    await expect(repository.readRaw()).resolves.toEqual(portablePreimage);
+    await expect(repository.readPrivacy()).resolves.toEqual(privacy0);
+    await expect(repository.readVaultBindings()).resolves.toEqual(previousBindings);
+  });
+
   it('compensates portable state when the real privacy commit fails after P1', async () => {
     const portablePreimage: PlainStructuredObject = {
       interfaceTheme: 'system',
@@ -557,7 +645,10 @@ describe('OptionsMutationCoordinator', () => {
     await expect(repository.readRaw()).resolves.toEqual(portablePreimage);
     await expect(repository.readPrivacy()).resolves.toEqual(privacy0);
     await expect(repository.readVaultBindings()).resolves.toEqual(previousBindings);
-    expect(bindingWrite).not.toHaveBeenCalled();
+    expect(bindingWrite.mock.calls).toEqual([[expect.any(Object)], [previousBindings]]);
+    expect(bindingWrite.mock.calls[0]?.[0]).toMatchObject({
+      bindings: { primary: { folderId: 'folder-new' } }
+    });
     expect(removeDirectory).not.toHaveBeenCalled();
     await expect(
       storage.local.get(DEVICE_LOCAL_VAULT_CLEANUP_JOURNAL_KEY)
@@ -795,8 +886,8 @@ describe('OptionsMutationCoordinator', () => {
     expect(journalWrite.mock.invocationCallOrder[0]).toBeLessThan(
       portableWrite.mock.invocationCallOrder[0] ?? Number.POSITIVE_INFINITY
     );
-    expect(portableWrite.mock.invocationCallOrder[0]).toBeLessThan(
-      bindingWrite.mock.invocationCallOrder[0] ?? Number.POSITIVE_INFINITY
+    expect(bindingWrite.mock.invocationCallOrder[0]).toBeLessThan(
+      portableWrite.mock.invocationCallOrder[0] ?? Number.POSITIVE_INFINITY
     );
     expect(repository.bindings).toEqual({ version: 1, bindings: {} });
     expect(repository.raw).toEqual(originalRaw);

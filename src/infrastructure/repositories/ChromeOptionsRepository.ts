@@ -21,12 +21,14 @@ import {
   reconcileDeviceLocalVaultBindings,
   type DeviceLocalVaultBindingSnapshot
 } from '../../shared/config/deviceLocalVaultBindings';
+import { readDeviceLocalVaultAuthoritativePublication } from '../../shared/config/deviceLocalVaultAuthoritativePublication';
 import type {
   DeviceLocalPrivacyCommitter,
   DeviceLocalVaultBindingRepository,
   OptionsMutationVerification,
   OptionsRawStorageRepository
 } from '../../shared/config/deviceLocalVaultRecoveryTransaction';
+import { DEVICE_LOCAL_VAULT_CLEANUP_JOURNAL_KEY } from '../../shared/config/deviceLocalVaultRecoveryTransaction';
 export type {
   DeviceLocalPrivacyCommitter,
   DeviceLocalVaultBindingRepository,
@@ -85,15 +87,18 @@ export class ChromeOptionsRepository
   }
 
   async readDecoded(): Promise<DecodedStoredOptions> {
-    const raw = await this.readRaw();
-    const decoded = decodeStoredOptions(raw);
-    const [privacy, storedBindings] = await Promise.all([
-      this.readPrivacy(raw),
-      this.readVaultBindings()
-    ]);
-    const runtime = composeDeviceLocalPrivacy(decoded.runtime, privacy);
-    const bindings = reconcileDeviceLocalVaultBindings(runtime, storedBindings);
-    return { ...decoded, runtime: composeDeviceLocalVaultBindings(runtime, bindings) };
+    return this.readAuthoritativeDecoded(() => this.readPhysicalDecoded());
+  }
+
+  private async readAuthoritativeDecoded(
+    readPhysical: () => Promise<DecodedStoredOptions>
+  ): Promise<DecodedStoredOptions> {
+    return readDeviceLocalVaultAuthoritativePublication({
+      readJournal: () => this.storage.local.get(DEVICE_LOCAL_VAULT_CLEANUP_JOURNAL_KEY),
+      readPhysical,
+      composePreimage: ({ portableRaw, privacy, bindings }) =>
+        this.composeDecoded(portableRaw, privacy, bindings)
+    });
   }
 
   async get(): Promise<CompleteOptions> {
@@ -157,11 +162,8 @@ export class ChromeOptionsRepository
     if (this.stopWatchingOptions) return;
     this.stopWatchingOptions = this.storage.sync.watchKey<PlainStructuredValue | null>(
       OPTIONS_STORAGE_KEY,
-      (stored) => {
-        this.requestNotification(
-          () => this.composeStoredOptions(stored ?? null),
-          'sync options change'
-        );
+      () => {
+        this.requestNotification(() => this.get(), 'sync options change');
       }
     );
     const emitLocalPrivacyChange = (): void => {
@@ -171,23 +173,34 @@ export class ChromeOptionsRepository
       this.storage.local.watchKey(DEVICE_LOCAL_PRIVACY_CONSENT_KEY, emitLocalPrivacyChange),
       this.storage.local.watchKey(DEVICE_LOCAL_PRIVACY_CONFIG_KEY, emitLocalPrivacyChange),
       this.storage.local.watchKey(DEVICE_LOCAL_PRIVACY_TRANSACTION_KEY, emitLocalPrivacyChange),
-      this.storage.local.watchKey(DEVICE_LOCAL_VAULT_BINDINGS_KEY, emitLocalPrivacyChange)
+      this.storage.local.watchKey(DEVICE_LOCAL_VAULT_BINDINGS_KEY, emitLocalPrivacyChange),
+      this.storage.local.watchKey(DEVICE_LOCAL_VAULT_CLEANUP_JOURNAL_KEY, emitLocalPrivacyChange)
     ];
   }
 
-  private async composeStoredOptions(
-    stored: PlainStructuredValue | null
-  ): Promise<CompleteOptions> {
-    const decoded = decodeStoredOptions(stored);
+  private async readPhysicalDecoded(): Promise<DecodedStoredOptions> {
+    return this.readPhysicalStored(await this.readRaw());
+  }
+
+  private async readPhysicalStored(
+    raw: PlainStructuredValue | null
+  ): Promise<DecodedStoredOptions> {
     const [privacy, storedBindings] = await Promise.all([
-      this.readPrivacy(stored),
+      this.readPrivacy(raw),
       this.readVaultBindings()
     ]);
+    return this.composeDecoded(raw, privacy, storedBindings);
+  }
+
+  private composeDecoded(
+    stored: PlainStructuredValue | null,
+    privacy: PrivacyPreferencesOptions,
+    storedBindings: DeviceLocalVaultBindingSnapshot
+  ): DecodedStoredOptions {
+    const decoded = decodeStoredOptions(stored);
     const runtime = composeDeviceLocalPrivacy(decoded.runtime, privacy);
-    return composeDeviceLocalVaultBindings(
-      runtime,
-      reconcileDeviceLocalVaultBindings(runtime, storedBindings)
-    );
+    const bindings = reconcileDeviceLocalVaultBindings(runtime, storedBindings);
+    return { ...decoded, runtime: composeDeviceLocalVaultBindings(runtime, bindings) };
   }
 
   private requestNotification(read: () => Promise<CompleteOptions>, reason: string): void {
