@@ -19,9 +19,21 @@ import {
 } from '@shared/config/deviceLocalVaultRecoveryTransaction';
 import { OptionsMutationError } from '@shared/types/optionsMutationMessages';
 
-const privacy0 = { analytics: false, errorReporting: false, debugMode: false } as const;
-const privacy1 = { analytics: true, errorReporting: false, debugMode: false } as const;
-const privacyX = { analytics: false, errorReporting: true, debugMode: false } as const;
+const privacy0: PrivacyPreferencesOptions = {
+  analytics: false,
+  errorReporting: false,
+  debugMode: false
+};
+const privacy1: PrivacyPreferencesOptions = {
+  analytics: true,
+  errorReporting: false,
+  debugMode: false
+};
+const privacyX: PrivacyPreferencesOptions = {
+  analytics: false,
+  errorReporting: true,
+  debugMode: false
+};
 function bindings(
   entries: Readonly<Record<string, { folderId: string; folderName?: string }>>
 ): DeviceLocalVaultBindingSnapshot {
@@ -41,7 +53,7 @@ const thirdBindings = bindings({ external: { folderId: 'folder-external' } });
 const portablePreimage = { vaultRouter: { defaultVaultId: 'primary' } };
 const portableProposal = { vaultRouter: { defaultVaultId: 'primary', vaults: [] } };
 const portableThird = { external: { revision: 3 } };
-const preparation = {
+const preparation: Parameters<DeviceLocalVaultCleanupJournal['prepare']>[0] = {
   transactionId: 'operation-1',
   previousBindings: previous,
   proposedBindings: proposed,
@@ -51,7 +63,7 @@ const preparation = {
   privacyRestoreTarget: privacy0,
   privacyForwardTarget: privacy1,
   privacyWriteRequired: true
-} as const;
+};
 function harness(options?: {
   current?: DeviceLocalVaultBindingSnapshot;
   portable?: PlainStructuredObject;
@@ -167,34 +179,37 @@ async function phaseRecord(
   const state = harness();
   const transaction = await state.createJournal().prepare(preparation);
   await state.storage.local.remove(DEVICE_LOCAL_VAULT_CLEANUP_JOURNAL_KEY);
-  const forwardEvidence = [
-    'forward-committed',
-    'local-commit-inflight',
-    'local-committed'
-  ].includes(phase)
-    ? {
-        portable: {
-          ...transaction.portable,
-          observedCommittedIdentity: transaction.portable.proposedIdentity
-        },
-        privacy: { ...transaction.privacy, observedForward: 'exact-target-readback' as const }
-      }
-    : {};
-  const recovery = ['compensating', 'portable-privacy-restored'].includes(phase)
-    ? {
-        recovery: {
-          outcomeCode: 'OPTIONS_STORAGE_FAILURE' as const,
-          bindingWriteMayHaveOccurred,
-          ...(phase === 'portable-privacy-restored'
-            ? {
-                portableRestoreEvidence: 'preimage' as const,
-                privacyRestoreEvidence: 'restore-target' as const
-              }
-            : {})
-        }
-      }
-    : {};
-  return { ...transaction, ...forwardEvidence, ...recovery, phase };
+  let portable: DeviceLocalVaultRecoveryTransactionV3['portable'] = transaction.portable;
+  let privacy: DeviceLocalVaultRecoveryTransactionV3['privacy'] = transaction.privacy;
+  let recovery: DeviceLocalVaultRecoveryTransactionV3['recovery'];
+  if (['forward-committed', 'local-commit-inflight', 'local-committed'].includes(phase)) {
+    portable = {
+      ...transaction.portable,
+      observedCommittedIdentity: transaction.portable.proposedIdentity
+    };
+    privacy = { ...transaction.privacy, observedForward: 'exact-target-readback' };
+  }
+  if (phase === 'compensating' || phase === 'portable-privacy-restored') {
+    recovery =
+      phase === 'portable-privacy-restored'
+        ? {
+            outcomeCode: 'OPTIONS_STORAGE_FAILURE',
+            bindingWriteMayHaveOccurred: bindingWriteMayHaveOccurred,
+            portableRestoreEvidence: 'preimage',
+            privacyRestoreEvidence: 'restore-target'
+          }
+        : {
+            outcomeCode: 'OPTIONS_STORAGE_FAILURE',
+            bindingWriteMayHaveOccurred: bindingWriteMayHaveOccurred
+          };
+  }
+  return {
+    ...transaction,
+    portable,
+    privacy,
+    phase,
+    ...(recovery ? { recovery } : {})
+  };
 }
 
 afterEach(() => vi.restoreAllMocks());
@@ -410,13 +425,13 @@ describe('DeviceLocalVaultCleanupJournal forward privacy protocol', () => {
   });
 
   it('requires forward-inflight even when both writes are no-ops', async () => {
-    const noWrite = {
+    const noWrite: Parameters<DeviceLocalVaultCleanupJournal['prepare']>[0] = {
       ...preparation,
       portableProposal: portablePreimage,
       writeRequired: false,
       privacyForwardTarget: privacy0,
       privacyWriteRequired: false
-    } as const;
+    };
     const aborted = harness();
     await aborted.createJournal().prepare(noWrite);
     await aborted.createJournal().recover();

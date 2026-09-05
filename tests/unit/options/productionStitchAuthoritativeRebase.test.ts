@@ -1,13 +1,10 @@
 import { describe, expect, it, vi } from 'vitest';
-import type { CompleteOptions } from '@shared/types/options';
-import { DEFAULT_OPTIONS } from '@shared/config/defaultOptions';
+import { mergeOptions } from '@shared/config/optionsMerger';
 import {
   applyProductionStitchAuthoritativeRebase,
   createProductionStitchAuthoritativeRebase,
   resolveAuthoritativeRebaseScopes
 } from '@options/app/productionStitchAuthoritativeRebase';
-
-const clone = <T>(value: T): T => structuredClone(value);
 
 describe('production Stitch authoritative rebase', () => {
   it('maps canonical changed paths to finite section scopes without invariant recovery', () => {
@@ -21,7 +18,7 @@ describe('production Stitch authoritative rebase', () => {
   });
 
   it('updates mutable owners and invalidates only affected scopes', () => {
-    const next = clone(DEFAULT_OPTIONS as CompleteOptions);
+    const next = mergeOptions({});
     next.interfaceTheme = 'dark';
     const resetOptions = vi.fn();
     const render = vi.fn();
@@ -47,7 +44,7 @@ describe('production Stitch authoritative rebase', () => {
       },
       render
     });
-    const next = clone(DEFAULT_OPTIONS as CompleteOptions);
+    const next = mergeOptions({});
 
     rebase(next, {
       changedPaths: [['templates', 'article']],

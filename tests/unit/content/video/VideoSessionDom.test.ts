@@ -1,5 +1,6 @@
 /* @vitest-environment jsdom */
 
+import type { ExportDestinationSurfacePreview } from '@ui/stitch-runtime/types/surfaceTypes';
 import { describe, expect, it, vi } from 'vitest';
 import type { Mock } from 'vitest';
 import { DEFAULT_SESSION_MESSAGES } from '@content/video/sessionMessages';
@@ -7,6 +8,21 @@ import { VideoSessionDomController } from '@content/video/sessionDom';
 import { VideoSessionState } from '@content/video/sessionState';
 import { VideoHintManager } from '@content/video/videoHintManager';
 import type { VideoSessionView } from '@content/video/application/videoSessionView';
+
+type EventBoundaryCase = [label: string, attribute: string, value: string, expected: boolean];
+const eventBoundaryCases: EventBoundaryCase[] = [
+  ['surface root', 'data-stitch-surface', 'video', true],
+  ['surface window', 'class', 'video-surface-window', true],
+  ['capture input', 'data-capture-input', 'c-1', true],
+  ['capture item', 'data-capture-id', 'c-1', true],
+  ['outside node', 'class', 'outside', false]
+];
+
+function createComposedPathEvent(path: readonly EventTarget[]): Event {
+  const event = new Event('click');
+  vi.spyOn(event, 'composedPath').mockImplementation(() => [...path]);
+  return event;
+}
 
 type TestView = VideoSessionView & {
   element?: HTMLElement;
@@ -170,9 +186,9 @@ describe('VideoSessionDomController', () => {
       { createView: createViewMock },
       new VideoHintManager(() => DEFAULT_SESSION_MESSAGES)
     );
-    const initialDestination = {
+    const initialDestination: ExportDestinationSurfacePreview = {
       id: 'downloads',
-      kind: 'downloads' as const,
+      kind: 'downloads',
       label: 'Downloads',
       path: 'video.md',
       hasConfiguredVault: false,
@@ -278,13 +294,7 @@ describe('VideoSessionDomController', () => {
     expect(view.stopEditing).toHaveBeenCalledWith('capture-1');
   });
 
-  it.each([
-    ['surface root', 'data-stitch-surface', 'video', true],
-    ['surface window', 'class', 'video-surface-window', true],
-    ['capture input', 'data-capture-input', 'c-1', true],
-    ['capture item', 'data-capture-id', 'c-1', true],
-    ['outside node', 'class', 'outside', false]
-  ] as const)(
+  it.each(eventBoundaryCases)(
     'classifies %s in the stable video panel event boundary',
     (_label, attribute, value, expected) => {
       const element = document.createElement('div');
@@ -294,7 +304,7 @@ describe('VideoSessionDomController', () => {
         { createView: vi.fn(() => createView()) },
         new VideoHintManager(() => DEFAULT_SESSION_MESSAGES)
       );
-      const event = { composedPath: () => [element, document.body, document] } as unknown as Event;
+      const event = createComposedPathEvent([element, document.body, document]);
       expect(controller.isEventInsidePanel(event)).toBe(expected);
     }
   );

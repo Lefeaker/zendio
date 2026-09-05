@@ -10,8 +10,9 @@ import {
   type OptionsRawStorageRepository
 } from '../../../src/shared/config/deviceLocalVaultRecoveryTransaction';
 import {
-  OPTIONS_MUTATION_MESSAGE_TYPE,
-  OPTIONS_MUTATION_RESPONSE_TYPE,
+  createOptionsMutationRequest,
+  createOptionsMutationFailureResponse,
+  type OptionsMutationResponse,
   OptionsMutationError,
   type OptionsMutationErrorCode
 } from '../../../src/shared/types/optionsMutationMessages';
@@ -26,23 +27,14 @@ class RawOptionsRepository implements OptionsRawStorageRepository {
   }
 }
 
-const request = {
-  type: OPTIONS_MUTATION_MESSAGE_TYPE,
-  requestId: 'typed-error-request',
-  command: { kind: 'migrate' }
-} as const;
+const request = createOptionsMutationRequest('typed-error-request', { kind: 'migrate' });
 
 function createCoordinator(): OptionsMutationCoordinator {
   return new OptionsMutationCoordinator(new RawOptionsRepository());
 }
 
-function failureResponse(errorCode: OptionsMutationErrorCode) {
-  return {
-    type: OPTIONS_MUTATION_RESPONSE_TYPE,
-    requestId: request.requestId,
-    success: false,
-    errorCode
-  } as const;
+function failureResponse(errorCode: OptionsMutationErrorCode): OptionsMutationResponse {
+  return createOptionsMutationFailureResponse(request.requestId, errorCode);
 }
 
 describe('handleOptionsMutationMessage', () => {

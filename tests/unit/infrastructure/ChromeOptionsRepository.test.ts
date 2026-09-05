@@ -2,8 +2,11 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ChromeOptionsRepository } from '../../../src/infrastructure/repositories/ChromeOptionsRepository';
 import { DEFAULT_OPTIONS } from '@shared/config/defaultOptions';
 import { StorageError } from '@shared/errors';
-import type { PlainStructuredValue } from '@shared/config/losslessObjectBoundaryTypes';
-import type { CompleteOptions } from '@shared/types/options';
+import type {
+  PlainStructuredValue,
+  PlainStructuredObject
+} from '@shared/config/losslessObjectBoundaryTypes';
+import type { CompleteOptions, PrivacyPreferencesOptions } from '@shared/types/options';
 import type {
   StorageAreaService,
   StorageChangeCallback,
@@ -12,6 +15,7 @@ import type {
 import {
   DEVICE_LOCAL_VAULT_CLEANUP_JOURNAL_KEY,
   createPreparedDeviceLocalVaultRecoveryTransaction,
+  type DeviceLocalVaultBindingSnapshot,
   type DeviceLocalVaultRecoveryTransactionV3
 } from '../../../src/shared/config/deviceLocalVaultRecoveryTransaction';
 
@@ -21,22 +25,28 @@ const createMockFn = <T extends MockableFunction>() =>
   vi.fn<(...args: Parameters<T>) => ReturnType<T>>();
 
 const DEFAULT_COMPLETE_OPTIONS = DEFAULT_OPTIONS as CompleteOptions;
-const publicationPrivacy0 = {
+const publicationPrivacy0: PrivacyPreferencesOptions = {
   analytics: false,
   errorReporting: false,
   debugMode: false
-} as const;
-const publicationPrivacy1 = { ...publicationPrivacy0, analytics: true } as const;
-const publicationBindings0 = {
-  version: 1 as const,
+};
+const publicationPrivacy1: PrivacyPreferencesOptions = { ...publicationPrivacy0, analytics: true };
+const publicationBindings0: DeviceLocalVaultBindingSnapshot = {
+  version: 1,
   bindings: { default: { folderId: 'folder-old', folderName: 'Old Folder' } }
 };
-const publicationBindings1 = {
-  version: 1 as const,
+const publicationBindings1: DeviceLocalVaultBindingSnapshot = {
+  version: 1,
   bindings: { default: { folderId: 'folder-new', folderName: 'New Folder' } }
 };
-const publicationPortable0 = { interfaceTheme: 'system', rest: { vault: 'Primary' } } as const;
-const publicationPortable1 = { interfaceTheme: 'dark', rest: { vault: 'Primary' } } as const;
+const publicationPortable0: PlainStructuredObject = {
+  interfaceTheme: 'system',
+  rest: { vault: 'Primary' }
+};
+const publicationPortable1: PlainStructuredObject = {
+  interfaceTheme: 'dark',
+  rest: { vault: 'Primary' }
+};
 
 async function publicationTransaction(
   phase: 'prepared' | 'local-committed' | 'aborted'
@@ -130,7 +140,7 @@ type PublicationNotificationState = {
     version: string;
   };
   bindings: typeof publicationBindings0;
-  journal: unknown;
+  journal: DeviceLocalVaultRecoveryTransactionV3 | undefined;
 };
 
 async function setupPublicationNotifications(repo: ChromeOptionsRepository) {
@@ -227,7 +237,7 @@ describe('ChromeOptionsRepository', () => {
         version: '1.0'
       };
       let currentBindings = publicationBindings0;
-      let journal: unknown;
+      let journal: DeviceLocalVaultRecoveryTransactionV3 | undefined;
       let journalReads = 0;
       let syncChange: OptionsStorageChange | undefined;
       const localChanges = new Map<string, OptionsStorageChange>();
@@ -298,7 +308,7 @@ describe('ChromeOptionsRepository', () => {
         version: '1.0'
       };
       let currentBindings = publicationBindings0;
-      let journal: unknown;
+      let journal: DeviceLocalVaultRecoveryTransactionV3 | undefined;
       let journalReads = 0;
       let syncChange: OptionsStorageChange | undefined;
       let journalChange: OptionsStorageChange | undefined;

@@ -153,7 +153,7 @@ describe('optionsStore sanitization', () => {
             }
           }
         }
-      } as unknown as OptionsPatch
+      }
     ]);
 
     expect(patchMock).toHaveBeenCalledWith([

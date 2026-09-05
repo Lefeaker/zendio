@@ -7,6 +7,7 @@ import {
   DEVICE_LOCAL_PRIVACY_TRANSACTION_KEY,
   createDeviceLocalPrivacyTransaction,
   DeviceLocalPrivacyStore,
+  type DeviceLocalPrivacyTransactionSnapshot,
   resolveDeviceLocalPrivacy
 } from '@shared/config/deviceLocalPrivacy';
 import { createPreparedDeviceLocalVaultRecoveryTransaction } from '@shared/config/deviceLocalVaultRecoveryTransaction';
@@ -16,8 +17,16 @@ import type {
 } from '@shared/config/losslessObjectBoundaryTypes';
 import type { PrivacyPreferencesOptions } from '@shared/types/options';
 
-const privacy0 = { analytics: false, errorReporting: false, debugMode: false } as const;
-const privacy1 = { analytics: true, errorReporting: false, debugMode: false } as const;
+const privacy0: PrivacyPreferencesOptions = {
+  analytics: false,
+  errorReporting: false,
+  debugMode: false
+};
+const privacy1: PrivacyPreferencesOptions = {
+  analytics: true,
+  errorReporting: false,
+  debugMode: false
+};
 
 async function seedPrivacy(
   storage: Awaited<ReturnType<typeof harness>>['storage'],
@@ -63,6 +72,11 @@ async function transaction() {
     privacyWriteRequired: true
   });
 }
+
+const interruptedPhases: readonly DeviceLocalPrivacyTransactionSnapshot['phase'][] = [
+  'prepared',
+  'commit-ready'
+];
 
 describe('createDeviceLocalPrivacyCommitter compensation', () => {
   it('observes prepared as R and commit-ready current values as F', async () => {
@@ -164,7 +178,7 @@ describe('createDeviceLocalPrivacyCommitter compensation', () => {
     expect(state.writeRaw).not.toHaveBeenCalled();
   });
 
-  it.each(['prepared', 'commit-ready'] as const)(
+  it.each(interruptedPhases)(
     'converges after startup clears an interrupted privacy %s primitive',
     async (phase) => {
       const state = await harness({ revision: 0, nested: { a: 1, b: 2 } });
