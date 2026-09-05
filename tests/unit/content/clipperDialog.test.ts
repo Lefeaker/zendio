@@ -5,6 +5,7 @@ import type { StorageAreaService, StorageService } from '../../../src/platform/i
 import type { ClipperDialogDependencies } from '@content/clipper/components/dialogDependencies';
 import { mergeOptions } from '@shared/config/optionsMerger';
 import type { CompleteOptions } from '@shared/types/options';
+import type { IOptionsRepository } from '@shared/repositories/IOptionsRepository';
 import type { StyleAttachmentHandle } from '@ui/foundation/style-host';
 
 import { describe, it, expect, beforeEach, beforeAll, vi } from 'vitest';
@@ -498,6 +499,90 @@ describe('ClipperDialog UI', () => {
 
     window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
     await promise;
+  });
+
+  it('keeps a newly inserted nested Vault selection explicit when another enabled Vault becomes default', async () => {
+    const { ClipperDialog } = await import('../../../src/content/clipper/components/dialog');
+    let current = mergeOptions({
+      vaultRouter: { defaultVaultId: 'default', vaults: [], rules: [] }
+    });
+    const listeners = new Set<(options: CompleteOptions) => void>();
+    const optionsRepository: IOptionsRepository = {
+      get: () => Promise.resolve(current),
+      patch: () => Promise.resolve(current),
+      replace: () => Promise.resolve(current),
+      onChange: (listener) => {
+        listeners.add(listener);
+        return () => {
+          listeners.delete(listener);
+        };
+      }
+    };
+    const dialog = new ClipperDialog({ ...createDialogDeps(), optionsRepository });
+    const resultPromise = dialog.show('Dynamic selection');
+    await vi.waitFor(() => expect(getHost()).not.toBeNull());
+    const root = getDialogRoot();
+    if (!root) throw new Error('Clipper root missing');
+    await vi.waitFor(() =>
+      expect(root.querySelector('.export-destination-options')).not.toBeNull()
+    );
+    const vaultA = {
+      id: 'vault-a',
+      name: 'Vault A',
+      vault: 'Vault A',
+      enabled: true,
+      localFolderId: 'folder-vault-a',
+      localFolderName: 'Vault A',
+      httpsUrl: LOCAL_REST_HTTPS_URL,
+      httpUrl: LOCAL_REST_HTTP_URL,
+      apiKey: ''
+    };
+    const vaultB = { ...vaultA, id: 'vault-b', name: 'Vault B', vault: 'Vault B' };
+    const publish = (options: CompleteOptions): void => {
+      current = options;
+      listeners.forEach((listener) => listener(options));
+    };
+    publish(
+      mergeOptions({ vaultRouter: { defaultVaultId: 'vault-a', vaults: [vaultA], rules: [] } })
+    );
+    await vi.waitFor(() =>
+      expect(root.querySelector('[data-destination-id="vault-a"]')).not.toBeNull()
+    );
+    const label = root.querySelector(
+      '[data-destination-id="vault-a"] .export-destination-option-label'
+    );
+    const menu = root.querySelector('.export-destination-menu');
+    const comment = root.querySelector('textarea');
+    if (
+      !(label instanceof HTMLElement) ||
+      !(menu instanceof HTMLDetailsElement) ||
+      !(comment instanceof HTMLTextAreaElement)
+    )
+      throw new Error('Clipper controls missing');
+    comment.value = 'Keep this comment';
+    comment.dispatchEvent(new Event('input', { bubbles: true }));
+    menu.open = true;
+    label.click();
+    await vi.waitFor(() => expect(menu.open).toBe(false));
+    publish(
+      mergeOptions({
+        vaultRouter: { defaultVaultId: 'vault-b', vaults: [vaultA, vaultB], rules: [] }
+      })
+    );
+    await vi.waitFor(() =>
+      expect(root.querySelector('[data-destination-id="vault-b"]')).not.toBeNull()
+    );
+    expect(root.querySelector('.export-destination-label')?.textContent).toBe('Vault A');
+    const reader = root.querySelector('[data-action-id="reader"]');
+    if (!(reader instanceof HTMLButtonElement)) throw new Error('Reader action missing');
+    reader.click();
+    const result = await resultPromise;
+    expect(result).toEqual({
+      action: 'reader',
+      comment: 'Keep this comment',
+      destination: { kind: 'vault', vaultId: 'vault-a' }
+    });
+    expect(result.destinationSelectionIsExplicit).toBe(true);
   });
 
   it('returns the selected destination when entering reader mode', async () => {

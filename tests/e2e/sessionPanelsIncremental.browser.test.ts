@@ -479,6 +479,47 @@ async function markB10DestinationRow(page: Page, marker: string): Promise<void> 
   }, marker);
 }
 
+async function setB10OtherDefaultKeepingSelectedVault(extensionPage: Page): Promise<void> {
+  const result = await extensionPage.evaluate(
+    async ({ selectedId, selectedName }) => {
+      const vault = (id: string, name: string, isDefault: boolean) => ({
+        id,
+        name,
+        vault: name,
+        localFolderId: `folder-${id}`,
+        localFolderName: name,
+        httpsUrl: 'https://127.0.0.1:27124',
+        httpUrl: 'http://127.0.0.1:27123',
+        apiKey: '',
+        enabled: true,
+        isDefault
+      });
+      return chrome.runtime.sendMessage<object, B10MutationResponse>({
+        type: 'ZENDIO_OPTIONS_MUTATION',
+        requestId: `two-vault-${crypto.randomUUID()}`,
+        command: {
+          kind: 'patch',
+          patches: [
+            {
+              path: ['vaultRouter'],
+              value: {
+                defaultVaultId: 'other-default-vault',
+                vaults: [
+                  vault(selectedId, selectedName, false),
+                  vault('other-default-vault', 'Other Default Vault', true)
+                ],
+                rules: []
+              }
+            }
+          ]
+        }
+      });
+    },
+    { selectedId: B10_VAULT_ID, selectedName: B10_LIVE_VAULT_NAME }
+  );
+  expect(result).toMatchObject({ success: true });
+}
+
 async function expectB10Destination(page: Page, marker: string, label: string): Promise<void> {
   await expect(page.locator('.export-destination-label')).toHaveText(label);
   await expect(page.locator('.export-destination-row')).toHaveAttribute(
@@ -521,7 +562,10 @@ async function readB10VideoDraft(extensionPage: Page, pageUrl: string) {
     const payload = candidate[1].payload;
     return {
       destination: record(payload.destination) ? payload.destination : null,
-      captureCount: Array.isArray(payload.captures) ? payload.captures.length : 0
+      captureCount: Array.isArray(payload.captures) ? payload.captures.length : 0,
+      captureComments: Array.isArray(payload.captures)
+        ? payload.captures.map((capture) => (record(capture) ? capture.comment : undefined))
+        : []
     };
   }, pageUrl);
 }
@@ -545,12 +589,9 @@ async function selectB10ClipperDestination(page: Page, destinationId: string): P
     `.export-destination-option[data-destination-id="${destinationId}"]`
   );
   await expect(option).toBeVisible();
-  await option.click();
+  await option.locator('.export-destination-option-label').click();
   const openMenu = clipper.locator('.export-destination-menu[open]');
-  if ((await openMenu.count()) > 0) {
-    await clipper.locator('.export-destination-summary').click();
-    await expect(openMenu).toHaveCount(0);
-  }
+  await expect(openMenu).toHaveCount(0);
 }
 
 testWithExtension(
@@ -675,10 +716,35 @@ testWithExtension(
     );
     await openB10Clipper(vault.page, extensionPage);
     await updateB10Vault(extensionPage, B10_LIVE_VAULT_NAME);
+    await vault.page
+      .locator('[data-stitch-surface="clipper"] textarea')
+      .fill('Explicit Vault A comment');
     await selectB10ClipperDestination(vault.page, B10_VAULT_ID);
+    await setB10OtherDefaultKeepingSelectedVault(extensionPage);
+    await expect
+      .poll(() =>
+        vault.page
+          .locator('[data-stitch-surface="clipper"] .export-destination-option')
+          .evaluateAll((buttons) =>
+            buttons.map((button) =>
+              button instanceof HTMLElement ? button.dataset.destinationId : undefined
+            )
+          )
+      )
+      .toEqual([B10_VAULT_ID, 'other-default-vault', 'downloads']);
+    await expect(
+      vault.page.locator('[data-stitch-surface="clipper"] .export-destination-label')
+    ).toHaveText(B10_LIVE_VAULT_NAME);
     await startB10ClipperVideo(vault.page, extensionPage);
     await expect(vault.page.locator('.export-destination-label')).toHaveText(B10_LIVE_VAULT_NAME);
     await markB10DestinationRow(vault.page, 'clipper-video-vault');
+    await expect
+      .poll(() => readB10VideoDraft(extensionPage, vault.page.url()))
+      .toMatchObject({
+        destination: { kind: 'vault', vaultId: B10_VAULT_ID },
+        captureComments: ['Explicit Vault A comment'],
+        captureCount: 1
+      });
     await expect
       .poll(() => readB10VideoDraft(extensionPage, vault.page.url()))
       .toMatchObject({
