@@ -12,16 +12,23 @@ import {
 
 export { DEVICE_LOCAL_VAULT_IDENTITY_ALGORITHM, portableOptionsIdentity };
 export const DEVICE_LOCAL_VAULT_CLEANUP_JOURNAL_KEY = 'deviceLocalVaultCleanupJournal';
-export const DEVICE_LOCAL_VAULT_RECOVERY_PROTOCOL = 'forward-privacy-v1';
+import {
+  DEVICE_LOCAL_VAULT_RECOVERY_PROTOCOL,
+  type DecodedDeviceLocalVaultRecoveryRecord,
+  type DeviceLocalVaultBindingSnapshot,
+  type DeviceLocalVaultRecoveryTransactionV3
+} from './deviceLocalVaultRecoverySchema';
+export {
+  DEVICE_LOCAL_VAULT_RECOVERY_PROTOCOL,
+  type DeviceLocalVaultBinding,
+  type DeviceLocalVaultBindingSnapshot,
+  type DeviceLocalVaultPortableEvidenceV2,
+  type DeviceLocalVaultRecoveryTransactionV2,
+  type DeviceLocalVaultRecoveryPhaseV3,
+  type DeviceLocalVaultRecoveryTransactionV3,
+  type DeviceLocalVaultRecoveryTransaction
+} from './deviceLocalVaultRecoverySchema';
 
-export interface DeviceLocalVaultBinding {
-  readonly folderId: string;
-  readonly folderName: string;
-}
-export interface DeviceLocalVaultBindingSnapshot {
-  readonly version: 1;
-  readonly bindings: Readonly<Record<string, DeviceLocalVaultBinding>>;
-}
 export interface DeviceLocalVaultBindingRepository {
   readVaultBindings(): Promise<DeviceLocalVaultBindingSnapshot>;
   writeVaultBindings(snapshot: DeviceLocalVaultBindingSnapshot): Promise<void>;
@@ -82,92 +89,19 @@ export interface DeviceLocalPrivacyCommitter {
   ): Promise<DeviceLocalVaultRecoveryObservation>;
 }
 
-export interface DeviceLocalVaultPortableEvidenceV2 {
-  readonly identityAlgorithm: typeof DEVICE_LOCAL_VAULT_IDENTITY_ALGORITHM;
-  readonly preimageIdentity: string;
-  readonly proposedIdentity: string;
-  readonly observedCommittedIdentity?: string;
-  readonly writeRequired: boolean;
-}
-export interface DeviceLocalVaultRecoveryTransactionV2 {
-  readonly version: 2;
-  readonly transactionId: string;
-  readonly phase:
-    | 'prepared'
-    | 'portable-committed'
-    | 'local-committed'
-    | 'cleanup-complete'
-    | 'aborted';
-  readonly previousBindings: DeviceLocalVaultBindingSnapshot;
-  readonly proposedBindings: DeviceLocalVaultBindingSnapshot;
-  readonly cleanupCandidates: readonly string[];
-  readonly remainingCleanupCandidates: readonly string[];
-  readonly portable: DeviceLocalVaultPortableEvidenceV2;
-  readonly abortReason?: 'portable-not-committed' | 'external-sync-conflict' | 'invalid-legacy';
-}
-export type DeviceLocalVaultRecoveryPhaseV3 =
-  | 'prepared'
-  | 'forward-inflight'
-  | 'forward-committed'
-  | 'portable-committed'
-  | 'local-commit-inflight'
-  | 'compensating'
-  | 'portable-privacy-restored'
-  | 'local-committed'
-  | 'cleanup-complete'
-  | 'aborted';
-export interface DeviceLocalVaultRecoveryTransactionV3 {
-  readonly version: 3;
-  readonly protocol: typeof DEVICE_LOCAL_VAULT_RECOVERY_PROTOCOL;
-  readonly transactionId: string;
-  readonly phase: DeviceLocalVaultRecoveryPhaseV3;
-  readonly previousBindings: DeviceLocalVaultBindingSnapshot;
-  readonly proposedBindings: DeviceLocalVaultBindingSnapshot;
-  readonly cleanupCandidates: readonly string[];
-  readonly remainingCleanupCandidates: readonly string[];
-  readonly portable: {
-    readonly identityAlgorithm: typeof DEVICE_LOCAL_VAULT_IDENTITY_ALGORITHM;
-    readonly preimage: PlainStructuredObject;
-    readonly preimageIdentity: string;
-    readonly proposedIdentity: string;
-    readonly observedCommittedIdentity?: string;
-    readonly writeRequired: boolean;
-  };
-  readonly privacy: {
-    readonly restoreTarget: PrivacyPreferencesOptions;
-    readonly forwardTarget: PrivacyPreferencesOptions;
-    readonly writeRequired: boolean;
-    readonly observedForward?: 'exact-target-readback';
-  };
-  readonly recovery?: {
-    readonly outcomeCode: 'OPTIONS_STORAGE_FAILURE' | 'EXTERNAL_SYNC_CONFLICT';
-    readonly bindingWriteMayHaveOccurred: boolean;
-    readonly portableRestoreEvidence?: 'preimage' | 'third-preserved';
-    readonly privacyRestoreEvidence?: 'restore-target' | 'third-preserved';
-  };
-  readonly abortReason?:
-    | 'forward-not-started'
-    | 'forward-not-committed'
-    | 'local-commit-failed'
-    | 'external-sync-conflict'
-    | 'invalid-legacy';
-}
-export type DeviceLocalVaultRecoveryTransaction =
-  | DeviceLocalVaultRecoveryTransactionV2
-  | DeviceLocalVaultRecoveryTransactionV3;
 export class DeviceLocalVaultRecoveryError extends Error {
   constructor(readonly code: 'OPTIONS_STORAGE_FAILURE' | 'EXTERNAL_SYNC_CONFLICT') {
     super(code);
     this.name = 'DeviceLocalVaultRecoveryError';
   }
 }
-export const asOptionsMutationError = (error: unknown) =>
+export const asOptionsMutationError = <T>(error: T) =>
   error instanceof OptionsMutationError
     ? error
     : new OptionsMutationError(
         error instanceof DeviceLocalVaultRecoveryError ? error.code : 'OPTIONS_STORAGE_FAILURE'
       );
-export const deviceLocalVaultRecoveryCode = (error: unknown) =>
+export const deviceLocalVaultRecoveryCode = <T>(error: T) =>
   error instanceof OptionsMutationError && error.code === 'EXTERNAL_SYNC_CONFLICT'
     ? 'EXTERNAL_SYNC_CONFLICT'
     : 'OPTIONS_STORAGE_FAILURE';
@@ -176,23 +110,16 @@ export const withDeviceLocalVaultRecoveryPhase = (
   update: Partial<DeviceLocalVaultRecoveryTransactionV3>
 ): DeviceLocalVaultRecoveryTransactionV3 => ({ ...transaction, ...update });
 
-export async function decodeDeviceLocalVaultRecoveryTransaction(value: unknown) {
+export async function decodeDeviceLocalVaultRecoveryTransaction<T>(
+  value: T
+): Promise<DecodedDeviceLocalVaultRecoveryRecord> {
   const decoded = decodeDeviceLocalVaultRecoveryRecord(value);
-  if (decoded.kind === 'v3-transaction') {
-    const transaction = decoded.transaction as unknown as DeviceLocalVaultRecoveryTransactionV3;
-    if (
-      (await portableOptionsIdentity(transaction.portable.preimage)) !==
-      transaction.portable.preimageIdentity
-    )
-      return { kind: 'invalid' } as const;
-    return { kind: decoded.kind, transaction } as const;
-  }
-  if (decoded.kind === 'legacy-v2-transaction') {
-    return {
-      kind: decoded.kind,
-      transaction: decoded.transaction as unknown as DeviceLocalVaultRecoveryTransactionV2
-    } as const;
-  }
+  if (
+    decoded.kind === 'v3-transaction' &&
+    (await portableOptionsIdentity(decoded.transaction.portable.preimage)) !==
+      decoded.transaction.portable.preimageIdentity
+  )
+    return { kind: 'invalid' };
   return decoded;
 }
 

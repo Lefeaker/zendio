@@ -24,8 +24,8 @@ export type DeviceLocalVaultAuthoritativePublication =
       readonly bindings: DeviceLocalVaultBindingSnapshot;
     };
 
-export async function resolveDeviceLocalVaultAuthoritativePublication(
-  rawJournal: unknown
+export async function resolveDeviceLocalVaultAuthoritativePublication<T>(
+  rawJournal: T
 ): Promise<DeviceLocalVaultAuthoritativePublication> {
   const decoded = await decodeDeviceLocalVaultRecoveryTransaction(rawJournal);
   if (
@@ -42,8 +42,8 @@ export async function resolveDeviceLocalVaultAuthoritativePublication(
   };
 }
 
-export async function readDeviceLocalVaultAuthoritativePublication<T>(input: {
-  readonly readJournal: () => Promise<unknown>;
+export async function readDeviceLocalVaultAuthoritativePublication<T, Journal>(input: {
+  readonly readJournal: () => Promise<Journal>;
   readonly readPhysical: () => Promise<T>;
   readonly composePreimage: (
     publication: Extract<DeviceLocalVaultAuthoritativePublication, { kind: 'preimage' }>

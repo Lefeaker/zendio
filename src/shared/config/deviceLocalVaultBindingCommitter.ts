@@ -80,14 +80,17 @@ export class DeviceLocalVaultLocalCommitter {
     transaction: DeviceLocalVaultRecoveryTransactionV3,
     allowWrite: boolean
   ): Promise<DeviceLocalVaultLocalCommitOutcome> {
-    const inflight =
+    const inflight: DeviceLocalVaultRecoveryTransactionV3 =
       transaction.phase === 'portable-committed'
-        ? { ...transaction, phase: 'local-commit-inflight' as const }
+        ? { ...transaction, phase: 'local-commit-inflight' }
         : transaction;
     if (transaction.phase === 'portable-committed') await this.recoveryStorage.replace(inflight);
     const outcome = await this.stage(inflight, allowWrite);
     if (outcome.kind !== 'staged') return outcome;
-    const committed = { ...inflight, phase: 'local-committed' as const };
+    const committed: DeviceLocalVaultRecoveryTransactionV3 = {
+      ...inflight,
+      phase: 'local-committed'
+    };
     await this.recoveryStorage.replace(committed);
     return { kind: 'committed', transaction: committed };
   }

@@ -29,8 +29,10 @@ export class DeviceLocalVaultRecoveryStorage {
     private readonly readPortableRaw: () => Promise<PlainStructuredObject>
   ) {}
 
-  readonly getRaw = (): Promise<unknown> =>
-    this.storage.get(DEVICE_LOCAL_VAULT_CLEANUP_JOURNAL_KEY);
+  readonly readRecord = async () => {
+    const raw = await this.storage.get(DEVICE_LOCAL_VAULT_CLEANUP_JOURNAL_KEY);
+    return raw === undefined ? null : decodeDeviceLocalVaultRecoveryTransaction(raw);
+  };
 
   readonly remove = (): Promise<void> =>
     this.storage.remove(DEVICE_LOCAL_VAULT_CLEANUP_JOURNAL_KEY);
@@ -114,9 +116,9 @@ export class DeviceLocalVaultCleanupExecutor {
       }
       current = await this.recordComplete(current, candidate);
     }
-    const complete = {
+    const complete: DeviceLocalVaultRecoveryTransaction = {
       ...current,
-      phase: 'cleanup-complete' as const,
+      phase: 'cleanup-complete',
       remainingCleanupCandidates: []
     };
     await this.recoveryStorage.replace(complete);
