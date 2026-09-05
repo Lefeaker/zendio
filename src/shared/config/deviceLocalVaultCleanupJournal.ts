@@ -43,9 +43,14 @@ export class DeviceLocalVaultCleanupJournal {
     const transaction = await this.requireV3();
     if (transaction.phase !== 'prepared')
       throw new DeviceLocalVaultRecoveryError('OPTIONS_STORAGE_FAILURE');
-    await this.recoveryStorage.replace(
-      withDeviceLocalVaultRecoveryPhase(transaction, { phase: 'forward-inflight' })
-    );
+    const inflight = withDeviceLocalVaultRecoveryPhase(transaction, {
+      phase: 'forward-inflight'
+    });
+    await this.recoveryStorage.replace(inflight);
+    const outcome = await this.localCommitter.stage(inflight, true);
+    if (outcome.kind === 'staged') return;
+    const code = outcome.kind === 'third' ? 'EXTERNAL_SYNC_CONFLICT' : 'OPTIONS_STORAGE_FAILURE';
+    return this.compensate(inflight, code, true);
   }
   async recover(
     allowNoWriteCommit = true,
@@ -132,7 +137,7 @@ export class DeviceLocalVaultCleanupJournal {
       return this.compensate(
         transaction,
         isConflict(observation) ? 'EXTERNAL_SYNC_CONFLICT' : outcomeCode,
-        false
+        true
       );
     const committed = withDeviceLocalVaultRecoveryPhase(transaction, {
       phase: 'forward-committed',

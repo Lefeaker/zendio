@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { createMemoryStorageService } from '@platform/preview/memoryStorage';
 import {
   DeviceLocalVaultCleanupExecutor,
+  DeviceLocalVaultLocalCommitter,
   DeviceLocalVaultRecoveryStorage
 } from '@shared/config/deviceLocalVaultCleanupExecutor';
 import {
@@ -39,6 +40,47 @@ async function localCommitted(): Promise<DeviceLocalVaultRecoveryTransactionV3> 
 }
 
 describe('DeviceLocalVaultCleanupExecutor', () => {
+  it('re-exports finalization that opens publication only after exact staged B1', async () => {
+    const storage = createMemoryStorageService();
+    const prepared = await createPreparedDeviceLocalVaultRecoveryTransaction({
+      transactionId: 'finalize-1',
+      previousBindings: bindings('folder-old'),
+      proposedBindings: bindings('folder-new'),
+      portablePreimage: { revision: 0 },
+      portableProposal: { revision: 1 },
+      writeRequired: true,
+      privacyRestoreTarget: { analytics: false, errorReporting: false, debugMode: false },
+      privacyForwardTarget: { analytics: true, errorReporting: false, debugMode: false },
+      privacyWriteRequired: true
+    });
+    const staged = bindings('folder-new');
+    const recoveryStorage = new DeviceLocalVaultRecoveryStorage(
+      storage.local,
+      () => Promise.resolve(staged),
+      () => Promise.resolve(),
+      () => Promise.resolve({ revision: 1 })
+    );
+    const forwardCommitted: DeviceLocalVaultRecoveryTransactionV3 = {
+      ...prepared,
+      phase: 'forward-committed',
+      portable: {
+        ...prepared.portable,
+        observedCommittedIdentity: prepared.portable.proposedIdentity
+      },
+      privacy: { ...prepared.privacy, observedForward: 'exact-target-readback' }
+    };
+
+    await expect(
+      new DeviceLocalVaultLocalCommitter(recoveryStorage).execute(forwardCommitted, false)
+    ).resolves.toMatchObject({
+      kind: 'committed',
+      transaction: { phase: 'local-committed' }
+    });
+    await expect(storage.local.get('deviceLocalVaultCleanupJournal')).resolves.toMatchObject({
+      phase: 'local-committed'
+    });
+  });
+
   it('keeps local-committed irreversible when progress persistence fails after delete', async () => {
     const storage = createMemoryStorageService();
     const transaction = await localCommitted();

@@ -1,6 +1,6 @@
 import type { StorageAreaService } from '../../platform/interfaces/storage';
-import { plainStructuredDataEqual } from './losslessObjectBoundary';
 import type { PlainStructuredObject } from './losslessObjectBoundaryTypes';
+import { sameDeviceLocalVaultBindings } from './deviceLocalVaultBindingCommitter';
 import {
   DEVICE_LOCAL_VAULT_CLEANUP_JOURNAL_KEY,
   DeviceLocalVaultRecoveryError,
@@ -8,17 +8,16 @@ import {
   portableOptionsIdentity,
   type DeviceLocalVaultBindingSnapshot,
   type DeviceLocalVaultRecoveryTransaction,
-  type DeviceLocalVaultRecoveryTransactionV2,
-  type DeviceLocalVaultRecoveryTransactionV3
+  type DeviceLocalVaultRecoveryTransactionV2
 } from './deviceLocalVaultRecoveryTransaction';
 
-export function sameDeviceLocalVaultBindings(
-  left: DeviceLocalVaultBindingSnapshot,
-  right: DeviceLocalVaultBindingSnapshot
-): boolean {
-  const result = plainStructuredDataEqual(left, right);
-  return result.ok && result.equal;
-}
+export {
+  DeviceLocalVaultBindingCommitter,
+  DeviceLocalVaultLocalCommitter,
+  sameDeviceLocalVaultBindings,
+  type DeviceLocalVaultBindingStageOutcome,
+  type DeviceLocalVaultLocalCommitOutcome
+} from './deviceLocalVaultBindingCommitter';
 
 export class DeviceLocalVaultRecoveryStorage {
   constructor(
@@ -45,12 +44,16 @@ export class DeviceLocalVaultRecoveryStorage {
   }
 
   async writeBindingsVerified(snapshot: DeviceLocalVaultBindingSnapshot): Promise<void> {
+    await this.writeBindings(snapshot);
+    if (!sameDeviceLocalVaultBindings(await this.readBindings(), snapshot)) {
+      throw new DeviceLocalVaultRecoveryError('OPTIONS_STORAGE_FAILURE');
+    }
+  }
+
+  async writeBindings(snapshot: DeviceLocalVaultBindingSnapshot): Promise<void> {
     try {
       await this.writeBindingsOperation(snapshot);
     } catch {
-      throw new DeviceLocalVaultRecoveryError('OPTIONS_STORAGE_FAILURE');
-    }
-    if (!sameDeviceLocalVaultBindings(await this.readBindings(), snapshot)) {
       throw new DeviceLocalVaultRecoveryError('OPTIONS_STORAGE_FAILURE');
     }
   }
@@ -72,52 +75,6 @@ export class DeviceLocalVaultRecoveryStorage {
       throw new DeviceLocalVaultRecoveryError('OPTIONS_STORAGE_FAILURE');
     }
     await this.storage.set(DEVICE_LOCAL_VAULT_CLEANUP_JOURNAL_KEY, transaction);
-  }
-}
-
-export type DeviceLocalVaultLocalCommitOutcome =
-  | { readonly kind: 'committed'; readonly transaction: DeviceLocalVaultRecoveryTransactionV3 }
-  | { readonly kind: 'previous' }
-  | { readonly kind: 'third' };
-
-export class DeviceLocalVaultLocalCommitter {
-  constructor(private readonly recoveryStorage: DeviceLocalVaultRecoveryStorage) {}
-
-  async execute(
-    transaction: DeviceLocalVaultRecoveryTransactionV3,
-    allowWrite: boolean
-  ): Promise<DeviceLocalVaultLocalCommitOutcome> {
-    const inflight =
-      transaction.phase === 'portable-committed'
-        ? { ...transaction, phase: 'local-commit-inflight' as const }
-        : transaction;
-    if (transaction.phase === 'portable-committed') await this.recoveryStorage.replace(inflight);
-    let current = await this.recoveryStorage.readBindings();
-    if (sameDeviceLocalVaultBindings(current, inflight.proposedBindings)) {
-      return { kind: 'committed', transaction: await this.commit(inflight) };
-    }
-    if (!sameDeviceLocalVaultBindings(current, inflight.previousBindings)) {
-      return { kind: 'third' };
-    }
-    if (!allowWrite) return { kind: 'previous' };
-    try {
-      await this.recoveryStorage.writeBindingsVerified(inflight.proposedBindings);
-    } catch {
-      /* The immediate readback below classifies the ambiguous write. */
-    }
-    current = await this.recoveryStorage.readBindings();
-    if (sameDeviceLocalVaultBindings(current, inflight.proposedBindings)) {
-      return { kind: 'committed', transaction: await this.commit(inflight) };
-    }
-    return sameDeviceLocalVaultBindings(current, inflight.previousBindings)
-      ? { kind: 'previous' }
-      : { kind: 'third' };
-  }
-
-  private async commit(transaction: DeviceLocalVaultRecoveryTransactionV3) {
-    const committed = { ...transaction, phase: 'local-committed' as const };
-    await this.recoveryStorage.replace(committed);
-    return committed;
   }
 }
 
