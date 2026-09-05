@@ -1430,6 +1430,133 @@ describe('bounded command ownership', () => {
     ).toThrow('LOCAL_ENVIRONMENT_INVALID');
   });
 
+  it('limits explicit local proxy transport to two fixed npm flags', () => {
+    const directRoot = realpathSync(temporaryRoot());
+    const proxyRoot = realpathSync(temporaryRoot());
+    const direct = resolveCommandProfile('local-install-v1', [], {
+      environment: cleanEnvironment({ ZENDIO_LOCAL_ATTEMPT_ROOT: directRoot })
+    });
+    const selected = resolveCommandProfile('local-install-v1', ['--proxy=loopback-7890'], {
+      environment: cleanEnvironment({ ZENDIO_LOCAL_ATTEMPT_ROOT: proxyRoot })
+    });
+    const normalize = (value: string) => value.replaceAll(proxyRoot, directRoot);
+    expect(selected.argv.slice(0, -2).map(normalize)).toEqual(direct.argv);
+    expect(selected.argv.slice(-2)).toEqual([
+      '--proxy=http://127.0.0.1:7890',
+      '--https-proxy=http://127.0.0.1:7890'
+    ]);
+    expect(selected.argv).not.toContain('--proxy=loopback-7890');
+    expect(
+      Object.fromEntries(
+        Object.entries(selected.env).map(([key, value]) => [key, normalize(value)])
+      )
+    ).toEqual(direct.env);
+    expect(selected.commandContext).toEqual({ attemptRoot: proxyRoot, localInstall: true });
+    expect(selected.limits).toEqual(direct.limits);
+    expect(selected.limits).toEqual(COMMAND_LIMITS.install);
+    expect(selected.executable).toBe(direct.executable);
+    expect(selected.cwd).toBe(direct.cwd);
+    expect(selected.stdio).toEqual(direct.stdio);
+    expect(selected.shell).toBe(false);
+    expect(selected.tty).toBe(false);
+    expect(selected.detached).toBe(direct.detached);
+    expect(lstatSync(proxyRoot).mode & 0o777).toBe(0o700);
+    expect(lstatSync(join(proxyRoot, 'install')).mode & 0o777).toBe(0o700);
+    for (const name of ['npm-userconfig', 'npm-globalconfig']) {
+      const file = join(proxyRoot, 'install', name);
+      expect(readFileSync(file, 'utf8')).toBe('');
+      expect(lstatSync(file).mode & 0o777).toBe(0o600);
+    }
+    expect(() =>
+      resolveCommandProfile('local-install-v1', ['--proxy=loopback-7890'], {
+        environment: cleanEnvironment({ ZENDIO_LOCAL_ATTEMPT_ROOT: proxyRoot })
+      })
+    ).toThrow('LOCAL_ATTEMPT_ROOT_INVALID');
+    const postInstall = resolveCommandProfile('npm-tree-read-v1', ['ls', '--all'], {
+      environment: cleanEnvironment({
+        NPM_CONFIG_USERCONFIG: join(proxyRoot, 'install/npm-userconfig'),
+        NPM_CONFIG_GLOBALCONFIG: join(proxyRoot, 'install/npm-globalconfig')
+      })
+    });
+    expect(postInstall.argv.some((arg) => arg.includes('proxy'))).toBe(false);
+    expect(Object.keys(postInstall.env).some((key) => /proxy/iu.test(key))).toBe(false);
+  });
+
+  it.each([
+    ['--proxy=loopback-7891'],
+    ['--proxy=http://127.0.0.1:7890'],
+    ['--proxy=http://user:password@127.0.0.1:7890'],
+    ['--proxy=https://127.0.0.1:7890'],
+    ['--proxy=socks5://127.0.0.1:7890'],
+    ['--proxy=localhost:7890'],
+    ['--proxy', 'loopback-7890'],
+    ['--proxy=loopback-7890', '--proxy=loopback-7890'],
+    ['--proxy=loopback-7890', '--registry=https://example.invalid'],
+    ['--proxy=loopback-7890', '--strict-ssl=false']
+  ])('rejects unsupported local proxy arguments before setup: %j', (...args) => {
+    const root = realpathSync(temporaryRoot());
+    expect(() =>
+      parseManagedCommandInvocationArgv([
+        'node',
+        'scripts/run-bounded-command.mjs',
+        '--profile',
+        'local-install-v1',
+        '--',
+        ...args
+      ])
+    ).toThrow();
+    expect(() =>
+      resolveCommandProfile('local-install-v1', args, {
+        environment: cleanEnvironment({ ZENDIO_LOCAL_ATTEMPT_ROOT: root })
+      })
+    ).toThrow();
+    expect(readdirSync(root)).toEqual([]);
+  });
+
+  it.each([
+    ['HTTP_PROXY', 'http://127.0.0.1:7890'],
+    ['HTTPS_PROXY', 'http://127.0.0.1:7890'],
+    ['ALL_PROXY', 'socks5://127.0.0.1:7890'],
+    ['http_proxy', 'http://127.0.0.1:7890'],
+    ['npm_config_proxy', 'http://127.0.0.1:7890'],
+    ['CUSTOM_PROXY_ROUTE', 'loopback-7890'],
+    ['NODE_EXTRA_CA_CERTS', '/tmp/custom.pem'],
+    ['NODE_OPTIONS', '--dns-result-order=ipv4first'],
+    ['CI', 'true'],
+    ['GITHUB_ACTIONS', 'true']
+  ])('keeps selected local proxy isolated from ambient authority %s', (key, value) => {
+    const root = realpathSync(temporaryRoot());
+    expect(() =>
+      resolveCommandProfile('local-install-v1', ['--proxy=loopback-7890'], {
+        environment: cleanEnvironment({ ZENDIO_LOCAL_ATTEMPT_ROOT: root, [key]: value })
+      })
+    ).toThrow();
+    expect(readdirSync(root)).toEqual([]);
+  });
+
+  it('admits the selector only in the local install public grammar', () => {
+    expect(
+      parseManagedCommandInvocationArgv([
+        'node',
+        'scripts/run-bounded-command.mjs',
+        '--profile',
+        'local-install-v1',
+        '--',
+        '--proxy=loopback-7890'
+      ])
+    ).toMatchObject({ profileId: 'local-install-v1', arguments: ['--proxy=loopback-7890'] });
+    const otherProfiles: CommandBoundaryProfileId[] = ['github-ci-install-v1', 'npm-ci-v1'];
+    for (const profileId of otherProfiles) {
+      const root = realpathSync(temporaryRoot());
+      expect(() =>
+        resolveCommandProfile(profileId, ['--proxy=loopback-7890'], {
+          environment: cleanEnvironment({ ZENDIO_LOCAL_ATTEMPT_ROOT: root })
+        })
+      ).toThrow();
+      expect(readdirSync(root)).toEqual([]);
+    }
+  });
+
   it('recovers local post-install authority only from the exact empty owner npm configs', () => {
     const root = realpathSync(temporaryRoot());
     installAttemptConfigs(root);
