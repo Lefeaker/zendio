@@ -12,6 +12,21 @@ import {
   testWithExtension
 } from './utils/videoListenerScopeHarness';
 
+type PlainStorageValue =
+  | string
+  | number
+  | boolean
+  | null
+  | undefined
+  | PlainStorageValue[]
+  | PlainStorageRecord;
+type PlainStorageRecord = { [key: string]: PlainStorageValue };
+
+declare global {
+  // eslint-disable-next-line no-var -- Ambient global properties require var declarations.
+  var __AIIINOB_CONTENT_RUNTIME_PROMISE__: PromiseLike<object> | undefined;
+}
+
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const extensionPath = path.resolve(__dirname, '../../build/dist');
 
@@ -398,11 +413,7 @@ async function openB10Clipper(page: Page, extensionPage: Page): Promise<void> {
       target: { tabId: targetTabId },
       world: 'ISOLATED',
       func: async () => {
-        const runtimePromise = (
-          globalThis as typeof globalThis & {
-            __AIIINOB_CONTENT_RUNTIME_PROMISE__?: PromiseLike<object>;
-          }
-        ).__AIIINOB_CONTENT_RUNTIME_PROMISE__;
+        const runtimePromise = globalThis.__AIIINOB_CONTENT_RUNTIME_PROMISE__;
         if (!runtimePromise) return false;
         await runtimePromise;
         return document.documentElement.dataset.aiobContentRuntime === 'true';
@@ -496,9 +507,9 @@ async function expectB10Destination(page: Page, marker: string, label: string): 
 
 async function readB10VideoDraft(extensionPage: Page, pageUrl: string) {
   return extensionPage.evaluate(async (targetUrl) => {
-    const record = (value: unknown): value is Record<string, unknown> =>
+    const record = (value: PlainStorageValue): value is PlainStorageRecord =>
       typeof value === 'object' && value !== null && !Array.isArray(value);
-    const storage = await chrome.storage.local.get(null);
+    const storage: PlainStorageRecord = await chrome.storage.local.get(null);
     const candidate = Object.entries(storage).find(
       ([key, value]) =>
         key.startsWith('aiob.sessionDraft.v1.video.') &&

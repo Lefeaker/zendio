@@ -17,9 +17,9 @@ const localVaultStoreName = 'folders';
 const cleanupFolderId = 'folder-cleanup-journal';
 const cleanupJournalKey = 'deviceLocalVaultCleanupJournal';
 
-type StorageValue = chrome.storage.StorageChange['newValue'];
-type JsonValue = StorageValue;
-type JsonRecord = Record<string, StorageValue>;
+type JsonValue = string | number | boolean | null | undefined | JsonValue[] | JsonRecord;
+type JsonRecord = { [key: string]: JsonValue };
+type StorageValue = JsonValue;
 
 function isJsonRecord(value: JsonValue): value is JsonRecord {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -76,14 +76,34 @@ const privacyForward: ForwardPrivacy = {
   errorReporting: false,
   debugMode: false
 };
-const forwardPreviousBindings = {
+type ForwardBindings = {
+  version: 1;
+  bindings: Record<string, { folderId: string; folderName: string }>;
+};
+type ForwardPrivacyMarker = 'prepared' | 'commit-ready';
+const forwardPreviousBindings: ForwardBindings = {
   version: 1,
   bindings: {
     primary: { folderId: cleanupFolderId, folderName: 'Cleanup Journal Vault' }
   }
-} as const;
-const forwardProposedBindings = { version: 1, bindings: {} } as const;
-const forwardPortablePreimage: JsonRecord = {
+};
+const forwardProposedBindings: ForwardBindings = { version: 1, bindings: {} };
+type ForwardPortable = {
+  interfaceTheme: string;
+  vaultRouter: {
+    defaultVaultId: string;
+    vaults: {
+      id: string;
+      name: string;
+      vault: string;
+      httpsUrl: string;
+      httpUrl: string;
+      apiKey: string;
+    }[];
+  };
+  opaqueRoot?: { third: boolean };
+};
+const forwardPortablePreimage: ForwardPortable = {
   interfaceTheme: 'system',
   vaultRouter: {
     defaultVaultId: 'primary',
@@ -99,15 +119,15 @@ const forwardPortablePreimage: JsonRecord = {
     ]
   }
 };
-const forwardPortableProposal: JsonRecord = {
+const forwardPortableProposal: ForwardPortable = {
   interfaceTheme: 'dark',
   vaultRouter: { defaultVaultId: 'default', vaults: [] }
 };
 
-function canonicalForwardJson(value: unknown): string {
+function canonicalForwardJson(value: JsonValue): string {
   if (Array.isArray(value)) return `[${value.map(canonicalForwardJson).join(',')}]`;
-  if (typeof value === 'object' && value !== null) {
-    const record = value as Record<string, unknown>;
+  if (isJsonRecord(value)) {
+    const record = value;
     return `{${Object.keys(record)
       .sort()
       .map((key) => `${JSON.stringify(key)}:${canonicalForwardJson(record[key])}`)
@@ -124,8 +144,8 @@ function createForwardJournal(
   id: string,
   phase: ForwardPhase,
   options: {
-    portablePreimage?: JsonRecord;
-    portableProposal?: JsonRecord;
+    portablePreimage?: ForwardPortable;
+    portableProposal?: ForwardPortable;
     portableWriteRequired?: boolean;
     privacyRestoreTarget?: ForwardPrivacy;
     privacyForwardTarget?: ForwardPrivacy;
@@ -169,19 +189,17 @@ function createForwardJournal(
   };
 }
 
-async function seedForwardPhysicalState(
-  page: Page,
-  input: {
-    portable: JsonRecord;
-    privacy: ForwardPrivacy;
-    bindings: unknown;
-    journal: unknown;
-    privacyMarker?: 'prepared' | 'commit-ready';
-  }
-): Promise<void> {
-  await page.evaluate(
+type ForwardPhysicalState = {
+  portable: ForwardPortable;
+  privacy: ForwardPrivacy;
+  bindings: ForwardBindings;
+  journal: ReturnType<typeof createForwardJournal> | undefined;
+  privacyMarker?: ForwardPrivacyMarker;
+};
+async function seedForwardPhysicalState(page: Page, input: ForwardPhysicalState): Promise<void> {
+  await page.evaluate<void, { state: ForwardPhysicalState; journalKey: string }>(
     async ({ state, journalKey }) => {
-      const local: Record<string, unknown> = {
+      const local: JsonRecord = {
         analytics_user_consent: {
           analytics: state.privacy.analytics,
           errorReporting: state.privacy.errorReporting,
@@ -218,9 +236,9 @@ async function seedForwardPhysicalState(
 
 async function readForwardState(page: Page) {
   return page.evaluate(async (journalKey) => {
-    const [sync, local] = await Promise.all([
-      chrome.storage.sync.get('options'),
-      chrome.storage.local.get([
+    const [sync, local]: [JsonRecord, JsonRecord] = await Promise.all([
+      chrome.storage.sync.get<JsonRecord>('options'),
+      chrome.storage.local.get<JsonRecord>([
         'analytics_user_consent',
         'analytics_config',
         'zendio_device_local_privacy_transaction',
@@ -266,6 +284,28 @@ type DelayedOptionsEventProbe = {
   released: number;
   release(): void;
 };
+
+type MountedOptionsIdentity = {
+  input: HTMLInputElement;
+  main: HTMLElement;
+  root: HTMLElement;
+  overview: HTMLElement;
+  output: HTMLElement;
+  capture: HTMLElement;
+  expectedMainScroll: number;
+  expectedWindowScroll: number;
+};
+
+declare global {
+  // eslint-disable-next-line no-var -- Ambient global properties require var declarations.
+  var __m05MountedMutationProbe: MountedMutationProbe | undefined;
+  // eslint-disable-next-line no-var -- Ambient global properties require var declarations.
+  var __m05OptionsIdentity: MountedOptionsIdentity | undefined;
+  // eslint-disable-next-line no-var -- Ambient global properties require var declarations.
+  var __m05DelayedOptionsEventProbe: DelayedOptionsEventProbe | undefined;
+  // eslint-disable-next-line no-var -- Ambient global properties require var declarations.
+  var __m05DelayedThemeState: { darkTransitions: number } | undefined;
+}
 
 async function installDelayedOptionsEventProbe(page: Page): Promise<void> {
   await page.addInitScript(() => {
@@ -342,32 +382,36 @@ async function installMountedMutationProbe(page: Page, holdFirstTrue = true): Pr
         Reflect.apply(original, runtime, args);
       }
     };
+    type MutationMessage = {
+      requestId: JsonValue;
+      patches: { path: string[]; value: boolean | undefined }[];
+    };
+    const record = (value: JsonValue): value is JsonRecord =>
+      typeof value === 'object' && value !== null && !Array.isArray(value);
+    const decodeMutation = (value: JsonValue): MutationMessage | null => {
+      if (!record(value) || value.type !== 'ZENDIO_OPTIONS_MUTATION') return null;
+      const command = value.command;
+      if (!record(command) || !Array.isArray(command.patches)) return null;
+      const patches: MutationMessage['patches'] = [];
+      for (const patch of command.patches) {
+        if (!record(patch) || !Array.isArray(patch.path)) continue;
+        const path = patch.path;
+        if (!path.every((part): part is string => typeof part === 'string')) continue;
+        patches.push({ path, value: typeof patch.value === 'boolean' ? patch.value : undefined });
+      }
+      return { requestId: value.requestId, patches };
+    };
     const wrapped = (...args: SendArgs) => {
-      const message = args[0];
-      if (typeof message !== 'object' || message === null || Array.isArray(message)) {
-        return Reflect.apply(original, runtime, args);
-      }
-      const record = message as Record<string, unknown>;
-      if (record.type !== 'ZENDIO_OPTIONS_MUTATION') {
-        return Reflect.apply(original, runtime, args);
-      }
-      const command = record.command;
-      const patches =
-        typeof command === 'object' && command !== null && 'patches' in command
-          ? (command as { patches?: unknown }).patches
-          : undefined;
-      if (!Array.isArray(patches)) return Reflect.apply(original, runtime, args);
+      const mutation = decodeMutation(args[0]);
+      if (!mutation) return Reflect.apply(original, runtime, args);
       const captureValues: boolean[] = [];
-      for (const patch of patches) {
-        if (typeof patch !== 'object' || patch === null || !('path' in patch)) continue;
-        const path = (patch as { path?: unknown }).path;
-        if (!Array.isArray(path) || !path.every((part) => typeof part === 'string')) continue;
-        probe.paths.push(path);
+      for (const patch of mutation.patches) {
+        probe.paths.push(patch.path);
         if (
-          path.join('.') === 'fragmentClipper.captureContext' &&
-          typeof (patch as { value?: unknown }).value === 'boolean'
+          patch.path.join('.') === 'fragmentClipper.captureContext' &&
+          typeof patch.value === 'boolean'
         ) {
-          captureValues.push((patch as { value: boolean }).value);
+          captureValues.push(patch.value);
         }
       }
       probe.captureValues.push(...captureValues);
@@ -378,7 +422,7 @@ async function installMountedMutationProbe(page: Page, holdFirstTrue = true): Pr
         queueMicrotask(() =>
           callback({
             type: 'ZENDIO_OPTIONS_MUTATION_RESULT',
-            requestId: record.requestId,
+            requestId: mutation.requestId,
             success: false,
             errorCode: 'EXTERNAL_SYNC_CONFLICT'
           })
@@ -423,21 +467,40 @@ async function clickTheme(page: Page, theme: 'dark' | 'light' | 'system'): Promi
   await page.locator(`[data-panel-id="overview"] .chips button[data-value="${theme}"]`).click();
 }
 
+type MutationFixtureValue =
+  | string
+  | number
+  | boolean
+  | null
+  | undefined
+  | {
+      defaultVaultId: string;
+      vaults: {
+        id: string;
+        name: string;
+        vault: string;
+        httpsUrl: string;
+        httpUrl: string;
+        apiKey: string;
+        localFolderId?: string;
+        localFolderName?: string;
+      }[];
+    };
 async function sendPatch(
   page: Page,
   pathParts: string[],
-  value: JsonValue
+  value: MutationFixtureValue
 ): Promise<MutationResponse> {
   return sendPatches(page, [{ path: pathParts, value }]);
 }
 
 async function sendPatches(
   page: Page,
-  patches: Array<{ path: string[]; value: JsonValue }>
+  patches: Array<{ path: string[]; value: MutationFixtureValue }>
 ): Promise<MutationResponse> {
   return page.evaluate<
     MutationResponse,
-    { patches: Array<{ path: string[]; value: JsonValue }>; requestId: string }
+    { patches: Array<{ path: string[]; value: MutationFixtureValue }>; requestId: string }
   >(
     async ({ patches: mutationPatches, requestId }) =>
       chrome.runtime.sendMessage({
@@ -452,8 +515,12 @@ async function sendPatches(
   );
 }
 
-async function sendReplacement(page: Page, replacement: JsonRecord): Promise<MutationResponse> {
-  return page.evaluate<MutationResponse, { replacement: JsonRecord; requestId: string }>(
+type ReplacementFixture = { interfaceTheme: string; templates: { article: string } };
+async function sendReplacement(
+  page: Page,
+  replacement: ReplacementFixture
+): Promise<MutationResponse> {
+  return page.evaluate<MutationResponse, { replacement: ReplacementFixture; requestId: string }>(
     async ({ replacement: next, requestId }) =>
       chrome.runtime.sendMessage({
         type: 'ZENDIO_OPTIONS_MUTATION',
@@ -466,7 +533,7 @@ async function sendReplacement(page: Page, replacement: JsonRecord): Promise<Mut
 
 async function readRaw(page: Page): Promise<JsonRecord> {
   return page.evaluate<JsonRecord>(async () => {
-    const result = await chrome.storage.sync.get('options');
+    const result = await chrome.storage.sync.get<JsonRecord>('options');
     const value: StorageValue = result.options;
     const isRecord = (candidate: StorageValue): candidate is JsonRecord =>
       typeof candidate === 'object' && candidate !== null && !Array.isArray(candidate);
@@ -726,28 +793,11 @@ test.describe('Options cross-context mutation authority', () => {
 
     await firstCapture.toggle.click();
     await expect
-      .poll(() =>
-        first.evaluate(
-          () =>
-            (
-              globalThis as typeof globalThis & {
-                __m05MountedMutationProbe?: MountedMutationProbe;
-              }
-            ).__m05MountedMutationProbe?.held ?? false
-        )
-      )
+      .poll(() => first.evaluate(() => globalThis.__m05MountedMutationProbe?.held ?? false))
       .toBe(true);
     await outputText.evaluate((input) => {
       if (!(input instanceof HTMLInputElement)) throw new Error('Expected text input.');
-      const identity = (
-        globalThis as typeof globalThis & {
-          __m05OptionsIdentity?: {
-            main: HTMLElement;
-            expectedMainScroll: number;
-            expectedWindowScroll: number;
-          };
-        }
-      ).__m05OptionsIdentity;
+      const identity = globalThis.__m05OptionsIdentity;
       if (!identity) throw new Error('Mounted Options identity probe missing.');
       input.focus();
       input.setSelectionRange(1, Math.min(4, input.value.length), 'forward');
@@ -759,15 +809,7 @@ test.describe('Options cross-context mutation authority', () => {
         })
     );
     const frozenScroll = await first.evaluate(() => {
-      const identity = (
-        globalThis as typeof globalThis & {
-          __m05OptionsIdentity?: {
-            main: HTMLElement;
-            expectedMainScroll: number;
-            expectedWindowScroll: number;
-          };
-        }
-      ).__m05OptionsIdentity;
+      const identity = globalThis.__m05OptionsIdentity;
       if (!identity) throw new Error('Mounted Options identity probe missing.');
       identity.main.scrollTop = 180;
       window.scrollTo(0, 24);
@@ -786,20 +828,7 @@ test.describe('Options cross-context mutation authority', () => {
     ).toHaveClass(/is-active/u);
 
     const retained = await first.evaluate(() => {
-      const identity = (
-        globalThis as typeof globalThis & {
-          __m05OptionsIdentity?: {
-            input: HTMLInputElement;
-            main: HTMLElement;
-            root: HTMLElement;
-            overview: HTMLElement;
-            output: HTMLElement;
-            capture: HTMLElement;
-            expectedMainScroll: number;
-            expectedWindowScroll: number;
-          };
-        }
-      ).__m05OptionsIdentity;
+      const identity = globalThis.__m05OptionsIdentity;
       if (!identity) throw new Error('Mounted Options identity probe missing.');
       return {
         focus: document.activeElement === identity.input,
@@ -833,9 +862,7 @@ test.describe('Options cross-context mutation authority', () => {
 
     await firstCapture.toggle.click();
     await first.evaluate(() => {
-      const probe = (
-        globalThis as typeof globalThis & { __m05MountedMutationProbe?: MountedMutationProbe }
-      ).__m05MountedMutationProbe;
+      const probe = globalThis.__m05MountedMutationProbe;
       if (!probe) throw new Error('Mounted mutation probe missing.');
       probe.release();
     });
@@ -848,20 +875,12 @@ test.describe('Options cross-context mutation authority', () => {
     await expect
       .poll(() =>
         first.evaluate(() => {
-          const probe = (
-            globalThis as typeof globalThis & {
-              __m05MountedMutationProbe?: MountedMutationProbe;
-            }
-          ).__m05MountedMutationProbe;
+          const probe = globalThis.__m05MountedMutationProbe;
           return probe ? { paths: probe.paths, values: probe.captureValues } : null;
         })
       )
       .toMatchObject({ values: [true, false] });
-    const paths = await first.evaluate(
-      () =>
-        (globalThis as typeof globalThis & { __m05MountedMutationProbe?: MountedMutationProbe })
-          .__m05MountedMutationProbe?.paths ?? []
-    );
+    const paths = await first.evaluate(() => globalThis.__m05MountedMutationProbe?.paths ?? []);
     expect(paths).not.toContainEqual(['interfaceTheme']);
 
     await background.evaluate(() =>
@@ -917,25 +936,14 @@ test.describe('Options cross-context mutation authority', () => {
     await first.goto(optionsUrl, { waitUntil: 'domcontentloaded' });
     const capture = await openCaptureBehavior(first);
     await first.evaluate(() => {
-      const probe = (
-        globalThis as typeof globalThis & { __m05MountedMutationProbe?: MountedMutationProbe }
-      ).__m05MountedMutationProbe;
+      const probe = globalThis.__m05MountedMutationProbe;
       if (!probe) throw new Error('Mounted mutation probe missing.');
       probe.failNext = true;
     });
     await capture.toggle.click();
     await expect(capture.input).toBeChecked();
     await expect
-      .poll(() =>
-        first.evaluate(
-          () =>
-            (
-              globalThis as typeof globalThis & {
-                __m05MountedMutationProbe?: MountedMutationProbe;
-              }
-            ).__m05MountedMutationProbe?.failedResponses ?? 0
-        )
-      )
+      .poll(() => first.evaluate(() => globalThis.__m05MountedMutationProbe?.failedResponses ?? 0))
       .toBe(1);
     await expect.poll(() => autoSaveErrors.length).toBe(1);
     await expect
@@ -953,28 +961,12 @@ test.describe('Options cross-context mutation authority', () => {
         captureContext: true
       });
     await expect
-      .poll(() =>
-        first.evaluate(
-          () =>
-            (
-              globalThis as typeof globalThis & {
-                __m05MountedMutationProbe?: MountedMutationProbe;
-              }
-            ).__m05MountedMutationProbe?.captureValues ?? []
-        )
-      )
+      .poll(() => first.evaluate(() => globalThis.__m05MountedMutationProbe?.captureValues ?? []))
       .toEqual([true, true]);
     await clickTheme(first, 'dark');
     await expect.poll(async () => (await readRaw(first)).interfaceTheme).toBe('dark');
     expect(
-      await first.evaluate(
-        () =>
-          (
-            globalThis as typeof globalThis & {
-              __m05MountedMutationProbe?: MountedMutationProbe;
-            }
-          ).__m05MountedMutationProbe?.captureValues ?? []
-      )
+      await first.evaluate(() => globalThis.__m05MountedMutationProbe?.captureValues ?? [])
     ).toEqual([true, true]);
     await first.reload({ waitUntil: 'domcontentloaded' });
     const reloaded = await openCaptureBehavior(first);
@@ -1184,7 +1176,7 @@ test.describe('Options cross-context mutation authority', () => {
       await freshPage.goto(`chrome-extension://${freshExtensionId}/options/index.html`, {
         waitUntil: 'domcontentloaded'
       });
-      await freshPage.evaluate(
+      await freshPage.evaluate<void, object>(
         (scrubbed) => chrome.storage.sync.set({ options: scrubbed }),
         portable
       );
@@ -1433,13 +1425,12 @@ test.describe('Options cross-context mutation authority', () => {
       const storage = chrome.storage.sync;
       const originalSet = storage.set.bind(storage);
       const state = { failed: false, originalSet };
-      const readRecord = (value: StorageValue): JsonRecord | null => {
-        const isRecord = (candidate: StorageValue): candidate is JsonRecord =>
-          typeof candidate === 'object' && candidate !== null && !Array.isArray(candidate);
-        return isRecord(value) ? value : null;
-      };
       const gatedSet = (items: JsonRecord, callback?: () => void) => {
-        const options = readRecord(items.options);
+        const candidate = items.options;
+        const options =
+          typeof candidate === 'object' && candidate !== null && !Array.isArray(candidate)
+            ? candidate
+            : null;
         if (
           !state.failed &&
           options &&
@@ -1578,9 +1569,18 @@ test.describe('Options cross-context mutation authority', () => {
         pending.callback();
       };
       state.listener = (changes, area) => {
-        const next = readRecord(changes.options?.newValue);
+        const next = changes.options?.newValue;
         const pending = state.pending[0];
-        if (area !== 'sync' || next?.interfaceTheme !== 'light' || !pending) return;
+        if (
+          area !== 'sync' ||
+          typeof next !== 'object' ||
+          next === null ||
+          Array.isArray(next) ||
+          !('interfaceTheme' in next) ||
+          next.interfaceTheme !== 'light' ||
+          !pending
+        )
+          return;
         pending.released = true;
         if (pending.armed) finish(pending);
       };
@@ -1614,19 +1614,23 @@ test.describe('Options cross-context mutation authority', () => {
       await gateHandle.evaluate((state) => chrome.storage.sync.set !== state.originalSet)
     ).toBe(true);
     const driftHandle = await second.evaluateHandle(() => {
-      const readRecord = (value: StorageValue): JsonRecord | null => {
-        const isRecord = (candidate: StorageValue): candidate is JsonRecord =>
-          typeof candidate === 'object' && candidate !== null && !Array.isArray(candidate);
-        return isRecord(value) ? value : null;
-      };
       const state: DriftState = {
         count: 0,
         writes: [],
         listener: () => undefined
       };
       state.listener = (changes, area) => {
-        const next = readRecord(changes.options?.newValue);
-        if (area !== 'sync' || next?.interfaceTheme !== 'dark' || state.count >= 3) return;
+        const next = changes.options?.newValue;
+        if (
+          area !== 'sync' ||
+          typeof next !== 'object' ||
+          next === null ||
+          Array.isArray(next) ||
+          !('interfaceTheme' in next) ||
+          next.interfaceTheme !== 'dark' ||
+          state.count >= 3
+        )
+          return;
         state.count += 1;
         state.writes.push(
           chrome.storage.sync.set({ options: { ...next, interfaceTheme: 'light' } })
@@ -1662,7 +1666,7 @@ test.describe('Options cross-context mutation authority', () => {
   });
 
   test('retries an aborted Local Vault cleanup after a fresh background restart', async () => {
-    const cleanupPortablePreimage: JsonRecord = {
+    const cleanupPortablePreimage = {
       rest: { vault: 'Primary' },
       vaultRouter: {
         defaultVaultId: 'primary',
@@ -1678,7 +1682,7 @@ test.describe('Options cross-context mutation authority', () => {
         ]
       },
       opaqueRoot: { keep: ['b09', 1] }
-    };
+    } satisfies JsonRecord;
     await first.evaluate(
       ({ cleanupKey, folderId, portable }) =>
         Promise.all([
@@ -1718,7 +1722,10 @@ test.describe('Options cross-context mutation authority', () => {
     const readCleanupState = () =>
       first.evaluate(
         async ({ cleanupKey }) => {
-          const local = await chrome.storage.local.get(['deviceLocalVaultBindings', cleanupKey]);
+          const local = await chrome.storage.local.get<JsonRecord>([
+            'deviceLocalVaultBindings',
+            cleanupKey
+          ]);
           return {
             bindings: local.deviceLocalVaultBindings,
             journal: local[cleanupKey]
@@ -1807,10 +1814,24 @@ test.describe('Options cross-context mutation authority', () => {
   });
 });
 
-const forwardRows = [
+type ForwardRecoveryRow = {
+  id: string;
+  phase: ForwardPhase;
+  portable: ForwardPortable;
+  privacy: ForwardPrivacy;
+  privacyMarker?: ForwardPrivacyMarker;
+  bindings: ForwardBindings;
+  expectedPortable: ForwardPortable;
+  expectedPrivacy: ForwardPrivacy;
+  expectedBindings: ForwardBindings;
+  expectedHandle: boolean;
+  success: boolean;
+  errorCode?: 'EXTERNAL_SYNC_CONFLICT';
+};
+const forwardRows: ForwardRecoveryRow[] = [
   {
     id: 'F1 prepared only',
-    phase: 'prepared' as const,
+    phase: 'prepared',
     portable: forwardPortablePreimage,
     privacy: privacyRestore,
     bindings: forwardPreviousBindings,
@@ -1822,10 +1843,10 @@ const forwardRows = [
   },
   {
     id: 'F2 privacy prepared',
-    phase: 'forward-inflight' as const,
+    phase: 'forward-inflight',
     portable: forwardPortableProposal,
     privacy: privacyRestore,
-    privacyMarker: 'prepared' as const,
+    privacyMarker: 'prepared',
     bindings: forwardProposedBindings,
     expectedPortable: forwardPortablePreimage,
     expectedPrivacy: privacyRestore,
@@ -1835,10 +1856,10 @@ const forwardRows = [
   },
   {
     id: 'F3 privacy commit-ready before values',
-    phase: 'forward-inflight' as const,
+    phase: 'forward-inflight',
     portable: forwardPortableProposal,
     privacy: privacyRestore,
-    privacyMarker: 'commit-ready' as const,
+    privacyMarker: 'commit-ready',
     bindings: forwardProposedBindings,
     expectedPortable: forwardPortablePreimage,
     expectedPrivacy: privacyRestore,
@@ -1848,10 +1869,10 @@ const forwardRows = [
   },
   {
     id: 'F4 exact forward privacy',
-    phase: 'forward-inflight' as const,
+    phase: 'forward-inflight',
     portable: forwardPortableProposal,
     privacy: privacyForward,
-    privacyMarker: 'commit-ready' as const,
+    privacyMarker: 'commit-ready',
     bindings: forwardProposedBindings,
     expectedPortable: forwardPortableProposal,
     expectedPrivacy: privacyForward,
@@ -1861,7 +1882,7 @@ const forwardRows = [
   },
   {
     id: 'F5 portable preimage with forward privacy',
-    phase: 'forward-inflight' as const,
+    phase: 'forward-inflight',
     portable: forwardPortablePreimage,
     privacy: privacyForward,
     bindings: forwardProposedBindings,
@@ -1873,7 +1894,7 @@ const forwardRows = [
   },
   {
     id: 'F6 preserves third portable with exact forward privacy',
-    phase: 'forward-inflight' as const,
+    phase: 'forward-inflight',
     portable: { ...forwardPortablePreimage, interfaceTheme: 'dark', opaqueRoot: { third: true } },
     privacy: privacyForward,
     bindings: forwardProposedBindings,
@@ -1890,7 +1911,7 @@ const forwardRows = [
   },
   {
     id: 'F6 preserves third privacy with exact portable proposal',
-    phase: 'forward-inflight' as const,
+    phase: 'forward-inflight',
     portable: forwardPortableProposal,
     privacy: { analytics: false, errorReporting: true, debugMode: true },
     bindings: forwardProposedBindings,
@@ -1903,7 +1924,7 @@ const forwardRows = [
   },
   {
     id: 'F7 local inflight B0 compensates',
-    phase: 'local-commit-inflight' as const,
+    phase: 'local-commit-inflight',
     portable: forwardPortableProposal,
     privacy: privacyForward,
     bindings: forwardPreviousBindings,
@@ -1915,7 +1936,7 @@ const forwardRows = [
   },
   {
     id: 'F7 local inflight B1 advances',
-    phase: 'local-commit-inflight' as const,
+    phase: 'local-commit-inflight',
     portable: forwardPortableProposal,
     privacy: privacyForward,
     bindings: forwardProposedBindings,
@@ -1927,7 +1948,7 @@ const forwardRows = [
   },
   {
     id: 'F7 local inflight Bx preserves third binding',
-    phase: 'local-commit-inflight' as const,
+    phase: 'local-commit-inflight',
     portable: forwardPortableProposal,
     privacy: privacyForward,
     bindings: {
@@ -1944,7 +1965,7 @@ const forwardRows = [
     success: false,
     errorCode: 'EXTERNAL_SYNC_CONFLICT'
   }
-] as const;
+];
 
 for (const row of forwardRows) {
   test(`recovers corrected-v3 ${row.id} through a persistent installed extension`, async () => {
@@ -1984,7 +2005,7 @@ for (const row of forwardRows) {
         createForwardJournal(row.id, row.phase)
       );
 
-      const expectedPortable = row.expectedPortable as JsonRecord;
+      const expectedPortable = row.expectedPortable;
       const recoveryResponse = await sendPatch(
         seedPage,
         ['interfaceTheme'],
@@ -2111,16 +2132,7 @@ test('publishes current state once when a delayed native Options event crosses t
       journal: createForwardJournal('delayed-rollback', 'forward-inflight')
     });
     await expect
-      .poll(() =>
-        observer.evaluate(
-          () =>
-            (
-              globalThis as typeof globalThis & {
-                __m05DelayedOptionsEventProbe?: DelayedOptionsEventProbe;
-              }
-            ).__m05DelayedOptionsEventProbe?.held ?? 0
-        )
-      )
+      .poll(() => observer.evaluate(() => globalThis.__m05DelayedOptionsEventProbe?.held ?? 0))
       .toBe(1);
     await control.evaluate(
       async ({ portable, bindings, journalKey }) => {
@@ -2146,25 +2158,12 @@ test('publishes current state once when a delayed native Options event crosses t
       }
     );
     await observer.evaluate(() => {
-      const probe = (
-        globalThis as typeof globalThis & {
-          __m05DelayedOptionsEventProbe?: DelayedOptionsEventProbe;
-        }
-      ).__m05DelayedOptionsEventProbe;
+      const probe = globalThis.__m05DelayedOptionsEventProbe;
       if (!probe) throw new Error('Delayed Options event probe missing.');
       probe.release();
     });
     await expect
-      .poll(() =>
-        observer.evaluate(
-          () =>
-            (
-              globalThis as typeof globalThis & {
-                __m05DelayedThemeState?: { darkTransitions: number };
-              }
-            ).__m05DelayedThemeState?.darkTransitions ?? -1
-        )
-      )
+      .poll(() => observer.evaluate(() => globalThis.__m05DelayedThemeState?.darkTransitions ?? -1))
       .toBe(0);
 
     await seedForwardPhysicalState(control, {
@@ -2174,16 +2173,7 @@ test('publishes current state once when a delayed native Options event crosses t
       journal: createForwardJournal('delayed-success', 'forward-inflight')
     });
     await expect
-      .poll(() =>
-        observer.evaluate(
-          () =>
-            (
-              globalThis as typeof globalThis & {
-                __m05DelayedOptionsEventProbe?: DelayedOptionsEventProbe;
-              }
-            ).__m05DelayedOptionsEventProbe?.held ?? 0
-        )
-      )
+      .poll(() => observer.evaluate(() => globalThis.__m05DelayedOptionsEventProbe?.held ?? 0))
       .toBe(2);
     await control.evaluate(
       async ({ journalKey, committed }) => {
@@ -2199,21 +2189,14 @@ test('publishes current state once when a delayed native Options event crosses t
       observer.locator('[data-panel-id="overview"] .chips button[data-value="dark"]')
     ).toHaveAttribute('aria-pressed', 'true');
     await observer.evaluate(() => {
-      const probe = (
-        globalThis as typeof globalThis & {
-          __m05DelayedOptionsEventProbe?: DelayedOptionsEventProbe;
-        }
-      ).__m05DelayedOptionsEventProbe;
+      const probe = globalThis.__m05DelayedOptionsEventProbe;
       if (!probe) throw new Error('Delayed Options event probe missing.');
       probe.release();
     });
     await expect
       .poll(() =>
         observer.evaluate(() => {
-          const runtime = globalThis as typeof globalThis & {
-            __m05DelayedOptionsEventProbe?: DelayedOptionsEventProbe;
-            __m05DelayedThemeState?: { darkTransitions: number };
-          };
+          const runtime = globalThis;
           return {
             transitions: runtime.__m05DelayedThemeState?.darkTransitions ?? -1,
             released: runtime.__m05DelayedOptionsEventProbe?.released ?? -1
@@ -2256,17 +2239,22 @@ test('recovers corrected-v3 F8 post-delete progress and F9 no-write barriers', a
     const progressFault = await worker.evaluateHandle((journalKey) => {
       const storage = chrome.storage.local;
       const originalSet = storage.set.bind(storage);
-      const state = {
+      const state: {
+        failed: boolean;
+        failures: number;
+        transactionIds: string[];
+        originalSet: typeof originalSet;
+      } = {
         failed: false,
         failures: 0,
-        transactionIds: [] as string[],
+        transactionIds: [],
         originalSet
       };
       const gatedSet = (items: JsonRecord, callback?: () => void) => {
         const candidate = items[journalKey];
         const candidateRecord =
           typeof candidate === 'object' && candidate !== null && !Array.isArray(candidate)
-            ? (candidate as JsonRecord)
+            ? candidate
             : null;
         const isProgressWrite =
           !state.failed &&
