@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
+import type { StorageAreaService } from '../../../src/platform/interfaces/storage';
 import {
   createBackgroundOptionsRepository,
   OptionsMutationCoordinator,
@@ -189,7 +190,8 @@ function createConcreteVaultJournal(
   committer: DeviceLocalPrivacyCommitter,
   removeDirectory: (folderId: string) => Promise<void>
 ) {
-  const { observe, compensate } = committer;
+  const observe = committer.observe?.bind(committer);
+  const compensate = committer.compensate?.bind(committer);
   if (!observe || !compensate) throw new Error('recovery operations unavailable');
   const recoveryStorage = new DeviceLocalVaultRecoveryStorage(
     storage.local,
@@ -232,23 +234,29 @@ describe('OptionsMutationCoordinator', () => {
   it('admits commands only after privacy recovery, vault recovery, and migration', async () => {
     const events: string[] = [];
     const repository = new VaultRawRepository({ interfaceTheme: 'system' });
-    const execute: DeviceLocalPrivacyCommitter['execute'] = async (command, applyCommand) => {
-      events.push(command.kind);
-      const raw = requirePlainStructuredObject(repository.raw);
-      const mutation = applyCommand(raw, command);
-      repository.raw = clone(mutation.next);
-      return { raw: mutation.next, didWrite: command.kind !== 'migrate' };
-    };
+    const execute: DeviceLocalPrivacyCommitter['execute'] = (command, applyCommand) =>
+      new Promise((resolve) => {
+        events.push(command.kind);
+        const raw = requirePlainStructuredObject(repository.raw);
+        const mutation = applyCommand(raw, command);
+        repository.raw = clone(mutation.next);
+        resolve({ raw: mutation.next, didWrite: command.kind !== 'migrate' });
+      });
     const journal = createVaultJournal(createMemoryStorageService(), repository);
-    vi.spyOn(journal, 'recover').mockImplementation(async () => {
-      events.push('vault-recovery');
-      return null;
-    });
+    vi.spyOn(journal, 'recover').mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          events.push('vault-recovery');
+          resolve(null);
+        })
+    );
     const coordinator = createCoordinator(repository, {
       deviceLocalPrivacyCommitter: {
-        recover: async () => {
-          events.push('privacy-recovery');
-        },
+        recover: () =>
+          new Promise<void>((resolve) => {
+            events.push('privacy-recovery');
+            resolve();
+          }),
         execute
       },
       deviceLocalVaultCleanupJournal: journal
@@ -543,15 +551,15 @@ describe('OptionsMutationCoordinator', () => {
     const originalLocalSet = storage.local.set.bind(storage.local);
     const originalSetMany = storage.local.setMany.bind(storage.local);
     let failedBinding = false;
-    storage.sync.set = vi.fn(async (key, value) => {
+    storage.sync.set = vi.fn<StorageAreaService['set']>(async (key, value) => {
       forwardEvents.push('portable');
       await originalSyncSet(key, value);
     });
-    storage.local.setMany = vi.fn(async (entries) => {
+    storage.local.setMany = vi.fn<StorageAreaService['setMany']>(async (entries) => {
       forwardEvents.push('privacy-forward');
       await originalSetMany(entries);
     });
-    storage.local.set = vi.fn(async (key, value) => {
+    storage.local.set = vi.fn<StorageAreaService['set']>(async (key, value) => {
       if (key === DEVICE_LOCAL_VAULT_BINDINGS_KEY && !failedBinding) {
         failedBinding = true;
         forwardEvents.push('binding-stage');
@@ -713,7 +721,7 @@ describe('OptionsMutationCoordinator', () => {
     await coordinator.initialize();
     const bindingWrite = vi.spyOn(repository, 'writeVaultBindings');
     const originalSetMany = storage.local.setMany.bind(storage.local);
-    storage.local.setMany = vi.fn(async (values) => {
+    storage.local.setMany = vi.fn<StorageAreaService['setMany']>(async (values) => {
       await originalSetMany(values);
       throw new Error('ambiguous privacy callback');
     });
@@ -1317,10 +1325,12 @@ describe('OptionsMutationCoordinator', () => {
     const repository = new RawRepository({ templates: { article: 'Before' } });
     let driftCount = 0;
     const coordinator = createCoordinator(repository, {
-      yieldAfterWrite: async () => {
-        driftCount += 1;
-        repository.raw = { templates: { article: `Remote ${driftCount}` } };
-      }
+      yieldAfterWrite: () =>
+        new Promise<void>((resolve) => {
+          driftCount += 1;
+          repository.raw = { templates: { article: `Remote ${driftCount}` } };
+          resolve();
+        })
     });
 
     await expect(

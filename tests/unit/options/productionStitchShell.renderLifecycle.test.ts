@@ -18,14 +18,14 @@ import {
   setupProductionStitchShellTest
 } from './productionStitchShell.helpers';
 import { createProductionStitchRenderLifecycle } from '@options/app/productionStitchRenderLifecycle';
-import { createOptionsController } from '@options/app/optionsController';
+import { createOptionsController, type OptionsController } from '@options/app/optionsController';
 import { bindProductionStitchAuthoritativeRebase } from '@options/app/productionStitchAuthoritativeRebase';
 import { mountProductionStitchShell } from '@options/app/productionStitchShell';
 import { previewContent } from '@options/stitch/content';
 import { getFooterMeta, getFooterView, getSettingsView } from '@options/stitch/schema/registry';
 import { YamlConfigEditorWidgetAdapter } from '@options/yaml-config-editor/widgetAdapter';
 import { mergeOptions } from '@shared/config/optionsMerger';
-import type { CompleteOptions, StoredOptions } from '@shared/types';
+import type { StoredOptions } from '@shared/types';
 import type { OptionsPatch } from '@shared/types/optionsMutationMessages';
 
 function withLegacyRootDir<TRest extends NonNullable<StoredOptions['rest']>>(
@@ -159,10 +159,10 @@ describe('mountProductionStitchShell renderLifecycle', () => {
       }
     });
     const listeners: Array<(options: StoredOptions) => void> = [];
-    const save = vi.fn(async (_patches: readonly OptionsPatch[]) => initial);
+    const save = vi.fn((_patches: readonly OptionsPatch[]) => Promise.resolve(initial));
     const controller = createOptionsController({
       persistence: {
-        load: async () => initial,
+        load: () => Promise.resolve(initial),
         save,
         getCached: () => initial,
         subscribe: (listener) => {
@@ -170,7 +170,7 @@ describe('mountProductionStitchShell renderLifecycle', () => {
           return () => undefined;
         }
       },
-      formAdapter: { read: (snapshot) => mergeOptions(snapshot), apply: async () => undefined }
+      formAdapter: { read: (snapshot) => mergeOptions(snapshot), apply: () => Promise.resolve() }
     });
     await controller.loadInitialState();
     const mounted = mountProductionStitchShell({
@@ -218,7 +218,6 @@ describe('mountProductionStitchShell renderLifecycle', () => {
     });
     let repositorySnapshot = structuredClone(initial);
     const listeners: Array<(options: StoredOptions) => void> = [];
-    let mounted: ReturnType<typeof mountProductionStitchShell>;
     let releaseSave: (() => void) | undefined;
     const save = vi.fn(
       (_patches: readonly OptionsPatch[]) =>
@@ -232,7 +231,7 @@ describe('mountProductionStitchShell renderLifecycle', () => {
     );
     const controller = createOptionsController({
       persistence: {
-        load: async () => initial,
+        load: () => Promise.resolve(initial),
         save,
         getCached: () => repositorySnapshot,
         subscribe: (listener) => {
@@ -240,10 +239,10 @@ describe('mountProductionStitchShell renderLifecycle', () => {
           return () => undefined;
         }
       },
-      formAdapter: { read: (snapshot) => mergeOptions(snapshot), apply: async () => undefined }
+      formAdapter: { read: (snapshot) => mergeOptions(snapshot), apply: () => Promise.resolve() }
     });
     await controller.loadInitialState();
-    mounted = mountProductionStitchShell({
+    const mounted = mountProductionStitchShell({
       controller,
       initialOptions: initial,
       messages: null,
@@ -291,15 +290,15 @@ describe('mountProductionStitchShell renderLifecycle', () => {
     const listeners: Array<(options: StoredOptions) => void> = [];
     const controller = createOptionsController({
       persistence: {
-        load: async () => initial,
-        save: async () => initial,
+        load: () => Promise.resolve(initial),
+        save: () => Promise.resolve(initial),
         getCached: () => initial,
         subscribe: (listener) => {
           listeners.push(listener);
           return () => undefined;
         }
       },
-      formAdapter: { read: (snapshot) => mergeOptions(snapshot), apply: async () => undefined }
+      formAdapter: { read: (snapshot) => mergeOptions(snapshot), apply: () => Promise.resolve() }
     });
     await controller.loadInitialState();
     const mounted = mountProductionStitchShell({
@@ -470,6 +469,8 @@ describe('mountProductionStitchShell renderLifecycle', () => {
 
   it('captures each real persisted switch interaction through the controller boundary', () => {
     const controller = createController();
+    const scheduleAutoSave = vi.fn<OptionsController['scheduleAutoSave']>();
+    controller.scheduleAutoSave = scheduleAutoSave;
     const mounted = mountProductionStitchShell({
       controller: asOptionsController(controller),
       initialOptions: { fragmentClipper: { captureContext: false } },
@@ -486,14 +487,14 @@ describe('mountProductionStitchShell renderLifecycle', () => {
 
     captureSwitch.checked = true;
     captureSwitch.dispatchEvent(new Event('change', { bubbles: true }));
-    const firstCollector = vi.mocked(controller.scheduleAutoSave).mock.calls[0]?.[0];
-    expect(firstCollector?.()?.fragmentClipper.captureContext).toBe(true);
+    const firstCollector = scheduleAutoSave.mock.calls[0]?.[0];
+    expect(firstCollector?.()?.fragmentClipper?.captureContext).toBe(true);
 
     captureSwitch.checked = false;
     captureSwitch.dispatchEvent(new Event('change', { bubbles: true }));
-    const secondCollector = vi.mocked(controller.scheduleAutoSave).mock.calls[1]?.[0];
-    expect(secondCollector?.()?.fragmentClipper.captureContext).toBe(false);
-    expect(vi.mocked(controller.scheduleAutoSave)).toHaveBeenCalledTimes(2);
+    const secondCollector = scheduleAutoSave.mock.calls[1]?.[0];
+    expect(secondCollector?.()?.fragmentClipper?.captureContext).toBe(false);
+    expect(scheduleAutoSave).toHaveBeenCalledTimes(2);
     expect(mounted.collectDraft().fragmentClipper.captureContext).toBe(false);
   });
 

@@ -43,7 +43,7 @@ async function seedPrivacy(
   });
 }
 
-async function harness(raw: PlainStructuredObject) {
+function createHarness(raw: PlainStructuredObject) {
   const storage = createMemoryStorageService();
   let current = structuredClone(raw);
   const writeRaw = vi.fn((next: PlainStructuredObject) => {
@@ -55,6 +55,12 @@ async function harness(raw: PlainStructuredObject) {
     writeRaw
   });
   return { storage, committer, writeRaw, current: () => current };
+}
+
+function harness(raw: PlainStructuredObject) {
+  return new Promise<ReturnType<typeof createHarness>>((resolve) => {
+    resolve(createHarness(raw));
+  });
 }
 
 async function transaction() {

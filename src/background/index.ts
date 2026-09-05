@@ -40,7 +40,8 @@ const deviceLocalPrivacyCommitter = createDeviceLocalPrivacyCommitter(
   platformServices.storage,
   optionsStorageRepository
 );
-const { observe, compensate } = deviceLocalPrivacyCommitter;
+const observe = deviceLocalPrivacyCommitter.observe?.bind(deviceLocalPrivacyCommitter);
+const compensate = deviceLocalPrivacyCommitter.compensate?.bind(deviceLocalPrivacyCommitter);
 if (!observe || !compensate) throw new OptionsMutationError('OPTIONS_STORAGE_FAILURE');
 const recoveryStorage = new DeviceLocalVaultRecoveryStorage(
   platformServices.storage.local,

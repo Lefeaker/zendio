@@ -283,13 +283,10 @@ describe('ChromeOptionsRepository', () => {
         newValue: journal
       });
       await vi.waitFor(() => expect(callback).toHaveBeenCalledTimes(1));
-      expect(callback).toHaveBeenLastCalledWith(
-        expect.objectContaining({
-          interfaceTheme: 'dark',
-          privacyPreferences: expect.objectContaining({ analytics: true }),
-          rest: expect.objectContaining({ localFolderId: 'folder-new' })
-        })
-      );
+      expect(callback.mock.lastCall).toHaveLength(1);
+      expect(callback.mock.lastCall?.[0]?.interfaceTheme).toBe('dark');
+      expect(callback.mock.lastCall?.[0]?.privacyPreferences?.analytics).toBe(true);
+      expect(callback.mock.lastCall?.[0]?.rest.localFolderId).toBe('folder-new');
 
       journal = undefined;
       localChanges.get(DEVICE_LOCAL_VAULT_CLEANUP_JOURNAL_KEY)?.(undefined, {
@@ -404,13 +401,10 @@ describe('ChromeOptionsRepository', () => {
       await vi.waitFor(() => expect(scenario.journalReads()).toBeGreaterThanOrEqual(9));
 
       expect(scenario.callback).toHaveBeenCalledTimes(1);
-      expect(scenario.callback).toHaveBeenLastCalledWith(
-        expect.objectContaining({
-          interfaceTheme: 'dark',
-          privacyPreferences: expect.objectContaining({ analytics: true }),
-          rest: expect.objectContaining({ localFolderId: 'folder-new' })
-        })
-      );
+      expect(scenario.callback.mock.lastCall).toHaveLength(1);
+      expect(scenario.callback.mock.lastCall?.[0]?.interfaceTheme).toBe('dark');
+      expect(scenario.callback.mock.lastCall?.[0]?.privacyPreferences?.analytics).toBe(true);
+      expect(scenario.callback.mock.lastCall?.[0]?.rest.localFolderId).toBe('folder-new');
     });
 
     it('publishes the current third state once when a delayed proposal event arrives last', async () => {
@@ -433,12 +427,9 @@ describe('ChromeOptionsRepository', () => {
       await vi.waitFor(() => expect(scenario.journalReads()).toBeGreaterThanOrEqual(9));
 
       expect(scenario.callback).toHaveBeenCalledTimes(1);
-      expect(scenario.callback).toHaveBeenLastCalledWith(
-        expect.objectContaining({
-          interfaceTheme: 'light',
-          rest: expect.objectContaining({ vault: 'Third' })
-        })
-      );
+      expect(scenario.callback.mock.lastCall).toHaveLength(1);
+      expect(scenario.callback.mock.lastCall?.[0]?.interfaceTheme).toBe('light');
+      expect(scenario.callback.mock.lastCall?.[0]?.rest.vault).toBe('Third');
     });
     it('should trigger onChange callback exactly once for a storage watcher update', async () => {
       const initialOptions = cloneOptions(DEFAULT_COMPLETE_OPTIONS);

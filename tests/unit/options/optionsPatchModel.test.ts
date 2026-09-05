@@ -154,7 +154,7 @@ describe.each(cloneModes)('optionsPatchModel with $mode', ({ native }) => {
   it.each([
     {
       label: 'function',
-      value: function draftFunction() {
+      value: function draftFunction(this: void) {
         return 'draft';
       }
     },

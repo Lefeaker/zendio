@@ -247,7 +247,10 @@ describe('DeviceLocalVaultCleanupJournal forward privacy protocol', () => {
   it('quarantines rejected v3 without a protocol discriminator', async () => {
     const state = harness();
     const oldV3 = await state.createJournal().prepare(preparation);
-    const { protocol: _protocol, ...unproven } = oldV3;
+    const unproven: Omit<typeof oldV3, 'protocol'> & { protocol?: typeof oldV3.protocol } = {
+      ...oldV3
+    };
+    delete unproven.protocol;
     await state.storage.local.set(DEVICE_LOCAL_VAULT_CLEANUP_JOURNAL_KEY, unproven);
     const warning = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
 

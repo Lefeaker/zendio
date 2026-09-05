@@ -117,7 +117,9 @@ describe('device-local vault recovery transaction', () => {
       privacyForwardTarget: { analytics: true, errorReporting: false, debugMode: false },
       privacyWriteRequired: true
     });
-    const { protocol: _protocol, ...legacyV3 } = corrected;
+    const legacyV3: Omit<typeof corrected, 'protocol'> & { protocol?: typeof corrected.protocol } =
+      { ...corrected };
+    delete legacyV3.protocol;
 
     expect(await decodeDeviceLocalVaultRecoveryTransaction(legacyV3)).toEqual({
       kind: 'legacy-v3-unproven'
