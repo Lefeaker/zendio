@@ -1,5 +1,5 @@
 import type { CompleteOptions, StoredOptions } from '../../shared/types/options';
-import type { OptionsStore, OptionsSubscriber } from './types';
+import type { OptionsStore, OptionsStoreInputPatch, OptionsSubscriber } from './types';
 import { omitLegacyRestRootDirFromOptions } from '../../shared/config/optionsMerger';
 import {
   sanitizeStoredOptionsSnapshot,
@@ -35,30 +35,48 @@ let unsubscribeRepo: (() => void) | null = null;
 let migrationWritebackTail: Promise<void> = Promise.resolve();
 const subscribers = new Set<OptionsSubscriber>();
 
-function isDeletePatchValue(value: unknown): boolean {
+function isDeletePatchValue(value: OptionsStoreInputPatch['value']): boolean {
   return (
     isObjectRecord(value) &&
     !Array.isArray(value) &&
     Object.keys(value).length === 1 &&
+    '$zendio' in value &&
     value['$zendio'] === 'delete'
   );
 }
 
-function normalizeMutationPatches(patches: readonly OptionsPatch[]): {
+function isYamlInputPatch(
+  patch: OptionsStoreInputPatch
+): patch is Extract<OptionsStoreInputPatch, { readonly path: readonly ['yamlConfig'] }> {
+  return patch.path.length === 1 && patch.path[0] === 'yamlConfig';
+}
+
+function isVaultRouterPatch(
+  patch: OptionsPatch
+): patch is Extract<OptionsPatch, { readonly path: readonly ['vaultRouter'] }> {
+  return patch.path.length === 1 && patch.path[0] === 'vaultRouter';
+}
+
+function normalizeMutationPatches(patches: readonly OptionsStoreInputPatch[]): {
   changed: boolean;
   patches: OptionsPatch[];
 } {
   let changed = false;
-  const normalized = patches.map((patch) => {
-    if (isDeletePatchValue(patch.value)) return patch;
-    let value: unknown = patch.value;
-    if (patch.path[0] === 'vaultRouter') {
-      value = sanitizeVaultRouterConfig(value) ?? STORED_OPTIONS_DELETE;
-    } else if (patch.path[0] === 'yamlConfig') {
-      value = sanitizeYamlConfigValue(value) ?? null;
+  const normalized = patches.map((patch): OptionsPatch => {
+    if (isYamlInputPatch(patch)) {
+      const value = isDeletePatchValue(patch.value)
+        ? STORED_OPTIONS_DELETE
+        : (sanitizeYamlConfigValue(patch.value) ?? null);
+      changed ||= !areStateValuesEqual(value, patch.value);
+      return { path: ['yamlConfig'], value };
     }
-    changed ||= !areStateValuesEqual(value, patch.value);
-    return { path: patch.path, value } as OptionsPatch;
+    if (isDeletePatchValue(patch.value)) return patch;
+    if (isVaultRouterPatch(patch)) {
+      const value = sanitizeVaultRouterConfig(patch.value) ?? STORED_OPTIONS_DELETE;
+      changed ||= !areStateValuesEqual(value, patch.value);
+      return { path: ['vaultRouter'], value };
+    }
+    return patch;
   });
   return { changed, patches: normalized };
 }
@@ -183,7 +201,7 @@ export async function load(): Promise<StoredOptions> {
   return cloneStateValue(normalized);
 }
 
-export async function save(patches: readonly OptionsPatch[]): Promise<StoredOptions> {
+export async function save(patches: readonly OptionsStoreInputPatch[]): Promise<StoredOptions> {
   const mutation = normalizeMutationPatches(patches);
   const acknowledged = await getOptionsRepository().patch(mutation.patches);
   const { normalized, sanitizedYaml, changed } = applySanitizedOptions(acknowledged);

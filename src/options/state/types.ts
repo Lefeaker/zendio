@@ -1,6 +1,7 @@
 import type { CompleteOptions, StoredOptions } from '../../shared/types/options';
 import type { OptionsPatch } from '../../shared/types/optionsMutationMessages';
 import type { UsageStats } from '../../shared/types/usage';
+import type { PlainStructuredValue } from '../../shared/config/losslessObjectBoundaryTypes';
 
 export interface OptionsState {
   language: string;
@@ -23,9 +24,16 @@ export type StateListener = (state: OptionsState) => void;
 
 export type OptionsSubscriber = (options: StoredOptions | undefined) => void;
 
+type RawYamlOptionsInputPatch = {
+  readonly path: readonly ['yamlConfig'];
+  readonly value: PlainStructuredValue;
+};
+
+export type OptionsStoreInputPatch = OptionsPatch | RawYamlOptionsInputPatch;
+
 export interface OptionsStore {
   load(): Promise<StoredOptions>;
-  save(patches: readonly OptionsPatch[]): Promise<StoredOptions>;
+  save(patches: readonly OptionsStoreInputPatch[]): Promise<StoredOptions>;
   snapshot(): StoredOptions | null;
   replace(options: StoredOptions | CompleteOptions | null): void;
   reset(): void;

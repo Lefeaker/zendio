@@ -32,9 +32,8 @@ export function resolveAuthoritativeRebaseScopes(
   return [...scopes];
 }
 
-const PATH_SCOPES = new Map(
-  OPTIONS_PATCH_PATHS.map((path) => [optionsPathKey(path), ROOT_SCOPES[path[0]]] as const)
-);
+const PATH_SCOPES = new Map<string, SectionInvalidationScope>();
+OPTIONS_PATCH_PATHS.forEach((path) => PATH_SCOPES.set(optionsPathKey(path), ROOT_SCOPES[path[0]]));
 
 interface AuthoritativeRebaseOwners {
   resetOptions(options: CompleteOptions): void;
@@ -45,7 +44,12 @@ interface AuthoritativeRebaseOwners {
 }
 
 function resolveProtectedScopes(keys: readonly string[]): Set<SectionInvalidationScope> {
-  return new Set(keys.flatMap((key) => (PATH_SCOPES.get(key) ? [PATH_SCOPES.get(key)!] : [])));
+  const scopes = new Set<SectionInvalidationScope>();
+  keys.forEach((key) => {
+    const scope = PATH_SCOPES.get(key);
+    if (scope !== undefined) scopes.add(scope);
+  });
+  return scopes;
 }
 
 export function applyProductionStitchAuthoritativeRebase(
