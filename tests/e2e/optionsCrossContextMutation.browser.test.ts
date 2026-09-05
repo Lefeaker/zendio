@@ -363,8 +363,12 @@ async function installDelayedOptionsEventProbe(page: Page): Promise<void> {
 async function installMountedMutationProbe(page: Page, holdFirstTrue = true): Promise<void> {
   await page.addInitScript((shouldHoldFirstTrue) => {
     const runtime = chrome.runtime;
-    const original = runtime.sendMessage.bind(runtime);
-    type SendArgs = Parameters<typeof runtime.sendMessage>;
+    const original: (...args: never[]) => unknown = runtime.sendMessage.bind(runtime);
+    type SendArgs = unknown[];
+    const forward = (args: SendArgs): unknown => {
+      const result: unknown = Reflect.apply(original, runtime, args);
+      return result;
+    };
     let pending: SendArgs | null = null;
     const probe: MountedMutationProbe = {
       held: false,
@@ -379,16 +383,16 @@ async function installMountedMutationProbe(page: Page, holdFirstTrue = true): Pr
         const args = pending;
         pending = null;
         probe.released = true;
-        Reflect.apply(original, runtime, args);
+        forward(args);
       }
     };
     type MutationMessage = {
-      requestId: JsonValue;
+      requestId: unknown;
       patches: { path: string[]; value: boolean | undefined }[];
     };
-    const record = (value: JsonValue): value is JsonRecord =>
+    const record = (value: unknown): value is Record<string, unknown> =>
       typeof value === 'object' && value !== null && !Array.isArray(value);
-    const decodeMutation = (value: JsonValue): MutationMessage | null => {
+    const decodeMutation = (value: unknown): MutationMessage | null => {
       if (!record(value) || value.type !== 'ZENDIO_OPTIONS_MUTATION') return null;
       const command = value.command;
       if (!record(command) || !Array.isArray(command.patches)) return null;
@@ -403,7 +407,7 @@ async function installMountedMutationProbe(page: Page, holdFirstTrue = true): Pr
     };
     const wrapped = (...args: SendArgs) => {
       const mutation = decodeMutation(args[0]);
-      if (!mutation) return Reflect.apply(original, runtime, args);
+      if (!mutation) return forward(args);
       const captureValues: boolean[] = [];
       for (const patch of mutation.patches) {
         probe.paths.push(patch.path);
@@ -419,14 +423,16 @@ async function installMountedMutationProbe(page: Page, holdFirstTrue = true): Pr
       if (probe.failNext && typeof callback === 'function') {
         probe.failNext = false;
         probe.failedResponses += 1;
-        queueMicrotask(() =>
-          callback({
-            type: 'ZENDIO_OPTIONS_MUTATION_RESULT',
-            requestId: mutation.requestId,
-            success: false,
-            errorCode: 'EXTERNAL_SYNC_CONFLICT'
-          })
-        );
+        queueMicrotask(() => {
+          Reflect.apply(callback, undefined, [
+            {
+              type: 'ZENDIO_OPTIONS_MUTATION_RESULT',
+              requestId: mutation.requestId,
+              success: false,
+              errorCode: 'EXTERNAL_SYNC_CONFLICT'
+            }
+          ]);
+        });
         return undefined;
       }
       if (
@@ -440,7 +446,7 @@ async function installMountedMutationProbe(page: Page, holdFirstTrue = true): Pr
         pending = args;
         return undefined;
       }
-      return Reflect.apply(original, runtime, args);
+      return forward(args);
     };
     Object.defineProperty(runtime, 'sendMessage', { configurable: true, value: wrapped });
     Object.defineProperty(globalThis, '__m05MountedMutationProbe', {

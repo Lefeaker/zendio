@@ -23,9 +23,7 @@ import {
 } from '../../shared/config/deviceLocalVaultBindings';
 import { readDeviceLocalVaultAuthoritativePublication } from '../../shared/config/deviceLocalVaultAuthoritativePublication';
 import type {
-  DeviceLocalPrivacyCommitter,
   DeviceLocalVaultBindingRepository,
-  OptionsMutationVerification,
   OptionsRawStorageRepository
 } from '../../shared/config/deviceLocalVaultRecoveryTransaction';
 import { DEVICE_LOCAL_VAULT_CLEANUP_JOURNAL_KEY } from '../../shared/config/deviceLocalVaultRecoveryTransaction';

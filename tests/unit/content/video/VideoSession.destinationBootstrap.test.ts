@@ -65,7 +65,7 @@ function installOptionsRepository(
     get: vi.fn(() => Promise.resolve(current)),
     patch: vi.fn(() => Promise.resolve(current)),
     replace: vi.fn(() => Promise.resolve(current)),
-    onChange: vi.fn((nextListener) => {
+    onChange: vi.fn<IOptionsRepository['onChange']>((nextListener) => {
       listener = nextListener;
       return () => {
         listener = undefined;
@@ -165,7 +165,7 @@ describe('VideoSession destination bootstrap', () => {
     async (fixture) => {
       const deps = createDependencies();
       installOptionsRepository(deps, fixture.initial);
-      const createViewMock = vi.fn((_callbacks, _texts, options?: VideoSessionViewOptions) =>
+      const createViewMock = vi.fn((_callbacks, _texts, _options?: VideoSessionViewOptions) =>
         createView()
       );
       deps.viewFactory.createView = createViewMock;
@@ -191,7 +191,8 @@ describe('VideoSession destination bootstrap', () => {
     const repository = installOptionsRepository(deps, createOptions([]));
     await seedRestorableDraft(deps, { kind: 'vault', vaultId: 'restored' });
     const view = createDestinationView();
-    const createViewMock = vi.fn((_callbacks, _texts, options?: VideoSessionViewOptions) => view);
+    const updateDestination = vi.spyOn(view, 'updateDestination');
+    const createViewMock = vi.fn((_callbacks, _texts, _options?: VideoSessionViewOptions) => view);
     deps.viewFactory.createView = createViewMock;
     const session = new VideoSession(document, deps);
     const sessionApi = toSessionTestApi(session);
@@ -211,7 +212,7 @@ describe('VideoSession destination bootstrap', () => {
 
     repository.emit(createOptions([createVault('live', 'Live Vault')], 'live'));
     await vi.waitFor(() => {
-      expect(view.updateDestination).toHaveBeenLastCalledWith(
+      expect(updateDestination).toHaveBeenLastCalledWith(
         expect.objectContaining({ kind: 'vault', id: 'live', label: 'Live Vault' })
       );
     });
@@ -231,6 +232,7 @@ describe('VideoSession destination bootstrap', () => {
     const deps = createDependencies();
     const repository = installOptionsRepository(deps, createOptions([]));
     const view = createDestinationView();
+    const updateDestination = vi.spyOn(view, 'updateDestination');
     deps.viewFactory.createView = vi.fn(() => view);
     const session = new VideoSession(document, deps);
 
@@ -243,7 +245,7 @@ describe('VideoSession destination bootstrap', () => {
     repository.emit(createOptions([createVault('live', 'Live Vault')], 'live'));
 
     await vi.waitFor(() => {
-      expect(view.updateDestination).toHaveBeenLastCalledWith(
+      expect(updateDestination).toHaveBeenLastCalledWith(
         expect.objectContaining({ kind: 'downloads', id: 'downloads' })
       );
     });
@@ -262,6 +264,7 @@ describe('VideoSession destination bootstrap', () => {
       createOptions([createVault('selected', 'Original Name')], 'selected')
     );
     const view = createDestinationView();
+    const updateDestination = vi.spyOn(view, 'updateDestination');
     deps.viewFactory.createView = vi.fn(() => view);
     const session = new VideoSession(document, deps);
 
@@ -274,7 +277,7 @@ describe('VideoSession destination bootstrap', () => {
     repository.emit(createOptions([createVault('selected', 'Renamed Vault')], 'selected'));
 
     await vi.waitFor(() => {
-      expect(view.updateDestination).toHaveBeenLastCalledWith(
+      expect(updateDestination).toHaveBeenLastCalledWith(
         expect.objectContaining({ id: 'selected', label: 'Renamed Vault' })
       );
     });
@@ -295,12 +298,13 @@ describe('VideoSession destination bootstrap', () => {
     );
     await seedRestorableDraft(deps, { kind: 'vault', vaultId: 'restored' });
     const view = createDestinationView();
+    const updateDestination = vi.spyOn(view, 'updateDestination');
     deps.viewFactory.createView = vi.fn(() => view);
     const session = new VideoSession(document, deps);
 
     await session.start();
 
-    expect(view.updateDestination).toHaveBeenLastCalledWith(
+    expect(updateDestination).toHaveBeenLastCalledWith(
       expect.objectContaining({ kind: 'vault', id: 'restored' })
     );
     session.ingestTextCapture('<p>Selected</p>', 'Selected', 'note');

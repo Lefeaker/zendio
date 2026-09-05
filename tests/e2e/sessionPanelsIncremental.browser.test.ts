@@ -2,7 +2,6 @@ import { chromium, expect, test, type Page } from '@playwright/test';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
-  bilibiliFixtureHtml,
   createOptionsFixture,
   expandVideoPanel,
   findCurrentTabId,

@@ -281,19 +281,22 @@ describe('OptionsController', () => {
             };
           })
       )
-      .mockImplementation(async (patches) => {
-        for (const patch of patches) {
-          const value = patch.value === STORED_OPTIONS_DELETE ? undefined : patch.value;
-          repositorySnapshot = replaceOptionsPath(
-            repositorySnapshot,
-            requireOptionsPath(patch.path),
-            value
-          );
-        }
-        const acknowledged = structuredClone(repositorySnapshot);
-        savedOptions.push(acknowledged);
-        return acknowledged;
-      });
+      .mockImplementation(
+        (patches) =>
+          new Promise((resolve) => {
+            for (const patch of patches) {
+              const value = patch.value === STORED_OPTIONS_DELETE ? undefined : patch.value;
+              repositorySnapshot = replaceOptionsPath(
+                repositorySnapshot,
+                requireOptionsPath(patch.path),
+                value
+              );
+            }
+            const acknowledged = structuredClone(repositorySnapshot);
+            savedOptions.push(acknowledged);
+            resolve(acknowledged);
+          })
+      );
 
     const controller = createOptionsController({
       persistence,
@@ -447,19 +450,22 @@ describe('OptionsController', () => {
             };
           })
       )
-      .mockImplementation(async (patches) => {
-        for (const patch of patches) {
-          const value = patch.value === STORED_OPTIONS_DELETE ? undefined : patch.value;
-          repositorySnapshot = replaceOptionsPath(
-            repositorySnapshot,
-            requireOptionsPath(patch.path),
-            value
-          );
-        }
-        const acknowledged = structuredClone(repositorySnapshot);
-        savedOptions.push(acknowledged);
-        return acknowledged;
-      });
+      .mockImplementation(
+        (patches) =>
+          new Promise((resolve) => {
+            for (const patch of patches) {
+              const value = patch.value === STORED_OPTIONS_DELETE ? undefined : patch.value;
+              repositorySnapshot = replaceOptionsPath(
+                repositorySnapshot,
+                requireOptionsPath(patch.path),
+                value
+              );
+            }
+            const acknowledged = structuredClone(repositorySnapshot);
+            savedOptions.push(acknowledged);
+            resolve(acknowledged);
+          })
+      );
 
     const controller = createOptionsController({
       persistence,
