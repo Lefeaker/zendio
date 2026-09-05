@@ -4,6 +4,7 @@ import {
   applyStoredOptionsPatch,
   encodeStoredOptionsReplacement
 } from '../../shared/config/storedOptionsCodec';
+import { asOptionsMutationError } from '../../shared/config/deviceLocalVaultRecoveryTransaction';
 import { snapshotPlainStructuredData } from '../../shared/config/losslessObjectBoundary';
 import type {
   PlainStructuredObject,
@@ -11,7 +12,6 @@ import type {
 } from '../../shared/config/losslessObjectBoundaryTypes';
 import {
   OPTIONS_MUTATION_MESSAGE_TYPE,
-  OptionsMutationError,
   createOptionsMutationFailureResponse,
   createOptionsMutationSuccessResponse,
   type OptionsMutationCommand,
@@ -106,8 +106,8 @@ export async function handleOptionsMutationMessage(
       )
     );
   } catch (error) {
-    const errorCode =
-      error instanceof OptionsMutationError ? error.code : 'OPTIONS_STORAGE_FAILURE';
-    return toMessagePayload(createOptionsMutationFailureResponse(candidate.requestId, errorCode));
+    return toMessagePayload(
+      createOptionsMutationFailureResponse(candidate.requestId, asOptionsMutationError(error).code)
+    );
   }
 }
