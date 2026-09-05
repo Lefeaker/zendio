@@ -5,9 +5,13 @@ import type { OptionsPatch } from '../../shared/types/optionsMutationMessages';
 import { areStateValuesEqual, cloneStateValue } from './stateValue';
 
 type OptionsSnapshot = CompleteOptions | StoredOptions;
-type StateValue = Parameters<typeof areStateValuesEqual>[0];
+type StateValue = unknown;
 
-export const OPTIONS_PATCH_PATHS = [
+function definePaths<const T extends readonly OptionsPatch['path'][]>(paths: T): T {
+  return paths;
+}
+
+export const OPTIONS_PATCH_PATHS = definePaths([
   ['interfaceTheme'],
   ['rest', 'baseUrl'],
   ['rest', 'httpsUrl'],
@@ -62,7 +66,7 @@ export const OPTIONS_PATCH_PATHS = [
   ['privacyPreferences', 'debugMode'],
   ['vaultRouter'],
   ['yamlConfig']
-] as const satisfies readonly OptionsPatch['path'][];
+]);
 
 export type OptionsPath = (typeof OPTIONS_PATCH_PATHS)[number];
 
@@ -110,14 +114,16 @@ export function diffOptionsPaths(
 }
 
 function writeOptionsPath(snapshot: OptionsSnapshot, path: OptionsPath, value: StateValue): void {
-  let owner = snapshot as unknown as Record<string, unknown>;
-  for (let index = 0; index < path.length - 1; index += 1) {
-    const part = path[index]!;
-    const child = owner[part];
-    owner[part] = isObjectRecord(child) && !Array.isArray(child) ? { ...child } : {};
-    owner = owner[part] as Record<string, unknown>;
+  if (!isObjectRecord(snapshot)) return;
+  let owner: Record<string, StateValue> = snapshot;
+  const [root, field] = path;
+  if (field !== undefined) {
+    const child = owner[root];
+    const nextOwner = isObjectRecord(child) && !Array.isArray(child) ? { ...child } : {};
+    owner[root] = nextOwner;
+    owner = nextOwner;
   }
-  const leaf = path[path.length - 1]!;
+  const leaf = field ?? root;
   if (value === undefined) delete owner[leaf];
   else owner[leaf] = cloneStateValue(value);
 }

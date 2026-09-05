@@ -13,7 +13,7 @@ export interface OptionsControllerDurabilityDeps {
 interface BlockedAdmission {
   readonly mutation: DurableOptionsMutation;
   readonly admissionGeneration: number;
-  readonly error: unknown;
+  rethrow(): never;
 }
 
 export class OptionsControllerDurability {
@@ -64,7 +64,7 @@ export class OptionsControllerDurability {
     }
 
     const blockedAdmission = this.readBlockedAdmission();
-    if (blockedAdmission) throw blockedAdmission.error;
+    if (blockedAdmission) blockedAdmission.rethrow();
   }
 
   private ensureDrain(): void {
@@ -97,7 +97,13 @@ export class OptionsControllerDurability {
           (!pendingDesired || pendingDesired.intent.admissionGeneration <= generation)
         ) {
           this.pendingDesired = null;
-          this.blockedAdmission = { mutation: desired, admissionGeneration: generation, error };
+          this.blockedAdmission = {
+            mutation: desired,
+            admissionGeneration: generation,
+            rethrow(): never {
+              throw error;
+            }
+          };
         }
       } finally {
         this.activeAdmissionGeneration = null;
