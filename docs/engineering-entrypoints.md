@@ -1,6 +1,6 @@
 # 工程命令与入口
 
-最后更新：2026-08-30
+最后更新：2026-09-05
 
 ## 推荐运行环境
 
@@ -73,6 +73,7 @@ node scripts/run-bounded-command.mjs --profile node-script-standard-v1 -- tools/
   - canonical shard roots 为 `node scripts/run-test-shards.mjs <unit|e2e> [registered-shard]`；全组固定最多 `3` 个 Vitest leaf，显式单 shard 固定为 `1`，不读取 CPU 或环境并发
   - canonical browser shard root 为 `node scripts/run-browser-test-shards.mjs <e2e|visual|bundled>`；固定最多 `2` 个 Playwright leaf，并为每个 registered shard 使用 owner-defined port / dist / `PLAYWRIGHT_OUTPUT_DIR` / `PLAYWRIGHT_HTML_REPORT_DIR`，caller 不能覆盖路径。`bundled` route 会在 admission 前取得共享 Playwright build lease，经 `npm-script-build-v1` 的 fixed `build:dev` owner 与 coordinator-owned `BUILD_DIST_DIR=build/dist-u02c2-bundled-chromium` 生成 fresh dist，并持有 lease 直到 E2E 与 visual leaf 全部结束
   - `test:e2e:browser:parallel` 当前覆盖 YAML interaction、reader-panel 与 migration smoke 三组 shard；local-vault 与 Firefox browser checks 仍保留为独立专项命令
+  - `test:e2e:browser:state` 包含 `optionsCrossContextMutation.browser.test.ts` 的已安装扩展路径：两个真实 Options 页面、mounted form 的远端更新与 dirty path、冲突后的再次交互、page-exit flush，以及 Local Vault journal/restart/compensation 与 authoritative publication。`test:e2e:browser:architecture` 包含 `sessionPanelsIncremental.browser.test.ts` 的 Video 显式 Downloads 选择及 draft 恢复；完整 Video 回归仍使用 `test:e2e:browser:video`。这些专项入口不由只运行 YAML interaction 的 `test:e2e:browser` 替代
   - Reader / Video session panel 当前使用固定 shell、keyed item list 与一个 bounded root dispatcher；专项浏览器回归为 `tests/e2e/sessionPanelsIncremental.browser.test.ts`，要求 20-item / 100-update 下 shell、list、未变化 item、input、status、listener/style handle 身份稳定，并覆盖 screenshot/draft/collapse 的真实 Chromium 路径
 - `npm run build*` 与 `npm run package*`
   - `build`、`build:firefox`、`build:prod:ga`、`build:firefox:prod:ga` 与 `build:firefox:prod:ga:ci` 直接进入 `scripts/build.mjs`，由其在 production build 进程内执行且仅执行一次完整 `quality`；任一 quality task 失败都必须在清理 `build/dist` 或开始构建前以非零状态 fail closed
@@ -174,6 +175,9 @@ npm run test:e2e:browser:local-vault
 npm run test:e2e:browser:smoke
 npm run test:e2e:browser
 npm run test:e2e:browser:reader-panel
+npm run test:e2e:browser:state
+npm run test:e2e:browser:architecture
+npm run test:e2e:browser:video
 npm run test:e2e:browser:parallel
 npm run verify:stitch-secondary
 npm run visual:test
@@ -472,6 +476,9 @@ warning `108` / hard stop `118`；2026-06-20 Options/onboarding closeout 将
 - retained shared host helpers：`src/ui/foundation/style-host/*`、`src/ui/hosts/content/contentDialogFocus.ts`、`src/ui/hosts/shared/contract.ts`
 - exact retained usage-chart owner：`src/ui/domains/usage-chart/*`；不授权恢复 generic domain/pattern layer
 - Options 主链：`src/options/index.ts -> src/options/app/bootstrap.ts`
+- Options 持久化：`optionsDraftSession.ts` 持有 authoritative snapshot/revision 与逐路径 edit generation；`optionsController.ts` 经 `optionsStore.save()` 发送 scoped patch，`optionsControllerDurability.ts` 串行持有写入与 page-exit flush。失败 admission 由新的用户交互或显式 bounded flush 重新接纳；dirty intent 清空时同步丢弃 blocked/pending 状态。`productionStitchAuthoritativeRebase.ts` 负责 mounted view 的局部重投影与 dirty/invalid widget 保护，不能用完整旧 draft 覆盖远端快照
+- Local Vault 事务：`src/background/services/optionsMutationCoordinator.ts` 的 FIFO 在 mutation 前完成 privacy、Local Vault recovery 与 migration；初始化失败后允许下一次外部请求重新进入 barrier。`src/shared/config/deviceLocalVaultCleanupJournal.ts` 与 `deviceLocalVaultRecovery{Schema,Codec,Transaction}.ts` 持有 v3 journal；`deviceLocalVaultBindingCommitter.ts`、`deviceLocalVaultAuthoritativePublication.ts`、`deviceLocalVaultCleanupExecutor.ts` 分别负责 binding、repository publication 与 commit 后 cleanup。对应 unit 入口在 `tests/unit/background/optionsMutationCoordinator.test.ts`、`tests/unit/infrastructure/ChromeOptionsRepository.test.ts` 和 `tests/unit/shared/deviceLocalVault*.test.ts`
+- Video bootstrap：`src/content/clipper/services/selectionController.ts` 调用 `src/content/video/application/videoSessionPort.ts` 的 `resolveVideoDestinationBootstrap()`，先 await session start，再 ingest capture；选择来源由 `destinationBootstrap.provenance` 显式携带。专项 unit 入口为 `tests/unit/content/selectionController.test.ts` 与 `tests/unit/content/video/VideoSession.test.ts`
 - content 主链：`src/content/index.ts -> src/content/runtime/*`
 
 ## 已降级为兼容壳的入口
