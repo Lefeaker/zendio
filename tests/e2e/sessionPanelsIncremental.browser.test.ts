@@ -344,12 +344,47 @@ function b10ArticleFixtureHtml(title: string): string {
     </html>`;
 }
 
-function createB10StoredOptions() {
+function b10VideoFixtureHtml(): string {
+  return `<!doctype html>
+    <html>
+      <head><title>Clipper Video destination fixture</title></head>
+      <body>
+        <main>
+          <h1 class="video-title">Clipper Video destination fixture</h1>
+          <p id="selectable">Selected text carried from the production Clipper into Video.</p>
+          <div class="bpx-player-container">
+            <video></video>
+            <div class="bpx-player-control-bottom-right"></div>
+            <div class="bpx-player-render-dm-wrap"></div>
+          </div>
+          <aside class="recommendations"></aside>
+          <section id="comment"></section>
+        </main>
+      </body>
+    </html>`;
+}
+
+function createB10StoredOptions(vaultName?: string) {
   return {
     ...createOptionsFixture(),
     vaultRouter: {
-      defaultVaultId: 'default',
-      vaults: [],
+      defaultVaultId: vaultName ? B10_VAULT_ID : 'default',
+      vaults: vaultName
+        ? [
+            {
+              id: B10_VAULT_ID,
+              name: vaultName,
+              vault: vaultName,
+              localFolderId: 'live-runtime-folder',
+              localFolderName: vaultName,
+              httpsUrl: 'https://127.0.0.1:27124',
+              httpUrl: 'http://127.0.0.1:27123',
+              apiKey: '',
+              enabled: true,
+              isDefault: true
+            }
+          ]
+        : [],
       rules: []
     }
   };
@@ -459,6 +494,54 @@ async function expectB10Destination(page: Page, marker: string, label: string): 
     .toEqual([B10_VAULT_ID, 'downloads']);
 }
 
+async function readB10VideoDraft(extensionPage: Page, pageUrl: string) {
+  return extensionPage.evaluate(async (targetUrl) => {
+    const record = (value: unknown): value is Record<string, unknown> =>
+      typeof value === 'object' && value !== null && !Array.isArray(value);
+    const storage = await chrome.storage.local.get(null);
+    const candidate = Object.entries(storage).find(
+      ([key, value]) =>
+        key.startsWith('aiob.sessionDraft.v1.video.') &&
+        record(value) &&
+        value.pageUrl === targetUrl &&
+        record(value.payload)
+    );
+    if (!candidate || !record(candidate[1]) || !record(candidate[1].payload)) return null;
+    const payload = candidate[1].payload;
+    return {
+      destination: record(payload.destination) ? payload.destination : null,
+      captureCount: Array.isArray(payload.captures) ? payload.captures.length : 0
+    };
+  }, pageUrl);
+}
+
+async function startB10ClipperVideo(page: Page, extensionPage: Page): Promise<void> {
+  await page.locator('[data-stitch-surface="clipper"] [data-action-id="video"]').click();
+  await expect(page.locator('[data-stitch-surface="clipper"]')).toHaveCount(0);
+  await expect(page.locator('[data-session-panel-root="true"]')).toBeVisible();
+  await expect(page.locator('[data-capture-kind="fragment"]')).toHaveCount(1);
+  await expect
+    .poll(() => readB10VideoDraft(extensionPage, page.url()))
+    .toMatchObject({
+      captureCount: 1
+    });
+}
+
+async function selectB10ClipperDestination(page: Page, destinationId: string): Promise<void> {
+  const clipper = page.locator('[data-stitch-surface="clipper"]');
+  await clipper.locator('.export-destination-summary').click();
+  const option = clipper.locator(
+    `.export-destination-option[data-destination-id="${destinationId}"]`
+  );
+  await expect(option).toBeVisible();
+  await option.click();
+  const openMenu = clipper.locator('.export-destination-menu[open]');
+  if ((await openMenu.count()) > 0) {
+    await clipper.locator('.export-destination-summary').click();
+    await expect(openMenu).toHaveCount(0);
+  }
+}
+
 testWithExtension(
   'projects inserted and renamed vaults into stable Clipper, Reader, and Video rows',
   async ({ context, extensionPage }) => {
@@ -487,7 +570,7 @@ testWithExtension(
       context,
       extensionPage,
       'https://www.bilibili.com/video/BV1liveRuntimeProjection/',
-      bilibiliFixtureHtml(),
+      b10VideoFixtureHtml(),
       initialOptions
     );
     await openVideoPanelFromControlBar(video.page, 'Live runtime projection');
@@ -512,5 +595,94 @@ testWithExtension(
     ]);
 
     await Promise.all([clipper.page.close(), reader.page.close(), video.page.close()]);
+  }
+);
+
+testWithExtension(
+  'carries implicit and explicit Clipper destinations into real Video drafts',
+  async ({ context, extensionPage }) => {
+    const implicit = await openFixtureWithRuntime(
+      context,
+      extensionPage,
+      'https://www.bilibili.com/video/BV1clipperImplicit/',
+      b10VideoFixtureHtml(),
+      createB10StoredOptions()
+    );
+    await openB10Clipper(implicit.page, extensionPage);
+    await startB10ClipperVideo(implicit.page, extensionPage);
+    await expect(implicit.page.locator('.export-destination-label')).toHaveText('Downloads');
+    await markB10DestinationRow(implicit.page, 'clipper-video-implicit');
+    await expect
+      .poll(() => readB10VideoDraft(extensionPage, implicit.page.url()))
+      .toMatchObject({
+        destination: { kind: 'downloads' },
+        captureCount: 1
+      });
+    await updateB10Vault(extensionPage, B10_LIVE_VAULT_NAME);
+    await expectB10Destination(implicit.page, 'clipper-video-implicit', B10_LIVE_VAULT_NAME);
+    const implicitCaptureInput = implicit.page.locator('[data-capture-input]').first();
+    await expect(implicitCaptureInput).toBeEditable();
+    await implicitCaptureInput.fill('Persist the live implicit destination');
+    await expect
+      .poll(() => readB10VideoDraft(extensionPage, implicit.page.url()))
+      .toMatchObject({
+        destination: { kind: 'vault', vaultId: B10_VAULT_ID },
+        captureCount: 1
+      });
+
+    const downloads = await openFixtureWithRuntime(
+      context,
+      extensionPage,
+      'https://www.bilibili.com/video/BV1clipperDownloads/',
+      b10VideoFixtureHtml(),
+      createB10StoredOptions(B10_LIVE_VAULT_NAME)
+    );
+    await openB10Clipper(downloads.page, extensionPage);
+    await selectB10ClipperDestination(downloads.page, 'downloads');
+    await startB10ClipperVideo(downloads.page, extensionPage);
+    await expect(downloads.page.locator('.export-destination-label')).toHaveText('Downloads');
+    await markB10DestinationRow(downloads.page, 'clipper-video-downloads');
+    await expect
+      .poll(() => readB10VideoDraft(extensionPage, downloads.page.url()))
+      .toMatchObject({
+        destination: { kind: 'downloads' },
+        captureCount: 1
+      });
+    await updateB10Vault(extensionPage, B10_RENAMED_VAULT_NAME);
+    await expect(downloads.page.locator('.export-destination-label')).toHaveText('Downloads');
+    await expect(downloads.page.locator('.export-destination-row')).toHaveAttribute(
+      'data-live-runtime-marker',
+      'clipper-video-downloads'
+    );
+
+    const vault = await openFixtureWithRuntime(
+      context,
+      extensionPage,
+      'https://www.bilibili.com/video/BV1clipperVault/',
+      b10VideoFixtureHtml(),
+      createB10StoredOptions()
+    );
+    await openB10Clipper(vault.page, extensionPage);
+    await updateB10Vault(extensionPage, B10_LIVE_VAULT_NAME);
+    await selectB10ClipperDestination(vault.page, B10_VAULT_ID);
+    await startB10ClipperVideo(vault.page, extensionPage);
+    await expect(vault.page.locator('.export-destination-label')).toHaveText(B10_LIVE_VAULT_NAME);
+    await markB10DestinationRow(vault.page, 'clipper-video-vault');
+    await expect
+      .poll(() => readB10VideoDraft(extensionPage, vault.page.url()))
+      .toMatchObject({
+        destination: { kind: 'vault', vaultId: B10_VAULT_ID },
+        captureCount: 1
+      });
+    await updateB10Vault(extensionPage, B10_RENAMED_VAULT_NAME);
+    await expectB10Destination(vault.page, 'clipper-video-vault', B10_RENAMED_VAULT_NAME);
+    await expect
+      .poll(() => readB10VideoDraft(extensionPage, vault.page.url()))
+      .toMatchObject({
+        destination: { kind: 'vault', vaultId: B10_VAULT_ID },
+        captureCount: 1
+      });
+
+    await Promise.all([implicit.page.close(), downloads.page.close(), vault.page.close()]);
   }
 );
