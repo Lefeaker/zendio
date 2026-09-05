@@ -578,7 +578,8 @@ function validateReleaseProvenanceArgs(args) {
 }
 
 function validateReleaseProfileArguments(profileId, args) {
-  if (profileId === 'local-install-v1') return exactArgs(args, []);
+  if (profileId === 'local-install-v1')
+    return exactArgs(args, args.length === 0 ? [] : ['--proxy=loopback-7890']);
   if (profileId === 'npm-audit-context-v1') {
     if (
       args.length !== 3 ||
@@ -2204,7 +2205,10 @@ export function resolveCommandProfile(
         '--no-audit',
         '--no-fund',
         `--userconfig=${prepared.userconfig}`,
-        `--globalconfig=${prepared.globalconfig}`
+        `--globalconfig=${prepared.globalconfig}`,
+        ...(args.length === 1
+          ? ['--proxy=http://127.0.0.1:7890', '--https-proxy=http://127.0.0.1:7890']
+          : [])
       ],
       env: Object.freeze({
         HOME: prepared.installRoot,
