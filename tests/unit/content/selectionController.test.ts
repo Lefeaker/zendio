@@ -33,6 +33,7 @@ vi.mock('@content/i18n/context', () => ({
   getContentMessages: getContentMessagesMock
 }));
 
+const extractSelectionClip = selectionExtractor.extractSelectionClip;
 const extractSelectionClipMock = vi.spyOn(selectionExtractor, 'extractSelectionClip');
 const explicitDestinations: ReadonlyArray<NonNullable<ClipPromptResponse['destination']>> = [
   { kind: 'downloads' },
@@ -148,6 +149,97 @@ describe('content selectionController service', () => {
     expect(extractSelectionClipMock).not.toHaveBeenCalled();
   });
 
+  it.each(['prompt', 'video start'] as const)(
+    'captures text, HTML and a live cloned range before %s can mutate selection',
+    async (boundary) => {
+      document.body.innerHTML = '<p id="source"><strong>Original</strong></p><p id="next">Next</p>';
+      const source = document.getElementById('source');
+      const next = document.getElementById('next');
+      const selection = document.getSelection();
+      if (!source || !next || !selection) throw new Error('Missing selection fixture');
+      const range = document.createRange();
+      range.selectNodeContents(source);
+      selection.addRange(range);
+      const cloneRange = vi.spyOn(range, 'cloneRange');
+      const { controller, readerSessionStart, videoSessionStart, videoSessionIngest } =
+        await createController();
+      let release: (() => void) | undefined;
+      const pending = new Promise<void>((resolve) => {
+        release = resolve;
+      });
+      promptMock.mockImplementation(async () => {
+        await pending;
+        return { action: 'reader', comment: 'note' };
+      });
+      videoSessionStart.mockReturnValueOnce(pending);
+
+      const operation =
+        boundary === 'prompt'
+          ? controller.handleSelectionClip(document, 'https://example.com', selection)
+          : controller.handleVideoSelectionClip(document, 'https://example.com', selection);
+      expect(cloneRange).toHaveBeenCalledTimes(1);
+      const savedRange: unknown = cloneRange.mock.results[0]?.value;
+      if (!(savedRange instanceof Range)) throw new Error('Selection range was not captured');
+      expect(savedRange).not.toBe(range);
+      expect(savedRange.toString()).toBe('Original');
+      if (boundary === 'prompt') {
+        expect(promptMock).toHaveBeenCalledWith(
+          expect.objectContaining({ selectedText: 'Original' })
+        );
+      } else {
+        expect(videoSessionStart).toHaveBeenCalledTimes(1);
+        expect(videoSessionIngest).not.toHaveBeenCalled();
+      }
+
+      source.innerHTML = 'Changed';
+      selection.removeAllRanges();
+      const nextRange = document.createRange();
+      nextRange.selectNodeContents(next);
+      selection.addRange(nextRange);
+      if (!release) throw new Error('Missing pending operation release');
+      release();
+      await operation;
+
+      if (boundary === 'prompt') {
+        expect(readerSessionStart).toHaveBeenCalledWith({
+          range: savedRange,
+          selectedHtml: '<strong>Original</strong>',
+          selectedText: 'Original',
+          comment: 'note'
+        });
+      } else {
+        expect(videoSessionIngest).toHaveBeenCalledWith(
+          '<strong>Original</strong>',
+          'Original',
+          '',
+          savedRange
+        );
+      }
+      expect(savedRange.startContainer).toBe(source);
+      expect(selection.rangeCount).toBe(0);
+    }
+  );
+
+  it.each(['prompt', 'video start'] as const)(
+    'propagates %s failure without consuming the selection',
+    async (boundary) => {
+      const selection = createSelection('Selected text');
+      const removeRanges = vi.spyOn(selection, 'removeAllRanges');
+      const { controller, videoSessionStart, videoSessionIngest } = await createController();
+      const failure = new Error('selection operation rejected');
+      promptMock.mockRejectedValue(failure);
+      videoSessionStart.mockRejectedValue(failure);
+      const operation =
+        boundary === 'prompt'
+          ? controller.handleSelectionClip(document, 'https://example.com', selection)
+          : controller.handleVideoSelectionClip(document, 'https://example.com', selection);
+      await expect(operation).rejects.toBe(failure);
+      expect(removeRanges).not.toHaveBeenCalled();
+      expect(extractSelectionClipMock).not.toHaveBeenCalled();
+      expect(videoSessionIngest).not.toHaveBeenCalled();
+    }
+  );
+
   it('extracts selection clip with merged configuration when confirmed', async () => {
     promptMock.mockResolvedValue({ action: 'clip', comment: 'note' });
     const selection = createSelection('Selected text');
@@ -196,6 +288,71 @@ describe('content selectionController service', () => {
       keyboardShortcutsEnabled: true
     });
     expect(args.commentHeading).toBe('Catalog Comment Heading');
+  });
+
+  it('preserves real fragment markdown, comment and destination through the controller', async () => {
+    document.body.innerHTML =
+      '<article><p id="target">Selected <strong>content</strong></p></article>';
+    const target = document.getElementById('target');
+    const selection = document.getSelection();
+    if (!target || !selection) throw new Error('Missing selection fixture');
+    const range = document.createRange();
+    range.selectNodeContents(target);
+    selection.addRange(range);
+    extractSelectionClipMock.mockImplementation(extractSelectionClip);
+    promptMock.mockResolvedValue({
+      action: 'clip',
+      comment: 'Remember this',
+      destination: { kind: 'downloads' }
+    });
+    const { controller } = await createController();
+    const result = await controller.handleSelectionClip(
+      document,
+      'https://example.com/article',
+      selection
+    );
+    expect(result?.markdown).toContain('Selected **content**');
+    expect(result?.markdown).toContain('## 💭 Catalog Comment Heading');
+    expect(result?.markdown).toContain('Remember this');
+    expect(result?.meta).toMatchObject({
+      selectedTextPreview: 'Selected content',
+      hasComment: true,
+      exportDestination: { kind: 'downloads' },
+      sourceUrl: 'https://example.com/article'
+    });
+    expect(extractSelectionClipMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('dispatches the exact reader highlight payload with an empty comment', async () => {
+    document.body.innerHTML = '<div id="aiob-reader-panel"></div>';
+    const selection = createSelection('Selected text');
+    const range = selection.getRangeAt(0);
+    const cloneRange = vi.spyOn(range, 'cloneRange');
+    const removeRanges = vi.spyOn(selection, 'removeAllRanges');
+    const highlights: unknown[] = [];
+    const onHighlight = (event: Event) => {
+      if (event instanceof CustomEvent) highlights.push(event.detail);
+    };
+    document.addEventListener('aiob-reader:add-highlight', onHighlight);
+    try {
+      promptMock.mockResolvedValue({ action: 'reader', comment: '  ' });
+      const { controller, readerSessionFactory } = await createController();
+      await controller.handleSelectionClip(document, 'https://example.com', selection);
+      const savedRange: unknown = cloneRange.mock.results[0]?.value;
+      if (!(savedRange instanceof Range)) throw new Error('Selection range was not captured');
+      expect(highlights).toEqual([
+        {
+          range: savedRange,
+          selectedHtml: 'Selected text',
+          selectedText: 'Selected text',
+          comment: ''
+        }
+      ]);
+      expect(readerSessionFactory).not.toHaveBeenCalled();
+      expect(removeRanges).toHaveBeenCalledTimes(1);
+    } finally {
+      document.removeEventListener('aiob-reader:add-highlight', onHighlight);
+    }
   });
 
   it.each([false, true, undefined])(

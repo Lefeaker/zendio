@@ -154,6 +154,13 @@ budget；任何 registered path 消失、超预算或 `prettier-ignore` suppress
 - release-surface、dependency、platform-boundary 与 non-production-source observed counts 均从
   各自 fresh report 读取；dated 数字不得升级为新的 hard threshold
 
+2026-09-06 selection prompt 同步去重复核：selection controller 的两个入口共用同步
+text/HTML/Range 捕获，Reader highlight 共用 payload；无状态 prompt gateway 使用直接
+factory object，并一次构造保留 optional-field presence 的 dialog options。没有增加 await
+或 lazy import，选区、context 与错误读取时机保持原契约。Fresh dev runtime 为 `58,752 B`
+（等于现有 hard stop，剩余余量为 `0 B`），production runtime 为 `52,536 B`；dev / production
+chunk count 分别为 `115` / `100`。此记录是实测结果，所有预算与构建参数保持不变。
+
 ## 2. 热点真值
 
 验证命令：
