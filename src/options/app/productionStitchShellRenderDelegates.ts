@@ -26,46 +26,62 @@ export function createProductionStitchInvalidationBridge(options: {
 }): { dispose(): void; render(scopes: SectionInvalidationRequest): void } {
   let disposed = false;
   let unavailable = false;
+  let initialRequest = true;
   let owner: SectionInvalidationOwner | null = null;
+  const pending = new Set<SectionInvalidationScope>();
   void import('@ui/stitch-runtime/render/sectionInvalidation')
-    .then((module) => {
-      if (!disposed)
+    .then(
+      (module) => {
+        if (disposed) return;
         owner = module.createSectionInvalidationOwner({
           handlers: options.handlers,
           capture: () => module.captureSectionDomSnapshot(options.mountRoot),
           restore: (snapshot) => module.restoreSectionDomSnapshot(options.mountRoot, snapshot)
         });
-    })
-    .catch(() => {
-      unavailable = true;
-      if (options.isActive()) options.handlers['all-invariant-recovery']?.();
+        // The canonical owner owns dominance, capture/restore and reentrant error cleanup.
+        const requested = [...pending];
+        pending.clear();
+        if (options.isActive() && requested.length) owner.invalidate(requested);
+      },
+      () => {
+        pending.clear();
+        unavailable = true;
+        if (!disposed && options.isActive()) options.handlers['all-invariant-recovery']?.();
+      }
+    )
+    .catch((error: unknown) => {
+      // Async replay has no render caller to receive an exception. Report it without retrying;
+      // a successful import must never be reclassified as an unavailable owner.
+      console.error('[ProductionStitchShell:section-invalidation]', error);
     });
 
   return {
     dispose() {
       disposed = true;
+      pending.clear();
       owner?.dispose();
     },
     render(scopes) {
-      if (!options.isActive()) return;
+      if (disposed || !options.isActive()) return;
       const requested: SectionInvalidationScope[] =
         typeof scopes === 'string' ? [scopes] : [...scopes];
+      if (!requested.length) throw new Error('SECTION_INVALIDATION_SCOPE_REQUIRED');
       requested.forEach((scope) => {
         if (!options.handlers[scope])
           throw new Error(`UNKNOWN_SECTION_INVALIDATION_SCOPE:${scope}`);
       });
+      const initializeEmptyRoot =
+        initialRequest &&
+        requested.length === 1 &&
+        requested[0] === 'all-invariant-recovery' &&
+        !options.mountRoot.hasChildNodes();
+      initialRequest = false;
       if (owner) return owner.invalidate(scopes);
-      const dominant = requested.includes('all-invariant-recovery')
-        ? 'all-invariant-recovery'
-        : requested.includes('locale-schema')
-          ? 'locale-schema'
-          : null;
-      const toApply: SectionInvalidationScope[] = unavailable
-        ? ['all-invariant-recovery']
-        : dominant
-          ? [dominant]
-          : requested;
-      toApply.forEach((scope) => options.handlers[scope]?.());
+      // Mount constructs an empty shell synchronously; it does not replace an existing panel.
+      if (initializeEmptyRoot) return options.handlers['all-invariant-recovery']?.();
+      if (unavailable) return options.handlers['all-invariant-recovery']?.();
+      // Until the lazy owner is ready, replacing panels would bypass focus/selection restoration.
+      requested.forEach((scope) => pending.add(scope));
     }
   };
 }

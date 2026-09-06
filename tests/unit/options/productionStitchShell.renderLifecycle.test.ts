@@ -2,7 +2,7 @@
 
 import { DEFAULT_RUNTIME_MESSAGES } from '@i18n';
 import * as productionStitchShellContextModule from '@options/app/productionStitchShellContext';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   asOptionsController,
   createController,
@@ -20,6 +20,9 @@ import {
 import { createProductionStitchRenderLifecycle } from '@options/app/productionStitchRenderLifecycle';
 import { createOptionsController, type OptionsController } from '@options/app/optionsController';
 import { bindProductionStitchAuthoritativeRebase } from '@options/app/productionStitchAuthoritativeRebase';
+import { createProductionStitchInvalidationBridge } from '@options/app/productionStitchShellRenderDelegates';
+import * as sectionInvalidationModule from '@ui/stitch-runtime/render/sectionInvalidation';
+import type { SectionInvalidationScope } from '@ui/stitch-runtime/render/sectionInvalidation';
 import { mountProductionStitchShell } from '@options/app/productionStitchShell';
 import { previewContent } from '@options/stitch/content';
 import { getFooterMeta, getFooterView, getSettingsView } from '@options/stitch/schema/registry';
@@ -33,6 +36,22 @@ function withLegacyRootDir<TRest extends NonNullable<StoredOptions['rest']>>(
   rootDir: string
 ): TRest & { rootDir: string } {
   return Object.assign(rest, { rootDir });
+}
+
+function observeSectionOwnerCreation(): Promise<void> {
+  let created: () => void = () => undefined;
+  const ready = new Promise<void>((resolve) => {
+    created = resolve;
+  });
+  const create = sectionInvalidationModule.createSectionInvalidationOwner;
+  const spy = vi.spyOn(sectionInvalidationModule, 'createSectionInvalidationOwner');
+  spy.mockImplementationOnce((options) => {
+    spy.mockRestore();
+    const owner = create(options);
+    created();
+    return owner;
+  });
+  return ready;
 }
 
 describe('mountProductionStitchShell renderLifecycle', () => {
@@ -110,12 +129,14 @@ describe('mountProductionStitchShell renderLifecycle', () => {
   });
 
   it('rebases an authoritative output field without replacing shell owners or losing selection', async () => {
+    const ownerReady = observeSectionOwnerCreation();
     const mounted = mountProductionStitchShell({
       controller: asOptionsController(createController()),
       initialOptions: { templates: { article: 'Alice' } },
       messages: null,
       language: 'en'
     });
+    await ownerReady;
     await flushPromises();
 
     const root = queryRequired<HTMLElement>('#optionsShellRoot');
@@ -344,7 +365,8 @@ describe('mountProductionStitchShell renderLifecycle', () => {
     await controller.dispose();
   });
 
-  it('setMessages recreates schema context with the new language while keeping the version subtitle', () => {
+  it('setMessages recreates schema context with the new language while keeping the version subtitle', async () => {
+    const ownerReady = observeSectionOwnerCreation();
     const controller = createController();
     const schemaContextSpy = vi.spyOn(
       productionStitchShellContextModule,
@@ -356,6 +378,7 @@ describe('mountProductionStitchShell renderLifecycle', () => {
       messages: null,
       language: 'zh-CN'
     });
+    await ownerReady;
 
     expect(
       document.querySelector<HTMLAnchorElement>('.brand-title-link')?.getAttribute('href')
@@ -929,7 +952,8 @@ describe('mountProductionStitchShell renderLifecycle', () => {
     expect(draft.video.promptPosition).toEqual({ x: 99, y: 77 });
   });
 
-  it('updates all selection trigger modes while keeping modifier-key edits incremental', () => {
+  it('updates all selection trigger modes while keeping modifier-key edits incremental', async () => {
+    const ownerReady = observeSectionOwnerCreation();
     const controller = createController();
     Object.defineProperty(navigator, 'platform', {
       configurable: true,
@@ -946,6 +970,7 @@ describe('mountProductionStitchShell renderLifecycle', () => {
       messages: null,
       language: 'en'
     });
+    await ownerReady;
 
     const main = queryRequired<HTMLElement>('.main');
     const altChip = queryRequired<HTMLButtonElement>(
@@ -1103,7 +1128,8 @@ describe('mountProductionStitchShell renderLifecycle', () => {
     ]);
   });
 
-  it('locks default YAML custom field delete and rename controls in production', () => {
+  it('locks default YAML custom field delete and rename controls in production', async () => {
+    const ownerReady = observeSectionOwnerCreation();
     const controller = createController();
     const mounted = mountProductionStitchShell({
       controller: asOptionsController(controller),
@@ -1111,6 +1137,7 @@ describe('mountProductionStitchShell renderLifecycle', () => {
       messages: null,
       language: 'en'
     });
+    await ownerReady;
 
     const statusRow = requireElement(findYamlRowByField('status'), 'status YAML row');
     const nameInput = queryRequired<HTMLInputElement>('input[data-yaml-field="name"]', statusRow);
@@ -1445,4 +1472,294 @@ describe('mountProductionStitchShell renderLifecycle', () => {
       )
     ).toBe(true);
   });
+});
+
+describe('production invalidation owner pending lifecycle', () => {
+  beforeEach(setupProductionStitchShellTest);
+  let settleImport: (() => Promise<void>) | null = null;
+  afterEach(async () => {
+    await settleImport?.();
+    settleImport = null;
+    vi.doUnmock('@ui/stitch-runtime/render/sectionInvalidation');
+  });
+
+  async function holdOwnerImport() {
+    const actual = await vi.importActual<
+      typeof import('@ui/stitch-runtime/render/sectionInvalidation')
+    >('@ui/stitch-runtime/render/sectionInvalidation');
+    let release: () => void = () => undefined;
+    let rejectImport: (error: Error) => void = () => undefined;
+    let entered: () => void = () => undefined;
+    const requested = new Promise<void>((resolve) => {
+      entered = resolve;
+    });
+    const pending = new Promise<void>((resolve, reject) => {
+      release = resolve;
+      rejectImport = reject;
+    });
+    const create = vi.fn(actual.createSectionInvalidationOwner);
+    const capture = vi.fn(actual.captureSectionDomSnapshot);
+    const restore = vi.fn(actual.restoreSectionDomSnapshot);
+    vi.doMock('@ui/stitch-runtime/render/sectionInvalidation', async () => {
+      entered();
+      await pending;
+      return {
+        ...actual,
+        createSectionInvalidationOwner: create,
+        captureSectionDomSnapshot: capture,
+        restoreSectionDomSnapshot: restore
+      };
+    });
+    settleImport = async () => {
+      release();
+      await import('@ui/stitch-runtime/render/sectionInvalidation').catch(() => undefined);
+    };
+    return {
+      actual,
+      capture,
+      create,
+      requested,
+      restore,
+      async resolve() {
+        release();
+        await import('@ui/stitch-runtime/render/sectionInvalidation');
+      },
+      async reject() {
+        rejectImport(new Error('controlled owner import rejection'));
+        await import('@ui/stitch-runtime/render/sectionInvalidation').catch(() => undefined);
+      }
+    };
+  }
+
+  it('replays a pending authoritative output rebase through capture/restore exactly once', async () => {
+    const load = await holdOwnerImport();
+    const mounted = mountProductionStitchShell({
+      controller: asOptionsController(createController()),
+      initialOptions: { templates: { article: 'Alice' } },
+      messages: null,
+      language: 'en'
+    });
+    await load.requested;
+    const main = queryRequired<HTMLElement>('.main');
+    const input = findInputByValue('Alice');
+    // Focus actions preserve their entry scroll position, including their queued restoration.
+    main.scrollTop = 377;
+    input.focus();
+    input.setSelectionRange(1, 4, 'backward');
+    const next = mounted.collectDraft();
+    next.templates.article = 'Bobbie';
+    mounted.rebaseOptions(next, { changedPaths: [['templates', 'article']], dirtyPathKeys: [] });
+    expect.soft(load.create).not.toHaveBeenCalled();
+    expect.soft(input.isConnected).toBe(true);
+    expect.soft(document.activeElement).toBe(input);
+    expect(main.scrollTop).toBe(377);
+    await load.resolve();
+    const rebased = findInputByValue('Bobbie');
+    expect(load.create).toHaveBeenCalledTimes(1);
+    expect(load.capture).toHaveBeenCalledTimes(1);
+    expect(load.restore).toHaveBeenCalledTimes(1);
+    expect(load.restore).toHaveBeenCalledWith(
+      queryRequired<HTMLElement>('#optionsShellRoot'),
+      expect.objectContaining({ mainScrollTop: 377 })
+    );
+    expect(queryRequired<HTMLElement>('.main')).toBe(main);
+    expect(document.activeElement).toBe(rebased);
+    expect(rebased.selectionStart).toBe(1);
+    expect(rebased.selectionEnd).toBe(4);
+    expect(rebased.selectionDirection).toBe('backward');
+    expect(main.scrollTop).toBe(377);
+    mounted.cleanup();
+  });
+
+  it('constructs an empty root synchronously once and queues subsequent recovery through the owner', async () => {
+    const load = await holdOwnerImport();
+    const root = queryRequired<HTMLElement>('#optionsShellRoot');
+    const recovery = vi.fn(() => {
+      root.replaceChildren(document.createElement('main'));
+    });
+    const bridge = createProductionStitchInvalidationBridge({
+      handlers: { 'all-invariant-recovery': recovery },
+      isActive: () => true,
+      mountRoot: root
+    });
+    bridge.render('all-invariant-recovery');
+    expect(root.firstElementChild?.tagName).toBe('MAIN');
+    expect(recovery).toHaveBeenCalledTimes(1);
+    await load.requested;
+    root.replaceChildren();
+    bridge.render('all-invariant-recovery');
+    bridge.render('all-invariant-recovery');
+    expect(recovery).toHaveBeenCalledTimes(1);
+    await load.resolve();
+    expect(recovery).toHaveBeenCalledTimes(2);
+    expect(load.capture).toHaveBeenCalledTimes(1);
+    expect(load.restore).toHaveBeenCalledTimes(1);
+    bridge.dispose();
+  });
+
+  it('does not replay after dispose before owner resolution, even with an active host', async () => {
+    const load = await holdOwnerImport();
+    const output = vi.fn();
+    const bridge = createProductionStitchInvalidationBridge({
+      handlers: { output },
+      isActive: () => true,
+      mountRoot: document.body
+    });
+    await load.requested;
+    bridge.render('output');
+    bridge.dispose();
+    bridge.render('output');
+    await load.resolve();
+    expect(output).not.toHaveBeenCalled();
+    expect(load.create).not.toHaveBeenCalled();
+  });
+
+  it('recovers once on import rejection without executing pending scopes again', async () => {
+    const load = await holdOwnerImport();
+    const output = vi.fn();
+    const recovery = vi.fn();
+    const bridge = createProductionStitchInvalidationBridge({
+      handlers: { output, 'all-invariant-recovery': recovery },
+      isActive: () => true,
+      mountRoot: document.body
+    });
+    await load.requested;
+    bridge.render('output');
+    bridge.render(['output', 'all-invariant-recovery']);
+    await load.reject();
+    expect(output).not.toHaveBeenCalled();
+    expect(recovery).toHaveBeenCalledTimes(1);
+    bridge.render('output');
+    expect(recovery).toHaveBeenCalledTimes(2);
+    expect(output).not.toHaveBeenCalled();
+    bridge.dispose();
+  });
+
+  it('does not recover a disposed bridge on import rejection', async () => {
+    const load = await holdOwnerImport();
+    const recovery = vi.fn();
+    const bridge = createProductionStitchInvalidationBridge({
+      handlers: { 'all-invariant-recovery': recovery },
+      isActive: () => true,
+      mountRoot: document.body
+    });
+    await load.requested;
+    bridge.render('all-invariant-recovery');
+    bridge.dispose();
+    await load.reject();
+    expect(recovery).not.toHaveBeenCalled();
+  });
+
+  it('reports a successful-import pending recovery throw once without retrying or losing owner error cleanup', async () => {
+    const load = await holdOwnerImport();
+    const failure = new Error('pending recovery render failed');
+    let reported: () => void = () => undefined;
+    const errorReported = new Promise<void>((resolve) => {
+      reported = resolve;
+    });
+    const report = vi.spyOn(console, 'error').mockImplementation(() => reported());
+    const storage = vi.fn();
+    const recovery = vi.fn(() => {
+      bridge.render('storage');
+      if (recovery.mock.calls.length === 1) throw failure;
+    });
+    const bridge = createProductionStitchInvalidationBridge({
+      handlers: { storage, 'all-invariant-recovery': recovery },
+      isActive: () => true,
+      mountRoot: document.body
+    });
+    await load.requested;
+    expect(() => bridge.render('all-invariant-recovery')).not.toThrow();
+    expect(recovery).not.toHaveBeenCalled();
+    await load.resolve();
+    expect(recovery).toHaveBeenCalledTimes(1);
+    await errorReported;
+    expect(load.create).toHaveBeenCalledTimes(1);
+    expect(load.create.mock.results[0]?.value.active).toBe(true);
+    expect(load.capture).toHaveBeenCalledTimes(1);
+    expect(load.restore).not.toHaveBeenCalled();
+    expect(recovery).toHaveBeenCalledTimes(1);
+    expect(storage).not.toHaveBeenCalled();
+    expect(report).toHaveBeenCalledExactlyOnceWith(
+      '[ProductionStitchShell:section-invalidation]',
+      failure
+    );
+    // The canonical owner discarded the reentrant request on failure and can accept fresh work.
+    bridge.render('storage');
+    expect(storage).toHaveBeenCalledTimes(1);
+    expect(load.capture).toHaveBeenCalledTimes(2);
+    expect(load.restore).toHaveBeenCalledTimes(1);
+    expect(recovery).toHaveBeenCalledTimes(1);
+    bridge.dispose();
+    report.mockRestore();
+  });
+
+  it('preserves ready-owner reentrancy, validation and handler exception semantics', async () => {
+    const load = await holdOwnerImport();
+    const storage = vi.fn();
+    const failure = new Error('output rendering failed');
+    const output = vi.fn((): void => {
+      bridge.render('storage');
+      throw failure;
+    });
+    const bridge = createProductionStitchInvalidationBridge({
+      handlers: { output, storage },
+      isActive: () => true,
+      mountRoot: document.body
+    });
+    await load.requested;
+    expect(() => bridge.render([])).toThrow('SECTION_INVALIDATION_SCOPE_REQUIRED');
+    expect(() => bridge.render('theme')).toThrow('UNKNOWN_SECTION_INVALIDATION_SCOPE:theme');
+    await load.resolve();
+    expect(() => bridge.render('output')).toThrow(failure);
+    expect(storage).not.toHaveBeenCalled();
+    output.mockImplementation(() => {
+      bridge.render('storage');
+      bridge.render('storage');
+    });
+    bridge.render('output');
+    expect(output).toHaveBeenCalledTimes(2);
+    expect(storage).toHaveBeenCalledTimes(1);
+    expect(load.restore).toHaveBeenCalledTimes(2);
+    bridge.dispose();
+  });
+
+  it.each([
+    {
+      scopes: ['output', 'storage', 'output', 'sidebar'],
+      expected: ['output', 'storage', 'sidebar']
+    },
+    { scopes: ['output', 'locale-schema', 'storage'], expected: ['locale-schema'] },
+    {
+      scopes: ['output', 'all-invariant-recovery', 'locale-schema', 'storage'],
+      expected: ['all-invariant-recovery']
+    }
+  ] satisfies Array<{ scopes: SectionInvalidationScope[]; expected: SectionInvalidationScope[] }>)(
+    'coalesces pending scopes using the real owner: $expected',
+    async ({ scopes, expected }) => {
+      const load = await holdOwnerImport();
+      const calls: SectionInvalidationScope[] = [];
+      const handlers = Object.fromEntries(
+        load.actual.SECTION_INVALIDATION_SCOPES.map((scope) => [
+          scope,
+          () => {
+            calls.push(scope);
+          }
+        ])
+      );
+      const bridge = createProductionStitchInvalidationBridge({
+        handlers,
+        isActive: () => true,
+        mountRoot: document.body
+      });
+      await load.requested;
+      scopes.forEach((scope) => bridge.render(scope));
+      expect.soft(calls).toEqual([]);
+      await load.resolve();
+      expect(calls).toEqual(expected);
+      expect(load.capture).toHaveBeenCalledTimes(1);
+      expect(load.restore).toHaveBeenCalledTimes(1);
+      bridge.dispose();
+    }
+  );
 });

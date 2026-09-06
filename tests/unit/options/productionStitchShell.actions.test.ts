@@ -1,6 +1,8 @@
 /* @vitest-environment jsdom */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import * as taskOwnerModule from '@options/app/productionStitchActionTaskOwner';
+import * as sectionInvalidationModule from '@ui/stitch-runtime/render/sectionInvalidation';
 
 const applyAnalyticsTransferPayloadMock = vi.hoisted(() => vi.fn(() => Promise.resolve()));
 const updateErrorAnalyticsConfigMock = vi.hoisted(() => vi.fn(() => Promise.resolve()));
@@ -83,6 +85,28 @@ function mockStorageConnectionFailure(message: string) {
   return factorySpy;
 }
 
+function observeMaintenanceCompletion() {
+  let created: () => void = () => undefined;
+  const ready = new Promise<void>((resolve) => {
+    created = resolve;
+  });
+  const createOwner = sectionInvalidationModule.createSectionInvalidationOwner;
+  const ownerFactory = vi.spyOn(sectionInvalidationModule, 'createSectionInvalidationOwner');
+  ownerFactory.mockImplementationOnce((options) => {
+    ownerFactory.mockRestore();
+    const owner = createOwner(options);
+    created();
+    return owner;
+  });
+  const taskOwner = taskOwnerModule.createProductionStitchActionTaskOwner();
+  const taskFactory = vi.spyOn(taskOwnerModule, 'createProductionStitchActionTaskOwner');
+  taskFactory.mockImplementationOnce(() => {
+    taskFactory.mockRestore();
+    return taskOwner;
+  });
+  return { ready, waitForIdle: () => taskOwner.waitForIdle() };
+}
+
 describe('mountProductionStitchShell actions', () => {
   beforeEach(() => {
     setupProductionStitchShellTest();
@@ -93,13 +117,15 @@ describe('mountProductionStitchShell actions', () => {
   });
 
   it('runs real maintenance actions for copy, diagnostics, and reload', async () => {
+    const completion = observeMaintenanceCompletion();
+    const clipboard = deferred<void>();
     const reloaded = mergeOptions({ rest: { vault: 'Reloaded' } }) as CompleteOptions;
     const loadRaw = vi.fn(() => Promise.resolve(reloaded));
     const controller = {
       ...createController(),
       loadRaw
     };
-    const writeText = vi.fn<(...args: [string]) => Promise<void>>(() => Promise.resolve());
+    const writeText = vi.fn<(...args: [string]) => Promise<void>>(() => clipboard.promise);
     Object.defineProperty(navigator, 'clipboard', {
       configurable: true,
       value: { writeText }
@@ -119,18 +145,26 @@ describe('mountProductionStitchShell actions', () => {
       language: 'en'
     });
 
-    findButton('Copy Configuration').click();
-    await Promise.resolve();
+    const copyButton = findButton('Copy Configuration');
+    copyButton.click();
+    expect(copyButton.getAttribute('aria-busy')).toBe('true');
+    expect(document.body.textContent).not.toContain('Configuration copied to clipboard');
     expect(writeText).toHaveBeenCalledWith(expect.stringContaining('"aiChat"'));
     const writtenConfig = JSON.parse(String(writeText.mock.calls[0]?.[0])) as CopiedConfiguration;
     expect(writtenConfig.rest?.apiKey).toBe('REST_SECRET_TOKEN');
     expect(writtenConfig.customKey).toBeUndefined();
 
     findButton('Diagnose Configuration').click();
+    expect(document.body.textContent).not.toContain('domainMappings');
+    await completion.ready;
     expect(document.body.textContent).toContain('domainMappings');
+    expect(copyButton.getAttribute('aria-busy')).toBe('true');
+    clipboard.resolve();
+    await completion.waitForIdle();
+    expect(document.body.textContent).toContain('Configuration copied to clipboard');
 
     findButton('Reload').click();
-    await new Promise((resolve) => setTimeout(resolve, 0));
+    await completion.waitForIdle();
     expect(loadRaw).toHaveBeenCalledTimes(1);
     expect(findInputByValue('Reloaded')).toBeTruthy();
   });
