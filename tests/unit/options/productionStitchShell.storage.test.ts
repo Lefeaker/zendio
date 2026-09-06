@@ -15,6 +15,7 @@ import {
 } from './productionStitchShell.helpers';
 import { createProductionStitchStorageController } from '@options/app/productionStitchStorageController';
 import { mountProductionStitchShell } from '@options/app/productionStitchShell';
+import * as sectionInvalidationModule from '@ui/stitch-runtime/render/sectionInvalidation';
 import {
   applyOutputPresetToDraft,
   createInitialDraft
@@ -154,6 +155,24 @@ describe('mountProductionStitchShell storage', () => {
 
   it('renders Usage Dashboard from real usage stats instead of preview fixtures', async () => {
     const controller = createController();
+    const rendered = deferred<void>();
+    const createOwner = sectionInvalidationModule.createSectionInvalidationOwner;
+    const ownerFactory = vi.spyOn(sectionInvalidationModule, 'createSectionInvalidationOwner');
+    const overviewRendered = vi.fn();
+    ownerFactory.mockImplementationOnce((options) => {
+      ownerFactory.mockRestore();
+      const owner = createOwner(options);
+      const invalidate = owner.invalidate;
+      vi.spyOn(owner, 'invalidate').mockImplementation((request) => {
+        invalidate(request);
+        const scopes = typeof request === 'string' ? [request] : request;
+        if (scopes.includes('overview-usage')) {
+          overviewRendered();
+          rendered.resolve();
+        }
+      });
+      return owner;
+    });
     const stats = {
       aiChatSaves: 7,
       fragmentSaves: 5,
@@ -169,16 +188,23 @@ describe('mountProductionStitchShell storage', () => {
       reset: vi.fn(() => Promise.resolve(stats))
     };
 
-    mountProductionStitchShell({
+    const mounted = mountProductionStitchShell({
       controller: asOptionsController(controller),
       initialOptions: null,
       messages: null,
       language: 'en',
       usageStatsClient
     } as never);
-    await flushPromises();
+    const statValues = () =>
+      Array.from(document.querySelectorAll('.stats-grid .stat-value'), (node) => node.textContent);
+    expect(statValues()).toEqual(['0', '0', '0', '0']);
+    expect(overviewRendered).not.toHaveBeenCalled();
+    // Stats loading may finish before the lazy section owner; await its real render completion.
+    await rendered.promise;
 
     expect(usageStatsClient.get).toHaveBeenCalledTimes(1);
+    expect(overviewRendered).toHaveBeenCalledTimes(1);
+    expect(statValues()).toEqual(['15', '7', '5', '3']);
     const statText = document.querySelector('.stats-grid')?.textContent ?? '';
     expect(statText).toContain('15');
     expect(statText).toContain('7');
@@ -189,6 +215,7 @@ describe('mountProductionStitchShell storage', () => {
     const chartLabels = document.querySelectorAll('#usageXAxis text');
     expect(chartLabels.length).toBeGreaterThanOrEqual(5);
     expect(document.querySelector('#usageWavePath')?.getAttribute('d')).toBeTruthy();
+    mounted.cleanup();
   });
 
   it('renders default zero Usage Dashboard without invalid SVG chart coordinates', async () => {
