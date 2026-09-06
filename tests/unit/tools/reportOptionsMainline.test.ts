@@ -1,6 +1,9 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { auditOptionsMainline } from '../../../tools/report-options-mainline.mjs';
+import {
+  auditOptionsMainline,
+  auditOptionsSectionSource
+} from '../../../tools/report-options-mainline.mjs';
 
 const persistencePath = 'src/options/services/persistence.ts';
 const controllerPath = 'src/options/app/optionsController.ts';
@@ -197,12 +200,12 @@ describe('report-options-mainline', () => {
     ).toContainEqual(expect.stringContaining('durability persist must await'));
   });
 
-  it('retains retired repository, registry, adapter authority and direct section-write gates', () => {
+  it('retains retired repository, registry and adapter authority gates', () => {
     const sources = productionSources();
     const retiredPath = ['src/infrastructure', 'optionsRepository.ts'].join('/');
     sources[retiredPath] = 'export class ChromeSyncOptionsRepository {}';
-    sources['src/options/components/sections/leak.ts'] =
-      "import { value } from '../sectionRegistry'; chromeOptionsPersistence; optionsRepo.set({});";
+    sources['src/options/authorityLeak.ts'] =
+      "import { value } from './sectionRegistry'; chromeOptionsPersistence;";
     const findings = auditOptionsMainline(sources);
     expect(findings).toContainEqual(
       expect.stringContaining(`compatibility leaked into production path: ${retiredPath}`)
@@ -213,9 +216,19 @@ describe('report-options-mainline', () => {
     expect(findings).toContainEqual(
       expect.stringContaining('chromeOptionsPersistence leaked outside bootstrap adapter')
     );
-    expect(findings).toContainEqual(
-      expect.stringContaining('section must not write optionsRepo directly')
+  });
+
+  it('rejects direct section writes through the production source rule', () => {
+    expect(auditOptionsSectionSource('optionsRepo.set({});')).toContain(
+      'section must not write optionsRepo directly'
     );
+    expect(auditOptionsSectionSource('optionsRepo \n . set({});')).toContain(
+      'section must not write optionsRepo directly'
+    );
+  });
+
+  it('accepts section source that delegates saving through its controller', () => {
+    expect(auditOptionsSectionSource('await controller.save();')).toEqual([]);
   });
 
   it('does not allowlist the retired legacy OptionsRepository source path', () => {

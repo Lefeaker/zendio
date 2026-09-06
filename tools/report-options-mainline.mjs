@@ -299,6 +299,13 @@ function checkPatchAcknowledgements(sources, findings) {
   }
 }
 
+// Both the production section scan and synthetic fault tests use this source rule.
+export function auditOptionsSectionSource(source) {
+  return /optionsRepo\s*\.?\s*set\s*\(/.test(source)
+    ? ['section must not write optionsRepo directly']
+    : [];
+}
+
 export function auditOptionsMainline(sources) {
   const findings = [];
   const references = {
@@ -363,8 +370,8 @@ export function auditOptionsMainline(sources) {
 
   for (const [relativePath, source] of Object.entries(sources)) {
     if (!relativePath.startsWith('src/options/components/sections/')) continue;
-    if (/optionsRepo\s*\.?\s*set\s*\(/.test(source)) {
-      findings.push(`section must not write optionsRepo directly: ${relativePath}`);
+    for (const finding of auditOptionsSectionSource(source)) {
+      findings.push(`${finding}: ${relativePath}`);
     }
   }
 
