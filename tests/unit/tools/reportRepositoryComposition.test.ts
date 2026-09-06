@@ -58,6 +58,38 @@ describe('repository composition report', () => {
     expect(result.stdout).toContain('Options repository composition: passed');
   });
 
+  it.each([
+    'registerRepositories = (_services: unknown) => {}',
+    'configureOptionsAppBootstrapStorage = (_storage: unknown) => {}',
+    'bootstrapOptionsApp = (_options: unknown) => Promise.resolve()',
+    '{ install: registerRepositories } = { install: (_services: unknown) => {} }',
+    '[registerRepositories] = [(_services: unknown) => {}]'
+  ])('rejects enclosing runtime parameter shadow: %s', (parameter) => {
+    expect(
+      runtimeFault(
+        'platformServices?: PlatformServices',
+        `platformServices?: PlatformServices, ${parameter}`
+      )
+    ).toContain('Options composition must call imported owners without local shadow bindings');
+  });
+
+  it.each([
+    'registerFallbackRepositories = () => {}',
+    'createPreviewOptionsRepository = () => ({})',
+    'createPreviewPlatformServices = () => ({})',
+    '{ install: registerFallbackRepositories } = { install: () => {} }',
+    '[createPreviewOptionsRepository] = [() => ({})]'
+  ])('rejects enclosing preview parameter shadow: %s', (parameter) => {
+    expect(
+      previewFault(
+        'configurePreviewOptionsRuntime(): PlatformServices',
+        `configurePreviewOptionsRuntime(${parameter}): PlatformServices`
+      )
+    ).toContain(
+      'Preview composition must use its imported and exported owners without local shadow bindings'
+    );
+  });
+
   it('tolerates formatting, comments and renamed imported/local bindings', () => {
     const formatted = runtime
       .replace(

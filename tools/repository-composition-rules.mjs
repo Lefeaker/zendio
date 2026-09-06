@@ -81,6 +81,8 @@ function calls(root, name) {
   if (root) visit(root);
   return found;
 }
+// Start at the owner function so enclosing parameters and their binding patterns
+// are checked along with declarations in its body.
 function localBindings(root, name) {
   const found = [];
   function bound(node) {
@@ -337,10 +339,10 @@ export function auditOptionsRepositoryComposition(runtimeSource, previewSource) 
   );
   check(
     [register, storageOwner, appOwner].every(
-      (name) => !!name && localBindings(body, name).length === 0
+      (name) => !!name && localBindings(boot, name).length === 0
     ) &&
       !!imported &&
-      localBindings(body, imported).length === 1,
+      localBindings(boot, imported).length === 1,
     'Options composition must call imported owners without local shadow bindings'
   );
 
@@ -406,7 +408,7 @@ export function auditOptionsRepositoryComposition(runtimeSource, previewSource) 
       container,
       diTokens,
       'createPreviewOptionsRepository'
-    ].every((name) => !!name && localBindings(factoryBody, name).length === 0),
+    ].every((name) => !!name && localBindings(factory, name).length === 0),
     'Preview composition must use its imported and exported owners without local shadow bindings'
   );
   return findings;
