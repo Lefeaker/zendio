@@ -4,6 +4,7 @@ import type { VideoDestinationBootstrap } from '@content/video/application/video
 import type { ExportDestinationSurfacePreview } from '@ui/stitch-runtime/types/surfaceTypes';
 import { __resetContentSessionRegistryForTests } from '@content/runtime/contentSessionRegistry';
 import { createSessionDraftRepository } from '@content/sessionDrafts/sessionDraftRepository';
+import { configProvider } from '@shared/config';
 import { mergeOptions } from '@shared/config/optionsMerger';
 import type { IOptionsRepository } from '@shared/repositories/IOptionsRepository';
 import type { CompleteOptions } from '@shared/types/options';
@@ -30,14 +31,15 @@ import {
 const { exportMock } = getVideoSessionHarnessMocks();
 
 function createVault(id: string, name: string) {
+  const restDefaults = configProvider.getRestDefaults();
   return {
     id,
     name,
     vault: name,
     localFolderId: `folder-${id}`,
     localFolderName: name,
-    httpsUrl: 'https://localhost:27124',
-    httpUrl: 'http://localhost:27123',
+    httpsUrl: restDefaults.httpsUrl,
+    httpUrl: restDefaults.httpUrl,
     apiKey: '',
     enabled: true,
     isDefault: false
