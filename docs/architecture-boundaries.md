@@ -14,6 +14,10 @@
 - `src/options/index.ts -> src/options/runtimeEntry.ts -> src/options/app/bootstrap.ts -> src/options/app/productionStitchShell.ts`
 - `src/platform/services.ts`
 
+Options runtime 在 Chrome storage 可用分支将调用方的 storage、messaging、tabs、runtime 显式交给 `registerRepositories`。非 Chrome 分支动态加载 `src/platform/preview/optionsRepository.ts` 的 `configurePreviewOptionsRuntime`；该 owner 依次安装 preview platform services、fallback repositories 与内存 Options repository，再返回同一组 services。两个分支完成后，选定的 storage/runtime 才进入 Options bootstrap；runtimeEntry 不直接调用旧 fallback 注册代替 preview composition。
+
+`npm run audit:repository-composition:report` 通过 TypeScript AST 检查上述实际函数、分支、导入 owner、服务连线与顺序；回归用例直接读取当前源码并在内存中注入反例。其他入口注册与 registry 禁止隐式 fallback 的原有检查保留。这是静态 composition 证据，不能替代浏览器中的持久化与交互验收。
+
 验证命令：`npm run audit:platform-services:report`
 
 ## 2. UI 分层边界
