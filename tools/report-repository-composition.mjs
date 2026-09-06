@@ -1,11 +1,11 @@
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
+import { auditOptionsRepositoryComposition } from './repository-composition-rules.mjs';
 
 const root = process.cwd();
 
 const filesToCheck = {
   'src/options/index.ts': ['bootstrapOptionsRuntime('],
-  'src/options/runtimeEntry.ts': ['registerRepositories({', 'registerFallbackRepositories()'],
   'src/content/index.ts': ['registerRepositories({'],
   'src/background/index.ts': ['registerRepositories({'],
   'src/onboarding/index.ts': ['registerRepositories({', 'registerFallbackRepositories()'],
@@ -19,7 +19,7 @@ const filesToCheck = {
 const forbiddenSnippets = {
   'src/shared/di/serviceRegistry.ts': [
     'ensureFallbackRepositoriesRegistered()',
-    'if (typeof chrome !== \'undefined\' && typeof chrome.storage !== \'undefined\''
+    "if (typeof chrome !== 'undefined' && typeof chrome.storage !== 'undefined'"
   ]
 };
 
@@ -45,6 +45,14 @@ for (const [relativePath, requiredSnippets] of Object.entries(filesToCheck)) {
     }
   }
 }
+
+const findings = auditOptionsRepositoryComposition(
+  await readFile(join(root, 'src/options/runtimeEntry.ts'), 'utf8'),
+  await readFile(join(root, 'src/platform/preview/optionsRepository.ts'), 'utf8')
+);
+for (const finding of findings) console.error(finding);
+console.log(`Options repository composition: ${findings.length === 0 ? 'passed' : 'failed'}`);
+hasFailure ||= findings.length > 0;
 
 if (hasFailure) {
   process.exitCode = 1;
