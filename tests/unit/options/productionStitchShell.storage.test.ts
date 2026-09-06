@@ -162,7 +162,7 @@ describe('mountProductionStitchShell storage', () => {
     ownerFactory.mockImplementationOnce((options) => {
       ownerFactory.mockRestore();
       const owner = createOwner(options);
-      const invalidate = owner.invalidate;
+      const invalidate = owner.invalidate.bind(owner);
       vi.spyOn(owner, 'invalidate').mockImplementation((request) => {
         invalidate(request);
         const scopes = typeof request === 'string' ? [request] : request;
