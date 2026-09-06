@@ -29,6 +29,7 @@ import {
   REPOSITORY_ROOT,
   R03_CI_JOB_SEQUENCE_RESERVATIONS,
   resolveCommandProfile,
+  resolveFirefoxBrowserInput,
   validateProfileArguments
 } from '../config/commandBoundaryProfiles.mjs';
 
@@ -1583,6 +1584,23 @@ function assertFirefoxExecutionPreconditions(spec) {
       spec.env.ZENDIO_PLAYWRIGHT_ATTEMPT_ROOT !== undefined
     )
       throw new Error('PLAYWRIGHT_PROTECTED_VERIFIER_ISOLATION_INVALID');
+    return;
+  }
+  if (context.browserInput?.mode === 'shared-readonly') {
+    if (
+      context.firefoxExecutionClass !== 'release' ||
+      context.browserRootState !== 'existing' ||
+      spec.env.PLAYWRIGHT_BROWSERS_PATH !== context.browsersPath ||
+      spec.env.ZENDIO_PLAYWRIGHT_ATTEMPT_ROOT !== context.attemptRoot
+    )
+      throw new Error('PLAYWRIGHT_EXECUTION_BINDING_INVALID');
+    resolveFirefoxBrowserInput({
+      attemptRoot: context.attemptRoot,
+      browsersPath: context.browsersPath,
+      transportMode: context.transport,
+      environment: spec.env,
+      initialInput: context.browserInput
+    });
     return;
   }
   const expectedBrowserRoot = join(

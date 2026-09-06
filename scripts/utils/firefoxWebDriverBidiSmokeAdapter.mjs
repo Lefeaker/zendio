@@ -3,6 +3,7 @@ import { createServer } from 'node:net';
 import { dirname, isAbsolute, join, resolve } from 'node:path';
 import { lstat, mkdir, realpath, rm } from 'node:fs/promises';
 import { WebSocket } from 'ws';
+import { resolveFirefoxBrowserInput } from '../config/commandBoundaryProfiles.mjs';
 import {
   assertVerifiedFirefoxArtifactBinding,
   getVerifiedFirefoxArtifactSnapshots
@@ -445,14 +446,14 @@ async function assertAbsent(path) {
   }
 }
 
-function assertDriverEnvironment(environment, attemptRoot) {
+function assertDriverEnvironment(environment, attemptRoot, browsersPath) {
   const expected = {
     CI: '1',
     HOME: join(attemptRoot, 'home'),
     LANG: 'C',
     LC_ALL: 'C',
     PATH: `${dirname(process.execPath)}:/usr/bin:/bin`,
-    PLAYWRIGHT_BROWSERS_PATH: join(attemptRoot, 'playwright-browsers'),
+    PLAYWRIGHT_BROWSERS_PATH: browsersPath,
     TEMP: join(attemptRoot, 'tmp'),
     TMP: join(attemptRoot, 'tmp'),
     TMPDIR: join(attemptRoot, 'tmp'),
@@ -507,7 +508,8 @@ export async function runVerifiedFirefoxXpiSmoke(options, dependencies = {}) {
     geckodriverExecutable,
     profileRoot,
     transportMode,
-    driverEnvironment
+    driverEnvironment,
+    browserInput: initialBrowserInput
   } = options;
   assertVerifiedFirefoxArtifactBinding(binding);
   if (binding.transportMode !== transportMode) fail('FIREFOX_SMOKE_TRANSPORT_MODE');
@@ -525,6 +527,30 @@ export async function runVerifiedFirefoxXpiSmoke(options, dependencies = {}) {
   ) {
     fail('FIREFOX_SMOKE_PROFILE_PATH');
   }
+  const privateBrowsersPath = join(binding.attemptRoot, 'playwright-browsers');
+  const browsersPath = driverEnvironment?.PLAYWRIGHT_BROWSERS_PATH;
+  if (initialBrowserInput && initialBrowserInput.browsersPath !== browsersPath)
+    fail('FIREFOX_SMOKE_DRIVER_ENVIRONMENT');
+  const browserInput =
+    browsersPath === privateBrowsersPath
+      ? null
+      : resolveFirefoxBrowserInput(
+          {
+            attemptRoot: binding.attemptRoot,
+            browsersPath,
+            transportMode,
+            environment: process.env,
+            initialInput: initialBrowserInput
+          },
+          dependencies.browserInputOperations
+        );
+  if (browserInput && firefoxExecutable !== browserInput.firefoxExecutable)
+    fail('FIREFOX_SMOKE_EXECUTABLE');
+  const closedDriverEnvironment = assertDriverEnvironment(
+    driverEnvironment,
+    binding.attemptRoot,
+    browsersPath
+  );
   await assertAbsent(profileRoot);
   await mkdir(profileRoot, { mode: 0o700 });
   const profileStat = await lstat(profileRoot);
@@ -545,12 +571,28 @@ export async function runVerifiedFirefoxXpiSmoke(options, dependencies = {}) {
   const sleepImpl = dependencies.sleepImpl ?? sleep;
   const nowImpl = dependencies.now ?? Date.now;
   const killProcessGroupImpl = dependencies.killProcessGroupImpl ?? process.kill.bind(process);
-  const closedDriverEnvironment = assertDriverEnvironment(driverEnvironment, binding.attemptRoot);
   const snapshots = getVerifiedFirefoxArtifactSnapshots(binding);
   const deadline = createDeadline(dependencies);
   const [driverPort, websocketPort] = await Promise.all([allocatePortImpl(), allocatePortImpl()]);
   if (driverPort === websocketPort) fail('FIREFOX_SMOKE_PORT_ALIAS');
   const driverUrl = new URL(`http://127.0.0.1:${driverPort}/`);
+  if (browserInput) {
+    try {
+      resolveFirefoxBrowserInput(
+        {
+          attemptRoot: binding.attemptRoot,
+          browsersPath,
+          transportMode,
+          environment: process.env,
+          initialInput: browserInput
+        },
+        dependencies.browserInputOperations
+      );
+    } catch (error) {
+      await rm(profileRoot, { recursive: true });
+      throw error;
+    }
+  }
   const child = spawnImpl(
     geckodriverExecutable,
     [
@@ -612,6 +654,11 @@ export async function runVerifiedFirefoxXpiSmoke(options, dependencies = {}) {
     if (typeof sessionId !== 'string' || sessionId.length === 0) {
       fail('FIREFOX_SMOKE_SESSION_ID');
     }
+    if (
+      browserInput &&
+      session?.value?.capabilities?.browserVersion !== browserInput.browserVersion
+    )
+      fail('FIREFOX_SMOKE_BROWSER_VERSION');
     const webSocketUrl = validateWebSocketUrl(
       session?.value?.capabilities?.webSocketUrl,
       websocketPort,

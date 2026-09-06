@@ -1,9 +1,21 @@
-import { chmod, lstat, mkdir, mkdtemp, readFile, realpath, rm, writeFile } from 'node:fs/promises';
+import {
+  chmod,
+  lstat,
+  mkdir,
+  mkdtemp,
+  readFile,
+  realpath,
+  rm,
+  symlink,
+  writeFile
+} from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { buildZipFixture } from '../../utils/zipFixtureBuilder';
+import { createSharedFirefoxFixture } from '../../utils/firefoxBrowserInputFixture';
 import { runFirefoxXpiSmoke } from '../../../scripts/run-firefox-xpi-smoke.mjs';
+import type { runVerifiedFirefoxXpiSmoke } from '../../../scripts/utils/firefoxWebDriverBidiSmokeAdapter.mjs';
 import {
   canonicalArtifactJson,
   createFirefoxReleaseArtifactManifest
@@ -121,6 +133,7 @@ afterEach(async () => {
   delete process.env.ZENDIO_PLAYWRIGHT_ATTEMPT_ROOT;
   delete process.env.PLAYWRIGHT_BROWSERS_PATH;
   delete process.env.WEB_EXT_API_SECRET;
+  vi.unstubAllEnvs();
   await Promise.all(roots.splice(0).map((root) => rm(root, { recursive: true, force: true })));
 });
 
@@ -230,5 +243,123 @@ describe('Firefox exact-XPI smoke command wrapper', () => {
         }
       )
     ).rejects.toThrow('FIREFOX_SMOKE_PATH_ESCAPE');
+  });
+});
+
+describe('shared readonly Firefox smoke wrapper', () => {
+  async function fixture() {
+    for (const key of Object.keys(process.env)) {
+      if (['ci', 'github_actions'].includes(key.toLowerCase())) vi.stubEnv(key, undefined);
+    }
+    const attempt = await createAttempt();
+    const cacheRoot = await realpath(await mkdtemp(join(tmpdir(), 'zendio-firefox-shared-')));
+    roots.push(cacheRoot);
+    const cache = createSharedFirefoxFixture(cacheRoot);
+    setAttemptEnvironment(attempt.root, cache.browsersPath);
+    const args = [
+      '--manifest',
+      attempt.manifestPath,
+      '--transport-mode',
+      'local-private-v1',
+      '--result-json',
+      attempt.resultPath
+    ];
+    return { attempt, cache, args };
+  }
+
+  it('binds the registered executable and keeps fresh home, temp, profile and result in the attempt', async () => {
+    const { attempt, cache, args } = await fixture();
+    vi.stubEnv('HOME', join(attempt.root, 'home'));
+    const adapter = vi.fn<typeof runVerifiedFirefoxXpiSmoke>().mockResolvedValue({
+      schema: 'firefox-exact-xpi-smoke-v2',
+      adapter: 'webdriver-bidi-v1',
+      geckoId: 'fixture@example.test',
+      installed: true,
+      bootstrapped: true,
+      uninstalled: true,
+      reinstalled: true,
+      rebootstrapped: true
+    });
+    await runFirefoxXpiSmoke(args, {
+      browserInputOperations: cache.operations,
+      importPlaywrightImpl: () =>
+        Promise.resolve({
+          firefox: { executablePath: () => cache.firefoxExecutable }
+        }),
+      importAdapterImpl: () => Promise.resolve({ runVerifiedFirefoxXpiSmoke: adapter })
+    });
+    const supplied = adapter.mock.calls[0]?.[0];
+    expect(supplied?.firefoxExecutable).toBe(cache.firefoxExecutable);
+    expect(supplied?.browserInput).toMatchObject({
+      mode: 'shared-readonly',
+      browserVersion: '150.0.2'
+    });
+    expect(supplied?.driverEnvironment).toMatchObject({
+      HOME: join(attempt.root, 'home'),
+      TMPDIR: join(attempt.root, 'tmp'),
+      PLAYWRIGHT_BROWSERS_PATH: cache.browsersPath
+    });
+    expect(supplied?.profileRoot).toBe(join(attempt.root, 'firefox-xpi-smoke-profile-root'));
+    expect((await lstat(join(attempt.root, 'home'))).mode & 0o777).toBe(0o700);
+    expect((await lstat(join(attempt.root, 'tmp'))).mode & 0o777).toBe(0o700);
+    expect((await lstat(attempt.resultPath)).mode & 0o777).toBe(0o600);
+  });
+
+  it.each(['wrong-executable', 'replaced-executable'])(
+    'rejects %s between validation and adapter launch',
+    async (failure) => {
+      const { cache, args } = await fixture();
+      const adapter = vi.fn();
+      await expect(
+        runFirefoxXpiSmoke(args, {
+          browserInputOperations: cache.operations,
+          importPlaywrightImpl: async () => {
+            if (failure === 'replaced-executable') {
+              const bytes = await readFile(cache.firefoxExecutable);
+              bytes[32] = 1;
+              await writeFile(cache.firefoxExecutable, bytes);
+            }
+            return {
+              firefox: {
+                executablePath: () =>
+                  failure === 'wrong-executable'
+                    ? join(cache.revisionRoot, 'other-firefox')
+                    : cache.firefoxExecutable
+              }
+            };
+          },
+          importAdapterImpl: () => Promise.resolve({ runVerifiedFirefoxXpiSmoke: adapter })
+        })
+      ).rejects.toThrow(
+        failure === 'wrong-executable'
+          ? 'FIREFOX_SMOKE_EXECUTABLE'
+          : 'PLAYWRIGHT_SHARED_IDENTITY_CHANGED'
+      );
+      expect(adapter).not.toHaveBeenCalled();
+    }
+  );
+
+  it('rejects genuine CI before creating private state', async () => {
+    const { attempt, cache, args } = await fixture();
+    vi.stubEnv('CI', 'true');
+    await expect(
+      runFirefoxXpiSmoke(args, { browserInputOperations: cache.operations })
+    ).rejects.toThrow('PLAYWRIGHT_SHARED_CONTEXT_INVALID');
+    await expect(lstat(join(attempt.root, 'home'))).rejects.toMatchObject({ code: 'ENOENT' });
+  });
+
+  it('rejects a symlinked result parent and reused writable home', async () => {
+    const { attempt, cache, args } = await fixture();
+    const outputLink = join(attempt.root, 'output-link');
+    await symlink(cache.browsersPath, outputLink);
+    await expect(
+      runFirefoxXpiSmoke([...args.slice(0, 5), join(outputLink, 'result.json')], {
+        browserInputOperations: cache.operations
+      })
+    ).rejects.toThrow('FIREFOX_SMOKE_PATH_ESCAPE');
+    await mkdir(join(attempt.root, 'home'), { mode: 0o700 });
+    await expect(
+      runFirefoxXpiSmoke(args, { browserInputOperations: cache.operations })
+    ).rejects.toThrow('FIREFOX_SMOKE_PRIVATE_ROOT_EXISTS');
   });
 });

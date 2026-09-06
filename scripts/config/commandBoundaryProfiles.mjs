@@ -9,6 +9,7 @@ import {
   writeFileSync
 } from 'node:fs';
 import { basename, dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
+import { userInfo } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { deepFreeze, sha256Buffer } from '../../tools/npm-audit-regression/canonical-json.mjs';
 import { detectNpmCommand } from '../../tools/npm-audit-regression/runtime-discovery.mjs';
@@ -255,7 +256,8 @@ const LOCKED_PACKAGES = deepFreeze({
     version: '1.60.0',
     binName: 'playwright',
     packageSha256: 'cf92117ef1d8cbf1e4b2dffb63a0da552c0173bd6052f0f45711c0f00b79dc99',
-    binSha256: '79e23e6a249176295b8490567daa7717448a75866d6ea6f6b296ff3d23305c69'
+    binSha256: '79e23e6a249176295b8490567daa7717448a75866d6ea6f6b296ff3d23305c69',
+    browsersSha256: 'af53e32ffe35a024ddb34563700956b01ada00ac7e9270ba5df0604ec57e38e1'
   }
 });
 
@@ -1973,12 +1975,178 @@ function firefoxPlaywrightPhaseEnvironment(environment, hostDependencies) {
   };
 }
 
-function firefoxReleaseConsumerEnvironment(profileId, environment, attemptRoot, transport) {
+// Shared browser bytes are trusted, preverified local toolchain input. This is not
+// an archive provenance check, and no writable attempt state may live in this cache.
+export function resolveFirefoxBrowserInput(
+  { attemptRoot, browsersPath, transportMode, environment = process.env, initialInput },
+  operations = {}
+) {
+  if (browsersPath === join(attemptRoot, 'playwright-browsers')) {
+    assertOwnedDirectory(browsersPath);
+    return deepFreeze({ mode: 'private', browsersPath });
+  }
+  if (
+    transportMode !== 'local-private-v1' ||
+    Object.keys(environment).some((key) => ['ci', 'github_actions'].includes(key.toLowerCase()))
+  )
+    invalid('PLAYWRIGHT_SHARED_CONTEXT_INVALID');
+  if (
+    typeof browsersPath !== 'string' ||
+    !isAbsolute(attemptRoot) ||
+    resolve(attemptRoot) !== attemptRoot
+  )
+    invalid('PLAYWRIGHT_SHARED_ROOT_INVALID');
+  const accountHome = (operations.userInfoOperation ?? userInfo)().homedir;
+  const platform = operations.platform ?? process.platform;
+  const cacheSuffix =
+    platform === 'darwin' ? 'Library/Caches/ms-playwright' : '.cache/ms-playwright';
+  if (
+    !['darwin', 'linux'].includes(platform) ||
+    browsersPath !== join(accountHome, cacheSuffix) ||
+    resolve(browsersPath) !== browsersPath ||
+    contained(browsersPath, attemptRoot) ||
+    contained(attemptRoot, browsersPath)
+  )
+    invalid('PLAYWRIGHT_SHARED_ROOT_INVALID');
+  const snapshots = [];
+  const readStats = operations.lstatOperation ?? lstatSync;
+  const canonicalPath = operations.realpathOperation ?? realpathSync;
+  const readBytes = operations.readFileOperation ?? readFileSync;
+  // These writable state selectors are forwarded to prepare/verify/smoke. Other
+  // output paths are owner arguments already contained by the private attempt.
+  for (const key of ['HOME', 'TMPDIR']) {
+    const value = environment[key];
+    if (typeof value !== 'string' || value.length === 0) continue;
+    let ancestor = isAbsolute(value) ? value : `${REPOSITORY_ROOT}${sep}${value}`;
+    const missing = [];
+    let canonical;
+    while (canonical === undefined) {
+      try {
+        canonical = (operations.realpathOperation ?? realpathSync.native)(ancestor);
+      } catch (error) {
+        if (error?.code !== 'ENOENT') invalid('PLAYWRIGHT_SHARED_WRITABLE_PATH_INVALID');
+        try {
+          if (readStats(ancestor).isSymbolicLink())
+            invalid('PLAYWRIGHT_SHARED_WRITABLE_PATH_INVALID');
+        } catch (statError) {
+          if (statError?.code !== 'ENOENT') throw statError;
+        }
+        const parent = dirname(ancestor);
+        if (parent === ancestor) invalid('PLAYWRIGHT_SHARED_WRITABLE_PATH_INVALID');
+        missing.unshift(basename(ancestor));
+        ancestor = parent;
+      }
+    }
+    if (contained(browsersPath, join(canonical, ...missing)))
+      invalid('PLAYWRIGHT_SHARED_WRITABLE_PATH_INVALID');
+  }
+  const snapshot = (path, kind) => {
+    const stats = readStats(path);
+    if (
+      canonicalPath(path) !== path ||
+      stats.isSymbolicLink() ||
+      stats.uid !== process.getuid() ||
+      (stats.mode & 0o022) !== 0 ||
+      (kind === 'directory' ? !stats.isDirectory() : !stats.isFile() || stats.nlink !== 1) ||
+      (kind === 'executable' && (stats.mode & 0o111) === 0)
+    )
+      invalid('PLAYWRIGHT_SHARED_IDENTITY_INVALID');
+    const identity = (value) => ({
+      dev: value.dev,
+      ino: value.ino,
+      uid: value.uid,
+      mode: value.mode,
+      ...(kind === 'directory'
+        ? {}
+        : {
+            nlink: value.nlink,
+            size: value.size,
+            mtimeMs: value.mtimeMs,
+            ctimeMs: value.ctimeMs
+          })
+    });
+    const bytes = kind === 'directory' ? null : readBytes(path);
+    if (JSON.stringify(identity(stats)) !== JSON.stringify(identity(readStats(path))))
+      invalid('PLAYWRIGHT_SHARED_IDENTITY_CHANGED');
+    snapshots.push({ path, ...identity(stats), ...(bytes ? { sha256: sha256Buffer(bytes) } : {}) });
+    return bytes;
+  };
+  const directories = new Set();
+  const directoryChain = (root, target) => {
+    let current = root;
+    for (const part of ['', ...relative(root, target).split(sep).filter(Boolean)]) {
+      if (part) current = join(current, part);
+      if (!directories.has(current)) {
+        snapshot(current, 'directory');
+        directories.add(current);
+      }
+    }
+  };
+  directoryChain(accountHome, browsersPath);
+  resolveLockedBin('playwright');
+  const { lockJson } = packageProjection();
+  for (const name of ['playwright', 'playwright-core']) {
+    const packagePath = regularFile(`node_modules/${name}/package.json`);
+    const installed = JSON.parse(snapshot(packagePath, 'file'));
+    if (
+      installed.version !== LOCKED_PACKAGES.playwright.version ||
+      lockJson.packages?.[`node_modules/${name}`]?.version !== installed.version
+    )
+      invalid('PLAYWRIGHT_SHARED_LOCK_INVALID');
+  }
+  const browsersJson = regularFile('node_modules/playwright-core/browsers.json');
+  const descriptorBytes = snapshot(browsersJson, 'file');
+  if (sha256Buffer(descriptorBytes) !== LOCKED_PACKAGES.playwright.browsersSha256)
+    invalid('PLAYWRIGHT_SHARED_REVISION_INVALID');
+  const descriptors = JSON.parse(descriptorBytes).browsers;
+  const firefox = descriptors?.filter((entry) => entry.name === 'firefox');
+  if (
+    firefox?.length !== 1 ||
+    !/^[1-9][0-9]*$/u.test(firefox[0].revision) ||
+    !/^\d+\.\d+(?:\.\d+)?$/u.test(firefox[0].browserVersion) ||
+    firefox[0].revisionOverrides !== undefined
+  )
+    invalid('PLAYWRIGHT_SHARED_REVISION_INVALID');
+  const revisionRoot = join(browsersPath, `firefox-${firefox[0].revision}`);
+  const firefoxExecutable = join(
+    revisionRoot,
+    platform === 'darwin' ? 'firefox/Nightly.app/Contents/MacOS/firefox' : 'firefox/firefox'
+  );
+  directoryChain(browsersPath, dirname(firefoxExecutable));
+  const marker = snapshot(join(revisionRoot, 'INSTALLATION_COMPLETE'), 'file');
+  if (marker.length !== 0) invalid('PLAYWRIGHT_SHARED_MARKER_INVALID');
+  const executableBytes = snapshot(firefoxExecutable, 'executable');
+  const magic = executableBytes.subarray(0, 4).toString('hex');
+  if (
+    executableBytes.length < 32 ||
+    !(platform === 'darwin'
+      ? ['cffaedfe', 'feedfacf', 'cafebabe', 'bebafeca', 'cafebabf', 'bfbafeca'].includes(magic)
+      : magic === '7f454c46')
+  )
+    invalid('PLAYWRIGHT_SHARED_EXECUTABLE_INVALID');
+  const input = deepFreeze({
+    mode: 'shared-readonly',
+    browsersPath,
+    firefoxExecutable,
+    browserVersion: firefox[0].browserVersion,
+    snapshots
+  });
+  if (initialInput && JSON.stringify(initialInput) !== JSON.stringify(input))
+    invalid('PLAYWRIGHT_SHARED_IDENTITY_CHANGED');
+  return input;
+}
+
+function firefoxReleaseConsumerEnvironment(
+  profileId,
+  environment,
+  attemptRoot,
+  transport,
+  operations
+) {
   const executionClass =
     profileId === 'firefox-verify-v1' && transport === 'github-artifact-v1'
       ? 'protected-verifier'
       : 'release';
-  const policy = FIREFOX_EXECUTION_CLASSES[executionClass];
   const ciReleaseConsumer = executionClass === 'release' && environment.CI === 'true';
   const configs = exactAttemptConfigEnvironment(attemptRoot, environment);
   if (executionClass === 'protected-verifier') {
@@ -1999,17 +2167,18 @@ function firefoxReleaseConsumerEnvironment(profileId, environment, attemptRoot, 
       }
     };
   }
-  const browsersPath = join(attemptRoot, policy.browserRootBasename);
-  if (
-    environment.ZENDIO_PLAYWRIGHT_ATTEMPT_ROOT !== attemptRoot ||
-    environment.PLAYWRIGHT_BROWSERS_PATH !== browsersPath
-  )
+  const browsersPath = environment.PLAYWRIGHT_BROWSERS_PATH;
+  if (environment.ZENDIO_PLAYWRIGHT_ATTEMPT_ROOT !== attemptRoot || !browsersPath)
     invalid('PLAYWRIGHT_RELEASE_CONSUMER_BINDING_INVALID');
-  assertOwnedDirectory(browsersPath);
+  const browserInput = resolveFirefoxBrowserInput(
+    { attemptRoot, browsersPath, transportMode: transport, environment },
+    operations
+  );
   return {
     executionClass,
     attemptRoot,
     browsersPath,
+    browserInput,
     userconfig: configs.NPM_CONFIG_USERCONFIG,
     globalconfig: configs.NPM_CONFIG_GLOBALCONFIG,
     phaseReceiptPath: ciReleaseConsumer
@@ -2450,7 +2619,13 @@ export function resolveCommandProfile(
       invalid('RELEASE_MANIFEST_DIGEST_FORBIDDEN');
     }
     const firefoxExecution = firefoxReleaseConsumer
-      ? firefoxReleaseConsumerEnvironment(profileId, environment, attemptRoot, transport)
+      ? firefoxReleaseConsumerEnvironment(
+          profileId,
+          environment,
+          attemptRoot,
+          transport,
+          operations
+        )
       : undefined;
     command = {
       executable: process.execPath,
@@ -2492,6 +2667,7 @@ export function resolveCommandProfile(
               firefoxExecution: true,
               firefoxExecutionClass: firefoxExecution.executionClass,
               browsersPath: firefoxExecution.browsersPath,
+              browserInput: firefoxExecution.browserInput,
               userconfig: firefoxExecution.userconfig,
               globalconfig: firefoxExecution.globalconfig,
               browserRootState:
