@@ -375,7 +375,10 @@ Firefox 版本与 Chrome 版本保持同步：
 in local `local-private-v1` runs. The admitted shared root is the OS account's
 canonical default: `~/Library/Caches/ms-playwright` on macOS or
 `~/.cache/ms-playwright` on Linux. Changing `HOME` for private test state does not
-change that toolchain root. Arbitrary cache roots and CI/GitHub callers are rejected.
+change that toolchain root. Arbitrary cache roots and CI/GitHub callers are rejected. Forwarded `HOME` and
+`TMPDIR` must not target the shared cache or its descendants, including relative
+paths and filesystem aliases. The ordinary account HOME may remain an ancestor
+of the cache.
 
 The command owner checks the locked Playwright packages and browser descriptor,
 exact Firefox revision directory, empty `INSTALLATION_COMPLETE`, canonical owned

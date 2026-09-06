@@ -19,7 +19,7 @@ import {
   writeFileSync
 } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { dirname, join, resolve } from 'node:path';
+import { dirname, join, relative, resolve } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { buildZipFixture } from '../../utils/zipFixtureBuilder';
 import { createSharedFirefoxFixture } from '../../utils/firefoxBrowserInputFixture';
@@ -4899,6 +4899,82 @@ describe('shared readonly Firefox release toolchain', () => {
       resolveFirefoxBrowserInput({ ...row.input, initialInput }, row.cache.operations)
     ).toThrow('PLAYWRIGHT_SHARED_IDENTITY_CHANGED');
   });
+
+  it.each(['HOME', 'TMPDIR'])(
+    'rejects reachable %s cache writes through every public consumer before launch',
+    (key) => {
+      const row = fixture();
+      const alias = join(row.attemptRoot, 'cache-alias');
+      const revisionAlias = join(row.attemptRoot, 'revision-alias');
+      const danglingAlias = join(row.attemptRoot, 'dangling-cache-alias');
+      symlinkSync(row.cache.browsersPath, alias);
+      symlinkSync(row.cache.revisionRoot, revisionAlias);
+      symlinkSync(join(row.cache.browsersPath, 'not-created'), danglingAlias);
+      const targets = [
+        row.cache.browsersPath,
+        join(row.cache.browsersPath, 'not-created', 'nested'),
+        alias,
+        join(alias, 'not-created', 'nested'),
+        `${revisionAlias}/../not-created`,
+        danglingAlias,
+        relative(resolve('.'), row.cache.browsersPath)
+      ];
+      const profiles: CommandBoundaryProfileId[] = [
+        'firefox-prepare-v1',
+        'firefox-verify-v1',
+        'firefox-smoke-v1'
+      ];
+      const before = readdirSync(row.cache.browsersPath);
+      const executableBefore = readFileSync(row.cache.firefoxExecutable);
+      for (const profileId of profiles) {
+        const args =
+          profileId === 'firefox-prepare-v1'
+            ? [
+                '--config-mode',
+                'standalone-synthetic',
+                '--transport-mode',
+                'local-private-v1',
+                '--attempt-root',
+                row.attemptRoot,
+                '--dist-dir',
+                join(row.attemptRoot, 'dist'),
+                '--release-dir',
+                join(row.attemptRoot, 'release'),
+                '--result-json',
+                join(row.attemptRoot, 'result.json')
+              ]
+            : [
+                '--manifest',
+                join(row.attemptRoot, 'manifest.json'),
+                '--transport-mode',
+                'local-private-v1',
+                ...(profileId === 'firefox-smoke-v1'
+                  ? ['--result-json', join(row.attemptRoot, 'result.json')]
+                  : [])
+              ];
+        for (const target of targets) {
+          expect(() =>
+            resolveCommandProfile(profileId, args, {
+              environment: { ...row.environment, [key]: target },
+              operations: row.cache.operations
+            })
+          ).toThrow('PLAYWRIGHT_SHARED_WRITABLE_PATH_INVALID');
+        }
+        const profile = resolveCommandProfile(profileId, args, {
+          environment: {
+            ...row.environment,
+            HOME: row.cache.home,
+            TMPDIR: join(row.attemptRoot, 'private-not-created')
+          },
+          operations: row.cache.operations
+        });
+        expect(profile.env.HOME).toBe(row.cache.home);
+        expect(profile.env.TMPDIR).toBe(join(row.attemptRoot, 'private-not-created'));
+      }
+      expect(readdirSync(row.cache.browsersPath)).toEqual(before);
+      expect(readFileSync(row.cache.firefoxExecutable)).toEqual(executableBefore);
+    }
+  );
 
   it('does not let shared cache selection redirect release output or npm configuration', () => {
     const row = fixture();

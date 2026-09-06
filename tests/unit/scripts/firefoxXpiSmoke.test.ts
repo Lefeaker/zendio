@@ -248,6 +248,9 @@ describe('Firefox exact-XPI smoke command wrapper', () => {
 
 describe('shared readonly Firefox smoke wrapper', () => {
   async function fixture() {
+    for (const key of Object.keys(process.env)) {
+      if (['ci', 'github_actions'].includes(key.toLowerCase())) vi.stubEnv(key, undefined);
+    }
     const attempt = await createAttempt();
     const cacheRoot = await realpath(await mkdtemp(join(tmpdir(), 'zendio-firefox-shared-')));
     roots.push(cacheRoot);

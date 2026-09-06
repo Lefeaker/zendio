@@ -518,6 +518,9 @@ describe('exact-XPI Firefox WebDriver BiDi smoke adapter', () => {
 
 describe('shared readonly Firefox BiDi input binding', () => {
   async function fixture(browserVersion = '150.0.2') {
+    for (const key of Object.keys(process.env)) {
+      if (['ci', 'github_actions'].includes(key.toLowerCase())) vi.stubEnv(key, undefined);
+    }
     const root = await realpath(await mkdtemp(join(tmpdir(), 'zendio-firefox-shared-bidi-')));
     const cacheRoot = await realpath(await mkdtemp(join(tmpdir(), 'zendio-firefox-shared-cache-')));
     roots.push(root, cacheRoot);

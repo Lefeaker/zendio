@@ -2012,6 +2012,34 @@ export function resolveFirefoxBrowserInput(
   const readStats = operations.lstatOperation ?? lstatSync;
   const canonicalPath = operations.realpathOperation ?? realpathSync;
   const readBytes = operations.readFileOperation ?? readFileSync;
+  // These writable state selectors are forwarded to prepare/verify/smoke. Other
+  // output paths are owner arguments already contained by the private attempt.
+  for (const key of ['HOME', 'TMPDIR']) {
+    const value = environment[key];
+    if (typeof value !== 'string' || value.length === 0) continue;
+    let ancestor = isAbsolute(value) ? value : `${REPOSITORY_ROOT}${sep}${value}`;
+    const missing = [];
+    let canonical;
+    while (canonical === undefined) {
+      try {
+        canonical = (operations.realpathOperation ?? realpathSync.native)(ancestor);
+      } catch (error) {
+        if (error?.code !== 'ENOENT') invalid('PLAYWRIGHT_SHARED_WRITABLE_PATH_INVALID');
+        try {
+          if (readStats(ancestor).isSymbolicLink())
+            invalid('PLAYWRIGHT_SHARED_WRITABLE_PATH_INVALID');
+        } catch (statError) {
+          if (statError?.code !== 'ENOENT') throw statError;
+        }
+        const parent = dirname(ancestor);
+        if (parent === ancestor) invalid('PLAYWRIGHT_SHARED_WRITABLE_PATH_INVALID');
+        missing.unshift(basename(ancestor));
+        ancestor = parent;
+      }
+    }
+    if (contained(browsersPath, join(canonical, ...missing)))
+      invalid('PLAYWRIGHT_SHARED_WRITABLE_PATH_INVALID');
+  }
   const snapshot = (path, kind) => {
     const stats = readStats(path);
     if (
