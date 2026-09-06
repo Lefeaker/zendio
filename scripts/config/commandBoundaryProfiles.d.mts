@@ -131,3 +131,35 @@ export function resolveCommandProfile(
     operations?: object;
   }
 ): ResolvedCommandProfile;
+
+export type FirefoxBrowserInput =
+  | Readonly<{ mode: 'private'; browsersPath: string }>
+  | Readonly<{
+      mode: 'shared-readonly';
+      browsersPath: string;
+      firefoxExecutable: string;
+      browserVersion: string;
+      snapshots: readonly Readonly<{
+        path: string;
+        dev: number;
+        ino: number;
+        uid: number;
+        mode: number;
+        nlink?: number;
+        size?: number;
+        mtimeMs?: number;
+        ctimeMs?: number;
+        sha256?: string;
+      }>[];
+    }>;
+
+export function resolveFirefoxBrowserInput(
+  options: {
+    attemptRoot: string;
+    browsersPath: string;
+    transportMode: string;
+    environment?: NodeJS.ProcessEnv;
+    initialInput?: FirefoxBrowserInput;
+  },
+  operations?: object
+): FirefoxBrowserInput;

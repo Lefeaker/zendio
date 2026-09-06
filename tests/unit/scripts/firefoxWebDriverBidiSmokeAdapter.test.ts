@@ -5,6 +5,8 @@ import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { buildZipFixture } from '../../utils/zipFixtureBuilder';
+import { createSharedFirefoxFixture } from '../../utils/firefoxBrowserInputFixture';
+import { resolveFirefoxBrowserInput } from '../../../scripts/config/commandBoundaryProfiles.mjs';
 import {
   canonicalArtifactJson,
   createFirefoxReleaseArtifactManifest,
@@ -240,7 +242,8 @@ function createHarness(
       appDisabled: false,
       userDisabled: false
     }
-  ]
+  ],
+  browserVersion = '150.0.2'
 ) {
   const child = new FakeChild();
   const commands: string[] = [];
@@ -263,7 +266,10 @@ function createHarness(
           JSON.stringify({
             value: {
               sessionId: 'session-fixture',
-              capabilities: { webSocketUrl: 'ws://127.0.0.1:9222/session/session-fixture' }
+              capabilities: {
+                webSocketUrl: 'ws://127.0.0.1:9222/session/session-fixture',
+                browserVersion
+              }
             }
           }),
           { status: 200 }
@@ -311,6 +317,7 @@ function createHarness(
 }
 
 afterEach(async () => {
+  vi.unstubAllEnvs();
   await Promise.all(roots.splice(0).map((root) => rm(root, { recursive: true, force: true })));
 });
 
@@ -506,5 +513,121 @@ describe('exact-XPI Firefox WebDriver BiDi smoke adapter', () => {
       )
     ).rejects.toThrow('FIREFOX_SMOKE_EXECUTABLE');
     expect(spawnImpl).not.toHaveBeenCalled();
+  });
+});
+
+describe('shared readonly Firefox BiDi input binding', () => {
+  async function fixture(browserVersion = '150.0.2') {
+    const root = await realpath(await mkdtemp(join(tmpdir(), 'zendio-firefox-shared-bidi-')));
+    const cacheRoot = await realpath(await mkdtemp(join(tmpdir(), 'zendio-firefox-shared-cache-')));
+    roots.push(root, cacheRoot);
+    const cache = createSharedFirefoxFixture(cacheRoot);
+    const binding = await mintBinding(root);
+    const harness = createHarness(binding.geckoId, undefined, undefined, browserVersion);
+    const browserInput = resolveFirefoxBrowserInput(
+      {
+        attemptRoot: root,
+        browsersPath: cache.browsersPath,
+        transportMode: 'local-private-v1',
+        environment: {}
+      },
+      cache.operations
+    );
+    const options = {
+      binding,
+      firefoxExecutable: cache.firefoxExecutable,
+      geckodriverExecutable: join(root, 'geckodriver', 'geckodriver'),
+      profileRoot: join(root, 'profile-root'),
+      transportMode: 'local-private-v1',
+      driverEnvironment: {
+        ...createDriverEnvironment(root),
+        PLAYWRIGHT_BROWSERS_PATH: cache.browsersPath
+      },
+      browserInput
+    } satisfies Parameters<typeof runVerifiedFirefoxXpiSmoke>[0];
+    return {
+      root,
+      cache,
+      harness,
+      options,
+      dependencies: { ...harness.dependencies, browserInputOperations: cache.operations }
+    };
+  }
+
+  it('uses the validated exact binary despite synthetic driver CI and private HOME', async () => {
+    const row = await fixture();
+    vi.stubEnv('HOME', join(row.root, 'home'));
+    await expect(runVerifiedFirefoxXpiSmoke(row.options, row.dependencies)).resolves.toMatchObject({
+      installed: true,
+      rebootstrapped: true
+    });
+    const sessionCall = row.harness.fetchImpl.mock.calls.find(
+      ([url, init]) => new URL(url).pathname === '/session' && init?.method === 'POST'
+    );
+    expect(sessionCall?.[1]?.body).toContain(JSON.stringify(row.cache.firefoxExecutable));
+    expect(row.harness.dependencies.spawnImpl).toHaveBeenCalledWith(
+      row.options.geckodriverExecutable,
+      expect.any(Array),
+      expect.objectContaining({ env: row.options.driverEnvironment })
+    );
+    await expect(lstat(row.options.profileRoot)).rejects.toMatchObject({ code: 'ENOENT' });
+  });
+
+  it('rejects a genuine CI caller even with an earlier valid local binding', async () => {
+    const row = await fixture();
+    vi.stubEnv('CI', 'true');
+    await expect(runVerifiedFirefoxXpiSmoke(row.options, row.dependencies)).rejects.toThrow(
+      'PLAYWRIGHT_SHARED_CONTEXT_INVALID'
+    );
+    expect(row.harness.dependencies.spawnImpl).not.toHaveBeenCalled();
+    await expect(lstat(row.options.profileRoot)).rejects.toMatchObject({ code: 'ENOENT' });
+  });
+
+  it.each(['executable', 'HOME', 'TMPDIR', 'profile'])(
+    'rejects an escaped or mismatched %s',
+    async (failure) => {
+      const row = await fixture();
+      if (failure === 'executable')
+        row.options.firefoxExecutable = join(row.cache.revisionRoot, 'other');
+      else if (failure === 'profile')
+        row.options.profileRoot = join(row.cache.browsersPath, 'profile');
+      else if (failure === 'HOME') row.options.driverEnvironment.HOME = row.cache.browsersPath;
+      else row.options.driverEnvironment.TMPDIR = row.cache.browsersPath;
+      await expect(runVerifiedFirefoxXpiSmoke(row.options, row.dependencies)).rejects.toThrow();
+      expect(row.harness.dependencies.spawnImpl).not.toHaveBeenCalled();
+    }
+  );
+
+  it('rejects replacement during port allocation before driver spawn and removes the new profile', async () => {
+    const row = await fixture();
+    row.dependencies.allocatePortImpl
+      .mockReset()
+      .mockImplementationOnce(async () => {
+        await writeFile(row.cache.markerPath, 'replacement');
+        return 4444;
+      })
+      .mockResolvedValueOnce(9222);
+    await expect(runVerifiedFirefoxXpiSmoke(row.options, row.dependencies)).rejects.toThrow(
+      'PLAYWRIGHT_SHARED_MARKER_INVALID'
+    );
+    expect(row.dependencies.allocatePortImpl).toHaveBeenCalledTimes(2);
+    expect(row.harness.dependencies.spawnImpl).not.toHaveBeenCalled();
+    await expect(lstat(row.options.profileRoot)).rejects.toMatchObject({ code: 'ENOENT' });
+  });
+
+  it('fails a driver session version mismatch before XPI install and cleans up the session and profile', async () => {
+    const row = await fixture('149.0.0');
+    await expect(runVerifiedFirefoxXpiSmoke(row.options, row.dependencies)).rejects.toThrow(
+      'FIREFOX_SMOKE_BROWSER_VERSION'
+    );
+    expect(row.harness.commands).not.toContain('webExtension.install');
+    expect(
+      row.harness.fetchImpl.mock.calls.some(
+        ([url, init]) =>
+          new URL(url).pathname === '/session/session-fixture' && init?.method === 'DELETE'
+      )
+    ).toBe(true);
+    expect(row.harness.killProcessGroupImpl).toHaveBeenCalled();
+    await expect(lstat(row.options.profileRoot)).rejects.toMatchObject({ code: 'ENOENT' });
   });
 });

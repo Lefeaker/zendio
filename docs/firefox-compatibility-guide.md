@@ -367,3 +367,32 @@ Firefox 版本与 Chrome 版本保持同步：
 **最后更新**：2026-08-26
 
 **适用版本**：Zendio v0.2.0+
+
+## Local release smoke with an existing Playwright browser
+
+`firefox-prepare-v1`, `firefox-verify-v1`, and `firefox-smoke-v1` accept the existing
+`PLAYWRIGHT_BROWSERS_PATH` input for a preverified, current-user-owned shared cache
+in local `local-private-v1` runs. The admitted shared root is the OS account's
+canonical default: `~/Library/Caches/ms-playwright` on macOS or
+`~/.cache/ms-playwright` on Linux. Changing `HOME` for private test state does not
+change that toolchain root. Arbitrary cache roots and CI/GitHub callers are rejected.
+
+The command owner checks the locked Playwright packages and browser descriptor,
+exact Firefox revision directory, empty `INSTALLATION_COMPLETE`, canonical owned
+paths without group/other write access, and a native executable. It retains and
+rechecks file identity and content hashes before execution. The smoke binds
+Playwright's actual executable path to that input; the BiDi session must report the
+locked Firefox version before any XPI installation. These checks consume a trusted,
+previously verified local toolchain; they do not authenticate a downloaded browser
+archive or substitute for real exact-XPI smoke evidence.
+
+Browser binaries remain readonly inputs. The attempt root must be disjoint from
+the shared cache in both containment directions. Fresh `home`, `tmp`, Firefox
+profiles, output and result files remain inside the private attempt, and the npm
+configuration files remain the attempt's exact empty private files. No browser
+installation is performed by these consumers. The existing private
+`<attempt>/playwright-browsers` route and CI installation receipts are unchanged;
+protected artifact verification and signed submission keep their existing isolation.
+Geckodriver continues to use the existing pinned provisioner and private attempt
+location. Final acceptance still requires prepare, verify, and the actual packaged
+XPI installation/bootstrap/uninstall/reinstall smoke.

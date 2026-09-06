@@ -22,6 +22,7 @@ import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { buildZipFixture } from '../../utils/zipFixtureBuilder';
+import { createSharedFirefoxFixture } from '../../utils/firefoxBrowserInputFixture';
 import {
   COMMAND_LIMITS,
   DIRECT_ROOT_COORDINATOR_GRAMMARS,
@@ -31,7 +32,8 @@ import {
   type CommandBoundaryProfileId,
   buildClosedCommandEnvironment,
   parseManagedCommandInvocationArgv,
-  resolveCommandProfile
+  resolveCommandProfile,
+  resolveFirefoxBrowserInput
 } from '../../../scripts/config/commandBoundaryProfiles.mjs';
 import {
   readCanonicalCommandRequest,
@@ -4713,5 +4715,215 @@ describe('bounded command ownership', () => {
     expect(readFileSync(resolve('.husky/pre-commit'), 'utf8')).toBe(
       '#!/usr/bin/env sh\nnode scripts/run-bounded-command.mjs --profile lint-staged-hook-v1\n'
     );
+  });
+});
+
+describe('shared readonly Firefox release toolchain', () => {
+  function fixture() {
+    const attemptRoot = realpathSync(temporaryRoot());
+    installAttemptConfigs(attemptRoot);
+    const cache = createSharedFirefoxFixture(realpathSync(temporaryRoot()));
+    const environment = {
+      HOME: join(attemptRoot, 'home'),
+      ZENDIO_PLAYWRIGHT_ATTEMPT_ROOT: attemptRoot,
+      NPM_CONFIG_USERCONFIG: join(attemptRoot, 'install/npm-userconfig'),
+      NPM_CONFIG_GLOBALCONFIG: join(attemptRoot, 'install/npm-globalconfig'),
+      PLAYWRIGHT_BROWSERS_PATH: cache.browsersPath
+    };
+    const input = {
+      attemptRoot,
+      browsersPath: cache.browsersPath,
+      transportMode: 'local-private-v1',
+      environment
+    };
+    return { attemptRoot, cache, environment, input };
+  }
+
+  it('admits all three local release consumers with separate writable state and fixed npm configs', () => {
+    const row = fixture();
+    const cases: Array<[CommandBoundaryProfileId, string[]]> = [
+      [
+        'firefox-prepare-v1',
+        [
+          '--config-mode',
+          'standalone-synthetic',
+          '--transport-mode',
+          'local-private-v1',
+          '--attempt-root',
+          row.attemptRoot,
+          '--dist-dir',
+          join(row.attemptRoot, 'dist'),
+          '--release-dir',
+          join(row.attemptRoot, 'release'),
+          '--result-json',
+          join(row.attemptRoot, 'result.json')
+        ]
+      ],
+      [
+        'firefox-verify-v1',
+        [
+          '--manifest',
+          join(row.attemptRoot, 'manifest.json'),
+          '--transport-mode',
+          'local-private-v1'
+        ]
+      ],
+      [
+        'firefox-smoke-v1',
+        [
+          '--manifest',
+          join(row.attemptRoot, 'manifest.json'),
+          '--transport-mode',
+          'local-private-v1',
+          '--result-json',
+          join(row.attemptRoot, 'result.json')
+        ]
+      ]
+    ];
+    for (const [profileId, args] of cases) {
+      const profile = resolveCommandProfile(profileId, args, {
+        environment: row.environment,
+        operations: row.cache.operations
+      });
+      expect(profile.env).toMatchObject(row.environment);
+      expect(profile.commandContext).toMatchObject({
+        browserRootState: 'existing',
+        firefoxExecutionClass: 'release',
+        browserInput: {
+          mode: 'shared-readonly',
+          firefoxExecutable: row.cache.firefoxExecutable,
+          browserVersion: '150.0.2'
+        }
+      });
+      expect(profile.commandContext?.requiredPhaseReceiptPath).toBeUndefined();
+    }
+  });
+
+  it.each(['CI', 'ci', 'GITHUB_ACTIONS', 'github_actions'])(
+    'rejects caller CI authority %s even when false or empty',
+    (key) => {
+      const row = fixture();
+      for (const value of ['true', 'false', '1', '']) {
+        expect(() =>
+          resolveFirefoxBrowserInput(
+            { ...row.input, environment: { [key]: value } },
+            row.cache.operations
+          )
+        ).toThrow('PLAYWRIGHT_SHARED_CONTEXT_INVALID');
+      }
+    }
+  );
+
+  it('rejects shared input for protected artifact transport and both attempt/cache containment directions', () => {
+    const row = fixture();
+    expect(() =>
+      resolveFirefoxBrowserInput(
+        { ...row.input, transportMode: 'github-artifact-v1' },
+        row.cache.operations
+      )
+    ).toThrow('PLAYWRIGHT_SHARED_CONTEXT_INVALID');
+    for (const attemptRoot of [
+      row.cache.home,
+      row.cache.browsersPath,
+      join(row.cache.browsersPath, 'attempt')
+    ]) {
+      expect(() =>
+        resolveFirefoxBrowserInput({ ...row.input, attemptRoot }, row.cache.operations)
+      ).toThrow('PLAYWRIGHT_SHARED_ROOT_INVALID');
+    }
+    expect(() =>
+      resolveFirefoxBrowserInput(
+        { ...row.input, browsersPath: row.attemptRoot },
+        row.cache.operations
+      )
+    ).toThrow('PLAYWRIGHT_SHARED_ROOT_INVALID');
+  });
+
+  it.each([
+    'missing-marker',
+    'nonempty-marker',
+    'wrong-revision',
+    'script',
+    'writable-root',
+    'writable-executable',
+    'unowned-marker',
+    'symlink-root',
+    'symlink-executable'
+  ])('rejects invalid cache identity: %s', (failure) => {
+    const row = fixture();
+    if (failure === 'missing-marker') rmSync(row.cache.markerPath);
+    if (failure === 'nonempty-marker') writeFileSync(row.cache.markerPath, 'fake');
+    if (failure === 'wrong-revision')
+      renameSync(row.cache.revisionRoot, `${row.cache.revisionRoot}-wrong`);
+    if (failure === 'script') writeFileSync(row.cache.firefoxExecutable, '#!/bin/sh\nexit 0\n');
+    if (failure === 'writable-root') chmodSync(row.cache.browsersPath, 0o777);
+    if (failure === 'writable-executable') chmodSync(row.cache.firefoxExecutable, 0o777);
+    if (failure === 'symlink-root' || failure === 'symlink-executable') {
+      const path =
+        failure === 'symlink-root' ? row.cache.browsersPath : row.cache.firefoxExecutable;
+      renameSync(path, `${path}-target`);
+      symlinkSync(`${path}-target`, path);
+    }
+    const operations = {
+      ...row.cache.operations,
+      lstatOperation: (path: string) => {
+        const stats = lstatSync(path);
+        if (failure === 'unowned-marker' && path === row.cache.markerPath)
+          Object.defineProperty(stats, 'uid', { value: stats.uid + 1 });
+        return stats;
+      }
+    };
+    expect(() => resolveFirefoxBrowserInput(row.input, operations)).toThrow();
+  });
+
+  it('rejects changed locked browser descriptors and retains the original executable identity', () => {
+    const row = fixture();
+    expect(() =>
+      resolveFirefoxBrowserInput(row.input, {
+        ...row.cache.operations,
+        readFileOperation: (path: string) =>
+          path.endsWith('/browsers.json')
+            ? Buffer.from(
+                JSON.stringify({
+                  browsers: [{ name: 'firefox', revision: '9999', browserVersion: '999.0' }]
+                })
+              )
+            : readFileSync(path)
+      })
+    ).toThrow('PLAYWRIGHT_SHARED_REVISION_INVALID');
+    const initialInput = resolveFirefoxBrowserInput(row.input, row.cache.operations);
+    const changed = readFileSync(row.cache.firefoxExecutable);
+    changed[32] = 1;
+    writeFileSync(row.cache.firefoxExecutable, changed);
+    expect(() =>
+      resolveFirefoxBrowserInput({ ...row.input, initialInput }, row.cache.operations)
+    ).toThrow('PLAYWRIGHT_SHARED_IDENTITY_CHANGED');
+  });
+
+  it('does not let shared cache selection redirect release output or npm configuration', () => {
+    const row = fixture();
+    const args = [
+      '--manifest',
+      join(row.attemptRoot, 'manifest.json'),
+      '--transport-mode',
+      'local-private-v1',
+      '--result-json',
+      join(row.cache.browsersPath, 'result.json')
+    ];
+    expect(() =>
+      resolveCommandProfile('firefox-smoke-v1', args, {
+        environment: row.environment,
+        operations: row.cache.operations
+      })
+    ).toThrow();
+    expect(() =>
+      resolveCommandProfile('firefox-verify-v1', args.slice(0, 4), {
+        environment: {
+          ...row.environment,
+          NPM_CONFIG_USERCONFIG: join(row.cache.browsersPath, 'npm-userconfig')
+        },
+        operations: row.cache.operations
+      })
+    ).toThrow('NPM_CONFIG_AUTHORITY_INVALID');
   });
 });

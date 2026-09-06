@@ -1,3 +1,4 @@
+import type { FirefoxBrowserInput } from '../config/commandBoundaryProfiles.mjs';
 import type {
   FirefoxReleaseArtifactBinding,
   FirefoxReleaseTransportMode
@@ -26,6 +27,7 @@ export function runVerifiedFirefoxXpiSmoke(
     profileRoot: string;
     transportMode: FirefoxReleaseTransportMode;
     driverEnvironment: Readonly<Record<string, string>>;
+    browserInput?: FirefoxBrowserInput;
   },
   dependencies?: Record<string, unknown>
 ): Promise<

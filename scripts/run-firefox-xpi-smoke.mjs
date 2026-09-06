@@ -3,6 +3,7 @@ import { lstat, mkdir, open, realpath } from 'node:fs/promises';
 import { dirname, join, resolve, sep } from 'node:path';
 import process from 'node:process';
 import { pathToFileURL } from 'node:url';
+import { resolveFirefoxBrowserInput } from './config/commandBoundaryProfiles.mjs';
 import {
   canonicalArtifactJson,
   verifyFirefoxReleaseArtifactManifest
@@ -67,23 +68,19 @@ export async function runFirefoxXpiSmoke(argv = process.argv.slice(2), dependenc
   const manifestPath = assertContained(attemptRoot, args.get('--manifest'));
   const resultPath = assertContained(attemptRoot, args.get('--result-json'));
   if (manifestPath === resultPath) fail('FIREFOX_SMOKE_PATH_ALIAS');
+  if ((await realpath(dirname(resultPath))) !== dirname(resultPath))
+    fail('FIREFOX_SMOKE_PATH_ESCAPE');
   const transportMode = args.get('--transport-mode');
   const binding = await verifyFirefoxReleaseArtifactManifest({
     manifestPath,
     transportMode,
     expectedAttemptRoot: attemptRoot
   });
-  const browserPath = assertContained(attemptRoot, process.env.PLAYWRIGHT_BROWSERS_PATH);
-  if (browserPath !== join(attemptRoot, 'playwright-browsers')) fail('FIREFOX_SMOKE_BROWSER_ROOT');
-  const browserStat = await lstat(browserPath);
-  if (
-    !browserStat.isDirectory() ||
-    browserStat.isSymbolicLink() ||
-    browserStat.uid !== process.getuid?.() ||
-    (browserStat.mode & 0o777) !== 0o700 ||
-    (await realpath(browserPath)) !== browserPath
-  )
-    fail('FIREFOX_SMOKE_BROWSER_ROOT');
+  const browserPath = process.env.PLAYWRIGHT_BROWSERS_PATH;
+  const browserInput = resolveFirefoxBrowserInput(
+    { attemptRoot, browsersPath: browserPath, transportMode },
+    dependencies.browserInputOperations
+  );
   for (const path of [join(attemptRoot, 'home'), join(attemptRoot, 'tmp')]) {
     try {
       await lstat(path);
@@ -100,7 +97,16 @@ export async function runFirefoxXpiSmoke(argv = process.argv.slice(2), dependenc
     (() => import('./utils/firefoxWebDriverBidiSmokeAdapter.mjs'));
   const [playwright, adapter] = await Promise.all([importPlaywrightImpl(), importAdapterImpl()]);
   const firefoxExecutable = playwright.firefox.executablePath();
-  if (!assertContained(browserPath, firefoxExecutable)) fail('FIREFOX_SMOKE_EXECUTABLE');
+  assertContained(browserPath, firefoxExecutable);
+  if (
+    browserInput.mode === 'shared-readonly' &&
+    firefoxExecutable !== browserInput.firefoxExecutable
+  )
+    fail('FIREFOX_SMOKE_EXECUTABLE');
+  resolveFirefoxBrowserInput(
+    { attemptRoot, browsersPath: browserPath, transportMode, initialInput: browserInput },
+    dependencies.browserInputOperations
+  );
   const geckodriverExecutable = join(attemptRoot, 'geckodriver', 'geckodriver');
   const geckodriverStat = await lstat(geckodriverExecutable);
   if (
@@ -120,7 +126,8 @@ export async function runFirefoxXpiSmoke(argv = process.argv.slice(2), dependenc
     geckodriverExecutable,
     profileRoot,
     transportMode,
-    driverEnvironment
+    driverEnvironment,
+    browserInput
   });
   const bytes = Buffer.from(canonicalArtifactJson(result), 'utf8');
   if (bytes.length > 64 * 1024) fail('FIREFOX_SMOKE_RESULT_LIMIT');
