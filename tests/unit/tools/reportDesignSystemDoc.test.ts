@@ -11,8 +11,10 @@ function writeFile(root: string, path: string, content = ''): void {
   writeFileSync(fullPath, content, 'utf8');
 }
 
-function writeFixture(overrides: Record<string, string> = {}): string {
-  const root = mkdtempSync(join(tmpdir(), 'aiiinob-design-doc-'));
+function writeFixture(overrides: Record<string, string> = {}, parent = tmpdir()): string {
+  const root = mkdtempSync(join(parent, 'aiiinob-design-doc-'));
+  // Keep check-ignore from discovering an enclosing repository when TMPDIR is ignored.
+  execFileSync('git', ['init'], { cwd: root, stdio: 'ignore' });
   const requiredRefs = [
     'tools/ui-production-ownership.json',
     'src/styles/design-tokens.css',
@@ -145,10 +147,33 @@ describe('design system documentation report', () => {
       'docs/local-process-archive/current-style.md': 'Use DaisyUI for new Options components.\n'
     });
     try {
-      execFileSync('git', ['init'], { cwd: root, stdio: 'ignore' });
       expect(runReport(root)).toContain('Stale current-style guidance findings: 0');
     } finally {
       rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it('detects active guidance in a fixture nested under a parent repository ignored directory', () => {
+    const parent = mkdtempSync(join(tmpdir(), 'aiiinob-design-doc-parent-'));
+    try {
+      execFileSync('git', ['init'], { cwd: parent, stdio: 'ignore' });
+      writeFile(parent, '.gitignore', '.tmp/\n');
+      const fixtureParent = join(parent, '.tmp');
+      mkdirSync(fixtureParent);
+      expect(
+        execFileSync('git', ['check-ignore', '.tmp/probe.md'], {
+          cwd: parent,
+          encoding: 'utf8'
+        }).trim()
+      ).toBe('.tmp/probe.md');
+
+      const root = writeFixture(
+        { 'docs/current-style.md': 'Use DaisyUI for new Options components.\n' },
+        fixtureParent
+      );
+      expectReportFailure(root, 'docs/current-style.md');
+    } finally {
+      rmSync(parent, { recursive: true, force: true });
     }
   });
 
