@@ -62,8 +62,11 @@ type ForwardPhase =
   | 'forward-inflight'
   | 'forward-committed'
   | 'local-commit-inflight'
+  | 'compensating'
+  | 'portable-privacy-restored'
   | 'local-committed'
-  | 'cleanup-complete';
+  | 'cleanup-complete'
+  | 'aborted';
 
 type ForwardPrivacy = { analytics: boolean; errorReporting: boolean; debugMode: boolean };
 const privacyRestore: ForwardPrivacy = {
@@ -151,6 +154,13 @@ function createForwardJournal(
     privacyForwardTarget?: ForwardPrivacy;
     privacyWriteRequired?: boolean;
     remaining?: string[];
+    recovery?: {
+      outcomeCode: 'OPTIONS_STORAGE_FAILURE' | 'EXTERNAL_SYNC_CONFLICT';
+      bindingWriteMayHaveOccurred: boolean;
+      portableRestoreEvidence?: 'preimage' | 'third-preserved';
+      privacyRestoreEvidence?: 'restore-target' | 'third-preserved';
+    };
+    abortReason?: 'forward-not-started' | 'local-commit-failed' | 'external-sync-conflict';
   } = {}
 ) {
   const preimage = options.portablePreimage ?? forwardPortablePreimage;
@@ -172,6 +182,8 @@ function createForwardJournal(
     proposedBindings: forwardProposedBindings,
     cleanupCandidates: [cleanupFolderId],
     remainingCleanupCandidates: options.remaining ?? [cleanupFolderId],
+    ...(options.recovery ? { recovery: options.recovery } : {}),
+    ...(options.abortReason ? { abortReason: options.abortReason } : {}),
     portable: {
       identityAlgorithm: 'sha256-canonical-plain-json-v1',
       preimage,
@@ -640,6 +652,222 @@ async function hasCleanupDirectoryHandle(worker: Worker): Promise<boolean> {
       storeName: localVaultStoreName,
       folderId: cleanupFolderId
     }
+  );
+}
+
+// These restart fixtures use real, structured-cloned native handles. OPFS keeps
+// all test files inside the private profile; this is not a folder-picker test.
+async function seedNativeCleanupDirectory(worker: Worker): Promise<void> {
+  await worker.evaluate(
+    async ({ databaseName, storeName, folderId }) => {
+      const root = await navigator.storage.getDirectory();
+      const handle = await root.getDirectoryHandle(folderId, { create: true });
+      const file = await handle.getFileHandle('preserve.md', { create: true });
+      const writer = await file.createWritable();
+      await writer.write('Vault contents survive registry cleanup.');
+      await writer.close();
+      await new Promise<void>((resolve, reject) => {
+        const request = indexedDB.open(databaseName, 1);
+        request.onupgradeneeded = () => {
+          if (!request.result.objectStoreNames.contains(storeName))
+            request.result.createObjectStore(storeName, { keyPath: 'id' });
+        };
+        request.onerror = () => reject(request.error);
+        request.onsuccess = () => {
+          const database = request.result;
+          const transaction = database.transaction(storeName, 'readwrite', {
+            durability: 'strict'
+          });
+          transaction.onabort = () => reject(transaction.error);
+          transaction.onerror = () => reject(transaction.error);
+          transaction.oncomplete = () => {
+            database.close();
+            resolve();
+          };
+          transaction.objectStore(storeName).put({
+            id: folderId,
+            name: 'Cleanup Journal Vault',
+            handle
+          });
+        };
+      });
+    },
+    {
+      databaseName: localVaultDatabaseName,
+      storeName: localVaultStoreName,
+      folderId: cleanupFolderId
+    }
+  );
+}
+
+async function readNativeCleanupDirectory(worker: Worker) {
+  return worker.evaluate(
+    async ({ databaseName, storeName, folderId }) => {
+      const stored = await new Promise<{
+        present: boolean;
+        handle: FileSystemDirectoryHandle | undefined;
+      }>((resolve, reject) => {
+        const request = indexedDB.open(databaseName, 1);
+        request.onerror = () => reject(request.error);
+        request.onsuccess = () => {
+          const database = request.result;
+          const transaction = database.transaction(storeName, 'readonly');
+          const get = transaction.objectStore(storeName).get(folderId);
+          get.onerror = () => reject(get.error);
+          get.onsuccess = () => {
+            const record: unknown = get.result;
+            database.close();
+            resolve({
+              present: record !== undefined,
+              handle:
+                typeof record === 'object' &&
+                record !== null &&
+                'handle' in record &&
+                record.handle instanceof FileSystemDirectoryHandle
+                  ? record.handle
+                  : undefined
+            });
+          };
+        };
+      });
+      const root = await navigator.storage.getDirectory();
+      const directory = await root.getDirectoryHandle(folderId);
+      const file = await directory.getFileHandle('preserve.md');
+      return {
+        handlePresent: stored.present,
+        nativeHandle: stored.handle instanceof FileSystemDirectoryHandle,
+        sameDirectory: stored.handle ? await stored.handle.isSameEntry(directory) : false,
+        contents: await (await file.getFile()).text()
+      };
+    },
+    {
+      databaseName: localVaultDatabaseName,
+      storeName: localVaultStoreName,
+      folderId: cleanupFolderId
+    }
+  );
+}
+
+async function crashInstalledBrowser(context: BrowserContext, page: Page, worker: Worker) {
+  const browser = context.browser();
+  if (!browser) throw new Error('Installed extension must have an owning browser.');
+  const session = await context.newCDPSession(page);
+  const disconnected = new Promise<void>((resolve) =>
+    browser.once('disconnected', () => resolve())
+  );
+  const closed = context.waitForEvent('close');
+  const workerClosed = new Promise<void>((resolve) => worker.once('close', () => resolve()));
+  // Public CDP Browser.crash kills the browser main thread; Browser.close and
+  // context.close would flush a graceful shutdown and cannot prove this boundary.
+  const result = await session.send('Browser.crash').then(
+    () => 'unexpected acknowledgement',
+    (error: Error) => error.message
+  );
+  await Promise.all([disconnected, closed, workerClosed]);
+  expect(result).toMatch(/closed|crash/i);
+  expect(browser.isConnected()).toBe(false);
+  expect(page.isClosed()).toBe(true);
+}
+
+async function launchRestartProfile(userDataDir: string) {
+  const context = await chromium.launchPersistentContext(userDataDir, {
+    headless: false,
+    args: [
+      '--headless=new',
+      `--disable-extensions-except=${extensionPath}`,
+      `--load-extension=${extensionPath}`
+    ]
+  });
+  const worker =
+    context.serviceWorkers()[0] ??
+    (await context.waitForEvent('serviceworker', { timeout: 15_000 }));
+  const extensionId = worker.url().split('/')[2];
+  if (!extensionId) throw new Error('Unable to resolve abrupt restart extension id.');
+  const page = await context.newPage();
+  await page.goto(`chrome-extension://${extensionId}/options/index.html`, {
+    waitUntil: 'domcontentloaded'
+  });
+  return { context, worker, page, extensionId };
+}
+
+async function armDurableJournalPhase(worker: Worker, phase: ForwardPhase, failPrivacy: boolean) {
+  return worker.evaluateHandle(
+    ({ journalKey, phase, failPrivacy }) => {
+      const storage = chrome.storage.local;
+      const originalSet = storage.set.bind(storage);
+      const state: { held: boolean; privacyFailures: number; phases: string[] } = {
+        held: false,
+        privacyFailures: 0,
+        phases: []
+      };
+      const gatedSet = (items: JsonRecord, callback?: () => void) => {
+        const consent = items.analytics_user_consent;
+        if (
+          failPrivacy &&
+          state.privacyFailures === 0 &&
+          typeof consent === 'object' &&
+          consent !== null &&
+          !Array.isArray(consent) &&
+          consent.analytics === true
+        ) {
+          state.privacyFailures += 1;
+          throw new Error('NATIVE_RESTART_FORWARD_PRIVACY_WRITE_FAILURE');
+        }
+        const candidate = items[journalKey];
+        const record =
+          typeof candidate === 'object' && candidate !== null && !Array.isArray(candidate)
+            ? candidate
+            : undefined;
+        const completed = originalSet(items).then(() => {
+          if (record?.version === 3 && typeof record.phase === 'string') {
+            state.phases.push(record.phase);
+            if (record.phase === phase) {
+              state.held = true;
+              // The native write has completed. Withhold its continuation only;
+              // no production recovery or subsequent physical write runs here.
+              return new Promise<void>(() => undefined);
+            }
+          }
+        });
+        if (callback) {
+          void completed.then(callback);
+          return;
+        }
+        return completed;
+      };
+      Object.defineProperty(storage, 'set', { configurable: true, value: gatedSet });
+      return state;
+    },
+    { journalKey: cleanupJournalKey, phase, failPrivacy }
+  );
+}
+
+async function armNativeCleanupProgressFailure(worker: Worker, transactionId: string) {
+  return worker.evaluateHandle(
+    ({ journalKey, transactionId }) => {
+      const storage = chrome.storage.local;
+      const originalSet = storage.set.bind(storage);
+      const state = { failures: 0 };
+      const gatedSet = (items: JsonRecord, callback?: () => void) => {
+        const value = items[journalKey];
+        const candidate =
+          typeof value === 'object' && value !== null && !Array.isArray(value) ? value : undefined;
+        if (
+          state.failures === 0 &&
+          candidate?.transactionId === transactionId &&
+          candidate.phase === 'local-committed' &&
+          Array.isArray(candidate.remainingCleanupCandidates) &&
+          candidate.remainingCleanupCandidates.length === 0
+        ) {
+          state.failures += 1;
+          throw new Error('NATIVE_RESTART_CLEANUP_PROGRESS_WRITE_FAILURE');
+        }
+        return callback ? originalSet(items, callback) : originalSet(items);
+      };
+      Object.defineProperty(storage, 'set', { configurable: true, value: gatedSet });
+      return state;
+    },
+    { journalKey: cleanupJournalKey, transactionId }
   );
 }
 
@@ -2075,6 +2303,466 @@ for (const row of forwardRows) {
     } finally {
       await context.close().catch(() => undefined);
       await rm(userDataDir, { recursive: true, force: true });
+    }
+  });
+}
+
+type RestartRow = ForwardRecoveryRow & {
+  journalOptions?: Parameters<typeof createForwardJournal>[2];
+  handleBeforeCrash?: boolean;
+  journalRemains?: boolean;
+  progressFault?: boolean;
+};
+const committedRestartState = {
+  portable: forwardPortableProposal,
+  privacy: privacyForward,
+  bindings: forwardProposedBindings,
+  expectedPortable: forwardPortableProposal,
+  expectedPrivacy: privacyForward,
+  expectedBindings: forwardProposedBindings,
+  expectedHandle: false,
+  success: true
+};
+const compensationRestartState = {
+  portable: forwardPortableProposal,
+  privacy: privacyForward,
+  bindings: forwardProposedBindings,
+  expectedPortable: forwardPortablePreimage,
+  expectedPrivacy: privacyRestore,
+  expectedBindings: forwardPreviousBindings,
+  expectedHandle: true,
+  success: false
+};
+const restartRows: RestartRow[] = [
+  ...forwardRows,
+  { id: 'forward committed', phase: 'forward-committed', ...committedRestartState },
+  {
+    id: 'compensating before portable restore',
+    phase: 'compensating',
+    ...compensationRestartState,
+    journalOptions: {
+      recovery: { outcomeCode: 'OPTIONS_STORAGE_FAILURE', bindingWriteMayHaveOccurred: true }
+    }
+  },
+  {
+    id: 'compensating between portable and privacy restore',
+    phase: 'compensating',
+    ...compensationRestartState,
+    portable: forwardPortablePreimage,
+    journalOptions: {
+      recovery: { outcomeCode: 'OPTIONS_STORAGE_FAILURE', bindingWriteMayHaveOccurred: true }
+    }
+  },
+  {
+    id: 'restored before binding restore',
+    phase: 'portable-privacy-restored',
+    ...compensationRestartState,
+    portable: forwardPortablePreimage,
+    privacy: privacyRestore,
+    journalOptions: {
+      recovery: {
+        outcomeCode: 'OPTIONS_STORAGE_FAILURE',
+        bindingWriteMayHaveOccurred: true,
+        portableRestoreEvidence: 'preimage',
+        privacyRestoreEvidence: 'restore-target'
+      }
+    }
+  },
+  {
+    id: 'restored preserves third binding',
+    phase: 'portable-privacy-restored',
+    ...compensationRestartState,
+    portable: forwardPortablePreimage,
+    privacy: privacyRestore,
+    bindings: {
+      version: 1,
+      bindings: { primary: { folderId: 'third-folder', folderName: 'Third Folder' } }
+    },
+    expectedBindings: {
+      version: 1,
+      bindings: { primary: { folderId: 'third-folder', folderName: 'Third Folder' } }
+    },
+    journalOptions: {
+      recovery: {
+        outcomeCode: 'EXTERNAL_SYNC_CONFLICT',
+        bindingWriteMayHaveOccurred: true,
+        portableRestoreEvidence: 'preimage',
+        privacyRestoreEvidence: 'restore-target'
+      }
+    }
+  },
+  { id: 'local committed pending cleanup', phase: 'local-committed', ...committedRestartState },
+  {
+    id: 'local committed authority conflict preserves journal and handle',
+    phase: 'local-committed',
+    ...committedRestartState,
+    portable: { ...forwardPortableProposal, opaqueRoot: { third: true } },
+    expectedPortable: { ...forwardPortableProposal, opaqueRoot: { third: true } },
+    expectedHandle: true,
+    journalRemains: true
+  },
+  {
+    id: 'local committed after delete before progress',
+    phase: 'local-committed',
+    ...committedRestartState,
+    handleBeforeCrash: false
+  },
+  {
+    id: 'F8 actual post-delete progress failure',
+    phase: 'local-committed',
+    ...committedRestartState,
+    handleBeforeCrash: false,
+    progressFault: true
+  },
+  {
+    id: 'cleanup complete pending journal removal',
+    phase: 'cleanup-complete',
+    ...committedRestartState,
+    handleBeforeCrash: false,
+    journalOptions: { remaining: [] }
+  },
+  {
+    id: 'cleanup complete never deletes a subsequently stored handle',
+    phase: 'cleanup-complete',
+    ...committedRestartState,
+    expectedHandle: true,
+    journalOptions: { remaining: [] }
+  },
+  {
+    id: 'aborted pending journal removal',
+    phase: 'aborted',
+    ...compensationRestartState,
+    portable: forwardPortablePreimage,
+    privacy: privacyRestore,
+    bindings: forwardPreviousBindings,
+    journalOptions: { abortReason: 'local-commit-failed' }
+  },
+  {
+    id: 'F9 prepared no writes never advances',
+    phase: 'prepared',
+    ...compensationRestartState,
+    portable: forwardPortablePreimage,
+    privacy: privacyRestore,
+    bindings: forwardPreviousBindings,
+    journalOptions: {
+      portableProposal: forwardPortablePreimage,
+      portableWriteRequired: false,
+      privacyForwardTarget: privacyRestore,
+      privacyWriteRequired: false
+    }
+  },
+  ...[false, true].flatMap((portableWrite) =>
+    [false, true].map(
+      (privacyWrite): RestartRow => ({
+        id: `F9 inflight writes ${Number(portableWrite)}-${Number(privacyWrite)}`,
+        phase: 'forward-inflight',
+        ...committedRestartState,
+        portable: portableWrite ? forwardPortableProposal : forwardPortablePreimage,
+        privacy: privacyWrite ? privacyForward : privacyRestore,
+        expectedPortable: portableWrite ? forwardPortableProposal : forwardPortablePreimage,
+        expectedPrivacy: privacyWrite ? privacyForward : privacyRestore,
+        journalOptions: {
+          portableProposal: portableWrite ? forwardPortableProposal : forwardPortablePreimage,
+          portableWriteRequired: portableWrite,
+          privacyForwardTarget: privacyWrite ? privacyForward : privacyRestore,
+          privacyWriteRequired: privacyWrite
+        }
+      })
+    )
+  )
+];
+
+async function expectRestartOutcome(
+  installed: Awaited<ReturnType<typeof launchRestartProfile>>,
+  row: RestartRow
+) {
+  // Check startup itself before sending another command that could recover a
+  // journal left behind by a broken initialization path.
+  await expect
+    .poll(() => readForwardSemanticState(installed.page))
+    .toEqual({
+      portable: row.expectedPortable,
+      privacy: row.expectedPrivacy,
+      bindings: row.expectedBindings,
+      journalPresent: row.journalRemains === true
+    });
+  expect(await readNativeCleanupDirectory(installed.worker)).toEqual({
+    handlePresent: row.expectedHandle,
+    nativeHandle: row.expectedHandle,
+    sameDirectory: row.expectedHandle,
+    contents: 'Vault contents survive registry cleanup.'
+  });
+  await expect(
+    installed.page.locator(
+      `[data-panel-id="overview"] .chips button[data-value="${row.expectedPortable.interfaceTheme}"]`
+    )
+  ).toHaveAttribute('aria-pressed', 'true');
+  for (const binding of Object.values(row.expectedBindings.bindings)) {
+    await expect(
+      installed.page.locator('.local-folder-trigger').filter({ hasText: binding.folderName })
+    ).toHaveCount(1);
+  }
+  const response = await sendPatch(
+    installed.page,
+    ['interfaceTheme'],
+    row.expectedPortable.interfaceTheme
+  );
+  if (row.journalRemains) {
+    expect(response.success).toBe(false);
+    expect(response.errorCode).toBe('EXTERNAL_SYNC_CONFLICT');
+    expect(response.result).toBeUndefined();
+    expect((await readForwardState(installed.page)).local[cleanupJournalKey]).toEqual(
+      createForwardJournal(`abrupt-${row.id}`, row.phase, row.journalOptions)
+    );
+  } else {
+    expect(response.success).toBe(true);
+    expect(response.errorCode).toBeUndefined();
+    // Persisted third-party debug intent must survive untouched, while the
+    // acknowledgement obeys the deployed build's dev-only debug capability.
+    const debugControlAvailable =
+      (await installed.page.getByText('Debug mode', { exact: true }).count()) > 0;
+    expect(response.result?.snapshot).toMatchObject({
+      interfaceTheme: row.expectedPortable.interfaceTheme,
+      privacyPreferences: {
+        ...row.expectedPrivacy,
+        debugMode: row.expectedPrivacy.debugMode && debugControlAvailable
+      }
+    });
+  }
+  expect(await readForwardSemanticState(installed.page)).toEqual({
+    portable: row.expectedPortable,
+    privacy: row.expectedPrivacy,
+    bindings: row.expectedBindings,
+    journalPresent: row.journalRemains === true
+  });
+}
+
+// Seeded, codec-valid physical states exercise restart classification branches.
+// The F8 fault row then drives actual cleanup through a failed native progress write.
+// The separate production-phase barriers below prove actual producer interruption.
+for (const row of restartRows) {
+  test(`abruptly restarts pending native v3 ${row.id}`, async () => {
+    const profile = await mkdtemp(path.join(tmpdir(), 'zendio-abrupt-seeded-'));
+    let installed = await launchRestartProfile(profile);
+    try {
+      await seedNativeCleanupDirectory(installed.worker);
+      if (row.handleBeforeCrash === false && !row.progressFault) {
+        await installed.worker.evaluate(
+          ({ databaseName, storeName, folderId }) =>
+            new Promise<void>((resolve, reject) => {
+              const request = indexedDB.open(databaseName, 1);
+              request.onerror = () => reject(request.error);
+              request.onsuccess = () => {
+                const database = request.result;
+                const transaction = database.transaction(storeName, 'readwrite', {
+                  durability: 'strict'
+                });
+                transaction.onabort = () => reject(transaction.error);
+                transaction.oncomplete = () => {
+                  database.close();
+                  resolve();
+                };
+                transaction.objectStore(storeName).delete(folderId);
+              };
+            }),
+          {
+            databaseName: localVaultDatabaseName,
+            storeName: localVaultStoreName,
+            folderId: cleanupFolderId
+          }
+        );
+      }
+      const journal = createForwardJournal(`abrupt-${row.id}`, row.phase, row.journalOptions);
+      await seedForwardPhysicalState(installed.page, {
+        portable: row.portable,
+        privacy: row.privacy,
+        bindings: row.bindings,
+        journal,
+        ...(row.privacyMarker ? { privacyMarker: row.privacyMarker } : {})
+      });
+      if (row.progressFault) {
+        expect((await readNativeCleanupDirectory(installed.worker)).handlePresent).toBe(true);
+        const fault = await armNativeCleanupProgressFailure(
+          installed.worker,
+          journal.transactionId
+        );
+        const response = await sendPatch(
+          installed.page,
+          ['interfaceTheme'],
+          row.portable.interfaceTheme
+        );
+        expect(response.success).toBe(false);
+        expect(response.errorCode).toBe('OPTIONS_STORAGE_FAILURE');
+        expect(await fault.evaluate((state) => state.failures)).toBe(1);
+      }
+      expect(await readForwardSemanticState(installed.page)).toEqual({
+        portable: row.portable,
+        privacy: row.privacy,
+        bindings: row.bindings,
+        journalPresent: true
+      });
+      const pendingState = await readForwardState(installed.page);
+      expect(pendingState.local[cleanupJournalKey]).toEqual(journal);
+      if (row.privacyMarker)
+        expect(pendingState.local.zendio_device_local_privacy_transaction).toEqual({
+          version: 1,
+          phase: row.privacyMarker,
+          previousConsentPresent: true,
+          previousConsent: {
+            analytics: false,
+            errorReporting: false,
+            timestamp: 1,
+            version: '1.0'
+          },
+          previousConfigPresent: true,
+          previousConfig: { debugMode: false }
+        });
+      expect(await readNativeCleanupDirectory(installed.worker)).toEqual({
+        handlePresent: row.handleBeforeCrash !== false,
+        nativeHandle: row.handleBeforeCrash !== false,
+        sameDirectory: row.handleBeforeCrash !== false,
+        contents: 'Vault contents survive registry cleanup.'
+      });
+      const originalWorker = installed.worker;
+      const originalId = installed.extensionId;
+      await crashInstalledBrowser(installed.context, installed.page, originalWorker);
+      installed = await launchRestartProfile(profile);
+      expect(installed.extensionId).toBe(originalId);
+      expect(installed.worker).not.toBe(originalWorker);
+      await expectRestartOutcome(installed, row);
+    } finally {
+      await installed.context.close().catch(() => undefined);
+      await rm(profile, { recursive: true, force: true });
+    }
+  });
+}
+
+const durableProductionPhases: ForwardPhase[] = [
+  'prepared',
+  'forward-inflight',
+  'forward-committed',
+  'local-commit-inflight',
+  'compensating',
+  'portable-privacy-restored',
+  'local-committed',
+  'cleanup-complete',
+  'aborted'
+];
+for (const phase of durableProductionPhases) {
+  test(`abruptly interrupts production after durable v3 ${phase}`, async () => {
+    const profile = await mkdtemp(path.join(tmpdir(), 'zendio-abrupt-production-'));
+    let installed = await launchRestartProfile(profile);
+    try {
+      await seedNativeCleanupDirectory(installed.worker);
+      await seedForwardPhysicalState(installed.page, {
+        portable: forwardPortablePreimage,
+        privacy: privacyRestore,
+        bindings: forwardPreviousBindings,
+        journal: undefined
+      });
+      const compensates = ['compensating', 'portable-privacy-restored', 'aborted'].includes(phase);
+      const forward = [
+        'forward-committed',
+        'local-commit-inflight',
+        'local-committed',
+        'cleanup-complete'
+      ].includes(phase);
+      const probe = await armDurableJournalPhase(installed.worker, phase, compensates);
+      let acknowledged = false;
+      const pending = sendPatches(installed.page, [
+        { path: ['interfaceTheme'], value: 'dark' },
+        { path: ['vaultRouter'], value: forwardPortableProposal.vaultRouter },
+        { path: ['privacyPreferences', 'analytics'], value: true }
+      ]).then(
+        () => {
+          acknowledged = true;
+        },
+        () => undefined
+      );
+      await expect.poll(() => probe.evaluate((state) => state.held)).toBe(true);
+      const probeEvidence = await probe.evaluate((state) => ({
+        held: state.held,
+        privacyFailures: state.privacyFailures,
+        phases: state.phases
+      }));
+      expect(probeEvidence.phases.at(-1)).toBe(phase);
+      expect(probeEvidence.privacyFailures).toBe(Number(compensates));
+      expect(acknowledged).toBe(false);
+      const physical = await readForwardState(installed.page);
+      expect(physical.local[cleanupJournalKey]).toMatchObject({
+        version: 3,
+        protocol: 'forward-privacy-v1',
+        phase,
+        previousBindings: forwardPreviousBindings,
+        proposedBindings: forwardProposedBindings,
+        cleanupCandidates: [cleanupFolderId],
+        portable: {
+          identityAlgorithm: 'sha256-canonical-plain-json-v1',
+          preimage: forwardPortablePreimage,
+          preimageIdentity: forwardIdentity(forwardPortablePreimage),
+          proposedIdentity: forwardIdentity(forwardPortableProposal),
+          writeRequired: true
+        },
+        privacy: {
+          restoreTarget: privacyRestore,
+          forwardTarget: privacyForward,
+          writeRequired: true
+        }
+      });
+      if (forward)
+        expect(physical.local[cleanupJournalKey]).toMatchObject({
+          portable: { observedCommittedIdentity: forwardIdentity(forwardPortableProposal) },
+          privacy: { observedForward: 'exact-target-readback' }
+        });
+      expect(await readForwardSemanticState(installed.page)).toEqual({
+        portable:
+          forward || phase === 'compensating' ? forwardPortableProposal : forwardPortablePreimage,
+        privacy: forward ? privacyForward : privacyRestore,
+        bindings:
+          forward || ['compensating', 'portable-privacy-restored'].includes(phase)
+            ? forwardProposedBindings
+            : forwardPreviousBindings,
+        journalPresent: true
+      });
+      expect(await readNativeCleanupDirectory(installed.worker)).toEqual({
+        handlePresent: phase !== 'cleanup-complete',
+        nativeHandle: phase !== 'cleanup-complete',
+        sameDirectory: phase !== 'cleanup-complete',
+        contents: 'Vault contents survive registry cleanup.'
+      });
+      if (compensates)
+        expect(physical.local[cleanupJournalKey]).toMatchObject({
+          recovery: { outcomeCode: 'OPTIONS_STORAGE_FAILURE', bindingWriteMayHaveOccurred: true }
+        });
+      if (phase === 'portable-privacy-restored')
+        expect(physical.local[cleanupJournalKey]).toMatchObject({
+          recovery: {
+            portableRestoreEvidence: 'preimage',
+            privacyRestoreEvidence: 'restore-target'
+          }
+        });
+      if (phase === 'cleanup-complete')
+        expect(physical.local[cleanupJournalKey]).toMatchObject({ remainingCleanupCandidates: [] });
+      if (phase === 'aborted')
+        expect(physical.local[cleanupJournalKey]).toMatchObject({
+          abortReason: 'local-commit-failed'
+        });
+      const originalWorker = installed.worker;
+      const originalId = installed.extensionId;
+      await crashInstalledBrowser(installed.context, installed.page, originalWorker);
+      await pending;
+      expect(acknowledged).toBe(false);
+      installed = await launchRestartProfile(profile);
+      expect(installed.extensionId).toBe(originalId);
+      expect(installed.worker).not.toBe(originalWorker);
+      await expectRestartOutcome(installed, {
+        id: phase,
+        phase,
+        ...(forward ? committedRestartState : compensationRestartState)
+      });
+    } finally {
+      await installed.context.close().catch(() => undefined);
+      await rm(profile, { recursive: true, force: true });
     }
   });
 }
