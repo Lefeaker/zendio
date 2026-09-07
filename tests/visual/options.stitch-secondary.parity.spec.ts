@@ -3,6 +3,7 @@ import {
   collectStitchContract,
   createPreviewUrl,
   createProductionUrl,
+  disposeGeneratedPreview,
   expectNoLegacyOptionsShell,
   getPreviewSourceKind,
   type PreviewSourceKind,
@@ -414,6 +415,10 @@ function expectSharedOptionsParity(
 }
 
 test.describe('Stitch Secondary preview-to-production parity', () => {
+  test.afterAll(() => {
+    disposeGeneratedPreview();
+  });
+
   for (const viewport of VIEWPORTS) {
     for (const theme of THEMES) {
       test(`production matches preview structural contract at ${viewport.name} ${theme}`, async ({
