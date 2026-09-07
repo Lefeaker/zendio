@@ -1,8 +1,8 @@
 import { expect, type Page } from '@playwright/test';
-import { execFileSync } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import { pathToFileURL } from 'node:url';
-import { dirname, join, resolve } from 'node:path';
+import { dirname, join } from 'node:path';
+import { createGeneratedPreview } from './generatedPreview';
 
 export interface StitchElementSample {
   exists: boolean;
@@ -68,12 +68,7 @@ export interface StitchParityContract {
 
 const EXTERNAL_PREVIEW_ENTRY = 'future/options-component-preview 2/index.html';
 const FORCE_GENERATED_PREVIEW = process.env.AIIINOB_FORCE_GENERATED_STITCH_PREVIEW === '1';
-const GENERATED_PREVIEW_ROOT = resolve(
-  process.cwd(),
-  '..',
-  '.tmp/stitch-parity-preview/options-component-preview'
-);
-let generatedPreviewBuilt = false;
+const generatedPreview = createGeneratedPreview();
 
 function findExternalPreviewEntry(startDir: string): string | null {
   let current = startDir;
@@ -90,27 +85,15 @@ function findExternalPreviewEntry(startDir: string): string | null {
   }
 }
 
-function buildGeneratedPreviewEntry(): string {
-  if (!generatedPreviewBuilt) {
-    execFileSync(
-      process.execPath,
-      [resolve(process.cwd(), 'scripts/build-preview.mjs'), '--outdir', GENERATED_PREVIEW_ROOT],
-      {
-        cwd: process.cwd(),
-        stdio: 'inherit'
-      }
-    );
-    generatedPreviewBuilt = true;
-  }
-
-  return join(GENERATED_PREVIEW_ROOT, 'index.html');
+export function disposeGeneratedPreview(): void {
+  generatedPreview.dispose();
 }
 
 function resolvePreviewEntry(): string {
   if (FORCE_GENERATED_PREVIEW) {
-    return buildGeneratedPreviewEntry();
+    return generatedPreview.build();
   }
-  return findExternalPreviewEntry(process.cwd()) ?? buildGeneratedPreviewEntry();
+  return findExternalPreviewEntry(process.cwd()) ?? generatedPreview.build();
 }
 
 export function getPreviewSourceKind(): PreviewSourceKind {
