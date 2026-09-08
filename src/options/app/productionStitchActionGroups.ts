@@ -5,6 +5,7 @@ import { resolveSchemaMessage } from '@options/stitch/schema/i18n';
 import type { ConnectionTestResult } from '@shared/types/connection';
 import type { CompleteOptions } from '@shared/types/options';
 import type { VaultRouterConfig } from '@shared/types/vault';
+import { allocateVaultId } from '@shared/config/vaultRouterIdentity';
 import { toRoutingRules } from './productionStitchStateMapper';
 import type { SectionInvalidationScope } from '@ui/stitch-runtime/render/sectionInvalidation';
 
@@ -92,7 +93,7 @@ export function createProductionStorageActions(
       const router = context.ensureVaultRouter();
       const nextIndex = router.vaults.length + 1;
       router.vaults.push({
-        id: `vault-${nextIndex}`,
+        id: allocateVaultId(router.vaults.map(({ id }) => id)),
         name: `Vault ${nextIndex}`,
         vault: `Vault ${nextIndex}`,
         httpsUrl: draft.rest.httpsUrl ?? draft.rest.baseUrl,

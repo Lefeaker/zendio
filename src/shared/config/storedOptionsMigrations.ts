@@ -4,6 +4,7 @@ import { migrateSelectionTriggerOptions } from './selectionTriggerMigration';
 import { migrateTaxonomyValue } from './taxonomyMigration';
 import { validateStrictStoredOptionsSection } from './optionsSanitizer';
 import type { StoredOptionsKnownSection } from './storedOptionsIssues';
+import { prepareLegacyVaultRouterMigration } from './vaultRouterLegacyMigration';
 
 export const STORED_OPTIONS_MIGRATION_VERSION = 1 as const;
 
@@ -13,6 +14,7 @@ export type StoredOptionsMigrationStage =
   | 'video-aliases'
   | 'selection-trigger'
   | 'taxonomy'
+  | 'vault-identity'
   | 'yaml-vault';
 
 export interface StoredOptionsMigrationAction {
@@ -201,33 +203,18 @@ function migrateYaml(raw: DataObject, actions: StoredOptionsMigrationAction[]): 
 
 function migrateVault(raw: DataObject, actions: StoredOptionsMigrationAction[]): void {
   const router = raw.vaultRouter;
-  if (!isDataObject(router) || !Array.isArray(router.rules) || !Array.isArray(router.vaults)) {
-    return;
-  }
-  const vaults = router.vaults.map((vault) => (isDataObject(vault) ? { ...vault } : vault));
-  for (const rule of router.rules) {
-    if (!isDataObject(rule) || typeof rule.vaultId !== 'string' || typeof rule.id !== 'string') {
-      return;
-    }
-    const target = vaults.find((vault) => isDataObject(vault) && vault.id === rule.vaultId);
-    if (!isDataObject(target)) {
-      return;
-    }
-    const rules = target.rules === undefined ? [] : target.rules;
-    if (
-      !Array.isArray(rules) ||
-      rules.some((entry) => isDataObject(entry) && entry.id === rule.id)
-    ) {
-      return;
-    }
-    target.rules = [...rules, rule];
-  }
-  const next: DataObject = { ...router, vaults };
-  delete next.rules;
-  const validated = validateStrictStoredOptionsSection('vaultRouter', next);
+  if (!isDataObject(router)) return;
+  const migration = prepareLegacyVaultRouterMigration(router);
+  if (!migration || (!migration.identityChanged && !migration.foldedRules)) return;
+  const validated = validateStrictStoredOptionsSection('vaultRouter', migration.router);
   if (!validated.success) return;
   raw.vaultRouter = validated.value;
-  action(actions, 'yaml-vault', 'vaultRouter', 'legacy-vault-rules-migrated');
+  if (migration.identityChanged) {
+    action(actions, 'vault-identity', 'vaultRouter', 'legacy-duplicate-vault-ids-normalized');
+  }
+  if (migration.foldedRules) {
+    action(actions, 'yaml-vault', 'vaultRouter', 'legacy-vault-rules-migrated');
+  }
 }
 
 export function migrateStoredOptionsRaw(

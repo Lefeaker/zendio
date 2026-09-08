@@ -1,6 +1,6 @@
 import { chromium, expect, test, type Page } from '@playwright/test';
 import { readdirSync, statSync } from 'node:fs';
-import { mkdtemp } from 'node:fs/promises';
+import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import type { MessagePayload } from '../../src/platform/interfaces/messaging';
@@ -811,5 +811,120 @@ test('Options hands pending edits off across immediate reload and close', async 
     await expect.poll(() => readDurableCaptureContext(optionsPage)).toBe(false);
   } finally {
     await context.close();
+  }
+});
+
+test('F04 keeps mounted Vault IDs unique across add-delete-add and profile restart', async () => {
+  const userDataDir = await mkdtemp(join(tmpdir(), 'zendio-f04-vault-'));
+  let context = await chromium.launchPersistentContext(userDataDir, {
+    headless: false,
+    args: [
+      '--headless=new',
+      `--disable-extensions-except=${extensionPath}`,
+      `--load-extension=${extensionPath}`
+    ]
+  });
+
+  try {
+    let background =
+      context.serviceWorkers()[0] ??
+      (await context.waitForEvent('serviceworker', { timeout: 15_000 }));
+    const extensionId = background.url().split('/')[2];
+    if (!extensionId) throw new Error('Unable to resolve extension id.');
+    const installedOptionsUrl = `chrome-extension://${extensionId}/options/index.html`;
+    await background.evaluate(() =>
+      chrome.storage.sync.set({
+        options: {
+          vaultRouter: {
+            defaultVaultId: 'default',
+            vaults: [
+              {
+                id: 'default',
+                name: 'Zendio',
+                vault: 'Zendio',
+                httpsUrl: 'https://127.0.0.1:27124/',
+                httpUrl: 'http://127.0.0.1:27123/',
+                apiKey: '',
+                isDefault: true,
+                enabled: true
+              }
+            ]
+          }
+        }
+      })
+    );
+
+    let page = await context.newPage();
+    await page.goto(installedOptionsUrl, { waitUntil: 'domcontentloaded' });
+    await page.locator('[data-nav-panel="storage"]').click();
+    const add = page.locator('[data-action-id="storage:addVault"]');
+    await add.click();
+    await add.click();
+    await expect
+      .poll(async () =>
+        background.evaluate(async () => {
+          const stored = await chrome.storage.sync.get<{
+            options?: { vaultRouter?: { vaults?: unknown[] } };
+          }>('options');
+          const options = stored.options;
+          return options?.vaultRouter?.vaults?.length;
+        })
+      )
+      .toBe(3);
+    await page.locator('[data-action-id="storage:removeVault"]').first().click();
+    await expect
+      .poll(async () =>
+        background.evaluate(async () => {
+          const stored = await chrome.storage.sync.get<{
+            options?: { vaultRouter?: { vaults?: unknown[] } };
+          }>('options');
+          const options = stored.options;
+          return options?.vaultRouter?.vaults?.length;
+        })
+      )
+      .toBe(2);
+    await add.click();
+    const lastName = page
+      .locator('.storage-vault-table-scroll tbody tr')
+      .last()
+      .locator('input[type="text"]')
+      .first();
+    await lastName.fill('Restart-safe Vault');
+    await lastName.press('Tab');
+
+    const readIds = () =>
+      background.evaluate(async () => {
+        const stored = await chrome.storage.sync.get<{
+          options?: { vaultRouter?: { vaults?: Array<{ id?: string; name?: string }> } };
+        }>('options');
+        const options = stored.options;
+        return (options?.vaultRouter?.vaults ?? []).map(({ id, name }) => ({ id, name }));
+      });
+    await expect.poll(readIds).toHaveLength(3);
+    const beforeRestart = await readIds();
+    expect(beforeRestart.map(({ id }) => id).every((id) => typeof id === 'string')).toBe(true);
+    expect(new Set(beforeRestart.map(({ id }) => id)).size).toBe(beforeRestart.length);
+    expect(beforeRestart.at(-1)?.name).toBe('Restart-safe Vault');
+
+    await page.reload({ waitUntil: 'domcontentloaded' });
+    expect(await readIds()).toEqual(beforeRestart);
+    await context.close();
+    context = await chromium.launchPersistentContext(userDataDir, {
+      headless: false,
+      args: [
+        '--headless=new',
+        `--disable-extensions-except=${extensionPath}`,
+        `--load-extension=${extensionPath}`
+      ]
+    });
+    background =
+      context.serviceWorkers()[0] ??
+      (await context.waitForEvent('serviceworker', { timeout: 15_000 }));
+    page = await context.newPage();
+    await page.goto(installedOptionsUrl, { waitUntil: 'domcontentloaded' });
+    expect(await readIds()).toEqual(beforeRestart);
+  } finally {
+    await context.close().catch(() => undefined);
+    await rm(userDataDir, { recursive: true, force: true });
   }
 });
