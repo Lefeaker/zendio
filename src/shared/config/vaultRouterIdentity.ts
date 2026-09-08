@@ -25,11 +25,26 @@ export type VaultRouterIdentityIssueCode =
   | 'unresolved-default-vault'
   | 'unresolved-rule-vault';
 
-export interface VaultRouterIdentityIssue {
-  readonly code: VaultRouterIdentityIssueCode;
-  readonly message: string;
+interface VaultRouterIdentityIssueBase<
+  Code extends VaultRouterIdentityIssueCode,
+  Values extends object
+> {
+  readonly code: Code;
   readonly path: readonly (number | string)[];
+  readonly values: Values;
 }
+
+export type VaultRouterIdentityIssue =
+  | VaultRouterIdentityIssueBase<'empty-vault-id', { readonly vaultId: string }>
+  | VaultRouterIdentityIssueBase<'duplicate-vault-id', { readonly vaultIds: readonly string[] }>
+  | VaultRouterIdentityIssueBase<
+      'unresolved-rule-vault',
+      { readonly ruleId: string; readonly vaultId: string; readonly matchCount: number }
+    >
+  | VaultRouterIdentityIssueBase<
+      'unresolved-default-vault',
+      { readonly vaultId: string; readonly matchCount: number }
+    >;
 
 export interface VaultRouterIdentityValidation {
   readonly valid: boolean;
@@ -97,16 +112,16 @@ export function validateVaultRouterIdentity(router: IdentityRouter): VaultRouter
     if (!vault.id.trim()) {
       issues.push({
         code: 'empty-vault-id',
-        message: 'Vault identity must not be empty.',
-        path: ['vaults', index, 'id']
+        path: ['vaults', index, 'id'],
+        values: { vaultId: vault.id }
       });
     }
   });
   if (duplicateIds.length) {
     issues.push({
       code: 'duplicate-vault-id',
-      message: `Duplicate vault ID(s): ${duplicateIds.join(', ')}`,
-      path: ['vaults']
+      path: ['vaults'],
+      values: { vaultIds: duplicateIds }
     });
   }
 
@@ -115,11 +130,8 @@ export function validateVaultRouterIdentity(router: IdentityRouter): VaultRouter
     if (count === 1) return;
     issues.push({
       code: 'unresolved-rule-vault',
-      message:
-        count === 0
-          ? `Rule "${rule.id}" references a missing vault: ${rule.vaultId}`
-          : `Rule "${rule.id}" does not resolve to exactly one vault: ${rule.vaultId}`,
-      path
+      path,
+      values: { matchCount: count, ruleId: rule.id, vaultId: rule.vaultId }
     });
   };
   router.rules?.forEach((rule, index) => checkRule(rule, ['rules', index, 'vaultId']));
@@ -134,11 +146,8 @@ export function validateVaultRouterIdentity(router: IdentityRouter): VaultRouter
     if (count !== 1) {
       issues.push({
         code: 'unresolved-default-vault',
-        message:
-          count === 0
-            ? `Default vault not found: ${router.defaultVaultId}`
-            : `Default vault does not resolve to exactly one vault: ${router.defaultVaultId}`,
-        path: ['defaultVaultId']
+        path: ['defaultVaultId'],
+        values: { matchCount: count, vaultId: router.defaultVaultId }
       });
     }
   }
@@ -148,7 +157,8 @@ export function validateVaultRouterIdentity(router: IdentityRouter): VaultRouter
 export function assertVaultRouterIdentity(router: IdentityRouter): void {
   const validation = validateVaultRouterIdentity(router);
   if (!validation.valid) {
-    throw new Error(`Vault identity rejected: ${validation.issues[0]?.message}`);
+    const issueCode = validation.issues[0]?.code ?? 'unknown';
+    throw new Error(`VAULT_ROUTER_IDENTITY_${issueCode.replaceAll('-', '_').toUpperCase()}`);
   }
 }
 

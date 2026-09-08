@@ -53,6 +53,76 @@ describe('options boundary schemas', () => {
     expect(result.success).toBe(false);
   });
 
+  it('reports Vault identity failures with technical codes and exact paths', () => {
+    const vault = (id: string, rules: object[] = []) => ({
+      id,
+      name: 'Vault',
+      httpsUrl: 'https://vault.example/',
+      httpUrl: 'http://vault.example/',
+      vault: 'Vault',
+      apiKey: '',
+      rules
+    });
+    const result = VaultRouterConfigSchema.safeParse({
+      defaultVaultId: 'duplicate-secret',
+      rules: [
+        {
+          id: 'missing-rule-secret',
+          vaultId: 'missing-target-secret',
+          type: 'domain',
+          pattern: 'example.com',
+          enabled: true,
+          priority: 1
+        }
+      ],
+      vaults: [
+        vault('   '),
+        vault('duplicate-secret', [
+          {
+            id: 'multiple-rule-secret',
+            vaultId: 'duplicate-secret',
+            type: 'domain',
+            pattern: 'example.net',
+            enabled: true,
+            priority: 2
+          }
+        ]),
+        vault('duplicate-secret')
+      ]
+    });
+
+    expect(result.success).toBe(false);
+    if (result.success) throw new Error('Expected Vault Router identity rejection.');
+    const issues = result.error.issues.filter(({ message }) =>
+      message.startsWith('vault-router-identity:')
+    );
+    expect(issues.map(({ message, path }) => ({ message, path }))).toEqual([
+      {
+        message: 'vault-router-identity:empty-vault-id',
+        path: ['vaults', 0, 'id']
+      },
+      {
+        message: 'vault-router-identity:duplicate-vault-id',
+        path: ['vaults']
+      },
+      {
+        message: 'vault-router-identity:unresolved-rule-vault',
+        path: ['rules', 0, 'vaultId']
+      },
+      {
+        message: 'vault-router-identity:unresolved-rule-vault',
+        path: ['vaults', 1, 'rules', 0, 'vaultId']
+      },
+      {
+        message: 'vault-router-identity:unresolved-default-vault',
+        path: ['defaultVaultId']
+      }
+    ]);
+    expect(issues.map(({ message }) => message).join(' ')).not.toMatch(
+      /duplicate-secret|missing-rule-secret|missing-target-secret|Vault identity must/u
+    );
+  });
+
   it('accepts yamlConfig overrides with nested default values', () => {
     const result = YamlConfigOverridesSchema.safeParse({
       contentTypes: {

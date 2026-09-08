@@ -104,7 +104,7 @@ describe('vaultRouterStore', () => {
     addAdditionalVault({ id: 'stable', name: 'Stable' });
 
     expect(() => addAdditionalVault({ id: 'stable', name: 'Duplicate' })).toThrow(
-      /Vault identity/u
+      'VAULT_ROUTER_IDENTITY_DUPLICATE_VAULT_ID'
     );
     expect(getVaultRouterConfig()?.vaults.map(({ id }) => id)).toEqual(['stable']);
   });
