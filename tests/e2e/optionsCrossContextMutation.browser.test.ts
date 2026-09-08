@@ -28,7 +28,7 @@ function isJsonRecord(value: JsonValue): value is JsonRecord {
 type MutationResponse = {
   success?: boolean;
   errorCode?: string;
-  result?: { snapshot?: JsonRecord; rawSignature?: string };
+  result?: { snapshot?: JsonRecord; rawSignature?: string; didWrite?: boolean };
 };
 
 type PendingWrite = {
@@ -124,7 +124,19 @@ const forwardPortablePreimage: ForwardPortable = {
 };
 const forwardPortableProposal: ForwardPortable = {
   interfaceTheme: 'dark',
-  vaultRouter: { defaultVaultId: 'default', vaults: [] }
+  vaultRouter: {
+    defaultVaultId: 'default',
+    vaults: [
+      {
+        id: 'default',
+        name: 'Default',
+        vault: 'Default',
+        httpsUrl: '',
+        httpUrl: '',
+        apiKey: ''
+      }
+    ]
+  }
 };
 
 function canonicalForwardJson(value: JsonValue): string {
@@ -666,6 +678,196 @@ async function sendReplacement(
       }),
     { replacement, requestId: `replace-${crypto.randomUUID()}` }
   );
+}
+
+async function openF04Messenger(context: BrowserContext, extensionId: string): Promise<Page> {
+  const page = await context.newPage();
+  await page.goto(`chrome-extension://${extensionId}/manifest.json`, {
+    waitUntil: 'domcontentloaded'
+  });
+  return page;
+}
+
+async function sendF04Migration(page: Page): Promise<MutationResponse> {
+  return page.evaluate<MutationResponse, string>(
+    async (requestId) =>
+      chrome.runtime.sendMessage({
+        type: 'ZENDIO_OPTIONS_MUTATION',
+        requestId,
+        command: { kind: 'migrate' }
+      }),
+    `f04-migrate-${crypto.randomUUID()}`
+  );
+}
+
+const f04DuplicatePortable = {
+  interfaceTheme: 'light',
+  vaultRouter: {
+    defaultVaultId: 'shared',
+    vaults: [
+      {
+        id: 'shared',
+        name: 'Canonical',
+        vault: 'Canonical',
+        httpsUrl: 'https://canonical.example.com/',
+        httpUrl: 'http://canonical.example.com/',
+        apiKey: '',
+        rules: [
+          {
+            id: 'same-rule',
+            vaultId: 'shared',
+            type: 'domain',
+            pattern: 'nested-ignored.example.com',
+            enabled: true,
+            priority: 5
+          }
+        ]
+      },
+      {
+        id: 'shared',
+        name: 'Requires reauthorization',
+        vault: 'Duplicate',
+        httpsUrl: 'https://duplicate.example.com/',
+        httpUrl: 'http://duplicate.example.com/',
+        apiKey: '',
+        rules: [
+          {
+            id: 'nested-duplicate',
+            vaultId: 'shared',
+            type: 'domain',
+            pattern: 'nested.example.com',
+            enabled: true,
+            priority: 10
+          }
+        ]
+      },
+      {
+        id: 'shared~legacy-duplicate-2',
+        name: 'Existing compatibility collision',
+        vault: 'Collision',
+        httpsUrl: 'https://collision.example.com/',
+        httpUrl: 'http://collision.example.com/',
+        apiKey: '',
+        rules: []
+      },
+      {
+        id: 'unique',
+        name: 'Unique',
+        vault: 'Unique',
+        httpsUrl: 'https://unique.example.com/',
+        httpUrl: 'http://unique.example.com/',
+        apiKey: '',
+        rules: []
+      }
+    ],
+    rules: [
+      {
+        id: 'same-rule',
+        vaultId: 'shared',
+        type: 'domain',
+        pattern: 'legacy-first.example.com',
+        enabled: true,
+        priority: 100
+      },
+      {
+        id: 'legacy-ambiguous',
+        vaultId: 'shared',
+        type: 'keyword',
+        pattern: 'canonical',
+        enabled: true,
+        priority: 20
+      },
+      {
+        id: 'legacy-unique',
+        vaultId: 'unique',
+        type: 'keyword',
+        pattern: 'unique',
+        enabled: true,
+        priority: 5
+      }
+    ]
+  }
+};
+
+const f04DuplicateBindings = {
+  version: 1,
+  bindings: {
+    shared: { folderId: 'folder-canonical', folderName: 'Canonical Folder' },
+    unique: { folderId: 'folder-unique', folderName: 'Unique Folder' },
+    orphan: { folderId: 'folder-orphan', folderName: 'Orphan Folder' }
+  }
+};
+
+async function seedF04DuplicateState(worker: Worker): Promise<void> {
+  await worker.evaluate(
+    async ({ options, bindings }) => {
+      const localWrite = chrome.storage.local.set({ deviceLocalVaultBindings: bindings });
+      const portableWrite = chrome.storage.sync.set({ options });
+      await Promise.all([localWrite, portableWrite]);
+    },
+    { options: f04DuplicatePortable, bindings: f04DuplicateBindings }
+  );
+}
+
+async function readF04IdentityState(worker: Worker) {
+  return worker.evaluate(async (journalKey) => {
+    const [sync, local] = await Promise.all([
+      chrome.storage.sync.get<{ options?: JsonValue }>('options'),
+      chrome.storage.local.get<Record<string, JsonValue>>(['deviceLocalVaultBindings', journalKey])
+    ]);
+    return {
+      options: sync.options,
+      bindings: local.deviceLocalVaultBindings,
+      journal: local[journalKey]
+    };
+  }, cleanupJournalKey);
+}
+
+async function armF04PortableWriteFailure(worker: Worker) {
+  return worker.evaluateHandle(() => {
+    const storage = chrome.storage.sync;
+    const originalSet = storage.set.bind(storage);
+    const state = { failures: 0 };
+    const record = (value: JsonValue): value is JsonRecord =>
+      typeof value === 'object' && value !== null && !Array.isArray(value);
+    const gatedSet = (items: JsonRecord, callback?: () => void) => {
+      const options = items.options;
+      const router = record(options) ? options.vaultRouter : undefined;
+      const vaults = record(router) && Array.isArray(router.vaults) ? router.vaults : [];
+      const isProposal = vaults.some(
+        (vault) => record(vault) && vault.id === 'shared~legacy-duplicate-2-2'
+      );
+      if (state.failures === 0 && isProposal) {
+        state.failures += 1;
+        throw new Error('F04_PORTABLE_WRITE_FAILURE');
+      }
+      return callback ? originalSet(items, callback) : originalSet(items);
+    };
+    Object.defineProperty(storage, 'set', { configurable: true, value: gatedSet });
+    return state;
+  });
+}
+
+async function armF04BindingWriteFailure(worker: Worker) {
+  return worker.evaluateHandle(() => {
+    const storage = chrome.storage.local;
+    const originalSet = storage.set.bind(storage);
+    const state = { failures: 0 };
+    const record = (value: JsonValue): value is JsonRecord =>
+      typeof value === 'object' && value !== null && !Array.isArray(value);
+    const gatedSet = (items: JsonRecord, callback?: () => void) => {
+      const snapshot = items.deviceLocalVaultBindings;
+      const bindings = record(snapshot) ? snapshot.bindings : undefined;
+      const isProposal = record(bindings) && bindings.orphan === undefined;
+      if (isProposal) {
+        state.failures += 1;
+        throw new Error('F04_BINDING_WRITE_FAILURE');
+      }
+      return callback ? originalSet(items, callback) : originalSet(items);
+    };
+    Object.defineProperty(storage, 'set', { configurable: true, value: gatedSet });
+    return state;
+  });
 }
 
 async function readRaw(page: Page): Promise<JsonRecord> {
@@ -2014,6 +2216,289 @@ test.describe('Options cross-context mutation authority', () => {
     } finally {
       await freshContext.close();
     }
+  });
+
+  test('F04 migrates duplicate Vault identity and canonical bindings across restart', async () => {
+    await Promise.all([first.close(), second.close()]);
+    await seedF04DuplicateState(background);
+
+    const expectedIds = [
+      'shared',
+      'shared~legacy-duplicate-2-2',
+      'shared~legacy-duplicate-2',
+      'unique'
+    ];
+    const assertMigrated = async (worker: Worker) => {
+      await expect
+        .poll(async () => {
+          const state = await readF04IdentityState(worker);
+          return { bindings: state.bindings, journal: state.journal };
+        })
+        .toEqual({
+          bindings: {
+            version: 1,
+            bindings: {
+              shared: { folderId: 'folder-canonical', folderName: 'Canonical Folder' },
+              unique: { folderId: 'folder-unique', folderName: 'Unique Folder' }
+            }
+          },
+          journal: undefined
+        });
+      const state = await readF04IdentityState(worker);
+      expect(state.options).toMatchObject({
+        interfaceTheme: 'light',
+        vaultRouter: { defaultVaultId: 'shared' }
+      });
+      if (!isJsonRecord(state.options) || !isJsonRecord(state.options.vaultRouter)) {
+        throw new Error('F04 migrated router missing.');
+      }
+      const vaults = state.options.vaultRouter.vaults;
+      if (!Array.isArray(vaults)) throw new Error('F04 migrated Vault rows missing.');
+      expect(vaults).toHaveLength(4);
+      expect(vaults.map((vault) => (isJsonRecord(vault) ? vault.id : undefined))).toEqual(
+        expectedIds
+      );
+      const canonical = vaults[0];
+      const renamed = vaults[1];
+      const unique = vaults[3];
+      if (!isJsonRecord(canonical) || !isJsonRecord(renamed) || !isJsonRecord(unique)) {
+        throw new Error('F04 migrated Vault row malformed.');
+      }
+      expect(canonical.rules).toMatchObject([
+        {
+          id: 'same-rule',
+          vaultId: 'shared',
+          pattern: 'nested-ignored.example.com',
+          priority: 5
+        }
+      ]);
+      expect(renamed.rules).toMatchObject([
+        { id: 'nested-duplicate', vaultId: 'shared~legacy-duplicate-2-2' }
+      ]);
+      expect(unique.rules).toEqual([]);
+      expect(state.options.vaultRouter.rules).toMatchObject([
+        {
+          id: 'same-rule',
+          vaultId: 'shared',
+          pattern: 'legacy-first.example.com',
+          priority: 100
+        },
+        { id: 'legacy-ambiguous', vaultId: 'shared' },
+        { id: 'legacy-unique', vaultId: 'unique' }
+      ]);
+    };
+
+    const extensionId = background.url().split('/')[2];
+    if (!extensionId) throw new Error('Unable to resolve F04 extension id.');
+    first = await openF04Messenger(context, extensionId);
+    const migrated = await sendF04Migration(first);
+    expect(migrated.success).toBe(true);
+    expect(migrated.result?.snapshot).toMatchObject({
+      vaultRouter: {
+        defaultVaultId: 'shared',
+        rules: [
+          {
+            id: 'same-rule',
+            vaultId: 'shared',
+            pattern: 'legacy-first.example.com',
+            priority: 100
+          },
+          { id: 'legacy-ambiguous', vaultId: 'shared' },
+          { id: 'legacy-unique', vaultId: 'unique' }
+        ],
+        vaults: [
+          {
+            id: 'shared',
+            localFolderId: 'folder-canonical',
+            localFolderName: 'Canonical Folder'
+          },
+          { id: 'shared~legacy-duplicate-2-2' },
+          { id: 'shared~legacy-duplicate-2' },
+          {
+            id: 'unique',
+            localFolderId: 'folder-unique',
+            localFolderName: 'Unique Folder'
+          }
+        ]
+      }
+    });
+    const snapshotVaults = migrated.result?.snapshot?.vaultRouter;
+    if (!isJsonRecord(snapshotVaults) || !Array.isArray(snapshotVaults.vaults)) {
+      throw new Error('F04 migration snapshot missing.');
+    }
+    expect(snapshotVaults.vaults[1]).not.toHaveProperty('localFolderId');
+    expect(snapshotVaults.vaults[2]).not.toHaveProperty('localFolderId');
+
+    await assertMigrated(background);
+    const repeated = await sendF04Migration(first);
+    expect(repeated.success).toBe(true);
+    expect(repeated.result?.didWrite).toBe(false);
+
+    await context.close();
+    const restarted = await launchRestartProfile(userDataDir);
+    context = restarted.context;
+    background = restarted.worker;
+    first = restarted.page;
+    await assertMigrated(background);
+    const storageNav = first.locator('[data-nav-panel="storage"]');
+    await storageNav.click();
+    await expect(storageNav).toHaveClass(/is-active/u);
+    await expect(
+      first.locator('.local-folder-trigger').filter({ hasText: 'Canonical Folder' })
+    ).toHaveCount(1);
+    await expect(
+      first.locator('.local-folder-trigger').filter({ hasText: 'Unique Folder' })
+    ).toHaveCount(1);
+    await expect(first.getByText('Orphan Folder', { exact: true })).toHaveCount(0);
+    await expect(first.locator('.storage-vault-table-scroll tbody tr')).toHaveCount(4);
+    const routingRows = first.locator('.routing-rules-table-scroll tbody tr');
+    await expect(routingRows).toHaveCount(4);
+    const routingPatterns = first.locator('.routing-rules-table-scroll tbody input[type="text"]');
+    await expect(routingPatterns).toHaveCount(4);
+    const expectedPatterns = [
+      'legacy-first.example.com',
+      'canonical',
+      'unique',
+      'nested.example.com'
+    ];
+    for (const [index, pattern] of expectedPatterns.entries()) {
+      await expect(routingPatterns.nth(index)).toHaveValue(pattern);
+    }
+  });
+
+  test('F04 recovers portable and binding migration failures without copied authority', async () => {
+    await Promise.all([first.close(), second.close()]);
+    first = await context.newPage();
+    const portableProbe = await armF04PortableWriteFailure(background);
+    await seedF04DuplicateState(background);
+    await expect.poll(() => portableProbe.evaluate(({ failures }) => failures)).toBe(1);
+    await expect
+      .poll(async () => {
+        const state = await readF04IdentityState(background);
+        const router = isJsonRecord(state.options) ? state.options.vaultRouter : undefined;
+        const vaults = isJsonRecord(router) && Array.isArray(router.vaults) ? router.vaults : [];
+        return {
+          ids: vaults.map((vault) => (isJsonRecord(vault) ? vault.id : undefined)),
+          bindings: state.bindings,
+          journal: state.journal
+        };
+      })
+      .toEqual({
+        ids: ['shared', 'shared~legacy-duplicate-2-2', 'shared~legacy-duplicate-2', 'unique'],
+        bindings: {
+          version: 1,
+          bindings: {
+            shared: { folderId: 'folder-canonical', folderName: 'Canonical Folder' },
+            unique: { folderId: 'folder-unique', folderName: 'Unique Folder' }
+          }
+        },
+        journal: undefined
+      });
+
+    const extensionId = background.url().split('/')[2];
+    if (!extensionId) throw new Error('Unable to resolve F04 extension id.');
+    await first.close();
+    first = await openF04Messenger(context, extensionId);
+    const portableRetry = await sendF04Migration(first);
+    expect(portableRetry.success).toBe(true);
+    expect(portableRetry.result?.didWrite).toBe(false);
+    const afterPortableRetry = await readF04IdentityState(background);
+    expect(afterPortableRetry.journal).toBeUndefined();
+    expect(afterPortableRetry.bindings).toEqual({
+      version: 1,
+      bindings: {
+        shared: { folderId: 'folder-canonical', folderName: 'Canonical Folder' },
+        unique: { folderId: 'folder-unique', folderName: 'Unique Folder' }
+      }
+    });
+    expect(afterPortableRetry.options).toMatchObject({
+      vaultRouter: {
+        defaultVaultId: 'shared',
+        rules: [
+          { id: 'same-rule', pattern: 'legacy-first.example.com', priority: 100 },
+          { id: 'legacy-ambiguous', vaultId: 'shared' },
+          { id: 'legacy-unique', vaultId: 'unique' }
+        ],
+        vaults: [
+          {
+            id: 'shared',
+            rules: [{ id: 'same-rule', pattern: 'nested-ignored.example.com', priority: 5 }]
+          },
+          {
+            id: 'shared~legacy-duplicate-2-2',
+            rules: [{ id: 'nested-duplicate', vaultId: 'shared~legacy-duplicate-2-2' }]
+          },
+          { id: 'shared~legacy-duplicate-2' },
+          { id: 'unique' }
+        ]
+      }
+    });
+
+    const bindingProbe = await armF04BindingWriteFailure(background);
+    await background.evaluate(
+      (bindings) => chrome.storage.local.set({ deviceLocalVaultBindings: bindings }),
+      f04DuplicateBindings
+    );
+    const bindingFailure = await sendF04Migration(first);
+    expect(bindingFailure).toMatchObject({
+      success: false,
+      errorCode: 'OPTIONS_STORAGE_FAILURE'
+    });
+    await expect.poll(() => bindingProbe.evaluate(({ failures }) => failures)).toBeGreaterThan(0);
+    const interrupted = await readF04IdentityState(background);
+    expect(interrupted.bindings).toEqual(f04DuplicateBindings);
+
+    await first.close();
+    first = await context.newPage();
+    await crashInstalledBrowser(context, first, background);
+    const restarted = await launchRestartProfile(userDataDir);
+    context = restarted.context;
+    background = restarted.worker;
+    first = restarted.page;
+    await expect
+      .poll(() => readF04IdentityState(background))
+      .toMatchObject({
+        bindings: {
+          version: 1,
+          bindings: {
+            shared: { folderId: 'folder-canonical', folderName: 'Canonical Folder' },
+            unique: { folderId: 'folder-unique', folderName: 'Unique Folder' }
+          }
+        },
+        journal: undefined
+      });
+    const recovered = await readF04IdentityState(background);
+    if (!isJsonRecord(recovered.options) || !isJsonRecord(recovered.options.vaultRouter)) {
+      throw new Error('F04 recovered router missing.');
+    }
+    const vaults = recovered.options.vaultRouter.vaults;
+    if (!Array.isArray(vaults)) throw new Error('F04 recovered Vault rows missing.');
+    expect(vaults.map((vault) => (isJsonRecord(vault) ? vault.id : undefined))).toEqual([
+      'shared',
+      'shared~legacy-duplicate-2-2',
+      'shared~legacy-duplicate-2',
+      'unique'
+    ]);
+    expect(recovered.options.vaultRouter).toMatchObject({
+      defaultVaultId: 'shared',
+      rules: [
+        { id: 'same-rule', pattern: 'legacy-first.example.com', priority: 100 },
+        { id: 'legacy-ambiguous', vaultId: 'shared' },
+        { id: 'legacy-unique', vaultId: 'unique' }
+      ],
+      vaults: [
+        {
+          id: 'shared',
+          rules: [{ id: 'same-rule', pattern: 'nested-ignored.example.com', priority: 5 }]
+        },
+        {
+          id: 'shared~legacy-duplicate-2-2',
+          rules: [{ id: 'nested-duplicate', vaultId: 'shared~legacy-duplicate-2-2' }]
+        },
+        { id: 'shared~legacy-duplicate-2' },
+        { id: 'unique' }
+      ]
+    });
   });
 
   test('keeps mixed privacy and vault state atomic when the binding write fails', async () => {

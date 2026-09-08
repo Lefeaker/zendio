@@ -96,4 +96,44 @@ describe('device-local vault bindings', () => {
       localFolderName: 'Local Folder'
     });
   });
+
+  it('F04 composes an ambiguous duplicate binding into the canonical first Vault only', () => {
+    const options: CompleteOptions = {
+      ...structuredClone(DEFAULT_OPTIONS),
+      vaultRouter: {
+        defaultVaultId: 'duplicate',
+        vaults: [
+          {
+            id: 'duplicate',
+            name: 'Canonical',
+            vault: 'Canonical',
+            httpsUrl: '',
+            httpUrl: '',
+            apiKey: ''
+          },
+          {
+            id: 'duplicate',
+            name: 'Requires reauthorization',
+            vault: 'Duplicate',
+            httpsUrl: '',
+            httpUrl: '',
+            apiKey: ''
+          }
+        ]
+      }
+    };
+    const composed = composeDeviceLocalVaultBindings(options, {
+      version: 1,
+      bindings: {
+        duplicate: { folderId: 'folder-canonical', folderName: 'Canonical Folder' }
+      }
+    });
+
+    expect(composed.vaultRouter?.vaults[0]).toMatchObject({
+      localFolderId: 'folder-canonical',
+      localFolderName: 'Canonical Folder'
+    });
+    expect(composed.vaultRouter?.vaults[1]).not.toHaveProperty('localFolderId');
+    expect(composed.vaultRouter?.vaults[1]).not.toHaveProperty('localFolderName');
+  });
 });

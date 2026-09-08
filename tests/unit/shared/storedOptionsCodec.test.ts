@@ -208,6 +208,194 @@ describe('stored Options codec', () => {
     expect(decoded.automaticWritebackIsLossless).toBe(true);
   });
 
+  it('F04 normalizes duplicate Vault identity before folding legacy rules', () => {
+    const duplicateId = 'shared';
+    const compatibilityCollision = 'shared~legacy-duplicate-2';
+    const decoded = decodeStoredOptions({
+      vaultRouter: {
+        defaultVaultId: duplicateId,
+        vaults: [
+          {
+            id: duplicateId,
+            name: 'Canonical',
+            httpsUrl: 'https://canonical.example.com/',
+            httpUrl: 'http://canonical.example.com/',
+            vault: 'Canonical',
+            apiKey: '',
+            rules: []
+          },
+          {
+            id: duplicateId,
+            name: 'Duplicate',
+            httpsUrl: 'https://duplicate.example.com/',
+            httpUrl: 'http://duplicate.example.com/',
+            vault: 'Duplicate',
+            apiKey: '',
+            rules: [
+              {
+                id: 'nested-duplicate',
+                vaultId: duplicateId,
+                type: 'domain',
+                pattern: 'nested.example.com',
+                enabled: true,
+                priority: 10
+              }
+            ]
+          },
+          {
+            id: compatibilityCollision,
+            name: 'Existing collision',
+            httpsUrl: 'https://collision.example.com/',
+            httpUrl: 'http://collision.example.com/',
+            vault: 'Collision',
+            apiKey: '',
+            rules: []
+          },
+          {
+            id: 'unique',
+            name: 'Unique',
+            httpsUrl: 'https://unique.example.com/',
+            httpUrl: 'http://unique.example.com/',
+            vault: 'Unique',
+            apiKey: '',
+            rules: []
+          }
+        ],
+        rules: [
+          {
+            id: 'legacy-ambiguous',
+            vaultId: duplicateId,
+            type: 'keyword',
+            pattern: 'canonical',
+            enabled: true,
+            priority: 20
+          },
+          {
+            id: 'legacy-unique',
+            vaultId: 'unique',
+            type: 'keyword',
+            pattern: 'unique',
+            enabled: true,
+            priority: 5
+          }
+        ]
+      }
+    });
+
+    const router = decoded.runtime.vaultRouter;
+    expect(router?.vaults.map(({ id }) => id)).toEqual([
+      duplicateId,
+      'shared~legacy-duplicate-2-2',
+      compatibilityCollision,
+      'unique'
+    ]);
+    expect(router?.defaultVaultId).toBe(duplicateId);
+    expect(router?.vaults[0]?.rules?.map(({ id }) => id)).toContain('legacy-ambiguous');
+    expect(router?.vaults[1]?.rules?.[0]).toMatchObject({
+      id: 'nested-duplicate',
+      vaultId: 'shared~legacy-duplicate-2-2'
+    });
+    expect(router?.vaults[3]?.rules?.map(({ id }) => id)).toContain('legacy-unique');
+    expect(decoded.migrations.map(({ stage, code }) => ({ stage, code }))).toEqual([
+      { stage: 'vault-identity', code: 'legacy-duplicate-vault-ids-normalized' },
+      { stage: 'yaml-vault', code: 'legacy-vault-rules-migrated' }
+    ]);
+    expect(decoded.automaticWritebackIsLossless).toBe(true);
+
+    const repeated = decodeStoredOptions(decoded.normalizedRaw);
+    expect(repeated.normalizedRaw).toEqual(decoded.normalizedRaw);
+    expect(repeated.migrations).toEqual([]);
+  });
+
+  it('F04 preserves legacy-first rule collisions while normalizing duplicate Vault identity', () => {
+    const decoded = decodeStoredOptions({
+      vaultRouter: {
+        defaultVaultId: 'shared',
+        vaults: [
+          {
+            id: 'shared',
+            name: 'Canonical',
+            httpsUrl: 'https://canonical.example.com/',
+            httpUrl: 'http://canonical.example.com/',
+            vault: 'Canonical',
+            apiKey: '',
+            rules: [
+              {
+                id: 'same-rule',
+                vaultId: 'shared',
+                type: 'domain',
+                pattern: 'nested-ignored.example.com',
+                enabled: true,
+                priority: 5
+              }
+            ]
+          },
+          {
+            id: 'shared',
+            name: 'Duplicate',
+            httpsUrl: 'https://duplicate.example.com/',
+            httpUrl: 'http://duplicate.example.com/',
+            vault: 'Duplicate',
+            apiKey: '',
+            rules: []
+          }
+        ],
+        rules: [
+          {
+            id: 'same-rule',
+            vaultId: 'shared',
+            type: 'domain',
+            pattern: 'legacy-first.example.com',
+            enabled: true,
+            priority: 100
+          }
+        ]
+      }
+    });
+
+    expect(decoded.runtime.vaultRouter?.defaultVaultId).toBe('shared');
+    expect(decoded.runtime.vaultRouter?.vaults.map(({ id }) => id)).toEqual([
+      'shared',
+      'shared~legacy-duplicate-2'
+    ]);
+    expect(decoded.runtime.vaultRouter?.rules).toMatchObject([
+      { id: 'same-rule', pattern: 'legacy-first.example.com', priority: 100 }
+    ]);
+    expect(decoded.runtime.vaultRouter?.vaults[0]?.rules).toMatchObject([
+      { id: 'same-rule', pattern: 'nested-ignored.example.com', priority: 5 }
+    ]);
+    expect(decoded.preserved.invalidSections).not.toHaveProperty('vaultRouter');
+    expect(decoded.migrations.map(({ stage, code }) => ({ stage, code }))).toEqual([
+      { stage: 'vault-identity', code: 'legacy-duplicate-vault-ids-normalized' }
+    ]);
+    expect(decoded.automaticWritebackIsLossless).toBe(true);
+
+    const repeated = decodeStoredOptions(decoded.normalizedRaw);
+    expect(repeated.normalizedRaw).toEqual(decoded.normalizedRaw);
+    expect(repeated.migrations).toEqual([]);
+  });
+
+  it('F04 rejects duplicate explicit Vault identity on a new whole-section patch', () => {
+    const duplicate = {
+      id: 'duplicate',
+      name: 'Duplicate',
+      httpsUrl: 'https://duplicate.example.com/',
+      httpUrl: 'http://duplicate.example.com/',
+      vault: 'Duplicate',
+      apiKey: ''
+    };
+
+    expect(
+      applyStoredOptionsPatch(
+        {},
+        {
+          path: ['vaultRouter'],
+          value: { defaultVaultId: duplicate.id, vaults: [duplicate, { ...duplicate }] }
+        }
+      ).success
+    ).toBe(false);
+  });
+
   it('leaves unrecognized or invalid legacy values structurally unchanged', () => {
     const invalidYaml = {
       contentTypes: [

@@ -534,6 +534,46 @@ describe('mountProductionStitchShell actions', () => {
     expect(clearVaultLocalFolderMock).toHaveBeenCalledTimes(1);
   });
 
+  it('F04 allocates a unique Vault ID when the mounted action encounters a numbering gap', () => {
+    const mounted = mountProductionStitchShell({
+      controller: asOptionsController(createController()),
+      initialOptions: mergeOptions({
+        vaultRouter: {
+          defaultVaultId: 'default',
+          vaults: [
+            {
+              id: 'default',
+              name: 'Zendio',
+              vault: 'Zendio',
+              httpsUrl: LOCAL_HTTPS_URL,
+              httpUrl: LOCAL_HTTP_URL,
+              apiKey: '',
+              isDefault: true,
+              enabled: true
+            },
+            {
+              id: 'vault-3',
+              name: 'Existing',
+              vault: 'Existing',
+              httpsUrl: LOCAL_HTTPS_URL,
+              httpUrl: LOCAL_HTTP_URL,
+              apiKey: '',
+              enabled: true
+            }
+          ]
+        }
+      }),
+      messages: null,
+      language: 'en'
+    });
+
+    findButton('Add Vault').click();
+    const ids = mounted.collectDraft().vaultRouter?.vaults.map(({ id }) => id) ?? [];
+    expect(ids).toHaveLength(3);
+    expect(new Set(ids).size).toBe(ids.length);
+    expect(ids[2]).toMatch(/^vault-[0-9a-f-]{36}$/u);
+  });
+
   it('restores the active language and control when language persistence fails', async () => {
     const englishMessages = await createEnglishPageMessages({
       schemaOverviewInterfaceGroupTitle: 'English interface sentinel'

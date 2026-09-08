@@ -2,6 +2,7 @@ import { plainStructuredDataEqual } from './losslessObjectBoundary';
 import type { PlainStructuredObject, PlainStructuredValue } from './losslessObjectBoundaryTypes';
 import { decodeStoredOptions } from './storedOptionsCodec';
 import { composeDeviceLocalPrivacy } from './deviceLocalPrivacy';
+import { resolveCanonicalVaultId } from './vaultRouterIdentity';
 import type { DeviceLocalVaultCleanupJournal } from './deviceLocalVaultCleanupJournal';
 import {
   asOptionsMutationError,
@@ -82,16 +83,6 @@ export function normalizeDeviceLocalVaultBindingSnapshot(
   }
   return { version: 1, bindings };
 }
-const defaultVaultId = (options: CompleteOptions) => {
-  const router = options.vaultRouter;
-  if (!router) return 'default';
-  return (
-    router.vaults.find(({ id }) => id === router.defaultVaultId)?.id ??
-    router.vaults.find(({ isDefault }) => isDefault)?.id ??
-    router.vaults[0]?.id ??
-    'default'
-  );
-};
 export function reconcileDeviceLocalVaultBindings(
   options: CompleteOptions,
   snapshot: DeviceLocalVaultBindingSnapshot
@@ -112,7 +103,7 @@ export function captureDeviceLocalVaultBindings(
     if (vault.id.trim() && binding) bindings[vault.id.trim()] = binding;
   }
   const rest = folderBinding(options.rest);
-  if (rest && source === 'rest') bindings[defaultVaultId(options)] = rest;
+  if (rest && source === 'rest') bindings[resolveCanonicalVaultId(options.vaultRouter)] = rest;
   return reconcileDeviceLocalVaultBindings(options, { version: 1, bindings });
 }
 export function composeDeviceLocalVaultBindings(
@@ -121,11 +112,14 @@ export function composeDeviceLocalVaultBindings(
 ): CompleteOptions {
   const next = structuredClone(options);
   if (next.vaultRouter) {
-    next.vaultRouter.vaults = next.vaultRouter.vaults.map((vault) =>
-      applyBinding({ ...vault }, snapshot.bindings[vault.id])
-    );
+    const seen = new Set<string>();
+    next.vaultRouter.vaults = next.vaultRouter.vaults.map((vault) => {
+      const binding = seen.has(vault.id) ? undefined : snapshot.bindings[vault.id];
+      seen.add(vault.id);
+      return applyBinding({ ...vault }, binding);
+    });
   }
-  applyBinding(next.rest, snapshot.bindings[defaultVaultId(next)]);
+  applyBinding(next.rest, snapshot.bindings[resolveCanonicalVaultId(next.vaultRouter)]);
   return next;
 }
 export function scrubDeviceLocalVaultBindings(value: StoredOptions): StoredOptions;
@@ -148,12 +142,16 @@ export function scrubDeviceLocalVaultBindings(value: StoredOptions | PlainStruct
 }
 const composeRaw = (raw: PlainStructuredObject, snapshot: DeviceLocalVaultBindingSnapshot) => {
   const next = scrubDeviceLocalVaultBindings(structuredClone(raw));
-  const binding = snapshot.bindings[defaultVaultId(decodeStoredOptions(raw).runtime)];
+  const binding =
+    snapshot.bindings[resolveCanonicalVaultId(decodeStoredOptions(raw).runtime.vaultRouter)];
   if (record(next.rest)) applyBinding(next.rest, binding);
   if (record(next.vaultRouter) && Array.isArray(next.vaultRouter.vaults)) {
+    const seen = new Set<string>();
     next.vaultRouter.vaults = next.vaultRouter.vaults.map((candidate) => {
       if (!record(candidate) || typeof candidate.id !== 'string') return candidate;
-      return applyBinding(candidate, snapshot.bindings[candidate.id]);
+      const binding = seen.has(candidate.id) ? undefined : snapshot.bindings[candidate.id];
+      seen.add(candidate.id);
+      return applyBinding(candidate, binding);
     });
   }
   return next;

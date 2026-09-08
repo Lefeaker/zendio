@@ -6,6 +6,7 @@ import {
 } from '../../../src/background/vault-router';
 import type { ClipContext, VaultRouterConfig, RoutingRule } from '@shared/types';
 import { configProvider } from '@shared/config';
+import { allocateVaultId, VaultRouterIdentityError } from '@shared/config/vaultRouterIdentity';
 
 describe('VaultRouter', () => {
   const restDefaults = configProvider.getRestDefaults();
@@ -363,5 +364,44 @@ describe('VaultRouter', () => {
         apiKey: 'research-token'
       }).vaults[0]?.name
     ).toBe('Research Vault');
+  });
+
+  it('F04 allocates opaque stable Vault IDs without wall-clock identity', () => {
+    const generated = [createDefaultVaultRouterConfig(), migrateFromLegacyConfig(null)].map(
+      (config) => config.vaults[0]?.id
+    );
+
+    expect(generated).toHaveLength(2);
+    expect(new Set(generated).size).toBe(2);
+    for (const id of generated) {
+      expect(id).toMatch(
+        /^vault-[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u
+      );
+    }
+  });
+
+  it('F04 retries only colliding Vault entropy and fails at the fixed bound', () => {
+    const entropy = ['collision', 'fresh'];
+    expect(allocateVaultId(['vault-collision'], () => entropy.shift() ?? 'unexpected')).toBe(
+      'vault-fresh'
+    );
+
+    let attempts = 0;
+    expect(() =>
+      allocateVaultId(['vault-collision'], () => {
+        attempts += 1;
+        return 'collision';
+      })
+    ).toThrow(VaultRouterIdentityError);
+    expect(attempts).toBe(8);
+
+    attempts = 0;
+    expect(() =>
+      allocateVaultId([], () => {
+        attempts += 1;
+        return '';
+      })
+    ).toThrow('VAULT_ID_ENTROPY_INVALID');
+    expect(attempts).toBe(1);
   });
 });
