@@ -26,17 +26,18 @@ import {
   updateDraftPath
 } from './productionStitchShellState';
 import type { ProductionStitchWidgetHost } from './productionStitchWidgetHost';
-import {
-  createProductionStitchActionTaskOwner,
-  type ProductionStitchActionTaskOwner
-} from './productionStitchActionTaskOwner';
+import { createProductionStitchActionTaskOwner } from './productionStitchActionTaskOwner';
 import type { ProductionStitchShellMutableState } from './productionStitchShellMutableState';
 import { formatOptionsError, showStatusMessage } from '@options/components/messages';
-import type { SectionInvalidationRequest } from '@ui/stitch-runtime/render/sectionInvalidation';
+import type {
+  SectionInvalidationAcknowledgement,
+  SectionInvalidationRequest
+} from '@ui/stitch-runtime/render/sectionInvalidation';
 import {
   resolveProductionStitchTaskInvalidation,
   resolveProductionStitchTaskOwner
 } from './productionStitchShellContext';
+import { createProductionMaintenanceRuntime } from './productionStitchMaintenanceState';
 type RuntimeMutableState = Omit<
   ProductionStitchShellMutableState,
   'getConnectionNotice' | 'getDomainMappingRows' | 'resetOptions'
@@ -52,6 +53,7 @@ interface ProductionStitchShellActionRuntimeOptions extends RuntimeMutableState 
   currentDomainEntries(): Array<[string, string]>;
   refreshOptions(options: StoredOptions | CompleteOptions | null): void;
   render(scopes: SectionInvalidationRequest): void;
+  renderAndWait(scopes: SectionInvalidationRequest): Promise<SectionInvalidationAcknowledgement>;
   renderActiveResourceModal(): void;
   scheduleDraftSave(): void;
   scrollToPanel(panelId: string): void;
@@ -205,11 +207,19 @@ export function createProductionStitchShellActionRuntime(
   } = options;
   let disposed = false;
   const telemetry = createOptionsTelemetry(persistence, () => !disposed);
-  const owner: ProductionStitchActionTaskOwner = createProductionStitchActionTaskOwner();
+  const owner = createProductionStitchActionTaskOwner();
   function refresh(): void {
     options.refreshAppData();
     persistence.restoreUsageStatsView();
   }
+  const maintenance = createProductionMaintenanceRuntime(
+    options,
+    controller.loadRaw.bind(controller),
+    owner,
+    () => !disposed,
+    refresh,
+    (outcome) => telemetry.trackMaintenanceOutcome('maintenance:reload', outcome)
+  );
   function runPersistenceTask(
     key: string,
     task: () => Promise<void>,
@@ -242,7 +252,7 @@ export function createProductionStitchShellActionRuntime(
       isActive: () => !disposed,
       setConnectionNotice: options.setConnectionNotice,
       setLanguageResource: options.setLanguageResource,
-      setMaintenanceLog: options.setMaintenanceLog,
+      runMaintenanceDiagnosis: maintenance.runDiagnosis,
       setState: options.setState,
       activateVaultLocalFolder: storageController.activateVaultLocalFolder,
       applyConnectionNotice: storageController.applyConnectionNotice,
@@ -292,17 +302,7 @@ export function createProductionStitchShellActionRuntime(
           throw error;
         }
       },
-      reloadOptions: async () => {
-        try {
-          const loaded = await controller.loadRaw();
-          if (disposed) return;
-          options.refreshOptions(loaded);
-          telemetry.trackMaintenanceOutcome('maintenance:reload', 'completed');
-        } catch (error) {
-          telemetry.trackMaintenanceOutcome('maintenance:reload', 'failed');
-          throw error;
-        }
-      },
+      reloadOptions: maintenance.reload,
       resetUsageData: (...args) => persistence.resetUsageData(...args),
       runVaultListConnectionTest: (...args) =>
         storageController.runVaultListConnectionTest(...args),
@@ -351,8 +351,8 @@ export function createProductionStitchShellActionRuntime(
     dispatch,
     dispose: () => {
       disposed = true;
-      owner.dispose();
+      maintenance.dispose();
     },
-    waitForIdle: () => owner.waitForIdle()
+    waitForIdle: maintenance.waitForIdle
   };
 }

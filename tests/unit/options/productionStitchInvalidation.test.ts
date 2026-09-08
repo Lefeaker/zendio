@@ -5,9 +5,13 @@ import {
   captureSectionDomSnapshot,
   createSectionInvalidationOwner,
   restoreSectionDomSnapshot,
+  type SectionDomSnapshot,
+  type SectionInvalidationAcknowledgement,
   type SectionInvalidationScope
 } from '@ui/stitch-runtime/render/sectionInvalidation';
 import { describe, expect, it, vi } from 'vitest';
+
+const DOMINANT_SCOPES: SectionInvalidationScope[] = ['locale-schema', 'all-invariant-recovery'];
 
 describe('section invalidation owner', () => {
   it('publishes the closed Options invalidation union', () => {
@@ -74,6 +78,110 @@ describe('section invalidation owner', () => {
     owner.invalidate(['storage', 'all-invariant-recovery']);
 
     expect(calls).toEqual(['all']);
+  });
+
+  it('acknowledges only after the requested render and snapshot restore complete', async () => {
+    const calls: string[] = [];
+    const snapshot: SectionDomSnapshot = {
+      activePath: null,
+      inputSelection: null,
+      mainScrollTop: 0,
+      selection: null,
+      windowScroll: { x: 0, y: 0 }
+    };
+    const owner = createSectionInvalidationOwner({
+      handlers: { maintenance: () => calls.push('render') },
+      capture: () => {
+        calls.push('capture');
+        return snapshot;
+      },
+      restore: () => calls.push('restore')
+    });
+
+    const acknowledgement = owner.invalidateAndWait('maintenance').then((result) => {
+      calls.push(result.status);
+      return result;
+    });
+
+    await expect(acknowledgement).resolves.toEqual({ status: 'rendered' });
+    expect(calls).toEqual(['capture', 'render', 'restore', 'rendered']);
+  });
+
+  it('settles reentrant acknowledged work after its later render batch', async () => {
+    const calls: string[] = [];
+    let reentrant: Promise<void> | null = null;
+    const owner = createSectionInvalidationOwner({
+      handlers: {
+        storage: () => {
+          calls.push('storage');
+          reentrant = owner.invalidateAndWait('maintenance').then((result) => {
+            calls.push(result.status);
+          });
+        },
+        maintenance: () => calls.push('maintenance')
+      }
+    });
+
+    owner.invalidate('storage');
+    await (reentrant ?? Promise.reject(new Error('Missing reentrant acknowledgement.')));
+
+    expect(calls).toEqual(['storage', 'maintenance', 'rendered']);
+  });
+
+  it.each(DOMINANT_SCOPES)(
+    'settles acknowledged work after a dominating %s batch',
+    async (dominantScope) => {
+      const maintenance = vi.fn();
+      const dominant = vi.fn();
+      let acknowledgement: Promise<SectionInvalidationAcknowledgement> | null = null;
+      const owner = createSectionInvalidationOwner({
+        handlers: {
+          storage: () => {
+            acknowledgement = owner.invalidateAndWait('maintenance');
+            owner.invalidate(dominantScope);
+          },
+          maintenance,
+          [dominantScope]: dominant
+        }
+      });
+
+      owner.invalidate('storage');
+
+      await expect(acknowledgement).resolves.toEqual({ status: 'rendered' });
+      expect(dominant).toHaveBeenCalledTimes(1);
+      expect(maintenance).not.toHaveBeenCalled();
+    }
+  );
+
+  it('acknowledges handler failures without rejecting or replaying pending work', async () => {
+    const failure = new Error('render failed');
+    const maintenance = vi.fn(() => {
+      throw failure;
+    });
+    const owner = createSectionInvalidationOwner({ handlers: { maintenance } });
+
+    await expect(owner.invalidateAndWait('maintenance')).resolves.toEqual({
+      status: 'failed',
+      error: failure
+    });
+    expect(maintenance).toHaveBeenCalledTimes(1);
+  });
+
+  it('cancels acknowledged work when the canonical owner is disposed', async () => {
+    let acknowledgement: Promise<SectionInvalidationAcknowledgement> | null = null;
+    const owner = createSectionInvalidationOwner({
+      handlers: {
+        storage: () => {
+          acknowledgement = owner.invalidateAndWait('maintenance');
+          owner.dispose();
+        },
+        maintenance: vi.fn()
+      }
+    });
+
+    owner.invalidate('storage');
+
+    await expect(acknowledgement).resolves.toEqual({ status: 'cancelled' });
   });
 
   it('restores text-input focus, selection, and scroll after owner replacement', () => {

@@ -215,10 +215,6 @@ export function createProductionStitchPersistence(
     options.installImportedOptions(configuration.imported);
     restoreUsageStatsView();
     await applyAnalyticsTransferPayload(configuration.analytics);
-    if (!options.isActive()) return;
-    options.setMaintenanceLog(
-      JSON.stringify({ imported: true, version: configuration.version }, null, 2)
-    );
   }
   async function copyConfigurationToClipboard(button: HTMLButtonElement | null): Promise<void> {
     if (options.isActive() && button?.isConnected !== false) setButtonBusy(button, true);
@@ -231,14 +227,8 @@ export function createProductionStitchPersistence(
         })
       );
       if (!options.isActive()) return;
-      options.setMaintenanceLog(
-        getMessage(
-          options.getCurrentMessages(),
-          'copyConfigSuccess',
-          '✅ Configuration copied to clipboard'
-        )
-      );
-    } catch (error) {
+      options.setMaintenanceActionNotice({ source: 'copy', outcome: 'success' });
+    } catch {
       if (!options.isActive()) return;
       await track(
         createAnalyticsEventMessage('config_export_completed', {
@@ -246,7 +236,7 @@ export function createProductionStitchPersistence(
         })
       );
       if (!options.isActive()) return;
-      options.setMaintenanceLog(`Copy failed: ${String(error)}`);
+      options.setMaintenanceActionNotice({ source: 'copy', outcome: 'failure' });
     } finally {
       if (options.isActive() && button?.isConnected !== false) setButtonBusy(button, false);
       if (options.isActive()) {
@@ -273,13 +263,7 @@ export function createProductionStitchPersistence(
         })
       );
       if (!options.isActive()) return;
-      options.setMaintenanceLog(
-        getMessage(
-          options.getCurrentMessages(),
-          'importSuccess',
-          '✅ Configuration imported and saved'
-        )
-      );
+      options.setMaintenanceActionNotice({ source: 'import', outcome: 'success' });
     } catch (error) {
       if (!options.isActive()) return;
       await track(
@@ -289,9 +273,8 @@ export function createProductionStitchPersistence(
         })
       );
       if (!options.isActive()) return;
-      const failureMessage = `Import failed: ${String(error)}`;
-      options.setMaintenanceLog(failureMessage);
-      throw new Error(failureMessage);
+      options.setMaintenanceActionNotice({ source: 'import', outcome: 'failure' });
+      throw error;
     } finally {
       if (options.isActive() && button?.isConnected !== false) setButtonBusy(button, false);
       if (options.isActive()) {
@@ -308,7 +291,6 @@ export function createProductionStitchPersistence(
       templates: draft.templates,
       vaultRouter: draft.vaultRouter
     });
-    const oldLog = options.getAppData().maintenanceLog;
     const restDefaults = configProvider.getRestDefaults();
     const templateDefaults = configProvider.getTemplates();
     let baseUrl = draft.rest.baseUrl || draft.rest.httpsUrl || restDefaults.baseUrl;
@@ -337,8 +319,6 @@ export function createProductionStitchPersistence(
     };
     draft.templates = repairTemplateOptions(draft.templates, templateDefaults);
     options.syncDefaultVaultFromRest();
-    options.setMaintenanceLog(log.join('\n'));
-    refresh();
     try {
       await options.controller.saveSnapshot({
         reason: 'manual',
@@ -347,11 +327,17 @@ export function createProductionStitchPersistence(
     } catch (error) {
       if (!options.isActive()) return;
       Object.assign(options.getDraft(), before);
-      options.setMaintenanceLog(oldLog);
+      options.setMaintenanceActionNotice({ source: 'repair', outcome: 'failure' });
       refresh();
       throw error;
     }
     if (!options.isActive()) return;
+    options.setMaintenanceActionNotice({
+      source: 'repair',
+      outcome: 'success',
+      message: log.join('\n')
+    });
+    refresh();
     options.render(['storage', 'output', 'maintenance']);
   }
 

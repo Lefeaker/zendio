@@ -7,7 +7,6 @@ interface BrandBlockOptions {
   el: ElementFactory;
   brand: PreviewContent['brand'];
 }
-
 interface NavGroupOptions {
   el: ElementFactory;
   title: string;
@@ -111,6 +110,7 @@ export function buildNavGroup({
             type: 'button',
             dataset: { navPanel: item.id },
             className: activePanel === item.id ? 'is-active' : '',
+            'aria-current': activePanel === item.id ? 'page' : undefined,
             onClick: () => onPanelClick(item.id)
           },
           createElement(
@@ -146,6 +146,7 @@ export function buildFooterGroup({
         {
           type: 'button',
           className: ['footer-link', activeResource === item.id ? 'is-active' : ''].join(' '),
+          'aria-current': activeResource === item.id ? 'page' : undefined,
           dataset: { footerPanel: item.id },
           title: item.hint,
           onClick: () => onFooterClick(item.id)

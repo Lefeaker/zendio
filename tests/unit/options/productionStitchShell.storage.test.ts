@@ -162,14 +162,15 @@ describe('mountProductionStitchShell storage', () => {
     ownerFactory.mockImplementationOnce((options) => {
       ownerFactory.mockRestore();
       const owner = createOwner(options);
-      const invalidate = owner.invalidate.bind(owner);
-      vi.spyOn(owner, 'invalidate').mockImplementation((request) => {
-        invalidate(request);
+      const invalidateAndWait = owner.invalidateAndWait.bind(owner);
+      vi.spyOn(owner, 'invalidateAndWait').mockImplementation(async (request) => {
+        const acknowledgement = await invalidateAndWait(request);
         const scopes = typeof request === 'string' ? [request] : request;
         if (scopes.includes('overview-usage')) {
           overviewRendered();
           rendered.resolve();
         }
+        return acknowledgement;
       });
       return owner;
     });

@@ -48,6 +48,7 @@ import type { UsageStats } from '@shared/types/usage';
 import type { IMessagingRepository, Message } from '@shared/repositories/IMessagingRepository';
 import type { AnalyticsRuntimeEventPayload } from '@shared/types/analytics';
 import { getRestDefaults } from '../../utils/restDefaults';
+import { createProductionStitchMaintenanceState } from '@options/app/productionStitchMaintenanceState';
 
 const REST_DEFAULTS = getRestDefaults();
 const LOCAL_HTTPS_URL = `https://localhost:${REST_DEFAULTS.httpsPort}`;
@@ -107,6 +108,22 @@ function observeMaintenanceCompletion() {
   return { ready, waitForIdle: () => taskOwner.waitForIdle() };
 }
 
+function observeConnectedRunningDiagnosis(): Promise<HTMLButtonElement> {
+  return new Promise((resolve) => {
+    const inspect = (): void => {
+      const button = Array.from(document.querySelectorAll('button')).find(
+        (candidate) => candidate.textContent?.trim() === 'Diagnose Configuration'
+      );
+      if (!(button instanceof HTMLButtonElement) || !button.isConnected || !button.disabled) return;
+      observer.disconnect();
+      resolve(button);
+    };
+    const observer = new MutationObserver(inspect);
+    observer.observe(document.body, { childList: true, subtree: true });
+    inspect();
+  });
+}
+
 describe('mountProductionStitchShell actions', () => {
   beforeEach(() => {
     setupProductionStitchShellTest();
@@ -154,19 +171,214 @@ describe('mountProductionStitchShell actions', () => {
     expect(writtenConfig.rest?.apiKey).toBe('REST_SECRET_TOKEN');
     expect(writtenConfig.customKey).toBeUndefined();
 
+    const runningDiagnosis = observeConnectedRunningDiagnosis();
     findButton('Diagnose Configuration').click();
     expect(document.body.textContent).not.toContain('domainMappings');
-    await completion.ready;
-    expect(document.body.textContent).toContain('domainMappings');
+    await runningDiagnosis;
+    expect(document.body.textContent).toContain('Running diagnostics');
+    await vi.waitFor(() => expect(document.body.textContent).toContain('domainMappings'));
     expect(copyButton.getAttribute('aria-busy')).toBe('true');
     clipboard.resolve();
     await completion.waitForIdle();
     expect(document.body.textContent).toContain('Configuration copied to clipboard');
 
-    findButton('Reload').click();
+    findButton('🔄 Reload').click();
     await completion.waitForIdle();
     expect(loadRaw).toHaveBeenCalledTimes(1);
     expect(findInputByValue('Reloaded')).toBeTruthy();
+  });
+
+  it('starts diagnostics idle and keeps running, failure, and action notices explicitly separated', async () => {
+    const writeText = vi.fn(() => Promise.resolve());
+    Object.defineProperty(navigator, 'clipboard', {
+      configurable: true,
+      value: { writeText }
+    });
+    mountProductionStitchShell({
+      controller: asOptionsController(createController()),
+      initialOptions: null,
+      messages: null,
+      language: 'en'
+    });
+
+    expect(document.body.textContent).toContain('Diagnostics have not run yet.');
+    expect(document.body.textContent).not.toContain('Default vault HTTPS connection is healthy');
+
+    const diagnose = findButton('Diagnose Configuration');
+    const runningDiagnosis = observeConnectedRunningDiagnosis();
+    diagnose.click();
+    await runningDiagnosis;
+    expect(document.body.textContent).toContain('Checking the current configuration');
+    findButton('Diagnose Configuration').click();
+    await vi.waitFor(() => expect(findButton('Diagnose Configuration').disabled).toBe(false));
+    expect(document.body.textContent).toContain('Diagnosis Results');
+
+    findButton('Copy Configuration').click();
+    await vi.waitFor(() => expect(document.body.textContent).toContain('Last transfer action'));
+    expect(document.body.textContent).toContain('Diagnosis Results');
+
+    const state = createProductionStitchMaintenanceState();
+    const renderFinal = vi.fn();
+    const renderRunning = vi.fn(() => Promise.resolve({ status: 'rendered' as const }));
+    const secondBuilder = vi.fn(() => 'should not run');
+    state.runDiagnosis({
+      buildReport: () => {
+        throw new Error('diagnostic failure');
+      },
+      isActive: () => true,
+      renderFinal,
+      renderRunning
+    });
+    state.runDiagnosis({
+      buildReport: secondBuilder,
+      isActive: () => true,
+      renderFinal,
+      renderRunning
+    });
+    await state.waitForIdle();
+    expect(state.getSnapshot().diagnosis).toEqual({ status: 'failure' });
+    expect(secondBuilder).not.toHaveBeenCalled();
+    expect(renderRunning).toHaveBeenCalledTimes(1);
+    expect(renderFinal).toHaveBeenCalledTimes(1);
+  });
+
+  it('cancels a held diagnosis frame on dispose and settles idle without the builder', async () => {
+    let frameCallback: FrameRequestCallback = () => undefined;
+    const requestFrame = vi
+      .spyOn(window, 'requestAnimationFrame')
+      .mockImplementation((callback: FrameRequestCallback) => {
+        frameCallback = callback;
+        return 71;
+      });
+    const cancelFrame = vi.spyOn(window, 'cancelAnimationFrame').mockImplementation(() => {});
+    const state = createProductionStitchMaintenanceState();
+    const buildReport = vi.fn(() => 'late report');
+    state.runDiagnosis({
+      buildReport,
+      isActive: () => true,
+      renderFinal: vi.fn(),
+      renderRunning: () => Promise.resolve({ status: 'rendered' })
+    });
+    await vi.waitFor(() => expect(requestFrame).toHaveBeenCalledTimes(1));
+    expect(frameCallback).toBeTypeOf('function');
+
+    state.dispose();
+    await state.waitForIdle();
+
+    expect(cancelFrame).toHaveBeenCalledExactlyOnceWith(71);
+    expect(buildReport).not.toHaveBeenCalled();
+    requestFrame.mockRestore();
+    cancelFrame.mockRestore();
+  });
+
+  it('installs diagnosis task identity before a synchronous running render failure', async () => {
+    const state = createProductionStitchMaintenanceState();
+    const buildReport = vi.fn(() => 'should not run');
+    const renderFinal = vi.fn();
+    state.runDiagnosis({
+      buildReport,
+      isActive: () => true,
+      renderFinal,
+      renderRunning: () => {
+        throw new Error('synchronous running render failure');
+      }
+    });
+
+    await state.waitForIdle();
+
+    expect(state.getSnapshot().diagnosis).toEqual({ status: 'failure' });
+    expect(buildReport).not.toHaveBeenCalled();
+    expect(renderFinal).toHaveBeenCalledTimes(1);
+
+    const nextRenderRunning = vi.fn(() =>
+      Promise.resolve<{ status: 'cancelled' }>({ status: 'cancelled' })
+    );
+    state.runDiagnosis({
+      buildReport,
+      isActive: () => true,
+      renderFinal,
+      renderRunning: nextRenderRunning
+    });
+    await state.waitForIdle();
+    expect(nextRenderRunning).toHaveBeenCalledTimes(1);
+  });
+
+  it('cancels a never-settling running acknowledgement when Maintenance is disposed', async () => {
+    const held = deferred<{ status: 'rendered' }>();
+    const state = createProductionStitchMaintenanceState();
+    const buildReport = vi.fn(() => 'late report');
+    const renderFinal = vi.fn();
+    state.runDiagnosis({
+      buildReport,
+      isActive: () => true,
+      renderFinal,
+      renderRunning: () => held.promise
+    });
+
+    state.dispose();
+    await state.waitForIdle();
+
+    expect(buildReport).not.toHaveBeenCalled();
+    expect(renderFinal).not.toHaveBeenCalled();
+    expect(state.getSnapshot().diagnosis).toEqual({ status: 'running' });
+
+    held.resolve({ status: 'rendered' });
+    await Promise.resolve();
+    expect(buildReport).not.toHaveBeenCalled();
+    expect(renderFinal).not.toHaveBeenCalled();
+  });
+
+  it('clears a diagnosis paint task on dispose after the frame acknowledgement', async () => {
+    vi.useFakeTimers();
+    let frameCallback: FrameRequestCallback = () => undefined;
+    const requestFrame = vi
+      .spyOn(window, 'requestAnimationFrame')
+      .mockImplementation((callback: FrameRequestCallback) => {
+        frameCallback = callback;
+        return 72;
+      });
+    const cancelFrame = vi.spyOn(window, 'cancelAnimationFrame').mockImplementation(() => {});
+    const clearTimer = vi.spyOn(globalThis, 'clearTimeout');
+    const state = createProductionStitchMaintenanceState();
+    const buildReport = vi.fn(() => 'late report');
+    state.runDiagnosis({
+      buildReport,
+      isActive: () => true,
+      renderFinal: vi.fn(),
+      renderRunning: () => Promise.resolve({ status: 'rendered' })
+    });
+    await vi.waitFor(() => expect(requestFrame).toHaveBeenCalledTimes(1));
+    frameCallback(0);
+    expect(vi.getTimerCount()).toBe(1);
+
+    state.dispose();
+    await state.waitForIdle();
+
+    expect(clearTimer).toHaveBeenCalledTimes(1);
+    expect(buildReport).not.toHaveBeenCalled();
+    requestFrame.mockRestore();
+    cancelFrame.mockRestore();
+    clearTimer.mockRestore();
+    vi.useRealTimers();
+  });
+
+  it('settles acknowledgement failure even when its best-effort failure render throws', async () => {
+    const acknowledgementFailure = new Error('running render failed');
+    const state = createProductionStitchMaintenanceState();
+    const buildReport = vi.fn(() => 'should not run');
+    state.runDiagnosis({
+      buildReport,
+      isActive: () => true,
+      renderFinal: () => {
+        throw new Error('failure publication failed');
+      },
+      renderRunning: () => Promise.resolve({ status: 'failed', error: acknowledgementFailure })
+    });
+
+    await state.waitForIdle();
+
+    expect(state.getSnapshot().diagnosis).toEqual({ status: 'failure' });
+    expect(buildReport).not.toHaveBeenCalled();
   });
 
   it('suppresses late reload DOM and telemetry callbacks after cleanup', async () => {
@@ -181,7 +393,7 @@ describe('mountProductionStitchShell actions', () => {
       messagingRepository: messaging as never
     });
 
-    findButton('Reload').click();
+    findButton('🔄 Reload').click();
     expect(loadRaw).toHaveBeenCalledTimes(1);
     mounted.cleanup();
     pendingReload.reject(new Error('late reload failure'));
@@ -386,7 +598,7 @@ describe('mountProductionStitchShell actions', () => {
     writeText.mockRejectedValueOnce(new Error('clipboard denied'));
     copyButton.click();
     await flushPromises();
-    expect(document.body.textContent).toContain('Copy failed: Error: clipboard denied');
+    expect(document.body.textContent).toContain('The action could not be completed');
   });
 
   it('reports import failure without opening a file picker when clipboard import is unavailable', async () => {
@@ -417,9 +629,7 @@ describe('mountProductionStitchShell actions', () => {
     );
     expect(fileInput).toBeFalsy();
     expect(controller.applyImportedConfig).not.toHaveBeenCalled();
-    expect(document.body.textContent).toContain(
-      'Import failed: ConfigTransferError: CLIPBOARD_READ_UNAVAILABLE'
-    );
+    expect(document.body.textContent).toContain('The action could not be completed');
     expect(document.body.textContent).not.toContain('Imported config');
     expect(importButton.hasAttribute('aria-busy')).toBe(false);
   });
@@ -714,7 +924,7 @@ describe('mountProductionStitchShell actions', () => {
     findButton('Copy Configuration').click();
     await flushPromises();
 
-    expect(document.body.textContent).toContain('Copy failed');
+    expect(document.body.textContent).toContain('The action could not be completed');
     expect(document.body.textContent).not.toContain('Copied config');
   });
 
@@ -753,9 +963,7 @@ describe('mountProductionStitchShell actions', () => {
     });
 
     findButton('Diagnose Configuration').click();
-    await flushPromises();
-
-    expect(document.body.textContent).toContain('Missing API key sentinel');
+    await vi.waitFor(() => expect(document.body.textContent).toContain('Missing API key sentinel'));
     expect(document.body.textContent).toContain('Fragment clipping sentinel');
     expect(document.body.textContent).toContain('Context length sentinel 10');
     expect(document.body.textContent).toContain('Video diagnostics sentinel');
@@ -1510,7 +1718,7 @@ describe('mountProductionStitchShell actions', () => {
     await flushPromises();
 
     expect(applyAnalyticsTransferPayloadMock).not.toHaveBeenCalled();
-    expect(document.body.textContent).toContain('Import failed: Error: save failed');
+    expect(document.body.textContent).toContain('The action could not be completed');
     expect(document.body.textContent).not.toContain('Imported config');
     expect(messagingRepository.send).toHaveBeenCalledWith({
       type: 'ANALYTICS_EVENT',
@@ -1571,7 +1779,7 @@ describe('mountProductionStitchShell actions', () => {
         (root) => document.querySelector(`[data-panel-id="${root.dataset.panelId}"]`) !== root
       )
     ).toBe(true);
-    expect(document.body.textContent).toContain('Import failed: Error: analytics failed');
+    expect(document.body.textContent).toContain('The action could not be completed');
     expect(document.body.textContent).not.toContain('Imported config');
     expect(messagingRepository.send).toHaveBeenCalledWith({
       type: 'ANALYTICS_EVENT',
@@ -1638,7 +1846,7 @@ describe('mountProductionStitchShell actions', () => {
 
     findButton('Diagnose Configuration').click();
     expect(mounted.collectDraft().templates.article).toBe('Articles/Before.md');
-    expect(document.body.textContent).toContain('Articles/Before.md');
+    await vi.waitFor(() => expect(document.body.textContent).toContain('Articles/Before.md'));
     expect(document.body.textContent).not.toContain('Clippings/Before.md');
   });
 
@@ -1698,7 +1906,7 @@ describe('mountProductionStitchShell actions', () => {
 
     findButton('Diagnose Configuration').click();
     expect(mounted.collectDraft().templates.article).toBe('Clippings/Before.md');
-    expect(document.body.textContent).toContain('Clippings/Before.md');
+    await vi.waitFor(() => expect(document.body.textContent).toContain('Clippings/Before.md'));
     expect(document.body.textContent).not.toContain('Articles/Before.md');
   });
 });

@@ -26,7 +26,7 @@ export interface ProductionStitchActionContext {
   isActive(): boolean;
   setConnectionNotice(notice: PreviewContent['storage']['connectionNotice']): void;
   setLanguageResource(resource: { messages: Messages | null; language: Language }): void;
-  setMaintenanceLog(log: string): void;
+  runMaintenanceDiagnosis(buildReport: () => string): void;
   setState(state: PreviewStoreState): void;
   activateVaultLocalFolder(index: number): Promise<void>;
   applyConnectionNotice(result: ConnectionTestResult): void;
@@ -274,11 +274,9 @@ export function createProductionStitchActions(
       );
     },
     'maintenance:diagnose': () => {
-      ctx.setMaintenanceLog(
+      ctx.runMaintenanceDiagnosis(() =>
         buildDiagnosticsReport(ctx.collectDraftWithWidgets(), ctx.getMessages())
       );
-      ctx.refreshAppData();
-      ctx.render('maintenance');
     },
     'maintenance:importConfig': ({ value }) => {
       ctx.runPersistenceTask('options:import', () =>

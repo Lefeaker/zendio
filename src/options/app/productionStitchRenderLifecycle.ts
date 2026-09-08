@@ -21,6 +21,10 @@ import type {
   ProductionStitchRenderLifecycleOptions,
   ProductionStitchTestAssets
 } from './productionStitchRenderLifecycleTypes';
+import {
+  createProductionStitchMobileNavigation,
+  syncProductionNavigationActiveLinks
+} from './productionStitchMobileNavigation';
 
 export function createProductionStitchRenderLifecycle(
   options: ProductionStitchRenderLifecycleOptions
@@ -44,9 +48,11 @@ export function createProductionStitchRenderLifecycle(
     mountRoot,
     getState
   });
+  const mobileNavigation = createProductionStitchMobileNavigation(mountRoot);
   const folderDismissal = installLocalFolderDismissal(mountRoot, getState, setState, () =>
     render('storage')
   );
+  const syncActiveLinks = (): void => syncProductionNavigationActiveLinks(mountRoot, getState());
   const handlers: ProductionStitchSectionHandlers = {
     theme: controls.syncPreviewThemeControls,
     sidebar: syncActiveLinks,
@@ -118,6 +124,7 @@ export function createProductionStitchRenderLifecycle(
   }
 
   function renderAll(): void {
+    mobileNavigation.close({ restoreFocus: false });
     options.widgetHost.flushDirtyWidgets();
     options.widgetHost.destroyWidgets();
     clear(mountRoot).append(
@@ -127,6 +134,7 @@ export function createProductionStitchRenderLifecycle(
         panelStack: buildPanelStack({ el, items: options.getAppData().nav, renderSection })
       })
     );
+    mobileNavigation.bind(options.createSchemaContext());
     const main = mountRoot.querySelector<HTMLElement>('.main');
     if (main) bindScrollSync(main);
     renderUsageChart();
@@ -145,18 +153,19 @@ export function createProductionStitchRenderLifecycle(
     if (!panel) return render('all-invariant-recovery');
     panel.replaceWith(renderSection(panelId));
   }
-
   const render = (scopes: SectionInvalidationRequest): void => {
     invalidation.render(scopes);
   };
-
   function openResource(resourceId: string): void {
     if (RUNTIME_SURFACE_RESOURCE_IDS.has(resourceId)) return;
     const meta = getFooterMeta(resourceId);
     if (!meta) return;
     if (meta.openMode === 'page') {
       const href = resourceId === 'onboarding' ? '../onboarding/index.html' : meta.href;
+      options.setState({ ...getState(), activeResource: null });
       window.open(href ?? `./${resourceId}.html`, '_blank', 'noopener,noreferrer');
+      syncActiveLinks();
+      mobileNavigation.completePageResourceActivation();
       return;
     }
     options.setState({
@@ -164,12 +173,18 @@ export function createProductionStitchRenderLifecycle(
       activeResource: resourceId
     });
     renderActiveResourceModal();
+    mobileNavigation.completeModalResourceActivation();
   }
 
   function renderActiveResourceModal(): void {
+    const hadModal = Boolean(mountRoot.querySelector('.resource-modal-overlay'));
     mountRoot.querySelectorAll('.resource-modal-overlay').forEach((modal) => modal.remove());
     const state = getState();
-    if (!state.activeResource) return;
+    syncActiveLinks();
+    if (!state.activeResource) {
+      if (hadModal) mobileNavigation.restoreAfterModalClose();
+      return;
+    }
     const view = getFooterView(state.activeResource, options.createSchemaContext());
     const modal = view ? renderPreviewView(view, createRenderContext()) : null;
     const host = mountRoot.querySelector<HTMLElement>('[data-modal-host="true"]');
@@ -189,6 +204,7 @@ export function createProductionStitchRenderLifecycle(
       setScrollTopImmediately(main, top);
     }
     syncActiveLinks();
+    mobileNavigation.completeSectionActivation(panelId);
   }
 
   function bindScrollSync(main: HTMLElement): void {
@@ -217,25 +233,17 @@ export function createProductionStitchRenderLifecycle(
     );
   }
 
-  function syncActiveLinks(): void {
-    const state = getState();
-    mountRoot.querySelectorAll<HTMLElement>('[data-nav-panel]').forEach((button) => {
-      button.classList.toggle('is-active', button.dataset.navPanel === state.activePanel);
-    });
-    mountRoot.querySelectorAll<HTMLElement>('[data-footer-panel]').forEach((button) => {
-      button.classList.toggle('is-active', button.dataset.footerPanel === state.activeResource);
-    });
-  }
-
   return {
     applySystemThemePreferenceChange: controls.applySystemThemePreferenceChange,
     cleanup: () => {
       disposed = true;
       invalidation.dispose();
       folderDismissal.cleanup();
+      mobileNavigation.cleanup();
     },
     openResource,
     render,
+    renderAndWait: (scopes) => invalidation.renderAndWait(scopes),
     renderActiveResourceModal,
     scrollToPanel,
     syncHighlightThemeControls: controls.syncHighlightThemeControls,
