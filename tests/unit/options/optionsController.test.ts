@@ -345,9 +345,13 @@ describe('OptionsController', () => {
       autoSaveDebounceMs: 10
     });
     await controller.loadInitialState();
+    const rebase = vi.fn<(options: CompleteOptions, transition: MountedDraftRebase) => void>();
+    controller.bindMountedDraftRebase(rebase);
 
-    const temporaryDraft = mergeOptions({ fragmentClipper: { captureContext: false } });
-    const baselineDraft = mergeOptions({ fragmentClipper: { captureContext: true } });
+    const baselineValue = repositorySnapshot.fragmentClipper.captureContext;
+    const temporaryDraft = structuredClone(repositorySnapshot);
+    temporaryDraft.fragmentClipper.captureContext = !baselineValue;
+    const baselineDraft = structuredClone(repositorySnapshot);
 
     controller.scheduleAutoSave(() => temporaryDraft);
     await vi.advanceTimersByTimeAsync(10);
@@ -362,10 +366,14 @@ describe('OptionsController', () => {
     await vi.waitFor(() => {
       expect(saveMock).toHaveBeenCalledTimes(2);
     });
+    await controller.flushPendingAutoSave();
     expect(savedOptions.map((draft) => draft.fragmentClipper?.captureContext)).toEqual([
-      false,
-      true
+      !baselineValue,
+      baselineValue
     ]);
+    expect(controller.getSnapshot()?.fragmentClipper?.captureContext).toBe(baselineValue);
+    expect(rebase.mock.calls.at(-1)?.[0].fragmentClipper.captureContext).toBe(baselineValue);
+    expect(rebase.mock.calls.at(-1)?.[1].dirtyPathKeys).toEqual([]);
   });
 
   it('uses strict replacement for imported configuration', async () => {
