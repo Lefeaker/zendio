@@ -16,6 +16,11 @@ export type SectionInvalidationScope = (typeof SECTION_INVALIDATION_SCOPES)[numb
 export type SectionInvalidationRequest =
   | SectionInvalidationScope
   | readonly SectionInvalidationScope[];
+export type SectionInvalidationFailure = object | PropertyKey | boolean | bigint | null | undefined;
+export type SectionInvalidationAcknowledgement =
+  | { status: 'rendered' }
+  | { status: 'failed'; error: SectionInvalidationFailure }
+  | { status: 'cancelled' };
 
 interface SelectionSnapshot {
   anchorOffset: number;
@@ -40,6 +45,9 @@ export interface SectionInvalidationOwner {
   readonly active: boolean;
   dispose(): void;
   invalidate(request: SectionInvalidationRequest): void;
+  invalidateAndWait(
+    request: SectionInvalidationRequest
+  ): Promise<SectionInvalidationAcknowledgement>;
 }
 
 const VALID_SCOPES = new Set<string>(SECTION_INVALIDATION_SCOPES);
@@ -167,9 +175,22 @@ export function createSectionInvalidationOwner(options: {
 }): SectionInvalidationOwner {
   let active = true;
   let applying = false;
+  let batchGeneration = 0;
   const pending = new Set<SectionInvalidationScope>();
+  const waiters = new Set<{
+    minimumBatch: number;
+    resolve(result: SectionInvalidationAcknowledgement): void;
+  }>();
 
-  function invalidate(request: SectionInvalidationRequest): void {
+  function settle(result: SectionInvalidationAcknowledgement, generation = batchGeneration): void {
+    waiters.forEach((waiter) => {
+      if (result.status === 'rendered' && generation < waiter.minimumBatch) return;
+      waiters.delete(waiter);
+      waiter.resolve(result);
+    });
+  }
+
+  function apply(request: SectionInvalidationRequest, throwFailure: boolean): void {
     if (!active) return;
     normalizeRequest(request).forEach((scope) => {
       if (scope === 'all-invariant-recovery') pending.clear();
@@ -179,6 +200,7 @@ export function createSectionInvalidationOwner(options: {
     applying = true;
     try {
       while (active && pending.size) {
+        const generation = ++batchGeneration;
         const scopes = new Set(pending);
         pending.clear();
         const snapshot = options.capture?.();
@@ -190,10 +212,12 @@ export function createSectionInvalidationOwner(options: {
           scopes.forEach((scope) => options.handlers[scope]?.());
         }
         if (snapshot) options.restore?.(snapshot);
+        settle({ status: 'rendered' }, generation);
       }
     } catch (error) {
       pending.clear();
-      throw error;
+      settle({ status: 'failed', error: error as SectionInvalidationFailure });
+      if (throwFailure) throw error;
     } finally {
       applying = false;
     }
@@ -206,7 +230,19 @@ export function createSectionInvalidationOwner(options: {
     dispose() {
       active = false;
       pending.clear();
+      settle({ status: 'cancelled' });
     },
-    invalidate
+    invalidate: (request) => apply(request, true),
+    invalidateAndWait(request) {
+      if (!active) return Promise.resolve({ status: 'cancelled' });
+      const scopes = normalizeRequest(request);
+      return new Promise((resolve) => {
+        waiters.add({
+          minimumBatch: batchGeneration + 1,
+          resolve
+        });
+        apply(scopes, false);
+      });
+    }
   };
 }

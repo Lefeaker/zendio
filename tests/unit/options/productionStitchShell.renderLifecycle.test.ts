@@ -91,6 +91,100 @@ describe('mountProductionStitchShell renderLifecycle', () => {
     expect(typeof mounted.setMessages).toBe('function');
   });
 
+  it('reuses the sole sidebar as an accessible mobile drawer across routes and rerenders', async () => {
+    const mobileListeners = new Set<() => void>();
+    const mobileMedia = {
+      matches: true,
+      addEventListener: vi.fn((_type: string, listener: () => void) =>
+        mobileListeners.add(listener)
+      ),
+      removeEventListener: vi.fn((_type: string, listener: () => void) =>
+        mobileListeners.delete(listener)
+      )
+    };
+    const themeMedia = {
+      matches: false,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn()
+    };
+    vi.mocked(window.matchMedia).mockImplementation((query) =>
+      query === '(max-width: 760px)' ? (mobileMedia as never) : (themeMedia as never)
+    );
+    const mounted = mountProductionStitchShell({
+      controller: asOptionsController(createController()),
+      initialOptions: null,
+      messages: null,
+      language: 'en'
+    });
+
+    expect(document.querySelectorAll('.sidebar')).toHaveLength(1);
+    const trigger = queryRequired<HTMLButtonElement>('[data-mobile-navigation-trigger]');
+    const sidebar = queryRequired<HTMLElement>('#options-settings-navigation');
+    expect(trigger.getAttribute('aria-expanded')).toBe('false');
+    expect(sidebar.hasAttribute('inert')).toBe(true);
+
+    trigger.click();
+    expect(trigger.getAttribute('aria-expanded')).toBe('true');
+    expect(document.activeElement).toBe(
+      queryRequired<HTMLButtonElement>('[data-nav-panel="overview"]')
+    );
+    const close = queryRequired<HTMLButtonElement>('[data-mobile-navigation-close]');
+    close.focus();
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Tab', shiftKey: true }));
+    expect(document.activeElement).toBe(
+      Array.from(sidebar.querySelectorAll<HTMLElement>('button')).at(-1)
+    );
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+    expect(document.activeElement).toBe(trigger);
+    trigger.click();
+    queryRequired<HTMLButtonElement>('[data-mobile-navigation-backdrop]').click();
+    expect(document.activeElement).toBe(trigger);
+
+    trigger.click();
+    queryRequired<HTMLButtonElement>('[data-nav-panel="storage"]').click();
+    expect(document.activeElement).toBe(queryRequired<HTMLElement>('[data-panel-id="storage"] h1'));
+    expect(trigger.getAttribute('aria-expanded')).toBe('false');
+
+    trigger.click();
+    queryRequired<HTMLButtonElement>('[data-footer-panel="support"]').click();
+    const dialog = queryRequired<HTMLElement>('.resource-modal-overlay [role="dialog"]');
+    expect(document.activeElement).toBe(dialog);
+    queryRequired<HTMLElement>('.resource-modal-overlay').click();
+    expect(document.activeElement).toBe(trigger);
+
+    mounted.setMessages(
+      {
+        ...DEFAULT_RUNTIME_MESSAGES,
+        settingsTitle: '设置',
+        contactModalCloseButton: '关闭'
+      },
+      'zh-CN'
+    );
+    expect(document.querySelectorAll('.sidebar')).toHaveLength(1);
+    await vi.waitFor(() =>
+      expect(queryRequired<HTMLButtonElement>('[data-mobile-navigation-trigger]').textContent).toBe(
+        '设置'
+      )
+    );
+
+    const localizedTrigger = queryRequired<HTMLButtonElement>('[data-mobile-navigation-trigger]');
+    localizedTrigger.click();
+    const localizedActive = queryRequired<HTMLButtonElement>('[data-nav-panel="storage"]');
+    expect(document.activeElement).toBe(localizedActive);
+    mobileMedia.matches = false;
+    mobileListeners.forEach((listener) => listener());
+    expect(queryRequired<HTMLElement>('.sidebar').hasAttribute('inert')).toBe(false);
+    expect(document.activeElement).toBe(localizedActive);
+    expect(document.body.style.overflow).toBe('');
+    mobileMedia.matches = true;
+    mobileListeners.forEach((listener) => listener());
+    expect(document.activeElement).toBe(localizedTrigger);
+
+    mounted.cleanup();
+    expect(mobileMedia.removeEventListener).toHaveBeenCalled();
+    await flushPromises();
+  });
+
   it('resolves production shell image assets through the injected resolver', () => {
     const controller = createController();
     mountProductionStitchShell({
@@ -1614,6 +1708,70 @@ describe('production invalidation owner pending lifecycle', () => {
     expect(load.create).not.toHaveBeenCalled();
   });
 
+  it('keeps an acknowledged pending render unsettled until the real lazy replay completes', async () => {
+    const load = await holdOwnerImport();
+    const maintenance = vi.fn();
+    const bridge = createProductionStitchInvalidationBridge({
+      handlers: { maintenance },
+      isActive: () => true,
+      mountRoot: document.body
+    });
+    await load.requested;
+    let settled = false;
+    const acknowledgement = bridge.renderAndWait('maintenance').then((result) => {
+      settled = true;
+      return result;
+    });
+    await flushPromises();
+    expect(settled).toBe(false);
+    expect(maintenance).not.toHaveBeenCalled();
+
+    await load.resolve();
+
+    await expect(acknowledgement).resolves.toEqual({ status: 'rendered' });
+    expect(maintenance).toHaveBeenCalledTimes(1);
+    bridge.dispose();
+  });
+
+  it('returns a successful-import replay failure to the acknowledged caller', async () => {
+    const load = await holdOwnerImport();
+    const failure = new Error('acknowledged replay failed');
+    const bridge = createProductionStitchInvalidationBridge({
+      handlers: {
+        maintenance: () => {
+          throw failure;
+        }
+      },
+      isActive: () => true,
+      mountRoot: document.body
+    });
+    await load.requested;
+    const acknowledgement = bridge.renderAndWait('maintenance');
+
+    await load.resolve();
+
+    await expect(acknowledgement).resolves.toEqual({ status: 'failed', error: failure });
+    bridge.dispose();
+  });
+
+  it('cancels an acknowledged pending render when the bridge is disposed', async () => {
+    const load = await holdOwnerImport();
+    const maintenance = vi.fn();
+    const bridge = createProductionStitchInvalidationBridge({
+      handlers: { maintenance },
+      isActive: () => true,
+      mountRoot: document.body
+    });
+    await load.requested;
+    const acknowledgement = bridge.renderAndWait('maintenance');
+
+    bridge.dispose();
+
+    await expect(acknowledgement).resolves.toEqual({ status: 'cancelled' });
+    await load.resolve();
+    expect(maintenance).not.toHaveBeenCalled();
+  });
+
   it('recovers once on import rejection without executing pending scopes again', async () => {
     const load = await holdOwnerImport();
     const output = vi.fn();
@@ -1632,6 +1790,55 @@ describe('production invalidation owner pending lifecycle', () => {
     bridge.render('output');
     expect(recovery).toHaveBeenCalledTimes(2);
     expect(output).not.toHaveBeenCalled();
+    bridge.dispose();
+  });
+
+  it('settles pending and later acknowledged calls through the permanent fallback', async () => {
+    const load = await holdOwnerImport();
+    const laterFailure = new Error('later fallback failed');
+    let fail = false;
+    const recovery = vi.fn(() => {
+      if (fail) throw laterFailure;
+    });
+    const bridge = createProductionStitchInvalidationBridge({
+      handlers: { maintenance: vi.fn(), 'all-invariant-recovery': recovery },
+      isActive: () => true,
+      mountRoot: document.body
+    });
+    await load.requested;
+    const pending = bridge.renderAndWait('maintenance');
+    await load.reject();
+    await expect(pending).resolves.toEqual({ status: 'rendered' });
+
+    fail = true;
+    await expect(bridge.renderAndWait('maintenance')).resolves.toEqual({
+      status: 'failed',
+      error: laterFailure
+    });
+    expect(recovery).toHaveBeenCalledTimes(2);
+    bridge.dispose();
+    await expect(bridge.renderAndWait('maintenance')).resolves.toEqual({ status: 'cancelled' });
+    expect(recovery).toHaveBeenCalledTimes(2);
+  });
+
+  it('acknowledges a pending maintenance request after dominating locale replacement', async () => {
+    const load = await holdOwnerImport();
+    const maintenance = vi.fn();
+    const locale = vi.fn();
+    const bridge = createProductionStitchInvalidationBridge({
+      handlers: { maintenance, 'locale-schema': locale },
+      isActive: () => true,
+      mountRoot: document.body
+    });
+    await load.requested;
+    const acknowledgement = bridge.renderAndWait('maintenance');
+    bridge.render('locale-schema');
+
+    await load.resolve();
+
+    await expect(acknowledgement).resolves.toEqual({ status: 'rendered' });
+    expect(locale).toHaveBeenCalledTimes(1);
+    expect(maintenance).not.toHaveBeenCalled();
     bridge.dispose();
   });
 

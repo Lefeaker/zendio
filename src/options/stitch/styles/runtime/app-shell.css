@@ -112,6 +112,29 @@
   overflow-y: auto;
 }
 
+.mobile-navigation-trigger,
+.mobile-navigation-close,
+.mobile-navigation-backdrop {
+  display: none;
+}
+
+.mobile-navigation-trigger,
+.mobile-navigation-close {
+  border: var(--border-default);
+  border-radius: var(--radius-md);
+  background: var(--panel);
+  color: var(--text);
+  font: inherit;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.mobile-navigation-trigger:focus-visible,
+.mobile-navigation-close:focus-visible {
+  outline: 0;
+  box-shadow: var(--shadow-focus);
+}
+
 .shell {
   margin-left: var(--shell-sidebar-width);
   min-width: 0;
@@ -275,6 +298,7 @@
   cursor: pointer;
   font-size: var(--font-size-xs);
   line-height: var(--line-height-snug);
+  overflow-wrap: anywhere;
 }
 
 .footer-link:hover {

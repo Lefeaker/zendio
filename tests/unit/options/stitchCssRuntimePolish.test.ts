@@ -352,7 +352,7 @@ describe('Stitch runtime polish CSS contracts', () => {
     );
   });
 
-  it('keeps the Options sidebar adaptive instead of turning it into a stacked mobile block', () => {
+  it('keeps one adaptive Options sidebar and presents it off-canvas on mobile', () => {
     expect(stitchCss).toContain('--shell-sidebar-width: var(--sidebar-width);');
     expect(stitchCss).toMatch(
       /\.sidebar\s*{[^}]*width:\s*var\(--shell-sidebar-width\);[^}]*display:\s*flex;[^}]*flex-direction:\s*column;/
@@ -370,8 +370,11 @@ describe('Stitch runtime polish CSS contracts', () => {
       /@media\s*\(max-width:\s*980px\)\s*{[^}]*:root\s*{[^}]*--shell-sidebar-width:\s*var\(--sidebar-narrow-width\);/
     );
     expect(stitchCss).toMatch(
-      /@media\s*\(max-width:\s*760px\)\s*{[\s\S]*?\.sidebar\s*{[^}]*display:\s*none;/
+      /@media\s*\(max-width:\s*760px\)\s*{[\s\S]*?\.sidebar\s*{[^}]*display:\s*flex;[^}]*transform:\s*translateX\(-100%\);/
     );
+    expect(stitchCss).toMatch(/\.sidebar\.is-mobile-open\s*{[^}]*transform:\s*translateX\(0\);/);
+    expect(stitchCss).toContain('.mobile-navigation-trigger');
+    expect(stitchCss).toContain('.mobile-navigation-backdrop.is-visible');
     expect(stitchCss).not.toMatch(
       /@media\s*\(max-width:\s*980px\)[\s\S]*?\.sidebar\s*{[^}]*position:\s*static;/
     );

@@ -16,6 +16,7 @@ import {
   createProductionContent
 } from '@options/app/productionStitchStateMapper';
 import { createProductionStitchShellActionRuntime } from '@options/app/productionStitchShellActionRuntime';
+import { createProductionStitchMaintenanceState } from '@options/app/productionStitchMaintenanceState';
 import { previewContent as stitchPreviewContent } from '@options/stitch/content';
 import type { CompleteOptions, StoredOptions } from '@shared/types/options';
 import { ensureWindowLocalStorage } from '../../utils/localStorage';
@@ -223,6 +224,7 @@ export function createActionRuntimeHarness(
   let draft = mergeOptions(null) as CompleteOptions;
   let appData = createProductionContent(stitchPreviewContent, draft);
   let state = applyOptionsToState(createInitialStitchState(appData), draft, appData);
+  const maintenance = createProductionStitchMaintenanceState();
   const trackUsageEventMock = vi.fn(() => Promise.resolve(undefined));
   const scrollToPanelMock = vi.fn();
   const openResourceMock = vi.fn();
@@ -258,15 +260,17 @@ export function createActionRuntimeHarness(
     setLanguageResource: ({ language }) => {
       state = { ...state, previewLanguage: language };
     },
-    setMaintenanceLog: vi.fn(),
+    disposeMaintenance: maintenance.dispose,
+    runMaintenanceDiagnosis: maintenance.runDiagnosis,
+    setMaintenanceActionNotice: maintenance.setActionNotice,
     setState: (nextState) => {
       state = nextState;
     },
-    createSchemaContext: () => ({
-      appData,
-      language: state.previewLanguage,
-      state
-    }),
+    waitForMaintenanceIdle: maintenance.waitForIdle,
+    createSchemaContext: () => {
+      maintenance.bind(appData);
+      return { appData, language: state.previewLanguage, state };
+    },
     mutate: (mutator) => {
       mutator(state);
     },
@@ -280,6 +284,7 @@ export function createActionRuntimeHarness(
       state = applyOptionsToState(state, draft, appData);
     },
     render: vi.fn(),
+    renderAndWait: vi.fn(() => Promise.resolve({ status: 'rendered' as const })),
     renderActiveResourceModal: vi.fn(),
     scheduleDraftSave: vi.fn(),
     scrollToPanel: scrollToPanelMock,

@@ -8,6 +8,7 @@ import type { PreviewContent, PreviewStoreState } from '@options/stitch/types';
 import type { SectionInvalidationRequest } from '@ui/stitch-runtime/render/sectionInvalidation';
 import type { OptionsController } from './optionsController';
 import type { UsageStatsClientLike } from './usage-dashboard/usageStatsClient';
+import type { ProductionMaintenanceActionNotice } from './productionStitchMaintenanceState';
 
 export type PrivacyPreferenceField = 'analytics' | 'errorReporting' | 'debugMode';
 
@@ -24,7 +25,7 @@ export interface ProductionStitchPersistenceOptions {
   isActive(): boolean;
   installImportedOptions(options: CompleteOptions): void;
   setAppData(appData: PreviewContent): void;
-  setMaintenanceLog(log: string): void;
+  setMaintenanceActionNotice(notice: ProductionMaintenanceActionNotice): void;
   collectDraftWithWidgets(): CompleteOptions;
   refreshAppData(): void;
   render(scopes: SectionInvalidationRequest): void;

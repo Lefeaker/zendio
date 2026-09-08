@@ -6,7 +6,10 @@ import type {
   ViewSchema
 } from '@options/stitch/types';
 import type { ProductionStitchAssetUrlResolver } from './productionStitchAssetUrlResolver';
-import type { SectionInvalidationRequest } from '@ui/stitch-runtime/render/sectionInvalidation';
+import type {
+  SectionInvalidationAcknowledgement,
+  SectionInvalidationRequest
+} from '@ui/stitch-runtime/render/sectionInvalidation';
 
 export interface ProductionStitchRenderWidgetHost {
   createWidgetFactory(widgetType: string): unknown;
@@ -40,6 +43,9 @@ export interface ProductionStitchRenderLifecycle {
   cleanup: () => void;
   openResource: (resourceId: string) => void;
   render: (scopes: SectionInvalidationRequest) => void;
+  renderAndWait: (
+    scopes: SectionInvalidationRequest
+  ) => Promise<SectionInvalidationAcknowledgement>;
   renderActiveResourceModal: () => void;
   scrollToPanel: (panelId: string) => void;
   syncHighlightThemeControls: () => void;

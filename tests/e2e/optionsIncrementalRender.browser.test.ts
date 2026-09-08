@@ -41,6 +41,7 @@ type OrderedAutosaveProbe = {
 type B07GlobalThis = typeof global &
   Window & {
     __zendioB07OrderedAutosaveProbe?: OrderedAutosaveProbe;
+    __zendioSawConnectedRunningDiagnosis?: boolean;
   };
 declare const globalThis: B07GlobalThis;
 
@@ -92,7 +93,7 @@ function optionsUrl(): string {
 }
 
 function sectionInvalidationChunkUrl(): string {
-  const directory = 'build/dist/chunks';
+  const directory = join(extensionPath, 'chunks');
   const file = readdirSync(directory)
     .filter((name) => /^sectionInvalidation-[A-Z0-9]+\.js$/u.test(name))
     .sort(
@@ -102,6 +103,32 @@ function sectionInvalidationChunkUrl(): string {
     .at(-1);
   if (!file) throw new Error('Missing built sectionInvalidation chunk.');
   return `/chunks/${file}`;
+}
+
+async function armMaintenanceRunningProbe(page: Page): Promise<void> {
+  await page.evaluate(() => {
+    globalThis.__zendioSawConnectedRunningDiagnosis = false;
+    const observer = new MutationObserver(() => {
+      const button = document.querySelector<HTMLButtonElement>(
+        '[data-panel-id="maintenance"] [data-action-id="maintenance:diagnose"]'
+      );
+      if (
+        button?.isConnected &&
+        button.disabled &&
+        document
+          .querySelector('[data-panel-id="maintenance"]')
+          ?.textContent?.includes('Running diagnostics')
+      ) {
+        globalThis.__zendioSawConnectedRunningDiagnosis = true;
+        observer.disconnect();
+      }
+    });
+    observer.observe(document.body, { childList: true, subtree: true });
+  });
+}
+
+async function sawConnectedRunningDiagnosis(page: Page): Promise<boolean> {
+  return page.evaluate(() => globalThis.__zendioSawConnectedRunningDiagnosis === true);
 }
 
 test('Options invalidates owned sections while preserving unrelated browser state', async ({
@@ -811,6 +838,198 @@ test('Options hands pending edits off across immediate reload and close', async 
     await expect.poll(() => readDurableCaptureContext(optionsPage)).toBe(false);
   } finally {
     await context.close();
+  }
+});
+
+test('F05 exposes installed maintenance idle, running, success, failure, and rerun states', async () => {
+  const userDataDir = await mkdtemp(join(tmpdir(), 'zendio-f05-maintenance-'));
+  const context = await chromium.launchPersistentContext(userDataDir, {
+    headless: false,
+    args: [
+      '--headless=new',
+      `--disable-extensions-except=${extensionPath}`,
+      `--load-extension=${extensionPath}`
+    ]
+  });
+
+  try {
+    const background =
+      context.serviceWorkers()[0] ??
+      (await context.waitForEvent('serviceworker', { timeout: 15_000 }));
+    const extensionId = background.url().split('/')[2];
+    if (!extensionId) throw new Error('Unable to resolve extension id.');
+    const optionsPage = await context.newPage();
+    await optionsPage.goto(`chrome-extension://${extensionId}/options/index.html`, {
+      waitUntil: 'domcontentloaded'
+    });
+    const maintenance = optionsPage.locator('[data-panel-id="maintenance"]');
+    const diagnose = maintenance.locator('[data-action-id="maintenance:diagnose"]');
+
+    await expect(maintenance).toContainText('Diagnostics have not run yet.');
+    await expect(maintenance).not.toContainText('is healthy');
+    await armMaintenanceRunningProbe(optionsPage);
+    await diagnose.click();
+    await expect.poll(() => sawConnectedRunningDiagnosis(optionsPage)).toBe(true);
+    await expect(maintenance).toContainText('Diagnosis Results');
+    await expect(diagnose).toBeEnabled();
+
+    await optionsPage.evaluate(() => {
+      const stringify = JSON.stringify;
+      JSON.stringify = function (value, replacer, space) {
+        if (
+          space === 2 &&
+          typeof value === 'object' &&
+          value !== null &&
+          'rest' in value &&
+          'templates' in value
+        ) {
+          JSON.stringify = stringify;
+          throw new Error('controlled installed diagnostics failure');
+        }
+        if (Array.isArray(replacer) || replacer === null || replacer === undefined) {
+          return stringify(value, replacer, space);
+        }
+        return stringify(value, replacer, space);
+      };
+    });
+    await armMaintenanceRunningProbe(optionsPage);
+    await diagnose.click();
+    await expect.poll(() => sawConnectedRunningDiagnosis(optionsPage)).toBe(true);
+    await expect(maintenance).toContainText('Diagnostics failed');
+    await expect(maintenance).not.toContainText('Diagnosis Results');
+
+    await armMaintenanceRunningProbe(optionsPage);
+    await diagnose.click();
+    await expect.poll(() => sawConnectedRunningDiagnosis(optionsPage)).toBe(true);
+    await expect(maintenance).toContainText('Diagnosis Results');
+    await expect(diagnose).toBeEnabled();
+  } finally {
+    await context.close();
+    await rm(userDataDir, { recursive: true, force: true });
+  }
+});
+
+test('F06 keeps every settings and resource route accessible through one installed mobile sidebar', async () => {
+  const userDataDir = await mkdtemp(join(tmpdir(), 'zendio-f06-mobile-navigation-'));
+  const context = await chromium.launchPersistentContext(userDataDir, {
+    headless: false,
+    args: [
+      '--headless=new',
+      `--disable-extensions-except=${extensionPath}`,
+      `--load-extension=${extensionPath}`
+    ]
+  });
+
+  try {
+    const background =
+      context.serviceWorkers()[0] ??
+      (await context.waitForEvent('serviceworker', { timeout: 15_000 }));
+    const extensionId = background.url().split('/')[2];
+    if (!extensionId) throw new Error('Unable to resolve extension id.');
+    const optionsPage = await context.newPage();
+    await optionsPage.setViewportSize({ width: 390, height: 844 });
+    await optionsPage.goto(`chrome-extension://${extensionId}/options/index.html`, {
+      waitUntil: 'domcontentloaded'
+    });
+
+    const trigger = optionsPage.locator('[data-mobile-navigation-trigger]');
+    const sidebar = optionsPage.locator('#options-settings-navigation');
+    await expect(optionsPage.locator('.sidebar')).toHaveCount(1);
+    await expect(trigger).toBeVisible();
+    await expect(trigger).toHaveAttribute('aria-expanded', 'false');
+    await expect(sidebar).toHaveAttribute('inert', '');
+    await expect(optionsPage.locator('[data-nav-panel="overview"]')).toHaveAttribute(
+      'aria-current',
+      'page'
+    );
+    await expect(optionsPage.locator('[data-nav-panel][aria-current="page"]')).toHaveCount(1);
+    await expect(optionsPage.locator('[data-footer-panel][aria-current="page"]')).toHaveCount(0);
+
+    await trigger.focus();
+    await trigger.press('Enter');
+    await expect(trigger).toHaveAttribute('aria-expanded', 'true');
+    await expect(optionsPage.locator('[data-nav-panel="overview"]')).toBeFocused();
+    await optionsPage.keyboard.press('Escape');
+    await expect(trigger).toBeFocused();
+    await trigger.click();
+    await optionsPage.locator('[data-mobile-navigation-close]').focus();
+    await optionsPage.keyboard.press('Shift+Tab');
+    await expect(optionsPage.locator('[data-footer-panel="changelog"]')).toBeFocused();
+    await optionsPage.locator('[data-mobile-navigation-backdrop]').click();
+    await expect(trigger).toBeFocused();
+
+    for (const panelId of [
+      'overview',
+      'storage',
+      'capture-sources',
+      'capture-behavior',
+      'output',
+      'maintenance'
+    ]) {
+      await trigger.click();
+      await optionsPage.locator(`[data-nav-panel="${panelId}"]`).click();
+      await expect(optionsPage.locator(`[data-nav-panel="${panelId}"]`)).toHaveClass(/is-active/u);
+      await expect(optionsPage.locator(`[data-nav-panel="${panelId}"]`)).toHaveAttribute(
+        'aria-current',
+        'page'
+      );
+      await expect(optionsPage.locator('[data-nav-panel][aria-current="page"]')).toHaveCount(1);
+      await expect(optionsPage.locator(`[data-panel-id="${panelId}"] h1`)).toBeFocused();
+    }
+
+    for (const resourceId of ['support', 'suggestions', 'contact', 'changelog']) {
+      await trigger.click();
+      const resource = optionsPage.locator(`[data-footer-panel="${resourceId}"]`);
+      await resource.click();
+      await expect(resource).toHaveAttribute('aria-current', 'page');
+      await expect(optionsPage.locator('[data-footer-panel][aria-current="page"]')).toHaveCount(1);
+      await expect(
+        optionsPage.locator('.resource-modal-overlay > .resource-modal[role="dialog"]')
+      ).toBeFocused();
+      await optionsPage.locator('.resource-modal-overlay').click({ position: { x: 4, y: 4 } });
+      await expect(optionsPage.locator('[data-footer-panel][aria-current="page"]')).toHaveCount(0);
+      await expect(trigger).toBeFocused();
+    }
+
+    const newPage = context.waitForEvent('page');
+    await trigger.click();
+    await optionsPage.locator('[data-footer-panel="onboarding"]').click();
+    const onboardingPage = await newPage;
+    await onboardingPage.waitForLoadState('domcontentloaded');
+    expect(onboardingPage.url()).toContain('/onboarding/index.html');
+    await expect(optionsPage.locator('[data-footer-panel="onboarding"]')).not.toHaveAttribute(
+      'aria-current',
+      'page'
+    );
+    await expect(optionsPage.locator('[data-footer-panel][aria-current="page"]')).toHaveCount(0);
+    await onboardingPage.close();
+
+    const languageSelect = optionsPage.locator(
+      '[data-panel-id="overview"] .interface-theme-grid select'
+    );
+    await languageSelect.selectOption('zh-CN');
+    await expect(optionsPage.locator('[data-mobile-navigation-trigger]')).toHaveText('设置');
+    await expect(optionsPage.locator('.sidebar')).toHaveCount(1);
+
+    await optionsPage.setViewportSize({ width: 1024, height: 768 });
+    await expect(sidebar).not.toHaveAttribute('inert', '');
+    await expect(trigger).toBeHidden();
+    await optionsPage.setViewportSize({ width: 320, height: 844 });
+    await expect(optionsPage.locator('[data-mobile-navigation-trigger]')).toBeVisible();
+    await expect(optionsPage.locator('#options-settings-navigation')).toHaveAttribute('inert', '');
+    await expect
+      .poll(() =>
+        optionsPage.evaluate(() => ({
+          documentFits: document.documentElement.scrollWidth <= window.innerWidth,
+          sidebarFits:
+            (document.querySelector<HTMLElement>('.sidebar')?.scrollWidth ?? 1) <=
+            (document.querySelector<HTMLElement>('.sidebar')?.clientWidth ?? 0)
+        }))
+      )
+      .toEqual({ documentFits: true, sidebarFits: true });
+  } finally {
+    await context.close();
+    await rm(userDataDir, { recursive: true, force: true });
   }
 });
 

@@ -9,6 +9,7 @@ import { createProductionStitchWidgetHost } from './productionStitchWidgetHost';
 import { mergePartialIntoDraft } from './productionStitchShellState';
 import type { UsageStatsClientLike } from './usage-dashboard/usageStatsClient';
 import type { SectionInvalidationRequest } from '@ui/stitch-runtime/render/sectionInvalidation';
+import type { ProductionMaintenanceActionNotice } from './productionStitchMaintenanceState';
 const { createProductionStitchPersistence } = await import('./productionStitchPersistence');
 
 interface ProductionStitchShellRuntimeServicesOptions {
@@ -27,7 +28,7 @@ interface ProductionStitchShellRuntimeServicesOptions {
   setAppData: (appData: PreviewContent) => void;
   setConnectionNotice: (notice: PreviewContent['storage']['connectionNotice']) => void;
   setDomainMappingRows: (entries: Array<[string, string]>) => void;
-  setMaintenanceLog: (log: PreviewContent['maintenanceLog']) => void;
+  setMaintenanceActionNotice: (notice: ProductionMaintenanceActionNotice) => void;
   getConnectionNotice: () => PreviewContent['storage']['connectionNotice'] | undefined;
   refreshAppData: () => void;
   render: (scopes: SectionInvalidationRequest) => void;
@@ -79,7 +80,7 @@ export function createProductionStitchShellRuntimeServices(
       widgetHost.resetDirty();
     },
     setAppData: options.setAppData,
-    setMaintenanceLog: options.setMaintenanceLog,
+    setMaintenanceActionNotice: options.setMaintenanceActionNotice,
     collectDraftWithWidgets: () => widgetHost.collectDraftWithWidgets(),
     refreshAppData: options.refreshAppData,
     render: options.render,

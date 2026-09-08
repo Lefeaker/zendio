@@ -12,6 +12,8 @@ import type { ProductionStitchWidgetHost } from './productionStitchWidgetHost';
 import type { ProductionStitchRenderLifecycle } from './productionStitchRenderLifecycleTypes';
 import type { ProductionStitchAssetUrlResolver } from './productionStitchAssetUrlResolver';
 import type {
+  SectionInvalidationAcknowledgement,
+  SectionInvalidationFailure,
   SectionInvalidationOwner,
   SectionInvalidationRequest,
   SectionInvalidationScope
@@ -23,12 +25,46 @@ export function createProductionStitchInvalidationBridge(options: {
   handlers: ProductionStitchSectionHandlers;
   isActive(): boolean;
   mountRoot: HTMLElement;
-}): { dispose(): void; render(scopes: SectionInvalidationRequest): void } {
+}): {
+  dispose(): void;
+  render(scopes: SectionInvalidationRequest): void;
+  renderAndWait(scopes: SectionInvalidationRequest): Promise<SectionInvalidationAcknowledgement>;
+} {
   let disposed = false;
   let unavailable = false;
   let initialRequest = true;
+  let pendingFireAndForget = false;
   let owner: SectionInvalidationOwner | null = null;
   const pending = new Set<SectionInvalidationScope>();
+  const waiters = new Set<(result: SectionInvalidationAcknowledgement) => void>();
+
+  function validate(scopes: SectionInvalidationRequest): SectionInvalidationScope[] {
+    const requested = typeof scopes === 'string' ? [scopes] : [...scopes];
+    if (!requested.length) throw new Error('SECTION_INVALIDATION_SCOPE_REQUIRED');
+    requested.forEach((scope) => {
+      if (!options.handlers[scope]) throw new Error(`UNKNOWN_SECTION_INVALIDATION_SCOPE:${scope}`);
+    });
+    return requested;
+  }
+
+  function settlePending(result: SectionInvalidationAcknowledgement): void {
+    waiters.forEach((resolve) => resolve(result));
+    waiters.clear();
+  }
+
+  function fallback(): SectionInvalidationAcknowledgement {
+    try {
+      options.handlers['all-invariant-recovery']?.();
+      return disposed || !options.isActive() ? { status: 'cancelled' } : { status: 'rendered' };
+    } catch (error) {
+      return { status: 'failed', error: error as SectionInvalidationFailure };
+    }
+  }
+
+  function queue(requested: readonly SectionInvalidationScope[]): void {
+    requested.forEach((scope) => pending.add(scope));
+  }
+
   void import('@ui/stitch-runtime/render/sectionInvalidation')
     .then(
       (module) => {
@@ -41,17 +77,31 @@ export function createProductionStitchInvalidationBridge(options: {
         // The canonical owner owns dominance, capture/restore and reentrant error cleanup.
         const requested = [...pending];
         pending.clear();
-        if (options.isActive() && requested.length) owner.invalidate(requested);
+        const reportFailure = pendingFireAndForget;
+        pendingFireAndForget = false;
+        if (!options.isActive()) return settlePending({ status: 'cancelled' });
+        if (!requested.length) return;
+        void owner.invalidateAndWait(requested).then((result) => {
+          settlePending(result);
+          if (reportFailure && result.status === 'failed')
+            console.error('[ProductionStitchShell:section-invalidation]', result.error);
+        });
       },
       () => {
         pending.clear();
         unavailable = true;
-        if (!disposed && options.isActive()) options.handlers['all-invariant-recovery']?.();
+        const reportFailure = pendingFireAndForget;
+        pendingFireAndForget = false;
+        if (disposed || !options.isActive()) return settlePending({ status: 'cancelled' });
+        const result = fallback();
+        settlePending(result);
+        if (reportFailure && result.status === 'failed') throw result.error;
       }
     )
     .catch((error: unknown) => {
       // Async replay has no render caller to receive an exception. Report it without retrying;
       // a successful import must never be reclassified as an unavailable owner.
+      settlePending({ status: 'failed', error: error as SectionInvalidationFailure });
       console.error('[ProductionStitchShell:section-invalidation]', error);
     });
 
@@ -59,17 +109,13 @@ export function createProductionStitchInvalidationBridge(options: {
     dispose() {
       disposed = true;
       pending.clear();
+      pendingFireAndForget = false;
+      settlePending({ status: 'cancelled' });
       owner?.dispose();
     },
     render(scopes) {
       if (disposed || !options.isActive()) return;
-      const requested: SectionInvalidationScope[] =
-        typeof scopes === 'string' ? [scopes] : [...scopes];
-      if (!requested.length) throw new Error('SECTION_INVALIDATION_SCOPE_REQUIRED');
-      requested.forEach((scope) => {
-        if (!options.handlers[scope])
-          throw new Error(`UNKNOWN_SECTION_INVALIDATION_SCOPE:${scope}`);
-      });
+      const requested = validate(scopes);
       const initializeEmptyRoot =
         initialRequest &&
         requested.length === 1 &&
@@ -81,7 +127,22 @@ export function createProductionStitchInvalidationBridge(options: {
       if (initializeEmptyRoot) return options.handlers['all-invariant-recovery']?.();
       if (unavailable) return options.handlers['all-invariant-recovery']?.();
       // Until the lazy owner is ready, replacing panels would bypass focus/selection restoration.
-      requested.forEach((scope) => pending.add(scope));
+      pendingFireAndForget = true;
+      queue(requested);
+    },
+    renderAndWait(scopes) {
+      const requested = validate(scopes);
+      if (disposed || !options.isActive()) return Promise.resolve({ status: 'cancelled' });
+      const initializeEmptyRoot =
+        initialRequest &&
+        requested.length === 1 &&
+        requested[0] === 'all-invariant-recovery' &&
+        !options.mountRoot.hasChildNodes();
+      initialRequest = false;
+      if (owner) return owner.invalidateAndWait(requested);
+      if (initializeEmptyRoot || unavailable) return Promise.resolve(fallback());
+      queue(requested);
+      return new Promise((resolve) => waiters.add(resolve));
     }
   };
 }
@@ -142,6 +203,8 @@ export function createProductionStitchRenderDelegates(
     cleanup: () => getRenderLifecycle()?.cleanup(),
     openResource: (resourceId) => getRenderLifecycle()?.openResource(resourceId),
     render: (scopes) => getRenderLifecycle()?.render(scopes),
+    renderAndWait: (scopes) =>
+      getRenderLifecycle()?.renderAndWait(scopes) ?? Promise.resolve({ status: 'cancelled' }),
     renderActiveResourceModal: () => getRenderLifecycle()?.renderActiveResourceModal(),
     scrollToPanel: (panelId) => getRenderLifecycle()?.scrollToPanel(panelId),
     syncHighlightThemeControls: () => getRenderLifecycle()?.syncHighlightThemeControls(),

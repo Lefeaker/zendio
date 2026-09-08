@@ -34,6 +34,24 @@ function observeMaintenanceCompletion() {
   return { ready, waitForIdle: () => taskOwner.waitForIdle() };
 }
 
+function observeRunningDiagnosis(buttonLabel: string, title: string, body: string): Promise<void> {
+  return new Promise((resolve) => {
+    const inspect = (): void => {
+      const button = Array.from(document.querySelectorAll('button')).find(
+        (candidate) => candidate.textContent?.trim() === buttonLabel
+      );
+      const text = document.body.textContent ?? '';
+      if (!(button instanceof HTMLButtonElement) || !button.isConnected || !button.disabled) return;
+      if (!text.includes(title) || !text.includes(body)) return;
+      observer.disconnect();
+      resolve();
+    };
+    const observer = new MutationObserver(inspect);
+    observer.observe(document.body, { childList: true, subtree: true });
+    inspect();
+  });
+}
+
 describe('mountProductionStitchShell maintenance i18n', () => {
   beforeEach(setupProductionStitchShellTest);
 
@@ -55,10 +73,17 @@ describe('mountProductionStitchShell maintenance i18n', () => {
         schemaMaintenanceTransferGroupTitle: 'Transfer Group Sentinel',
         schemaMaintenanceTransferCopyButton: 'Copy Configuration Sentinel',
         schemaMaintenanceTransferImportButton: 'Import Configuration Sentinel',
-        schemaMaintenanceDiagnosisGroupTitle: 'Diagnosis Group Sentinel',
+        diagnosisTitle: 'Diagnosis Group Sentinel',
+        diagnosticsRunning: 'Running Diagnostics Sentinel',
+        diagnosisResultTitle: 'Diagnosis Result Sentinel',
         schemaMaintenanceDiagnosisButton: 'Diagnose Configuration Sentinel',
+        schemaMaintenanceDiagnosisIdleBody: 'Diagnosis Idle Sentinel',
+        schemaMaintenanceDiagnosisRunningBody: 'Checking Configuration Sentinel',
+        schemaMaintenanceDiagnosisFailureTitle: 'Diagnosis Failure Sentinel',
+        schemaMaintenanceActionFailureBody: 'Maintenance Failure Sentinel',
         schemaMaintenanceFixButton: 'Fix Configuration Sentinel',
-        schemaMaintenanceReloadButton: 'Reload Sentinel',
+        reloadButton: 'Reload Sentinel',
+        schemaMaintenanceReloadSuccessBody: 'Reload Success Sentinel',
         schemaMaintenanceTransferLastActionNoticeTitle: 'Last Transfer Action Sentinel',
         schemaMaintenanceDiagnosisResultLog:
           'Diagnosis Log Sentinel\\n========\\nLine One Sentinel\\nLine Two Sentinel'
@@ -74,8 +99,51 @@ describe('mountProductionStitchShell maintenance i18n', () => {
     expect(findButton('Diagnose Configuration Sentinel')).toBeTruthy();
     expect(findButton('Fix Configuration Sentinel')).toBeTruthy();
     expect(findButton('Reload Sentinel')).toBeTruthy();
-    expect(document.body.textContent).toContain('Diagnosis Log Sentinel');
-    expect(document.body.textContent).toContain('Line One Sentinel');
+    expect(document.body.textContent).toContain('Diagnosis Idle Sentinel');
+    expect(document.body.textContent).not.toContain('Diagnosis Log Sentinel');
+
+    const running = observeRunningDiagnosis(
+      'Diagnose Configuration Sentinel',
+      'Running Diagnostics Sentinel',
+      'Checking Configuration Sentinel'
+    );
+    findButton('Diagnose Configuration Sentinel').click();
+    await running;
+    await vi.waitFor(() =>
+      expect(document.body.textContent).toContain('Diagnosis Result Sentinel')
+    );
+
+    const stringify = JSON.stringify;
+    const stringifySpy = vi
+      .spyOn(JSON, 'stringify')
+      .mockImplementation((value, replacer, space) => {
+        if (
+          space === 2 &&
+          typeof value === 'object' &&
+          value !== null &&
+          'rest' in value &&
+          'templates' in value
+        ) {
+          stringifySpy.mockRestore();
+          throw new Error('controlled localized diagnosis failure');
+        }
+        return Reflect.apply(stringify, JSON, [value, replacer, space]);
+      });
+    const failing = observeRunningDiagnosis(
+      'Diagnose Configuration Sentinel',
+      'Running Diagnostics Sentinel',
+      'Checking Configuration Sentinel'
+    );
+    findButton('Diagnose Configuration Sentinel').click();
+    await failing;
+    await vi.waitFor(() =>
+      expect(document.body.textContent).toContain('Diagnosis Failure Sentinel')
+    );
+    expect(document.body.textContent).toContain('Maintenance Failure Sentinel');
+    expect(document.body.textContent).not.toContain('Diagnosis Result Sentinel');
+
+    findButton('Reload Sentinel').click();
+    await vi.waitFor(() => expect(document.body.textContent).toContain('Reload Success Sentinel'));
 
     const copyButton = findButton('Copy Configuration Sentinel');
     copyButton.click();

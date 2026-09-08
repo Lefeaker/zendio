@@ -13,6 +13,11 @@ import {
   createProductionStitchSchemaContext
 } from './productionStitchShellContext';
 import { createInitialDraft, resolveDefaultDomainMappingRows } from './productionStitchShellState';
+import {
+  createProductionStitchMaintenanceState,
+  type ProductionMaintenanceActionNotice,
+  type ProductionMaintenanceRunDiagnosisOptions
+} from './productionStitchMaintenanceState';
 
 interface ProductionStitchShellMutableStateOptions {
   previewContent: PreviewContent;
@@ -42,7 +47,10 @@ export interface ProductionStitchShellMutableState {
   setDomainMappingRows(this: void, entries: Array<[string, string]>): void;
   getDraft(this: void): CompleteOptions;
   setDraft(this: void, draft: CompleteOptions): void;
-  setMaintenanceLog(this: void, log: PreviewContent['maintenanceLog']): void;
+  disposeMaintenance(this: void): void;
+  runMaintenanceDiagnosis(this: void, options: ProductionMaintenanceRunDiagnosisOptions): void;
+  setMaintenanceActionNotice(this: void, notice: ProductionMaintenanceActionNotice): void;
+  waitForMaintenanceIdle(this: void): Promise<void>;
   getState(this: void): PreviewStoreState;
   setState(this: void, state: PreviewStoreState): void;
   resetOptions(this: void, options?: StoredOptions | CompleteOptions | null): void;
@@ -59,9 +67,11 @@ export function createProductionStitchShellMutableState({
   let currentLanguage = language;
   let currentMessages = messages;
   let connectionNotice: PreviewContent['storage']['connectionNotice'] | undefined;
-  let maintenanceLog = previewContent.maintenanceLog;
+  const maintenance = createProductionStitchMaintenanceState();
   let domainMappingRows: Array<[string, string]> = resolveDefaultDomainMappingRows(draft);
-  let appData = createProductionStitchAppData(previewContent, draft, { maintenanceLog });
+  let appData = createProductionStitchAppData(previewContent, draft, {
+    maintenanceLog: maintenance.getLegacyLog()
+  });
   let state = applyOptionsToState(createInitialStitchState(appData), draft, appData);
   state.interfaceThemePreference = resolveThemePreference(draft);
   state.previewTheme = resolveStoredTheme(draft);
@@ -69,7 +79,7 @@ export function createProductionStitchShellMutableState({
   state.previewTheme = persistTheme(state.interfaceThemePreference);
 
   function createSchemaContext(): SchemaContext {
-    return createProductionStitchSchemaContext({
+    const context = createProductionStitchSchemaContext({
       appData,
       previewContent,
       language: currentLanguage,
@@ -77,14 +87,16 @@ export function createProductionStitchShellMutableState({
       state,
       browserTarget
     });
+    maintenance.bind(context.appData);
+    return context;
   }
 
   function refreshAppData(): void {
     appData = createProductionStitchAppData(previewContent, draft, {
       ...(connectionNotice ? { connectionNotice } : {}),
-      maintenanceLog
+      maintenanceLog: maintenance.getLegacyLog()
     });
-    state.maintenanceLog = maintenanceLog;
+    state.maintenanceLog = maintenance.getLegacyLog();
   }
 
   return {
@@ -113,9 +125,10 @@ export function createProductionStitchShellMutableState({
     setDraft: (nextDraft) => {
       draft = nextDraft;
     },
-    setMaintenanceLog: (log) => {
-      maintenanceLog = log;
-    },
+    disposeMaintenance: maintenance.dispose,
+    runMaintenanceDiagnosis: maintenance.runDiagnosis,
+    setMaintenanceActionNotice: maintenance.setActionNotice,
+    waitForMaintenanceIdle: maintenance.waitForIdle,
     getState: () => state,
     setState: (nextState) => {
       state = nextState;
