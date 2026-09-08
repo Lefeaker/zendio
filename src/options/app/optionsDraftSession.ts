@@ -99,7 +99,15 @@ export class OptionsDraftSession {
     const authoritativeChangedPaths = diffOptionsPaths(this.authoritative, nextSnapshot);
     this.authoritative = deepClone(nextSnapshot);
     this.revision += 1;
-    this.authorityRevisions.stamp(authoritativeChangedPaths, this.revision);
+    this.authorityRevisions.stampExternal(authoritativeChangedPaths, this.revision, (path) =>
+      [...this.admitted.values()].some((ownedPaths) =>
+        ownedPaths.some(
+          (owned) =>
+            optionsPathKey(owned.path) === optionsPathKey(path) &&
+            areStateValuesEqual(owned.value, readOptionsPath(nextSnapshot, path))
+        )
+      )
+    );
     this.reconcileDirtyWithAuthoritative();
     this.working = this.composeWorkingDraft();
     const changedPaths = diffOptionsPaths(previousWorking, this.working);
@@ -145,7 +153,6 @@ export class OptionsDraftSession {
     const previousDirtyKeys = this.getDirtyPathKeys();
     this.admitted.delete(intent.intentId);
     let nextAuthoritative = deepClone(this.authoritative);
-    const installedPaths: OptionsPath[] = [];
 
     for (const sent of intent.owned) {
       const acknowledgedValue = readOptionsPath(acknowledgedSnapshot, sent.path);
@@ -161,14 +168,12 @@ export class OptionsDraftSession {
         continue;
       if (!areStateValuesEqual(readOptionsPath(nextAuthoritative, sent.path), acknowledgedValue)) {
         nextAuthoritative = replaceOptionsPath(nextAuthoritative, sent.path, acknowledgedValue);
-        installedPaths.push(sent.path);
       }
     }
 
     if (!areOptionsSnapshotsEqual(this.authoritative, nextAuthoritative)) {
       this.authoritative = nextAuthoritative;
       this.revision += 1;
-      this.authorityRevisions.stamp(installedPaths, this.revision);
     }
     this.working = this.composeWorkingDraft();
     const changedPaths = diffOptionsPaths(previousWorking, this.working);

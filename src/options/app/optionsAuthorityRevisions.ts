@@ -11,8 +11,14 @@ export class OptionsAuthorityRevisions {
     OPTIONS_PATCH_PATHS.forEach((path) => this.revisions.set(optionsPathKey(path), revision));
   }
 
-  stamp(paths: readonly OptionsPath[], revision: number): void {
-    paths.forEach((path) => this.revisions.set(optionsPathKey(path), revision));
+  stampExternal(
+    paths: readonly OptionsPath[],
+    revision: number,
+    isOwnObservation: (path: OptionsPath) => boolean
+  ): void {
+    paths.forEach((path) => {
+      if (!isOwnObservation(path)) this.revisions.set(optionsPathKey(path), revision);
+    });
   }
 
   capture(path: OptionsPath, fallbackRevision: number): number {

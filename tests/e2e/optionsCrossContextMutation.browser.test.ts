@@ -281,9 +281,11 @@ async function readForwardSemanticState(page: Page) {
 }
 
 type MountedMutationProbe = {
+  falseHeld: boolean;
   held: boolean;
   released: boolean;
   failNext: boolean;
+  holdNextFalse: boolean;
   holdNextTrue: boolean;
   failedResponses: number;
   paths: string[][];
@@ -293,9 +295,13 @@ type MountedMutationProbe = {
 };
 
 type DelayedOptionsEventProbe = {
+  armed: boolean;
   held: number;
+  pending: number;
   released: number;
+  arm(): void;
   release(): void;
+  releaseNext(): void;
 };
 
 type NativeStorageRetryProbe = {
@@ -330,57 +336,79 @@ declare global {
   var __milestoneANativeStorageRetryProbe: NativeStorageRetryProbe | undefined;
 }
 
-async function installDelayedOptionsEventProbe(page: Page): Promise<void> {
-  await page.addInitScript(() => {
-    const event = chrome.storage.onChanged;
-    const originalAdd = event.addListener.bind(event);
-    const originalRemove = event.removeListener.bind(event);
-    type Listener = Parameters<typeof event.addListener>[0];
-    const wrappers = new Map<Listener, Listener>();
-    let pending: { listener: Listener; args: Parameters<Listener> } | null = null;
-    const probe: DelayedOptionsEventProbe = {
-      held: 0,
-      released: 0,
-      release() {
-        if (!pending) throw new Error('No delayed Options storage event is pending.');
-        const delayed = pending;
-        pending = null;
+async function installDelayedOptionsEventProbe(page: Page, queueAll = false): Promise<void> {
+  await page.addInitScript(
+    ({ queueAllEvents }) => {
+      const event = chrome.storage.onChanged;
+      const originalAdd = event.addListener.bind(event);
+      const originalRemove = event.removeListener.bind(event);
+      type Listener = Parameters<typeof event.addListener>[0];
+      const wrappers = new Map<Listener, Listener>();
+      const pending: Array<{ listener: Listener; args: Parameters<Listener> }> = [];
+      const maxPending = 64;
+      const releaseNext = (): void => {
+        const delayed = pending.shift();
+        if (!delayed) throw new Error('No delayed Options storage event is pending.');
+        probe.pending = pending.length;
         probe.released += 1;
         delayed.listener(...delayed.args);
-      }
-    };
-    Object.defineProperty(event, 'addListener', {
-      configurable: true,
-      value: (listener: Listener) => {
-        const wrapper: Listener = (changes, area) => {
-          if (area === 'sync' && changes.options && !pending) {
-            pending = { listener, args: [changes, area] };
-            probe.held += 1;
-            return;
-          }
-          listener(changes, area);
-        };
-        wrappers.set(listener, wrapper);
-        originalAdd(wrapper);
-      }
-    });
-    Object.defineProperty(event, 'removeListener', {
-      configurable: true,
-      value: (listener: Listener) => {
-        const wrapper = wrappers.get(listener);
-        if (wrapper) {
-          wrappers.delete(listener);
-          originalRemove(wrapper);
-        } else {
-          originalRemove(listener);
+      };
+      const probe: DelayedOptionsEventProbe = {
+        armed: !queueAllEvents,
+        held: 0,
+        pending: 0,
+        released: 0,
+        arm() {
+          if (pending.length > 0) throw new Error('Delayed Options event queue is not empty.');
+          probe.armed = true;
+          probe.held = 0;
+          probe.released = 0;
+        },
+        release: releaseNext,
+        releaseNext
+      };
+      Object.defineProperty(event, 'addListener', {
+        configurable: true,
+        value: (listener: Listener) => {
+          const wrapper: Listener = (changes, area) => {
+            if (
+              probe.armed &&
+              area === 'sync' &&
+              changes.options &&
+              (queueAllEvents || pending.length === 0)
+            ) {
+              if (pending.length >= maxPending)
+                throw new Error('Delayed Options event queue overflow.');
+              pending.push({ listener, args: [changes, area] });
+              probe.held += 1;
+              probe.pending = pending.length;
+              return;
+            }
+            listener(changes, area);
+          };
+          wrappers.set(listener, wrapper);
+          originalAdd(wrapper);
         }
-      }
-    });
-    Object.defineProperty(globalThis, '__m05DelayedOptionsEventProbe', {
-      configurable: true,
-      value: probe
-    });
-  });
+      });
+      Object.defineProperty(event, 'removeListener', {
+        configurable: true,
+        value: (listener: Listener) => {
+          const wrapper = wrappers.get(listener);
+          if (wrapper) {
+            wrappers.delete(listener);
+            originalRemove(wrapper);
+          } else {
+            originalRemove(listener);
+          }
+        }
+      });
+      Object.defineProperty(globalThis, '__m05DelayedOptionsEventProbe', {
+        configurable: true,
+        value: probe
+      });
+    },
+    { queueAllEvents: queueAll }
+  );
 }
 
 async function installMountedMutationProbe(
@@ -399,9 +427,11 @@ async function installMountedMutationProbe(
       };
       let pending: (() => void) | null = null;
       const probe: MountedMutationProbe = {
+        falseHeld: false,
         held: false,
         released: false,
         failNext: false,
+        holdNextFalse: false,
         holdNextTrue: shouldHoldFirstTrue,
         failedResponses: 0,
         paths: [],
@@ -462,6 +492,14 @@ async function installMountedMutationProbe(
               }
             ]);
           });
+          return undefined;
+        }
+        if (captureValues.includes(false) && probe.holdNextFalse && !probe.falseHeld) {
+          probe.falseHeld = true;
+          probe.holdNextFalse = false;
+          pending = () => {
+            void forward(args);
+          };
           return undefined;
         }
         if (
@@ -1195,6 +1233,153 @@ test.describe('Options cross-context mutation authority', () => {
     });
     expect(probe).toMatchObject({ held: true, released: true });
     expect(probe?.response).toMatchObject({ success: true });
+  });
+
+  test('settles a queued later local intent before delayed repository invalidations', async () => {
+    await Promise.all([first.close(), second.close()]);
+    first = await context.newPage();
+    await Promise.all([
+      installMountedMutationProbe(first, true, true),
+      installDelayedOptionsEventProbe(first, true)
+    ]);
+    const extensionId = background.url().split('/')[2];
+    if (!extensionId) throw new Error('Unable to resolve extension id.');
+    const optionsUrl = `chrome-extension://${extensionId}/options/index.html`;
+    await background.evaluate(() =>
+      chrome.storage.sync.set({
+        options: {
+          interfaceTheme: 'light',
+          fragmentClipper: { captureContext: false, contextLength: 200 },
+          vaultRouter: {
+            defaultVaultId: 'default',
+            vaults: [
+              {
+                apiKey: '',
+                enabled: true,
+                httpUrl: 'http://127.0.0.1:27123/',
+                httpsUrl: 'https://127.0.0.1:27124/',
+                id: 'default',
+                isDefault: true,
+                name: 'Zendio',
+                vault: 'Zendio'
+              }
+            ]
+          }
+        }
+      })
+    );
+    await first.goto(optionsUrl, { waitUntil: 'domcontentloaded' });
+    const capture = await openCaptureBehavior(first);
+    await first.waitForTimeout(500);
+    await first.evaluate(() => {
+      const probe = globalThis.__m05DelayedOptionsEventProbe;
+      if (!probe) throw new Error('Delayed Options event probe missing.');
+      probe.arm();
+    });
+
+    await capture.toggle.click();
+    await expect(capture.input).toBeChecked();
+    await expect
+      .poll(() => first.evaluate(() => globalThis.__m05MountedMutationProbe?.held ?? false))
+      .toBe(true);
+    await expect
+      .poll(() => first.evaluate(() => globalThis.__m05DelayedOptionsEventProbe?.held ?? 0))
+      .toBeGreaterThan(0);
+    await capture.toggle.click();
+    await expect(capture.input).not.toBeChecked();
+    await first.waitForTimeout(650);
+    expect(
+      await first.evaluate(() => globalThis.__m05MountedMutationProbe?.captureValues ?? [])
+    ).toEqual([true]);
+
+    await first.evaluate(() => {
+      const probe = globalThis.__m05MountedMutationProbe;
+      if (!probe) throw new Error('Mounted mutation probe missing.');
+      probe.holdNextFalse = true;
+      probe.release();
+    });
+    await expect
+      .poll(() => first.evaluate(() => globalThis.__m05MountedMutationProbe?.falseHeld ?? false))
+      .toBe(true);
+    const heldAfterFirst = await first.evaluate(
+      () => globalThis.__m05DelayedOptionsEventProbe?.held ?? 0
+    );
+    await background.evaluate(async () => {
+      const stored = await chrome.storage.sync.get<{ options?: Record<string, unknown> }>(
+        'options'
+      );
+      await chrome.storage.sync.set({
+        options: { ...(stored.options ?? {}), interfaceTheme: 'dark' }
+      });
+    });
+    await first.evaluate(() => {
+      const probe = globalThis.__m05DelayedOptionsEventProbe;
+      if (!probe) throw new Error('Delayed Options event probe missing.');
+      while (probe.pending > 0) probe.releaseNext();
+    });
+    await expect
+      .poll(() => first.evaluate(() => globalThis.__m05DelayedOptionsEventProbe?.pending ?? -1))
+      .toBe(0);
+    await expect(
+      first.locator('[data-panel-id="overview"] .chips button[data-value="dark"]')
+    ).toHaveClass(/is-active/u);
+
+    await first.evaluate(() => globalThis.__m05MountedMutationProbe?.release());
+    await expect
+      .poll(() => first.evaluate(() => globalThis.__m05MountedMutationProbe?.captureValues ?? []))
+      .toEqual([true, false]);
+    await expect
+      .poll(() =>
+        first.evaluate(
+          (previous) => (globalThis.__m05DelayedOptionsEventProbe?.held ?? 0) > previous,
+          heldAfterFirst
+        )
+      )
+      .toBe(true);
+    await expect
+      .poll(() => readRaw(first))
+      .toMatchObject({
+        interfaceTheme: 'dark',
+        fragmentClipper: { captureContext: false, contextLength: 200 }
+      });
+
+    await first.evaluate(() => window.dispatchEvent(new Event('pagehide')));
+    await first.waitForTimeout(1000);
+    expect(
+      await first.evaluate(() => globalThis.__m05MountedMutationProbe?.captureValues ?? [])
+    ).toEqual([true, false]);
+    await expect(capture.input).not.toBeChecked();
+
+    const heldAfterSecond = await first.evaluate(
+      () => globalThis.__m05DelayedOptionsEventProbe?.held ?? 0
+    );
+    await first.evaluate(() => {
+      const probe = globalThis.__m05DelayedOptionsEventProbe;
+      if (!probe) throw new Error('Delayed Options event probe missing.');
+      while (probe.pending > 0) probe.releaseNext();
+    });
+    await expect
+      .poll(() =>
+        first.evaluate(() => {
+          const probe = globalThis.__m05DelayedOptionsEventProbe;
+          return probe ? { pending: probe.pending, released: probe.released } : null;
+        })
+      )
+      .toEqual({
+        pending: 0,
+        released: heldAfterSecond
+      });
+    await expect(capture.input).not.toBeChecked();
+
+    await first.reload({ waitUntil: 'domcontentloaded' });
+    const reloaded = await openCaptureBehavior(first);
+    await expect(reloaded.input).not.toBeChecked();
+
+    await first.close();
+    first = await context.newPage();
+    await first.goto(optionsUrl, { waitUntil: 'domcontentloaded' });
+    const reopened = await openCaptureBehavior(first);
+    await expect(reopened.input).not.toBeChecked();
   });
 
   test('rebases two mounted Options pages without reverse patches or interaction loss', async () => {
