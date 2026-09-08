@@ -35,7 +35,11 @@ export const VaultRouterConfigSchema = z
   })
   .superRefine((router, context) => {
     for (const issue of validateVaultRouterIdentity(router).issues) {
-      context.addIssue({ code: 'custom', message: issue.message, path: [...issue.path] });
+      context.addIssue({
+        code: 'custom',
+        message: `vault-router-identity:${issue.code}`,
+        path: [...issue.path]
+      });
     }
   });
 

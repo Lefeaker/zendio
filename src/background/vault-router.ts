@@ -1,8 +1,10 @@
 import type { ClipContext, RoutingRule, VaultConfig, VaultRouterConfig } from '../shared/types';
 import type { RestOptions } from '../shared/types/options';
 import type { UserVisibleMessageDescriptor } from '../shared/i18n/userVisibleMessageDescriptor';
+import type { VaultRouterIdentityIssue } from '../shared/config/vaultRouterIdentity';
 import { configProvider } from '../shared/config';
 import { allocateVaultId, validateVaultRouterIdentity } from '../shared/config/vaultRouterIdentity';
+import { mapVaultRouterIdentityIssue } from './vaultRouterIdentityValidationMessages';
 
 const DEFAULT_VAULT_NAME = 'New Vault';
 
@@ -17,6 +19,7 @@ export type VaultRouterValidationIssueCode =
 
 export interface VaultRouterValidationIssue {
   code: VaultRouterValidationIssueCode;
+  identityDetail?: VaultRouterIdentityIssue;
   message: string;
   messageDescriptor?: UserVisibleMessageDescriptor;
 }
@@ -260,15 +263,7 @@ export class VaultRouter {
     }
 
     for (const issue of validateVaultRouterIdentity(this.config).issues) {
-      const code =
-        issue.code === 'empty-vault-id'
-          ? 'invalid_vault_id'
-          : issue.code === 'duplicate-vault-id'
-            ? 'duplicate_vault_ids'
-            : issue.code === 'unresolved-rule-vault'
-              ? 'missing_rule_vault'
-              : 'missing_default_vault';
-      issues.push(createValidationIssue(code, issue.message));
+      issues.push(mapVaultRouterIdentityIssue(issue));
     }
     const defaultVault = this.config.vaults.find((v) => v.id === this.config.defaultVaultId);
     if (defaultVault?.enabled === false)
