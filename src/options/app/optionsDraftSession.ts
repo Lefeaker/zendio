@@ -1,5 +1,4 @@
 import type { CompleteOptions } from '../../shared/types/options';
-import type { OptionsPatch } from '../../shared/types/optionsMutationMessages';
 import { deepClone } from '../utils/clone';
 import {
   areOptionsSnapshotsEqual,
@@ -12,33 +11,20 @@ import {
   type OptionsPath
 } from '../state/optionsPatchModel';
 import { areStateValuesEqual, cloneStateValue } from '../state/stateValue';
+import { OptionsAuthorityRevisions } from './optionsAuthorityRevisions';
+import type {
+  DirtyPathOwnership,
+  OptionsDraftSessionTransition,
+  OptionsMutationIntent
+} from './optionsDraftSessionTypes';
+export type {
+  DirtyPathOwnership,
+  MountedDraftRebase,
+  OptionsDraftSessionTransition,
+  OptionsMutationIntent
+} from './optionsDraftSessionTypes';
 
 type StateValue = Parameters<typeof areStateValuesEqual>[0];
-
-export interface DirtyPathOwnership {
-  readonly path: OptionsPath;
-  readonly editGeneration: number;
-  readonly value: StateValue;
-}
-
-export interface OptionsMutationIntent {
-  readonly intentId: number;
-  readonly baseRevision: number;
-  readonly admissionGeneration: number;
-  readonly owned: readonly DirtyPathOwnership[];
-  readonly patches: readonly OptionsPatch[];
-}
-
-export interface OptionsDraftSessionTransition {
-  readonly changed: boolean;
-  readonly changedPaths: readonly OptionsPath[];
-  readonly ownershipChanged: boolean;
-}
-
-export interface MountedDraftRebase {
-  readonly changedPaths: readonly OptionsPath[];
-  readonly dirtyPathKeys: readonly string[];
-}
 
 interface MutableDirtyPathOwnership {
   path: OptionsPath;
@@ -55,6 +41,7 @@ export class OptionsDraftSession {
   private admissionGeneration = 0;
   private readonly dirty = new Map<string, MutableDirtyPathOwnership>();
   private readonly admitted = new Map<number, readonly DirtyPathOwnership[]>();
+  private readonly authorityRevisions = new OptionsAuthorityRevisions(this.revision);
 
   constructor(initial: CompleteOptions) {
     this.authoritative = deepClone(initial);
@@ -109,8 +96,10 @@ export class OptionsDraftSession {
     }
     const previousWorking = this.working;
     const previousDirtyKeys = this.getDirtyPathKeys();
+    const authoritativeChangedPaths = diffOptionsPaths(this.authoritative, nextSnapshot);
     this.authoritative = deepClone(nextSnapshot);
     this.revision += 1;
+    this.authorityRevisions.stamp(authoritativeChangedPaths, this.revision);
     this.reconcileDirtyWithAuthoritative();
     this.working = this.composeWorkingDraft();
     const changedPaths = diffOptionsPaths(previousWorking, this.working);
@@ -125,6 +114,7 @@ export class OptionsDraftSession {
             {
               path: current.path,
               editGeneration: current.editGeneration,
+              authorityRevision: this.authorityRevisions.capture(current.path, this.revision),
               value: cloneStateValue(current.value)
             }
           ]
@@ -154,15 +144,12 @@ export class OptionsDraftSession {
     const previousWorking = this.working;
     const previousDirtyKeys = this.getDirtyPathKeys();
     this.admitted.delete(intent.intentId);
-    let nextAuthoritative =
-      this.revision === intent.baseRevision
-        ? deepClone(acknowledgedSnapshot)
-        : deepClone(this.authoritative);
+    let nextAuthoritative = deepClone(this.authoritative);
+    const installedPaths: OptionsPath[] = [];
 
     for (const sent of intent.owned) {
       const acknowledgedValue = readOptionsPath(acknowledgedSnapshot, sent.path);
       if (!areStateValuesEqual(acknowledgedValue, sent.value)) continue;
-      nextAuthoritative = replaceOptionsPath(nextAuthoritative, sent.path, acknowledgedValue);
       const current = this.dirty.get(optionsPathKey(sent.path));
       if (
         current?.editGeneration === sent.editGeneration &&
@@ -170,11 +157,18 @@ export class OptionsDraftSession {
       ) {
         this.dirty.delete(optionsPathKey(sent.path));
       }
+      if (!this.authorityRevisions.canInstall(sent.path, sent.authorityRevision, this.revision))
+        continue;
+      if (!areStateValuesEqual(readOptionsPath(nextAuthoritative, sent.path), acknowledgedValue)) {
+        nextAuthoritative = replaceOptionsPath(nextAuthoritative, sent.path, acknowledgedValue);
+        installedPaths.push(sent.path);
+      }
     }
 
     if (!areOptionsSnapshotsEqual(this.authoritative, nextAuthoritative)) {
       this.authoritative = nextAuthoritative;
       this.revision += 1;
+      this.authorityRevisions.stamp(installedPaths, this.revision);
     }
     this.working = this.composeWorkingDraft();
     const changedPaths = diffOptionsPaths(previousWorking, this.working);
@@ -193,6 +187,7 @@ export class OptionsDraftSession {
     this.dirty.clear();
     this.admitted.clear();
     this.revision += 1;
+    this.authorityRevisions.reset(this.revision);
     this.working = deepClone(nextSnapshot);
     const changedPaths = diffOptionsPaths(previousWorking, this.working);
     return this.transition(changedPaths, previousDirtyKeys);

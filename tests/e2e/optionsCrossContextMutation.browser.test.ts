@@ -288,12 +288,21 @@ type MountedMutationProbe = {
   failedResponses: number;
   paths: string[][];
   captureValues: boolean[];
+  response: MutationResponse | undefined;
   release(): void;
 };
 
 type DelayedOptionsEventProbe = {
   held: number;
   released: number;
+  release(): void;
+};
+
+type NativeStorageRetryProbe = {
+  calls: number;
+  failures: number;
+  held: boolean;
+  releases: number;
   release(): void;
 };
 
@@ -317,6 +326,8 @@ declare global {
   var __m05DelayedOptionsEventProbe: DelayedOptionsEventProbe | undefined;
   // eslint-disable-next-line no-var -- Ambient global properties require var declarations.
   var __m05DelayedThemeState: { darkTransitions: number } | undefined;
+  // eslint-disable-next-line no-var -- Ambient global properties require var declarations.
+  var __milestoneANativeStorageRetryProbe: NativeStorageRetryProbe | undefined;
 }
 
 async function installDelayedOptionsEventProbe(page: Page): Promise<void> {
@@ -372,100 +383,170 @@ async function installDelayedOptionsEventProbe(page: Page): Promise<void> {
   });
 }
 
-async function installMountedMutationProbe(page: Page, holdFirstTrue = true): Promise<void> {
-  await page.addInitScript((shouldHoldFirstTrue) => {
-    const runtime = chrome.runtime;
-    const original: (...args: never[]) => unknown = runtime.sendMessage.bind(runtime);
-    type SendArgs = unknown[];
-    const forward = (args: SendArgs): unknown => {
-      const result: unknown = Reflect.apply(original, runtime, args);
-      return result;
-    };
-    let pending: SendArgs | null = null;
-    const probe: MountedMutationProbe = {
-      held: false,
-      released: false,
-      failNext: false,
-      holdNextTrue: shouldHoldFirstTrue,
-      failedResponses: 0,
-      paths: [],
-      captureValues: [],
-      release() {
-        if (!pending) throw new Error('No mounted Options mutation is pending.');
-        const args = pending;
-        pending = null;
-        probe.released = true;
-        forward(args);
-      }
-    };
-    type MutationMessage = {
-      requestId: unknown;
-      patches: { path: string[]; value: boolean | undefined }[];
-    };
-    const record = (value: unknown): value is Record<string, unknown> =>
-      typeof value === 'object' && value !== null && !Array.isArray(value);
-    const decodeMutation = (value: unknown): MutationMessage | null => {
-      if (!record(value) || value.type !== 'ZENDIO_OPTIONS_MUTATION') return null;
-      const command = value.command;
-      if (!record(command) || !Array.isArray(command.patches)) return null;
-      const patches: MutationMessage['patches'] = [];
-      for (const patch of command.patches) {
-        if (!record(patch) || !Array.isArray(patch.path)) continue;
-        const path = patch.path;
-        if (!path.every((part): part is string => typeof part === 'string')) continue;
-        patches.push({ path, value: typeof patch.value === 'boolean' ? patch.value : undefined });
-      }
-      return { requestId: value.requestId, patches };
-    };
-    const wrapped = (...args: SendArgs) => {
-      const mutation = decodeMutation(args[0]);
-      if (!mutation) return forward(args);
-      const captureValues: boolean[] = [];
-      for (const patch of mutation.patches) {
-        probe.paths.push(patch.path);
-        if (
-          patch.path.join('.') === 'fragmentClipper.captureContext' &&
-          typeof patch.value === 'boolean'
-        ) {
-          captureValues.push(patch.value);
+async function installMountedMutationProbe(
+  page: Page,
+  holdFirstTrue = true,
+  delayNativeAck = false
+): Promise<void> {
+  await page.addInitScript(
+    ({ shouldHoldFirstTrue, shouldDelayNativeAck }) => {
+      const runtime = chrome.runtime;
+      const original: (...args: never[]) => unknown = runtime.sendMessage.bind(runtime);
+      type SendArgs = unknown[];
+      const forward = (args: SendArgs): unknown => {
+        const result: unknown = Reflect.apply(original, runtime, args);
+        return result;
+      };
+      let pending: (() => void) | null = null;
+      const probe: MountedMutationProbe = {
+        held: false,
+        released: false,
+        failNext: false,
+        holdNextTrue: shouldHoldFirstTrue,
+        failedResponses: 0,
+        paths: [],
+        captureValues: [],
+        response: undefined,
+        release() {
+          if (!pending) throw new Error('No mounted Options mutation is pending.');
+          const release = pending;
+          pending = null;
+          probe.released = true;
+          release();
         }
+      };
+      type MutationMessage = {
+        requestId: unknown;
+        patches: { path: string[]; value: boolean | undefined }[];
+      };
+      const record = (value: unknown): value is Record<string, unknown> =>
+        typeof value === 'object' && value !== null && !Array.isArray(value);
+      const decodeMutation = (value: unknown): MutationMessage | null => {
+        if (!record(value) || value.type !== 'ZENDIO_OPTIONS_MUTATION') return null;
+        const command = value.command;
+        if (!record(command) || !Array.isArray(command.patches)) return null;
+        const patches: MutationMessage['patches'] = [];
+        for (const patch of command.patches) {
+          if (!record(patch) || !Array.isArray(patch.path)) continue;
+          const path = patch.path;
+          if (!path.every((part): part is string => typeof part === 'string')) continue;
+          patches.push({ path, value: typeof patch.value === 'boolean' ? patch.value : undefined });
+        }
+        return { requestId: value.requestId, patches };
+      };
+      const wrapped = (...args: SendArgs) => {
+        const mutation = decodeMutation(args[0]);
+        if (!mutation) return forward(args);
+        const captureValues: boolean[] = [];
+        for (const patch of mutation.patches) {
+          probe.paths.push(patch.path);
+          if (
+            patch.path.join('.') === 'fragmentClipper.captureContext' &&
+            typeof patch.value === 'boolean'
+          ) {
+            captureValues.push(patch.value);
+          }
+        }
+        probe.captureValues.push(...captureValues);
+        const callback = args.at(-1);
+        if (probe.failNext && typeof callback === 'function') {
+          probe.failNext = false;
+          probe.failedResponses += 1;
+          queueMicrotask(() => {
+            Reflect.apply(callback, undefined, [
+              {
+                type: 'ZENDIO_OPTIONS_MUTATION_RESULT',
+                requestId: mutation.requestId,
+                success: false,
+                errorCode: 'EXTERNAL_SYNC_CONFLICT'
+              }
+            ]);
+          });
+          return undefined;
+        }
+        if (
+          captureValues.includes(true) &&
+          shouldDelayNativeAck &&
+          probe.holdNextTrue &&
+          !probe.held &&
+          typeof callback === 'function'
+        ) {
+          probe.held = true;
+          probe.holdNextTrue = false;
+          args[args.length - 1] = (response: MutationResponse) => {
+            probe.response = response;
+            pending = () => {
+              Reflect.apply(callback, undefined, [response]);
+            };
+          };
+          return forward(args);
+        }
+        if (
+          captureValues.includes(true) &&
+          probe.holdNextTrue &&
+          !probe.held &&
+          typeof callback === 'function'
+        ) {
+          probe.held = true;
+          probe.holdNextTrue = false;
+          pending = () => {
+            void forward(args);
+          };
+          return undefined;
+        }
+        return forward(args);
+      };
+      Object.defineProperty(runtime, 'sendMessage', { configurable: true, value: wrapped });
+      Object.defineProperty(globalThis, '__m05MountedMutationProbe', {
+        configurable: true,
+        value: probe
+      });
+    },
+    { shouldHoldFirstTrue: holdFirstTrue, shouldDelayNativeAck: delayNativeAck }
+  );
+}
+
+async function armNativeStorageFailureThenHoldRetry(worker: Worker): Promise<void> {
+  await worker.evaluate(() => {
+    const area = chrome.storage.sync;
+    const original = area.set.bind(area);
+    let pending: { items: Record<string, unknown>; callback?: () => void } | null = null;
+    const probe: NativeStorageRetryProbe = {
+      calls: 0,
+      failures: 0,
+      held: false,
+      releases: 0,
+      release() {
+        if (!pending) throw new Error('No native retry write is pending.');
+        const current = pending;
+        pending = null;
+        probe.releases += 1;
+        if (current.callback) original(current.items, current.callback);
+        else void original(current.items);
       }
-      probe.captureValues.push(...captureValues);
-      const callback = args.at(-1);
-      if (probe.failNext && typeof callback === 'function') {
-        probe.failNext = false;
-        probe.failedResponses += 1;
-        queueMicrotask(() => {
-          Reflect.apply(callback, undefined, [
-            {
-              type: 'ZENDIO_OPTIONS_MUTATION_RESULT',
-              requestId: mutation.requestId,
-              success: false,
-              errorCode: 'EXTERNAL_SYNC_CONFLICT'
-            }
-          ]);
-        });
-        return undefined;
-      }
-      if (
-        captureValues.includes(true) &&
-        probe.holdNextTrue &&
-        !probe.held &&
-        typeof callback === 'function'
-      ) {
-        probe.held = true;
-        probe.holdNextTrue = false;
-        pending = args;
-        return undefined;
-      }
-      return forward(args);
     };
-    Object.defineProperty(runtime, 'sendMessage', { configurable: true, value: wrapped });
-    Object.defineProperty(globalThis, '__m05MountedMutationProbe', {
+    const wrapped = (items: Record<string, unknown>, callback?: () => void) => {
+      if (!Object.prototype.hasOwnProperty.call(items, 'options')) {
+        return callback ? original(items, callback) : original(items);
+      }
+      probe.calls += 1;
+      if (probe.failures === 0) {
+        probe.failures += 1;
+        throw new Error('MILESTONE_A_NATIVE_OPTIONS_WRITE_FAILURE');
+      }
+      if (!probe.held) {
+        probe.held = true;
+        pending = { items, ...(callback ? { callback } : {}) };
+        return undefined;
+      }
+      return callback ? original(items, callback) : original(items);
+    };
+    Object.defineProperty(area, 'set', { configurable: true, value: wrapped });
+    Object.defineProperty(globalThis, '__milestoneANativeStorageRetryProbe', {
       configurable: true,
       value: probe
     });
-  }, holdFirstTrue);
+  });
 }
 
 async function openCaptureBehavior(page: Page) {
@@ -968,6 +1049,154 @@ test.describe('Options cross-context mutation authority', () => {
     await context.close();
   });
 
+  test('preserves independently mounted screenshot attachment leaves in both page orders', async () => {
+    await Promise.all([first.close(), second.close()]);
+    first = await context.newPage();
+    second = await context.newPage();
+    await Promise.all([
+      installMountedMutationProbe(first, false),
+      installMountedMutationProbe(second, false)
+    ]);
+    const extensionId = background.url().split('/')[2];
+    if (!extensionId) throw new Error('Unable to resolve extension id.');
+    const optionsUrl = `chrome-extension://${extensionId}/options/index.html`;
+    const seed = async () => {
+      await background.evaluate(() =>
+        chrome.storage.sync.set({
+          options: {
+            interfaceTheme: 'light',
+            video: {
+              screenshotAttachment: {
+                locationTemplate: './assets/base',
+                fileNameTemplate: 'base.jpg',
+                markdownUrlFormat: ''
+              }
+            }
+          }
+        })
+      );
+      await Promise.all([
+        first.goto(optionsUrl, { waitUntil: 'domcontentloaded' }),
+        second.goto(optionsUrl, { waitUntil: 'domcontentloaded' })
+      ]);
+    };
+    const selector = '[data-panel-id="capture-sources"] input[type="text"]';
+    const expectConverged = async () => {
+      await expect
+        .poll(() => readRaw(first))
+        .toMatchObject({
+          video: {
+            screenshotAttachment: {
+              locationTemplate: './assets/page-a',
+              fileNameTemplate: 'page-b.jpg'
+            }
+          }
+        });
+      for (const page of [first, second]) {
+        await expect(page.locator(selector).nth(0)).toHaveValue('./assets/page-a');
+        await expect(page.locator(selector).nth(1)).toHaveValue('page-b.jpg');
+      }
+    };
+
+    await seed();
+    await first.locator(selector).nth(0).fill('./assets/page-a');
+    await second.locator(selector).nth(1).fill('page-b.jpg');
+    await expectConverged();
+    await Promise.all([
+      first.reload({ waitUntil: 'domcontentloaded' }),
+      second.reload({ waitUntil: 'domcontentloaded' })
+    ]);
+    await expectConverged();
+
+    await seed();
+    await second.locator(selector).nth(1).fill('page-b.jpg');
+    await first.locator(selector).nth(0).fill('./assets/page-a');
+    await expectConverged();
+    await first.locator(selector).nth(2).fill('![shot]({path})');
+    await expect
+      .poll(() => readRaw(first))
+      .toMatchObject({
+        video: {
+          screenshotAttachment: {
+            locationTemplate: './assets/page-a',
+            fileNameTemplate: 'page-b.jpg',
+            markdownUrlFormat: '![shot]({path})'
+          }
+        }
+      });
+    const paths: string[][] = [];
+    paths.push(
+      ...(await first.evaluate(() => globalThis.__m05MountedMutationProbe?.paths ?? [])),
+      ...(await second.evaluate(() => globalThis.__m05MountedMutationProbe?.paths ?? []))
+    );
+    expect(paths).toContainEqual(['video', 'screenshotAttachment', 'locationTemplate']);
+    expect(paths).toContainEqual(['video', 'screenshotAttachment', 'fileNameTemplate']);
+    expect(paths).toContainEqual(['video', 'screenshotAttachment', 'markdownUrlFormat']);
+    expect(paths).not.toContainEqual(['video', 'screenshotAttachment']);
+
+    await second.close();
+    second = await context.newPage();
+    await second.goto(optionsUrl, { waitUntil: 'domcontentloaded' });
+    await expect(second.locator(selector).nth(0)).toHaveValue('./assets/page-a');
+    await expect(second.locator(selector).nth(1)).toHaveValue('page-b.jpg');
+    await expect(second.locator(selector).nth(2)).toHaveValue('![shot]({path})');
+  });
+
+  test('settles an old native acknowledgement behind later same-field authority', async () => {
+    await Promise.all([first.close(), second.close()]);
+    first = await context.newPage();
+    second = await context.newPage();
+    await installMountedMutationProbe(first, true, true);
+    const extensionId = background.url().split('/')[2];
+    if (!extensionId) throw new Error('Unable to resolve extension id.');
+    const optionsUrl = `chrome-extension://${extensionId}/options/index.html`;
+    await background.evaluate(() =>
+      chrome.storage.sync.set({
+        options: {
+          interfaceTheme: 'light',
+          fragmentClipper: { captureContext: false, contextLength: 200 }
+        }
+      })
+    );
+    await Promise.all([
+      first.goto(optionsUrl, { waitUntil: 'domcontentloaded' }),
+      second.goto(optionsUrl, { waitUntil: 'domcontentloaded' })
+    ]);
+    const firstCapture = await openCaptureBehavior(first);
+    const secondCapture = await openCaptureBehavior(second);
+
+    await firstCapture.toggle.click();
+    await expect
+      .poll(() => first.evaluate(() => globalThis.__m05MountedMutationProbe?.held))
+      .toBe(true);
+    await expect(secondCapture.input).toBeChecked();
+    await secondCapture.toggle.click();
+    await expect
+      .poll(async () => (await readRaw(second)).fragmentClipper)
+      .toMatchObject({
+        captureContext: false
+      });
+    await expect(firstCapture.input).not.toBeChecked();
+
+    await first.evaluate(() => globalThis.__m05MountedMutationProbe?.release());
+    await expect(firstCapture.input).not.toBeChecked();
+    await expect(secondCapture.input).not.toBeChecked();
+    await expect
+      .poll(async () => (await readRaw(first)).fragmentClipper)
+      .toMatchObject({
+        captureContext: false,
+        contextLength: 200
+      });
+    const probe = await first.evaluate(() => {
+      const current = globalThis.__m05MountedMutationProbe;
+      return current
+        ? { held: current.held, released: current.released, response: current.response }
+        : null;
+    });
+    expect(probe).toMatchObject({ held: true, released: true });
+    expect(probe?.response).toMatchObject({ success: true });
+  });
+
   test('rebases two mounted Options pages without reverse patches or interaction loss', async () => {
     await Promise.all([first.close(), second.close()]);
     first = await context.newPage();
@@ -1152,7 +1381,6 @@ test.describe('Options cross-context mutation authority', () => {
   test('retains a mounted dirty edit after a bounded mutation failure and page exit', async () => {
     await Promise.all([first.close(), second.close()]);
     first = await context.newPage();
-    await installMountedMutationProbe(first, false);
     const autoSaveErrors: string[] = [];
     first.on('console', (message) => {
       if (message.type() === 'error' && message.text().includes('Auto-save failed')) {
@@ -1164,44 +1392,61 @@ test.describe('Options cross-context mutation authority', () => {
     const optionsUrl = `chrome-extension://${extensionId}/options/index.html`;
     await background.evaluate(() =>
       chrome.storage.sync.set({
-        options: { interfaceTheme: 'system', fragmentClipper: { captureContext: false } }
+        options: {
+          interfaceTheme: 'system',
+          fragmentClipper: { captureContext: false },
+          vaultRouter: {
+            defaultVaultId: 'default',
+            vaults: [
+              {
+                apiKey: '',
+                enabled: true,
+                httpUrl: 'http://127.0.0.1:27123/',
+                httpsUrl: 'https://127.0.0.1:27124/',
+                id: 'default',
+                isDefault: true,
+                name: 'Zendio',
+                vault: 'Zendio'
+              }
+            ]
+          }
+        }
       })
     );
     await first.goto(optionsUrl, { waitUntil: 'domcontentloaded' });
     const capture = await openCaptureBehavior(first);
-    await first.evaluate(() => {
-      const probe = globalThis.__m05MountedMutationProbe;
-      if (!probe) throw new Error('Mounted mutation probe missing.');
-      probe.failNext = true;
-    });
+    await armNativeStorageFailureThenHoldRetry(background);
     await capture.toggle.click();
     await expect(capture.input).toBeChecked();
-    await expect
-      .poll(() => first.evaluate(() => globalThis.__m05MountedMutationProbe?.failedResponses ?? 0))
-      .toBe(1);
     await expect.poll(() => autoSaveErrors.length).toBe(1);
     await expect
       .poll(async () => (await readRaw(first)).fragmentClipper)
       .toMatchObject({
         captureContext: false
       });
-    await capture.toggle.click();
-    await expect(capture.input).not.toBeChecked();
-    await capture.toggle.click();
-    await expect(capture.input).toBeChecked();
+    const alert = first.locator('[data-message-lane="autosave"]');
+    await expect(alert).toBeVisible();
+    await expect(alert).toHaveAttribute('role', 'alert');
+    await expect(alert).toHaveAttribute('aria-live', 'assertive');
+    await expect(alert).toContainText(/save failed/i);
+    const retry = alert.locator('button');
+    await expect(retry).toBeVisible();
+    await retry.click();
+    await expect(retry).toBeDisabled();
+    await expect(retry).toHaveAttribute('aria-busy', 'true');
+    await retry.click({ force: true });
+    await expect
+      .poll(() =>
+        background.evaluate(() => globalThis.__milestoneANativeStorageRetryProbe?.calls ?? 0)
+      )
+      .toBe(2);
+    await background.evaluate(() => globalThis.__milestoneANativeStorageRetryProbe?.release());
     await expect
       .poll(async () => (await readRaw(first)).fragmentClipper)
-      .toMatchObject({
-        captureContext: true
-      });
-    await expect
-      .poll(() => first.evaluate(() => globalThis.__m05MountedMutationProbe?.captureValues ?? []))
-      .toEqual([true, true]);
+      .toMatchObject({ captureContext: true });
+    await expect(alert).toBeHidden();
     await clickTheme(first, 'dark');
     await expect.poll(async () => (await readRaw(first)).interfaceTheme).toBe('dark');
-    expect(
-      await first.evaluate(() => globalThis.__m05MountedMutationProbe?.captureValues ?? [])
-    ).toEqual([true, true]);
     await first.reload({ waitUntil: 'domcontentloaded' });
     const reloaded = await openCaptureBehavior(first);
     await expect(reloaded.input).toBeChecked();
@@ -1223,6 +1468,160 @@ test.describe('Options cross-context mutation authority', () => {
         interfaceTheme: 'dark',
         fragmentClipper: { captureContext: false }
       });
+  });
+
+  test('clears a failed alert when the mounted edit reverses without another write', async () => {
+    await Promise.all([first.close(), second.close()]);
+    first = await context.newPage();
+    await installMountedMutationProbe(first, false);
+    const autoSaveErrors: string[] = [];
+    first.on('console', (message) => {
+      if (message.type() === 'error' && message.text().includes('Auto-save failed')) {
+        autoSaveErrors.push(message.text());
+      }
+    });
+    const extensionId = background.url().split('/')[2];
+    if (!extensionId) throw new Error('Unable to resolve extension id.');
+    const optionsUrl = `chrome-extension://${extensionId}/options/index.html`;
+    await background.evaluate(() =>
+      chrome.storage.sync.set({
+        options: {
+          interfaceTheme: 'light',
+          templates: { article: 'Original/{title}.md' },
+          vaultRouter: {
+            defaultVaultId: 'default',
+            vaults: [
+              {
+                apiKey: '',
+                enabled: true,
+                httpUrl: 'http://127.0.0.1:27123/',
+                httpsUrl: 'https://127.0.0.1:27124/',
+                id: 'default',
+                isDefault: true,
+                name: 'Zendio',
+                vault: 'Zendio'
+              }
+            ]
+          }
+        }
+      })
+    );
+    await first.goto(optionsUrl, { waitUntil: 'domcontentloaded' });
+    const template = first.locator('[data-template-field="articleVideo"]');
+    await expect(template).toHaveValue('Original/{title}.md');
+    await armNativeStorageFailureThenHoldRetry(background);
+    await template.fill('Failed/{title}.md');
+
+    const alert = first.locator('[data-message-lane="autosave"]');
+    await expect(alert).toBeVisible();
+    await expect(template).toHaveValue('Failed/{title}.md');
+    await expect
+      .poll(() =>
+        background.evaluate(() => globalThis.__milestoneANativeStorageRetryProbe?.calls ?? 0)
+      )
+      .toBe(1);
+    await expect
+      .poll(async () => {
+        const raw = await readRaw(first);
+        return isJsonRecord(raw.templates) ? raw.templates.article : undefined;
+      })
+      .toBe('Original/{title}.md');
+
+    await template.fill('Original/{title}.md');
+    await expect(template).toHaveValue('Original/{title}.md');
+    await expect
+      .poll(() =>
+        background.evaluate(() => globalThis.__milestoneANativeStorageRetryProbe?.calls ?? 0)
+      )
+      .toBe(1);
+    await expect
+      .poll(() => first.evaluate(() => globalThis.__m05MountedMutationProbe?.paths ?? []))
+      .toEqual([['templates', 'article']]);
+    expect(autoSaveErrors).toHaveLength(1);
+    await expect(alert).toBeHidden();
+
+    await first.evaluate(async () => {
+      const oldShell = document.querySelector<HTMLElement>('#optionsShellRoot > *');
+      const entry = document.querySelector<HTMLScriptElement>('script[type="module"][src]');
+      if (!oldShell || !entry) throw new Error('Options rebootstrap fixture missing.');
+      oldShell.dataset.milestoneAOldShell = 'true';
+      await import(`${entry.src}?milestone-a-reentry=${Date.now()}`);
+    });
+    await expect.poll(() => first.locator('[data-milestone-a-old-shell]').count()).toBe(0);
+    await expect(first.locator('[data-message-lane="autosave"]')).toBeHidden();
+    await expect(first.locator('[data-template-field="articleVideo"]')).toHaveValue(
+      'Original/{title}.md'
+    );
+    await expect
+      .poll(() =>
+        background.evaluate(() => globalThis.__milestoneANativeStorageRetryProbe?.calls ?? 0)
+      )
+      .toBe(1);
+
+    await first.close();
+    first = await context.newPage();
+    await first.goto(optionsUrl, { waitUntil: 'domcontentloaded' });
+    await expect(first.locator('[data-template-field="articleVideo"]')).toHaveValue(
+      'Original/{title}.md'
+    );
+    await expect(first.locator('[data-message-lane="autosave"]')).toBeHidden();
+  });
+
+  test('retains a quota-rejected template until a corrected field edit succeeds', async () => {
+    await Promise.all([first.close(), second.close()]);
+    first = await context.newPage();
+    const extensionId = background.url().split('/')[2];
+    if (!extensionId) throw new Error('Unable to resolve extension id.');
+    const optionsUrl = `chrome-extension://${extensionId}/options/index.html`;
+    await background.evaluate(() =>
+      chrome.storage.sync.set({
+        options: {
+          interfaceTheme: 'light',
+          vaultRouter: {
+            defaultVaultId: 'default',
+            vaults: [
+              {
+                apiKey: '',
+                enabled: true,
+                httpUrl: 'http://127.0.0.1:27123/',
+                httpsUrl: 'https://127.0.0.1:27124/',
+                id: 'default',
+                isDefault: true,
+                name: 'Zendio',
+                vault: 'Zendio'
+              }
+            ]
+          }
+        }
+      })
+    );
+    await first.goto(optionsUrl, { waitUntil: 'domcontentloaded' });
+    const template = first.locator('[data-template-field="articleVideo"]');
+    const overQuota = `Audit/${'x'.repeat(8500)}.md`;
+    await template.fill(overQuota);
+
+    const alert = first.locator('[data-message-lane="autosave"]');
+    await expect(alert).toBeVisible();
+    await expect(alert).toContainText(/save failed/i);
+    await expect(alert).toContainText(/shorten|correct/i);
+    await expect(alert.locator('button')).toBeVisible();
+    const rawAfterFailure = await readRaw(first);
+    expect(
+      isJsonRecord(rawAfterFailure.templates) ? rawAfterFailure.templates.article : undefined
+    ).not.toBe(overQuota);
+    await expect(template).toHaveValue(overQuota);
+
+    const corrected = 'Video/{title}.md';
+    await template.fill(corrected);
+    await expect
+      .poll(async () => {
+        const raw = await readRaw(first);
+        return isJsonRecord(raw.templates) ? raw.templates.article : undefined;
+      })
+      .toBe(corrected);
+    await expect(alert).toBeHidden();
+    await first.reload({ waitUntil: 'domcontentloaded' });
+    await expect(first.locator('[data-template-field="articleVideo"]')).toHaveValue(corrected);
   });
 
   test('converges disjoint patches, preserves opaque data, and strictly replaces imports', async () => {

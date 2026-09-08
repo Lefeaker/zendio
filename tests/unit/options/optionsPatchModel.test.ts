@@ -17,20 +17,37 @@ const cloneModes = [
   { mode: 'existing fallback', native: false }
 ];
 
+function nestPath(path: readonly string[], value: unknown): Record<string, unknown> {
+  const result: Record<string, unknown> = {};
+  let owner = result;
+  path.forEach((part, index) => {
+    if (index === path.length - 1) {
+      owner[part] = value;
+      return;
+    }
+    const child: Record<string, unknown> = {};
+    owner[part] = child;
+    owner = child;
+  });
+  return result;
+}
+
 describe.each(cloneModes)('optionsPatchModel with $mode', ({ native }) => {
   beforeEach(() => {
     vi.stubGlobal('structuredClone', native ? nativeClone : undefined);
   });
   afterEach(() => vi.unstubAllGlobals());
 
-  it('keeps the complete 54-path inventory with whole screenshot attachment ownership', () => {
+  it('keeps the complete 56-path inventory with fixed screenshot leaf ownership', () => {
     const keys = OPTIONS_PATCH_PATHS.map(optionsPathKey);
-    expect(keys).toHaveLength(54);
-    expect(new Set(keys).size).toBe(54);
+    expect(keys).toHaveLength(56);
+    expect(new Set(keys).size).toBe(56);
     expect(keys.filter((key) => key.startsWith('video.screenshotAttachment'))).toEqual([
-      'video.screenshotAttachment'
+      'video.screenshotAttachment.locationTemplate',
+      'video.screenshotAttachment.fileNameTemplate',
+      'video.screenshotAttachment.markdownUrlFormat'
     ]);
-    expect(OPTIONS_PATCH_PATHS.every((path) => path.length === 1 || path.length === 2)).toBe(true);
+    expect(OPTIONS_PATCH_PATHS.every((path) => path.length >= 1 && path.length <= 3)).toBe(true);
   });
 
   it.each(OPTIONS_PATCH_PATHS.map((path) => ({ path, key: optionsPathKey(path) })))(
@@ -39,8 +56,7 @@ describe.each(cloneModes)('optionsPatchModel with $mode', ({ native }) => {
       const source: StoredOptions = {};
       const value = { nested: { keep: 1 }, ownUndefined: undefined };
       const next = replaceOptionsPath(source, path, value);
-      const [root, field] = path;
-      expect(next).toStrictEqual({ [root]: field === undefined ? value : { [field]: value } });
+      expect(next).toStrictEqual(nestPath(path, value));
       expect(source).toStrictEqual({});
       expect(readOptionsPath(source, path)).toBeUndefined();
       expect(readOptionsPath(next, path)).toStrictEqual(value);
@@ -48,7 +64,8 @@ describe.each(cloneModes)('optionsPatchModel with $mode', ({ native }) => {
       expect(diffOptionsPaths(source, next)).toEqual([path]);
       expect(diffOptionsPaths(null, next)).toEqual([path]);
       const deleted = replaceOptionsPath(next, path, undefined);
-      expect(deleted).toStrictEqual(field === undefined ? {} : { [root]: {} });
+      const emptyLeafOwner = path.length === 1 ? {} : nestPath(path.slice(0, -1), {});
+      expect(deleted).toStrictEqual(emptyLeafOwner);
       expect(readOptionsPath(deleted, path)).toBeUndefined();
       expect(createOptionsPatch(path, undefined)).toEqual({ path, value: STORED_OPTIONS_DELETE });
     }
@@ -104,17 +121,52 @@ describe.each(cloneModes)('optionsPatchModel with $mode', ({ native }) => {
     }
   });
 
-  it('replaces the complete screenshot attachment without merging old fields', () => {
-    const source: StoredOptions = {};
-    const initial = replaceOptionsPath(source, ['video', 'screenshotAttachment'], {
-      location: 'old',
-      futureField: true
+  it('replaces one screenshot leaf while preserving its independently owned siblings', () => {
+    const initial: StoredOptions = {
+      video: {
+        screenshotAttachment: {
+          locationTemplate: './assets/before',
+          fileNameTemplate: 'before.jpg',
+          markdownUrlFormat: '![]({path})'
+        }
+      }
+    };
+    const result = replaceOptionsPath(
+      initial,
+      ['video', 'screenshotAttachment', 'locationTemplate'],
+      './assets/after'
+    );
+    expect(result.video?.screenshotAttachment).toStrictEqual({
+      locationTemplate: './assets/after',
+      fileNameTemplate: 'before.jpg',
+      markdownUrlFormat: '![]({path})'
     });
-    const replacement = { location: 'new' };
-    const result = replaceOptionsPath(initial, ['video', 'screenshotAttachment'], replacement);
-    expect(result).toStrictEqual({ video: { screenshotAttachment: replacement } });
-    expect(readOptionsPath(result, ['video', 'screenshotAttachment'])).not.toBe(replacement);
-    expect(diffOptionsPaths(initial, result)).toEqual([['video', 'screenshotAttachment']]);
+    expect(diffOptionsPaths(initial, result)).toEqual([
+      ['video', 'screenshotAttachment', 'locationTemplate']
+    ]);
+  });
+
+  it('keeps dynamic and invariant-bearing editors on their registered aggregate paths', () => {
+    const aggregateKeys = [
+      'domainMappings',
+      'vaultRouter',
+      'yamlConfig',
+      'classifier.taxonomy',
+      'fragmentClipper.selectionModifierKeys',
+      'video.promptPosition'
+    ];
+    const keys = OPTIONS_PATCH_PATHS.map(optionsPathKey);
+    expect(aggregateKeys.every((key) => keys.includes(key))).toBe(true);
+    expect(keys).not.toEqual(
+      expect.arrayContaining([
+        'domainMappings.example.com',
+        'vaultRouter.vaults.0',
+        'yamlConfig.contentTypes.article.fields.0',
+        'classifier.taxonomy.categories.0',
+        'fragmentClipper.selectionModifierKeys.0',
+        'video.promptPosition.x'
+      ])
+    );
   });
 
   it('rejects unregistered extension changes at the original projection boundary', () => {

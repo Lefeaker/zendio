@@ -336,6 +336,22 @@ describe('Stitch runtime polish CSS contracts', () => {
     );
   });
 
+  it('keeps autosave failures fixed, assertive, interactive, and mobile visible', () => {
+    expect(stitchCss).toMatch(
+      /\.aobx-status-message\s*{[^}]*position:\s*fixed;[^}]*z-index:\s*var\(--z-notification\);[^}]*pointer-events:\s*none;/
+    );
+    expect(stitchCss).toMatch(/\.aobx-status-message__lane\s*{[^}]*pointer-events:\s*auto;/);
+    expect(stitchCss).toMatch(
+      /\.aobx-status-message__retry:focus-visible\s*{[^}]*box-shadow:\s*var\(--shadow-focus\);/
+    );
+    expect(stitchCss).toMatch(
+      /\.aobx-status-message__retry:disabled,[\s\S]*?\[aria-busy='true'\]\s*{[^}]*cursor:\s*progress;/
+    );
+    expect(stitchCss).toMatch(
+      /@media\s*\(max-width:\s*760px\)[\s\S]*?\.aobx-status-message\s*{[^}]*inset:\s*auto var\(--space-4\) var\(--space-4\);[^}]*width:\s*auto;/
+    );
+  });
+
   it('keeps the Options sidebar adaptive instead of turning it into a stacked mobile block', () => {
     expect(stitchCss).toContain('--shell-sidebar-width: var(--sidebar-width);');
     expect(stitchCss).toMatch(

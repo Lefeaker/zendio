@@ -29,6 +29,7 @@
     "apiKeyPlaceholder": "你的 API 密钥",
     "articleTemplateHint": "用于完整的网页文章剪藏",
     "articleTemplateLabel": "文章路径模板",
+    "autosaveQuotaGuidance": "请缩短或修正该值，然后重试。",
     "availableVariables": "可用变量：",
     "cancelButton": "取消",
     "cancelButton_short": "取消",

@@ -37,6 +37,26 @@ describe('OptionsDraftSession', () => {
     ]);
   });
 
+  it('creates independent screenshot attachment leaf patches in registry order', () => {
+    const initial = baseline();
+    const session = createOptionsDraftSession(initial);
+    const local = clone(initial);
+    local.video.screenshotAttachment.locationTemplate = './assets/local';
+    local.video.screenshotAttachment.fileNameTemplate = 'local.jpg';
+    session.captureLocalDraft(local);
+
+    expect(session.createIntent()?.patches).toEqual([
+      {
+        path: ['video', 'screenshotAttachment', 'locationTemplate'],
+        value: './assets/local'
+      },
+      {
+        path: ['video', 'screenshotAttachment', 'fileNameTemplate'],
+        value: 'local.jpg'
+      }
+    ]);
+  });
+
   it('rebases remote non-dirty fields and emits only the locally owned path', () => {
     const initial = baseline();
     initial.interfaceTheme = 'system';
@@ -93,6 +113,52 @@ describe('OptionsDraftSession', () => {
 
     expect(session.getWorkingDraft().interfaceTheme).toBe('dark');
     expect(session.getDirtyPathKeys()).toEqual([]);
+  });
+
+  it('does not let an old acknowledgement replace later same-path authority', () => {
+    const initial = baseline();
+    initial.fragmentClipper.captureContext = false;
+    const session = createOptionsDraftSession(initial);
+    const local = clone(initial);
+    local.fragmentClipper.captureContext = true;
+    session.captureLocalDraft(local);
+    const intent = requireIntent(session.createIntent());
+    session.admit(intent);
+
+    const written = clone(initial);
+    written.fragmentClipper.captureContext = true;
+    session.observeAuthoritative(written);
+    const remote = clone(written);
+    remote.fragmentClipper.captureContext = false;
+    remote.interfaceTheme = 'dark';
+    session.observeAuthoritative(remote);
+
+    const oldAck = clone(initial);
+    oldAck.fragmentClipper.captureContext = true;
+    session.acknowledge(intent, oldAck);
+
+    expect(session.getAuthoritativeSnapshot().fragmentClipper.captureContext).toBe(false);
+    expect(session.getWorkingDraft().fragmentClipper.captureContext).toBe(false);
+    expect(session.getWorkingDraft().interfaceTheme).toBe('dark');
+    expect(session.getDirtyPathKeys()).toEqual([]);
+  });
+
+  it('settles without resurrecting a write when authority already satisfies the sent value', () => {
+    const initial = baseline();
+    initial.fragmentClipper.captureContext = false;
+    const session = createOptionsDraftSession(initial);
+    const local = clone(initial);
+    local.fragmentClipper.captureContext = true;
+    session.captureLocalDraft(local);
+    const intent = requireIntent(session.createIntent());
+    session.admit(intent);
+
+    session.observeAuthoritative(local);
+    session.acknowledge(intent, local);
+
+    expect(session.getWorkingDraft().fragmentClipper.captureContext).toBe(true);
+    expect(session.getDirtyPathKeys()).toEqual([]);
+    expect(session.createIntent()).toBeNull();
   });
 
   it('preserves a newer edit generation when the older generation is acknowledged', () => {

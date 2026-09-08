@@ -258,6 +258,47 @@ describe('OptionsController', () => {
     expect(rebase.mock.calls.at(-1)?.[0].interfaceTheme).toBe('dark');
   });
 
+  it('keeps later same-path authority when the old native acknowledgement arrives last', async () => {
+    const listeners: Array<(options: StoredOptions) => void> = [];
+    persistence.subscribe = vi.fn((listener: (options: StoredOptions) => void) => {
+      listeners.push(listener);
+      return () => undefined;
+    });
+    let releaseSave: (() => void) | undefined;
+    saveMock.mockImplementationOnce(
+      () =>
+        new Promise<StoredOptions>((resolve) => {
+          const olderAcknowledgement = structuredClone(repositorySnapshot);
+          olderAcknowledgement.fragmentClipper.captureContext = true;
+          releaseSave = () => resolve(olderAcknowledgement);
+        })
+    );
+    const controller = createOptionsController({ persistence, formAdapter });
+    await controller.loadInitialState();
+    const rebase = vi.fn<(options: CompleteOptions, transition: MountedDraftRebase) => void>();
+    controller.bindMountedDraftRebase(rebase);
+
+    const local = structuredClone(repositorySnapshot);
+    local.fragmentClipper.captureContext = true;
+    controller.scheduleAutoSave(() => local);
+    const flush = controller.flushPendingAutoSave();
+
+    const written = structuredClone(repositorySnapshot);
+    written.fragmentClipper.captureContext = true;
+    listeners.forEach((listener) => listener(written));
+    const remote = structuredClone(written);
+    remote.fragmentClipper.captureContext = false;
+    repositorySnapshot = remote;
+    listeners.forEach((listener) => listener(remote));
+
+    releaseSave?.();
+    await flush;
+
+    expect(controller.getSnapshot()?.fragmentClipper?.captureContext).toBe(false);
+    expect(rebase.mock.calls.at(-1)?.[0].fragmentClipper.captureContext).toBe(false);
+    expect(rebase.mock.calls.at(-1)?.[1].dirtyPathKeys).toEqual([]);
+  });
+
   it('serializes a reversal behind an earlier pending durable autosave', async () => {
     vi.useFakeTimers();
 
@@ -533,6 +574,38 @@ describe('OptionsController', () => {
     await flush;
   });
 
+  it('shares one active drain across repeated flush requests', async () => {
+    let releaseSave: (() => void) | undefined;
+    saveMock.mockImplementationOnce(
+      (patches) =>
+        new Promise<StoredOptions>((resolve) => {
+          releaseSave = () => {
+            for (const patch of patches) {
+              const value = patch.value === STORED_OPTIONS_DELETE ? undefined : patch.value;
+              repositorySnapshot = replaceOptionsPath(
+                repositorySnapshot,
+                requireOptionsPath(patch.path),
+                value
+              );
+            }
+            resolve(structuredClone(repositorySnapshot));
+          };
+        })
+    );
+    const controller = createOptionsController({ persistence, formAdapter });
+    await controller.loadInitialState();
+    const desired = structuredClone(repositorySnapshot);
+    desired.interfaceTheme = 'dark';
+    controller.scheduleAutoSave(() => desired);
+
+    const firstFlush = controller.flushPendingAutoSave();
+    const secondFlush = controller.flushPendingAutoSave();
+    expect(saveMock).toHaveBeenCalledTimes(1);
+    releaseSave?.();
+    await Promise.all([firstFlush, secondFlush]);
+    expect(saveMock).toHaveBeenCalledTimes(1);
+  });
+
   it('keeps a failed handoff retryable for the next bounded flush without looping', async () => {
     vi.useFakeTimers();
 
@@ -560,11 +633,76 @@ describe('OptionsController', () => {
     ]);
   });
 
+  it('correlates a retained autosave failure with its successful retry', async () => {
+    const failure = new Error('EXTERNAL_SYNC_CONFLICT');
+    saveMock.mockRejectedValueOnce(failure);
+    const onSaveError = vi.fn();
+    const onAutoSaveRecovered = vi.fn();
+    const controller = createOptionsController({
+      persistence,
+      formAdapter,
+      onSaveError,
+      onAutoSaveRecovered
+    });
+    await controller.loadInitialState();
+    const desired = structuredClone(repositorySnapshot);
+    desired.fragmentClipper.captureContext = true;
+    controller.scheduleAutoSave(() => desired);
+
+    await expect(controller.flushPendingAutoSave()).rejects.toBe(failure);
+    expect(onSaveError).toHaveBeenCalledWith('auto', failure, {
+      intentId: 1,
+      admissionGeneration: 1
+    });
+    expect(onAutoSaveRecovered).not.toHaveBeenCalled();
+
+    await controller.flushPendingAutoSave();
+
+    expect(onAutoSaveRecovered).toHaveBeenCalledWith({
+      intentId: 1,
+      admissionGeneration: 1
+    });
+  });
+
+  it('reports authoritative satisfaction as autosave recovery without another write', async () => {
+    const failure = new Error('OPTIONS_STORAGE_FAILURE');
+    saveMock.mockRejectedValueOnce(failure);
+    const onAutoSaveRecovered = vi.fn();
+    const controller = createOptionsController({
+      persistence,
+      formAdapter,
+      onAutoSaveRecovered
+    });
+    await controller.loadInitialState();
+    const desired = structuredClone(repositorySnapshot);
+    desired.fragmentClipper.captureContext = true;
+    controller.scheduleAutoSave(() => desired);
+
+    await expect(controller.flushPendingAutoSave()).rejects.toBe(failure);
+    controller.setSnapshot(desired);
+
+    expect(onAutoSaveRecovered).toHaveBeenCalledWith({
+      intentId: 1,
+      admissionGeneration: 1
+    });
+    await controller.flushPendingAutoSave();
+    expect(saveMock).toHaveBeenCalledTimes(1);
+  });
+
   it('lets a user reversal discard a failed retry without writing the obsolete value', async () => {
     const failure = new Error('durable handoff failed');
     saveMock.mockRejectedValueOnce(failure);
-    const controller = createOptionsController({ persistence, formAdapter });
+    const onAutoSaveRecovered = vi.fn();
+    const dirtyPathStates: Array<readonly string[]> = [];
+    const controller = createOptionsController({
+      persistence,
+      formAdapter,
+      onAutoSaveRecovered
+    });
     await controller.loadInitialState();
+    controller.bindMountedDraftRebase((_draft, transition) => {
+      dirtyPathStates.push(transition.dirtyPathKeys);
+    });
     const changed = structuredClone(repositorySnapshot);
     changed.aiChat.userName = 'obsolete';
     controller.scheduleAutoSave(() => changed);
@@ -575,12 +713,54 @@ describe('OptionsController', () => {
 
     expect(saveMock).toHaveBeenCalledTimes(1);
     expect(savedOptions).toEqual([]);
+    expect(dirtyPathStates.at(-1)).toEqual([]);
+    expect(onAutoSaveRecovered).toHaveBeenCalledOnce();
+    expect(onAutoSaveRecovered).toHaveBeenCalledWith({
+      intentId: 1,
+      admissionGeneration: 1
+    });
+  });
+
+  it('reconciles a debounced failed edit when a later debounced capture reverses it', async () => {
+    vi.useFakeTimers();
+    const failure = new Error('OPTIONS_STORAGE_FAILURE');
+    saveMock.mockRejectedValueOnce(failure);
+    const onSaveError = vi.fn();
+    const onAutoSaveRecovered = vi.fn();
+    const controller = createOptionsController({
+      persistence,
+      formAdapter,
+      onSaveError,
+      onAutoSaveRecovered
+    });
+    await controller.loadInitialState();
+    const changed = structuredClone(repositorySnapshot);
+    changed.fragmentClipper.captureContext = true;
+
+    controller.scheduleAutoSave(() => changed);
+    await vi.advanceTimersByTimeAsync(400);
+    expect(onSaveError).toHaveBeenCalledOnce();
+
+    controller.scheduleAutoSave(() => structuredClone(repositorySnapshot));
+    await vi.advanceTimersByTimeAsync(400);
+
+    expect(saveMock).toHaveBeenCalledTimes(1);
+    expect(onAutoSaveRecovered).toHaveBeenCalledOnce();
+    expect(onAutoSaveRecovered).toHaveBeenCalledWith({
+      intentId: 1,
+      admissionGeneration: 1
+    });
   });
 
   it('discards a failed retry after a manual reversal before page exit', async () => {
     const failure = new Error('EXTERNAL_SYNC_CONFLICT');
     saveMock.mockRejectedValueOnce(failure);
-    const controller = createOptionsController({ persistence, formAdapter });
+    const onAutoSaveRecovered = vi.fn();
+    const controller = createOptionsController({
+      persistence,
+      formAdapter,
+      onAutoSaveRecovered
+    });
     await controller.loadInitialState();
     const desired = structuredClone(repositorySnapshot);
     desired.fragmentClipper.captureContext = true;
@@ -595,6 +775,11 @@ describe('OptionsController', () => {
 
     expect(saveMock).toHaveBeenCalledTimes(1);
     expect(savedOptions).toEqual([]);
+    expect(onAutoSaveRecovered).toHaveBeenCalledOnce();
+    expect(onAutoSaveRecovered).toHaveBeenCalledWith({
+      intentId: 1,
+      admissionGeneration: 1
+    });
   });
 
   it('does not let the same synthetic admission silently unblock a failed mutation', async () => {

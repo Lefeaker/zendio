@@ -89,11 +89,62 @@ describe('options messages i18n behavior', () => {
     const { showStatusMessage } = await import('../../../src/options/components/messages');
     showStatusMessage('error', 'Something went wrong');
 
-    const element = document.getElementById('msg');
+    const host = document.getElementById('msg');
+    const element = host?.querySelector<HTMLElement>('[data-message-lane="general"]');
+    expect(host?.className).toBe('aobx-status-message is-error');
+    expect(host?.getAttribute('role')).toBe('status');
+    expect(host?.getAttribute('aria-live')).toBe('polite');
     expect(element?.textContent).toBe('Something went wrong');
     expect(element?.dataset.i18n).toBeUndefined();
-    expect(element?.className).toBe('aobx-status-message is-error');
+    expect(element?.className).toBe('aobx-status-message__lane is-general is-error');
     expect(element?.getAttribute('role')).toBe('status');
     expect(element?.getAttribute('aria-live')).toBe('polite');
+  });
+
+  it('keeps the autosave alert persistent and coalesces its busy retry action', async () => {
+    getOptionsI18nBinderMock.mockReturnValue(null);
+    getOptionsI18nResourceMock.mockReturnValue(null);
+    let releaseRetry: (() => void) | undefined;
+    const retry = vi.fn(
+      () =>
+        new Promise<void>((resolve) => {
+          releaseRetry = resolve;
+        })
+    );
+    const { clearAutoSaveFailure, showAutoSaveFailure, showStatusMessage } =
+      await import('../../../src/options/components/messages');
+
+    showAutoSaveFailure({
+      message: 'Changes are still unsaved.',
+      guidance: 'Shorten the value.',
+      retryLabel: 'Retry saving',
+      retry
+    });
+    showStatusMessage('success', 'Unrelated success');
+    vi.advanceTimersByTime(2000);
+
+    const lane = document.querySelector<HTMLElement>('[data-message-lane="autosave"]');
+    const button = lane?.querySelector<HTMLButtonElement>('button');
+    expect(lane?.hidden).toBe(false);
+    expect(lane?.getAttribute('role')).toBe('alert');
+    expect(lane?.getAttribute('aria-live')).toBe('assertive');
+    expect(lane?.textContent).toContain('Changes are still unsaved.');
+    expect(lane?.textContent).toContain('Shorten the value.');
+    expect(button?.textContent).toBe('Retry saving');
+
+    button?.click();
+    button?.click();
+    expect(retry).toHaveBeenCalledTimes(1);
+    expect(button?.disabled).toBe(true);
+    expect(button?.getAttribute('aria-busy')).toBe('true');
+
+    releaseRetry?.();
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(button?.disabled).toBe(false);
+    expect(button?.hasAttribute('aria-busy')).toBe(false);
+
+    clearAutoSaveFailure();
+    expect(lane?.hidden).toBe(true);
   });
 });

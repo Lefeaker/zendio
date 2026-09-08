@@ -1,6 +1,7 @@
 {
   "extensionName": "Zendio-All in Obsidian",
   "extensionSubtitle": "クリッパーを設定して、よりスマートなコンテンツ管理を実現",
+  "autosaveQuotaGuidance": "値を短くするか修正して、もう一度お試しください。",
   "usageDashboardTitle": "利用状況ダッシュボード",
   "usageDashboardSubtitle": "クリップ種別ごとの保存回数をひと目で確認",
   "usageTotalLabel": "保存合計",

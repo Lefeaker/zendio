@@ -1,6 +1,7 @@
 {
   "extensionName": "Zendio-All in Obsidian",
   "extensionSubtitle": "Configura tu clipper para una gestión de contenido más inteligente",
+  "autosaveQuotaGuidance": "Acorta o corrige el valor y vuelve a intentarlo.",
   "usageDashboardTitle": "Resumen de Uso",
   "usageDashboardSubtitle": "Ve qué tan seguido se guarda cada tipo de clip",
   "usageTotalLabel": "Total de Guardados",

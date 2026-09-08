@@ -7,6 +7,13 @@ import {
   type BoundElement,
   type LocalizedContent
 } from '../utils/localizedText';
+import {
+  clearAutoSaveFailureLane,
+  showAutoSaveFailureLane,
+  showGeneralStatusMessage,
+  type AutoSaveFailurePresentation
+} from './statusMessageLanes';
+export type { AutoSaveFailurePresentation } from './statusMessageLanes';
 
 type MessageType = 'success' | 'error';
 
@@ -18,7 +25,6 @@ interface MessageState {
 }
 
 const transferMessageState: MessageState = { timer: undefined, binding: null };
-const statusMessageState: MessageState = { timer: undefined, binding: null };
 
 // ✅ Phase 1 DaisyUI migration: 使用 Alert 语义类替代手动样式
 const MESSAGE_CLASS_CONFIG = {
@@ -27,12 +33,6 @@ const MESSAGE_CLASS_CONFIG = {
     success: 'alert alert-success mt-3',
     error: 'alert alert-error mt-3',
     timeoutMs: 2500
-  },
-  status: {
-    base: 'aobx-status-message',
-    success: 'aobx-status-message is-success',
-    error: 'aobx-status-message is-error',
-    timeoutMs: 2000
   }
 } as const;
 
@@ -53,8 +53,15 @@ export function clearTransferMessage(): void {
 }
 
 export function showStatusMessage(type: MessageType, content: MessageContent): void {
-  const element = getOptionalElementById<HTMLSpanElement>('msg') ?? createStatusMessageElement();
-  applyMessage(element, type, content, statusMessageState, MESSAGE_CLASS_CONFIG.status);
+  showGeneralStatusMessage(type, content);
+}
+
+export function showAutoSaveFailure(presentation: AutoSaveFailurePresentation): void {
+  showAutoSaveFailureLane(presentation);
+}
+
+export function clearAutoSaveFailure(): void {
+  clearAutoSaveFailureLane();
 }
 
 export function formatOptionsError(error: unknown, msgs: Messages | null): string {
@@ -86,14 +93,6 @@ export function formatOptionsError(error: unknown, msgs: Messages | null): strin
   return String(error);
 }
 
-function createStatusMessageElement(): HTMLSpanElement {
-  const element = document.createElement('span');
-  element.id = 'msg';
-  ensureMessageAccessibility(element);
-  document.body.append(element);
-  return element;
-}
-
 interface MessageClassConfig {
   base: string;
   success: string;
@@ -109,6 +108,7 @@ function applyMessage(
   classConfig: MessageClassConfig
 ): void {
   ensureMessageAccessibility(element);
+  element.hidden = false;
   updateElementClass(element, type, classConfig);
   updateMessageContent(element, content, state);
 
@@ -146,6 +146,7 @@ function clearMessage(element: HTMLElement, state: MessageState, baseClass: stri
     delete element.dataset.i18n;
   }
   element.textContent = '';
+  element.hidden = true;
 }
 
 function updateMessageContent(

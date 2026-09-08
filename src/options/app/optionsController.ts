@@ -3,38 +3,24 @@ import { mergeOptions } from '../../shared/config/optionsMerger';
 import { deepClone } from '../utils/clone';
 import type { OptionsPersistenceService } from '../services/persistence';
 import type { OptionsFormAdapter } from '../components/optionsFormAdapter';
+import { OptionsAutoSaveFailureTracker } from './optionsAutoSaveFailureTracker';
+import { createSaveSuccessArguments } from './optionsAutoSaveFailureTracker';
 import {
   createOptionsControllerDurability,
   type OptionsControllerDurability
 } from './optionsControllerDurability';
-import {
-  createOptionsDraftSession,
-  type MountedDraftRebase,
-  type OptionsDraftSession,
-  type OptionsDraftSessionTransition
-} from './optionsDraftSession';
-
-export type SaveReason = 'manual' | 'auto' | 'import';
-
-export interface OptionsControllerCallbacks {
-  onSaveSuccess?: (reason: SaveReason, saved: CompleteOptions | StoredOptions) => void;
-  onSaveError?: (reason: SaveReason, error: unknown) => void;
-}
-
-export interface OptionsControllerDeps extends OptionsControllerCallbacks {
-  persistence: OptionsPersistenceService;
-  formAdapter: OptionsFormAdapter;
-  autoSaveDebounceMs?: number;
-}
-
-export interface SaveSnapshotOptions {
-  reason: SaveReason;
-  draft?: CompleteOptions | StoredOptions;
-}
-
-type AutoSaveCollector = (() => CompleteOptions | StoredOptions | null | undefined) | undefined;
-
-type MountedDraftRebaseListener = (draft: CompleteOptions, transition: MountedDraftRebase) => void;
+import { createOptionsDraftSession, type OptionsDraftSession } from './optionsDraftSession';
+import type {
+  AutoSaveAttemptIdentity,
+  AutoSaveCollector,
+  OptionsControllerCallbacks,
+  OptionsControllerDeps,
+  SaveSnapshotOptions
+} from './optionsControllerTypes';
+import type {
+  MountedDraftRebaseListener,
+  OptionsDraftSessionTransition
+} from './optionsDraftSessionTypes';
 
 export class OptionsController {
   private snapshot: StoredOptions | null = null;
@@ -48,23 +34,24 @@ export class OptionsController {
   private draftSession: OptionsDraftSession | null = null;
   private mountedDraftRebase: MountedDraftRebaseListener | null = null;
   private unsubscribePersistence: (() => void) | null = null;
+  private readonly autoSaveFailureTracker = new OptionsAutoSaveFailureTracker();
 
   constructor({
     persistence,
     formAdapter,
     autoSaveDebounceMs = 400,
-    onSaveError,
-    onSaveSuccess
+    ...callbacks
   }: OptionsControllerDeps) {
     this.persistence = persistence;
     this.formAdapter = formAdapter;
     this.autoSaveDebounceMs = autoSaveDebounceMs;
-    this.callbacks = {
-      ...(onSaveError !== undefined && { onSaveError }),
-      ...(onSaveSuccess !== undefined && { onSaveSuccess })
-    };
+    this.callbacks = callbacks;
     this.autoSaveDurability = createOptionsControllerDurability({
       persist: async ({ intent, reason }) => {
+        const identity = {
+          intentId: intent.intentId,
+          admissionGeneration: intent.admissionGeneration
+        };
         this.requireDraftSession().admit(intent);
         try {
           const acknowledged = mergeOptions(await this.persistence.save(intent.patches));
@@ -73,20 +60,25 @@ export class OptionsController {
           this.applyMountedTransition(transition);
           if (this.requireDraftSession().getDirtyPathKeys().length === 0)
             this.autoSaveDurability.discardRetryable();
-          this.callbacks.onSaveSuccess?.(reason, this.requireDraftSession().getWorkingDraft());
+          const savedDraft = this.requireDraftSession().getWorkingDraft();
+          const successArgs = createSaveSuccessArguments(reason, savedDraft, identity);
+          this.callbacks.onSaveSuccess?.(...successArgs);
+          if (reason === 'auto') this.recoverAutoSaveFailure(identity);
         } catch (error) {
           this.draftSession?.fail(intent);
-          this.callbacks.onSaveError?.(reason, error);
+          if (reason === 'auto') {
+            this.autoSaveFailureTracker.record(identity);
+            this.callbacks.onSaveError?.(reason, error, identity);
+          } else {
+            this.callbacks.onSaveError?.(reason, error);
+          }
           throw error;
         }
       }
     });
 
-    if (typeof persistence.subscribe === 'function') {
-      this.unsubscribePersistence = persistence.subscribe((options) => {
-        this.setSnapshot(options);
-      });
-    }
+    if (persistence.subscribe)
+      this.unsubscribePersistence = persistence.subscribe((options) => this.setSnapshot(options));
   }
   getSnapshot(): StoredOptions | null {
     return this.snapshot ? deepClone(this.snapshot) : null;
@@ -97,16 +89,15 @@ export class OptionsController {
     const transition = this.draftSession.observeAuthoritative(mergeOptions(options));
     this.snapshot = this.draftSession.getAuthoritativeSnapshot();
     this.applyMountedTransition(transition);
-    if (!this.draftSession.getDirtyPathKeys().length) this.autoSaveDurability.discardRetryable();
+    if (!this.draftSession.getDirtyPathKeys().length) {
+      this.reconcileCleanAutoSave();
+    }
   }
   bindMountedDraftRebase(listener: MountedDraftRebaseListener): () => void {
     this.mountedDraftRebase = listener;
     return () => {
       if (this.mountedDraftRebase === listener) this.mountedDraftRebase = null;
     };
-  }
-  readForm(): CompleteOptions {
-    return this.formAdapter.read(this.snapshot);
   }
   cancelAutoSave(): void {
     if (this.autoSaveTimer) {
@@ -153,7 +144,7 @@ export class OptionsController {
     this.hasPendingAutoSave = false;
     const intent = this.requireDraftSession().createIntent();
     if (intent) this.autoSaveDurability.enqueue({ intent, reason: 'auto' });
-    else this.autoSaveDurability.discardRetryable();
+    else this.reconcileCleanAutoSave();
   }
   async loadInitialState(): Promise<StoredOptions> {
     const stored = await this.persistence.load();
@@ -201,7 +192,7 @@ export class OptionsController {
       this.autoSaveDurability.enqueue({ intent, reason });
       await this.autoSaveDurability.flush();
     } else {
-      this.autoSaveDurability.discardRetryable();
+      this.reconcileCleanAutoSave();
       this.callbacks.onSaveSuccess?.(reason, this.requireDraftSession().getWorkingDraft());
     }
     return this.requireDraftSession().getWorkingDraft();
@@ -215,10 +206,8 @@ export class OptionsController {
   }
   async dispose(): Promise<void> {
     await this.flushPendingAutoSave();
-    if (this.unsubscribePersistence) {
-      this.unsubscribePersistence();
-      this.unsubscribePersistence = null;
-    }
+    this.unsubscribePersistence?.();
+    this.unsubscribePersistence = null;
   }
   private requireDraftSession(): OptionsDraftSession {
     if (!this.draftSession) {
@@ -242,6 +231,17 @@ export class OptionsController {
       this.autoSaveTimer = null;
       void this.handoffPendingAutoSave().catch(() => undefined);
     }, this.autoSaveDebounceMs);
+  }
+  private recoverAutoSaveFailure(identity?: AutoSaveAttemptIdentity): void {
+    const recovered = this.autoSaveFailureTracker.recover(
+      identity,
+      this.requireDraftSession().getDirtyPathKeys().length > 0
+    );
+    if (recovered) this.callbacks.onAutoSaveRecovered?.(recovered);
+  }
+  private reconcileCleanAutoSave(): void {
+    this.autoSaveDurability.discardRetryable();
+    this.recoverAutoSaveFailure();
   }
 }
 export function createOptionsController(deps: OptionsControllerDeps): OptionsController {

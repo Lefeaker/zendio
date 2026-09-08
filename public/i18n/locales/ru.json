@@ -29,6 +29,7 @@
     "apiKeyPlaceholder": "Ваш API ключ",
     "articleTemplateHint": "Для сохранения полных статей веб-страниц",
     "articleTemplateLabel": "Шаблон пути статьи",
+    "autosaveQuotaGuidance": "Сократите или исправьте значение и повторите попытку.",
     "availableVariables": "Доступные переменные:",
     "cancelButton": "Отменить",
     "cancelButton_short": "Отменить",

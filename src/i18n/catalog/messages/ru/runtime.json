@@ -1,6 +1,7 @@
 {
   "extensionName": "Zendio-All in Obsidian",
   "extensionSubtitle": "Настройте ваш клиппер для более умного управления контентом",
+  "autosaveQuotaGuidance": "Сократите или исправьте значение и повторите попытку.",
   "usageDashboardTitle": "Обзор использования",
   "usageDashboardSubtitle": "Посмотрите, как часто сохраняется каждый тип клипа",
   "usageTotalLabel": "Всего сохранений",

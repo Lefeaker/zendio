@@ -192,6 +192,103 @@ describe('optionsStore sanitization', () => {
     expect(patchMock).not.toHaveBeenCalled();
   });
 
+  it('suppresses stale acknowledgement publication and migration writeback after an observation', async () => {
+    let repositoryListener: ((options: CompleteOptions) => void) | undefined;
+    let resolveAcknowledgement: ((options: CompleteOptions) => void) | undefined;
+    const delayedPatch = vi.fn(
+      () =>
+        new Promise<CompleteOptions>((resolve) => {
+          resolveAcknowledgement = resolve;
+        })
+    );
+    const { repositoryContainer } = await import('../../../src/shared/di/serviceRegistry');
+    const { DI_TOKENS } = await import('../../../src/shared/di/tokens');
+    repositoryContainer.reset();
+    repositoryContainer.registerSingleton(DI_TOKENS.IOptionsRepository, () => ({
+      get: getMock,
+      patch: delayedPatch,
+      replace: replaceMock,
+      onChange: vi.fn((listener: (options: CompleteOptions) => void) => {
+        repositoryListener = listener;
+        return () => undefined;
+      })
+    }));
+    const { optionsStore } = await import('../../../src/options/state/optionsStore');
+    optionsStore.reset();
+    const subscriber = vi.fn();
+    optionsStore.subscribe(subscriber);
+    optionsStore.replace(clone(DEFAULT_OPTIONS as CompleteOptions));
+    subscriber.mockClear();
+
+    const pending = optionsStore.save([{ path: ['interfaceTheme'], value: 'light' }]);
+    const remote = clone(DEFAULT_OPTIONS as CompleteOptions);
+    remote.interfaceTheme = 'dark';
+    repositoryListener?.(remote);
+
+    const oldAcknowledgement = clone(DEFAULT_OPTIONS as CompleteOptions);
+    oldAcknowledgement.interfaceTheme = 'light';
+    (oldAcknowledgement as Record<string, unknown>).yamlConfig = {
+      contentTypes: { article: { fields: [{ name: '', type: 'text', enabled: true }] } }
+    };
+    resolveAcknowledgement?.(oldAcknowledgement);
+    const returned = await pending;
+    await Promise.resolve();
+
+    expect(returned.interfaceTheme).toBe('light');
+    expect(optionsStore.snapshot()?.interfaceTheme).toBe('dark');
+    expect(subscriber).toHaveBeenCalledTimes(1);
+    expect(subscriber).toHaveBeenLastCalledWith(
+      expect.objectContaining({ interfaceTheme: 'dark' })
+    );
+    expect(delayedPatch).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps a later repository observation published while strict replace returns its acknowledgement', async () => {
+    let repositoryListener: ((options: CompleteOptions) => void) | undefined;
+    let resolveReplacement: ((options: CompleteOptions) => void) | undefined;
+    const delayedReplace = vi.fn(
+      () =>
+        new Promise<CompleteOptions>((resolve) => {
+          resolveReplacement = resolve;
+        })
+    );
+    const { repositoryContainer } = await import('../../../src/shared/di/serviceRegistry');
+    const { DI_TOKENS } = await import('../../../src/shared/di/tokens');
+    repositoryContainer.reset();
+    repositoryContainer.registerSingleton(DI_TOKENS.IOptionsRepository, () => ({
+      get: getMock,
+      patch: patchMock,
+      replace: delayedReplace,
+      onChange: vi.fn((listener: (options: CompleteOptions) => void) => {
+        repositoryListener = listener;
+        return () => undefined;
+      })
+    }));
+    const { replacePersisted, optionsStore } =
+      await import('../../../src/options/state/optionsStore');
+    optionsStore.reset();
+    const subscriber = vi.fn();
+    optionsStore.subscribe(subscriber);
+    optionsStore.replace(clone(DEFAULT_OPTIONS as CompleteOptions));
+    subscriber.mockClear();
+
+    const replacement = clone(DEFAULT_OPTIONS as CompleteOptions);
+    replacement.interfaceTheme = 'light';
+    const pending = replacePersisted(replacement);
+    const remote = clone(DEFAULT_OPTIONS as CompleteOptions);
+    remote.interfaceTheme = 'dark';
+    repositoryListener?.(remote);
+    resolveReplacement?.(replacement);
+    const returned = await pending;
+
+    expect(returned.interfaceTheme).toBe('light');
+    expect(optionsStore.snapshot()?.interfaceTheme).toBe('dark');
+    expect(subscriber).toHaveBeenCalledTimes(1);
+    expect(subscriber).toHaveBeenLastCalledWith(
+      expect.objectContaining({ interfaceTheme: 'dark' })
+    );
+  });
+
   it('does not re-emit identical snapshots to subscribers', async () => {
     const { repositoryContainer } = await import('../../../src/shared/di/serviceRegistry');
     const { DI_TOKENS } = await import('../../../src/shared/di/tokens');

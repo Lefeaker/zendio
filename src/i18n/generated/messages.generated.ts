@@ -30,6 +30,7 @@ export const GENERATED_MESSAGE_KEYS = [
   'apiKeyPlaceholder',
   'articleTemplateHint',
   'articleTemplateLabel',
+  'autosaveQuotaGuidance',
   'availableVariables',
   'cancelButton',
   'cancelButton_short',

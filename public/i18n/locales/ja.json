@@ -29,6 +29,7 @@
     "apiKeyPlaceholder": "API キー",
     "articleTemplateHint": "完全なウェブページ記事のクリッピング用",
     "articleTemplateLabel": "記事パステンプレート",
+    "autosaveQuotaGuidance": "値を短くするか修正して、もう一度お試しください。",
     "availableVariables": "利用可能な変数：",
     "cancelButton": "キャンセル",
     "cancelButton_short": "キャンセル",
