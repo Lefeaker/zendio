@@ -29,6 +29,7 @@
     "apiKeyPlaceholder": "API 키",
     "articleTemplateHint": "웹페이지의 전체 기사를 저장하기 위한",
     "articleTemplateLabel": "기사 경로 템플릿",
+    "autosaveQuotaGuidance": "값을 줄이거나 수정한 뒤 다시 시도하세요.",
     "availableVariables": "사용 가능한 변수:",
     "cancelButton": "취소",
     "cancelButton_short": "취소",

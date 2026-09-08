@@ -3,6 +3,100 @@
   min-height: 100vh;
 }
 
+.aobx-status-message {
+  position: fixed;
+  z-index: var(--z-notification);
+  inset: auto var(--space-6) var(--space-6) auto;
+  display: grid;
+  gap: var(--space-3);
+  width: min(420px, calc(100vw - var(--space-12)));
+  pointer-events: none;
+}
+
+.aobx-status-message__lane {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding: var(--space-4) var(--space-5);
+  border: var(--border-default);
+  border-radius: var(--radius-lg);
+  background: var(--panel);
+  color: var(--text);
+  box-shadow: var(--shadow-lg);
+  line-height: var(--line-height-snug);
+  pointer-events: auto;
+}
+
+.aobx-status-message__lane[hidden] {
+  display: none;
+}
+
+.aobx-status-message__lane.is-success {
+  border-color: color-mix(in srgb, var(--success) 42%, transparent);
+  background: color-mix(in srgb, var(--success-soft) 88%, var(--panel));
+}
+
+.aobx-status-message__lane.is-error {
+  border-color: color-mix(in srgb, var(--danger) 46%, transparent);
+  background: color-mix(in srgb, var(--danger-soft) 88%, var(--panel));
+}
+
+.aobx-status-message__copy {
+  display: grid;
+  gap: var(--space-1-5);
+  min-width: 0;
+}
+
+.aobx-status-message__text,
+.aobx-status-message__guidance {
+  overflow-wrap: anywhere;
+}
+
+.aobx-status-message__guidance {
+  color: var(--text-dim);
+  font-size: var(--font-size-sm);
+}
+
+.aobx-status-message__retry {
+  flex: none;
+  min-height: var(--control-height-sm);
+  padding: var(--space-2) var(--space-4);
+  border: 1px solid color-mix(in srgb, var(--danger) 58%, transparent);
+  border-radius: var(--radius-md);
+  background: var(--panel);
+  color: var(--danger);
+  font: inherit;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.aobx-status-message__retry:hover:not(:disabled) {
+  background: var(--surface-muted);
+}
+
+.aobx-status-message__retry:focus-visible {
+  outline: 0;
+  box-shadow: var(--shadow-focus);
+}
+
+.aobx-status-message__retry:disabled,
+.aobx-status-message__retry[aria-busy='true'] {
+  cursor: progress;
+  opacity: 0.62;
+}
+
+@media (max-width: 760px) {
+  .aobx-status-message {
+    inset: auto var(--space-4) var(--space-4);
+    width: auto;
+  }
+
+  .aobx-status-message__lane {
+    align-items: flex-start;
+  }
+}
+
 .sidebar {
   position: fixed;
   inset: 0 auto 0 0;

@@ -29,6 +29,7 @@
     "apiKeyPlaceholder": "Your API key",
     "articleTemplateHint": "For full webpage article clipping",
     "articleTemplateLabel": "Article Path Template",
+    "autosaveQuotaGuidance": "Shorten or correct the value, then try again.",
     "availableVariables": "Available variables:",
     "cancelButton": "Cancel",
     "cancelButton_short": "Cancel",

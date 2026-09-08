@@ -16,10 +16,9 @@ import { createOptionsFormAdapter } from '../components/optionsFormAdapter';
 import { chromeOptionsPersistence } from '../services/persistence';
 import { consumeYamlMigrationNotice } from '../state/optionsStore';
 import { createOptionsController, type OptionsController } from './optionsController';
-import {
-  consumePendingAutoSaveSource,
-  registerOptionsController
-} from './optionsControllerContext';
+import { registerOptionsController } from './optionsControllerContext';
+import { createOptionsAutoSaveNotificationCallbacks } from './optionsAutoSaveNotifications';
+export { showAutoSaveNotice } from './optionsAutoSaveNotifications';
 import { getOptionsMessages, setOptionsI18nContext } from './i18nContext';
 import {
   mountProductionStitchShell,
@@ -93,20 +92,7 @@ async function initializeOptionsController(): Promise<OptionsController> {
     persistence: chromeOptionsPersistence,
     formAdapter: createOptionsFormAdapter(),
     autoSaveDebounceMs: 400,
-    onSaveError: (reason, error) => {
-      if (reason === 'auto') {
-        console.error('[options] Auto-save failed:', error);
-      }
-    },
-    onSaveSuccess: (reason) => {
-      if (reason !== 'auto') {
-        return;
-      }
-      const source = consumePendingAutoSaveSource();
-      if (source) {
-        void showAutoSaveNotice(source);
-      }
-    }
+    ...createOptionsAutoSaveNotificationCallbacks(() => optionsController)
   });
 
   optionsController = controller;
@@ -181,20 +167,6 @@ async function applyOptionsSnapshot(): Promise<void> {
     const text =
       msgs.yamlConfigMigrated ?? 'YAML field configuration has been migrated to the latest format.';
     showStatusMessage('success', { key: migrationNotice, text });
-  }
-}
-
-export async function showAutoSaveNotice(source: string): Promise<void> {
-  const msgs = await getOptionsMessages();
-  if (source === 'yamlConfig') {
-    const text = msgs.yamlConfigAutoSaved ?? 'YAML field configuration changes saved.';
-    showStatusMessage('success', { key: 'yamlConfigAutoSaved', text });
-    return;
-  }
-
-  if (source === 'templates') {
-    const text = msgs.templatesAutoSaved ?? 'Template settings saved automatically.';
-    showStatusMessage('success', { key: 'templatesAutoSaved', text });
   }
 }
 

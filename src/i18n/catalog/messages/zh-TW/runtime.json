@@ -1,6 +1,7 @@
 {
   "extensionName": "Zendio-All in Obsidian",
   "extensionSubtitle": "配置您的剪藏器以實現更智慧的內容管理",
+  "autosaveQuotaGuidance": "請縮短或修正該值，然後重試。",
   "usageDashboardTitle": "使用概覽",
   "usageDashboardSubtitle": "查看每種剪藏類型的保存頻率",
   "usageTotalLabel": "總保存數",

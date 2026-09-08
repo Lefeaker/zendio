@@ -45,7 +45,9 @@ export const OPTIONS_PATCH_PATHS = definePaths([
   ['video', 'controlBarScreenshot'],
   ['video', 'commentEditorAutoPause'],
   ['video', 'promptPosition'],
-  ['video', 'screenshotAttachment'],
+  ['video', 'screenshotAttachment', 'locationTemplate'],
+  ['video', 'screenshotAttachment', 'fileNameTemplate'],
+  ['video', 'screenshotAttachment', 'markdownUrlFormat'],
   ['classifier', 'enabled'],
   ['classifier', 'provider'],
   ['classifier', 'endpoint'],
@@ -116,14 +118,14 @@ export function diffOptionsPaths(
 function writeOptionsPath(snapshot: OptionsSnapshot, path: OptionsPath, value: StateValue): void {
   if (!isObjectRecord(snapshot)) return;
   let owner: Record<string, StateValue> = snapshot;
-  const [root, field] = path;
-  if (field !== undefined) {
-    const child = owner[root];
+  for (const part of path.slice(0, -1)) {
+    const child = owner[part];
     const nextOwner = isObjectRecord(child) && !Array.isArray(child) ? { ...child } : {};
-    owner[root] = nextOwner;
+    owner[part] = nextOwner;
     owner = nextOwner;
   }
-  const leaf = field ?? root;
+  const leaf = path[path.length - 1];
+  if (!leaf) return;
   if (value === undefined) delete owner[leaf];
   else owner[leaf] = cloneStateValue(value);
 }

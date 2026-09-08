@@ -29,6 +29,7 @@
     "apiKeyPlaceholder": "Tu clave API",
     "articleTemplateHint": "Para recortar artículos completos de páginas web",
     "articleTemplateLabel": "Plantilla de ruta de artículo",
+    "autosaveQuotaGuidance": "Acorta o corrige el valor y vuelve a intentarlo.",
     "availableVariables": "Variables disponibles:",
     "cancelButton": "Cancelar",
     "cancelButton_short": "Cancelar",

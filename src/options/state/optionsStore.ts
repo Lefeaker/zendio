@@ -33,6 +33,7 @@ let pendingYamlMigrationNotice: MigrationMessageKey | null = null;
 let cachedSnapshot: StoredOptions | null = null;
 let unsubscribeRepo: (() => void) | null = null;
 let migrationWritebackTail: Promise<void> = Promise.resolve();
+let repositoryObservationGeneration = 0;
 const subscribers = new Set<OptionsSubscriber>();
 
 function isDeletePatchValue(value: OptionsStoreInputPatch['value']): boolean {
@@ -156,9 +157,9 @@ function applySanitizedOptions(options: StoredOptions | CompleteOptions): {
   };
 }
 
-function emitSnapshot(snapshot: StoredOptions | null): void {
+function emitSnapshot(snapshot: StoredOptions | null): boolean {
   if (areStateValuesEqual(snapshot, cachedSnapshot)) {
-    return;
+    return false;
   }
   cachedSnapshot = snapshot ? cloneStateValue(snapshot) : null;
   const clone = cachedSnapshot ? cloneStateValue(cachedSnapshot) : undefined;
@@ -169,6 +170,7 @@ function emitSnapshot(snapshot: StoredOptions | null): void {
       console.error('[optionsStore] subscriber error', error);
     }
   });
+  return true;
 }
 
 function ensureRepositorySubscription(): void {
@@ -178,7 +180,7 @@ function ensureRepositorySubscription(): void {
   unsubscribeRepo = getOptionsRepository().onChange((next) => {
     const { normalized, sanitizedYaml, changed } = applySanitizedOptions(next);
     setYamlConfigOverrides(sanitizedYaml);
-    emitSnapshot(normalized);
+    if (emitSnapshot(normalized)) repositoryObservationGeneration += 1;
     if (changed) {
       scheduleMigrationWriteback(
         createSanitizationPatches(normalized, sanitizedYaml),
@@ -203,17 +205,20 @@ export async function load(): Promise<StoredOptions> {
 
 export async function save(patches: readonly OptionsStoreInputPatch[]): Promise<StoredOptions> {
   const mutation = normalizeMutationPatches(patches);
+  const observationGenerationBeforeMutation = repositoryObservationGeneration;
   const acknowledged = await getOptionsRepository().patch(mutation.patches);
   const { normalized, sanitizedYaml, changed } = applySanitizedOptions(acknowledged);
-  setYamlConfigOverrides(sanitizedYaml);
-  emitSnapshot(normalized);
-  if (changed) {
-    scheduleMigrationWriteback(
-      createSanitizationPatches(normalized, sanitizedYaml),
-      'mutation acknowledgement'
-    );
+  if (repositoryObservationGeneration === observationGenerationBeforeMutation) {
+    setYamlConfigOverrides(sanitizedYaml);
+    emitSnapshot(normalized);
+    if (changed) {
+      scheduleMigrationWriteback(
+        createSanitizationPatches(normalized, sanitizedYaml),
+        'mutation acknowledgement'
+      );
+    }
+    if (mutation.changed) registerYamlMigration('mutation input');
   }
-  if (mutation.changed) registerYamlMigration('mutation input');
   return cloneStateValue(normalized);
 }
 
@@ -221,10 +226,13 @@ export async function replacePersisted(
   options: StoredOptions | CompleteOptions
 ): Promise<StoredOptions> {
   const { normalized, sanitizedYaml, changed } = applySanitizedOptions(options);
+  const observationGenerationBeforeReplacement = repositoryObservationGeneration;
   const replaced = await getOptionsRepository().replace(normalized);
-  setYamlConfigOverrides(sanitizedYaml);
-  emitSnapshot(replaced);
-  if (changed) registerYamlMigration('strict replace');
+  if (repositoryObservationGeneration === observationGenerationBeforeReplacement) {
+    setYamlConfigOverrides(sanitizedYaml);
+    emitSnapshot(replaced);
+    if (changed) registerYamlMigration('strict replace');
+  }
   return cloneStateValue(replaced);
 }
 
@@ -252,6 +260,7 @@ export function reset(): void {
   pendingYamlMigrationNotice = null;
   optionsRepository = null;
   migrationWritebackTail = Promise.resolve();
+  repositoryObservationGeneration = 0;
   if (unsubscribeRepo) {
     unsubscribeRepo();
     unsubscribeRepo = null;

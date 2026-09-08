@@ -29,6 +29,7 @@
     "apiKeyPlaceholder": "Ihr API-Schlüssel",
     "articleTemplateHint": "Zum Speichern vollständiger Artikel von Webseiten",
     "articleTemplateLabel": "Artikel-Pfad-Template",
+    "autosaveQuotaGuidance": "Kürzen oder korrigieren Sie den Wert und versuchen Sie es erneut.",
     "availableVariables": "Verfügbare Variablen:",
     "cancelButton": "Abbrechen",
     "cancelButton_short": "Abbrechen",
