@@ -232,19 +232,4 @@ export function createProductionStitchMobileNavigation(
   };
 }
 
-export function syncProductionNavigationActiveLinks(
-  mountRoot: HTMLElement,
-  state: PreviewStoreState
-): void {
-  mountRoot.querySelectorAll<HTMLElement>('[data-nav-panel]').forEach((button) => {
-    const active = button.dataset.navPanel === state.activePanel;
-    button.classList.toggle('is-active', active);
-    button.ariaCurrent = active ? 'page' : null;
-  });
-  mountRoot.querySelectorAll<HTMLElement>('[data-footer-panel]').forEach((button) => {
-    const active = button.dataset.footerPanel === state.activeResource;
-    button.classList.toggle('is-active', active);
-    button.ariaCurrent = active ? 'page' : null;
-  });
-}
-import type { PreviewStoreState, SchemaContext } from '@options/stitch/types';
+import type { SchemaContext } from '@options/stitch/types';

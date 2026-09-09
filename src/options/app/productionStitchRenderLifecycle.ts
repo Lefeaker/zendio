@@ -24,7 +24,7 @@ import type {
 import {
   createProductionStitchMobileNavigation,
   syncProductionNavigationActiveLinks
-} from './productionStitchMobileNavigation';
+} from './productionStitchMobileNavigationLoader';
 
 export function createProductionStitchRenderLifecycle(
   options: ProductionStitchRenderLifecycleOptions
