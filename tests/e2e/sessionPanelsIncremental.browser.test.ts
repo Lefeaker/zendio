@@ -1,4 +1,6 @@
-import { chromium, expect, test, type Page } from '@playwright/test';
+import { chromium, expect, test, type BrowserContext, type Page } from '@playwright/test';
+import { promises as fs } from 'node:fs';
+import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
@@ -70,6 +72,7 @@ declare global {
     __u04aReaderRefs: ReaderSessionPanelRefs;
     __u04aVideoPreview: HTMLElement;
     __b10DestinationRows?: Record<string, Element>;
+    __contentCorrectionRefs?: Record<string, { row: Element; option: Element; clickCount: number }>;
   }
 }
 
@@ -762,3 +765,253 @@ testWithExtension(
     await Promise.all([implicit.page.close(), downloads.page.close(), vault.page.close()]);
   }
 );
+
+type ContentCorrectionSurface = 'clipper' | 'reader' | 'video';
+type ContentCorrectionKey = 'Enter' | 'Space';
+
+async function createContentCorrectionExtensionSession(): Promise<{
+  context: BrowserContext;
+  extensionPage: Page;
+  userDataDir: string;
+}> {
+  const userDataDir = await fs.mkdtemp(path.join(tmpdir(), 'content-correction-'));
+  const context = await chromium.launchPersistentContext(userDataDir, {
+    headless: true,
+    channel: 'chromium',
+    args: [`--disable-extensions-except=${extensionPath}`, `--load-extension=${extensionPath}`]
+  });
+  const worker =
+    context.serviceWorkers()[0] ??
+    (await context.waitForEvent('serviceworker', { timeout: 15000 }));
+  const extensionId = worker.url().split('/')[2];
+  if (!extensionId) throw new Error(`Unable to parse extension id from ${worker.url()}`);
+  const extensionPage = await context.newPage();
+  await extensionPage.goto(`chrome-extension://${extensionId}/options/index.html`, {
+    waitUntil: 'domcontentloaded'
+  });
+  return { context, extensionPage, userDataDir };
+}
+
+async function closeContentCorrectionExtensionSession(session: {
+  context: BrowserContext;
+  userDataDir: string;
+}): Promise<void> {
+  await session.context.close().catch(() => undefined);
+  await fs.rm(session.userDataDir, { recursive: true, force: true });
+}
+
+async function setContentCorrectionLanguage(
+  extensionPage: Page,
+  language: 'en' | 'zh-CN'
+): Promise<void> {
+  await extensionPage.evaluate(async (nextLanguage) => {
+    await chrome.storage.sync.set({ language: nextLanguage });
+  }, language);
+  await expect
+    .poll(() =>
+      extensionPage.evaluate(async () => (await chrome.storage.sync.get('language')).language)
+    )
+    .toBe(language);
+}
+
+async function openContentCorrectionSurface(
+  surface: ContentCorrectionSurface,
+  page: Page,
+  extensionPage: Page
+): Promise<void> {
+  if (surface === 'video') {
+    await openVideoPanelFromControlBar(page, 'Content correction video note');
+    await expandVideoPanel(page);
+    return;
+  }
+  await openB10Clipper(page, extensionPage);
+  if (surface === 'reader') {
+    await page.locator('[data-stitch-surface="clipper"] [data-action-id="reader"]').click();
+    await expect(page.locator('[data-stitch-surface="reader"]')).toBeVisible();
+  }
+}
+
+async function createContentCorrectionFixture(
+  context: BrowserContext,
+  extensionPage: Page,
+  surface: ContentCorrectionSurface,
+  caseId: string
+): Promise<Page> {
+  const isVideo = surface === 'video';
+  const videoId = caseId.replace(/[^a-zA-Z0-9]/gu, '');
+  const url = isVideo
+    ? `https://www.bilibili.com/video/BV1contentCorrection${videoId}/`
+    : `https://example.com/content-correction-${caseId}`;
+  const fixture = await openFixtureWithRuntime(
+    context,
+    extensionPage,
+    url,
+    isVideo ? b10VideoFixtureHtml() : b10ArticleFixtureHtml(`Content correction ${surface}`),
+    createB10StoredOptions(B10_LIVE_VAULT_NAME)
+  );
+  await openContentCorrectionSurface(surface, fixture.page, extensionPage);
+  return fixture.page;
+}
+
+async function markContentCorrectionDestination(
+  page: Page,
+  surface: ContentCorrectionSurface,
+  caseId: string
+): Promise<{
+  summary: ReturnType<Page['locator']>;
+  option: ReturnType<Page['locator']>;
+}> {
+  const root = page.locator(`[data-stitch-surface="${surface}"]`);
+  const row = root.locator('.export-destination-row');
+  const summary = row.locator('.export-destination-summary');
+  const option = row.locator('.export-destination-option[data-destination-id="downloads"]');
+  await expect(row).toBeVisible();
+  await expect(option).toBeAttached();
+  await option.evaluate((element, key) => {
+    const destinationRow = element.closest('.export-destination-row');
+    if (!destinationRow) throw new Error('destination row missing');
+    const refs = (window.__contentCorrectionRefs ??= {});
+    const entry = { row: destinationRow, option: element, clickCount: 0 };
+    refs[key] = entry;
+    element.addEventListener(
+      'click',
+      () => {
+        entry.clickCount += 1;
+      },
+      { capture: true }
+    );
+  }, caseId);
+  return { summary, option };
+}
+
+async function readContentCorrectionOutcome(
+  page: Page,
+  surface: ContentCorrectionSurface,
+  caseId: string
+) {
+  return page.locator(`[data-stitch-surface="${surface}"]`).evaluate((root, key) => {
+    const refs = window.__contentCorrectionRefs?.[key];
+    const row = root.querySelector('.export-destination-row');
+    const option = root.querySelector(
+      '.export-destination-option[data-destination-id="downloads"]'
+    );
+    const summary = root.querySelector('.export-destination-summary');
+    const shadow = root.getRootNode();
+    return {
+      clickCount: refs?.clickCount ?? 0,
+      rowRetained: refs?.row === row && row?.isConnected === true,
+      optionRetained: refs?.option === option && option?.isConnected === true,
+      selected: option?.classList.contains('is-selected') === true,
+      menuOpen: root.querySelector('.export-destination-menu[open]') !== null,
+      summaryActive: shadow instanceof ShadowRoot && shadow.activeElement === summary,
+      summaryFocusVisible: summary instanceof HTMLElement && summary.matches(':focus-visible')
+    };
+  }, caseId);
+}
+
+const CONTENT_CORRECTION_KEYBOARD_CASES: Array<{
+  surface: ContentCorrectionSurface;
+  key: ContentCorrectionKey;
+  language: 'en' | 'zh-CN';
+  saveTo: 'Save to' | '保存到';
+}> = [
+  { surface: 'clipper', key: 'Enter', language: 'en', saveTo: 'Save to' },
+  { surface: 'clipper', key: 'Space', language: 'zh-CN', saveTo: '保存到' },
+  { surface: 'reader', key: 'Enter', language: 'zh-CN', saveTo: '保存到' },
+  { surface: 'reader', key: 'Space', language: 'en', saveTo: 'Save to' },
+  { surface: 'video', key: 'Enter', language: 'en', saveTo: 'Save to' },
+  { surface: 'video', key: 'Space', language: 'zh-CN', saveTo: '保存到' }
+];
+
+for (const current of CONTENT_CORRECTION_KEYBOARD_CASES) {
+  test(`keeps installed ${current.surface} ${current.language} ${current.key} locale copy and keyboard focus continuous`, async () => {
+    const session = await createContentCorrectionExtensionSession();
+    const { context, extensionPage } = session;
+    try {
+      const caseId = `${current.surface}-${current.language}-${current.key}`;
+      await setContentCorrectionLanguage(extensionPage, current.language);
+      const page = await createContentCorrectionFixture(
+        context,
+        extensionPage,
+        current.surface,
+        caseId
+      );
+      const root = page.locator(`[data-stitch-surface="${current.surface}"]`);
+      await expect(root.locator('.export-destination-eyebrow')).toHaveText(current.saveTo);
+      const { summary, option } = await markContentCorrectionDestination(
+        page,
+        current.surface,
+        caseId
+      );
+
+      await summary.focus();
+      await summary.press('Enter');
+      await expect(root.locator('.export-destination-menu')).toHaveAttribute('open', '');
+      await option.focus();
+      await expect
+        .poll(() => option.evaluate((element) => element.matches(':focus-visible')))
+        .toBe(true);
+      await option.press(current.key);
+      await expect(root.locator('.export-destination-label')).toHaveText('Downloads');
+      await expect(option).toHaveClass(/\bis-selected\b/);
+      await expect(root.locator('.export-destination-menu[open]')).toHaveCount(0);
+      await page.evaluate(
+        () => new Promise<void>((resolve) => requestAnimationFrame(() => resolve()))
+      );
+
+      expect(await readContentCorrectionOutcome(page, current.surface, caseId)).toEqual({
+        clickCount: 1,
+        rowRetained: true,
+        optionRetained: true,
+        selected: true,
+        menuOpen: false,
+        summaryActive: true,
+        summaryFocusVisible: true
+      });
+    } finally {
+      await closeContentCorrectionExtensionSession(session);
+    }
+  });
+}
+
+const CONTENT_CORRECTION_POINTER_SURFACES: ContentCorrectionSurface[] = [
+  'clipper',
+  'reader',
+  'video'
+];
+
+for (const surface of CONTENT_CORRECTION_POINTER_SURFACES) {
+  test(`does not move installed ${surface} pointer selection focus to the destination summary`, async () => {
+    const session = await createContentCorrectionExtensionSession();
+    const { context, extensionPage } = session;
+    try {
+      const caseId = `${surface}-pointer`;
+      await setContentCorrectionLanguage(extensionPage, 'en');
+      const page = await createContentCorrectionFixture(context, extensionPage, surface, caseId);
+      const root = page.locator(`[data-stitch-surface="${surface}"]`);
+      await expect(root.locator('.export-destination-eyebrow')).toHaveText('Save to');
+      const { summary, option } = await markContentCorrectionDestination(page, surface, caseId);
+
+      await summary.click();
+      await expect(root.locator('.export-destination-menu')).toHaveAttribute('open', '');
+      await option.click();
+      await expect(root.locator('.export-destination-label')).toHaveText('Downloads');
+      await expect(root.locator('.export-destination-menu[open]')).toHaveCount(0);
+      await page.evaluate(
+        () => new Promise<void>((resolve) => requestAnimationFrame(() => resolve()))
+      );
+
+      expect(await readContentCorrectionOutcome(page, surface, caseId)).toEqual({
+        clickCount: 1,
+        rowRetained: true,
+        optionRetained: true,
+        selected: true,
+        menuOpen: false,
+        summaryActive: false,
+        summaryFocusVisible: false
+      });
+    } finally {
+      await closeContentCorrectionExtensionSession(session);
+    }
+  });
+}

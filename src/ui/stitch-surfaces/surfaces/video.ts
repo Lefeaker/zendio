@@ -27,7 +27,7 @@ const schema: ResourceSchema = {
       notePlaceholder,
       fragmentNotePlaceholder:
         t?.(
-          'videoCaptureEditPlaceholder',
+          'readerHighlightEditPlaceholder',
           surface.labels.fragmentNotePlaceholder ?? surface.labels.notePlaceholder
         ) ??
         surface.labels.fragmentNotePlaceholder ??

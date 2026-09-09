@@ -35,6 +35,21 @@ function syncSetupLink(row: HTMLElement, destination: ExportDestinationSurfacePr
   return false;
 }
 
+function getFocusedKeyboardOption(row: HTMLElement): HTMLElement | null {
+  const root = row.getRootNode();
+  const activeElement =
+    root instanceof Document || root instanceof ShadowRoot ? root.activeElement : null;
+  if (
+    !(activeElement instanceof HTMLElement) ||
+    !row.contains(activeElement) ||
+    !activeElement.classList.contains('export-destination-option') ||
+    !activeElement.matches(':focus-visible')
+  ) {
+    return null;
+  }
+  return activeElement;
+}
+
 export function patchExportDestinationRow(
   root: ParentNode,
   destination: ExportDestinationSurfacePreview | undefined
@@ -75,7 +90,13 @@ export function patchExportDestinationRow(
     syncText(button, '.export-destination-option-path', option.path);
   }
 
-  row.querySelector<HTMLDetailsElement>('.export-destination-menu')?.removeAttribute('open');
+  const details = row.querySelector<HTMLDetailsElement>('.export-destination-menu');
+  const summary = details?.querySelector<HTMLElement>('.export-destination-summary');
+  const focusedKeyboardOption = getFocusedKeyboardOption(row);
+  details?.removeAttribute('open');
+  if (focusedKeyboardOption && summary) {
+    summary.focus({ preventScroll: true });
+  }
   return syncSetupLink(row, destination);
 }
 

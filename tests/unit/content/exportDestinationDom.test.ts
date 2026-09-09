@@ -1,6 +1,6 @@
 /* @vitest-environment jsdom */
 
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import {
   patchExportDestinationRow,
   reconcileExportDestinationRow
@@ -30,7 +30,11 @@ function createDestination(
   };
 }
 
-function createRow(options?: { setupLabel?: string; includeLink?: boolean }): HTMLElement {
+function createRow(options?: {
+  setupLabel?: string;
+  includeLink?: boolean;
+  includeVaultOption?: boolean;
+}): HTMLElement {
   const root = document.createElement('div');
   const row = document.createElement('div');
   row.className = 'export-destination-row';
@@ -70,6 +74,20 @@ function createRow(options?: { setupLabel?: string; includeLink?: boolean }): HT
   buttonPath.textContent = 'Downloads/clip.md';
   button.append(buttonLabel, buttonPath);
   optionsContainer.appendChild(button);
+  if (options?.includeVaultOption) {
+    const vaultButton = document.createElement('button');
+    vaultButton.type = 'button';
+    vaultButton.className = 'export-destination-option';
+    vaultButton.dataset.destinationId = 'vault';
+    const vaultLabel = document.createElement('span');
+    vaultLabel.className = 'export-destination-option-label';
+    vaultLabel.textContent = 'Vault';
+    const vaultPath = document.createElement('span');
+    vaultPath.className = 'export-destination-option-path';
+    vaultPath.textContent = 'Vault/clip.md';
+    vaultButton.append(vaultLabel, vaultPath);
+    optionsContainer.appendChild(vaultButton);
+  }
   details.appendChild(optionsContainer);
   row.appendChild(details);
 
@@ -113,6 +131,109 @@ describe('patchExportDestinationRow', () => {
 
     expect(patched).toBe(true);
     expect(root.querySelector('.export-destination-setup-link')).toBeNull();
+  });
+
+  it('restores keyboard-visible option focus to the retained summary when closing the menu', () => {
+    const root = createRow({ includeVaultOption: true });
+    document.body.appendChild(root);
+    const row = root.querySelector<HTMLElement>('.export-destination-row');
+    const details = root.querySelector<HTMLDetailsElement>('.export-destination-menu');
+    const summary = root.querySelector<HTMLElement>('.export-destination-summary');
+    const option = root.querySelector<HTMLButtonElement>(
+      '.export-destination-option[data-destination-id="vault"]'
+    );
+    if (!row || !details || !summary || !option) throw new Error('focus fixture missing');
+    const focus = vi.spyOn(summary, 'focus');
+    vi.spyOn(option, 'matches').mockImplementation((selector) => selector === ':focus-visible');
+    details.open = true;
+    option.focus();
+
+    const destination = createDestination({
+      id: 'vault',
+      kind: 'vault',
+      label: 'Vault',
+      path: 'Vault/clip.md',
+      hasConfiguredVault: true,
+      setupUrl: undefined,
+      options: [
+        {
+          id: 'downloads',
+          kind: 'downloads',
+          label: 'Downloads',
+          path: 'Downloads/clip.md',
+          selected: false
+        },
+        {
+          id: 'vault',
+          kind: 'vault',
+          label: 'Vault',
+          path: 'Vault/clip.md',
+          selected: true
+        }
+      ]
+    });
+    const patched = patchExportDestinationRow(root, destination);
+
+    expect(patched).toBe(true);
+    expect(details.open).toBe(false);
+    expect(root.querySelector('.export-destination-row')).toBe(row);
+    expect(root.querySelector('.export-destination-option[data-destination-id="vault"]')).toBe(
+      option
+    );
+    expect(option.classList.contains('is-selected')).toBe(true);
+    expect(document.activeElement).toBe(summary);
+    expect(focus).toHaveBeenCalledOnce();
+    expect(focus).toHaveBeenCalledWith({ preventScroll: true });
+
+    expect(patchExportDestinationRow(root, destination)).toBe(true);
+    expect(focus).toHaveBeenCalledOnce();
+  });
+
+  it('does not steal focus from pointer-selected options or unrelated controls', () => {
+    const root = createRow({ includeVaultOption: true });
+    document.body.appendChild(root);
+    const details = root.querySelector<HTMLDetailsElement>('.export-destination-menu');
+    const summary = root.querySelector<HTMLElement>('.export-destination-summary');
+    const option = root.querySelector<HTMLButtonElement>(
+      '.export-destination-option[data-destination-id="vault"]'
+    );
+    if (!details || !summary || !option) throw new Error('focus fixture missing');
+    const focus = vi.spyOn(summary, 'focus');
+    vi.spyOn(option, 'matches').mockReturnValue(false);
+    details.open = true;
+    option.focus();
+
+    const destination = createDestination({
+      options: [
+        {
+          id: 'downloads',
+          kind: 'downloads',
+          label: 'Downloads',
+          path: 'Downloads/clip.md',
+          selected: true
+        },
+        {
+          id: 'vault',
+          kind: 'vault',
+          label: 'Vault',
+          path: 'Vault/clip.md',
+          selected: false
+        }
+      ]
+    });
+    expect(patchExportDestinationRow(root, destination)).toBe(true);
+    expect(details.open).toBe(false);
+    expect(focus).not.toHaveBeenCalled();
+    expect(document.activeElement).not.toBe(summary);
+
+    const external = document.createElement('button');
+    document.body.appendChild(external);
+    external.focus();
+    details.open = true;
+    expect(patchExportDestinationRow(root, destination)).toBe(true);
+    expect(document.activeElement).toBe(external);
+    expect(focus).not.toHaveBeenCalled();
+    external.remove();
   });
 
   it('adds, replaces and removes a destination row from a detached session template', () => {
