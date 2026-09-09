@@ -118,6 +118,9 @@ describe('mountProductionStitchShell renderLifecycle', () => {
     });
 
     expect(document.querySelectorAll('.sidebar')).toHaveLength(1);
+    await vi.waitFor(() =>
+      expect(document.querySelector('[data-mobile-navigation-trigger]')).not.toBeNull()
+    );
     const trigger = queryRequired<HTMLButtonElement>('[data-mobile-navigation-trigger]');
     const sidebar = queryRequired<HTMLElement>('#options-settings-navigation');
     expect(trigger.getAttribute('aria-expanded')).toBe('false');

@@ -100,6 +100,42 @@
 }
 
 @media (max-width: 760px) {
+  [data-mobile-navigation-fallback] .app {
+    display: grid;
+    grid-template-rows: minmax(0, 2fr) minmax(0, 3fr);
+    height: 100vh;
+    overflow: hidden;
+  }
+
+  [data-mobile-navigation-fallback] .sidebar {
+    position: static;
+    inset: auto;
+    z-index: auto;
+    width: 100%;
+    max-width: none;
+    height: auto;
+    min-height: 0;
+    visibility: visible;
+    transform: none;
+    transition: none;
+    border-right: 0;
+    border-bottom: var(--border-default);
+  }
+
+  [data-mobile-navigation-fallback] .shell {
+    margin-left: 0;
+    width: 100%;
+    max-width: 100%;
+    height: 100%;
+    min-height: 0;
+  }
+
+  [data-mobile-navigation-fallback] .main {
+    position: relative;
+    height: 100%;
+    min-height: 0;
+  }
+
   :root {
     --shell-sidebar-width: 0px;
   }

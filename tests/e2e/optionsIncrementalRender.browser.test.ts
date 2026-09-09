@@ -1,4 +1,4 @@
-import { chromium, expect, test, type Page } from '@playwright/test';
+import { chromium, expect, test, type BrowserContext, type Page } from '@playwright/test';
 import { readdirSync, statSync } from 'node:fs';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -40,6 +40,7 @@ type OrderedAutosaveProbe = {
 
 type B07GlobalThis = typeof global &
   Window & {
+    __navigationFocusTrace?: string[];
     __zendioB07OrderedAutosaveProbe?: OrderedAutosaveProbe;
     __zendioSawConnectedRunningDiagnosis?: boolean;
   };
@@ -103,6 +104,214 @@ function sectionInvalidationChunkUrl(): string {
     .at(-1);
   if (!file) throw new Error('Missing built sectionInvalidation chunk.');
   return `/chunks/${file}`;
+}
+
+function mobileNavigationChunkName(): string {
+  const directory = join(extensionPath, 'chunks');
+  const file = readdirSync(directory).find((name) =>
+    /^productionStitchMobileNavigation-[A-Z0-9]+\.js$/u.test(name)
+  );
+  if (!file) throw new Error('Missing built productionStitchMobileNavigation chunk.');
+  return file;
+}
+
+async function installHeldMobileNavigationRoute(context: BrowserContext) {
+  const requested = { url: '' };
+  let release: () => void = () => undefined;
+  const gate = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  await context.route('**/chunks/productionStitchMobileNavigation-*.js', async (route) => {
+    requested.url = route.request().url();
+    await gate;
+    await route.continue();
+  });
+  return { release, requested };
+}
+
+async function installRejectedMobileNavigationRoute(context: BrowserContext) {
+  const requested = { url: '' };
+  await context.route('**/chunks/productionStitchMobileNavigation-*.js', async (route) => {
+    requested.url = route.request().url();
+    await route.abort('failed');
+  });
+  return requested;
+}
+
+async function assertMobileFallbackLayout(page: Page, width: 390 | 320): Promise<void> {
+  await page.setViewportSize({ width, height: 844 });
+  await expect(page.locator('#optionsShellRoot')).toHaveAttribute(
+    'data-mobile-navigation-fallback',
+    ''
+  );
+  await expect(page.locator('.sidebar')).toHaveCount(1);
+  await expect(page.locator('[data-mobile-navigation-trigger]')).toHaveCount(0);
+  await expect(page.locator('[data-mobile-navigation-backdrop]')).toHaveCount(0);
+  await expect(page.locator('.sidebar')).not.toHaveAttribute('inert', '');
+  await expect(page.locator('.sidebar')).not.toHaveAttribute('aria-hidden', 'true');
+  await expect(page.locator('.sidebar')).not.toHaveClass(/is-mobile-open/u);
+
+  const layout = await page.evaluate(() => {
+    const app = document.querySelector<HTMLElement>('.app');
+    const sidebar = document.querySelector<HTMLElement>('.sidebar');
+    const main = document.querySelector<HTMLElement>('.main');
+    const shell = document.querySelector<HTMLElement>('.shell');
+    if (!app || !sidebar || !main || !shell) throw new Error('Missing fallback layout owner.');
+    const appStyle = getComputedStyle(app);
+    const sidebarStyle = getComputedStyle(sidebar);
+    const mainStyle = getComputedStyle(main);
+    const sidebarRect = sidebar.getBoundingClientRect();
+    const mainRect = main.getBoundingClientRect();
+    const sidebarScrollBefore = sidebar.scrollTop;
+    const mainScrollBefore = main.scrollTop;
+    const sidebarMax = Math.max(sidebar.scrollHeight - sidebar.clientHeight, 0);
+    const mainMax = Math.max(main.scrollHeight - main.clientHeight, 0);
+    sidebar.scrollTop = sidebarScrollBefore > 0 ? 0 : Math.min(80, sidebarMax);
+    main.scrollTop = mainScrollBefore > 0 ? 0 : Math.min(80, mainMax);
+    return {
+      appDisplay: appStyle.display,
+      appOverflow: appStyle.overflow,
+      bodyInlineOverflow: document.body.style.overflow,
+      documentFits: document.documentElement.scrollWidth <= window.innerWidth,
+      gridRows: appStyle.gridTemplateRows,
+      mainInlineOverflow: main.style.overflow,
+      mainMoved: main.scrollTop !== mainScrollBefore,
+      mainOverflowY: mainStyle.overflowY,
+      mainRect: { bottom: mainRect.bottom, height: mainRect.height, top: mainRect.top },
+      nonOverlapping: sidebarRect.bottom <= mainRect.top + 1,
+      shellHeight: shell.getBoundingClientRect().height,
+      sidebarMoved: sidebar.scrollTop !== sidebarScrollBefore,
+      sidebarOverflowY: sidebarStyle.overflowY,
+      sidebarPosition: sidebarStyle.position,
+      sidebarRect: { bottom: sidebarRect.bottom, height: sidebarRect.height, top: sidebarRect.top },
+      sidebarTransform: sidebarStyle.transform,
+      sidebarVisibility: sidebarStyle.visibility
+    };
+  });
+
+  expect(layout).toMatchObject({
+    appDisplay: 'grid',
+    appOverflow: 'hidden',
+    bodyInlineOverflow: '',
+    documentFits: true,
+    mainInlineOverflow: '',
+    mainMoved: true,
+    mainOverflowY: 'auto',
+    nonOverlapping: true,
+    sidebarMoved: true,
+    sidebarOverflowY: 'auto',
+    sidebarPosition: 'static',
+    sidebarTransform: 'none',
+    sidebarVisibility: 'visible'
+  });
+  const gridRows = layout.gridRows.split(' ').map((value) => Number.parseFloat(value));
+  expect(gridRows[0]).toBeGreaterThan(0);
+  expect(gridRows[1]).toBeGreaterThan(0);
+  expect(gridRows.slice(2).every((value) => value <= 1)).toBe(true);
+  expect(layout.sidebarRect.top).toBeGreaterThanOrEqual(0);
+  expect(layout.sidebarRect.bottom).toBeLessThanOrEqual(844);
+  expect(layout.mainRect.top).toBeGreaterThanOrEqual(0);
+  expect(layout.mainRect.bottom).toBeLessThanOrEqual(845);
+  expect(layout.sidebarRect.height).toBeGreaterThan(0);
+  expect(layout.mainRect.height).toBeGreaterThan(0);
+  expect(layout.shellHeight).toBeGreaterThan(0);
+}
+
+async function expectFocusedInsideMain(page: Page, panelId: string): Promise<void> {
+  const result = await page.evaluate((targetPanelId) => {
+    const main = document.querySelector<HTMLElement>('.main');
+    const heading = document.querySelector<HTMLElement>(`[data-panel-id="${targetPanelId}"] h1`);
+    if (!main || !heading) throw new Error(`Missing panel heading: ${targetPanelId}`);
+    const mainRect = main.getBoundingClientRect();
+    const headingRect = heading.getBoundingClientRect();
+    return {
+      focused: document.activeElement === heading,
+      visible:
+        headingRect.top >= mainRect.top - 1 &&
+        headingRect.bottom <= mainRect.bottom + 1 &&
+        headingRect.bottom > mainRect.top
+    };
+  }, panelId);
+  expect(result).toEqual({ focused: true, visible: true });
+}
+
+async function settleBrowserFrame(page: Page): Promise<void> {
+  await page.evaluate(() => new Promise<void>((resolve) => requestAnimationFrame(() => resolve())));
+}
+
+async function exerciseFallbackDestinations(page: Page, context: BrowserContext): Promise<void> {
+  const panels = [
+    'overview',
+    'storage',
+    'capture-sources',
+    'capture-behavior',
+    'output',
+    'maintenance'
+  ];
+  for (const [index, panelId] of panels.entries()) {
+    const target = page.locator(`[data-nav-panel="${panelId}"]`);
+    if (index % 2 === 0) await target.click();
+    else {
+      await target.focus();
+      await target.evaluate((button) => {
+        button.dataset.keyboardTrace = '';
+        for (const type of ['keydown', 'keyup', 'click']) {
+          button.addEventListener(
+            type,
+            (event) => {
+              const keyboard = event instanceof KeyboardEvent ? `:${event.key}` : '';
+              button.dataset.keyboardTrace += `${type}${keyboard}|`;
+            },
+            { once: true }
+          );
+        }
+      });
+      await target.press('Enter');
+      expect(await target.getAttribute('data-keyboard-trace')).toContain('click|');
+    }
+    await expect(target).toHaveAttribute('aria-current', 'page');
+    await expectFocusedInsideMain(page, panelId);
+    await settleBrowserFrame(page);
+  }
+
+  for (const [index, resourceId] of ['support', 'suggestions', 'contact', 'changelog'].entries()) {
+    const target = page.locator(`[data-footer-panel="${resourceId}"]`);
+    if (index % 2 === 0) await target.click();
+    else {
+      await target.focus();
+      await target.press('Space');
+    }
+    const dialog = page.locator('.resource-modal-overlay > .resource-modal[role="dialog"]');
+    await expect(dialog).toBeFocused();
+    await page.locator('.resource-modal-overlay').click({ position: { x: 4, y: 4 } });
+    await expect(page.locator('[data-footer-panel][aria-current="page"]')).toHaveCount(0);
+    await settleBrowserFrame(page);
+    const focusAfterClose = await page.evaluate(() => {
+      const active = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+      return {
+        activePanel: active?.dataset.navPanel ?? null,
+        className: active?.className ?? null,
+        tagName: active?.tagName ?? null
+      };
+    });
+    expect(focusAfterClose).toEqual({
+      activePanel: await page
+        .locator('[data-nav-panel][aria-current="page"]')
+        .getAttribute('data-nav-panel'),
+      className: expect.stringContaining('is-active'),
+      tagName: 'BUTTON'
+    });
+  }
+
+  const opened = context.waitForEvent('page');
+  const onboarding = page.locator('[data-footer-panel="onboarding"]');
+  await onboarding.focus();
+  await page.keyboard.press('Enter');
+  const onboardingPage = await opened;
+  await onboardingPage.waitForLoadState('domcontentloaded');
+  expect(onboardingPage.url()).toContain('/onboarding/index.html');
+  await onboardingPage.close();
+  await expect(onboarding).not.toHaveAttribute('aria-current', 'page');
 }
 
 async function armMaintenanceRunningProbe(page: Page): Promise<void> {
@@ -903,6 +1112,460 @@ test('F05 exposes installed maintenance idle, running, success, failure, and rer
     await expect.poll(() => sawConnectedRunningDiagnosis(optionsPage)).toBe(true);
     await expect(maintenance).toContainText('Diagnosis Results');
     await expect(diagnose).toBeEnabled();
+  } finally {
+    await context.close();
+    await rm(userDataDir, { recursive: true, force: true });
+  }
+});
+
+test('F06 discriminates installed fallback keyboard and rejected modal focus settlement', async () => {
+  const pendingRoot = await mkdtemp(join(tmpdir(), 'zendio-f06-keyboard-discriminator-'));
+  const pendingContext = await chromium.launchPersistentContext(pendingRoot, {
+    headless: false,
+    args: [
+      '--headless=new',
+      `--disable-extensions-except=${extensionPath}`,
+      `--load-extension=${extensionPath}`
+    ]
+  });
+
+  try {
+    const held = await installHeldMobileNavigationRoute(pendingContext);
+    const background =
+      pendingContext.serviceWorkers()[0] ??
+      (await pendingContext.waitForEvent('serviceworker', { timeout: 15_000 }));
+    const extensionId = background.url().split('/')[2];
+    if (!extensionId) throw new Error('Unable to resolve extension id.');
+    const page = await pendingContext.newPage();
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto(`chrome-extension://${extensionId}/options/index.html`, {
+      waitUntil: 'domcontentloaded'
+    });
+    await expect.poll(() => held.requested.url).toContain(mobileNavigationChunkName());
+    await assertMobileFallbackLayout(page, 390);
+    await page.locator('[data-nav-panel="overview"]').click();
+
+    const runKey = async (key: 'Enter' | 'Space', panelId: string) => {
+      const target = page.locator(`[data-nav-panel="${panelId}"]`);
+      await target.focus();
+      const before = await target.evaluate((button) => {
+        const sidebar = button.closest<HTMLElement>('.sidebar');
+        if (!sidebar) throw new Error('Missing keyboard discriminator sidebar.');
+        const buttonRect = button.getBoundingClientRect();
+        const sidebarRect = sidebar.getBoundingClientRect();
+        button.dataset.keyboardTrace = '';
+        button.dataset.keyboardClicks = '0';
+        button.dataset.keyboardClickPanel = '';
+        button.dataset.keyboardClickScrollTop = '';
+        for (const type of ['keydown', 'keyup', 'click']) {
+          button.addEventListener(
+            type,
+            (event) => {
+              const keyboard = event instanceof KeyboardEvent ? `:${event.key}` : '';
+              button.dataset.keyboardTrace += `${type}${keyboard}|`;
+              if (type === 'click') {
+                button.dataset.keyboardClicks = String(
+                  Number.parseInt(button.dataset.keyboardClicks ?? '0', 10) + 1
+                );
+                button.dataset.keyboardClickPanel =
+                  document.querySelector<HTMLElement>('[data-nav-panel][aria-current="page"]')
+                    ?.dataset.navPanel ?? '';
+                button.dataset.keyboardClickScrollTop = String(
+                  document.querySelector<HTMLElement>('.main')?.scrollTop ?? -1
+                );
+              }
+            },
+            { once: true }
+          );
+        }
+        return {
+          active: document.activeElement === button,
+          buttonVisible:
+            buttonRect.top >= sidebarRect.top - 1 && buttonRect.bottom <= sidebarRect.bottom + 1,
+          scrollTop: sidebar.scrollTop
+        };
+      });
+      await target.press(key);
+      return target.evaluate(
+        (button, initial) => ({
+          activeAfter: document.activeElement === button,
+          activeElement:
+            document.activeElement instanceof HTMLElement
+              ? (document.activeElement.dataset.panelId ?? document.activeElement.tagName)
+              : null,
+          ariaCurrent: button.getAttribute('aria-current'),
+          before: initial,
+          clickCount: Number.parseInt(button.dataset.keyboardClicks ?? '0', 10),
+          clickPanel: button.dataset.keyboardClickPanel || null,
+          clickScrollTop: Number.parseFloat(button.dataset.keyboardClickScrollTop || '-1'),
+          connected: button.isConnected,
+          currentPanel:
+            document.querySelector<HTMLElement>('[data-nav-panel][aria-current="page"]')?.dataset
+              .navPanel ?? null,
+          finalScrollTop: document.querySelector<HTMLElement>('.main')?.scrollTop ?? -1,
+          targetOffsetTop:
+            document.querySelector<HTMLElement>(`[data-panel-id="${button.dataset.navPanel}"]`)
+              ?.offsetTop ?? -1,
+          trace: button.dataset.keyboardTrace ?? ''
+        }),
+        before
+      );
+    };
+
+    const enter = await runKey('Enter', 'storage');
+    await page.locator('[data-nav-panel="overview"]').click();
+    await settleBrowserFrame(page);
+    const space = await runKey('Space', 'capture-sources');
+    expect({ enter, space }).toMatchObject({
+      enter: {
+        activeAfter: false,
+        activeElement: 'H1',
+        ariaCurrent: 'page',
+        before: expect.objectContaining({ active: true, buttonVisible: true }),
+        clickCount: 1,
+        clickPanel: 'storage',
+        connected: true,
+        currentPanel: 'storage',
+        finalScrollTop: expect.any(Number),
+        targetOffsetTop: expect.any(Number),
+        trace: expect.stringMatching(/^keydown:Enter\|click\|/u)
+      },
+      space: {
+        activeAfter: false,
+        activeElement: 'H1',
+        ariaCurrent: 'page',
+        before: expect.objectContaining({ active: true, buttonVisible: true }),
+        clickCount: 1,
+        clickPanel: 'capture-sources',
+        connected: true,
+        currentPanel: 'capture-sources',
+        finalScrollTop: expect.any(Number),
+        targetOffsetTop: expect.any(Number),
+        trace: expect.stringMatching(/^keydown: \|keyup: \|click\|$/u)
+      }
+    });
+    held.release();
+  } finally {
+    await pendingContext.close();
+    await rm(pendingRoot, { recursive: true, force: true });
+  }
+
+  const rejectedRoot = await mkdtemp(join(tmpdir(), 'zendio-f06-focus-discriminator-'));
+  const rejectedContext = await chromium.launchPersistentContext(rejectedRoot, {
+    headless: false,
+    args: [
+      '--headless=new',
+      `--disable-extensions-except=${extensionPath}`,
+      `--load-extension=${extensionPath}`
+    ]
+  });
+
+  try {
+    const rejected = await installRejectedMobileNavigationRoute(rejectedContext);
+    const background =
+      rejectedContext.serviceWorkers()[0] ??
+      (await rejectedContext.waitForEvent('serviceworker', { timeout: 15_000 }));
+    const extensionId = background.url().split('/')[2];
+    if (!extensionId) throw new Error('Unable to resolve extension id.');
+    const page = await rejectedContext.newPage();
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto(`chrome-extension://${extensionId}/options/index.html`, {
+      waitUntil: 'domcontentloaded'
+    });
+    await expect.poll(() => rejected.url).toContain(mobileNavigationChunkName());
+    await page.evaluate(() => {
+      const trace: string[] = [];
+      Object.defineProperty(window, '__navigationFocusTrace', { configurable: true, value: trace });
+      document.addEventListener(
+        'focusin',
+        (event) => {
+          const target = event.target instanceof HTMLElement ? event.target : null;
+          trace.push(
+            target?.dataset.navPanel ??
+              target?.dataset.footerPanel ??
+              target?.getAttribute('role') ??
+              target?.tagName ??
+              'unknown'
+          );
+        },
+        true
+      );
+    });
+    await page.locator('[data-footer-panel="support"]').click();
+    await expect(
+      page.locator('.resource-modal-overlay > .resource-modal[role="dialog"]')
+    ).toBeFocused();
+    await page.locator('.resource-modal-overlay').click({ position: { x: 4, y: 4 } });
+    const modalClose = await page.evaluate(() => {
+      const active = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+      const trace = globalThis.__navigationFocusTrace;
+      return {
+        activePanel: active?.dataset.navPanel ?? null,
+        activeResource: active?.dataset.footerPanel ?? null,
+        activeRole: active?.getAttribute('role') ?? null,
+        activeTag: active?.tagName ?? null,
+        trace: trace ? [...trace] : []
+      };
+    });
+    expect(modalClose).toEqual({
+      activePanel: 'overview',
+      activeResource: null,
+      activeRole: null,
+      activeTag: 'BUTTON',
+      trace: expect.arrayContaining(['dialog', 'overview'])
+    });
+  } finally {
+    await rejectedContext.close();
+    await rm(rejectedRoot, { recursive: true, force: true });
+  }
+});
+
+test('F06 holds the installed navigation chunk and keeps the pending fallback operable', async () => {
+  const userDataDir = await mkdtemp(join(tmpdir(), 'zendio-f06-navigation-pending-'));
+  const context = await chromium.launchPersistentContext(userDataDir, {
+    headless: false,
+    args: [
+      '--headless=new',
+      `--disable-extensions-except=${extensionPath}`,
+      `--load-extension=${extensionPath}`
+    ]
+  });
+
+  try {
+    const held = await installHeldMobileNavigationRoute(context);
+    const background =
+      context.serviceWorkers()[0] ??
+      (await context.waitForEvent('serviceworker', { timeout: 15_000 }));
+    const extensionId = background.url().split('/')[2];
+    if (!extensionId) throw new Error('Unable to resolve extension id.');
+    const optionsPage = await context.newPage();
+    await optionsPage.setViewportSize({ width: 390, height: 844 });
+    await optionsPage.goto(`chrome-extension://${extensionId}/options/index.html`, {
+      waitUntil: 'domcontentloaded'
+    });
+    await expect.poll(() => held.requested.url).toContain(mobileNavigationChunkName());
+
+    await assertMobileFallbackLayout(optionsPage, 390);
+    await exerciseFallbackDestinations(optionsPage, context);
+
+    const oldSidebar = await optionsPage.locator('.sidebar').elementHandle();
+    if (!oldSidebar) throw new Error('Missing pending sidebar handle.');
+    await optionsPage
+      .locator('[data-panel-id="overview"] .interface-theme-grid select')
+      .selectOption('zh-CN');
+    await expect(optionsPage.locator('.sidebar nav')).toHaveAttribute('aria-label', '设置');
+    await expect.poll(() => oldSidebar.evaluate((element) => element.isConnected)).toBe(false);
+    await expect(optionsPage.locator('.sidebar')).toHaveCount(1);
+
+    await assertMobileFallbackLayout(optionsPage, 320);
+    await optionsPage.setViewportSize({ width: 1024, height: 768 });
+    await expect(optionsPage.locator('#optionsShellRoot')).not.toHaveAttribute(
+      'data-mobile-navigation-fallback',
+      ''
+    );
+    await expect
+      .poll(() =>
+        optionsPage.locator('.sidebar').evaluate((element) => getComputedStyle(element).position)
+      )
+      .toBe('fixed');
+    await assertMobileFallbackLayout(optionsPage, 390);
+
+    const newestSidebar = await optionsPage.locator('.sidebar').elementHandle();
+    if (!newestSidebar) throw new Error('Missing newest pending sidebar handle.');
+    const activeBeforeResolution = await optionsPage
+      .locator('[data-nav-panel][aria-current="page"]')
+      .getAttribute('data-nav-panel');
+    if (!activeBeforeResolution) throw new Error('Missing active panel before resolution.');
+    await optionsPage.locator('[data-footer-panel="support"]').focus();
+    held.release();
+
+    const trigger = optionsPage.locator('[data-mobile-navigation-trigger]');
+    await expect(trigger).toBeVisible();
+    await expect(trigger).toHaveAttribute('aria-expanded', 'true');
+    await expect(optionsPage.locator(`[data-nav-panel="${activeBeforeResolution}"]`)).toBeFocused();
+    expect(
+      await newestSidebar.evaluate((element) => document.querySelector('.sidebar') === element)
+    ).toBe(true);
+    await optionsPage.keyboard.press('Escape');
+    await expect(trigger).toBeFocused();
+    await expect(optionsPage.locator('.sidebar')).toHaveAttribute('inert', '');
+    expect(
+      await optionsPage.evaluate(() => ({
+        body: document.body.style.overflow,
+        main: document.querySelector<HTMLElement>('.main')?.style.overflow ?? ''
+      }))
+    ).toEqual({ body: '', main: '' });
+  } finally {
+    await context.close();
+    await rm(userDataDir, { recursive: true, force: true });
+  }
+});
+
+test('F06 aborts the installed navigation chunk into a permanent non-overlay fallback', async () => {
+  const userDataDir = await mkdtemp(join(tmpdir(), 'zendio-f06-navigation-rejected-'));
+  const context = await chromium.launchPersistentContext(userDataDir, {
+    headless: false,
+    args: [
+      '--headless=new',
+      `--disable-extensions-except=${extensionPath}`,
+      `--load-extension=${extensionPath}`
+    ]
+  });
+
+  try {
+    const rejected = await installRejectedMobileNavigationRoute(context);
+    const background =
+      context.serviceWorkers()[0] ??
+      (await context.waitForEvent('serviceworker', { timeout: 15_000 }));
+    const extensionId = background.url().split('/')[2];
+    if (!extensionId) throw new Error('Unable to resolve extension id.');
+    const pageErrors: string[] = [];
+    const optionsPage = await context.newPage();
+    optionsPage.on('pageerror', (error) => pageErrors.push(error.message));
+    await optionsPage.setViewportSize({ width: 390, height: 844 });
+    await optionsPage.goto(`chrome-extension://${extensionId}/options/index.html`, {
+      waitUntil: 'domcontentloaded'
+    });
+    await expect.poll(() => rejected.url).toContain(mobileNavigationChunkName());
+
+    await assertMobileFallbackLayout(optionsPage, 390);
+    await exerciseFallbackDestinations(optionsPage, context);
+    await assertMobileFallbackLayout(optionsPage, 320);
+    await optionsPage.keyboard.press('Escape');
+    await expect(optionsPage.locator('#optionsShellRoot')).toHaveAttribute(
+      'data-mobile-navigation-fallback',
+      ''
+    );
+
+    await optionsPage.setViewportSize({ width: 1024, height: 768 });
+    await expect(optionsPage.locator('#optionsShellRoot')).not.toHaveAttribute(
+      'data-mobile-navigation-fallback',
+      ''
+    );
+    await assertMobileFallbackLayout(optionsPage, 320);
+    await optionsPage
+      .locator('[data-panel-id="overview"] .interface-theme-grid select')
+      .selectOption('zh-CN');
+    await expect(optionsPage.locator('.sidebar nav')).toHaveAttribute('aria-label', '设置');
+    await expect(optionsPage.locator('.sidebar')).toHaveCount(1);
+    await optionsPage.waitForTimeout(50);
+    expect(pageErrors).toEqual([]);
+  } finally {
+    await context.close();
+    await rm(userDataDir, { recursive: true, force: true });
+  }
+});
+
+test('F06 resolves the installed navigation chunk without stealing modal or main focus', async () => {
+  const cases = ['active', 'non-current', 'setup', 'dialog', 'main'];
+
+  for (const focusCase of cases) {
+    const userDataDir = await mkdtemp(join(tmpdir(), `zendio-f06-navigation-${focusCase}-`));
+    const context = await chromium.launchPersistentContext(userDataDir, {
+      headless: false,
+      args: [
+        '--headless=new',
+        `--disable-extensions-except=${extensionPath}`,
+        `--load-extension=${extensionPath}`
+      ]
+    });
+
+    try {
+      const held = await installHeldMobileNavigationRoute(context);
+      const background =
+        context.serviceWorkers()[0] ??
+        (await context.waitForEvent('serviceworker', { timeout: 15_000 }));
+      const extensionId = background.url().split('/')[2];
+      if (!extensionId) throw new Error('Unable to resolve extension id.');
+      const optionsPage = await context.newPage();
+      await optionsPage.setViewportSize({ width: 390, height: 844 });
+      await optionsPage.goto(`chrome-extension://${extensionId}/options/index.html`, {
+        waitUntil: 'domcontentloaded'
+      });
+      await expect.poll(() => held.requested.url).toContain(mobileNavigationChunkName());
+      const sidebar = await optionsPage.locator('.sidebar').elementHandle();
+      if (!sidebar) throw new Error('Missing focus-matrix sidebar.');
+
+      if (focusCase === 'active') {
+        await optionsPage.locator('[data-nav-panel="overview"]').focus();
+      } else if (focusCase === 'non-current') {
+        await optionsPage.locator('[data-footer-panel="support"]').focus();
+      } else if (focusCase === 'setup') {
+        await optionsPage.locator('[data-footer-panel="onboarding"]').focus();
+      } else if (focusCase === 'dialog') {
+        await optionsPage.locator('[data-footer-panel="support"]').click();
+        await expect(
+          optionsPage.locator('.resource-modal-overlay > .resource-modal[role="dialog"]')
+        ).toBeFocused();
+      } else {
+        await optionsPage.locator('[data-nav-panel="output"]').click();
+        await expect(optionsPage.locator('[data-panel-id="output"] h1')).toBeFocused();
+      }
+
+      held.release();
+      const trigger = optionsPage.locator('[data-mobile-navigation-trigger]');
+      await expect(trigger).toBeVisible();
+      expect(
+        await sidebar.evaluate((element) => document.querySelector('.sidebar') === element)
+      ).toBe(true);
+
+      if (focusCase === 'dialog') {
+        await expect(trigger).toHaveAttribute('aria-expanded', 'false');
+        await expect(
+          optionsPage.locator('.resource-modal-overlay > .resource-modal[role="dialog"]')
+        ).toBeFocused();
+        await optionsPage.locator('.resource-modal-overlay').click({ position: { x: 4, y: 4 } });
+        await expect(trigger).toBeFocused();
+      } else if (focusCase === 'main') {
+        await expect(trigger).toHaveAttribute('aria-expanded', 'false');
+        await expect(optionsPage.locator('[data-panel-id="output"] h1')).toBeFocused();
+      } else {
+        await expect(trigger).toHaveAttribute('aria-expanded', 'true');
+        await expect(optionsPage.locator('[data-nav-panel="overview"]')).toBeFocused();
+        await optionsPage.keyboard.press('Escape');
+        await expect(trigger).toBeFocused();
+      }
+    } finally {
+      await context.close();
+      await rm(userDataDir, { recursive: true, force: true });
+    }
+  }
+});
+
+test('F06 ignores late installed navigation resolution after the Options page is disposed', async () => {
+  const userDataDir = await mkdtemp(join(tmpdir(), 'zendio-f06-navigation-disposed-'));
+  const context = await chromium.launchPersistentContext(userDataDir, {
+    headless: false,
+    args: [
+      '--headless=new',
+      `--disable-extensions-except=${extensionPath}`,
+      `--load-extension=${extensionPath}`
+    ]
+  });
+
+  try {
+    const held = await installHeldMobileNavigationRoute(context);
+    const background =
+      context.serviceWorkers()[0] ??
+      (await context.waitForEvent('serviceworker', { timeout: 15_000 }));
+    const extensionId = background.url().split('/')[2];
+    if (!extensionId) throw new Error('Unable to resolve extension id.');
+    const pageErrors: string[] = [];
+    const optionsPage = await context.newPage();
+    optionsPage.on('pageerror', (error) => pageErrors.push(error.message));
+    await optionsPage.setViewportSize({ width: 390, height: 844 });
+    await optionsPage.goto(`chrome-extension://${extensionId}/options/index.html`, {
+      waitUntil: 'domcontentloaded'
+    });
+    await expect.poll(() => held.requested.url).toContain(mobileNavigationChunkName());
+    await expect(optionsPage.locator('#optionsShellRoot')).toHaveAttribute(
+      'data-mobile-navigation-fallback',
+      ''
+    );
+    await optionsPage.close();
+    held.release();
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(pageErrors).toEqual([]);
   } finally {
     await context.close();
     await rm(userDataDir, { recursive: true, force: true });
