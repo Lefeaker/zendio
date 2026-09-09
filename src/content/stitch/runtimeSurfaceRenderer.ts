@@ -13,6 +13,7 @@ import {
   type RuntimeSessionSurfaceId,
   type RuntimeSurfaceHandle
 } from '@ui/stitch-runtime/render/renderRuntimeSurface';
+import { createContentI18nTranslator, getContentI18nResource } from '../i18n/context';
 import { getControlledRuntimeTheme, registerRuntimeSurfaceThemeRoot } from './runtimeTheme';
 
 export type RuntimeSurfaceActionArgs = Parameters<RuntimeSurfaceRendererContext['dispatch']>[1];
@@ -47,7 +48,12 @@ function renderStitchRuntimeSurfaceElement(options: RuntimeSurfaceRenderOptions)
   const state: RuntimeSurfaceState = {
     previewTheme: resolveRuntimeTheme(options.state?.previewTheme)
   };
-  const ctx = { appData: options.appData, state };
+  const translator = createContentI18nTranslator(getContentI18nResource());
+  const ctx = {
+    appData: options.appData,
+    state,
+    ...(translator ? { t: translator } : {})
+  };
   const view = getSurfaceView(options.surfaceId, ctx);
   if (!view) throw new Error(`Unknown Stitch runtime surface: ${options.surfaceId}`);
 
