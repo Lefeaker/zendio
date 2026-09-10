@@ -411,8 +411,30 @@ describe('VideoDialogPanel', () => {
     expect(mountedInput.value).toBe('Live capture draft');
     expect(shadow?.activeElement).toBe(mountedInput);
 
+    const destinationDetails = mountedRow.querySelector<HTMLDetailsElement>(
+      '.export-destination-menu'
+    );
+    const destinationSummary = mountedRow.querySelector<HTMLElement>('.export-destination-summary');
+    const destinationOptions = Array.from(
+      mountedRow.querySelectorAll<HTMLElement>('.export-destination-option')
+    );
+    if (!destinationDetails || !destinationSummary) {
+      throw new Error('Video destination identity fixture missing');
+    }
+    destinationSummary.focus();
+    const expectDestinationIdentity = () => {
+      expect(shadow?.querySelector('.export-destination-row')).toBe(mountedRow);
+      expect(mountedRow.querySelector('.export-destination-menu')).toBe(destinationDetails);
+      expect(mountedRow.querySelector('.export-destination-summary')).toBe(destinationSummary);
+      expect(
+        Array.from(mountedRow.querySelectorAll<HTMLElement>('.export-destination-option'))
+      ).toEqual(destinationOptions);
+      expect(shadow?.activeElement).toBe(destinationSummary);
+    };
+
     panel.updateHint('Force a normal Video rerender');
     await Promise.resolve();
+    expectDestinationIdentity();
     expect(shadow?.querySelector('.export-destination-label')?.textContent).toBe(
       'Live Renamed Vault'
     );
@@ -422,7 +444,16 @@ describe('VideoDialogPanel', () => {
     expect(shadow?.querySelector('[data-capture-id="capture-1"]')).toBe(mountedCapture);
     expect(requireCaptureInput(panel, 'capture-1')).toBe(mountedInput);
     expect(mountedInput.value).toBe('Live capture draft');
-    expect(shadow?.activeElement).toBe(mountedInput);
+    panel.updateCount(2);
+    expectDestinationIdentity();
+    panel.setCaptures([
+      createCapture({
+        id: 'capture-1',
+        comment: 'Saved capture note',
+        commentPreview: 'Saved capture note'
+      })
+    ]);
+    expectDestinationIdentity();
 
     panel.collapse();
     expect(

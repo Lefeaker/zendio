@@ -58,6 +58,18 @@ function requiredElement(root: ParentNode, selector: string): HTMLElement {
   return element;
 }
 
+function requiredButton(root: ParentNode, selector: string): HTMLButtonElement {
+  const element = root.querySelector(selector);
+  if (!(element instanceof HTMLButtonElement)) throw new Error(`Button missing: ${selector}`);
+  return element;
+}
+
+function requiredDetails(root: ParentNode, selector: string): HTMLDetailsElement {
+  const element = root.querySelector(selector);
+  if (!(element instanceof HTMLDetailsElement)) throw new Error(`Details missing: ${selector}`);
+  return element;
+}
+
 describe('real destination renderer event ownership', () => {
   it('dispatches newly inserted nested options exactly once through a stable container', () => {
     const seen: string[] = [];
@@ -152,6 +164,35 @@ describe('real destination renderer event ownership', () => {
     requiredElement(root, '[data-destination-id="vault-a"]').click();
     expect(selectDestination).toHaveBeenCalledTimes(2);
   });
+
+  it('delegates live add and remove changes to the keyed DOM owner without losing focus', () => {
+    const root = document.createElement('div');
+    const row = renderedDestination(() => undefined);
+    root.append(row);
+    document.body.append(root);
+    const details = requiredDetails(row, '.export-destination-menu');
+    const summary = requiredElement(row, '.export-destination-summary');
+    const downloads = requiredButton(row, '[data-destination-id="downloads"]');
+    vi.spyOn(downloads, 'matches').mockImplementation((selector) => selector === ':focus-visible');
+    details.open = true;
+    downloads.focus();
+
+    expect(reconcileLiveExportDestinationRow(root, eventPreview(['downloads', 'vault-a']))).toBe(
+      true
+    );
+    expect(root.firstChild).toBe(row);
+    expect(requiredElement(row, '.export-destination-menu')).toBe(details);
+    expect(requiredElement(row, '.export-destination-summary')).toBe(summary);
+    expect(requiredElement(row, '[data-destination-id="downloads"]')).toBe(downloads);
+    expect(details.open).toBe(true);
+    expect(document.activeElement).toBe(downloads);
+
+    expect(reconcileLiveExportDestinationRow(root, eventPreview(['downloads']))).toBe(true);
+    expect(root.firstChild).toBe(row);
+    expect(details.open).toBe(true);
+    expect(document.activeElement).toBe(downloads);
+    expect(row.querySelector('[data-destination-id="vault-a"]')).toBeNull();
+  });
 });
 
 function createOptions(
@@ -218,7 +259,7 @@ describe('ContentExportDestinationState live runtime projection', () => {
     root.innerHTML = `
       <div class="export-destination-row" data-live-runtime-marker="same-row">
         <details class="export-destination-menu">
-          <summary>
+          <summary class="export-destination-summary">
             <strong class="export-destination-label">Downloads</strong>
             <span class="export-destination-path">Downloads/live-destination.md</span>
           </summary>
@@ -316,6 +357,184 @@ describe('ContentExportDestinationState live runtime projection', () => {
         expect.objectContaining({ id: 'downloads', label: 'Downloads' })
       );
     });
+  });
+
+  it('selects a valid fallback and restores summary focus when a focused vault is removed', async () => {
+    const fixture = createRepository(createOptions([createVault('vault-a', 'Vault A')]));
+    const state = new ContentExportDestinationState(fixture.repository, createPayload);
+    state.select('vault-a');
+    const root = document.createElement('div');
+    root.append(renderedDestination(() => undefined));
+    document.body.append(root);
+    expect(reconcileLiveExportDestinationRow(root, eventPreview(['vault-a', 'downloads']))).toBe(
+      true
+    );
+    const row = requiredElement(root, '.export-destination-row');
+    const details = requiredDetails(row, '.export-destination-menu');
+    const summary = requiredElement(row, '.export-destination-summary');
+    const vault = requiredButton(row, '[data-destination-id="vault-a"]');
+    vi.spyOn(vault, 'matches').mockImplementation((selector) => selector === ':focus-visible');
+    details.open = true;
+    vault.focus();
+
+    await state.startWatching((preview) => {
+      reconcileLiveExportDestinationRow(root, preview);
+    });
+    details.open = true;
+    vault.focus();
+    fixture.emit(createOptions([]));
+
+    await vi.waitFor(() => {
+      expect(state.metadata).toEqual({ kind: 'downloads' });
+      expect(root.querySelector('[data-destination-id="vault-a"]')).toBeNull();
+    });
+    expect(root.querySelector('.export-destination-row')).toBe(row);
+    expect(details.open).toBe(false);
+    expect(document.activeElement).toBe(summary);
+  });
+
+  it.each([
+    { input: 'keyboard', focusVisible: true, restoresSummary: true },
+    { input: 'pointer', focusVisible: false, restoresSummary: false }
+  ])(
+    'closes a same-selected $input activation once while preserving a later passive refresh',
+    async ({ focusVisible, restoresSummary }) => {
+      const fixture = createRepository(createOptions([createVault('vault-a', 'Vault A')]));
+      const state = new ContentExportDestinationState(fixture.repository, createPayload);
+      state.applyMetadata({ kind: 'vault', vaultId: 'vault-a' });
+      const initialPreview = await state.refresh();
+      const root = document.createElement('div');
+      root.append(renderedDestination(() => undefined));
+      document.body.append(root);
+      expect(reconcileLiveExportDestinationRow(root, initialPreview)).toBe(true);
+      const details = requiredDetails(root, '.export-destination-menu');
+      const summary = requiredElement(root, '.export-destination-summary');
+      const vault = requiredButton(root, '[data-destination-id="vault-a"]');
+      const summaryFocus = vi.spyOn(summary, 'focus');
+      vi.spyOn(vault, 'matches').mockImplementation(
+        (selector) => selector === ':focus-visible' && focusVisible
+      );
+      details.open = true;
+      vault.focus();
+
+      state.select('vault-a');
+      const activatedPreview = await state.refresh();
+      expect(reconcileLiveExportDestinationRow(root, activatedPreview)).toBe(true);
+      expect(details.open).toBe(false);
+      expect(summaryFocus).toHaveBeenCalledTimes(restoresSummary ? 1 : 0);
+      expect(document.activeElement).toBe(restoresSummary ? summary : vault);
+
+      details.open = true;
+      vault.focus();
+      expect(reconcileLiveExportDestinationRow(root, activatedPreview)).toBe(true);
+      expect(details.open).toBe(true);
+      expect(document.activeElement).toBe(vault);
+      expect(summaryFocus).toHaveBeenCalledTimes(restoresSummary ? 1 : 0);
+    }
+  );
+
+  it.each<{
+    boundary: 'repository' | 'preview';
+    selection: 'vault-a' | 'downloads';
+  }>([
+    { boundary: 'repository', selection: 'vault-a' },
+    { boundary: 'repository', selection: 'downloads' },
+    { boundary: 'preview', selection: 'vault-a' },
+    { boundary: 'preview', selection: 'downloads' }
+  ])(
+    'consumes a failed $boundary activation for $selection without replaying it passively',
+    async ({ boundary, selection }) => {
+      const options = createOptions([createVault('vault-a', 'Vault A')]);
+      const fixture = createRepository(options);
+      let failPreview = false;
+      const state = new ContentExportDestinationState(fixture.repository, () => {
+        if (failPreview) {
+          failPreview = false;
+          throw new Error('transient preview failure');
+        }
+        return createPayload();
+      });
+      state.applyMetadata({ kind: 'vault', vaultId: 'vault-a' });
+      const initialPreview = await state.refresh();
+      const root = document.createElement('div');
+      root.append(renderedDestination(() => undefined));
+      document.body.append(root);
+      expect(reconcileLiveExportDestinationRow(root, initialPreview)).toBe(true);
+      const details = requiredDetails(root, '.export-destination-menu');
+      const summary = requiredElement(root, '.export-destination-summary');
+      const vault = requiredButton(root, '[data-destination-id="vault-a"]');
+      vi.spyOn(vault, 'matches').mockImplementation((selector) => selector === ':focus-visible');
+      details.open = true;
+      vault.focus();
+
+      state.select(selection);
+      if (boundary === 'repository') {
+        vi.mocked(fixture.repository.get).mockRejectedValueOnce(
+          new Error('transient repository failure')
+        );
+      } else {
+        failPreview = true;
+      }
+      const failedPreview = await state.refresh();
+      expect(reconcileLiveExportDestinationRow(root, failedPreview)).toBe(true);
+      expect(details.open).toBe(false);
+      expect(document.activeElement).toBe(summary);
+
+      details.open = true;
+      vault.focus();
+      const passivePreview = await state.refresh();
+      expect(reconcileLiveExportDestinationRow(root, passivePreview)).toBe(true);
+      expect(details.open).toBe(true);
+      expect(document.activeElement).toBe(vault);
+      expect(requiredElement(root, '.export-destination-label').textContent).toBe(
+        selection === 'downloads' ? 'Downloads' : 'Vault A'
+      );
+    }
+  );
+
+  it('keeps a superseding watch delivery passive after the originating activation attempt closes', async () => {
+    const options = createOptions([createVault('vault-a', 'Vault A')]);
+    const fixture = createRepository(options);
+    const state = new ContentExportDestinationState(fixture.repository, createPayload);
+    state.applyMetadata({ kind: 'vault', vaultId: 'vault-a' });
+    const initialPreview = await state.refresh();
+    const root = document.createElement('div');
+    root.append(renderedDestination(() => undefined));
+    document.body.append(root);
+    expect(reconcileLiveExportDestinationRow(root, initialPreview)).toBe(true);
+    const details = requiredDetails(root, '.export-destination-menu');
+    const summary = requiredElement(root, '.export-destination-summary');
+    const vault = requiredButton(root, '[data-destination-id="vault-a"]');
+    vi.spyOn(vault, 'matches').mockImplementation((selector) => selector === ':focus-visible');
+
+    let releaseLoad: ((value: CompleteOptions) => void) | undefined;
+    const delayedLoad = new Promise<CompleteOptions>((resolve) => {
+      releaseLoad = resolve;
+    });
+    vi.mocked(fixture.repository.get).mockReturnValueOnce(delayedLoad);
+    let watchPreview: ExportDestinationSurfacePreview | undefined;
+    state.watch((preview) => {
+      watchPreview = preview;
+    });
+    details.open = true;
+    vault.focus();
+    state.select('downloads');
+    const activationRefresh = state.refresh();
+    fixture.emit(options);
+    releaseLoad?.(options);
+
+    const activationPreview = await activationRefresh;
+    await vi.waitFor(() => expect(watchPreview?.id).toBe('downloads'));
+    expect(reconcileLiveExportDestinationRow(root, activationPreview)).toBe(true);
+    expect(details.open).toBe(false);
+    expect(document.activeElement).toBe(summary);
+
+    details.open = true;
+    vault.focus();
+    expect(reconcileLiveExportDestinationRow(root, watchPreview)).toBe(true);
+    expect(details.open).toBe(true);
+    expect(document.activeElement).toBe(vault);
+    expect(requiredElement(root, '.export-destination-label').textContent).toBe('Downloads');
   });
 
   it('unsubscribes once and ignores a queued live delivery after disposal', async () => {

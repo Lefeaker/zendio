@@ -175,10 +175,12 @@ function patchNamedElement(currentRoot: ParentNode, nextRoot: ParentNode, select
 
 function patchActionElements(currentRoot: ParentNode, nextRoot: ParentNode): void {
   nextRoot.querySelectorAll<HTMLElement>('[data-action-id]').forEach((next) => {
+    if (next.closest('.export-destination-row')) return;
     const actionId = next.dataset.actionId;
     if (!actionId) return;
     const current = Array.from(currentRoot.querySelectorAll<HTMLElement>('[data-action-id]')).find(
-      (candidate) => candidate.dataset.actionId === actionId
+      (candidate) =>
+        candidate.dataset.actionId === actionId && !candidate.closest('.export-destination-row')
     );
     if (!current || current.closest('[data-highlight-id],[data-capture-id]')) return;
     syncAttributes(current, next);

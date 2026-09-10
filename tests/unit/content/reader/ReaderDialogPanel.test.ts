@@ -328,13 +328,39 @@ describe('ReaderDialogPanel', () => {
       'Live Renamed Vault'
     );
 
+    const destinationDetails = mountedRow.querySelector<HTMLDetailsElement>(
+      '.export-destination-menu'
+    );
+    const destinationSummary = mountedRow.querySelector<HTMLElement>('.export-destination-summary');
+    const destinationOptions = Array.from(
+      mountedRow.querySelectorAll<HTMLElement>('.export-destination-option')
+    );
+    if (!destinationDetails || !destinationSummary) {
+      throw new Error('Reader destination identity fixture missing');
+    }
+    destinationSummary.focus();
+    const expectDestinationIdentity = () => {
+      expect(shadow?.querySelector('.export-destination-row')).toBe(mountedRow);
+      expect(mountedRow.querySelector('.export-destination-menu')).toBe(destinationDetails);
+      expect(mountedRow.querySelector('.export-destination-summary')).toBe(destinationSummary);
+      expect(
+        Array.from(mountedRow.querySelectorAll<HTMLElement>('.export-destination-option'))
+      ).toEqual(destinationOptions);
+      expect(shadow?.activeElement).toBe(destinationSummary);
+    };
+
     panel.updateHint('Force a normal Reader rerender');
+    expectDestinationIdentity();
     expect(shadow?.querySelector('.export-destination-label')?.textContent).toBe(
       'Live Renamed Vault'
     );
     expect(shadow?.querySelector('.export-destination-path')?.textContent).toBe(
       'Live Renamed Vault/reader.md'
     );
+    panel.updateCount(2);
+    expectDestinationIdentity();
+    panel.setHighlights([createHighlight({ id: 'h-1', index: 1 })]);
+    expectDestinationIdentity();
 
     panel.destroy();
   });

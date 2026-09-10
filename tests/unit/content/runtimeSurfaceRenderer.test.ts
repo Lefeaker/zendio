@@ -5,7 +5,11 @@ import { createI18nResource } from '@i18n/resource';
 import { getMessagesForLanguage, type I18nResource } from '@i18n';
 import { loadRuntimeLocaleAsset } from '@i18n/runtime/assets';
 import { createClipperSurfaceContent } from '@content/stitch/runtimeSurfaceContent';
-import { renderStitchRuntimeSurface } from '@content/stitch/runtimeSurfaceRenderer';
+import {
+  renderStitchRuntimeSessionSurface,
+  renderStitchRuntimeSessionTemplate,
+  renderStitchRuntimeSurface
+} from '@content/stitch/runtimeSurfaceRenderer';
 import type { ExportDestinationSurfacePreview } from '@ui/stitch-runtime';
 
 type Deferred<T> = {
@@ -155,6 +159,83 @@ describe('runtimeSurfaceRenderer content translation context', () => {
     const rendered = renderStitchRuntimeSurface({ surfaceId: 'video', appData });
 
     expect(rendered.querySelector('.session-counter')?.textContent).toBe('few items');
+  });
+
+  it('keeps repeated destination action IDs outside the generic chrome patcher', () => {
+    const currentData = createSurfaceContent();
+    currentData.video.labels.subtitle = 'Video subtitle';
+    currentData.video.destination = {
+      id: 'vault-a',
+      kind: 'vault',
+      label: 'Vault A',
+      path: 'Vault A/video.md',
+      hasConfiguredVault: true,
+      options: [
+        {
+          id: 'vault-a',
+          kind: 'vault',
+          label: 'Vault A',
+          path: 'Vault A/video.md',
+          selected: true
+        },
+        {
+          id: 'downloads',
+          kind: 'downloads',
+          label: 'Downloads',
+          path: 'Downloads/video.md',
+          selected: false
+        }
+      ]
+    };
+    const handle = renderStitchRuntimeSessionSurface({
+      surfaceId: 'video',
+      appData: currentData
+    });
+    const nextData = createSurfaceContent();
+    nextData.video.labels.subtitle = 'Updated video subtitle';
+    nextData.video.destination = {
+      ...currentData.video.destination,
+      id: 'downloads',
+      kind: 'downloads',
+      label: 'Downloads',
+      path: 'Downloads/video.md',
+      options: currentData.video.destination.options.map((option) => ({
+        ...option,
+        selected: option.id === 'downloads'
+      }))
+    };
+    const next = renderStitchRuntimeSessionTemplate({ surfaceId: 'video', appData: nextData });
+    const currentButtons = Array.from(
+      handle.root.querySelectorAll<HTMLElement>('.export-destination-option')
+    );
+
+    const counterfactual = handle.root.cloneNode(true);
+    if (!(counterfactual instanceof HTMLElement)) {
+      throw new Error('Counterfactual runtime surface must be an element');
+    }
+    next.querySelectorAll<HTMLElement>('.export-destination-option').forEach((nextButton) => {
+      const firstMatch = Array.from(
+        counterfactual.querySelectorAll<HTMLElement>('[data-action-id]')
+      ).find((candidate) => candidate.dataset.actionId === nextButton.dataset.actionId);
+      if (firstMatch && nextButton.dataset.destinationId) {
+        firstMatch.dataset.destinationId = nextButton.dataset.destinationId;
+      }
+    });
+    const corruptedIds = Array.from(
+      counterfactual.querySelectorAll<HTMLElement>('.export-destination-option')
+    ).map((button) => button.dataset.destinationId);
+    expect(corruptedIds).toEqual(['downloads', 'downloads']);
+    expect(new Set(corruptedIds).size).not.toBe(corruptedIds.length);
+
+    handle.patchChrome(next);
+    expect(
+      Array.from(handle.root.querySelectorAll<HTMLElement>('.export-destination-option'))
+    ).toEqual(currentButtons);
+    expect(currentButtons.map((button) => button.dataset.destinationId)).toEqual([
+      'vault-a',
+      'downloads'
+    ]);
+    handle.dispose();
   });
 });
 
