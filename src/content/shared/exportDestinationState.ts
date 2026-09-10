@@ -17,48 +17,24 @@ interface DestinationRefreshResult {
   preview: ExportDestinationSurfacePreview | undefined;
 }
 
+const selectionActivationPreviews = new WeakSet<ExportDestinationSurfacePreview>();
+
+function markSelectionActivation(
+  preview: ExportDestinationSurfacePreview | undefined,
+  selectionActivated: boolean
+): ExportDestinationSurfacePreview | undefined {
+  if (!preview || !selectionActivated) return preview;
+  const renderAttemptPreview = { ...preview };
+  selectionActivationPreviews.add(renderAttemptPreview);
+  return renderAttemptPreview;
+}
+
 export function reconcileLiveExportDestinationRow(
   root: ParentNode,
   destination: ExportDestinationSurfacePreview | undefined
 ): boolean {
-  if (patchExportDestinationRow(root, destination)) {
-    return true;
-  }
-  if (!destination) {
-    return false;
-  }
-
-  const row = root.querySelector<HTMLElement>('.export-destination-row');
-  const optionsContainer = row?.querySelector<HTMLElement>('.export-destination-options');
-  const existingButtons = Array.from(
-    optionsContainer?.querySelectorAll<HTMLButtonElement>(
-      '.export-destination-option[data-destination-id]'
-    ) ?? []
-  );
-  const template = existingButtons[0];
-  if (!row || !optionsContainer || !template) {
-    return false;
-  }
-
-  const buttonsById = new Map(
-    existingButtons.flatMap((button) =>
-      button.dataset.destinationId ? [[button.dataset.destinationId, button] as const] : []
-    )
-  );
-  const desiredIds = new Set(destination.options.map((option) => option.id));
-  for (const option of destination.options) {
-    const button = buttonsById.get(option.id) ?? (template.cloneNode(true) as HTMLButtonElement);
-    button.dataset.destinationId = option.id;
-    optionsContainer.appendChild(button);
-  }
-  for (const button of existingButtons) {
-    const id = button.dataset.destinationId;
-    if (!id || !desiredIds.has(id)) {
-      button.remove();
-    }
-  }
-
-  return patchExportDestinationRow(root, destination);
+  const selectionActivated = destination ? selectionActivationPreviews.delete(destination) : false;
+  return patchExportDestinationRow(root, destination, selectionActivated);
 }
 
 export class ContentExportDestinationState {
@@ -69,6 +45,7 @@ export class ContentExportDestinationState {
   private latestRefreshRevision = 0;
   private activeWatchRevision = 0;
   private stopOptionsWatch: (() => void) | null = null;
+  private selectionRenderPending = false;
 
   constructor(
     private readonly optionsRepository: IOptionsRepository,
@@ -140,6 +117,8 @@ export class ContentExportDestinationState {
     loadOptions: () => Promise<CompleteOptions>
   ): Promise<DestinationRefreshResult> {
     const revision = ++this.latestRefreshRevision;
+    const selectionActivated = this.selectionRenderPending;
+    this.selectionRenderPending = false;
     const operation = this.refreshTail.then(async (): Promise<DestinationRefreshResult> => {
       let options: CompleteOptions;
       try {
@@ -148,10 +127,16 @@ export class ContentExportDestinationState {
         if (revision === this.latestRefreshRevision) {
           console.warn('[ExportDestination] Failed to refresh destination preview:', error);
         }
-        return { applied: false, preview: this.preview };
+        return {
+          applied: false,
+          preview: markSelectionActivation(this.preview, selectionActivated)
+        };
       }
       if (revision !== this.latestRefreshRevision) {
-        return { applied: false, preview: this.preview };
+        return {
+          applied: false,
+          preview: markSelectionActivation(this.preview, selectionActivated)
+        };
       }
 
       try {
@@ -173,10 +158,16 @@ export class ContentExportDestinationState {
         }
         this.preview = preview;
         this.selection = parseExportDestinationId(preview.id);
-        return { applied: true, preview };
+        return {
+          applied: true,
+          preview: markSelectionActivation(preview, selectionActivated)
+        };
       } catch (error) {
         console.warn('[ExportDestination] Failed to build destination preview:', error);
-        return { applied: false, preview: this.preview };
+        return {
+          applied: false,
+          preview: markSelectionActivation(this.preview, selectionActivated)
+        };
       }
     });
     this.refreshTail = operation.then(
@@ -200,6 +191,7 @@ export class ContentExportDestinationState {
   select(id: string): void {
     this.selection = parseExportDestinationId(id);
     this.selectionIsExplicit = true;
+    this.selectionRenderPending = true;
   }
 
   applyMetadata(metadata: ExportDestinationMetadata | undefined): void {

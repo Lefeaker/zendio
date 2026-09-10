@@ -1,4 +1,11 @@
-import { chromium, expect, test, type BrowserContext, type Page } from '@playwright/test';
+import {
+  chromium,
+  expect,
+  test,
+  type BrowserContext,
+  type Page,
+  type Worker
+} from '@playwright/test';
 import { promises as fs } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
@@ -26,6 +33,15 @@ type PlainStorageRecord = { [key: string]: PlainStorageValue };
 declare global {
   // eslint-disable-next-line no-var -- Ambient global properties require var declarations.
   var __AIIINOB_CONTENT_RUNTIME_PROMISE__: PromiseLike<object> | undefined;
+  // eslint-disable-next-line no-var -- Serialized isolated-world probes use this global.
+  var __f07VideoListenerAttachmentCount: number | undefined;
+}
+
+interface ExtensionEvaluator {
+  evaluate<TArgument, TResult>(
+    pageFunction: (argument: TArgument) => TResult | Promise<TResult>,
+    argument: TArgument
+  ): Promise<TResult>;
 }
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -75,6 +91,14 @@ declare global {
     __contentCorrectionRefs?: Record<string, { row: Element; option: Element; clickCount: number }>;
     __persistedCollapseModal?: HTMLElement;
     __f07DestinationRow?: Element;
+    __f07LifecycleRefs?: {
+      host: Element;
+      surface: Element;
+      row: Element;
+      details: Element;
+      summary: Element;
+      options: Element[];
+    };
   }
 }
 
@@ -472,6 +496,16 @@ async function updateB10Vault(extensionPage: Page, vaultName: string): Promise<v
   expect(result).toMatchObject({ success: true });
 }
 
+async function clearB10Vaults(extensionPage: ExtensionEvaluator): Promise<void> {
+  const emptyOptions = createB10StoredOptions();
+  const persistedOptions = await extensionPage.evaluate(async (storedOptions) => {
+    await chrome.storage.sync.set({ options: storedOptions });
+    const persisted = await chrome.storage.sync.get('options');
+    return persisted.options;
+  }, emptyOptions);
+  expect(persistedOptions).toEqual(emptyOptions);
+}
+
 async function markB10DestinationRow(page: Page, marker: string): Promise<void> {
   const row = page.locator('.export-destination-row');
   await expect(row).toBeVisible();
@@ -550,7 +584,7 @@ async function expectB10Destination(page: Page, marker: string, label: string): 
     .toEqual([B10_VAULT_ID, 'downloads']);
 }
 
-async function readB10VideoDraft(extensionPage: Page, pageUrl: string) {
+async function readB10VideoDraft(extensionPage: ExtensionEvaluator, pageUrl: string) {
   return extensionPage.evaluate(async (targetUrl) => {
     const record = (value: PlainStorageValue): value is PlainStorageRecord =>
       typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -636,12 +670,26 @@ testWithExtension(
     await markB10DestinationRow(reader.page, 'reader-row');
     await markB10DestinationRow(video.page, 'video-row');
 
+    const clipperMenu = clipper.page.locator(
+      '[data-stitch-surface="clipper"] .export-destination-menu'
+    );
+    const clipperDownloads = clipper.page.locator(
+      '[data-stitch-surface="clipper"] [data-destination-id="downloads"]'
+    );
+    await clipper.page
+      .locator('[data-stitch-surface="clipper"] .export-destination-summary')
+      .press('Enter');
+    await expect(clipperMenu).toHaveAttribute('open', '');
+    await clipperDownloads.focus();
+
     await updateB10Vault(extensionPage, B10_LIVE_VAULT_NAME);
     await Promise.all([
       expectB10Destination(clipper.page, 'clipper-row', B10_LIVE_VAULT_NAME),
       expectB10Destination(reader.page, 'reader-row', B10_LIVE_VAULT_NAME),
       expectB10Destination(video.page, 'video-row', B10_LIVE_VAULT_NAME)
     ]);
+    await expect(clipperMenu).toHaveAttribute('open', '');
+    await expect(clipperDownloads).toBeFocused();
 
     await updateB10Vault(extensionPage, B10_RENAMED_VAULT_NAME);
     await Promise.all([
@@ -653,6 +701,66 @@ testWithExtension(
     await Promise.all([clipper.page.close(), reader.page.close(), video.page.close()]);
   }
 );
+
+test('adds the localized Clipper setup link when the last configured vault disappears', async () => {
+  const matrixCase = F07_CASES.find(
+    (candidate) => candidate.id === 'clipper-mobile-zh-dark-downloads-closed'
+  );
+  if (!matrixCase) throw new Error('Clipper setup-link matrix case missing');
+  const { background, context, page, profile } = await openF07Surface(matrixCase);
+  try {
+    await markB10DestinationRow(page, 'clipper-setup-link-row');
+    const root = page.locator('[data-stitch-surface="clipper"]');
+    await expect(root.locator('.export-destination-label')).toHaveText(F07_LONG_VAULT_NAME);
+    await expect
+      .poll(() =>
+        root
+          .locator('.export-destination-option[data-destination-id]')
+          .evaluateAll((buttons) =>
+            buttons.map((button) =>
+              button instanceof HTMLElement ? button.dataset.destinationId : undefined
+            )
+          )
+      )
+      .toEqual([B10_VAULT_ID, 'downloads']);
+    await expect(root.locator('.export-destination-setup-link')).toHaveCount(0);
+
+    await clearB10Vaults(background);
+
+    await expect(root.locator('.export-destination-label')).toHaveText('Downloads');
+    await expect(root.locator('.export-destination-row')).toHaveAttribute(
+      'data-live-runtime-marker',
+      'clipper-setup-link-row'
+    );
+    await expect
+      .poll(() =>
+        root.locator('.export-destination-row').evaluate((element) => {
+          return window.__b10DestinationRows?.['clipper-setup-link-row'] === element;
+        })
+      )
+      .toBe(true);
+    await expect
+      .poll(() =>
+        root
+          .locator('.export-destination-option[data-destination-id]')
+          .evaluateAll((buttons) =>
+            buttons.map((button) =>
+              button instanceof HTMLElement ? button.dataset.destinationId : undefined
+            )
+          )
+      )
+      .toEqual(['downloads']);
+    await expect(root.locator('[data-destination-id="downloads"]')).toHaveClass(/\bis-selected\b/u);
+    const link = root.locator('.export-destination-setup-link');
+    await expect(link).toHaveText('配置仓库');
+    await expect(link).toHaveAttribute('target', '_blank');
+    await expect(link).toHaveAttribute('rel', 'noopener noreferrer');
+    await expect(link).toHaveAttribute('href', /options\/index\.html#storage$/u);
+  } finally {
+    await context.close();
+    await fs.rm(profile, { recursive: true, force: true });
+  }
+});
 
 testWithExtension(
   'carries implicit and explicit Clipper destinations into real Video drafts',
@@ -1399,7 +1507,7 @@ function createF07StoredOptions(theme: F07MatrixCase['theme']) {
   };
 }
 
-function f07FixtureHtml(includeVideo: boolean): string {
+function f07FixtureHtml(includeVideo: boolean, includeVideoElement = true): string {
   return `<!doctype html>
     <html>
       <head><title>${F07_LONG_TITLE}</title></head>
@@ -1408,7 +1516,7 @@ function f07FixtureHtml(includeVideo: boolean): string {
           <h1 id="video-title">${F07_LONG_TITLE}</h1>
           ${
             includeVideo
-              ? '<div id="movie_player" class="html5-video-player"><video></video><div class="ytp-right-controls"></div></div>'
+              ? `<div id="movie_player" class="html5-video-player">${includeVideoElement ? '<video></video>' : ''}<div class="ytp-right-controls"></div></div>`
               : ''
           }
           <article>
@@ -1420,10 +1528,15 @@ function f07FixtureHtml(includeVideo: boolean): string {
     </html>`;
 }
 
-async function openF07Surface(matrixCase: F07MatrixCase): Promise<{
+async function openF07Surface(
+  matrixCase: F07MatrixCase,
+  options: { observeNativeVideoAttachment?: boolean; videoInitiallyAvailable?: boolean } = {}
+): Promise<{
   context: Awaited<ReturnType<typeof chromium.launchPersistentContext>>;
+  background: Worker;
   page: Page;
   profile: string;
+  tabId: number;
 }> {
   const profile = await fs.mkdtemp(path.join(tmpdir(), 'f07-export-destination-'));
   const context = await chromium.launchPersistentContext(profile, {
@@ -1459,7 +1572,7 @@ async function openF07Surface(matrixCase: F07MatrixCase): Promise<{
     route.fulfill({
       status: 200,
       contentType: 'text/html; charset=utf-8',
-      body: f07FixtureHtml(video)
+      body: f07FixtureHtml(video, options.videoInitiallyAvailable ?? true)
     })
   );
   const page = await context.newPage();
@@ -1467,6 +1580,36 @@ async function openF07Surface(matrixCase: F07MatrixCase): Promise<{
   const tabs = await background.evaluate(() => chrome.tabs.query({}));
   const tabId = tabs.find((tab) => tab.url === url)?.id;
   if (!tabId) throw new Error('F07 fixture tab id missing');
+  if (options.observeNativeVideoAttachment) {
+    await background.evaluate(
+      (id) =>
+        chrome.scripting.executeScript({
+          target: { tabId: id },
+          world: 'ISOLATED',
+          func: () => {
+            let attachmentCount = 0;
+            HTMLVideoElement.prototype.addEventListener = function (
+              type: string,
+              listener: EventListenerOrEventListenerObject,
+              options?: boolean | AddEventListenerOptions
+            ) {
+              if (
+                this.dataset.lifecycleTrigger === 'native-player-observer' &&
+                ['loadedmetadata', 'durationchange', 'emptied', 'play', 'pause'].includes(type)
+              ) {
+                attachmentCount += 1;
+              }
+              EventTarget.prototype.addEventListener.call(this, type, listener, options);
+            };
+            Object.defineProperty(globalThis, '__f07VideoListenerAttachmentCount', {
+              configurable: true,
+              get: () => attachmentCount
+            });
+          }
+        }),
+      tabId
+    );
+  }
   await background.evaluate(
     (id) => chrome.scripting.executeScript({ target: { tabId: id }, files: ['content/index.js'] }),
     tabId
@@ -1504,8 +1647,157 @@ async function openF07Surface(matrixCase: F07MatrixCase): Promise<{
   await expect(
     page.locator(`[data-stitch-surface="${matrixCase.surface}"] .export-destination-label`)
   ).toHaveText(F07_LONG_VAULT_NAME);
-  return { context, page, profile };
+  return { context, background, page, profile, tabId };
 }
+
+async function readF07VideoListenerAttachmentCount(background: Worker, tabId: number) {
+  const result = await background.evaluate(
+    (id) =>
+      chrome.scripting.executeScript({
+        target: { tabId: id },
+        world: 'ISOLATED',
+        func: () => globalThis.__f07VideoListenerAttachmentCount ?? 0
+      }),
+    tabId
+  );
+  return result[0]?.result ?? 0;
+}
+
+test('keeps the installed Video destination row stable through the native player observer rerender', async () => {
+  const matrixCase = F07_CASES.find(
+    (candidate) => candidate.id === 'video-mobile-zh-light-downloads-closed'
+  );
+  if (!matrixCase) throw new Error('Video lifecycle matrix case missing');
+  const { background, context, page, profile, tabId } = await openF07Surface(matrixCase, {
+    observeNativeVideoAttachment: true,
+    videoInitiallyAvailable: false
+  });
+  try {
+    const scope = page.locator('[data-stitch-surface="video"]');
+    const row = scope.locator('.export-destination-row');
+    const menu = scope.locator('.export-destination-menu');
+    const summary = scope.locator('.export-destination-summary');
+    const downloads = scope.locator('.export-destination-option[data-destination-id="downloads"]');
+    await expect
+      .poll(() => readB10VideoDraft(background, page.url()))
+      .toMatchObject({
+        destination: { kind: 'vault', vaultId: B10_VAULT_ID },
+        captureCount: 1
+      });
+    await summary.focus();
+    await page.keyboard.press('Enter');
+    await expect(menu).toHaveAttribute('open', '');
+    await page.keyboard.press('Space');
+    await expect(menu).not.toHaveAttribute('open', '');
+    await page.keyboard.press('Enter');
+    await expect(menu).toHaveAttribute('open', '');
+    await downloads.focus();
+    await page.keyboard.press('Space');
+    await expect(menu).not.toHaveAttribute('open', '');
+    await expectF07VisibleFocus(summary);
+    await expect(scope.locator('.export-destination-label')).toHaveText('Downloads');
+    await expect
+      .poll(() => readB10VideoDraft(background, page.url()))
+      .toMatchObject({ destination: { kind: 'downloads' }, captureCount: 1 });
+
+    const beforePlayer = await scope.evaluate((surface) => {
+      const root = surface.getRootNode();
+      if (!(root instanceof ShadowRoot)) throw new Error('Video lifecycle root missing');
+      const destinationRow = root.querySelector('.export-destination-row');
+      const details = destinationRow?.querySelector('.export-destination-menu');
+      const summaryElement = details?.querySelector('.export-destination-summary');
+      const optionElements = Array.from(
+        destinationRow?.querySelectorAll('.export-destination-option[data-destination-id]') ?? []
+      );
+      if (!destinationRow || !details || !summaryElement) {
+        throw new Error('Video lifecycle destination structure missing');
+      }
+      window.__f07LifecycleRefs = {
+        host: root.host,
+        surface,
+        row: destinationRow,
+        details,
+        summary: summaryElement,
+        options: optionElements
+      };
+      return {
+        optionIds: optionElements.map((option) =>
+          option instanceof HTMLElement ? option.dataset.destinationId : undefined
+        ),
+        summaryFocused: root.activeElement === summaryElement,
+        summaryFocusVisible: summaryElement.matches(':focus-visible')
+      };
+    });
+    expect(beforePlayer).toEqual({
+      optionIds: [B10_VAULT_ID, 'downloads'],
+      summaryFocused: true,
+      summaryFocusVisible: true
+    });
+
+    await page.locator('#movie_player').evaluate((player) => {
+      const video = document.createElement('video');
+      video.dataset.lifecycleTrigger = 'native-player-observer';
+      player.prepend(video);
+    });
+    await expect.poll(() => readF07VideoListenerAttachmentCount(background, tabId)).toBe(5);
+
+    const afterPlayer = await row.evaluate((destinationRow) => {
+      const root = destinationRow.getRootNode();
+      if (!(root instanceof ShadowRoot)) throw new Error('Video lifecycle root missing');
+      const refs = window.__f07LifecycleRefs;
+      if (!refs) throw new Error('Video lifecycle references missing');
+      const surface = root.querySelector('[data-stitch-surface="video"]');
+      const details = destinationRow.querySelector('.export-destination-menu');
+      const summaryElement = details?.querySelector('.export-destination-summary');
+      const optionElements = Array.from(
+        destinationRow.querySelectorAll('.export-destination-option[data-destination-id]')
+      );
+      const optionIds = optionElements.map((option) =>
+        option instanceof HTMLElement ? option.dataset.destinationId : undefined
+      );
+      return {
+        hostRetained: refs.host === root.host,
+        surfaceRetained: refs.surface === surface,
+        rowRetained: refs.row === destinationRow,
+        detailsRetained: refs.details === details,
+        summaryRetained: refs.summary === summaryElement,
+        optionsRetained:
+          refs.options.length === optionElements.length &&
+          refs.options.every((option, index) => option === optionElements[index]),
+        optionIds,
+        uniqueOptionIds: new Set(optionIds).size === optionIds.length,
+        selectedIds: optionElements
+          .filter((option) => option.classList.contains('is-selected'))
+          .map((option) =>
+            option instanceof HTMLElement ? option.dataset.destinationId : undefined
+          ),
+        menuOpen: details?.hasAttribute('open') ?? false,
+        summaryFocused: root.activeElement === summaryElement,
+        summaryFocusVisible: summaryElement?.matches(':focus-visible') ?? false
+      };
+    });
+    expect(afterPlayer).toEqual({
+      hostRetained: true,
+      surfaceRetained: true,
+      rowRetained: true,
+      detailsRetained: true,
+      summaryRetained: true,
+      optionsRetained: true,
+      optionIds: [B10_VAULT_ID, 'downloads'],
+      uniqueOptionIds: true,
+      selectedIds: ['downloads'],
+      menuOpen: false,
+      summaryFocused: true,
+      summaryFocusVisible: true
+    });
+    await expect
+      .poll(() => readB10VideoDraft(background, page.url()))
+      .toMatchObject({ destination: { kind: 'downloads' }, captureCount: 1 });
+  } finally {
+    await context.close();
+    await fs.rm(profile, { recursive: true, force: true });
+  }
+});
 
 async function readF07DestinationLayout(page: Page, surface: F07Surface) {
   const row = page.locator(`[data-stitch-surface="${surface}"] .export-destination-row`);
@@ -1798,6 +2090,34 @@ for (const matrixCase of F07_CASES) {
       );
       expect(selectedColor).not.toBe('rgba(0, 0, 0, 0)');
       if (!matrixCase.leaveOpen) {
+        const beforeFinalClose = await scope.evaluate((surface) => {
+          const root = surface.getRootNode();
+          if (!(root instanceof ShadowRoot)) throw new Error('F07 final-close root missing');
+          const row = root.querySelector('.export-destination-row');
+          const summary = root.querySelector('.export-destination-summary');
+          const active = root.activeElement;
+          return {
+            retainedRow: window.__f07DestinationRow === row,
+            menuOpen: root.querySelector('.export-destination-menu[open]') !== null,
+            summaryActive: active === summary,
+            activeClassName: active instanceof HTMLElement ? active.className : null,
+            activeDestinationId:
+              active instanceof HTMLElement ? (active.dataset.destinationId ?? null) : null
+          };
+        });
+        const beforeFinalClosePath = testInfo.outputPath(
+          `${matrixCase.id}-before-final-space.json`
+        );
+        await fs.writeFile(beforeFinalClosePath, `${JSON.stringify(beforeFinalClose, null, 2)}\n`);
+        await testInfo.attach(`${matrixCase.id}-before-final-space.json`, {
+          path: beforeFinalClosePath,
+          contentType: 'application/json'
+        });
+        expect(beforeFinalClose).toMatchObject({
+          retainedRow: true,
+          menuOpen: true,
+          summaryActive: true
+        });
         await page.keyboard.press('Space');
         await expect(menu).not.toHaveAttribute('open', '');
       }
