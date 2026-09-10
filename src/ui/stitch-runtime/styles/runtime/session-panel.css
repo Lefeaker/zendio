@@ -71,8 +71,8 @@
 
 .resource-modal--session.is-collapsed,
 .resource-modal--session.floating-bottom-right.is-collapsed {
-  height: auto;
-  width: fit-content;
+  height: auto !important;
+  width: fit-content !important;
   min-width: 0;
   min-height: 0;
   max-width: min(100vw - var(--surface-side-gap), var(--session-panel-max-width));
