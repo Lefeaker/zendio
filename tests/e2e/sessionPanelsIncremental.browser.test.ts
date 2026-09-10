@@ -74,6 +74,7 @@ declare global {
     __b10DestinationRows?: Record<string, Element>;
     __contentCorrectionRefs?: Record<string, { row: Element; option: Element; clickCount: number }>;
     __persistedCollapseModal?: HTMLElement;
+    __f07DestinationRow?: Element;
   }
 }
 
@@ -1271,6 +1272,544 @@ for (const surface of CONTENT_CORRECTION_POINTER_SURFACES) {
       });
     } finally {
       await closeContentCorrectionExtensionSession(session);
+    }
+  });
+}
+type F07Surface = 'clipper' | 'reader' | 'video';
+type F07MatrixCase = {
+  id: string;
+  surface: F07Surface;
+  viewport: { width: number; height: number };
+  language: 'en' | 'zh-CN';
+  theme: 'light' | 'dark';
+  destinationId: typeof B10_VAULT_ID | 'downloads';
+  expectedLabel: string;
+  expectedEyebrow: 'Save to' | '保存到';
+  activationKey: ContentCorrectionKey;
+  leaveOpen: boolean;
+};
+
+const F07_LONG_VAULT_NAME = 'F07 Independent Shared Destination Vault';
+const F07_LONG_TITLE =
+  'F07 shared export destination layout with an intentionally long localized filename and path that must remain on one line across Clipper Reader and Video while preserving the full production destination interaction contract';
+const F07_LONG_PATH =
+  'F07/independent-options-ui/shared-export-destination/{domain}/{yyyy}/{mm}/{dd}/{title}-layout-contract.md';
+const F07_CASES: F07MatrixCase[] = [
+  {
+    id: 'clipper-desktop-en-light-vault-open',
+    surface: 'clipper',
+    viewport: { width: 1440, height: 1000 },
+    language: 'en',
+    theme: 'light',
+    destinationId: B10_VAULT_ID,
+    expectedLabel: F07_LONG_VAULT_NAME,
+    expectedEyebrow: 'Save to',
+    activationKey: 'Enter',
+    leaveOpen: true
+  },
+  {
+    id: 'clipper-mobile-zh-dark-downloads-closed',
+    surface: 'clipper',
+    viewport: { width: 390, height: 844 },
+    language: 'zh-CN',
+    theme: 'dark',
+    destinationId: 'downloads',
+    expectedLabel: 'Downloads',
+    expectedEyebrow: '保存到',
+    activationKey: 'Space',
+    leaveOpen: false
+  },
+  {
+    id: 'reader-desktop-zh-dark-downloads-open',
+    surface: 'reader',
+    viewport: { width: 1440, height: 1000 },
+    language: 'zh-CN',
+    theme: 'dark',
+    destinationId: 'downloads',
+    expectedLabel: 'Downloads',
+    expectedEyebrow: '保存到',
+    activationKey: 'Enter',
+    leaveOpen: true
+  },
+  {
+    id: 'reader-mobile-en-light-vault-open',
+    surface: 'reader',
+    viewport: { width: 390, height: 844 },
+    language: 'en',
+    theme: 'light',
+    destinationId: B10_VAULT_ID,
+    expectedLabel: F07_LONG_VAULT_NAME,
+    expectedEyebrow: 'Save to',
+    activationKey: 'Space',
+    leaveOpen: true
+  },
+  {
+    id: 'video-desktop-en-dark-vault-open',
+    surface: 'video',
+    viewport: { width: 1440, height: 1000 },
+    language: 'en',
+    theme: 'dark',
+    destinationId: B10_VAULT_ID,
+    expectedLabel: F07_LONG_VAULT_NAME,
+    expectedEyebrow: 'Save to',
+    activationKey: 'Enter',
+    leaveOpen: true
+  },
+  {
+    id: 'video-mobile-zh-light-downloads-closed',
+    surface: 'video',
+    viewport: { width: 390, height: 844 },
+    language: 'zh-CN',
+    theme: 'light',
+    destinationId: 'downloads',
+    expectedLabel: 'Downloads',
+    expectedEyebrow: '保存到',
+    activationKey: 'Space',
+    leaveOpen: false
+  }
+];
+
+function createF07StoredOptions(theme: F07MatrixCase['theme']) {
+  return {
+    ...createOptionsFixture(),
+    interfaceTheme: theme,
+    templates: {
+      article: F07_LONG_PATH,
+      video: F07_LONG_PATH,
+      fragment: F07_LONG_PATH,
+      reading: F07_LONG_PATH,
+      ai: F07_LONG_PATH
+    },
+    vaultRouter: {
+      defaultVaultId: B10_VAULT_ID,
+      vaults: [
+        {
+          id: B10_VAULT_ID,
+          name: F07_LONG_VAULT_NAME,
+          vault: F07_LONG_VAULT_NAME,
+          httpsUrl: 'https://127.0.0.1:27124',
+          httpUrl: 'http://127.0.0.1:27123',
+          apiKey: 'a'.repeat(64),
+          enabled: true,
+          isDefault: true
+        }
+      ],
+      rules: []
+    }
+  };
+}
+
+function f07FixtureHtml(includeVideo: boolean): string {
+  return `<!doctype html>
+    <html>
+      <head><title>${F07_LONG_TITLE}</title></head>
+      <body>
+        <main>
+          <h1 id="video-title">${F07_LONG_TITLE}</h1>
+          ${
+            includeVideo
+              ? '<div id="movie_player" class="html5-video-player"><video></video><div class="ytp-right-controls"></div></div>'
+              : ''
+          }
+          <article>
+            <p id="selectable">Selected passage for the installed shared destination contract.</p>
+            ${'<p>Installed production extension surface evidence.</p>'.repeat(8)}
+          </article>
+        </main>
+      </body>
+    </html>`;
+}
+
+async function openF07Surface(matrixCase: F07MatrixCase): Promise<{
+  context: Awaited<ReturnType<typeof chromium.launchPersistentContext>>;
+  page: Page;
+  profile: string;
+}> {
+  const profile = await fs.mkdtemp(path.join(tmpdir(), 'f07-export-destination-'));
+  const context = await chromium.launchPersistentContext(profile, {
+    headless: false,
+    viewport: matrixCase.viewport,
+    locale: matrixCase.language === 'zh-CN' ? 'zh-CN' : 'en-US',
+    colorScheme: matrixCase.theme,
+    args: [
+      '--headless=new',
+      `--disable-extensions-except=${extensionPath}`,
+      `--load-extension=${extensionPath}`
+    ]
+  });
+  const background =
+    context.serviceWorkers()[0] ??
+    (await context.waitForEvent('serviceworker', { timeout: 15000 }));
+  const storedLanguage = await background.evaluate(
+    async ({ language, options }) => {
+      await chrome.storage.sync.set({ language, options });
+      return (await chrome.storage.sync.get('language')).language;
+    },
+    {
+      language: matrixCase.language,
+      options: createF07StoredOptions(matrixCase.theme)
+    }
+  );
+  expect(storedLanguage).toBe(matrixCase.language);
+  const video = matrixCase.surface === 'video';
+  const url = video
+    ? `https://www.youtube.com/watch?v=f07-${matrixCase.id}`
+    : `https://example.org/f07-${matrixCase.id}`;
+  await context.route(url, (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: 'text/html; charset=utf-8',
+      body: f07FixtureHtml(video)
+    })
+  );
+  const page = await context.newPage();
+  await page.goto(url, { waitUntil: 'domcontentloaded' });
+  const tabs = await background.evaluate(() => chrome.tabs.query({}));
+  const tabId = tabs.find((tab) => tab.url === url)?.id;
+  if (!tabId) throw new Error('F07 fixture tab id missing');
+  await background.evaluate(
+    (id) => chrome.scripting.executeScript({ target: { tabId: id }, files: ['content/index.js'] }),
+    tabId
+  );
+  await background.evaluate(
+    (id) =>
+      chrome.scripting.executeScript({
+        target: { tabId: id },
+        world: 'ISOLATED',
+        func: async () => {
+          await globalThis.__AIIINOB_CONTENT_RUNTIME_PROMISE__;
+        }
+      }),
+    tabId
+  );
+  await page.locator('#selectable').evaluate((element) => {
+    const range = document.createRange();
+    range.selectNodeContents(element);
+    const selection = getSelection();
+    selection?.removeAllRanges();
+    selection?.addRange(range);
+  });
+  const opened = await background.evaluate(async (id) => {
+    await chrome.tabs.sendMessage(id, { action: 'clipSelection' });
+    return true;
+  }, tabId);
+  expect(opened).toBe(true);
+  await expect(page.locator('[data-stitch-surface="clipper"]')).toBeVisible();
+  if (matrixCase.surface !== 'clipper') {
+    await page
+      .locator(`[data-stitch-surface="clipper"] [data-action-id="${matrixCase.surface}"]`)
+      .click();
+    await expect(page.locator(`[data-stitch-surface="${matrixCase.surface}"]`)).toBeVisible();
+  }
+  await expect(
+    page.locator(`[data-stitch-surface="${matrixCase.surface}"] .export-destination-label`)
+  ).toHaveText(F07_LONG_VAULT_NAME);
+  return { context, page, profile };
+}
+
+async function readF07DestinationLayout(page: Page, surface: F07Surface) {
+  const row = page.locator(`[data-stitch-surface="${surface}"] .export-destination-row`);
+  await expect(row).toBeVisible();
+  return row.evaluate((element) => {
+    const root = element.getRootNode();
+    if (!(root instanceof ShadowRoot || root instanceof Document)) {
+      throw new Error('Destination row root must support selectors');
+    }
+    const select = (selector: string): Element => {
+      const found = root.querySelector(selector);
+      if (!(found instanceof Element)) throw new Error(`Missing ${selector}`);
+      return found;
+    };
+    const style = (selector: string, pseudo?: string) => {
+      const computed = getComputedStyle(select(selector), pseudo);
+      return {
+        display: computed.display,
+        position: computed.position,
+        padding: computed.padding,
+        cursor: computed.cursor,
+        listStyleType: computed.listStyleType,
+        fontSize: computed.fontSize,
+        fontWeight: computed.fontWeight,
+        lineHeight: computed.lineHeight,
+        overflow: computed.overflow,
+        textOverflow: computed.textOverflow,
+        whiteSpace: computed.whiteSpace,
+        zIndex: computed.zIndex,
+        backgroundColor: computed.backgroundColor
+      };
+    };
+    const rect = (selector: string) => {
+      const value = select(selector).getBoundingClientRect();
+      return { left: value.left, top: value.top, right: value.right, bottom: value.bottom };
+    };
+    const box = (element: Element | null) => {
+      if (!(element instanceof HTMLElement)) return null;
+      const value = element.getBoundingClientRect();
+      const computed = getComputedStyle(element);
+      return {
+        className: element.className,
+        left: value.left,
+        right: value.right,
+        width: value.width,
+        cssWidth: computed.width,
+        minWidth: computed.minWidth,
+        maxWidth: computed.maxWidth,
+        boxSizing: computed.boxSizing,
+        display: computed.display,
+        position: computed.position,
+        overflow: computed.overflow
+      };
+    };
+    const path = select('.export-destination-path');
+    const surfaceWindow = select('.surface-window');
+    return {
+      row: style('.export-destination-row'),
+      summary: style('.export-destination-summary'),
+      marker: style('.export-destination-summary', '::marker'),
+      eyebrow: style('.export-destination-eyebrow'),
+      label: style('.export-destination-label'),
+      path: style('.export-destination-path'),
+      options: style('.export-destination-options'),
+      summaryRect: rect('.export-destination-summary'),
+      optionsRect: rect('.export-destination-options'),
+      surfaceRect: rect('.surface-window'),
+      ancestorBoxes: {
+        surface: box(surfaceWindow),
+        rail: box(surfaceWindow.closest('.session-panel-rail')),
+        stage: box(surfaceWindow.closest('.surface-stage')),
+        stack: box(surfaceWindow.closest('.resource-modal-stack')),
+        body: box(surfaceWindow.closest('.resource-modal-body')),
+        modal: box(surfaceWindow.closest('.resource-modal'))
+      },
+      pathClientWidth: path.clientWidth,
+      pathScrollWidth: path.scrollWidth,
+      pathHeight: path.getBoundingClientRect().height,
+      surfaceClientWidth: surfaceWindow.clientWidth,
+      surfaceScrollWidth: surfaceWindow.scrollWidth,
+      pageClientWidth: document.documentElement.clientWidth,
+      pageScrollWidth: document.documentElement.scrollWidth,
+      viewport: { width: innerWidth, height: innerHeight }
+    };
+  });
+}
+
+async function expectF07VisibleFocus(locator: ReturnType<Page['locator']>): Promise<void> {
+  const focus = await locator.evaluate((element) => {
+    const style = getComputedStyle(element);
+    const root = element.getRootNode();
+    return {
+      active:
+        root instanceof ShadowRoot
+          ? root.activeElement === element
+          : document.activeElement === element,
+      focusVisible: element.matches(':focus-visible'),
+      outlineStyle: style.outlineStyle,
+      outlineWidth: style.outlineWidth,
+      boxShadow: style.boxShadow
+    };
+  });
+  expect(focus.active).toBe(true);
+  expect(focus.focusVisible).toBe(true);
+  expect(
+    (focus.outlineStyle !== 'none' && Number.parseFloat(focus.outlineWidth) > 0) ||
+      focus.boxShadow !== 'none'
+  ).toBe(true);
+}
+
+async function readF07FocusScrollState(page: Page, surface: F07Surface) {
+  return page.locator(`[data-stitch-surface="${surface}"]`).evaluate((surfaceWindow) => {
+    const root = surfaceWindow.getRootNode();
+    if (!(root instanceof ShadowRoot)) throw new Error('F07 surface must use a ShadowRoot');
+    const body = surfaceWindow.closest<HTMLElement>('.resource-modal-body');
+    const row = root.querySelector<HTMLElement>('.export-destination-row');
+    const option = root.querySelector<HTMLElement>('.export-destination-option:focus');
+    const rect = (element: Element | null) => {
+      const value = element?.getBoundingClientRect();
+      return value
+        ? { left: value.left, right: value.right, top: value.top, bottom: value.bottom }
+        : null;
+    };
+    return {
+      bodyScrollLeft: body?.scrollLeft ?? null,
+      bodyClientWidth: body?.clientWidth ?? null,
+      bodyScrollWidth: body?.scrollWidth ?? null,
+      surfaceRect: rect(surfaceWindow),
+      rowRect: rect(row),
+      focusedOptionRect: rect(option),
+      menuOpen: root.querySelector('.export-destination-menu[open]') !== null,
+      activeClassName:
+        root.activeElement instanceof HTMLElement ? root.activeElement.className : null
+    };
+  });
+}
+
+async function chooseF07DestinationWithKeyboard(
+  page: Page,
+  surface: F07Surface,
+  destinationId: F07MatrixCase['destinationId'],
+  expectedLabel: string,
+  activationKey: ContentCorrectionKey
+) {
+  const scope = page.locator(`[data-stitch-surface="${surface}"]`);
+  const menu = scope.locator('.export-destination-menu');
+  const summary = scope.locator('.export-destination-summary');
+  const option = scope.locator(
+    `.export-destination-option[data-destination-id="${destinationId}"]`
+  );
+  await summary.focus();
+  await page.keyboard.press('Shift+Tab');
+  let reachedWithTab = false;
+  for (let index = 0; index < 20; index += 1) {
+    await page.keyboard.press('Tab');
+    reachedWithTab = await summary.evaluate((element) => {
+      const root = element.getRootNode();
+      return root instanceof ShadowRoot
+        ? root.activeElement === element
+        : document.activeElement === element;
+    });
+    if (reachedWithTab) break;
+  }
+  expect(reachedWithTab).toBe(true);
+  await expectF07VisibleFocus(summary);
+  await page.keyboard.press('Enter');
+  await expect(menu).toHaveAttribute('open', '');
+  await page.keyboard.press('Space');
+  await expect(menu).not.toHaveAttribute('open', '');
+  await page.keyboard.press('Enter');
+  await expect(menu).toHaveAttribute('open', '');
+  const beforeOptionFocus = await readF07FocusScrollState(page, surface);
+  await option.focus();
+  const afterOptionFocus = await readF07FocusScrollState(page, surface);
+  await expect(option).toHaveAccessibleName(new RegExp(expectedLabel));
+  await expectF07VisibleFocus(option);
+  await page.keyboard.press(activationKey);
+  await expect(menu).not.toHaveAttribute('open', '');
+  await page.evaluate(() => new Promise<void>((resolve) => requestAnimationFrame(() => resolve())));
+  await expectF07VisibleFocus(summary);
+  const afterActivation = await readF07FocusScrollState(page, surface);
+  return { beforeOptionFocus, afterOptionFocus, afterActivation };
+}
+
+for (const matrixCase of F07_CASES) {
+  test(`F07 shares export destination styles in ${matrixCase.id}`, async ({
+    browserName: _browserName
+  }, testInfo) => {
+    const { context, page, profile } = await openF07Surface(matrixCase);
+    try {
+      const scope = page.locator(`[data-stitch-surface="${matrixCase.surface}"]`);
+      const row = scope.locator('.export-destination-row');
+      const menu = scope.locator('.export-destination-menu');
+      const summary = scope.locator('.export-destination-summary');
+      const target = scope.locator(
+        `.export-destination-option[data-destination-id="${matrixCase.destinationId}"]`
+      );
+      await expect(scope).toHaveAttribute('data-preview-theme', matrixCase.theme);
+      const browserLanguage = await page.evaluate(() => navigator.language);
+      expect(browserLanguage.toLowerCase()).toContain(matrixCase.language.toLowerCase());
+      await expect(scope.locator('.export-destination-eyebrow')).toHaveText(
+        matrixCase.expectedEyebrow
+      );
+      await page.evaluate(
+        () =>
+          new Promise<void>((resolve) => {
+            requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
+          })
+      );
+      await row.evaluate((element) => {
+        window.__f07DestinationRow = element;
+      });
+
+      const keyboardOutcome = await chooseF07DestinationWithKeyboard(
+        page,
+        matrixCase.surface,
+        matrixCase.destinationId,
+        matrixCase.expectedLabel,
+        matrixCase.activationKey
+      );
+      const keyboardOutcomePath = testInfo.outputPath(`${matrixCase.id}-keyboard-scroll.json`);
+      await fs.writeFile(keyboardOutcomePath, `${JSON.stringify(keyboardOutcome, null, 2)}\n`);
+      await testInfo.attach(`${matrixCase.id}-keyboard-scroll.json`, {
+        path: keyboardOutcomePath,
+        contentType: 'application/json'
+      });
+      await expect(scope.locator('.export-destination-label')).toHaveText(matrixCase.expectedLabel);
+      await expect(target).toHaveClass(/is-selected/);
+      await page.evaluate(
+        () =>
+          new Promise<void>((resolve) => {
+            requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
+          })
+      );
+      await expect
+        .poll(() => row.evaluate((element) => window.__f07DestinationRow === element))
+        .toBe(true);
+
+      await summary.focus();
+      await page.keyboard.press('Enter');
+      await expect(menu).toHaveAttribute('open', '');
+      const openLayout = await readF07DestinationLayout(page, matrixCase.surface);
+      const openLayoutPath = testInfo.outputPath(`${matrixCase.id}-open-layout.json`);
+      await fs.writeFile(openLayoutPath, `${JSON.stringify(openLayout, null, 2)}\n`);
+      await testInfo.attach(`${matrixCase.id}-open-layout.json`, {
+        path: openLayoutPath,
+        contentType: 'application/json'
+      });
+      await page.screenshot({
+        path: testInfo.outputPath(`${matrixCase.id}-open.png`),
+        fullPage: false
+      });
+      expect(openLayout.row.display).toBe('flex');
+      expect(openLayout.summary).toMatchObject({
+        display: 'grid',
+        padding: '8px 10px',
+        cursor: 'pointer'
+      });
+      expect(openLayout.marker.listStyleType).toBe('none');
+      expect(openLayout.eyebrow.fontSize).toBe('10px');
+      expect(openLayout.label).toMatchObject({ fontSize: '11px', fontWeight: '650' });
+      expect(openLayout.path).toMatchObject({
+        fontSize: '10px',
+        overflow: 'hidden',
+        textOverflow: 'ellipsis',
+        whiteSpace: 'nowrap'
+      });
+      expect(openLayout.options).toMatchObject({
+        display: 'grid',
+        position: 'absolute',
+        zIndex: '2'
+      });
+      expect(openLayout.pathScrollWidth).toBeGreaterThan(openLayout.pathClientWidth);
+      expect(openLayout.pathHeight).toBeLessThanOrEqual(
+        Number.parseFloat(openLayout.path.lineHeight) * 1.25
+      );
+      expect(openLayout.surfaceScrollWidth).toBeLessThanOrEqual(openLayout.surfaceClientWidth);
+      expect(openLayout.pageScrollWidth).toBeLessThanOrEqual(openLayout.pageClientWidth);
+      expect(openLayout.optionsRect.left).toBeGreaterThanOrEqual(-1);
+      expect(openLayout.optionsRect.right).toBeLessThanOrEqual(openLayout.viewport.width + 1);
+      expect(openLayout.optionsRect.top).toBeGreaterThanOrEqual(-1);
+      expect(openLayout.optionsRect.bottom).toBeLessThanOrEqual(openLayout.viewport.height + 1);
+      if (matrixCase.surface === 'clipper') {
+        expect(openLayout.optionsRect.top).toBeGreaterThanOrEqual(openLayout.summaryRect.bottom);
+      } else {
+        expect(openLayout.optionsRect.bottom).toBeLessThanOrEqual(openLayout.summaryRect.top);
+      }
+      const selectedColor = await target.evaluate(
+        (element) => getComputedStyle(element).backgroundColor
+      );
+      expect(selectedColor).not.toBe('rgba(0, 0, 0, 0)');
+      if (!matrixCase.leaveOpen) {
+        await page.keyboard.press('Space');
+        await expect(menu).not.toHaveAttribute('open', '');
+      }
+      await page.screenshot({
+        path: testInfo.outputPath(
+          `${matrixCase.id}-${matrixCase.leaveOpen ? 'retained-open' : 'closed'}.png`
+        ),
+        fullPage: false
+      });
+    } finally {
+      await context.close();
+      await fs.rm(profile, { recursive: true, force: true });
     }
   });
 }
