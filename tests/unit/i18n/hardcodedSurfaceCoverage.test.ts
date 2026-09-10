@@ -349,7 +349,7 @@ const COVERAGE: readonly SurfaceCoverage[] = [
     milestone: 'P20',
     surface: 'content runtime Clipper, Stitch, and export-destination fallbacks',
     proves:
-      'content runtime compatibility defaults are non-Chinese and do not synthesize user-visible labels',
+      'content runtime compatibility defaults remain non-Chinese while setup links use the runtime localization contract',
     evidence: [
       {
         file: 'tests/unit/content/runtimeSurfaceContent.test.ts',
@@ -361,7 +361,7 @@ const COVERAGE: readonly SurfaceCoverage[] = [
         file: 'tests/unit/content/exportDestinationDom.test.ts',
         includes: [
           'preserves an existing localized setup link label while updating the href',
-          'returns false instead of synthesizing a new setup link label'
+          'creates a setup link through the existing runtime localization contract'
         ]
       }
     ]

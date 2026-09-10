@@ -28,6 +28,24 @@ function mutate(path: string, before: string, after: string): string[] {
   return auditOptionsMainline(sources);
 }
 
+function mutateStoreSaveReturn(after: string): string[] {
+  const sources = productionSources();
+  const source = sourceAt(sources, storePath);
+  const saveStart = source.indexOf('export async function save(');
+  const nextOwnerStart = source.indexOf('\nexport async function replacePersisted(', saveStart);
+  expect(saveStart).toBeGreaterThanOrEqual(0);
+  expect(nextOwnerStart).toBeGreaterThan(saveStart);
+
+  const before = '  return cloneStateValue(normalized);';
+  const saveBody = source.slice(saveStart, nextOwnerStart);
+  expect(saveBody.split(before)).toHaveLength(2);
+
+  const mutatedSaveBody = saveBody.replace(before, after);
+  expect(mutatedSaveBody).not.toBe(saveBody);
+  sources[storePath] = source.slice(0, saveStart) + mutatedSaveBody + source.slice(nextOwnerStart);
+  return auditOptionsMainline(sources);
+}
+
 describe('report-options-mainline', () => {
   it('accepts the current production patch/ack owners', () => {
     expect(auditOptionsMainline(productionSources())).toEqual([]);
@@ -159,25 +177,13 @@ describe('report-options-mainline', () => {
   });
 
   it('rejects a missing store acknowledgement return', () => {
-    expect(
-      mutate(
-        storePath,
-        "if (mutation.changed) registerYamlMigration('mutation input');\n  return cloneStateValue(normalized);",
-        "if (mutation.changed) registerYamlMigration('mutation input');"
-      )
-    ).toContainEqual(
+    expect(mutateStoreSaveReturn('')).toContainEqual(
       expect.stringContaining('authoritative sanitized StoredOptions acknowledgement')
     );
   });
 
   it('rejects returning the cache instead of the acknowledged snapshot', () => {
-    expect(
-      mutate(
-        storePath,
-        "if (mutation.changed) registerYamlMigration('mutation input');\n  return cloneStateValue(normalized);",
-        "if (mutation.changed) registerYamlMigration('mutation input');\n return cachedSnapshot;"
-      )
-    ).toContainEqual(
+    expect(mutateStoreSaveReturn('  return cachedSnapshot;')).toContainEqual(
       expect.stringContaining('authoritative sanitized StoredOptions acknowledgement')
     );
   });

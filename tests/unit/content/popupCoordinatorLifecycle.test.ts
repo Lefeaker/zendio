@@ -30,6 +30,7 @@ import type {
   VideoPanelTexts
 } from '../../../src/content/video/application/videoPanelModel';
 import type { StyleAttachmentHandle } from '../../../src/ui/foundation/style-host';
+import type { I18nResource } from '@i18n';
 import {
   MockClipRepository,
   MockMessagingRepository,
@@ -43,6 +44,7 @@ import {
 type StyleAttachmentHandleMock = StyleAttachmentHandle & {
   dispose: ReturnType<typeof vi.fn<StyleAttachmentHandle['dispose']>>;
 };
+type I18nContextModule = typeof import('../../../src/content/i18n/context');
 
 function createStyleAttachmentHandle(root: ShadowRoot): StyleAttachmentHandleMock {
   return {
@@ -54,7 +56,7 @@ function createStyleAttachmentHandle(root: ShadowRoot): StyleAttachmentHandleMoc
 
 const ensureContentI18nMock = vi.hoisted(() => vi.fn(() => Promise.resolve(undefined)));
 const getContentI18nBinderMock = vi.hoisted(() => vi.fn(() => null));
-const getContentI18nResourceMock = vi.hoisted(() => vi.fn(() => ({ messages: null })));
+const getContentI18nResourceMock = vi.hoisted(() => vi.fn<() => I18nResource | null>(() => null));
 const getContentMessagesMock = vi.hoisted(() =>
   vi.fn(() =>
     Promise.resolve({
@@ -104,7 +106,8 @@ const getContentMessagesMock = vi.hoisted(() =>
   )
 );
 
-vi.mock('../../../src/content/i18n/context', () => ({
+vi.mock('../../../src/content/i18n/context', async (importOriginal) => ({
+  ...(await importOriginal<I18nContextModule>()),
   ensureContentI18n: ensureContentI18nMock,
   getContentI18nBinder: getContentI18nBinderMock,
   getContentI18nResource: getContentI18nResourceMock,
@@ -221,6 +224,7 @@ const videoCallbacks: VideoPanelCallbacks = {
 describe('content popup coordinator lifecycle', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    getContentI18nResourceMock.mockReturnValue(null);
     clipperStyleHandles.length = 0;
     panelStyleHandles.length = 0;
     document.body.innerHTML = '';

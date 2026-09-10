@@ -53,7 +53,8 @@ const getContentMessagesMock =
     ) => ReturnType<I18nContextModule['getContentMessages']>
   >();
 
-vi.mock('../../../src/content/i18n/context', () => ({
+vi.mock('../../../src/content/i18n/context', async (importOriginal) => ({
+  ...(await importOriginal<I18nContextModule>()),
   ensureContentI18n: ensureContentI18nMock,
   getContentI18nBinder: getContentI18nBinderMock,
   getContentMessages: getContentMessagesMock

@@ -4,13 +4,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { restErrors } from '@shared/errors';
 import { ErrorSeverity } from '@shared/errors/types';
 import type { StyleAttachmentHandle } from '@ui/foundation/style-host';
+import { getMessagesForLanguage, type I18nResource } from '@i18n';
+import { createI18nResource } from '@i18n/resource';
 
 const flushMicrotasks = () => new Promise((resolve) => setTimeout(resolve, 0));
 
-type MockContentI18nResource = {
-  language?: string;
-  messages: Record<string, string> | null;
-};
+type I18nContextModule = typeof import('@content/i18n/context');
 
 type Deferred<T> = {
   promise: Promise<T>;
@@ -36,9 +35,7 @@ vi.mock('@content/clipper/shared/styleRegistry', () => ({
 }));
 
 const ensureContentI18nMock = vi.hoisted(() => vi.fn(() => Promise.resolve()));
-const getContentI18nResourceMock = vi.hoisted(() =>
-  vi.fn<() => MockContentI18nResource>(() => ({ messages: null }))
-);
+const getContentI18nResourceMock = vi.hoisted(() => vi.fn<() => I18nResource | null>(() => null));
 const getContentMessagesMock = vi.hoisted(() =>
   vi.fn(() =>
     Promise.resolve({
@@ -79,7 +76,8 @@ const getContentMessagesMock = vi.hoisted(() =>
     })
   )
 );
-vi.mock('@content/i18n/context', () => ({
+vi.mock('@content/i18n/context', async (importOriginal) => ({
+  ...(await importOriginal<I18nContextModule>()),
   ensureContentI18n: ensureContentI18nMock,
   getContentI18nResource: getContentI18nResourceMock,
   getContentMessages: getContentMessagesMock
@@ -132,6 +130,7 @@ describe('SupportPrompt', () => {
     storageLocalGetMock.mockResolvedValue({});
     storageLocalSetMock.mockResolvedValue(undefined);
     messagingSendMock.mockResolvedValue(undefined);
+    getContentI18nResourceMock.mockReturnValue(null);
     loadExtensionStyleMock.mockImplementation((path: string) =>
       Promise.resolve(`/* ${path} */ .stitch-runtime{display:block;}`)
     );
@@ -554,10 +553,10 @@ describe('SupportPrompt', () => {
   });
 
   it('uses the content locale provider for review URLs when extension i18n is absent', async () => {
-    getContentI18nResourceMock.mockReturnValue({
-      language: 'ja',
-      messages: null
-    });
+    const messages = await getMessagesForLanguage('ja');
+    getContentI18nResourceMock.mockReturnValue(
+      createI18nResource({ language: 'ja', messages, fallbackChain: [] })
+    );
     const openSpy = vi.spyOn(window, 'open').mockImplementation(() => null);
     const { SupportPrompt } = await import('../../../src/content/ui/supportPrompt');
     const prompt = new SupportPrompt(document);
