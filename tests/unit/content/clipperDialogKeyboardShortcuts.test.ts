@@ -15,6 +15,7 @@ import type { StyleAttachmentHandle } from '@ui/foundation/style-host';
 
 type StyleSheetManagerModule =
   typeof import('../../../src/content/clipper/shared/styleSheetManager');
+type I18nContextModule = typeof import('../../../src/content/i18n/context');
 
 const initializeStylesMock =
   vi.fn<
@@ -36,7 +37,8 @@ let storageService: StorageService;
 let runtimeService: RuntimeService;
 let errorHandler: ErrorHandler;
 
-vi.mock('../../../src/content/i18n/context', () => ({
+vi.mock('../../../src/content/i18n/context', async (importOriginal) => ({
+  ...(await importOriginal<I18nContextModule>()),
   ensureContentI18n: ensureContentI18nMock,
   getContentI18nBinder: getContentI18nBinderMock,
   getContentMessages: getContentMessagesMock
