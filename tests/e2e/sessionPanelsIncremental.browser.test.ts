@@ -73,6 +73,7 @@ declare global {
     __u04aVideoPreview: HTMLElement;
     __b10DestinationRows?: Record<string, Element>;
     __contentCorrectionRefs?: Record<string, { row: Element; option: Element; clickCount: number }>;
+    __persistedCollapseModal?: HTMLElement;
   }
 }
 
@@ -768,6 +769,21 @@ testWithExtension(
 
 type ContentCorrectionSurface = 'clipper' | 'reader' | 'video';
 type ContentCorrectionKey = 'Enter' | 'Space';
+type PersistedCollapseSurface = 'reader' | 'video';
+type PersistedSessionLayout = {
+  'aiob.sessionPanel.width': number;
+  'aiob.sessionPanel.maxWidth': number;
+  'aiob.sessionPanel.height': number;
+  'aiob.sessionPanel.collapsed': boolean;
+};
+
+const PERSISTED_SESSION_LAYOUT: PersistedSessionLayout = {
+  'aiob.sessionPanel.width': 512,
+  'aiob.sessionPanel.maxWidth': 576,
+  'aiob.sessionPanel.height': 520,
+  'aiob.sessionPanel.collapsed': false
+};
+const PERSISTED_COLLAPSE_SURFACES: PersistedCollapseSurface[] = ['reader', 'video'];
 
 async function createContentCorrectionExtensionSession(): Promise<{
   context: BrowserContext;
@@ -798,6 +814,249 @@ async function closeContentCorrectionExtensionSession(session: {
 }): Promise<void> {
   await session.context.close().catch(() => undefined);
   await fs.rm(session.userDataDir, { recursive: true, force: true });
+}
+
+async function createPersistedCollapseExtensionSession(): Promise<{
+  context: BrowserContext;
+  extensionPage: Page;
+  userDataDir: string;
+}> {
+  const userDataDir = await fs.mkdtemp(path.join(tmpdir(), 'persisted-session-collapse-'));
+  const context = await chromium.launchPersistentContext(userDataDir, {
+    headless: true,
+    channel: 'chromium',
+    viewport: { width: 1280, height: 900 },
+    args: [`--disable-extensions-except=${extensionPath}`, `--load-extension=${extensionPath}`]
+  });
+  const worker =
+    context.serviceWorkers()[0] ??
+    (await context.waitForEvent('serviceworker', { timeout: 15000 }));
+  const extensionId = worker.url().split('/')[2];
+  if (!extensionId) throw new Error(`Unable to parse extension id from ${worker.url()}`);
+  const extensionPage = await context.newPage();
+  await extensionPage.goto(`chrome-extension://${extensionId}/options/index.html`, {
+    waitUntil: 'domcontentloaded'
+  });
+  return { context, extensionPage, userDataDir };
+}
+
+async function seedPersistedSessionLayout(extensionPage: Page): Promise<void> {
+  await extensionPage.evaluate(async (layout) => {
+    await chrome.storage.local.set(layout);
+  }, PERSISTED_SESSION_LAYOUT);
+  await expect
+    .poll(() => readPersistedSessionLayout(extensionPage))
+    .toEqual(PERSISTED_SESSION_LAYOUT);
+}
+
+async function readPersistedSessionLayout(extensionPage: Page) {
+  return extensionPage.evaluate(async (keys) => {
+    const stored = await chrome.storage.local.get(keys);
+    return {
+      'aiob.sessionPanel.width': stored['aiob.sessionPanel.width'],
+      'aiob.sessionPanel.maxWidth': stored['aiob.sessionPanel.maxWidth'],
+      'aiob.sessionPanel.height': stored['aiob.sessionPanel.height'],
+      'aiob.sessionPanel.collapsed': stored['aiob.sessionPanel.collapsed']
+    };
+  }, Object.keys(PERSISTED_SESSION_LAYOUT));
+}
+
+async function openPersistedCollapseSurface(
+  surface: PersistedCollapseSurface,
+  context: BrowserContext,
+  extensionPage: Page
+): Promise<Page> {
+  const caseId = `persisted-collapse-${surface}`;
+  const fixture = await openFixtureWithRuntime(
+    context,
+    extensionPage,
+    surface === 'reader'
+      ? `https://example.com/${caseId}`
+      : `https://www.bilibili.com/video/BV1${caseId.replaceAll('-', '')}/`,
+    surface === 'reader'
+      ? b10ArticleFixtureHtml('Persisted Reader collapse fixture')
+      : b10VideoFixtureHtml(),
+    createB10StoredOptions()
+  );
+  if (surface === 'reader') {
+    await openB10Clipper(fixture.page, extensionPage);
+    await fixture.page.locator('[data-stitch-surface="clipper"] [data-action-id="reader"]').click();
+  } else {
+    await openB10Clipper(fixture.page, extensionPage);
+    await startB10ClipperVideo(fixture.page, extensionPage);
+  }
+  await expect(fixture.page.locator(`[data-stitch-surface="${surface}"]`)).toBeVisible();
+  return fixture.page;
+}
+
+async function readPersistedPanelGeometry(page: Page, surface: PersistedCollapseSurface) {
+  return page.locator(`[data-stitch-surface="${surface}"]`).evaluate((root) => {
+    const modal = root.querySelector<HTMLElement>('.resource-modal--session');
+    const surfaceWindow = root.querySelector<HTMLElement>('.surface-window');
+    const header = root.querySelector<HTMLElement>('.surface-window-header');
+    const title = root.querySelector<HTMLElement>('.surface-window-title');
+    const body = root.querySelector<HTMLElement>('.surface-window-body');
+    const footer = root.querySelector<HTMLElement>('.surface-window-footer');
+    const widthHandle = root.querySelector<HTMLElement>('.session-panel-resize-handle');
+    const heightHandle = root.querySelector<HTMLElement>('.session-panel-height-resize-handle');
+    if (
+      !modal ||
+      !surfaceWindow ||
+      !header ||
+      !title ||
+      !body ||
+      !footer ||
+      !widthHandle ||
+      !heightHandle
+    ) {
+      throw new Error('Persisted collapse surface is missing required session-panel elements.');
+    }
+    const modalRect = modal.getBoundingClientRect();
+    const titleRect = title.getBoundingClientRect();
+    const style = getComputedStyle(modal);
+    return {
+      inlineWidth: modal.style.width,
+      inlineHeight: modal.style.height,
+      computedWidth: style.width,
+      computedHeight: style.height,
+      width: modalRect.width,
+      height: modalRect.height,
+      collapsed: modal.classList.contains('is-collapsed'),
+      windowCollapsed: surfaceWindow.classList.contains('is-collapsed'),
+      headerDisplay: getComputedStyle(header).display,
+      titleDisplay: getComputedStyle(title).display,
+      titleWidth: titleRect.width,
+      titleInside:
+        titleRect.left >= modalRect.left - 1 &&
+        titleRect.right <= modalRect.right + 1 &&
+        titleRect.top >= modalRect.top - 1 &&
+        titleRect.bottom <= modalRect.bottom + 1,
+      bodyDisplay: getComputedStyle(body).display,
+      footerDisplay: getComputedStyle(footer).display,
+      widthHandleDisplay: getComputedStyle(widthHandle).display,
+      heightHandleDisplay: getComputedStyle(heightHandle).display,
+      widthHandlePointerEvents: getComputedStyle(widthHandle).pointerEvents,
+      heightHandlePointerEvents: getComputedStyle(heightHandle).pointerEvents,
+      widthHandleCursor: getComputedStyle(widthHandle).cursor,
+      heightHandleCursor: getComputedStyle(heightHandle).cursor,
+      rect: {
+        left: modalRect.left,
+        top: modalRect.top,
+        right: modalRect.right,
+        bottom: modalRect.bottom
+      }
+    };
+  });
+}
+
+for (const surface of PERSISTED_COLLAPSE_SURFACES) {
+  test(`collapses installed ${surface} persisted dimensions without losing the expanded layout`, async () => {
+    const session = await createPersistedCollapseExtensionSession();
+    const { context, extensionPage } = session;
+    try {
+      await seedPersistedSessionLayout(extensionPage);
+      const page = await openPersistedCollapseSurface(surface, context, extensionPage);
+      const modal = page.locator(`[data-stitch-surface="${surface}"] .resource-modal--session`);
+      await expect
+        .poll(() => readPersistedPanelGeometry(page, surface))
+        .toMatchObject({
+          inlineWidth: '512px',
+          inlineHeight: '520px',
+          computedWidth: '512px',
+          computedHeight: '520px',
+          collapsed: false,
+          windowCollapsed: false
+        });
+      const expanded = await readPersistedPanelGeometry(page, surface);
+      expect(Math.abs(expanded.width - 512)).toBeLessThanOrEqual(1);
+      expect(Math.abs(expanded.height - 520)).toBeLessThanOrEqual(1);
+      await modal.evaluate((element) => {
+        if (!(element instanceof HTMLElement)) {
+          throw new Error('Persisted collapse modal is not an HTMLElement.');
+        }
+        window.__persistedCollapseModal = element;
+      });
+      const vacatedPoint = {
+        x: Math.round(expanded.rect.left + 20),
+        y: Math.round(expanded.rect.top + 20)
+      };
+
+      await page
+        .locator(`[data-stitch-surface="${surface}"] [data-action-id="session:toggleCollapse"]`)
+        .click();
+      await expect(modal).toHaveClass(/\bis-collapsed\b/);
+      await expect
+        .poll(() => readPersistedSessionLayout(extensionPage))
+        .toEqual({ ...PERSISTED_SESSION_LAYOUT, 'aiob.sessionPanel.collapsed': true });
+
+      const collapsed = await readPersistedPanelGeometry(page, surface);
+      expect(collapsed).toMatchObject({
+        inlineWidth: '512px',
+        inlineHeight: '520px',
+        collapsed: true,
+        windowCollapsed: true,
+        bodyDisplay: 'none',
+        footerDisplay: 'none',
+        widthHandleDisplay: 'none',
+        heightHandleDisplay: 'none',
+        titleInside: true
+      });
+      expect(collapsed.headerDisplay).not.toBe('none');
+      expect(collapsed.titleDisplay).not.toBe('none');
+      expect(collapsed.titleWidth).toBeGreaterThan(0);
+      expect(collapsed.height).toBeLessThan(120);
+      expect(collapsed.width).toBeGreaterThan(0);
+      expect(collapsed.width).toBeLessThan(expanded.width);
+      expect(await modal.evaluate((element) => window.__persistedCollapseModal === element)).toBe(
+        true
+      );
+      expect(
+        await page.evaluate(
+          ({ x, y, surfaceId }) => {
+            const hit = document.elementFromPoint(x, y);
+            const root = hit?.getRootNode();
+            const host = root instanceof ShadowRoot ? root.host : null;
+            return {
+              insideSurface:
+                hit?.closest(`[data-stitch-surface="${surfaceId}"]`) !== null ||
+                (host instanceof Element && host.matches(`[data-stitch-surface="${surfaceId}"]`))
+            };
+          },
+          { ...vacatedPoint, surfaceId: surface }
+        )
+      ).toEqual({ insideSurface: false });
+      expect(await readPersistedSessionLayout(extensionPage)).toEqual({
+        ...PERSISTED_SESSION_LAYOUT,
+        'aiob.sessionPanel.collapsed': true
+      });
+
+      await page.locator(`[data-stitch-surface="${surface}"] .surface-window`).click();
+      await expect(modal).not.toHaveClass(/\bis-collapsed\b/);
+      await expect
+        .poll(() => readPersistedSessionLayout(extensionPage))
+        .toEqual(PERSISTED_SESSION_LAYOUT);
+      const restored = await readPersistedPanelGeometry(page, surface);
+      expect(restored).toMatchObject({
+        inlineWidth: '512px',
+        inlineHeight: '520px',
+        computedWidth: '512px',
+        computedHeight: '520px',
+        collapsed: false,
+        windowCollapsed: false,
+        widthHandlePointerEvents: 'auto',
+        heightHandlePointerEvents: 'auto',
+        widthHandleCursor: 'ew-resize',
+        heightHandleCursor: 'ns-resize'
+      });
+      expect(restored.widthHandleDisplay).not.toBe('none');
+      expect(restored.heightHandleDisplay).not.toBe('none');
+      expect(Math.abs(restored.width - expanded.width)).toBeLessThanOrEqual(1);
+      expect(Math.abs(restored.height - expanded.height)).toBeLessThanOrEqual(1);
+      expect(await readPersistedSessionLayout(extensionPage)).toEqual(PERSISTED_SESSION_LAYOUT);
+    } finally {
+      await closeContentCorrectionExtensionSession(session);
+    }
+  });
 }
 
 async function setContentCorrectionLanguage(
