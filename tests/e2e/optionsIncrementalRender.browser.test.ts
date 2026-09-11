@@ -38,16 +38,48 @@ type OrderedAutosaveProbe = {
   release(): void;
 };
 
+type UsageResetTrace = {
+  request: {
+    type: 'ZENDIO_USAGE_STATS';
+    requestId: string;
+    operation: 'reset';
+  };
+  response: MessagePayload;
+};
+
+type OptionsMutationTrace = {
+  request: {
+    type: 'ZENDIO_OPTIONS_MUTATION';
+    requestId: string;
+    command: MessagePayload;
+  };
+  response: MessagePayload;
+};
+
+type RetryNativeProbe = {
+  calls: number;
+  failures: number;
+  held: boolean;
+  releases: number;
+  release(): void;
+};
+
 type B07GlobalThis = typeof global &
   Window & {
     __navigationFocusTrace?: string[];
     __zendioB07OrderedAutosaveProbe?: OrderedAutosaveProbe;
+    __zendioOptionsMutationTrace?: OptionsMutationTrace[];
+    __zendioRetryNativeProbe?: RetryNativeProbe;
     __zendioSawConnectedRunningDiagnosis?: boolean;
+    __zendioUsageResetTrace?: UsageResetTrace[];
   };
 declare const globalThis: B07GlobalThis;
 
 type StoredCaptureContextResult = {
-  options?: { fragmentClipper?: { captureContext?: boolean } };
+  options?: {
+    fragmentClipper?: { captureContext?: boolean };
+    vaultRouter?: object;
+  };
 };
 
 type RuntimeMessageCallback = (response: MessagePayload) => void;
@@ -338,6 +370,73 @@ async function armMaintenanceRunningProbe(page: Page): Promise<void> {
 
 async function sawConnectedRunningDiagnosis(page: Page): Promise<boolean> {
   return page.evaluate(() => globalThis.__zendioSawConnectedRunningDiagnosis === true);
+}
+
+async function installFinalUiMessageTrace(context: BrowserContext): Promise<void> {
+  await context.addInitScript(() => {
+    const runtime = globalThis.chrome?.runtime;
+    if (!runtime || typeof runtime.sendMessage !== 'function') return;
+
+    const trace: UsageResetTrace[] = [];
+    const optionsTrace: OptionsMutationTrace[] = [];
+    const originalSendMessage: RuntimeSendMessage = runtime.sendMessage.bind(runtime);
+    const tracedSendMessage = (...args: RuntimeSendMessageArgs) => {
+      const message = args[0];
+      const callbackIndex = args.length - 1;
+      const callback = args[callbackIndex];
+      if (
+        typeof message === 'object' &&
+        message !== null &&
+        !Array.isArray(message) &&
+        message.type === 'ZENDIO_USAGE_STATS' &&
+        message.operation === 'reset' &&
+        typeof message.requestId === 'string' &&
+        typeof callback === 'function'
+      ) {
+        const request: UsageResetTrace['request'] = {
+          type: 'ZENDIO_USAGE_STATS',
+          requestId: message.requestId,
+          operation: 'reset'
+        };
+        const tracedCallback: RuntimeMessageCallback = (response) => {
+          callback(response);
+          setTimeout(() => trace.push({ request, response: structuredClone(response) }), 0);
+        };
+        args[callbackIndex] = tracedCallback;
+      } else if (
+        typeof message === 'object' &&
+        message !== null &&
+        !Array.isArray(message) &&
+        message.type === 'ZENDIO_OPTIONS_MUTATION' &&
+        typeof message.requestId === 'string' &&
+        typeof callback === 'function'
+      ) {
+        const request: OptionsMutationTrace['request'] = {
+          type: 'ZENDIO_OPTIONS_MUTATION',
+          requestId: message.requestId,
+          command: structuredClone(message.command)
+        };
+        const tracedCallback: RuntimeMessageCallback = (response) => {
+          callback(response);
+          setTimeout(() => optionsTrace.push({ request, response: structuredClone(response) }), 0);
+        };
+        args[callbackIndex] = tracedCallback;
+      }
+      return Reflect.apply(originalSendMessage, runtime, args);
+    };
+    Object.defineProperty(runtime, 'sendMessage', {
+      configurable: true,
+      value: tracedSendMessage
+    });
+    Object.defineProperty(globalThis, '__zendioUsageResetTrace', {
+      configurable: true,
+      value: trace
+    });
+    Object.defineProperty(globalThis, '__zendioOptionsMutationTrace', {
+      configurable: true,
+      value: optionsTrace
+    });
+  });
 }
 
 test('Options invalidates owned sections while preserving unrelated browser state', async ({
@@ -1112,6 +1211,321 @@ test('F05 exposes installed maintenance idle, running, success, failure, and rer
     await expect.poll(() => sawConnectedRunningDiagnosis(optionsPage)).toBe(true);
     await expect(maintenance).toContainText('Diagnosis Results');
     await expect(diagnose).toBeEnabled();
+  } finally {
+    await context.close();
+    await rm(userDataDir, { recursive: true, force: true });
+  }
+});
+
+test('settles final navigation, usage reset, and canonical autosave Retry', async () => {
+  const userDataDir = await mkdtemp(join(tmpdir(), 'zendio-final-ui-findings-'));
+  const context = await chromium.launchPersistentContext(userDataDir, {
+    headless: false,
+    viewport: { width: 1440, height: 1000 },
+    args: [
+      '--headless=new',
+      `--disable-extensions-except=${extensionPath}`,
+      `--load-extension=${extensionPath}`
+    ]
+  });
+
+  try {
+    const background =
+      context.serviceWorkers()[0] ??
+      (await context.waitForEvent('serviceworker', { timeout: 15_000 }));
+    const extensionId = background.url().split('/')[2];
+    if (!extensionId) throw new Error('Unable to resolve extension id.');
+    await expect
+      .poll(() =>
+        background.evaluate(async () =>
+          Boolean((await chrome.storage.local.get('usageStats')).usageStats)
+        )
+      )
+      .toBe(true);
+    await background.evaluate(() =>
+      chrome.storage.local.set({
+        usageStats: {
+          aiChatSaves: 2,
+          fragmentSaves: 3,
+          articleSaves: 4,
+          lastUpdatedISO: '2026-09-11T00:00:00.000Z',
+          history: [{ date: '2026-09-11', aiChat: 2, fragment: 3, article: 4 }]
+        }
+      })
+    );
+    await background.evaluate(() => chrome.storage.sync.set({ language: 'en' }));
+    await installFinalUiMessageTrace(context);
+
+    let optionsPage = await context.newPage();
+    await optionsPage.goto(`chrome-extension://${extensionId}/options/index.html`, {
+      waitUntil: 'domcontentloaded'
+    });
+    const usageValues = optionsPage.locator('[data-panel-id="overview"] .stat-value');
+    await expect.poll(() => usageValues.allTextContents()).toEqual(['9', '2', '3', '4']);
+    const readLocaleState = async () =>
+      optionsPage.evaluate(async () => ({
+        documentLanguage: document.documentElement.lang,
+        navigationLabel: document.querySelector('.sidebar nav')?.getAttribute('aria-label'),
+        renderedHeading:
+          document
+            .querySelector<HTMLElement>('[data-panel-id="overview"] h1')
+            ?.textContent?.trim() ?? null,
+        selectedLanguage: document.querySelector<HTMLSelectElement>(
+          '[data-panel-id="overview"] .interface-theme-grid select'
+        )?.value,
+        storedLanguage: (await chrome.storage.sync.get('language')).language
+      }));
+    await expect.poll(readLocaleState).toEqual({
+      documentLanguage: 'en',
+      navigationLabel: 'Settings',
+      renderedHeading: 'Overview',
+      selectedLanguage: 'en',
+      storedLanguage: 'en'
+    });
+    await optionsPage.close();
+    optionsPage = await context.newPage();
+    await optionsPage.goto(`chrome-extension://${extensionId}/options/index.html`, {
+      waitUntil: 'domcontentloaded'
+    });
+    await expect.poll(readLocaleState).toEqual({
+      documentLanguage: 'en',
+      navigationLabel: 'Settings',
+      renderedHeading: 'Overview',
+      selectedLanguage: 'en',
+      storedLanguage: 'en'
+    });
+    const languageSelect = optionsPage.locator(
+      '[data-panel-id="overview"] .interface-theme-grid select'
+    );
+    await languageSelect.selectOption('zh-CN');
+    await expect.poll(readLocaleState).toEqual({
+      documentLanguage: 'zh-CN',
+      navigationLabel: '设置',
+      renderedHeading: '概览',
+      selectedLanguage: 'zh-CN',
+      storedLanguage: 'zh-CN'
+    });
+    await languageSelect.selectOption('en');
+    await expect.poll(readLocaleState).toEqual({
+      documentLanguage: 'en',
+      navigationLabel: 'Settings',
+      renderedHeading: 'Overview',
+      selectedLanguage: 'en',
+      storedLanguage: 'en'
+    });
+
+    await optionsPage.locator('[data-nav-panel="maintenance"]').click();
+    await expect
+      .poll(() =>
+        optionsPage.evaluate(() => {
+          const main = document.querySelector<HTMLElement>('.main');
+          if (!main) return false;
+          return Math.abs(main.scrollHeight - main.clientHeight - main.scrollTop) <= 1;
+        })
+      )
+      .toBe(true);
+    await optionsPage.waitForTimeout(100);
+    const navigation = await optionsPage.evaluate(() => {
+      const main = document.querySelector<HTMLElement>('.main');
+      const panel = document.querySelector<HTMLElement>('[data-panel-id="maintenance"]');
+      if (!main || !panel) throw new Error('Missing Maintenance scroll geometry.');
+      const mainRect = main.getBoundingClientRect();
+      const panelRect = panel.getBoundingClientRect();
+      const current = Array.from(
+        document.querySelectorAll<HTMLElement>('[data-nav-panel][aria-current="page"]')
+      );
+      return {
+        atBottom: Math.abs(main.scrollHeight - main.clientHeight - main.scrollTop) <= 1,
+        currentCount: current.length,
+        currentPanel: current[0]?.dataset.navPanel ?? null,
+        panelVisible: panelRect.top < mainRect.bottom && panelRect.bottom > mainRect.top,
+        scrollable: main.scrollHeight > main.clientHeight
+      };
+    });
+
+    const overview = optionsPage.locator('[data-nav-panel="overview"]');
+    await overview.click();
+    await expect(overview).toHaveAttribute('aria-current', 'page');
+    await optionsPage.locator('[data-action-id="overview:clearUsageData"]').click();
+    await expect
+      .poll(() => optionsPage.evaluate(() => globalThis.__zendioUsageResetTrace?.length ?? 0))
+      .toBe(1);
+    await optionsPage.waitForTimeout(250);
+    const usage = await optionsPage.evaluate(async () => ({
+      durable: (await chrome.storage.local.get('usageStats')).usageStats,
+      rendered: Array.from(
+        document.querySelectorAll<HTMLElement>('[data-panel-id="overview"] .stat-value')
+      ).map((element) => element.textContent?.trim()),
+      statusClass: document.getElementById('msg')?.className ?? '',
+      trace: globalThis.__zendioUsageResetTrace?.[0] ?? null
+    }));
+
+    await background.evaluate(() => {
+      const area = chrome.storage.sync;
+      const originalSet: typeof area.set = area.set.bind(area);
+      type SyncItems = Partial<Record<string, object | string | number | boolean | null>>;
+      let pending: { items: SyncItems; callback?: () => void } | null = null;
+      const probe: RetryNativeProbe = {
+        calls: 0,
+        failures: 0,
+        held: false,
+        releases: 0,
+        release() {
+          if (!pending) throw new Error('No Retry storage write is pending.');
+          const current = pending;
+          pending = null;
+          probe.releases += 1;
+          if (current.callback) originalSet(current.items, current.callback);
+          else void originalSet(current.items);
+        }
+      };
+      const wrapped = (items: SyncItems, callback?: () => void): void => {
+        probe.calls += 1;
+        if (probe.failures === 0) {
+          probe.failures += 1;
+          throw new Error('FINAL_UI_FINDINGS_OPTIONS_STORAGE_FAILURE');
+        }
+        if (!probe.held) {
+          probe.held = true;
+          pending = { items, ...(callback ? { callback } : {}) };
+          return;
+        }
+        if (callback) originalSet(items, callback);
+        else void originalSet(items);
+      };
+      Object.defineProperty(area, 'set', { configurable: true, value: wrapped });
+      Object.defineProperty(globalThis, '__zendioRetryNativeProbe', {
+        configurable: true,
+        value: probe
+      });
+    });
+    const captureNav = optionsPage.locator('[data-nav-panel="capture-behavior"]');
+    await captureNav.click();
+    await expect(captureNav).toHaveAttribute('aria-current', 'page');
+    const captureRow = optionsPage
+      .locator('[data-panel-id="capture-behavior"] .row')
+      .filter({ has: optionsPage.getByText('Capture Context', { exact: true }) });
+    const captureToggle = captureRow.locator('label.switch');
+    const captureInput = captureToggle.locator('input[type="checkbox"]');
+    await expect(captureInput).not.toBeChecked();
+    await captureToggle.click();
+    await expect(captureInput).toBeChecked();
+    const autosaveAlert = optionsPage.locator('[data-message-lane="autosave"]');
+    await expect(autosaveAlert).toBeVisible();
+    const retryButton = autosaveAlert.locator('button.aobx-status-message__retry');
+    await retryButton.click();
+    await expect(retryButton).toBeDisabled();
+    await expect(retryButton).toHaveAttribute('aria-busy', 'true');
+    await retryButton.click({ force: true });
+    await expect
+      .poll(() =>
+        background.evaluate(() => ({
+          calls: globalThis.__zendioRetryNativeProbe?.calls ?? -1,
+          held: globalThis.__zendioRetryNativeProbe?.held ?? false
+        }))
+      )
+      .toEqual({ calls: 2, held: true });
+    await background.evaluate(() => globalThis.__zendioRetryNativeProbe?.release());
+    await expect
+      .poll(() => optionsPage.evaluate(() => globalThis.__zendioOptionsMutationTrace?.length ?? 0))
+      .toBe(2);
+    await expect
+      .poll(() =>
+        background.evaluate(
+          async () =>
+            (await chrome.storage.sync.get<StoredCaptureContextResult>('options')).options
+              ?.fragmentClipper?.captureContext
+        )
+      )
+      .toBe(true);
+    await expect(autosaveAlert).toBeHidden();
+    await expect(autosaveAlert).toHaveText('');
+    const retry = await optionsPage.evaluate(async () => {
+      const traces = globalThis.__zendioOptionsMutationTrace ?? [];
+      const successful = traces[1]?.response;
+      let successSnapshotHasRootRules: boolean | null = null;
+      if (
+        typeof successful === 'object' &&
+        successful !== null &&
+        !Array.isArray(successful) &&
+        typeof successful.result === 'object' &&
+        successful.result !== null &&
+        !Array.isArray(successful.result) &&
+        typeof successful.result.snapshot === 'object' &&
+        successful.result.snapshot !== null &&
+        !Array.isArray(successful.result.snapshot) &&
+        typeof successful.result.snapshot.vaultRouter === 'object' &&
+        successful.result.snapshot.vaultRouter !== null &&
+        !Array.isArray(successful.result.snapshot.vaultRouter)
+      ) {
+        successSnapshotHasRootRules = Object.prototype.hasOwnProperty.call(
+          successful.result.snapshot.vaultRouter,
+          'rules'
+        );
+      }
+      return {
+        durable: (await chrome.storage.sync.get<StoredCaptureContextResult>('options')).options,
+        successSnapshotHasRootRules,
+        traces
+      };
+    });
+    const retryNative = await background.evaluate(() => ({
+      calls: globalThis.__zendioRetryNativeProbe?.calls ?? -1,
+      failures: globalThis.__zendioRetryNativeProbe?.failures ?? -1,
+      releases: globalThis.__zendioRetryNativeProbe?.releases ?? -1
+    }));
+    expect(retry.traces[0]?.response).toEqual({
+      type: 'ZENDIO_OPTIONS_MUTATION_RESPONSE',
+      requestId: retry.traces[0]?.request.requestId,
+      success: false,
+      errorCode: 'OPTIONS_STORAGE_FAILURE'
+    });
+    expect(retry.traces[1]?.response).toMatchObject({
+      type: 'ZENDIO_OPTIONS_MUTATION_RESPONSE',
+      requestId: retry.traces[1]?.request.requestId,
+      success: true,
+      result: { didWrite: true }
+    });
+    expect(retry.successSnapshotHasRootRules).toBe(false);
+    expect(retry.durable?.fragmentClipper?.captureContext).toBe(true);
+    expect(retry.durable?.vaultRouter).not.toHaveProperty('rules');
+    expect(retryNative.failures).toBe(1);
+    expect(retryNative.releases).toBe(1);
+    expect(retryNative.calls).toBeGreaterThanOrEqual(2);
+    await expect(retryButton).toHaveCount(0);
+    expect(navigation).toEqual({
+      atBottom: true,
+      currentCount: 1,
+      currentPanel: 'maintenance',
+      panelVisible: true,
+      scrollable: true
+    });
+    expect(usage.trace?.request).toMatchObject({
+      type: 'ZENDIO_USAGE_STATS',
+      operation: 'reset',
+      requestId: expect.any(String)
+    });
+    expect(usage.trace?.response).toEqual({
+      type: 'ZENDIO_USAGE_STATS_RESPONSE',
+      requestId: usage.trace?.request.requestId,
+      success: true,
+      stats: {
+        aiChatSaves: 0,
+        fragmentSaves: 0,
+        articleSaves: 0,
+        lastUpdatedISO: null,
+        history: []
+      }
+    });
+    expect(usage.durable).toEqual({
+      aiChatSaves: 0,
+      fragmentSaves: 0,
+      articleSaves: 0,
+      lastUpdatedISO: null,
+      history: []
+    });
+    expect(usage.rendered).toEqual(['0', '0', '0', '0']);
+    expect(usage.statusClass).not.toContain('error');
   } finally {
     await context.close();
     await rm(userDataDir, { recursive: true, force: true });

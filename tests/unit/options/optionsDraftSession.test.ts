@@ -356,6 +356,163 @@ describe('OptionsDraftSession', () => {
     expect(retried?.patches).toEqual(failed?.patches);
   });
 
+  it('accepts a lossless canonical retry acknowledgement for legacy empty router rules', () => {
+    const initial = baseline();
+    const session = createOptionsDraftSession(initial);
+    const local = clone(initial);
+    local.vaultRouter = {
+      defaultVaultId: 'default',
+      vaults: [
+        {
+          id: 'default',
+          name: 'Audit',
+          vault: 'Audit',
+          httpsUrl: 'https://127.0.0.1:9',
+          httpUrl: 'http://127.0.0.1:9',
+          apiKey: '',
+          enabled: true,
+          isDefault: true
+        }
+      ],
+      rules: []
+    };
+    session.captureLocalDraft(local);
+    const failed = requireIntent(session.createIntent());
+    session.admit(failed);
+    session.fail(failed);
+    session.captureLocalDraft(clone(local));
+    const retry = requireIntent(session.createIntent());
+    session.admit(retry);
+    const canonical = clone(local);
+    delete canonical.vaultRouter?.rules;
+
+    session.acknowledge(retry, canonical);
+
+    expect(session.getAuthoritativeSnapshot().vaultRouter).toEqual(canonical.vaultRouter);
+    expect(session.getDirtyPathKeys()).toEqual([]);
+  });
+
+  it('keeps exact deletion and rejects a lossy projection that drops the sent value', () => {
+    const withRouter = baseline();
+    withRouter.vaultRouter = {
+      defaultVaultId: 'default',
+      vaults: [
+        {
+          id: 'default',
+          name: 'Audit',
+          vault: 'Audit',
+          httpsUrl: '',
+          httpUrl: '',
+          apiKey: ''
+        }
+      ]
+    };
+    const deletionSession = createOptionsDraftSession(withRouter);
+    const deleted = clone(withRouter);
+    delete deleted.vaultRouter;
+    deletionSession.captureLocalDraft(deleted);
+    const deletion = requireIntent(deletionSession.createIntent());
+    deletionSession.admit(deletion);
+    deletionSession.acknowledge(deletion, deleted);
+    expect(deletionSession.getDirtyPathKeys()).toEqual([]);
+
+    const initial = baseline();
+    const invalidSession = createOptionsDraftSession(initial);
+    const invalid = clone(initial);
+    invalid.vaultRouter = {
+      defaultVaultId: 'missing',
+      vaults: []
+    };
+    invalidSession.captureLocalDraft(invalid);
+    const invalidIntent = requireIntent(invalidSession.createIntent());
+    invalidSession.admit(invalidIntent);
+    invalidSession.acknowledge(invalidIntent, initial);
+    expect(invalidSession.getDirtyPathKeys()).toEqual(['vaultRouter']);
+
+    const strippedSession = createOptionsDraftSession(initial);
+    const stripped = clone(initial);
+    const routerWithUnknownField = {
+      defaultVaultId: 'default',
+      vaults: [
+        {
+          id: 'default',
+          name: 'Audit',
+          vault: 'Audit',
+          httpsUrl: '',
+          httpUrl: '',
+          apiKey: ''
+        }
+      ],
+      futureOpaqueField: true
+    };
+    stripped.vaultRouter = routerWithUnknownField;
+    strippedSession.captureLocalDraft(stripped);
+    const strippedIntent = requireIntent(strippedSession.createIntent());
+    strippedSession.admit(strippedIntent);
+    strippedSession.acknowledge(strippedIntent, initial);
+    expect(strippedSession.getDirtyPathKeys()).toEqual(['vaultRouter']);
+  });
+
+  it('preserves newer router edits and later authority around a canonical old acknowledgement', () => {
+    const initial = baseline();
+    const session = createOptionsDraftSession(initial);
+    const first = clone(initial);
+    first.vaultRouter = {
+      defaultVaultId: 'default',
+      vaults: [
+        {
+          id: 'default',
+          name: 'First',
+          vault: 'First',
+          httpsUrl: '',
+          httpUrl: '',
+          apiKey: ''
+        }
+      ],
+      rules: []
+    };
+    session.captureLocalDraft(first);
+    const firstIntent = requireIntent(session.createIntent());
+    session.admit(firstIntent);
+    const newer = clone(first);
+    const newerVault = newer.vaultRouter?.vaults[0];
+    if (!newerVault) throw new Error('EXPECTED_NEWER_VAULT');
+    newerVault.name = 'Newer';
+    newerVault.vault = 'Newer';
+    session.captureLocalDraft(newer);
+    const canonicalFirst = clone(first);
+    delete canonicalFirst.vaultRouter?.rules;
+
+    session.acknowledge(firstIntent, canonicalFirst);
+
+    expect(session.getWorkingDraft().vaultRouter?.vaults[0]?.name).toBe('Newer');
+    expect(session.getDirtyPathKeys()).toEqual(['vaultRouter']);
+
+    const laterAuthority = clone(initial);
+    laterAuthority.vaultRouter = {
+      defaultVaultId: 'remote',
+      vaults: [
+        {
+          id: 'remote',
+          name: 'Remote',
+          vault: 'Remote',
+          httpsUrl: '',
+          httpUrl: '',
+          apiKey: ''
+        }
+      ]
+    };
+    const authoritySession = createOptionsDraftSession(initial);
+    authoritySession.captureLocalDraft(first);
+    const oldIntent = requireIntent(authoritySession.createIntent());
+    authoritySession.admit(oldIntent);
+    authoritySession.observeAuthoritative(laterAuthority);
+    authoritySession.acknowledge(oldIntent, canonicalFirst);
+    expect(authoritySession.getAuthoritativeSnapshot().vaultRouter).toEqual(
+      laterAuthority.vaultRouter
+    );
+  });
+
   it('captures current external authority when retrying a failed admission', () => {
     const initial = baseline();
     const session = createOptionsDraftSession(initial);

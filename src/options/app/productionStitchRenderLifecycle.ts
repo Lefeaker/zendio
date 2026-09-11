@@ -206,7 +206,6 @@ export function createProductionStitchRenderLifecycle(
     syncActiveLinks();
     mobileNavigation.completeSectionActivation(panelId);
   }
-
   function bindScrollSync(main: HTMLElement): void {
     main.addEventListener(
       'scroll',
@@ -214,7 +213,8 @@ export function createProductionStitchRenderLifecycle(
         const sections = Array.from(
           mountRoot.querySelectorAll<HTMLElement>('[data-scroll-section="true"]')
         );
-        const threshold = main.scrollTop + 120;
+        const max = main.scrollHeight - main.clientHeight;
+        const threshold = max > 0 && main.scrollTop >= max - 1 ? Infinity : main.scrollTop + 120;
         let nextActive = sections[0]?.dataset.panelId ?? getState().activePanel;
         sections.forEach((section) => {
           if (section.offsetTop <= threshold) {

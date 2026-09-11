@@ -866,6 +866,60 @@ describe('mountProductionStitchShell renderLifecycle', () => {
     }
   });
 
+  it('selects the final section only at a real scrollable bottom boundary', () => {
+    const restoreScrollDescriptor = installSmoothMainScrollSimulation();
+    const controller = createController();
+    try {
+      mountProductionStitchShell({
+        controller: asOptionsController(controller),
+        initialOptions: null,
+        messages: null,
+        language: 'en'
+      });
+
+      const main = queryRequired<HTMLElement>('.main');
+      const sections = Array.from(
+        document.querySelectorAll<HTMLElement>('[data-scroll-section="true"]')
+      );
+      [0, 1400, 2800, 4200, 5700, 6095].forEach((offsetTop, index) => {
+        Object.defineProperty(sections[index], 'offsetTop', {
+          configurable: true,
+          value: offsetTop
+        });
+      });
+      const currentPanel = (): string | undefined => {
+        const current = document.querySelectorAll<HTMLElement>(
+          '[data-nav-panel][aria-current="page"]'
+        );
+        expect(current).toHaveLength(1);
+        return current[0]?.dataset.navPanel;
+      };
+      const scroll = (scrollHeight: number, clientHeight: number, scrollTop: number): void => {
+        Object.defineProperties(main, {
+          scrollHeight: { configurable: true, value: scrollHeight },
+          clientHeight: { configurable: true, value: clientHeight }
+        });
+        main.style.scrollBehavior = 'auto';
+        main.scrollTop = scrollTop;
+        main.style.removeProperty('scroll-behavior');
+        main.dispatchEvent(new Event('scroll'));
+      };
+
+      scroll(1000, 1000, 0);
+      expect(currentPanel()).toBe('overview');
+      scroll(0, 0, 0);
+      expect(currentPanel()).toBe('overview');
+      scroll(6828, 1000, 4200);
+      expect(currentPanel()).toBe('capture-behavior');
+      scroll(6828, 1000, 5827.5);
+      expect(currentPanel()).toBe('maintenance');
+      scroll(6828, 1000, 4200);
+      expect(currentPanel()).toBe('capture-behavior');
+    } finally {
+      restoreScrollDescriptor();
+    }
+  });
+
   it('does not render the future experimental panel in the release options shell', () => {
     const controller = createController();
     const mounted = mountProductionStitchShell({

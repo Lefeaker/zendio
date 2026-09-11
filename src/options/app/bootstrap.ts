@@ -77,9 +77,15 @@ async function ensureDeclarativeI18nController(): Promise<PageI18nController> {
     declarativeI18nController = controller;
   }
 
-  const resource = declarativeI18nController.getCurrentResource();
-  setOptionsI18nContext(declarativeI18nController.getBinder(), resource);
   return declarativeI18nController;
+}
+
+function applyOptionsI18n(controller: PageI18nController) {
+  const resource = controller.getCurrentResource();
+  const root = globalThis.document?.documentElement;
+  if (resource && root) root.lang = resource.language;
+  setOptionsI18nContext(controller.getBinder(), resource);
+  return resource;
 }
 
 async function initializeOptionsController(): Promise<OptionsController> {
@@ -120,7 +126,7 @@ export async function bootstrapOptionsApp(
   configureI18nStorage(storage.sync);
 
   const i18nController = await ensureDeclarativeI18nController();
-  const resource = i18nController.getCurrentResource();
+  const resource = applyOptionsI18n(i18nController);
   const controller = await initializeOptionsController();
   const stored = await controller.loadInitialState();
   const { getFooterMeta, getFooterView, getSettingsView, previewContent } =
@@ -142,11 +148,10 @@ export async function bootstrapOptionsApp(
     messagingRepository: resolveRepository<IMessagingRepository>(DI_TOKENS.IMessagingRepository),
     changeLanguage: async (language) => {
       await i18nController.changeLanguage(language);
-      const nextResource = i18nController.getCurrentResource();
-      setOptionsI18nContext(i18nController.getBinder(), nextResource);
+      const next = applyOptionsI18n(i18nController);
       return {
-        messages: nextResource?.messages ?? null,
-        language: (nextResource?.language ?? language) as Language
+        messages: next?.messages ?? null,
+        language: (next?.language ?? language) as Language
       };
     }
   });

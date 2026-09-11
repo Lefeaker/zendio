@@ -15,7 +15,7 @@ export function cloneUsageStats(stats: UsageStats): UsageStats {
 }
 
 export function usageStatsEqual(left: UsageStats, right: UsageStats): boolean {
-  return JSON.stringify(left) === JSON.stringify(right);
+  return JSON.stringify(normalizeUsageStats(left)) === JSON.stringify(normalizeUsageStats(right));
 }
 
 function hasExactKeys(
