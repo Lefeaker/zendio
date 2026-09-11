@@ -8,6 +8,7 @@ import { DI_TOKENS } from '@shared/di/tokens';
 import type { StorageService } from '../../../src/platform/interfaces/storage';
 import type { OptionsControllerDeps } from '../../../src/options/app/optionsControllerTypes';
 import type { AutoSaveFailurePresentation } from '../../../src/options/components/messages';
+import type { ProductionStitchShellDependencies } from '../../../src/options/app/productionStitchShellTypes';
 
 const showStatusMessageMock = vi.hoisted(() => vi.fn());
 const showAutoSaveFailureMock = vi.hoisted(() =>
@@ -33,7 +34,9 @@ const consumeYamlMigrationNoticeMock = vi.hoisted(() =>
   vi.fn<(...args: []) => string | null>(() => null)
 );
 const registerOptionsControllerMock = vi.hoisted(() => vi.fn());
-const mountProductionStitchShellMock = vi.hoisted(() => vi.fn());
+const mountProductionStitchShellMock = vi.hoisted(() =>
+  vi.fn<(dependencies: ProductionStitchShellDependencies) => object>()
+);
 const shellCleanupMock = vi.hoisted(() => vi.fn());
 const shellRefreshOptionsMock = vi.hoisted(() => vi.fn());
 const shellCollectDraftMock = vi.hoisted(() => vi.fn(() => ({ rest: {} })));
@@ -69,8 +72,15 @@ const createOptionsControllerMock = vi.hoisted(() =>
 const i18nLoadMock = vi.hoisted(() => vi.fn(() => Promise.resolve(undefined)));
 const i18nMountMock = vi.hoisted(() => vi.fn());
 const i18nGetBinderMock = vi.hoisted(() => vi.fn(() => ({ bindText: vi.fn() })));
+type MockI18nResource = {
+  language: 'en' | 'ja';
+  messages: { extensionSubtitle: string };
+};
 const i18nGetCurrentResourceMock = vi.hoisted(() =>
-  vi.fn(() => ({ language: 'en', messages: { extensionSubtitle: 'Production' } }))
+  vi.fn<() => MockI18nResource | null>(() => ({
+    language: 'en',
+    messages: { extensionSubtitle: 'Production' }
+  }))
 );
 const i18nChangeLanguageMock = vi.hoisted(() => vi.fn(() => Promise.resolve(undefined)));
 const configureI18nStorageMock = vi.hoisted(() => vi.fn());
@@ -141,6 +151,10 @@ import {
 describe('options bootstrap', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    i18nGetCurrentResourceMock.mockReturnValue({
+      language: 'en',
+      messages: { extensionSubtitle: 'Production' }
+    });
     document.body.innerHTML = '<div id="optionsShellRoot"></div>';
     mountProductionStitchShellMock.mockReturnValue({
       cleanup: shellCleanupMock,
@@ -200,6 +214,64 @@ describe('options bootstrap', () => {
     const source = readFileSync(resolve(process.cwd(), 'src/options/app/bootstrap.ts'), 'utf8');
     expect(source).not.toContain('mountOptionsShell');
     expect(source).not.toContain('ThemeSwitcher');
+  });
+
+  it('applies the resolved language to the document initially and after a live change', async () => {
+    document.documentElement.lang = 'zh-CN';
+
+    await bootstrapOptionsApp();
+
+    expect(document.documentElement.lang).toBe('en');
+    const mountConfig = mountProductionStitchShellMock.mock.calls.at(-1)?.[0];
+    if (!mountConfig?.changeLanguage) throw new Error('EXPECTED_LANGUAGE_CHANGE_CALLBACK');
+    i18nChangeLanguageMock.mockImplementationOnce(() => {
+      i18nGetCurrentResourceMock.mockReturnValue({
+        language: 'ja',
+        messages: { extensionSubtitle: 'Production' }
+      });
+      return Promise.resolve(undefined);
+    });
+
+    await expect(mountConfig.changeLanguage('en')).resolves.toMatchObject({ language: 'ja' });
+    expect(document.documentElement.lang).toBe('ja');
+
+    i18nGetCurrentResourceMock.mockReturnValue(null);
+    await expect(mountConfig.changeLanguage('en')).resolves.toEqual({
+      messages: null,
+      language: 'en'
+    });
+    expect(document.documentElement.lang).toBe('ja');
+  });
+
+  it('retains the loading language when the resolved resource is absent', async () => {
+    document.documentElement.lang = 'zh-CN';
+    i18nGetCurrentResourceMock.mockReturnValue(null);
+
+    await bootstrapOptionsApp();
+
+    expect(document.documentElement.lang).toBe('zh-CN');
+  });
+
+  it('does not require a document to apply the resolved resource', async () => {
+    const currentDocument = document;
+    vi.stubGlobal('document', undefined);
+
+    try {
+      await expect(bootstrapOptionsApp()).resolves.toBeUndefined();
+    } finally {
+      vi.stubGlobal('document', currentDocument);
+    }
+  });
+
+  it('does not require a document element to apply the resolved resource', async () => {
+    const currentDocument = document;
+    vi.stubGlobal('document', { documentElement: null });
+
+    try {
+      await expect(bootstrapOptionsApp()).resolves.toBeUndefined();
+    } finally {
+      vi.stubGlobal('document', currentDocument);
+    }
   });
 
   it('cleans up the previous Stitch shell before a second bootstrap', async () => {

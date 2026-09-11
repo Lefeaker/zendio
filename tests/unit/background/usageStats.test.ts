@@ -16,6 +16,8 @@ import type {
   PlainStructuredValue
 } from '../../../src/shared/config/losslessObjectBoundaryTypes';
 import { DEFAULT_USAGE_STATS } from '../../../src/shared/constants';
+import type { UsageStats } from '../../../src/shared/types';
+import { usageStatsEqual } from '../../../src/background/services/usageStatsModel';
 import { setupDIForIntegrationTest, teardownDIAfterTest } from '../setup/diTestSetup';
 import { testPlatformHarness } from '../../setup/globalSetup';
 
@@ -52,6 +54,40 @@ const validStats = {
   lastUpdatedISO: '2026-08-23T00:00:00.000Z',
   history: [{ date: '2026-08-23', aiChat: 2, fragment: 3, article: 4 }]
 };
+
+describe('usageStatsEqual', () => {
+  it('ignores root and history key order while preserving values and history order', () => {
+    const chronological: UsageStats = {
+      aiChatSaves: 2,
+      fragmentSaves: 3,
+      articleSaves: 4,
+      lastUpdatedISO: '2026-08-24T00:00:00.000Z',
+      history: [
+        { date: '2026-08-23', aiChat: 1, fragment: 2, article: 3 },
+        { date: '2026-08-24', aiChat: 2, fragment: 3, article: 4 }
+      ]
+    };
+    const lexicalReadback: UsageStats = {
+      aiChatSaves: 2,
+      articleSaves: 4,
+      fragmentSaves: 3,
+      history: [
+        { aiChat: 1, article: 3, date: '2026-08-23', fragment: 2 },
+        { aiChat: 2, article: 4, date: '2026-08-24', fragment: 3 }
+      ],
+      lastUpdatedISO: '2026-08-24T00:00:00.000Z'
+    };
+
+    expect(usageStatsEqual(chronological, lexicalReadback)).toBe(true);
+    expect(usageStatsEqual(chronological, { ...lexicalReadback, articleSaves: 5 })).toBe(false);
+    expect(
+      usageStatsEqual(chronological, {
+        ...lexicalReadback,
+        history: [...lexicalReadback.history].reverse()
+      })
+    ).toBe(false);
+  });
+});
 
 describe('UsageStatsStore', () => {
   beforeEach(() => {
