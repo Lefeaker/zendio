@@ -180,7 +180,7 @@
     "@types/turndown": "^5.0.6",
     "@typescript-eslint/eslint-plugin": "^8.59.4",
     "@typescript-eslint/parser": "^8.59.4",
-    "@vitest/coverage-v8": "4.1.9",
+    "@vitest/coverage-v8": "4.1.11",
     "addons-linter": "10.10.0",
     "archiver": "^6.0.2",
     "crc-32": "1.2.2",
@@ -198,7 +198,7 @@
     "stylelint": "^16.26.1",
     "tsx": "^4.22.3",
     "typescript": "^5.5.4",
-    "vitest": "4.1.9",
+    "vitest": "4.1.11",
     "ws": "8.21.0",
     "yaml": "2.9.0",
     "yauzl": "3.3.2"
@@ -216,7 +216,8 @@
       "ajv": "6.15.0"
     },
     "fast-uri@>=3.0.0 <3.1.6": "3.1.6",
-    "js-yaml@>=4.0.0 <4.3.1": "4.3.1",
+    "colord@<2.9.4": "2.9.4",
+    "js-yaml@>=4.0.0 <4.3.2": "4.3.2",
     "lodash@<=4.17.23": "4.18.1",
     "minimatch@9.0.9": {
       "brace-expansion": "2.1.4"

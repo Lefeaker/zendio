@@ -296,6 +296,87 @@ function sha256(path: string): string {
   return createHash('sha256').update(readFileSync(path)).digest('hex');
 }
 
+type VitestIdentityFixturePaths = {
+  root: string;
+  profile: string;
+  manifest: string;
+  lock: string;
+  installedPackage: string;
+  installedBin: string;
+  probe: string;
+};
+
+function copyFileBytes(source: string, destination: string) {
+  mkdirSync(dirname(destination), { recursive: true, mode: 0o700 });
+  writeFileSync(destination, readFileSync(source));
+}
+
+function vitestIdentityFixture(): VitestIdentityFixturePaths {
+  const root = temporaryRoot();
+  const copiedPaths = [
+    'package.json',
+    'package-lock.json',
+    'scripts/config/commandBoundaryProfiles.mjs',
+    'tools/npm-audit-regression/canonical-json.mjs',
+    'tools/npm-audit-regression/runtime-discovery.mjs',
+    'tools/npm-audit-regression/transition-validator.mjs',
+    'tools/npm-audit-regression/manifests/r02-transition-v10.json',
+    'node_modules/vitest/package.json',
+    'node_modules/vitest/vitest.mjs'
+  ];
+  for (const relativePath of copiedPaths) {
+    copyFileBytes(resolve(relativePath), join(root, relativePath));
+  }
+  const probe = join(root, 'probe.mjs');
+  writeFileSync(
+    probe,
+    [
+      "import { parseManagedCommandInvocationArgv, resolveCommandProfile } from './scripts/config/commandBoundaryProfiles.mjs';",
+      'try {',
+      "  if (process.argv[2] === 'resolve') {",
+      "    const resolved = resolveCommandProfile('vitest-v1', ['run'], { environment: { HOME: process.env.HOME, TMPDIR: process.env.TMPDIR } });",
+      '    process.stdout.write(`${JSON.stringify({ ok: true, executable: resolved.executable, argv: resolved.argv })}\\n`);',
+      '  } else {',
+      '    parseManagedCommandInvocationArgv(JSON.parse(process.argv[3]));',
+      '    process.stdout.write(`${JSON.stringify({ ok: true })}\\n`);',
+      '  }',
+      '} catch (error) {',
+      '  process.stdout.write(`${JSON.stringify({ ok: false, code: error?.code ?? error?.message ?? String(error) })}\\n`);',
+      '}'
+    ].join('\n')
+  );
+  return {
+    root,
+    profile: join(root, 'scripts/config/commandBoundaryProfiles.mjs'),
+    manifest: join(root, 'package.json'),
+    lock: join(root, 'package-lock.json'),
+    installedPackage: join(root, 'node_modules/vitest/package.json'),
+    installedBin: join(root, 'node_modules/vitest/vitest.mjs'),
+    probe
+  };
+}
+
+function replaceJsonFixture(path: string, before: string, after: string) {
+  const source = readFileSync(path, 'utf8');
+  expect(source.split(before)).toHaveLength(2);
+  writeFileSync(path, source.replace(before, after));
+}
+
+function runVitestIdentityProbe(fixture: VitestIdentityFixturePaths, argv?: string[]): string {
+  const result = spawnSync(
+    process.execPath,
+    [fixture.probe, argv ? 'parse' : 'resolve', ...(argv ? [JSON.stringify(argv)] : [])],
+    {
+      cwd: fixture.root,
+      encoding: 'utf8',
+      env: { HOME: fixture.root, TMPDIR: fixture.root }
+    }
+  );
+  expect(result.status).toBe(0);
+  expect(result.stderr).toBe('');
+  return result.stdout;
+}
+
 function releaseAttemptFixture(
   browser: 'chrome' | 'firefox',
   phase: 'prepare' | 'publish' | 'submit' = 'prepare'
@@ -798,6 +879,135 @@ afterEach(() => {
 });
 
 describe('bounded command ownership', () => {
+  it('admits only the exact Vitest 4.1.11 identity in an isolated repository fixture', () => {
+    const accepted = vitestIdentityFixture();
+    expect(sha256(accepted.installedPackage)).toBe(
+      'a28126d97bcaf567da5bed69443b7f3bcd9a7a8c38c8b66e554686b6bb2c10e0'
+    );
+    expect(sha256(accepted.installedBin)).toBe(
+      '39db22f579acf5639bbb17a261408debbde03f4692c0c439e77e7f13aeba74d6'
+    );
+    expect(runVitestIdentityProbe(accepted)).toBe(
+      `${JSON.stringify({
+        ok: true,
+        executable: process.execPath,
+        argv: [realpathSync(accepted.installedBin), 'run']
+      })}\n`
+    );
+
+    const cases: Array<{
+      expected: string;
+      mutate: (fixture: VitestIdentityFixturePaths) => void;
+    }> = [
+      {
+        expected: 'LOCK_IDENTITY_INVALID',
+        mutate(fixture) {
+          writeFileSync(
+            fixture.profile,
+            readFileSync(fixture.profile, 'utf8')
+              .replace("rootSpec: '4.1.11'", "rootSpec: '4.1.9'")
+              .replace("version: '4.1.11'", "version: '4.1.9'")
+              .replace(
+                'a28126d97bcaf567da5bed69443b7f3bcd9a7a8c38c8b66e554686b6bb2c10e0',
+                'e12762a5b629bea6cbb2b0540a8a15c50f3098bb3193d3e319293b58b64c4ed9'
+              )
+          );
+        }
+      },
+      {
+        expected: 'LOCK_IDENTITY_INVALID',
+        mutate(fixture) {
+          replaceJsonFixture(fixture.manifest, '    "vitest": "4.1.11",', '    "vitest": "4.1.9",');
+        }
+      },
+      {
+        expected: 'LOCK_IDENTITY_INVALID',
+        mutate(fixture) {
+          replaceJsonFixture(
+            fixture.lock,
+            [
+              '        "tsx": "^4.22.3",',
+              '        "typescript": "^5.5.4",',
+              '        "vitest": "4.1.11",'
+            ].join('\n'),
+            [
+              '        "tsx": "^4.22.3",',
+              '        "typescript": "^5.5.4",',
+              '        "vitest": "4.1.9",'
+            ].join('\n')
+          );
+        }
+      },
+      {
+        expected: 'LOCK_IDENTITY_INVALID',
+        mutate(fixture) {
+          replaceJsonFixture(
+            fixture.lock,
+            '    "node_modules/vitest": {\n      "version": "4.1.11",',
+            '    "node_modules/vitest": {\n      "version": "4.1.9",'
+          );
+        }
+      },
+      {
+        expected: 'LOCK_IDENTITY_INVALID',
+        mutate(fixture) {
+          replaceJsonFixture(
+            fixture.installedPackage,
+            '  "type": "module",\n  "version": "4.1.11",',
+            '  "type": "module",\n  "version": "4.1.9",'
+          );
+        }
+      },
+      {
+        expected: 'BIN_METADATA_INVALID',
+        mutate(fixture) {
+          replaceJsonFixture(
+            fixture.lock,
+            '      "bin": {\n        "vitest": "vitest.mjs"\n      },',
+            '      "bin": {\n        "vitest": "other.mjs"\n      },'
+          );
+        }
+      },
+      {
+        expected: 'PACKAGE_DIGEST_INVALID',
+        mutate(fixture) {
+          writeFileSync(
+            fixture.installedPackage,
+            Buffer.concat([readFileSync(fixture.installedPackage), Buffer.from('\n')])
+          );
+        }
+      },
+      {
+        expected: 'BIN_DIGEST_INVALID',
+        mutate(fixture) {
+          writeFileSync(
+            fixture.installedBin,
+            Buffer.concat([readFileSync(fixture.installedBin), Buffer.from('\n')])
+          );
+        }
+      }
+    ];
+
+    for (const scenario of cases) {
+      const fixture = vitestIdentityFixture();
+      scenario.mutate(fixture);
+      expect(runVitestIdentityProbe(fixture)).toBe(
+        `${JSON.stringify({ ok: false, code: scenario.expected })}\n`
+      );
+    }
+
+    for (const argv of [
+      ['npx', 'vitest'],
+      ['vitest', 'run'],
+      ['node', 'node_modules/vitest/vitest.mjs', 'run']
+    ]) {
+      const fixture = vitestIdentityFixture();
+      expect(runVitestIdentityProbe(fixture, argv)).toBe(
+        `${JSON.stringify({ ok: false, code: 'LAUNCHER_INVALID' })}\n`
+      );
+    }
+  });
+
   it('deep-freezes the finite profile, coordinator, timing, and policy registries', () => {
     expect(PROFILE_IDS).toContain('vitest-v1');
     expect(PROFILE_IDS).toContain('fixture-v1');
