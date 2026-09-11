@@ -48,11 +48,13 @@ const schema: ResourceSchema = {
             ? (t?.('videoPanelCancel', action.label) ?? action.label)
             : action.label
     }));
+    const count = surface.counter;
     const counter =
-      surface.counter === '0'
-        ? (t?.('videoPanelCounterZero', surface.counter) ?? surface.counter)
-        : (t?.('videoPanelCounter', surface.counter, { count: surface.counter }) ??
-          surface.counter);
+      typeof count === 'string'
+        ? count
+        : (t?.(count === 0 ? 'videoPanelCounterZero' : 'videoPanelCounter', String(count), {
+            count
+          }) ?? String(count));
     const destinationLabels = {
       saveToLabel:
         t?.(

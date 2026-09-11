@@ -138,7 +138,8 @@ export interface RuntimeSurfaceContent {
     iconUrl: string;
     labels: RuntimeSessionLabels;
     hint: string;
-    counter: string;
+    /** A localized label, or a numeric count to localize while rendering a preview. */
+    counter: string | number;
     overlaySummary: string;
     destination?: ExportDestinationSurfacePreview;
     highlights: ReaderSurfaceHighlight[];
@@ -150,7 +151,8 @@ export interface RuntimeSurfaceContent {
     labels: RuntimeSessionLabels & { addLabel: string; emptyCapturePlaceholder: string };
     status: string;
     hint: string;
-    counter: string;
+    /** A localized label, or a numeric count to localize while rendering a preview. */
+    counter: string | number;
     destination?: ExportDestinationSurfacePreview;
     captures: VideoSurfaceCapture[];
     actions: SurfaceAction[];

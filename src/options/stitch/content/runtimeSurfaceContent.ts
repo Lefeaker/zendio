@@ -87,7 +87,7 @@ export const runtimeSurfacesContent: PreviewContent['surfaces'] = {
       deleteLabel: 'Delete'
     },
     hint: message('readerPanelHint'),
-    counter: '4',
+    counter: 4,
     destination: {
       id: 'vault-research',
       kind: 'vault',
@@ -180,7 +180,7 @@ export const runtimeSurfacesContent: PreviewContent['surfaces'] = {
     },
     status: 'YouTube · 01:23:14 · Following current playback time',
     hint: message('videoPanelHint'),
-    counter: '3',
+    counter: 3,
     destination: {
       id: 'vault-video',
       kind: 'vault',

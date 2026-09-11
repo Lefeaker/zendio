@@ -4,7 +4,13 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createI18nResource } from '@i18n/resource';
 import { getMessagesForLanguage, type I18nResource } from '@i18n';
 import { loadRuntimeLocaleAsset } from '@i18n/runtime/assets';
-import { createClipperSurfaceContent } from '@content/stitch/runtimeSurfaceContent';
+import {
+  createClipperSurfaceContent,
+  createReaderSurfaceContent,
+  createVideoSurfaceContent
+} from '@content/stitch/runtimeSurfaceContent';
+import { DEFAULT_SESSION_MESSAGES as READER_MESSAGES } from '@content/reader/sessionMessages';
+import { DEFAULT_SESSION_MESSAGES as VIDEO_MESSAGES } from '@content/video/sessionMessages';
 import {
   renderStitchRuntimeSessionSurface,
   renderStitchRuntimeSessionTemplate,
@@ -116,6 +122,60 @@ describe('runtimeSurfaceRenderer content translation context', () => {
     getContentI18nResourceMock.mockReturnValue(null);
   });
 
+  it.each<I18nResource['language']>([
+    'en',
+    'zh-CN',
+    'zh-TW',
+    'de',
+    'fr',
+    'ja',
+    'ko',
+    'it',
+    'pt-BR',
+    'ru',
+    'es-ES',
+    'es-419'
+  ])('renders already localized session counters once in %s', async (language) => {
+    const messages = await getMessagesForLanguage(language);
+    getContentI18nResourceMock.mockReturnValue(
+      createI18nResource({ language, messages, fallbackChain: [] })
+    );
+    for (const count of [4, 0, 1]) {
+      const readerCounter =
+        count === 0
+          ? messages.readerPanelCounterZero
+          : messages.readerPanelCounter.replace('{count}', String(count));
+      const videoCounter =
+        count === 0
+          ? messages.videoPanelCounterZero
+          : messages.videoPanelCounter.replace('{count}', String(count));
+      const reader = renderStitchRuntimeSurface({
+        surfaceId: 'reader',
+        appData: createReaderSurfaceContent({
+          texts: READER_MESSAGES.panel,
+          highlights: [],
+          counter: readerCounter,
+          actions: [],
+          iconUrl: 'icons/60x60/zendio_icon_readingt.png'
+        })
+      });
+      const video = renderStitchRuntimeSurface({
+        surfaceId: 'video',
+        appData: createVideoSurfaceContent({
+          texts: VIDEO_MESSAGES.panel,
+          captures: [],
+          counter: videoCounter,
+          actions: [],
+          iconUrl: 'icons/60x60/zendio_icon_videot.png'
+        })
+      });
+      expect([
+        reader.querySelector('.session-counter')?.textContent,
+        video.querySelector('.session-counter')?.textContent
+      ]).toEqual([readerCounter, videoCounter]);
+    }
+  });
+
   it('renders the mounted zh-CN schema copy from the current content resource', async () => {
     const messages = await getMessagesForLanguage('zh-CN');
     getContentI18nResourceMock.mockReturnValue(
@@ -153,7 +213,7 @@ describe('runtimeSurfaceRenderer content translation context', () => {
       })
     );
     const appData = createSurfaceContent();
-    appData.video.counter = '2';
+    appData.video.counter = 2;
     appData.video.destination = createDestination();
 
     const rendered = renderStitchRuntimeSurface({ surfaceId: 'video', appData });

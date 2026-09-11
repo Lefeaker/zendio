@@ -28,11 +28,13 @@ const schema: ResourceSchema = {
       deleteLabel:
         t?.('readerHighlightDeleteLabel', surface.labels.deleteLabel) ?? surface.labels.deleteLabel
     };
+    const count = surface.counter;
     const counter =
-      surface.counter === '0'
-        ? (t?.('readerPanelCounterZero', surface.counter) ?? surface.counter)
-        : (t?.('readerPanelCounter', surface.counter, { count: surface.counter }) ??
-          surface.counter);
+      typeof count === 'string'
+        ? count
+        : (t?.(count === 0 ? 'readerPanelCounterZero' : 'readerPanelCounter', String(count), {
+            count
+          }) ?? String(count));
     const actions = surface.actions.map((action) => ({
       ...action,
       label:

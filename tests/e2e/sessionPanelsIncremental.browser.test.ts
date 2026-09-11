@@ -1221,6 +1221,104 @@ async function createContentCorrectionFixture(
   return fixture.page;
 }
 
+const COUNTER_LANGUAGES: Array<'en' | 'zh-CN'> = ['zh-CN', 'en'];
+
+async function waitForReaderCounterDraft(
+  extensionPage: Page,
+  pageUrl: string,
+  count: number
+): Promise<void> {
+  await expect
+    .poll(() =>
+      extensionPage.evaluate(async (url) => {
+        const stored = await chrome.storage.local.get<PlainStorageRecord>(null);
+        return Object.entries(stored).flatMap(([key, record]) => {
+          if (
+            !key.startsWith('aiob.sessionDraft.v1.reader.') ||
+            !record ||
+            typeof record !== 'object' ||
+            Array.isArray(record) ||
+            record.pageUrl !== url
+          )
+            return [];
+          const payload = record.payload;
+          if (!payload || typeof payload !== 'object' || Array.isArray(payload)) return [];
+          return Array.isArray(payload.highlights) ? [payload.highlights.length] : [];
+        });
+      }, pageUrl)
+    )
+    .toContain(count);
+}
+
+for (const surface of PERSISTED_COLLAPSE_SURFACES) {
+  for (const language of COUNTER_LANGUAGES) {
+    test(`keeps installed ${surface} ${language} counters localized once as items change`, async ({
+      browserName
+    }, testInfo) => {
+      void browserName;
+      const session = await createContentCorrectionExtensionSession();
+      const { context, extensionPage } = session;
+      try {
+        await setContentCorrectionLanguage(extensionPage, language);
+        const page = await createContentCorrectionFixture(
+          context,
+          extensionPage,
+          surface,
+          `counter-${surface}-${language}`
+        );
+        const root = page.locator(`[data-stitch-surface="${surface}"]`);
+        const counter = root.locator('.session-counter');
+        const expectedCounter = (count: number) =>
+          language === 'zh-CN'
+            ? surface === 'reader'
+              ? `已收集 ${count} 条高亮`
+              : `已保存 ${count} 条记录`
+            : surface === 'reader'
+              ? `Collected ${count} highlights`
+              : `Saved ${count} entries`;
+        await expect(counter).toBeVisible();
+        await expect(counter).toHaveText(expectedCounter(1));
+        if (surface === 'reader') await waitForReaderCounterDraft(extensionPage, page.url(), 1);
+        for (let count = 2; count <= 4; count += 1) {
+          if (surface === 'reader') {
+            await page.evaluate((index) => {
+              const paragraph = document.createElement('p');
+              paragraph.textContent = `Additional reader counter selection ${index}`;
+              document.querySelector('article')?.append(paragraph);
+              paragraph.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, button: 0 }));
+              const range = document.createRange();
+              range.selectNodeContents(paragraph);
+              const selection = window.getSelection();
+              selection?.removeAllRanges();
+              selection?.addRange(range);
+              paragraph.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, button: 0 }));
+            }, count);
+          } else {
+            await openVideoPanelFromControlBar(page, `Counter note ${count}`, {
+              captureScreenshotEnabled: false
+            });
+            await expandVideoPanel(page);
+          }
+          await expect(counter).toBeVisible();
+          await expect(counter).toHaveText(expectedCounter(count));
+          if (surface === 'reader')
+            await waitForReaderCounterDraft(extensionPage, page.url(), count);
+        }
+        await root
+          .locator('.surface-window')
+          .screenshot({ path: testInfo.outputPath(`${surface}-counter-${language}.png`) });
+        for (let count = 3; count >= 0; count -= 1) {
+          await root.locator(`[data-action-id="${surface}:delete"]`).first().click();
+          await expect(counter).toBeVisible();
+          await expect(counter).toHaveText(expectedCounter(count));
+        }
+      } finally {
+        await closeContentCorrectionExtensionSession(session);
+      }
+    });
+  }
+}
+
 async function markContentCorrectionDestination(
   page: Page,
   surface: ContentCorrectionSurface,
