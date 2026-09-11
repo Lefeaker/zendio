@@ -208,10 +208,10 @@ export const DIRECT_ROOT_COORDINATOR_GRAMMARS = deepFreeze([
 
 const LOCKED_PACKAGES = deepFreeze({
   vitest: {
-    rootSpec: '4.1.9',
-    version: '4.1.9',
+    rootSpec: '4.1.11',
+    version: '4.1.11',
     binName: 'vitest',
-    packageSha256: 'e12762a5b629bea6cbb2b0540a8a15c50f3098bb3193d3e319293b58b64c4ed9',
+    packageSha256: 'a28126d97bcaf567da5bed69443b7f3bcd9a7a8c38c8b66e554686b6bb2c10e0',
     binSha256: '39db22f579acf5639bbb17a261408debbde03f4692c0c439e77e7f13aeba74d6'
   },
   prettier: {
