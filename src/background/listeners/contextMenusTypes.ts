@@ -17,7 +17,13 @@ export interface ContextMenuListenerDependencies {
     TabsService,
     'query' | 'get' | 'sendMessage' | 'onActivated' | 'onUpdated' | 'onRemoved'
   >;
-  scripting: Pick<ScriptingService, 'executeScript'>;
+  scripting: Pick<
+    ScriptingService,
+    | 'executeScript'
+    | 'getRegisteredContentScripts'
+    | 'registerContentScripts'
+    | 'unregisterContentScripts'
+  >;
   messaging: Pick<MessagingService, 'addListener'>;
   optionsRepository: Pick<IOptionsRepository, 'onChange'>;
 }

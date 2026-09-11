@@ -2,6 +2,10 @@ import type { ScriptExecutionOptions, ScriptingService } from '../interfaces/scr
 import { ensureChrome, getChromeLastError, normalizePromise } from './utils';
 
 export const chromeScriptingService: ScriptingService = {
+  getRegisteredContentScripts: (filter) =>
+    ensureChrome().scripting.getRegisteredContentScripts(filter),
+  registerContentScripts: (scripts) => ensureChrome().scripting.registerContentScripts(scripts),
+  unregisterContentScripts: (filter) => ensureChrome().scripting.unregisterContentScripts(filter),
   async executeScript(options: ScriptExecutionOptions) {
     const chromeApi = ensureChrome();
     if (!chromeApi.scripting?.executeScript) {

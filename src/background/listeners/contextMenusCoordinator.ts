@@ -55,7 +55,7 @@ export async function setupContextMenus(
     state.clipFullPageTitle = msgs.clipFullPage;
     state.videoModeTitle = msgs.contextMenuVideoMode;
     state.tabVideoState.clear();
-    await refreshSelectionTriggerInjection(state);
+    await refreshSelectionTriggerInjection(state, dependencies.scripting);
 
     try {
       await contextMenus.removeAll();

@@ -45,6 +45,8 @@ node scripts/run-bounded-command.mjs --profile npm-script-browser-v1 -- test:e2e
 
 ### 会话重载与收尾恢复
 
+启用自动划选（direct 或带有效按键的 modifier）时，后台通过平台 scripting service 注册现有 `content/index.js`，由浏览器在 HTTP/HTTPS 文档的 `document_end` 执行。注册保留到后续浏览器会话，避免每次重启重新等待后台唤醒；禁用划选时仅撤销本功能的注册。注册更新与配置读取均防止旧结果覆盖新设置，相同配置不会重复卸载/注册。已有页面的显式注入和平台兼容回退保留，慢图片或其他未完成资源不能阻塞正文上的划选和阅读操作。`sessionLifecycleRecovery.browser.test.ts` 的 held-image 场景同时验证真实鼠标划选、阅读面板和取消操作在 `window.load` 之前完成。
+
 Reader / Video 共用 `sessionEndingCoordinator` 关闭新编辑入口、等待已接收的编辑落盘，并串行执行完成或取消。终止过程由 `sessionDraftTerminalState` 保留原始 finalize/remove 请求身份；响应丢失后重试延续同一操作。导出成功与草稿清理是两个阶段，同一挂载会话的收尾重试不会再次导出。不能把这种保证扩展为浏览器崩溃跨进程的导出 exactly-once 保证。
 
 后台仍是唯一持久写入者。客户端只保存单调递增的版本观察，并在构造用户保存请求前等待已发出的租约操作。租约续期和释放的迟到响应不得覆盖新状态；终态和失效扩展上下文都停止续期。

@@ -165,6 +165,8 @@ factory object，并一次构造保留 optional-field presence 的 dialog option
 （等于现有 hard stop，剩余余量为 `0 B`），production runtime 为 `52,536 B`；dev / production
 chunk count 分别为 `115` / `100`。此记录是实测结果，所有预算与构建参数保持不变。
 
+2026-09-12 文档就绪启动补充：原生 `document_end` 注册将自动启动与 `window.load` 解耦。与上一阶段会话恢复包相比，生产目录增加 1,778 bytes，文件数仍为 181；`content/runtime.js` 仍为 53,492 bytes。本阶段没有提高体积或源码行数预算。慢图片保持未完成时，真实划选、阅读面板与取消流程已通过浏览器回归。
+
 ## 2. 热点真值
 
 验证命令：

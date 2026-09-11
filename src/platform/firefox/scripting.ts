@@ -17,6 +17,10 @@ function buildFallbackCode(options: ScriptExecutionOptions): string | undefined 
 }
 
 export const firefoxScriptingService: ScriptingService = {
+  getRegisteredContentScripts: (filter) =>
+    ensureFirefox().scripting.getRegisteredContentScripts(filter),
+  registerContentScripts: (scripts) => ensureFirefox().scripting.registerContentScripts(scripts),
+  unregisterContentScripts: (filter) => ensureFirefox().scripting.unregisterContentScripts(filter),
   async executeScript(options: ScriptExecutionOptions): Promise<ScriptExecutionResult[] | void> {
     const firefoxApi = ensureFirefox();
 

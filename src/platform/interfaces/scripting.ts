@@ -32,4 +32,18 @@ export interface ScriptExecutionResult<TResult = unknown> {
 
 export interface ScriptingService {
   executeScript(options: ScriptExecutionOptions): Promise<ScriptExecutionResult[] | void>;
+  getRegisteredContentScripts?(filter: { ids: string[] }): Promise<RegisteredContentScript[]>;
+  registerContentScripts?(
+    scripts: Array<RegisteredContentScript & { js: string[]; matches: string[] }>
+  ): Promise<void>;
+  unregisterContentScripts?(filter: { ids: string[] }): Promise<void>;
+}
+
+export interface RegisteredContentScript {
+  id: string;
+  js?: string[] | undefined;
+  matches?: string[] | undefined;
+  allFrames?: boolean | undefined;
+  runAt?: 'document_start' | 'document_end' | 'document_idle' | undefined;
+  persistAcrossSessions?: boolean | undefined;
 }

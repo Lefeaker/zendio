@@ -8,6 +8,7 @@ import {
   openFixtureWithRuntime,
   openVideoPanelFromControlBar,
   expandVideoPanel,
+  findCurrentTabId,
   youtubeFixtureHtml,
   YOUTUBE_URL
 } from './utils/videoListenerScopeHarness';
@@ -30,6 +31,129 @@ test.beforeEach(async ({ extensionPage, context }, testInfo) => {
     createOptionsFixture({ selectionTriggerMode: 'modifier', selectionModifierKeys: ['shift'] })
   );
   await extensionPage.evaluate(() => chrome.storage.sync.set({ language: 'en' }));
+});
+
+test('starts the configured selection runtime at DOMContentLoaded while an image is still loading', async ({
+  page,
+  context,
+  extensionPage
+}) => {
+  const url = 'https://session-readiness.test/article';
+  let releaseImage = () => {};
+  const held = new Promise<void>((resolve) => {
+    releaseImage = resolve;
+  });
+  await context.route('https://session-readiness.test/slow.png', async (route) => {
+    await held;
+    await route.fulfill({
+      contentType: 'image/png',
+      body: Buffer.from(
+        'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jX1sAAAAASUVORK5CYII=',
+        'base64'
+      )
+    });
+  });
+  await context.route(url, (route) =>
+    route.fulfill({
+      contentType: 'text/html',
+      body: '<html><body><p id="text">The article is readable before its last image completes.</p><img src="/slow.png"></body></html>'
+    })
+  );
+  try {
+    await page.goto(url, { waitUntil: 'domcontentloaded' });
+    await expect(page.locator('#text')).toBeVisible();
+    const automatic = await page
+      .waitForFunction(
+        () => document.documentElement.dataset.aiobContentRuntime === 'true',
+        undefined,
+        { timeout: 1500 }
+      )
+      .then(
+        () => true,
+        () => false
+      );
+    const loadFinished = await page.evaluate(() => document.readyState === 'complete');
+    const tabId = await findCurrentTabId(extensionPage, url);
+    const start = Date.now();
+    const injection = injectContentRuntime(extensionPage, tabId);
+    const explicitBeforeLoad = await Promise.race([
+      injection.then(() => true),
+      new Promise<boolean>((resolve) => setTimeout(() => resolve(false), 1500))
+    ]);
+    console.log(
+      JSON.stringify({
+        automatic,
+        loadFinished,
+        explicitBeforeLoad,
+        explicitMs: Date.now() - start
+      })
+    );
+    const paragraph = await page.locator('#text').boundingBox();
+    if (!paragraph) throw new Error('Article paragraph missing');
+    await page.evaluate(() => window.getSelection()?.removeAllRanges());
+    await page.keyboard.down('Shift');
+    await page.mouse.move(paragraph.x + 2, paragraph.y + paragraph.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(paragraph.x + paragraph.width - 2, paragraph.y + paragraph.height / 2);
+    await page.mouse.up();
+    await page.keyboard.up('Shift');
+    await page.locator('[data-action-id="reader"]').click();
+    await expect(page.locator('[data-highlight-input]')).toHaveCount(1);
+    expect(await page.evaluate(() => document.readyState)).not.toBe('complete');
+    await page.locator('[data-action-id="reader:cancel"]').click();
+    await expect(page.locator('#aiob-reader-panel')).toHaveCount(0);
+    releaseImage();
+    await injection;
+    expect(loadFinished).toBe(false);
+    expect(automatic, 'configured selection must not wait for window.load').toBe(true);
+  } finally {
+    releaseImage();
+  }
+});
+
+test('stops future automatic injection when selection triggering is disabled', async ({
+  page,
+  extensionPage
+}) => {
+  await expect
+    .poll(() =>
+      extensionPage.evaluate(
+        async () =>
+          (
+            await chrome.scripting.getRegisteredContentScripts({
+              ids: ['zendio-selection-trigger']
+            })
+          ).length
+      )
+    )
+    .toBe(1);
+  await extensionPage.evaluate(
+    (options) => chrome.storage.sync.set({ options }),
+    createOptionsFixture({ selectionTriggerMode: 'disabled', selectionModifierKeys: [] })
+  );
+  await expect
+    .poll(() =>
+      extensionPage.evaluate(
+        async () =>
+          (
+            await chrome.scripting.getRegisteredContentScripts({
+              ids: ['zendio-selection-trigger']
+            })
+          ).length
+      )
+    )
+    .toBe(0);
+  const url = 'https://session-readiness.test/disabled';
+  await page.route(url, (route) =>
+    route.fulfill({
+      contentType: 'text/html',
+      body: '<p>Automatic selection is disabled here.</p>'
+    })
+  );
+  await page.goto(url, { waitUntil: 'load' });
+  expect(
+    await page.evaluate(() => document.documentElement.dataset.aiobContentRuntime)
+  ).toBeUndefined();
 });
 
 test('real extension reload freezes the old panel and restores its note after page reload', async ({

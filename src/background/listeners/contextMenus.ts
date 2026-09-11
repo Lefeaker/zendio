@@ -180,7 +180,7 @@ export function registerContextMenuListeners(dependencies: ContextMenuListenerDe
   registerFrameSelectionBridge(dependencies);
 
   optionsRepository.onChange(() => {
-    void refreshSelectionTriggerInjection(runtimeState)
+    void refreshSelectionTriggerInjection(runtimeState, dependencies.scripting)
       .then(() => ensureSelectionTriggerInjectionForActiveTab(dependencies, runtimeState))
       .catch(() => {
         // ignore refresh failures; state will retry on next update
