@@ -160,7 +160,7 @@ test('real extension reload freezes the old panel and restores its note after pa
   page,
   context,
   extensionPage
-}) => {
+}, testInfo) => {
   const url = 'https://session-recovery.test/reload';
   const tabId = await openRecoveryReader(page, extensionPage, url);
   await durableNote(page, extensionPage, 'Keep my original note across extension reload');
@@ -194,6 +194,17 @@ test('real extension reload freezes the old panel and restores its note after pa
   );
   await expect(page.locator('[data-session-status]')).toContainText(/reload this page/i);
   await expect(page.locator('[data-action-id="reader:finish"]')).toBeDisabled();
+  await expect(page.locator('[data-action-id="reader:finish"]')).toHaveCSS('opacity', '0.5');
+  await expect(page.locator('[data-session-status]')).toHaveCSS('white-space', 'normal');
+  expect(
+    await page
+      .locator('[data-session-status]')
+      .evaluate(
+        (element) =>
+          element.scrollWidth <= element.clientWidth && element.scrollHeight <= element.clientHeight
+      )
+  ).toBe(true);
+  await page.screenshot({ path: testInfo.outputPath('recovery-visible.png') });
   await expect(page.locator('[data-highlight-input]').first()).toHaveValue(
     'Keep my original note across extension reload'
   );

@@ -1,4 +1,25 @@
 /* Neutral session panel */
+:host([data-session-recovery]) .resource-modal--session :disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+:host([data-session-recovery='reload']) .resource-modal--session .surface-heading-copy,
+:host([data-session-recovery='retry']) .resource-modal--session .surface-heading-copy {
+  display: grid;
+  gap: var(--space-1);
+  white-space: normal;
+}
+
+:host([data-session-recovery='reload']) .resource-modal--session .surface-window-subtitle,
+:host([data-session-recovery='retry']) .resource-modal--session .surface-window-subtitle {
+  left: 0;
+  top: 0;
+  overflow: visible;
+  text-overflow: clip;
+  white-space: normal;
+}
+
 .session-panel-rail {
   position: relative;
   height: auto;
