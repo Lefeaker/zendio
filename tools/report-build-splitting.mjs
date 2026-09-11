@@ -12,15 +12,14 @@ const ENTRY_FILES = [
 ];
 const ENTRY_BUDGETS = new Map([
   [join(DIST_DIR, 'content', 'index.js'), { hardStop: 1 * 1024 }],
-  // 2026-06-16 P15 keeps the accepted i18n hardcoded integration dev-build
-  // size as the warning target and restores a small hard-stop margin. The
-  // drift was reproduced on the pre-import-boundary integration head, so it is
-  // inherited current truth rather than a new import-boundary behavior change.
+  // 2026-09-11: explicit invalidation shutdown adds ~2 KB of dev entry code.
+  // Keep it in the runtime owner rather than adding another import/async seam.
+  // A 60 KiB warning and 64 KiB stop preserve a bounded review signal.
   [
     join(DIST_DIR, 'content', 'runtime.js'),
     {
-      warningTarget: 58564,
-      hardStop: 58752
+      warningTarget: 60 * 1024,
+      hardStop: 64 * 1024
     }
   ],
   [join(DIST_DIR, 'options', 'index.js'), { hardStop: 12 * 1024 }],

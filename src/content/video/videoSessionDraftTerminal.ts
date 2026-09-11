@@ -4,7 +4,7 @@ import type {
   SessionDraftTerminalStatus,
   VideoSessionDraftEnvelope
 } from '@shared/sessionDrafts';
-import { finalizeTerminalSessionDraft } from '../sessionDrafts';
+import { finalizeTerminalSessionDraft, type SessionDraftTerminalState } from '../sessionDrafts';
 import type { SessionDraftMessageRepository } from '../sessionDrafts/sessionDraftRepository';
 import { createVideoSessionDraftStorageKey } from './sessionDrafts';
 
@@ -39,6 +39,7 @@ export async function buildVideoTerminalEnvelopeForExactKey(
 
 export async function finalizeVideoSessionTerminalDraft(args: {
   status: SessionDraftTerminalStatus;
+  state?: SessionDraftTerminalState;
   repository: Pick<SessionDraftMessageRepository, 'readExact' | 'finalizeExact' | 'removeExact'>;
   restoredDraftKey: string | null;
   buildEnvelope: (
@@ -49,6 +50,7 @@ export async function finalizeVideoSessionTerminalDraft(args: {
 }) {
   return finalizeTerminalSessionDraft<VideoSessionDraftEnvelope>({
     repository: args.repository,
+    state: args.state,
     flushPendingDraft: args.flushPendingDraft,
     buildTerminalEnvelopes: async () => {
       const currentEnvelope = args.buildEnvelope({ status: args.status, allowEmpty: true });

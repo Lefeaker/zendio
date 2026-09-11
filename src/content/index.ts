@@ -1,9 +1,11 @@
+import { watchContentRuntimeConnection } from './runtime/contentRuntimeConnection';
 import { createSelectionController } from './clipper/services/selectionController';
 import { createClipperDialogPromptGateway } from './clipper/presentation/clipperDialogPrompt';
 import { getPlatformServices } from '../platform';
 import { bootstrapContentScript, configureContentBootstrapStorage } from './bootstrap';
 import {
   getVideoSession,
+  getReaderSession,
   isReaderSessionActive,
   isVideoSessionActive,
   markContentRuntimeInitialized
@@ -170,9 +172,33 @@ function initializeClipperRuntime(): void {
       console.warn('[content] Failed to start session draft auto-restore:', error);
     }
   );
+  const stopConnectionWatch = watchContentRuntimeConnection({
+    document,
+    window,
+    runtime: extensionRuntime,
+    disconnect: () => {
+      type Session = { suspendForReload?(): void };
+      const actions = [
+        () => getReaderSession<Session>(document)?.suspendForReload?.(),
+        () => getVideoSession<Session>(document)?.suspendForReload?.(),
+        stopDraftRestore,
+        () => sessionDraftLeaseOwners.clear(),
+        stopRuntimeThemeSync,
+        () => runtime.stop()
+      ];
+      for (const action of actions) {
+        try {
+          action();
+        } catch {
+          /* The old API is unavailable. */
+        }
+      }
+    }
+  });
   window.addEventListener(
     'pagehide',
     () => {
+      stopConnectionWatch();
       stopDraftRestore();
       sessionDraftLeaseOwners.clear();
       stopRuntimeThemeSync();

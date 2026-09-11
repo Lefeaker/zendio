@@ -26,6 +26,13 @@ describe('contentSessionRegistry', () => {
     expect(document.documentElement.dataset.aiobContentRuntime).toBe('true');
   });
 
+  it('requires reconnecting when a previous extension context left a ready marker', () => {
+    document.documentElement.dataset.aiobContentRuntime = 'true';
+    expect(() => markContentRuntimeInitialized(document)).toThrow(
+      'CONTENT_RUNTIME_RELOAD_REQUIRED'
+    );
+  });
+
   it('tracks reader and video sessions without window globals', () => {
     const reader = { id: 'reader' };
     const video = { id: 'video' };

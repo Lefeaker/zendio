@@ -49,7 +49,7 @@ export async function handleVideoSessionAddCapture(
     collapseAfterCapture?: boolean;
   } = {}
 ): Promise<VideoTimestampCapture | null> {
-  if (context.state.exporting) {
+  if (context.state.exporting || context.state.ending || context.state.disconnected) {
     return null;
   }
 
@@ -140,6 +140,7 @@ export function ingestVideoSessionTextCapture(
   comment: string,
   selectionRange?: Range
 ): void {
+  if (context.state.ending || context.state.disconnected || context.state.exporting) return;
   context.drafts.syncCommentDrafts();
   context.updateVideoContext();
   const normalizedText = selectedText.replace(/\s+/g, ' ').trim();
@@ -270,21 +271,24 @@ export async function finishVideoSession(
         fallback: 'Writing to Obsidian'
       }
     });
-    const result = await context.exporter.export({
-      captures: context.state.captures,
-      videoTitle: context.state.videoTitle,
-      canonicalUrl: context.state.canonicalUrl || '',
-      videoUrl: context.state.videoUrl,
-      platform: context.state.platform,
-      messages: context.messages,
-      storageKey: context.state.storageKey,
-      ...(exportDestination ? { exportDestination } : {})
-    });
-    if (typeof result !== 'object' || result === null || typeof result.success !== 'boolean') {
-      throw createVideoExportFailure('Invalid video export response', 'validation');
-    }
-    if (!result.success) {
-      throw createVideoExportFailure(result.error ?? 'Video clip failed', result.failureCategory);
+    if (!context.state.exportDispatched) {
+      const result = await context.exporter.export({
+        captures: context.state.captures,
+        videoTitle: context.state.videoTitle,
+        canonicalUrl: context.state.canonicalUrl || '',
+        videoUrl: context.state.videoUrl,
+        platform: context.state.platform,
+        messages: context.messages,
+        storageKey: context.state.storageKey,
+        ...(exportDestination ? { exportDestination } : {})
+      });
+      if (typeof result !== 'object' || result === null || typeof result.success !== 'boolean') {
+        throw createVideoExportFailure('Invalid video export response', 'validation');
+      }
+      if (!result.success) {
+        throw createVideoExportFailure(result.error ?? 'Video clip failed', result.failureCategory);
+      }
+      context.state.exportDispatched = true;
     }
     const terminalized = await context.drafts.finalizeTerminal('exported');
     if (!terminalized) {
@@ -331,8 +335,12 @@ export async function cancelVideoSession(
   if (context.state.exporting) {
     return;
   }
-  const terminalized = await context.drafts.finalizeTerminal('discarded');
+  context.state.exporting = true;
+  const terminalized = await context.drafts.finalizeTerminal(
+    context.state.exportDispatched ? 'exported' : 'discarded'
+  );
   if (!terminalized) {
+    context.state.exporting = false;
     context.applyHint('failure');
     return;
   }
@@ -365,6 +373,8 @@ export function cleanupVideoSession(context: VideoSessionOperationContext): void
   clearVideoSession(context.session, context.doc);
   context.state.videoElement = null;
   context.state.exporting = false;
+  context.state.exportDispatched = false;
+  context.state.ending = false;
   context.state.saving = false;
   context.state.analyticsTimer = null;
   context.state.commentDrafts = {};

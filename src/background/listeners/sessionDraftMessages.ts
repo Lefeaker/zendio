@@ -26,34 +26,41 @@ export interface SessionDraftMessageStore {
   ): Promise<Draft.SessionDraftReadExactResult>;
   save(
     request: Draft.SessionDraftSaveRequest,
-    owner: Draft.SessionDraftTrustedOwnerContext
+    owner: Draft.SessionDraftTrustedOwnerContext,
+    documentId?: string
   ): Promise<Draft.SessionDraftEnvelopeMutationResult>;
   finalizeExact(
     request: Draft.SessionDraftFinalizeExactRequest,
-    owner: Draft.SessionDraftTrustedOwnerContext
+    owner: Draft.SessionDraftTrustedOwnerContext,
+    documentId?: string
   ): Promise<Draft.SessionDraftEnvelopeMutationResult>;
   removeExact(
     request: Draft.SessionDraftRemoveExactRequest,
-    owner: Draft.SessionDraftTrustedOwnerContext
+    owner: Draft.SessionDraftTrustedOwnerContext,
+    documentId?: string
   ): Promise<Draft.SessionDraftRemoveResult>;
   renewLease(
     request: Draft.SessionDraftRenewLeaseRequest,
-    owner: Draft.SessionDraftTrustedOwnerContext
+    owner: Draft.SessionDraftTrustedOwnerContext,
+    documentId?: string
   ): Promise<Draft.SessionDraftEnvelopeMutationResult>;
   releaseLease(
     request: Draft.SessionDraftReleaseLeaseRequest,
-    owner: Draft.SessionDraftTrustedOwnerContext
+    owner: Draft.SessionDraftTrustedOwnerContext,
+    documentId?: string
   ): Promise<Draft.SessionDraftEnvelopeMutationResult>;
   migrateLegacyVideoCapture(
     request: Draft.SessionDraftMigrateLegacyVideoCaptureRequest,
     owner: Draft.SessionDraftTrustedOwnerContext,
-    senderUrl: string | undefined
+    senderUrl: string | undefined,
+    documentId?: string
   ): Promise<Draft.SessionDraftEnvelopeMutationResult>;
   prune(request: Draft.SessionDraftPruneRequest): Promise<Draft.SessionDraftPruneResult>;
   list(request: Draft.SessionDraftListRequest): Promise<Draft.SessionDraftListResult>;
   selectAndClaim(
     request: Draft.SessionDraftSelectAndClaimRequest,
-    owner: Draft.SessionDraftTrustedOwnerContext
+    owner: Draft.SessionDraftTrustedOwnerContext,
+    documentId?: string
   ): Promise<Draft.SessionDraftSelectAndClaimResult>;
 }
 export interface SessionDraftRuntimeDependencies {
@@ -237,13 +244,17 @@ export async function handleSessionDraftMessage(
 
   const owner = await resolveOwner(sender);
   if (!owner) return { outcome: 'conflict', code: 'OWNER_CONTEXT_INVALID' };
-  if (request.operation === 'save') return store.save(request, owner);
-  if (request.operation === 'finalizeExact') return store.finalizeExact(request, owner);
-  if (request.operation === 'removeExact') return store.removeExact(request, owner);
-  if (request.operation === 'renewLease') return store.renewLease(request, owner);
-  if (request.operation === 'releaseLease') return store.releaseLease(request, owner);
+  if (request.operation === 'save') return store.save(request, owner, sender.documentId);
+  if (request.operation === 'finalizeExact')
+    return store.finalizeExact(request, owner, sender.documentId);
+  if (request.operation === 'removeExact')
+    return store.removeExact(request, owner, sender.documentId);
+  if (request.operation === 'renewLease')
+    return store.renewLease(request, owner, sender.documentId);
+  if (request.operation === 'releaseLease')
+    return store.releaseLease(request, owner, sender.documentId);
   if (request.operation === 'migrateLegacyVideoCapture') {
-    return store.migrateLegacyVideoCapture(request, owner, sender.url);
+    return store.migrateLegacyVideoCapture(request, owner, sender.url, sender.documentId);
   }
-  return store.selectAndClaim(request, owner);
+  return store.selectAndClaim(request, owner, sender.documentId);
 }

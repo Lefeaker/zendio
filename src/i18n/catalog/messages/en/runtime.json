@@ -706,5 +706,7 @@
   "onboardingErrorReportingConsentLabel": "Allow error diagnostics",
   "onboardingConsentSupportHint": "This project is independently developed. Enabling these two options helps improve development and deliver a better user experience.",
   "footerOfficialWebsiteLink": "Official Website",
-  "footerChangelogLink": "Changelog"
+  "footerChangelogLink": "Changelog",
+  "runtimeReloadRequired": "Zendio was reloaded. Copy any unsaved notes, then reload this page.",
+  "sessionFinishRetry": "Please retry Finish or Cancel to finish closing this session."
 }

@@ -247,3 +247,5 @@ export * from './messages';
 export * from './retentionPolicy';
 export * from './schemas';
 export * from './types';
+
+export * from './leaseDocumentIdentity';

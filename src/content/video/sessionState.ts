@@ -18,6 +18,9 @@ export class VideoSessionState {
   videoId: string | null = null;
   canonicalUrl = '';
   exporting = false;
+  ending = false;
+  disconnected = false;
+  exportDispatched = false;
   saving = false;
   stopOptionsWatcher: (() => void) | null = null;
   stopLanguageWatcher: (() => void) | null = null;

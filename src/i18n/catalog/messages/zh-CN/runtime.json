@@ -706,5 +706,7 @@
   "onboardingErrorReportingConsentLabel": "允许发送错误诊断",
   "onboardingConsentSupportHint": "本项目为个人开发，希望您可以同意以上两个选项，来助力开发更好地进行，以获得更优质的用户体验",
   "footerOfficialWebsiteLink": "前往官网",
-  "footerChangelogLink": "更新日志"
+  "footerChangelogLink": "更新日志",
+  "runtimeReloadRequired": "扩展已重载。请先复制未保存的批注，再刷新网页。",
+  "sessionFinishRetry": "会话收尾尚未完成，请再次点击完成或取消重试。"
 }

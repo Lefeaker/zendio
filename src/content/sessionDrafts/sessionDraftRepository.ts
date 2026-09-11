@@ -3,6 +3,8 @@ import type { StorageAreaService } from '../../platform/interfaces/storage';
 import { isMessageListenerFailureMarker } from '../../platform/shared/messageListenerInvocation';
 import * as Draft from '../../shared/sessionDrafts';
 import { getSessionDraftRuntimeMessenger } from './sessionDraftTabContext';
+import { createSessionDraftClientState } from './sessionDraftClientState';
+import { reportExtensionContextInvalidated } from '../../platform/shared/extensionContext';
 
 type LegacySessionDraftEnvelope = Draft.SessionDraftClientEnvelope;
 type LegacySessionDraftMode = Draft.SessionDraftMode;
@@ -135,9 +137,18 @@ export function createSessionDraftRepository(
   const sender =
     typeof senderInput === 'function' ? senderInput : getSessionDraftRuntimeMessenger();
   if (!sender) throw new Error('SESSION_DRAFT_RUNTIME_MESSENGER_UNAVAILABLE');
-  const sendMessage = sender;
+  const sendMessage: RuntimeMessageSender = async <Result>(
+    message: Parameters<RuntimeMessageSender>[0]
+  ) => {
+    try {
+      return await sender<Result>(message);
+    } catch (error) {
+      reportExtensionContextInvalidated(error);
+      throw error;
+    }
+  };
 
-  const current = new Map<string, Draft.SessionDraftEnvelope>();
+  const current = createSessionDraftClientState();
   const pendingCompositeSaves = new Map<string, PendingCompositeSave>();
   const pendingCompositeSaveIdsByKey = new Map<string, string>();
 
@@ -208,8 +219,10 @@ export function createSessionDraftRepository(
       if (result.outcome === 'removed') current.delete(request.key);
       return result;
     },
-    renewLease: (request: Draft.SessionDraftRenewLeaseRequest) => envelopeMutation(request),
-    releaseLease: (request: Draft.SessionDraftReleaseLeaseRequest) => envelopeMutation(request),
+    renewLease: (request: Draft.SessionDraftRenewLeaseRequest) =>
+      current.trackLease(request.key, envelopeMutation(request)),
+    releaseLease: (request: Draft.SessionDraftReleaseLeaseRequest) =>
+      current.trackLease(request.key, envelopeMutation(request)),
     migrateLegacyVideoCapture: (request: Draft.SessionDraftMigrateLegacyVideoCaptureRequest) =>
       envelopeMutation(request),
     prune: (request: Draft.SessionDraftPruneRequest) => send(request),
@@ -262,6 +275,7 @@ export function createSessionDraftRepository(
       options?: { requestId?: string; ownerContext?: Draft.SessionDraftOwnerContext | null }
     ) {
       const key = exactKey(envelope);
+      if (await current.settleLeases(key)) await readExact({ operation: 'readExact', key });
       const primaryRequestId =
         options?.requestId ?? pendingCompositeSaveIdsByKey.get(key) ?? requestId('save');
       let pending = pendingCompositeSaves.get(primaryRequestId);

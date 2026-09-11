@@ -1,3 +1,4 @@
+import { refreshSessionPanelRecovery } from '@content/shared/panels/sessionPanelRecovery';
 import type { RuntimeSurfaceHandle } from '@content/stitch/runtimeSurfaceRenderer';
 import type { StyleAttachmentHandle } from '@ui/foundation/style-host';
 import type { PopupCoordinator } from '@content/runtime/popupCoordinator';
@@ -102,6 +103,7 @@ export class ReaderDialogPanelController {
     this.items.reconcile(collectItems(requireItemList(nextRoot)));
     prepareSessionItemPreviews(this.handle.root);
     this.applyPresentation(nextRoot);
+    refreshSessionPanelRecovery(this.options.host.ownerDocument, 'reader');
   }
 
   dispose(): void {

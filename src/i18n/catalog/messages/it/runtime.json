@@ -706,5 +706,7 @@
   "onboardingErrorReportingConsentLabel": "Consenti diagnostica degli errori",
   "onboardingConsentSupportHint": "Questo progetto è sviluppato da una sola persona. Attivare queste due opzioni aiuta a migliorare lo sviluppo e a offrire un’esperienza utente migliore.",
   "footerOfficialWebsiteLink": "Sito ufficiale",
-  "footerChangelogLink": "Registro modifiche"
+  "footerChangelogLink": "Registro modifiche",
+  "runtimeReloadRequired": "Zendio è stato ricaricato. Copia le note non salvate, poi ricarica questa pagina.",
+  "sessionFinishRetry": "La chiusura non è completa. Premi di nuovo Fine o Annulla."
 }

@@ -1,3 +1,4 @@
+import { refreshSessionPanelRecovery } from '@content/shared/panels/sessionPanelRecovery';
 import type { RuntimeSurfaceHandle } from '@content/stitch/runtimeSurfaceRenderer';
 import type { StyleAttachmentHandle } from '@ui/foundation/style-host';
 import type { PopupCoordinator } from '@content/runtime/popupCoordinator';
@@ -105,6 +106,7 @@ export class VideoDialogPanelController {
     prepareSessionItemPreviews(this.handle.root);
     patchAddCaptureCard(this.handle.itemList, nextList);
     this.applyPresentation(nextRoot);
+    refreshSessionPanelRecovery(this.options.host.ownerDocument, 'video');
   }
 
   dispose(): void {

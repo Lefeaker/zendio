@@ -81,7 +81,8 @@ export async function runReadySessionDraftEnvelopeMutation(
     now: context.now(),
     retentionMs: context.retention.retentionMs,
     owner,
-    newLeaseId: context.leaseId()
+    newLeaseId: context.leaseId(),
+    documentId: context.documentId
   };
   const transitioned =
     request.operation === 'save'
@@ -117,7 +118,7 @@ export async function runReadySessionDraftRemove(
   owner: Draft.SessionDraftTrustedOwnerContext
 ): Promise<Draft.SessionDraftRemoveResult> {
   const current = state.snapshot.records.find((item) => item.key === request.key)?.record;
-  const invalid = validateSessionDraftRemoveTransition(current, request, owner);
+  const invalid = validateSessionDraftRemoveTransition(current, request, owner, context.documentId);
   if (invalid || !current) return conflict(invalid ?? 'DRAFT_NOT_FOUND');
   const saved = await commit(context, state, {
     receipt: {
@@ -209,7 +210,8 @@ export async function runReadySessionDraftClaim(
     now: context.now(),
     retentionMs: context.retention.retentionMs,
     owner,
-    newLeaseId: context.leaseId()
+    newLeaseId: context.leaseId(),
+    documentId: context.documentId
   });
   if (transitioned.outcome === 'conflict') return transitioned;
   const accepted = validateSessionDraftEnvelope(transitioned.envelope, context.maxBytes);

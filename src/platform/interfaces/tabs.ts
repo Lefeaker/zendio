@@ -8,12 +8,16 @@ export type TabRemovedListener = (tabId: number, removeInfo: chrome.tabs.OnRemov
 
 export interface TabsSendOptions {
   frameId?: number;
+  documentId?: string;
 }
 
 export type TabsBoundaryErrorCode = 'TAB_NOT_FOUND' | 'NO_RECEIVER';
 
 export class TabsBoundaryError extends Error {
-  constructor(readonly code: TabsBoundaryErrorCode) {
+  constructor(
+    readonly code: TabsBoundaryErrorCode,
+    readonly definitive = true
+  ) {
     super(code);
     this.name = 'TabsBoundaryError';
   }

@@ -23,6 +23,13 @@ function mapInstallDetails(
 }
 
 export const firefoxRuntimeService: RuntimeService = {
+  isContextValid() {
+    try {
+      return Boolean(ensureFirefox().runtime.id);
+    } catch {
+      return false;
+    }
+  },
   getURL(path: string): string {
     const firefoxApi = ensureFirefox();
     return firefoxApi.runtime.getURL(path);

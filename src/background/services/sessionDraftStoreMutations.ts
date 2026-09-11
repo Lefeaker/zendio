@@ -1,3 +1,4 @@
+import { getSessionDraftLeaseDocumentId } from '../../shared/sessionDrafts/leaseDocumentIdentity';
 import {
   createSessionDraftCanonicalPageFields,
   createSessionDraftStorageIdentity,
@@ -30,6 +31,7 @@ export interface SessionDraftMutationContext {
   retentionMs: number;
   owner: SessionDraftTrustedOwnerContext;
   newLeaseId: string;
+  documentId?: string | undefined;
 }
 type ExactLeaseRequest =
   | SessionDraftFinalizeExactRequest
@@ -88,13 +90,16 @@ function validateLease(
   record: SessionDraftRecord,
   expectedRevision: number,
   leaseId: string,
-  owner: SessionDraftTrustedOwnerContext
+  owner: SessionDraftTrustedOwnerContext,
+  documentId?: string
 ): SessionDraftConflictCode | undefined {
   if (record.revision !== expectedRevision) return 'REVISION_CONFLICT';
   if (record.schemaVersion === 1 || record.status === 'restorable' || !record.lease) {
     return 'LEASE_REQUIRED';
   }
   if (record.lease.leaseId !== leaseId) return 'LEASE_CONFLICT';
+  const boundDocument = getSessionDraftLeaseDocumentId(leaseId);
+  if (boundDocument && boundDocument !== documentId) return 'OWNER_CONFLICT';
   return isSameSessionDraftOwner(record.lease.owner, owner) ? undefined : 'OWNER_CONFLICT';
 }
 
@@ -165,7 +170,13 @@ export function saveSessionDraftTransition(
   if (record.schemaVersion === 1) return migrateLegacySave(record, request, context);
   if (isSessionDraftTerminalStatus(record.status)) return conflict('TERMINAL_DRAFT');
   if (!request.leaseId) return conflict('LEASE_REQUIRED');
-  const invalid = validateLease(record, request.expectedRevision, request.leaseId, context.owner);
+  const invalid = validateLease(
+    record,
+    request.expectedRevision,
+    request.leaseId,
+    context.owner,
+    context.documentId
+  );
   if (invalid) return conflict(invalid);
   return {
     outcome: 'success',
@@ -189,7 +200,13 @@ export function mutateSessionDraftLeaseTransition(
 ): SessionDraftTransitionResult {
   if (!record) return conflict('DRAFT_NOT_FOUND');
   if (isSessionDraftTerminalStatus(record.status)) return conflict('TERMINAL_DRAFT');
-  const invalid = validateLease(record, request.expectedRevision, request.leaseId, context.owner);
+  const invalid = validateLease(
+    record,
+    request.expectedRevision,
+    request.leaseId,
+    context.owner,
+    context.documentId
+  );
   if (invalid) return conflict(invalid);
   const release = request.operation === 'releaseLease';
   const envelope: SessionDraftEnvelope = {
@@ -212,11 +229,12 @@ export function mutateSessionDraftLeaseTransition(
 export function validateSessionDraftRemoveTransition(
   record: SessionDraftRecord | undefined,
   request: SessionDraftRemoveExactRequest,
-  owner: SessionDraftTrustedOwnerContext
+  owner: SessionDraftTrustedOwnerContext,
+  documentId?: string
 ): SessionDraftConflictCode | undefined {
   if (!record) return 'DRAFT_NOT_FOUND';
   if (record.status !== 'discarded' && record.status !== 'exported') return 'TERMINAL_REQUIRED';
-  return validateLease(record, request.expectedRevision, request.leaseId, owner);
+  return validateLease(record, request.expectedRevision, request.leaseId, owner, documentId);
 }
 
 export function describeSessionDraftEnvelopeMutation(

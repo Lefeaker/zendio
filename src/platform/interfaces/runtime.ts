@@ -12,6 +12,7 @@ export type RuntimeLanguageProvider = () => string | undefined;
 export type BrowserTarget = 'chrome' | 'firefox';
 
 export interface RuntimeService {
+  isContextValid?: () => boolean;
   getURL: (path: string) => string;
   getBrowserTarget: () => BrowserTarget;
   openOptionsPage: () => Promise<void>;

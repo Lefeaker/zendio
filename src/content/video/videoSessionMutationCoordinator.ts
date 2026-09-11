@@ -4,6 +4,7 @@ import type { VideoSessionMutationPort } from './videoSessionRuntimePorts';
 
 interface SavingStateOwner {
   saving: boolean;
+  disconnected?: boolean;
 }
 
 export class VideoSessionMutationCoordinator implements VideoSessionMutationPort {
@@ -11,6 +12,10 @@ export class VideoSessionMutationCoordinator implements VideoSessionMutationPort
   private pendingCaptureMutations = 0;
 
   constructor(private readonly state: SavingStateOwner) {}
+
+  waitForIdle(): Promise<void> {
+    return this.runner.waitForIdle();
+  }
 
   hasPendingMutations(): boolean {
     return this.pendingCaptureMutations > 0;
@@ -25,6 +30,7 @@ export class VideoSessionMutationCoordinator implements VideoSessionMutationPort
     try {
       return await this.runner.run({
         ...transaction,
+        shouldRun: () => !this.state.disconnected,
         isSaveFailure: (saveHint) => saveHint === 'failure'
       });
     } finally {

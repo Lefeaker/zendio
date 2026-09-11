@@ -241,19 +241,23 @@ describe('session draft store selection', () => {
     expect(result).toMatchObject({ outcome: 'selected', key: expected?.key });
   });
 
-  it('never probes or rereads an unexpired active lease', async () => {
+  it('recovers a positively inactive owner before the lease deadline', async () => {
     const active = candidate(
       v2Record({ draftId: 'leased', status: 'active', leaseExpiresAt: NOW + 1 })
     );
+    if (active.record.schemaVersion === 2 && active.record.lease)
+      active.record.lease.leaseId = 'doc1:old-document:lease-unique';
     const probe = vi.fn<SessionDraftOwnerLivenessProbe>(() => Promise.resolve('inactive'));
     const deps = dependencies([active], probe);
 
-    await expect(selectSessionDraftClaimCandidate(input([active]), deps)).resolves.toEqual({
-      outcome: 'none',
-      invalidRemovedCount: 0
+    await expect(selectSessionDraftClaimCandidate(input([active]), deps)).resolves.toMatchObject({
+      outcome: 'selected',
+      key: active.key
     });
-    expect(probe).not.toHaveBeenCalled();
-    expect(deps.rereadExact).not.toHaveBeenCalled();
+    expect(probe).toHaveBeenCalledWith(
+      expect.objectContaining({ requirePositiveInactiveEvidence: true })
+    );
+    expect(deps.rereadExact).toHaveBeenCalledWith(active.key);
   });
 
   it('treats the exact lease-expiry boundary as probe eligible', async () => {

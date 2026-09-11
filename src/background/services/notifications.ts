@@ -406,7 +406,9 @@ export async function notifyInjectionFailure(errorMessage: string): Promise<void
     severity: ErrorSeverity.ERROR,
     iconUrl: APP_ICON_PATH,
     title: msgs.clipFailed,
-    message: `${msgs.scriptInjectionFailed}: ${errorMessage}`,
+    message: errorMessage.includes('CONTENT_RUNTIME_RELOAD_REQUIRED')
+      ? msgs.runtimeReloadRequired
+      : `${msgs.scriptInjectionFailed}: ${errorMessage}`,
     metadata: { error: errorMessage }
   });
 }

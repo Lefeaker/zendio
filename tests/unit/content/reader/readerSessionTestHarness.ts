@@ -129,6 +129,8 @@ export interface SessionDraftMessageFixture {
   readonly observed: SessionDraftRequest[];
   deferNext(operation: SessionDraftOperation): Deferred<void>;
   rejectNext(operation: SessionDraftOperation, error: Error): void;
+  loseNextResponse(operation: SessionDraftOperation, error: Error): void;
+  deferNextResponse(operation: SessionDraftOperation): Deferred<void>;
 }
 
 export function createSessionDraftMessageFixture(
@@ -136,28 +138,47 @@ export function createSessionDraftMessageFixture(
 ): SessionDraftMessageFixture {
   const controls = new Map<
     SessionDraftOperation,
-    Array<{ deferred?: Deferred<void>; error?: Error }>
+    Array<{
+      deferred?: Deferred<void>;
+      error?: Error;
+      responseError?: Error;
+      responseDeferred?: Deferred<void>;
+    }>
   >();
   const observed: SessionDraftRequest[] = [];
   const enqueue = (
     operation: SessionDraftOperation,
-    control: { deferred?: Deferred<void>; error?: Error }
+    control: {
+      deferred?: Deferred<void>;
+      error?: Error;
+      responseError?: Error;
+      responseDeferred?: Deferred<void>;
+    }
   ) => {
     const queue = controls.get(operation) ?? [];
     queue.push(control);
     controls.set(operation, queue);
   };
-  const sender: RuntimeMessageSender = async (message) => {
+  const sender: RuntimeMessageSender = async <Result>(
+    message: Parameters<RuntimeMessageSender>[0]
+  ): Promise<Result> => {
     const candidate = message as { request?: SessionDraftRequest };
     const request = candidate.request;
+    let responseError: Error | undefined;
+    let responseDeferred: Deferred<void> | undefined;
     if (request) {
       observed.push(structuredClone(request));
       const queue = controls.get(request.operation);
       const control = queue?.shift();
       if (control?.deferred) await control.deferred.promise;
       if (control?.error) throw control.error;
+      responseError = control?.responseError;
+      responseDeferred = control?.responseDeferred;
     }
-    return delegate(message);
+    const response = await delegate<Result>(message);
+    if (responseDeferred) await responseDeferred.promise;
+    if (responseError) throw responseError;
+    return response;
   };
   return {
     sender,
@@ -169,6 +190,14 @@ export function createSessionDraftMessageFixture(
     },
     rejectNext(operation, error) {
       enqueue(operation, { error });
+    },
+    loseNextResponse(operation, error) {
+      enqueue(operation, { responseError: error });
+    },
+    deferNextResponse(operation) {
+      const deferred = createDeferred<void>();
+      enqueue(operation, { responseDeferred: deferred });
+      return deferred;
     }
   };
 }

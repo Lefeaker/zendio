@@ -706,5 +706,7 @@
   "onboardingErrorReportingConsentLabel": "Permitir diagnósticos de erro",
   "onboardingConsentSupportHint": "Este projeto é desenvolvido por uma única pessoa. Ao ativar estas duas opções, você ajuda a melhorar o desenvolvimento e a oferecer uma experiência de usuário melhor.",
   "footerOfficialWebsiteLink": "Site oficial",
-  "footerChangelogLink": "Registro de alterações"
+  "footerChangelogLink": "Registro de alterações",
+  "runtimeReloadRequired": "O Zendio foi recarregado. Copie as notas não salvas e recarregue esta página.",
+  "sessionFinishRetry": "O encerramento não foi concluído. Tente novamente com Concluir ou Cancelar."
 }

@@ -45,7 +45,7 @@ export class VideoDialogPanel implements UiMountable<
   HTMLElement
 > {
   readonly popupLifecycle = { preserveOnTransientClose: true, kind: 'session-panel' } as const;
-  private readonly renderRoot = createSessionPanelRenderRoot();
+  private readonly renderRoot = createSessionPanelRenderRoot('aiob-video-panel');
   private readonly collapsePersistence: SessionPanelCollapsePersistence;
   private readonly invalidation = createInvalidationScope();
   private readonly commentDrafts = new SessionCommentDraftController<VideoPanelCapture>({

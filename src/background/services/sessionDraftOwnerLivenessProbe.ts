@@ -11,6 +11,7 @@ export {
 export type { SessionDraftOwnerLivenessProbeOptions } from '../listeners/runtimeMessageContracts';
 export interface SessionDraftTransactionContext<Storage> {
   storage: Storage;
+  documentId?: string | undefined;
   now: () => number;
   leaseId: () => string;
   probe: Draft.SessionDraftOwnerLivenessProbe;
@@ -96,7 +97,8 @@ async function recheckCandidate(
 }
 
 function createProbeTarget(
-  candidate: SessionDraftSelectionCandidate
+  candidate: SessionDraftSelectionCandidate,
+  now: number
 ): Draft.SessionDraftOwnerLivenessTarget | undefined {
   if (candidate.record.schemaVersion === 1) {
     const parsed = Draft.SessionDraftTrustedOwnerContextSchema.safeParse(
@@ -107,8 +109,16 @@ function createProbeTarget(
       : undefined;
   }
   const lease = candidate.record.lease;
+  const documentId = lease && Draft.getSessionDraftLeaseDocumentId(lease.leaseId);
   return lease
-    ? { kind: 'leased-v2', key: candidate.key, leaseId: lease.leaseId, owner: lease.owner }
+    ? {
+        kind: 'leased-v2',
+        key: candidate.key,
+        leaseId: lease.leaseId,
+        owner: lease.owner,
+        ...(documentId ? { documentId } : {}),
+        ...(lease.leaseExpiresAt > now ? { requirePositiveInactiveEvidence: true } : {})
+      }
     : undefined;
 }
 
@@ -143,10 +153,15 @@ export async function selectSessionDraftCandidate(
   const candidate = candidates.find(
     ({ record }) =>
       record.status === 'active' &&
-      (record.schemaVersion === 1 || Boolean(record.lease && record.lease.leaseExpiresAt <= now))
+      (record.schemaVersion === 1 ||
+        Boolean(
+          record.lease &&
+          (record.lease.leaseExpiresAt <= now ||
+            Draft.getSessionDraftLeaseDocumentId(record.lease.leaseId))
+        ))
   );
   if (!candidate) return emptyDecision(invalidRemovedCount);
-  const target = createProbeTarget(candidate);
+  const target = createProbeTarget(candidate, now);
   if (!target) return { outcome: 'conflict', code: 'OWNER_LIVENESS_UNAVAILABLE' };
   let ownerState: 'active' | 'inactive';
   try {
@@ -157,6 +172,7 @@ export async function selectSessionDraftCandidate(
   if (ownerState !== 'inactive') return { outcome: 'conflict', code: 'OWNER_ACTIVE' };
   return recheckCandidate(
     candidate,
+    // Keep the existing receipt tag for both timed-out and positively revoked lease ownership.
     target.kind === 'legacy-v1' ? 'legacy_owner_inactive' : 'expired_owner_inactive',
     invalidRemovedCount,
     dependencies.rereadExact

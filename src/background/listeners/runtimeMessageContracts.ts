@@ -121,7 +121,7 @@ interface SessionDraftOwnerProbeTabs {
   sendMessage(
     tabId: number,
     message: Draft.SessionDraftStoredValue,
-    options?: { frameId?: number }
+    options?: { frameId?: number; documentId?: string }
   ): Promise<Draft.SessionDraftStoredValue>;
 }
 export function createSessionDraftOwnerLivenessProbe(
@@ -141,29 +141,50 @@ export function createSessionDraftOwnerLivenessProbe(
       throw error;
     }
     if (!tab) return 'inactive';
-    if (target.kind === 'legacy-v1') return 'active';
+    const legacy = target.kind === 'legacy-v1';
     const probeId = createProbeId();
     const request: Draft.SessionDraftOwnerProbeRequest = {
       type: Draft.SESSION_DRAFT_OWNER_PROBE_MESSAGE_TYPE,
       probeId,
       key: target.key,
-      leaseId: target.leaseId
+      leaseId: target.kind === 'legacy-v1' ? 'legacy-owner-probe' : target.leaseId
     };
     let timeoutId: ReturnType<typeof globalThis.setTimeout> | undefined;
-    const timeout = new Promise<'inactive'>((resolve) => {
-      timeoutId = schedule(() => resolve('inactive'), timeoutMs);
+    const timeout = new Promise<'active' | 'inactive'>((resolve, reject) => {
+      timeoutId = schedule(() => {
+        if (legacy) resolve('active');
+        else if (target.kind === 'leased-v2' && target.requirePositiveInactiveEvidence) {
+          reject(new Error('SESSION_DRAFT_OWNER_PROBE_TIMEOUT'));
+        } else resolve('inactive');
+      }, timeoutMs);
     });
     const response = Promise.resolve(
-      tabs.sendMessage(target.owner.tabId, request, { frameId: target.owner.frameId })
+      tabs.sendMessage(target.owner.tabId, request, {
+        frameId: target.owner.frameId,
+        ...(target.kind === 'leased-v2' && target.documentId
+          ? { documentId: target.documentId }
+          : {})
+      })
     )
       .then((raw): 'active' | 'inactive' => {
         const parsed = Draft.SessionDraftOwnerProbeResponseSchema.safeParse(raw);
-        if (!parsed.success || parsed.data.probeId !== probeId)
+        if (!parsed.success || parsed.data.probeId !== probeId) {
+          if (legacy) return 'active';
           throw new Error('SESSION_DRAFT_OWNER_PROBE_RESPONSE_INVALID');
+        }
+        if (target.kind === 'leased-v2' && target.requirePositiveInactiveEvidence) return 'active';
         return parsed.data.active ? 'active' : 'inactive';
       })
-      .catch((error): 'inactive' => {
-        if (isTabsBoundaryError(error, 'NO_RECEIVER')) return 'inactive';
+      .catch((error): 'active' | 'inactive' => {
+        if (isTabsBoundaryError(error, 'NO_RECEIVER')) {
+          if (
+            target.kind === 'leased-v2' &&
+            target.requirePositiveInactiveEvidence &&
+            !error.definitive
+          )
+            throw error;
+          return legacy ? 'active' : 'inactive';
+        }
         throw error;
       });
     try {

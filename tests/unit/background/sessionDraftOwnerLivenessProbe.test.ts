@@ -39,6 +39,50 @@ function createTab(id: number, windowId = 9): chrome.tabs.Tab {
 }
 
 describe('session draft owner liveness probe', () => {
+  it('does not treat an unanswered unexpired owner as disconnected', async () => {
+    vi.useFakeTimers();
+    try {
+      const probe = createSessionDraftOwnerLivenessProbe({
+        get: () => Promise.resolve(createTab(7)),
+        sendMessage: () => new Promise(() => undefined)
+      });
+      const unexpired = { ...target, requirePositiveInactiveEvidence: true };
+      const assertion = expect(probe(unexpired)).rejects.toThrow(
+        'SESSION_DRAFT_OWNER_PROBE_TIMEOUT'
+      );
+      await vi.advanceTimersByTimeAsync(1000);
+      await assertion;
+    } finally {
+      vi.clearAllTimers();
+      vi.useRealTimers();
+    }
+  });
+  it('checks the legacy document owner instead of treating an open tab as an active session', async () => {
+    const sendMessage = asType<TabsService['sendMessage']>(
+      vi.fn((_tabId: number, request: { probeId: string }) =>
+        Promise.resolve({ probeId: request.probeId, active: false })
+      )
+    );
+    const probe = createSessionDraftOwnerLivenessProbe(
+      {
+        get: () => Promise.resolve(createTab(7)),
+        sendMessage
+      },
+      { createProbeId: () => 'legacy-probe' }
+    );
+    const legacy = { kind: 'legacy-v1', key, owner: target.owner } satisfies Parameters<
+      typeof probe
+    >[0];
+    await expect(probe(legacy)).resolves.toBe('inactive');
+    expect(sendMessage).toHaveBeenCalledWith(
+      7,
+      expect.objectContaining({
+        probeId: 'legacy-probe',
+        key
+      }),
+      { frameId: 2 }
+    );
+  });
   it('requires an exact nonce-bound response from the trusted tab and frame', async () => {
     const tabs: Pick<TabsService, 'get' | 'sendMessage'> = {
       get: vi.fn(() => Promise.resolve(createTab(7))),

@@ -33,6 +33,8 @@ export interface SessionDraftLegacyCleanupObligation {
 export type SessionDraftOwnerLivenessTarget =
   | {
       kind: 'leased-v2';
+      requirePositiveInactiveEvidence?: boolean;
+      documentId?: string;
       key: string;
       leaseId: string;
       owner: SessionDraftTrustedOwnerContext;

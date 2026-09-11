@@ -1,3 +1,5 @@
+import { createSessionEndingCoordinator } from '../sessionMutations/sessionEndingCoordinator';
+import { setSessionPanelRecovery } from '../shared/panels/sessionPanelRecovery';
 import { bucketCount } from '../../shared/analytics';
 import type { ReaderHighlightTheme } from '../../shared/types/options';
 import type { VideoAddCaptureSource } from './application/videoPanelModel';
@@ -291,8 +293,12 @@ export class VideoSession {
           },
           onCaptureEditorCancel: (id) => this.commentEditorPlayback.releaseForCapture(id, false),
           onCommentDraftChange: (drafts) => {
+            if (this.state.ending || this.state.disconnected) return;
             applyVideoSessionCommentDrafts(this.state, drafts);
-            void this.draftController.scheduleSave();
+            void this.draftController.scheduleSave().catch((error) => {
+              console.warn('[VideoSession] Failed to save comment draft:', error);
+              this.applyHint('failure');
+            });
           }
         },
         applyHighlightTheme: (theme) => this.applyHighlightTheme(theme),
@@ -369,6 +375,7 @@ export class VideoSession {
   }
 
   private async selectDestination(id: string): Promise<void> {
+    if (this.state.ending || this.state.disconnected) return;
     this.destinationState.select(id);
     await this.refreshDestinationPreview();
     this.draftController.syncCommentDrafts();
@@ -455,6 +462,7 @@ export class VideoSession {
   }
 
   async toggleCaptureScreenshot(id: string): Promise<void> {
+    if (this.state.ending || this.state.disconnected) return;
     this.screenshotPreparation.cacheRequestedScreenshot(id);
     await toggleVideoSessionCaptureScreenshot(this.operationContext, id);
   }
@@ -506,12 +514,37 @@ export class VideoSession {
     this.dom.applyHint(state, this.state);
   }
 
+  suspendForReload(): void {
+    this.state.disconnected = true;
+    this.state.ending = true;
+    this.draftController?.suspend();
+    this.lifecycle?.stop();
+    this.selectionCaptureController?.stop();
+    this.fragmentHighlightCoordinator?.stop();
+    this.screenshotPreparation.dispose();
+    this.destinationState.dispose();
+    this.state.stopOptionsWatcher?.();
+    this.state.stopLanguageWatcher?.();
+  }
+
+  private readonly runEnding = createSessionEndingCoordinator({
+    state: this.state,
+    waitForIdle: () => this.mutationCoordinator.waitForIdle(),
+    hasPendingFinalization: () =>
+      !this.isCleaningUp && (this.state.exportDispatched || this.draftController.isTerminalPending),
+    present: (mode) => setSessionPanelRecovery(this.doc, 'video', mode),
+    onError: (error) => {
+      console.warn('[VideoSession] Failed to close session:', error);
+      this.applyHint('failure');
+    }
+  });
+
   private async finish(): Promise<void> {
-    await finishVideoSession(this.operationContext, () => this.cleanup());
+    await this.runEnding(() => finishVideoSession(this.operationContext, () => this.cleanup()));
   }
 
   private cancel(): void {
-    void cancelVideoSession(this.operationContext, () => this.cleanup());
+    void this.runEnding(() => cancelVideoSession(this.operationContext, () => this.cleanup()));
   }
 
   private cleanup(): void {

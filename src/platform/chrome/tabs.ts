@@ -25,7 +25,7 @@ function chromeTabError(error: Error, operation: 'get' | 'send'): Error {
     (/^Could not establish connection\. Receiving end does not exist\.?$/i.test(error.message) ||
       /^The message port closed before a response was received\.?$/i.test(error.message))
   ) {
-    return new TabsBoundaryError('NO_RECEIVER');
+    return new TabsBoundaryError('NO_RECEIVER', !/^The message port closed/i.test(error.message));
   }
   return error;
 }

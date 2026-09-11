@@ -706,5 +706,7 @@
   "onboardingErrorReportingConsentLabel": "エラー診断を送信する",
   "onboardingConsentSupportHint": "このプロジェクトは個人開発です。この2つの項目を有効にしていただくと、開発改善とより良いユーザー体験づくりに役立ちます。",
   "footerOfficialWebsiteLink": "公式サイト",
-  "footerChangelogLink": "変更履歴"
+  "footerChangelogLink": "変更履歴",
+  "runtimeReloadRequired": "Zendio が再読み込みされました。未保存のメモをコピーしてから、ページを再読み込みしてください。",
+  "sessionFinishRetry": "セッションを終了できませんでした。完了またはキャンセルで再試行してください。"
 }

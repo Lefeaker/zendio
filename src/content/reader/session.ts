@@ -1,3 +1,5 @@
+import { createSessionEndingCoordinator } from '../sessionMutations/sessionEndingCoordinator';
+import { setSessionPanelRecovery } from '../shared/panels/sessionPanelRecovery';
 import type { ClipPromptGateway } from '../clipper/application/clipPromptGateway';
 import { DEFAULT_FRAGMENT_CONFIG } from '../clipper/services/fragmentConfig';
 import { handleReaderKeydown, isNodeInsideReaderUi } from './sessionDom';
@@ -104,7 +106,12 @@ export class ReaderSession {
       doc: this.doc,
       fragmentConfig: DEFAULT_FRAGMENT_CONFIG,
       canHandleSelection: () =>
-        !this.state.handlingSelection && !this.state.exporting && !this.state.saving,
+        !this.state.ending &&
+        !this.state.disconnected &&
+        !this.state.handlingSelection &&
+        !this.state.exporting &&
+        !this.state.exportDispatched &&
+        !this.state.saving,
       isNodeInsideUi: (node) =>
         isNodeInsideReaderUi(node, this.panelCoordinator.getElement(), this.doc),
       onSelectionReady: (payload) => {
@@ -393,6 +400,7 @@ export class ReaderSession {
   }
 
   private ingestExternalHighlightPayload(payload: ExternalHighlightPayload): void {
+    if (this.state.ending || this.state.disconnected) return;
     void ingestExternalReaderHighlight(this.operationContext, payload);
   }
 
@@ -401,11 +409,35 @@ export class ReaderSession {
     this.panelCoordinator.updateHighlights(this.state.highlights);
   }
 
+  suspendForReload(): void {
+    this.state.disconnected = true;
+    this.state.ending = true;
+    this.draftController?.suspend();
+    this.selectionController.stop();
+    this.destinationState.dispose();
+    this.environment.stop();
+  }
+
+  private readonly runEnding = createSessionEndingCoordinator({
+    state: this.state,
+    waitForIdle: () => this.draftMutationRunner.waitForIdle(),
+    hasPendingFinalization: () =>
+      isReaderSessionActive(this.doc) &&
+      (this.state.exportDispatched || this.draftController?.isTerminalPending === true),
+    present: (mode) => setSessionPanelRecovery(this.doc, 'reader', mode),
+    onError: (error) => {
+      console.warn('[ReaderSession] Failed to close session:', error);
+      this.panelCoordinator.applyHint('failure', this.state.highlights.length);
+    }
+  });
+
   private async finish(): Promise<void> {
-    await finishReaderSession(
-      this.operationContext,
-      () => this.loadReadingConfig(),
-      (config) => this.applyReadingConfig(config)
+    await this.runEnding(() =>
+      finishReaderSession(
+        this.operationContext,
+        () => this.loadReadingConfig(),
+        (config) => this.applyReadingConfig(config)
+      )
     );
   }
 
@@ -413,6 +445,7 @@ export class ReaderSession {
     this.panelCoordinator.updateDestination(await this.destinationState.refresh());
   }
   private async selectDestination(id: string): Promise<void> {
+    if (this.state.ending || this.state.disconnected) return;
     const previousMetadata = this.destinationState.metadata;
     const previousPreview = this.destinationState.currentPreview;
 
@@ -470,7 +503,7 @@ export class ReaderSession {
   }
 
   private cancel(): void {
-    void cancelReaderSession(this.operationContext);
+    void this.runEnding(() => cancelReaderSession(this.operationContext));
   }
 
   private buildDraftEnvelope(status: Parameters<ReaderSessionDraftController['buildEnvelope']>[0]) {
@@ -504,7 +537,10 @@ export class ReaderSession {
     this.state.saving = true;
 
     try {
-      return await this.draftMutationRunner.run(transaction);
+      return await this.draftMutationRunner.run({
+        ...transaction,
+        shouldRun: () => !this.state.disconnected
+      });
     } finally {
       this.pendingDraftMutations = Math.max(0, this.pendingDraftMutations - 1);
       this.state.saving = this.pendingDraftMutations > 0;
@@ -556,6 +592,7 @@ export class ReaderSession {
   }
 
   private async removeHighlightById(id: string): Promise<void> {
+    if (this.state.ending || this.state.disconnected) return;
     const saved = await removeReaderHighlight(this.operationContext, id);
     if (!saved) {
       throw new Error('Failed to save reader highlight removal.');
@@ -563,6 +600,7 @@ export class ReaderSession {
   }
 
   private async submitHighlightEdit(id: string, nextComment: string): Promise<void> {
+    if (this.state.ending || this.state.disconnected) return;
     const saved = await submitReaderHighlightEdit(this.operationContext, id, nextComment);
     if (!saved) {
       throw new Error('Failed to save reader highlight edit.');

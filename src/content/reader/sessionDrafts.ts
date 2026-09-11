@@ -162,6 +162,7 @@ async function loadReaderDraftCandidate(
         mode: 'reader',
         pageUrl
       });
+  if (selected.outcome === 'conflict' && selected.code === 'OWNER_ACTIVE') return { kind: 'none' };
   if (selected.outcome === 'conflict' || selected.outcome === 'recovery_failed') {
     throw new Error(selected.code);
   }

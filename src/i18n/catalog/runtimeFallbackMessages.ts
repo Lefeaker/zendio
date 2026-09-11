@@ -1,6 +1,9 @@
 import type { Messages } from '../messages';
 
 type RuntimeFallbackMessageKey =
+  | 'reloadButton'
+  | 'runtimeReloadRequired'
+  | 'sessionFinishRetry'
   | 'onboardingSupportModalAfdianLabel'
   | 'onboardingSupportModalCloseButton'
   | 'onboardingSupportModalDescription'
@@ -83,6 +86,9 @@ type RuntimeFallbackMessageKey =
   | 'videoTimestampSectionTitle';
 
 export const RUNTIME_FALLBACK_MESSAGES = {
+  reloadButton: '🔄 Reload',
+  runtimeReloadRequired: 'Zendio was reloaded. Copy any unsaved notes, then reload this page.',
+  sessionFinishRetry: 'Please retry Finish or Cancel to finish closing this session.',
   onboardingSupportModalAfdianLabel: 'WeChat Reward',
   onboardingSupportModalCloseButton: 'Close',
   onboardingSupportModalDescription:

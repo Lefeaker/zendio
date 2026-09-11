@@ -106,6 +106,7 @@ export const firefoxTabsService: TabsService = {
     message: unknown,
     options?: TabsSendOptions
   ): Promise<TResult> {
+    if (options?.documentId) throw new Error('DOCUMENT_TARGETED_MESSAGING_UNAVAILABLE');
     const firefoxApi = ensureFirefox();
     try {
       const response: unknown = await firefoxApi.tabs.sendMessage(tabId, message, options);

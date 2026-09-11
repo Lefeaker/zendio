@@ -3,6 +3,7 @@ import {
   finalizeTerminalSessionDraft,
   settleSessionDraftPersister,
   type FinalizeTerminalSessionDraftResult,
+  type SessionDraftTerminalState,
   type SessionDraftPersister
 } from '../sessionDrafts';
 import {
@@ -13,6 +14,7 @@ import {
 
 export async function finalizeReaderSessionTerminalDraft(args: {
   status: SessionDraftTerminalStatus;
+  state?: SessionDraftTerminalState;
   currentDraftStorageKey: string | null;
   repository: ReturnType<typeof createSessionDraftRepository>;
   persister: SessionDraftPersister;
@@ -30,6 +32,7 @@ export async function finalizeReaderSessionTerminalDraft(args: {
   let draftStorageKey: string | null = null;
   return finalizeTerminalSessionDraft<ReaderSessionDraftEnvelope>({
     repository: args.repository,
+    state: args.state,
     flushPendingDraft: () => args.persister.flushNow(),
     buildTerminalEnvelopes: async () => {
       const terminalEnvelope = await buildTerminalDraftEnvelope(args);

@@ -194,28 +194,54 @@ async function list(
 }
 function queuedStore(context: SessionDraftStoreTransactionContext) {
   const queue = createSessionDraftMutationQueue();
+  const scoped = (documentId?: string): SessionDraftStoreTransactionContext => {
+    const id = Draft.normalizeSessionDraftDocumentId(documentId);
+    return id
+      ? {
+          ...context,
+          documentId: id,
+          leaseId: () => Draft.bindSessionDraftLeaseDocument(context.leaseId(), id)
+        }
+      : context;
+  };
   return {
     readExact: (request: Draft.SessionDraftReadExactRequest) =>
       queue.run(() => read(context, request)),
-    save: (request: Draft.SessionDraftSaveRequest, owner: OwnerInput) =>
-      queue.run(() => mutate(context, request, owner)),
-    finalizeExact: (request: Draft.SessionDraftFinalizeExactRequest, owner: OwnerInput) =>
-      queue.run(() => mutate(context, request, owner)),
-    removeExact: (request: Draft.SessionDraftRemoveExactRequest, owner: OwnerInput) =>
-      queue.run(() => mutate(context, request, owner)),
-    renewLease: (request: Draft.SessionDraftRenewLeaseRequest, owner: OwnerInput) =>
-      queue.run(() => mutate(context, request, owner)),
-    releaseLease: (request: Draft.SessionDraftReleaseLeaseRequest, owner: OwnerInput) =>
-      queue.run(() => mutate(context, request, owner)),
+    save: (request: Draft.SessionDraftSaveRequest, owner: OwnerInput, documentId?: string) =>
+      queue.run(() => mutate(scoped(documentId), request, owner)),
+    finalizeExact: (
+      request: Draft.SessionDraftFinalizeExactRequest,
+      owner: OwnerInput,
+      documentId?: string
+    ) => queue.run(() => mutate(scoped(documentId), request, owner)),
+    removeExact: (
+      request: Draft.SessionDraftRemoveExactRequest,
+      owner: OwnerInput,
+      documentId?: string
+    ) => queue.run(() => mutate(scoped(documentId), request, owner)),
+    renewLease: (
+      request: Draft.SessionDraftRenewLeaseRequest,
+      owner: OwnerInput,
+      documentId?: string
+    ) => queue.run(() => mutate(scoped(documentId), request, owner)),
+    releaseLease: (
+      request: Draft.SessionDraftReleaseLeaseRequest,
+      owner: OwnerInput,
+      documentId?: string
+    ) => queue.run(() => mutate(scoped(documentId), request, owner)),
     migrateLegacyVideoCapture: (
       request: Draft.SessionDraftMigrateLegacyVideoCaptureRequest,
       owner: OwnerInput,
-      senderUrl?: string
-    ) => queue.run(() => migrateLegacyVideoCapture(context, request, owner, senderUrl)),
+      senderUrl?: string,
+      documentId?: string
+    ) => queue.run(() => migrateLegacyVideoCapture(scoped(documentId), request, owner, senderUrl)),
     prune: (request: Draft.SessionDraftPruneRequest) => queue.run(() => mutate(context, request)),
     list: (request: Draft.SessionDraftListRequest) => queue.run(() => list(context, request)),
-    selectAndClaim: (request: Draft.SessionDraftSelectAndClaimRequest, owner: OwnerInput) =>
-      queue.run(() => mutate(context, request, owner))
+    selectAndClaim: (
+      request: Draft.SessionDraftSelectAndClaimRequest,
+      owner: OwnerInput,
+      documentId?: string
+    ) => queue.run(() => mutate(scoped(documentId), request, owner))
   };
 }
 export type SessionDraftStore = ReturnType<typeof queuedStore>;

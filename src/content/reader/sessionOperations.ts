@@ -54,7 +54,13 @@ export function handleReaderSessionSelection(
   context: ReaderSessionOperationContext,
   payload: ReaderSelectionPayload
 ): Promise<void> {
-  if (context.state.saving) {
+  if (
+    context.state.ending ||
+    context.state.disconnected ||
+    context.state.saving ||
+    context.state.exporting ||
+    context.state.exportDispatched
+  ) {
     return Promise.resolve();
   }
 
@@ -84,6 +90,7 @@ export async function handleReaderSessionMouseUp(
 ): Promise<void> {
   if (
     context.state.handlingSelection ||
+    context.state.exportDispatched ||
     context.state.exporting ||
     context.state.saving ||
     event.button !== 0
@@ -300,58 +307,61 @@ export async function finishReaderSession(
   });
 
   try {
-    applyReadingConfig(await loadReadingConfig());
-    context.dependencies.showSupportProgress?.({
-      value: 24,
-      message: {
-        key: 'supportProgressReaderOrganizing',
-        fallback: 'Organizing highlights'
-      }
-    });
-    const highlights = context.dependencies.exporter.prepareHighlights(
-      context.state.highlights,
-      context.highlightManager
-    );
-    const pageTitle = context.doc.title || new URL(context.url).hostname;
-    const documentClone =
-      context.state.readingConfig.exportMode === 'full'
-        ? (context.doc.cloneNode(true) as Document)
-        : undefined;
-
-    if (documentClone) {
-      context.dependencies.exporter.applyTokens(documentClone, highlights);
-    }
-
-    context.dependencies.showSupportProgress?.({
-      value: 32,
-      message: {
-        key: 'supportProgressReaderGenerating',
-        fallback: 'Generating reader note'
-      }
-    });
-    const payload = await context.dependencies.exporter.buildMarkdown({
-      mode: context.state.readingConfig.exportMode,
-      pageTitle,
-      pageUrl: context.url,
-      highlights,
-      ...(documentClone !== undefined && { documentClone })
-    });
     const exportDestination = context.getExportDestinationMetadata?.();
-    if (exportDestination) {
-      payload.meta = {
-        ...payload.meta,
-        exportDestination
-      };
-    }
+    if (!context.state.exportDispatched) {
+      applyReadingConfig(await loadReadingConfig());
+      context.dependencies.showSupportProgress?.({
+        value: 24,
+        message: {
+          key: 'supportProgressReaderOrganizing',
+          fallback: 'Organizing highlights'
+        }
+      });
+      const highlights = context.dependencies.exporter.prepareHighlights(
+        context.state.highlights,
+        context.highlightManager
+      );
+      const pageTitle = context.doc.title || new URL(context.url).hostname;
+      const documentClone =
+        context.state.readingConfig.exportMode === 'full'
+          ? (context.doc.cloneNode(true) as Document)
+          : undefined;
 
-    context.dependencies.showSupportProgress?.({
-      value: 36,
-      message: {
-        key: 'supportProgressReaderSending',
-        fallback: 'Sending to Obsidian'
+      if (documentClone) {
+        context.dependencies.exporter.applyTokens(documentClone, highlights);
       }
-    });
-    await context.dependencies.dispatchClipResult(payload);
+
+      context.dependencies.showSupportProgress?.({
+        value: 32,
+        message: {
+          key: 'supportProgressReaderGenerating',
+          fallback: 'Generating reader note'
+        }
+      });
+      const payload = await context.dependencies.exporter.buildMarkdown({
+        mode: context.state.readingConfig.exportMode,
+        pageTitle,
+        pageUrl: context.url,
+        highlights,
+        ...(documentClone !== undefined && { documentClone })
+      });
+      if (exportDestination) {
+        payload.meta = {
+          ...payload.meta,
+          exportDestination
+        };
+      }
+
+      context.dependencies.showSupportProgress?.({
+        value: 36,
+        message: {
+          key: 'supportProgressReaderSending',
+          fallback: 'Sending to Obsidian'
+        }
+      });
+      await context.dependencies.dispatchClipResult(payload);
+      context.state.exportDispatched = true;
+    }
     const terminalized = (await context.finalizeTerminalDraft?.('exported')) ?? true;
     if (!terminalized) {
       context.dependencies.showSupportProgress?.({
@@ -388,8 +398,13 @@ export async function cancelReaderSession(context: ReaderSessionOperationContext
   if (context.state.exporting) {
     return;
   }
-  const terminalized = (await context.finalizeTerminalDraft?.('discarded')) ?? true;
+  context.state.exporting = true;
+  const terminalized =
+    (await context.finalizeTerminalDraft?.(
+      context.state.exportDispatched ? 'exported' : 'discarded'
+    )) ?? true;
   if (!terminalized) {
+    context.state.exporting = false;
     context.panelCoordinator.applyHint('failure', context.state.highlights.length);
     return;
   }
@@ -417,6 +432,8 @@ export function cleanupReaderSession(context: ReaderSessionOperationContext): vo
 
   clearReaderSession(context.session, context.doc);
   context.state.exporting = false;
+  context.state.exportDispatched = false;
+  context.state.ending = false;
   context.state.saving = false;
   context.state.handlingSelection = false;
   context.state.analyticsTimer = null;
@@ -448,7 +465,7 @@ export async function removeReaderHighlight(
   context: ReaderSessionOperationContext,
   id: string
 ): Promise<boolean> {
-  if (context.state.exporting) {
+  if (context.state.exporting || context.state.exportDispatched) {
     return true;
   }
 
@@ -515,7 +532,7 @@ export async function submitReaderHighlightEdit(
   id: string,
   nextComment: string
 ): Promise<boolean> {
-  if (context.state.exporting) {
+  if (context.state.exporting || context.state.exportDispatched) {
     return true;
   }
 

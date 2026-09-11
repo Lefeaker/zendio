@@ -43,6 +43,18 @@ node scripts/run-bounded-command.mjs --profile npm-script-browser-v1 -- test:e2e
 
 ## 2. 浏览器手动回归口径
 
+### 会话重载与收尾恢复
+
+Reader / Video 共用 `sessionEndingCoordinator` 关闭新编辑入口、等待已接收的编辑落盘，并串行执行完成或取消。终止过程由 `sessionDraftTerminalState` 保留原始 finalize/remove 请求身份；响应丢失后重试延续同一操作。导出成功与草稿清理是两个阶段，同一挂载会话的收尾重试不会再次导出。不能把这种保证扩展为浏览器崩溃跨进程的导出 exactly-once 保证。
+
+后台仍是唯一持久写入者。客户端只保存单调递增的版本观察，并在构造用户保存请求前等待已发出的租约操作。租约续期和释放的迟到响应不得覆盖新状态；终态和失效扩展上下文都停止续期。
+
+支持 `sender.documentId` 的浏览器把受信页面身份绑定到不透明 lease token（`doc1:` 前缀），存储 schema 与 owner 字段保持兼容。未过期租约只有在原页面已确定消失时才能提前接管；普通 `active=false` 回复可能处于租约刚获批、尚未挂载的窗口，不能证明旧 owner 已退出。超时和不确定的消息通道关闭同样不能提前接管。无页面身份的旧租约保留过期判断；schema-v1 草稿通过既有 nonce owner-probe 协议确认现代页面内无旧 writer，未知回复保持保守。兼容的 receipt 标签 `expired_owner_inactive` 同时表示租约过期或已确认原页面消失。
+
+`contentRuntimeConnection` 在用户交互或失联错误时停止旧上下文的会话服务。旧面板保留可复制的文本并提供刷新页面的按钮；恢复提示由面板自身渲染流程维持，不增加 DOM 轮询或观察器。扩展重载后，旧 DOM 标记不能让新运行环境误报 ready。刷新恢复的是已落盘草稿，尚未保存的输入应在刷新前复制保留。
+
+针对性回归包含 `tests/e2e/sessionLifecycleRecovery.browser.test.ts`：正式 content loader、后台存储与 Downloads 出口，覆盖实际扩展重载/页面刷新、原草稿继续编辑、续期回包延迟及删除提交后回包丢失。浏览器测试使用独立 Profile；开发版扩展重载前须开启该 Profile 的 Developer mode。`sessionDraftConcurrency.browser.test.ts` 继续验证活跃 owner 不被抢占与精确清理。
+
 建议至少覆盖：
 
 - Options production Stitch shell 与导航面板

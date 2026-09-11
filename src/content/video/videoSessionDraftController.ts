@@ -1,6 +1,7 @@
 import { createFeatureTimer } from '../../shared/analytics';
 import {
   createSessionDraftPersister,
+  createSessionDraftTerminalState,
   createSessionDraftRepository,
   settleSessionDraftPersister,
   type SessionDraftPersister
@@ -53,6 +54,7 @@ export class VideoSessionDraftController implements VideoSessionDraftRuntimePort
   private readonly draftRepository = createSessionDraftRepository(this.options.storageArea, {
     retentionPolicy: this.options.sessionDraftStoragePolicy?.retentionPolicy
   });
+  private readonly terminalState = createSessionDraftTerminalState();
   private readonly draftId = createVideoSessionDraftId();
   private readonly draftPersister: SessionDraftPersister;
   private readonly screenshotCacheMaintenance = createVideoSessionDraftScreenshotCacheMaintenance(
@@ -93,6 +95,15 @@ export class VideoSessionDraftController implements VideoSessionDraftRuntimePort
       buildEnvelope: () => this.buildDraftEnvelope(),
       onPersistedEnvelope: (envelope) => this.acceptPersistedEnvelope(envelope)
     });
+  }
+  get isTerminalPending(): boolean {
+    return this.terminalState.targets !== null;
+  }
+  suspend(): void {
+    this.leaseLifecycle.clear();
+    this.stopDraftPersistence?.();
+    this.screenshotHydrationGeneration += 1;
+    void this.draftPersister.dispose().catch(() => undefined);
   }
   isTrackingPageUrl(url: string): boolean {
     return this.activeDraftPageUrl === url;
@@ -159,6 +170,7 @@ export class VideoSessionDraftController implements VideoSessionDraftRuntimePort
           mode: 'video',
           pageUrl: this.options.doc.location.href
         });
+    if (selected.outcome === 'conflict' && selected.code === 'OWNER_ACTIVE') return false;
     if (selected.outcome === 'conflict' || selected.outcome === 'recovery_failed') {
       throw new Error(selected.code);
     }
@@ -227,6 +239,7 @@ export class VideoSessionDraftController implements VideoSessionDraftRuntimePort
     this.legacyMigrationRequestId = createLegacyVideoMigrationRequestId();
   }
   async scheduleSave(): Promise<void> {
+    if (this.terminalState.targets !== null) throw new Error('SESSION_DRAFT_TERMINAL_PENDING');
     if (!this.buildDraftEnvelope()) {
       await this.remove();
       return;
@@ -246,6 +259,7 @@ export class VideoSessionDraftController implements VideoSessionDraftRuntimePort
   }
 
   async flushNow(status: SessionDraftStatus = 'active'): Promise<VideoHintState | null> {
+    if (this.terminalState.targets !== null) return 'failure';
     this.pendingDraftStatus = status;
     const cleanupState = this.options.readCleanupState();
     try {
@@ -305,6 +319,7 @@ export class VideoSessionDraftController implements VideoSessionDraftRuntimePort
     const finalized = await finalizeVideoSessionTerminalDraft({
       status,
       repository: this.draftRepository,
+      state: this.terminalState,
       flushPendingDraft: async () => {
         const result = await this.flushNow('active');
         if (result === 'failure') {

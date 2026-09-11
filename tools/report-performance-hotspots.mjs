@@ -7,6 +7,16 @@ import { TextDecoder } from 'node:util';
 const ROOT = process.cwd();
 
 export const MAX_LINE_BUDGETS = new Map([
+  // 2026-09-11: document ownership and retry state remain with their existing
+  // owners. Review the accepted lifecycle changes as a whole, without slicing
+  // coherent functions solely to stay below the 250-line discovery threshold.
+  ['src/background/listeners/sessionDraftMessages.ts', 260],
+  ['src/background/services/sessionDraftOwnerLivenessProbe.ts', 266],
+  ['src/background/services/sessionDraftStore.ts', 274],
+  ['src/background/services/sessionDraftStoreMutations.ts', 267],
+  ['src/content/reader/readerSessionDraftController.ts', 261],
+  ['src/shared/sessionDrafts/index.ts', 251],
+  ['src/shared/sessionDrafts/pageIdentity.ts', 251],
   ['src/i18n/generated/localeRegistry.generated.ts', 8899],
   ['src/i18n/generated/schemaMessages.generated.ts', 481],
   // 2026-06-29 v0.2.1 changelog sync: schema core now carries the accepted
@@ -14,7 +24,7 @@ export const MAX_LINE_BUDGETS = new Map([
   ['src/i18n/generated/schemaCore.generated.ts', 445],
   // 2026-07-20 selection-trigger policy: generated runtime messages carry the
   // explicit disabled, direct, and modifier mode copy plus diagnostics copy.
-  ['src/i18n/generated/messages.generated.ts', 1142],
+  ['src/i18n/generated/messages.generated.ts', 1144],
   ['src/i18n/generated/locales/fr.generated.ts', 785],
   ['src/i18n/generated/locales/es-419.generated.ts', 777],
   ['src/i18n/generated/locales/es-ES.generated.ts', 777],
@@ -63,7 +73,7 @@ export const MAX_LINE_BUDGETS = new Map([
   // 2026-06-13 GA P01: schema-owned contract replaces duplicated catalog and
   // sanitizer tables; current exact schema hotspot budget is the new source of truth.
   ['src/shared/analytics/schema/analyticsSchema.ts', 527],
-  ['src/content/video/sessionOperations.ts', 433],
+  ['src/content/video/sessionOperations.ts', 442],
   ['src/content/video/platforms/bilibiliRichText.ts', 302],
   ['src/content/video/platforms/bilibiliPlatformObserver.ts', 286],
   // 2026-06-20 Options/onboarding closeout: keep current video prompt lifecycle
@@ -72,13 +82,13 @@ export const MAX_LINE_BUDGETS = new Map([
   ['src/shared/analytics/analyticsSanitizers.ts', 460],
   ['src/background/pipelines/connectionTest.ts', 697],
   ['src/onboarding/bootstrap.ts', 556],
-  ['src/background/services/notifications.ts', 451],
+  ['src/background/services/notifications.ts', 452],
   ['src/background/trialLifecycle.ts', 276],
   ['src/shared/config/optionsMerger.ts', 406],
   ['src/dev/localVaultWriteHarness.ts', 411],
   // 2026-06-11: Session mutation architecture adds fail-closed terminal draft
   // finalization and shared transaction plumbing across reader/video surfaces.
-  ['src/content/video/videoSessionRuntime.ts', 531],
+  ['src/content/video/videoSessionRuntime.ts', 563],
   // 2026-06-13 final combined integration: queue now carries explicit visible
   // capture request tracking while preserving the lazy screenshot preparation split.
   ['src/content/video/videoScreenshotPreparationQueue.ts', 401],
@@ -98,7 +108,7 @@ export const MAX_LINE_BUDGETS = new Map([
   ['src/content/video/videoScreenshotPreparationRequestStore.ts', 294],
   ['src/content/video/videoScreenshotPreparationCoordinator.ts', 147],
   ['src/content/video/videoScreenshotPreparationQueueOwner.ts', 180],
-  ['src/content/reader/session.ts', 575],
+  ['src/content/reader/session.ts', 613],
   ['src/content/video/videoControlBarButton.ts', 299],
   // 2026-06-20 support-link closeout: runtime surface copy now uses the shared
   // Zendio link registry while preserving the existing surface renderer split.
@@ -116,7 +126,7 @@ export const MAX_LINE_BUDGETS = new Map([
   ['src/background/services/obsidianWriter.ts', 423],
   ['src/background/vault-router.ts', 422],
   ['src/shared/state/globalStateManager.ts', 345],
-  ['src/content/reader/sessionOperations.ts', 643],
+  ['src/content/reader/sessionOperations.ts', 659],
   ['src/i18n/config.ts', 343],
   ['src/content/ui/supportPrompt.ts', 345],
   ['src/options/services/connectionTester.ts', 368],
@@ -138,7 +148,7 @@ export const MAX_LINE_BUDGETS = new Map([
   ['src/components/trial-notice.ts', 376],
   ['src/content/clipper/services/contextCapture.ts', 305],
   // 2026-06-12 P03: video session draft ownership moved into a focused controller.
-  ['src/content/video/videoSessionDraftController.ts', 401],
+  ['src/content/video/videoSessionDraftController.ts', 416],
   ['src/options/app/productionStitchActions.ts', 302],
   ['src/options/app/productionStitchLocalization.ts', 350],
   ['src/options/app/vaultConnectionTests.ts', 290],

@@ -11,6 +11,7 @@ import {
 } from './sessionDraftPayload';
 import {
   createSessionDraftPersister,
+  createSessionDraftTerminalState,
   createSessionDraftRepository,
   type SessionDraftPersister
 } from '../sessionDrafts';
@@ -40,6 +41,7 @@ export type {
 export class ReaderSessionDraftController {
   private readonly repository: ReturnType<typeof createSessionDraftRepository>;
   private readonly persister: SessionDraftPersister;
+  private readonly terminalState = createSessionDraftTerminalState();
   private draftId: string | null = null;
   private draftCreatedAt: number | null = null;
   private draftStorageKey: string | null = null;
@@ -79,6 +81,14 @@ export class ReaderSessionDraftController {
     });
   }
 
+  get isTerminalPending(): boolean {
+    return this.terminalState.targets !== null;
+  }
+  suspend(): void {
+    this.leaseLifecycle.clear();
+    this.removeLifecycleListeners?.();
+    void this.persister.dispose().catch(() => undefined);
+  }
   get identity(): ReaderSessionDraftIdentity {
     return {
       draftId: this.draftId,
@@ -128,6 +138,7 @@ export class ReaderSessionDraftController {
   }
 
   async persistMutation(): Promise<void> {
+    if (this.terminalState.targets !== null) throw new Error('SESSION_DRAFT_TERMINAL_PENDING');
     if (!this.hasPersistableDraftContent()) {
       await this.clearPersistedDraft();
       return;
@@ -154,6 +165,7 @@ export class ReaderSessionDraftController {
     const finalized = await finalizeReaderSessionTerminalDraft({
       status,
       currentDraftStorageKey: this.draftStorageKey,
+      state: this.terminalState,
       repository: this.repository,
       persister: this.persister,
       buildCurrentEnvelope: (nextStatus) => this.buildEnvelope(nextStatus),

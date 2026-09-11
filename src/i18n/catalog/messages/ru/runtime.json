@@ -706,5 +706,7 @@
   "onboardingErrorReportingConsentLabel": "Разрешить диагностику ошибок",
   "onboardingConsentSupportHint": "Этот проект разрабатывается одним человеком. Если вы включите эти два параметра, это поможет улучшать разработку и делать пользовательский опыт лучше.",
   "footerOfficialWebsiteLink": "Официальный сайт",
-  "footerChangelogLink": "Журнал изменений"
+  "footerChangelogLink": "Журнал изменений",
+  "runtimeReloadRequired": "Zendio был перезагружен. Скопируйте несохранённые заметки и обновите страницу.",
+  "sessionFinishRetry": "Завершение прервано. Повторно нажмите «Завершить» или «Отмена»."
 }

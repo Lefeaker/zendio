@@ -88,6 +88,30 @@ describe('report-performance-hotspots', () => {
 
   it('keeps the exact normalized budget transitions and every other budget unchanged', () => {
     const registeredBudgets = readRegisteredBudgets();
+    // Verify the reviewed recovery delta, then reconstruct the prior map so the
+    // existing hash continues to protect every unrelated budget unchanged.
+    const recovery: Array<[string, number | null, number]> = [
+      ['src/background/listeners/sessionDraftMessages.ts', null, 260],
+      ['src/background/services/notifications.ts', 451, 452],
+      ['src/background/services/sessionDraftOwnerLivenessProbe.ts', null, 266],
+      ['src/background/services/sessionDraftStore.ts', null, 274],
+      ['src/background/services/sessionDraftStoreMutations.ts', null, 267],
+      ['src/content/reader/readerSessionDraftController.ts', null, 261],
+      ['src/content/reader/session.ts', 575, 613],
+      ['src/content/reader/sessionOperations.ts', 643, 659],
+      ['src/content/video/sessionOperations.ts', 433, 442],
+      ['src/content/video/videoSessionDraftController.ts', 401, 416],
+      ['src/content/video/videoSessionRuntime.ts', 531, 563],
+      ['src/i18n/generated/messages.generated.ts', 1142, 1144],
+      ['src/shared/sessionDrafts/index.ts', null, 251],
+      ['src/shared/sessionDrafts/pageIdentity.ts', null, 251]
+    ];
+    expect(registeredBudgets.size).toBe(156);
+    for (const [file, before, after] of recovery) {
+      expect(registeredBudgets.get(file)).toBe(after);
+      if (before === null) registeredBudgets.delete(file);
+      else registeredBudgets.set(file, before);
+    }
     expect(registeredBudgets.size).toBe(149);
     for (const [relativePath, budget] of Object.entries(TARGET_BUDGETS)) {
       expect(registeredBudgets.get(relativePath)).toBe(budget);

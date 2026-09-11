@@ -17,6 +17,7 @@ interface NativeMessageSender {
   id?: string | undefined;
   tab?: NativeMessageTab | undefined;
   frameId?: number | undefined;
+  documentId?: string | undefined;
   url?: string | undefined;
   origin?: string | undefined;
 }
@@ -75,6 +76,7 @@ export function createMessageSenderInfo(
   if (sender?.tab?.id !== undefined) result.tabId = sender.tab.id;
   if (sender?.tab?.windowId !== undefined) result.windowId = sender.tab.windowId;
   if (sender?.frameId !== undefined) result.frameId = sender.frameId;
+  if (sender?.documentId !== undefined) result.documentId = sender.documentId;
 
   const url = sender?.url ?? sender?.tab?.url;
   if (url !== undefined) result.url = url;

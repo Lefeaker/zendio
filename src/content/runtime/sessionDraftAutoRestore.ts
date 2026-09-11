@@ -45,6 +45,7 @@ export function startSessionDraftAutoRestore(
     });
     if (result.outcome === 'claimed' && result.envelope) return result.envelope;
     if (result.outcome === 'none' || result.outcome === 'invalid_removed') return null;
+    if (result.outcome === 'conflict' && result.code === 'OWNER_ACTIVE') return null;
     if (result.outcome === 'conflict' || result.outcome === 'recovery_failed') {
       throw new Error(result.code);
     }

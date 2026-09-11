@@ -49,6 +49,7 @@ export async function injectClipper(
     state.autoInjectedTabs.add(tabId);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
+    if (message.includes('CONTENT_RUNTIME_RELOAD_REQUIRED')) state.autoInjectedTabs.add(tabId);
     console.error('[contextMenu] Failed to inject content script:', error);
     if (!options?.silent) {
       await notifyInjectionFailure(message);
