@@ -20,13 +20,13 @@ jobs:
     name: Static preflight
     runs-on: ubuntu-24.04
     timeout-minutes: 60
+    env:
+      ZENDIO_JOB_CLASS: static-preflight-v1
+      ZENDIO_JOB_TIMEOUT_MINUTES: '60'
 
     steps:
       - name: Bootstrap command boundary
         shell: bash
-        env:
-          ZENDIO_JOB_CLASS: static-preflight-v1
-          ZENDIO_JOB_TIMEOUT_MINUTES: '60'
         run: |
           set -euo pipefail
           export LC_ALL=C LANG=C
@@ -80,9 +80,6 @@ jobs:
       - name: Setup Node dependencies
         id: node
         uses: ./.github/actions/setup-node-deps
-        env:
-          ZENDIO_JOB_CLASS: static-preflight-v1
-          ZENDIO_JOB_TIMEOUT_MINUTES: '60'
       - name: Verify CI workflow topology
         env:
           NPM_CONFIG_USERCONFIG: ${{ steps.node.outputs.npm-userconfig }}
@@ -147,13 +144,13 @@ jobs:
     name: Static release surface
     runs-on: ubuntu-24.04
     timeout-minutes: 30
+    env:
+      ZENDIO_JOB_CLASS: generic-v1
+      ZENDIO_JOB_TIMEOUT_MINUTES: '30'
 
     steps:
       - name: Bootstrap command boundary
         shell: bash
-        env:
-          ZENDIO_JOB_CLASS: generic-v1
-          ZENDIO_JOB_TIMEOUT_MINUTES: '30'
         run: |
           set -euo pipefail
           export LC_ALL=C LANG=C
@@ -207,9 +204,6 @@ jobs:
       - name: Setup Node dependencies
         id: node
         uses: ./.github/actions/setup-node-deps
-        env:
-          ZENDIO_JOB_CLASS: generic-v1
-          ZENDIO_JOB_TIMEOUT_MINUTES: '30'
       - name: Build production bundle
         env:
           NPM_CONFIG_USERCONFIG: ${{ steps.node.outputs.npm-userconfig }}
@@ -226,13 +220,13 @@ jobs:
     name: Static generated artifacts
     runs-on: ubuntu-24.04
     timeout-minutes: 30
+    env:
+      ZENDIO_JOB_CLASS: generic-v1
+      ZENDIO_JOB_TIMEOUT_MINUTES: '30'
 
     steps:
       - name: Bootstrap command boundary
         shell: bash
-        env:
-          ZENDIO_JOB_CLASS: generic-v1
-          ZENDIO_JOB_TIMEOUT_MINUTES: '30'
         run: |
           set -euo pipefail
           export LC_ALL=C LANG=C
@@ -286,9 +280,6 @@ jobs:
       - name: Setup Node dependencies
         id: node
         uses: ./.github/actions/setup-node-deps
-        env:
-          ZENDIO_JOB_CLASS: generic-v1
-          ZENDIO_JOB_TIMEOUT_MINUTES: '30'
       - name: Verify generated Chrome locales are up to date
         env:
           NPM_CONFIG_USERCONFIG: ${{ steps.node.outputs.npm-userconfig }}
@@ -305,13 +296,13 @@ jobs:
     name: Static style and locale audits
     runs-on: ubuntu-24.04
     timeout-minutes: 30
+    env:
+      ZENDIO_JOB_CLASS: generic-v1
+      ZENDIO_JOB_TIMEOUT_MINUTES: '30'
 
     steps:
       - name: Bootstrap command boundary
         shell: bash
-        env:
-          ZENDIO_JOB_CLASS: generic-v1
-          ZENDIO_JOB_TIMEOUT_MINUTES: '30'
         run: |
           set -euo pipefail
           export LC_ALL=C LANG=C
@@ -365,9 +356,6 @@ jobs:
       - name: Setup Node dependencies
         id: node
         uses: ./.github/actions/setup-node-deps
-        env:
-          ZENDIO_JOB_CLASS: generic-v1
-          ZENDIO_JOB_TIMEOUT_MINUTES: '30'
       - name: Locale source alignment audit report
         env:
           NPM_CONFIG_USERCONFIG: ${{ steps.node.outputs.npm-userconfig }}
@@ -402,13 +390,13 @@ jobs:
     name: Static reporting audits
     runs-on: ubuntu-24.04
     timeout-minutes: 30
+    env:
+      ZENDIO_JOB_CLASS: generic-v1
+      ZENDIO_JOB_TIMEOUT_MINUTES: '30'
 
     steps:
       - name: Bootstrap command boundary
         shell: bash
-        env:
-          ZENDIO_JOB_CLASS: generic-v1
-          ZENDIO_JOB_TIMEOUT_MINUTES: '30'
         run: |
           set -euo pipefail
           export LC_ALL=C LANG=C
@@ -462,9 +450,6 @@ jobs:
       - name: Setup Node dependencies
         id: node
         uses: ./.github/actions/setup-node-deps
-        env:
-          ZENDIO_JOB_CLASS: generic-v1
-          ZENDIO_JOB_TIMEOUT_MINUTES: '30'
       - name: Dependency boundary audit report
         continue-on-error: true
         env:
@@ -490,13 +475,13 @@ jobs:
     name: Unit coverage
     runs-on: ubuntu-24.04
     timeout-minutes: 30
+    env:
+      ZENDIO_JOB_CLASS: generic-v1
+      ZENDIO_JOB_TIMEOUT_MINUTES: '30'
 
     steps:
       - name: Bootstrap command boundary
         shell: bash
-        env:
-          ZENDIO_JOB_CLASS: generic-v1
-          ZENDIO_JOB_TIMEOUT_MINUTES: '30'
         run: |
           set -euo pipefail
           export LC_ALL=C LANG=C
@@ -550,9 +535,6 @@ jobs:
       - name: Setup Node dependencies
         id: node
         uses: ./.github/actions/setup-node-deps
-        env:
-          ZENDIO_JOB_CLASS: generic-v1
-          ZENDIO_JOB_TIMEOUT_MINUTES: '30'
       - name: Run unit tests with coverage thresholds
         env:
           NPM_CONFIG_USERCONFIG: ${{ steps.node.outputs.npm-userconfig }}
@@ -619,6 +601,9 @@ jobs:
     name: Visual regression (${{ matrix.project }})
     runs-on: ubuntu-24.04
     timeout-minutes: 60
+    env:
+      ZENDIO_JOB_CLASS: browser-v1
+      ZENDIO_JOB_TIMEOUT_MINUTES: '60'
     strategy:
       fail-fast: false
       matrix:
@@ -630,9 +615,6 @@ jobs:
     steps:
       - name: Bootstrap command boundary
         shell: bash
-        env:
-          ZENDIO_JOB_CLASS: browser-v1
-          ZENDIO_JOB_TIMEOUT_MINUTES: '60'
         run: |
           set -euo pipefail
           export LC_ALL=C LANG=C
@@ -686,9 +668,6 @@ jobs:
       - name: Setup Playwright
         id: playwright
         uses: ./.github/actions/setup-playwright
-        env:
-          ZENDIO_JOB_CLASS: browser-v1
-          ZENDIO_JOB_TIMEOUT_MINUTES: '60'
       - name: Run visual regression tests
         env:
           NPM_CONFIG_USERCONFIG: ${{ steps.playwright.outputs.npm-userconfig }}
@@ -710,13 +689,13 @@ jobs:
     name: E2E Vitest
     runs-on: ubuntu-24.04
     timeout-minutes: 30
+    env:
+      ZENDIO_JOB_CLASS: generic-v1
+      ZENDIO_JOB_TIMEOUT_MINUTES: '30'
 
     steps:
       - name: Bootstrap command boundary
         shell: bash
-        env:
-          ZENDIO_JOB_CLASS: generic-v1
-          ZENDIO_JOB_TIMEOUT_MINUTES: '30'
         run: |
           set -euo pipefail
           export LC_ALL=C LANG=C
@@ -770,9 +749,6 @@ jobs:
       - name: Setup Node dependencies
         id: node
         uses: ./.github/actions/setup-node-deps
-        env:
-          ZENDIO_JOB_CLASS: generic-v1
-          ZENDIO_JOB_TIMEOUT_MINUTES: '30'
       - name: Run Vitest end-to-end tests
         env:
           NPM_CONFIG_USERCONFIG: ${{ steps.node.outputs.npm-userconfig }}
@@ -783,13 +759,13 @@ jobs:
     name: Browser YAML flow
     runs-on: ubuntu-24.04
     timeout-minutes: 60
+    env:
+      ZENDIO_JOB_CLASS: browser-v1
+      ZENDIO_JOB_TIMEOUT_MINUTES: '60'
 
     steps:
       - name: Bootstrap command boundary
         shell: bash
-        env:
-          ZENDIO_JOB_CLASS: browser-v1
-          ZENDIO_JOB_TIMEOUT_MINUTES: '60'
         run: |
           set -euo pipefail
           export LC_ALL=C LANG=C
@@ -843,9 +819,6 @@ jobs:
       - name: Setup Playwright
         id: playwright
         uses: ./.github/actions/setup-playwright
-        env:
-          ZENDIO_JOB_CLASS: browser-v1
-          ZENDIO_JOB_TIMEOUT_MINUTES: '60'
       - name: Run browser YAML tests
         env:
           NPM_CONFIG_USERCONFIG: ${{ steps.playwright.outputs.npm-userconfig }}
@@ -868,13 +841,13 @@ jobs:
     name: Browser reader panel flow
     runs-on: ubuntu-24.04
     timeout-minutes: 60
+    env:
+      ZENDIO_JOB_CLASS: browser-v1
+      ZENDIO_JOB_TIMEOUT_MINUTES: '60'
 
     steps:
       - name: Bootstrap command boundary
         shell: bash
-        env:
-          ZENDIO_JOB_CLASS: browser-v1
-          ZENDIO_JOB_TIMEOUT_MINUTES: '60'
         run: |
           set -euo pipefail
           export LC_ALL=C LANG=C
@@ -928,9 +901,6 @@ jobs:
       - name: Setup Playwright
         id: playwright
         uses: ./.github/actions/setup-playwright
-        env:
-          ZENDIO_JOB_CLASS: browser-v1
-          ZENDIO_JOB_TIMEOUT_MINUTES: '60'
       - name: Run browser reader panel tests
         env:
           NPM_CONFIG_USERCONFIG: ${{ steps.playwright.outputs.npm-userconfig }}
@@ -953,13 +923,13 @@ jobs:
     name: Browser smoke flow
     runs-on: ubuntu-24.04
     timeout-minutes: 60
+    env:
+      ZENDIO_JOB_CLASS: browser-v1
+      ZENDIO_JOB_TIMEOUT_MINUTES: '60'
 
     steps:
       - name: Bootstrap command boundary
         shell: bash
-        env:
-          ZENDIO_JOB_CLASS: browser-v1
-          ZENDIO_JOB_TIMEOUT_MINUTES: '60'
         run: |
           set -euo pipefail
           export LC_ALL=C LANG=C
@@ -1013,9 +983,6 @@ jobs:
       - name: Setup Playwright
         id: playwright
         uses: ./.github/actions/setup-playwright
-        env:
-          ZENDIO_JOB_CLASS: browser-v1
-          ZENDIO_JOB_TIMEOUT_MINUTES: '60'
       - name: Run browser smoke tests
         env:
           NPM_CONFIG_USERCONFIG: ${{ steps.playwright.outputs.npm-userconfig }}
@@ -1038,13 +1005,13 @@ jobs:
     name: Browser video flow
     runs-on: ubuntu-24.04
     timeout-minutes: 60
+    env:
+      ZENDIO_JOB_CLASS: browser-v1
+      ZENDIO_JOB_TIMEOUT_MINUTES: '60'
 
     steps:
       - name: Bootstrap command boundary
         shell: bash
-        env:
-          ZENDIO_JOB_CLASS: browser-v1
-          ZENDIO_JOB_TIMEOUT_MINUTES: '60'
         run: |
           set -euo pipefail
           export LC_ALL=C LANG=C
@@ -1098,9 +1065,6 @@ jobs:
       - name: Setup Playwright
         id: playwright
         uses: ./.github/actions/setup-playwright
-        env:
-          ZENDIO_JOB_CLASS: browser-v1
-          ZENDIO_JOB_TIMEOUT_MINUTES: '60'
       - name: Run browser video tests
         env:
           NPM_CONFIG_USERCONFIG: ${{ steps.playwright.outputs.npm-userconfig }}
@@ -1121,13 +1085,13 @@ jobs:
     name: Browser Firefox flow
     runs-on: ubuntu-24.04
     timeout-minutes: 60
+    env:
+      ZENDIO_JOB_CLASS: browser-v1
+      ZENDIO_JOB_TIMEOUT_MINUTES: '60'
 
     steps:
       - name: Bootstrap command boundary
         shell: bash
-        env:
-          ZENDIO_JOB_CLASS: browser-v1
-          ZENDIO_JOB_TIMEOUT_MINUTES: '60'
         run: |
           set -euo pipefail
           export LC_ALL=C LANG=C
@@ -1181,9 +1145,6 @@ jobs:
       - name: Setup Node dependencies
         id: node
         uses: ./.github/actions/setup-node-deps
-        env:
-          ZENDIO_JOB_CLASS: browser-v1
-          ZENDIO_JOB_TIMEOUT_MINUTES: '60'
       - name: Install Firefox host dependencies
         env:
           NPM_CONFIG_USERCONFIG: ${{ steps.node.outputs.npm-userconfig }}
@@ -1219,13 +1180,13 @@ jobs:
     name: Browser state flow
     runs-on: ubuntu-24.04
     timeout-minutes: 60
+    env:
+      ZENDIO_JOB_CLASS: browser-v1
+      ZENDIO_JOB_TIMEOUT_MINUTES: '60'
 
     steps:
       - name: Bootstrap command boundary
         shell: bash
-        env:
-          ZENDIO_JOB_CLASS: browser-v1
-          ZENDIO_JOB_TIMEOUT_MINUTES: '60'
         run: |
           set -euo pipefail
           export LC_ALL=C LANG=C
@@ -1279,9 +1240,6 @@ jobs:
       - name: Setup Playwright
         id: playwright
         uses: ./.github/actions/setup-playwright
-        env:
-          ZENDIO_JOB_CLASS: browser-v1
-          ZENDIO_JOB_TIMEOUT_MINUTES: '60'
       - name: Run browser state tests
         env:
           ZENDIO_PLAYWRIGHT_ATTEMPT_ROOT: ${{ steps.playwright.outputs.attempt-root }}
@@ -1303,13 +1261,13 @@ jobs:
     name: Browser architecture flow
     runs-on: ubuntu-24.04
     timeout-minutes: 60
+    env:
+      ZENDIO_JOB_CLASS: browser-v1
+      ZENDIO_JOB_TIMEOUT_MINUTES: '60'
 
     steps:
       - name: Bootstrap command boundary
         shell: bash
-        env:
-          ZENDIO_JOB_CLASS: browser-v1
-          ZENDIO_JOB_TIMEOUT_MINUTES: '60'
         run: |
           set -euo pipefail
           export LC_ALL=C LANG=C
@@ -1363,9 +1321,6 @@ jobs:
       - name: Setup Playwright
         id: playwright
         uses: ./.github/actions/setup-playwright
-        env:
-          ZENDIO_JOB_CLASS: browser-v1
-          ZENDIO_JOB_TIMEOUT_MINUTES: '60'
       - name: Run browser architecture tests
         env:
           ZENDIO_PLAYWRIGHT_ATTEMPT_ROOT: ${{ steps.playwright.outputs.attempt-root }}
@@ -1387,14 +1342,14 @@ jobs:
     name: Package extension
     runs-on: ubuntu-24.04
     timeout-minutes: 35
+    env:
+      ZENDIO_JOB_CLASS: package-extension-v1
+      ZENDIO_JOB_TIMEOUT_MINUTES: '35'
     needs: [static-preflight]
 
     steps:
       - name: Bootstrap command boundary
         shell: bash
-        env:
-          ZENDIO_JOB_CLASS: package-extension-v1
-          ZENDIO_JOB_TIMEOUT_MINUTES: '35'
         run: |
           set -euo pipefail
           export LC_ALL=C LANG=C
@@ -1448,9 +1403,6 @@ jobs:
       - name: Setup Node dependencies
         id: node
         uses: ./.github/actions/setup-node-deps
-        env:
-          ZENDIO_JOB_CLASS: package-extension-v1
-          ZENDIO_JOB_TIMEOUT_MINUTES: '35'
       - name: Build production bundle
         env:
           NPM_CONFIG_USERCONFIG: ${{ steps.node.outputs.npm-userconfig }}

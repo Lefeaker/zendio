@@ -25,6 +25,7 @@ interface ParsedStep {
 }
 
 interface ParsedJob {
+  env?: Record<string, string>;
   id: string;
   name?: string;
   runsOn?: string;
@@ -83,6 +84,25 @@ describe('bounded CI workflow contract', () => {
       stdout: cli.stdout,
       stderr: cli.stderr
     }).toEqual({ status: 0, signal: null, stdout: '', stderr: '' });
+  });
+
+  it('keeps command context at job scope and rejects missing or shadowed bindings', async () => {
+    const contract = await loadContract();
+    const workflow = read('.github/workflows/ci.yml');
+    const context =
+      "    env:\n      ZENDIO_JOB_CLASS: static-preflight-v1\n      ZENDIO_JOB_TIMEOUT_MINUTES: '60'\n";
+    expect(contract.parseCiWorkflowJobs(workflow).jobs.get('static-preflight')?.env).toEqual({
+      ZENDIO_JOB_CLASS: 'static-preflight-v1',
+      ZENDIO_JOB_TIMEOUT_MINUTES: '60'
+    });
+    expect(contract.checkCiWorkflowContract({ workflow: workflow.replace(context, '') }).ok).toBe(
+      false
+    );
+    const shadowed = workflow.replace(
+      '      - name: Verify CI workflow topology',
+      '      - env:\n          ZENDIO_JOB_CLASS: generic-v1\n        name: Verify CI workflow topology'
+    );
+    expect(contract.checkCiWorkflowContract({ workflow: shadowed }).ok).toBe(false);
   });
 
   it('locks the sixteen jobs, Ubuntu image, and timeout taxonomy', async () => {

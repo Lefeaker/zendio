@@ -193,7 +193,7 @@ function same(left, right) {
 }
 
 function g00BrowserJobContract(job, block, contract) {
-  if (!same(job.fields, ['name', 'runs-on', 'timeout-minutes', 'steps'])) {
+  if (!same(job.fields, ['name', 'runs-on', 'timeout-minutes', 'env', 'steps'])) {
     throw new Error('top-level job fields changed');
   }
   if (job.name !== contract.displayName) throw new Error('display name changed');
@@ -483,10 +483,11 @@ export function checkCiWorkflowContract({
       if (setup?.uses !== setupAction) throw new Error('setup action changed');
       const block = getJobBlock(workflow, jobId);
       if (
-        !block.includes(`ZENDIO_JOB_CLASS: ${jobClass}`) ||
-        !block.includes(`ZENDIO_JOB_TIMEOUT_MINUTES: '${timeout}'`)
+        !same(job.env, { ZENDIO_JOB_CLASS: jobClass, ZENDIO_JOB_TIMEOUT_MINUTES: timeout }) ||
+        count(block, /^\s+ZENDIO_JOB_CLASS:/gmu) !== 1 ||
+        count(block, /^\s+ZENDIO_JOB_TIMEOUT_MINUTES:/gmu) !== 1
       ) {
-        throw new Error('job class or timeout input changed');
+        throw new Error('job class and timeout must be inherited from one job environment');
       }
       const runs = job.steps.slice(1).flatMap((step) => (step.run ? [step.run] : []));
       if (!same(runs, EXPECTED_RUNS[jobId])) throw new Error('managed command sequence changed');

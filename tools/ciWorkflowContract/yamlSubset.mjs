@@ -12,6 +12,7 @@ export function parseCiWorkflowJobs(workflow) {
   let currentStep;
   let inSteps = false;
   let inWith = false;
+  let inJobEnvironment = false;
 
   for (let index = jobsIndex + 1; index < lines.length; index += 1) {
     const line = lines[index];
@@ -34,6 +35,7 @@ export function parseCiWorkflowJobs(workflow) {
       currentStep = undefined;
       inSteps = false;
       inWith = false;
+      inJobEnvironment = false;
       continue;
     }
     if (!currentJob) continue;
@@ -42,6 +44,11 @@ export function parseCiWorkflowJobs(workflow) {
     if (jobField) {
       const { key, rawValue } = jobField;
       currentJob.fields.push(key);
+      inJobEnvironment = key === 'env';
+      if (inJobEnvironment) {
+        if (rawValue !== '') throw new Error('CI job environment must be a mapping.');
+        currentJob.env = {};
+      }
       if (key === 'steps') {
         inSteps = true;
       } else if (
@@ -51,6 +58,15 @@ export function parseCiWorkflowJobs(workflow) {
       }
       currentStep = undefined;
       inWith = false;
+      continue;
+    }
+    if (inJobEnvironment) {
+      const field = parseYamlField(line, 6);
+      if (field) {
+        if (Object.hasOwn(currentJob.env, field.key))
+          throw new Error('Duplicate CI job environment key.');
+        currentJob.env[field.key] = parseYamlScalar(field.rawValue);
+      }
       continue;
     }
     if (!inSteps) continue;
