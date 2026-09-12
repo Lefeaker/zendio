@@ -258,9 +258,9 @@ describe('local command parallelization contract', () => {
   it('admits the exact G00 browser and ownership routes through their fixed profiles', () => {
     const scripts = readPackageScripts();
     const stateScript =
-      'npm run verify:runtime && node scripts/run-playwright.mjs test tests/e2e/sessionDraftConcurrency.browser.test.ts tests/e2e/optionsCrossContextMutation.browser.test.ts tests/e2e/videoScreenshotCacheMigration.browser.test.ts --project=chromium-desktop';
+      'npm run verify:runtime && node scripts/run-playwright.mjs test tests/e2e/sessionDraftConcurrency.browser.test.ts tests/e2e/sessionLifecycleRecovery.browser.test.ts tests/e2e/optionsCrossContextMutation.browser.test.ts tests/e2e/videoScreenshotCacheMigration.browser.test.ts --project=chromium-desktop';
     const architectureScript =
-      'npm run verify:runtime && node scripts/run-playwright.mjs test tests/e2e/uiPrimitiveTokenParity.browser.test.ts tests/e2e/contentIdleCss.browser.test.ts tests/e2e/sessionPanelsIncremental.browser.test.ts tests/e2e/optionsIncrementalRender.browser.test.ts --project=chromium-desktop';
+      'npm run verify:runtime && node scripts/run-playwright.mjs test tests/e2e/uiPrimitiveTokenParity.browser.test.ts tests/e2e/contentIdleCss.browser.test.ts tests/e2e/sessionPanelsIncremental.browser.test.ts tests/e2e/optionsIncrementalRender.browser.test.ts tests/e2e/optionsCaptureControls.browser.test.ts tests/e2e/runtimeSurfaceNavigation.browser.test.ts --project=chromium-desktop';
     const browserScripts = ['test:e2e:browser:state', 'test:e2e:browser:architecture'];
     const ownershipScripts = [
       'audit:test-suite-ownership:report',

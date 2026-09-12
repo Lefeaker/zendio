@@ -7,6 +7,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { buildZipFixture } from '../../utils/zipFixtureBuilder';
 import { createSharedFirefoxFixture } from '../../utils/firefoxBrowserInputFixture';
 import { resolveFirefoxBrowserInput } from '../../../scripts/config/commandBoundaryProfiles.mjs';
+import { readPackageVersion } from '../../../scripts/utils/packageMetadata.mjs';
 import {
   canonicalArtifactJson,
   createFirefoxReleaseArtifactManifest,
@@ -230,14 +231,14 @@ function createHarness(
   addonResponses: Array<AddonIdentity | null> = [
     {
       id: geckoId,
-      version: '0.2.1',
+      version: readPackageVersion(),
       isActive: true,
       appDisabled: false,
       userDisabled: false
     },
     {
       id: geckoId,
-      version: '0.2.1',
+      version: readPackageVersion(),
       isActive: true,
       appDisabled: false,
       userDisabled: false
@@ -246,6 +247,7 @@ function createHarness(
   browserVersion = '150.0.2'
 ) {
   const child = new FakeChild();
+  let now = 0;
   const commands: string[] = [];
   const webdriverEvents: string[] = [];
   const allocatePortImpl = vi
@@ -309,7 +311,11 @@ function createHarness(
       spawnImpl: vi.fn(() => child),
       WebSocketImpl: createFakeWebSocket(commandResponses, commands),
       killProcessGroupImpl,
-      sleepImpl: () => Promise.resolve()
+      now: () => now,
+      sleepImpl: (milliseconds: number) => {
+        now += milliseconds;
+        return Promise.resolve();
+      }
     },
     fetchImpl,
     killProcessGroupImpl
@@ -372,6 +378,37 @@ describe('exact-XPI Firefox WebDriver BiDi smoke adapter', () => {
       expect.objectContaining({ env: createDriverEnvironment(root) })
     );
     await expect(lstat(profileRoot)).rejects.toMatchObject({ code: 'ENOENT' });
+  });
+
+  it('bounds identity polling when the installed add-on version differs from the package', async () => {
+    const root = await realpath(await mkdtemp(join(tmpdir(), 'zendio-firefox-bidi-version-')));
+    roots.push(root);
+    const binding = await mintBinding(root);
+    const harness = createHarness(binding.geckoId, undefined, [
+      {
+        id: binding.geckoId,
+        version: '0.0.0',
+        isActive: true,
+        appDisabled: false,
+        userDisabled: false
+      }
+    ]);
+    await expect(
+      runVerifiedFirefoxXpiSmoke(
+        {
+          binding,
+          firefoxExecutable: '/private/firefox',
+          geckodriverExecutable: join(root, 'geckodriver', 'geckodriver'),
+          profileRoot: join(root, 'profile-root'),
+          transportMode: 'local-private-v1',
+          driverEnvironment: createDriverEnvironment(root)
+        },
+        harness.dependencies
+      )
+    ).rejects.toThrow('FIREFOX_SMOKE_BOOTSTRAP_IDENTITY_TIMEOUT');
+    expect(harness.commands).toEqual(['session.status', 'webExtension.install']);
+    expect(harness.killProcessGroupImpl).toHaveBeenCalled();
+    await expect(lstat(join(root, 'profile-root'))).rejects.toMatchObject({ code: 'ENOENT' });
   });
 
   it('fails when the first installed identity does not match the release Gecko id', async () => {

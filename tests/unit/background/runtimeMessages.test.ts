@@ -193,47 +193,61 @@ describe('runtime message listener', () => {
     };
   }
 
-  it('routes only strict draft messages and derives mutation ownership from the sender', async () => {
-    const dependencies = createDependencies();
-    dependencies.sessionDraftStore.save.mockResolvedValue({
-      outcome: 'conflict',
-      code: 'DRAFT_EXISTS'
-    });
-    const { registerRuntimeMessageListener } =
-      await import('../../../src/background/listeners/runtimeMessages');
-    registerRuntimeMessageListener(dependencies);
+  it.each([undefined, 'document-4-2'])(
+    'derives strict draft ownership from sender document %s',
+    async (documentId) => {
+      const dependencies = createDependencies();
+      dependencies.sessionDraftStore.save.mockResolvedValue({
+        outcome: 'conflict',
+        code: 'DRAFT_EXISTS'
+      });
+      const { registerRuntimeMessageListener } =
+        await import('../../../src/background/listeners/runtimeMessages');
+      registerRuntimeMessageListener(dependencies);
 
-    const request = {
-      operation: 'save',
-      requestId: 'save-1',
-      key: 'zendio:session-draft:v2:reader:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa:draft-1',
-      expectedRevision: null,
-      draft: {
-        draftId: 'draft-1',
-        mode: 'reader',
-        pageUrl: 'https://example.com/article',
-        pageTitle: 'Article',
-        payload: { text: 'draft' }
-      }
-    } satisfies SessionDraftSaveRequest;
-    await expect(
-      listener?.({ type: 'AIIOB_SESSION_DRAFT_V2', request }, { tabId: 4, frameId: 2 })
-    ).resolves.toEqual({ outcome: 'conflict', code: 'DRAFT_EXISTS' });
-    expect(dependencies.sessionDraftStore.save).toHaveBeenCalledWith(request, {
-      tabId: 4,
-      frameId: 2
-    });
-
-    await expect(
-      listener?.(
+      const request = {
+        operation: 'save',
+        requestId: 'save-1',
+        key: 'zendio:session-draft:v2:reader:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa:draft-1',
+        expectedRevision: null,
+        draft: {
+          draftId: 'draft-1',
+          mode: 'reader',
+          pageUrl: 'https://example.com/article',
+          pageTitle: 'Article',
+          payload: { text: 'draft' }
+        }
+      } satisfies SessionDraftSaveRequest;
+      await expect(
+        listener?.(
+          { type: 'AIIOB_SESSION_DRAFT_V2', request },
+          {
+            tabId: 4,
+            frameId: 2,
+            ...(documentId ? { documentId } : {})
+          }
+        )
+      ).resolves.toEqual({ outcome: 'conflict', code: 'DRAFT_EXISTS' });
+      expect(dependencies.sessionDraftStore.save).toHaveBeenCalledWith(
+        request,
         {
-          type: 'AIIOB_SESSION_DRAFT_V2',
-          request: { ...request, owner: { tabId: 99, frameId: 0 } }
+          tabId: 4,
+          frameId: 2
         },
-        { tabId: 4, frameId: 2 }
-      )
-    ).rejects.toThrow('SESSION_DRAFT_REQUEST_INVALID');
-  });
+        documentId
+      );
+
+      await expect(
+        listener?.(
+          {
+            type: 'AIIOB_SESSION_DRAFT_V2',
+            request: { ...request, owner: { tabId: 99, frameId: 0 } }
+          },
+          { tabId: 4, frameId: 2 }
+        )
+      ).rejects.toThrow('SESSION_DRAFT_REQUEST_INVALID');
+    }
+  );
 
   it('routes typed Options and usage mutations through their background owners', async () => {
     const dependencies = createDependencies();

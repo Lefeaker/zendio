@@ -248,6 +248,7 @@ describe('canonical test suite descriptors', () => {
             '--config=playwright.bundled-chromium.config.ts',
             '--project=chromium-desktop',
             'tests/e2e/sessionDraftConcurrency.browser.test.ts',
+            'tests/e2e/sessionLifecycleRecovery.browser.test.ts',
             'tests/e2e/optionsCrossContextMutation.browser.test.ts',
             'tests/e2e/videoScreenshotCacheMigration.browser.test.ts'
           ]

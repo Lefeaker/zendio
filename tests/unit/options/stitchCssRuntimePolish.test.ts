@@ -183,11 +183,13 @@ function injectDeclarationIntoExactRule(
 }
 
 describe('Stitch runtime polish CSS contracts', () => {
-  it('sizes the three-option interface theme segmented control evenly', () => {
-    expect(stitchCss).toContain('grid-template-columns: repeat(3, minmax(86px, 1fr));');
-    expect(stitchCss).toContain('width: calc((100% - var(--space-2)) / 3);');
-    expect(stitchCss).toContain(".interface-theme-grid .chips[data-active-value='dark']::before");
-    expect(stitchCss).toContain(".interface-theme-grid .chips[data-active-value='light']::before");
+  it('shares equal-width animated geometry across segmented controls', () => {
+    const group = requireExactCssRule(stitchCss, '.chips.segmented-control').body;
+    const track = requireExactCssRule(stitchCss, '.chips.segmented-control::before').body;
+    expect(group).toContain('grid-template-columns: repeat(var(--segment-count), minmax(0, 1fr));');
+    expect(track).toContain('width: calc((100% - var(--space-2)) / var(--segment-count));');
+    expect(track).toContain('transform: translateX(calc(var(--segment-index) * 100%));');
+    expect(track).toContain('transition: transform var(--motion-base) var(--ease-standard);');
   });
 
   it('keeps the Options brand website link visually unadorned', () => {
