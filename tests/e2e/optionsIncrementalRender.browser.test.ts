@@ -147,13 +147,13 @@ function mobileNavigationChunkName(): string {
   return file;
 }
 
-async function installHeldMobileNavigationRoute(context: BrowserContext) {
+async function installHeldChunkRoute(context: BrowserContext, chunk: string) {
   const requested = { url: '' };
   let release: () => void = () => undefined;
   const gate = new Promise<void>((resolve) => {
     release = resolve;
   });
-  await context.route('**/chunks/productionStitchMobileNavigation-*.js', async (route) => {
+  await context.route(`**/chunks/${chunk}-*.js`, async (route) => {
     requested.url = route.request().url();
     await gate;
     await route.continue();
@@ -1544,7 +1544,7 @@ test('F06 discriminates installed fallback keyboard and rejected modal focus set
   });
 
   try {
-    const held = await installHeldMobileNavigationRoute(pendingContext);
+    const held = await installHeldChunkRoute(pendingContext, 'productionStitchMobileNavigation');
     const background =
       pendingContext.serviceWorkers()[0] ??
       (await pendingContext.waitForEvent('serviceworker', { timeout: 15_000 }));
@@ -1746,7 +1746,7 @@ test('F06 holds the installed navigation chunk and keeps the pending fallback op
   });
 
   try {
-    const held = await installHeldMobileNavigationRoute(context);
+    const held = await installHeldChunkRoute(context, 'productionStitchMobileNavigation');
     const background =
       context.serviceWorkers()[0] ??
       (await context.waitForEvent('serviceworker', { timeout: 15_000 }));
@@ -1885,7 +1885,8 @@ test('F06 resolves the installed navigation chunk without stealing modal or main
     });
 
     try {
-      const held = await installHeldMobileNavigationRoute(context);
+      const held = await installHeldChunkRoute(context, 'productionStitchMobileNavigation');
+      const initialRender = await installHeldChunkRoute(context, 'sectionInvalidation');
       const background =
         context.serviceWorkers()[0] ??
         (await context.waitForEvent('serviceworker', { timeout: 15_000 }));
@@ -1898,6 +1899,13 @@ test('F06 resolves the installed navigation chunk without stealing modal or main
       });
       await optionsPage.bringToFront();
       await expect.poll(() => held.requested.url).toContain(mobileNavigationChunkName());
+      const initialSidebar = await optionsPage.locator('.sidebar').elementHandle();
+      if (!initialSidebar) throw new Error('Missing initial sidebar.');
+      await expect.poll(() => initialRender.requested.url).toContain('sectionInvalidation-');
+      initialRender.release();
+      await expect
+        .poll(() => initialSidebar.evaluate((element) => element.isConnected))
+        .toBe(false);
       const sidebar = await optionsPage.locator('.sidebar').elementHandle();
       if (!sidebar) throw new Error('Missing focus-matrix sidebar.');
 
@@ -1959,7 +1967,7 @@ test('F06 ignores late installed navigation resolution after the Options page is
   });
 
   try {
-    const held = await installHeldMobileNavigationRoute(context);
+    const held = await installHeldChunkRoute(context, 'productionStitchMobileNavigation');
     const background =
       context.serviceWorkers()[0] ??
       (await context.waitForEvent('serviceworker', { timeout: 15_000 }));
@@ -2046,7 +2054,13 @@ test('F06 keeps every settings and resource route accessible through one install
       await optionsPage.locator('[data-mobile-navigation-close]').focus();
       await optionsPage.keyboard.press('Shift+Tab');
       await expect(optionsPage.locator('[data-footer-panel="changelog"]')).toBeFocused();
-      await optionsPage.locator('[data-mobile-navigation-backdrop]').click();
+      await sidebar.evaluate(async (element) => {
+        await Promise.all(element.getAnimations().map((animation) => animation.finished));
+      });
+      // The settled sidebar covers the center of this 390px viewport.
+      await optionsPage.locator('[data-mobile-navigation-backdrop]').click({
+        position: { x: 380, y: 16 }
+      });
       await expect(trigger).toBeFocused();
     });
 
