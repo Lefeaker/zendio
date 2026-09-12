@@ -243,7 +243,7 @@ describe('VideoSession screenshots', () => {
 
       try {
         await session.start();
-        await waitForMockCalls(drawImage, 1, 300);
+        await waitForMockCalls(drawImage);
         if (drawImage.mock.calls.length === 0) {
           throw new Error('expected restored draft screenshot fallback to draw hidden video frame');
         }
