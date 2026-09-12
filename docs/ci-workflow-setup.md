@@ -72,6 +72,10 @@ browser cache、channel/executable override、raw Playwright CLI 或 shell
 
 ## Job 拓扑与预算
 
+`lint:warnings-guard` 会执行完整的 type-aware ESLint 扫描，与 `lint` 一样使用
+`npm-script-standard-v1` 的既有 180 秒执行上限。60 秒 quick profile 仅适合轻量检查；
+冷启动 CI 上完整扫描会超过该时限。Quality 和 CI 使用相同分类，warning 基线不变。
+
 所有 job 使用 literal `ubuntu-24.04`：
 
 - `static-preflight`：60 分钟；

@@ -384,7 +384,7 @@ jobs:
         env:
           NPM_CONFIG_USERCONFIG: ${{ steps.node.outputs.npm-userconfig }}
           NPM_CONFIG_GLOBALCONFIG: ${{ steps.node.outputs.npm-globalconfig }}
-        run: node scripts/run-bounded-command.mjs --profile npm-script-quick-v1 -- lint:warnings-guard
+        run: node scripts/run-bounded-command.mjs --profile npm-script-standard-v1 -- lint:warnings-guard
 
   static-reporting-audits:
     name: Static reporting audits
