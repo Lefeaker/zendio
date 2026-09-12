@@ -59,7 +59,7 @@ export type FirefoxLintDependencies = {
       profileId: 'firefox-addons-lint-v1';
       arguments: readonly [string];
     },
-    dependencies: { mirrorOutput: false }
+    dependencies: { mirrorOutput: false; environment: Readonly<Record<string, string | undefined>> }
   ) => Promise<{
     ok: boolean;
     exitCode: number | null;

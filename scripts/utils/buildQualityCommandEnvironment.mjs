@@ -9,10 +9,14 @@ const GA_BUILD_ENVIRONMENT_KEYS = Object.freeze([
   'AIIINOB_GA_PROXY_ENDPOINT'
 ]);
 
-export function buildQualityCommandEnvironment(environment) {
+export function omitGaBuildEnvironment(environment) {
   const qualitySourceEnvironment = { ...environment };
   for (const key of GA_BUILD_ENVIRONMENT_KEYS) {
     delete qualitySourceEnvironment[key];
   }
-  return buildClosedCommandEnvironment(qualitySourceEnvironment);
+  return qualitySourceEnvironment;
+}
+
+export function buildQualityCommandEnvironment(environment) {
+  return buildClosedCommandEnvironment(omitGaBuildEnvironment(environment));
 }

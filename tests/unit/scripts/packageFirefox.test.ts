@@ -8,6 +8,7 @@ import {
   prepareFirefoxReleasePackage,
   validateFirefoxExtension
 } from '../../../scripts/package-firefox.mjs';
+import { buildClosedCommandEnvironment } from '../../../scripts/config/commandBoundaryProfiles.mjs';
 import { applyRestHostPermissions } from '../../../scripts/utils/manifestHosts.mjs';
 import { createBrowserManifest } from '../../../scripts/utils/manifestSources.mjs';
 
@@ -171,6 +172,9 @@ describe('Firefox package audit', () => {
     vi.stubEnv('ZENDIO_GA_MEASUREMENT_ID', 'G-RELEASETEST');
     vi.stubEnv('ZENDIO_GA_TRANSPORT_MODE', 'proxy');
     vi.stubEnv('ZENDIO_GA_PROXY_ENDPOINT', proxyEndpoint);
+    vi.stubEnv('ZENDIO_PLAYWRIGHT_ATTEMPT_ROOT', '/tmp/firefox-release-attempt');
+    vi.stubEnv('NPM_CONFIG_USERCONFIG', '/tmp/firefox-release-attempt/install/npm-userconfig');
+    vi.stubEnv('NPM_CONFIG_GLOBALCONFIG', '/tmp/firefox-release-attempt/install/npm-globalconfig');
     const runBoundedCommandImpl = vi.fn().mockResolvedValue({
       ok: true,
       exitCode: 0,
@@ -195,6 +199,16 @@ describe('Firefox package audit', () => {
       process.env.HOME
     );
     for (const key of [
+      'NPM_CONFIG_USERCONFIG',
+      'NPM_CONFIG_GLOBALCONFIG',
+      'ZENDIO_PLAYWRIGHT_ATTEMPT_ROOT'
+    ]) {
+      expect(runBoundedCommandImpl.mock.calls[0]?.[1]).toHaveProperty(
+        `environment.${key}`,
+        process.env[key]
+      );
+    }
+    for (const key of [
       'ZENDIO_GA_MEASUREMENT_ID',
       'ZENDIO_GA_TRANSPORT_MODE',
       'ZENDIO_GA_PROXY_ENDPOINT'
@@ -205,13 +219,18 @@ describe('Firefox package audit', () => {
     expect(process.env.ZENDIO_GA_MEASUREMENT_ID).toBe('G-RELEASETEST');
   });
 
-  it('still rejects an ambient proxy before invoking the linter', async () => {
+  it('preserves ambient proxy rejection at the command boundary', async () => {
     vi.stubEnv('HTTPS_PROXY', 'http://proxy.example.test:8080');
-    const runBoundedCommandImpl = vi.fn();
+    const runBoundedCommandImpl = vi.fn(
+      (_request: object, options?: { environment?: Record<string, string | undefined> }) => {
+        buildClosedCommandEnvironment(options?.environment ?? {});
+        throw new Error('command boundary unexpectedly accepted a proxy');
+      }
+    );
     await expect(
       lintFirefoxExtension('build/dist-firefox', { runBoundedCommandImpl })
     ).rejects.toThrow('ENVIRONMENT_FORBIDDEN');
-    expect(runBoundedCommandImpl).not.toHaveBeenCalled();
+    expect(runBoundedCommandImpl).toHaveBeenCalledOnce();
   });
 
   it('blocks lint errors even when the bounded command returns structured findings', async () => {
