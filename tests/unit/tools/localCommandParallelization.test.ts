@@ -197,6 +197,17 @@ describe('local command parallelization contract', () => {
     expect(scripts['build:firefox:isolated']).toBe(
       'npm run build:firefox:fast -- --outdir build/dist-firefox'
     );
+    const edgeRoutes = {
+      'build:edge': 'node scripts/build.mjs --mode=prod --outdir build/dist-edge',
+      'build:edge:fast':
+        'node scripts/build.mjs --mode=prod --skip-checks --outdir build/dist-edge',
+      'package:edge': 'npm run build:edge && node scripts/package.mjs --edge',
+      'package:edge:ci': 'node scripts/package.mjs --edge'
+    };
+    for (const [name, command] of Object.entries(edgeRoutes)) {
+      expect(scripts[name]).toBe(command);
+      expect(resolveCommandProfile('npm-script-build-v1', [name]).argv).toContain(name);
+    }
     expect(scripts['package:firefox:ci']).toBe('node scripts/package-firefox.mjs');
     expect(scripts['package:firefox:ci']).not.toMatch(/sign|credential/iu);
     expect(scripts['package:firefox:prod:ga:ci']).toBeUndefined();

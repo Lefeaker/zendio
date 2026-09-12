@@ -500,3 +500,59 @@ warning `108` / hard stop `118`；2026-06-20 Options/onboarding closeout 将
 - `http://localhost:4173/content-orchestrator-harness.html`
 - `http://localhost:4173/runtime-observability-harness.html`
 - `http://localhost:4173/interaction-contract-harness.html`
+
+## Microsoft Edge distribution
+
+Edge shares Zendio's Chromium MV3 manifest, service worker, content runtime and
+platform services. The existing browser detector recognizes `Edg/`; no parallel
+Edge API adapter or additional permission is needed. Chrome and Firefox keep their
+current build and release entrypoints.
+
+From a checkout with the pinned Node/npm versions and installed dependencies:
+
+```bash
+node scripts/run-bounded-command.mjs --profile npm-script-build-v1 -- build:edge
+node scripts/run-bounded-command.mjs --profile npm-script-build-v1 -- package:edge:ci
+```
+
+`build:edge` runs production quality checks, then writes `build/dist-edge` through
+`scripts/build.mjs`. `package:edge:ci` packages that existing output as
+`Zendio-All in Obsidian-v<version>-edge.zip`, with the same license preparation,
+archive audit and harness/pseudo-locale exclusions as Chrome. `package:edge`
+combines those two operations. `build:edge:fast` is for an outer owner that has
+already completed the applicable quality checks; it does not certify a release.
+The ordinary Edge package path does not invoke Chrome Web Store or AMO submission.
+
+### Compatibility and store preparation
+
+Microsoft's [Chrome extension porting guide](https://learn.microsoft.com/en-us/microsoft-edge/extensions/developer-guide/port-chrome-extension)
+and [supported APIs](https://learn.microsoft.com/en-us/microsoft-edge/extensions/developer-guide/api-support)
+were checked on 2026-09-12:
+
+| Requirement                | Zendio implementation                                                                                                                                                     |
+| -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Supported extension APIs   | Uses the existing Chromium `chrome.*` namespace. Runtime, storage, tabs, scripting, action, context menus, downloads, notifications and MV3 offscreen APIs are supported. |
+| MV3 background             | The shared manifest uses `background.service_worker`; Edge packaging rejects a Firefox background or Firefox-specific settings.                                           |
+| Store update routing       | The generated manifest has no `update_url`; Edge packaging rejects an added value so the store controls updates.                                                          |
+| Store name and description | Zendio branding is browser-neutral. Edge packaging checks every packaged locale and rejects Chrome branding in these fields.                                              |
+| Native messaging           | Zendio does not use `connectNative`/`sendNativeMessage`, so no native-host `allowed_origins` migration is needed.                                                         |
+| Local Vault access         | Uses the same user-selected folder, permission and offscreen write path as Chrome; REST remains available as fallback.                                                    |
+
+For a real browser check, follow Microsoft's [sideloading instructions](https://learn.microsoft.com/en-us/microsoft-edge/extensions/getting-started/extension-sideloading):
+open `edge://extensions`, enable Developer mode, choose **Load unpacked**, and select
+`build/dist-edge`. Check Options persistence after reload, a local-only Vault,
+selection clipping and comments, reader/video sessions, and header links opening
+Options in a new tab. Also inspect the extension's error list and a saved Markdown
+file; a loaded icon alone does not prove the write path.
+
+Playwright's [extension testing documentation](https://playwright.dev/docs/chrome-extensions)
+notes that branded Chrome and Edge removed the command-line flags used for loading
+extensions. Bundled Chromium automation therefore remains a shared-runtime check;
+it is not a substitute for native Edge sideload evidence.
+
+Microsoft's [publishing guide](https://learn.microsoft.com/en-us/microsoft-edge/extensions/publish/publish-extension)
+requires a Partner Center developer account, the ZIP, listing metadata, permission
+justifications and applicable privacy disclosures, followed by certification.
+The local build/package commands do not perform those account or submission steps.
+Use public production telemetry configuration only when explicitly preparing a
+store release; a local build without it remains suitable for functional testing.
