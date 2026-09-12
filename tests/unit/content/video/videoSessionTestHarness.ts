@@ -671,45 +671,14 @@ export async function flushMutationWork(): Promise<void> {
   }
 }
 
-export async function waitForMockCalls(
-  mock: MockInstance,
-  expectedCalls = 1,
-  turns = 30
-): Promise<void> {
-  for (let index = 0; index < turns; index += 1) {
-    if (mock.mock.calls.length >= expectedCalls) {
-      return;
-    }
-    await Promise.resolve();
-    if (vi.isFakeTimers()) {
-      await vi.advanceTimersByTimeAsync(0);
-      continue;
-    }
-    await new Promise<void>((resolve) => {
-      globalThis.setTimeout(resolve, 0);
-    });
-  }
+export async function waitForMockCalls(mock: MockInstance, expectedCalls = 1): Promise<void> {
+  await vi.waitFor(() => expect(mock.mock.calls.length).toBeGreaterThanOrEqual(expectedCalls));
 }
 
 export async function waitForTimestampScreenshot(
-  capture: CaptureState,
-  turns = 30
+  capture: CaptureState
 ): Promise<TimestampCaptureScreenshot> {
-  for (let index = 0; index < turns; index += 1) {
-    const screenshot = capture.screenshot;
-    if (screenshot) {
-      return screenshot;
-    }
-    await flushMutationWork();
-    if (vi.isFakeTimers()) {
-      await vi.advanceTimersByTimeAsync(0);
-      continue;
-    }
-    await new Promise<void>((resolve) => {
-      globalThis.setTimeout(resolve, 0);
-    });
-  }
-  throw new Error('expected restored timestamp screenshot to be populated');
+  return vi.waitUntil(() => capture.screenshot);
 }
 
 export class RecordingMutationObserver extends MutationObserver {
