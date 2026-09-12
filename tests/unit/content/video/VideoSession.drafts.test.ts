@@ -498,19 +498,20 @@ describe('VideoSession drafts', () => {
       });
 
       requireMountedPanelCallbacks(mountedCallbacks).onCancel();
-      await waitForMockCalls(vi.mocked(deps.storage.local.remove));
+      await vi.waitFor(async () => {
+        expect(await readDraftIndex(deps)).toMatchObject({
+          pendingRemovals: [expect.objectContaining({ key: currentDraftKey })]
+        });
+      });
       expect(view.destroy).not.toHaveBeenCalled();
       expect(isVideoSessionActive(document)).toBe(true);
-      expect(await readDraftIndex(deps)).toMatchObject({
-        pendingRemovals: [expect.objectContaining({ key: currentDraftKey })]
-      });
       await expect(deps.storage.local.get(currentDraftKey)).resolves.toMatchObject({
         key: currentDraftKey
       });
 
       vi.mocked(deps.storage.local.remove).mockImplementation(passthroughRemove);
       requireMountedPanelCallbacks(mountedCallbacks).onCancel();
-      await waitForMockCalls(view.destroy);
+      await vi.waitFor(() => expect(view.destroy).toHaveBeenCalledOnce());
 
       const afterCancel = await listVideoDraftCandidates(deps, document.location.href, null);
       expect(afterCancel).toHaveLength(1);

@@ -105,3 +105,13 @@ node scripts/verify-preflight.mjs
 Husky 的 tracked target 只能调用 `lint-staged-hook-v1`，正常提交不得使用
 `--no-verify`。格式化和修复应在提交前完成，使真实 hook 的第二次执行保持
 index tree 与 stash ref 不变。
+
+### Job context inheritance
+
+Each CI job declares `ZENDIO_JOB_CLASS` and `ZENDIO_JOB_TIMEOUT_MINUTES` once in
+job-level `env`. Bootstrap, dependency setup and every later bounded command inherit
+those same constants. Step-only setup variables do not persist into later steps;
+using them caused `CI_ENVIRONMENT_INVALID` immediately after a successful install.
+The workflow contract rejects missing job bindings and step overrides. The command
+boundary still validates the attempt root and npm configuration authority; no
+`GITHUB_ENV` propagation or environment-policy exception is used.

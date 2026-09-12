@@ -1,3 +1,4 @@
+import { isTabsBoundaryError } from '../../platform/interfaces/tabs';
 import {
   SHOW_LOCAL_VAULT_PERMISSION_PROMPT,
   SHOW_SUPPORT_PROMPT,
@@ -94,6 +95,7 @@ export function dispatchSupportPrompt(
   };
 
   dependencies.sendSupportPrompt(tabId, message).catch((error) => {
+    if (isTabsBoundaryError(error)) return;
     const message = error instanceof Error ? error.message : String(error);
     if (
       /Receiving end does not exist/i.test(message) ||

@@ -1896,6 +1896,7 @@ test('F06 resolves the installed navigation chunk without stealing modal or main
       await optionsPage.goto(`chrome-extension://${extensionId}/options/index.html`, {
         waitUntil: 'domcontentloaded'
       });
+      await optionsPage.bringToFront();
       await expect.poll(() => held.requested.url).toContain(mobileNavigationChunkName());
       const sidebar = await optionsPage.locator('.sidebar').elementHandle();
       if (!sidebar) throw new Error('Missing focus-matrix sidebar.');
@@ -1997,6 +1998,7 @@ test('F06 keeps every settings and resource route accessible through one install
     ]
   });
 
+  await context.tracing.start({ screenshots: true, snapshots: true });
   try {
     const background =
       context.serviceWorkers()[0] ??
@@ -2009,6 +2011,7 @@ test('F06 keeps every settings and resource route accessible through one install
       waitUntil: 'domcontentloaded'
     });
 
+    await optionsPage.bringToFront();
     const trigger = optionsPage.locator('[data-mobile-navigation-trigger]');
     const sidebar = optionsPage.locator('#options-settings-navigation');
     await expect(optionsPage.locator('.sidebar')).toHaveCount(1);
@@ -2080,6 +2083,7 @@ test('F06 keeps every settings and resource route accessible through one install
     );
     await expect(optionsPage.locator('[data-footer-panel][aria-current="page"]')).toHaveCount(0);
     await onboardingPage.close();
+    await optionsPage.bringToFront();
 
     const languageSelect = optionsPage.locator(
       '[data-panel-id="overview"] .interface-theme-grid select'
@@ -2105,6 +2109,7 @@ test('F06 keeps every settings and resource route accessible through one install
       )
       .toEqual({ documentFits: true, sidebarFits: true });
   } finally {
+    await context.tracing.stop({ path: test.info().outputPath('mobile-navigation-trace.zip') });
     await context.close();
     await rm(userDataDir, { recursive: true, force: true });
   }

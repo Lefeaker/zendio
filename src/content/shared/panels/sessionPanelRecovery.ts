@@ -1,5 +1,5 @@
 import { getContentI18nResource } from '../../i18n/context';
-import { RUNTIME_FALLBACK_MESSAGES } from '../../../i18n/catalog/runtimeFallbackMessages';
+import { RUNTIME_FALLBACK_MESSAGES } from '@i18n/catalog/runtimeFallbackMessages';
 
 export type SessionPanelRecoveryMode = 'ready' | 'busy' | 'retry' | 'reload';
 type Surface = 'reader' | 'video';

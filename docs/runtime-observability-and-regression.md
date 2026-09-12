@@ -182,3 +182,17 @@ Trigger mode switches retain the mounted capsule and modifier controls. Changes 
 Automatically focused resource dialog containers do not draw a browser-default outline. Clipper comment fields keep a quiet one-pixel border and no extra focus glow; inner buttons and links retain keyboard access. Existing Clipper, Reader and Video header icons keep their images and geometry while becoming settings links. Production hrefs resolve through RuntimeService and clicks reuse the existing `openOptionsPage` background message, which creates a new tab without making the Options page web-accessible. Session clones route these clicks through their existing event owners, before collapsed-panel expansion; no extra persistent listener is added.
 
 `tests/e2e/optionsCaptureControls.browser.test.ts` verifies connected nodes, real CSS transitions, compact sizing, conditional key choices, neutral resource focus and the current changelog summary. `tests/e2e/runtimeSurfaceNavigation.browser.test.ts` verifies comment focus appearance and new Options tabs with a mounted settings shell, unchanged notes, and collapsed Reader behavior.
+
+## Optional feedback and initialization
+
+Support prompts are optional delivery messages. The background pipeline treats the
+platform's typed `NO_RECEIVER` and `TAB_NOT_FOUND` outcomes as normal lifecycle
+conditions, while unexpected transport errors still reach the error handler. A
+visible save result and an actual Markdown write should be verified separately
+from extension error-list noise.
+
+The YAML override cache can be imported before the composition root registers the
+Options repository. That state is temporary: the next consumer access binds the
+registered repository and hydrates the cache once. A broken registered repository
+still produces a diagnostic. The cache does not register fallback repositories or
+start a polling loop.

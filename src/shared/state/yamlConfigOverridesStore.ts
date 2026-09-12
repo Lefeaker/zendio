@@ -26,12 +26,13 @@ const applyOverrides = (value: YamlConfigOverrides | null): void => {
   notifyListeners();
 };
 
-const loadOptionsRepository = async (): Promise<IOptionsRepository | null> => {
+const loadOptionsRepository = async (): Promise<IOptionsRepository | 'not-registered' | null> => {
   try {
-    const [{ resolveRepository }, { DI_TOKENS }] = await Promise.all([
+    const [{ repositoryContainer, resolveRepository }, { DI_TOKENS }] = await Promise.all([
       import('../di/serviceRegistry'),
       import('../di/tokens')
     ]);
+    if (!repositoryContainer.has(DI_TOKENS.IOptionsRepository)) return 'not-registered';
     const repo = resolveRepository<IOptionsRepository>(DI_TOKENS.IOptionsRepository);
     if (typeof repo.get !== 'function' || typeof repo.onChange !== 'function') {
       console.warn('[yamlConfigOverridesStore] Options repository missing required methods');
@@ -50,6 +51,10 @@ const subscribeToOptionsRepository = (): void => {
   }
   repositoryInitialized = true;
   void loadOptionsRepository().then((optionsRepository) => {
+    if (optionsRepository === 'not-registered') {
+      repositoryInitialized = false;
+      return;
+    }
     if (!optionsRepository) {
       repositoryUnavailable = true;
       return;
