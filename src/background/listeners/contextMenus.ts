@@ -1,9 +1,9 @@
 import { delay, deriveVideoState, setupContextMenus } from './contextMenusCoordinator';
 import {
   autoInjectIfNeeded,
-  ensureModifierInjectionForActiveTab,
+  ensureSelectionTriggerInjectionForActiveTab,
   injectClipper,
-  refreshSelectionModifierInjection
+  refreshSelectionTriggerInjection
 } from './contextMenuInjection';
 import {
   notifyActionDispatchFailure,
@@ -180,8 +180,8 @@ export function registerContextMenuListeners(dependencies: ContextMenuListenerDe
   registerFrameSelectionBridge(dependencies);
 
   optionsRepository.onChange(() => {
-    void refreshSelectionModifierInjection(runtimeState)
-      .then(() => ensureModifierInjectionForActiveTab(dependencies, runtimeState))
+    void refreshSelectionTriggerInjection(runtimeState, dependencies.scripting)
+      .then(() => ensureSelectionTriggerInjectionForActiveTab(dependencies, runtimeState))
       .catch(() => {
         // ignore refresh failures; state will retry on next update
       });

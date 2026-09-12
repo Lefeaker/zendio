@@ -14,6 +14,7 @@ export interface ClipPromptResponse {
   action: ClipPromptAction;
   comment: string;
   destination?: ExportDestinationMetadata;
+  destinationSelectionIsExplicit?: boolean;
 }
 
 export interface ClipPromptGateway {

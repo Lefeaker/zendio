@@ -8,9 +8,8 @@ describe('tongyi parser', () => {
   });
 
   it('uses an injected fallback title when no product title is available', async () => {
-    const { tongyiParser } = await import(
-      '../../../src/third_party/ai-chat-exporter/platforms/tongyi'
-    );
+    const { tongyiParser } =
+      await import('../../../src/third_party/ai-chat-exporter/platforms/tongyi');
     const doc = new DOMParser().parseFromString(
       `
       <html>
@@ -30,9 +29,8 @@ describe('tongyi parser', () => {
   });
 
   it('throws when no source title or injected fallback title is available', async () => {
-    const { tongyiParser } = await import(
-      '../../../src/third_party/ai-chat-exporter/platforms/tongyi'
-    );
+    const { tongyiParser } =
+      await import('../../../src/third_party/ai-chat-exporter/platforms/tongyi');
     const doc = new DOMParser().parseFromString(
       `
       <html>
@@ -49,9 +47,8 @@ describe('tongyi parser', () => {
   });
 
   it('preserves user-provided Chinese question titles instead of replacing them', async () => {
-    const { tongyiParser } = await import(
-      '../../../src/third_party/ai-chat-exporter/platforms/tongyi'
-    );
+    const { tongyiParser } =
+      await import('../../../src/third_party/ai-chat-exporter/platforms/tongyi');
     const doc = new DOMParser().parseFromString(
       `
       <html>

@@ -1,5 +1,5 @@
-import type { Messages } from '@i18n';
-import { getElementById, getOptionalElementById } from '../utils/dom';
+import { DEFAULT_RUNTIME_MESSAGES, type Messages } from '@i18n';
+import { getOptionalElementById } from '../utils/dom';
 import { OptionsValidationError } from '../services/validation';
 import { ConfigTransferError } from '../services/configTransfer';
 import {
@@ -7,6 +7,13 @@ import {
   type BoundElement,
   type LocalizedContent
 } from '../utils/localizedText';
+import {
+  clearAutoSaveFailureLane,
+  showAutoSaveFailureLane,
+  showGeneralStatusMessage,
+  type AutoSaveFailurePresentation
+} from './statusMessageLanes';
+export type { AutoSaveFailurePresentation } from './statusMessageLanes';
 
 type MessageType = 'success' | 'error';
 
@@ -18,7 +25,6 @@ interface MessageState {
 }
 
 const transferMessageState: MessageState = { timer: undefined, binding: null };
-const statusMessageState: MessageState = { timer: undefined, binding: null };
 
 // ✅ Phase 1 DaisyUI migration: 使用 Alert 语义类替代手动样式
 const MESSAGE_CLASS_CONFIG = {
@@ -27,12 +33,6 @@ const MESSAGE_CLASS_CONFIG = {
     success: 'alert alert-success mt-3',
     error: 'alert alert-error mt-3',
     timeoutMs: 2500
-  },
-  status: {
-    base: 'aobx-status-message',
-    success: 'aobx-status-message is-success',
-    error: 'aobx-status-message is-error',
-    timeoutMs: 2000
   }
 } as const;
 
@@ -53,26 +53,36 @@ export function clearTransferMessage(): void {
 }
 
 export function showStatusMessage(type: MessageType, content: MessageContent): void {
-  const element = getElementById<HTMLSpanElement>('msg');
-  applyMessage(element, type, content, statusMessageState, MESSAGE_CLASS_CONFIG.status);
+  showGeneralStatusMessage(type, content);
 }
 
-export function formatOptionsError(error: unknown, msgs: Messages): string {
+export function showAutoSaveFailure(presentation: AutoSaveFailurePresentation): void {
+  showAutoSaveFailureLane(presentation);
+}
+
+export function clearAutoSaveFailure(): void {
+  clearAutoSaveFailureLane();
+}
+
+export function formatOptionsError(error: unknown, msgs: Messages | null): string {
   if (error instanceof OptionsValidationError) {
-    return error.detail ? `${msgs.invalidTaxonomy}: ${error.detail}` : msgs.invalidTaxonomy;
+    const title = msgs?.invalidTaxonomy ?? DEFAULT_RUNTIME_MESSAGES.invalidTaxonomy;
+    return error.detail ? `${title}: ${error.detail}` : title;
   }
 
   if (error instanceof ConfigTransferError) {
     switch (error.code) {
       case 'EMPTY_IMPORT':
-        return msgs.emptyImportError;
+        return msgs?.emptyImportError ?? DEFAULT_RUNTIME_MESSAGES.emptyImportError;
       case 'CLIPBOARD_UNAVAILABLE':
-        return msgs.clipboardUnavailable;
+        return msgs?.clipboardUnavailable ?? DEFAULT_RUNTIME_MESSAGES.clipboardUnavailable;
       case 'CLIPBOARD_READ_UNAVAILABLE':
-        return msgs.clipboardReadUnavailable;
+        return msgs?.clipboardReadUnavailable ?? DEFAULT_RUNTIME_MESSAGES.clipboardReadUnavailable;
       case 'PARSE_FAILED':
-      default:
-        return error.detail ? `${msgs.importParseFailed}: ${error.detail}` : msgs.importParseFailed;
+      default: {
+        const title = msgs?.importParseFailed ?? DEFAULT_RUNTIME_MESSAGES.importParseFailed;
+        return error.detail ? `${title}: ${error.detail}` : title;
+      }
     }
   }
 
@@ -98,6 +108,7 @@ function applyMessage(
   classConfig: MessageClassConfig
 ): void {
   ensureMessageAccessibility(element);
+  element.hidden = false;
   updateElementClass(element, type, classConfig);
   updateMessageContent(element, content, state);
 
@@ -135,6 +146,7 @@ function clearMessage(element: HTMLElement, state: MessageState, baseClass: stri
     delete element.dataset.i18n;
   }
   element.textContent = '';
+  element.hidden = true;
 }
 
 function updateMessageContent(

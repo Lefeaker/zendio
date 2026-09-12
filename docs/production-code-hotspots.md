@@ -1,6 +1,6 @@
 # Production Code Hotspots
 
-Last updated: 2026-06-05
+Last updated: 2026-08-27
 
 `npm run audit:production-shape:report` now enforces the final hotspot thresholds below. The audit fails if a listed facade is missing, exceeds its LOC budget, exceeds an explicit DOM-listener budget, or reintroduces direct visible text literals instead of schema or i18n-backed content. Large post-split owners remain tracked here even when the safe decision is to retain and budget them instead of deleting or splitting during release closure.
 
@@ -13,7 +13,7 @@ Last updated: 2026-06-05
 | `src/options/app/productionStitchRenderLifecycle.ts` | 247         | render lifecycle owner                                          | shell render, modal host, scroll sync                                                   | file <= 300 LOC                                                     | production Stitch shell split |
 | `src/options/app/productionStitchShellState.ts`      | 288         | draft and state mutation owner                                  | repository fallback, draft merging, field updates, presets                              | file <= 300 LOC                                                     | production Stitch shell split |
 | `src/content/video/prompt.ts`                        | 5           | public adapter for split lifecycle modules                      | lifecycle controller, prompt state, control bar adapter, settings watcher, test helpers | prompt entry <= 300 LOC; no exported internal test utility bag      | video prompt lifecycle split  |
-| `src/content/clipper/components/dialog.ts`           | 7           | public adapter for aligned content dialog host                  | ContentDialogHost adapter, surface content adapter, interaction controller              | no duplicate focus trap implementation                              | clipper dialog host alignment |
+| `src/content/clipper/components/dialog.ts`           | 7           | public adapter for feature-local Clipper dialog                 | `clipperDialogHostAdapter`, surface content adapter, interaction controller             | no duplicate focus trap or retired generic host implementation      | clipper dialog host alignment |
 | `src/options/stitch/render/renderStitchView.ts`      | 91          | public page/modal renderer adapter                              | node renderers, form renderers, action adapter, content helpers                         | no renderer file > 450 LOC; no hard-coded user text                 | Stitch renderer split         |
 | `src/ui/domains/usage-chart/usageChartRenderers.ts`  | 23          | public usage-chart renderer facade                              | chart geometry and DOM renderer live behind the current usage-chart owner               | file <= 450 LOC                                                     | review hotspot governance     |
 | `src/shared/services/yamlConfigService.ts`           | 80          | public facade for split sanitize/merge/domain modules           | sanitize, merge, domain matching, facade                                                | facade <= 250 LOC; targeted unit tests per extracted module         | YAML config service split     |

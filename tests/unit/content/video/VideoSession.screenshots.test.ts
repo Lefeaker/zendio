@@ -5,7 +5,11 @@ import {
   isVideoSessionActive
 } from '@content/runtime/contentSessionRegistry';
 import { createSessionDraftRepository } from '@content/sessionDrafts/sessionDraftRepository';
-import type { VideoSessionDraftEnvelope } from '@content/sessionDrafts/sessionDraftTypes';
+import {
+  SESSION_DRAFT_LEASE_DURATION_MS,
+  createSessionDraftStorageKey,
+  type VideoSessionDraftEnvelope
+} from '@shared/sessionDrafts';
 import type { VideoPanelCallbacks } from '@content/video/application/videoPanelModel';
 import { VideoSession } from '@content/video/session';
 import {
@@ -138,7 +142,27 @@ describe('VideoSession screenshots', () => {
           canonicalUrl: document.location.href
         })
       });
-      await repository.save(envelope);
+      const persisted = await repository.save(envelope);
+      if (status === 'active') {
+        const key = createSessionDraftStorageKey({
+          mode: persisted.mode,
+          pageKey: persisted.pageKey,
+          draftId: persisted.draftId
+        });
+        const stored = await deps.storage.local.get<VideoSessionDraftEnvelope>(key);
+        if (!stored?.lease) {
+          throw new Error('expected active fixture to have a lease');
+        }
+        const leaseExpiresAt = Date.now() - 1;
+        await deps.storage.local.set(key, {
+          ...stored,
+          lease: {
+            ...stored.lease,
+            renewedAt: leaseExpiresAt - SESSION_DRAFT_LEASE_DURATION_MS,
+            leaseExpiresAt
+          }
+        });
+      }
       const session = new VideoSession(document, deps);
       const sessionApi = toSessionTestApi(session);
       const canvas = document.createElement('canvas');
@@ -219,7 +243,7 @@ describe('VideoSession screenshots', () => {
 
       try {
         await session.start();
-        await waitForMockCalls(drawImage, 1, 300);
+        await waitForMockCalls(drawImage);
         if (drawImage.mock.calls.length === 0) {
           throw new Error('expected restored draft screenshot fallback to draw hidden video frame');
         }
@@ -274,12 +298,13 @@ describe('VideoSession screenshots', () => {
 
         let candidateWithRef: VideoSessionDraftEnvelope | null = null;
         for (let index = 0; index < 20; index += 1) {
-          const candidates = await listVideoDraftCandidates(deps);
-          candidateWithRef =
-            candidates.find((candidate) => {
-              const capture = readVideoDraftPayload(candidate)?.captures[0];
-              return capture?.kind === 'timestamp' && capture.screenshotRef !== undefined;
-            }) ?? null;
+          const candidates = await repository.listCandidates('video', document.location.href);
+          const candidate = candidates.find((candidate) => {
+            if (candidate.mode !== 'video') return false;
+            const capture = readVideoDraftPayload(candidate)?.captures[0];
+            return capture?.kind === 'timestamp' && capture.screenshotRef !== undefined;
+          });
+          candidateWithRef = candidate?.mode === 'video' ? candidate : null;
           if (candidateWithRef) {
             break;
           }
@@ -797,7 +822,6 @@ describe('VideoSession screenshots', () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2026-03-14T10:00:00Z'));
     const deps = createDependencies();
-    vi.mocked(deps.storage.local.setMany).mockRejectedValueOnce(new Error('save failed'));
     const view = createView();
     deps.viewFactory.createView = vi.fn(() => view);
     const session = new VideoSession(document, deps);
@@ -825,6 +849,8 @@ describe('VideoSession screenshots', () => {
     });
 
     await session.start();
+    vi.mocked(deps.storage.local.setMany).mockClear();
+    vi.mocked(deps.storage.local.setMany).mockRejectedValueOnce(new Error('save failed'));
 
     const video = requireVideoElement();
     let paused = false;
@@ -1079,11 +1105,9 @@ describe('VideoSession screenshots', () => {
 
     const callbacks = requireMountedPanelCallbacks(mountedCallbacks);
     callbacks.onDeleteCapture('timestamp-1');
-    await flushMutationWork();
+    await vi.waitFor(() => expect(sessionApi.state.captures).toHaveLength(1));
     callbacks.onDeleteCapture('fragment-1');
-    for (let index = 0; index < 10 && sessionApi.state.captures.length > 0; index += 1) {
-      await flushMutationWork();
-    }
+    await vi.waitFor(() => expect(sessionApi.state.captures).toHaveLength(0));
 
     expect(sessionApi.state.captures).toHaveLength(0);
     expect(removeMany).not.toHaveBeenCalled();

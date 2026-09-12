@@ -1,6 +1,6 @@
 import type {
   StoredOptions,
-  OptionsState,
+  CompleteOptions,
   ClassifierOptions,
   FragmentClipperOptions,
   ReadingSessionOptions,
@@ -14,10 +14,12 @@ import type {
   PrivacyPreferencesOptions,
   SubtitleTranslationOptions
 } from '../types';
+import { CompleteOptionsSchema, ReaderHighlightThemeSchema } from '../schemas/options.schema';
 import { DEFAULT_OPTIONS } from './defaultOptions';
-import { sanitizeVaultRouterConfig } from './optionsSanitizer';
+import { sanitizeVaultRouterConfig, sanitizeYamlConfigValue } from './optionsSanitizer';
 import { resolveTaxonomy } from './taxonomyMigration';
 import { mergeVideoOptions } from './videoOptionsMerger';
+import { isFragmentSelectionTriggerMode } from './selectionTriggerMode';
 export { omitLegacyRestRootDir, omitLegacyRestRootDirFromOptions } from './legacyRestRootDir';
 
 function mergeClassifierOptions(
@@ -29,12 +31,14 @@ function mergeClassifierOptions(
   }
 
   const base = source ?? {};
+  const timeoutMs = base.timeoutMs ?? defaults?.timeoutMs;
   return {
     enabled: base.enabled ?? defaults?.enabled ?? false,
     provider: base.provider || defaults?.provider || 'ollama',
     endpoint: base.endpoint || defaults?.endpoint || 'http://localhost:11434/api/chat',
     apiKey: base.apiKey || defaults?.apiKey || '',
     model: base.model || defaults?.model || 'llama3.1',
+    ...(timeoutMs !== undefined && { timeoutMs }),
     taxonomy: resolveTaxonomy(base.taxonomy ?? defaults?.taxonomy)
   };
 }
@@ -51,9 +55,8 @@ function resolveReaderHighlightTheme(
   theme: unknown,
   fallback: ReaderHighlightTheme
 ): ReaderHighlightTheme {
-  return READER_HIGHLIGHT_THEMES.includes(theme as ReaderHighlightTheme)
-    ? (theme as ReaderHighlightTheme)
-    : fallback;
+  const parsed = ReaderHighlightThemeSchema.safeParse(theme);
+  return parsed.success && READER_HIGHLIGHT_THEMES.includes(parsed.data) ? parsed.data : fallback;
 }
 
 function mergeFragmentClipperOptions(
@@ -83,8 +86,9 @@ function mergeFragmentClipperOptions(
     captureContext: base.captureContext ?? defaults?.captureContext ?? false,
     contextLength: base.contextLength ?? defaults?.contextLength ?? 200,
     contextMode: base.contextMode ?? defaults?.contextMode ?? 'chars',
-    selectionModifierEnabled:
-      base.selectionModifierEnabled ?? defaults?.selectionModifierEnabled ?? false,
+    selectionTriggerMode: isFragmentSelectionTriggerMode(base.selectionTriggerMode)
+      ? base.selectionTriggerMode
+      : (defaults?.selectionTriggerMode ?? 'modifier'),
     selectionModifierKeys,
     keyboardShortcutsEnabled:
       base.keyboardShortcutsEnabled ?? defaults?.keyboardShortcutsEnabled ?? true
@@ -222,11 +226,18 @@ function mergePrivacyPreferencesOptions(
   };
 }
 
-function sanitizeVaultRouter(source: StoredOptions['vaultRouter']): StoredOptions['vaultRouter'] {
+function sanitizeVaultRouter(source: unknown): StoredOptions['vaultRouter'] {
   return sanitizeVaultRouterConfig(source);
 }
 
-export function mergeOptions(stored?: StoredOptions | null): OptionsState {
+function requireMerged<T>(value: T | undefined): T {
+  if (value === undefined) {
+    throw new Error('OPTIONS_DEFAULT_MISSING');
+  }
+  return value;
+}
+
+export function mergeOptions(stored?: StoredOptions | null): CompleteOptions {
   const source = stored ?? {};
   const defaults = DEFAULT_OPTIONS;
 
@@ -264,22 +275,11 @@ export function mergeOptions(stored?: StoredOptions | null): OptionsState {
     rest.localFolderName = sourceLocalFolderName;
   }
 
-  const storedTemplates = source.templates ?? {};
-  const legacyClipper =
-    typeof storedTemplates === 'object'
-      ? (storedTemplates as Record<string, unknown>).clipper
-      : undefined;
-  const legacyClipperString = typeof legacyClipper === 'string' ? legacyClipper : undefined;
-
   const templates = {
     article: source.templates?.article || defaults.templates.article,
     video: source.templates?.video || defaults.templates.video,
-    fragment: source.templates?.fragment || legacyClipperString || defaults.templates.fragment,
-    reading:
-      source.templates?.reading ||
-      source.templates?.fragment ||
-      legacyClipperString ||
-      defaults.templates.reading,
+    fragment: source.templates?.fragment || defaults.templates.fragment,
+    reading: source.templates?.reading || source.templates?.fragment || defaults.templates.reading,
     ai: source.templates?.ai || defaults.templates.ai
   };
 
@@ -287,7 +287,7 @@ export function mergeOptions(stored?: StoredOptions | null): OptionsState {
     ? { ...source.domainMappings }
     : { ...defaults.domainMappings };
 
-  const options: OptionsState = {
+  const options: CompleteOptions = {
     interfaceTheme:
       source.interfaceTheme === 'light' ||
       source.interfaceTheme === 'dark' ||
@@ -296,102 +296,35 @@ export function mergeOptions(stored?: StoredOptions | null): OptionsState {
         : (defaults.interfaceTheme ?? 'system'),
     rest,
     templates,
-    domainMappings
+    domainMappings,
+    classifier: requireMerged(mergeClassifierOptions(source.classifier)),
+    deepResearch: requireMerged(mergeDeepResearchOptions(source.deepResearch)),
+    fragmentClipper: requireMerged(mergeFragmentClipperOptions(source.fragmentClipper)),
+    readingSession: requireMerged(mergeReadingSessionOptions(source.readingSession)),
+    aiChat: requireMerged(mergeAiChatOptions(source.aiChat)),
+    video: requireMerged(mergeVideoOptions(source.video)),
+    experimentalAi: requireMerged(mergeExperimentalAiOptions(source.experimentalAi)),
+    pageSummary: requireMerged(mergePageSummaryOptions(source.pageSummary)),
+    readingOverlaySummary: requireMerged(
+      mergeReadingOverlaySummaryOptions(source.readingOverlaySummary)
+    ),
+    subtitleTranslation: requireMerged(mergeSubtitleTranslationOptions(source.subtitleTranslation)),
+    privacyPreferences: requireMerged(mergePrivacyPreferencesOptions(source.privacyPreferences))
   };
-
-  const knownKeys = new Set([
-    'rest',
-    'interfaceTheme',
-    'templates',
-    'domainMappings',
-    'aiChat',
-    'deepResearch',
-    'fragmentClipper',
-    'readingSession',
-    'video',
-    'classifier',
-    'experimentalAi',
-    'pageSummary',
-    'readingOverlaySummary',
-    'subtitleTranslation',
-    'privacyPreferences',
-    'vaultRouter',
-    'yamlConfig'
-  ]);
-
-  const classifier = mergeClassifierOptions(source.classifier);
-  if (classifier !== undefined) {
-    options.classifier = classifier;
-  }
-
-  const deepResearch = mergeDeepResearchOptions(source.deepResearch);
-  if (deepResearch !== undefined) {
-    options.deepResearch = deepResearch;
-  }
-
-  const fragmentClipper = mergeFragmentClipperOptions(source.fragmentClipper);
-  if (fragmentClipper !== undefined) {
-    options.fragmentClipper = fragmentClipper;
-  }
-
-  const readingSession = mergeReadingSessionOptions(source.readingSession);
-  if (readingSession !== undefined) {
-    options.readingSession = readingSession;
-  }
-
-  const aiChat = mergeAiChatOptions(source.aiChat);
-  if (aiChat !== undefined) {
-    options.aiChat = aiChat;
-  }
-
-  const video = mergeVideoOptions(source.video);
-  if (video !== undefined) {
-    options.video = video;
-  }
-
-  const experimentalAi = mergeExperimentalAiOptions(source.experimentalAi);
-  if (experimentalAi !== undefined) {
-    options.experimentalAi = experimentalAi;
-  }
-
-  const pageSummary = mergePageSummaryOptions(source.pageSummary);
-  if (pageSummary !== undefined) {
-    options.pageSummary = pageSummary;
-  }
-
-  const readingOverlaySummary = mergeReadingOverlaySummaryOptions(source.readingOverlaySummary);
-  if (readingOverlaySummary !== undefined) {
-    options.readingOverlaySummary = readingOverlaySummary;
-  }
-
-  const subtitleTranslation = mergeSubtitleTranslationOptions(source.subtitleTranslation);
-  if (subtitleTranslation !== undefined) {
-    options.subtitleTranslation = subtitleTranslation;
-  }
-
-  const privacyPreferences = mergePrivacyPreferencesOptions(source.privacyPreferences);
-  if (privacyPreferences !== undefined) {
-    options.privacyPreferences = privacyPreferences;
-  }
 
   const vaultRouter = sanitizeVaultRouter(source.vaultRouter);
   if (vaultRouter !== undefined) {
     options.vaultRouter = vaultRouter;
   }
 
-  if (source.yamlConfig !== undefined) {
-    options.yamlConfig = source.yamlConfig;
+  const yamlConfig = sanitizeYamlConfigValue(source.yamlConfig);
+  if (yamlConfig !== undefined) {
+    options.yamlConfig = yamlConfig;
   }
 
-  for (const [key, value] of Object.entries(source)) {
-    if (!knownKeys.has(key)) {
-      Object.assign(options, { [key]: value });
-    }
-  }
-
-  return options;
+  return CompleteOptionsSchema.parse(options);
 }
 
 export const optionsMerger = {
-  merge: (stored?: StoredOptions | null) => mergeOptions(stored ?? null)
+  merge: (stored?: StoredOptions | null) => mergeOptions(stored)
 };

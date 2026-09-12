@@ -10,8 +10,8 @@ function createConfig(overrides: Partial<FragmentClipperOptions> = {}): Fragment
     captureContext: true,
     contextLength: 100,
     contextMode: 'chars',
-    selectionModifierEnabled: false,
-    selectionModifierKeys: [],
+    selectionTriggerMode: 'direct',
+    selectionModifierKeys: ['shift'],
     keyboardShortcutsEnabled: true,
     ...overrides
   };
@@ -86,13 +86,13 @@ describe('ReaderSelectionController', () => {
     expect(onSelectionCleared).toHaveBeenCalled();
   });
 
-  it('requires configured modifier keys and resets them when config is updated or window blurs', () => {
+  it('supports modifier, disabled, and direct modes across live config updates', () => {
     installSelection('Modifier text');
     const onSelectionReady = vi.fn();
     const controller = new ReaderSelectionController({
       doc: document,
       fragmentConfig: createConfig({
-        selectionModifierEnabled: true,
+        selectionTriggerMode: 'modifier',
         selectionModifierKeys: ['shift'] as never
       }),
       canHandleSelection: () => true,
@@ -111,8 +111,13 @@ describe('ReaderSelectionController', () => {
     document.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, button: 0, shiftKey: true }));
     expect(onSelectionReady).toHaveBeenCalledTimes(1);
 
-    controller.updateFragmentConfig(createConfig({ selectionModifierEnabled: false }));
+    controller.updateFragmentConfig(createConfig({ selectionTriggerMode: 'disabled' }));
     window.dispatchEvent(new Event('blur'));
+    document.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, button: 0 }));
+    document.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, button: 0 }));
+    expect(onSelectionReady).toHaveBeenCalledTimes(1);
+
+    controller.updateFragmentConfig(createConfig({ selectionTriggerMode: 'direct' }));
     document.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, button: 0 }));
     document.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, button: 0 }));
     expect(onSelectionReady).toHaveBeenCalledTimes(2);

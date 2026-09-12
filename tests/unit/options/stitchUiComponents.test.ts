@@ -17,19 +17,28 @@ describe('Stitch UI components', () => {
     expect(onClick).toHaveBeenCalledTimes(1);
   });
 
+  it('retains semantic select, switch and table slots through primitive entries', () => {
+    const select = previewUi.Select(
+      [
+        { value: 'a', label: 'Alpha' },
+        { value: 'b', label: 'Beta' }
+      ],
+      'b'
+    );
+    const switchRow = previewUi.SwitchRow({ checked: true });
+    const table = previewUi.Table({
+      columns: ['Name'],
+      rows: [{ cells: [{ text: 'Zendio' }] }]
+    });
+
+    expect(select).toBeInstanceOf(HTMLSelectElement);
+    expect(select.value).toBe('b');
+    expect(switchRow.querySelector<HTMLInputElement>('input[type="checkbox"]')?.checked).toBe(true);
+    expect(table.querySelector('table > thead th')?.getAttribute('scope')).toBe('col');
+  });
+
   it('renders zero-state usage chart coordinates without NaN SVG attributes', () => {
     const root = document.createElement('section');
-    root.innerHTML = `
-      <div id="usageAxis"></div>
-      <div class="usage-graph">
-        <svg id="usageWave">
-          <g id="usageGrid"></g>
-          <path id="usageFillPath"></path>
-          <path id="usageWavePath"></path>
-          <g id="usageXAxis"></g>
-        </svg>
-      </div>
-    `;
 
     previewUi.renderUsageChart(root, [
       { label: '06-27', value: 0 },
@@ -44,6 +53,8 @@ describe('Stitch UI components', () => {
     const wavePath = root.querySelector<SVGPathElement>('#usageWavePath');
     const xAxis = root.querySelector<SVGGElement>('#usageXAxis');
 
+    expect(root.querySelector('.usage-axis')).toBeTruthy();
+    expect(root.querySelector('.usage-graph')).toBeTruthy();
     expect(svg?.getAttribute('viewBox')).toBe('0 0 480 180');
     expect(gridLines).toHaveLength(4);
     expect(axis?.textContent).toContain('20');

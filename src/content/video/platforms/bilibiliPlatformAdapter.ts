@@ -126,14 +126,6 @@ export class BilibiliVideoPlatform extends BaseVideoPlatform {
     this.shadowObserver.ensureObservedRoots();
   }
 
-  observeDomChanges(observer: MutationObserver): void {
-    this.shadowObserver.observeDomChanges(observer);
-  }
-
-  handleMutations(mutations: MutationRecord[]): void {
-    this.shadowObserver.handleMutations(mutations);
-  }
-
   private ensureShadowHostObservation(host: Element): void {
     this.shadowObserver.ensureShadowHostObservationForTests(host);
   }

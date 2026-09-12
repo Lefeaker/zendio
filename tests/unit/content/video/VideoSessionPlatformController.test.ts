@@ -1,9 +1,9 @@
 /* @vitest-environment jsdom */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { serializeCaptures } from '@content/video/captureStorage';
 import { VideoSessionPlatformController } from '@content/video/sessionPlatformController';
 import { VideoSessionState } from '@content/video/sessionState';
+import type { DocumentMutationHubApi } from '@content/runtime/documentMutationTypes';
 
 function createController() {
   const state = new VideoSessionState('gradient');
@@ -16,8 +16,6 @@ function createController() {
     findTextRange: vi.fn(() => null),
     highlight: vi.fn(() => undefined),
     restoreHighlight,
-    observeDomChanges: vi.fn(),
-    handleMutations: vi.fn(),
     buildTimestampUrl: vi.fn(() => null),
     formatVideoTitle: vi.fn(
       (rawTitle: string) => rawTitle.replace(/_+哔哩哔哩.*/i, '').trim() || null
@@ -27,7 +25,6 @@ function createController() {
   const onAdapterChange = vi.fn();
   const ensureCaptureHighlight = vi.fn();
   const loadStoredCaptureData = vi.fn(() => Promise.resolve(undefined));
-  const saveCaptureData = vi.fn(() => Promise.resolve(undefined));
   const detectVideoIdentity = vi.fn(() => ({
     platform: 'bilibili' as const,
     videoId: 'BV1xx411c7mD',
@@ -35,28 +32,32 @@ function createController() {
     storageKey: 'video:test'
   }));
   const createVideoPlatformAdapter = vi.fn(() => adapter as never);
+  const documentMutationHub: DocumentMutationHubApi = { subscribe: vi.fn(() => vi.fn()) };
+  const createPlatformContext = vi.fn(() => ({
+    doc: document,
+    documentMutationHub,
+    highlightSelection: vi.fn(),
+    decorateHighlight: vi.fn(),
+    scheduleFragmentHighlightRestore: vi.fn(),
+    getElementByIdDeep: vi.fn(() => null),
+    querySelectorDeep: vi.fn(() => null),
+    createScopedMutationObserver: vi.fn(() => null),
+    observeWithFragmentObserver: vi.fn(),
+    registerShadowSelectionBridge: vi.fn(),
+    unregisterShadowSelectionBridge: vi.fn(),
+    ensureHighlightStyles: vi.fn()
+  }));
 
   const controller = new VideoSessionPlatformController({
     doc: document,
-    storage: { get: vi.fn(), set: vi.fn() },
+    storage: { get: vi.fn() },
     state,
-    createPlatformContext: () => ({
-      doc: document,
-      highlightSelection: vi.fn(),
-      decorateHighlight: vi.fn(),
-      scheduleFragmentHighlightRestore: vi.fn(),
-      getElementByIdDeep: vi.fn(() => null),
-      querySelectorDeep: vi.fn(() => null),
-      observeWithFragmentObserver: vi.fn(),
-      registerShadowSelectionBridge: vi.fn(),
-      ensureHighlightStyles: vi.fn()
-    }),
+    createPlatformContext,
     onAdapterChange,
     ensureCaptureHighlight,
     detectVideoIdentity: detectVideoIdentity as never,
     createVideoPlatformAdapter: createVideoPlatformAdapter as never,
-    loadStoredCaptureData,
-    saveCaptureData
+    loadStoredCaptureData
   });
 
   return {
@@ -66,9 +67,11 @@ function createController() {
     ensureCaptureHighlight,
     onAdapterChange,
     loadStoredCaptureData,
-    saveCaptureData,
     detectVideoIdentity,
-    dispose
+    dispose,
+    documentMutationHub,
+    createPlatformContext,
+    createVideoPlatformAdapter
   };
 }
 
@@ -142,7 +145,7 @@ describe('VideoSessionPlatformController', () => {
     setup.loadStoredCaptureData.mockResolvedValueOnce({
       title: 'Restored Title',
       url: 'https://www.bilibili.com/video/BV1changed',
-      entries: serializeCaptures([
+      entries: [
         {
           kind: 'fragment',
           id: 'fragment-1',
@@ -152,8 +155,14 @@ describe('VideoSessionPlatformController', () => {
           fragmentUrl: 'https://www.bilibili.com/video/BV1changed#:~:text=Alpha',
           createdAt: 3
         }
-      ]),
-      updatedAt: Date.now()
+      ],
+      updatedAt: Date.now(),
+      migration: {
+        legacyKey: 'bili:BV1changed',
+        rawDigest: 'a'.repeat(64),
+        canonicalDigest: 'b'.repeat(64),
+        canonicalLegacy: { entries: [], updatedAt: Date.now() }
+      }
     } as never);
     setup.adapter.restoreHighlight.mockReturnValueOnce('fragment-wrapper' as never);
 
@@ -184,6 +193,25 @@ describe('VideoSessionPlatformController', () => {
         videoId: null
       })
     ).toBeNull();
+  });
+
+  it('disposes a superseded adapter before creating the replacement with the shared hub', () => {
+    const setup = createController();
+    const previousDispose = vi.fn();
+    setup.state.platform = 'bilibili';
+    setup.state.platformAdapter = {
+      ...setup.adapter,
+      platform: 'youtube',
+      dispose: previousDispose
+    } as never;
+
+    setup.controller.syncPlatformAdapter();
+
+    expect(previousDispose).toHaveBeenCalledTimes(1);
+    expect(setup.createVideoPlatformAdapter).toHaveBeenCalledWith(
+      'bilibili',
+      expect.objectContaining({ documentMutationHub: setup.documentMutationHub })
+    );
   });
 
   it('uses heading, og:title, and formatted document title in fallback order', () => {

@@ -1,5 +1,7 @@
 import type { UsageStatsHistoryEntry } from '@shared/types/usage';
 
+export const USAGE_CHART_GEOMETRY_RUNTIME_MARKER = new Set<string>();
+
 export const DEFAULT_CHART_BOUNDS = {
   width: 200,
   height: 160,
@@ -36,6 +38,8 @@ export interface ChartMeasurements {
   paddingTop?: number;
   paddingBottom?: number;
   xPadding?: number;
+  minimumTopValue?: number;
+  tickCount?: number;
 }
 
 export function computeChartGeometry(
@@ -47,7 +51,9 @@ export function computeChartGeometry(
     height = DEFAULT_CHART_BOUNDS.height,
     paddingTop = DEFAULT_CHART_BOUNDS.paddingTop,
     paddingBottom = DEFAULT_CHART_BOUNDS.paddingBottom,
-    xPadding = DEFAULT_CHART_BOUNDS.xPadding
+    xPadding = DEFAULT_CHART_BOUNDS.xPadding,
+    minimumTopValue = 0,
+    tickCount
   } = measurements;
 
   const usableHeight = Math.max(height - paddingTop - paddingBottom, 0);
@@ -72,7 +78,7 @@ export function computeChartGeometry(
       normalizeChartCount(entry.article)
   );
   const maxValue = Math.max(...totals, 0);
-  const tickInfo = generateTicks(maxValue);
+  const tickInfo = createTickInfo(Math.max(maxValue, minimumTopValue), tickCount);
   const topValue = tickInfo.topValue || 1;
 
   const pointCount = history.length;
@@ -113,22 +119,23 @@ export function buildSmoothPath(points: ChartPoint[]): string {
   for (let index = 0; index < points.length - 1; index++) {
     const current = points[index];
     const next = points[index + 1];
-    const previous = index > 0 ? points[index - 1] : current;
-    const after = index + 2 < points.length ? points[index + 2] : next;
-
-    const control1X = current.x + (next.x - previous.x) / 6;
-    const control1Y = current.y + (next.y - previous.y) / 6;
-    const control2X = next.x - (after.x - current.x) / 6;
-    const control2Y = next.y - (after.y - current.y) / 6;
+    const controlX = (current.x + next.x) / 2;
 
     segments.push(
-      `C${control1X.toFixed(2)} ${control1Y.toFixed(2)} ${control2X.toFixed(2)} ${control2Y.toFixed(2)} ${next.x.toFixed(
-        2
-      )} ${next.y.toFixed(2)}`
+      `C${controlX.toFixed(2)} ${current.y.toFixed(2)}, ${controlX.toFixed(2)} ${next.y.toFixed(2)}, ${next.x.toFixed(2)} ${next.y.toFixed(2)}`
     );
   }
 
   return segments.join(' ');
+}
+
+export function buildAreaPath(points: ChartPoint[], baseline: number): string {
+  if (points.length === 0) {
+    return '';
+  }
+  const first = points[0];
+  const last = points[points.length - 1];
+  return `${buildSmoothPath(points)} L${last.x.toFixed(2)} ${baseline.toFixed(2)} L${first.x.toFixed(2)} ${baseline.toFixed(2)} Z`;
 }
 
 export function generateTicks(maxValue: number): TickInfo {
@@ -165,6 +172,20 @@ export function generateTicks(maxValue: number): TickInfo {
     ticks.push(0);
   }
   return { ticks, topValue };
+}
+
+function createTickInfo(maxValue: number, tickCount?: number): TickInfo {
+  const generated = generateTicks(maxValue);
+  if (!tickCount || tickCount < 2 || generated.topValue === 0) {
+    return generated;
+  }
+  return {
+    topValue: generated.topValue,
+    ticks: Array.from(
+      { length: tickCount },
+      (_, index) => generated.topValue - (generated.topValue * index) / (tickCount - 1)
+    )
+  };
 }
 
 function normalizeChartCount(value: number): number {

@@ -1,32 +1,3 @@
-import { FocusTrapController } from '../../primitives/dialog';
-
-export interface ContentDialogFocusTrapOptions {
-  initialFocus?: string | HTMLElement | (() => HTMLElement | null);
-  closeOnEscape?: boolean;
-  trapFocus?: boolean;
-  isVisible?: boolean;
-}
-
-export function createContentDialogFocusTrap(
-  container: HTMLElement,
-  closeButton: HTMLElement,
-  options: ContentDialogFocusTrapOptions
-): FocusTrapController | null {
-  if (options.trapFocus === false) {
-    return null;
-  }
-  const focusTrap = new FocusTrapController(container, {
-    initialFocus: options.initialFocus ?? (() => closeButton),
-    escapeDeactivates: options.closeOnEscape ?? true,
-    clickOutsideDeactivates: false,
-    fallbackFocus: closeButton
-  });
-  if (options.isVisible) {
-    focusTrap.activate();
-  }
-  return focusTrap;
-}
-
 export function focusContentDialogElement(
   root: ParentNode | null | undefined,
   selector: string
@@ -54,6 +25,17 @@ export function focusContentDialogElementByDataset(
   }
   element.focus();
   return true;
+}
+
+export function queueContentDialogElementByDataset(
+  root: ParentNode | null | undefined,
+  datasetKey: string,
+  value: string,
+  shouldFocus: () => boolean = () => true
+): void {
+  queueMicrotask(() => {
+    if (shouldFocus()) focusContentDialogElementByDataset(root, datasetKey, value);
+  });
 }
 
 export function restoreContentDialogFocus(element: HTMLElement | null | undefined): void {

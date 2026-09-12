@@ -14,6 +14,11 @@ import {
   type VideoSelectionController,
   type VideoSessionLike
 } from './contentMessageHandlers';
+import {
+  SessionDraftOwnerProbeRequestSchema,
+  type SessionDraftOwnerProbeResponse
+} from '../../shared/sessionDrafts';
+import type { SessionDraftLeaseOwnerRegistry } from '../sessionDrafts/sessionDraftLeaseOwnerRegistry';
 
 export interface CreateContentMessageRouterOptions {
   document: Document;
@@ -31,6 +36,7 @@ export interface CreateContentMessageRouterOptions {
   restoreSelectionFromSnapshot: (snapshot: SelectionSnapshot | null) => ActiveSelectionInfo | null;
   getLastSelectionSnapshot: () => SelectionSnapshot | null;
   clearLastSelectionSnapshot: () => void;
+  sessionDraftLeaseOwners?: SessionDraftLeaseOwnerRegistry;
 }
 
 export interface ContentMessageRouter {
@@ -62,6 +68,16 @@ export function createContentMessageRouter(
   const handleMessage: MessageListener = (rawMessage) => {
     if (!rawMessage || typeof rawMessage !== 'object') {
       return;
+    }
+
+    const ownerProbe = SessionDraftOwnerProbeRequestSchema.safeParse(rawMessage);
+    if (ownerProbe.success) {
+      return {
+        probeId: ownerProbe.data.probeId,
+        active:
+          options.sessionDraftLeaseOwners?.owns(ownerProbe.data.key, ownerProbe.data.leaseId) ===
+          true
+      } satisfies SessionDraftOwnerProbeResponse;
     }
 
     if (isSupportPromptMessage(rawMessage)) {

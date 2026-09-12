@@ -16,6 +16,7 @@ import {
   createProductionContent
 } from '@options/app/productionStitchStateMapper';
 import { createProductionStitchShellActionRuntime } from '@options/app/productionStitchShellActionRuntime';
+import { createProductionStitchMaintenanceState } from '@options/app/productionStitchMaintenanceState';
 import { previewContent as stitchPreviewContent } from '@options/stitch/content';
 import type { CompleteOptions, StoredOptions } from '@shared/types/options';
 import { ensureWindowLocalStorage } from '../../utils/localStorage';
@@ -199,7 +200,8 @@ export function createStorage() {
 export function createRepository() {
   return {
     get: vi.fn(() => Promise.resolve(createCompleteOptions(null))),
-    set: vi.fn(() => Promise.resolve()),
+    patch: vi.fn(() => Promise.resolve(createCompleteOptions(null))),
+    replace: vi.fn(() => Promise.resolve(createCompleteOptions(null))),
     onChange: vi.fn(() => () => {})
   };
 }
@@ -211,16 +213,24 @@ export function createMessaging(result: unknown = undefined) {
   };
 }
 
-export function createActionRuntimeHarness() {
+export function createActionRuntimeHarness(
+  overrides: {
+    clearVaultLocalFolder?: (index: number) => Promise<void>;
+  } = {}
+) {
   const mountRoot = document.createElement('div');
   document.body.append(mountRoot);
 
   let draft = mergeOptions(null) as CompleteOptions;
   let appData = createProductionContent(stitchPreviewContent, draft);
   let state = applyOptionsToState(createInitialStitchState(appData), draft, appData);
+  const maintenance = createProductionStitchMaintenanceState();
   const trackUsageEventMock = vi.fn(() => Promise.resolve(undefined));
   const scrollToPanelMock = vi.fn();
   const openResourceMock = vi.fn();
+  const clearVaultLocalFolderMock = vi.fn(
+    overrides.clearVaultLocalFolder ?? (() => Promise.resolve())
+  );
 
   const runtime = createProductionStitchShellActionRuntime({
     mountRoot,
@@ -239,20 +249,28 @@ export function createActionRuntimeHarness() {
     getCurrentMessages: () => null,
     getDraft: () => draft,
     getState: () => state,
+    setAppData: (nextAppData) => {
+      appData = nextAppData;
+    },
+    setDraft: (nextDraft) => {
+      draft = nextDraft;
+    },
     setConnectionNotice: vi.fn(),
     setDomainMappingRows: vi.fn(),
     setLanguageResource: ({ language }) => {
       state = { ...state, previewLanguage: language };
     },
-    setMaintenanceLog: vi.fn(),
+    disposeMaintenance: maintenance.dispose,
+    runMaintenanceDiagnosis: maintenance.runDiagnosis,
+    setMaintenanceActionNotice: maintenance.setActionNotice,
     setState: (nextState) => {
       state = nextState;
     },
-    createSchemaContext: () => ({
-      appData,
-      language: state.previewLanguage,
-      state
-    }),
+    waitForMaintenanceIdle: maintenance.waitForIdle,
+    createSchemaContext: () => {
+      maintenance.bind(appData);
+      return { appData, language: state.previewLanguage, state };
+    },
     mutate: (mutator) => {
       mutator(state);
     },
@@ -266,6 +284,7 @@ export function createActionRuntimeHarness() {
       state = applyOptionsToState(state, draft, appData);
     },
     render: vi.fn(),
+    renderAndWait: vi.fn(() => Promise.resolve({ status: 'rendered' as const })),
     renderActiveResourceModal: vi.fn(),
     scheduleDraftSave: vi.fn(),
     scrollToPanel: scrollToPanelMock,
@@ -282,13 +301,14 @@ export function createActionRuntimeHarness() {
       persistPrivacyPreference: vi.fn(() => Promise.resolve()),
       repairConfiguration: vi.fn(() => Promise.resolve()),
       resetUsageData: vi.fn(() => Promise.resolve()),
+      restoreUsageStatsView: vi.fn(),
       trackUsageEvent: trackUsageEventMock
     } as never,
     storageController: {
       activateVaultLocalFolder: vi.fn(() => Promise.resolve()),
       applyConnectionNotice: vi.fn(),
       chooseVaultLocalFolder: vi.fn(() => Promise.resolve()),
-      clearVaultLocalFolder: vi.fn(),
+      clearVaultLocalFolder: clearVaultLocalFolderMock,
       ensureVaultRouter: vi.fn(() => ({ vaults: [], rules: [], defaultVaultId: '' })),
       runVaultListConnectionTest: vi.fn(() => Promise.resolve({ success: true, message: 'ok' })),
       syncRoutingRulesToDraft: vi.fn(),
@@ -303,6 +323,7 @@ export function createActionRuntimeHarness() {
 
   return {
     runtime,
+    clearVaultLocalFolderMock,
     scrollToPanelMock,
     openResourceMock,
     trackUsageEventMock

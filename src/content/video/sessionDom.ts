@@ -1,6 +1,9 @@
 import type { VideoPanelCallbacks, VideoPanelTexts } from './application/videoPanelModel';
-import type { VideoSessionViewFactory } from './application/videoSessionView';
-import type { VideoSessionView } from './application/videoSessionView';
+import type {
+  VideoSessionView,
+  VideoSessionViewFactory,
+  VideoSessionViewOptions
+} from './application/videoSessionView';
 import { VideoPanelPresenter } from './videoPanelPresenter';
 import type { VideoHintState } from './videoHintManager';
 import { VideoHintManager } from './videoHintManager';
@@ -10,7 +13,7 @@ import {
   type VideoSessionState
 } from './sessionState';
 import type { VideoFragmentCapture } from './types';
-import type { ExportDestinationSurfacePreview } from '@options/stitch/types';
+import type { ExportDestinationSurfacePreview } from '@ui/stitch-runtime';
 
 export interface VideoSessionDomListenerHandlers {
   onMouseDown: (event: MouseEvent) => void;
@@ -86,7 +89,7 @@ export class VideoSessionDomController {
   mountPanel(
     callbacks: VideoPanelCallbacks,
     texts: VideoPanelTexts,
-    options: { initialCollapsed?: boolean } = {}
+    options: VideoSessionViewOptions = {}
   ): void {
     this.panel = this.viewFactory.createView(callbacks, texts, options);
     this.panel.hydrateCommentDrafts?.(this.commentDrafts);

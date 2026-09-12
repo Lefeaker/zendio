@@ -1,5 +1,12 @@
 import { readPath } from '@options/schema-runtime/binding';
-import type { el } from '../ui/dom';
+import {
+  extractRuntimeEventValue,
+  normalizeRuntimeNodes,
+  resolveRuntimeBinding,
+  resolveRuntimeValue,
+  runRuntimeAction,
+  type el
+} from '@ui/stitch-runtime';
 import type { previewUi } from '../ui/components';
 import type {
   ActionDescriptor,
@@ -7,6 +14,7 @@ import type {
   DynamicValue,
   InputNode,
   NodeChild,
+  OptionsExtensionNode,
   SchemaContext,
   SegmentedNavNode,
   SelectNode,
@@ -28,11 +36,10 @@ export function runEventAction(
   ctx: RendererContext
 ): void {
   const resolved = resolveValue(action, ctx);
-  if (!resolved) {
-    return;
-  }
-
-  const extracted = resolved.valueFrom ? extractEventValue(event, resolved.valueFrom) : undefined;
+  if (!resolved) return;
+  const extracted = resolved.valueFrom
+    ? extractRuntimeEventValue(event, resolved.valueFrom)
+    : undefined;
   runAction(resolved, ctx, extracted, event);
 }
 
@@ -43,22 +50,16 @@ export function runAction(
   event?: Event
 ): void {
   const resolved = resolveValue(action, ctx);
-  if (!resolved) {
-    return;
-  }
-
+  if (!resolved) return;
   if (typeof resolved === 'string') {
-    ctx.dispatch(resolved, [], runtimeValue, event);
+    runRuntimeAction(resolved, ctx, runtimeValue, event);
     return;
   }
-
-  const args = normalizeActionArgs(resolveValue(resolved.args, ctx));
   const transformedValue =
     typeof resolved.transform === 'function'
       ? resolved.transform(runtimeValue, ctx, event)
       : runtimeValue;
-
-  ctx.dispatch(resolved.id, args, transformedValue === undefined ? event : transformedValue, event);
+  runRuntimeAction(resolved, ctx, transformedValue, event);
 }
 
 export function resolveNodeValue(
@@ -68,66 +69,41 @@ export function resolveNodeValue(
   if ('value' in node && node.value !== undefined) {
     return resolveValue(node.value, ctx);
   }
-  if (node.bind !== undefined) {
-    return resolveBinding(node.bind, ctx);
-  }
-  return undefined;
+  return node.bind === undefined ? undefined : resolveBinding(node.bind, ctx);
 }
 
 export function resolveBinding(
   binding: string | import('../types').StateBinding | undefined,
   ctx: RendererContext
 ): unknown {
-  if (binding === undefined || binding === null) {
-    return undefined;
-  }
+  if (binding === undefined) return undefined;
   if (typeof binding === 'string') {
     return readPath(ctx.state, binding);
   }
-
-  const source = binding.source || 'state';
-  const root = source === 'appData' ? ctx.appData : source === 'context' ? ctx : ctx.state;
-  return readPath(root, binding.path);
+  const source = binding.source ?? 'state';
+  if (source === 'context') {
+    return readPath(ctx, binding.path) ?? binding.fallback;
+  }
+  return resolveRuntimeBinding(
+    {
+      source,
+      path: binding.path,
+      ...(binding.fallback !== undefined ? { fallback: binding.fallback } : {})
+    },
+    ctx
+  );
 }
 
 export function normalizeNodes(
   nodes: DynamicValue<NodeChild[] | NodeChild> | undefined,
   ctx: RendererContext
 ): NodeChild[] {
-  const resolved = resolveValue(nodes, ctx);
-  if (resolved === undefined || resolved === null || resolved === false) {
-    return [];
-  }
-  return Array.isArray(resolved) ? resolved : [resolved];
+  return normalizeRuntimeNodes<SchemaContext, OptionsExtensionNode>(nodes, ctx);
 }
 
 export function resolveValue<T>(
   value: DynamicValue<T> | undefined,
   ctx: RendererContext
 ): T | undefined {
-  return typeof value === 'function' ? (value as (ctx: SchemaContext) => T)(ctx) : value;
-}
-
-function normalizeActionArgs(args: unknown[] | undefined | null): unknown[] {
-  if (args === undefined || args === null) {
-    return [];
-  }
-  return Array.isArray(args) ? args : [args];
-}
-
-function extractEventValue(
-  event: Event | undefined,
-  valueFrom: ActionDescriptor['valueFrom']
-): unknown {
-  switch (valueFrom) {
-    case 'target.checked':
-      return event?.target instanceof HTMLInputElement ? event.target.checked : undefined;
-    case 'target.value':
-    default:
-      return event?.target instanceof HTMLInputElement ||
-        event?.target instanceof HTMLSelectElement ||
-        event?.target instanceof HTMLTextAreaElement
-        ? event.target.value
-        : undefined;
-  }
+  return resolveRuntimeValue(value, ctx);
 }

@@ -110,6 +110,7 @@ describe('ReaderSession telemetry', () => {
   });
 
   it('does not let analytics send failures block export cleanup', async () => {
+    vi.useFakeTimers();
     const debugSpy = vi.spyOn(console, 'debug').mockImplementation(() => {});
     const context = createSessionContext();
     context.messaging.send.mockRejectedValue(new Error('analytics down'));
@@ -131,6 +132,8 @@ describe('ReaderSession telemetry', () => {
         wrapper
       }
     ]);
+    context.emitCommentDraftChange({});
+    await flushDraftPersistence();
 
     const callbacks = context.getCallbacks();
     if (!callbacks) {

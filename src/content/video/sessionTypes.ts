@@ -7,7 +7,8 @@ import type { SupportProgressReporter } from '../runtime/supportProgress';
 import type { VideoVisibleFrameScreenshotCapture } from './videoVisibleTabScreenshot';
 import type { VideoScreenshotCacheRepository } from './videoScreenshotCacheRepository';
 import type { VideoScreenshotFrameCapture } from './videoScreenshotPreparationQueueTypes';
-import type { SessionDraftStoragePolicy } from '../sessionDrafts';
+import type { SessionDraftStoragePolicy, VideoSessionDraftEnvelope } from '@shared/sessionDrafts';
+import type { SessionDraftLeaseOwnerRegistry } from '../sessionDrafts/sessionDraftLeaseOwnerRegistry';
 
 export type VideoSessionAddCaptureOptions = {
   comment?: string;
@@ -31,6 +32,9 @@ export interface VideoSessionDependencies {
   captureVisibleVideoFrameScreenshot?: VideoVisibleFrameScreenshotCapture;
   screenshotCacheRepository?: VideoScreenshotCacheRepository;
   sessionDraftStoragePolicy?: SessionDraftStoragePolicy;
+  sessionDraftLeaseOwners?: SessionDraftLeaseOwnerRegistry;
+  initialClaimedDraft?: VideoSessionDraftEnvelope;
+  onInitialDraftAdopted?: () => void;
   showSupportProgress?: SupportProgressReporter;
   trackUsageEvent?: <EventName extends UsageEventName>(
     event: EventName,

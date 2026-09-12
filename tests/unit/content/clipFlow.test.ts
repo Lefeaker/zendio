@@ -5,6 +5,7 @@ import { initClipFlow, queueNextClipAnalyticsSource } from '@content/runtime/cli
 import type { ContentRuntimeState } from '@content/runtime/contentRuntimeState';
 import type { ContentSelectionTracker } from '@content/runtime/contentSelectionTracker';
 import type { SelectionPromptLifecycleHandlers } from '@content/runtime/clipFlowTypes';
+import { SelectionModifierTrigger } from '@content/clipper/services/selectionModifierTrigger';
 
 type TrackUsageEventMessage = {
   type: 'ANALYTICS_EVENT';
@@ -40,15 +41,13 @@ function createRuntimeState(mode: 'full' | 'selection'): ContentRuntimeState {
       captureContext: false,
       contextLength: 0,
       contextMode: 'chars',
-      selectionModifierEnabled: false,
+      selectionTriggerMode: 'direct',
       selectionModifierKeys: [],
       keyboardShortcutsEnabled: false
     }),
     getAutoSelectionInFlight: () => false,
     setAutoSelectionInFlight: vi.fn(),
-    getModifierState: vi.fn() as never,
-    isSelectionModifierActive: () => false,
-    setSelectionModifierActive: vi.fn(),
+    getSelectionModifierTrigger: () => new SelectionModifierTrigger(),
     getLastSelectionSnapshot: () => null,
     setLastSelectionSnapshot: vi.fn(),
     resetSelectionTracking: vi.fn(),

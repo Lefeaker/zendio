@@ -263,7 +263,7 @@ describe('configProvider', () => {
       expect(fragmentDefaults.captureContext).toBe(false);
       expect(fragmentDefaults.contextLength).toBe(200);
       expect(fragmentDefaults.contextMode).toBe('chars');
-      expect(fragmentDefaults.selectionModifierEnabled).toBe(true);
+      expect(fragmentDefaults.selectionTriggerMode).toBe('modifier');
       expect(fragmentDefaults.selectionModifierKeys).toEqual(['shift']);
     });
   });

@@ -14,75 +14,32 @@ import {
 } from '../content/reader/utils/markdownBuilder';
 import { VideoSession } from '../content/video/session';
 import { createPromptElement } from '../content/video/videoPromptRenderer';
-import { panelStyleSheetManager } from '../content/shared/panels/styleSheetManager';
+import {
+  panelStyleSheetManager,
+  prepareStyleHost,
+  revealStyleHost
+} from '../content/shared/panels/styleSheetManager';
 import { setControlledRuntimeTheme } from '../content/stitch/runtimeTheme';
 import { SupportPrompt } from '../content/ui/supportPrompt';
 import { createContentRuntimeState } from '../content/runtime/contentRuntimeState';
 import type { ReaderMarkdownPayload } from '../content/reader/utils/markdownBuilder';
-import type { StorageAreaService, StorageService } from '../platform/interfaces/storage';
 import type { MessagingService } from '../platform/interfaces/messaging';
 import type { ErrorHandler as SharedErrorHandler } from '../shared/errors/errorHandler';
+import type { StyleAttachmentHandle } from '../ui/foundation/style-host';
 import { registerService, TOKENS } from '../shared/di';
 import { registerFallbackRepositories } from '../shared/di/serviceRegistry';
 import { createPreviewPlatformServices } from '../platform/preview/services';
 import { DEFAULT_RUNTIME_MESSAGES } from '@i18n';
-
-type HarnessStorageValue = Parameters<StorageAreaService['set']>[1];
+import { createContentOrchestratorHarnessStorage } from './contentOrchestratorSessionDraftHarness';
 const status = document.getElementById('status');
-
 function setStatus(message: string): void {
-  if (status) {
-    status.textContent = message;
-  }
+  status?.replaceChildren(message);
 }
-
-function createStorageArea(): StorageAreaService {
-  const values = new Map<string, HarnessStorageValue>();
-  return {
-    get<T>(key: string): Promise<T | undefined> {
-      return Promise.resolve(values.get(key) as T | undefined);
-    },
-    set<T>(key: string, value: T): Promise<void> {
-      values.set(key, value);
-      return Promise.resolve();
-    },
-    getMany<T>(keys: string[]): Promise<Record<string, T | undefined>> {
-      return Promise.resolve(
-        Object.fromEntries(keys.map((key) => [key, values.get(key) as T | undefined]))
-      );
-    },
-    setMany<T>(entries: Record<string, T>): Promise<void> {
-      for (const [key, value] of Object.entries(entries)) values.set(key, value);
-      return Promise.resolve();
-    },
-    remove(key: string | string[]): Promise<void> {
-      for (const currentKey of Array.isArray(key) ? key : [key]) values.delete(currentKey);
-      return Promise.resolve();
-    },
-    clear(): Promise<void> {
-      values.clear();
-      return Promise.resolve();
-    },
-    watchKey(): () => void {
-      return () => undefined;
-    },
-    watchAll(): () => void {
-      return () => undefined;
-    }
-  };
-}
-
-const storage: StorageService = {
-  local: createStorageArea(),
-  sync: createStorageArea(),
-  session: createStorageArea()
-};
-
+const storage = createContentOrchestratorHarnessStorage();
 const configuredInterfaceTheme =
   new URLSearchParams(window.location.search).get('interfaceTheme') === 'light' ? 'light' : 'dark';
 setControlledRuntimeTheme(window, configuredInterfaceTheme);
 const HARNESS_VIDEO_PROMPT_LABEL = DEFAULT_RUNTIME_MESSAGES.videoPromptAction;
-const HARNESS_VIDEO_PROMPT_DISMISS = DEFAULT_RUNTIME_MESSAGES.videoPromptDismiss;
 const HARNESS_VIDEO_OPTIONS = {
   floatingPromptEnabled: true,
   promptButtonLabel: HARNESS_VIDEO_PROMPT_LABEL,
@@ -91,7 +48,6 @@ const HARNESS_VIDEO_OPTIONS = {
   controlBarScreenshot: true,
   commentEditorAutoPause: false
 };
-
 const optionsRepository = {
   get() {
     return Promise.resolve({
@@ -100,12 +56,10 @@ const optionsRepository = {
       video: HARNESS_VIDEO_OPTIONS
     });
   },
-  async set() {},
   onChange() {
     return () => undefined;
   }
 };
-
 const clipRepo = {
   getFragmentConfig() {
     return Promise.resolve({
@@ -113,7 +67,7 @@ const clipRepo = {
       captureContext: false,
       contextLength: 200,
       contextMode: 'chars',
-      selectionModifierEnabled: false,
+      selectionTriggerMode: 'disabled',
       selectionModifierKeys: [],
       keyboardShortcutsEnabled: true
     });
@@ -122,28 +76,34 @@ const clipRepo = {
     return () => undefined;
   }
 };
-
 const previewPlatformServices = createPreviewPlatformServices(storage);
 registerService(TOKENS.platformServices, () => previewPlatformServices);
 registerFallbackRepositories();
-
 const runtime = previewPlatformServices.runtime;
 const runtimeState = createContentRuntimeState({
   optionsRepository: optionsRepository as never,
   window
 });
-
 const errorHandler = {
   handle(error: Parameters<SharedErrorHandler['handle']>[0]): Promise<void> {
     console.warn('[harness:errorHandler]', error);
     return Promise.resolve();
   }
 };
-
 let activeReader: ReaderSession | null = null;
 let activeVideo: VideoSession | null = null;
-let activeVideoPromptHost: HTMLElement | null = null;
-
+type VideoFloatingPrompt = { host: HTMLElement; styleAttachment: StyleAttachmentHandle };
+let activeVideoPrompt: VideoFloatingPrompt | null = null;
+let activeSupportPrompt: SupportPrompt | null = null;
+let activeVideoPromptGeneration = 0;
+function removeVideoFloatingPrompt(): void {
+  activeVideoPromptGeneration += 1;
+  const prompt = activeVideoPrompt;
+  activeVideoPrompt = null;
+  if (!prompt) return;
+  prompt.styleAttachment.dispose();
+  prompt.host.remove();
+}
 function buildReaderDependencies(): ReaderSessionDependencies {
   return {
     viewFactory: createReaderPanelViewFactory(),
@@ -268,40 +228,73 @@ async function startVideoSession(): Promise<void> {
   setStatus('VideoSession mounted and one capture added');
 }
 
+function setReaderHighlightCount(count: number): void {
+  const wrapper = document.createElement('mark');
+  activeReader?.__setTestHighlights(
+    Array.from({ length: count }, (_, index) => ({
+      id: `harness-highlight-${index + 1}`,
+      selectedHtml: `Highlight ${index + 1}`,
+      selectedText: `Highlight ${index + 1}`,
+      comment: `Note ${index + 1}`,
+      fragmentUrl: `${location.href}#:~:text=${index + 1}`,
+      wrapper
+    }))
+  );
+}
+async function addVideoCaptureCount(count: number): Promise<void> {
+  const video = document.querySelector('video');
+  if (!(video instanceof HTMLVideoElement) || !activeVideo) return;
+  for (let index = 1; index < count; index += 1) {
+    video.currentTime = index * 5;
+    await activeVideo.addCurrentTimestamp();
+  }
+}
+
 async function showVideoFloatingPrompt(): Promise<void> {
-  activeVideoPromptHost?.remove();
-  await panelStyleSheetManager.initialize();
+  removeVideoFloatingPrompt();
+  const generation = activeVideoPromptGeneration;
   const host = document.createElement('div');
+  prepareStyleHost(host);
+  host.dataset.aiobStyleReveal = 'true';
   const shadow = host.attachShadow({ mode: 'open' });
-  panelStyleSheetManager.applyStitchRuntimeStyles(shadow);
-  const { container } = createPromptElement({
-    id: 'aiob-video-floating-prompt',
-    label: HARNESS_VIDEO_PROMPT_LABEL,
-    shortcut: 'Alt+V',
-    previewTheme: configuredInterfaceTheme,
-    messages: {
-      videoPromptDismiss: HARNESS_VIDEO_PROMPT_DISMISS
-    } as never,
-    getIconUrl: () => runtime.getURL('icons/bannerlogo-48.png'),
-    onPrimaryAction: () => {
-      setStatus('Video floating prompt primary action');
-    },
-    onDismiss: () => {
-      activeVideoPromptHost?.remove();
-      activeVideoPromptHost = null;
-      setStatus('Video floating prompt dismissed');
+  const pending = {
+    host,
+    styleAttachment: panelStyleSheetManager.applyVideoStyles(shadow)
+  };
+  try {
+    const { container } = createPromptElement({
+      id: 'aiob-video-floating-prompt',
+      label: HARNESS_VIDEO_PROMPT_LABEL,
+      shortcut: 'Alt+V',
+      previewTheme: configuredInterfaceTheme,
+      messages: { videoPromptDismiss: DEFAULT_RUNTIME_MESSAGES.videoPromptDismiss } as never,
+      getIconUrl: () => runtime.getURL('icons/bannerlogo-48.png'),
+      onPrimaryAction: () => setStatus('Video floating prompt primary action'),
+      onDismiss: () => {
+        removeVideoFloatingPrompt();
+        setStatus('Video floating prompt dismissed');
+      }
+    });
+    shadow.appendChild(container);
+    if (generation !== activeVideoPromptGeneration) return;
+    document.body.appendChild(host);
+    if (!(await revealStyleHost(host, pending.styleAttachment))) return;
+    if (generation !== activeVideoPromptGeneration) return;
+    setStatus('Video floating prompt mounted');
+    activeVideoPrompt = pending;
+  } finally {
+    if (activeVideoPrompt !== pending) {
+      pending.styleAttachment.dispose();
+      pending.host.remove();
     }
-  });
-  shadow.appendChild(container);
-  document.body.appendChild(host);
-  activeVideoPromptHost = host;
-  setStatus('Video floating prompt mounted');
+  }
 }
 
 async function showSupportPrompt(): Promise<void> {
-  const prompt = new SupportPrompt(document);
+  activeSupportPrompt?.destroy();
+  const prompt = (activeSupportPrompt = new SupportPrompt(document));
   await prompt.show({ status: 'success', vaultName: 'Harness Vault' });
-  setStatus('SupportPrompt mounted');
+  if (activeSupportPrompt === prompt) setStatus('SupportPrompt mounted');
 }
 
 document.getElementById('open-clipper')?.addEventListener('click', () => {
@@ -343,6 +336,8 @@ document.getElementById('show-support-prompt')?.addEventListener('click', () => 
       startVideoSession: () => Promise<void>;
       showVideoFloatingPrompt: () => Promise<void>;
       showSupportPrompt: () => Promise<void>;
+      setReaderHighlightCount: (count: number) => void;
+      addVideoCaptureCount: (count: number) => Promise<void>;
     };
   }
 ).harness = {
@@ -350,7 +345,9 @@ document.getElementById('show-support-prompt')?.addEventListener('click', () => 
   startReaderSession,
   startVideoSession,
   showVideoFloatingPrompt,
-  showSupportPrompt
+  showSupportPrompt,
+  setReaderHighlightCount,
+  addVideoCaptureCount
 };
 
 void runtimeState.refreshFragmentConfig().finally(() => {

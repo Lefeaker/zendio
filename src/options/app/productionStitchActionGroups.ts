@@ -5,7 +5,9 @@ import { resolveSchemaMessage } from '@options/stitch/schema/i18n';
 import type { ConnectionTestResult } from '@shared/types/connection';
 import type { CompleteOptions } from '@shared/types/options';
 import type { VaultRouterConfig } from '@shared/types/vault';
+import { allocateVaultId } from '@shared/config/vaultRouterIdentity';
 import { toRoutingRules } from './productionStitchStateMapper';
+import type { SectionInvalidationScope } from '@ui/stitch-runtime/render/sectionInvalidation';
 
 type ProductionStitchActions = ActionRegistry<PreviewStoreState, PreviewContent>;
 interface ProductionStitchActionGroupContext {
@@ -13,15 +15,17 @@ interface ProductionStitchActionGroupContext {
   getDraft(): CompleteOptions;
   getMessages(): Messages | null;
   getState(): PreviewStoreState;
+  isActive(): boolean;
   setConnectionNotice(notice: PreviewContent['storage']['connectionNotice']): void;
   activateVaultLocalFolder(index: number): Promise<void>;
   applyConnectionNotice(result: ConnectionTestResult): void;
   chooseVaultLocalFolder(index: number): Promise<void>;
-  clearVaultLocalFolder(index: number): void;
+  clearVaultLocalFolder(index: number): Promise<void>;
   currentDomainEntries(): Array<[string, string]>;
   ensureVaultRouter(): VaultRouterConfig;
   refreshAppData(): void;
-  render(): void;
+  render(scope: SectionInvalidationScope): void;
+  runPersistenceTask(key: string, task: () => Promise<void>): void;
   runVaultListConnectionTest(): Promise<ConnectionTestResult>;
   scheduleDraftSave(): void;
   syncDomainEntries(entries: Array<[string, string]>): void;
@@ -48,7 +52,7 @@ export function createProductionRoutingActions(
       ];
       context.syncRoutingRulesToDraft();
       context.scheduleDraftSave();
-      context.render();
+      context.render('storage');
     },
     'routing:remove': ({ args }) => {
       const index = Number(args[0] ?? -1);
@@ -56,7 +60,7 @@ export function createProductionRoutingActions(
       state.routingRules = state.routingRules.filter((_, ruleIndex) => ruleIndex !== index);
       context.syncRoutingRulesToDraft();
       context.scheduleDraftSave();
-      context.render();
+      context.render('storage');
     },
     'routing:updateField': ({ args, value }) => {
       const state = context.getState();
@@ -82,13 +86,14 @@ export function createProductionRoutingActions(
 export function createProductionStorageActions(
   context: ProductionStitchActionGroupContext
 ): ProductionStitchActions {
+  let connectionGeneration = 0;
   return {
     'storage:addVault': () => {
       const draft = context.getDraft();
       const router = context.ensureVaultRouter();
       const nextIndex = router.vaults.length + 1;
       router.vaults.push({
-        id: `vault-${nextIndex}`,
+        id: allocateVaultId(router.vaults.map(({ id }) => id)),
         name: `Vault ${nextIndex}`,
         vault: `Vault ${nextIndex}`,
         httpsUrl: draft.rest.httpsUrl ?? draft.rest.baseUrl,
@@ -98,7 +103,7 @@ export function createProductionStorageActions(
       });
       draft.vaultRouter = router;
       context.scheduleDraftSave();
-      context.render();
+      context.render('storage');
     },
     'storage:removeVault': ({ args }) => {
       const index = Number(args[0] ?? -1);
@@ -113,7 +118,7 @@ export function createProductionStorageActions(
       draft.vaultRouter = router;
       context.getState().routingRules = toRoutingRules(draft);
       context.scheduleDraftSave();
-      context.render();
+      context.render('storage');
     },
     'storage:updateVaultField': ({ args, value }) => {
       context.updateVaultField(Number(args[0] ?? -1), String(args[1] ?? ''), value);
@@ -125,17 +130,25 @@ export function createProductionStorageActions(
       void context.chooseVaultLocalFolder(Number(args[0] ?? -1));
     },
     'storage:deleteLocalFolder': ({ args }) => {
-      context.clearVaultLocalFolder(Number(args[0] ?? -1));
+      const index = Number(args[0] ?? -1);
+      context.runPersistenceTask('storage:deleteLocalFolder', () =>
+        context.clearVaultLocalFolder(index)
+      );
     },
     'storage:cancelLocalFolderDelete': () => {
       context.getState().activeLocalFolderVaultIndex = null;
-      context.render();
+      context.render('storage');
     },
     'storage:testConnection': () => {
+      const generation = ++connectionGeneration;
+      const isCurrent = () => context.isActive() && generation === connectionGeneration;
       void (async () => {
         try {
-          context.applyConnectionNotice(await context.runVaultListConnectionTest());
+          const result = await context.runVaultListConnectionTest();
+          if (!isCurrent()) return;
+          context.applyConnectionNotice(result);
         } catch (error) {
+          if (!isCurrent()) return;
           context.setConnectionNotice({
             title: resolveSchemaMessage(
               context.getMessages(),
@@ -146,7 +159,7 @@ export function createProductionStorageActions(
           });
           context.refreshAppData();
         }
-        context.render();
+        if (isCurrent()) context.render('storage');
       })();
     }
   };
@@ -163,7 +176,7 @@ export function createProductionDomainActions(
       entries.push([`example-${entries.length + 1}.com`, 'folder']);
       context.syncDomainEntries(entries);
       context.scheduleDraftSave();
-      context.render();
+      context.render('output');
     },
     'domain:update': ({ args, value }) => {
       const index = Number(args[0] ?? -1);
@@ -188,7 +201,7 @@ export function createProductionDomainActions(
         .filter((_, entryIndex) => entryIndex !== index);
       context.syncDomainEntries(entries);
       context.scheduleDraftSave();
-      context.render();
+      context.render('output');
     }
   };
 }

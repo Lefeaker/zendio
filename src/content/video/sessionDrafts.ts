@@ -9,7 +9,7 @@ import {
   type SessionDraftStatus,
   type VideoSessionDraftEnvelope,
   type VideoSessionDraftPayload
-} from '../sessionDrafts';
+} from '@shared/sessionDrafts';
 import type { ExportDestinationMetadata } from '../../shared/exportDestination';
 import type { VideoCapture } from './types';
 import type { VideoPlatform } from './utils';
@@ -168,9 +168,9 @@ export function createVideoSessionDraftEnvelope(
   };
 }
 
-export function pickVideoSessionDraftCandidate(
-  candidates: VideoSessionDraftEnvelope[]
-): VideoSessionDraftEnvelope | null {
+export function pickVideoSessionDraftCandidate<
+  Candidate extends Pick<VideoSessionDraftEnvelope, 'status' | 'updatedAt'>
+>(candidates: Candidate[]): Candidate | null {
   const restorable = candidates
     .filter((candidate) => candidate.status === 'restorable')
     .sort((left, right) => right.updatedAt - left.updatedAt);

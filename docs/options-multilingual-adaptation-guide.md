@@ -60,9 +60,9 @@
    - `npm run build:dev`
    - `npm run test:i18n`
    - `npm run audit:i18n-hardcoded-user-copy:check`
-   - `npx vitest run --config vitest.unit.config.ts tests/unit/i18n/hardcodedSurfaceCoverage.test.ts`
-   - `npx vitest run --config vitest.unit.config.ts tests/unit/options/productionStitchShell*.test.ts tests/unit/options/schemaI18nParity.test.ts tests/unit/options/productionStitchSchemaPresence.test.ts`
-   - `npx vitest run --config vitest.e2e.config.ts tests/e2e/optionsLanguageSwitch.test.ts tests/e2e/multilingualExpansion.test.ts`
+   - `node scripts/run-bounded-command.mjs --profile vitest-v1 -- run --config vitest.unit.config.ts tests/unit/i18n/hardcodedSurfaceCoverage.test.ts`
+   - `node scripts/run-bounded-command.mjs --profile vitest-v1 -- run --config vitest.unit.config.ts tests/unit/options/productionStitchShell*.test.ts tests/unit/options/schemaI18nParity.test.ts tests/unit/options/productionStitchSchemaPresence.test.ts`
+   - `node scripts/run-bounded-command.mjs --profile vitest-v1 -- run --config vitest.e2e.config.ts tests/e2e/optionsLanguageSwitch.test.ts tests/e2e/multilingualExpansion.test.ts`
    - `npm run verify:stitch-secondary`
 
 - 若 copy length、layout 或 modal/runtime preview 明显变化，再追加：

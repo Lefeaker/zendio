@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import type { AppError } from '@shared/errors';
+import type { TabsBoundaryErrorCode } from '../../../src/platform/interfaces/tabs';
 import { ErrorSeverity } from '@shared/errors';
 import {
   SHOW_LOCAL_VAULT_PERMISSION_PROMPT,
@@ -569,5 +570,47 @@ describe('background clipPipeline', () => {
         status: 'success'
       })
     );
+  });
+  it.each<TabsBoundaryErrorCode>(['NO_RECEIVER', 'TAB_NOT_FOUND'])(
+    'ignores the normalized optional prompt outcome %s',
+    async (code) => {
+      const [{ TabsBoundaryError }, { errorHandler }, { dispatchSupportPrompt }] =
+        await Promise.all([
+          import('../../../src/platform/interfaces/tabs'),
+          import('@shared/errors'),
+          import('../../../src/background/pipelines/clipPipelineSupport')
+        ]);
+      const handle = vi.spyOn(errorHandler, 'handle').mockResolvedValue();
+      try {
+        const delivery = Promise.reject(new TabsBoundaryError(code));
+        dispatchSupportPrompt({ sendSupportPrompt: () => delivery }, 5, { status: 'success' });
+        await delivery.catch(() => undefined);
+        expect(handle).not.toHaveBeenCalled();
+      } finally {
+        handle.mockRestore();
+      }
+    }
+  );
+
+  it('continues to report unexpected optional prompt transport failures', async () => {
+    const [{ errorHandler }, { dispatchSupportPrompt }] = await Promise.all([
+      import('@shared/errors'),
+      import('../../../src/background/pipelines/clipPipelineSupport')
+    ]);
+    const handle = vi.spyOn(errorHandler, 'handle').mockResolvedValue();
+    try {
+      const failure = new Error('unexpected transport failure');
+      const delivery = Promise.reject(failure);
+      dispatchSupportPrompt({ sendSupportPrompt: () => delivery }, 5, { status: 'success' });
+      await delivery.catch(() => undefined);
+      expect(handle).toHaveBeenCalledOnce();
+      expect(handle.mock.calls[0]?.[0]).toMatchObject({
+        code: 'CHROME_API_RUNTIME_ERROR',
+        cause: failure
+      });
+      expect(handle.mock.calls[0]?.[1]).toEqual({ suppressNotifications: true });
+    } finally {
+      handle.mockRestore();
+    }
   });
 });

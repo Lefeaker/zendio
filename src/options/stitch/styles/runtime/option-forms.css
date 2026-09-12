@@ -100,14 +100,8 @@
   align-items: center;
 }
 
-.modifier-key-inline .chips {
-  flex-wrap: nowrap;
+.modifier-key-choices {
   gap: var(--space-2);
-}
-
-.modifier-key-inline .chip {
-  min-height: var(--control-height-md);
-  padding: 0 var(--space-4);
 }
 
 .modifier-key-warning {
@@ -181,62 +175,58 @@
   font-size: var(--font-size-base);
 }
 
-.interface-theme-grid .chips {
+.chips.segmented-control {
   position: relative;
   display: grid;
-  grid-template-columns: repeat(3, minmax(86px, 1fr));
+  grid-template-columns: repeat(var(--segment-count), minmax(0, 1fr));
   align-items: center;
   gap: 0;
   min-width: 0;
-  width: min(100%, 330px);
+  width: min(100%, calc(var(--segment-count) * 96px));
   padding: var(--space-1);
   border: var(--border-default);
   border-radius: var(--radius-full);
   background: var(--panel);
 }
 
-.interface-theme-grid .chips::before {
+.chips.segmented-control::before {
   content: '';
   position: absolute;
   top: var(--space-1);
   left: var(--space-1);
-  width: calc((100% - var(--space-2)) / 3);
+  width: calc((100% - var(--space-2)) / var(--segment-count));
   height: calc(100% - var(--space-2));
   border-radius: var(--radius-full);
   background: var(--accent-strong);
   box-shadow: var(--shadow-focus);
+  transform: translateX(calc(var(--segment-index) * 100%));
   transition: transform var(--motion-base) var(--ease-standard);
 }
 
-.interface-theme-grid .chips[data-active-value='dark']::before {
-  transform: translateX(100%);
-}
-
-.interface-theme-grid .chips[data-active-value='light']::before {
-  transform: translateX(200%);
-}
-
-.interface-theme-grid .chip {
+.chips.segmented-control > .chip {
   position: relative;
   z-index: 1;
   justify-content: center;
   width: 100%;
-  min-height: var(--control-height-lg);
-  padding: 0 var(--space-5);
+  min-width: 0;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  min-height: calc(var(--switch-height) - var(--space-2) - 2px);
+  padding: 0 var(--space-3);
   border: 0;
   border-radius: var(--radius-full);
   background: transparent;
   color: var(--text-faint);
-  font-size: var(--font-size-base);
-  font-weight: 650;
+  font-size: var(--font-size-md);
+  font-weight: 600;
 }
 
-.interface-theme-grid .chip[aria-pressed='true'] {
+.chips.segmented-control > .chip[aria-pressed='true'] {
   background: transparent;
   color: var(--on-accent);
 }
 
-.interface-theme-grid .chip:hover {
+.chips.segmented-control > .chip:hover {
   background: var(--surface-muted);
   color: var(--text);
 }

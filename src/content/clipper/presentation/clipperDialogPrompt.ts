@@ -7,37 +7,22 @@ import type {
 } from '../application/clipPromptGateway';
 import { resolveContentPopupCoordinator } from '../../runtime/popupCoordinatorAccess';
 
-class ClipperDialogPromptGateway implements ClipPromptGateway {
-  async requestSelectionAction(request: ClipPromptRequest): Promise<ClipPromptResponse> {
-    const dialog = createClipperDialog();
-    const baseOptions: ClipperDialogOptions = {
-      allowReaderMode: request.allowReaderMode,
-      readerModeBehavior: request.readerModeBehavior
-    };
-
-    const withVideoOption =
-      request.allowVideoMode === undefined
-        ? baseOptions
-        : { ...baseOptions, allowVideoMode: request.allowVideoMode };
-
-    const dialogOptions =
-      request.initialComment === undefined
-        ? withVideoOption
-        : { ...withVideoOption, initialComment: request.initialComment };
-    const popupCoordinator = resolveContentPopupCoordinator();
-
-    const result = await dialog.show(request.selectedText, {
-      ...dialogOptions,
-      ...(popupCoordinator ? { dialogRegistry: popupCoordinator } : {})
-    });
-    return {
-      action: result.action,
-      comment: result.comment ?? '',
-      ...(result.destination ? { destination: result.destination } : {})
-    };
-  }
-}
-
 export function createClipperDialogPromptGateway(): ClipPromptGateway {
-  return new ClipperDialogPromptGateway();
+  return {
+    async requestSelectionAction(request: ClipPromptRequest): Promise<ClipPromptResponse> {
+      const dialog = createClipperDialog();
+      const dialogOptions: ClipperDialogOptions = {
+        allowReaderMode: request.allowReaderMode,
+        readerModeBehavior: request.readerModeBehavior,
+        ...(request.allowVideoMode === undefined ? {} : { allowVideoMode: request.allowVideoMode }),
+        ...(request.initialComment === undefined ? {} : { initialComment: request.initialComment })
+      };
+      const popupCoordinator = resolveContentPopupCoordinator();
+
+      return await dialog.show(request.selectedText, {
+        ...dialogOptions,
+        ...(popupCoordinator ? { dialogRegistry: popupCoordinator } : {})
+      });
+    }
+  };
 }

@@ -1,12 +1,12 @@
 export type FirefoxAmoSourceArchiveEntry = {
-  path: string;
-  content: string | null;
+  readonly path: string;
+  readonly content: Buffer | null;
 };
 
 export type FirefoxAmoSourceArchiveResult = {
-  archivePath: string;
-  archiveName: string;
-  entryCount: number;
+  readonly archivePath: string;
+  readonly archiveName: string;
+  readonly entryCount: number;
 };
 
 export type FirefoxAmoSourceArchiveAuditResult = {

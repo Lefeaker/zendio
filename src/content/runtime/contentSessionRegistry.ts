@@ -1,4 +1,5 @@
 type ContentSessionRegistryState = {
+  runtimeInitialized: boolean;
   readerSession: object | null;
   videoSession: object | null;
 };
@@ -9,6 +10,7 @@ function getState(doc: Document = document): ContentSessionRegistryState {
   let state = states.get(doc);
   if (!state) {
     state = {
+      runtimeInitialized: false,
       readerSession: null,
       videoSession: null
     };
@@ -30,10 +32,11 @@ function setDatasetFlag(root: HTMLElement, key: string, active: boolean): void {
 }
 
 export function markContentRuntimeInitialized(doc: Document = document): boolean {
+  const state = getState(doc);
+  if (state.runtimeInitialized) return false;
   const root = getRoot(doc);
-  if (root.dataset.aiobContentRuntime === 'true') {
-    return false;
-  }
+  if (root.dataset.aiobContentRuntime) throw new Error('CONTENT_RUNTIME_RELOAD_REQUIRED');
+  state.runtimeInitialized = true;
   root.dataset.aiobContentRuntime = 'true';
   return true;
 }
@@ -90,6 +93,7 @@ export function isVideoSessionActive(doc: Document = document): boolean {
 
 export function __resetContentSessionRegistryForTests(doc: Document = document): void {
   const state = getState(doc);
+  state.runtimeInitialized = false;
   state.readerSession = null;
   state.videoSession = null;
   const root = getRoot(doc);

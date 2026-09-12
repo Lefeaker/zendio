@@ -5,7 +5,6 @@ import {
   asOptionsController,
   createController,
   createMessaging,
-  createStorage,
   findButton,
   findCardByTitle,
   findInputByValue,
@@ -16,6 +15,7 @@ import {
 } from './productionStitchShell.helpers';
 import { createProductionStitchStorageController } from '@options/app/productionStitchStorageController';
 import { mountProductionStitchShell } from '@options/app/productionStitchShell';
+import * as sectionInvalidationModule from '@ui/stitch-runtime/render/sectionInvalidation';
 import {
   applyOutputPresetToDraft,
   createInitialDraft
@@ -26,14 +26,48 @@ import { getOutputTemplatePreset } from '@shared/config';
 import { mergeOptions } from '@shared/config/optionsMerger';
 import { DEFAULT_DOMAIN_MAPPINGS } from '@shared/constants';
 import { registerService, TOKENS } from '@shared/di';
-import type { StorageService } from '@platform/interfaces/storage';
-import type { CompleteOptions } from './productionStitchShell.helpers';
+import { createMockPlatformServices } from '@shared/di/testHelpers';
 import type { StoredOptions } from '@shared/types';
 import { getTestRestUrls } from '../../fixtures/configTestHelpers';
+import { asType } from '../../utils/typeHelpers';
 
 const LOCAL_REST_URLS = getTestRestUrls('localhost');
 const LOCAL_HTTPS_URL = LOCAL_REST_URLS.httpsUrl.replace(/\/$/, '');
 const LOCAL_HTTP_URL = LOCAL_REST_URLS.httpUrl.replace(/\/$/, '');
+
+function deferred<T>() {
+  let resolve = (_value: T): void => undefined;
+  let reject = (_error: Error): void => undefined;
+  const promise = new Promise<T>((resolvePromise, rejectPromise) => {
+    resolve = resolvePromise;
+    reject = rejectPromise;
+  });
+  return { promise, reject, resolve };
+}
+
+function createMutationAwareMessaging() {
+  return {
+    send: vi.fn((message: object) => {
+      const type = 'type' in message ? message.type : undefined;
+      const requestId = 'requestId' in message ? message.requestId : undefined;
+      if (type !== 'ZENDIO_OPTIONS_MUTATION' || typeof requestId !== 'string') {
+        return Promise.resolve(undefined);
+      }
+      return Promise.resolve({
+        type: 'ZENDIO_OPTIONS_MUTATION_RESPONSE',
+        requestId,
+        success: true,
+        result: {
+          snapshot: {},
+          operationId: 'storage-test-operation',
+          rawSignature: 'storage-test-signature',
+          didWrite: true
+        }
+      });
+    }),
+    onMessage: vi.fn(() => () => {})
+  };
+}
 
 function withLegacyRootDir<TRest extends NonNullable<StoredOptions['rest']>>(
   rest: TRest,
@@ -60,7 +94,7 @@ describe('mountProductionStitchShell storage', () => {
               vault: 'Research Vault',
               httpsUrl: LOCAL_HTTPS_URL,
               httpUrl: LOCAL_HTTP_URL,
-              apiKey: 'token',
+              apiKey: 'token-12345',
               enabled: false,
               isDefault: true
             }
@@ -121,8 +155,26 @@ describe('mountProductionStitchShell storage', () => {
 
   it('renders Usage Dashboard from real usage stats instead of preview fixtures', async () => {
     const controller = createController();
-    const storage = createStorage();
-    await storage.local.set('usageStats', {
+    const rendered = deferred<void>();
+    const createOwner = sectionInvalidationModule.createSectionInvalidationOwner;
+    const ownerFactory = vi.spyOn(sectionInvalidationModule, 'createSectionInvalidationOwner');
+    const overviewRendered = vi.fn();
+    ownerFactory.mockImplementationOnce((options) => {
+      ownerFactory.mockRestore();
+      const owner = createOwner(options);
+      const invalidateAndWait = owner.invalidateAndWait.bind(owner);
+      vi.spyOn(owner, 'invalidateAndWait').mockImplementation(async (request) => {
+        const acknowledgement = await invalidateAndWait(request);
+        const scopes = typeof request === 'string' ? [request] : request;
+        if (scopes.includes('overview-usage')) {
+          overviewRendered();
+          rendered.resolve();
+        }
+        return acknowledgement;
+      });
+      return owner;
+    });
+    const stats = {
       aiChatSaves: 7,
       fragmentSaves: 5,
       articleSaves: 3,
@@ -131,18 +183,29 @@ describe('mountProductionStitchShell storage', () => {
         { date: '2026-04-24', aiChat: 1, fragment: 2, article: 3 },
         { date: '2026-04-25', aiChat: 7, fragment: 5, article: 3 }
       ]
-    });
+    };
+    const usageStatsClient = {
+      get: vi.fn(() => Promise.resolve(stats)),
+      reset: vi.fn(() => Promise.resolve(stats))
+    };
 
-    mountProductionStitchShell({
+    const mounted = mountProductionStitchShell({
       controller: asOptionsController(controller),
       initialOptions: null,
       messages: null,
       language: 'en',
-      storage: storage as unknown as StorageService
+      usageStatsClient
     } as never);
-    await flushPromises();
+    const statValues = () =>
+      Array.from(document.querySelectorAll('.stats-grid .stat-value'), (node) => node.textContent);
+    expect(statValues()).toEqual(['0', '0', '0', '0']);
+    expect(overviewRendered).not.toHaveBeenCalled();
+    // Stats loading may finish before the lazy section owner; await its real render completion.
+    await rendered.promise;
 
-    expect(storage.local.get).toHaveBeenCalledWith('usageStats');
+    expect(usageStatsClient.get).toHaveBeenCalledTimes(1);
+    expect(overviewRendered).toHaveBeenCalledTimes(1);
+    expect(statValues()).toEqual(['15', '7', '5', '3']);
     const statText = document.querySelector('.stats-grid')?.textContent ?? '';
     expect(statText).toContain('15');
     expect(statText).toContain('7');
@@ -153,6 +216,7 @@ describe('mountProductionStitchShell storage', () => {
     const chartLabels = document.querySelectorAll('#usageXAxis text');
     expect(chartLabels.length).toBeGreaterThanOrEqual(5);
     expect(document.querySelector('#usageWavePath')?.getAttribute('d')).toBeTruthy();
+    mounted.cleanup();
   });
 
   it('renders default zero Usage Dashboard without invalid SVG chart coordinates', async () => {
@@ -190,7 +254,7 @@ describe('mountProductionStitchShell storage', () => {
               vault: 'Research Vault',
               httpsUrl: LOCAL_HTTPS_URL,
               httpUrl: LOCAL_HTTP_URL,
-              apiKey: 'token',
+              apiKey: 'token-12345',
               enabled: true,
               isDefault: true
             }
@@ -234,7 +298,7 @@ describe('mountProductionStitchShell storage', () => {
         baseUrl: LOCAL_HTTPS_URL,
         httpsUrl: LOCAL_HTTPS_URL,
         httpUrl: LOCAL_HTTP_URL,
-        apiKey: 'token'
+        apiKey: 'token-12345'
       },
       vaultRouter: {
         defaultVaultId: 'research',
@@ -245,14 +309,14 @@ describe('mountProductionStitchShell storage', () => {
             vault: 'Research Vault',
             httpsUrl: LOCAL_HTTPS_URL,
             httpUrl: LOCAL_HTTP_URL,
-            apiKey: 'token',
+            apiKey: 'token-12345',
             enabled: true,
             isDefault: true
           }
         ],
         rules: []
       }
-    }) as CompleteOptions;
+    });
     const state = {
       activeLocalFolderVaultIndex: null,
       routingRules: [
@@ -271,6 +335,7 @@ describe('mountProductionStitchShell storage', () => {
       getDraft: () => draft,
       getMessagingRepository: () => createMessaging({ success: true }) as never,
       getState: () => state as never,
+      isActive: () => true,
       setConnectionNotice: vi.fn(),
       refreshAppData: vi.fn(),
       render: vi.fn(),
@@ -310,7 +375,7 @@ describe('mountProductionStitchShell storage', () => {
             vault: 'Research Vault',
             httpsUrl: LOCAL_HTTPS_URL,
             httpUrl: LOCAL_HTTP_URL,
-            apiKey: 'token'
+            apiKey: 'token-12345'
           },
           'Inbox/'
         )
@@ -334,7 +399,7 @@ describe('mountProductionStitchShell storage', () => {
 
   it('renders and persists Chromium local folders in the production Vault List', async () => {
     const controller = createController();
-    const messagingRepository = createMessaging(undefined);
+    const messagingRepository = createMutationAwareMessaging();
     const chooseDirectory = vi.fn(() =>
       Promise.resolve({ id: 'folder-main', name: 'Local Vault' })
     );
@@ -359,7 +424,7 @@ describe('mountProductionStitchShell storage', () => {
           vault: 'Research Vault',
           httpsUrl: LOCAL_HTTPS_URL,
           httpUrl: LOCAL_HTTP_URL,
-          apiKey: 'token'
+          apiKey: 'token-12345'
         }
       },
       messages: null,
@@ -389,13 +454,45 @@ describe('mountProductionStitchShell storage', () => {
         localFolderName: 'Local Vault'
       })
     );
+    const chooseMutation = vi
+      .mocked(messagingRepository.send)
+      .mock.calls.map(([message]) => message)
+      .find((message) => 'type' in message && message.type === 'ZENDIO_OPTIONS_MUTATION');
+    expect(chooseMutation).toBeTruthy();
+    if (
+      !chooseMutation ||
+      !('command' in chooseMutation) ||
+      typeof chooseMutation.command !== 'object' ||
+      chooseMutation.command === null
+    ) {
+      throw new Error('Expected a typed vault selection mutation command.');
+    }
+    expect(chooseMutation.command).toMatchObject({
+      kind: 'patch',
+      patches: [
+        {
+          path: ['vaultRouter'],
+          value: {
+            vaults: [
+              {
+                localFolderId: 'folder-main',
+                localFolderName: 'Local Vault'
+              }
+            ]
+          }
+        }
+      ]
+    });
 
-    const refreshedVaultList = findCardByTitle('Vault List');
-    expect(refreshedVaultList.textContent).not.toContain('Delete Local Folder');
-    const selectedFolderButton = Array.from(
-      refreshedVaultList.querySelectorAll<HTMLButtonElement>('button')
-    ).find((button) => button.textContent?.trim() === 'Local Vault');
-    expect(selectedFolderButton).toBeTruthy();
+    let selectedFolderButton: HTMLButtonElement | undefined;
+    await vi.waitFor(() => {
+      const refreshedVaultList = findCardByTitle('Vault List');
+      expect(refreshedVaultList.textContent).not.toContain('Delete Local Folder');
+      selectedFolderButton = Array.from(
+        refreshedVaultList.querySelectorAll<HTMLButtonElement>('button')
+      ).find((button) => button.textContent?.trim() === 'Local Vault');
+      expect(selectedFolderButton).toBeTruthy();
+    });
     expect(selectedFolderButton?.getAttribute('title')).toContain('Local Vault');
     expect(selectedFolderButton?.getAttribute('title')).not.toMatch(/(^\/|[A-Za-z]:\\)/);
     selectedFolderButton?.click();
@@ -455,7 +552,7 @@ describe('mountProductionStitchShell storage', () => {
 
   it('still allows clearing a selected local folder when Chrome returns prompt', async () => {
     const controller = createController();
-    const messagingRepository = createMessaging(undefined);
+    const messagingRepository = createMutationAwareMessaging();
     const ensurePermission = vi.fn(() => Promise.resolve('prompt'));
     const removeDirectory = vi.fn(() => Promise.resolve());
     registerService(
@@ -478,7 +575,7 @@ describe('mountProductionStitchShell storage', () => {
           vault: 'Research Vault',
           httpsUrl: LOCAL_HTTPS_URL,
           httpUrl: LOCAL_HTTP_URL,
-          apiKey: 'token',
+          apiKey: 'token-12345',
           localFolderId: 'folder-main',
           localFolderName: 'Local Vault'
         },
@@ -491,7 +588,7 @@ describe('mountProductionStitchShell storage', () => {
               vault: 'Research Vault',
               httpsUrl: LOCAL_HTTPS_URL,
               httpUrl: LOCAL_HTTP_URL,
-              apiKey: 'token',
+              apiKey: 'token-12345',
               localFolderId: 'folder-main',
               localFolderName: 'Local Vault',
               enabled: true,
@@ -500,7 +597,7 @@ describe('mountProductionStitchShell storage', () => {
           ],
           rules: []
         }
-      } as Partial<CompleteOptions>,
+      },
       messages: null,
       language: 'en',
       messagingRepository
@@ -531,7 +628,36 @@ describe('mountProductionStitchShell storage', () => {
     expect(cleared.rest.localFolderName).toBeUndefined();
     expect(cleared.vaultRouter?.vaults?.[0]?.localFolderId).toBeUndefined();
     expect(cleared.vaultRouter?.vaults?.[0]?.localFolderName).toBeUndefined();
-    expect(removeDirectory).toHaveBeenCalledWith('folder-main');
+    expect(removeDirectory).not.toHaveBeenCalled();
+    const clearMutation = vi
+      .mocked(messagingRepository.send)
+      .mock.calls.map(([message]) => message)
+      .find((message) => 'type' in message && message.type === 'ZENDIO_OPTIONS_MUTATION');
+    expect(clearMutation).toBeTruthy();
+    if (
+      !clearMutation ||
+      !('command' in clearMutation) ||
+      typeof clearMutation.command !== 'object' ||
+      clearMutation.command === null
+    ) {
+      throw new Error('Expected a typed vault clear mutation command.');
+    }
+    expect(clearMutation.command).toMatchObject({
+      kind: 'patch',
+      patches: [
+        {
+          path: ['vaultRouter'],
+          value: {
+            vaults: [
+              {
+                localFolderId: undefined,
+                localFolderName: undefined
+              }
+            ]
+          }
+        }
+      ]
+    });
     expectAnalyticsMessage(
       vi.mocked(messagingRepository.send).mock.calls,
       'local_vault_permission_prompted',
@@ -549,6 +675,139 @@ describe('mountProductionStitchShell storage', () => {
       ['outcome']
     );
   });
+
+  it.each(['failed', 'malformed', 'rejected', 'no-op'])(
+    'restores an actionable local-folder row after a %s binding-clear acknowledgement',
+    async (failureKind) => {
+      const controller = createController();
+      const pendingMutation = deferred<object>();
+      const messagingRepository = {
+        send: vi.fn((message: object) => {
+          const type = 'type' in message ? message.type : undefined;
+          return type === 'ZENDIO_OPTIONS_MUTATION'
+            ? pendingMutation.promise
+            : Promise.resolve(undefined);
+        }),
+        onMessage: vi.fn(() => () => {})
+      };
+      const removeDirectory = vi.fn(() => Promise.resolve());
+      const platformServices = createMockPlatformServices();
+      platformServices.fileSystemAccess.chooseDirectory = vi.fn();
+      platformServices.fileSystemAccess.ensurePermission = vi.fn<
+        typeof platformServices.fileSystemAccess.ensurePermission
+      >(() => Promise.resolve('granted'));
+      platformServices.fileSystemAccess.removeDirectory = removeDirectory;
+      registerService(TOKENS.platformServices, () => platformServices);
+
+      const mounted = mountProductionStitchShell(
+        asType<Parameters<typeof mountProductionStitchShell>[0]>({
+          controller: asOptionsController(controller),
+          initialOptions: {
+            rest: {
+              baseUrl: LOCAL_HTTPS_URL,
+              vault: 'Research Vault',
+              httpsUrl: LOCAL_HTTPS_URL,
+              httpUrl: LOCAL_HTTP_URL,
+              apiKey: 'token-12345',
+              localFolderId: 'folder-main',
+              localFolderName: 'Local Vault'
+            },
+            vaultRouter: {
+              defaultVaultId: 'vault-default',
+              vaults: [
+                {
+                  id: 'vault-default',
+                  name: 'Research Vault',
+                  vault: 'Research Vault',
+                  httpsUrl: LOCAL_HTTPS_URL,
+                  httpUrl: LOCAL_HTTP_URL,
+                  apiKey: 'token-12345',
+                  localFolderId: 'folder-main',
+                  localFolderName: 'Local Vault',
+                  enabled: true,
+                  isDefault: true
+                }
+              ],
+              rules: []
+            }
+          },
+          messages: null,
+          language: 'en',
+          messagingRepository
+        })
+      );
+
+      const localFolderButton = Array.from(
+        findCardByTitle('Vault List').querySelectorAll<HTMLButtonElement>('button')
+      ).find((button) => button.textContent?.trim() === 'Local Vault');
+      localFolderButton?.click();
+      await flushPromises();
+      const deleteButton = Array.from(
+        findCardByTitle('Vault List').querySelectorAll<HTMLButtonElement>(
+          '.local-folder-cell button'
+        )
+      ).find((button) => button.textContent?.trim() === 'Delete Local Folder');
+      expect(deleteButton).toBeTruthy();
+      deleteButton?.click();
+
+      expect(mounted.collectDraft().rest.localFolderId).toBeUndefined();
+      const mutation = vi
+        .mocked(messagingRepository.send)
+        .mock.calls.map(([message]) => message)
+        .find((message) => 'type' in message && message.type === 'ZENDIO_OPTIONS_MUTATION');
+      expect(mutation).toBeTruthy();
+      const requestId = mutation && 'requestId' in mutation ? mutation.requestId : undefined;
+
+      if (failureKind === 'rejected') {
+        pendingMutation.reject(new Error('response channel closed'));
+      } else if (failureKind === 'malformed') {
+        pendingMutation.resolve({ type: 'ZENDIO_OPTIONS_MUTATION_RESPONSE' });
+      } else if (failureKind === 'no-op') {
+        pendingMutation.resolve({
+          type: 'ZENDIO_OPTIONS_MUTATION_RESPONSE',
+          requestId,
+          success: true,
+          result: {
+            snapshot: {},
+            operationId: 'no-op-operation',
+            rawSignature: 'no-op-signature',
+            didWrite: false
+          }
+        });
+      } else {
+        pendingMutation.resolve({
+          type: 'ZENDIO_OPTIONS_MUTATION_RESPONSE',
+          requestId,
+          success: false,
+          errorCode: 'OPTIONS_MUTATION_REJECTED'
+        });
+      }
+
+      await vi.waitFor(() => {
+        const restored = mounted.collectDraft();
+        expect(restored.rest.localFolderId).toBe('folder-main');
+        expect(restored.vaultRouter?.vaults[0]).toEqual(
+          expect.objectContaining({
+            localFolderId: 'folder-main',
+            localFolderName: 'Local Vault'
+          })
+        );
+      });
+      const restoredDeleteButton = Array.from(
+        findCardByTitle('Vault List').querySelectorAll<HTMLButtonElement>('button')
+      ).find((button) => button.textContent?.trim() === 'Delete Local Folder');
+      expect(restoredDeleteButton).toBeTruthy();
+      expect(restoredDeleteButton?.disabled).toBe(false);
+      expect(
+        vi
+          .mocked(messagingRepository.send)
+          .mock.calls.filter(
+            ([message]) => 'type' in message && message.type === 'ZENDIO_OPTIONS_MUTATION'
+          )
+      ).toHaveLength(1);
+      expect(removeDirectory).not.toHaveBeenCalled();
+    }
+  );
 
   it('persists domain mapping edits and delete actions', () => {
     const controller = createController();
@@ -641,7 +900,7 @@ describe('mountProductionStitchShell storage', () => {
               vault: 'Research Vault',
               httpsUrl: LOCAL_HTTPS_URL,
               httpUrl: LOCAL_HTTP_URL,
-              apiKey: 'token',
+              apiKey: 'token-12345',
               enabled: true,
               isDefault: true,
               rules: [
@@ -772,7 +1031,7 @@ describe('mountProductionStitchShell storage', () => {
         rest: {
           vault: 'Research Vault',
           httpsUrl: LOCAL_HTTPS_URL,
-          apiKey: 'bad-token'
+          apiKey: 'bad-token-1'
         },
         vaultRouter: {
           defaultVaultId: 'research',
@@ -783,7 +1042,7 @@ describe('mountProductionStitchShell storage', () => {
               vault: 'Research Vault',
               httpsUrl: LOCAL_HTTPS_URL,
               httpUrl: LOCAL_HTTP_URL,
-              apiKey: 'bad-token',
+              apiKey: 'bad-token-1',
               localFolderId: 'folder-local',
               localFolderName: 'LocalFolder',
               enabled: true,

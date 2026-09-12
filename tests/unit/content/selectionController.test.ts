@@ -8,6 +8,10 @@ import type {
   ClipPromptRequest,
   ClipPromptResponse
 } from '@content/clipper/application/clipPromptGateway';
+import type {
+  ReaderSessionAdapter,
+  SelectionClipDependencies
+} from '@content/clipper/services/selectionController';
 import * as selectionExtractor from '@content/extractors/selectionExtractor';
 import type { SelectionClipResult } from '@content/extractors/selectionExtractor';
 import {
@@ -15,6 +19,7 @@ import {
   registerReaderSession,
   registerVideoSession
 } from '@content/runtime/contentSessionRegistry';
+import type { VideoSessionStartOptions } from '@content/video/application/videoSessionPort';
 
 const getContentI18nResourceMock = vi.hoisted(() => vi.fn(() => null));
 const getContentMessagesMock = vi.hoisted(() =>
@@ -28,7 +33,12 @@ vi.mock('@content/i18n/context', () => ({
   getContentMessages: getContentMessagesMock
 }));
 
+const extractSelectionClip = selectionExtractor.extractSelectionClip;
 const extractSelectionClipMock = vi.spyOn(selectionExtractor, 'extractSelectionClip');
+const explicitDestinations: ReadonlyArray<NonNullable<ClipPromptResponse['destination']>> = [
+  { kind: 'downloads' },
+  { kind: 'vault', vaultId: 'research' }
+];
 let promptMock: ReturnType<
   typeof vi.fn<(...args: [ClipPromptRequest]) => Promise<ClipPromptResponse>>
 >;
@@ -82,13 +92,21 @@ describe('content selectionController service', () => {
 
   async function createController() {
     const module = await import('@content/clipper/services/selectionController');
-    const readerSessionFactory = vi.fn().mockReturnValue({
-      ingestExternalHighlight: vi.fn(),
-      start: vi.fn()
-    });
+    const readerSessionStart = vi.fn<ReaderSessionAdapter['start']>().mockResolvedValue(undefined);
+    const readerSession: ReaderSessionAdapter = {
+      ingestExternalHighlight: vi.fn<ReaderSessionAdapter['ingestExternalHighlight']>(),
+      start: readerSessionStart
+    };
+    const readerSessionFactory = vi.fn<SelectionClipDependencies['createReaderSession']>(
+      () => readerSession
+    );
+    const videoSessionStart = vi
+      .fn<(options?: VideoSessionStartOptions) => Promise<void>>()
+      .mockResolvedValue(undefined);
+    const videoSessionIngest = vi.fn();
     const videoSessionFactory = vi.fn().mockReturnValue({
-      start: vi.fn(),
-      ingestTextCapture: vi.fn()
+      start: videoSessionStart,
+      ingestTextCapture: videoSessionIngest
     });
     const controller = module.createSelectionController({
       prompt: {
@@ -101,17 +119,23 @@ describe('content selectionController service', () => {
             captureContext: true,
             contextLength: 200,
             contextMode: 'chars',
-            selectionModifierEnabled: false,
+            selectionTriggerMode: 'direct',
             selectionModifierKeys: []
           }
         }),
-        set: vi.fn(),
         onChange: vi.fn().mockReturnValue(() => {})
-      },
+      } as never,
       createReaderSession: readerSessionFactory,
       createVideoSession: videoSessionFactory
     });
-    return { controller, readerSessionFactory, videoSessionFactory };
+    return {
+      controller,
+      readerSessionFactory,
+      readerSessionStart,
+      videoSessionFactory,
+      videoSessionStart,
+      videoSessionIngest
+    };
   }
 
   it('returns null when dialog is cancelled', async () => {
@@ -124,6 +148,97 @@ describe('content selectionController service', () => {
     expect(result).toBeNull();
     expect(extractSelectionClipMock).not.toHaveBeenCalled();
   });
+
+  it.each(['prompt', 'video start'] as const)(
+    'captures text, HTML and a live cloned range before %s can mutate selection',
+    async (boundary) => {
+      document.body.innerHTML = '<p id="source"><strong>Original</strong></p><p id="next">Next</p>';
+      const source = document.getElementById('source');
+      const next = document.getElementById('next');
+      const selection = document.getSelection();
+      if (!source || !next || !selection) throw new Error('Missing selection fixture');
+      const range = document.createRange();
+      range.selectNodeContents(source);
+      selection.addRange(range);
+      const cloneRange = vi.spyOn(range, 'cloneRange');
+      const { controller, readerSessionStart, videoSessionStart, videoSessionIngest } =
+        await createController();
+      let release: (() => void) | undefined;
+      const pending = new Promise<void>((resolve) => {
+        release = resolve;
+      });
+      promptMock.mockImplementation(async () => {
+        await pending;
+        return { action: 'reader', comment: 'note' };
+      });
+      videoSessionStart.mockReturnValueOnce(pending);
+
+      const operation =
+        boundary === 'prompt'
+          ? controller.handleSelectionClip(document, 'https://example.com', selection)
+          : controller.handleVideoSelectionClip(document, 'https://example.com', selection);
+      expect(cloneRange).toHaveBeenCalledTimes(1);
+      const savedRange: unknown = cloneRange.mock.results[0]?.value;
+      if (!(savedRange instanceof Range)) throw new Error('Selection range was not captured');
+      expect(savedRange).not.toBe(range);
+      expect(savedRange.toString()).toBe('Original');
+      if (boundary === 'prompt') {
+        expect(promptMock).toHaveBeenCalledWith(
+          expect.objectContaining({ selectedText: 'Original' })
+        );
+      } else {
+        expect(videoSessionStart).toHaveBeenCalledTimes(1);
+        expect(videoSessionIngest).not.toHaveBeenCalled();
+      }
+
+      source.innerHTML = 'Changed';
+      selection.removeAllRanges();
+      const nextRange = document.createRange();
+      nextRange.selectNodeContents(next);
+      selection.addRange(nextRange);
+      if (!release) throw new Error('Missing pending operation release');
+      release();
+      await operation;
+
+      if (boundary === 'prompt') {
+        expect(readerSessionStart).toHaveBeenCalledWith({
+          range: savedRange,
+          selectedHtml: '<strong>Original</strong>',
+          selectedText: 'Original',
+          comment: 'note'
+        });
+      } else {
+        expect(videoSessionIngest).toHaveBeenCalledWith(
+          '<strong>Original</strong>',
+          'Original',
+          '',
+          savedRange
+        );
+      }
+      expect(savedRange.startContainer).toBe(source);
+      expect(selection.rangeCount).toBe(0);
+    }
+  );
+
+  it.each(['prompt', 'video start'] as const)(
+    'propagates %s failure without consuming the selection',
+    async (boundary) => {
+      const selection = createSelection('Selected text');
+      const removeRanges = vi.spyOn(selection, 'removeAllRanges');
+      const { controller, videoSessionStart, videoSessionIngest } = await createController();
+      const failure = new Error('selection operation rejected');
+      promptMock.mockRejectedValue(failure);
+      videoSessionStart.mockRejectedValue(failure);
+      const operation =
+        boundary === 'prompt'
+          ? controller.handleSelectionClip(document, 'https://example.com', selection)
+          : controller.handleVideoSelectionClip(document, 'https://example.com', selection);
+      await expect(operation).rejects.toBe(failure);
+      expect(removeRanges).not.toHaveBeenCalled();
+      expect(extractSelectionClipMock).not.toHaveBeenCalled();
+      expect(videoSessionIngest).not.toHaveBeenCalled();
+    }
+  );
 
   it('extracts selection clip with merged configuration when confirmed', async () => {
     promptMock.mockResolvedValue({ action: 'clip', comment: 'note' });
@@ -168,45 +283,118 @@ describe('content selectionController service', () => {
       captureContext: true,
       contextLength: 200,
       contextMode: 'chars',
-      selectionModifierEnabled: false,
+      selectionTriggerMode: 'direct',
       selectionModifierKeys: ['shift'],
       keyboardShortcutsEnabled: true
     });
     expect(args.commentHeading).toBe('Catalog Comment Heading');
   });
 
-  it('passes the selected export destination into confirmed selection clips', async () => {
+  it('preserves real fragment markdown, comment and destination through the controller', async () => {
+    document.body.innerHTML =
+      '<article><p id="target">Selected <strong>content</strong></p></article>';
+    const target = document.getElementById('target');
+    const selection = document.getSelection();
+    if (!target || !selection) throw new Error('Missing selection fixture');
+    const range = document.createRange();
+    range.selectNodeContents(target);
+    selection.addRange(range);
+    extractSelectionClipMock.mockImplementation(extractSelectionClip);
     promptMock.mockResolvedValue({
       action: 'clip',
-      comment: '',
+      comment: 'Remember this',
       destination: { kind: 'downloads' }
     });
-    const selection = createSelection('Selected text');
-    const clipResult: SelectionClipResult = {
-      type: 'clipper',
-      title: 'note',
-      pageTitle: 'note',
-      markdown: '# note',
-      meta: {
-        url: 'https://example.com/',
-        fragmentUrl: 'https://example.com/#:~:text=Selected%20text',
-        domain: 'example.com',
-        clippedAtISO: '1970-01-01T00:00:00.000Z',
-        hasComment: false,
-        selectedTextPreview: 'Selected text',
-        sourceUrl: 'https://example.com',
-        resolvedUrl: 'https://example.com/'
-      }
-    };
-    extractSelectionClipMock.mockResolvedValue(clipResult);
-
     const { controller } = await createController();
-    const result = await controller.handleSelectionClip(document, 'https://example.com', selection);
-
+    const result = await controller.handleSelectionClip(
+      document,
+      'https://example.com/article',
+      selection
+    );
+    expect(result?.markdown).toContain('Selected **content**');
+    expect(result?.markdown).toContain('## 💭 Catalog Comment Heading');
+    expect(result?.markdown).toContain('Remember this');
     expect(result?.meta).toMatchObject({
-      exportDestination: { kind: 'downloads' }
+      selectedTextPreview: 'Selected content',
+      hasComment: true,
+      exportDestination: { kind: 'downloads' },
+      sourceUrl: 'https://example.com/article'
     });
+    expect(extractSelectionClipMock).toHaveBeenCalledTimes(1);
   });
+
+  it('dispatches the exact reader highlight payload with an empty comment', async () => {
+    document.body.innerHTML = '<div id="aiob-reader-panel"></div>';
+    const selection = createSelection('Selected text');
+    const range = selection.getRangeAt(0);
+    const cloneRange = vi.spyOn(range, 'cloneRange');
+    const removeRanges = vi.spyOn(selection, 'removeAllRanges');
+    const highlights: unknown[] = [];
+    const onHighlight = (event: Event) => {
+      if (event instanceof CustomEvent) highlights.push(event.detail);
+    };
+    document.addEventListener('aiob-reader:add-highlight', onHighlight);
+    try {
+      promptMock.mockResolvedValue({ action: 'reader', comment: '  ' });
+      const { controller, readerSessionFactory } = await createController();
+      await controller.handleSelectionClip(document, 'https://example.com', selection);
+      const savedRange: unknown = cloneRange.mock.results[0]?.value;
+      if (!(savedRange instanceof Range)) throw new Error('Selection range was not captured');
+      expect(highlights).toEqual([
+        {
+          range: savedRange,
+          selectedHtml: 'Selected text',
+          selectedText: 'Selected text',
+          comment: ''
+        }
+      ]);
+      expect(readerSessionFactory).not.toHaveBeenCalled();
+      expect(removeRanges).toHaveBeenCalledTimes(1);
+    } finally {
+      document.removeEventListener('aiob-reader:add-highlight', onHighlight);
+    }
+  });
+
+  it.each([false, true, undefined])(
+    'passes the effective export destination into confirmed selection clips with provenance %s',
+    async (destinationSelectionIsExplicit) => {
+      promptMock.mockResolvedValue({
+        action: 'clip',
+        comment: '',
+        destination: { kind: 'downloads' },
+        ...(destinationSelectionIsExplicit === undefined ? {} : { destinationSelectionIsExplicit })
+      });
+      const selection = createSelection('Selected text');
+      const clipResult: SelectionClipResult = {
+        type: 'clipper',
+        title: 'note',
+        pageTitle: 'note',
+        markdown: '# note',
+        meta: {
+          url: 'https://example.com/',
+          fragmentUrl: 'https://example.com/#:~:text=Selected%20text',
+          domain: 'example.com',
+          clippedAtISO: '1970-01-01T00:00:00.000Z',
+          hasComment: false,
+          selectedTextPreview: 'Selected text',
+          sourceUrl: 'https://example.com',
+          resolvedUrl: 'https://example.com/'
+        }
+      };
+      extractSelectionClipMock.mockResolvedValue(clipResult);
+
+      const { controller } = await createController();
+      const result = await controller.handleSelectionClip(
+        document,
+        'https://example.com',
+        selection
+      );
+
+      expect(result?.meta).toMatchObject({
+        exportDestination: { kind: 'downloads' }
+      });
+    }
+  );
 
   it('throws when selection is empty', async () => {
     promptMock.mockResolvedValue({ action: 'clip', comment: '' });
@@ -267,23 +455,178 @@ describe('content selectionController service', () => {
     expect(readerSessionFactory).not.toHaveBeenCalled();
   });
 
-  it('passes the selected export destination into a new reader session', async () => {
+  it('does not pin an implicit default destination into a new reader session', async () => {
     promptMock.mockResolvedValue({
       action: 'reader',
       comment: 'note',
-      destination: { kind: 'vault', vaultId: 'research' }
+      destination: { kind: 'downloads' },
+      destinationSelectionIsExplicit: false
     });
     const selection = createSelection('Selected text');
 
-    const { controller, readerSessionFactory } = await createController();
+    const { controller, readerSessionStart } = await createController();
     await controller.handleSelectionClip(document, 'https://example.com', selection);
 
-    const readerSession = readerSessionFactory.mock.results[0]?.value;
-    expect(readerSession.start).toHaveBeenCalledWith(
-      expect.objectContaining({
-        comment: 'note',
-        destination: { kind: 'vault', vaultId: 'research' }
+    expect(readerSessionStart).toHaveBeenCalledWith(
+      expect.not.objectContaining({
+        destination: expect.anything()
       })
+    );
+  });
+
+  it.each(explicitDestinations)(
+    'pins an explicitly selected $kind destination into a new reader session',
+    async (destination) => {
+      promptMock.mockResolvedValue({
+        action: 'reader',
+        comment: 'note',
+        destination,
+        destinationSelectionIsExplicit: true
+      });
+      const selection = createSelection('Selected text');
+
+      const { controller, readerSessionStart } = await createController();
+      await controller.handleSelectionClip(document, 'https://example.com', selection);
+
+      expect(readerSessionStart).toHaveBeenCalledWith(
+        expect.objectContaining({
+          comment: 'note',
+          destination
+        })
+      );
+    }
+  );
+
+  it('preserves legacy destination-bearing reader prompts without provenance', async () => {
+    promptMock.mockResolvedValue({
+      action: 'reader',
+      comment: 'note',
+      destination: { kind: 'vault', vaultId: 'legacy' }
+    });
+    const selection = createSelection('Selected text');
+
+    const { controller, readerSessionStart } = await createController();
+    await controller.handleSelectionClip(document, 'https://example.com', selection);
+
+    expect(readerSessionStart).toHaveBeenCalledWith(
+      expect.objectContaining({
+        destination: { kind: 'vault', vaultId: 'legacy' }
+      })
+    );
+  });
+
+  it('keeps an implicit Video destination live without pinning effective metadata', async () => {
+    promptMock.mockResolvedValue({
+      action: 'video',
+      comment: 'note',
+      destination: { kind: 'downloads' },
+      destinationSelectionIsExplicit: false
+    });
+
+    const { controller, videoSessionStart } = await createController();
+    await controller.handleSelectionClip(
+      document,
+      'https://www.youtube.com/watch?v=video',
+      createSelection('Selected text')
+    );
+
+    expect(videoSessionStart).toHaveBeenCalledWith({
+      destinationBootstrap: { provenance: 'implicit-default' }
+    });
+  });
+
+  it.each(explicitDestinations)(
+    'pins an explicitly selected $kind destination into a new Video session',
+    async (destination) => {
+      promptMock.mockResolvedValue({
+        action: 'video',
+        comment: 'note',
+        destination,
+        destinationSelectionIsExplicit: true
+      });
+
+      const { controller, videoSessionStart } = await createController();
+      await controller.handleSelectionClip(
+        document,
+        'https://www.youtube.com/watch?v=video',
+        createSelection('Selected text')
+      );
+
+      expect(videoSessionStart).toHaveBeenCalledWith({
+        destinationBootstrap: { provenance: 'explicit', destination }
+      });
+    }
+  );
+
+  it('preserves legacy destination-bearing Video prompts as explicit', async () => {
+    promptMock.mockResolvedValue({
+      action: 'video',
+      comment: 'note',
+      destination: { kind: 'vault', vaultId: 'legacy' }
+    });
+
+    const { controller, videoSessionStart } = await createController();
+    await controller.handleSelectionClip(
+      document,
+      'https://www.youtube.com/watch?v=video',
+      createSelection('Selected text')
+    );
+
+    expect(videoSessionStart).toHaveBeenCalledWith({
+      destinationBootstrap: {
+        provenance: 'explicit',
+        destination: { kind: 'vault', vaultId: 'legacy' }
+      }
+    });
+  });
+
+  it('rejects explicit Video provenance without a destination before ingestion', async () => {
+    promptMock.mockResolvedValue({
+      action: 'video',
+      comment: 'note',
+      destinationSelectionIsExplicit: true
+    });
+
+    const { controller, videoSessionFactory, videoSessionIngest } = await createController();
+
+    await expect(
+      controller.handleSelectionClip(
+        document,
+        'https://www.youtube.com/watch?v=video',
+        createSelection('Selected text')
+      )
+    ).rejects.toThrow('VIDEO_DESTINATION_BOOTSTRAP_INVALID');
+    expect(videoSessionFactory).not.toHaveBeenCalled();
+    expect(videoSessionIngest).not.toHaveBeenCalled();
+  });
+
+  it('awaits Video bootstrap completion before ingesting the selection', async () => {
+    promptMock.mockResolvedValue({
+      action: 'video',
+      comment: 'note',
+      destination: { kind: 'downloads' },
+      destinationSelectionIsExplicit: true
+    });
+    let resolveStart!: () => void;
+    const startPending = new Promise<void>((resolve) => {
+      resolveStart = resolve;
+    });
+    const { controller, videoSessionStart, videoSessionIngest } = await createController();
+    videoSessionStart.mockReturnValueOnce(startPending);
+
+    const result = controller.handleSelectionClip(
+      document,
+      'https://www.youtube.com/watch?v=video',
+      createSelection('Selected text')
+    );
+    await Promise.resolve();
+
+    expect(videoSessionIngest).not.toHaveBeenCalled();
+    resolveStart();
+    await result;
+    expect(videoSessionIngest).toHaveBeenCalledTimes(1);
+    expect(videoSessionStart.mock.invocationCallOrder[0]).toBeLessThan(
+      videoSessionIngest.mock.invocationCallOrder[0] ?? 0
     );
   });
 

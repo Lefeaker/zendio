@@ -5,26 +5,49 @@ import {
   type ExportDestinationMetadata
 } from '@shared/exportDestination';
 import {
-  SESSION_DRAFT_INDEX_KEY,
-  SESSION_DRAFT_SCHEMA_VERSION,
-  createSessionDraftPageKey,
   createSessionDraftStorageKey,
-  SessionDraftIndexSchema,
   type ReaderSessionDraftEnvelope,
   type ReaderSessionDraftHighlightPayload,
+  type ReaderSessionDraftPayload,
+  SessionDraftEnvelopeSchema,
   type SessionCommentDraftSnapshot,
-  type SessionDraftRepository,
-  type SessionDraftStatus
-} from '@content/sessionDrafts';
+  type SessionDraftSelectAndClaimResult
+} from '@shared/sessionDrafts';
+import type { SessionDraftMessageRepository } from '../sessionDrafts/sessionDraftRepository';
 import type { ReaderHighlightManager, ReaderHighlightRecord } from './services/highlightManager';
-import type { StorageAreaService } from '@platform/interfaces/storage';
 import { createDetachedReaderHighlight } from './sessionOperationSelection';
 import { createExactTextRangeResolver } from './sessionDraftTextResolver';
 import {
+  buildReaderSessionDraftEnvelope,
   countStoredReaderDraftHighlights,
-  createReaderSessionDraftPayload,
-  type ReaderDraftRetentionPolicy
+  createReaderSessionDraftId
 } from './sessionDraftPayload';
+
+export { buildReaderSessionDraftEnvelope, createReaderSessionDraftId };
+
+export function bindReaderSessionDraftLifecycle(
+  doc: Document,
+  flushForRestore: () => Promise<void>
+): () => void {
+  const flush = () => void flushForRestore();
+  doc.defaultView?.addEventListener('pagehide', flush, { passive: true });
+  doc.defaultView?.addEventListener('beforeunload', flush);
+  return () => {
+    doc.defaultView?.removeEventListener('pagehide', flush);
+    doc.defaultView?.removeEventListener('beforeunload', flush);
+  };
+}
+
+export async function discardReaderSessionDraftCandidate(
+  repository: Pick<SessionDraftMessageRepository, 'remove'>,
+  storageKey: string
+): Promise<void> {
+  try {
+    await repository.remove({ key: storageKey });
+  } catch (error) {
+    console.warn('[ReaderSession] Failed to discard invalid stored session draft:', error);
+  }
+}
 
 const ReaderDraftHighlightSchema = z.object({
   id: z.string().min(1),
@@ -49,7 +72,7 @@ const ReaderDraftPayloadSchema = z.object({
   commentDrafts: z.record(z.string(), z.string())
 });
 
-export interface ReaderSessionDraftPayloadV1 {
+export interface ReaderSessionDraftPayloadV1 extends ReaderSessionDraftPayload {
   mode: 'reader';
   url: string;
   title: string;
@@ -90,120 +113,143 @@ export interface RestoredReaderHighlights {
   detachedHighlightIds: string[];
 }
 
-export function createReaderSessionDraftId(now = Date.now()): string {
-  if (typeof globalThis.crypto?.randomUUID === 'function') {
-    return `reader-${globalThis.crypto.randomUUID()}`;
-  }
-  return `reader-${now}-${Math.random().toString(16).slice(2)}`;
-}
-export function buildReaderSessionDraftEnvelope(args: {
-  draftId: string;
-  createdAt: number;
-  now?: number;
-  pageUrl: string;
-  pageTitle: string;
-  destination?: ExportDestinationMetadata;
-  highlights: ReaderHighlightRecord[];
-  commentDrafts: SessionCommentDraftSnapshot;
-  retentionPolicy?: ReaderDraftRetentionPolicy;
-  status: SessionDraftStatus;
-}): ReaderSessionDraftEnvelope | null {
-  const { highlights, commentDrafts } = createReaderSessionDraftPayload({
-    highlights: args.highlights,
-    commentDrafts: args.commentDrafts,
-    retentionPolicy: args.retentionPolicy
-  });
-  if (highlights.length === 0 && Object.keys(commentDrafts).length === 0) {
-    return null;
-  }
-  const updatedAt = args.now ?? Date.now();
-  return {
-    schemaVersion: SESSION_DRAFT_SCHEMA_VERSION,
-    draftId: args.draftId,
-    mode: 'reader',
-    pageKey: createSessionDraftPageKey('reader', args.pageUrl),
-    pageUrl: args.pageUrl,
-    pageTitle: args.pageTitle,
-    createdAt: args.createdAt,
-    updatedAt,
-    expiresAt: updatedAt,
-    status: args.status,
-    payload: {
-      mode: 'reader',
-      url: args.pageUrl,
-      title: args.pageTitle,
-      ...(args.destination ? { destination: args.destination } : {}),
-      highlights,
-      commentDrafts
-    }
-  };
-}
-
 export async function loadLatestReaderSessionDraft(
-  repository: SessionDraftRepository,
+  repository: Pick<SessionDraftMessageRepository, 'selectAndClaim' | 'remove'>,
   pageUrl: string
 ): Promise<LoadedReaderSessionDraft | null> {
-  const envelope = await repository.loadLatest('reader', pageUrl);
-  if (!envelope || envelope.mode !== 'reader') {
-    return null;
-  }
+  const result = await loadReaderDraftCandidate(repository, pageUrl);
+  return result.kind === 'loaded' ? result.draft : null;
+}
 
+async function loadReaderDraftCandidate(
+  repository: Pick<SessionDraftMessageRepository, 'selectAndClaim' | 'remove'> &
+    Partial<Pick<SessionDraftMessageRepository, 'adoptClaimed'>>,
+  pageUrl: string,
+  initialClaimedDraft?: ReaderSessionDraftEnvelope
+): Promise<
+  | { kind: 'none' }
+  | {
+      kind: 'invalid';
+      storageKey: string;
+      highlightCount: number;
+      cleanup: ReaderSessionDraftLoadCleanup;
+    }
+  | { kind: 'loaded'; draft: LoadedReaderSessionDraft }
+> {
+  const parsedInitial = initialClaimedDraft
+    ? SessionDraftEnvelopeSchema.safeParse(initialClaimedDraft)
+    : null;
+  if (parsedInitial && !parsedInitial.success) {
+    throw new Error('SESSION_DRAFT_REVISION_INVALID');
+  }
+  if (parsedInitial?.success) {
+    repository.adoptClaimed?.(parsedInitial.data);
+  }
+  const selected: SessionDraftSelectAndClaimResult = initialClaimedDraft
+    ? {
+        outcome: 'claimed',
+        revision: parsedInitial?.success ? parsedInitial.data.revision : 0,
+        envelope: parsedInitial?.success ? parsedInitial.data : undefined,
+        selectionReason: 'restorable',
+        invalidRemovedCount: 0
+      }
+    : await repository.selectAndClaim({
+        operation: 'selectAndClaim',
+        requestId:
+          typeof globalThis.crypto?.randomUUID === 'function'
+            ? globalThis.crypto.randomUUID()
+            : `reader-claim-${Date.now()}-${Math.random().toString(16).slice(2)}`,
+        mode: 'reader',
+        pageUrl
+      });
+  if (selected.outcome === 'conflict' && selected.code === 'OWNER_ACTIVE') return { kind: 'none' };
+  if (selected.outcome === 'conflict' || selected.outcome === 'recovery_failed') {
+    throw new Error(selected.code);
+  }
+  if (selected.outcome === 'invalid_removed') {
+    return {
+      kind: 'invalid',
+      storageKey: '',
+      highlightCount: selected.invalidRemovedCount,
+      cleanup: 'removed'
+    };
+  }
+  if (selected.outcome !== 'claimed' || !selected.envelope || selected.envelope.mode !== 'reader') {
+    return { kind: 'none' };
+  }
+  const stored = selected.envelope;
   const storageKey = createSessionDraftStorageKey({
-    mode: envelope.mode,
-    pageKey: envelope.pageKey,
-    draftId: envelope.draftId
+    mode: stored.mode,
+    pageKey: stored.pageKey,
+    draftId: stored.draftId
   });
-  const parsed = ReaderDraftPayloadSchema.safeParse(envelope.payload);
+  const parsed = ReaderDraftPayloadSchema.safeParse(stored.payload);
   if (!parsed.success) {
-    await repository.remove({ key: storageKey });
-    return null;
+    const highlightCount = countStoredReaderDraftHighlights(stored.payload);
+    try {
+      await repository.remove({ key: storageKey });
+      return { kind: 'invalid', storageKey, highlightCount, cleanup: 'removed' };
+    } catch {
+      return { kind: 'invalid', storageKey, highlightCount, cleanup: 'remove_failed' };
+    }
   }
 
   const destinationSelection = parseExportDestinationMetadata(parsed.data.destination);
+  const payload: ReaderSessionDraftPayloadV1 = {
+    mode: 'reader',
+    url: parsed.data.url,
+    title: parsed.data.title,
+    highlights: parsed.data.highlights,
+    commentDrafts: parsed.data.commentDrafts,
+    ...(destinationSelection
+      ? { destination: createExportDestinationMetadata(destinationSelection) }
+      : {})
+  };
+  const { lease, legacyCleanup, ...baseEnvelope } = stored;
+  const envelope: ReaderSessionDraftEnvelope = {
+    ...baseEnvelope,
+    mode: 'reader',
+    payload,
+    ...(lease ? { lease } : {}),
+    ...(legacyCleanup ? { legacyCleanup } : {})
+  };
 
   return {
-    envelope,
-    storageKey,
-    payload: {
-      mode: 'reader',
-      url: parsed.data.url,
-      title: parsed.data.title,
-      highlights: parsed.data.highlights,
-      commentDrafts: parsed.data.commentDrafts,
-      ...(destinationSelection
-        ? { destination: createExportDestinationMetadata(destinationSelection) }
-        : {})
+    kind: 'loaded',
+    draft: {
+      envelope,
+      storageKey,
+      payload
     }
   };
 }
 
 export async function loadLatestReaderSessionDraftResult(
-  repository: SessionDraftRepository,
-  storageArea: StorageAreaService,
-  pageUrl: string
+  repository: Pick<SessionDraftMessageRepository, 'selectAndClaim' | 'remove'>,
+  pageUrl: string,
+  initialClaimedDraft?: ReaderSessionDraftEnvelope
 ): Promise<LoadedReaderSessionDraftResult> {
-  const candidate = await findLatestReaderDraftCandidate(storageArea, pageUrl);
-  const draft = await loadLatestReaderSessionDraft(repository, pageUrl);
-  if (!draft) {
-    if (!candidate) {
-      return {
-        status: 'none',
-        highlightCount: 0,
-        cleanup: 'not_needed'
-      };
-    }
+  const result = await loadReaderDraftCandidate(repository, pageUrl, initialClaimedDraft);
+  if (result.kind === 'none') {
+    return {
+      status: 'none',
+      highlightCount: 0,
+      cleanup: 'not_needed'
+    };
+  }
+  if (result.kind === 'invalid') {
     return {
       status: 'invalid_removed',
-      highlightCount: candidate.highlightCount,
-      cleanup: await removeReaderDraftCandidate(repository, candidate.storageKey),
-      storageKey: candidate.storageKey
+      highlightCount: result.highlightCount,
+      cleanup: result.cleanup,
+      storageKey: result.storageKey
     };
   }
   return {
     status: 'loaded',
-    highlightCount: draft.payload.highlights.length,
+    highlightCount: result.draft.payload.highlights.length,
     cleanup: 'not_needed',
-    draft
+    draft: result.draft
   };
 }
 
@@ -250,49 +296,4 @@ export function restoreReaderSessionDraftHighlights(args: {
   }
 
   return { highlights: restored, detachedHighlightIds };
-}
-
-async function findLatestReaderDraftCandidate(
-  storageArea: StorageAreaService,
-  pageUrl: string
-): Promise<{ storageKey: string; highlightCount: number } | null> {
-  const rawIndex = await storageArea.get<unknown>(SESSION_DRAFT_INDEX_KEY);
-  const parsedIndex = SessionDraftIndexSchema.safeParse(rawIndex);
-  if (!parsedIndex.success) {
-    return null;
-  }
-
-  const pageKey = createSessionDraftPageKey('reader', pageUrl);
-  const candidates = parsedIndex.data.entries
-    .filter(
-      (entry) =>
-        entry.mode === 'reader' && entry.pageKey === pageKey && entry.status === 'restorable'
-    )
-    .sort((left, right) => right.updatedAt - left.updatedAt);
-  const latest = candidates[0];
-  if (!latest) {
-    return null;
-  }
-
-  const rawEnvelope = await storageArea.get<unknown>(latest.key);
-  const payload =
-    typeof rawEnvelope === 'object' && rawEnvelope !== null
-      ? (rawEnvelope as { payload?: unknown }).payload
-      : undefined;
-  return {
-    storageKey: latest.key,
-    highlightCount: countStoredReaderDraftHighlights(payload)
-  };
-}
-
-async function removeReaderDraftCandidate(
-  repository: SessionDraftRepository,
-  storageKey: string
-): Promise<ReaderSessionDraftLoadCleanup> {
-  try {
-    await repository.remove({ key: storageKey });
-    return 'removed';
-  } catch {
-    return 'remove_failed';
-  }
 }

@@ -13,6 +13,7 @@ import {
   resolveLocalVaultPermissionService,
   type LocalVaultPermissionService
 } from './localVaultPermissionFrameAdapter';
+import permissionFrameCssText from './local-vault-permission-frame.css?inline';
 
 export interface LocalVaultPermissionFrameOptions {
   document?: Document;
@@ -125,22 +126,57 @@ function render(
   doc.documentElement.setAttribute('dir', dir);
   doc.title = messages.localVaultPermissionTitle;
 
-  doc.body.innerHTML = `
-    <main class="permission-card">
-      <div class="permission-heading">
-        <span class="permission-kicker">Zendio</span>
-        <h1 data-role="frame-title"></h1>
-      </div>
-      <p class="permission-copy" data-role="description"></p>
-      <p class="permission-copy" data-role="reconfirm"></p>
-      <p class="permission-status" data-role="status" aria-live="polite" aria-atomic="true"></p>
-      <div class="permission-actions">
-        <button type="button" class="primary" data-action="authorize"></button>
-        <button type="button" class="secondary" data-action="rest-once"></button>
-        <button type="button" class="ghost" data-action="rest-always"></button>
-      </div>
-    </main>
-  `;
+  const createElement = <K extends keyof HTMLElementTagNameMap>(
+    tagName: K,
+    attributes: Record<string, string> = {}
+  ): HTMLElementTagNameMap[K] => {
+    const element = doc.createElement(tagName);
+    for (const [name, value] of Object.entries(attributes)) {
+      element.setAttribute(name, value);
+    }
+    return element;
+  };
+
+  const main = createElement('main', { class: 'permission-card' });
+  const heading = createElement('div', { class: 'permission-heading' });
+  const kicker = createElement('span', { class: 'permission-kicker' });
+  kicker.textContent = 'Zendio';
+  const frameTitleElement = createElement('h1', { 'data-role': 'frame-title' });
+  heading.append(kicker, frameTitleElement);
+
+  const descriptionElement = createElement('p', {
+    class: 'permission-copy',
+    'data-role': 'description'
+  });
+  const reconfirmElement = createElement('p', {
+    class: 'permission-copy',
+    'data-role': 'reconfirm'
+  });
+  const statusElement = createElement('p', {
+    class: 'permission-status',
+    'data-role': 'status',
+    'aria-live': 'polite',
+    'aria-atomic': 'true'
+  });
+  const actions = createElement('div', { class: 'permission-actions' });
+  const authorizeElement = createElement('button', {
+    type: 'button',
+    class: 'primary',
+    'data-action': 'authorize'
+  });
+  const restOnceElement = createElement('button', {
+    type: 'button',
+    class: 'secondary',
+    'data-action': 'rest-once'
+  });
+  const restAlwaysElement = createElement('button', {
+    type: 'button',
+    class: 'ghost',
+    'data-action': 'rest-always'
+  });
+  actions.append(authorizeElement, restOnceElement, restAlwaysElement);
+  main.append(heading, descriptionElement, reconfirmElement, statusElement, actions);
+  doc.body.replaceChildren(main);
 
   const frameTitle = doc.querySelector<HTMLElement>('[data-role="frame-title"]');
   const description = doc.querySelector<HTMLElement>('[data-role="description"]');
@@ -229,103 +265,7 @@ function ensureStyles(doc: Document): void {
   }
   const style = doc.createElement('style');
   style.id = 'aiob-local-vault-permission-frame-style';
-  style.textContent = `
-  :root {
-    color-scheme: light;
-    font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  }
-
-  * {
-    box-sizing: border-box;
-  }
-
-  body {
-    margin: 0;
-    min-height: 100vh;
-    background: #ffffff;
-    color: #172033;
-  }
-
-  .permission-card {
-    min-height: 100vh;
-    display: flex;
-    flex-direction: column;
-    gap: 14px;
-    padding: 22px;
-  }
-
-  .permission-kicker {
-    display: block;
-    margin-bottom: 5px;
-    color: #667085;
-    font-size: 12px;
-    font-weight: 700;
-  }
-
-  h1 {
-    margin: 0;
-    font-size: 19px;
-    line-height: 1.28;
-    font-weight: 760;
-  }
-
-  .permission-copy {
-    margin: 0;
-    color: #475467;
-    font-size: 14px;
-    line-height: 1.58;
-  }
-
-  strong {
-    color: #172033;
-    font-weight: 750;
-  }
-
-  .permission-status {
-    min-height: 19px;
-    margin: 0;
-    color: #2f6b4f;
-    font-size: 13px;
-  }
-
-  .permission-actions {
-    display: flex;
-    gap: 8px;
-    margin-top: auto;
-  }
-
-  button {
-    min-height: 36px;
-    border: 1px solid transparent;
-    border-radius: 8px;
-    padding: 0 12px;
-    font: inherit;
-    font-size: 13px;
-    font-weight: 700;
-    cursor: pointer;
-  }
-
-  button:disabled {
-    cursor: wait;
-    opacity: 0.64;
-  }
-
-  .primary {
-    background: #13795b;
-    color: #ffffff;
-  }
-
-  .secondary {
-    border-color: #d0d5dd;
-    background: #ffffff;
-    color: #344054;
-  }
-
-  .ghost {
-    background: transparent;
-    color: #667085;
-  }
-`;
+  style.textContent = permissionFrameCssText;
   doc.head.appendChild(style);
 }
 

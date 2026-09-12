@@ -4,12 +4,26 @@ import {
   createScopedRegistry,
   registerFallbackRepositories,
   registerMockRepositories,
+  registerRepositories,
   repositoryContainer,
   resolveRepository,
+  type RepositoryPlatformServices,
   type ServiceRegistry,
   type ScopedServiceRegistry
 } from '@shared/di/serviceRegistry';
 import { DI_TOKENS } from '@shared/di/tokens';
+import type {
+  IMessagingRepository,
+  INavigationRepository,
+  IOptionsRepository,
+  IVideoRepository,
+  IYamlRepository
+} from '@shared/repositories';
+import { mergeOptions } from '@shared/config/optionsMerger';
+import type { CompleteOptions } from '@shared/types/options';
+import type { YamlConfigOverrides } from '@shared/types/yamlConfig';
+import { OPTIONS_MUTATION_AUTHORITY_UNAVAILABLE } from '@shared/types/optionsMutationMessages';
+import { asType } from '../../utils/typeHelpers';
 
 describe('ServiceRegistry', () => {
   let registry: ServiceRegistry;
@@ -250,65 +264,83 @@ describe('repository service container fallbacks', () => {
     repositoryContainer.reset();
   });
 
-  it('registers fallback repositories with observable in-memory state', async () => {
+  it('registers an explicit background Options owner without constructing a message client', () => {
+    const system = mergeOptions({ interfaceTheme: 'system' });
+    const dark = mergeOptions({ interfaceTheme: 'dark' });
+    const light = mergeOptions({ interfaceTheme: 'light' });
+    const optionsRepository = {
+      get: vi.fn(() => Promise.resolve(system)),
+      patch: vi.fn(() => Promise.resolve(dark)),
+      replace: vi.fn(() => Promise.resolve(light)),
+      onChange: vi.fn(() => () => undefined)
+    } satisfies IOptionsRepository;
+
+    registerRepositories(asType<RepositoryPlatformServices>({ optionsRepository }));
+
+    expect(resolveRepository(DI_TOKENS.IOptionsRepository)).toBe(optionsRepository);
+  });
+
+  it('registers preview readers while every durable mutation fails closed', async () => {
     registerFallbackRepositories();
 
-    const options = resolveRepository<{
-      get: () => Promise<{ general?: { language?: string } }>;
-      set: (options: { general?: { language?: string } }) => Promise<void>;
-      onChange: (callback: (options: unknown) => void) => () => void;
-    }>(DI_TOKENS.IOptionsRepository);
-    const optionSnapshots: unknown[] = [];
+    const options = resolveRepository<IOptionsRepository>(DI_TOKENS.IOptionsRepository);
+    const optionSnapshots: CompleteOptions[] = [];
     const unsubscribeOptions = options.onChange((snapshot) => optionSnapshots.push(snapshot));
-    await options.set({ general: { language: 'ja' } });
+    const before = await options.get();
+    await expect(options.patch({ path: ['interfaceTheme'], value: 'dark' })).rejects.toThrow(
+      OPTIONS_MUTATION_AUTHORITY_UNAVAILABLE
+    );
+    await expect(options.replace({ interfaceTheme: 'dark' })).rejects.toThrow(
+      OPTIONS_MUTATION_AUTHORITY_UNAVAILABLE
+    );
 
-    expect((await options.get()).general?.language).toBe('ja');
-    expect(optionSnapshots).toHaveLength(2);
+    expect(await options.get()).toEqual(before);
+    expect(optionSnapshots).toHaveLength(1);
     unsubscribeOptions();
 
-    const yaml = resolveRepository<{
-      getOverrides: () => Promise<unknown>;
-      setOverrides: (value: unknown) => Promise<void>;
-      onChange: (callback: (value: unknown) => void) => () => void;
-    }>(DI_TOKENS.IYamlRepository);
-    const yamlSnapshots: unknown[] = [];
+    const yaml = resolveRepository<IYamlRepository>(DI_TOKENS.IYamlRepository);
+    const yamlSnapshots: Array<YamlConfigOverrides | null> = [];
     const unsubscribeYaml = yaml.onChange((snapshot) => yamlSnapshots.push(snapshot));
-    await yaml.setOverrides({ fields: [] });
+    await expect(yaml.setOverrides({ globalFields: [] })).rejects.toThrow(
+      OPTIONS_MUTATION_AUTHORITY_UNAVAILABLE
+    );
 
-    expect(await yaml.getOverrides()).toEqual({ fields: [] });
-    expect(yamlSnapshots).toEqual([null, { fields: [] }]);
+    expect(await yaml.getOverrides()).toBeNull();
+    expect(yamlSnapshots).toEqual([null]);
     unsubscribeYaml();
 
-    const messaging = resolveRepository<{
-      send: () => Promise<unknown>;
-      onMessage: () => () => void;
-    }>(DI_TOKENS.IMessagingRepository);
-    expect(await messaging.send()).toBeUndefined();
-    expect(messaging.onMessage()).toEqual(expect.any(Function));
+    const messaging = resolveRepository<IMessagingRepository>(DI_TOKENS.IMessagingRepository);
+    expect(await messaging.send({ type: 'TEST_CONNECTION' })).toBeUndefined();
+    expect(messaging.onMessage(() => undefined)).toEqual(expect.any(Function));
 
-    const video = resolveRepository<{
-      getVideoConfig: () => Promise<{ promptShortcut: string }>;
-      getPromptPosition: () => Promise<unknown>;
-      sendVideoClip: () => Promise<{ success: boolean }>;
-      savePromptPosition: () => Promise<void>;
-      saveControlBarPreferences: () => Promise<void>;
-      onConfigChange: (callback: unknown) => () => void;
-    }>(DI_TOKENS.IVideoRepository);
+    const video = resolveRepository<IVideoRepository>(DI_TOKENS.IVideoRepository);
     expect((await video.getVideoConfig()).promptShortcut).toBe('Alt+V');
     expect(await video.getPromptPosition()).toBeNull();
-    await expect(video.savePromptPosition()).resolves.toBeUndefined();
-    await expect(video.saveControlBarPreferences()).resolves.toBeUndefined();
-    await expect(video.sendVideoClip()).resolves.toEqual({ success: true });
+    await expect(video.savePromptPosition({ x: 1, y: 2 })).rejects.toThrow(
+      OPTIONS_MUTATION_AUTHORITY_UNAVAILABLE
+    );
+    await expect(
+      video.saveControlBarPreferences({
+        autoPauseEnabled: true,
+        captureScreenshotEnabled: false
+      })
+    ).rejects.toThrow(OPTIONS_MUTATION_AUTHORITY_UNAVAILABLE);
+    await expect(
+      video.sendVideoClip({
+        content: 'clip',
+        title: 'Video',
+        url: 'https://example.com/watch',
+        videoUrl: 'https://example.com/watch',
+        timestamp: 1,
+        platform: 'other'
+      })
+    ).resolves.toEqual({ success: true });
     expect(video.onConfigChange(() => undefined)).toEqual(expect.any(Function));
 
-    const navigation = resolveRepository<{
-      openVault: () => Promise<void>;
-      openOptions: () => Promise<void>;
-      openExternalLink: () => Promise<void>;
-    }>(DI_TOKENS.INavigationRepository);
+    const navigation = resolveRepository<INavigationRepository>(DI_TOKENS.INavigationRepository);
     await expect(navigation.openVault()).resolves.toBeUndefined();
     await expect(navigation.openOptions()).resolves.toBeUndefined();
-    await expect(navigation.openExternalLink()).resolves.toBeUndefined();
+    await expect(navigation.openExternalLink('https://example.com')).resolves.toBeUndefined();
   });
 
   it('resets singleton factories and rejects unresolved repositories', () => {

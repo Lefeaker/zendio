@@ -4,327 +4,327 @@ import {
   type RuntimePropertyValue
 } from '../../shared/guards/object';
 import {
-  VIDEO_SCREENSHOT_CACHE_BLOB_STORE_DB_NAME,
-  VIDEO_SCREENSHOT_CACHE_BLOB_STORE_DB_VERSION,
-  VIDEO_SCREENSHOT_CACHE_BLOB_STORE_EXPIRES_AT_INDEX_NAME,
-  VIDEO_SCREENSHOT_CACHE_BLOB_STORE_OBJECT_STORE_NAME,
-  VIDEO_SCREENSHOT_CACHE_BLOB_STORE_PAGE_CAPTURE_INDEX_NAME,
-  VIDEO_SCREENSHOT_CACHE_BLOB_STORE_PAGE_KEY_INDEX_NAME,
-  VIDEO_SCREENSHOT_CACHE_BLOB_STORE_UPDATED_AT_INDEX_NAME,
-  normalizeVideoScreenshotCacheBlobEntry,
-  pruneVideoScreenshotCacheBlobMetadataEntries,
-  sortVideoScreenshotCacheBlobMetadataNewestFirst,
-  type VideoScreenshotCacheBlobEntry,
-  type VideoScreenshotCacheBlobMetadata,
-  type VideoScreenshotCacheBlobStore,
-  type VideoScreenshotCacheBlobStorePruneResult
+  openIndexedDb,
+  requestToPromise,
+  runIndexedDbTransaction
+} from '../../shared/storage/indexedDbLifecycle';
+import {
+  assertIndexedDbIndex,
+  assertIndexedDbNameList,
+  assertIndexedDbObjectStore,
+  ensureIndexedDbIndex,
+  ensureIndexedDbObjectStore,
+  IndexedDbLifecycleError,
+  type IndexedDbDatabase,
+  type IndexedDbFactory,
+  type IndexedDbIndexSchema,
+  type IndexedDbObjectStore,
+  type IndexedDbTimer,
+  type IndexedDbTransaction,
+  type OpenIndexedDbOptions
+} from '../../shared/storage/indexedDbTypes';
+import {
+  VIDEO_SCREENSHOT_CACHE_BLOB_STORE_DB_NAME as DB_NAME,
+  VIDEO_SCREENSHOT_CACHE_BLOB_STORE_DB_VERSION as DB_VERSION,
+  VIDEO_SCREENSHOT_CACHE_BLOB_STORE_EXPIRES_AT_INDEX_NAME as EXPIRES_AT_INDEX,
+  VIDEO_SCREENSHOT_CACHE_BLOB_STORE_MAINTENANCE_ID as MAINTENANCE_ID,
+  VIDEO_SCREENSHOT_CACHE_BLOB_STORE_METADATA_OBJECT_STORE_NAME as METADATA_STORE,
+  VIDEO_SCREENSHOT_CACHE_BLOB_STORE_METADATA_SCHEMA_VERSION as METADATA_SCHEMA_VERSION,
+  VIDEO_SCREENSHOT_CACHE_BLOB_STORE_OBJECT_STORE_NAME as ENTRY_STORE,
+  VIDEO_SCREENSHOT_CACHE_BLOB_STORE_PAGE_CAPTURE_INDEX_NAME as PAGE_CAPTURE_INDEX,
+  VIDEO_SCREENSHOT_CACHE_BLOB_STORE_PAGE_KEY_INDEX_NAME as PAGE_KEY_INDEX,
+  VIDEO_SCREENSHOT_CACHE_BLOB_STORE_UPDATED_AT_INDEX_NAME as UPDATED_AT_INDEX,
+  normalizeVideoScreenshotCacheBlobEntry as normalizeEntry,
+  pruneVideoScreenshotCacheBlobMetadataEntries as pruneMetadata,
+  sortVideoScreenshotCacheBlobMetadataNewestFirst as sortNewest,
+  type VideoScreenshotCacheBlobEntry as BlobEntry,
+  type VideoScreenshotCacheBlobMetadata as BlobMetadata,
+  type VideoScreenshotCacheBlobStore as BlobStore,
+  type VideoScreenshotCacheBlobStorePruneResult as PruneResult,
+  type VideoScreenshotCacheMaintenanceMetadata as MaintenanceMetadata
 } from '../../content/video/videoScreenshotCacheStore';
 import { isVideoScreenshotCachePageKey } from '../../content/video/videoScreenshotCacheTypes';
 
-type VideoScreenshotCacheIndexedDbRecord = ObjectRecord;
-
-type VideoScreenshotCacheIndexedDbRequest<T> = {
-  result: T;
-  error: DOMException | Error | null;
-  onsuccess: ((event: Event) => void) | null;
-  onerror: ((event: Event) => void) | null;
+const ENTRY_STORE_SCHEMA = { name: ENTRY_STORE, keyPath: 'key', autoIncrement: false };
+const METADATA_STORE_SCHEMA = {
+  name: METADATA_STORE,
+  keyPath: 'id',
+  autoIncrement: false
 };
-
-type VideoScreenshotCacheIndexedDbOpenRequest = VideoScreenshotCacheIndexedDbRequest<
-  VideoScreenshotCacheIndexedDbDatabase | undefined
-> & {
-  onupgradeneeded: ((event: Event) => void) | null;
-};
-
-type VideoScreenshotCacheIndexedDbIndex = {
-  getAll(
-    query?: IDBValidKey | IDBKeyRange | null
-  ): VideoScreenshotCacheIndexedDbRequest<VideoScreenshotCacheIndexedDbRecord[]>;
-};
-
-type VideoScreenshotCacheIndexedDbObjectStore = {
-  put(entry: RuntimePropertyValue): VideoScreenshotCacheIndexedDbRequest<RuntimePropertyValue>;
-  get(key: string): VideoScreenshotCacheIndexedDbRequest<RuntimePropertyValue>;
-  delete(key: string): VideoScreenshotCacheIndexedDbRequest<undefined>;
-  getAll(): VideoScreenshotCacheIndexedDbRequest<VideoScreenshotCacheIndexedDbRecord[]>;
-  index(name: string): VideoScreenshotCacheIndexedDbIndex;
-  createIndex(name: string, keyPath: string | string[]): VideoScreenshotCacheIndexedDbIndex;
-};
-
-type VideoScreenshotCacheIndexedDbTransaction = {
-  error: DOMException | Error | null;
-  oncomplete: ((event: Event) => void) | null;
-  onerror: ((event: Event) => void) | null;
-  onabort: ((event: Event) => void) | null;
-  objectStore(name: string): VideoScreenshotCacheIndexedDbObjectStore;
-  abort(): void;
-};
-
-type VideoScreenshotCacheIndexedDbDatabase = {
-  createObjectStore(
-    name: string,
-    options?: {
-      keyPath?: string | string[] | null;
-    }
-  ): VideoScreenshotCacheIndexedDbObjectStore;
-  transaction(name: string, mode: IDBTransactionMode): VideoScreenshotCacheIndexedDbTransaction;
-  close(): void;
-};
-
-type VideoScreenshotCacheIndexedDbFactory = {
-  open(name: string, version?: number): VideoScreenshotCacheIndexedDbOpenRequest;
-};
+const indexSchema = (name: string, keyPath: string | readonly string[]): IndexedDbIndexSchema => ({
+  name,
+  keyPath,
+  unique: false,
+  multiEntry: false
+});
+const ENTRY_INDEX_SCHEMAS: readonly IndexedDbIndexSchema[] = [
+  indexSchema(PAGE_KEY_INDEX, 'pageKey'),
+  indexSchema(EXPIRES_AT_INDEX, 'expiresAt'),
+  indexSchema(UPDATED_AT_INDEX, 'updatedAt'),
+  indexSchema(PAGE_CAPTURE_INDEX, ['pageKey', 'captureId'])
+];
+const ENTRY_INDEX_NAMES = ENTRY_INDEX_SCHEMAS.map(({ name }) => name);
 
 export interface VideoScreenshotCacheIndexedDbStoreOptions {
-  indexedDb?: VideoScreenshotCacheIndexedDbFactory | undefined;
+  indexedDb?: IndexedDbFactory | undefined;
+  timer?: IndexedDbTimer | undefined;
 }
 
 export function createVideoScreenshotCacheIndexedDbStore(
   options: VideoScreenshotCacheIndexedDbStoreOptions = {}
-): VideoScreenshotCacheBlobStore {
-  const indexedDb = options.indexedDb;
-  const readAllEntries = (store: VideoScreenshotCacheIndexedDbObjectStore) =>
+): BlobStore {
+  const databaseOptions = createDatabaseOptions(options);
+  const readAllEntries = (store: IndexedDbObjectStore) =>
     requestToRecordArray(store, 'Failed to read video screenshot cache blob rows.').then(
       collectEntries
     );
-
   return {
     async put(entry) {
-      const normalizedEntry = normalizeVideoScreenshotCacheBlobEntry(entry);
+      const normalizedEntry = normalizeEntry(entry);
       if (normalizedEntry === null) {
         throw new Error('Video screenshot cache blob store rejected an invalid blob entry.');
       }
-      await withStore('readwrite', indexedDb, (store) =>
+      await withEntryStore(databaseOptions, 'readwrite', (store) =>
         requestToPromise(
           store.put(normalizedEntry),
           'Failed to write video screenshot cache blob entry.'
         )
       );
     },
-
     async get(key) {
-      if (!isNonEmptyString(key)) {
-        return null;
-      }
-      return withStore('readwrite', indexedDb, async (store) => {
+      if (!isNonEmptyString(key)) return null;
+      return withEntryStore(databaseOptions, 'readwrite', async (store) => {
         const rawValue = await requestToPromise(
           store.get(key),
           'Failed to read video screenshot cache blob entry.'
         );
-        if (!isObjectRecord(rawValue)) {
-          return null;
-        }
-        const entry = normalizeVideoScreenshotCacheBlobEntry(rawValue);
-        if (entry !== null) {
-          return entry;
-        }
+        if (!isObjectRecord(rawValue)) return null;
+        const entry = normalizeEntry(rawValue);
+        if (entry !== null) return entry;
         await deleteKeys(store, [key]);
         return null;
       });
     },
-
     async delete(key) {
       if (isNonEmptyString(key)) {
-        await withStore('readwrite', indexedDb, (store) => deleteKeys(store, [key]));
+        await withEntryStore(databaseOptions, 'readwrite', (store) => deleteKeys(store, [key]));
       }
     },
-
     async deleteMany(keys) {
       const uniqueKeys = sanitizeKeys(keys);
       if (uniqueKeys.length > 0) {
-        await withStore('readwrite', indexedDb, (store) => deleteKeys(store, uniqueKeys));
+        await withEntryStore(databaseOptions, 'readwrite', (store) =>
+          deleteKeys(store, uniqueKeys)
+        );
       }
     },
-
     async listByPageKey(pageKey) {
-      if (!isVideoScreenshotCachePageKey(pageKey)) {
-        return [];
-      }
-      return withStore('readwrite', indexedDb, async (store) => {
-        const rawValues = await requestToPromise(
-          store.index(VIDEO_SCREENSHOT_CACHE_BLOB_STORE_PAGE_KEY_INDEX_NAME).getAll(pageKey),
-          'Failed to read video screenshot cache page blob entries.'
-        );
+      if (!isVideoScreenshotCachePageKey(pageKey)) return [];
+      return withEntryStore(databaseOptions, 'readwrite', async (store) => {
+        const rawValues = (
+          await requestToPromise(
+            store.index(PAGE_KEY_INDEX).getAll(pageKey),
+            'Failed to read video screenshot cache page blob entries.'
+          )
+        ).filter(isObjectRecord);
         const { entries, invalidKeys } = collectEntries(rawValues);
         await deleteKeys(store, invalidKeys);
-        return sortVideoScreenshotCacheBlobMetadataNewestFirst(entries);
+        return sortNewest(entries);
       });
     },
-
     async listAllMetadata() {
-      return withStore('readwrite', indexedDb, async (store) => {
+      return withEntryStore(databaseOptions, 'readwrite', async (store) => {
         const { entries, invalidKeys } = await readAllEntries(store);
         await deleteKeys(store, invalidKeys);
-        return sortVideoScreenshotCacheBlobMetadataNewestFirst(entries.map(toMetadata));
+        return sortNewest(entries.map(toMetadata));
       });
     },
-
     async prune(pruneOptions) {
-      return withStore('readwrite', indexedDb, async (store) => {
-        const { entries, invalidKeys } = await readAllEntries(store);
-        const result = pruneVideoScreenshotCacheBlobMetadataEntries(
-          entries.map(toMetadata),
-          pruneOptions
-        );
-        const removedKeys = sanitizeKeys([...invalidKeys, ...result.removedKeys]);
-        await deleteKeys(store, removedKeys);
-        return {
-          entries: result.entries,
-          removedKeys,
-          dirty: result.dirty || invalidKeys.length > 0
-        } satisfies VideoScreenshotCacheBlobStorePruneResult;
-      });
+      return withStores(
+        databaseOptions,
+        [ENTRY_STORE, METADATA_STORE],
+        'readwrite',
+        async (transaction) => {
+          const entriesStore = transaction.objectStore(ENTRY_STORE);
+          const { entries, invalidKeys } = await readAllEntries(entriesStore);
+          const result = pruneMetadata(entries.map(toMetadata), pruneOptions);
+          const removedKeys = sanitizeKeys([...invalidKeys, ...result.removedKeys]);
+          await deleteKeys(entriesStore, removedKeys);
+          await requestToPromise(
+            transaction
+              .objectStore(METADATA_STORE)
+              .put(createMaintenanceMetadata(pruneOptions.now)),
+            'Failed to update video screenshot cache maintenance metadata.'
+          );
+          return {
+            entries: result.entries,
+            removedKeys,
+            dirty: result.dirty || invalidKeys.length > 0
+          } satisfies PruneResult;
+        }
+      );
     }
   };
 }
 
-async function withStore<T>(
-  mode: IDBTransactionMode,
-  indexedDb: VideoScreenshotCacheIndexedDbFactory | undefined,
-  operation: (store: VideoScreenshotCacheIndexedDbObjectStore) => Promise<T>
-): Promise<T> {
-  const db = await openDatabase(indexedDb);
-  const transaction = db.transaction(VIDEO_SCREENSHOT_CACHE_BLOB_STORE_OBJECT_STORE_NAME, mode);
-  const store = transaction.objectStore(VIDEO_SCREENSHOT_CACHE_BLOB_STORE_OBJECT_STORE_NAME);
-  const transactionDone = waitForTransaction(transaction, mode);
-  try {
-    const result = await operation(store);
-    await transactionDone;
-    return result;
-  } catch (error) {
-    try {
-      transaction.abort();
-    } catch {
-      // Ignore abort races when the transaction has already completed.
+function createDatabaseOptions(
+  options: VideoScreenshotCacheIndexedDbStoreOptions
+): OpenIndexedDbOptions {
+  return {
+    name: DB_NAME,
+    version: DB_VERSION,
+    indexedDb: options.indexedDb,
+    timer: options.timer,
+    migrations: [
+      {
+        fromVersion: 0,
+        toVersion: 1,
+        migrate: ({ database, transaction }) => {
+          const store = ensureIndexedDbObjectStore(database, transaction, ENTRY_STORE_SCHEMA);
+          for (const schema of ENTRY_INDEX_SCHEMAS) ensureIndexedDbIndex(store, schema);
+          assertIndexedDbNameList(
+            store.indexNames,
+            ENTRY_INDEX_NAMES,
+            'Screenshot cache entry index'
+          );
+        }
+      },
+      {
+        fromVersion: 1,
+        toVersion: 2,
+        migrate: ({ database, transaction }) => {
+          assertIndexedDbNameList(
+            database.objectStoreNames,
+            [ENTRY_STORE],
+            'Screenshot cache v1 object store'
+          );
+          validateEntryStore(transaction);
+          const metadata = ensureIndexedDbObjectStore(database, transaction, METADATA_STORE_SCHEMA);
+          assertIndexedDbNameList(metadata.indexNames, [], 'Screenshot cache metadata index');
+          metadata.put(createMaintenanceMetadata(null));
+        }
+      }
+    ],
+    validate: validateDatabase
+  };
+}
+
+async function validateDatabase(database: IndexedDbDatabase): Promise<void> {
+  assertIndexedDbNameList(
+    database.objectStoreNames,
+    [ENTRY_STORE, METADATA_STORE],
+    'Screenshot cache object store'
+  );
+  await runIndexedDbTransaction(
+    database,
+    [ENTRY_STORE, METADATA_STORE],
+    'readonly',
+    async (transaction) => {
+      validateEntryStore(transaction);
+      const metadataStore = assertIndexedDbObjectStore(transaction, METADATA_STORE_SCHEMA);
+      assertIndexedDbNameList(metadataStore.indexNames, [], 'Screenshot cache metadata index');
+      const records = await requestToPromise(
+        metadataStore.getAll(),
+        'Failed to validate screenshot cache maintenance metadata.'
+      );
+      if (records.length !== 1 || !isMaintenanceMetadata(records[0])) {
+        throw new IndexedDbLifecycleError(
+          'SCHEMA_MISMATCH',
+          'Screenshot cache maintenance metadata differs.'
+        );
+      }
     }
-    await transactionDone.catch(() => undefined);
-    throw error;
+  );
+}
+
+function validateEntryStore(transaction: IndexedDbTransaction): IndexedDbObjectStore {
+  const store = assertIndexedDbObjectStore(transaction, ENTRY_STORE_SCHEMA);
+  assertIndexedDbNameList(store.indexNames, ENTRY_INDEX_NAMES, 'Screenshot cache entry index');
+  for (const schema of ENTRY_INDEX_SCHEMAS) assertIndexedDbIndex(store, schema);
+  return store;
+}
+
+async function withStores<T>(
+  options: OpenIndexedDbOptions,
+  storeNames: string | readonly string[],
+  mode: IDBTransactionMode,
+  operation: (transaction: IndexedDbTransaction) => Promise<T> | T
+): Promise<T> {
+  const database = await openIndexedDb(options);
+  try {
+    return await runIndexedDbTransaction(database, storeNames, mode, operation);
   } finally {
-    db.close();
+    database.close();
   }
 }
 
-function openDatabase(
-  indexedDb: VideoScreenshotCacheIndexedDbFactory | undefined
-): Promise<VideoScreenshotCacheIndexedDbDatabase> {
-  return new Promise((resolve, reject) => {
-    const factory = indexedDb ?? globalThis.indexedDB;
-    if (!factory || typeof factory.open !== 'function') {
-      reject(new Error('IndexedDB is not available for video screenshot cache storage.'));
-      return;
-    }
-
-    const request = factory.open(
-      VIDEO_SCREENSHOT_CACHE_BLOB_STORE_DB_NAME,
-      VIDEO_SCREENSHOT_CACHE_BLOB_STORE_DB_VERSION
-    );
-    request.onupgradeneeded = () => {
-      const db = request.result;
-      if (!db) {
-        reject(new Error('Video screenshot cache database upgrade opened without a database.'));
-        return;
-      }
-      const store = db.createObjectStore(VIDEO_SCREENSHOT_CACHE_BLOB_STORE_OBJECT_STORE_NAME, {
-        keyPath: 'key'
-      });
-      store.createIndex(VIDEO_SCREENSHOT_CACHE_BLOB_STORE_PAGE_KEY_INDEX_NAME, 'pageKey');
-      store.createIndex(VIDEO_SCREENSHOT_CACHE_BLOB_STORE_EXPIRES_AT_INDEX_NAME, 'expiresAt');
-      store.createIndex(VIDEO_SCREENSHOT_CACHE_BLOB_STORE_UPDATED_AT_INDEX_NAME, 'updatedAt');
-      store.createIndex(VIDEO_SCREENSHOT_CACHE_BLOB_STORE_PAGE_CAPTURE_INDEX_NAME, [
-        'pageKey',
-        'captureId'
-      ]);
-    };
-    request.onerror = () =>
-      reject(request.error ?? new Error('Failed to open video screenshot cache database.'));
-    request.onsuccess = () => {
-      const db = request.result;
-      if (!db) {
-        reject(new Error('Video screenshot cache database opened without a database.'));
-        return;
-      }
-      resolve(db);
-    };
-  });
-}
-
-function waitForTransaction(
-  transaction: VideoScreenshotCacheIndexedDbTransaction,
-  mode: IDBTransactionMode
-): Promise<void> {
-  return new Promise((resolve, reject) => {
-    transaction.oncomplete = () => resolve();
-    transaction.onerror = () =>
-      reject(transaction.error ?? new Error(`Video screenshot cache ${mode} transaction failed.`));
-    transaction.onabort = () =>
-      reject(transaction.error ?? new Error(`Video screenshot cache ${mode} transaction aborted.`));
-  });
-}
-
-function requestToPromise<T>(
-  request: VideoScreenshotCacheIndexedDbRequest<T>,
-  errorMessage: string
+function withEntryStore<T>(
+  options: OpenIndexedDbOptions,
+  mode: IDBTransactionMode,
+  operation: (store: IndexedDbObjectStore) => Promise<T> | T
 ): Promise<T> {
-  return new Promise((resolve, reject) => {
-    request.onsuccess = () => resolve(request.result);
-    request.onerror = () => reject(request.error ?? new Error(errorMessage));
-  });
+  return withStores(options, ENTRY_STORE, mode, (transaction) =>
+    operation(transaction.objectStore(ENTRY_STORE))
+  );
 }
 
 async function requestToRecordArray(
-  store: VideoScreenshotCacheIndexedDbObjectStore,
+  store: IndexedDbObjectStore,
   errorMessage: string
-): Promise<VideoScreenshotCacheIndexedDbRecord[]> {
+): Promise<ObjectRecord[]> {
   const rawValues = await requestToPromise(store.getAll(), errorMessage);
   return Array.isArray(rawValues) ? rawValues.filter(isObjectRecord) : [];
 }
-
-function collectEntries(rawValues: readonly VideoScreenshotCacheIndexedDbRecord[]): {
-  entries: VideoScreenshotCacheBlobEntry[];
+function collectEntries(rawValues: readonly ObjectRecord[]): {
+  entries: BlobEntry[];
   invalidKeys: string[];
 } {
-  const entries: VideoScreenshotCacheBlobEntry[] = [];
+  const entries: BlobEntry[] = [];
   const invalidKeys: string[] = [];
   for (const rawValue of rawValues) {
-    const entry = normalizeVideoScreenshotCacheBlobEntry(rawValue);
-    if (entry !== null) {
-      entries.push(entry);
-      continue;
-    }
-    const rawKey = extractKey(rawValue);
-    if (rawKey !== null) {
-      invalidKeys.push(rawKey);
+    const entry = normalizeEntry(rawValue);
+    if (entry !== null) entries.push(entry);
+    else {
+      const rawKey = extractKey(rawValue);
+      if (rawKey !== null) invalidKeys.push(rawKey);
     }
   }
   return { entries, invalidKeys: sanitizeKeys(invalidKeys) };
 }
-
+function createMaintenanceMetadata(lastPrunedAt: number | null): MaintenanceMetadata {
+  return {
+    id: MAINTENANCE_ID,
+    schemaVersion: METADATA_SCHEMA_VERSION,
+    lastPrunedAt
+  };
+}
+function isMaintenanceMetadata(value: RuntimePropertyValue): boolean {
+  return (
+    isObjectRecord(value) &&
+    value.id === MAINTENANCE_ID &&
+    value.schemaVersion === METADATA_SCHEMA_VERSION &&
+    (value.lastPrunedAt === null ||
+      (typeof value.lastPrunedAt === 'number' &&
+        Number.isInteger(value.lastPrunedAt) &&
+        value.lastPrunedAt >= 0))
+  );
+}
 function extractKey(value: RuntimePropertyValue): string | null {
   return isObjectRecord(value) && isNonEmptyString(value.key) ? value.key : null;
 }
-
-function toMetadata(entry: VideoScreenshotCacheBlobEntry): VideoScreenshotCacheBlobMetadata {
+function toMetadata(entry: BlobEntry): BlobMetadata {
   const { blob, ...metadata } = entry;
   void blob;
   return metadata;
 }
-
-async function deleteKeys(
-  store: VideoScreenshotCacheIndexedDbObjectStore,
-  keys: readonly string[]
-): Promise<void> {
+async function deleteKeys(store: IndexedDbObjectStore, keys: readonly string[]): Promise<void> {
   for (const key of sanitizeKeys(keys)) {
-    await requestToPromise(
-      store.delete(key),
-      `Failed to delete video screenshot cache blob entry: ${key}`
-    );
+    await requestToPromise(store.delete(key), `Failed to delete screenshot cache entry: ${key}`);
   }
 }
-
 function sanitizeKeys(keys: readonly string[]): string[] {
   return Array.from(new Set(keys.filter(isNonEmptyString)));
 }
-
 function isNonEmptyString(value: RuntimePropertyValue): value is string {
   return typeof value === 'string' && value.length > 0;
 }

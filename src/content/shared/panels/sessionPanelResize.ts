@@ -135,9 +135,10 @@ export function bindSessionPanelResize(
   if (!panel || !handle || !heightHandle) {
     return () => undefined;
   }
+  let disposed = false;
   applyPersistedPanelDimensions(panel);
   void loadPersistedSessionPanelLayout(options).then(() => {
-    if (panel.isConnected) {
+    if (!disposed && panel.isConnected) {
       applyPersistedPanelDimensions(panel);
     }
   });
@@ -236,6 +237,8 @@ export function bindSessionPanelResize(
   heightHandle.addEventListener('pointerdown', startHeightResize);
 
   return () => {
+    if (disposed) return;
+    disposed = true;
     handle.removeEventListener('pointerdown', startResize);
     heightHandle.removeEventListener('pointerdown', startHeightResize);
     stopResize();

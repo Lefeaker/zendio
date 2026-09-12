@@ -20,7 +20,7 @@ Use unit tests for:
 
 - repository behavior and error wrapping
 - options store / merger normalization
-- overview privacy consent persistence and privacy-domain view-model behavior
+- schema-derived privacy consent、typed Options mutation client 与 background coordinator behavior
 - section controllers and view-model logic
 - content helpers, presenters, prompt state, dialog orchestration
 
@@ -33,13 +33,21 @@ Use unit tests for:
 Use flow tests for:
 
 - autosave and sync flows in Options
-- Reader / Video / Support Prompt user journeys
+- Support Prompt and repository-backed user journeys that run in Vitest
 - repository-backed content script integration
+
+Reader and Video browser files are excluded from `vitest.e2e.config.ts`; they are owned by the
+browser routes below rather than presented as Vitest E2E coverage.
 
 ### Browser Visual / Interaction
 
-- Command: `npm run test:e2e:browser`
-- Command: `npm run visual:test`
+- Canonical YAML/Reader/smoke collection: `node scripts/run-browser-test-shards.mjs e2e`
+- Complete Video owner: `node scripts/run-bounded-command.mjs --profile npm-script-browser-v1 -- test:e2e:browser:video`
+- State/concurrency owner: `node scripts/run-bounded-command.mjs --profile npm-script-browser-v1 -- test:e2e:browser:state`
+- Architecture/incremental-render owner: `node scripts/run-bounded-command.mjs --profile npm-script-browser-v1 -- test:e2e:browser:architecture`
+- Local Vault owner: `node scripts/run-bounded-command.mjs --profile npm-script-browser-v1 -- test:e2e:browser:local-vault`
+- Firefox compatibility owner: `node scripts/run-bounded-command.mjs --profile npm-script-browser-v1 -- test:e2e:browser:firefox`
+- Visual collection: `node scripts/run-browser-test-shards.mjs visual`
 
 Use browser-based checks for:
 
@@ -60,9 +68,13 @@ npm run audit:components:report
 npm run audit:interaction-contract:report
 npm run audit:platform-services:report
 npm run lint:warnings-guard
+npm run audit:test-suite-ownership:check
 npm run test:coverage
 npm run test:e2e
 ```
+
+`npm run audit:test-suite-ownership:check` is a standalone ownership gate in R01. A generic full
+test or coverage invocation is verification evidence, not a second canonical collection owner.
 
 ### Coverage thresholds
 
@@ -120,20 +132,18 @@ npm run test:e2e -- optionsVaultRouterAutoSave.test.ts yamlOverridesFlow.test.ts
 npm run typecheck
 npm run lint
 npm run test:unit -- tests/unit/content/
-npm run test:e2e -- readerPanelFlow.test.ts videoPanelFlow.test.ts supportPromptFlow.test.ts
+npm run test:e2e -- supportPromptFlow.test.ts
+node scripts/run-browser-test-shards.mjs e2e
+node scripts/run-bounded-command.mjs --profile npm-script-browser-v1 -- test:e2e:browser:video
 ```
 
 ## CI expectations
 
-The GitHub Actions workflow in `.github/workflows/ci.yml` now checks:
-
-- `npm run typecheck`
-- `npm run lint`
-- `npm run lint:warnings-guard`
-- `npm run test:coverage`
-- `npm run test:e2e`
-- `npm run test:e2e:browser`
-- build, i18n, and packaging steps
+`.github/workflows/ci.yml` owns the current split topology; do not duplicate its job inventory here.
+The authoritative required-check names live in `scripts/config/releaseRequiredCiJobs.mjs`, while
+`audit:test-suite-ownership:check` validates each Vitest/browser/visual file has one canonical
+collection owner. The ownership gate is already wired into the standard engineering path; new test
+files must update the existing registry/route instead of adding an ad-hoc CI command.
 
 Pull requests also receive a coverage summary comment based on `coverage/coverage-summary.json`.
 
@@ -146,4 +156,3 @@ The current handoff baseline is documented in:
 - [`runtime-observability-and-regression.md`](./runtime-observability-and-regression.md)
 - [`privacy-settings-usage.md`](./privacy-settings-usage.md)
 - [`performance-baseline.md`](./performance-baseline.md)
-- [`final-acceptance-report-2026-03-20.md`](./final-acceptance-report-2026-03-20.md)

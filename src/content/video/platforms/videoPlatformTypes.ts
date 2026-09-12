@@ -1,5 +1,10 @@
 import type { VideoFragmentCapture } from '../types';
 import type { VideoPlatform } from '../utils';
+import type {
+  DocumentMutationHubApi,
+  ScopedMutationObserver,
+  ScopedMutationObserverFactory
+} from '../../runtime/documentMutationTypes';
 
 export interface PlatformSelectionInput {
   range: Range | null;
@@ -16,13 +21,20 @@ export interface PlatformSelectionResult {
 
 export interface VideoPlatformContext {
   doc: Document;
+  documentMutationHub: DocumentMutationHubApi;
   highlightSelection(range: Range, captureId: string, fragmentUrl: string): string | undefined;
   decorateHighlight(element: HTMLElement): void;
   scheduleFragmentHighlightRestore(): void;
   getElementByIdDeep(id: string): HTMLElement | null;
   querySelectorDeep<T extends Element>(selector: string): T | null;
-  observeWithFragmentObserver(target: Node, options: MutationObserverInit): void;
+  createScopedMutationObserver: ScopedMutationObserverFactory;
+  observeWithFragmentObserver(
+    observer: ScopedMutationObserver,
+    target: Node,
+    options: MutationObserverInit
+  ): void;
   registerShadowSelectionBridge(root: ShadowRoot): void;
+  unregisterShadowSelectionBridge(root: ShadowRoot): void;
   ensureHighlightStyles(root: ShadowRoot): void;
 }
 
@@ -39,8 +51,6 @@ export interface VideoPlatformAdapter {
   findTextRange(text: string): Range | null;
   highlight(range: Range, captureId: string, fragmentUrl: string): string | undefined;
   restoreHighlight(capture: VideoFragmentCapture): string | undefined;
-  observeDomChanges(observer: MutationObserver): void;
-  handleMutations(mutations: MutationRecord[]): void;
   observeSelectionRoots?(): void;
   buildTimestampUrl(timeSec: number, ctx: TimestampBuildContext): string | null;
   formatVideoTitle(rawTitle: string): string | null;

@@ -115,7 +115,9 @@ export function initClipFlow(options: InitClipFlowOptions): ClipFlowHandlers {
         selectionTracker,
         () => {
           queueNextClipAnalyticsSource(
-            runtimeState.isSelectionModifierActive() ? 'shortcut' : 'unknown'
+            runtimeState.getFragmentClipperConfig().selectionTriggerMode === 'modifier'
+              ? 'shortcut'
+              : 'unknown'
           );
           return handleClip();
         },

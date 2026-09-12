@@ -1,39 +1,25 @@
 import { setTimestampScreenshot } from './screenshotIntent';
 import type { VideoCaptureScreenshot, VideoTimestampCapture } from './types';
-import type { VideoVisibleFrameScreenshotCapture } from './videoVisibleTabScreenshot';
-import type { VideoScreenshotPreparedCallback } from './videoScreenshotPreparationCallbacks';
-import type {
-  CreateVideoScreenshotPreparationQueueArgs,
-  VideoScreenshotFrameCapture
-} from './videoScreenshotPreparationQueueTypes';
+import {
+  VideoScreenshotPreparationQueueOwner,
+  type VideoScreenshotPreparationQueueOwnerArgs
+} from './videoScreenshotPreparationQueueOwner';
 
-interface VideoScreenshotPreparationCoordinatorArgs {
-  doc: Document;
-  getCaptures: () => VideoTimestampCapture[];
-  getVisibleVideo: () => HTMLVideoElement | null;
-  syncPanel: () => void;
-  onScreenshotPrepared?: VideoScreenshotPreparedCallback;
-  captureFrame?: VideoScreenshotFrameCapture | undefined;
-  captureVisibleFrame?: VideoVisibleFrameScreenshotCapture | undefined;
-}
-
-interface VideoScreenshotPreparationQueue {
-  request(captureId: string): void;
-  requestAll(): void;
-  handleVideoElementChange(video: HTMLVideoElement | null): void;
-  dispose(): void;
-}
+type VideoScreenshotPreparationCoordinatorArgs = Omit<
+  VideoScreenshotPreparationQueueOwnerArgs,
+  'loadQueueModule'
+>;
 
 export class VideoScreenshotPreparationCoordinator {
-  private queue: VideoScreenshotPreparationQueue | null = null;
-  private queuePromise: Promise<VideoScreenshotPreparationQueue | null> | null = null;
-  private generation = 0;
   private disposed = false;
   private pendingRequestSuspendCount = 0;
   private pendingRequestAfterResume = false;
   private readonly cache = new Map<string, VideoCaptureScreenshot>();
+  private readonly queueOwner: VideoScreenshotPreparationQueueOwner;
 
-  constructor(private readonly args: VideoScreenshotPreparationCoordinatorArgs) {}
+  constructor(private readonly args: VideoScreenshotPreparationCoordinatorArgs) {
+    this.queueOwner = new VideoScreenshotPreparationQueueOwner(args);
+  }
 
   handleVideoElementChange(element: HTMLVideoElement | null): void {
     if (this.disposed) {
@@ -41,15 +27,10 @@ export class VideoScreenshotPreparationCoordinator {
     }
     if (this.hasSuspendedPendingRequests()) {
       this.deferPendingRequestAfterResume();
-      if (this.queue) {
-        this.queue.handleVideoElementChange(element);
-      }
+      this.queueOwner.handleVideoElementChange(element);
       return;
     }
-    if (this.queue) {
-      this.queue.handleVideoElementChange(element);
-      return;
-    }
+    if (this.queueOwner.handleVideoElementChange(element)) return;
     this.requestPendingScreenshots();
   }
 
@@ -85,7 +66,7 @@ export class VideoScreenshotPreparationCoordinator {
       return;
     }
 
-    const queue = await this.ensureQueue();
+    const queue = await this.queueOwner.ensureQueue();
     if (queue && this.findPendingCapture(id)) {
       queue.request(id);
     }
@@ -109,10 +90,7 @@ export class VideoScreenshotPreparationCoordinator {
 
   dispose(): void {
     this.disposed = true;
-    this.generation += 1;
-    this.queue?.dispose();
-    this.queue = null;
-    this.queuePromise = null;
+    this.queueOwner.dispose();
     this.pendingRequestAfterResume = false;
     this.pendingRequestSuspendCount = 0;
     this.cache.clear();
@@ -122,57 +100,8 @@ export class VideoScreenshotPreparationCoordinator {
     if (!this.hasPendingCaptures()) {
       return;
     }
-    const queue = await this.ensureQueue();
+    const queue = await this.queueOwner.ensureQueue();
     queue?.requestAll();
-  }
-
-  private async ensureQueue(): Promise<VideoScreenshotPreparationQueue | null> {
-    if (this.disposed) {
-      return null;
-    }
-    if (this.queue) {
-      return this.queue;
-    }
-    if (this.queuePromise) {
-      return this.queuePromise;
-    }
-
-    const generation = this.generation;
-    this.queuePromise = import('./videoScreenshotPreparationQueue')
-      .then(({ createVideoScreenshotPreparationQueue }) => {
-        if (this.disposed || generation !== this.generation) {
-          return null;
-        }
-
-        const queueArgs: CreateVideoScreenshotPreparationQueueArgs = {
-          doc: this.args.doc,
-          getCaptures: this.args.getCaptures,
-          getVisibleVideo: this.args.getVisibleVideo,
-          onScreenshotPrepared: (capture, screenshot, source) =>
-            this.args.onScreenshotPrepared?.(capture, screenshot, source),
-          syncPanel: this.args.syncPanel,
-          ...(this.args.captureFrame ? { captureFrame: this.args.captureFrame } : {}),
-          ...(this.args.captureVisibleFrame
-            ? { captureVisibleFrame: this.args.captureVisibleFrame }
-            : {})
-        };
-
-        const queue = createVideoScreenshotPreparationQueue(queueArgs);
-
-        if (this.disposed || generation !== this.generation) {
-          queue.dispose();
-          return null;
-        }
-
-        this.queue = queue;
-        queue.handleVideoElementChange(this.args.getVisibleVideo());
-        return queue;
-      })
-      .finally(() => {
-        this.queuePromise = null;
-      });
-
-    return this.queuePromise;
   }
 
   private hasPendingCaptures(): boolean {

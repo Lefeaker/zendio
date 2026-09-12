@@ -7,7 +7,9 @@ import type { StorageService } from '../../platform/interfaces/storage';
 import type { MessagingService } from '../../platform/interfaces/messaging';
 import type { RuntimeService } from '../../platform/interfaces/runtime';
 import type { SupportProgressReporter } from '../runtime/supportProgress';
-import type { SessionDraftStoragePolicy } from '../sessionDrafts';
+import type { SessionDraftStoragePolicy } from '@shared/sessionDrafts';
+import type { SessionDraftLeaseOwnerRegistry } from '../sessionDrafts/sessionDraftLeaseOwnerRegistry';
+import type { ReaderSessionDraftEnvelope } from '@shared/sessionDrafts';
 import { createReaderPanelViewFactory } from './presentation/readerPanelView';
 import { ReaderHighlightManager } from './services/highlightManager';
 import { ReaderSelectionController } from './services/selectionController';
@@ -23,6 +25,8 @@ export interface ReaderSessionPlatformDependencies {
   messaging: Pick<MessagingService, 'send'>;
   runtime: Pick<RuntimeService, 'getURL'>;
   sessionDraftStoragePolicy?: SessionDraftStoragePolicy;
+  sessionDraftLeaseOwners?: SessionDraftLeaseOwnerRegistry;
+  initialClaimedDraft?: ReaderSessionDraftEnvelope;
   showSupportProgress?: SupportProgressReporter;
 }
 
@@ -48,7 +52,12 @@ export function createReaderSessionDependencies(
     optionsRepository: deps.optionsRepository,
     storage: deps.storage,
     messaging: deps.messaging,
+    sessionDraftSender: <Result>(message: unknown) => deps.messaging.send<Result>(message),
     ...(sessionDraftStoragePolicy ? { sessionDraftStoragePolicy } : {}),
+    ...(deps.sessionDraftLeaseOwners
+      ? { sessionDraftLeaseOwners: deps.sessionDraftLeaseOwners }
+      : {}),
+    ...(deps.initialClaimedDraft ? { initialClaimedDraft: deps.initialClaimedDraft } : {}),
     ...((overrides.showSupportProgress ?? deps.showSupportProgress)
       ? { showSupportProgress: overrides.showSupportProgress ?? deps.showSupportProgress }
       : {}),

@@ -5,6 +5,14 @@ import { formatMessage } from '../../../src/i18n';
 import type { LocalVaultPermissionState } from '../../../src/platform/interfaces/fileSystemAccess';
 import { SHOW_LOCAL_VAULT_PERMISSION_PROMPT } from '../../../src/shared/types/clip';
 
+const permissionFrameCssTextMock = vi.hoisted(
+  () => ':root { color-scheme: light; }\n.permission-card { display: flex; }\n'
+);
+
+vi.mock('../../../src/content/runtime/local-vault-permission-frame.css?inline', () => ({
+  default: permissionFrameCssTextMock
+}));
+
 const flushMicrotasks = () => new Promise((resolve) => setTimeout(resolve, 0));
 
 async function loadPermissionMessages(language: string) {
@@ -101,6 +109,38 @@ describe('localVaultPermissionFrame', () => {
       },
       '*'
     );
+  });
+
+  it('constructs the permission surface without assigning string HTML', async () => {
+    const innerHtmlSetter = vi.spyOn(Element.prototype, 'innerHTML', 'set');
+    const { mountLocalVaultPermissionFrame } = await loadPermissionFrameModule();
+
+    mountLocalVaultPermissionFrame({
+      document,
+      window,
+      permissionService: { ensurePermission: vi.fn().mockResolvedValue('granted') }
+    });
+    await flushMicrotasks();
+
+    expect(document.querySelector('main.permission-card')).not.toBeNull();
+    expect(document.querySelectorAll('[data-action]')).toHaveLength(3);
+    expect(innerHtmlSetter).not.toHaveBeenCalled();
+  });
+
+  it('installs the imported frame CSS exactly once with the stable style id', async () => {
+    const { mountLocalVaultPermissionFrame } = await loadPermissionFrameModule();
+    const options = {
+      document,
+      window,
+      permissionService: { ensurePermission: vi.fn().mockResolvedValue('granted') }
+    };
+
+    mountLocalVaultPermissionFrame(options);
+    mountLocalVaultPermissionFrame(options);
+
+    const styles = document.querySelectorAll('#aiob-local-vault-permission-frame-style');
+    expect(styles).toHaveLength(1);
+    expect(styles[0]?.textContent).toBe(permissionFrameCssTextMock);
   });
 
   it('renders English copy without CJK and uses the localized folder fallback', async () => {

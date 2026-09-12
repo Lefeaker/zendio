@@ -3,6 +3,7 @@ export function createSessionPanelRenderRoot(id?: string): HTMLElement {
   if (id) {
     root.id = id;
   }
+  root.dataset.sessionPanelRoot = 'true';
   root.style.position = 'fixed';
   root.style.inset = '0';
   root.style.zIndex = '2147483647';

@@ -41,8 +41,10 @@ function createHarness() {
 
   const pendingSelection = createPendingSelectionMock();
   const activatePendingSelection = vi.fn();
+  let selectionTriggerConfigured = true;
   const bridge = new ShadowSelectionBridge({
     suppressSelectionCapture: () => false,
+    isSelectionTriggerConfigured: () => selectionTriggerConfigured,
     getDocumentSelection: () => currentSelection,
     isRangeInsideUi: () => false,
     pendingSelection: asType<PendingSelectionTracker>(pendingSelection),
@@ -71,6 +73,9 @@ function createHarness() {
     pendingSelection,
     activatePendingSelection,
     bridge,
+    setSelectionTriggerConfigured: (configured: boolean) => {
+      selectionTriggerConfigured = configured;
+    },
     setActiveSelection
   };
 }
@@ -87,6 +92,26 @@ describe('ShadowSelectionBridge', () => {
     bridge.register(root);
     bridge.register(root);
 
+    root.dispatchEvent(new Event('selectionchange', { bubbles: true }));
+
+    expect(pendingSelection.capture).toHaveBeenCalledTimes(1);
+  });
+
+  it('unregisters one owned root, cancels late work, and allows the same root to register again', async () => {
+    const { bridge, root, pendingSelection, activatePendingSelection, setActiveSelection } =
+      createHarness();
+    const removeSpy = vi.spyOn(root, 'removeEventListener');
+
+    bridge.register(root);
+    root.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, button: 0 }));
+    bridge.unregister(root);
+    await vi.runAllTimersAsync();
+
+    expect(removeSpy).toHaveBeenCalledWith('selectionchange', expect.any(Function), true);
+    expect(activatePendingSelection).not.toHaveBeenCalled();
+
+    setActiveSelection();
+    bridge.register(root);
     root.dispatchEvent(new Event('selectionchange', { bubbles: true }));
 
     expect(pendingSelection.capture).toHaveBeenCalledTimes(1);
@@ -182,5 +207,32 @@ describe('ShadowSelectionBridge', () => {
         sourceSelection
       })
     );
+  });
+
+  it('does not retain or activate shadow selections while auto-trigger is disabled', async () => {
+    const {
+      bridge,
+      root,
+      pendingSelection,
+      activatePendingSelection,
+      setActiveSelection,
+      setSelectionTriggerConfigured
+    } = createHarness();
+    setActiveSelection();
+    setSelectionTriggerConfigured(false);
+    bridge.register(root);
+
+    root.dispatchEvent(new Event('selectionchange', { bubbles: true }));
+    root.dispatchEvent(
+      new MouseEvent('mousedown', { bubbles: true, button: 0, clientX: 10, clientY: 10 })
+    );
+    root.dispatchEvent(
+      new MouseEvent('mouseup', { bubbles: true, button: 0, clientX: 40, clientY: 10 })
+    );
+    await vi.runAllTimersAsync();
+
+    expect(pendingSelection.capture).not.toHaveBeenCalled();
+    expect(pendingSelection.reset).toHaveBeenCalled();
+    expect(activatePendingSelection).not.toHaveBeenCalled();
   });
 });

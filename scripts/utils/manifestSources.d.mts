@@ -4,6 +4,7 @@ export interface BrowserManifest {
   manifest_version: number;
   version?: string;
   permissions?: string[];
+  host_permissions?: string[];
   options_ui?: {
     page?: string;
     open_in_tab?: boolean;

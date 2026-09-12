@@ -26,6 +26,8 @@ export function createClipperDialogLifecycleListeners(
   };
 
   const onVisibilityChange = (): void => {
+    const active = options.getShadowRoot()?.activeElement;
+    if (active instanceof HTMLAnchorElement && active.target === '_blank') return;
     if (options.getDocument().hidden) {
       options.closeRegisteredPopups();
     }

@@ -2,9 +2,10 @@ import type { RuntimeService } from '../../platform/interfaces/runtime';
 import type { StorageService } from '../../platform/interfaces/storage';
 import type { MessagingService } from '../../platform/interfaces/messaging';
 import type { IOptionsRepository } from '../../shared/repositories/IOptionsRepository';
-import type { VideoSessionAdapter } from '../clipper/services/selectionController';
+import type { VideoSessionAdapter } from './application/videoSessionPort';
 import type { SupportProgressReporter } from '../runtime/supportProgress';
-import type { SessionDraftStoragePolicy } from '../sessionDrafts';
+import type { SessionDraftStoragePolicy, VideoSessionDraftEnvelope } from '@shared/sessionDrafts';
+import type { SessionDraftLeaseOwnerRegistry } from '../sessionDrafts/sessionDraftLeaseOwnerRegistry';
 import { initVideoPrompt } from './prompt';
 import { createVideoPromptDependencies } from './videoPromptDependencies';
 import { matchesSupportedVideoHost } from './videoPromptObserver';
@@ -17,6 +18,7 @@ export interface VideoLazyRuntimeDependencies {
   runtime?: Pick<RuntimeService, 'getURL'>;
   messaging?: Pick<MessagingService, 'send'>;
   sessionDraftStoragePolicy?: SessionDraftStoragePolicy;
+  sessionDraftLeaseOwners?: SessionDraftLeaseOwnerRegistry;
   showSupportProgress?: SupportProgressReporter;
 }
 
@@ -26,7 +28,9 @@ export interface VideoPromptRuntimeDependencies extends VideoLazyRuntimeDependen
 
 export function createVideoSessionAdapter(
   doc: Document,
-  dependencies: VideoLazyRuntimeDependencies
+  dependencies: VideoLazyRuntimeDependencies,
+  initialClaimedDraft?: VideoSessionDraftEnvelope,
+  onInitialDraftAdopted?: () => void
 ): VideoSessionAdapter {
   let sessionPromise: Promise<VideoSessionAdapter> | null = null;
 
@@ -41,6 +45,11 @@ export function createVideoSessionAdapter(
           ...(dependencies.sessionDraftStoragePolicy
             ? { sessionDraftStoragePolicy: dependencies.sessionDraftStoragePolicy }
             : {}),
+          ...(dependencies.sessionDraftLeaseOwners
+            ? { sessionDraftLeaseOwners: dependencies.sessionDraftLeaseOwners }
+            : {}),
+          ...(initialClaimedDraft ? { initialClaimedDraft } : {}),
+          ...(onInitialDraftAdopted ? { onInitialDraftAdopted } : {}),
           ...(dependencies.showSupportProgress
             ? { showSupportProgress: dependencies.showSupportProgress }
             : {})
@@ -52,9 +61,9 @@ export function createVideoSessionAdapter(
   };
 
   return {
-    async start() {
+    async start(options) {
       const session = await getSession();
-      await session.start();
+      await session.start(options);
     },
     ingestTextCapture(selectedHtml, selectedText, comment, selectionRange) {
       void getSession().then((session) => {
@@ -86,6 +95,9 @@ export async function initializeVideoPromptRuntime(
             ...(dependencies.messaging ? { messaging: dependencies.messaging } : {}),
             ...(dependencies.sessionDraftStoragePolicy
               ? { sessionDraftStoragePolicy: dependencies.sessionDraftStoragePolicy }
+              : {}),
+            ...(dependencies.sessionDraftLeaseOwners
+              ? { sessionDraftLeaseOwners: dependencies.sessionDraftLeaseOwners }
               : {}),
             ...(dependencies.showSupportProgress
               ? { showSupportProgress: dependencies.showSupportProgress }

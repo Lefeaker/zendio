@@ -1,59 +1,33 @@
 import type { VideoFragmentCapture } from './types';
 import { FragmentHighlighter } from './fragmentHighlighter';
 import type { VideoPlatformAdapter } from './platforms';
+import type {
+  DocumentMutationDisposer,
+  DocumentMutationHubApi
+} from '../runtime/documentMutationTypes';
 
 interface FragmentHighlightCoordinatorOptions {
-  doc: Document;
+  documentMutationHub: DocumentMutationHubApi;
   highlighter: FragmentHighlighter;
   getFragments(): Iterable<VideoFragmentCapture>;
   ensureCaptureHighlight(capture: VideoFragmentCapture): void;
 }
 
 export class FragmentHighlightCoordinator {
-  private observer: MutationObserver | null = null;
+  private disposeDocumentMutations: DocumentMutationDisposer | null = null;
   private restoreHandle: number | null = null;
-  private currentAdapter: VideoPlatformAdapter | null = null;
 
   constructor(private readonly options: FragmentHighlightCoordinatorOptions) {}
 
   start(): void {
-    if (this.observer || typeof MutationObserver === 'undefined' || !this.options.doc.body) {
-      return;
-    }
-    if (!this.hasFragments()) {
-      return;
-    }
-    this.observer = new MutationObserver((mutations) => {
-      if (!this.hasFragments()) {
-        this.stop();
-        return;
-      }
-
-      if (this.currentAdapter) {
-        try {
-          this.currentAdapter.handleMutations(mutations);
-        } catch (error) {
-          console.warn('[FragmentHighlight] Platform mutation handling failed:', error);
-        }
-      }
-
-      if (mutations.some((mutation) => mutation.type === 'childList')) {
-        this.scheduleRestore();
-      }
+    if (this.disposeDocumentMutations || !this.hasFragments()) return;
+    this.disposeDocumentMutations = this.options.documentMutationHub.subscribe({
+      subscriberId: 'video-fragment-highlights',
+      filter: (record) => this.isMutationRelevant(record),
+      coalescingKey: 'restore',
+      delayMs: 0,
+      callback: () => this.scheduleRestore()
     });
-
-    this.observer.observe(this.options.doc.body, {
-      childList: true,
-      subtree: true
-    });
-
-    if (this.currentAdapter) {
-      try {
-        this.currentAdapter.observeDomChanges(this.observer);
-      } catch (error) {
-        console.warn('[FragmentHighlight] Platform observeDomChanges failed:', error);
-      }
-    }
   }
 
   ensureStartedForFragments(): void {
@@ -89,41 +63,50 @@ export class FragmentHighlightCoordinator {
   }
 
   stop(): void {
-    if (this.observer) {
-      this.observer.disconnect();
-      this.observer = null;
-    }
+    this.disposeDocumentMutations?.();
+    this.disposeDocumentMutations = null;
     if (this.restoreHandle !== null) {
       window.clearTimeout(this.restoreHandle);
       this.restoreHandle = null;
     }
   }
 
-  observeWithCoordinator(target: Node, options: MutationObserverInit): void {
-    if (!this.observer) {
-      return;
-    }
-    try {
-      this.observer.observe(target, options);
-    } catch (error) {
-      console.warn('[FragmentHighlight] Failed to observe target:', error);
-    }
-  }
-
   updateAdapter(adapter: VideoPlatformAdapter | null): void {
-    this.currentAdapter = adapter;
-    if (this.observer && this.currentAdapter) {
-      try {
-        this.currentAdapter.observeDomChanges(this.observer);
-      } catch (error) {
-        console.warn('[FragmentHighlight] Platform observeDomChanges failed:', error);
-      }
-    }
+    if (adapter && this.hasFragments()) this.scheduleRestore();
   }
 
   private hasFragments(): boolean {
     for (const _capture of this.options.getFragments()) {
       return true;
+    }
+    return false;
+  }
+
+  private isMutationRelevant(record: MutationRecord): boolean {
+    if (record.type !== 'childList') return false;
+    if (Array.from(record.addedNodes).some((node) => this.isRelevantAddedNode(node))) return true;
+    const target = mutationElement(record.target);
+    if (!target?.isConnected || isBilibiliDanmakuElement(target)) return false;
+    return Array.from(record.removedNodes).some((node) => {
+      const removed = mutationElement(node);
+      return Boolean(
+        (removed && (isBilibiliCommentBoundary(removed) || isFragmentHighlightElement(removed))) ||
+        isFragmentHighlightElement(target)
+      );
+    });
+  }
+
+  private isRelevantAddedNode(node: Node): boolean {
+    const element = mutationElement(node);
+    if (!element?.isConnected || isBilibiliDanmakuElement(element)) return false;
+    if (isBilibiliCommentBoundary(element) || isFragmentHighlightElement(element)) return true;
+    const text = normalizeMutationText(
+      `${node.textContent ?? ''} ${element.shadowRoot?.textContent ?? ''}`
+    );
+    if (!text) return false;
+    for (const capture of this.options.getFragments()) {
+      const selectedText = normalizeMutationText(capture.selectedText);
+      if (selectedText && text.includes(selectedText)) return true;
     }
     return false;
   }
@@ -140,4 +123,49 @@ export class FragmentHighlightCoordinator {
       }
     }
   }
+}
+
+const BILIBILI_DANMAKU_SELECTOR =
+  '.bpx-player-render-dm-wrap,.bpx-player-dm-mask-wrap,.bpx-player-adv-dm-wrap,' +
+  '.bpx-player-row-dm-wrap,.bpx-player-bas-dm-wrap,.bpx-player-cmd-dm-wrap,' +
+  '.bili-danmaku-x-dm,.bili-danmaku-x-dm-vip';
+
+const FRAGMENT_HIGHLIGHT_SELECTOR = '.aiob-video-fragment-highlight,[data-video-fragment-id]';
+const BILIBILI_COMMENT_BOUNDARY_SELECTOR = [
+  'bili-comments',
+  'bili-comment-thread-renderer',
+  'bili-comment-renderer',
+  'bili-comment-reply-renderer',
+  'bili-rich-text',
+  'bili-emoji',
+  'bili-avatar',
+  'bili-at',
+  'bili-link',
+  'bili-dyn-content'
+].join(',');
+
+function mutationElement(node: Node): Element | null {
+  return node instanceof Element ? node : node.parentElement;
+}
+
+function isBilibiliDanmakuElement(element: Element): boolean {
+  return Boolean(
+    element.matches(BILIBILI_DANMAKU_SELECTOR) || element.closest(BILIBILI_DANMAKU_SELECTOR)
+  );
+}
+
+function isBilibiliCommentBoundary(element: Element): boolean {
+  return element.matches(BILIBILI_COMMENT_BOUNDARY_SELECTOR);
+}
+
+function isFragmentHighlightElement(element: Element): boolean {
+  return Boolean(
+    element.matches(FRAGMENT_HIGHLIGHT_SELECTOR) ||
+    element.closest(FRAGMENT_HIGHLIGHT_SELECTOR) ||
+    element.querySelector(FRAGMENT_HIGHLIGHT_SELECTOR)
+  );
+}
+
+function normalizeMutationText(value: string): string {
+  return value.replace(/\s+/g, ' ').trim();
 }

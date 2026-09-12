@@ -1,29 +1,29 @@
-# Comment Form 样式边界真值说明
+# Comment Form 退役与现行 Clipper 真值
 
-更新时间：2026-03-21
-适用范围：`src/content/clipper/components/commentForm.ts`
+更新时间：2026-08-27
+适用范围：Clipper 对话框的 comment 输入、样式与交互 owner
 
 ## 当前真值
 
-- `commentForm.ts` 已不再包含 `cssText`、内联 `<style>`、或原始十六进制颜色值。
-- 视觉合同已从组件实现中抽出到：
-  - `src/content/clipper/components/commentFormStyles.ts`
-- 当前路线不是恢复 `comment-form.css`。
-  - 该文件已不再存在，也不是现仓库的推荐方案。
-  - 现行方案是：组件只负责结构与 i18n 绑定，样式合同以共享 class map 形式维护，并复用 Stitch runtime CSS、`src/styles/design-tokens.css` 与现有 token/utility class contract。
+- 旧 comment-form facade、class map 与 presenter element helper 已在 U02C3 一并退役。
+- 当前 Clipper 对话框由 `src/content/clipper/components/dialog.ts` 及其 controller/adapter
+  闭包编排，并通过 `src/content/stitch/runtimeSurfaceRenderer.ts` 渲染 neutral runtime surface。
+- comment 输入、按钮、dialog 语义与样式来自 Stitch runtime/surface contract、
+  `src/ui/stitch-surfaces/surfaces/clipper.ts` 和 `src/styles/design-tokens.css`。
+- 不存在 `comment-form.css`、旧 class-map fallback 或 compatibility re-export。
 
 ## 代码边界
 
-- 结构与文本绑定：
-  - `src/content/clipper/components/commentForm.ts`
-- 视觉 class 合同：
-  - `src/content/clipper/components/commentFormStyles.ts`
+- 业务状态与生命周期：`src/content/clipper/components/clipperDialogController.ts`
+- DOM/runtime 适配：`src/content/clipper/components/clipperDialogSurfaceAdapter.ts`
+- neutral surface schema：`src/ui/stitch-surfaces/surfaces/clipper.ts`
+- runtime 渲染：`src/content/stitch/runtimeSurfaceRenderer.ts`
 
-这意味着后续若要调整 comment form 外观，应优先修改 `commentFormStyles.ts`，而不是把颜色、阴影、focus ring 重新写回 `commentForm.ts`。
+后续调整必须落在上述现行 owner 中，不得恢复已删除的 comment-form 或 presenter facade。
 
 ## 已验证结果
 
-- `npx vitest run tests/unit/content/commentForm.test.ts`
+- `node scripts/run-bounded-command.mjs --profile vitest-v1 -- run --config vitest.unit.config.ts tests/unit/content/clipperDialog.test.ts`
 - `npm run typecheck:app`
 - `npm run lint -- --quiet`
 - `npm run build:dev`
@@ -32,9 +32,8 @@
 
 - `http://localhost:4180/content-orchestrator-harness.html`
   - 通过 `window.harness.openClipperDialog()` 拉起剪藏对话框
-  - shadow root 内 `textarea#clipper-comment-input` class 为：
-    - `clipper-comment-textarea textarea textarea-bordered mb-6 min-h-[120px] w-full resize-y text-sm leading-relaxed`
-  - `clipper-comment-preview` 已只使用 token / shared class contract，无 `#xxxxxx` 原始颜色字面量
+  - comment 输入由 neutral runtime surface 渲染
+  - dialog 使用现行 Stitch token / shared class contract，无旧 comment-form 样式 owner
 
 截图：
 
@@ -44,11 +43,11 @@
 
 以下做法视为回流：
 
-- 在 `commentForm.ts` 重新写入原始颜色值、阴影值、`focus:` 颜色字面量
-- 重新引入 `style.cssText` 或动态 `<style>`
-- 新增一个不受共享 class contract 管理的 `comment-form.css`
+- 恢复旧 comment-form、presenter element helper 或 compatibility re-export
+- 重新引入 `style.cssText`、动态 `<style>` 或原始颜色字面量
+- 新增不受 Stitch runtime/surface contract 管理的 `comment-form.css`
 
 ## 后续建议
 
-- 如需继续降低耦合，可把更多 content-side 视觉合同统一抽到 shared style contract 文件。
-- 但当前主线问题已经不是“缺少独立 CSS 文件”，而是“不要让视觉细节回流到组件实现”。这一点本轮已完成。
+- 新交互优先扩展 neutral runtime/surface schema，并同步现有生产与浏览器测试。
+- 不为已退役 facade 创建 successor、别名或测试专用副本。

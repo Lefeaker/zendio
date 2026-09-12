@@ -9,6 +9,11 @@ export type SessionCommentDraftedItem<T extends SessionCommentDraftItem> = T & {
   draft?: string;
 };
 
+export type SessionCommentDraftKeyboardEvent = Pick<
+  KeyboardEvent,
+  'key' | 'isComposing' | 'preventDefault'
+>;
+
 interface SessionCommentDraftMutationOptions {
   notify?: boolean;
 }
@@ -148,14 +153,22 @@ export class SessionCommentDraftController<T extends SessionCommentDraftItem> {
   }
 
   bindInput(input: HTMLInputElement | null | undefined, id: string): void {
-    input?.addEventListener('input', () => this.remember(id, input.value));
-    input?.addEventListener('keydown', (event: KeyboardEvent) => {
-      if (event.key !== 'Enter' || event.isComposing) {
-        return;
-      }
-      event.preventDefault();
-      void this.runAsync(() => this.submit(id, input.value));
-    });
+    input?.addEventListener('input', () => this.handleInput(input, id));
+    input?.addEventListener('keydown', (event) => this.handleKeydown(event, input, id));
+  }
+
+  handleInput(input: HTMLInputElement, id: string): void {
+    this.remember(id, input.value);
+  }
+
+  handleKeydown(
+    event: SessionCommentDraftKeyboardEvent,
+    input: HTMLInputElement,
+    id: string
+  ): void {
+    if (event.key !== 'Enter' || event.isComposing) return;
+    event.preventDefault();
+    void this.runAsync(() => this.submit(id, input.value));
   }
 
   captureRenderedInputs(): void {

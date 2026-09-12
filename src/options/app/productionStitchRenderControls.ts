@@ -1,3 +1,5 @@
+import type { Messages } from '@i18n';
+import { syncSegmentedNav } from '@options/stitch/ui/components';
 import type { PreviewStoreState } from '@options/stitch/types';
 import {
   HIGHLIGHT_THEME_CLASSES,
@@ -12,6 +14,7 @@ import {
 interface RenderControlOptions {
   mountRoot: HTMLElement;
   getState(): PreviewStoreState;
+  getMessages?(): Messages | null;
 }
 
 export function createProductionStitchRenderControls(options: RenderControlOptions) {
@@ -20,15 +23,8 @@ export function createProductionStitchRenderControls(options: RenderControlOptio
   function syncHighlightThemeControls(): void {
     const state = options.getState();
     const theme = isHighlightTheme(state.highlightTheme) ? state.highlightTheme : 'gradient';
-    const themeValues = new Set(Object.keys(HIGHLIGHT_THEME_CLASSES));
-    mountRoot.querySelectorAll<HTMLButtonElement>('.chips button[data-value]').forEach((button) => {
-      if (!themeValues.has(button.dataset.value ?? '')) {
-        return;
-      }
-      const isActive = button.dataset.value === theme;
-      button.setAttribute('aria-pressed', isActive ? 'true' : 'false');
-      button.classList.toggle('is-active', isActive);
-      button.closest<HTMLElement>('.chips')?.setAttribute('data-active-value', theme);
+    mountRoot.querySelectorAll<HTMLElement>('.highlight-theme-control').forEach((group) => {
+      syncSegmentedNav(group, theme);
     });
 
     const highlight = mountRoot.querySelector<HTMLElement>(
@@ -44,23 +40,20 @@ export function createProductionStitchRenderControls(options: RenderControlOptio
     const state = options.getState();
     const activeKey = normalizeFragmentModifierKeys(state.modifierKeys)[0];
     mountRoot
-      .querySelectorAll<HTMLInputElement>('.modifier-key-inline .switch input[type="checkbox"]')
-      .forEach((input) => {
-        input.checked = state.fragmentModifierEnabled;
+      .querySelectorAll<HTMLElement>('.selection-trigger-inline > .segmented-control')
+      .forEach((group) => {
+        syncSegmentedNav(group, state.fragmentSelectionTriggerMode);
       });
-    mountRoot
-      .querySelectorAll<HTMLButtonElement>('.modifier-key-inline .chips button[data-value]')
-      .forEach((button) => {
-        const isActive = button.dataset.value === activeKey;
-        button.setAttribute('aria-pressed', isActive ? 'true' : 'false');
-        button.classList.toggle('is-active', isActive);
-        button.closest<HTMLElement>('.chips')?.setAttribute('data-active-value', activeKey);
-      });
-    mountRoot
-      .querySelectorAll<HTMLElement>('.modifier-key-inline .modifier-key-warning')
-      .forEach((node) => {
-        node.textContent = fragmentModifierStateWarning(state);
-      });
+    mountRoot.querySelectorAll<HTMLElement>('.modifier-key-choices').forEach((choices) => {
+      choices.style.display = state.fragmentSelectionTriggerMode === 'modifier' ? 'grid' : 'none';
+      const group = choices.querySelector<HTMLElement>('.segmented-control');
+      if (group) syncSegmentedNav(group, activeKey);
+    });
+    const warning = fragmentModifierStateWarning(state, options.getMessages?.());
+    mountRoot.querySelectorAll<HTMLElement>('.modifier-key-warning').forEach((node) => {
+      node.textContent = warning;
+      node.style.display = warning ? '' : 'none';
+    });
   }
 
   function syncPreviewThemeControls(): void {
@@ -69,15 +62,11 @@ export function createProductionStitchRenderControls(options: RenderControlOptio
       state.interfaceThemePreference === 'light' || state.interfaceThemePreference === 'system'
         ? state.interfaceThemePreference
         : 'dark';
-    mountRoot.querySelectorAll<HTMLButtonElement>('.chips button[data-value]').forEach((button) => {
-      if (!['light', 'dark', 'system'].includes(button.dataset.value ?? '')) {
-        return;
-      }
-      const isActive = button.dataset.value === preference;
-      button.setAttribute('aria-pressed', isActive ? 'true' : 'false');
-      button.classList.toggle('is-active', isActive);
-      button.closest<HTMLElement>('.chips')?.setAttribute('data-active-value', preference);
-    });
+    mountRoot
+      .querySelectorAll<HTMLElement>('.interface-theme-grid .segmented-control')
+      .forEach((group) => {
+        syncSegmentedNav(group, preference);
+      });
   }
 
   function applySystemThemePreferenceChange(): void {

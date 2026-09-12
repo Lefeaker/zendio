@@ -3,18 +3,16 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { FragmentHighlightCoordinator } from '@content/video/fragmentHighlightCoordinator';
 import type { FragmentHighlighter } from '@content/video/fragmentHighlighter';
-import { mutationRecord, asType, setGlobal } from '../../../utils/typeHelpers';
+import type {
+  DocumentMutationHubApi,
+  DocumentMutationSubscriptionOptions
+} from '@content/runtime/documentMutationTypes';
+import { mutationRecord, asType } from '../../../utils/typeHelpers';
 import type { VideoFragmentCapture } from '@content/video/types';
+import type { VideoPlatformAdapter } from '@content/video/platforms';
 
-class TestMutationObserver extends MutationObserver {
-  static instances: TestMutationObserver[] = [];
-  public readonly observe = vi.fn();
-  public readonly disconnect = vi.fn();
-
-  constructor(public readonly callback: MutationCallback) {
-    super(callback);
-    TestMutationObserver.instances.push(this);
-  }
+function asNodeList(nodes: Node[]): NodeList {
+  return nodes as unknown as NodeList;
 }
 
 function createFragmentCapture(
@@ -32,27 +30,48 @@ function createFragmentCapture(
   };
 }
 
-describe('FragmentHighlightCoordinator', () => {
-  let restoreMutationObserver: (() => void) | null = null;
+function createHubHarness(): {
+  hub: DocumentMutationHubApi;
+  subscribe: ReturnType<typeof vi.fn>;
+  dispose: ReturnType<typeof vi.fn>;
+  emit(records: MutationRecord[]): void;
+  readOptions(): DocumentMutationSubscriptionOptions | null;
+} {
+  let options: DocumentMutationSubscriptionOptions | null = null;
+  const dispose = vi.fn();
+  const subscribe = vi.fn((nextOptions: DocumentMutationSubscriptionOptions) => {
+    options = nextOptions;
+    return dispose;
+  });
+  return {
+    hub: { subscribe },
+    subscribe,
+    dispose,
+    emit: (records) => {
+      if (!options) return;
+      const relevant = records.filter((record) => options?.filter(record));
+      if (relevant.length > 0) options.callback(relevant);
+    },
+    readOptions: () => options
+  };
+}
 
+describe('FragmentHighlightCoordinator', () => {
   beforeEach(() => {
     vi.useFakeTimers();
-    TestMutationObserver.instances = [];
-    restoreMutationObserver = setGlobal('MutationObserver', TestMutationObserver);
     document.body.innerHTML = '<main></main>';
   });
 
   afterEach(() => {
     vi.runAllTimers();
     vi.useRealTimers();
-    restoreMutationObserver?.();
-    restoreMutationObserver = null;
     document.body.innerHTML = '';
   });
 
-  it('does not start observation when there are no fragments to restore', () => {
+  it('does not subscribe when there are no fragments to restore', () => {
+    const hub = createHubHarness();
     const coordinator = new FragmentHighlightCoordinator({
-      doc: document,
+      documentMutationHub: hub.hub,
       highlighter: asType<FragmentHighlighter>({
         getElementByIdDeep: vi.fn(),
         decorateElement: vi.fn()
@@ -63,65 +82,15 @@ describe('FragmentHighlightCoordinator', () => {
 
     coordinator.start();
 
-    expect(TestMutationObserver.instances).toHaveLength(0);
+    expect(hub.subscribe).not.toHaveBeenCalled();
   });
 
-  it('starts observing, forwards mutations to adapter, and schedules restore on childList changes when fragments exist', () => {
+  it('subscribes once, rejects unrelated churn, and routes relevant changes through the scheduler', async () => {
     const capture = createFragmentCapture({ id: 'frag-1', wrapperId: 'missing-wrapper' });
-    const handleMutations = vi.fn();
-    const observeDomChanges = vi.fn();
-    const ensureCaptureHighlight = vi.fn();
-    const highlighter = { getElementByIdDeep: vi.fn(() => null), decorateElement: vi.fn() };
-    const coordinator = new FragmentHighlightCoordinator({
-      doc: document,
-      highlighter: asType<FragmentHighlighter>(highlighter),
-      getFragments: () => [capture],
-      ensureCaptureHighlight
-    });
-
-    coordinator.updateAdapter(asType({ handleMutations, observeDomChanges }));
-    coordinator.start();
-
-    const observer = TestMutationObserver.instances[0];
-    expect(observer.observe).toHaveBeenCalledTimes(1);
-    expect(observer.observe).toHaveBeenCalledWith(document.body, {
-      childList: true,
-      subtree: true
-    });
-    expect(observeDomChanges).toHaveBeenCalledWith(observer);
-
-    observer.callback([mutationRecord({ type: 'childList' })], observer);
-    expect(handleMutations).toHaveBeenCalled();
-    vi.advanceTimersByTime(121);
-    expect(ensureCaptureHighlight).toHaveBeenCalledWith(capture);
-  });
-
-  it('decorates existing connected highlight wrappers during restore', () => {
-    const element = document.createElement('mark');
-    document.body.appendChild(element);
-    const decorateElement = vi.fn();
-    const coordinator = new FragmentHighlightCoordinator({
-      doc: document,
-      highlighter: asType<FragmentHighlighter>({
-        getElementByIdDeep: vi.fn(() => element),
-        decorateElement
-      }),
-      getFragments: () => [createFragmentCapture({ id: 'frag-2', wrapperId: 'existing-wrapper' })],
-      ensureCaptureHighlight: vi.fn()
-    });
-
-    coordinator.start();
-    coordinator.scheduleRestore();
-    vi.advanceTimersByTime(121);
-
-    expect(decorateElement).toHaveBeenCalledWith(element);
-  });
-
-  it('debounces repeated restore scheduling into a single restore pass', () => {
-    const capture = createFragmentCapture({ id: 'frag-debounce', wrapperId: 'missing' });
+    const hub = createHubHarness();
     const ensureCaptureHighlight = vi.fn();
     const coordinator = new FragmentHighlightCoordinator({
-      doc: document,
+      documentMutationHub: hub.hub,
       highlighter: asType<FragmentHighlighter>({
         getElementByIdDeep: vi.fn(() => null),
         decorateElement: vi.fn()
@@ -129,97 +98,134 @@ describe('FragmentHighlightCoordinator', () => {
       getFragments: () => [capture],
       ensureCaptureHighlight
     });
+    const danmaku = document.createElement('div');
+    danmaku.className = 'bpx-player-render-dm-wrap';
+    document.body.append(danmaku);
+    const unrelated = document.createElement('article');
+    unrelated.textContent = 'Unrelated content';
+    document.body.append(unrelated);
+    const removedText = document.createTextNode('Detached text');
 
-    coordinator.start();
-    coordinator.scheduleRestore();
-    coordinator.scheduleRestore();
-    coordinator.scheduleRestore();
-    vi.advanceTimersByTime(119);
-
+    coordinator.ensureStartedForFragments();
+    coordinator.ensureStartedForFragments();
+    hub.emit([mutationRecord({ type: 'childList', addedNodes: asNodeList([danmaku]) })]);
+    hub.emit([mutationRecord({ type: 'childList', addedNodes: asNodeList([unrelated]) })]);
+    hub.emit([
+      mutationRecord({
+        type: 'childList',
+        removedNodes: asNodeList([removedText]),
+        target: document.body
+      })
+    ]);
     expect(ensureCaptureHighlight).not.toHaveBeenCalled();
 
-    vi.advanceTimersByTime(2);
+    const relevant = document.createElement('article');
+    relevant.textContent = 'Selected text';
+    document.body.append(relevant);
+    hub.emit([
+      mutationRecord({
+        type: 'childList',
+        addedNodes: asNodeList([relevant])
+      })
+    ]);
 
-    expect(ensureCaptureHighlight).toHaveBeenCalledTimes(1);
+    expect(hub.subscribe).toHaveBeenCalledTimes(1);
+    expect(hub.readOptions()).toMatchObject({
+      subscriberId: 'video-fragment-highlights',
+      coalescingKey: 'restore',
+      delayMs: 0
+    });
+    expect(ensureCaptureHighlight).not.toHaveBeenCalled();
+    await vi.advanceTimersByTimeAsync(120);
     expect(ensureCaptureHighlight).toHaveBeenCalledWith(capture);
   });
 
-  it('stops observation and clears pending restore timers', () => {
+  it('decorates existing connected highlight wrappers during restore', async () => {
+    const wrapper = document.createElement('mark');
+    document.body.append(wrapper);
+    const capture = createFragmentCapture({ id: 'frag-existing', wrapperId: 'wrapper-existing' });
+    const hub = createHubHarness();
+    const highlighter = {
+      getElementByIdDeep: vi.fn(() => wrapper),
+      decorateElement: vi.fn()
+    };
     const coordinator = new FragmentHighlightCoordinator({
-      doc: document,
-      highlighter: asType<FragmentHighlighter>({
-        getElementByIdDeep: vi.fn(),
-        decorateElement: vi.fn()
-      }),
-      getFragments: () => [createFragmentCapture({ id: 'frag-3' })],
+      documentMutationHub: hub.hub,
+      highlighter: asType<FragmentHighlighter>(highlighter),
+      getFragments: () => [capture],
       ensureCaptureHighlight: vi.fn()
     });
 
     coordinator.start();
-    coordinator.scheduleRestore();
-    const observer = TestMutationObserver.instances[0];
+    const relevant = document.createElement('article');
+    relevant.textContent = 'Selected text';
+    document.body.append(relevant);
+    hub.emit([
+      mutationRecord({
+        type: 'childList',
+        addedNodes: asNodeList([relevant])
+      })
+    ]);
+    await vi.advanceTimersByTimeAsync(120);
 
-    coordinator.stop();
-    vi.advanceTimersByTime(200);
-
-    expect(observer.disconnect).toHaveBeenCalled();
+    expect(highlighter.decorateElement).toHaveBeenCalledWith(wrapper);
   });
 
-  it('stops observation when fragment captures disappear before a pending restore runs', () => {
+  it('debounces explicit restore requests and cancels them on stop', async () => {
+    const capture = createFragmentCapture({ id: 'frag-debounce', wrapperId: 'missing' });
+    const ensureCaptureHighlight = vi.fn();
+    const hub = createHubHarness();
+    const coordinator = new FragmentHighlightCoordinator({
+      documentMutationHub: hub.hub,
+      highlighter: asType<FragmentHighlighter>({ getElementByIdDeep: vi.fn(() => null) }),
+      getFragments: () => [capture],
+      ensureCaptureHighlight
+    });
+
+    coordinator.start();
+    coordinator.scheduleRestore();
+    coordinator.scheduleRestore();
+    coordinator.stop();
+    await vi.advanceTimersByTimeAsync(120);
+
+    expect(ensureCaptureHighlight).not.toHaveBeenCalled();
+    expect(hub.dispose).toHaveBeenCalledTimes(1);
+  });
+
+  it('disposes the fragment subscriber and queued restore when captures disappear', async () => {
     const fragments = [createFragmentCapture({ id: 'frag-stop', wrapperId: 'missing' })];
+    const hub = createHubHarness();
     const ensureCaptureHighlight = vi.fn();
     const coordinator = new FragmentHighlightCoordinator({
-      doc: document,
-      highlighter: asType<FragmentHighlighter>({
-        getElementByIdDeep: vi.fn(() => null),
-        decorateElement: vi.fn()
-      }),
+      documentMutationHub: hub.hub,
+      highlighter: asType<FragmentHighlighter>({ getElementByIdDeep: vi.fn(() => null) }),
       getFragments: () => fragments,
       ensureCaptureHighlight
     });
 
     coordinator.start();
     coordinator.scheduleRestore();
-    const observer = TestMutationObserver.instances[0];
-
     fragments.splice(0, fragments.length);
     coordinator.stopIfNoFragments();
-    vi.advanceTimersByTime(200);
+    await vi.advanceTimersByTimeAsync(120);
 
-    expect(observer.disconnect).toHaveBeenCalledTimes(1);
+    expect(hub.dispose).toHaveBeenCalledTimes(1);
     expect(ensureCaptureHighlight).not.toHaveBeenCalled();
   });
 
-  it('lets platform adapters request scoped shadow-root observation through the coordinator observer', () => {
-    const host = document.createElement('bili-rich-text');
-    document.body.appendChild(host);
-    const root = host.attachShadow({ mode: 'open' });
-    const capture = createFragmentCapture({ id: 'frag-scope', wrapperId: 'missing' });
-    const observeDomChanges = vi.fn();
+  it('schedules one bounded restore when a new adapter becomes authoritative', async () => {
+    const capture = createFragmentCapture({ id: 'frag-adapter', wrapperId: 'missing' });
+    const ensureCaptureHighlight = vi.fn();
     const coordinator = new FragmentHighlightCoordinator({
-      doc: document,
-      highlighter: asType<FragmentHighlighter>({
-        getElementByIdDeep: vi.fn(),
-        decorateElement: vi.fn()
-      }),
+      documentMutationHub: createHubHarness().hub,
+      highlighter: asType<FragmentHighlighter>({ getElementByIdDeep: vi.fn(() => null) }),
       getFragments: () => [capture],
-      ensureCaptureHighlight: vi.fn()
-    });
-    observeDomChanges.mockImplementation(() => {
-      coordinator.observeWithCoordinator(root, { childList: true, subtree: true });
+      ensureCaptureHighlight
     });
 
-    coordinator.updateAdapter(asType({ handleMutations: vi.fn(), observeDomChanges }));
-    coordinator.start();
+    coordinator.updateAdapter(asType<VideoPlatformAdapter>({ platform: 'bilibili' }));
+    await vi.advanceTimersByTimeAsync(120);
 
-    const observer = TestMutationObserver.instances[0];
-    expect(observer.observe).toHaveBeenNthCalledWith(1, document.body, {
-      childList: true,
-      subtree: true
-    });
-    expect(observer.observe).toHaveBeenNthCalledWith(2, root, {
-      childList: true,
-      subtree: true
-    });
+    expect(ensureCaptureHighlight).toHaveBeenCalledWith(capture);
   });
 });

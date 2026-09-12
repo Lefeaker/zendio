@@ -11,6 +11,9 @@ import type { FragmentHighlightCoordinator } from './fragmentHighlightCoordinato
 import type { SelectionCaptureController } from './selectionCaptureController';
 import type { VideoHintState } from './videoHintManager';
 import type { VideoPanelCallbacks } from './application/videoPanelModel';
+import type { VideoDestinationBootstrap } from './application/videoSessionPort';
+import type { ContentExportDestinationState } from '../shared/exportDestinationState';
+import type { ExportDestinationSurfacePreview } from '@ui/stitch-runtime';
 import {
   loadVideoSessionFragmentConfig,
   loadVideoSessionMessages,
@@ -51,6 +54,8 @@ export async function finalizeVideoSessionStart(args: {
   dom: VideoSessionDomController;
   messages: VideoSessionMessages;
   initialCollapsed?: boolean;
+  destinationState: Pick<ContentExportDestinationState, 'applyMetadata' | 'refresh'>;
+  destinationBootstrap: VideoDestinationBootstrap | undefined;
   platformController: VideoSessionPlatformController;
   lifecycle: VideoSessionLifecycle;
   operationContext: VideoSessionOperationContext;
@@ -61,12 +66,17 @@ export async function finalizeVideoSessionStart(args: {
   applyHint: (state: VideoHintState) => void;
   refreshContext: () => Promise<void>;
 }): Promise<void> {
+  const initialDestination = await prepareVideoSessionDestinationBootstrap(
+    args.destinationState,
+    args.destinationBootstrap
+  );
   const highlightTheme = await args.highlightThemePromise;
 
   args.state.highlightTheme = highlightTheme;
   args.applyHighlightTheme(args.state.highlightTheme);
   args.dom.mountPanel(args.panelCallbacks, args.messages.panel, {
-    initialCollapsed: Boolean(args.initialCollapsed)
+    initialCollapsed: Boolean(args.initialCollapsed),
+    ...(initialDestination ? { initialDestination } : {})
   });
   args.applyHint('noVideo');
 
@@ -84,6 +94,15 @@ export async function finalizeVideoSessionStart(args: {
   }
 
   console.info('[VideoSession] Panel mounted and session ready.');
+}
+
+export async function prepareVideoSessionDestinationBootstrap(
+  state: Pick<ContentExportDestinationState, 'applyMetadata' | 'refresh'>,
+  bootstrap: VideoDestinationBootstrap | undefined
+): Promise<ExportDestinationSurfacePreview | undefined> {
+  if (!bootstrap) return undefined;
+  if (bootstrap.provenance === 'explicit') state.applyMetadata(bootstrap.destination);
+  return state.refresh();
 }
 
 async function refreshVideoSessionMessages(

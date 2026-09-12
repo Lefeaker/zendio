@@ -14,14 +14,22 @@ function collapseAll(surface: HTMLElement, except?: HTMLElement): void {
   });
 }
 
-export function bindSessionItemPreviewExpansion(surface: HTMLElement): () => void {
-  const previews = Array.from(surface.querySelectorAll<HTMLElement>(TEXT_PREVIEW_SELECTOR));
-
-  previews.forEach((element) => {
+export function prepareSessionItemPreviews(surface: HTMLElement): void {
+  surface.querySelectorAll<HTMLElement>(TEXT_PREVIEW_SELECTOR).forEach((element) => {
+    if (element.hasAttribute('role')) return;
     element.setAttribute('role', 'button');
     element.setAttribute('tabindex', '0');
     setExpanded(element, false);
   });
+}
+
+export function bindSessionItemPreviewExpansion(surface: HTMLElement): () => void {
+  prepareSessionItemPreviews(surface);
+
+  const resolvePreview = (event: Event): HTMLElement | null => {
+    const target = event.target instanceof Element ? event.target : null;
+    return target?.closest<HTMLElement>(TEXT_PREVIEW_SELECTOR) ?? null;
+  };
 
   const togglePreview = (target: HTMLElement): void => {
     const nextExpanded = !target.classList.contains(EXPANDED_CLASS);
@@ -29,9 +37,15 @@ export function bindSessionItemPreviewExpansion(surface: HTMLElement): () => voi
     setExpanded(target, nextExpanded);
   };
 
-  const handlePreviewClick = (event: Event): void => {
-    const preview = event.currentTarget instanceof HTMLElement ? event.currentTarget : null;
+  const handleSurfaceClick = (event: Event): void => {
+    prepareSessionItemPreviews(surface);
+    const target = event.target instanceof Element ? event.target : null;
+    if (target?.closest('.reader-surface-window.is-collapsed,.video-surface-window.is-collapsed')) {
+      return;
+    }
+    const preview = resolvePreview(event);
     if (!preview) {
+      collapseAll(surface);
       return;
     }
     event.preventDefault();
@@ -39,43 +53,27 @@ export function bindSessionItemPreviewExpansion(surface: HTMLElement): () => voi
     togglePreview(preview);
   };
 
-  const handleSurfaceClick = (): void => {
-    collapseAll(surface);
-  };
-
-  const handlePreviewKeydown = (event: Event): void => {
-    if (!(event instanceof KeyboardEvent)) {
-      return;
-    }
-    if (event.key !== 'Enter' && event.key !== ' ') {
-      return;
-    }
-    const preview = event.currentTarget instanceof HTMLElement ? event.currentTarget : null;
-    if (!preview) {
-      return;
-    }
+  const handleSurfaceKeydown = (event: Event): void => {
+    if (!(event instanceof KeyboardEvent) || (event.key !== 'Enter' && event.key !== ' ')) return;
+    const preview = resolvePreview(event);
+    if (!preview) return;
     event.preventDefault();
     event.stopPropagation();
     togglePreview(preview);
   };
 
-  const handleDocumentClick = (): void => {
+  const handleDocumentClick = (event: Event): void => {
+    if (event.composedPath().includes(surface)) return;
     collapseAll(surface);
   };
 
-  previews.forEach((element) => {
-    element.addEventListener('click', handlePreviewClick);
-    element.addEventListener('keydown', handlePreviewKeydown);
-  });
   surface.addEventListener('click', handleSurfaceClick, true);
+  surface.addEventListener('keydown', handleSurfaceKeydown);
   document.addEventListener('click', handleDocumentClick);
 
   return () => {
-    previews.forEach((element) => {
-      element.removeEventListener('click', handlePreviewClick);
-      element.removeEventListener('keydown', handlePreviewKeydown);
-    });
     surface.removeEventListener('click', handleSurfaceClick, true);
+    surface.removeEventListener('keydown', handleSurfaceKeydown);
     document.removeEventListener('click', handleDocumentClick);
   };
 }

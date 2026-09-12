@@ -39,7 +39,7 @@ describe('context menu listeners', () => {
 
     expect(consoleWarnSpy.mock.calls).toEqual(
       expect.arrayContaining([
-        ['[contextMenus] Failed to resolve selection modifier options:', expect.any(Error)]
+        ['[contextMenus] Failed to resolve selection trigger options:', expect.any(Error)]
       ])
     );
     expect(consoleWarnSpy.mock.calls).toEqual(
@@ -50,14 +50,14 @@ describe('context menu listeners', () => {
     consoleWarnSpy.mockRestore();
   });
 
-  it('reacts to options and tab lifecycle listeners for modifier auto-injection', async () => {
+  it('reacts to options and tab lifecycle listeners for selection-trigger auto-injection', async () => {
     const consoleWarnSpy = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
     let activeQueryCount = 0;
     const { rig, register } = await loadModule({
       getOptions: vi.fn(() =>
         Promise.resolve({
           fragmentClipper: {
-            selectionModifierEnabled: true,
+            selectionTriggerMode: 'modifier',
             selectionModifierKeys: ['shift']
           }
         })
@@ -123,7 +123,7 @@ describe('context menu listeners', () => {
     rig.onActivatedListeners[0]?.({ tabId: 73, windowId: 1 });
     await flush();
     expect(consoleWarnSpy).not.toHaveBeenCalledWith(
-      '[contextMenus] Failed to ensure modifier injection for active tab:',
+      '[contextMenus] Failed to ensure selection trigger injection for active tab:',
       expect.anything()
     );
 
@@ -297,12 +297,15 @@ describe('context menu listeners', () => {
     const getOptionsMock = vi
       .fn<
         (...args: []) => Promise<{
-          fragmentClipper: { selectionModifierEnabled: boolean; selectionModifierKeys: string[] };
+          fragmentClipper: {
+            selectionTriggerMode: 'disabled' | 'direct' | 'modifier';
+            selectionModifierKeys: string[];
+          };
         }>
       >()
       .mockResolvedValueOnce({
         fragmentClipper: {
-          selectionModifierEnabled: true,
+          selectionTriggerMode: 'modifier',
           selectionModifierKeys: ['alt']
         }
       })
@@ -331,7 +334,7 @@ describe('context menu listeners', () => {
     await flush();
     await flush();
     expect(consoleWarnSpy).not.toHaveBeenCalledWith(
-      '[contextMenus] Failed to ensure modifier injection for active tab:',
+      '[contextMenus] Failed to ensure selection trigger injection for active tab:',
       expect.anything()
     );
     consoleWarnSpy.mockRestore();
@@ -394,19 +397,22 @@ describe('context menu listeners', () => {
     });
   });
 
-  it('does not auto inject when modifier keys config is disabled or malformed after subscription refresh', async () => {
+  it('does not auto inject when selection triggering is disabled or modifier keys are malformed', async () => {
     const getOptions = vi
       .fn<
         (...args: []) => Promise<{
-          fragmentClipper: { selectionModifierEnabled: boolean; selectionModifierKeys: unknown };
+          fragmentClipper: {
+            selectionTriggerMode: 'disabled' | 'direct' | 'modifier';
+            selectionModifierKeys: unknown;
+          };
         }>
       >()
       .mockResolvedValue({
-        fragmentClipper: { selectionModifierEnabled: false, selectionModifierKeys: ['Alt'] }
+        fragmentClipper: { selectionTriggerMode: 'disabled', selectionModifierKeys: ['Alt'] }
       })
       .mockResolvedValueOnce({
         fragmentClipper: {
-          selectionModifierEnabled: true,
+          selectionTriggerMode: 'modifier',
           selectionModifierKeys: 'Alt' as unknown as string[]
         }
       });
@@ -422,12 +428,34 @@ describe('context menu listeners', () => {
     expect(rig.executeScript).not.toHaveBeenCalled();
   });
 
+  it('auto injects on ordinary pages when direct selection triggering is enabled', async () => {
+    const { rig, register } = await loadModule({
+      getOptions: vi.fn(() =>
+        Promise.resolve({
+          fragmentClipper: {
+            selectionTriggerMode: 'direct',
+            selectionModifierKeys: []
+          }
+        })
+      ),
+      query: vi.fn(() => Promise.resolve([{ id: 34, url: 'https://example.com/direct-selection' }]))
+    });
+
+    register();
+    await flush();
+    await flush();
+
+    expect(rig.executeScript).toHaveBeenCalledWith(
+      expect.objectContaining({ target: { tabId: 34, allFrames: true } })
+    );
+  });
+
   it('resolves active tab url through tabs.get before auto injecting when modifier mode is enabled', async () => {
     const { rig, register } = await loadModule({
       getOptions: vi.fn(() =>
         Promise.resolve({
           fragmentClipper: {
-            selectionModifierEnabled: true,
+            selectionTriggerMode: 'modifier',
             selectionModifierKeys: ['alt']
           }
         })

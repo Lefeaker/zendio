@@ -118,8 +118,7 @@ function mergeFragmentClipper(
     captureContext: overrides.captureContext ?? defaults.captureContext,
     contextLength: overrides.contextLength ?? defaults.contextLength,
     contextMode: overrides.contextMode ?? defaults.contextMode,
-    selectionModifierEnabled:
-      overrides.selectionModifierEnabled ?? defaults.selectionModifierEnabled,
+    selectionTriggerMode: overrides.selectionTriggerMode ?? defaults.selectionTriggerMode,
     selectionModifierKeys: overrides.selectionModifierKeys
       ? [...overrides.selectionModifierKeys]
       : [...defaults.selectionModifierKeys],

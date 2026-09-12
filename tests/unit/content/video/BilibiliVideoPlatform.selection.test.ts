@@ -54,13 +54,9 @@ describe('BilibiliVideoPlatform selection', () => {
     unrelatedRoot.innerHTML = `<span>${targetText}</span>`;
     document.body.append(unrelatedHost);
 
-    const { commentsHost, content } = mountBiliCommentWithRichText(`<span>${targetText}</span>`);
+    const { content } = mountBiliCommentWithRichText(`<span>${targetText}</span>`);
     const platform = new BilibiliVideoPlatform(createContext(document));
-    const platformAny = platform as unknown as {
-      ensureShadowHostObservation: (host: Element) => void;
-    };
-    platform.observeDomChanges({} as MutationObserver);
-    platformAny.ensureShadowHostObservation(commentsHost);
+    platform.observeSelectionRoots();
 
     const range = platform.findTextRange(targetText);
 
@@ -70,19 +66,15 @@ describe('BilibiliVideoPlatform selection', () => {
 
   it('checks observed comment roots before scoped restore fallback when shadow text is found', () => {
     const targetText = 'shadow-first restore target';
-    const { commentsHost } = mountBiliCommentWithRichText(`<span>${targetText}</span>`);
+    mountBiliCommentWithRichText(`<span>${targetText}</span>`);
     const platform = new BilibiliVideoPlatform(createContext(document));
-    const platformAny = platform as unknown as {
-      ensureShadowHostObservation: (host: Element) => void;
-    };
     const observedSpy = vi.spyOn(
       BilibiliShadowObserver.prototype,
       'getObservedCommentRootsForSearch'
     );
     const fallbackSpy = vi.spyOn(bilibiliRestoreScope, 'collectBilibiliCommentRestoreRoots');
 
-    platform.observeDomChanges({} as MutationObserver);
-    platformAny.ensureShadowHostObservation(commentsHost);
+    platform.observeSelectionRoots();
     const range = platform.findTextRange(targetText);
 
     expect(range?.toString()).toBe(targetText);
@@ -95,18 +87,14 @@ describe('BilibiliVideoPlatform selection', () => {
 
   it('does not search unrelated nested shadow roots inside observed comment roots', () => {
     const targetText = 'nested unrelated shadow target';
-    const { commentsHost, content } = mountBiliCommentWithRichText('<span>fixture comment</span>');
+    const { content } = mountBiliCommentWithRichText('<span>fixture comment</span>');
     const unrelatedHost = document.createElement('x-unrelated-shadow-host');
     const unrelatedRoot = unrelatedHost.attachShadow({ mode: 'open' });
     unrelatedRoot.innerHTML = `<span>${targetText}</span>`;
     content.append(unrelatedHost);
 
     const platform = new BilibiliVideoPlatform(createContext(document));
-    const platformAny = platform as unknown as {
-      ensureShadowHostObservation: (host: Element) => void;
-    };
-    platform.observeDomChanges({} as MutationObserver);
-    platformAny.ensureShadowHostObservation(commentsHost);
+    platform.observeSelectionRoots();
 
     expect(platform.findTextRange(targetText)).toBeNull();
   });
@@ -255,19 +243,15 @@ describe('BilibiliVideoPlatform selection', () => {
 
   it('restores from observed comment roots before scoped restore fallback lookup', () => {
     const targetText = 'Observed comment root restore text';
-    const { commentsHost } = mountBiliCommentWithRichText(`<span>${targetText}</span>`);
+    mountBiliCommentWithRichText(`<span>${targetText}</span>`);
     const context = createContext(document);
     context.__mocks.getElementByIdDeep.mockReturnValue(null);
     context.__mocks.querySelectorDeep.mockReturnValue(null);
     context.__mocks.highlightSelection.mockReturnValue('restored-from-shadow');
 
     const platform = new BilibiliVideoPlatform(context);
-    const platformAny = platform as unknown as {
-      ensureShadowHostObservation: (host: Element) => void;
-    };
     const fallbackSpy = vi.spyOn(bilibiliRestoreScope, 'collectBilibiliCommentRestoreRoots');
-    platform.observeDomChanges({} as MutationObserver);
-    platformAny.ensureShadowHostObservation(commentsHost);
+    platform.observeSelectionRoots();
 
     const restored = platform.restoreHighlight({
       kind: 'fragment',

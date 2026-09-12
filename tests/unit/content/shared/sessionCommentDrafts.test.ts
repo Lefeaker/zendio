@@ -1,3 +1,5 @@
+/* @vitest-environment jsdom */
+
 import { describe, expect, it, vi } from 'vitest';
 import type { Mock } from 'vitest';
 import { SessionCommentDraftController } from '@content/shared/panels/sessionCommentDrafts';
@@ -145,5 +147,19 @@ describe('SessionCommentDraftController', () => {
     });
     expect(submitDraft).not.toHaveBeenCalled();
     expect(onChange).not.toHaveBeenCalled();
+  });
+
+  it('supports delegated input and Enter handling without binding per-item listeners', async () => {
+    const { controller, submitDraft } = createController();
+    const input = document.createElement('input');
+    input.value = 'delegated draft';
+
+    controller.handleInput(input, 'capture-1');
+    const event = new KeyboardEvent('keydown', { key: 'Enter', cancelable: true });
+    controller.handleKeydown(event, input, 'capture-1');
+    await Promise.resolve();
+
+    expect(event.defaultPrevented).toBe(true);
+    expect(submitDraft).toHaveBeenCalledWith('capture-1', 'delegated draft');
   });
 });

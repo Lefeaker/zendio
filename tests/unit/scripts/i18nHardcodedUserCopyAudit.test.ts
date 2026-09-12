@@ -288,7 +288,7 @@ describe('audit-i18n-hardcoded-user-copy', () => {
     const { scanI18nHardcodedUserCopy } = await loadAuditModule();
     const result = await scanI18nHardcodedUserCopy({ root: repoRoot });
     const ownedPaths = new Set([
-      'src/options/stitch/schema/surfaces/task-success.ts',
+      'src/ui/stitch-surfaces/surfaces/task-success.ts',
       'src/third_party/ai-chat-exporter/platforms/chatgpt.ts',
       'src/third_party/ai-chat-exporter/platforms/doubao.ts',
       'src/third_party/ai-chat-exporter/platforms/kimi.ts',

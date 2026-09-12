@@ -3,13 +3,13 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { restErrors } from '@shared/errors';
 import { ErrorSeverity } from '@shared/errors/types';
+import type { StyleAttachmentHandle } from '@ui/foundation/style-host';
+import { getMessagesForLanguage, type I18nResource } from '@i18n';
+import { createI18nResource } from '@i18n/resource';
 
 const flushMicrotasks = () => new Promise((resolve) => setTimeout(resolve, 0));
 
-type MockContentI18nResource = {
-  language?: string;
-  messages: Record<string, string> | null;
-};
+type I18nContextModule = typeof import('@content/i18n/context');
 
 type Deferred<T> = {
   promise: Promise<T>;
@@ -27,15 +27,6 @@ function createDeferred<T>(): Deferred<T> {
   return { promise, resolve, reject };
 }
 
-vi.mock('focus-trap', () => ({
-  createFocusTrap: () => ({
-    activate: vi.fn(),
-    deactivate: vi.fn(),
-    pause: vi.fn(),
-    unpause: vi.fn()
-  })
-}));
-
 const loadExtensionStyleMock = vi.hoisted(() =>
   vi.fn((path: string) => Promise.resolve(`/* ${path} */ .stitch-runtime{display:block;}`))
 );
@@ -44,9 +35,7 @@ vi.mock('@content/clipper/shared/styleRegistry', () => ({
 }));
 
 const ensureContentI18nMock = vi.hoisted(() => vi.fn(() => Promise.resolve()));
-const getContentI18nResourceMock = vi.hoisted(() =>
-  vi.fn<() => MockContentI18nResource>(() => ({ messages: null }))
-);
+const getContentI18nResourceMock = vi.hoisted(() => vi.fn<() => I18nResource | null>(() => null));
 const getContentMessagesMock = vi.hoisted(() =>
   vi.fn(() =>
     Promise.resolve({
@@ -87,7 +76,8 @@ const getContentMessagesMock = vi.hoisted(() =>
     })
   )
 );
-vi.mock('@content/i18n/context', () => ({
+vi.mock('@content/i18n/context', async (importOriginal) => ({
+  ...(await importOriginal<I18nContextModule>()),
   ensureContentI18n: ensureContentI18nMock,
   getContentI18nResource: getContentI18nResourceMock,
   getContentMessages: getContentMessagesMock
@@ -140,6 +130,7 @@ describe('SupportPrompt', () => {
     storageLocalGetMock.mockResolvedValue({});
     storageLocalSetMock.mockResolvedValue(undefined);
     messagingSendMock.mockResolvedValue(undefined);
+    getContentI18nResourceMock.mockReturnValue(null);
     loadExtensionStyleMock.mockImplementation((path: string) =>
       Promise.resolve(`/* ${path} */ .stitch-runtime{display:block;}`)
     );
@@ -261,6 +252,26 @@ describe('SupportPrompt', () => {
         .querySelector('#aiob-support-prompt')
         ?.shadowRoot?.querySelector('[data-role="status-text"]')?.textContent
     ).toBe('第二步');
+  });
+
+  it('does not mount after hide invalidates the second async message lookup', async () => {
+    const runtimeMessagesGate =
+      createDeferred<Awaited<ReturnType<typeof getContentMessagesMock>>>();
+    const messages = await getContentMessagesMock();
+    getContentMessagesMock.mockClear();
+    getContentMessagesMock
+      .mockResolvedValueOnce(messages)
+      .mockReturnValueOnce(runtimeMessagesGate.promise);
+    const { SupportPrompt } = await import('../../../src/content/ui/supportPrompt');
+    const prompt = new SupportPrompt(document);
+
+    const show = prompt.show({ status: 'success' });
+    await vi.waitFor(() => expect(getContentMessagesMock).toHaveBeenCalledTimes(2));
+    prompt.hide();
+    runtimeMessagesGate.resolve(messages);
+    await show;
+
+    expect(document.querySelector('#aiob-support-prompt')).toBeNull();
   });
 
   it('keeps terminal progress prompts visible until the user clicks outside', async () => {
@@ -450,6 +461,79 @@ describe('SupportPrompt', () => {
     );
   });
 
+  it('uses fresh style handles and disposes each prompt and toast owner exactly once', async () => {
+    const handles: Array<{
+      dispose: ReturnType<typeof vi.fn>;
+      connectedOnDispose: boolean[];
+    }> = [];
+    const { panelStyleSheetManager } =
+      await import('../../../src/content/shared/panels/styleSheetManager');
+    vi.spyOn(panelStyleSheetManager, 'applyPromptTaskStyles').mockImplementation((root) => {
+      const connectedOnDispose: boolean[] = [];
+      const handle: StyleAttachmentHandle & {
+        dispose: ReturnType<typeof vi.fn>;
+        connectedOnDispose: boolean[];
+      } = {
+        ready: Promise.resolve({ status: 'ready' }),
+        refresh: () => Promise.resolve({ status: 'ready' }),
+        dispose: vi.fn(() => connectedOnDispose.push(root.host.isConnected)),
+        connectedOnDispose
+      };
+      handles.push(handle);
+      return handle;
+    });
+    storageLocalGetMock.mockResolvedValue({ hasClickedReview: true });
+    const { SupportPrompt } = await import('../../../src/content/ui/supportPrompt');
+    const prompt = new SupportPrompt(document);
+
+    await prompt.show({ status: 'success' });
+    getPromptHost().shadowRoot?.querySelector<HTMLButtonElement>('[data-role="like-btn"]')?.click();
+    await flushMicrotasks();
+    const firstToast = getToastShadow().querySelector<HTMLElement>('#aiob-support-toast');
+    document.body.dispatchEvent(new Event('pointerdown', { bubbles: true }));
+    expect(handles[1]?.dispose).not.toHaveBeenCalled();
+    firstToast?.dispatchEvent(new Event('transitionend'));
+    expect(handles[1]?.dispose).toHaveBeenCalledTimes(1);
+    await prompt.show({ status: 'success' });
+    getPromptHost()
+      .shadowRoot?.querySelector<HTMLButtonElement>('[data-role="dislike-btn"]')
+      ?.click();
+    await flushMicrotasks();
+    prompt.destroy();
+    prompt.destroy();
+    await flushMicrotasks();
+
+    expect(handles).toHaveLength(4);
+    handles.forEach(({ dispose, connectedOnDispose }) => {
+      expect(dispose).toHaveBeenCalledTimes(1);
+      expect(connectedOnDispose).toEqual([true]);
+    });
+  });
+
+  it('cancels and guards toast reveal work when destroyed before the frame', async () => {
+    const frame: { callback: FrameRequestCallback | null } = { callback: null };
+    vi.spyOn(window, 'requestAnimationFrame').mockImplementation((callback) => {
+      frame.callback = callback;
+      return 17;
+    });
+    const cancelFrame = vi.spyOn(window, 'cancelAnimationFrame');
+    storageLocalGetMock.mockResolvedValue({ hasClickedReview: true });
+    const { SupportPrompt } = await import('../../../src/content/ui/supportPrompt');
+    const prompt = new SupportPrompt(document);
+
+    await prompt.show({ status: 'success' });
+    getPromptHost().shadowRoot?.querySelector<HTMLButtonElement>('[data-role="like-btn"]')?.click();
+    await flushMicrotasks();
+    const toast = getToastShadow().querySelector<HTMLElement>('#aiob-support-toast');
+    prompt.destroy();
+    await flushMicrotasks();
+
+    expect(cancelFrame).toHaveBeenCalledWith(17);
+    frame.callback?.(0);
+    expect(toast?.classList.contains('is-visible')).toBe(false);
+    expect(document.getElementById('aiob-support-toast-host')).toBeNull();
+  });
+
   it('tracks support links with stable target ids instead of hrefs', async () => {
     const { SupportPrompt } = await import('../../../src/content/ui/supportPrompt');
     const prompt = new SupportPrompt(document);
@@ -469,10 +553,10 @@ describe('SupportPrompt', () => {
   });
 
   it('uses the content locale provider for review URLs when extension i18n is absent', async () => {
-    getContentI18nResourceMock.mockReturnValue({
-      language: 'ja',
-      messages: null
-    });
+    const messages = await getMessagesForLanguage('ja');
+    getContentI18nResourceMock.mockReturnValue(
+      createI18nResource({ language: 'ja', messages, fallbackChain: [] })
+    );
     const openSpy = vi.spyOn(window, 'open').mockImplementation(() => null);
     const { SupportPrompt } = await import('../../../src/content/ui/supportPrompt');
     const prompt = new SupportPrompt(document);
@@ -618,46 +702,36 @@ describe('SupportPrompt', () => {
     expect(document.getElementById('aiob-support-prompt')).toBeNull();
   });
 
-  it('replays Stitch runtime styles after async load on first toast render', async () => {
+  it('keeps the first prompt hidden and busy until its exact pack is ready', async () => {
     const stitchDeferred = createDeferred<string>();
-    const stitchSecondaryDeferred = createDeferred<string>();
     loadExtensionStyleMock.mockImplementation((path: string) => {
-      if (path === 'options/stitch/styles/stitch.css') {
+      if (path === 'ui/stitch-runtime/styles/prompt-task.css') {
         return stitchDeferred.promise;
-      }
-      if (path === 'options/stitch/styles/variants/stitch-secondary.css') {
-        return stitchSecondaryDeferred.promise;
       }
       return Promise.resolve('');
     });
 
     const { SupportPrompt } = await import('../../../src/content/ui/supportPrompt');
     const prompt = new SupportPrompt(document);
-    await prompt.show({ status: 'success' });
-
-    getPromptHost().shadowRoot?.querySelector<HTMLButtonElement>('[data-role="like-btn"]')?.click();
+    const showPromise = prompt.show({ status: 'success' });
     await flushMicrotasks();
-
-    const toastShadow = getToastShadow();
+    const host = getPromptHost();
+    expect(host.hidden).toBe(true);
+    expect(host.getAttribute('aria-busy')).toBe('true');
     expect(
-      toastShadow.querySelector('style[data-aiob-style-bridge="panel-stitch-runtime"]')
-        ?.textContent ?? ''
-    ).toBe('');
-    expect(
-      toastShadow.querySelector('style[data-aiob-style-bridge="panel-clipper-tailwind"]')
+      host.shadowRoot?.querySelector('style[data-aiob-style-bridge="panel-prompt-task-style-pack"]')
     ).toBeNull();
 
     stitchDeferred.resolve('.stitch-ready{opacity:1;}');
-    stitchSecondaryDeferred.resolve('.stitch-secondary-ready{opacity:1;}');
-    await flushMicrotasks();
+    await showPromise;
     await flushMicrotasks();
 
+    expect(host.hidden).toBe(false);
+    expect(host.hasAttribute('aria-busy')).toBe(false);
     expect(
-      toastShadow.querySelector('style[data-aiob-style-bridge="panel-stitch-runtime"]')?.textContent
-    ).toContain('.stitch-ready');
-    expect(
-      toastShadow.querySelector('style[data-aiob-style-bridge="panel-stitch-secondary-runtime"]')
+      host.shadowRoot?.querySelector('style[data-aiob-style-bridge="panel-prompt-task-style-pack"]')
         ?.textContent
-    ).toContain('.stitch-secondary-ready');
+    ).toContain('.stitch-ready');
+    expect(host.shadowRoot?.querySelectorAll('[data-aiob-style-bridge]')).toHaveLength(1);
   });
 });

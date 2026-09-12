@@ -1,10 +1,11 @@
 import type { PreviewVideoStoreState } from '../videoStateTypes';
 import type { RoutingRule } from './contentTypes';
+import type { FragmentSelectionTriggerMode } from '@shared/types/options';
+import type { RuntimeSurfaceState } from '@ui/stitch-runtime';
 
-export interface PreviewStoreState extends PreviewVideoStoreState {
+export interface PreviewStoreState extends PreviewVideoStoreState, RuntimeSurfaceState {
   activePanel: string;
   activeResource: string | null;
-  previewTheme: 'dark' | 'light';
   interfaceThemePreference?: 'dark' | 'light' | 'system';
   previewLanguage: string;
   yamlFilter: string;
@@ -37,7 +38,7 @@ export interface PreviewStoreState extends PreviewVideoStoreState {
   fragmentContextLength?: number;
   fragmentContextMode?: string;
   fragmentKeyboardShortcutsEnabled?: boolean;
-  fragmentModifierEnabled: boolean;
+  fragmentSelectionTriggerMode: FragmentSelectionTriggerMode;
   modifierKeys: string[];
   activeLocalFolderVaultIndex?: number | null;
   yamlFieldStates: Record<string, string>;

@@ -1,4 +1,3 @@
-
 @media (max-width: 1180px) {
   :root {
     --shell-sidebar-width: var(--sidebar-compact-width);
@@ -31,8 +30,7 @@
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .grid-3,
-  .prompt-link-grid {
+  .grid-3 {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
@@ -40,22 +38,6 @@
 @media (max-width: 980px) {
   :root {
     --shell-sidebar-width: var(--sidebar-narrow-width);
-  }
-
-  .video-floating-prompt {
-    right: var(--space-4);
-    bottom: var(--space-4);
-  }
-
-  .video-floating-prompt__bubble {
-    max-width: calc(100vw - (var(--space-4) * 2));
-  }
-
-  .toast {
-    right: var(--space-4);
-    left: var(--space-4);
-    min-width: 0;
-    max-width: calc(100vw - (var(--space-4) * 2));
   }
 
   .sidebar {
@@ -103,14 +85,9 @@
   .grid-4,
   .stats-grid,
   .mini-grid,
-  .surface-preview-grid,
-  .prompt-link-grid,
   .field-grid-2,
-  .field-grid-3,
   .video-entry-toggle-row,
   .fragment-context-inline,
-  .summary-toggle-grid,
-  .subtitle-inline-grid,
   .consent-inline-grid,
   .data-means-grid,
   .row {
@@ -120,25 +97,106 @@
   .fragment-context-inline .switch {
     margin-bottom: 0;
   }
-
-  .surface-window-header,
-  .surface-window-footer {
-    align-items: flex-start;
-    flex-direction: column;
-  }
-
-  .surface-pill-row {
-    justify-content: flex-start;
-  }
 }
 
 @media (max-width: 760px) {
+  [data-mobile-navigation-fallback] .app {
+    display: grid;
+    grid-template-rows: minmax(0, 2fr) minmax(0, 3fr);
+    height: 100vh;
+    overflow: hidden;
+  }
+
+  [data-mobile-navigation-fallback] .sidebar {
+    position: static;
+    inset: auto;
+    z-index: auto;
+    width: 100%;
+    max-width: none;
+    height: auto;
+    min-height: 0;
+    visibility: visible;
+    transform: none;
+    transition: none;
+    border-right: 0;
+    border-bottom: var(--border-default);
+  }
+
+  [data-mobile-navigation-fallback] .shell {
+    margin-left: 0;
+    width: 100%;
+    max-width: 100%;
+    height: 100%;
+    min-height: 0;
+  }
+
+  [data-mobile-navigation-fallback] .main {
+    position: relative;
+    height: 100%;
+    min-height: 0;
+  }
+
   :root {
     --shell-sidebar-width: 0px;
   }
 
   .sidebar {
-    display: none;
+    display: flex;
+    width: min(88vw, var(--sidebar-width));
+    max-width: 320px;
+    padding: var(--space-5) var(--space-4);
+    visibility: hidden;
+    transform: translateX(-100%);
+    transition: transform var(--transition-base);
+  }
+
+  .sidebar.is-mobile-open {
+    visibility: visible;
+    transform: translateX(0);
+  }
+
+  .mobile-navigation-trigger {
+    position: fixed;
+    z-index: var(--z-sidebar);
+    inset: var(--space-4) auto auto var(--space-4);
+    display: inline-flex;
+    max-width: calc(100vw - var(--space-8));
+    padding: var(--space-2-5) var(--space-4);
+    overflow-wrap: anywhere;
+  }
+
+  .mobile-navigation-close {
+    display: inline-flex;
+    align-self: flex-end;
+    margin: 0 var(--space-2) var(--space-2);
+    padding: var(--space-2) var(--space-3);
+  }
+
+  .mobile-navigation-backdrop {
+    position: fixed;
+    z-index: calc(var(--z-sidebar) - 1);
+    inset: 0;
+    display: block;
+    border: 0;
+    background: var(--modal-backdrop);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity var(--transition-base);
+  }
+
+  .mobile-navigation-backdrop.is-visible {
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  .nav-copy span {
+    display: block;
+  }
+
+  .nav button,
+  .footer-link {
+    white-space: normal;
+    overflow-wrap: anywhere;
   }
 
   .shell {
@@ -150,6 +208,6 @@
   .main {
     height: 100vh;
     min-height: 0;
-    padding: var(--space-6);
+    padding: var(--space-15) var(--space-6) var(--space-6);
   }
 }

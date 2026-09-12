@@ -9,6 +9,38 @@ import { getMessagesForLanguage, type Language } from '@i18n';
 import { schemaShellMessagesEnglish } from '@i18n/generated/schemaMessages.generated';
 import { e2ePlatformHarness } from './setup';
 import { getLanguageSelectValues } from '../utils/optionsI18nTextAssertions';
+import { setWindowProp } from '../utils/typeHelpers';
+
+function createMediaQueryList(query: string, matches = false) {
+  const listeners = new Set<EventListenerOrEventListenerObject>();
+  const addEventListener = vi.fn(
+    (type: string, listener: EventListenerOrEventListenerObject | null): void => {
+      if (type === 'change' && listener) listeners.add(listener);
+    }
+  );
+  const removeEventListener = vi.fn(
+    (type: string, listener: EventListenerOrEventListenerObject | null): void => {
+      if (type === 'change' && listener) listeners.delete(listener);
+    }
+  );
+  const media: MediaQueryList = {
+    matches,
+    media: query,
+    onchange: null,
+    addEventListener,
+    removeEventListener,
+    addListener: vi.fn(),
+    removeListener: vi.fn(),
+    dispatchEvent(event): boolean {
+      listeners.forEach((listener) => {
+        if (typeof listener === 'function') listener.call(media, event);
+        else listener.handleEvent(event);
+      });
+      return true;
+    }
+  };
+  return { media, removeEventListener, listenerCount: () => listeners.size };
+}
 
 async function installProductionStitchTestAssets(): Promise<void> {
   const { getFooterMeta, getFooterView, getSettingsView, previewContent } =
@@ -113,6 +145,8 @@ async function openPanel(panelId: (typeof POST_SWITCH_PANEL_EXPECTATIONS)[number
 
 describe('options language switching e2e', () => {
   let mounted: MountedProductionStitchShell | null = null;
+  let mobileMedia = createMediaQueryList('(max-width: 760px)');
+  let restoreMatchMedia = (): void => undefined;
 
   beforeEach(async () => {
     e2ePlatformHarness.reset();
@@ -120,6 +154,14 @@ describe('options language switching e2e', () => {
     await e2ePlatformHarness.storage.sync.set('language', 'zh-CN');
     await installProductionStitchTestAssets();
     document.body.innerHTML = '<div id="optionsShellRoot"></div>';
+    mobileMedia = createMediaQueryList('(max-width: 760px)');
+    restoreMatchMedia = setWindowProp(
+      'matchMedia',
+      vi.fn((query: string): MediaQueryList => {
+        if (query === '(max-width: 760px)') return mobileMedia.media;
+        return createMediaQueryList(query).media;
+      })
+    );
   });
 
   afterEach(() => {
@@ -129,6 +171,7 @@ describe('options language switching e2e', () => {
       .__AIIINOB_TEST_STITCH_ASSETS__;
     document.body.innerHTML = '';
     e2ePlatformHarness.reset();
+    restoreMatchMedia();
   });
 
   it('switches language through the production Stitch shell and persists via the active callback', async () => {
@@ -168,5 +211,10 @@ describe('options language switching e2e', () => {
       const panel = await openPanel(panelId);
       expect(panel.textContent).toContain(text);
     }
+
+    mounted.cleanup();
+    mounted = null;
+    expect(mobileMedia.removeEventListener).toHaveBeenCalledWith('change', expect.any(Function));
+    expect(mobileMedia.listenerCount()).toBe(0);
   });
 });

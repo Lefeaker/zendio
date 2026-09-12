@@ -35,15 +35,15 @@ function createConfig(overrides: Partial<FragmentClipperOptions> = {}): Fragment
     captureContext: true,
     contextLength: 100,
     contextMode: 'chars',
-    selectionModifierEnabled: false,
-    selectionModifierKeys: [],
+    selectionTriggerMode: 'direct',
+    selectionModifierKeys: ['shift'],
     keyboardShortcutsEnabled: true,
     ...overrides
   };
 }
 
 describe('VideoFragmentSelectionController', () => {
-  it('accepts resolved platform selections when modifiers are not required', () => {
+  it('accepts resolved platform selections in direct mode', () => {
     const { range, selection, removeAllRanges } = createRangeAndSelection();
     const onSelectionAccepted = vi.fn();
     const controller = new VideoFragmentSelectionController(
@@ -83,6 +83,33 @@ describe('VideoFragmentSelectionController', () => {
     expect(removeAllRanges).toHaveBeenCalled();
   });
 
+  it('does not track or accept selections in disabled mode', () => {
+    const { range, selection } = createRangeAndSelection();
+    const onSelectionAccepted = vi.fn();
+    const resolveSelection = vi.fn(() => ({ text: 'Unexpected', html: 'Unexpected', range }));
+    const controller = new VideoFragmentSelectionController(
+      {
+        doc: document,
+        pendingSelection: asType<PendingSelectionTracker>({ reset: vi.fn() } as never),
+        getFragmentConfig: () => createConfig({ selectionTriggerMode: 'disabled' }),
+        getPlatformAdapter: () => asType<VideoPlatformAdapter>({ resolveSelection })
+      },
+      { onSelectionAccepted }
+    );
+
+    controller.handleMouseDown(new MouseEvent('mousedown', { button: 0, shiftKey: true }));
+    expect(controller.isSelectionTriggerConfigured()).toBe(false);
+    expect(controller.shouldTrackSelection()).toBe(false);
+    controller.processActivatedSelection({
+      range,
+      selection,
+      event: new MouseEvent('mouseup', { button: 0, shiftKey: true })
+    });
+
+    expect(resolveSelection).not.toHaveBeenCalled();
+    expect(onSelectionAccepted).not.toHaveBeenCalled();
+  });
+
   it('ignores selections rejected by the platform adapter', () => {
     const { range, selection, removeAllRanges } = createRangeAndSelection();
     const controller = new VideoFragmentSelectionController(
@@ -118,7 +145,7 @@ describe('VideoFragmentSelectionController', () => {
         } as Partial<PendingSelectionTracker>),
         getFragmentConfig: () =>
           createConfig({
-            selectionModifierEnabled: true,
+            selectionTriggerMode: 'modifier',
             selectionModifierKeys: ['shift'] as const
           }),
         getPlatformAdapter: () =>
@@ -159,7 +186,7 @@ describe('VideoFragmentSelectionController', () => {
         } as Partial<PendingSelectionTracker>),
         getFragmentConfig: () =>
           createConfig({
-            selectionModifierEnabled: true,
+            selectionTriggerMode: 'modifier',
             selectionModifierKeys: ['shift'] as const
           }),
         getPlatformAdapter: () => null
@@ -180,7 +207,7 @@ describe('VideoFragmentSelectionController', () => {
         pendingSelection: asType<PendingSelectionTracker>(pendingSelection),
         getFragmentConfig: () =>
           createConfig({
-            selectionModifierEnabled: true,
+            selectionTriggerMode: 'modifier',
             selectionModifierKeys: ['ctrl'] as const
           }),
         getPlatformAdapter: () => null

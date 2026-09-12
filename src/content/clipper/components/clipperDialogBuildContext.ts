@@ -66,11 +66,16 @@ export function createClipperDestinationPayload(doc: Document, selectedText: str
 }
 
 export function resolveClipperDestinationId(event: Event | undefined): string | null {
-  const target = event?.currentTarget ?? event?.target;
-  if (!(target instanceof HTMLElement)) {
+  const container = event?.currentTarget;
+  const target = event?.target;
+  if (!(container instanceof HTMLElement) || !(target instanceof Element)) {
     return null;
   }
-  return target.dataset.destinationId ?? null;
+  const button = target.closest<HTMLButtonElement>(
+    'button.export-destination-option[data-destination-id]'
+  );
+  if (!button || button.disabled || !container.contains(button)) return null;
+  return button.dataset.destinationId ?? null;
 }
 
 export function createClipperDialogLabels({

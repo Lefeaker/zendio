@@ -1,4 +1,3 @@
-export { FocusTrapController, type FocusTrapOptions } from '@content/shared/focusTrap';
 export type { InputValidationState } from '../types';
 
 export function applyValidationA11y(

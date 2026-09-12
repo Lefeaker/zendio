@@ -1,10 +1,5 @@
 import type { FragmentClipperOptions } from '@shared/types/options';
-import {
-  createModifierState,
-  resetModifierState,
-  shouldTriggerSelectionWithModifiers,
-  syncModifierState
-} from '../../clipper/services/fragmentConfig';
+import { SelectionModifierTrigger } from '../../clipper/services/selectionModifierTrigger';
 
 export interface ReaderSelectionPayload {
   range: Range;
@@ -29,8 +24,7 @@ export class ReaderSelectionController {
   private readonly isNodeInsideUi: (node: Node | null) => boolean;
   private readonly onSelectionReady: (payload: ReaderSelectionPayload) => void;
   private readonly onSelectionCleared: (() => void) | undefined;
-  private modifierState = createModifierState();
-  private selectionModifierActive = false;
+  private readonly selectionTrigger = new SelectionModifierTrigger();
   private cachedSelection: {
     range: Range;
     html: string;
@@ -69,48 +63,48 @@ export class ReaderSelectionController {
     this.doc.defaultView?.removeEventListener('blur', this.handleWindowBlur, true);
     this.doc.removeEventListener('mouseup', this.handleMouseUp, true);
     this.started = false;
-    this.resetModifierState();
+    this.selectionTrigger.reset();
   }
 
   updateFragmentConfig(config: FragmentClipperOptions): void {
     this.fragmentConfig = config;
-    if (!this.fragmentConfig.selectionModifierEnabled) {
-      this.selectionModifierActive = false;
-      resetModifierState(this.modifierState);
-    }
+    this.selectionTrigger.reset();
+    this.cachedSelection = null;
   }
 
   private handleMouseDown = (event: MouseEvent): void => {
-    if (event.button !== 0) {
-      this.selectionModifierActive = false;
-      return;
-    }
-    syncModifierState(this.modifierState, event);
-    this.cacheSelectionSnapshot();
-    if (!this.fragmentConfig.selectionModifierEnabled) {
-      this.selectionModifierActive = false;
-      return;
-    }
-    this.selectionModifierActive = shouldTriggerSelectionWithModifiers(
+    const shouldCaptureSelection = this.selectionTrigger.beginPointerGesture(
       this.fragmentConfig,
-      this.modifierState
+      event
     );
+    if (!shouldCaptureSelection) {
+      this.cachedSelection = null;
+      return;
+    }
+    this.cacheSelectionSnapshot();
   };
 
   private handleModifierKey = (event: KeyboardEvent): void => {
-    syncModifierState(this.modifierState, event);
+    this.selectionTrigger.updateModifierState(event);
   };
 
   private handleWindowBlur = (): void => {
-    this.resetModifierState();
+    this.selectionTrigger.reset();
+    this.cachedSelection = null;
   };
 
   private handleMouseUp = (event: MouseEvent): void => {
     if (event.button !== 0) {
       return;
     }
+    if (!this.selectionTrigger.canTrigger(this.fragmentConfig, event)) {
+      this.selectionTrigger.completePointerGesture();
+      this.cachedSelection = null;
+      return;
+    }
     if (!this.canHandleSelection()) {
-      this.resetModifierState();
+      this.selectionTrigger.reset();
+      this.cachedSelection = null;
       return;
     }
 
@@ -126,6 +120,7 @@ export class ReaderSelectionController {
         selection.removeAllRanges();
         this.cachedSelection = null;
         this.onSelectionCleared?.();
+        this.selectionTrigger.completePointerGesture();
         return;
       }
 
@@ -133,6 +128,7 @@ export class ReaderSelectionController {
       if (!text) {
         selection.removeAllRanges();
         this.cachedSelection = null;
+        this.selectionTrigger.completePointerGesture();
         return;
       }
 
@@ -146,20 +142,11 @@ export class ReaderSelectionController {
       selectedHtml = this.cachedSelection.html;
       selectedText = this.cachedSelection.text;
     } else {
+      this.selectionTrigger.completePointerGesture();
       return;
     }
 
     this.cachedSelection = null;
-
-    syncModifierState(this.modifierState, event);
-    const modifierRequired = this.fragmentConfig.selectionModifierEnabled;
-    const modifiersSatisfied =
-      this.selectionModifierActive ||
-      shouldTriggerSelectionWithModifiers(this.fragmentConfig, this.modifierState);
-    if (modifierRequired && !modifiersSatisfied) {
-      this.selectionModifierActive = false;
-      return;
-    }
 
     const savedRange = range.cloneRange();
 
@@ -170,13 +157,8 @@ export class ReaderSelectionController {
       event
     });
     selection?.removeAllRanges();
-    this.selectionModifierActive = false;
+    this.selectionTrigger.completePointerGesture();
   };
-
-  private resetModifierState(): void {
-    resetModifierState(this.modifierState);
-    this.selectionModifierActive = false;
-  }
 
   private getSelection(): Selection | null {
     return (

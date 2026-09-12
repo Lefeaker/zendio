@@ -1,0 +1,334 @@
+import { execFileSync } from 'node:child_process';
+import { describe, expect, it } from 'vitest';
+import { z } from 'zod';
+
+function runModuleScenario<T>(source: string, schema: z.ZodType<T>): T {
+  const output = execFileSync(process.execPath, ['--input-type=module', '--eval', source], {
+    cwd: process.cwd(),
+    encoding: 'utf8'
+  });
+  return schema.parse(JSON.parse(output));
+}
+
+describe('bounded task graph runner', () => {
+  it('rejects malformed dependencies and cycles before starting work', () => {
+    const result = runModuleScenario(
+      `
+      import { validateTaskGraph } from './scripts/utils/taskGraphRunner.mjs';
+      const task = (id, dependsOn = []) => ({
+        id, name: id, profile: 'fixture-v1', args: ['success', id], dependsOn
+      });
+      const cases = [
+        [task('a'), task('a')],
+        [task('a', ['missing'])],
+        [task('a', ['a'])],
+        [task('a', ['b']), task('b', ['a'])]
+      ];
+      const messages = cases.map((tasks) => {
+        try { validateTaskGraph(tasks); return 'accepted'; }
+        catch (error) { return error.message; }
+      });
+      process.stdout.write(JSON.stringify(messages));
+    `,
+      z.array(z.string())
+    );
+
+    expect(result).toEqual([
+      'Invalid task graph: duplicate task id: a',
+      'Invalid task graph: task a depends on unknown task missing',
+      'Invalid task graph: task a depends on itself',
+      'Invalid task graph: dependency cycle at a'
+    ]);
+  });
+
+  it('closes admission on first failure, cancels siblings together, and drains them', () => {
+    const result = runModuleScenario(
+      `
+      import { runTaskGraph } from './scripts/utils/taskGraphRunner.mjs';
+      const controls = new Map();
+      const events = [];
+      const startCommand = (task) => {
+        let complete;
+        const completion = new Promise((resolve) => { complete = resolve; });
+        controls.set(task.id, complete);
+        events.push('start:' + task.id);
+        return {
+          child: null,
+          completion,
+          cancel(reason) { events.push('cancel:' + task.id + ':' + reason); return true; }
+        };
+      };
+      const tasks = [
+        { id: 'a', profile: 'fixture-v1', args: ['success', 'a'], dependsOn: [] },
+        { id: 'b', profile: 'fixture-v1', args: ['success', 'b'], dependsOn: [] },
+        { id: 'late-wave', profile: 'fixture-v1', args: ['success', 'c'], dependsOn: ['a'] }
+      ];
+      const pending = runTaskGraph(tasks, {
+        policyId: 'quality-v1', concurrency: 2, startCommand
+      });
+      await Promise.resolve();
+      controls.get('a')({ ok: false, terminalReason: 'nonzero', exitCode: 7, signal: null });
+      await Promise.resolve();
+      let resolvedBeforeDrain = false;
+      pending.then(() => { resolvedBeforeDrain = true; });
+      await Promise.resolve();
+      const beforeDrain = resolvedBeforeDrain;
+      controls.get('b')({ ok: false, terminalReason: 'cancelled', exitCode: null, signal: 'SIGTERM' });
+      const graph = await pending;
+      process.stdout.write(JSON.stringify({ events, beforeDrain, graph }));
+    `,
+      z.object({
+        events: z.array(z.string()),
+        beforeDrain: z.boolean(),
+        graph: z.object({
+          ok: z.boolean(),
+          cancelled: z.array(z.string()),
+          failed: z.array(
+            z.object({
+              id: z.string(),
+              terminalReason: z.string(),
+              code: z.number().nullable(),
+              signal: z.string().nullable()
+            })
+          )
+        })
+      })
+    );
+
+    expect(result.beforeDrain).toBe(false);
+    expect(result.events).toEqual(['start:a', 'start:b', 'cancel:b:nonzero']);
+    expect(result.graph.ok).toBe(false);
+    expect(result.graph.cancelled).toEqual(['late-wave']);
+    expect(result.graph.failed[0]).toMatchObject({ id: 'a', code: 7 });
+    expect(result.graph.failed[1]).toMatchObject({ id: 'b', terminalReason: 'cancelled' });
+  });
+
+  it('propagates first failure into real active composite siblings and waits for drain', () => {
+    const result = runModuleScenario(
+      `
+      import { runTaskGraph } from './scripts/utils/taskGraphRunner.mjs';
+      import { startBoundedCommand } from './scripts/utils/boundedCommand.mjs';
+      import { resolveCommandProfile } from './scripts/config/commandBoundaryProfiles.mjs';
+      const environment = { HOME: process.env.HOME, TMPDIR: '/tmp' };
+      const guard = resolveCommandProfile('fixture-v1', ['success', 'guard-ok'], { environment });
+      const failedLeaf = resolveCommandProfile('fixture-v1', ['exit', '7'], { environment });
+      const liveLeaf = resolveCommandProfile('fixture-v1', ['ignore-term', '5000'], { environment });
+      const tasks = [
+        { id: 'fail', profile: 'vitest-v1', args: ['run'], dependsOn: [] },
+        { id: 'sibling', profile: 'vitest-v1', args: ['run'], dependsOn: [] },
+        { id: 'late-wave', profile: 'fixture-v1', args: ['success'], dependsOn: ['fail'] }
+      ];
+      const graph = await runTaskGraph(tasks, {
+        policyId: 'quality-v1',
+        concurrency: 2,
+        startCommand(task) {
+          const leaf = task.id === 'fail' ? failedLeaf : liveLeaf;
+          return startBoundedCommand(
+            { profileId: task.profile, arguments: task.args },
+            {
+              environment,
+              resolveProfile(profileId) {
+                return {
+                  ...(profileId === 'node-script-standard-v1' ? guard : leaf),
+                  profileId
+                };
+              }
+            }
+          );
+        }
+      });
+      process.stdout.write(JSON.stringify({
+        ok: graph.ok,
+        cancelled: graph.cancelled,
+        failed: graph.results.fail,
+        sibling: graph.results.sibling
+      }));
+    `,
+      z.object({
+        ok: z.boolean(),
+        cancelled: z.array(z.string()),
+        failed: z.object({ terminalReason: z.string(), exitCode: z.number().nullable() }),
+        sibling: z.object({
+          ok: z.boolean(),
+          terminalReason: z.string(),
+          cancelled: z.boolean(),
+          signal: z.string().nullable(),
+          closeObserved: z.boolean(),
+          pipeDrainObserved: z.boolean()
+        })
+      })
+    );
+
+    expect(result.ok).toBe(false);
+    expect(result.cancelled).toEqual(['late-wave']);
+    expect(result.failed).toMatchObject({ terminalReason: 'nonzero', exitCode: 7 });
+    expect(result.sibling).toMatchObject({
+      ok: false,
+      terminalReason: 'nonzero',
+      cancelled: true,
+      closeObserved: true,
+      pipeDrainObserved: true
+    });
+    expect(['SIGTERM', 'SIGKILL']).toContain(result.sibling.signal);
+  });
+
+  it.each(['root-deadline', 'parent-signal'])(
+    'routes %s cancellation into a real active composite child',
+    (terminalReason) => {
+      const result = runModuleScenario(
+        `
+        import { EventEmitter } from 'node:events';
+        import { runTaskGraph } from './scripts/utils/taskGraphRunner.mjs';
+        import { startBoundedCommand } from './scripts/utils/boundedCommand.mjs';
+        import { resolveCommandProfile } from './scripts/config/commandBoundaryProfiles.mjs';
+        const environment = { HOME: process.env.HOME, TMPDIR: '/tmp' };
+        const guard = resolveCommandProfile('fixture-v1', ['success', 'guard-ok'], { environment });
+        const leaf = resolveCommandProfile('fixture-v1', ['ignore-term', '5000'], { environment });
+        const signalSource = new EventEmitter();
+        let deadline;
+        const pending = runTaskGraph([
+          { id: 'active', profile: 'vitest-v1', args: ['run'], dependsOn: [] },
+          { id: 'late-wave', profile: 'fixture-v1', args: ['success'], dependsOn: ['active'] }
+        ], {
+          policyId: 'quality-v1',
+          signalSource,
+          setTimeoutOperation(callback) { deadline = callback; return 1; },
+          clearTimeoutOperation() {},
+          startCommand(task) {
+            return startBoundedCommand(
+              { profileId: task.profile, arguments: task.args },
+              {
+                environment,
+                resolveProfile(profileId) {
+                  return {
+                    ...(profileId === 'node-script-standard-v1' ? guard : leaf),
+                    profileId
+                  };
+                }
+              }
+            );
+          }
+        });
+        await new Promise((resolve) => setTimeout(resolve, 50));
+        if (${JSON.stringify(terminalReason)} === 'root-deadline') deadline();
+        else signalSource.emit('SIGTERM');
+        const graph = await pending;
+        process.stdout.write(JSON.stringify({
+          ok: graph.ok,
+          cancelled: graph.cancelled,
+          active: graph.results.active
+        }));
+      `,
+        z.object({
+          ok: z.boolean(),
+          cancelled: z.array(z.string()),
+          active: z.object({
+            ok: z.boolean(),
+            terminalReason: z.string(),
+            cancelled: z.boolean(),
+            signal: z.string().nullable(),
+            closeObserved: z.boolean(),
+            pipeDrainObserved: z.boolean()
+          })
+        })
+      );
+
+      expect(result.ok).toBe(false);
+      expect(result.cancelled).toEqual(['late-wave']);
+      expect(result.active).toMatchObject({
+        ok: false,
+        terminalReason,
+        cancelled: true,
+        closeObserved: true,
+        pipeDrainObserved: true
+      });
+      expect(['SIGTERM', 'SIGKILL']).toContain(result.active.signal);
+    }
+  );
+
+  it('uses fixed bounded concurrency and admits the next wave only after success', () => {
+    const result = runModuleScenario(
+      `
+      import { runTaskGraph } from './scripts/utils/taskGraphRunner.mjs';
+      const controls = new Map();
+      const started = [];
+      const startCommand = (task) => {
+        let complete;
+        const completion = new Promise((resolve) => { complete = resolve; });
+        controls.set(task.id, complete);
+        started.push(task.id);
+        return { child: null, completion, cancel() { return true; } };
+      };
+      const tasks = ['a', 'b', 'c'].map((id) => ({
+        id, profile: 'fixture-v1', args: ['success', id], dependsOn: []
+      }));
+      const pending = runTaskGraph(tasks, {
+        policyId: 'quality-v1', concurrency: 2, startCommand
+      });
+      await Promise.resolve();
+      const firstWave = [...started];
+      controls.get('a')({ ok: true, terminalReason: 'success', exitCode: 0, signal: null });
+      await Promise.resolve();
+      await Promise.resolve();
+      const secondWave = [...started];
+      controls.get('b')({ ok: true, terminalReason: 'success', exitCode: 0, signal: null });
+      controls.get('c')({ ok: true, terminalReason: 'success', exitCode: 0, signal: null });
+      const graph = await pending;
+      process.stdout.write(JSON.stringify({ firstWave, secondWave, graph }));
+    `,
+      z.object({
+        firstWave: z.array(z.string()),
+        secondWave: z.array(z.string()),
+        graph: z.object({
+          ok: z.boolean(),
+          completed: z.array(z.string())
+        })
+      })
+    );
+
+    expect(result.firstWave).toEqual(['a', 'b']);
+    expect(result.secondWave).toEqual(['a', 'b', 'c']);
+    expect(result.graph.ok).toBe(true);
+    expect(result.graph.completed).toEqual(['a', 'b', 'c']);
+  });
+
+  it('uses the aggregate deadline to cancel and drain running work', () => {
+    const result = runModuleScenario(
+      `
+      import { runTaskGraph } from './scripts/utils/taskGraphRunner.mjs';
+      let deadline;
+      let complete;
+      const events = [];
+      const handle = {
+        child: null,
+        completion: new Promise((resolve) => { complete = resolve; }),
+        cancel(reason) { events.push('cancel:' + reason); return true; }
+      };
+      const pending = runTaskGraph([
+        { id: 'a', profile: 'fixture-v1', args: ['success', 'a'], dependsOn: [] },
+        { id: 'b', profile: 'fixture-v1', args: ['success', 'b'], dependsOn: ['a'] }
+      ], {
+        policyId: 'quality-v1',
+        startCommand() { return handle; },
+        setTimeoutOperation(callback) { deadline = callback; return 1; },
+        clearTimeoutOperation() {}
+      });
+      deadline();
+      complete({ ok: false, terminalReason: 'root-deadline', exitCode: null, signal: null });
+      const graph = await pending;
+      process.stdout.write(JSON.stringify({ events, graph }));
+    `,
+      z.object({
+        events: z.array(z.string()),
+        graph: z.object({
+          ok: z.boolean(),
+          cancelled: z.array(z.string())
+        })
+      })
+    );
+
+    expect(result.events).toEqual(['cancel:root-deadline']);
+    expect(result.graph.ok).toBe(false);
+    expect(result.graph.cancelled).toEqual(['b']);
+  });
+});

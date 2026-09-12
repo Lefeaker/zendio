@@ -40,7 +40,7 @@ describe('selectionExtractor', () => {
         captureContext: false,
         contextLength: 200,
         contextMode: 'chars',
-        selectionModifierEnabled: false,
+        selectionTriggerMode: 'direct',
         selectionModifierKeys: [],
         keyboardShortcutsEnabled: false
       },
@@ -78,7 +78,7 @@ describe('selectionExtractor', () => {
         captureContext: false,
         contextLength: 200,
         contextMode: 'chars',
-        selectionModifierEnabled: false,
+        selectionTriggerMode: 'direct',
         selectionModifierKeys: [],
         keyboardShortcutsEnabled: false
       },
@@ -113,7 +113,7 @@ describe('selectionExtractor', () => {
         captureContext: false,
         contextLength: 200,
         contextMode: 'chars',
-        selectionModifierEnabled: false,
+        selectionTriggerMode: 'direct',
         selectionModifierKeys: [],
         keyboardShortcutsEnabled: false
       },
@@ -135,7 +135,7 @@ describe('selectionExtractor', () => {
         captureContext: true,
         contextLength: 120,
         contextMode: 'chars',
-        selectionModifierEnabled: false,
+        selectionTriggerMode: 'direct',
         selectionModifierKeys: [],
         keyboardShortcutsEnabled: false
       },
@@ -201,7 +201,7 @@ describe('selectionExtractor', () => {
         captureContext: true,
         contextLength: 200,
         contextMode: 'chars',
-        selectionModifierEnabled: false,
+        selectionTriggerMode: 'direct',
         selectionModifierKeys: [],
         keyboardShortcutsEnabled: false
       },
@@ -234,7 +234,7 @@ describe('selectionExtractor', () => {
         captureContext: false,
         contextLength: 200,
         contextMode: 'chars',
-        selectionModifierEnabled: false,
+        selectionTriggerMode: 'direct',
         selectionModifierKeys: [],
         keyboardShortcutsEnabled: false
       },
@@ -267,7 +267,7 @@ describe('selectionExtractor', () => {
           captureContext: false,
           contextLength: 200,
           contextMode: 'chars',
-          selectionModifierEnabled: false,
+          selectionTriggerMode: 'direct',
           selectionModifierKeys: [],
           keyboardShortcutsEnabled: false
         },

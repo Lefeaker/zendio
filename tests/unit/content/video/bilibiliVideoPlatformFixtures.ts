@@ -1,6 +1,16 @@
 import { vi } from 'vitest';
 import type { Mock } from 'vitest';
 import type { VideoPlatformContext } from '@content/video/platforms';
+import type {
+  DocumentMutationSubscriptionOptions,
+  ScopedMutationObserver
+} from '@content/runtime/documentMutationTypes';
+
+export interface ScopedObserverMock extends ScopedMutationObserver {
+  callback: MutationCallback;
+  observe: Mock<(...args: [Node, MutationObserverInit?]) => void>;
+  disconnect: Mock<() => void>;
+}
 
 export interface VideoPlatformContextMocks {
   highlightSelection: Mock<(...args: [Range, string, string]) => string | undefined>;
@@ -8,8 +18,15 @@ export interface VideoPlatformContextMocks {
   scheduleFragmentHighlightRestore: Mock<(...args: []) => void>;
   getElementByIdDeep: Mock<(...args: [string]) => HTMLElement | null>;
   querySelectorDeep: Mock<(...args: [string]) => Element | null>;
-  observeWithFragmentObserver: Mock<(...args: [Node, MutationObserverInit]) => void>;
+  subscribeDocumentMutations: Mock<(options: DocumentMutationSubscriptionOptions) => () => void>;
+  emitDocumentMutations(records: MutationRecord[]): void;
+  emitScopedMutations(records: MutationRecord[]): void;
+  scopedObservers: ScopedObserverMock[];
+  observeWithFragmentObserver: Mock<
+    (...args: [ScopedMutationObserver, Node, MutationObserverInit]) => void
+  >;
   registerShadowSelectionBridge: Mock<(...args: [ShadowRoot]) => void>;
+  unregisterShadowSelectionBridge: Mock<(...args: [ShadowRoot]) => void>;
   ensureHighlightStyles: Mock<(...args: [ShadowRoot]) => void>;
 }
 
@@ -18,6 +35,47 @@ export type VideoPlatformContextWithMocks = VideoPlatformContext & {
 };
 
 export function createContext(doc: Document): VideoPlatformContextWithMocks {
+  const subscriptions = new Set<{
+    active: boolean;
+    handle: number | null;
+    options: DocumentMutationSubscriptionOptions;
+    records: MutationRecord[];
+  }>();
+  const scopedObservers: ScopedObserverMock[] = [];
+  const subscribeDocumentMutations = vi.fn(
+    (options: DocumentMutationSubscriptionOptions): (() => void) => {
+      const subscription = { active: true, handle: null, options, records: [] as MutationRecord[] };
+      subscriptions.add(subscription);
+      return () => {
+        if (!subscription.active) return;
+        subscription.active = false;
+        if (subscription.handle !== null) window.clearTimeout(subscription.handle);
+        subscriptions.delete(subscription);
+      };
+    }
+  );
+  const emitDocumentMutations = (records: MutationRecord[]): void => {
+    for (const subscription of subscriptions) {
+      const relevant = records.filter((record) => subscription.options.filter(record));
+      if (relevant.length === 0) continue;
+      subscription.records.push(...relevant);
+      if (subscription.handle !== null) continue;
+      subscription.handle = window.setTimeout(() => {
+        subscription.handle = null;
+        const pending = subscription.records.splice(0);
+        if (subscription.active) subscription.options.callback(pending);
+      }, subscription.options.delayMs ?? 0);
+    }
+  };
+  const createScopedMutationObserver = vi.fn((callback: MutationCallback) => {
+    const observer: ScopedObserverMock = {
+      callback,
+      observe: vi.fn(),
+      disconnect: vi.fn()
+    };
+    scopedObservers.push(observer);
+    return observer;
+  });
   const mocks: VideoPlatformContextMocks = {
     highlightSelection: vi.fn<(...args: [Range, string, string]) => string | undefined>(
       () => 'wrapper-1'
@@ -26,13 +84,25 @@ export function createContext(doc: Document): VideoPlatformContextWithMocks {
     scheduleFragmentHighlightRestore: vi.fn<(...args: []) => void>(),
     getElementByIdDeep: vi.fn<(...args: [string]) => HTMLElement | null>(() => null),
     querySelectorDeep: vi.fn<(...args: [string]) => Element | null>(() => null),
-    observeWithFragmentObserver: vi.fn<(...args: [Node, MutationObserverInit]) => void>(),
+    subscribeDocumentMutations,
+    emitDocumentMutations,
+    emitScopedMutations: (records) => {
+      const observer = scopedObservers.at(-1);
+      observer?.callback(records, observer as unknown as MutationObserver);
+    },
+    scopedObservers,
+    observeWithFragmentObserver: vi.fn((observer, target, options) =>
+      observer.observe(target, options)
+    ),
     registerShadowSelectionBridge: vi.fn<(...args: [ShadowRoot]) => void>(),
+    unregisterShadowSelectionBridge: vi.fn<(...args: [ShadowRoot]) => void>(),
     ensureHighlightStyles: vi.fn<(...args: [ShadowRoot]) => void>()
   };
 
   return {
     doc,
+    documentMutationHub: { subscribe: subscribeDocumentMutations },
+    createScopedMutationObserver,
     ...mocks,
     querySelectorDeep: <T extends Element>(selector: string): T | null =>
       mocks.querySelectorDeep(selector) as T | null,

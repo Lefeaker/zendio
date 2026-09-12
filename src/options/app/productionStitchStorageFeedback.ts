@@ -95,7 +95,7 @@ function renderVaultConnectionResults(
   return `<div class="vault-connection-results">${(result.vaults ?? [])
     .map((vault) => {
       const channelRows = vault.channels.map((channel) => {
-        const emoji = channel.success ? '✅' : '❌';
+        const emoji = !channel.configured ? '—' : channel.success ? '✅' : '❌';
         const label = resolveChannelLabel(channel, messages);
         const message = resolveChannelMessage(channel, messages);
         const certificateLink =

@@ -77,16 +77,13 @@ describe('perplexity ai chat integration', () => {
       HTMLLIElement: dom.window.HTMLLIElement
     });
 
-    const { createDefaultExtractorRegistry } = await import(
-      '../../src/content/extractors/registry'
-    );
+    const { createDefaultExtractorRegistry } =
+      await import('../../src/content/extractors/registry');
     const optionsRepository = {
       get: vi.fn().mockResolvedValue({
         aiChat: { includeTimestamps: true, userName: 'Analyst' },
         deepResearch: { pureMode: false }
-      }),
-      set: vi.fn(),
-      onChange: vi.fn(() => () => undefined)
+      })
     };
     repositoryContainer.reset();
     repositoryContainer.registerSingleton(

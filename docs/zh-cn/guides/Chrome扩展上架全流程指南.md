@@ -47,14 +47,14 @@
 - [ ] 访问控制：测试无 Obsidian REST API 或 API Key 错误时的提示是否清晰。
 - [ ] 本地 Vault 自动化：运行 `npm run test:e2e:browser:local-vault`，确认 fake File System Access / fake IndexedDB harness 中的本地目录写入、目录穿越拒绝、权限拒绝、重新授权和 REST fallback 均符合预期；不要把该 harness 描述为完整真实 Chrome extension 加载验真。
 - [ ] 本地 Vault extension-loaded handoff：加载 fresh `build/dist`，确认 `local-vault-permission.html/js`、`offscreen/local-vault.html/js` 存在，Chrome manifest 包含 `offscreen`，Firefox manifest 不包含 `offscreen`，WAR 不含 `<all_urls>`，content/runtime lazy prompt chunk 可达；机器证据来自 `audit:local-vault-release:report`。
-- [ ] 发布脚本：运行 publish script unit、Chrome Web Store workflow contract 与 dry-run；`release:chrome` 默认 dry-run，必须传入显式 `--zip <path>`；没有 Chrome Web Store 环境变量时，dry-run 应在发布前安全失败。自动发布 workflow 必须通过 `npm run audit:chrome-webstore-release:check`，确保 GA public config、archive-level GA 审计和显式 `--publish` 没有漂移。
+- [ ] 发布证据：本地只通过完整 `chrome-dry-run-v1` grammar 对 explicit ZIP、artifact manifest、derived state path 和 `local-private-v1` transport 做无凭据验证；自动发布 workflow 必须通过 `npm run audit:chrome-webstore-release:check`。
 - [ ] 性能与可用性：确认拖拽、键盘导航、无障碍标签等功能符合之前的改进记录（参考 `docs/structure/clipper-dialog-a11y-update.md`）。
 - [ ] 记录测试结果：整理测试清单、环境和结论，归档到发布文档或 issue，供审核复盘使用。
 
 ## 阶段 5：提交审核
 
 - [ ] 使用 `zip -r zendio-vX.Y.Z.zip dist manifest.json assets` 等命令打包，注意排除不必要文件，可在 `releases/` 下存档。
-- [ ] 真实发布前由 owner 手动确认 zip 路径、版本号、权限问卷和 CWS credentials。真实发布命令为 `npm run release:chrome:publish -- --zip <release.zip>`；禁止依赖当前目录唯一 zip 的自动选择。
+- [ ] 真实发布前由 owner 确认版本、exact current-main SHA、权限问卷、CWS item/publisher ownership、release-window freeze 和受保护 Environment。不得从本机 CLI 或 package alias 执行真实上传。
 - [ ] 登录开发者控制台 → “新建项目” 或选择已有条目 → 上传压缩包。
 - [ ] 填写商店表单：名称、描述、分类、语言、地区、联系方式、隐私政策 URL、支持页面 URL。
 - [ ] 完成 “用户数据隐私” 问卷：解释数据是否上传服务器、保留时长、用户删除机制。
@@ -70,7 +70,8 @@
 
 - Environment name: `chrome-webstore-release`
 - Deployment protection rules: 启用 Required reviewers，至少加入一名发布 owner
-- 只在该 Environment 下配置 Chrome Web Store 发布 Secrets 和 GA public Variables；配置完成后删除同名 repository-level Variables / Secrets，避免后续 workflow 绕过 Environment 保护误用
+- 只在该 Environment 下配置 Chrome Web Store 发布 Secrets；三项 GA public values 固定在
+  repository/organization Variables，供无凭据 prepare job 读取
 
 不要依赖 workflow 首次运行自动创建 Environment；自动创建出的 Environment 不会自带 Required reviewers、Secrets 或 Variables。发布 owner 必须在第一次触发 `Release Chrome Web Store` 前手动完成上述 Environment 配置。
 
@@ -82,7 +83,7 @@
 - `CWS_EXTENSION_ID`
 - `CWS_PUBLISHER_ID`
 
-发布前确认 `chrome-webstore-release` Environment Variables 已配置：
+发布前确认 repository/organization Variables 已冻结：
 
 - `ZENDIO_GA_MEASUREMENT_ID`
 - `ZENDIO_GA_TRANSPORT_MODE`（生产发布必须为 `proxy`）
@@ -95,7 +96,9 @@
 - 手动：GitHub Actions → `Release Chrome Web Store` → Run workflow
 - 标签：推送形如 `v0.2.1` 的 tag
 
-本流程的 release job 绑定 `environment: chrome-webstore-release`；当该 Environment 配置了 Required reviewers 时，tag 或手动触发后会先等待发布 owner 审批，审批后才可读取 Environment Variables / Secrets 并继续执行。流程会先对缺失 GA public config 或非 `proxy` transport fail closed，执行 `npm run analytics:validate:prod:required` 与 `npm run quality`，再用同一组 `ZENDIO_GA_*` 变量构建 Chrome production bundle、执行 `npm run package:ci`、对最终 zip 运行 `audit:ga:client-secret` 与带 `--archive` 的 `audit:ga:release-surface`，最后调用 `node scripts/publish-chrome-webstore.mjs --publish --zip <zip>` 上传到 Chrome Web Store 并提交发布请求。首次上架的商店资料、隐私问卷、权限说明仍需先在 Chrome Web Store Developer Dashboard 中完成。
+工作流先由无 Environment 的 `prepare` job 校验 exact current-main SHA、完整 jobs-level CI provenance 与冻结的 repository/organization public GA Variables，再构建并上传 immutable artifact；它输出 canonical artifact ID 和 `sha256:` digest。受保护 `publish` job 在新 runner 上重新安装锁定依赖，只按该 ID/digest 下载工件，执行 fresh main/CI reauthorization 与 state initialization，最后才让 CWS credentials 进入唯一 `chrome-publish-v1` mutation step。首次上架资料仍需在 Dashboard 完成。
+
+若 upload 或 publish 开始后出现超时、连接丢失、无效响应或 evidence 缺失，结果按 `unknown-submission-state` 处理：禁止 rerun job 或 CLI，owner 必须先在 Chrome Web Store Dashboard 核对 exact extension/version 并记录 recovery decision。只有 durable state 证明 mutation call count 为零的 pre-mutation failure，才可通过新的受审批手动 run 重试。
 
 ## 阶段 6：发布与上线后维护
 

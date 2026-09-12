@@ -1,74 +1,45 @@
-import type { MessageListener, MessageSenderInfo, MessagingService } from '../interfaces/messaging';
-import { ensureChrome, getChromeLastError, normalizePromise, suppressLastError } from './utils';
-
-function toSenderInfo(sender: chrome.runtime.MessageSender | undefined): MessageSenderInfo {
-  const result: MessageSenderInfo = {};
-
-  if (sender?.id !== undefined) {
-    result.id = sender.id;
-  }
-  if (sender?.tab?.id !== undefined) {
-    result.tabId = sender.tab.id;
-  }
-  if (sender?.tab?.windowId !== undefined) {
-    result.windowId = sender.tab.windowId;
-  }
-  if (sender?.frameId !== undefined) {
-    result.frameId = sender.frameId;
-  }
-  const url = sender?.url ?? sender?.tab?.url;
-  if (url !== undefined) {
-    result.url = url;
-  }
-  if (sender?.origin !== undefined) {
-    result.origin = sender.origin;
-  }
-
-  return result;
-}
-
-function isPromiseLike<T>(value: unknown): value is Promise<T> {
-  return Boolean(value && typeof (value as Promise<T>).then === 'function');
-}
+import type { MessageListener, MessagingService } from '../interfaces/messaging';
+import { decodeMessageResponse, invokeMessageListener } from '../shared/messageListenerInvocation';
+import { ensureChrome, getChromeLastError, suppressLastError } from './utils';
 
 export const chromeMessagingService: MessagingService = {
-  async send<TResult = unknown>(message: unknown): Promise<TResult> {
-    const chromeApi = ensureChrome();
-    return normalizePromise<TResult>((resolve, reject) => {
-      try {
-        chromeApi.runtime.sendMessage(message, (response) => {
-          const error = getChromeLastError();
-          if (error) {
-            reject(error);
-            return;
-          }
-          resolve(response as TResult);
-        });
-      } catch (error) {
-        reject(error instanceof Error ? error : new Error(String(error)));
-      }
+  send<TResult = unknown>(message: unknown): Promise<TResult> {
+    return new Promise<TResult>((resolve, reject) => {
+      const chromeApi = ensureChrome();
+      chromeApi.runtime.sendMessage(message, (response) => {
+        const error = getChromeLastError();
+        if (error) {
+          reject(error);
+          return;
+        }
+        try {
+          resolve(decodeMessageResponse<TResult>(response));
+        } catch (decodeError) {
+          reject(decodeError);
+        }
+      });
     });
   },
 
-  async sendToTab<TResult = unknown>(
+  sendToTab<TResult = unknown>(
     tabId: number,
     message: unknown,
     options?: { frameId?: number }
   ): Promise<TResult> {
-    const chromeApi = ensureChrome();
-    return normalizePromise<TResult>((resolve, reject) => {
-      try {
-        chromeApi.tabs.sendMessage(tabId, message, options ?? {}, (response) => {
-          const error = getChromeLastError();
-          if (error) {
-            reject(error);
-            return;
-          }
-          resolve(response as TResult);
-        });
-      } catch (error) {
-        reject(error instanceof Error ? error : new Error(String(error)));
-      }
+    return new Promise<TResult>((resolve, reject) => {
+      const chromeApi = ensureChrome();
+      chromeApi.tabs.sendMessage(tabId, message, options ?? {}, (response) => {
+        const error = getChromeLastError();
+        if (error) {
+          reject(error);
+          return;
+        }
+        try {
+          resolve(decodeMessageResponse<TResult>(response));
+        } catch (decodeError) {
+          reject(decodeError);
+        }
+      });
     });
   },
 
@@ -78,34 +49,28 @@ export const chromeMessagingService: MessagingService = {
       message: unknown,
       sender: chrome.runtime.MessageSender,
       sendResponse: (response?: unknown) => void
-    ) => {
-      try {
-        const result = listener(message, toSenderInfo(sender));
-        if (isPromiseLike(result)) {
-          result
-            .then((value) => {
-              sendResponse(value);
-            })
-            .catch((error: unknown) => {
-              const err = error instanceof Error ? error : new Error(String(error));
-              sendResponse({ error: err.message });
-            });
-          return true;
-        }
-        if (result !== undefined) {
-          sendResponse(result);
-        } else {
+    ): boolean => {
+      const invocation = invokeMessageListener(listener, message, sender);
+      switch (invocation.kind) {
+        case 'no-response':
           suppressLastError();
-        }
-        return false;
-      } catch (error) {
-        const err = error instanceof Error ? error : new Error(String(error));
-        sendResponse({ error: err.message });
-        return false;
+          return false;
+        case 'sync-response':
+          sendResponse(invocation.response);
+          return false;
+        case 'async-response':
+          void invocation.response.then((response) => {
+            sendResponse(response);
+          });
+          return true;
       }
     };
+
     chromeApi.runtime.onMessage.addListener(wrapped);
+    let subscribed = true;
     return () => {
+      if (!subscribed) return;
+      subscribed = false;
       chromeApi.runtime.onMessage.removeListener(wrapped);
     };
   }

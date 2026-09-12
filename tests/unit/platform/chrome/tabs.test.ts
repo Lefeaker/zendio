@@ -116,10 +116,30 @@ describe('chromeTabsService', () => {
 
   it('rejects create when chrome reports a lastError', async () => {
     const { chromeTabsService } = await import('../../../../src/platform/chrome/tabs');
-    lastErrorMock.mockReturnValueOnce({ message: 'boom' } as chrome.runtime.LastError);
+    lastErrorMock.mockReturnValueOnce({ message: 'boom' } satisfies chrome.runtime.LastError);
     await expect(chromeTabsService.create({ url: 'https://example.com' })).rejects.toMatchObject({
       message: 'boom'
     });
+  });
+
+  it('normalizes only known missing-tab and no-receiver errors', async () => {
+    const { chromeTabsService } = await import('../../../../src/platform/chrome/tabs');
+    lastErrorMock.mockReturnValueOnce({
+      message: 'No tab with id: 9.'
+    } satisfies chrome.runtime.LastError);
+    await expect(chromeTabsService.get(9)).rejects.toMatchObject({ code: 'TAB_NOT_FOUND' });
+
+    lastErrorMock.mockReturnValueOnce({
+      message: 'Could not establish connection. Receiving end does not exist.'
+    } satisfies chrome.runtime.LastError);
+    await expect(chromeTabsService.sendMessage(9, { probe: true })).rejects.toMatchObject({
+      code: 'NO_RECEIVER'
+    });
+
+    lastErrorMock.mockReturnValueOnce({
+      message: 'permission denied'
+    } satisfies chrome.runtime.LastError);
+    await expect(chromeTabsService.get(9)).rejects.toMatchObject({ message: 'permission denied' });
   });
 
   it('wraps visible-tab capture with the expected chrome overloads and unsupported fallback', async () => {

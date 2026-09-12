@@ -2,16 +2,9 @@
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const flushMicrotasks = () => new Promise((resolve) => setTimeout(resolve, 0));
+type I18nContextModule = typeof import('../../src/content/i18n/context');
 
-vi.mock('focus-trap', () => ({
-  createFocusTrap: () => ({
-    activate: vi.fn(),
-    deactivate: vi.fn(),
-    pause: vi.fn(),
-    unpause: vi.fn()
-  })
-}));
+const flushMicrotasks = () => new Promise((resolve) => setTimeout(resolve, 0));
 
 const loadExtensionStyleMock = vi.hoisted(() =>
   vi.fn<(...args: [string]) => Promise<string>>(() => Promise.resolve('.prompt{}'))
@@ -21,7 +14,9 @@ vi.mock('../../src/content/clipper/shared/styleRegistry', () => ({
 }));
 
 const ensureContentI18nMock = vi.hoisted(() => vi.fn(() => Promise.resolve()));
-const getContentI18nResourceMock = vi.hoisted(() => vi.fn(() => ({ messages: null })));
+const getContentI18nResourceMock = vi.hoisted(() =>
+  vi.fn<() => ReturnType<I18nContextModule['getContentI18nResource']>>(() => null)
+);
 const getContentMessagesMock = vi.hoisted(() =>
   vi.fn(() =>
     Promise.resolve({
@@ -54,7 +49,8 @@ const getContentMessagesMock = vi.hoisted(() =>
     })
   )
 );
-vi.mock('../../src/content/i18n/context', () => ({
+vi.mock('../../src/content/i18n/context', async (importOriginal) => ({
+  ...(await importOriginal<I18nContextModule>()),
   ensureContentI18n: ensureContentI18nMock,
   getContentI18nResource: getContentI18nResourceMock,
   getContentMessages: getContentMessagesMock

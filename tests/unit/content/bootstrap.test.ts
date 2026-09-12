@@ -169,7 +169,7 @@ describe('content/bootstrap', () => {
     mod.__setContentBootstrapLoadersForTests(null);
   });
 
-  it('bootstraps scoped services and style managers on context construction', async () => {
+  it('bootstraps scoped services without preloading any content style pack', async () => {
     const { ContentScriptContext, __setContentBootstrapLoadersForTests } =
       await import('../../../src/content/bootstrap');
     __setContentBootstrapLoadersForTests({
@@ -213,8 +213,8 @@ describe('content/bootstrap', () => {
       TOKENS.dialogRegistry,
       createPopupCoordinatorMock
     );
-    expect(clipperInitializeMock).toHaveBeenCalledTimes(1);
-    expect(panelInitializeMock).toHaveBeenCalledTimes(1);
+    expect(clipperInitializeMock).not.toHaveBeenCalled();
+    expect(panelInitializeMock).not.toHaveBeenCalled();
     expect(context.disposed).toBe(false);
 
     context.dispose();

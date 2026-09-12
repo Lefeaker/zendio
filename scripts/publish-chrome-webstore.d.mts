@@ -1,63 +1,73 @@
+import type { VerifiedChromeArtifactBinding } from './utils/releaseArtifactManifest.mjs';
+
+export const CHROME_WEBSTORE_LIMITS: Readonly<{
+  tokenMs: 30000;
+  uploadMs: 180000;
+  statusMs: 30000;
+  publishMs: 60000;
+  stateMs: 5000;
+  terminalDrainMs: 1000;
+  statusIntervalMs: 5000;
+  statusAttempts: 12;
+  statusTotalMs: 60000;
+  tokenBytes: number;
+  responseBytes: number;
+  cumulativeBytes: number;
+  stateBytes: number;
+}>;
+
+export const CHROME_DEFAULT_PUBLIC_PUBLISH_REQUEST: Readonly<{
+  blockOnWarnings: true;
+  deployInfos: readonly Readonly<{ deployPercentage: 100 }>[];
+  publishType: 'DEFAULT_PUBLISH';
+  skipReview: false;
+}>;
+
 export interface ChromeWebStoreConfig {
-  clientId: string;
-  clientSecret: string;
-  refreshToken: string;
-  itemId: string;
-  publisherId: string;
+  readonly clientId: string;
+  readonly clientSecret: string;
+  readonly refreshToken: string;
+  readonly itemId: string;
+  readonly publisherId: string;
 }
 
-export interface PublishChromeWebStorePackageOptions {
-  zipPath: string;
-  env?: Record<string, string | undefined>;
-  fetchImpl?: typeof fetch;
-  readFileImpl?: (path: string) => Promise<Buffer>;
-  logger?: Pick<Console, 'log' | 'error'>;
-}
-
-export interface ChromeWebStoreUrls {
-  upload: string;
-  publish: string;
-}
-
-export interface DryRunChromeWebStoreReleaseOptions {
-  zipPath: string;
-  env?: Record<string, string | undefined>;
-  accessImpl?: (path: string) => Promise<void>;
-  logger?: Pick<Console, 'log' | 'error'>;
-}
-
-export interface DryRunChromeWebStoreReleaseResult {
-  mode: 'dry-run';
-  itemId: string;
-  publisherId: string;
-  zipPath: string;
-  tokenUrl: string;
-  uploadUrl: string;
-  publishUrl: string;
-}
-
-export interface ChromeWebStoreReleaseOptions {
-  mode: 'dry-run' | 'publish';
-  zipPath: string;
-}
-
-export function readChromeWebStoreConfig(
-  env?: Record<string, string | undefined>
-): ChromeWebStoreConfig;
-
+export function readChromeWebStoreConfig(environment?: NodeJS.ProcessEnv): ChromeWebStoreConfig;
 export function createChromeWebStoreUrls(
-  config: Pick<ChromeWebStoreConfig, 'publisherId' | 'itemId'>
-): ChromeWebStoreUrls;
-
-export function publishChromeWebStorePackage(
-  options: PublishChromeWebStorePackageOptions
-): Promise<{ upload: unknown; publish: unknown }>;
-
-export function dryRunChromeWebStoreRelease(
-  options: DryRunChromeWebStoreReleaseOptions
-): Promise<DryRunChromeWebStoreReleaseResult>;
-
-export function resolveReleaseOptionsFromArgs(
-  argv: string[],
-  cwd?: string
-): Promise<ChromeWebStoreReleaseOptions>;
+  config: Pick<ChromeWebStoreConfig, 'itemId' | 'publisherId'>
+): Readonly<{
+  name: string;
+  upload: string;
+  status: string;
+  publish: string;
+}>;
+export function publishVerifiedChromeWebStore(
+  options: {
+    binding: VerifiedChromeArtifactBinding;
+    stateFile: string;
+    environment?: NodeJS.ProcessEnv;
+  },
+  dependencies?: {
+    fetchImpl?: (input: string | URL, init?: RequestInit) => Promise<Response>;
+    setTimeoutOperation?: typeof setTimeout;
+    clearTimeoutOperation?: typeof clearTimeout;
+  }
+): Promise<
+  Readonly<{ upload: unknown; publish: unknown; terminalResult: 'PENDING_REVIEW' | 'PUBLISHED' }>
+>;
+export function dryRunVerifiedChromeRelease(options: {
+  binding: VerifiedChromeArtifactBinding;
+  stateFile: string;
+}): Promise<
+  Readonly<{ mode: 'dry-run'; releaseSha: string; packageVersion: string; zipSha256: string }>
+>;
+export function resolveReleaseOptionsFromArgs(argv: readonly string[]): Readonly<{
+  mode: 'dry-run' | 'publish';
+  manifestPath: string;
+  stateFile: string;
+  transportMode: 'local-private-v1' | 'github-artifact-v1';
+  zipPath?: string;
+}>;
+export function runChromeWebStoreCli(
+  argv?: readonly string[],
+  environment?: NodeJS.ProcessEnv
+): Promise<unknown>;

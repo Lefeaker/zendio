@@ -1,6 +1,6 @@
 /* @vitest-environment jsdom */
 
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Mock } from 'vitest';
 import type {
   VideoPanelCallbacks,
@@ -11,6 +11,9 @@ import { createVideoSurfaceContent } from '@content/stitch/runtimeSurfaceContent
 import { renderStitchRuntimeSurface } from '@content/stitch/runtimeSurfaceRenderer';
 import { VideoDialogPanel } from '@content/video/ui/VideoDialogPanel';
 import { VIDEO_MODE_PANEL_ICON_PATH } from '@shared/assets/iconPaths';
+import { panelStyleSheetManager } from '@content/shared/panels/styleSheetManager';
+import type { StyleAttachmentHandle } from '@ui/foundation/style-host';
+import type { ExportDestinationSurfacePreview } from '@ui/stitch-runtime';
 import { testPlatformHarness } from '../../../setup/globalSetup';
 
 const callbacks: VideoPanelCallbacks = {
@@ -72,8 +75,39 @@ function createCaptures(count: number): VideoPanelCapture[] {
   );
 }
 
+function createDestination(
+  label: string,
+  options: ExportDestinationSurfacePreview['options'],
+  overrides: Partial<ExportDestinationSurfacePreview> = {}
+): ExportDestinationSurfacePreview {
+  return {
+    id: options.find((option) => option.selected)?.id ?? 'downloads',
+    kind: options.find((option) => option.selected)?.kind ?? 'downloads',
+    label,
+    path: `${label}/video.md`,
+    hasConfiguredVault: options.some((option) => option.kind === 'vault'),
+    options,
+    ...overrides
+  };
+}
+
 function flushPanelPersistence(): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, 0));
+}
+
+type StyleAttachmentHandleMock = StyleAttachmentHandle & {
+  refresh: ReturnType<typeof vi.fn<StyleAttachmentHandle['refresh']>>;
+  dispose: ReturnType<typeof vi.fn<StyleAttachmentHandle['dispose']>>;
+};
+
+function createStyleAttachmentHandle(root: ShadowRoot): StyleAttachmentHandleMock {
+  return {
+    ready: Promise.resolve({ status: 'ready' }),
+    refresh: vi.fn<StyleAttachmentHandle['refresh']>(() => Promise.resolve({ status: 'ready' })),
+    dispose: vi.fn(() => {
+      expect(root.host.isConnected).toBe(true);
+    })
+  };
 }
 
 function requireCaptureInput(panel: VideoDialogPanel, id: string): HTMLInputElement {
@@ -90,6 +124,114 @@ describe('VideoDialogPanel', () => {
   beforeEach(() => {
     document.body.innerHTML = '';
     vi.clearAllMocks();
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('reuses one style attachment across rerenders and disposes it before removal', async () => {
+    const handles: StyleAttachmentHandleMock[] = [];
+    const attach = vi
+      .spyOn(panelStyleSheetManager, 'applyVideoStyles')
+      .mockImplementation((root) => {
+        const handle = createStyleAttachmentHandle(root);
+        handles.push(handle);
+        return handle;
+      });
+    const first = new VideoDialogPanel({ callbacks, texts });
+    first.mount();
+    await flushPanelPersistence();
+    first.updateHint('Updated');
+    first.destroy();
+    first.destroy();
+    const second = new VideoDialogPanel({ callbacks, texts });
+    second.mount();
+    second.destroy();
+    second.destroy();
+
+    expect(attach).toHaveBeenCalledTimes(2);
+    const [firstHandle, secondHandle] = handles;
+    if (!firstHandle || !secondHandle) throw new Error('fresh style handles missing');
+    expect(firstHandle).not.toBe(secondHandle);
+    expect(firstHandle.refresh).not.toHaveBeenCalled();
+    expect(secondHandle.refresh).not.toHaveBeenCalled();
+    await expect(firstHandle.ready).resolves.toEqual({ status: 'ready' });
+    await expect(secondHandle.ready).resolves.toEqual({ status: 'ready' });
+    handles.forEach((handle) => expect(handle.dispose).toHaveBeenCalledTimes(1));
+    expect(first.element.isConnected).toBe(false);
+    expect(second.element.isConnected).toBe(false);
+  });
+
+  it('keeps the initial style attachment pending across early rerenders', async () => {
+    let resolveReady!: (result: { status: 'ready' }) => void;
+    const ready = new Promise<{ status: 'ready' }>((resolve) => {
+      resolveReady = resolve;
+    });
+    const handle: StyleAttachmentHandleMock = {
+      ready,
+      refresh: vi.fn(() => Promise.resolve({ status: 'ready' })),
+      dispose: vi.fn()
+    };
+    vi.spyOn(panelStyleSheetManager, 'applyVideoStyles').mockReturnValue(handle);
+    const panel = new VideoDialogPanel({ callbacks, texts });
+
+    panel.show();
+    panel.updateHint('Updated before styles resolve');
+
+    expect(handle.refresh).not.toHaveBeenCalled();
+    expect(panel.element.isConnected).toBe(true);
+    expect(panel.element.hidden).toBe(true);
+    expect(panel.element.getAttribute('aria-busy')).toBe('true');
+
+    resolveReady({ status: 'ready' });
+    await vi.waitFor(() => expect(panel.element.hidden).toBe(false));
+    expect(panel.element.hasAttribute('aria-busy')).toBe(false);
+
+    panel.updateHint('Updated after styles resolve');
+    expect(handle.refresh).not.toHaveBeenCalled();
+    panel.destroy();
+  });
+
+  it('keeps the managed fallback style node stable across incremental updates', async () => {
+    const applyStyles = panelStyleSheetManager.applyVideoStyles.bind(panelStyleSheetManager);
+    const attachments: StyleAttachmentHandle[] = [];
+    vi.spyOn(panelStyleSheetManager, 'applyVideoStyles').mockImplementation((root) => {
+      const attachment = applyStyles(root);
+      attachments.push(attachment);
+      return attachment;
+    });
+    const panel = new VideoDialogPanel({ callbacks, texts });
+    panel.mount();
+    const [attachment] = attachments;
+    if (!attachment) throw new Error('style attachment missing');
+    await expect(attachment.ready).resolves.toEqual({ status: 'ready' });
+    const shadow = panel.element.shadowRoot;
+    await vi.waitFor(() =>
+      expect(
+        shadow?.querySelector('style[data-aiob-style-bridge="panel-video-style-pack"]')
+      ).toBeTruthy()
+    );
+    const initialStyle = shadow?.querySelector<HTMLStyleElement>(
+      'style[data-aiob-style-bridge="panel-video-style-pack"]'
+    );
+
+    panel.updateHint('Rerendered');
+    await vi.waitFor(() =>
+      expect(shadow?.querySelector('style[data-aiob-style-bridge="panel-video-style-pack"]')).toBe(
+        initialStyle
+      )
+    );
+    const restoredStyle = shadow?.querySelector<HTMLStyleElement>(
+      'style[data-aiob-style-bridge="panel-video-style-pack"]'
+    );
+
+    expect(initialStyle).toBeTruthy();
+    expect(initialStyle?.isConnected).toBe(true);
+    expect(restoredStyle).toBeTruthy();
+    expect(restoredStyle).toBe(initialStyle);
+    panel.destroy();
+    expect(restoredStyle?.isConnected).toBe(false);
   });
 
   it('renders the shared video mode icon in the session panel header', () => {
@@ -147,6 +289,184 @@ describe('VideoDialogPanel', () => {
     expect(iconAfterAdd).toBe(iconBefore);
     expect(iconAfterStatusChange).toBe(iconBefore);
     expect(iconAfterDelete).toBe(iconBefore);
+
+    panel.destroy();
+  });
+
+  it('projects destination insertion and rename without replacing live video state', async () => {
+    const panel = new VideoDialogPanel({ callbacks, texts });
+    panel.show();
+    panel.updateDestination(
+      createDestination(
+        'Downloads',
+        [
+          {
+            id: 'downloads',
+            kind: 'downloads',
+            label: 'Downloads',
+            path: 'Downloads/video.md',
+            selected: true
+          }
+        ],
+        {
+          hasConfiguredVault: false,
+          setupUrl: 'chrome-extension://test/options/index.html#storage'
+        }
+      )
+    );
+    panel.setCaptures([
+      createCapture({
+        id: 'capture-1',
+        comment: 'Saved capture note',
+        commentPreview: 'Saved capture note'
+      })
+    ]);
+    panel.beginEditingCapture('capture-1', 'Live capture draft');
+    await Promise.resolve();
+
+    const shadow = panel.element.shadowRoot;
+    const mountedRow = shadow?.querySelector<HTMLElement>('.export-destination-row');
+    const mountedCapture = shadow?.querySelector<HTMLElement>('[data-capture-id="capture-1"]');
+    const mountedInput = requireCaptureInput(panel, 'capture-1');
+    if (!mountedRow || !mountedCapture) throw new Error('mounted Video state missing');
+    mountedRow.dataset.liveRuntimeMarker = 'video-row';
+    mountedInput.value = 'Live capture draft';
+    mountedInput.dispatchEvent(new Event('input', { bubbles: true }));
+    mountedInput.focus();
+
+    panel.updateDestination(
+      createDestination('Current Live Vault', [
+        {
+          id: 'live-vault',
+          kind: 'vault',
+          label: 'Current Live Vault',
+          path: 'Current Live Vault/video.md',
+          selected: true
+        },
+        {
+          id: 'downloads',
+          kind: 'downloads',
+          label: 'Downloads',
+          path: 'Downloads/video.md',
+          selected: false
+        }
+      ])
+    );
+
+    expect(shadow?.querySelector('.export-destination-row')).toBe(mountedRow);
+    expect(mountedRow.dataset.liveRuntimeMarker).toBe('video-row');
+    expect(mountedRow.querySelector('.export-destination-label')?.textContent).toBe(
+      'Current Live Vault'
+    );
+    expect(mountedRow.querySelector('.export-destination-path')?.textContent).toBe(
+      'Current Live Vault/video.md'
+    );
+    expect(
+      Array.from(mountedRow.querySelectorAll<HTMLElement>('.export-destination-option')).map(
+        (button) => ({
+          id: button.dataset.destinationId,
+          selected: button.classList.contains('is-selected')
+        })
+      )
+    ).toEqual([
+      { id: 'live-vault', selected: true },
+      { id: 'downloads', selected: false }
+    ]);
+    expect(mountedRow.querySelector('.export-destination-setup-link')).toBeNull();
+    expect(shadow?.querySelector('[data-capture-id="capture-1"]')).toBe(mountedCapture);
+    expect(requireCaptureInput(panel, 'capture-1')).toBe(mountedInput);
+    expect(mountedInput.value).toBe('Live capture draft');
+    expect(panel.snapshotCommentDrafts()).toEqual({ 'capture-1': 'Live capture draft' });
+    expect(shadow?.activeElement).toBe(mountedInput);
+    expect(
+      shadow?.querySelector('.resource-modal--session')?.classList.contains('is-collapsed')
+    ).toBe(false);
+
+    panel.updateDestination(
+      createDestination('Live Renamed Vault', [
+        {
+          id: 'live-vault',
+          kind: 'vault',
+          label: 'Live Renamed Vault',
+          path: 'Live Renamed Vault/video.md',
+          selected: true
+        },
+        {
+          id: 'downloads',
+          kind: 'downloads',
+          label: 'Downloads',
+          path: 'Downloads/video.md',
+          selected: false
+        }
+      ])
+    );
+
+    expect(shadow?.querySelector('.export-destination-row')).toBe(mountedRow);
+    expect(mountedRow.dataset.liveRuntimeMarker).toBe('video-row');
+    expect(mountedRow.querySelector('.export-destination-label')?.textContent).toBe(
+      'Live Renamed Vault'
+    );
+    expect(shadow?.querySelector('[data-capture-id="capture-1"]')).toBe(mountedCapture);
+    expect(requireCaptureInput(panel, 'capture-1')).toBe(mountedInput);
+    expect(mountedInput.value).toBe('Live capture draft');
+    expect(shadow?.activeElement).toBe(mountedInput);
+
+    const destinationDetails = mountedRow.querySelector<HTMLDetailsElement>(
+      '.export-destination-menu'
+    );
+    const destinationSummary = mountedRow.querySelector<HTMLElement>('.export-destination-summary');
+    const destinationOptions = Array.from(
+      mountedRow.querySelectorAll<HTMLElement>('.export-destination-option')
+    );
+    if (!destinationDetails || !destinationSummary) {
+      throw new Error('Video destination identity fixture missing');
+    }
+    destinationSummary.focus();
+    const expectDestinationIdentity = () => {
+      expect(shadow?.querySelector('.export-destination-row')).toBe(mountedRow);
+      expect(mountedRow.querySelector('.export-destination-menu')).toBe(destinationDetails);
+      expect(mountedRow.querySelector('.export-destination-summary')).toBe(destinationSummary);
+      expect(
+        Array.from(mountedRow.querySelectorAll<HTMLElement>('.export-destination-option'))
+      ).toEqual(destinationOptions);
+      expect(shadow?.activeElement).toBe(destinationSummary);
+    };
+
+    panel.updateHint('Force a normal Video rerender');
+    await Promise.resolve();
+    expectDestinationIdentity();
+    expect(shadow?.querySelector('.export-destination-label')?.textContent).toBe(
+      'Live Renamed Vault'
+    );
+    expect(shadow?.querySelector('.export-destination-path')?.textContent).toBe(
+      'Live Renamed Vault/video.md'
+    );
+    expect(shadow?.querySelector('[data-capture-id="capture-1"]')).toBe(mountedCapture);
+    expect(requireCaptureInput(panel, 'capture-1')).toBe(mountedInput);
+    expect(mountedInput.value).toBe('Live capture draft');
+    panel.updateCount(2);
+    expectDestinationIdentity();
+    panel.setCaptures([
+      createCapture({
+        id: 'capture-1',
+        comment: 'Saved capture note',
+        commentPreview: 'Saved capture note'
+      })
+    ]);
+    expectDestinationIdentity();
+
+    panel.collapse();
+    expect(
+      shadow?.querySelector('.resource-modal--session')?.classList.contains('is-collapsed')
+    ).toBe(true);
+    expect(shadow?.querySelector('.video-surface-window')?.classList.contains('is-collapsed')).toBe(
+      true
+    );
+    expect(shadow?.querySelector('.export-destination-label')?.textContent).toBe(
+      'Live Renamed Vault'
+    );
+    expect(shadow?.querySelector('[data-capture-id="capture-1"]')).toBe(mountedCapture);
+    expect(requireCaptureInput(panel, 'capture-1').value).toBe('Live capture draft');
 
     panel.destroy();
   });
@@ -209,6 +529,7 @@ describe('VideoDialogPanel', () => {
         texts,
         captures: [createCapture()],
         counter: '1 capture',
+        iconUrl: VIDEO_MODE_PANEL_ICON_PATH,
         actions: [
           { id: 'video:finish', label: texts.finish, variant: 'primary' },
           { id: 'video:cancel', label: texts.cancel, variant: 'ghost' }
@@ -391,6 +712,7 @@ describe('VideoDialogPanel', () => {
 
     panel = new VideoDialogPanel({ callbacks: panelCallbacks, texts });
     panel.show();
+    await flushPanelPersistence();
     panel.element.shadowRoot
       ?.querySelector<HTMLInputElement>('[data-action-id="video:add-note"]')
       ?.click();
@@ -418,6 +740,7 @@ describe('VideoDialogPanel', () => {
     };
     const panel = new VideoDialogPanel({ callbacks: lifecycleCallbacks, texts });
     panel.show();
+    await flushPanelPersistence();
     panel.setCaptures([createCapture({ id: 'capture-1', index: 1 })]);
     panel.beginEditingCapture('capture-1', '');
     await Promise.resolve();
@@ -438,9 +761,9 @@ describe('VideoDialogPanel', () => {
       throw new Error('cancel button missing');
     }
 
-    input.dispatchEvent(new FocusEvent('focus'));
-    input.dispatchEvent(new FocusEvent('blur', { relatedTarget: cancelButton }));
-    input.dispatchEvent(new FocusEvent('blur'));
+    input.dispatchEvent(new FocusEvent('focusin', { bubbles: true }));
+    input.dispatchEvent(new FocusEvent('focusout', { bubbles: true, relatedTarget: cancelButton }));
+    input.dispatchEvent(new FocusEvent('focusout', { bubbles: true }));
 
     expect(lifecycleCallbacks.onCaptureEditorFocus).toHaveBeenCalledWith('capture-1');
     expect(lifecycleCallbacks.onCaptureEditorBlur).toHaveBeenNthCalledWith(
@@ -467,6 +790,7 @@ describe('VideoDialogPanel', () => {
     };
     const panel = new VideoDialogPanel({ callbacks: lifecycleCallbacks, texts });
     panel.show();
+    await flushPanelPersistence();
     panel.setCaptures([createCapture({ id: 'capture-1', index: 1 })]);
     panel.beginEditingCapture('capture-1', '');
     await Promise.resolve();
@@ -483,14 +807,17 @@ describe('VideoDialogPanel', () => {
     expect(panel.element.shadowRoot?.activeElement).toBe(input);
 
     panel.updateHint('Saving');
-    await Promise.resolve();
+    await vi.waitFor(() =>
+      expect(panel.element.shadowRoot?.activeElement).toBe(
+        panel.element.shadowRoot?.querySelector<HTMLInputElement>(
+          '[data-capture-input="capture-1"]'
+        )
+      )
+    );
 
     expect(lifecycleCallbacks.onCaptureEditorBlur).not.toHaveBeenCalledWith(
       'capture-1',
       'outside-panel'
-    );
-    expect(panel.element.shadowRoot?.activeElement).toBe(
-      panel.element.shadowRoot?.querySelector<HTMLInputElement>('[data-capture-input="capture-1"]')
     );
 
     panel.destroy();
@@ -856,6 +1183,38 @@ describe('VideoDialogPanel', () => {
     panel.destroy();
   });
 
+  it('submits Enter from a structurally valid keyboard event with a different constructor', async () => {
+    const panel = new VideoDialogPanel({ callbacks, texts });
+    panel.show();
+    panel.setCaptures([createCapture({ id: 'capture-1', index: 1 })]);
+    panel.beginEditingCapture('capture-1', '');
+    await Promise.resolve();
+
+    const input = panel.element.shadowRoot?.querySelector<HTMLInputElement>(
+      '[data-capture-input="capture-1"]'
+    );
+    expect(input).toBeTruthy();
+    if (!input) {
+      throw new Error('capture input missing');
+    }
+    input.value = 'Cross-realm timestamp';
+    const event = new Event('keydown', { bubbles: true, cancelable: true });
+    Object.defineProperties(event, {
+      key: { value: 'Enter' },
+      isComposing: { value: false }
+    });
+
+    input.dispatchEvent(event);
+    await flushPanelPersistence();
+
+    expect(event.defaultPrevented).toBe(true);
+    expect(callbacks.onSubmitCaptureEdit).toHaveBeenCalledWith(
+      'capture-1',
+      'Cross-realm timestamp'
+    );
+    panel.destroy();
+  });
+
   it('does not submit capture edits while IME composition owns Enter', async () => {
     const hostKeydown = vi.fn();
     document.addEventListener('keydown', hostKeydown);
@@ -892,7 +1251,12 @@ describe('VideoDialogPanel', () => {
   });
 
   it('keeps cancel and capture editor focus behavior stable', async () => {
-    const panel = new VideoDialogPanel({ callbacks, texts });
+    const onCancel = vi.fn();
+    const onCaptureEditorCancel = vi.fn();
+    const panel = new VideoDialogPanel({
+      callbacks: { ...callbacks, onCancel, onCaptureEditorCancel },
+      texts
+    });
     const capture = createCapture({ comment: 'draft', commentPreview: 'draft' });
     panel.show();
     panel.setCaptures([capture]);
@@ -907,7 +1271,51 @@ describe('VideoDialogPanel', () => {
     panel.element.shadowRoot
       ?.querySelector<HTMLButtonElement>('[data-action-id="video:cancel"]')
       ?.click();
-    expect(callbacks.onCancel).toHaveBeenCalledTimes(1);
+    expect(onCaptureEditorCancel).toHaveBeenCalledWith(capture.id);
+    expect(onCancel).toHaveBeenCalledTimes(1);
+
+    panel.destroy();
+  });
+
+  it('cancels only for the true outside-dialog overlay and keeps editor cancellation ordering', async () => {
+    const onCancel = vi.fn();
+    const onCaptureEditorCancel = vi.fn();
+    const panel = new VideoDialogPanel({
+      callbacks: { ...callbacks, onCancel, onCaptureEditorCancel },
+      texts
+    });
+    panel.show();
+    panel.setCaptures([createCapture({ id: 'capture-1' })]);
+    panel.beginEditingCapture('capture-1', 'draft');
+    await Promise.resolve();
+    const shadow = panel.element.shadowRoot;
+    const insideSelectors = [
+      '.resource-modal-header',
+      '.resource-modal-body',
+      '.session-panel-rail',
+      '.session-panel-resize-handle',
+      '.session-panel-height-resize-handle',
+      '.video-surface-window'
+    ];
+
+    insideSelectors.forEach((selector) => {
+      const element = shadow?.querySelector<HTMLElement>(selector);
+      if (!element) throw new Error(`video dialog target missing: ${selector}`);
+      element.dispatchEvent(new MouseEvent('click', { bubbles: true, composed: true }));
+    });
+
+    expect(onCaptureEditorCancel).not.toHaveBeenCalled();
+    expect(onCancel).not.toHaveBeenCalled();
+
+    shadow
+      ?.querySelector<HTMLElement>('.resource-modal-overlay')
+      ?.dispatchEvent(new MouseEvent('click', { bubbles: true, composed: true }));
+
+    expect(onCaptureEditorCancel).toHaveBeenCalledWith('capture-1');
+    expect(onCancel).toHaveBeenCalledTimes(1);
+    expect(onCaptureEditorCancel.mock.invocationCallOrder[0]).toBeLessThan(
+      onCancel.mock.invocationCallOrder[0] ?? 0
+    );
 
     panel.destroy();
   });
@@ -961,6 +1369,29 @@ describe('VideoDialogPanel', () => {
       true
     );
 
+    panel.destroy();
+  });
+
+  it('renders a constructor-provided destination on the first shown surface', () => {
+    const initialDestination = createDestination('Downloads', [
+      {
+        id: 'downloads',
+        kind: 'downloads',
+        label: 'Downloads',
+        path: 'Downloads/video.md',
+        selected: true
+      }
+    ]);
+    const panel = new VideoDialogPanel({ callbacks, texts, initialDestination });
+
+    panel.show();
+
+    expect(panel.element.shadowRoot?.querySelector('.export-destination-label')?.textContent).toBe(
+      'Downloads'
+    );
+    expect(panel.element.shadowRoot?.querySelector('.export-destination-path')?.textContent).toBe(
+      'Downloads/video.md'
+    );
     panel.destroy();
   });
 
@@ -1065,6 +1496,65 @@ describe('VideoDialogPanel', () => {
       shadow?.querySelector('[data-capture-id="frag-1"] .session-item-marker-time')
     ).toBeNull();
 
+    panel.destroy();
+  });
+
+  it('retains expanded fragment preview state across unrelated incremental updates', () => {
+    const panel = new VideoDialogPanel({ callbacks, texts });
+    const timestamp = createCapture({ id: 'ts-1', kind: 'timestamp', timeLabel: '00:42' });
+    const fragment = createCapture({
+      id: 'frag-1',
+      index: 1,
+      kind: 'fragment',
+      fragmentLabel: 'Captured page text',
+      selectionPreview: 'Captured page text'
+    });
+    panel.setCaptures([timestamp, fragment]);
+    const shadow = panel.element.shadowRoot;
+    const item = shadow?.querySelector<HTMLElement>('[data-capture-id="frag-1"]');
+    const preview = item?.querySelector<HTMLElement>('.session-item-primary-line');
+    preview?.click();
+
+    panel.updateHint('Saving');
+    panel.updateCount(3);
+    panel.setCaptures([
+      { ...timestamp, screenshotState: 'on' },
+      { ...fragment, selectionPreview: 'Updated captured page text' }
+    ]);
+
+    expect(shadow?.querySelector('[data-capture-id="frag-1"]')).toBe(item);
+    expect(item?.querySelector('.session-item-primary-line')).toBe(preview);
+    expect(preview?.textContent).toBe('Updated captured page text');
+    expect(preview?.classList.contains('is-expanded')).toBe(true);
+    expect(preview?.getAttribute('role')).toBe('button');
+    expect(preview?.getAttribute('tabindex')).toBe('0');
+    expect(preview?.getAttribute('aria-expanded')).toBe('true');
+
+    panel.destroy();
+  });
+
+  it('keeps the video shell, input and keyed items stable across 100 status updates', () => {
+    const panel = new VideoDialogPanel({ callbacks, texts });
+    const captures = createCaptures(20);
+    panel.setCaptures(captures);
+    const shadow = panel.element.shadowRoot;
+    const shell = shadow?.querySelector('.video-surface-window');
+    const list = shadow?.querySelector('.session-item-list');
+    const first = shadow?.querySelector('[data-capture-id="capture-1"]');
+    const input = shadow?.querySelector('[data-capture-input="capture-20"]');
+    const status = shadow?.querySelector('[data-session-status]');
+
+    for (let index = 0; index < 100; index += 1) panel.updateHint(`Status ${index}`);
+    panel.setCaptures(
+      captures.map((item) => (item.id === 'capture-1' ? { ...item, screenshotState: 'on' } : item))
+    );
+
+    expect(shadow?.querySelector('.video-surface-window')).toBe(shell);
+    expect(shadow?.querySelector('.session-item-list')).toBe(list);
+    expect(shadow?.querySelector('[data-capture-id="capture-1"]')).toBe(first);
+    expect(shadow?.querySelector('[data-capture-input="capture-20"]')).toBe(input);
+    expect(shadow?.querySelector('[data-session-status]')).toBe(status);
+    expect(status?.getAttribute('aria-live')).toBe('polite');
     panel.destroy();
   });
 });

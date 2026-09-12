@@ -62,7 +62,7 @@ export function createInitialStitchState(appData: PreviewContent): PreviewStoreS
     fragmentContextLength: 200,
     fragmentContextMode: 'chars',
     fragmentKeyboardShortcutsEnabled: true,
-    fragmentModifierEnabled: true,
+    fragmentSelectionTriggerMode: 'modifier',
     modifierKeys: ['shift'],
     activeLocalFolderVaultIndex: null,
     yamlFieldStates: createYamlFieldStates(appData),
@@ -167,16 +167,9 @@ export function applyOptionsToState(
     highlightTheme: options.readingSession.highlightTheme,
     readingExportMode: options.readingSession.exportMode,
     aiUserName: options.aiChat.userName,
-    privacyAnalytics: Boolean(
-      (options as { privacyPreferences?: { analytics?: boolean } }).privacyPreferences?.analytics
-    ),
-    privacyErrorReporting: Boolean(
-      (options as { privacyPreferences?: { errorReporting?: boolean } }).privacyPreferences
-        ?.errorReporting
-    ),
-    privacyDebugMode: Boolean(
-      (options as { privacyPreferences?: { debugMode?: boolean } }).privacyPreferences?.debugMode
-    ),
+    privacyAnalytics: options.privacyPreferences.analytics,
+    privacyErrorReporting: options.privacyPreferences.errorReporting,
+    privacyDebugMode: options.privacyPreferences.debugMode,
     classifierEnabled: options.classifier.enabled,
     classifierProvider: options.classifier.provider,
     classifierEndpoint: options.classifier.endpoint,
@@ -194,7 +187,7 @@ export function applyOptionsToState(
     fragmentContextLength: options.fragmentClipper.contextLength,
     fragmentContextMode: options.fragmentClipper.contextMode,
     fragmentKeyboardShortcutsEnabled: options.fragmentClipper.keyboardShortcutsEnabled,
-    fragmentModifierEnabled: options.fragmentClipper.selectionModifierEnabled,
+    fragmentSelectionTriggerMode: options.fragmentClipper.selectionTriggerMode,
     modifierKeys: modifierKeysFromOptions(options.fragmentClipper.selectionModifierKeys),
     routingRules: toRoutingRules(options),
     templateValues: toTemplateValues(options),

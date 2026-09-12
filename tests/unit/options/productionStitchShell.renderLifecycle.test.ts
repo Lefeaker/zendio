@@ -2,7 +2,7 @@
 
 import { DEFAULT_RUNTIME_MESSAGES } from '@i18n';
 import * as productionStitchShellContextModule from '@options/app/productionStitchShellContext';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   asOptionsController,
   createController,
@@ -18,17 +18,40 @@ import {
   setupProductionStitchShellTest
 } from './productionStitchShell.helpers';
 import { createProductionStitchRenderLifecycle } from '@options/app/productionStitchRenderLifecycle';
+import { createOptionsController, type OptionsController } from '@options/app/optionsController';
+import { bindProductionStitchAuthoritativeRebase } from '@options/app/productionStitchAuthoritativeRebase';
+import { createProductionStitchInvalidationBridge } from '@options/app/productionStitchShellRenderDelegates';
+import * as sectionInvalidationModule from '@ui/stitch-runtime/render/sectionInvalidation';
+import type { SectionInvalidationScope } from '@ui/stitch-runtime/render/sectionInvalidation';
 import { mountProductionStitchShell } from '@options/app/productionStitchShell';
 import { previewContent } from '@options/stitch/content';
 import { getFooterMeta, getFooterView, getSettingsView } from '@options/stitch/schema/registry';
+import { YamlConfigEditorWidgetAdapter } from '@options/yaml-config-editor/widgetAdapter';
 import { mergeOptions } from '@shared/config/optionsMerger';
 import type { StoredOptions } from '@shared/types';
+import type { OptionsPatch } from '@shared/types/optionsMutationMessages';
 
 function withLegacyRootDir<TRest extends NonNullable<StoredOptions['rest']>>(
   rest: TRest,
   rootDir: string
 ): TRest & { rootDir: string } {
   return Object.assign(rest, { rootDir });
+}
+
+function observeSectionOwnerCreation(): Promise<void> {
+  let created: () => void = () => undefined;
+  const ready = new Promise<void>((resolve) => {
+    created = resolve;
+  });
+  const create = sectionInvalidationModule.createSectionInvalidationOwner;
+  const spy = vi.spyOn(sectionInvalidationModule, 'createSectionInvalidationOwner');
+  spy.mockImplementationOnce((options) => {
+    spy.mockRestore();
+    const owner = create(options);
+    created();
+    return owner;
+  });
+  return ready;
 }
 
 describe('mountProductionStitchShell renderLifecycle', () => {
@@ -63,8 +86,106 @@ describe('mountProductionStitchShell renderLifecycle', () => {
     expect(document.querySelector('[data-footer-panel="clipper"]')).toBeNull();
     expect(typeof mounted.cleanup).toBe('function');
     expect(typeof mounted.collectDraft).toBe('function');
+    expect(typeof mounted.rebaseOptions).toBe('function');
     expect(typeof mounted.refreshOptions).toBe('function');
     expect(typeof mounted.setMessages).toBe('function');
+  });
+
+  it('reuses the sole sidebar as an accessible mobile drawer across routes and rerenders', async () => {
+    const mobileListeners = new Set<() => void>();
+    const mobileMedia = {
+      matches: true,
+      addEventListener: vi.fn((_type: string, listener: () => void) =>
+        mobileListeners.add(listener)
+      ),
+      removeEventListener: vi.fn((_type: string, listener: () => void) =>
+        mobileListeners.delete(listener)
+      )
+    };
+    const themeMedia = {
+      matches: false,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn()
+    };
+    vi.mocked(window.matchMedia).mockImplementation((query) =>
+      query === '(max-width: 760px)' ? (mobileMedia as never) : (themeMedia as never)
+    );
+    const mounted = mountProductionStitchShell({
+      controller: asOptionsController(createController()),
+      initialOptions: null,
+      messages: null,
+      language: 'en'
+    });
+
+    expect(document.querySelectorAll('.sidebar')).toHaveLength(1);
+    await vi.waitFor(() =>
+      expect(document.querySelector('[data-mobile-navigation-trigger]')).not.toBeNull()
+    );
+    const trigger = queryRequired<HTMLButtonElement>('[data-mobile-navigation-trigger]');
+    const sidebar = queryRequired<HTMLElement>('#options-settings-navigation');
+    expect(trigger.getAttribute('aria-expanded')).toBe('false');
+    expect(sidebar.hasAttribute('inert')).toBe(true);
+
+    trigger.click();
+    expect(trigger.getAttribute('aria-expanded')).toBe('true');
+    expect(document.activeElement).toBe(
+      queryRequired<HTMLButtonElement>('[data-nav-panel="overview"]')
+    );
+    const close = queryRequired<HTMLButtonElement>('[data-mobile-navigation-close]');
+    close.focus();
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Tab', shiftKey: true }));
+    expect(document.activeElement).toBe(
+      Array.from(sidebar.querySelectorAll<HTMLElement>('button')).at(-1)
+    );
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+    expect(document.activeElement).toBe(trigger);
+    trigger.click();
+    queryRequired<HTMLButtonElement>('[data-mobile-navigation-backdrop]').click();
+    expect(document.activeElement).toBe(trigger);
+
+    trigger.click();
+    queryRequired<HTMLButtonElement>('[data-nav-panel="storage"]').click();
+    expect(document.activeElement).toBe(queryRequired<HTMLElement>('[data-panel-id="storage"] h1'));
+    expect(trigger.getAttribute('aria-expanded')).toBe('false');
+
+    trigger.click();
+    queryRequired<HTMLButtonElement>('[data-footer-panel="support"]').click();
+    const dialog = queryRequired<HTMLElement>('.resource-modal-overlay [role="dialog"]');
+    expect(document.activeElement).toBe(dialog);
+    queryRequired<HTMLElement>('.resource-modal-overlay').click();
+    expect(document.activeElement).toBe(trigger);
+
+    mounted.setMessages(
+      {
+        ...DEFAULT_RUNTIME_MESSAGES,
+        settingsTitle: '设置',
+        contactModalCloseButton: '关闭'
+      },
+      'zh-CN'
+    );
+    expect(document.querySelectorAll('.sidebar')).toHaveLength(1);
+    await vi.waitFor(() =>
+      expect(queryRequired<HTMLButtonElement>('[data-mobile-navigation-trigger]').textContent).toBe(
+        '设置'
+      )
+    );
+
+    const localizedTrigger = queryRequired<HTMLButtonElement>('[data-mobile-navigation-trigger]');
+    localizedTrigger.click();
+    const localizedActive = queryRequired<HTMLButtonElement>('[data-nav-panel="storage"]');
+    expect(document.activeElement).toBe(localizedActive);
+    mobileMedia.matches = false;
+    mobileListeners.forEach((listener) => listener());
+    expect(queryRequired<HTMLElement>('.sidebar').hasAttribute('inert')).toBe(false);
+    expect(document.activeElement).toBe(localizedActive);
+    expect(document.body.style.overflow).toBe('');
+    mobileMedia.matches = true;
+    mobileListeners.forEach((listener) => listener());
+    expect(document.activeElement).toBe(localizedTrigger);
+
+    mounted.cleanup();
+    expect(mobileMedia.removeEventListener).toHaveBeenCalled();
+    await flushPromises();
   });
 
   it('resolves production shell image assets through the injected resolver', () => {
@@ -104,7 +225,245 @@ describe('mountProductionStitchShell renderLifecycle', () => {
     expect(mounted.collectDraft().aiChat.userName).toBe('Alice');
   });
 
-  it('setMessages recreates schema context with the new language while keeping the version subtitle', () => {
+  it('rebases an authoritative output field without replacing shell owners or losing selection', async () => {
+    const ownerReady = observeSectionOwnerCreation();
+    const mounted = mountProductionStitchShell({
+      controller: asOptionsController(createController()),
+      initialOptions: { templates: { article: 'Alice' } },
+      messages: null,
+      language: 'en'
+    });
+    await ownerReady;
+    await flushPromises();
+
+    const root = queryRequired<HTMLElement>('#optionsShellRoot');
+    const main = queryRequired<HTMLElement>('.main');
+    const sidebar = queryRequired<HTMLElement>('.sidebar');
+    const storage = queryRequired<HTMLElement>('[data-panel-id="storage"]');
+    const input = findInputByValue('Alice');
+    input.focus();
+    input.setSelectionRange(1, 4, 'forward');
+    main.scrollTop = 377;
+
+    const next = mounted.collectDraft();
+    next.templates.article = 'Bobbie';
+    mounted.rebaseOptions(next, {
+      changedPaths: [['templates', 'article']],
+      dirtyPathKeys: []
+    });
+    await flushPromises();
+
+    const rebasedInput = findInputByValue('Bobbie');
+    expect(queryRequired<HTMLElement>('#optionsShellRoot')).toBe(root);
+    expect(queryRequired<HTMLElement>('.main')).toBe(main);
+    expect(queryRequired<HTMLElement>('.sidebar')).toBe(sidebar);
+    expect(queryRequired<HTMLElement>('[data-panel-id="storage"]')).toBe(storage);
+    expect(document.activeElement).toBe(rebasedInput);
+    expect(rebasedInput.selectionStart).toBe(1);
+    expect(rebasedInput.selectionEnd).toBe(4);
+    expect(rebasedInput.selectionDirection).toBe('forward');
+    expect(main.scrollTop).toBe(377);
+  });
+
+  it('preserves invalid UI-local YAML without creating a persistence intent', async () => {
+    const initial = mergeOptions({
+      templates: { article: 'local-template' },
+      yamlConfig: {
+        contentTypes: {
+          article: {
+            customFields: [{ name: 'score', type: 'number', enabled: true, defaultValue: 42 }]
+          }
+        }
+      }
+    });
+    const listeners: Array<(options: StoredOptions) => void> = [];
+    const save = vi.fn((_patches: readonly OptionsPatch[]) => Promise.resolve(initial));
+    const controller = createOptionsController({
+      persistence: {
+        load: () => Promise.resolve(initial),
+        save,
+        getCached: () => initial,
+        subscribe: (listener) => {
+          listeners.push(listener);
+          return () => undefined;
+        }
+      },
+      formAdapter: { read: (snapshot) => mergeOptions(snapshot), apply: () => Promise.resolve() }
+    });
+    await controller.loadInitialState();
+    const mounted = mountProductionStitchShell({
+      controller,
+      initialOptions: initial,
+      messages: null,
+      language: 'en'
+    });
+    const unbind = bindProductionStitchAuthoritativeRebase(controller, mounted);
+    await flushPromises();
+
+    const widget = queryRequired<HTMLElement>('[data-stitch-widget="yaml-config"]');
+    const row = requireElement(findYamlRowByField('score'), 'score YAML row');
+    const invalidInput = queryRequired<HTMLInputElement>(
+      'input[data-yaml-field="defaultValue"]',
+      row
+    );
+    invalidInput.value = 'not-a-number';
+    invalidInput.dispatchEvent(new Event('input', { bubbles: true }));
+
+    const remote = structuredClone(initial);
+    remote.templates.article = 'remote-template';
+    listeners.forEach((listener) => listener(remote));
+
+    expect(queryRequired<HTMLElement>('[data-stitch-widget="yaml-config"]')).toBe(widget);
+    expect(invalidInput.value).toBe('not-a-number');
+    expect(findInputByValue('local-template')).toBeTruthy();
+    expect(save).not.toHaveBeenCalled();
+
+    unbind();
+    mounted.cleanup();
+    await controller.dispose();
+  });
+
+  it('releases a deferred remote output scope after valid YAML acknowledgement', async () => {
+    const initial = mergeOptions({
+      templates: { article: 'local-template' },
+      yamlConfig: {
+        contentTypes: {
+          article: {
+            customFields: [{ name: 'score', type: 'number', enabled: true, defaultValue: 42 }]
+          }
+        }
+      }
+    });
+    let repositorySnapshot = structuredClone(initial);
+    const listeners: Array<(options: StoredOptions) => void> = [];
+    let releaseSave: (() => void) | undefined;
+    const save = vi.fn(
+      (_patches: readonly OptionsPatch[]) =>
+        new Promise<StoredOptions>((resolve) => {
+          releaseSave = () => {
+            const acknowledged = structuredClone(repositorySnapshot);
+            acknowledged.yamlConfig = mounted.collectDraft().yamlConfig;
+            resolve(acknowledged);
+          };
+        })
+    );
+    const controller = createOptionsController({
+      persistence: {
+        load: () => Promise.resolve(initial),
+        save,
+        getCached: () => repositorySnapshot,
+        subscribe: (listener) => {
+          listeners.push(listener);
+          return () => undefined;
+        }
+      },
+      formAdapter: { read: (snapshot) => mergeOptions(snapshot), apply: () => Promise.resolve() }
+    });
+    await controller.loadInitialState();
+    const mounted = mountProductionStitchShell({
+      controller,
+      initialOptions: initial,
+      messages: null,
+      language: 'en'
+    });
+    const unbind = bindProductionStitchAuthoritativeRebase(controller, mounted);
+    await flushPromises();
+
+    const widget = queryRequired<HTMLElement>('[data-stitch-widget="yaml-config"]');
+    const row = requireElement(findYamlRowByField('score'), 'score YAML row');
+    const input = queryRequired<HTMLInputElement>('input[data-yaml-field="defaultValue"]', row);
+    input.value = '43';
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    const flush = controller.flushPendingAutoSave();
+
+    const remote = structuredClone(initial);
+    remote.templates.article = 'remote-template';
+    repositorySnapshot = remote;
+    listeners.forEach((listener) => listener(remote));
+    expect(queryRequired<HTMLElement>('[data-stitch-widget="yaml-config"]')).toBe(widget);
+    expect(findInputByValue('local-template')).toBeTruthy();
+
+    releaseSave?.();
+    await flush;
+    await flushPromises();
+
+    expect(findInputByValue('remote-template')).toBeTruthy();
+    expect(save).toHaveBeenCalledTimes(1);
+    const savedPaths = save.mock.calls[0]?.[0].map((patch) => patch.path);
+    expect(savedPaths).toContainEqual(['yamlConfig']);
+    expect(savedPaths).not.toContainEqual(['templates', 'article']);
+    expect(
+      mounted.collectDraft().yamlConfig?.contentTypes?.article?.customFields?.[0]?.defaultValue
+    ).toBe(43);
+
+    unbind();
+    mounted.cleanup();
+    await controller.dispose();
+  });
+
+  it('rebases a same-panel remote field around a focused ordinary dirty control', async () => {
+    const initial = mergeOptions({
+      templates: { article: 'article-old', video: 'video-old' }
+    });
+    const listeners: Array<(options: StoredOptions) => void> = [];
+    const controller = createOptionsController({
+      persistence: {
+        load: () => Promise.resolve(initial),
+        save: () => Promise.resolve(initial),
+        getCached: () => initial,
+        subscribe: (listener) => {
+          listeners.push(listener);
+          return () => undefined;
+        }
+      },
+      formAdapter: { read: (snapshot) => mergeOptions(snapshot), apply: () => Promise.resolve() }
+    });
+    await controller.loadInitialState();
+    const mounted = mountProductionStitchShell({
+      controller,
+      initialOptions: initial,
+      messages: null,
+      language: 'en'
+    });
+    const unbind = bindProductionStitchAuthoritativeRebase(controller, mounted);
+    await flushPromises();
+
+    const root = queryRequired<HTMLElement>('#optionsShellRoot');
+    const main = queryRequired<HTMLElement>('.main');
+    const storage = queryRequired<HTMLElement>('[data-panel-id="storage"]');
+    const articleInput = findInputByValue('article-old');
+    articleInput.value = 'article-local-edit';
+    articleInput.dispatchEvent(new Event('input', { bubbles: true }));
+    articleInput.focus();
+    articleInput.setSelectionRange(2, 9, 'backward');
+    main.scrollTop = 463;
+    const windowScroll = { x: window.scrollX, y: window.scrollY };
+
+    const remote = structuredClone(initial);
+    remote.templates.video = 'video-remote';
+    listeners.forEach((listener) => listener(remote));
+    await flushPromises();
+
+    const rebasedArticle = findInputByValue('article-local-edit');
+    expect(queryRequired<HTMLElement>('#optionsShellRoot')).toBe(root);
+    expect(queryRequired<HTMLElement>('.main')).toBe(main);
+    expect(queryRequired<HTMLElement>('[data-panel-id="storage"]')).toBe(storage);
+    expect(findInputByValue('video-remote')).toBeTruthy();
+    expect(document.activeElement).toBe(rebasedArticle);
+    expect(rebasedArticle.selectionStart).toBe(2);
+    expect(rebasedArticle.selectionEnd).toBe(9);
+    expect(rebasedArticle.selectionDirection).toBe('backward');
+    expect(main.scrollTop).toBe(463);
+    expect({ x: window.scrollX, y: window.scrollY }).toEqual(windowScroll);
+
+    controller.cancelAutoSave();
+    unbind();
+    mounted.cleanup();
+    await controller.dispose();
+  });
+
+  it('setMessages recreates schema context with the new language while keeping the version subtitle', async () => {
+    const ownerReady = observeSectionOwnerCreation();
     const controller = createController();
     const schemaContextSpy = vi.spyOn(
       productionStitchShellContextModule,
@@ -116,6 +475,7 @@ describe('mountProductionStitchShell renderLifecycle', () => {
       messages: null,
       language: 'zh-CN'
     });
+    await ownerReady;
 
     expect(
       document.querySelector<HTMLAnchorElement>('.brand-title-link')?.getAttribute('href')
@@ -225,6 +585,37 @@ describe('mountProductionStitchShell renderLifecycle', () => {
 
     expect(vi.mocked(controller.scheduleAutoSave)).toHaveBeenCalledTimes(1);
     expect(mounted.collectDraft().rest.vault).toBe('Alice Vault');
+  });
+
+  it('captures each real persisted switch interaction through the controller boundary', () => {
+    const controller = createController();
+    const scheduleAutoSave = vi.fn<OptionsController['scheduleAutoSave']>();
+    controller.scheduleAutoSave = scheduleAutoSave;
+    const mounted = mountProductionStitchShell({
+      controller: asOptionsController(controller),
+      initialOptions: { fragmentClipper: { captureContext: false } },
+      messages: null,
+      language: 'en'
+    });
+    const captureRow = Array.from(document.querySelectorAll<HTMLElement>('.row')).find((row) =>
+      row.textContent?.includes('Capture Context')
+    );
+    const captureSwitch = requireElement(
+      captureRow?.querySelector<HTMLInputElement>('input[type="checkbox"]'),
+      'capture context switch'
+    );
+
+    captureSwitch.checked = true;
+    captureSwitch.dispatchEvent(new Event('change', { bubbles: true }));
+    const firstCollector = scheduleAutoSave.mock.calls[0]?.[0];
+    expect(firstCollector?.()?.fragmentClipper?.captureContext).toBe(true);
+
+    captureSwitch.checked = false;
+    captureSwitch.dispatchEvent(new Event('change', { bubbles: true }));
+    const secondCollector = scheduleAutoSave.mock.calls[1]?.[0];
+    expect(secondCollector?.()?.fragmentClipper?.captureContext).toBe(false);
+    expect(scheduleAutoSave).toHaveBeenCalledTimes(2);
+    expect(mounted.collectDraft().fragmentClipper.captureContext).toBe(false);
   });
 
   it('prevents mouse button presses from moving the production Options scroller', async () => {
@@ -475,6 +866,60 @@ describe('mountProductionStitchShell renderLifecycle', () => {
     }
   });
 
+  it('selects the final section only at a real scrollable bottom boundary', () => {
+    const restoreScrollDescriptor = installSmoothMainScrollSimulation();
+    const controller = createController();
+    try {
+      mountProductionStitchShell({
+        controller: asOptionsController(controller),
+        initialOptions: null,
+        messages: null,
+        language: 'en'
+      });
+
+      const main = queryRequired<HTMLElement>('.main');
+      const sections = Array.from(
+        document.querySelectorAll<HTMLElement>('[data-scroll-section="true"]')
+      );
+      [0, 1400, 2800, 4200, 5700, 6095].forEach((offsetTop, index) => {
+        Object.defineProperty(sections[index], 'offsetTop', {
+          configurable: true,
+          value: offsetTop
+        });
+      });
+      const currentPanel = (): string | undefined => {
+        const current = document.querySelectorAll<HTMLElement>(
+          '[data-nav-panel][aria-current="page"]'
+        );
+        expect(current).toHaveLength(1);
+        return current[0]?.dataset.navPanel;
+      };
+      const scroll = (scrollHeight: number, clientHeight: number, scrollTop: number): void => {
+        Object.defineProperties(main, {
+          scrollHeight: { configurable: true, value: scrollHeight },
+          clientHeight: { configurable: true, value: clientHeight }
+        });
+        main.style.scrollBehavior = 'auto';
+        main.scrollTop = scrollTop;
+        main.style.removeProperty('scroll-behavior');
+        main.dispatchEvent(new Event('scroll'));
+      };
+
+      scroll(1000, 1000, 0);
+      expect(currentPanel()).toBe('overview');
+      scroll(0, 0, 0);
+      expect(currentPanel()).toBe('overview');
+      scroll(6828, 1000, 4200);
+      expect(currentPanel()).toBe('capture-behavior');
+      scroll(6828, 1000, 5827.5);
+      expect(currentPanel()).toBe('maintenance');
+      scroll(6828, 1000, 4200);
+      expect(currentPanel()).toBe('capture-behavior');
+    } finally {
+      restoreScrollDescriptor();
+    }
+  });
+
   it('does not render the future experimental panel in the release options shell', () => {
     const controller = createController();
     const mounted = mountProductionStitchShell({
@@ -520,8 +965,10 @@ describe('mountProductionStitchShell renderLifecycle', () => {
     expect(document.querySelector('[data-role="yaml-config-view"]')).toBeFalsy();
   });
 
-  it('flushes dirty widget edits before actions that rerender the shell', async () => {
+  it('flushes dirty YAML only for output replacement, not unrelated theme or storage actions', async () => {
     const controller = createController();
+    const collectSpy = vi.spyOn(YamlConfigEditorWidgetAdapter.prototype, 'collect');
+    const destroySpy = vi.spyOn(YamlConfigEditorWidgetAdapter.prototype, 'destroy');
     const mounted = mountProductionStitchShell({
       controller: asOptionsController(controller),
       initialOptions: {
@@ -539,6 +986,8 @@ describe('mountProductionStitchShell renderLifecycle', () => {
     } as never);
 
     await flushPromises();
+    collectSpy.mockClear();
+    destroySpy.mockClear();
 
     const authorRow = requireElement(findYamlRowByField('author'), 'author YAML row');
     const authorArticleToggle = queryRequired<HTMLInputElement>(
@@ -547,13 +996,26 @@ describe('mountProductionStitchShell renderLifecycle', () => {
     );
     authorArticleToggle.checked = true;
     authorArticleToggle.dispatchEvent(new Event('change', { bubbles: true }));
+    const yamlWidget = queryRequired<HTMLElement>('.stitch-yaml-config-widget');
 
+    findButton('Dark').click();
     findButton('Test Connection').click();
     await flushPromises();
 
+    expect(document.querySelector('.stitch-yaml-config-widget')).toBe(yamlWidget);
+    expect(collectSpy).not.toHaveBeenCalled();
+    expect(destroySpy).not.toHaveBeenCalled();
+
+    queryRequired<HTMLButtonElement>('[data-action-id="domain:add"]').click();
+
+    expect(document.querySelector('.stitch-yaml-config-widget')).not.toBe(yamlWidget);
+    expect(collectSpy).toHaveBeenCalledTimes(1);
+    expect(destroySpy).toHaveBeenCalledTimes(1);
     expect(mounted.collectDraft().yamlConfig?.contentTypes?.article?.fields?.[0]).toEqual(
       expect.objectContaining({ name: 'author', enabled: true })
     );
+    collectSpy.mockRestore();
+    destroySpy.mockRestore();
   });
 
   it('does not render fake interactive YAML summary buttons outside the structured YAML widget', () => {
@@ -570,7 +1032,7 @@ describe('mountProductionStitchShell renderLifecycle', () => {
     });
 
     const summaryButtons = Array.from(
-      document.querySelectorAll<HTMLButtonElement>('button')
+      document.querySelectorAll<HTMLButtonElement>('[data-panel-id="output"] button')
     ).filter((button) => ['On', 'Off'].includes(button.textContent?.trim() ?? ''));
     expect(summaryButtons).toEqual([]);
 
@@ -641,7 +1103,8 @@ describe('mountProductionStitchShell renderLifecycle', () => {
     expect(draft.video.promptPosition).toEqual({ x: 99, y: 77 });
   });
 
-  it('updates fragment modifier selection without remounting the options shell', () => {
+  it('updates all selection trigger modes while keeping modifier-key edits incremental', async () => {
+    const ownerReady = observeSectionOwnerCreation();
     const controller = createController();
     Object.defineProperty(navigator, 'platform', {
       configurable: true,
@@ -651,13 +1114,14 @@ describe('mountProductionStitchShell renderLifecycle', () => {
       controller: asOptionsController(controller),
       initialOptions: {
         fragmentClipper: {
-          selectionModifierEnabled: true,
+          selectionTriggerMode: 'modifier',
           selectionModifierKeys: ['alt']
         }
       },
       messages: null,
       language: 'en'
     });
+    await ownerReady;
 
     const main = queryRequired<HTMLElement>('.main');
     const altChip = queryRequired<HTMLButtonElement>(
@@ -675,9 +1139,32 @@ describe('mountProductionStitchShell renderLifecycle', () => {
     expect(document.querySelector('.main')).toBe(main);
     expect(altChip.getAttribute('aria-pressed')).toBe('false');
     expect(shiftChip.getAttribute('aria-pressed')).toBe('true');
-    expect(mounted.collectDraft().fragmentClipper.selectionModifierEnabled).toBe(true);
+    expect(mounted.collectDraft().fragmentClipper.selectionTriggerMode).toBe('modifier');
     expect(mounted.collectDraft().fragmentClipper.selectionModifierKeys).toEqual(['shift']);
     expect(document.body.textContent).not.toContain('快捷键冲突');
+
+    const triggerBefore = queryRequired<HTMLElement>('.selection-trigger-inline > .chips');
+    const keysBefore = queryRequired<HTMLElement>('.modifier-key-choices');
+    queryRequired<HTMLButtonElement>(
+      '.selection-trigger-inline .chip[data-value="direct"]'
+    ).click();
+    expect(document.querySelector('.selection-trigger-inline > .chips')).toBe(triggerBefore);
+    expect(keysBefore.isConnected).toBe(true);
+
+    expect(mounted.collectDraft().fragmentClipper.selectionTriggerMode).toBe('direct');
+    expect(keysBefore.style.display).toBe('none');
+    expect(
+      document
+        .querySelector('.selection-trigger-inline [data-value="direct"]')
+        ?.getAttribute('aria-pressed')
+    ).toBe('true');
+
+    queryRequired<HTMLButtonElement>(
+      '.selection-trigger-inline .chip[data-value="disabled"]'
+    ).click();
+
+    expect(mounted.collectDraft().fragmentClipper.selectionTriggerMode).toBe('disabled');
+    expect(mounted.collectDraft().fragmentClipper.selectionModifierKeys).toEqual(['shift']);
   });
 
   it('renders the fragment keyboard shortcut hint for the current desktop platform only', () => {
@@ -738,6 +1225,44 @@ describe('mountProductionStitchShell renderLifecycle', () => {
     expect(document.querySelector('[data-stitch-widget="yaml-config"]')).toBe(widgetHost);
   });
 
+  it('keeps a locally dirty YAML widget and its scroll state during an output rebase', () => {
+    const mounted = mountProductionStitchShell({
+      controller: asOptionsController(createController()),
+      initialOptions: {
+        yamlConfig: {
+          contentTypes: {
+            article: {
+              customFields: [{ name: 'score', type: 'number', enabled: true, defaultValue: 42 }]
+            }
+          }
+        }
+      },
+      messages: null,
+      language: 'en'
+    });
+    const widget = queryRequired<HTMLElement>('[data-stitch-widget="yaml-config"]');
+    const table = queryRequired<HTMLElement>('.stitch-yaml-config-table', widget);
+    const row = requireElement(findYamlRowByField('score'), 'score YAML row');
+    const input = queryRequired<HTMLInputElement>('input[data-yaml-field="defaultValue"]', row);
+    input.value = '43';
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    table.scrollTop = 91;
+
+    const rebased = mounted.collectDraft();
+    rebased.templates.article = 'remote-template';
+    mounted.rebaseOptions(rebased, {
+      changedPaths: [['templates', 'article']],
+      dirtyPathKeys: ['yamlConfig']
+    });
+
+    expect(queryRequired<HTMLElement>('[data-stitch-widget="yaml-config"]')).toBe(widget);
+    expect(queryRequired<HTMLElement>('.stitch-yaml-config-table', widget).scrollTop).toBe(91);
+    expect(
+      queryRequired<HTMLInputElement>('input[data-yaml-field="defaultValue"]', row).value
+    ).toBe('43');
+    expect(mounted.collectDraft().templates.article).toBe('remote-template');
+  });
+
   it('keeps disabled default YAML custom fields in production collectDraft', () => {
     const controller = createController();
     const mounted = mountProductionStitchShell({
@@ -763,7 +1288,8 @@ describe('mountProductionStitchShell renderLifecycle', () => {
     ]);
   });
 
-  it('locks default YAML custom field delete and rename controls in production', () => {
+  it('locks default YAML custom field delete and rename controls in production', async () => {
+    const ownerReady = observeSectionOwnerCreation();
     const controller = createController();
     const mounted = mountProductionStitchShell({
       controller: asOptionsController(controller),
@@ -771,6 +1297,7 @@ describe('mountProductionStitchShell renderLifecycle', () => {
       messages: null,
       language: 'en'
     });
+    await ownerReady;
 
     const statusRow = requireElement(findYamlRowByField('status'), 'status YAML row');
     const nameInput = queryRequired<HTMLInputElement>('input[data-yaml-field="name"]', statusRow);
@@ -1051,4 +1578,461 @@ describe('mountProductionStitchShell renderLifecycle', () => {
       })
     );
   });
+
+  it('replaces only the invalidated storage owner and preserves unrelated roots and widgets', async () => {
+    mountProductionStitchShell({
+      controller: asOptionsController(createController()),
+      initialOptions: null,
+      messages: null,
+      language: 'en'
+    });
+    await flushPromises();
+    const main = queryRequired<HTMLElement>('.main');
+    const storage = queryRequired<HTMLElement>('[data-panel-id="storage"]');
+    const unrelated = new Map(
+      ['overview', 'capture-sources', 'capture-behavior', 'output', 'maintenance'].map((id) => [
+        id,
+        queryRequired<HTMLElement>(`[data-panel-id="${id}"]`)
+      ])
+    );
+    const yamlWidget = queryRequired<HTMLElement>('.stitch-yaml-config-widget');
+    main.scrollTop = 512;
+
+    findButton('Add Vault').click();
+
+    expect(document.querySelector('[data-panel-id="storage"]')).not.toBe(storage);
+    unrelated.forEach((root, id) => {
+      expect(document.querySelector(`[data-panel-id="${id}"]`)).toBe(root);
+    });
+    expect(document.querySelector('.main')).toBe(main);
+    expect(document.querySelector('.stitch-yaml-config-widget')).toBe(yamlWidget);
+    expect(main.scrollTop).toBe(512);
+  });
+
+  it('routes a missing owned panel through the enumerated all-invariant recovery scope', async () => {
+    mountProductionStitchShell({
+      controller: asOptionsController(createController()),
+      initialOptions: null,
+      messages: null,
+      language: 'en'
+    });
+    await flushPromises();
+    const main = queryRequired<HTMLElement>('.main');
+    const addVault = findButton('Add Vault');
+    const roots = Array.from(document.querySelectorAll<HTMLElement>('[data-panel-id]'));
+    queryRequired<HTMLElement>('[data-panel-id="storage"]').remove();
+
+    addVault.click();
+
+    expect(document.querySelectorAll('[data-panel-id]')).toHaveLength(6);
+    expect(document.querySelector('.main')).not.toBe(main);
+    expect(
+      roots.every(
+        (root) => document.querySelector(`[data-panel-id="${root.dataset.panelId}"]`) !== root
+      )
+    ).toBe(true);
+  });
+});
+
+describe('production invalidation owner pending lifecycle', () => {
+  beforeEach(setupProductionStitchShellTest);
+  let settleImport: (() => Promise<void>) | null = null;
+  afterEach(async () => {
+    await settleImport?.();
+    settleImport = null;
+    vi.doUnmock('@ui/stitch-runtime/render/sectionInvalidation');
+  });
+
+  async function holdOwnerImport() {
+    const actual = await vi.importActual<
+      typeof import('@ui/stitch-runtime/render/sectionInvalidation')
+    >('@ui/stitch-runtime/render/sectionInvalidation');
+    let release: () => void = () => undefined;
+    let rejectImport: (error: Error) => void = () => undefined;
+    let entered: () => void = () => undefined;
+    const requested = new Promise<void>((resolve) => {
+      entered = resolve;
+    });
+    const pending = new Promise<void>((resolve, reject) => {
+      release = resolve;
+      rejectImport = reject;
+    });
+    const create = vi.fn(actual.createSectionInvalidationOwner);
+    const capture = vi.fn(actual.captureSectionDomSnapshot);
+    const restore = vi.fn(actual.restoreSectionDomSnapshot);
+    vi.doMock('@ui/stitch-runtime/render/sectionInvalidation', async () => {
+      entered();
+      await pending;
+      return {
+        ...actual,
+        createSectionInvalidationOwner: create,
+        captureSectionDomSnapshot: capture,
+        restoreSectionDomSnapshot: restore
+      };
+    });
+    settleImport = async () => {
+      release();
+      await import('@ui/stitch-runtime/render/sectionInvalidation').catch(() => undefined);
+    };
+    return {
+      actual,
+      capture,
+      create,
+      requested,
+      restore,
+      async resolve() {
+        release();
+        await import('@ui/stitch-runtime/render/sectionInvalidation');
+      },
+      async reject() {
+        rejectImport(new Error('controlled owner import rejection'));
+        await import('@ui/stitch-runtime/render/sectionInvalidation').catch(() => undefined);
+      }
+    };
+  }
+
+  it('replays a pending authoritative output rebase through capture/restore exactly once', async () => {
+    const load = await holdOwnerImport();
+    const mounted = mountProductionStitchShell({
+      controller: asOptionsController(createController()),
+      initialOptions: { templates: { article: 'Alice' } },
+      messages: null,
+      language: 'en'
+    });
+    await load.requested;
+    const main = queryRequired<HTMLElement>('.main');
+    const input = findInputByValue('Alice');
+    // Focus actions preserve their entry scroll position, including their queued restoration.
+    main.scrollTop = 377;
+    input.focus();
+    input.setSelectionRange(1, 4, 'backward');
+    const next = mounted.collectDraft();
+    next.templates.article = 'Bobbie';
+    mounted.rebaseOptions(next, { changedPaths: [['templates', 'article']], dirtyPathKeys: [] });
+    expect.soft(load.create).not.toHaveBeenCalled();
+    expect.soft(input.isConnected).toBe(true);
+    expect.soft(document.activeElement).toBe(input);
+    expect(main.scrollTop).toBe(377);
+    await load.resolve();
+    const rebased = findInputByValue('Bobbie');
+    expect(load.create).toHaveBeenCalledTimes(1);
+    expect(load.capture).toHaveBeenCalledTimes(1);
+    expect(load.restore).toHaveBeenCalledTimes(1);
+    expect(load.restore).toHaveBeenCalledWith(
+      queryRequired<HTMLElement>('#optionsShellRoot'),
+      expect.objectContaining({ mainScrollTop: 377 })
+    );
+    expect(queryRequired<HTMLElement>('.main')).toBe(main);
+    expect(document.activeElement).toBe(rebased);
+    expect(rebased.selectionStart).toBe(1);
+    expect(rebased.selectionEnd).toBe(4);
+    expect(rebased.selectionDirection).toBe('backward');
+    expect(main.scrollTop).toBe(377);
+    mounted.cleanup();
+  });
+
+  it('constructs an empty root synchronously once and queues subsequent recovery through the owner', async () => {
+    const load = await holdOwnerImport();
+    const root = queryRequired<HTMLElement>('#optionsShellRoot');
+    const recovery = vi.fn(() => {
+      root.replaceChildren(document.createElement('main'));
+    });
+    const bridge = createProductionStitchInvalidationBridge({
+      handlers: { 'all-invariant-recovery': recovery },
+      isActive: () => true,
+      mountRoot: root
+    });
+    bridge.render('all-invariant-recovery');
+    expect(root.firstElementChild?.tagName).toBe('MAIN');
+    expect(recovery).toHaveBeenCalledTimes(1);
+    await load.requested;
+    root.replaceChildren();
+    bridge.render('all-invariant-recovery');
+    bridge.render('all-invariant-recovery');
+    expect(recovery).toHaveBeenCalledTimes(1);
+    await load.resolve();
+    expect(recovery).toHaveBeenCalledTimes(2);
+    expect(load.capture).toHaveBeenCalledTimes(1);
+    expect(load.restore).toHaveBeenCalledTimes(1);
+    bridge.dispose();
+  });
+
+  it('does not replay after dispose before owner resolution, even with an active host', async () => {
+    const load = await holdOwnerImport();
+    const output = vi.fn();
+    const bridge = createProductionStitchInvalidationBridge({
+      handlers: { output },
+      isActive: () => true,
+      mountRoot: document.body
+    });
+    await load.requested;
+    bridge.render('output');
+    bridge.dispose();
+    bridge.render('output');
+    await load.resolve();
+    expect(output).not.toHaveBeenCalled();
+    expect(load.create).not.toHaveBeenCalled();
+  });
+
+  it('keeps an acknowledged pending render unsettled until the real lazy replay completes', async () => {
+    const load = await holdOwnerImport();
+    const maintenance = vi.fn();
+    const bridge = createProductionStitchInvalidationBridge({
+      handlers: { maintenance },
+      isActive: () => true,
+      mountRoot: document.body
+    });
+    await load.requested;
+    let settled = false;
+    const acknowledgement = bridge.renderAndWait('maintenance').then((result) => {
+      settled = true;
+      return result;
+    });
+    await flushPromises();
+    expect(settled).toBe(false);
+    expect(maintenance).not.toHaveBeenCalled();
+
+    await load.resolve();
+
+    await expect(acknowledgement).resolves.toEqual({ status: 'rendered' });
+    expect(maintenance).toHaveBeenCalledTimes(1);
+    bridge.dispose();
+  });
+
+  it('returns a successful-import replay failure to the acknowledged caller', async () => {
+    const load = await holdOwnerImport();
+    const failure = new Error('acknowledged replay failed');
+    const bridge = createProductionStitchInvalidationBridge({
+      handlers: {
+        maintenance: () => {
+          throw failure;
+        }
+      },
+      isActive: () => true,
+      mountRoot: document.body
+    });
+    await load.requested;
+    const acknowledgement = bridge.renderAndWait('maintenance');
+
+    await load.resolve();
+
+    await expect(acknowledgement).resolves.toEqual({ status: 'failed', error: failure });
+    bridge.dispose();
+  });
+
+  it('cancels an acknowledged pending render when the bridge is disposed', async () => {
+    const load = await holdOwnerImport();
+    const maintenance = vi.fn();
+    const bridge = createProductionStitchInvalidationBridge({
+      handlers: { maintenance },
+      isActive: () => true,
+      mountRoot: document.body
+    });
+    await load.requested;
+    const acknowledgement = bridge.renderAndWait('maintenance');
+
+    bridge.dispose();
+
+    await expect(acknowledgement).resolves.toEqual({ status: 'cancelled' });
+    await load.resolve();
+    expect(maintenance).not.toHaveBeenCalled();
+  });
+
+  it('recovers once on import rejection without executing pending scopes again', async () => {
+    const load = await holdOwnerImport();
+    const output = vi.fn();
+    const recovery = vi.fn();
+    const bridge = createProductionStitchInvalidationBridge({
+      handlers: { output, 'all-invariant-recovery': recovery },
+      isActive: () => true,
+      mountRoot: document.body
+    });
+    await load.requested;
+    bridge.render('output');
+    bridge.render(['output', 'all-invariant-recovery']);
+    await load.reject();
+    expect(output).not.toHaveBeenCalled();
+    expect(recovery).toHaveBeenCalledTimes(1);
+    bridge.render('output');
+    expect(recovery).toHaveBeenCalledTimes(2);
+    expect(output).not.toHaveBeenCalled();
+    bridge.dispose();
+  });
+
+  it('settles pending and later acknowledged calls through the permanent fallback', async () => {
+    const load = await holdOwnerImport();
+    const laterFailure = new Error('later fallback failed');
+    let fail = false;
+    const recovery = vi.fn(() => {
+      if (fail) throw laterFailure;
+    });
+    const bridge = createProductionStitchInvalidationBridge({
+      handlers: { maintenance: vi.fn(), 'all-invariant-recovery': recovery },
+      isActive: () => true,
+      mountRoot: document.body
+    });
+    await load.requested;
+    const pending = bridge.renderAndWait('maintenance');
+    await load.reject();
+    await expect(pending).resolves.toEqual({ status: 'rendered' });
+
+    fail = true;
+    await expect(bridge.renderAndWait('maintenance')).resolves.toEqual({
+      status: 'failed',
+      error: laterFailure
+    });
+    expect(recovery).toHaveBeenCalledTimes(2);
+    bridge.dispose();
+    await expect(bridge.renderAndWait('maintenance')).resolves.toEqual({ status: 'cancelled' });
+    expect(recovery).toHaveBeenCalledTimes(2);
+  });
+
+  it('acknowledges a pending maintenance request after dominating locale replacement', async () => {
+    const load = await holdOwnerImport();
+    const maintenance = vi.fn();
+    const locale = vi.fn();
+    const bridge = createProductionStitchInvalidationBridge({
+      handlers: { maintenance, 'locale-schema': locale },
+      isActive: () => true,
+      mountRoot: document.body
+    });
+    await load.requested;
+    const acknowledgement = bridge.renderAndWait('maintenance');
+    bridge.render('locale-schema');
+
+    await load.resolve();
+
+    await expect(acknowledgement).resolves.toEqual({ status: 'rendered' });
+    expect(locale).toHaveBeenCalledTimes(1);
+    expect(maintenance).not.toHaveBeenCalled();
+    bridge.dispose();
+  });
+
+  it('does not recover a disposed bridge on import rejection', async () => {
+    const load = await holdOwnerImport();
+    const recovery = vi.fn();
+    const bridge = createProductionStitchInvalidationBridge({
+      handlers: { 'all-invariant-recovery': recovery },
+      isActive: () => true,
+      mountRoot: document.body
+    });
+    await load.requested;
+    bridge.render('all-invariant-recovery');
+    bridge.dispose();
+    await load.reject();
+    expect(recovery).not.toHaveBeenCalled();
+  });
+
+  it('reports a successful-import pending recovery throw once without retrying or losing owner error cleanup', async () => {
+    const load = await holdOwnerImport();
+    const failure = new Error('pending recovery render failed');
+    let reported: () => void = () => undefined;
+    const errorReported = new Promise<void>((resolve) => {
+      reported = resolve;
+    });
+    const report = vi.spyOn(console, 'error').mockImplementation(() => reported());
+    const storage = vi.fn();
+    const recovery = vi.fn(() => {
+      bridge.render('storage');
+      if (recovery.mock.calls.length === 1) throw failure;
+    });
+    const bridge = createProductionStitchInvalidationBridge({
+      handlers: { storage, 'all-invariant-recovery': recovery },
+      isActive: () => true,
+      mountRoot: document.body
+    });
+    await load.requested;
+    expect(() => bridge.render('all-invariant-recovery')).not.toThrow();
+    expect(recovery).not.toHaveBeenCalled();
+    await load.resolve();
+    expect(recovery).toHaveBeenCalledTimes(1);
+    await errorReported;
+    expect(load.create).toHaveBeenCalledTimes(1);
+    expect(load.create.mock.results[0]?.value.active).toBe(true);
+    expect(load.capture).toHaveBeenCalledTimes(1);
+    expect(load.restore).not.toHaveBeenCalled();
+    expect(recovery).toHaveBeenCalledTimes(1);
+    expect(storage).not.toHaveBeenCalled();
+    expect(report).toHaveBeenCalledExactlyOnceWith(
+      '[ProductionStitchShell:section-invalidation]',
+      failure
+    );
+    // The canonical owner discarded the reentrant request on failure and can accept fresh work.
+    bridge.render('storage');
+    expect(storage).toHaveBeenCalledTimes(1);
+    expect(load.capture).toHaveBeenCalledTimes(2);
+    expect(load.restore).toHaveBeenCalledTimes(1);
+    expect(recovery).toHaveBeenCalledTimes(1);
+    bridge.dispose();
+    report.mockRestore();
+  });
+
+  it('preserves ready-owner reentrancy, validation and handler exception semantics', async () => {
+    const load = await holdOwnerImport();
+    const storage = vi.fn();
+    const failure = new Error('output rendering failed');
+    const output = vi.fn((): void => {
+      bridge.render('storage');
+      throw failure;
+    });
+    const bridge = createProductionStitchInvalidationBridge({
+      handlers: { output, storage },
+      isActive: () => true,
+      mountRoot: document.body
+    });
+    await load.requested;
+    expect(() => bridge.render([])).toThrow('SECTION_INVALIDATION_SCOPE_REQUIRED');
+    expect(() => bridge.render('theme')).toThrow('UNKNOWN_SECTION_INVALIDATION_SCOPE:theme');
+    await load.resolve();
+    expect(() => bridge.render('output')).toThrow(failure);
+    expect(storage).not.toHaveBeenCalled();
+    output.mockImplementation(() => {
+      bridge.render('storage');
+      bridge.render('storage');
+    });
+    bridge.render('output');
+    expect(output).toHaveBeenCalledTimes(2);
+    expect(storage).toHaveBeenCalledTimes(1);
+    expect(load.restore).toHaveBeenCalledTimes(2);
+    bridge.dispose();
+  });
+
+  it.each([
+    {
+      scopes: ['output', 'storage', 'output', 'sidebar'],
+      expected: ['output', 'storage', 'sidebar']
+    },
+    { scopes: ['output', 'locale-schema', 'storage'], expected: ['locale-schema'] },
+    {
+      scopes: ['output', 'all-invariant-recovery', 'locale-schema', 'storage'],
+      expected: ['all-invariant-recovery']
+    }
+  ] satisfies Array<{ scopes: SectionInvalidationScope[]; expected: SectionInvalidationScope[] }>)(
+    'coalesces pending scopes using the real owner: $expected',
+    async ({ scopes, expected }) => {
+      const load = await holdOwnerImport();
+      const calls: SectionInvalidationScope[] = [];
+      const handlers = Object.fromEntries(
+        load.actual.SECTION_INVALIDATION_SCOPES.map((scope) => [
+          scope,
+          () => {
+            calls.push(scope);
+          }
+        ])
+      );
+      const bridge = createProductionStitchInvalidationBridge({
+        handlers,
+        isActive: () => true,
+        mountRoot: document.body
+      });
+      await load.requested;
+      scopes.forEach((scope) => bridge.render(scope));
+      expect.soft(calls).toEqual([]);
+      await load.resolve();
+      expect(calls).toEqual(expected);
+      expect(load.capture).toHaveBeenCalledTimes(1);
+      expect(load.restore).toHaveBeenCalledTimes(1);
+      bridge.dispose();
+    }
+  );
 });

@@ -14,7 +14,7 @@ import { getFooterView } from '@options/stitch/schema/registry';
 import { previewContent } from '@options/stitch/content';
 import { renderPreviewView, type RendererContext } from '@options/stitch/render/renderStitchView';
 import type { PreviewContent } from '@options/stitch/types';
-import { el } from '@options/stitch/ui/dom';
+import { el } from '@ui/stitch-runtime';
 import { previewUi } from '@options/stitch/ui/components';
 import { mergeOptions } from '@shared/config/optionsMerger';
 import type { CompleteOptions } from '@shared/types/options';
@@ -40,6 +40,7 @@ const ENGLISH_SENTINEL_MESSAGES = {
   schemaRuntimeSurfaceResizePanelHeightAriaLabel: 'Resize Height Sentinel',
   schemaRuntimeSurfaceResizePanelAriaLabel: 'Resize Panel Sentinel',
   schemaRuntimeSurfaceCollapsePanelAriaLabel: 'Collapse Panel Sentinel',
+  schemaRuntimeSurfaceExpandPanelAriaLabel: 'Expand Panel Sentinel',
   schemaRuntimeReaderTitle: 'Reader Mode Sentinel',
   schemaRuntimeReaderDescription: 'Reader Description Sentinel',
   schemaRuntimeReaderHighlightOneExcerpt: 'Reader Highlight One Excerpt Sentinel',
@@ -199,6 +200,9 @@ describe('mountProductionStitchShell runtime surface i18n', () => {
         reader
       ).getAttribute('aria-label')
     ).toBe('Collapse Panel Sentinel');
+    expect(ENGLISH_SENTINEL_MESSAGES.schemaRuntimeSurfaceExpandPanelAriaLabel).toBe(
+      'Expand Panel Sentinel'
+    );
     expect(reader.querySelector('.reader-surface-window .surface-window-title')?.textContent).toBe(
       'Reader Panel Title Sentinel'
     );
@@ -259,6 +263,9 @@ describe('mountProductionStitchShell runtime surface i18n', () => {
         video
       ).getAttribute('aria-label')
     ).toBe('Collapse Panel Sentinel');
+    expect(ENGLISH_SENTINEL_MESSAGES.schemaRuntimeSurfaceExpandPanelAriaLabel).toBe(
+      'Expand Panel Sentinel'
+    );
     expect(video.querySelector('.video-surface-window .surface-window-title')?.textContent).toBe(
       'Video Panel Title Sentinel'
     );

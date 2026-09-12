@@ -3,6 +3,7 @@ import {
   collectStitchContract,
   createPreviewUrl,
   createProductionUrl,
+  disposeGeneratedPreview,
   expectNoLegacyOptionsShell,
   getPreviewSourceKind,
   type PreviewSourceKind,
@@ -414,6 +415,10 @@ function expectSharedOptionsParity(
 }
 
 test.describe('Stitch Secondary preview-to-production parity', () => {
+  test.afterAll(() => {
+    disposeGeneratedPreview();
+  });
+
   for (const viewport of VIEWPORTS) {
     for (const theme of THEMES) {
       test(`production matches preview structural contract at ${viewport.name} ${theme}`, async ({
@@ -536,7 +541,7 @@ test.describe('Stitch Secondary preview-to-production parity', () => {
     expect(metrics.outputOverflowWrap).toBe('anywhere');
   });
 
-  test('production hides navigation and keeps main content scrollable at narrow widths', async ({
+  test('production keeps off-canvas navigation and main content scrollable at narrow widths', async ({
     page
   }) => {
     await page.setViewportSize({ width: 740, height: 680 });
@@ -547,9 +552,10 @@ test.describe('Stitch Secondary preview-to-production parity', () => {
     const metrics = await page.evaluate(() => {
       const root = document.documentElement;
       const sidebar = document.querySelector<HTMLElement>('.sidebar');
+      const trigger = document.querySelector<HTMLElement>('[data-mobile-navigation-trigger]');
       const shell = document.querySelector<HTMLElement>('.shell');
       const main = document.querySelector<HTMLElement>('.main');
-      if (!sidebar || !shell || !main) {
+      if (!sidebar || !trigger || !shell || !main) {
         throw new Error('Narrow Options shell metrics could not be collected.');
       }
       const sidebarStyle = window.getComputedStyle(sidebar);
@@ -562,6 +568,10 @@ test.describe('Stitch Secondary preview-to-production parity', () => {
         documentScrollWidth: root.scrollWidth,
         sidebarDisplay: sidebarStyle.display,
         sidebarPosition: sidebarStyle.position,
+        sidebarAriaHidden: sidebar.getAttribute('aria-hidden'),
+        sidebarInert: sidebar.hasAttribute('inert'),
+        triggerDisplay: window.getComputedStyle(trigger).display,
+        triggerExpanded: trigger.getAttribute('aria-expanded'),
         shellLeft: Math.round(shellRect.left),
         shellWidth: Math.round(shellRect.width),
         mainHeight: Math.round(mainRect.height),
@@ -573,8 +583,12 @@ test.describe('Stitch Secondary preview-to-production parity', () => {
     });
 
     expect(metrics.documentScrollWidth).toBeLessThanOrEqual(metrics.viewportWidth + 1);
-    expect(metrics.sidebarDisplay).toBe('none');
+    expect(metrics.sidebarDisplay).toBe('flex');
     expect(metrics.sidebarPosition).toBe('fixed');
+    expect(metrics.sidebarAriaHidden).toBe('true');
+    expect(metrics.sidebarInert).toBe(true);
+    expect(metrics.triggerDisplay).not.toBe('none');
+    expect(metrics.triggerExpanded).toBe('false');
     expect(metrics.shellLeft).toBe(0);
     expect(metrics.shellWidth).toBeLessThanOrEqual(metrics.viewportWidth);
     expect(metrics.mainHeight).toBeGreaterThanOrEqual(680);

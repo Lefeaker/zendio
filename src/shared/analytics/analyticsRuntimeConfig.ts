@@ -1,5 +1,6 @@
 import { hasConsentForAnalyticsEvent } from './analyticsConsent';
 import {
+  isAnalyticsDebugModeControlAvailable,
   normalizeAnalyticsDebugModeFlag,
   resolveAnalyticsDebugMode
 } from './analyticsDebugModeCapability';
@@ -10,7 +11,7 @@ import {
   normalizeProxyEndpoint
 } from './analyticsEnvironment';
 import type { AnalyticsEventName } from './eventCatalog';
-import type { AnalyticsConfig, UserConsent } from '../errors/analytics/analyticsConfig';
+import type { AnalyticsConfig, UserConsent } from './analyticsConfigContract';
 
 type AnalyticsConsentInput = Partial<UserConsent> | undefined;
 type AnalyticsRuntimeConfigInput = Omit<Partial<AnalyticsRuntimeConfigShape>, 'userConsent'> & {
@@ -35,7 +36,8 @@ export function resolveAnalyticsRuntimeEnabled(consent: AnalyticsConsentInput): 
 
 export function normalizeStoredAnalyticsConfig(
   storedConfig: AnalyticsRuntimeConfigInput | undefined,
-  defaults: AnalyticsRuntimeConfigShape = DEFAULT_ANALYTICS_RUNTIME_CONFIG
+  defaults: AnalyticsRuntimeConfigShape = DEFAULT_ANALYTICS_RUNTIME_CONFIG,
+  debugControlAvailable = isAnalyticsDebugModeControlAvailable()
 ): AnalyticsRuntimeConfigShape {
   const consent = normalizeAnalyticsConsent(storedConfig?.userConsent);
   const transportMode = Object.prototype.hasOwnProperty.call(storedConfig ?? {}, 'transportMode')
@@ -53,7 +55,8 @@ export function normalizeStoredAnalyticsConfig(
   return {
     enabled: resolveAnalyticsRuntimeEnabled(consent),
     debugMode: normalizeAnalyticsDebugModeFlag(
-      typeof storedConfig?.debugMode === 'boolean' ? storedConfig.debugMode : defaults.debugMode
+      typeof storedConfig?.debugMode === 'boolean' ? storedConfig.debugMode : defaults.debugMode,
+      debugControlAvailable
     ),
     measurementId:
       normalizeMeasurementId(storedConfig?.measurementId, defaults.measurementId) ??
@@ -79,9 +82,11 @@ export function createAnalyticsTransportConfig(
   managerConfig: AnalyticsRuntimeConfigInput | undefined,
   overrides: AnalyticsRuntimeConfigInput = {}
 ): AnalyticsRuntimeConfigShape {
+  const debugControlAvailable = isAnalyticsDebugModeControlAvailable();
   const normalizedBaseConfig = normalizeStoredAnalyticsConfig(
     managerConfig,
-    DEFAULT_ANALYTICS_RUNTIME_CONFIG
+    DEFAULT_ANALYTICS_RUNTIME_CONFIG,
+    debugControlAvailable
   );
   const consent = normalizeAnalyticsConsent(
     Object.prototype.hasOwnProperty.call(overrides, 'userConsent')
@@ -106,12 +111,15 @@ export function createAnalyticsTransportConfig(
   const requestedDebugMode =
     typeof overrides.debugMode === 'boolean' ? overrides.debugMode : normalizedBaseConfig.debugMode;
   const debugMode = consent
-    ? resolveAnalyticsDebugMode({
-        analytics: consent.analytics,
-        errorReporting: consent.errorReporting,
-        debugMode: requestedDebugMode
-      })
-    : normalizeAnalyticsDebugModeFlag(requestedDebugMode);
+    ? resolveAnalyticsDebugMode(
+        {
+          analytics: consent.analytics,
+          errorReporting: consent.errorReporting,
+          debugMode: requestedDebugMode
+        },
+        debugControlAvailable
+      )
+    : normalizeAnalyticsDebugModeFlag(requestedDebugMode, debugControlAvailable);
 
   return {
     enabled: resolveAnalyticsRuntimeEnabled(consent),

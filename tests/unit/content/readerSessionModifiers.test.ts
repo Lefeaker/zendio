@@ -165,9 +165,8 @@ describe('ReaderSession selection modifiers', () => {
       },
       optionsRepository: {
         get: vi.fn(),
-        set: vi.fn(),
         onChange: vi.fn(() => () => undefined)
-      },
+      } as never,
       storage: platformHarness.storage as never,
       messaging: {
         send: vi.fn()
@@ -242,7 +241,7 @@ describe('ReaderSession selection modifiers', () => {
 
   it('adds highlight when configured modifier keys are satisfied', async () => {
     const { session } = await createSessionWithConfig({
-      selectionModifierEnabled: true,
+      selectionTriggerMode: 'modifier',
       selectionModifierKeys: ['meta']
     });
 
@@ -258,7 +257,7 @@ describe('ReaderSession selection modifiers', () => {
 
   it('does not add highlight when modifier keys are missing', async () => {
     const { session } = await createSessionWithConfig({
-      selectionModifierEnabled: true,
+      selectionTriggerMode: 'modifier',
       selectionModifierKeys: ['meta']
     });
 
@@ -276,7 +275,7 @@ describe('ReaderSession selection modifiers', () => {
 
   it('ignores modifier requirement when disabled', async () => {
     const { session } = await createSessionWithConfig({
-      selectionModifierEnabled: false,
+      selectionTriggerMode: 'direct',
       selectionModifierKeys: []
     });
     const target = selectTargetText();

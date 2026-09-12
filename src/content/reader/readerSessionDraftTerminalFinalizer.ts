@@ -1,33 +1,38 @@
-import type { StorageAreaService } from '@platform/interfaces/storage';
 import {
   createSessionDraftRepository,
-  createSessionDraftStorageKey,
   finalizeTerminalSessionDraft,
-  type ReaderSessionDraftEnvelope,
-  type SessionDraftPersister,
-  type SessionDraftTerminalStatus
+  settleSessionDraftPersister,
+  type FinalizeTerminalSessionDraftResult,
+  type SessionDraftTerminalState,
+  type SessionDraftPersister
 } from '../sessionDrafts';
+import {
+  createSessionDraftStorageKey,
+  type ReaderSessionDraftEnvelope,
+  type SessionDraftTerminalStatus
+} from '@shared/sessionDrafts';
 
 export async function finalizeReaderSessionTerminalDraft(args: {
   status: SessionDraftTerminalStatus;
+  state?: SessionDraftTerminalState;
   currentDraftStorageKey: string | null;
   repository: ReturnType<typeof createSessionDraftRepository>;
   persister: SessionDraftPersister;
-  storageArea: StorageAreaService;
   buildCurrentEnvelope: (status: SessionDraftTerminalStatus) => ReaderSessionDraftEnvelope | null;
   applyTerminalIdentity: (identity: {
     draftId: string;
     draftCreatedAt: number;
     draftStorageKey: string;
   }) => void;
-}): Promise<boolean> {
+}): Promise<FinalizeTerminalSessionDraftResult> {
   if (args.status === 'discarded' && !args.currentDraftStorageKey) {
-    return true;
+    return { outcome: 'completed', finalizedEnvelopes: [] };
   }
 
   let draftStorageKey: string | null = null;
   return finalizeTerminalSessionDraft<ReaderSessionDraftEnvelope>({
     repository: args.repository,
+    state: args.state,
     flushPendingDraft: () => args.persister.flushNow(),
     buildTerminalEnvelopes: async () => {
       const terminalEnvelope = await buildTerminalDraftEnvelope(args);
@@ -50,11 +55,6 @@ export async function finalizeReaderSessionTerminalDraft(args: {
       });
       return [terminalEnvelope];
     },
-    cleanupTerminalDrafts: async () => {
-      if (draftStorageKey) {
-        await args.repository.remove({ key: draftStorageKey });
-      }
-    },
     onFlushError: (error) => {
       console.warn(
         '[ReaderSession] Failed to flush session draft before terminal finalization:',
@@ -73,10 +73,29 @@ export async function finalizeReaderSessionTerminalDraft(args: {
   });
 }
 
+export async function flushReaderSessionDraftForRestore(args: {
+  persister: Pick<SessionDraftPersister, 'flushNow' | 'hasPending'>;
+  repository: Pick<ReturnType<typeof createSessionDraftRepository>, 'save'>;
+  buildRestorableEnvelope: () => ReaderSessionDraftEnvelope | null;
+  releasePersistedLease: (() => Promise<object | null>) | null;
+  clearPersistedDraft: () => Promise<void>;
+}): Promise<void> {
+  try {
+    if (args.releasePersistedLease)
+      return settleSessionDraftPersister(args.persister, args.releasePersistedLease);
+    await args.persister.flushNow();
+    const envelope = args.buildRestorableEnvelope();
+    if (!envelope) return args.clearPersistedDraft();
+    await args.repository.save(envelope);
+  } catch (error) {
+    console.warn('[ReaderSession] Failed to flush restorable session draft:', error);
+  }
+}
+
 async function buildTerminalDraftEnvelope(args: {
   status: SessionDraftTerminalStatus;
   currentDraftStorageKey: string | null;
-  storageArea: StorageAreaService;
+  repository: ReturnType<typeof createSessionDraftRepository>;
   buildCurrentEnvelope: (status: SessionDraftTerminalStatus) => ReaderSessionDraftEnvelope | null;
 }): Promise<ReaderSessionDraftEnvelope | null> {
   const currentEnvelope = args.buildCurrentEnvelope(args.status);
@@ -88,12 +107,14 @@ async function buildTerminalDraftEnvelope(args: {
     return null;
   }
 
-  const stored = await args.storageArea.get<ReaderSessionDraftEnvelope>(
-    args.currentDraftStorageKey
-  );
-  if (!stored || stored.mode !== 'reader') {
+  const result = await args.repository.readExact({
+    operation: 'readExact',
+    key: args.currentDraftStorageKey
+  });
+  if (result.outcome !== 'found' || result.envelope.mode !== 'reader') {
     return null;
   }
+  const stored = result.envelope as unknown as ReaderSessionDraftEnvelope;
 
   const now = Date.now();
   return {

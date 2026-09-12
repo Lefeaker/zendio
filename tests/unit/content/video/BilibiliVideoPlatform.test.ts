@@ -38,9 +38,8 @@ describe('BilibiliVideoPlatform', () => {
   it('returns null for invalid timestamp base urls and ignores unrelated mutations', () => {
     vi.useFakeTimers();
     const scheduleRestore = vi.fn();
-    const platform = new BilibiliVideoPlatform(
-      withScheduledRestore(createContext(document), scheduleRestore)
-    );
+    const context = withScheduledRestore(createContext(document), scheduleRestore);
+    const platform = new BilibiliVideoPlatform(context);
 
     expect(
       platform.buildTimestampUrl(15, {
@@ -50,7 +49,7 @@ describe('BilibiliVideoPlatform', () => {
       })
     ).toBeNull();
 
-    platform.handleMutations([
+    context.__mocks.emitDocumentMutations([
       {
         type: 'childList',
         addedNodes: [document.createElement('div')],

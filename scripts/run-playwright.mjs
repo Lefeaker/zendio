@@ -1,31 +1,55 @@
 import { spawn } from 'node:child_process';
 import net from 'node:net';
+import { isAbsolute, resolve } from 'node:path';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { createCleanCliEnv } from './utils/cleanCliEnv.mjs';
 
-const args = withDefaultConfigForExplicitE2eTests(process.argv.slice(2));
-const selectedPort = process.env.PLAYWRIGHT_WEB_SERVER_PORT ?? (await reservePlaywrightPort());
-const env = createCleanCliEnv({
-  PLAYWRIGHT_WEB_SERVER_PORT: selectedPort
-});
+export const PLAYWRIGHT_CLI_PATH = fileURLToPath(
+  new URL('../node_modules/@playwright/test/cli.js', import.meta.url)
+);
 
-const child = spawn('npx', ['playwright', ...args], {
-  stdio: 'inherit',
-  env
-});
-
-child.on('exit', (code, signal) => {
-  if (signal) {
-    process.kill(process.pid, signal);
-    return;
+export async function runPlaywright(
+  rawArgs = process.argv.slice(2),
+  {
+    spawnOperation = spawn,
+    reservePortOperation = reservePlaywrightPort,
+    exitOperation = (code) => process.exit(code),
+    signalOperation = (signal) => process.kill(process.pid, signal),
+    errorOperation = (...values) => console.error(...values)
+  } = {}
+) {
+  if (!isAbsolute(process.execPath) || !isAbsolute(PLAYWRIGHT_CLI_PATH)) {
+    throw new Error(
+      '[run-playwright] Absolute Node and repository-local Playwright paths required.'
+    );
   }
 
-  process.exit(code ?? 1);
-});
+  const args = withDefaultConfigForExplicitE2eTests(rawArgs);
+  const selectedPort = process.env.PLAYWRIGHT_WEB_SERVER_PORT ?? (await reservePortOperation());
+  const env = createCleanCliEnv({
+    PLAYWRIGHT_WEB_SERVER_PORT: selectedPort
+  });
+  const child = spawnOperation(process.execPath, [PLAYWRIGHT_CLI_PATH, ...args], {
+    stdio: 'inherit',
+    env
+  });
 
-child.on('error', (error) => {
-  console.error('[run-playwright] Failed to launch Playwright:', error);
-  process.exit(1);
-});
+  child.on('exit', (code, signal) => {
+    if (signal) {
+      signalOperation(signal);
+      return;
+    }
+
+    exitOperation(code ?? 1);
+  });
+
+  child.on('error', (error) => {
+    errorOperation('[run-playwright] Failed to launch Playwright:', error);
+    exitOperation(1);
+  });
+
+  return child;
+}
 
 function withDefaultConfigForExplicitE2eTests(args) {
   if (hasConfigArg(args) || !targetsE2eTestFile(args)) {
@@ -70,4 +94,8 @@ function reservePlaywrightPort() {
       });
     });
   });
+}
+
+if (process.argv[1] && pathToFileURL(resolve(process.argv[1])).href === import.meta.url) {
+  await runPlaywright();
 }

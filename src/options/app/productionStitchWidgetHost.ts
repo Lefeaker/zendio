@@ -21,8 +21,10 @@ export interface ProductionStitchWidgetHost {
   createWidgetFactory(widgetType: string): WidgetFactory<PreviewStoreState, PreviewContent> | null;
   destroyWidgets(): void;
   flushDirtyWidgets(): void;
+  getRenderProtectionKeys(): string[];
   markDirty(key: string): void;
   mountWidget(widgetType: string, host: HTMLElement): void;
+  reconcileRenderProtection(persistentDirtyPathKeys: readonly string[]): void;
   resetDirty(): void;
 }
 
@@ -31,9 +33,7 @@ type ProductionYamlWidget = YamlConfigEditorWidgetAdapter & {
 };
 
 function createWidget(widgetType: string): ProductionYamlWidget | null {
-  return widgetType === 'yaml-config'
-    ? (new YamlConfigEditorWidgetAdapter() as ProductionYamlWidget)
-    : null;
+  return widgetType === 'yaml-config' ? new YamlConfigEditorWidgetAdapter() : null;
 }
 
 function applyDisabledExperimentalState(
@@ -52,13 +52,14 @@ export function createProductionStitchWidgetHost(
 ): ProductionStitchWidgetHost {
   const widgetInstances = new Set<ProductionYamlWidget>();
   const dirtyWidgetKeys = new Set<string>();
+  const renderProtection = new Map<string, { invalid: boolean }>();
 
   function collectBaseDraft(): CompleteOptions {
     const draft = options.getDraft();
-    const collected = {
+    const collected: CompleteOptions = {
       ...mergeOptions(draft),
       ...draft
-    } as CompleteOptions;
+    };
     return applyDisabledExperimentalState(
       omitLegacyRestRootDirFromOptions(collected),
       options.getState()
@@ -104,12 +105,15 @@ export function createProductionStitchWidgetHost(
       return;
     }
     widgetInstances.add(widget);
-    void widget.mount(
+    widget.mount(
       host,
       { options: options.getDraft(), messages: options.getMessages() },
       {
         notifyDirty: (keys = [], meta) => {
-          keys.forEach((key) => dirtyWidgetKeys.add(key));
+          keys.forEach((key) => {
+            dirtyWidgetKeys.add(key);
+            renderProtection.set(key, { invalid: meta?.invalid === true });
+          });
           if (meta?.invalid) {
             options.refreshAppData();
             return;
@@ -133,12 +137,21 @@ export function createProductionStitchWidgetHost(
     },
     destroyWidgets,
     flushDirtyWidgets,
+    getRenderProtectionKeys: () => [...renderProtection.keys()],
     markDirty(key) {
       dirtyWidgetKeys.add(key);
+      renderProtection.set(key, { invalid: false });
     },
     mountWidget,
+    reconcileRenderProtection(persistentDirtyPathKeys) {
+      const persistent = new Set(persistentDirtyPathKeys);
+      renderProtection.forEach((protection, key) => {
+        if (!protection.invalid && !persistent.has(key)) renderProtection.delete(key);
+      });
+    },
     resetDirty() {
       dirtyWidgetKeys.clear();
+      renderProtection.clear();
     }
   };
 }

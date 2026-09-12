@@ -5,17 +5,25 @@ import {
   asOptionsController,
   createController,
   createRepository,
+  flushPromises,
   queryRequired,
   requireElement,
   setupProductionStitchShellTest
 } from './productionStitchShell.helpers';
 import { createProductionStitchActions } from '@options/app/productionStitchActions';
 import { mountProductionStitchShell } from '@options/app/productionStitchShell';
+import {
+  applyOptionsToState,
+  createInitialStitchState,
+  createProductionContent
+} from '@options/app/productionStitchStateMapper';
+import { previewContent } from '@options/stitch/content';
+import { mergeOptions } from '@shared/config/optionsMerger';
 
 describe('mountProductionStitchShell theme', () => {
   beforeEach(setupProductionStitchShellTest);
 
-  it('persists theme changes through the Stitch segmented control', () => {
+  it('persists theme changes through the Stitch segmented control', async () => {
     const controller = createController();
     const repository = createRepository();
     mountProductionStitchShell({
@@ -31,24 +39,32 @@ describe('mountProductionStitchShell theme', () => {
       document.querySelectorAll<HTMLButtonElement>('.chips button')
     ).find((button) => button.textContent === 'Light');
     lightButton?.click();
+    await flushPromises();
 
     expect(document.querySelector('.main')).toBe(main);
     expect(document.documentElement.dataset.theme).toBe('light');
     expect(document.documentElement.dataset.previewTheme).toBe('light');
     expect(document.body.dataset.previewTheme).toBe('light');
     expect(window.localStorage.getItem('aob-theme')).toBe('light');
-    expect(repository.set).toHaveBeenLastCalledWith({ interfaceTheme: 'light' });
+    expect(repository.patch).toHaveBeenLastCalledWith({
+      path: ['interfaceTheme'],
+      value: 'light'
+    });
 
     const darkButton = Array.from(
       document.querySelectorAll<HTMLButtonElement>('.chips button')
     ).find((button) => button.textContent === 'Dark');
     darkButton?.click();
+    await flushPromises();
 
     expect(document.documentElement.dataset.theme).toBe('dark');
     expect(document.documentElement.dataset.previewTheme).toBe('dark');
     expect(document.body.dataset.previewTheme).toBe('dark');
     expect(window.localStorage.getItem('aob-theme')).toBe('dark');
-    expect(repository.set).toHaveBeenLastCalledWith({ interfaceTheme: 'dark' });
+    expect(repository.patch).toHaveBeenLastCalledWith({
+      path: ['interfaceTheme'],
+      value: 'dark'
+    });
   });
 
   it('adds a system theme preference and resolves it immediately from media changes', () => {
@@ -108,13 +124,16 @@ describe('mountProductionStitchShell theme', () => {
 
   it('routes theme dispatch through the production action owner', () => {
     const state = { interfaceThemePreference: 'dark', previewTheme: 'dark' };
-    const persistThemePreference = vi.fn();
+    const persistThemePreference = vi.fn(() => Promise.resolve());
     const syncPreviewThemeControls = vi.fn();
     const actions = createProductionStitchActions({
       getCurrentLanguage: () => 'en',
       getMessages: () => null,
       getState: () => state,
       persistThemePreference,
+      runPersistenceTask: (_key: string, task: () => Promise<void>) => {
+        void task();
+      },
       syncPreviewThemeControls
     } as never);
 
@@ -139,6 +158,7 @@ describe('mountProductionStitchShell theme', () => {
     });
 
     const main = queryRequired<HTMLElement>('.main');
+    const overview = queryRequired<HTMLElement>('[data-panel-id="overview"]');
     const purpleButton = requireElement(
       Array.from(document.querySelectorAll<HTMLButtonElement>('.chips button')).find(
         (button) => button.textContent === 'Solid purple'
@@ -149,10 +169,27 @@ describe('mountProductionStitchShell theme', () => {
     purpleButton.click();
 
     expect(document.querySelector('.main')).toBe(main);
+    expect(document.querySelector('[data-panel-id="overview"]')).toBe(overview);
     expect(mounted.collectDraft().readingSession.highlightTheme).toBe('purple');
     expect(purpleButton?.getAttribute('aria-pressed')).toBe('true');
     expect(
       document.querySelector('.inline-highlight')?.classList.contains('highlight-purple')
     ).toBe(true);
+  });
+
+  it('maps required canonical privacy preferences without optional-shape fallbacks', () => {
+    const options = mergeOptions({
+      privacyPreferences: {
+        analytics: true,
+        errorReporting: true,
+        debugMode: true
+      }
+    });
+    const content = createProductionContent(previewContent, options);
+    const state = applyOptionsToState(createInitialStitchState(content), options, content);
+
+    expect(state.privacyAnalytics).toBe(true);
+    expect(state.privacyErrorReporting).toBe(true);
+    expect(state.privacyDebugMode).toBe(true);
   });
 });

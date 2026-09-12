@@ -8,7 +8,7 @@
 2. 地址栏输入：`chrome://extensions/`
 3. 打开右上角的 **"开发者模式"**
 4. 点击 **"加载已解压的扩展程序"**
-5. 选择文件夹：`AiiinOB/your-extension/dist`
+5. 在仓库根目录运行 `npm run build`，选择生成的 `build/dist` 文件夹
 6. 看到扩展图标出现 ✅
 
 ### 步骤 2: 配置 Obsidian (2 分钟)

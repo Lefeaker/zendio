@@ -1,22 +1,16 @@
 /* @vitest-environment jsdom */
 
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ReaderDialogPanel } from '../../../../src/content/reader/ui/ReaderDialogPanel';
 import type {
   ReaderPanelCallbacks,
   ReaderPanelHighlight,
   ReaderPanelTexts
 } from '../../../../src/content/reader/application/readerPanelModel';
+import { panelStyleSheetManager } from '../../../../src/content/shared/panels/styleSheetManager';
+import type { StyleAttachmentHandle } from '../../../../src/ui/foundation/style-host';
+import type { ExportDestinationSurfacePreview } from '../../../../src/ui/stitch-runtime';
 import { testPlatformHarness } from '../../../setup/globalSetup';
-
-vi.mock('focus-trap', () => ({
-  createFocusTrap: () => ({
-    activate: vi.fn(),
-    deactivate: vi.fn(),
-    pause: vi.fn(),
-    unpause: vi.fn()
-  })
-}));
 
 vi.mock('@content/runtime/popupCoordinatorAccess', () => ({
   resolveContentPopupCoordinator: () => null
@@ -64,14 +58,165 @@ function createHighlight(overrides: Partial<ReaderPanelHighlight> = {}): ReaderP
   };
 }
 
+function createDestination(
+  label: string,
+  options: ExportDestinationSurfacePreview['options'],
+  overrides: Partial<ExportDestinationSurfacePreview> = {}
+): ExportDestinationSurfacePreview {
+  return {
+    id: options.find((option) => option.selected)?.id ?? 'downloads',
+    kind: options.find((option) => option.selected)?.kind ?? 'downloads',
+    label,
+    path: `${label}/reader.md`,
+    hasConfiguredVault: options.some((option) => option.kind === 'vault'),
+    options,
+    ...overrides
+  };
+}
+
 function flushPanelPersistence(): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, 0));
+}
+
+type StyleAttachmentHandleMock = StyleAttachmentHandle & {
+  refresh: ReturnType<typeof vi.fn<StyleAttachmentHandle['refresh']>>;
+  dispose: ReturnType<typeof vi.fn<StyleAttachmentHandle['dispose']>>;
+};
+
+function createStyleAttachmentHandle(root: ShadowRoot): StyleAttachmentHandleMock {
+  return {
+    ready: Promise.resolve({ status: 'ready' }),
+    refresh: vi.fn<StyleAttachmentHandle['refresh']>(() => Promise.resolve({ status: 'ready' })),
+    dispose: vi.fn(() => {
+      expect(root.host.isConnected).toBe(true);
+    })
+  };
 }
 
 describe('ReaderDialogPanel', () => {
   beforeEach(() => {
     document.body.innerHTML = '';
     document.head.innerHTML = '';
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('reuses one style attachment across rerenders and disposes it before removal', async () => {
+    const handles: StyleAttachmentHandleMock[] = [];
+    const attach = vi
+      .spyOn(panelStyleSheetManager, 'applyReaderStyles')
+      .mockImplementation((root) => {
+        const handle = createStyleAttachmentHandle(root);
+        handles.push(handle);
+        return handle;
+      });
+    const first = new ReaderDialogPanel({
+      texts: createReaderPanelTexts(),
+      callbacks: createReaderPanelCallbacks()
+    });
+    first.mount();
+    await flushPanelPersistence();
+    first.updateHint('Updated');
+    first.destroy();
+    first.destroy();
+    const second = new ReaderDialogPanel({
+      texts: createReaderPanelTexts(),
+      callbacks: createReaderPanelCallbacks()
+    });
+    second.mount();
+    second.destroy();
+    second.destroy();
+
+    expect(attach).toHaveBeenCalledTimes(2);
+    const [firstHandle, secondHandle] = handles;
+    if (!firstHandle || !secondHandle) throw new Error('fresh style handles missing');
+    expect(firstHandle).not.toBe(secondHandle);
+    expect(firstHandle.refresh).not.toHaveBeenCalled();
+    expect(secondHandle.refresh).not.toHaveBeenCalled();
+    await expect(firstHandle.ready).resolves.toEqual({ status: 'ready' });
+    await expect(secondHandle.ready).resolves.toEqual({ status: 'ready' });
+    handles.forEach((handle) => expect(handle.dispose).toHaveBeenCalledTimes(1));
+    expect(first.element.isConnected).toBe(false);
+    expect(second.element.isConnected).toBe(false);
+  });
+
+  it('keeps the initial style attachment pending across early rerenders', async () => {
+    let resolveReady!: (result: { status: 'ready' }) => void;
+    const ready = new Promise<{ status: 'ready' }>((resolve) => {
+      resolveReady = resolve;
+    });
+    const handle: StyleAttachmentHandleMock = {
+      ready,
+      refresh: vi.fn(() => Promise.resolve({ status: 'ready' })),
+      dispose: vi.fn()
+    };
+    vi.spyOn(panelStyleSheetManager, 'applyReaderStyles').mockReturnValue(handle);
+    const panel = new ReaderDialogPanel({
+      texts: createReaderPanelTexts(),
+      callbacks: createReaderPanelCallbacks()
+    });
+
+    panel.show();
+    panel.updateHint('Updated before styles resolve');
+
+    expect(handle.refresh).not.toHaveBeenCalled();
+    expect(panel.element.isConnected).toBe(true);
+    expect(panel.element.hidden).toBe(true);
+    expect(panel.element.getAttribute('aria-busy')).toBe('true');
+
+    resolveReady({ status: 'ready' });
+    await vi.waitFor(() => expect(panel.element.hidden).toBe(false));
+    expect(panel.element.hasAttribute('aria-busy')).toBe(false);
+
+    panel.updateHint('Updated after styles resolve');
+    expect(handle.refresh).not.toHaveBeenCalled();
+    panel.destroy();
+  });
+
+  it('keeps the managed fallback style node stable across incremental updates', async () => {
+    const applyStyles = panelStyleSheetManager.applyReaderStyles.bind(panelStyleSheetManager);
+    const attachments: StyleAttachmentHandle[] = [];
+    vi.spyOn(panelStyleSheetManager, 'applyReaderStyles').mockImplementation((root) => {
+      const attachment = applyStyles(root);
+      attachments.push(attachment);
+      return attachment;
+    });
+    const panel = new ReaderDialogPanel({
+      texts: createReaderPanelTexts(),
+      callbacks: createReaderPanelCallbacks()
+    });
+    panel.mount();
+    const [attachment] = attachments;
+    if (!attachment) throw new Error('style attachment missing');
+    await expect(attachment.ready).resolves.toEqual({ status: 'ready' });
+    const shadow = panel.element.shadowRoot;
+    await vi.waitFor(() =>
+      expect(
+        shadow?.querySelector('style[data-aiob-style-bridge="panel-reader-style-pack"]')
+      ).toBeTruthy()
+    );
+    const initialStyle = shadow?.querySelector<HTMLStyleElement>(
+      'style[data-aiob-style-bridge="panel-reader-style-pack"]'
+    );
+
+    panel.updateHint('Rerendered');
+    await vi.waitFor(() =>
+      expect(shadow?.querySelector('style[data-aiob-style-bridge="panel-reader-style-pack"]')).toBe(
+        initialStyle
+      )
+    );
+    const restoredStyle = shadow?.querySelector<HTMLStyleElement>(
+      'style[data-aiob-style-bridge="panel-reader-style-pack"]'
+    );
+
+    expect(initialStyle).toBeTruthy();
+    expect(initialStyle?.isConnected).toBe(true);
+    expect(restoredStyle).toBeTruthy();
+    expect(restoredStyle).toBe(initialStyle);
+    panel.destroy();
+    expect(restoredStyle?.isConnected).toBe(false);
   });
 
   it('mounts reader panel with the stable aiob-reader-panel id', () => {
@@ -84,6 +229,138 @@ describe('ReaderDialogPanel', () => {
 
     expect(panel.element.id).toBe('aiob-reader-panel');
     expect(document.getElementById('aiob-reader-panel')).toBe(panel.element);
+
+    panel.destroy();
+  });
+
+  it('projects destination insertion and rename without replacing the mounted row', () => {
+    const panel = new ReaderDialogPanel({
+      texts: createReaderPanelTexts(),
+      callbacks: createReaderPanelCallbacks()
+    });
+    panel.mount(document.body);
+    panel.updateDestination(
+      createDestination(
+        'Downloads',
+        [
+          {
+            id: 'downloads',
+            kind: 'downloads',
+            label: 'Downloads',
+            path: 'Downloads/reader.md',
+            selected: true
+          }
+        ],
+        {
+          hasConfiguredVault: false,
+          setupUrl: 'chrome-extension://test/options/index.html#storage'
+        }
+      )
+    );
+
+    const shadow = panel.element.shadowRoot;
+    const mountedRow = shadow?.querySelector<HTMLElement>('.export-destination-row');
+    if (!mountedRow) throw new Error('mounted Reader destination row missing');
+    mountedRow.dataset.liveRuntimeMarker = 'reader-row';
+
+    panel.updateDestination(
+      createDestination('Current Live Vault', [
+        {
+          id: 'live-vault',
+          kind: 'vault',
+          label: 'Current Live Vault',
+          path: 'Current Live Vault/reader.md',
+          selected: true
+        },
+        {
+          id: 'downloads',
+          kind: 'downloads',
+          label: 'Downloads',
+          path: 'Downloads/reader.md',
+          selected: false
+        }
+      ])
+    );
+
+    expect(shadow?.querySelector('.export-destination-row')).toBe(mountedRow);
+    expect(mountedRow.dataset.liveRuntimeMarker).toBe('reader-row');
+    expect(mountedRow.querySelector('.export-destination-label')?.textContent).toBe(
+      'Current Live Vault'
+    );
+    expect(mountedRow.querySelector('.export-destination-path')?.textContent).toBe(
+      'Current Live Vault/reader.md'
+    );
+    expect(
+      Array.from(mountedRow.querySelectorAll<HTMLElement>('.export-destination-option')).map(
+        (button) => ({
+          id: button.dataset.destinationId,
+          selected: button.classList.contains('is-selected')
+        })
+      )
+    ).toEqual([
+      { id: 'live-vault', selected: true },
+      { id: 'downloads', selected: false }
+    ]);
+    expect(mountedRow.querySelector('.export-destination-setup-link')).toBeNull();
+
+    panel.updateDestination(
+      createDestination('Live Renamed Vault', [
+        {
+          id: 'live-vault',
+          kind: 'vault',
+          label: 'Live Renamed Vault',
+          path: 'Live Renamed Vault/reader.md',
+          selected: true
+        },
+        {
+          id: 'downloads',
+          kind: 'downloads',
+          label: 'Downloads',
+          path: 'Downloads/reader.md',
+          selected: false
+        }
+      ])
+    );
+
+    expect(shadow?.querySelector('.export-destination-row')).toBe(mountedRow);
+    expect(mountedRow.dataset.liveRuntimeMarker).toBe('reader-row');
+    expect(mountedRow.querySelector('.export-destination-label')?.textContent).toBe(
+      'Live Renamed Vault'
+    );
+
+    const destinationDetails = mountedRow.querySelector<HTMLDetailsElement>(
+      '.export-destination-menu'
+    );
+    const destinationSummary = mountedRow.querySelector<HTMLElement>('.export-destination-summary');
+    const destinationOptions = Array.from(
+      mountedRow.querySelectorAll<HTMLElement>('.export-destination-option')
+    );
+    if (!destinationDetails || !destinationSummary) {
+      throw new Error('Reader destination identity fixture missing');
+    }
+    destinationSummary.focus();
+    const expectDestinationIdentity = () => {
+      expect(shadow?.querySelector('.export-destination-row')).toBe(mountedRow);
+      expect(mountedRow.querySelector('.export-destination-menu')).toBe(destinationDetails);
+      expect(mountedRow.querySelector('.export-destination-summary')).toBe(destinationSummary);
+      expect(
+        Array.from(mountedRow.querySelectorAll<HTMLElement>('.export-destination-option'))
+      ).toEqual(destinationOptions);
+      expect(shadow?.activeElement).toBe(destinationSummary);
+    };
+
+    panel.updateHint('Force a normal Reader rerender');
+    expectDestinationIdentity();
+    expect(shadow?.querySelector('.export-destination-label')?.textContent).toBe(
+      'Live Renamed Vault'
+    );
+    expect(shadow?.querySelector('.export-destination-path')?.textContent).toBe(
+      'Live Renamed Vault/reader.md'
+    );
+    panel.updateCount(2);
+    expectDestinationIdentity();
+    panel.setHighlights([createHighlight({ id: 'h-1', index: 1 })]);
+    expectDestinationIdentity();
 
     panel.destroy();
   });
@@ -188,6 +465,7 @@ describe('ReaderDialogPanel', () => {
     );
 
     expect(iconBefore).toBeInstanceOf(HTMLImageElement);
+    expect(iconBefore?.src).toBe('chrome-extension://mock/icons/60x60/zendio_icon_readingt.png');
     expect(iconAfterAdd).toBe(iconBefore);
     expect(iconAfterUpdate).toBe(iconBefore);
 
@@ -366,6 +644,44 @@ describe('ReaderDialogPanel', () => {
     panel.destroy();
   });
 
+  it('cancels only for the true outside-dialog overlay', () => {
+    const callbacks = createReaderPanelCallbacks();
+    const panel = new ReaderDialogPanel({
+      texts: createReaderPanelTexts(),
+      callbacks
+    });
+    panel.show();
+    const shadow = panel.element.shadowRoot;
+    const insideSelectors = [
+      '.resource-modal-header',
+      '.resource-modal-body',
+      '.session-panel-rail',
+      '.session-panel-resize-handle',
+      '.session-panel-height-resize-handle',
+      '.reader-surface-window'
+    ];
+
+    insideSelectors.forEach((selector) => {
+      const element = shadow?.querySelector<HTMLElement>(selector);
+      if (!element) throw new Error(`reader dialog target missing: ${selector}`);
+      element.dispatchEvent(new MouseEvent('click', { bubbles: true, composed: true }));
+    });
+
+    expect(callbacks.onCancel).not.toHaveBeenCalled();
+
+    shadow
+      ?.querySelector<HTMLButtonElement>('[data-action-id="reader:cancel"]')
+      ?.dispatchEvent(new MouseEvent('click', { bubbles: true, composed: true }));
+    expect(callbacks.onCancel).toHaveBeenCalledTimes(1);
+
+    shadow
+      ?.querySelector<HTMLElement>('.resource-modal-overlay')
+      ?.dispatchEvent(new MouseEvent('click', { bubbles: true, composed: true }));
+    expect(callbacks.onCancel).toHaveBeenCalledTimes(2);
+
+    panel.destroy();
+  });
+
   it('restores and persists the reader floating panel collapsed state', async () => {
     await testPlatformHarness.storage.local.set('aiob.sessionPanel.collapsed', true);
     const panel = new ReaderDialogPanel({
@@ -456,6 +772,45 @@ describe('ReaderDialogPanel', () => {
       panel.element.shadowRoot?.querySelector('[data-highlight-input="h-1"]')
     );
 
+    panel.destroy();
+  });
+
+  it('keeps the reader shell, status and unchanged keyed items stable across 100 updates', () => {
+    const panel = new ReaderDialogPanel({
+      texts: createReaderPanelTexts(),
+      callbacks: createReaderPanelCallbacks()
+    });
+    const highlights = Array.from({ length: 20 }, (_, index) =>
+      createHighlight({ id: `h-${index + 1}`, index: index + 1, excerpt: `Excerpt ${index + 1}` })
+    );
+    panel.setHighlights(highlights);
+    const shadow = panel.element.shadowRoot;
+    const shell = shadow?.querySelector('.reader-surface-window');
+    const list = shadow?.querySelector('.session-item-list');
+    const first = shadow?.querySelector('[data-highlight-id="h-1"]');
+    const last = shadow?.querySelector('[data-highlight-id="h-20"]');
+    const status = shadow?.querySelector('[data-session-status]');
+    const preview = first?.querySelector<HTMLElement>('.session-item-primary-line');
+    preview?.click();
+
+    for (let index = 0; index < 100; index += 1) panel.updateHint(`Status ${index}`);
+    panel.updateCount(21);
+    panel.setHighlights(
+      highlights.map((item) => (item.id === 'h-10' ? { ...item, excerpt: 'Changed' } : item))
+    );
+
+    expect(shadow?.querySelector('.reader-surface-window')).toBe(shell);
+    expect(shadow?.querySelector('.session-item-list')).toBe(list);
+    expect(shadow?.querySelector('[data-highlight-id="h-1"]')).toBe(first);
+    expect(shadow?.querySelector('[data-highlight-id="h-20"]')).toBe(last);
+    expect(shadow?.querySelector('[data-session-status]')).toBe(status);
+    expect(status?.getAttribute('role')).toBe('status');
+    expect(status?.getAttribute('aria-live')).toBe('polite');
+    expect(first?.querySelector('.session-item-primary-line')).toBe(preview);
+    expect(preview?.classList.contains('is-expanded')).toBe(true);
+    expect(preview?.getAttribute('role')).toBe('button');
+    expect(preview?.getAttribute('tabindex')).toBe('0');
+    expect(preview?.getAttribute('aria-expanded')).toBe('true');
     panel.destroy();
   });
 });

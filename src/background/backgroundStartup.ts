@@ -1,6 +1,6 @@
 import type { ActionService } from '../platform/interfaces/actions';
 import type { ContextMenusService } from '../platform/interfaces/contextMenus';
-import type { MessagingService } from '../platform/interfaces/messaging';
+import type { MessageSenderInfo, MessagingService } from '../platform/interfaces/messaging';
 import type { RuntimeService } from '../platform/interfaces/runtime';
 import type { ScriptingService } from '../platform/interfaces/scripting';
 import type { StorageService } from '../platform/interfaces/storage';
@@ -15,8 +15,17 @@ import {
   createRuntimeMessageListenerDependencies,
   registerRuntimeMessageListener
 } from './listeners/runtimeMessages';
+import type { SessionDraftRuntimeDependencies } from './listeners/sessionDraftMessages';
+import { createSessionDraftOwnerLivenessProbe } from './services/sessionDraftOwnerLivenessProbe';
+import { createSessionDraftStore, type SessionDraftStore } from './services/sessionDraftStore';
 import { ensureUsageStatsInitialized } from './services/usageStats';
 import { bootstrapBackgroundDependencies, configureBackgroundDependencyStorage } from './bootstrap';
+import { SessionDraftTrustedOwnerContextSchema } from '../shared/sessionDrafts';
+import { ChromeOptionsRepository } from '../infrastructure/repositories/ChromeOptionsRepository';
+import {
+  createOptionsMutationCoordinator,
+  type OptionsMutationCoordinator
+} from './services/optionsMutationCoordinator';
 
 export interface BackgroundStartupDependencies {
   action: ActionService;
@@ -26,12 +35,83 @@ export interface BackgroundStartupDependencies {
   scripting: ScriptingService;
   storage: StorageService;
   tabs: TabsService;
+  optionsMutationCoordinator?: OptionsMutationCoordinator;
+}
+
+function unavailableSessionDraftStore(code: string): SessionDraftStore {
+  const reject = () => Promise.reject(new Error(code));
+  return {
+    readExact: reject,
+    save: reject,
+    finalizeExact: reject,
+    removeExact: reject,
+    renewLease: reject,
+    releaseLease: reject,
+    migrateLegacyVideoCapture: reject,
+    prune: reject,
+    list: reject,
+    selectAndClaim: reject
+  } as SessionDraftStore;
+}
+
+function createSessionDraftRuntimeDependencies(
+  dependencies: Pick<BackgroundStartupDependencies, 'storage' | 'tabs'>
+): SessionDraftRuntimeDependencies {
+  const created = createSessionDraftStore(dependencies.storage.local, {
+    ownerLivenessProbe: createSessionDraftOwnerLivenessProbe(dependencies.tabs)
+  });
+  return {
+    sessionDraftStore: created.ok ? created.store : unavailableSessionDraftStore(created.code),
+    resolveSessionDraftOwner: (sender) => resolveSessionDraftOwner(dependencies.tabs, sender)
+  };
+}
+
+async function resolveSessionDraftOwner(tabs: Pick<TabsService, 'get'>, sender: MessageSenderInfo) {
+  if (
+    typeof sender.tabId !== 'number' ||
+    !Number.isInteger(sender.tabId) ||
+    sender.tabId < 0 ||
+    typeof sender.frameId !== 'number' ||
+    !Number.isInteger(sender.frameId) ||
+    sender.frameId < 0
+  )
+    return null;
+  const trustedSnapshot = SessionDraftTrustedOwnerContextSchema.safeParse({
+    tabId: sender.tabId,
+    frameId: sender.frameId,
+    ...(typeof sender.windowId === 'number' ? { windowId: sender.windowId } : {})
+  });
+  if (typeof sender.windowId === 'number' && trustedSnapshot.success) {
+    return trustedSnapshot.data;
+  }
+  try {
+    const tab = await tabs.get(sender.tabId);
+    if (!tab) return null;
+    const parsed = SessionDraftTrustedOwnerContextSchema.safeParse({
+      tabId: sender.tabId,
+      frameId: sender.frameId,
+      ...(typeof tab.windowId === 'number' ? { windowId: tab.windowId } : {})
+    });
+    return parsed.success ? parsed.data : null;
+  } catch {
+    return null;
+  }
 }
 
 export function startBackgroundRuntime(dependencies: BackgroundStartupDependencies): void {
+  const fallbackOptionsStorageRepository = new ChromeOptionsRepository(dependencies.storage);
+  const optionsMutationCoordinator =
+    dependencies.optionsMutationCoordinator ??
+    createOptionsMutationCoordinator(fallbackOptionsStorageRepository);
   configureBackgroundDependencyStorage(dependencies.storage);
-  bootstrapBackgroundDependencies();
+  bootstrapBackgroundDependencies(undefined, optionsMutationCoordinator);
   const optionsRepository = resolveRepository<IOptionsRepository>(DI_TOKENS.IOptionsRepository);
+
+  if (dependencies.optionsMutationCoordinator) {
+    void optionsMutationCoordinator.initialize().catch((error) => {
+      console.error('[background] Failed to initialize options persistence:', error);
+    });
+  }
 
   registerContextMenuListeners(
     createContextMenuListenerDependencies({
@@ -50,7 +130,9 @@ export function startBackgroundRuntime(dependencies: BackgroundStartupDependenci
       dependencies.messaging,
       dependencies.tabs,
       dependencies.runtime,
-      dependencies.storage
+      dependencies.storage,
+      createSessionDraftRuntimeDependencies(dependencies),
+      { optionsMutationCoordinator }
     )
   );
 

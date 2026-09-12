@@ -5,37 +5,25 @@ import { DI_TOKENS } from '@shared/di/tokens';
 import { resolveRepository } from '@shared/di/serviceRegistry';
 import type { IMessagingRepository, IOptionsRepository } from '@shared/repositories';
 import type { CompleteOptions, StoredOptions } from '@shared/types/options';
+import {
+  ClassifierProviderSchema,
+  FragmentContextModeSchema,
+  ReadingExportModeSchema
+} from '@shared/schemas/options.schema';
+import { TaxonomyConfigSchema } from '@shared/schemas/taxonomy.schema';
 import type { PreviewStoreState } from '@options/stitch/types';
-import { parseClassifierTaxonomy } from '@options/services/validation';
-import { resolveTaxonomy } from '@shared/config/taxonomyMigration';
+import {
+  type OptionsValidationError,
+  resolveClassifierTaxonomyEditorText
+} from '@options/services/validation';
 import {
   createPresetYamlConfig,
   resolveReadingPathMode,
   toTemplateValues
 } from './productionStitchStateMapper';
 import { updateVideoDraftPath } from './productionStitchVideoDraftState';
-
-export function createLocalOptionsRepositoryFallback(): IOptionsRepository {
-  let snapshot = mergeOptions(null) as CompleteOptions;
-  const listeners = new Set<(options: CompleteOptions) => void>();
-  return {
-    get() {
-      return Promise.resolve(snapshot);
-    },
-    set(options) {
-      snapshot = mergeOptions({ ...snapshot, ...options }) as CompleteOptions;
-      listeners.forEach((listener) => listener(snapshot));
-      return Promise.resolve();
-    },
-    onChange(callback) {
-      listeners.add(callback);
-      callback(snapshot);
-      return () => {
-        listeners.delete(callback);
-      };
-    }
-  };
-}
+import { UnavailableOptionsRepository } from '../../infrastructure/repositories/UnavailableOptionsRepository';
+import type { SectionInvalidationScope } from '@ui/stitch-runtime/render/sectionInvalidation';
 
 export function createLocalMessagingRepositoryFallback(): IMessagingRepository {
   return {
@@ -52,10 +40,9 @@ export function resolveOptionsRepositoryFallback(): IOptionsRepository {
   try {
     return resolveRepository<IOptionsRepository>(DI_TOKENS.IOptionsRepository);
   } catch {
-    return createLocalOptionsRepositoryFallback();
+    return new UnavailableOptionsRepository();
   }
 }
-
 export function resolveMessagingRepositoryFallback(): IMessagingRepository {
   try {
     return resolveRepository<IMessagingRepository>(DI_TOKENS.IMessagingRepository);
@@ -71,7 +58,6 @@ export function resolveRoot(root?: HTMLElement | null): HTMLElement {
   }
   return target;
 }
-
 export function resolveDefaultDomainMappingRows(draft: CompleteOptions): Array<[string, string]> {
   const entries = Object.entries(draft.domainMappings);
   if (entries.length) {
@@ -86,30 +72,25 @@ export function mergePartialIntoDraft(
   setDomainMappingRows: (entries: Array<[string, string]>) => void,
   partial: Partial<CompleteOptions>
 ): void {
-  if (partial.rest) {
-    draft.rest = { ...draft.rest, ...partial.rest };
+  const { rest, templates, domainMappings, vaultRouter, yamlConfig, ...remaining } = partial;
+  if (rest) {
+    draft.rest = { ...draft.rest, ...rest };
   }
-  if (partial.templates) {
-    draft.templates = { ...draft.templates, ...partial.templates };
+  if (templates) {
+    draft.templates = { ...draft.templates, ...templates };
   }
-  if (partial.domainMappings) {
-    draft.domainMappings = { ...partial.domainMappings };
+  if (domainMappings) {
+    draft.domainMappings = { ...domainMappings };
     setDomainMappingRows(Object.entries(draft.domainMappings));
   }
-  if (partial.vaultRouter) {
-    draft.vaultRouter = partial.vaultRouter;
+  if (vaultRouter) {
+    draft.vaultRouter = vaultRouter;
   }
-  if (partial.yamlConfig !== undefined) {
-    draft.yamlConfig = partial.yamlConfig;
+  if (yamlConfig !== undefined) {
+    draft.yamlConfig = yamlConfig;
   }
-  Object.entries(partial).forEach(([key, value]) => {
-    if (['rest', 'templates', 'domainMappings', 'vaultRouter', 'yamlConfig'].includes(key)) {
-      return;
-    }
-    (draft as Record<string, unknown>)[key] = value;
-  });
+  Object.assign(draft, remaining);
 }
-
 export function applyTemplateStateToDraft(draft: CompleteOptions, state: PreviewStoreState): void {
   draft.templates.article = state.templateValues.articleVideo ?? draft.templates.article;
   draft.templates.video = state.templateValues.video ?? draft.templates.video;
@@ -130,7 +111,7 @@ export function applyOutputPresetToDraft(options: {
   setDomainMappingRows(entries: Array<[string, string]>): void;
   refreshAppData(): void;
   scheduleDraftSave(): void;
-  render(): void;
+  render(scope: SectionInvalidationScope): void;
   name: string;
 }): void {
   const { draft, state, name } = options;
@@ -150,25 +131,29 @@ export function applyOutputPresetToDraft(options: {
   state.readingPathMode = resolveReadingPathMode(draft);
   options.refreshAppData();
   options.scheduleDraftSave();
-  options.render();
+  options.render('output');
 }
 
+export type ClassifierFieldUpdateResult =
+  | { success: true }
+  | { success: false; error: OptionsValidationError };
 export function updateClassifierField(
   draft: CompleteOptions,
   state: PreviewStoreState,
   scheduleDraftSave: () => void,
   field: string,
   value: unknown
-): void {
+): ClassifierFieldUpdateResult {
   switch (field) {
     case 'enabled':
       draft.classifier.enabled = Boolean(value);
       state.classifierEnabled = draft.classifier.enabled;
       break;
     case 'provider':
-      draft.classifier.provider = String(
-        value ?? 'ollama'
-      ) as CompleteOptions['classifier']['provider'];
+      {
+        const provider = ClassifierProviderSchema.safeParse(String(value ?? 'ollama'));
+        draft.classifier.provider = provider.success ? provider.data : 'ollama';
+      }
       state.classifierProvider = draft.classifier.provider;
       break;
     case 'endpoint':
@@ -183,22 +168,22 @@ export function updateClassifierField(
       draft.classifier.apiKey = String(value ?? '');
       state.classifierApiKey = draft.classifier.apiKey;
       break;
-    case 'taxonomy':
-      state.classifierTaxonomyText = String(value ?? '');
-      try {
-        draft.classifier.taxonomy = resolveTaxonomy(
-          parseClassifierTaxonomy(state.classifierTaxonomyText)
-        );
-      } catch {
-        // Keep the previous taxonomy until the JSON is valid and matches the classifier schema.
+    case 'taxonomy': {
+      const editorText = String(value ?? '');
+      const result = resolveClassifierTaxonomyEditorText(editorText);
+      if (!result.success) {
+        return result;
       }
+      draft.classifier.taxonomy = TaxonomyConfigSchema.parse(result.taxonomy);
+      state.classifierTaxonomyText = editorText;
       break;
+    }
     default:
-      return;
+      return { success: true };
   }
   scheduleDraftSave();
+  return { success: true };
 }
-
 export function updateDraftPath(
   draft: CompleteOptions,
   state: PreviewStoreState,
@@ -214,9 +199,10 @@ export function updateDraftPath(
       state.aiUserName = draft.aiChat.userName;
       break;
     case 'readingSession.exportMode':
-      draft.readingSession.exportMode = String(
-        value ?? 'highlights'
-      ) as CompleteOptions['readingSession']['exportMode'];
+      {
+        const exportMode = ReadingExportModeSchema.safeParse(String(value ?? 'highlights'));
+        draft.readingSession.exportMode = exportMode.success ? exportMode.data : 'highlights';
+      }
       state.readingExportMode = draft.readingSession.exportMode;
       break;
     case 'fragmentClipper.useFootnoteFormat':
@@ -232,9 +218,10 @@ export function updateDraftPath(
       state.fragmentContextLength = draft.fragmentClipper.contextLength;
       break;
     case 'fragmentClipper.contextMode':
-      draft.fragmentClipper.contextMode = String(
-        value ?? 'chars'
-      ) as CompleteOptions['fragmentClipper']['contextMode'];
+      {
+        const contextMode = FragmentContextModeSchema.safeParse(String(value ?? 'chars'));
+        draft.fragmentClipper.contextMode = contextMode.success ? contextMode.data : 'chars';
+      }
       state.fragmentContextMode = draft.fragmentClipper.contextMode;
       break;
     case 'fragmentClipper.keyboardShortcutsEnabled':
@@ -245,9 +232,8 @@ export function updateDraftPath(
       break;
   }
 }
-
 export function createInitialDraft(
   options?: StoredOptions | CompleteOptions | null
 ): CompleteOptions {
-  return mergeOptions(options) as CompleteOptions;
+  return mergeOptions(options);
 }

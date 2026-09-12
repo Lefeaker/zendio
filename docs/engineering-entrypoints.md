@@ -1,17 +1,33 @@
 # 工程命令与入口
 
-最后更新：2026-07-01
+最后更新：2026-09-05
 
 ## 推荐运行环境
 
 - Node.js：`.nvmrc` pins `20.20.2`；package engines allow `>=20.19 <21`
 - npm：validated `10.8.2`；package engines allow `>=10 <11`
-- Playwright：`npx playwright install --with-deps chromium`
+- Playwright 本地安装：`node scripts/run-bounded-command.mjs --profile playwright-install-v1 -- chromium-with-deps`；CI 使用分离的 `playwright-host-deps-platform-v1` 与 `playwright-browser-install-v1`
+
+本地依赖安装由 `local-install-v1` 执行 fresh lock-exact `npm ci`。默认无参数仍使用直连；需要本机 HTTP 代理时，可显式执行 `node scripts/run-bounded-command.mjs --profile local-install-v1 -- --proxy=loopback-7890`，仅选择固定 `http://127.0.0.1:7890`。先提供新的、当前用户所有且为空的 mode700 `ZENDIO_LOCAL_ATTEMPT_ROOT`，并移除 ambient HTTP(S)/ALL/NO_PROXY 及其小写变量；选择器不会允许继承环境代理。该模式只给 npm leaf 增加固定 proxy/https-proxy CLI 参数，私有 mode600 npm configs 保持为空；不改变 registry、TLS 校验、凭据、Node/npm、630 秒预算或 CI/release 边界，不自动切换路线或重试。安装成功后仍须执行项目验证和正常 Husky 提交检查，不能将安装成功等同于验收通过。
+
+所有 direct tool 与 CI/project command 必须经 `scripts/run-bounded-command.mjs` 的固定 profile，或经 `quality-check.mjs`、`verify-preflight.mjs`、两个 shard runner 之一的 direct-root grammar。禁止 `npx`、bare tool、shell/data interpolation、ambient concurrency/env/cwd、caller-selected timeout/descriptor/output policy 与第二套 spawn/queue owner。
+
+## 文档状态治理
+
+- 当前 Markdown 状态、分类边界与维护流程见 [`document-status-governance.md`](./document-status-governance.md)。
+- 检查清单与当前 Git 跟踪 Markdown 是否一致：
+
+```bash
+node scripts/run-bounded-command.mjs --profile node-script-standard-v1 -- tools/report-active-document-contract.mjs --report
+node scripts/run-bounded-command.mjs --profile node-script-standard-v1 -- tools/report-active-document-contract.mjs --check
+```
+
+- `audit:active-documents:{report,check}` 是以上 direct tool 的维护型 package aliases；`quality` 与 CI Static preflight 使用 check alias，并始终按当前 tree 动态要求 tracked/classified 相等且 findings 为空，不冻结某次分类计数或摘要。
 
 ## 本轮统一门禁真值
 
 - `npm run quality`
-  - 由 `scripts/quality-check.mjs` 的 dependency-aware task graph 执行；`QUALITY_CONCURRENCY` 可控制本地并发，默认按 CPU 上限保守并行
+  - 由 `scripts/quality-check.mjs` 的 dependency-aware task graph 执行；`quality-v1` 并发固定为 `3`，拒绝 `QUALITY_CONCURRENCY` 等环境覆盖
   - 显式包含 `verify:runtime`，运行 `scripts/verify-runtime.mjs` 校验当前 Node.js 满足 `package.json` 的 `engines.node`
   - 显式包含 `release:metadata:check`；版本号单一来源为 `package.json` 的 `version` 字段，该 gate 校验 `package-lock.json` root version、`public/manifest.json`、`public/manifest.firefox.json` 与 `src/i18n/catalog/messages/*/runtime.json` 的 `versionNumber` 均已由 `npm run release:metadata:sync` 同步
   - 显式包含 `typecheck:app`
@@ -19,6 +35,7 @@
   - 显式包含 `typecheck:strict`
   - 显式包含 `audit:ga:proxy-contract`、`audit:ga:docs` 与 `audit:ga:legacy-api`
   - 显式包含 `audit:chrome-webstore-release:check`，守住 Chrome Web Store 自动发布 workflow 必须绑定受保护 `chrome-webstore-release` Environment、使用 GA public config、archive-level GA 审计与显式 `--publish`
+  - 显式包含唯一 typed `audit:github-actions-supply-chain:check` task；该 gate 以 `scripts/config/githubActionPins.mjs` 为五行 reviewed pin 真值，结构化扫描完整 Git-visible `.github/**/*.yml|yaml` 闭包，要求 external `uses:` 使用 full 40-hex commit 与同一行精确 `# vN` 注释，并递归验证本地 composite actions
   - `audit:ga:proxy-contract` check mode 以 source-derived contract 为当前真值，并刷新 ignored `build/reports/ga-proxy-contract.json` 供 `audit:ga:docs` 复用；stale / missing / invalid report 不得阻塞当前 source contract
   - 显式执行 production `build:fast` 后运行 `audit:release-surface:report`
   - 显式在 production `build:fast` 后运行 `audit:ga:client-secret` 与 `audit:ga:release-surface`
@@ -27,17 +44,21 @@
   - i18n 产品范围决策为 `release-13-languages`：release-supported human UI locales 为 `en`、`zh-CN`、`ja`、`de`、`fr`、`es-ES`、`es-419`、`it`、`ko`、`pt-BR`、`ru`、`zh-TW`
   - `qps-ploc` 分类为 `dev-test-only`；production build/package output 与 release-surface audit 不允许出现 `qps-ploc` loader/chunk 或 `_locales/qps-ploc/messages.json`
   - Chrome ZIP 与 Firefox XPI package 脚本会解包最终产物并通过 `tools/audit-release-archive.mjs` 复用 release-surface 审计
-  - Firefox XPI package 脚本会在生成未签名 XPI 前对最终 `build/dist` 执行 `web-ext lint --self-hosted`；Firefox source manifest 当前使用 `background.scripts`，声明 `browser_specific_settings.gecko.data_collection_permissions.required=["none"]` / `optional=["technicalAndInteraction"]`，并将 desktop / Android `strict_min_version` 统一为 `142.0`，避免 `BACKGROUND_SERVICE_WORKER_NOFALLBACK`、`storage.session` min-version 与 AMO data-collection min-version 漂移静默进入 release artifact
+  - Firefox XPI package 脚本先执行 repository manifest/static checks，再通过 `firefox-addons-lint-v1` 对最终 dist 运行锁定的 `addons-linter 10.10.0 --self-hosted`，最后才创建 XPI 并做 archive audit；standalone 入口为 `npm run lint:firefox:addons`。tracked `@zendio/addons-linter-image-metadata-adapter 0.1.0` 只替代 addons-linter 所需的同步 `width` / `height` / `type` API，binary metadata 委托 audit-clean `probe-image-size 7.4.0`，SVG/CgBI compatibility 有界且 invalid fail closed；warnings/notices 可见但不作为 errors。Firefox source manifest 当前使用 `background.scripts`，声明 `browser_specific_settings.gecko.data_collection_permissions.required=["none"]` / `optional=["technicalAndInteraction"]`，并将 desktop / Android `strict_min_version` 统一为 `142.0`
   - `npm run test:i18n` 包含 `layout:report`；clean worktree 中需先运行 `npm run build:dev` 或 `npm run build` 生成 `build/dist`
-  - `lint:options-css` 的当前有效规则覆盖 `src/options/**/*.css`；`src/options/stitch/styles/**` 的 `--print-config` 必须包含非空 `selector-class-pattern`
+  - CSS selector gate 通过 `node scripts/run-bounded-command.mjs --profile stylelint-v1 -- "src/options/**/*.css" "src/onboarding/**/*.css" "src/ui/**/*.css"` 覆盖 Options、onboarding 与 neutral UI；`--print-config` 必须包含非空 `selector-class-pattern`
   - 显式包含 `lint:hardcoded`；当前 standalone 输出为 `0` hardcoded findings
-  - 显式包含 `audit:i18n-hardcoded-user-copy:check`；生产用户可见文案只能来自 i18n catalog 或 `UserVisibleMessageDescriptor` key，background/content 边界只传 descriptor/code/params。当前 CJK/descriptor hard gate 输出为 `scanned=582 findings=19 unexpected=0 staleAllowlist=0`，治理细节见 [`i18n-production-copy-governance.md`](./i18n-production-copy-governance.md)
-  - 显式包含 `audit:i18n-uncatalogued-user-copy:check`；英文 uncatalogued-copy audit 已作为 hard gate 接入 `quality`，覆盖 `normalizeToAppError` 的 raw English `defaultMessage` fallback、`subtitle` / `hint` / `body` 等 production-visible fields，并且不会把带编号的多词英文 UI title 误判为 technical token list；当前输出 `scanned=578 findings=0 unexpected=0 staleAllowlist=0`，allowlist rules 为 `0`
+  - 显式包含 `audit:i18n-hardcoded-user-copy:check`；生产用户可见文案只能来自 i18n catalog 或 `UserVisibleMessageDescriptor` key，background/content 边界只传 descriptor/code/params。当前 graph、scan、finding 与 allowlist rule 数值只由 fresh production graph 后的既有 report/check owner 动态产生，不在本条固化；治理细节见 [`i18n-production-copy-governance.md`](./i18n-production-copy-governance.md)
+  - 显式包含 `audit:i18n-uncatalogued-user-copy:check`；英文 uncatalogued-copy audit 已作为 hard gate 接入 `quality`，覆盖 `normalizeToAppError` 的 raw English `defaultMessage` fallback、`subtitle` / `hint` / `body` 等 production-visible fields，并且不会把带编号的多词英文 UI title 误判为 technical token list；当前数值同样只接受 fresh graph-backed report/check 输出，不作为文档常量或 hard-gate threshold
+  - 2026-08-30 tip-bound verification evidence（不是 threshold）：在 commit `134215ba78629718317164ec5cc1da3543842f19` / tree `9a2707468563049ffc7b02bd1ff1ba9748f1ead3` 上，fresh production graph `sourceCount=760`；CJK/descriptor report 与 check 均为 `scanned=731 findings=20 unexpected=0 staleAllowlist=0`，allowlist rules 为 `8`；English uncatalogued-copy report 与 check 均为 `scanned=727 findings=0 unexpected=0 staleAllowlist=0`，allowlist rules 为 `0`。后续 tree 的当前真值必须重新刷新 graph 并运行相同 owners，不得继承本次证据数字
   - 显式包含 `i18n:catalog:check`；catalog/generated artifact drift 会在 `quality`、`verify:preflight` 与 CI 中阻塞
   - `audit:design-system-doc:report` 只检查 tracked / non-ignored 的 active style guidance；被 `.gitignore` 标记的本地过程 archive 不进入当前样式真值口径
+  - 显式包含 UI production ownership、design-token alignment、performance hotspot 与 active-document hard gates；content CSS packs check 复用同一 `build-fast` 结果后执行，不创建第二个 build owner
+  - CSS selector gate 的 typed task 使用 Options、onboarding 与 neutral UI 三个现有 glob；active-document gate 动态消费 D01 schema/status/tool，不硬编码分类计数、Git OID 或报告摘要
   - `i18n:catalog:generate` 当前从 `src/i18n/catalog/messages/<lang>/{runtime,static,schema}.json` 生成 `src/i18n/generated/*`、`src/i18n/generated/locales/*.generated.ts` 与 `public/_locales/**`；`npm run i18n:generate` 保持原命令名，但现在只是兼容包装层，实际委托给 catalog generator
   - `public/_locales/**` 是当前 catalog-owned WebExtension static source；root `_locales/**` 已退役并删除，不参与 production build/package ownership
 - `npm run verify:preflight`
+  - canonical direct root 为 `node scripts/verify-preflight.mjs`，使用固定 concurrency `1` 保留 20-leaf 左到右顺序
   - 显式包含 `verify:runtime`
   - 显式包含 `typecheck:app`
   - 显式包含 `typecheck:tests`
@@ -48,32 +69,40 @@
   - 显式包含 `audit:ga:proxy-contract`、`audit:ga:docs` 与 `audit:ga:legacy-api`
   - 串行继续执行 `lint -- --quiet`、`build:dev`、`audit:ga:client-secret`、`audit:ga:release-surface` 与其他 `audit:*` 报告
 - `npm run test*` 与 `npm run visual*`
-  - 每个 npm script entrypoint 显式前置 `verify:runtime`
+  - `test`、`test:unit`、`test:e2e` 与 `test:coverage` 直接进入 `vitest-v1`；该 profile 在启动 locked Vitest leaf 前拥有 runtime guard，其余现有 browser/visual aliases 仍保留显式 runtime guard
+  - literal npm aliases 只接受已绑定 exact package script、repo cwd、Node `v20.20.2` 与 npm `10.8.2` 的完整 npm-owned lifecycle projection；user-agent 仅允许无 provider 的 local form（包括 controller 使用的 exact `CI=1` notifier suppression）或由 exact `CI=true` / `GITHUB_ACTIONS=true` 唯一导出的 `ci/github-actions` form。projection 必须精确匹配 closed HOME、locked runtime、repo prefix 与 canonical mode-0600 `NPM_CONFIG_USERCONFIG` / `NPM_CONFIG_GLOBALCONFIG` pair。进入 managed child 前只移除这组已验证 lowercase projection，child spec 仍只传播 canonical uppercase pair；额外或伪造的 CI provider/suffix、registry、proxy、certificate、script-shell、loader、credential 与 npm config authority 一律 fail closed
   - 本地 PATH 指向不受支持 Node 版本时，先在 runtime guard 失败，不启动 Vitest / Playwright
-  - `test:unit:shards` 与 `test:e2e:shards` 是本地加速入口：它们按进程级 shard 并行运行，单个 Vitest 进程仍使用现有 config，不改变 canonical `test:unit`、`test:e2e` 或 `test:coverage` 口径
-  - `test:e2e:browser:parallel` 与 `visual:test:parallel` 会先运行一次 `build:dev`，再通过 `PLAYWRIGHT_SKIP_WEB_SERVER_BUILD=1` 让各 Playwright shard 只读同一 dist；runner 会为每个 shard 注入独立 `PLAYWRIGHT_OUTPUT_DIR` 与 `PLAYWRIGHT_HTML_REPORT_DIR`，避免 failure artifacts / HTML report 互相覆盖；直接并行多个旧 browser 命令仍不推荐
+  - canonical shard roots 为 `node scripts/run-test-shards.mjs <unit|e2e> [registered-shard]`；全组固定最多 `3` 个 Vitest leaf，显式单 shard 固定为 `1`，不读取 CPU 或环境并发
+  - 生成式视觉预览由各 fixture 分别持有唯一临时目录；runtime alignment、task-success layout 与 Stitch parity fallback 在自身 teardown 中只清理自己的产物。`build-preview.mjs --outdir` 会重置目标目录，因此并发项目或工作进程不能共享生成目录；外部冻结参考预览保持只读。
+  - canonical browser shard root 为 `node scripts/run-browser-test-shards.mjs <e2e|visual|bundled>`；固定最多 `2` 个 Playwright leaf，并为每个 registered shard 使用 owner-defined port / dist / `PLAYWRIGHT_OUTPUT_DIR` / `PLAYWRIGHT_HTML_REPORT_DIR`，caller 不能覆盖路径。`bundled` route 会在 admission 前取得共享 Playwright build lease，经 `npm-script-build-v1` 的 fixed `build:dev` owner 与 coordinator-owned `BUILD_DIST_DIR=build/dist-u02c2-bundled-chromium` 生成 fresh dist，并持有 lease 直到 E2E 与 visual leaf 全部结束
   - `test:e2e:browser:parallel` 当前覆盖 YAML interaction、reader-panel 与 migration smoke 三组 shard；local-vault 与 Firefox browser checks 仍保留为独立专项命令
+  - `test:e2e:browser:state` 包含 `optionsCrossContextMutation.browser.test.ts` 的已安装扩展路径：两个真实 Options 页面、mounted form 的远端更新与 dirty path、冲突后的再次交互、page-exit flush，以及 Local Vault journal/restart/compensation 与 authoritative publication。`test:e2e:browser:architecture` 包含 `sessionPanelsIncremental.browser.test.ts` 的 Video 显式 Downloads 选择及 draft 恢复；完整 Video 回归仍使用 `test:e2e:browser:video`。这些专项入口不由只运行 YAML interaction 的 `test:e2e:browser` 替代
+  - Reader / Video session panel 当前使用固定 shell、keyed item list 与一个 bounded root dispatcher；专项浏览器回归为 `tests/e2e/sessionPanelsIncremental.browser.test.ts`，要求 20-item / 100-update 下 shell、list、未变化 item、input、status、listener/style handle 身份稳定，并覆盖 screenshot/draft/collapse 的真实 Chromium 路径
 - `npm run build*` 与 `npm run package*`
-  - `build` 与 `build:firefox` 显式先运行一次 `quality`，随后调用 `scripts/build.mjs --skip-checks`，不得恢复为重复触发完整 `quality` 的形式
+  - `build`、`build:firefox`、`build:prod:ga`、`build:firefox:prod:ga` 与 `build:firefox:prod:ga:ci` 直接进入 `scripts/build.mjs`，由其在 production build 进程内执行且仅执行一次完整 `quality`；任一 quality task 失败都必须在清理 `build/dist` 或开始构建前以非零状态 fail closed
+  - `build:fast` / `build:firefox:fast`、dev、isolated 与 release replay 等明确由外层门禁持有的路线保留 `--skip-checks`；不得将它们替换为无外层 quality owner 的完整 production 入口
+  - `package:ci` 与 `package:firefox:ci` 分别是已有 Chrome / Firefox build 的 packaging-only 入口；`package:firefox:ci` 只生成未签名 XPI，不获取凭据、不签名也不提交 AMO
   - `scripts/build.mjs` 从 `package.json` 读取版本号，并注入 `__ZENDIO_EXTENSION_VERSION__` / `__AIIINOB_EXTENSION_VERSION__` 作为 Options 等无 platform manifest 场景的版本 fallback；不要在 UI 代码中硬编码 release version
   - `scripts/build.mjs` 支持 `--outdir` / `BUILD_DIST_DIR`；`scripts/package.mjs` 与 `scripts/package-firefox.mjs` 支持 `--dist-dir`
   - `build:chrome:isolated` / `build:firefox:isolated` 与 `package:chrome:isolated` / `package:firefox:isolated` 使用独立 dist 目录，作为 Chrome / Firefox package 并行化的安全入口
-  - Firefox AMO 自动发布入口为 `.github/workflows/release-firefox-amo.yml`；该 workflow 在 tag `v*` 与手动触发时使用 repository secrets 注入 GA public config 与 AMO API credentials，运行 `analytics:validate:prod:required`、`build:firefox:prod:ga:ci`、生成并审计 AMO source archive、`web-ext` signing submission、GA secret / release-surface archive audits，并上传生成的 XPI 与 `build/firefox-source/**/*-source.zip` artifact
+  - Firefox AMO 自动发布入口为 `.github/workflows/release-firefox-amo.yml`；无凭据 `prepare` job 绑定 exact release SHA、required CI、Git tree、package/lock hash 与 immutable artifact ID/digest，执行 public GA config 验证、isolated Firefox build、AMO source archive、pinned geckodriver `0.37.1` + WebDriver BiDi exact-XPI smoke 和 archive audits。受保护 `submit` job 在 fresh runner 上重新验证/授权同一工件，并只在唯一 mutation step 向 first-party AMO API v5 adapter 注入 AMO credentials
 - `.github/workflows/ci.yml`
-  - 采用拆分后的并行 job 拓扑：`static-preflight`、`static-release-surface`、`static-generated-artifacts`、`static-style-and-locale`、`static-reporting-audits`、`coverage`、`visual` matrix、`e2e-vitest`、`browser-yaml`、`browser-reader-panel`、`browser-smoke` 并行执行
+  - 采用 16 个固定 job ID / 18 个 required display names 的拆分拓扑；G00 browser state/architecture jobs、required-job source 与 release provenance owners 保持不变
   - 使用 workflow-level `concurrency`，同一 PR / ref 的新 run 会取消旧 run
-  - `.github/actions/setup-node-deps` 统一 Node / npm cache / `npm ci`；`.github/actions/setup-playwright` 在此基础上缓存 `~/.cache/ms-playwright` 并安装 Chromium browser dependencies
-  - 官方 JavaScript actions 使用 Node 24-compatible major：`actions/checkout@v6`、`actions/setup-node@v6`、`actions/upload-artifact@v7`、`actions/github-script@v8`
-  - `static-preflight` 显式运行 `npm run audit:ci-workflow:check`、`npm run i18n:catalog:check` 与 `npm run verify:preflight`；三项 typecheck 仍由 `verify:preflight` 显式覆盖
+  - 每个 job 先运行 checkout 前 builtin-only bootstrap，随后使用 literal `ubuntu-24.04`；timeout taxonomy 为 Static preflight `60`、Package extension `35`、其他 generic `30`、browser/visual `60` 分钟
+  - `.github/actions/setup-node-deps` 禁用 setup-node package-manager cache，并只调用 `github-ci-install-v1` 输出 attempt root 与两个 private npm config；`.github/actions/setup-playwright` 不使用 default cache，而是按顺序调用 fixed Chromium host-deps/platform 与 bounded browser-install profile
+  - 官方 JavaScript actions 使用 `scripts/config/githubActionPins.mjs` 中 2026-08-28 reviewed 的 Node 24-compatible full commits；workflow 同行 `# v6` / `# v7` / `# v8` 只保留 human review alias，不是 executable ref。`audit:github-actions-supply-chain:{report,check}` 是唯一 inventory 入口
+  - `static-preflight` 保留 CI topology、test-suite ownership、i18n catalog 与 direct `verify-preflight` 前缀，随后按顺序执行 unmasked UI production ownership check、一次 production build、content CSS packs check、design-token check、动态 active-document check 与 final GitHub Actions supply-chain check；performance 继续只由 `verify-preflight` 的既有 owner 执行，不重复接线，也不从 Static preflight 调用 `quality`
   - `static-release-surface` 显式运行 `build:fast` 与 `audit:release-surface:report`
-  - `static-style-and-locale` 保留 locale source alignment、Options CSS naming、hardcoded config guard 与 lint warning guard 的 hard gate 语义；`static-reporting-audits` 仅保留 report-only audit 的 per-step `continue-on-error`
+  - `static-style-and-locale` 保留 locale source alignment、hardcoded config guard 与 lint warning guard，并以 direct Stylelint profile 覆盖 Options、onboarding 与 neutral UI 三个 canonical globs；`static-reporting-audits` 仅保留 report-only audit 的 per-step `continue-on-error`
   - `visual` 按 `chromium-desktop` / `chromium-tablet` / `chromium-mobile` matrix 拆分；Vitest E2E 与三组 browser E2E 拆成独立 job，失败报告 artifact 按 suite 命名
   - `package` job 通过 `needs: [static-preflight]` 提前启动，并继续使用 `npm run build:fast`，避免在 CI 后段通过 `npm run build` 重复触发完整 `quality`；测试、visual、release-surface 与静态拆分 job 仍应作为独立 required checks 参与合并判断
 - `.github/workflows/release-firefox-amo.yml`
   - Firefox AMO 自动发布支持 tag `v*` 触发与 `workflow_dispatch` 手动触发；手动触发可选择 `listed` 或 `unlisted`，tag 触发默认 `listed`
-  - Workflow 只读取 `contents: read` 权限，不写 GitHub release；发布凭据只来自 `WEB_EXT_API_KEY` / `WEB_EXT_API_SECRET` repository secrets，GA public config 只来自 `ZENDIO_GA_MEASUREMENT_ID` / `ZENDIO_GA_PROXY_ENDPOINT` secrets 与固定 `ZENDIO_GA_TRANSPORT_MODE=proxy`
-  - `listed` 渠道使用 `--approval-timeout 0` 提交 AMO 审核，不要求 CI 立即下载 signed XPI；`unlisted` 渠道必须产出根目录 signed XPI，并与 unsigned XPI 一起进入 GA release-surface archive audit
-  - 签名流程默认生成 `<扩展名>-v<版本号>-source.zip` 并通过 `web-ext.cmd.sign({ uploadSourceCode })` 上传；源码包包含 `AMO_SOURCE_REVIEW.md` 与复现构建所需白名单输入，并拒绝 `.env*`、`node_modules/`、`build/`、`.worktrees/`、XPI/ZIP 与私钥类文件
+  - Workflow 不写 GitHub release；三项 `ZENDIO_GA_*` public build values 来自冻结的 repository / organization Variables。AMO credentials 只来自受保护 `firefox-amo-release` Environment，并只暴露给 `firefox-submit-v1` mutation step；兼容环境变量名 `WEB_EXT_API_KEY` / `WEB_EXT_API_SECRET` 不表示依赖 `web-ext`
+  - 无凭据 `prepare` 在 dependency setup 后、runtime/provenance/browser/build 前运行一次 unmasked supply-chain check；受保护 `submit` 不重复运行且不接收该 check 的额外 authority。Chrome release workflow 保持同一相对边界，publish 同样不包含该 step
+  - `listed` 渠道使用零审核等待，成功表示 AMO 已接受并进入审核流程；`unlisted` 渠道使用有界等待，并要求唯一下载的 signed XPI 通过 SHA-256、manifest identity/version 与 release-surface 复核
+  - first-party AMO API v5 adapter 复用已保存 upload UUID，等待 AMO upload validation 成功后提交 version，并上传 `<扩展名>-v<版本号>-source.zip`。源码包包含 `AMO_SOURCE_REVIEW.md` 与复现构建所需白名单输入，并拒绝 `.env*`、`node_modules/`、`build/`、`.worktrees/`、XPI/ZIP 与私钥类文件；upload/version/source mutation 开始后的未知响应必须进入 reconciliation，不得自动重试
   - `.github/workflows/release-firefox-amo.yml` 的核心契约由 `npm run audit:ci-workflow:check` 与 `tests/unit/tools/ciWorkflow.test.ts` 守住；不要把该 workflow 改回依赖本机 `.env.production.local` 的命令
 - 2026-06-23 post-0.2.0 P07 performance observability truth：在 branch `codex/aiiinob-post-020-p07-performance-observability-2026-06-22` / source baseline commit `7495ab47` 重新采集 production `build:fast`、dev `build:dev`、`audit:build:report`、`audit:release-surface:report`、`audit:performance:report`、`audit:deps:report`、`audit:platform-boundary:report`、`audit:non-production-source:report`、`lint:type-any` 与 `lint:warnings-guard`；P07 后续只同步 docs、tool budget ratchets 与对应 tool test expectation。Fresh production build report 为 `content/runtime.js` raw `50,167` bytes、`onboarding/index.js` raw `1,130` bytes、chunks `86`；fresh dev report 为 `content/runtime.js` raw `58,694` bytes、`onboarding/index.js` raw `1,751` bytes、chunks `100`。Dev `content/runtime.js` remains above warning target `58,564` but below hard stop `58,752`; P07 intentionally did not loosen this build budget. `audit:release-surface:report` 为 `Files=180`、forbidden harness/pseudo-locale `none`；`audit:performance:report` 为 `sourceFiles=875`、`hotspotsOver250=111`、`registeredLineBudgets=149`，并将 36 个 stale line budgets 收紧到 fresh line count；`audit:deps:report` 为 `modules=993`、`dependencies=3032`、`violations=0`；`audit:platform-boundary:report` 为 total `141`；`audit:non-production-source:report` decision counts 为 `retain-production: 718`、`migrate-import-owner: 164`、`retain-production-facade: 17`；`lint:type-any` 为 overall `0/1187/1987/49/3`、src `0/666/715/8/0`、tests `0/521/1272/41/3`；`lint:warnings-guard` 当前 warning count 为 `157`（baseline `160`）。
 - 2026-05-22 final exit gate 真值：在 Node `v20.20.2` / npm `10.8.2` 下，`quality`、`verify:preflight`、`test:unit`、`clean`、`build:dev`、`audit:build:report`、`audit:performance:report`、`verify:stitch-secondary`、`visual:test`、browser smoke、reader-panel、local-vault 均已通过；`build/dist/content/runtime.js` raw `54,554` bytes，低于当时 `57,600` stop gate
@@ -90,14 +119,16 @@
 - 2026-05-26 M10 source-of-truth sync 真值：maintainability-debt M0-M10 合入后的 integration branch 上，`quality`、`verify:preflight`、`lint:type-any`、`audit:performance:report`、`audit:build:report`、`audit:compatibility-duplicates:check` 与 `audit:non-production-source:report` 均已重新采集；当前 type/warning/non-production source 数值见下文
 - 2026-05-26 M10 budget ratchet 真值：`quality` 显式包含 `lint:type-any:ratchet`；`verify:preflight` 继续包含 `audit:performance:report`，且 performance report 覆盖当前全部 `src` >250 LOC 文件
 - 2026-06-01 Plan 09 compatibility duplicate 真值：`quality` 显式包含 `audit:compatibility-duplicates:check`；当前 usage/rest compatibility candidate files 为 `0`，exact duplicate groups 为 `0`，allowlist entries 为 `0`，因此没有生产 allowlist。工具中的旧 `src/options/components/sections/usage*.ts` / `src/options/widgets/shared/usage/**` scope 是 retired compatibility reintroduction guard，只用于防止已退役 usage compatibility shells 被重新引入并复制，不代表当前生产 owner。
-- 2026-06-13 test runtime guard 真值：`package.json` 中 `test` / `test:*` / `visual:*` npm scripts 均显式前置 `verify:runtime`；本地 PATH 指向 Node 23 等不支持版本时，测试入口会先失败在 runtime guard，不会启动 Vitest / Playwright。
+- 2026-08-24 command-boundary runtime truth：`test`、`test:unit`、`test:e2e`、`test:coverage` 由 `vitest-v1` 内部先执行 runtime guard，再启动 locked CLI；其他现有 test/browser/visual aliases 保留显式 guard。Unsupported Node 会在任何 Vitest / Playwright leaf 前失败。
 - 2026-05-25 post-gap runtime guard 真值：本轮验证使用 Node `v20.20.2` / npm `10.8.2`；`package.json` 与 `package-lock.json` root engines 要求 Node `>=20.19 <21`，`verify:runtime` 会读取 `package.json` 的 `engines.node` 并已接入 `quality` 与 `verify:preflight`
-- 2026-06-19 Vitest 4 / Vite 8 / release-tooling dependency-audit 真值：Node `v20.20.2` / npm `10.8.2` 下，root devDependencies 精确锁定为 `vitest 4.1.9` 与 `@vitest/coverage-v8 4.1.9`，解析出的 dev test toolchain 为 `vite 8.0.16`、`esbuild 0.28.1`。Firefox signing toolchain 仍通过 `web-ext 10.4.0 -> addons-linter 10.7.0 -> cheerio 1.2.0` 解析；`undici@>=7.0.0 <7.28.0` 已由 root override 锁定到 `7.28.0`，关闭 2026-06-19 发现的 `undici@7.27.2` dev/release-tooling audit 漂移。`npm audit --omit=dev --json` 与 `npm audit --audit-level=low --json` 当前均退出 `0`，total `0` vulnerabilities；此前 `vitest` / `vite` / `esbuild` dev/build/test-only high 链 release exception 已关闭。全量 dev audit 仍不是 `quality` / `verify:preflight` / CI hard gate，除非后续 owner 单独做 gate 决策。迁移兼容修复仅限测试侧：Vitest 4 stricter `Mock` typing、Chrome/Firefox downloads 测试中的 constructible `URL` stub、以及 `@mozilla/readability` constructible mock。coverage hard gate 保持启用并同步为 Vitest 4 口径 floor：statements `76.5`、lines `77`、functions `77.5`、branches `66.5`。
+- 2026-08-27 Firefox release-tooling dependency-audit 真值：`web-ext`、`addons-linter` 与其 vulnerable `image-size` 链已从 direct/lock dependency graph 删除；AMO submission 由仓库 first-party API v5 adapter 承担，exact-XPI smoke 通过唯一新增 direct devDependency `ws 8.21.0` 驱动 WebDriver BiDi，并使用固定版本与 SHA-256 的官方 geckodriver `0.37.1`。Release acceptance 要求在 clean candidate 上分别执行 production `npm audit --omit=dev --audit-level=low --json` 与 all-dependency `npm audit --audit-level=low --json`，两者的 info/low/moderate/high/critical/total 必须全部为 `0`；不得通过 suppression、override pin 或 advisory 重分类制造通过
+- 2026-08-27 U04A session-panel incremental-render 真值：Reader / Video compatibility selector patch owners 已删除；facade 分别为 `248` / `245` 行，controller/events 均低于 `250` 行，`contentOrchestratorHarness.ts` 为 `356` 行且仍低于 `359` hard budget。Fresh performance inventory 为 sourceFiles=`892`、hotspotsOver250=`101`、registeredLineBudgets=`145`；仅保留 accepted-base 的 `optionsMutationCoordinator` / `optionsStore` missing budgets 与 onboarding/runtimeMessages/localVaultPermissionFrame/usageStats 四项既有 overage，本节点没有新增 performance blocker或放宽这些旧 gate
+- 2026-08-28 U04B Options section invalidation correction 真值：`src/ui/stitch-runtime/render/sectionInvalidation.ts` 持有 11-scope 闭合集合、reentrant scope coalescing、focus/input-selection/document-selection/scroll snapshot 与 dispose/late-completion no-op；Options feature caller 显式路由 owner scope，lazy loader 拒绝、owned root 缺失及 durable import 后的完整状态安装只进入已枚举 `all-invariant-recovery`。Privacy 字段共享串行 persistence owner，copy/import/connection/storage/usage async completion 使用 active generation guard，dirty YAML 只在 output/locale/full replacement 或最终 collect/teardown 边界 flush/destroy。Focused Options Vitest 为 `9` 文件 / `113` tests，Chromium `optionsIncrementalRender.browser.test.ts` 为 `3` tests，Options e2e shard为 `4` 文件 / `7` tests；Stitch parity visual 为 `31` passed / `2` skipped，preview runtime/layout 为 `31` passed。`verify:stitch-secondary` 的 preview-freeze drift 在 candidate 与 clean accepted base `99f90d3e` 相同；其 unit remainder为 candidate `3` failed / `147` passed，对比 base `8` failed / `136` passed，剩余三项均为同一 short-apiKey fixture 基线。UI ownership 为 `56 = 47 runtime + 9 compile`，dependency audit 为 `modules=1021 dependencies=3424 violations=0`；dev build 为 chunks=`114`、`runtimeEntry=291735 B <= 327680 B`、lazy `sectionInvalidation=5496 B`、split persistence=`19927 B`，production build 为 chunks=`99`、`runtimeEntry=143.9 KB`，release surface=`179` files 且无 harness / pseudo-locale。三项 typecheck 与 quiet lint 均通过；quality/preflight 只保留 accepted-base type-ratchet/performance 根因，U04B changed-file type-debt delta 为零且未放宽任何 gate。浏览器命令使用 locked local Playwright CLI 与 U04B 专属端口 `4181`，不使用 `npx` / `npm exec`
 - 2026-06-16 i18n hardcoded P22/post-strict-gap type-ratchet 真值：P16-P22 与 post-P22 strict gap 合入 integration 后，`lint:type-any` 扫描 `1231` files，fresh overall `0/1148/1973/47/3`、src `0/628/695/9/0`、tests `0/520/1278/38/3`；`lint:type-any:ratchet` checked-in 上限同步为 overall `0/1148/1973/53/4`、src `0/628/695/9/0`、tests `0/520/1278/46/4`。本次只同步 accepted integration current truth，`any` 继续保持 `0`，`ts-expect-error` 未增加，non-null 上限未放宽。
 - 2026-06-18 GA telemetry post-main type-ratchet 真值：GA integration 合入 current `origin/main` 后，`lint:type-any` 扫描 `1285` files，fresh overall `0/1190/1996/50/3`、src `0/668/715/9/0`、tests `0/522/1281/41/3`；`lint:type-any:ratchet` checked-in 上限同步为 exact current counts。`any` 继续保持 `0`，overall / tests 的 non-null 与 `ts-expect-error` 上限较旧值收紧；tests 下降不得抵消 src 增长。
 - 2026-06-18 GA telemetry post-main quality 真值：`quality` fresh run 在 Node `v20.20.2` 下通过；`lint:warnings-guard` checked-in baseline 为 `160`，fresh warning count 为 `159`；`audit:non-production-source:check` decision counts 为 `retain-production: 685`、`migrate-import-owner: 137`、`retain-production-facade: 16`；`audit:deps:report` 输出 `modules=927`、`dependencies=2840`、`violations=0`。本次没有同步 warning baseline，也没有把 dependency / non-production source 报告改成新的 hard threshold。
 - 2026-06-16 i18n hardcoded production-copy 真值：`audit:i18n-hardcoded-user-copy` 为报告命令；`audit:i18n-hardcoded-user-copy:check` 会先生成 `build/reports/production-build-graph.json`，再以 `--check` 运行 hardcoded user-copy audit，并已接入 `quality`。当前保留 allowlist 仅限 P21 site-native AI parser tokens；P13 regression matrix `tests/unit/i18n/hardcodedSurfaceCoverage.test.ts` 绑定 P03-P22 migrated surfaces 到 executable evidence，integration full `npm run test` 已通过 `391` files / `2477` tests。
-- 2026-06-17 English uncatalogued-copy hard gate 真值：`audit:i18n-uncatalogued-user-copy:check` 会先刷新 production build graph，再扫描 production-reachable `src/**` 与 relevant `public/**` 中疑似英文 UI copy、translation fallback、descriptor-boundary payload、HTML/DOM text。P01-P07 迁移、P07d surface-localization owner split、P08 wiring、coverage follow-up 与 numbered-title follow-up 后，audit 覆盖 `normalizeToAppError(..., { defaultMessage })` raw English fallback，把 `subtitle`、`hint`、`body` 纳入 production-visible field taxonomy，并且不会因为独立编号 token 把多词英文 UI title 归为 technical token list；当前输出 `scanned=578 findings=0 unexpected=0 staleAllowlist=0`，allowlist rules 为 `0`；不得用 broad allowlist 掩盖产品 UI copy。
+- 2026-06-17 English uncatalogued-copy hard gate historical checkpoint：`audit:i18n-uncatalogued-user-copy:check` 当时会先刷新 production build graph，再扫描 production-reachable `src/**` 与 relevant `public/**` 中疑似英文 UI copy、translation fallback、descriptor-boundary payload、HTML/DOM text。P01-P07 迁移、P07d surface-localization owner split、P08 wiring、coverage follow-up 与 numbered-title follow-up 后，audit 当时输出 `scanned=578 findings=0 unexpected=0 staleAllowlist=0`，allowlist rules 为 `0`。这组日期化数字只保留为历史证据；当前 tree 必须运行 fresh graph-backed owner，且不得用 broad allowlist 掩盖产品 UI copy。
 - 2026-06-17 English uncatalogued-copy build/performance 真值：coverage follow-up 将 Options/Stitch preview navigation seed 拆入 `src/options/stitch/previewNavigation.ts`，`src/options/stitch/content.ts` 当前为 `841` 行且 line budget 收紧为 `<= 841`。Production fast `audit:build:report` 当前输出 `content/runtime.js` raw `49,989` bytes、`onboarding/index.js` raw `9,974` bytes、chunk count `100`；dev `audit:build:report` 当前输出 `content/runtime.js` raw `58,489` bytes、`onboarding/index.js` raw `17,540` bytes、chunk count `114`；`audit:performance:report` 当前输出 `sourceFiles=803`、`hotspotsOver250=100`、`registeredLineBudgets=128`。完整当前热点与 line-budget 口径以 [`performance-baseline.md`](./performance-baseline.md)、`tools/report-build-splitting.mjs` 和 `tools/report-performance-hotspots.mjs` 为准，本次没有放宽 entry、single/shared chunk、locale chunk、YAML 或 line-budget hard gate。
 - 2026-06-16 i18n hardcoded P15 preflight build-budget follow-up 前风险状态：`audit:build:report` 在 integration `ca8be48e` 上复现 post-P14 dev-build drift 后，同步 gates 为 `content/runtime.js` warning `58,564` raw bytes / hard stop `58,752`、`onboarding/index.js` warning `17,377` / hard stop `17,633`、release locale chunk hard stop `64 KB`、shared `chunk-*` top-three hard stops `213 KB` / `136 KB` / `133 KB`；当时 chunk count hard stop 为 `120`，single chunk `320 KB`、YAML `70 KB` 未变。该条保留风险来源，不再代表 follow-up 后当前 chunk count gate。
 - 2026-06-16 i18n hardcoded follow-up build-budget 真值：AI chat runtime parser loaders 合并为一个 lazy `runtimePlatformParsers-*` boundary，并在 P3 follow-up 切断 `aiChatExtractor.ts -> parse.ts -> registry.ts -> platform parsers` 静态路径后，dev `audit:build:report` chunk count 从 `120` 降为 `101`；chunk count gate 收紧为 warning target `108` / hard stop `118`。`aiChatExtractor-*` 静态 import 图不再包含 platform parser implementation markers，platform parsers 只通过 `runtimeRegistry-*` 动态加载唯一 `runtimePlatformParsers-*`。本次没有提高任何 hard stop，也没有改变 entry/shared/locale/YAML size hard stops。
@@ -133,7 +164,7 @@ npm run audit:i18n-hardcoded-user-copy
 npm run audit:i18n-hardcoded-user-copy:check
 npm run audit:i18n-uncatalogued-user-copy
 npm run audit:i18n-uncatalogued-user-copy:check
-npx vitest run --config vitest.unit.config.ts tests/unit/i18n/hardcodedSurfaceCoverage.test.ts
+node scripts/run-bounded-command.mjs --profile vitest-v1 -- run --config vitest.unit.config.ts tests/unit/i18n/hardcodedSurfaceCoverage.test.ts
 ```
 
 `audit:i18n-hardcoded-user-copy` 只打印当前报告；`audit:i18n-hardcoded-user-copy:check` 是 standalone hard gate。`quality` 会先生成 `build/reports/production-build-graph.json` 再直接调用底层 check 脚本以复用同一个 graph；手动直接运行 `node scripts/audit-i18n-hardcoded-user-copy.mjs --check` 前必须先刷新 graph，普通本地使用仍优先 npm script。
@@ -147,6 +178,9 @@ npm run test:e2e:browser:local-vault
 npm run test:e2e:browser:smoke
 npm run test:e2e:browser
 npm run test:e2e:browser:reader-panel
+npm run test:e2e:browser:state
+npm run test:e2e:browser:architecture
+npm run test:e2e:browser:video
 npm run test:e2e:browser:parallel
 npm run verify:stitch-secondary
 npm run visual:test
@@ -155,9 +189,10 @@ npm run visual:test:parallel
 
 Reader/video browser E2E command truth:
 
-- `node scripts/run-playwright.mjs test tests/e2e/<file> --project=chromium-desktop` automatically uses `playwright.reader.config.ts` when no explicit `--config` is supplied.
-- `playwright.reader.config.ts` starts the local Playwright web server and runs `build:dev`, so reader/video browser E2E tests do not depend on a pre-existing `build/dist`.
-- Visual browser tests remain owned by `playwright.config.ts` and `tests/visual/**`.
+- `node scripts/run-bounded-command.mjs --profile playwright-v1 -- test tests/e2e/<file> --project=chromium-desktop` retains the verified Playwright runner behavior and selects `playwright.reader.config.ts` when no explicit `--config` is supplied.
+- `playwright.reader.config.ts` starts the local Playwright web server, runs `build:dev`, and launches the lock-matched bundled Chromium without a system-browser channel or executable override, so reader/video browser E2E tests do not depend on a pre-existing `build/dist` or system Chrome.
+- Visual browser tests remain owned by `playwright.config.ts` and `tests/visual/**`; all Chromium projects use the lock-matched bundled browser without a channel override.
+- `playwright.bundled-chromium.config.ts` is the local-only nine-file collection for an already-provisioned lock-matched Playwright Chromium cache. Its canonical `node scripts/run-browser-test-shards.mjs bundled` route acquires the existing Playwright build lease, creates a fresh fixed dist, then runs the five-file browser E2E leaf before the four-file visual leaf across fixed ports `43103` / `43104` while retaining that lease and isolated outputs for the entire lifecycle. The browser leaf includes the idle-content CSS pack route; extension leaves select the full bundled Chromium with `headless: false` plus Chromium `--headless=new`, without a channel or executable override.
 
 Local Vault / release handoff checks:
 
@@ -167,8 +202,11 @@ npm run clean
 npm run build
 npm run audit:release-surface:report
 npm run audit:local-vault-release:report -- --browser chrome
+npm run package:ci
 npm run build:firefox
+npm run audit:release-surface:report
 npm run audit:local-vault-release:report -- --browser firefox
+npm run package:firefox:ci
 npm run release:chrome -- --zip <release.zip>
 ```
 
@@ -178,27 +216,28 @@ before running the Firefox audit; do not reuse a Firefox build for Chrome audit 
 a Chrome build for Firefox audit. `build:fast` / `build:firefox:fast` are only
 acceptable when a surrounding standalone quality gate has already passed.
 
-`release:chrome` is a dry-run alias. A real Chrome Web Store publish must use
-`npm run release:chrome:publish -- --zip <release.zip>` with owner-provided
-credentials and manual confirmation.
-`.github/workflows/release-chrome-webstore.yml` is the automated Chrome Web
-Store publish path. Its release job must bind `environment:
-chrome-webstore-release`; owner-managed GitHub Environment protection rules must
-enable Required reviewers for that Environment. The job reads
-`ZENDIO_GA_MEASUREMENT_ID`, `ZENDIO_GA_TRANSPORT_MODE`, and
-`ZENDIO_GA_PROXY_ENDPOINT` from Environment Variables, fails closed when any are
-missing or when `ZENDIO_GA_TRANSPORT_MODE` is not `proxy`, runs
-`analytics:validate:prod:required`, `quality`, a production Chrome build,
-`package:ci`, archive-level `audit:ga:client-secret` /
-`audit:ga:release-surface`, and only then calls
-`node scripts/publish-chrome-webstore.mjs --publish --zip <zip>`.
-The workflow contract is guarded by `npm run audit:chrome-webstore-release:check`.
+Local `release:chrome*` aliases are build/dry-run diagnostics; they are not the
+authoritative live-delivery path. `.github/workflows/release-chrome-webstore.yml`
+owns Chrome Web Store delivery. It accepts only a fresh first workflow attempt,
+then an unprivileged `prepare` job reads the three public `ZENDIO_GA_*` values from
+frozen repository/organization Variables, validates exact SHA/required CI, builds
+an isolated package, and uploads one immutable artifact without credentials or a
+protected Environment.
+
+The separate `publish` job binds `environment: chrome-webstore-release`, downloads
+the artifact by ID with digest mismatch fail-closed behavior, reauthorizes the
+exact SHA/tree/package/lock/artifact tuple, and injects Chrome credentials only
+into the single `chrome-publish-v1 --publish` mutation step. Once upload or publish
+has started, an unknown response is `unknown-submission-state` and requires store
+reconciliation; do not retry the workflow attempt. The contract is guarded by
+`npm run audit:chrome-webstore-release:check`.
 
 GA production release public config is loaded from ignored
-`.env.production.local` for local owner runs. The Chrome Web Store GitHub
-Actions release workflow reads the same public values from the protected
-`chrome-webstore-release` Environment Variables; Chrome Web Store credentials
-belong in the same Environment Secrets, not repository-level Secrets.
+`.env.production.local` only for explicit local owner diagnostics. GitHub release
+prepare jobs read the same public values from repository/organization Variables;
+they do not receive Environment secrets. Chrome credentials belong only in the
+protected `chrome-webstore-release` Environment and are exposed only to the
+single publish mutation step.
 The reusable owner commands are:
 
 ```bash
@@ -209,7 +248,7 @@ npm run build:prod:ga
 npm run package:prod:ga
 npm run package:firefox:prod:ga
 npm run build:firefox:prod:ga:ci
-npm run package:firefox:prod:ga:ci
+npm run package:firefox:ci
 npm run release:prod:ga
 node scripts/run-ga-owner-smoke.mjs --mode proxy --event runtime_harness_open
 node scripts/run-ga-owner-smoke.mjs --mode directDebug --event runtime_harness_open
@@ -229,16 +268,15 @@ and public env shape, but it still does not prove real GA property delivery,
 DebugView visibility, or server-side `api_secret` injection. If
 `.env.production.local` is absent, the validator still runs and reports missing
 public values as warnings.
-The Chrome Web Store release workflow adds its own fail-closed shell checks for
-missing protected Environment public GA build config and non-`proxy` transport
-before any production package is built.
+The Chrome prepare job fails closed on missing public repository/organization
+Variables or non-`proxy` transport before any production package is built.
 `analytics:validate:prod:required` runs the same contract but is the strict CI /
 release automation entry: it does not load `.env.production.local`, requires
 canonical `ZENDIO_GA_MEASUREMENT_ID` / `ZENDIO_GA_TRANSPORT_MODE` /
 `ZENDIO_GA_PROXY_ENDPOINT`, and requires `ZENDIO_GA_TRANSPORT_MODE=proxy`. The
-`*:ci` Firefox GA package scripts likewise do not load `.env.production.local`;
-they expect CI environment variables or repository secrets to be injected by the
-caller.
+`build:firefox:prod:ga:ci` 不加载 `.env.production.local`；release prepare 只注入
+public repository/organization Variables，构建完成后交给未签名、packaging-only
+`package:firefox:ci`。
 `audit:ga:proxy-contract` / `audit:ga:docs` / `audit:ga:legacy-api` are
 deterministic static gates and are wired into `quality` and `verify:preflight`.
 `audit:ga:client-secret` scans client runtime `src/**` plus the current
@@ -281,10 +319,10 @@ npm run audit:ga:release-surface
 node scripts/run-ga-owner-smoke.mjs --mode proxy --event runtime_harness_open
 node scripts/run-ga-owner-smoke.mjs --mode directDebug --event runtime_harness_open
 node scripts/run-ga-owner-smoke.mjs --help
-npx vitest run --config vitest.unit.config.ts tests/unit/scripts/runGaOwnerSmoke.test.ts tests/unit/scripts/analyticsDeliverySmoke.test.ts
-npx vitest run tests/unit/background/analyticsEvents.test.ts tests/unit/shared/errors/analytics/index.test.ts tests/unit/shared/errors/analyticsConfig.test.ts
-npx vitest run tests/unit/content/video/videoScreenshotCacheRepository.test.ts tests/unit/content/video/videoScreenshotCacheBackgroundClient.test.ts tests/unit/content/video/VideoSession.test.ts tests/unit/content/video/videoFrameScreenshot.test.ts tests/unit/background/visibleTabScreenshot.test.ts tests/unit/background/runtimeMessages.test.ts
-node scripts/run-playwright.mjs test tests/e2e/videoPanelFlow.test.ts tests/e2e/videoListenerScope.browser.test.ts --project=chromium-desktop
+node scripts/run-bounded-command.mjs --profile vitest-v1 -- run --config vitest.unit.config.ts tests/unit/scripts/runGaOwnerSmoke.test.ts tests/unit/scripts/analyticsDeliverySmoke.test.ts
+node scripts/run-bounded-command.mjs --profile vitest-v1 -- run --config vitest.unit.config.ts tests/unit/background/analyticsEvents.test.ts tests/unit/shared/errors/analytics/index.test.ts tests/unit/shared/errors/analyticsConfig.test.ts
+node scripts/run-bounded-command.mjs --profile vitest-v1 -- run --config vitest.unit.config.ts tests/unit/content/video/videoScreenshotCacheRepository.test.ts tests/unit/content/video/videoScreenshotCacheBackgroundClient.test.ts tests/unit/content/video/VideoSession.test.ts tests/unit/content/video/videoFrameScreenshot.test.ts tests/unit/background/visibleTabScreenshot.test.ts tests/unit/background/runtimeMessages.test.ts
+node scripts/run-bounded-command.mjs --profile npm-script-browser-v1 -- test:e2e:browser:video
 ```
 
 Use these commands to validate the settled GA consent/transport contract and the
@@ -404,11 +442,11 @@ warning `108` / hard stop `118`；2026-06-20 Options/onboarding closeout 将
 - performance coverage: sourceFiles=`733`、hotspotsOver250=`94`、registeredLineBudgets=`113`
 - `videoScreenshotPreparationQueue-*` 是截图准备实现的显式 lazy split；chunk count gate 只为该 split 与小型 shared screenshot-intent bridge 同步，entry/shared/locale/YAML size gates 未放宽
 
-2026-06-17 video screenshot cache main integration build/type/regression truth:
+2026-06-17 video screenshot cache main integration build/type/regression historical checkpoint:
 
-- 本轮集成保留 `node scripts/run-playwright.mjs test tests/e2e/videoPanelFlow.test.ts --project=chromium-desktop` 作为视频截图混合缓存 browser truth；该文件覆盖 reload、关闭页面后同 context 重开、关闭 persistent browser context 后用同一 `userDataDir` relaunch，以及删除 capture 后 IndexedDB cache entry 清理。
+- 本轮集成保留 `node scripts/run-bounded-command.mjs --profile playwright-v1 -- test tests/e2e/videoPanelFlow.test.ts --project=chromium-desktop` 作为视频截图混合缓存 browser truth；该文件覆盖 reload、关闭页面后同 context 重开、关闭 persistent browser context 后用同一 `userDataDir` relaunch，以及删除 capture 后 IndexedDB cache entry 清理。
 - P06 inherited restored-screenshot focused proof 与 P07 reader browser proof 继续作为历史补充证据；本轮不改变 production 截图 bytes owner，不把 Blob/data URL 写回 durable session draft。
-- 本轮 focused Vitest `5` 文件 / `79` tests、`VideoSessionDraftController.test.ts` `21` tests、`VideoSession.test.ts` `96` tests 与 Chromium `videoPanelFlow.test.ts` `3` tests 通过。`lint:type-any:ratchet` fresh overall `0/1141/1954/50/3`、src `0/627/692/9/0`、tests `0/514/1262/41/3`；`lint:warnings-guard` baseline `160`；English uncatalogued-copy audit 输出 `scanned=583 findings=0 unexpected=0 staleAllowlist=0`。
+- 该日期化 checkpoint 的 focused Vitest `5` 文件 / `79` tests、`VideoSessionDraftController.test.ts` `21` tests、`VideoSession.test.ts` `96` tests 与 Chromium `videoPanelFlow.test.ts` `3` tests 通过。`lint:type-any:ratchet` fresh overall `0/1141/1954/50/3`、src `0/627/692/9/0`、tests `0/514/1262/41/3`；`lint:warnings-guard` baseline `160`；English uncatalogued-copy audit 当时输出 `scanned=583 findings=0 unexpected=0 staleAllowlist=0`。
 - Fresh build/performance truth 已由 2026-06-18 GA telemetry acceptance gap fix 重新同步到 [`performance-baseline.md`](./performance-baseline.md)：production `content/runtime.js` raw `50,027` bytes、`onboarding/index.js` raw `10,023` bytes、chunks `104`；dev `content/runtime.js` raw `58,508` bytes、`onboarding/index.js` raw `17,566` bytes、chunks `118`；release-surface `Files=173`；performance `sourceFiles=814`、`hotspotsOver250=108`、`registeredLineBudgets=136`。
 
 ## 核心命令
@@ -437,17 +475,21 @@ warning `108` / hard stop `118`；2026-06-20 Options/onboarding closeout 将
 
 - foundation：`src/ui/foundation/*`
 - primitives：`src/ui/primitives/*`
-- patterns：`src/ui/patterns/*`
-- hosts：`src/ui/hosts/*`
-- domains：`src/ui/domains/*`
+- neutral runtime / surfaces：`src/ui/stitch-runtime/*`、`src/ui/stitch-surfaces/*`
+- retained shared host helpers：`src/ui/foundation/style-host/*`、`src/ui/hosts/content/contentDialogFocus.ts`、`src/ui/hosts/shared/contract.ts`
+- exact retained usage-chart owner：`src/ui/domains/usage-chart/*`；不授权恢复 generic domain/pattern layer
+- Options mainline audit：`audit:options-mainline:report` 使用 TypeScript AST 检查生产 patch/ack 链：persistence 的 readonly patches 与 store Promise 传递、controller 等待保存后才确认 intent/报告成功、store 等待 repository.patch 并返回经规范化的 authoritative acknowledgement。此静态契约忽略格式与注释差异；retired repository/sectionRegistry、single persistence adapter 和 section 直接写入限制继续生效。section 禁止直写的 source rule 由生产扫描与合成故障测试共用；测试直接提供源文本，不虚构退役目录中的文件消费者。行为正确性仍由 Options persistence/controller 的单元与浏览器路径验证。
 - Options 主链：`src/options/index.ts -> src/options/app/bootstrap.ts`
+- Options 持久化：`optionsDraftSession.ts` 持有 authoritative snapshot/revision 与逐路径 edit generation；`optionsController.ts` 经 `optionsStore.save()` 发送 scoped patch，`optionsControllerDurability.ts` 串行持有写入与 page-exit flush。失败 admission 由新的用户交互或显式 bounded flush 重新接纳；dirty intent 清空时同步丢弃 blocked/pending 状态。`productionStitchAuthoritativeRebase.ts` 负责 mounted view 的局部重投影与 dirty/invalid widget 保护，不能用完整旧 draft 覆盖远端快照
+- Local Vault 事务：`src/background/services/optionsMutationCoordinator.ts` 的 FIFO 在 mutation 前完成 privacy、Local Vault recovery 与 migration；初始化失败后允许下一次外部请求重新进入 barrier。`src/shared/config/deviceLocalVaultCleanupJournal.ts` 与 `deviceLocalVaultRecovery{Schema,Codec,Transaction}.ts` 持有 v3 journal；`deviceLocalVaultBindingCommitter.ts`、`deviceLocalVaultAuthoritativePublication.ts`、`deviceLocalVaultCleanupExecutor.ts` 分别负责 binding、repository publication 与 commit 后 cleanup。对应 unit 入口在 `tests/unit/background/optionsMutationCoordinator.test.ts`、`tests/unit/infrastructure/ChromeOptionsRepository.test.ts` 和 `tests/unit/shared/deviceLocalVault*.test.ts`
+- Video bootstrap：`src/content/clipper/services/selectionController.ts` 调用 `src/content/video/application/videoSessionPort.ts` 的 `resolveVideoDestinationBootstrap()`，先 await session start，再 ingest capture；选择来源由 `destinationBootstrap.provenance` 显式携带。专项 unit 入口为 `tests/unit/content/selectionController.test.ts` 与 `tests/unit/content/video/VideoSession.test.ts`
 - content 主链：`src/content/index.ts -> src/content/runtime/*`
+- 动态导出目标事件：`surfaceChrome.ts` 将选择 action 绑定在稳定的 `.export-destination-options` 容器；实时 reconciliation 克隆新按钮时不会复制原生监听器，因此 Clipper 从真实事件目标解析容器内未禁用的按钮。Reader/Video 克隆 surface template 后仍由各自现有根事件 owner 单次分发，不额外绑定选择监听。回归入口为 `exportDestinationState.test.ts`、`clipperDialog.test.ts` 与 `sessionPanelsIncremental.browser.test.ts`；覆盖新增 Vault 的嵌套点击、显式 A 在默认值变为 B 后保留，以及首个 Video 视图和持久化 draft。
 
 ## 已降级为兼容壳的入口
 
 - `src/content/video/session.ts`
 - `src/content/video/platforms/bilibiliPlatform.ts`
-- `src/ui/domains/privacy/PrivacySettings.ts`
 
 ## MCP / 本地浏览器调试入口
 

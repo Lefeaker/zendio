@@ -2,6 +2,7 @@ import type { PendingSelectionTracker } from './pendingSelectionTracker';
 
 interface ShadowSelectionBridgeOptions {
   suppressSelectionCapture: () => boolean;
+  isSelectionTriggerConfigured: () => boolean;
   getDocumentSelection: () => Selection | null;
   isRangeInsideUi: (range: Range) => boolean;
   pendingSelection: PendingSelectionTracker;
@@ -42,7 +43,8 @@ export class ShadowSelectionBridge {
     }
 
     const syncSelection = () => {
-      if (this.options.suppressSelectionCapture()) {
+      if (this.options.suppressSelectionCapture() || !this.options.isSelectionTriggerConfigured()) {
+        this.options.pendingSelection.reset();
         return;
       }
       const selection = this.getSelectionForRoot(root);
@@ -69,6 +71,11 @@ export class ShadowSelectionBridge {
     };
 
     const handleMouseDown = (event: Event) => {
+      if (!this.options.isSelectionTriggerConfigured()) {
+        this.pointerStarts.delete(root);
+        this.options.pendingSelection.reset();
+        return;
+      }
       const mouse = readShadowMouseEventData(event);
       if (!mouse || mouse.button !== 0) {
         this.pointerStarts.delete(root);
@@ -94,6 +101,11 @@ export class ShadowSelectionBridge {
     };
 
     const scheduleSync = (event: Event) => {
+      if (!this.options.isSelectionTriggerConfigured()) {
+        this.pointerStarts.delete(root);
+        this.options.pendingSelection.reset();
+        return;
+      }
       const view = root.ownerDocument.defaultView ?? window;
       const allowEventFallback = this.isDragSelectionEnd(root, event);
       const activationEvent = snapshotShadowSelectionEvent(event);
@@ -131,23 +143,23 @@ export class ShadowSelectionBridge {
     });
   }
 
+  unregister(root: ShadowRoot): void {
+    const listeners = this.registeredRoots.get(root);
+    if (!listeners) return;
+    const view = root.ownerDocument.defaultView ?? window;
+    for (const timerId of this.scheduledTimeouts.get(root) ?? []) view.clearTimeout(timerId);
+    this.scheduledTimeouts.delete(root);
+    root.removeEventListener('selectionchange', listeners.syncSelection, true);
+    root.removeEventListener('mousedown', listeners.handleMouseDown, true);
+    root.removeEventListener('mouseup', listeners.scheduleSync, true);
+    root.removeEventListener('touchend', listeners.scheduleSync, true);
+    root.removeEventListener('keyup', listeners.scheduleSync, true);
+    this.registeredRoots.delete(root);
+    this.pointerStarts.delete(root);
+  }
+
   reset(): void {
-    for (const [root, listeners] of this.registeredRoots) {
-      const view = root.ownerDocument.defaultView ?? window;
-      const rootTimeouts = this.scheduledTimeouts.get(root);
-      if (rootTimeouts) {
-        for (const timerId of rootTimeouts) {
-          view.clearTimeout(timerId);
-        }
-      }
-      root.removeEventListener('selectionchange', listeners.syncSelection, true);
-      root.removeEventListener('mousedown', listeners.handleMouseDown, true);
-      root.removeEventListener('mouseup', listeners.scheduleSync, true);
-      root.removeEventListener('touchend', listeners.scheduleSync, true);
-      root.removeEventListener('keyup', listeners.scheduleSync, true);
-    }
-    this.registeredRoots.clear();
-    this.scheduledTimeouts.clear();
+    for (const root of [...this.registeredRoots.keys()]) this.unregister(root);
     this.pointerStarts = new WeakMap();
     this.activatedEvents = new WeakSet();
   }

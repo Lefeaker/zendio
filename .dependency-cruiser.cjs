@@ -60,6 +60,16 @@ module.exports = {
       }
     },
     {
+      name: 'no-neutral-ui-runtime-feature-imports',
+      severity: 'error',
+      from: {
+        path: '^src/ui/(stitch-runtime|stitch-surfaces)'
+      },
+      to: {
+        path: '^src/(background|content|options|platform|ui/(domains|hosts))'
+      }
+    },
+    {
       name: 'no-production-form-section-imports',
       severity: 'error',
       from: {
@@ -77,16 +87,6 @@ module.exports = {
       },
       to: {
         path: '^src/options/components/sections/(AiSection|ClassifierSection|DeepResearchSection|DiagnosisSection|FragmentSection|LanguageSection|PrivacySection|ReadingSection|RestSection|RoutingSection|TemplatesSection|TransferSection|UsageDashboardSection|UsageSection|VideoSection|YamlConfigSection)\\.ts$'
-      }
-    },
-    {
-      name: 'no-production-duplicate-video-support-prompt-imports',
-      severity: 'error',
-      from: {
-        path: '^src/(background|content|platform|shared|ui|options/(app|services|state|stitch|widgets|index\\.ts))'
-      },
-      to: {
-        path: '^src/ui/domains/video/SupportPromptView\\.ts$'
       }
     }
   ],

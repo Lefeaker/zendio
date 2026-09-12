@@ -1,6 +1,7 @@
 export type SessionMutationFailure = { reason: 'failure' } | { reason: 'error'; error: Error };
 
 export interface SessionMutationTransaction<Result, SaveResult = void> {
+  shouldRun?(): boolean;
   apply(): Result;
   afterApply?(result: Result): void;
   save(): Promise<SaveResult>;
@@ -11,6 +12,7 @@ export interface SessionMutationTransaction<Result, SaveResult = void> {
 }
 
 export interface SessionMutationRunner {
+  waitForIdle(): Promise<void>;
   run<Result, SaveResult = void>(
     transaction: SessionMutationTransaction<Result, SaveResult>
   ): Promise<boolean>;
@@ -19,6 +21,7 @@ export interface SessionMutationRunner {
 export async function runSessionMutationTransaction<Result, SaveResult = void>(
   transaction: SessionMutationTransaction<Result, SaveResult>
 ): Promise<boolean> {
+  if (transaction.shouldRun?.() === false) return false;
   const result = transaction.apply();
   transaction.afterApply?.(result);
 
@@ -48,6 +51,7 @@ export function createSessionMutationRunner(): SessionMutationRunner {
   let tail = Promise.resolve<void>(undefined);
 
   return {
+    waitForIdle: () => tail,
     run<Result, SaveResult = void>(
       transaction: SessionMutationTransaction<Result, SaveResult>
     ): Promise<boolean> {

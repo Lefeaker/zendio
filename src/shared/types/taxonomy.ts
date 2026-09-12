@@ -5,85 +5,34 @@
  * including categories, tags, and classification rules.
  */
 
+import {
+  TaxonomyActionSchema,
+  TaxonomyCategorySchema,
+  TaxonomyConditionSchema,
+  TaxonomyConfigSchema,
+  TaxonomyRuleSchema,
+  TaxonomySettingsSchema,
+  TaxonomyTagSchema
+} from '../schemas/taxonomy.schema';
+import type { z } from 'zod';
+
 // Utility type for deep readonly
-export type ReadonlyDeep<T> = {
-  readonly [P in keyof T]: T[P] extends (infer U)[]
+export type ReadonlyDeep<T> = T extends (...args: never[]) => unknown
+  ? T
+  : T extends readonly (infer U)[]
     ? ReadonlyArray<ReadonlyDeep<U>>
-    : T[P] extends Record<string, unknown>
-      ? ReadonlyDeep<T[P]>
-      : T[P];
-};
+    : T extends object
+      ? { readonly [P in keyof T]: ReadonlyDeep<T[P]> }
+      : T;
 
-// Basic taxonomy structures
-export interface TaxonomyCategory {
-  readonly id: string;
-  readonly name: string;
-  readonly description?: string;
-  readonly descriptionKey?: string;
-  readonly classificationHint?: string;
-  readonly parent?: string;
-  readonly keywords?: readonly string[];
-  readonly weight?: number;
-}
-
-export interface TaxonomyTag {
-  readonly id: string;
-  readonly name: string;
-  readonly description?: string;
-  readonly descriptionKey?: string;
-  readonly classificationHint?: string;
-  readonly category?: string;
-  readonly color?: string;
-  readonly aliases?: readonly string[];
-}
-
-export interface TaxonomyRule {
-  readonly id: string;
-  readonly name: string;
-  readonly description?: string;
-  readonly conditions: ReadonlyDeep<TaxonomyCondition[]>;
-  readonly actions: ReadonlyDeep<TaxonomyAction[]>;
-  readonly priority?: number;
-  readonly enabled?: boolean;
-}
-
-export interface TaxonomyCondition {
-  readonly type: 'content' | 'url' | 'title' | 'domain' | 'metadata';
-  readonly operator: 'contains' | 'matches' | 'startsWith' | 'endsWith' | 'equals' | 'regex';
-  readonly value: string;
-  readonly caseSensitive?: boolean;
-}
-
-export interface TaxonomyAction {
-  readonly type: 'assignCategory' | 'assignTag' | 'setProperty' | 'transform';
-  readonly target: string;
-  readonly value: string;
-  readonly metadata?: ReadonlyDeep<Record<string, unknown>>;
-}
-
-// Main taxonomy configuration
-export interface TaxonomyConfig {
-  readonly version: string;
-  readonly name?: string;
-  readonly description?: string;
-  readonly descriptionKey?: string;
-  readonly classificationHint?: string;
-  readonly categories: ReadonlyDeep<TaxonomyCategory[]>;
-  readonly tags: ReadonlyDeep<TaxonomyTag[]>;
-  readonly rules: ReadonlyDeep<TaxonomyRule[]>;
-  readonly defaultCategory?: string;
-  readonly defaultTags?: readonly string[];
-  readonly settings?: ReadonlyDeep<TaxonomySettings>;
-}
-
-export interface TaxonomySettings {
-  readonly autoClassification?: boolean;
-  readonly confidenceThreshold?: number;
-  readonly maxCategories?: number;
-  readonly maxTags?: number;
-  readonly fallbackBehavior?: 'none' | 'default' | 'prompt';
-  readonly customPrompts?: ReadonlyDeep<Record<string, string>>;
-}
+// Canonical configuration types are exact projections of the runtime schemas.
+export type TaxonomyCategory = z.infer<typeof TaxonomyCategorySchema>;
+export type TaxonomyTag = z.infer<typeof TaxonomyTagSchema>;
+export type TaxonomyCondition = z.infer<typeof TaxonomyConditionSchema>;
+export type TaxonomyAction = z.infer<typeof TaxonomyActionSchema>;
+export type TaxonomyRule = z.infer<typeof TaxonomyRuleSchema>;
+export type TaxonomySettings = z.infer<typeof TaxonomySettingsSchema>;
+export type TaxonomyConfig = z.infer<typeof TaxonomyConfigSchema>;
 
 // Classification results
 export interface ClassificationResult {
@@ -129,43 +78,19 @@ export interface TaxonomyValidationResult {
 
 // Type guards
 export function isTaxonomyConfig(value: unknown): value is TaxonomyConfig {
-  if (typeof value !== 'object' || value === null) {
-    return false;
-  }
-
-  const obj = value as Record<string, unknown>;
-  return (
-    'version' in obj &&
-    'categories' in obj &&
-    'tags' in obj &&
-    'rules' in obj &&
-    typeof obj.version === 'string' &&
-    Array.isArray(obj.categories) &&
-    Array.isArray(obj.tags) &&
-    Array.isArray(obj.rules)
-  );
+  return TaxonomyConfigSchema.safeParse(value).success;
 }
 
 export function isTaxonomyCategory(value: unknown): value is TaxonomyCategory {
-  if (typeof value !== 'object' || value === null) {
-    return false;
-  }
-
-  const obj = value as Record<string, unknown>;
-  return 'id' in obj && 'name' in obj && typeof obj.id === 'string' && typeof obj.name === 'string';
+  return TaxonomyCategorySchema.safeParse(value).success;
 }
 
 export function isTaxonomyTag(value: unknown): value is TaxonomyTag {
-  if (typeof value !== 'object' || value === null) {
-    return false;
-  }
-
-  const obj = value as Record<string, unknown>;
-  return 'id' in obj && 'name' in obj && typeof obj.id === 'string' && typeof obj.name === 'string';
+  return TaxonomyTagSchema.safeParse(value).success;
 }
 
 // Default configurations
-export const DEFAULT_TAXONOMY_CONFIG: ReadonlyDeep<TaxonomyConfig> = {
+export const DEFAULT_TAXONOMY_CONFIG: TaxonomyConfig = {
   version: '1.0.0',
   name: 'Default Taxonomy',
   descriptionKey: 'taxonomy.default.description',
@@ -233,4 +158,4 @@ export const DEFAULT_TAXONOMY_CONFIG: ReadonlyDeep<TaxonomyConfig> = {
     maxTags: 5,
     fallbackBehavior: 'default'
   }
-} as const;
+};

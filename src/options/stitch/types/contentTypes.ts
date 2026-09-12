@@ -1,5 +1,11 @@
-import type { HeroData } from './baseTypes';
-export type { HeroData } from './baseTypes';
+import type {
+  ChangelogEntry,
+  ContactEntry,
+  HeroData,
+  RuntimeSurfaceContent,
+  SupportChannel
+} from '@ui/stitch-runtime';
+export type { HeroData } from '@ui/stitch-runtime';
 
 export interface NavItem {
   id: string;
@@ -67,8 +73,6 @@ export interface ResourceStep {
   bullets?: string[];
 }
 
-import type { ChangelogEntry, ContactEntry, PreviewSurfaces, SupportChannel } from './surfaceTypes';
-
 export interface PreviewResources {
   privacyPolicy: {
     hero: HeroData;
@@ -106,6 +110,15 @@ export interface PreviewResources {
     entries: ChangelogEntry[];
   };
 }
+
+type OptionsTaskSuccessSurface = Omit<
+  RuntimeSurfaceContent['taskSuccess'],
+  'supportChannels' | 'defaultVaultName'
+>;
+
+export type PreviewSurfaceContent = Omit<RuntimeSurfaceContent, 'taskSuccess'> & {
+  taskSuccess: OptionsTaskSuccessSurface;
+};
 
 export interface PreviewContent {
   brand: {
@@ -173,6 +186,6 @@ export interface PreviewContent {
     subtitleLanguages: SelectOption[];
   };
   resources: PreviewResources;
-  surfaces: PreviewSurfaces;
+  surfaces: PreviewSurfaceContent;
   maintenanceLog: string;
 }

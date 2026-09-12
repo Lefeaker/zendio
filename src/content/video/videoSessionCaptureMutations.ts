@@ -26,6 +26,7 @@ export function runVideoSessionCaptureMutation<Result>(
   context: VideoSessionOperationContext,
   transaction: VideoCaptureMutationTransaction<Result>
 ): Promise<boolean> {
+  if (context.state.ending || context.state.disconnected) return Promise.resolve(false);
   return context.runCaptureMutation(transaction);
 }
 

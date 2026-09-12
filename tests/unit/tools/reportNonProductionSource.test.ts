@@ -1,12 +1,81 @@
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
-type NonProductionSourceModule = {
-  classifySourceFile: (input: Record<string, unknown>) => {
-    decision: string;
+type NonProductionSourceOwnerProofState = 'empty' | 'owned' | 'unknown';
+
+type NonProductionSourceOwnerProofs = {
+  productionBuildGraph: NonProductionSourceOwnerProofState;
+  importGraph: NonProductionSourceOwnerProofState;
+  packageBuildScripts: NonProductionSourceOwnerProofState;
+  publicManifestAssets: NonProductionSourceOwnerProofState;
+  testsVisualBrowser: NonProductionSourceOwnerProofState;
+  requiredVerification: NonProductionSourceOwnerProofState;
+};
+
+type NonProductionSourcePattern = {
+  pattern: string;
+  decision: string;
+  owner: string;
+  deletionCondition: string;
+  requiredAction?: string;
+  source?: string;
+};
+
+type NonProductionSourceInput = {
+  file: string;
+  productionBuildGraphOwners: string[];
+  productionImportOwners: string[];
+  retainedSourceImportOwners?: string[];
+  retainedSourceImportTargets?: string[];
+  testOwners: string[];
+  scriptOwners: string[];
+  publicAssetOwners: string[];
+  requiredVerificationOwners: string[];
+  explicitRetainPatterns: Array<string | NonProductionSourcePattern>;
+  explicitClassificationPatterns: Array<string | NonProductionSourcePattern>;
+  explicitDeleteNowPatterns: Array<string | { pattern: string }>;
+  ownerProofs?: NonProductionSourceOwnerProofs;
+};
+
+type NonProductionSourceRow = {
+  file: string;
+  decision: string;
+  requiredAction?: string;
+  owner?: string;
+  deletionCondition?: string;
+  ownerProofs?: NonProductionSourceOwnerProofs;
+  productionBuildGraphOwners?: string[];
+  productionImportOwners?: string[];
+  retainedSourceImportOwners?: string[];
+  retainedSourceImportTargets?: string[];
+  testOwners?: string[];
+  scriptOwners?: string[];
+  publicAssetOwners?: string[];
+  requiredVerificationOwners?: string[];
+};
+
+type NonProductionSourceClassification = NonProductionSourceInput &
+  NonProductionSourceRow & {
     requiredAction: string;
-    owner?: string;
-    deletionCondition?: string;
+    ownerProofs: NonProductionSourceOwnerProofs;
   };
+
+type UiOwnershipManifest = {
+  closureState: 'intermediate' | 'final';
+  rows: Array<{
+    path: string;
+    disposition: string;
+    replacement: {
+      owner: string;
+      milestone: string;
+    };
+  }>;
+};
+
+type NonProductionSourceModule = {
+  TEST_OWNER_ROOTS: string[];
+  classifySourceFile: (input: NonProductionSourceInput) => NonProductionSourceClassification;
   collectSourceImportGraph: (
     files: Array<{ path: string; source: string }>,
     sourceFiles: string[]
@@ -14,14 +83,14 @@ type NonProductionSourceModule = {
     ownersByTarget: Map<string, string[]>;
     targetsByOwner: Map<string, string[]>;
   };
-  formatNonProductionSourceReport: (rows: Array<Record<string, unknown>>) => string;
-  formatNonProductionSourceJson: (rows: Array<Record<string, unknown>>) => string;
-  validateNonProductionSourceCheck: (rows: Array<Record<string, unknown>>) => {
+  formatNonProductionSourceReport: (rows: NonProductionSourceRow[]) => string;
+  formatNonProductionSourceJson: (rows: NonProductionSourceRow[]) => string;
+  validateNonProductionSourceCheck: (rows: NonProductionSourceRow[]) => {
     ok: boolean;
     violations: Array<{ file: string; reason: string }>;
   };
   validateNonProductionSourceThresholds: (
-    rows: Array<Record<string, unknown>>,
+    rows: NonProductionSourceRow[],
     limits: { maxMigrateImportOwner?: number }
   ) => {
     ok: boolean;
@@ -46,11 +115,16 @@ type NonProductionSourceModule = {
     sourceFileSet: Set<string>
   ) => string | null;
   stripImportQueryHash: (specifier: string) => string;
+  createUiOwnershipClassificationPatterns: (
+    manifest: UiOwnershipManifest
+  ) => NonProductionSourcePattern[];
 };
 
 const {
+  TEST_OWNER_ROOTS,
   classifySourceFile,
   collectSourceImportGraph,
+  createUiOwnershipClassificationPatterns,
   evaluateNonProductionSourceGates,
   formatNonProductionSourceJson,
   formatNonProductionSourceReport,
@@ -89,7 +163,7 @@ const approvedSectionDependencyDeleteCandidate = [
 ].join('/');
 const approvedZagComboboxDeleteCandidate = ['src', 'ui', 'ZagCombobox.js'].join('/');
 
-function input(overrides: Record<string, unknown> = {}) {
+function input(overrides: Partial<NonProductionSourceInput> = {}): NonProductionSourceInput {
   return {
     file: 'src/options/widgets/ExampleWidget.ts',
     productionBuildGraphOwners: [],
@@ -106,6 +180,15 @@ function input(overrides: Record<string, unknown> = {}) {
 }
 
 describe('report-non-production-source', () => {
+  it('includes the bundled Chromium config in browser test ownership', () => {
+    expect(TEST_OWNER_ROOTS).toEqual([
+      'tests',
+      'playwright.config.ts',
+      'playwright.reader.config.ts',
+      'playwright.bundled-chromium.config.ts'
+    ]);
+  });
+
   it('marks source with production build ownership as retain-production', () => {
     expect(
       classifySourceFile(
@@ -226,21 +309,6 @@ describe('report-non-production-source', () => {
         pattern: 'src/styles/design-tokens.css',
         owner: 'design token source-of-truth asset',
         scriptOwners: ['scripts/build.mjs']
-      },
-      {
-        pattern: 'src/ui/foundation/tokens/index.ts',
-        owner: 'design token metadata source contract',
-        scriptOwners: ['tools/report-design-system-doc.mjs']
-      },
-      {
-        pattern: 'src/ui/foundation/keyboard/index.ts',
-        owner: 'UI foundation keyboard source-of-truth boundary',
-        scriptOwners: ['tools/report-ui-architecture-alignment.mjs']
-      },
-      {
-        pattern: 'src/ui/hosts/options/index.ts',
-        owner: 'Options UI host source-of-truth boundary',
-        scriptOwners: ['tools/report-ui-architecture-alignment.mjs']
       }
     ];
 
@@ -287,6 +355,76 @@ describe('report-non-production-source', () => {
     expect(classifySourceFile(input({ file: 'src/unknown/unused.ts' })).decision).toBe(
       'stop-unknown'
     );
+  });
+
+  it('derives exact UI classifications from the ownership manifest without wildcard broadening', () => {
+    const manifest = JSON.parse(
+      readFileSync(resolve('tools/ui-production-ownership.json'), 'utf8')
+    ) as UiOwnershipManifest;
+    const patterns = createUiOwnershipClassificationPatterns(manifest);
+    const knownPattern = patterns.find((rule) => rule.source === 'ui-ownership-manifest');
+
+    expect(knownPattern).toBeDefined();
+    const known = classifySourceFile(
+      input({
+        file: knownPattern?.pattern,
+        retainedSourceImportTargets: ['src/shared/example.ts'],
+        explicitClassificationPatterns: patterns
+      })
+    );
+    expect(known.decision).toBe('retain-production-facade');
+    expect(known.owner).toContain('UI ownership manifest');
+    expect(
+      classifySourceFile(
+        input({
+          file: 'src/ui/unknown/synthetic.ts',
+          explicitClassificationPatterns: patterns
+        })
+      ).decision
+    ).toBe('stop-unknown');
+    const wildcardCharacters = ['*', '?', '[', ']', '{', '}'];
+    expect(
+      patterns.every(
+        (rule) => !wildcardCharacters.some((character) => rule.pattern.includes(character))
+      )
+    ).toBe(true);
+  });
+
+  it('contains no stale classification object for the retired schema helper', () => {
+    const source = readFileSync(resolve('tools/report-non-production-source.mjs'), 'utf8');
+    const stalePath = ['src', 'options', 'stitch', 'schema', 'surfaces', 'helpers.ts'].join('/');
+
+    expect(source).not.toContain(stalePath);
+  });
+
+  it('supports a final manifest and fails closed for malformed UI rows', () => {
+    expect(
+      createUiOwnershipClassificationPatterns({
+        closureState: 'final',
+        rows: [
+          {
+            path: 'src/ui/runtime/current.ts',
+            disposition: 'production-runtime',
+            replacement: {
+              owner: 'src/ui/runtime/current.ts',
+              milestone: 'current-production'
+            }
+          }
+        ]
+      })
+    ).toHaveLength(1);
+    expect(() =>
+      createUiOwnershipClassificationPatterns({
+        closureState: 'intermediate',
+        rows: [
+          {
+            path: 'src/ui/**',
+            disposition: 'deferred-state-convergence',
+            replacement: { owner: 'src/shared/current.ts', milestone: 'later' }
+          }
+        ]
+      })
+    ).toThrow('not an exact unique path');
   });
 
   it('matches explicit brace classification patterns without broadening ownership', () => {
@@ -402,7 +540,7 @@ describe('report-non-production-source', () => {
   it('blocks delete-now when any deletion-proof owner surface is still referenced', () => {
     const ownerSurfaces: Array<{
       name: string;
-      overrides: Record<string, unknown>;
+      overrides: Partial<NonProductionSourceInput>;
       expectedDecision: string;
     }> = [
       {

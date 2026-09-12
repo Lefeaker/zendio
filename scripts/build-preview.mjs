@@ -208,7 +208,12 @@ function patchStandaloneResourceOpen(scriptContent) {
 
 function normalizePreviewBundleSourceLabels(scriptContent) {
   const replacements = {
-    'src/options/stitch/ui/dom.ts': 'tests/fixtures/options-preview/ui/dom.ts',
+    'src/ui/stitch-runtime/dom.ts': 'tests/fixtures/options-preview/ui/dom.ts',
+    'src/ui/stitch-runtime/surfaceComponents.ts':
+      'tests/fixtures/options-preview/ui/components.ts',
+    'src/ui/stitch-runtime/render/renderRuntimeSurface.ts':
+      'tests/fixtures/options-preview/app/renderPreviewView.ts',
+    'src/ui/stitch-surfaces/': 'tests/fixtures/options-preview/schema/',
     'src/options/stitch/ui/components.ts': 'tests/fixtures/options-preview/ui/components.ts',
     'src/options/stitch/content.ts': 'tests/fixtures/options-preview/content/previewContent.ts',
     'src/options/stitch/render/shellBuilders.ts':

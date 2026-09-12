@@ -525,3 +525,23 @@ describe('chatElementToMarkdown', () => {
     expect(markdown).not.toContain('Copy');
   });
 });
+
+describe('chatHtmlToMarkdown safe parsing', () => {
+  it('converts string HTML when Element.innerHTML assignment is blocked', () => {
+    const html = `
+      <section>
+        <h3>Nested Heading</h3>
+        <p>Read the <a href="https://example.com/docs">docs</a></p>
+        <button>Copy</button>
+        <pre><code>echo safe</code></pre>
+      </section>
+    `;
+
+    const markdown = withInnerHTMLAssignmentBlocked(() => chatHtmlToMarkdown(html));
+
+    expect(markdown).toContain('## Nested Heading');
+    expect(markdown).toContain('[docs](https://example.com/docs)');
+    expect(markdown).toContain('```\necho safe\n```');
+    expect(markdown).not.toContain('Copy');
+  });
+});

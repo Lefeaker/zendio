@@ -5,12 +5,15 @@ export interface ToggleProps {
   ariaLabel?: string;
   className?: string;
   onChange?: (checked: boolean, event: Event) => void;
+  classSlots?: readonly string[];
 }
 
 export function createToggleElement(props: ToggleProps): HTMLInputElement {
   const input = document.createElement('input');
   input.type = 'checkbox';
-  input.className = ['toggle', 'toggle-primary', props.className ?? ''].filter(Boolean).join(' ');
+  input.className = (props.classSlots ?? ['toggle', 'toggle-primary', props.className ?? ''])
+    .filter(Boolean)
+    .join(' ');
   input.checked = Boolean(props.checked);
   input.disabled = Boolean(props.disabled);
 

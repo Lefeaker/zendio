@@ -1,10 +1,8 @@
 import {
   createDefaultPageI18nController,
   type PageI18nController,
-  configureI18nStorage,
-  DEFAULT_RUNTIME_MESSAGES
+  configureI18nStorage
 } from '@i18n';
-import type { Messages } from '@i18n/messages';
 import { resolveRepository } from '../shared/di/serviceRegistry';
 import { DI_TOKENS } from '../shared/di/tokens';
 import { resolveZendioOfficialWebsiteUrl } from '../shared/links/zendioOfficialWebsite';
@@ -27,42 +25,13 @@ import { markStepCompleted, restoreCompletedSteps, updateProgress } from './prog
 import { renderOnboardingResourceModal } from './resourceModal';
 import type { OnboardingResourceId } from './resourceModal';
 import { applyStoredOnboardingTheme } from './theme';
+import { applyOnboardingConnectionGuideCopy } from './connectionGuideCopy';
 
 let declarativeI18nController: PageI18nController | null = null;
 let onboardingBrowserTarget: BrowserTarget = 'chrome';
 let onboardingResourceAssetUrlResolver: ((path: string) => string) | undefined;
 
-type OnboardingConnectionGuideKeys = {
-  title: keyof Messages;
-  description: keyof Messages;
-  details: readonly (keyof Messages)[];
-};
-
 const DEFAULT_ONBOARDING_DOCUMENT_TITLE = 'Zendio';
-const FIREFOX_CONNECTION_GUIDE_KEYS: OnboardingConnectionGuideKeys = {
-  title: 'step1Title',
-  description: 'step1Description',
-  details: [
-    'step1Detail1',
-    'step1Detail2',
-    'step1Detail3',
-    'step1Detail4',
-    'step1Detail5',
-    'step1Detail6'
-  ]
-};
-const CHROME_CONNECTION_GUIDE_KEYS: OnboardingConnectionGuideKeys = {
-  title: 'step1ChromeTitle',
-  description: 'step1ChromeDescription',
-  details: [
-    'step1ChromeDetail1',
-    'step1ChromeDetail2',
-    'step1ChromeDetail3',
-    'step1ChromeDetail4',
-    'step1ChromeDetail5',
-    'step1ChromeDetail6'
-  ]
-};
 
 function applyOnboardingDocumentResource(
   resource: ReturnType<PageI18nController['getCurrentResource']>
@@ -73,7 +42,7 @@ function applyOnboardingDocumentResource(
 
   document.documentElement.lang = resource.language;
   document.title = resource.messages.onboardingDocumentTitle || DEFAULT_ONBOARDING_DOCUMENT_TITLE;
-  applyOnboardingConnectionGuideCopy(resource.messages);
+  applyOnboardingConnectionGuideCopy(document, onboardingBrowserTarget, resource.messages);
 }
 
 async function ensureDeclarativeI18nController(): Promise<PageI18nController> {
@@ -109,40 +78,6 @@ function getCurrentOnboardingLanguage(): string | null {
   const documentLanguage =
     document.documentElement.lang || document.documentElement.getAttribute('lang');
   return documentLanguage && documentLanguage.trim().length > 0 ? documentLanguage : null;
-}
-
-function resolveOnboardingRuntimeMessage(
-  messages: Partial<Messages> | null | undefined,
-  key: keyof Messages
-): string {
-  const raw = messages?.[key] ?? DEFAULT_RUNTIME_MESSAGES[key];
-  return typeof raw === 'string' ? raw : '';
-}
-
-function applyOnboardingConnectionGuideCopy(messages: Partial<Messages> | null | undefined): void {
-  if (typeof document === 'undefined') {
-    return;
-  }
-
-  const guideKeys =
-    onboardingBrowserTarget === 'firefox'
-      ? FIREFOX_CONNECTION_GUIDE_KEYS
-      : CHROME_CONNECTION_GUIDE_KEYS;
-  const title = document.querySelector<HTMLElement>('[data-onboarding-step1-title]');
-  const description = document.querySelector<HTMLElement>('[data-onboarding-step1-description]');
-  title?.replaceChildren(
-    document.createTextNode(resolveOnboardingRuntimeMessage(messages, guideKeys.title))
-  );
-  description?.replaceChildren(
-    document.createTextNode(resolveOnboardingRuntimeMessage(messages, guideKeys.description))
-  );
-
-  guideKeys.details.forEach((key, index) => {
-    const item = document.querySelector<HTMLElement>(
-      `[data-onboarding-step1-detail="${String(index + 1)}"]`
-    );
-    item?.replaceChildren(document.createTextNode(resolveOnboardingRuntimeMessage(messages, key)));
-  });
 }
 
 export class OnboardingController {
@@ -390,9 +325,20 @@ export class OnboardingController {
       if ((!nextSnapshot.analytics || !nextSnapshot.errorReporting) && nextSnapshot.debugMode) {
         nextSnapshot.debugMode = false;
       }
-      await optionsRepository.set({
-        privacyPreferences: nextSnapshot
-      });
+      await optionsRepository.patch([
+        {
+          path: ['privacyPreferences', 'analytics'],
+          value: nextSnapshot.analytics
+        },
+        {
+          path: ['privacyPreferences', 'errorReporting'],
+          value: nextSnapshot.errorReporting
+        },
+        {
+          path: ['privacyPreferences', 'debugMode'],
+          value: nextSnapshot.debugMode
+        }
+      ]);
       this.applyPrivacySnapshotToControls(nextSnapshot);
       await this.applyRuntimePrivacySnapshot(nextSnapshot, field);
     } catch (error) {

@@ -8,8 +8,8 @@ describe('options index modal hosts', () => {
 
     expect(source).toContain('id="optionsShellRoot"');
     expect(source).toContain('data-preview-skin="stitch-secondary"');
-    expect(source).toContain('./stitch/styles/stitch.css');
-    expect(source).toContain('./stitch/styles/variants/stitch-secondary.css');
+    expect(source).toContain('../ui/stitch-runtime/styles/options.css');
+    expect(source).not.toContain('./stitch/styles/stitch.css');
     expect(source).not.toContain('../styles/global.tailwind.css');
     expect(source).not.toContain('./styles/tailwind.css');
     expect(source).not.toContain('id="theme-switcher"');
@@ -33,8 +33,8 @@ describe('options index modal hosts', () => {
     const built = resolve(process.cwd(), 'build/dist/options/index.html');
     if (existsSync(built)) {
       const builtSource = readFileSync(built, 'utf8');
-      expect(builtSource).toContain('./stitch/styles/stitch.css');
-      expect(builtSource).toContain('./stitch/styles/variants/stitch-secondary.css');
+      expect(builtSource).toContain('../ui/stitch-runtime/styles/options.css');
+      expect(builtSource).not.toContain('./stitch/styles/stitch.css');
       expect(builtSource).not.toContain('../styles/global.tailwind.css');
       expect(builtSource).not.toContain('./styles/tailwind.css');
     }
@@ -43,8 +43,8 @@ describe('options index modal hosts', () => {
   it('loads onboarding from Stitch styles without the retired global bridge', () => {
     const source = readFileSync(resolve(process.cwd(), 'src/onboarding/index.html'), 'utf8');
 
-    expect(source).toContain('../options/stitch/styles/stitch.css');
-    expect(source).toContain('../options/stitch/styles/variants/stitch-secondary.css');
+    expect(source).toContain('../ui/stitch-runtime/styles/onboarding.css');
+    expect(source).not.toContain('../options/stitch/styles/stitch.css');
     expect(source).toMatch(/<html\b[^>]*\blang="en"[^>]*\bdata-route="onboarding"/su);
     expect(source).toContain('<title>Zendio</title>');
     expect(source).toContain('data-preview-skin="stitch-secondary"');

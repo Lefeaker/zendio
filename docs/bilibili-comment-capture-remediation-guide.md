@@ -124,7 +124,8 @@
 - `docs/reference-fixtures/bilibili-page-source-complete.html`
 - `docs/bilibili-comment-shadow-dom-fix.md`
 
-> ⚠️ 本指南尚未在代码层面落地，执行前需与团队确认优先级与排期。完成实现后，请将测试结果与性能数据补充回本文件或另建跟进文档。
+> 历史范围说明：第 1–8 节记录修复前的问题拆解与备选设计，不再是当前实现指令。
+> 当前生产 owner、行为与验证入口只以第 9 节及 live source/tests 为准。
 
 
 ## 9. 2026-06-03 当前落地状态
@@ -168,12 +169,14 @@
 Focused Bilibili/comment checks:
 
 ```bash
-npx vitest run tests/unit/content/video/BilibiliVideoPlatform.test.ts tests/unit/content/video/FragmentHighlighter.test.ts
-npx vitest run tests/e2e/videoListenerScope.fixture.test.ts
-node scripts/run-playwright.mjs test tests/e2e/videoListenerScope.browser.test.ts --project=chromium-desktop
+node scripts/run-bounded-command.mjs --profile vitest-v1 -- run --config vitest.unit.config.ts tests/unit/content/video/BilibiliVideoPlatform.test.ts tests/unit/content/video/FragmentHighlighter.test.ts
+node scripts/run-bounded-command.mjs --profile vitest-v1 -- run --config vitest.e2e.config.ts tests/e2e/videoListenerScope.fixture.test.ts
+node scripts/run-bounded-command.mjs --profile npm-script-browser-v1 -- test:e2e:browser:video
 ```
 
-The `run-playwright` wrapper now routes explicit `tests/e2e/` browser files to `playwright.reader.config.ts` when no config is supplied. `playwright.reader.config.ts` owns the reader/video browser E2E build preflight and `chromium-desktop` project.
+The focused Vitest checks cover the finite Bilibili owners; the canonical full Video package route
+owns build preflight, Chromium project selection, listener scope, screenshot, draft, and lifecycle
+browser coverage. Do not reconstruct a one-file raw Playwright command.
 
 ### 9.5 Remaining caveat
 

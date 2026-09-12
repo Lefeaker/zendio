@@ -192,7 +192,7 @@ export function registerVideoListenerScopeYouTubeTests(): void {
         YOUTUBE_URL,
         youtubeFixtureHtml(),
         createOptionsFixture({
-          selectionModifierEnabled: true,
+          selectionTriggerMode: 'modifier',
           selectionModifierKeys: ['shift']
         })
       );

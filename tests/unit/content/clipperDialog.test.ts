@@ -3,6 +3,10 @@
 import type { PageI18nController, Messages, I18nBinder } from '../../../src/i18n';
 import type { StorageAreaService, StorageService } from '../../../src/platform/interfaces/storage';
 import type { ClipperDialogDependencies } from '@content/clipper/components/dialogDependencies';
+import { mergeOptions } from '@shared/config/optionsMerger';
+import type { CompleteOptions } from '@shared/types/options';
+import type { IOptionsRepository } from '@shared/repositories/IOptionsRepository';
+import type { StyleAttachmentHandle } from '@ui/foundation/style-host';
 
 import { describe, it, expect, beforeEach, beforeAll, vi } from 'vitest';
 import { setWindowProp, asType } from '../../utils/typeHelpers';
@@ -24,13 +28,12 @@ const initializeStylesMock =
       ...args: Parameters<StyleSheetManagerModule['clipperStyleSheetManager']['initialize']>
     ) => ReturnType<StyleSheetManagerModule['clipperStyleSheetManager']['initialize']>
   >();
-const applyStylesMock =
+const applyClipperStylesMock =
   vi.fn<
     (
-      ...args: Parameters<StyleSheetManagerModule['clipperStyleSheetManager']['applyTo']>
-    ) => ReturnType<StyleSheetManagerModule['clipperStyleSheetManager']['applyTo']>
+      ...args: Parameters<StyleSheetManagerModule['clipperStyleSheetManager']['applyClipperStyles']>
+    ) => ReturnType<StyleSheetManagerModule['clipperStyleSheetManager']['applyClipperStyles']>
   >();
-const applyStitchRuntimeStylesMock = vi.fn();
 const ensureContentI18nMock =
   vi.fn<
     (
@@ -50,7 +53,8 @@ const getContentMessagesMock =
     ) => ReturnType<I18nContextModule['getContentMessages']>
   >();
 
-vi.mock('../../../src/content/i18n/context', () => ({
+vi.mock('../../../src/content/i18n/context', async (importOriginal) => ({
+  ...(await importOriginal<I18nContextModule>()),
   ensureContentI18n: ensureContentI18nMock,
   getContentI18nBinder: getContentI18nBinderMock,
   getContentMessages: getContentMessagesMock
@@ -59,18 +63,10 @@ vi.mock('../../../src/content/i18n/context', () => ({
 vi.mock('../../../src/content/clipper/shared/styleSheetManager', () => ({
   clipperStyleSheetManager: {
     initialize: initializeStylesMock,
-    applyTo: applyStylesMock,
-    applyStitchRuntimeStyles: applyStitchRuntimeStylesMock
+    applyClipperStyles: applyClipperStylesMock
   },
   supportsAdoptedStyleSheets: () => true
 }));
-
-vi.mock('../../../src/content/clipper/components/commentForm', async () => {
-  const actual = await vi.importActual<typeof import('@content/clipper/components/commentForm')>(
-    '@content/clipper/components/commentForm'
-  );
-  return actual;
-});
 
 const dialogMessages = {
   clipDialogTitle: 'Clip Selection',
@@ -86,6 +82,30 @@ const dialogMessages = {
 };
 
 const flushPromises = () => new Promise((resolve) => setTimeout(resolve, 0));
+const createDeferred = () => {
+  let resolve!: () => void;
+  const promise = new Promise<void>((settle) => {
+    resolve = settle;
+  });
+  return { promise, resolve };
+};
+type StyleAttachmentHandleMock = StyleAttachmentHandle & {
+  dispose: ReturnType<typeof vi.fn<StyleAttachmentHandle['dispose']>>;
+};
+const styleAttachmentHandles: StyleAttachmentHandleMock[] = [];
+const createStyleAttachmentHandleMock = (): StyleAttachmentHandleMock => ({
+  ready: Promise.resolve({ status: 'ready' }),
+  refresh: vi.fn<StyleAttachmentHandle['refresh']>(() => Promise.resolve({ status: 'ready' })),
+  dispose: vi.fn<StyleAttachmentHandle['dispose']>()
+});
+const resetStyleAttachmentMocks = (): void => {
+  styleAttachmentHandles.length = 0;
+  applyClipperStylesMock.mockImplementation(() => {
+    const handle = createStyleAttachmentHandleMock();
+    styleAttachmentHandles.push(handle);
+    return handle;
+  });
+};
 const expectDialogResult = (result: unknown, expected: { action: string; comment: string }) => {
   expect(result).toEqual({
     ...expected,
@@ -151,7 +171,6 @@ const createDialogDeps = (
           }
         })
       ),
-      set: vi.fn(() => Promise.resolve()),
       onChange: vi.fn(() => () => undefined)
     } as unknown as ClipperDialogDependencies['optionsRepository'],
     storage,
@@ -164,13 +183,12 @@ const createDialogDeps = (
   };
 };
 
-function createVaultOptions() {
-  return {
+function createVaultOptions(): CompleteOptions {
+  return mergeOptions({
     rest: {
-      rootDir: '',
       vault: 'Default Vault',
       baseUrl: LOCAL_REST_BASE_URL,
-      apiKey: 'token'
+      apiKey: 'test-token-123'
     },
     templates: {
       article: 'Articles/{{title}}.md',
@@ -188,7 +206,7 @@ function createVaultOptions() {
           vault: 'Default Vault',
           httpsUrl: LOCAL_REST_HTTPS_URL,
           httpUrl: LOCAL_REST_HTTP_URL,
-          apiKey: 'token',
+          apiKey: 'test-token-123',
           enabled: true,
           isDefault: true
         },
@@ -198,13 +216,13 @@ function createVaultOptions() {
           vault: 'Research Vault',
           httpsUrl: 'https://localhost:27125',
           httpUrl: 'http://localhost:27122',
-          apiKey: 'token',
+          apiKey: 'test-token-123',
           enabled: true
         }
       ],
       rules: []
     }
-  };
+  });
 }
 
 beforeAll(() => {
@@ -225,8 +243,7 @@ describe('ClipperDialog UI', () => {
     getContentI18nBinderMock.mockReturnValue(null);
     getContentMessagesMock.mockResolvedValue(dialogMessages as Messages);
     initializeStylesMock.mockResolvedValue(undefined);
-    applyStylesMock.mockResolvedValue(undefined);
-    applyStitchRuntimeStylesMock.mockReturnValue(undefined);
+    resetStyleAttachmentMocks();
     document.body.innerHTML = '';
     document.head.innerHTML = '';
   });
@@ -243,6 +260,9 @@ describe('ClipperDialog UI', () => {
     expect(host?.getAttribute('role')).toBe('dialog');
     expect(host?.getAttribute('aria-modal')).toBe('true');
     expect(shadow).not.toBeNull();
+    expect(
+      shadow?.querySelector<HTMLImageElement>('.surface-window-icon-image')?.getAttribute('src')
+    ).toBe('icons/60x60/zendio_icon_clipt.png');
 
     const textarea = shadow?.querySelector<HTMLTextAreaElement>('#clipper-comment-input') ?? null;
     expect(textarea).not.toBeNull();
@@ -262,66 +282,104 @@ describe('ClipperDialog UI', () => {
     expect(document.getElementById('obsidian-clipper-dialog')).toBeNull();
   });
 
-  it('builds presenter command buttons and comment hooks from element helpers', async () => {
-    const { buildDialogPresenter } =
-      await import('../../../src/content/clipper/components/dialogPresenterElements');
-    const handlers = {
-      reader: vi.fn(),
-      video: vi.fn(),
-      cancel: vi.fn(),
-      confirm: vi.fn()
-    };
-    const getFallback = <Key extends keyof Messages>(key: Key): string =>
-      (dialogMessages[key as keyof typeof dialogMessages] as string | undefined) ?? String(key);
+  it('disposes the replaced no-registry host and final host exactly once before removal', async () => {
+    const { ClipperDialog } = await import('../../../src/content/clipper/components/dialog');
+    const firstDialog = new ClipperDialog(createDialogDeps());
+    void firstDialog.show('First selection');
+    await flushPromises();
 
-    const presenter = buildDialogPresenter({
-      selectedText: 'Selected text',
-      initialComment: 'Initial note',
-      allowReaderMode: true,
-      allowVideoMode: true,
-      readerModeBehavior: 'start',
-      binder: null,
-      getFallback,
-      resolveAssetUrl: (path) => `chrome-extension://test/${path}`,
-      bindings: {
-        applyText: (element, key, fallback) => {
-          element.dataset.i18n = key;
-          element.textContent = fallback;
-        },
-        applyAttr: (element, attribute, datasetKey, key, fallback) => {
-          element.setAttribute(attribute, fallback);
-          (element.dataset as Record<string, string>)[datasetKey] = key;
-        }
-      },
-      registerI18nHandles: vi.fn(),
-      onReader: handlers.reader,
-      onVideo: handlers.video,
-      onCancel: handlers.cancel,
-      onConfirm: handlers.confirm
+    const firstHost = getHost();
+    const firstHandle = styleAttachmentHandles[0];
+    if (!firstHost || !firstHandle) throw new Error('first mounted lifecycle missing');
+    firstHandle.dispose.mockImplementation(() => expect(firstHost.isConnected).toBe(true));
+
+    const secondDialog = new ClipperDialog(createDialogDeps());
+    void secondDialog.show('Second selection');
+    await flushPromises();
+
+    const secondHost = getHost();
+    const secondHandle = styleAttachmentHandles[1];
+    if (!secondHost || !secondHandle) throw new Error('second mounted lifecycle missing');
+    expect(secondHandle).not.toBe(firstHandle);
+    expect(firstHandle.dispose).toHaveBeenCalledTimes(1);
+    expect(firstHost.isConnected).toBe(false);
+    expect(secondHandle.dispose).not.toHaveBeenCalled();
+    secondHandle.dispose.mockImplementation(() => expect(secondHost.isConnected).toBe(true));
+
+    secondDialog.destroy();
+    secondDialog.destroy();
+    firstDialog.destroy();
+
+    expect(secondHandle.dispose).toHaveBeenCalledTimes(1);
+    expect(firstHandle.dispose).toHaveBeenCalledTimes(1);
+    expect(secondHost.isConnected).toBe(false);
+  });
+
+  it('does not mount or attach styles after destroy during pending style initialization', async () => {
+    const styles = createDeferred();
+    applyClipperStylesMock.mockImplementationOnce(() => {
+      const handle = createStyleAttachmentHandleMock();
+      Reflect.set(
+        handle,
+        'ready',
+        styles.promise.then(() => ({ status: 'ready' as const }))
+      );
+      styleAttachmentHandles.push(handle);
+      return handle;
     });
+    const { ClipperDialog } = await import('../../../src/content/clipper/components/dialog');
+    const dialog = new ClipperDialog(createDialogDeps());
 
-    document.body.append(presenter.content);
+    const show = dialog.show('Pending selection');
+    await vi.waitFor(() => expect(applyClipperStylesMock).toHaveBeenCalledTimes(1));
+    dialog.destroy();
+    styles.resolve();
 
-    expect(presenter.header.querySelector('.clipper-dialog-title')).toBeTruthy();
-    expect(presenter.textarea.value).toBe('Initial note');
-    expect(presenter.textarea.getAttribute('aria-label')).toBe('Comment');
-    expect(presenter.hintElement).toBe(
-      presenter.content.querySelector('.clipper-comment-completed-hint')
-    );
+    await expect(show).resolves.toEqual({ action: 'cancel', comment: '' });
+    expect(styleAttachmentHandles[0]?.dispose).toHaveBeenCalledTimes(1);
+    expect(getHost()).toBeNull();
+  });
 
-    const buttons = Array.from(presenter.content.querySelectorAll<HTMLButtonElement>('button'));
-    expect(buttons.map((button) => button.textContent?.trim())).toEqual([
-      'Open reader',
-      'Enter video mode',
-      'Cancel',
-      'Save'
-    ]);
+  it('lets only the latest dialog mount after shared pending style initialization', async () => {
+    const styles = createDeferred();
+    applyClipperStylesMock.mockImplementation(() => {
+      const handle = createStyleAttachmentHandleMock();
+      Reflect.set(
+        handle,
+        'ready',
+        styles.promise.then(() => ({ status: 'ready' as const }))
+      );
+      styleAttachmentHandles.push(handle);
+      return handle;
+    });
+    const { ClipperDialog } = await import('../../../src/content/clipper/components/dialog');
+    const firstDialog = new ClipperDialog(createDialogDeps());
+    const secondDialog = new ClipperDialog(createDialogDeps());
 
-    buttons.forEach((button) => button.click());
-    expect(handlers.reader).toHaveBeenCalledTimes(1);
-    expect(handlers.video).toHaveBeenCalledTimes(1);
-    expect(handlers.cancel).toHaveBeenCalledTimes(1);
-    expect(handlers.confirm).toHaveBeenCalledTimes(1);
+    const firstShow = firstDialog.show('First pending selection');
+    await vi.waitFor(() => expect(applyClipperStylesMock).toHaveBeenCalledTimes(1));
+    const secondShow = secondDialog.show('Second pending selection');
+    await vi.waitFor(() => expect(applyClipperStylesMock).toHaveBeenCalledTimes(2));
+    styles.resolve();
+
+    await expect(firstShow).resolves.toEqual({ action: 'cancel', comment: '' });
+    await vi.waitFor(() => expect(getHost()).not.toBeNull());
+    const host = getHost();
+    const handle = styleAttachmentHandles[1];
+    if (!host || !handle) throw new Error('latest mounted lifecycle missing');
+    expect(styleAttachmentHandles).toHaveLength(2);
+    expect(styleAttachmentHandles[0]?.dispose).toHaveBeenCalledTimes(1);
+    expect(document.documentElement.dataset.aiobClipperDialog).toBe('open');
+    handle.dispose.mockImplementation(() => expect(host.isConnected).toBe(true));
+
+    secondDialog.close();
+    await expect(secondShow).resolves.toEqual({
+      action: 'cancel',
+      comment: '',
+      destination: { kind: 'downloads' }
+    });
+    expect(handle.dispose).toHaveBeenCalledTimes(1);
+    expect(host.isConnected).toBe(false);
   });
 
   it('resolves with cancelled status when overlay clicked', async () => {
@@ -444,6 +502,90 @@ describe('ClipperDialog UI', () => {
     await promise;
   });
 
+  it('keeps a newly inserted nested Vault selection explicit when another enabled Vault becomes default', async () => {
+    const { ClipperDialog } = await import('../../../src/content/clipper/components/dialog');
+    let current = mergeOptions({
+      vaultRouter: { defaultVaultId: 'default', vaults: [], rules: [] }
+    });
+    const listeners = new Set<(options: CompleteOptions) => void>();
+    const optionsRepository: IOptionsRepository = {
+      get: () => Promise.resolve(current),
+      patch: () => Promise.resolve(current),
+      replace: () => Promise.resolve(current),
+      onChange: (listener) => {
+        listeners.add(listener);
+        return () => {
+          listeners.delete(listener);
+        };
+      }
+    };
+    const dialog = new ClipperDialog({ ...createDialogDeps(), optionsRepository });
+    const resultPromise = dialog.show('Dynamic selection');
+    await vi.waitFor(() => expect(getHost()).not.toBeNull());
+    const root = getDialogRoot();
+    if (!root) throw new Error('Clipper root missing');
+    await vi.waitFor(() =>
+      expect(root.querySelector('.export-destination-options')).not.toBeNull()
+    );
+    const vaultA = {
+      id: 'vault-a',
+      name: 'Vault A',
+      vault: 'Vault A',
+      enabled: true,
+      localFolderId: 'folder-vault-a',
+      localFolderName: 'Vault A',
+      httpsUrl: LOCAL_REST_HTTPS_URL,
+      httpUrl: LOCAL_REST_HTTP_URL,
+      apiKey: ''
+    };
+    const vaultB = { ...vaultA, id: 'vault-b', name: 'Vault B', vault: 'Vault B' };
+    const publish = (options: CompleteOptions): void => {
+      current = options;
+      listeners.forEach((listener) => listener(options));
+    };
+    publish(
+      mergeOptions({ vaultRouter: { defaultVaultId: 'vault-a', vaults: [vaultA], rules: [] } })
+    );
+    await vi.waitFor(() =>
+      expect(root.querySelector('[data-destination-id="vault-a"]')).not.toBeNull()
+    );
+    const label = root.querySelector(
+      '[data-destination-id="vault-a"] .export-destination-option-label'
+    );
+    const menu = root.querySelector('.export-destination-menu');
+    const comment = root.querySelector('textarea');
+    if (
+      !(label instanceof HTMLElement) ||
+      !(menu instanceof HTMLDetailsElement) ||
+      !(comment instanceof HTMLTextAreaElement)
+    )
+      throw new Error('Clipper controls missing');
+    comment.value = 'Keep this comment';
+    comment.dispatchEvent(new Event('input', { bubbles: true }));
+    menu.open = true;
+    label.click();
+    await vi.waitFor(() => expect(menu.open).toBe(false));
+    publish(
+      mergeOptions({
+        vaultRouter: { defaultVaultId: 'vault-b', vaults: [vaultA, vaultB], rules: [] }
+      })
+    );
+    await vi.waitFor(() =>
+      expect(root.querySelector('[data-destination-id="vault-b"]')).not.toBeNull()
+    );
+    expect(root.querySelector('.export-destination-label')?.textContent).toBe('Vault A');
+    const reader = root.querySelector('[data-action-id="reader"]');
+    if (!(reader instanceof HTMLButtonElement)) throw new Error('Reader action missing');
+    reader.click();
+    const result = await resultPromise;
+    expect(result).toEqual({
+      action: 'reader',
+      comment: 'Keep this comment',
+      destination: { kind: 'vault', vaultId: 'vault-a' }
+    });
+    expect(result.destinationSelectionIsExplicit).toBe(true);
+  });
+
   it('returns the selected destination when entering reader mode', async () => {
     const { ClipperDialog } = await import('../../../src/content/clipper/components/dialog');
     const deps = createDialogDeps();
@@ -451,13 +593,20 @@ describe('ClipperDialog UI', () => {
     if (!optionsRepository) {
       throw new Error('options repository missing');
     }
-    vi.mocked(optionsRepository.get).mockResolvedValue(createVaultOptions() as never);
+    vi.mocked(optionsRepository.get).mockResolvedValue(createVaultOptions());
     const dialog = new ClipperDialog(deps);
 
     const promise = dialog.show('Reader destination');
-    await flushPromises();
+    await vi.waitFor(() => expect(getHost()).not.toBeNull());
 
     const shadow = getDialogRoot();
+    await vi.waitFor(() =>
+      expect(
+        shadow?.querySelector<HTMLButtonElement>(
+          '.export-destination-option[data-destination-id="research"]'
+        )
+      ).toBeTruthy()
+    );
     const researchOption = shadow?.querySelector<HTMLButtonElement>(
       '.export-destination-option[data-destination-id="research"]'
     );
@@ -467,11 +616,70 @@ describe('ClipperDialog UI', () => {
 
     shadow?.querySelector<HTMLButtonElement>('[data-action-id="reader"]')?.click();
 
-    await expect(promise).resolves.toEqual({
+    const result = await promise;
+    expect(result).toEqual({
       action: 'reader',
       comment: '',
       destination: { kind: 'vault', vaultId: 'research' }
     });
+    expect(result.destinationSelectionIsExplicit).toBe(true);
+  });
+
+  it('marks the effective default destination as implicit when entering reader mode', async () => {
+    const { ClipperDialog } = await import('../../../src/content/clipper/components/dialog');
+    const dialog = new ClipperDialog(createDialogDeps());
+
+    const promise = dialog.show('Implicit reader destination');
+    await vi.waitFor(() => expect(getHost()).not.toBeNull());
+
+    getDialogRoot()?.querySelector<HTMLButtonElement>('[data-action-id="reader"]')?.click();
+
+    const result = await promise;
+    expect(result).toEqual({
+      action: 'reader',
+      comment: '',
+      destination: { kind: 'downloads' }
+    });
+    expect(result.destinationSelectionIsExplicit).toBe(false);
+  });
+
+  it('marks explicitly selected downloads as explicit when entering reader mode', async () => {
+    const { ClipperDialog } = await import('../../../src/content/clipper/components/dialog');
+    const deps = createDialogDeps();
+    const optionsRepository = deps.optionsRepository;
+    if (!optionsRepository) {
+      throw new Error('options repository missing');
+    }
+    vi.mocked(optionsRepository.get).mockResolvedValue(createVaultOptions());
+    const dialog = new ClipperDialog(deps);
+
+    const promise = dialog.show('Explicit downloads destination');
+    await vi.waitFor(() => expect(getHost()).not.toBeNull());
+
+    const shadow = getDialogRoot();
+    await vi.waitFor(() =>
+      expect(
+        shadow?.querySelector<HTMLButtonElement>(
+          '.export-destination-option[data-destination-id="downloads"]'
+        )
+      ).toBeTruthy()
+    );
+    shadow
+      ?.querySelector<HTMLButtonElement>(
+        '.export-destination-option[data-destination-id="downloads"]'
+      )
+      ?.click();
+    await flushPromises();
+
+    shadow?.querySelector<HTMLButtonElement>('[data-action-id="reader"]')?.click();
+
+    const result = await promise;
+    expect(result).toEqual({
+      action: 'reader',
+      comment: '',
+      destination: { kind: 'downloads' }
+    });
+    expect(result.destinationSelectionIsExplicit).toBe(true);
   });
 
   it('renders comment form with class-based styles only', async () => {
@@ -552,7 +760,7 @@ describe('ClipperDialog repository integration', () => {
     getContentI18nBinderMock.mockReturnValue(null);
     getContentMessagesMock.mockResolvedValue(dialogMessages as unknown as Messages);
     initializeStylesMock.mockResolvedValue(undefined);
-    applyStylesMock.mockResolvedValue(undefined);
+    resetStyleAttachmentMocks();
     document.body.innerHTML = '';
     document.head.innerHTML = '';
   });

@@ -3,8 +3,10 @@ import type { ConnectionTestResult } from '../../../src/shared/types/connection'
 import type { CaptureVisibleTabScreenshotResponse } from '../../../src/shared/types/videoScreenshotMessages';
 import type { VideoScreenshotCacheResponse } from '../../../src/content/video/videoScreenshotCacheMessages';
 import type { StorageService } from '../../../src/platform/interfaces/storage';
+import type { MessagePayload } from '../../../src/platform/interfaces/messaging';
 import type { TabsService } from '../../../src/platform/interfaces/tabs';
-import { createSessionDraftStoragePolicy } from '../../../src/content/sessionDrafts';
+import { createSessionDraftStoragePolicy } from '../../../src/shared/sessionDrafts';
+import type { SessionDraftSaveRequest } from '../../../src/shared/sessionDrafts';
 import { asType } from '../../utils/typeHelpers';
 
 const addListenerMock = vi.hoisted(() => vi.fn());
@@ -119,6 +121,20 @@ describe('runtime message listener', () => {
   });
 
   function createDependencies() {
+    const sessionDraftStore = {
+      readExact: vi.fn<() => Promise<{ outcome: 'missing' }>>(() =>
+        Promise.resolve({ outcome: 'missing' })
+      ),
+      save: vi.fn(),
+      finalizeExact: vi.fn(),
+      removeExact: vi.fn(),
+      renewLease: vi.fn(),
+      releaseLease: vi.fn(),
+      migrateLegacyVideoCapture: vi.fn(),
+      prune: vi.fn(),
+      list: vi.fn(),
+      selectAndClaim: vi.fn()
+    };
     return {
       messaging: { addListener: addListenerMock },
       clipPipeline: { sendSupportPrompt: vi.fn(() => Promise.resolve(undefined)) },
@@ -159,9 +175,128 @@ describe('runtime message listener', () => {
               ? { success: true, operation: 'pruneExpired' }
               : undefined
           )
+      ),
+      handleOptionsMutationMessage: vi.fn<
+        (message: unknown) => Promise<MessagePayload | undefined>
+      >((_message) => Promise.resolve(undefined)),
+      handleUsageStatsMessage: vi.fn<(message: unknown) => Promise<MessagePayload | undefined>>(
+        (_message) => Promise.resolve(undefined)
+      ),
+      sessionDraftStore,
+      resolveSessionDraftOwner: vi.fn((sender: { tabId?: number; frameId?: number }) =>
+        Promise.resolve(
+          typeof sender.tabId === 'number' && typeof sender.frameId === 'number'
+            ? { tabId: sender.tabId, frameId: sender.frameId }
+            : null
+        )
       )
     };
   }
+
+  it.each([undefined, 'document-4-2'])(
+    'derives strict draft ownership from sender document %s',
+    async (documentId) => {
+      const dependencies = createDependencies();
+      dependencies.sessionDraftStore.save.mockResolvedValue({
+        outcome: 'conflict',
+        code: 'DRAFT_EXISTS'
+      });
+      const { registerRuntimeMessageListener } =
+        await import('../../../src/background/listeners/runtimeMessages');
+      registerRuntimeMessageListener(dependencies);
+
+      const request = {
+        operation: 'save',
+        requestId: 'save-1',
+        key: 'zendio:session-draft:v2:reader:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa:draft-1',
+        expectedRevision: null,
+        draft: {
+          draftId: 'draft-1',
+          mode: 'reader',
+          pageUrl: 'https://example.com/article',
+          pageTitle: 'Article',
+          payload: { text: 'draft' }
+        }
+      } satisfies SessionDraftSaveRequest;
+      await expect(
+        listener?.(
+          { type: 'AIIOB_SESSION_DRAFT_V2', request },
+          {
+            tabId: 4,
+            frameId: 2,
+            ...(documentId ? { documentId } : {})
+          }
+        )
+      ).resolves.toEqual({ outcome: 'conflict', code: 'DRAFT_EXISTS' });
+      expect(dependencies.sessionDraftStore.save).toHaveBeenCalledWith(
+        request,
+        {
+          tabId: 4,
+          frameId: 2
+        },
+        documentId
+      );
+
+      await expect(
+        listener?.(
+          {
+            type: 'AIIOB_SESSION_DRAFT_V2',
+            request: { ...request, owner: { tabId: 99, frameId: 0 } }
+          },
+          { tabId: 4, frameId: 2 }
+        )
+      ).rejects.toThrow('SESSION_DRAFT_REQUEST_INVALID');
+    }
+  );
+
+  it('routes typed Options and usage mutations through their background owners', async () => {
+    const dependencies = createDependencies();
+    dependencies.handleOptionsMutationMessage.mockResolvedValue({
+      type: 'ZENDIO_OPTIONS_MUTATION_RESPONSE',
+      requestId: 'options-request',
+      success: false,
+      errorCode: 'EXTERNAL_SYNC_CONFLICT'
+    });
+    dependencies.handleUsageStatsMessage.mockResolvedValue({
+      type: 'ZENDIO_USAGE_STATS_RESPONSE',
+      requestId: 'usage-request',
+      success: true,
+      stats: {
+        aiChatSaves: 0,
+        fragmentSaves: 0,
+        articleSaves: 0,
+        lastUpdatedISO: null,
+        history: []
+      }
+    });
+    const { registerRuntimeMessageListener } =
+      await import('../../../src/background/listeners/runtimeMessages');
+    registerRuntimeMessageListener(dependencies);
+
+    await expect(
+      listener?.(
+        {
+          type: 'ZENDIO_OPTIONS_MUTATION',
+          requestId: 'options-request',
+          command: { kind: 'migrate' }
+        },
+        {}
+      )
+    ).resolves.toMatchObject({ errorCode: 'EXTERNAL_SYNC_CONFLICT' });
+    await expect(
+      listener?.(
+        {
+          type: 'ZENDIO_USAGE_STATS',
+          requestId: 'usage-request',
+          operation: 'get'
+        },
+        {}
+      )
+    ).resolves.toMatchObject({ success: true, stats: { aiChatSaves: 0 } });
+
+    expect(dependencies.handleOptionsMutationMessage).toHaveBeenCalledTimes(1);
+    expect(dependencies.handleUsageStatsMessage).toHaveBeenCalledTimes(1);
+  });
 
   it('registers listener and returns fallback responses for connection test failures', async () => {
     handleConnectionTestMock.mockRejectedValueOnce(new Error('offline'));
@@ -284,7 +419,7 @@ describe('runtime message listener', () => {
           url: 'http://vault.example'
         }
       ]
-    } as ConnectionTestResult);
+    } satisfies ConnectionTestResult);
 
     const { registerRuntimeMessageListener } =
       await import('../../../src/background/listeners/runtimeMessages');
@@ -382,9 +517,7 @@ describe('runtime message listener', () => {
       expect.objectContaining({ channel: 'clipper.error', title: 'notifyClipFailure' }),
       expect.any(Object)
     );
-    const dispatchOptions = dispatchFailedMock.mock.calls[0]?.[2] as
-      | { cause?: unknown }
-      | undefined;
+    const dispatchOptions = dispatchFailedMock.mock.calls[0]?.[2];
     expect(dispatchOptions?.cause).toBeInstanceOf(Error);
   });
 
@@ -646,6 +779,7 @@ describe('runtime message listener', () => {
         }),
         { getURL: vi.fn((path: string) => `chrome-extension://${path}`) },
         storage,
+        createDependencies(),
         { ttlMs: storagePolicy.videoScreenshotCacheTtlMs }
       );
 
@@ -684,7 +818,8 @@ describe('runtime message listener', () => {
       { addListener: addListenerMock },
       asType<Pick<TabsService, 'create' | 'get' | 'sendMessage' | 'captureVisibleTab'>>(tabs),
       runtime,
-      asType({ local: {} })
+      asType({ local: {} }),
+      createDependencies()
     );
     registerRuntimeMessageListener(dependencies);
 

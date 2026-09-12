@@ -10,8 +10,11 @@ import {
 } from './videoScreenshotCacheTypes';
 
 export const VIDEO_SCREENSHOT_CACHE_BLOB_STORE_DB_NAME = 'aiob-video-screenshot-cache';
-export const VIDEO_SCREENSHOT_CACHE_BLOB_STORE_DB_VERSION = 1;
+export const VIDEO_SCREENSHOT_CACHE_BLOB_STORE_DB_VERSION = 2;
 export const VIDEO_SCREENSHOT_CACHE_BLOB_STORE_OBJECT_STORE_NAME = 'entries';
+export const VIDEO_SCREENSHOT_CACHE_BLOB_STORE_METADATA_OBJECT_STORE_NAME = 'metadata';
+export const VIDEO_SCREENSHOT_CACHE_BLOB_STORE_MAINTENANCE_ID = 'maintenance';
+export const VIDEO_SCREENSHOT_CACHE_BLOB_STORE_METADATA_SCHEMA_VERSION = 2;
 export const VIDEO_SCREENSHOT_CACHE_BLOB_STORE_PAGE_KEY_INDEX_NAME = 'byPageKey';
 export const VIDEO_SCREENSHOT_CACHE_BLOB_STORE_EXPIRES_AT_INDEX_NAME = 'byExpiresAt';
 export const VIDEO_SCREENSHOT_CACHE_BLOB_STORE_UPDATED_AT_INDEX_NAME = 'byUpdatedAt';
@@ -21,6 +24,12 @@ export type VideoScreenshotCacheBlobMetadata = VideoScreenshotCacheIndexEntry;
 
 export interface VideoScreenshotCacheBlobEntry extends VideoScreenshotCacheBlobMetadata {
   blob: Blob;
+}
+
+export interface VideoScreenshotCacheMaintenanceMetadata {
+  id: typeof VIDEO_SCREENSHOT_CACHE_BLOB_STORE_MAINTENANCE_ID;
+  schemaVersion: typeof VIDEO_SCREENSHOT_CACHE_BLOB_STORE_METADATA_SCHEMA_VERSION;
+  lastPrunedAt: number | null;
 }
 
 export interface VideoScreenshotCacheBlobStorePruneOptions extends VideoScreenshotCachePruneOptions {}

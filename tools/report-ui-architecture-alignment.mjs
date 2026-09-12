@@ -1,50 +1,23 @@
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
-import { join, relative } from 'node:path';
+import { join, relative, resolve } from 'node:path';
+import { pathToFileURL } from 'node:url';
+import { runProductionBuildGraph, validateOwnership } from './report-ui-production-ownership.mjs';
 
 const ROOT = process.cwd();
+const MANIFEST_PATH = 'tools/ui-production-ownership.json';
 
-const requiredFiles = [
-  'src/ui/foundation/tokens/index.ts',
-  'src/ui/foundation/icons/index.ts',
-  'src/ui/foundation/a11y/index.ts',
-  'src/ui/foundation/style-host/index.ts',
-  'src/ui/foundation/types/index.ts',
-  'src/ui/foundation/keyboard/index.ts',
-  'src/ui/foundation/lifecycle/index.ts',
-  'src/ui/foundation/lifecycle/BaseComponent.ts',
-  'src/ui/primitives/button/index.ts',
-  'src/ui/primitives/input/index.ts',
-  'src/ui/primitives/select/index.ts',
-  'src/ui/primitives/checkbox/index.ts',
-  'src/ui/primitives/textarea/index.ts',
-  'src/ui/primitives/toggle/index.ts',
-  'src/ui/primitives/badge/index.ts',
-  'src/ui/primitives/alert/index.ts',
-  'src/ui/primitives/dialog/index.ts',
-  'src/ui/primitives/layout/index.ts',
-  'src/ui/primitives/panel/index.ts',
-  'src/ui/patterns/form-field/index.ts',
-  'src/ui/patterns/setting-row/index.ts',
-  'src/ui/patterns/section-shell/index.ts',
-  'src/ui/patterns/message-block/index.ts',
-  'src/ui/patterns/confirm-flow/index.ts',
-  'src/ui/hosts/options/index.ts',
-  'src/ui/hosts/content/index.ts',
-  'src/ui/hosts/content/ContentDialogHost.ts',
-  'src/ui/hosts/shadow/index.ts',
-  'src/ui/hosts/shadow/ShadowDialogHost.ts',
-  'src/ui/hosts/shared/contract.ts',
-  'src/ui/domains/vault-router/index.ts',
-  'src/ui/domains/privacy/index.ts',
-  'src/ui/domains/reading/index.ts',
-  'src/ui/domains/video/index.ts',
-  'src/ui/domains/support-prompt/index.ts',
-  'src/ui/domains/support-prompt/SupportPromptView.ts',
+const STABLE_REQUIRED_FILES = [
+  'src/content/reader/ui/ReaderDialogPanel.ts',
+  'src/content/video/ui/videoDialogSurface.ts',
+  'src/content/ui/supportPrompt.ts',
+  'src/options/app/bootstrap.ts',
+  'src/content/shared/panels/styleSheetManager.ts',
+  'src/content/clipper/shared/styleSheetManager.ts',
   'docs/archive/legacy-options-assets/obsidian-clipper-style.css',
   'docs/reference-fixtures/legacy-options/obsidian-hybrid-preview.html'
 ];
 
-const forbiddenFiles = [
+const FORBIDDEN_FILES = [
   'src/options/styles/design-tokens.css',
   'src/options/components/shared/listBuilder.ts',
   'src/options/components/shared/ThemeSwitcher.ts',
@@ -87,7 +60,7 @@ const forbiddenFiles = [
   'src/content/video/components/VideoDialog.ts'
 ];
 
-const requiredSnippets = {
+const REQUIRED_SNIPPETS = {
   'src/content/reader/ui/ReaderDialogPanel.ts': [
     ['@content/stitch/runtimeSurfaceRenderer'],
     ['@content/stitch/runtimeSurfaceContent']
@@ -109,37 +82,7 @@ const requiredSnippets = {
   ]
 };
 
-const findings = [];
-
-for (const relativePath of requiredFiles) {
-  if (!existsSync(join(ROOT, relativePath))) {
-    findings.push(`missing required file: ${relativePath}`);
-  }
-}
-
-for (const relativePath of forbiddenFiles) {
-  if (existsSync(join(ROOT, relativePath))) {
-    findings.push(`legacy wrapper/alias still present: ${relativePath}`);
-  }
-}
-
-const envSource = readFileSync(join(ROOT, 'src/env.d.ts'), 'utf8');
-for (const token of ['__aiobReaderActive', '__aiobReaderController']) {
-  if (envSource.includes(token)) {
-    findings.push(`legacy global declaration still present in src/env.d.ts: ${token}`);
-  }
-}
-
-for (const [relativePath, snippetGroups] of Object.entries(requiredSnippets)) {
-  const source = readFileSync(join(ROOT, relativePath), 'utf8');
-  for (const snippets of snippetGroups) {
-    if (!snippets.some((snippet) => source.includes(snippet))) {
-      findings.push(`${relativePath} missing snippet: ${snippets.join(' OR ')}`);
-    }
-  }
-}
-
-const forbiddenPatterns = [
+const FORBIDDEN_SOURCE_PATTERNS = [
   {
     file: 'src/content/reader/session.ts',
     pattern:
@@ -159,22 +102,78 @@ const forbiddenPatterns = [
   }
 ];
 
-for (const { file, pattern, message } of forbiddenPatterns) {
-  const source = readFileSync(join(ROOT, file), 'utf8');
-  if (pattern.test(source)) {
-    findings.push(message);
-  }
+function normalizePath(value) {
+  return value.split('\\').join('/');
 }
 
-function walk(dir) {
-  for (const entry of readdirSync(dir)) {
+function readJson(root, relativePath) {
+  return JSON.parse(readFileSync(join(root, relativePath), 'utf8'));
+}
+
+function isExactUiPath(value) {
+  return (
+    typeof value === 'string' &&
+    /^src\/ui\/.+\.ts$/.test(value) &&
+    !/[*?\[\]{}]/.test(value) &&
+    !value.includes('..')
+  );
+}
+
+function collectManifestTreeFindings(root, manifest) {
+  const findings = [];
+  if (!manifest || typeof manifest !== 'object' || Array.isArray(manifest)) {
+    return ['ownership manifest is not an object'];
+  }
+  if (manifest.closureState !== 'intermediate' && manifest.closureState !== 'final') {
+    findings.push('ownership manifest has an invalid closureState');
+  }
+  if (!Array.isArray(manifest.rows) || manifest.rows.length === 0) {
+    findings.push('ownership manifest has no rows');
+    return findings;
+  }
+
+  const seen = new Set();
+  for (const row of manifest.rows) {
+    if (!isExactUiPath(row?.path)) {
+      findings.push(`ownership manifest row is not an exact UI path: ${String(row?.path)}`);
+      continue;
+    }
+    if (seen.has(row.path)) {
+      findings.push(`ownership manifest contains a duplicate UI path: ${row.path}`);
+      continue;
+    }
+    seen.add(row.path);
+    if (!existsSync(join(root, row.path))) {
+      findings.push(`ownership manifest path is missing from the current tree: ${row.path}`);
+    }
+  }
+
+  if (
+    manifest.closureState === 'final' &&
+    manifest.rows.some(
+      (row) => row.disposition !== 'production-runtime' && row.disposition !== 'production-compile'
+    )
+  ) {
+    findings.push('final ownership manifest still contains a non-production disposition');
+  }
+
+  return findings;
+}
+
+function walkSourceFiles(root, relativeRoot, findings) {
+  const directory = join(root, relativeRoot);
+  if (!existsSync(directory)) {
+    return;
+  }
+
+  for (const entry of readdirSync(directory)) {
     if (entry.startsWith('.')) {
       continue;
     }
-    const fullPath = join(dir, entry);
+    const fullPath = join(directory, entry);
     const stats = statSync(fullPath);
     if (stats.isDirectory()) {
-      walk(fullPath);
+      walkSourceFiles(root, normalizePath(relative(root, fullPath)), findings);
       continue;
     }
     if (!/\.(ts|tsx|js|mjs)$/.test(fullPath)) {
@@ -182,19 +181,19 @@ function walk(dir) {
     }
 
     const source = readFileSync(fullPath, 'utf8');
-    const relativePath = relative(ROOT, fullPath);
-
-    if (relativePath !== 'src/ui/foundation/icons/index.ts' && /from 'lucide'/.test(source)) {
+    const relativePath = normalizePath(relative(root, fullPath));
+    if (
+      relativePath !== 'src/ui/foundation/icons/index.ts' &&
+      /from\s+['"]lucide['"]/.test(source)
+    ) {
       findings.push(`lucide import outside foundation/icons: ${relativePath}`);
     }
-
     if (
       relativePath.startsWith('src/ui/domains/') &&
       /from ['"][^'"]*(?:@options|@content|\.\.\/\.\.\/\.\.\/(?:options|content)\/)/.test(source)
     ) {
       findings.push(`domain implementation still depends on feature layer: ${relativePath}`);
     }
-
     if (
       /from ['"][^'"]*(?:options\/components\/shared\/(?:Daisy(?:Alert|Badge|Button|Checkbox|Dialog|Input|Select|Textarea|Toggle)|OptionsLayout)|options\/components\/controls\/(?:YamlConfigView|VaultRouterView|privacySettings|yamlConfigTable(?:Model|Validation|Types|Dom|ControllerState(?:\.impl)?|ControllerTypes)?|yamlConfigTable)|content\/shared\/daisy|content\/reader\/components\/ReaderDialog|content\/video\/components\/VideoDialog|content\/ui\/supportPrompt\/SupportPromptView|ui\/domains\/video\/SupportPromptView)/.test(
         source
@@ -205,13 +204,85 @@ function walk(dir) {
   }
 }
 
-walk(join(ROOT, 'src'));
-walk(join(ROOT, 'tests'));
+function collectUiArchitectureFindings({ root = ROOT, manifest } = {}) {
+  const currentManifest = manifest ?? readJson(root, MANIFEST_PATH);
+  const findings = collectManifestTreeFindings(root, currentManifest);
 
-if (findings.length > 0) {
-  console.error('UI architecture alignment check failed:\n');
-  findings.forEach((finding) => console.error(`- ${finding}`));
-  process.exit(1);
+  for (const relativePath of STABLE_REQUIRED_FILES) {
+    if (!existsSync(join(root, relativePath))) {
+      findings.push(`missing required file: ${relativePath}`);
+    }
+  }
+  for (const relativePath of FORBIDDEN_FILES) {
+    if (existsSync(join(root, relativePath))) {
+      findings.push(`legacy wrapper/alias still present: ${relativePath}`);
+    }
+  }
+
+  const envPath = join(root, 'src/env.d.ts');
+  if (existsSync(envPath)) {
+    const envSource = readFileSync(envPath, 'utf8');
+    for (const token of ['__aiobReaderActive', '__aiobReaderController']) {
+      if (envSource.includes(token)) {
+        findings.push(`legacy global declaration still present in src/env.d.ts: ${token}`);
+      }
+    }
+  } else {
+    findings.push('missing required file: src/env.d.ts');
+  }
+
+  for (const [relativePath, snippetGroups] of Object.entries(REQUIRED_SNIPPETS)) {
+    const fullPath = join(root, relativePath);
+    if (!existsSync(fullPath)) {
+      continue;
+    }
+    const source = readFileSync(fullPath, 'utf8');
+    for (const snippets of snippetGroups) {
+      if (!snippets.some((snippet) => source.includes(snippet))) {
+        findings.push(`${relativePath} missing snippet: ${snippets.join(' OR ')}`);
+      }
+    }
+  }
+
+  for (const { file, pattern, message } of FORBIDDEN_SOURCE_PATTERNS) {
+    const fullPath = join(root, file);
+    if (existsSync(fullPath) && pattern.test(readFileSync(fullPath, 'utf8'))) {
+      findings.push(message);
+    }
+  }
+
+  walkSourceFiles(root, 'src', findings);
+  walkSourceFiles(root, 'tests', findings);
+  return findings;
 }
 
-console.log('UI architecture alignment passed.');
+function runUiArchitectureAlignment(root = ROOT) {
+  const manifest = readJson(root, MANIFEST_PATH);
+  const findings = [];
+  try {
+    const graph = runProductionBuildGraph(root);
+    validateOwnership({ root, manifest, graph });
+  } catch (error) {
+    findings.push(`ownership manifest validation failed: ${error.message}`);
+  }
+  findings.push(...collectUiArchitectureFindings({ root, manifest }));
+  return findings;
+}
+
+function main() {
+  const root = resolve(ROOT);
+  const findings = runUiArchitectureAlignment(root);
+  if (findings.length > 0) {
+    console.error('UI architecture alignment check failed:\n');
+    findings.forEach((finding) => console.error(`- ${finding}`));
+    process.exitCode = 1;
+    return;
+  }
+  console.log('UI architecture alignment passed.');
+}
+
+export { collectManifestTreeFindings, collectUiArchitectureFindings, runUiArchitectureAlignment };
+
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  main();
+}

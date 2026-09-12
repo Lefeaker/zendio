@@ -1,4 +1,5 @@
 import { buildDiagnosticsReport } from '@options/components/diagnostics';
+import { formatOptionsError, showStatusMessage } from '@options/components/messages';
 import type { ActionRegistry } from '@options/schema-runtime/actionRuntime';
 import type { Language, Messages } from '@i18n';
 import type { CompleteOptions, InterfaceTheme } from '@shared/types/options';
@@ -6,25 +7,26 @@ import type { ConnectionTestResult } from '@shared/types/connection';
 import type { PreviewContent, PreviewStoreState } from '@options/stitch/types';
 import type { VaultRouterConfig } from '@shared/types/vault';
 import { persistTheme } from './productionStitchStateMapper';
-import {
-  normalizeFragmentModifierKey,
-  normalizeFragmentModifierKeys
-} from './fragmentModifierOptions';
+import { isHighlightTheme } from './stateMapper/themeStateMapper';
 import {
   createProductionDomainActions,
   createProductionRoutingActions,
   createProductionStorageActions,
   updateExperimentalBoolean
 } from './productionStitchActionGroups';
+import { createProductionSelectionTriggerActions } from './productionStitchSelectionTriggerActions';
+import type { ClassifierFieldUpdateResult } from './productionStitchShellState';
+import type { SectionInvalidationRequest } from '@ui/stitch-runtime/render/sectionInvalidation';
 export interface ProductionStitchActionContext {
   getAppData(): PreviewContent;
   getCurrentLanguage(): Language;
   getDraft(): CompleteOptions;
   getMessages(): Messages | null;
   getState(): PreviewStoreState;
+  isActive(): boolean;
   setConnectionNotice(notice: PreviewContent['storage']['connectionNotice']): void;
   setLanguageResource(resource: { messages: Messages | null; language: Language }): void;
-  setMaintenanceLog(log: string): void;
+  runMaintenanceDiagnosis(buildReport: () => string): void;
   setState(state: PreviewStoreState): void;
   activateVaultLocalFolder(index: number): Promise<void>;
   applyConnectionNotice(result: ConnectionTestResult): void;
@@ -35,7 +37,7 @@ export interface ProductionStitchActionContext {
   ) => Promise<{ messages: Messages | null; language: Language }>;
   chooseVaultLocalFolder(index: number): Promise<void>;
   clearAnalyticsPrivacyData(): Promise<void>;
-  clearVaultLocalFolder(index: number): void;
+  clearVaultLocalFolder(index: number): Promise<void>;
   collectDraftWithWidgets(): CompleteOptions;
   copyConfigurationToClipboard(button: HTMLButtonElement | null): Promise<void>;
   currentDomainEntries(): Array<[string, string]>;
@@ -48,9 +50,10 @@ export interface ProductionStitchActionContext {
     field: 'analytics' | 'errorReporting' | 'debugMode',
     value: boolean
   ): Promise<void>;
-  persistThemePreference(theme: InterfaceTheme): void;
+  persistThemePreference(theme: InterfaceTheme): Promise<void>;
+  runPersistenceTask(key: string, task: () => Promise<void>, capture?: () => () => void): void;
   refreshAppData(): void;
-  render(): void;
+  render(scopes: SectionInvalidationRequest): void;
   renderActiveResourceModal(): void;
   repairConfiguration(): Promise<void>;
   reloadOptions(): Promise<void>;
@@ -66,236 +69,231 @@ export interface ProductionStitchActionContext {
   trackExperimentalFeatureToggle?(featureKey: string, enabled: boolean): void;
   trackLanguageChanged?(language: Language): void;
   trackThemeChanged?(theme: InterfaceTheme): void;
-  updateClassifierField(field: string, value: unknown): void;
+  updateClassifierField(field: string, value: unknown): ClassifierFieldUpdateResult;
   updateDraftPath(path: string, value: unknown): void;
   updateVaultField(index: number, field: string, value: unknown): void;
 }
-
 export function createProductionStitchActions(
-  context: ProductionStitchActionContext
+  ctx: ProductionStitchActionContext
 ): ActionRegistry<PreviewStoreState, PreviewContent> {
-  const setModifierKey = (value: string | undefined): void => {
-    const draft = context.getDraft();
-    const state = context.getState();
-    const key = normalizeFragmentModifierKey(value);
-    state.modifierKeys = [key];
-    state.fragmentModifierEnabled = true;
-    draft.fragmentClipper.selectionModifierEnabled = true;
-    draft.fragmentClipper.selectionModifierKeys = [key];
-    context.scheduleDraftSave();
-    context.syncModifierControls();
-  };
-
   return {
-    ...createProductionRoutingActions(context),
-    ...createProductionStorageActions(context),
-    ...createProductionDomainActions(context),
+    ...createProductionRoutingActions(ctx),
+    ...createProductionStorageActions(ctx),
+    ...createProductionDomainActions(ctx),
+    ...createProductionSelectionTriggerActions(ctx),
     'preview:setTheme': ({ value, mutate: update }) => {
       const theme: InterfaceTheme = value === 'light' || value === 'system' ? value : 'dark';
-      update(
-        (next) => {
-          next.interfaceThemePreference = theme;
-          next.previewTheme = persistTheme(theme);
+      ctx.runPersistenceTask(
+        'options:theme',
+        async () => {
+          update(
+            (next) => {
+              next.interfaceThemePreference = theme;
+              next.previewTheme = persistTheme(theme);
+            },
+            { silent: true }
+          );
+          ctx.syncPreviewThemeControls();
+          await ctx.persistThemePreference(theme);
+          ctx.trackThemeChanged?.(theme);
         },
-        { silent: true }
+        () => {
+          const stateTheme = ctx.getState().interfaceThemePreference ?? 'system';
+          const draftTheme = ctx.getDraft().interfaceTheme ?? stateTheme;
+          return () => {
+            const next = ctx.getState();
+            next.previewTheme = persistTheme((next.interfaceThemePreference = stateTheme));
+            ctx.getDraft().interfaceTheme = draftTheme;
+          };
+        }
       );
-      context.persistThemePreference(theme);
-      context.syncPreviewThemeControls();
-      context.trackThemeChanged?.(theme);
     },
     'preview:setLanguage': ({ value, mutate: update }) => {
-      const nextLanguage = String(value || context.getCurrentLanguage()) as Language;
-      update(
-        (next) => {
-          next.previewLanguage = nextLanguage;
+      const nextLanguage = String(value || ctx.getCurrentLanguage()) as Language;
+      ctx.runPersistenceTask(
+        'options:language',
+        async () => {
+          update((next) => (next.previewLanguage = nextLanguage), { silent: true });
+          const nextResource = ctx.changeLanguage
+            ? await ctx.changeLanguage(nextLanguage)
+            : { messages: ctx.getMessages(), language: nextLanguage };
+          if (!ctx.isActive()) return;
+          ctx.setLanguageResource(nextResource);
+          ctx.render('locale-schema');
+          ctx.trackLanguageChanged?.(nextLanguage);
         },
-        { silent: true }
+        () => {
+          const previous = {
+            language: ctx.getCurrentLanguage(),
+            messages: ctx.getMessages(),
+            previewLanguage: ctx.getState().previewLanguage
+          };
+          return () => {
+            ctx.setLanguageResource(previous);
+            ctx.getState().previewLanguage = previous.previewLanguage;
+          };
+        }
       );
-      void (async () => {
-        const nextResource = context.changeLanguage
-          ? await context.changeLanguage(nextLanguage)
-          : { messages: context.getMessages(), language: nextLanguage };
-        context.setLanguageResource(nextResource);
-        context.render();
-        context.trackLanguageChanged?.(nextLanguage);
-      })();
     },
     'resource:close': () => {
-      context.setState({ ...context.getState(), activeResource: null });
-      context.renderActiveResourceModal();
+      ctx.setState({ ...ctx.getState(), activeResource: null });
+      ctx.renderActiveResourceModal();
     },
-    'resource:open': ({ args }) => {
-      context.openResource(String(args[0] ?? ''));
-    },
-    'navigation:scrollToPanel': ({ args }) => {
-      context.scrollToPanel(String(args[0] ?? 'overview'));
-    },
+    'resource:open': ({ args }) => ctx.openResource(String(args[0] ?? '')),
+    'navigation:scrollToPanel': ({ args }) => ctx.scrollToPanel(String(args[0] ?? 'overview')),
     'navigation:openMainAtPanel': ({ args }) => {
-      context.setState({ ...context.getState(), activeResource: null });
-      context.renderActiveResourceModal();
-      context.scrollToPanel(String(args[0] ?? 'overview'));
+      ctx.setState({ ...ctx.getState(), activeResource: null });
+      ctx.renderActiveResourceModal();
+      ctx.scrollToPanel(String(args[0] ?? 'overview'));
     },
     'navigation:closeResourceAndScrollToPanel': ({ args }) => {
-      context.setState({ ...context.getState(), activeResource: null });
-      context.renderActiveResourceModal();
-      context.scrollToPanel(String(args[0] ?? 'overview'));
+      ctx.setState({ ...ctx.getState(), activeResource: null });
+      ctx.renderActiveResourceModal();
+      ctx.scrollToPanel(String(args[0] ?? 'overview'));
     },
     'yaml:setFilter': ({ args }) => {
-      context.getState().yamlFilter = String(args[0] ?? 'all');
-      context.render();
+      ctx.getState().yamlFilter = String(args[0] ?? 'all');
+      ctx.render('output');
     },
     'yaml:toggleFieldState': ({ args }) => {
       const field = String(args[0] ?? '');
       const mode = String(args[1] ?? '');
       const key = `${field}:${mode}`;
-      const state = context.getState();
+      const state = ctx.getState();
       state.yamlFieldStates[key] = state.yamlFieldStates[key] === 'On' ? 'Off' : 'On';
-      context.markWidgetDirty('yamlConfig');
-      context.scheduleDraftSave();
-      context.render();
+      ctx.markWidgetDirty('yamlConfig');
+      ctx.scheduleDraftSave();
+      ctx.render('output');
     },
     'template:setActiveField': ({ args }) => {
-      context.getState().activeTemplateField = String(args[0] ?? 'articleVideo');
+      ctx.getState().activeTemplateField = String(args[0] ?? 'articleVideo');
     },
     'template:updateValue': ({ args, value }) => {
       const field = String(args[0] ?? '');
       if (field) {
-        context.getState().templateValues[field] = String(value ?? '');
-        context.applyTemplateStateToDraft();
-        context.scheduleDraftSave();
+        ctx.getState().templateValues[field] = String(value ?? '');
+        ctx.applyTemplateStateToDraft();
+        ctx.scheduleDraftSave();
       }
     },
     'template:insertToken': ({ value }) => {
-      const state = context.getState();
+      const state = ctx.getState();
       const field = state.activeTemplateField;
       if (field) {
         state.templateValues[field] = `${state.templateValues[field] ?? ''}${String(value ?? '')}`;
-        context.applyTemplateStateToDraft();
-        context.scheduleDraftSave();
-        context.render();
+        ctx.applyTemplateStateToDraft();
+        ctx.scheduleDraftSave();
+        ctx.render('output');
       }
     },
     'output:setReadingPathMode': ({ value }) => {
-      context.getState().readingPathMode = String(value ?? 'custom');
-      context.applyTemplateStateToDraft();
-      context.scheduleDraftSave();
-      context.render();
+      ctx.getState().readingPathMode = String(value ?? 'custom');
+      ctx.applyTemplateStateToDraft();
+      ctx.scheduleDraftSave();
+      ctx.render('output');
     },
-    'output:applyPreset': ({ args }) => {
-      context.applyOutputPreset(String(args[0] ?? ''));
-    },
+    'output:applyPreset': ({ args }) => ctx.applyOutputPreset(String(args[0] ?? '')),
     'highlight:setTheme': ({ value }) => {
-      const draft = context.getDraft();
-      draft.readingSession.highlightTheme = String(
-        value ?? 'gradient'
-      ) as CompleteOptions['readingSession']['highlightTheme'];
-      context.getState().highlightTheme = draft.readingSession.highlightTheme;
-      context.scheduleDraftSave();
-      context.syncHighlightThemeControls();
-    },
-    'modifier:setEnabled': ({ value }) => {
-      const draft = context.getDraft();
-      const state = context.getState();
-      const enabled = Boolean(value);
-      const selectedKeys = normalizeFragmentModifierKeys(
-        state.modifierKeys.length ? state.modifierKeys : draft.fragmentClipper.selectionModifierKeys
-      );
-      draft.fragmentClipper.selectionModifierEnabled = enabled;
-      draft.fragmentClipper.selectionModifierKeys = selectedKeys;
-      state.fragmentModifierEnabled = enabled;
-      state.modifierKeys = selectedKeys;
-      context.scheduleDraftSave();
-      context.syncModifierControls();
-    },
-    'modifier:setKey': ({ value }) => {
-      setModifierKey(typeof value === 'string' ? value : undefined);
+      const draft = ctx.getDraft();
+      const highlightTheme = String(value ?? 'gradient');
+      draft.readingSession.highlightTheme = isHighlightTheme(highlightTheme)
+        ? highlightTheme
+        : 'gradient';
+      ctx.getState().highlightTheme = draft.readingSession.highlightTheme;
+      ctx.scheduleDraftSave();
+      ctx.syncHighlightThemeControls();
     },
     'options:updateField': ({ args, value }) => {
-      context.updateDraftPath(String(args[0] ?? ''), value);
-      context.scheduleDraftSave();
+      ctx.updateDraftPath(String(args[0] ?? ''), value);
+      ctx.scheduleDraftSave();
     },
     'experimental:updateAiConfigField': ({ args, value }) => {
-      const field = String(args[0] ?? '') as keyof CompleteOptions['experimentalAi'];
-      if (field) {
-        context.getDraft().experimentalAi[field] = String(value ?? '');
-        context.getState().experimentalAiConfig[field] = String(value ?? '');
-        context.scheduleDraftSave();
+      const field = String(args[0] ?? '');
+      if (field === 'provider' || field === 'model' || field === 'apiUrl' || field === 'apiKey') {
+        ctx.getDraft().experimentalAi[field] = String(value ?? '');
+        ctx.getState().experimentalAiConfig[field] = String(value ?? '');
+        ctx.scheduleDraftSave();
       }
     },
     'experimental:setPageSummaryEnabled': () => {
-      updateExperimentalBoolean(context.getDraft(), context.getState(), 'pageSummaryEnabled');
-      context.trackExperimentalFeatureToggle?.(
+      updateExperimentalBoolean(ctx.getDraft(), ctx.getState(), 'pageSummaryEnabled');
+      ctx.trackExperimentalFeatureToggle?.(
         'page_summary_enabled',
-        context.getState().pageSummaryEnabled
+        ctx.getState().pageSummaryEnabled
       );
     },
     'experimental:setReadingOverlaySummaryEnabled': () => {
-      updateExperimentalBoolean(
-        context.getDraft(),
-        context.getState(),
-        'readingOverlaySummaryEnabled'
-      );
-      context.trackExperimentalFeatureToggle?.(
+      updateExperimentalBoolean(ctx.getDraft(), ctx.getState(), 'readingOverlaySummaryEnabled');
+      ctx.trackExperimentalFeatureToggle?.(
         'reading_overlay_summary_enabled',
-        context.getState().readingOverlaySummaryEnabled
+        ctx.getState().readingOverlaySummaryEnabled
       );
     },
     'experimental:setSubtitleTranslationEnabled': () => {
-      updateExperimentalBoolean(
-        context.getDraft(),
-        context.getState(),
-        'subtitleTranslationEnabled'
-      );
-      context.trackExperimentalFeatureToggle?.(
+      updateExperimentalBoolean(ctx.getDraft(), ctx.getState(), 'subtitleTranslationEnabled');
+      ctx.trackExperimentalFeatureToggle?.(
         'subtitle_translation_enabled',
-        context.getState().subtitleTranslationEnabled
+        ctx.getState().subtitleTranslationEnabled
       );
     },
     'experimental:setSubtitleTargetLanguage': () => {
-      const state = context.getState();
+      const state = ctx.getState();
       state.subtitleTargetLanguage =
-        context.getDraft().subtitleTranslation.targetLanguage || state.subtitleTargetLanguage;
+        ctx.getDraft().subtitleTranslation.targetLanguage || state.subtitleTargetLanguage;
     },
     'overview:clearUsageData': () => {
-      void context.resetUsageData().finally(() => {
-        context.refreshAppData();
-        context.render();
+      ctx.runPersistenceTask('usage:reset', async () => {
+        await ctx.resetUsageData();
+        if (!ctx.isActive()) return;
+        ctx.refreshAppData();
+        ctx.render('overview-usage');
       });
     },
     'overview:clearAnalyticsData': () => {
-      void context.clearAnalyticsPrivacyData().finally(() => {
-        context.refreshAppData();
-        context.render();
+      ctx.runPersistenceTask('privacy:clear', async () => {
+        await ctx.clearAnalyticsPrivacyData();
+        if (!ctx.isActive()) return;
+        ctx.refreshAppData();
+        ctx.render('overview-usage');
       });
     },
     'overview:updatePrivacyConsent': ({ args, value }) => {
-      const field = String(args[0] ?? '') as 'analytics' | 'errorReporting' | 'debugMode';
-      if (!['analytics', 'errorReporting', 'debugMode'].includes(field)) {
+      const field = String(args[0] ?? '');
+      if (field !== 'analytics' && field !== 'errorReporting' && field !== 'debugMode') {
         return;
       }
-      void context.persistPrivacyPreference(field, Boolean(value)).finally(() => context.render());
+      ctx.runPersistenceTask(`privacy:${field}`, async () => {
+        await ctx.persistPrivacyPreference(field, Boolean(value));
+        if (!ctx.isActive()) return;
+        ctx.render('overview-usage');
+      });
     },
     'maintenance:copyConfig': ({ value }) => {
-      void context.copyConfigurationToClipboard(context.eventButton(value));
+      ctx.runPersistenceTask('maintenance:copy', () =>
+        ctx.copyConfigurationToClipboard(ctx.eventButton(value))
+      );
     },
     'maintenance:diagnose': () => {
-      context.setMaintenanceLog(
-        buildDiagnosticsReport(context.collectDraftWithWidgets(), context.getMessages())
+      ctx.runMaintenanceDiagnosis(() =>
+        buildDiagnosticsReport(ctx.collectDraftWithWidgets(), ctx.getMessages())
       );
-      context.refreshAppData();
-      context.render();
     },
     'maintenance:importConfig': ({ value }) => {
-      void context.importConfigurationWithStatus(context.eventButton(value));
+      ctx.runPersistenceTask('options:import', () =>
+        ctx.importConfigurationWithStatus(ctx.eventButton(value))
+      );
     },
     'maintenance:repair': () => {
-      void context.repairConfiguration();
+      ctx.runPersistenceTask('options:repair', () => ctx.repairConfiguration());
     },
     'maintenance:reload': () => {
-      void context.reloadOptions();
+      ctx.runPersistenceTask('options:reload', () => ctx.reloadOptions());
     },
     'classifier:updateField': ({ args, value }) => {
-      context.updateClassifierField(String(args[0] ?? ''), value);
+      const result = ctx.updateClassifierField(String(args[0] ?? ''), value);
+      if (!result.success) {
+        showStatusMessage('error', formatOptionsError(result.error, ctx.getMessages()));
+      }
     }
   };
 }

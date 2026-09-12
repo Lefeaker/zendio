@@ -86,7 +86,7 @@ When a platform DOM drift is found:
 - Run the parser-focused suite before wider validation:
 
 ```bash
-npx vitest run --config vitest.unit.config.ts tests/unit/third_party/parsers.test.ts tests/unit/third_party/gemini.test.ts tests/unit/third_party/markdownRules.test.ts tests/unit/content/aiChatExtractor.test.ts
+node scripts/run-bounded-command.mjs --profile vitest-v1 -- run --config vitest.unit.config.ts tests/unit/third_party/parsers.test.ts tests/unit/third_party/gemini.test.ts tests/unit/third_party/markdownRules.test.ts tests/unit/content/aiChatExtractor.test.ts
 ```
 
 - When modifying markdown conversion rules, add focused tests to the shared module to protect against regressions.

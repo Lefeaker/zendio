@@ -1,5 +1,9 @@
 import type { VaultRouterConfig, VaultConfig, RoutingRule } from '../../shared/types';
 import { generateId } from '../../background/vault-router';
+import {
+  allocateVaultId,
+  assertVaultRouterIdentity
+} from '../../shared/config/vaultRouterIdentity';
 import { STATE_KEYS, getStateStore } from '../../shared/state';
 import { configProvider } from '../../shared/config/provider';
 import { cloneStateValue } from './stateValue';
@@ -42,11 +46,6 @@ function normalizeVault(vault: VaultConfig): VaultConfig {
       vaultId: rule.vaultId ?? vault.id
     }))
   };
-
-  if (!cloned.rules) {
-    cloned.rules = [];
-  }
-
   return cloned;
 }
 
@@ -121,7 +120,7 @@ export function getVaultsSnapshot(): VaultConfig[] {
 export function addAdditionalVault(initial?: Partial<VaultConfig>): VaultConfig {
   let created: VaultConfig | undefined;
   updateState((state) => {
-    const newVaultId = initial?.id ?? generateId();
+    const newVaultId = initial?.id ?? allocateVaultId(state.vaults.map(({ id }) => id));
     const newVault: VaultConfig = normalizeVault({
       id: newVaultId,
       name: initial?.name ?? 'New Vault',
@@ -142,6 +141,8 @@ export function addAdditionalVault(initial?: Partial<VaultConfig>): VaultConfig 
     if (newVault.isDefault || state.vaults.length === 1) {
       state.defaultVaultId = newVault.id;
     }
+
+    assertVaultRouterIdentity(state);
 
     created = {
       ...newVault,

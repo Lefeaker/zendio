@@ -15,6 +15,7 @@ interface SelectionCaptureControllerOptions {
   doc: Document;
   pendingSelection: PendingSelectionTracker;
   shouldTrackSelection: () => boolean;
+  canActivateSelection: (event: Event) => boolean;
   suppressSelectionCapture: () => boolean;
   isRangeInsideUi: (range: Range) => boolean;
   getDocumentSelection: () => Selection | null;
@@ -26,6 +27,7 @@ export class SelectionCaptureController {
   private readonly doc: Document;
   private readonly pendingSelection: PendingSelectionTracker;
   private readonly shouldTrackSelection: () => boolean;
+  private readonly canActivateSelection: (event: Event) => boolean;
   private readonly suppressSelectionCapture: () => boolean;
   private readonly isRangeInsideUi: (range: Range) => boolean;
   private readonly getDocumentSelection: () => Selection | null;
@@ -37,6 +39,7 @@ export class SelectionCaptureController {
     this.doc = options.doc;
     this.pendingSelection = options.pendingSelection;
     this.shouldTrackSelection = options.shouldTrackSelection;
+    this.canActivateSelection = options.canActivateSelection;
     this.suppressSelectionCapture = options.suppressSelectionCapture;
     this.isRangeInsideUi = options.isRangeInsideUi;
     this.getDocumentSelection = options.getDocumentSelection;
@@ -70,9 +73,9 @@ export class SelectionCaptureController {
       return;
     }
 
-    const shouldTrack = this.shouldTrackSelection();
     const suppress = this.suppressSelectionCapture();
-    if ((!shouldTrack && !options.allowEventFallback) || suppress) {
+    if (!this.canActivateSelection(event) || suppress) {
+      this.pendingSelection.reset();
       return;
     }
 
@@ -106,6 +109,7 @@ export class SelectionCaptureController {
 
   private handleSelectionChange = (): void => {
     if (!this.shouldTrackSelection() || this.suppressSelectionCapture()) {
+      this.pendingSelection.reset();
       return;
     }
 

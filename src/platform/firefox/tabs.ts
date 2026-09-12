@@ -6,11 +6,31 @@ import type {
   TabUpdatedListener,
   VisibleTabCaptureOptions
 } from '../interfaces/tabs';
+import { TabsBoundaryError } from '../interfaces/tabs';
 import { ensureFirefox } from './utils';
 
 type FirefoxOnActivatedListener = Parameters<typeof browser.tabs.onActivated.addListener>[0];
 type FirefoxOnUpdatedListener = Parameters<typeof browser.tabs.onUpdated.addListener>[0];
 type FirefoxOnRemovedListener = Parameters<typeof browser.tabs.onRemoved.addListener>[0];
+
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
+function normalizeFirefoxTabError(error: unknown, operation: 'get' | 'send'): never {
+  const message = errorMessage(error);
+  if (operation === 'get' && /^Invalid tab ID: \d+\.?$/i.test(message)) {
+    throw new TabsBoundaryError('TAB_NOT_FOUND');
+  }
+  if (
+    operation === 'send' &&
+    (/^Could not establish connection\. Receiving end does not exist\.?$/i.test(message) ||
+      /^Message manager disconnected\.?$/i.test(message))
+  ) {
+    throw new TabsBoundaryError('NO_RECEIVER');
+  }
+  throw error;
+}
 
 export const firefoxTabsService: TabsService = {
   async create(
@@ -48,8 +68,12 @@ export const firefoxTabsService: TabsService = {
     if (typeof firefoxApi.tabs.get !== 'function') {
       return undefined;
     }
-    const tab = await firefoxApi.tabs.get(tabId);
-    return tab as unknown as chrome.tabs.Tab;
+    try {
+      const tab = await firefoxApi.tabs.get(tabId);
+      return tab as unknown as chrome.tabs.Tab;
+    } catch (error) {
+      normalizeFirefoxTabError(error, 'get');
+    }
   },
 
   async query(queryInfo?: chrome.tabs.QueryInfo): Promise<chrome.tabs.Tab[]> {
@@ -82,9 +106,14 @@ export const firefoxTabsService: TabsService = {
     message: unknown,
     options?: TabsSendOptions
   ): Promise<TResult> {
+    if (options?.documentId) throw new Error('DOCUMENT_TARGETED_MESSAGING_UNAVAILABLE');
     const firefoxApi = ensureFirefox();
-    const response: unknown = await firefoxApi.tabs.sendMessage(tabId, message, options);
-    return response as TResult;
+    try {
+      const response: unknown = await firefoxApi.tabs.sendMessage(tabId, message, options);
+      return response as TResult;
+    } catch (error) {
+      normalizeFirefoxTabError(error, 'send');
+    }
   },
 
   onActivated(listener: TabActivatedListener): () => void {

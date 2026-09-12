@@ -44,7 +44,10 @@ export type ContextMenusTestRig = {
   notifyClipFailure: Mock<(error: string | object) => Promise<void>>;
   getOptions: Mock<
     (...args: []) => Promise<{
-      fragmentClipper: { selectionModifierEnabled: boolean; selectionModifierKeys: string[] };
+      fragmentClipper: {
+        selectionTriggerMode: 'disabled' | 'direct' | 'modifier';
+        selectionModifierKeys: string[];
+      };
     }>
   >;
   optionSubscribers: Array<() => void>;
@@ -89,12 +92,15 @@ export async function loadModule(
     notifyClipFailure: vi.fn<(error: string | object) => Promise<void>>(() => Promise.resolve()),
     getOptions: vi.fn<
       (...args: []) => Promise<{
-        fragmentClipper: { selectionModifierEnabled: boolean; selectionModifierKeys: string[] };
+        fragmentClipper: {
+          selectionTriggerMode: 'disabled' | 'direct' | 'modifier';
+          selectionModifierKeys: string[];
+        };
       }>
     >(() =>
       Promise.resolve({
         fragmentClipper: {
-          selectionModifierEnabled: true,
+          selectionTriggerMode: 'modifier',
           selectionModifierKeys: ['alt']
         }
       })

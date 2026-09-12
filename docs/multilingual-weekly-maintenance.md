@@ -18,11 +18,9 @@
 
 ## 🗓️ 每周例行（建议星期一 10:00 前完成）
 
-1. **拉取最新代码并安装依赖**
-   ```bash
-   git pull origin main
-   npm install
-   ```
+1. **进入已由 owner/controller 准备的 clean candidate**
+   - 确认 HEAD、tree、index/worktree clean，并使用已经 provisioned、与 lockfile 一致的本地
+     dependency tree；本例行不执行 pull、install、update 或 package resolution。
 2. **更新视觉基线（必要时）**
 
    ```bash
@@ -34,7 +32,7 @@
 3. **执行视觉对比与布局巡检**
 
    ```bash
-   npm run visual:test
+   node scripts/run-browser-test-shards.mjs visual
    npm run layout:report
    ```
 

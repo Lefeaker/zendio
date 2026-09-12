@@ -1,7 +1,16 @@
-import { el } from './dom';
-import { renderUsageChart } from './usageChartRenderer';
+import { el, surfaceComponents, type RuntimeButtonOptions } from '@ui/stitch-runtime';
+import { createPrimitiveButtonElement } from '@ui/primitives/button';
+import { createCardElement } from '@ui/primitives/card';
+import { createSelectElement } from '@ui/primitives/select';
+import { createTableElement } from '@ui/primitives/table';
+import { createToggleElement } from '@ui/primitives/toggle';
+import {
+  createUsageChartShell,
+  renderUsageChart as renderUsageChartFromOwner,
+  type UsageChartSeriesPoint
+} from '@ui/domains/usage-chart';
 import { createUiIcon, UI_ICONS } from '@ui/foundation/icons';
-import type { SelectOption, SurfaceAction, UsageStat } from '../types';
+import type { SelectOption, UsageStat } from '../types';
 
 type IconName = keyof typeof ICON_MAP;
 type IconComponent = (typeof UI_ICONS)[keyof typeof UI_ICONS];
@@ -13,12 +22,9 @@ interface IconOptions {
   className?: string | undefined;
 }
 
-interface ButtonOptions {
-  variant?: SurfaceAction['variant'] | undefined;
+interface ButtonOptions extends RuntimeButtonOptions {
   icon?: IconName | undefined;
   iconFill?: boolean | undefined;
-  disabled?: boolean | undefined;
-  onClick?: ((event: MouseEvent) => void) | undefined;
 }
 
 interface CardOptions {
@@ -29,42 +35,10 @@ interface CardOptions {
   extraClass?: string | undefined;
 }
 
-interface InputOptions {
-  mono?: boolean | undefined;
-  className?: string | undefined;
-  type?: string | undefined;
-  placeholder?: string | undefined;
-  disabled?: boolean | undefined;
-  readOnly?: boolean | undefined;
-  min?: string | number | undefined;
-  max?: string | number | undefined;
-  step?: string | number | undefined;
-  dataset?: Record<string, string | number | boolean> | undefined;
-  onInput?: ((event: Event) => void) | undefined;
-  onChange?: ((event: Event) => void) | undefined;
-  onFocus?: ((event: Event) => void) | undefined;
-  onBlur?: ((event: Event) => void) | undefined;
-  onClick?: ((event: MouseEvent) => void) | undefined;
-  onKeyUp?: ((event: KeyboardEvent) => void) | undefined;
-  onSelect?: ((event: Event) => void) | undefined;
-  onMouseEnter?: ((event: MouseEvent) => void) | undefined;
-}
-
 interface SelectConfig {
   className?: string | undefined;
   disabled?: boolean | undefined;
   onChange?: ((event: Event) => void) | undefined;
-}
-
-interface TextareaOptions {
-  className?: string | undefined;
-  placeholder?: string | undefined;
-  disabled?: boolean | undefined;
-  dataset?: Record<string, string | number | boolean> | undefined;
-  onInput?: ((event: Event) => void) | undefined;
-  onChange?: ((event: Event) => void) | undefined;
-  onFocus?: ((event: Event) => void) | undefined;
-  onBlur?: ((event: Event) => void) | undefined;
 }
 
 interface SwitchRowOptions {
@@ -143,30 +117,17 @@ function Icon(name: string, options: IconOptions = {}): SVGElement {
   return svg;
 }
 
-function Badge(label: string, variant = ''): HTMLSpanElement {
-  return el('span', {
-    className: ['badge', variant].filter(Boolean).join(' '),
-    text: label
-  });
-}
-
-function Pill(label: string): HTMLSpanElement {
-  return el('span', { className: 'pill', text: label });
-}
-
 function Button(label: string, options: ButtonOptions = {}): HTMLButtonElement {
-  return el(
-    'button',
-    {
-      type: 'button',
-      className: ['btn', options.variant].filter(Boolean).join(' '),
-      disabled: options.disabled,
-      onMousedown: (event: MouseEvent) => event.preventDefault(),
-      onClick: options.onClick
-    },
-    options.icon ? Icon(options.icon, { className: 'btn-icon', fill: options.iconFill }) : null,
-    el('span', { text: label })
-  );
+  return createPrimitiveButtonElement({
+    label,
+    disabled: options.disabled,
+    onClick: options.onClick,
+    classSlots: ['btn', options.variant ?? ''],
+    onMouseDown: (event) => event.preventDefault(),
+    leading: options.icon
+      ? Icon(options.icon, { className: 'btn-icon', fill: options.iconFill })
+      : null
+  });
 }
 
 function Card({
@@ -176,24 +137,13 @@ function Card({
   body,
   extraClass = ''
 }: CardOptions): HTMLElement {
-  const header = el(
-    'div',
-    { className: 'card-header' },
-    el(
-      'div',
-      {},
-      title ? el('h2', { text: title }) : null,
-      description ? el('p', { text: description }) : null
-    ),
-    actions.length ? el('div', { className: 'toolbar' }, actions) : null
-  );
-
-  return el(
-    'section',
-    { className: ['card', extraClass].filter(Boolean).join(' ') },
-    title || description || actions.length ? header : null,
-    body
-  );
+  return createCardElement({
+    title,
+    description,
+    actions,
+    body,
+    className: ['card', extraClass].filter(Boolean).join(' ')
+  });
 }
 
 function Group(title: string, content: Node): HTMLElement {
@@ -233,64 +183,17 @@ function Field(label: string, control: Node): HTMLDivElement {
   return el('div', { className: 'field' }, el('label', { text: label }), control);
 }
 
-function Input(value: string | number, options: InputOptions = {}): HTMLInputElement {
-  return el('input', {
-    className: ['input', options.mono ? 'code' : '', options.className || '']
-      .filter(Boolean)
-      .join(' '),
-    value,
-    type: options.type || 'text',
-    placeholder: options.placeholder,
-    disabled: options.disabled,
-    readOnly: options.readOnly,
-    min: options.min,
-    max: options.max,
-    step: options.step,
-    dataset: options.dataset,
-    onInput: options.onInput,
-    onChange: options.onChange,
-    onFocus: options.onFocus,
-    onBlur: options.onBlur,
-    onClick: options.onClick,
-    onKeyup: options.onKeyUp,
-    onSelect: options.onSelect,
-    onMouseenter: options.onMouseEnter
-  });
-}
-
 function Select(
   options: SelectOption[],
   value: string | number | undefined,
   config: SelectConfig = {}
 ): HTMLSelectElement {
-  const select = el('select', {
-    className: ['select', config.className || ''].filter(Boolean).join(' '),
+  return createSelectElement({
+    value: value === undefined ? undefined : String(value),
     disabled: config.disabled,
-    onChange: config.onChange
-  });
-  options.forEach((option) => {
-    select.append(
-      el('option', {
-        value: option.value,
-        selected: option.value === value,
-        text: option.label
-      })
-    );
-  });
-  return select;
-}
-
-function Textarea(value: string | number, options: TextareaOptions = {}): HTMLTextAreaElement {
-  return el('textarea', {
-    className: ['textarea', options.className || ''].filter(Boolean).join(' '),
-    value,
-    placeholder: options.placeholder,
-    disabled: options.disabled,
-    dataset: options.dataset,
-    onInput: options.onInput,
-    onChange: options.onChange,
-    onFocus: options.onFocus,
-    onBlur: options.onBlur
+    classSlots: ['select', config.className || ''],
+    options: options.map((option) => ({ value: String(option.value), label: option.label })),
+    onChange: (_value, event) => config.onChange?.(event)
   });
 }
 
@@ -300,7 +203,12 @@ function SwitchRow({
   onClick,
   onChange
 }: SwitchRowOptions): HTMLDivElement {
-  const input = el('input', { type: 'checkbox', checked, disabled, onChange });
+  const input = createToggleElement({
+    checked,
+    disabled,
+    classSlots: [],
+    onChange: (_checked, event) => onChange?.(event)
+  });
   return el(
     'div',
     { className: 'switch-line' },
@@ -327,44 +235,11 @@ function Rows(items: Node[]): HTMLDivElement {
 }
 
 function Table({ columns, rows, rowClassName }: TableOptions): HTMLDivElement {
-  return el(
-    'div',
-    { className: ['table-wrap', rowClassName].filter(Boolean).join(' ') },
-    el(
-      'table',
-      {},
-      el(
-        'thead',
-        {},
-        el(
-          'tr',
-          {},
-          columns.map((column) => el('th', { text: column }))
-        )
-      ),
-      el(
-        'tbody',
-        {},
-        rows.map((row) =>
-          el(
-            'tr',
-            row.rowProps || {},
-            row.cells.map((cell) =>
-              el(
-                'td',
-                cell.props || {},
-                cell.node !== undefined
-                  ? cell.node
-                  : cell.html
-                    ? el('span', { html: cell.html })
-                    : cell.text
-              )
-            )
-          )
-        )
-      )
-    )
-  );
+  return createTableElement({
+    columns,
+    rows,
+    wrapperClassName: ['table-wrap', rowClassName].filter(Boolean).join(' ')
+  });
 }
 
 function MiniCard(title: string, content: Node): HTMLDivElement {
@@ -433,41 +308,70 @@ function YAMLFilterRow(
   );
 }
 
+export function syncSegmentedNav(group: HTMLElement, value: string | number | undefined): void {
+  const buttons = Array.from(group.querySelectorAll<HTMLButtonElement>('button[data-value]'));
+  if (value === undefined) delete group.dataset.activeValue;
+  else group.dataset.activeValue = String(value);
+  const selected = buttons.findIndex((button) => button.dataset.value === String(value));
+  group.style.setProperty('--segment-index', String(Math.max(0, selected)));
+  buttons.forEach((button, index) => {
+    button.setAttribute('aria-pressed', String(index === selected));
+    button.classList.toggle('is-active', index === selected);
+  });
+}
+
 function SegmentedNav(
   items: SelectOption[],
   active: string | number | undefined,
-  onChange: (value: string) => void
+  onChange: (value: string) => void,
+  className = ''
 ): HTMLDivElement {
-  return el(
+  const group = el(
     'div',
-    { className: 'chips', dataset: active !== undefined ? { activeValue: active } : undefined },
+    {
+      className: ['chips', className].filter(Boolean).join(' '),
+      style: { '--segment-count': items.length }
+    },
     items.map((item) =>
       el('button', {
         type: 'button',
         className: 'chip',
-        'aria-pressed': active === item.value ? 'true' : 'false',
         dataset: { value: item.value },
         text: item.label,
         onMousedown: (event: MouseEvent) => event.preventDefault(),
-        onClick: () => onChange(item.value)
+        onClick: () => {
+          syncSegmentedNav(group, item.value);
+          onChange(item.value);
+        }
       })
     )
   );
+  syncSegmentedNav(group, active);
+  return group;
+}
+
+function renderUsageChart(root: HTMLElement, history: UsageChartSeriesPoint[]): void {
+  const { host, chart } = createUsageChartShell(
+    (tagName) => document.createElement(tagName),
+    'stitch'
+  );
+  root.replaceChildren(...Array.from(host.childNodes));
+  renderUsageChartFromOwner(chart, history);
 }
 
 export const previewUi = {
   Icon,
-  Badge,
-  Pill,
+  Badge: surfaceComponents.Badge,
+  Pill: surfaceComponents.Pill,
   Button,
   Card,
   Group,
   Hero,
   StatsGrid,
   Field,
-  Input,
+  Input: surfaceComponents.Input,
   Select,
-  Textarea,
+  Textarea: surfaceComponents.Textarea,
   SwitchRow,
   Row,
   Rows,

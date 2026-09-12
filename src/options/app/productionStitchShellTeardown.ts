@@ -1,4 +1,4 @@
-import { clear } from '@options/stitch/ui/dom';
+import { clear } from '@ui/stitch-runtime';
 
 interface ProductionStitchShellTeardownOptions {
   mountRoot: HTMLElement;

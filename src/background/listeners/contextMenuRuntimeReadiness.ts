@@ -26,6 +26,13 @@ function waitForContentRuntimeReadyInPage():
       : undefined;
 
   if (!runtimePromise || typeof runtimePromise.then !== 'function') {
+    if (document.documentElement?.dataset?.aiobContentRuntime) {
+      return {
+        ready: false,
+        reason: 'reload-required',
+        message: 'CONTENT_RUNTIME_RELOAD_REQUIRED'
+      };
+    }
     return {
       ready: false,
       reason: 'missing-runtime-promise'

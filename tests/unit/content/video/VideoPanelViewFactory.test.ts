@@ -1,5 +1,6 @@
 /* @vitest-environment jsdom */
 
+import type { ExportDestinationSurfacePreview } from '@ui/stitch-runtime/types/surfaceTypes';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type {
   VideoPanelCallbacks,
@@ -99,6 +100,26 @@ describe('createVideoPanelViewFactory', () => {
       callbacks,
       texts,
       initialCollapsed: true
+    });
+  });
+
+  it('passes the prepared destination into the panel before show', () => {
+    const factory = createVideoPanelViewFactory();
+    const initialDestination: ExportDestinationSurfacePreview = {
+      id: 'downloads',
+      kind: 'downloads',
+      label: 'Downloads',
+      path: 'video.md',
+      hasConfiguredVault: false,
+      options: []
+    };
+
+    factory.createView(callbacks, texts, { initialDestination });
+
+    expect(mocks.dialogCtor).toHaveBeenCalledWith({
+      callbacks,
+      texts,
+      initialDestination
     });
   });
 });

@@ -17,7 +17,9 @@ test.describe('migration harness smoke', () => {
     diagnostics = null;
   });
 
-  test('interaction contract harness opens the shared dialog contract', async ({ page }) => {
+  test('interaction contract harness executes retained primitive and dialog semantics', async ({
+    page
+  }) => {
     const consoleErrors: string[] = [];
     page.on('console', (msg) => {
       if (msg.type() === 'error') {
@@ -27,8 +29,30 @@ test.describe('migration harness smoke', () => {
 
     await page.goto(`${BASE}/interaction-contract-harness.html`);
     await expect(page.getByText('Interaction Contract Harness')).toBeVisible();
+
+    const loadingDanger = page.locator('[data-contract-role="loading-danger-button"]');
+    await expect(loadingDanger).toHaveClass(/btn-danger/u);
+    await expect(loadingDanger).toHaveClass(/loading/u);
+    await expect(loadingDanger).toHaveAttribute('aria-busy', 'true');
+    await expect(loadingDanger).toBeDisabled();
+
+    const requiredInput = page.getByRole('textbox', { name: 'Required contract value' });
+    await expect(requiredInput).toHaveAttribute('aria-invalid', 'true');
+    await requiredInput.fill('valid value');
+    await expect(requiredInput).not.toHaveAttribute('aria-invalid', 'true');
+
+    const confirmation = page.getByRole('checkbox', { name: 'Require confirmation' });
+    await expect(confirmation).toHaveAttribute('aria-invalid', 'true');
+    await confirmation.check();
+    await expect(confirmation).toBeChecked();
+    await expect(confirmation).not.toHaveAttribute('aria-invalid', 'true');
+
     await page.getByRole('button', { name: 'Open dialog' }).click();
-    await expect(page.locator('body')).toContainText('Interaction Contract Harness');
+    const dialog = page.locator('[role="dialog"]');
+    await expect(dialog).toHaveAttribute('aria-modal', 'true');
+    await expect(dialog).toContainText('Contract dialog');
+    await dialog.getByRole('button', { name: 'Dismiss' }).click();
+    await expect(dialog).toHaveCount(0);
     expect(consoleErrors).toEqual([]);
   });
 

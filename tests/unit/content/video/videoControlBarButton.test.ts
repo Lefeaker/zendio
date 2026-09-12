@@ -362,7 +362,7 @@ describe('ensureVideoControlBarButton', () => {
         })
       );
       const surfaceCall = renderStitchRuntimeSurface.mock.calls[0]?.[0];
-      expect(surfaceCall?.appData.surfaces).toHaveProperty('videoControlBarPopover');
+      expect(surfaceCall?.appData).toHaveProperty('videoControlBarPopover');
 
       const { popover, input } = getPopoverNoteInput();
       const autoPauseCheckbox = queryRequired<HTMLInputElement>(

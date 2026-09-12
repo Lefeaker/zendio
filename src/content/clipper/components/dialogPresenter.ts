@@ -1,10 +1,4 @@
 export {
-  buildDialogPresenter,
-  type DialogPresenterBindings,
-  type DialogPresenterElements,
-  type DialogPresenterOptions
-} from './dialogPresenterElements';
-export {
   addButtonShortcutHints,
   applyReadonlyTextareaPresentation,
   renderShortcutHint

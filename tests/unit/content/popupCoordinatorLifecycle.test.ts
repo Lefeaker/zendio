@@ -29,6 +29,8 @@ import type {
   VideoPanelCallbacks,
   VideoPanelTexts
 } from '../../../src/content/video/application/videoPanelModel';
+import type { StyleAttachmentHandle } from '../../../src/ui/foundation/style-host';
+import type { I18nResource } from '@i18n';
 import {
   MockClipRepository,
   MockMessagingRepository,
@@ -39,18 +41,22 @@ import {
   MockYamlRepository
 } from '../../utils/repositories';
 
-vi.mock('focus-trap', () => ({
-  createFocusTrap: () => ({
-    activate: vi.fn(),
-    deactivate: vi.fn(),
-    pause: vi.fn(),
-    unpause: vi.fn()
-  })
-}));
+type StyleAttachmentHandleMock = StyleAttachmentHandle & {
+  dispose: ReturnType<typeof vi.fn<StyleAttachmentHandle['dispose']>>;
+};
+type I18nContextModule = typeof import('../../../src/content/i18n/context');
+
+function createStyleAttachmentHandle(root: ShadowRoot): StyleAttachmentHandleMock {
+  return {
+    ready: Promise.resolve({ status: 'ready' }),
+    refresh: vi.fn<StyleAttachmentHandle['refresh']>(() => Promise.resolve({ status: 'ready' })),
+    dispose: vi.fn(() => expect(root.host.isConnected).toBe(true))
+  };
+}
 
 const ensureContentI18nMock = vi.hoisted(() => vi.fn(() => Promise.resolve(undefined)));
 const getContentI18nBinderMock = vi.hoisted(() => vi.fn(() => null));
-const getContentI18nResourceMock = vi.hoisted(() => vi.fn(() => ({ messages: null })));
+const getContentI18nResourceMock = vi.hoisted(() => vi.fn<() => I18nResource | null>(() => null));
 const getContentMessagesMock = vi.hoisted(() =>
   vi.fn(() =>
     Promise.resolve({
@@ -100,7 +106,8 @@ const getContentMessagesMock = vi.hoisted(() =>
   )
 );
 
-vi.mock('../../../src/content/i18n/context', () => ({
+vi.mock('../../../src/content/i18n/context', async (importOriginal) => ({
+  ...(await importOriginal<I18nContextModule>()),
   ensureContentI18n: ensureContentI18nMock,
   getContentI18nBinder: getContentI18nBinderMock,
   getContentI18nResource: getContentI18nResourceMock,
@@ -108,24 +115,47 @@ vi.mock('../../../src/content/i18n/context', () => ({
 }));
 
 const initializeClipperStylesMock = vi.hoisted(() => vi.fn(() => Promise.resolve(undefined)));
-const applyClipperStylesMock = vi.hoisted(() => vi.fn());
-const applyClipperStitchRuntimeStylesMock = vi.hoisted(() => vi.fn());
+const clipperStyleHandles = vi.hoisted<StyleAttachmentHandleMock[]>(() => []);
+const applyClipperStylesMock = vi.hoisted(() =>
+  vi.fn((root: ShadowRoot) => {
+    const handle = createStyleAttachmentHandle(root);
+    clipperStyleHandles.push(handle);
+    return handle;
+  })
+);
 vi.mock('../../../src/content/clipper/shared/styleSheetManager', () => ({
   clipperStyleSheetManager: {
     initialize: initializeClipperStylesMock,
-    applyTo: applyClipperStylesMock,
-    applyStitchRuntimeStyles: applyClipperStitchRuntimeStylesMock
+    applyClipperStyles: applyClipperStylesMock
   }
 }));
 
 const initializePanelStylesMock = vi.hoisted(() => vi.fn());
-const applyReaderStylesMock = vi.hoisted(() => vi.fn());
-const applyStitchRuntimeStylesMock = vi.hoisted(() => vi.fn());
+const panelStyleHandles = vi.hoisted<StyleAttachmentHandleMock[]>(() => []);
+const applyReaderStylesMock = vi.hoisted(() =>
+  vi.fn((root: ShadowRoot) => {
+    const handle = createStyleAttachmentHandle(root);
+    panelStyleHandles.push(handle);
+    return handle;
+  })
+);
 vi.mock('../../../src/content/shared/panels/styleSheetManager', () => ({
+  prepareStyleHost: (host: HTMLElement) => {
+    host.hidden = true;
+    host.setAttribute('aria-busy', 'true');
+  },
+  revealStyleHost: async (host: HTMLElement, attachment: StyleAttachmentHandle) => {
+    const result = await attachment.ready;
+    if (result.status !== 'ready') return false;
+    host.removeAttribute('aria-busy');
+    if (host.dataset.aiobStyleReveal === 'true') host.hidden = false;
+    return true;
+  },
   panelStyleSheetManager: {
     initialize: initializePanelStylesMock,
     applyReaderStyles: applyReaderStylesMock,
-    applyStitchRuntimeStyles: applyStitchRuntimeStylesMock
+    applyVideoStyles: applyReaderStylesMock,
+    applyPromptTaskStyles: applyReaderStylesMock
   }
 }));
 
@@ -194,6 +224,9 @@ const videoCallbacks: VideoPanelCallbacks = {
 describe('content popup coordinator lifecycle', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    getContentI18nResourceMock.mockReturnValue(null);
+    clipperStyleHandles.length = 0;
+    panelStyleHandles.length = 0;
     document.body.innerHTML = '';
     resetGlobalContentContext();
     resetGlobalRegistry();
@@ -298,11 +331,16 @@ describe('content popup coordinator lifecycle', () => {
       value: true
     });
     document.dispatchEvent(new Event('visibilitychange'));
+    document.dispatchEvent(new Event('visibilitychange'));
 
     expect(document.getElementById('obsidian-clipper-dialog')).toBeNull();
     expect(document.getElementById('aiob-support-prompt')).toBeNull();
     expectReaderAndVideoVisible(reader, video);
     expect(popupCoordinator.getActive()).toBe(video);
+    expect(panelStyleHandles[0]?.dispose).not.toHaveBeenCalled();
+    expect(panelStyleHandles[1]?.dispose).not.toHaveBeenCalled();
+    expect(panelStyleHandles[2]?.dispose).toHaveBeenCalledTimes(1);
+    expect(clipperStyleHandles[0]?.dispose).toHaveBeenCalledTimes(1);
   });
 
   it('transient-closes clipper and support prompt while preserving reader and video panels on bfcache pagehide', async () => {
@@ -314,5 +352,7 @@ describe('content popup coordinator lifecycle', () => {
     expect(document.getElementById('aiob-support-prompt')).toBeNull();
     expectReaderAndVideoVisible(reader, video);
     expect(popupCoordinator.getActive()).toBe(video);
+    expect(panelStyleHandles[2]?.dispose).toHaveBeenCalledTimes(1);
+    expect(clipperStyleHandles[0]?.dispose).toHaveBeenCalledTimes(1);
   });
 });

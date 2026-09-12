@@ -24,9 +24,8 @@ describe('firefoxContextMenusService', () => {
   });
 
   it('wraps firefox context menu apis and listeners', async () => {
-    const { firefoxContextMenusService } = await import(
-      '../../../../src/platform/firefox/contextMenus'
-    );
+    const { firefoxContextMenusService } =
+      await import('../../../../src/platform/firefox/contextMenus');
     await expect(
       firefoxContextMenusService.create({ id: 'menu-1', title: 'Title', contexts: ['all'] })
     ).resolves.toBe('menu-1');

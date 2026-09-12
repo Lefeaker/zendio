@@ -29,7 +29,7 @@
 
 ### 0.2 样式规范速览
 
-- 样式入口固定为 `src/options/stitch/styles/stitch.css` 与 `src/options/stitch/styles/variants/stitch-secondary.css` 的静态产物链路。
+- Options 源入口固定为 `src/options/stitch/styles/entries/options.css`；`variants/stitch-secondary.css` 只作为源码被展平进适用的 Options/Onboarding pack，不生成独立产物。Content runtime 使用 Clipper、Reader、Video、Prompt/Task 四个中性入口。
 - `src/options/styles/*` legacy 样式链路已退出正式构建；真实 token 真值源只有 `src/styles/design-tokens.css`。
 - `.aobx-*` 采用 BEM 语义，优先复用 Token/Utility，例如 `.aobx-card`、`.aobx-alert` 等。
 - 禁止新增 `.aob-*` 或内联颜色；Dark/Light 模式需同步维护。
@@ -41,7 +41,7 @@
 
 ```bash
 npm run lint                 # Typescript + ESLint/Stylelint 基线
-npm run lint:options-css     # 限定 Options CSS 的 Stylelint
+node scripts/run-bounded-command.mjs --profile stylelint-v1 -- "src/options/**/*.css" "src/onboarding/**/*.css" "src/ui/**/*.css"     # 限定 Options CSS 的 Stylelint
 npm run report:options-legacy # 确保无 `.aob-*` 遗留
 npm run test:unit            # Stitch shell / controller 的最小回归
 npm run verify:stitch-secondary # Stitch Secondary 主链回归
@@ -55,18 +55,18 @@ npm run verify:stitch-secondary # Stitch Secondary 主链回归
 
 #### 基础组件优先级 (当前正式口径)
 
-| 语义        | 首选入口                                                | 说明                                                                                     |
-| ----------- | ------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
-| 按钮        | `UiButton` / `createOptionsButtonElement`               | 正式入口：`src/ui/primitives/button/index.ts`                                            |
-| 输入框      | `UiInput` / `createInputElement`                        | 正式入口：`src/ui/primitives/input/index.ts`                                             |
-| 选择框      | `UiSelect` / `createSelectElement`                      | 正式入口：`src/ui/primitives/select/index.ts`                                            |
-| 复选框      | `UiCheckbox` / `createCheckboxElement`                  | 正式入口：`src/ui/primitives/checkbox/index.ts`                                          |
-| 表格/伪表格 | table primitive (`DaisyTable` compatibility class name) | 统一表头、行区与滚动容器；class name is historical compatibility, not DaisyUI guidance   |
-| 对话框      | `createDialogFrame` / `ShadowDialogHost`                | 正式入口：`src/ui/primitives/dialog/index.ts`、`src/ui/hosts/shadow/ShadowDialogHost.ts` |
+| 语义        | 首选入口                                                | 说明                                                                                                                                       |
+| ----------- | ------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| 按钮        | `UiButton` / `createOptionsButtonElement`               | 正式入口：`src/ui/primitives/button/index.ts`                                                                                              |
+| 输入框      | `UiInput` / `createInputElement`                        | 正式入口：`src/ui/primitives/input/index.ts`                                                                                               |
+| 选择框      | `UiSelect` / `createSelectElement`                      | 正式入口：`src/ui/primitives/select/index.ts`                                                                                              |
+| 复选框      | neutral runtime input (`type: checkbox`)                | 正式入口：`src/ui/stitch-runtime/surfaceComponents.ts` 与 Options Stitch schema builder                                                    |
+| 表格/伪表格 | table primitive (`DaisyTable` compatibility class name) | 统一表头、行区与滚动容器；class name is historical compatibility, not DaisyUI guidance                                                     |
+| 对话框      | `renderRuntimeSurface`                                  | Options resource modal 正式入口：`src/options/stitch/render/renderStitchView.ts` -> `src/ui/stitch-runtime/render/renderRuntimeSurface.ts` |
 
 DOM-heavy 场景如需直接拿到按钮元素，统一使用 `src/ui/primitives/button/index.ts` 导出的 `createOptionsButtonElement()`。
 
-#### 传统组件类 (逐步迁移中)
+#### 传统组件类（retained compatibility vocabulary）
 
 | 名称                                                                 | 用途                           | 备注                                                              |
 | -------------------------------------------------------------------- | ------------------------------ | ----------------------------------------------------------------- |
@@ -88,11 +88,11 @@ DOM-heavy 场景如需直接拿到按钮元素，统一使用 `src/ui/primitives
 
 - 懒加载/自动保存/I18n 等运行时问题详见 §6《常见问题》。
 - 暗色模式不生效：检查是否复用 Token、Utility，并参考 `docs/options-style-validation-guide.md`。
-- Stitch 样式异常：先确认 `src/options/stitch/styles/stitch.css` 与 `variants/stitch-secondary.css` 是否覆盖当前 surface，再检查构建产物中的静态 CSS 路径。
+- Stitch 样式异常：先确认当前 surface 所属的六个入口 pack 及其展平依赖是否完整，再检查 `build/dist/ui/stitch-runtime/styles/` 下的对应 CSS。
 
 ### 0.6 任务前置指南
 
-- 在执行 Options/Stitch runtime 样式任务前，优先确认 `src/options/stitch/styles/stitch.css` 与 `variants/stitch-secondary.css` 是否已经覆盖对应 runtime surface；不要恢复 Options、Clipper 或 Video 的 Tailwind bridge。
+- 在执行 Options/Stitch runtime 样式任务前，优先确认 Options、Onboarding、Clipper、Reader、Video、Prompt/Task 六个入口中哪一个拥有该 surface；secondary variant 仅通过入口展平，不得恢复独立输出或旧 Tailwind bridge。
 - 旧 Tailwind 迁移材料只保留在归档文档中用于追溯，不再作为新开发指南或验收依据。
 
 ---
@@ -108,7 +108,7 @@ src/options/
 │   └── optionsControllerContext.ts
 ├── stitch/                   # preview/production 共享的 Stitch Secondary 真值
 ├── components/
-│   ├── infrastructure/       # 选项页专属兼容控件；新增生产弹层优先走 Stitch/domain UI
+│   ├── infrastructure/       # 选项页专属兼容控件；新增生产弹层优先走 Stitch/neutral runtime
 │   └── services/             # 配置传输等选项页专用服务
 └── utils/                     # 选项页工具（如 optionsTransfer.ts）
 ```
@@ -129,14 +129,24 @@ src/options/
 
 2. **Options 主状态链（Phase 3 当前口径）**
 
-- 长期合同：`IOptionsRepository` 是唯一主读写/订阅合同。
-- 主状态适配：`optionsStore` 负责基于 `IOptionsRepository` 做 normalize、缓存与订阅分发。
+- 长期合同：`IOptionsRepository` 是 typed `get/patch/replace/onChange` 合同；它不把 raw
+  storage write 暴露给 feature caller。
+- raw reader：`ChromeOptionsRepository` 负责 `readRaw/readDecoded/get/onChange`；`writeRaw`
+  只由 background `OptionsMutationCoordinator` 依赖，不通过 DI 暴露给 UI。
+- cross-context client：Options/onboarding 解析到 `OptionsMutationClient`，mutation 通过
+  runtime message 交给唯一 background coordinator；content consumer 只获得所需的
+  read/observe pick。
+- 主状态适配：`optionsStore` 基于 typed repository 做 normalize、缓存与订阅分发；成功
+  response 才安装新 snapshot，failure/cancel/supersede/late completion 不得直写 storage
+  或覆盖当前 generation。
 - 兼容层：`chromeOptionsPersistence` 仅作为 `OptionsController` 仍在消费的适配器，不再被视为独立主链。
 - 平台桥接：`PlatformServices.optionsRepository` 已退役；Options UI 与 content/background 主链统一不得再依赖该桥接。
-- 主链职责：`ChromeOptionsRepository` 负责 `get/set/onChange` 与默认值合并，`optionsStore` 负责 normalize、缓存、迁移提示与对 Options UI 的订阅分发。
+- 主链职责：background coordinator FIFO 执行 typed patch、strict replace 与 lossless
+  migration writeback，并做 quota、readback 与 external-drift 验证；messaging/storage
+  failure fail closed。`optionsStore` 只负责 normalize、缓存、迁移提示与 Options UI 订阅。
 - 已清退项：legacy infrastructure compatibility adapter 与 infrastructure barrel export 已删除；不要恢复 `ChromeSyncOptionsRepository`、`LegacyOptionsRepositoryAdapter`、`adaptOptionsRepository` 或 `createCompatibilityOptionsRepository`。
-- 当前 residual consumers：`src/shared/interfaces/optionsRepository.ts` 仍保留 historical `load/save/snapshot/subscribe/reset` 类型合同，供尚未迁移的内容侧 helper 和测试夹具使用；它不是 Options UI 主状态链，也不再有 infrastructure adapter owner。
-- 退役路径：后续如需继续清理，应先把内容侧 `OptionsRepository` 类型消费者迁移到 `IOptionsRepository` 或更小的读取合同，再删除 shared legacy interface。
+- 当前 canonical repository contract owner 是 `src/shared/repositories/IOptionsRepository.ts`；Options 主链通过其 typed `get/patch/replace/onChange` 合同工作，窄消费者只应依赖所需的 `Pick<IOptionsRepository, ...>` 能力。
+- 过去的 `load/save/snapshot/subscribe/reset` legacy interface 已删除并保持退役；它不是 residual consumer contract 或待删除项，不得恢复。
 - 清理方向：Phase 3 接受前，不启动新的 Options 结构拆分；先收口这条主链定义。
 
 3. **旧 Options compatibility 边界**
@@ -148,8 +158,12 @@ src/options/
 4. **Helper/Controller 迁移边界**
 
 - 旧 `DomainMappingsController`、`YamlConfigTable` 等 helper/controller 的 `render()` / `collect()` / `destroy()` 约定仅用于理解兼容残留，不作为新增生产功能模板。
-- 新增或重写生产 UI 行为应落到 `src/options/stitch/*` 的 schema、renderer、runtime action、content、class slot 与 CSS，复杂领域控件落到当前 `src/ui/domains/*` owner。
-- 通用控件复用 `src/ui/primitives/*` 与 `src/ui/patterns/*`；shell 级状态、自动保存、资源弹层或语言切换才进入 `src/options/app/productionStitchShell.ts` 相关模块。
+- 新增或重写生产 UI 行为应落到 `src/options/stitch/*` 的 schema、renderer、runtime
+  action、content、class slot 与 CSS；只有既有 exact shared contract 才进入 retained
+  `src/ui/primitives/*`、neutral runtime/surfaces 或 `src/ui/domains/usage-chart/*`。
+- 通用控件复用 `src/ui/primitives/*`；稳定 surface/DOM 生命周期复用
+  `src/ui/stitch-runtime/*` / `src/ui/stitch-surfaces/*`。shell 级状态、自动保存、资源弹层
+  或语言切换才进入 `src/options/app/productionStitchShell.ts` 相邻模块。
 
 ---
 
@@ -158,9 +172,12 @@ src/options/
 - **新增生产 Options UI 行为**
   1. 优先修改 `src/options/stitch/content.ts`、`src/options/stitch/schema/**`、`src/options/stitch/render/**`、`src/options/stitch/runtime/**` 与 `src/options/stitch/styles/**`，保持 preview / production 共享同一 Stitch 真值。
   2. 仅在 shell 级生命周期、资源弹层、语言切换、状态订阅或自动保存需要调整时，修改 `src/options/app/productionStitchShell.ts` 及其相邻 production shell 模块。
-  3. 复杂领域控件应归属当前 `src/ui/domains/*` owner；可复用能力放入 `src/ui/primitives/*` 或 `src/ui/patterns/*`，不得新增旧 section/form owner。
+  3. Options 领域行为归属当前 `src/options/stitch/*` / `src/options/app/*` owner；可复用
+     能力只放入 retained primitives、neutral runtime/surfaces 或既有 usage-chart exact
+     owner，不得恢复已删除的 generic pattern/host/domain 或旧 section/form owner。
   4. 自动保存应沿用 production shell/action adapter 与 `OptionsController` 的当前链路；不要为新增生产功能恢复旧表单注册链。
-  5. 测试应覆盖 Stitch schema/render/runtime、production shell、domain UI 或当前 controller 行为；不要新增旧 `tests/unit/options/sections/<Section>.test.ts` 作为生产实现模板。
+  5. 测试应覆盖 Stitch schema/render/runtime、production shell、usage-chart exact owner 或
+     当前 controller 行为；不要新增旧 `tests/unit/options/sections/<Section>.test.ts` 作为生产实现模板。
 
 - **旧 Options compatibility 说明**
   - 旧 section/form compatibility source 已退役；如果 audit 显示其他旧资产仍有 owner，应先迁移 owner 或补齐 retained-contract 分类。
@@ -181,18 +198,18 @@ src/options/
 
 ## 4. 样式与命名约束（2025-11 更新）
 
-- **唯一样式入口**：Options 页主要依赖 `src/options/stitch/styles/stitch.css` 与 `src/options/stitch/styles/variants/stitch-secondary.css` 的构建产物；`src/options/styles/*` legacy 样式链路已删除。
+- **唯一样式输出**：构建只生成 `ui/stitch-runtime/styles/{options,onboarding,clipper,reader,video,prompt-task}.css` 六个展平 pack；Options 的 secondary variant 是入口依赖，不是独立产物。`src/options/styles/*` legacy 样式链路已删除。
 - **命名统一**：所有 DOM、控件、弹窗必须使用 `.aobx-*` 前缀（如 `.aobx-section__header`、`.aobx-btn`、`.aobx-input`、`.aobx-modal`）。新增功能严禁引入 `.aob-*` 类名。
 - **CSS 编写准则**：
-  - 正式 Options 与 content runtime 样式优先落在 Stitch schema / renderer / `stitch/styles/stitch.css`。
+  - 正式 Options 与 content runtime 样式优先落在 Stitch schema / renderer / `stitch/styles/entries/options.css`。
   - 不再新增或恢复模块级 legacy CSS；结构与视觉规则应优先落在 Stitch runtime CSS 或 token 链路。
   - 组件级样式优先靠 Token/Utility（如 `--aobx-space-*`、`.aobx-button-row`），避免复制粘贴局部颜色/间距。
   - SVG icon 主题化必须显式绑定 document 与 runtime surface 的暗色主题宿主；不要为了修暗色图标可读性而在基础选择器中写无条件 `filter: invert()`。
   - 如需实验性样式，请放在局部容器，并在 PR 描述中说明范围与回滚方式。
 - **开发流程建议**：
   1. 修改 DOM → 使用统一 helper 输出 `.aobx-*` 类。
-  2. 在 Stitch schema / renderer / `stitch/styles/stitch.css` 中补齐对应规则。
-  3. 执行 `npm run report:options-legacy && npm run lint:options-css`，确认没有 `.aob-*` 残留且命名符合 `.aobx-*` 规范；如命令输出命中需立刻处理。
+  2. 在 Stitch schema / renderer / `stitch/styles/entries/options.css` 中补齐对应规则。
+  3. 执行 `npm run report:options-legacy && node scripts/run-bounded-command.mjs --profile stylelint-v1 -- "src/options/**/*.css" "src/onboarding/**/*.css" "src/ui/**/*.css"`，确认没有 `.aob-*` 残留且命名符合 `.aobx-*` 规范；如命令输出命中需立刻处理。
   4. 运行 `npm run test:unit` 或必要的 UI 回归（可配合 `npm run build:dev` + `chrome://extensions` 刷新）。
   5. 若需要对照 Legacy → `.aobx-*` 的映射，可参见 `docs/options-css-naming-map.md`。
 - **通用 Utility/组件清单**（与 §0.4 对应）：
@@ -207,7 +224,7 @@ src/options/
 - **验证命令示例**：
   ```bash
   npm run report:options-legacy   # 需返回 “No legacy .aob-* classes detected”
-  npm run lint:options-css        # 限定在 Options CSS 的 Stylelint 校验
+  node scripts/run-bounded-command.mjs --profile stylelint-v1 -- "src/options/**/*.css" "src/onboarding/**/*.css" "src/ui/**/*.css"        # 限定在 Options CSS 的 Stylelint 校验
   npm run test:unit               # 基本回归
   rg -n "aob-" src/options        # 手动确认未引入旧命名
   ```
@@ -225,7 +242,7 @@ src/options/
   npm run test:unit
   npm run test:e2e
   ```
-- **多语言校验**：若改动文案、locale 或 descriptor-backed visible state，追加执行 `npm run test:i18n`、`npm run audit:i18n-hardcoded-user-copy:check` 与 `npx vitest run --config vitest.unit.config.ts tests/unit/i18n/hardcodedSurfaceCoverage.test.ts`；仅需检查文本预算时可单独运行 `npm run validate:i18n:budgets`。
+- **多语言校验**：若改动文案、locale 或 descriptor-backed visible state，追加执行 `npm run test:i18n`、`npm run audit:i18n-hardcoded-user-copy:check` 与 `node scripts/run-bounded-command.mjs --profile vitest-v1 -- run --config vitest.unit.config.ts tests/unit/i18n/hardcodedSurfaceCoverage.test.ts`；仅需检查文本预算时可单独运行 `npm run validate:i18n:budgets`。
 
 ---
 
@@ -235,18 +252,18 @@ src/options/
 - **自动保存未触发**：确认 Section 改动后调用了 `markPendingAutoSave(sectionId)`，且 `OptionsController` 的 `onSaveSuccess` 钩子没有被异常拦截。
 - **文案未更新**：先确认 schema/builders 是否通过 `SchemaContext.t()` 或当前 `Messages` 取值，再检查 `ensureDeclarativeI18nController()`、`section.setMessages(messages)` 与静态模板 `data-i18n` 绑定是否完整。
 - **暗色模式异常**：确认样式使用共享 Token（`--aobx-color-*` 等），并同时在 `.aobx-theme--dark` 下提供覆盖；禁止写入硬编码色值。
-- **Stitch 样式未生效**：确认页面或 runtime surface 是否加载 `stitch.css` 与 `stitch-secondary.css`，并检查是否遗漏对应 schema slot 或 renderer class。
+- **Stitch 样式未生效**：确认页面或 runtime surface 是否加载自身的六个展平 pack 之一，并检查该入口是否遗漏对应 schema slot、renderer class 或 secondary variant 源依赖。
 
 ---
 
 ## 7. 维护流程与历史参考
 
 - **文档更新责任**：凡是改动 Options DOM、样式、运行时或命令的 PR，作者必须同步更新本 README / 相关指南，并在 PR 模板勾选“文档已更新或无需更新”条目。
-- **校验流程**：在提交 PR 前务必运行 `npm run lint`、`npm run lint:options-css`、`npm run report:options-legacy`；必要时附上 `npm run test:unit` 结果截图或日志。
+- **校验流程**：在提交 PR 前务必运行 `npm run lint`、`node scripts/run-bounded-command.mjs --profile stylelint-v1 -- "src/options/**/*.css" "src/onboarding/**/*.css" "src/ui/**/*.css"`、`npm run report:options-legacy`；必要时附上 `npm run test:unit` 结果截图或日志。
 - **定期复查**：Options 模块维护人（默认由当期版本负责人承担）需在每季度迭代结束后检查 README 是否覆盖最新规范，并同步核对 `docs/README.md` 与 `docs/engineering-entrypoints.md`。
 - **历史资料**：有关 Batch1/Batch2/Legacy Removal 的阶段总结均已迁移至 `trash/options-css/`，若需追溯决策过程，请参阅 `docs/options-css-full-cleanup-guide.md` 与相关归档文档。
 - **沟通渠道**：若发现 README 与实际实现不一致，请在 Issue/看板中 @Options 维护人，并把修复纳入后续文档刷新日志。
 
 ---
 
-如有疑问，请先查阅 `docs/development-guidelines.md` 和 `docs/options-multilingual-adaptation-guide.md`；旧 Options 重构复盘已归档到 `docs/archive/completed-guides/options-refactor-summary-2025.md`，仅用于历史追溯。若仍需帮助，可在团队文档或 Issue 中同步讨论。谢谢配合！
+如有疑问，请先查阅 `docs/development-guidelines.md` 和 `docs/options-multilingual-adaptation-guide.md`。若仍需帮助，可在团队文档或 Issue 中同步讨论。谢谢配合！

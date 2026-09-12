@@ -41,7 +41,7 @@ const SHARED_WEB_ACCESSIBLE_RESOURCES = [
       'local-vault-permission.html',
       'local-vault-permission.js',
       'styles/clipper/*',
-      'options/stitch/styles/*',
+      'ui/stitch-runtime/styles/*.css',
       'onboarding/*'
     ],
     matches: [...WEB_ACCESSIBLE_RESOURCE_MATCHES]

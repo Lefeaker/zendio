@@ -4,7 +4,9 @@ import { DEFAULT_OPTIONS } from '@shared/config';
 import type { IMessagingRepository, Message, MessageHandler } from '@shared/repositories';
 import type { ClipData, ClipResult, FragmentConfig } from '@shared/repositories/IClipRepository';
 import type { IOptionsRepository } from '@shared/repositories/IOptionsRepository';
-import type { CompleteOptions } from '@shared/types/options';
+import type { CompleteOptions, StoredOptions } from '@shared/types/options';
+import type { OptionsPatch } from '@shared/types/optionsMutationMessages';
+import { applyStoredOptionsPatch, decodeStoredOptions } from '@shared/config/storedOptionsCodec';
 
 function createOptionsSnapshot(): CompleteOptions {
   return {
@@ -30,14 +32,14 @@ function createOptionsSnapshot(): CompleteOptions {
       captureContext: true,
       contextLength: 200,
       contextMode: 'chars',
-      selectionModifierEnabled: false,
+      selectionTriggerMode: 'direct',
       selectionModifierKeys: []
     }
   };
 }
 
 class FakeOptionsRepository implements IOptionsRepository {
-  readonly setCalls: Partial<CompleteOptions>[] = [];
+  readonly patchCalls: Array<OptionsPatch | readonly OptionsPatch[]> = [];
   onChangeCalls = 0;
   private readonly listeners = new Set<(options: CompleteOptions) => void>();
 
@@ -47,14 +49,23 @@ class FakeOptionsRepository implements IOptionsRepository {
     return Promise.resolve(this.options);
   }
 
-  set(options: Partial<CompleteOptions>): Promise<void> {
-    this.setCalls.push(options);
-    this.options = {
-      ...this.options,
-      ...options
-    };
+  async patch(patches: OptionsPatch | readonly OptionsPatch[]): Promise<CompleteOptions> {
+    this.patchCalls.push(patches);
+    let raw: unknown = this.options;
+    for (const patch of Array.isArray(patches) ? patches : [patches]) {
+      const result = applyStoredOptionsPatch(raw, patch);
+      if (!result.success) throw new Error('OPTIONS_MUTATION_REJECTED');
+      raw = result.value;
+    }
+    this.options = decodeStoredOptions(raw).runtime;
     this.emit(this.options);
-    return Promise.resolve();
+    return this.options;
+  }
+
+  replace(options: StoredOptions | CompleteOptions): Promise<CompleteOptions> {
+    this.options = decodeStoredOptions(options).runtime;
+    this.emit(this.options);
+    return Promise.resolve(this.options);
   }
 
   onChange(callback: (options: CompleteOptions) => void): () => void {
@@ -126,13 +137,11 @@ describe('ChromeClipRepository', () => {
 
       await repo.setFragmentConfig(partial);
 
-      expect(fakeOptionsRepo.setCalls).toEqual([
-        {
-          fragmentClipper: {
-            ...optionsSnapshot.fragmentClipper,
-            ...partial
-          }
-        }
+      expect(fakeOptionsRepo.patchCalls).toEqual([
+        [
+          { path: ['fragmentClipper', 'captureContext'], value: false },
+          { path: ['fragmentClipper', 'contextLength'], value: 512 }
+        ]
       ]);
     });
 

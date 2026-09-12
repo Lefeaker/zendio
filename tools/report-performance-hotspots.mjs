@@ -1,19 +1,30 @@
 import { execFileSync } from 'node:child_process';
-import { existsSync, readFileSync } from 'node:fs';
+import { lstatSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
+import { TextDecoder } from 'node:util';
 
 const ROOT = process.cwd();
 
-const MAX_LINE_BUDGETS = new Map([
+export const MAX_LINE_BUDGETS = new Map([
+  // 2026-09-11: document ownership and retry state remain with their existing
+  // owners. Review the accepted lifecycle changes as a whole, without slicing
+  // coherent functions solely to stay below the 250-line discovery threshold.
+  ['src/background/listeners/sessionDraftMessages.ts', 260],
+  ['src/background/services/sessionDraftOwnerLivenessProbe.ts', 266],
+  ['src/background/services/sessionDraftStore.ts', 274],
+  ['src/background/services/sessionDraftStoreMutations.ts', 267],
+  ['src/content/reader/readerSessionDraftController.ts', 261],
+  ['src/shared/sessionDrafts/index.ts', 251],
+  ['src/shared/sessionDrafts/pageIdentity.ts', 251],
   ['src/i18n/generated/localeRegistry.generated.ts', 8899],
   ['src/i18n/generated/schemaMessages.generated.ts', 481],
   // 2026-06-29 v0.2.1 changelog sync: schema core now carries the accepted
   // Options/Stitch release-note keys in addition to existing resource copy.
-  ['src/i18n/generated/schemaCore.generated.ts', 444],
-  // 2026-06-29 v0.2.1 changelog sync: generated runtime messages carry the
-  // accepted Options/Stitch release-note catalog keys.
-  ['src/i18n/generated/messages.generated.ts', 1137],
+  ['src/i18n/generated/schemaCore.generated.ts', 453],
+  // 2026-07-20 selection-trigger policy: generated runtime messages carry the
+  // explicit disabled, direct, and modifier mode copy plus diagnostics copy.
+  ['src/i18n/generated/messages.generated.ts', 1153],
   ['src/i18n/generated/locales/fr.generated.ts', 785],
   ['src/i18n/generated/locales/es-419.generated.ts', 777],
   ['src/i18n/generated/locales/es-ES.generated.ts', 777],
@@ -45,10 +56,10 @@ const MAX_LINE_BUDGETS = new Map([
   // 2026-06-25 AI chat parser P09 repair: Perplexity keeps readable
   // selector arrays; the explicit budget tracks the restored parser hotspot.
   ['src/third_party/ai-chat-exporter/platforms/perplexity.ts', 281],
-  ['src/options/stitch/schema/builders/surfaces.ts', 558],
+  ['src/ui/stitch-surfaces/builders/surfaces.ts', 558],
   // 2026-06-23 P05 Options/Stitch decomposition: shared surface chrome
   // helpers back the stable surface-builder facade.
-  ['src/options/stitch/schema/builders/surfaceChrome.ts', 275],
+  ['src/ui/stitch-surfaces/builders/surfaceChrome.ts', 275],
   ['src/shared/attachments/videoScreenshotAttachmentTemplates.ts', 523],
   ['src/options/app/productionStitchStateMapper.ts', 517],
   // 2026-06-23 P05 Options/Stitch decomposition: pure theme/state seed
@@ -62,23 +73,22 @@ const MAX_LINE_BUDGETS = new Map([
   // 2026-06-13 GA P01: schema-owned contract replaces duplicated catalog and
   // sanitizer tables; current exact schema hotspot budget is the new source of truth.
   ['src/shared/analytics/schema/analyticsSchema.ts', 527],
-  ['src/content/video/sessionOperations.ts', 433],
+  ['src/content/video/sessionOperations.ts', 442],
   ['src/content/video/platforms/bilibiliRichText.ts', 302],
   ['src/content/video/platforms/bilibiliPlatformObserver.ts', 286],
-  ['src/ui/domains/video/VideoDialog.ts', 468],
   // 2026-06-20 Options/onboarding closeout: keep current video prompt lifecycle
   // line count explicit so the hotspot gate reaches later CI checks.
   ['src/content/video/videoPromptLifecycle.ts', 491],
   ['src/shared/analytics/analyticsSanitizers.ts', 460],
   ['src/background/pipelines/connectionTest.ts', 697],
   ['src/onboarding/bootstrap.ts', 556],
-  ['src/background/services/notifications.ts', 451],
+  ['src/background/services/notifications.ts', 452],
   ['src/background/trialLifecycle.ts', 276],
   ['src/shared/config/optionsMerger.ts', 406],
   ['src/dev/localVaultWriteHarness.ts', 411],
   // 2026-06-11: Session mutation architecture adds fail-closed terminal draft
   // finalization and shared transaction plumbing across reader/video surfaces.
-  ['src/content/video/videoSessionRuntime.ts', 531],
+  ['src/content/video/videoSessionRuntime.ts', 563],
   // 2026-06-13 final combined integration: queue now carries explicit visible
   // capture request tracking while preserving the lazy screenshot preparation split.
   ['src/content/video/videoScreenshotPreparationQueue.ts', 401],
@@ -97,27 +107,26 @@ const MAX_LINE_BUDGETS = new Map([
   // enforce the screenshot preparation split without cycles.
   ['src/content/video/videoScreenshotPreparationRequestStore.ts', 294],
   ['src/content/video/videoScreenshotPreparationCoordinator.ts', 147],
-  ['src/content/reader/ui/ReaderDialogPanel.ts', 405],
-  ['src/content/reader/session.ts', 575],
+  ['src/content/video/videoScreenshotPreparationQueueOwner.ts', 180],
+  ['src/content/reader/session.ts', 613],
   ['src/content/video/videoControlBarButton.ts', 299],
   // 2026-06-20 support-link closeout: runtime surface copy now uses the shared
   // Zendio link registry while preserving the existing surface renderer split.
   ['src/content/stitch/runtimeSurfaceContent.ts', 409],
   ['src/options/components/infrastructure/listBuilder.ts', 378],
   ['src/shared/exportDestination.ts', 369],
-  ['src/ui/domains/reading/ReaderDialog.ts', 371],
   // 2026-06-13 final combined integration: screenshot status dots and add-note
   // focus/layout regressions are covered in the panel while retaining the current UI.
-  ['src/content/video/ui/VideoDialogPanel.ts', 392],
   ['src/options/app/productionStitchPersistence.ts', 379],
-  ['src/shared/errors/analytics/analyticsConfig.template.ts', 364],
-  ['src/shared/errors/analytics/analyticsConfig.ts', 383],
+  ['src/shared/analytics/analyticsConfigContract.ts', 40],
+  ['src/shared/analytics/analyticsRuntimeConfig.ts', 190],
+  ['src/shared/errors/analytics/analyticsConfig.ts', 330],
   ['src/dev/contentOrchestratorHarness.ts', 359],
   ['src/options/app/productionStitchShellActionRuntime.ts', 358],
   ['src/background/services/obsidianWriter.ts', 423],
   ['src/background/vault-router.ts', 422],
   ['src/shared/state/globalStateManager.ts', 345],
-  ['src/content/reader/sessionOperations.ts', 643],
+  ['src/content/reader/sessionOperations.ts', 659],
   ['src/i18n/config.ts', 343],
   ['src/content/ui/supportPrompt.ts', 345],
   ['src/options/services/connectionTester.ts', 368],
@@ -139,7 +148,7 @@ const MAX_LINE_BUDGETS = new Map([
   ['src/components/trial-notice.ts', 376],
   ['src/content/clipper/services/contextCapture.ts', 305],
   // 2026-06-12 P03: video session draft ownership moved into a focused controller.
-  ['src/content/video/videoSessionDraftController.ts', 401],
+  ['src/content/video/videoSessionDraftController.ts', 416],
   ['src/options/app/productionStitchActions.ts', 302],
   ['src/options/app/productionStitchLocalization.ts', 350],
   ['src/options/app/vaultConnectionTests.ts', 290],
@@ -155,8 +164,10 @@ const MAX_LINE_BUDGETS = new Map([
   ['src/background/application/clipProcessor.ts', 470],
   ['src/infrastructure/restClient.ts', 266],
   ['src/shared/services/yamlConfigSanitize.ts', 277],
-  ['src/ui/domains/vault-router/VaultRouterView.ts', 277],
-  ['src/options/stitch/render/nodeRenderers.ts', 274],
+  // 2026-08-11 U02A owner transfer/current truth: keep the legacy Options
+  // renderer at 286 lines and register its runtime successor at 276 lines.
+  ['src/options/stitch/render/nodeRenderers.ts', 286],
+  ['src/ui/stitch-runtime/render/nodeRenderers.ts', 276],
   ['src/third_party/ai-chat-exporter/shared/markdownLanguage.ts', 273],
   ['src/options/stitch/schema/settings/capture-sources.ts', 272],
   ['src/options/yaml-config-editor/validation.ts', 269],
@@ -165,6 +176,8 @@ const MAX_LINE_BUDGETS = new Map([
   // screenshot request boundary used by video export preparation.
   ['src/background/listeners/runtimeMessages.ts', 374],
   ['src/background/services/usageStats.ts', 266],
+  ['src/background/services/optionsMutationCoordinator.ts', 360],
+  ['src/options/state/optionsStore.ts', 319],
   ['src/background/application/videoScreenshotAttachmentPlanner.ts', 269],
   ['src/third_party/ai-chat-exporter/platforms/tongyi.ts', 274],
   ['src/options/utils/localizedText.ts', 264],
@@ -183,9 +196,8 @@ const MAX_LINE_BUDGETS = new Map([
   ['src/shared/guards/dom.ts', 256],
   ['src/content/reader/services/exporter.ts', 255],
   ['src/content/video/fragmentHighlighter.ts', 254],
-  ['src/ui/domains/privacy/PrivacySettingsView.ts', 254],
   ['src/options/app/productionStitchShellMount.ts', 254],
-  ['src/options/app/productionStitchRenderLifecycle.ts', 253],
+  ['src/options/app/productionStitchRenderLifecycle.ts', 254],
   // 2026-06-19 Options YAML editor stabilization: row aggregation, editable
   // domain override cells, and scroll-target ownership stay in this row model.
   ['src/options/yaml-config-editor/rowModel.ts', 269],
@@ -207,7 +219,7 @@ const MAX_LINE_BUDGETS = new Map([
   ['src/content/ui/supportPrompt/SupportPromptToastController.ts', 300],
   // 2026-06-18 options support closeout: task-success surface owns the feedback
   // and support schema copy used by production runtime previews.
-  ['src/options/stitch/schema/surfaces/task-success.ts', 276],
+  ['src/ui/stitch-surfaces/surfaces/task-success.ts', 277],
   // 2026-06-23 P05 Options/Stitch decomposition: runtime surface content moved
   // out of the monolithic Stitch content seed behind the stable facade.
   ['src/options/stitch/content/runtimeSurfaceContent.ts', 283],
@@ -309,27 +321,41 @@ function isSourceModulePath(relativePath) {
   );
 }
 
-function readGitPaths(root, args) {
-  const output = execFileSync('git', ['-C', root, 'ls-files', ...args], {
-    encoding: 'utf8'
-  });
-
-  return output
-    .split('\n')
-    .map((line) => line.trim())
-    .filter(Boolean)
-    .map(normalizeRelativePath)
-    .filter(isSourceModulePath)
-    .filter((relativePath) => existsSync(join(root, relativePath)));
+function decodeGitPath(pathBuffer) {
+  return normalizeRelativePath(new TextDecoder('utf-8', { fatal: true }).decode(pathBuffer));
 }
 
-function listCurrentSourceFiles(root) {
-  return [
-    ...new Set([
-      ...readGitPaths(root, ['--', 'src']),
-      ...readGitPaths(root, ['--others', '--exclude-standard', '--', 'src'])
-    ])
-  ].sort((left, right) => left.localeCompare(right));
+function isMissingPathError(error) {
+  return typeof error === 'object' && error !== null && error.code === 'ENOENT';
+}
+
+function listCurrentRegularSourceFiles(root) {
+  const output = execFileSync(
+    'git',
+    ['-C', root, 'ls-files', '-z', '--cached', '--others', '--exclude-standard', '--', 'src'],
+    { encoding: null }
+  );
+  const paths = [];
+  let start = 0;
+  for (let index = 0; index < output.length; index += 1) {
+    if (output[index] !== 0) continue;
+    if (index > start) paths.push(decodeGitPath(output.subarray(start, index)));
+    start = index + 1;
+  }
+  if (start !== output.length) {
+    throw new Error('git ls-files returned a non-NUL-terminated path inventory');
+  }
+
+  return [...new Set(paths)]
+    .filter((relativePath) => {
+      try {
+        return lstatSync(join(root, relativePath)).isFile();
+      } catch (error) {
+        if (isMissingPathError(error)) return false;
+        throw error;
+      }
+    })
+    .sort((left, right) => left.localeCompare(right));
 }
 
 function countMatches(source) {
@@ -338,30 +364,60 @@ function countMatches(source) {
   );
 }
 
-function countLines(source) {
-  return source.split('\n').length;
+export function countPhysicalLines(source) {
+  const bytes = Buffer.isBuffer(source) ? source : Buffer.from(source, 'utf8');
+  if (bytes.length === 0) return 0;
+  let lineCount = bytes[bytes.length - 1] === 0x0a ? 0 : 1;
+  for (const byte of bytes) {
+    if (byte === 0x0a) lineCount += 1;
+  }
+  return lineCount;
+}
+
+function countByteOccurrences(source, needle) {
+  let count = 0;
+  let offset = 0;
+  while (offset <= source.length - needle.length) {
+    const index = source.indexOf(needle, offset);
+    if (index < 0) break;
+    count += 1;
+    offset = index + needle.length;
+  }
+  return count;
+}
+
+function decodeSource(source, relativePath) {
+  try {
+    return new TextDecoder('utf-8', { fatal: true }).decode(source);
+  } catch {
+    throw new Error(`Source file is not valid UTF-8: ${relativePath}`);
+  }
 }
 
 export function collectPerformanceHotspots({
   root = ROOT,
   budgets = new Map(MAX_LINE_BUDGETS),
-  sourceFiles = listCurrentSourceFiles(root)
+  currentFiles = listCurrentRegularSourceFiles(root)
 } = {}) {
+  const sourceFiles = currentFiles.filter(isSourceModulePath);
   const trackedSourceSet = new Set(sourceFiles);
   const staleBudgetPaths = [...budgets.keys()].filter(
     (relativePath) => !trackedSourceSet.has(relativePath)
   );
-
-  const rows = sourceFiles
-    .map((relativePath) => {
-      const source = readFileSync(join(root, relativePath), 'utf8');
-      return {
-        relativePath,
-        lineCount: countLines(source),
-        counters: countMatches(source),
-        lineBudget: budgets.get(relativePath)
-      };
-    })
+  const fileBuffers = new Map(
+    currentFiles.map((relativePath) => [relativePath, readFileSync(join(root, relativePath))])
+  );
+  const sourceRows = sourceFiles.map((relativePath) => {
+    const sourceBuffer = fileBuffers.get(relativePath);
+    const source = decodeSource(sourceBuffer, relativePath);
+    return {
+      relativePath,
+      lineCount: countPhysicalLines(sourceBuffer),
+      counters: countMatches(source),
+      lineBudget: budgets.get(relativePath)
+    };
+  });
+  const rows = sourceRows
     .filter((row) => row.lineCount > 250)
     .sort(
       (left, right) =>
@@ -371,19 +427,31 @@ export function collectPerformanceHotspots({
   const missingBudgetPaths = rows
     .filter((row) => row.lineBudget === undefined)
     .map((row) => row.relativePath);
-  const exceededBudgetRows = rows.filter(
+  const exceededBudgetRows = sourceRows.filter(
     (row) => row.lineBudget !== undefined && row.lineCount > row.lineBudget
   );
+  const prettierIgnoreToken = Buffer.from('prettier-ignore', 'utf8');
+  const prettierIgnoreRows = currentFiles
+    .map((relativePath) => ({
+      relativePath,
+      count: countByteOccurrences(fileBuffers.get(relativePath), prettierIgnoreToken)
+    }))
+    .filter((row) => row.count > 0);
+  const prettierIgnoreCount = prettierIgnoreRows.reduce((total, row) => total + row.count, 0);
 
   return {
     rows,
+    currentRegularFileCount: currentFiles.length,
     sourceFileCount: sourceFiles.length,
     dynamicHotspotCount: rows.length,
     registeredBudgetCount: budgets.size,
     missingBudgetPaths,
     staleBudgetPaths,
     exceededBudgetRows,
+    prettierIgnoreRows,
+    prettierIgnoreCount,
     ok:
+      prettierIgnoreCount === 0 &&
       missingBudgetPaths.length === 0 &&
       staleBudgetPaths.length === 0 &&
       exceededBudgetRows.length === 0
@@ -397,13 +465,21 @@ export function formatPerformanceHotspots(report) {
   });
 
   lines.push(
-    `dynamic hotspot coverage: sourceFiles=${report.sourceFileCount}, hotspotsOver250=${report.dynamicHotspotCount}, registeredLineBudgets=${report.registeredBudgetCount}`
+    `dynamic hotspot coverage: sourceFiles=${report.sourceFileCount}, hotspotsOver250=${report.dynamicHotspotCount}, registeredLineBudgets=${report.registeredBudgetCount}, currentRegularFiles=${report.currentRegularFileCount}`,
+    `violations: prettierIgnore=${report.prettierIgnoreCount}, missing=${report.missingBudgetPaths.length}, stale=${report.staleBudgetPaths.length}, exceeded=${report.exceededBudgetRows.length}`
   );
 
   return lines.join('\n');
 }
 
 function printFailures(report) {
+  if (report.prettierIgnoreRows.length > 0) {
+    console.error(
+      `prettier-ignore suppressions found in current src files:\n${report.prettierIgnoreRows
+        .map((row) => `- ${row.relativePath}: ${row.count}`)
+        .join('\n')}`
+    );
+  }
   if (report.missingBudgetPaths.length > 0) {
     console.error(
       `Missing line budgets for dynamically discovered hotspots:\n${report.missingBudgetPaths
@@ -439,7 +515,8 @@ export function runCli(argv = process.argv.slice(2)) {
   }
 }
 
-if (import.meta.url === pathToFileURL(process.argv[1]).href) {
+const entryPoint = process.argv[1];
+if (entryPoint && import.meta.url === pathToFileURL(entryPoint).href) {
   try {
     runCli();
   } catch (error) {

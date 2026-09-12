@@ -17,6 +17,9 @@ const AVAILABLE_HIGHLIGHT_THEMES: ReadonlyArray<ReaderHighlightTheme> = [
 export class ReaderSessionState {
   highlights: ReaderHighlightRecord[] = [];
   exporting = false;
+  ending = false;
+  disconnected = false;
+  exportDispatched = false;
   saving = false;
   handlingSelection = false;
   readingConfig: ReadingSessionOptions = { ...DEFAULT_READING_CONFIG };

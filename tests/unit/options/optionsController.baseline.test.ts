@@ -4,13 +4,31 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import type { Mock } from 'vitest';
 import { DEFAULT_OPTIONS } from '@shared/config';
 import type { CompleteOptions, StoredOptions } from '@shared/types/options';
+import type { OptionsPatch } from '@shared/types/optionsMutationMessages';
+import { STORED_OPTIONS_DELETE } from '@shared/config/storedOptionsCodec';
 import { createOptionsController } from '@options/app/optionsController';
+import { mergeOptions } from '@shared/config/optionsMerger';
+import {
+  OPTIONS_PATCH_PATHS,
+  replaceOptionsPath,
+  type OptionsPath
+} from '@options/state/optionsPatchModel';
 import { createOptionsFormAdapter } from '@options/components/optionsFormAdapter';
 import type { OptionsPersistenceService } from '@options/services/persistence';
 import {
   createOptionsManagedFixtures,
   resetOptionsManagedFixtures
 } from '../../utils/optionsFixtures';
+
+function requireOptionsPath(path: readonly string[]): OptionsPath {
+  const registered = OPTIONS_PATCH_PATHS.find(
+    (candidate) =>
+      candidate.length === path.length &&
+      candidate.every((segment, index) => segment === path[index])
+  );
+  if (!registered) throw new Error('UNREGISTERED_OPTIONS_DRAFT_PATH');
+  return registered;
+}
 
 const fixturesRef: { current: ReturnType<typeof createOptionsManagedFixtures> | null } = {
   current: null
@@ -25,9 +43,11 @@ describe('OptionsController baseline integration', () => {
   let fixtures: ReturnType<typeof createOptionsManagedFixtures>;
   let persistenceMocks: {
     load: Mock<(...args: []) => Promise<StoredOptions>>;
-    save: Mock<(...args: [CompleteOptions | StoredOptions]) => Promise<void>>;
+    save: Mock<(...args: [readonly OptionsPatch[]]) => Promise<StoredOptions>>;
+    replace: Mock<(...args: [CompleteOptions | StoredOptions]) => Promise<StoredOptions>>;
     getCached: Mock<(...args: []) => StoredOptions | null>;
   };
+  let repositorySnapshot: CompleteOptions;
 
   beforeEach(() => {
     if (!fixturesRef.current) {
@@ -36,15 +56,32 @@ describe('OptionsController baseline integration', () => {
       resetOptionsManagedFixtures(fixturesRef.current);
     }
     fixtures = fixturesRef.current!;
+    repositorySnapshot = mergeOptions({});
 
     persistenceMocks = {
       load: vi.fn<(...args: []) => Promise<StoredOptions>>(() =>
         Promise.resolve({} as StoredOptions)
       ),
-      save: vi.fn<(...args: [CompleteOptions | StoredOptions]) => Promise<void>>((options) => {
-        fixtures.savedOptions.push(options);
-        return Promise.resolve();
+      save: vi.fn<(...args: [readonly OptionsPatch[]]) => Promise<StoredOptions>>((patches) => {
+        for (const patch of patches) {
+          repositorySnapshot = replaceOptionsPath(
+            repositorySnapshot,
+            requireOptionsPath(patch.path),
+            patch.value === STORED_OPTIONS_DELETE ? undefined : patch.value
+          );
+        }
+        const acknowledged = structuredClone(repositorySnapshot);
+        fixtures.savedOptions.push(acknowledged);
+        return Promise.resolve(acknowledged);
       }),
+      replace: vi.fn<(...args: [CompleteOptions | StoredOptions]) => Promise<StoredOptions>>(
+        (options) => {
+          repositorySnapshot = mergeOptions(options);
+          const acknowledged = structuredClone(repositorySnapshot);
+          fixtures.savedOptions.push(acknowledged);
+          return Promise.resolve(acknowledged);
+        }
+      ),
       getCached: vi.fn<(...args: []) => StoredOptions | null>(() => null)
     };
     persistence = persistenceMocks;
@@ -74,6 +111,7 @@ describe('OptionsController baseline integration', () => {
       }
     };
     persistenceMocks.load.mockResolvedValueOnce(persisted);
+    repositorySnapshot = mergeOptions(persisted);
     fixtures.vaultRouterSnapshot = {
       defaultVaultId: 'default',
       vaults: [
@@ -95,6 +133,7 @@ describe('OptionsController baseline integration', () => {
     await controller.loadInitialState();
     await controller.saveSnapshot({ reason: 'manual' });
 
+    expect(persistenceMocks.replace.mock.calls.length).toBe(0);
     expect(persistenceMocks.save.mock.calls.length).toBe(1);
 
     const saved = fixtures.savedOptions[0] as CompleteOptions;
@@ -104,7 +143,21 @@ describe('OptionsController baseline integration', () => {
     expect(saved.rest.vault).toBe('ManagedVault');
     expect(saved.domainMappings).toEqual(DEFAULT_OPTIONS.domainMappings);
     expect(saved.vaultRouter).toEqual(fixtures.vaultRouterSnapshot);
-    expect((saved as StoredOptions).yamlConfig).toEqual(persisted.yamlConfig);
+    expect((saved as StoredOptions).yamlConfig).toEqual({
+      contentTypes: {
+        article: {
+          customFields: [
+            {
+              name: 'managed_field',
+              type: 'text',
+              enabled: true,
+              defaultValue: 'managed',
+              isCustom: true
+            }
+          ]
+        }
+      }
+    });
   });
 
   it('preserves imported snapshot and reconstitutes defaults on subsequent save', async () => {
@@ -155,22 +208,55 @@ describe('OptionsController baseline integration', () => {
 
     await controller.applyImportedConfig(importedOptions);
 
-    expect(persistenceMocks.save.mock.calls.length).toBe(1);
-    expect(fixtures.savedOptions[0]).toEqual(importedOptions);
+    expect(persistenceMocks.replace.mock.calls.length).toBe(1);
+    expect(persistenceMocks.save.mock.calls.length).toBe(0);
+    expect(fixtures.savedOptions[0]).toEqual({
+      ...importedOptions,
+      yamlConfig: {
+        contentTypes: {
+          article: {
+            customFields: [
+              {
+                name: 'imported_template',
+                type: 'text',
+                enabled: true,
+                defaultValue: 'imported',
+                isCustom: true
+              }
+            ]
+          }
+        }
+      }
+    });
 
     fixtures.managedChanges = {};
     fixtures.vaultRouterSnapshot = null;
 
-    await controller.saveSnapshot({ reason: 'manual' });
+    const savedAfterImport = (await controller.saveSnapshot({
+      reason: 'manual'
+    })) as CompleteOptions;
 
-    expect(persistenceMocks.save.mock.calls.length).toBe(2);
-    const savedAfterImport = fixtures.savedOptions[1] as CompleteOptions;
+    expect(persistenceMocks.save.mock.calls.length).toBe(0);
 
     expect(savedAfterImport.rest.baseUrl).toBe('https://imported.example.com/');
     expect(savedAfterImport.rest.httpsUrl).toBe(DEFAULT_OPTIONS.rest.httpsUrl);
     expect(savedAfterImport.rest.httpUrl).toBe(DEFAULT_OPTIONS.rest.httpUrl);
     expect(savedAfterImport.domainMappings).toEqual(DEFAULT_OPTIONS.domainMappings);
     expect(savedAfterImport.vaultRouter).toEqual(importedOptions.vaultRouter);
-    expect((savedAfterImport as StoredOptions).yamlConfig).toEqual(importedOptions.yamlConfig);
+    expect((savedAfterImport as StoredOptions).yamlConfig).toEqual({
+      contentTypes: {
+        article: {
+          customFields: [
+            {
+              name: 'imported_template',
+              type: 'text',
+              enabled: true,
+              defaultValue: 'imported',
+              isCustom: true
+            }
+          ]
+        }
+      }
+    });
   });
 });

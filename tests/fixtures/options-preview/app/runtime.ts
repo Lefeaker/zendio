@@ -1,4 +1,4 @@
-import { clear, el } from '@options/stitch/ui/dom';
+import { clear, el } from '@ui/stitch-runtime';
 import { createActionRuntime } from '@options/schema-runtime/actionRuntime';
 import { createSchemaRenderer } from '@options/schema-runtime/renderer';
 import { previewUi } from '@options/stitch/ui/components';
@@ -20,6 +20,7 @@ import { YamlConfigEditorWidgetAdapter } from '@options/yaml-config-editor/widge
 import type { WidgetMountContract } from '@options/schema-runtime/contracts';
 import type { PreviewStoreState, SchemaContext, ViewSchema } from '@options/stitch/types';
 import { renderPreviewView } from '@options/stitch/render/renderStitchView';
+import { isFragmentSelectionTriggerMode } from '@shared/config/selectionTriggerMode';
 import {
   normalizeFragmentModifierKey,
   normalizeFragmentModifierKeys
@@ -251,30 +252,18 @@ export function mountPreviewApp(options: PreviewRuntimeOptions): void {
         const key = normalizeFragmentModifierKey(typeof rawKey === 'string' ? rawKey : undefined);
         update(
           (state) => {
-            state.fragmentModifierEnabled = true;
+            state.fragmentSelectionTriggerMode = 'modifier';
             state.modifierKeys = [key];
           },
           { silent: true }
         );
         rerenderPanel('capture-behavior');
       },
-      'modifier:toggleKey': ({ args, value, mutate: update }) => {
-        const rawKey = typeof value === 'string' ? value : args[0];
-        const key = normalizeFragmentModifierKey(typeof rawKey === 'string' ? rawKey : undefined);
+      'selection-trigger:setMode': ({ value, mutate: update }) => {
+        const mode = isFragmentSelectionTriggerMode(value) ? value : 'disabled';
         update(
           (state) => {
-            state.fragmentModifierEnabled = true;
-            state.modifierKeys = [key];
-          },
-          { silent: true }
-        );
-        rerenderPanel('capture-behavior');
-      },
-      'modifier:setEnabled': ({ value, mutate: update }) => {
-        const enabled = Boolean(value);
-        update(
-          (state) => {
-            state.fragmentModifierEnabled = enabled;
+            state.fragmentSelectionTriggerMode = mode;
             state.modifierKeys = normalizeFragmentModifierKeys(state.modifierKeys);
           },
           { silent: true }

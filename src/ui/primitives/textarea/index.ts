@@ -2,28 +2,36 @@ import type { DataAttributes } from '../../foundation/types';
 
 export interface TextareaProps {
   id?: string;
-  value?: string;
+  value?: string | undefined;
   rows?: number;
-  disabled?: boolean;
-  placeholder?: string;
+  disabled?: boolean | undefined;
+  placeholder?: string | undefined;
   ariaLabel?: string;
-  className?: string;
+  className?: string | undefined;
   dataAttributes?: DataAttributes;
+  dataset?: Record<string, string | number | boolean> | undefined;
   onChange?: (value: string, event: Event) => void;
   onBlur?: (value: string, event: Event) => void;
+  readOnly?: boolean | undefined;
+  onInput?: ((event: Event) => void) | undefined;
+  onFocus?: ((event: Event) => void) | undefined;
+  onNativeChange?: ((event: Event) => void) | undefined;
+  classSlots?: readonly string[] | undefined;
 }
 
 export function createTextareaElement(props: TextareaProps): HTMLTextAreaElement {
   const textarea = document.createElement('textarea');
-  textarea.className = [
-    'textarea',
-    'textarea-bordered',
-    'w-full',
-    'min-h-[80px]',
-    'text-sm',
-    'leading-relaxed',
-    props.className ?? ''
-  ]
+  textarea.className = (
+    props.classSlots ?? [
+      'textarea',
+      'textarea-bordered',
+      'w-full',
+      'min-h-[80px]',
+      'text-sm',
+      'leading-relaxed',
+      props.className ?? ''
+    ]
+  )
     .filter(Boolean)
     .join(' ');
 
@@ -40,12 +48,14 @@ export function createTextareaElement(props: TextareaProps): HTMLTextAreaElement
     textarea.placeholder = props.placeholder;
   }
   textarea.disabled = Boolean(props.disabled);
+  textarea.readOnly = Boolean(props.readOnly);
   if (props.ariaLabel) {
     textarea.setAttribute('aria-label', props.ariaLabel);
   }
-  if (props.dataAttributes) {
-    for (const [key, value] of Object.entries(props.dataAttributes)) {
-      textarea.dataset[key] = value;
+  for (const attributes of [props.dataAttributes, props.dataset]) {
+    if (!attributes) continue;
+    for (const [key, value] of Object.entries(attributes)) {
+      textarea.dataset[key] = String(value);
     }
   }
   if (props.onChange) {
@@ -58,6 +68,9 @@ export function createTextareaElement(props: TextareaProps): HTMLTextAreaElement
       props.onBlur?.((event.target as HTMLTextAreaElement).value, event);
     });
   }
+  if (props.onInput) textarea.addEventListener('input', props.onInput);
+  if (props.onFocus) textarea.addEventListener('focus', props.onFocus);
+  if (props.onNativeChange) textarea.addEventListener('change', props.onNativeChange);
   return textarea;
 }
 

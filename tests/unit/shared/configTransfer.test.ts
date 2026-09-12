@@ -87,12 +87,10 @@ describe('configTransfer service', () => {
 
   it('解析新版传输格式', () => {
     const text =
-      '{"version":2,"options":{"rest":{"baseUrl":"https://example.com"},"customKey":{"hello":"world"},"analytics":{"debugMode":true}},"analytics":{"consent":{"analytics":true,"errorReporting":false},"debugMode":false}}';
+      '{"version":2,"options":{"rest":{"baseUrl":"https://example.com"}},"analytics":{"consent":{"analytics":true,"errorReporting":false},"debugMode":false}}';
     const parsed = parseConfigInput(text);
     expect(parsed.version).toBe(2);
     expect(parsed.options).toEqual({ rest: { baseUrl: 'https://example.com' } });
-    expect(parsed.options).not.toHaveProperty('customKey');
-    expect(parsed.options).not.toHaveProperty('analytics');
     expect(parsed.analytics).toEqual({
       consent: { analytics: true, errorReporting: false },
       debugMode: false
@@ -125,9 +123,60 @@ describe('configTransfer service', () => {
     expect(Array.isArray(parsed.options.yamlConfig?.contentTypes)).toBe(false);
   });
 
+  it('migrates legacy direct-selection imports to the canonical trigger mode', () => {
+    const parsed = parseConfigInput(
+      JSON.stringify({
+        version: 2,
+        options: {
+          fragmentClipper: {
+            selectionModifierEnabled: false,
+            selectionModifierKeys: ['shift']
+          }
+        }
+      })
+    );
+
+    expect(parsed.options.fragmentClipper).toEqual({
+      selectionTriggerMode: 'direct',
+      selectionModifierKeys: ['shift']
+    });
+    expect(parsed.options.fragmentClipper).not.toHaveProperty('selectionModifierEnabled');
+  });
+
+  it('migrates legacy template, video, and taxonomy values before strict import validation', () => {
+    const parsed = parseConfigInput(
+      JSON.stringify({
+        version: 2,
+        options: {
+          templates: { clipper: 'Legacy/{{title}}.md' },
+          video: {
+            controlBarAutoPauseEnabled: false,
+            controlBarCaptureScreenshotEnabled: false
+          },
+          classifier: {
+            taxonomy: {
+              type: ['article'],
+              topics: ['research'],
+              ai_platform: ['chatgpt']
+            }
+          }
+        }
+      })
+    );
+
+    expect(parsed.options.templates).toEqual({
+      fragment: 'Legacy/{{title}}.md',
+      reading: 'Legacy/{{title}}.md'
+    });
+    expect(parsed.options.video).toEqual({
+      controlBarAutoPause: false,
+      controlBarScreenshot: false
+    });
+    expect(parsed.options.classifier?.taxonomy?.name).toBe('Migrated Taxonomy');
+  });
+
   it('兼容旧版仅包含选项的格式', () => {
-    const text =
-      '{"rest":{"baseUrl":"https://example.com"},"customKey":{"hello":"world"},"analytics":{"debugMode":true}}';
+    const text = '{"rest":{"baseUrl":"https://example.com"}}';
     const parsed = parseConfigInput(text);
     expect(parsed.version).toBe(0);
     expect(parsed.options).toEqual({ rest: { baseUrl: 'https://example.com' } });
@@ -144,14 +193,52 @@ describe('configTransfer service', () => {
               fields: [{ name: 'title', type: 'text', enabled: false }]
             }
           ]
-        },
-        customKey: { hello: 'world' }
+        }
       })
     );
 
     expect(parsed.version).toBe(0);
     expect(parsed.options.yamlConfig?.contentTypes?.article?.fields?.[0]?.enabled).toBe(false);
-    expect(parsed.options).not.toHaveProperty('customKey');
+  });
+
+  it.each([
+    { rest: { baseUrl: 'not a url' } },
+    { version: 2, options: { rest: { baseUrl: 'https://example.com/' }, unknownRoot: true } },
+    { rest: { baseUrl: 'https://example.com/' }, unknownRoot: true },
+    {
+      version: 2,
+      options: {
+        vaultRouter: {
+          vaults: [
+            {
+              id: 'main',
+              name: 'Main',
+              httpsUrl: 'https://example.com/',
+              httpUrl: 'http://example.com/',
+              vault: 'Main',
+              apiKey: '',
+              unknownNested: true
+            }
+          ]
+        }
+      }
+    },
+    {
+      version: 2,
+      options: {
+        yamlConfig: {
+          contentTypes: {
+            article: {
+              fields: [{ name: 'title', type: 'text', enabled: true, unknownNested: true }]
+            }
+          }
+        }
+      }
+    }
+  ])('rejects unknown root and nested keys all-or-nothing', (candidate) => {
+    expect(() => parseConfigInput(JSON.stringify(candidate))).toThrowError(
+      expect.objectContaining({ code: 'PARSE_FAILED' })
+    );
   });
 
   it('imports known current settings and sensitive fields through the transfer sanitizer', () => {
@@ -221,6 +308,116 @@ describe('configTransfer service', () => {
     expect(parsed.options.vaultRouter?.vaults[0]?.apiKey).toBe('VAULT_SECRET_TOKEN');
   });
 
+  it('strips machine-local vault bindings from imported configuration', () => {
+    const parsed = parseConfigInput(
+      JSON.stringify({
+        version: 2,
+        options: {
+          rest: {
+            vault: 'MainVault',
+            localFolderId: 'foreign-folder',
+            localFolderName: 'Foreign Folder'
+          },
+          vaultRouter: {
+            defaultVaultId: 'main',
+            vaults: [
+              {
+                id: 'main',
+                name: 'MainVault',
+                vault: 'MainVault',
+                httpsUrl: '',
+                httpUrl: '',
+                apiKey: '',
+                localFolderId: 'foreign-folder',
+                localFolderName: 'Foreign Folder'
+              }
+            ]
+          }
+        }
+      })
+    );
+
+    expect(parsed.options.rest).not.toHaveProperty('localFolderId');
+    expect(parsed.options.rest).not.toHaveProperty('localFolderName');
+    expect(parsed.options.vaultRouter?.vaults[0]).not.toHaveProperty('localFolderId');
+    expect(parsed.options.vaultRouter?.vaults[0]).not.toHaveProperty('localFolderName');
+  });
+
+  it('round-trips a full optional taxonomy through strict import without stripping data', () => {
+    const taxonomy = {
+      version: '2.0.0',
+      name: 'Research taxonomy',
+      description: 'Full optional configuration',
+      descriptionKey: 'taxonomy.research.description',
+      classificationHint: 'Classify research material',
+      categories: [
+        {
+          id: 'research',
+          name: 'Research',
+          description: 'Research category',
+          descriptionKey: 'taxonomy.category.research',
+          classificationHint: 'Academic content',
+          parent: 'knowledge',
+          keywords: ['paper', 'study'],
+          weight: 0.9
+        }
+      ],
+      tags: [
+        {
+          id: 'review',
+          name: 'Review',
+          description: 'Needs review',
+          descriptionKey: 'taxonomy.tag.review',
+          classificationHint: 'Review later',
+          category: 'research',
+          color: '#336699',
+          aliases: ['read-later']
+        }
+      ],
+      rules: [
+        {
+          id: 'rule-1',
+          name: 'Domain rule',
+          description: 'Classify a domain',
+          conditions: [
+            {
+              type: 'domain',
+              operator: 'endsWith',
+              value: '.example.edu',
+              caseSensitive: false
+            }
+          ],
+          actions: [
+            {
+              type: 'assignCategory',
+              target: 'category',
+              value: 'research',
+              metadata: { source: 'import', nested: { trusted: true } }
+            }
+          ],
+          priority: 10,
+          enabled: true
+        }
+      ],
+      defaultCategory: 'research',
+      defaultTags: ['review'],
+      settings: {
+        autoClassification: true,
+        confidenceThreshold: 0.8,
+        maxCategories: 2,
+        maxTags: 4,
+        fallbackBehavior: 'prompt',
+        customPrompts: { classify: 'Choose a research category' }
+      }
+    };
+
+    const parsed = parseConfigInput(
+      JSON.stringify({ version: 2, options: { classifier: { taxonomy } } })
+    );
+
+    expect(parsed.options.classifier?.taxonomy).toEqual(taxonomy);
+  });
+
   it('throws EMPTY_IMPORT for empty input', () => {
     expect(() => parseConfigInput('   ')).toThrowError(ConfigTransferError);
     try {
@@ -245,6 +442,27 @@ describe('configTransfer service', () => {
       expect(error).toBeInstanceOf(ConfigTransferError);
       expect(error.code).toBe('PARSE_FAILED');
     }
+  });
+
+  it('rejects over-budget UTF-8 input before native parsing', () => {
+    const oversized = JSON.stringify({
+      templates: { article: '文章'.repeat(200_000) }
+    });
+    expect(() => parseConfigInput(oversized)).toThrowError(
+      expect.objectContaining({ code: 'PARSE_FAILED' })
+    );
+    expect(() => parseConfigInput(`${' '.repeat(600 * 1024)}{}`)).toThrowError(
+      expect.objectContaining({ code: 'PARSE_FAILED' })
+    );
+    expect(() => parseConfigInput(' '.repeat(600 * 1024))).toThrowError(
+      expect.objectContaining({ code: 'PARSE_FAILED' })
+    );
+  });
+
+  it('treats an own non-object options member as an invalid wrapper', () => {
+    expect(() => parseConfigInput('{"version":2,"options":null}')).toThrowError(
+      expect.objectContaining({ code: 'PARSE_FAILED' })
+    );
   });
 
   it('falls back to document.execCommand when clipboard api is unavailable', async () => {

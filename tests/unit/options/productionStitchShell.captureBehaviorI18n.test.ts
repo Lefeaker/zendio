@@ -9,7 +9,7 @@ import type {
   NodeChild,
   RowNode,
   SchemaContext,
-  SelectNode,
+  SegmentedNavNode,
   SwitchNode,
   ViewSchema
 } from '@options/stitch/types';
@@ -28,8 +28,11 @@ const ENGLISH_SENTINEL_MESSAGES: Messages = {
   readingExportModeLabel: 'Export Row Sentinel',
   readingExportModeHighlights: 'Highlights Sentinel',
   readingExportModeFull: 'Full Sentinel',
-  fragmentModifierToggleLabel: 'Modifier Row Sentinel',
-  fragmentModifierToggleDescription: 'Modifier description sentinel.',
+  fragmentSelectionTriggerModeLabel: 'Selection Trigger Sentinel',
+  fragmentSelectionTriggerModeDescription: 'Selection trigger description sentinel.',
+  fragmentSelectionTriggerModeDisabled: 'Never Sentinel',
+  fragmentSelectionTriggerModeDirect: 'Direct Sentinel',
+  fragmentSelectionTriggerModeModifier: 'Modifier Sentinel',
   fragmentKeyboardShortcutsLabel: 'Shortcuts Row Sentinel',
   fragmentKeyboardShortcutsHint: 'Shortcut hint sentinel: {modifierShortcut}',
   fragmentKeyboardShortcutCommandEnter: 'Cmd+Enter Sentinel',
@@ -71,9 +74,9 @@ describe('mountProductionStitchShell capture behavior i18n', () => {
 
     expect(readingGroup.title).toBe('Reading Group Sentinel');
     expect(fragmentGroup.title).toBe('Fragment Group Sentinel');
-    expect(requireSelect(exportRow).options).toEqual([
-      { value: 'highlights', label: 'Highlights Sentinel' },
-      { value: 'full', label: 'Full Sentinel' }
+    expect(requireSegmented(exportRow).items).toEqual([
+      { value: 'full', label: 'Full Sentinel' },
+      { value: 'highlights', label: 'Highlights Sentinel' }
     ]);
 
     const shortcutsSwitch = requireSwitch(shortcutsRow);
@@ -85,7 +88,7 @@ describe('mountProductionStitchShell capture behavior i18n', () => {
     );
   });
 
-  it('renders modifier and clipper shortcut help beside their controls instead of in labels', () => {
+  it('renders all trigger modes and shows modifier keys only for modifier mode', () => {
     Object.defineProperty(navigator, 'platform', {
       configurable: true,
       value: 'MacIntel'
@@ -95,7 +98,7 @@ describe('mountProductionStitchShell capture behavior i18n', () => {
       controller: asOptionsController(createController()),
       initialOptions: {
         fragmentClipper: {
-          selectionModifierEnabled: true,
+          selectionTriggerMode: 'modifier',
           selectionModifierKeys: ['shift'],
           keyboardShortcutsEnabled: true
         }
@@ -106,16 +109,20 @@ describe('mountProductionStitchShell capture behavior i18n', () => {
 
     queryRequired<HTMLButtonElement>('[data-nav-panel="capture-behavior"]').click();
 
-    const modifierRow = requireRenderedRow('Modifier Row Sentinel');
+    const modifierRow = requireRenderedRow('Selection Trigger Sentinel');
     const modifierLabel = queryRequired<HTMLElement>('.label', modifierRow);
-    const modifierControlHelp = queryRequired<HTMLElement>(
-      '.modifier-key-description',
-      modifierRow
-    );
-    expect(modifierLabel.textContent).not.toContain('Modifier description sentinel.');
-    expect(modifierControlHelp.textContent).toBe('Modifier description sentinel.');
+    expect(modifierLabel.textContent).toContain('Selection trigger description sentinel.');
     expect(
-      modifierRow.querySelectorAll<HTMLButtonElement>('.modifier-key-inline .chip')
+      Array.from(
+        modifierRow.querySelectorAll<HTMLButtonElement>('.selection-trigger-inline > .chips button')
+      ).map((button) => [button.dataset.value, button.textContent])
+    ).toEqual([
+      ['disabled', 'Never Sentinel'],
+      ['direct', 'Direct Sentinel'],
+      ['modifier', 'Modifier Sentinel']
+    ]);
+    expect(
+      modifierRow.querySelectorAll<HTMLButtonElement>('.modifier-key-choices .chip')
     ).toHaveLength(3);
 
     const shortcutRow = requireRenderedRow('Shortcuts Row Sentinel');
@@ -164,12 +171,12 @@ function requireRow(group: GroupNode, title: string): RowNode {
   return row;
 }
 
-function requireSelect(row: RowNode): SelectNode {
-  const select = collectNodes(row.control).find((node): node is SelectNode =>
-    isNodeKind(node, 'select')
+function requireSegmented(row: RowNode): SegmentedNavNode {
+  const select = collectNodes(row.control).find((node): node is SegmentedNavNode =>
+    isNodeKind(node, 'segmentedNav')
   );
   if (!select) {
-    throw new Error(`Missing select control for row: ${String(row.title)}`);
+    throw new Error(`Missing segmented control for row: ${String(row.title)}`);
   }
   return select;
 }

@@ -3,131 +3,94 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
+  createUnsignedXpi,
   lintFirefoxExtension,
-  normalizeFirefoxSigningChannel,
   prepareFirefoxReleasePackage,
-  requiresDownloadedSignedArtifact,
-  resolveFirefoxAmoSourceArchiveForSigning,
-  signAndAuditFirefoxPackage
+  validateFirefoxExtension
 } from '../../../scripts/package-firefox.mjs';
+import { buildClosedCommandEnvironment } from '../../../scripts/config/commandBoundaryProfiles.mjs';
+import { applyRestHostPermissions } from '../../../scripts/utils/manifestHosts.mjs';
+import { createBrowserManifest } from '../../../scripts/utils/manifestSources.mjs';
 
 const tempRoots: string[] = [];
 const RELEASE_DISPLAY_NAME = 'Zendio-All in Obsidian';
 const RELEASE_ARTIFACT_BASE_NAME = `${RELEASE_DISPLAY_NAME}-v0.2.0`;
 
-type MockSignOptions = {
-  artifactsDir?: string;
-};
-
 async function createTempRoot(): Promise<string> {
-  const root = await mkdtemp(join(tmpdir(), 'aiiinob-package-firefox-test-'));
+  const root = await mkdtemp(join(tmpdir(), 'zendio-package-firefox-test-'));
   tempRoots.push(root);
   return root;
 }
 
-function createSigningOptions(root: string) {
-  return {
-    distDir: join(root, 'dist'),
-    artifactsDir: join(root, 'artifacts'),
-    artifactBaseName: RELEASE_ARTIFACT_BASE_NAME,
-    apiKey: 'api-key',
-    apiSecret: 'api-secret',
-    channel: 'listed',
-    extensionId: 'extension@example.test'
-  };
+async function createStaticDist(root: string) {
+  const distDir = join(root, 'dist');
+  await mkdir(join(distDir, 'background'), { recursive: true });
+  const manifest = applyRestHostPermissions(createBrowserManifest('firefox'));
+  await writeFile(join(distDir, 'manifest.json'), `${JSON.stringify(manifest, null, 2)}\n`);
+  await writeFile(join(distDir, 'background/index.js'), 'console.log("background");\n');
+  return { distDir, manifest };
 }
 
-describe('Firefox package signing audit', () => {
+describe('Firefox package audit', () => {
   afterEach(async () => {
+    vi.unstubAllEnvs();
     await Promise.all(
       tempRoots.splice(0).map((root) => rm(root, { recursive: true, force: true }))
     );
   });
 
-  it('accepts only the AMO signing channels supported by web-ext', () => {
-    expect(normalizeFirefoxSigningChannel('listed')).toBe('listed');
-    expect(normalizeFirefoxSigningChannel('unlisted')).toBe('unlisted');
-    expect(requiresDownloadedSignedArtifact('listed')).toBe(false);
-    expect(requiresDownloadedSignedArtifact('unlisted')).toBe(true);
-    expect(() => normalizeFirefoxSigningChannel('self-hosted')).toThrow(
-      'Firefox signing channel must be either "listed" or "unlisted".'
+  it('accepts the repository-owned Firefox manifest and required release entrypoint', async () => {
+    const root = await createTempRoot();
+    const { distDir, manifest } = await createStaticDist(root);
+    const logger = { log: vi.fn() };
+
+    await expect(validateFirefoxExtension(distDir, { logger })).resolves.toEqual(manifest);
+    expect(logger.log).toHaveBeenNthCalledWith(
+      1,
+      '🔎 正在运行 Firefox repository manifest/static checks...'
+    );
+    expect(logger.log).toHaveBeenLastCalledWith(
+      '✅ Firefox repository manifest/static checks passed'
     );
   });
 
-  it('runs web-ext lint in self-hosted non-exiting mode for Firefox release artifacts', async () => {
+  it('rejects a built Firefox manifest that drifts from the repository source', async () => {
     const root = await createTempRoot();
-    const distDir = join(root, 'dist');
-    const webExt = {
-      cmd: {
-        lint: vi.fn().mockResolvedValue({
-          summary: {
-            errors: 0,
-            warnings: 2,
-            notices: 0
-          },
-          errors: [],
-          warnings: [{ code: 'UNSAFE_VAR_ASSIGNMENT' }, { code: 'UNSAFE_VAR_ASSIGNMENT' }],
-          notices: []
-        })
-      }
-    };
-    const logger = { log: vi.fn(), warn: vi.fn() };
-
-    await lintFirefoxExtension(distDir, { logger, webExt });
-
-    expect(webExt.cmd.lint).toHaveBeenCalledWith(
-      {
-        sourceDir: distDir,
-        selfHosted: true,
-        warningsAsErrors: false
-      },
-      { shouldExitProgram: false }
-    );
-    expect(logger.log).toHaveBeenCalledWith('✅ Firefox web-ext lint passed');
-  });
-
-  it('fails Firefox release lint when web-ext reports validation errors', async () => {
-    const root = await createTempRoot();
-    const distDir = join(root, 'dist');
-    const webExt = {
-      cmd: {
-        lint: vi.fn().mockResolvedValue({
-          summary: {
-            errors: 1,
-            warnings: 0,
-            notices: 0
-          },
-          errors: [{ code: 'BACKGROUND_SERVICE_WORKER_NOFALLBACK' }],
-          warnings: [],
-          notices: []
-        })
-      }
-    };
-
-    await expect(
-      lintFirefoxExtension(distDir, { logger: { log: vi.fn(), warn: vi.fn() }, webExt })
-    ).rejects.toThrow(
-      'Firefox web-ext lint failed with 1 error(s): BACKGROUND_SERVICE_WORKER_NOFALLBACK'
-    );
-  });
-
-  it('lints the final Firefox dist before creating and auditing the unsigned XPI', async () => {
-    const root = await createTempRoot();
-    const distDir = join(root, 'dist');
-    await mkdir(distDir, { recursive: true });
+    const { distDir, manifest } = await createStaticDist(root);
     await writeFile(
       join(distDir, 'manifest.json'),
-      JSON.stringify({
-        manifest_version: 3,
-        name: '__MSG_extName__',
-        version: '0.2.0',
-        host_permissions: []
-      })
+      `${JSON.stringify({ ...manifest, background: { service_worker: 'background/index.js' } })}\n`
+    );
+    await expect(validateFirefoxExtension(distDir)).rejects.toThrow(
+      'FIREFOX_STATIC_MANIFEST_DRIFT'
+    );
+  });
+
+  it('rejects a Firefox package whose required background entrypoint is absent', async () => {
+    const root = await createTempRoot();
+    const { distDir } = await createStaticDist(root);
+    await rm(join(distDir, 'background/index.js'));
+    await expect(validateFirefoxExtension(distDir)).rejects.toThrow(
+      'FIREFOX_STATIC_RELEASE_CONTRACT'
+    );
+  });
+
+  it('runs static validation before creating and auditing the unsigned XPI', async () => {
+    const root = await createTempRoot();
+    const distDir = join(root, 'dist');
+    await mkdir(distDir);
+    await writeFile(
+      join(distDir, 'manifest.json'),
+      JSON.stringify({ name: '__MSG_extensionName__', version: '0.2.0' })
     );
     const steps: string[] = [];
+    const validateFirefoxExtensionImpl = vi.fn(() => {
+      steps.push('validate');
+      return Promise.resolve();
+    });
     const lintFirefoxExtensionImpl = vi.fn(() => {
       steps.push('lint');
-      return Promise.resolve();
+      return Promise.resolve({ errors: 0, warnings: 2, notices: 0 });
     });
     const createUnsignedXpiImpl = vi.fn(() => {
       steps.push('xpi');
@@ -148,7 +111,8 @@ describe('Firefox package signing audit', () => {
         auditReleaseArchiveImpl,
         createUnsignedXpiImpl,
         lintFirefoxExtensionImpl,
-        logger: { log: vi.fn(), warn: vi.fn() },
+        validateFirefoxExtensionImpl,
+        logger: { log: vi.fn() },
         prepareLicenseArtifactsImpl: vi.fn(() => {
           steps.push('prepare');
           return Promise.resolve();
@@ -157,7 +121,8 @@ describe('Firefox package signing audit', () => {
       }
     );
 
-    expect(steps).toEqual(['prepare', 'lint', 'xpi', 'audit']);
+    expect(steps).toEqual(['prepare', 'validate', 'lint', 'xpi', 'audit']);
+    expect(validateFirefoxExtensionImpl).toHaveBeenCalledWith(distDir);
     expect(lintFirefoxExtensionImpl).toHaveBeenCalledWith(distDir);
     expect(createUnsignedXpiImpl).toHaveBeenCalledWith(distDir, RELEASE_DISPLAY_NAME, '0.2.0');
     expect(auditReleaseArchiveImpl).toHaveBeenCalledWith(
@@ -171,238 +136,158 @@ describe('Firefox package signing audit', () => {
     });
   });
 
-  it('copies the signed XPI to the final path and audits that final artifact', async () => {
-    const root = await createTempRoot();
-    const finalDir = join(root, 'final');
-    await mkdir(finalDir, { recursive: true });
-    const auditReleaseArchiveImpl = vi.fn().mockResolvedValue(undefined);
+  it('reports warnings and notices while allowing a warning-only lint result', async () => {
     const logger = { log: vi.fn(), warn: vi.fn() };
-    const webExt = {
-      cmd: {
-        sign: vi.fn(async (options: MockSignOptions) => {
-          const artifactsDir = options.artifactsDir;
-          if (typeof artifactsDir !== 'string') {
-            throw new Error('Expected artifactsDir to be a string.');
-          }
-          await mkdir(artifactsDir, { recursive: true });
-          await writeFile(join(artifactsDir, 'signed-from-mozilla.xpi'), 'signed-xpi-bytes');
-        })
+    const runBoundedCommandImpl = vi.fn().mockResolvedValue({
+      ok: true,
+      exitCode: 0,
+      terminalReason: 'exit',
+      output: {
+        stdout: {
+          text: JSON.stringify({
+            summary: { errors: 0, warnings: 2, notices: 1 },
+            errors: [],
+            warnings: [{ code: 'WARNING_A' }, { code: 'WARNING_B' }],
+            notices: [{ code: 'NOTICE_A' }]
+          })
+        },
+        stderr: { text: '' }
       }
-    };
+    });
 
-    const signingResult = await signAndAuditFirefoxPackage(
-      {
-        ...createSigningOptions(root),
-        uploadSourceCodePath: join(root, 'source', 'amo-source.zip'),
-        timeout: 15000,
-        approvalTimeout: 0
-      },
-      {
-        auditReleaseArchiveImpl,
-        logger,
-        resolvePathImpl: (targetName: string) => join(finalDir, targetName),
-        webExt
-      }
+    await expect(
+      lintFirefoxExtension('build/dist-firefox', { logger, runBoundedCommandImpl })
+    ).resolves.toEqual({ errors: 0, warnings: 2, notices: 1 });
+    expect(runBoundedCommandImpl).toHaveBeenCalledWith(
+      { profileId: 'firefox-addons-lint-v1', arguments: ['build/dist-firefox'] },
+      expect.objectContaining({ mirrorOutput: false })
     );
-    const signedPath = signingResult.signedPath;
-
-    expect(signedPath).toBe(join(finalDir, `${RELEASE_ARTIFACT_BASE_NAME}-signed.xpi`));
-    await expect(readFile(signedPath ?? '', 'utf8')).resolves.toBe('signed-xpi-bytes');
-    expect(auditReleaseArchiveImpl).toHaveBeenCalledWith(signedPath);
-    expect(webExt.cmd.sign).toHaveBeenCalledWith(
-      expect.objectContaining({
-        sourceDir: join(root, 'dist'),
-        artifactsDir: join(root, 'artifacts'),
-        apiKey: 'api-key',
-        apiSecret: 'api-secret',
-        amoBaseUrl: 'https://addons.mozilla.org/api/v5/',
-        channel: 'listed',
-        id: 'extension@example.test',
-        uploadSourceCode: join(root, 'source', 'amo-source.zip'),
-        timeout: 15000,
-        approvalTimeout: 0
-      }),
-      { shouldExitProgram: false }
+    expect(logger.warn).toHaveBeenCalledWith(
+      'Firefox addons-linter completed with 2 warning(s) and 1 notice(s).'
     );
   });
 
-  it('generates a Firefox AMO source archive for signing when no explicit archive is provided', async () => {
-    const root = await createTempRoot();
-    const logger = { log: vi.fn(), warn: vi.fn() };
-    const createFirefoxAmoSourceArchiveImpl = vi.fn().mockResolvedValue({
-      archivePath: join(root, 'build', 'firefox-source', `${RELEASE_ARTIFACT_BASE_NAME}-source.zip`)
+  it('keeps release GA configuration in the parent and out of the linter environment', async () => {
+    const proxyEndpoint = 'https://release-analytics.example.test/collect';
+    vi.stubEnv('ZENDIO_GA_MEASUREMENT_ID', 'G-RELEASETEST');
+    vi.stubEnv('ZENDIO_GA_TRANSPORT_MODE', 'proxy');
+    vi.stubEnv('ZENDIO_GA_PROXY_ENDPOINT', proxyEndpoint);
+    vi.stubEnv('ZENDIO_PLAYWRIGHT_ATTEMPT_ROOT', '/tmp/firefox-release-attempt');
+    vi.stubEnv('NPM_CONFIG_USERCONFIG', '/tmp/firefox-release-attempt/install/npm-userconfig');
+    vi.stubEnv('NPM_CONFIG_GLOBALCONFIG', '/tmp/firefox-release-attempt/install/npm-globalconfig');
+    const runBoundedCommandImpl = vi.fn().mockResolvedValue({
+      ok: true,
+      exitCode: 0,
+      output: {
+        stdout: {
+          text: JSON.stringify({
+            summary: { errors: 0, warnings: 0, notices: 0 },
+            errors: [],
+            warnings: [],
+            notices: []
+          })
+        }
+      }
     });
+    await lintFirefoxExtension('build/dist-firefox', { runBoundedCommandImpl });
+    expect(runBoundedCommandImpl).toHaveBeenCalledWith(
+      { profileId: 'firefox-addons-lint-v1', arguments: ['build/dist-firefox'] },
+      expect.objectContaining({ mirrorOutput: false })
+    );
+    expect(runBoundedCommandImpl.mock.calls[0]?.[1]).toHaveProperty(
+      'environment.HOME',
+      process.env.HOME
+    );
+    for (const key of [
+      'NPM_CONFIG_USERCONFIG',
+      'NPM_CONFIG_GLOBALCONFIG',
+      'ZENDIO_PLAYWRIGHT_ATTEMPT_ROOT'
+    ]) {
+      expect(runBoundedCommandImpl.mock.calls[0]?.[1]).toHaveProperty(
+        `environment.${key}`,
+        process.env[key]
+      );
+    }
+    for (const key of [
+      'ZENDIO_GA_MEASUREMENT_ID',
+      'ZENDIO_GA_TRANSPORT_MODE',
+      'ZENDIO_GA_PROXY_ENDPOINT'
+    ]) {
+      expect(runBoundedCommandImpl.mock.calls[0]?.[1]).not.toHaveProperty(`environment.${key}`);
+    }
+    expect(process.env.ZENDIO_GA_PROXY_ENDPOINT).toBe(proxyEndpoint);
+    expect(process.env.ZENDIO_GA_MEASUREMENT_ID).toBe('G-RELEASETEST');
+  });
 
-    const sourceArchivePath = await resolveFirefoxAmoSourceArchiveForSigning(
-      {
-        artifactBaseName: RELEASE_ARTIFACT_BASE_NAME,
-        releaseXpiName: `${RELEASE_ARTIFACT_BASE_NAME}.xpi`,
-        version: '0.2.0',
-        sourceArchiveOutputDir: 'build/firefox-source'
-      },
-      {
-        createFirefoxAmoSourceArchiveImpl,
-        logger,
-        repoRoot: root
+  it('preserves ambient proxy rejection at the command boundary', async () => {
+    vi.stubEnv('HTTPS_PROXY', 'http://proxy.example.test:8080');
+    const runBoundedCommandImpl = vi.fn(
+      (_request: object, options?: { environment?: Record<string, string | undefined> }) => {
+        buildClosedCommandEnvironment(options?.environment ?? {});
+        throw new Error('command boundary unexpectedly accepted a proxy');
       }
     );
+    await expect(
+      lintFirefoxExtension('build/dist-firefox', { runBoundedCommandImpl })
+    ).rejects.toThrow('ENVIRONMENT_FORBIDDEN');
+    expect(runBoundedCommandImpl).toHaveBeenCalledOnce();
+  });
 
-    expect(sourceArchivePath).toBe(
-      join(root, 'build', 'firefox-source', `${RELEASE_ARTIFACT_BASE_NAME}-source.zip`)
-    );
-    expect(createFirefoxAmoSourceArchiveImpl).toHaveBeenCalledWith(
-      {
-        repoRoot: root,
-        outputDir: 'build/firefox-source',
-        artifactBaseName: RELEASE_ARTIFACT_BASE_NAME,
-        releaseXpiName: `${RELEASE_ARTIFACT_BASE_NAME}.xpi`,
-        version: '0.2.0'
-      },
-      expect.objectContaining({
-        logger
+  it('blocks lint errors even when the bounded command returns structured findings', async () => {
+    const runBoundedCommandImpl = vi.fn().mockResolvedValue({
+      ok: false,
+      exitCode: 1,
+      terminalReason: 'exit',
+      output: {
+        stdout: {
+          text: JSON.stringify({
+            summary: { errors: 2, warnings: 1, notices: 0 },
+            errors: [{ code: 'ERROR_A' }, { code: 'ERROR_B' }],
+            warnings: [{ code: 'WARNING_A' }],
+            notices: []
+          })
+        },
+        stderr: { text: '' }
+      }
+    });
+
+    await expect(
+      lintFirefoxExtension('build/dist-firefox', { runBoundedCommandImpl })
+    ).rejects.toThrow('FIREFOX_ADDONS_LINT_ERRORS: count=2 codes=ERROR_A,ERROR_B');
+  });
+
+  it('fails closed when the bounded linter command does not return valid JSON', async () => {
+    const runBoundedCommandImpl = vi.fn().mockResolvedValue({
+      ok: false,
+      exitCode: 1,
+      terminalReason: 'exit',
+      output: { stdout: { text: '' }, stderr: { text: 'boom' } }
+    });
+
+    await expect(
+      lintFirefoxExtension('build/dist-firefox', { runBoundedCommandImpl })
+    ).rejects.toThrow('FIREFOX_ADDONS_LINT_COMMAND_FAILED: exit=1 reason=exit stderr=boom');
+  });
+
+  it('publishes a release XPI without replacing an existing final target', async () => {
+    const root = await createTempRoot();
+    const distDir = join(root, 'dist');
+    const outputDir = join(root, 'release');
+    const workDir = join(root, '.release.work');
+    await mkdir(distDir);
+    await mkdir(outputDir);
+    await mkdir(workDir);
+    await writeFile(join(distDir, 'manifest.json'), '{}\n');
+
+    const first = await createUnsignedXpi(distDir, RELEASE_DISPLAY_NAME, '0.2.0', {
+      publication: { mode: 'release-no-replace-v1', outputDir, workDir }
+    });
+
+    await expect(readFile(first.outputPath)).resolves.toBeInstanceOf(Buffer);
+    await expect(
+      createUnsignedXpi(distDir, RELEASE_DISPLAY_NAME, '0.2.0', {
+        publication: { mode: 'release-no-replace-v1', outputDir, workDir }
       })
-    );
-  });
-
-  it('audits an explicit Firefox AMO source archive path before signing uses it', async () => {
-    const root = await createTempRoot();
-    const auditFirefoxAmoSourceArchiveImpl = vi.fn().mockResolvedValue({ ok: true });
-    const createFirefoxAmoSourceArchiveImpl = vi.fn();
-
-    const sourceArchivePath = await resolveFirefoxAmoSourceArchiveForSigning(
-      {
-        artifactBaseName: RELEASE_ARTIFACT_BASE_NAME,
-        releaseXpiName: `${RELEASE_ARTIFACT_BASE_NAME}.xpi`,
-        version: '0.2.0',
-        uploadSourceCodePath: 'review/source.zip'
-      },
-      {
-        auditFirefoxAmoSourceArchiveImpl,
-        createFirefoxAmoSourceArchiveImpl,
-        logger: { log: vi.fn(), warn: vi.fn() },
-        resolvePathImpl: (targetPath: string) => join(root, targetPath)
-      }
-    );
-
-    expect(sourceArchivePath).toBe(join(root, 'review/source.zip'));
-    expect(auditFirefoxAmoSourceArchiveImpl).toHaveBeenCalledWith(join(root, 'review/source.zip'));
-    expect(createFirefoxAmoSourceArchiveImpl).not.toHaveBeenCalled();
-  });
-
-  it('detects a signed XPI when web-ext overwrites an existing artifact name', async () => {
-    const root = await createTempRoot();
-    const finalDir = join(root, 'final');
-    const options = createSigningOptions(root);
-    await mkdir(finalDir, { recursive: true });
-    await mkdir(options.artifactsDir, { recursive: true });
-    await writeFile(join(options.artifactsDir, 'signed-from-mozilla.xpi'), 'old');
-
-    const auditReleaseArchiveImpl = vi.fn().mockResolvedValue(undefined);
-    const logger = { log: vi.fn(), warn: vi.fn() };
-    const webExt = {
-      cmd: {
-        sign: vi.fn(async () => {
-          await writeFile(
-            join(options.artifactsDir, 'signed-from-mozilla.xpi'),
-            'signed-xpi-overwritten-by-web-ext'
-          );
-        })
-      }
-    };
-
-    const signingResult = await signAndAuditFirefoxPackage(options, {
-      auditReleaseArchiveImpl,
-      logger,
-      resolvePathImpl: (targetName: string) => join(finalDir, targetName),
-      webExt
-    });
-    const signedPath = signingResult.signedPath;
-
-    expect(signedPath).toBe(join(finalDir, `${RELEASE_ARTIFACT_BASE_NAME}-signed.xpi`));
-    await expect(readFile(signedPath ?? '', 'utf8')).resolves.toBe(
-      'signed-xpi-overwritten-by-web-ext'
-    );
-    expect(auditReleaseArchiveImpl).toHaveBeenCalledWith(signedPath);
-  });
-
-  it('submits listed AMO releases without requiring an immediate signed XPI download', async () => {
-    const root = await createTempRoot();
-    const auditReleaseArchiveImpl = vi.fn().mockResolvedValue(undefined);
-    const logger = { log: vi.fn(), warn: vi.fn() };
-    const webExt = {
-      cmd: {
-        sign: vi.fn(async (options: MockSignOptions) => {
-          const artifactsDir = options.artifactsDir;
-          if (typeof artifactsDir !== 'string') {
-            throw new Error('Expected artifactsDir to be a string.');
-          }
-          await mkdir(artifactsDir, { recursive: true });
-          await writeFile(join(artifactsDir, 'submission-result.json'), '{"id":"addon-id"}');
-          return { id: 'addon-id' };
-        })
-      }
-    };
-
-    await expect(
-      signAndAuditFirefoxPackage(
-        {
-          ...createSigningOptions(root),
-          channel: 'listed',
-          approvalTimeout: 0
-        },
-        {
-          auditReleaseArchiveImpl,
-          logger,
-          resolvePathImpl: (targetName: string) => join(root, targetName),
-          webExt
-        }
-      )
-    ).resolves.toMatchObject({
-      channel: 'listed',
-      signedPath: null,
-      webExtResult: { id: 'addon-id' }
-    });
-    expect(auditReleaseArchiveImpl).not.toHaveBeenCalled();
-    expect(webExt.cmd.sign).toHaveBeenCalledWith(
-      expect.objectContaining({
-        approvalTimeout: 0,
-        channel: 'listed'
-      }),
-      { shouldExitProgram: false }
-    );
-  });
-
-  it('fails unlisted signing mode when Mozilla signing produces no XPI artifact', async () => {
-    const root = await createTempRoot();
-    const auditReleaseArchiveImpl = vi.fn().mockResolvedValue(undefined);
-    const logger = { log: vi.fn(), warn: vi.fn() };
-    const webExt = {
-      cmd: {
-        sign: vi.fn(async (options: MockSignOptions) => {
-          const artifactsDir = options.artifactsDir;
-          if (typeof artifactsDir !== 'string') {
-            throw new Error('Expected artifactsDir to be a string.');
-          }
-          await mkdir(artifactsDir, { recursive: true });
-          await writeFile(join(artifactsDir, 'web-ext-output.txt'), 'no signed xpi here');
-        })
-      }
-    };
-
-    await expect(
-      signAndAuditFirefoxPackage(
-        {
-          ...createSigningOptions(root),
-          channel: 'unlisted'
-        },
-        {
-          auditReleaseArchiveImpl,
-          logger,
-          resolvePathImpl: (targetName: string) => join(root, targetName),
-          webExt
-        }
-      )
-    ).rejects.toThrow('Firefox signing did not produce a signed XPI artifact.');
-    expect(auditReleaseArchiveImpl).not.toHaveBeenCalled();
+    ).rejects.toThrow('FIREFOX_RELEASE_TARGET_EXISTS');
   });
 });

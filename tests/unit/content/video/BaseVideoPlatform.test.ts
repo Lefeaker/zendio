@@ -10,13 +10,16 @@ import {
 function createContext(doc: Document): VideoPlatformContext {
   return {
     doc,
+    documentMutationHub: { subscribe: vi.fn(() => vi.fn()) },
     highlightSelection: vi.fn(() => 'generated-wrapper'),
     decorateHighlight: vi.fn(),
     scheduleFragmentHighlightRestore: vi.fn(),
     getElementByIdDeep: vi.fn(() => null),
     querySelectorDeep: <T extends Element>(_selector: string): T | null => null,
+    createScopedMutationObserver: vi.fn(() => null),
     observeWithFragmentObserver: vi.fn(),
     registerShadowSelectionBridge: vi.fn(),
+    unregisterShadowSelectionBridge: vi.fn(),
     ensureHighlightStyles: vi.fn()
   };
 }
@@ -35,6 +38,16 @@ function createCapture(id: string, wrapperId?: string): VideoFragmentCapture {
 }
 
 describe('BaseVideoPlatform', () => {
+  it('keeps the narrowed adapter and scoped observer capabilities separate', () => {
+    const context = createContext(document);
+    const platform = new BaseVideoPlatform('youtube', context);
+
+    expect(Object.keys(platform).sort()).toEqual(['context', 'platform']);
+    expect(typeof context.documentMutationHub.subscribe).toBe('function');
+    expect(typeof context.createScopedMutationObserver).toBe('function');
+    expect(typeof context.observeWithFragmentObserver).toBe('function');
+  });
+
   it('normalizes plain-text selection into html and keeps the provided range', () => {
     const context = createContext(document);
     const platform = new BaseVideoPlatform('bilibili', context);

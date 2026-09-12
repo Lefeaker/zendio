@@ -213,7 +213,7 @@ class TestReportGenerator {
             recs += `- **样式隔离问题** (${noStyle} 个站点): 检查 Shadow DOM 是否正确创建，样式表是否正确注入\n`;
         }
         if (noFocus > 0) {
-            recs += `- **焦点管理问题** (${noFocus} 个站点): 检查 FocusTrapController 是否正确初始化\n`;
+            recs += `- **焦点管理问题** (${noFocus} 个站点): 检查 neutral runtime dialog 的初始焦点、Tab 顺序与关闭后焦点恢复\n`;
         }
 
         recs += `\n### 下一步行动\n\n`;

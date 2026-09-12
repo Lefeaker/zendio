@@ -45,10 +45,6 @@ export function mergeVideoOptions(source?: StoredOptions['video']): VideoOptions
   }
 
   const base = source ?? {};
-  const legacy = base as typeof base & {
-    controlBarAutoPauseEnabled?: boolean;
-    controlBarCaptureScreenshotEnabled?: boolean;
-  };
   const merged: VideoOptions = {
     floatingPromptEnabled: base.floatingPromptEnabled ?? defaults?.floatingPromptEnabled ?? true,
     promptButtonLabel:
@@ -59,16 +55,8 @@ export function mergeVideoOptions(source?: StoredOptions['video']): VideoOptions
       (base.promptShortcut ?? defaults?.promptShortcut ?? '').trim() ||
       defaults?.promptShortcut ||
       'Alt+V',
-    controlBarAutoPause:
-      base.controlBarAutoPause ??
-      legacy.controlBarAutoPauseEnabled ??
-      defaults?.controlBarAutoPause ??
-      true,
-    controlBarScreenshot:
-      base.controlBarScreenshot ??
-      legacy.controlBarCaptureScreenshotEnabled ??
-      defaults?.controlBarScreenshot ??
-      true,
+    controlBarAutoPause: base.controlBarAutoPause ?? defaults?.controlBarAutoPause ?? true,
+    controlBarScreenshot: base.controlBarScreenshot ?? defaults?.controlBarScreenshot ?? true,
     commentEditorAutoPause:
       base.commentEditorAutoPause ?? defaults?.commentEditorAutoPause ?? false,
     screenshotAttachment: mergeScreenshotAttachmentOptions(base.screenshotAttachment, {

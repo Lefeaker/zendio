@@ -62,13 +62,22 @@ function createRangeSelection(text = 'Selected text'): { range: Range; selection
 function createPlatformContext(): VideoPlatformContext {
   return {
     doc: document,
+    documentMutationHub: { subscribe: vi.fn(() => vi.fn()) },
     highlightSelection: vi.fn(() => undefined),
     decorateHighlight: vi.fn(),
     scheduleFragmentHighlightRestore: vi.fn(),
     getElementByIdDeep: vi.fn(() => null),
     querySelectorDeep: vi.fn(() => null),
-    observeWithFragmentObserver: vi.fn(),
+    createScopedMutationObserver: vi.fn((callback: MutationCallback) => ({
+      callback,
+      observe: vi.fn(),
+      disconnect: vi.fn()
+    })),
+    observeWithFragmentObserver: vi.fn<VideoPlatformContext['observeWithFragmentObserver']>(
+      (observer, target, options) => observer.observe(target, options)
+    ),
     registerShadowSelectionBridge: vi.fn(),
+    unregisterShadowSelectionBridge: vi.fn(),
     ensureHighlightStyles: vi.fn()
   };
 }
@@ -287,7 +296,7 @@ describe('video listener scope jsdom fixtures', () => {
           captureContext: true,
           contextLength: 100,
           contextMode: 'chars',
-          selectionModifierEnabled: true,
+          selectionTriggerMode: 'modifier',
           selectionModifierKeys: ['shift'],
           keyboardShortcutsEnabled: true
         }),
@@ -306,6 +315,7 @@ describe('video listener scope jsdom fixtures', () => {
       doc: document,
       pendingSelection: asType<PendingSelectionTracker>(pendingSelection),
       shouldTrackSelection: () => fragmentSelectionController.shouldTrackSelection(),
+      canActivateSelection: (event) => fragmentSelectionController.canActivateSelection(event),
       suppressSelectionCapture: () => false,
       isRangeInsideUi: () => false,
       getDocumentSelection: () => selection,

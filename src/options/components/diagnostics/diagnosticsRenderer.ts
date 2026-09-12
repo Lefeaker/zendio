@@ -30,7 +30,7 @@ export async function resolveOptionsSnapshot(): Promise<StoredOptions | null> {
   }
   try {
     const optionsRepository = resolveRepository<IOptionsRepository>(DI_TOKENS.IOptionsRepository);
-    return (await optionsRepository.get()) as StoredOptions;
+    return await optionsRepository.get();
   } catch (error) {
     console.error('[diagnostics] Failed to load options:', error);
     return null;

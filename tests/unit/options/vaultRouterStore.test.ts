@@ -100,6 +100,15 @@ describe('vaultRouterStore', () => {
     expect(getVaultRouterConfig()?.vaults[0]?.name).toBe('New Vault');
   });
 
+  it('F04 rejects an explicit Vault ID that is already owned', () => {
+    addAdditionalVault({ id: 'stable', name: 'Stable' });
+
+    expect(() => addAdditionalVault({ id: 'stable', name: 'Duplicate' })).toThrow(
+      'VAULT_ROUTER_IDENTITY_DUPLICATE_VAULT_ID'
+    );
+    expect(getVaultRouterConfig()?.vaults.map(({ id }) => id)).toEqual(['stable']);
+  });
+
   it('removes associated rules when a vault is deleted', () => {
     const vault = addAdditionalVault({ name: 'To Remove' });
     addRoutingRule({ vaultId: vault.id, pattern: 'remove.me', type: 'keyword' });

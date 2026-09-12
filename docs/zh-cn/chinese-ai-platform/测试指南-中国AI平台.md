@@ -9,8 +9,8 @@
 ### 1. 安装扩展
 
 ```bash
-cd AiiinOB/your-extension
-npm install
+cd /Users/mac/Documents/Dev/AI2OB_Plg/AiiinOB
+# 使用已按 lockfile provisioned 的本地依赖；不要在测试步骤隐式安装或更新
 npm run build
 ```
 
@@ -20,7 +20,7 @@ npm run build
 2. 访问 `chrome://extensions/`
 3. 开启"开发者模式"
 4. 点击"加载已解压的扩展程序"
-5. 选择 `dist` 文件夹
+5. 选择 `build/dist` 文件夹
 
 ### 3. 配置 Obsidian
 

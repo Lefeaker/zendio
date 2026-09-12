@@ -1,4 +1,5 @@
 import { spawnSync } from 'node:child_process';
+import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 
@@ -39,6 +40,18 @@ async function collectTrackedContract(): Promise<TrackedAnalyticsSourceContract>
 }
 
 describe('setup-error-analytics script', () => {
+  it('validates production privacy wiring without a retired UI-view dependency', () => {
+    const source = readFileSync(
+      new URL('../../../scripts/setup-error-analytics.js', import.meta.url),
+      'utf8'
+    );
+    const retiredView = ['src', 'ui', 'domains', 'privacy', 'PrivacySettingsView.ts'].join('/');
+
+    expect(source).not.toContain(retiredView);
+    expect(source).toContain('validatePrivacyWiring');
+    expect(source).toContain('src/options/app/productionStitchPersistence.ts');
+  });
+
   it('accepts the current proxy-first production analytics contracts without public env vars', () => {
     const result = spawnSync(process.execPath, [setupErrorAnalyticsScript], {
       cwd: PROJECT_ROOT,

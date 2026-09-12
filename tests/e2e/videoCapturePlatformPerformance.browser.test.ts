@@ -27,7 +27,7 @@ type StoredOptionsFixture = {
     captureContext: boolean;
     contextLength: number;
     contextMode: 'chars' | 'words';
-    selectionModifierEnabled: boolean;
+    selectionTriggerMode: 'disabled' | 'direct' | 'modifier';
     selectionModifierKeys: FragmentModifierKey[];
     keyboardShortcutsEnabled: boolean;
   };
@@ -44,6 +44,11 @@ type BilibiliFixtureCounters = {
 type ShadowListenerProbeCounts = {
   shadowListenerAdds: Record<string, number>;
   shadowListenerRemoves: Record<string, number>;
+};
+
+type BodyObserverProbeCounts = {
+  bodyObserveCalls: number;
+  disconnectCalls: number;
 };
 
 type StartVideoModeResponse = {
@@ -109,7 +114,7 @@ function createOptionsFixture(): StoredOptionsFixture {
       captureContext: true,
       contextLength: 200,
       contextMode: 'chars',
-      selectionModifierEnabled: true,
+      selectionTriggerMode: 'modifier',
       selectionModifierKeys: ['shift'],
       keyboardShortcutsEnabled: true
     },
@@ -239,6 +244,55 @@ async function readShadowListenerProbe(
   if (!probe) {
     throw new Error('Shadow listener probe was not installed in the content runtime.');
   }
+  return probe;
+}
+
+async function installBodyObserverProbe(extensionPage: Page, tabId: number): Promise<void> {
+  await extensionPage.evaluate(async (targetTabId) => {
+    await chrome.scripting.executeScript({
+      target: { tabId: targetTabId },
+      func: () => {
+        const runtimeGlobal = globalThis as typeof globalThis & {
+          __aiobU05BodyObserverProbe?: BodyObserverProbeCounts;
+        };
+        runtimeGlobal.__aiobU05BodyObserverProbe = { bodyObserveCalls: 0, disconnectCalls: 0 };
+        const NativeMutationObserver = MutationObserver;
+        class BodyObserverProbe extends NativeMutationObserver {
+          observe(target: Node, options?: MutationObserverInit): void {
+            if (target === document.body && options?.childList && options.subtree) {
+              runtimeGlobal.__aiobU05BodyObserverProbe!.bodyObserveCalls += 1;
+            }
+            super.observe(target, options);
+          }
+
+          disconnect(): void {
+            runtimeGlobal.__aiobU05BodyObserverProbe!.disconnectCalls += 1;
+            super.disconnect();
+          }
+        }
+        Object.defineProperty(globalThis, 'MutationObserver', {
+          configurable: true,
+          value: BodyObserverProbe
+        });
+      }
+    });
+  }, tabId);
+}
+
+async function readBodyObserverProbe(
+  extensionPage: Page,
+  tabId: number
+): Promise<BodyObserverProbeCounts> {
+  const results = await extensionPage.evaluate(async (targetTabId) => {
+    return await chrome.scripting.executeScript({
+      target: { tabId: targetTabId },
+      func: () =>
+        (globalThis as typeof globalThis & { __aiobU05BodyObserverProbe?: BodyObserverProbeCounts })
+          .__aiobU05BodyObserverProbe ?? null
+    });
+  }, tabId);
+  const probe = results[0]?.result;
+  if (!probe) throw new Error('Body observer probe was not installed in the content runtime.');
   return probe;
 }
 
@@ -435,6 +489,7 @@ testWithExtension(
     );
 
     await expect(page.locator('[data-aiob-video-control-bar-button="true"]')).toHaveCount(1);
+    await installBodyObserverProbe(extensionPage, tabId);
     await startVideoMode(extensionPage, tabId);
     await expect(page.locator('[data-role="finish-btn"]')).toBeVisible({ timeout: 10000 });
     await expandVideoPanel(page);
@@ -446,6 +501,12 @@ testWithExtension(
     );
     await expect.poll(() => countShadowHighlights(page, 'main-rich-text')).toBe(1);
     await expect.poll(() => countShadowHighlights(page, 'unrelated-shadow-host')).toBe(0);
+    await expect
+      .poll(() => readBodyObserverProbe(extensionPage, tabId))
+      .toEqual({
+        bodyObserveCalls: 1,
+        disconnectCalls: 0
+      });
 
     const afterSelectionCounters = await readFixtureCounters(page);
     const afterSelectionListenerProbe = await readShadowListenerProbe(extensionPage, tabId);
@@ -472,6 +533,10 @@ testWithExtension(
     expect(sumListenerAdds(afterChurnListenerProbe, ['unrelated-shadow-host'])).toBe(0);
     expect(readHighlightInsertions(afterChurnCounters, 'main-rich-text')).toBe(1);
     expect(readHighlightInsertions(afterChurnCounters, 'unrelated-shadow-host')).toBe(0);
+    expect(await readBodyObserverProbe(extensionPage, tabId)).toEqual({
+      bodyObserveCalls: 1,
+      disconnectCalls: 0
+    });
 
     await dragSelectBilibiliRichText(page, 'reply-rich-text');
     await expect(page.locator('[data-role="capture-item"]')).toHaveCount(2);

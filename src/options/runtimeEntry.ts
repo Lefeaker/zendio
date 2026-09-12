@@ -1,11 +1,11 @@
 import { bootstrapOptionsApp, configureOptionsAppBootstrapStorage } from '@options/app/bootstrap';
-import { registerFallbackRepositories, registerRepositories } from '@shared/di/serviceRegistry';
-import { createMemoryStorageService } from '@platform/preview/memoryStorage';
-import { createPreviewPlatformServices } from '@platform/preview/services';
-import { registerService, TOKENS } from '@shared/di';
+import { registerRepositories } from '@shared/di/serviceRegistry';
 import type { PlatformServices } from '../platform/types';
+import type { UsageStatsClientLike } from './app/usage-dashboard/usageStatsClient';
 
 export async function bootstrapOptionsRuntime(platformServices?: PlatformServices): Promise<void> {
+  const { UsageStatsClient, createUnavailableUsageStatsClient } =
+    await import('./app/usage-dashboard/usageStatsClient');
   const hasChromeStorage =
     typeof chrome !== 'undefined' &&
     Boolean(chrome.runtime) &&
@@ -13,16 +13,11 @@ export async function bootstrapOptionsRuntime(platformServices?: PlatformService
     Boolean(chrome.storage?.local);
 
   let runtime = platformServices?.runtime;
-  const bootstrapStorage = hasChromeStorage
-    ? platformServices?.storage
-    : createMemoryStorageService();
-
-  if (!bootstrapStorage) {
-    throw new Error('Options runtime requires platform services when Chrome storage is available.');
-  }
+  let usageStatsClient: UsageStatsClientLike = createUnavailableUsageStatsClient();
+  let bootstrapStorage = platformServices?.storage;
 
   if (hasChromeStorage) {
-    if (!platformServices) {
+    if (!platformServices || !bootstrapStorage) {
       throw new Error(
         'Options runtime requires platform services when Chrome storage is available.'
       );
@@ -33,16 +28,18 @@ export async function bootstrapOptionsRuntime(platformServices?: PlatformService
       tabs: platformServices.tabs,
       runtime: platformServices.runtime
     });
+    usageStatsClient = new UsageStatsClient(platformServices.messaging);
   } else {
-    const previewPlatformServices = createPreviewPlatformServices(bootstrapStorage);
+    const { configurePreviewOptionsRuntime } = await import('@platform/preview/optionsRepository');
+    const previewPlatformServices = configurePreviewOptionsRuntime();
+    bootstrapStorage = previewPlatformServices.storage;
     runtime = previewPlatformServices.runtime;
-    registerService(TOKENS.platformServices, () => previewPlatformServices);
-    registerFallbackRepositories();
   }
 
   configureOptionsAppBootstrapStorage(bootstrapStorage);
   await bootstrapOptionsApp({
     storage: bootstrapStorage,
+    usageStatsClient,
     ...(runtime ? { runtime } : {})
   });
 }

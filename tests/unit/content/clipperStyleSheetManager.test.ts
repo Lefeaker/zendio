@@ -2,7 +2,7 @@
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const loadExtensionStyleMock = vi.fn<(...args: [string]) => Promise<string>>();
+const loadExtensionStyleMock = vi.fn<(path: string) => Promise<string>>();
 
 vi.mock('../../../src/content/clipper/shared/styleRegistry', () => ({
   loadExtensionStyle: loadExtensionStyleMock
@@ -12,66 +12,74 @@ describe('clipperStyleSheetManager', () => {
   beforeEach(() => {
     vi.resetModules();
     vi.clearAllMocks();
-    loadExtensionStyleMock.mockImplementation((path) =>
-      Promise.resolve(`.${path}{display:block;}`)
-    );
+    loadExtensionStyleMock.mockResolvedValue('.clipper-pack{display:block;}');
   });
 
-  it('loads Stitch runtime CSS before applying managed fallback styles', async () => {
-    const { clipperStyleSheetManager } = await import(
-      '../../../src/content/clipper/shared/styleSheetManager'
-    );
-
+  it('loads and applies only the clipper pack', async () => {
+    const { clipperStyleSheetManager } =
+      await import('../../../src/content/clipper/shared/styleSheetManager');
     clipperStyleSheetManager.destroy();
-    await clipperStyleSheetManager.initialize();
-    const host = document.createElement('div');
-    const shadow = host.attachShadow({ mode: 'open' });
-    clipperStyleSheetManager.applyTo(shadow);
+    const shadow = document.createElement('div').attachShadow({ mode: 'open' });
+    const attachment = clipperStyleSheetManager.applyClipperStyles(shadow);
 
-    expect(loadExtensionStyleMock).toHaveBeenCalledWith('options/stitch/styles/stitch.css');
-    expect(loadExtensionStyleMock).toHaveBeenCalledWith(
-      'options/stitch/styles/variants/stitch-secondary.css'
-    );
-    expect(shadow.querySelector('style[data-aiob-style-bridge="clipper-tailwind"]')).toBeNull();
-    expect(
-      shadow.querySelector('style[data-aiob-style-bridge="clipper-stitch-runtime"]')
-    ).toBeTruthy();
-    expect(
-      shadow.querySelector('style[data-aiob-style-bridge="clipper-stitch-secondary-runtime"]')
-    ).toBeTruthy();
+    await expect(attachment.ready).resolves.toEqual({ status: 'ready' });
+    expect(loadExtensionStyleMock).toHaveBeenCalledTimes(1);
+    expect(loadExtensionStyleMock).toHaveBeenCalledWith('ui/stitch-runtime/styles/clipper.css');
+    expect(shadow.querySelector('[data-aiob-style-bridge="clipper-style-pack"]')).toBeTruthy();
+    attachment.dispose();
   });
 
-  it('reuses the same pending load across concurrent initialize calls', async () => {
-    let resolveLoad: ((value: string) => void) | null = null;
-    loadExtensionStyleMock.mockImplementation((path) => {
-      if (path === 'options/stitch/styles/stitch.css') {
-        return new Promise<string>((resolve) => {
-          resolveLoad = resolve;
-        });
-      }
-      return Promise.resolve('.secondary { display: block; }');
-    });
-
-    const { clipperStyleSheetManager } = await import(
-      '../../../src/content/clipper/shared/styleSheetManager'
+  it('deduplicates concurrent initialize and attachment loads', async () => {
+    let resolveLoad!: (css: string) => void;
+    loadExtensionStyleMock.mockImplementation(
+      () => new Promise<string>((resolve) => (resolveLoad = resolve))
     );
-
+    const { clipperStyleSheetManager } =
+      await import('../../../src/content/clipper/shared/styleSheetManager');
     clipperStyleSheetManager.destroy();
     const first = clipperStyleSheetManager.initialize();
-    const second = clipperStyleSheetManager.initialize();
+    const shadow = document.createElement('div').attachShadow({ mode: 'open' });
+    const attachment = clipperStyleSheetManager.applyClipperStyles(shadow);
+    expect(loadExtensionStyleMock).toHaveBeenCalledTimes(1);
+    resolveLoad('.clipper{}');
+    await first;
+    await expect(attachment.ready).resolves.toEqual({ status: 'ready' });
+    attachment.dispose();
+  });
 
+  it('evicts a failed manager load and retries through refresh', async () => {
+    loadExtensionStyleMock.mockRejectedValueOnce(new Error('load failed'));
+    const { clipperStyleSheetManager } =
+      await import('../../../src/content/clipper/shared/styleSheetManager');
+    const shadow = document.createElement('div').attachShadow({ mode: 'open' });
+    const attachment = clipperStyleSheetManager.applyClipperStyles(shadow);
+    await expect(attachment.ready).resolves.toEqual({
+      status: 'failed',
+      code: 'STYLE_ASSET_LOAD_FAILED'
+    });
+    loadExtensionStyleMock.mockResolvedValue('.retry{}');
+    await expect(attachment.refresh()).resolves.toEqual({ status: 'ready' });
     expect(loadExtensionStyleMock).toHaveBeenCalledTimes(2);
+    attachment.dispose();
+  });
 
-    if (!resolveLoad) {
-      throw new Error('style loader resolver missing');
-    }
-    (resolveLoad as (value: string) => void)('.clipper-root { color: blue; }');
-    await Promise.all([first, second]);
-
-    const host = document.createElement('div');
-    const shadow = host.attachShadow({ mode: 'open' });
-    clipperStyleSheetManager.applyTo(shadow);
-    const style = shadow.querySelector('style[data-aiob-style-bridge="clipper-stitch-runtime"]');
-    expect(style?.textContent).toContain('.clipper-root { color: blue; }');
+  it('settles pending handles and rejects late completion after destroy', async () => {
+    let resolveLoad!: (css: string) => void;
+    loadExtensionStyleMock.mockImplementation(
+      () => new Promise<string>((resolve) => (resolveLoad = resolve))
+    );
+    const { clipperStyleSheetManager } =
+      await import('../../../src/content/clipper/shared/styleSheetManager');
+    const shadow = document.createElement('div').attachShadow({ mode: 'open' });
+    const attachment = clipperStyleSheetManager.applyClipperStyles(shadow);
+    clipperStyleSheetManager.destroy();
+    await expect(attachment.ready).resolves.toEqual({
+      status: 'failed',
+      code: 'STYLE_ATTACHMENT_DISPOSED'
+    });
+    resolveLoad('.late{}');
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(shadow.querySelector('[data-aiob-style-bridge]')).toBeNull();
   });
 });

@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { DEFAULT_OPTIONS } from '@shared/config';
 import { mergeOptions, optionsMerger } from '@shared/config/optionsMerger';
+import { CompleteOptionsSchema } from '@shared/schemas/options.schema';
 import type { StoredOptions } from '@shared/types';
 
 function requireDefaultOption<T>(value: T | undefined, label: string): T {
@@ -58,7 +59,7 @@ describe('shared optionsMerger', () => {
     const stored: StoredOptions = {
       rest: {
         baseUrl: 'https://example.com',
-        apiKey: 'token'
+        apiKey: 'token-12345'
       },
       classifier: {
         enabled: true,
@@ -72,7 +73,7 @@ describe('shared optionsMerger', () => {
 
     const result = mergeOptions(stored);
     expect(result.rest.baseUrl).toBe('https://example.com');
-    expect(result.rest.apiKey).toBe('token');
+    expect(result.rest.apiKey).toBe('token-12345');
     expect(result.rest.httpsUrl).toBe(DEFAULT_OPTIONS.rest.httpsUrl);
     expect(result.classifier?.enabled).toBe(true);
     expect(result.classifier?.provider).toBe('openai');
@@ -80,8 +81,8 @@ describe('shared optionsMerger', () => {
     expect(result.classifier?.taxonomy).toEqual(DEFAULT_OPTIONS.classifier?.taxonomy);
     expect(result.fragmentClipper?.captureContext).toBe(true);
     expect(result.fragmentClipper?.contextLength).toBe(defaultFragmentClipper.contextLength);
-    expect(result.fragmentClipper?.selectionModifierEnabled).toBe(
-      defaultFragmentClipper.selectionModifierEnabled
+    expect(result.fragmentClipper?.selectionTriggerMode).toBe(
+      defaultFragmentClipper.selectionTriggerMode
     );
     expect(result.fragmentClipper?.selectionModifierKeys).toEqual(
       defaultFragmentClipper.selectionModifierKeys
@@ -91,6 +92,17 @@ describe('shared optionsMerger', () => {
     );
     expect(result.templates.reading).toBe(DEFAULT_OPTIONS.templates.reading);
     expect(result.templates.video).toBe(DEFAULT_OPTIONS.templates.video);
+  });
+
+  it('preserves classifier timeout and returns a canonical complete schema result', () => {
+    const result = mergeOptions({
+      classifier: {
+        timeoutMs: 12_500
+      }
+    });
+
+    expect(result.classifier.timeoutMs).toBe(12_500);
+    expect(CompleteOptionsSchema.parse(result)).toEqual(result);
   });
 
   it('preserves explicit video template values without legacy default migration', () => {
@@ -139,7 +151,7 @@ describe('shared optionsMerger', () => {
     );
 
     const result = mergeOptions(stored);
-    expect(result.fragmentClipper?.selectionModifierEnabled).toBe(true);
+    expect(result.fragmentClipper?.selectionTriggerMode).toBe('modifier');
     expect(result.fragmentClipper?.selectionModifierKeys).toEqual(['meta']);
   });
 
@@ -167,21 +179,21 @@ describe('shared optionsMerger', () => {
     const stored: StoredOptions = {
       fragmentClipper: {
         keyboardShortcutsEnabled: false,
-        selectionModifierEnabled: true,
+        selectionTriggerMode: 'modifier',
         selectionModifierKeys: ['alt']
       }
     };
 
     const result = mergeOptions(stored);
     expect(result.fragmentClipper?.keyboardShortcutsEnabled).toBe(false);
-    expect(result.fragmentClipper?.selectionModifierEnabled).toBe(true);
+    expect(result.fragmentClipper?.selectionTriggerMode).toBe('modifier');
     expect(result.fragmentClipper?.selectionModifierKeys).toEqual(['alt']);
   });
 
   it('uses default keyboard shortcuts when not specified', () => {
     const stored: StoredOptions = {
       fragmentClipper: {
-        selectionModifierEnabled: true
+        selectionTriggerMode: 'modifier'
       }
     };
 
@@ -257,7 +269,7 @@ describe('shared optionsMerger', () => {
     });
   });
 
-  it('prunes legacy rest rootDir while preserving current rest fields and unknown extensions', () => {
+  it('projects canonical sparse fields without leaking unknown roots into runtime options', () => {
     const result = mergeOptions(
       parseStoredOptions(
         JSON.stringify({
@@ -268,15 +280,13 @@ describe('shared optionsMerger', () => {
             apiKey: '',
             httpsUrl: '',
             httpUrl: 'http://stored.example/',
-            rootDir: 'Root',
             localFolderId: '',
             localFolderName: 'Local Folder'
           },
           templates: {
-            clipper: 'Legacy/{title}.md'
+            fragment: 'Canonical/{title}.md'
           },
           domainMappings: { 'example.com': 'Examples' },
-          yamlConfig: { fields: [] },
           customExtension: { enabled: true }
         })
       )
@@ -288,16 +298,12 @@ describe('shared optionsMerger', () => {
     expect(result.rest.apiKey).toBe(DEFAULT_OPTIONS.rest.apiKey);
     expect(result.rest.httpsUrl).toBe(DEFAULT_OPTIONS.rest.httpsUrl);
     expect(result.rest.httpUrl).toBe('http://stored.example/');
-    expect(result.rest).not.toHaveProperty('rootDir');
     expect(result.rest.localFolderId).toBe('');
     expect(result.rest.localFolderName).toBe('Local Folder');
-    expect(result.templates.fragment).toBe('Legacy/{title}.md');
-    expect(result.templates.reading).toBe('Legacy/{title}.md');
+    expect(result.templates.fragment).toBe('Canonical/{title}.md');
+    expect(result.templates.reading).toBe('Canonical/{title}.md');
     expect(result.domainMappings).toEqual({ 'example.com': 'Examples' });
-    expect(result.yamlConfig).toEqual({ fields: [] });
-    expect(Reflect.get(result, 'customExtension')).toEqual({
-      enabled: true
-    });
+    expect(Reflect.get(result, 'customExtension')).toBeUndefined();
   });
 
   it('normalizes blank optional feature values through documented fallbacks', () => {
@@ -309,8 +315,8 @@ describe('shared optionsMerger', () => {
             floatingPromptEnabled: false,
             promptButtonLabel: '   ',
             promptShortcut: '',
-            controlBarAutoPauseEnabled: false,
-            controlBarCaptureScreenshotEnabled: false,
+            controlBarAutoPause: false,
+            controlBarScreenshot: false,
             commentEditorAutoPause: true,
             promptPosition: { x: 'NaN', y: 12 }
           },

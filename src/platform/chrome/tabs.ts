@@ -1,4 +1,9 @@
-import type { TabsSendOptions, TabsService, VisibleTabCaptureOptions } from '../interfaces/tabs';
+import {
+  TabsBoundaryError,
+  type TabsSendOptions,
+  type TabsService,
+  type VisibleTabCaptureOptions
+} from '../interfaces/tabs';
 import { ensureChrome, getChromeLastError, normalizePromise, suppressLastError } from './utils';
 
 function isPromiseLike<T>(value: unknown): value is Promise<T> {
@@ -10,6 +15,20 @@ type CaptureVisibleTabApi = {
   (windowId: number, options: VisibleTabCaptureOptions, callback: CaptureVisibleTabCallback): void;
   (options: VisibleTabCaptureOptions, callback: CaptureVisibleTabCallback): void;
 };
+
+function chromeTabError(error: Error, operation: 'get' | 'send'): Error {
+  if (operation === 'get' && /^No tab with id: \d+\.?$/i.test(error.message)) {
+    return new TabsBoundaryError('TAB_NOT_FOUND');
+  }
+  if (
+    operation === 'send' &&
+    (/^Could not establish connection\. Receiving end does not exist\.?$/i.test(error.message) ||
+      /^The message port closed before a response was received\.?$/i.test(error.message))
+  ) {
+    return new TabsBoundaryError('NO_RECEIVER', !/^The message port closed/i.test(error.message));
+  }
+  return error;
+}
 
 export const chromeTabsService: TabsService = {
   async create(
@@ -75,7 +94,7 @@ export const chromeTabsService: TabsService = {
         chromeApi.tabs.get(tabId, (tab) => {
           const error = getChromeLastError();
           if (error) {
-            reject(error);
+            reject(chromeTabError(error, 'get'));
             return;
           }
           resolve(tab ?? undefined);
@@ -150,7 +169,7 @@ export const chromeTabsService: TabsService = {
         chromeApi.tabs.sendMessage(tabId, message, options ?? {}, (response) => {
           const error = getChromeLastError();
           if (error) {
-            reject(error);
+            reject(chromeTabError(error, 'send'));
             return;
           }
           resolve(response as TResult);

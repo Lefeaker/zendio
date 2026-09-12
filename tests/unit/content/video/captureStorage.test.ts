@@ -1,16 +1,11 @@
 import { describe, expect, it, vi } from 'vitest';
-import {
-  deserializeStoredCaptures,
-  loadStoredCaptureData,
-  saveCaptureData,
-  serializeCaptures
-} from '@content/video/captureStorage';
+import { deserializeStoredCaptures, loadStoredCaptureData } from '@content/video/captureStorage';
+import type { CanonicalLegacyVideoCapture } from '@shared/sessionDrafts';
 
 describe('captureStorage', () => {
   it('serializes and deserializes timestamp and fragment captures with fallbacks', () => {
     const now = Date.now();
-    const screenshotBlob = new Blob(['shot'], { type: 'image/jpeg' });
-    const serialized = serializeCaptures([
+    const serialized = [
       {
         kind: 'timestamp',
         id: 'ts',
@@ -18,18 +13,7 @@ describe('captureStorage', () => {
         comment: 'mark',
         url: 'https://video.example?t=12',
         createdAt: now,
-        screenshotRequested: true,
-        screenshot: {
-          id: 'shot-1',
-          fileName: 'video-0m12s-screenshot.png',
-          mimeType: 'image/jpeg',
-          capturedAt: now,
-          content: {
-            kind: 'blob',
-            blob: screenshotBlob,
-            byteLength: screenshotBlob.size
-          }
-        }
+        screenshotRequested: true
       },
       {
         kind: 'fragment',
@@ -41,13 +25,12 @@ describe('captureStorage', () => {
         createdAt: now + 1,
         wrapperId: 'wrap-1'
       }
-    ]);
+    ] satisfies CanonicalLegacyVideoCapture[];
 
     expect(serialized[0]).toMatchObject({
       kind: 'timestamp',
       screenshotRequested: true
     });
-    expect(JSON.stringify(serialized[0])).not.toContain('byteLength');
     expect(serialized[0]).not.toHaveProperty('screenshot');
     expect(serialized[1]).toMatchObject({ kind: 'fragment', wrapperId: 'wrap-1' });
 
@@ -61,13 +44,7 @@ describe('captureStorage', () => {
           comment: 'legacy',
           url: 'https://legacy.example/watch?t=15',
           createdAt: now + 1,
-          screenshot: {
-            id: 'legacy-shot',
-            fileName: 'legacy.jpg',
-            mimeType: 'image/jpeg',
-            dataUrl: 'data:image/jpeg;base64,legacy',
-            capturedAt: now + 1
-          }
+          screenshotRequested: true
         },
         {
           kind: 'fragment',
@@ -87,42 +64,37 @@ describe('captureStorage', () => {
       url: 'https://video.example?t=12',
       screenshotRequested: true
     });
-    expect((restored[0] as { screenshot?: unknown }).screenshot).toBeUndefined();
+    const firstTimestamp = restored[0];
+    if (firstTimestamp?.kind !== 'timestamp') throw new Error('expected first timestamp capture');
+    expect(firstTimestamp.screenshot).toBeUndefined();
     expect(restored[1]).toMatchObject({
       kind: 'timestamp',
       url: 'https://legacy.example/watch?t=15',
       screenshotRequested: true
     });
-    expect((restored[1] as { screenshot?: unknown }).screenshot).toBeUndefined();
+    const secondTimestamp = restored[1];
+    if (secondTimestamp?.kind !== 'timestamp') throw new Error('expected second timestamp capture');
+    expect(secondTimestamp.screenshot).toBeUndefined();
     expect(restored[2]).toMatchObject({ kind: 'fragment', selectedHtml: '', fragmentUrl: '' });
   });
 
-  it('delegates load and save to the provided storage namespace', async () => {
+  it('loads a bounded canonical value with migration digests and exposes no write seam', async () => {
     const storage = {
       get: vi.fn().mockResolvedValue({
         title: 'Saved',
         url: 'https://example.com',
         entries: [],
         updatedAt: 1
-      }),
-      set: vi.fn().mockResolvedValue(undefined)
+      })
     };
 
-    await expect(loadStoredCaptureData(storage, 'video:key')).resolves.toMatchObject({
-      title: 'Saved'
-    });
-    await saveCaptureData(storage, 'video:key', {
-      title: 'Next',
-      url: '',
-      entries: [],
-      updatedAt: 2
-    });
+    const loaded = await loadStoredCaptureData(storage, 'video:key');
+    if (!loaded) throw new Error('expected stored capture data');
+
+    expect(loaded.title).toBe('Saved');
+    expect(loaded.migration.legacyKey).toBe('video:key');
+    expect(loaded.migration.rawDigest).toMatch(/^[0-9a-f]{64}$/);
+    expect(loaded.migration.canonicalDigest).toMatch(/^[0-9a-f]{64}$/);
     expect(storage.get).toHaveBeenCalledWith('video:key');
-    expect(storage.set).toHaveBeenCalledWith('video:key', {
-      title: 'Next',
-      url: '',
-      entries: [],
-      updatedAt: 2
-    });
   });
 });

@@ -11,10 +11,6 @@ import { addBrowserClassToHtml } from '../shared/utils/browserDetection';
 import type { StorageService } from '../platform/interfaces/storage';
 
 type PlatformModule = { getPlatformServices: () => unknown };
-type ContentStyleManagers = {
-  clipperStyleSheetManager: { initialize: () => void };
-  panelStyleSheetManager: { initialize: () => void };
-};
 type ContentAnalyticsModule = {
   initializeContentErrorAnalytics: (
     storage: StorageService,
@@ -27,21 +23,9 @@ const defaultPlatformModuleLoader = (): PlatformModule => {
   return require('../platform') as PlatformModule;
 };
 
-const defaultStyleManagersLoader = (): ContentStyleManagers => {
-  // eslint-disable-next-line @typescript-eslint/no-var-requires
-  const { clipperStyleSheetManager } = require('./clipper/shared/styleSheetManager') as {
-    clipperStyleSheetManager: { initialize: () => void };
-  };
-  // eslint-disable-next-line @typescript-eslint/no-var-requires
-  const { panelStyleSheetManager } = require('./shared/panels/styleSheetManager') as {
-    panelStyleSheetManager: { initialize: () => void };
-  };
-  return { clipperStyleSheetManager, panelStyleSheetManager };
-};
 const defaultAnalyticsModuleLoader = async (): Promise<ContentAnalyticsModule> =>
   import('./contentErrorAnalyticsBootstrap');
 let loadPlatformModuleForContentBootstrap = defaultPlatformModuleLoader;
-let loadStyleManagersForContentBootstrap = defaultStyleManagersLoader;
 let loadAnalyticsModuleForContentBootstrap = defaultAnalyticsModuleLoader;
 
 let contentBootstrapStorage: StorageService | null = null;
@@ -67,12 +51,11 @@ export function __setContentBootstrapLoadersForTests(
   overrides: {
     loadPlatformModule?: (() => PlatformModule) | null;
     loadAnalyticsModule?: (() => Promise<ContentAnalyticsModule>) | null;
-    loadStyleManagers?: (() => ContentStyleManagers) | null;
+    loadStyleManagers?: (() => object) | null;
   } | null
 ): void {
   loadPlatformModuleForContentBootstrap =
     overrides?.loadPlatformModule ?? defaultPlatformModuleLoader;
-  loadStyleManagersForContentBootstrap = overrides?.loadStyleManagers ?? defaultStyleManagersLoader;
   loadAnalyticsModuleForContentBootstrap =
     overrides?.loadAnalyticsModule ?? defaultAnalyticsModuleLoader;
 }
@@ -97,11 +80,6 @@ export class ContentScriptContext {
     this.scopedRegistry = createScopedRegistry(registry);
     addBrowserClassToHtml();
     this.bootstrapDependencies(storage);
-    const { clipperStyleSheetManager, panelStyleSheetManager } =
-      loadStyleManagersForContentBootstrap();
-    clipperStyleSheetManager.initialize();
-    panelStyleSheetManager.initialize();
-
     this.setupCleanupListeners();
   }
 

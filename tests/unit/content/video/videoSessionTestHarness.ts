@@ -1,8 +1,10 @@
 import { expect, vi } from 'vitest';
 import type { Mock, MockInstance } from 'vitest';
-import { SESSION_DRAFT_INDEX_KEY } from '@content/sessionDrafts/sessionDraftKeys';
+import { SESSION_DRAFT_INDEX_KEY, normalizeSessionDraftStoredValue } from '@shared/sessionDrafts';
 import { createSessionDraftRepository } from '@content/sessionDrafts/sessionDraftRepository';
 import { createMemoryStorageArea } from '@platform/preview/memoryStorage';
+import type { RuntimeMessageSender } from '@platform/interfaces/runtime';
+import type { StorageAreaService } from '@platform/interfaces/storage';
 import { VideoSession } from '@content/video/session';
 import { DEFAULT_SESSION_MESSAGES } from '@content/video/sessionMessages';
 import type { VideoPanelCallbacks } from '@content/video/application/videoPanelModel';
@@ -11,9 +13,10 @@ import type {
   SessionDraftEnvelope,
   SessionDraftIndex,
   SessionDraftOwnerContext,
+  SessionDraftRequest,
   SessionDraftStoragePolicy,
   VideoSessionDraftEnvelope
-} from '@content/sessionDrafts/sessionDraftTypes';
+} from '@shared/sessionDrafts';
 import type { VideoSessionView } from '@content/video/application/videoSessionView';
 import type { VideoSessionDraftPayloadShape } from '@content/video/sessionDrafts';
 import type {
@@ -23,6 +26,10 @@ import type {
 } from '@content/video/videoScreenshotCacheRepository';
 import type { VideoScreenshotCacheRef } from '@content/video/videoScreenshotCacheTypes';
 import type { UsageEventName, UsageEventParamMap } from '@shared/types/analytics';
+import { createSessionDraftStore } from '../../../../src/background/services/sessionDraftStore';
+import { handleSessionDraftMessage } from '../../../../src/background/listeners/sessionDraftMessages';
+import { configureSessionDraftRuntimeMessenger } from '../../../../src/content/sessionDrafts/sessionDraftTabContext';
+import type { VideoPlatformContext } from '@content/video/platforms';
 
 const ensureContentI18nMock = vi.hoisted(() =>
   vi.fn(() =>
@@ -74,22 +81,47 @@ const detectVideoIdentityMock = vi.hoisted(() =>
   }))
 );
 const exportMock = vi.hoisted(() => vi.fn(() => Promise.resolve({ success: true })));
-const createVideoPlatformAdapterMock = vi.hoisted(() =>
-  vi.fn(() => ({
-    platform: 'bilibili',
-    shouldActivate: vi.fn(() => true),
-    resolveSelection: vi.fn(() => null),
-    findTextRange: vi.fn(() => null),
-    highlight: vi.fn(() => undefined),
-    restoreHighlight: vi.fn(() => undefined),
-    observeDomChanges: vi.fn(),
-    handleMutations: vi.fn(),
-    buildTimestampUrl: vi.fn((timeSec: number) => `https://video.example/watch?t=${timeSec}`),
-    formatVideoTitle: vi.fn((title: string) => title.replace(/_+哔哩哔哩.*/i, '').trim() || null),
-    dispose: vi.fn()
-  }))
-);
+const { createVideoPlatformAdapterMock, disposePlatformHubSubscriptions } = vi.hoisted(() => {
+  const activeDisposers = new Set<() => void>();
+  return {
+    createVideoPlatformAdapterMock: vi.fn((_platform: string, context: VideoPlatformContext) => {
+      const unsubscribe = context.documentMutationHub.subscribe({
+        subscriberId: 'video-session-harness-bilibili',
+        filter: () => false,
+        callback: () => undefined
+      });
+      activeDisposers.add(unsubscribe);
+      let disposed = false;
+      return {
+        platform: 'bilibili',
+        shouldActivate: vi.fn(() => true),
+        resolveSelection: vi.fn(() => null),
+        findTextRange: vi.fn(() => null),
+        highlight: vi.fn(() => undefined),
+        restoreHighlight: vi.fn(() => undefined),
+        buildTimestampUrl: vi.fn((timeSec: number) => `https://video.example/watch?t=${timeSec}`),
+        formatVideoTitle: vi.fn(
+          (title: string) => title.replace(/_+哔哩哔哩.*/i, '').trim() || null
+        ),
+        dispose: vi.fn(() => {
+          if (disposed) return;
+          disposed = true;
+          activeDisposers.delete(unsubscribe);
+          unsubscribe();
+        })
+      };
+    }),
+    disposePlatformHubSubscriptions: () => {
+      for (const dispose of activeDisposers) dispose();
+      activeDisposers.clear();
+    }
+  };
+});
 const originalMutationObserver = globalThis.MutationObserver;
+const draftRuntimeFixtureByDependencies = new WeakMap<
+  VideoSessionDependencies,
+  SessionDraftMessageFixture
+>();
 
 vi.mock('../../../../src/content/i18n/context', () => ({
   ensureContentI18n: ensureContentI18nMock,
@@ -148,12 +180,69 @@ vi.mock('../../../../src/content/video/videoSessionExporter', async () => {
 });
 
 export function resetVideoSessionHarnessMocks(): void {
+  disposePlatformHubSubscriptions();
   vi.clearAllMocks();
   saveCaptureDataMock.mockResolvedValue(undefined);
 }
 
 export function restoreVideoSessionHarnessGlobals(): void {
   globalThis.MutationObserver = originalMutationObserver;
+}
+
+export type SessionDraftOperation = SessionDraftRequest['operation'];
+
+export interface Deferred<T> {
+  promise: Promise<T>;
+  resolve(value: T | PromiseLike<T>): void;
+  reject(reason?: unknown): void;
+}
+
+export interface SessionDraftMessageFixture {
+  readonly sender: RuntimeMessageSender;
+  readonly observed: SessionDraftRequest[];
+  deferNext(operation: SessionDraftOperation): Deferred<void>;
+  rejectNext(operation: SessionDraftOperation, error: Error): void;
+}
+
+function createSessionDraftMessageFixture(
+  delegate: RuntimeMessageSender
+): SessionDraftMessageFixture {
+  const controls = new Map<
+    SessionDraftOperation,
+    Array<{ deferred?: Deferred<void>; error?: Error }>
+  >();
+  const observed: SessionDraftRequest[] = [];
+  const enqueue = (
+    operation: SessionDraftOperation,
+    control: { deferred?: Deferred<void>; error?: Error }
+  ) => {
+    const queue = controls.get(operation) ?? [];
+    queue.push(control);
+    controls.set(operation, queue);
+  };
+  const sender: RuntimeMessageSender = async (message) => {
+    const request = (message as { request?: SessionDraftRequest }).request;
+    if (request) {
+      observed.push(structuredClone(request));
+      const queue = controls.get(request.operation);
+      const control = queue?.shift();
+      if (control?.deferred) await control.deferred.promise;
+      if (control?.error) throw control.error;
+    }
+    return delegate(message);
+  };
+  return {
+    sender,
+    observed,
+    deferNext(operation) {
+      const deferred = createDeferred<void>();
+      enqueue(operation, { deferred });
+      return deferred;
+    },
+    rejectNext(operation, error) {
+      enqueue(operation, { error });
+    }
+  };
 }
 
 export function getVideoSessionHarnessMocks() {
@@ -303,14 +392,28 @@ export function createDependencies(
   const trackUsageEvent = vi.fn(() => Promise.resolve(undefined));
   const localArea = createMemoryStorageArea();
   const syncArea = createMemoryStorageArea();
+  const localValues = new Map<string, unknown>();
   const local = {
     ...localArea,
-    get: vi.fn(localArea.get),
-    set: vi.fn(localArea.set),
-    getMany: vi.fn(localArea.getMany),
-    setMany: vi.fn(localArea.setMany),
-    remove: vi.fn(localArea.remove),
-    clear: vi.fn(localArea.clear)
+    get: vi.fn(<T = unknown>(key: string) => localArea.get<T>(key)),
+    set: vi.fn(async <T>(key: string, value: T) => {
+      await localArea.set(key, value);
+      localValues.set(key, value);
+    }),
+    getMany: vi.fn(<T = unknown>(keys: string[]) => localArea.getMany<T>(keys)),
+    getAll: vi.fn(() => Promise.resolve(Object.fromEntries(localValues))),
+    setMany: vi.fn(async <T>(entries: Record<string, T>) => {
+      await localArea.setMany(entries);
+      for (const [key, value] of Object.entries(entries)) localValues.set(key, value);
+    }),
+    remove: vi.fn(async (keys: string | string[]) => {
+      await localArea.remove(keys);
+      for (const key of Array.isArray(keys) ? keys : [keys]) localValues.delete(key);
+    }),
+    clear: vi.fn(async () => {
+      await localArea.clear();
+      localValues.clear();
+    })
   };
   const sync = {
     ...syncArea,
@@ -321,15 +424,29 @@ export function createDependencies(
     remove: vi.fn(syncArea.remove),
     clear: vi.fn(syncArea.clear)
   };
-  return {
+  const draftStore = createSessionDraftStore(local as unknown as StorageAreaService, {
+    ownerLivenessProbe: () => Promise.resolve('inactive'),
+    createLeaseId: () => 'video-harness-lease',
+    ...(overrides.sessionDraftStoragePolicy
+      ? { retentionPolicy: overrides.sessionDraftStoragePolicy.retentionPolicy }
+      : {})
+  });
+  if (!draftStore.ok) throw new Error(draftStore.code);
+  const draftRuntimeFixture = createSessionDraftMessageFixture((message) =>
+    handleSessionDraftMessage(draftStore.store, normalizeSessionDraftStoredValue(message), {
+      tabId: 7,
+      frameId: 0
+    }).then((result) => result as never)
+  );
+  configureSessionDraftRuntimeMessenger(draftRuntimeFixture.sender);
+  const dependencies = {
     viewFactory: {
       createView: vi.fn(() => createView())
     },
     optionsRepository: {
       get: vi.fn(() => Promise.resolve({ readingSession: { highlightTheme: 'gradient' } })),
-      set: vi.fn(() => Promise.resolve(undefined)),
       onChange: vi.fn(() => () => {})
-    },
+    } as never,
     videoRepository: {
       getVideoConfig: vi.fn(() => Promise.resolve(videoConfig)),
       savePromptPosition: vi.fn(() => Promise.resolve(undefined)),
@@ -348,15 +465,20 @@ export function createDependencies(
       : {}),
     trackUsageEvent
   } as unknown as VideoSessionDependencies;
+  draftRuntimeFixtureByDependencies.set(dependencies, draftRuntimeFixture);
+  return dependencies;
 }
 
 function createSessionDraftRepositoryForDeps(deps: VideoSessionDependencies) {
-  return createSessionDraftRepository(
-    deps.storage.local,
-    deps.sessionDraftStoragePolicy
-      ? { retentionPolicy: deps.sessionDraftStoragePolicy.retentionPolicy }
-      : {}
-  );
+  return createSessionDraftRepository(getSessionDraftMessageFixture(deps).sender);
+}
+
+export function getSessionDraftMessageFixture(
+  deps: VideoSessionDependencies
+): SessionDraftMessageFixture {
+  const fixture = draftRuntimeFixtureByDependencies.get(deps);
+  if (!fixture) throw new Error('expected bound session draft runtime sender');
+  return fixture;
 }
 
 export async function listVideoDraftCandidates(
@@ -372,8 +494,7 @@ export async function listVideoDraftCandidates(
     ownerContext === undefined ? undefined : { ownerContext }
   );
   return candidates.filter(
-    (candidate: SessionDraftEnvelope): candidate is VideoSessionDraftEnvelope =>
-      candidate.mode === 'video'
+    (candidate): candidate is VideoSessionDraftEnvelope => candidate.mode === 'video'
   );
 }
 
@@ -403,7 +524,7 @@ export async function readStoredVideoDraft(
   storageKey: string
 ): Promise<VideoSessionDraftEnvelope | undefined> {
   const value = await deps.storage.local.get<SessionDraftEnvelope>(storageKey);
-  return value?.mode === 'video' ? value : undefined;
+  return value?.mode === 'video' ? (value as unknown as VideoSessionDraftEnvelope) : undefined;
 }
 
 export function requireMountedPanelCallbacks(
@@ -476,11 +597,7 @@ export function pickUnrelatedCaptureId(ids: string[], activeId: string): string 
   return unrelatedId;
 }
 
-export function createDeferred<T = void>(): {
-  promise: Promise<T>;
-  resolve: (value: T | PromiseLike<T>) => void;
-  reject: (reason?: unknown) => void;
-} {
+export function createDeferred<T = void>(): Deferred<T> {
   let resolve!: (value: T | PromiseLike<T>) => void;
   let reject!: (reason?: unknown) => void;
   const promise = new Promise<T>((nextResolve, nextReject) => {
@@ -546,50 +663,22 @@ export function removalCallIncludesKey(value: unknown, key: string): boolean {
 }
 
 export async function flushMutationWork(): Promise<void> {
-  await Promise.resolve();
-  await Promise.resolve();
-  await Promise.resolve();
-}
-
-export async function waitForMockCalls(
-  mock: MockInstance,
-  expectedCalls = 1,
-  turns = 30
-): Promise<void> {
-  for (let index = 0; index < turns; index += 1) {
-    if (mock.mock.calls.length >= expectedCalls) {
-      return;
-    }
+  for (let turn = 0; turn < 30; turn += 1) {
     await Promise.resolve();
     if (vi.isFakeTimers()) {
       await vi.advanceTimersByTimeAsync(0);
-      continue;
     }
-    await new Promise<void>((resolve) => {
-      globalThis.setTimeout(resolve, 0);
-    });
   }
 }
 
+export async function waitForMockCalls(mock: MockInstance, expectedCalls = 1): Promise<void> {
+  await vi.waitFor(() => expect(mock.mock.calls.length).toBeGreaterThanOrEqual(expectedCalls));
+}
+
 export async function waitForTimestampScreenshot(
-  capture: CaptureState,
-  turns = 30
+  capture: CaptureState
 ): Promise<TimestampCaptureScreenshot> {
-  for (let index = 0; index < turns; index += 1) {
-    const screenshot = capture.screenshot;
-    if (screenshot) {
-      return screenshot;
-    }
-    await flushMutationWork();
-    if (vi.isFakeTimers()) {
-      await vi.advanceTimersByTimeAsync(0);
-      continue;
-    }
-    await new Promise<void>((resolve) => {
-      globalThis.setTimeout(resolve, 0);
-    });
-  }
-  throw new Error('expected restored timestamp screenshot to be populated');
+  return vi.waitUntil(() => capture.screenshot);
 }
 
 export class RecordingMutationObserver extends MutationObserver {

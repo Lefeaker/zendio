@@ -7,7 +7,7 @@ import {
   type SessionDraftAutoRestoreModule
 } from '@content/runtime/sessionDraftAutoRestoreBootstrap';
 import type { SessionDraftAutoRestoreOptions } from '@content/runtime/sessionDraftAutoRestore';
-import { createSessionDraftStoragePolicy } from '@content/sessionDrafts';
+import { createSessionDraftStoragePolicy } from '@shared/sessionDrafts';
 
 function createDeferred<T>() {
   let resolve!: (value: T) => void;

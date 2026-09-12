@@ -6,14 +6,24 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { repositoryContainer } from '@shared/di/serviceRegistry';
 import { DI_TOKENS } from '@shared/di/tokens';
 import type { StorageService } from '../../../src/platform/interfaces/storage';
+import type { OptionsControllerDeps } from '../../../src/options/app/optionsControllerTypes';
+import type { AutoSaveFailurePresentation } from '../../../src/options/components/messages';
+import type { ProductionStitchShellDependencies } from '../../../src/options/app/productionStitchShellTypes';
 
 const showStatusMessageMock = vi.hoisted(() => vi.fn());
+const showAutoSaveFailureMock = vi.hoisted(() =>
+  vi.fn<(presentation: AutoSaveFailurePresentation) => void>()
+);
+const clearAutoSaveFailureMock = vi.hoisted(() => vi.fn());
 const getOptionsMessagesMock = vi.hoisted(() =>
   vi.fn<(...args: []) => Promise<Record<string, string>>>(() =>
     Promise.resolve({
       yamlConfigAutoSaved: 'YAML saved',
       templatesAutoSaved: 'Templates saved',
-      yamlConfigMigrated: 'Migrated'
+      yamlConfigMigrated: 'Migrated',
+      autosaveQuotaGuidance: 'Shorten the value',
+      saveFailed: 'Save failed',
+      saveButton: 'Save'
     })
   )
 );
@@ -24,7 +34,9 @@ const consumeYamlMigrationNoticeMock = vi.hoisted(() =>
   vi.fn<(...args: []) => string | null>(() => null)
 );
 const registerOptionsControllerMock = vi.hoisted(() => vi.fn());
-const mountProductionStitchShellMock = vi.hoisted(() => vi.fn());
+const mountProductionStitchShellMock = vi.hoisted(() =>
+  vi.fn<(dependencies: ProductionStitchShellDependencies) => object>()
+);
 const shellCleanupMock = vi.hoisted(() => vi.fn());
 const shellRefreshOptionsMock = vi.hoisted(() => vi.fn());
 const shellCollectDraftMock = vi.hoisted(() => vi.fn(() => ({ rest: {} })));
@@ -37,9 +49,21 @@ const controllerLoadInitialStateMock = vi.hoisted(() =>
   vi.fn(() => Promise.resolve({ rest: { vault: 'Demo' } }))
 );
 const controllerScheduleAutoSaveMock = vi.hoisted(() => vi.fn());
+const controllerFlushPendingAutoSaveMock = vi.hoisted(() =>
+  vi.fn<(...args: []) => Promise<void>>(() => Promise.resolve())
+);
 const createOptionsControllerMock = vi.hoisted(() =>
-  vi.fn((config) => ({
+  vi.fn<
+    (config: OptionsControllerDeps) => {
+      dispose: typeof controllerDisposeMock;
+      flushPendingAutoSave: typeof controllerFlushPendingAutoSaveMock;
+      loadInitialState: typeof controllerLoadInitialStateMock;
+      scheduleAutoSave: typeof controllerScheduleAutoSaveMock;
+      __config: OptionsControllerDeps;
+    }
+  >((config) => ({
     dispose: controllerDisposeMock,
+    flushPendingAutoSave: controllerFlushPendingAutoSaveMock,
     loadInitialState: controllerLoadInitialStateMock,
     scheduleAutoSave: controllerScheduleAutoSaveMock,
     __config: config
@@ -48,8 +72,15 @@ const createOptionsControllerMock = vi.hoisted(() =>
 const i18nLoadMock = vi.hoisted(() => vi.fn(() => Promise.resolve(undefined)));
 const i18nMountMock = vi.hoisted(() => vi.fn());
 const i18nGetBinderMock = vi.hoisted(() => vi.fn(() => ({ bindText: vi.fn() })));
+type MockI18nResource = {
+  language: 'en' | 'ja';
+  messages: { extensionSubtitle: string };
+};
 const i18nGetCurrentResourceMock = vi.hoisted(() =>
-  vi.fn(() => ({ language: 'en', messages: { extensionSubtitle: 'Production' } }))
+  vi.fn<() => MockI18nResource | null>(() => ({
+    language: 'en',
+    messages: { extensionSubtitle: 'Production' }
+  }))
 );
 const i18nChangeLanguageMock = vi.hoisted(() => vi.fn(() => Promise.resolve(undefined)));
 const configureI18nStorageMock = vi.hoisted(() => vi.fn());
@@ -77,7 +108,9 @@ vi.mock('../../../src/i18n', async (importOriginal) => {
   };
 });
 vi.mock('../../../src/options/components/messages', () => ({
-  showStatusMessage: showStatusMessageMock
+  showStatusMessage: showStatusMessageMock,
+  showAutoSaveFailure: showAutoSaveFailureMock,
+  clearAutoSaveFailure: clearAutoSaveFailureMock
 }));
 vi.mock('../../../src/options/state/optionsStore', () => ({
   consumeYamlMigrationNotice: consumeYamlMigrationNoticeMock
@@ -118,6 +151,10 @@ import {
 describe('options bootstrap', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    i18nGetCurrentResourceMock.mockReturnValue({
+      language: 'en',
+      messages: { extensionSubtitle: 'Production' }
+    });
     document.body.innerHTML = '<div id="optionsShellRoot"></div>';
     mountProductionStitchShellMock.mockReturnValue({
       cleanup: shellCleanupMock,
@@ -131,7 +168,8 @@ describe('options bootstrap', () => {
     repositoryContainer.reset();
     repositoryContainer.registerSingleton(DI_TOKENS.IOptionsRepository, () => ({
       get: vi.fn(),
-      set: vi.fn(),
+      patch: vi.fn(),
+      replace: vi.fn(),
       onChange: vi.fn(() => () => undefined)
     }));
     repositoryContainer.registerSingleton(DI_TOKENS.IMessagingRepository, () => ({
@@ -178,6 +216,64 @@ describe('options bootstrap', () => {
     expect(source).not.toContain('ThemeSwitcher');
   });
 
+  it('applies the resolved language to the document initially and after a live change', async () => {
+    document.documentElement.lang = 'zh-CN';
+
+    await bootstrapOptionsApp();
+
+    expect(document.documentElement.lang).toBe('en');
+    const mountConfig = mountProductionStitchShellMock.mock.calls.at(-1)?.[0];
+    if (!mountConfig?.changeLanguage) throw new Error('EXPECTED_LANGUAGE_CHANGE_CALLBACK');
+    i18nChangeLanguageMock.mockImplementationOnce(() => {
+      i18nGetCurrentResourceMock.mockReturnValue({
+        language: 'ja',
+        messages: { extensionSubtitle: 'Production' }
+      });
+      return Promise.resolve(undefined);
+    });
+
+    await expect(mountConfig.changeLanguage('en')).resolves.toMatchObject({ language: 'ja' });
+    expect(document.documentElement.lang).toBe('ja');
+
+    i18nGetCurrentResourceMock.mockReturnValue(null);
+    await expect(mountConfig.changeLanguage('en')).resolves.toEqual({
+      messages: null,
+      language: 'en'
+    });
+    expect(document.documentElement.lang).toBe('ja');
+  });
+
+  it('retains the loading language when the resolved resource is absent', async () => {
+    document.documentElement.lang = 'zh-CN';
+    i18nGetCurrentResourceMock.mockReturnValue(null);
+
+    await bootstrapOptionsApp();
+
+    expect(document.documentElement.lang).toBe('zh-CN');
+  });
+
+  it('does not require a document to apply the resolved resource', async () => {
+    const currentDocument = document;
+    vi.stubGlobal('document', undefined);
+
+    try {
+      await expect(bootstrapOptionsApp()).resolves.toBeUndefined();
+    } finally {
+      vi.stubGlobal('document', currentDocument);
+    }
+  });
+
+  it('does not require a document element to apply the resolved resource', async () => {
+    const currentDocument = document;
+    vi.stubGlobal('document', { documentElement: null });
+
+    try {
+      await expect(bootstrapOptionsApp()).resolves.toBeUndefined();
+    } finally {
+      vi.stubGlobal('document', currentDocument);
+    }
+  });
+
   it('cleans up the previous Stitch shell before a second bootstrap', async () => {
     await bootstrapOptionsApp();
     const cleanupCallsAfterFirstBootstrap = shellCleanupMock.mock.calls.length;
@@ -185,6 +281,55 @@ describe('options bootstrap', () => {
 
     expect(shellCleanupMock).toHaveBeenCalledTimes(cleanupCallsAfterFirstBootstrap + 1);
     expect(mountProductionStitchShellMock).toHaveBeenCalledTimes(2);
+  });
+
+  it('awaits pending durability before tearing down the mounted shell', async () => {
+    await bootstrapOptionsApp();
+    const flushCallsBeforeSecondBootstrap = controllerFlushPendingAutoSaveMock.mock.calls.length;
+    const cleanupCallsBeforeSecondBootstrap = shellCleanupMock.mock.calls.length;
+    let releaseFlush: (() => void) | undefined;
+    controllerFlushPendingAutoSaveMock.mockImplementationOnce(
+      () =>
+        new Promise<void>((resolve) => {
+          releaseFlush = resolve;
+        })
+    );
+
+    const secondBootstrap = bootstrapOptionsApp();
+    await Promise.resolve();
+
+    expect(controllerFlushPendingAutoSaveMock).toHaveBeenCalledTimes(
+      flushCallsBeforeSecondBootstrap + 1
+    );
+    expect(shellCleanupMock).toHaveBeenCalledTimes(cleanupCallsBeforeSecondBootstrap);
+
+    releaseFlush?.();
+    await secondBootstrap;
+
+    expect(shellCleanupMock).toHaveBeenCalledTimes(cleanupCallsBeforeSecondBootstrap + 1);
+  });
+
+  it('keeps the live shell mounted when a rebootstrap durability flush fails', async () => {
+    await bootstrapOptionsApp();
+    const cleanupCallsBeforeSecondBootstrap = shellCleanupMock.mock.calls.length;
+    const mountCallsBeforeSecondBootstrap = mountProductionStitchShellMock.mock.calls.length;
+    const failure = new Error('OPTIONS_STORAGE_FAILURE');
+    controllerFlushPendingAutoSaveMock.mockRejectedValueOnce(failure);
+
+    await expect(bootstrapOptionsApp()).rejects.toBe(failure);
+
+    expect(shellCleanupMock).toHaveBeenCalledTimes(cleanupCallsBeforeSecondBootstrap);
+    expect(mountProductionStitchShellMock).toHaveBeenCalledTimes(mountCallsBeforeSecondBootstrap);
+  });
+
+  it.each(['pagehide', 'beforeunload'])('hands off pending durability on %s', async (eventName) => {
+    await bootstrapOptionsApp();
+    const callsBeforeExit = controllerFlushPendingAutoSaveMock.mock.calls.length;
+
+    window.dispatchEvent(new Event(eventName));
+    await Promise.resolve();
+
+    expect(controllerFlushPendingAutoSaveMock).toHaveBeenCalledTimes(callsBeforeExit + 1);
   });
 
   it('shows yaml migration notice after initial options refresh', async () => {
@@ -196,6 +341,60 @@ describe('options bootstrap', () => {
       key: 'yamlConfigMigrated',
       text: 'Migrated'
     });
+  });
+
+  it('shows a quota-specific autosave alert and clears it only on correlated recovery', async () => {
+    const { OptionsMutationError } =
+      await import('../../../src/shared/types/optionsMutationMessages');
+    await bootstrapOptionsApp();
+    const config = createOptionsControllerMock.mock.calls.at(-1)?.[0];
+    if (!config) throw new Error('EXPECTED_OPTIONS_CONTROLLER_CONFIG');
+    const identity = { intentId: 7, admissionGeneration: 11 };
+
+    config.onSaveError?.('auto', new OptionsMutationError('OPTIONS_QUOTA_EXCEEDED'), identity);
+    await vi.waitFor(() => expect(showAutoSaveFailureMock).toHaveBeenCalledOnce());
+    expect(showAutoSaveFailureMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        message: { key: 'saveFailed', text: 'Save failed' },
+        guidance: { key: 'autosaveQuotaGuidance', text: 'Shorten the value' },
+        retryLabel: { key: 'saveButton', text: 'Save' }
+      })
+    );
+    const presentation = showAutoSaveFailureMock.mock.calls[0]?.[0];
+    expect(typeof presentation?.retry).toBe('function');
+
+    config.onSaveSuccess?.('auto', {}, { intentId: 6, admissionGeneration: 10 });
+    expect(clearAutoSaveFailureMock).not.toHaveBeenCalled();
+    config.onAutoSaveRecovered?.({ intentId: 6, admissionGeneration: 10 });
+    expect(clearAutoSaveFailureMock).not.toHaveBeenCalled();
+    config.onAutoSaveRecovered?.(identity);
+    expect(clearAutoSaveFailureMock).toHaveBeenCalledOnce();
+  });
+
+  it('clears a reconciled failure while disposing the old controller before rebootstrap', async () => {
+    const { OptionsMutationError } =
+      await import('../../../src/shared/types/optionsMutationMessages');
+    await bootstrapOptionsApp();
+    const firstConfig = createOptionsControllerMock.mock.calls.at(-1)?.[0];
+    if (!firstConfig) throw new Error('EXPECTED_OPTIONS_CONTROLLER_CONFIG');
+    const identity = { intentId: 8, admissionGeneration: 12 };
+    firstConfig.onSaveError?.(
+      'auto',
+      new OptionsMutationError('OPTIONS_STORAGE_FAILURE'),
+      identity
+    );
+    await vi.waitFor(() => expect(showAutoSaveFailureMock).toHaveBeenCalledOnce());
+    controllerFlushPendingAutoSaveMock.mockImplementationOnce(() => {
+      firstConfig.onAutoSaveRecovered?.(identity);
+      return Promise.resolve();
+    });
+
+    await bootstrapOptionsApp();
+
+    expect(clearAutoSaveFailureMock).toHaveBeenCalledOnce();
+    expect(createOptionsControllerMock).toHaveBeenCalledTimes(2);
+    expect(createOptionsControllerMock.mock.calls.at(-1)?.[0]).not.toBe(firstConfig);
+    expect(showAutoSaveFailureMock).toHaveBeenCalledOnce();
   });
 
   it('emits canonical options open telemetry after the Stitch shell mounts', async () => {

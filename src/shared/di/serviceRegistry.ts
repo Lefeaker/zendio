@@ -5,7 +5,8 @@ import { ChromeClipRepository } from '../../infrastructure/repositories/ChromeCl
 import { ChromeVideoRepository } from '../../infrastructure/repositories/ChromeVideoRepository';
 import { ChromeReaderRepository } from '../../infrastructure/repositories/ChromeReaderRepository';
 import { ChromeNavigationRepository } from '../../infrastructure/repositories/ChromeNavigationRepository';
-import { mergeOptions } from '../config/optionsMerger';
+import { OptionsMutationClient } from '../../infrastructure/repositories/OptionsMutationClient';
+import { UnavailableOptionsRepository } from '../../infrastructure/repositories/UnavailableOptionsRepository';
 import type {
   IMessagingRepository,
   IOptionsRepository,
@@ -16,8 +17,6 @@ import type {
   INavigationRepository
 } from '../repositories';
 import { DI_TOKENS } from './tokens';
-import type { CompleteOptions } from '../types/options';
-import type { YamlConfigOverrides } from '../types/yamlConfig';
 import type { MessagingService } from '../../platform/interfaces/messaging';
 import type { RuntimeService } from '../../platform/interfaces/runtime';
 import type { StorageService } from '../../platform/interfaces/storage';
@@ -270,68 +269,20 @@ class RepositoryServiceContainer {
 export const repositoryContainer = new RepositoryServiceContainer();
 export const container = repositoryContainer;
 
-function createFallbackOptionsRepository(): IOptionsRepository {
-  let snapshot = mergeOptions(null) as CompleteOptions;
-  const listeners = new Set<(options: CompleteOptions) => void>();
-
-  const emit = (): void => {
-    for (const listener of listeners) {
-      listener(snapshot);
-    }
-  };
-
-  return {
-    get() {
-      return Promise.resolve(snapshot);
-    },
-    async set(options) {
-      snapshot = mergeOptions({ ...snapshot, ...options }) as CompleteOptions;
-      emit();
-    },
-    onChange(callback) {
-      listeners.add(callback);
-      callback(snapshot);
-      return () => {
-        listeners.delete(callback);
-      };
-    }
-  };
-}
-
 function createFallbackMessagingRepository(): IMessagingRepository {
   return {
-    async send<T>() {
+    async send<T>(message: Parameters<IMessagingRepository['send']>[0]) {
+      if (
+        message?.type === 'clip' ||
+        message?.type === 'readingClip' ||
+        message?.type === 'videoClip'
+      ) {
+        return { success: true } as T;
+      }
       return undefined as T;
     },
     onMessage() {
       return () => {};
-    }
-  };
-}
-
-function createFallbackYamlRepository(): IYamlRepository {
-  let overrides: YamlConfigOverrides | null = null;
-  const listeners = new Set<(value: YamlConfigOverrides | null) => void>();
-  const emit = (): void => {
-    for (const listener of listeners) {
-      listener(overrides);
-    }
-  };
-
-  return {
-    async getOverrides() {
-      return overrides;
-    },
-    async setOverrides(nextOverrides) {
-      overrides = nextOverrides;
-      emit();
-    },
-    onChange(callback) {
-      listeners.add(callback);
-      callback(overrides);
-      return () => {
-        listeners.delete(callback);
-      };
     }
   };
 }
@@ -344,35 +295,12 @@ function createFallbackNavigationRepository(): INavigationRepository {
   };
 }
 
-function createFallbackVideoRepository(): IVideoRepository {
-  return {
-    async getVideoConfig() {
-      const videoOptions = mergeOptions(null).video;
-      if (!videoOptions) {
-        throw new Error('Default video options are unavailable.');
-      }
-      return videoOptions;
-    },
-    async savePromptPosition() {},
-    async saveControlBarPreferences() {},
-    async getPromptPosition() {
-      return null;
-    },
-    async sendVideoClip() {
-      return { success: true };
-    },
-    onConfigChange(callback) {
-      void callback;
-      return () => {};
-    }
-  };
-}
-
 export interface RepositoryPlatformServices {
   storage: StorageService;
   messaging: MessagingService;
   tabs: TabsService;
   runtime: RuntimeService;
+  optionsRepository?: IOptionsRepository;
 }
 
 function registerRepositorySingletons(implementations: {
@@ -398,7 +326,9 @@ function registerRepositorySingletons(implementations: {
 
 export function registerRepositories(services: RepositoryPlatformServices): void {
   registerRepositorySingletons({
-    options: () => new ChromeOptionsRepository(services.storage),
+    options: () =>
+      services.optionsRepository ??
+      new OptionsMutationClient(new ChromeOptionsRepository(services.storage), services.messaging),
     messaging: () => new ChromeMessagingRepository(services.messaging),
     yaml: () => {
       const optionsRepo = repositoryContainer.resolve<IOptionsRepository>(
@@ -439,9 +369,14 @@ export function registerRepositories(services: RepositoryPlatformServices): void
 
 export function registerFallbackRepositories(): void {
   registerRepositorySingletons({
-    options: createFallbackOptionsRepository,
+    options: () => new UnavailableOptionsRepository(),
     messaging: createFallbackMessagingRepository,
-    yaml: createFallbackYamlRepository,
+    yaml: () => {
+      const optionsRepo = repositoryContainer.resolve<IOptionsRepository>(
+        DI_TOKENS.IOptionsRepository
+      );
+      return new ChromeYamlRepository(optionsRepo);
+    },
     clip: () => {
       const optionsRepo = repositoryContainer.resolve<IOptionsRepository>(
         DI_TOKENS.IOptionsRepository
@@ -451,7 +386,15 @@ export function registerFallbackRepositories(): void {
       );
       return new ChromeClipRepository(optionsRepo, messagingRepo);
     },
-    video: createFallbackVideoRepository,
+    video: () => {
+      const optionsRepo = repositoryContainer.resolve<IOptionsRepository>(
+        DI_TOKENS.IOptionsRepository
+      );
+      const messagingRepo = repositoryContainer.resolve<IMessagingRepository>(
+        DI_TOKENS.IMessagingRepository
+      );
+      return new ChromeVideoRepository(optionsRepo, messagingRepo);
+    },
     reader: () => {
       const optionsRepo = repositoryContainer.resolve<IOptionsRepository>(
         DI_TOKENS.IOptionsRepository

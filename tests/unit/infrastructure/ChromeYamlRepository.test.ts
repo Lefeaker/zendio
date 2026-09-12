@@ -4,8 +4,16 @@ import { RepositoryError } from '@shared/errors';
 import type { IOptionsRepository } from '@shared/repositories';
 import type { CompleteOptions } from '@shared/types/options';
 import type { YamlConfigOverrides } from '@shared/types/yamlConfig';
+import type { OptionsPatch } from '@shared/types/optionsMutationMessages';
+import { mergeOptions } from '@shared/config/optionsMerger';
 
 type OptionsListener = (options: CompleteOptions) => void;
+
+function isPatchBatch(
+  value: OptionsPatch | readonly OptionsPatch[]
+): value is readonly OptionsPatch[] {
+  return Array.isArray(value);
+}
 
 describe('ChromeYamlRepository', () => {
   let repo: ChromeYamlRepository;
@@ -13,14 +21,17 @@ describe('ChromeYamlRepository', () => {
   let unsubscribeOptionsSpy: ReturnType<typeof vi.fn<(...args: []) => void>>;
 
   const mockGet = vi.fn<(...args: []) => Promise<CompleteOptions>>();
-  const mockSet = vi.fn<(...args: [Partial<CompleteOptions>]) => Promise<void>>();
+  const mockPatch =
+    vi.fn<(...args: [OptionsPatch | readonly OptionsPatch[]]) => Promise<CompleteOptions>>();
+  const mockReplace = vi.fn<IOptionsRepository['replace']>();
   const mockOnChange = vi.fn<(...args: [OptionsListener]) => () => void>();
 
   const mockOptionsRepository = {
     get: mockGet,
-    set: mockSet,
+    patch: mockPatch,
+    replace: mockReplace,
     onChange: mockOnChange
-  } satisfies Pick<IOptionsRepository, 'get' | 'set' | 'onChange'>;
+  } satisfies IOptionsRepository;
 
   const emitOptionsChange = (options: CompleteOptions): void => {
     subscribers.forEach((listener) => listener(options));
@@ -30,10 +41,12 @@ describe('ChromeYamlRepository', () => {
     subscribers.clear();
     vi.resetAllMocks();
     mockGet.mockReset();
-    mockSet.mockReset();
+    mockPatch.mockReset();
+    mockReplace.mockReset();
     mockOnChange.mockReset();
     mockGet.mockResolvedValue({} as CompleteOptions);
-    mockSet.mockResolvedValue();
+    mockPatch.mockResolvedValue(mergeOptions());
+    mockReplace.mockResolvedValue(mergeOptions());
     unsubscribeOptionsSpy = vi.fn<(...args: []) => void>();
     mockOnChange.mockImplementation((listener) => {
       subscribers.add(listener);
@@ -88,24 +101,25 @@ describe('ChromeYamlRepository', () => {
   });
 
   describe('setOverrides', () => {
-    it('updates options via optionsRepository.set', async () => {
+    it('updates options via optionsRepository.patch', async () => {
       const overrides: YamlConfigOverrides = {
         globalFields: [{ name: 'workspace', type: 'text', enabled: true }]
       };
 
       await repo.setOverrides(overrides);
 
-      expect(mockOptionsRepository.set).toHaveBeenCalledTimes(1);
-      const payload = mockOptionsRepository.set.mock.calls[0]?.[0];
-      expect(payload?.yamlConfig).toEqual(overrides);
-      expect(payload?.yamlConfig).not.toBe(overrides);
+      expect(mockOptionsRepository.patch).toHaveBeenCalledTimes(1);
+      const payload = mockOptionsRepository.patch.mock.calls[0]?.[0];
+      expect(payload).toEqual({ path: ['yamlConfig'], value: overrides });
+      if (!payload || isPatchBatch(payload)) throw new Error('Expected one YAML patch.');
+      expect(payload.value).not.toBe(overrides);
     });
 
     it('wraps errors as RepositoryError', async () => {
       const overrides: YamlConfigOverrides = {
         globalFields: [{ name: 'workspace', type: 'text', enabled: true }]
       };
-      mockOptionsRepository.set.mockRejectedValueOnce(new Error('boom'));
+      mockOptionsRepository.patch.mockRejectedValueOnce(new Error('boom'));
 
       await expect(repo.setOverrides(overrides)).rejects.toBeInstanceOf(RepositoryError);
     });
@@ -113,9 +127,10 @@ describe('ChromeYamlRepository', () => {
     it('gracefully handles null overrides input', async () => {
       await repo.setOverrides(null as unknown as YamlConfigOverrides);
 
-      expect(mockOptionsRepository.set).toHaveBeenCalledWith(
-        expect.objectContaining({ yamlConfig: null })
-      );
+      expect(mockOptionsRepository.patch).toHaveBeenCalledWith({
+        path: ['yamlConfig'],
+        value: null
+      });
     });
   });
 

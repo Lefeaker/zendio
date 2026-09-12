@@ -16,11 +16,11 @@
 
 1. 在仓库根目录执行初步扫描：
    ```bash
-   rg "chrome\." AiiinOB/src --type ts --no-heading --line-number
+   rg "chrome\." src --type ts --no-heading --line-number
    ```
    将输出重定向到临时文件，便于后续统计：
    ```bash
-   rg "chrome\." AiiinOB/src --type ts --no-heading --line-number > tmp/chrome-usages.txt
+   rg "chrome\." src --type ts --no-heading --line-number > tmp/chrome-usages.txt
    ```
 2. 以功能域分类整理结果（建议汇总到共享文档 / issue）：
    - 内容脚本：`src/content/**`
@@ -37,7 +37,7 @@
 
 4. 统计高频 API：
    ```bash
-   rg "chrome\." AiiinOB/src --type ts --no-heading -o | sort | uniq -c | sort -nr
+   rg "chrome\." src --type ts --no-heading -o | sort | uniq -c | sort -nr
    ```
    根据统计结果标记优先抽象对象，当前重点包括 `storage`、`runtime.sendMessage`、`contextMenus`、`notifications`。
 5. 输出结果后进行团队评审，确认是否存在业务上必须保留的直接调用（例如仅在 content script 可用的 API）。
@@ -74,7 +74,7 @@
    - 统一封装 `chrome.runtime.lastError`，转化为 `Error` 并附带 `code` 字段。
    - 约定日志尺寸：接口层仅在抛出前记录 debug 级别日志，业务层再决定是否上报。
    - 将所有接口的错误类型集中定义在 `src/platform/errors.ts`。
-4. **定义平台服务聚合类型**：
+4. **定义平台服务聚合类型与 composition root**：
 
    ```ts
    export interface PlatformServices {
@@ -189,40 +189,42 @@
    };
    ```
 
-   **P2-3 整治后的依赖注入容器**：现在使用更完善的DI容器和配置机制；Options repository 由 `registerRepositories()` 注册：
+   当前入口通过 `getPlatformServices()` 取得 platform adapters，再把窄依赖传给
+   `registerRepositories()`。Options 不把 repository 挂回 `PlatformServices`：
 
    ```ts
-   import { getPlatformServices, configurePlatformServices } from '../platform/services';
+   import { getPlatformServices } from '../platform/services';
    import { registerRepositories } from '../shared/di/serviceRegistry';
 
-   // 获取默认平台服务
    const platformServices = getPlatformServices();
-
-   registerRepositories(platformServices);
-
-   // 测试时配置覆盖
-   configurePlatformServices({
-     storage: mockStorageService
+   registerRepositories({
+     storage: platformServices.storage,
+     messaging: platformServices.messaging,
+     tabs: platformServices.tabs,
+     runtime: platformServices.runtime
    });
    ```
 
-   `createCompatibilityOptionsRepository`、`ChromeSyncOptionsRepository` 和 infrastructure-level legacy OptionsRepository adapter 已删除，不应作为新代码示例恢复。
+   `ChromeOptionsRepository` owns raw read/observe；Options/onboarding 默认注册
+   `OptionsMutationClient`，所有 mutation 经 runtime message 到 background
+   `OptionsMutationCoordinator`。background 自己创建 coordinator，并通过
+   `createBackgroundOptionsRepository()` 避免向自身发消息。content caller 只消费所需的
+   read/observe contract。`configurePlatformServices()` 只用于显式测试/preview override，
+   不是生产 window singleton 或 feature-level service locator。
 
-   若未来要支持测试专用实现，可以改写为工厂函数 `createServices(overrides?)`。
+   `createCompatibilityOptionsRepository`、`ChromeSyncOptionsRepository` 和
+   infrastructure-level legacy OptionsRepository adapter 已删除，不应作为新代码示例恢复。
 
 2. 调整各入口文件（`content/index.ts`、`background/index.ts`、`options/index.ts`）：
-   - 在顶层 import `services`，并在初始化阶段将其挂载到当前上下文（如 `window.__aiobServices`），便于调试。
-   - 若已有全局单例，考虑统一迁移到 `services`。
-3. 为了降低后续 diff，可在每个使用文件内部新增微型代理：
-   ```ts
-   function getStorage() {
-     return services.storage;
-   }
-   ```
-   在完全迁移完成前不要删除旧的 `chrome` 引用，确保编译通过。
+   - 仅 composition root 调用 `getPlatformServices()`；通过参数或 repository/client 注入
+     feature runtime。
+   - 禁止把 services 挂到 `window.__aiob*`，也不要在 feature 中新增微型 service locator。
+3. 迁移 caller 时直接注入最小接口；若调用只读 Options，只传 `get/onChange` pick；若需
+   mutation，只传 typed `IOptionsRepository`，由 client/coordinator 保持写 authority。
 4. 引入 lint 规则防止直接使用 `chrome`（例如自定义 `eslint` 规则或 `ban-types` 注释），后续步骤中再开启。
 
-> 产出：服务定位器/容器基线代码，搭配入口注入，仍未改动业务逻辑。
+> 产出：composition-root/platform adapter 基线与显式 repository/client 注入，不新增
+> feature-level service locator 或 window singleton。
 
 ---
 
@@ -301,7 +303,8 @@
 - 在 `docs/` 下新增 FAQ 或 cookbook，示范常见用法（如“如何在测试中注入 fake messaging service”）。
 - 配置 ESLint 自定义规则，禁止在业务代码中出现 `chrome.`（保留豁免路径）。
 - 在 CI 中增加 smoke 测试脚本，确保关键流程不受后续提交影响。
-- 如果未来支持 Firefox / Edge，可新增 `src/platform/firefox` 适配器，并在 `createServices` 中按 `browser` 对象存在与否选择实现。
+- Firefox 已由 `src/platform/firefox/*` 与 `createFirefoxServices()` 支持；新增平台必须在
+  composition root 做显式 detection/adapter selection，并保持 consumer 合同不变。
 
 ---
 

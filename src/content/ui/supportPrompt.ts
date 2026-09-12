@@ -13,7 +13,11 @@ import {
   renderStitchRuntimeSurface,
   type RuntimeSurfaceActionArgs
 } from '@content/stitch/runtimeSurfaceRenderer';
-import { panelStyleSheetManager } from '@content/shared/panels/styleSheetManager';
+import {
+  panelStyleSheetManager,
+  prepareStyleHost,
+  revealStyleHost
+} from '@content/shared/panels/styleSheetManager';
 import {
   mapSeverityToStatus,
   resolveStatusMessage,
@@ -29,16 +33,15 @@ import { createSupportPromptToastLifecycle } from './supportPromptToastLifecycle
 import { getContentI18nResource, getContentMessages } from '../i18n/context';
 import type { UserVisibleMessageDescriptor } from '../../shared/i18n/userVisibleMessageDescriptor';
 import { ZENDIO_RESOURCE_LINKS } from '@shared/links/zendioResourceLinks';
-
+import type { StyleAttachmentHandle } from '@ui/foundation/style-host';
 const WECHAT_REWARD_ID = 'wechat-reward';
 const REVIEW_STATE_STORAGE_KEY = 'support_prompt_review_state';
-
 export class SupportPrompt implements UiMountable<
   SupportPromptOptions | undefined,
   SupportPromptOptions | undefined,
   Promise<void>
 > {
-  private host: HTMLElement | null = null;
+  private activeMount: { host: HTMLElement; style: StyleAttachmentHandle } | null = null;
   private readonly deps: SupportPromptDependencies;
   private readonly popupCoordinator: PopupCoordinator | null;
   private readonly toastLifecycle: ReturnType<typeof createSupportPromptToastLifecycle>;
@@ -46,7 +49,6 @@ export class SupportPrompt implements UiMountable<
   private reviewStatePromise: Promise<ReviewPromptState> | null = null;
   private unregisterPopup: (() => void) | null = null;
   private renderSequence = 0;
-
   constructor(private readonly doc: Document) {
     this.deps = resolveSupportPromptDependencies();
     this.popupCoordinator = resolveContentPopupCoordinator();
@@ -60,20 +62,18 @@ export class SupportPrompt implements UiMountable<
       trackUsageEvent: (name, params) => this.trackUsageEvent(name, params)
     });
   }
-
   async show(options?: SupportPromptOptions): Promise<void> {
     const renderId = ++this.renderSequence;
     this.removeHost();
     const messages = await this.resolveMessages();
-    if (renderId !== this.renderSequence) {
-      return;
-    }
+    if (renderId !== this.renderSequence) return;
     const resolvedError = options?.error;
     const promptStatus =
       options?.status ?? (resolvedError ? mapSeverityToStatus(resolvedError.severity) : 'success');
     const reason = resolveSupportPromptReason(resolvedError, options?.errorMessage);
     const vaultLabel = options?.vaultName?.trim();
     const runtimeMessages = getContentI18nResource()?.messages ?? (await getContentMessages());
+    if (renderId !== this.renderSequence) return;
     const progress = options?.progress as
       | (NonNullable<SupportPromptOptions['progress']> & {
           message?: UserVisibleMessageDescriptor;
@@ -90,7 +90,6 @@ export class SupportPrompt implements UiMountable<
       ...(progress?.label ? { progressLabel: progress.label } : {})
     });
     const resolvedProgress = resolveSupportPromptProgress(options, promptStatus);
-
     const links: Array<{
       id?: string;
       icon: string;
@@ -115,10 +114,9 @@ export class SupportPrompt implements UiMountable<
         description: messages.afdianDescription
       }
     ];
-
     const appData = createTaskSuccessSurfaceContent();
-    appData.surfaces.taskSuccess = {
-      ...appData.surfaces.taskSuccess,
+    appData.taskSuccess = {
+      ...appData.taskSuccess,
       status: promptStatus,
       statusMessage: statusMessage.text + (statusMessage.codeSuffix ?? ''),
       statusDetail: statusMessage.extraLine ?? '',
@@ -128,23 +126,20 @@ export class SupportPrompt implements UiMountable<
       dislikeLabel: messages.dislikeLabel,
       dismissLabel: messages.dismiss,
       likeToast: {
-        ...appData.surfaces.taskSuccess.likeToast,
+        ...appData.taskSuccess.likeToast,
         title: messages.likeThankYou,
         actions: [messages.reviewLinkLabel, messages.reviewAcknowledgedLabel]
       },
       dislikeToast: {
-        ...appData.surfaces.taskSuccess.dislikeToast,
+        ...appData.taskSuccess.dislikeToast,
         title: messages.dislikeToastTitle,
         actions: [
           messages.dislikeRedditLinkLabel,
           messages.dislikeQrLinkLabel,
           messages.githubTitle
         ]
-      }
-    };
-    appData.resources.support = {
-      ...appData.resources.support,
-      channels: links.map((link) => ({
+      },
+      supportChannels: links.map((link) => ({
         ...(link.id ? { id: link.id } : {}),
         title: link.title,
         icon: link.icon,
@@ -152,9 +147,9 @@ export class SupportPrompt implements UiMountable<
         ...(link.imageAlt ? { imageAlt: link.imageAlt } : {}),
         ...(link.description ? { subtitle: link.description } : {}),
         ...(link.url ? { href: link.url } : {})
-      }))
+      })),
+      ...(vaultLabel ? { defaultVaultName: vaultLabel } : {})
     };
-
     const surface = renderStitchRuntimeSurface({
       surfaceId: 'task-success',
       appData,
@@ -172,57 +167,57 @@ export class SupportPrompt implements UiMountable<
       }
     });
     this.decorateSurface(surface);
-
     const host = this.doc.createElement('div');
     host.id = 'aiob-support-prompt';
     host.style.position = 'fixed';
     host.style.inset = '0';
     host.style.zIndex = '2147483647';
     host.style.pointerEvents = 'none';
+    prepareStyleHost(host);
+    host.dataset.aiobStyleReveal = 'true';
     const shadow = host.attachShadow({ mode: 'open' });
-    panelStyleSheetManager.applyStitchRuntimeStyles(shadow);
+    const style = panelStyleSheetManager.applyPromptTaskStyles(shadow);
     shadow.append(surface);
     this.doc.body.append(host);
-    this.host = host;
+    this.activeMount = { host, style };
+    const styleReady = await revealStyleHost(host, style);
+    if (!styleReady || renderId !== this.renderSequence || this.activeMount?.host !== host) {
+      if (this.activeMount?.host === host) this.removeHost();
+      return;
+    }
     if (!this.unregisterPopup && this.popupCoordinator) {
       this.unregisterPopup = this.popupCoordinator.register(this);
     }
     queueMicrotask(() => host.focus());
     await this.toastLifecycle.preload();
   }
-
   mount(options?: SupportPromptOptions): Promise<void> {
     return this.show(options);
   }
-
   update(options?: SupportPromptOptions): Promise<void> {
     return this.show(options);
   }
-
   hide(): void {
     this.renderSequence += 1;
     this.removeHost();
   }
-
   private removeHost(): void {
     this.unregisterPopup?.();
     this.unregisterPopup = null;
-    this.doc.querySelectorAll<HTMLElement>('#aiob-support-prompt').forEach((host) => {
-      host.remove();
-    });
-    this.host = null;
+    const mount = this.activeMount;
+    this.activeMount = null;
+    if (!mount) return;
+    mount.style.dispose();
+    mount.host.remove();
   }
-
   destroy(): void {
     this.hide();
     this.toastLifecycle.destroy();
   }
-
   private async handleLikeClick(): Promise<void> {
     this.hide();
     await this.toastLifecycle.handleLikeClick();
   }
-
   private decorateSurface(surface: HTMLElement): void {
     surface.style.pointerEvents = 'auto';
     const like = surface.querySelector<HTMLElement>('[data-action-id="task-success:like"]');
@@ -249,12 +244,10 @@ export class SupportPrompt implements UiMountable<
       });
     });
   }
-
   private async handleDislikeClick(): Promise<void> {
     this.hide();
     await this.toastLifecycle.handleDislikeClick();
   }
-
   private handleSupportImageToggle(args: RuntimeSurfaceActionArgs): void {
     const channelId = typeof args?.[0] === 'string' ? args[0] : null;
     const imageSrc = typeof args?.[1] === 'string' ? args[1] : null;
@@ -262,20 +255,16 @@ export class SupportPrompt implements UiMountable<
     if (!channelId || !imageSrc) {
       return;
     }
-
     void this.toastLifecycle.showRewardQr({ imageSrc, imageAlt });
   }
-
   private async resolveMessages(): Promise<SupportPromptMessages> {
     let messagesPromise = this.messagesPromise;
     if (messagesPromise === null) {
       messagesPromise = resolveSupportPromptMessages(this.doc);
       this.messagesPromise = messagesPromise;
     }
-
     return messagesPromise;
   }
-
   private resolveAssetUrl(path: string): string {
     try {
       return this.deps.runtime.getURL(path);
@@ -283,12 +272,10 @@ export class SupportPrompt implements UiMountable<
       return path;
     }
   }
-
   private resolveReviewUrl(): string {
     const locale = this.resolveReviewLocale();
     return `${ZENDIO_RESOURCE_LINKS.chromeWebStoreReview}/reviews?reviewId=0&hl=${encodeURIComponent(locale)}`;
   }
-
   private resolveReviewLocale(): string {
     const resource = getContentI18nResource();
     if (resource?.language) {
@@ -299,14 +286,12 @@ export class SupportPrompt implements UiMountable<
     }
     return 'en';
   }
-
   private async getReviewState(): Promise<ReviewPromptState> {
     if (this.reviewStatePromise === null) {
       this.reviewStatePromise = this.loadReviewState();
     }
     return this.reviewStatePromise;
   }
-
   private async loadReviewState(): Promise<ReviewPromptState> {
     try {
       const stored = await this.deps.storage.local.get<ReviewPromptState>(REVIEW_STATE_STORAGE_KEY);
@@ -316,7 +301,6 @@ export class SupportPrompt implements UiMountable<
       return {};
     }
   }
-
   private async updateReviewState(updates: Partial<ReviewPromptState>): Promise<void> {
     const current = await this.getReviewState();
     const next: ReviewPromptState = { ...current, ...updates };
@@ -327,7 +311,6 @@ export class SupportPrompt implements UiMountable<
       console.warn('[support-prompt] Failed to update review prompt state:', error);
     }
   }
-
   private async trackUsageEvent<EventName extends Analytics.UsageEventName>(
     name: EventName,
     params?: Analytics.UsageEventParamMap[EventName]
@@ -340,5 +323,4 @@ export class SupportPrompt implements UiMountable<
     }
   }
 }
-
 export type { SupportPromptMessages, SupportPromptOptions } from './supportPrompt/types';

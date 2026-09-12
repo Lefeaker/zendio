@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 
@@ -11,21 +11,35 @@ function writeFile(root: string, path: string, content = ''): void {
   writeFileSync(fullPath, content, 'utf8');
 }
 
-function writeFixture(overrides: Record<string, string> = {}): string {
-  const root = mkdtempSync(join(tmpdir(), 'aiiinob-design-doc-'));
+function writeFixture(overrides: Record<string, string> = {}, parent = tmpdir()): string {
+  const root = mkdtempSync(join(parent, 'aiiinob-design-doc-'));
+  // Keep check-ignore from discovering an enclosing repository when TMPDIR is ignored.
+  execFileSync('git', ['init'], { cwd: root, stdio: 'ignore' });
   const requiredRefs = [
-    'src/ui/foundation/tokens/index.ts',
+    'tools/ui-production-ownership.json',
+    'src/styles/design-tokens.css',
     'src/ui/foundation/icons/index.ts',
     'src/ui/primitives/button/index.ts',
-    'src/ui/primitives/layout/index.ts',
-    'src/ui/patterns/section-shell/index.ts',
-    'src/ui/hosts/shadow/index.ts',
-    'src/ui/domains/vault-router/index.ts',
+    'src/ui/stitch-runtime/index.ts',
+    'src/ui/stitch-surfaces/index.ts',
     'docs/archive/legacy-options-assets/obsidian-hybrid-preview.html'
   ];
   for (const ref of requiredRefs) {
     writeFile(root, ref);
   }
+
+  const uiRows = requiredRefs
+    .filter((ref) => ref.startsWith('src/ui/'))
+    .map((ref) => ({
+      path: ref,
+      disposition: 'production-runtime',
+      replacement: { owner: ref, milestone: 'current-production' }
+    }));
+  writeFile(
+    root,
+    'tools/ui-production-ownership.json',
+    `${JSON.stringify({ closureState: 'intermediate', rows: uiRows }, null, 2)}\n`
+  );
 
   writeFile(
     root,
@@ -133,10 +147,33 @@ describe('design system documentation report', () => {
       'docs/local-process-archive/current-style.md': 'Use DaisyUI for new Options components.\n'
     });
     try {
-      execFileSync('git', ['init'], { cwd: root, stdio: 'ignore' });
       expect(runReport(root)).toContain('Stale current-style guidance findings: 0');
     } finally {
       rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it('detects active guidance in a fixture nested under a parent repository ignored directory', () => {
+    const parent = mkdtempSync(join(tmpdir(), 'aiiinob-design-doc-parent-'));
+    try {
+      execFileSync('git', ['init'], { cwd: parent, stdio: 'ignore' });
+      writeFile(parent, '.gitignore', '.tmp/\n');
+      const fixtureParent = join(parent, '.tmp');
+      mkdirSync(fixtureParent);
+      expect(
+        execFileSync('git', ['check-ignore', '.tmp/probe.md'], {
+          cwd: parent,
+          encoding: 'utf8'
+        }).trim()
+      ).toBe('.tmp/probe.md');
+
+      const root = writeFixture(
+        { 'docs/current-style.md': 'Use DaisyUI for new Options components.\n' },
+        fixtureParent
+      );
+      expectReportFailure(root, 'docs/current-style.md');
+    } finally {
+      rmSync(parent, { recursive: true, force: true });
     }
   });
 
@@ -170,6 +207,24 @@ describe('design system documentation report', () => {
     });
     try {
       expectReportFailure(root, 'src/options/components/README.md');
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it('fails when current governance references a UI path absent from the ownership manifest', () => {
+    const root = writeFixture();
+    try {
+      const governancePath = join(root, 'docs/design-system-governance.md');
+      const governance = readFileSync(governancePath, 'utf8');
+      writeFileSync(
+        governancePath,
+        `${governance}\n- stale UI owner: \`src/ui/unknown/retired.ts\`\n`,
+        'utf8'
+      );
+      writeFile(root, 'src/ui/unknown/retired.ts');
+
+      expectReportFailure(root, 'Document references UI paths absent from the ownership manifest');
     } finally {
       rmSync(root, { recursive: true, force: true });
     }

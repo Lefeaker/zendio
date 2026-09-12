@@ -1,5 +1,5 @@
 import type { VideoPanelCallbacks, VideoPanelCapture, VideoPanelTexts } from './videoPanelModel';
-import type { ExportDestinationSurfacePreview } from '@options/stitch/types';
+import type { ExportDestinationSurfacePreview } from '@ui/stitch-runtime';
 
 export interface VideoSessionView {
   updateCount(count: number): void;
@@ -15,10 +15,15 @@ export interface VideoSessionView {
   destroy(): void;
 }
 
+export interface VideoSessionViewOptions {
+  initialCollapsed?: boolean;
+  initialDestination?: ExportDestinationSurfacePreview;
+}
+
 export interface VideoSessionViewFactory {
   createView(
     callbacks: VideoPanelCallbacks,
     texts: VideoPanelTexts,
-    options?: { initialCollapsed?: boolean }
+    options?: VideoSessionViewOptions
   ): VideoSessionView;
 }

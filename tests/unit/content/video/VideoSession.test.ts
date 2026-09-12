@@ -5,7 +5,7 @@ import {
   isVideoSessionActive,
   registerVideoSession
 } from '@content/runtime/contentSessionRegistry';
-import { createSessionDraftStoragePolicy } from '@content/sessionDrafts';
+import { createSessionDraftStoragePolicy } from '@shared/sessionDrafts';
 import type { VideoPanelCallbacks } from '@content/video/application/videoPanelModel';
 import { VideoSession } from '@content/video/session';
 import { DEFAULT_SESSION_MESSAGES } from '@content/video/sessionMessages';
@@ -31,7 +31,8 @@ import {
   restoreVideoSessionHarnessGlobals,
   seedTimestampCaptures,
   toDraftControllerTestApi,
-  toSessionTestApi
+  toSessionTestApi,
+  waitForMockCalls
 } from './videoSessionTestHarness';
 
 const { ensureContentI18nMock, saveCaptureDataMock } = getVideoSessionHarnessMocks();
@@ -55,6 +56,7 @@ describe('VideoSession', () => {
   it('requires explicit dependencies', () => {
     const deps = createDependencies();
     expect(() => new VideoSession(document, deps)).not.toThrow();
+    expect('set' in deps.optionsRepository).toBe(false);
   });
 
   it('returns early when a session is already active', async () => {
@@ -187,18 +189,22 @@ describe('VideoSession', () => {
   it('pauses add-note playback before the capture save resolves', async () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2026-03-14T10:00:00Z'));
-    const saveGate: { resolve?: () => void } = {};
     const deps = createDependencies();
-    vi.mocked(deps.storage.local.setMany).mockImplementationOnce(
-      () =>
-        new Promise<void>((resolve) => {
-          saveGate.resolve = () => resolve();
-        })
-    );
     const session = new VideoSession(document, deps);
     const sessionApi = toSessionTestApi(session);
 
     await session.start();
+    const setMany = vi.mocked(deps.storage.local.setMany);
+    const passthroughSetMany = setMany.getMockImplementation();
+    if (!passthroughSetMany) {
+      throw new Error('expected storage setMany implementation');
+    }
+    const saveGate = createDeferred<void>();
+    setMany.mockClear();
+    setMany.mockImplementationOnce(async (...args) => {
+      await saveGate.promise;
+      return passthroughSetMany(...args);
+    });
 
     const video = requireVideoElement();
     Object.defineProperty(video, 'currentTime', { value: 42, configurable: true });
@@ -206,18 +212,14 @@ describe('VideoSession', () => {
     const pauseSpy = vi.spyOn(video, 'pause').mockImplementation(() => undefined);
     const addPromise = sessionApi.handleAddCapture('note-input');
 
-    await vi.advanceTimersByTimeAsync(0);
+    await waitForMockCalls(setMany);
 
     const view = (deps.viewFactory.createView as ReturnType<typeof vi.fn>).mock.results[0]
       ?.value as TestView | undefined;
-    expect(deps.storage.local.setMany).toHaveBeenCalledTimes(1);
+    expect(setMany).toHaveBeenCalledTimes(1);
     expect(pauseSpy).toHaveBeenCalledTimes(1);
     expect(view?.beginEditingCapture).not.toHaveBeenCalled();
 
-    expect(saveGate.resolve).toBeTruthy();
-    if (!saveGate.resolve) {
-      throw new Error('capture save did not start');
-    }
     saveGate.resolve();
     await addPromise;
 
@@ -234,12 +236,13 @@ describe('VideoSession', () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2026-03-14T10:00:00Z'));
     const deps = createDependencies();
-    vi.mocked(deps.storage.local.setMany).mockRejectedValueOnce(new Error('save failed'));
     const view = createView();
     deps.viewFactory.createView = vi.fn(() => view);
     const session = new VideoSession(document, deps);
 
     await session.start();
+    vi.mocked(deps.storage.local.setMany).mockClear();
+    vi.mocked(deps.storage.local.setMany).mockRejectedValueOnce(new Error('save failed'));
 
     const video = document.querySelector('video');
     if (!(video instanceof HTMLVideoElement)) {
@@ -345,10 +348,11 @@ describe('VideoSession', () => {
     expect(
       trackUsageEvent.mock.calls.some(([eventName]) => eventName === 'video_fragment_added')
     ).toBe(false);
-    expect(RecordingMutationObserver.instances[0]?.disconnect).toHaveBeenCalledTimes(1);
+    expect(RecordingMutationObserver.instances[0]?.disconnect).not.toHaveBeenCalled();
     expect(RecordingMutationObserver.instances).toHaveLength(1);
 
     sessionApi.cleanup();
+    expect(RecordingMutationObserver.instances[0]?.disconnect).toHaveBeenCalledTimes(1);
     restoreMutationObserver();
     vi.useRealTimers();
   });
@@ -568,13 +572,17 @@ describe('VideoSession', () => {
       throw new Error('add-note did not create a capture');
     }
 
-    const submitGate: { resolve?: () => void } = {};
-    vi.mocked(deps.storage.local.setMany).mockImplementationOnce(
-      () =>
-        new Promise<void>((resolve) => {
-          submitGate.resolve = () => resolve();
-        })
-    );
+    const setMany = vi.mocked(deps.storage.local.setMany);
+    const passthroughSetMany = setMany.getMockImplementation();
+    if (!passthroughSetMany) {
+      throw new Error('expected storage setMany implementation');
+    }
+    const submitGate = createDeferred<void>();
+    setMany.mockClear();
+    setMany.mockImplementationOnce(async (...args) => {
+      await submitGate.promise;
+      return passthroughSetMany(...args);
+    });
     const callbacks = requireMountedPanelCallbacks(mountedCallbacks);
     const submitPromise = requirePromise(callbacks.onSubmitCaptureEdit(captureId, 'panel note'));
     await vi.advanceTimersByTimeAsync(0);
@@ -584,8 +592,7 @@ describe('VideoSession', () => {
     expect(pauseSpy).toHaveBeenCalledTimes(2);
     expect(playSpy).not.toHaveBeenCalled();
 
-    expect(submitGate.resolve).toBeTruthy();
-    submitGate.resolve?.();
+    submitGate.resolve();
     await submitPromise;
 
     expect(playSpy).toHaveBeenCalledTimes(1);
@@ -876,7 +883,7 @@ describe('VideoSession', () => {
     vi.useRealTimers();
   });
 
-  it('stops fragment restore observation when the last fragment capture is deleted', async () => {
+  it('keeps the shared body observer until adapter cleanup after the last fragment is deleted', async () => {
     vi.useFakeTimers();
     const deps = createDependencies();
     const view = createView();
@@ -920,26 +927,32 @@ describe('VideoSession', () => {
     await flushMutationWork();
 
     expect(sessionApi.state.captures).toEqual([]);
-    expect(RecordingMutationObserver.instances[0]?.disconnect).toHaveBeenCalledTimes(1);
+    expect(RecordingMutationObserver.instances[0]?.disconnect).not.toHaveBeenCalled();
 
     sessionApi.cleanup();
+    expect(RecordingMutationObserver.instances[0]?.disconnect).toHaveBeenCalledTimes(1);
     restoreMutationObserver();
     vi.useRealTimers();
   });
 
-  it('stops watchers and tears down the active session on cleanup', async () => {
-    const stopOptionsWatcher = vi.fn();
+  it('stops theme and destination watchers and tears down the active session on cleanup', async () => {
+    const stopHighlightThemeWatcher = vi.fn();
+    const stopDestinationWatcher = vi.fn();
     const stopLanguageWatcher = vi.fn();
     const deps = createDependencies();
-    deps.optionsRepository.onChange = vi.fn(() => stopOptionsWatcher) as never;
-    deps.storage.sync.watchKey = vi.fn(() => stopLanguageWatcher) as never;
+    deps.optionsRepository.onChange = vi
+      .fn<typeof deps.optionsRepository.onChange>()
+      .mockImplementationOnce(() => stopHighlightThemeWatcher)
+      .mockImplementationOnce(() => stopDestinationWatcher);
+    vi.spyOn(deps.storage.sync, 'watchKey').mockImplementation(() => stopLanguageWatcher);
     const session = new VideoSession(document, deps);
     const sessionApi = toSessionTestApi(session);
 
     await session.start();
     sessionApi.cleanup();
 
-    expect(stopOptionsWatcher).toHaveBeenCalledTimes(1);
+    expect(stopHighlightThemeWatcher).toHaveBeenCalledTimes(1);
+    expect(stopDestinationWatcher).toHaveBeenCalledTimes(1);
     expect(stopLanguageWatcher).toHaveBeenCalledTimes(1);
     expect(isVideoSessionActive(document)).toBe(false);
   });

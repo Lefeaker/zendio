@@ -1,11 +1,18 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { pathToFileURL } from 'node:url';
 
 const ROOT = process.cwd();
 
-function read(relativePath) {
-  return readFileSync(join(ROOT, relativePath), 'utf8');
-}
+const SOURCE_PATHS = {
+  primitiveButton: 'src/ui/primitives/button/index.ts',
+  primitiveInput: 'src/ui/primitives/input/index.ts',
+  primitiveSelect: 'src/ui/primitives/select/index.ts',
+  foundationA11y: 'src/ui/foundation/a11y/index.ts',
+  runtimeSurface: 'src/ui/stitch-runtime/render/renderRuntimeSurface.ts',
+  runtimeNodes: 'src/ui/stitch-runtime/render/nodeRenderers.ts',
+  harness: 'src/dev/interactionContractHarness.ts'
+};
 
 function requirePattern(source, pattern, message, findings) {
   if (!pattern.test(source)) {
@@ -13,80 +20,141 @@ function requirePattern(source, pattern, message, findings) {
   }
 }
 
-const findings = [];
+function collectInteractionContractFindings(sources) {
+  const findings = [];
+  for (const variant of ['primary', 'secondary', 'ghost', 'outline', 'danger', 'error']) {
+    requirePattern(
+      sources.primitiveButton,
+      new RegExp(`${variant}:`),
+      `UI button primitive missing variant ${variant}`,
+      findings
+    );
+  }
 
-const primitiveButtonSource = read('src/ui/primitives/button/index.ts');
-const primitiveInputSource = read('src/ui/primitives/input/index.ts');
-const primitiveSelectSource = read('src/ui/primitives/select/index.ts');
-const foundationA11ySource = read('src/ui/foundation/a11y/index.ts');
-const primitiveDialogSource = read('src/ui/primitives/dialog/index.ts');
-const contentDialogSource = read('src/ui/hosts/content/ContentDialogHost.ts');
-const optionsDialogSource = read('src/ui/hosts/shadow/ShadowDialogHost.ts');
-const harnessSource = read('src/dev/interactionContractHarness.ts');
-
-for (const variant of ['primary', 'secondary', 'ghost', 'outline', 'danger', 'error']) {
   requirePattern(
-    primitiveButtonSource,
-    new RegExp(`${variant}:`),
-    `UI button primitive missing variant ${variant}`,
+    sources.primitiveButton,
+    /loading\?: boolean;/,
+    'UI button primitive missing loading contract',
     findings
+  );
+  requirePattern(
+    sources.foundationA11y,
+    /aria-busy/,
+    'UI button primitive missing aria-busy handling',
+    findings
+  );
+  requirePattern(
+    sources.primitiveInput,
+    /validationState\?: InputValidationState;/,
+    'UI input primitive missing validationState contract',
+    findings
+  );
+  requirePattern(
+    sources.primitiveSelect,
+    /validationState\?: InputValidationState;/,
+    'UI select primitive missing validationState contract',
+    findings
+  );
+  requirePattern(
+    sources.foundationA11y,
+    /aria-invalid/,
+    'UI form primitives missing aria-invalid handling',
+    findings
+  );
+  requirePattern(
+    sources.runtimeSurface,
+    /role:\s*'dialog'/,
+    'neutral runtime surface missing dialog role',
+    findings
+  );
+  requirePattern(
+    sources.runtimeSurface,
+    /'aria-modal':\s*isNonModalSurface\s*\?\s*'false'\s*:\s*'true'/,
+    'neutral runtime surface missing modal aria contract',
+    findings
+  );
+  requirePattern(
+    sources.runtimeNodes,
+    /case 'button'/,
+    'neutral runtime node renderer missing button contract',
+    findings
+  );
+  requirePattern(
+    sources.runtimeNodes,
+    /case 'input'/,
+    'neutral runtime node renderer missing input contract',
+    findings
+  );
+
+  for (const [pattern, message] of [
+    [/from '..\/ui\/stitch-runtime'/, 'interaction harness not consuming neutral runtime'],
+    [
+      /from '..\/ui\/stitch-surfaces\/builders\/primitives'/,
+      'interaction harness not consuming neutral surface builders'
+    ],
+    [/renderRuntimeSurface/, 'interaction harness not rendering runtime surfaces'],
+    [
+      /createPrimitiveButtonElement/,
+      'interaction harness missing the retained loading danger button probe'
+    ],
+    [/createInputElement/, 'interaction harness missing the retained input validation probe'],
+    [
+      /runtimeContext\.ui\.Input\(\s*['"]['"]\s*,\s*\{[\s\S]*?type:\s*['"]checkbox['"]/,
+      'interaction harness missing the neutral runtime checkbox validation probe'
+    ],
+    [/validated-checkbox/, 'interaction harness missing the executable checkbox state marker'],
+    [/loading-danger-button/, 'interaction harness missing the loading danger state'],
+    [/applyValidationA11y/, 'interaction harness missing executable validation state changes'],
+    [/createOptionsContractPanel/, 'interaction harness missing Options contract panel'],
+    [/createContentContractPanel/, 'interaction harness missing content contract panel'],
+    [/Open dialog/, 'interaction harness missing its visible dialog smoke action']
+  ]) {
+    requirePattern(sources.harness, pattern, message, findings);
+  }
+
+  for (const [pattern, message] of [
+    [/\.\.\/ui\/hosts\//, 'interaction harness still imports a retired UI host'],
+    [/\.\.\/ui\/primitives\/layout/, 'interaction harness still imports retired layout code'],
+    [/\.\.\/ui\/primitives\/checkbox/, 'interaction harness still imports retired checkbox code'],
+    [/ContentDialogHost|ShadowDialogHost/, 'interaction harness still names a retired dialog host']
+  ]) {
+    if (pattern.test(sources.harness)) {
+      findings.push(message);
+    }
+  }
+  return findings;
+}
+
+function readInteractionContractSources(root = ROOT) {
+  return Object.fromEntries(
+    Object.entries(SOURCE_PATHS).map(([name, relativePath]) => [
+      name,
+      readFileSync(join(root, relativePath), 'utf8')
+    ])
   );
 }
 
-requirePattern(
-  primitiveButtonSource,
-  /loading\?: boolean;/,
-  'UI button primitive missing loading contract',
-  findings
-);
-requirePattern(
-  foundationA11ySource,
-  /aria-busy/,
-  'UI button primitive missing aria-busy handling',
-  findings
-);
-requirePattern(
-  primitiveInputSource,
-  /validationState\?: InputValidationState;/,
-  'UI input primitive missing validationState contract',
-  findings
-);
-requirePattern(
-  foundationA11ySource,
-  /aria-invalid/,
-  'UI input primitive missing aria-invalid handling',
-  findings
-);
-requirePattern(
-  primitiveSelectSource,
-  /validationState\?: InputValidationState;/,
-  'UI select primitive missing validationState contract',
-  findings
-);
-requirePattern(
-  foundationA11ySource,
-  /aria-invalid/,
-  'UI select primitive missing aria-invalid handling',
-  findings
-);
-
-for (const [source, pattern, message] of [
-  [primitiveDialogSource, /dataset\.element = 'header'/, 'UI dialog frame missing header marker'],
-  [primitiveDialogSource, /dataset\.element = 'body'/, 'UI dialog frame missing body marker'],
-  [primitiveDialogSource, /dataset\.element = 'footer'/, 'UI dialog frame missing footer marker'],
-  [primitiveDialogSource, /setAttribute\('role', 'dialog'\)/, 'UI dialog frame missing role'],
-  [primitiveDialogSource, /setAttribute\('aria-modal', 'true'\)/, 'UI dialog frame missing aria-modal'],
-  [contentDialogSource, /createDialogFrame/, 'ContentDaisyDialog not consuming UI dialog primitive'],
-  [optionsDialogSource, /createDialogFrame/, 'DaisyDialog not consuming UI dialog primitive'],
-  [harnessSource, /\.\.\/ui\/primitives\//, 'interaction harness not consuming ui primitives']
-]) {
-  requirePattern(source, pattern, message, findings);
+function runInteractionContractAudit(root = ROOT) {
+  return collectInteractionContractFindings(readInteractionContractSources(root));
 }
 
-if (findings.length > 0) {
-  console.error('Interaction contract audit failed:\n');
-  findings.forEach((finding) => console.error(`- ${finding}`));
-  process.exit(1);
+function main() {
+  const findings = runInteractionContractAudit();
+  if (findings.length > 0) {
+    console.error('Interaction contract audit failed:\n');
+    findings.forEach((finding) => console.error(`- ${finding}`));
+    process.exitCode = 1;
+    return;
+  }
+  console.log('Interaction contract audit passed.');
 }
 
-console.log('Interaction contract audit passed.');
+export {
+  collectInteractionContractFindings,
+  readInteractionContractSources,
+  runInteractionContractAudit
+};
+
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  main();
+}

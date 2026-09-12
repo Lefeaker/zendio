@@ -46,6 +46,7 @@ describe('SelectionCaptureController', () => {
       doc: document,
       pendingSelection: pendingSelection as unknown as PendingSelectionTracker,
       shouldTrackSelection: () => true,
+      canActivateSelection: () => true,
       suppressSelectionCapture: () => false,
       isRangeInsideUi: () => false,
       getDocumentSelection: () => selection,
@@ -84,6 +85,7 @@ describe('SelectionCaptureController', () => {
       doc: document,
       pendingSelection: pendingSelection as unknown as PendingSelectionTracker,
       shouldTrackSelection: () => false,
+      canActivateSelection: () => false,
       suppressSelectionCapture: () => false,
       isRangeInsideUi: () => false,
       getDocumentSelection: () => selection,
@@ -95,6 +97,7 @@ describe('SelectionCaptureController', () => {
     document.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, button: 0 }));
 
     expect(pendingSelection.capture).not.toHaveBeenCalled();
+    expect(pendingSelection.reset).toHaveBeenCalled();
     expect(onSelectionActivated).not.toHaveBeenCalled();
   });
 
@@ -118,6 +121,7 @@ describe('SelectionCaptureController', () => {
       doc: document,
       pendingSelection: pendingSelection as unknown as PendingSelectionTracker,
       shouldTrackSelection: () => true,
+      canActivateSelection: () => true,
       suppressSelectionCapture: () => false,
       isRangeInsideUi: () => true,
       getDocumentSelection: () => selection,
@@ -146,6 +150,7 @@ describe('SelectionCaptureController', () => {
       doc: document,
       pendingSelection: pendingSelection as unknown as PendingSelectionTracker,
       shouldTrackSelection: () => true,
+      canActivateSelection: () => true,
       suppressSelectionCapture: () => false,
       isRangeInsideUi: () => false,
       getDocumentSelection: () => createSelection(document.createRange(), true).selection,
@@ -178,6 +183,7 @@ describe('SelectionCaptureController', () => {
       doc: document,
       pendingSelection: asType<PendingSelectionTracker>(pendingSelection),
       shouldTrackSelection: () => true,
+      canActivateSelection: () => true,
       suppressSelectionCapture: () => false,
       isRangeInsideUi: () => false,
       getDocumentSelection: () => selection,
@@ -209,6 +215,7 @@ describe('SelectionCaptureController', () => {
       doc: document,
       pendingSelection: asType<PendingSelectionTracker>(pendingSelection),
       shouldTrackSelection: () => true,
+      canActivateSelection: () => true,
       suppressSelectionCapture: () => false,
       isRangeInsideUi: () => false,
       getDocumentSelection: () => selection,
@@ -242,6 +249,7 @@ describe('SelectionCaptureController', () => {
       doc: document,
       pendingSelection: asType<PendingSelectionTracker>(pendingSelection),
       shouldTrackSelection: () => false,
+      canActivateSelection: () => true,
       suppressSelectionCapture: () => false,
       isRangeInsideUi: () => false,
       getDocumentSelection: () => selection,

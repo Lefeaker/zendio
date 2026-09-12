@@ -1,9 +1,7 @@
 import {
   deserializeStoredCaptures,
   loadStoredCaptureData,
-  saveCaptureData,
-  serializeCaptures,
-  type StoredVideoCaptureData,
+  type LoadedStoredVideoCaptureData,
   type StorageNamespace
 } from './captureStorage';
 import {
@@ -25,13 +23,11 @@ export interface VideoSessionPlatformControllerDependencies {
   onAdapterChange(adapter: VideoPlatformAdapter | null): void;
   ensureCaptureHighlight(capture: VideoFragmentCapture): void;
   restoreDraftState?(): Promise<boolean>;
-  onLegacyRestore?(storageKey: string): void;
+  onLegacyRestore?(capture: LoadedStoredVideoCaptureData): void;
   detectVideoIdentity?: typeof detectVideoIdentity;
   createVideoPlatformAdapter?: typeof createVideoPlatformAdapter;
   loadStoredCaptureData?: typeof loadStoredCaptureData;
-  saveCaptureData?: typeof saveCaptureData;
   deserializeStoredCaptures?: typeof deserializeStoredCaptures;
-  serializeCaptures?: typeof serializeCaptures;
 }
 
 export interface RefreshContextResult {
@@ -44,17 +40,13 @@ export class VideoSessionPlatformController {
   private readonly detectIdentity: typeof detectVideoIdentity;
   private readonly createAdapter: typeof createVideoPlatformAdapter;
   private readonly loadCaptureData: typeof loadStoredCaptureData;
-  private readonly saveCapturePayload: typeof saveCaptureData;
   private readonly deserializeCaptures: typeof deserializeStoredCaptures;
-  private readonly serializeCapturesList: typeof serializeCaptures;
 
   constructor(private readonly deps: VideoSessionPlatformControllerDependencies) {
     this.detectIdentity = deps.detectVideoIdentity ?? detectVideoIdentity;
     this.createAdapter = deps.createVideoPlatformAdapter ?? createVideoPlatformAdapter;
     this.loadCaptureData = deps.loadStoredCaptureData ?? loadStoredCaptureData;
-    this.saveCapturePayload = deps.saveCaptureData ?? saveCaptureData;
     this.deserializeCaptures = deps.deserializeStoredCaptures ?? deserializeStoredCaptures;
-    this.serializeCapturesList = deps.serializeCaptures ?? serializeCaptures;
   }
 
   get platform(): VideoPlatform {
@@ -168,7 +160,7 @@ export class VideoSessionPlatformController {
           if (raw.url) {
             this.deps.state.canonicalUrl = raw.url;
           }
-          this.deps.onLegacyRestore?.(currentKey);
+          this.deps.onLegacyRestore?.(raw);
           restoreSource = 'legacy';
         } else {
           this.deps.state.captures = [];
@@ -225,29 +217,6 @@ export class VideoSessionPlatformController {
       return base.toString();
     } catch {
       return null;
-    }
-  }
-
-  async saveCaptures(): Promise<VideoHintState | null> {
-    if (!this.deps.state.storageKey) {
-      return null;
-    }
-
-    this.deps.state.saving = true;
-    try {
-      const payload: StoredVideoCaptureData = {
-        title: this.deps.state.videoTitle,
-        url: this.deps.state.canonicalUrl || this.deps.state.videoUrl,
-        entries: this.serializeCapturesList(this.deps.state.captures),
-        updatedAt: Date.now()
-      };
-      await this.saveCapturePayload(this.deps.storage, this.deps.state.storageKey, payload);
-      return this.deps.state.captures.length ? 'ready' : 'noCaptures';
-    } catch (error) {
-      console.error('[VideoSession] Failed to save captures:', error);
-      return 'failure';
-    } finally {
-      this.deps.state.saving = false;
     }
   }
 

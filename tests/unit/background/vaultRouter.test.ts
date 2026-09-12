@@ -6,6 +6,7 @@ import {
 } from '../../../src/background/vault-router';
 import type { ClipContext, VaultRouterConfig, RoutingRule } from '@shared/types';
 import { configProvider } from '@shared/config';
+import { allocateVaultId, VaultRouterIdentityError } from '@shared/config/vaultRouterIdentity';
 
 describe('VaultRouter', () => {
   const restDefaults = configProvider.getRestDefaults();
@@ -303,6 +304,15 @@ describe('VaultRouter', () => {
     const router = new VaultRouter({
       vaults: [
         {
+          id: '   ',
+          name: 'Empty Identity',
+          httpsUrl: 'https://empty.example.com/',
+          httpUrl: 'http://empty.example.com/',
+          vault: 'Empty',
+          apiKey: '',
+          enabled: true
+        },
+        {
           id: 'default',
           name: 'Default Vault',
           httpsUrl: 'https://default.example.com/',
@@ -338,18 +348,95 @@ describe('VaultRouter', () => {
 
     expect(result.valid).toBe(false);
     expect(result.errors).toEqual([
+      'Vault identity must not be empty.',
       'Duplicate vault ID(s): default',
       'Rule "missing-target-rule" references a missing vault: missing-target',
       'Default vault not found: missing-default'
     ]);
     expect(result.issues.map((issue) => issue.code)).toEqual([
+      'invalid_vault_id',
       'duplicate_vault_ids',
       'missing_rule_vault',
       'missing_default_vault'
     ]);
-    expect(result.issues.every((issue) => /[\u4e00-\u9fff]/u.test(issue.message) === false)).toBe(
-      true
-    );
+    expect(result.issues.map(({ messageDescriptor }) => messageDescriptor)).toEqual([
+      { key: 'errorOptionsVaultConfigInvalid' },
+      { key: 'errorOptionsVaultConfigInvalid' },
+      { key: 'errorOptionsVaultConfigInvalid' },
+      { key: 'errorOptionsVaultConfigInvalid' }
+    ]);
+    expect(result.issues.map(({ identityDetail }) => identityDetail)).toEqual([
+      {
+        code: 'empty-vault-id',
+        path: ['vaults', 0, 'id'],
+        values: { vaultId: '   ' }
+      },
+      {
+        code: 'duplicate-vault-id',
+        path: ['vaults'],
+        values: { vaultIds: ['default'] }
+      },
+      {
+        code: 'unresolved-rule-vault',
+        path: ['rules', 0, 'vaultId'],
+        values: { matchCount: 0, ruleId: 'missing-target-rule', vaultId: 'missing-target' }
+      },
+      {
+        code: 'unresolved-default-vault',
+        path: ['defaultVaultId'],
+        values: { matchCount: 0, vaultId: 'missing-default' }
+      }
+    ]);
+  });
+
+  it('preserves multiply-resolved rule and default compatibility details', () => {
+    const router = new VaultRouter({
+      vaults: [
+        { ...baseVaults[0], id: 'shared', rules: [] },
+        { ...baseVaults[1], id: 'shared', rules: [] }
+      ],
+      defaultVaultId: 'shared',
+      rules: [
+        {
+          id: 'multiple-target-rule',
+          vaultId: 'shared',
+          type: 'domain',
+          pattern: 'example.com',
+          enabled: true,
+          priority: 1
+        }
+      ]
+    });
+
+    const result = router.validate();
+
+    expect(result.errors).toEqual([
+      'Duplicate vault ID(s): shared',
+      'Rule "multiple-target-rule" does not resolve to exactly one vault: shared',
+      'Default vault does not resolve to exactly one vault: shared'
+    ]);
+    expect(result.issues.map(({ identityDetail }) => identityDetail)).toEqual([
+      {
+        code: 'duplicate-vault-id',
+        path: ['vaults'],
+        values: { vaultIds: ['shared'] }
+      },
+      {
+        code: 'unresolved-rule-vault',
+        path: ['rules', 0, 'vaultId'],
+        values: { matchCount: 2, ruleId: 'multiple-target-rule', vaultId: 'shared' }
+      },
+      {
+        code: 'unresolved-default-vault',
+        path: ['defaultVaultId'],
+        values: { matchCount: 2, vaultId: 'shared' }
+      }
+    ]);
+    expect(
+      result.issues.every(({ messageDescriptor }) => {
+        return JSON.stringify(messageDescriptor) === '{"key":"errorOptionsVaultConfigInvalid"}';
+      })
+    ).toBe(true);
   });
 
   it('uses English default vault names without overwriting provided legacy vault names', () => {
@@ -363,5 +450,44 @@ describe('VaultRouter', () => {
         apiKey: 'research-token'
       }).vaults[0]?.name
     ).toBe('Research Vault');
+  });
+
+  it('F04 allocates opaque stable Vault IDs without wall-clock identity', () => {
+    const generated = [createDefaultVaultRouterConfig(), migrateFromLegacyConfig(null)].map(
+      (config) => config.vaults[0]?.id
+    );
+
+    expect(generated).toHaveLength(2);
+    expect(new Set(generated).size).toBe(2);
+    for (const id of generated) {
+      expect(id).toMatch(
+        /^vault-[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u
+      );
+    }
+  });
+
+  it('F04 retries only colliding Vault entropy and fails at the fixed bound', () => {
+    const entropy = ['collision', 'fresh'];
+    expect(allocateVaultId(['vault-collision'], () => entropy.shift() ?? 'unexpected')).toBe(
+      'vault-fresh'
+    );
+
+    let attempts = 0;
+    expect(() =>
+      allocateVaultId(['vault-collision'], () => {
+        attempts += 1;
+        return 'collision';
+      })
+    ).toThrow(VaultRouterIdentityError);
+    expect(attempts).toBe(8);
+
+    attempts = 0;
+    expect(() =>
+      allocateVaultId([], () => {
+        attempts += 1;
+        return '';
+      })
+    ).toThrow('VAULT_ID_ENTROPY_INVALID');
+    expect(attempts).toBe(1);
   });
 });

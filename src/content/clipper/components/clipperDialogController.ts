@@ -21,7 +21,7 @@ import {
 import { updateDialogPosition } from './dialogPresenter';
 import { restoreContentDialogFocus } from '@ui/hosts/content/contentDialogFocus';
 import { ContentExportDestinationState } from '@content/shared/exportDestinationState';
-import { patchExportDestinationRow } from '@content/shared/exportDestinationDom';
+import { reconcileLiveExportDestinationRow } from '@content/shared/exportDestinationState';
 import { DialogSessionState } from './dialogSessionState';
 import {
   DOUBLE_ENTER_TIMEOUT,
@@ -33,7 +33,13 @@ import {
 import { DragController } from '../shared/dragController';
 import type { ReaderModeBehavior } from './dialogTypes';
 import type { PopupCoordinator } from '../../runtime/popupCoordinator';
-import { mountClipperDialogHost, unmountClipperDialogHost } from './clipperDialogHostAdapter';
+import {
+  cancelHostMount,
+  mountClipperDialogHost,
+  reserveHostMount,
+  unmountClipperDialogHost,
+  type HostMountToken
+} from './clipperDialogHostAdapter';
 import { resolveClipperDialogKeyboardMove } from './clipperDialogInteractionController';
 import { buildClipperDialogSurface } from './clipperDialogSurfaceAdapter';
 import {
@@ -59,15 +65,13 @@ import {
   renderClipperShortcutHint,
   syncClipperTextareaHeight
 } from './clipperDialogShortcutPresentation';
-
 export type ClipperDialogAction = 'clip' | 'cancel' | 'reader' | 'video';
-
 export interface ClipperDialogResult {
   action: ClipperDialogAction;
   comment: string;
   destination?: ExportDestinationMetadata;
+  destinationSelectionIsExplicit?: boolean;
 }
-
 export interface ClipperDialogOptions {
   allowReaderMode?: boolean;
   readerModeBehavior?: ReaderModeBehavior;
@@ -77,10 +81,8 @@ export interface ClipperDialogOptions {
   storageService?: StorageService;
   errorHandler?: ErrorHandler;
 }
-
 export class ClipperDialog {
   readonly popupLifecycle = { preserveOnTransientClose: true };
-
   private host: HTMLElement | null = null;
   private shadowRoot: ShadowRoot | null = null;
   private dialogSurface: HTMLDivElement | null = null;
@@ -94,7 +96,6 @@ export class ClipperDialog {
   private unregisterDialog: (() => void) | null = null;
   private messages: Messages | null = null;
   private readonly sessionState = new DialogSessionState();
-
   private storageService: StorageService;
   private errorHandler: ErrorHandler;
   private runtimeService: RuntimeService;
@@ -103,12 +104,11 @@ export class ClipperDialog {
   private destinationState: ContentExportDestinationState | null = null;
   private selectedText = '';
   private unsubscribeFragmentConfig: (() => void) | null = null;
+  private hostMountToken: HostMountToken | null = null;
   private readonly lifecycleListeners: ClipperDialogLifecycleListeners;
-
   private get keyboardShortcutsEnabled(): boolean {
     return this.sessionState.keyboardShortcutsEnabled;
   }
-
   constructor(deps: Partial<ClipperDialogDependencies> = {}) {
     this.lifecycleListeners = createClipperDialogLifecycleListeners({
       getDocument: () => document,
@@ -122,7 +122,6 @@ export class ClipperDialog {
       onWindowKeydown: this.onWindowKeydown,
       closeRegisteredPopups: () => this.closeRegisteredPopups()
     });
-
     if (
       deps.storage &&
       deps.errorHandler &&
@@ -137,7 +136,6 @@ export class ClipperDialog {
       this.optionsRepository = deps.optionsRepository;
       return;
     }
-
     const resolved = createClipperDialogDependencies();
     this.storageService = deps.storage ?? resolved.storage;
     this.errorHandler = deps.errorHandler ?? resolved.errorHandler;
@@ -145,15 +143,14 @@ export class ClipperDialog {
     this.clipRepo = deps.clipRepo ?? resolved.clipRepo;
     this.optionsRepository = deps.optionsRepository ?? resolved.optionsRepository;
   }
-
   async show(selectedText: string, options?: ClipperDialogOptions): Promise<ClipperDialogResult> {
+    const hostMountToken = (this.hostMountToken = reserveHostMount());
     if (options?.storageService) {
       this.storageService = options.storageService;
     }
     if (options?.errorHandler) {
       this.errorHandler = options.errorHandler;
     }
-
     this.sessionState.applyOptions(options);
     this.dialogRegistry = options?.dialogRegistry ?? null;
     this.selectedText = selectedText;
@@ -162,7 +159,6 @@ export class ClipperDialog {
       () => this.createDestinationPayload(),
       this.runtimeService.getURL('options/index.html#storage')
     );
-
     await loadShortcutUsageCount(this.sessionState, this.storageService, this.errorHandler);
     await initializeDialogFragmentConfig({
       clipRepo: this.clipRepo,
@@ -174,49 +170,47 @@ export class ClipperDialog {
       state: this.sessionState,
       previous: this.unsubscribeFragmentConfig
     });
-
     if (this.dialogRegistry) {
       this.unregisterDialog = this.dialogRegistry.register(this);
     } else {
       const existing = document.getElementById('obsidian-clipper-dialog');
       if (existing) {
-        existing.remove();
-        delete document.documentElement.dataset.aiobClipperDialog;
+        unmountClipperDialogHost(existing);
       }
     }
-
     this.previousActiveElement =
       document.activeElement instanceof HTMLElement ? document.activeElement : null;
     this.sessionState.inReaderMode = detectReaderMode(document);
-
-    await this.buildDialog(selectedText);
+    if (!(await this.buildDialog(selectedText, hostMountToken))) {
+      return { action: 'cancel', comment: '' };
+    }
+    this.destinationState.watch(
+      (value) => this.shadowRoot && reconcileLiveExportDestinationRow(this.shadowRoot, value)
+    );
     this.lifecycleListeners.attachLifecycleEventListeners();
     this.sessionState.shortcutsTemporarilyActivated = false;
     this.sessionState.resetPendingEnter();
-
     return new Promise<ClipperDialogResult>((resolve) => {
       this.resolve = resolve;
     });
   }
-
   remove(): void {
+    cancelHostMount(this.hostMountToken);
+    this.hostMountToken = null;
+    this.destinationState?.dispose();
     this.unsubscribeFragmentConfig?.();
     this.unsubscribeFragmentConfig = null;
     if (this.unregisterDialog) {
       this.unregisterDialog();
       this.unregisterDialog = null;
     }
-
     this.disposeI18nHandles();
     this.detachDialogEventListeners();
     this.sessionState.resetPendingEnter();
-
     unmountClipperDialogHost(this.host);
     this.shadowRoot = null;
     this.host = null;
     this.destinationState = null;
-    delete document.documentElement.dataset.aiobClipperDialog;
-
     if (this.previousActiveElement) {
       const target = this.previousActiveElement;
       this.previousActiveElement = null;
@@ -240,7 +234,10 @@ export class ClipperDialog {
     this.close();
   }
 
-  private async buildDialog(selectedText: string): Promise<void> {
+  private async buildDialog(
+    selectedText: string,
+    hostMountToken: HostMountToken
+  ): Promise<boolean> {
     await ensureContentI18n(document);
     const binder = getContentI18nBinder();
     this.messages = await safeGetDialogMessages(this.errorHandler);
@@ -296,7 +293,12 @@ export class ClipperDialog {
       readerModeBehavior: this.sessionState.readerModeBehavior,
       getFallback: (key) => this.getFallback(key)
     });
-    const hostParts = await mountClipperDialogHost(surface);
+    const hostParts = await mountClipperDialogHost(surface, hostMountToken);
+    if (!hostParts || !hostMountToken.valid) {
+      if (hostParts) unmountClipperDialogHost(hostParts.host);
+      if (this.hostMountToken === hostMountToken) this.remove();
+      return false;
+    }
     this.host = hostParts.host;
     this.shadowRoot = hostParts.shadowRoot;
     this.textarea = surface.querySelector<HTMLTextAreaElement>('.clipper-comment-textarea');
@@ -324,6 +326,7 @@ export class ClipperDialog {
       this.textarea?.focus();
       this.textarea?.select();
     });
+    return true;
   }
 
   private readonly onTextareaKeydown = (event: KeyboardEvent): void => {
@@ -379,15 +382,9 @@ export class ClipperDialog {
     const comment = this.getCurrentComment();
     this.destinationState?.select(id);
     this.sessionState.initialComment = comment;
-    const destination = await this.destinationState?.refresh();
-    const patched = this.shadowRoot
-      ? patchExportDestinationRow(this.shadowRoot, destination)
-      : false;
-    if (!patched) {
-      await this.buildDialog(this.selectedText);
-    }
+    if (this.shadowRoot)
+      reconcileLiveExportDestinationRow(this.shadowRoot, await this.destinationState?.refresh());
   }
-
   private syncTextareaHeight(): void {
     syncClipperTextareaHeight(this.textarea);
   }
@@ -409,18 +406,22 @@ export class ClipperDialog {
       event.preventDefault();
     }
   };
-
   private finalize(action: ClipperDialogAction, comment: string): void {
     const resolver = this.resolve;
     this.resolve = null;
-    resolver?.({
+    const destination = this.destinationState?.metadata;
+    const result: ClipperDialogResult = {
       action,
       comment,
-      ...(this.destinationState?.metadata ? { destination: this.destinationState.metadata } : {})
-    });
+      ...(destination ? { destination } : {})
+    };
+    if (destination && action !== 'clip' && action !== 'cancel')
+      Object.defineProperty(result, 'destinationSelectionIsExplicit', {
+        value: this.destinationState?.hasExplicitSelection ?? false
+      });
+    resolver?.(result);
     this.remove();
   }
-
   private detachDialogEventListeners(): void {
     this.lifecycleListeners.detachDialogEventListeners();
     this.detachDragHandlers();

@@ -17,7 +17,13 @@ export interface ContextMenuListenerDependencies {
     TabsService,
     'query' | 'get' | 'sendMessage' | 'onActivated' | 'onUpdated' | 'onRemoved'
   >;
-  scripting: Pick<ScriptingService, 'executeScript'>;
+  scripting: Pick<
+    ScriptingService,
+    | 'executeScript'
+    | 'getRegisteredContentScripts'
+    | 'registerContentScripts'
+    | 'unregisterContentScripts'
+  >;
   messaging: Pick<MessagingService, 'addListener'>;
   optionsRepository: Pick<IOptionsRepository, 'onChange'>;
 }
@@ -27,7 +33,7 @@ export interface ContextMenuRuntimeState {
   clipSelectionVideoTitle: string;
   clipFullPageTitle: string;
   videoModeTitle: string;
-  selectionModifierInjectionEnabled: boolean;
+  selectionTriggerInjectionEnabled: boolean;
   isSettingUpContextMenus: boolean;
   tabVideoState: Map<number, boolean>;
   autoInjectedTabs: Set<number>;
@@ -39,7 +45,7 @@ export function createContextMenuRuntimeState(): ContextMenuRuntimeState {
     clipSelectionVideoTitle: 'Clip to video capture panel',
     clipFullPageTitle: 'Clip full page to Obsidian',
     videoModeTitle: 'Enter video capture mode',
-    selectionModifierInjectionEnabled: false,
+    selectionTriggerInjectionEnabled: false,
     isSettingUpContextMenus: false,
     tabVideoState: new Map<number, boolean>(),
     autoInjectedTabs: new Set<number>()

@@ -4,8 +4,8 @@ import { dirname, join, resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
 
 const toolPath = resolve('tools/report-build-splitting.mjs');
-const CONTENT_RUNTIME_WARNING = 58564;
-const CONTENT_RUNTIME_HARD_STOP = 58752;
+const CONTENT_RUNTIME_WARNING = 60 * 1024;
+const CONTENT_RUNTIME_HARD_STOP = 64 * 1024;
 const ONBOARDING_WARNING = 17377;
 const ONBOARDING_HARD_STOP = 17633;
 const LOCALE_CHUNK_HARD_STOP = 68 * 1024;

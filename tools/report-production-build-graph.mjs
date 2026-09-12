@@ -9,7 +9,13 @@ const REQUIRED_ENTRYPOINTS = [
   'src/background/index.ts',
   'src/content/index.ts',
   'src/options/index.ts',
-  'src/onboarding/index.ts'
+  'src/onboarding/index.ts',
+  'src/options/stitch/styles/entries/options.css',
+  'src/options/stitch/styles/entries/onboarding.css',
+  'src/ui/stitch-runtime/styles/entries/clipper.css',
+  'src/ui/stitch-runtime/styles/entries/reader.css',
+  'src/ui/stitch-runtime/styles/entries/video.css',
+  'src/ui/stitch-runtime/styles/entries/prompt-task.css'
 ];
 
 const BACKGROUND_ENTRYPOINTS = {
@@ -31,9 +37,19 @@ const HARNESS_ENTRYPOINTS = {
   'local-vault-write-harness': 'src/dev/localVaultWriteHarness.ts'
 };
 
+const CSS_ENTRYPOINTS = {
+  'ui/stitch-runtime/styles/options': 'src/options/stitch/styles/entries/options.css',
+  'ui/stitch-runtime/styles/onboarding': 'src/options/stitch/styles/entries/onboarding.css',
+  'ui/stitch-runtime/styles/clipper': 'src/ui/stitch-runtime/styles/entries/clipper.css',
+  'ui/stitch-runtime/styles/reader': 'src/ui/stitch-runtime/styles/entries/reader.css',
+  'ui/stitch-runtime/styles/video': 'src/ui/stitch-runtime/styles/entries/video.css',
+  'ui/stitch-runtime/styles/prompt-task': 'src/ui/stitch-runtime/styles/entries/prompt-task.css'
+};
+
 const ALL_ENTRYPOINTS = {
   ...BACKGROUND_ENTRYPOINTS,
-  ...APP_ENTRYPOINTS
+  ...APP_ENTRYPOINTS,
+  ...CSS_ENTRYPOINTS
 };
 
 function resolveBooleanEnv(value) {
@@ -106,12 +122,22 @@ async function createMetafile() {
     splitting: true,
     outdir: 'build/audit'
   });
+  const css = await build({
+    bundle: true,
+    platform: 'browser',
+    sourcemap: false,
+    minify: true,
+    write: false,
+    metafile: true,
+    entryPoints: CSS_ENTRYPOINTS,
+    outdir: 'build/audit'
+  });
 
-  if (!background.metafile || !app.metafile) {
+  if (!background.metafile || !app.metafile || !css.metafile) {
     throw new Error('esbuild metafile is missing; production build graph cannot be proven');
   }
 
-  return mergeMetafiles([background.metafile, app.metafile]);
+  return mergeMetafiles([background.metafile, app.metafile, css.metafile]);
 }
 
 function collectReachableSources(metafile) {

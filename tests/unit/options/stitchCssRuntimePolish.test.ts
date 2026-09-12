@@ -5,9 +5,12 @@ import { describe, expect, it } from 'vitest';
 const CSS_IMPORT_PATTERN =
   /^\s*@import\s+(?:url\(\s*)?(?:"([^"]+)"|'([^']+)'|([^"')\s]+))\s*\)?\s*;/;
 
-const stitchCss = readCssWithImports(
-  resolve(process.cwd(), 'src/options/stitch/styles/stitch.css')
-);
+const stitchCss = [
+  'src/options/stitch/styles/entries/options.css',
+  'src/options/stitch/styles/entries/onboarding.css'
+]
+  .map((path) => readCssWithImports(resolve(process.cwd(), path)))
+  .join('\n');
 const previewFixtureCss = readFileSync(
   resolve(process.cwd(), 'tests/fixtures/options-preview/styles/preview.css'),
   'utf8'
@@ -43,12 +46,150 @@ function readCssWithImports(path: string, importStack = new Set<string>()): stri
   }
 }
 
+interface CssBlock {
+  body: string;
+  closeBraceIndex: number;
+}
+
+interface CssRule extends CssBlock {
+  selector: string;
+}
+
+function readBalancedCssBlock(css: string, openBraceIndex: number): CssBlock {
+  let depth = 0;
+  let quote: '"' | "'" | null = null;
+  let inComment = false;
+
+  for (let index = openBraceIndex; index < css.length; index += 1) {
+    const character = css[index];
+    const nextCharacter = css[index + 1];
+
+    if (inComment) {
+      if (character === '*' && nextCharacter === '/') {
+        inComment = false;
+        index += 1;
+      }
+      continue;
+    }
+
+    if (quote) {
+      if (character === '\\') {
+        index += 1;
+      } else if (character === quote) {
+        quote = null;
+      }
+      continue;
+    }
+
+    if (character === '/' && nextCharacter === '*') {
+      inComment = true;
+      index += 1;
+    } else if (character === '"' || character === "'") {
+      quote = character;
+    } else if (character === '{') {
+      depth += 1;
+    } else if (character === '}') {
+      depth -= 1;
+      if (depth === 0) {
+        return {
+          body: css.slice(openBraceIndex + 1, index),
+          closeBraceIndex: index
+        };
+      }
+    }
+  }
+
+  throw new Error(`Unclosed CSS block at index ${openBraceIndex}`);
+}
+
+function readMediaQueryBlocks(css: string, maxWidth: number): string[] {
+  const mediaPattern = new RegExp(
+    `@media\\s*\\(\\s*max-width\\s*:\\s*${maxWidth}px\\s*\\)\\s*\\{`,
+    'gu'
+  );
+  const blocks: string[] = [];
+  let match: RegExpExecArray | null;
+
+  while ((match = mediaPattern.exec(css))) {
+    const openBraceIndex = match.index + match[0].lastIndexOf('{');
+    const block = readBalancedCssBlock(css, openBraceIndex);
+    blocks.push(block.body);
+    mediaPattern.lastIndex = block.closeBraceIndex + 1;
+  }
+
+  return blocks;
+}
+
+function requireMediaQueryBlockContaining(css: string, maxWidth: number, marker: string): string {
+  const matches = readMediaQueryBlocks(css, maxWidth).filter((block) => block.includes(marker));
+  if (matches.length !== 1) {
+    throw new Error(
+      `Expected one ${maxWidth}px media block containing "${marker}", received ${matches.length}`
+    );
+  }
+  return matches[0];
+}
+
+function readTopLevelCssRules(css: string): CssRule[] {
+  const rules: CssRule[] = [];
+  let ruleStart = 0;
+
+  for (let index = 0; index < css.length; index += 1) {
+    if (css[index] !== '{') {
+      continue;
+    }
+
+    const block = readBalancedCssBlock(css, index);
+    const selector = css
+      .slice(ruleStart, index)
+      .replace(/\/\*[\s\S]*?\*\//gu, '')
+      .trim();
+    rules.push({ selector, body: block.body, closeBraceIndex: block.closeBraceIndex });
+    index = block.closeBraceIndex;
+    ruleStart = block.closeBraceIndex + 1;
+  }
+
+  return rules;
+}
+
+function findExactCssRule(css: string, selector: string): CssRule | null {
+  const matches = readTopLevelCssRules(css).filter((rule) => rule.selector === selector);
+  if (matches.length > 1) {
+    throw new Error(`Expected at most one exact "${selector}" rule, received ${matches.length}`);
+  }
+  return matches[0] ?? null;
+}
+
+function requireExactCssRule(css: string, selector: string): CssRule {
+  const rule = findExactCssRule(css, selector);
+  if (!rule) {
+    throw new Error(`Missing exact "${selector}" rule`);
+  }
+  return rule;
+}
+
+function exactRuleHasDeclaration(css: string, selector: string, declaration: RegExp): boolean {
+  const rule = findExactCssRule(css, selector);
+  return rule ? declaration.test(rule.body) : false;
+}
+
+function injectDeclarationIntoExactRule(
+  css: string,
+  selector: string,
+  declaration: string
+): string {
+  const rule = requireExactCssRule(css, selector);
+  return `${css.slice(0, rule.closeBraceIndex)}\n    ${declaration}\n  ${css.slice(rule.closeBraceIndex)}`;
+}
+
 describe('Stitch runtime polish CSS contracts', () => {
-  it('sizes the three-option interface theme segmented control evenly', () => {
-    expect(stitchCss).toContain('grid-template-columns: repeat(3, minmax(86px, 1fr));');
-    expect(stitchCss).toContain('width: calc((100% - var(--space-2)) / 3);');
-    expect(stitchCss).toContain(".interface-theme-grid .chips[data-active-value='dark']::before");
-    expect(stitchCss).toContain(".interface-theme-grid .chips[data-active-value='light']::before");
+  it('shares equal-width animated geometry across segmented controls', () => {
+    const group = requireExactCssRule(stitchCss, '.chips.segmented-control').body;
+    const track = requireExactCssRule(stitchCss, '.chips.segmented-control::before').body;
+    expect(group).toContain('grid-template-columns: repeat(var(--segment-count), minmax(0, 1fr));');
+    expect(track).toContain('width: calc((100% - var(--space-2)) / var(--segment-count));');
+    expect(track).toContain('transform: translateX(calc(var(--segment-index) * 100%));');
+    expect(track).toContain('transition: transform var(--motion-base) var(--ease-standard);');
   });
 
   it('keeps the Options brand website link visually unadorned', () => {
@@ -333,7 +474,35 @@ describe('Stitch runtime polish CSS contracts', () => {
     );
   });
 
-  it('keeps the Options sidebar adaptive instead of turning it into a stacked mobile block', () => {
+  it('keeps autosave failures fixed, assertive, interactive, and mobile visible', () => {
+    expect(stitchCss).toMatch(
+      /\.aobx-status-message\s*{[^}]*position:\s*fixed;[^}]*z-index:\s*var\(--z-notification\);[^}]*pointer-events:\s*none;/
+    );
+    expect(stitchCss).toMatch(/\.aobx-status-message__lane\s*{[^}]*pointer-events:\s*auto;/);
+    expect(stitchCss).toMatch(
+      /\.aobx-status-message__retry:focus-visible\s*{[^}]*box-shadow:\s*var\(--shadow-focus\);/
+    );
+    expect(stitchCss).toMatch(
+      /\.aobx-status-message__retry:disabled,[\s\S]*?\[aria-busy='true'\]\s*{[^}]*cursor:\s*progress;/
+    );
+    expect(stitchCss).toMatch(
+      /@media\s*\(max-width:\s*760px\)[\s\S]*?\.aobx-status-message\s*{[^}]*inset:\s*auto var\(--space-4\) var\(--space-4\);[^}]*width:\s*auto;/
+    );
+  });
+
+  it('keeps one adaptive Options sidebar and presents it off-canvas on mobile', () => {
+    const responsive980 = requireMediaQueryBlockContaining(
+      stitchCss,
+      980,
+      '--shell-sidebar-width: var(--sidebar-narrow-width);'
+    );
+    const responsive760 = requireMediaQueryBlockContaining(
+      stitchCss,
+      760,
+      '[data-mobile-navigation-fallback] .sidebar'
+    );
+    const staticPosition = /position:\s*static;/u;
+
     expect(stitchCss).toContain('--shell-sidebar-width: var(--sidebar-width);');
     expect(stitchCss).toMatch(
       /\.sidebar\s*{[^}]*width:\s*var\(--shell-sidebar-width\);[^}]*display:\s*flex;[^}]*flex-direction:\s*column;/
@@ -351,13 +520,32 @@ describe('Stitch runtime polish CSS contracts', () => {
       /@media\s*\(max-width:\s*980px\)\s*{[^}]*:root\s*{[^}]*--shell-sidebar-width:\s*var\(--sidebar-narrow-width\);/
     );
     expect(stitchCss).toMatch(
-      /@media\s*\(max-width:\s*760px\)\s*{[\s\S]*?\.sidebar\s*{[^}]*display:\s*none;/
+      /@media\s*\(max-width:\s*760px\)\s*{[\s\S]*?\.sidebar\s*{[^}]*display:\s*flex;[^}]*transform:\s*translateX\(-100%\);/
     );
-    expect(stitchCss).not.toMatch(
-      /@media\s*\(max-width:\s*980px\)[\s\S]*?\.sidebar\s*{[^}]*position:\s*static;/
+    expect(stitchCss).toMatch(/\.sidebar\.is-mobile-open\s*{[^}]*transform:\s*translateX\(0\);/);
+    expect(stitchCss).toContain('.mobile-navigation-trigger');
+    expect(stitchCss).toContain('.mobile-navigation-backdrop.is-visible');
+    expect(requireExactCssRule(responsive980, '.sidebar').body).toMatch(
+      /padding:\s*var\(--space-5\) var\(--space-3\);/u
     );
-    expect(stitchCss).not.toMatch(
-      /@media\s*\(max-width:\s*980px\)[\s\S]*?\.main\s*{[^}]*height:\s*auto;/
+    expect(exactRuleHasDeclaration(responsive980, '.sidebar', staticPosition)).toBe(false);
+    expect(exactRuleHasDeclaration(responsive980, '.main', /height:\s*auto;/u)).toBe(false);
+    expect(
+      exactRuleHasDeclaration(
+        responsive760,
+        '[data-mobile-navigation-fallback] .sidebar',
+        staticPosition
+      )
+    ).toBe(true);
+    expect(exactRuleHasDeclaration(responsive760, '.sidebar', staticPosition)).toBe(false);
+
+    const ordinaryStaticSidebar980 = injectDeclarationIntoExactRule(
+      responsive980,
+      '.sidebar',
+      'position: static;'
+    );
+    expect(exactRuleHasDeclaration(ordinaryStaticSidebar980, '.sidebar', staticPosition)).toBe(
+      true
     );
   });
 

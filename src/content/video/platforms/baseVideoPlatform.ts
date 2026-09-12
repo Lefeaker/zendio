@@ -97,14 +97,6 @@ export class BaseVideoPlatform implements VideoPlatformAdapter {
     return wrapperId;
   }
 
-  observeDomChanges(_observer: MutationObserver): void {
-    // Default platforms do not need additional DOM observation.
-  }
-
-  handleMutations(_mutations: MutationRecord[]): void {
-    // Default platforms do not need mutation handling hooks.
-  }
-
   observeSelectionRoots(): void {
     // Default platforms do not need shadow-root selection observation.
   }

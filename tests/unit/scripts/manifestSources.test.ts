@@ -17,6 +17,8 @@ describe('manifestSources', () => {
     expect(JSON.stringify(war)).not.toContain('<all_urls>');
     expect(JSON.stringify(war)).toContain('i18n/locales/*');
     expect(JSON.stringify(war)).toContain('i18n/schema/*');
+    expect(JSON.stringify(war)).toContain('ui/stitch-runtime/styles/*.css');
+    expect(JSON.stringify(war)).not.toContain('options/stitch/styles/*');
   });
 
   it('builds a firefox manifest with firefox-only overrides', () => {
@@ -53,6 +55,12 @@ describe('manifestSources', () => {
     });
     expect(manifest.browser_specific_settings?.gecko_android?.strict_min_version).toBe('142.0');
     expect(manifest.incognito).toBeUndefined();
+    expect(
+      JSON.stringify(
+        (manifest as { web_accessible_resources?: Array<{ resources?: string[] }> })
+          .web_accessible_resources
+      )
+    ).toContain('ui/stitch-runtime/styles/*.css');
   });
 
   it('allows release metadata checks to evaluate a version from an isolated root', () => {

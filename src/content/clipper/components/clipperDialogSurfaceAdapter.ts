@@ -1,5 +1,5 @@
 import type { Messages } from '@i18n';
-import type { ExportDestinationSurfacePreview } from '@options/stitch/types';
+import type { ExportDestinationSurfacePreview } from '@ui/stitch-runtime';
 import { createClipperSurfaceContent } from '@content/stitch/runtimeSurfaceContent';
 import { renderStitchRuntimeSurface } from '@content/stitch/runtimeSurfaceRenderer';
 

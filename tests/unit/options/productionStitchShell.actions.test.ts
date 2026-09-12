@@ -1,6 +1,8 @@
 /* @vitest-environment jsdom */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import * as taskOwnerModule from '@options/app/productionStitchActionTaskOwner';
+import * as sectionInvalidationModule from '@ui/stitch-runtime/render/sectionInvalidation';
 
 const applyAnalyticsTransferPayloadMock = vi.hoisted(() => vi.fn(() => Promise.resolve()));
 const updateErrorAnalyticsConfigMock = vi.hoisted(() => vi.fn(() => Promise.resolve()));
@@ -25,27 +27,54 @@ import {
   createController,
   createEnglishPageMessages,
   createActionRuntimeHarness,
+  createCompleteOptions,
   createMessaging,
   createRepository,
-  createStorage,
   findCardByTitle,
   findButton,
   findCheckboxInText,
   findInputByValue,
   flushPromises,
+  queryRequired,
   setupProductionStitchShellTest
 } from './productionStitchShell.helpers';
 import { mountProductionStitchShell } from '@options/app/productionStitchShell';
 import * as storageControllerModule from '@options/app/productionStitchStorageController';
+import { DEFAULT_RUNTIME_MESSAGES, type Language, type Messages } from '@i18n';
 import { mergeOptions } from '@shared/config/optionsMerger';
-import type { StorageService } from '@platform/interfaces/storage';
 import type { CompleteOptions } from './productionStitchShell.helpers';
+import type { ConnectionTestResult } from '@shared/types/connection';
+import type { UsageStats } from '@shared/types/usage';
+import type { IMessagingRepository, Message } from '@shared/repositories/IMessagingRepository';
+import type { AnalyticsRuntimeEventPayload } from '@shared/types/analytics';
 import { getRestDefaults } from '../../utils/restDefaults';
+import { createProductionStitchMaintenanceState } from '@options/app/productionStitchMaintenanceState';
 
 const REST_DEFAULTS = getRestDefaults();
 const LOCAL_HTTPS_URL = `https://localhost:${REST_DEFAULTS.httpsPort}`;
 const LOCAL_HTTP_URL = `http://localhost:${REST_DEFAULTS.httpPort}`;
 const LOCAL_HTTP_CONFLICT_URL = `http://localhost:${REST_DEFAULTS.httpsPort}`;
+
+type CopiedConfiguration = {
+  rest?: { apiKey?: string };
+  customKey?: object;
+};
+
+function deferred<T>() {
+  let resolve = (_value: T): void => undefined;
+  let reject = (_error: Error): void => undefined;
+  const promise = new Promise<T>((resolvePromise, rejectPromise) => {
+    resolve = resolvePromise;
+    reject = rejectPromise;
+  });
+  return { promise, reject, resolve };
+}
+
+function renderedUsageValues() {
+  return Array.from(document.querySelectorAll<HTMLElement>('.stats-grid .stat-value')).map((node) =>
+    node.textContent?.trim()
+  );
+}
 
 function mockStorageConnectionFailure(message: string) {
   const actualFactory = storageControllerModule.createProductionStitchStorageController;
@@ -55,6 +84,44 @@ function mockStorageConnectionFailure(message: string) {
     runVaultListConnectionTest: vi.fn(() => Promise.reject(new Error(message)))
   }));
   return factorySpy;
+}
+
+function observeMaintenanceCompletion() {
+  let created: () => void = () => undefined;
+  const ready = new Promise<void>((resolve) => {
+    created = resolve;
+  });
+  const createOwner = sectionInvalidationModule.createSectionInvalidationOwner;
+  const ownerFactory = vi.spyOn(sectionInvalidationModule, 'createSectionInvalidationOwner');
+  ownerFactory.mockImplementationOnce((options) => {
+    ownerFactory.mockRestore();
+    const owner = createOwner(options);
+    created();
+    return owner;
+  });
+  const taskOwner = taskOwnerModule.createProductionStitchActionTaskOwner();
+  const taskFactory = vi.spyOn(taskOwnerModule, 'createProductionStitchActionTaskOwner');
+  taskFactory.mockImplementationOnce(() => {
+    taskFactory.mockRestore();
+    return taskOwner;
+  });
+  return { ready, waitForIdle: () => taskOwner.waitForIdle() };
+}
+
+function observeConnectedRunningDiagnosis(): Promise<HTMLButtonElement> {
+  return new Promise((resolve) => {
+    const inspect = (): void => {
+      const button = Array.from(document.querySelectorAll('button')).find(
+        (candidate) => candidate.textContent?.trim() === 'Diagnose Configuration'
+      );
+      if (!(button instanceof HTMLButtonElement) || !button.isConnected || !button.disabled) return;
+      observer.disconnect();
+      resolve(button);
+    };
+    const observer = new MutationObserver(inspect);
+    observer.observe(document.body, { childList: true, subtree: true });
+    inspect();
+  });
 }
 
 describe('mountProductionStitchShell actions', () => {
@@ -67,13 +134,15 @@ describe('mountProductionStitchShell actions', () => {
   });
 
   it('runs real maintenance actions for copy, diagnostics, and reload', async () => {
+    const completion = observeMaintenanceCompletion();
+    const clipboard = deferred<void>();
     const reloaded = mergeOptions({ rest: { vault: 'Reloaded' } }) as CompleteOptions;
     const loadRaw = vi.fn(() => Promise.resolve(reloaded));
     const controller = {
       ...createController(),
       loadRaw
     };
-    const writeText = vi.fn<(...args: [string]) => Promise<void>>(() => Promise.resolve());
+    const writeText = vi.fn<(...args: [string]) => Promise<void>>(() => clipboard.promise);
     Object.defineProperty(navigator, 'clipboard', {
       configurable: true,
       value: { writeText }
@@ -93,23 +162,302 @@ describe('mountProductionStitchShell actions', () => {
       language: 'en'
     });
 
-    findButton('Copy Configuration').click();
-    await Promise.resolve();
+    const copyButton = findButton('Copy Configuration');
+    copyButton.click();
+    expect(copyButton.getAttribute('aria-busy')).toBe('true');
+    expect(document.body.textContent).not.toContain('Configuration copied to clipboard');
     expect(writeText).toHaveBeenCalledWith(expect.stringContaining('"aiChat"'));
-    const writtenConfig = JSON.parse(String(writeText.mock.calls[0]?.[0])) as Record<
-      string,
-      unknown
-    >;
-    expect((writtenConfig.rest as { apiKey?: string }).apiKey).toBe('REST_SECRET_TOKEN');
+    const writtenConfig = JSON.parse(String(writeText.mock.calls[0]?.[0])) as CopiedConfiguration;
+    expect(writtenConfig.rest?.apiKey).toBe('REST_SECRET_TOKEN');
     expect(writtenConfig.customKey).toBeUndefined();
 
+    const runningDiagnosis = observeConnectedRunningDiagnosis();
     findButton('Diagnose Configuration').click();
-    expect(document.body.textContent).toContain('domainMappings');
+    expect(document.body.textContent).not.toContain('domainMappings');
+    await runningDiagnosis;
+    expect(document.body.textContent).toContain('Running diagnostics');
+    await vi.waitFor(() => expect(document.body.textContent).toContain('domainMappings'));
+    expect(copyButton.getAttribute('aria-busy')).toBe('true');
+    clipboard.resolve();
+    await completion.waitForIdle();
+    expect(document.body.textContent).toContain('Configuration copied to clipboard');
 
-    findButton('Reload').click();
-    await new Promise((resolve) => setTimeout(resolve, 0));
+    findButton('🔄 Reload').click();
+    await completion.waitForIdle();
     expect(loadRaw).toHaveBeenCalledTimes(1);
     expect(findInputByValue('Reloaded')).toBeTruthy();
+  });
+
+  it('starts diagnostics idle and keeps running, failure, and action notices explicitly separated', async () => {
+    const writeText = vi.fn(() => Promise.resolve());
+    Object.defineProperty(navigator, 'clipboard', {
+      configurable: true,
+      value: { writeText }
+    });
+    mountProductionStitchShell({
+      controller: asOptionsController(createController()),
+      initialOptions: null,
+      messages: null,
+      language: 'en'
+    });
+
+    expect(document.body.textContent).toContain('Diagnostics have not run yet.');
+    expect(document.body.textContent).not.toContain('Default vault HTTPS connection is healthy');
+
+    const diagnose = findButton('Diagnose Configuration');
+    const runningDiagnosis = observeConnectedRunningDiagnosis();
+    diagnose.click();
+    await runningDiagnosis;
+    expect(document.body.textContent).toContain('Checking the current configuration');
+    findButton('Diagnose Configuration').click();
+    await vi.waitFor(() => expect(findButton('Diagnose Configuration').disabled).toBe(false));
+    expect(document.body.textContent).toContain('Diagnosis Results');
+
+    findButton('Copy Configuration').click();
+    await vi.waitFor(() => expect(document.body.textContent).toContain('Last transfer action'));
+    expect(document.body.textContent).toContain('Diagnosis Results');
+
+    const state = createProductionStitchMaintenanceState();
+    const renderFinal = vi.fn();
+    const renderRunning = vi.fn(() => Promise.resolve({ status: 'rendered' as const }));
+    const secondBuilder = vi.fn(() => 'should not run');
+    state.runDiagnosis({
+      buildReport: () => {
+        throw new Error('diagnostic failure');
+      },
+      isActive: () => true,
+      renderFinal,
+      renderRunning
+    });
+    state.runDiagnosis({
+      buildReport: secondBuilder,
+      isActive: () => true,
+      renderFinal,
+      renderRunning
+    });
+    await state.waitForIdle();
+    expect(state.getSnapshot().diagnosis).toEqual({ status: 'failure' });
+    expect(secondBuilder).not.toHaveBeenCalled();
+    expect(renderRunning).toHaveBeenCalledTimes(1);
+    expect(renderFinal).toHaveBeenCalledTimes(1);
+  });
+
+  it('cancels a held diagnosis frame on dispose and settles idle without the builder', async () => {
+    let frameCallback: FrameRequestCallback = () => undefined;
+    const requestFrame = vi
+      .spyOn(window, 'requestAnimationFrame')
+      .mockImplementation((callback: FrameRequestCallback) => {
+        frameCallback = callback;
+        return 71;
+      });
+    const cancelFrame = vi.spyOn(window, 'cancelAnimationFrame').mockImplementation(() => {});
+    const state = createProductionStitchMaintenanceState();
+    const buildReport = vi.fn(() => 'late report');
+    state.runDiagnosis({
+      buildReport,
+      isActive: () => true,
+      renderFinal: vi.fn(),
+      renderRunning: () => Promise.resolve({ status: 'rendered' })
+    });
+    await vi.waitFor(() => expect(requestFrame).toHaveBeenCalledTimes(1));
+    expect(frameCallback).toBeTypeOf('function');
+
+    state.dispose();
+    await state.waitForIdle();
+
+    expect(cancelFrame).toHaveBeenCalledExactlyOnceWith(71);
+    expect(buildReport).not.toHaveBeenCalled();
+    requestFrame.mockRestore();
+    cancelFrame.mockRestore();
+  });
+
+  it('installs diagnosis task identity before a synchronous running render failure', async () => {
+    const state = createProductionStitchMaintenanceState();
+    const buildReport = vi.fn(() => 'should not run');
+    const renderFinal = vi.fn();
+    state.runDiagnosis({
+      buildReport,
+      isActive: () => true,
+      renderFinal,
+      renderRunning: () => {
+        throw new Error('synchronous running render failure');
+      }
+    });
+
+    await state.waitForIdle();
+
+    expect(state.getSnapshot().diagnosis).toEqual({ status: 'failure' });
+    expect(buildReport).not.toHaveBeenCalled();
+    expect(renderFinal).toHaveBeenCalledTimes(1);
+
+    const nextRenderRunning = vi.fn(() =>
+      Promise.resolve<{ status: 'cancelled' }>({ status: 'cancelled' })
+    );
+    state.runDiagnosis({
+      buildReport,
+      isActive: () => true,
+      renderFinal,
+      renderRunning: nextRenderRunning
+    });
+    await state.waitForIdle();
+    expect(nextRenderRunning).toHaveBeenCalledTimes(1);
+  });
+
+  it('cancels a never-settling running acknowledgement when Maintenance is disposed', async () => {
+    const held = deferred<{ status: 'rendered' }>();
+    const state = createProductionStitchMaintenanceState();
+    const buildReport = vi.fn(() => 'late report');
+    const renderFinal = vi.fn();
+    state.runDiagnosis({
+      buildReport,
+      isActive: () => true,
+      renderFinal,
+      renderRunning: () => held.promise
+    });
+
+    state.dispose();
+    await state.waitForIdle();
+
+    expect(buildReport).not.toHaveBeenCalled();
+    expect(renderFinal).not.toHaveBeenCalled();
+    expect(state.getSnapshot().diagnosis).toEqual({ status: 'running' });
+
+    held.resolve({ status: 'rendered' });
+    await Promise.resolve();
+    expect(buildReport).not.toHaveBeenCalled();
+    expect(renderFinal).not.toHaveBeenCalled();
+  });
+
+  it('clears a diagnosis paint task on dispose after the frame acknowledgement', async () => {
+    vi.useFakeTimers();
+    let frameCallback: FrameRequestCallback = () => undefined;
+    const requestFrame = vi
+      .spyOn(window, 'requestAnimationFrame')
+      .mockImplementation((callback: FrameRequestCallback) => {
+        frameCallback = callback;
+        return 72;
+      });
+    const cancelFrame = vi.spyOn(window, 'cancelAnimationFrame').mockImplementation(() => {});
+    const clearTimer = vi.spyOn(globalThis, 'clearTimeout');
+    const state = createProductionStitchMaintenanceState();
+    const buildReport = vi.fn(() => 'late report');
+    state.runDiagnosis({
+      buildReport,
+      isActive: () => true,
+      renderFinal: vi.fn(),
+      renderRunning: () => Promise.resolve({ status: 'rendered' })
+    });
+    await vi.waitFor(() => expect(requestFrame).toHaveBeenCalledTimes(1));
+    frameCallback(0);
+    expect(vi.getTimerCount()).toBe(1);
+
+    state.dispose();
+    await state.waitForIdle();
+
+    expect(clearTimer).toHaveBeenCalledTimes(1);
+    expect(buildReport).not.toHaveBeenCalled();
+    requestFrame.mockRestore();
+    cancelFrame.mockRestore();
+    clearTimer.mockRestore();
+    vi.useRealTimers();
+  });
+
+  it('settles acknowledgement failure even when its best-effort failure render throws', async () => {
+    const acknowledgementFailure = new Error('running render failed');
+    const state = createProductionStitchMaintenanceState();
+    const buildReport = vi.fn(() => 'should not run');
+    state.runDiagnosis({
+      buildReport,
+      isActive: () => true,
+      renderFinal: () => {
+        throw new Error('failure publication failed');
+      },
+      renderRunning: () => Promise.resolve({ status: 'failed', error: acknowledgementFailure })
+    });
+
+    await state.waitForIdle();
+
+    expect(state.getSnapshot().diagnosis).toEqual({ status: 'failure' });
+    expect(buildReport).not.toHaveBeenCalled();
+  });
+
+  it('suppresses late reload DOM and telemetry callbacks after cleanup', async () => {
+    const pendingReload = deferred<CompleteOptions>();
+    const loadRaw = vi.fn(() => pendingReload.promise);
+    const messaging = createMessaging();
+    const mounted = mountProductionStitchShell({
+      controller: asOptionsController({ ...createController(), loadRaw }),
+      initialOptions: null,
+      messages: null,
+      language: 'en',
+      messagingRepository: messaging as never
+    });
+
+    findButton('🔄 Reload').click();
+    expect(loadRaw).toHaveBeenCalledTimes(1);
+    mounted.cleanup();
+    pendingReload.reject(new Error('late reload failure'));
+    await flushPromises();
+
+    expect(document.getElementById('optionsShellRoot')?.innerHTML).toBe('');
+    const sendMock = vi.mocked(messaging.send as <Result>(message: Message) => Promise<Result>);
+    expect(
+      sendMock.mock.calls.some(
+        ([message]) =>
+          message.type === 'ANALYTICS_EVENT' &&
+          message.event === 'options_action_completed' &&
+          message.params?.action === 'maintenance_reload'
+      )
+    ).toBe(false);
+  });
+
+  it('does not mutate detached copy/import controls or callbacks after cleanup', async () => {
+    const pendingCopy = deferred<void>();
+    Object.defineProperty(navigator, 'clipboard', {
+      configurable: true,
+      value: { writeText: vi.fn(() => pendingCopy.promise) }
+    });
+    const copyMount = mountProductionStitchShell({
+      controller: asOptionsController(createController()),
+      initialOptions: null,
+      messages: null,
+      language: 'en'
+    });
+    const copyButton = findButton('Copy Configuration');
+
+    copyButton.click();
+    expect(copyButton.getAttribute('aria-busy')).toBe('true');
+    copyMount.cleanup();
+    pendingCopy.resolve();
+    await flushPromises();
+
+    expect(copyButton.isConnected).toBe(false);
+    expect(copyButton.getAttribute('aria-busy')).toBe('true');
+    expect(document.getElementById('optionsShellRoot')?.innerHTML).toBe('');
+
+    const pendingImport = deferred<string>();
+    const importController = createController();
+    Object.defineProperty(navigator, 'clipboard', {
+      configurable: true,
+      value: { readText: vi.fn(() => pendingImport.promise) }
+    });
+    const importMount = mountProductionStitchShell({
+      controller: asOptionsController(importController),
+      initialOptions: null,
+      messages: null,
+      language: 'en'
+    });
+    const importButton = findButton('Import and Save');
+
+    importButton.click();
+    expect(importButton.getAttribute('aria-busy')).toBe('true');
+    importMount.cleanup();
+    pendingImport.resolve(JSON.stringify({ options: { aiChat: { userName: 'Late' } } }));
+    await flushPromises();
+
+    expect(importButton.isConnected).toBe(false);
+    expect(importButton.getAttribute('aria-busy')).toBe('true');
+    expect(importController.applyImportedConfig).not.toHaveBeenCalled();
   });
 
   it('uses localized storage connection error titles when the storage test action throws', async () => {
@@ -162,6 +510,50 @@ describe('mountProductionStitchShell actions', () => {
     factorySpy.mockRestore();
   });
 
+  it('keeps only the latest connection completion and suppresses completion after cleanup', async () => {
+    const first = deferred<ConnectionTestResult>();
+    const second = deferred<ConnectionTestResult>();
+    const late = deferred<ConnectionTestResult>();
+    const runConnection = vi
+      .fn<() => Promise<ConnectionTestResult>>()
+      .mockImplementationOnce(() => first.promise)
+      .mockImplementationOnce(() => second.promise)
+      .mockImplementationOnce(() => late.promise);
+    const actualFactory = storageControllerModule.createProductionStitchStorageController;
+    const factorySpy = vi
+      .spyOn(storageControllerModule, 'createProductionStitchStorageController')
+      .mockImplementation((options) => ({
+        ...actualFactory(options),
+        runVaultListConnectionTest: () => runConnection()
+      }));
+    const mounted = mountProductionStitchShell({
+      controller: asOptionsController(createController()),
+      initialOptions: null,
+      messages: null,
+      language: 'en'
+    });
+    const testButton = findButton('Test Connection');
+
+    testButton.click();
+    testButton.click();
+    expect(runConnection).toHaveBeenCalledTimes(2);
+    second.resolve({ success: true, message: '', error: 'latest connection result' });
+    await flushPromises();
+    expect(findCardByTitle('Vault List').textContent).toContain('latest connection result');
+
+    first.resolve({ success: false, message: '', error: 'stale connection result' });
+    await flushPromises();
+    expect(findCardByTitle('Vault List').textContent).not.toContain('stale connection result');
+
+    findButton('Test Connection').click();
+    expect(runConnection).toHaveBeenCalledTimes(3);
+    mounted.cleanup();
+    late.resolve({ success: false, message: '', error: 'disposed connection result' });
+    await flushPromises();
+    expect(document.getElementById('optionsShellRoot')?.innerHTML).toBe('');
+    factorySpy.mockRestore();
+  });
+
   it('reports maintenance copy and import success or failure in the Stitch log', async () => {
     const controller = {
       ...createController(),
@@ -206,7 +598,7 @@ describe('mountProductionStitchShell actions', () => {
     writeText.mockRejectedValueOnce(new Error('clipboard denied'));
     copyButton.click();
     await flushPromises();
-    expect(document.body.textContent).toContain('Copy failed: Error: clipboard denied');
+    expect(document.body.textContent).toContain('The action could not be completed');
   });
 
   it('reports import failure without opening a file picker when clipboard import is unavailable', async () => {
@@ -237,9 +629,7 @@ describe('mountProductionStitchShell actions', () => {
     );
     expect(fileInput).toBeFalsy();
     expect(controller.applyImportedConfig).not.toHaveBeenCalled();
-    expect(document.body.textContent).toContain(
-      'Import failed: ConfigTransferError: CLIPBOARD_READ_UNAVAILABLE'
-    );
+    expect(document.body.textContent).toContain('The action could not be completed');
     expect(document.body.textContent).not.toContain('Imported config');
     expect(importButton.hasAttribute('aria-busy')).toBe(false);
   });
@@ -315,9 +705,10 @@ describe('mountProductionStitchShell actions', () => {
     expect(trackedPayloads).not.toContain('Articles/secret.md');
     expect(trackedPayloads).not.toContain('SECRET_TOKEN');
 
-    const emittedEvents = (trackUsageEventMock.mock.calls as unknown as Array<[unknown]>).map(
-      ([message]) => (message as { event?: string } | undefined)?.event
+    const trackedEventMock = vi.mocked(
+      trackUsageEventMock as (message: AnalyticsRuntimeEventPayload) => Promise<void>
     );
+    const emittedEvents = trackedEventMock.mock.calls.map(([message]) => message.event);
     expect(emittedEvents).not.toEqual(
       expect.arrayContaining([
         'theme_changed',
@@ -328,6 +719,181 @@ describe('mountProductionStitchShell actions', () => {
         'options_resource_viewed'
       ])
     );
+  });
+
+  it('keeps the local-folder clear action owned until its durable acknowledgement settles', async () => {
+    const pendingClear = deferred<void>();
+    const { runtime, clearVaultLocalFolderMock } = createActionRuntimeHarness({
+      clearVaultLocalFolder: () => pendingClear.promise
+    });
+
+    runtime.dispatch('storage:deleteLocalFolder', [0]);
+    expect(clearVaultLocalFolderMock).toHaveBeenCalledTimes(1);
+    expect(clearVaultLocalFolderMock).toHaveBeenCalledWith(0);
+
+    let idleSettled = false;
+    const idle = runtime.waitForIdle().then(() => {
+      idleSettled = true;
+    });
+    await Promise.resolve();
+    expect(idleSettled).toBe(false);
+
+    pendingClear.resolve();
+    await idle;
+    expect(idleSettled).toBe(true);
+    expect(clearVaultLocalFolderMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('F04 allocates a unique Vault ID when the mounted action encounters a numbering gap', () => {
+    const mounted = mountProductionStitchShell({
+      controller: asOptionsController(createController()),
+      initialOptions: mergeOptions({
+        vaultRouter: {
+          defaultVaultId: 'default',
+          vaults: [
+            {
+              id: 'default',
+              name: 'Zendio',
+              vault: 'Zendio',
+              httpsUrl: LOCAL_HTTPS_URL,
+              httpUrl: LOCAL_HTTP_URL,
+              apiKey: '',
+              isDefault: true,
+              enabled: true
+            },
+            {
+              id: 'vault-3',
+              name: 'Existing',
+              vault: 'Existing',
+              httpsUrl: LOCAL_HTTPS_URL,
+              httpUrl: LOCAL_HTTP_URL,
+              apiKey: '',
+              enabled: true
+            }
+          ]
+        }
+      }),
+      messages: null,
+      language: 'en'
+    });
+
+    findButton('Add Vault').click();
+    const ids = mounted.collectDraft().vaultRouter?.vaults.map(({ id }) => id) ?? [];
+    expect(ids).toHaveLength(3);
+    expect(new Set(ids).size).toBe(ids.length);
+    expect(ids[2]).toMatch(/^vault-[0-9a-f-]{36}$/u);
+  });
+
+  it('restores the active language and control when language persistence fails', async () => {
+    const englishMessages = await createEnglishPageMessages({
+      schemaOverviewInterfaceGroupTitle: 'English interface sentinel'
+    });
+    const pendingLanguage = deferred<{ messages: Messages | null; language: Language }>();
+    let activeLanguage: Language = 'en';
+    let durableLanguage: Language = 'en';
+    const changeLanguage = vi.fn(async (language: Language) => {
+      const resource = await pendingLanguage.promise;
+      activeLanguage = resource.language;
+      durableLanguage = language;
+      return resource;
+    });
+    const mounted = mountProductionStitchShell({
+      controller: asOptionsController(createController()),
+      initialOptions: null,
+      messages: englishMessages,
+      language: 'en',
+      changeLanguage
+    });
+    const languageSelect = queryRequired<HTMLSelectElement>('select');
+
+    languageSelect.value = 'ja';
+    languageSelect.dispatchEvent(new Event('change', { bubbles: true }));
+    expect(languageSelect.value).toBe('ja');
+    expect(activeLanguage).toBe('en');
+    expect(durableLanguage).toBe('en');
+
+    pendingLanguage.reject(new Error('language persistence failed'));
+    await flushPromises();
+
+    expect(changeLanguage).toHaveBeenCalledWith('ja');
+    expect(activeLanguage).toBe('en');
+    expect(durableLanguage).toBe('en');
+    expect(queryRequired<HTMLSelectElement>('select').value).toBe('en');
+    expect(document.body.textContent).toContain('English interface sentinel');
+    expect(document.body.textContent).not.toContain('Japanese interface sentinel');
+    expect(document.getElementById('msg')?.textContent).toContain('language persistence failed');
+
+    mounted.refreshOptions(mounted.collectDraft());
+    expect(queryRequired<HTMLSelectElement>('select').value).toBe('en');
+    expect(document.body.textContent).toContain('English interface sentinel');
+  });
+
+  it('keeps the active, shell, and durable language after persistence succeeds', async () => {
+    const englishMessages = await createEnglishPageMessages({
+      schemaOverviewInterfaceGroupTitle: 'English interface sentinel'
+    });
+    const japaneseMessages = await createEnglishPageMessages({
+      schemaOverviewInterfaceGroupTitle: 'Japanese interface sentinel'
+    });
+    let activeLanguage: Language = 'en';
+    let durableLanguage: Language = 'en';
+    const changeLanguage = vi.fn((language: Language) => {
+      activeLanguage = language;
+      durableLanguage = language;
+      return Promise.resolve({ messages: japaneseMessages, language });
+    });
+    const mounted = mountProductionStitchShell({
+      controller: asOptionsController(createController()),
+      initialOptions: null,
+      messages: englishMessages,
+      language: 'en',
+      changeLanguage
+    });
+    const languageSelect = queryRequired<HTMLSelectElement>('select');
+
+    languageSelect.value = 'ja';
+    languageSelect.dispatchEvent(new Event('change', { bubbles: true }));
+    await flushPromises();
+
+    expect(changeLanguage).toHaveBeenCalledWith('ja');
+    expect(activeLanguage).toBe('ja');
+    expect(durableLanguage).toBe('ja');
+    expect(queryRequired<HTMLSelectElement>('select').value).toBe('ja');
+    expect(document.body.textContent).toContain('Japanese interface sentinel');
+    expect(document.body.textContent).not.toContain('English interface sentinel');
+
+    mounted.refreshOptions(mounted.collectDraft());
+    expect(queryRequired<HTMLSelectElement>('select').value).toBe('ja');
+    expect(document.body.textContent).toContain('Japanese interface sentinel');
+  });
+
+  it('surfaces synchronous taxonomy validation failures in an accessible status message', () => {
+    const { runtime } = createActionRuntimeHarness();
+    expect(document.getElementById('msg')).toBeNull();
+
+    runtime.dispatch(
+      'classifier:updateField',
+      ['taxonomy'],
+      JSON.stringify({
+        version: '1',
+        categories: [],
+        tags: [],
+        rules: [
+          {
+            id: 'invalid-rule',
+            name: 'Invalid rule',
+            conditions: [{ type: 'unsupported', operator: 'contains', value: 'private' }],
+            actions: []
+          }
+        ]
+      })
+    );
+
+    const message = document.getElementById('msg');
+    expect(message?.textContent).toContain(DEFAULT_RUNTIME_MESSAGES.invalidTaxonomy);
+    expect(message?.classList.contains('is-error')).toBe(true);
+    expect(message?.getAttribute('role')).toBe('status');
+    expect(message?.getAttribute('aria-live')).toBe('polite');
   });
 
   it('uses the transfer clipboard fallback and does not report copy success when fallback fails', async () => {
@@ -358,7 +924,7 @@ describe('mountProductionStitchShell actions', () => {
     findButton('Copy Configuration').click();
     await flushPromises();
 
-    expect(document.body.textContent).toContain('Copy failed');
+    expect(document.body.textContent).toContain('The action could not be completed');
     expect(document.body.textContent).not.toContain('Copied config');
   });
 
@@ -397,9 +963,7 @@ describe('mountProductionStitchShell actions', () => {
     });
 
     findButton('Diagnose Configuration').click();
-    await flushPromises();
-
-    expect(document.body.textContent).toContain('Missing API key sentinel');
+    await vi.waitFor(() => expect(document.body.textContent).toContain('Missing API key sentinel'));
     expect(document.body.textContent).toContain('Fragment clipping sentinel');
     expect(document.body.textContent).toContain('Context length sentinel 10');
     expect(document.body.textContent).toContain('Video diagnostics sentinel');
@@ -429,16 +993,107 @@ describe('mountProductionStitchShell actions', () => {
     analytics.dispatchEvent(new Event('change', { bubbles: true }));
     await flushPromises();
 
-    expect(optionsRepository.set).toHaveBeenCalledWith({
-      privacyPreferences: {
-        analytics: true,
-        errorReporting: false,
-        debugMode: false
-      }
-    });
+    expect(optionsRepository.patch).toHaveBeenCalledWith([
+      { path: ['privacyPreferences', 'analytics'], value: true },
+      { path: ['privacyPreferences', 'errorReporting'], value: false },
+      { path: ['privacyPreferences', 'debugMode'], value: false }
+    ]);
     expect(mounted.collectDraft().privacyPreferences).toEqual({
       analytics: true,
       errorReporting: false,
+      debugMode: false
+    });
+    expect(controller.scheduleAutoSave).not.toHaveBeenCalled();
+  });
+
+  it('does not publish privacy state or autosave when the typed privacy mutation fails', async () => {
+    const controller = createController();
+    const optionsRepository = createRepository();
+    const messagingRepository: Pick<IMessagingRepository, 'send' | 'onMessage'> = {
+      send<Result>(_message: Message): Promise<Result> {
+        return Promise.reject<Result>(
+          new Error('Unexpected messaging send on failed privacy mutation.')
+        );
+      },
+      onMessage: vi.fn<IMessagingRepository['onMessage']>(() => () => {})
+    };
+    const sendSpy = vi.spyOn(messagingRepository, 'send');
+    optionsRepository.patch.mockRejectedValueOnce(new Error('privacy mutation failed'));
+    const mounted = mountProductionStitchShell({
+      controller: asOptionsController(controller),
+      initialOptions: {
+        privacyPreferences: {
+          analytics: false,
+          errorReporting: false,
+          debugMode: false
+        }
+      },
+      messages: null,
+      language: 'en',
+      messagingRepository,
+      optionsRepository
+    });
+
+    const analytics = findCheckboxInText('Usage analytics');
+    analytics.checked = true;
+    analytics.dispatchEvent(new Event('change', { bubbles: true }));
+    await flushPromises();
+
+    expect(optionsRepository.patch).toHaveBeenCalledTimes(1);
+    expect(mounted.collectDraft().privacyPreferences).toEqual({
+      analytics: false,
+      errorReporting: false,
+      debugMode: false
+    });
+    expect(analyticsMocks.setAnalyticsConsent).not.toHaveBeenCalledWith(true, false);
+    expect(updateErrorAnalyticsConfigMock).not.toHaveBeenCalledWith(false);
+    expect(controller.scheduleAutoSave).not.toHaveBeenCalled();
+    expect(sendSpy).not.toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: 'ANALYTICS_EVENT',
+        event: 'privacy_consent_changed'
+      })
+    );
+  });
+
+  it('serializes cross-field privacy updates against the latest committed snapshot', async () => {
+    const firstPatch = deferred<CompleteOptions>();
+    const optionsRepository = createRepository();
+    optionsRepository.patch
+      .mockImplementationOnce(() => firstPatch.promise)
+      .mockImplementation(() => Promise.resolve(createCompleteOptions(null)));
+    const mounted = mountProductionStitchShell({
+      controller: asOptionsController(createController()),
+      initialOptions: {
+        privacyPreferences: { analytics: false, errorReporting: false, debugMode: false }
+      },
+      messages: null,
+      language: 'en',
+      optionsRepository
+    });
+
+    const analytics = findCheckboxInText('Usage analytics');
+    const errorReporting = findCheckboxInText('Error reporting');
+    analytics.checked = true;
+    analytics.dispatchEvent(new Event('change', { bubbles: true }));
+    errorReporting.checked = true;
+    errorReporting.dispatchEvent(new Event('change', { bubbles: true }));
+    await Promise.resolve();
+
+    expect(optionsRepository.patch).toHaveBeenCalledTimes(1);
+    firstPatch.resolve(createCompleteOptions(null));
+    await flushPromises();
+    await flushPromises();
+
+    expect(optionsRepository.patch).toHaveBeenCalledTimes(2);
+    expect(optionsRepository.patch).toHaveBeenLastCalledWith([
+      { path: ['privacyPreferences', 'analytics'], value: true },
+      { path: ['privacyPreferences', 'errorReporting'], value: true },
+      { path: ['privacyPreferences', 'debugMode'], value: false }
+    ]);
+    expect(mounted.collectDraft().privacyPreferences).toEqual({
+      analytics: true,
+      errorReporting: true,
       debugMode: false
     });
   });
@@ -461,7 +1116,6 @@ describe('mountProductionStitchShell actions', () => {
       messagingRepository: messagingRepository as never,
       optionsRepository
     });
-
     const analytics = findCheckboxInText('Usage analytics');
     analytics.checked = true;
     analytics.dispatchEvent(new Event('change', { bubbles: true }));
@@ -499,13 +1153,11 @@ describe('mountProductionStitchShell actions', () => {
     await flushPromises();
 
     expect(analyticsMocks.updateConfig).toHaveBeenCalledWith({ debugMode: true });
-    expect(optionsRepository.set).toHaveBeenLastCalledWith({
-      privacyPreferences: {
-        analytics: true,
-        errorReporting: true,
-        debugMode: true
-      }
-    });
+    expect(optionsRepository.patch).toHaveBeenLastCalledWith([
+      { path: ['privacyPreferences', 'analytics'], value: true },
+      { path: ['privacyPreferences', 'errorReporting'], value: true },
+      { path: ['privacyPreferences', 'debugMode'], value: true }
+    ]);
     expect(messagingRepository.send).toHaveBeenCalledWith({
       type: 'ANALYTICS_EVENT',
       event: 'privacy_consent_changed',
@@ -552,13 +1204,11 @@ describe('mountProductionStitchShell actions', () => {
     await flushPromises();
 
     expect(analyticsMocks.clearAllData).toHaveBeenCalledTimes(1);
-    expect(optionsRepository.set).toHaveBeenCalledWith({
-      privacyPreferences: {
-        analytics: false,
-        errorReporting: false,
-        debugMode: false
-      }
-    });
+    expect(optionsRepository.patch).toHaveBeenCalledWith([
+      { path: ['privacyPreferences', 'analytics'], value: false },
+      { path: ['privacyPreferences', 'errorReporting'], value: false },
+      { path: ['privacyPreferences', 'debugMode'], value: false }
+    ]);
     expect(mounted.collectDraft().privacyPreferences).toEqual({
       analytics: false,
       errorReporting: false,
@@ -695,8 +1345,25 @@ describe('mountProductionStitchShell actions', () => {
   it('clears usage data through the existing reset action dependencies', async () => {
     const controller = createController();
     const optionsRepository = createRepository();
-    const storage = createStorage();
     const messagingRepository = createMessaging();
+    const previousStats = {
+      aiChatSaves: 3,
+      fragmentSaves: 2,
+      articleSaves: 1,
+      lastUpdatedISO: '2026-04-25T00:00:00.000Z',
+      history: [{ date: '2026-04-25', aiChat: 3, fragment: 2, article: 1 }]
+    };
+    const zeroStats = {
+      aiChatSaves: 0,
+      fragmentSaves: 0,
+      articleSaves: 0,
+      lastUpdatedISO: null,
+      history: []
+    };
+    const usageStatsClient = {
+      get: vi.fn(() => Promise.resolve(previousStats)),
+      reset: vi.fn(() => Promise.resolve(zeroStats))
+    };
     mountProductionStitchShell({
       controller: asOptionsController(controller),
       initialOptions: {
@@ -711,30 +1378,206 @@ describe('mountProductionStitchShell actions', () => {
       messages: null,
       language: 'en',
       optionsRepository,
-      storage: storage as unknown as StorageService,
+      usageStatsClient,
       messagingRepository,
       now: () => 1234
     } as never);
 
+    await flushPromises();
+    expect(renderedUsageValues()).toEqual(['6', '3', '2', '1']);
+
     findButton('Clear Usage Data').click();
     await flushPromises();
 
-    const zeroStats = {
+    expect(usageStatsClient.reset).toHaveBeenCalledTimes(1);
+    expect(renderedUsageValues()).toEqual(['0', '0', '0', '0']);
+    expect(vi.mocked(messagingRepository.send)).toHaveBeenCalledWith({
+      type: 'ANALYTICS_EVENT',
+      event: 'clear_stats',
+      params: { timestamp: 1234 }
+    });
+
+    findButton('Diagnose Configuration').click();
+    expect(renderedUsageValues()).toEqual(['0', '0', '0', '0']);
+  });
+
+  it('restores the durable usage view and failure status when reset rejects', async () => {
+    const controller = createController();
+    const previousStats = {
+      aiChatSaves: 11,
+      fragmentSaves: 7,
+      articleSaves: 5,
+      lastUpdatedISO: '2026-08-24T00:00:00.000Z',
+      history: [{ date: '2026-08-24', aiChat: 11, fragment: 7, article: 5 }]
+    };
+    const usageStatsClient = {
+      get: vi.fn(() => Promise.resolve(previousStats)),
+      reset: vi.fn(() => Promise.reject(new Error('usage reset failed')))
+    };
+    const mounted = mountProductionStitchShell({
+      controller: asOptionsController(controller),
+      initialOptions: { interfaceTheme: 'dark' },
+      messages: null,
+      language: 'en',
+      usageStatsClient
+    });
+
+    await flushPromises();
+    expect(renderedUsageValues()).toEqual(['23', '11', '7', '5']);
+
+    findButton('Clear Usage Data').click();
+    await flushPromises();
+
+    expect(usageStatsClient.reset).toHaveBeenCalledTimes(1);
+    expect(renderedUsageValues()).toEqual(['23', '11', '7', '5']);
+    expect(document.getElementById('msg')?.textContent).toContain('usage reset failed');
+    expect(mounted.collectDraft().interfaceTheme).toBe('dark');
+
+    findButton('Diagnose Configuration').click();
+    expect(renderedUsageValues()).toEqual(['23', '11', '7', '5']);
+  });
+
+  it('keeps a committed usage reset when an earlier theme task fails', async () => {
+    const controller = createController();
+    const optionsRepository = createRepository();
+    const pendingTheme = deferred<CompleteOptions>();
+    optionsRepository.patch.mockImplementationOnce(() => pendingTheme.promise);
+    const previousUsage: UsageStats = {
+      aiChatSaves: 11,
+      fragmentSaves: 7,
+      articleSaves: 5,
+      lastUpdatedISO: '2026-08-23T00:00:00.000Z',
+      history: [{ date: '2026-08-23', aiChat: 11, fragment: 7, article: 5 }]
+    };
+    const resetUsage: UsageStats = {
       aiChatSaves: 0,
       fragmentSaves: 0,
       articleSaves: 0,
       lastUpdatedISO: null,
       history: []
     };
-    expect(vi.mocked(optionsRepository.set)).toHaveBeenCalledWith({ usageStats: zeroStats });
-    expect(vi.mocked(storage.local.set)).toHaveBeenCalledWith('usageStats', zeroStats);
-    expect(vi.mocked(storage.local.set)).toHaveBeenCalledWith('usage_stats', zeroStats);
-    expect(vi.mocked(messagingRepository.send)).toHaveBeenCalledWith({
-      type: 'ANALYTICS_EVENT',
-      event: 'clear_stats',
-      params: { timestamp: 1234 }
+    let durableUsage = previousUsage;
+    const usageStatsClient = {
+      get: vi.fn(() => Promise.resolve(durableUsage)),
+      reset: vi.fn(() => {
+        durableUsage = resetUsage;
+        return Promise.resolve(durableUsage);
+      })
+    };
+    const mounted = mountProductionStitchShell({
+      controller: asOptionsController(controller),
+      initialOptions: { interfaceTheme: 'dark' },
+      messages: null,
+      language: 'en',
+      optionsRepository,
+      usageStatsClient
     });
+    await flushPromises();
+    expect(renderedUsageValues()).toEqual(['23', '11', '7', '5']);
+
+    findButton('Light').click();
+    expect(mounted.collectDraft().interfaceTheme).toBe('light');
+    expect(document.documentElement.dataset.theme).toBe('light');
+
+    findButton('Clear Usage Data').click();
+    await flushPromises();
+    expect(usageStatsClient.reset).toHaveBeenCalledTimes(1);
+    expect(durableUsage).toEqual(resetUsage);
+    expect(renderedUsageValues()).toEqual(['0', '0', '0', '0']);
+
+    pendingTheme.reject(new Error('theme persistence failed'));
+    await flushPromises();
+
+    expect(durableUsage).toEqual(resetUsage);
+    expect(renderedUsageValues()).toEqual(['0', '0', '0', '0']);
+    expect(mounted.collectDraft().interfaceTheme).toBe('dark');
+    expect(document.documentElement.dataset.theme).toBe('dark');
+    expect(window.localStorage.getItem('aob-theme')).toBe('dark');
   });
+
+  it.each<{
+    first: 'success' | 'failure';
+    second: 'success' | 'failure';
+    expected: 'dark' | 'light' | 'system';
+  }>([
+    { first: 'failure', second: 'failure', expected: 'dark' },
+    { first: 'success', second: 'failure', expected: 'light' },
+    { first: 'failure', second: 'success', expected: 'system' },
+    { first: 'success', second: 'success', expected: 'system' }
+  ])(
+    'serializes theme persistence: Light $first + System $second => $expected',
+    async ({ first, second, expected }) => {
+      const controller = createController();
+      const optionsRepository = createRepository();
+      const predecessor = deferred<CompleteOptions>();
+      const successor = deferred<CompleteOptions>();
+      const successorStarted = deferred<void>();
+      const starts: string[] = [];
+      let durableTheme = 'dark';
+      optionsRepository.patch
+        .mockImplementationOnce(() => {
+          starts.push('light');
+          return predecessor.promise.then((stored) => {
+            durableTheme = 'light';
+            return stored;
+          });
+        })
+        .mockImplementationOnce(() => {
+          starts.push('system');
+          successorStarted.resolve();
+          return successor.promise.then((stored) => {
+            durableTheme = 'system';
+            return stored;
+          });
+        });
+      const mounted = mountProductionStitchShell({
+        controller: asOptionsController(controller),
+        initialOptions: { interfaceTheme: 'dark' },
+        messages: null,
+        language: 'en',
+        optionsRepository
+      });
+
+      findButton('Light').click();
+      findButton('System').click();
+
+      expect(starts).toEqual(['light']);
+      expect(mounted.collectDraft().interfaceTheme).toBe('light');
+      expect(window.localStorage.getItem('aob-theme')).toBe('light');
+
+      if (first === 'success') {
+        predecessor.resolve(createCompleteOptions({ interfaceTheme: 'light' }));
+      } else {
+        predecessor.reject(new Error('light failed'));
+      }
+      await successorStarted.promise;
+
+      expect(starts).toEqual(['light', 'system']);
+      expect(mounted.collectDraft().interfaceTheme).toBe('system');
+      expect(window.localStorage.getItem('aob-theme')).toBe('system');
+
+      if (second === 'success') {
+        successor.resolve(createCompleteOptions({ interfaceTheme: 'system' }));
+      } else {
+        successor.reject(new Error('system failed'));
+      }
+      await flushPromises();
+
+      const resolvedTheme = expected === 'system' ? 'light' : expected;
+      expect(durableTheme).toBe(expected);
+      expect(mounted.collectDraft().interfaceTheme).toBe(expected);
+      expect(document.documentElement.dataset.theme).toBe(resolvedTheme);
+      expect(window.localStorage.getItem('aob-theme')).toBe(expected);
+      expect(
+        findButton(expected[0]?.toUpperCase() + expected.slice(1)).getAttribute('aria-pressed')
+      ).toBe('true');
+
+      predecessor.reject(new Error('late predecessor completion'));
+      await flushPromises();
+      expect(durableTheme).toBe(expected);
+      expect(mounted.collectDraft().interfaceTheme).toBe(expected);
+    }
+  );
 
   it('emits canonical export telemetry without leaking exported option content', async () => {
     const controller = createController();
@@ -757,7 +1600,6 @@ describe('mountProductionStitchShell actions', () => {
       language: 'en',
       messagingRepository: messagingRepository as never
     });
-
     findButton('Copy Configuration').click();
     await flushPromises();
 
@@ -786,7 +1628,10 @@ describe('mountProductionStitchShell actions', () => {
   });
 
   it('imports configuration before analytics payload application and emits sanitized import telemetry', async () => {
-    const controller = createController();
+    const applyImportedConfig = vi.fn<(options: CompleteOptions) => Promise<void>>(() =>
+      Promise.resolve()
+    );
+    const controller = { ...createController(), applyImportedConfig };
     const messagingRepository = createMessaging();
     Object.defineProperty(navigator, 'clipboard', {
       configurable: true,
@@ -816,12 +1661,10 @@ describe('mountProductionStitchShell actions', () => {
     findButton('Import and Save').click();
     await flushPromises();
 
-    expect(vi.mocked(controller.applyImportedConfig)).toHaveBeenCalledWith(
-      expect.objectContaining({
-        aiChat: expect.objectContaining({ userName: 'Imported' }) as unknown
-      })
-    );
-    expect(controller.applyImportedConfig.mock.invocationCallOrder[0]).toBeLessThan(
+    const importCall = applyImportedConfig.mock.calls[0];
+    if (!importCall) throw new Error('Expected imported configuration application');
+    expect(importCall[0].aiChat.userName).toBe('Imported');
+    expect(applyImportedConfig.mock.invocationCallOrder[0]).toBeLessThan(
       applyAnalyticsTransferPayloadMock.mock.invocationCallOrder[0]
     );
     expect(applyAnalyticsTransferPayloadMock).toHaveBeenCalledWith({
@@ -875,7 +1718,7 @@ describe('mountProductionStitchShell actions', () => {
     await flushPromises();
 
     expect(applyAnalyticsTransferPayloadMock).not.toHaveBeenCalled();
-    expect(document.body.textContent).toContain('Import failed: Error: save failed');
+    expect(document.body.textContent).toContain('The action could not be completed');
     expect(document.body.textContent).not.toContain('Imported config');
     expect(messagingRepository.send).toHaveBeenCalledWith({
       type: 'ANALYTICS_EVENT',
@@ -897,7 +1740,11 @@ describe('mountProductionStitchShell actions', () => {
         readText: vi.fn(() =>
           Promise.resolve(
             JSON.stringify({
-              options: { aiChat: { userName: 'Imported' } },
+              options: {
+                aiChat: { userName: 'Imported' },
+                interfaceTheme: 'light',
+                rest: { vault: 'Imported Vault' }
+              },
               analytics: {
                 consent: { analytics: true, errorReporting: false },
                 debugMode: false
@@ -908,7 +1755,7 @@ describe('mountProductionStitchShell actions', () => {
       }
     });
 
-    mountProductionStitchShell({
+    const mounted = mountProductionStitchShell({
       controller: asOptionsController(controller),
       initialOptions: { aiChat: { userName: 'Before' } },
       messages: {
@@ -917,12 +1764,22 @@ describe('mountProductionStitchShell actions', () => {
       language: 'en',
       messagingRepository: messagingRepository as never
     });
+    const panelRoots = Array.from(document.querySelectorAll<HTMLElement>('[data-panel-id]'));
 
     findButton('Import and Save').click();
     await flushPromises();
 
     expect(vi.mocked(controller.applyImportedConfig)).toHaveBeenCalledTimes(1);
-    expect(document.body.textContent).toContain('Import failed: Error: analytics failed');
+    expect(mounted.collectDraft().aiChat.userName).toBe('Imported');
+    expect(mounted.collectDraft().interfaceTheme).toBe('light');
+    expect(document.documentElement.dataset.theme).toBe('light');
+    expect(findButton('Light').getAttribute('aria-pressed')).toBe('true');
+    expect(
+      panelRoots.every(
+        (root) => document.querySelector(`[data-panel-id="${root.dataset.panelId}"]`) !== root
+      )
+    ).toBe(true);
+    expect(document.body.textContent).toContain('The action could not be completed');
     expect(document.body.textContent).not.toContain('Imported config');
     expect(messagingRepository.send).toHaveBeenCalledWith({
       type: 'ANALYTICS_EVENT',
@@ -935,7 +1792,12 @@ describe('mountProductionStitchShell actions', () => {
   });
 
   it('repairs configuration using the existing production repair rules', async () => {
-    const controller = createController();
+    let durableTemplate = 'Clippings/Before.md';
+    const saveSnapshot = vi.fn((snapshot: { reason: 'manual'; draft: CompleteOptions }) => {
+      durableTemplate = snapshot.draft.templates.article;
+      return Promise.resolve();
+    });
+    const controller = { ...createController(), saveSnapshot };
     const messagingRepository = createMessaging();
     const mounted = mountProductionStitchShell({
       controller: asOptionsController(controller),
@@ -947,7 +1809,7 @@ describe('mountProductionStitchShell actions', () => {
           httpUrl: LOCAL_HTTP_URL
         },
         templates: {
-          article: 'Clippings/{{title}}.md',
+          article: durableTemplate,
           fragment: '',
           ai: ''
         }
@@ -963,15 +1825,15 @@ describe('mountProductionStitchShell actions', () => {
     const repaired = mounted.collectDraft();
     expect(repaired.rest.baseUrl).toBe(LOCAL_HTTPS_URL);
     expect(repaired.rest.httpsUrl).toBeTruthy();
-    expect(repaired.templates.article).toContain('Articles/');
+    expect(repaired.templates.article).toBe('Articles/Before.md');
+    expect(durableTemplate).toBe('Articles/Before.md');
     expect(repaired.templates.fragment).toBeTruthy();
     expect(repaired.templates.ai).toBeTruthy();
-    expect(vi.mocked(controller.saveSnapshot)).toHaveBeenCalledWith({
-      reason: 'manual',
-      draft: expect.objectContaining({
-        rest: expect.objectContaining({ baseUrl: LOCAL_HTTPS_URL }) as unknown
-      }) as unknown
-    });
+    const repairSaveCall = saveSnapshot.mock.calls[0];
+    if (!repairSaveCall) throw new Error('Expected repaired configuration save');
+    const [repairSnapshot] = repairSaveCall;
+    expect(repairSnapshot.reason).toBe('manual');
+    expect(repairSnapshot.draft.rest.baseUrl).toBe(LOCAL_HTTPS_URL);
     expect(messagingRepository.send).toHaveBeenCalledWith({
       type: 'ANALYTICS_EVENT',
       event: 'options_action_completed',
@@ -981,5 +1843,70 @@ describe('mountProductionStitchShell actions', () => {
         section: 'advanced'
       }
     });
+
+    findButton('Diagnose Configuration').click();
+    expect(mounted.collectDraft().templates.article).toBe('Articles/Before.md');
+    await vi.waitFor(() => expect(document.body.textContent).toContain('Articles/Before.md'));
+    expect(document.body.textContent).not.toContain('Clippings/Before.md');
+  });
+
+  it('restores repair-owned state when saving the repaired snapshot fails', async () => {
+    const pendingSave = deferred<void>();
+    let durableTemplate = 'Clippings/Before.md';
+    const saveSnapshot = vi.fn(async (snapshot: { reason: 'manual'; draft: CompleteOptions }) => {
+      await pendingSave.promise;
+      durableTemplate = snapshot.draft.templates.article;
+    });
+    const controller = { ...createController(), saveSnapshot };
+    const optionsRepository = createRepository();
+    const mounted = mountProductionStitchShell({
+      controller: asOptionsController(controller),
+      initialOptions: {
+        interfaceTheme: 'dark',
+        templates: { article: durableTemplate }
+      },
+      messages: null,
+      language: 'en',
+      optionsRepository
+    });
+    const stableOverview = queryRequired<HTMLElement>('[data-panel-id="overview"]');
+    const stableCaptureSources = queryRequired<HTMLElement>('[data-panel-id="capture-sources"]');
+    const repairedOwners = new Map(
+      ['storage', 'output', 'maintenance'].map((id) => [
+        id,
+        queryRequired<HTMLElement>(`[data-panel-id="${id}"]`)
+      ])
+    );
+
+    findButton('Fix Configuration').click();
+    expect(mounted.collectDraft().templates.article).toBe('Articles/Before.md');
+    const saveCall = saveSnapshot.mock.calls[0];
+    if (!saveCall) throw new Error('Expected the repaired snapshot save call');
+    const [savedSnapshot] = saveCall;
+    expect(savedSnapshot.reason).toBe('manual');
+    expect(savedSnapshot.draft.templates.article).toBe('Articles/Before.md');
+
+    findButton('Light').click();
+    await flushPromises();
+    expect(mounted.collectDraft().interfaceTheme).toBe('light');
+
+    pendingSave.reject(new Error('repair save failed'));
+    await flushPromises();
+
+    expect(mounted.collectDraft().templates.article).toBe('Clippings/Before.md');
+    expect(durableTemplate).toBe('Clippings/Before.md');
+    expect(mounted.collectDraft().interfaceTheme).toBe('light');
+    expect(window.localStorage.getItem('aob-theme')).toBe('light');
+    expect(document.getElementById('msg')?.textContent).toContain('repair save failed');
+    expect(document.querySelector('[data-panel-id="overview"]')).toBe(stableOverview);
+    expect(document.querySelector('[data-panel-id="capture-sources"]')).toBe(stableCaptureSources);
+    repairedOwners.forEach((root, id) => {
+      expect(document.querySelector(`[data-panel-id="${id}"]`)).not.toBe(root);
+    });
+
+    findButton('Diagnose Configuration').click();
+    expect(mounted.collectDraft().templates.article).toBe('Clippings/Before.md');
+    await vi.waitFor(() => expect(document.body.textContent).toContain('Clippings/Before.md'));
+    expect(document.body.textContent).not.toContain('Articles/Before.md');
   });
 });

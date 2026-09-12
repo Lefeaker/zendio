@@ -3,7 +3,7 @@ import type {
   ReaderPanelHighlight,
   ReaderPanelTexts
 } from './readerPanelModel';
-import type { ExportDestinationSurfacePreview } from '@options/stitch/types';
+import type { ExportDestinationSurfacePreview } from '@ui/stitch-runtime';
 import type { SessionCommentDraftSnapshot } from '@content/shared/panels/sessionCommentDrafts';
 
 export interface ReaderPanelEditingSnapshot {

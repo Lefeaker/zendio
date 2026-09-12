@@ -1,7 +1,6 @@
 import { expect, test } from '@playwright/test';
-import { execFileSync } from 'node:child_process';
-import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
+import { createGeneratedPreview } from './utils/generatedPreview';
 import {
   expectNoLegacyRuntimeSurface,
   expectSchemaRuntimeSurface
@@ -14,14 +13,7 @@ import {
 } from './utils/runtimeSurfaceParity';
 
 const BASE = `http://127.0.0.1:${process.env.PLAYWRIGHT_WEB_SERVER_PORT ?? '4181'}`;
-const GENERATED_RUNTIME_PREVIEW_ROOT = resolve(
-  process.cwd(),
-  '..',
-  '.tmp/preview-runtime-alignment/options-component-preview'
-);
-const CURRENT_GENERATED_PREVIEW_URL = pathToFileURL(
-  resolve(GENERATED_RUNTIME_PREVIEW_ROOT, 'index.html')
-).toString();
+const generatedPreview = createGeneratedPreview();
 const ZERO_LEGACY_STYLE_BRIDGES = {
   'clipper-tailwind': 0,
   'panel-clipper-tailwind': 0,
@@ -327,23 +319,16 @@ function expectRuntimeStyleParity(
 
 function getRuntimePreviewUrl(surfaceId: string): string {
   void surfaceId;
-  return CURRENT_GENERATED_PREVIEW_URL;
+  return pathToFileURL(generatedPreview.build()).toString();
 }
 
 test.describe('Stitch runtime surface alignment', () => {
   test.beforeAll(() => {
-    execFileSync(
-      process.execPath,
-      [
-        resolve(process.cwd(), 'scripts/build-preview.mjs'),
-        '--outdir',
-        GENERATED_RUNTIME_PREVIEW_ROOT
-      ],
-      {
-        cwd: process.cwd(),
-        stdio: 'inherit'
-      }
-    );
+    generatedPreview.build();
+  });
+
+  test.afterAll(() => {
+    generatedPreview.dispose();
   });
 
   for (const surface of PREVIEW_SURFACES) {
@@ -455,7 +440,7 @@ test.describe('Stitch runtime surface alignment', () => {
   test('video floating prompt preview and production share the Stitch schema contract', async ({
     page
   }, testInfo) => {
-    await page.goto(CURRENT_GENERATED_PREVIEW_URL);
+    await page.goto(pathToFileURL(generatedPreview.build()).toString());
     await page.waitForSelector('.app');
     await page.locator('[data-footer-panel="video-floating-prompt"]').click();
     const previewPrompt = page.locator('.video-floating-prompt').first();
@@ -487,7 +472,7 @@ test.describe('Stitch runtime surface alignment', () => {
   test('video floating prompt preview and production share the light Stitch runtime theme', async ({
     page
   }) => {
-    await page.goto(CURRENT_GENERATED_PREVIEW_URL);
+    await page.goto(pathToFileURL(generatedPreview.build()).toString());
     await page.waitForSelector('.app');
     await page.evaluate(() => {
       document.documentElement.dataset.previewTheme = 'light';

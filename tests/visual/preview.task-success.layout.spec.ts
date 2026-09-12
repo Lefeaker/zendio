@@ -1,17 +1,9 @@
 import { expect, test, type Page } from '@playwright/test';
-import { execFileSync } from 'node:child_process';
-import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
+import { createGeneratedPreview } from './utils/generatedPreview';
 
 const BASE = `http://127.0.0.1:${process.env.PLAYWRIGHT_WEB_SERVER_PORT ?? '4181'}`;
-const GENERATED_TASK_SUCCESS_PREVIEW_ROOT = resolve(
-  process.cwd(),
-  '..',
-  '.tmp/preview-task-success-layout/options-component-preview'
-);
-const GENERATED_TASK_SUCCESS_PREVIEW_URL = pathToFileURL(
-  resolve(GENERATED_TASK_SUCCESS_PREVIEW_ROOT, 'index.html')
-).toString();
+const generatedPreview = createGeneratedPreview();
 
 async function setPreviewTheme(page: Page, theme: 'dark' | 'light'): Promise<void> {
   await page.evaluate((themeName) => {
@@ -34,22 +26,15 @@ async function readTaskSupportLogoFilters(page: Page): Promise<string[]> {
 
 test.describe('Stitch task success surface layout', () => {
   test.beforeAll(() => {
-    execFileSync(
-      process.execPath,
-      [
-        resolve(process.cwd(), 'scripts/build-preview.mjs'),
-        '--outdir',
-        GENERATED_TASK_SUCCESS_PREVIEW_ROOT
-      ],
-      {
-        cwd: process.cwd(),
-        stdio: 'inherit'
-      }
-    );
+    generatedPreview.build();
+  });
+
+  test.afterAll(() => {
+    generatedPreview.dispose();
   });
 
   test('preview task-success schema exposes the Stitch prompt structure', async ({ page }) => {
-    await page.goto(GENERATED_TASK_SUCCESS_PREVIEW_URL);
+    await page.goto(pathToFileURL(generatedPreview.build()).toString());
     await page.waitForSelector('.app');
 
     await page.locator('[data-footer-panel="task-success"]').click();

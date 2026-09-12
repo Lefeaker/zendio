@@ -192,14 +192,14 @@ try {
 
 - **核心组成**
   - 正式 Options UI 启动链为 `src/options/index.ts -> src/options/runtimeEntry.ts -> src/options/app/bootstrap.ts -> src/options/app/productionStitchShell.ts`。
-  - `src/options/stitch/*` 的 schema、renderer、content 与 CSS 是当前 Options UI behavior 真值；新增 UI behavior 优先落在 Stitch schema/render/domain code 或 `src/ui/domains/*`。
+  - `src/options/stitch/*` 的 schema、renderer、content 与 CSS 是当前 Options UI behavior 真值；新增 UI behavior 优先落在 Stitch owner，稳定共享 DOM/surface 行为复用 `src/ui/stitch-runtime/*` / `src/ui/stitch-surfaces/*`，共享控件复用 retained primitives。
   - 旧 layout shell 与最终旧 section/form 兼容源码已退役；retired Options 兼容类不得作为新增 Options 功能的实现指南，也不得重新接入生产启动链。
   - 删除旧 Options source 前必须运行 Non-Production Code 3.0 owner scan：记录 `audit:non-production-source:report` counts/exit status，并要求 `audit:non-production-source:check` 通过。
   - `OptionsController`（`src/options/app/optionsController.ts`）集中处理持久化、自动保存、导入导出，自动保存链路需调用 `markPendingAutoSave()` + `scheduleAutoSave()`。
 
 - **运行时约束**
   - 二次初始化依赖 `bootstrapOptionsApp()` 内的 `disposeCleanupHandlers()` 与 `teardownMountedShell()`，禁止独立实例化 Controller 或 Shell。
-  - 新增生产 UI 生命周期应归属 Stitch renderer/runtime、production shell 或当前 `src/ui/domains/*` owner；旧 Section/Helper lifecycle 只作为兼容残留语境，不作为新增实现模板。
+  - 新增生产 UI 生命周期应归属 Stitch renderer/runtime、production shell 或 feature-local owner；`src/ui/domains/usage-chart/*` 是唯一 retained shared domain，旧 Section/Helper lifecycle 只作为兼容残留语境。
   - 所有文案通过 Stitch content/schema、production shell messages 或 `data-i18n` 绑定，多语言整改遵循 `docs/options-multilingual-adaptation-guide.md`。
 
 - **测试要求**
@@ -349,16 +349,10 @@ describe('ClipperService', () => {
 
 #### ✅ 正确的依赖管理
 
-```bash
-# 安装生产依赖
-npm install lodash
-
-# 安装开发依赖
-npm install --save-dev @types/lodash
-
-# 移除依赖
-npm uninstall lodash
-```
+依赖变更必须作为独立、可回滚的 package/lock scope：先审计真实 caller 与许可证，使用
+`.nvmrc` 锁定的 Node/npm 和官方 registry 更新现有依赖，再在 clean candidate 上运行两次
+exact-zero audit 与标准 gates。普通开发/测试使用已经 provisioned 的本地依赖树，不在文档
+命令中隐式安装、更新或解析包。
 
 #### ❌ 禁止直接编辑配置文件
 
@@ -522,14 +516,11 @@ vim package.json
 vim package-lock.json
 ```
 
-#### ✅ 使用包管理器
+#### ✅ 使用受控 package/lock 变更
 
-```bash
-# ✅ 使用 npm 命令管理依赖
-npm install package-name
-npm uninstall package-name
-npm update package-name
-```
+不要手改 lockfile。需要增删升级依赖时，先建立精确 package/lock write set，使用锁定 npm
+完成一次明确的解析操作，并让 reviewer 审查 package、lock、调用者、许可证与两份 clean-SHA
+audit。无依赖变更的普通里程碑不得运行安装/更新命令。
 
 ---
 
@@ -720,9 +711,10 @@ export class BookmarkSettings {
   }
 }
 
-// 2. 在 Stitch schema/render/domain owner 中接入
+// 2. 在 Stitch schema/render 或 feature-local owner 中接入
 // 不创建或恢复旧 Options layout shell；新增 Options UI 行为应落在
-// src/options/stitch/*、productionStitchShell.ts 或 src/ui/domains/*。
+// src/options/stitch/*、productionStitchShell.ts、neutral runtime/surfaces，
+// 或既有 src/ui/domains/usage-chart/* exact owner。
 ```
 
 ## 12. 国际化开发指南

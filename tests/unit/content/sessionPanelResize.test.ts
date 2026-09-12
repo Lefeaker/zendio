@@ -323,6 +323,26 @@ describe('session panel resize persistence', () => {
     expect(fixture.panel.style.width).toBe('450px');
   });
 
+  it('ignores a late persisted layout completion after cleanup', async () => {
+    let resolveLoad!: (items: SessionPanelStorageItems) => void;
+    const storage = createSessionPanelStorage(
+      () =>
+        new Promise((resolve) => {
+          resolveLoad = resolve;
+        })
+    );
+    const { bindSessionPanelResize } = await importResizeModule();
+    const fixture = createSurfaceFixture();
+    const cleanup = bindSessionPanelResize(fixture.surface, { storage });
+
+    cleanup();
+    cleanup();
+    resolveLoad({ 'aiob.sessionPanel.width': 512 });
+    await Promise.resolve();
+
+    expect(fixture.panel.style.width).toBe('');
+  });
+
   it('persists through the injected storage dependency without extension globals', async () => {
     removeChromeApi();
     const storage = createSessionPanelStorage();

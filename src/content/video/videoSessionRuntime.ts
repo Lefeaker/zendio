@@ -1,11 +1,14 @@
+import { createSessionEndingCoordinator } from '../sessionMutations/sessionEndingCoordinator';
+import { setSessionPanelRecovery } from '../shared/panels/sessionPanelRecovery';
 import { bucketCount } from '../../shared/analytics';
 import type { ReaderHighlightTheme } from '../../shared/types/options';
 import type { VideoAddCaptureSource } from './application/videoPanelModel';
-import type { VideoFragmentCapture } from './types';
+import type { VideoFragmentCapture, VideoTimestampCapture } from './types';
 import { FragmentHighlighter, DEFAULT_HIGHLIGHT_THEME } from './fragmentHighlighter';
 import { DEFAULT_SESSION_MESSAGES, type VideoSessionMessages } from './sessionMessages';
 import { VideoHintManager, type VideoHintState } from './videoHintManager';
 import type { VideoSessionAddCaptureOptions, VideoSessionDependencies } from './sessionTypes';
+import type { VideoSessionStartOptions } from './application/videoSessionPort';
 import { VideoSessionState } from './sessionState';
 import {
   getVideoDocumentSelection,
@@ -63,10 +66,9 @@ import { VideoScreenshotPreparationCoordinator } from './videoScreenshotPreparat
 import { applyVideoSessionCommentDrafts } from './videoSessionDraftSync';
 import { createVideoSessionDestinationPayload } from './videoSessionDestinationPayload';
 import { hasRequestedTimestampScreenshot, setTimestampScreenshotRef } from './screenshotIntent';
-import type { VideoTimestampCapture } from './types';
 import { VideoSessionMutationCoordinator } from './videoSessionMutationCoordinator';
 import { emitVideoUsageEvent } from './videoCaptureMutationTransaction';
-
+import { acquireDocumentMutationHub } from '../runtime/documentMutationHub';
 export class VideoSession {
   private readonly state = new VideoSessionState(DEFAULT_HIGHLIGHT_THEME);
   private messages: VideoSessionMessages = DEFAULT_SESSION_MESSAGES;
@@ -91,7 +93,6 @@ export class VideoSession {
   private readonly mutationCoordinator: VideoSessionMutationCoordinator;
   private controllersReadyPromise: Promise<void> | null = null;
   private isCleaningUp = false;
-
   private get operationContext() {
     return createVideoSessionRuntimeOperationContext({
       session: this,
@@ -122,7 +123,6 @@ export class VideoSession {
       drafts: this.draftController
     });
   }
-
   constructor(
     private readonly doc: Document,
     private readonly dependencies: VideoSessionDependencies
@@ -151,24 +151,26 @@ export class VideoSession {
     });
   }
 
-  private async ensureControllers(): Promise<void> {
+  private async ensureControllers(suppressDraftDestinationRestore = false): Promise<void> {
     if (this.controllersReadyPromise) {
       return this.controllersReadyPromise;
     }
 
     this.controllersReadyPromise = import('./videoSessionControllers')
       .then(({ createVideoSessionControllers }) => {
+        const documentMutationHub = acquireDocumentMutationHub(this.doc);
         const controllers: VideoSessionControllers = createVideoSessionControllers({
           doc: this.doc,
+          documentMutationHub,
           dependencies: this.dependencies,
           state: this.state,
           destinationState: this.destinationState,
+          suppressDraftDestinationRestore,
           getMessages: () => this.messages,
           readCleanupState: () => ({
             isCleaningUp: this.isCleaningUp,
             shouldTrackSavingState: !this.mutationCoordinator.hasPendingMutations()
           }),
-          onDraftRestored: () => undefined,
           onDraftScreenshotHydrationStart: () =>
             this.screenshotPreparation.suspendPendingRequests(),
           onDraftScreenshotHydrated: () => this.syncPanel(),
@@ -178,12 +180,13 @@ export class VideoSession {
               this.screenshotPreparation.requestPendingScreenshots();
             }
           },
-          createPlatformContext: () =>
+          createPlatformContext: (sharedDocumentMutationHub) =>
             createVideoSessionPlatformContext({
               doc: this.doc,
               fragmentHighlighter: this.fragmentHighlighter,
               fragmentHighlightCoordinator: this.fragmentHighlightCoordinator,
-              shadowSelectionBridge: this.shadowSelectionBridge
+              shadowSelectionBridge: this.shadowSelectionBridge,
+              documentMutationHub: sharedDocumentMutationHub
             }),
           getDocumentSelection: () => getVideoDocumentSelection(this.doc),
           isRangeInsideUi: (range) => isVideoRangeInsideUi(range),
@@ -192,9 +195,7 @@ export class VideoSession {
             this.ingestTextCapture(selectedHtml, selectedText, '', range ?? undefined);
           },
           findVideoElement: () => this.doc.querySelector('video'),
-          handleUrlChange: () => {
-            void this.handleUrlChange();
-          },
+          handleUrlChange: () => void this.handleUrlChange(),
           handleVideoElementChange: (element) => this.handleVideoElementChange(element)
         });
         this.fragmentHighlighter = controllers.fragmentHighlighter;
@@ -218,15 +219,14 @@ export class VideoSession {
     return this.controllersReadyPromise;
   }
 
-  async start(options: { initialCollapsed?: boolean } = {}): Promise<void> {
-    await this.ensureControllers();
-    this.isCleaningUp = false;
-
+  async start(options: VideoSessionStartOptions = {}): Promise<void> {
     if (isVideoSessionActive(this.doc)) {
+      await this.ensureControllers();
       this.applyHint('ready');
       return;
     }
-
+    await this.ensureControllers(options.destinationBootstrap !== undefined);
+    this.isCleaningUp = false;
     const highlightThemePromise = loadVideoSessionHighlightTheme(this.dependencies).catch(
       () => DEFAULT_HIGHLIGHT_THEME
     );
@@ -268,6 +268,8 @@ export class VideoSession {
         dom: this.dom,
         messages: this.messages,
         initialCollapsed: Boolean(options.initialCollapsed),
+        destinationState: this.destinationState,
+        destinationBootstrap: options.destinationBootstrap,
         platformController: this.platformController,
         lifecycle: this.lifecycle,
         operationContext: this.operationContext,
@@ -291,8 +293,12 @@ export class VideoSession {
           },
           onCaptureEditorCancel: (id) => this.commentEditorPlayback.releaseForCapture(id, false),
           onCommentDraftChange: (drafts) => {
+            if (this.state.ending || this.state.disconnected) return;
             applyVideoSessionCommentDrafts(this.state, drafts);
-            void this.draftController.scheduleSave();
+            void this.draftController.scheduleSave().catch((error) => {
+              console.warn('[VideoSession] Failed to save comment draft:', error);
+              this.applyHint('failure');
+            });
           }
         },
         applyHighlightTheme: (theme) => this.applyHighlightTheme(theme),
@@ -301,7 +307,7 @@ export class VideoSession {
       });
       this.draftController.bindPersistence();
       this.screenshotPreparation.requestPendingScreenshots();
-      await this.refreshDestinationPreview();
+      await this.destinationState.startWatching((preview) => this.dom.updateDestination(preview));
     } catch (error) {
       this.cleanup();
       throw error;
@@ -358,8 +364,7 @@ export class VideoSession {
   }
 
   private async refreshDestinationPreview(): Promise<void> {
-    const preview = await this.destinationState.refresh();
-    this.dom.updateDestination(preview);
+    this.dom.updateDestination(await this.destinationState.refresh());
   }
 
   private releasePlaybackEditLeaseOnOutsidePointer(event: MouseEvent): void {
@@ -370,6 +375,7 @@ export class VideoSession {
   }
 
   private async selectDestination(id: string): Promise<void> {
+    if (this.state.ending || this.state.disconnected) return;
     this.destinationState.select(id);
     await this.refreshDestinationPreview();
     this.draftController.syncCommentDrafts();
@@ -456,6 +462,7 @@ export class VideoSession {
   }
 
   async toggleCaptureScreenshot(id: string): Promise<void> {
+    if (this.state.ending || this.state.disconnected) return;
     this.screenshotPreparation.cacheRequestedScreenshot(id);
     await toggleVideoSessionCaptureScreenshot(this.operationContext, id);
   }
@@ -507,12 +514,37 @@ export class VideoSession {
     this.dom.applyHint(state, this.state);
   }
 
+  suspendForReload(): void {
+    this.state.disconnected = true;
+    this.state.ending = true;
+    this.draftController?.suspend();
+    this.lifecycle?.stop();
+    this.selectionCaptureController?.stop();
+    this.fragmentHighlightCoordinator?.stop();
+    this.screenshotPreparation.dispose();
+    this.destinationState.dispose();
+    this.state.stopOptionsWatcher?.();
+    this.state.stopLanguageWatcher?.();
+  }
+
+  private readonly runEnding = createSessionEndingCoordinator({
+    state: this.state,
+    waitForIdle: () => this.mutationCoordinator.waitForIdle(),
+    hasPendingFinalization: () =>
+      !this.isCleaningUp && (this.state.exportDispatched || this.draftController.isTerminalPending),
+    present: (mode) => setSessionPanelRecovery(this.doc, 'video', mode),
+    onError: (error) => {
+      console.warn('[VideoSession] Failed to close session:', error);
+      this.applyHint('failure');
+    }
+  });
+
   private async finish(): Promise<void> {
-    await finishVideoSession(this.operationContext, () => this.cleanup());
+    await this.runEnding(() => finishVideoSession(this.operationContext, () => this.cleanup()));
   }
 
   private cancel(): void {
-    void cancelVideoSession(this.operationContext, () => this.cleanup());
+    void this.runEnding(() => cancelVideoSession(this.operationContext, () => this.cleanup()));
   }
 
   private cleanup(): void {
@@ -520,6 +552,7 @@ export class VideoSession {
       return;
     }
     this.isCleaningUp = true;
+    this.destinationState.dispose();
     this.screenshotPreparation.dispose();
     void this.draftController.dispose().catch((error) => {
       console.warn('[VideoSession] Failed to dispose draft persister:', error);

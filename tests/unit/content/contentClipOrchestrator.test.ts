@@ -5,6 +5,7 @@ import { createContentClipOrchestrator } from '@content/runtime/contentClipOrche
 import type { ContentRuntimeState } from '@content/runtime/contentRuntimeState';
 import type { SelectionSnapshot } from '@content/runtime/contentSelectionTracker';
 import { ErrorHandler, registerErrorHandler } from '@shared/errors/errorHandler';
+import { SelectionModifierTrigger } from '@content/clipper/services/selectionModifierTrigger';
 
 function createRuntimeState(): ContentRuntimeState {
   let clipMode: 'full' | 'selection' = 'selection';
@@ -20,15 +21,13 @@ function createRuntimeState(): ContentRuntimeState {
       captureContext: false,
       contextLength: 0,
       contextMode: 'chars',
-      selectionModifierEnabled: false,
+      selectionTriggerMode: 'direct',
       selectionModifierKeys: [],
       keyboardShortcutsEnabled: false
     }),
     getAutoSelectionInFlight: () => false,
     setAutoSelectionInFlight: vi.fn(),
-    getModifierState: vi.fn() as never,
-    isSelectionModifierActive: () => false,
-    setSelectionModifierActive: vi.fn(),
+    getSelectionModifierTrigger: () => new SelectionModifierTrigger(),
     getLastSelectionSnapshot: () => snapshot,
     setLastSelectionSnapshot: (next) => {
       snapshot = next;

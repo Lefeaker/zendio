@@ -1,18 +1,29 @@
 # 运行时观测与手动回归基线
 
-日期：2026-06-14
+日期：2026-08-28
 
 ## 1. 运行时观测
 
-- Analytics / consent / debug mode 统一入口：`src/shared/errors/analytics/*`
-- Options 隐私设置主链：`src/options/stitch/schema/settings/overview.ts` -> `src/ui/domains/privacy/PrivacySettingsView.ts` -> `src/options/app/productionStitchPersistence.ts`
+- Analytics consent/config 唯一归一化入口：
+  `src/shared/analytics/analyticsRuntimeConfig.ts#normalizeStoredAnalyticsConfig`；reporter
+  adapter 不得再实现第二套 consent/debug/transport normalize
+- Options 隐私设置主链：`src/options/stitch/schema/settings/overview.ts` ->
+  `src/options/app/actions/privacyConsentAction.ts` ->
+  `src/infrastructure/repositories/OptionsMutationClient.ts` -> background
+  `src/background/services/optionsMutationCoordinator.ts`
+- `ChromeOptionsRepository` 只拥有 raw read/observe 与 coordinator-internal raw IO；
+  onboarding 使用同一 schema-derived contract 和 typed mutation client：
+  `src/onboarding/bootstrap.ts`
 - transfer payload 已覆盖 consent/debugMode：`src/options/services/analyticsTransfer.ts`
+- session draft durable writes 由 background `sessionDraftMutationQueue` / `sessionDraftStore`
+  及其 receipt/liveness/lease owners 串行化；截图 bytes 由 background
+  `videoScreenshotCacheService` + IndexedDB store 持有
 - 真实浏览器联调 harness：`tmp/runtime-observability-harness.ts`
 
 建议联调命令：
 
 ```bash
-npx vitest run tests/unit/shared/errors/analytics/index.test.ts tests/unit/shared/errors/globalErrorBoundary.test.ts tests/unit/background/analyticsEvents.test.ts tests/unit/shared/errors/analyticsConfig.test.ts tests/unit/options/productionStitchShell.actions.test.ts
+node scripts/run-bounded-command.mjs --profile vitest-v1 -- run --config vitest.unit.config.ts tests/unit/shared/errors/analytics/index.test.ts tests/unit/shared/errors/globalErrorBoundary.test.ts tests/unit/background/analyticsEvents.test.ts tests/unit/shared/errors/analyticsConfig.test.ts tests/unit/options/productionStitchShell.actions.test.ts
 npm run build:dev
 ```
 
@@ -22,15 +33,29 @@ npm run build:dev
 npm run analytics:validate:prod
 node scripts/run-ga-owner-smoke.mjs --mode proxy --event runtime_harness_open
 node scripts/run-ga-owner-smoke.mjs --mode directDebug --event runtime_harness_open
-npx vitest run --config vitest.unit.config.ts tests/unit/scripts/runGaOwnerSmoke.test.ts
+node scripts/run-bounded-command.mjs --profile vitest-v1 -- run --config vitest.unit.config.ts tests/unit/scripts/runGaOwnerSmoke.test.ts
 node tools/report-ga-proxy-contract.mjs
 node tools/report-ga-docs-contract.mjs --check
-npx vitest run tests/unit/background/analyticsEvents.test.ts tests/unit/shared/errors/analytics/index.test.ts tests/unit/shared/errors/analyticsConfig.test.ts
-npx vitest run tests/unit/content/video/videoScreenshotPreparationQueue.test.ts tests/unit/content/video/VideoSession.test.ts
-node scripts/run-playwright.mjs test tests/e2e/videoPanelFlow.test.ts tests/e2e/videoListenerScope.browser.test.ts --project=chromium-desktop
+node scripts/run-bounded-command.mjs --profile vitest-v1 -- run --config vitest.unit.config.ts tests/unit/background/analyticsEvents.test.ts tests/unit/shared/errors/analytics/index.test.ts tests/unit/shared/errors/analyticsConfig.test.ts
+node scripts/run-bounded-command.mjs --profile vitest-v1 -- run --config vitest.unit.config.ts tests/unit/content/video/videoScreenshotPreparationQueue.test.ts tests/unit/content/video/VideoSession.test.ts
+node scripts/run-bounded-command.mjs --profile npm-script-browser-v1 -- test:e2e:browser:video
 ```
 
 ## 2. 浏览器手动回归口径
+
+### 会话重载与收尾恢复
+
+启用自动划选（direct 或带有效按键的 modifier）时，后台通过平台 scripting service 注册现有 `content/index.js`，由浏览器在 HTTP/HTTPS 文档的 `document_end` 执行。注册保留到后续浏览器会话，避免每次重启重新等待后台唤醒；禁用划选时仅撤销本功能的注册。注册更新与配置读取均防止旧结果覆盖新设置，相同配置不会重复卸载/注册。已有页面的显式注入和平台兼容回退保留，慢图片或其他未完成资源不能阻塞正文上的划选和阅读操作。`sessionLifecycleRecovery.browser.test.ts` 的 held-image 场景同时验证真实鼠标划选、阅读面板和取消操作在 `window.load` 之前完成。
+
+Reader / Video 共用 `sessionEndingCoordinator` 关闭新编辑入口、等待已接收的编辑落盘，并串行执行完成或取消。终止过程由 `sessionDraftTerminalState` 保留原始 finalize/remove 请求身份；响应丢失后重试延续同一操作。导出成功与草稿清理是两个阶段，同一挂载会话的收尾重试不会再次导出。不能把这种保证扩展为浏览器崩溃跨进程的导出 exactly-once 保证。
+
+后台仍是唯一持久写入者。客户端只保存单调递增的版本观察，并在构造用户保存请求前等待已发出的租约操作。租约续期和释放的迟到响应不得覆盖新状态；终态和失效扩展上下文都停止续期。
+
+支持 `sender.documentId` 的浏览器把受信页面身份绑定到不透明 lease token（`doc1:` 前缀），存储 schema 与 owner 字段保持兼容。未过期租约只有在原页面已确定消失时才能提前接管；普通 `active=false` 回复可能处于租约刚获批、尚未挂载的窗口，不能证明旧 owner 已退出。超时和不确定的消息通道关闭同样不能提前接管。无页面身份的旧租约保留过期判断；schema-v1 草稿通过既有 nonce owner-probe 协议确认现代页面内无旧 writer，未知回复保持保守。兼容的 receipt 标签 `expired_owner_inactive` 同时表示租约过期或已确认原页面消失。
+
+`contentRuntimeConnection` 在用户交互或失联错误时停止旧上下文的会话服务。旧面板保留可复制的文本并提供刷新页面的按钮；恢复提示由面板自身渲染流程维持，不增加 DOM 轮询或观察器。扩展重载后，旧 DOM 标记不能让新运行环境误报 ready。刷新恢复的是已落盘草稿，尚未保存的输入应在刷新前复制保留。
+
+针对性回归包含 `tests/e2e/sessionLifecycleRecovery.browser.test.ts`：正式 content loader、后台存储与 Downloads 出口，覆盖实际扩展重载/页面刷新、原草稿继续编辑、续期回包延迟及删除提交后回包丢失。浏览器测试使用独立 Profile；开发版扩展重载前须开启该 Profile 的 Developer mode。`sessionDraftConcurrency.browser.test.ts` 继续验证活跃 owner 不被抢占与精确清理。
 
 建议至少覆盖：
 
@@ -96,7 +121,10 @@ node scripts/run-playwright.mjs test tests/e2e/videoPanelFlow.test.ts tests/e2e/
   `google-analytics-dashboard-setup.md` 绑定到当前 schema / proxy contract，但它不替代
   owner proxy / DebugView smoke checks。
 - runtime config 的 `enabled` 是 `analytics || errorReporting`；usage/product 事件需要 `analytics` consent，`extension_error` 需要 `errorReporting` consent。
-- 视频截图的 durable state 只保存 `screenshotRequested` intent；runtime screenshot bytes 维持在 `Blob` / binary 路径，导出边界再序列化为兼容 payload。
+- 视频 draft durable state 只保存 `screenshotRequested` intent 与 metadata-only
+  `screenshotRef`；runtime screenshot bytes 维持在 background-owned IndexedDB `Blob` 路径，
+  cache/message/export 边界才使用 JSON-safe serialized binary payload。missing/stale/corrupt
+  ref 会清理并回落到现有低并发 preparation owner，不会恢复 base64 draft 持久化。
 
 ## 5. Owner Smoke Evidence Template
 
@@ -134,9 +162,37 @@ proxy/backend evidence。
 - `npm run audit:build:report`
 - `npm run test:unit`
 - `npm run test:e2e`
-- `npx vitest run tests/unit/shared/errors/analytics/index.test.ts tests/unit/shared/errors/globalErrorBoundary.test.ts tests/unit/background/analyticsEvents.test.ts tests/unit/shared/errors/analyticsConfig.test.ts tests/unit/options/productionStitchShell.actions.test.ts`
+- `node scripts/run-bounded-command.mjs --profile vitest-v1 -- run --config vitest.unit.config.ts tests/unit/shared/errors/analytics/index.test.ts tests/unit/shared/errors/globalErrorBoundary.test.ts tests/unit/background/analyticsEvents.test.ts tests/unit/shared/errors/analyticsConfig.test.ts tests/unit/options/productionStitchShell.actions.test.ts`
 
 ## 6. 已知非阻塞警告
 
 - 若在纯 JSDOM / 非扩展上下文执行 content 面板测试，样式资源会报告 URL 解析警告；当前不会阻断测试通过。
 - content-scripts repository e2e 中 `aiob-shortcut-usage-count` 的 mock storage 警告已被错误链路正确吸收，不影响通过判定。
+
+### Options capture controls and local-only vaults (v0.3.0)
+
+Selection triggering and reading export scope use the same segmented control as the interface theme. The values remain `disabled` / `direct` / `modifier` and `full` / `highlights`; modifier-key controls appear only in modifier mode. Selecting a segment updates its pressed state immediately and persists through the existing Options mutation path.
+
+Explicitly empty `rest.httpsUrl` and `rest.httpUrl` represent disabled REST channels and must survive canonical validation and reload when a default vault uses a local folder. Nonempty malformed addresses remain invalid. A valid local folder does not require REST addresses or an API key; unconfigured channels have neutral indicators, while configured failures retain their error diagnostics. `tests/e2e/optionsCaptureControls.browser.test.ts` covers native local-folder handle persistence, successful local-only connection testing, segmented choice persistence, v0.3.0 release notes, and light/dark layout on desktop and narrow screens.
+
+### Capsule transitions, focus frames and runtime settings links
+
+Trigger mode switches retain the mounted capsule and modifier controls. Changes update the existing segmented-control presentation, selected key and conditional visibility through the same state owner, so CSS transitions survive immediate edits and save acknowledgements. Theme, trigger, modifier-key, export-scope and highlight-color capsules share the compact size and presentation update helper. The hidden modifier region stays out of visual and keyboard interaction through `display: none`; key conflict text still uses the current locale.
+
+Automatically focused resource dialog containers do not draw a browser-default outline. Clipper comment fields keep a quiet one-pixel border and no extra focus glow; inner buttons and links retain keyboard access. Existing Clipper, Reader and Video header icons keep their images and geometry while becoming settings links. Production hrefs resolve through RuntimeService and clicks reuse the existing `openOptionsPage` background message, which creates a new tab without making the Options page web-accessible. Session clones route these clicks through their existing event owners, before collapsed-panel expansion; no extra persistent listener is added.
+
+`tests/e2e/optionsCaptureControls.browser.test.ts` verifies connected nodes, real CSS transitions, compact sizing, conditional key choices, neutral resource focus and the current changelog summary. `tests/e2e/runtimeSurfaceNavigation.browser.test.ts` verifies comment focus appearance and new Options tabs with a mounted settings shell, unchanged notes, and collapsed Reader behavior.
+
+## Optional feedback and initialization
+
+Support prompts are optional delivery messages. The background pipeline treats the
+platform's typed `NO_RECEIVER` and `TAB_NOT_FOUND` outcomes as normal lifecycle
+conditions, while unexpected transport errors still reach the error handler. A
+visible save result and an actual Markdown write should be verified separately
+from extension error-list noise.
+
+The YAML override cache can be imported before the composition root registers the
+Options repository. That state is temporary: the next consumer access binds the
+registered repository and hydrates the cache once. A broken registered repository
+still produces a diagnostic. The cache does not register fallback repositories or
+start a polling loop.

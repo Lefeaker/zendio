@@ -6,6 +6,8 @@ import { createBrowserManifest } from './utils/manifestSources.mjs';
 import { readPackageVersion } from './utils/packageMetadata.mjs';
 import { cssTextPlugin } from './plugins/cssTextPlugin.mjs';
 import { runQualityChecks } from './quality-check.mjs';
+import { startBoundedCommand } from './utils/boundedCommand.mjs';
+import { buildQualityCommandEnvironment } from './utils/buildQualityCommandEnvironment.mjs';
 
 const args = process.argv.slice(2);
 const watch = args.includes('--watch');
@@ -51,7 +53,18 @@ function resolveGaEnv(name, fallback = '') {
 // 运行质量检查（仅在生产模式且未跳过检查时）
 if (prod && !skipChecks && !watch) {
   console.log('🔍 运行质量检查...');
-  await runQualityChecks();
+  const qualityEnvironment = buildQualityCommandEnvironment(process.env);
+  const qualityResult = await runQualityChecks({
+    startCommand: (task) =>
+      startBoundedCommand(
+        { profileId: task.profile, arguments: task.args },
+        { environment: qualityEnvironment }
+      )
+  });
+  if (!qualityResult.ok) {
+    process.exitCode = qualityResult.failed[0]?.code || 1;
+    throw new Error('Production build aborted because quality checks failed.');
+  }
   console.log('');
 }
 
@@ -78,7 +91,7 @@ const sharedBuildOptions = {
   bundle: true,
   outdir: distDir,
   platform: 'browser',
-  sourcemap: watch || !prod,
+  sourcemap: firefox && prod ? 'external' : watch || !prod,
   minify: prod && !watch,
   define: {
     'process.env.NODE_ENV': JSON.stringify(prod ? 'production' : 'development'),
@@ -134,6 +147,15 @@ const harnessEntryPoints = {
   'local-vault-write-harness': 'src/dev/localVaultWriteHarness.ts'
 };
 
+const cssPackEntryPoints = {
+  options: 'src/options/stitch/styles/entries/options.css',
+  onboarding: 'src/options/stitch/styles/entries/onboarding.css',
+  clipper: 'src/ui/stitch-runtime/styles/entries/clipper.css',
+  reader: 'src/ui/stitch-runtime/styles/entries/reader.css',
+  video: 'src/ui/stitch-runtime/styles/entries/video.css',
+  'prompt-task': 'src/ui/stitch-runtime/styles/entries/prompt-task.css'
+};
+
 const appBuildOptions = {
   ...sharedBuildOptions,
   entryPoints: includeHarnesses
@@ -147,13 +169,30 @@ const appBuildOptions = {
   chunkNames: 'chunks/[name]-[hash]'
 };
 
+const cssPackBuildOptions = {
+  entryPoints: cssPackEntryPoints,
+  outdir: join(distDir, 'ui/stitch-runtime/styles'),
+  bundle: true,
+  platform: 'browser',
+  minify: prod && !watch,
+  sourcemap: false,
+  entryNames: '[name]',
+  charset: 'utf8',
+  logLevel: 'info'
+};
+
 if (watch) {
   const backgroundCtx = await context(backgroundBuildOptions);
   const appCtx = await context(appBuildOptions);
-  await Promise.all([backgroundCtx.watch(), appCtx.watch()]);
+  const cssPackCtx = await context(cssPackBuildOptions);
+  await Promise.all([backgroundCtx.watch(), appCtx.watch(), cssPackCtx.watch()]);
   console.log('👀 Watching for changes...');
 } else {
-  await Promise.all([build(backgroundBuildOptions), build(appBuildOptions)]);
+  await Promise.all([
+    build(backgroundBuildOptions),
+    build(appBuildOptions),
+    build(cssPackBuildOptions)
+  ]);
 }
 
 await mkdir(join(distDir, 'content'), { recursive: true });
@@ -205,9 +244,6 @@ try {
 // Copy options pages and assets
 await mkdir(join(distDir, 'options'), { recursive: true });
 await cp('src/options/index.html', join(distDir, 'options/index.html'));
-await rm(join(distDir, 'options/stitch'), { recursive: true, force: true });
-await mkdir(join(distDir, 'options/stitch/styles'), { recursive: true });
-await cp('src/options/stitch/styles', join(distDir, 'options/stitch/styles'), { recursive: true });
 
 // Copy onboarding pages and assets
 await mkdir(join(distDir, 'onboarding'), { recursive: true });

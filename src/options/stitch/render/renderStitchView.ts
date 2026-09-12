@@ -1,27 +1,49 @@
-import { resolveValue, type RendererContext } from './actionAdapter';
-import { renderNodeList, resolveHero } from './nodeRenderers';
-import type { ViewSchema } from '../types';
+import {
+  renderRuntimeSurface,
+  type RuntimeSurfaceContext,
+  type RuntimeViewSchema
+} from '@ui/stitch-runtime';
+import { isRuntimeSurfaceId } from '@ui/stitch-surfaces';
+import type { RendererContext } from './actionAdapter';
+import { renderNodeList, resolveHero, withOptionsExtensionRenderers } from './nodeRenderers';
+import { projectSurfaceContext } from '../schema/registry';
+import type { OptionsExtensionNode, OptionsViewSchema, ViewSchema } from '../types';
 
 export type { RendererContext } from './actionAdapter';
 
 export function renderPreviewView(view: ViewSchema, ctx: RendererContext): HTMLElement | null {
-  const resolved = resolveValue(view, ctx);
-  if (!resolved) {
-    return null;
+  const resolved = view;
+
+  if (isRuntimeSurfaceView(resolved)) {
+    return renderRuntimeSurface(resolved, {
+      ...projectSurfaceContext(ctx),
+      el: ctx.el,
+      ui: ctx.ui,
+      dispatch: ctx.dispatch
+    });
   }
 
   switch (resolved.kind) {
     case 'page':
-    case 'standalone-page':
       return renderPageView(resolved, ctx);
+    case 'standalone-page':
+      return resolved.hero
+        ? renderPageView(resolved, ctx)
+        : renderRuntimeSurface(
+            projectRuntimeView(resolved, 'standalone-page'),
+            withOptionsExtensionRenderers(ctx)
+          );
     case 'modal':
-      return renderModalView(resolved, ctx);
+      return renderRuntimeSurface(
+        projectRuntimeView(resolved, 'modal'),
+        withOptionsExtensionRenderers(ctx)
+      );
     default:
       return null;
   }
 }
 
-function renderPageView(view: ViewSchema, ctx: RendererContext): HTMLElement {
+function renderPageView(view: OptionsViewSchema, ctx: RendererContext): HTMLElement {
   return ctx.el(
     'section',
     {
@@ -33,54 +55,26 @@ function renderPageView(view: ViewSchema, ctx: RendererContext): HTMLElement {
   );
 }
 
-function renderModalView(view: ViewSchema, ctx: RendererContext): HTMLElement {
-  const placement = resolveValue(view.surfacePlacement, ctx) || 'dialog';
-  const skin = resolveValue(view.surfaceSkin, ctx);
-  const isNonModalSurface = placement === 'side-right' || placement === 'floating-bottom-right';
-  return ctx.el(
-    'div',
-    {
-      className: [
-        'resource-modal-overlay',
-        placement === 'side-right' ? 'resource-modal-overlay side-right' : '',
-        placement === 'floating-bottom-right' ? 'resource-modal-overlay floating-bottom-right' : '',
-        skin ? `resource-modal-overlay--${skin}` : ''
-      ]
-        .filter(Boolean)
-        .join(' '),
-      onClick: () => ctx.dispatch('resource:close')
-    },
-    ctx.el(
-      'div',
-      {
-        className: [
-          'resource-modal',
-          resolveValue(view.size, ctx) || 'medium',
-          placement === 'side-right' ? 'side-right' : '',
-          placement === 'floating-bottom-right' ? 'floating-bottom-right' : '',
-          skin ? `resource-modal--${skin}` : ''
-        ]
-          .filter(Boolean)
-          .join(' '),
-        role: 'dialog',
-        'aria-modal': isNonModalSurface ? 'false' : 'true',
-        onClick: (event: MouseEvent) => event.stopPropagation()
-      },
-      ctx.el(
-        'div',
-        { className: 'resource-modal-header' },
-        ctx.el(
-          'div',
-          { className: 'resource-modal-headings' },
-          ctx.el('h2', { text: resolveValue(view.title, ctx) }),
-          resolveValue(view.description, ctx)
-            ? ctx.el('p', { text: resolveValue(view.description, ctx) })
-            : null
-        )
-      ),
-      ctx.el('div', { className: 'resource-modal-body' }, renderNodeList(view.children, ctx))
-    )
-  );
+function projectRuntimeView(
+  view: OptionsViewSchema,
+  kind: 'modal' | 'standalone-page'
+): RuntimeViewSchema<RendererContext, OptionsExtensionNode> {
+  return {
+    id: view.id,
+    kind,
+    ...(view.className ? { className: view.className } : {}),
+    ...(view.dataset ? { dataset: view.dataset } : {}),
+    ...(view.title ? { title: view.title } : {}),
+    ...(view.description ? { description: view.description } : {}),
+    ...(view.size ? { size: view.size } : {}),
+    ...(view.surfacePlacement ? { surfacePlacement: view.surfacePlacement } : {}),
+    ...(view.surfaceSkin ? { surfaceSkin: view.surfaceSkin } : {}),
+    ...(view.children ? { children: view.children } : {})
+  };
+}
+
+function isRuntimeSurfaceView(view: ViewSchema): view is RuntimeViewSchema<RuntimeSurfaceContext> {
+  return isRuntimeSurfaceId(view.id);
 }
 
 export const schemaRenderer = {

@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { validateVaultRouterIdentity } from '../config/vaultRouterIdentity';
 
 export const RoutingRuleTypeSchema = z.enum(['domain', 'keyword', 'url-pattern']);
 
@@ -26,11 +27,21 @@ export const VaultConfigSchema = z.object({
   rules: z.array(RoutingRuleSchema).optional()
 });
 
-export const VaultRouterConfigSchema = z.object({
-  vaults: z.array(VaultConfigSchema),
-  rules: z.array(RoutingRuleSchema).optional(),
-  defaultVaultId: z.string().optional()
-});
+export const VaultRouterConfigSchema = z
+  .object({
+    vaults: z.array(VaultConfigSchema),
+    rules: z.array(RoutingRuleSchema).optional(),
+    defaultVaultId: z.string().optional()
+  })
+  .superRefine((router, context) => {
+    for (const issue of validateVaultRouterIdentity(router).issues) {
+      context.addIssue({
+        code: 'custom',
+        message: `vault-router-identity:${issue.code}`,
+        path: [...issue.path]
+      });
+    }
+  });
 
 export type RoutingRule = z.infer<typeof RoutingRuleSchema>;
 export type VaultConfig = z.infer<typeof VaultConfigSchema>;

@@ -16,6 +16,10 @@ import {
   isReaderSessionActive,
   isVideoSessionActive
 } from '../../runtime/contentSessionRegistry';
+import {
+  resolveVideoDestinationBootstrap,
+  type VideoSessionAdapter
+} from '../../video/application/videoSessionPort';
 
 const ADD_HIGHLIGHT_EVENT = 'aiob-reader:add-highlight';
 
@@ -43,16 +47,6 @@ export interface ReaderSessionAdapter {
   start(initialHighlight?: ReaderBootstrapHighlight): Promise<void>;
 }
 
-export interface VideoSessionAdapter {
-  start(): Promise<void>;
-  ingestTextCapture(
-    selectedHtml: string,
-    selectedText: string,
-    comment: string,
-    selectionRange?: Range | null
-  ): void;
-}
-
 export interface SelectionClipDependencies {
   prompt: ClipPromptGateway;
   optionsRepository: IOptionsRepository;
@@ -77,6 +71,25 @@ export interface SelectionController {
   ): Promise<void>;
 }
 
+function captureSelection(selection: Selection): {
+  selectedText: string;
+  selectedHtml: string;
+  savedRange: Range;
+} {
+  if (!selection.rangeCount) {
+    throw new Error('No text selected');
+  }
+  const selectedText = selection.toString().trim();
+  if (!selectedText) {
+    throw new Error('Selected text is empty');
+  }
+  const range = selection.getRangeAt(0);
+  const savedRange = range.cloneRange();
+  const container = document.createElement('div');
+  container.appendChild(range.cloneContents());
+  return { selectedText, selectedHtml: container.innerHTML, savedRange };
+}
+
 export function createSelectionController(deps: SelectionClipDependencies): SelectionController {
   async function handleSelectionClip(
     doc: Document,
@@ -84,23 +97,9 @@ export function createSelectionController(deps: SelectionClipDependencies): Sele
     selection: Selection,
     promptLifecycle?: SelectionPromptLifecycleHandlers
   ): Promise<SelectionClipResult | null> {
-    if (!selection.rangeCount) {
-      throw new Error('No text selected');
-    }
+    const { selectedText, selectedHtml, savedRange } = captureSelection(selection);
 
-    const selectedText = selection.toString().trim();
-    if (!selectedText) {
-      throw new Error('Selected text is empty');
-    }
-
-    const range = selection.getRangeAt(0);
-    const savedRange = range.cloneRange();
-
-    const container = document.createElement('div');
-    container.appendChild(range.cloneContents());
-    const selectedHtml = container.innerHTML;
-
-    const existingSession = getReaderSession<ReaderSessionAdapter>() ?? undefined;
+    const existingSession = getReaderSession<ReaderSessionAdapter>();
     const readerPanel = doc.getElementById('aiob-reader-panel');
     const hasReaderSession = Boolean(existingSession || readerPanel || isReaderSessionActive(doc));
 
@@ -118,43 +117,44 @@ export function createSelectionController(deps: SelectionClipDependencies): Sele
     });
     const action = promptResult.action;
     const comment = promptResult.comment.trim();
-
     if (action === 'cancel') {
       promptLifecycle?.onPromptCancelled?.();
       selection.removeAllRanges();
       return null;
     }
-
     if (action === 'video') {
       // 启动视频模式并捕获选择的内容
+      const destinationBootstrap = resolveVideoDestinationBootstrap(
+        promptResult.destination,
+        promptResult.destinationSelectionIsExplicit
+      );
       const videoSession = deps.createVideoSession(doc);
-      await videoSession.start();
+      await videoSession.start({ destinationBootstrap });
       videoSession.ingestTextCapture(selectedHtml, selectedText, comment, savedRange);
       selection.removeAllRanges();
       return null;
     }
 
     if (action === 'reader') {
+      const highlight: ReaderBootstrapHighlight = {
+        range: savedRange,
+        selectedHtml,
+        selectedText,
+        comment
+      };
       if (existingSession) {
         existingSession.ingestExternalHighlight(savedRange, selectedHtml, selectedText, comment);
       } else if (hasReaderSession) {
-        const event = new CustomEvent(ADD_HIGHLIGHT_EVENT, {
-          detail: {
-            range: savedRange,
-            selectedHtml,
-            selectedText,
-            comment
-          }
-        });
-        doc.dispatchEvent(event);
+        doc.dispatchEvent(new CustomEvent(ADD_HIGHLIGHT_EVENT, { detail: highlight }));
       } else {
         const session = deps.createReaderSession(doc, url);
+        const destination =
+          promptResult.destinationSelectionIsExplicit === false
+            ? undefined
+            : promptResult.destination;
         await session.start({
-          range: savedRange,
-          selectedHtml,
-          selectedText,
-          comment,
-          ...(promptResult.destination ? { destination: promptResult.destination } : {})
+          ...highlight,
+          ...(destination ? { destination } : {})
         });
       }
       selection.removeAllRanges();
@@ -195,23 +195,9 @@ export function createSelectionController(deps: SelectionClipDependencies): Sele
     url: string,
     selection: Selection
   ): Promise<void> {
-    if (!selection.rangeCount) {
-      throw new Error('No text selected');
-    }
+    const { selectedText, selectedHtml, savedRange } = captureSelection(selection);
 
-    const selectedText = selection.toString().trim();
-    if (!selectedText) {
-      throw new Error('Selected text is empty');
-    }
-
-    const range = selection.getRangeAt(0);
-    const savedRange = range.cloneRange();
-
-    const container = document.createElement('div');
-    container.appendChild(range.cloneContents());
-    const selectedHtml = container.innerHTML;
-
-    let session = getVideoSession<VideoSessionAdapter>() ?? undefined;
+    let session = getVideoSession<VideoSessionAdapter>();
     if (!session) {
       session = deps.createVideoSession(doc);
       await session.start();
@@ -236,7 +222,7 @@ export function createSelectionController(deps: SelectionClipDependencies): Sele
         throw new Error('Selected text is empty');
       }
 
-      let session = getVideoSession<VideoSessionAdapter>() ?? undefined;
+      let session = getVideoSession<VideoSessionAdapter>();
       if (!session) {
         session = deps.createVideoSession(doc);
         await session.start();

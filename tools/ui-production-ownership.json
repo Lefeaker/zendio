@@ -1,0 +1,1289 @@
+{
+  "schemaVersion": 1,
+  "closureState": "final",
+  "uiPathSetSha256": "71d388228c9475ea3719f5e61b1b95f0223ecf902c6802139de6c96fde71d536",
+  "uiContentSha256": "6253a097f2a833d2953077090a120cd1e9886f85ab7f3a8e755873549bf99f2d",
+  "rows": [
+    {
+      "path": "src/ui/domains/usage-chart/index.ts",
+      "disposition": "production-runtime",
+      "productionOwners": ["src/options/index.ts", "src/options/runtimeEntry.ts"],
+      "replacement": {
+        "owner": "src/ui/domains/usage-chart/index.ts",
+        "milestone": "current-production"
+      },
+      "evidence": {
+        "docs": ["docs/design-system-governance.md"],
+        "tests": ["tests/unit/tools/uiProductionOwnership.test.ts"],
+        "tools": [
+          "tools/report-production-build-graph.mjs",
+          "tools/report-ui-production-ownership.mjs"
+        ]
+      },
+      "reason": "The neutral usage-chart owner is reached only by the Options production entrypoints."
+    },
+    {
+      "path": "src/ui/domains/usage-chart/usageChart.ts",
+      "disposition": "production-runtime",
+      "productionOwners": ["src/options/index.ts", "src/options/runtimeEntry.ts"],
+      "replacement": {
+        "owner": "src/ui/domains/usage-chart/usageChart.ts",
+        "milestone": "current-production"
+      },
+      "evidence": {
+        "docs": ["docs/design-system-governance.md"],
+        "tests": ["tests/unit/tools/uiProductionOwnership.test.ts"],
+        "tools": [
+          "tools/report-production-build-graph.mjs",
+          "tools/report-ui-production-ownership.mjs"
+        ]
+      },
+      "reason": "The neutral usage-chart owner is reached only by the Options production entrypoints."
+    },
+    {
+      "path": "src/ui/domains/usage-chart/usageChartDomRenderers.ts",
+      "disposition": "production-runtime",
+      "productionOwners": ["src/options/index.ts", "src/options/runtimeEntry.ts"],
+      "replacement": {
+        "owner": "src/ui/domains/usage-chart/usageChartDomRenderers.ts",
+        "milestone": "current-production"
+      },
+      "evidence": {
+        "docs": ["docs/design-system-governance.md"],
+        "tests": ["tests/unit/tools/uiProductionOwnership.test.ts"],
+        "tools": [
+          "tools/report-production-build-graph.mjs",
+          "tools/report-ui-production-ownership.mjs"
+        ]
+      },
+      "reason": "The neutral usage-chart owner is reached only by the Options production entrypoints."
+    },
+    {
+      "path": "src/ui/domains/usage-chart/usageChartGeometry.ts",
+      "disposition": "production-runtime",
+      "productionOwners": ["src/options/index.ts", "src/options/runtimeEntry.ts"],
+      "replacement": {
+        "owner": "src/ui/domains/usage-chart/usageChartGeometry.ts",
+        "milestone": "current-production"
+      },
+      "evidence": {
+        "docs": ["docs/design-system-governance.md"],
+        "tests": ["tests/unit/tools/uiProductionOwnership.test.ts"],
+        "tools": [
+          "tools/report-production-build-graph.mjs",
+          "tools/report-ui-production-ownership.mjs"
+        ]
+      },
+      "reason": "The neutral usage-chart owner is reached only by the Options production entrypoints."
+    },
+    {
+      "path": "src/ui/domains/usage-chart/usageChartHistory.ts",
+      "disposition": "production-runtime",
+      "productionOwners": ["src/options/index.ts", "src/options/runtimeEntry.ts"],
+      "replacement": {
+        "owner": "src/ui/domains/usage-chart/usageChartHistory.ts",
+        "milestone": "current-production"
+      },
+      "evidence": {
+        "docs": ["docs/design-system-governance.md"],
+        "tests": ["tests/unit/tools/uiProductionOwnership.test.ts"],
+        "tools": [
+          "tools/report-production-build-graph.mjs",
+          "tools/report-ui-production-ownership.mjs"
+        ]
+      },
+      "reason": "The neutral usage-chart owner is reached only by the Options production entrypoints."
+    },
+    {
+      "path": "src/ui/domains/usage-chart/usageChartRenderers.ts",
+      "disposition": "production-runtime",
+      "productionOwners": ["src/options/index.ts", "src/options/runtimeEntry.ts"],
+      "replacement": {
+        "owner": "src/ui/domains/usage-chart/usageChartRenderers.ts",
+        "milestone": "current-production"
+      },
+      "evidence": {
+        "docs": ["docs/design-system-governance.md"],
+        "tests": ["tests/unit/tools/uiProductionOwnership.test.ts"],
+        "tools": [
+          "tools/report-production-build-graph.mjs",
+          "tools/report-ui-production-ownership.mjs"
+        ]
+      },
+      "reason": "The neutral usage-chart owner is reached only by the Options production entrypoints."
+    },
+    {
+      "path": "src/ui/domains/usage-chart/usageChartTypes.ts",
+      "disposition": "production-runtime",
+      "productionOwners": ["src/options/index.ts", "src/options/runtimeEntry.ts"],
+      "replacement": {
+        "owner": "src/ui/domains/usage-chart/usageChartTypes.ts",
+        "milestone": "current-production"
+      },
+      "evidence": {
+        "docs": ["docs/design-system-governance.md"],
+        "tests": ["tests/unit/tools/uiProductionOwnership.test.ts"],
+        "tools": [
+          "tools/report-production-build-graph.mjs",
+          "tools/report-ui-production-ownership.mjs"
+        ]
+      },
+      "reason": "The neutral usage-chart owner is reached only by the Options production entrypoints."
+    },
+    {
+      "path": "src/ui/foundation/a11y/index.ts",
+      "disposition": "production-runtime",
+      "productionOwners": [
+        "src/content/index.ts",
+        "src/content/reader/readerLazyRuntime.ts",
+        "src/content/ui/supportPrompt.ts",
+        "src/content/video/videoLazyRuntime.ts",
+        "src/options/index.ts",
+        "src/options/runtimeEntry.ts"
+      ],
+      "replacement": {
+        "owner": "src/ui/foundation/a11y/index.ts",
+        "milestone": "current-production"
+      },
+      "evidence": {
+        "docs": ["docs/design-system-governance.md"],
+        "tests": ["tests/unit/tools/uiProductionOwnership.test.ts"],
+        "tools": [
+          "tools/report-production-build-graph.mjs",
+          "tools/report-ui-production-ownership.mjs"
+        ]
+      },
+      "reason": "Production runtime reachability is proven by the freshly generated build graph."
+    },
+    {
+      "path": "src/ui/foundation/icons/index.ts",
+      "disposition": "production-runtime",
+      "productionOwners": [
+        "src/content/index.ts",
+        "src/content/reader/readerLazyRuntime.ts",
+        "src/content/ui/supportPrompt.ts",
+        "src/content/video/videoLazyRuntime.ts",
+        "src/options/index.ts",
+        "src/options/runtimeEntry.ts"
+      ],
+      "replacement": {
+        "owner": "src/ui/foundation/icons/index.ts",
+        "milestone": "current-production"
+      },
+      "evidence": {
+        "docs": ["docs/design-system-governance.md"],
+        "tests": ["tests/unit/tools/uiProductionOwnership.test.ts"],
+        "tools": [
+          "tools/report-production-build-graph.mjs",
+          "tools/report-ui-production-ownership.mjs"
+        ]
+      },
+      "reason": "Production runtime reachability is proven by the freshly generated build graph."
+    },
+    {
+      "path": "src/ui/foundation/lifecycle/BaseComponent.ts",
+      "disposition": "production-compile",
+      "productionOwners": ["src/ui/primitives/card/index.ts", "src/ui/primitives/table/index.ts"],
+      "replacement": {
+        "owner": "src/ui/foundation/lifecycle/BaseComponent.ts",
+        "milestone": "current-production"
+      },
+      "evidence": {
+        "docs": ["docs/design-system-governance.md"],
+        "tests": ["tests/unit/tools/uiProductionOwnership.test.ts"],
+        "tools": [
+          "tools/report-production-build-graph.mjs",
+          "tools/report-ui-production-ownership.mjs"
+        ]
+      },
+      "reason": "A reachable production source imports this TypeScript contract although it emits no runtime graph node."
+    },
+    {
+      "path": "src/ui/foundation/style-host/index.ts",
+      "disposition": "production-runtime",
+      "productionOwners": [
+        "src/content/index.ts",
+        "src/content/reader/readerLazyRuntime.ts",
+        "src/content/ui/supportPrompt.ts",
+        "src/content/ui/supportPrompt/SupportPromptToastController.ts",
+        "src/content/video/videoLazyRuntime.ts",
+        "src/content/video/videoSessionControllers.ts"
+      ],
+      "replacement": {
+        "owner": "src/ui/foundation/style-host/index.ts",
+        "milestone": "current-production"
+      },
+      "evidence": {
+        "docs": ["docs/design-system-governance.md"],
+        "tests": ["tests/unit/tools/uiProductionOwnership.test.ts"],
+        "tools": [
+          "tools/report-production-build-graph.mjs",
+          "tools/report-ui-production-ownership.mjs"
+        ]
+      },
+      "reason": "Production runtime reachability is proven by the freshly generated build graph."
+    },
+    {
+      "path": "src/ui/foundation/style-host/shadowStyleBridge.ts",
+      "disposition": "production-runtime",
+      "productionOwners": [
+        "src/content/index.ts",
+        "src/content/reader/readerLazyRuntime.ts",
+        "src/content/ui/supportPrompt.ts",
+        "src/content/ui/supportPrompt/SupportPromptToastController.ts",
+        "src/content/video/videoLazyRuntime.ts",
+        "src/content/video/videoSessionControllers.ts"
+      ],
+      "replacement": {
+        "owner": "src/ui/foundation/style-host/shadowStyleBridge.ts",
+        "milestone": "current-production"
+      },
+      "evidence": {
+        "docs": ["docs/design-system-governance.md"],
+        "tests": ["tests/unit/tools/uiProductionOwnership.test.ts"],
+        "tools": [
+          "tools/report-production-build-graph.mjs",
+          "tools/report-ui-production-ownership.mjs"
+        ]
+      },
+      "reason": "Production runtime reachability is proven by the freshly generated build graph."
+    },
+    {
+      "path": "src/ui/foundation/types/index.ts",
+      "disposition": "production-compile",
+      "productionOwners": [
+        "src/ui/foundation/a11y/index.ts",
+        "src/ui/primitives/button/index.ts",
+        "src/ui/primitives/input/index.ts",
+        "src/ui/primitives/select/index.ts",
+        "src/ui/primitives/textarea/index.ts"
+      ],
+      "replacement": {
+        "owner": "src/ui/foundation/types/index.ts",
+        "milestone": "current-production"
+      },
+      "evidence": {
+        "docs": ["docs/design-system-governance.md"],
+        "tests": ["tests/unit/tools/uiProductionOwnership.test.ts"],
+        "tools": [
+          "tools/report-production-build-graph.mjs",
+          "tools/report-ui-production-ownership.mjs"
+        ]
+      },
+      "reason": "A reachable production source imports this TypeScript contract although it emits no runtime graph node."
+    },
+    {
+      "path": "src/ui/hosts/content/contentDialogFocus.ts",
+      "disposition": "production-runtime",
+      "productionOwners": [
+        "src/content/index.ts",
+        "src/content/reader/readerLazyRuntime.ts",
+        "src/content/video/videoLazyRuntime.ts"
+      ],
+      "replacement": {
+        "owner": "src/ui/hosts/content/contentDialogFocus.ts",
+        "milestone": "current-production"
+      },
+      "evidence": {
+        "docs": ["docs/design-system-governance.md"],
+        "tests": ["tests/unit/tools/uiProductionOwnership.test.ts"],
+        "tools": [
+          "tools/report-production-build-graph.mjs",
+          "tools/report-ui-production-ownership.mjs"
+        ]
+      },
+      "reason": "Production runtime reachability is proven by the freshly generated build graph."
+    },
+    {
+      "path": "src/ui/hosts/shared/contract.ts",
+      "disposition": "production-compile",
+      "productionOwners": [
+        "src/content/reader/ui/ReaderDialogPanel.ts",
+        "src/content/ui/supportPrompt.ts",
+        "src/content/video/ui/VideoDialogPanel.ts"
+      ],
+      "replacement": {
+        "owner": "src/ui/hosts/shared/contract.ts",
+        "milestone": "current-production"
+      },
+      "evidence": {
+        "docs": ["docs/design-system-governance.md"],
+        "tests": ["tests/unit/tools/uiProductionOwnership.test.ts"],
+        "tools": [
+          "tools/report-production-build-graph.mjs",
+          "tools/report-ui-production-ownership.mjs"
+        ]
+      },
+      "reason": "A reachable production source imports this TypeScript contract although it emits no runtime graph node."
+    },
+    {
+      "path": "src/ui/primitives/badge/index.ts",
+      "disposition": "production-runtime",
+      "productionOwners": [
+        "src/content/index.ts",
+        "src/content/reader/readerLazyRuntime.ts",
+        "src/content/ui/supportPrompt.ts",
+        "src/content/video/videoLazyRuntime.ts",
+        "src/options/index.ts",
+        "src/options/runtimeEntry.ts"
+      ],
+      "replacement": {
+        "owner": "src/ui/primitives/badge/index.ts",
+        "milestone": "current-production"
+      },
+      "evidence": {
+        "docs": ["docs/design-system-governance.md"],
+        "tests": ["tests/unit/tools/uiProductionOwnership.test.ts"],
+        "tools": [
+          "tools/report-production-build-graph.mjs",
+          "tools/report-ui-production-ownership.mjs"
+        ]
+      },
+      "reason": "Production runtime reachability is proven by the freshly generated build graph."
+    },
+    {
+      "path": "src/ui/primitives/button/index.ts",
+      "disposition": "production-runtime",
+      "productionOwners": [
+        "src/content/index.ts",
+        "src/content/reader/readerLazyRuntime.ts",
+        "src/content/ui/supportPrompt.ts",
+        "src/content/video/videoLazyRuntime.ts",
+        "src/options/index.ts",
+        "src/options/runtimeEntry.ts"
+      ],
+      "replacement": {
+        "owner": "src/ui/primitives/button/index.ts",
+        "milestone": "current-production"
+      },
+      "evidence": {
+        "docs": ["docs/design-system-governance.md"],
+        "tests": ["tests/unit/tools/uiProductionOwnership.test.ts"],
+        "tools": [
+          "tools/report-production-build-graph.mjs",
+          "tools/report-ui-production-ownership.mjs"
+        ]
+      },
+      "reason": "Production runtime reachability is proven by the freshly generated build graph."
+    },
+    {
+      "path": "src/ui/primitives/card/index.ts",
+      "disposition": "production-runtime",
+      "productionOwners": ["src/options/index.ts", "src/options/runtimeEntry.ts"],
+      "replacement": {
+        "owner": "src/ui/primitives/card/index.ts",
+        "milestone": "current-production"
+      },
+      "evidence": {
+        "docs": ["docs/design-system-governance.md"],
+        "tests": ["tests/unit/tools/uiProductionOwnership.test.ts"],
+        "tools": [
+          "tools/report-production-build-graph.mjs",
+          "tools/report-ui-production-ownership.mjs"
+        ]
+      },
+      "reason": "Production runtime reachability is proven by the freshly generated build graph."
+    },
+    {
+      "path": "src/ui/primitives/input/index.ts",
+      "disposition": "production-runtime",
+      "productionOwners": [
+        "src/content/index.ts",
+        "src/content/reader/readerLazyRuntime.ts",
+        "src/content/ui/supportPrompt.ts",
+        "src/content/video/videoLazyRuntime.ts",
+        "src/options/index.ts",
+        "src/options/runtimeEntry.ts"
+      ],
+      "replacement": {
+        "owner": "src/ui/primitives/input/index.ts",
+        "milestone": "current-production"
+      },
+      "evidence": {
+        "docs": ["docs/design-system-governance.md"],
+        "tests": ["tests/unit/tools/uiProductionOwnership.test.ts"],
+        "tools": [
+          "tools/report-production-build-graph.mjs",
+          "tools/report-ui-production-ownership.mjs"
+        ]
+      },
+      "reason": "Production runtime reachability is proven by the freshly generated build graph."
+    },
+    {
+      "path": "src/ui/primitives/select/index.ts",
+      "disposition": "production-runtime",
+      "productionOwners": ["src/options/index.ts", "src/options/runtimeEntry.ts"],
+      "replacement": {
+        "owner": "src/ui/primitives/select/index.ts",
+        "milestone": "current-production"
+      },
+      "evidence": {
+        "docs": ["docs/design-system-governance.md"],
+        "tests": ["tests/unit/tools/uiProductionOwnership.test.ts"],
+        "tools": [
+          "tools/report-production-build-graph.mjs",
+          "tools/report-ui-production-ownership.mjs"
+        ]
+      },
+      "reason": "Production runtime reachability is proven by the freshly generated build graph."
+    },
+    {
+      "path": "src/ui/primitives/table/index.ts",
+      "disposition": "production-runtime",
+      "productionOwners": ["src/options/index.ts", "src/options/runtimeEntry.ts"],
+      "replacement": {
+        "owner": "src/ui/primitives/table/index.ts",
+        "milestone": "current-production"
+      },
+      "evidence": {
+        "docs": ["docs/design-system-governance.md"],
+        "tests": ["tests/unit/tools/uiProductionOwnership.test.ts"],
+        "tools": [
+          "tools/report-production-build-graph.mjs",
+          "tools/report-ui-production-ownership.mjs"
+        ]
+      },
+      "reason": "Production runtime reachability is proven by the freshly generated build graph."
+    },
+    {
+      "path": "src/ui/primitives/textarea/index.ts",
+      "disposition": "production-runtime",
+      "productionOwners": [
+        "src/content/index.ts",
+        "src/content/reader/readerLazyRuntime.ts",
+        "src/content/ui/supportPrompt.ts",
+        "src/content/video/videoLazyRuntime.ts",
+        "src/options/index.ts",
+        "src/options/runtimeEntry.ts"
+      ],
+      "replacement": {
+        "owner": "src/ui/primitives/textarea/index.ts",
+        "milestone": "current-production"
+      },
+      "evidence": {
+        "docs": ["docs/design-system-governance.md"],
+        "tests": ["tests/unit/tools/uiProductionOwnership.test.ts"],
+        "tools": [
+          "tools/report-production-build-graph.mjs",
+          "tools/report-ui-production-ownership.mjs"
+        ]
+      },
+      "reason": "Production runtime reachability is proven by the freshly generated build graph."
+    },
+    {
+      "path": "src/ui/primitives/toggle/index.ts",
+      "disposition": "production-runtime",
+      "productionOwners": ["src/options/index.ts", "src/options/runtimeEntry.ts"],
+      "replacement": {
+        "owner": "src/ui/primitives/toggle/index.ts",
+        "milestone": "current-production"
+      },
+      "evidence": {
+        "docs": ["docs/design-system-governance.md"],
+        "tests": ["tests/unit/tools/uiProductionOwnership.test.ts"],
+        "tools": [
+          "tools/report-production-build-graph.mjs",
+          "tools/report-ui-production-ownership.mjs"
+        ]
+      },
+      "reason": "Production runtime reachability is proven by the freshly generated build graph."
+    },
+    {
+      "path": "src/ui/stitch-runtime/contracts/action.ts",
+      "disposition": "production-compile",
+      "productionOwners": [
+        "src/ui/stitch-runtime/index.ts",
+        "src/ui/stitch-runtime/render/actionAdapter.ts"
+      ],
+      "replacement": {
+        "owner": "src/ui/stitch-runtime/contracts/action.ts",
+        "milestone": "current-production"
+      },
+      "evidence": {
+        "docs": ["docs/design-system-governance.md"],
+        "tests": ["tests/unit/tools/uiProductionOwnership.test.ts"],
+        "tools": [
+          "tools/report-production-build-graph.mjs",
+          "tools/report-ui-production-ownership.mjs"
+        ]
+      },
+      "reason": "A reachable production source imports this TypeScript contract although it emits no runtime graph node."
+    },
+    {
+      "path": "src/ui/stitch-runtime/contracts/binding.ts",
+      "disposition": "production-runtime",
+      "productionOwners": [
+        "src/content/index.ts",
+        "src/content/reader/readerLazyRuntime.ts",
+        "src/content/ui/supportPrompt.ts",
+        "src/content/video/videoLazyRuntime.ts",
+        "src/options/index.ts",
+        "src/options/runtimeEntry.ts"
+      ],
+      "replacement": {
+        "owner": "src/ui/stitch-runtime/contracts/binding.ts",
+        "milestone": "current-production"
+      },
+      "evidence": {
+        "docs": ["docs/design-system-governance.md"],
+        "tests": ["tests/unit/tools/uiProductionOwnership.test.ts"],
+        "tools": [
+          "tools/report-production-build-graph.mjs",
+          "tools/report-ui-production-ownership.mjs"
+        ]
+      },
+      "reason": "Production runtime reachability is proven by the freshly generated build graph."
+    },
+    {
+      "path": "src/ui/stitch-runtime/contracts/schema.ts",
+      "disposition": "production-compile",
+      "productionOwners": [
+        "src/ui/stitch-runtime/index.ts",
+        "src/ui/stitch-runtime/render/actionAdapter.ts",
+        "src/ui/stitch-runtime/render/nodeRenderers.ts",
+        "src/ui/stitch-runtime/render/renderRuntimeSurface.ts"
+      ],
+      "replacement": {
+        "owner": "src/ui/stitch-runtime/contracts/schema.ts",
+        "milestone": "current-production"
+      },
+      "evidence": {
+        "docs": ["docs/design-system-governance.md"],
+        "tests": ["tests/unit/tools/uiProductionOwnership.test.ts"],
+        "tools": [
+          "tools/report-production-build-graph.mjs",
+          "tools/report-ui-production-ownership.mjs"
+        ]
+      },
+      "reason": "A reachable production source imports this TypeScript contract although it emits no runtime graph node."
+    },
+    {
+      "path": "src/ui/stitch-runtime/contracts/translation.ts",
+      "disposition": "production-compile",
+      "productionOwners": ["src/ui/stitch-runtime/index.ts"],
+      "replacement": {
+        "owner": "src/ui/stitch-runtime/contracts/translation.ts",
+        "milestone": "current-production"
+      },
+      "evidence": {
+        "docs": ["docs/design-system-governance.md"],
+        "tests": ["tests/unit/tools/uiProductionOwnership.test.ts"],
+        "tools": [
+          "tools/report-production-build-graph.mjs",
+          "tools/report-ui-production-ownership.mjs"
+        ]
+      },
+      "reason": "A reachable production source imports this TypeScript contract although it emits no runtime graph node."
+    },
+    {
+      "path": "src/ui/stitch-runtime/dom.ts",
+      "disposition": "production-runtime",
+      "productionOwners": [
+        "src/content/index.ts",
+        "src/content/reader/readerLazyRuntime.ts",
+        "src/content/ui/supportPrompt.ts",
+        "src/content/video/videoLazyRuntime.ts",
+        "src/options/index.ts",
+        "src/options/runtimeEntry.ts"
+      ],
+      "replacement": {
+        "owner": "src/ui/stitch-runtime/dom.ts",
+        "milestone": "current-production"
+      },
+      "evidence": {
+        "docs": ["docs/design-system-governance.md"],
+        "tests": ["tests/unit/tools/uiProductionOwnership.test.ts"],
+        "tools": [
+          "tools/report-production-build-graph.mjs",
+          "tools/report-ui-production-ownership.mjs"
+        ]
+      },
+      "reason": "Production runtime reachability is proven by the freshly generated build graph."
+    },
+    {
+      "path": "src/ui/stitch-runtime/index.ts",
+      "disposition": "production-runtime",
+      "productionOwners": [
+        "src/content/index.ts",
+        "src/content/reader/readerLazyRuntime.ts",
+        "src/content/ui/supportPrompt.ts",
+        "src/content/video/videoLazyRuntime.ts",
+        "src/options/index.ts",
+        "src/options/runtimeEntry.ts"
+      ],
+      "replacement": {
+        "owner": "src/ui/stitch-runtime/index.ts",
+        "milestone": "current-production"
+      },
+      "evidence": {
+        "docs": ["docs/design-system-governance.md"],
+        "tests": ["tests/unit/tools/uiProductionOwnership.test.ts"],
+        "tools": [
+          "tools/report-production-build-graph.mjs",
+          "tools/report-ui-production-ownership.mjs"
+        ]
+      },
+      "reason": "Production runtime reachability is proven by the freshly generated build graph."
+    },
+    {
+      "path": "src/ui/stitch-runtime/render/actionAdapter.ts",
+      "disposition": "production-runtime",
+      "productionOwners": [
+        "src/content/index.ts",
+        "src/content/reader/readerLazyRuntime.ts",
+        "src/content/ui/supportPrompt.ts",
+        "src/content/video/videoLazyRuntime.ts",
+        "src/options/index.ts",
+        "src/options/runtimeEntry.ts"
+      ],
+      "replacement": {
+        "owner": "src/ui/stitch-runtime/render/actionAdapter.ts",
+        "milestone": "current-production"
+      },
+      "evidence": {
+        "docs": ["docs/design-system-governance.md"],
+        "tests": ["tests/unit/tools/uiProductionOwnership.test.ts"],
+        "tools": [
+          "tools/report-production-build-graph.mjs",
+          "tools/report-ui-production-ownership.mjs"
+        ]
+      },
+      "reason": "Production runtime reachability is proven by the freshly generated build graph."
+    },
+    {
+      "path": "src/ui/stitch-runtime/render/invalidation.ts",
+      "disposition": "production-runtime",
+      "productionOwners": [
+        "src/content/index.ts",
+        "src/content/reader/readerLazyRuntime.ts",
+        "src/content/video/videoLazyRuntime.ts"
+      ],
+      "replacement": {
+        "owner": "src/ui/stitch-runtime/render/invalidation.ts",
+        "milestone": "current-production"
+      },
+      "evidence": {
+        "docs": ["docs/design-system-governance.md"],
+        "tests": ["tests/unit/tools/uiProductionOwnership.test.ts"],
+        "tools": [
+          "tools/report-production-build-graph.mjs",
+          "tools/report-ui-production-ownership.mjs"
+        ]
+      },
+      "reason": "Production runtime reachability is proven by the freshly generated build graph."
+    },
+    {
+      "path": "src/ui/stitch-runtime/render/keyedSessionList.ts",
+      "disposition": "production-runtime",
+      "productionOwners": [
+        "src/content/index.ts",
+        "src/content/reader/readerLazyRuntime.ts",
+        "src/content/video/videoLazyRuntime.ts"
+      ],
+      "replacement": {
+        "owner": "src/ui/stitch-runtime/render/keyedSessionList.ts",
+        "milestone": "current-production"
+      },
+      "evidence": {
+        "docs": ["docs/design-system-governance.md"],
+        "tests": ["tests/unit/tools/uiProductionOwnership.test.ts"],
+        "tools": [
+          "tools/report-production-build-graph.mjs",
+          "tools/report-ui-production-ownership.mjs"
+        ]
+      },
+      "reason": "Production runtime reachability is proven by the freshly generated build graph."
+    },
+    {
+      "path": "src/ui/stitch-runtime/render/nodeRenderers.ts",
+      "disposition": "production-runtime",
+      "productionOwners": [
+        "src/content/index.ts",
+        "src/content/reader/readerLazyRuntime.ts",
+        "src/content/ui/supportPrompt.ts",
+        "src/content/video/videoLazyRuntime.ts",
+        "src/options/index.ts",
+        "src/options/runtimeEntry.ts"
+      ],
+      "replacement": {
+        "owner": "src/ui/stitch-runtime/render/nodeRenderers.ts",
+        "milestone": "current-production"
+      },
+      "evidence": {
+        "docs": ["docs/design-system-governance.md"],
+        "tests": ["tests/unit/tools/uiProductionOwnership.test.ts"],
+        "tools": [
+          "tools/report-production-build-graph.mjs",
+          "tools/report-ui-production-ownership.mjs"
+        ]
+      },
+      "reason": "Production runtime reachability is proven by the freshly generated build graph."
+    },
+    {
+      "path": "src/ui/stitch-runtime/render/renderRuntimeSurface.ts",
+      "disposition": "production-runtime",
+      "productionOwners": [
+        "src/content/index.ts",
+        "src/content/reader/readerLazyRuntime.ts",
+        "src/content/ui/supportPrompt.ts",
+        "src/content/video/videoLazyRuntime.ts",
+        "src/options/index.ts",
+        "src/options/runtimeEntry.ts"
+      ],
+      "replacement": {
+        "owner": "src/ui/stitch-runtime/render/renderRuntimeSurface.ts",
+        "milestone": "current-production"
+      },
+      "evidence": {
+        "docs": ["docs/design-system-governance.md"],
+        "tests": ["tests/unit/tools/uiProductionOwnership.test.ts"],
+        "tools": [
+          "tools/report-production-build-graph.mjs",
+          "tools/report-ui-production-ownership.mjs"
+        ]
+      },
+      "reason": "Production runtime reachability is proven by the freshly generated build graph."
+    },
+    {
+      "path": "src/ui/stitch-runtime/render/rootActionDispatcher.ts",
+      "disposition": "production-runtime",
+      "productionOwners": ["src/content/index.ts", "src/content/reader/readerLazyRuntime.ts"],
+      "replacement": {
+        "owner": "src/ui/stitch-runtime/render/rootActionDispatcher.ts",
+        "milestone": "current-production"
+      },
+      "evidence": {
+        "docs": ["docs/design-system-governance.md"],
+        "tests": ["tests/unit/tools/uiProductionOwnership.test.ts"],
+        "tools": [
+          "tools/report-production-build-graph.mjs",
+          "tools/report-ui-production-ownership.mjs"
+        ]
+      },
+      "reason": "Production runtime reachability is proven by the freshly generated build graph."
+    },
+    {
+      "path": "src/ui/stitch-runtime/render/sectionInvalidation.ts",
+      "disposition": "production-runtime",
+      "productionOwners": [
+        "src/options/index.ts",
+        "src/options/runtimeEntry.ts",
+        "src/ui/stitch-runtime/render/sectionInvalidation.ts"
+      ],
+      "replacement": {
+        "owner": "src/ui/stitch-runtime/render/sectionInvalidation.ts",
+        "milestone": "current-production"
+      },
+      "evidence": {
+        "docs": ["docs/design-system-governance.md"],
+        "tests": ["tests/unit/tools/uiProductionOwnership.test.ts"],
+        "tools": [
+          "tools/report-production-build-graph.mjs",
+          "tools/report-ui-production-ownership.mjs"
+        ]
+      },
+      "reason": "The neutral section invalidation owner is reached only by the Options production entrypoints."
+    },
+    {
+      "path": "src/ui/stitch-runtime/surfaceComponents.ts",
+      "disposition": "production-runtime",
+      "productionOwners": [
+        "src/content/index.ts",
+        "src/content/reader/readerLazyRuntime.ts",
+        "src/content/ui/supportPrompt.ts",
+        "src/content/video/videoLazyRuntime.ts",
+        "src/options/index.ts",
+        "src/options/runtimeEntry.ts"
+      ],
+      "replacement": {
+        "owner": "src/ui/stitch-runtime/surfaceComponents.ts",
+        "milestone": "current-production"
+      },
+      "evidence": {
+        "docs": ["docs/design-system-governance.md"],
+        "tests": ["tests/unit/tools/uiProductionOwnership.test.ts"],
+        "tools": [
+          "tools/report-production-build-graph.mjs",
+          "tools/report-ui-production-ownership.mjs"
+        ]
+      },
+      "reason": "Production runtime reachability is proven by the freshly generated build graph."
+    },
+    {
+      "path": "src/ui/stitch-runtime/types/baseTypes.ts",
+      "disposition": "production-compile",
+      "productionOwners": ["src/ui/stitch-runtime/index.ts"],
+      "replacement": {
+        "owner": "src/ui/stitch-runtime/types/baseTypes.ts",
+        "milestone": "current-production"
+      },
+      "evidence": {
+        "docs": ["docs/design-system-governance.md"],
+        "tests": ["tests/unit/tools/uiProductionOwnership.test.ts"],
+        "tools": [
+          "tools/report-production-build-graph.mjs",
+          "tools/report-ui-production-ownership.mjs"
+        ]
+      },
+      "reason": "A reachable production source imports this TypeScript contract although it emits no runtime graph node."
+    },
+    {
+      "path": "src/ui/stitch-runtime/types/runtimeSurfaceTypes.ts",
+      "disposition": "production-compile",
+      "productionOwners": [
+        "src/ui/stitch-runtime/index.ts",
+        "src/ui/stitch-runtime/render/nodeRenderers.ts"
+      ],
+      "replacement": {
+        "owner": "src/ui/stitch-runtime/types/runtimeSurfaceTypes.ts",
+        "milestone": "current-production"
+      },
+      "evidence": {
+        "docs": ["docs/design-system-governance.md"],
+        "tests": ["tests/unit/tools/uiProductionOwnership.test.ts"],
+        "tools": [
+          "tools/report-production-build-graph.mjs",
+          "tools/report-ui-production-ownership.mjs"
+        ]
+      },
+      "reason": "A reachable production source imports this TypeScript contract although it emits no runtime graph node."
+    },
+    {
+      "path": "src/ui/stitch-runtime/types/surfaceTypes.ts",
+      "disposition": "production-compile",
+      "productionOwners": [
+        "src/ui/stitch-runtime/index.ts",
+        "src/ui/stitch-runtime/surfaceComponents.ts"
+      ],
+      "replacement": {
+        "owner": "src/ui/stitch-runtime/types/surfaceTypes.ts",
+        "milestone": "current-production"
+      },
+      "evidence": {
+        "docs": ["docs/design-system-governance.md"],
+        "tests": ["tests/unit/tools/uiProductionOwnership.test.ts"],
+        "tools": [
+          "tools/report-production-build-graph.mjs",
+          "tools/report-ui-production-ownership.mjs"
+        ]
+      },
+      "reason": "A reachable production source imports this TypeScript contract although it emits no runtime graph node."
+    },
+    {
+      "path": "src/ui/stitch-surfaces/builders/classNames.ts",
+      "disposition": "production-runtime",
+      "productionOwners": [
+        "src/content/index.ts",
+        "src/content/reader/readerLazyRuntime.ts",
+        "src/content/ui/supportPrompt.ts",
+        "src/content/video/videoLazyRuntime.ts",
+        "src/options/app/productionStitchAssets.ts",
+        "src/options/index.ts",
+        "src/options/runtimeEntry.ts"
+      ],
+      "replacement": {
+        "owner": "src/ui/stitch-surfaces/builders/classNames.ts",
+        "milestone": "current-production"
+      },
+      "evidence": {
+        "docs": ["docs/design-system-governance.md"],
+        "tests": ["tests/unit/tools/uiProductionOwnership.test.ts"],
+        "tools": [
+          "tools/report-production-build-graph.mjs",
+          "tools/report-ui-production-ownership.mjs"
+        ]
+      },
+      "reason": "Production runtime reachability is proven by the freshly generated build graph."
+    },
+    {
+      "path": "src/ui/stitch-surfaces/builders/clipperSurfaces.ts",
+      "disposition": "production-runtime",
+      "productionOwners": [
+        "src/content/index.ts",
+        "src/content/reader/readerLazyRuntime.ts",
+        "src/content/ui/supportPrompt.ts",
+        "src/content/video/videoLazyRuntime.ts",
+        "src/options/app/productionStitchAssets.ts",
+        "src/options/index.ts",
+        "src/options/runtimeEntry.ts"
+      ],
+      "replacement": {
+        "owner": "src/ui/stitch-surfaces/builders/clipperSurfaces.ts",
+        "milestone": "current-production"
+      },
+      "evidence": {
+        "docs": ["docs/design-system-governance.md"],
+        "tests": ["tests/unit/tools/uiProductionOwnership.test.ts"],
+        "tools": [
+          "tools/report-production-build-graph.mjs",
+          "tools/report-ui-production-ownership.mjs"
+        ]
+      },
+      "reason": "Production runtime reachability is proven by the freshly generated build graph."
+    },
+    {
+      "path": "src/ui/stitch-surfaces/builders/primitives.ts",
+      "disposition": "production-runtime",
+      "productionOwners": [
+        "src/content/index.ts",
+        "src/content/reader/readerLazyRuntime.ts",
+        "src/content/ui/supportPrompt.ts",
+        "src/content/video/videoLazyRuntime.ts",
+        "src/options/app/productionStitchAssets.ts",
+        "src/options/index.ts",
+        "src/options/runtimeEntry.ts"
+      ],
+      "replacement": {
+        "owner": "src/ui/stitch-surfaces/builders/primitives.ts",
+        "milestone": "current-production"
+      },
+      "evidence": {
+        "docs": ["docs/design-system-governance.md"],
+        "tests": ["tests/unit/tools/uiProductionOwnership.test.ts"],
+        "tools": [
+          "tools/report-production-build-graph.mjs",
+          "tools/report-ui-production-ownership.mjs"
+        ]
+      },
+      "reason": "Production runtime reachability is proven by the freshly generated build graph."
+    },
+    {
+      "path": "src/ui/stitch-surfaces/builders/readerSurfaces.ts",
+      "disposition": "production-runtime",
+      "productionOwners": [
+        "src/content/index.ts",
+        "src/content/reader/readerLazyRuntime.ts",
+        "src/content/ui/supportPrompt.ts",
+        "src/content/video/videoLazyRuntime.ts",
+        "src/options/app/productionStitchAssets.ts",
+        "src/options/index.ts",
+        "src/options/runtimeEntry.ts"
+      ],
+      "replacement": {
+        "owner": "src/ui/stitch-surfaces/builders/readerSurfaces.ts",
+        "milestone": "current-production"
+      },
+      "evidence": {
+        "docs": ["docs/design-system-governance.md"],
+        "tests": ["tests/unit/tools/uiProductionOwnership.test.ts"],
+        "tools": [
+          "tools/report-production-build-graph.mjs",
+          "tools/report-ui-production-ownership.mjs"
+        ]
+      },
+      "reason": "Production runtime reachability is proven by the freshly generated build graph."
+    },
+    {
+      "path": "src/ui/stitch-surfaces/builders/surfaceChrome.ts",
+      "disposition": "production-runtime",
+      "productionOwners": [
+        "src/content/index.ts",
+        "src/content/reader/readerLazyRuntime.ts",
+        "src/content/ui/supportPrompt.ts",
+        "src/content/video/videoLazyRuntime.ts",
+        "src/options/app/productionStitchAssets.ts",
+        "src/options/index.ts",
+        "src/options/runtimeEntry.ts"
+      ],
+      "replacement": {
+        "owner": "src/ui/stitch-surfaces/builders/surfaceChrome.ts",
+        "milestone": "current-production"
+      },
+      "evidence": {
+        "docs": ["docs/design-system-governance.md"],
+        "tests": ["tests/unit/tools/uiProductionOwnership.test.ts"],
+        "tools": [
+          "tools/report-production-build-graph.mjs",
+          "tools/report-ui-production-ownership.mjs"
+        ]
+      },
+      "reason": "Production runtime reachability is proven by the freshly generated build graph."
+    },
+    {
+      "path": "src/ui/stitch-surfaces/builders/surfaces.ts",
+      "disposition": "production-runtime",
+      "productionOwners": [
+        "src/content/index.ts",
+        "src/content/reader/readerLazyRuntime.ts",
+        "src/content/ui/supportPrompt.ts",
+        "src/content/video/videoLazyRuntime.ts",
+        "src/options/app/productionStitchAssets.ts",
+        "src/options/index.ts",
+        "src/options/runtimeEntry.ts"
+      ],
+      "replacement": {
+        "owner": "src/ui/stitch-surfaces/builders/surfaces.ts",
+        "milestone": "current-production"
+      },
+      "evidence": {
+        "docs": ["docs/design-system-governance.md"],
+        "tests": ["tests/unit/tools/uiProductionOwnership.test.ts"],
+        "tools": [
+          "tools/report-production-build-graph.mjs",
+          "tools/report-ui-production-ownership.mjs"
+        ]
+      },
+      "reason": "Production runtime reachability is proven by the freshly generated build graph."
+    },
+    {
+      "path": "src/ui/stitch-surfaces/builders/surfaceSessionItems.ts",
+      "disposition": "production-runtime",
+      "productionOwners": [
+        "src/content/index.ts",
+        "src/content/reader/readerLazyRuntime.ts",
+        "src/content/ui/supportPrompt.ts",
+        "src/content/video/videoLazyRuntime.ts",
+        "src/options/app/productionStitchAssets.ts",
+        "src/options/index.ts",
+        "src/options/runtimeEntry.ts"
+      ],
+      "replacement": {
+        "owner": "src/ui/stitch-surfaces/builders/surfaceSessionItems.ts",
+        "milestone": "current-production"
+      },
+      "evidence": {
+        "docs": ["docs/design-system-governance.md"],
+        "tests": ["tests/unit/tools/uiProductionOwnership.test.ts"],
+        "tools": [
+          "tools/report-production-build-graph.mjs",
+          "tools/report-ui-production-ownership.mjs"
+        ]
+      },
+      "reason": "Production runtime reachability is proven by the freshly generated build graph."
+    },
+    {
+      "path": "src/ui/stitch-surfaces/builders/videoSurfaces.ts",
+      "disposition": "production-runtime",
+      "productionOwners": [
+        "src/content/index.ts",
+        "src/content/reader/readerLazyRuntime.ts",
+        "src/content/ui/supportPrompt.ts",
+        "src/content/video/videoLazyRuntime.ts",
+        "src/options/app/productionStitchAssets.ts",
+        "src/options/index.ts",
+        "src/options/runtimeEntry.ts"
+      ],
+      "replacement": {
+        "owner": "src/ui/stitch-surfaces/builders/videoSurfaces.ts",
+        "milestone": "current-production"
+      },
+      "evidence": {
+        "docs": ["docs/design-system-governance.md"],
+        "tests": ["tests/unit/tools/uiProductionOwnership.test.ts"],
+        "tools": [
+          "tools/report-production-build-graph.mjs",
+          "tools/report-ui-production-ownership.mjs"
+        ]
+      },
+      "reason": "Production runtime reachability is proven by the freshly generated build graph."
+    },
+    {
+      "path": "src/ui/stitch-surfaces/index.ts",
+      "disposition": "production-runtime",
+      "productionOwners": [
+        "src/content/index.ts",
+        "src/content/reader/readerLazyRuntime.ts",
+        "src/content/ui/supportPrompt.ts",
+        "src/content/video/videoLazyRuntime.ts",
+        "src/options/app/productionStitchAssets.ts",
+        "src/options/index.ts",
+        "src/options/runtimeEntry.ts"
+      ],
+      "replacement": {
+        "owner": "src/ui/stitch-surfaces/index.ts",
+        "milestone": "current-production"
+      },
+      "evidence": {
+        "docs": ["docs/design-system-governance.md"],
+        "tests": ["tests/unit/tools/uiProductionOwnership.test.ts"],
+        "tools": [
+          "tools/report-production-build-graph.mjs",
+          "tools/report-ui-production-ownership.mjs"
+        ]
+      },
+      "reason": "Production runtime reachability is proven by the freshly generated build graph."
+    },
+    {
+      "path": "src/ui/stitch-surfaces/surfaceRegistry.ts",
+      "disposition": "production-runtime",
+      "productionOwners": [
+        "src/content/index.ts",
+        "src/content/reader/readerLazyRuntime.ts",
+        "src/content/ui/supportPrompt.ts",
+        "src/content/video/videoLazyRuntime.ts",
+        "src/options/app/productionStitchAssets.ts",
+        "src/options/index.ts",
+        "src/options/runtimeEntry.ts"
+      ],
+      "replacement": {
+        "owner": "src/ui/stitch-surfaces/surfaceRegistry.ts",
+        "milestone": "current-production"
+      },
+      "evidence": {
+        "docs": ["docs/design-system-governance.md"],
+        "tests": ["tests/unit/tools/uiProductionOwnership.test.ts"],
+        "tools": [
+          "tools/report-production-build-graph.mjs",
+          "tools/report-ui-production-ownership.mjs"
+        ]
+      },
+      "reason": "Production runtime reachability is proven by the freshly generated build graph."
+    },
+    {
+      "path": "src/ui/stitch-surfaces/surfaces/clipper.ts",
+      "disposition": "production-runtime",
+      "productionOwners": [
+        "src/content/index.ts",
+        "src/content/reader/readerLazyRuntime.ts",
+        "src/content/ui/supportPrompt.ts",
+        "src/content/video/videoLazyRuntime.ts",
+        "src/options/app/productionStitchAssets.ts",
+        "src/options/index.ts",
+        "src/options/runtimeEntry.ts"
+      ],
+      "replacement": {
+        "owner": "src/ui/stitch-surfaces/surfaces/clipper.ts",
+        "milestone": "current-production"
+      },
+      "evidence": {
+        "docs": ["docs/design-system-governance.md"],
+        "tests": ["tests/unit/tools/uiProductionOwnership.test.ts"],
+        "tools": [
+          "tools/report-production-build-graph.mjs",
+          "tools/report-ui-production-ownership.mjs"
+        ]
+      },
+      "reason": "Production runtime reachability is proven by the freshly generated build graph."
+    },
+    {
+      "path": "src/ui/stitch-surfaces/surfaces/reader.ts",
+      "disposition": "production-runtime",
+      "productionOwners": [
+        "src/content/index.ts",
+        "src/content/reader/readerLazyRuntime.ts",
+        "src/content/ui/supportPrompt.ts",
+        "src/content/video/videoLazyRuntime.ts",
+        "src/options/app/productionStitchAssets.ts",
+        "src/options/index.ts",
+        "src/options/runtimeEntry.ts"
+      ],
+      "replacement": {
+        "owner": "src/ui/stitch-surfaces/surfaces/reader.ts",
+        "milestone": "current-production"
+      },
+      "evidence": {
+        "docs": ["docs/design-system-governance.md"],
+        "tests": ["tests/unit/tools/uiProductionOwnership.test.ts"],
+        "tools": [
+          "tools/report-production-build-graph.mjs",
+          "tools/report-ui-production-ownership.mjs"
+        ]
+      },
+      "reason": "Production runtime reachability is proven by the freshly generated build graph."
+    },
+    {
+      "path": "src/ui/stitch-surfaces/surfaces/task-success.ts",
+      "disposition": "production-runtime",
+      "productionOwners": [
+        "src/content/index.ts",
+        "src/content/reader/readerLazyRuntime.ts",
+        "src/content/ui/supportPrompt.ts",
+        "src/content/video/videoLazyRuntime.ts",
+        "src/options/app/productionStitchAssets.ts",
+        "src/options/index.ts",
+        "src/options/runtimeEntry.ts"
+      ],
+      "replacement": {
+        "owner": "src/ui/stitch-surfaces/surfaces/task-success.ts",
+        "milestone": "current-production"
+      },
+      "evidence": {
+        "docs": ["docs/design-system-governance.md"],
+        "tests": ["tests/unit/tools/uiProductionOwnership.test.ts"],
+        "tools": [
+          "tools/report-production-build-graph.mjs",
+          "tools/report-ui-production-ownership.mjs"
+        ]
+      },
+      "reason": "Production runtime reachability is proven by the freshly generated build graph."
+    },
+    {
+      "path": "src/ui/stitch-surfaces/surfaces/video-control-bar-popover.ts",
+      "disposition": "production-runtime",
+      "productionOwners": [
+        "src/content/index.ts",
+        "src/content/reader/readerLazyRuntime.ts",
+        "src/content/ui/supportPrompt.ts",
+        "src/content/video/videoLazyRuntime.ts",
+        "src/options/app/productionStitchAssets.ts",
+        "src/options/index.ts",
+        "src/options/runtimeEntry.ts"
+      ],
+      "replacement": {
+        "owner": "src/ui/stitch-surfaces/surfaces/video-control-bar-popover.ts",
+        "milestone": "current-production"
+      },
+      "evidence": {
+        "docs": ["docs/design-system-governance.md"],
+        "tests": ["tests/unit/tools/uiProductionOwnership.test.ts"],
+        "tools": [
+          "tools/report-production-build-graph.mjs",
+          "tools/report-ui-production-ownership.mjs"
+        ]
+      },
+      "reason": "Production runtime reachability is proven by the freshly generated build graph."
+    },
+    {
+      "path": "src/ui/stitch-surfaces/surfaces/video-floating-prompt.ts",
+      "disposition": "production-runtime",
+      "productionOwners": [
+        "src/content/index.ts",
+        "src/content/reader/readerLazyRuntime.ts",
+        "src/content/ui/supportPrompt.ts",
+        "src/content/video/videoLazyRuntime.ts",
+        "src/options/app/productionStitchAssets.ts",
+        "src/options/index.ts",
+        "src/options/runtimeEntry.ts"
+      ],
+      "replacement": {
+        "owner": "src/ui/stitch-surfaces/surfaces/video-floating-prompt.ts",
+        "milestone": "current-production"
+      },
+      "evidence": {
+        "docs": ["docs/design-system-governance.md"],
+        "tests": ["tests/unit/tools/uiProductionOwnership.test.ts"],
+        "tools": [
+          "tools/report-production-build-graph.mjs",
+          "tools/report-ui-production-ownership.mjs"
+        ]
+      },
+      "reason": "Production runtime reachability is proven by the freshly generated build graph."
+    },
+    {
+      "path": "src/ui/stitch-surfaces/surfaces/video.ts",
+      "disposition": "production-runtime",
+      "productionOwners": [
+        "src/content/index.ts",
+        "src/content/reader/readerLazyRuntime.ts",
+        "src/content/ui/supportPrompt.ts",
+        "src/content/video/videoLazyRuntime.ts",
+        "src/options/app/productionStitchAssets.ts",
+        "src/options/index.ts",
+        "src/options/runtimeEntry.ts"
+      ],
+      "replacement": {
+        "owner": "src/ui/stitch-surfaces/surfaces/video.ts",
+        "milestone": "current-production"
+      },
+      "evidence": {
+        "docs": ["docs/design-system-governance.md"],
+        "tests": ["tests/unit/tools/uiProductionOwnership.test.ts"],
+        "tools": [
+          "tools/report-production-build-graph.mjs",
+          "tools/report-ui-production-ownership.mjs"
+        ]
+      },
+      "reason": "Production runtime reachability is proven by the freshly generated build graph."
+    }
+  ]
+}

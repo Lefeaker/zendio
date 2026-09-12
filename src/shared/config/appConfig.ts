@@ -38,7 +38,7 @@ const DEFAULT_FRAGMENT_CLIPPER: FragmentClipperOptions = {
   captureContext: false,
   contextLength: 200,
   contextMode: 'chars',
-  selectionModifierEnabled: true,
+  selectionTriggerMode: 'modifier',
   selectionModifierKeys: ['shift'],
   keyboardShortcutsEnabled: true
 };
@@ -132,7 +132,7 @@ export function getDefaultFragmentClipper(): FragmentClipperOptions {
     captureContext: CLIPPER_DEFAULTS.fragmentClipper.captureContext,
     contextLength: CLIPPER_DEFAULTS.fragmentClipper.contextLength,
     contextMode: CLIPPER_DEFAULTS.fragmentClipper.contextMode,
-    selectionModifierEnabled: CLIPPER_DEFAULTS.fragmentClipper.selectionModifierEnabled,
+    selectionTriggerMode: CLIPPER_DEFAULTS.fragmentClipper.selectionTriggerMode,
     selectionModifierKeys: [...CLIPPER_DEFAULTS.fragmentClipper.selectionModifierKeys],
     keyboardShortcutsEnabled: CLIPPER_DEFAULTS.fragmentClipper.keyboardShortcutsEnabled
   };

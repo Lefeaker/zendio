@@ -10,7 +10,7 @@ export interface PrimitiveButtonProps {
   variant?: ButtonVariant;
   size?: ButtonSize;
   iconName?: UiIconName;
-  disabled?: boolean;
+  disabled?: boolean | undefined;
   ariaLabel?: string;
   className?: string;
   id?: string;
@@ -19,7 +19,12 @@ export interface PrimitiveButtonProps {
   loading?: boolean;
   dataAttributes?: DataAttributes;
   dataRole?: string;
-  onClick?: (event: MouseEvent) => void;
+  onClick?: ((event: MouseEvent) => void) | undefined;
+  onMouseDown?: ((event: MouseEvent) => void) | undefined;
+  /** Allows surface adapters to retain an established class slot without recreating button semantics. */
+  classSlots?: readonly string[] | undefined;
+  leading?: Node | null | undefined;
+  labelClassName?: string;
 }
 
 const VARIANT_CLASS: Record<ButtonVariant, string> = {
@@ -39,6 +44,9 @@ const SIZE_CLASS: Record<ButtonSize, string> = {
 };
 
 function composeClassNames(props: PrimitiveButtonProps): string {
+  if (props.classSlots) {
+    return props.classSlots.filter(Boolean).join(' ').trim();
+  }
   const variant = props.variant ?? 'primary';
   const size = props.size ?? 'md';
   return ['btn', VARIANT_CLASS[variant], SIZE_CLASS[size], 'gap-2', props.className ?? '']
@@ -89,7 +97,19 @@ export function createPrimitiveButtonElement(props: PrimitiveButtonProps): HTMLB
   });
 
   injectIcon(button, props.iconName);
-  button.append(document.createTextNode(props.label));
+  if (props.leading) {
+    button.append(props.leading);
+  }
+  const label = document.createElement('span');
+  if (props.labelClassName) {
+    label.className = props.labelClassName;
+  }
+  label.textContent = props.label;
+  button.append(label);
+
+  if (props.onMouseDown) {
+    button.addEventListener('mousedown', props.onMouseDown);
+  }
 
   if (props.onClick) {
     button.addEventListener('click', props.onClick);

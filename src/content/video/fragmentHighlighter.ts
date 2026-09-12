@@ -1,13 +1,17 @@
 import type { ReaderHighlightTheme } from '../../shared/types/options';
 import {
-  applyManagedShadowStyle,
   createManagedStyleSheet,
-  removeManagedShadowStyle
-} from '../shared/shadowStyleBridge';
+  ManagedShadowStyleHost,
+  type StyleAttachmentHandle
+} from '@ui/foundation/style-host';
 import { applyHighlightThemeState, clearHighlightThemeState } from '../shared/highlightThemeState';
 
 const VIDEO_HIGHLIGHT_BRIDGE_KEY = 'video-fragment-highlight';
-
+interface ShadowHighlightStyle {
+  root: WeakRef<ShadowRoot>;
+  handle: StyleAttachmentHandle;
+  wasConnected: boolean;
+}
 export const AVAILABLE_HIGHLIGHT_THEMES: ReadonlyArray<ReaderHighlightTheme> = [
   'gradient',
   'purple',
@@ -15,20 +19,18 @@ export const AVAILABLE_HIGHLIGHT_THEMES: ReadonlyArray<ReaderHighlightTheme> = [
   'neonGreen',
   'neonOrange'
 ] as const;
-
 export const DEFAULT_HIGHLIGHT_THEME: ReaderHighlightTheme = 'gradient';
-
 export function resolveHighlightTheme(theme: unknown): ReaderHighlightTheme {
   return AVAILABLE_HIGHLIGHT_THEMES.includes(theme as ReaderHighlightTheme)
     ? (theme as ReaderHighlightTheme)
     : DEFAULT_HIGHLIGHT_THEME;
 }
-
 export class FragmentHighlighter {
-  private shadowHighlightStyles: ShadowRoot[] = [];
-  private highlightSheet: CSSStyleSheet | null = null;
+  private shadowHighlightStyles: ShadowHighlightStyle[] = [];
+  private readonly styleHost = new ManagedShadowStyleHost();
+  private readonly highlightCss = this.buildHighlightCss();
+  private readonly highlightSheet = createManagedStyleSheet(this.highlightCss);
   private currentTheme: ReaderHighlightTheme = DEFAULT_HIGHLIGHT_THEME;
-
   constructor(private readonly doc: Document) {}
 
   get theme(): ReaderHighlightTheme {
@@ -81,12 +83,22 @@ export class FragmentHighlighter {
   }
 
   ensureHighlightStyles(root: ShadowRoot): void {
-    const css = this.buildHighlightCss();
-    this.highlightSheet = createManagedStyleSheet(css);
-    applyManagedShadowStyle(root, VIDEO_HIGHLIGHT_BRIDGE_KEY, css, this.highlightSheet);
-    if (!this.shadowHighlightStyles.includes(root)) {
-      this.shadowHighlightStyles.push(root);
+    const current = this.shadowHighlightStyles.find(({ root: reference }) =>
+      Object.is(reference.deref(), root)
+    );
+    if (current) {
+      current.wasConnected ||= root.host.isConnected;
+      void current.handle.refresh();
+      return;
     }
+    const handle = this.styleHost.attach(root, [
+      { key: VIDEO_HIGHLIGHT_BRIDGE_KEY, cssText: this.highlightCss, sheet: this.highlightSheet }
+    ]);
+    this.shadowHighlightStyles.push({
+      root: new WeakRef(root),
+      handle,
+      wasConnected: root.host.isConnected
+    });
   }
 
   removeById(wrapperId: string): void {
@@ -154,25 +166,21 @@ export class FragmentHighlighter {
   }
 
   refreshShadowHighlightStyles(): void {
-    const css = this.buildHighlightCss();
-    this.highlightSheet = createManagedStyleSheet(css);
-    this.shadowHighlightStyles = this.shadowHighlightStyles.filter((root) => {
-      const host = root.host;
-      if (!host || !host.isConnected) {
-        removeManagedShadowStyle(root, VIDEO_HIGHLIGHT_BRIDGE_KEY);
+    this.shadowHighlightStyles = this.shadowHighlightStyles.filter((style) => {
+      const root = style.root.deref();
+      if (!root || (style.wasConnected && !root.host.isConnected)) {
+        style.handle.dispose();
         return false;
       }
-      applyManagedShadowStyle(root, VIDEO_HIGHLIGHT_BRIDGE_KEY, css, this.highlightSheet);
+      style.wasConnected ||= root.host.isConnected;
+      void style.handle.refresh();
       return true;
     });
   }
 
   reset(): void {
-    for (const root of this.shadowHighlightStyles) {
-      removeManagedShadowStyle(root, VIDEO_HIGHLIGHT_BRIDGE_KEY);
-    }
+    this.shadowHighlightStyles.forEach(({ handle }) => handle.dispose());
     this.shadowHighlightStyles = [];
-    this.highlightSheet = null;
     clearHighlightThemeState(this.doc);
   }
 
@@ -193,28 +201,20 @@ export class FragmentHighlighter {
     const focusSoftFallback = 'rgba(124, 92, 255, 0.2)';
     return [
       '.aiob-reader-highlight {',
-      '  position: relative;',
-      '  display: inline;',
-      '  border-radius: 3px;',
-      '  padding: 1px 0;',
+      '  position: relative;\n  display: inline;',
+      '  border-radius: 3px;\n  padding: 1px 0;',
       `  background: var(--reader-highlight-bg, ${backgroundFallback}) !important;`,
-      '  background-repeat: no-repeat;',
-      '  background-origin: border-box;',
-      '  background-clip: border-box;',
-      '  color: inherit !important;',
-      '  transition: box-shadow 0.3s ease;',
-      '  isolation: isolate;',
-      '  box-decoration-break: clone;',
-      '  -webkit-box-decoration-break: clone;',
+      '  background-repeat: no-repeat;\n  background-origin: border-box;',
+      '  background-clip: border-box;\n  color: inherit !important;',
+      '  transition: box-shadow 0.3s ease;\n  isolation: isolate;',
+      '  box-decoration-break: clone;\n  -webkit-box-decoration-break: clone;',
       '}',
       '',
-      '.aiob-reader-highlight,',
-      '.aiob-reader-highlight * {',
+      '.aiob-reader-highlight,\n.aiob-reader-highlight * {',
       '  color: inherit !important;',
       '}',
       '',
-      '.aiob-reader-highlight.aiob-reader-highlight--focus {',
-      '  animation: aiob-video-shadow-highlight-focus 1.4s ease-out;',
+      '.aiob-reader-highlight.aiob-reader-highlight--focus {\n  animation: aiob-video-shadow-highlight-focus 1.4s ease-out;',
       '}',
       '',
       '@keyframes aiob-video-shadow-highlight-focus {',

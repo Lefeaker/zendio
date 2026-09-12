@@ -1,7 +1,8 @@
-import type { CompleteOptions, StoredOptions } from '../../shared/types/options';
-import { omitLegacyRestRootDirFromOptions } from '../../shared/config/optionsMerger';
-import { sanitizeYamlConfigValue } from '../../shared/config/optionsSanitizer';
-import { StoredOptionsSchema } from '../../shared/schemas';
+import type { StoredOptions } from '../../shared/types/options';
+import { encodeStoredOptionsReplacement } from '../../shared/config/storedOptionsCodec';
+import { scrubDeviceLocalVaultBindings } from '../../shared/config/deviceLocalVaultBindings';
+import { parseBoundedJson } from '../../shared/config/losslessObjectBoundary';
+import { isObjectRecord, type ObjectRecord } from '../../shared/guards/object';
 import type { AnalyticsTransferPayload } from './analyticsTransfer';
 
 export interface ConfigTransferPayload {
@@ -31,9 +32,7 @@ export class ConfigTransferError extends Error {
   }
 }
 
-export async function copyOptionsToClipboard(
-  options: StoredOptions | CompleteOptions | ConfigTransferPayload
-): Promise<void> {
+export async function copyOptionsToClipboard(options: object): Promise<void> {
   const jsonText = JSON.stringify(options, null, 2);
   await writeToClipboard(jsonText);
 }
@@ -66,33 +65,23 @@ export async function readConfigTextFromClipboard(): Promise<string> {
   throw new ConfigTransferError('CLIPBOARD_READ_UNAVAILABLE');
 }
 
-function isPlainObject(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
+function isPlainObject(value: Parameters<typeof isObjectRecord>[0]): value is ObjectRecord {
+  return isObjectRecord(value) && !Array.isArray(value);
 }
 
-function sanitizeImportedOptions(candidate: unknown): StoredOptions {
-  if (!isPlainObject(candidate)) {
+function sanitizeImportedOptions(
+  candidate: Parameters<typeof encodeStoredOptionsReplacement>[0]
+): StoredOptions {
+  const encoded = encodeStoredOptionsReplacement(candidate);
+  if (!encoded.success) {
     throw new ConfigTransferError('PARSE_FAILED');
   }
-
-  const hasYamlConfig = Object.prototype.hasOwnProperty.call(candidate, 'yamlConfig');
-  const yamlConfigCandidate = candidate.yamlConfig;
-  const schemaCandidate = { ...candidate };
-  delete schemaCandidate.yamlConfig;
-
-  const parsed = StoredOptionsSchema.safeParse(schemaCandidate);
-  if (!parsed.success) {
-    throw new ConfigTransferError('PARSE_FAILED');
-  }
-
-  const options = omitLegacyRestRootDirFromOptions(parsed.data as StoredOptions);
-  if (hasYamlConfig) {
-    options.yamlConfig = sanitizeYamlConfigValue(yamlConfigCandidate) ?? null;
-  }
-  return options;
+  return scrubDeviceLocalVaultBindings(encoded.value);
 }
 
-function parseAnalyticsPayload(candidate: unknown): AnalyticsTransferPayload | undefined {
+function parseAnalyticsPayload(
+  candidate: ObjectRecord[string]
+): AnalyticsTransferPayload | undefined {
   if (!isPlainObject(candidate)) {
     return undefined;
   }
@@ -102,10 +91,10 @@ function parseAnalyticsPayload(candidate: unknown): AnalyticsTransferPayload | u
   const consentCandidate = candidate['consent'];
   if (isPlainObject(consentCandidate)) {
     const consent = consentCandidate;
-    if ('analytics' in consent || 'errorReporting' in consent) {
+    if (typeof consent.analytics === 'boolean' && typeof consent.errorReporting === 'boolean') {
       payload.consent = {
-        analytics: Boolean(consent.analytics),
-        errorReporting: Boolean(consent.errorReporting)
+        analytics: consent.analytics,
+        errorReporting: consent.errorReporting
       };
     }
   }
@@ -119,19 +108,25 @@ function parseAnalyticsPayload(candidate: unknown): AnalyticsTransferPayload | u
 }
 
 export function parseConfigInput(raw: string): ConfigTransferPayload {
-  const textValue = (raw || '').trim();
-  if (!textValue) {
-    throw new ConfigTransferError('EMPTY_IMPORT');
-  }
+  const textValue = raw || '';
 
   try {
-    const parsedValue: unknown = JSON.parse(textValue);
-    if (!isPlainObject(parsedValue)) {
+    const boundary = parseBoundedJson(textValue);
+    if (!boundary.ok) {
+      if (boundary.code === 'INVALID_JSON' && !textValue.trim()) {
+        throw new ConfigTransferError('EMPTY_IMPORT');
+      }
       throw new ConfigTransferError('PARSE_FAILED');
     }
-    const parsed: Record<string, unknown> = parsedValue;
+    if (!isPlainObject(boundary.value)) {
+      throw new ConfigTransferError('PARSE_FAILED');
+    }
+    const parsed = boundary.value;
 
-    if ('options' in parsed && isPlainObject(parsed.options)) {
+    if (Object.prototype.hasOwnProperty.call(parsed, 'options')) {
+      if (!isPlainObject(parsed.options)) {
+        throw new ConfigTransferError('PARSE_FAILED');
+      }
       const version = typeof parsed.version === 'number' ? parsed.version : 1;
       const options = sanitizeImportedOptions(parsed.options);
       const analytics = parseAnalyticsPayload(parsed.analytics);
@@ -150,7 +145,6 @@ export function parseConfigInput(raw: string): ConfigTransferPayload {
     if (error instanceof ConfigTransferError) {
       throw error;
     }
-    const detail = error instanceof Error ? error.message : undefined;
-    throw new ConfigTransferError('PARSE_FAILED', detail);
+    throw new ConfigTransferError('PARSE_FAILED');
   }
 }

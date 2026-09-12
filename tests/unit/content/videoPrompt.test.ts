@@ -11,6 +11,8 @@ import type {
 import type { IVideoRepository } from '@shared/repositories/IVideoRepository';
 import type { VideoOptions } from '@shared/types/options';
 import { VIDEO_CONTROL_BAR_LOGO_PATH, VIDEO_MODE_PANEL_ICON_PATH } from '@shared/assets/iconPaths';
+import { DEFAULT_RUNTIME_MESSAGES } from '@i18n';
+import type { StyleAttachmentHandle } from '@ui/foundation/style-host';
 import { intervalId } from '../../utils/typeHelpers';
 
 type Deferred<T> = {
@@ -576,7 +578,7 @@ describe('video prompt', () => {
       captureScreenshot: true,
       beginEditing: false,
       resumePlayback: false,
-      collapseAfterCapture: true
+      collapseAfterCapture: false
     });
   });
 
@@ -612,8 +614,56 @@ describe('video prompt', () => {
       captureScreenshot: true,
       beginEditing: false,
       resumePlayback: false,
-      collapseAfterCapture: true
+      collapseAfterCapture: false
     });
+  });
+
+  it('keeps existing-session control-bar captures collapsed after capture', async () => {
+    const controls = document.createElement('div');
+    controls.className = 'ytp-right-controls';
+    document.body.appendChild(controls);
+    controlTargetState.current = controls;
+    const module = await loadPromptModule();
+    currentTestUtils = module.__videoPromptTestUtils;
+    const deps = createTestDependencies();
+    currentTestUtils.setDependenciesForTests(deps);
+
+    await module.initVideoPrompt();
+    await flushMicrotasks();
+
+    const existingSessionAddCurrentTimestamp = vi.fn(() => Promise.resolve());
+    const existingSession = {
+      addCurrentTimestamp: existingSessionAddCurrentTimestamp
+    };
+    const { clearVideoSession, registerVideoSession } =
+      await import('../../../src/content/runtime/contentSessionRegistry');
+    registerVideoSession(existingSession, document);
+
+    try {
+      const controlOptions = ensureVideoControlBarButtonMock.mock.calls.at(-1)?.[0];
+      await controlOptions?.onPrimaryAction(
+        {
+          autoPauseEnabled: false,
+          captureScreenshotEnabled: true
+        },
+        {
+          comment: 'existing session note',
+          source: 'note-input'
+        }
+      );
+
+      expect(videoSessionFactoryMock).not.toHaveBeenCalled();
+      expect(existingSessionAddCurrentTimestamp).toHaveBeenCalledWith('note-input', {
+        comment: 'existing session note',
+        pauseVideo: false,
+        captureScreenshot: true,
+        beginEditing: false,
+        resumePlayback: false,
+        collapseAfterCapture: true
+      });
+    } finally {
+      clearVideoSession(existingSession, document);
+    }
   });
 
   it('keeps auto-paused playback leased until an async control-bar capture finishes', async () => {
@@ -751,7 +801,7 @@ describe('video prompt', () => {
       pauseVideo: false,
       captureScreenshot: true,
       beginEditing: true,
-      collapseAfterCapture: true
+      collapseAfterCapture: false
     });
   });
 
@@ -906,13 +956,9 @@ describe('video prompt', () => {
 
   it('replays Stitch runtime styles after async load on first prompt mount', async () => {
     const stitchDeferred = createDeferred<string>();
-    const stitchSecondaryDeferred = createDeferred<string>();
     loadExtensionStyleMock.mockImplementation((path: string) => {
-      if (path === 'options/stitch/styles/stitch.css') {
+      if (path === 'ui/stitch-runtime/styles/video.css') {
         return stitchDeferred.promise;
-      }
-      if (path === 'options/stitch/styles/variants/stitch-secondary.css') {
-        return stitchSecondaryDeferred.promise;
       }
       return Promise.resolve('');
     });
@@ -924,7 +970,6 @@ describe('video prompt', () => {
 
     const initPromise = module.initVideoPrompt();
     stitchDeferred.resolve('.stitch-ready{opacity:1;}');
-    stitchSecondaryDeferred.resolve('.stitch-secondary-ready{opacity:1;}');
     await initPromise;
     await flushMicrotasks();
     observerCallbacks.forEach((callback) => callback());
@@ -936,15 +981,149 @@ describe('video prompt', () => {
     const shadow = host?.shadowRoot ?? null;
     expect(shadow).toBeTruthy();
     expect(
-      shadow?.querySelector('style[data-aiob-style-bridge="panel-stitch-runtime"]')?.textContent
+      shadow?.querySelector('style[data-aiob-style-bridge="panel-video-style-pack"]')?.textContent
     ).toContain('.stitch-ready');
-    expect(
-      shadow?.querySelector('style[data-aiob-style-bridge="panel-stitch-secondary-runtime"]')
-        ?.textContent
-    ).toContain('.stitch-secondary-ready');
+    expect(shadow?.querySelectorAll('[data-aiob-style-bridge]')).toHaveLength(1);
+  });
+
+  it('invalidates late prompt work before creating style ownership', async () => {
+    const themeGate = createDeferred<null>();
+    const disposals: boolean[] = [];
+    const { panelStyleSheetManager } =
+      await import('../../../src/content/shared/panels/styleSheetManager');
+    vi.spyOn(panelStyleSheetManager, 'applyVideoStyles').mockImplementation((root) => ({
+      ready: Promise.resolve({ status: 'ready' }),
+      refresh: () => Promise.resolve({ status: 'ready' }),
+      dispose: vi.fn(() => disposals.push(root.host.isConnected))
+    }));
+    const { createVideoPromptMountLifecycle } =
+      await import('../../../src/content/video/videoPromptMountLifecycle');
+    const getRuntimeTheme = vi.fn(() => themeGate.promise);
+    const lifecycle = createVideoPromptMountLifecycle({
+      getDocument: () => document,
+      getWindow: () => window,
+      getMessages: () => Promise.resolve(DEFAULT_RUNTIME_MESSAGES),
+      getLabel: () => 'Clip video',
+      getShortcut: () => 'Alt+V',
+      getIconUrl: () => null,
+      getRuntimeTheme,
+      isPromptEnabled: () => true,
+      isPromptSuppressed: () => false,
+      isVideoSessionActive: () => false,
+      setPromptSuppressed: vi.fn(),
+      startVideoSession: vi.fn(),
+      getStoredPromptPosition: () => Promise.resolve(null),
+      saveStoredPromptPosition: () => Promise.resolve()
+    });
+
+    const mount = lifecycle.mountPrompt();
+    await vi.waitFor(() => expect(getRuntimeTheme).toHaveBeenCalled());
+    lifecycle.removePrompt();
+    themeGate.resolve(null);
+    await mount;
+    lifecycle.removePrompt();
+
+    expect(getPromptFromShadowDom()).toBeNull();
+    expect(panelStyleSheetManager.applyVideoStyles).not.toHaveBeenCalled();
+    expect(disposals).toEqual([]);
+  });
+
+  it('disposes style ownership when prompt rendering fails after attachment', async () => {
+    const dispose = vi.fn();
+    const { panelStyleSheetManager } =
+      await import('../../../src/content/shared/panels/styleSheetManager');
+    vi.spyOn(panelStyleSheetManager, 'applyVideoStyles').mockReturnValue({
+      ready: Promise.resolve({ status: 'ready' }),
+      refresh: () => Promise.resolve({ status: 'ready' }),
+      dispose
+    });
+    const { createVideoPromptMountLifecycle } =
+      await import('../../../src/content/video/videoPromptMountLifecycle');
+    createPromptElementMock.mockImplementationOnce(() => {
+      throw new Error('prompt render failed');
+    });
+    const lifecycle = createVideoPromptMountLifecycle({
+      getDocument: () => document,
+      getWindow: () => window,
+      getMessages: () => Promise.resolve(DEFAULT_RUNTIME_MESSAGES),
+      getLabel: () => 'Clip video',
+      getShortcut: () => 'Alt+V',
+      getIconUrl: () => null,
+      getRuntimeTheme: () => Promise.resolve(null),
+      isPromptEnabled: () => true,
+      isPromptSuppressed: () => false,
+      isVideoSessionActive: () => false,
+      setPromptSuppressed: vi.fn(),
+      startVideoSession: vi.fn(),
+      getStoredPromptPosition: () => Promise.resolve(null),
+      saveStoredPromptPosition: () => Promise.resolve()
+    });
+
+    await expect(lifecycle.mountPrompt()).rejects.toThrow('prompt render failed');
+    expect(dispose).toHaveBeenCalledTimes(1);
+    expect(getPromptFromShadowDom()).toBeNull();
+  });
+
+  it('removes the connected host when drag setup fails after attachment', async () => {
+    const attached: { root: ShadowRoot | null } = { root: null };
+    const dispose = vi.fn(() => expect(attached.root?.host.isConnected).toBe(true));
+    const { panelStyleSheetManager } =
+      await import('../../../src/content/shared/panels/styleSheetManager');
+    vi.spyOn(panelStyleSheetManager, 'applyVideoStyles').mockImplementation((root) => {
+      attached.root = root;
+      return {
+        ready: Promise.resolve({ status: 'ready' }),
+        refresh: () => Promise.resolve({ status: 'ready' }),
+        dispose
+      };
+    });
+    attachDragHandlersMock.mockImplementationOnce(() => {
+      throw new Error('prompt drag setup failed');
+    });
+    const { createVideoPromptMountLifecycle } =
+      await import('../../../src/content/video/videoPromptMountLifecycle');
+    const lifecycle = createVideoPromptMountLifecycle({
+      getDocument: () => document,
+      getWindow: () => window,
+      getMessages: () => Promise.resolve(DEFAULT_RUNTIME_MESSAGES),
+      getLabel: () => 'Clip video',
+      getShortcut: () => 'Alt+V',
+      getIconUrl: () => null,
+      getRuntimeTheme: () => Promise.resolve(null),
+      isPromptEnabled: () => true,
+      isPromptSuppressed: () => false,
+      isVideoSessionActive: () => false,
+      setPromptSuppressed: vi.fn(),
+      startVideoSession: vi.fn(),
+      getStoredPromptPosition: () => Promise.resolve(null),
+      saveStoredPromptPosition: () => Promise.resolve()
+    });
+
+    await expect(lifecycle.mountPrompt()).rejects.toThrow('prompt drag setup failed');
+    expect(dispose).toHaveBeenCalledTimes(1);
+    expect(attached.root?.host.isConnected).toBe(false);
+    expect(getPromptFromShadowDom()).toBeNull();
   });
 
   it('tears down prompt DOM on pagehide and restores it on pageshow', async () => {
+    const handles: Array<
+      StyleAttachmentHandle & {
+        dispose: ReturnType<typeof vi.fn<StyleAttachmentHandle['dispose']>>;
+      }
+    > = [];
+    const { panelStyleSheetManager } =
+      await import('../../../src/content/shared/panels/styleSheetManager');
+    vi.spyOn(panelStyleSheetManager, 'applyVideoStyles').mockImplementation((root) => {
+      const handle: StyleAttachmentHandle & {
+        dispose: ReturnType<typeof vi.fn<StyleAttachmentHandle['dispose']>>;
+      } = {
+        ready: Promise.resolve({ status: 'ready' }),
+        refresh: () => Promise.resolve({ status: 'ready' }),
+        dispose: vi.fn(() => expect(root.host.isConnected).toBe(true))
+      };
+      handles.push(handle);
+      return handle;
+    });
     const module = await loadPromptModule();
     currentTestUtils = module.__videoPromptTestUtils;
     const deps = createTestDependencies();
@@ -958,10 +1137,12 @@ describe('video prompt', () => {
     window.dispatchEvent(new Event('pagehide'));
     await flushMicrotasks();
     expect(getPromptFromShadowDom()).toBeNull();
+    expect(handles[0]?.dispose).toHaveBeenCalledTimes(1);
 
     window.dispatchEvent(new Event('pageshow'));
     observerCallbacks.forEach((callback) => callback());
     await flushMicrotasks();
     expect(getPromptFromShadowDom()).not.toBeNull();
+    expect(handles).toHaveLength(2);
   });
 });

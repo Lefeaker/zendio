@@ -1,4 +1,5 @@
 import { mergeOptions } from '@shared/config/optionsMerger';
+import { StoredOptionsSchema } from '@shared/schemas/options.schema';
 import type { CompleteOptions, StoredOptions } from '@shared/types/options';
 import type { YamlConfigOverrides } from '@shared/types/yamlConfig';
 import type { Messages } from '@i18n';
@@ -80,11 +81,8 @@ export class YamlConfigEditorWidgetAdapter implements WidgetMountContract<
   }
 
   applySnapshot(snapshot: unknown): void {
-    const source =
-      snapshot && typeof snapshot === 'object'
-        ? (snapshot as StoredOptions | CompleteOptions)
-        : null;
-    const merged = mergeOptions(source) as CompleteOptions;
+    const parsed = StoredOptionsSchema.safeParse(snapshot);
+    const merged = mergeOptions(parsed.success ? parsed.data : null);
     this.state = createYamlEditorState(merged.yamlConfig ?? null);
     this.validation = null;
     this.lastValidYamlConfig = merged.yamlConfig ?? null;

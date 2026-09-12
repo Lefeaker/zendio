@@ -1,27 +1,21 @@
-import { copyFile, mkdir, readdir, readFile, rm, stat, writeFile } from 'fs/promises';
+import { randomUUID } from 'node:crypto';
+import { chmod, link, lstat, open, readFile, rm, unlink, writeFile } from 'fs/promises';
 import { join, resolve } from 'path';
 import process from 'process';
 import { pathToFileURL } from 'url';
+import { runBoundedCommand } from './utils/boundedCommand.mjs';
+import { omitGaBuildEnvironment } from './utils/buildQualityCommandEnvironment.mjs';
 import { zipDirectory } from './utils/archive.mjs';
 import { applyRestHostPermissions } from './utils/manifestHosts.mjs';
+import { createBrowserManifest } from './utils/manifestSources.mjs';
 import { pathExists, prepareLicenseArtifacts, resolveMessage } from './utils/packageHelpers.mjs';
 import {
   createReleaseArtifactBaseName,
   createReleaseArtifactFileName
 } from './utils/releaseArtifactNames.mjs';
-import {
-  auditFirefoxAmoSourceArchive,
-  createFirefoxAmoSourceArchive
-} from './utils/firefoxAmoSourceArchive.mjs';
 import { auditReleaseArchive } from '../tools/audit-release-archive.mjs';
 
 const args = process.argv.slice(2);
-const FIREFOX_SIGNING_CHANNELS = new Set(['listed', 'unlisted']);
-export const DEFAULT_FIREFOX_AMO_BASE_URL = 'https://addons.mozilla.org/api/v5/';
-
-function hasFlag(flag) {
-  return args.includes(flag);
-}
 
 function getFlagValue(flag, { defaultValue } = {}) {
   const index = args.indexOf(flag);
@@ -35,32 +29,62 @@ function getFlagValue(flag, { defaultValue } = {}) {
   return value;
 }
 
-function getOptionalNumberFlagValue(flag) {
-  const rawValue = getFlagValue(flag, { defaultValue: undefined });
-  if (rawValue === undefined) {
-    return undefined;
+function assertReleasePublication(publication) {
+  if (publication?.mode !== 'release-no-replace-v1') {
+    throw new Error('FIREFOX_RELEASE_PUBLICATION_REQUIRED');
   }
-  if (!/^(0|[1-9]\d*)$/.test(rawValue)) {
-    throw new Error(`参数 ${flag} 必须是非负整数毫秒值`);
+  if (!publication.outputDir || !publication.workDir) {
+    throw new Error('FIREFOX_RELEASE_PUBLICATION_PATHS_REQUIRED');
   }
-  return Number(rawValue);
+  const outputDir = resolve(publication.outputDir);
+  const workDir = resolve(publication.workDir);
+  if (
+    outputDir === workDir ||
+    outputDir !== publication.outputDir ||
+    workDir !== publication.workDir
+  ) {
+    throw new Error('FIREFOX_RELEASE_PUBLICATION_PATH_INVALID');
+  }
+  return { outputDir, workDir };
 }
 
-export function normalizeFirefoxSigningChannel(channel) {
-  const normalized = String(channel ?? '').trim();
-  if (!FIREFOX_SIGNING_CHANNELS.has(normalized)) {
-    throw new Error('Firefox signing channel must be either "listed" or "unlisted".');
+async function fsyncDirectory(directory) {
+  const handle = await open(directory, 'r');
+  try {
+    await handle.sync();
+  } finally {
+    await handle.close();
   }
-  return normalized;
 }
 
-export function requiresDownloadedSignedArtifact(channel) {
-  return normalizeFirefoxSigningChannel(channel) === 'unlisted';
-}
-
-export async function createUnsignedXpi(distDir, _resolvedName, version) {
+export async function createUnsignedXpi(distDir, _resolvedName, version, options = {}) {
   const artifactBaseName = createReleaseArtifactBaseName(version);
   const xpiName = createReleaseArtifactFileName(version, 'xpi');
+  if (options.publication) {
+    const { outputDir, workDir } = assertReleasePublication(options.publication);
+    const outputPath = join(outputDir, xpiName);
+    try {
+      await lstat(outputPath);
+      throw new Error('FIREFOX_RELEASE_TARGET_EXISTS');
+    } catch (error) {
+      if (error?.code !== 'ENOENT') throw error;
+    }
+    const constructionPath = join(workDir, `.xpi-${randomUUID()}.tmp`);
+    await zipDirectory(distDir, constructionPath, { ignore: ['**/*.map', '**/.DS_Store'] });
+    await chmod(constructionPath, 0o600);
+    const handle = await open(constructionPath, 'r');
+    try {
+      await handle.sync();
+    } finally {
+      await handle.close();
+    }
+    await link(constructionPath, outputPath);
+    await fsyncDirectory(outputDir);
+    await unlink(constructionPath);
+    await fsyncDirectory(workDir);
+    await fsyncDirectory(outputDir);
+    return { xpiName, outputPath, artifactBaseName };
+  }
   const outputPath = resolve(xpiName);
 
   if (await pathExists(outputPath)) {
@@ -71,278 +95,128 @@ export async function createUnsignedXpi(distDir, _resolvedName, version) {
   return { xpiName, outputPath, artifactBaseName };
 }
 
-async function loadWebExt() {
-  const webExtModule = await import('web-ext');
-  return webExtModule.default ?? webExtModule;
+function canonicalizeJson(value) {
+  if (Array.isArray(value)) {
+    return value.map((entry) => canonicalizeJson(entry));
+  }
+  if (value && typeof value === 'object') {
+    return Object.fromEntries(
+      Object.keys(value)
+        .sort()
+        .map((key) => [key, canonicalizeJson(value[key])])
+    );
+  }
+  return value;
 }
 
-function getLintCount(lintResult, key) {
-  const summaryCount = lintResult?.summary?.[key];
-  if (typeof summaryCount === 'number') {
-    return summaryCount;
+export async function validateFirefoxExtension(distDir, dependencies = {}) {
+  const {
+    applyRestHostPermissionsImpl = applyRestHostPermissions,
+    createBrowserManifestImpl = createBrowserManifest,
+    logger = console,
+    pathExistsImpl = pathExists,
+    readFileImpl = readFile
+  } = dependencies;
+  logger.log('🔎 正在运行 Firefox repository manifest/static checks...');
+  const manifestPath = join(distDir, 'manifest.json');
+  let actual;
+  try {
+    actual = JSON.parse(await readFileImpl(manifestPath, 'utf8'));
+  } catch (error) {
+    throw new Error(`FIREFOX_STATIC_MANIFEST_INVALID: ${error.message}`);
   }
-
-  const entries = lintResult?.[key];
-  return Array.isArray(entries) ? entries.length : 0;
+  const expected = applyRestHostPermissionsImpl(createBrowserManifestImpl('firefox'));
+  if (JSON.stringify(canonicalizeJson(actual)) !== JSON.stringify(canonicalizeJson(expected))) {
+    throw new Error('FIREFOX_STATIC_MANIFEST_DRIFT');
+  }
+  if (
+    actual.manifest_version !== 3 ||
+    actual.background?.service_worker !== undefined ||
+    JSON.stringify(actual.background?.scripts) !== JSON.stringify(['background/index.js']) ||
+    actual.browser_specific_settings?.gecko?.strict_min_version !== '142.0' ||
+    actual.browser_specific_settings?.gecko_android?.strict_min_version !== '142.0' ||
+    JSON.stringify(actual.browser_specific_settings?.gecko?.data_collection_permissions) !==
+      JSON.stringify({ required: ['none'], optional: ['technicalAndInteraction'] }) ||
+    !(await pathExistsImpl(join(distDir, 'background/index.js')))
+  ) {
+    throw new Error('FIREFOX_STATIC_RELEASE_CONTRACT');
+  }
+  logger.log('✅ Firefox repository manifest/static checks passed');
+  return actual;
 }
 
-function formatLintErrorCodes(errors) {
-  if (!Array.isArray(errors) || errors.length === 0) {
-    return 'unknown';
+function parseFirefoxLintOutput(result) {
+  const stdout = result?.output?.stdout?.text?.trim() ?? '';
+  let parsed;
+  try {
+    parsed = JSON.parse(stdout);
+  } catch {
+    const stderr = result?.output?.stderr?.text?.trim() || 'none';
+    throw new Error(
+      `FIREFOX_ADDONS_LINT_COMMAND_FAILED: exit=${String(result?.exitCode ?? 1)} reason=${String(result?.terminalReason ?? 'unknown')} stderr=${stderr}`
+    );
   }
-
-  return errors
-    .map((error) => error?.code ?? error?.message ?? 'unknown')
-    .slice(0, 5)
-    .join(', ');
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+    throw new Error('FIREFOX_ADDONS_LINT_OUTPUT_INVALID');
+  }
+  const errors = Array.isArray(parsed.errors) ? parsed.errors : [];
+  const warnings = Array.isArray(parsed.warnings) ? parsed.warnings : [];
+  const notices = Array.isArray(parsed.notices) ? parsed.notices : [];
+  const summary = parsed.summary;
+  if (
+    !summary ||
+    summary.errors !== errors.length ||
+    summary.warnings !== warnings.length ||
+    summary.notices !== notices.length
+  ) {
+    throw new Error('FIREFOX_ADDONS_LINT_OUTPUT_INVALID');
+  }
+  return { errors, warnings, notices };
 }
 
 export async function lintFirefoxExtension(distDir, dependencies = {}) {
-  const { importWebExtImpl = loadWebExt, logger = console, webExt } = dependencies;
-  const resolvedWebExt = webExt ?? (await importWebExtImpl());
-
-  if (typeof resolvedWebExt?.cmd?.lint !== 'function') {
-    throw new Error('Firefox web-ext lint API is unavailable.');
-  }
-
-  logger.log('🔎 正在运行 Firefox web-ext lint...');
-
-  let lintResult;
-  try {
-    lintResult = await resolvedWebExt.cmd.lint(
-      {
-        sourceDir: distDir,
-        selfHosted: true,
-        warningsAsErrors: false
-      },
-      { shouldExitProgram: false }
-    );
-  } catch (error) {
-    throw new Error(`Firefox web-ext lint failed: ${error.message}`);
-  }
-
-  const errorCount = getLintCount(lintResult, 'errors');
-  if (errorCount > 0) {
-    throw new Error(
-      `Firefox web-ext lint failed with ${errorCount} error(s): ${formatLintErrorCodes(
-        lintResult?.errors
-      )}`
-    );
-  }
-
-  const warningCount = getLintCount(lintResult, 'warnings');
-  if (warningCount > 0) {
-    logger.warn(
-      `⚠️  Firefox web-ext lint reported ${warningCount} warning(s); review web-ext output before AMO submission.`
-    );
-  }
-
-  logger.log('✅ Firefox web-ext lint passed');
-  return lintResult;
-}
-
-async function readXpiArtifactSnapshot(artifactsDir, { readdirImpl, statImpl }) {
-  const snapshot = new Map();
-  const files = await readdirImpl(artifactsDir);
-
-  for (const file of files) {
-    if (!file.endsWith('.xpi')) {
-      continue;
-    }
-
-    const fileStats = await statImpl(join(artifactsDir, file));
-    snapshot.set(file, {
-      file,
-      mtimeMs: fileStats.mtimeMs,
-      size: fileStats.size
-    });
-  }
-
-  return snapshot;
-}
-
-function findUpdatedSignedArtifact(beforeSnapshot, afterSnapshot) {
-  const candidates = [];
-
-  for (const [file, afterStats] of afterSnapshot.entries()) {
-    const beforeStats = beforeSnapshot.get(file);
-    if (
-      !beforeStats ||
-      beforeStats.mtimeMs !== afterStats.mtimeMs ||
-      beforeStats.size !== afterStats.size
-    ) {
-      candidates.push(afterStats);
-    }
-  }
-
-  candidates.sort((left, right) => {
-    if (right.mtimeMs !== left.mtimeMs) {
-      return right.mtimeMs - left.mtimeMs;
-    }
-    return right.file.localeCompare(left.file);
-  });
-
-  return candidates[0]?.file ?? null;
-}
-
-export async function runSigning(
-  {
-    distDir,
-    artifactsDir,
-    artifactBaseName,
-    apiKey,
-    apiSecret,
-    amoBaseUrl = DEFAULT_FIREFOX_AMO_BASE_URL,
-    channel,
-    extensionId,
-    uploadSourceCodePath,
-    timeout,
-    approvalTimeout
-  },
-  dependencies = {}
-) {
-  const {
-    copyFileImpl = copyFile,
-    importWebExtImpl = loadWebExt,
-    logger = console,
-    mkdirImpl = mkdir,
-    pathExistsImpl = pathExists,
-    readdirImpl = readdir,
-    resolvePathImpl = resolve,
-    statImpl = stat,
-    webExt
-  } = dependencies;
-  const resolvedWebExt = webExt ?? (await importWebExtImpl());
-  const normalizedChannel = normalizeFirefoxSigningChannel(channel);
-
-  if (!(await pathExistsImpl(artifactsDir))) {
-    await mkdirImpl(artifactsDir, { recursive: true });
-  }
-
-  const beforeArtifacts = await readXpiArtifactSnapshot(artifactsDir, {
-    readdirImpl,
-    statImpl
-  });
-
-  logger.log('🔏 正在请求 Mozilla 签名服务...');
-
-  const signOptions = {
-    sourceDir: distDir,
-    artifactsDir,
-    apiKey,
-    apiSecret,
-    amoBaseUrl,
-    channel: normalizedChannel,
-    id: extensionId
-  };
-  if (uploadSourceCodePath) {
-    signOptions.uploadSourceCode = uploadSourceCodePath;
-  }
-  if (timeout !== undefined) {
-    signOptions.timeout = timeout;
-  }
-  if (approvalTimeout !== undefined) {
-    signOptions.approvalTimeout = approvalTimeout;
-  }
-
-  let webExtResult;
-  try {
-    webExtResult = await resolvedWebExt.cmd.sign(signOptions, { shouldExitProgram: false });
-  } catch (error) {
-    throw new Error(`web-ext 签名失败: ${error.message}`);
-  }
-
-  const afterArtifacts = await readXpiArtifactSnapshot(artifactsDir, {
-    readdirImpl,
-    statImpl
-  });
-  const latestSigned = findUpdatedSignedArtifact(beforeArtifacts, afterArtifacts);
-
-  if (!latestSigned) {
-    logger.warn('⚠️  未找到签名后的 XPI 文件，请检查 web-ext 输出日志。');
-    return {
-      artifactBaseName,
-      channel: normalizedChannel,
-      signedPath: null,
-      webExtResult
-    };
-  }
-
-  const signedSource = join(artifactsDir, latestSigned);
-  const signedTargetName = `${artifactBaseName}-signed.xpi`;
-  const signedTargetPath = resolvePathImpl(signedTargetName);
-
-  await copyFileImpl(signedSource, signedTargetPath);
-
-  logger.log('✅ 签名完成');
-  logger.log(`   签名文件: ${signedTargetPath}`);
-  logger.log(`   原始文件: ${signedSource}`);
-
-  return {
-    artifactBaseName,
-    channel: normalizedChannel,
-    signedPath: signedTargetPath,
-    webExtResult
-  };
-}
-
-export async function signAndAuditFirefoxPackage(signingOptions, dependencies = {}) {
-  const { auditReleaseArchiveImpl = auditReleaseArchive, runSigningImpl = runSigning } =
-    dependencies;
-  const result = await runSigningImpl(signingOptions, dependencies);
-
-  if (!result.signedPath && requiresDownloadedSignedArtifact(result.channel)) {
-    throw new Error('Firefox signing did not produce a signed XPI artifact.');
-  }
-
-  if (result.signedPath) {
-    await auditReleaseArchiveImpl(result.signedPath);
-  }
-  return result;
-}
-
-export async function resolveFirefoxAmoSourceArchiveForSigning(options, dependencies = {}) {
-  const {
-    artifactBaseName,
-    releaseXpiName = `${artifactBaseName}.xpi`,
-    version,
-    uploadSourceCodePath,
-    sourceArchiveOutputDir = 'build/firefox-source'
-  } = options;
-  const {
-    auditFirefoxAmoSourceArchiveImpl = auditFirefoxAmoSourceArchive,
-    createFirefoxAmoSourceArchiveImpl = createFirefoxAmoSourceArchive,
-    logger = console,
-    repoRoot = process.cwd(),
-    resolvePathImpl = resolve
-  } = dependencies;
-
-  if (uploadSourceCodePath) {
-    const resolvedPath = resolvePathImpl(uploadSourceCodePath);
-    await auditFirefoxAmoSourceArchiveImpl(resolvedPath);
-    logger.log(`🧾 Firefox AMO source archive: ${resolvedPath}`);
-    return resolvedPath;
-  }
-
-  const sourceArchive = await createFirefoxAmoSourceArchiveImpl(
-    {
-      repoRoot,
-      outputDir: sourceArchiveOutputDir,
-      artifactBaseName,
-      releaseXpiName,
-      version
-    },
-    { logger }
+  const { logger = console, runBoundedCommandImpl = runBoundedCommand } = dependencies;
+  logger.log('🔎 正在运行 bounded Firefox addons-linter...');
+  const result = await runBoundedCommandImpl(
+    { profileId: 'firefox-addons-lint-v1', arguments: [distDir] },
+    { mirrorOutput: false, environment: omitGaBuildEnvironment(process.env) }
   );
-  return sourceArchive.archivePath;
+  const findings = parseFirefoxLintOutput(result);
+  if (findings.errors.length > 0) {
+    const codes = findings.errors
+      .map((entry) => entry?.code ?? 'unknown')
+      .slice(0, 8)
+      .join(',');
+    throw new Error(`FIREFOX_ADDONS_LINT_ERRORS: count=${findings.errors.length} codes=${codes}`);
+  }
+  if (!result.ok) {
+    const stderr = result.output?.stderr?.text?.trim() || 'none';
+    throw new Error(
+      `FIREFOX_ADDONS_LINT_COMMAND_FAILED: exit=${String(result.exitCode ?? 1)} reason=${result.terminalReason} stderr=${stderr}`
+    );
+  }
+  if (findings.warnings.length > 0 || findings.notices.length > 0) {
+    logger.warn(
+      `Firefox addons-linter completed with ${findings.warnings.length} warning(s) and ${findings.notices.length} notice(s).`
+    );
+  }
+  logger.log(
+    `✅ Firefox addons-linter passed: errors=0 warnings=${findings.warnings.length} notices=${findings.notices.length}`
+  );
+  return {
+    errors: findings.errors.length,
+    warnings: findings.warnings.length,
+    notices: findings.notices.length
+  };
 }
 
-export async function prepareFirefoxReleasePackage({ distDir }, dependencies = {}) {
+export async function prepareFirefoxReleasePackage({ distDir, publication }, dependencies = {}) {
   const {
     applyRestHostPermissionsImpl = applyRestHostPermissions,
     auditReleaseArchiveImpl = auditReleaseArchive,
     createUnsignedXpiImpl = createUnsignedXpi,
     lintFirefoxExtensionImpl = lintFirefoxExtension,
+    validateFirefoxExtensionImpl = validateFirefoxExtension,
     logger = console,
     prepareLicenseArtifactsImpl = prepareLicenseArtifacts,
     readFileImpl = readFile,
@@ -364,13 +238,13 @@ export async function prepareFirefoxReleasePackage({ distDir }, dependencies = {
   logger.log(`📝 扩展名称: ${resolvedName}`);
   logger.log(`📝 版本号: ${version}`);
 
+  await validateFirefoxExtensionImpl(distDir);
   await lintFirefoxExtensionImpl(distDir);
 
-  const { xpiName, outputPath, artifactBaseName } = await createUnsignedXpiImpl(
-    distDir,
-    resolvedName,
-    version
-  );
+  const xpiResult = publication
+    ? await createUnsignedXpiImpl(distDir, resolvedName, version, { publication })
+    : await createUnsignedXpiImpl(distDir, resolvedName, version);
+  const { xpiName, outputPath, artifactBaseName } = xpiResult;
   await auditReleaseArchiveImpl(outputPath);
 
   return {
@@ -392,75 +266,31 @@ export async function packageFirefoxExtension() {
     process.exit(1);
   }
 
-  const { artifactBaseName, manifest, outputPath, xpiName } = await prepareFirefoxReleasePackage({
-    distDir
-  });
+  const { outputPath, xpiName } = await prepareFirefoxReleasePackage({ distDir });
 
   console.log('✅ 未签名 XPI 已生成');
   console.log(`   文件路径: ${outputPath}`);
 
-  if (!hasFlag('--sign')) {
-    console.log('');
-    console.log('📖 手动安装说明:');
-    console.log('   1. 打开 Firefox，访问 about:debugging#/runtime/this-firefox');
-    console.log('   2. 点击“临时载入附加组件”');
-    console.log(`   3. 选择 ${xpiName}`);
-    return;
+  console.log('');
+  console.log('📖 手动安装说明:');
+  console.log('   1. 打开 Firefox，访问 about:debugging#/runtime/this-firefox');
+  console.log('   2. 点击“临时载入附加组件”');
+  console.log(`   3. 选择 ${xpiName}`);
+}
+
+export async function lintFirefoxExtensionOnly() {
+  const distDir = getFlagValue('--dist-dir', { defaultValue: 'build/dist-firefox' });
+  if (!(await pathExists(distDir))) {
+    throw new Error(`FIREFOX_LINT_SOURCE_MISSING: ${distDir}`);
   }
-
-  const apiKey = getFlagValue('--api-key', { defaultValue: process.env.WEB_EXT_API_KEY });
-  const apiSecret = getFlagValue('--api-secret', { defaultValue: process.env.WEB_EXT_API_SECRET });
-  const amoBaseUrl = getFlagValue('--amo-base-url', {
-    defaultValue: DEFAULT_FIREFOX_AMO_BASE_URL
-  });
-  const channel = normalizeFirefoxSigningChannel(
-    getFlagValue('--channel', { defaultValue: 'listed' })
-  );
-  const timeout = getOptionalNumberFlagValue('--timeout');
-  const explicitApprovalTimeout = getOptionalNumberFlagValue('--approval-timeout');
-  const approvalTimeout = explicitApprovalTimeout ?? (channel === 'listed' ? 0 : undefined);
-  const artifactsDir = getFlagValue('--artifacts-dir', { defaultValue: 'build/firefox-artifacts' });
-  const uploadSourceCodePath = getFlagValue('--upload-source-code', { defaultValue: undefined });
-  const sourceArchiveOutputDir = getFlagValue('--source-archive-dir', {
-    defaultValue: 'build/firefox-source'
-  });
-
-  if (!apiKey || !apiSecret) {
-    console.error('❌ 签名模式需要提供 WEB_EXT_API_KEY 和 WEB_EXT_API_SECRET。');
-    console.error('   可以通过环境变量或 --api-key/--api-secret 参数传入。');
-    process.exit(1);
-  }
-
-  const resolvedUploadSourceCodePath = await resolveFirefoxAmoSourceArchiveForSigning({
-    artifactBaseName,
-    releaseXpiName: xpiName,
-    version: manifest.version,
-    uploadSourceCodePath,
-    sourceArchiveOutputDir
-  });
-
-  const signingResult = await signAndAuditFirefoxPackage({
-    distDir,
-    artifactsDir,
-    artifactBaseName,
-    apiKey,
-    apiSecret,
-    amoBaseUrl,
-    channel,
-    extensionId: manifest?.browser_specific_settings?.gecko?.id,
-    uploadSourceCodePath: resolvedUploadSourceCodePath,
-    timeout,
-    approvalTimeout
-  });
-
-  if (!signingResult.signedPath) {
-    console.log('✅ 已提交到 Mozilla Add-ons。');
-    console.log('   listed 渠道会等待 AMO 审核；审核通过后由 AMO 侧提供签名产物。');
-  }
+  await lintFirefoxExtension(distDir);
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
-  packageFirefoxExtension().catch((error) => {
+  const command = args.includes('--lint-only')
+    ? lintFirefoxExtensionOnly()
+    : packageFirefoxExtension();
+  command.catch((error) => {
     console.error('❌ Firefox 打包流程失败:', error);
     process.exit(1);
   });

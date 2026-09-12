@@ -57,7 +57,7 @@ describe('context menu listeners', () => {
       getOptions: vi.fn(() =>
         Promise.resolve({
           fragmentClipper: {
-            selectionModifierEnabled: true,
+            selectionTriggerMode: 'modifier',
             selectionModifierKeys: ['alt']
           }
         })

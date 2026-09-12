@@ -18,6 +18,9 @@ export class VideoSessionState {
   videoId: string | null = null;
   canonicalUrl = '';
   exporting = false;
+  ending = false;
+  disconnected = false;
+  exportDispatched = false;
   saving = false;
   stopOptionsWatcher: (() => void) | null = null;
   stopLanguageWatcher: (() => void) | null = null;
@@ -89,6 +92,10 @@ export function sortFragmentsByDocumentOrder(
         return 0;
       }
       const position = aNode.compareDocumentPosition(bNode);
+      if (position & Node.DOCUMENT_POSITION_DISCONNECTED) {
+        const shadowInclusiveOrder = compareShadowInclusiveDocumentOrder(aNode, bNode);
+        return shadowInclusiveOrder || compareFragmentCreationOrder(a, b);
+      }
       if (position & Node.DOCUMENT_POSITION_PRECEDING) {
         return 1;
       }
@@ -105,6 +112,39 @@ export function sortFragmentsByDocumentOrder(
       return 1;
     }
 
-    return a.createdAt - b.createdAt;
+    return compareFragmentCreationOrder(a, b);
   });
+}
+
+function compareShadowInclusiveDocumentOrder(a: Node, b: Node): number {
+  const aPath = buildShadowInclusivePath(a);
+  const bPath = buildShadowInclusivePath(b);
+  let index = 0;
+  while (aPath[index] && aPath[index] === bPath[index]) index += 1;
+  if (index === 0) return 0;
+  if (index === aPath.length) return -1;
+  if (index === bPath.length) return 1;
+
+  const parent = aPath[index - 1];
+  const aBranch = aPath[index];
+  const bBranch = bPath[index];
+  if (!parent || !aBranch || !bBranch) return 0;
+  const children = Array.from(parent.childNodes);
+  const aIndex = children.findIndex((child) => child === aBranch);
+  const bIndex = children.findIndex((child) => child === bBranch);
+  return aIndex >= 0 && bIndex >= 0 ? aIndex - bIndex : 0;
+}
+
+function buildShadowInclusivePath(node: Node): Node[] {
+  const path: Node[] = [];
+  let current: Node | null = node;
+  while (current) {
+    path.push(current);
+    current = current.parentNode ?? (current instanceof ShadowRoot ? current.host : null);
+  }
+  return path.reverse();
+}
+
+function compareFragmentCreationOrder(a: VideoFragmentCapture, b: VideoFragmentCapture): number {
+  return a.createdAt - b.createdAt || a.id.localeCompare(b.id);
 }

@@ -1,10 +1,5 @@
 import type { VaultConfig, RoutingRule } from '@shared/types';
-import type {
-  StoredOptions,
-  ReadingSessionOptions,
-  FragmentClipperOptions,
-  CompleteOptions
-} from '@shared/types/options';
+import type { StoredOptions, ReadingSessionOptions, CompleteOptions } from '@shared/types/options';
 import { collectPortEntriesFromConfig, findDuplicatePorts } from '../../utils/ports';
 import { configProvider } from '@shared/config/provider';
 import {
@@ -13,6 +8,7 @@ import {
   type DiagnosticReport,
   type DiagnosticSection
 } from './diagnosticsMessages';
+import { appendFragmentSelectionTriggerDiagnostics } from './fragmentSelectionTriggerDiagnostics';
 
 function isPresentOptions(
   options: StoredOptions | CompleteOptions | null | undefined
@@ -33,9 +29,6 @@ const VALID_READING_THEMES: ReadonlySet<ReadingSessionOptions['highlightTheme']>
   'neonGreen',
   'neonOrange'
 ]);
-
-const VALID_FRAGMENT_KEYS: ReadonlySet<FragmentClipperOptions['selectionModifierKeys'][number]> =
-  new Set(['alt', 'meta', 'ctrl', 'shift']);
 
 export function buildDiagnosticsModel(
   options: StoredOptions | CompleteOptions | null | undefined
@@ -212,26 +205,7 @@ export function buildDiagnosticsModel(
       );
     }
 
-    if (clipper.selectionModifierEnabled) {
-      const keys = (clipper.selectionModifierKeys ?? []).filter((key) =>
-        VALID_FRAGMENT_KEYS.has(key)
-      );
-      if (keys.length === 0) {
-        fragmentSection.lines.push(
-          createDiagnosticLine('warning', 'diagnosticsFragmentModifierKeysMissing')
-        );
-      } else {
-        fragmentSection.lines.push(
-          createDiagnosticLine('ok', 'diagnosticsFragmentModifierKeysValue', {
-            keys: keys.join(' + ')
-          })
-        );
-      }
-    } else {
-      fragmentSection.lines.push(
-        createDiagnosticLine('info', 'diagnosticsFragmentModifierDisabled')
-      );
-    }
+    appendFragmentSelectionTriggerDiagnostics(fragmentSection.lines, clipper);
   }
 
   const readingSection: DiagnosticSection = {

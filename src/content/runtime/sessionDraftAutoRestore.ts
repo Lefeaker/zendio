@@ -1,31 +1,28 @@
-import type { StorageService } from '../../platform/interfaces/storage';
-import type {
-  ReaderSessionAdapter,
-  VideoSessionAdapter
-} from '../clipper/services/selectionController';
 import {
-  createSessionDraftRepository,
+  createSessionDraftStorageKey,
   DEFAULT_SESSION_DRAFT_STORAGE_POLICY,
-  type SessionDraftStoragePolicy
-} from '../sessionDrafts';
+  isSessionDraftStorageKey,
+  SessionDraftEnvelopeSchema,
+  type ReaderSessionDraftEnvelope,
+  type SessionDraftEnvelope,
+  type VideoSessionDraftEnvelope
+} from '@shared/sessionDrafts';
+import { createSessionDraftRepository } from '../sessionDrafts';
 import { watchVideoNavigation, type VideoNavigationWatcher } from '../video/videoNavigationWatcher';
+import {
+  waitForDocumentBody,
+  waitForSessionStart,
+  waitForVideoElement,
+  type SessionDraftAutoRestoreDisposer,
+  type SessionDraftAutoRestoreOptions
+} from './sessionDraftAutoRestoreBootstrap';
+
+export type {
+  SessionDraftAutoRestoreDisposer,
+  SessionDraftAutoRestoreOptions
+} from './sessionDraftAutoRestoreBootstrap';
 
 const VIDEO_ELEMENT_WAIT_TIMEOUT_MS = 1_500;
-
-export interface SessionDraftAutoRestoreOptions {
-  document: Document;
-  window: Window;
-  storage: StorageService;
-  currentUrl: () => string;
-  createReaderSession: () => ReaderSessionAdapter;
-  createVideoSession: () => VideoSessionAdapter;
-  sessionDraftStoragePolicy?: SessionDraftStoragePolicy;
-  isReaderSessionActive: () => boolean;
-  isVideoSessionActive: () => boolean;
-  isVideoCandidateUrl: (href: string) => boolean;
-}
-
-export type SessionDraftAutoRestoreDisposer = () => void;
 
 export function startSessionDraftAutoRestore(
   options: SessionDraftAutoRestoreOptions
@@ -35,6 +32,48 @@ export function startSessionDraftAutoRestore(
   const repository = createSessionDraftRepository(options.storage.local, {
     retentionPolicy: sessionDraftStoragePolicy.retentionPolicy
   });
+  const releasingClaimKeys = new Set<string>();
+  const selectDraft = async (mode: 'reader' | 'video', pageUrl: string) => {
+    const result = await repository.selectAndClaim({
+      operation: 'selectAndClaim',
+      requestId:
+        typeof globalThis.crypto?.randomUUID === 'function'
+          ? globalThis.crypto.randomUUID()
+          : `restore-${Date.now()}-${Math.random().toString(16).slice(2)}`,
+      mode,
+      pageUrl
+    });
+    if (result.outcome === 'claimed' && result.envelope) return result.envelope;
+    if (result.outcome === 'none' || result.outcome === 'invalid_removed') return null;
+    if (result.outcome === 'conflict' && result.code === 'OWNER_ACTIVE') return null;
+    if (result.outcome === 'conflict' || result.outcome === 'recovery_failed') {
+      throw new Error(result.code);
+    }
+    throw new Error('SESSION_DRAFT_CLAIM_REQUIRES_READ_EXACT');
+  };
+  const releaseClaim = async (envelope: SessionDraftEnvelope): Promise<void> => {
+    if (!envelope.lease) return;
+    const key = createSessionDraftStorageKey(envelope);
+    releasingClaimKeys.add(key);
+    try {
+      const result = await repository.releaseLease({
+        operation: 'releaseLease',
+        requestId:
+          typeof globalThis.crypto?.randomUUID === 'function'
+            ? globalThis.crypto.randomUUID()
+            : `restore-release-${Date.now()}-${Math.random().toString(16).slice(2)}`,
+        key,
+        expectedRevision: envelope.revision,
+        leaseId: envelope.lease.leaseId
+      });
+      if (result.outcome !== 'released') {
+        const code: unknown = 'code' in result ? result.code : undefined;
+        throw new Error(typeof code === 'string' ? code : 'SESSION_DRAFT_RELEASE_FAILED');
+      }
+    } finally {
+      releasingClaimKeys.delete(key);
+    }
+  };
   const abortController = new AbortController();
   let stopped = false;
   let restoreRun: Promise<void> | null = null;
@@ -64,6 +103,23 @@ export function startSessionDraftAutoRestore(
       });
   };
 
+  const stopDraftStorageWatcher = options.storage.local.watchAll((changes) => {
+    const hasRestorableDraft = Object.entries(changes).some(([key, change]) => {
+      if (
+        releasingClaimKeys.has(key) ||
+        !isSessionDraftStorageKey(key) ||
+        change.newValue === undefined
+      ) {
+        return false;
+      }
+      const parsed = SessionDraftEnvelopeSchema.safeParse(change.newValue);
+      return parsed.success && parsed.data.status === 'restorable' && !parsed.data.lease;
+    });
+    if (hasRestorableDraft) {
+      queueRestore();
+    }
+  });
+
   const navigationWatcher: VideoNavigationWatcher = watchVideoNavigation(options.document, () => {
     queueRestore();
   });
@@ -78,12 +134,10 @@ export function startSessionDraftAutoRestore(
 
       const href = options.currentUrl();
       const isVideoCandidate = options.isVideoCandidateUrl(href);
-      const [videoDraft, readerDraft] = await Promise.all([
-        isVideoCandidate ? repository.loadLatest('video', href) : Promise.resolve(null),
-        repository.loadLatest('reader', href)
-      ]);
+      const videoDraft = isVideoCandidate ? await selectDraft('video', href) : null;
 
       if (stopped || abortController.signal.aborted || isSessionActive()) {
+        if (videoDraft) await releaseClaim(videoDraft);
         return;
       }
 
@@ -95,17 +149,46 @@ export function startSessionDraftAutoRestore(
           VIDEO_ELEMENT_WAIT_TIMEOUT_MS
         );
         if (!videoReady || stopped || abortController.signal.aborted || isSessionActive()) {
+          await releaseClaim(videoDraft);
           return;
         }
-        await options.createVideoSession().start();
+        let startCommitted = false;
+        try {
+          const session = options.createVideoSession(
+            videoDraft as VideoSessionDraftEnvelope,
+            abortController.signal,
+            () => {
+              startCommitted = true;
+            }
+          );
+          await waitForSessionStart(session.start(), abortController.signal);
+        } catch (error) {
+          if (!startCommitted) await releaseClaim(videoDraft);
+          throw error;
+        }
         return;
       }
 
+      const readerDraft = await selectDraft('reader', href);
+      if (stopped || abortController.signal.aborted || isSessionActive()) {
+        if (readerDraft) await releaseClaim(readerDraft);
+        return;
+      }
       if (readerDraft) {
-        if (stopped || abortController.signal.aborted || isSessionActive()) {
-          return;
+        let startCommitted = false;
+        try {
+          const session = options.createReaderSession(
+            readerDraft as ReaderSessionDraftEnvelope,
+            abortController.signal,
+            () => {
+              startCommitted = true;
+            }
+          );
+          await waitForSessionStart(session.start(), abortController.signal);
+        } catch (error) {
+          if (!startCommitted) await releaseClaim(readerDraft);
+          throw error;
         }
-        await options.createReaderSession().start();
         return;
       }
     } while (rerunRequested && !stopped);
@@ -116,86 +199,7 @@ export function startSessionDraftAutoRestore(
   return () => {
     stopped = true;
     abortController.abort();
+    stopDraftStorageWatcher();
     navigationWatcher.stop();
   };
-}
-
-async function waitForDocumentBody(doc: Document, signal: AbortSignal): Promise<void> {
-  if (doc.body) {
-    return;
-  }
-
-  await new Promise<void>((resolve) => {
-    const observer =
-      doc.defaultView?.MutationObserver !== undefined
-        ? new doc.defaultView.MutationObserver(finish)
-        : new MutationObserver(finish);
-
-    function finish(): void {
-      observer.disconnect();
-      doc.removeEventListener('DOMContentLoaded', finish);
-      signal.removeEventListener('abort', finish);
-      resolve();
-    }
-
-    doc.addEventListener('DOMContentLoaded', finish, { once: true });
-    signal.addEventListener('abort', finish, { once: true });
-    if (doc.documentElement) {
-      observer.observe(doc.documentElement, { childList: true, subtree: true });
-    } else {
-      resolve();
-      return;
-    }
-    if (doc.body) {
-      finish();
-    }
-  });
-}
-
-async function waitForVideoElement(
-  doc: Document,
-  win: Window,
-  signal: AbortSignal,
-  timeoutMs: number
-): Promise<boolean> {
-  if (doc.querySelector('video')) {
-    return true;
-  }
-
-  return new Promise<boolean>((resolve) => {
-    const observer =
-      doc.defaultView?.MutationObserver !== undefined
-        ? new doc.defaultView.MutationObserver(checkForVideo)
-        : new MutationObserver(checkForVideo);
-    let settled = false;
-    const timeoutId = win.setTimeout(() => finish(false), timeoutMs);
-
-    function finish(result: boolean): void {
-      if (settled) {
-        return;
-      }
-      settled = true;
-      observer.disconnect();
-      win.clearTimeout(timeoutId);
-      signal.removeEventListener('abort', handleAbort);
-      resolve(result);
-    }
-
-    function handleAbort(): void {
-      finish(false);
-    }
-
-    function checkForVideo(): void {
-      if (doc.querySelector('video')) {
-        finish(true);
-      }
-    }
-
-    signal.addEventListener('abort', handleAbort, { once: true });
-    const root = doc.body ?? doc.documentElement;
-    if (root) {
-      observer.observe(root, { childList: true, subtree: true });
-    }
-    checkForVideo();
-  });
 }

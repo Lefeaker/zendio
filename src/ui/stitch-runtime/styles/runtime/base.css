@@ -1,0 +1,144 @@
+/* Neutral runtime base */
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  height: 100%;
+  min-height: 100%;
+  background:
+    radial-gradient(circle at top left, var(--page-gradient-a), transparent 22%),
+    radial-gradient(circle at right 16%, var(--page-gradient-b), transparent 18%),
+    radial-gradient(circle at bottom right, var(--page-gradient-c), transparent 20%),
+    linear-gradient(180deg, var(--bg-soft) 0%, var(--bg) 100%);
+  color: var(--text);
+  font-family: var(--font-ui);
+  line-height: var(--line-height-body);
+  overflow: hidden;
+}
+
+.stitch-runtime-surface {
+  color: var(--text);
+  font-family: var(--font-ui);
+  line-height: var(--line-height-body);
+}
+
+.preview-icon {
+  display: block;
+  flex: none;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-3);
+  max-width: 100%;
+  min-width: 0;
+  min-height: var(--brand-mark-size);
+  padding: 0 var(--space-5-5);
+  border: var(--border-default);
+  border-radius: var(--radius-md);
+  background: var(--panel-strong);
+  color: var(--text);
+  cursor: pointer;
+  font-size: var(--font-size-md);
+  font-weight: 600;
+  letter-spacing: var(--tracking-compact);
+  transition: var(--transition-button);
+}
+
+.btn:hover {
+  background: var(--surface-muted-strong);
+  border-color: var(--line-strong);
+}
+
+.btn-icon {
+  font-size: var(--font-size-lg);
+}
+
+.btn.primary {
+  background: var(--accent-strong);
+  border-color: transparent;
+  color: var(--on-accent);
+}
+
+.btn.primary:hover {
+  background: color-mix(in srgb, var(--accent-strong) 88%, var(--on-dark) 12%);
+  border-color: transparent;
+}
+
+.btn.secondary {
+  background: var(--surface-muted);
+}
+
+.btn.warning {
+  background: var(--warning-soft);
+  border-color: color-mix(in srgb, var(--warning) 36%, transparent);
+  color: var(--warning);
+}
+
+.btn.danger {
+  background: var(--danger-soft);
+  border-color: color-mix(in srgb, var(--danger) 36%, transparent);
+  color: var(--danger);
+}
+
+.btn.ghost {
+  background: transparent;
+}
+
+.btn.ghost:hover {
+  background: var(--surface-muted);
+}
+
+.resource-modal--clipper .btn,
+.resource-modal--session .btn {
+  min-height: 38px;
+  padding: 0 var(--space-5);
+  border-radius: var(--radius-md);
+  border-color: var(--runtime-line);
+  background: transparent;
+  color: var(--text);
+  font-size: var(--font-size-base);
+  font-weight: 600;
+}
+
+.resource-modal--clipper .btn:hover,
+.resource-modal--session .btn:hover {
+  background: rgba(255, 255, 255, 0.04);
+  border-color: var(--runtime-line-strong);
+}
+
+.resource-modal--clipper .btn.primary,
+.resource-modal--session .btn.primary {
+  border-color: transparent;
+  background: #a78bfa;
+  color: #09090b;
+  box-shadow: 0 0 15px rgba(167, 139, 250, 0.3);
+}
+
+.resource-modal--clipper .btn.primary:hover,
+.resource-modal--session .btn.primary:hover {
+  background: #b69aff;
+  box-shadow: 0 0 25px rgba(167, 139, 250, 0.45);
+}
+
+.resource-modal--clipper .btn.secondary,
+.resource-modal--session .btn.secondary {
+  background: rgba(255, 255, 255, 0.02);
+}
+
+a {
+  color: var(--accent);
+  text-decoration: none;
+}

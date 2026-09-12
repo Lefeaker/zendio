@@ -1,8 +1,4 @@
-import {
-  createClipPipelineDependencies,
-  handleClipResult,
-  type ClipPipelineDependencies
-} from '../pipelines/clipPipeline';
+import { handleClipResult } from '../pipelines/clipPipeline';
 import { handleConnectionTest, handleVaultConnectionTest } from '../pipelines/connectionTest';
 import { toConnectionTestPayload } from './connectionTestPayload';
 import { notifyClipFailure, notifyExtractionError } from '../services/notifications';
@@ -25,49 +21,30 @@ import {
   processClipPayload,
   readClipProcessingFailureCategory
 } from '../application/clipProcessor';
-import type { MessagingService } from '../../platform/interfaces/messaging';
-import type { TabsService } from '../../platform/interfaces/tabs';
-import type { RuntimeService } from '../../platform/interfaces/runtime';
 import type { ClipPayload } from '../../shared/types';
 import type { MessagePayload } from '../../platform/interfaces/messaging';
-import { isObjectRecord } from '../../shared/guards/object';
-import {
-  CAPTURE_VISIBLE_TAB_SCREENSHOT_MESSAGE,
-  type CaptureVisibleTabScreenshotResponse
-} from '../../shared/types/videoScreenshotMessages';
-import { captureVisibleTabScreenshotForSender } from './visibleTabScreenshot';
-import {
-  createBackgroundVideoScreenshotCacheHandler as createScreenshotCacheHandler,
-  type BackgroundVideoScreenshotCacheHandler
-} from '../services/videoScreenshotCacheService';
-import type { StorageService } from '../../platform/interfaces/storage';
+import { CAPTURE_VISIBLE_TAB_SCREENSHOT_MESSAGE } from '../../shared/types/videoScreenshotMessages';
 import {
   isGetTabContextMessage,
   isOpenOptionsPageMessage,
+  isRepositoryContentMessage,
   isTabContextActiveMessage,
-  toRuntimeMessageSender,
-  type RuntimeMessageSender,
-  type RuntimeTabContextPayload
+  resolveActivationMilestone,
+  toMessagePayload,
+  toRuntimeMessageSender
 } from './runtimeMessageContracts';
+import { handleSessionDraftMessage, isSessionDraftMessageCandidate } from './sessionDraftMessages';
+import { normalizeSessionDraftStoredValue } from '../../shared/sessionDrafts';
+import {
+  isOptionsMutationMessageCandidate,
+  isUsageStatsMessageCandidate
+} from './runtimeMessageContracts';
+import type { RuntimeMessageListenerDependencies } from './runtimeMessageDependencies';
+
+export { createRuntimeMessageListenerDependencies } from './runtimeMessageDependencies';
+export type { RuntimeMessageListenerDependencies } from './runtimeMessageDependencies';
 
 const INVALID_CLIP_PAYLOAD_ERROR = 'Invalid clip payload received.';
-
-function isRepositoryContentMessage(
-  message: unknown,
-  type: 'clip' | 'readingClip' | 'videoClip',
-  contentField: 'markdown' | 'content'
-): message is { data: Record<string, unknown>; type: string } {
-  return (
-    isObjectRecord(message) &&
-    message.type === type &&
-    isObjectRecord(message.data) &&
-    typeof message.data[contentField] === 'string'
-  );
-}
-
-function toMessagePayload(value: unknown): MessagePayload {
-  return value as MessagePayload;
-}
 
 function toReadingClipPayload(data: Record<string, unknown>): unknown {
   return {
@@ -124,92 +101,6 @@ async function processRepositoryClipPayload(payload: unknown): Promise<MessagePa
   }
 }
 
-export interface RuntimeMessageListenerDependencies {
-  messaging: Pick<MessagingService, 'addListener'>;
-  clipPipeline: ClipPipelineDependencies;
-  openOptionsPage(section?: string): Promise<void>;
-  getTabContext(sender: RuntimeMessageSender): Promise<RuntimeTabContextPayload>;
-  isTabContextActive(ownerContext: RuntimeMessageSender): Promise<RuntimeTabContextPayload>;
-  captureVisibleTabScreenshot(
-    sender: RuntimeMessageSender
-  ): Promise<CaptureVisibleTabScreenshotResponse>;
-  handleVideoScreenshotCacheMessage: BackgroundVideoScreenshotCacheHandler;
-}
-function resolveActivationMilestone(
-  eventName: string
-): 'onboarding_completed' | 'first_reader_exported' | 'first_video_exported' | null {
-  switch (eventName) {
-    case 'onboarding_completed':
-      return 'onboarding_completed';
-    case 'reader_exported':
-      return 'first_reader_exported';
-    case 'video_exported':
-      return 'first_video_exported';
-    default:
-      return null;
-  }
-}
-export function createRuntimeMessageListenerDependencies(
-  messaging: Pick<MessagingService, 'addListener'>,
-  tabs: Pick<TabsService, 'create' | 'get' | 'sendMessage' | 'captureVisibleTab'>,
-  runtime: Pick<RuntimeService, 'getURL'>,
-  storage: Pick<StorageService, 'local'>,
-  cacheOptions: { ttlMs?: number } = {}
-): RuntimeMessageListenerDependencies {
-  return {
-    messaging,
-    clipPipeline: createClipPipelineDependencies(tabs),
-    handleVideoScreenshotCacheMessage: createScreenshotCacheHandler(storage, cacheOptions),
-    async openOptionsPage(section) {
-      const optionsUrl = runtime.getURL('options/index.html');
-      const normalizedSection = section?.trim();
-      const url = normalizedSection ? `${optionsUrl}#${normalizedSection}` : optionsUrl;
-      await tabs.create({ url });
-    },
-    async getTabContext(sender) {
-      const tabId = typeof sender.tabId === 'number' ? sender.tabId : undefined;
-      const frameId = typeof sender.frameId === 'number' ? sender.frameId : undefined;
-      let windowId = typeof sender.windowId === 'number' ? sender.windowId : undefined;
-
-      if (windowId === undefined && tabId !== undefined) {
-        try {
-          windowId = (await tabs.get(tabId))?.windowId;
-        } catch {
-          windowId = undefined;
-        }
-      }
-
-      return {
-        success: true,
-        ...(tabId !== undefined ? { tabId } : {}),
-        ...(windowId !== undefined ? { windowId } : {}),
-        ...(frameId !== undefined ? { frameId } : {})
-      };
-    },
-    async isTabContextActive(ownerContext) {
-      const tabId = typeof ownerContext.tabId === 'number' ? ownerContext.tabId : undefined;
-      if (tabId === undefined) {
-        return { success: true, active: false };
-      }
-
-      try {
-        const tab = await tabs.get(tabId);
-        const expectedWindowId =
-          typeof ownerContext.windowId === 'number' ? ownerContext.windowId : undefined;
-        const active =
-          tab !== undefined &&
-          (expectedWindowId === undefined || tab.windowId === expectedWindowId);
-        return { success: true, active };
-      } catch {
-        return { success: true, active: false };
-      }
-    },
-    captureVisibleTabScreenshot(sender) {
-      return captureVisibleTabScreenshotForSender(tabs, sender);
-    }
-  };
-}
-
 async function safeNotifyExtraction(message: string): Promise<void> {
   try {
     await notifyExtractionError(message);
@@ -243,7 +134,25 @@ async function safeNotifyClipFailure(
 export function registerRuntimeMessageListener(
   dependencies: RuntimeMessageListenerDependencies
 ): void {
-  dependencies.messaging.addListener(async (message, sender) => {
+  const addListener = dependencies.messaging.addListener.bind(dependencies.messaging);
+  addListener(async (message, sender) => {
+    const storedMessage = normalizeSessionDraftStoredValue(message);
+    if (isSessionDraftMessageCandidate(storedMessage)) {
+      const result = await handleSessionDraftMessage(
+        dependencies.sessionDraftStore,
+        storedMessage,
+        sender,
+        (ownerSender) => dependencies.resolveSessionDraftOwner(ownerSender)
+      );
+      if (result === undefined) throw new Error('SESSION_DRAFT_REQUEST_INVALID');
+      return toMessagePayload(result);
+    }
+    if (isOptionsMutationMessageCandidate(message)) {
+      return dependencies.handleOptionsMutationMessage(message);
+    }
+    if (isUsageStatsMessageCandidate(message)) {
+      return dependencies.handleUsageStatsMessage(message);
+    }
     // Handle analytics messages before clip result messages so the generic
     // clip branch cannot swallow other payload shapes that also carry `event`.
     if (isTrackUsageEventMessage(message)) {

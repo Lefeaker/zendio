@@ -1,6 +1,6 @@
 # Non-Production Code Ownership
 
-Last updated: 2026-06-01
+Last updated: 2026-08-27
 
 ## 3.0 Definition
 
@@ -21,7 +21,12 @@ Compatibility shells, barrel files, type-only entrypoints, and public UI boundar
 - `migrate-script-owner`: scripts, tools, audits, docs, package/build checks, public assets, manifests, or required verification commands still own the path.
 - `migrate-test-owner`: tests, visual specs, browser checks, or fixtures still own the path.
 
-Do not classify UI domains, primitives, patterns, hosts, shared schemas, shared interfaces, style tokens, or runtime contract files as deletion candidates unless all six deletion proofs are present and empty and source-of-truth docs no longer require them.
+Every current `src/ui/**/*.ts` file is classified by an exact row in
+`tools/ui-production-ownership.json`. UI directory membership is never an owner:
+production-runtime、production-compile 与 future-retirement decisions come from the
+row disposition plus its production graph/replacement evidence. The final manifest has
+`56 = 47 production-runtime + 9 production-compile` rows and zero deferred rows. Wildcard UI
+retention rules are forbidden.
 
 ## Test Fixtures
 
@@ -83,8 +88,8 @@ resolved without weakening gates:
 
 - `src/options/components/controls/readingTemplateControls.ts` was deleted after exact owner proof; current reading template behavior is covered by the production Stitch template state owner.
 - `src/options/components/infrastructure/ModalController.ts` was deleted after exact owner proof; retired modal hosts remain absent from the production Options HTML contract.
-- `src/ui/foundation/keyboard/index.ts` is explicitly retained as the UI foundation keyboard source-of-truth boundary.
-- `src/ui/hosts/options/index.ts` is explicitly retained as the Options UI host source-of-truth boundary.
+- The UI rows previously described by directory-level retained contracts were
+  subsequently resolved through exact ownership-manifest retirement evidence.
 
 2026-06-12 P01 audit truth fix: `resolveSourceImport()` now normalizes import
 specifier query/hash suffixes such as `?inline` before retained-source import
@@ -105,9 +110,10 @@ governance. The 2026-05-18 gap-closure audit resolved the remaining report-block
 rows through exact retained-contract classifications. No existing `src/**` file was
 deleted in Plan 6 or in the gap-closure pass.
 
-As of the 2026-05-18 gap-closure audit, `npm run audit:non-production-source:report`
-exits 0. These exact source contracts remain intentionally retained with owner and
-deletion-condition metadata in `tools/report-non-production-source.mjs`:
+Exact non-UI source contracts remain intentionally retained with owner and
+deletion-condition metadata in `tools/report-non-production-source.mjs`. UI
+contracts are generated from `tools/ui-production-ownership.json` instead of
+being duplicated in that tool:
 
 - `src/components/trial-notice.ts` — trial notice documented UI contract.
 - `src/content/clipper/shared/styleManager.ts` — clipper inline style manager documented contract.
@@ -116,9 +122,14 @@ deletion-condition metadata in `tools/report-non-production-source.mjs`:
 - `src/options/stitch/styles/variants/stitch-secondary.css` — Stitch Secondary static style asset contract.
 - `src/styles/clipper/highlight-themes.css` — reader and video highlight theme build asset contract.
 - `src/styles/design-tokens.css` — design token source-of-truth asset.
-- `src/ui/foundation/tokens/index.ts` — design token metadata source contract.
-- `src/ui/foundation/keyboard/index.ts` — UI foundation keyboard source-of-truth boundary.
-- `src/ui/hosts/options/index.ts` — Options UI host source-of-truth boundary.
+
+For the current UI tree, manifest-backed classification is exact-path only. The
+executable final state contains 56 rows: 47 `production-runtime`, 9
+`production-compile`, and zero deferred rows. Earlier U02C3 54-row/two-deferred
+numbers are intermediate history only. The retired pattern/primitive rows were removed
+only after their production, import, test, script, public/manifest, and
+required-verification owners closed together. The classifier does not grant ownership
+to an unknown synthetic UI path.
 
 Future changes must not hide new rows with broad allowlists or promote unresolved
 report blockers into production hard gates. Each new blocker needs an exact owner

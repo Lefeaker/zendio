@@ -11,11 +11,29 @@
 class UsageDashboardView {
   async clearStats() {
     const { storage } = platformServices; // UI 直接依赖 chrome.storage
-    await storage.set({ usageStats: {} });
+    await storage.local.remove('usageStats');
     this.updateUI(); // 手动同步 UI
   }
 }
 ```
+
+Usage statistics are a separate background-owned stream, not an Options field:
+
+```typescript
+class UsageDashboardPresenter {
+  constructor(private readonly usageStats: UsageStatsClientLike) {}
+
+  load(): Promise<UsageStats> {
+    return this.usageStats.get();
+  }
+
+  reset(): Promise<UsageStats> {
+    return this.usageStats.reset();
+  }
+}
+```
+
+Only the background usage queue reads/migrates/records/resets the canonical local `usageStats` key.
 
 **问题**:
 
@@ -45,8 +63,15 @@ class UsageDashboardView {
           ↑ 依赖倒置原则
 ┌─────────────────────────────────┐
 │  Infrastructure Layer           │ ← 具体实现层
-│  - ChromeOptionsRepository      │ ← chrome.storage 实现
+│  - OptionsMutationClient        │ ← runtime message client
+│  - ChromeOptionsRepository      │ ← read/observe + background raw IO
 │  - MockOptionsRepository        │ ← 测试用 Mock 实现
+└─────────────────────────────────┘
+          ↓ mutation message
+┌─────────────────────────────────┐
+│  Background authority           │
+│  - OptionsMutationCoordinator   │ ← 唯一生产写 owner / FIFO
+│  - UsageStatsStore              │ ← usage get/reset/record owner
 └─────────────────────────────────┘
 ```
 
@@ -95,15 +120,21 @@ class MyOptionsPresenter {
   // 读取配置
   async loadConfig(): Promise<void> {
     const options = await this.optionsRepo.get();
-    console.log(options.privacy.analytics);
+    console.log(options.privacyPreferences.analytics);
   }
 
-  // 更新配置
+  // 局部更新：只发送 schema 允许的路径
   async saveConfig(): Promise<void> {
-    await this.optionsRepo.set({
-      privacy: { analytics: false }
+    await this.optionsRepo.patch({
+      path: ['privacyPreferences', 'analytics'],
+      value: false
     });
     // 不需要手动调用 updateUI(),onChange 会自动触发
+  }
+
+  // 完整导入/重置：严格替换，不保留旧的未知 root
+  async replaceConfig(imported: StoredOptions): Promise<void> {
+    await this.optionsRepo.replace(imported);
   }
 
   // 订阅配置变更
@@ -126,15 +157,18 @@ class MyOptionsPresenter {
 ### 错误处理
 
 ```typescript
-import { StorageError } from '@/shared/errors';
+import { OptionsMutationError } from '@/shared/types/optionsMutationMessages';
 
 async saveWithErrorHandling(): Promise<void> {
   try {
-    await this.optionsRepo.set({ privacy: { analytics: false } });
+    await this.optionsRepo.patch({
+      path: ['privacyPreferences', 'analytics'],
+      value: false
+    });
   } catch (error) {
-    if (error instanceof StorageError) {
-      // 存储错误: 显示用户友好提示
-      alert('配置保存失败,请检查浏览器权限');
+    if (error instanceof OptionsMutationError) {
+      // 包括 messaging 不可用、quota、外部同步冲突等稳定错误码
+      alert(`配置保存失败: ${error.code}`);
     } else {
       // 其他错误: 上报到错误分析
       console.error('Unexpected error:', error);
@@ -162,7 +196,10 @@ describe('MySection', () => {
     const updateSpy = vi.spyOn(section, 'updateUI');
 
     // 模拟配置变更
-    await mockRepo.set({ privacy: { analytics: false } });
+    await mockRepo.patch({
+      path: ['privacyPreferences', 'analytics'],
+      value: false
+    });
 
     // 验证 UI 自动更新
     expect(updateSpy).toHaveBeenCalled();
@@ -178,7 +215,7 @@ describe('MySection', () => {
 // src/shared/repositories/IMyRepository.ts
 export interface IMyRepository {
   get(): Promise<MyData>;
-  set(data: MyData): Promise<void>;
+  replace(data: MyData): Promise<void>;
   onChange(callback: (data: MyData) => void): () => void;
 }
 ```
@@ -196,11 +233,10 @@ export class ChromeMyRepository implements IMyRepository {
     return result.myData ?? DEFAULT_DATA;
   }
 
-  async set(data: Partial<MyData>): Promise<void> {
+  async replace(data: MyData): Promise<void> {
     const { storage } = platformServices;
-    const current = await this.get();
-    const updated = { ...current, ...data };
-    await storage.sync.set({ myData: updated });
+    const validated = MyDataSchema.parse(data);
+    await storage.sync.set({ myData: structuredClone(validated) });
     this.notifyListeners();
   }
 
@@ -227,7 +263,7 @@ export class ChromeMyRepository implements IMyRepository {
 | `IMessagingRepository`           | Background 通信   | Content Scripts           |
 | `IVideoClipRepository`           | 视频剪辑缓存/发送 | Video Session Exporter    |
 | `IVideoPromptPositionRepository` | 浮窗位置          | Video Prompt              |
-| `IUsageStatsRepository`          | 使用统计          | Usage Dashboard           |
+| `UsageStatsClientLike`           | Serialized usage  | Usage Dashboard           |
 | `IVaultRouterRepository`         | 多仓路由          | Production Stitch storage |
 | `IFragmentRepository`            | Clipper 片段缓存  | Fragment 工具链           |
 
@@ -253,8 +289,8 @@ export class MockMyRepository implements IMyRepository {
     return structuredClone(this.data); // 防止引用泄漏
   }
 
-  async set(data: MyData): Promise<void> {
-    this.data = { ...this.data, ...data };
+  async replace(data: MyData): Promise<void> {
+    this.data = structuredClone(data);
     this.listeners.forEach((cb) => cb(this.data));
   }
 
@@ -299,13 +335,16 @@ export const registerRepositories = (): void => {
 示例:
 
 ```typescript
-// Repository: 只负责存取
+// Options Repository: client 只负责读、订阅与发送显式 mutation command
 class OptionsRepository {
-  get(): Promise<Options> {
-    /* 读 storage */
+  get(): Promise<CompleteOptions> {
+    /* 从 read/observe provider 读取 */
   }
-  set(opts: Options): Promise<void> {
-    /* 写 storage */
+  patch(patches: OptionsPatch | readonly OptionsPatch[]): Promise<CompleteOptions> {
+    /* 发消息给 background coordinator */
+  }
+  replace(options: StoredOptions): Promise<CompleteOptions> {
+    /* 发 strict-replace command 给 background coordinator */
   }
 }
 
@@ -350,23 +389,17 @@ onChange(callback) {
 **A**: Repository 层抛出语义化异常,UI 层捕获并处理。
 
 ```typescript
-// Repository 层
-async set(opts: Options): Promise<void> {
-  try {
-    await storage.set({ options: opts });
-  } catch (error) {
-    throw new StorageError('Failed to save options', { cause: error });
-  }
-}
-
 // UI 层
 async save(): Promise<void> {
   try {
-    await this.optionsRepo.set({ privacy: { analytics: false } });
+    await this.optionsRepo.patch({
+      path: ['privacyPreferences', 'analytics'],
+      value: false
+    });
     this.showSuccess('保存成功');
   } catch (error) {
-    if (error instanceof StorageError) {
-      this.showError('保存失败,请重试');
+    if (error instanceof OptionsMutationError) {
+      this.showError(`保存失败: ${error.code}`);
     }
   }
 }
@@ -378,7 +411,7 @@ async save(): Promise<void> {
 
 ```typescript
 it('should notify subscribers when data changes', async () => {
-  const repo = new ChromeOptionsRepository();
+  const repo = new MockOptionsRepository();
   const callback = vi.fn();
 
   const unsubscribe = repo.onChange(callback);
@@ -387,11 +420,16 @@ it('should notify subscribers when data changes', async () => {
   expect(callback).toHaveBeenCalledTimes(1);
 
   // 修改数据
-  await repo.set({ privacy: { analytics: false } });
+  await repo.patch({
+    path: ['privacyPreferences', 'analytics'],
+    value: false
+  });
 
   // 再次触发,总共 2 次
   expect(callback).toHaveBeenCalledTimes(2);
-  expect(callback).toHaveBeenCalledWith(expect.objectContaining({ privacy: { analytics: false } }));
+  expect(callback).toHaveBeenCalledWith(
+    expect.objectContaining({ privacyPreferences: expect.objectContaining({ analytics: false }) })
+  );
 
   unsubscribe();
 });
@@ -403,6 +441,8 @@ it('should notify subscribers when data changes', async () => {
 
 - [ ] 移除所有 `getPlatformServices` 调用
 - [ ] 通过构造函数注入 `IOptionsRepository` / `IMessagingRepository`
+- [ ] Options 局部更新使用 typed `patch`，导入/重置使用 strict `replace`
+- [ ] Usage dashboard 通过 `UsageStatsClient` 读取/重置，不写 Options root 或 local key
 - [ ] 在 `renderWithState()` 中订阅 `onChange`,实现被动 UI 更新
 - [ ] 在 `destroy()` 中取消订阅,避免内存泄漏
 - [ ] 补充单元测试,使用 `MockOptionsRepository`

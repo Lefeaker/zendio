@@ -37,6 +37,8 @@ describe('firefoxStorageService', () => {
   it('reads writes and watches firefox storage', async () => {
     const { firefoxStorageService } = await import('../../../../src/platform/firefox/storage');
     await expect(firefoxStorageService.local.get('key')).resolves.toBe('value');
+    await expect(firefoxStorageService.local.getAll()).resolves.toEqual({ key: 'value' });
+    expect(firefoxApi.storage.local.get).toHaveBeenCalledWith(null);
     await firefoxStorageService.local.set('key', 'next');
     await firefoxStorageService.local.remove('key');
     await firefoxStorageService.local.clear();
@@ -45,5 +47,13 @@ describe('firefoxStorageService', () => {
     changeListener?.({ key: { oldValue: 'old', newValue: 'new' } }, 'local');
     expect(watcher).toHaveBeenCalledWith('new', { oldValue: 'old', newValue: 'new' });
     off();
+  });
+
+  it('propagates native enumeration errors', async () => {
+    const nativeError = new Error('enumeration failed');
+    firefoxApi.storage.local.get.mockRejectedValueOnce(nativeError);
+    const { firefoxStorageService } = await import('../../../../src/platform/firefox/storage');
+
+    await expect(firefoxStorageService.local.getAll()).rejects.toBe(nativeError);
   });
 });

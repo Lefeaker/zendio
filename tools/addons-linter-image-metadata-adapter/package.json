@@ -1,0 +1,10 @@
+{
+  "name": "@zendio/addons-linter-image-metadata-adapter",
+  "version": "0.1.0",
+  "private": true,
+  "license": "MIT",
+  "main": "index.cjs",
+  "dependencies": {
+    "probe-image-size": "7.4.0"
+  }
+}

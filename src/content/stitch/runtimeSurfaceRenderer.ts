@@ -1,12 +1,25 @@
-import { getSurfaceView } from '@options/stitch/schema/surfaceRegistry';
-import { renderPreviewView, type RendererContext } from '@options/stitch/render/renderStitchView';
-import { el } from '@options/stitch/ui/dom';
-import { previewUi } from '@options/stitch/ui/components';
-import type { PreviewContent, PreviewStoreState, SchemaContext } from '@options/stitch/types';
+import type { PlatformServices } from '@platform/types';
+import { getService, TOKENS } from '@shared/di';
+import { getSurfaceView } from '@ui/stitch-surfaces';
+import {
+  el,
+  renderRuntimeSurface,
+  surfaceComponents,
+  type RuntimeSurfaceContent,
+  type RuntimeSurfaceState,
+  type RuntimeSurfaceTheme,
+  type RuntimeSurfaceRendererContext
+} from '@ui/stitch-runtime';
+import {
+  createRuntimeSurfaceHandle,
+  type RuntimeSessionSurfaceId,
+  type RuntimeSurfaceHandle
+} from '@ui/stitch-runtime/render/renderRuntimeSurface';
+import { createContentI18nTranslator, getContentI18nResource } from '../i18n/context';
 import { getControlledRuntimeTheme, registerRuntimeSurfaceThemeRoot } from './runtimeTheme';
 
-export type RuntimeSurfaceActionArgs = Parameters<RendererContext['dispatch']>[1];
-export type RuntimeSurfaceActionValue = Parameters<RendererContext['dispatch']>[2];
+export type RuntimeSurfaceActionArgs = Parameters<RuntimeSurfaceRendererContext['dispatch']>[1];
+export type RuntimeSurfaceActionValue = Parameters<RuntimeSurfaceRendererContext['dispatch']>[2];
 export type RuntimeSurfaceActionHandler = (
   event: Event,
   args: RuntimeSurfaceActionArgs,
@@ -21,89 +34,90 @@ export interface RuntimeSurfaceRenderOptions {
     | 'video-control-bar-popover'
     | 'video-floating-prompt'
     | 'task-success';
-  appData: PreviewContent;
-  state?: Partial<PreviewStoreState>;
+  appData: RuntimeSurfaceContent;
+  state?: Partial<RuntimeSurfaceState>;
   actions?: Record<string, RuntimeSurfaceActionHandler>;
 }
 
-function resolveRuntimeTheme(
-  explicitTheme?: PreviewStoreState['previewTheme']
-): PreviewStoreState['previewTheme'] {
-  if (explicitTheme === 'light' || explicitTheme === 'dark') {
-    return explicitTheme;
-  }
-  const runtimeTheme = getControlledRuntimeTheme();
-  if (runtimeTheme) {
-    return runtimeTheme;
-  }
-  return 'dark';
+export type { RuntimeSurfaceHandle } from '@ui/stitch-runtime/render/renderRuntimeSurface';
+
+function resolveRuntimeTheme(explicitTheme?: RuntimeSurfaceTheme): RuntimeSurfaceTheme {
+  if (explicitTheme === 'light' || explicitTheme === 'dark') return explicitTheme;
+  return getControlledRuntimeTheme() ?? 'dark';
 }
 
-function createRuntimeState(overrides: Partial<PreviewStoreState> = {}): PreviewStoreState {
-  return {
-    activePanel: 'overview',
-    activeResource: null,
-    previewTheme: 'dark',
-    previewLanguage: 'zh-CN',
-    yamlFilter: 'all',
-    readingPathMode: 'custom',
-    pageSummaryEnabled: false,
-    readingOverlaySummaryEnabled: false,
-    subtitleTranslationEnabled: false,
-    subtitleTargetLanguage: 'zh-CN',
-    experimentalAiConfig: {
-      provider: 'compatible',
-      model: '',
-      apiUrl: '',
-      apiKey: ''
-    },
-    highlightTheme: 'gradient',
-    fragmentModifierEnabled: false,
-    modifierKeys: [],
-    yamlFieldStates: {},
-    routingRules: [],
-    templateValues: {},
-    activeTemplateField: 'articleVideo',
-    pendingTemplateFocus: null,
-    pendingTemplateSelection: null,
-    ...overrides
-  };
-}
-
-export function renderStitchRuntimeSurface(options: RuntimeSurfaceRenderOptions): HTMLElement {
-  const state = createRuntimeState({
-    ...options.state,
+function renderStitchRuntimeSurfaceElement(options: RuntimeSurfaceRenderOptions): HTMLElement {
+  const state: RuntimeSurfaceState = {
     previewTheme: resolveRuntimeTheme(options.state?.previewTheme)
-  });
-  const ctx: SchemaContext = {
+  };
+  const translator = createContentI18nTranslator(getContentI18nResource());
+  const ctx = {
     appData: options.appData,
-    state
+    state,
+    ...(translator ? { t: translator } : {})
   };
   const view = getSurfaceView(options.surfaceId, ctx);
-  if (!view) {
-    throw new Error(`Unknown Stitch runtime surface: ${options.surfaceId}`);
-  }
+  if (!view) throw new Error(`Unknown Stitch runtime surface: ${options.surfaceId}`);
 
-  const rendered = renderPreviewView(view, {
+  const rendered = renderRuntimeSurface(view, {
     ...ctx,
     el,
-    ui: previewUi,
+    ui: surfaceComponents,
     dispatch: (id, args, value, event) => {
-      const handler = options.actions?.[id];
-      if (handler) {
-        handler(event ?? new Event('stitch-runtime-action'), args, value);
+      if (id === 'surface:openOptions' && event) {
+        handleRuntimeOptionsLink(event);
+        return;
       }
+      const handler = options.actions?.[id];
+      if (handler) handler(event ?? new Event('stitch-runtime-action'), args, value);
     }
   });
 
-  if (!(rendered instanceof HTMLElement)) {
-    throw new Error(`Failed to render Stitch runtime surface: ${options.surfaceId}`);
+  const settingsLink = rendered.querySelector<HTMLAnchorElement>('a.surface-window-icon');
+  if (settingsLink) {
+    settingsLink.href = getService<PlatformServices>(TOKENS.platformServices).runtime.getURL(
+      'options/index.html'
+    );
   }
-
   rendered.classList.add('stitch-runtime-surface');
   rendered.dataset.stitchSurface = options.surfaceId;
   rendered.setAttribute('data-preview-skin', 'stitch-secondary');
   rendered.setAttribute('data-preview-theme', state.previewTheme);
+  return rendered;
+}
+
+export function renderStitchRuntimeSurface(options: RuntimeSurfaceRenderOptions): HTMLElement {
+  const rendered = renderStitchRuntimeSurfaceElement(options);
   registerRuntimeSurfaceThemeRoot(rendered);
   return rendered;
+}
+
+export function renderStitchRuntimeSessionSurface(
+  options: RuntimeSurfaceRenderOptions & { surfaceId: RuntimeSessionSurfaceId }
+): RuntimeSurfaceHandle {
+  const eventfulTemplate = renderStitchRuntimeSurfaceElement(options);
+  const root = eventfulTemplate.cloneNode(true) as HTMLElement;
+  const unregisterThemeRoot = registerRuntimeSurfaceThemeRoot(root);
+  return createRuntimeSurfaceHandle(root, options.surfaceId, unregisterThemeRoot);
+}
+
+export function renderStitchRuntimeSessionTemplate(
+  options: RuntimeSurfaceRenderOptions & { surfaceId: RuntimeSessionSurfaceId }
+): HTMLElement {
+  const root = renderStitchRuntimeSurfaceElement(options).cloneNode(true) as HTMLElement;
+  createRuntimeSurfaceHandle(root, options.surfaceId).dispose();
+  return root;
+}
+
+export function handleRuntimeOptionsLink(event: Event): boolean {
+  const target = event.target instanceof Element ? event.target : null;
+  if (!target?.closest('a[data-action-id="surface:openOptions"]')) return false;
+  event.preventDefault();
+  event.stopPropagation();
+  void getService<PlatformServices>(TOKENS.platformServices)
+    .messaging.send({ type: 'openOptionsPage' })
+    .catch((error) => {
+      console.warn('[runtime] Failed to open settings:', error);
+    });
+  return true;
 }

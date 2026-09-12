@@ -4,11 +4,14 @@ import type {
   FileSystemDirectoryHandleLike,
   FileSystemFileHandleLike,
   FileSystemPermissionState,
-  FileSystemWritableFileStreamLike,
-  StoredDirectoryHandle
+  FileSystemWritableFileStreamLike
 } from '../platform/chrome/localVaultCore';
 import { createVaultWriteSession } from '../background/services/obsidianWriter';
 import type { RestConnection, RestClient } from '../shared/interfaces/restClient';
+import {
+  installLocalVaultIndexedDbHarness,
+  type LocalVaultIndexedDbHarnessController
+} from './localVaultIndexedDbHarness';
 
 interface HarnessState {
   root: FakeDirectoryHandle;
@@ -123,88 +126,8 @@ class FakeDirectoryHandle implements FileSystemDirectoryHandleLike {
   }
 }
 
-class FakeObjectStore {
-  constructor(private readonly records: Map<string, StoredDirectoryHandle>) {}
-
-  put(value: StoredDirectoryHandle): IDBRequest<undefined> {
-    this.records.set(value.id, value);
-    return createRequest(undefined);
-  }
-
-  get(id: string): IDBRequest<StoredDirectoryHandle | undefined> {
-    return createRequest(this.records.get(id));
-  }
-
-  delete(id: string): IDBRequest<undefined> {
-    this.records.delete(id);
-    return createRequest(undefined);
-  }
-}
-
-class FakeDatabase {
-  readonly records = new Map<string, StoredDirectoryHandle>();
-  readonly objectStoreNames = {
-    contains: () => this.hasStore
-  };
-
-  private hasStore = false;
-
-  createObjectStore(): FakeObjectStore {
-    this.hasStore = true;
-    return new FakeObjectStore(this.records);
-  }
-
-  transaction(): IDBTransaction {
-    return {
-      objectStore: () => new FakeObjectStore(this.records)
-    } as unknown as IDBTransaction;
-  }
-
-  close(): void {}
-}
-
-let fakeDb: FakeDatabase | null = null;
+let indexedDbController: LocalVaultIndexedDbHarnessController | null = null;
 let state: HarnessState;
-
-function createRequest<T>(result: T): IDBRequest<T> {
-  const request = {
-    result,
-    error: null,
-    onsuccess: null as ((event: Event) => void) | null,
-    onerror: null as ((event: Event) => void) | null
-  };
-  queueMicrotask(() => request.onsuccess?.(new Event('success')));
-  return request as IDBRequest<T>;
-}
-
-function installFakeIndexedDb(): void {
-  const fakeIndexedDb = {
-    open: () => {
-      const request = {
-        result: undefined as unknown as FakeDatabase,
-        error: null,
-        onsuccess: null as ((event: Event) => void) | null,
-        onerror: null as ((event: Event) => void) | null,
-        onupgradeneeded: null as ((event: Event) => void) | null
-      };
-      queueMicrotask(() => {
-        if (!fakeDb) {
-          fakeDb = new FakeDatabase();
-          request.result = fakeDb;
-          request.onupgradeneeded?.(new Event('upgradeneeded'));
-        } else {
-          request.result = fakeDb;
-        }
-        request.onsuccess?.(new Event('success'));
-      });
-      return request;
-    }
-  };
-  Object.defineProperty(globalThis, 'indexedDB', {
-    configurable: true,
-    value: fakeIndexedDb
-  });
-}
 
 function installDirectoryPicker(root: FakeDirectoryHandle): void {
   Object.defineProperty(globalThis, 'showDirectoryPicker', {
@@ -258,7 +181,8 @@ const restClient: RestClient = {
 };
 
 function reset(options: ResetOptions = {}): Promise<HarnessSnapshot> {
-  fakeDb = null;
+  indexedDbController?.dispose();
+  indexedDbController = installLocalVaultIndexedDbHarness();
   const root = new FakeDirectoryHandle(
     'HarnessVault',
     options.queryPermission ?? 'prompt',
@@ -266,7 +190,6 @@ function reset(options: ResetOptions = {}): Promise<HarnessSnapshot> {
   );
   root.failWrites = options.failWrites ?? false;
   state = { root, restCalls: [] };
-  installFakeIndexedDb();
   installDirectoryPicker(root);
   configurePlatformServices({
     fileSystemAccess: chromeFileSystemAccessService,
@@ -408,3 +331,4 @@ Object.assign(globalThis, {
 });
 
 document.getElementById('status')?.replaceChildren('Harness ready');
+globalThis.addEventListener('pagehide', () => indexedDbController?.dispose(), { once: true });

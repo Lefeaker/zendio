@@ -59,6 +59,20 @@ describe('firefoxTabsService', () => {
     await expect(firefoxTabsService.get(3)).resolves.toBeUndefined();
   });
 
+  it('normalizes only known missing-tab and no-receiver errors', async () => {
+    const { firefoxTabsService } = await import('../../../../src/platform/firefox/tabs');
+    firefoxApi.tabs.get.mockRejectedValueOnce(new Error('Invalid tab ID: 9'));
+    await expect(firefoxTabsService.get(9)).rejects.toMatchObject({ code: 'TAB_NOT_FOUND' });
+    firefoxApi.tabs.sendMessage.mockRejectedValueOnce(
+      new Error('Could not establish connection. Receiving end does not exist.')
+    );
+    await expect(firefoxTabsService.sendMessage(9, { probe: true })).rejects.toMatchObject({
+      code: 'NO_RECEIVER'
+    });
+    firefoxApi.tabs.get.mockRejectedValueOnce(new Error('permission denied'));
+    await expect(firefoxTabsService.get(9)).rejects.toThrow('permission denied');
+  });
+
   it('wraps visible-tab capture with and without an explicit window id', async () => {
     const { firefoxTabsService } = await import('../../../../src/platform/firefox/tabs');
     if (!firefoxTabsService.captureVisibleTab) {

@@ -5,11 +5,10 @@ import type { IOptionsRepository } from '@shared/repositories/IOptionsRepository
 import type { ReadingClipData } from '@shared/repositories/IReaderRepository';
 import { DEFAULT_OPTIONS } from '@shared/config';
 
-const optionsRepo: IOptionsRepository = {
+const optionsRepo = {
   get: () => Promise.resolve(DEFAULT_OPTIONS),
-  set: () => Promise.resolve(),
   onChange: () => () => undefined
-};
+} satisfies Pick<IOptionsRepository, 'get' | 'onChange'>;
 
 class ThrowingMessagingRepository implements IMessagingRepository {
   constructor(private readonly failure: string | Error) {}
@@ -28,7 +27,7 @@ describe('ChromeReaderRepository', () => {
 
   beforeEach(() => {
     repo = new ChromeReaderRepository(
-      optionsRepo,
+      optionsRepo as unknown as IOptionsRepository,
       new ThrowingMessagingRepository('string failure')
     );
   });

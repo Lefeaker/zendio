@@ -32,7 +32,7 @@ type StoredOptionsFixture = {
     captureContext: boolean;
     contextLength: number;
     contextMode: 'chars' | 'words';
-    selectionModifierEnabled: boolean;
+    selectionTriggerMode: 'disabled' | 'direct' | 'modifier';
     selectionModifierKeys: Array<'alt' | 'meta' | 'ctrl' | 'shift'>;
   };
   readingSession: {
@@ -74,9 +74,9 @@ const testWithExtension = test.extend<{
     const userDataDir = `/tmp/test-user-data-dir-${Date.now()}-${Math.random()}`;
     const context = await runStage(testInfo, 'launch context', () =>
       chromium.launchPersistentContext(userDataDir, {
-        headless: true,
-        channel: 'chromium',
+        headless: false,
         args: [
+          '--headless=new',
           `--disable-extensions-except=${EXTENSION_PATH}`,
           `--load-extension=${EXTENSION_PATH}`
         ]
@@ -158,7 +158,7 @@ function createOptionsFixture(): StoredOptionsFixture {
       captureContext: true,
       contextLength: 200,
       contextMode: 'chars',
-      selectionModifierEnabled: false,
+      selectionTriggerMode: 'direct',
       selectionModifierKeys: []
     },
     readingSession: {

@@ -1,66 +1,23 @@
 import { describe, it, expect, vi } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import type { OptionsRepository } from '@shared/interfaces/optionsRepository';
+import { mergeOptions } from '@shared/config/optionsMerger';
+import type { IOptionsRepository } from '@shared/repositories/IOptionsRepository';
 import {
   DEFAULT_FRAGMENT_CONFIG,
-  createModifierState,
   loadFragmentConfig,
-  normalizeModifierKeys,
-  resetModifierState,
-  shouldTriggerSelectionWithModifiers,
-  syncModifierState
+  normalizeModifierKeys
 } from '@content/clipper/services/fragmentConfig';
 
 describe('fragmentConfig helpers', () => {
-  it('allows selection when modifier requirement disabled', () => {
-    const permitted = shouldTriggerSelectionWithModifiers(
-      { selectionModifierEnabled: false, selectionModifierKeys: [] },
-      { altKey: false, metaKey: false, ctrlKey: false, shiftKey: false }
-    );
-    expect(permitted).toBe(true);
-  });
-
-  it('prevents selection when required keys are missing', () => {
-    const permitted = shouldTriggerSelectionWithModifiers(
-      { selectionModifierEnabled: true, selectionModifierKeys: ['meta'] },
-      { altKey: false, metaKey: false, ctrlKey: false, shiftKey: false }
-    );
-    expect(permitted).toBe(false);
-  });
-
-  it('requires all configured modifier keys', () => {
-    const permitted = shouldTriggerSelectionWithModifiers(
-      { selectionModifierEnabled: true, selectionModifierKeys: ['alt', 'ctrl'] },
-      { altKey: true, metaKey: true, ctrlKey: false, shiftKey: false }
-    );
-    expect(permitted).toBe(false);
-    const allowed = shouldTriggerSelectionWithModifiers(
-      { selectionModifierEnabled: true, selectionModifierKeys: ['alt', 'ctrl'] },
-      { altKey: true, metaKey: false, ctrlKey: true, shiftKey: false }
-    );
-    expect(allowed).toBe(true);
-  });
-
   it('normalizes modifier key arrays to a single selection', () => {
     const normalized = normalizeModifierKeys(['meta', 'ctrl', 'Cmd', 'ALT']);
     expect(normalized).toEqual(['meta']);
   });
 
   it('provides a stable default fragment config', () => {
-    expect(DEFAULT_FRAGMENT_CONFIG.selectionModifierEnabled).toBe(true);
+    expect(DEFAULT_FRAGMENT_CONFIG.selectionTriggerMode).toBe('modifier');
     expect(DEFAULT_FRAGMENT_CONFIG.selectionModifierKeys).toEqual(['shift']);
-  });
-
-  it('syncs and resets modifier state', () => {
-    const state = createModifierState();
-    syncModifierState(state, { altKey: true, ctrlKey: true });
-    expect(state.altKey).toBe(true);
-    expect(state.ctrlKey).toBe(true);
-    expect(state.metaKey).toBe(false);
-    resetModifierState(state);
-    expect(state.altKey).toBe(false);
-    expect(state.ctrlKey).toBe(false);
   });
 
   it('includes keyboard shortcuts in default config', () => {
@@ -68,26 +25,26 @@ describe('fragmentConfig helpers', () => {
   });
 
   it('loads fragment config from the explicitly wired repository', async () => {
-    const repository: OptionsRepository = {
-      load: vi.fn().mockResolvedValue({
-        fragmentClipper: {
-          useFootnoteFormat: false,
-          captureContext: false,
-          selectionModifierEnabled: true,
-          selectionModifierKeys: ['meta'],
-          keyboardShortcutsEnabled: false
-        }
-      }),
-      save: vi.fn(() => Promise.resolve(undefined)),
-      snapshot: vi.fn(() => null),
-      subscribe: vi.fn(() => () => undefined),
-      reset: vi.fn(() => undefined)
+    const repository: Pick<IOptionsRepository, 'get'> = {
+      get: vi.fn(() =>
+        Promise.resolve(
+          mergeOptions({
+            fragmentClipper: {
+              useFootnoteFormat: false,
+              captureContext: false,
+              selectionTriggerMode: 'modifier',
+              selectionModifierKeys: ['meta'],
+              keyboardShortcutsEnabled: false
+            }
+          })
+        )
+      )
     };
 
     const config = await loadFragmentConfig(repository);
 
-    expect(repository.load).toHaveBeenCalledTimes(1);
-    expect(config.selectionModifierEnabled).toBe(true);
+    expect(repository.get).toHaveBeenCalledTimes(1);
+    expect(config.selectionTriggerMode).toBe('modifier');
     expect(config.selectionModifierKeys).toEqual(['meta']);
     expect(config.keyboardShortcutsEnabled).toBe(false);
   });
@@ -106,5 +63,8 @@ describe('fragmentConfig helpers', () => {
 
     expect(source).not.toContain('TOKENS.platformServices');
     expect(source).not.toContain('getService<PlatformServices>');
+    expect(source).not.toContain('shared/interfaces/optionsRepository');
+    expect(source).not.toContain('repository.load');
+    expect(source).not.toContain('repository.save');
   });
 });

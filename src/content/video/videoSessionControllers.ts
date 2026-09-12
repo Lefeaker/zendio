@@ -1,7 +1,7 @@
 import type { VideoPlatformContext } from './platforms';
 import type { VideoFragmentCapture } from './types';
 import type { VideoSessionDependencies } from './sessionTypes';
-import { createSessionDraftPageKey } from '../sessionDrafts';
+import { createSessionDraftPageKey } from '@shared/sessionDrafts';
 import type { ContentExportDestinationState } from '../shared/exportDestinationState';
 import { FragmentHighlighter } from './fragmentHighlighter';
 import { PendingSelectionTracker } from './pendingSelectionTracker';
@@ -23,6 +23,7 @@ import type {
   VideoScreenshotCacheSaveResult
 } from './videoScreenshotCacheRepository';
 import { emitVideoUsageEvent } from './videoCaptureMutationTransaction';
+import type { DocumentMutationHubApi } from '../runtime/documentMutationTypes';
 
 export interface VideoSessionControllers {
   fragmentHighlighter: FragmentHighlighter;
@@ -65,13 +66,15 @@ export function createVideoSessionControllers(args: {
   dependencies: VideoSessionDependencies;
   state: VideoSessionState;
   destinationState: Pick<ContentExportDestinationState, 'metadata' | 'applyMetadata'>;
+  suppressDraftDestinationRestore?: boolean;
   getMessages: () => VideoSessionMessages;
   readCleanupState: () => { isCleaningUp: boolean; shouldTrackSavingState: boolean };
   onDraftRestored?: () => void;
   onDraftScreenshotHydrationStart?: () => void;
   onDraftScreenshotHydrated?: () => void;
   onDraftScreenshotHydrationSettled?: ((result: { isCurrent: boolean }) => void) | undefined;
-  createPlatformContext: () => VideoPlatformContext;
+  documentMutationHub: DocumentMutationHubApi;
+  createPlatformContext: (documentMutationHub: DocumentMutationHubApi) => VideoPlatformContext;
   getDocumentSelection: () => Selection | null;
   isRangeInsideUi: (range: Range | null) => boolean;
   ensureCaptureHighlight: (capture: VideoFragmentCapture) => void;
@@ -89,12 +92,14 @@ export function createVideoSessionControllers(args: {
     dependencies,
     state,
     destinationState,
+    suppressDraftDestinationRestore,
     getMessages,
     readCleanupState,
     onDraftRestored,
     onDraftScreenshotHydrationStart,
     onDraftScreenshotHydrated,
     onDraftScreenshotHydrationSettled,
+    documentMutationHub,
     createPlatformContext,
     getDocumentSelection,
     isRangeInsideUi,
@@ -109,7 +114,7 @@ export function createVideoSessionControllers(args: {
   const hintManager = new VideoHintManager(getMessages);
   const pendingSelection = new PendingSelectionTracker();
   const fragmentHighlightCoordinator = new FragmentHighlightCoordinator({
-    doc,
+    documentMutationHub,
     highlighter: fragmentHighlighter,
     getFragments: () =>
       state.captures.filter(
@@ -132,6 +137,7 @@ export function createVideoSessionControllers(args: {
     doc,
     pendingSelection,
     shouldTrackSelection: () => fragmentSelectionController.shouldTrackSelection(),
+    canActivateSelection: (event) => fragmentSelectionController.canActivateSelection(event),
     suppressSelectionCapture: () => state.suppressSelectionCapture,
     isRangeInsideUi,
     getDocumentSelection,
@@ -143,6 +149,7 @@ export function createVideoSessionControllers(args: {
   });
   const shadowSelectionBridge = new ShadowSelectionBridge({
     suppressSelectionCapture: () => state.suppressSelectionCapture,
+    isSelectionTriggerConfigured: () => fragmentSelectionController.isSelectionTriggerConfigured(),
     getDocumentSelection,
     isRangeInsideUi,
     pendingSelection,
@@ -174,13 +181,27 @@ export function createVideoSessionControllers(args: {
       screenshot
     });
   const dom = new VideoSessionDomController(doc, dependencies.viewFactory, hintManager);
+  const draftDestinationState = suppressDraftDestinationRestore
+    ? {
+        get metadata() {
+          return destinationState.metadata;
+        },
+        applyMetadata: () => undefined
+      }
+    : destinationState;
   const draftController = new VideoSessionDraftController({
     doc,
     state,
-    destinationState,
+    destinationState: draftDestinationState,
     storageArea: dependencies.storage.local,
     ...(dependencies.sessionDraftStoragePolicy
       ? { sessionDraftStoragePolicy: dependencies.sessionDraftStoragePolicy }
+      : {}),
+    ...(dependencies.sessionDraftLeaseOwners
+      ? { leaseOwnerRegistry: dependencies.sessionDraftLeaseOwners }
+      : {}),
+    ...(dependencies.initialClaimedDraft
+      ? { initialClaimedDraft: dependencies.initialClaimedDraft }
       : {}),
     screenshotCache,
     dom,
@@ -195,7 +216,7 @@ export function createVideoSessionControllers(args: {
     doc,
     storage: dependencies.storage.local,
     state,
-    createPlatformContext,
+    createPlatformContext: () => createPlatformContext(documentMutationHub),
     onAdapterChange: (adapter) => fragmentHighlightCoordinator.updateAdapter(adapter),
     ensureCaptureHighlight,
     restoreDraftState: async () => {
@@ -205,8 +226,9 @@ export function createVideoSessionControllers(args: {
       }
       return restored;
     },
-    onLegacyRestore: (storageKey) => draftController.handleLegacyRestore(storageKey)
+    onLegacyRestore: (capture) => draftController.handleLegacyRestore(capture)
   });
+  dependencies.onInitialDraftAdopted?.();
 
   return {
     fragmentHighlighter,

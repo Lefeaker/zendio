@@ -10,7 +10,7 @@ import {
   type PersistedAnalyticsQueueEntry
 } from './analyticsQueueStorage';
 import { sendAnalyticsTransportEvent, type AnalyticsTransportResult } from './analyticsTransport';
-import type { AnalyticsConfig } from '../errors/analytics/analyticsConfig';
+import type { AnalyticsConfig } from './analyticsConfigContract';
 
 const DEFAULT_ANALYTICS_QUEUE_MAX_ENTRIES = 50;
 

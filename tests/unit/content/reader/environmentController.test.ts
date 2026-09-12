@@ -73,7 +73,7 @@ vi.mock('@content/clipper/services/fragmentConfig', async () => {
     loadFragmentConfig: vi.fn(() =>
       Promise.resolve({
         ...actual.DEFAULT_FRAGMENT_CONFIG,
-        selectionModifierEnabled: true
+        selectionTriggerMode: 'modifier'
       })
     )
   };
@@ -120,7 +120,6 @@ describe('ReaderEnvironmentController', () => {
           }
         } as CompleteOptions)
       ),
-      set: vi.fn(() => Promise.resolve(undefined)),
       onChange: vi.fn((callback: (options: CompleteOptions) => void) => {
         subscriberCallbacks.push(callback);
         return () => {
@@ -130,7 +129,7 @@ describe('ReaderEnvironmentController', () => {
           }
         };
       })
-    };
+    } as unknown as IOptionsRepository;
 
     messagesHandler = vi.fn<(...args: [ReaderSessionMessages]) => void>((messages) => {
       expect(messages).toBeDefined();
@@ -154,7 +153,7 @@ describe('ReaderEnvironmentController', () => {
     const state = await controller.start();
     expect(state.messages.panel.title).toBe('Test Title');
     expect(fragmentHandler).toHaveBeenCalled();
-    expect(state.fragmentConfig.selectionModifierEnabled).toBe(true);
+    expect(state.fragmentConfig.selectionTriggerMode).toBe('modifier');
 
     languageWatcher?.('zh-CN', { oldValue: undefined, newValue: 'zh-CN' });
     expect(messagesHandler).toHaveBeenCalledTimes(2);
