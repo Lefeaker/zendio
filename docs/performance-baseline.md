@@ -260,3 +260,5 @@ npm run audit:performance:report
 # U03 content CSS packs
 
 Content runtime CSS is emitted as exact flattened `clipper`, `reader`, `video`, and `prompt-task` packs. Idle content requests zero packs; each content pack is capped at 78,544 raw bytes and is verified by `node tools/report-content-css-packs.mjs --check`.
+
+2026-09-12 v0.3.0 Options controls / release-note update adds 9 localized changelog keys. Standalone performance reporting measured `messages.generated.ts = 1153` and `schemaCore.generated.ts = 453`; only their generated-count budgets move from `1144` / `445` to `1153` / `453`. The dev Options `runtimeEntry` measured 320.1 KiB against the prior 320 KiB single-chunk stop; its general single-chunk ceiling is 328 KiB (2.5% headroom), avoiding an artificial split for this small, cohesive change. Entry, shared-top, locale, YAML and chunk-count limits remain unchanged. The existing budget contract test reconstructs the previous generated values before checking every unrelated budget, preserving its historical hash. The new buttons reuse the existing theme segmented control rather than introducing a separate component.

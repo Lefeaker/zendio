@@ -42,22 +42,22 @@ const schema: SettingsSchema = {
                       title: t('readingExportModeLabel'),
                       description: t('readingExportModeDescription'),
                       control: {
-                        kind: 'select',
-                        options: [
-                          {
-                            value: 'highlights',
-                            label: t('readingExportModeHighlights')
-                          },
+                        kind: 'segmentedNav',
+                        className: 'segmented-control',
+                        items: [
                           {
                             value: 'full',
                             label: t('readingExportModeFull')
+                          },
+                          {
+                            value: 'highlights',
+                            label: t('readingExportModeHighlights')
                           }
                         ],
                         bind: 'readingExportMode',
-                        onChange: {
+                        action: {
                           id: 'options:updateField',
-                          args: ['readingSession.exportMode'],
-                          valueFrom: 'target.value'
+                          args: ['readingSession.exportMode']
                         }
                       }
                     },

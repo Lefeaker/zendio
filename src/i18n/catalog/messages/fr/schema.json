@@ -424,5 +424,14 @@
   "schemaMaintenanceDiagnosisFailureTitle": "Échec du diagnostic",
   "schemaMaintenanceDiagnosisIdleBody": "Le diagnostic n’a pas encore été exécuté.",
   "schemaMaintenanceDiagnosisRunningBody": "Vérification de la configuration actuelle…",
-  "schemaMaintenanceReloadSuccessBody": "Configuration rechargée."
+  "schemaMaintenanceReloadSuccessBody": "Configuration rechargée.",
+  "schemaResourceChangelogV030Summary": "Enregistrement plus fiable et commandes simplifiées",
+  "schemaResourceChangelogV030Bullet1": "Amélioration de la sauvegarde des réglages lors de modifications rapides, dans plusieurs pages et à leur fermeture, avec erreurs visibles et possibilité de réessayer.",
+  "schemaResourceChangelogV030Bullet2": "Correction de la sauvegarde après effacement des adresses REST pour un coffre avec dossier local seul ; amélioration des identifiants, des liaisons de dossiers et des réglages de confidentialité.",
+  "schemaResourceChangelogV030Bullet3": "Boutons segmentés pour le déclenchement à la sélection (Désactivé, Direct, Touche modif.) et le contenu exporté (Article entier, Surlignages seuls).",
+  "schemaResourceChangelogV030Bullet4": "Conservation des brouillons, du focus, du repli et des destinations dans les panneaux de lecture et vidéo ; correction des compteurs affichés en double.",
+  "schemaResourceChangelogV030Bullet5": "Démarrage plus rapide sur les pages lentes, restauration après rechargement de l’extension et prévention des exports en double lors des nouvelles tentatives de nettoyage.",
+  "schemaResourceChangelogV030Bullet6": "Amélioration de la navigation sur petit écran, des états de diagnostic, des pieds de panneau et des menus de destination.",
+  "schemaResourceChangelogV030Bullet7": "Stabilité accrue lors de la navigation vidéo, des mises à jour des commentaires et du nettoyage ou de la restauration du cache des captures.",
+  "schemaResourceChangelogV030Bullet8": "Mise à jour des dépendances et amélioration des vérifications des paquets et de la compatibilité Chrome et Firefox."
 }

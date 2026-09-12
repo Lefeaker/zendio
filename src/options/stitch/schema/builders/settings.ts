@@ -11,6 +11,7 @@ const AI_PLATFORM_LINKS = new Map(
 export function themeSegmentedSwitch(): NodeSchema {
   return {
     kind: 'segmentedNav',
+    className: 'segmented-control',
     items: (current) => {
       const fallback = {
         system: DEFAULT_PRODUCTION_ENGLISH_MESSAGES.schemaOverviewThemeSystemOption,

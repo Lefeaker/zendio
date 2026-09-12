@@ -7,8 +7,8 @@ import type { YamlConfigOverrides } from '../types/yamlConfig';
 
 export const RestOptionsSchema = z.strictObject({
   baseUrl: z.string().url('Must be a valid URL'),
-  httpsUrl: z.string().url().optional(),
-  httpUrl: z.string().url().optional(),
+  httpsUrl: z.union([z.literal(''), z.string().url()]).optional(),
+  httpUrl: z.union([z.literal(''), z.string().url()]).optional(),
   vault: z.string().min(1, 'Vault name is required'),
   apiKey: z.union([z.literal(''), z.string().min(10, 'API key must be at least 10 characters')]),
   localFolderId: z.string().optional(),

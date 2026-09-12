@@ -4,8 +4,7 @@ import {
   fragmentModifierStateWarning
 } from '@options/app/fragmentModifierOptions';
 import type { NodeSchema, SchemaContext } from '../../types';
-import { boundSelect } from '../builders/controls';
-import { paragraph, stack } from '../builders/primitives';
+import { div, paragraph, stack } from '../builders/primitives';
 import { translateSchemaMessage } from '../i18n';
 
 function translate(current: SchemaContext, key: keyof Messages): string {
@@ -15,9 +14,11 @@ function translate(current: SchemaContext, key: keyof Messages): string {
 export function createSelectionTriggerControl(): NodeSchema {
   return stack((current) => {
     const controls: NodeSchema[] = [
-      boundSelect({
+      {
+        kind: 'segmentedNav',
+        className: 'segmented-control',
         bind: 'fragmentSelectionTriggerMode',
-        options: [
+        items: [
           {
             value: 'disabled',
             label: translate(current, 'fragmentSelectionTriggerModeDisabled')
@@ -31,20 +32,19 @@ export function createSelectionTriggerControl(): NodeSchema {
             label: translate(current, 'fragmentSelectionTriggerModeModifier')
           }
         ],
-        onChange: {
-          id: 'selection-trigger:setMode',
-          valueFrom: 'target.value'
-        }
-      })
+        action: { id: 'selection-trigger:setMode' }
+      }
     ];
 
     if (current.state.fragmentSelectionTriggerMode === 'modifier') {
       controls.push(
-        {
-          kind: 'chips',
-          items: fragmentModifierChipItems(current.state.modifierKeys, current.messages),
-          action: { id: 'modifier:setKey' }
-        },
+        div('modifier-key-choices', [
+          {
+            kind: 'chips',
+            items: fragmentModifierChipItems(current.state.modifierKeys, current.messages),
+            action: { id: 'modifier:setKey' }
+          }
+        ]),
         paragraph(
           fragmentModifierStateWarning(current.state, current.messages),
           'modifier-key-warning'

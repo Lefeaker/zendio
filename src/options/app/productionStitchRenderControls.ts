@@ -44,12 +44,7 @@ export function createProductionStitchRenderControls(options: RenderControlOptio
     const state = options.getState();
     const activeKey = normalizeFragmentModifierKeys(state.modifierKeys)[0];
     mountRoot
-      .querySelectorAll<HTMLSelectElement>('.selection-trigger-inline select')
-      .forEach((select) => {
-        select.value = state.fragmentSelectionTriggerMode;
-      });
-    mountRoot
-      .querySelectorAll<HTMLButtonElement>('.modifier-key-inline .chips button[data-value]')
+      .querySelectorAll<HTMLButtonElement>('.modifier-key-choices .chips button[data-value]')
       .forEach((button) => {
         const isActive = button.dataset.value === activeKey;
         button.setAttribute('aria-pressed', isActive ? 'true' : 'false');
@@ -76,7 +71,14 @@ export function createProductionStitchRenderControls(options: RenderControlOptio
       const isActive = button.dataset.value === preference;
       button.setAttribute('aria-pressed', isActive ? 'true' : 'false');
       button.classList.toggle('is-active', isActive);
-      button.closest<HTMLElement>('.chips')?.setAttribute('data-active-value', preference);
+      const group = button.closest<HTMLElement>('.chips');
+      group?.setAttribute('data-active-value', preference);
+      if (isActive && group) {
+        group.style.setProperty(
+          '--segment-index',
+          String(Array.from(group.children).indexOf(button))
+        );
+      }
     });
   }
 

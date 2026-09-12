@@ -310,6 +310,38 @@ describe('validation', () => {
       expect(RestOptionsSchema.safeParse({ ...options.rest, apiKey: 'short' }).success).toBe(false);
     });
 
+    it('preserves explicitly disabled REST URLs for a local-folder-only vault', () => {
+      const options = {
+        rest: {
+          baseUrl: DEFAULT_BASE_URL,
+          vault: 'Local Vault',
+          apiKey: '',
+          httpsUrl: '',
+          httpUrl: ''
+        },
+        vaultRouter: {
+          defaultVaultId: 'local',
+          vaults: [
+            {
+              id: 'local',
+              name: 'Local Vault',
+              vault: 'Local Vault',
+              httpsUrl: '',
+              httpUrl: '',
+              apiKey: '',
+              enabled: true,
+              isDefault: true
+            }
+          ]
+        }
+      };
+      const result = validateOptions(options);
+      expect(result.success).toBe(true);
+      if (result.success) expect(result.data.rest).toEqual(options.rest);
+      expect(validateOptions({ rest: { httpsUrl: 'invalid-address' } }).success).toBe(false);
+      expect(validateOptions({ rest: { httpUrl: 'invalid-address' } }).success).toBe(false);
+    });
+
     it('round-trips a full classifier taxonomy without stripping optional data', () => {
       const options = {
         classifier: {

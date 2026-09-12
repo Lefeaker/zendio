@@ -168,3 +168,9 @@ proxy/backend evidence。
 
 - 若在纯 JSDOM / 非扩展上下文执行 content 面板测试，样式资源会报告 URL 解析警告；当前不会阻断测试通过。
 - content-scripts repository e2e 中 `aiob-shortcut-usage-count` 的 mock storage 警告已被错误链路正确吸收，不影响通过判定。
+
+### Options capture controls and local-only vaults (v0.3.0)
+
+Selection triggering and reading export scope use the same segmented control as the interface theme. The values remain `disabled` / `direct` / `modifier` and `full` / `highlights`; modifier-key controls appear only in modifier mode. Selecting a segment updates its pressed state immediately and persists through the existing Options mutation path.
+
+Explicitly empty `rest.httpsUrl` and `rest.httpUrl` represent disabled REST channels and must survive canonical validation and reload when a default vault uses a local folder. Nonempty malformed addresses remain invalid. A valid local folder does not require REST addresses or an API key; unconfigured channels have neutral indicators, while configured failures retain their error diagnostics. `tests/e2e/optionsCaptureControls.browser.test.ts` covers native local-folder handle persistence, successful local-only connection testing, segmented choice persistence, v0.3.0 release notes, and light/dark layout on desktop and narrow screens.

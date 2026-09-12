@@ -311,12 +311,23 @@ function YAMLFilterRow(
 function SegmentedNav(
   items: SelectOption[],
   active: string | number | undefined,
-  onChange: (value: string) => void
+  onChange: (value: string) => void,
+  className = ''
 ): HTMLDivElement {
-  return el(
+  const group = el(
     'div',
-    { className: 'chips', dataset: active !== undefined ? { activeValue: active } : undefined },
-    items.map((item) =>
+    {
+      className: ['chips', className].filter(Boolean).join(' '),
+      dataset: active !== undefined ? { activeValue: active } : undefined,
+      style: {
+        '--segment-count': items.length,
+        '--segment-index': Math.max(
+          0,
+          items.findIndex((item) => item.value === active)
+        )
+      }
+    },
+    items.map((item, index) =>
       el('button', {
         type: 'button',
         className: 'chip',
@@ -324,10 +335,18 @@ function SegmentedNav(
         dataset: { value: item.value },
         text: item.label,
         onMousedown: (event: MouseEvent) => event.preventDefault(),
-        onClick: () => onChange(item.value)
+        onClick: () => {
+          group.dataset.activeValue = item.value;
+          group.style.setProperty('--segment-index', String(index));
+          group.querySelectorAll<HTMLButtonElement>('button[data-value]').forEach((button) => {
+            button.setAttribute('aria-pressed', String(button.dataset.value === item.value));
+          });
+          onChange(item.value);
+        }
       })
     )
   );
+  return group;
 }
 
 function renderUsageChart(root: HTMLElement, history: UsageChartSeriesPoint[]): void {

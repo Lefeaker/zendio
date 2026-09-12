@@ -47,7 +47,9 @@ const CHUNK_COUNT_BUDGET = {
   warningTarget: 118,
   hardStop: 122
 };
-const MAX_SINGLE_CHUNK_SIZE = 320 * 1024;
+// v0.3.0 keeps the Options control and release-note changes in their existing owner.
+// The dev chunk is 320.1 KiB; retain modest headroom without an artificial split.
+const MAX_SINGLE_CHUNK_SIZE = 328 * 1024;
 // Shared #1 carries the cross-entry options/repository schema. The first budget
 // includes the video control-bar persisted preference contract.
 // 2026-06-11: Reader terminal draft finalization now fail-closes export/cancel and

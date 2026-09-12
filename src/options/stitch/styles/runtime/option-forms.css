@@ -100,12 +100,12 @@
   align-items: center;
 }
 
-.modifier-key-inline .chips {
+.modifier-key-choices .chips {
   flex-wrap: nowrap;
   gap: var(--space-2);
 }
 
-.modifier-key-inline .chip {
+.modifier-key-choices .chip {
   min-height: var(--control-height-md);
   padding: 0 var(--space-4);
 }
@@ -181,10 +181,10 @@
   font-size: var(--font-size-base);
 }
 
-.interface-theme-grid .chips {
+.chips.segmented-control {
   position: relative;
   display: grid;
-  grid-template-columns: repeat(3, minmax(86px, 1fr));
+  grid-template-columns: repeat(var(--segment-count), minmax(0, 1fr));
   align-items: center;
   gap: 0;
   min-width: 0;
@@ -195,32 +195,27 @@
   background: var(--panel);
 }
 
-.interface-theme-grid .chips::before {
+.chips.segmented-control::before {
   content: '';
   position: absolute;
   top: var(--space-1);
   left: var(--space-1);
-  width: calc((100% - var(--space-2)) / 3);
+  width: calc((100% - var(--space-2)) / var(--segment-count));
   height: calc(100% - var(--space-2));
   border-radius: var(--radius-full);
   background: var(--accent-strong);
   box-shadow: var(--shadow-focus);
+  transform: translateX(calc(var(--segment-index) * 100%));
   transition: transform var(--motion-base) var(--ease-standard);
 }
 
-.interface-theme-grid .chips[data-active-value='dark']::before {
-  transform: translateX(100%);
-}
-
-.interface-theme-grid .chips[data-active-value='light']::before {
-  transform: translateX(200%);
-}
-
-.interface-theme-grid .chip {
+.chips.segmented-control > .chip {
   position: relative;
   z-index: 1;
   justify-content: center;
   width: 100%;
+  min-width: 0;
+  white-space: normal;
   min-height: var(--control-height-lg);
   padding: 0 var(--space-5);
   border: 0;
@@ -231,12 +226,12 @@
   font-weight: 650;
 }
 
-.interface-theme-grid .chip[aria-pressed='true'] {
+.chips.segmented-control > .chip[aria-pressed='true'] {
   background: transparent;
   color: var(--on-accent);
 }
 
-.interface-theme-grid .chip:hover {
+.chips.segmented-control > .chip:hover {
   background: var(--surface-muted);
   color: var(--text);
 }

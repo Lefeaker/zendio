@@ -79,6 +79,7 @@ export function renderSegmentedNavNode(node: SegmentedNavNode, ctx: RendererCont
   return ctx.ui.SegmentedNav(
     resolveValue(node.items, ctx) || [],
     resolveNodeValue(node, ctx) as string | number | undefined,
-    (value) => runAction(node.action, ctx, value)
+    (value) => runAction(node.action, ctx, value),
+    resolveValue(node.className, ctx)
   );
 }

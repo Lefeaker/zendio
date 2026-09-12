@@ -88,6 +88,14 @@ describe('report-performance-hotspots', () => {
 
   it('keeps the exact normalized budget transitions and every other budget unchanged', () => {
     const registeredBudgets = readRegisteredBudgets();
+    const catalogChanges: Array<[string, number, number]> = [
+      ['src/i18n/generated/messages.generated.ts', 1144, 1153],
+      ['src/i18n/generated/schemaCore.generated.ts', 445, 453]
+    ];
+    for (const [file, before, after] of catalogChanges) {
+      expect(registeredBudgets.get(file)).toBe(after);
+      registeredBudgets.set(file, before);
+    }
     // Verify the reviewed recovery delta, then reconstruct the prior map so the
     // existing hash continues to protect every unrelated budget unchanged.
     const recovery: Array<[string, number | null, number]> = [

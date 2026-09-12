@@ -1032,7 +1032,7 @@ describe('mountProductionStitchShell renderLifecycle', () => {
     });
 
     const summaryButtons = Array.from(
-      document.querySelectorAll<HTMLButtonElement>('button')
+      document.querySelectorAll<HTMLButtonElement>('[data-panel-id="output"] button')
     ).filter((button) => ['On', 'Off'].includes(button.textContent?.trim() ?? ''));
     expect(summaryButtons).toEqual([]);
 
@@ -1143,16 +1143,21 @@ describe('mountProductionStitchShell renderLifecycle', () => {
     expect(mounted.collectDraft().fragmentClipper.selectionModifierKeys).toEqual(['shift']);
     expect(document.body.textContent).not.toContain('快捷键冲突');
 
-    const directSelect = queryRequired<HTMLSelectElement>('.selection-trigger-inline select');
-    directSelect.value = 'direct';
-    directSelect.dispatchEvent(new Event('change', { bubbles: true }));
+    queryRequired<HTMLButtonElement>(
+      '.selection-trigger-inline .chip[data-value="direct"]'
+    ).click();
 
     expect(mounted.collectDraft().fragmentClipper.selectionTriggerMode).toBe('direct');
-    expect(document.querySelectorAll('.modifier-key-inline .chip')).toHaveLength(0);
+    expect(document.querySelectorAll('.modifier-key-choices .chip')).toHaveLength(0);
+    expect(
+      document
+        .querySelector('.selection-trigger-inline [data-value="direct"]')
+        ?.getAttribute('aria-pressed')
+    ).toBe('true');
 
-    const disabledSelect = queryRequired<HTMLSelectElement>('.selection-trigger-inline select');
-    disabledSelect.value = 'disabled';
-    disabledSelect.dispatchEvent(new Event('change', { bubbles: true }));
+    queryRequired<HTMLButtonElement>(
+      '.selection-trigger-inline .chip[data-value="disabled"]'
+    ).click();
 
     expect(mounted.collectDraft().fragmentClipper.selectionTriggerMode).toBe('disabled');
     expect(mounted.collectDraft().fragmentClipper.selectionModifierKeys).toEqual(['shift']);
