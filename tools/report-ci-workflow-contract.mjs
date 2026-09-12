@@ -133,7 +133,7 @@ const EXPECTED_RUNS = Object.freeze({
     'node scripts/run-bounded-command.mjs --profile npm-script-quick-v1 -- report:options-legacy',
     G01_STYLELINT_RUN,
     'node scripts/run-bounded-command.mjs --profile npm-script-standard-v1 -- lint:hardcoded',
-    'node scripts/run-bounded-command.mjs --profile npm-script-quick-v1 -- lint:warnings-guard'
+    'node scripts/run-bounded-command.mjs --profile npm-script-standard-v1 -- lint:warnings-guard'
   ],
   'static-reporting-audits': [
     'node scripts/run-bounded-command.mjs --profile dependency-cruiser-v1',

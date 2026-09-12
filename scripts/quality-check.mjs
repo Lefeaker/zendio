@@ -147,7 +147,7 @@ export function createQualityTaskGraph() {
         'build-fast'
       ]),
       task('audit-deps-report', 'Dependency graph 覆盖守卫', 'dependency-cruiser-v1', []),
-      quick('lint-warnings-guard', 'Lint Warning 基线守卫', 'lint:warnings-guard'),
+      standard('lint-warnings-guard', 'Lint Warning 基线守卫', 'lint:warnings-guard'),
       standard('i18n-catalog-check', 'i18n catalog 生成一致性守卫', 'i18n:catalog:check'),
       standard('i18n-lint', 'i18n 消息一致性校验', 'i18n:lint'),
       quick('validate-i18n-budgets', '字符预算校验', 'validate:i18n:budgets'),

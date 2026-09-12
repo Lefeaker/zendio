@@ -4,6 +4,7 @@ import { join, relative, resolve } from 'node:path';
 import { z } from 'zod';
 import {
   BROWSER_NPM_SCRIPTS,
+  COMMAND_LIMITS,
   STANDARD_NPM_SCRIPTS,
   resolveCommandProfile
 } from '../../../scripts/config/commandBoundaryProfiles.mjs';
@@ -110,6 +111,21 @@ function walkFiles(root: string): string[] {
 }
 
 describe('local command parallelization contract', () => {
+  it('gives the full lint warning scan the same bounded class as lint', () => {
+    const environment = { HOME: process.env.HOME ?? '/tmp', TMPDIR: '/tmp' };
+    const guard = resolveCommandProfile('npm-script-standard-v1', ['lint:warnings-guard'], {
+      environment
+    });
+    const lint = resolveCommandProfile('npm-script-standard-v1', ['lint'], { environment });
+
+    expect(guard.limits).toEqual(COMMAND_LIMITS.standard);
+    expect(guard.limits).toEqual(lint.limits);
+    expect(guard.argv.slice(-2)).toEqual(['run', 'lint:warnings-guard']);
+    expect(() =>
+      resolveCommandProfile('npm-script-quick-v1', ['lint:warnings-guard'], { environment })
+    ).toThrow();
+  });
+
   it('keeps full production build routes fail-closed with one in-process quality owner', async () => {
     const { buildQualityCommandEnvironment } =
       await import('../../../scripts/utils/buildQualityCommandEnvironment.mjs');
@@ -356,6 +372,10 @@ describe('local command parallelization contract', () => {
     ]);
 
     const taskById = new Map(graph.tasks.map((task) => [task.id, task]));
+    expect(taskById.get('lint-warnings-guard')).toMatchObject({
+      profile: 'npm-script-standard-v1',
+      args: ['lint:warnings-guard']
+    });
     expect(taskById.get('audit-hardcoded-user-copy-check')?.dependsOn).toEqual([
       'audit-build-graph-report'
     ]);
