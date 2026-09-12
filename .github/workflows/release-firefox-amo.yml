@@ -230,7 +230,7 @@ jobs:
           ZENDIO_GA_MEASUREMENT_ID: ${{ vars.ZENDIO_GA_MEASUREMENT_ID }}
           ZENDIO_GA_TRANSPORT_MODE: ${{ vars.ZENDIO_GA_TRANSPORT_MODE }}
           ZENDIO_GA_PROXY_ENDPOINT: ${{ vars.ZENDIO_GA_PROXY_ENDPOINT }}
-        run: node scripts/run-bounded-command.mjs --profile firefox-prepare-v1 -- --config-mode owner-public-vars --transport-mode local-private-v1 --attempt-root "${{ runner.temp }}/zendio-firefox-${{ github.run_id }}-${{ github.run_attempt }}" --dist-dir "${{ runner.temp }}/zendio-firefox-${{ github.run_id }}-${{ github.run_attempt }}/dist-firefox" --release-dir "${{ runner.temp }}/zendio-firefox-${{ github.run_id }}-${{ github.run_attempt }}/firefox-release" --authorization-record "${{ runner.temp }}/zendio-firefox-${{ github.run_id }}-${{ github.run_attempt }}/authorization.json" --result-json "${{ runner.temp }}/zendio-firefox-${{ github.run_id }}-${{ github.run_attempt }}/firefox-result.json"
+        run: node scripts/run-bounded-command.mjs --profile firefox-prepare-v1 -- --config-mode owner-public-vars --transport-mode local-private-v1 --attempt-root "${{ runner.temp }}/zendio-firefox-${{ github.run_id }}-${{ github.run_attempt }}" --dist-dir "${{ runner.temp }}/zendio-firefox-${{ github.run_id }}-${{ github.run_attempt }}/dist-firefox" --release-dir "${{ runner.temp }}/zendio-firefox-${{ github.run_id }}-${{ github.run_attempt }}/release" --authorization-record "${{ runner.temp }}/zendio-firefox-${{ github.run_id }}-${{ github.run_attempt }}/authorization.json" --result-json "${{ runner.temp }}/zendio-firefox-${{ github.run_id }}-${{ github.run_attempt }}/firefox-result.json"
 
       - name: Verify private Firefox artifact
         env:
@@ -244,7 +244,7 @@ jobs:
           ZENDIO_RUNNER_ENVIRONMENT: ${{ runner.environment }}
           ZENDIO_RUNNER_OS: ${{ runner.os }}
           ZENDIO_RUNNER_ARCH: ${{ runner.arch }}
-        run: node scripts/run-bounded-command.mjs --profile firefox-verify-v1 -- --manifest "${{ runner.temp }}/zendio-firefox-${{ github.run_id }}-${{ github.run_attempt }}/firefox-release/manifest.json" --transport-mode local-private-v1
+        run: node scripts/run-bounded-command.mjs --profile firefox-verify-v1 -- --manifest "${{ runner.temp }}/zendio-firefox-${{ github.run_id }}-${{ github.run_attempt }}/release/manifest.json" --transport-mode local-private-v1
 
       - name: Smoke exact Firefox XPI
         env:
@@ -258,7 +258,7 @@ jobs:
           ZENDIO_RUNNER_ENVIRONMENT: ${{ runner.environment }}
           ZENDIO_RUNNER_OS: ${{ runner.os }}
           ZENDIO_RUNNER_ARCH: ${{ runner.arch }}
-        run: node scripts/run-bounded-command.mjs --profile firefox-smoke-v1 -- --manifest "${{ runner.temp }}/zendio-firefox-${{ github.run_id }}-${{ github.run_attempt }}/firefox-release/manifest.json" --transport-mode local-private-v1 --result-json "${{ runner.temp }}/zendio-firefox-${{ github.run_id }}-${{ github.run_attempt }}/firefox-smoke-result.json"
+        run: node scripts/run-bounded-command.mjs --profile firefox-smoke-v1 -- --manifest "${{ runner.temp }}/zendio-firefox-${{ github.run_id }}-${{ github.run_attempt }}/release/manifest.json" --transport-mode local-private-v1 --result-json "${{ runner.temp }}/zendio-firefox-${{ github.run_id }}-${{ github.run_attempt }}/firefox-smoke-result.json"
 
       - name: Publish closed release job outputs
         id: release
@@ -280,7 +280,7 @@ jobs:
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: zendio-firefox-release-v1
-          path: ${{ runner.temp }}/zendio-firefox-${{ github.run_id }}-${{ github.run_attempt }}/firefox-release
+          path: ${{ runner.temp }}/zendio-firefox-${{ github.run_id }}-${{ github.run_attempt }}/release
           if-no-files-found: error
           overwrite: false
 

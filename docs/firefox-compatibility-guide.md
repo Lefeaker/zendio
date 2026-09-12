@@ -399,3 +399,15 @@ protected artifact verification and signed submission keep their existing isolat
 Geckodriver continues to use the existing pinned provisioner and private attempt
 location. Final acceptance still requires prepare, verify, and the actual packaged
 XPI installation/bootstrap/uninstall/reinstall smoke.
+
+## Release preparation directory and linter environment
+
+The prepare workflow writes `<attempt>/release`; verification, exact-XPI smoke,
+and artifact upload consume that same directory. The preparation owner requires
+the `release` basename and preserves its existing no-replacement publication rules.
+
+Public GA build settings remain available to the preparation process for artifact
+identity validation. The addons-linter receives the existing closed quality
+environment, which omits GA build settings without changing the parent environment.
+Ambient HTTP(S) proxies remain forbidden; this does not relax the generic command
+execution policy or the protected signing/submission boundary.

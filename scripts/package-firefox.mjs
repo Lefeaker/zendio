@@ -4,6 +4,7 @@ import { join, resolve } from 'path';
 import process from 'process';
 import { pathToFileURL } from 'url';
 import { runBoundedCommand } from './utils/boundedCommand.mjs';
+import { buildQualityCommandEnvironment } from './utils/buildQualityCommandEnvironment.mjs';
 import { zipDirectory } from './utils/archive.mjs';
 import { applyRestHostPermissions } from './utils/manifestHosts.mjs';
 import { createBrowserManifest } from './utils/manifestSources.mjs';
@@ -178,7 +179,7 @@ export async function lintFirefoxExtension(distDir, dependencies = {}) {
   logger.log('🔎 正在运行 bounded Firefox addons-linter...');
   const result = await runBoundedCommandImpl(
     { profileId: 'firefox-addons-lint-v1', arguments: [distDir] },
-    { mirrorOutput: false }
+    { mirrorOutput: false, environment: buildQualityCommandEnvironment(process.env) }
   );
   const findings = parseFirefoxLintOutput(result);
   if (findings.errors.length > 0) {

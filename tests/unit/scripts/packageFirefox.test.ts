@@ -32,6 +32,7 @@ async function createStaticDist(root: string) {
 
 describe('Firefox package audit', () => {
   afterEach(async () => {
+    vi.unstubAllEnvs();
     await Promise.all(
       tempRoots.splice(0).map((root) => rm(root, { recursive: true, force: true }))
     );
@@ -158,11 +159,59 @@ describe('Firefox package audit', () => {
     ).resolves.toEqual({ errors: 0, warnings: 2, notices: 1 });
     expect(runBoundedCommandImpl).toHaveBeenCalledWith(
       { profileId: 'firefox-addons-lint-v1', arguments: ['build/dist-firefox'] },
-      { mirrorOutput: false }
+      expect.objectContaining({ mirrorOutput: false })
     );
     expect(logger.warn).toHaveBeenCalledWith(
       'Firefox addons-linter completed with 2 warning(s) and 1 notice(s).'
     );
+  });
+
+  it('keeps release GA configuration in the parent and out of the linter environment', async () => {
+    const proxyEndpoint = 'https://release-analytics.example.test/collect';
+    vi.stubEnv('ZENDIO_GA_MEASUREMENT_ID', 'G-RELEASETEST');
+    vi.stubEnv('ZENDIO_GA_TRANSPORT_MODE', 'proxy');
+    vi.stubEnv('ZENDIO_GA_PROXY_ENDPOINT', proxyEndpoint);
+    const runBoundedCommandImpl = vi.fn().mockResolvedValue({
+      ok: true,
+      exitCode: 0,
+      output: {
+        stdout: {
+          text: JSON.stringify({
+            summary: { errors: 0, warnings: 0, notices: 0 },
+            errors: [],
+            warnings: [],
+            notices: []
+          })
+        }
+      }
+    });
+    await lintFirefoxExtension('build/dist-firefox', { runBoundedCommandImpl });
+    expect(runBoundedCommandImpl).toHaveBeenCalledWith(
+      { profileId: 'firefox-addons-lint-v1', arguments: ['build/dist-firefox'] },
+      expect.objectContaining({ mirrorOutput: false })
+    );
+    expect(runBoundedCommandImpl.mock.calls[0]?.[1]).toHaveProperty(
+      'environment.HOME',
+      process.env.HOME
+    );
+    for (const key of [
+      'ZENDIO_GA_MEASUREMENT_ID',
+      'ZENDIO_GA_TRANSPORT_MODE',
+      'ZENDIO_GA_PROXY_ENDPOINT'
+    ]) {
+      expect(runBoundedCommandImpl.mock.calls[0]?.[1]).not.toHaveProperty(`environment.${key}`);
+    }
+    expect(process.env.ZENDIO_GA_PROXY_ENDPOINT).toBe(proxyEndpoint);
+    expect(process.env.ZENDIO_GA_MEASUREMENT_ID).toBe('G-RELEASETEST');
+  });
+
+  it('still rejects an ambient proxy before invoking the linter', async () => {
+    vi.stubEnv('HTTPS_PROXY', 'http://proxy.example.test:8080');
+    const runBoundedCommandImpl = vi.fn();
+    await expect(
+      lintFirefoxExtension('build/dist-firefox', { runBoundedCommandImpl })
+    ).rejects.toThrow('ENVIRONMENT_FORBIDDEN');
+    expect(runBoundedCommandImpl).not.toHaveBeenCalled();
   });
 
   it('blocks lint errors even when the bounded command returns structured findings', async () => {

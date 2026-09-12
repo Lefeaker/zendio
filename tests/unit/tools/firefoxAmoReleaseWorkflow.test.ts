@@ -43,6 +43,11 @@ describe('Firefox AMO release workflow contract', () => {
     expect(check()).toMatchObject({ status: 0, signal: null, stdout: '', stderr: '' });
   });
 
+  it('rejects a release directory that the preparation owner cannot accept', () => {
+    const invalid = workflow.replace(/(--release-dir "[^"]*\/)[^"]+"/, '$1wrong-release"');
+    expect(check(invalid).status).not.toBe(0);
+  });
+
   it.each([
     ['channel default', 'default: listed', 'default: unlisted'],
     ['store concurrency', 'group: zendio-firefox-amo-release-v1', 'group: ${{ github.ref }}'],

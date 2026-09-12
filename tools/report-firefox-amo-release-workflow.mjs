@@ -212,6 +212,24 @@ export function checkFirefoxAmoReleaseWorkflowContract({
     }
   });
 
+  check('release-paths', () => {
+    const releaseDir =
+      '${{ runner.temp }}/zendio-firefox-${{ github.run_id }}-${{ github.run_attempt }}/release';
+    const preparation = prepare.steps.find(
+      (step) => step.name === 'Prepare immutable Firefox artifact'
+    );
+    requireIncludes(preparation.run, [`--release-dir "${releaseDir}"`], 'preparation directory');
+    for (const name of ['Verify private Firefox artifact', 'Smoke exact Firefox XPI']) {
+      const step = prepare.steps.find((candidate) => candidate.name === name);
+      requireIncludes(step.run, [`--manifest "${releaseDir}/manifest.json"`], name);
+    }
+    const upload = prepare.steps.find(
+      (step) => step.name === 'Upload immutable Firefox release artifact'
+    );
+    if (upload.with?.path !== releaseDir)
+      fail('upload does not consume the prepared release directory');
+  });
+
   check('protected-submit', () => {
     if (submit['runs-on'] !== 'ubuntu-24.04' || submit['timeout-minutes'] !== 90) {
       fail('submit runner or timeout changed');
