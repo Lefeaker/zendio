@@ -1,10 +1,10 @@
 import { chromium, expect, test, type BrowserContext, type Page } from '@playwright/test';
-import { mkdtemp } from 'node:fs/promises';
+import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 
 const extensionPath = path.resolve(process.env.PLAYWRIGHT_DIST_DIR ?? 'build/dist');
-const harnessName = 'content-orchestrator-harness.html';
+const sharedPageUrl = 'https://session-draft.test/shared-owner';
 const draftPrefix = 'aiob.sessionDraft';
 const indexKey = `${draftPrefix}.index.v1`;
 
@@ -36,12 +36,6 @@ type ClaimResult = {
 };
 type UntrustedValue = unknown;
 
-async function startReader(page: Page, harnessUrl: string): Promise<void> {
-  await page.goto(harnessUrl, { waitUntil: 'domcontentloaded' });
-  await page.getByRole('button', { name: 'Start Reader Session' }).click();
-  await expect(page.locator('[data-role="export-btn"]')).toBeVisible({ timeout: 10_000 });
-}
-
 async function closeReader(page: Page): Promise<void> {
   await page.locator('[data-role="close-btn"]').click();
   await expect(page.locator('[data-stitch-surface="reader"]')).toHaveCount(0);
@@ -52,7 +46,7 @@ async function startContentReader(
   extensionPage: Page,
   context: BrowserContext,
   pageUrl: string
-): Promise<void> {
+): Promise<number> {
   await context.route(pageUrl, (route) =>
     route.fulfill({
       status: 200,
@@ -61,10 +55,14 @@ async function startContentReader(
     })
   );
   await page.goto(pageUrl, { waitUntil: 'domcontentloaded' });
-  const tabId = await extensionPage.evaluate(async (url) => {
+  const tabTitle = `Session draft owner ${crypto.randomUUID()}`;
+  await page.evaluate((title) => {
+    document.title = title;
+  }, tabTitle);
+  const tabId = await extensionPage.evaluate(async (title) => {
     const tabs = await chrome.tabs.query({});
-    return tabs.find((tab) => tab.url === url)?.id ?? null;
-  }, page.url());
+    return tabs.find((tab) => tab.title === title)?.id ?? null;
+  }, tabTitle);
   if (typeof tabId !== 'number') throw new Error('Unable to resolve mounted owner tab.');
   await extensionPage.evaluate(async (targetTabId) => {
     await chrome.scripting.executeScript({
@@ -101,6 +99,7 @@ async function startContentReader(
   await expect(page.locator('[data-stitch-surface="reader"]')).toHaveCount(1, {
     timeout: 10_000
   });
+  return tabId;
 }
 
 async function activeDrafts(page: Page): Promise<Array<{ key: string; draft: StoredDraft }>> {
@@ -173,20 +172,27 @@ async function restoreStoredSnapshot(
   );
 }
 
-async function claimExpiredReaderDraft(page: Page, pageUrl: string): Promise<ClaimResult> {
-  return page.evaluate(
-    async ({ url, requestId }) => {
-      return chrome.runtime.sendMessage({
-        type: 'AIIOB_SESSION_DRAFT_V2',
-        request: {
-          operation: 'selectAndClaim',
-          requestId,
-          mode: 'reader',
-          pageUrl: url
-        }
+async function claimExpiredReaderDraft(
+  extensionPage: Page,
+  tabId: number,
+  pageUrl: string
+): Promise<ClaimResult> {
+  return extensionPage.evaluate(
+    async ({ targetTabId, url, requestId }) => {
+      const [execution] = await chrome.scripting.executeScript({
+        target: { tabId: targetTabId },
+        world: 'ISOLATED',
+        func: async (pageUrl, id): Promise<ClaimResult> =>
+          chrome.runtime.sendMessage({
+            type: 'AIIOB_SESSION_DRAFT_V2',
+            request: { operation: 'selectAndClaim', requestId: id, mode: 'reader', pageUrl }
+          }),
+        args: [url, requestId]
       });
+      if (!execution?.result) throw new Error('Missing native content claim result.');
+      return execution.result;
     },
-    { url: pageUrl, requestId: `browser-claim-${crypto.randomUUID()}` }
+    { targetTabId: tabId, url: pageUrl, requestId: `browser-claim-${crypto.randomUUID()}` }
   );
 }
 
@@ -194,9 +200,12 @@ test.describe('session draft browser concurrency', () => {
   let context: BrowserContext;
   let first: Page;
   let second: Page;
+  let extensionPage: Page;
+  let secondTabId: number;
+  let userDataDir: string;
 
   test.beforeEach(async () => {
-    const userDataDir = await mkdtemp(path.join(tmpdir(), 'aiiob-s02-concurrency-'));
+    userDataDir = await mkdtemp(path.join(tmpdir(), 'aiiob-s02-concurrency-'));
     context = await chromium.launchPersistentContext(userDataDir, {
       headless: false,
       args: [
@@ -209,20 +218,25 @@ test.describe('session draft browser concurrency', () => {
     background ??= await context.waitForEvent('serviceworker', { timeout: 15_000 });
     const extensionId = background.url().split('/')[2];
     if (!extensionId) throw new Error('Unable to resolve extension id.');
-    const harnessUrl = `chrome-extension://${extensionId}/${harnessName}`;
+    extensionPage = await context.newPage();
+    await extensionPage.goto(`chrome-extension://${extensionId}/options/index.html`, {
+      waitUntil: 'domcontentloaded'
+    });
     first = await context.newPage();
     second = await context.newPage();
-    await first.goto(harnessUrl, { waitUntil: 'domcontentloaded' });
-    await first.evaluate(async (prefix) => {
+    await extensionPage.evaluate(async (prefix) => {
       const values = await chrome.storage.local.get(null);
       const keys = Object.keys(values).filter((key) => key.startsWith(prefix));
       if (keys.length > 0) await chrome.storage.local.remove(keys);
     }, draftPrefix);
-    await Promise.all([startReader(first, harnessUrl), startReader(second, harnessUrl)]);
+    await startContentReader(first, extensionPage, context, sharedPageUrl);
+    await expect.poll(async () => (await activeDrafts(extensionPage)).length).toBe(1);
+    secondTabId = await startContentReader(second, extensionPage, context, sharedPageUrl);
   });
 
   test.afterEach(async () => {
     await context.close();
+    await rm(userDataDir, { recursive: true, force: true });
   });
 
   test('keeps concurrent owners isolated and terminal cleanup exact', async () => {
@@ -236,7 +250,7 @@ test.describe('session draft browser concurrency', () => {
     await expect
       .poll(
         async () => {
-          const drafts = await activeDrafts(first);
+          const drafts = await activeDrafts(extensionPage);
           const serialized = JSON.stringify(drafts);
           return {
             count: drafts.length,
@@ -247,11 +261,11 @@ test.describe('session draft browser concurrency', () => {
         { timeout: 10_000 }
       )
       .toEqual({ count: 2, hasFirstComment: true, hasSecondComment: true });
-    const before = await activeDrafts(first);
+    const before = await activeDrafts(extensionPage);
     expect(new Set(before.map(({ key }) => key)).size).toBe(2);
     expect(new Set(before.map(({ draft }) => draft.lease?.owner?.tabId)).size).toBe(2);
 
-    const requestIds = await first.evaluate(async (key) => {
+    const requestIds = await extensionPage.evaluate(async (key) => {
       const value = await chrome.storage.local.get(key);
       const candidate = value[key];
       const isIndex = (entry: UntrustedValue): entry is SessionDraftIndex =>
@@ -267,31 +281,39 @@ test.describe('session draft browser concurrency', () => {
     expect(new Set(requestIds).size).toBe(requestIds.length);
 
     await closeReader(first);
-    await expect.poll(async () => (await activeDrafts(second)).length, { timeout: 10_000 }).toBe(1);
+    await expect
+      .poll(async () => (await activeDrafts(extensionPage)).length, { timeout: 10_000 })
+      .toBe(1);
     await expect(secondInput).toHaveValue('concurrent note B');
-    expect(JSON.stringify(await activeDrafts(second))).toContain('concurrent note B');
+    expect(JSON.stringify(await activeDrafts(extensionPage))).toContain('concurrent note B');
 
     await closeReader(second);
-    await expect.poll(async () => (await activeDrafts(second)).length, { timeout: 10_000 }).toBe(0);
+    await expect
+      .poll(async () => (await activeDrafts(extensionPage)).length, { timeout: 10_000 })
+      .toBe(0);
   });
 
   test('reclaims an expired owner after its tab navigates while remaining open', async () => {
     await closeReader(second);
-    await expect.poll(async () => (await activeDrafts(first)).length, { timeout: 10_000 }).toBe(1);
+    await expect
+      .poll(async () => (await activeDrafts(extensionPage)).length, { timeout: 10_000 })
+      .toBe(1);
     const firstInput = first.locator('[data-highlight-input]').first();
     await firstInput.fill('navigation reclaim note');
-    await expect.poll(async () => (await activeDrafts(first)).length, { timeout: 10_000 }).toBe(1);
+    await expect
+      .poll(async () => (await activeDrafts(extensionPage)).length, { timeout: 10_000 })
+      .toBe(1);
 
-    const [{ key, draft }] = await activeDrafts(first);
+    const [{ key, draft }] = await activeDrafts(extensionPage);
     expect(draft.lease?.owner?.tabId).toBeDefined();
-    const snapshot = await captureAndExpireLease(first, key);
+    const snapshot = await captureAndExpireLease(extensionPage, key);
 
     await first.goto('about:blank', { waitUntil: 'domcontentloaded' });
     expect(first.isClosed()).toBe(false);
-    await restoreStoredSnapshot(second, key, snapshot);
-    await captureAndExpireLease(second, key);
+    await restoreStoredSnapshot(extensionPage, key, snapshot);
+    await captureAndExpireLease(extensionPage, key);
 
-    const result = await claimExpiredReaderDraft(second, second.url());
+    const result = await claimExpiredReaderDraft(extensionPage, secondTabId, second.url());
     expect(result).toMatchObject({
       outcome: 'claimed',
       selectionReason: 'expired_owner_inactive'
@@ -303,20 +325,24 @@ test.describe('session draft browser concurrency', () => {
   test('does not reclaim a throttled-but-mounted exact lease', async () => {
     await closeReader(second);
     await closeReader(first);
-    await expect.poll(async () => (await activeDrafts(first)).length, { timeout: 10_000 }).toBe(0);
+    await expect
+      .poll(async () => (await activeDrafts(extensionPage)).length, { timeout: 10_000 })
+      .toBe(0);
     const pageUrl = 'https://session-draft.test/mounted-owner';
-    await startContentReader(first, second, context, pageUrl);
+    await startContentReader(first, extensionPage, context, pageUrl);
     const firstInput = first.locator('[data-highlight-input]').first();
     await firstInput.fill('mounted lease note');
-    await expect.poll(async () => (await activeDrafts(second)).length, { timeout: 10_000 }).toBe(1);
+    await expect
+      .poll(async () => (await activeDrafts(extensionPage)).length, { timeout: 10_000 })
+      .toBe(1);
 
-    const [{ key, draft }] = await activeDrafts(second);
-    await captureAndExpireLease(second, key);
+    const [{ key, draft }] = await activeDrafts(extensionPage);
+    await captureAndExpireLease(extensionPage, key);
 
-    const result = await claimExpiredReaderDraft(second, pageUrl);
+    const result = await claimExpiredReaderDraft(extensionPage, secondTabId, pageUrl);
     expect(result).toEqual({ outcome: 'conflict', code: 'OWNER_ACTIVE' });
 
-    const [persisted] = await activeDrafts(second);
+    const [persisted] = await activeDrafts(extensionPage);
     expect(persisted.key).toBe(key);
     expect(persisted.draft.lease?.leaseId).toBe(draft.lease?.leaseId);
     expect(persisted.draft.lease?.owner?.tabId).toBe(draft.lease?.owner?.tabId);

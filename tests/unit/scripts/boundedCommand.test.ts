@@ -18,7 +18,7 @@ import {
   symlinkSync,
   writeFileSync
 } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { tmpdir, uptime } from 'node:os';
 import { dirname, join, relative, resolve } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { buildZipFixture } from '../../utils/zipFixtureBuilder';
@@ -446,6 +446,28 @@ function installAttemptConfigs(attemptRoot: string) {
 
 function firefoxPlaywrightPhaseFixture() {
   const fixture = releaseAttemptFixture('firefox', 'prepare');
+  const environment = fixture.environment;
+  writeFileSync(
+    join(
+      dirname(fixture.attemptRoot),
+      `zendio-command-start-${environment.GITHUB_RUN_ID}-${environment.GITHUB_RUN_ATTEMPT}-${environment.GITHUB_JOB}.receipt`
+    ),
+    [
+      'zendio-ci-command-start-v1',
+      environment.GITHUB_RUN_ID,
+      environment.GITHUB_RUN_ATTEMPT,
+      environment.GITHUB_JOB,
+      environment.ZENDIO_JOB_CLASS,
+      environment.ZENDIO_JOB_TIMEOUT_MINUTES,
+      environment.RUNNER_OS,
+      environment.RUNNER_ARCH,
+      environment.ImageOS,
+      environment.ImageVersion,
+      String(Math.floor(uptime()) * 100),
+      ''
+    ].join('\n'),
+    { flag: 'wx', mode: 0o600 }
+  );
   installAttemptConfigs(fixture.attemptRoot);
   const userconfig = join(fixture.attemptRoot, 'install/npm-userconfig');
   const globalconfig = join(fixture.attemptRoot, 'install/npm-globalconfig');

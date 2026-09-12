@@ -459,15 +459,17 @@ describe('VideoSession analytics', () => {
     await vi.advanceTimersByTimeAsync(200);
     await flushMutationWork();
 
-    expect(trackUsageEvent.mock.calls.map(([eventName]) => eventName).sort()).toEqual(
-      [
-        'video_session_started',
-        'video_timestamp_added',
-        'video_fragment_added',
-        'video_capture_removed',
-        'video_screenshot_captured'
-      ].sort()
-    );
+    await vi.waitFor(() => {
+      expect(trackUsageEvent.mock.calls.map(([eventName]) => eventName).sort()).toEqual(
+        [
+          'video_session_started',
+          'video_timestamp_added',
+          'video_fragment_added',
+          'video_capture_removed',
+          'video_screenshot_captured'
+        ].sort()
+      );
+    });
     expect(trackUsageEvent).toHaveBeenCalledWith('video_timestamp_added', {
       capture_count_bucket: 'one'
     });

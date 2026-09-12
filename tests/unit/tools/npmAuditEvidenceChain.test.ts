@@ -13,7 +13,7 @@ import {
   unlinkSync,
   writeFileSync
 } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { homedir, tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { loadEvidenceChain } from '../../utils/npmAuditTypedLoader.mjs';
@@ -71,7 +71,7 @@ describe('audit evidence chain', () => {
 
   it('publishes durably without replacing a racing final path', async () => {
     const { durablePublishNoReplace } = await loadEvidenceChain();
-    const root = realpathSync(mkdtempSync(join(tmpdir(), 'zendio-r02-publish-')));
+    const root = realpathSync(mkdtempSync(join(homedir(), 'zendio-r02-publish-')));
     const path = join(root, 'manifest.json');
     try {
       expect(() =>
@@ -165,7 +165,7 @@ describe('audit evidence chain', () => {
     ['second directory fsync', 2]
   ])('fails closed at durable publication %s boundary', async (boundary, failingSyncCall) => {
     const { durablePublishNoReplace } = await loadEvidenceChain();
-    const root = realpathSync(mkdtempSync(join(tmpdir(), 'zendio-r02-publish-boundary-')));
+    const root = realpathSync(mkdtempSync(join(homedir(), 'zendio-r02-publish-boundary-')));
     const path = join(root, 'final');
     let syncCalls = 0;
     try {

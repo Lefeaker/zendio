@@ -160,14 +160,15 @@ test('persists segmented selection and export choices and presents the v0.3.0 ch
   await expect(page.locator('.release-card')).toHaveCount(4);
 });
 
-test('keeps segmented controls readable in both themes and on narrow screens', async ({
-  extensionPage,
-  context
-}, testInfo) => {
-  const page = await context.newPage();
-  for (const language of ['zh-CN', 'en', 'de']) {
+for (const language of ['zh-CN', 'en', 'de']) {
+  test(`keeps segmented controls readable in both themes and on narrow screens (${language})`, async ({
+    extensionPage,
+    context
+  }, testInfo) => {
+    const page = await context.newPage();
     await extensionPage.evaluate((value) => chrome.storage.sync.set({ language: value }), language);
     await page.goto(new URL('/options/index.html', extensionPage.url()).href);
+    await page.bringToFront();
     for (const theme of ['light', 'dark']) {
       await page.setViewportSize({ width: 1280, height: 900 });
       await page.locator('[data-nav-panel="overview"]').click();
@@ -210,8 +211,8 @@ test('keeps segmented controls readable in both themes and on narrow screens', a
           });
       }
     }
-  }
-});
+  });
+}
 
 test('keeps resource modal focus frames neutral', async ({ extensionPage, context }) => {
   const page = await context.newPage();
