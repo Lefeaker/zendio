@@ -69,7 +69,11 @@ export class DragController {
   }
 
   private onPointerDown(event: PointerEvent): void {
-    if (event.button !== 0) {
+    const target = event.target instanceof Element ? event.target : null;
+    if (
+      event.button !== 0 ||
+      target?.closest('a,button,input,select,textarea,[contenteditable="true"]')
+    ) {
       return;
     }
 

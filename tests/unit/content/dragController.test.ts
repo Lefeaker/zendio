@@ -36,6 +36,21 @@ describe('DragController', () => {
     controller.detach();
   });
 
+  it.each(['a', 'button'])('does not capture pointer gestures from header %s controls', (tag) => {
+    const control = document.createElement(tag);
+    const icon = document.createElement('img');
+    control.append(icon);
+    handle.append(control);
+    const controller = new DragController({ handle, onMove: (position) => moves.push(position) });
+    controller.attach();
+    icon.dispatchEvent(
+      new PointerEvent('pointerdown', { bubbles: true, button: 0, clientX: 10, clientY: 10 })
+    );
+    document.dispatchEvent(new PointerEvent('pointermove', { clientX: 30, clientY: 30 }));
+    expect(moves).toEqual([]);
+    controller.detach();
+  });
+
   it('ignores non-primary buttons and triggers onEnd', () => {
     const controller = new DragController({
       handle,

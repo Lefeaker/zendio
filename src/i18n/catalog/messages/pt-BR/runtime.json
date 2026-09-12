@@ -140,7 +140,7 @@
   "readingExportModeDescription": "Ao escolher \"Artigo completo\", o corpo limpo do artigo é salvo com destaques incorporados e notas de rodapé.",
   "readingHighlightThemeLabel": "Cor do destaque",
   "readingHighlightThemeDescription": "Afeta apenas o estilo do destaque no modo de leitura; o Markdown exportado permanece inalterado.",
-  "readingHighlightThemeGradient": "Gradiente roxo-azul (padrão)",
+  "readingHighlightThemeGradient": "Gradiente roxo-azul",
   "readingHighlightThemePurple": "Roxo sólido",
   "readingHighlightThemeNeonYellow": "Amarelo neon",
   "readingHighlightThemeNeonGreen": "Verde neon",

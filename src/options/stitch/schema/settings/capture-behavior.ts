@@ -68,6 +68,7 @@ const schema: SettingsSchema = {
                       control: stack([
                         {
                           kind: 'segmentedNav',
+                          className: 'segmented-control highlight-theme-control',
                           items: [
                             {
                               value: 'gradient',

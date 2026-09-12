@@ -384,7 +384,7 @@
     "readingExportModeHighlights": "하이라이트만",
     "readingExportModeLabel": "콘텐츠 내보내기",
     "readingHighlightThemeDescription": "읽기 모드의 하이라이트 스타일에만 영향을 줍니다. 내보낸 Markdown은 변경되지 않습니다.",
-    "readingHighlightThemeGradient": "보라-파랑 그라데이션 (기본값)",
+    "readingHighlightThemeGradient": "보라-파랑 그라데이션",
     "readingHighlightThemeLabel": "하이라이트 색상",
     "readingHighlightThemeNeonGreen": "네온 초록",
     "readingHighlightThemeNeonOrange": "네온 주황",

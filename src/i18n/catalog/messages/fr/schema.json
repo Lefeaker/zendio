@@ -425,7 +425,7 @@
   "schemaMaintenanceDiagnosisIdleBody": "Le diagnostic n’a pas encore été exécuté.",
   "schemaMaintenanceDiagnosisRunningBody": "Vérification de la configuration actuelle…",
   "schemaMaintenanceReloadSuccessBody": "Configuration rechargée.",
-  "schemaResourceChangelogV030Summary": "Enregistrement plus fiable et commandes simplifiées",
+  "schemaResourceChangelogV030Summary": "La vie fait partie de la création, et la création fait partie de la vie.",
   "schemaResourceChangelogV030Bullet1": "Amélioration de la sauvegarde des réglages lors de modifications rapides, dans plusieurs pages et à leur fermeture, avec erreurs visibles et possibilité de réessayer.",
   "schemaResourceChangelogV030Bullet2": "Correction de la sauvegarde après effacement des adresses REST pour un coffre avec dossier local seul ; amélioration des identifiants, des liaisons de dossiers et des réglages de confidentialité.",
   "schemaResourceChangelogV030Bullet3": "Boutons segmentés pour le déclenchement à la sélection (Désactivé, Direct, Touche modif.) et le contenu exporté (Article entier, Surlignages seuls).",

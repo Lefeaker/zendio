@@ -140,7 +140,7 @@
   "readingExportModeDescription": "При выборе \"Полная статья\" очищенное тело статьи сохраняется с встроенными выделениями и сносками.",
   "readingHighlightThemeLabel": "Цвет выделения",
   "readingHighlightThemeDescription": "Влияет только на стиль выделения в режиме чтения; экспортированный Markdown остаётся неизменным.",
-  "readingHighlightThemeGradient": "Фиолетово-синий градиент (по умолчанию)",
+  "readingHighlightThemeGradient": "Фиолетово-синий градиент",
   "readingHighlightThemePurple": "Сплошной фиолетовый",
   "readingHighlightThemeNeonYellow": "Неоновый жёлтый",
   "readingHighlightThemeNeonGreen": "Неоновый зелёный",

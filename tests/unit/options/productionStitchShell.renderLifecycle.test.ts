@@ -1143,12 +1143,16 @@ describe('mountProductionStitchShell renderLifecycle', () => {
     expect(mounted.collectDraft().fragmentClipper.selectionModifierKeys).toEqual(['shift']);
     expect(document.body.textContent).not.toContain('快捷键冲突');
 
+    const triggerBefore = queryRequired<HTMLElement>('.selection-trigger-inline > .chips');
+    const keysBefore = queryRequired<HTMLElement>('.modifier-key-choices');
     queryRequired<HTMLButtonElement>(
       '.selection-trigger-inline .chip[data-value="direct"]'
     ).click();
+    expect(document.querySelector('.selection-trigger-inline > .chips')).toBe(triggerBefore);
+    expect(keysBefore.isConnected).toBe(true);
 
     expect(mounted.collectDraft().fragmentClipper.selectionTriggerMode).toBe('direct');
-    expect(document.querySelectorAll('.modifier-key-choices .chip')).toHaveLength(0);
+    expect(keysBefore.style.display).toBe('none');
     expect(
       document
         .querySelector('.selection-trigger-inline [data-value="direct"]')

@@ -425,7 +425,7 @@
   "schemaMaintenanceDiagnosisIdleBody": "Diagnostics have not run yet.",
   "schemaMaintenanceDiagnosisRunningBody": "Checking the current configuration…",
   "schemaMaintenanceReloadSuccessBody": "Configuration reloaded.",
-  "schemaResourceChangelogV030Summary": "More reliable saving and smoother controls",
+  "schemaResourceChangelogV030Summary": "Life is part of creation, and creation is part of life.",
   "schemaResourceChangelogV030Bullet1": "Improve settings autosave across multiple pages, rapid edits and page closure, with visible errors and retry when saving fails.",
   "schemaResourceChangelogV030Bullet2": "Fix saving a local-folder-only vault after clearing REST addresses; improve vault identities, folder bindings and privacy setting recovery.",
   "schemaResourceChangelogV030Bullet3": "Use segmented buttons for selection triggering (Off, Direct, Modifier key) and export content (Full article, Highlights only).",

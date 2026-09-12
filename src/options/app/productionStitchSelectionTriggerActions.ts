@@ -6,13 +6,11 @@ import {
   normalizeFragmentModifierKey,
   normalizeFragmentModifierKeys
 } from './fragmentModifierOptions';
-import type { SectionInvalidationScope } from '@ui/stitch-runtime/render/sectionInvalidation';
 
 interface ProductionSelectionTriggerActionContext {
   getDraft(): CompleteOptions;
   getState(): PreviewStoreState;
   scheduleDraftSave(): void;
-  render(scope: SectionInvalidationScope): void;
   syncModifierControls(): void;
 }
 
@@ -32,7 +30,7 @@ export function createProductionSelectionTriggerActions(
       state.fragmentSelectionTriggerMode = mode;
       state.modifierKeys = selectedKeys;
       context.scheduleDraftSave();
-      context.render('capture-behavior');
+      context.syncModifierControls();
     },
     'modifier:setKey': ({ value }) => {
       const draft = context.getDraft();

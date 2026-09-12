@@ -425,7 +425,7 @@
   "schemaMaintenanceDiagnosisIdleBody": "O diagnóstico ainda não foi executado.",
   "schemaMaintenanceDiagnosisRunningBody": "Verificando a configuração atual…",
   "schemaMaintenanceReloadSuccessBody": "Configuração recarregada.",
-  "schemaResourceChangelogV030Summary": "Salvamento mais confiável e controles mais simples",
+  "schemaResourceChangelogV030Summary": "A vida faz parte da criação, e a criação também faz parte da vida.",
   "schemaResourceChangelogV030Bullet1": "Melhorias no salvamento automático ao editar várias páginas, fazer alterações rápidas ou fechar a página, com erros visíveis e opção de tentar novamente.",
   "schemaResourceChangelogV030Bullet2": "Corrigido o salvamento após limpar endereços REST de um cofre que usa só pasta local; melhorias nos identificadores, vínculos de pastas e recuperação de privacidade.",
   "schemaResourceChangelogV030Bullet3": "Botões segmentados para o acionamento por seleção (Desativado, Direto, Tecla modificadora) e o conteúdo exportado (Artigo completo, Só destaques).",

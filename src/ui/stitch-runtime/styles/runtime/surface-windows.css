@@ -36,6 +36,7 @@
 }
 
 .resource-modal {
+  outline: 0;
   width: min(var(--modal-width), calc(100vw - var(--modal-edge-gap)));
   max-height: min(var(--modal-max-height), var(--modal-max-height-fallback));
   display: flex;

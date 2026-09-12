@@ -140,7 +140,7 @@
   "readingExportModeDescription": "En choisissant \"Article complet\", le corps d'article nettoyé est sauvegardé avec surlignages intégrés et notes de bas de page.",
   "readingHighlightThemeLabel": "Couleur de surlignage",
   "readingHighlightThemeDescription": "Affecte uniquement le style de surlignage en mode lecture ; le Markdown exporté reste inchangé.",
-  "readingHighlightThemeGradient": "Dégradé violet-bleu (par défaut)",
+  "readingHighlightThemeGradient": "Dégradé violet-bleu",
   "readingHighlightThemePurple": "Violet uni",
   "readingHighlightThemeNeonYellow": "Jaune néon",
   "readingHighlightThemeNeonGreen": "Vert néon",

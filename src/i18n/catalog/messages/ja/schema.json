@@ -425,7 +425,7 @@
   "schemaMaintenanceDiagnosisIdleBody": "診断はまだ実行されていません。",
   "schemaMaintenanceDiagnosisRunningBody": "現在の設定を確認しています…",
   "schemaMaintenanceReloadSuccessBody": "設定を再読み込みしました。",
-  "schemaResourceChangelogV030Summary": "保存の信頼性と操作性を改善",
+  "schemaResourceChangelogV030Summary": "生活は創作の一部であり、創作もまた生活の一部である。",
   "schemaResourceChangelogV030Bullet1": "複数ページでの編集、連続変更、ページ終了時の設定保存を改善。保存に失敗した場合はエラーを表示し、再試行できます。",
   "schemaResourceChangelogV030Bullet2": "ローカルフォルダーのみを使う保管庫で REST アドレスを空にすると保存できない問題を修正。保管庫 ID、フォルダー連携、プライバシー設定の復元も改善しました。",
   "schemaResourceChangelogV030Bullet3": "選択時の自動起動を「オフ・直接・修飾キー」、出力内容を「全文・ハイライトのみ」の分割ボタンに変更しました。",

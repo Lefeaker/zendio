@@ -140,7 +140,7 @@
   "readingExportModeDescription": "When selecting “Full article”, the cleaned article body is saved with your highlights and footnotes embedded.",
   "readingHighlightThemeLabel": "Highlight color",
   "readingHighlightThemeDescription": "Only affects highlight styling inside reader mode; exported Markdown stays unchanged.",
-  "readingHighlightThemeGradient": "Purple–blue gradient (default)",
+  "readingHighlightThemeGradient": "Purple–blue gradient",
   "readingHighlightThemePurple": "Solid purple",
   "readingHighlightThemeNeonYellow": "Neon yellow",
   "readingHighlightThemeNeonGreen": "Neon green",

@@ -1,4 +1,7 @@
-import type { RuntimeSurfaceHandle } from '@content/stitch/runtimeSurfaceRenderer';
+import {
+  handleRuntimeOptionsLink,
+  type RuntimeSurfaceHandle
+} from '@content/stitch/runtimeSurfaceRenderer';
 import type { VideoPanelCallbacks, VideoPanelCapture } from '../application/videoPanelModel';
 import type {
   SessionCommentDraftController,
@@ -92,6 +95,7 @@ export function bindVideoDialogPanelEvents(
       if (!isInsideDialog(event, handle.dialog)) handlers.cancel();
     }),
     bindEvent(handle.sessionWindow, 'click', (event) => {
+      if (handleRuntimeOptionsLink(event)) return;
       const target = asElement(event.target);
       if (handlers.isCollapsed()) {
         handlers.expandCollapsedPanel();

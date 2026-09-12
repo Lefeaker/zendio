@@ -56,13 +56,27 @@ export function surfaceBrand(iconUrl: string, title: string, subtitle: string | 
     throw new Error('Runtime surface iconUrl must be non-empty');
   }
   return div(classNames.surface.windowBrand, [
-    div(classNames.surface.windowIcon, [
-      element('img', {
-        className: 'surface-window-icon-image',
-        src: normalizedIconUrl,
-        alt: ''
-      })
-    ]),
+    element(
+      'a',
+      {
+        className: classNames.surface.windowIcon,
+        href: '/options/index.html',
+        target: '_blank',
+        rel: 'noopener noreferrer',
+        ariaLabel: (current) =>
+          current.t?.('settingsTitle', RUNTIME_SURFACE_FALLBACK_MESSAGES.settingsTitle) ??
+          RUNTIME_SURFACE_FALLBACK_MESSAGES.settingsTitle,
+        dataset: { actionId: 'surface:openOptions' },
+        onClick: { id: 'surface:openOptions' }
+      },
+      [
+        element('img', {
+          className: 'surface-window-icon-image',
+          src: normalizedIconUrl,
+          alt: ''
+        })
+      ]
+    ),
     div(classNames.surface.headingCopy, [
       strong(title, classNames.surface.windowTitle),
       subtitle ? span(classNames.surface.windowSubtitle, subtitle) : null

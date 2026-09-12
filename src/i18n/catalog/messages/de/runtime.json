@@ -140,7 +140,7 @@
   "readingExportModeDescription": "Bei Auswahl von \"Vollständiger Artikel\" wird der bereinigte Artikelkörper mit eingebetteten Hervorhebungen und Fußnoten gespeichert.",
   "readingHighlightThemeLabel": "Hervorhebungsfarbe",
   "readingHighlightThemeDescription": "Betrifft nur den Hervorhebungsstil im Lesemodus; das exportierte Markdown bleibt unverändert.",
-  "readingHighlightThemeGradient": "Lila-blauer Gradient (Standard)",
+  "readingHighlightThemeGradient": "Lila-blauer Gradient",
   "readingHighlightThemePurple": "Einfarbig lila",
   "readingHighlightThemeNeonYellow": "Neongelb",
   "readingHighlightThemeNeonGreen": "Neongrün",

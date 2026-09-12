@@ -34,13 +34,21 @@
   min-height: var(--clipper-comment-height);
   max-height: var(--clipper-comment-height);
   border-radius: var(--clipper-comment-radius);
-  border-color: var(--runtime-line);
+  border: 1px solid var(--runtime-line);
+  outline: 0;
+  box-shadow: none;
   background: var(--runtime-panel-2);
   color: var(--text);
   resize: none;
   overflow-y: auto;
   font-size: var(--clipper-comment-font-size);
   line-height: var(--clipper-comment-line-height);
+}
+
+.clipper-comment-textarea:focus {
+  border-color: var(--runtime-line-strong);
+  outline: 0;
+  box-shadow: none;
 }
 
 .clipper-source-row {

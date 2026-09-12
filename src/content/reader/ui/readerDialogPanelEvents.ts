@@ -1,4 +1,7 @@
-import type { RuntimeSurfaceHandle } from '@content/stitch/runtimeSurfaceRenderer';
+import {
+  handleRuntimeOptionsLink,
+  type RuntimeSurfaceHandle
+} from '@content/stitch/runtimeSurfaceRenderer';
 import { createRootActionDispatcher } from '@ui/stitch-runtime/render/rootActionDispatcher';
 import type { ReaderPanelCallbacks, ReaderPanelHighlight } from '../application/readerPanelModel';
 import type { SessionCommentDraftController } from '@content/shared/panels/sessionCommentDrafts';
@@ -67,6 +70,7 @@ export function bindReaderDialogPanelEvents(
       if (!isInsideDialog(event, handle.dialog)) handlers.cancel();
     }),
     dispatcher.register(handle.sessionWindow, 'click', (event) => {
+      if (handleRuntimeOptionsLink(event)) return;
       const target = event.target instanceof Element ? event.target : null;
       if (handlers.isCollapsed()) {
         handlers.expandCollapsedPanel();

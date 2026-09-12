@@ -1,3 +1,5 @@
+import type { PlatformServices } from '@platform/types';
+import { getService, TOKENS } from '@shared/di';
 import { getSurfaceView } from '@ui/stitch-surfaces';
 import {
   el,
@@ -62,11 +64,21 @@ function renderStitchRuntimeSurfaceElement(options: RuntimeSurfaceRenderOptions)
     el,
     ui: surfaceComponents,
     dispatch: (id, args, value, event) => {
+      if (id === 'surface:openOptions' && event) {
+        handleRuntimeOptionsLink(event);
+        return;
+      }
       const handler = options.actions?.[id];
       if (handler) handler(event ?? new Event('stitch-runtime-action'), args, value);
     }
   });
 
+  const settingsLink = rendered.querySelector<HTMLAnchorElement>('a.surface-window-icon');
+  if (settingsLink) {
+    settingsLink.href = getService<PlatformServices>(TOKENS.platformServices).runtime.getURL(
+      'options/index.html'
+    );
+  }
   rendered.classList.add('stitch-runtime-surface');
   rendered.dataset.stitchSurface = options.surfaceId;
   rendered.setAttribute('data-preview-skin', 'stitch-secondary');
@@ -95,4 +107,17 @@ export function renderStitchRuntimeSessionTemplate(
   const root = renderStitchRuntimeSurfaceElement(options).cloneNode(true) as HTMLElement;
   createRuntimeSurfaceHandle(root, options.surfaceId).dispose();
   return root;
+}
+
+export function handleRuntimeOptionsLink(event: Event): boolean {
+  const target = event.target instanceof Element ? event.target : null;
+  if (!target?.closest('a[data-action-id="surface:openOptions"]')) return false;
+  event.preventDefault();
+  event.stopPropagation();
+  void getService<PlatformServices>(TOKENS.platformServices)
+    .messaging.send({ type: 'openOptionsPage' })
+    .catch((error) => {
+      console.warn('[runtime] Failed to open settings:', error);
+    });
+  return true;
 }

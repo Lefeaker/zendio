@@ -140,7 +140,7 @@
   "readingExportModeDescription": "\"전체 기사\"를 선택하면 정리된 기사 본문이 임베드된 하이라이트와 각주와 함께 저장됩니다.",
   "readingHighlightThemeLabel": "하이라이트 색상",
   "readingHighlightThemeDescription": "읽기 모드의 하이라이트 스타일에만 영향을 줍니다. 내보낸 Markdown은 변경되지 않습니다.",
-  "readingHighlightThemeGradient": "보라-파랑 그라데이션 (기본값)",
+  "readingHighlightThemeGradient": "보라-파랑 그라데이션",
   "readingHighlightThemePurple": "단색 보라",
   "readingHighlightThemeNeonYellow": "네온 노랑",
   "readingHighlightThemeNeonGreen": "네온 초록",

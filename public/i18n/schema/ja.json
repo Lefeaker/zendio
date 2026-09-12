@@ -211,7 +211,7 @@
   "schemaResourceChangelogV030Bullet6": "小画面の設定ナビゲーション、診断状態、パネル下部、保存先メニューを改善しました。",
   "schemaResourceChangelogV030Bullet7": "動画の動的な切り替え、コメント更新、スクリーンショットキャッシュの削除と復元の安定性を改善しました。",
   "schemaResourceChangelogV030Bullet8": "依存パッケージを更新し、Chrome と Firefox の配布物と互換性の検証を改善しました。",
-  "schemaResourceChangelogV030Summary": "保存の信頼性と操作性を改善",
+  "schemaResourceChangelogV030Summary": "生活は創作の一部であり、創作もまた生活の一部である。",
   "schemaResourceContactChannelsGroupTitle": "連絡先リンク",
   "schemaResourceContactDescription": "このプロジェクトを応援している方、作者に連絡したい方は、<a href=\"https://sxnian.com\" target=\"_blank\" rel=\"noopener noreferrer\">作者の個人サイト</a>、<a href=\"https://www.reddit.com/user/sxnian/\" target=\"_blank\" rel=\"noopener noreferrer\">Reddit</a>、<a href=\"https://github.com/Lefeaker\" target=\"_blank\" rel=\"noopener noreferrer\">Github</a>、または <a href=\"mailto:zendio@sxnian.com\">メール</a> をご利用ください。",
   "schemaResourceContactEmailDescription": "zendio@sxnian.com",

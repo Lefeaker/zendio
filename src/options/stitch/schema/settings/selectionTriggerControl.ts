@@ -1,10 +1,12 @@
 import type { Messages } from '@i18n';
 import {
-  fragmentModifierChipItems,
+  DEFAULT_FRAGMENT_MODIFIER_KEY,
+  fragmentModifierChoices,
+  normalizeFragmentModifierKeys,
   fragmentModifierStateWarning
 } from '@options/app/fragmentModifierOptions';
 import type { NodeSchema, SchemaContext } from '../../types';
-import { div, paragraph, stack } from '../builders/primitives';
+import { element, paragraph, stack } from '../builders/primitives';
 import { translateSchemaMessage } from '../i18n';
 
 function translate(current: SchemaContext, key: keyof Messages): string {
@@ -36,21 +38,32 @@ export function createSelectionTriggerControl(): NodeSchema {
       }
     ];
 
-    if (current.state.fragmentSelectionTriggerMode === 'modifier') {
-      controls.push(
-        div('modifier-key-choices', [
-          {
-            kind: 'chips',
-            items: fragmentModifierChipItems(current.state.modifierKeys, current.messages),
-            action: { id: 'modifier:setKey' }
+    controls.push(
+      element(
+        'div',
+        {
+          className: 'modifier-key-choices',
+          style: {
+            display: current.state.fragmentSelectionTriggerMode === 'modifier' ? 'grid' : 'none'
           }
-        ]),
-        paragraph(
-          fragmentModifierStateWarning(current.state, current.messages),
-          'modifier-key-warning'
-        )
-      );
-    }
+        },
+        [
+          {
+            kind: 'segmentedNav',
+            className: 'segmented-control',
+            items: fragmentModifierChoices(undefined, current.messages),
+            value:
+              normalizeFragmentModifierKeys(current.state.modifierKeys)[0] ??
+              DEFAULT_FRAGMENT_MODIFIER_KEY,
+            action: { id: 'modifier:setKey' }
+          },
+          paragraph(
+            fragmentModifierStateWarning(current.state, current.messages),
+            'modifier-key-warning'
+          )
+        ]
+      )
+    );
 
     return controls;
   }, 'selection-trigger-inline modifier-key-inline');

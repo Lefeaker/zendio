@@ -384,7 +384,7 @@
     "readingExportModeHighlights": "Surlignages seuls",
     "readingExportModeLabel": "Exporter le contenu",
     "readingHighlightThemeDescription": "Affecte uniquement le style de surlignage en mode lecture ; le Markdown exporté reste inchangé.",
-    "readingHighlightThemeGradient": "Dégradé violet-bleu (par défaut)",
+    "readingHighlightThemeGradient": "Dégradé violet-bleu",
     "readingHighlightThemeLabel": "Couleur de surlignage",
     "readingHighlightThemeNeonGreen": "Vert néon",
     "readingHighlightThemeNeonOrange": "Orange néon",

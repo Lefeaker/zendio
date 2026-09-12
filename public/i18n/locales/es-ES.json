@@ -384,7 +384,7 @@
     "readingExportModeHighlights": "Solo resaltados",
     "readingExportModeLabel": "Exportar contenido",
     "readingHighlightThemeDescription": "Solo afecta el estilo de resaltado dentro del modo lector; el Markdown exportado permanece sin cambios.",
-    "readingHighlightThemeGradient": "Gradiente púrpura-azul (predeterminado)",
+    "readingHighlightThemeGradient": "Gradiente púrpura-azul",
     "readingHighlightThemeLabel": "Color de resaltado",
     "readingHighlightThemeNeonGreen": "Verde neón",
     "readingHighlightThemeNeonOrange": "Naranja neón",

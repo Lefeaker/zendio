@@ -46,7 +46,8 @@ export function createProductionStitchRenderLifecycle(
     options.setState(state);
   const controls = createProductionStitchRenderControls({
     mountRoot,
-    getState
+    getState,
+    getMessages: () => options.createSchemaContext().messages ?? null
   });
   const mobileNavigation = createProductionStitchMobileNavigation(mountRoot);
   const folderDismissal = installLocalFolderDismissal(mountRoot, getState, setState, () =>

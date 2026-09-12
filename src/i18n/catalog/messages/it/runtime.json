@@ -140,7 +140,7 @@
   "readingExportModeDescription": "Selezionando \"Articolo completo\" salverà il corpo dell'articolo pulito con evidenziazioni incorporate e note a piè di pagina.",
   "readingHighlightThemeLabel": "Colore evidenziazione",
   "readingHighlightThemeDescription": "Influisce solo sullo stile delle evidenziazioni in modalità lettura. Il Markdown esportato rimane invariato.",
-  "readingHighlightThemeGradient": "Gradiente viola-blu (predefinito)",
+  "readingHighlightThemeGradient": "Gradiente viola-blu",
   "readingHighlightThemePurple": "Viola solido",
   "readingHighlightThemeNeonYellow": "Giallo neon",
   "readingHighlightThemeNeonGreen": "Verde neon",

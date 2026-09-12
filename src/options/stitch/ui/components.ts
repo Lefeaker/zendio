@@ -308,6 +308,18 @@ function YAMLFilterRow(
   );
 }
 
+export function syncSegmentedNav(group: HTMLElement, value: string | number | undefined): void {
+  const buttons = Array.from(group.querySelectorAll<HTMLButtonElement>('button[data-value]'));
+  if (value === undefined) delete group.dataset.activeValue;
+  else group.dataset.activeValue = String(value);
+  const selected = buttons.findIndex((button) => button.dataset.value === String(value));
+  group.style.setProperty('--segment-index', String(Math.max(0, selected)));
+  buttons.forEach((button, index) => {
+    button.setAttribute('aria-pressed', String(index === selected));
+    button.classList.toggle('is-active', index === selected);
+  });
+}
+
 function SegmentedNav(
   items: SelectOption[],
   active: string | number | undefined,
@@ -318,34 +330,23 @@ function SegmentedNav(
     'div',
     {
       className: ['chips', className].filter(Boolean).join(' '),
-      dataset: active !== undefined ? { activeValue: active } : undefined,
-      style: {
-        '--segment-count': items.length,
-        '--segment-index': Math.max(
-          0,
-          items.findIndex((item) => item.value === active)
-        )
-      }
+      style: { '--segment-count': items.length }
     },
-    items.map((item, index) =>
+    items.map((item) =>
       el('button', {
         type: 'button',
         className: 'chip',
-        'aria-pressed': active === item.value ? 'true' : 'false',
         dataset: { value: item.value },
         text: item.label,
         onMousedown: (event: MouseEvent) => event.preventDefault(),
         onClick: () => {
-          group.dataset.activeValue = item.value;
-          group.style.setProperty('--segment-index', String(index));
-          group.querySelectorAll<HTMLButtonElement>('button[data-value]').forEach((button) => {
-            button.setAttribute('aria-pressed', String(button.dataset.value === item.value));
-          });
+          syncSegmentedNav(group, item.value);
           onChange(item.value);
         }
       })
     )
   );
+  syncSegmentedNav(group, active);
   return group;
 }
 

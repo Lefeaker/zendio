@@ -384,7 +384,7 @@
     "readingExportModeHighlights": "仅高亮",
     "readingExportModeLabel": "导出内容",
     "readingHighlightThemeDescription": "仅影响阅读模式页面的高亮背景，不会改变导出的 Markdown 内容。",
-    "readingHighlightThemeGradient": "渐变紫蓝（默认）",
+    "readingHighlightThemeGradient": "渐变蓝紫",
     "readingHighlightThemeLabel": "高亮颜色",
     "readingHighlightThemeNeonGreen": "荧光绿",
     "readingHighlightThemeNeonOrange": "荧光橙",

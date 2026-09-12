@@ -211,7 +211,7 @@
   "schemaResourceChangelogV030Bullet6": "改善小螢幕設定導覽、維護診斷狀態、面板底列與儲存目標選單。",
   "schemaResourceChangelogV030Bullet7": "提升影片動態切換、留言區更新及截圖快取清理與復原的穩定性。",
   "schemaResourceChangelogV030Bullet8": "更新相依套件，完善 Chrome 與 Firefox 安裝套件及相容性驗證。",
-  "schemaResourceChangelogV030Summary": "改善儲存可靠性與操作體驗",
+  "schemaResourceChangelogV030Summary": "生活是創作的一部分，創作也是生活的一部分",
   "schemaResourceContactChannelsGroupTitle": "聯絡方式",
   "schemaResourceContactDescription": "如果你認可本專案，或想聯絡作者，歡迎前往 <a href=\"https://sxnian.com\" target=\"_blank\" rel=\"noopener noreferrer\">作者個人網站</a>、<a href=\"https://www.reddit.com/user/sxnian/\" target=\"_blank\" rel=\"noopener noreferrer\">Reddit</a>、<a href=\"https://github.com/Lefeaker\" target=\"_blank\" rel=\"noopener noreferrer\">Github</a> 或 <a href=\"mailto:zendio@sxnian.com\">郵件</a>。",
   "schemaResourceContactEmailDescription": "zendio@sxnian.com",

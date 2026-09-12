@@ -1,6 +1,7 @@
 import type { Messages } from '../messages';
 
 type RuntimeSurfaceFallbackMessageKey =
+  | 'settingsTitle'
   | 'addToReaderButton'
   | 'clipSelection'
   | 'clipSelectionVideo'
@@ -58,6 +59,7 @@ type RuntimeSurfaceFallbackMessageKey =
   | 'schemaRuntimeVideoDescription';
 
 export const RUNTIME_SURFACE_FALLBACK_MESSAGES = {
+  settingsTitle: 'Settings',
   addToReaderButton: 'Add to reading session',
   clipSelection: 'Clip selection to Obsidian',
   clipSelectionVideo: 'Clip to video capture panel',

@@ -425,7 +425,7 @@
   "schemaMaintenanceDiagnosisIdleBody": "La diagnosi non è ancora stata eseguita.",
   "schemaMaintenanceDiagnosisRunningBody": "Verifica della configurazione corrente…",
   "schemaMaintenanceReloadSuccessBody": "Configurazione ricaricata.",
-  "schemaResourceChangelogV030Summary": "Salvataggi più affidabili e controlli più semplici",
+  "schemaResourceChangelogV030Summary": "La vita fa parte della creazione, e la creazione fa parte della vita.",
   "schemaResourceChangelogV030Bullet1": "Migliorato il salvataggio automatico con più pagine, modifiche rapide e chiusura della pagina, con errori visibili e possibilità di riprovare.",
   "schemaResourceChangelogV030Bullet2": "Corretto il salvataggio dopo aver svuotato gli indirizzi REST di un vault con sola cartella locale; migliorati identificativi, collegamenti alle cartelle e ripristino della privacy.",
   "schemaResourceChangelogV030Bullet3": "Pulsanti segmentati per l’attivazione della selezione (Disattivato, Diretto, Tasto modificatore) e il contenuto esportato (Articolo completo, Solo evidenziati).",

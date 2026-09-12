@@ -384,7 +384,7 @@
     "readingExportModeHighlights": "Só destaques",
     "readingExportModeLabel": "Exportar conteúdo",
     "readingHighlightThemeDescription": "Afeta apenas o estilo do destaque no modo de leitura; o Markdown exportado permanece inalterado.",
-    "readingHighlightThemeGradient": "Gradiente roxo-azul (padrão)",
+    "readingHighlightThemeGradient": "Gradiente roxo-azul",
     "readingHighlightThemeLabel": "Cor do destaque",
     "readingHighlightThemeNeonGreen": "Verde neon",
     "readingHighlightThemeNeonOrange": "Laranja neon",

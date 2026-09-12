@@ -425,7 +425,7 @@
   "schemaMaintenanceDiagnosisIdleBody": "Die Diagnose wurde noch nicht ausgeführt.",
   "schemaMaintenanceDiagnosisRunningBody": "Die aktuelle Konfiguration wird geprüft…",
   "schemaMaintenanceReloadSuccessBody": "Konfiguration wurde neu geladen.",
-  "schemaResourceChangelogV030Summary": "Zuverlässigeres Speichern und einfachere Bedienung",
+  "schemaResourceChangelogV030Summary": "Das Leben ist Teil des Schaffens, und das Schaffen ist Teil des Lebens.",
   "schemaResourceChangelogV030Bullet1": "Automatisches Speichern bei mehreren Einstellungsseiten, schnellen Änderungen und beim Schließen verbessert; Fehler werden angezeigt und können erneut versucht werden.",
   "schemaResourceChangelogV030Bullet2": "Speichern nach dem Leeren der REST-Adressen bei rein lokalen Ordnern korrigiert; Tresor-IDs, Ordnerbindungen und die Wiederherstellung von Datenschutzeinstellungen verbessert.",
   "schemaResourceChangelogV030Bullet3": "Segmentierte Schaltflächen für die Auswahl-Auslösung (Aus, Direkt, Zusatztaste) und den Exportumfang (Volltext, Nur Markiertes).",

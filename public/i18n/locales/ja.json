@@ -384,7 +384,7 @@
     "readingExportModeHighlights": "ハイライトのみ",
     "readingExportModeLabel": "エクスポート内容",
     "readingHighlightThemeDescription": "読書モードページのハイライト背景のみ変更され、エクスポートされる Markdown には影響しません。",
-    "readingHighlightThemeGradient": "パープル×ブルーのグラデーション（デフォルト）",
+    "readingHighlightThemeGradient": "パープル×ブルーのグラデーション",
     "readingHighlightThemeLabel": "ハイライトカラー",
     "readingHighlightThemeNeonGreen": "ネオングリーン",
     "readingHighlightThemeNeonOrange": "ネオンオレンジ",

@@ -384,7 +384,7 @@
     "readingExportModeHighlights": "Только выделения",
     "readingExportModeLabel": "Экспортировать содержимое",
     "readingHighlightThemeDescription": "Влияет только на стиль выделения в режиме чтения; экспортированный Markdown остаётся неизменным.",
-    "readingHighlightThemeGradient": "Фиолетово-синий градиент (по умолчанию)",
+    "readingHighlightThemeGradient": "Фиолетово-синий градиент",
     "readingHighlightThemeLabel": "Цвет выделения",
     "readingHighlightThemeNeonGreen": "Неоновый зелёный",
     "readingHighlightThemeNeonOrange": "Неоновый оранжевый",

@@ -197,7 +197,7 @@ export const MAX_LINE_BUDGETS = new Map([
   ['src/content/reader/services/exporter.ts', 255],
   ['src/content/video/fragmentHighlighter.ts', 254],
   ['src/options/app/productionStitchShellMount.ts', 254],
-  ['src/options/app/productionStitchRenderLifecycle.ts', 253],
+  ['src/options/app/productionStitchRenderLifecycle.ts', 254],
   // 2026-06-19 Options YAML editor stabilization: row aggregation, editable
   // domain override cells, and scroll-target ownership stay in this row model.
   ['src/options/yaml-config-editor/rowModel.ts', 269],

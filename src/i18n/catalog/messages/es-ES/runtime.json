@@ -140,7 +140,7 @@
   "readingExportModeDescription": "Al seleccionar \"Artículo completo\", el cuerpo del artículo limpio se guarda con tus resaltados y notas al pie incrustadas.",
   "readingHighlightThemeLabel": "Color de resaltado",
   "readingHighlightThemeDescription": "Solo afecta el estilo de resaltado dentro del modo lector; el Markdown exportado permanece sin cambios.",
-  "readingHighlightThemeGradient": "Gradiente púrpura-azul (predeterminado)",
+  "readingHighlightThemeGradient": "Gradiente púrpura-azul",
   "readingHighlightThemePurple": "Púrpura sólido",
   "readingHighlightThemeNeonYellow": "Amarillo neón",
   "readingHighlightThemeNeonGreen": "Verde neón",

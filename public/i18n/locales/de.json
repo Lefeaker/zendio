@@ -384,7 +384,7 @@
     "readingExportModeHighlights": "Nur Markiertes",
     "readingExportModeLabel": "Inhalt exportieren",
     "readingHighlightThemeDescription": "Betrifft nur den Hervorhebungsstil im Lesemodus; das exportierte Markdown bleibt unverändert.",
-    "readingHighlightThemeGradient": "Lila-blauer Gradient (Standard)",
+    "readingHighlightThemeGradient": "Lila-blauer Gradient",
     "readingHighlightThemeLabel": "Hervorhebungsfarbe",
     "readingHighlightThemeNeonGreen": "Neongrün",
     "readingHighlightThemeNeonOrange": "Neonorange",

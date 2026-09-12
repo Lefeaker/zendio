@@ -384,7 +384,7 @@
     "readingExportModeHighlights": "Highlights only",
     "readingExportModeLabel": "Export content",
     "readingHighlightThemeDescription": "Only affects highlight styling inside reader mode; exported Markdown stays unchanged.",
-    "readingHighlightThemeGradient": "Purple–blue gradient (default)",
+    "readingHighlightThemeGradient": "Purple–blue gradient",
     "readingHighlightThemeLabel": "Highlight color",
     "readingHighlightThemeNeonGreen": "Neon green",
     "readingHighlightThemeNeonOrange": "Neon orange",

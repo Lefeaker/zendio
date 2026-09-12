@@ -384,7 +384,7 @@
     "readingExportModeHighlights": "Solo evidenziati",
     "readingExportModeLabel": "Esportazione contenuto",
     "readingHighlightThemeDescription": "Influisce solo sullo stile delle evidenziazioni in modalità lettura. Il Markdown esportato rimane invariato.",
-    "readingHighlightThemeGradient": "Gradiente viola-blu (predefinito)",
+    "readingHighlightThemeGradient": "Gradiente viola-blu",
     "readingHighlightThemeLabel": "Colore evidenziazione",
     "readingHighlightThemeNeonGreen": "Verde neon",
     "readingHighlightThemeNeonOrange": "Arancione neon",

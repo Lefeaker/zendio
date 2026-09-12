@@ -140,7 +140,7 @@
   "readingExportModeDescription": "「全文」を選択すると、整形済みの原文も保存され、全文にハイライトと脚注が残ります。",
   "readingHighlightThemeLabel": "ハイライトカラー",
   "readingHighlightThemeDescription": "読書モードページのハイライト背景のみ変更され、エクスポートされる Markdown には影響しません。",
-  "readingHighlightThemeGradient": "パープル×ブルーのグラデーション（デフォルト）",
+  "readingHighlightThemeGradient": "パープル×ブルーのグラデーション",
   "readingHighlightThemePurple": "パープル（単色）",
   "readingHighlightThemeNeonYellow": "ネオンイエロー",
   "readingHighlightThemeNeonGreen": "ネオングリーン",

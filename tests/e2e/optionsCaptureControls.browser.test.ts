@@ -123,7 +123,8 @@ test('persists segmented selection and export choices and presents the v0.3.0 ch
     await expect
       .poll(async () => (await readOptions(extensionPage))?.fragmentClipper?.selectionTriggerMode)
       .toBe(mode);
-    await expect(page.locator('.modifier-key-choices')).toHaveCount(mode === 'modifier' ? 1 : 0);
+    if (mode === 'modifier') await expect(page.locator('.modifier-key-choices')).toBeVisible();
+    else await expect(page.locator('.modifier-key-choices')).toBeHidden();
   }
   await page.locator('.modifier-key-choices [data-value="shift"]').click();
   await expect(trigger.locator('[data-value="modifier"]')).toHaveAttribute('aria-pressed', 'true');
@@ -210,4 +211,107 @@ test('keeps segmented controls readable in both themes and on narrow screens', a
       }
     }
   }
+});
+
+test('keeps resource modal focus frames neutral', async ({ extensionPage, context }) => {
+  const page = await context.newPage();
+  await page.goto(new URL('/options/index.html', extensionPage.url()).href);
+  for (const resource of ['changelog', 'support', 'suggestions', 'contact']) {
+    await page.locator(`[data-footer-panel="${resource}"]`).click();
+    const dialog = page.locator('.resource-modal-overlay > .resource-modal');
+    await expect(dialog).toBeFocused();
+    console.log(
+      resource,
+      await dialog.evaluate((element) => ({
+        outline: getComputedStyle(element).outline,
+        border: getComputedStyle(element).borderColor
+      }))
+    );
+    await expect(dialog).toHaveCSS('outline-style', 'none');
+    await page.locator('.resource-modal-overlay').click({ position: { x: 4, y: 4 } });
+    await expect(dialog).toHaveCount(0);
+  }
+});
+
+test('animates stable compact trigger, modifier and highlight capsules', async ({
+  extensionPage,
+  context
+}, testInfo) => {
+  await extensionPage.evaluate(() => chrome.storage.sync.set({ language: 'zh-CN' }));
+  const page = await context.newPage();
+  await page.emulateMedia({ reducedMotion: 'no-preference' });
+  await page.goto(new URL('/options/index.html', extensionPage.url()).href);
+  await page.locator('[data-nav-panel="capture-behavior"]').click();
+  const trigger = page.locator('.selection-trigger-inline > .segmented-control');
+  const original = await trigger.elementHandle();
+  if (!original) throw new Error('Missing trigger control');
+  async function transition(group: Locator, value: string) {
+    const result = await group.evaluate(async (element, nextValue) => {
+      const before = getComputedStyle(element, '::before').transform;
+      const button = [...element.querySelectorAll<HTMLButtonElement>('button')].find(
+        (item) => item.dataset.value === nextValue
+      );
+      if (!button) throw new Error('Missing segment');
+      button.click();
+      await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+      getComputedStyle(element, '::before').getPropertyValue('transform');
+      return {
+        connected: element.isConnected,
+        before,
+        transitions: element
+          .getAnimations({ subtree: true })
+          .filter((animation) => animation instanceof CSSTransition).length
+      };
+    }, value);
+    expect(result.connected).toBe(true);
+    expect(result.transitions).toBeGreaterThan(0);
+    await expect(group.locator(`[data-value="${value}"]`)).toHaveAttribute('aria-pressed', 'true');
+    await expect
+      .poll(() => group.evaluate((element) => element.getAnimations({ subtree: true }).length))
+      .toBe(0);
+  }
+  await transition(trigger, 'direct');
+  await transition(trigger, 'modifier');
+  await expect(page.locator('.modifier-key-choices')).toBeVisible();
+  const modifier = page.locator('.modifier-key-choices .segmented-control');
+  await expect(modifier.locator('button')).toHaveCount(3);
+  await transition(modifier, 'alt');
+  await transition(modifier, 'shift');
+  const highlight = page.locator('.highlight-theme-control');
+  await expect(highlight.locator('button')).toHaveCount(5);
+  await expect(highlight.locator('[data-value="gradient"]')).toHaveText('渐变蓝紫');
+  await transition(highlight, 'purple');
+  await transition(highlight, 'gradient');
+  await transition(trigger, 'direct');
+  await expect
+    .poll(async () => (await readOptions(extensionPage))?.fragmentClipper?.selectionTriggerMode)
+    .toBe('direct');
+  expect(await original.evaluate((element) => element.isConnected)).toBe(true);
+  await transition(trigger, 'modifier');
+  const compact = await page.evaluate(() => {
+    const toggle = document.querySelector<HTMLElement>('.switch');
+    if (!toggle) throw new Error('Missing toggle reference');
+    const reference = toggle.getBoundingClientRect().height;
+    return [...document.querySelectorAll<HTMLElement>('.segmented-control')]
+      .filter((element) => element.getBoundingClientRect().height > 0)
+      .map((element) => ({
+        height: element.getBoundingClientRect().height,
+        font: Number.parseFloat(
+          getComputedStyle(element.querySelector('button') ?? element).fontSize
+        ),
+        reference
+      }));
+  });
+  expect(compact.length).toBeGreaterThanOrEqual(5);
+  for (const dimensions of compact) {
+    expect(dimensions.height).toBeLessThanOrEqual(dimensions.reference + 4);
+    expect(dimensions.font).toBeLessThanOrEqual(13);
+  }
+  await trigger.screenshot({ path: testInfo.outputPath('compact-trigger.png') });
+  await modifier.screenshot({ path: testInfo.outputPath('compact-modifiers.png') });
+  await highlight.screenshot({ path: testInfo.outputPath('compact-highlight-colors.png') });
+  await page.locator('[data-footer-panel="changelog"]').click();
+  await expect(page.locator('.release-card').first().locator('.release-summary')).toHaveText(
+    '生活是创作的一部分，创作也是生活的一部分'
+  );
 });

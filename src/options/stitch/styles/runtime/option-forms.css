@@ -100,14 +100,8 @@
   align-items: center;
 }
 
-.modifier-key-choices .chips {
-  flex-wrap: nowrap;
+.modifier-key-choices {
   gap: var(--space-2);
-}
-
-.modifier-key-choices .chip {
-  min-height: var(--control-height-md);
-  padding: 0 var(--space-4);
 }
 
 .modifier-key-warning {
@@ -188,7 +182,7 @@
   align-items: center;
   gap: 0;
   min-width: 0;
-  width: min(100%, 330px);
+  width: min(100%, calc(var(--segment-count) * 96px));
   padding: var(--space-1);
   border: var(--border-default);
   border-radius: var(--radius-full);
@@ -216,14 +210,15 @@
   width: 100%;
   min-width: 0;
   white-space: normal;
-  min-height: var(--control-height-lg);
-  padding: 0 var(--space-5);
+  overflow-wrap: anywhere;
+  min-height: calc(var(--switch-height) - var(--space-2) - 2px);
+  padding: 0 var(--space-3);
   border: 0;
   border-radius: var(--radius-full);
   background: transparent;
   color: var(--text-faint);
-  font-size: var(--font-size-base);
-  font-weight: 650;
+  font-size: var(--font-size-md);
+  font-weight: 600;
 }
 
 .chips.segmented-control > .chip[aria-pressed='true'] {

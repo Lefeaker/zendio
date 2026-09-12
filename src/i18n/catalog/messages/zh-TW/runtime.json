@@ -140,7 +140,7 @@
   "readingExportModeDescription": "選擇「完整文章」將保存清理後的文章正文，並嵌入高亮和腳註。",
   "readingHighlightThemeLabel": "高亮顏色",
   "readingHighlightThemeDescription": "僅影響閱讀模式中的高亮樣式。匯出的 Markdown 保持不變。",
-  "readingHighlightThemeGradient": "紫藍漸層（預設）",
+  "readingHighlightThemeGradient": "紫藍漸層",
   "readingHighlightThemePurple": "純紫色",
   "readingHighlightThemeNeonYellow": "霓虹黃",
   "readingHighlightThemeNeonGreen": "霓虹綠",
