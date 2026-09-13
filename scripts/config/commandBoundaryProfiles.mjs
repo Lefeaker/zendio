@@ -338,6 +338,7 @@ export const BUILD_NPM_SCRIPTS = deepFreeze([
   'build:fast',
   'package:ci',
   'build:edge',
+  'build:edge:prod:ga',
   'build:edge:fast',
   'package:edge',
   'package:edge:ci'

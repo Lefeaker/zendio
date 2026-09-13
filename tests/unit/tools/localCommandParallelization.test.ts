@@ -215,6 +215,8 @@ describe('local command parallelization contract', () => {
     );
     const edgeRoutes = {
       'build:edge': 'node scripts/build.mjs --mode=prod --outdir build/dist-edge',
+      'build:edge:prod:ga':
+        'node --env-file=.env.production.local scripts/setup-error-analytics.js --require-env --require-zendio-env --require-proxy-transport && node --env-file=.env.production.local scripts/build.mjs --mode=prod --outdir build/dist-edge',
       'build:edge:fast':
         'node scripts/build.mjs --mode=prod --skip-checks --outdir build/dist-edge',
       'package:edge': 'npm run build:edge && node scripts/package.mjs --edge',
