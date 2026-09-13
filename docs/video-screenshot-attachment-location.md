@@ -28,6 +28,26 @@ is written into exported Markdown.
   reconstructs a `Blob` before writing. Legacy `dataUrl` exists only as a
   compatibility bridge for older payloads / adapters.
 
+## Note Title and Filename
+
+The video session refreshes its title together with its URL and identity before
+capture and export. A title that arrives after the panel opens, or changes while
+the panel stays open, therefore reaches both Markdown frontmatter and the note
+path. A temporarily missing title can reuse the last title only for the same
+video. Storage recovery failure must not discard an available page title.
+
+The exporter supplies one title to the shared path resolver. Downloads uses the
+resolved basename; local folders and REST retain the resolved vault-relative
+path. Attachment planning consumes that note path. Destination-specific title
+repair or additional page observers are unnecessary. Platform-generic titles
+remain the fallback when no title is available.
+
+`tests/e2e/exportTitleRoutes.browser.test.ts` checks Bilibili and YouTube video,
+article, reading (full/highlights), and selection exports through the installed
+extension and actual download files, native OPFS handles, and a loopback REST
+receiver. OPFS isolates filesystem writes; it does not test the folder picker.
+Reading and selection filenames intentionally include their capture timestamp.
+
 ## Capture-Time Screenshot State
 
 - The video capture state is green only after runtime code has produced actual
