@@ -19,6 +19,15 @@ import {
 const roots: string[] = [];
 const sha = 'a'.repeat(40);
 
+async function readCompactState(path: string): Promise<Record<string, string | boolean | null>> {
+  const bytes = await readFile(path, 'utf8');
+  expect(bytes.endsWith('\n')).toBe(true);
+  expect(bytes.slice(0, -1)).not.toContain('\n');
+  const state: Record<string, string | boolean | null> = JSON.parse(bytes);
+  expect(Object.keys(state)).toEqual(Object.keys(state).sort());
+  return state;
+}
+
 async function fixture(transport: 'local-private-v1' | 'github-artifact-v1') {
   const root = await mkdtemp(join(tmpdir(), 'zendio-cws-'));
   roots.push(root);
@@ -138,7 +147,7 @@ describe('Chrome Web Store publisher', () => {
     expect(calls).toHaveLength(3);
     expect(calls[1].init?.body).toBeInstanceOf(Buffer);
     expect(calls[2].init?.body).toBe(JSON.stringify(CHROME_DEFAULT_PUBLIC_PUBLISH_REQUEST));
-    expect(JSON.parse(await readFile(value.stateFile, 'utf8'))).toMatchObject({
+    expect(await readCompactState(value.stateFile)).toMatchObject({
       stage: 'publish-completed',
       outcome: 'success',
       retrySafe: false,
@@ -164,7 +173,7 @@ describe('Chrome Web Store publisher', () => {
         { fetchImpl: () => Promise.resolve(new Response('{}', { status: 401 })) }
       )
     ).rejects.toThrow('CHROME_RESPONSE_HTTP');
-    expect(JSON.parse(await readFile(tokenFixture.stateFile, 'utf8'))).toMatchObject({
+    expect(await readCompactState(tokenFixture.stateFile)).toMatchObject({
       outcome: 'pre-mutation-failure',
       mutationInvoked: false,
       retrySafe: true
@@ -194,6 +203,11 @@ describe('Chrome Web Store publisher', () => {
       )
     ).rejects.toMatchObject({ code: 'unknown-submission-state', retrySafe: false });
     expect(fetchImpl).toHaveBeenCalledTimes(2);
+    expect(await readCompactState(uploadFixture.stateFile)).toMatchObject({
+      outcome: 'unknown-submission-state',
+      mutationInvoked: true,
+      retrySafe: false
+    });
   });
 
   it('keeps dry-run credential- and network-free', async () => {

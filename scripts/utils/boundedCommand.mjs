@@ -19,6 +19,7 @@ import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { performance } from 'node:perf_hooks';
 import {
   assertClosedKeys,
+  canonicalCompactJson as canonicalJson,
   canonicalJsonBytes as canonicalPrettyJsonBytes,
   deepFreeze,
   parseJsonBytesStrict
@@ -152,17 +153,6 @@ function publishCiInstallOutputs(spec) {
   } finally {
     closeSync(descriptor);
   }
-}
-
-function canonicalJson(value) {
-  if (Array.isArray(value)) return `[${value.map(canonicalJson).join(',')}]`;
-  if (value && typeof value === 'object') {
-    return `{${Object.keys(value)
-      .sort()
-      .map((key) => `${JSON.stringify(key)}:${canonicalJson(value[key])}`)
-      .join(',')}}`;
-  }
-  return JSON.stringify(value);
 }
 
 function sha256FileBounded(path, maximumBytes, attemptRoot) {

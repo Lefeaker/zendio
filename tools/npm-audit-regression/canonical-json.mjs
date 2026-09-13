@@ -28,6 +28,17 @@ export const AUDIT_REGRESSION_LIMITS = Object.freeze({
 export const sha256Buffer = (buffer) => createHash('sha256').update(buffer).digest('hex');
 export const sha256Text = (text) => sha256Buffer(Buffer.from(text));
 
+export function canonicalCompactJson(value) {
+  if (Array.isArray(value)) return `[${value.map(canonicalCompactJson).join(',')}]`;
+  if (value && typeof value === 'object') {
+    return `{${Object.keys(value)
+      .sort()
+      .map((key) => `${JSON.stringify(key)}:${canonicalCompactJson(value[key])}`)
+      .join(',')}}`;
+  }
+  return JSON.stringify(value);
+}
+
 export function canonicalize(value) {
   if (Array.isArray(value)) return value.map(canonicalize);
   if (value && typeof value === 'object' && Object.getPrototypeOf(value) === Object.prototype) {
