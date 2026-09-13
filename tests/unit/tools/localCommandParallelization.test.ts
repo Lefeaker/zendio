@@ -111,6 +111,22 @@ function walkFiles(root: string): string[] {
 }
 
 describe('local command parallelization contract', () => {
+  it('owns the Linux browser UTF-8 locale without inheriting caller locale settings', () => {
+    const environment = {
+      HOME: process.env.HOME ?? '/tmp',
+      LANG: 'caller-locale',
+      LC_ALL: 'caller-locale'
+    };
+    const browser = resolveCommandProfile('playwright-v1', ['test'], { environment });
+    const tooling = resolveCommandProfile('vitest-v1', ['run'], { environment });
+    const browserLocale = process.platform === 'linux' ? 'C.UTF-8' : 'C';
+
+    expect(browser.env).toMatchObject({ LANG: browserLocale, LC_ALL: browserLocale, TZ: 'UTC' });
+    expect(tooling.env).toMatchObject({ LANG: 'C', LC_ALL: 'C', TZ: 'UTC' });
+    expect(environment.LANG).toBe('caller-locale');
+    expect(environment.LC_ALL).toBe('caller-locale');
+  });
+
   it('gives the full lint warning scan the same bounded class as lint', () => {
     const environment = { HOME: process.env.HOME ?? '/tmp', TMPDIR: '/tmp' };
     const guard = resolveCommandProfile('npm-script-standard-v1', ['lint:warnings-guard'], {

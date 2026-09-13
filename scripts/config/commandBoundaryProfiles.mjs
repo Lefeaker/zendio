@@ -2703,6 +2703,11 @@ export function resolveCommandProfile(
   } else if (profileId === 'playwright-v1')
     command = {
       executable: process.execPath,
+      // Chromium's native filename conversion follows the process locale on Linux.
+      env: buildClosedCommandEnvironment(
+        environment,
+        process.platform === 'linux' ? { LANG: 'C.UTF-8', LC_ALL: 'C.UTF-8' } : {}
+      ),
       argv: [
         args.includes('--config=playwright.bundled-chromium.config.ts')
           ? resolveLockedBin('playwright')
