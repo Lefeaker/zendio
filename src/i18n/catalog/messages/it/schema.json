@@ -433,5 +433,9 @@
   "schemaResourceChangelogV030Bullet5": "Avvio più rapido nelle pagine lente, ripristino dopo il ricaricamento dell’estensione e prevenzione di esportazioni duplicate quando si ripete la pulizia della sessione.",
   "schemaResourceChangelogV030Bullet6": "Migliorati navigazione su schermi piccoli, stato della diagnostica, piè di pannello e menu delle destinazioni.",
   "schemaResourceChangelogV030Bullet7": "Maggiore stabilità nella navigazione video, negli aggiornamenti dei commenti e nella pulizia e nel ripristino della cache delle schermate.",
-  "schemaResourceChangelogV030Bullet8": "Aggiornate le dipendenze e migliorate le verifiche dei pacchetti e della compatibilità con Chrome e Firefox."
+  "schemaResourceChangelogV030Bullet8": "Aggiornate le dipendenze e migliorate le verifiche dei pacchetti e della compatibilità con Chrome e Firefox.",
+  "schemaResourceChangelogV031Summary": "Dimenticato, dimenticato… dimenticato di includere la correzione.",
+  "schemaResourceChangelogV031Bullet1": "Correzione di v0.3.0: i titoli dei video YouTube / Bilibili vengono aggiornati prima di acquisire ed esportare, così i titoli caricati in ritardo o modificati compaiono nei nomi delle note e nel Markdown.",
+  "schemaResourceChangelogV031Bullet2": "Download, cartelle locali e salvataggi REST usano il titolo attuale. Cambiare video cancella il vecchio titolo; se la lettura dei dati di ripristino fallisce, il titolo disponibile nella pagina viene conservato.",
+  "schemaResourceChangelogV031Bullet3": "Aggiunto un pacchetto dedicato a Microsoft Edge, con le stesse funzioni di ritaglio, lettura, note video e impostazioni."
 }

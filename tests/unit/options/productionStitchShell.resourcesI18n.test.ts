@@ -130,6 +130,10 @@ const ENGLISH_SENTINEL_MESSAGES: Messages = {
   schemaResourceChangelogV021Bullet4: 'Changelog v0.2.1 Bullet 4 Sentinel',
   schemaResourceChangelogV021Bullet5: 'Changelog v0.2.1 Bullet 5 Sentinel',
   schemaResourceChangelogV021Summary: 'Changelog v0.2.1 Summary Sentinel',
+  schemaResourceChangelogV031Summary: 'Changelog v0.3.1 Summary Sentinel',
+  schemaResourceChangelogV031Bullet1: 'Changelog v0.3.1 Bullet 1 Sentinel',
+  schemaResourceChangelogV031Bullet2: 'Changelog v0.3.1 Bullet 2 Sentinel',
+  schemaResourceChangelogV031Bullet3: 'Changelog v0.3.1 Bullet 3 Sentinel',
   schemaResourceChangelogV030Summary: 'Changelog v0.3.0 Summary Sentinel',
   schemaResourceChangelogV030Bullet1: 'Changelog v0.3.0 Bullet 1 Sentinel',
   schemaResourceChangelogV030Bullet2: 'Changelog v0.3.0 Bullet 2 Sentinel',
@@ -630,10 +634,11 @@ describe('mountProductionStitchShell resource i18n', () => {
 
     const changelog = await openResource('Changelog Title Sentinel');
     const releaseCards = Array.from(changelog.querySelectorAll<HTMLElement>('.release-card'));
-    expect(releaseCards).toHaveLength(4);
+    expect(releaseCards).toHaveLength(5);
     expect(
       releaseCards.map((card) => card.querySelector<HTMLElement>('.release-summary')?.textContent)
     ).toEqual([
+      'Changelog v0.3.1 Summary Sentinel',
       'Changelog v0.3.0 Summary Sentinel',
       'Changelog v0.2.1 Summary Sentinel',
       'Changelog v0.2.0 Summary Sentinel',
@@ -652,6 +657,10 @@ describe('mountProductionStitchShell resource i18n', () => {
       changelog,
       'Changelog Title Sentinel',
       'Changelog Description Sentinel',
+      'Changelog v0.3.1 Summary Sentinel',
+      'Changelog v0.3.1 Bullet 1 Sentinel',
+      'Changelog v0.3.1 Bullet 2 Sentinel',
+      'Changelog v0.3.1 Bullet 3 Sentinel',
       'Changelog v0.3.0 Summary Sentinel',
       'Changelog v0.3.0 Bullet 1 Sentinel',
       'Changelog v0.3.0 Bullet 2 Sentinel',

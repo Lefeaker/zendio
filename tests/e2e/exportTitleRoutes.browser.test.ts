@@ -113,6 +113,9 @@ platforms.forEach((platform) => {
           const clipper = page.locator('[data-stitch-surface="clipper"]');
           if (mode.startsWith('reading')) {
             await clipper.locator('[data-action-id="reader"]').click();
+            const highlight = page.locator('[data-role="highlight-item"]');
+            await expect(highlight).toHaveCount(1);
+            await expect(highlight).toContainText('Selected article paragraph');
             await page.locator('[data-role="export-btn"]').click();
           } else if (mode === 'fragment') {
             await clipper.locator('[data-action-id="clip"]').click();

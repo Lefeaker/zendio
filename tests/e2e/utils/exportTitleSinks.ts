@@ -165,9 +165,7 @@ export async function configureSink(page: Page, destination: Destination, output
             { id: folderId, directory }
           );
         };
-        await expect
-          .poll(async () => (await names()).filter((name) => pattern.test(name)))
-          .toHaveLength(1);
+        await expect.poll(names).toEqual([expect.stringMatching(pattern)]);
         const filename = (await names()).find((name) => pattern.test(name));
         if (!filename) throw new Error('Missing timestamped title');
         relativePath = `${directory}/${filename}`;

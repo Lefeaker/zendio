@@ -433,5 +433,9 @@
   "schemaResourceChangelogV030Bullet5": "遅いページでの選択機能の起動を改善。拡張機能の再読み込み後にパネルと下書きを復元し、終了処理の再試行による重複出力を防ぎます。",
   "schemaResourceChangelogV030Bullet6": "小画面の設定ナビゲーション、診断状態、パネル下部、保存先メニューを改善しました。",
   "schemaResourceChangelogV030Bullet7": "動画の動的な切り替え、コメント更新、スクリーンショットキャッシュの削除と復元の安定性を改善しました。",
-  "schemaResourceChangelogV030Bullet8": "依存パッケージを更新し、Chrome と Firefox の配布物と互換性の検証を改善しました。"
+  "schemaResourceChangelogV030Bullet8": "依存パッケージを更新し、Chrome と Firefox の配布物と互換性の検証を改善しました。",
+  "schemaResourceChangelogV031Summary": "忘れて、忘れて…修正を入れ忘れた。",
+  "schemaResourceChangelogV031Bullet1": "v0.3.0 の修正更新：YouTube / Bilibili の動画タイトルが遅れて読み込まれたり変更されたりしても、キャプチャ・出力前に更新し、ノートのタイトルとファイル名に反映します。",
+  "schemaResourceChangelogV031Bullet2": "ダウンロード、ローカルフォルダー、REST で現在のタイトルを使用します。動画の切り替え時は古いタイトルを消去し、復元データの読み取りに失敗してもページのタイトルを保持します。",
+  "schemaResourceChangelogV031Bullet3": "Microsoft Edge 専用パッケージを追加しました。クリッピング、読書、動画ノート、設定は共通です。"
 }

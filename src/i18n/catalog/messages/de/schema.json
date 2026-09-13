@@ -433,5 +433,9 @@
   "schemaResourceChangelogV030Bullet5": "Schnellerer Start auf langsamen Seiten; Panels und Entwürfe nach Neuladen der Erweiterung wiederherstellen und doppelte Exporte bei erneuter Sitzungsbereinigung vermeiden.",
   "schemaResourceChangelogV030Bullet6": "Einstellungsnavigation auf kleinen Bildschirmen, Diagnosestatus, Panel-Fußleisten und Zielmenüs verbessert.",
   "schemaResourceChangelogV030Bullet7": "Stabilität bei Videonavigation, Kommentaraktualisierungen sowie Bereinigung und Wiederherstellung des Screenshot-Caches verbessert.",
-  "schemaResourceChangelogV030Bullet8": "Abhängigkeiten aktualisiert und Paket- sowie Kompatibilitätsprüfungen für Chrome und Firefox verbessert."
+  "schemaResourceChangelogV030Bullet8": "Abhängigkeiten aktualisiert und Paket- sowie Kompatibilitätsprüfungen für Chrome und Firefox verbessert.",
+  "schemaResourceChangelogV031Summary": "Vergessen, vergessen… die Korrektur vergessen.",
+  "schemaResourceChangelogV031Bullet1": "Korrektur für v0.3.0: YouTube- und Bilibili-Videotitel werden vor Aufnahme und Export aktualisiert, damit verspätete oder geänderte Titel in Notiznamen und Markdown ankommen.",
+  "schemaResourceChangelogV031Bullet2": "Downloads, lokale Ordner und REST verwenden den aktuellen Titel. Beim Videowechsel wird der alte Titel gelöscht; schlägt das Lesen von Wiederherstellungsdaten fehl, bleibt ein verfügbarer Seitentitel erhalten.",
+  "schemaResourceChangelogV031Bullet3": "Ein eigenes Microsoft-Edge-Paket bietet dieselben Funktionen zum Ausschneiden, Lesen, für Videonotizen und Einstellungen."
 }
