@@ -195,6 +195,25 @@ export function checkChromeWebstoreReleaseWorkflowContract({
     }
   });
 
+  check('build-paths', () => {
+    const buildRoot =
+      '${{ runner.temp }}/zendio-chrome-${{ github.run_id }}-${{ github.run_attempt }}/build';
+    const build = prepare.steps.find((step) => step.name === 'Build isolated Chrome release');
+    const artifact = prepare.steps.find(
+      (step) => step.name === 'Prepare immutable Chrome artifact'
+    );
+    requireIncludes(
+      build.run,
+      [`--dist-dir "${buildRoot}/dist-chrome"`, `--temp-dir "${buildRoot}/tmp-chrome"`],
+      'isolated build workspace'
+    );
+    requireIncludes(
+      artifact.run,
+      [`--dist-dir "${buildRoot}/dist-chrome"`],
+      'prepared build input'
+    );
+  });
+
   check('protected-publish', () => {
     if (publish['runs-on'] !== 'ubuntu-24.04' || publish['timeout-minutes'] !== 60) {
       fail('publish runner or timeout changed');

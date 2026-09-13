@@ -213,10 +213,23 @@ export function checkFirefoxAmoReleaseWorkflowContract({
   });
 
   check('release-paths', () => {
+    const buildRoot =
+      '${{ runner.temp }}/zendio-firefox-${{ github.run_id }}-${{ github.run_attempt }}/build';
+    const build = prepare.steps.find((step) => step.name === 'Build isolated Firefox release');
+    requireIncludes(
+      build.run,
+      [`--dist-dir "${buildRoot}/dist-firefox"`, `--temp-dir "${buildRoot}/tmp-firefox"`],
+      'isolated build workspace'
+    );
     const releaseDir =
       '${{ runner.temp }}/zendio-firefox-${{ github.run_id }}-${{ github.run_attempt }}/release';
     const preparation = prepare.steps.find(
       (step) => step.name === 'Prepare immutable Firefox artifact'
+    );
+    requireIncludes(
+      preparation.run,
+      [`--dist-dir "${buildRoot}/dist-firefox"`],
+      'prepared build input'
     );
     requireIncludes(preparation.run, [`--release-dir "${releaseDir}"`], 'preparation directory');
     for (const name of ['Verify private Firefox artifact', 'Smoke exact Firefox XPI']) {

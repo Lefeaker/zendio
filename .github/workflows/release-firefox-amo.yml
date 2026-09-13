@@ -213,7 +213,7 @@ jobs:
           ZENDIO_GA_MEASUREMENT_ID: ${{ vars.ZENDIO_GA_MEASUREMENT_ID }}
           ZENDIO_GA_TRANSPORT_MODE: ${{ vars.ZENDIO_GA_TRANSPORT_MODE }}
           ZENDIO_GA_PROXY_ENDPOINT: ${{ vars.ZENDIO_GA_PROXY_ENDPOINT }}
-        run: node scripts/run-bounded-command.mjs --profile isolated-build-v1 -- --run-isolated-build --config-mode owner-public-vars --browser firefox --dist-dir "${{ runner.temp }}/zendio-firefox-${{ github.run_id }}-${{ github.run_attempt }}/dist-firefox" --temp-dir "${{ runner.temp }}/zendio-firefox-${{ github.run_id }}-${{ github.run_attempt }}/build-temp"
+        run: node scripts/run-bounded-command.mjs --profile isolated-build-v1 -- --run-isolated-build --config-mode owner-public-vars --browser firefox --dist-dir "${{ runner.temp }}/zendio-firefox-${{ github.run_id }}-${{ github.run_attempt }}/build/dist-firefox" --temp-dir "${{ runner.temp }}/zendio-firefox-${{ github.run_id }}-${{ github.run_attempt }}/build/tmp-firefox"
 
       - name: Prepare immutable Firefox artifact
         env:
@@ -230,7 +230,7 @@ jobs:
           ZENDIO_GA_MEASUREMENT_ID: ${{ vars.ZENDIO_GA_MEASUREMENT_ID }}
           ZENDIO_GA_TRANSPORT_MODE: ${{ vars.ZENDIO_GA_TRANSPORT_MODE }}
           ZENDIO_GA_PROXY_ENDPOINT: ${{ vars.ZENDIO_GA_PROXY_ENDPOINT }}
-        run: node scripts/run-bounded-command.mjs --profile firefox-prepare-v1 -- --config-mode owner-public-vars --transport-mode local-private-v1 --attempt-root "${{ runner.temp }}/zendio-firefox-${{ github.run_id }}-${{ github.run_attempt }}" --dist-dir "${{ runner.temp }}/zendio-firefox-${{ github.run_id }}-${{ github.run_attempt }}/dist-firefox" --release-dir "${{ runner.temp }}/zendio-firefox-${{ github.run_id }}-${{ github.run_attempt }}/release" --authorization-record "${{ runner.temp }}/zendio-firefox-${{ github.run_id }}-${{ github.run_attempt }}/authorization.json" --result-json "${{ runner.temp }}/zendio-firefox-${{ github.run_id }}-${{ github.run_attempt }}/firefox-result.json"
+        run: node scripts/run-bounded-command.mjs --profile firefox-prepare-v1 -- --config-mode owner-public-vars --transport-mode local-private-v1 --attempt-root "${{ runner.temp }}/zendio-firefox-${{ github.run_id }}-${{ github.run_attempt }}" --dist-dir "${{ runner.temp }}/zendio-firefox-${{ github.run_id }}-${{ github.run_attempt }}/build/dist-firefox" --release-dir "${{ runner.temp }}/zendio-firefox-${{ github.run_id }}-${{ github.run_attempt }}/release" --authorization-record "${{ runner.temp }}/zendio-firefox-${{ github.run_id }}-${{ github.run_attempt }}/authorization.json" --result-json "${{ runner.temp }}/zendio-firefox-${{ github.run_id }}-${{ github.run_attempt }}/firefox-result.json"
 
       - name: Verify private Firefox artifact
         env:

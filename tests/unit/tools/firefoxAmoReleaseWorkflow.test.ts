@@ -48,7 +48,13 @@ describe('Firefox AMO release workflow contract', () => {
     expect(check(invalid).status).not.toBe(0);
   });
 
+  it('rejects an invalid isolated build temporary path', () => {
+    const invalid = workflow.replace(/(--temp-dir "[^"]*\/)[^"]+"/, '$1wrong-temp"');
+    expect(check(invalid).status).not.toBe(0);
+  });
+
   it.each([
+    ['build output path', '/dist-firefox"', '/wrong-dist"'],
     ['channel default', 'default: listed', 'default: unlisted'],
     ['store concurrency', 'group: zendio-firefox-amo-release-v1', 'group: ${{ github.ref }}'],
     [
