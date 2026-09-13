@@ -28,8 +28,13 @@ export const test = testWithExtension.extend({
       args: [`--disable-extensions-except=${EXTENSION_PATH}`, `--load-extension=${EXTENSION_PATH}`]
     });
     try {
+      await context.tracing.start({ screenshots: true, snapshots: true });
       await use(context);
     } finally {
+      await context.tracing.stop({
+        path:
+          testInfo.status !== testInfo.expectedStatus ? testInfo.outputPath('trace.zip') : undefined
+      });
       await context.close();
       await fs.rm(profile, { recursive: true, force: true });
     }
