@@ -8,11 +8,11 @@
 
 [公式サイト](https://zendio.sxnian.com/ja/) · [GitHub Releases](https://github.com/Lefeaker/zendio/releases) · [問題を報告](https://github.com/Lefeaker/zendio/issues)
 
-| ブラウザ        | ストア                                                                                                           | 公開状況                                                          |
-| --------------- | ---------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------- |
-| Google Chrome   | [Chrome ウェブストアからインストール](https://chromewebstore.google.com/detail/eoohmbhdepgknfemajanfaejmonckgmo) | v0.3.1 を公開中。                                                 |
-| Mozilla Firefox | [Firefox Add-ons からインストール](https://addons.mozilla.org/firefox/addon/zendio/)                             | v0.3.1 を公開中。                                                 |
-| Microsoft Edge  | [Microsoft Edge Add-ons](https://microsoftedge.microsoft.com/addons/detail/oogaldhpamhgeeloehndhcgjkijkbocm)     | v0.3.1 は公開待ちです。承認後に詳細ページのリンクが利用できます。 |
+| ブラウザ        | ストア                                                                                                                             | 公開状況          |
+| --------------- | ---------------------------------------------------------------------------------------------------------------------------------- | ----------------- |
+| Google Chrome   | [Chrome ウェブストアからインストール](https://chromewebstore.google.com/detail/eoohmbhdepgknfemajanfaejmonckgmo)                   | v0.3.1 を公開中。 |
+| Mozilla Firefox | [Firefox Add-ons からインストール](https://addons.mozilla.org/firefox/addon/zendio/)                                               | v0.3.1 を公開中。 |
+| Microsoft Edge  | [Microsoft Edge Add-ons](https://microsoftedge.microsoft.com/addons/detail/zendioall-in-obsidian/oogaldhpamhgeeloehndhcgjkijkbocm) | v0.3.1 を公開中。 |
 
 公開状況は **2026 年 9 月 13 日**に確認しました。審査はストアごとに行われるため、提供されるバージョンは現在のソースバージョン **v0.3.1** と異なる場合があります。
 
