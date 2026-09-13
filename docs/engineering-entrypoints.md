@@ -224,6 +224,14 @@ frozen repository/organization Variables, validates exact SHA/required CI, build
 an isolated package, and uploads one immutable artifact without credentials or a
 protected Environment.
 
+The isolated build owner reserves missing private workspace directories inside the
+verified attempt: `build/dist-chrome` with `build/tmp-chrome`, or
+`build/dist-firefox` with `build/tmp-firefox`. Workflows pass those exact paths to
+both build and artifact preparation. Existing directories must still be owned,
+canonical and mode0700; nonempty temporary directories and existing outputs are
+rejected. The install owner creates only the npm installation scope, so callers
+must not rely on it to provision build directories.
+
 The separate `publish` job binds `environment: chrome-webstore-release`, downloads
 the artifact by ID with digest mismatch fail-closed behavior, reauthorizes the
 exact SHA/tree/package/lock/artifact tuple, and injects Chrome credentials only
@@ -231,6 +239,14 @@ into the single `chrome-publish-v1 --publish` mutation step. Once upload or publ
 has started, an unknown response is `unknown-submission-state` and requires store
 reconciliation; do not retry the workflow attempt. The contract is guarded by
 `npm run audit:chrome-webstore-release:check`.
+
+Both store adapters persist state as compact, recursively key-sorted JSON with a
+trailing newline, using the same `canonicalCompactJson` owner as the command
+boundary. Atomic replacement, file sync and state binding checks remain required.
+Submission success and workflow success are separate facts: if a post-submission
+check fails, inspect the durable state and reconcile with the store before taking
+any further action. A completed submission must never be repeated to clear a
+workflow failure.
 
 GA production release public config is loaded from ignored
 `.env.production.local` only for explicit local owner diagnostics. GitHub release

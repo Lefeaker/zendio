@@ -15,6 +15,15 @@ import { validateReleasePublicBuildConfig } from '../../../scripts/utils/release
 const roots: string[] = [];
 const sha = 'a'.repeat(40);
 
+async function readCompactState(path: string): Promise<Record<string, string | boolean | null>> {
+  const bytes = await readFile(path, 'utf8');
+  expect(bytes.endsWith('\n')).toBe(true);
+  expect(bytes.slice(0, -1)).not.toContain('\n');
+  const state: Record<string, string | boolean | null> = JSON.parse(bytes);
+  expect(Object.keys(state)).toEqual(Object.keys(state).sort());
+  return state;
+}
+
 async function fixture() {
   const createdRoot = await mkdtemp(join(tmpdir(), 'zendio-firefox-submit-core-'));
   const root = await realpath(createdRoot);
@@ -200,7 +209,7 @@ describe('Firefox AMO submission core', () => {
       })
     ).resolves.toMatchObject({ state: { outcome: 'success', terminalResult: 'listed' } });
     expect(calls.filter((call) => /POST|PUT|PATCH/u.test(call))).toHaveLength(3);
-    expect(JSON.parse(await readFile(value.stateFile, 'utf8'))).toMatchObject({
+    expect(await readCompactState(value.stateFile)).toMatchObject({
       stage: 'source-patch-completed',
       lastStartedOperation: 'source-patch',
       lastCompletedOperation: 'source-patch',
@@ -220,7 +229,7 @@ describe('Firefox AMO submission core', () => {
       })
     ).rejects.toMatchObject({ code: 'unknown-submission-state', retrySafe: false });
     expect(calls).toHaveLength(1);
-    expect(JSON.parse(await readFile(value.stateFile, 'utf8'))).toMatchObject({
+    expect(await readCompactState(value.stateFile)).toMatchObject({
       stage: 'upload-started',
       outcome: 'unknown-submission-state',
       retrySafe: false
