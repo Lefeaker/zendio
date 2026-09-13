@@ -4,6 +4,25 @@
   <img src="marketing/banner.png" alt="Zendio Banner" width="600"/>
 </p>
 
+## Zendio をインストール
+
+[公式サイト](https://zendio.sxnian.com/ja/) · [GitHub Releases](https://github.com/Lefeaker/zendio/releases) · [問題を報告](https://github.com/Lefeaker/zendio/issues)
+
+| ブラウザ        | ストア                                                                                                           | 公開状況                                                          |
+| --------------- | ---------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------- |
+| Google Chrome   | [Chrome ウェブストアからインストール](https://chromewebstore.google.com/detail/eoohmbhdepgknfemajanfaejmonckgmo) | v0.3.1 を公開中。                                                 |
+| Mozilla Firefox | [Firefox Add-ons からインストール](https://addons.mozilla.org/firefox/addon/zendio/)                             | v0.3.1 を公開中。                                                 |
+| Microsoft Edge  | [Microsoft Edge Add-ons](https://microsoftedge.microsoft.com/addons/detail/oogaldhpamhgeeloehndhcgjkijkbocm)     | v0.3.1 は公開待ちです。承認後に詳細ページのリンクが利用できます。 |
+
+公開状況は **2026 年 9 月 13 日**に確認しました。審査はストアごとに行われるため、提供されるバージョンは現在のソースバージョン **v0.3.1** と異なる場合があります。
+
+## v0.3.1 の変更点
+
+- YouTube / Bilibili のタイトルが遅れて読み込まれたり変更されたりしても、動画ノートのタイトルとファイル名に反映します。
+- ダウンロード、ローカルフォルダ、REST の保存先で同じ最新タイトルを使用します。動画の切り替え後に前のタイトルが残らず、ドラフトの読み込みに失敗しても現在のページタイトルを保持します。
+- Chrome、Firefox に加え、Microsoft Edge 専用パッケージを用意しました。
+- 設定画面の分割ボタンが長い翻訳や狭いウィンドウに対応。ハイライト色はコンパクトな色見本で選び、選択中の色名も確認できます。
+
 ## 概要
 
 - **ワンラインピッチ**: Zendio は、Web ページ、選択フラグメント、読書セッション、動画ノート、AI チャット会話を Obsidian 向けの構造化 Markdown として保存するブラウザ拡張機能です。
@@ -15,8 +34,9 @@
 
 ## 現在の機能
 
-- Options と初回セットアップは現在の Stitch UI 経路に統合され、12 のリリース UI 言語に対応しています。
-- Chromium ではユーザーが選択したローカル Vault フォルダへの書き込みを推奨し、REST はフォールバックおよび Firefox の書き込み経路です。
+- 設定と初回セットアップは 12 言語、ライト / ダーク / システム連動テーマ、画面幅に応じたレイアウトに対応しています。
+- Chrome と Edge は選択したローカルフォルダに直接保存できます。フォルダだけで有効な Vault として使え、REST URL や API キーは不要です。Firefox の直接書き込みには Obsidian Local REST API を使用します。
+- Vault を接続せずに Markdown をダウンロードすることもできます。
 - 動画モードは YouTube と Bilibili のタイムスタンプノート、テキストフラグメント、スクリーンショット状態ドット、エクスポート時の添付画像に対応しています。
 - 未保存の読書・動画ドラフトは直近 48 時間、最新 5 ページ、各ページ最大 20 件まで復元できます。
 - 記事、動画、フラグメント、読書セッション、AI チャットにはそれぞれ専用のパステンプレートと YAML プレビューがあります。
@@ -77,17 +97,16 @@
 
 ## インストールとセットアップ
 
-1. **拡張機能をビルドまたは入手**
-   - ローカル確認では `npm run build` を実行し、Chrome のデベロッパーモードで `build/dist` を読み込みます。
-   - Firefox は Firefox 用のビルド/パッケージスクリプトを使い、REST 経路で Vault に書き込みます。
-2. **書き込み経路を選択**
-   - Chromium 推奨: Options でローカル Obsidian Vault フォルダを選択。
-   - ローカルフォルダが使えない、拒否された、未対応、またはプリフライトに失敗した場合は [Obsidian Local REST API](https://github.com/coddingtonbear/obsidian-local-rest-api) を設定。
-   - Firefox は [Obsidian Local REST API](https://github.com/coddingtonbear/obsidian-local-rest-api) で Vault に書き込みます。
-3. **Options を完了**
-   - Vault ターゲットとフォールバック動作を設定。
-   - ルーティングルール、パステンプレート、YAML フィールド、動画スクリーンショット添付テンプレート、任意プロバイダーを設定。
-   - 匿名利用統計とエラー診断のプライバシースイッチを確認。
+1. **ストアからインストール**：上のリンクから拡張機能を追加し、Zendio の設定画面を開きます。
+2. **保存先を選択**：
+   - **Chrome / Edge のローカルフォルダ**：Obsidian Vault のフォルダを選び、アクセスを許可します。ローカルフォルダだけを使う場合、REST URL と API キーは空欄で構いません。
+   - **Obsidian Local REST API**：[Obsidian プラグイン](https://github.com/coddingtonbear/obsidian-local-rest-api)のアドレスと API キーを設定します。Firefox から Vault に直接書き込む方法で、Chrome / Edge でも利用できます。
+   - **ダウンロード**：Obsidian や Vault に接続せず Markdown を保存できます。
+3. **好みに合わせて設定**：言語とテーマを選び、必要に応じて Vault ルーティング、保存パス、YAML フィールド、添付画像、モデルプロバイダーを設定します。任意の利用統計とエラー診断のスイッチも確認してください。
+
+手動インストールには、公開済みの [GitHub Release](https://github.com/Lefeaker/zendio/releases) に添付されたブラウザ別パッケージを使用してください。Chrome / Edge の ZIP は解凍し、`chrome://extensions` または `edge://extensions` でデベロッパーモードを有効にしてフォルダを読み込みます。Firefox には署名済み XPI が必要です。通常はストアからのインストールを推奨します。GitHub が自動生成する **Source code** アーカイブは、そのまま拡張機能としてインストールできません。
+
+ソースからのビルドは、[エンジニアリングガイド](docs/engineering-entrypoints.md)の固定環境とコマンドに従ってください。[Edge のビルド手順](docs/engineering-entrypoints.md#microsoft-edge-distribution)も同じガイドにあります。
 
 ## 開発ベースライン
 

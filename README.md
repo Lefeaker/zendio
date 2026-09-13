@@ -4,6 +4,25 @@
   <img src="marketing/banner.png" alt="Zendio Banner" width="600"/>
 </p>
 
+## Get Zendio
+
+[Website](https://zendio.sxnian.com/en/) · [GitHub Releases](https://github.com/Lefeaker/zendio/releases) · [Report an issue](https://github.com/Lefeaker/zendio/issues)
+
+| Browser         | Store                                                                                                        | Availability                                                                        |
+| --------------- | ------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------- |
+| Google Chrome   | [Install from Chrome Web Store](https://chromewebstore.google.com/detail/eoohmbhdepgknfemajanfaejmonckgmo)   | v0.3.1 available.                                                                   |
+| Mozilla Firefox | [Install from Firefox Add-ons](https://addons.mozilla.org/firefox/addon/zendio/)                             | v0.3.1 available.                                                                   |
+| Microsoft Edge  | [Microsoft Edge Add-ons](https://microsoftedge.microsoft.com/addons/detail/oogaldhpamhgeeloehndhcgjkijkbocm) | v0.3.1 awaiting publication; the listing link will become available after approval. |
+
+Store status checked on **September 13, 2026**. Each store reviews releases independently; the version offered by the store may differ from the current source version, **v0.3.1**.
+
+## What's New in v0.3.1
+
+- Video note titles and filenames follow the current YouTube / Bilibili title, including titles that load late or change after capture.
+- Downloads, local-folder writes and REST exports use the same current title. Switching videos clears the previous title; a failed draft-recovery read preserves the existing page title.
+- A dedicated Microsoft Edge package joins the Chrome and Firefox builds.
+- Settings controls adapt to longer translations and narrow layouts; highlight colors use compact swatches with the selected color name shown below.
+
 ## Introduction
 
 - **One-line pitch**: Zendio is a browser extension for saving web pages, selected fragments, reading sessions, video notes, and AI chat conversations as structured Markdown for Obsidian.
@@ -15,8 +34,9 @@
 
 ## Current Capabilities
 
-- Options and first-run setup are built on the current Stitch UI path with 12 release UI languages.
-- Chromium builds can write through a user-selected local Vault folder; REST remains the fallback and the Firefox path.
+- Settings and first-run setup support 12 languages, light/dark/system themes, and responsive controls.
+- Chrome and Edge can save directly to a folder you select. A local folder alone is a valid vault target; no REST URL or API key is required. Firefox uses the Obsidian Local REST API for direct vault writes.
+- Markdown downloads are available when you do not want to connect a vault.
 - Video mode supports YouTube and Bilibili timestamp notes, captured text fragments, screenshot status dots, and screenshot attachments on export.
 - Recent unsaved reader and video drafts can be restored for the latest 48 hours, up to the latest 5 pages and 20 recoverable items per page.
 - Article, video, fragment, reading-session, and AI-chat notes each have dedicated path templates and YAML preview behavior.
@@ -77,18 +97,16 @@
 
 ## Install And Setup
 
-1. **Build or download the extension**
-   - For local testing, run `npm run build` and load `build/dist` in Chrome Developer Mode.
-   - Microsoft Edge: use the Edge build/package entrypoints in [the engineering guide](docs/engineering-entrypoints.md#microsoft-edge-distribution), then load `build/dist-edge` from `edge://extensions`.
-   - Firefox builds use the Firefox build/package scripts and the REST writing path.
-2. **Choose a write path**
-   - Recommended on Chromium: select a local Obsidian Vault folder in Options.
-   - If local folder access is unavailable, denied, unsupported, or fails preflight, configure [Obsidian Local REST API](https://github.com/coddingtonbear/obsidian-local-rest-api).
-   - Firefox uses [Obsidian Local REST API](https://github.com/coddingtonbear/obsidian-local-rest-api) for Vault writes.
-3. **Finish Options setup**
-   - Set vault targets and fallback behavior.
-   - Configure route rules, path templates, YAML fields, video screenshot attachment templates, and optional providers.
-   - Review privacy switches for anonymous usage statistics and error diagnostics.
+1. **Install from a store** using the links above, then open Zendio's Options page.
+2. **Choose where to save**:
+   - **Chrome / Edge — local folder:** select your Obsidian vault folder and grant access. Leave the REST URL and API key empty if you only use this folder.
+   - **Obsidian Local REST API:** configure the endpoint and API key from the [Obsidian plugin](https://github.com/coddingtonbear/obsidian-local-rest-api). This is the direct vault-writing path on Firefox and an alternative on Chrome / Edge.
+   - **Download:** save Markdown without connecting Obsidian or a vault.
+3. **Make it yours**: choose your language and theme, then configure vault routing, note paths, YAML fields, screenshot attachments and optional providers. Review the optional usage-statistics and error-diagnostics switches.
+
+For manual installation, use the browser-specific package attached to a published [GitHub Release](https://github.com/Lefeaker/zendio/releases). Extract a Chrome or Edge ZIP and load its folder from `chrome://extensions` or `edge://extensions` with Developer mode enabled. Firefox requires a signed XPI; its store page is the recommended installation route. GitHub's automatically generated **Source code** archives are not installable extension packages.
+
+To build from source, follow the pinned environment and bounded commands in [the engineering guide](docs/engineering-entrypoints.md), including its [Edge instructions](docs/engineering-entrypoints.md#microsoft-edge-distribution).
 
 ## Development Baseline
 

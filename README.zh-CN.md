@@ -4,6 +4,25 @@
   <img src="marketing/banner.png" alt="Zendio Banner" width="600"/>
 </p>
 
+## 安装 Zendio
+
+[产品网站](https://zendio.sxnian.com/) · [GitHub Releases](https://github.com/Lefeaker/zendio/releases) · [反馈问题](https://github.com/Lefeaker/zendio/issues)
+
+| 浏览器          | 商店入口                                                                                                     | 上架状态                                  |
+| --------------- | ------------------------------------------------------------------------------------------------------------ | ----------------------------------------- |
+| Google Chrome   | [从 Chrome 应用商店安装](https://chromewebstore.google.com/detail/eoohmbhdepgknfemajanfaejmonckgmo)          | v0.3.1 已上架。                           |
+| Mozilla Firefox | [从 Firefox 附加组件商店安装](https://addons.mozilla.org/firefox/addon/zendio/)                              | v0.3.1 已上架。                           |
+| Microsoft Edge  | [Microsoft Edge Add-ons](https://microsoftedge.microsoft.com/addons/detail/oogaldhpamhgeeloehndhcgjkijkbocm) | v0.3.1 待上架；审核通过后详情页链接可用。 |
+
+商店状态核对于 **2026 年 9 月 13 日**。各商店独立审核，实际提供的版本可能与当前源码版本 **v0.3.1** 不同。
+
+## v0.3.1 更新
+
+- YouTube / 哔哩哔哩标题延迟加载或修改后，视频笔记的标题和文件名会同步更新。
+- 下载、本地目录和 REST 保存使用同一个当前标题；切换视频不再沿用旧标题，读取恢复数据失败时保留已有页面标题。
+- 新增 Microsoft Edge 独立安装包，与 Chrome、Firefox 保持一致的功能体验。
+- 设置页的分段控件适配长翻译和窄窗口；高亮颜色采用紧凑色块，并显示当前颜色名称。
+
 ## 简介
 
 - **一句话定位**：Zendio 是一款面向 Obsidian 工作流的浏览器扩展，用于把网页、片段、阅读会话、视频笔记和 AI 对话保存为结构化 Markdown。
@@ -15,8 +34,9 @@
 
 ## 当前能力
 
-- 选项页和首次引导页已迁移到当前 Stitch UI 主链，并覆盖 12 种发布界面语言。
-- Chromium 版本推荐通过用户选择的本地 Vault 目录写入；REST 仍作为回退路径和 Firefox 写入路径。
+- 设置与首次引导支持 12 种语言、亮色 / 暗色 / 跟随系统主题，以及自适应控件。
+- Chrome 和 Edge 可以直接写入你选择的本地目录。仅绑定本地目录即可作为可用仓库，无需填写 REST URL 或 API 密钥；Firefox 通过 Obsidian Local REST API 直接写入仓库。
+- 不连接仓库也可以下载 Markdown 文件。
 - 视频模式支持 YouTube 与哔哩哔哩时间戳笔记、文本片段捕捉、截图状态圆点和导出时的截图附件。
 - 阅读和视频草稿支持最近 48 小时内、最新 5 个页面、每页 20 条可恢复内容的自动恢复。
 - 文章、视频、片段、阅读会话和 AI 对话都拥有独立路径模板与 YAML 预览行为。
@@ -77,17 +97,16 @@
 
 ## 安装与配置
 
-1. **构建或下载扩展**
-   - 本地手测可运行 `npm run build`，然后在 Chrome 开发者模式加载 `build/dist`。
-   - Firefox 使用 Firefox 构建/打包脚本，并通过 REST 路径写入 Vault。
-2. **选择写入路径**
-   - Chromium 推荐：在选项页选择本地 Obsidian Vault 目录。
-   - 如果本地目录不可用、被拒绝、不受支持或预检失败，再配置 [Obsidian Local REST API](https://github.com/coddingtonbear/obsidian-local-rest-api)。
-   - Firefox 使用 [Obsidian Local REST API](https://github.com/coddingtonbear/obsidian-local-rest-api) 写入 Vault。
-3. **完成选项页设置**
-   - 设置仓库目标和回退行为。
-   - 配置路由规则、路径模板、YAML 字段、视频截图附件模板和可选提供方。
-   - 检查匿名使用统计和错误诊断两个隐私开关。
+1. **从商店安装**：使用上方入口安装，然后打开 Zendio 的选项页。
+2. **选择保存位置**：
+   - **Chrome / Edge 本地目录**：选择 Obsidian 仓库目录并授予访问权限。只使用本地目录时，REST URL 和 API 密钥可以留空。
+   - **Obsidian Local REST API**：安装 [Obsidian 插件](https://github.com/coddingtonbear/obsidian-local-rest-api)，配置其地址和 API 密钥。这是 Firefox 直接写入仓库的方式，也可用于 Chrome / Edge。
+   - **下载**：无需连接 Obsidian 或配置仓库，即可保存 Markdown。
+3. **完成个性化设置**：选择语言和主题，再按需配置仓库路由、文件路径、YAML 字段、截图附件和模型提供方；检查可选的使用统计与错误诊断开关。
+
+手动安装时，请使用已公开的 [GitHub Release](https://github.com/Lefeaker/zendio/releases) 所附的对应浏览器安装包。Chrome / Edge 的 ZIP 需要先解压，再在 `chrome://extensions` 或 `edge://extensions` 开启开发者模式并加载该目录。Firefox 需要已签名的 XPI，推荐直接从商店安装。GitHub 自动生成的 **Source code** 源码压缩包不能直接作为扩展安装。
+
+从源码构建请遵循[工程指南](docs/engineering-entrypoints.md)中的固定环境与命令；[Edge 构建说明](docs/engineering-entrypoints.md#microsoft-edge-distribution)也在其中。
 
 ## 开发基线
 
