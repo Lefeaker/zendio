@@ -2703,11 +2703,6 @@ export function resolveCommandProfile(
   } else if (profileId === 'playwright-v1')
     command = {
       executable: process.execPath,
-      // Chromium's native filename conversion follows the process locale on Linux.
-      env: buildClosedCommandEnvironment(
-        environment,
-        process.platform === 'linux' ? { LANG: 'C.UTF-8', LC_ALL: 'C.UTF-8' } : {}
-      ),
       argv: [
         args.includes('--config=playwright.bundled-chromium.config.ts')
           ? resolveLockedBin('playwright')
@@ -2806,7 +2801,10 @@ export function resolveCommandProfile(
   const environmentAdditions =
     profileId === 'lint-staged-hook-v1' || profileId === 'lint-staged-prepare-v1'
       ? { PATH: lintStagedPath() }
-      : {};
+      : process.platform === 'linux' &&
+          (profileId === 'playwright-v1' || profileId === 'npm-script-browser-v1')
+        ? { LANG: 'C.UTF-8', LC_ALL: 'C.UTF-8' }
+        : {};
   return deepFreeze({
     profileId,
     version: COMMAND_BOUNDARY_VERSION,

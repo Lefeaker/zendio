@@ -111,20 +111,35 @@ function walkFiles(root: string): string[] {
 }
 
 describe('local command parallelization contract', () => {
-  it('owns the Linux browser UTF-8 locale without inheriting caller locale settings', () => {
+  it.each(['linux', 'darwin'])('owns the locale of every browser entrypoint on %s', (platform) => {
+    const descriptor = Object.getOwnPropertyDescriptor(process, 'platform');
+    if (!descriptor) throw new Error('Missing platform descriptor');
     const environment = {
       HOME: process.env.HOME ?? '/tmp',
       LANG: 'caller-locale',
       LC_ALL: 'caller-locale'
     };
-    const browser = resolveCommandProfile('playwright-v1', ['test'], { environment });
-    const tooling = resolveCommandProfile('vitest-v1', ['run'], { environment });
-    const browserLocale = process.platform === 'linux' ? 'C.UTF-8' : 'C';
-
-    expect(browser.env).toMatchObject({ LANG: browserLocale, LC_ALL: browserLocale, TZ: 'UTC' });
-    expect(tooling.env).toMatchObject({ LANG: 'C', LC_ALL: 'C', TZ: 'UTC' });
-    expect(environment.LANG).toBe('caller-locale');
-    expect(environment.LC_ALL).toBe('caller-locale');
+    Object.defineProperty(process, 'platform', { ...descriptor, value: platform });
+    try {
+      const browserLocale = platform === 'linux' ? 'C.UTF-8' : 'C';
+      const direct = resolveCommandProfile('playwright-v1', ['test'], { environment });
+      expect(direct.env).toMatchObject({ LANG: browserLocale, LC_ALL: browserLocale, TZ: 'UTC' });
+      for (const script of BROWSER_NPM_SCRIPTS) {
+        const browser = resolveCommandProfile('npm-script-browser-v1', [script], { environment });
+        expect(browser.argv.slice(-2)).toEqual(['run', script]);
+        expect(browser.env, script).toMatchObject({
+          LANG: browserLocale,
+          LC_ALL: browserLocale,
+          TZ: 'UTC'
+        });
+      }
+      const tooling = resolveCommandProfile('vitest-v1', ['run'], { environment });
+      expect(tooling.env).toMatchObject({ LANG: 'C', LC_ALL: 'C', TZ: 'UTC' });
+      expect(environment.LANG).toBe('caller-locale');
+      expect(environment.LC_ALL).toBe('caller-locale');
+    } finally {
+      Object.defineProperty(process, 'platform', descriptor);
+    }
   });
 
   it('gives the full lint warning scan the same bounded class as lint', () => {

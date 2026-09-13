@@ -80,6 +80,23 @@ describe('run-playwright repository-local CLI wrapper', () => {
     expect(signalOperation).not.toHaveBeenCalled();
   });
 
+  it('forwards the managed UTF-8 locale to the Playwright CLI child', async () => {
+    vi.stubEnv('LANG', 'C.UTF-8');
+    vi.stubEnv('LC_ALL', 'C.UTF-8');
+    vi.stubEnv('PLAYWRIGHT_WEB_SERVER_PORT', '43126');
+    const spawnOperation = vi.fn<SpawnOperation>(() => new EventEmitter());
+    const module = await loadRunPlaywright();
+    await module.runPlaywright(['test', 'tests/e2e/exportTitleRoutes.browser.test.ts'], {
+      spawnOperation,
+      exitOperation: vi.fn(),
+      signalOperation: vi.fn()
+    });
+    expect(spawnOperation.mock.calls[0]?.[2].env).toMatchObject({
+      LANG: 'C.UTF-8',
+      LC_ALL: 'C.UTF-8'
+    });
+  });
+
   it('preserves an explicit config and caller-provided reserved port', async () => {
     vi.stubEnv('PLAYWRIGHT_WEB_SERVER_PORT', '43124');
     const child = new EventEmitter();
