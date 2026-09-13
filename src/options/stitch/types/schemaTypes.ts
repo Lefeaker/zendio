@@ -4,7 +4,13 @@ import type {
 } from '@options/schema-runtime';
 import type { Messages } from '@i18n';
 import type { SchemaTranslator } from '../schema/i18n';
-import type { HeroData, PreviewContent, SelectOption, UsageStat } from './contentTypes';
+import type {
+  HeroData,
+  PreviewContent,
+  SegmentedOption,
+  SelectOption,
+  UsageStat
+} from './contentTypes';
 import type { PreviewStoreState } from './storeTypes';
 import type { SurfaceAction } from '@ui/stitch-runtime';
 import type {
@@ -171,7 +177,7 @@ export interface TokenRowNode extends BaseNode {
 
 export interface SegmentedNavNode extends BaseNode {
   kind: 'segmentedNav';
-  items: DynamicValue<SelectOption[]>;
+  items: DynamicValue<SegmentedOption[]>;
   bind?: string | StateBinding;
   value?: DynamicValue<string>;
   action: DynamicValue<ActionReference>;

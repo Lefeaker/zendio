@@ -155,9 +155,10 @@ test('persists segmented selection and export choices and presents the v0.3.1 ch
   await expect(latest).toContainText('v0.3.1');
   await expect(latest).toContainText('2026-09-13');
   await expect(latest.locator('.release-summary')).toHaveText('忘忘忘忘忘…忘记补了');
-  await expect(latest.locator('li')).toHaveCount(3);
+  await expect(latest.locator('li')).toHaveCount(4);
   await expect(latest).toContainText('笔记标题和文件名会同步更新');
   await expect(latest).toContainText('Microsoft Edge');
+  await expect(latest).toContainText('按钮文字保持单行');
   const previous = page.locator('.release-card').nth(1);
   await expect(previous).toContainText('v0.3.0');
   await expect(previous).toContainText('生活是创作的一部分，创作也是生活的一部分');
@@ -167,7 +168,20 @@ test('persists segmented selection and export choices and presents the v0.3.1 ch
   await expect(page.locator('.release-card')).toHaveCount(5);
 });
 
-for (const language of ['zh-CN', 'en', 'de']) {
+for (const language of [
+  'zh-CN',
+  'en',
+  'de',
+  'es-ES',
+  'es-419',
+  'fr',
+  'it',
+  'ja',
+  'ko',
+  'pt-BR',
+  'ru',
+  'zh-TW'
+]) {
   test(`keeps segmented controls readable in both themes and on narrow screens (${language})`, async ({
     extensionPage,
     context
@@ -186,36 +200,59 @@ for (const language of ['zh-CN', 'en', 'de']) {
       );
       await expectCapsule(themeControl, 3, fill);
       await page.locator('[data-nav-panel="capture-behavior"]').click();
-      for (const width of [1280, 390]) {
+      for (const width of [1280, 1100, 800, 390]) {
         await page.setViewportSize({ width, height: 900 });
         const panel = page.locator('[data-panel-id="capture-behavior"]');
         await expect(panel.locator('.selection-trigger-inline > .chips button')).toHaveCount(3);
-        const fits = await panel.evaluate((element) =>
-          [...element.querySelectorAll<HTMLButtonElement>('.chips button')].every((button) => {
-            const box = button.getBoundingClientRect();
-            return (
-              box.left >= 0 &&
-              box.right <= window.innerWidth + 1 &&
-              button.scrollWidth <= button.clientWidth
-            );
-          })
+        const overflow = await page.evaluate(() =>
+          [...document.querySelectorAll<HTMLButtonElement>('.segmented-control button')]
+            .map((button) => {
+              const box = button.getBoundingClientRect();
+              const group = button.parentElement?.getBoundingClientRect();
+              return {
+                text: button.textContent,
+                singleLine: getComputedStyle(button).whiteSpace === 'nowrap',
+                height: box.height,
+                inside: !!group && box.left >= group.left && box.right <= group.right + 1,
+                inViewport: box.left >= 0 && box.right <= window.innerWidth + 1,
+                unclipped: button.scrollWidth <= button.clientWidth
+              };
+            })
+            .filter(
+              (item) =>
+                !item.singleLine ||
+                item.height > 28 ||
+                !item.inside ||
+                !item.inViewport ||
+                !item.unclipped
+            )
         );
-        expect(fits).toBe(true);
+        expect(overflow, `${language}, ${theme}, ${width}px`).toEqual([]);
         await expectCapsule(panel.locator('.selection-trigger-inline > .chips'), 3, fill);
         await expectCapsule(
           panel.locator('.chips').filter({ has: page.locator('button[data-value="full"]') }),
           2,
           fill
         );
-        await panel.locator('.selection-trigger-inline').screenshot({
-          path: testInfo.outputPath(`${language}-${theme}-${width}-trigger.png`)
-        });
-        await panel
-          .locator('.chips')
-          .filter({ has: page.locator('button[data-value="full"]') })
-          .screenshot({
-            path: testInfo.outputPath(`${language}-${theme}-${width}-export.png`)
+        await expectCapsule(panel.locator('.highlight-theme-control'), 5, fill);
+        await expectCapsule(themeControl, 3, fill);
+        await expectCapsule(panel.locator('.modifier-key-choices .segmented-control'), 3, fill);
+        const colors = panel.locator('.highlight-theme-control button');
+        for (let index = 0; index < 5; index++) {
+          const color = colors.nth(index);
+          await expect(color).toHaveAccessibleName(await color.innerText());
+        }
+        if (width === 1280 || width === 390) {
+          await panel
+            .locator('.card')
+            .first()
+            .screenshot({
+              path: testInfo.outputPath(`${language}-${theme}-${width}-reading.png`)
+            });
+          await panel.locator('.selection-trigger-inline').screenshot({
+            path: testInfo.outputPath(`${language}-${theme}-${width}-trigger.png`)
           });
+        }
       }
     }
   });
@@ -290,6 +327,17 @@ test('animates stable compact trigger, modifier and highlight capsules', async (
   await expect(highlight.locator('[data-value="gradient"]')).toHaveText('渐变蓝紫');
   await transition(highlight, 'purple');
   await transition(highlight, 'gradient');
+  const caption = page.locator('.segmented-field .segment-caption');
+  for (const value of ['neonYellow', 'neonGreen', 'neonOrange', 'gradient']) {
+    const button = highlight.locator(`[data-value="${value}"]`);
+    await button.focus();
+    await button.press('Space');
+    await expect(button).toHaveAttribute('aria-pressed', 'true');
+    await expect(caption).toHaveText(await button.innerText());
+    await expect
+      .poll(async () => (await readOptions(extensionPage))?.readingSession?.highlightTheme)
+      .toBe(value);
+  }
   await transition(trigger, 'direct');
   await expect
     .poll(async () => (await readOptions(extensionPage))?.fragmentClipper?.selectionTriggerMode)

@@ -1,7 +1,7 @@
 /* @vitest-environment jsdom */
 
 import { describe, expect, it, vi } from 'vitest';
-import { previewUi } from '@options/stitch/ui/components';
+import { previewUi, syncSegmentedNav } from '@options/stitch/ui/components';
 
 describe('Stitch UI components', () => {
   it('prevents mouse focus scrolling on action buttons while preserving click actions', () => {
@@ -15,6 +15,38 @@ describe('Stitch UI components', () => {
 
     expect(pointerEvent.defaultPrevented).toBe(true);
     expect(onClick).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps swatch names and the visible caption in sync with user and stored choices', () => {
+    const onChange = vi.fn();
+    const field = previewUi.SegmentedNav(
+      [
+        {
+          value: 'gradient',
+          label: 'Gradiente púrpura-azul',
+          swatchClassName: 'highlight-gradient'
+        },
+        { value: 'yellow', label: 'Amarillo neón', swatchClassName: 'highlight-neon-yellow' }
+      ],
+      'yellow',
+      onChange,
+      'segmented-control'
+    );
+    const group = field.querySelector<HTMLElement>('.segmented-control');
+    const caption = field.querySelector('.segment-caption');
+    const buttons = field.querySelectorAll('button');
+    if (!group || !buttons[0] || !buttons[1]) throw new Error('Missing swatch controls');
+    expect(caption?.textContent).toBe('Amarillo neón');
+    expect(buttons[1].title).toBe('Amarillo neón');
+    expect(buttons[1].querySelector('.sr-only')?.textContent).toBe('Amarillo neón');
+    expect(buttons[1].querySelector('.segment-swatch')?.getAttribute('aria-hidden')).toBe('true');
+    buttons[0].click();
+    expect(onChange).toHaveBeenCalledWith('gradient');
+    expect(caption?.textContent).toBe('Gradiente púrpura-azul');
+    syncSegmentedNav(group, 'yellow');
+    expect(caption?.textContent).toBe('Amarillo neón');
+    expect(buttons[1].getAttribute('aria-pressed')).toBe('true');
+    expect(onChange).toHaveBeenCalledTimes(1);
   });
 
   it('retains semantic select, switch and table slots through primitive entries', () => {

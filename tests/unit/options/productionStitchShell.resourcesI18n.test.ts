@@ -134,6 +134,7 @@ const ENGLISH_SENTINEL_MESSAGES: Messages = {
   schemaResourceChangelogV031Bullet1: 'Changelog v0.3.1 Bullet 1 Sentinel',
   schemaResourceChangelogV031Bullet2: 'Changelog v0.3.1 Bullet 2 Sentinel',
   schemaResourceChangelogV031Bullet3: 'Changelog v0.3.1 Bullet 3 Sentinel',
+  schemaResourceChangelogV031Bullet4: 'Changelog v0.3.1 Bullet 4 Sentinel',
   schemaResourceChangelogV030Summary: 'Changelog v0.3.0 Summary Sentinel',
   schemaResourceChangelogV030Bullet1: 'Changelog v0.3.0 Bullet 1 Sentinel',
   schemaResourceChangelogV030Bullet2: 'Changelog v0.3.0 Bullet 2 Sentinel',

@@ -1,4 +1,5 @@
 .rows {
+  container-type: inline-size;
   display: grid;
   min-width: 0;
 }
@@ -14,6 +15,14 @@
   padding: var(--space-6) 0;
   border-top: var(--border-default);
   align-items: start;
+}
+
+/* Keep translated controls intact when the settings area becomes narrow. */
+@container (max-width: 640px) {
+  .row:has(.segmented-control) {
+    grid-template-columns: minmax(0, 1fr);
+    row-gap: var(--space-4);
+  }
 }
 
 .row:first-child {
@@ -178,11 +187,11 @@
 .chips.segmented-control {
   position: relative;
   display: grid;
-  grid-template-columns: repeat(var(--segment-count), minmax(0, 1fr));
+  grid-template-columns: repeat(var(--segment-count), minmax(max-content, 1fr));
   align-items: center;
   gap: 0;
-  min-width: 0;
-  width: min(100%, calc(var(--segment-count) * 96px));
+  min-width: max-content;
+  width: max-content;
   padding: var(--space-1);
   border: var(--border-default);
   border-radius: var(--radius-full);
@@ -209,8 +218,7 @@
   justify-content: center;
   width: 100%;
   min-width: 0;
-  white-space: normal;
-  overflow-wrap: anywhere;
+  white-space: nowrap;
   min-height: calc(var(--switch-height) - var(--space-2) - 2px);
   padding: 0 var(--space-3);
   border: 0;
@@ -229,6 +237,27 @@
 .chips.segmented-control > .chip:hover {
   background: var(--surface-muted);
   color: var(--text);
+}
+
+.segmented-field {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3) var(--space-4);
+  min-width: 0;
+}
+
+.segment-caption {
+  color: var(--text-dim);
+  font-size: var(--font-size-md);
+  line-height: var(--line-height-control);
+}
+
+.segment-swatch {
+  width: var(--icon-size-sm);
+  height: var(--icon-size-sm);
+  border: 1px solid currentColor;
+  border-radius: var(--radius-full);
 }
 
 .consent-inline-grid {

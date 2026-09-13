@@ -227,6 +227,7 @@ export const GENERATED_SCHEMA_MESSAGE_KEYS = [
   'schemaResourceChangelogV031Bullet1',
   'schemaResourceChangelogV031Bullet2',
   'schemaResourceChangelogV031Bullet3',
+  'schemaResourceChangelogV031Bullet4',
   'schemaResourceChangelogV031Summary',
   'schemaResourceContactChannelsGroupTitle',
   'schemaResourceContactDescription',

@@ -437,5 +437,6 @@
   "schemaResourceChangelogV031Summary": "忘忘忘忘忘…忘記補了",
   "schemaResourceChangelogV031Bullet1": "補齊 v0.3.0 的影片匯出標題修正：YouTube / 嗶哩嗶哩標題延遲載入或修改後，筆記標題與檔名會同步更新。",
   "schemaResourceChangelogV031Bullet2": "下載、本機資料夾與 REST 儲存共用目前標題；切換影片不再沿用舊標題，讀取復原資料失敗時保留已有頁面標題。",
-  "schemaResourceChangelogV031Bullet3": "新增 Microsoft Edge 獨立安裝套件，沿用一致的剪藏、閱讀、影片筆記與設定體驗。"
+  "schemaResourceChangelogV031Bullet3": "新增 Microsoft Edge 獨立安裝套件，沿用一致的剪藏、閱讀、影片筆記與設定體驗。",
+  "schemaResourceChangelogV031Bullet4": "改善設定頁的多語言連體膠囊：按鈕文字保持單行，空間不足時整組換行；高亮顏色改為色塊選擇，並顯示目前的顏色名稱。"
 }

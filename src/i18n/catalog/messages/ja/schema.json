@@ -437,5 +437,6 @@
   "schemaResourceChangelogV031Summary": "忘れて、忘れて…修正を入れ忘れた。",
   "schemaResourceChangelogV031Bullet1": "v0.3.0 の修正更新：YouTube / Bilibili の動画タイトルが遅れて読み込まれたり変更されたりしても、キャプチャ・出力前に更新し、ノートのタイトルとファイル名に反映します。",
   "schemaResourceChangelogV031Bullet2": "ダウンロード、ローカルフォルダー、REST で現在のタイトルを使用します。動画の切り替え時は古いタイトルを消去し、復元データの読み取りに失敗してもページのタイトルを保持します。",
-  "schemaResourceChangelogV031Bullet3": "Microsoft Edge 専用パッケージを追加しました。クリッピング、読書、動画ノート、設定は共通です。"
+  "schemaResourceChangelogV031Bullet3": "Microsoft Edge 専用パッケージを追加しました。クリッピング、読書、動画ノート、設定は共通です。",
+  "schemaResourceChangelogV031Bullet4": "多言語の設定ボタンを改善。ラベルは1行で表示し、幅が足りない場合はグループ全体を説明の下に配置します。ハイライトの色は色見本で選び、選択中の色名を表示します。"
 }

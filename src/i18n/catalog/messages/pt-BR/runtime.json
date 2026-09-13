@@ -155,7 +155,7 @@
   "fragmentSelectionTriggerModeDescription": "Escolha o que acontece ao selecionar texto. O recorte pelo menu de contexto continua disponível em todos os modos.",
   "fragmentSelectionTriggerModeDisabled": "Desativado",
   "fragmentSelectionTriggerModeDirect": "Direto",
-  "fragmentSelectionTriggerModeModifier": "Tecla modificadora",
+  "fragmentSelectionTriggerModeModifier": "Com tecla",
   "fragmentModifierKeysLabel": "Seleção de tecla modificadora",
   "fragmentModifierKeysDescription": "Apenas uma tecla modificadora pode ser selecionada; Shift é a opção padrão.",
   "fragmentModifierKeyAlt": "Option / Alt",

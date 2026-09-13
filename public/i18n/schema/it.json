@@ -215,6 +215,7 @@
   "schemaResourceChangelogV031Bullet1": "Correzione di v0.3.0: i titoli dei video YouTube / Bilibili vengono aggiornati prima di acquisire ed esportare, così i titoli caricati in ritardo o modificati compaiono nei nomi delle note e nel Markdown.",
   "schemaResourceChangelogV031Bullet2": "Download, cartelle locali e salvataggi REST usano il titolo attuale. Cambiare video cancella il vecchio titolo; se la lettura dei dati di ripristino fallisce, il titolo disponibile nella pagina viene conservato.",
   "schemaResourceChangelogV031Bullet3": "Aggiunto un pacchetto dedicato a Microsoft Edge, con le stesse funzioni di ritaglio, lettura, note video e impostazioni.",
+  "schemaResourceChangelogV031Bullet4": "Le etichette delle opzioni restano su una riga; se lo spazio è limitato, il gruppo passa sotto il testo. I colori delle evidenziazioni si scelgono tramite campioni con il nome del colore selezionato.",
   "schemaResourceChangelogV031Summary": "Dimenticato, dimenticato… dimenticato di includere la correzione.",
   "schemaResourceContactChannelsGroupTitle": "Link di contatto",
   "schemaResourceContactDescription": "Se apprezzi questo progetto o vuoi contattare l’autore, visita <a href=\"https://sxnian.com\" target=\"_blank\" rel=\"noopener noreferrer\">il sito personale dell’autore</a>, <a href=\"https://www.reddit.com/user/sxnian/\" target=\"_blank\" rel=\"noopener noreferrer\">Reddit</a>, <a href=\"https://github.com/Lefeaker\" target=\"_blank\" rel=\"noopener noreferrer\">Github</a> o <a href=\"mailto:zendio@sxnian.com\">email</a>.",

@@ -155,7 +155,7 @@
   "fragmentSelectionTriggerModeDescription": "Scegli cosa accade quando selezioni del testo. Il clipping con il tasto destro resta disponibile in ogni modalità.",
   "fragmentSelectionTriggerModeDisabled": "Disattivato",
   "fragmentSelectionTriggerModeDirect": "Diretto",
-  "fragmentSelectionTriggerModeModifier": "Tasto modificatore",
+  "fragmentSelectionTriggerModeModifier": "Con tasto",
   "fragmentModifierKeysLabel": "Seleziona tasti modificatori",
   "fragmentModifierKeysDescription": "È possibile selezionare un solo tasto modificatore; Shift è l'opzione predefinita.",
   "fragmentModifierKeyAlt": "Option / Alt",

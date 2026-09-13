@@ -437,5 +437,6 @@
   "schemaResourceChangelogV031Summary": "忘忘忘忘忘…忘记补了",
   "schemaResourceChangelogV031Bullet1": "补齐 v0.3.0 的视频导出标题修复：YouTube / 哔哩哔哩标题延迟加载或修改后，笔记标题和文件名会同步更新。",
   "schemaResourceChangelogV031Bullet2": "下载、本地目录和 REST 保存共用当前标题；切换视频不再沿用旧标题，读取恢复数据失败时保留已有页面标题。",
-  "schemaResourceChangelogV031Bullet3": "新增 Microsoft Edge 独立安装包，沿用一致的剪藏、阅读、视频笔记与设置体验。"
+  "schemaResourceChangelogV031Bullet3": "新增 Microsoft Edge 独立安装包，沿用一致的剪藏、阅读、视频笔记与设置体验。",
+  "schemaResourceChangelogV031Bullet4": "优化设置页的多语言连体胶囊：按钮文字保持单行，空间不足时整组换行；高亮颜色改为色块选择，并显示当前颜色名称。"
 }

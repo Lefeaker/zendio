@@ -10,7 +10,7 @@ import {
   type UsageChartSeriesPoint
 } from '@ui/domains/usage-chart';
 import { createUiIcon, UI_ICONS } from '@ui/foundation/icons';
-import type { SelectOption, UsageStat } from '../types';
+import type { SegmentedOption, SelectOption, UsageStat } from '../types';
 
 type IconName = keyof typeof ICON_MAP;
 type IconComponent = (typeof UI_ICONS)[keyof typeof UI_ICONS];
@@ -314,6 +314,8 @@ export function syncSegmentedNav(group: HTMLElement, value: string | number | un
   else group.dataset.activeValue = String(value);
   const selected = buttons.findIndex((button) => button.dataset.value === String(value));
   group.style.setProperty('--segment-index', String(Math.max(0, selected)));
+  const caption = group.parentElement?.querySelector(':scope > .segment-caption');
+  if (caption) caption.textContent = buttons[selected]?.textContent ?? '';
   buttons.forEach((button, index) => {
     button.setAttribute('aria-pressed', String(index === selected));
     button.classList.toggle('is-active', index === selected);
@@ -321,7 +323,7 @@ export function syncSegmentedNav(group: HTMLElement, value: string | number | un
 }
 
 function SegmentedNav(
-  items: SelectOption[],
+  items: SegmentedOption[],
   active: string | number | undefined,
   onChange: (value: string) => void,
   className = ''
@@ -333,21 +335,41 @@ function SegmentedNav(
       style: { '--segment-count': items.length }
     },
     items.map((item) =>
-      el('button', {
-        type: 'button',
-        className: 'chip',
-        dataset: { value: item.value },
-        text: item.label,
-        onMousedown: (event: MouseEvent) => event.preventDefault(),
-        onClick: () => {
-          syncSegmentedNav(group, item.value);
-          onChange(item.value);
-        }
-      })
+      el(
+        'button',
+        {
+          type: 'button',
+          title: item.swatchClassName ? item.label : undefined,
+          className: 'chip',
+          dataset: { value: item.value },
+          onMousedown: (event: MouseEvent) => event.preventDefault(),
+          onClick: () => {
+            syncSegmentedNav(group, item.value);
+            onChange(item.value);
+          }
+        },
+        item.swatchClassName
+          ? [
+              el('span', {
+                className: `segment-swatch ${item.swatchClassName}`,
+                'aria-hidden': 'true'
+              }),
+              el('span', { className: 'sr-only', text: item.label })
+            ]
+          : item.label
+      )
     )
   );
+  const result = items.some((item) => item.swatchClassName)
+    ? el(
+        'div',
+        { className: 'segmented-field' },
+        group,
+        el('span', { className: 'segment-caption' })
+      )
+    : group;
   syncSegmentedNav(group, active);
-  return group;
+  return result;
 }
 
 function renderUsageChart(root: HTMLElement, history: UsageChartSeriesPoint[]): void {

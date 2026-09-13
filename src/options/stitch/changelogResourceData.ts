@@ -25,7 +25,8 @@ const CHANGELOG_ENTRY_DEFINITIONS: readonly ChangelogEntryDefinition[] = [
     bulletKeys: [
       'schemaResourceChangelogV031Bullet1',
       'schemaResourceChangelogV031Bullet2',
-      'schemaResourceChangelogV031Bullet3'
+      'schemaResourceChangelogV031Bullet3',
+      'schemaResourceChangelogV031Bullet4'
     ]
   },
   {

@@ -437,5 +437,6 @@
   "schemaResourceChangelogV031Summary": "Esqueci, esqueci… esqueci de incluir a correção.",
   "schemaResourceChangelogV031Bullet1": "Correção da v0.3.0: os títulos de vídeos do YouTube / Bilibili são atualizados antes da captura e exportação, refletindo títulos tardios ou alterados nos nomes das notas e no Markdown.",
   "schemaResourceChangelogV031Bullet2": "Downloads, pastas locais e salvamentos REST usam o título atual. Trocar de vídeo limpa o título anterior; uma falha ao ler dados de recuperação preserva o título disponível na página.",
-  "schemaResourceChangelogV031Bullet3": "Adicionado um pacote específico para Microsoft Edge, com as mesmas funções de recorte, leitura, notas de vídeo e configurações."
+  "schemaResourceChangelogV031Bullet3": "Adicionado um pacote específico para Microsoft Edge, com as mesmas funções de recorte, leitura, notas de vídeo e configurações.",
+  "schemaResourceChangelogV031Bullet4": "Os rótulos das opções ficam em uma linha; quando falta espaço, o grupo passa para baixo do texto. As cores de destaque usam amostras com o nome da cor selecionada."
 }

@@ -72,20 +72,28 @@ const schema: SettingsSchema = {
                           items: [
                             {
                               value: 'gradient',
-                              label: t('readingHighlightThemeGradient')
+                              label: t('readingHighlightThemeGradient'),
+                              swatchClassName: 'highlight-gradient'
                             },
-                            { value: 'purple', label: t('readingHighlightThemePurple') },
+                            {
+                              value: 'purple',
+                              label: t('readingHighlightThemePurple'),
+                              swatchClassName: 'highlight-purple'
+                            },
                             {
                               value: 'neonYellow',
-                              label: t('readingHighlightThemeNeonYellow')
+                              label: t('readingHighlightThemeNeonYellow'),
+                              swatchClassName: 'highlight-neon-yellow'
                             },
                             {
                               value: 'neonGreen',
-                              label: t('readingHighlightThemeNeonGreen')
+                              label: t('readingHighlightThemeNeonGreen'),
+                              swatchClassName: 'highlight-neon-green'
                             },
                             {
                               value: 'neonOrange',
-                              label: t('readingHighlightThemeNeonOrange')
+                              label: t('readingHighlightThemeNeonOrange'),
+                              swatchClassName: 'highlight-neon-orange'
                             }
                           ],
                           bind: 'highlightTheme',
