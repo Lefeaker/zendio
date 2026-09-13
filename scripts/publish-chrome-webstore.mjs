@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto';
 import { lstat, open, readFile, rename, writeFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
+import { canonicalCompactJson as canonicalJson } from '../tools/npm-audit-regression/canonical-json.mjs';
 import {
   consumeVerifiedChromeArtifactBinding,
   verifyChromeReleaseArtifactManifest
@@ -39,17 +40,6 @@ function fail(code, detail = '') {
 
 function sha256(value) {
   return createHash('sha256').update(value).digest('hex');
-}
-
-function canonicalJson(value) {
-  if (Array.isArray(value)) return `[${value.map(canonicalJson).join(',')}]`;
-  if (value && typeof value === 'object') {
-    return `{${Object.keys(value)
-      .sort()
-      .map((key) => `${JSON.stringify(key)}:${canonicalJson(value[key])}`)
-      .join(',')}}`;
-  }
-  return JSON.stringify(value);
 }
 
 export function readChromeWebStoreConfig(environment = process.env) {
@@ -110,7 +100,7 @@ async function readState(path) {
 }
 
 async function writeState(path, value) {
-  const bytes = `${JSON.stringify(value, null, 2)}\n`;
+  const bytes = `${canonicalJson(value)}\n`;
   if (Buffer.byteLength(bytes) > CHROME_WEBSTORE_LIMITS.stateBytes) fail('CHROME_STATE_LIMIT');
   const next = `${path}.next`;
   const handle = await open(next, 'wx', 0o600);

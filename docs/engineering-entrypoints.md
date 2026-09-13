@@ -240,6 +240,14 @@ has started, an unknown response is `unknown-submission-state` and requires stor
 reconciliation; do not retry the workflow attempt. The contract is guarded by
 `npm run audit:chrome-webstore-release:check`.
 
+Both store adapters persist state as compact, recursively key-sorted JSON with a
+trailing newline, using the same `canonicalCompactJson` owner as the command
+boundary. Atomic replacement, file sync and state binding checks remain required.
+Submission success and workflow success are separate facts: if a post-submission
+check fails, inspect the durable state and reconcile with the store before taking
+any further action. A completed submission must never be repeated to clear a
+workflow failure.
+
 GA production release public config is loaded from ignored
 `.env.production.local` only for explicit local owner diagnostics. GitHub release
 prepare jobs read the same public values from repository/organization Variables;

@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
 import { lstat, open, readFile, rename } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
+import { canonicalCompactJson } from '../../tools/npm-audit-regression/canonical-json.mjs';
 import { getVerifiedFirefoxArtifactSnapshots } from './firefoxReleaseArtifactManifest.mjs';
 import { FIREFOX_AMO_API_BASE_URL, submitVerifiedFirefoxXpi } from './firefoxExactXpiSubmit.mjs';
 
@@ -39,7 +40,7 @@ async function readState(path) {
 }
 
 async function writeState(path, value) {
-  const bytes = `${JSON.stringify(value, null, 2)}\n`;
+  const bytes = `${canonicalCompactJson(value)}\n`;
   if (Buffer.byteLength(bytes) > FIREFOX_AMO_STATE_LIMIT) fail('FIREFOX_AMO_STATE_LIMIT');
   const next = `${path}.next`;
   const handle = await open(next, 'wx', 0o600);
