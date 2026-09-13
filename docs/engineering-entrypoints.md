@@ -539,6 +539,20 @@ combines those two operations. `build:edge:fast` is for an outer owner that has
 already completed the applicable quality checks; it does not certify a release.
 The ordinary Edge package path does not invoke Chrome Web Store or AMO submission.
 
+For an Edge store submission, put the same three public `ZENDIO_GA_*` values used
+by release automation in ignored `.env.production.local`, then run:
+
+```bash
+node scripts/run-bounded-command.mjs --profile npm-script-build-v1 -- build:edge:prod:ga
+node scripts/run-bounded-command.mjs --profile npm-script-build-v1 -- package:edge:ci
+```
+
+The production entry first runs the existing strict public-config validator. It
+rejects missing canonical values, secrets and non-proxy transport before touching
+the build output. It then runs the full quality owner and shared Chromium build.
+The env file contains no store credentials or server-side GA API secret. The
+ordinary `build:edge` entry remains suitable for sideloading with analytics off.
+
 ### Compatibility and store preparation
 
 Microsoft's [Chrome extension porting guide](https://learn.microsoft.com/en-us/microsoft-edge/extensions/developer-guide/port-chrome-extension)
