@@ -333,7 +333,15 @@ export const STANDARD_NPM_SCRIPTS = deepFreeze([
   'typecheck:tests'
 ]);
 
-export const BUILD_NPM_SCRIPTS = deepFreeze(['build:dev', 'build:fast', 'package:ci']);
+export const BUILD_NPM_SCRIPTS = deepFreeze([
+  'build:dev',
+  'build:fast',
+  'package:ci',
+  'build:edge',
+  'build:edge:fast',
+  'package:edge',
+  'package:edge:ci'
+]);
 export const BROWSER_NPM_SCRIPTS = deepFreeze([
   'test:e2e:browser',
   'test:e2e:browser:architecture',

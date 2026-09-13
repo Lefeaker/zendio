@@ -79,6 +79,7 @@
 
 1. **Build or download the extension**
    - For local testing, run `npm run build` and load `build/dist` in Chrome Developer Mode.
+   - Microsoft Edge: use the Edge build/package entrypoints in [the engineering guide](docs/engineering-entrypoints.md#microsoft-edge-distribution), then load `build/dist-edge` from `edge://extensions`.
    - Firefox builds use the Firefox build/package scripts and the REST writing path.
 2. **Choose a write path**
    - Recommended on Chromium: select a local Obsidian Vault folder in Options.

@@ -5,6 +5,7 @@ import {
   mkdtemp,
   open,
   readFile,
+  readdir,
   rm,
   rmdir,
   unlink,
@@ -81,7 +82,8 @@ export function parsePackageArguments(argv = process.argv.slice(2)) {
       trialDays: DEFAULT_TRIAL_DAYS
     });
   }
-  let distDir = 'build/dist';
+  const edge = argv.includes('--edge');
+  let distDir = edge ? 'build/dist-edge' : 'build/dist';
   let trial = false;
   for (let index = 0; index < argv.length; index += 1) {
     const value = argv[index];
@@ -91,6 +93,8 @@ export function parsePackageArguments(argv = process.argv.slice(2)) {
       }
       distDir = argv[index + 1];
       index += 1;
+    } else if (value === '--edge') {
+      continue;
     } else if (value === '--trial') {
       trial = true;
     } else if (value.startsWith('--trial-days=')) {
@@ -101,6 +105,7 @@ export function parsePackageArguments(argv = process.argv.slice(2)) {
   }
   return Object.freeze({
     mode: 'ordinary',
+    edge,
     distDir,
     outputDir: null,
     trial,
@@ -181,6 +186,33 @@ async function injectTrialConfig(distDir, trialDays) {
   );
 }
 
+async function validateEdgePackage(manifest, distDir) {
+  if (
+    manifest.manifest_version !== 3 ||
+    !manifest.background?.service_worker ||
+    manifest.background?.scripts ||
+    manifest.browser_specific_settings ||
+    'update_url' in manifest
+  )
+    fail('EDGE_PACKAGE_MANIFEST_INVALID');
+
+  const localeRoot = join(distDir, '_locales');
+  const locales = (await pathExists(localeRoot))
+    ? await readdir(localeRoot)
+    : [manifest.default_locale];
+  for (const locale of locales) {
+    const localizedManifest = { ...manifest, default_locale: locale };
+    const values = await Promise.all(
+      [manifest.name, manifest.description].map((value) =>
+        resolveMessage(value ?? '', localizedManifest, distDir)
+      )
+    );
+    if (values.some((value) => /\bchrome\b/iu.test(value))) {
+      fail(`EDGE_PACKAGE_CHROME_BRANDING:${locale ?? 'manifest'}`);
+    }
+  }
+}
+
 export async function packageExtension(options = {}, dependencies = {}) {
   const args = parsePackageArguments(options.argv ?? process.argv.slice(2));
   const logger = dependencies.logger ?? console;
@@ -193,9 +225,10 @@ export async function packageExtension(options = {}, dependencies = {}) {
     rmdirOperation: dependencies.rmdirOperation ?? rmdir
   };
   if (!(await pathExists(args.distDir))) fail(`${args.distDir} 目录不存在，请先运行 npm run build`);
-  await (dependencies.prepareLicenseArtifactsImpl ?? prepareLicenseArtifacts)(args.distDir);
   const manifestPath = join(args.distDir, 'manifest.json');
   const manifest = JSON.parse(await readFile(manifestPath, 'utf8'));
+  if (args.edge) await validateEdgePackage(manifest, args.distDir);
+  await (dependencies.prepareLicenseArtifactsImpl ?? prepareLicenseArtifacts)(args.distDir);
   const manifestWithHosts = (dependencies.applyRestHostPermissionsImpl ?? applyRestHostPermissions)(
     manifest
   );
@@ -210,7 +243,9 @@ export async function packageExtension(options = {}, dependencies = {}) {
     manifestWithHosts,
     args.distDir
   );
-  const zipName = createReleaseArtifactFileName(version, 'zip');
+  const zipName = createReleaseArtifactFileName(version, 'zip', {
+    suffix: args.edge ? '-edge' : ''
+  });
   let zipPath;
   if (args.mode === 'release-no-replace-v1') {
     zipPath = await publishReleaseArchive({
@@ -229,7 +264,7 @@ export async function packageExtension(options = {}, dependencies = {}) {
   }
   logger.log(`✅ 打包完成: ${zipPath}`);
   return Object.freeze({
-    schema: 'zendio-chrome-package-result-v1',
+    schema: args.edge ? 'zendio-edge-package-result-v1' : 'zendio-chrome-package-result-v1',
     distDir: resolve(args.distDir),
     zipName,
     zipPath,
