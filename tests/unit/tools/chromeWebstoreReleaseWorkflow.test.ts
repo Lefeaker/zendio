@@ -43,7 +43,13 @@ describe('Chrome Web Store release workflow contract', () => {
     expect(check()).toMatchObject({ status: 0, signal: null, stdout: '', stderr: '' });
   });
 
+  it('rejects an invalid isolated build temporary path', () => {
+    const invalid = workflow.replace(/(--temp-dir "[^"]*\/)[^"]+"/, '$1wrong-temp"');
+    expect(check(invalid).status).not.toBe(0);
+  });
+
   it.each([
+    ['build output path', '/dist-chrome"', '/wrong-dist"'],
     [
       'ref-scoped concurrency',
       'group: zendio-chrome-webstore-release-v1',

@@ -224,6 +224,14 @@ frozen repository/organization Variables, validates exact SHA/required CI, build
 an isolated package, and uploads one immutable artifact without credentials or a
 protected Environment.
 
+The isolated build owner reserves missing private workspace directories inside the
+verified attempt: `build/dist-chrome` with `build/tmp-chrome`, or
+`build/dist-firefox` with `build/tmp-firefox`. Workflows pass those exact paths to
+both build and artifact preparation. Existing directories must still be owned,
+canonical and mode0700; nonempty temporary directories and existing outputs are
+rejected. The install owner creates only the npm installation scope, so callers
+must not rely on it to provision build directories.
+
 The separate `publish` job binds `environment: chrome-webstore-release`, downloads
 the artifact by ID with digest mismatch fail-closed behavior, reauthorizes the
 exact SHA/tree/package/lock/artifact tuple, and injects Chrome credentials only

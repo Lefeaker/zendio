@@ -156,7 +156,7 @@ jobs:
           ZENDIO_JOB_CLASS: chrome-prepare-v1
           ZENDIO_JOB_TIMEOUT_MINUTES: '75'
           ZENDIO_RUNNER_ENVIRONMENT: ${{ runner.environment }}
-        run: node scripts/run-bounded-command.mjs --profile isolated-build-v1 -- --run-isolated-build --config-mode owner-public-vars --browser chrome --dist-dir "${{ runner.temp }}/zendio-chrome-${{ github.run_id }}-${{ github.run_attempt }}/dist-chrome" --temp-dir "${{ runner.temp }}/zendio-chrome-${{ github.run_id }}-${{ github.run_attempt }}/build-temp"
+        run: node scripts/run-bounded-command.mjs --profile isolated-build-v1 -- --run-isolated-build --config-mode owner-public-vars --browser chrome --dist-dir "${{ runner.temp }}/zendio-chrome-${{ github.run_id }}-${{ github.run_attempt }}/build/dist-chrome" --temp-dir "${{ runner.temp }}/zendio-chrome-${{ github.run_id }}-${{ github.run_attempt }}/build/tmp-chrome"
 
       - name: Prepare immutable Chrome artifact
         env:
@@ -169,7 +169,7 @@ jobs:
           ZENDIO_JOB_CLASS: chrome-prepare-v1
           ZENDIO_JOB_TIMEOUT_MINUTES: '75'
           ZENDIO_RUNNER_ENVIRONMENT: ${{ runner.environment }}
-        run: node scripts/run-bounded-command.mjs --profile chrome-prepare-v1 -- --config-mode owner-public-vars --attempt-root "${{ runner.temp }}/zendio-chrome-${{ github.run_id }}-${{ github.run_attempt }}" --dist-dir "${{ runner.temp }}/zendio-chrome-${{ github.run_id }}-${{ github.run_attempt }}/dist-chrome" --release-dir "${{ runner.temp }}/zendio-chrome-${{ github.run_id }}-${{ github.run_attempt }}/chrome-release" --authorization-record "${{ runner.temp }}/zendio-chrome-${{ github.run_id }}-${{ github.run_attempt }}/authorization.json" --result-json "${{ runner.temp }}/zendio-chrome-${{ github.run_id }}-${{ github.run_attempt }}/chrome-result.json"
+        run: node scripts/run-bounded-command.mjs --profile chrome-prepare-v1 -- --config-mode owner-public-vars --attempt-root "${{ runner.temp }}/zendio-chrome-${{ github.run_id }}-${{ github.run_attempt }}" --dist-dir "${{ runner.temp }}/zendio-chrome-${{ github.run_id }}-${{ github.run_attempt }}/build/dist-chrome" --release-dir "${{ runner.temp }}/zendio-chrome-${{ github.run_id }}-${{ github.run_attempt }}/chrome-release" --authorization-record "${{ runner.temp }}/zendio-chrome-${{ github.run_id }}-${{ github.run_attempt }}/authorization.json" --result-json "${{ runner.temp }}/zendio-chrome-${{ github.run_id }}-${{ github.run_attempt }}/chrome-result.json"
 
       - name: Publish closed release job outputs
         id: release

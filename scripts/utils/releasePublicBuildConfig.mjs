@@ -414,6 +414,15 @@ function assertPrivateDirectory(path, code) {
   return path;
 }
 
+function ensurePrivateDirectory(path, code) {
+  try {
+    mkdirSync(path, { mode: 0o700 });
+  } catch (error) {
+    if (error?.code !== 'EEXIST') throw error;
+  }
+  return assertPrivateDirectory(path, code);
+}
+
 function releaseAttemptFromNpmConfigs(environment) {
   const userconfig = environment.NPM_CONFIG_USERCONFIG;
   const globalconfig = environment.NPM_CONFIG_GLOBALCONFIG;
@@ -453,7 +462,6 @@ function releaseAttemptFromNpmConfigs(environment) {
 
 function requireExactBuildChild(root, path, browser, prefix, code) {
   const buildRoot = join(root, 'build');
-  assertPrivateDirectory(buildRoot, 'RELEASE_BUILD_ROOT_INVALID');
   if (
     typeof path !== 'string' ||
     !isAbsolute(path) ||
@@ -461,6 +469,7 @@ function requireExactBuildChild(root, path, browser, prefix, code) {
     path !== join(buildRoot, `${prefix}-${browser}`)
   )
     fail(code);
+  ensurePrivateDirectory(buildRoot, 'RELEASE_BUILD_ROOT_INVALID');
   return { buildRoot, path };
 }
 
@@ -477,7 +486,7 @@ function requireAbsentBuildChild(root, path, browser, prefix, code) {
 
 function requirePrivateEmptyBuildChild(root, path, browser, prefix, code) {
   const validated = requireExactBuildChild(root, path, browser, prefix, code);
-  assertPrivateDirectory(path, code);
+  ensurePrivateDirectory(path, code);
   if (readdirSync(path).length !== 0) fail(code, 'not-empty');
   return validated;
 }

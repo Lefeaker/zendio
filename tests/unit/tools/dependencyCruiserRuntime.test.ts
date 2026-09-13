@@ -5,6 +5,7 @@ import {
   readFileSync,
   realpathSync,
   rmSync,
+  statSync,
   writeFileSync
 } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -206,7 +207,7 @@ describe('locked dependency-cruiser runtime', () => {
     expect(RELEASE_BUILD_FORBIDDEN_KEYS).toHaveLength(24);
   });
 
-  it('runs exactly one contained isolated Firefox build and rejects bad paths before spawn', () => {
+  it('owns fresh isolated build directories and rejects bad paths before spawn', () => {
     const attemptRoot = realpathSync(mkdtempSync(join(tmpdir(), 'zendio-isolated-build-')));
     roots.push(attemptRoot);
     chmodSync(attemptRoot, 0o700);
@@ -221,12 +222,8 @@ describe('locked dependency-cruiser runtime', () => {
       NPM_CONFIG_GLOBALCONFIG: join(installRoot, 'npm-globalconfig')
     };
     const buildRoot = join(attemptRoot, 'build');
-    mkdirSync(buildRoot, { mode: 0o700 });
-    chmodSync(buildRoot, 0o700);
     const distDir = join(buildRoot, 'dist-firefox');
     const tempDir = join(buildRoot, 'tmp-firefox');
-    mkdirSync(tempDir, { mode: 0o700 });
-    chmodSync(tempDir, 0o700);
     const spawn = vi.fn((_command: string, args: readonly string[]) => {
       expect(args).toContain('--firefox');
       expect(args.slice(-2)).toEqual(['--outdir', distDir]);
@@ -244,6 +241,15 @@ describe('locked dependency-cruiser runtime', () => {
       { repositoryStatusOperation: () => '', spawnSync: spawn }
     );
     expect(result).toMatchObject({ browser: 'firefox', distDir, tempDir });
+    expect(spawn).toHaveBeenCalledTimes(1);
+    expect(statSync(buildRoot).mode & 0o777).toBe(0o700);
+    expect(statSync(tempDir).mode & 0o777).toBe(0o700);
+    expect(() =>
+      runIsolatedReleaseBuild(
+        { configMode: 'standalone-synthetic', browser: 'firefox', distDir, tempDir, environment },
+        { repositoryStatusOperation: () => '', spawnSync: spawn }
+      )
+    ).toThrow('RELEASE_BUILD_DIST_INVALID');
     expect(spawn).toHaveBeenCalledTimes(1);
 
     const chromeDist = join(buildRoot, 'dist-chrome');
