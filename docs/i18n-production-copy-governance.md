@@ -147,3 +147,9 @@ node scripts/run-bounded-command.mjs --profile vitest-v1 -- run --config vitest.
 ```
 
 Run broader `npm run quality`, `npm run test`, and browser/visual checks when the change touches shared runtime boundaries, Options shell rendering, exported content, package scripts, generated catalog artifacts, or release surface behavior.
+
+## Settings control layout
+
+Options segmented controls use intrinsic label widths and keep button labels on one line. The setting row wraps the entire control below its description when needed; do not restore fixed per-language widths, arbitrary word breaking or smaller fonts to hide overflow. Use concise, natural translations for option labels and keep explanations in the setting description. Highlight colors reuse the same animated control with swatches, complete accessible names/tooltips and a visible selected-color caption.
+
+`tests/e2e/optionsCaptureControls.browser.test.ts` exercises all 12 release locales in light and dark themes at 1280, 1100, 800 and 390 CSS pixels. Check containment inside the capsule and viewport, compact height, readable names, selection geometry, keyboard activation and persisted values. Inspect the generated reading-card and trigger screenshots as well; an overflow-only assertion does not detect unattractive multiline labels.

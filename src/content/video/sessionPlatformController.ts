@@ -60,11 +60,14 @@ export class VideoSessionPlatformController {
   updateVideoContext(): void {
     const rawUrl = this.deps.doc.location.href;
     const identity = this.detectIdentity(rawUrl);
+    const sameVideo = identity.storageKey === this.deps.state.storageKey;
     this.deps.state.videoUrl = rawUrl;
     this.deps.state.platform = identity.platform;
     this.deps.state.videoId = identity.videoId;
     this.deps.state.canonicalUrl = identity.canonicalUrl || rawUrl;
     this.deps.state.storageKey = identity.storageKey;
+    this.deps.state.videoTitle =
+      this.extractVideoTitle() || (sameVideo ? this.deps.state.videoTitle : '');
   }
 
   syncPlatformAdapter(): void {
@@ -142,8 +145,6 @@ export class VideoSessionPlatformController {
 
     try {
       let restoreSource: RefreshContextResult['restoreSource'] = 'none';
-      this.deps.state.videoTitle = '';
-
       const restoredDraft = (await this.deps.restoreDraftState?.()) ?? false;
       if (restoredDraft) {
         restoreSource = 'draft';

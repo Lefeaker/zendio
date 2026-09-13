@@ -433,5 +433,10 @@
   "schemaResourceChangelogV030Bullet5": "Início mais rápido em páginas lentas, recuperação após recarregar a extensão e prevenção de exportações duplicadas ao repetir a limpeza da sessão.",
   "schemaResourceChangelogV030Bullet6": "Melhorias na navegação em telas pequenas, estados de diagnóstico, rodapés dos painéis e menus de destino.",
   "schemaResourceChangelogV030Bullet7": "Mais estabilidade na navegação de vídeos, atualização de comentários e limpeza ou recuperação do cache de capturas.",
-  "schemaResourceChangelogV030Bullet8": "Dependências atualizadas e melhorias na verificação de pacotes e compatibilidade com Chrome e Firefox."
+  "schemaResourceChangelogV030Bullet8": "Dependências atualizadas e melhorias na verificação de pacotes e compatibilidade com Chrome e Firefox.",
+  "schemaResourceChangelogV031Summary": "Esqueci, esqueci… esqueci de incluir a correção.",
+  "schemaResourceChangelogV031Bullet1": "Correção da v0.3.0: os títulos de vídeos do YouTube / Bilibili são atualizados antes da captura e exportação, refletindo títulos tardios ou alterados nos nomes das notas e no Markdown.",
+  "schemaResourceChangelogV031Bullet2": "Downloads, pastas locais e salvamentos REST usam o título atual. Trocar de vídeo limpa o título anterior; uma falha ao ler dados de recuperação preserva o título disponível na página.",
+  "schemaResourceChangelogV031Bullet3": "Adicionado um pacote específico para Microsoft Edge, com as mesmas funções de recorte, leitura, notas de vídeo e configurações.",
+  "schemaResourceChangelogV031Bullet4": "Os rótulos das opções ficam em uma linha; quando falta espaço, o grupo passa para baixo do texto. As cores de destaque usam amostras com o nome da cor selecionada."
 }

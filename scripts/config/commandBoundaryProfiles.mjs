@@ -2801,7 +2801,10 @@ export function resolveCommandProfile(
   const environmentAdditions =
     profileId === 'lint-staged-hook-v1' || profileId === 'lint-staged-prepare-v1'
       ? { PATH: lintStagedPath() }
-      : {};
+      : process.platform === 'linux' &&
+          (profileId === 'playwright-v1' || profileId === 'npm-script-browser-v1')
+        ? { LANG: 'C.UTF-8', LC_ALL: 'C.UTF-8' }
+        : {};
   return deepFreeze({
     profileId,
     version: COMMAND_BOUNDARY_VERSION,

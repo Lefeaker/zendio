@@ -433,5 +433,10 @@
   "schemaResourceChangelogV030Bullet5": "Démarrage plus rapide sur les pages lentes, restauration après rechargement de l’extension et prévention des exports en double lors des nouvelles tentatives de nettoyage.",
   "schemaResourceChangelogV030Bullet6": "Amélioration de la navigation sur petit écran, des états de diagnostic, des pieds de panneau et des menus de destination.",
   "schemaResourceChangelogV030Bullet7": "Stabilité accrue lors de la navigation vidéo, des mises à jour des commentaires et du nettoyage ou de la restauration du cache des captures.",
-  "schemaResourceChangelogV030Bullet8": "Mise à jour des dépendances et amélioration des vérifications des paquets et de la compatibilité Chrome et Firefox."
+  "schemaResourceChangelogV030Bullet8": "Mise à jour des dépendances et amélioration des vérifications des paquets et de la compatibilité Chrome et Firefox.",
+  "schemaResourceChangelogV031Summary": "Oublié, oublié… oublié d’inclure le correctif.",
+  "schemaResourceChangelogV031Bullet1": "Correctif de v0.3.0 : les titres des vidéos YouTube / Bilibili sont actualisés avant la capture et l’export, afin que les titres chargés tardivement ou modifiés figurent dans les noms de notes et le Markdown.",
+  "schemaResourceChangelogV031Bullet2": "Les téléchargements, dossiers locaux et enregistrements REST utilisent le titre actuel. Changer de vidéo efface l’ancien titre ; un échec de lecture des données de restauration conserve le titre disponible sur la page.",
+  "schemaResourceChangelogV031Bullet3": "Ajout d’un paquet Microsoft Edge dédié, avec les mêmes fonctions de capture, lecture, notes vidéo et réglages.",
+  "schemaResourceChangelogV031Bullet4": "Les libellés des options restent sur une ligne ; les groupes passent sous le texte si nécessaire. Les couleurs de surlignage utilisent des pastilles avec le nom de la couleur sélectionnée."
 }

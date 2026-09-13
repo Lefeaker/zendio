@@ -19,6 +19,10 @@ export interface SelectOption {
   label: string;
 }
 
+export interface SegmentedOption extends SelectOption {
+  swatchClassName?: string;
+}
+
 export interface UsageStat {
   label: string;
   value: number;

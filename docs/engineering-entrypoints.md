@@ -8,6 +8,8 @@
 - npm：validated `10.8.2`；package engines allow `>=10 <11`
 - Playwright 本地安装：`node scripts/run-bounded-command.mjs --profile playwright-install-v1 -- chromium-with-deps`；CI 使用分离的 `playwright-host-deps-platform-v1` 与 `playwright-browser-install-v1`
 
+Linux 的 `playwright-v1` 与 `npm-script-browser-v1` child 统一固定使用 `LANG=C.UTF-8` / `LC_ALL=C.UTF-8`，以便 Chromium 的原生 Downloads 与 File System Access 正确处理中文等非 ASCII 文件名。该策略同时覆盖直接 Playwright 命令和 CI 的浏览器 npm scripts，`run-playwright.mjs` 会将它传递给实际 CLI/browser 子进程。其他工具及平台保留固定 `C` locale；调用方的 locale 值不能覆盖该策略。不要通过改写中文文件名来绕过测试进程的字符编码问题。
+
 本地依赖安装由 `local-install-v1` 执行 fresh lock-exact `npm ci`。默认无参数仍使用直连；需要本机 HTTP 代理时，可显式执行 `node scripts/run-bounded-command.mjs --profile local-install-v1 -- --proxy=loopback-7890`，仅选择固定 `http://127.0.0.1:7890`。先提供新的、当前用户所有且为空的 mode700 `ZENDIO_LOCAL_ATTEMPT_ROOT`，并移除 ambient HTTP(S)/ALL/NO_PROXY 及其小写变量；选择器不会允许继承环境代理。该模式只给 npm leaf 增加固定 proxy/https-proxy CLI 参数，私有 mode600 npm configs 保持为空；不改变 registry、TLS 校验、凭据、Node/npm、630 秒预算或 CI/release 边界，不自动切换路线或重试。安装成功后仍须执行项目验证和正常 Husky 提交检查，不能将安装成功等同于验收通过。
 
 所有 direct tool 与 CI/project command 必须经 `scripts/run-bounded-command.mjs` 的固定 profile，或经 `quality-check.mjs`、`verify-preflight.mjs`、两个 shard runner 之一的 direct-root grammar。禁止 `npx`、bare tool、shell/data interpolation、ambient concurrency/env/cwd、caller-selected timeout/descriptor/output policy 与第二套 spawn/queue owner。
@@ -552,6 +554,15 @@ rejects missing canonical values, secrets and non-proxy transport before touchin
 the build output. It then runs the full quality owner and shared Chromium build.
 The env file contains no store credentials or server-side GA API secret. The
 ordinary `build:edge` entry remains suitable for sideloading with analytics off.
+
+The protected GitHub Environment `edge-addons-release` holds `EDGE_CLIENT_ID` and
+`EDGE_API_KEY` as secrets, plus `EDGE_PRODUCT_ID` and the three public `ZENDIO_GA_*`
+variables. It requires maintainer review and permits `main` branches and `v*` tags.
+These credentials support Microsoft's Publish API v1.1; check their expiry in
+Partner Center and rotate the GitHub secret before it expires. No Edge store-upload
+workflow is currently wired to this environment. Initial publication and listing
+metadata are submitted through Partner Center; build/package success does not
+mean the extension has been submitted or certified.
 
 ### Compatibility and store preparation
 

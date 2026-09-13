@@ -433,5 +433,10 @@
   "schemaResourceChangelogV030Bullet5": "Start selection sooner on slow pages, recover panels and drafts after extension reload, and avoid duplicate exports when retrying session cleanup.",
   "schemaResourceChangelogV030Bullet6": "Improve narrow-screen settings navigation, maintenance status, panel footers and destination menus.",
   "schemaResourceChangelogV030Bullet7": "Improve stability during video navigation, comment updates and screenshot cache cleanup and recovery.",
-  "schemaResourceChangelogV030Bullet8": "Update dependencies and improve Chrome and Firefox package and compatibility verification."
+  "schemaResourceChangelogV030Bullet8": "Update dependencies and improve Chrome and Firefox package and compatibility verification.",
+  "schemaResourceChangelogV031Summary": "Forgot, forgot, forgot… forgot to include the fix.",
+  "schemaResourceChangelogV031Bullet1": "Patch update for v0.3.0: refresh YouTube / Bilibili video titles before capture and export, so delayed or changed titles reach note names and Markdown.",
+  "schemaResourceChangelogV031Bullet2": "Downloads, local folders and REST use the current title; switching videos clears the old title, and a recovery read failure preserves an available page title.",
+  "schemaResourceChangelogV031Bullet3": "Add a dedicated Microsoft Edge package with the same clipping, reading, video notes and settings.",
+  "schemaResourceChangelogV031Bullet4": "Improved multilingual settings controls: keep option labels on one line, wrap entire groups when space is limited, and show named color swatches for highlights."
 }

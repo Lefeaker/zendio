@@ -83,6 +83,61 @@ describe('VideoSessionPlatformController', () => {
     vi.clearAllMocks();
   });
 
+  it('refreshes a title that arrives after the video session starts', async () => {
+    document.head.innerHTML = '';
+    document.body.innerHTML = '<video></video>';
+    document.title = '';
+    const setup = createController();
+    await setup.controller.refreshContext();
+    expect(setup.state.videoTitle).toBe('');
+
+    document.body.insertAdjacentHTML(
+      'afterbegin',
+      '<h1 class="video-title">Actual video title</h1>'
+    );
+    setup.controller.updateVideoContext();
+
+    expect(setup.state.videoTitle).toBe('Actual video title');
+  });
+
+  it('refreshes metadata for the same video without restoring captures again', async () => {
+    const setup = createController();
+    await setup.controller.refreshContext();
+    document.body.innerHTML = '<h1>Updated video title</h1>';
+
+    await setup.controller.refreshContext();
+
+    expect(setup.state.videoTitle).toBe('Updated video title');
+    expect(setup.loadStoredCaptureData).toHaveBeenCalledTimes(1);
+  });
+
+  it('retains the available page title when stored capture loading fails', async () => {
+    const setup = createController();
+    setup.loadStoredCaptureData.mockRejectedValueOnce(new Error('capture storage unavailable'));
+
+    await setup.controller.refreshContext();
+
+    expect(setup.state.videoTitle).toBe('Video Title');
+  });
+
+  it('retains a temporarily missing title only for the same video', async () => {
+    const setup = createController();
+    await setup.controller.refreshContext();
+    document.head.innerHTML = '';
+    document.body.innerHTML = '<video></video>';
+    setup.controller.updateVideoContext();
+    expect(setup.state.videoTitle).toBe('Video Title');
+
+    setup.detectVideoIdentity.mockReturnValueOnce({
+      platform: 'bilibili',
+      videoId: 'BV1changed',
+      canonicalUrl: 'https://www.bilibili.com/video/BV1changed',
+      storageKey: 'video:changed'
+    });
+    setup.controller.updateVideoContext();
+    expect(setup.state.videoTitle).toBe('');
+  });
+
   it('handles storage-key missing, unchanged, and changed branches during refresh', async () => {
     const setup = createController();
 
