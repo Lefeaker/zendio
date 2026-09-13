@@ -8,11 +8,11 @@
 
 [Website](https://zendio.sxnian.com/en/) · [GitHub Releases](https://github.com/Lefeaker/zendio/releases) · [Report an issue](https://github.com/Lefeaker/zendio/issues)
 
-| Browser         | Store                                                                                                        | Availability                                                                        |
-| --------------- | ------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------- |
-| Google Chrome   | [Install from Chrome Web Store](https://chromewebstore.google.com/detail/eoohmbhdepgknfemajanfaejmonckgmo)   | v0.3.1 available.                                                                   |
-| Mozilla Firefox | [Install from Firefox Add-ons](https://addons.mozilla.org/firefox/addon/zendio/)                             | v0.3.1 available.                                                                   |
-| Microsoft Edge  | [Microsoft Edge Add-ons](https://microsoftedge.microsoft.com/addons/detail/oogaldhpamhgeeloehndhcgjkijkbocm) | v0.3.1 awaiting publication; the listing link will become available after approval. |
+| Browser         | Store                                                                                                                              | Availability      |
+| --------------- | ---------------------------------------------------------------------------------------------------------------------------------- | ----------------- |
+| Google Chrome   | [Install from Chrome Web Store](https://chromewebstore.google.com/detail/eoohmbhdepgknfemajanfaejmonckgmo)                         | v0.3.1 available. |
+| Mozilla Firefox | [Install from Firefox Add-ons](https://addons.mozilla.org/firefox/addon/zendio/)                                                   | v0.3.1 available. |
+| Microsoft Edge  | [Microsoft Edge Add-ons](https://microsoftedge.microsoft.com/addons/detail/zendioall-in-obsidian/oogaldhpamhgeeloehndhcgjkijkbocm) | v0.3.1 available. |
 
 Store status checked on **September 13, 2026**. Each store reviews releases independently; the version offered by the store may differ from the current source version, **v0.3.1**.
 

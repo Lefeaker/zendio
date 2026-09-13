@@ -8,11 +8,11 @@
 
 [产品网站](https://zendio.sxnian.com/) · [GitHub Releases](https://github.com/Lefeaker/zendio/releases) · [反馈问题](https://github.com/Lefeaker/zendio/issues)
 
-| 浏览器          | 商店入口                                                                                                     | 上架状态                                  |
-| --------------- | ------------------------------------------------------------------------------------------------------------ | ----------------------------------------- |
-| Google Chrome   | [从 Chrome 应用商店安装](https://chromewebstore.google.com/detail/eoohmbhdepgknfemajanfaejmonckgmo)          | v0.3.1 已上架。                           |
-| Mozilla Firefox | [从 Firefox 附加组件商店安装](https://addons.mozilla.org/firefox/addon/zendio/)                              | v0.3.1 已上架。                           |
-| Microsoft Edge  | [Microsoft Edge Add-ons](https://microsoftedge.microsoft.com/addons/detail/oogaldhpamhgeeloehndhcgjkijkbocm) | v0.3.1 待上架；审核通过后详情页链接可用。 |
+| 浏览器          | 商店入口                                                                                                                           | 上架状态        |
+| --------------- | ---------------------------------------------------------------------------------------------------------------------------------- | --------------- |
+| Google Chrome   | [从 Chrome 应用商店安装](https://chromewebstore.google.com/detail/eoohmbhdepgknfemajanfaejmonckgmo)                                | v0.3.1 已上架。 |
+| Mozilla Firefox | [从 Firefox 附加组件商店安装](https://addons.mozilla.org/firefox/addon/zendio/)                                                    | v0.3.1 已上架。 |
+| Microsoft Edge  | [Microsoft Edge Add-ons](https://microsoftedge.microsoft.com/addons/detail/zendioall-in-obsidian/oogaldhpamhgeeloehndhcgjkijkbocm) | v0.3.1 已上架。 |
 
 商店状态核对于 **2026 年 9 月 13 日**。各商店独立审核，实际提供的版本可能与当前源码版本 **v0.3.1** 不同。
 
