@@ -438,5 +438,12 @@
   "schemaResourceChangelogV031Bullet1": "Correção da v0.3.0: os títulos de vídeos do YouTube / Bilibili são atualizados antes da captura e exportação, refletindo títulos tardios ou alterados nos nomes das notas e no Markdown.",
   "schemaResourceChangelogV031Bullet2": "Downloads, pastas locais e salvamentos REST usam o título atual. Trocar de vídeo limpa o título anterior; uma falha ao ler dados de recuperação preserva o título disponível na página.",
   "schemaResourceChangelogV031Bullet3": "Adicionado um pacote específico para Microsoft Edge, com as mesmas funções de recorte, leitura, notas de vídeo e configurações.",
-  "schemaResourceChangelogV031Bullet4": "Os rótulos das opções ficam em uma linha; quando falta espaço, o grupo passa para baixo do texto. As cores de destaque usam amostras com o nome da cor selecionada."
+  "schemaResourceChangelogV031Bullet4": "Os rótulos das opções ficam em uma linha; quando falta espaço, o grupo passa para baixo do texto. As cores de destaque usam amostras com o nome da cor selecionada.",
+  "schemaResourceChangelogV032Summary": "Ainda ficou algo de fora???",
+  "schemaResourceChangelogV032Bullet1": "O texto selecionado, o contador e os destaques da página aparecem rapidamente e juntos ao iniciar o modo de leitura.",
+  "schemaResourceChangelogV032Bullet2": "Corrige destaques que permaneciam ou reapareciam ao cancelar o modo de leitura durante a inicialização.",
+  "schemaResourceChangelogV032Bullet3": "Os links para configurar o cofre nos painéis de captura, leitura e vídeo abrem diretamente as configurações do cofre.",
+  "schemaResourceChangelogV032Bullet4": "Dicas de primeiro uso mostram como ajustar a largura e a altura dos painéis de leitura e vídeo e abrir as configurações pelo ícone.",
+  "schemaResourceChangelogV032Bullet5": "O destino de salvamento fica em uma linha. Caminhos e nomes longos são abreviados e exibidos por inteiro ao passar o cursor.",
+  "schemaResourceChangelogV032Bullet6": "Corrige a falta de relatórios com as estatísticas anônimas ativadas, mantendo as preferências de privacidade."
 }

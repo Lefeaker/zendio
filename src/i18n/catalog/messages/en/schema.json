@@ -438,5 +438,12 @@
   "schemaResourceChangelogV031Bullet1": "Patch update for v0.3.0: refresh YouTube / Bilibili video titles before capture and export, so delayed or changed titles reach note names and Markdown.",
   "schemaResourceChangelogV031Bullet2": "Downloads, local folders and REST use the current title; switching videos clears the old title, and a recovery read failure preserves an available page title.",
   "schemaResourceChangelogV031Bullet3": "Add a dedicated Microsoft Edge package with the same clipping, reading, video notes and settings.",
-  "schemaResourceChangelogV031Bullet4": "Improved multilingual settings controls: keep option labels on one line, wrap entire groups when space is limited, and show named color swatches for highlights."
+  "schemaResourceChangelogV031Bullet4": "Improved multilingual settings controls: keep option labels on one line, wrap entire groups when space is limited, and show named color swatches for highlights.",
+  "schemaResourceChangelogV032Summary": "How did we miss more???",
+  "schemaResourceChangelogV032Bullet1": "Show selected text, the count and page highlights promptly when entering reading mode.",
+  "schemaResourceChangelogV032Bullet2": "Fix highlights remaining or reappearing after cancelling reading mode during startup.",
+  "schemaResourceChangelogV032Bullet3": "Fix Configure vault links in clipping, reading and video panels to open the vault settings directly.",
+  "schemaResourceChangelogV032Bullet4": "Add first-use tips for resizing reading and video panels and opening settings from the icon.",
+  "schemaResourceChangelogV032Bullet5": "Keep save targets on one line; truncate long paths or names and show the full text on hover.",
+  "schemaResourceChangelogV032Bullet6": "Fix missing reports when anonymous usage statistics are enabled, while preserving privacy choices."
 }

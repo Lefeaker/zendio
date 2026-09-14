@@ -438,5 +438,12 @@
   "schemaResourceChangelogV031Bullet1": "Corrección de v0.3.0: los títulos de videos de YouTube / Bilibili se actualizan antes de capturar y exportar, para reflejar los títulos tardíos o modificados en los nombres de notas y el Markdown.",
   "schemaResourceChangelogV031Bullet2": "Las descargas, carpetas locales y guardados REST usan el título actual. Al cambiar de video se borra el anterior; un error al leer datos de recuperación conserva el título disponible en la página.",
   "schemaResourceChangelogV031Bullet3": "Se agrega un paquete específico para Microsoft Edge, con las mismas funciones de recorte, lectura, notas de video y configuración.",
-  "schemaResourceChangelogV031Bullet4": "Mejoras en los controles multilingües: las etiquetas permanecen en una línea y los grupos pasan debajo del texto cuando falta espacio. Los colores se eligen con muestras y se muestra el nombre del color seleccionado."
+  "schemaResourceChangelogV031Bullet4": "Mejoras en los controles multilingües: las etiquetas permanecen en una línea y los grupos pasan debajo del texto cuando falta espacio. Los colores se eligen con muestras y se muestra el nombre del color seleccionado.",
+  "schemaResourceChangelogV032Summary": "¿¿¿Todavía faltaba algo???",
+  "schemaResourceChangelogV032Bullet1": "El texto seleccionado, el contador y los resaltados aparecen rápidamente y al mismo tiempo al iniciar el modo lectura.",
+  "schemaResourceChangelogV032Bullet2": "Corrige los resaltados que quedaban o reaparecían al cancelar el modo lectura durante el inicio.",
+  "schemaResourceChangelogV032Bullet3": "Los enlaces para configurar la bóveda en los paneles de captura, lectura y video abren directamente su configuración.",
+  "schemaResourceChangelogV032Bullet4": "Nuevas indicaciones de primer uso explican cómo ajustar el ancho y alto de los paneles de lectura y video y abrir la configuración desde el ícono.",
+  "schemaResourceChangelogV032Bullet5": "El destino de guardado ocupa una sola línea. Las rutas y los nombres largos se abrevian y se muestran completos al pasar el cursor.",
+  "schemaResourceChangelogV032Bullet6": "Corrige la falta de reportes con las estadísticas anónimas activadas y conserva las preferencias de privacidad."
 }
