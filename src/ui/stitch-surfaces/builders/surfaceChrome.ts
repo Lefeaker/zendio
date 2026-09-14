@@ -169,7 +169,11 @@ export function exportDestinationRow(
         div('export-destination-copy', [
           element('span', { className: 'export-destination-eyebrow', text: labels.saveToLabel }),
           element('strong', { className: 'export-destination-label', text: destination.label }),
-          element('span', { className: 'export-destination-path', text: destination.path })
+          element('span', {
+            className: 'export-destination-path',
+            text: destination.path,
+            title: destination.path
+          })
         ])
       ]),
       element(
@@ -193,7 +197,11 @@ export function exportDestinationRow(
             },
             [
               element('span', { className: 'export-destination-option-label', text: option.label }),
-              element('span', { className: 'export-destination-option-path', text: option.path })
+              element('span', {
+                className: 'export-destination-option-path',
+                text: option.path,
+                title: option.path
+              })
             ]
           )
         )

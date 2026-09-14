@@ -1924,6 +1924,8 @@ async function readF07DestinationLayout(page: Page, surface: F07Surface) {
         overflow: computed.overflow,
         textOverflow: computed.textOverflow,
         whiteSpace: computed.whiteSpace,
+        flexShrink: computed.flexShrink,
+        maxWidth: computed.maxWidth,
         zIndex: computed.zIndex,
         backgroundColor: computed.backgroundColor
       };
@@ -1951,6 +1953,7 @@ async function readF07DestinationLayout(page: Page, surface: F07Surface) {
       };
     };
     const path = select('.export-destination-path');
+    const label = select('.export-destination-label');
     const surfaceWindow = select('.surface-window');
     return {
       row: style('.export-destination-row'),
@@ -1961,6 +1964,26 @@ async function readF07DestinationLayout(page: Page, surface: F07Surface) {
       path: style('.export-destination-path'),
       options: style('.export-destination-options'),
       summaryRect: rect('.export-destination-summary'),
+      labelRect: rect('.export-destination-label'),
+      pathRect: rect('.export-destination-path'),
+      pathTitle: path.getAttribute('title'),
+      pathText: path.textContent,
+      labelClientWidth: label.clientWidth,
+      labelScrollWidth: label.scrollWidth,
+      optionLines: Array.from(root.querySelectorAll('.export-destination-option')).map((option) => {
+        const name = option.querySelector('.export-destination-option-label');
+        const path = option.querySelector('.export-destination-option-path');
+        if (!name || !path) throw new Error('Destination option content missing');
+        const nameBox = name.getBoundingClientRect();
+        const pathBox = path.getBoundingClientRect();
+        return {
+          sameLine: Math.max(nameBox.top, pathBox.top) < Math.min(nameBox.bottom, pathBox.bottom),
+          title: path.getAttribute('title'),
+          text: path.textContent,
+          pathWidth: path.clientWidth,
+          whiteSpace: getComputedStyle(name).whiteSpace
+        };
+      }),
       optionsRect: rect('.export-destination-options'),
       surfaceRect: rect('.surface-window'),
       ancestorBoxes: {
@@ -2156,7 +2179,25 @@ for (const matrixCase of F07_CASES) {
       });
       expect(openLayout.marker.listStyleType).toBe('none');
       expect(openLayout.eyebrow.fontSize).toBe('10px');
-      expect(openLayout.label).toMatchObject({ fontSize: '11px', fontWeight: '650' });
+      expect(openLayout.label).toMatchObject({
+        fontSize: '11px',
+        fontWeight: '650',
+        whiteSpace: 'nowrap',
+        flexShrink: '0',
+        maxWidth: 'none'
+      });
+      expect(openLayout.labelScrollWidth).toBeLessThanOrEqual(openLayout.labelClientWidth);
+      expect(Math.max(openLayout.labelRect.top, openLayout.pathRect.top)).toBeLessThan(
+        Math.min(openLayout.labelRect.bottom, openLayout.pathRect.bottom)
+      );
+      expect(openLayout.pathClientWidth).toBeGreaterThan(0);
+      expect(openLayout.pathTitle).toBe(openLayout.pathText);
+      for (const option of openLayout.optionLines) {
+        expect(option.sameLine).toBe(true);
+        expect(option.whiteSpace).toBe('nowrap');
+        expect(option.pathWidth).toBeGreaterThan(0);
+        expect(option.title).toBe(option.text);
+      }
       expect(openLayout.path).toMatchObject({
         fontSize: '10px',
         overflow: 'hidden',

@@ -116,6 +116,8 @@ export const MAX_LINE_BUDGETS = new Map([
   ['src/content/stitch/runtimeSurfaceContent.ts', 409],
   ['src/options/components/infrastructure/listBuilder.ts', 378],
   ['src/shared/exportDestination.ts', 369],
+  // 2026-09-14: full path tooltips stay with the shared destination DOM reconciler.
+  ['src/content/shared/exportDestinationDom.ts', 257],
   // 2026-06-13 final combined integration: screenshot status dots and add-note
   // focus/layout regressions are covered in the panel while retaining the current UI.
   ['src/options/app/productionStitchPersistence.ts', 379],

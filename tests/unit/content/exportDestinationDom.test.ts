@@ -108,6 +108,28 @@ function createRow(options?: {
 }
 
 describe('patchExportDestinationRow', () => {
+  it('keeps full path tooltips current through preview and template updates without replacing the row', () => {
+    const root = createRow();
+    const row = root.querySelector('.export-destination-row');
+    const path = root.querySelector('.export-destination-path');
+    const optionPath = root.querySelector('.export-destination-option-path');
+    const value = '资料库/一个很长的目录/完整文件名.md';
+    const destination = createDestination({ path: value });
+    destination.options = destination.options.map((option) => ({ ...option, path: value }));
+    expect(patchExportDestinationRow(root, destination)).toBe(true);
+    expect(path?.getAttribute('title')).toBe(value);
+    expect(optionPath?.getAttribute('title')).toBe(value);
+    const next = createRow();
+    const updated = createDestination({ path: 'Another vault/updated name.md' });
+    updated.options = updated.options.map((option) => ({ ...option, path: updated.path }));
+    expect(patchExportDestinationRow(next, updated)).toBe(true);
+    reconcileExportDestinationRow(root, next);
+    expect(root.querySelector('.export-destination-row')).toBe(row);
+    expect(root.querySelector('.export-destination-path')).toBe(path);
+    expect(path?.getAttribute('title')).toBe(updated.path);
+    expect(optionPath?.getAttribute('title')).toBe(updated.path);
+  });
+
   it('preserves an existing localized setup link label while updating the href', () => {
     const root = createRow({ setupLabel: 'Configurer le coffre' });
     const patched = patchExportDestinationRow(root, createDestination());
