@@ -708,5 +708,8 @@
   "footerOfficialWebsiteLink": "Sito ufficiale",
   "footerChangelogLink": "Registro modifiche",
   "runtimeReloadRequired": "Zendio è stato ricaricato. Copia le note non salvate, poi ricarica questa pagina.",
-  "sessionFinishRetry": "La chiusura non è completa. Premi di nuovo Fine o Annulla."
+  "sessionFinishRetry": "La chiusura non è completa. Premi di nuovo Fine o Annulla.",
+  "sessionPanelGuideTitle": "Un suggerimento",
+  "sessionPanelGuideResize": "Trascina il bordo sinistro per regolare la larghezza o quello superiore per l’altezza.",
+  "sessionPanelGuideSettings": "Fai clic sull’icona in alto a sinistra per aprire le impostazioni in una nuova scheda."
 }

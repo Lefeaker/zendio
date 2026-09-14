@@ -1,6 +1,7 @@
 import type { ResourceSchema } from '@ui/stitch-runtime';
 import {
   sessionHeader,
+  sessionFirstUseGuide,
   videoFooterBar,
   sessionItemList,
   sessionPanelShell,
@@ -122,6 +123,7 @@ const schema: ResourceSchema = {
             'video-surface-window',
             [
               sessionHeader(labels, surface.iconUrl, collapsePanelLabel),
+              sessionFirstUseGuide(t),
               surfaceBody(classNames.session.bodyVideo, [
                 sessionItemList([
                   ...surface.captures.map((capture) =>

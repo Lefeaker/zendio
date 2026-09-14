@@ -4,6 +4,7 @@ import type {
   NodeSchema,
   ExportDestinationSurfacePreview,
   RuntimeSessionLabels,
+  RuntimeSurfaceContext,
   SurfaceAction
 } from '@ui/stitch-runtime';
 import { RUNTIME_SURFACE_FALLBACK_MESSAGES } from '@i18n/catalog/runtimeSurfaceFallbackMessages';
@@ -98,6 +99,30 @@ export function sessionHeader(
       ariaLabel: collapseAriaLabel,
       dataset: { actionId: 'session:toggleCollapse' },
       onClick: { id: 'session:toggleCollapse' }
+    })
+  ]);
+}
+
+export function sessionFirstUseGuide(t: RuntimeSurfaceContext['t']): NodeSchema {
+  const message = (
+    key:
+      | 'sessionPanelGuideTitle'
+      | 'sessionPanelGuideResize'
+      | 'sessionPanelGuideSettings'
+      | 'infoDialogConfirm'
+  ) => t?.(key, RUNTIME_SURFACE_FALLBACK_MESSAGES[key]) ?? RUNTIME_SURFACE_FALLBACK_MESSAGES[key];
+  return element('aside', { className: 'session-first-use-guide', role: 'note' }, [
+    div('session-first-use-guide-header', [
+      strong(message('sessionPanelGuideTitle'), 'session-first-use-guide-title'),
+      buttonNode(message('infoDialogConfirm'), 'ghost', 'session:dismissFirstUseGuide')
+    ]),
+    element('p', {
+      className: 'session-first-use-guide-resize',
+      text: message('sessionPanelGuideResize')
+    }),
+    element('p', {
+      className: 'session-first-use-guide-settings',
+      text: message('sessionPanelGuideSettings')
     })
   ]);
 }

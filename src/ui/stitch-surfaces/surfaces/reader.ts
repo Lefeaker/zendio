@@ -2,6 +2,7 @@ import type { ResourceSchema } from '@ui/stitch-runtime';
 import {
   readerHighlightItem,
   sessionHeader,
+  sessionFirstUseGuide,
   sessionFooterBar,
   sessionItemList,
   sessionPanelShell,
@@ -101,6 +102,7 @@ const schema: ResourceSchema = {
             'reader-surface-window',
             [
               sessionHeader(labels, surface.iconUrl, collapsePanelLabel),
+              sessionFirstUseGuide(t),
               surfaceBody(classNames.session.bodyReader, [
                 sessionItemList(
                   surface.highlights.map((highlight) => readerHighlightItem(highlight, labels))

@@ -755,7 +755,7 @@ test('adds the localized Clipper setup link when the last configured vault disap
     await expect(link).toHaveText('配置仓库');
     await expect(link).toHaveAttribute('target', '_blank');
     await expect(link).toHaveAttribute('rel', 'noopener noreferrer');
-    await expect(link).toHaveAttribute('href', /options\/index\.html#storage$/u);
+    await expect(link).toHaveAttribute('href', /options\/index\.html#section-storage$/u);
   } finally {
     await context.close();
     await fs.rm(profile, { recursive: true, force: true });

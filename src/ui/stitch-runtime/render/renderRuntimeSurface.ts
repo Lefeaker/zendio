@@ -136,6 +136,9 @@ export function createRuntimeSurfaceHandle(
       patchNamedElement(root, nextRoot, '.surface-window-subtitle');
       patchNamedElement(root, nextRoot, '[data-session-status]');
       patchNamedElement(root, nextRoot, '.session-counter');
+      patchNamedElement(root, nextRoot, '.session-first-use-guide-title');
+      patchNamedElement(root, nextRoot, '.session-first-use-guide-resize');
+      patchNamedElement(root, nextRoot, '.session-first-use-guide-settings');
       patchActionElements(root, nextRoot);
     },
     updateSessionPresentation({ collapsed, expandLabel, collapseLabel }) {

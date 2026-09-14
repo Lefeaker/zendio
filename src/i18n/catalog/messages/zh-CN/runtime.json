@@ -708,5 +708,8 @@
   "footerOfficialWebsiteLink": "前往官网",
   "footerChangelogLink": "更新日志",
   "runtimeReloadRequired": "扩展已重载。请先复制未保存的批注，再刷新网页。",
-  "sessionFinishRetry": "会话收尾尚未完成，请再次点击完成或取消重试。"
+  "sessionFinishRetry": "会话收尾尚未完成，请再次点击完成或取消重试。",
+  "sessionPanelGuideTitle": "小提示",
+  "sessionPanelGuideResize": "拖动左侧边缘调整宽度，拖动顶部边缘调整高度。",
+  "sessionPanelGuideSettings": "点击左上角图标，可在新标签页打开设置。"
 }

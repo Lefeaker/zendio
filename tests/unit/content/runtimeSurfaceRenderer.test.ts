@@ -206,7 +206,51 @@ describe('runtimeSurfaceRenderer content translation context', () => {
         reader.querySelector('.session-counter')?.textContent,
         video.querySelector('.session-counter')?.textContent
       ]).toEqual([readerCounter, videoCounter]);
+      for (const panel of [reader, video]) {
+        expect(panel.querySelector('.session-first-use-guide-title')?.textContent).toBe(
+          messages.sessionPanelGuideTitle
+        );
+        expect(panel.querySelector('.session-first-use-guide-resize')?.textContent).toBe(
+          messages.sessionPanelGuideResize
+        );
+        expect(panel.querySelector('.session-first-use-guide-settings')?.textContent).toBe(
+          messages.sessionPanelGuideSettings
+        );
+      }
     }
+  });
+
+  it('updates guide language without replacing its button or changing acknowledgement state', async () => {
+    const appData = createSurfaceContent();
+    appData.video.labels.subtitle = 'Capture timestamps and quick notes';
+    const handle = renderStitchRuntimeSessionSurface({ surfaceId: 'video', appData });
+    const button = handle.root.querySelector('[data-action-id="session:dismissFirstUseGuide"]');
+    const clicked = vi.fn();
+    button?.addEventListener('click', clicked);
+    handle.root.dataset.sessionFirstUse = 'true';
+    const messages = await getMessagesForLanguage('zh-CN');
+    getContentI18nResourceMock.mockReturnValue(
+      createI18nResource({ language: 'zh-CN', messages, fallbackChain: [] })
+    );
+    const next = renderStitchRuntimeSessionTemplate({ surfaceId: 'video', appData });
+    handle.patchChrome(next);
+    expect(handle.root.dataset.sessionFirstUse).toBe('true');
+    expect(handle.root.querySelector('.session-first-use-guide-title')?.textContent).toBe(
+      messages.sessionPanelGuideTitle
+    );
+    expect(handle.root.querySelector('.session-first-use-guide-settings')?.textContent).toBe(
+      messages.sessionPanelGuideSettings
+    );
+    expect(handle.root.querySelector('[data-action-id="session:dismissFirstUseGuide"]')).toBe(
+      button
+    );
+    expect(button?.textContent).toBe(messages.infoDialogConfirm);
+    button?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    expect(clicked).toHaveBeenCalledOnce();
+    delete handle.root.dataset.sessionFirstUse;
+    handle.patchChrome(next);
+    expect(handle.root.dataset.sessionFirstUse).toBeUndefined();
+    handle.dispose();
   });
 
   it('renders the mounted zh-CN schema copy from the current content resource', async () => {

@@ -708,5 +708,8 @@
   "footerOfficialWebsiteLink": "Offizielle Website",
   "footerChangelogLink": "Änderungsprotokoll",
   "runtimeReloadRequired": "Zendio wurde neu geladen. Kopiere ungespeicherte Notizen und lade dann diese Seite neu.",
-  "sessionFinishRetry": "Der Abschluss wurde unterbrochen. Klicke erneut auf Fertig oder Abbrechen."
+  "sessionFinishRetry": "Der Abschluss wurde unterbrochen. Klicke erneut auf Fertig oder Abbrechen.",
+  "sessionPanelGuideTitle": "Kurzer Tipp",
+  "sessionPanelGuideResize": "Ziehe den linken Rand, um die Breite zu ändern, oder den oberen Rand für die Höhe.",
+  "sessionPanelGuideSettings": "Klicke auf das Symbol oben links, um die Einstellungen in einem neuen Tab zu öffnen."
 }

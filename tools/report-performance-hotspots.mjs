@@ -24,7 +24,8 @@ export const MAX_LINE_BUDGETS = new Map([
   ['src/i18n/generated/schemaCore.generated.ts', 458],
   // 2026-07-20 selection-trigger policy: generated runtime messages carry the
   // explicit disabled, direct, and modifier mode copy plus diagnostics copy.
-  ['src/i18n/generated/messages.generated.ts', 1158],
+  // 2026-09-14: three shared first-use guide catalog keys add three generated declarations.
+  ['src/i18n/generated/messages.generated.ts', 1161],
   ['src/i18n/generated/locales/fr.generated.ts', 785],
   ['src/i18n/generated/locales/es-419.generated.ts', 777],
   ['src/i18n/generated/locales/es-ES.generated.ts', 777],

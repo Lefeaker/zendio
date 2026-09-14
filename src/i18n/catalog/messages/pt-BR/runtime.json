@@ -708,5 +708,8 @@
   "footerOfficialWebsiteLink": "Site oficial",
   "footerChangelogLink": "Registro de alterações",
   "runtimeReloadRequired": "O Zendio foi recarregado. Copie as notas não salvas e recarregue esta página.",
-  "sessionFinishRetry": "O encerramento não foi concluído. Tente novamente com Concluir ou Cancelar."
+  "sessionFinishRetry": "O encerramento não foi concluído. Tente novamente com Concluir ou Cancelar.",
+  "sessionPanelGuideTitle": "Uma dica",
+  "sessionPanelGuideResize": "Arraste a borda esquerda para ajustar a largura ou a borda superior para ajustar a altura.",
+  "sessionPanelGuideSettings": "Clique no ícone no canto superior esquerdo para abrir as configurações em uma nova aba."
 }

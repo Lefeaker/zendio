@@ -708,5 +708,8 @@
   "footerOfficialWebsiteLink": "Official Website",
   "footerChangelogLink": "Changelog",
   "runtimeReloadRequired": "Zendio was reloaded. Copy any unsaved notes, then reload this page.",
-  "sessionFinishRetry": "Please retry Finish or Cancel to finish closing this session."
+  "sessionFinishRetry": "Please retry Finish or Cancel to finish closing this session.",
+  "sessionPanelGuideTitle": "Quick tip",
+  "sessionPanelGuideResize": "Drag the left edge to change the width, or the top edge to change the height.",
+  "sessionPanelGuideSettings": "Click the icon at the top left to open settings in a new tab."
 }

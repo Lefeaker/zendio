@@ -2,6 +2,10 @@ import type { Messages } from '../messages';
 
 type RuntimeSurfaceFallbackMessageKey =
   | 'settingsTitle'
+  | 'infoDialogConfirm'
+  | 'sessionPanelGuideTitle'
+  | 'sessionPanelGuideResize'
+  | 'sessionPanelGuideSettings'
   | 'addToReaderButton'
   | 'clipSelection'
   | 'clipSelectionVideo'
@@ -60,6 +64,11 @@ type RuntimeSurfaceFallbackMessageKey =
 
 export const RUNTIME_SURFACE_FALLBACK_MESSAGES = {
   settingsTitle: 'Settings',
+  infoDialogConfirm: 'Got it',
+  sessionPanelGuideTitle: 'Quick tip',
+  sessionPanelGuideResize:
+    'Drag the left edge to change the width, or the top edge to change the height.',
+  sessionPanelGuideSettings: 'Click the icon at the top left to open settings in a new tab.',
   addToReaderButton: 'Add to reading session',
   clipSelection: 'Clip selection to Obsidian',
   clipSelectionVideo: 'Clip to video capture panel',
