@@ -1,6 +1,6 @@
 # Analytics Operations Runbook
 
-最后更新：2026-06-18
+最后更新：2026-09-14
 
 本文是 Zendio telemetry 的 public-safe 运维流程。它只记录可随产品代码一起维护的 contract、检查清单和排障路径。真实 GA4 property、Cloudflare account、dashboard 链接、部署证据、带账号或业务数据的截图、rollback 记录和 incident 记录必须保存在 owner private ops 资产中，不得进入产品仓库。
 
@@ -168,6 +168,13 @@ node scripts/run-ga-owner-smoke.mjs --mode directDebug --event runtime_harness_o
 - 已知延迟：GA4 standard reporting 不是实时完整数据；DebugView 只用于 live smoke
 
 ## Incident Triage
+
+### Symptom: extension is opted in but GA receives no data
+
+1. Inspect the actual installed build, not only its version or the source `.env.production.local`. Ordinary `build:fast` / `build:edge:fast` builds do not load that file. Use the documented GA build entry for a telemetry-enabled owner build and verify its embedded public measurement ID, transport and proxy endpoint.
+2. Check the dedicated `analytics_user_consent` flags without changing them. Product events and error events retain separate consent requirements.
+3. A production build owns `measurementId`, `transportMode` and `proxyEndpoint`. Cached `analytics_config` snapshots cannot override those fields, including a stale placeholder ID or disabled transport. Initialization, storage refresh and local preference updates apply the same rule; consent, client/session IDs and other preferences remain local. Development builds retain the existing owner diagnostic overrides; a production build without public GA configuration keeps its disabled defaults.
+4. Only after build identity, effective routing and consent are correct, use the proxy smoke and GA Realtime / DebugView to verify actual delivery. A successful proxy HTTP response alone does not prove the GA property received the event.
 
 ### Symptom: proxy smoke fails
 
