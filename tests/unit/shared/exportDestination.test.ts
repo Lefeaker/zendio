@@ -1,7 +1,8 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { getOutputTemplatePreset } from '@shared/config';
+import { DEFAULT_OPTIONS, getOutputTemplatePreset } from '@shared/config';
 import {
   hasConfiguredVaultTarget,
+  buildExportDestinationPreview,
   resolveExportPath,
   resolveTemplateKeyForPayloadType,
   toDownloadsFilename,
@@ -68,6 +69,63 @@ describe('exportDestination path preview', () => {
     ['folder/.hidden.md', '.hidden.md']
   ])('normalizes downloads filename %s to %s', (resolvedPath, expected) => {
     expect(toDownloadsFilename(resolvedPath)).toBe(expected);
+  });
+
+  it.each([
+    { name: 'no vaults', vaults: [], visible: true },
+    {
+      name: 'unconfigured row',
+      vaults: [{ id: 'test', name: 'Test', vault: 'Test', httpsUrl: '', httpUrl: '', apiKey: '' }],
+      visible: true
+    },
+    {
+      name: 'local directory',
+      vaults: [
+        {
+          id: 'test',
+          name: 'Test',
+          vault: 'Test',
+          httpsUrl: '',
+          httpUrl: '',
+          apiKey: '',
+          localFolderId: 'local'
+        }
+      ],
+      visible: false
+    },
+    {
+      name: 'REST configuration',
+      vaults: [
+        { id: 'test', name: 'Test', vault: 'Test', httpsUrl: '', httpUrl: '', apiKey: 'test-key' }
+      ],
+      visible: false
+    },
+    {
+      name: 'disabled target',
+      vaults: [
+        {
+          id: 'test',
+          name: 'Test',
+          vault: 'Test',
+          httpsUrl: '',
+          httpUrl: '',
+          apiKey: 'test-key',
+          enabled: false
+        }
+      ],
+      visible: true
+    }
+  ])('shows the setup link for $name according to configured targets', ({ vaults, visible }) => {
+    const preview = buildExportDestinationPreview({
+      options: {
+        ...DEFAULT_OPTIONS,
+        rest: { ...DEFAULT_OPTIONS.rest, vault: '', apiKey: '' },
+        vaultRouter: { vaults }
+      },
+      payload: { title: 'Test', markdown: 'Content', type: 'article' }
+    });
+    expect(Boolean(preview.setupUrl)).toBe(visible);
+    expect(preview.hasConfiguredVault).toBe(!visible);
   });
 
   it('treats local folder vaults as configured export targets without requiring REST keys', () => {

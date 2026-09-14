@@ -543,7 +543,7 @@
   "supportModalDescription": "개발이 쉽지 않습니다. 이 플러그인이 도움이 된다면 다음과 같은 방법으로 지원해 주세요:",
   "supportLinkKofi": "Ko-fi",
   "supportLinkAfdian": "WeChat Reward",
-  "versionNumber": "v0.3.1",
+  "versionNumber": "v0.3.2",
   "changelogModalTitle": "변경 로그",
   "fragmentFootnoteExampleContent": "이것은 선택된 텍스트의 내용입니다",
   "fragmentFootnoteExampleComment": "이것은 내 댓글입니다",
@@ -708,5 +708,8 @@
   "footerOfficialWebsiteLink": "공식 웹사이트",
   "footerChangelogLink": "변경 로그",
   "runtimeReloadRequired": "Zendio가 다시 로드되었습니다. 저장하지 않은 메모를 복사한 후 페이지를 새로고침해 주세요.",
-  "sessionFinishRetry": "세션 종료가 완료되지 않았습니다. 완료 또는 취소를 다시 눌러 주세요."
+  "sessionFinishRetry": "세션 종료가 완료되지 않았습니다. 완료 또는 취소를 다시 눌러 주세요.",
+  "sessionPanelGuideTitle": "사용 팁",
+  "sessionPanelGuideResize": "왼쪽 가장자리를 드래그하면 너비를, 위쪽 가장자리를 드래그하면 높이를 조절할 수 있어요.",
+  "sessionPanelGuideSettings": "왼쪽 위 아이콘을 클릭하면 새 탭에서 설정이 열려요."
 }

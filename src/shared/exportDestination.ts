@@ -41,7 +41,8 @@ export type TemplateKey = 'article' | 'video' | 'fragment' | 'reading' | 'ai';
 const TEMPLATE_DEFAULTS = configProvider.getTemplates();
 
 export const DOWNLOADS_DESTINATION_ID = 'downloads';
-export const DEFAULT_SETUP_URL = 'options/index.html#storage';
+export const VAULT_SETTINGS_SECTION = 'section-storage';
+export const DEFAULT_SETUP_URL = `options/index.html#${VAULT_SETTINGS_SECTION}`;
 
 export { toDownloadsFilename };
 

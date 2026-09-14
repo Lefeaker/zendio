@@ -543,7 +543,7 @@
   "supportModalDescription": "開発は簡単ではありません。このプラグインがお役に立てば、以下の方法でご支援いただけると幸いです：",
   "supportLinkKofi": "Ko-fi",
   "supportLinkAfdian": "WeChat Reward",
-  "versionNumber": "v0.3.1",
+  "versionNumber": "v0.3.2",
   "changelogModalTitle": "更新履歴",
   "fragmentFootnoteExampleContent": "これは選択されたテキストの内容です",
   "fragmentFootnoteExampleComment": "これは私のコメントです",
@@ -708,5 +708,8 @@
   "footerOfficialWebsiteLink": "公式サイト",
   "footerChangelogLink": "変更履歴",
   "runtimeReloadRequired": "Zendio が再読み込みされました。未保存のメモをコピーしてから、ページを再読み込みしてください。",
-  "sessionFinishRetry": "セッションを終了できませんでした。完了またはキャンセルで再試行してください。"
+  "sessionFinishRetry": "セッションを終了できませんでした。完了またはキャンセルで再試行してください。",
+  "sessionPanelGuideTitle": "使い方のヒント",
+  "sessionPanelGuideResize": "左端をドラッグすると幅を、上端をドラッグすると高さを調整できます。",
+  "sessionPanelGuideSettings": "左上のアイコンをクリックすると、新しいタブで設定が開きます。"
 }

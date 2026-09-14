@@ -114,7 +114,7 @@ onboarding。Tailwind / DaisyUI 相关文档、注释或历史记录只用于迁
 
 - Options/onboarding：`src/options/stitch/styles/entries/{options,onboarding}.css`
 - Content runtime：`src/ui/stitch-runtime/styles/entries/{clipper,reader,video,prompt-task}.css`
-- Shared export destination：`runtime/export-destination.css` 由 Clipper、Reader、Video 三个 content pack 与 Options preview entry 显式消费。
+- Shared export destination：`runtime/export-destination.css` 由 Clipper、Reader、Video 三个 content pack 与 Options preview entry 显式消费。当前目标摘要与下拉选项均为单行：仓库名按内容宽度显示，不设置固定最大宽度；路径使用剩余空间，溢出显示省略号。路径的原生 `title` 提示提供完整内容，并由既有 destination reconciliation 与文本同步更新。
 - 构建产物固定为 `build/dist/ui/stitch-runtime/styles/*.css` 六包，必须 flattened 且 content idle 不预载
 - content runtime：同一 Stitch 样式经 `src/ui/foundation/style-host/index.ts` 注入
 - onboarding：同一 Stitch 样式链

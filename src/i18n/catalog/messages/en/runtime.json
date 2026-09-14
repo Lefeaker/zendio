@@ -543,7 +543,7 @@
   "supportModalDescription": "Development is not easy. If this plugin helps you, welcome to support through the following ways:",
   "supportLinkKofi": "Ko-fi",
   "supportLinkAfdian": "WeChat Reward",
-  "versionNumber": "v0.3.1",
+  "versionNumber": "v0.3.2",
   "changelogModalTitle": "Changelog",
   "fragmentFootnoteExampleContent": "This is the selected text content",
   "fragmentFootnoteExampleComment": "This is my comment",
@@ -708,5 +708,8 @@
   "footerOfficialWebsiteLink": "Official Website",
   "footerChangelogLink": "Changelog",
   "runtimeReloadRequired": "Zendio was reloaded. Copy any unsaved notes, then reload this page.",
-  "sessionFinishRetry": "Please retry Finish or Cancel to finish closing this session."
+  "sessionFinishRetry": "Please retry Finish or Cancel to finish closing this session.",
+  "sessionPanelGuideTitle": "Quick tip",
+  "sessionPanelGuideResize": "Drag the left edge to change the width, or the top edge to change the height.",
+  "sessionPanelGuideSettings": "Click the icon at the top left to open settings in a new tab."
 }

@@ -5,7 +5,7 @@ import type { ErrorHandler } from '@shared/errors';
 import type { IClipRepository } from '@shared/repositories/IClipRepository';
 import type { IOptionsRepository } from '@shared/repositories/IOptionsRepository';
 import type { ClipPayload } from '@shared/types';
-import type { ExportDestinationMetadata } from '@shared/exportDestination';
+import { DEFAULT_SETUP_URL, type ExportDestinationMetadata } from '@shared/exportDestination';
 import { ensureContentI18n, getContentI18nBinder } from '../../i18n/context';
 import {
   createClipperDialogDependencies,
@@ -157,7 +157,7 @@ export class ClipperDialog {
     this.destinationState = new ContentExportDestinationState(
       this.optionsRepository,
       () => this.createDestinationPayload(),
-      this.runtimeService.getURL('options/index.html#storage')
+      this.runtimeService.getURL(DEFAULT_SETUP_URL)
     );
     await loadShortcutUsageCount(this.sessionState, this.storageService, this.errorHandler);
     await initializeDialogFragmentConfig({

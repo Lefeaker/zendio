@@ -12,10 +12,16 @@ type DestinationOptionPatch = {
 function findDestinationRow(root: ParentNode): HTMLElement | null {
   return root.querySelector<HTMLElement>('.export-destination-row');
 }
-function syncText(root: HTMLElement, selector: string, value: string): boolean {
+function syncText(
+  root: HTMLElement,
+  selector: string,
+  value: string,
+  withTooltip = false
+): boolean {
   const element = root.querySelector<HTMLElement>(selector);
   if (!element) return false;
   element.textContent = value;
+  if (withTooltip) element.title = value;
   return true;
 }
 function getActiveElement(row: HTMLElement): Element | null {
@@ -58,7 +64,7 @@ function syncOption(button: HTMLButtonElement, option: DestinationOptionPatch): 
   }
   return (
     syncText(button, '.export-destination-option-label', option.label) &&
-    syncText(button, '.export-destination-option-path', option.path)
+    syncText(button, '.export-destination-option-path', option.path, true)
   );
 }
 function reconcileOptions(
@@ -174,7 +180,7 @@ export function patchExportDestinationRow(
   if (
     !row ||
     !syncText(row, '.export-destination-label', destination.label) ||
-    !syncText(row, '.export-destination-path', destination.path)
+    !syncText(row, '.export-destination-path', destination.path, true)
   ) {
     return false;
   }
@@ -239,7 +245,8 @@ function patchDestinationTemplate(current: HTMLElement, next: HTMLElement): bool
     !syncText(
       current,
       '.export-destination-path',
-      next.querySelector('.export-destination-path')?.textContent ?? ''
+      next.querySelector('.export-destination-path')?.textContent ?? '',
+      true
     ) ||
     !reconcileOptions(current, options, false)
   ) {

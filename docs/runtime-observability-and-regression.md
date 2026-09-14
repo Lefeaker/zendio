@@ -49,6 +49,8 @@ node scripts/run-bounded-command.mjs --profile npm-script-browser-v1 -- test:e2e
 
 Reader / Video 共用 `sessionEndingCoordinator` 关闭新编辑入口、等待已接收的编辑落盘，并串行执行完成或取消。终止过程由 `sessionDraftTerminalState` 保留原始 finalize/remove 请求身份；响应丢失后重试延续同一操作。导出成功与草稿清理是两个阶段，同一挂载会话的收尾重试不会再次导出。不能把这种保证扩展为浏览器崩溃跨进程的导出 exactly-once 保证。
 
+Reader 初始化与编辑共用现有 mutation runner：本次划选先更新列表、计数和页面标记，再等待草稿认领与保存目标。恢复期间锁定编辑但保留取消入口；恢复的高亮合并到本次划选，不能覆盖新选中的文字。取消先关闭操作入口并等待正在进行的初始化，迟到的草稿只用于完成终态清理，不再恢复页面标记。面板和页面高亮在同一次同步清理中移除，不能在草稿仍可能恢复时先关闭面板。浏览器回归通过延迟真实 `selectAndClaim` 回复验证首条高亮已显示、取消无残留且刷新不复活；GA 事件回执不参与会话等待。
+
 后台仍是唯一持久写入者。客户端只保存单调递增的版本观察，并在构造用户保存请求前等待已发出的租约操作。租约续期和释放的迟到响应不得覆盖新状态；终态和失效扩展上下文都停止续期。
 
 支持 `sender.documentId` 的浏览器把受信页面身份绑定到不透明 lease token（`doc1:` 前缀），存储 schema 与 owner 字段保持兼容。未过期租约只有在原页面已确定消失时才能提前接管；普通 `active=false` 回复可能处于租约刚获批、尚未挂载的窗口，不能证明旧 owner 已退出。超时和不确定的消息通道关闭同样不能提前接管。无页面身份的旧租约保留过期判断；schema-v1 草稿通过既有 nonce owner-probe 协议确认现代页面内无旧 writer，未知回复保持保守。兼容的 receipt 标签 `expired_owner_inactive` 同时表示租约过期或已确认原页面消失。

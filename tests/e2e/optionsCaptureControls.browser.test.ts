@@ -97,7 +97,7 @@ test('saves and reconnects a local-folder-only vault after clearing its REST fie
   await expect(notice).not.toContainText('❌');
 });
 
-test('persists segmented selection and export choices and presents the v0.3.1 changelog', async ({
+test('persists segmented selection and export choices and presents the v0.3.2 changelog', async ({
   extensionPage,
   context
 }) => {
@@ -149,23 +149,33 @@ test('persists segmented selection and export choices and presents the v0.3.1 ch
     'aria-pressed',
     'true'
   );
-  expect(await extensionPage.evaluate(() => chrome.runtime.getManifest().version)).toBe('0.3.1');
+  expect(await extensionPage.evaluate(() => chrome.runtime.getManifest().version)).toBe('0.3.2');
   await page.locator('[data-footer-panel="changelog"]').click();
   const latest = page.locator('.release-card').first();
-  await expect(latest).toContainText('v0.3.1');
-  await expect(latest).toContainText('2026-09-13');
-  await expect(latest.locator('.release-summary')).toHaveText('忘忘忘忘忘…忘记补了');
-  await expect(latest.locator('li')).toHaveCount(4);
-  await expect(latest).toContainText('笔记标题和文件名会同步更新');
-  await expect(latest).toContainText('Microsoft Edge');
-  await expect(latest).toContainText('按钮文字保持单行');
+  await expect(latest).toContainText('v0.3.2');
+  await expect(latest).toContainText('2026-09-14');
+  await expect(latest.locator('.release-summary')).toHaveText('怎么还有漏？？？');
+  await expect(latest.locator('li')).toHaveCount(6);
+  await expect(latest).toContainText('选中文字、计数与页面高亮及时同步显示');
+  await expect(latest).toContainText('高亮残留或重新出现');
+  await expect(latest).toContainText('配置仓库');
+  await expect(latest).toContainText('调整面板宽高');
+  await expect(latest).toContainText('悬停可查看完整内容');
+  await expect(latest).toContainText('保留原有隐私选择');
   const previous = page.locator('.release-card').nth(1);
-  await expect(previous).toContainText('v0.3.0');
-  await expect(previous).toContainText('生活是创作的一部分，创作也是生活的一部分');
-  await expect(previous.locator('li')).toHaveCount(8);
-  await expect(previous).toContainText('避免结束清理重试重复导出');
-  await expect(previous).toContainText('仅绑定本地目录');
-  await expect(page.locator('.release-card')).toHaveCount(5);
+  await expect(previous).toContainText('v0.3.1');
+  await expect(previous.locator('.release-summary')).toHaveText('忘忘忘忘忘…忘记补了');
+  await expect(previous.locator('li')).toHaveCount(4);
+  await expect(previous).toContainText('笔记标题和文件名会同步更新');
+  await expect(previous).toContainText('Microsoft Edge');
+  await expect(previous).toContainText('按钮文字保持单行');
+  const earlier = page.locator('.release-card').nth(2);
+  await expect(earlier).toContainText('v0.3.0');
+  await expect(earlier).toContainText('生活是创作的一部分，创作也是生活的一部分');
+  await expect(earlier.locator('li')).toHaveCount(8);
+  await expect(earlier).toContainText('避免结束清理重试重复导出');
+  await expect(earlier).toContainText('仅绑定本地目录');
+  await expect(page.locator('.release-card')).toHaveCount(6);
 });
 
 for (const language of [
@@ -368,6 +378,6 @@ test('animates stable compact trigger, modifier and highlight capsules', async (
   await highlight.screenshot({ path: testInfo.outputPath('compact-highlight-colors.png') });
   await page.locator('[data-footer-panel="changelog"]').click();
   await expect(page.locator('.release-card').first().locator('.release-summary')).toHaveText(
-    '忘忘忘忘忘…忘记补了'
+    '怎么还有漏？？？'
   );
 });

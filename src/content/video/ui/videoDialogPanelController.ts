@@ -1,3 +1,4 @@
+import { bindSessionPanelFirstUseGuide } from '@content/shared/panels/sessionPanelFirstUseGuide';
 import { refreshSessionPanelRecovery } from '@content/shared/panels/sessionPanelRecovery';
 import type { RuntimeSurfaceHandle } from '@content/stitch/runtimeSurfaceRenderer';
 import type { StyleAttachmentHandle } from '@ui/foundation/style-host';
@@ -42,6 +43,7 @@ export class VideoDialogPanelController {
   readonly handle: RuntimeSurfaceHandle;
   private readonly items: KeyedSessionList<VideoItemTemplate>;
   private readonly disposeEvents: () => void;
+  private readonly disposeFirstUseGuide: () => void;
   private readonly disposeResize: () => void;
   private readonly disposePreviewExpansion: () => void;
   private readonly invalidation = createInvalidationScope();
@@ -62,6 +64,7 @@ export class VideoDialogPanelController {
       initial: initial.map((item) => ({ key: item.id, element: item.element }))
     });
     this.disposeEvents = bindVideoDialogPanelEvents(this.handle, options.events);
+    this.disposeFirstUseGuide = bindSessionPanelFirstUseGuide(this.handle.root, 'video');
     this.disposeResize = bindSessionPanelResize(this.handle.root);
     this.disposePreviewExpansion = bindSessionItemPreviewExpansion(this.handle.root);
     this.applyPresentation(this.handle.root);
@@ -116,6 +119,7 @@ export class VideoDialogPanelController {
     this.unregisterPopup?.();
     this.unregisterPopup = null;
     this.disposePreviewExpansion();
+    this.disposeFirstUseGuide();
     this.disposeResize();
     this.disposeEvents();
     this.items.dispose();

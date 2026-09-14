@@ -36,7 +36,7 @@
 
 .export-destination-copy {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   align-items: baseline;
   gap: var(--space-1) var(--space-2);
 }
@@ -55,8 +55,16 @@
   font-weight: 650;
 }
 
+.export-destination-eyebrow,
+.export-destination-label,
+.export-destination-option-label {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
 .export-destination-path,
 .export-destination-option-path {
+  flex: 1 1 0;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -76,14 +84,6 @@
   border-radius: var(--radius-md);
   background: var(--runtime-panel);
   box-shadow: var(--shadow-runtime);
-}
-
-[data-stitch-surface='clipper'] .export-destination-copy {
-  flex-wrap: nowrap;
-}
-
-[data-stitch-surface='clipper'] .export-destination-path {
-  flex: 1 1 auto;
 }
 
 [data-stitch-surface='clipper'] .export-destination-row {
@@ -106,31 +106,9 @@
   bottom: auto;
 }
 
-[data-stitch-surface='clipper'] .export-destination-option {
-  display: flex;
-  flex-wrap: nowrap;
-  align-items: baseline;
-  gap: var(--space-2);
-}
-
-[data-stitch-surface='clipper'] .export-destination-option-path {
-  flex: 1 1 auto;
-}
-
 .resource-modal--session .export-destination-summary {
   border-bottom: 0;
   border-radius: 0;
-}
-
-.resource-modal--session .export-destination-option {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: 1px var(--space-2);
-}
-
-.resource-modal--session .export-destination-option-path {
-  flex: 1 0 18ch;
 }
 
 @media (max-width: 760px) {
@@ -140,8 +118,10 @@
 }
 
 .export-destination-option {
-  display: grid;
-  gap: 1px;
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: baseline;
+  gap: var(--space-2);
   padding: var(--space-2-5) var(--space-3);
   border: 0;
   border-radius: var(--radius-sm);

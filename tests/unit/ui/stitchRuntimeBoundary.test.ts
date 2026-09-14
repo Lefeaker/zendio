@@ -54,6 +54,7 @@ import { createTaskSuccessSurfaceContent } from '@content/stitch/runtimeSurfaceC
 const CHROME_EXPORTS = [
   'actionRow',
   'exportDestinationRow',
+  'sessionFirstUseGuide',
   'sessionFooterBar',
   'sessionHeader',
   'sessionItemList',

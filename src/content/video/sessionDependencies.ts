@@ -1,3 +1,4 @@
+import { DEFAULT_SETUP_URL } from '../../shared/exportDestination';
 import { resolveRepository } from '../../shared/di/serviceRegistry';
 import { DI_TOKENS } from '../../shared/di/tokens';
 import type { VideoSessionDependencies } from './sessionTypes';
@@ -46,6 +47,7 @@ export function createVideoSessionDependencies(
         : {}
     ),
     optionsRepository: deps.optionsRepository,
+    ...(runtime ? { optionsPageUrl: runtime.getURL(DEFAULT_SETUP_URL) } : {}),
     videoRepository:
       deps.videoRepository ?? resolveRepository<IVideoRepository>(DI_TOKENS.IVideoRepository),
     storage: deps.storage,

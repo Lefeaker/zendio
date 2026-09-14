@@ -75,32 +75,24 @@ describe('ReaderSession mutations', () => {
         highlight.wrapper.remove();
       }
     );
-    context.highlightManager.createHighlight.mockImplementationOnce(
-      (options: {
-        id: string;
-        selectedHtml: string;
-        selectedText: string;
-        comment: string;
-        fragmentUrl: string;
-      }) => {
-        const wrapper = document.createElement('mark');
-        wrapper.className = 'aiob-reader-highlight';
-        wrapper.dataset.readerHighlightId = options.id;
-        wrapper.dataset.readerComment = options.comment.trim();
-        wrapper.textContent = options.selectedText;
-        document.body.appendChild(wrapper);
-        return {
-          id: options.id,
-          selectedHtml: options.selectedHtml,
-          selectedText: options.selectedText,
-          comment: options.comment.trim(),
-          fragmentUrl: options.fragmentUrl,
-          wrapper,
-          wrapperSegments: [wrapper],
-          createdAt: Date.now()
-        } satisfies ReaderHighlightRecord;
-      }
-    );
+    context.highlightManager.createHighlight.mockImplementationOnce((options) => {
+      const wrapper = document.createElement('mark');
+      wrapper.className = 'aiob-reader-highlight';
+      wrapper.dataset.readerHighlightId = options.id;
+      wrapper.dataset.readerComment = options.comment.trim();
+      wrapper.textContent = options.selectedText;
+      document.body.appendChild(wrapper);
+      return {
+        id: options.id,
+        selectedHtml: options.selectedHtml,
+        selectedText: options.selectedText,
+        comment: options.comment.trim(),
+        fragmentUrl: options.fragmentUrl,
+        wrapper,
+        wrapperSegments: [wrapper],
+        createdAt: Date.now()
+      } satisfies ReaderHighlightRecord;
+    });
     vi.spyOn(context.storageLocal, 'setMany').mockRejectedValueOnce(
       new Error('durable add failed')
     );
@@ -146,18 +138,10 @@ describe('ReaderSession mutations', () => {
     if (!originalCreateHighlight) {
       throw new Error('expected highlight manager createHighlight implementation');
     }
-    context.highlightManager.createHighlight.mockImplementation(
-      (options: {
-        id: string;
-        selectedHtml: string;
-        selectedText: string;
-        comment: string;
-        fragmentUrl: string;
-      }) => {
-        savingStatesDuringCreate.push(Boolean(getSessionHarness(context.session).state.saving));
-        return originalCreateHighlight(options);
-      }
-    );
+    context.highlightManager.createHighlight.mockImplementation((options) => {
+      savingStatesDuringCreate.push(Boolean(getSessionHarness(context.session).state.saving));
+      return originalCreateHighlight(options);
+    });
 
     const selectionPromise = Promise.resolve(
       getSessionHarness(context.session).handleSelection(createSelectionPayload(content.firstChild))

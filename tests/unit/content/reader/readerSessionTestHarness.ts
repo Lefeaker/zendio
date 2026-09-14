@@ -21,7 +21,10 @@ import { ReaderSessionLifecycle } from '@content/reader/sessionLifecycle';
 import { DEFAULT_SESSION_MESSAGES } from '@content/reader/sessionMessages';
 import type { SessionMutationTransaction } from '@content/sessionMutations';
 import { ReaderSessionExporter } from '@content/reader/services/exporter';
-import type { ReaderHighlightRecord } from '@content/reader/services/highlightManager';
+import type {
+  CreateHighlightOptions,
+  ReaderHighlightRecord
+} from '@content/reader/services/highlightManager';
 import { ReaderSelectionController } from '@content/reader/services/selectionController';
 import {
   buildReaderFullMarkdown,
@@ -453,31 +456,23 @@ export function createSessionContext(
     applyTheme: vi.fn((theme: string) => {
       document.body.dataset.aiobReaderHighlight = theme;
     }),
-    createHighlight: vi.fn(
-      (options: {
-        id: string;
-        selectedHtml: string;
-        selectedText: string;
-        comment: string;
-        fragmentUrl: string;
-      }) => {
-        const wrapper = document.createElement('mark');
-        wrapper.className = 'aiob-reader-highlight';
-        wrapper.dataset.readerHighlightId = options.id;
-        wrapper.dataset.readerComment = options.comment.trim();
-        wrapper.textContent = options.selectedText;
-        return {
-          id: options.id,
-          selectedHtml: options.selectedHtml,
-          selectedText: options.selectedText,
-          comment: options.comment.trim(),
-          fragmentUrl: options.fragmentUrl,
-          wrapper,
-          wrapperSegments: [wrapper],
-          createdAt: Date.now()
-        } satisfies ReaderHighlightRecord;
-      }
-    ),
+    createHighlight: vi.fn((options: CreateHighlightOptions): ReaderHighlightRecord | null => {
+      const wrapper = document.createElement('mark');
+      wrapper.className = 'aiob-reader-highlight';
+      wrapper.dataset.readerHighlightId = options.id;
+      wrapper.dataset.readerComment = options.comment.trim();
+      wrapper.textContent = options.selectedText;
+      return {
+        id: options.id,
+        selectedHtml: options.selectedHtml,
+        selectedText: options.selectedText,
+        comment: options.comment.trim(),
+        fragmentUrl: options.fragmentUrl,
+        wrapper,
+        wrapperSegments: [wrapper],
+        createdAt: Date.now()
+      } satisfies ReaderHighlightRecord;
+    }),
     updateComment: vi.fn((highlight: ReaderHighlightRecord, comment: string) => {
       highlight.comment = comment.trim();
       if (highlight.comment) {

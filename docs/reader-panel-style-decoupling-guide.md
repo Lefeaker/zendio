@@ -1,6 +1,6 @@
 # Reader Panel 样式边界真值说明
 
-更新时间：2026-08-28
+更新时间：2026-09-14
 适用范围：`src/content/reader/**`、`src/styles/clipper/highlight-themes.css`
 
 ## 当前真值
@@ -26,6 +26,14 @@
   - `src/content/reader/services/highlightManager.ts`
   - `src/content/video/fragmentHighlighter.ts`
   - `src/styles/clipper/highlight-themes.css`
+
+## 首次使用提示
+
+阅读与视频面板共用一张内嵌提示卡，说明左侧边缘可调宽度、顶部边缘可调高度，以及左上角图标会在新标签页打开设置。提示不抢焦点、不自动展开折叠面板，也不影响笔记编辑。
+
+两个模式分别在当前浏览器 profile 的 `storage.local` 中记录确认状态（`aiob.firstUse.readerPanel.v1` / `aiob.firstUse.videoPanel.v1`）。用户点击确认按钮后才写入 `true`，之后关闭、重开或刷新都不再提示；未确认就关闭面板仍保留提示机会。读取失败时保持隐藏，写入失败时本次关闭仍生效、下次可能再次提示，不阻断会话。该状态独立于 Options、草稿与面板尺寸；更换页面不会重置，清除扩展数据后可重新显示。
+
+展示由 neutral surface builder 与共享 session CSS 负责；feature controller 绑定一条本地点击监听和一次存储读取，销毁时清理，增量更新仅替换文案并保留确认状态。
 
 ## 已验证结果
 

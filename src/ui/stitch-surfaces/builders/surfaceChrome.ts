@@ -4,6 +4,7 @@ import type {
   NodeSchema,
   ExportDestinationSurfacePreview,
   RuntimeSessionLabels,
+  RuntimeSurfaceContext,
   SurfaceAction
 } from '@ui/stitch-runtime';
 import { RUNTIME_SURFACE_FALLBACK_MESSAGES } from '@i18n/catalog/runtimeSurfaceFallbackMessages';
@@ -102,6 +103,30 @@ export function sessionHeader(
   ]);
 }
 
+export function sessionFirstUseGuide(t: RuntimeSurfaceContext['t']): NodeSchema {
+  const message = (
+    key:
+      | 'sessionPanelGuideTitle'
+      | 'sessionPanelGuideResize'
+      | 'sessionPanelGuideSettings'
+      | 'infoDialogConfirm'
+  ) => t?.(key, RUNTIME_SURFACE_FALLBACK_MESSAGES[key]) ?? RUNTIME_SURFACE_FALLBACK_MESSAGES[key];
+  return element('aside', { className: 'session-first-use-guide', role: 'note' }, [
+    div('session-first-use-guide-header', [
+      strong(message('sessionPanelGuideTitle'), 'session-first-use-guide-title'),
+      buttonNode(message('infoDialogConfirm'), 'ghost', 'session:dismissFirstUseGuide')
+    ]),
+    element('p', {
+      className: 'session-first-use-guide-resize',
+      text: message('sessionPanelGuideResize')
+    }),
+    element('p', {
+      className: 'session-first-use-guide-settings',
+      text: message('sessionPanelGuideSettings')
+    })
+  ]);
+}
+
 export function actionRow(
   actions: Array<{ id?: string; label: string; variant?: ButtonVariant }>
 ): NodeSchema {
@@ -138,13 +163,17 @@ export function exportDestinationRow(
     return null;
   }
 
-  return div('export-destination-row', [
+  const row = div('export-destination-row', [
     element('details', { className: 'export-destination-menu' }, [
       element('summary', { className: 'export-destination-summary' }, [
         div('export-destination-copy', [
           element('span', { className: 'export-destination-eyebrow', text: labels.saveToLabel }),
           element('strong', { className: 'export-destination-label', text: destination.label }),
-          element('span', { className: 'export-destination-path', text: destination.path })
+          element('span', {
+            className: 'export-destination-path',
+            text: destination.path,
+            title: destination.path
+          })
         ])
       ]),
       element(
@@ -168,7 +197,11 @@ export function exportDestinationRow(
             },
             [
               element('span', { className: 'export-destination-option-label', text: option.label }),
-              element('span', { className: 'export-destination-option-path', text: option.path })
+              element('span', {
+                className: 'export-destination-option-path',
+                text: option.path,
+                title: option.path
+              })
             ]
           )
         )
@@ -184,6 +217,8 @@ export function exportDestinationRow(
         })
       : null
   ]);
+  row.onClick = { id: 'surface:openOptions' };
+  return row;
 }
 
 export function sessionItemList(items: NodeSchema[]): NodeSchema {

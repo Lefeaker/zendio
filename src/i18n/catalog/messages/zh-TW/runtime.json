@@ -543,7 +543,7 @@
   "supportModalDescription": "開發不易。如果此外掛對您有幫助，歡迎透過以下方式支援：",
   "supportLinkKofi": "Ko-fi",
   "supportLinkAfdian": "微信讚賞",
-  "versionNumber": "v0.3.1",
+  "versionNumber": "v0.3.2",
   "changelogModalTitle": "更新日誌",
   "fragmentFootnoteExampleContent": "這是選取文字的內容",
   "fragmentFootnoteExampleComment": "這是我的註解",
@@ -708,5 +708,8 @@
   "footerOfficialWebsiteLink": "前往官網",
   "footerChangelogLink": "更新日誌",
   "runtimeReloadRequired": "擴充功能已重新載入。請先複製未儲存的註記，再重新整理網頁。",
-  "sessionFinishRetry": "工作階段尚未結束，請再次按完成或取消以重試。"
+  "sessionFinishRetry": "工作階段尚未結束，請再次按完成或取消以重試。",
+  "sessionPanelGuideTitle": "小提示",
+  "sessionPanelGuideResize": "拖曳左側邊緣調整寬度，拖曳頂部邊緣調整高度。",
+  "sessionPanelGuideSettings": "點擊左上角圖示，可在新分頁開啟設定。"
 }

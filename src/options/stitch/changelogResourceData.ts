@@ -15,9 +15,22 @@ type ChangelogEntryDefinition = {
 
 const CHANGELOG_TITLE_KEY: SchemaMessageKey = 'schemaResourceChangelogTitle';
 const CHANGELOG_DESCRIPTION_KEY: SchemaMessageKey = 'schemaResourceChangelogDescription';
-const CHANGELOG_HERO_PILLS = ['v0.3.1'] as const;
+const CHANGELOG_HERO_PILLS = ['v0.3.2'] as const;
 
 const CHANGELOG_ENTRY_DEFINITIONS: readonly ChangelogEntryDefinition[] = [
+  {
+    version: 'v0.3.2',
+    date: '2026-09-14',
+    summaryKey: 'schemaResourceChangelogV032Summary',
+    bulletKeys: [
+      'schemaResourceChangelogV032Bullet1',
+      'schemaResourceChangelogV032Bullet2',
+      'schemaResourceChangelogV032Bullet3',
+      'schemaResourceChangelogV032Bullet4',
+      'schemaResourceChangelogV032Bullet5',
+      'schemaResourceChangelogV032Bullet6'
+    ]
+  },
   {
     version: 'v0.3.1',
     date: '2026-09-13',

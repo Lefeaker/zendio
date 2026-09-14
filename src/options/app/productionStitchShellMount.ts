@@ -235,7 +235,18 @@ export function mountProductionStitchShellFromDependencies({
   };
   themeMediaQuery.addEventListener?.('change', applySystemThemePreferenceChange);
 
-  render('all-invariant-recovery');
+  const initialPanel =
+    mountRoot.ownerDocument.defaultView?.location.hash.match(/^#section-(.+)$/)?.[1];
+  void renderAndWait('all-invariant-recovery').then(({ status }) => {
+    if (
+      shellActive &&
+      status === 'rendered' &&
+      initialPanel &&
+      getAppData().nav.some(({ id }) => id === initialPanel)
+    ) {
+      scrollToPanel(initialPanel);
+    }
+  });
   void persistence.loadUsageStatsFromStorage();
   return mounted;
 }

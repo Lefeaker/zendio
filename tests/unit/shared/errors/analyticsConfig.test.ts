@@ -157,6 +157,74 @@ describe('analyticsConfig', () => {
     );
   });
 
+  it('uses declared build routing over a cached disabled config without changing consent or identity', async () => {
+    vi.stubGlobal('__DEV__', false);
+    vi.stubGlobal('__ZENDIO_GA_MEASUREMENT_ID__', 'G-BUILD1234');
+    vi.stubGlobal('__ZENDIO_GA_TRANSPORT_MODE__', 'proxy');
+    vi.stubGlobal('__ZENDIO_GA_PROXY_ENDPOINT__', 'https://analytics.example.test/collect');
+    const storage = createStorageService();
+    const consent = { analytics: true, errorReporting: false, timestamp: 100, version: '1.0' };
+    await storage.local.set('analytics_user_consent', consent);
+    await storage.local.set('analytics_client_id', 'ext-existing-client');
+    await storage.local.set('analytics_session_id', 'existing-session-id');
+    await storage.local.set('analytics_config', {
+      measurementId: 'G-XXXXXXXXXX',
+      transportMode: 'disabled',
+      batchSize: 4
+    });
+    const module = await import('../../../../src/shared/errors/analytics/analyticsConfig');
+    const manager = module.configureAnalyticsConfigManager(storage);
+    await manager.initialize();
+    expect(manager.getConfig()).toMatchObject({
+      enabled: true,
+      measurementId: 'G-BUILD1234',
+      transportMode: 'proxy',
+      proxyEndpoint: 'https://analytics.example.test/collect',
+      batchSize: 4,
+      clientId: 'ext-existing-client',
+      sessionId: 'existing-session-id',
+      userConsent: consent
+    });
+    await manager.updateConfig({
+      measurementId: 'G-STALE1234',
+      transportMode: 'disabled',
+      proxyEndpoint: 'https://stale.example.test/collect',
+      batchSize: 6
+    });
+    await manager.refreshFromStorage();
+    expect(manager.getConfig()).toMatchObject({
+      measurementId: 'G-BUILD1234',
+      transportMode: 'proxy',
+      proxyEndpoint: 'https://analytics.example.test/collect',
+      batchSize: 6
+    });
+    await expect(storage.local.get('analytics_user_consent')).resolves.toEqual(consent);
+    await manager.setUserConsent({ analytics: false, errorReporting: false });
+    await manager.refreshFromStorage();
+    expect(manager.getConfig()).toMatchObject({
+      enabled: false,
+      userConsent: { analytics: false, errorReporting: false }
+    });
+    expect(manager.getConfig().clientId).toBe('ext-existing-client');
+  });
+
+  it('does not fall back to an old proxy when the build explicitly disables telemetry', async () => {
+    vi.stubGlobal('__DEV__', false);
+    vi.stubGlobal('__ZENDIO_GA_TRANSPORT_MODE__', 'disabled');
+    const storage = createStorageService();
+    await storage.local.set('analytics_config', {
+      measurementId: 'G-OLD1234',
+      transportMode: 'proxy',
+      proxyEndpoint: 'https://old.example.test/collect'
+    });
+    const module = await import('../../../../src/shared/errors/analytics/analyticsConfig');
+    const manager = module.configureAnalyticsConfigManager(storage);
+    await manager.initialize();
+    expect(manager.getConfig().transportMode).toBe('disabled');
+    expect(manager.getConfig().proxyEndpoint).toBeUndefined();
+    expect(manager.getConfig().enabled).toBe(false);
+  });
+
   it('creates deterministic analytics ids and redacts them for safe status output', async () => {
     const identityModule = await import('../../../../src/shared/analytics/analyticsIdentity');
 

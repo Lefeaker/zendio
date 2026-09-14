@@ -111,6 +111,60 @@ test('starts the configured selection runtime at DOMContentLoaded while an image
   }
 });
 
+test('shows the selected text before a delayed draft reply and removes all highlights on cancel', async ({
+  page,
+  extensionPage
+}) => {
+  const url = 'https://session-readiness.test/delayed-reader-draft';
+  const text = 'This selected paragraph must appear before draft recovery responds.';
+  await page.route(url, (route) =>
+    route.fulfill({
+      contentType: 'text/html',
+      body: `<html><head><title>Reader startup</title></head><body><p id="selection">${text}</p></body></html>`
+    })
+  );
+  await page.goto(url);
+  const tabId = await findCurrentTabId(extensionPage, url);
+  await injectContentRuntime(extensionPage, tabId);
+  await page.evaluate(() => {
+    const paragraph = document.getElementById('selection');
+    if (!paragraph) throw new Error('Selection fixture missing');
+    const range = document.createRange();
+    range.selectNodeContents(paragraph);
+    window.getSelection()?.removeAllRanges();
+    window.getSelection()?.addRange(range);
+  });
+  await extensionPage.evaluate(async (id) => {
+    await chrome.tabs.sendMessage(id, { action: 'clipSelection' });
+  }, tabId);
+  await expect(page.locator('[data-action-id="reader"]')).toBeVisible();
+  await interceptRecoveryReply(extensionPage, tabId, 'selectAndClaim', 'delay');
+  try {
+    await page.locator('[data-action-id="reader"]').click();
+    await expect(page.locator('html')).toHaveAttribute('data-recovery-fault', 'selectAndClaim');
+    await expect(page.locator('[data-highlight-input]')).toHaveCount(1);
+    await expect(page.locator('mark.aiob-reader-highlight')).toHaveText(text);
+    await expect(page.locator('.session-counter')).toHaveText('Collected 1 highlights');
+    await expect(page.locator('[data-highlight-input]')).toHaveAttribute('readonly', '');
+    await page.locator('[data-action-id="reader:cancel"]').click();
+    await expect(page.locator('#aiob-reader-panel')).toHaveAttribute(
+      'data-session-recovery',
+      'busy'
+    );
+    await releaseRecoveryReply(extensionPage, tabId);
+    await expect(page.locator('#aiob-reader-panel')).toHaveCount(0);
+    await expect(page.locator('mark.aiob-reader-highlight')).toHaveCount(0);
+    await expect(page.locator('#selection')).toHaveText(text);
+    expect(await recoveryDrafts(extensionPage, url)).toHaveLength(0);
+    await page.reload();
+    await injectContentRuntime(extensionPage, tabId);
+    await expect(page.locator('#aiob-reader-panel')).toHaveCount(0);
+    await expect(page.locator('mark.aiob-reader-highlight')).toHaveCount(0);
+  } finally {
+    await releaseRecoveryReply(extensionPage, tabId);
+  }
+});
+
 test('stops future automatic injection when selection triggering is disabled', async ({
   page,
   extensionPage

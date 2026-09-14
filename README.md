@@ -14,14 +14,16 @@
 | Mozilla Firefox | [Install from Firefox Add-ons](https://addons.mozilla.org/firefox/addon/zendio/)                                                   | v0.3.1 available. |
 | Microsoft Edge  | [Microsoft Edge Add-ons](https://microsoftedge.microsoft.com/addons/detail/zendioall-in-obsidian/oogaldhpamhgeeloehndhcgjkijkbocm) | v0.3.1 available. |
 
-Store status checked on **September 13, 2026**. Each store reviews releases independently; the version offered by the store may differ from the current source version, **v0.3.1**.
+Store status checked on **September 13, 2026**. Each store reviews releases independently; the version offered by the store may differ from the current source version, **v0.3.2**.
 
-## What's New in v0.3.1
+## What's New in v0.3.2
 
-- Video note titles and filenames follow the current YouTube / Bilibili title, including titles that load late or change after capture.
-- Downloads, local-folder writes and REST exports use the same current title. Switching videos clears the previous title; a failed draft-recovery read preserves the existing page title.
-- A dedicated Microsoft Edge package joins the Chrome and Firefox builds.
-- Settings controls adapt to longer translations and narrow layouts; highlight colors use compact swatches with the selected color name shown below.
+- Show selected text, the count and page highlights promptly when entering reading mode.
+- Fix highlights remaining or reappearing after cancelling reading mode during startup.
+- Fix Configure vault links in clipping, reading and video panels to open the vault settings directly.
+- Add first-use tips for resizing reading and video panels and opening settings from the icon.
+- Keep save targets on one line; truncate long paths or names and show the full text on hover.
+- Fix missing reports when anonymous usage statistics are enabled, while preserving privacy choices.
 
 ## Introduction
 

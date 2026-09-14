@@ -240,30 +240,48 @@ export class ReaderSession {
     registerReaderSession(this, this.doc);
 
     try {
-      await this.lifecycle.start();
-      this.draftController?.bindLifecycleListeners();
-      this.state.analyticsTimer = createFeatureTimer();
-      this.state.analyticsSource = 'unknown';
-      this.applyInitialDestination(initialHighlights);
-      const loadedDraft = await this.hydrateStoredDraft();
-      await this.destinationState.startWatching((preview) =>
-        this.panelCoordinator.updateDestination(preview)
-      );
-      this.applyReadingConfig(await this.loadReadingConfig());
-      this.watchReadingConfig();
-      void trackReaderUsageEvent(this.operationContext, 'reader_session_started', {
-        source: this.state.analyticsSource
+      // Starting, editing and ending share one queue so a late draft cannot outlive cancel.
+      await this.runDraftMutation({
+        apply: () => undefined,
+        save: async () => {
+          const [, readingConfig] = await Promise.all([
+            this.lifecycle.start(),
+            this.loadReadingConfig()
+          ]);
+          if (this.state.disconnected) return;
+          this.applyReadingConfig(readingConfig);
+          this.state.analyticsTimer = createFeatureTimer();
+          this.state.analyticsSource = 'unknown';
+          this.applyInitialDestination(initialHighlights);
+          const bootstrappedHighlights = this.bootstrapHighlights(initialHighlights);
+          setSessionPanelRecovery(this.doc, 'reader', this.state.ending ? 'busy' : 'loading');
+          const loadedDraft = await this.hydrateStoredDraft();
+          if (this.state.ending || this.state.disconnected) return;
+          await this.destinationState.startWatching((preview) =>
+            this.panelCoordinator.updateDestination(preview)
+          );
+          if (this.state.ending || this.state.disconnected) return;
+          this.draftController?.bindLifecycleListeners();
+          this.watchReadingConfig();
+          void trackReaderUsageEvent(this.operationContext, 'reader_session_started', {
+            source: this.state.analyticsSource
+          });
+          this.panelCoordinator.refreshHint(this.state.highlights.length);
+          if (loadedDraft || bootstrappedHighlights > 0) this.queueDraftPersistence();
+        },
+        rollback: () => this.cleanup(),
+        onSaveError: (error) => {
+          throw error;
+        }
       });
-      const bootstrappedHighlights = this.bootstrapHighlights(initialHighlights);
-      this.panelCoordinator.refreshHint(this.state.highlights.length);
-      if (loadedDraft || bootstrappedHighlights > 0) {
-        this.queueDraftPersistence();
-      }
     } catch (error) {
       this.state.analyticsTimer = null;
       await this.disposeDraftPersistence();
       clearReaderSession(this, this.doc);
       throw error;
+    } finally {
+      if (!this.state.ending && !this.state.disconnected)
+        setSessionPanelRecovery(this.doc, 'reader', 'ready');
     }
   }
 
@@ -324,6 +342,9 @@ export class ReaderSession {
       }
 
       const loadedDraft = loadedDraftResult.draft;
+      this.draftController.claimLoadedDraft(loadedDraft);
+      if (this.state.disconnected) this.draftController.suspend();
+      if (this.state.ending || this.state.disconnected) return true;
       try {
         const restored = restoreReaderSessionDraftHighlights({
           doc: this.doc,
@@ -331,10 +352,9 @@ export class ReaderSession {
           highlights: loadedDraft.payload.highlights
         });
 
-        this.draftController.claimLoadedDraft(loadedDraft);
         this.destinationState.applyMetadata(loadedDraft.payload.destination);
         this.panelCoordinator.hydrateCommentDrafts(loadedDraft.payload.commentDrafts);
-        this.state.highlights = restored.highlights;
+        this.state.highlights = [...restored.highlights, ...this.state.highlights];
         this.syncHighlightsUi();
         void trackReaderUsageEvent(this.operationContext, 'reader_draft_restored', {
           highlight_count_bucket: bucketCount(loadedDraftResult.highlightCount),

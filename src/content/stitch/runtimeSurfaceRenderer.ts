@@ -1,4 +1,5 @@
 import type { PlatformServices } from '@platform/types';
+import { VAULT_SETTINGS_SECTION } from '@shared/exportDestination';
 import { getService, TOKENS } from '@shared/di';
 import { getSurfaceView } from '@ui/stitch-surfaces';
 import {
@@ -111,11 +112,19 @@ export function renderStitchRuntimeSessionTemplate(
 
 export function handleRuntimeOptionsLink(event: Event): boolean {
   const target = event.target instanceof Element ? event.target : null;
-  if (!target?.closest('a[data-action-id="surface:openOptions"]')) return false;
+  const link = target?.closest(
+    'a[data-action-id="surface:openOptions"], a.export-destination-setup-link'
+  );
+  if (!link) return false;
   event.preventDefault();
   event.stopPropagation();
   void getService<PlatformServices>(TOKENS.platformServices)
-    .messaging.send({ type: 'openOptionsPage' })
+    .messaging.send({
+      type: 'openOptionsPage',
+      ...(link.classList.contains('export-destination-setup-link')
+        ? { section: VAULT_SETTINGS_SECTION }
+        : {})
+    })
     .catch((error) => {
       console.warn('[runtime] Failed to open settings:', error);
     });

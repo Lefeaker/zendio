@@ -1,6 +1,9 @@
 /* @vitest-environment jsdom */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { getService, TOKENS } from '@shared/di';
+import type { PlatformServices } from '@platform/types';
+import { patchExportDestinationRow } from '@content/shared/exportDestinationDom';
 import { createI18nResource } from '@i18n/resource';
 import { getMessagesForLanguage, type I18nResource } from '@i18n';
 import { loadRuntimeLocaleAsset } from '@i18n/runtime/assets';
@@ -117,6 +120,36 @@ function createSurfaceContent() {
 }
 
 describe('runtimeSurfaceRenderer content translation context', () => {
+  it('opens vault settings exactly once for a setup link inserted into an existing clipper', () => {
+    const messaging = getService<PlatformServices>(TOKENS.platformServices).messaging;
+    const send = vi.spyOn(messaging, 'send').mockResolvedValue(undefined);
+    try {
+      const surface = renderStitchRuntimeSurface({
+        surfaceId: 'clipper',
+        appData: createSurfaceContent()
+      });
+      expect(surface.querySelector('.export-destination-setup-link')).toBeNull();
+      expect(
+        patchExportDestinationRow(surface, {
+          ...createDestination(),
+          hasConfiguredVault: false,
+          setupUrl: 'chrome-extension://test/options/index.html#section-storage'
+        })
+      ).toBe(true);
+      const link = surface.querySelector<HTMLAnchorElement>('.export-destination-setup-link');
+      if (!link) throw new Error('Expected recreated vault setup link');
+      const event = new MouseEvent('click', { bubbles: true, cancelable: true });
+      link.dispatchEvent(event);
+      expect(event.defaultPrevented).toBe(true);
+      expect(send).toHaveBeenCalledExactlyOnceWith({
+        type: 'openOptionsPage',
+        section: 'section-storage'
+      });
+    } finally {
+      send.mockRestore();
+    }
+  });
+
   beforeEach(() => {
     getContentI18nResourceMock.mockReset();
     getContentI18nResourceMock.mockReturnValue(null);
@@ -173,7 +206,51 @@ describe('runtimeSurfaceRenderer content translation context', () => {
         reader.querySelector('.session-counter')?.textContent,
         video.querySelector('.session-counter')?.textContent
       ]).toEqual([readerCounter, videoCounter]);
+      for (const panel of [reader, video]) {
+        expect(panel.querySelector('.session-first-use-guide-title')?.textContent).toBe(
+          messages.sessionPanelGuideTitle
+        );
+        expect(panel.querySelector('.session-first-use-guide-resize')?.textContent).toBe(
+          messages.sessionPanelGuideResize
+        );
+        expect(panel.querySelector('.session-first-use-guide-settings')?.textContent).toBe(
+          messages.sessionPanelGuideSettings
+        );
+      }
     }
+  });
+
+  it('updates guide language without replacing its button or changing acknowledgement state', async () => {
+    const appData = createSurfaceContent();
+    appData.video.labels.subtitle = 'Capture timestamps and quick notes';
+    const handle = renderStitchRuntimeSessionSurface({ surfaceId: 'video', appData });
+    const button = handle.root.querySelector('[data-action-id="session:dismissFirstUseGuide"]');
+    const clicked = vi.fn();
+    button?.addEventListener('click', clicked);
+    handle.root.dataset.sessionFirstUse = 'true';
+    const messages = await getMessagesForLanguage('zh-CN');
+    getContentI18nResourceMock.mockReturnValue(
+      createI18nResource({ language: 'zh-CN', messages, fallbackChain: [] })
+    );
+    const next = renderStitchRuntimeSessionTemplate({ surfaceId: 'video', appData });
+    handle.patchChrome(next);
+    expect(handle.root.dataset.sessionFirstUse).toBe('true');
+    expect(handle.root.querySelector('.session-first-use-guide-title')?.textContent).toBe(
+      messages.sessionPanelGuideTitle
+    );
+    expect(handle.root.querySelector('.session-first-use-guide-settings')?.textContent).toBe(
+      messages.sessionPanelGuideSettings
+    );
+    expect(handle.root.querySelector('[data-action-id="session:dismissFirstUseGuide"]')).toBe(
+      button
+    );
+    expect(button?.textContent).toBe(messages.infoDialogConfirm);
+    button?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    expect(clicked).toHaveBeenCalledOnce();
+    delete handle.root.dataset.sessionFirstUse;
+    handle.patchChrome(next);
+    expect(handle.root.dataset.sessionFirstUse).toBeUndefined();
+    handle.dispose();
   });
 
   it('renders the mounted zh-CN schema copy from the current content resource', async () => {

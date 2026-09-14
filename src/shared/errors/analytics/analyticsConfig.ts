@@ -88,11 +88,7 @@ export class AnalyticsConfigManager {
     // Consent is intentionally sourced from the dedicated storage key, not legacy config payloads.
     void storedConfigConsent;
     const debugControlAvailable = isAnalyticsDebugModeControlAvailable();
-    const normalizedConfig = normalizeStoredAnalyticsConfig(
-      storedConfigWithoutConsent,
-      DEFAULT_ANALYTICS_CONFIG,
-      debugControlAvailable
-    );
+    const normalizedConfig = normalizeAnalyticsConfig(storedConfigWithoutConsent);
     const clientId = storedClientId ?? normalizedConfig.clientId ?? this.config.clientId;
     const sessionId = storedSessionId ?? normalizedConfig.sessionId ?? this.config.sessionId;
     const debugMode = storedConsent
@@ -316,9 +312,19 @@ export function getAnalyticsConfig(): AnalyticsConfig {
 }
 
 function normalizeAnalyticsConfig(storedConfig: Partial<AnalyticsConfig>): AnalyticsConfig {
-  return normalizeStoredAnalyticsConfig(
+  const debugControlAvailable = isAnalyticsDebugModeControlAvailable();
+  const config = normalizeStoredAnalyticsConfig(
     storedConfig,
     DEFAULT_ANALYTICS_CONFIG,
-    isAnalyticsDebugModeControlAvailable()
+    debugControlAvailable
   );
+  // Production routing belongs to the build; development retains diagnostic overrides.
+  if (!debugControlAvailable) {
+    config.measurementId = DEFAULT_ANALYTICS_CONFIG.measurementId;
+    config.transportMode = DEFAULT_ANALYTICS_CONFIG.transportMode;
+    delete config.proxyEndpoint;
+    if (DEFAULT_ANALYTICS_CONFIG.proxyEndpoint)
+      config.proxyEndpoint = DEFAULT_ANALYTICS_CONFIG.proxyEndpoint;
+  }
+  return config;
 }

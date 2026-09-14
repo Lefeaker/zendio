@@ -248,6 +248,7 @@ src/options/
 
 ## 6. 常见问题
 
+- **Runtime 配置仓库入口**：剪藏、阅读和视频面板通过已有 `openOptionsPage` 消息打开新标签页，仓库页锚点为 `#section-storage`（由 `VAULT_SETTINGS_SECTION` 定义）。生产 Shell 首次渲染完成后，只接受已注册面板的定位参数，并复用侧栏的滚动和选中逻辑。各会话的依赖装配负责用 runtime `getURL()` 生成完整链接；不要让网页解析相对的 `options/index.html`。设置链接的点击在稳定的目的地行上委托处理，确保配置变更后重新插入的链接仍可用。浏览器回归位于 `runtimeSurfaceNavigation.browser.test.ts`，检查实际 Options 页面、仓库面板和原笔记保留。
 - **导航/面板切换异常**：从 Stitch schema registry、`productionStitchShell.ts` 与 production render lifecycle 排查，不要恢复旧 layout shell。
 - **自动保存未触发**：确认 Section 改动后调用了 `markPendingAutoSave(sectionId)`，且 `OptionsController` 的 `onSaveSuccess` 钩子没有被异常拦截。
 - **文案未更新**：先确认 schema/builders 是否通过 `SchemaContext.t()` 或当前 `Messages` 取值，再检查 `ensureDeclarativeI18nController()`、`section.setMessages(messages)` 与静态模板 `data-i18n` 绑定是否完整。

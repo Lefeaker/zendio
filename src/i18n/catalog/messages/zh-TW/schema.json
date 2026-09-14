@@ -438,5 +438,12 @@
   "schemaResourceChangelogV031Bullet1": "補齊 v0.3.0 的影片匯出標題修正：YouTube / 嗶哩嗶哩標題延遲載入或修改後，筆記標題與檔名會同步更新。",
   "schemaResourceChangelogV031Bullet2": "下載、本機資料夾與 REST 儲存共用目前標題；切換影片不再沿用舊標題，讀取復原資料失敗時保留已有頁面標題。",
   "schemaResourceChangelogV031Bullet3": "新增 Microsoft Edge 獨立安裝套件，沿用一致的剪藏、閱讀、影片筆記與設定體驗。",
-  "schemaResourceChangelogV031Bullet4": "改善設定頁的多語言連體膠囊：按鈕文字保持單行，空間不足時整組換行；高亮顏色改為色塊選擇，並顯示目前的顏色名稱。"
+  "schemaResourceChangelogV031Bullet4": "改善設定頁的多語言連體膠囊：按鈕文字保持單行，空間不足時整組換行；高亮顏色改為色塊選擇，並顯示目前的顏色名稱。",
+  "schemaResourceChangelogV032Summary": "怎麼還有漏？？？",
+  "schemaResourceChangelogV032Bullet1": "改善閱讀模式啟動，選取文字、計數與頁面螢光標記即時同步顯示。",
+  "schemaResourceChangelogV032Bullet2": "修正初始化期間取消閱讀模式後，螢光標記殘留或重新出現的問題。",
+  "schemaResourceChangelogV032Bullet3": "修正剪藏、閱讀和影片面板的「設定儲存庫」連結，直接定位設定頁的儲存庫設定。",
+  "schemaResourceChangelogV032Bullet4": "首次進入閱讀或影片模式時，提示如何調整面板寬高，以及點擊圖示開啟設定。",
+  "schemaResourceChangelogV032Bullet5": "儲存目標保持單行，長路徑或名稱自動省略，滑鼠懸停可查看完整內容。",
+  "schemaResourceChangelogV032Bullet6": "修正開啟匿名使用統計後仍無法回報的問題，保留原有隱私選擇。"
 }

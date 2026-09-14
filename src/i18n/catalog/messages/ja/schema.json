@@ -438,5 +438,12 @@
   "schemaResourceChangelogV031Bullet1": "v0.3.0 の修正更新：YouTube / Bilibili の動画タイトルが遅れて読み込まれたり変更されたりしても、キャプチャ・出力前に更新し、ノートのタイトルとファイル名に反映します。",
   "schemaResourceChangelogV031Bullet2": "ダウンロード、ローカルフォルダー、REST で現在のタイトルを使用します。動画の切り替え時は古いタイトルを消去し、復元データの読み取りに失敗してもページのタイトルを保持します。",
   "schemaResourceChangelogV031Bullet3": "Microsoft Edge 専用パッケージを追加しました。クリッピング、読書、動画ノート、設定は共通です。",
-  "schemaResourceChangelogV031Bullet4": "多言語の設定ボタンを改善。ラベルは1行で表示し、幅が足りない場合はグループ全体を説明の下に配置します。ハイライトの色は色見本で選び、選択中の色名を表示します。"
+  "schemaResourceChangelogV031Bullet4": "多言語の設定ボタンを改善。ラベルは1行で表示し、幅が足りない場合はグループ全体を説明の下に配置します。ハイライトの色は色見本で選び、選択中の色名を表示します。",
+  "schemaResourceChangelogV032Summary": "まだ見落としが？？？",
+  "schemaResourceChangelogV032Bullet1": "読書モード開始時に、選択テキスト、件数、ページのハイライトをすばやく同期して表示します。",
+  "schemaResourceChangelogV032Bullet2": "初期化中に読書モードをキャンセルすると、ハイライトが残ったり再表示されたりする問題を修正しました。",
+  "schemaResourceChangelogV032Bullet3": "クリップ・読書・動画パネルの「保管庫を設定」から、設定画面の保管庫設定へ直接移動できるようにしました。",
+  "schemaResourceChangelogV032Bullet4": "読書・動画モードの初回利用時に、パネルの幅と高さの調整方法と、アイコンから設定を開く方法を案内します。",
+  "schemaResourceChangelogV032Bullet5": "保存先を1行で表示し、長いパスや名前は省略します。マウスを重ねると全文を確認できます。",
+  "schemaResourceChangelogV032Bullet6": "匿名使用統計を有効にしても送信されない問題を修正しました。既存のプライバシー設定は維持します。"
 }

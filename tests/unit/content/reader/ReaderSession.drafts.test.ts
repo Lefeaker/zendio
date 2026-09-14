@@ -3,6 +3,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import '../../../setup/globalSetup';
 import { buildReaderSessionDraftEnvelope } from '@content/reader/sessionDrafts';
+import { ReaderHighlightManager } from '@content/reader/services/highlightManager';
 import { __resetContentSessionRegistryForTests } from '@content/runtime/contentSessionRegistry';
 import { createSessionDraftStorageKey, type SessionDraftEnvelope } from '@shared/sessionDrafts';
 import type { SessionCommentDraftSnapshot } from '@content/shared/panels/sessionCommentDrafts';
@@ -106,10 +107,18 @@ describe('ReaderSession drafts', () => {
     });
   });
 
-  it('restores the latest reader draft before appending a new initial highlight', async () => {
+  it('merges the latest reader draft with the already visible initial highlight', async () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2026-06-05T00:00:00.000Z'));
     const context = createSessionContext();
+    const manager = new ReaderHighlightManager(document);
+    context.highlightManager.createHighlight.mockImplementation(
+      manager.createHighlight.bind(manager)
+    );
+    context.highlightManager.unwrapHighlight.mockImplementation(
+      manager.unwrapHighlight.bind(manager)
+    );
+
     const content = document.getElementById('content')?.firstChild;
     if (!content) {
       throw new Error('content missing');
@@ -209,6 +218,10 @@ describe('ReaderSession drafts', () => {
         ({ selectedText, comment }) => selectedText === 'reader session' && comment === 'fresh note'
       )
     ).toBe(true);
+    context.session.destroy();
+    await vi.waitFor(() => expect(context.view.destroy).toHaveBeenCalledTimes(1));
+    expect(document.querySelectorAll('mark.aiob-reader-highlight')).toHaveLength(0);
+    expect(document.getElementById('content')?.textContent).toBe('Hello reader session world.');
   });
 
   it('tracks detached highlight counts when a restored reader draft can only hydrate detached rows', async () => {

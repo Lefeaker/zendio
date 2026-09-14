@@ -543,7 +543,7 @@
   "supportModalDescription": "Le développement n'est pas facile. Si ce plugin vous aide, bienvenue pour soutenir de la manière suivante :",
   "supportLinkKofi": "Ko-fi",
   "supportLinkAfdian": "WeChat Reward",
-  "versionNumber": "v0.3.1",
+  "versionNumber": "v0.3.2",
   "changelogModalTitle": "Journal des modifications",
   "fragmentFootnoteExampleContent": "Ceci est le contenu du texte sélectionné",
   "fragmentFootnoteExampleComment": "Ceci est mon commentaire",
@@ -708,5 +708,8 @@
   "footerOfficialWebsiteLink": "Site officiel",
   "footerChangelogLink": "Journal des modifications",
   "runtimeReloadRequired": "Zendio a été rechargé. Copiez les notes non enregistrées, puis rechargez cette page.",
-  "sessionFinishRetry": "La fermeture a été interrompue. Réessayez avec Terminer ou Annuler."
+  "sessionFinishRetry": "La fermeture a été interrompue. Réessayez avec Terminer ou Annuler.",
+  "sessionPanelGuideTitle": "Petite astuce",
+  "sessionPanelGuideResize": "Faites glisser le bord gauche pour régler la largeur, ou le bord supérieur pour la hauteur.",
+  "sessionPanelGuideSettings": "Cliquez sur l’icône en haut à gauche pour ouvrir les paramètres dans un nouvel onglet."
 }

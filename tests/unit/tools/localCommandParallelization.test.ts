@@ -5,6 +5,7 @@ import { z } from 'zod';
 import {
   BROWSER_NPM_SCRIPTS,
   COMMAND_LIMITS,
+  type CommandBoundaryProfileId,
   STANDARD_NPM_SCRIPTS,
   resolveCommandProfile
 } from '../../../scripts/config/commandBoundaryProfiles.mjs';
@@ -110,37 +111,40 @@ function walkFiles(root: string): string[] {
   return files;
 }
 
+type LocaleCommandCase = { name: string; profile: CommandBoundaryProfileId; args: string[] };
+
 describe('local command parallelization contract', () => {
-  it.each(['linux', 'darwin'])('owns the locale of every browser entrypoint on %s', (platform) => {
-    const descriptor = Object.getOwnPropertyDescriptor(process, 'platform');
-    if (!descriptor) throw new Error('Missing platform descriptor');
-    const environment = {
-      HOME: process.env.HOME ?? '/tmp',
-      LANG: 'caller-locale',
-      LC_ALL: 'caller-locale'
-    };
-    Object.defineProperty(process, 'platform', { ...descriptor, value: platform });
-    try {
-      const browserLocale = platform === 'linux' ? 'C.UTF-8' : 'C';
-      const direct = resolveCommandProfile('playwright-v1', ['test'], { environment });
-      expect(direct.env).toMatchObject({ LANG: browserLocale, LC_ALL: browserLocale, TZ: 'UTC' });
-      for (const script of BROWSER_NPM_SCRIPTS) {
-        const browser = resolveCommandProfile('npm-script-browser-v1', [script], { environment });
-        expect(browser.argv.slice(-2)).toEqual(['run', script]);
-        expect(browser.env, script).toMatchObject({
-          LANG: browserLocale,
-          LC_ALL: browserLocale,
-          TZ: 'UTC'
-        });
+  for (const platform of ['linux', 'darwin']) {
+    it.each<LocaleCommandCase>([
+      { name: 'Playwright', profile: 'playwright-v1', args: ['test'] },
+      ...BROWSER_NPM_SCRIPTS.map<LocaleCommandCase>((script) => ({
+        name: script,
+        profile: 'npm-script-browser-v1',
+        args: [script]
+      })),
+      { name: 'Vitest', profile: 'vitest-v1', args: ['run'] }
+    ])(`owns the locale of $name on ${platform}`, ({ profile, args }) => {
+      const descriptor = Object.getOwnPropertyDescriptor(process, 'platform');
+      if (!descriptor) throw new Error('Missing platform descriptor');
+      const environment = {
+        HOME: process.env.HOME ?? '/tmp',
+        LANG: 'caller-locale',
+        LC_ALL: 'caller-locale'
+      };
+      Object.defineProperty(process, 'platform', { ...descriptor, value: platform });
+      try {
+        const locale = profile !== 'vitest-v1' && platform === 'linux' ? 'C.UTF-8' : 'C';
+        const command = resolveCommandProfile(profile, args, { environment });
+        expect(command.env).toMatchObject({ LANG: locale, LC_ALL: locale, TZ: 'UTC' });
+        if (profile === 'npm-script-browser-v1')
+          expect(command.argv.slice(-2)).toEqual(['run', args[0]]);
+        expect(environment.LANG).toBe('caller-locale');
+        expect(environment.LC_ALL).toBe('caller-locale');
+      } finally {
+        Object.defineProperty(process, 'platform', descriptor);
       }
-      const tooling = resolveCommandProfile('vitest-v1', ['run'], { environment });
-      expect(tooling.env).toMatchObject({ LANG: 'C', LC_ALL: 'C', TZ: 'UTC' });
-      expect(environment.LANG).toBe('caller-locale');
-      expect(environment.LC_ALL).toBe('caller-locale');
-    } finally {
-      Object.defineProperty(process, 'platform', descriptor);
-    }
-  });
+    });
+  }
 
   it('gives the full lint warning scan the same bounded class as lint', () => {
     const environment = { HOME: process.env.HOME ?? '/tmp', TMPDIR: '/tmp' };
@@ -320,7 +324,7 @@ describe('local command parallelization contract', () => {
     const stateScript =
       'npm run verify:runtime && node scripts/run-playwright.mjs test tests/e2e/sessionDraftConcurrency.browser.test.ts tests/e2e/sessionLifecycleRecovery.browser.test.ts tests/e2e/optionsCrossContextMutation.browser.test.ts tests/e2e/videoScreenshotCacheMigration.browser.test.ts --project=chromium-desktop';
     const architectureScript =
-      'npm run verify:runtime && node scripts/run-playwright.mjs test tests/e2e/uiPrimitiveTokenParity.browser.test.ts tests/e2e/contentIdleCss.browser.test.ts tests/e2e/sessionPanelsIncremental.browser.test.ts tests/e2e/optionsIncrementalRender.browser.test.ts tests/e2e/optionsCaptureControls.browser.test.ts tests/e2e/runtimeSurfaceNavigation.browser.test.ts --project=chromium-desktop';
+      'npm run verify:runtime && node scripts/run-playwright.mjs test tests/e2e/uiPrimitiveTokenParity.browser.test.ts tests/e2e/contentIdleCss.browser.test.ts tests/e2e/sessionPanelsIncremental.browser.test.ts tests/e2e/optionsIncrementalRender.browser.test.ts tests/e2e/optionsCaptureControls.browser.test.ts tests/e2e/runtimeSurfaceNavigation.browser.test.ts tests/e2e/sessionPanelFirstUseGuide.browser.test.ts --project=chromium-desktop';
     const browserScripts = ['test:e2e:browser:state', 'test:e2e:browser:architecture'];
     const ownershipScripts = [
       'audit:test-suite-ownership:report',

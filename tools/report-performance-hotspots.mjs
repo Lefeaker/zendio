@@ -21,10 +21,11 @@ export const MAX_LINE_BUDGETS = new Map([
   ['src/i18n/generated/schemaMessages.generated.ts', 481],
   // 2026-06-29 v0.2.1 changelog sync: schema core now carries the accepted
   // Options/Stitch release-note keys in addition to existing resource copy.
-  ['src/i18n/generated/schemaCore.generated.ts', 458],
+  ['src/i18n/generated/schemaCore.generated.ts', 465],
   // 2026-07-20 selection-trigger policy: generated runtime messages carry the
   // explicit disabled, direct, and modifier mode copy plus diagnostics copy.
-  ['src/i18n/generated/messages.generated.ts', 1158],
+  // 2026-09-14: three shared first-use guide catalog keys add three generated declarations.
+  ['src/i18n/generated/messages.generated.ts', 1168],
   ['src/i18n/generated/locales/fr.generated.ts', 785],
   ['src/i18n/generated/locales/es-419.generated.ts', 777],
   ['src/i18n/generated/locales/es-ES.generated.ts', 777],
@@ -108,13 +109,16 @@ export const MAX_LINE_BUDGETS = new Map([
   ['src/content/video/videoScreenshotPreparationRequestStore.ts', 294],
   ['src/content/video/videoScreenshotPreparationCoordinator.ts', 147],
   ['src/content/video/videoScreenshotPreparationQueueOwner.ts', 180],
-  ['src/content/reader/session.ts', 613],
+  // Reader startup shares the mutation queue and presents the selection before draft recovery.
+  ['src/content/reader/session.ts', 634],
   ['src/content/video/videoControlBarButton.ts', 299],
   // 2026-06-20 support-link closeout: runtime surface copy now uses the shared
   // Zendio link registry while preserving the existing surface renderer split.
   ['src/content/stitch/runtimeSurfaceContent.ts', 409],
   ['src/options/components/infrastructure/listBuilder.ts', 378],
   ['src/shared/exportDestination.ts', 369],
+  // 2026-09-14: full path tooltips stay with the shared destination DOM reconciler.
+  ['src/content/shared/exportDestinationDom.ts', 257],
   // 2026-06-13 final combined integration: screenshot status dots and add-note
   // focus/layout regressions are covered in the panel while retaining the current UI.
   ['src/options/app/productionStitchPersistence.ts', 379],
