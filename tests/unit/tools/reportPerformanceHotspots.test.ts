@@ -88,6 +88,18 @@ describe('report-performance-hotspots', () => {
 
   it('keeps the exact normalized budget transitions and every other budget unchanged', () => {
     const registeredBudgets = readRegisteredBudgets();
+    const runtimeRelease: Array<[string, number | null, number]> = [
+      ['src/i18n/generated/messages.generated.ts', 1158, 1168],
+      ['src/i18n/generated/schemaCore.generated.ts', 458, 465],
+      ['src/content/reader/session.ts', 613, 634],
+      ['src/content/shared/exportDestinationDom.ts', null, 257]
+    ];
+    expect(registeredBudgets.size).toBe(157);
+    for (const [file, before, after] of runtimeRelease) {
+      expect(registeredBudgets.get(file)).toBe(after);
+      if (before === null) registeredBudgets.delete(file);
+      else registeredBudgets.set(file, before);
+    }
     const reviewedChanges: Array<[string, number, number]> = [
       ['src/i18n/generated/messages.generated.ts', 1144, 1158],
       ['src/i18n/generated/schemaCore.generated.ts', 445, 458],
