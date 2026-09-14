@@ -1,7 +1,7 @@
 import { getContentI18nResource } from '../../i18n/context';
 import { RUNTIME_FALLBACK_MESSAGES } from '@i18n/catalog/runtimeFallbackMessages';
 
-export type SessionPanelRecoveryMode = 'ready' | 'busy' | 'retry' | 'reload';
+export type SessionPanelRecoveryMode = 'ready' | 'loading' | 'busy' | 'retry' | 'reload';
 type Surface = 'reader' | 'video';
 type Control = HTMLButtonElement | HTMLSelectElement | HTMLInputElement | HTMLTextAreaElement;
 interface RecoveryState {
@@ -51,7 +51,7 @@ function apply(state: RecoveryState, doc: Document): void {
     const enabled =
       toggle ||
       (state.mode === 'retry' && (cancel || finish)) ||
-      (state.mode === 'reload' && cancel);
+      ((state.mode === 'loading' || state.mode === 'reload') && cancel);
     const disabled = !enabled || (state.controls.get(control)?.disabled ?? false);
     if (control.disabled !== disabled) control.disabled = disabled;
     if (state.mode === 'reload' && cancel && control.tagName === 'BUTTON') {

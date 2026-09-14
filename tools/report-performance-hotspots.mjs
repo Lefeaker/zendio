@@ -109,7 +109,8 @@ export const MAX_LINE_BUDGETS = new Map([
   ['src/content/video/videoScreenshotPreparationRequestStore.ts', 294],
   ['src/content/video/videoScreenshotPreparationCoordinator.ts', 147],
   ['src/content/video/videoScreenshotPreparationQueueOwner.ts', 180],
-  ['src/content/reader/session.ts', 613],
+  // Reader startup shares the mutation queue and presents the selection before draft recovery.
+  ['src/content/reader/session.ts', 634],
   ['src/content/video/videoControlBarButton.ts', 299],
   // 2026-06-20 support-link closeout: runtime surface copy now uses the shared
   // Zendio link registry while preserving the existing surface renderer split.

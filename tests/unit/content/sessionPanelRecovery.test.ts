@@ -57,6 +57,18 @@ describe('session panel recovery presentation', () => {
     dispose();
   });
 
+  it('keeps cancellation available during startup without admitting edits', () => {
+    const p = panel();
+    setSessionPanelRecovery(document, 'reader', 'loading');
+    expect(p.note.readOnly).toBe(true);
+    expect(p.finish.disabled).toBe(true);
+    expect(p.cancel.disabled).toBe(false);
+    expect(p.cancel.textContent).toBe('Cancel');
+    setSessionPanelRecovery(document, 'reader', 'ready');
+    expect(p.note.readOnly).toBe(false);
+    expect(p.finish.disabled).toBe(false);
+  });
+
   it('keeps edits locked on retry and restores them only after the ending operation is abandoned', async () => {
     const p = panel();
     setSessionPanelRecovery(document, 'reader', 'busy');
