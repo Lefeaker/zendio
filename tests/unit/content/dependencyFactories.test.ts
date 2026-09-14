@@ -137,6 +137,7 @@ describe('content dependency factories', () => {
 
     expect(typeof dependencies.optionsRepository.get).toBe('function');
     expect(typeof dependencies.optionsRepository.onChange).toBe('function');
+    expect(dependencies.optionsPageUrl).toBe('options/index.html#section-storage');
     expect(getPlatformServicesMock).not.toHaveBeenCalled();
   });
 
@@ -147,6 +148,15 @@ describe('content dependency factories', () => {
     expect(typeof dependencies.optionsRepository.get).toBe('function');
     expect(typeof dependencies.optionsRepository.onChange).toBe('function');
     expect(getPlatformServicesMock).not.toHaveBeenCalled();
+  });
+
+  it('resolves the video vault settings link through the injected extension runtime', () => {
+    const platform = createVideoPlatform({
+      runtime: { getURL: (path) => `chrome-extension://test/${path}` }
+    });
+    expect(createVideoSessionDependencies(platform).optionsPageUrl).toBe(
+      'chrome-extension://test/options/index.html#section-storage'
+    );
   });
 
   it('leaves Chrome video frame capture on the default blob path', () => {

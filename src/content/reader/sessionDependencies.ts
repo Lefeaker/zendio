@@ -1,3 +1,4 @@
+import { DEFAULT_SETUP_URL } from '../../shared/exportDestination';
 import { resolveRepository } from '../../shared/di/serviceRegistry';
 import { DI_TOKENS } from '../../shared/di/tokens';
 import type { IReaderRepository } from '../../shared/repositories/IReaderRepository';
@@ -50,6 +51,7 @@ export function createReaderSessionDependencies(
         resolveAssetUrl: (path) => deps.runtime.getURL(path)
       }),
     optionsRepository: deps.optionsRepository,
+    optionsPageUrl: overrides.optionsPageUrl ?? deps.runtime.getURL(DEFAULT_SETUP_URL),
     storage: deps.storage,
     messaging: deps.messaging,
     sessionDraftSender: <Result>(message: unknown) => deps.messaging.send<Result>(message),

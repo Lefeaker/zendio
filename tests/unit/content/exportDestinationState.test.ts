@@ -43,7 +43,8 @@ function renderedDestination(onSelect: (id: string) => void): HTMLElement {
     state: { previewTheme: 'dark' },
     el,
     ui: surfaceComponents,
-    dispatch: (_id, _args, _value, event) => {
+    dispatch: (actionId, _args, _value, event) => {
+      if (actionId !== 'export-destination:select') return;
       const id = resolveClipperDestinationId(event);
       if (id) onSelect(id);
     }

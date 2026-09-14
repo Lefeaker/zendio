@@ -138,7 +138,7 @@ export function exportDestinationRow(
     return null;
   }
 
-  return div('export-destination-row', [
+  const row = div('export-destination-row', [
     element('details', { className: 'export-destination-menu' }, [
       element('summary', { className: 'export-destination-summary' }, [
         div('export-destination-copy', [
@@ -184,6 +184,8 @@ export function exportDestinationRow(
         })
       : null
   ]);
+  row.onClick = { id: 'surface:openOptions' };
+  return row;
 }
 
 export function sessionItemList(items: NodeSchema[]): NodeSchema {

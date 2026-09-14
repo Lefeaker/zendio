@@ -26,6 +26,30 @@ async function expectNewOptionsTab(context: BrowserContext, link: Locator, sourc
   await source.bringToFront();
 }
 
+async function expectVaultSettingsTab(context: BrowserContext, link: Locator, source: Page) {
+  const before = context.pages().length;
+  const sourceUrl = source.url();
+  const [options] = await Promise.all([
+    context.waitForEvent('page', { timeout: 8000 }),
+    link.click()
+  ]);
+  await expect(options).toHaveURL(/\/options\/index\.html#section-storage$/);
+  await expect(options.locator('[data-nav-panel="storage"]')).toHaveAttribute(
+    'aria-current',
+    'page'
+  );
+  await expect(options.getByRole('heading', { name: 'Storage', exact: true })).toBeInViewport();
+  await expect(options.locator('[data-action-id="storage:addVault"]')).toBeVisible();
+  expect(context.pages()).toHaveLength(before + 1);
+  expect(source.url()).toBe(sourceUrl);
+  await expect(link).toHaveAttribute(
+    'href',
+    /^chrome-extension:\/\/[^/]+\/options\/index\.html#section-storage$/
+  );
+  await options.close();
+  await source.bringToFront();
+}
+
 test('keeps the clipper comment focus border quiet and opens Options from clipper and reader icons', async ({
   context,
   extensionPage
@@ -69,10 +93,12 @@ test('keeps the clipper comment focus border quiet and opens Options from clippe
   await expect(comment).toHaveCSS('border-top-width', '1px');
   await clipper.screenshot({ path: testInfo.outputPath('clipper-focus-and-icon.png') });
   await expectNewOptionsTab(context, clipper.locator('a.surface-window-icon'), page);
+  await expectVaultSettingsTab(context, clipper.locator('.export-destination-setup-link'), page);
   await expect(comment).toHaveValue('Keep this note while opening settings.');
   await clipper.locator('[data-action-id="reader"]').click();
   const reader = page.locator('#aiob-reader-panel');
   await expect(reader.locator('[data-highlight-input]')).toHaveCount(1);
+  await expectVaultSettingsTab(context, reader.locator('.export-destination-setup-link'), page);
   await expectNewOptionsTab(context, reader.locator('a.surface-window-icon'), page);
   await reader.locator('[data-action-id="session:toggleCollapse"]').click();
   await expect(reader.locator('.resource-modal')).toHaveClass(/is-collapsed/);
@@ -99,5 +125,6 @@ test('opens a fresh Options tab from the video header without replacing the capt
   const note = video.locator('[data-capture-input]').first();
   await expect(note).toHaveValue('A video note kept while opening settings');
   await expectNewOptionsTab(context, video.locator('a.surface-window-icon'), page);
+  await expectVaultSettingsTab(context, video.locator('.export-destination-setup-link'), page);
   await expect(note).toHaveValue('A video note kept while opening settings');
 });

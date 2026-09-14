@@ -1,6 +1,9 @@
 /* @vitest-environment jsdom */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { getService, TOKENS } from '@shared/di';
+import type { PlatformServices } from '@platform/types';
+import { patchExportDestinationRow } from '@content/shared/exportDestinationDom';
 import { createI18nResource } from '@i18n/resource';
 import { getMessagesForLanguage, type I18nResource } from '@i18n';
 import { loadRuntimeLocaleAsset } from '@i18n/runtime/assets';
@@ -117,6 +120,36 @@ function createSurfaceContent() {
 }
 
 describe('runtimeSurfaceRenderer content translation context', () => {
+  it('opens vault settings exactly once for a setup link inserted into an existing clipper', () => {
+    const messaging = getService<PlatformServices>(TOKENS.platformServices).messaging;
+    const send = vi.spyOn(messaging, 'send').mockResolvedValue(undefined);
+    try {
+      const surface = renderStitchRuntimeSurface({
+        surfaceId: 'clipper',
+        appData: createSurfaceContent()
+      });
+      expect(surface.querySelector('.export-destination-setup-link')).toBeNull();
+      expect(
+        patchExportDestinationRow(surface, {
+          ...createDestination(),
+          hasConfiguredVault: false,
+          setupUrl: 'chrome-extension://test/options/index.html#section-storage'
+        })
+      ).toBe(true);
+      const link = surface.querySelector<HTMLAnchorElement>('.export-destination-setup-link');
+      if (!link) throw new Error('Expected recreated vault setup link');
+      const event = new MouseEvent('click', { bubbles: true, cancelable: true });
+      link.dispatchEvent(event);
+      expect(event.defaultPrevented).toBe(true);
+      expect(send).toHaveBeenCalledExactlyOnceWith({
+        type: 'openOptionsPage',
+        section: 'section-storage'
+      });
+    } finally {
+      send.mockRestore();
+    }
+  });
+
   beforeEach(() => {
     getContentI18nResourceMock.mockReset();
     getContentI18nResourceMock.mockReturnValue(null);
