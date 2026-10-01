@@ -113,6 +113,12 @@ describe('learning center', () => {
     expect(r.root.querySelector('#learningUrl')).toBe(input);
     expect(input.value).toBe('https://example.com/unfinished');
     expect(custom.open).toBe(true);
+    required<HTMLButtonElement>(r.root, '#learningShowResult').click();
+    await vi.waitFor(() =>
+      expect(r.root.querySelector('.learning-result [role="status"]')?.textContent).toContain(
+        'Could not open or copy'
+      )
+    );
     dispose();
   });
 

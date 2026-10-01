@@ -13,6 +13,8 @@ import {
   type LearningReceipt
 } from '../shared/learningProgress';
 import { createLearningView, element } from './learningView';
+import { copyLearningPath, revealLearningResult } from './learningResult';
+import { settingsGuidePath, type SettingsGuideStep } from '../shared/settingsGuide';
 
 const PREFERENCE_KEY = 'learningPreference.v1';
 interface Preference {
@@ -65,8 +67,9 @@ export async function mountLearningCenter(
       });
     return preferenceWrites;
   };
-  const configure = () => {
-    void navigation.openOptions().catch(() => {
+  const configure = (step: SettingsGuideStep) => {
+    const url = deps.runtime?.getURL(settingsGuidePath(step));
+    void (url ? deps.tabs.create({ url, active: true }) : navigation.openOptions()).catch(() => {
       view.error.textContent = tr('learningActionError');
     });
   };
@@ -96,6 +99,16 @@ export async function mountLearningCenter(
     },
     showResult() {
       void showResult();
+    },
+    copyPath() {
+      if (!receipt) return;
+      void copyLearningPath(receipt)
+        .then(() => {
+          view.resultFeedback.textContent = tr('learningPathCopied');
+        })
+        .catch(() => {
+          view.resultFeedback.textContent = tr('learningRevealFailed');
+        });
     },
     configure,
     later() {
@@ -167,22 +180,10 @@ export async function mountLearningCenter(
   async function showResult(): Promise<void> {
     if (!receipt) return;
     try {
-      if (
-        receipt.destination === 'downloads' &&
-        receipt.downloadId !== undefined &&
-        downloads?.show
-      ) {
-        await downloads.show(receipt.downloadId);
-      } else if (receipt.destination === 'vault' && receipt.vaultName) {
-        await navigation.openVault(
-          'obsidian://open?vault=' +
-            encodeURIComponent(receipt.vaultName) +
-            '&file=' +
-            encodeURIComponent(receipt.filePath)
-        );
-      } else view.error.textContent = tr('learningResultHint');
+      await revealLearningResult(receipt, navigation, downloads);
+      view.resultFeedback.textContent = tr('learningRevealRequested');
     } catch {
-      view.error.textContent = tr('learningActionError');
+      view.resultFeedback.textContent = tr('learningRevealFailed');
     }
   }
   view.pages.addEventListener('change', () => {

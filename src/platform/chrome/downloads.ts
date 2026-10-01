@@ -60,9 +60,13 @@ export const chromeDownloadsService: DownloadsService = {
     chrome.downloads?.onChanged.addListener(listener);
     return () => chrome.downloads?.onChanged.removeListener(listener);
   },
-  show(id) {
-    chrome.downloads?.show(Number(id));
-    return Promise.resolve();
+  async show(id) {
+    if (!chrome.downloads?.show) throw new Error('chrome.downloads.show is not available.');
+    const [item] = await chrome.downloads.search({ id: Number(id) });
+    if (!item || item.state !== 'complete' || item.exists === false)
+      throw new Error('Saved download is no longer available.');
+    // Chrome show() has no completion callback; this only requests the system file manager.
+    chrome.downloads.show(Number(id));
   },
   async download(options: DownloadTextFileOptions): Promise<number | undefined> {
     if (!chrome?.downloads?.download) {

@@ -28,6 +28,7 @@ import { createProductionStitchShellMutableState } from './productionStitchShell
 import { createProductionStitchAssetUrlResolver } from './productionStitchAssetUrlResolver';
 import { createUnavailableUsageStatsClient } from './usage-dashboard/usageStatsClient';
 import { createProductionStitchAuthoritativeRebase } from './productionStitchAuthoritativeRebase';
+import { mountSettingsTour } from './settingsTour';
 
 export function mountProductionStitchShellFromDependencies({
   root,
@@ -72,6 +73,7 @@ export function mountProductionStitchShellFromDependencies({
   });
   const themeMediaQuery = createThemeMediaQuery();
   let shellActive = true;
+  let settingsTour: ReturnType<typeof mountSettingsTour>;
 
   let renderLifecycle: ProductionStitchRenderLifecycle | null = null;
   const renderDelegates = createProductionStitchRenderDelegates(() => renderLifecycle);
@@ -204,6 +206,7 @@ export function mountProductionStitchShellFromDependencies({
   const mounted: MountedProductionStitchShell = {
     cleanup() {
       shellActive = false;
+      settingsTour?.dispose();
       actionRuntime.dispose();
       renderLifecycle?.cleanup();
       cleanupProductionStitchShell({
@@ -231,6 +234,7 @@ export function mountProductionStitchShellFromDependencies({
         language: nextLanguage
       });
       renderDelegates.render('locale-schema');
+      settingsTour?.refresh();
     }
   };
   themeMediaQuery.addEventListener?.('change', applySystemThemePreferenceChange);
@@ -246,6 +250,13 @@ export function mountProductionStitchShellFromDependencies({
     ) {
       scrollToPanel(initialPanel);
     }
+    if (shellActive && status === 'rendered')
+      settingsTour = mountSettingsTour({
+        root: mountRoot,
+        firefox: browserTarget === 'firefox',
+        getMessages: getCurrentMessages,
+        scrollToPanel
+      });
   });
   void persistence.loadUsageStatsFromStorage();
   return mounted;

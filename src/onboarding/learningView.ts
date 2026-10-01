@@ -7,6 +7,7 @@ import {
   type LearningProgress,
   type LearningReceipt
 } from '../shared/learningProgress';
+import type { SettingsGuideStep } from '../shared/settingsGuide';
 
 export type LearningTranslate = (key: keyof Messages) => string;
 export const COURSE_COPY: Record<LearningCourse, [keyof Messages, keyof Messages]> = {
@@ -49,7 +50,8 @@ export function createLearningView(
     startPractice: () => void;
     openPage: () => void;
     showResult: () => void;
-    configure: () => void;
+    copyPath: () => void;
+    configure: (step: SettingsGuideStep) => void;
     later: () => void;
     refreshTabs: () => void;
   }
@@ -117,7 +119,7 @@ export function createLearningView(
   url.placeholder = 'https://';
   const open = learningButton(tr('learningOpenPage'), actions.openPage, true);
   open.id = 'learningOpenPage';
-  const configure = learningButton(tr('learningConfigure'), actions.configure);
+  const configure = learningButton(tr('settingsConnectVault'), () => actions.configure('vault'));
   configure.id = 'learningConfigure';
   const pageActions = element('div', 'learning-actions');
   pageActions.append(
@@ -139,7 +141,13 @@ export function createLearningView(
   const resultHint = element('p', 'learning-description');
   const show = learningButton(tr('learningShowResult'), actions.showResult, true);
   show.id = 'learningShowResult';
-  result.append(resultTitle, path, resultHint, show);
+  const copy = learningButton(tr('learningCopyPath'), actions.copyPath);
+  copy.id = 'learningCopyPath';
+  const resultFeedback = element('p', 'learning-description');
+  resultFeedback.setAttribute('role', 'status');
+  const resultActions = element('div', 'learning-actions');
+  resultActions.append(show, copy);
+  result.append(resultTitle, path, resultHint, resultActions, resultFeedback);
   const advanced = element('details', 'learning-advanced');
   advanced.append(element('summary', '', tr('learningAdvanced')));
   const advancedList = element('ul', 'learning-instructions');
@@ -155,7 +163,7 @@ export function createLearningView(
   advanced.append(
     element('p', 'learning-description', tr('learningAdvancedHint')),
     advancedList,
-    learningButton(tr('learningConfigure'), actions.configure)
+    learningButton(tr('settingsTourTitle'), () => actions.configure('overview'))
   );
   root.append(intro, views, progress, result, grid, lesson, advanced);
   let renderedCourse: LearningCourse | undefined;
@@ -165,6 +173,7 @@ export function createLearningView(
     open,
     error,
     show,
+    resultFeedback,
     update(
       course: LearningCourse,
       state: LearningProgress,
@@ -204,6 +213,11 @@ export function createLearningView(
         : (pending?.receipt.filePath ?? '');
       resultHint.textContent = receipt ? tr('learningResultHint') : tr('learningPendingHint');
       show.hidden = !receipt;
+      copy.hidden = !receipt;
+      if (receipt)
+        show.textContent = tr(
+          receipt.destination === 'downloads' ? 'learningRevealDownload' : 'learningOpenObsidian'
+        );
     }
   };
 }

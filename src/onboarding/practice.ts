@@ -7,6 +7,7 @@ import { resolveRepository } from '../shared/di/serviceRegistry';
 import { DI_TOKENS } from '../shared/di/tokens';
 import type { IOptionsRepository } from '../shared/repositories/IOptionsRepository';
 import type { INavigationRepository } from '../shared/repositories/INavigationRepository';
+import { copyLearningPath, revealLearningResult } from './learningResult';
 
 export async function bootstrapPractice(platform: PlatformServices): Promise<void> {
   configureI18nStorage(platform.storage.sync);
@@ -76,21 +77,28 @@ export async function bootstrapPractice(platform: PlatformServices): Promise<voi
       locate() {
         const receipt = coach?.getReceipt();
         if (!receipt) return;
-        const result =
-          receipt.destination === 'downloads' && receipt.downloadId !== undefined
-            ? platform.downloads.show?.(receipt.downloadId)
-            : navigation.openVault(
-                'obsidian://open?vault=' +
-                  encodeURIComponent(receipt.vaultName ?? '') +
-                  '&file=' +
-                  encodeURIComponent(receipt.filePath)
-              );
-        void result?.catch(() => {
-          view.error.textContent = messages.learningActionError;
-        });
+        void revealLearningResult(receipt, navigation, platform.downloads)
+          .then(() => {
+            view.resultFeedback.textContent = messages.learningRevealRequested;
+          })
+          .catch(() => {
+            view.resultFeedback.textContent = messages.learningRevealFailed;
+          });
+      },
+      copyPath() {
+        const receipt = coach?.getReceipt();
+        if (!receipt) return;
+        void copyLearningPath(receipt)
+          .then(() => {
+            view.resultFeedback.textContent = messages.learningPathCopied;
+          })
+          .catch(() => {
+            view.resultFeedback.textContent = messages.learningRevealFailed;
+          });
       }
     },
-    videoLesson ? 'video' : readerLesson ? 'reader' : 'fragment'
+    videoLesson ? 'video' : readerLesson ? 'reader' : 'fragment',
+    platform.runtime.getBrowserTarget() === 'firefox'
   );
   coach = await mountPracticeCoach({
     view,

@@ -28,6 +28,16 @@ describe('firefox downloads adapter', () => {
     vi.unstubAllGlobals();
   });
 
+  it('propagates reveal errors and rejects an unavailable downloads API', async () => {
+    const show = vi.fn().mockRejectedValue(new Error('Missing file'));
+    vi.stubGlobal('browser', { downloads: { show } });
+    const { firefoxDownloadsService } = await import('../../../../src/platform/firefox/downloads');
+    await expect(firefoxDownloadsService.show?.(9)).rejects.toThrow('Missing file');
+    expect(show).toHaveBeenCalledWith(9);
+    vi.stubGlobal('browser', {});
+    await expect(firefoxDownloadsService.show?.(9)).rejects.toThrow('is not available');
+  });
+
   it('downloads blob attachments through an object URL and revokes it after the delay', async () => {
     const downloadApiMock = vi.fn().mockResolvedValue('download-id');
     const createObjectURLMock = vi.fn(() => 'blob:firefox-shot');

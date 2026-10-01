@@ -75,7 +75,8 @@ export const firefoxDownloadsService: DownloadsService = {
     return () => browser.downloads?.onChanged.removeListener(listener);
   },
   async show(id) {
-    await browser.downloads?.show(Number(id));
+    if (!browser.downloads?.show) throw new Error('browser.downloads.show is not available.');
+    await browser.downloads.show(Number(id));
   },
   async download(options: DownloadTextFileOptions): Promise<number | string | undefined> {
     if (!browser?.downloads?.download) {

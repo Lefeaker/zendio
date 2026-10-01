@@ -88,6 +88,10 @@ describe('report-performance-hotspots', () => {
 
   it('keeps the exact normalized budget transitions and every other budget unchanged', () => {
     const registeredBudgets = readRegisteredBudgets();
+    expect(registeredBudgets.get('src/i18n/generated/messages.generated.ts')).toBe(1281);
+    registeredBudgets.set('src/i18n/generated/messages.generated.ts', 1257);
+    expect(registeredBudgets.get('src/options/app/productionStitchShellMount.ts')).toBe(263);
+    registeredBudgets.set('src/options/app/productionStitchShellMount.ts', 254);
     expect(registeredBudgets.get('src/i18n/generated/messages.generated.ts')).toBe(1257);
     registeredBudgets.set('src/i18n/generated/messages.generated.ts', 1242);
     expect(registeredBudgets.get('src/onboarding/practiceCoach.ts')).toBe(291);

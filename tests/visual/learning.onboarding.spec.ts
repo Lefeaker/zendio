@@ -477,6 +477,18 @@ test('bundled video practice uses real timestamps screenshots and export', async
     expect(Math.abs((pixel[0] ?? 0) - 92)).toBeLessThan(15);
     expect(Math.abs((pixel[2] ?? 0) - 159)).toBeLessThan(15);
     for (const file of files) await rm(file.filename, { force: true });
+    await expect(page.locator('#practiceResult')).toBeVisible();
+    await expect(page.locator('[data-settings-guide="vault"]')).toBeVisible();
+    await expect(page.locator('[data-settings-guide="overview"]')).toBeVisible();
+    const vaultPagePromise = context.waitForEvent('page');
+    await page.locator('[data-settings-guide="vault"]').click();
+    const vaultPage = await vaultPagePromise;
+    await expect(vaultPage.locator('#settingsTour')).toBeVisible();
+    await expect(vaultPage.locator('#settingsTourTopics')).toHaveValue('vault');
+    await expect(
+      vaultPage.locator('.settings-tour-target .local-folder-trigger').first()
+    ).toBeVisible();
+    await vaultPage.close();
     for (const language of ['zh-CN', 'de']) {
       await worker.evaluate(async (lang) => {
         await chrome.storage.sync.set({ language: lang });
@@ -533,6 +545,94 @@ test('bundled video practice uses real timestamps screenshots and export', async
       );
       await page.locator('[data-action-id="video:cancel"]').click();
     }
+  } finally {
+    await context.close();
+    await rm(profile, { recursive: true, force: true });
+  }
+});
+
+test('practice links to the actual settings tour and modifier edits update practice', async ({
+  browserName
+}, testInfo) => {
+  test.skip(browserName !== 'chromium');
+  const profile = await mkdtemp(path.join(tmpdir(), 'zendio-settings-tour-'));
+  const extensionPath = path.resolve(process.env.PLAYWRIGHT_DIST_DIR ?? 'build/dist');
+  const context = await chromium.launchPersistentContext(profile, {
+    headless: false,
+    args: [
+      '--headless=new',
+      '--disable-extensions-except=' + extensionPath,
+      '--load-extension=' + extensionPath
+    ]
+  });
+  try {
+    const worker = context.serviceWorkers()[0] ?? (await context.waitForEvent('serviceworker'));
+    const id = worker.url().split('/')[2];
+    await worker.evaluate(() => chrome.storage.sync.set({ language: 'zh-CN' }));
+    const practice = await context.newPage();
+    await practice.goto('chrome-extension://' + id + '/onboarding/practice.html?run=settings-link');
+    await expect(practice.locator('kbd')).toHaveText('Shift');
+    const settingsPromise = context.waitForEvent('page');
+    await practice.locator('[data-settings-guide="selection"]').click();
+    const settings = await settingsPromise;
+    await expect(settings.locator('#settingsTour')).toBeVisible();
+    await expect(settings.locator('.settings-tour-target')).toHaveClass(/selection-trigger-inline/);
+    await settings.screenshot({ path: testInfo.outputPath('settings-selection-zh.png') });
+    await settings
+      .locator('.settings-tour-target')
+      .getByRole('button', { name: 'Alt', exact: true })
+      .click();
+    await expect(practice.locator('kbd')).toHaveText('Alt');
+    const select = settings.locator('#settingsTourTopics');
+    for (const topic of [
+      'overview',
+      'vault',
+      'routing',
+      'sources',
+      'reading',
+      'selection',
+      'output',
+      'maintenance'
+    ]) {
+      await select.selectOption(topic);
+      await expect(settings.locator('.settings-tour-target')).toBeVisible();
+      await expect(settings).toHaveURL(new RegExp('guide=' + topic));
+    }
+    await select.selectOption('vault');
+    await expect(settings.locator('#settingsTour')).toContainText('默认仓库');
+    await expect(settings.locator('#settingsTour a')).toHaveAttribute(
+      'href',
+      'https://github.com/coddingtonbear/obsidian-local-rest-api'
+    );
+    await settings.screenshot({ path: testInfo.outputPath('settings-vault-zh.png') });
+    await settings.reload();
+    await expect(settings.locator('#settingsTourTopics')).toHaveValue('vault');
+    await settings.setViewportSize({ width: 360, height: 800 });
+    await expect(settings.locator('#settingsTourNext')).toBeVisible();
+    expect(await settings.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
+      true
+    );
+    await settings.screenshot({ path: testInfo.outputPath('settings-narrow-zh.png') });
+    await settings.locator('#settingsTourClose').click();
+    await expect(settings.locator('#settingsTour')).toHaveCount(0);
+    expect(new URL(settings.url()).searchParams.has('guide')).toBe(false);
+    await settings.reload();
+    await expect(settings.locator('#settingsTour')).toHaveCount(0);
+    await expect(practice.locator('kbd')).toHaveText('Alt');
+    await worker.evaluate(() => chrome.storage.sync.set({ language: 'de' }));
+    await settings.emulateMedia({ colorScheme: 'dark' });
+    await settings.goto(
+      'chrome-extension://' + id + '/options/index.html?guide=reading#section-capture-behavior'
+    );
+    await expect(settings.locator('#settingsTour')).toContainText('Sidebar Highlights');
+    await expect(settings.locator('#settingsTourClose')).toBeVisible();
+    expect(
+      await settings.locator('#settingsTourNext').evaluate((node) => {
+        const box = node.getBoundingClientRect();
+        return box.top >= 0 && box.bottom <= innerHeight;
+      })
+    ).toBe(true);
+    await settings.screenshot({ path: testInfo.outputPath('settings-narrow-dark-de.png') });
   } finally {
     await context.close();
     await rm(profile, { recursive: true, force: true });

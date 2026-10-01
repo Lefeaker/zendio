@@ -199,6 +199,31 @@ body[data-route='practice'] {
   margin-top: 26px;
 }
 
+.practice-settings-link,
+.practice-follow-up {
+  font-size: 13px;
+  color: var(--text-faint);
+  line-height: 1.8;
+}
+
+.practice-settings-link a,
+.practice-follow-up a:not(.btn) {
+  color: var(--accent);
+  text-decoration: underline;
+}
+
+.practice-follow-up {
+  margin-top: 24px;
+  padding-top: 20px;
+  border-top: 1px solid var(--line);
+}
+
+.practice-follow-up .btn {
+  display: flex;
+  margin-top: 12px;
+  text-decoration: none;
+}
+
 .practice-root [hidden] {
   display: none;
 }

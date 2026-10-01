@@ -3,6 +3,8 @@ import type { LearningReceipt } from '../shared/learningProgress';
 import { createPracticeVideo } from './practiceVideo';
 import type { PracticeLesson } from './practiceLessonTypes';
 import { element, learningButton } from './learningView';
+import { practiceFollowUp, selectionSettingsHint } from './practiceFollowUp';
+import { learningResultPath } from './learningResult';
 
 export interface PracticeStep {
   title: string;
@@ -31,8 +33,10 @@ export function createPracticeView(
     exit: () => void;
     next: () => void;
     locate: () => void;
+    copyPath: () => void;
   },
-  lesson: PracticeLesson = 'fragment'
+  lesson: PracticeLesson = 'fragment',
+  firefox = false
 ) {
   const reading = element('section', 'practice-reading');
   const brand = element('header', 'practice-brand');
@@ -116,6 +120,8 @@ export function createPracticeView(
   enable.id = lesson === 'video' ? 'practiceStartVideo' : 'practiceEnable';
   enable.hidden = true;
   status.append(badge, stage, instruction, enable);
+  const selectionSettings = selectionSettingsHint(messages);
+  status.append(selectionSettings);
   const result = element('section', 'practice-result');
   result.id = 'practiceResult';
   result.hidden = true;
@@ -123,11 +129,23 @@ export function createPracticeView(
   const resultPath = element('p', 'learning-path');
   resultPath.id = 'practiceSavedPath';
   const locate = learningButton(messages.learningShowResult, actions.locate);
+  locate.id = 'practiceRevealResult';
+  const copyPath = learningButton(messages.learningCopyPath, actions.copyPath);
+  copyPath.id = 'practiceCopyPath';
   const next = learningButton(messages.practiceNext, actions.next, true);
   next.id = 'practiceNext';
   const resultActions = element('div', 'practice-result-actions');
-  resultActions.append(locate, next);
-  result.append(resultLabel, resultPath, resultActions);
+  const resultFeedback = element('p', 'practice-result-label');
+  resultFeedback.id = 'practiceResultFeedback';
+  resultFeedback.setAttribute('role', 'status');
+  resultActions.append(next, locate, copyPath);
+  result.append(
+    resultLabel,
+    resultPath,
+    practiceFollowUp(messages, lesson, firefox),
+    resultActions,
+    resultFeedback
+  );
   const error = element('p', 'learning-error');
   error.id = 'practiceError';
   error.setAttribute('role', 'alert');
@@ -150,6 +168,7 @@ export function createPracticeView(
     second,
     error,
     enable,
+    resultFeedback,
     readerLesson,
     lesson,
     video: media?.video,
@@ -194,6 +213,7 @@ export function createPracticeView(
         } else setText(instruction, text);
       }
       setHidden(enable, !disabled);
+      setHidden(selectionSettings, phase !== 'select' || lesson === 'video');
       setHidden(badge, !completed);
       setHidden(result, !receipt);
       first.classList.toggle('is-current', phase === 'select');
@@ -205,7 +225,13 @@ export function createPracticeView(
             ? messages.learningDownloadSaved
             : messages.learningVaultSaved
         );
-        setText(resultPath, [receipt.vaultName, receipt.filePath].filter(Boolean).join(' / '));
+        setText(resultPath, learningResultPath(receipt));
+        setText(
+          locate,
+          receipt.destination === 'downloads'
+            ? messages.learningRevealDownload
+            : messages.learningOpenObsidian
+        );
         setText(
           next,
           receipt.course === 'reader' ? messages.learningVideoTitle : messages.practiceNext

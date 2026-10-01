@@ -33,7 +33,8 @@ function rig() {
     enable: vi.fn(),
     exit: vi.fn(),
     next: vi.fn(),
-    locate: vi.fn()
+    locate: vi.fn(),
+    copyPath: vi.fn()
   });
   return { storage, options, view, root, changed: () => changed(), stop };
 }
