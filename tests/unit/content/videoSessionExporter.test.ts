@@ -143,6 +143,7 @@ describe('VideoSessionExporter', () => {
     const [clipPayload] = firstCall;
     expect(clipPayload.content).toContain('---');
     expect(clipPayload.platform).toBe('youtube');
+    expect(clipPayload.timestampCount).toBe(0);
     expect(clipPayload.videoUrl).toBe('https://example.com/watch?v=1');
     expect(clipPayload.exportDestination).toEqual({ kind: 'downloads' });
     expect(typeof clipPayload.timestamp).toBe('number');

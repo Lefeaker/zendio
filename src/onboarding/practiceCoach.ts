@@ -10,6 +10,8 @@ import {
 } from '../shared/learningProgress';
 import { DOWNLOADS_DESTINATION_ID } from '../shared/exportDestination';
 import { createPracticeCoachView, type PracticeHint } from './practiceCoachView';
+import { createPracticeReaderLesson } from './practiceReaderLesson';
+import { createPracticeVideoLesson } from './practiceVideoLesson';
 import type { createPracticeView } from './practiceView';
 
 export function matchesPracticeSource(source: string | undefined, current: string): boolean {
@@ -61,6 +63,8 @@ export async function mountPracticeCoach(args: {
   let frame: number | null = null;
   let generation = 0;
   const overlay = createPracticeCoachView(m.practiceExit, args.exit);
+  const readerLesson = createPracticeReaderLesson(m);
+  const videoLesson = view.video ? createPracticeVideoLesson(view.video, m) : undefined;
   const watched = new Map<ShadowRoot, MutationObserver>();
   const schedule = () => {
     if (!disposed && frame === null)
@@ -76,14 +80,18 @@ export async function mountPracticeCoach(args: {
     childList: true,
     subtree: true,
     attributes: true,
-    attributeFilter: ['hidden', 'class', 'style', 'aria-busy']
+    attributeFilter: ['hidden', 'class', 'style', 'aria-busy', 'data-screenshot-state']
   };
   const actionClick = (event: Event) => {
+    if (event.target instanceof Element) {
+      readerLesson.onClick(event.target);
+      videoLesson?.onClick(event.target);
+    }
     const target =
       event.target instanceof Element
         ? event.target.closest<HTMLElement>('[data-action-id]')
         : null;
-    if (['clip', 'reader:finish'].includes(target?.dataset.actionId ?? '')) {
+    if (['clip', 'reader:finish', 'video:finish'].includes(target?.dataset.actionId ?? '')) {
       saving = true;
       schedule();
     }
@@ -113,11 +121,13 @@ export async function mountPracticeCoach(args: {
     }
     const clipper = panel('obsidian-clipper-dialog');
     const reader = panel('aiob-reader-panel');
+    const video = panel('aiob-video-panel');
     const support = panel('aiob-support-prompt');
     const close = support?.querySelector<HTMLElement>('[data-action-id="resource:close"]');
     const supportFailed = Boolean(support?.querySelector('.task-progress-track.is-failure'));
     const disabled = config.selectionTriggerMode === 'disabled';
     let hint: PracticeHint | undefined;
+    let milestones: string[] = [];
     let container: HTMLElement | ShadowRoot = document.body;
     if (clipper) {
       container = clipper;
@@ -154,7 +164,10 @@ export async function mountPracticeCoach(args: {
           side: 'right'
         };
       }
-    } else if (receipt && (receipt.course === 'reader' || !reader)) {
+    } else if (
+      receipt &&
+      (receipt.course === 'reader' || receipt.course === 'video' || (!reader && !video))
+    ) {
       saving = false;
       view.update({ title: m.practiceSaved, text: m.practiceResult, phase: 'saved', receipt });
       if (support && close) {
@@ -184,41 +197,26 @@ export async function mountPracticeCoach(args: {
         text: m.learningPendingHint,
         phase: 'saving'
       });
+    } else if (video && videoLesson) {
+      container = video;
+      const guidance = videoLesson.read(video);
+      view.update(guidance.step);
+      hint = guidance.hint;
+      milestones = guidance.milestones;
     } else if (reader) {
       container = reader;
-      const count = reader.querySelectorAll('[data-role="highlight-item"]').length;
-      const finish = reader.querySelector<HTMLElement>('[data-action-id="reader:finish"]');
-      const collapse = reader.querySelector<HTMLElement>(
-        '[data-action-id="session:toggleCollapse"]'
-      );
-      const collapsed = Boolean(reader.querySelector('.is-collapsed'));
+      const guidance = readerLesson.read(reader);
+      view.update(guidance.step);
+      hint = guidance.hint;
+      milestones = guidance.milestones;
+    } else if (view.video) {
       view.update({
-        title: count >= 2 ? m.readerPanelFinish : m.practiceReading,
-        text:
-          count >= 2
-            ? m.practiceFinish
-            : !collapsed && collapse
-              ? m.practiceCollapse
-              : m.practiceAnother,
-        phase: count >= 2 ? 'ready' : 'reading'
+        title: m.learningVideoTitle,
+        text: m.practiceVideoIntro,
+        phase: 'select',
+        disabled: true,
+        index: 0
       });
-      if (count < 2 && !collapsed && collapse) {
-        hint = {
-          target: collapse,
-          title: collapse.getAttribute('aria-label') ?? '',
-          body: m.practiceCollapse,
-          side: 'left'
-        };
-      } else if (count < 2) {
-        container = document.body;
-      } else if (finish) {
-        hint = {
-          target: finish,
-          title: finish.textContent?.trim() ?? '',
-          body: m.practiceFinish,
-          side: 'left'
-        };
-      }
     } else {
       view.update({
         title: m.practiceSelectTitle,
@@ -230,13 +228,9 @@ export async function mountPracticeCoach(args: {
       });
     }
     overlay.render(hint, container);
-    const milestones = clipper
-      ? ['selected']
-      : reader
-        ? ['selected', 'reading']
-        : receipt
-          ? ['selected', 'saved']
-          : [];
+    view.setOverlayActive(container instanceof ShadowRoot);
+    if (clipper) milestones = ['selected'];
+    else if (receipt && !reader && !video) milestones = ['selected', 'saved'];
     overlay.celebrate(milestones, hint?.target ?? view.status);
   }
   const readProgress = async () => {
@@ -266,6 +260,8 @@ export async function mountPracticeCoach(args: {
   const stopProgress = storage.watchKey(LEARNING_PROGRESS_KEY, () => {
     void readProgress();
   });
+  const mediaEvents = ['seeked', 'loadeddata', 'timeupdate'];
+  mediaEvents.forEach((name) => view.video?.addEventListener(name, schedule));
   window.addEventListener('resize', schedule);
   window.addEventListener('scroll', schedule, true);
   await readProgress();
@@ -281,6 +277,7 @@ export async function mountPracticeCoach(args: {
         root.removeEventListener('click', actionClick, true);
       });
       watched.clear();
+      mediaEvents.forEach((name) => view.video?.removeEventListener(name, schedule));
       stopOptions();
       stopProgress();
       window.removeEventListener('resize', schedule);

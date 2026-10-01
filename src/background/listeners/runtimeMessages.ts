@@ -68,6 +68,7 @@ function toVideoClipPayload(data: Record<string, unknown>): unknown {
       url: data.url || data.videoUrl,
       sourceUrl: data.videoUrl || data.url,
       platform: data.platform,
+      ...(data.timestampCount !== undefined ? { timestampCount: data.timestampCount } : {}),
       ...(data.attachments ? { attachments: data.attachments } : {}),
       ...(data.exportDestination ? { exportDestination: data.exportDestination } : {})
     }

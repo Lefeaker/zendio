@@ -188,7 +188,7 @@ export function createLearningView(
         card.status.textContent = tr(learningCourseStatus(id, course, state, deferred));
       }
       configure.hidden = course !== 'vault';
-      start.hidden = !['fragment', 'reader'].includes(course);
+      start.hidden = !['fragment', 'reader', 'video'].includes(course);
       if (renderedCourse !== course) custom.open = start.hidden;
       renderedCourse = course;
       steps.hidden = !start.hidden;

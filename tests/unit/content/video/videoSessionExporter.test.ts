@@ -84,6 +84,7 @@ describe('VideoSessionExporter', () => {
     });
 
     const exportedClip = readExportedClip(repository);
+    expect(exportedClip.timestampCount).toBe(1);
     expect(exportedClip.attachments).toHaveLength(1);
     expect(exportedClip.content).toContain('![Screenshot](aiob-attachment:shot-live)');
     expect(exportedClip.attachments?.[0]).toMatchObject({

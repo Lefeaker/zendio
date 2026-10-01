@@ -2,6 +2,8 @@ html[data-route='practice'],
 body[data-route='practice'] {
   min-height: 100%;
   height: auto;
+  overflow-x: clip;
+  overflow-y: visible;
   background: var(--bg);
 }
 
@@ -98,6 +100,8 @@ body[data-route='practice'] {
 }
 
 .practice-lesson-content {
+  position: sticky;
+  top: 36px;
   max-width: 420px;
   margin: clamp(72px, 13vh, 136px) auto 0;
 }
@@ -234,10 +238,72 @@ body[data-route='practice'] {
   .practice-passage {
     font-size: 16px;
   }
+
+  .practice-video-active .practice-lesson,
+  .practice-video-active .practice-brand,
+  .practice-video-active .practice-article > h1,
+  .practice-video-active .practice-article-eyebrow {
+    visibility: hidden;
+  }
+
+  .practice-video-active .practice-video {
+    position: fixed;
+    inset: 60px 16px auto;
+    display: grid;
+    grid-template-columns: minmax(0, 200px) auto;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .practice-video-active .practice-video-caption {
+    display: none;
+  }
+
+  .practice-video-active .practice-video-cues {
+    flex-direction: column;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
   .practice-passage {
     transition: none;
   }
+}
+
+.practice-reading-middle {
+  display: flex;
+  min-height: 130vh;
+  flex-direction: column;
+  justify-content: space-evenly;
+  gap: 40px;
+  padding: 48px 0;
+  color: var(--text-dim);
+  font-size: 18px;
+  line-height: 2;
+}
+
+.practice-reading-middle p {
+  margin: 0;
+}
+
+.practice-player {
+  display: block;
+  width: 100%;
+  border-radius: 14px;
+  background: var(--surface-muted);
+}
+
+.practice-video-caption {
+  margin: 20px 0 10px;
+  color: var(--text-faint);
+  font-size: 13px;
+}
+
+.practice-video-cues {
+  display: flex;
+  gap: 10px;
+}
+
+.practice-video-cues .btn {
+  font-variant-numeric: tabular-nums;
 }

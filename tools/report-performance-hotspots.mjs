@@ -25,7 +25,7 @@ export const MAX_LINE_BUDGETS = new Map([
   // 2026-07-20 selection-trigger policy: generated runtime messages carry the
   // explicit disabled, direct, and modifier mode copy plus diagnostics copy.
   // 2026-10-01: learning walkthrough and guided practice add 74 message declarations.
-  ['src/i18n/generated/messages.generated.ts', 1242],
+  ['src/i18n/generated/messages.generated.ts', 1257],
   ['src/i18n/generated/locales/fr.generated.ts', 785],
   ['src/i18n/generated/locales/es-419.generated.ts', 777],
   ['src/i18n/generated/locales/es-ES.generated.ts', 777],

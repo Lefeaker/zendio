@@ -26,13 +26,27 @@ export async function bootstrapPractice(platform: PlatformServices): Promise<voi
     coach?.dispose();
     location.assign('index.html');
   };
+  const videoLesson = new URL(location.href).searchParams.get('lesson') === 'video';
   const readerLesson = new URL(location.href).searchParams.get('lesson') === 'reader';
+  if (videoLesson) document.title = messages.learningVideoTitle;
   const view = createPracticeView(
     root,
     messages,
     {
       exit,
       enable() {
+        if (videoLesson) {
+          view.enable.disabled = true;
+          void import('./practiceVideo')
+            .then(({ startPracticeVideo }) => startPracticeVideo(platform, options))
+            .catch(() => {
+              view.error.textContent = messages.learningActionError;
+            })
+            .finally(() => {
+              view.enable.disabled = false;
+            });
+          return;
+        }
         void options
           .get()
           .then((current) =>
@@ -52,7 +66,10 @@ export async function bootstrapPractice(platform: PlatformServices): Promise<voi
       },
       next() {
         const next = new URL(location.href);
-        next.searchParams.set('lesson', 'reader');
+        next.searchParams.set(
+          'lesson',
+          coach?.getReceipt()?.course === 'reader' ? 'video' : 'reader'
+        );
         next.searchParams.set('run', crypto.randomUUID());
         location.assign(next.href);
       },
@@ -73,7 +90,7 @@ export async function bootstrapPractice(platform: PlatformServices): Promise<voi
         });
       }
     },
-    readerLesson
+    videoLesson ? 'video' : readerLesson ? 'reader' : 'fragment'
   );
   coach = await mountPracticeCoach({
     view,

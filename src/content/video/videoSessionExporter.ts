@@ -158,6 +158,7 @@ export class VideoSessionExporter {
       url: payload.meta.url || ctx.canonicalUrl || ctx.videoUrl || '',
       videoUrl: ctx.videoUrl ?? '',
       timestamp: Date.now(),
+      timestampCount: payload.meta.timestampCount,
       platform: this.mapPlatform(ctx.platform),
       ...(payload.meta.attachments ? { attachments: payload.meta.attachments } : {}),
       ...(ctx.exportDestination ? { exportDestination: ctx.exportDestination } : {})
