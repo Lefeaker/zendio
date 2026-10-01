@@ -28,7 +28,11 @@ export function matchesPracticeSource(source: string | undefined, current: strin
 export function practiceSelectionHint(config: FragmentClipperOptions, messages: Messages): string {
   if (config.selectionTriggerMode === 'disabled') return messages.practiceDisabled;
   if (config.selectionTriggerMode === 'direct') return messages.practiceSelectDirect;
-  const keys = config.selectionModifierKeys
+  return messages.practiceSelect.replace('{key}', practiceSelectionKeys(config));
+}
+
+function practiceSelectionKeys(config: FragmentClipperOptions): string {
+  return config.selectionModifierKeys
     .map(
       (key) =>
         ({
@@ -39,7 +43,6 @@ export function practiceSelectionHint(config: FragmentClipperOptions, messages: 
         })[key]
     )
     .join(' + ');
-  return messages.practiceSelect.replace('{key}', keys);
 }
 
 export async function mountPracticeCoach(args: {
@@ -114,12 +117,16 @@ export async function mountPracticeCoach(args: {
     const close = support?.querySelector<HTMLElement>('[data-action-id="resource:close"]');
     const supportFailed = Boolean(support?.querySelector('.task-progress-track.is-failure'));
     const disabled = config.selectionTriggerMode === 'disabled';
-    const hints: PracticeHint[] = [];
+    let hint: PracticeHint | undefined;
     let container: HTMLElement | ShadowRoot = document.body;
     if (clipper) {
       container = clipper;
       saving = false;
-      view.update(m.practicePopup, m.practiceComment, false);
+      view.update({
+        title: view.readerLesson ? m.learningReaderTitle : m.practicePopup,
+        text: view.readerLesson ? m.practiceReader : m.practiceComment,
+        phase: 'capture'
+      });
       const readerButton = clipper.querySelector<HTMLElement>('[data-action-id="reader"]');
       const clipButton = clipper.querySelector<HTMLElement>('[data-action-id="clip"]');
       const selected = clipper.querySelector<HTMLElement>('.export-destination-option.is-selected');
@@ -132,46 +139,51 @@ export async function mountPracticeCoach(args: {
             '{name}',
             clipper.querySelector('.export-destination-label')?.textContent ?? ''
           );
-      if (readerButton)
-        hints.push({
+      if (view.readerLesson && readerButton) {
+        hint = {
           target: readerButton,
           title: readerButton.textContent?.trim() ?? '',
-          body: reader ? m.practiceAddHighlight : m.practiceReader,
+          body: m.practiceReader,
           side: 'left'
-        });
-      if (clipButton)
-        hints.push({
+        };
+      } else if (clipButton) {
+        hint = {
           target: clipButton,
           title: clipButton.textContent?.trim() ?? '',
           body: m.practiceClip + '\n' + destination,
           side: 'right'
-        });
+        };
+      }
     } else if (receipt && (receipt.course === 'reader' || !reader)) {
       saving = false;
-      view.update(m.practiceSaved, m.practiceResult, false, receipt);
+      view.update({ title: m.practiceSaved, text: m.practiceResult, phase: 'saved', receipt });
       if (support && close) {
         container = support;
-        hints.push({
+        hint = {
           target: close,
           title: m.practiceSaved,
           body: m.practiceCloseResult,
           side: 'left'
-        });
+        };
       }
     } else if (supportFailed || failed) {
       saving = false;
-      view.update(m.learningDownloadFailed, m.practiceRetry, false);
+      view.update({ title: m.learningDownloadFailed, text: m.practiceRetry, phase: 'error' });
       if (support && close) {
         container = support;
-        hints.push({
+        hint = {
           target: close,
           title: m.learningDownloadFailed,
           body: m.practiceRetry,
           side: 'left'
-        });
+        };
       }
     } else if (saving) {
-      view.update(m.learningDownloadPending, m.learningPendingHint, false);
+      view.update({
+        title: m.learningDownloadPending,
+        text: m.learningPendingHint,
+        phase: 'saving'
+      });
     } else if (reader) {
       container = reader;
       const count = reader.querySelectorAll('[data-role="highlight-item"]').length;
@@ -180,49 +192,52 @@ export async function mountPracticeCoach(args: {
         '[data-action-id="session:toggleCollapse"]'
       );
       const collapsed = Boolean(reader.querySelector('.is-collapsed'));
-      view.update(
-        m.practiceReading,
-        count >= 2
-          ? m.practiceFinish
-          : !collapsed && collapse
-            ? m.practiceCollapse
-            : m.practiceAnother,
-        false
-      );
+      view.update({
+        title: count >= 2 ? m.readerPanelFinish : m.practiceReading,
+        text:
+          count >= 2
+            ? m.practiceFinish
+            : !collapsed && collapse
+              ? m.practiceCollapse
+              : m.practiceAnother,
+        phase: count >= 2 ? 'ready' : 'reading'
+      });
       if (count < 2 && !collapsed && collapse) {
-        hints.push({
+        hint = {
           target: collapse,
           title: collapse.getAttribute('aria-label') ?? '',
           body: m.practiceCollapse,
           side: 'left'
-        });
+        };
       } else if (count < 2) {
-        // Keep the passage hint in the document; its target is outside the reader's shadow root.
         container = document.body;
-        hints.push({
-          target: view.second,
-          title: m.practiceReading,
-          body: m.practiceAnother,
-          side: 'right'
-        });
       } else if (finish) {
-        hints.push({
+        hint = {
           target: finish,
           title: finish.textContent?.trim() ?? '',
           body: m.practiceFinish,
           side: 'left'
-        });
+        };
       }
     } else {
-      view.update(m.practiceSelectTitle, practiceSelectionHint(config, m), disabled);
-      hints.push({
-        target: disabled ? view.enable : view.first,
+      view.update({
         title: m.practiceSelectTitle,
-        body: practiceSelectionHint(config, m),
-        side: 'right'
+        text: practiceSelectionHint(config, m),
+        disabled,
+        phase: 'select',
+        shortcut:
+          config.selectionTriggerMode === 'modifier' ? practiceSelectionKeys(config) : undefined
       });
     }
-    overlay.render(hints, container);
+    overlay.render(hint, container);
+    const milestones = clipper
+      ? ['selected']
+      : reader
+        ? ['selected', 'reading']
+        : receipt
+          ? ['selected', 'saved']
+          : [];
+    overlay.celebrate(milestones, hint?.target ?? view.status);
   }
   const readProgress = async () => {
     const current = ++generation;

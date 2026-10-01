@@ -1,6 +1,6 @@
-import { ManagedShadowStyleHost } from '../ui/foundation/style-host';
-import type { StyleAttachmentHandle } from '../ui/foundation/style-host';
+import { ManagedShadowStyleHost, type StyleAttachmentHandle } from '../ui/foundation/style-host';
 import { element, learningButton } from './learningView';
+import { createPracticeCelebration } from './practiceCelebration';
 import coachCss from './practiceCoach.css?inline';
 
 export interface PracticeHint {
@@ -10,7 +10,7 @@ export interface PracticeHint {
   side: 'left' | 'right';
 }
 
-/** A page-owned overlay. It moves into the active panel's shadow root to share its focus scope. */
+/** Keep the single coach note and its exit action inside the active modal's focus scope. */
 export function createPracticeCoachView(exitLabel: string, exit: () => void) {
   const portal = element('aside', 'practice-coach');
   portal.id = 'practiceCoach';
@@ -20,80 +20,87 @@ export function createPracticeCoachView(exitLabel: string, exit: () => void) {
   const svg = document.createElementNS(ns, 'svg');
   svg.classList.add('practice-coach-arrows');
   svg.setAttribute('aria-hidden', 'true');
+  const path = document.createElementNS(ns, 'path');
+  svg.append(path);
+  const celebration = createPracticeCelebration();
+  svg.style.display = 'none';
+  portal.append(svg, celebration.layer, exitButton);
   const styleHost = new ManagedShadowStyleHost();
   let style: StyleAttachmentHandle | undefined;
   let parent: HTMLElement | ShadowRoot | undefined;
-  let current: PracticeHint[] = [];
-  let cards: HTMLElement[] = [];
-  let paths: SVGPathElement[] = [];
-  const restoreDescriptions = new Map<HTMLElement, string | null>();
+  let current: PracticeHint | undefined;
+  let card: HTMLElement | undefined;
+  let originalDescription: string | null = null;
   const clear = () => {
-    for (const [target, value] of restoreDescriptions) {
-      target.classList.remove('practice-coached');
-      if (value === null) target.removeAttribute('aria-describedby');
-      else target.setAttribute('aria-describedby', value);
-    }
-    restoreDescriptions.clear();
+    if (!current) return;
+    current.target.classList.remove('practice-coached');
+    if (originalDescription === null) current.target.removeAttribute('aria-describedby');
+    else current.target.setAttribute('aria-describedby', originalDescription);
   };
   const position = () => {
-    const width = window.innerWidth;
-    const height = window.innerHeight;
-    svg.setAttribute('viewBox', `0 0 ${width} ${height}`);
-    cards.forEach((card, index) => {
-      const hint = current[index];
-      const path = paths[index];
-      if (!hint || !path) return;
-      const target = hint.target.getBoundingClientRect();
-      const surface = hint.target
+    if (!current || !card) return;
+    const width = innerWidth,
+      height = innerHeight;
+    const target = current.target.getBoundingClientRect();
+    const surface =
+      current.target
         .closest<HTMLElement>('.clipper-surface-window, .surface-window')
-        ?.getBoundingClientRect();
-      const cardWidth = Math.min(224, width - 32);
-      card.style.width = `${cardWidth}px`;
-      const cardHeight = card.getBoundingClientRect().height;
-      const left = hint.side === 'left';
-      const sideSpace = surface
-        ? left
-          ? surface.left
-          : width - surface.right
-        : left
-          ? target.left
-          : width - target.right;
-      const outside = sideSpace >= cardWidth + 28;
-      let x: number;
-      let y: number;
-      if (outside) {
-        x = left
-          ? (surface?.left ?? target.left) - cardWidth - 18
-          : (surface?.right ?? target.right) + 18;
-        y = Math.max(64, Math.min(height - cardHeight - 16, target.top - cardHeight / 2));
-      } else {
-        x = 16;
-        card.style.width = `${width - 32}px`;
-        const measuredHeight = card.getBoundingClientRect().height;
-        y = index === 0 ? 56 : height - measuredHeight - 12;
-      }
-      card.style.left = `${x}px`;
-      card.style.top = `${y}px`;
-      const box = card.getBoundingClientRect();
-      const tx = left ? target.left - 5 : target.right + 5;
-      const ty = target.top + target.height / 2;
-      const sx = outside ? (left ? box.right : box.left) : left ? box.left : box.right;
-      const sy = box.top + box.height / 2;
-      const edge = left ? 7 : width - 7;
-      const d = outside
-        ? `M ${sx} ${sy} L ${tx} ${ty}`
-        : `M ${sx} ${sy} L ${edge} ${sy} L ${edge} ${ty} L ${tx} ${ty}`;
-      const direction = left ? -1 : 1;
-      path.setAttribute(
-        'd',
-        d + ` M ${tx + direction * 7} ${ty - 5} L ${tx} ${ty} L ${tx + direction * 7} ${ty + 5}`
+        ?.getBoundingClientRect() ?? target;
+    svg.setAttribute('viewBox', `0 0 ${width} ${height}`);
+    card.style.width = `${Math.min(288, width - 32)}px`;
+    const box = card.getBoundingClientRect();
+    const left = current.side === 'left';
+    const below = surface.bottom + box.height + 36 <= height;
+    const outside = (left ? surface.left : width - surface.right) >= box.width + 32;
+    let x: number, y: number, sx: number, sy: number, tx: number, ty: number;
+    if (below) {
+      x = Math.max(
+        16,
+        Math.min(width - box.width - 16, target.left + target.width / 2 - box.width / 2)
       );
-    });
+      y = surface.bottom + 30;
+      sx = x + box.width / 2;
+      sy = y - 5;
+      tx = target.left + target.width / 2;
+      ty = target.bottom + 7;
+    } else if (outside) {
+      x = left ? surface.left - box.width - 24 : surface.right + 24;
+      y = Math.max(56, Math.min(height - box.height - 16, target.top - box.height / 2));
+      sx = left ? x + box.width + 5 : x - 5;
+      sy = y + box.height / 2;
+      tx = left ? target.left - 7 : target.right + 7;
+      ty = target.top + target.height / 2;
+    } else {
+      // On short/narrow viewports use the space above the dialog, never its action row.
+      x = Math.max(
+        16,
+        Math.min(width - box.width - 16, target.left + target.width / 2 - box.width / 2)
+      );
+      y = Math.max(52, surface.top - box.height - 26);
+      sx = left ? x - 4 : x + box.width + 4;
+      sy = y + box.height / 2;
+      tx = left ? target.left - 7 : target.right + 7;
+      ty = target.top + target.height / 2;
+    }
+    card.style.left = `${x}px`;
+    card.style.top = `${y}px`;
+    const edge = left ? 7 : width - 7;
+    const cx = !below && !outside ? edge : sx + (tx - sx) * 0.3 + (left ? -18 : 18);
+    const cy = below ? sy - 10 : sy;
+    const endX = !below && !outside ? edge : tx + (left ? -22 : 22);
+    const endY = below ? ty + 12 : ty - 16;
+    const angle = Math.atan2(ty - endY, tx - endX);
+    const wing = (offset: number) =>
+      `${tx - 8 * Math.cos(angle + offset)} ${ty - 8 * Math.sin(angle + offset)}`;
+    path.setAttribute(
+      'd',
+      `M ${sx} ${sy} C ${cx} ${cy}, ${endX} ${endY}, ${tx} ${ty} M ${wing(-0.5)} L ${tx} ${ty} L ${wing(0.5)}`
+    );
   };
   return {
     portal,
-    position,
-    render(next: PracticeHint[], container: HTMLElement | ShadowRoot) {
+    celebrate: celebration.sync,
+    render(hint: PracticeHint | undefined, container: HTMLElement | ShadowRoot) {
       if (parent !== container || portal.parentNode !== container) {
         style?.dispose();
         style =
@@ -103,42 +110,39 @@ export function createPracticeCoachView(exitLabel: string, exit: () => void) {
         container.append(portal);
         parent = container;
       }
+      exitButton.hidden = !(container instanceof ShadowRoot);
       if (
-        current.length === next.length &&
-        current.every(
-          (hint, index) =>
-            hint.target === next[index]?.target &&
-            hint.title === next[index]?.title &&
-            hint.body === next[index]?.body
-        )
+        current?.target === hint?.target &&
+        current?.title === hint?.title &&
+        current?.body === hint?.body
       ) {
         position();
         return;
       }
       clear();
-      current = next;
-      svg.replaceChildren();
-      cards = next.map((hint, index) => {
-        const card = element('div', 'practice-coach-hint');
-        card.id = 'practiceHint' + index;
+      current = hint;
+      card?.remove();
+      card = undefined;
+      svg.style.display = hint ? '' : 'none';
+      if (hint) {
+        card = element('div', 'practice-coach-hint');
+        card.id = 'practiceHint';
         card.setAttribute('role', 'note');
         card.append(element('strong', '', hint.title), element('p', '', hint.body));
         hint.target.classList.add('practice-coached');
-        restoreDescriptions.set(hint.target, hint.target.getAttribute('aria-describedby'));
+        originalDescription = hint.target.getAttribute('aria-describedby');
         if (hint.target.getRootNode() === container)
-          hint.target.setAttribute('aria-describedby', card.id);
-        return card;
-      });
-      paths = next.map(() => {
-        const path = document.createElementNS(ns, 'path');
-        svg.append(path);
-        return path;
-      });
-      portal.replaceChildren(svg, ...cards, exitButton);
+          hint.target.setAttribute(
+            'aria-describedby',
+            [originalDescription, card.id].filter(Boolean).join(' ')
+          );
+      }
+      portal.replaceChildren(svg, ...(card ? [card] : []), celebration.layer, exitButton);
       position();
     },
     dispose() {
       clear();
+      celebration.dispose();
       style?.dispose();
       styleHost.destroy();
       portal.remove();

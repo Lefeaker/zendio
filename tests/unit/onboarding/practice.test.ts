@@ -41,6 +41,10 @@ function rig() {
 describe('guided practice', () => {
   beforeEach(() => {
     document.body.replaceChildren();
+    vi.stubGlobal(
+      'matchMedia',
+      vi.fn(() => ({ matches: false, addEventListener: vi.fn(), removeEventListener: vi.fn() }))
+    );
   });
   it('uses the configured selection trigger without changing settings', () => {
     const config = DEFAULT_OPTIONS.fragmentClipper;
@@ -82,8 +86,9 @@ describe('guided practice', () => {
       pending: [],
       latest: { ...receipt, sourceUrl: 'https://elsewhere.test/' }
     });
-    await vi.waitFor(() => expect(document.querySelector('.practice-coach-hint')).not.toBeNull());
+    await vi.waitFor(() => expect(r.root.textContent).toContain(messages.practiceSelectTitle));
     expect(coach.getReceipt()).toBeUndefined();
+    expect(document.querySelector('[data-milestone="saved"]')).toBeNull();
     const own = { ...receipt, sourceUrl: location.href };
     await save({
       version: 1,
@@ -92,11 +97,13 @@ describe('guided practice', () => {
     });
     await vi.waitFor(() => expect(r.root.textContent).toContain(messages.practiceRetry));
     expect(coach.getReceipt()).toBeUndefined();
+    expect(document.querySelector('[data-milestone="saved"]')).toBeNull();
     await save({ version: 1, completed: { fragment: own }, pending: [], latest: own });
     await vi.waitFor(() =>
       expect(r.root.querySelector('#practiceResult')?.hasAttribute('hidden')).toBe(false)
     );
     expect(coach.getReceipt()?.sourceUrl).toBe(location.href);
+    expect(document.querySelector('[data-milestone="saved"]')).not.toBeNull();
     const mutation = vi.fn();
     const observer = new MutationObserver(mutation);
     observer.observe(r.root, { subtree: true, attributes: true, childList: true });
@@ -118,7 +125,7 @@ describe('guided practice', () => {
     shadow.innerHTML =
       '<button data-action-id="reader">Read</button><button data-action-id="clip">Clip</button><div class="export-destination-option is-selected" data-destination-id="downloads"></div><a class="export-destination-setup-link"></a>';
     document.body.append(popup);
-    await vi.waitFor(() => expect(shadow.querySelectorAll('.practice-coach-hint')).toHaveLength(2));
+    await vi.waitFor(() => expect(shadow.querySelectorAll('.practice-coach-hint')).toHaveLength(1));
     expect(shadow.textContent).toContain(messages.practiceNoVault);
     popup.remove();
     await vi.waitFor(() => expect(r.root.textContent).toContain(messages.practiceSelectTitle));

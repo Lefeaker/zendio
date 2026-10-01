@@ -57,6 +57,7 @@ test('bundled practice uses the real Shift selection dialog and reader', async (
   const context = await chromium.launchPersistentContext(profile, {
     headless: false,
     acceptDownloads: true,
+    recordVideo: { dir: testInfo.outputPath('recording'), size: { width: 1280, height: 720 } },
     args: [
       '--headless=new',
       '--disable-extensions-except=' + extensionPath,
@@ -79,16 +80,22 @@ test('bundled practice uses the real Shift selection dialog and reader', async (
       .pages()
       .find((page) => page.url().includes('/onboarding/practice.html'));
     if (!practice) throw new Error('Missing practice page');
+    console.log('[practice-video]', await practice.video()?.path());
     await expect(practice.locator('#practiceFirst')).toBeVisible();
-    await expect(practice.locator('.practice-coach-hint')).toContainText('Hold Shift');
+    await expect(practice.locator('#practiceStatus')).toContainText('Hold Shift');
+    await expect(practice.locator('kbd')).toHaveText('Shift');
+    await expect(practice.locator('.practice-coach-hint')).toHaveCount(0);
+    await practice.screenshot({ path: testInfo.outputPath('practice-layout.png') });
     await selectPassage(practice, '#practiceFirst');
     await expect(practice.locator('.clipper-comment-textarea')).toBeVisible();
-    await expect(practice.locator('.practice-coach-hint')).toHaveCount(2);
+    await expect(practice.locator('.practice-coach-hint')).toHaveCount(1);
     await expect(practice.locator('.practice-coach-hint').last()).toContainText(
       'No vault is configured'
     );
-    await expect(practice.locator('[data-action-id="reader"]')).toHaveClass(/practice-coached/);
+    await expect(practice.locator('[data-action-id="reader"]')).not.toHaveClass(/practice-coached/);
+    await expect(practice.locator('[data-milestone="selected"]')).toBeAttached();
     await expect(practice.locator('[data-action-id="clip"]')).toHaveClass(/practice-coached/);
+    await expectUncoveredControls(practice);
     await practice.screenshot({ path: testInfo.outputPath('practice-clipper-arrows.png') });
     await practice.locator('.clipper-comment-textarea').fill('A real guided selection.');
     await practice.locator('[data-action-id="clip"]').click();
@@ -104,16 +111,38 @@ test('bundled practice uses the real Shift selection dialog and reader', async (
     if (!saved) throw new Error('Missing saved note');
     expect(saved.sourceUrl).toContain('/onboarding/practice.html');
     expect(await readFile(saved.filePath, 'utf8')).toContain('A real guided selection.');
+    await expect(practice.locator('[data-milestone="saved"]')).toBeAttached();
+    await expect
+      .poll(async () =>
+        practice
+          .locator('.practice-confetti-bit')
+          .first()
+          .evaluate((node) =>
+            node
+              .getAnimations()
+              .some(
+                (animation) =>
+                  Number(animation.currentTime) >= 150 && animation.playState === 'running'
+              )
+          )
+      )
+      .toBe(true);
+    await practice.screenshot({ path: testInfo.outputPath('practice-saved-confetti.png') });
     await rm(saved.filePath, { force: true });
     await practice.reload();
+    await expect(practice.locator('#practiceResult')).toBeVisible();
+    await expect(practice.locator('.practice-confetti-bit')).toHaveCount(0);
+    await practice.locator('#practiceNext').click();
+    await expect(practice).toHaveURL(/lesson=reader/);
     await expect(practice.locator('#practiceFirst')).toBeVisible();
     await selectPassage(practice, '#practiceFirst');
     await expect(practice.locator('[data-action-id="reader"]')).toBeVisible();
+    await expect(practice.locator('[data-action-id="reader"]')).toHaveClass(/practice-coached/);
     await practice.locator('[data-action-id="reader"]').click();
     await expect(practice.locator('#aiob-reader-panel')).toBeVisible();
     await expect(practice.locator('.practice-coach-hint')).toContainText('Collapse');
     await practice.locator('[data-action-id="session:toggleCollapse"]').click();
-    await expect(practice.locator('.practice-coach-hint')).toContainText('second passage');
+    await expect(practice.locator('#practiceStatus')).toContainText('second passage');
     await selectPassage(practice, '#practiceSecond');
     await expect(practice.locator('[data-role="highlight-item"]')).toHaveCount(2);
     await expect(practice.locator('[data-action-id="reader:finish"]')).toHaveClass(
@@ -132,6 +161,12 @@ test('bundled practice uses the real Shift selection dialog and reader', async (
     await worker.evaluate(async () => {
       await chrome.storage.sync.set({ language: 'zh-CN' });
     });
+    await practice.setViewportSize({ width: 1280, height: 800 });
+    await practice.goto(
+      'chrome-extension://' + extensionId + '/onboarding/practice.html?run=zh-layout'
+    );
+    await expect(practice.locator('#practiceFirst')).toBeVisible();
+    await practice.screenshot({ path: testInfo.outputPath('practice-layout-zh.png') });
     await practice.setViewportSize({ width: 360, height: 800 });
     await practice.goto(
       'chrome-extension://' + extensionId + '/onboarding/practice.html?run=narrow'
@@ -157,7 +192,7 @@ test('bundled practice uses the real Shift selection dialog and reader', async (
       );
       await expect(practice.locator('#practiceFirst')).toBeVisible();
       await selectPassage(practice, '#practiceFirst');
-      await expect(practice.locator('.practice-coach-hint')).toHaveCount(2);
+      await expect(practice.locator('.practice-coach-hint')).toHaveCount(1);
       await expectUncoveredControls(practice);
       expect(
         await practice.evaluate(() => document.documentElement.scrollWidth <= innerWidth)
@@ -166,6 +201,21 @@ test('bundled practice uses the real Shift selection dialog and reader', async (
         path: testInfo.outputPath('practice-popup-' + language + '.png')
       });
     }
+    await practice.emulateMedia({ colorScheme: 'dark', reducedMotion: 'reduce' });
+    await practice.setViewportSize({ width: 1280, height: 800 });
+    await worker.evaluate(async () => {
+      await chrome.storage.sync.set({ language: 'zh-CN' });
+    });
+    await practice.goto(
+      'chrome-extension://' + extensionId + '/onboarding/practice.html?run=reduced'
+    );
+    await expect(practice.locator('html')).toHaveAttribute('data-preview-theme', 'dark');
+    await expect(practice.locator('#practiceFirst')).toBeVisible();
+    await practice.screenshot({ path: testInfo.outputPath('practice-dark-zh.png') });
+    await selectPassage(practice, '#practiceFirst');
+    await expect(practice.locator('.practice-coach-hint')).toHaveCount(1);
+    await expect(practice.locator('.practice-confetti-bit')).toHaveCount(0);
+    await practice.screenshot({ path: testInfo.outputPath('practice-popup-dark-zh.png') });
     await practice.locator('.practice-coach-exit').click();
     await expect(practice).toHaveURL(/onboarding\/index.html$/);
     await expect(practice.locator('#practiceCoach')).toHaveCount(0);

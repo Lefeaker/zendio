@@ -168,7 +168,7 @@ export const MAX_LINE_BUDGETS = new Map([
   // Learning records the actual write receipt and download IDs at both existing commit points.
   ['src/background/application/clipProcessor.ts', 500],
   // Guided practice owns one observer/receipt lifecycle; keep its exact source budget.
-  ['src/onboarding/practiceCoach.ts', 276],
+  ['src/onboarding/practiceCoach.ts', 291],
   ['src/infrastructure/restClient.ts', 266],
   ['src/shared/services/yamlConfigSanitize.ts', 277],
   // 2026-08-11 U02A owner transfer/current truth: keep the legacy Options
