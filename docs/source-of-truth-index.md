@@ -18,6 +18,7 @@
 - 架构边界：[`architecture-boundaries.md`](./architecture-boundaries.md)
 - 设计系统治理：[`design-system-governance.md`](./design-system-governance.md)
 - Options 主链说明：[`../src/options/README.md`](../src/options/README.md)
+- 新手实操引导与完成依据：[`onboarding-learning.md`](./onboarding-learning.md)
 - 视频截图附件模板：[`video-screenshot-attachment-location.md`](./video-screenshot-attachment-location.md)
 
 ## 当前执行主线

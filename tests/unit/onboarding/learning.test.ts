@@ -90,6 +90,8 @@ describe('learning center', () => {
     const dispose = await mountLearningCenter(r.root, r.dependencies, r.navigation, {});
     const input = required<HTMLInputElement>(r.root, '#learningUrl');
     input.value = 'https://example.com/unfinished';
+    const custom = required<HTMLDetailsElement>(r.root, '.learning-custom-page');
+    custom.open = true;
     const receipt = {
       operationId: 'op_real',
       filePath: '/Downloads/note (1).md',
@@ -110,6 +112,7 @@ describe('learning center', () => {
     expect(r.root.querySelector('.learning-path')?.textContent).toBe('/Downloads/note (1).md');
     expect(r.root.querySelector('#learningUrl')).toBe(input);
     expect(input.value).toBe('https://example.com/unfinished');
+    expect(custom.open).toBe(true);
     dispose();
   });
 

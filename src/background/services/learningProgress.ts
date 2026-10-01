@@ -83,6 +83,8 @@ export function createLearningProgressStore(
     });
   return {
     async record(input: LearningExport): Promise<void> {
+      const course = input.courses[0];
+      if (course) input = { ...input, receipt: { ...input.receipt, course } };
       await run(async () => {
         const state = await read();
         if (input.receipt.destination === 'vault') {

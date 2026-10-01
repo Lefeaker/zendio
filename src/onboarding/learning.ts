@@ -79,6 +79,18 @@ export async function mountLearningCenter(
       void persistPreference();
       root.querySelector('#learningLesson')?.scrollIntoView?.({ block: 'nearest' });
     },
+    startPractice() {
+      const url = deps.runtime?.getURL('onboarding/practice.html');
+      if (!url) return;
+      void deps.tabs
+        .create({
+          url: url + '?lesson=' + preference.course + '&run=' + crypto.randomUUID(),
+          active: true
+        })
+        .catch(() => {
+          view.error.textContent = tr('learningActionError');
+        });
+    },
     openPage() {
       void openPage();
     },

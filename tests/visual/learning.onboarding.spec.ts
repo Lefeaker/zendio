@@ -1,8 +1,180 @@
-import { chromium, expect, test } from '@playwright/test';
+import { chromium, expect, test, type Page } from '@playwright/test';
 import { createServer } from 'node:http';
 import { readFile, mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
+import type { LearningProgress } from '../../src/shared/learningProgress';
+
+async function selectPassage(page: Page, id: string): Promise<void> {
+  await page.locator(id).scrollIntoViewIfNeeded();
+  const rect = await page.locator(id).evaluate((node) => {
+    const range = document.createRange();
+    range.selectNodeContents(node);
+    const first = range.getClientRects()[0];
+    if (!first) throw new Error('Missing text geometry');
+    return { x: first.x, y: first.y, width: first.width, height: first.height };
+  });
+  await page.keyboard.down('Shift');
+  await page.mouse.move(rect.x + 1, rect.y + rect.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(rect.x + Math.min(rect.width - 2, 380), rect.y + rect.height / 2, {
+    steps: 15
+  });
+  await page.mouse.up();
+  await page.keyboard.up('Shift');
+}
+
+async function expectUncoveredControls(page: Page): Promise<void> {
+  const boxes = await page.locator('.practice-coach-hint').evaluateAll((nodes) =>
+    nodes.map((node) => {
+      const box = node.getBoundingClientRect();
+      return { left: box.left, right: box.right, top: box.top, bottom: box.bottom };
+    })
+  );
+  for (const selector of [
+    '.clipper-comment-textarea',
+    '[data-action-id="reader"]',
+    '[data-action-id="clip"]'
+  ]) {
+    const control = await page.locator(selector).boundingBox();
+    if (!control) throw new Error('Missing practice control');
+    for (const box of boxes)
+      expect(
+        box.right <= control.x ||
+          box.left >= control.x + control.width ||
+          box.bottom <= control.y ||
+          box.top >= control.y + control.height
+      ).toBe(true);
+  }
+}
+
+test('bundled practice uses the real Shift selection dialog and reader', async ({
+  browserName
+}, testInfo) => {
+  test.skip(browserName !== 'chromium', 'Installed Chromium extension test');
+  const profile = await mkdtemp(path.join(tmpdir(), 'zendio-practice-'));
+  const extensionPath = path.resolve(process.env.PLAYWRIGHT_DIST_DIR ?? 'build/dist');
+  const context = await chromium.launchPersistentContext(profile, {
+    headless: false,
+    acceptDownloads: true,
+    args: [
+      '--headless=new',
+      '--disable-extensions-except=' + extensionPath,
+      '--load-extension=' + extensionPath
+    ]
+  });
+  try {
+    const worker = context.serviceWorkers()[0] ?? (await context.waitForEvent('serviceworker'));
+    const extensionId = worker.url().split('/')[2];
+    const guide = await context.newPage();
+    await guide.goto('chrome-extension://' + extensionId + '/onboarding/index.html');
+    context.on('page', (page) =>
+      page.on('pageerror', (error) => console.error('[practice-page]', error.message))
+    );
+    await guide.locator('#learningStartPractice').click();
+    await expect
+      .poll(() => context.pages().some((page) => page.url().includes('/onboarding/practice.html')))
+      .toBe(true);
+    const practice = context
+      .pages()
+      .find((page) => page.url().includes('/onboarding/practice.html'));
+    if (!practice) throw new Error('Missing practice page');
+    await expect(practice.locator('#practiceFirst')).toBeVisible();
+    await expect(practice.locator('.practice-coach-hint')).toContainText('Hold Shift');
+    await selectPassage(practice, '#practiceFirst');
+    await expect(practice.locator('.clipper-comment-textarea')).toBeVisible();
+    await expect(practice.locator('.practice-coach-hint')).toHaveCount(2);
+    await expect(practice.locator('.practice-coach-hint').last()).toContainText(
+      'No vault is configured'
+    );
+    await expect(practice.locator('[data-action-id="reader"]')).toHaveClass(/practice-coached/);
+    await expect(practice.locator('[data-action-id="clip"]')).toHaveClass(/practice-coached/);
+    await practice.screenshot({ path: testInfo.outputPath('practice-clipper-arrows.png') });
+    await practice.locator('.clipper-comment-textarea').fill('A real guided selection.');
+    await practice.locator('[data-action-id="clip"]').click();
+    const readProgress = () =>
+      worker.evaluate(async () => {
+        const data = await chrome.storage.local.get<{ 'learningProgress.v1'?: LearningProgress }>(
+          'learningProgress.v1'
+        );
+        return data['learningProgress.v1'];
+      });
+    await expect.poll(async () => (await readProgress())?.latest?.destination).toBe('downloads');
+    const saved = (await readProgress())?.latest;
+    if (!saved) throw new Error('Missing saved note');
+    expect(saved.sourceUrl).toContain('/onboarding/practice.html');
+    expect(await readFile(saved.filePath, 'utf8')).toContain('A real guided selection.');
+    await rm(saved.filePath, { force: true });
+    await practice.reload();
+    await expect(practice.locator('#practiceFirst')).toBeVisible();
+    await selectPassage(practice, '#practiceFirst');
+    await expect(practice.locator('[data-action-id="reader"]')).toBeVisible();
+    await practice.locator('[data-action-id="reader"]').click();
+    await expect(practice.locator('#aiob-reader-panel')).toBeVisible();
+    await expect(practice.locator('.practice-coach-hint')).toContainText('Collapse');
+    await practice.locator('[data-action-id="session:toggleCollapse"]').click();
+    await expect(practice.locator('.practice-coach-hint')).toContainText('second passage');
+    await selectPassage(practice, '#practiceSecond');
+    await expect(practice.locator('[data-role="highlight-item"]')).toHaveCount(2);
+    await expect(practice.locator('[data-action-id="reader:finish"]')).toHaveClass(
+      /practice-coached/
+    );
+    await practice.screenshot({ path: testInfo.outputPath('practice-reader-arrow.png') });
+    await practice.locator('[data-action-id="reader:finish"]').click();
+    await expect.poll(async () => (await readProgress())?.latest?.course).toBe('reader');
+    const readerSaved = (await readProgress())?.latest;
+    if (!readerSaved) throw new Error('Missing reader note');
+    const readerMarkdown = await readFile(readerSaved.filePath, 'utf8');
+    expect(readerMarkdown).toContain('A useful note');
+    expect(readerMarkdown).toContain('When reading a long article');
+    await expect(practice.locator('#practiceResult')).toBeVisible();
+    await rm(readerSaved.filePath, { force: true });
+    await worker.evaluate(async () => {
+      await chrome.storage.sync.set({ language: 'zh-CN' });
+    });
+    await practice.setViewportSize({ width: 360, height: 800 });
+    await practice.goto(
+      'chrome-extension://' + extensionId + '/onboarding/practice.html?run=narrow'
+    );
+    await expect(practice.locator('#practiceFirst')).toBeVisible();
+    await practice.screenshot({
+      path: testInfo.outputPath('practice-select-narrow-zh.png'),
+      fullPage: true
+    });
+    await selectPassage(practice, '#practiceFirst');
+    await expect(practice.locator('.clipper-comment-textarea')).toBeVisible();
+    await practice.screenshot({ path: testInfo.outputPath('practice-popup-narrow-zh.png') });
+    await expectUncoveredControls(practice);
+    await practice.setViewportSize({ width: 1280, height: 800 });
+    await practice.screenshot({ path: testInfo.outputPath('practice-popup-desktop-zh.png') });
+    for (const language of ['de', 'ru', 'ja']) {
+      await worker.evaluate(async (lang) => {
+        await chrome.storage.sync.set({ language: lang });
+      }, language);
+      await practice.setViewportSize({ width: 360, height: 800 });
+      await practice.goto(
+        'chrome-extension://' + extensionId + '/onboarding/practice.html?run=' + language
+      );
+      await expect(practice.locator('#practiceFirst')).toBeVisible();
+      await selectPassage(practice, '#practiceFirst');
+      await expect(practice.locator('.practice-coach-hint')).toHaveCount(2);
+      await expectUncoveredControls(practice);
+      expect(
+        await practice.evaluate(() => document.documentElement.scrollWidth <= innerWidth)
+      ).toBe(true);
+      await practice.screenshot({
+        path: testInfo.outputPath('practice-popup-' + language + '.png')
+      });
+    }
+    await practice.locator('.practice-coach-exit').click();
+    await expect(practice).toHaveURL(/onboarding\/index.html$/);
+    await expect(practice.locator('#practiceCoach')).toHaveCount(0);
+    expect((await readProgress())?.latest?.operationId).toBe(readerSaved.operationId);
+  } finally {
+    await context.close();
+    await rm(profile, { recursive: true, force: true });
+  }
+});
 
 test('installed onboarding learns from a real selection export and keeps progress after reload', async ({
   browserName
@@ -40,6 +212,7 @@ test('installed onboarding learns from a real selection export and keeps progres
     const guide = await context.newPage();
     await guide.goto('chrome-extension://' + extensionId + '/onboarding/index.html');
     await expect(guide.locator('.learning-count')).toContainText('0 / 6');
+    await guide.locator('.learning-custom-page summary').click();
     await guide.locator('#learningPage').selectOption(url);
     const opened = context.waitForEvent('page');
     await guide.locator('#learningOpenPage').click();

@@ -46,6 +46,7 @@ export function createLearningView(
   tr: LearningTranslate,
   actions: {
     select: (course: LearningCourse) => void;
+    startPractice: () => void;
     openPage: () => void;
     showResult: () => void;
     configure: () => void;
@@ -100,6 +101,10 @@ export function createLearningView(
   title.id = 'learningLessonTitle';
   lesson.setAttribute('aria-labelledby', title.id);
   const steps = element('ol', 'learning-instructions');
+  const start = learningButton(tr('practiceStart'), actions.startPractice, true);
+  start.id = 'learningStartPractice';
+  const custom = element('details', 'learning-custom-page');
+  custom.append(element('summary', '', tr('learningChoosePage')));
   const pageLabel = element('label', '', tr('learningChoosePage'));
   pageLabel.htmlFor = 'learningPage';
   const pages = element('select', 'learning-select');
@@ -124,7 +129,8 @@ export function createLearningView(
   error.setAttribute('role', 'alert');
   const hint = element('p', 'learning-description', tr('learningContinueHint'));
   const later = learningButton(tr('learningLater'), actions.later);
-  lesson.append(title, steps, pageLabel, pages, urlLabel, url, pageActions, error, hint, later);
+  custom.append(pageLabel, pages, urlLabel, url, pageActions);
+  lesson.append(title, start, steps, custom, error, hint, later);
   const result = element('section', 'learning-result');
   result.id = 'learningResult';
   result.setAttribute('aria-live', 'polite');
@@ -152,6 +158,7 @@ export function createLearningView(
     learningButton(tr('learningConfigure'), actions.configure)
   );
   root.append(intro, views, progress, result, grid, lesson, advanced);
+  let renderedCourse: LearningCourse | undefined;
   return {
     pages,
     url,
@@ -181,6 +188,11 @@ export function createLearningView(
         card.status.textContent = tr(learningCourseStatus(id, course, state, deferred));
       }
       configure.hidden = course !== 'vault';
+      start.hidden = !['fragment', 'reader'].includes(course);
+      if (renderedCourse !== course) custom.open = start.hidden;
+      renderedCourse = course;
+      steps.hidden = !start.hidden;
+      hint.hidden = !start.hidden;
       const pending = state.pending[state.pending.length - 1];
       if (pending && (!receipt || pending.receipt.savedAt > receipt.savedAt)) receipt = undefined;
       result.hidden = !receipt && !pending;

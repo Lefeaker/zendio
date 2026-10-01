@@ -248,6 +248,7 @@ await cp('src/options/index.html', join(distDir, 'options/index.html'));
 // Copy onboarding pages and assets
 await mkdir(join(distDir, 'onboarding'), { recursive: true });
 await cp('src/onboarding/index.html', join(distDir, 'onboarding/index.html'));
+await cp('src/onboarding/practice.html', join(distDir, 'onboarding/practice.html'));
 
 // _locales is now included in public directory, so no need to copy separately
 

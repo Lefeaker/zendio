@@ -1,0 +1,78 @@
+.practice-root {
+  max-width: 740px;
+  margin: 0 auto;
+  padding: 30px 28px 80px;
+  color: var(--text);
+}
+
+.practice-header h1 {
+  font-size: var(--font-size-page-title);
+  line-height: 1.4;
+  margin: 8px 0 24px;
+}
+
+.practice-status,
+.practice-result {
+  padding: 18px 22px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  background: var(--panel);
+  margin: 18px 0;
+}
+
+.practice-status h2,
+.practice-result h2 {
+  margin: 0 0 8px;
+  font-size: var(--font-size-lg);
+  color: var(--accent);
+}
+
+.practice-status p {
+  margin: 0;
+  line-height: 1.8;
+}
+
+.practice-article {
+  padding: 26px 30px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  background: var(--panel);
+}
+
+.practice-article h2 {
+  margin: 0 0 22px;
+  font-size: 23px;
+}
+
+.practice-passage {
+  font-size: 18px;
+  line-height: 2;
+  margin: 18px 0;
+  padding: 10px 14px;
+  border-left: 3px solid var(--accent);
+  background: var(--surface-muted);
+  user-select: text;
+}
+
+.practice-root [hidden] {
+  display: none;
+}
+
+.learning-custom-page {
+  margin: 16px 0;
+}
+
+@media (max-width: 760px) {
+  .practice-root {
+    padding: 24px 18px 70px;
+  }
+
+  .practice-article {
+    padding: 18px 16px;
+  }
+
+  .practice-passage {
+    padding: 8px;
+    font-size: 16px;
+  }
+}

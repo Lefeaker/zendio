@@ -6,3 +6,6 @@
 @import '../variants/stitch-secondary.css';
 
 @import '../runtime/learning.css';
+
+@import '../../../../onboarding/practice.css';
+@import '../../../../onboarding/practiceCoach.css';

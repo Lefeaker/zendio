@@ -241,6 +241,7 @@ export async function processClipPayload(
       await recordLearningExport({
         receipt: {
           operationId,
+          ...(payload.meta?.url ? { sourceUrl: payload.meta.url } : {}),
           filePath: routed.filePath,
           destination: 'downloads',
           savedAt: Date.now(),
@@ -317,6 +318,7 @@ export async function processClipPayload(
     await recordLearningExport({
       receipt: {
         operationId,
+        ...(payload.meta?.url ? { sourceUrl: payload.meta.url } : {}),
         filePath: routed.filePath,
         destination: 'vault',
         vaultName: routed.restConfig.vault,

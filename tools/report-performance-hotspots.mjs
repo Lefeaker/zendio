@@ -24,8 +24,8 @@ export const MAX_LINE_BUDGETS = new Map([
   ['src/i18n/generated/schemaCore.generated.ts', 465],
   // 2026-07-20 selection-trigger policy: generated runtime messages carry the
   // explicit disabled, direct, and modifier mode copy plus diagnostics copy.
-  // 2026-10-01: learning walkthrough adds 46 generated message declarations.
-  ['src/i18n/generated/messages.generated.ts', 1214],
+  // 2026-10-01: learning walkthrough and guided practice add 74 message declarations.
+  ['src/i18n/generated/messages.generated.ts', 1242],
   ['src/i18n/generated/locales/fr.generated.ts', 785],
   ['src/i18n/generated/locales/es-419.generated.ts', 777],
   ['src/i18n/generated/locales/es-ES.generated.ts', 777],
@@ -166,7 +166,9 @@ export const MAX_LINE_BUDGETS = new Map([
   ['src/platform/chrome/contextMenus.ts', 285],
   ['src/content/shared/panels/sessionPanelResize.ts', 284],
   // Learning records the actual write receipt and download IDs at both existing commit points.
-  ['src/background/application/clipProcessor.ts', 498],
+  ['src/background/application/clipProcessor.ts', 500],
+  // Guided practice owns one observer/receipt lifecycle; keep its exact source budget.
+  ['src/onboarding/practiceCoach.ts', 276],
   ['src/infrastructure/restClient.ts', 266],
   ['src/shared/services/yamlConfigSanitize.ts', 277],
   // 2026-08-11 U02A owner transfer/current truth: keep the legacy Options

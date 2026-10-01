@@ -13,6 +13,8 @@ export type LearningCourse = (typeof LEARNING_COURSES)[number];
 const courseSchema = z.enum(LEARNING_COURSES);
 export const LearningReceiptSchema = z.object({
   operationId: z.string(),
+  sourceUrl: z.string().optional(),
+  course: courseSchema.optional(),
   filePath: z.string(),
   destination: z.enum(['downloads', 'vault']),
   vaultName: z.string().optional(),

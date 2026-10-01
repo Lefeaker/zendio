@@ -1,0 +1,86 @@
+import { createDefaultPageI18nController, configureI18nStorage } from '../i18n';
+import type { PlatformServices } from '../platform';
+import { applyStoredOnboardingTheme } from './theme';
+import { createPracticeView } from './practiceView';
+import { mountPracticeCoach } from './practiceCoach';
+import { resolveRepository } from '../shared/di/serviceRegistry';
+import { DI_TOKENS } from '../shared/di/tokens';
+import type { IOptionsRepository } from '../shared/repositories/IOptionsRepository';
+import type { INavigationRepository } from '../shared/repositories/INavigationRepository';
+
+export async function bootstrapPractice(platform: PlatformServices): Promise<void> {
+  configureI18nStorage(platform.storage.sync);
+  const i18n = createDefaultPageI18nController();
+  await i18n.load();
+  await applyStoredOnboardingTheme();
+  const resource = i18n.getCurrentResource();
+  const root = document.getElementById('practiceRoot');
+  if (!root || !resource) return;
+  document.documentElement.lang = resource.language;
+  const messages = resource.messages;
+  document.title = messages.practiceArticleTitle;
+  const options = resolveRepository<IOptionsRepository>(DI_TOKENS.IOptionsRepository);
+  const navigation = resolveRepository<INavigationRepository>(DI_TOKENS.INavigationRepository);
+  let coach: Awaited<ReturnType<typeof mountPracticeCoach>> | undefined = undefined;
+  const exit = () => {
+    coach?.dispose();
+    location.assign('index.html');
+  };
+  const readerLesson = new URL(location.href).searchParams.get('lesson') === 'reader';
+  const view = createPracticeView(
+    root,
+    messages,
+    {
+      exit,
+      enable() {
+        void options
+          .get()
+          .then((current) =>
+            options.patch([
+              { path: ['fragmentClipper', 'selectionTriggerMode'], value: 'modifier' },
+              {
+                path: ['fragmentClipper', 'selectionModifierKeys'],
+                value: current.fragmentClipper.selectionModifierKeys.length
+                  ? current.fragmentClipper.selectionModifierKeys
+                  : ['shift']
+              }
+            ])
+          )
+          .catch(() => {
+            view.error.textContent = messages.learningActionError;
+          });
+      },
+      next() {
+        const next = new URL(location.href);
+        next.searchParams.set('lesson', 'reader');
+        next.searchParams.set('run', crypto.randomUUID());
+        location.assign(next.href);
+      },
+      locate() {
+        const receipt = coach?.getReceipt();
+        if (!receipt) return;
+        const result =
+          receipt.destination === 'downloads' && receipt.downloadId !== undefined
+            ? platform.downloads.show?.(receipt.downloadId)
+            : navigation.openVault(
+                'obsidian://open?vault=' +
+                  encodeURIComponent(receipt.vaultName ?? '') +
+                  '&file=' +
+                  encodeURIComponent(receipt.filePath)
+              );
+        void result?.catch(() => {
+          view.error.textContent = messages.learningActionError;
+        });
+      }
+    },
+    readerLesson
+  );
+  coach = await mountPracticeCoach({
+    view,
+    messages,
+    options,
+    storage: platform.storage.local,
+    exit
+  });
+  window.addEventListener('pagehide', () => coach?.dispose(), { once: true });
+}
