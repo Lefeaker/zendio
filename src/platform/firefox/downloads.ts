@@ -3,6 +3,9 @@ import { serializeBlobAttachmentContent } from '../../shared/attachments/clipAtt
 
 declare const browser: {
   downloads?: {
+    search(query: { id: number }): Promise<chrome.downloads.DownloadItem[]>;
+    show(id: number): Promise<void>;
+    onChanged: typeof chrome.downloads.onChanged;
     download(options: {
       url: string;
       filename: string;
@@ -62,6 +65,18 @@ async function createDownloadResource(
 }
 
 export const firefoxDownloadsService: DownloadsService = {
+  async inspect(id) {
+    const items = await browser.downloads?.search({ id: Number(id) });
+    const item = items?.[0];
+    return item ? { state: item.state, filename: item.filename } : undefined;
+  },
+  onChanged(listener) {
+    browser.downloads?.onChanged.addListener(listener);
+    return () => browser.downloads?.onChanged.removeListener(listener);
+  },
+  async show(id) {
+    await browser.downloads?.show(Number(id));
+  },
   async download(options: DownloadTextFileOptions): Promise<number | string | undefined> {
     if (!browser?.downloads?.download) {
       throw new Error('browser.downloads.download is not available.');

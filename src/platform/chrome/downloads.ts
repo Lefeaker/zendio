@@ -51,6 +51,19 @@ async function createDownloadResource(
 }
 
 export const chromeDownloadsService: DownloadsService = {
+  async inspect(id) {
+    const items = await chrome.downloads?.search({ id: Number(id) });
+    const item = items?.[0];
+    return item ? { state: item.state, filename: item.filename } : undefined;
+  },
+  onChanged(listener) {
+    chrome.downloads?.onChanged.addListener(listener);
+    return () => chrome.downloads?.onChanged.removeListener(listener);
+  },
+  show(id) {
+    chrome.downloads?.show(Number(id));
+    return Promise.resolve();
+  },
   async download(options: DownloadTextFileOptions): Promise<number | undefined> {
     if (!chrome?.downloads?.download) {
       throw new Error('chrome.downloads.download is not available.');

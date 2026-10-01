@@ -24,8 +24,8 @@ export const MAX_LINE_BUDGETS = new Map([
   ['src/i18n/generated/schemaCore.generated.ts', 465],
   // 2026-07-20 selection-trigger policy: generated runtime messages carry the
   // explicit disabled, direct, and modifier mode copy plus diagnostics copy.
-  // 2026-09-14: three shared first-use guide catalog keys add three generated declarations.
-  ['src/i18n/generated/messages.generated.ts', 1168],
+  // 2026-10-01: learning walkthrough adds 46 generated message declarations.
+  ['src/i18n/generated/messages.generated.ts', 1214],
   ['src/i18n/generated/locales/fr.generated.ts', 785],
   ['src/i18n/generated/locales/es-419.generated.ts', 777],
   ['src/i18n/generated/locales/es-ES.generated.ts', 777],
@@ -165,7 +165,8 @@ export const MAX_LINE_BUDGETS = new Map([
   ['src/content/bootstrap.ts', 252],
   ['src/platform/chrome/contextMenus.ts', 285],
   ['src/content/shared/panels/sessionPanelResize.ts', 284],
-  ['src/background/application/clipProcessor.ts', 470],
+  // Learning records the actual write receipt and download IDs at both existing commit points.
+  ['src/background/application/clipProcessor.ts', 498],
   ['src/infrastructure/restClient.ts', 266],
   ['src/shared/services/yamlConfigSanitize.ts', 277],
   // 2026-08-11 U02A owner transfer/current truth: keep the legacy Options

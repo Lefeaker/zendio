@@ -191,6 +191,7 @@ describe('canonical test suite descriptors', () => {
     ).toEqual({
       testDir: 'tests',
       testMatch: [
+        '**/tests/visual/learning.onboarding.spec.ts',
         '**/tests/e2e/optionsCrossContextMutation.browser.test.ts',
         '**/tests/e2e/sessionDraftConcurrency.browser.test.ts',
         '**/tests/e2e/contentIdleCss.browser.test.ts',

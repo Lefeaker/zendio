@@ -138,6 +138,9 @@
         "src/content/reader/readerLazyRuntime.ts",
         "src/content/ui/supportPrompt.ts",
         "src/content/video/videoLazyRuntime.ts",
+        "src/onboarding/bootstrap.ts",
+        "src/onboarding/index.ts",
+        "src/onboarding/learning.ts",
         "src/options/index.ts",
         "src/options/runtimeEntry.ts"
       ],
@@ -163,6 +166,9 @@
         "src/content/reader/readerLazyRuntime.ts",
         "src/content/ui/supportPrompt.ts",
         "src/content/video/videoLazyRuntime.ts",
+        "src/onboarding/bootstrap.ts",
+        "src/onboarding/index.ts",
+        "src/onboarding/learning.ts",
         "src/options/index.ts",
         "src/options/runtimeEntry.ts"
       ],
@@ -349,6 +355,9 @@
         "src/content/reader/readerLazyRuntime.ts",
         "src/content/ui/supportPrompt.ts",
         "src/content/video/videoLazyRuntime.ts",
+        "src/onboarding/bootstrap.ts",
+        "src/onboarding/index.ts",
+        "src/onboarding/learning.ts",
         "src/options/index.ts",
         "src/options/runtimeEntry.ts"
       ],

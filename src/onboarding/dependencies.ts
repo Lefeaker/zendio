@@ -1,3 +1,4 @@
+import type { DownloadsService } from '../platform/interfaces/downloads';
 import type { RuntimeService } from '../platform/interfaces/runtime';
 import type { StorageAreaService, StorageService } from '../platform/interfaces/storage';
 import type { TabsService } from '../platform/interfaces/tabs';
@@ -28,6 +29,7 @@ export interface OnboardingOptionsRepository {
 }
 
 export interface OnboardingControllerDependencies {
+  downloads?: DownloadsService;
   messagingRepository?: Pick<IMessagingRepository, 'send'>;
   now?: () => number;
   optionsRepository?: OnboardingOptionsRepository;
@@ -160,6 +162,7 @@ export function resolveOnboardingDependencies(): OnboardingControllerDependencie
     return {
       ...(messagingRepository ? { messagingRepository } : {}),
       ...(optionsRepository ? { optionsRepository } : {}),
+      downloads: platform.downloads,
       runtime: platform.runtime,
       storage: platform.storage,
       tabs: platform.tabs

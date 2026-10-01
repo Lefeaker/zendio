@@ -402,11 +402,11 @@ describe('onboarding bootstrap', () => {
     controller.initialize();
 
     expect(localStorage.getItem('onboardingCompletedSteps')).toContain('1');
-    expect(document.getElementById('step3')?.classList.contains('step-completed')).toBe(true);
-    expect(document.getElementById('progressBar')?.getAttribute('style')).toContain('width: 40%');
+    expect(document.getElementById('step3')?.classList.contains('step-completed')).toBe(false);
+    expect(document.getElementById('progressBar')?.getAttribute('style')).toBeNull();
   });
 
-  it('marks steps, opens support flow, and completes onboarding lifecycle', async () => {
+  it('opens setup and support without certifying lessons, then closes onboarding', async () => {
     const { OnboardingController } = await import('../../../src/onboarding/bootstrap');
     const navigationRepo = {
       openVault: vi.fn(() => Promise.resolve(undefined)),
@@ -435,7 +435,7 @@ describe('onboarding bootstrap', () => {
     document
       .getElementById('skipStep1Btn')
       ?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
-    expect(localStorage.getItem('onboardingCompletedSteps') ?? '').toContain('1');
+    expect(localStorage.getItem('onboardingCompletedSteps')).toBeNull();
 
     document
       .getElementById('suggestionsLink')
@@ -703,14 +703,9 @@ describe('onboarding bootstrap', () => {
       ?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
     await new Promise((resolve) => setTimeout(resolve, 0));
 
-    await waitForSentMessage(messagingRepository.send, {
-      type: 'ANALYTICS_EVENT',
-      event: 'onboarding_step_completed',
-      params: {
-        step: 'welcome',
-        duration_bucket: '100ms_to_499ms'
-      }
-    });
+    expect(messagingRepository.send).not.toHaveBeenCalledWith(
+      expect.objectContaining({ event: 'onboarding_step_completed' })
+    );
     expect(messagingRepository.send).not.toHaveBeenCalledWith({
       type: 'ANALYTICS_EVENT',
       event: 'onboarding_step_completed',
@@ -749,7 +744,7 @@ describe('onboarding bootstrap', () => {
       ?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
     await new Promise((resolve) => setTimeout(resolve, 0));
 
-    expect(localStorage.getItem('onboardingCompletedSteps') ?? '').toContain('5');
+    expect(localStorage.getItem('onboardingCompletedSteps')).toBeNull();
     await waitForSentMessage(messagingRepository.send, {
       type: 'ANALYTICS_EVENT',
       event: 'onboarding_support_action',
@@ -757,14 +752,9 @@ describe('onboarding bootstrap', () => {
         action: 'docs'
       }
     });
-    await waitForSentMessage(messagingRepository.send, {
-      type: 'ANALYTICS_EVENT',
-      event: 'onboarding_step_completed',
-      params: {
-        step: 'finish',
-        duration_bucket: '3s_to_9s'
-      }
-    });
+    expect(messagingRepository.send).not.toHaveBeenCalledWith(
+      expect.objectContaining({ event: 'onboarding_step_completed' })
+    );
     expect(messagingRepository.send).not.toHaveBeenCalledWith({
       type: 'ANALYTICS_EVENT',
       event: 'onboarding_support_action',
@@ -868,7 +858,7 @@ describe('onboarding bootstrap', () => {
         action: 'feedback'
       }
     });
-    expect(localStorage.getItem('onboardingCompletedSteps') ?? '').toContain('5');
+    expect(localStorage.getItem('onboardingCompletedSteps')).toBeNull();
   });
 
   it('does not emit onboarding telemetry before analytics consent exists', async () => {

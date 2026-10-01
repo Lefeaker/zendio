@@ -88,6 +88,14 @@ describe('report-performance-hotspots', () => {
 
   it('keeps the exact normalized budget transitions and every other budget unchanged', () => {
     const registeredBudgets = readRegisteredBudgets();
+    const learningChanges: Array<[string, number, number]> = [
+      ['src/i18n/generated/messages.generated.ts', 1168, 1214],
+      ['src/background/application/clipProcessor.ts', 470, 498]
+    ];
+    for (const [file, before, after] of learningChanges) {
+      expect(registeredBudgets.get(file)).toBe(after);
+      registeredBudgets.set(file, before);
+    }
     const runtimeRelease: Array<[string, number | null, number]> = [
       ['src/i18n/generated/messages.generated.ts', 1158, 1168],
       ['src/i18n/generated/schemaCore.generated.ts', 458, 465],

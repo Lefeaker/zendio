@@ -1,3 +1,4 @@
+import { initializeLearningProgress } from './services/learningProgress';
 import { getPlatformServices } from '../platform';
 import { registerRepositories } from '../shared/di/serviceRegistry';
 import { startBackgroundRuntime } from './backgroundStartup';
@@ -35,6 +36,7 @@ function rawObject(value: PlainStructuredValue | null): PlainStructuredObject {
   return snapshot.value;
 }
 const platformServices = getPlatformServices();
+initializeLearningProgress(platformServices);
 const optionsStorageRepository = new ChromeOptionsRepository(platformServices.storage);
 const deviceLocalPrivacyCommitter = createDeviceLocalPrivacyCommitter(
   platformServices.storage,
