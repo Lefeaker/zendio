@@ -93,6 +93,7 @@ const schema: SettingsSchema = {
         ]
       },
       children: [
+        { kind: 'widget', widgetType: 'ai-configuration', props: {} },
         {
           kind: 'group',
           title: translate('schemaMaintenanceTransferGroupTitle', t),

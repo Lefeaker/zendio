@@ -81,7 +81,11 @@ type ScreenshotAttachmentPatch = {
 export type OptionsPatch = WholeRootPatch | FieldPatch | ScreenshotAttachmentPatch;
 
 export type OptionsMutationCommand =
-  | { readonly kind: 'patch'; readonly patches: readonly OptionsPatch[] }
+  | {
+      readonly kind: 'patch';
+      readonly patches: readonly OptionsPatch[];
+      readonly expected?: readonly OptionsPatch[];
+    }
   | { readonly kind: 'replace'; readonly replacement: SchemaStoredOptions }
   | { readonly kind: 'migrate' };
 

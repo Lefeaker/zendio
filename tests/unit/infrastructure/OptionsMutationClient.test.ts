@@ -62,6 +62,16 @@ describe('OptionsMutationClient', () => {
       type: 'ZENDIO_OPTIONS_MUTATION',
       command: { kind: 'replace', replacement: { interfaceTheme: 'light' } }
     });
+    await client.patch({ path: ['interfaceTheme'], value: 'light' }, [
+      { path: ['interfaceTheme'], value: 'dark' }
+    ]);
+    expect(send.mock.calls[2]?.[0]).toMatchObject({
+      command: {
+        kind: 'patch',
+        patches: [{ path: ['interfaceTheme'], value: 'light' }],
+        expected: [{ path: ['interfaceTheme'], value: 'dark' }]
+      }
+    });
   });
 
   it('rejects failed messaging without invoking any direct storage fallback', async () => {

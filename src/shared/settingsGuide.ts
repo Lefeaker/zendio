@@ -7,7 +7,8 @@ export const SETTINGS_GUIDE_SECTIONS = {
   selection: 'capture-behavior',
   output: 'output',
   overview: 'overview',
-  maintenance: 'maintenance'
+  maintenance: 'maintenance',
+  ai: 'maintenance'
 } as const;
 export type SettingsGuideStep = keyof typeof SETTINGS_GUIDE_SECTIONS;
 

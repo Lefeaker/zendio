@@ -114,6 +114,7 @@ export function mountProductionStitchShellFromDependencies({
     {
       controller,
       optionsRepository: resolvedOptionsRepository,
+      browserTarget,
       messagingRepository: resolvedMessagingRepository,
       usageStatsClient: resolvedUsageStatsClient,
       ...(storage ? { storage } : {}),

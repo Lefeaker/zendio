@@ -480,6 +480,7 @@ test('bundled video practice uses real timestamps screenshots and export', async
     await expect(page.locator('#practiceResult')).toBeVisible();
     await expect(page.locator('[data-settings-guide="vault"]')).toBeVisible();
     await expect(page.locator('[data-settings-guide="overview"]')).toBeVisible();
+    await expect(page.locator('[data-settings-guide="ai"]')).toBeVisible();
     const vaultPagePromise = context.waitForEvent('page');
     await page.locator('[data-settings-guide="vault"]').click();
     const vaultPage = await vaultPagePromise;
@@ -592,7 +593,8 @@ test('practice links to the actual settings tour and modifier edits update pract
       'reading',
       'selection',
       'output',
-      'maintenance'
+      'maintenance',
+      'ai'
     ]) {
       await select.selectOption(topic);
       await expect(settings.locator('.settings-tour-target')).toBeVisible();

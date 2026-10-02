@@ -38,6 +38,32 @@ function failureResponse(errorCode: OptionsMutationErrorCode): OptionsMutationRe
 }
 
 describe('handleOptionsMutationMessage', () => {
+  it('accepts valid reviewed-value conditions and rejects malformed conditions before dispatch', async () => {
+    const coordinator = createCoordinator();
+    const execute = vi
+      .spyOn(coordinator, 'execute')
+      .mockRejectedValue(new OptionsMutationError('EXTERNAL_SYNC_CONFLICT'));
+    const guarded = createOptionsMutationRequest('guarded', {
+      kind: 'patch',
+      patches: [{ path: ['interfaceTheme'], value: 'dark' }],
+      expected: [{ path: ['interfaceTheme'], value: 'light' }]
+    });
+    expect(await handleOptionsMutationMessage(coordinator, guarded)).toMatchObject({
+      success: false,
+      errorCode: 'EXTERNAL_SYNC_CONFLICT'
+    });
+    expect(execute).toHaveBeenCalledWith(guarded.command);
+    execute.mockClear();
+    const invalid = {
+      ...guarded,
+      command: { ...guarded.command, expected: [{ path: ['not-a-setting'], value: true }] }
+    };
+    expect(await handleOptionsMutationMessage(coordinator, invalid)).toMatchObject({
+      success: false,
+      errorCode: 'INVALID_OPTIONS_MUTATION'
+    });
+    expect(execute).not.toHaveBeenCalled();
+  });
   it('preserves an external sync conflict from Local Vault recovery', async () => {
     const coordinator = createCoordinator();
     vi.spyOn(coordinator, 'execute').mockRejectedValueOnce(

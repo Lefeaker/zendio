@@ -163,7 +163,8 @@ export function createLearningView(
   advanced.append(
     element('p', 'learning-description', tr('learningAdvancedHint')),
     advancedList,
-    learningButton(tr('settingsTourTitle'), () => actions.configure('overview'))
+    learningButton(tr('settingsTourTitle'), () => actions.configure('overview')),
+    learningButton(tr('aiConfigTitle'), () => actions.configure('ai'))
   );
   root.append(intro, views, progress, result, grid, lesson, advanced);
   let renderedCourse: LearningCourse | undefined;

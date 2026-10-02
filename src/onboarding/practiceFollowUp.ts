@@ -40,7 +40,8 @@ export function practiceFollowUp(m: Messages, lesson: PracticeLesson, firefox: b
     paragraph(firefox ? m.settingsVaultFirefox : m.settingsVaultLocal);
     for (const [label, step] of [
       [m.settingsConnectVault, 'vault'],
-      [m.settingsTourTitle, 'overview']
+      [m.settingsTourTitle, 'overview'],
+      [m.aiConfigTitle, 'ai']
     ] as const) {
       const link = settingsGuideLink(label, step);
       link.className = 'btn ' + (step === 'vault' ? 'primary' : 'secondary');

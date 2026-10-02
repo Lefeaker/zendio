@@ -47,11 +47,19 @@ function isOptionsMutationCommand(value: UntrustedValue): value is OptionsMutati
   if (!isObject(value) || typeof value.kind !== 'string') return false;
   if (value.kind === 'patch') {
     return (
-      hasExactKeys(value, ['kind', 'patches']) &&
+      hasExactKeys(
+        value,
+        value.expected === undefined ? ['kind', 'patches'] : ['kind', 'patches', 'expected']
+      ) &&
       Array.isArray(value.patches) &&
       value.patches.length > 0 &&
       value.patches.length <= 100 &&
-      value.patches.every(isOptionsPatch)
+      value.patches.every(isOptionsPatch) &&
+      (value.expected === undefined ||
+        (Array.isArray(value.expected) &&
+          value.expected.length > 0 &&
+          value.expected.length <= 100 &&
+          value.expected.every(isOptionsPatch)))
     );
   }
   if (value.kind === 'replace') {

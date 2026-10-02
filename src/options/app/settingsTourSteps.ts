@@ -54,8 +54,14 @@ export function settingsTourSteps(m: Messages, firefox: boolean) {
     {
       id: 'maintenance',
       title: m.schemaMaintenanceTitle,
-      selector: '.card',
+      selector: '.group .card',
       text: [m.settingsTourMaintenance]
+    },
+    {
+      id: 'ai',
+      title: m.aiConfigTitle,
+      selector: '.ai-config-widget',
+      text: [m.aiConfigDescription, m.aiConfigManual]
     }
   ] satisfies Array<{
     id: SettingsGuideStep;

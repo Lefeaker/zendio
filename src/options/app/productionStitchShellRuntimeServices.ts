@@ -10,6 +10,9 @@ import { mergePartialIntoDraft } from './productionStitchShellState';
 import type { UsageStatsClientLike } from './usage-dashboard/usageStatsClient';
 import type { SectionInvalidationRequest } from '@ui/stitch-runtime/render/sectionInvalidation';
 import type { ProductionMaintenanceActionNotice } from './productionStitchMaintenanceState';
+import { createAiConfiguration } from '../ai-configuration/feature';
+import { AiConfigInputError } from '../ai-configuration/types';
+import { mergeOptions } from '@shared/config/optionsMerger';
 const { createProductionStitchPersistence } = await import('./productionStitchPersistence');
 
 interface ProductionStitchShellRuntimeServicesOptions {
@@ -33,6 +36,7 @@ interface ProductionStitchShellRuntimeServicesOptions {
   refreshAppData: () => void;
   render: (scopes: SectionInvalidationRequest) => void;
   scheduleDraftSave: () => void;
+  browserTarget?: string;
 }
 
 export function createProductionStitchShellRuntimeServices(
@@ -52,7 +56,23 @@ export function createProductionStitchShellRuntimeServices(
     scheduleDraftSave: options.scheduleDraftSave
   });
 
+  const aiConfiguration = createAiConfiguration({
+    repository: optionsRepository,
+    getCurrent: () => mergeOptions(controller.getSnapshot() ?? options.getDraft()),
+    getMessages: options.getCurrentMessages,
+    browser: options.browserTarget ?? 'chrome',
+    isActive: options.isActive,
+    beforeApply: async (review) => {
+      await controller.flushPendingAutoSave();
+      if (
+        review.patches.some(({ path }) => path[0] === 'yamlConfig') &&
+        widgetHost.getRenderProtectionKeys().includes('yamlConfig')
+      )
+        throw new AiConfigInputError('yamlFieldSaveBlockedWarning');
+    }
+  });
   const widgetHost = createProductionStitchWidgetHost({
+    mountAiConfiguration: (host) => aiConfiguration.mount(host),
     getDraft: options.getDraft,
     getState: options.getState,
     getMessages: options.getCurrentMessages,

@@ -4,6 +4,7 @@ import {
   encodeStoredOptionsReplacement
 } from '../../shared/config/storedOptionsCodec';
 import type { IOptionsRepository } from '../../shared/repositories/IOptionsRepository';
+import { optionsPatchPreconditionsMatch } from '../../shared/config/optionsPatchPreconditions';
 import type { CompleteOptions, StoredOptions } from '../../shared/types/options';
 import {
   OptionsMutationError,
@@ -40,11 +41,16 @@ export function createPreviewOptionsRepository(
 
   return {
     get: () => Promise.resolve(snapshot()),
-    patch(patches: OptionsPatch | readonly OptionsPatch[]): Promise<CompleteOptions> {
+    patch(
+      patches: OptionsPatch | readonly OptionsPatch[],
+      expected?: readonly OptionsPatch[]
+    ): Promise<CompleteOptions> {
       const batch: readonly OptionsPatch[] = Array.isArray(patches) ? patches : [patches];
       if (batch.length === 0) {
         return Promise.reject(new OptionsMutationError('INVALID_OPTIONS_MUTATION'));
       }
+      if (expected && !optionsPatchPreconditionsMatch(snapshot(), expected))
+        return Promise.reject(new OptionsMutationError('EXTERNAL_SYNC_CONFLICT'));
       let next = stored;
       for (const patch of batch) {
         const result = applyStoredOptionsPatch(next, patch);
