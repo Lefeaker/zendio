@@ -88,6 +88,8 @@ describe('report-performance-hotspots', () => {
 
   it('keeps the exact normalized budget transitions and every other budget unchanged', () => {
     const registeredBudgets = readRegisteredBudgets();
+    expect(registeredBudgets.get('src/i18n/generated/messages.generated.ts')).toBe(1313);
+    registeredBudgets.set('src/i18n/generated/messages.generated.ts', 1310);
     const aiConfigurationChanges: Array<[string, number, number]> = [
       ['src/i18n/generated/messages.generated.ts', 1281, 1310],
       ['src/background/services/optionsMutationCoordinator.ts', 360, 370],

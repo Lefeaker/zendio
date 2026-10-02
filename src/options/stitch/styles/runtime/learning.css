@@ -111,19 +111,36 @@
   color: var(--text);
 }
 
+.learning-library,
 .learning-advanced,
-.learning-setup {
+.learning-privacy {
   padding: var(--space-5) 0;
   border-top: 1px solid var(--line);
 }
 
-.learning-setup > .onboarding-header {
-  margin-top: var(--space-6);
+.learning-library summary,
+.learning-privacy summary {
+  font-weight: 600;
+  cursor: pointer;
 }
 
-.learning-advanced summary,
-.learning-setup summary {
-  font-weight: 600;
+.learning-advanced h2 {
+  margin: 0;
+  font-size: var(--font-size-modal-title);
+}
+
+.learning-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--space-4);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--line);
+}
+
+.learning-footer .footer-links {
+  margin: 0;
 }
 
 .learning-root [hidden] {

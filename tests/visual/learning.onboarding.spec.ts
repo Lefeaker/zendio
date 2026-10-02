@@ -67,8 +67,56 @@ test('bundled practice uses the real Shift selection dialog and reader', async (
   try {
     const worker = context.serviceWorkers()[0] ?? (await context.waitForEvent('serviceworker'));
     const extensionId = worker.url().split('/')[2];
-    const guide = await context.newPage();
-    await guide.goto('chrome-extension://' + extensionId + '/onboarding/index.html');
+    const settings = await context.newPage();
+    await settings.goto('chrome-extension://' + extensionId + '/options/index.html');
+    const guideOpened = context.waitForEvent('page');
+    await settings.locator('[data-footer-panel="onboarding"]').click();
+    const guide = await guideOpened;
+    await expect(guide.locator('#learningStartPractice')).toBeVisible();
+    await expect(guide.locator('h1')).toHaveCount(1);
+    await expect(guide.locator('.learning-setup, .onboarding-steps, #configureApiBtn')).toHaveCount(
+      0
+    );
+    await expect(guide.locator('.learning-library')).not.toHaveAttribute('open');
+    await expect(guide.locator('.learning-advanced button')).toHaveCount(3);
+    await guide.locator('.learning-privacy summary').click();
+    await expect(
+      guide.locator('.agreement-consent:has(#onboardingAnalyticsConsent)')
+    ).toBeVisible();
+    await expect(guide.locator('#onboardingAnalyticsConsent')).not.toBeChecked();
+    await expect(
+      guide.locator('.agreement-consent:has(#onboardingErrorReportingConsent)')
+    ).toBeVisible();
+    await expect(guide.locator('#onboardingErrorReportingConsent')).not.toBeChecked();
+    await expect(guide.locator('#termsOfUseLink')).toBeVisible();
+    await guide.locator('.learning-privacy summary').click();
+    await guide.screenshot({
+      path: testInfo.outputPath('learning-simplified-en.png'),
+      fullPage: true
+    });
+    await settings.close();
+    for (const language of ['zh-CN', 'de', 'ja']) {
+      await worker.evaluate(async (value) => {
+        await chrome.storage.sync.set({ language: value });
+      }, language);
+      await guide.setViewportSize({ width: language === 'zh-CN' ? 1280 : 360, height: 800 });
+      await guide.emulateMedia({ colorScheme: language === 'de' ? 'dark' : 'light' });
+      await guide.reload();
+      await expect(guide.locator('#learningStartPractice')).toBeInViewport();
+      expect(await guide.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
+        true
+      );
+      await guide.screenshot({
+        path: testInfo.outputPath('learning-simplified-' + language + '.png'),
+        fullPage: true
+      });
+    }
+    await worker.evaluate(async () => {
+      await chrome.storage.sync.set({ language: 'en' });
+    });
+    await guide.setViewportSize({ width: 1280, height: 720 });
+    await guide.emulateMedia({ colorScheme: 'light' });
+    await guide.reload();
     context.on('page', (page) =>
       page.on('pageerror', (error) => console.error('[practice-page]', error.message))
     );

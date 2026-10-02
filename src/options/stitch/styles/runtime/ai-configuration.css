@@ -65,32 +65,49 @@
 }
 
 .ai-config-diff {
-  display: grid;
-  gap: 12px;
-}
-
-.ai-config-change {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-  gap: 10px 16px;
-  padding: 16px;
+  min-width: 0;
+  overflow-x: auto;
   border: var(--border-default);
   border-radius: var(--radius-md);
+}
+
+.ai-config-diff table {
+  width: 100%;
+  min-width: 440px;
+  table-layout: fixed;
+  border-collapse: collapse;
+  text-align: left;
+  font-size: 13px;
+}
+
+.ai-config-diff th,
+.ai-config-diff td {
+  padding: 10px 12px;
+  vertical-align: top;
+  text-align: left;
+  overflow-wrap: anywhere;
+}
+
+.ai-config-diff thead {
   background: var(--bg);
+  color: var(--text-subtle);
+}
+
+.ai-config-diff th:first-child {
+  width: 28%;
+}
+
+.ai-config-diff tbody tr {
+  border-top: var(--border-default);
 }
 
 .ai-config-field {
-  grid-column: 1 / -1;
-}
-
-.ai-config-caption {
-  color: var(--text-subtle);
-  font-size: 12px;
+  font-weight: 500;
 }
 
 .ai-config-change pre {
-  margin: 6px 0 0;
-  max-height: 180px;
+  margin: 0;
+  max-height: 128px;
   overflow: auto;
   overflow-wrap: anywhere;
   white-space: pre-wrap;

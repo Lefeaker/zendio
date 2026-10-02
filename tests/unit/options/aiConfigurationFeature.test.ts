@@ -52,6 +52,12 @@ describe('AI configuration UI transaction', () => {
   it('does not write during preview, keeps text across remount, applies and undoes through guarded patches', async () => {
     const r = await setup();
     expect((await r.repository.get()).readingSession.exportMode).toBe('highlights');
+    expect(Array.from(r.host.querySelectorAll('thead th')).map((node) => node.textContent)).toEqual(
+      ['Setting', 'Before', 'After']
+    );
+    expect(r.host.querySelectorAll('tbody tr')).toHaveLength(1);
+    expect(r.host.querySelector('tbody th')?.getAttribute('scope')).toBe('row');
+    expect(r.host.querySelectorAll('tbody td')).toHaveLength(2);
     expect(element(r.host, '#aiConfigChanges').textContent).toContain('Highlights only');
     expect(element(r.host, '#aiConfigChanges').textContent).toContain('Full article');
     const other = document.createElement('div');

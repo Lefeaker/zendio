@@ -85,6 +85,14 @@ export function createAiConfigView(actions: {
   status.setAttribute('role', 'status');
   const diff = node('div', 'ai-config-diff');
   diff.id = 'aiConfigChanges';
+  diff.tabIndex = 0;
+  diff.setAttribute('role', 'region');
+  diff.setAttribute('aria-labelledby', 'aiConfigStatus');
+  const table = node('table');
+  const head = node('thead');
+  const body = node('tbody');
+  table.append(head, body);
+  diff.append(table);
   const apply = button('aiConfigApply', actions.apply, true);
   const refresh = button('aiConfigRefresh', actions.refresh);
   const undo = button('aiConfigUndo', actions.undo);
@@ -156,26 +164,32 @@ export function createAiConfigView(actions: {
       copyError.hidden = !state.error;
       manual.textContent = m.aiConfigManual;
       manualLink.textContent = m.settingsConnectVault;
+      diff.hidden = count === 0;
       if (renderedRows === state.review?.rows && renderedMessages === m) return;
       renderedRows = state.review?.rows;
       renderedMessages = m;
-      diff.replaceChildren(
+      table.setAttribute('aria-label', m.aiConfigTitle);
+      const headers = node('tr');
+      for (const label of [m.aiConfigField, m.aiConfigBefore, m.aiConfigAfter]) {
+        const cell = node('th');
+        cell.scope = 'col';
+        cell.textContent = label;
+        headers.append(cell);
+      }
+      head.replaceChildren(headers);
+      body.replaceChildren(
         ...(renderedRows ?? []).map((change) => {
-          const row = node('div', 'ai-config-change');
+          const row = node('tr', 'ai-config-change');
           row.dataset.field = change.field;
-          const heading = node('strong', 'ai-config-field');
+          const heading = node('th', 'ai-config-field');
+          heading.scope = 'row';
           heading.textContent = m[change.label];
           row.append(heading);
-          for (const [caption, value] of [
-            [m.aiConfigBefore, change.before],
-            [m.aiConfigAfter, change.after]
-          ]) {
-            const cell = node('div');
-            const label = node('p', 'ai-config-caption');
-            label.textContent = String(caption);
+          for (const value of [change.before, change.after]) {
+            const cell = node('td');
             const content = node('pre');
             content.textContent = display(value, change.field, m);
-            cell.append(label, content);
+            cell.append(content);
             row.append(cell);
           }
           return row;

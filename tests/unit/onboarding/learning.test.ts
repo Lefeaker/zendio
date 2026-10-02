@@ -79,9 +79,30 @@ describe('learning center', () => {
     const later = Array.from(r.root.querySelectorAll('button')).find(
       (button) => button.textContent === 'Try later'
     );
+    required<HTMLButtonElement>(r.root, '[data-learning-course="video"]').click();
     later?.click();
+    expect(required<HTMLDetailsElement>(r.root, '.learning-library').open).toBe(true);
     expect(r.root.querySelector('.learning-count')?.textContent).toContain('0 / 6');
     expect(await r.dependencies.storage.local.get(LEARNING_PROGRESS_KEY)).toBeUndefined();
+    dispose();
+  });
+
+  it('offers one initial practice action and three workflow destinations without repeated feature lists', async () => {
+    const r = rig();
+    const dispose = await mountLearningCenter(r.root, r.dependencies, r.navigation, {});
+    expect(required<HTMLDetailsElement>(r.root, '.learning-library').open).toBe(false);
+    expect(required<HTMLDetailsElement>(r.root, '.learning-custom-page').open).toBe(false);
+    const lesson = required<HTMLElement>(r.root, '#learningLesson');
+    expect(lesson.querySelectorAll(':scope > button:not([hidden])')).toHaveLength(1);
+    expect(r.root.querySelectorAll('.learning-advanced button')).toHaveLength(3);
+    expect(r.root.querySelector('.learning-advanced ul')).toBeNull();
+    expect(Array.from(r.root.children).map((node) => node.className)).toEqual([
+      'learning-intro',
+      'learning-lesson',
+      'learning-result',
+      'learning-library',
+      'learning-advanced'
+    ]);
     dispose();
   });
 

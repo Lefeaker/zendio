@@ -65,31 +65,17 @@ export function createLearningView(
   const progress = element('p', 'learning-count');
   progress.setAttribute('role', 'status');
   const grid = element('div', 'learning-grid');
-  grid.hidden = true;
-  const views = element('nav', 'learning-actions');
+  const library = element('details', 'learning-library');
+  const librarySummary = element('summary', '', tr('learningLibrary'));
+  librarySummary.id = 'learningLibraryButton';
+  library.append(librarySummary, progress, grid);
   let initializedNavigation = false;
-  const setLibrary = (visible: boolean) => {
-    grid.hidden = !visible;
-    for (const [button, active] of [
-      [first, !visible],
-      [library, visible]
-    ] as const) {
-      button.setAttribute('aria-pressed', String(active));
-      button.classList.toggle('primary', active);
-      button.classList.toggle('secondary', !active);
-    }
-  };
-  const first = learningButton(tr('learningFirstSave'), () => {
-    setLibrary(false);
-    actions.select('fragment');
-  });
-  const library = learningButton(tr('learningLibrary'), () => setLibrary(true));
-  library.id = 'learningLibraryButton';
-  setLibrary(false);
-  views.append(first, library);
   const cards = new Map<LearningCourse, { button: HTMLButtonElement; status: HTMLElement }>();
   for (const course of LEARNING_COURSES) {
-    const button = learningButton(tr(COURSE_COPY[course][0]), () => actions.select(course));
+    const button = learningButton(tr(COURSE_COPY[course][0]), () => {
+      library.open = false;
+      actions.select(course);
+    });
     button.classList.add('learning-course');
     button.dataset.learningCourse = course;
     const status = element('span', 'learning-course-status', tr('learningNotStarted'));
@@ -106,7 +92,7 @@ export function createLearningView(
   const start = learningButton(tr('practiceStart'), actions.startPractice, true);
   start.id = 'learningStartPractice';
   const custom = element('details', 'learning-custom-page');
-  custom.append(element('summary', '', tr('learningChoosePage')));
+  custom.append(element('summary', '', tr('learningOwnPage')));
   const pageLabel = element('label', '', tr('learningChoosePage'));
   pageLabel.htmlFor = 'learningPage';
   const pages = element('select', 'learning-select');
@@ -130,7 +116,10 @@ export function createLearningView(
   const error = element('p', 'learning-error');
   error.setAttribute('role', 'alert');
   const hint = element('p', 'learning-description', tr('learningContinueHint'));
-  const later = learningButton(tr('learningLater'), actions.later);
+  const later = learningButton(tr('learningLater'), () => {
+    library.open = true;
+    actions.later();
+  });
   custom.append(pageLabel, pages, urlLabel, url, pageActions);
   lesson.append(title, start, steps, custom, error, hint, later);
   const result = element('section', 'learning-result');
@@ -148,25 +137,21 @@ export function createLearningView(
   const resultActions = element('div', 'learning-actions');
   resultActions.append(show, copy);
   result.append(resultTitle, path, resultHint, resultActions, resultFeedback);
-  const advanced = element('details', 'learning-advanced');
-  advanced.append(element('summary', '', tr('learningAdvanced')));
-  const advancedList = element('ul', 'learning-instructions');
-  for (const key of [
-    'step4Detail1',
-    'step4Detail2',
-    'step4Detail3',
-    'step4Detail4',
-    'step3Section2Detail7'
+  const advanced = element('section', 'learning-advanced');
+  const configureActions = element('div', 'learning-actions');
+  for (const [label, step] of [
+    ['settingsConnectVault', 'vault'],
+    ['settingsTourTitle', 'overview'],
+    ['aiConfigTitle', 'ai']
   ] as const) {
-    advancedList.append(element('li', '', tr(key)));
+    configureActions.append(learningButton(tr(label), () => actions.configure(step)));
   }
   advanced.append(
+    element('h2', '', tr('learningAdvanced')),
     element('p', 'learning-description', tr('learningAdvancedHint')),
-    advancedList,
-    learningButton(tr('settingsTourTitle'), () => actions.configure('overview')),
-    learningButton(tr('aiConfigTitle'), () => actions.configure('ai'))
+    configureActions
   );
-  root.append(intro, views, progress, result, grid, lesson, advanced);
+  root.append(intro, lesson, result, library, advanced);
   let renderedCourse: LearningCourse | undefined;
   return {
     pages,
@@ -182,7 +167,7 @@ export function createLearningView(
       receipt?: LearningReceipt
     ) {
       if (!initializedNavigation) {
-        setLibrary(course !== 'fragment');
+        library.open = course !== 'fragment';
         initializedNavigation = true;
       }
       const count = completedLearningCount(state);
@@ -198,6 +183,7 @@ export function createLearningView(
         card.status.textContent = tr(learningCourseStatus(id, course, state, deferred));
       }
       configure.hidden = course !== 'vault';
+      later.hidden = course === 'fragment';
       start.hidden = !['fragment', 'reader', 'video'].includes(course);
       if (renderedCourse !== course) custom.open = start.hidden;
       renderedCourse = course;

@@ -90,7 +90,6 @@ test('installed AI configuration previews, applies, preserves and rejects stale 
       );
     const guide = await context.newPage();
     await guide.goto('chrome-extension://' + id + '/onboarding/index.html');
-    await guide.locator('.learning-advanced summary').click();
     const opened = context.waitForEvent('page');
     await guide.getByRole('button', { name: 'AI-assisted configuration', exact: true }).click();
     const page = await opened;
@@ -116,8 +115,20 @@ test('installed AI configuration previews, applies, preserves and rejects stale 
       '\n```';
     await page.locator('#aiConfigInput').fill(input);
     await expect(page.locator('.ai-config-change')).toHaveCount(2);
+    await expect(page.locator('#aiConfigChanges thead th')).toHaveCount(3);
     await expect(page.locator('.ai-config-change').first()).toContainText('Shift');
     expect(await read()).toEqual(before);
+    expect(
+      await page
+        .locator('.ai-config-change')
+        .first()
+        .evaluate((node) => node.getBoundingClientRect().height)
+    ).toBeLessThan(70);
+    await expect(page.locator('#aiConfigChanges thead th')).toHaveText([
+      'Setting',
+      'Before',
+      'After'
+    ]);
     await page.screenshot({ path: testInfo.outputPath('ai-preview-en.png'), fullPage: true });
     await page.locator('#aiConfigApply').click();
     await expect(page.locator('#aiConfigStatus')).toHaveText('Applied 2 changes.');
@@ -226,6 +237,14 @@ test('installed AI configuration previews, applies, preserves and rejects stale 
       await page.reload();
       await page.locator('#aiConfigInput').fill(input);
       await expect(page.locator('.ai-config-change')).toHaveCount(2);
+      await expect(page.locator('#aiConfigChanges tbody th')).toHaveCount(2);
+      if (language !== 'zh-CN') {
+        const diff = page.locator('#aiConfigChanges');
+        expect(await diff.evaluate((node) => node.scrollWidth > node.clientWidth)).toBe(true);
+        await diff.focus();
+        await page.keyboard.press('ArrowRight');
+        await expect.poll(() => diff.evaluate((node) => node.scrollLeft)).toBeGreaterThan(0);
+      }
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
         true
       );

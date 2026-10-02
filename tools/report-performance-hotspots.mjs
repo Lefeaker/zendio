@@ -27,7 +27,8 @@ export const MAX_LINE_BUDGETS = new Map([
   // 2026-10-01: learning walkthrough and guided practice add 74 message declarations.
   // 2026-10-02: AI configuration adds 29 declarations; existing mutation and mount
   // owners below retain their guarded-patch and browser-context responsibilities.
-  ['src/i18n/generated/messages.generated.ts', 1310],
+  // Compact review and first-run navigation add three catalog labels.
+  ['src/i18n/generated/messages.generated.ts', 1313],
   ['src/i18n/generated/locales/fr.generated.ts', 785],
   ['src/i18n/generated/locales/es-419.generated.ts', 777],
   ['src/i18n/generated/locales/es-ES.generated.ts', 777],
