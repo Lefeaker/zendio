@@ -20,7 +20,7 @@
   "schemaCaptureBehaviorSidebarHighlightsNote": "保存したハイライトは Obsidian プラグイン Sidebar Highlights と組み合わせるとより便利です。",
   "schemaCaptureBehaviorTitle": "取得動作",
   "schemaCaptureSourcesAiChatGroupTitle": "AI チャット",
-  "schemaCaptureSourcesAiConversationDescription": "AI チャット書き出しの対応元と表示方法を設定します。",
+  "schemaCaptureSourcesAiConversationDescription": "対応するプラットフォームを確認し、既存の会話を開いてエクスポートします。",
   "schemaCaptureSourcesAiConversationTitle": "AI 会話キャプチャ",
   "schemaCaptureSourcesAiSupportedPlatformsBadge": "対応プラットフォーム 10 件",
   "schemaCaptureSourcesAttachmentGuidanceLink": "Custom Attachment Location",

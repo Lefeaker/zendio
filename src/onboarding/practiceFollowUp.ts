@@ -34,7 +34,7 @@ export function practiceFollowUp(m: Messages, lesson: PracticeLesson, firefox: b
   };
   if (lesson === 'reader') {
     paragraph(m.schemaCaptureBehaviorSidebarHighlightsNote);
-    root.append(settingsGuideLink(m.readingConfigTitle, 'reading'));
+    root.append(settingsGuideLink(m.readingHighlightThemeLabel, 'highlight'));
   } else if (lesson === 'video') {
     paragraph(m.settingsAfterVideo);
     paragraph(firefox ? m.settingsVaultFirefox : m.settingsVaultLocal);
@@ -52,7 +52,7 @@ export function practiceFollowUp(m: Messages, lesson: PracticeLesson, firefox: b
         m.schemaCaptureSourcesAttachmentGuidanceLink +
         m.schemaCaptureSourcesAttachmentGuidanceSuffix
     );
-    root.append(settingsGuideLink(m.schemaCaptureSourcesScreenshotLocationTitle, 'sources'));
+    root.append(settingsGuideLink(m.schemaCaptureSourcesScreenshotLocationTitle, 'attachments'));
   }
   return root;
 }

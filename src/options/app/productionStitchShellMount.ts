@@ -150,7 +150,9 @@ export function mountProductionStitchShellFromDependencies({
     renderAndWait,
     renderActiveResourceModal,
     scheduleDraftSave,
-    scrollToPanel,
+    scrollToPanel: (panelId) => {
+      if (!settingsTour?.navigateToPanel(panelId)) scrollToPanel(panelId);
+    },
     syncDomainEntries: (entries) => {
       setDomainMappingRows(syncProductionDomainEntries(getDraft(), entries));
     },
@@ -176,6 +178,7 @@ export function mountProductionStitchShellFromDependencies({
   });
 
   renderLifecycle = createProductionStitchRenderLifecycle({
+    onPanelNavigate: (panelId) => settingsTour?.navigateToPanel(panelId) ?? false,
     getFooterMeta: stitchAssets.getFooterMeta,
     getFooterView: stitchAssets.getFooterView,
     mountRoot,

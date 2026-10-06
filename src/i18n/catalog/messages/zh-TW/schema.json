@@ -20,7 +20,7 @@
   "schemaCaptureBehaviorSidebarHighlightsNote": "保存後的高亮與 Obsidian 外掛 Sidebar Highlights 搭配使用效果更好。",
   "schemaCaptureBehaviorTitle": "擷取行為",
   "schemaCaptureSourcesAiChatGroupTitle": "AI 對話",
-  "schemaCaptureSourcesAiConversationDescription": "設定 AI 對話匯出時的來源覆蓋範圍與顯示方式。",
+  "schemaCaptureSourcesAiConversationDescription": "查看支援的平台，開啟既有對話以匯出。",
   "schemaCaptureSourcesAiConversationTitle": "AI 對話擷取",
   "schemaCaptureSourcesAiSupportedPlatformsBadge": "10 個已支援平台",
   "schemaCaptureSourcesAttachmentGuidanceLink": "Custom Attachment Location",

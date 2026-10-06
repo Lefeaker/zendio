@@ -3,6 +3,7 @@ import { createServer } from 'node:http';
 import { readFile, mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
+import type { CompleteOptions } from '../../src/shared/types/options';
 import type { LearningProgress } from '../../src/shared/learningProgress';
 
 async function selectPassage(page: Page, id: string): Promise<void> {
@@ -635,13 +636,24 @@ test('practice links to the actual settings tour and modifier edits update pract
     const select = settings.locator('#settingsTourTopics');
     for (const topic of [
       'overview',
+      'appearance',
+      'privacy',
       'vault',
+      'rest',
       'routing',
       'sources',
+      'video',
+      'attachments',
       'reading',
+      'highlight',
       'selection',
+      'context',
+      'shortcuts',
       'output',
+      'mappings',
+      'yaml',
       'maintenance',
+      'diagnostics',
       'ai'
     ]) {
       await select.selectOption(topic);
@@ -650,10 +662,12 @@ test('practice links to the actual settings tour and modifier edits update pract
     }
     await select.selectOption('vault');
     await expect(settings.locator('#settingsTour')).toContainText('默认仓库');
-    await expect(settings.locator('#settingsTour a')).toHaveAttribute(
+    await select.selectOption('rest');
+    await expect(settings.locator('.settings-tour-copy a')).toHaveAttribute(
       'href',
       'https://github.com/coddingtonbear/obsidian-local-rest-api'
     );
+    await select.selectOption('vault');
     await settings.screenshot({ path: testInfo.outputPath('settings-vault-zh.png') });
     await settings.reload();
     await expect(settings.locator('#settingsTourTopics')).toHaveValue('vault');
@@ -672,10 +686,11 @@ test('practice links to the actual settings tour and modifier edits update pract
     await worker.evaluate(() => chrome.storage.sync.set({ language: 'de' }));
     await settings.emulateMedia({ colorScheme: 'dark' });
     await settings.goto(
-      'chrome-extension://' + id + '/options/index.html?guide=reading#section-capture-behavior'
+      'chrome-extension://' + id + '/options/index.html?guide=highlight#section-capture-behavior'
     );
     await expect(settings.locator('#settingsTour')).toContainText('Sidebar Highlights');
     await expect(settings.locator('#settingsTourClose')).toBeVisible();
+    await settings.locator('#settingsTourNext').scrollIntoViewIfNeeded();
     expect(
       await settings.locator('#settingsTourNext').evaluate((node) => {
         const box = node.getBoundingClientRect();
@@ -683,6 +698,146 @@ test('practice links to the actual settings tour and modifier edits update pract
       })
     ).toBe(true);
     await settings.screenshot({ path: testInfo.outputPath('settings-narrow-dark-de.png') });
+  } finally {
+    await context.close();
+    await rm(profile, { recursive: true, force: true });
+  }
+});
+
+test('settings topics stay in sync, remain readable in short windows and end with practice', async ({
+  browserName
+}, testInfo) => {
+  test.skip(browserName !== 'chromium');
+  const profile = await mkdtemp(path.join(tmpdir(), 'zendio-tour-topics-'));
+  const extensionPath = path.resolve(process.env.PLAYWRIGHT_DIST_DIR ?? 'build/dist');
+  const context = await chromium.launchPersistentContext(profile, {
+    headless: false,
+    viewport: { width: 1280, height: 800 },
+    args: [
+      '--headless=new',
+      '--disable-extensions-except=' + extensionPath,
+      '--load-extension=' + extensionPath
+    ]
+  });
+  try {
+    const worker = context.serviceWorkers()[0] ?? (await context.waitForEvent('serviceworker'));
+    const id = worker.url().split('/')[2];
+    await worker.evaluate(() => chrome.storage.sync.set({ language: 'zh-CN' }));
+    const page = await context.newPage();
+    const base = 'chrome-extension://' + id + '/options/index.html';
+    await page.goto(base + '?guide=selection');
+    const topics = page.locator('#settingsTourTopics');
+    await expect(topics).toHaveValue('selection');
+    await expect(topics.locator('optgroup')).toHaveCount(6);
+    await expect(topics.locator('option')).toHaveCount(21);
+    const readOptions = () =>
+      worker.evaluate(
+        async () => (await chrome.storage.sync.get<{ options: CompleteOptions }>('options')).options
+      );
+    const initial = await readOptions();
+    await page.locator('.sidebar button').filter({ hasText: '输出与元数据' }).first().click();
+    await expect(topics).toHaveValue('output');
+    await expect(page.locator('#section-output .settings-tour-target')).toBeVisible();
+    await expect(page).toHaveURL(/guide=output/);
+    await page.reload();
+    await expect(topics).toHaveValue('output');
+    for (const [topic, control] of [
+      ['appearance', '.interface-theme-grid'],
+      ['privacy', '.consent-inline-grid'],
+      ['routing', '.routing-rules-table-scroll'],
+      ['sources', '.ai-platform-link-row'],
+      ['video', '.video-entry-toggle-row'],
+      ['reading', '[data-value="full"]'],
+      ['highlight', '.highlight-theme-control'],
+      ['context', '.fragment-context-inline'],
+      ['shortcuts', '.keyboard-shortcuts-inline'],
+      ['mappings', '.domain-mapping-table-scroll'],
+      ['yaml', '[data-stitch-widget="yaml-config"]'],
+      ['diagnostics', '.settings-diagnostics-card']
+    ]) {
+      await topics.selectOption(topic ?? '');
+      expect(
+        await page
+          .locator('.settings-tour-target')
+          .evaluate(
+            (target, selector) =>
+              target.matches(selector) || Boolean(target.querySelector(selector)),
+            control ?? ''
+          )
+      ).toBe(true);
+    }
+    await topics.selectOption('sources');
+    await expect(page.locator('.settings-tour-copy')).toContainText('平台链接');
+    await expect(page.locator('.settings-tour-copy')).not.toContainText('选择启用');
+    await topics.selectOption('video');
+    await expect(page.locator('.settings-tour-copy')).toContainText('编辑批注时');
+    await topics.selectOption('yaml');
+    await page.screenshot({ path: testInfo.outputPath('tour-yaml-topic-zh.png') });
+    await topics.selectOption('vault');
+    await expect(page.locator('#settingsTourNext')).toHaveText('结束本项讲解');
+    await page.locator('#settingsTourNext').click();
+    await expect(page.locator('#settingsTourTitle')).toHaveText('本项讲解结束');
+    await expect(topics).toHaveValue('vault');
+    await expect(page.locator('#settingsTourVerify')).toHaveAttribute('href', /lesson=fragment/);
+    await expect(page.locator('.settings-tour-target')).toHaveCount(0);
+    expect(await readOptions()).toEqual(initial);
+    await topics.selectOption('__basics');
+    for (const [i, topic] of ['overview', 'vault', 'selection', 'output'].entries()) {
+      await expect(topics).toHaveValue(topic);
+      await expect(page.locator('.settings-tour-count')).toContainText(`${i + 1} / 4`);
+      await page.locator('#settingsTourNext').click();
+    }
+    await expect(page.locator('#settingsTourVerify')).toBeVisible();
+    await expect(page.locator('#settingsTourVerify')).toHaveAttribute(
+      'href',
+      '../onboarding/index.html'
+    );
+    await topics.selectOption('reading');
+    await page.locator('#settingsTourNext').click();
+    const practiceOpened = context.waitForEvent('page');
+    await page.locator('#settingsTourVerify').click();
+    const practice = await practiceOpened;
+    await expect(practice).toHaveURL(/practice.html\?lesson=reader/);
+    await expect(practice.locator('#practiceFirst')).toBeVisible();
+    await practice.close();
+    await page.screenshot({ path: testInfo.outputPath('tour-finished-zh.png') });
+    for (const { language, width, height, topic } of [
+      { language: 'zh-CN', width: 900, height: 600, topic: 'rest' },
+      { language: 'zh-CN', width: 360, height: 640, topic: 'vault' },
+      { language: 'de', width: 360, height: 640, topic: 'attachments' }
+    ]) {
+      await worker.evaluate((value) => chrome.storage.sync.set({ language: value }), language);
+      await page.setViewportSize({ width, height });
+      await page.emulateMedia({ colorScheme: language === 'de' ? 'dark' : 'light' });
+      await page.goto(base + '?guide=' + topic);
+      await expect(topics).toHaveValue(topic);
+      const copy = page.locator('.settings-tour-copy');
+      expect(await copy.evaluate((node) => node.scrollHeight <= node.clientHeight + 1)).toBe(true);
+      await copy.locator('p').last().scrollIntoViewIfNeeded();
+      await expect(copy.locator('p').last()).toBeInViewport();
+      await page.screenshot({
+        path: testInfo.outputPath(`tour-readable-${language}-${width}.png`)
+      });
+      const beforeHeight = await page.locator('.main').evaluate((node) => node.clientHeight);
+      await page.locator('#settingsTourToggle').click();
+      await expect(page.locator('#settingsTourContent')).toBeHidden();
+      expect(await page.locator('.main').evaluate((node) => node.clientHeight)).toBeGreaterThan(
+        beforeHeight + 150
+      );
+      await page.screenshot({
+        path: testInfo.outputPath(`tour-collapsed-${language}-${width}.png`)
+      });
+      await page.locator('#settingsTourToggle').click();
+      await expect(topics).toHaveValue(topic);
+      await page.locator('#settingsTourLocate').click();
+      await expect(page.locator('.settings-tour-target')).toBeInViewport();
+    }
+    await topics.selectOption('selection');
+    await page.locator('.settings-tour-target button').first().focus();
+    await page.keyboard.press('Escape');
+    await expect(page.locator('#settingsTour')).toHaveCount(0);
+    expect(new URL(page.url()).searchParams.has('guide')).toBe(false);
+    expect(await readOptions()).toEqual(initial);
   } finally {
     await context.close();
     await rm(profile, { recursive: true, force: true });

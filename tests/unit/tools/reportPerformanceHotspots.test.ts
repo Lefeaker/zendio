@@ -88,6 +88,15 @@ describe('report-performance-hotspots', () => {
 
   it('keeps the exact normalized budget transitions and every other budget unchanged', () => {
     const registeredBudgets = readRegisteredBudgets();
+    const tourChanges: Array<[string, number, number]> = [
+      ['src/i18n/generated/messages.generated.ts', 1313, 1331],
+      ['src/options/app/productionStitchShellMount.ts', 264, 267],
+      ['src/options/app/productionStitchRenderLifecycle.ts', 254, 256]
+    ];
+    for (const [file, before, after] of tourChanges) {
+      expect(registeredBudgets.get(file)).toBe(after);
+      registeredBudgets.set(file, before);
+    }
     expect(registeredBudgets.get('src/i18n/generated/messages.generated.ts')).toBe(1313);
     registeredBudgets.set('src/i18n/generated/messages.generated.ts', 1310);
     const aiConfigurationChanges: Array<[string, number, number]> = [

@@ -20,7 +20,7 @@
   "schemaCaptureBehaviorSidebarHighlightsNote": "Los resaltados guardados funcionan mejor con el plugin de Obsidian Sidebar Highlights.",
   "schemaCaptureBehaviorTitle": "Comportamiento de captura",
   "schemaCaptureSourcesAiChatGroupTitle": "Chat IA",
-  "schemaCaptureSourcesAiConversationDescription": "Configura la cobertura de orígenes y el comportamiento visual de las exportaciones de chat con IA.",
+  "schemaCaptureSourcesAiConversationDescription": "Consulta las plataformas compatibles y abre una conversación existente para exportarla.",
   "schemaCaptureSourcesAiConversationTitle": "Captura de conversaciones de IA",
   "schemaCaptureSourcesAiSupportedPlatformsBadge": "10 plataformas compatibles",
   "schemaCaptureSourcesAttachmentGuidanceLink": "Custom Attachment Location",

@@ -20,7 +20,7 @@
   "schemaCaptureBehaviorSidebarHighlightsNote": "Gespeicherte Hervorhebungen funktionieren am besten mit dem Obsidian-Plugin Sidebar Highlights.",
   "schemaCaptureBehaviorTitle": "Erfassungsverhalten",
   "schemaCaptureSourcesAiChatGroupTitle": "KI-Chat",
-  "schemaCaptureSourcesAiConversationDescription": "Konfigurieren Sie Abdeckung und Anzeigeverhalten für KI-Chat-Exporte.",
+  "schemaCaptureSourcesAiConversationDescription": "Unterstützte Plattformen ansehen und vorhandene Gespräche zum Exportieren öffnen.",
   "schemaCaptureSourcesAiConversationTitle": "KI-Gesprächserfassung",
   "schemaCaptureSourcesAiSupportedPlatformsBadge": "10 unterstützte Plattformen",
   "schemaCaptureSourcesAttachmentGuidanceLink": "Custom Attachment Location",
