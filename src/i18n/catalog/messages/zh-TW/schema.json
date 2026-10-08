@@ -445,5 +445,10 @@
   "schemaResourceChangelogV032Bullet3": "修正剪藏、閱讀和影片面板的「設定儲存庫」連結，直接定位設定頁的儲存庫設定。",
   "schemaResourceChangelogV032Bullet4": "首次進入閱讀或影片模式時，提示如何調整面板寬高，以及點擊圖示開啟設定。",
   "schemaResourceChangelogV032Bullet5": "儲存目標保持單行，長路徑或名稱自動省略，滑鼠懸停可查看完整內容。",
-  "schemaResourceChangelogV032Bullet6": "修正開啟匿名使用統計後仍無法回報的問題，保留原有隱私選擇。"
+  "schemaResourceChangelogV032Bullet6": "修正開啟匿名使用統計後仍無法回報的問題，保留原有隱私選擇。",
+  "schemaResourceChangelogV033Summary": "從第一次儲存到設定自己的工作流程。",
+  "schemaResourceChangelogV033Bullet1": "全新實作教學：從按住 Shift 選取文字開始，以箭頭提示與完成彩花帶你練習儲存、閱讀模式的摘錄數字定位，以及影片時間戳記跳轉與截圖選擇；精簡首次設定首頁，移除舊版重複精靈。",
+  "schemaResourceChangelogV033Bullet2": "設定導覽提供 4 步基礎入門與 20 個可選主題，涵蓋輔助鍵、外觀、隱私、附件、範本、YAML 與診斷。講解隨側欄切換，支援定位控制項、收合、小視窗捲動與返回練習驗證。",
+  "schemaResourceChangelogV033Bullet3": "練習後可連接預設儲存庫：說明未設定時儲存至下載資料夾、Chromium 本機目錄授權、Obsidian Local REST API、Firefox 限制，以及 Obsidian 高亮與附件外掛的相容設定。",
+  "schemaResourceChangelogV033Bullet4": "新增 AI 輔助快速設定：複製格式說明至自己的 AI 對話，依需求產生文字後貼回設定頁；透過「修改項／修改前／修改後」表格預覽，套用後生效並可復原。未提及的設定保持原樣；目錄授權、金鑰與連線測試仍需手動完成。"
 }

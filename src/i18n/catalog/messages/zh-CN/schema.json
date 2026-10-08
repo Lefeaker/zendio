@@ -445,5 +445,10 @@
   "schemaResourceChangelogV032Bullet3": "修复剪藏、阅读和视频面板的“配置仓库”跳转，直接定位设置页的仓库配置。",
   "schemaResourceChangelogV032Bullet4": "首次进入阅读或视频模式时，提示如何调整面板宽高，以及点击图标打开设置。",
   "schemaResourceChangelogV032Bullet5": "保存目标保持单行，长路径或名称自动省略，悬停可查看完整内容。",
-  "schemaResourceChangelogV032Bullet6": "修复开启匿名使用统计后仍无法上报的问题，保留原有隐私选择。"
+  "schemaResourceChangelogV032Bullet6": "修复开启匿名使用统计后仍无法上报的问题，保留原有隐私选择。",
+  "schemaResourceChangelogV033Summary": "从第一次保存到配置自己的工作流。",
+  "schemaResourceChangelogV033Bullet1": "全新实操教程：从按住 Shift 选中文字开始，用箭头提示和完成礼花带你练习保存、阅读模式的摘抄数字定位，以及视频时间戳跳转和截图选择；精简首次配置首页，移除旧版重复向导。",
+  "schemaResourceChangelogV033Bullet2": "设置导览提供 4 步基础入门与 20 个可选专题，覆盖辅助键、外观、隐私、附件、模板、YAML 和诊断等。讲解随侧栏切换，支持定位控件、收起、小窗口滚动和返回练习验证。",
+  "schemaResourceChangelogV033Bullet3": "练习后可连接默认仓库：说明未配置时保存到下载文件夹，指导 Chromium 浏览器授权本地仓库目录、通过 Obsidian Local REST API 连接，并提示 Firefox 限制及高亮、附件相关 Obsidian 插件的兼容配置。",
+  "schemaResourceChangelogV033Bullet4": "新增 AI 辅助快速配置：复制配置格式说明到自己的 AI 对话，按需求生成文本后粘贴回设置页；以“修改项／修改前／修改后”表格预览，确认应用后生效，支持撤销。未提及设置保持原样，目录授权、密钥和连接测试仍需手动完成。"
 }
