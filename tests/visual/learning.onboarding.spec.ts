@@ -68,6 +68,24 @@ test('bundled practice uses the real Shift selection dialog and reader', async (
   try {
     const worker = context.serviceWorkers()[0] ?? (await context.waitForEvent('serviceworker'));
     const extensionId = worker.url().split('/')[2];
+    await expect
+      .poll(
+        () =>
+          context
+            .pages()
+            .filter(
+              (page) =>
+                page.url() === 'chrome-extension://' + extensionId + '/onboarding/index.html'
+            ).length
+      )
+      .toBe(1);
+    const installedGuide = context
+      .pages()
+      .find(
+        (page) => page.url() === 'chrome-extension://' + extensionId + '/onboarding/index.html'
+      );
+    if (!installedGuide) throw new Error('New installation did not open the tutorial');
+    await expect(installedGuide.locator('#learningStartPractice')).toBeVisible();
     const settings = await context.newPage();
     await settings.goto('chrome-extension://' + extensionId + '/options/index.html');
     const guideOpened = context.waitForEvent('page');
@@ -976,6 +994,19 @@ test('version upgrade invites all capture panels to tutorials and remembers dism
     ).toBe(true);
     await video.screenshot({ path: testInfo.outputPath('upgrade-video-zh.png') });
     await reader.locator('[data-role="learning-update-dismiss"]').click();
+    await expect(reader.locator('.learning-update-reminder')).toBeVisible();
+    await expect(reader.locator('.learning-update-reminder')).toContainText('首次配置');
+    await expect(reader.locator('.learning-update-reminder a')).toHaveAttribute(
+      'href',
+      'chrome-extension://' + id + '/options/index.html'
+    );
+    await reader.screenshot({ path: testInfo.outputPath('upgrade-dismiss-reminder-zh.png') });
+    const openedSettings = context.waitForEvent('page');
+    await reader.locator('.learning-update-reminder a').click();
+    const settingsFromReminder = await openedSettings;
+    await expect(settingsFromReminder.locator('[data-footer-panel="onboarding"]')).toBeVisible();
+    await settingsFromReminder.close();
+
     for (const page of [reader, clipper, video])
       await expect(page.locator('.learning-update-notice')).toBeHidden();
     await expect(clipper.locator('.clipper-comment-textarea')).toHaveValue(

@@ -879,5 +879,6 @@
   "learningUpdateDescription": "Experimente captura, leitura e vídeo e configure seu próprio fluxo de trabalho.",
   "learningUpdateStart": "Explorar tutoriais",
   "learningUpdateDismiss": "Fechar",
-  "learningUpdateSaveError": "Não foi possível salvar sua preferência. Tente novamente."
+  "learningUpdateSaveError": "Não foi possível salvar sua preferência. Tente novamente.",
+  "learningUpdateDismissed": "Você pode reabrir os tutoriais pela configuração inicial na página Opções."
 }

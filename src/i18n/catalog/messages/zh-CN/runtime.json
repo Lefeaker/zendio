@@ -879,5 +879,6 @@
   "learningUpdateDescription": "跟着实操教程，体验剪藏、阅读和视频，再配置自己的工作流。",
   "learningUpdateStart": "开始功能教学",
   "learningUpdateDismiss": "关闭提示",
-  "learningUpdateSaveError": "提示偏好暂时无法保存，请重试。"
+  "learningUpdateSaveError": "提示偏好暂时无法保存，请重试。",
+  "learningUpdateDismissed": "可以在 Options 设置页的「首次配置」进入教程页面。"
 }

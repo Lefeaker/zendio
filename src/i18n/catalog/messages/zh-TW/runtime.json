@@ -879,5 +879,6 @@
   "learningUpdateDescription": "跟著實作教學，體驗剪藏、閱讀與影片，再設定自己的工作流程。",
   "learningUpdateStart": "開始功能教學",
   "learningUpdateDismiss": "關閉提示",
-  "learningUpdateSaveError": "暫時無法儲存提示偏好，請重試。"
+  "learningUpdateSaveError": "暫時無法儲存提示偏好，請重試。",
+  "learningUpdateDismissed": "可以從 Options 設定頁的「首次設定」進入教學頁面。"
 }

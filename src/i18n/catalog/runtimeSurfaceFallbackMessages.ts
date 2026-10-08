@@ -1,6 +1,7 @@
 import type { Messages } from '../messages';
 
 type RuntimeSurfaceFallbackMessageKey =
+  | 'learningUpdateDismissed'
   | 'learningUpdateTitle'
   | 'learningUpdateDescription'
   | 'learningUpdateStart'
@@ -70,6 +71,8 @@ type RuntimeSurfaceFallbackMessageKey =
 export const RUNTIME_SURFACE_FALLBACK_MESSAGES = {
   settingsTitle: 'Settings',
   infoDialogConfirm: 'Got it',
+  learningUpdateDismissed:
+    'You can reopen the tutorials from First-time setup on the Options page.',
   learningUpdateTitle: 'New hands-on tutorials',
   learningUpdateDescription:
     'Try clipping, reading and video lessons, then set up your own workflow.',

@@ -879,5 +879,6 @@
   "learningUpdateDescription": "Попробуйте клиппинг, чтение и видео, а затем настройте свой рабочий процесс.",
   "learningUpdateStart": "Открыть уроки",
   "learningUpdateDismiss": "Закрыть",
-  "learningUpdateSaveError": "Не удалось сохранить выбор. Попробуйте ещё раз."
+  "learningUpdateSaveError": "Не удалось сохранить выбор. Попробуйте ещё раз.",
+  "learningUpdateDismissed": "Уроки можно снова открыть через первоначальную настройку на странице Options."
 }

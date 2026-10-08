@@ -879,5 +879,6 @@
   "learningUpdateDescription": "Try clipping, reading and video lessons, then set up your own workflow.",
   "learningUpdateStart": "Explore the tutorials",
   "learningUpdateDismiss": "Dismiss",
-  "learningUpdateSaveError": "Could not save your preference. Please try again."
+  "learningUpdateSaveError": "Could not save your preference. Please try again.",
+  "learningUpdateDismissed": "You can reopen the tutorials from First-time setup on the Options page."
 }

@@ -379,6 +379,7 @@
     "learningTitle": "把看到的內容，變成你的第一則筆記。",
     "learningUpdateDescription": "跟著實作教學，體驗剪藏、閱讀與影片，再設定自己的工作流程。",
     "learningUpdateDismiss": "關閉提示",
+    "learningUpdateDismissed": "可以從 Options 設定頁的「首次設定」進入教學頁面。",
     "learningUpdateSaveError": "暫時無法儲存提示偏好，請重試。",
     "learningUpdateStart": "開始功能教學",
     "learningUpdateTitle": "新增功能教學",

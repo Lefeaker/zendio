@@ -379,6 +379,7 @@
     "learningTitle": "見つけた内容を、最初のノートに。",
     "learningUpdateDescription": "クリッピング、読書、動画を実際に試して、自分に合った設定を見つけましょう。",
     "learningUpdateDismiss": "閉じる",
+    "learningUpdateDismissed": "Options 設定ページの「初回設定」からチュートリアルを開けます。",
     "learningUpdateSaveError": "設定を保存できませんでした。もう一度お試しください。",
     "learningUpdateStart": "チュートリアルを開く",
     "learningUpdateTitle": "新しい実践チュートリアル",

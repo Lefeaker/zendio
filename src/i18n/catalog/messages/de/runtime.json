@@ -879,5 +879,6 @@
   "learningUpdateDescription": "Probiere Clipping, Lesen und Video aus und richte deinen eigenen Arbeitsablauf ein.",
   "learningUpdateStart": "Anleitungen öffnen",
   "learningUpdateDismiss": "Schließen",
-  "learningUpdateSaveError": "Die Auswahl konnte nicht gespeichert werden. Bitte erneut versuchen."
+  "learningUpdateSaveError": "Die Auswahl konnte nicht gespeichert werden. Bitte erneut versuchen.",
+  "learningUpdateDismissed": "Die Anleitungen sind über die Ersteinrichtung auf der Options-Seite erreichbar."
 }

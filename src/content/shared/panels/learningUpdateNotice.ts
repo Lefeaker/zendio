@@ -1,3 +1,4 @@
+import { handleRuntimeOptionsLink } from '../../stitch/runtimeSurfaceRenderer';
 import { getService, TOKENS } from '@shared/di';
 import type { PlatformServices } from '@platform/types';
 import { createPrimitiveButtonElement } from '@ui/primitives/button';
@@ -31,6 +32,17 @@ export function bindLearningUpdateNotice(
   notice.className = 'learning-update-notice';
   notice.setAttribute('role', 'note');
   notice.hidden = true;
+  const reminder = doc.createElement('p');
+  reminder.className = 'learning-update-reminder';
+  reminder.setAttribute('role', 'status');
+  reminder.hidden = true;
+  const settingsLink = doc.createElement('a');
+  settingsLink.href = services.runtime.getURL('options/index.html');
+  settingsLink.target = '_blank';
+  settingsLink.rel = 'noopener noreferrer';
+  settingsLink.dataset.actionId = 'surface:openOptions';
+  settingsLink.addEventListener('click', handleRuntimeOptionsLink);
+  reminder.append(settingsLink);
   const title = doc.createElement('strong');
   const description = doc.createElement('p');
   const actions = doc.createElement('div');
@@ -53,12 +65,14 @@ export function bindLearningUpdateNotice(
   const t = createContentI18nTranslator(getContentI18nResource());
   const text = (
     key:
+      | 'learningUpdateDismissed'
       | 'learningUpdateTitle'
       | 'learningUpdateDescription'
       | 'learningUpdateStart'
       | 'learningUpdateDismiss'
       | 'learningUpdateSaveError'
   ) => t?.(key, RUNTIME_SURFACE_FALLBACK_MESSAGES[key]) ?? RUNTIME_SURFACE_FALLBACK_MESSAGES[key];
+  settingsLink.textContent = text('learningUpdateDismissed');
   title.textContent = text('learningUpdateTitle');
   description.textContent = text('learningUpdateDescription');
   link.textContent = text('learningUpdateStart');
@@ -66,6 +80,7 @@ export function bindLearningUpdateNotice(
   error.textContent = text('learningUpdateSaveError');
   const binder = getContentI18nBinder();
   const bindings = [
+    binder?.bindText(settingsLink, 'learningUpdateDismissed'),
     binder?.bindText(title, 'learningUpdateTitle'),
     binder?.bindText(description, 'learningUpdateDescription'),
     binder?.bindText(link, 'learningUpdateStart'),
@@ -75,6 +90,7 @@ export function bindLearningUpdateNotice(
   actions.append(link, close);
   notice.append(title, description, actions, error);
   panel.insertBefore(notice, panel.children[1] ?? null);
+  notice.after(reminder);
   let disposed = false;
   let available = false;
   let dismissed = false;
@@ -87,6 +103,7 @@ export function bindLearningUpdateNotice(
   async function acknowledge(event: MouseEvent) {
     event.stopPropagation();
     if (disposed || saving) return;
+    const showReminder = event.currentTarget === close;
     saving = true;
     close.disabled = true;
     error.hidden = true;
@@ -94,6 +111,7 @@ export function bindLearningUpdateNotice(
       await storage.set(LEARNING_UPDATE_DISMISSED_KEY, true);
       dismissed = true;
       refresh();
+      if (!disposed && showReminder) reminder.hidden = false;
     } catch (cause) {
       if (!disposed) error.hidden = false;
       console.warn('[learning] Failed to save tutorial acknowledgement:', cause);
@@ -133,5 +151,7 @@ export function bindLearningUpdateNotice(
     root.removeAttribute('data-learning-update');
     bindings.forEach((binding) => binding?.dispose());
     notice.remove();
+    settingsLink.removeEventListener('click', handleRuntimeOptionsLink);
+    reminder.remove();
   };
 }

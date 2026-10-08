@@ -107,6 +107,14 @@ describe('upgrade tutorial invitation', () => {
     await flush();
     expect(parent).not.toHaveBeenCalled();
     panels.forEach(({ notice }) => expect(notice.hidden).toBe(true));
+    expect(requireElement<HTMLElement>(first.root, '.learning-update-reminder').hidden).toBe(false);
+    expect(requireElement<HTMLAnchorElement>(first.root, '.learning-update-reminder a').href).toBe(
+      'chrome-extension://test/options/index.html'
+    );
+    for (const other of panels.slice(1))
+      expect(requireElement<HTMLElement>(other.root, '.learning-update-reminder').hidden).toBe(
+        true
+      );
     panels.forEach(({ dispose }) => dispose());
     const reopened = mount();
     await flush();
@@ -132,6 +140,7 @@ describe('upgrade tutorial invitation', () => {
     await flush();
     await flush();
     expect(await storage.local.get(DISMISSED)).toBe(true);
+    expect(requireElement<HTMLElement>(panel.root, '.learning-update-reminder').hidden).toBe(true);
     panel.dispose();
   });
 

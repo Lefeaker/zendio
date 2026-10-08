@@ -879,5 +879,6 @@
   "learningUpdateDescription": "Prova ritagli, lettura e video, poi configura il tuo flusso di lavoro.",
   "learningUpdateStart": "Esplora i tutorial",
   "learningUpdateDismiss": "Chiudi",
-  "learningUpdateSaveError": "Impossibile salvare la preferenza. Riprova."
+  "learningUpdateSaveError": "Impossibile salvare la preferenza. Riprova.",
+  "learningUpdateDismissed": "Puoi riaprire i tutorial dalla configurazione iniziale nella pagina Opzioni."
 }

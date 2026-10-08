@@ -32,7 +32,7 @@ export const MAX_LINE_BUDGETS = new Map([
   // Compact review and first-run navigation add three catalog labels.
   // Options topics add 18 labels/descriptions; existing shell/navigation owners
   // below forward explicit section navigation to the guide.
-  ['src/i18n/generated/messages.generated.ts', 1341],
+  ['src/i18n/generated/messages.generated.ts', 1342],
   ['src/i18n/generated/locales/fr.generated.ts', 785],
   ['src/i18n/generated/locales/es-419.generated.ts', 777],
   ['src/i18n/generated/locales/es-ES.generated.ts', 777],

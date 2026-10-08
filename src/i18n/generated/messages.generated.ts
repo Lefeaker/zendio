@@ -380,6 +380,7 @@ export const GENERATED_MESSAGE_KEYS = [
   'learningTitle',
   'learningUpdateDescription',
   'learningUpdateDismiss',
+  'learningUpdateDismissed',
   'learningUpdateSaveError',
   'learningUpdateStart',
   'learningUpdateTitle',

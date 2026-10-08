@@ -879,5 +879,6 @@
   "learningUpdateDescription": "クリッピング、読書、動画を実際に試して、自分に合った設定を見つけましょう。",
   "learningUpdateStart": "チュートリアルを開く",
   "learningUpdateDismiss": "閉じる",
-  "learningUpdateSaveError": "設定を保存できませんでした。もう一度お試しください。"
+  "learningUpdateSaveError": "設定を保存できませんでした。もう一度お試しください。",
+  "learningUpdateDismissed": "Options 設定ページの「初回設定」からチュートリアルを開けます。"
 }
