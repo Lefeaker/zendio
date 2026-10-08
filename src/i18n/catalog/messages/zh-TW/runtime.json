@@ -543,7 +543,7 @@
   "supportModalDescription": "開發不易。如果此外掛對您有幫助，歡迎透過以下方式支援：",
   "supportLinkKofi": "Ko-fi",
   "supportLinkAfdian": "微信讚賞",
-  "versionNumber": "v0.3.2",
+  "versionNumber": "v0.3.3",
   "changelogModalTitle": "更新日誌",
   "fragmentFootnoteExampleContent": "這是選取文字的內容",
   "fragmentFootnoteExampleComment": "這是我的註解",
@@ -874,5 +874,10 @@
   "settingsTourDiagnostics": "先執行診斷，閱讀連線、範本與路由結果。需要時才執行修復或重新載入。",
   "settingsTourTransfer": "完整設定用於備份或移轉，其中包含連線金鑰；匯入會套用整份設定。本機目錄須在新瀏覽器重新授權。部分修改可使用 AI 快速設定。",
   "settingsTourRestTitle": "REST 連線",
-  "settingsTourContext": "選擇字元或句子作為單位，設定上下文範圍。透過片段練習儲存筆記，檢查附加的周圍文字。"
+  "settingsTourContext": "選擇字元或句子作為單位，設定上下文範圍。透過片段練習儲存筆記，檢查附加的周圍文字。",
+  "learningUpdateTitle": "新增功能教學",
+  "learningUpdateDescription": "跟著實作教學，體驗剪藏、閱讀與影片，再設定自己的工作流程。",
+  "learningUpdateStart": "開始功能教學",
+  "learningUpdateDismiss": "關閉提示",
+  "learningUpdateSaveError": "暫時無法儲存提示偏好，請重試。"
 }

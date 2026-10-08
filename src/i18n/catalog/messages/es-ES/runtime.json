@@ -543,7 +543,7 @@
   "supportModalDescription": "El desarrollo no es fácil. Si este complemento te ayuda, bienvenido a apoyar a través de las siguientes maneras:",
   "supportLinkKofi": "Ko-fi",
   "supportLinkAfdian": "WeChat Reward",
-  "versionNumber": "v0.3.2",
+  "versionNumber": "v0.3.3",
   "changelogModalTitle": "Registro de Cambios",
   "fragmentFootnoteExampleContent": "Este es el contenido del texto seleccionado",
   "fragmentFootnoteExampleComment": "Este es mi comentario",
@@ -874,5 +874,10 @@
   "settingsTourDiagnostics": "Ejecuta primero el diagnóstico y lee los resultados de conexiones, plantillas y reglas. Repara o recarga solo cuando sea necesario.",
   "settingsTourTransfer": "La copia completa incluye claves de conexión; importar aplica toda la configuración. Debes autorizar de nuevo las carpetas en otro navegador. Usa la IA para cambios concretos.",
   "settingsTourRestTitle": "Conexión REST",
-  "settingsTourContext": "Elige caracteres o frases y la extensión del contexto. Guarda una selección en la práctica para revisar el texto añadido alrededor."
+  "settingsTourContext": "Elige caracteres o frases y la extensión del contexto. Guarda una selección en la práctica para revisar el texto añadido alrededor.",
+  "learningUpdateTitle": "Nuevos tutoriales prácticos",
+  "learningUpdateDescription": "Prueba la captura, la lectura y el vídeo, y configura tu propio flujo de trabajo.",
+  "learningUpdateStart": "Explorar tutoriales",
+  "learningUpdateDismiss": "Cerrar",
+  "learningUpdateSaveError": "No se pudo guardar tu preferencia. Inténtalo de nuevo."
 }

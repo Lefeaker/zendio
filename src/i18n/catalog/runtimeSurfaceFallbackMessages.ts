@@ -1,6 +1,11 @@
 import type { Messages } from '../messages';
 
 type RuntimeSurfaceFallbackMessageKey =
+  | 'learningUpdateTitle'
+  | 'learningUpdateDescription'
+  | 'learningUpdateStart'
+  | 'learningUpdateDismiss'
+  | 'learningUpdateSaveError'
   | 'settingsTitle'
   | 'infoDialogConfirm'
   | 'sessionPanelGuideTitle'
@@ -65,6 +70,12 @@ type RuntimeSurfaceFallbackMessageKey =
 export const RUNTIME_SURFACE_FALLBACK_MESSAGES = {
   settingsTitle: 'Settings',
   infoDialogConfirm: 'Got it',
+  learningUpdateTitle: 'New hands-on tutorials',
+  learningUpdateDescription:
+    'Try clipping, reading and video lessons, then set up your own workflow.',
+  learningUpdateStart: 'Explore the tutorials',
+  learningUpdateDismiss: 'Dismiss',
+  learningUpdateSaveError: 'Could not save your preference. Please try again.',
   sessionPanelGuideTitle: 'Quick tip',
   sessionPanelGuideResize:
     'Drag the left edge to change the width, or the top edge to change the height.',

@@ -543,7 +543,7 @@
   "supportModalDescription": "开发不易，如果这个插件对您有帮助，欢迎通过以下方式支持：",
   "supportLinkKofi": "Ko-fi",
   "supportLinkAfdian": "微信赞赏",
-  "versionNumber": "v0.3.2",
+  "versionNumber": "v0.3.3",
   "changelogModalTitle": "更新日志",
   "fragmentFootnoteExampleContent": "这是选中的文本内容",
   "fragmentFootnoteExampleComment": "这是我的评论",
@@ -874,5 +874,10 @@
   "settingsTourDiagnostics": "先运行诊断，阅读连接、模板与路由的检查结果。只有需要时再执行修复或重载。",
   "settingsTourTransfer": "复制完整配置用于备份或迁移，其中包含连接密钥；导入会应用整份配置。本地目录需要在新浏览器中重新授权。只改部分选项时可使用 AI 快速配置。",
   "settingsTourRestTitle": "REST 连接",
-  "settingsTourContext": "选择字符或句子作为单位并设置上下文范围。通过片段练习保存一条笔记，查看附加的周围文字。"
+  "settingsTourContext": "选择字符或句子作为单位并设置上下文范围。通过片段练习保存一条笔记，查看附加的周围文字。",
+  "learningUpdateTitle": "新增功能教学",
+  "learningUpdateDescription": "跟着实操教程，体验剪藏、阅读和视频，再配置自己的工作流。",
+  "learningUpdateStart": "开始功能教学",
+  "learningUpdateDismiss": "关闭提示",
+  "learningUpdateSaveError": "提示偏好暂时无法保存，请重试。"
 }

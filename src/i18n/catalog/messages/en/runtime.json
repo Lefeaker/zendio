@@ -543,7 +543,7 @@
   "supportModalDescription": "Development is not easy. If this plugin helps you, welcome to support through the following ways:",
   "supportLinkKofi": "Ko-fi",
   "supportLinkAfdian": "WeChat Reward",
-  "versionNumber": "v0.3.2",
+  "versionNumber": "v0.3.3",
   "changelogModalTitle": "Changelog",
   "fragmentFootnoteExampleContent": "This is the selected text content",
   "fragmentFootnoteExampleComment": "This is my comment",
@@ -874,5 +874,10 @@
   "settingsTourDiagnostics": "Run diagnostics first and read the connection, template and routing results. Use repair or reload only when needed.",
   "settingsTourTransfer": "Copy a full configuration for backup or migration; it includes connection keys. Import applies the whole configuration. Folder access must be granted again in a new browser. Use AI configuration for selected changes.",
   "settingsTourRestTitle": "REST connection",
-  "settingsTourContext": "Choose characters or sentences and set the context range. Save a selection in the practice page to inspect the surrounding text included in the note."
+  "settingsTourContext": "Choose characters or sentences and set the context range. Save a selection in the practice page to inspect the surrounding text included in the note.",
+  "learningUpdateTitle": "New hands-on tutorials",
+  "learningUpdateDescription": "Try clipping, reading and video lessons, then set up your own workflow.",
+  "learningUpdateStart": "Explore the tutorials",
+  "learningUpdateDismiss": "Dismiss",
+  "learningUpdateSaveError": "Could not save your preference. Please try again."
 }

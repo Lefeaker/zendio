@@ -1,6 +1,6 @@
 import { chromium, expect, test, type Page } from '@playwright/test';
 import { createServer } from 'node:http';
-import { readFile, mkdtemp, rm } from 'node:fs/promises';
+import { readFile, mkdtemp, rm, cp, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import type { CompleteOptions } from '../../src/shared/types/options';
@@ -841,5 +841,184 @@ test('settings topics stay in sync, remain readable in short windows and end wit
   } finally {
     await context.close();
     await rm(profile, { recursive: true, force: true });
+  }
+});
+
+test('version upgrade invites all capture panels to tutorials and remembers dismissal', async ({
+  browserName
+}, testInfo) => {
+  test.skip(browserName !== 'chromium');
+  const availableKey = 'learningUpdate.0.3.3.available';
+  const dismissedKey = 'learningUpdate.0.3.3.dismissed';
+  const base = await mkdtemp(path.join(tmpdir(), 'zendio-upgrade-tutorial-'));
+  const extensionPath = path.join(base, 'extension');
+  await cp(path.resolve(process.env.PLAYWRIGHT_DIST_DIR ?? 'build/dist'), extensionPath, {
+    recursive: true
+  });
+  const backgroundPath = path.join(extensionPath, 'background/index.js');
+  await writeFile(
+    backgroundPath,
+    'chrome.runtime.onInstalled.addListener(details => chrome.storage.local.set({ tutorialUpdateTestEvent: details }));\n' +
+      (await readFile(backgroundPath, 'utf8'))
+  );
+  const manifestPath = path.join(extensionPath, 'manifest.json');
+  const manifest = await readFile(manifestPath, 'utf8');
+  const versionFixture = (version: string) =>
+    manifest.replace(/"version":\s*"[^"]+"/, '"version": "' + version + '"');
+  await writeFile(manifestPath, versionFixture('0.3.2'));
+  const videoBytes = await readFile(path.join(extensionPath, 'onboarding/practice.webm'));
+  const server = createServer((request, response) => {
+    if (request.url === '/fixture.webm') {
+      response.setHeader('Content-Type', 'video/webm');
+      response.end(videoBytes);
+      return;
+    }
+    response.setHeader('Content-Type', 'text/html; charset=utf-8');
+    response.end(
+      '<!doctype html><title>Upgrade tutorial fixture</title><article><h1>Try the new lessons</h1><p id="excerpt">Keep this original text and your own comment while exploring the new tutorials.</p><p>' +
+        'Further article context. '.repeat(40) +
+        '</p></article>' +
+        (request.url === '/video'
+          ? '<video muted controls src="/fixture.webm" width="640"></video>'
+          : '')
+    );
+  });
+  await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
+  const address = server.address();
+  if (!address || typeof address === 'string') throw new Error('Missing fixture address');
+  const url = 'http://127.0.0.1:' + address.port;
+  const launch = () =>
+    chromium.launchPersistentContext(path.join(base, 'profile'), {
+      headless: false,
+      args: [
+        '--headless=new',
+        '--disable-extensions-except=' + extensionPath,
+        '--load-extension=' + extensionPath
+      ]
+    });
+  const context = await launch();
+  try {
+    let worker = context.serviceWorkers()[0] ?? (await context.waitForEvent('serviceworker'));
+    let id = worker.url().split('/')[2];
+    await worker.evaluate(async () => {
+      await chrome.storage.sync.set({ language: 'zh-CN' });
+    });
+    const fresh = await context.newPage();
+    await fresh.goto(url + '/fresh');
+    await selectPassage(fresh, '#excerpt');
+    await expect(fresh.locator('#obsidian-clipper-dialog')).toBeVisible();
+    await expect(fresh.locator('.learning-update-notice')).toBeHidden();
+    expect(
+      await worker.evaluate(async (key) => (await chrome.storage.local.get(key))[key], availableKey)
+    ).toBeUndefined();
+    await writeFile(manifestPath, versionFixture('0.3.3'));
+    const manager = await context.newPage();
+    await manager.goto('chrome://extensions');
+    await manager.getByRole('button', { name: 'Developer mode', exact: true }).click();
+    const updatedWorker = context.waitForEvent('serviceworker');
+    await worker.evaluate(() => chrome.runtime.reload()).catch(() => undefined);
+    worker = await updatedWorker;
+    await manager.close();
+    await fresh.close();
+    id = worker.url().split('/')[2];
+    // This flag must be written by Chrome's actual onInstalled update event.
+    await expect
+      .poll(() =>
+        worker.evaluate(async (key) => (await chrome.storage.local.get(key))[key], availableKey)
+      )
+      .toBe(true);
+    expect(
+      await worker.evaluate(
+        async () =>
+          (await chrome.storage.local.get('tutorialUpdateTestEvent')).tutorialUpdateTestEvent
+      )
+    ).toMatchObject({ reason: 'update', previousVersion: '0.3.2' });
+    const reader = await context.newPage();
+    await reader.goto(url + '/reader');
+    await selectPassage(reader, '#excerpt');
+    await expect(reader.locator('.learning-update-notice')).toBeVisible();
+    await reader.screenshot({ path: testInfo.outputPath('upgrade-clipper-zh.png') });
+    await reader.locator('[data-action-id="reader"]').click();
+    await expect(reader.locator('#aiob-reader-panel .learning-update-notice')).toBeVisible();
+    await expect(reader.locator('[data-role="highlight-item"]')).toHaveCount(1);
+    await expect(reader.locator('.session-first-use-guide')).toBeHidden();
+    expect(
+      await reader
+        .locator('.learning-update-notice')
+        .evaluate((node) => node.scrollHeight <= node.clientHeight + 1)
+    ).toBe(true);
+    await reader.screenshot({ path: testInfo.outputPath('upgrade-reader-zh.png') });
+    const clipper = await context.newPage();
+    await clipper.goto(url + '/clipper');
+    await selectPassage(clipper, '#excerpt');
+    await clipper.locator('.clipper-comment-textarea').fill('Keep this unsaved comment');
+    await expect(clipper.locator('.learning-update-notice')).toBeVisible();
+    const video = await context.newPage();
+    await video.goto(url + '/video');
+    await expect
+      .poll(() => video.locator('video').evaluate((node: HTMLVideoElement) => node.readyState))
+      .toBeGreaterThanOrEqual(2);
+    await worker.evaluate(async (targetUrl) => {
+      const [tab] = await chrome.tabs.query({ url: targetUrl });
+      if (!tab?.id) throw new Error('Missing video fixture tab');
+      await chrome.scripting.executeScript({
+        target: { tabId: tab.id },
+        files: ['content/index.js']
+      });
+      await chrome.tabs.sendMessage(tab.id, { action: 'startVideoMode' });
+    }, url + '/video');
+    await expect(video.locator('#aiob-video-panel .learning-update-notice')).toBeVisible();
+    await expect(video.locator('.session-first-use-guide')).toBeHidden();
+    expect(
+      await video
+        .locator('.learning-update-notice')
+        .evaluate((node) => node.scrollHeight <= node.clientHeight + 1)
+    ).toBe(true);
+    await video.screenshot({ path: testInfo.outputPath('upgrade-video-zh.png') });
+    await reader.locator('[data-role="learning-update-dismiss"]').click();
+    for (const page of [reader, clipper, video])
+      await expect(page.locator('.learning-update-notice')).toBeHidden();
+    await expect(clipper.locator('.clipper-comment-textarea')).toHaveValue(
+      'Keep this unsaved comment'
+    );
+    await expect(reader.locator('[data-role="highlight-item"]')).toHaveCount(1);
+    await clipper.reload();
+    await selectPassage(clipper, '#excerpt');
+    await expect(clipper.locator('.learning-update-notice')).toBeHidden();
+    expect(
+      await worker.evaluate(async (key) => (await chrome.storage.local.get(key))[key], dismissedKey)
+    ).toBe(true);
+    // A second isolated preference scenario verifies the alternative action and long copy.
+    await worker.evaluate(async (key) => {
+      await chrome.storage.local.remove(key);
+      await chrome.storage.sync.set({ language: 'de' });
+    }, dismissedKey);
+    const german = await context.newPage();
+    await german.setViewportSize({ width: 360, height: 740 });
+    await german.emulateMedia({ colorScheme: 'dark' });
+    await german.goto(url + '/german');
+    await selectPassage(german, '#excerpt');
+    await expect(german.locator('.learning-update-notice')).toBeVisible();
+    await expect(german.locator('[data-role="learning-update-start"]')).toBeInViewport();
+    await expect(german.locator('[data-role="learning-update-dismiss"]')).toBeInViewport();
+    await german.screenshot({ path: testInfo.outputPath('upgrade-clipper-de-narrow.png') });
+    const opened = context.waitForEvent('page');
+    await german.locator('[data-role="learning-update-start"]').click();
+    const tutorial = await opened;
+    await expect(tutorial).toHaveURL('chrome-extension://' + id + '/onboarding/index.html');
+    await expect(tutorial.locator('#learningStartPractice')).toBeVisible();
+    await expect(german.locator('.learning-update-notice')).toBeHidden();
+    await expect(german.locator('#obsidian-clipper-dialog')).toBeVisible();
+    expect(
+      await worker.evaluate(
+        async () => (await chrome.storage.local.get('learningProgress.v1'))['learningProgress.v1']
+      )
+    ).toBeUndefined();
+  } finally {
+    await context.close();
+    await new Promise<void>((resolve, reject) =>
+      server.close((error) => (error ? reject(error) : resolve()))
+    );
+    await rm(base, { recursive: true, force: true });
   }
 });

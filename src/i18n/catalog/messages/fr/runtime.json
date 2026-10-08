@@ -543,7 +543,7 @@
   "supportModalDescription": "Le développement n'est pas facile. Si ce plugin vous aide, bienvenue pour soutenir de la manière suivante :",
   "supportLinkKofi": "Ko-fi",
   "supportLinkAfdian": "WeChat Reward",
-  "versionNumber": "v0.3.2",
+  "versionNumber": "v0.3.3",
   "changelogModalTitle": "Journal des modifications",
   "fragmentFootnoteExampleContent": "Ceci est le contenu du texte sélectionné",
   "fragmentFootnoteExampleComment": "Ceci est mon commentaire",
@@ -874,5 +874,10 @@
   "settingsTourDiagnostics": "Lancez d’abord le diagnostic et lisez les résultats des connexions, modèles et règles. Réparez ou rechargez uniquement si nécessaire.",
   "settingsTourTransfer": "Une sauvegarde complète contient les clés de connexion ; l’import applique toute la configuration. L’accès aux dossiers doit être autorisé à nouveau dans un autre navigateur. Utilisez l’IA pour des changements ciblés.",
   "settingsTourRestTitle": "Connexion REST",
-  "settingsTourContext": "Choisissez caractères ou phrases et la taille du contexte. Enregistrez une sélection dans l’exercice pour vérifier le texte ajouté autour."
+  "settingsTourContext": "Choisissez caractères ou phrases et la taille du contexte. Enregistrez une sélection dans l’exercice pour vérifier le texte ajouté autour.",
+  "learningUpdateTitle": "Nouveaux tutoriels pratiques",
+  "learningUpdateDescription": "Essayez la capture, la lecture et la vidéo, puis configurez votre façon de travailler.",
+  "learningUpdateStart": "Découvrir les tutoriels",
+  "learningUpdateDismiss": "Fermer",
+  "learningUpdateSaveError": "Impossible d’enregistrer votre choix. Veuillez réessayer."
 }

@@ -1,3 +1,4 @@
+import { registerLearningUpdateNotice } from './listeners/learningUpdate';
 import { initializeLearningProgress } from './services/learningProgress';
 import { getPlatformServices } from '../platform';
 import { registerRepositories } from '../shared/di/serviceRegistry';
@@ -99,3 +100,5 @@ registerTrialLifecycle(
     platformServices.notifications
   )
 );
+
+registerLearningUpdateNotice(platformServices.runtime, platformServices.storage.local);

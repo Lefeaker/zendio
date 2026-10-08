@@ -543,7 +543,7 @@
   "supportModalDescription": "Entwicklung ist nicht einfach. Wenn dieses Plugin Ihnen hilft, sind Sie willkommen, auf folgende Weise zu unterstützen:",
   "supportLinkKofi": "Ko-fi",
   "supportLinkAfdian": "WeChat Reward",
-  "versionNumber": "v0.3.2",
+  "versionNumber": "v0.3.3",
   "changelogModalTitle": "Änderungsprotokoll",
   "fragmentFootnoteExampleContent": "Dies ist der Inhalt des ausgewählten Textes",
   "fragmentFootnoteExampleComment": "Dies ist mein Kommentar",
@@ -874,5 +874,10 @@
   "settingsTourDiagnostics": "Führe zuerst die Diagnose aus und lies die Ergebnisse zu Verbindung, Vorlagen und Regeln. Reparatur oder Neuladen nur bei Bedarf verwenden.",
   "settingsTourTransfer": "Eine vollständige Sicherung enthält Verbindungsschlüssel; der Import übernimmt die ganze Konfiguration. Ordnerzugriff muss im neuen Browser erneut erlaubt werden. Für einzelne Änderungen nutze die KI-Einrichtung.",
   "settingsTourRestTitle": "REST-Verbindung",
-  "settingsTourContext": "Wähle Zeichen oder Sätze und den Kontextumfang. Speichere eine Textauswahl in der Übung, um den zusätzlich erfassten Kontext zu prüfen."
+  "settingsTourContext": "Wähle Zeichen oder Sätze und den Kontextumfang. Speichere eine Textauswahl in der Übung, um den zusätzlich erfassten Kontext zu prüfen.",
+  "learningUpdateTitle": "Neue praktische Anleitungen",
+  "learningUpdateDescription": "Probiere Clipping, Lesen und Video aus und richte deinen eigenen Arbeitsablauf ein.",
+  "learningUpdateStart": "Anleitungen öffnen",
+  "learningUpdateDismiss": "Schließen",
+  "learningUpdateSaveError": "Die Auswahl konnte nicht gespeichert werden. Bitte erneut versuchen."
 }

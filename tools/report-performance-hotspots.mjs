@@ -19,6 +19,7 @@ export const MAX_LINE_BUDGETS = new Map([
   ['src/shared/sessionDrafts/pageIdentity.ts', 251],
   ['src/i18n/generated/localeRegistry.generated.ts', 8899],
   ['src/i18n/generated/schemaMessages.generated.ts', 481],
+  // Upgrade tutorial invitation adds five runtime message declarations.
   // v0.3.3 release notes add five generated schema/message declarations.
   // 2026-06-29 v0.2.1 changelog sync: schema core now carries the accepted
   // Options/Stitch release-note keys in addition to existing resource copy.
@@ -31,7 +32,7 @@ export const MAX_LINE_BUDGETS = new Map([
   // Compact review and first-run navigation add three catalog labels.
   // Options topics add 18 labels/descriptions; existing shell/navigation owners
   // below forward explicit section navigation to the guide.
-  ['src/i18n/generated/messages.generated.ts', 1336],
+  ['src/i18n/generated/messages.generated.ts', 1341],
   ['src/i18n/generated/locales/fr.generated.ts', 785],
   ['src/i18n/generated/locales/es-419.generated.ts', 777],
   ['src/i18n/generated/locales/es-ES.generated.ts', 777],

@@ -543,7 +543,7 @@
   "supportModalDescription": "開発は簡単ではありません。このプラグインがお役に立てば、以下の方法でご支援いただけると幸いです：",
   "supportLinkKofi": "Ko-fi",
   "supportLinkAfdian": "WeChat Reward",
-  "versionNumber": "v0.3.2",
+  "versionNumber": "v0.3.3",
   "changelogModalTitle": "更新履歴",
   "fragmentFootnoteExampleContent": "これは選択されたテキストの内容です",
   "fragmentFootnoteExampleComment": "これは私のコメントです",
@@ -874,5 +874,10 @@
   "settingsTourDiagnostics": "まず診断を実行し、接続・テンプレート・ルールの結果を確認します。修復や再読み込みは必要な場合だけ行ってください。",
   "settingsTourTransfer": "完全バックアップには接続キーが含まれ、読み込みは設定全体を適用します。別のブラウザーではフォルダー権限を再許可します。一部の変更にはAI設定を使えます。",
   "settingsTourRestTitle": "REST接続",
-  "settingsTourContext": "文字数または文の数と、前後の文脈の範囲を選びます。選択練習でノートを保存し、追加された周囲の文章を確認してください。"
+  "settingsTourContext": "文字数または文の数と、前後の文脈の範囲を選びます。選択練習でノートを保存し、追加された周囲の文章を確認してください。",
+  "learningUpdateTitle": "新しい実践チュートリアル",
+  "learningUpdateDescription": "クリッピング、読書、動画を実際に試して、自分に合った設定を見つけましょう。",
+  "learningUpdateStart": "チュートリアルを開く",
+  "learningUpdateDismiss": "閉じる",
+  "learningUpdateSaveError": "設定を保存できませんでした。もう一度お試しください。"
 }
