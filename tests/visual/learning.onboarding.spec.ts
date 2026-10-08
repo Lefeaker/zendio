@@ -97,6 +97,15 @@ test('bundled practice uses the real Shift selection dialog and reader', async (
       0
     );
     await expect(guide.locator('.learning-library')).not.toHaveAttribute('open');
+    await guide.locator('#learningLibraryButton').click();
+    await expect(guide.locator('[data-learning-course="chat"]')).toHaveCount(0);
+    await expect(guide.locator('[data-learning-course]')).toHaveCount(5);
+    await expect(guide.locator('.learning-chat-help')).toContainText('right-click');
+    await expect(guide.locator('.learning-chat-help')).toContainText('Clip full page');
+    await expect(guide.locator('.learning-chat-help button')).toHaveCount(0);
+    await guide.screenshot({ path: testInfo.outputPath('ai-chat-help-en.png'), fullPage: true });
+    await guide.locator('#learningLibraryButton').click();
+
     await expect(guide.locator('.learning-advanced button')).toHaveCount(3);
     await guide.locator('.learning-privacy summary').click();
     await expect(
@@ -340,14 +349,14 @@ test('installed onboarding learns from a real selection export and keeps progres
     await article.goto(url);
     const guide = await context.newPage();
     await guide.goto('chrome-extension://' + extensionId + '/onboarding/index.html');
-    await expect(guide.locator('.learning-count')).toContainText('0 / 6');
+    await expect(guide.locator('.learning-count')).toContainText('0 / 5');
     await guide.locator('.learning-custom-page summary').click();
     await guide.locator('#learningPage').selectOption(url);
     const opened = context.waitForEvent('page');
     await guide.locator('#learningOpenPage').click();
     const practice = await opened;
     await practice.waitForLoadState();
-    await expect(guide.locator('.learning-count')).toContainText('0 / 6');
+    await expect(guide.locator('.learning-count')).toContainText('0 / 5');
     // Use the same injection and message entrypoints as the native context-menu dispatcher.
     const tabId = await worker.evaluate(async (pageUrl) => {
       const tabs = await chrome.tabs.query({ url: pageUrl });
@@ -373,7 +382,7 @@ test('installed onboarding learns from a real selection export and keeps progres
     await expect(comment).toBeVisible();
     await comment.fill('My first real learning note.');
     await practice.locator('[data-action-id="clip"]').click();
-    await expect(guide.locator('.learning-count')).toContainText('1 / 6', { timeout: 20_000 });
+    await expect(guide.locator('.learning-count')).toContainText('1 / 5', { timeout: 20_000 });
     await expect(guide.locator('#learningResult')).toContainText('Markdown downloaded');
     const actualPath = await guide.locator('.learning-path').innerText();
     const markdown = await readFile(actualPath, 'utf8');
@@ -381,11 +390,11 @@ test('installed onboarding learns from a real selection export and keeps progres
     expect(markdown).toContain('My first real learning note.');
     expect(markdown).toContain(url);
     await guide.reload();
-    await expect(guide.locator('.learning-count')).toContainText('1 / 6');
+    await expect(guide.locator('.learning-count')).toContainText('1 / 5');
     await guide.locator('#learningLibraryButton').click();
     await guide.locator('[data-learning-course="video"]').click();
     await guide.getByRole('button', { name: 'Try later', exact: true }).click();
-    await expect(guide.locator('.learning-count')).toContainText('1 / 6');
+    await expect(guide.locator('.learning-count')).toContainText('1 / 5');
     await expect(guide.locator('[data-learning-course="video"]')).toContainText('Saved for later');
     await guide.screenshot({ path: testInfo.outputPath('learning-desktop.png'), fullPage: true });
     await guide.setViewportSize({ width: 360, height: 800 });
@@ -399,7 +408,7 @@ test('installed onboarding learns from a real selection export and keeps progres
         await chrome.storage.sync.set({ language: lang });
       }, language);
       await guide.reload();
-      await expect(guide.locator('.learning-count')).toContainText('1 / 6');
+      await expect(guide.locator('.learning-count')).toContainText('1 / 5');
       expect(
         await guide.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)
       ).toBe(true);
@@ -424,7 +433,7 @@ test('installed onboarding learns from a real selection export and keeps progres
     });
     const resumed = await context.newPage();
     await resumed.goto('chrome-extension://' + extensionId + '/onboarding/index.html');
-    await expect(resumed.locator('.learning-count')).toContainText('1 / 6');
+    await expect(resumed.locator('.learning-count')).toContainText('1 / 5');
   } finally {
     await context.close();
     server.close();

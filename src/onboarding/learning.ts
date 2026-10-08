@@ -26,7 +26,7 @@ function readPreference(raw: unknown): Preference {
   const value = raw as Partial<Preference> | null;
   return {
     course:
-      value && LEARNING_COURSES.includes(value.course as LearningCourse)
+      value && value.course !== 'chat' && LEARNING_COURSES.includes(value.course as LearningCourse)
         ? (value.course as LearningCourse)
         : 'fragment',
     url: typeof value?.url === 'string' && isLearningPageUrl(value.url) ? value.url : '',

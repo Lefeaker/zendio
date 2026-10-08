@@ -82,7 +82,7 @@ describe('learning center', () => {
     required<HTMLButtonElement>(r.root, '[data-learning-course="video"]').click();
     later?.click();
     expect(required<HTMLDetailsElement>(r.root, '.learning-library').open).toBe(true);
-    expect(r.root.querySelector('.learning-count')?.textContent).toContain('0 / 6');
+    expect(r.root.querySelector('.learning-count')?.textContent).toContain('0 / 5');
     expect(await r.dependencies.storage.local.get(LEARNING_PROGRESS_KEY)).toBeUndefined();
     dispose();
   });
@@ -103,6 +103,36 @@ describe('learning center', () => {
       'learning-library',
       'learning-advanced'
     ]);
+    dispose();
+  });
+
+  it('explains AI chat saving without a practice or completion requirement', async () => {
+    const r = rig();
+    await r.dependencies.storage.local.set('learningPreference.v1', {
+      course: 'chat',
+      url: '',
+      deferred: []
+    });
+    await r.dependencies.storage.local.set(LEARNING_PROGRESS_KEY, {
+      version: 1,
+      completed: {
+        chat: {
+          operationId: 'old-chat',
+          filePath: '/Downloads/chat.md',
+          destination: 'downloads',
+          savedAt: 1
+        }
+      },
+      pending: []
+    });
+    const dispose = await mountLearningCenter(r.root, r.dependencies, r.navigation, {});
+    expect(r.root.querySelector('[data-learning-course="chat"]')).toBeNull();
+    expect(r.root.querySelectorAll('[data-learning-course]')).toHaveLength(5);
+    expect(r.root.querySelector('.learning-chat-help')?.textContent).toContain('right-click');
+    expect(r.root.querySelector('.learning-chat-help')?.textContent).toContain('Clip full page');
+    expect(r.root.querySelector('.learning-chat-help button')).toBeNull();
+    expect(r.root.querySelector('.learning-count')?.textContent).toContain('0 / 5');
+    expect(required<HTMLButtonElement>(r.root, '#learningStartPractice').hidden).toBe(false);
     dispose();
   });
 
@@ -128,7 +158,7 @@ describe('learning center', () => {
     });
     r.changed();
     await vi.waitFor(() =>
-      expect(r.root.querySelector('.learning-count')?.textContent).toContain('1 / 6')
+      expect(r.root.querySelector('.learning-count')?.textContent).toContain('1 / 5')
     );
     expect(r.root.querySelector('.learning-path')?.textContent).toBe('/Downloads/note (1).md');
     expect(r.root.querySelector('#learningUrl')).toBe(input);

@@ -5,8 +5,10 @@ import {
   type LearningProgress
 } from '../shared/learningProgress';
 
+export const PRACTICE_COURSES = LEARNING_COURSES.filter((course) => course !== 'chat');
+
 export function completedLearningCount(state: LearningProgress): number {
-  return LEARNING_COURSES.filter((id) => state.completed[id]).length;
+  return PRACTICE_COURSES.filter((id) => state.completed[id]).length;
 }
 
 export function learningCourseStatus(

@@ -1,8 +1,7 @@
-import { completedLearningCount, learningCourseStatus } from './progress';
+import { completedLearningCount, learningCourseStatus, PRACTICE_COURSES } from './progress';
 import type { Messages } from '../i18n/messages';
 import { createPrimitiveButtonElement } from '../ui/primitives/button';
 import {
-  LEARNING_COURSES,
   type LearningCourse,
   type LearningProgress,
   type LearningReceipt
@@ -71,7 +70,7 @@ export function createLearningView(
   library.append(librarySummary, progress, grid);
   let initializedNavigation = false;
   const cards = new Map<LearningCourse, { button: HTMLButtonElement; status: HTMLElement }>();
-  for (const course of LEARNING_COURSES) {
+  for (const course of PRACTICE_COURSES) {
     const button = learningButton(tr(COURSE_COPY[course][0]), () => {
       library.open = false;
       actions.select(course);
@@ -83,6 +82,16 @@ export function createLearningView(
     grid.append(button);
     cards.set(course, { button, status });
   }
+  const chatHelp = element('section', 'learning-chat-help');
+  chatHelp.append(
+    element('h3', '', tr('learningChatTitle')),
+    element(
+      'p',
+      'learning-description',
+      tr('learningChatInstruction').replace('{menu}', tr('clipFullPage'))
+    )
+  );
+  library.append(chatHelp);
   const lesson = element('section', 'learning-lesson');
   lesson.id = 'learningLesson';
   const title = element('h2', '');
@@ -171,7 +180,9 @@ export function createLearningView(
         initializedNavigation = true;
       }
       const count = completedLearningCount(state);
-      progress.textContent = tr('learningCount').replace('{count}', String(count));
+      progress.textContent = tr('learningCount')
+        .replace('{count}', String(count))
+        .replace('{total}', String(PRACTICE_COURSES.length));
       title.textContent = tr(COURSE_COPY[course][0]);
       steps.replaceChildren(
         ...tr(COURSE_COPY[course][1])
