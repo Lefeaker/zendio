@@ -446,7 +446,7 @@
   "schemaResourceChangelogV032Bullet4": "Des conseils de première utilisation expliquent comment redimensionner les panneaux de lecture et de vidéo et ouvrir les réglages via leur icône.",
   "schemaResourceChangelogV032Bullet5": "La destination reste sur une ligne. Les chemins et noms longs sont abrégés et affichés en entier au survol.",
   "schemaResourceChangelogV032Bullet6": "Corrige les rapports manquants lorsque les statistiques anonymes sont activées, en conservant les choix de confidentialité.",
-  "schemaResourceChangelogV033Summary": "Du premier enregistrement à votre propre façon de travailler.",
+  "schemaResourceChangelogV033Summary": "Un bon produit ne se résume pas à la qualité du produit.",
   "schemaResourceChangelogV033Bullet1": "Des exercices guidés commencent par la sélection de texte avec Maj. Flèches et confettis accompagnent la sauvegarde, le retour aux extraits par numéro en lecture, les sauts temporels vidéo et le choix des captures. La page de bienvenue simplifiée remplace l’ancien assistant redondant.",
   "schemaResourceChangelogV033Bullet2": "La visite des réglages propose 4 étapes de base et 20 thèmes facultatifs : touches, apparence, confidentialité, pièces jointes, modèles, YAML et diagnostic. Elle suit la barre latérale, repère les commandes, se replie, défile dans les petites fenêtres et permet de revenir aux exercices.",
   "schemaResourceChangelogV033Bullet3": "Connectez un coffre par défaut après les exercices : dossier Téléchargements sans configuration, autorisation des dossiers locaux dans Chromium, Obsidian Local REST API, limites de Firefox et compatibilité des plugins de surlignage et de pièces jointes.",

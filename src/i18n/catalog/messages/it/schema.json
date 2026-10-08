@@ -446,7 +446,7 @@
   "schemaResourceChangelogV032Bullet4": "I suggerimenti al primo utilizzo spiegano come regolare larghezza e altezza dei pannelli di lettura e video e aprire le impostazioni dall’icona.",
   "schemaResourceChangelogV032Bullet5": "La destinazione resta su una riga. Percorsi e nomi lunghi vengono abbreviati e mostrati per intero al passaggio del mouse.",
   "schemaResourceChangelogV032Bullet6": "Corregge i rapporti mancanti quando le statistiche anonime sono attive, mantenendo le preferenze sulla privacy.",
-  "schemaResourceChangelogV033Summary": "Dal primo salvataggio al tuo flusso di lavoro.",
+  "schemaResourceChangelogV033Summary": "Un buon prodotto non è soltanto un prodotto fatto bene.",
   "schemaResourceChangelogV033Bullet1": "Le esercitazioni iniziano selezionando testo con Maiusc. Frecce e coriandoli guidano il salvataggio, il salto agli estratti numerati in lettura e ai timestamp video, e la scelta degli screenshot. La pagina iniziale semplificata sostituisce la vecchia procedura duplicata.",
   "schemaResourceChangelogV033Bullet2": "La guida alle impostazioni offre 4 passi di base e 20 argomenti facoltativi: tasti, aspetto, privacy, allegati, modelli, YAML e diagnostica. Segue la barra laterale, individua i controlli, si comprime, scorre nelle finestre piccole e permette di tornare alle esercitazioni.",
   "schemaResourceChangelogV033Bullet3": "Collega un vault predefinito dopo la pratica: spiegazioni su Download senza configurazione, autorizzazione delle cartelle locali in Chromium, Obsidian Local REST API, limiti di Firefox e compatibilità dei plugin per evidenziazioni e allegati.",

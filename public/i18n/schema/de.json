@@ -228,7 +228,7 @@
   "schemaResourceChangelogV033Bullet2": "Die Einstellungsführung bietet 4 Grundlagen und 20 optionale Themen, etwa Zusatztasten, Darstellung, Datenschutz, Anhänge, Vorlagen, YAML und Diagnose. Sie folgt der Seitenleiste, zeigt Bedienelemente, lässt sich einklappen, in kleinen Fenstern scrollen und führt zurück zur Übung.",
   "schemaResourceChangelogV033Bullet3": "Nach der Übung einen Standard-Vault verbinden: Hinweise zum Download-Ordner ohne Konfiguration, lokalen Ordnerrechten in Chromium, Obsidian Local REST API, Firefox-Einschränkungen und kompatiblen Highlight- und Anhang-Plugins.",
   "schemaResourceChangelogV033Bullet4": "KI-gestützte Konfiguration: Formatanleitung in den eigenen KI-Chat kopieren, passende Einstellungen erzeugen und zurück einfügen. Änderungen als Einstellung / Vorher / Nachher prüfen und anwenden; Rückgängig ist verfügbar. Nicht genannte Einstellungen bleiben erhalten. Ordnerrechte, Schlüssel und Verbindungstests bleiben manuell.",
-  "schemaResourceChangelogV033Summary": "Vom ersten Speichern zum eigenen Arbeitsablauf.",
+  "schemaResourceChangelogV033Summary": "Ein gutes Produkt ist mehr als nur ein gutes Produkt.",
   "schemaResourceContactChannelsGroupTitle": "Kontaktlinks",
   "schemaResourceContactDescription": "Wenn Sie dieses Projekt schätzen oder den Autor kontaktieren möchten, besuchen Sie <a href=\"https://sxnian.com\" target=\"_blank\" rel=\"noopener noreferrer\">die Website des Autors</a>, <a href=\"https://www.reddit.com/user/sxnian/\" target=\"_blank\" rel=\"noopener noreferrer\">Reddit</a>, <a href=\"https://github.com/Lefeaker\" target=\"_blank\" rel=\"noopener noreferrer\">Github</a> oder <a href=\"mailto:zendio@sxnian.com\">E-Mail</a>.",
   "schemaResourceContactEmailDescription": "zendio@sxnian.com",

@@ -228,7 +228,7 @@
   "schemaResourceChangelogV033Bullet2": "設定ガイドは基本 4 ステップと任意の 20 トピックに対応。修飾キー、外観、プライバシー、添付、テンプレート、YAML、診断などを説明します。サイドバーと連動し、項目への移動、折りたたみ、小窓でのスクロール、練習への復帰に対応します。",
   "schemaResourceChangelogV033Bullet3": "練習後に既定の Vault を接続できます。未設定時のダウンロード保存、Chromium のローカルフォルダー権限、Obsidian Local REST API、Firefox の制約、ハイライト・添付プラグインとの互換設定を案内します。",
   "schemaResourceChangelogV033Bullet4": "AI 設定支援を追加。形式の説明を自分の AI チャットにコピーし、希望に合わせて生成した設定を貼り戻せます。「項目／変更前／変更後」の表で確認して適用し、取り消しも可能です。未指定の設定は維持され、フォルダー権限、キー、接続テストは手動で行います。",
-  "schemaResourceChangelogV033Summary": "初めての保存から、自分に合ったワークフローへ。",
+  "schemaResourceChangelogV033Summary": "良いプロダクトは、プロダクトそのものが良いだけではない。",
   "schemaResourceContactChannelsGroupTitle": "連絡先リンク",
   "schemaResourceContactDescription": "このプロジェクトを応援している方、作者に連絡したい方は、<a href=\"https://sxnian.com\" target=\"_blank\" rel=\"noopener noreferrer\">作者の個人サイト</a>、<a href=\"https://www.reddit.com/user/sxnian/\" target=\"_blank\" rel=\"noopener noreferrer\">Reddit</a>、<a href=\"https://github.com/Lefeaker\" target=\"_blank\" rel=\"noopener noreferrer\">Github</a>、または <a href=\"mailto:zendio@sxnian.com\">メール</a> をご利用ください。",
   "schemaResourceContactEmailDescription": "zendio@sxnian.com",

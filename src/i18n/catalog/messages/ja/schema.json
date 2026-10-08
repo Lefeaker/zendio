@@ -446,7 +446,7 @@
   "schemaResourceChangelogV032Bullet4": "読書・動画モードの初回利用時に、パネルの幅と高さの調整方法と、アイコンから設定を開く方法を案内します。",
   "schemaResourceChangelogV032Bullet5": "保存先を1行で表示し、長いパスや名前は省略します。マウスを重ねると全文を確認できます。",
   "schemaResourceChangelogV032Bullet6": "匿名使用統計を有効にしても送信されない問題を修正しました。既存のプライバシー設定は維持します。",
-  "schemaResourceChangelogV033Summary": "初めての保存から、自分に合ったワークフローへ。",
+  "schemaResourceChangelogV033Summary": "良いプロダクトは、プロダクトそのものが良いだけではない。",
   "schemaResourceChangelogV033Bullet1": "Shift を押しながら文字を選ぶ実践チュートリアルを追加。矢印と紙吹雪で、保存、読書モードの番号からの引用位置への移動、動画のタイムスタンプ移動と画像選択を案内します。初回画面を整理し、重複した旧ウィザードを削除しました。",
   "schemaResourceChangelogV033Bullet2": "設定ガイドは基本 4 ステップと任意の 20 トピックに対応。修飾キー、外観、プライバシー、添付、テンプレート、YAML、診断などを説明します。サイドバーと連動し、項目への移動、折りたたみ、小窓でのスクロール、練習への復帰に対応します。",
   "schemaResourceChangelogV033Bullet3": "練習後に既定の Vault を接続できます。未設定時のダウンロード保存、Chromium のローカルフォルダー権限、Obsidian Local REST API、Firefox の制約、ハイライト・添付プラグインとの互換設定を案内します。",

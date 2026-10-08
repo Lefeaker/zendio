@@ -446,7 +446,7 @@
   "schemaResourceChangelogV032Bullet4": "Dicas de primeiro uso mostram como ajustar a largura e a altura dos painéis de leitura e vídeo e abrir as configurações pelo ícone.",
   "schemaResourceChangelogV032Bullet5": "O destino de salvamento fica em uma linha. Caminhos e nomes longos são abreviados e exibidos por inteiro ao passar o cursor.",
   "schemaResourceChangelogV032Bullet6": "Corrige a falta de relatórios com as estatísticas anônimas ativadas, mantendo as preferências de privacidade.",
-  "schemaResourceChangelogV033Summary": "Do primeiro salvamento ao seu próprio fluxo de trabalho.",
+  "schemaResourceChangelogV033Summary": "Um bom produto vai além da qualidade do próprio produto.",
   "schemaResourceChangelogV033Bullet1": "As práticas começam selecionando texto com Shift. Setas e confetes orientam o salvamento, os saltos por números de trechos na leitura, os timestamps de vídeo e a escolha de capturas. A página inicial simplificada substitui o assistente antigo duplicado.",
   "schemaResourceChangelogV033Bullet2": "O tour das configurações oferece 4 passos básicos e 20 tópicos opcionais: teclas, aparência, privacidade, anexos, modelos, YAML e diagnóstico. Acompanha a barra lateral, localiza controles, pode ser recolhido, permite rolagem em janelas pequenas e retorno à prática.",
   "schemaResourceChangelogV033Bullet3": "Conecte um cofre padrão após a prática: orientações sobre Downloads sem configuração, autorização de pastas locais no Chromium, Obsidian Local REST API, limitações do Firefox e compatibilidade de plugins de destaques e anexos.",

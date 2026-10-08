@@ -228,7 +228,7 @@
   "schemaResourceChangelogV033Bullet2": "La guía de ajustes ofrece 4 pasos básicos y 20 temas opcionales: teclas, apariencia, privacidad, adjuntos, plantillas, YAML y diagnóstico. Sigue la barra lateral, localiza controles, se puede contraer, permite desplazarse en ventanas pequeñas y volver a las prácticas.",
   "schemaResourceChangelogV033Bullet3": "Conecta una bóveda predeterminada después de practicar: explicaciones sobre Descargas sin configurar, permisos de carpetas locales en Chromium, Obsidian Local REST API, límites de Firefox y compatibilidad de complementos de resaltado y adjuntos.",
   "schemaResourceChangelogV033Bullet4": "Configuración asistida por IA: copia las instrucciones de formato en tu chat de IA, genera los ajustes deseados y pega el resultado. Revisa la tabla Ajuste / Antes / Después y aplica, con opción de deshacer. Lo no indicado permanece igual; permisos, claves y pruebas de conexión se completan manualmente.",
-  "schemaResourceChangelogV033Summary": "Del primer guardado a tu propio flujo de trabajo.",
+  "schemaResourceChangelogV033Summary": "Un buen producto es más que la calidad del propio producto.",
   "schemaResourceContactChannelsGroupTitle": "Enlaces de contacto",
   "schemaResourceContactDescription": "Si valoras este proyecto o quieres contactar al autor, visita <a href=\"https://sxnian.com\" target=\"_blank\" rel=\"noopener noreferrer\">el sitio personal del autor</a>, <a href=\"https://www.reddit.com/user/sxnian/\" target=\"_blank\" rel=\"noopener noreferrer\">Reddit</a>, <a href=\"https://github.com/Lefeaker\" target=\"_blank\" rel=\"noopener noreferrer\">Github</a> o <a href=\"mailto:zendio@sxnian.com\">correo</a>.",
   "schemaResourceContactEmailDescription": "zendio@sxnian.com",
