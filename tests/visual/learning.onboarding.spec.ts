@@ -88,6 +88,12 @@ test('bundled practice uses the real Shift selection dialog and reader', async (
     await expect(installedGuide.locator('#learningStartPractice')).toBeVisible();
     const settings = await context.newPage();
     await settings.goto('chrome-extension://' + extensionId + '/options/index.html');
+    await expect(settings.locator('.app')).toBeVisible();
+    const navigation = settings.locator('[data-mobile-navigation-trigger]');
+    if (await navigation.isVisible()) {
+      await navigation.click();
+      await expect(navigation).toHaveAttribute('aria-expanded', 'true');
+    }
     const guideOpened = context.waitForEvent('page');
     await settings.locator('[data-footer-panel="onboarding"]').click();
     const guide = await guideOpened;
@@ -657,7 +663,7 @@ test('practice links to the actual settings tour and modifier edits update pract
     await settings.screenshot({ path: testInfo.outputPath('settings-selection-zh.png') });
     await settings
       .locator('.settings-tour-target')
-      .getByRole('button', { name: 'Alt', exact: true })
+      .getByRole('button', { name: /^(Alt|Option|Option\/Alt)$/ })
       .click();
     await expect(practice.locator('kbd')).toHaveText('Alt');
     const select = settings.locator('#settingsTourTopics');
