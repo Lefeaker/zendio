@@ -24,6 +24,7 @@
     "aiConfigIncludeCurrent": "附带当前设置（不会复制连接密钥与目录授权）",
     "aiConfigInvalidField": "{field} 的值或格式无效。请核对说明中的合法值与模板规则。",
     "aiConfigInvalidFormat": "请提供一个 zendio-ai-config JSON 对象，version 为 1，包含 changes 对象，文本不超过 64 KB。",
+    "aiConfigLoadFailed": "AI 配置界面暂时无法加载，请重新打开此分区或刷新页面。",
     "aiConfigManual": "选择本地目录并授权、安装 Obsidian 插件和填写 REST API Key 仍需在本机完成。应用配置不会代替授权或连接测试。",
     "aiConfigNoChanges": "这些配置与当前设置一致，没有需要修改的项目。",
     "aiConfigNotSet": "未设置",

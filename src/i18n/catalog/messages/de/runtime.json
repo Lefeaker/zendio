@@ -880,5 +880,6 @@
   "learningUpdateStart": "Anleitungen öffnen",
   "learningUpdateDismiss": "Schließen",
   "learningUpdateSaveError": "Die Auswahl konnte nicht gespeichert werden. Bitte erneut versuchen.",
-  "learningUpdateDismissed": "Die Anleitungen sind über die Ersteinrichtung auf der Options-Seite erreichbar."
+  "learningUpdateDismissed": "Die Anleitungen sind über die Ersteinrichtung auf der Options-Seite erreichbar.",
+  "aiConfigLoadFailed": "Die KI-Konfiguration konnte nicht geladen werden. Öffnen Sie den Abschnitt erneut oder laden Sie die Seite neu."
 }

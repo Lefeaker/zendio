@@ -880,5 +880,6 @@
   "learningUpdateStart": "チュートリアルを開く",
   "learningUpdateDismiss": "閉じる",
   "learningUpdateSaveError": "設定を保存できませんでした。もう一度お試しください。",
-  "learningUpdateDismissed": "Options 設定ページの「初回設定」からチュートリアルを開けます。"
+  "learningUpdateDismissed": "Options 設定ページの「初回設定」からチュートリアルを開けます。",
+  "aiConfigLoadFailed": "AI 設定を読み込めませんでした。このセクションを開き直すか、ページを再読み込みしてください。"
 }

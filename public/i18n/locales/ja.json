@@ -24,6 +24,7 @@
     "aiConfigIncludeCurrent": "現在の設定を含める（接続キーとフォルダー権限は除く）",
     "aiConfigInvalidField": "{field}の値または形式が無効です。説明にある使用可能な値とテンプレートの規則を確認してください。",
     "aiConfigInvalidFormat": "versionが1でchangesオブジェクトを含むzendio-ai-configのJSONオブジェクトを1つ使用してください（最大64 KB）。",
+    "aiConfigLoadFailed": "AI 設定を読み込めませんでした。このセクションを開き直すか、ページを再読み込みしてください。",
     "aiConfigManual": "フォルダーへのアクセス許可、Obsidianプラグインのインストール、REST APIキーの入力は端末上で行ってください。設定の適用だけでは権限の付与や接続確認は行われません。",
     "aiConfigNoChanges": "現在の設定と一致しています。変更は不要です。",
     "aiConfigNotSet": "未設定",

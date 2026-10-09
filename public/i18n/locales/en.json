@@ -24,6 +24,7 @@
     "aiConfigIncludeCurrent": "Include current settings (connection keys and folder permissions are excluded)",
     "aiConfigInvalidField": "Invalid value or format for {field}. Check the allowed values and template rules in the instructions.",
     "aiConfigInvalidFormat": "Use one zendio-ai-config JSON object, version 1, with a changes object (up to 64 KB).",
+    "aiConfigLoadFailed": "AI configuration could not be loaded. Reopen this section or refresh the page.",
     "aiConfigManual": "Folder access, Obsidian plugin installation and REST API keys require local setup. Applying these settings does not grant permissions or confirm a connection.",
     "aiConfigNoChanges": "These settings already match. Nothing needs changing.",
     "aiConfigNotSet": "Not set",

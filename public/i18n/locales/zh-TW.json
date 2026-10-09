@@ -24,6 +24,7 @@
     "aiConfigIncludeCurrent": "附帶目前設定（不含連線金鑰與目錄授權）",
     "aiConfigInvalidField": "{field} 的值或格式無效。請核對說明中的合法值與範本規則。",
     "aiConfigInvalidFormat": "請提供一個 zendio-ai-config JSON 物件，version 為 1，包含 changes 物件，文字不超過 64 KB。",
+    "aiConfigLoadFailed": "暫時無法載入 AI 設定介面，請重新開啟此區或重新整理頁面。",
     "aiConfigManual": "本機目錄授權、Obsidian 外掛安裝及 REST API Key 仍需在本機完成。套用設定不會代替授權或連線測試。",
     "aiConfigNoChanges": "這些設定與目前相同，沒有需要修改的項目。",
     "aiConfigNotSet": "未設定",

@@ -25,6 +25,7 @@ export const GENERATED_MESSAGE_KEYS = [
   'aiConfigIncludeCurrent',
   'aiConfigInvalidField',
   'aiConfigInvalidFormat',
+  'aiConfigLoadFailed',
   'aiConfigManual',
   'aiConfigNoChanges',
   'aiConfigNotSet',

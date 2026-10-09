@@ -24,6 +24,7 @@
     "aiConfigIncludeCurrent": "Aktuelle Einstellungen einschließen (ohne Zugangsschlüssel und Ordnerberechtigungen)",
     "aiConfigInvalidField": "Ungültiger Wert oder ungültiges Format für {field}. Prüfe die erlaubten Werte und Vorlagenregeln in der Anleitung.",
     "aiConfigInvalidFormat": "Verwende ein zendio-ai-config-JSON-Objekt mit version 1 und einem changes-Objekt (maximal 64 KB).",
+    "aiConfigLoadFailed": "Die KI-Konfiguration konnte nicht geladen werden. Öffnen Sie den Abschnitt erneut oder laden Sie die Seite neu.",
     "aiConfigManual": "Ordnerzugriff, Obsidian-Plugins und REST-API-Schlüssel müssen lokal eingerichtet werden. Das Anwenden erteilt keine Berechtigungen und bestätigt keine Verbindung.",
     "aiConfigNoChanges": "Diese Einstellungen stimmen bereits überein. Keine Änderung nötig.",
     "aiConfigNotSet": "Nicht festgelegt",

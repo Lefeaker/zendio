@@ -28,7 +28,7 @@ import { createProductionStitchShellMutableState } from './productionStitchShell
 import { createProductionStitchAssetUrlResolver } from './productionStitchAssetUrlResolver';
 import { createUnavailableUsageStatsClient } from './usage-dashboard/usageStatsClient';
 import { createProductionStitchAuthoritativeRebase } from './productionStitchAuthoritativeRebase';
-import { mountSettingsTour } from './settingsTour';
+import type { mountSettingsTour } from './settingsTour';
 
 export function mountProductionStitchShellFromDependencies({
   root,
@@ -254,13 +254,23 @@ export function mountProductionStitchShellFromDependencies({
     ) {
       scrollToPanel(initialPanel);
     }
-    if (shellActive && status === 'rendered')
-      settingsTour = mountSettingsTour({
-        root: mountRoot,
-        firefox: browserTarget === 'firefox',
-        getMessages: getCurrentMessages,
-        scrollToPanel
-      });
+    if (
+      shellActive &&
+      status === 'rendered' &&
+      mountRoot.ownerDocument.defaultView?.location.search.includes('guide=')
+    ) {
+      void import('./settingsTour')
+        .then(({ mountSettingsTour }) => {
+          if (shellActive)
+            settingsTour = mountSettingsTour({
+              root: mountRoot,
+              firefox: browserTarget === 'firefox',
+              getMessages: getCurrentMessages,
+              scrollToPanel
+            });
+        })
+        .catch((error) => console.warn('[Options] Failed to load settings tour:', error));
+    }
   });
   void persistence.loadUsageStatsFromStorage();
   return mounted;

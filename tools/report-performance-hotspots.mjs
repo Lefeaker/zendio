@@ -32,7 +32,7 @@ export const MAX_LINE_BUDGETS = new Map([
   // Compact review and first-run navigation add three catalog labels.
   // Options topics add 18 labels/descriptions; existing shell/navigation owners
   // below forward explicit section navigation to the guide.
-  ['src/i18n/generated/messages.generated.ts', 1342],
+  ['src/i18n/generated/messages.generated.ts', 1343],
   ['src/i18n/generated/locales/fr.generated.ts', 785],
   ['src/i18n/generated/locales/es-419.generated.ts', 777],
   ['src/i18n/generated/locales/es-ES.generated.ts', 777],
@@ -210,7 +210,7 @@ export const MAX_LINE_BUDGETS = new Map([
   ['src/shared/guards/dom.ts', 256],
   ['src/content/reader/services/exporter.ts', 255],
   ['src/content/video/fragmentHighlighter.ts', 254],
-  ['src/options/app/productionStitchShellMount.ts', 267],
+  ['src/options/app/productionStitchShellMount.ts', 277],
   ['src/options/app/productionStitchRenderLifecycle.ts', 256],
   // 2026-06-19 Options YAML editor stabilization: row aggregation, editable
   // domain override cells, and scroll-target ownership stay in this row model.

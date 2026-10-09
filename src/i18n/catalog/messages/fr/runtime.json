@@ -880,5 +880,6 @@
   "learningUpdateStart": "Découvrir les tutoriels",
   "learningUpdateDismiss": "Fermer",
   "learningUpdateSaveError": "Impossible d’enregistrer votre choix. Veuillez réessayer.",
-  "learningUpdateDismissed": "Vous pouvez retrouver les tutoriels via la configuration initiale dans Options."
+  "learningUpdateDismissed": "Vous pouvez retrouver les tutoriels via la configuration initiale dans Options.",
+  "aiConfigLoadFailed": "Impossible de charger la configuration IA. Rouvrez cette section ou actualisez la page."
 }

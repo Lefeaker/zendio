@@ -880,5 +880,6 @@
   "learningUpdateStart": "开始功能教学",
   "learningUpdateDismiss": "关闭提示",
   "learningUpdateSaveError": "提示偏好暂时无法保存，请重试。",
-  "learningUpdateDismissed": "可以在 Options 设置页的「首次配置」进入教程页面。"
+  "learningUpdateDismissed": "可以在 Options 设置页的「首次配置」进入教程页面。",
+  "aiConfigLoadFailed": "AI 配置界面暂时无法加载，请重新打开此分区或刷新页面。"
 }

@@ -24,6 +24,7 @@
     "aiConfigIncludeCurrent": "Inclure les réglages actuels (sans clés de connexion ni autorisations de dossier)",
     "aiConfigInvalidField": "Valeur ou format incorrect pour {field}. Vérifiez les valeurs autorisées et les règles des modèles dans les instructions.",
     "aiConfigInvalidFormat": "Utilisez un objet JSON zendio-ai-config avec version 1 et un objet changes (64 Ko maximum).",
+    "aiConfigLoadFailed": "Impossible de charger la configuration IA. Rouvrez cette section ou actualisez la page.",
     "aiConfigManual": "L’accès aux dossiers, les extensions Obsidian et les clés API REST se configurent localement. L’application des réglages n’accorde aucune autorisation et ne confirme pas la connexion.",
     "aiConfigNoChanges": "Ces réglages sont déjà identiques. Aucun changement nécessaire.",
     "aiConfigNotSet": "Non défini",

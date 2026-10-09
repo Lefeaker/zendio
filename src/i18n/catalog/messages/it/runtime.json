@@ -880,5 +880,6 @@
   "learningUpdateStart": "Esplora i tutorial",
   "learningUpdateDismiss": "Chiudi",
   "learningUpdateSaveError": "Impossibile salvare la preferenza. Riprova.",
-  "learningUpdateDismissed": "Puoi riaprire i tutorial dalla configurazione iniziale nella pagina Opzioni."
+  "learningUpdateDismissed": "Puoi riaprire i tutorial dalla configurazione iniziale nella pagina Opzioni.",
+  "aiConfigLoadFailed": "Impossibile caricare la configurazione IA. Riapri la sezione o aggiorna la pagina."
 }

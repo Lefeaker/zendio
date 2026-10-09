@@ -880,5 +880,6 @@
   "learningUpdateStart": "Explore the tutorials",
   "learningUpdateDismiss": "Dismiss",
   "learningUpdateSaveError": "Could not save your preference. Please try again.",
-  "learningUpdateDismissed": "You can reopen the tutorials from First-time setup on the Options page."
+  "learningUpdateDismissed": "You can reopen the tutorials from First-time setup on the Options page.",
+  "aiConfigLoadFailed": "AI configuration could not be loaded. Reopen this section or refresh the page."
 }

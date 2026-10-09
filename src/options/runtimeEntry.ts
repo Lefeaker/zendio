@@ -1,11 +1,13 @@
 import { bootstrapOptionsApp, configureOptionsAppBootstrapStorage } from '@options/app/bootstrap';
 import { registerRepositories } from '@shared/di/serviceRegistry';
 import type { PlatformServices } from '../platform/types';
-import type { UsageStatsClientLike } from './app/usage-dashboard/usageStatsClient';
+import {
+  UsageStatsClient,
+  createUnavailableUsageStatsClient,
+  type UsageStatsClientLike
+} from './app/usage-dashboard/usageStatsClient';
 
 export async function bootstrapOptionsRuntime(platformServices?: PlatformServices): Promise<void> {
-  const { UsageStatsClient, createUnavailableUsageStatsClient } =
-    await import('./app/usage-dashboard/usageStatsClient');
   const hasChromeStorage =
     typeof chrome !== 'undefined' &&
     Boolean(chrome.runtime) &&

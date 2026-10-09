@@ -880,5 +880,6 @@
   "learningUpdateStart": "Открыть уроки",
   "learningUpdateDismiss": "Закрыть",
   "learningUpdateSaveError": "Не удалось сохранить выбор. Попробуйте ещё раз.",
-  "learningUpdateDismissed": "Уроки можно снова открыть через первоначальную настройку на странице Options."
+  "learningUpdateDismissed": "Уроки можно снова открыть через первоначальную настройку на странице Options.",
+  "aiConfigLoadFailed": "Не удалось загрузить настройки ИИ. Откройте раздел заново или обновите страницу."
 }

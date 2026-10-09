@@ -1,3 +1,4 @@
+import { mountLearningCenter } from './learning';
 import {
   createDefaultPageI18nController,
   type PageI18nController,
@@ -20,7 +21,7 @@ import type {
   OnboardingPrivacyOptions,
   OnboardingPrivacySnapshot
 } from './dependencies';
-import type { OnboardingTrackingRequest } from './onboardingAnalytics';
+import { sendOnboardingTrackingEvent, type OnboardingTrackingRequest } from './onboardingAnalytics';
 import { renderOnboardingResourceModal } from './resourceModal';
 import type { OnboardingResourceId } from './resourceModal';
 import { applyStoredOnboardingTheme } from './theme';
@@ -142,7 +143,6 @@ export class OnboardingController {
     }
 
     try {
-      const { sendOnboardingTrackingEvent } = await import('./onboardingAnalytics');
       await sendOnboardingTrackingEvent(messagingRepository, request);
     } catch {
       // Ignore analytics failures so onboarding UX stays unaffected.
@@ -341,21 +341,8 @@ export class OnboardingController {
     field: OnboardingPrivacyField
   ): Promise<void> {
     try {
-      const [
-        { getAnalyticsConfigManager, setAnalyticsConsent },
-        { updateErrorAnalyticsConfig },
-        { resolveAnalyticsDebugMode }
-      ] = await Promise.all([
-        import('../shared/errors/analytics/analyticsConfig'),
-        import('../shared/errors/analytics'),
-        import('../shared/analytics')
-      ]);
-      const runtimeDebugMode = resolveAnalyticsDebugMode(snapshot);
-      await setAnalyticsConsent(snapshot.analytics, snapshot.errorReporting);
-      await getAnalyticsConfigManager().updateConfig({ debugMode: runtimeDebugMode });
-      if (field === 'errorReporting') {
-        await updateErrorAnalyticsConfig(snapshot.errorReporting);
-      }
+      const { applyOnboardingRuntimePrivacy } = await import('./runtimePrivacy');
+      await applyOnboardingRuntimePrivacy(snapshot, field);
     } catch {
       // Runtime privacy sync is best-effort; persisted Options state remains the source of truth.
     }
@@ -464,7 +451,6 @@ export async function bootstrapOnboardingApp(): Promise<void> {
   controller.initialize();
   const learningRoot = document.getElementById('learningRoot');
   if (learningRoot) {
-    const { mountLearningCenter } = await import('./learning');
     const stop = await mountLearningCenter(
       learningRoot,
       dependencies,

@@ -24,6 +24,7 @@
     "aiConfigIncludeCurrent": "현재 설정 포함 (연결 키와 폴더 권한 제외)",
     "aiConfigInvalidField": "{field}의 값 또는 형식이 잘못되었습니다. 설명에 있는 허용 값과 템플릿 규칙을 확인하세요.",
     "aiConfigInvalidFormat": "version이 1이고 changes 객체를 포함하는 zendio-ai-config JSON 객체 하나를 사용하세요 (최대 64 KB).",
+    "aiConfigLoadFailed": "AI 설정을 불러오지 못했습니다. 이 섹션을 다시 열거나 페이지를 새로고침하세요.",
     "aiConfigManual": "폴더 접근 권한, Obsidian 플러그인 설치, REST API 키 입력은 이 기기에서 직접 완료해야 합니다. 설정 적용은 권한 부여나 연결 확인을 대신하지 않습니다.",
     "aiConfigNoChanges": "현재 설정과 같습니다. 변경할 항목이 없습니다.",
     "aiConfigNotSet": "설정 안 됨",

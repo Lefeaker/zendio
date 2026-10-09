@@ -1,3 +1,4 @@
+import { startPracticeVideo } from './practiceVideo';
 import { createDefaultPageI18nController, configureI18nStorage } from '../i18n';
 import type { PlatformServices } from '../platform';
 import { applyStoredOnboardingTheme } from './theme';
@@ -38,8 +39,7 @@ export async function bootstrapPractice(platform: PlatformServices): Promise<voi
       enable() {
         if (videoLesson) {
           view.enable.disabled = true;
-          void import('./practiceVideo')
-            .then(({ startPracticeVideo }) => startPracticeVideo(platform, options))
+          void startPracticeVideo(platform, options)
             .catch(() => {
               view.error.textContent = messages.learningActionError;
             })

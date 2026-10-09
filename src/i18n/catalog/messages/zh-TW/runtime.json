@@ -880,5 +880,6 @@
   "learningUpdateStart": "開始功能教學",
   "learningUpdateDismiss": "關閉提示",
   "learningUpdateSaveError": "暫時無法儲存提示偏好，請重試。",
-  "learningUpdateDismissed": "可以從 Options 設定頁的「首次設定」進入教學頁面。"
+  "learningUpdateDismissed": "可以從 Options 設定頁的「首次設定」進入教學頁面。",
+  "aiConfigLoadFailed": "暫時無法載入 AI 設定介面，請重新開啟此區或重新整理頁面。"
 }
