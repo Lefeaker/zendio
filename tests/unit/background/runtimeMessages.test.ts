@@ -983,6 +983,7 @@ describe('runtime message listener', () => {
           url: 'https://youtube.com/watch?v=1',
           videoUrl: 'https://youtube.com/watch?v=1',
           timestamp: 1,
+          timestampCount: 2,
           platform: 'youtube',
           attachments: [
             {
@@ -1007,6 +1008,7 @@ describe('runtime message listener', () => {
         url: 'https://youtube.com/watch?v=1',
         sourceUrl: 'https://youtube.com/watch?v=1',
         platform: 'youtube',
+        timestampCount: 2,
         attachments: [
           {
             id: 'shot-1',

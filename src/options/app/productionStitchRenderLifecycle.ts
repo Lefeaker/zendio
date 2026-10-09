@@ -108,7 +108,9 @@ export function createProductionStitchRenderLifecycle(
       surfaceLinks: [],
       activePanel: state.activePanel,
       activeResource: state.activeResource,
-      onPanelClick: scrollToPanel,
+      onPanelClick: (panelId) => {
+        if (!options.onPanelNavigate?.(panelId)) scrollToPanel(panelId);
+      },
       onFooterClick: openResource
     });
   }

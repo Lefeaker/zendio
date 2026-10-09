@@ -210,6 +210,10 @@
       "status": "active"
     },
     {
+      "path": "docs/onboarding-learning.md",
+      "status": "active"
+    },
+    {
       "path": "docs/options-event-binding-migration-guide.md",
       "status": "historical"
     },

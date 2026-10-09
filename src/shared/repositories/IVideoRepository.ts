@@ -13,6 +13,7 @@ export interface VideoClipData {
   videoUrl: string;
   timestamp: number;
   duration?: number;
+  timestampCount?: number;
   platform: 'youtube' | 'bilibili' | 'other';
   attachments?: ClipAttachment[];
   exportDestination?: ExportDestinationMetadata;

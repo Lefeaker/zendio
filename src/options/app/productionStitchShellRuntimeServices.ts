@@ -1,7 +1,7 @@
 import type { StorageService } from '@platform/interfaces/storage';
 import type { IOptionsRepository, IMessagingRepository } from '@shared/repositories';
 import type { CompleteOptions } from '@shared/types/options';
-import type { Messages } from '@i18n';
+import { DEFAULT_RUNTIME_MESSAGES, type Messages } from '@i18n';
 import type { PreviewContent, PreviewStoreState } from '@options/stitch/types';
 import type { OptionsController } from './optionsController';
 import { createProductionStitchStorageController } from './productionStitchStorageController';
@@ -10,6 +10,9 @@ import { mergePartialIntoDraft } from './productionStitchShellState';
 import type { UsageStatsClientLike } from './usage-dashboard/usageStatsClient';
 import type { SectionInvalidationRequest } from '@ui/stitch-runtime/render/sectionInvalidation';
 import type { ProductionMaintenanceActionNotice } from './productionStitchMaintenanceState';
+import type { createAiConfiguration } from '../ai-configuration/feature';
+import { AiConfigInputError } from '../ai-configuration/types';
+import { mergeOptions } from '@shared/config/optionsMerger';
 const { createProductionStitchPersistence } = await import('./productionStitchPersistence');
 
 interface ProductionStitchShellRuntimeServicesOptions {
@@ -33,6 +36,7 @@ interface ProductionStitchShellRuntimeServicesOptions {
   refreshAppData: () => void;
   render: (scopes: SectionInvalidationRequest) => void;
   scheduleDraftSave: () => void;
+  browserTarget?: string;
 }
 
 export function createProductionStitchShellRuntimeServices(
@@ -52,7 +56,42 @@ export function createProductionStitchShellRuntimeServices(
     scheduleDraftSave: options.scheduleDraftSave
   });
 
+  let aiConfiguration: Promise<ReturnType<typeof createAiConfiguration>> | undefined;
+  const loadAiConfiguration = () =>
+    (aiConfiguration ??= import('../ai-configuration/feature').then(({ createAiConfiguration }) => {
+      return createAiConfiguration({
+        repository: optionsRepository,
+        getCurrent: () => mergeOptions(controller.getSnapshot() ?? options.getDraft()),
+        getMessages: options.getCurrentMessages,
+        browser: options.browserTarget ?? 'chrome',
+        isActive: options.isActive,
+        beforeApply: async (review) => {
+          await controller.flushPendingAutoSave();
+          if (
+            review.patches.some(({ path }) => path[0] === 'yamlConfig') &&
+            widgetHost.getRenderProtectionKeys().includes('yamlConfig')
+          )
+            throw new AiConfigInputError('yamlFieldSaveBlockedWarning');
+        }
+      });
+    }));
   const widgetHost = createProductionStitchWidgetHost({
+    mountAiConfiguration: (host) => {
+      host.setAttribute('aria-busy', 'true');
+      void loadAiConfiguration()
+        .then((feature) => {
+          if (options.isActive() && host.isConnected) feature.mount(host);
+        })
+        .catch((error) => {
+          aiConfiguration = undefined;
+          if (options.isActive() && host.isConnected)
+            host.textContent = (
+              options.getCurrentMessages() ?? DEFAULT_RUNTIME_MESSAGES
+            ).aiConfigLoadFailed;
+          console.warn('[Options] Failed to load AI configuration:', error);
+        })
+        .finally(() => host.removeAttribute('aria-busy'));
+    },
     getDraft: options.getDraft,
     getState: options.getState,
     getMessages: options.getCurrentMessages,

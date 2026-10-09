@@ -93,12 +93,14 @@ const schema: SettingsSchema = {
         ]
       },
       children: [
+        { kind: 'widget', widgetType: 'ai-configuration', props: {} },
         {
           kind: 'group',
           title: translate('schemaMaintenanceTransferGroupTitle', t),
           children: [
             {
               kind: 'card',
+              extraClass: 'settings-transfer-card',
               title: translate('schemaMaintenanceConfigurationTransferTitle', t),
               description: translate('schemaMaintenanceConfigurationTransferDescription', t),
               actions: [
@@ -130,6 +132,7 @@ const schema: SettingsSchema = {
           children: [
             {
               kind: 'card',
+              extraClass: 'settings-diagnostics-card',
               title: translate('diagnosisTitle', t),
               description: translate('schemaMaintenanceConfigurationDiagnosisDescription', t),
               actions: [

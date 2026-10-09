@@ -10,6 +10,7 @@ import type {
   PlainStructuredValue
 } from '../../shared/config/losslessObjectBoundaryTypes';
 import { composeDeviceLocalPrivacy } from '../../shared/config/deviceLocalPrivacy';
+import { optionsPatchPreconditionsMatch } from '../../shared/config/optionsPatchPreconditions';
 import {
   executeDeviceLocalVaultBindingMutation,
   optionsRawSignature,
@@ -160,8 +161,11 @@ export class OptionsMutationCoordinator {
       throw error;
     }));
   }
-  patch(patches: readonly OptionsPatch[]): Promise<OptionsMutationSuccessResult> {
-    return this.execute({ kind: 'patch', patches });
+  patch(
+    patches: readonly OptionsPatch[],
+    expected?: readonly OptionsPatch[]
+  ): Promise<OptionsMutationSuccessResult> {
+    return this.execute({ kind: 'patch', patches, ...(expected ? { expected } : {}) });
   }
   replace(
     replacement: Extract<OptionsMutationCommand, { kind: 'replace' }>['replacement']
@@ -234,6 +238,11 @@ export class OptionsMutationCoordinator {
     command: OptionsMutationCommand
   ): { next: PlainStructuredObject; verification: OptionsMutationVerification } {
     if (command.kind === 'patch') {
+      if (
+        command.expected &&
+        !optionsPatchPreconditionsMatch(decodeStoredOptions(raw).runtime, command.expected)
+      )
+        throw new OptionsMutationError('EXTERNAL_SYNC_CONFLICT');
       let next = raw;
       for (const patch of command.patches) {
         const result = applyStoredOptionsPatch(next, patch);
@@ -343,10 +352,13 @@ export function createBackgroundOptionsRepository(
       }
       return clone(decoded.runtime);
     },
-    async patch(patches: OptionsPatch | readonly OptionsPatch[]): Promise<CompleteOptions> {
+    async patch(
+      patches: OptionsPatch | readonly OptionsPatch[],
+      expected?: readonly OptionsPatch[]
+    ): Promise<CompleteOptions> {
       const batch = Array.isArray(patches) ? patches : [patches];
       if (batch.length === 0) throw new OptionsMutationError('INVALID_OPTIONS_MUTATION');
-      return clone((await coordinator.patch(batch)).snapshot);
+      return clone((await coordinator.patch(batch, expected)).snapshot);
     },
     async replace(options: StoredOptions | CompleteOptions): Promise<CompleteOptions> {
       const encoded = encodeStoredOptionsReplacement(options);

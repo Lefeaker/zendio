@@ -28,6 +28,21 @@ describe('chrome downloads adapter', () => {
     vi.unstubAllGlobals();
   });
 
+  it('propagates reveal errors and rejects an unavailable downloads API', async () => {
+    const show = vi.fn(() => {
+      throw new Error('Missing file');
+    });
+    const search = vi.fn().mockResolvedValue([{ state: 'complete', exists: true }]);
+    vi.stubGlobal('chrome', { downloads: { show, search } });
+    const { chromeDownloadsService } = await import('../../../../src/platform/chrome/downloads');
+    await expect(chromeDownloadsService.show?.(9)).rejects.toThrow('Missing file');
+    expect(show).toHaveBeenCalledWith(9);
+    search.mockResolvedValue([]);
+    await expect(chromeDownloadsService.show?.(9)).rejects.toThrow('no longer available');
+    vi.stubGlobal('chrome', {});
+    await expect(chromeDownloadsService.show?.(9)).rejects.toThrow('is not available');
+  });
+
   it('downloads blob attachments through an object URL and revokes it after the delay', async () => {
     const downloadApiMock = vi.fn().mockResolvedValue(17);
     const createObjectURLMock = vi.fn(() => 'blob:chrome-shot');

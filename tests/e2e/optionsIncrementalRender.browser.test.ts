@@ -1319,8 +1319,13 @@ test('settles final navigation, usage reset, and canonical autosave Retry', asyn
       .poll(() =>
         optionsPage.evaluate(() => {
           const main = document.querySelector<HTMLElement>('.main');
-          if (!main) return false;
-          return Math.abs(main.scrollHeight - main.clientHeight - main.scrollTop) <= 1;
+          const panel = document.querySelector<HTMLElement>('[data-panel-id="maintenance"]');
+          if (!main || !panel) return false;
+          const target = Math.min(
+            Math.max(panel.offsetTop - 12, 0),
+            main.scrollHeight - main.clientHeight
+          );
+          return Math.abs(main.scrollTop - target) <= 1;
         })
       )
       .toBe(true);
@@ -1335,7 +1340,11 @@ test('settles final navigation, usage reset, and canonical autosave Retry', asyn
         document.querySelectorAll<HTMLElement>('[data-nav-panel][aria-current="page"]')
       );
       return {
-        atBottom: Math.abs(main.scrollHeight - main.clientHeight - main.scrollTop) <= 1,
+        atTarget:
+          Math.abs(
+            main.scrollTop -
+              Math.min(Math.max(panel.offsetTop - 12, 0), main.scrollHeight - main.clientHeight)
+          ) <= 1,
         currentCount: current.length,
         currentPanel: current[0]?.dataset.navPanel ?? null,
         panelVisible: panelRect.top < mainRect.bottom && panelRect.bottom > mainRect.top,
@@ -1494,7 +1503,7 @@ test('settles final navigation, usage reset, and canonical autosave Retry', asyn
     expect(retryNative.calls).toBeGreaterThanOrEqual(2);
     await expect(retryButton).toHaveCount(0);
     expect(navigation).toEqual({
-      atBottom: true,
+      atTarget: true,
       currentCount: 1,
       currentPanel: 'maintenance',
       panelVisible: true,

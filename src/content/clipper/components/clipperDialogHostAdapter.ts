@@ -1,3 +1,4 @@
+import { bindLearningUpdateNotice } from '@content/shared/panels/learningUpdateNotice';
 import type { StyleAttachmentHandle } from '@ui/foundation/style-host';
 import { clipperStyleSheetManager } from '../shared/styleSheetManager';
 
@@ -7,6 +8,7 @@ type ClipperDialogHostLifecycle = {
   styleAttachment: StyleAttachmentHandle;
   mountToken: HostMountToken;
   disposed: boolean;
+  disposeLearningUpdate?: () => void;
 };
 
 type ManagedClipperDialogHost = HTMLDivElement & {
@@ -66,6 +68,7 @@ export async function mountClipperDialogHost(
     host.remove();
     return null;
   }
+  lifecycle.disposeLearningUpdate = bindLearningUpdateNotice(surface);
   host.removeAttribute('aria-busy');
   host.hidden = false;
   document.documentElement.dataset.aiobClipperDialog = 'open';
@@ -83,6 +86,7 @@ export function unmountClipperDialogHost(host: HTMLElement | null): void {
   cancelHostMount(lifecycle.mountToken);
   if (!lifecycle.disposed) {
     lifecycle.disposed = true;
+    lifecycle.disposeLearningUpdate?.();
     lifecycle.styleAttachment.dispose();
   }
   host.remove();

@@ -88,6 +88,64 @@ describe('report-performance-hotspots', () => {
 
   it('keeps the exact normalized budget transitions and every other budget unchanged', () => {
     const registeredBudgets = readRegisteredBudgets();
+    expect(registeredBudgets.get('src/i18n/generated/messages.generated.ts')).toBe(1343);
+    registeredBudgets.set('src/i18n/generated/messages.generated.ts', 1342);
+    expect(registeredBudgets.get('src/options/app/productionStitchShellMount.ts')).toBe(277);
+    registeredBudgets.set('src/options/app/productionStitchShellMount.ts', 267);
+    expect(registeredBudgets.get('src/i18n/generated/messages.generated.ts')).toBe(1342);
+    registeredBudgets.set('src/i18n/generated/messages.generated.ts', 1341);
+    expect(registeredBudgets.get('src/i18n/generated/messages.generated.ts')).toBe(1341);
+    registeredBudgets.set('src/i18n/generated/messages.generated.ts', 1336);
+    const releaseNoteChanges: Array<[string, number, number]> = [
+      ['src/i18n/generated/schemaCore.generated.ts', 465, 470],
+      ['src/i18n/generated/messages.generated.ts', 1331, 1336]
+    ];
+    for (const [file, before, after] of releaseNoteChanges) {
+      expect(registeredBudgets.get(file)).toBe(after);
+      registeredBudgets.set(file, before);
+    }
+    const tourChanges: Array<[string, number, number]> = [
+      ['src/i18n/generated/messages.generated.ts', 1313, 1331],
+      ['src/options/app/productionStitchShellMount.ts', 264, 267],
+      ['src/options/app/productionStitchRenderLifecycle.ts', 254, 256]
+    ];
+    for (const [file, before, after] of tourChanges) {
+      expect(registeredBudgets.get(file)).toBe(after);
+      registeredBudgets.set(file, before);
+    }
+    expect(registeredBudgets.get('src/i18n/generated/messages.generated.ts')).toBe(1313);
+    registeredBudgets.set('src/i18n/generated/messages.generated.ts', 1310);
+    const aiConfigurationChanges: Array<[string, number, number]> = [
+      ['src/i18n/generated/messages.generated.ts', 1281, 1310],
+      ['src/background/services/optionsMutationCoordinator.ts', 360, 370],
+      ['src/options/app/productionStitchShellMount.ts', 263, 264]
+    ];
+    for (const [file, before, after] of aiConfigurationChanges) {
+      expect(registeredBudgets.get(file)).toBe(after);
+      registeredBudgets.set(file, before);
+    }
+    expect(registeredBudgets.get('src/i18n/generated/messages.generated.ts')).toBe(1281);
+    registeredBudgets.set('src/i18n/generated/messages.generated.ts', 1257);
+    expect(registeredBudgets.get('src/options/app/productionStitchShellMount.ts')).toBe(263);
+    registeredBudgets.set('src/options/app/productionStitchShellMount.ts', 254);
+    expect(registeredBudgets.get('src/i18n/generated/messages.generated.ts')).toBe(1257);
+    registeredBudgets.set('src/i18n/generated/messages.generated.ts', 1242);
+    expect(registeredBudgets.get('src/onboarding/practiceCoach.ts')).toBe(291);
+    registeredBudgets.set('src/onboarding/practiceCoach.ts', 276);
+    expect(registeredBudgets.get('src/onboarding/practiceCoach.ts')).toBe(276);
+    registeredBudgets.delete('src/onboarding/practiceCoach.ts');
+    expect(registeredBudgets.get('src/i18n/generated/messages.generated.ts')).toBe(1242);
+    registeredBudgets.set('src/i18n/generated/messages.generated.ts', 1214);
+    expect(registeredBudgets.get('src/background/application/clipProcessor.ts')).toBe(500);
+    registeredBudgets.set('src/background/application/clipProcessor.ts', 498);
+    const learningChanges: Array<[string, number, number]> = [
+      ['src/i18n/generated/messages.generated.ts', 1168, 1214],
+      ['src/background/application/clipProcessor.ts', 470, 498]
+    ];
+    for (const [file, before, after] of learningChanges) {
+      expect(registeredBudgets.get(file)).toBe(after);
+      registeredBudgets.set(file, before);
+    }
     const runtimeRelease: Array<[string, number | null, number]> = [
       ['src/i18n/generated/messages.generated.ts', 1158, 1168],
       ['src/i18n/generated/schemaCore.generated.ts', 458, 465],

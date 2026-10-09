@@ -113,7 +113,7 @@ export async function collectRuntimeSurfaceContract(
   const supportLinks = root.locator('a.task-support-link[href]');
   const surfaceWindow = root.locator('.surface-window').first();
   const modal = root.locator('.resource-modal').first();
-  const primaryButton = root.locator('.btn.primary').first();
+  const primaryButton = root.locator('button.btn.primary[data-action-id]').first();
   const input = root
     .locator('.input, .textarea, [data-highlight-input], [data-capture-input]')
     .first();

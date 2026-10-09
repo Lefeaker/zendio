@@ -13,376 +13,75 @@
   </head>
 
   <body data-route="onboarding" data-preview-skin="stitch-secondary" data-preview-theme="dark">
-    <div class="progress-indicator">
-      <div class="progress-bar" id="progressBar"></div>
-    </div>
-
     <div class="onboarding-container">
-      <div class="onboarding-header">
-        <img src="../icons/bannerlogo-128.png" alt="Zendio Logo" />
-        <h1 data-i18n="onboardingTitle">Welcome to Zendio</h1>
-        <p class="subtitle" data-i18n="onboardingSubtitle">
-          Let's quickly set up your clipper extension
+      <main id="learningRoot" class="learning-root"></main>
+      <details class="learning-privacy">
+        <summary data-i18n="onboardingAgreementTitle">Terms and Privacy</summary>
+        <p class="step-description" data-i18n="onboardingAgreementDescription">
+          Review the terms and privacy policy, then choose whether to share anonymous usage
+          statistics and error diagnostics.
         </p>
-        <p class="welcome-message" data-i18n="onboardingWelcomeMessage">
-          Thank you for installing Zendio! This guide will help you quickly configure the extension
-          so you can easily save web content and AI conversations to Obsidian.
-        </p>
-      </div>
-
-      <section
-        class="onboarding-step onboarding-agreement"
-        aria-labelledby="onboardingAgreementTitle"
-      >
-        <div class="step-header">
-          <div class="step-number"><span>✓</span></div>
-          <h2 class="step-title" id="onboardingAgreementTitle" data-i18n="onboardingAgreementTitle">
-            Terms and Privacy
-          </h2>
-        </div>
-        <div class="step-content">
-          <p class="step-description" data-i18n="onboardingAgreementDescription">
-            Review the terms and privacy policy, then choose whether to share anonymous usage
-            statistics and error diagnostics.
-          </p>
-          <div class="agreement-links">
-            <a href="#" id="termsOfUseLink" data-i18n="onboardingTermsOfUseLink">Terms of Use</a>
-            <a href="#" id="privacyPolicyLink" data-i18n="onboardingPrivacyPolicyLink"
-              >Privacy Policy</a
-            >
-          </div>
-          <div class="agreement-consent-grid">
-            <label class="agreement-consent">
-              <span class="switch">
-                <input id="onboardingAnalyticsConsent" type="checkbox" />
-                <span class="slider"></span>
-              </span>
-              <span class="agreement-consent-label" data-i18n="onboardingAnalyticsConsentLabel"
-                >Allow anonymous usage statistics</span
-              >
-            </label>
-            <label class="agreement-consent">
-              <span class="switch">
-                <input id="onboardingErrorReportingConsent" type="checkbox" />
-                <span class="slider"></span>
-              </span>
-              <span class="agreement-consent-label" data-i18n="onboardingErrorReportingConsentLabel"
-                >Allow error diagnostics</span
-              >
-            </label>
-            <p class="agreement-consent-hint" data-i18n="onboardingConsentSupportHint">
-              This project is independently developed. Enabling these options helps improve
-              development and deliver a better user experience.
-            </p>
-          </div>
-        </div>
-      </section>
-
-      <div class="onboarding-steps">
-        <div class="onboarding-step" id="step1">
-          <div class="step-header">
-            <div class="step-number"><span>1</span></div>
-            <h2 class="step-title" data-i18n="step1Title" data-onboarding-step1-title>
-              Connect Obsidian with Local Folder (Recommended)
-            </h2>
-          </div>
-          <div class="step-content">
-            <p
-              class="step-description"
-              data-i18n="step1Description"
-              data-onboarding-step1-description
-            >
-              Chrome and Chromium builds should connect through Local Folder first. Obsidian Local
-              REST API remains available as the fallback connection.
-            </p>
-            <div class="step-details">
-              <ul>
-                <li data-i18n="step1Detail1" data-onboarding-step1-detail="1">
-                  Open Storage in Options and choose the vault row you want to connect.
-                </li>
-                <li data-i18n="step1Detail2" data-onboarding-step1-detail="2">
-                  Click Choose Local Folder and authorize your Obsidian vault directory.
-                </li>
-                <li data-i18n="step1Detail3" data-onboarding-step1-detail="3">
-                  Keep the folder permission active so Zendio can write notes directly.
-                </li>
-                <li data-i18n="step1Detail4" data-onboarding-step1-detail="4">
-                  If Local Folder is unavailable, configure Obsidian Local REST API and trust the
-                  local certificate when prompted.
-                </li>
-                <li data-i18n="step1Detail5" data-onboarding-step1-detail="5">
-                  Run the connection test after choosing Local Folder or REST API details.
-                </li>
-                <li data-i18n="step1Detail6" data-onboarding-step1-detail="6">
-                  Add additional vaults and routing rules only after the default vault works.
-                </li>
-              </ul>
-            </div>
-            <div class="step-action">
-              <button type="button" id="configureApiBtn" data-i18n="step1ActionPrimary">
-                Configure API
-              </button>
-              <button
-                type="button"
-                class="secondary"
-                id="skipStep1Btn"
-                data-i18n="step1ActionSecondary"
-              >
-                Configure Later
-              </button>
-            </div>
-          </div>
-        </div>
-
-        <div class="onboarding-step" id="step2">
-          <div class="step-header">
-            <div class="step-number"><span>2</span></div>
-            <h2 class="step-title" data-i18n="step2Title">
-              Configure Additional Vaults (Optional)
-            </h2>
-          </div>
-          <div class="step-content">
-            <p class="step-description" data-i18n="step2Description">
-              If you have multiple Obsidian vaults, you can configure additional vaults and set
-              routing rules to automatically save different types of content to corresponding
-              vaults.
-            </p>
-            <div class="step-details">
-              <ul>
-                <li data-i18n="step2Detail1">Support for multiple Obsidian vaults</li>
-                <li data-i18n="step2Detail2">
-                  Set routing rules based on domain, keywords, or URL patterns
-                </li>
-                <li data-i18n="step2Detail3">
-                  Example: Save tech articles to work vault, personal content to personal vault
-                </li>
-              </ul>
-            </div>
-            <div class="step-action">
-              <button type="button" id="configureVaultsBtn" data-i18n="step2ActionPrimary">
-                Configure Additional Vaults
-              </button>
-              <button
-                type="button"
-                class="secondary"
-                id="skipStep2Btn"
-                data-i18n="step2ActionSecondary"
-              >
-                Skip This Step
-              </button>
-            </div>
-          </div>
-        </div>
-
-        <div class="onboarding-step" id="step3">
-          <div class="step-header">
-            <div class="step-number"><span>3</span></div>
-            <h2 class="step-title" data-i18n="step3Title">Main Features</h2>
-          </div>
-          <div class="step-content">
-            <p class="step-description" data-i18n="step3Description">
-              Let's quickly learn about the main features of the extension to help you use it
-              better.
-            </p>
-            <div class="step-details">
-              <div class="feature-section">
-                <h5 data-i18n="step3Section1Title">Web Clipping</h5>
-                <ul>
-                  <li data-i18n="step3Section1Detail1">
-                    Click on blank areas of web pages to clip entire pages (wait for page to load
-                    completely and scroll to load all images)
-                  </li>
-                  <li data-i18n="step3Section1Detail2">
-                    Automatically recognize mainstream AI chat conversations and save formatted AI
-                    dialogue records
-                  </li>
-                </ul>
-              </div>
-
-              <div class="feature-section">
-                <h5 data-i18n="step3Section2Title">Clipping/Reading Mode</h5>
-                <ul>
-                  <li data-i18n="step3Section2Detail1">
-                    Right-click selected text or use auxiliary keys to select content, add comments,
-                    and save selected content with annotations to Obsidian
-                  </li>
-                  <li data-i18n="step3Section2Detail2">
-                    Enter reading mode to select multiple fragments on the same page, comment on
-                    them, and save together to Obsidian
-                  </li>
-                  <li data-i18n="step3Section2Detail3">
-                    Reading mode automatically arranges text fragments according to page layout,
-                    click fragment numbers for quick navigation
-                  </li>
-                  <li data-i18n="step3Section2Detail4">
-                    Reading mode can save full text to Obsidian with selected content highlighted
-                  </li>
-                  <li data-i18n="step3Section2Detail5">
-                    Whether fragments or reading mode selections, precise page links are saved for
-                    one-click return to web positions
-                  </li>
-                  <li data-i18n="step3Section2Detail6">
-                    Install sidebar highlights plugin in Obsidian for more convenient annotation
-                    viewing
-                  </li>
-                  <li data-i18n="step3Section2Detail7">
-                    Automatically restore unsaved reading or video drafts from up to 5 recently used
-                    pages within the last 48 hours
-                  </li>
-                </ul>
-              </div>
-
-              <div class="feature-section">
-                <h5 data-i18n="step3Section3Title">Video Mode</h5>
-                <ul>
-                  <li data-i18n="step3Section3Detail1">
-                    YouTube or Bilibili adapted playback pages, open video mode to record video
-                    timestamps and add notes anytime
-                  </li>
-                  <li data-i18n="step3Section3Detail2">
-                    Click numbers next to timestamps for one-click navigation and repeated viewing
-                  </li>
-                  <li data-i18n="step3Section3Detail3">
-                    Select page text and capture exciting comments with one click
-                  </li>
-                  <li data-i18n="step3Section3Detail4">
-                    After saving to Obsidian, one-click return to precise video timestamps anytime
-                  </li>
-                  <li data-i18n="step3Section3Detail5">
-                    Save video screenshots with timestamps so Obsidian exports keep the visual
-                    context.
-                  </li>
-                </ul>
-              </div>
-            </div>
-            <div class="step-action">
-              <button type="button" id="exploreSettingsBtn" data-i18n="step3ActionPrimary">
-                View Detailed Settings
-              </button>
-              <button
-                type="button"
-                class="secondary"
-                id="skipStep3Btn"
-                data-i18n="step3ActionSecondary"
-              >
-                Learn Later
-              </button>
-            </div>
-          </div>
-        </div>
-
-        <div class="onboarding-step" id="step4">
-          <div class="step-header">
-            <div class="step-number"><span>4</span></div>
-            <h2 class="step-title" data-i18n="step4Title">Auxiliary Features</h2>
-          </div>
-          <div class="step-content">
-            <p class="step-description" data-i18n="step4Description">
-              The extension also provides various auxiliary features to make your experience more
-              convenient.
-            </p>
-            <div class="step-details">
-              <ul>
-                <li data-i18n="step4Detail1">
-                  Multiple browsers on the same device: one-click copy current configuration, paste
-                  to sync, no need for repeated setup
-                </li>
-                <li data-i18n="step4Detail2">
-                  Domain mapping: map common websites to friendly folder names
-                </li>
-                <li data-i18n="step4Detail3">
-                  Custom path configuration, adjust paths according to your needs
-                </li>
-                <li data-i18n="step4Detail4">
-                  Smart diagnostics: configuration issues? Smart diagnostics for quick
-                  troubleshooting
-                </li>
-              </ul>
-            </div>
-            <div class="step-action">
-              <button type="button" id="exploreAuxiliaryBtn" data-i18n="step4ActionPrimary">
-                View Detailed Settings
-              </button>
-              <button
-                type="button"
-                class="secondary"
-                id="skipStep4Btn"
-                data-i18n="step4ActionSecondary"
-              >
-                Learn Later
-              </button>
-            </div>
-          </div>
-        </div>
-
-        <div class="onboarding-step" id="step5">
-          <div class="step-header">
-            <div class="step-number"><span>5</span></div>
-            <h2 class="step-title" data-i18n="step5Title">
-              More Exciting Features, Continuous Iteration
-            </h2>
-          </div>
-          <div class="step-content">
-            <p class="step-description" data-i18n="step5Description">
-              The extension is constantly evolving to bring you more intelligent features.
-            </p>
-            <div class="step-details">
-              <ul>
-                <li data-i18n="step5Detail2">
-                  Bidirectional interaction, no longer just saving notes, but a bridge between
-                  browser and Obsidian
-                </li>
-                <li data-i18n="step5Detail3">
-                  Welcome to suggest improvements, development is not easy, thank you for your
-                  support
-                </li>
-              </ul>
-            </div>
-            <div class="footer-links">
-              <a
-                href="#"
-                id="officialWebsiteLink"
-                class="footer-link"
-                data-i18n="footerOfficialWebsiteLink"
-                >Official Website</a
-              >
-              <a href="#" id="suggestionsLink" class="footer-link" data-i18n="footerSuggestionsLink"
-                >Suggestions</a
-              >
-              <a href="#" id="supportLink" class="footer-link" data-i18n="footerSupportLink"
-                >Support</a
-              >
-              <a href="#" id="contactLink" class="footer-link" data-i18n="footerContactLink"
-                >Contact Author</a
-              >
-              <a href="#" id="changelogLink" class="footer-link" data-i18n="footerChangelogLink"
-                >Changelog</a
-              >
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div class="onboarding-footer">
-        <div class="footer-actions">
-          <button type="button" class="secondary" id="skipOnboardingBtn" data-i18n="skipOnboarding">
-            Skip Guide
-          </button>
-          <button
-            type="button"
-            id="completeOnboardingBtn"
-            class="hidden"
-            data-i18n="completeOnboarding"
+        <div class="agreement-links">
+          <a href="#" id="termsOfUseLink" data-i18n="onboardingTermsOfUseLink">Terms of Use</a>
+          <a href="#" id="privacyPolicyLink" data-i18n="onboardingPrivacyPolicyLink"
+            >Privacy Policy</a
           >
-            Complete Guide
-          </button>
         </div>
-        <p class="footer-note" data-i18n="onboardingFooterNote">
-          You can reconfigure these options in the settings page at any time.
-        </p>
-      </div>
+        <div class="agreement-consent-grid">
+          <label class="agreement-consent">
+            <span class="switch">
+              <input id="onboardingAnalyticsConsent" type="checkbox" />
+              <span class="slider"></span>
+            </span>
+            <span class="agreement-consent-label" data-i18n="onboardingAnalyticsConsentLabel"
+              >Allow anonymous usage statistics</span
+            >
+          </label>
+          <label class="agreement-consent">
+            <span class="switch">
+              <input id="onboardingErrorReportingConsent" type="checkbox" />
+              <span class="slider"></span>
+            </span>
+            <span class="agreement-consent-label" data-i18n="onboardingErrorReportingConsentLabel"
+              >Allow error diagnostics</span
+            >
+          </label>
+          <p class="agreement-consent-hint" data-i18n="onboardingConsentSupportHint">
+            This project is independently developed. Enabling these options helps improve
+            development and deliver a better user experience.
+          </p>
+        </div>
+      </details>
+      <footer class="learning-footer">
+        <div class="footer-links">
+          <a
+            href="#"
+            id="officialWebsiteLink"
+            class="footer-link"
+            data-i18n="footerOfficialWebsiteLink"
+            >Official Website</a
+          >
+          <a href="#" id="suggestionsLink" class="footer-link" data-i18n="footerSuggestionsLink"
+            >Suggestions</a
+          >
+          <a href="#" id="supportLink" class="footer-link" data-i18n="footerSupportLink">Support</a>
+          <a href="#" id="contactLink" class="footer-link" data-i18n="footerContactLink"
+            >Contact Author</a
+          >
+          <a href="#" id="changelogLink" class="footer-link" data-i18n="footerChangelogLink"
+            >Changelog</a
+          >
+        </div>
+        <button
+          type="button"
+          class="btn secondary"
+          id="skipOnboardingBtn"
+          data-i18n="learningClose"
+        >
+          Close guide
+        </button>
+      </footer>
     </div>
-
     <script type="module" src="index.js"></script>
   </body>
 </html>

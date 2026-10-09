@@ -396,7 +396,9 @@
 
 .resource-modal--session .session-footer-bar .surface-window-footer {
   flex-direction: row;
+  flex-wrap: wrap;
   align-items: center;
+  row-gap: var(--space-3);
 }
 
 .session-counter {

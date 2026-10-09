@@ -19,13 +19,20 @@ export const MAX_LINE_BUDGETS = new Map([
   ['src/shared/sessionDrafts/pageIdentity.ts', 251],
   ['src/i18n/generated/localeRegistry.generated.ts', 8899],
   ['src/i18n/generated/schemaMessages.generated.ts', 481],
+  // Upgrade tutorial invitation adds five runtime message declarations.
+  // v0.3.3 release notes add five generated schema/message declarations.
   // 2026-06-29 v0.2.1 changelog sync: schema core now carries the accepted
   // Options/Stitch release-note keys in addition to existing resource copy.
-  ['src/i18n/generated/schemaCore.generated.ts', 465],
+  ['src/i18n/generated/schemaCore.generated.ts', 470],
   // 2026-07-20 selection-trigger policy: generated runtime messages carry the
   // explicit disabled, direct, and modifier mode copy plus diagnostics copy.
-  // 2026-09-14: three shared first-use guide catalog keys add three generated declarations.
-  ['src/i18n/generated/messages.generated.ts', 1168],
+  // 2026-10-01: learning walkthrough and guided practice add 74 message declarations.
+  // 2026-10-02: AI configuration adds 29 declarations; existing mutation and mount
+  // owners below retain their guarded-patch and browser-context responsibilities.
+  // Compact review and first-run navigation add three catalog labels.
+  // Options topics add 18 labels/descriptions; existing shell/navigation owners
+  // below forward explicit section navigation to the guide.
+  ['src/i18n/generated/messages.generated.ts', 1343],
   ['src/i18n/generated/locales/fr.generated.ts', 785],
   ['src/i18n/generated/locales/es-419.generated.ts', 777],
   ['src/i18n/generated/locales/es-ES.generated.ts', 777],
@@ -165,7 +172,10 @@ export const MAX_LINE_BUDGETS = new Map([
   ['src/content/bootstrap.ts', 252],
   ['src/platform/chrome/contextMenus.ts', 285],
   ['src/content/shared/panels/sessionPanelResize.ts', 284],
-  ['src/background/application/clipProcessor.ts', 470],
+  // Learning records the actual write receipt and download IDs at both existing commit points.
+  ['src/background/application/clipProcessor.ts', 500],
+  // Guided practice owns one observer/receipt lifecycle; keep its exact source budget.
+  ['src/onboarding/practiceCoach.ts', 291],
   ['src/infrastructure/restClient.ts', 266],
   ['src/shared/services/yamlConfigSanitize.ts', 277],
   // 2026-08-11 U02A owner transfer/current truth: keep the legacy Options
@@ -180,7 +190,7 @@ export const MAX_LINE_BUDGETS = new Map([
   // screenshot request boundary used by video export preparation.
   ['src/background/listeners/runtimeMessages.ts', 374],
   ['src/background/services/usageStats.ts', 266],
-  ['src/background/services/optionsMutationCoordinator.ts', 360],
+  ['src/background/services/optionsMutationCoordinator.ts', 370],
   ['src/options/state/optionsStore.ts', 319],
   ['src/background/application/videoScreenshotAttachmentPlanner.ts', 269],
   ['src/third_party/ai-chat-exporter/platforms/tongyi.ts', 274],
@@ -200,8 +210,8 @@ export const MAX_LINE_BUDGETS = new Map([
   ['src/shared/guards/dom.ts', 256],
   ['src/content/reader/services/exporter.ts', 255],
   ['src/content/video/fragmentHighlighter.ts', 254],
-  ['src/options/app/productionStitchShellMount.ts', 254],
-  ['src/options/app/productionStitchRenderLifecycle.ts', 254],
+  ['src/options/app/productionStitchShellMount.ts', 277],
+  ['src/options/app/productionStitchRenderLifecycle.ts', 256],
   // 2026-06-19 Options YAML editor stabilization: row aggregation, editable
   // domain override cells, and scroll-target ownership stay in this row model.
   ['src/options/yaml-config-editor/rowModel.ts', 269],

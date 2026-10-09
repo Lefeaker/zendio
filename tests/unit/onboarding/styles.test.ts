@@ -55,15 +55,16 @@ describe('onboarding styles', () => {
     expect(footerLinksRule).toContain('overflow-x: visible');
   });
 
-  it('keeps first-run feature copy focused on shipped capabilities', () => {
+  it('keeps a single learning entry while retaining privacy, help and close controls', () => {
     const html = readFileSync(onboardingHtmlPath, 'utf8');
-    const normalizedHtml = html.replace(/\s+/gu, ' ');
-
-    expect(html).toContain('data-i18n="step3Section3Detail5"');
-    expect(normalizedHtml).toContain(
-      'Save video screenshots with timestamps so Obsidian exports keep the visual context.'
-    );
-    expect(html).not.toContain('data-i18n="step5Detail1"');
-    expect(html).not.toContain('Introducing AI features for smoother, more intelligent experience');
+    expect(html).toContain('id="learningRoot"');
+    expect(html).toContain('class="learning-privacy"');
+    expect(html).toContain('id="termsOfUseLink"');
+    expect(html).toContain('id="supportLink"');
+    expect(html).toContain('id="skipOnboardingBtn"');
+    expect(html).not.toContain('learning-setup');
+    expect(html).not.toContain('class="onboarding-steps"');
+    expect(html).not.toContain('id="step1"');
+    expect(html).not.toContain('id="configureApiBtn"');
   });
 });

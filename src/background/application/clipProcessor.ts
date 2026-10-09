@@ -1,3 +1,4 @@
+import { learningCoursesForExport, recordLearningExport } from '../services/learningProgress';
 import { getOptions } from '../store';
 import { RUNTIME_FALLBACK_MESSAGES } from '../../i18n/catalog/runtimeFallbackMessages';
 import { classifyClip } from '../services/classificationService';
@@ -214,25 +215,42 @@ export async function processClipPayload(
         message: createClipProgressMessage('supportProgressSavingDownloads')
       });
       const downloads = getDownloadsService();
+      const downloadIds: Array<number | string> = [];
       if (routed.prepared.attachments.length > 0) {
         await completeStage('write_attachments', async () => {
           for (const attachment of routed.prepared.attachments) {
             const blob = serializedAttachmentContentToBlob(attachment.content, attachment.mimeType);
-            await downloads.download({
+            const attachmentId = await downloads.download({
               filename: attachment.outputPath,
               blob,
               mimeType: attachment.mimeType
             });
+            if (attachmentId !== undefined) downloadIds.push(attachmentId);
           }
         });
       }
-      await completeStage('write_markdown', () =>
+      const downloadId = await completeStage('write_markdown', () =>
         downloads.download({
           filename: routed.filePath,
           content: routed.prepared.markdown,
           mimeType: 'text/markdown;charset=utf-8'
         })
       );
+
+      if (downloadId !== undefined) downloadIds.push(downloadId);
+      await recordLearningExport({
+        receipt: {
+          operationId,
+          ...(payload.meta?.url ? { sourceUrl: payload.meta.url } : {}),
+          filePath: routed.filePath,
+          destination: 'downloads',
+          savedAt: Date.now(),
+          ...(downloadId !== undefined ? { downloadId } : {})
+        },
+        courses: learningCoursesForExport(payload, routed.prepared.attachments.length),
+        downloadIds:
+          downloadIds.length === routed.prepared.attachments.length + 1 ? downloadIds : []
+      });
 
       hooks.onProgress?.({
         value: 94,
@@ -296,6 +314,19 @@ export async function processClipPayload(
     await completeStage('write_markdown', () =>
       routed.writeSession.writeMarkdown(routed.filePath, routed.prepared.markdown)
     );
+
+    await recordLearningExport({
+      receipt: {
+        operationId,
+        ...(payload.meta?.url ? { sourceUrl: payload.meta.url } : {}),
+        filePath: routed.filePath,
+        destination: 'vault',
+        vaultName: routed.restConfig.vault,
+        savedAt: Date.now()
+      },
+      courses: learningCoursesForExport(payload, routed.prepared.attachments.length),
+      downloadIds: []
+    });
 
     hooks.onProgress?.({
       value: 94,

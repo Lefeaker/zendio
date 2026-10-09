@@ -1,0 +1,152 @@
+.settings-tour-active .shell {
+  width: calc(100vw - var(--shell-sidebar-width) - 340px);
+  max-width: calc(100vw - var(--shell-sidebar-width) - 340px);
+}
+
+.settings-tour {
+  position: fixed;
+  inset: 0 0 0 auto;
+  z-index: var(--z-sidebar);
+  width: 340px;
+  padding: 20px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  background: var(--panel);
+  color: var(--text);
+  border-left: var(--border-default);
+}
+
+.settings-tour-toolbar,
+.settings-tour-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.settings-tour-toolbar {
+  justify-content: space-between;
+}
+
+.settings-tour-content {
+  display: grid;
+  gap: 14px;
+  padding-top: 16px;
+}
+
+.settings-tour h2,
+.settings-tour p {
+  margin: 0;
+}
+
+.settings-tour h2 {
+  font-size: 22px;
+  line-height: 1.4;
+}
+
+.settings-tour h2:focus {
+  outline: none;
+}
+
+.settings-tour select {
+  width: 100%;
+  min-width: 0;
+  min-height: 40px;
+  padding: 8px;
+  border: var(--border-default);
+  border-radius: var(--radius-md);
+  background: var(--bg);
+  color: var(--text);
+  font: inherit;
+}
+
+/* Scroll the guide as one document; never squeeze paragraphs into a nested viewport. */
+.settings-tour-copy {
+  display: grid;
+  gap: 12px;
+  font-size: 14px;
+  line-height: 1.8;
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+}
+
+.settings-tour-copy a {
+  color: var(--accent);
+  text-decoration: underline;
+}
+
+.settings-tour-count,
+.settings-tour-hint {
+  color: var(--text-subtle);
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.settings-tour-target {
+  outline: 2px solid var(--accent);
+  outline-offset: 5px;
+  border-radius: var(--radius-md);
+  scroll-margin: 12px;
+}
+
+.settings-tour [hidden] {
+  display: none;
+}
+
+@media (max-width: 1100px) {
+  .settings-tour-active {
+    --settings-tour-height: min(55dvh, 400px);
+  }
+
+  .settings-tour-active .shell {
+    width: calc(100vw - var(--shell-sidebar-width));
+    max-width: calc(100vw - var(--shell-sidebar-width));
+  }
+
+  .settings-tour-active .main {
+    height: calc(100dvh - var(--settings-tour-height));
+  }
+
+  .settings-tour {
+    inset: auto 0 0;
+    height: var(--settings-tour-height);
+    width: auto;
+    padding: 12px 16px;
+    border-left: 0;
+    border-top: var(--border-default);
+  }
+
+  .settings-tour h2 {
+    font-size: 19px;
+  }
+}
+
+.settings-tour-collapsed .shell {
+  width: calc(100vw - var(--shell-sidebar-width));
+  max-width: calc(100vw - var(--shell-sidebar-width));
+}
+
+.settings-tour-collapsed .main {
+  height: 100dvh;
+}
+
+.settings-tour-collapsed .settings-tour {
+  inset: auto 12px 12px auto;
+  height: auto;
+  width: auto;
+  max-width: calc(100vw - 24px);
+  padding: 8px;
+  border: var(--border-default);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
+}
+
+@media (max-width: 760px) {
+  .settings-tour-target {
+    scroll-margin-top: 56px;
+  }
+
+  .settings-tour-active .shell {
+    width: 100%;
+    max-width: 100%;
+  }
+}

@@ -231,6 +231,37 @@ function commitPortable(repository: VaultRawRepository): DeviceLocalPrivacyCommi
 }
 
 describe('OptionsMutationCoordinator', () => {
+  it('checks reviewed values inside the writer queue and rejects the whole stale batch before writing', async () => {
+    const repository = new RawRepository({ readingSession: { exportMode: 'highlights' } });
+    const coordinator = createCoordinator(repository);
+    await coordinator.initialize();
+    const first = coordinator.patch([{ path: ['readingSession', 'exportMode'], value: 'full' }]);
+    const stale = coordinator.patch(
+      [
+        { path: ['readingSession', 'exportMode'], value: 'highlights' },
+        { path: ['interfaceTheme'], value: 'dark' }
+      ],
+      [{ path: ['readingSession', 'exportMode'], value: 'highlights' }]
+    );
+    await first;
+    const count = repository.writes.length;
+    await expect(stale).rejects.toEqual(new OptionsMutationError('EXTERNAL_SYNC_CONFLICT'));
+    expect(repository.writes).toHaveLength(count);
+    expect(decodeStoredOptions(repository.raw).runtime.readingSession.exportMode).toBe('full');
+    expect(decodeStoredOptions(repository.raw).runtime.interfaceTheme).toBe('system');
+  });
+
+  it('keeps unrelated concurrent edits while applying a reviewed field against composed defaults', async () => {
+    const repository = new RawRepository({});
+    const coordinator = createCoordinator(repository);
+    await coordinator.patch([{ path: ['templates', 'article'], value: 'Unrelated/{title}.md' }]);
+    const result = await coordinator.patch(
+      [{ path: ['readingSession', 'exportMode'], value: 'full' }],
+      [{ path: ['readingSession', 'exportMode'], value: 'highlights' }]
+    );
+    expect(result.snapshot.templates.article).toBe('Unrelated/{title}.md');
+    expect(result.snapshot.readingSession.exportMode).toBe('full');
+  });
   it('admits commands only after privacy recovery, vault recovery, and migration', async () => {
     const events: string[] = [];
     const repository = new VaultRawRepository({ interfaceTheme: 'system' });

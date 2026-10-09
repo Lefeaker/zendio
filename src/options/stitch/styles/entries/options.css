@@ -17,3 +17,5 @@
 @import '../../../../ui/stitch-runtime/styles/runtime/task-success.css';
 @import '../runtime/responsive.css';
 @import '../variants/stitch-secondary.css';
+@import '../runtime/settings-tour.css';
+@import '../runtime/ai-configuration.css';

@@ -28,6 +28,7 @@ import { createProductionStitchShellMutableState } from './productionStitchShell
 import { createProductionStitchAssetUrlResolver } from './productionStitchAssetUrlResolver';
 import { createUnavailableUsageStatsClient } from './usage-dashboard/usageStatsClient';
 import { createProductionStitchAuthoritativeRebase } from './productionStitchAuthoritativeRebase';
+import type { mountSettingsTour } from './settingsTour';
 
 export function mountProductionStitchShellFromDependencies({
   root,
@@ -72,6 +73,7 @@ export function mountProductionStitchShellFromDependencies({
   });
   const themeMediaQuery = createThemeMediaQuery();
   let shellActive = true;
+  let settingsTour: ReturnType<typeof mountSettingsTour>;
 
   let renderLifecycle: ProductionStitchRenderLifecycle | null = null;
   const renderDelegates = createProductionStitchRenderDelegates(() => renderLifecycle);
@@ -112,6 +114,7 @@ export function mountProductionStitchShellFromDependencies({
     {
       controller,
       optionsRepository: resolvedOptionsRepository,
+      browserTarget,
       messagingRepository: resolvedMessagingRepository,
       usageStatsClient: resolvedUsageStatsClient,
       ...(storage ? { storage } : {}),
@@ -147,7 +150,9 @@ export function mountProductionStitchShellFromDependencies({
     renderAndWait,
     renderActiveResourceModal,
     scheduleDraftSave,
-    scrollToPanel,
+    scrollToPanel: (panelId) => {
+      if (!settingsTour?.navigateToPanel(panelId)) scrollToPanel(panelId);
+    },
     syncDomainEntries: (entries) => {
       setDomainMappingRows(syncProductionDomainEntries(getDraft(), entries));
     },
@@ -173,6 +178,7 @@ export function mountProductionStitchShellFromDependencies({
   });
 
   renderLifecycle = createProductionStitchRenderLifecycle({
+    onPanelNavigate: (panelId) => settingsTour?.navigateToPanel(panelId) ?? false,
     getFooterMeta: stitchAssets.getFooterMeta,
     getFooterView: stitchAssets.getFooterView,
     mountRoot,
@@ -204,6 +210,7 @@ export function mountProductionStitchShellFromDependencies({
   const mounted: MountedProductionStitchShell = {
     cleanup() {
       shellActive = false;
+      settingsTour?.dispose();
       actionRuntime.dispose();
       renderLifecycle?.cleanup();
       cleanupProductionStitchShell({
@@ -231,6 +238,7 @@ export function mountProductionStitchShellFromDependencies({
         language: nextLanguage
       });
       renderDelegates.render('locale-schema');
+      settingsTour?.refresh();
     }
   };
   themeMediaQuery.addEventListener?.('change', applySystemThemePreferenceChange);
@@ -245,6 +253,23 @@ export function mountProductionStitchShellFromDependencies({
       getAppData().nav.some(({ id }) => id === initialPanel)
     ) {
       scrollToPanel(initialPanel);
+    }
+    if (
+      shellActive &&
+      status === 'rendered' &&
+      mountRoot.ownerDocument.defaultView?.location.search.includes('guide=')
+    ) {
+      void import('./settingsTour')
+        .then(({ mountSettingsTour }) => {
+          if (shellActive)
+            settingsTour = mountSettingsTour({
+              root: mountRoot,
+              firefox: browserTarget === 'firefox',
+              getMessages: getCurrentMessages,
+              scrollToPanel
+            });
+        })
+        .catch((error) => console.warn('[Options] Failed to load settings tour:', error));
     }
   });
   void persistence.loadUsageStatsFromStorage();

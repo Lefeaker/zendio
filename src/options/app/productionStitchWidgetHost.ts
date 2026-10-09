@@ -14,6 +14,7 @@ interface ProductionStitchWidgetHostOptions {
   syncDefaultVaultFromRest(): void;
   refreshAppData(): void;
   scheduleDraftSave(): void;
+  mountAiConfiguration?(host: HTMLElement): void;
 }
 
 export interface ProductionStitchWidgetHost {
@@ -99,6 +100,10 @@ export function createProductionStitchWidgetHost(
   }
 
   function mountWidget(widgetType: string, host: HTMLElement): void {
+    if (widgetType === 'ai-configuration' && options.mountAiConfiguration) {
+      options.mountAiConfiguration(host);
+      return;
+    }
     const widget = createWidget(widgetType);
     if (!widget) {
       host.textContent = `[Missing widget] ${widgetType}`;
@@ -130,6 +135,22 @@ export function createProductionStitchWidgetHost(
   return {
     collectDraftWithWidgets,
     createWidgetFactory(widgetType) {
+      if (widgetType === 'ai-configuration' && options.mountAiConfiguration)
+        return () => {
+          let host: HTMLElement | undefined;
+          return {
+            mount(target) {
+              host = target;
+              options.mountAiConfiguration?.(target);
+            },
+            update() {
+              if (host) options.mountAiConfiguration?.(host);
+            },
+            destroy() {
+              host = undefined;
+            }
+          };
+        };
       if (widgetType !== 'yaml-config') {
         return null;
       }

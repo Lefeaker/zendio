@@ -209,3 +209,7 @@
 [data-session-first-use='true'] .session-panel-height-resize-handle::after {
   background: var(--runtime-line-strong);
 }
+
+[data-learning-update] .resource-modal--session:not(.is-collapsed) .session-first-use-guide {
+  display: none;
+}

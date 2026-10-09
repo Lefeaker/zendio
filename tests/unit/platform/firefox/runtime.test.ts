@@ -6,6 +6,7 @@ const firefoxApi = vi.hoisted(() => ({
     getUILanguage: vi.fn(() => 'fr-FR')
   },
   runtime: {
+    getManifest: vi.fn(() => ({ version: '0.3.3' })),
     getURL: vi.fn((path: string) => `moz-extension://${path}`),
     openOptionsPage: vi.fn(),
     sendMessage: vi.fn(),
@@ -48,6 +49,7 @@ describe('firefoxRuntimeService', () => {
 
     expect(firefoxRuntimeService.getURL('options/index.html')).toContain('options/index.html');
     expect(firefoxRuntimeService.getBrowserTarget()).toBe('firefox');
+    expect(firefoxRuntimeService.getManifest?.()?.version).toBe('0.3.3');
     expect(getUILanguage()).toBe('fr-FR');
     await expect(firefoxRuntimeService.sendMessage?.({ ping: true })).resolves.toEqual({
       ok: true

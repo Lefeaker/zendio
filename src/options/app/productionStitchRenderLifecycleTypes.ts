@@ -24,6 +24,7 @@ export interface ProductionStitchSchemaRenderer {
 
 export interface ProductionStitchRenderLifecycleOptions {
   mountRoot: HTMLElement;
+  onPanelNavigate?: (panelId: string) => boolean;
   getFooterMeta?(this: void, id: string): { openMode: 'modal' | 'page'; href?: string } | null;
   getFooterView?(this: void, id: string, ctx: SchemaContext): ViewSchema | null;
   getAppData(): PreviewContent;

@@ -20,7 +20,7 @@
   "schemaCaptureBehaviorSidebarHighlightsNote": "Saved highlights work best with the Obsidian plugin Sidebar Highlights.",
   "schemaCaptureBehaviorTitle": "Capture Behavior",
   "schemaCaptureSourcesAiChatGroupTitle": "AI Chat",
-  "schemaCaptureSourcesAiConversationDescription": "Configure source coverage and display behavior for AI chat exports.",
+  "schemaCaptureSourcesAiConversationDescription": "View supported platforms and open an existing conversation to export.",
   "schemaCaptureSourcesAiConversationTitle": "AI Conversation Capture",
   "schemaCaptureSourcesAiSupportedPlatformsBadge": "10 supported platforms",
   "schemaCaptureSourcesAttachmentGuidanceLink": "Custom Attachment Location",
@@ -445,5 +445,10 @@
   "schemaResourceChangelogV032Bullet3": "Fix Configure vault links in clipping, reading and video panels to open the vault settings directly.",
   "schemaResourceChangelogV032Bullet4": "Add first-use tips for resizing reading and video panels and opening settings from the icon.",
   "schemaResourceChangelogV032Bullet5": "Keep save targets on one line; truncate long paths or names and show the full text on hover.",
-  "schemaResourceChangelogV032Bullet6": "Fix missing reports when anonymous usage statistics are enabled, while preserving privacy choices."
+  "schemaResourceChangelogV032Bullet6": "Fix missing reports when anonymous usage statistics are enabled, while preserving privacy choices.",
+  "schemaResourceChangelogV033Summary": "A good product is more than just a good product.",
+  "schemaResourceChangelogV033Bullet1": "Hands-on lessons start with Shift-selecting text. Arrow hints and confetti guide saving, jumping to excerpts by number in reading mode, and seeking video timestamps or choosing screenshots. A simpler welcome page replaces the duplicate setup wizard. After upgrading, capture panels offer a dismissible tutorial invitation; opening the tutorials or dismissing it stops further reminders.",
+  "schemaResourceChangelogV033Bullet2": "The settings tour offers 4 basic steps and 20 optional topics, including modifier keys, appearance, privacy, attachments, templates, YAML and diagnostics. Guidance follows sidebar navigation and supports locating controls, collapsing, small-window scrolling and returning to practice.",
+  "schemaResourceChangelogV033Bullet3": "Connect a default vault after practice: learn about the Downloads fallback, local folder authorization in Chromium, Obsidian Local REST API, Firefox limitations, and compatible settings for Obsidian highlight and attachment plugins.",
+  "schemaResourceChangelogV033Bullet4": "AI-assisted configuration lets you copy format instructions into your own AI chat, generate settings for your needs and paste the result back. Review a Setting / Before / After table before applying, with undo support. Omitted settings stay unchanged; folder access, secrets and connection tests remain manual."
 }

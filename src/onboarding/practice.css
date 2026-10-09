@@ -1,0 +1,334 @@
+html[data-route='practice'],
+body[data-route='practice'] {
+  min-height: 100%;
+  height: auto;
+  overflow-x: clip;
+  overflow-y: visible;
+  background: var(--bg);
+}
+
+.practice-root {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(360px, 1fr);
+  min-height: 100vh;
+  color: var(--text);
+}
+
+.practice-reading {
+  padding: 38px clamp(28px, 5vw, 80px) 64px;
+  background: color-mix(in srgb, var(--accent) 3%, var(--bg));
+}
+
+.practice-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 19px;
+  font-weight: 650;
+  letter-spacing: -0.4px;
+}
+
+.practice-brand-symbol {
+  display: block;
+  width: 30px;
+  height: 30px;
+  border-radius: 9px;
+  object-fit: contain;
+}
+
+.practice-article {
+  max-width: 620px;
+  margin: clamp(56px, 10vh, 110px) auto 0;
+}
+
+.practice-article-eyebrow {
+  margin: 0 0 20px;
+  color: var(--text-subtle);
+  font-size: 12px;
+  letter-spacing: 0.08em;
+}
+
+.practice-article h1 {
+  margin: 0 0 32px;
+  max-width: 16em;
+  font-size: clamp(27px, 2.6vw, 38px);
+  font-weight: 650;
+  line-height: 1.4;
+  letter-spacing: -0.035em;
+}
+
+.practice-passage {
+  margin: 0 -16px 20px;
+  padding: 12px 16px;
+  border-radius: 12px;
+  color: var(--text-dim);
+  font-size: 18px;
+  line-height: 2;
+  user-select: text;
+  transition: background-color 160ms ease;
+}
+
+.practice-passage.is-current {
+  background: color-mix(in srgb, var(--accent) 6%, transparent);
+  color: var(--text);
+}
+
+.practice-lesson {
+  min-width: 0;
+  padding: 34px clamp(28px, 4.5vw, 72px) 60px;
+  background: var(--panel);
+  border-left: 1px solid color-mix(in srgb, var(--line) 55%, transparent);
+}
+
+.practice-navigation {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  color: var(--text-subtle);
+  font-size: 12px;
+}
+
+.practice-navigation .btn {
+  min-height: 32px;
+  padding: 4px 0;
+  border-color: transparent;
+  background: transparent;
+  color: var(--text-subtle);
+  font-size: 12px;
+  box-shadow: none;
+}
+
+.practice-lesson-content {
+  position: sticky;
+  top: 36px;
+  max-width: 420px;
+  margin: clamp(72px, 13vh, 136px) auto 0;
+}
+
+.practice-stepper {
+  display: flex;
+  gap: 8px;
+  width: 138px;
+}
+
+.practice-step-track {
+  flex: 1;
+  height: 4px;
+  border-radius: var(--radius-full);
+  background: var(--line);
+}
+
+.practice-step-track[data-state='current'] {
+  background: var(--accent);
+}
+
+.practice-step-track[data-state='complete'] {
+  background: var(--success);
+}
+
+.practice-step-count {
+  margin: 14px 0 36px;
+  color: var(--text-subtle);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.12em;
+}
+
+.practice-status h2 {
+  margin: 0 0 18px;
+  font-size: clamp(27px, 2.4vw, 34px);
+  line-height: 1.4;
+  font-weight: 650;
+  letter-spacing: -0.035em;
+  text-wrap: balance;
+}
+
+.practice-instruction {
+  margin: 0 0 26px;
+  color: var(--text-faint);
+  font-size: 16px;
+  line-height: 1.85;
+}
+
+.practice-key {
+  display: inline-block;
+  padding: 1px 9px;
+  margin: 0 3px;
+  border: 1px solid var(--line);
+  border-bottom-width: 3px;
+  border-radius: 6px;
+  background: var(--surface-muted-strong);
+  color: var(--text);
+  font: 600 14px/1.7 var(--font-ui);
+  white-space: nowrap;
+}
+
+.practice-success-mark {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  margin-bottom: 22px;
+  border-radius: var(--radius-full);
+  color: var(--success);
+  background: var(--success-soft);
+  font-size: 24px;
+}
+
+.practice-result {
+  margin-top: 28px;
+}
+
+.practice-result-label {
+  color: var(--text-dim);
+  font-size: 13px;
+}
+
+.practice-result .learning-path {
+  color: var(--text-subtle);
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+
+.practice-result-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 12px;
+  margin-top: 26px;
+}
+
+.practice-settings-link,
+.practice-follow-up {
+  font-size: 13px;
+  color: var(--text-faint);
+  line-height: 1.8;
+}
+
+.practice-settings-link a,
+.practice-follow-up a:not(.btn) {
+  color: var(--accent);
+  text-decoration: underline;
+}
+
+.practice-follow-up {
+  margin-top: 24px;
+  padding-top: 20px;
+  border-top: 1px solid var(--line);
+}
+
+.practice-follow-up .btn {
+  display: flex;
+  margin-top: 12px;
+  text-decoration: none;
+}
+
+.practice-root [hidden] {
+  display: none;
+}
+
+.learning-custom-page {
+  margin: 16px 0;
+}
+
+@media (max-width: 760px) {
+  .practice-root {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .practice-lesson {
+    order: -1;
+    padding: 20px 24px 28px;
+    border-left: 0;
+  }
+
+  .practice-lesson-content {
+    margin-top: 32px;
+  }
+
+  .practice-step-count {
+    margin-bottom: 22px;
+  }
+
+  .practice-reading {
+    padding: 28px 24px 48px;
+  }
+
+  .practice-article {
+    margin-top: 36px;
+  }
+
+  .practice-passage {
+    font-size: 16px;
+  }
+
+  .practice-video-active .practice-lesson,
+  .practice-video-active .practice-brand,
+  .practice-video-active .practice-article > h1,
+  .practice-video-active .practice-article-eyebrow {
+    visibility: hidden;
+  }
+
+  .practice-video-active .practice-video {
+    position: fixed;
+    inset: 60px 16px auto;
+    display: grid;
+    grid-template-columns: minmax(0, 200px) auto;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .practice-video-active .practice-video-caption {
+    display: none;
+  }
+
+  .practice-video-active .practice-video-cues {
+    flex-direction: column;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .practice-passage {
+    transition: none;
+  }
+}
+
+.practice-reading-middle {
+  display: flex;
+  min-height: 130vh;
+  flex-direction: column;
+  justify-content: space-evenly;
+  gap: 40px;
+  padding: 48px 0;
+  color: var(--text-dim);
+  font-size: 18px;
+  line-height: 2;
+}
+
+.practice-reading-middle p {
+  margin: 0;
+}
+
+.practice-player {
+  display: block;
+  width: 100%;
+  border-radius: 14px;
+  background: var(--surface-muted);
+}
+
+.practice-video-caption {
+  margin: 20px 0 10px;
+  color: var(--text-faint);
+  font-size: 13px;
+}
+
+.practice-video-cues {
+  display: flex;
+  gap: 10px;
+}
+
+.practice-video-cues .btn {
+  font-variant-numeric: tabular-nums;
+}

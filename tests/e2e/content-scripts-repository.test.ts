@@ -196,7 +196,7 @@ describe('Content scripts repository integration (Clipper)', () => {
     resetGlobalRegistry();
     registerService(TOKENS.platformServices, () =>
       asType<PlatformServices>({
-        storage: { sync: { watchKey: vi.fn(() => () => undefined) }, local: {} },
+        storage: createMemoryStorageService(),
         runtime: { getURL: vi.fn((path?: string) => path ?? '') }
       })
     );

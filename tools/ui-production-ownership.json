@@ -138,6 +138,11 @@
         "src/content/reader/readerLazyRuntime.ts",
         "src/content/ui/supportPrompt.ts",
         "src/content/video/videoLazyRuntime.ts",
+        "src/onboarding/bootstrap.ts",
+        "src/onboarding/index.ts",
+        "src/onboarding/practice.ts",
+        "src/options/ai-configuration/feature.ts",
+        "src/options/app/settingsTour.ts",
         "src/options/index.ts",
         "src/options/runtimeEntry.ts"
       ],
@@ -163,6 +168,11 @@
         "src/content/reader/readerLazyRuntime.ts",
         "src/content/ui/supportPrompt.ts",
         "src/content/video/videoLazyRuntime.ts",
+        "src/onboarding/bootstrap.ts",
+        "src/onboarding/index.ts",
+        "src/onboarding/practice.ts",
+        "src/options/ai-configuration/feature.ts",
+        "src/options/app/settingsTour.ts",
         "src/options/index.ts",
         "src/options/runtimeEntry.ts"
       ],
@@ -207,7 +217,9 @@
         "src/content/ui/supportPrompt.ts",
         "src/content/ui/supportPrompt/SupportPromptToastController.ts",
         "src/content/video/videoLazyRuntime.ts",
-        "src/content/video/videoSessionControllers.ts"
+        "src/content/video/videoSessionControllers.ts",
+        "src/onboarding/index.ts",
+        "src/onboarding/practice.ts"
       ],
       "replacement": {
         "owner": "src/ui/foundation/style-host/index.ts",
@@ -232,7 +244,9 @@
         "src/content/ui/supportPrompt.ts",
         "src/content/ui/supportPrompt/SupportPromptToastController.ts",
         "src/content/video/videoLazyRuntime.ts",
-        "src/content/video/videoSessionControllers.ts"
+        "src/content/video/videoSessionControllers.ts",
+        "src/onboarding/index.ts",
+        "src/onboarding/practice.ts"
       ],
       "replacement": {
         "owner": "src/ui/foundation/style-host/shadowStyleBridge.ts",
@@ -278,7 +292,9 @@
       "productionOwners": [
         "src/content/index.ts",
         "src/content/reader/readerLazyRuntime.ts",
-        "src/content/video/videoLazyRuntime.ts"
+        "src/content/video/videoLazyRuntime.ts",
+        "src/onboarding/index.ts",
+        "src/onboarding/practice.ts"
       ],
       "replacement": {
         "owner": "src/ui/hosts/content/contentDialogFocus.ts",
@@ -324,6 +340,8 @@
         "src/content/reader/readerLazyRuntime.ts",
         "src/content/ui/supportPrompt.ts",
         "src/content/video/videoLazyRuntime.ts",
+        "src/onboarding/index.ts",
+        "src/onboarding/practice.ts",
         "src/options/index.ts",
         "src/options/runtimeEntry.ts"
       ],
@@ -349,6 +367,11 @@
         "src/content/reader/readerLazyRuntime.ts",
         "src/content/ui/supportPrompt.ts",
         "src/content/video/videoLazyRuntime.ts",
+        "src/onboarding/bootstrap.ts",
+        "src/onboarding/index.ts",
+        "src/onboarding/practice.ts",
+        "src/options/ai-configuration/feature.ts",
+        "src/options/app/settingsTour.ts",
         "src/options/index.ts",
         "src/options/runtimeEntry.ts"
       ],
@@ -392,6 +415,9 @@
         "src/content/reader/readerLazyRuntime.ts",
         "src/content/ui/supportPrompt.ts",
         "src/content/video/videoLazyRuntime.ts",
+        "src/onboarding/index.ts",
+        "src/onboarding/practice.ts",
+        "src/options/ai-configuration/feature.ts",
         "src/options/index.ts",
         "src/options/runtimeEntry.ts"
       ],
@@ -453,6 +479,9 @@
         "src/content/reader/readerLazyRuntime.ts",
         "src/content/ui/supportPrompt.ts",
         "src/content/video/videoLazyRuntime.ts",
+        "src/onboarding/index.ts",
+        "src/onboarding/practice.ts",
+        "src/options/ai-configuration/feature.ts",
         "src/options/index.ts",
         "src/options/runtimeEntry.ts"
       ],
@@ -517,6 +546,8 @@
         "src/content/reader/readerLazyRuntime.ts",
         "src/content/ui/supportPrompt.ts",
         "src/content/video/videoLazyRuntime.ts",
+        "src/onboarding/index.ts",
+        "src/onboarding/practice.ts",
         "src/options/index.ts",
         "src/options/runtimeEntry.ts"
       ],
@@ -583,6 +614,8 @@
         "src/content/reader/readerLazyRuntime.ts",
         "src/content/ui/supportPrompt.ts",
         "src/content/video/videoLazyRuntime.ts",
+        "src/onboarding/index.ts",
+        "src/onboarding/practice.ts",
         "src/options/index.ts",
         "src/options/runtimeEntry.ts"
       ],
@@ -608,6 +641,8 @@
         "src/content/reader/readerLazyRuntime.ts",
         "src/content/ui/supportPrompt.ts",
         "src/content/video/videoLazyRuntime.ts",
+        "src/onboarding/index.ts",
+        "src/onboarding/practice.ts",
         "src/options/index.ts",
         "src/options/runtimeEntry.ts"
       ],
@@ -633,6 +668,8 @@
         "src/content/reader/readerLazyRuntime.ts",
         "src/content/ui/supportPrompt.ts",
         "src/content/video/videoLazyRuntime.ts",
+        "src/onboarding/index.ts",
+        "src/onboarding/practice.ts",
         "src/options/index.ts",
         "src/options/runtimeEntry.ts"
       ],
@@ -656,7 +693,9 @@
       "productionOwners": [
         "src/content/index.ts",
         "src/content/reader/readerLazyRuntime.ts",
-        "src/content/video/videoLazyRuntime.ts"
+        "src/content/video/videoLazyRuntime.ts",
+        "src/onboarding/index.ts",
+        "src/onboarding/practice.ts"
       ],
       "replacement": {
         "owner": "src/ui/stitch-runtime/render/invalidation.ts",
@@ -678,7 +717,9 @@
       "productionOwners": [
         "src/content/index.ts",
         "src/content/reader/readerLazyRuntime.ts",
-        "src/content/video/videoLazyRuntime.ts"
+        "src/content/video/videoLazyRuntime.ts",
+        "src/onboarding/index.ts",
+        "src/onboarding/practice.ts"
       ],
       "replacement": {
         "owner": "src/ui/stitch-runtime/render/keyedSessionList.ts",
@@ -702,6 +743,8 @@
         "src/content/reader/readerLazyRuntime.ts",
         "src/content/ui/supportPrompt.ts",
         "src/content/video/videoLazyRuntime.ts",
+        "src/onboarding/index.ts",
+        "src/onboarding/practice.ts",
         "src/options/index.ts",
         "src/options/runtimeEntry.ts"
       ],
@@ -727,6 +770,8 @@
         "src/content/reader/readerLazyRuntime.ts",
         "src/content/ui/supportPrompt.ts",
         "src/content/video/videoLazyRuntime.ts",
+        "src/onboarding/index.ts",
+        "src/onboarding/practice.ts",
         "src/options/index.ts",
         "src/options/runtimeEntry.ts"
       ],
@@ -792,6 +837,8 @@
         "src/content/reader/readerLazyRuntime.ts",
         "src/content/ui/supportPrompt.ts",
         "src/content/video/videoLazyRuntime.ts",
+        "src/onboarding/index.ts",
+        "src/onboarding/practice.ts",
         "src/options/index.ts",
         "src/options/runtimeEntry.ts"
       ],
@@ -877,6 +924,8 @@
         "src/content/reader/readerLazyRuntime.ts",
         "src/content/ui/supportPrompt.ts",
         "src/content/video/videoLazyRuntime.ts",
+        "src/onboarding/index.ts",
+        "src/onboarding/practice.ts",
         "src/options/app/productionStitchAssets.ts",
         "src/options/index.ts",
         "src/options/runtimeEntry.ts"
@@ -903,6 +952,8 @@
         "src/content/reader/readerLazyRuntime.ts",
         "src/content/ui/supportPrompt.ts",
         "src/content/video/videoLazyRuntime.ts",
+        "src/onboarding/index.ts",
+        "src/onboarding/practice.ts",
         "src/options/app/productionStitchAssets.ts",
         "src/options/index.ts",
         "src/options/runtimeEntry.ts"
@@ -929,6 +980,8 @@
         "src/content/reader/readerLazyRuntime.ts",
         "src/content/ui/supportPrompt.ts",
         "src/content/video/videoLazyRuntime.ts",
+        "src/onboarding/index.ts",
+        "src/onboarding/practice.ts",
         "src/options/app/productionStitchAssets.ts",
         "src/options/index.ts",
         "src/options/runtimeEntry.ts"
@@ -955,6 +1008,8 @@
         "src/content/reader/readerLazyRuntime.ts",
         "src/content/ui/supportPrompt.ts",
         "src/content/video/videoLazyRuntime.ts",
+        "src/onboarding/index.ts",
+        "src/onboarding/practice.ts",
         "src/options/app/productionStitchAssets.ts",
         "src/options/index.ts",
         "src/options/runtimeEntry.ts"
@@ -981,6 +1036,8 @@
         "src/content/reader/readerLazyRuntime.ts",
         "src/content/ui/supportPrompt.ts",
         "src/content/video/videoLazyRuntime.ts",
+        "src/onboarding/index.ts",
+        "src/onboarding/practice.ts",
         "src/options/app/productionStitchAssets.ts",
         "src/options/index.ts",
         "src/options/runtimeEntry.ts"
@@ -1007,6 +1064,8 @@
         "src/content/reader/readerLazyRuntime.ts",
         "src/content/ui/supportPrompt.ts",
         "src/content/video/videoLazyRuntime.ts",
+        "src/onboarding/index.ts",
+        "src/onboarding/practice.ts",
         "src/options/app/productionStitchAssets.ts",
         "src/options/index.ts",
         "src/options/runtimeEntry.ts"
@@ -1033,6 +1092,8 @@
         "src/content/reader/readerLazyRuntime.ts",
         "src/content/ui/supportPrompt.ts",
         "src/content/video/videoLazyRuntime.ts",
+        "src/onboarding/index.ts",
+        "src/onboarding/practice.ts",
         "src/options/app/productionStitchAssets.ts",
         "src/options/index.ts",
         "src/options/runtimeEntry.ts"
@@ -1059,6 +1120,8 @@
         "src/content/reader/readerLazyRuntime.ts",
         "src/content/ui/supportPrompt.ts",
         "src/content/video/videoLazyRuntime.ts",
+        "src/onboarding/index.ts",
+        "src/onboarding/practice.ts",
         "src/options/app/productionStitchAssets.ts",
         "src/options/index.ts",
         "src/options/runtimeEntry.ts"
@@ -1085,6 +1148,8 @@
         "src/content/reader/readerLazyRuntime.ts",
         "src/content/ui/supportPrompt.ts",
         "src/content/video/videoLazyRuntime.ts",
+        "src/onboarding/index.ts",
+        "src/onboarding/practice.ts",
         "src/options/app/productionStitchAssets.ts",
         "src/options/index.ts",
         "src/options/runtimeEntry.ts"
@@ -1111,6 +1176,8 @@
         "src/content/reader/readerLazyRuntime.ts",
         "src/content/ui/supportPrompt.ts",
         "src/content/video/videoLazyRuntime.ts",
+        "src/onboarding/index.ts",
+        "src/onboarding/practice.ts",
         "src/options/app/productionStitchAssets.ts",
         "src/options/index.ts",
         "src/options/runtimeEntry.ts"
@@ -1137,6 +1204,8 @@
         "src/content/reader/readerLazyRuntime.ts",
         "src/content/ui/supportPrompt.ts",
         "src/content/video/videoLazyRuntime.ts",
+        "src/onboarding/index.ts",
+        "src/onboarding/practice.ts",
         "src/options/app/productionStitchAssets.ts",
         "src/options/index.ts",
         "src/options/runtimeEntry.ts"
@@ -1163,6 +1232,8 @@
         "src/content/reader/readerLazyRuntime.ts",
         "src/content/ui/supportPrompt.ts",
         "src/content/video/videoLazyRuntime.ts",
+        "src/onboarding/index.ts",
+        "src/onboarding/practice.ts",
         "src/options/app/productionStitchAssets.ts",
         "src/options/index.ts",
         "src/options/runtimeEntry.ts"
@@ -1189,6 +1260,8 @@
         "src/content/reader/readerLazyRuntime.ts",
         "src/content/ui/supportPrompt.ts",
         "src/content/video/videoLazyRuntime.ts",
+        "src/onboarding/index.ts",
+        "src/onboarding/practice.ts",
         "src/options/app/productionStitchAssets.ts",
         "src/options/index.ts",
         "src/options/runtimeEntry.ts"
@@ -1215,6 +1288,8 @@
         "src/content/reader/readerLazyRuntime.ts",
         "src/content/ui/supportPrompt.ts",
         "src/content/video/videoLazyRuntime.ts",
+        "src/onboarding/index.ts",
+        "src/onboarding/practice.ts",
         "src/options/app/productionStitchAssets.ts",
         "src/options/index.ts",
         "src/options/runtimeEntry.ts"
@@ -1241,6 +1316,8 @@
         "src/content/reader/readerLazyRuntime.ts",
         "src/content/ui/supportPrompt.ts",
         "src/content/video/videoLazyRuntime.ts",
+        "src/onboarding/index.ts",
+        "src/onboarding/practice.ts",
         "src/options/app/productionStitchAssets.ts",
         "src/options/index.ts",
         "src/options/runtimeEntry.ts"
@@ -1267,6 +1344,8 @@
         "src/content/reader/readerLazyRuntime.ts",
         "src/content/ui/supportPrompt.ts",
         "src/content/video/videoLazyRuntime.ts",
+        "src/onboarding/index.ts",
+        "src/onboarding/practice.ts",
         "src/options/app/productionStitchAssets.ts",
         "src/options/index.ts",
         "src/options/runtimeEntry.ts"

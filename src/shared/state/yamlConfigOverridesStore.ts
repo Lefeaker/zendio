@@ -1,3 +1,4 @@
+import { DI_TOKENS } from '../di/tokens';
 import type { IOptionsRepository } from '../repositories/IOptionsRepository';
 import type { YamlConfigOverrides } from '../types/yamlConfig';
 import { normalizeYamlConfigOverrides } from '../services/yamlConfigService';
@@ -28,10 +29,7 @@ const applyOverrides = (value: YamlConfigOverrides | null): void => {
 
 const loadOptionsRepository = async (): Promise<IOptionsRepository | 'not-registered' | null> => {
   try {
-    const [{ repositoryContainer, resolveRepository }, { DI_TOKENS }] = await Promise.all([
-      import('../di/serviceRegistry'),
-      import('../di/tokens')
-    ]);
+    const { repositoryContainer, resolveRepository } = await import('../di/serviceRegistry');
     if (!repositoryContainer.has(DI_TOKENS.IOptionsRepository)) return 'not-registered';
     const repo = resolveRepository<IOptionsRepository>(DI_TOKENS.IOptionsRepository);
     if (typeof repo.get !== 'function' || typeof repo.onChange !== 'function') {

@@ -20,7 +20,7 @@
   "schemaCaptureBehaviorSidebarHighlightsNote": "저장된 하이라이트는 Obsidian 플러그인 Sidebar Highlights와 함께 사용할 때 가장 좋습니다.",
   "schemaCaptureBehaviorTitle": "캡처 동작",
   "schemaCaptureSourcesAiChatGroupTitle": "AI 채팅",
-  "schemaCaptureSourcesAiConversationDescription": "AI 채팅 내보내기의 지원 범위와 표시 방식을 설정합니다.",
+  "schemaCaptureSourcesAiConversationDescription": "지원 플랫폼을 확인하고 기존 대화를 열어 내보내세요.",
   "schemaCaptureSourcesAiConversationTitle": "AI 대화 캡처",
   "schemaCaptureSourcesAiSupportedPlatformsBadge": "지원 플랫폼 10개",
   "schemaCaptureSourcesAttachmentGuidanceLink": "Custom Attachment Location",
@@ -445,5 +445,10 @@
   "schemaResourceChangelogV032Bullet3": "클리핑·읽기·동영상 패널의 보관함 설정 링크가 설정 페이지의 해당 항목으로 바로 이동합니다.",
   "schemaResourceChangelogV032Bullet4": "읽기·동영상 모드를 처음 사용할 때 패널의 너비와 높이를 조절하고 아이콘으로 설정을 여는 방법을 안내합니다.",
   "schemaResourceChangelogV032Bullet5": "저장 대상은 한 줄로 표시하며 긴 경로나 이름은 줄임표로 처리합니다. 마우스를 올리면 전체 내용을 볼 수 있습니다.",
-  "schemaResourceChangelogV032Bullet6": "익명 사용 통계를 켜도 보고되지 않던 문제를 수정했으며 기존 개인정보 설정은 유지합니다."
+  "schemaResourceChangelogV032Bullet6": "익명 사용 통계를 켜도 보고되지 않던 문제를 수정했으며 기존 개인정보 설정은 유지합니다.",
+  "schemaResourceChangelogV033Summary": "좋은 제품은 제품 자체가 좋은 것만으로 완성되지 않습니다.",
+  "schemaResourceChangelogV033Bullet1": "Shift를 누르고 텍스트를 선택하는 실습을 추가했습니다. 화살표와 축하 효과로 저장, 읽기 모드의 발췌 번호 이동, 동영상 타임스탬프 이동과 스크린샷 선택을 안내합니다. 첫 설정 화면을 간소화하고 중복된 이전 마법사를 제거했습니다. 업데이트 후 각 패널에 닫을 수 있는 실습 안내가 표시되며, 실습을 열거나 안내를 닫으면 다시 표시되지 않습니다.",
+  "schemaResourceChangelogV033Bullet2": "설정 안내는 기본 4단계와 선택 가능한 20개 주제로 보조키, 외관, 개인정보, 첨부 파일, 템플릿, YAML, 진단 등을 설명합니다. 사이드바 이동과 연동되며 설정 위치 찾기, 접기, 작은 창 스크롤, 실습 복귀를 지원합니다.",
+  "schemaResourceChangelogV033Bullet3": "실습 후 기본 보관함 연결을 안내합니다. 미설정 시 다운로드 폴더 저장, Chromium의 로컬 폴더 권한, Obsidian Local REST API, Firefox 제한과 하이라이트·첨부 플러그인 호환 설정을 설명합니다.",
+  "schemaResourceChangelogV033Bullet4": "AI 설정 도우미를 추가했습니다. 형식 안내를 자신의 AI 대화에 복사하고 원하는 설정을 생성해 붙여넣으세요. 항목 / 변경 전 / 변경 후 표를 확인한 뒤 적용하며 되돌릴 수 있습니다. 명시하지 않은 설정은 유지되고 폴더 권한, 키와 연결 테스트는 직접 처리합니다."
 }

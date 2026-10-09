@@ -1,3 +1,4 @@
+import { mountLearningCenter } from './learning';
 import {
   createDefaultPageI18nController,
   type PageI18nController,
@@ -20,8 +21,7 @@ import type {
   OnboardingPrivacyOptions,
   OnboardingPrivacySnapshot
 } from './dependencies';
-import type { OnboardingTrackingRequest } from './onboardingAnalytics';
-import { markStepCompleted, restoreCompletedSteps, updateProgress } from './progress';
+import { sendOnboardingTrackingEvent, type OnboardingTrackingRequest } from './onboardingAnalytics';
 import { renderOnboardingResourceModal } from './resourceModal';
 import type { OnboardingResourceId } from './resourceModal';
 import { applyStoredOnboardingTheme } from './theme';
@@ -98,8 +98,6 @@ export class OnboardingController {
   }
 
   initialize(): void {
-    restoreCompletedSteps();
-    updateProgress();
     this.bindEventHandlers();
     void this.initializePrivacyConsentControls();
     void this.trackOnboardingStarted();
@@ -145,7 +143,6 @@ export class OnboardingController {
     }
 
     try {
-      const { sendOnboardingTrackingEvent } = await import('./onboardingAnalytics');
       await sendOnboardingTrackingEvent(messagingRepository, request);
     } catch {
       // Ignore analytics failures so onboarding UX stays unaffected.
@@ -158,14 +155,6 @@ export class OnboardingController {
     }
     this.startedTracked = true;
     await this.sendTrackingRequest({ name: 'onboarding_started', source: 'install' });
-  }
-
-  private async trackStepCompleted(stepNumber: number): Promise<void> {
-    await this.sendTrackingRequest({
-      name: 'onboarding_step_completed',
-      stepNumber,
-      durationMs: this.getOnboardingDurationMs()
-    });
   }
 
   private async trackStepSkipped(stepNumber: number): Promise<void> {
@@ -192,16 +181,16 @@ export class OnboardingController {
       void this.navigationRepo.openVault();
     });
 
-    this.bindClick('configureApiBtn', () => this.openOptionsAndMarkStep(1));
+    this.bindClick('configureApiBtn', () => this.openOptionsForStep());
     this.bindClick('skipStep1Btn', () => this.handleSkipStep(1));
 
-    this.bindClick('configureVaultsBtn', () => this.openOptionsAndMarkStep(2));
+    this.bindClick('configureVaultsBtn', () => this.openOptionsForStep());
     this.bindClick('skipStep2Btn', () => this.handleSkipStep(2));
 
-    this.bindClick('exploreSettingsBtn', () => this.openOptionsAndMarkStep(3));
+    this.bindClick('exploreSettingsBtn', () => this.openOptionsForStep());
     this.bindClick('skipStep3Btn', () => this.handleSkipStep(3));
 
-    this.bindClick('exploreAuxiliaryBtn', () => this.openOptionsAndMarkStep(4));
+    this.bindClick('exploreAuxiliaryBtn', () => this.openOptionsForStep());
     this.bindClick('skipStep4Btn', () => this.handleSkipStep(4));
 
     this.bindClick('termsOfUseLink', () => this.handleTermsOfUse(), { preventDefault: true });
@@ -352,50 +341,29 @@ export class OnboardingController {
     field: OnboardingPrivacyField
   ): Promise<void> {
     try {
-      const [
-        { getAnalyticsConfigManager, setAnalyticsConsent },
-        { updateErrorAnalyticsConfig },
-        { resolveAnalyticsDebugMode }
-      ] = await Promise.all([
-        import('../shared/errors/analytics/analyticsConfig'),
-        import('../shared/errors/analytics'),
-        import('../shared/analytics')
-      ]);
-      const runtimeDebugMode = resolveAnalyticsDebugMode(snapshot);
-      await setAnalyticsConsent(snapshot.analytics, snapshot.errorReporting);
-      await getAnalyticsConfigManager().updateConfig({ debugMode: runtimeDebugMode });
-      if (field === 'errorReporting') {
-        await updateErrorAnalyticsConfig(snapshot.errorReporting);
-      }
+      const { applyOnboardingRuntimePrivacy } = await import('./runtimePrivacy');
+      await applyOnboardingRuntimePrivacy(snapshot, field);
     } catch {
       // Runtime privacy sync is best-effort; persisted Options state remains the source of truth.
     }
   }
 
-  private async openOptionsAndMarkStep(stepNumber: number): Promise<void> {
+  private async openOptionsForStep(): Promise<void> {
     try {
       await this.navigationRepo.openOptions();
-      markStepCompleted(stepNumber);
-      updateProgress();
-      await this.trackStepCompleted(stepNumber);
     } catch (error) {
       console.error('[onboarding] Failed to open options page:', error);
     }
   }
 
   private async handleSkipStep(stepNumber: number): Promise<void> {
-    markStepCompleted(stepNumber);
-    updateProgress();
     await this.trackStepSkipped(stepNumber);
   }
 
   private async handleFeedback(): Promise<void> {
     try {
       await openOnboardingResourceModal('suggestions');
-      markStepCompleted(5);
-      updateProgress();
       await this.trackSupportAction('feedback');
-      await this.trackStepCompleted(5);
     } catch (error) {
       console.error('[onboarding] Failed to open feedback page:', error);
     }
@@ -422,10 +390,7 @@ export class OnboardingController {
   private async handleSupport(): Promise<void> {
     try {
       await openOnboardingResourceModal('support');
-      markStepCompleted(5);
-      updateProgress();
       await this.trackSupportAction('docs');
-      await this.trackStepCompleted(5);
     } catch (error) {
       console.error('[onboarding] Failed to show support options:', error);
     }
@@ -484,6 +449,17 @@ export async function bootstrapOnboardingApp(): Promise<void> {
   const navigationRepo = resolveRepository<INavigationRepository>(DI_TOKENS.INavigationRepository);
   const controller = new OnboardingController(navigationRepo, dependencies);
   controller.initialize();
+  const learningRoot = document.getElementById('learningRoot');
+  if (learningRoot) {
+    const stop = await mountLearningCenter(
+      learningRoot,
+      dependencies,
+      navigationRepo,
+      declarativeI18nController?.getCurrentResource()?.messages ?? {},
+      dependencies.downloads
+    );
+    window.addEventListener('pagehide', stop, { once: true });
+  }
 }
 
 async function openOnboardingResourceModal(resourceId: OnboardingResourceId): Promise<void> {

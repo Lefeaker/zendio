@@ -35,6 +35,10 @@ export const firefoxRuntimeService: RuntimeService = {
     return firefoxApi.runtime.getURL(path);
   },
 
+  getManifest() {
+    return ensureFirefox().runtime.getManifest();
+  },
+
   getBrowserTarget() {
     return 'firefox';
   },

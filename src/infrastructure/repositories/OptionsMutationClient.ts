@@ -49,10 +49,16 @@ export class OptionsMutationClient implements IOptionsRepository {
     return clone(decoded.runtime);
   }
 
-  async patch(patches: OptionsPatch | readonly OptionsPatch[]): Promise<CompleteOptions> {
+  async patch(
+    patches: OptionsPatch | readonly OptionsPatch[],
+    expected?: readonly OptionsPatch[]
+  ): Promise<CompleteOptions> {
     const batch = Array.isArray(patches) ? patches : [patches];
     if (batch.length === 0) throw new OptionsMutationError('INVALID_OPTIONS_MUTATION');
-    return clone((await this.send({ kind: 'patch', patches: batch })).snapshot);
+    return clone(
+      (await this.send({ kind: 'patch', patches: batch, ...(expected ? { expected } : {}) }))
+        .snapshot
+    );
   }
 
   async replace(options: StoredOptions | CompleteOptions): Promise<CompleteOptions> {

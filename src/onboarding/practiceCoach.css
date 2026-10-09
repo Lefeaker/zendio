@@ -1,0 +1,122 @@
+.practice-coach {
+  position: fixed;
+  inset: 0;
+  z-index: 2147483647;
+  pointer-events: none;
+  font: 14px/1.65 var(--font-ui, system-ui);
+  color: var(--text);
+}
+
+.practice-coach-hint {
+  position: fixed;
+  box-sizing: border-box;
+  padding: 16px 18px;
+  border: 1px solid color-mix(in srgb, var(--line) 60%, transparent);
+  border-radius: 14px;
+  background: var(--panel);
+  box-shadow: 0 8px 28px color-mix(in srgb, var(--text) 9%, transparent);
+  overflow-wrap: anywhere;
+}
+
+.practice-coach-hint strong {
+  font-size: 14px;
+  font-weight: 650;
+  color: var(--text);
+}
+
+.practice-coach-hint p {
+  margin: 7px 0 0;
+  color: var(--text-faint);
+  font-size: 13px;
+  white-space: pre-line;
+}
+
+.practice-coach-arrows {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+.practice-coach-arrows path {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.practice-coached {
+  outline: 1px solid color-mix(in srgb, var(--accent) 65%, transparent);
+  outline-offset: 4px;
+}
+
+.practice-coached:focus-visible {
+  outline-width: 2px;
+}
+
+.practice-coach-exit {
+  position: fixed;
+  top: 14px;
+  right: 20px;
+  pointer-events: auto;
+  padding: 6px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-full);
+  color: var(--text-faint);
+  background: var(--panel);
+  font: 12px/1.6 var(--font-ui);
+}
+
+.practice-coach-exit[hidden] {
+  display: none;
+}
+
+.practice-celebration {
+  position: fixed;
+  width: 0;
+  height: 0;
+  pointer-events: none;
+}
+
+.practice-confetti-bit {
+  position: absolute;
+  width: 6px;
+  height: 9px;
+  border-radius: 1px;
+  opacity: 0;
+  animation: practice-confetti-flight 1200ms cubic-bezier(0.12, 0.55, 0.3, 1) both;
+}
+
+.practice-confetti-bit:nth-child(3n) {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+}
+
+@keyframes practice-confetti-flight {
+  0% {
+    opacity: 1;
+    transform: translate(0, 0) rotate(0) scale(0.4);
+  }
+
+  42% {
+    opacity: 1;
+    transform: translate(var(--confetti-x), var(--confetti-y))
+      rotate(calc(var(--confetti-spin) * 0.4));
+  }
+
+  100% {
+    opacity: 0;
+    transform: translate(var(--confetti-x), var(--confetti-fall)) rotate(var(--confetti-spin))
+      scale(0.65);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .practice-confetti-bit {
+    display: none;
+    animation: none;
+  }
+}

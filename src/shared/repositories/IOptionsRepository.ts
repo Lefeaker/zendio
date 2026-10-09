@@ -17,7 +17,10 @@ export interface IOptionsRepository {
    */
   get: () => Promise<CompleteOptions>;
 
-  patch: (patches: OptionsPatch | readonly OptionsPatch[]) => Promise<CompleteOptions>;
+  patch: (
+    patches: OptionsPatch | readonly OptionsPatch[],
+    expected?: readonly OptionsPatch[]
+  ) => Promise<CompleteOptions>;
 
   replace: (options: StoredOptions | CompleteOptions) => Promise<CompleteOptions>;
 
