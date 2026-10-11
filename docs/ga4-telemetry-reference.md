@@ -170,6 +170,8 @@
 
 用于 retention 的 active-day 事件名是 `extension_active_day`；不要在 dashboard 或下游文档中写成历史占位名。`browser_family` 当前只允许出现在 `extension_installed` 上，不能借道其他事件补发。
 
+教学统计的完成依据来自本机学习回执：关闭教学时，只有五项基础练习均完成才发送 `onboarding_completed`；其余关闭使用 `onboarding_skipped` 的 `step=finish`。该事件不会因为关闭按钮而写入学习进度。安装自动入口使用 `source=install`；设置、升级提示与练习返回入口显式使用 `source=options`。早期版本的 `onboarding_completed` 表示关闭过引导，分析漏斗时应按扩展版本区分，不能混作真实首次保存或首次 Vault 写入。
+
 ### Clip / Background / Connection / Storage
 
 集成分支 emitter 入口：

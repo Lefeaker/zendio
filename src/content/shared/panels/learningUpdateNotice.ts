@@ -50,7 +50,7 @@ export function bindLearningUpdateNotice(
   const link = doc.createElement('a');
   link.className = 'btn primary';
   link.dataset.role = 'learning-update-start';
-  link.href = services.runtime.getURL('onboarding/index.html');
+  link.href = services.runtime.getURL('onboarding/index.html?source=options');
   link.target = '_blank';
   link.rel = 'noopener noreferrer';
   const close = createPrimitiveButtonElement({

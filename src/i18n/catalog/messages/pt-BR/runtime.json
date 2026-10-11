@@ -881,5 +881,6 @@
   "learningUpdateDismiss": "Fechar",
   "learningUpdateSaveError": "Não foi possível salvar sua preferência. Tente novamente.",
   "learningUpdateDismissed": "Você pode reabrir os tutoriais pela configuração inicial na página Opções.",
-  "aiConfigLoadFailed": "Não foi possível carregar a configuração de IA. Reabra esta seção ou atualize a página."
+  "aiConfigLoadFailed": "Não foi possível carregar a configuração de IA. Reabra esta seção ou atualize a página.",
+  "practiceVaultDownload": "O arquivo Markdown foi baixado. Para concluir este exercício, selecione seu cofre no painel de captura e salve novamente."
 }

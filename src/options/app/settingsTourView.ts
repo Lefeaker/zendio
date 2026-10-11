@@ -133,7 +133,7 @@ export function createSettingsTourView(
       verify.textContent = m.settingsTourVerify;
       verify.href =
         state.step.practice === 'library'
-          ? '../onboarding/index.html'
+          ? '../onboarding/index.html?source=options'
           : `../onboarding/practice.html?lesson=${state.step.practice}&run=${crypto.randomUUID()}`;
     }
   };

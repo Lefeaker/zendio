@@ -129,7 +129,7 @@ describe('upgrade tutorial invitation', () => {
     const panel = mount();
     await flush();
     const link = requireElement<HTMLAnchorElement>(panel.root, 'a');
-    expect(link.href).toBe('chrome-extension://test/onboarding/index.html');
+    expect(link.href).toBe('chrome-extension://test/onboarding/index.html?source=options');
     expect(link.target).toBe('_blank');
     const event = new MouseEvent('click', { bubbles: true, cancelable: true });
     link.addEventListener('click', (e) => {
