@@ -470,6 +470,7 @@
     "practiceStart": "Geführte Übung starten",
     "practiceTitle": "Schritt für Schritt zur ersten Notiz",
     "practiceVault": "Der ausgewählte Vault heißt „{name}“. Die Notiz wird dort gespeichert.",
+    "practiceVaultDownload": "Die Markdown-Datei wurde heruntergeladen. Wähle im Ausschneidefenster deinen Vault und speichere erneut, um diese Übung abzuschließen.",
     "practiceVideoFinish": "Du hast Zeitsprünge und die Bildauswahl ausprobiert. Lass den ersten Punkt gefüllt und exportiere. Prüfe beide Zeitstempel und das ausgewählte Bild in der Notiz.",
     "practiceVideoFrames": "Übungszeitpunkt wählen",
     "practiceVideoIntro": "Dieses kurze Video wechselt mit der Uhr die Farbe. Starte den Videomodus, erfasse zwei Zeitpunkte und probiere Zeitsprünge sowie die Auswahl der Screenshots aus.",

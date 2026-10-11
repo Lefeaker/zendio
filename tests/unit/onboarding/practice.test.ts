@@ -13,7 +13,7 @@ import type { IOptionsRepository } from '../../../src/shared/repositories/IOptio
 import en from '../../../src/i18n/generated/locales/en.generated';
 const messages = en.runtime;
 
-function rig() {
+function rig(lesson: 'fragment' | 'vault' = 'fragment') {
   const storage = createMemoryStorageArea();
   let changed = () => {};
   const stop = vi.fn();
@@ -29,13 +29,18 @@ function rig() {
   };
   const root = document.createElement('main');
   document.body.append(root);
-  const view = createPracticeView(root, messages, {
-    enable: vi.fn(),
-    exit: vi.fn(),
-    next: vi.fn(),
-    locate: vi.fn(),
-    copyPath: vi.fn()
-  });
+  const view = createPracticeView(
+    root,
+    messages,
+    {
+      enable: vi.fn(),
+      exit: vi.fn(),
+      next: vi.fn(),
+      locate: vi.fn(),
+      copyPath: vi.fn()
+    },
+    lesson
+  );
   return { storage, options, view, root, changed: () => changed(), stop };
 }
 
@@ -132,6 +137,98 @@ describe('guided practice', () => {
     await vi.waitFor(() => expect(r.root.textContent).toContain(messages.practiceSelectTitle));
     expect(coach.getReceipt()).toBeUndefined();
     expect(await r.storage.get(LEARNING_PROGRESS_KEY)).toBeUndefined();
+    coach.dispose();
+  });
+
+  it.each(['downloads', 'vault'] as const)(
+    'does not let an old %s receipt hide a new failed save',
+    async (destination) => {
+      const r = rig('vault');
+      const coach = await mountPracticeCoach({ ...r, messages, exit: vi.fn() });
+      try {
+        const receipt = {
+          operationId: 'old',
+          sourceUrl: location.href,
+          filePath: 'old.md',
+          savedAt: 3,
+          destination
+        };
+        await r.storage.set(LEARNING_PROGRESS_KEY, {
+          version: 1,
+          completed: {},
+          pending: [],
+          latest: receipt
+        });
+        r.changed();
+        await vi.waitFor(() => expect(coach.getReceipt()?.operationId).toBe('old'));
+        const popup = document.createElement('div');
+        popup.id = 'obsidian-clipper-dialog';
+        const shadow = popup.attachShadow({ mode: 'open' });
+        shadow.innerHTML = '<button data-action-id="clip">Clip</button>';
+        document.body.append(popup);
+        await vi.waitFor(() => expect(shadow.querySelector('.practice-coach-hint')).not.toBeNull());
+        shadow.querySelector<HTMLButtonElement>('button')?.click();
+        popup.remove();
+        r.changed();
+        await vi.waitFor(() => expect(r.root.dataset.practicePhase).toBe('saving'));
+        const failure = document.createElement('div');
+        failure.id = 'aiob-support-prompt';
+        failure.attachShadow({ mode: 'open' }).innerHTML =
+          '<div class="task-progress-track is-failure"></div>';
+        document.body.append(failure);
+        await vi.waitFor(() => expect(r.root.dataset.practicePhase).toBe('error'));
+        failure.remove();
+        r.changed();
+        await new Promise((resolve) => setTimeout(resolve, 30));
+        expect(r.root.dataset.practicePhase).toBe('error');
+        expect(coach.getReceipt()).toBeUndefined();
+        await r.storage.set(LEARNING_PROGRESS_KEY, {
+          version: 1,
+          completed: {},
+          pending: [],
+          latest: { ...receipt, operationId: 'retried', destination: 'vault', savedAt: 4 }
+        });
+        r.changed();
+        await vi.waitFor(() => expect(r.root.dataset.practicePhase).toBe('saved'));
+      } finally {
+        coach.dispose();
+      }
+    }
+  );
+
+  it('requires an actual vault receipt for the vault lesson and preserves a downloaded result', async () => {
+    const r = rig('vault');
+    const coach = await mountPracticeCoach({ ...r, messages, exit: vi.fn() });
+    const receipt = {
+      operationId: 'op_vault',
+      sourceUrl: location.href,
+      filePath: 'note.md',
+      savedAt: 3,
+      destination: 'downloads'
+    };
+    await r.storage.set(LEARNING_PROGRESS_KEY, {
+      version: 1,
+      completed: {},
+      pending: [],
+      latest: receipt
+    });
+    r.changed();
+    await vi.waitFor(() =>
+      expect(r.root.querySelector('#practiceResult')?.hasAttribute('hidden')).toBe(false)
+    );
+    expect(r.root.dataset.practicePhase).not.toBe('saved');
+    expect(document.querySelector('[data-milestone="saved"]')).toBeNull();
+    expect(coach.getReceipt()?.destination).toBe('downloads');
+    await r.storage.set(LEARNING_PROGRESS_KEY, {
+      version: 1,
+      completed: {},
+      pending: [],
+      latest: { ...receipt, destination: 'vault', vaultName: 'My notes', savedAt: 4 }
+    });
+    r.changed();
+    await vi.waitFor(() => expect(r.root.dataset.practicePhase).toBe('saved'));
+    expect(r.root.textContent).toContain('My notes');
+    expect(r.options.patch).not.toHaveBeenCalled();
     coach.dispose();
   });
 });

@@ -164,7 +164,8 @@ export function createProductionStitchRenderLifecycle(
     const meta = getFooterMeta(resourceId);
     if (!meta) return;
     if (meta.openMode === 'page') {
-      const href = resourceId === 'onboarding' ? '../onboarding/index.html' : meta.href;
+      const href =
+        resourceId === 'onboarding' ? '../onboarding/index.html?source=options' : meta.href;
       options.setState({ ...getState(), activeResource: null });
       window.open(href ?? `./${resourceId}.html`, '_blank', 'noopener,noreferrer');
       syncActiveLinks();

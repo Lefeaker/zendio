@@ -470,6 +470,7 @@
     "practiceStart": "Start guided practice",
     "practiceTitle": "Follow along and save your first note",
     "practiceVault": "The selected vault is “{name}”. This note will be written to that vault.",
+    "practiceVaultDownload": "The Markdown was downloaded. To finish this practice, choose your vault in the capture panel and save again.",
     "practiceVideoFinish": "You have tried timestamp jumps and screenshot selection. Keep the first dot filled, then finish and export. Check the saved note for both timestamps and the selected screenshot.",
     "practiceVideoFrames": "Choose a practice moment",
     "practiceVideoIntro": "This short video changes color as the clock advances. Start video mode, record two moments, then try jumping between them and choosing which screenshot to keep.",

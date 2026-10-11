@@ -26,6 +26,8 @@ import { renderOnboardingResourceModal } from './resourceModal';
 import type { OnboardingResourceId } from './resourceModal';
 import { applyStoredOnboardingTheme } from './theme';
 import { applyOnboardingConnectionGuideCopy } from './connectionGuideCopy';
+import { LEARNING_PROGRESS_KEY, readLearningProgress } from '../shared/learningProgress';
+import { completedLearningCount, PRACTICE_COURSES } from './progress';
 
 let declarativeI18nController: PageI18nController | null = null;
 let onboardingBrowserTarget: BrowserTarget = 'chrome';
@@ -154,7 +156,9 @@ export class OnboardingController {
       return;
     }
     this.startedTracked = true;
-    await this.sendTrackingRequest({ name: 'onboarding_started', source: 'install' });
+    const source =
+      new URL(location.href).searchParams.get('source') === 'options' ? 'options' : 'install';
+    await this.sendTrackingRequest({ name: 'onboarding_started', source });
   }
 
   private async trackStepSkipped(stepNumber: number): Promise<void> {
@@ -418,7 +422,17 @@ export class OnboardingController {
   private async completeOnboarding(): Promise<void> {
     try {
       await this.getDependencies().storage.local.set('onboardingCompleted', true);
-      await this.trackOnboardingCompleted();
+      let completed = false;
+      try {
+        const progress = readLearningProgress(
+          await this.getDependencies().storage.local.get(LEARNING_PROGRESS_KEY)
+        );
+        completed = completedLearningCount(progress) === PRACTICE_COURSES.length;
+      } catch {
+        // Closing the guide is safe even when learning progress cannot be read.
+      }
+      if (completed) await this.trackOnboardingCompleted();
+      else await this.trackStepSkipped(5);
       console.log('[onboarding] Onboarding marked as completed');
     } catch (error) {
       console.error('[onboarding] Failed to mark onboarding as completed:', error);

@@ -470,6 +470,7 @@
     "practiceStart": "Iniciar práctica guiada",
     "practiceTitle": "Guarda tu primera nota paso a paso",
     "practiceVault": "La bóveda seleccionada es «{name}». La nota se guardará en ella.",
+    "practiceVaultDownload": "Se descargó el archivo Markdown. Para completar esta práctica, selecciona tu bóveda en el panel de captura y vuelve a guardar.",
     "practiceVideoFinish": "Ya has probado los saltos y la selección de imágenes. Deja el primer punto relleno y exporta. Revisa las dos marcas de tiempo y la imagen elegida en la nota.",
     "practiceVideoFrames": "Elige un momento de práctica",
     "practiceVideoIntro": "Este video corto cambia de color con el reloj. Inicia el modo video, registra dos momentos y prueba los saltos de tiempo y la selección de capturas.",

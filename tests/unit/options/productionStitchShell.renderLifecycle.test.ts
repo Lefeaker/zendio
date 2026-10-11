@@ -774,7 +774,7 @@ describe('mountProductionStitchShell renderLifecycle', () => {
     findButton('Setup Guide').click();
 
     expect(openSpy).toHaveBeenCalledWith(
-      '../onboarding/index.html',
+      '../onboarding/index.html?source=options',
       '_blank',
       'noopener,noreferrer'
     );

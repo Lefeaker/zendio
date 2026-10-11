@@ -881,5 +881,6 @@
   "learningUpdateDismiss": "閉じる",
   "learningUpdateSaveError": "設定を保存できませんでした。もう一度お試しください。",
   "learningUpdateDismissed": "Options 設定ページの「初回設定」からチュートリアルを開けます。",
-  "aiConfigLoadFailed": "AI 設定を読み込めませんでした。このセクションを開き直すか、ページを再読み込みしてください。"
+  "aiConfigLoadFailed": "AI 設定を読み込めませんでした。このセクションを開き直すか、ページを再読み込みしてください。",
+  "practiceVaultDownload": "Markdown をダウンロードしました。この練習を完了するには、クリップパネルで保管庫を選び、もう一度保存してください。"
 }

@@ -88,6 +88,17 @@ describe('report-performance-hotspots', () => {
 
   it('keeps the exact normalized budget transitions and every other budget unchanged', () => {
     const registeredBudgets = readRegisteredBudgets();
+    const firstVaultChanges: Array<[string, number | null, number]> = [
+      ['src/i18n/generated/messages.generated.ts', 1343, 1344],
+      ['src/onboarding/practiceCoach.ts', 291, 308],
+      ['src/onboarding/practiceView.ts', null, 258],
+      ['src/options/app/productionStitchRenderLifecycle.ts', 256, 257]
+    ];
+    for (const [file, before, after] of firstVaultChanges) {
+      expect(registeredBudgets.get(file)).toBe(after);
+      if (before === null) registeredBudgets.delete(file);
+      else registeredBudgets.set(file, before);
+    }
     expect(registeredBudgets.get('src/i18n/generated/messages.generated.ts')).toBe(1343);
     registeredBudgets.set('src/i18n/generated/messages.generated.ts', 1342);
     expect(registeredBudgets.get('src/options/app/productionStitchShellMount.ts')).toBe(277);
