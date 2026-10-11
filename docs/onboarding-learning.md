@@ -122,4 +122,6 @@ AI 对话在练习列表下方仅提供静态说明：在支持的 AI 对话网�
 
 设置导览仅在 URL 携带 guide 参数时加载；AI 配置编辑器在其控件挂载时独立加载，不阻塞设置页外壳。异步加载结束后仅挂载到仍然有效的页面与控件，编辑器仍共用原有配置校验和提交逻辑；加载失败显示可重新打开分区的说明。
 
-本轮保留同一练习 UI 和回执 owner：新保存尝试不会继续展示上一尝试的成功；失败保留错误提示，新的成功回执才恢复完成。精确热点登记为 `practiceCoach.ts=308`、`practiceView.ts=258`；一条新增多语言提示使 `messages.generated.ts=1344`，设置入口携带来源使 `productionStitchRenderLifecycle.ts=257`。只同步已审查的源文件预算，不修改构建体积或 chunk 上限。
+本轮保留同一练习 UI 和回执 owner：新保存尝试不会继续展示上一尝试的成功；失败保留错误提示，新的成功回执才恢复完成。精确热点登记为 `practiceCoach.ts=315`、`practiceView.ts=258`；一条新增多语言提示使 `messages.generated.ts=1344`，设置入口携带来源使 `productionStitchRenderLifecycle.ts=257`。只同步已审查的源文件预算，不修改构建体积或 chunk 上限。
+
+开始新的摘抄时即清除本页上一尝试的完成显示，因此按钮、Cmd+Enter/Alt+Enter 及双回车等生产提交入口共用相同回执判定。取消新摘抄会回到选择阶段；已写文件和学习进度保留在原有结果记录中。

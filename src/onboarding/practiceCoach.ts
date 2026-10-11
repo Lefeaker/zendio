@@ -58,6 +58,7 @@ export async function mountPracticeCoach(args: {
   let config = (await options.get()).fragmentClipper;
   let receipt: LearningReceipt | undefined;
   let previousReceipt: LearningReceipt | undefined;
+  let captureDialog: ShadowRoot | null = null;
   let failed = false;
   let saving = false;
   let disposed = false;
@@ -124,6 +125,12 @@ export async function mountPracticeCoach(args: {
       }
     }
     const clipper = panel('obsidian-clipper-dialog');
+    if (clipper && clipper !== captureDialog) {
+      previousReceipt = receipt ?? previousReceipt;
+      receipt = undefined;
+      failed = false;
+    }
+    captureDialog = clipper;
     const reader = panel('aiob-reader-panel');
     const video = panel('aiob-video-panel');
     const support = panel('aiob-support-prompt');

@@ -90,7 +90,7 @@ describe('report-performance-hotspots', () => {
     const registeredBudgets = readRegisteredBudgets();
     const firstVaultChanges: Array<[string, number | null, number]> = [
       ['src/i18n/generated/messages.generated.ts', 1343, 1344],
-      ['src/onboarding/practiceCoach.ts', 291, 308],
+      ['src/onboarding/practiceCoach.ts', 291, 315],
       ['src/onboarding/practiceView.ts', null, 258],
       ['src/options/app/productionStitchRenderLifecycle.ts', 256, 257]
     ];

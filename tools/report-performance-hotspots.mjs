@@ -175,7 +175,7 @@ export const MAX_LINE_BUDGETS = new Map([
   // Learning records the actual write receipt and download IDs at both existing commit points.
   ['src/background/application/clipProcessor.ts', 500],
   // Guided practice owns one observer/receipt lifecycle; keep its exact source budget.
-  ['src/onboarding/practiceCoach.ts', 308],
+  ['src/onboarding/practiceCoach.ts', 315],
   // Vault practice adds browser-specific setup and actual-destination completion UI.
   ['src/onboarding/practiceView.ts', 258],
   ['src/infrastructure/restClient.ts', 266],
