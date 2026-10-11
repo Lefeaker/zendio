@@ -471,6 +471,7 @@ export const GENERATED_MESSAGE_KEYS = [
   'practiceStart',
   'practiceTitle',
   'practiceVault',
+  'practiceVaultDownload',
   'practiceVideoFinish',
   'practiceVideoFrames',
   'practiceVideoIntro',

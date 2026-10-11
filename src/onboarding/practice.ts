@@ -26,10 +26,11 @@ export async function bootstrapPractice(platform: PlatformServices): Promise<voi
   let coach: Awaited<ReturnType<typeof mountPracticeCoach>> | undefined = undefined;
   const exit = () => {
     coach?.dispose();
-    location.assign('index.html');
+    location.assign('index.html?source=options');
   };
   const videoLesson = new URL(location.href).searchParams.get('lesson') === 'video';
   const readerLesson = new URL(location.href).searchParams.get('lesson') === 'reader';
+  const vaultLesson = new URL(location.href).searchParams.get('lesson') === 'vault';
   if (videoLesson) document.title = messages.learningVideoTitle;
   const view = createPracticeView(
     root,
@@ -97,7 +98,7 @@ export async function bootstrapPractice(platform: PlatformServices): Promise<voi
           });
       }
     },
-    videoLesson ? 'video' : readerLesson ? 'reader' : 'fragment',
+    videoLesson ? 'video' : readerLesson ? 'reader' : vaultLesson ? 'vault' : 'fragment',
     platform.runtime.getBrowserTarget() === 'firefox'
   );
   coach = await mountPracticeCoach({

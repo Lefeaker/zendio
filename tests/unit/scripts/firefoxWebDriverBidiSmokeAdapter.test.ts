@@ -43,8 +43,8 @@ function fixtureIdentity() {
       geckoId: 'fixture@example.test'
     },
     toolchain: {
-      node: 'v20.20.2',
-      npm: '10.8.2',
+      node: 'v24.21.0',
+      npm: '11.19.0',
       amoClient: 'direct-v5',
       bidiAdapter: FIREFOX_WEBDRIVER_BIDI_SMOKE_SCHEMA,
       geckodriver: '0.37.1',

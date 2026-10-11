@@ -1,3 +1,4 @@
+import type { ClipResultResponse } from '../../../src/shared/types';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ConnectionTestResult } from '../../../src/shared/types/connection';
 import type { CaptureVisibleTabScreenshotResponse } from '../../../src/shared/types/videoScreenshotMessages';
@@ -10,7 +11,9 @@ import type { SessionDraftSaveRequest } from '../../../src/shared/sessionDrafts'
 import { asType } from '../../utils/typeHelpers';
 
 const addListenerMock = vi.hoisted(() => vi.fn());
-const handleClipResultMock = vi.hoisted(() => vi.fn(() => Promise.resolve(undefined)));
+const handleClipResultMock = vi.hoisted(() =>
+  vi.fn<() => Promise<ClipResultResponse | undefined>>(() => Promise.resolve(undefined))
+);
 const createClipPipelineDependenciesMock = vi.hoisted(() =>
   vi.fn(() => ({ sendSupportPrompt: vi.fn(() => Promise.resolve(undefined)) }))
 );
@@ -520,6 +523,23 @@ describe('runtime message listener', () => {
     const dispatchOptions = dispatchFailedMock.mock.calls[0]?.[2];
     expect(dispatchOptions?.cause).toBeInstanceOf(Error);
   });
+
+  const clipAcknowledgements: ClipResultResponse[] = [
+    { success: false },
+    { success: true, filePath: 'Reading/note.md' }
+  ];
+  it.each(clipAcknowledgements)(
+    'returns the actual clip write acknowledgement to its sender: %s',
+    async (response) => {
+      handleClipResultMock.mockResolvedValueOnce(response);
+      const { registerRuntimeMessageListener } =
+        await import('../../../src/background/listeners/runtimeMessages');
+      registerRuntimeMessageListener(createDependencies());
+      await expect(
+        listener?.({ type: 'CLIP_RESULT', payload: { markdown: '# note' } }, { tabId: 12 })
+      ).resolves.toEqual(response);
+    }
+  );
 
   it('forwards clip results and allowlisted analytics usage events', async () => {
     const { registerRuntimeMessageListener } =

@@ -1,3 +1,5 @@
+import type { ClipResultResponse } from '../../shared/types';
+import { isObjectRecord } from '../../shared/guards';
 import { DEFAULT_SETUP_URL } from '../../shared/exportDestination';
 import { resolveRepository } from '../../shared/di/serviceRegistry';
 import { DI_TOKENS } from '../../shared/di/tokens';
@@ -88,6 +90,19 @@ export function createReaderSessionDependencies(
       }),
     dispatchClipResult:
       overrides.dispatchClipResult ??
-      ((payload) => deps.messaging.send({ type: 'CLIP_RESULT', payload }).then(() => undefined))
+      (async (payload) => {
+        const response = await deps.messaging.send<ClipResultResponse | undefined>({
+          type: 'CLIP_RESULT',
+          payload
+        });
+        if (!isObjectRecord(response) || response.success !== true) {
+          // Delivery (or a missing reply) does not prove that the external write succeeded.
+          throw new Error(
+            isObjectRecord(response) && response.success === false
+              ? 'Reader export failed.'
+              : 'Reader export result is unknown.'
+          );
+        }
+      })
   };
 }

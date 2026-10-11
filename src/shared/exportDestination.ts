@@ -2,7 +2,8 @@ import { configProvider } from './config/provider';
 import type { ClipPayload } from './types';
 import type { ClassificationResult } from './schemas/classification.schema';
 import type { OptionsState, TemplateOptions } from './types/options';
-import type { ClipContext, RoutingRule, VaultConfig, VaultRouterConfig } from './types/vault';
+import type { ClipContext, VaultConfig } from './types/vault';
+import { getDefaultRoutingVault, selectMatchingVault } from './vaultRouting';
 import { toDownloadsFilename } from './downloadsFilename';
 import { tryParseUrl } from './url';
 
@@ -206,8 +207,10 @@ export function selectVaultForPreview(
   if (!options.vaultRouter || vaults.length === 0) {
     return null;
   }
-  const router = new SharedVaultRouter({ ...options.vaultRouter, vaults });
-  return router.selectVault(buildClipContext(payload)) ?? router.getDefaultVault();
+  const config = { ...options.vaultRouter, vaults };
+  return (
+    selectMatchingVault(config, buildClipContext(payload))?.vault ?? getDefaultRoutingVault(config)
+  );
 }
 
 function isRestConfigured(options: OptionsState): boolean {
@@ -267,103 +270,4 @@ function resolveDomain(payload: ClipPayload, domainMappings?: Record<string, str
 function deriveDomain(url?: string): string {
   const parsed = tryParseUrl(url);
   return parsed?.hostname ?? '';
-}
-
-class SharedVaultRouter {
-  constructor(private readonly config: VaultRouterConfig) {}
-
-  selectVault(context: ClipContext): VaultConfig | null {
-    const sortedRules = this.getActiveRules()
-      .filter((rule) => rule.enabled)
-      .sort((a, b) => b.priority - a.priority);
-
-    for (const rule of sortedRules) {
-      if (this.matchRule(rule, context)) {
-        const vault = this.config.vaults.find((candidate) => candidate.id === rule.vaultId);
-        if (vault && vault.enabled !== false) {
-          return vault;
-        }
-      }
-    }
-    return null;
-  }
-
-  getDefaultVault(): VaultConfig | null {
-    if (this.config.defaultVaultId) {
-      const vault = this.config.vaults.find(
-        (candidate) => candidate.id === this.config.defaultVaultId && candidate.enabled !== false
-      );
-      if (vault) return vault;
-    }
-    return (
-      this.config.vaults.find((vault) => vault.isDefault && vault.enabled !== false) ??
-      this.config.vaults.find((vault) => vault.enabled !== false) ??
-      null
-    );
-  }
-
-  private matchRule(rule: RoutingRule, context: ClipContext): boolean {
-    if (rule.type === 'domain') {
-      return this.matchDomain(rule.pattern, context.domain);
-    }
-    if (rule.type === 'keyword') {
-      return rule.pattern
-        .split(',')
-        .map((keyword) => keyword.trim().toLowerCase())
-        .filter(Boolean)
-        .some((keyword) => `${context.title} ${context.content}`.toLowerCase().includes(keyword));
-    }
-    if (rule.type === 'url-pattern') {
-      try {
-        return new RegExp(rule.pattern.trim(), 'i').test(context.url);
-      } catch {
-        return false;
-      }
-    }
-    return false;
-  }
-
-  private matchDomain(pattern: string, domain: string): boolean {
-    const normalizedDomain = domain.trim().toLowerCase();
-    if (!normalizedDomain) return false;
-    return pattern
-      .split(';')
-      .map((part) => part.trim().toLowerCase())
-      .filter(Boolean)
-      .some((candidate) => this.matchSingleDomainPattern(candidate, normalizedDomain));
-  }
-
-  private matchSingleDomainPattern(pattern: string, normalizedDomain: string): boolean {
-    if (pattern.includes('*')) {
-      try {
-        const escaped = pattern.replace(/[.+?^${}()|[\]\\]/g, '\\$&').replace(/\*/g, '.*');
-        return new RegExp(`^${escaped}$`, 'i').test(normalizedDomain);
-      } catch {
-        return false;
-      }
-    }
-    return (
-      normalizedDomain === pattern ||
-      normalizedDomain.endsWith(`.${pattern}`) ||
-      normalizedDomain.includes(pattern)
-    );
-  }
-
-  private getActiveRules(): RoutingRule[] {
-    const legacyRules = Array.isArray(this.config.rules) ? this.config.rules : [];
-    const rulesFromVaults = this.config.vaults
-      .filter((vault) => vault.enabled !== false)
-      .flatMap((vault) =>
-        (vault.rules ?? []).map((rule) => ({
-          ...rule,
-          vaultId: rule.vaultId ?? vault.id
-        }))
-      );
-    const seen = new Set<string>();
-    return [...legacyRules, ...rulesFromVaults].filter((rule) => {
-      if (seen.has(rule.id)) return false;
-      seen.add(rule.id);
-      return true;
-    });
-  }
 }

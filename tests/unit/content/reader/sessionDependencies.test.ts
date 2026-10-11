@@ -1,3 +1,7 @@
+import { createMemoryStorageService } from '../../../../src/platform/preview/memoryStorage';
+import { MockOptionsRepository } from '../../../utils/repositories/MockOptionsRepository';
+import { createReaderPanelViewFactory } from '@content/reader/presentation/readerPanelView';
+import { ReaderSessionExporter } from '@content/reader/services/exporter';
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { createReaderSessionDependencies } from '@content/reader/sessionDependencies';
 import { DI_TOKENS } from '@shared/di/tokens';
@@ -20,14 +24,14 @@ describe('createReaderSessionDependencies', () => {
       return readerRepository;
     });
 
-    const messaging = { send: vi.fn().mockResolvedValue(undefined) };
+    const messaging = { send: vi.fn().mockResolvedValue({ success: true, filePath: 'note.md' }) };
     const deps = createReaderSessionDependencies({
-      optionsRepository: { type: 'optionsRepository' } as never,
-      storage: { local: {} } as never,
+      optionsRepository: new MockOptionsRepository(),
+      storage: createMemoryStorageService(),
       messaging,
       runtime: {
         getURL: (path: string) => `chrome-extension://reader/${path}`
-      } as never
+      }
     });
 
     expect(deps.readerRepository).toBe(readerRepository);
@@ -38,30 +42,44 @@ describe('createReaderSessionDependencies', () => {
     expect(typeof deps.createEnvironmentController).toBe('function');
     expect(typeof deps.createLifecycle).toBe('function');
 
-    await expect(deps.dispatchClipResult({ markdown: '# hi' } as never)).resolves.toBeUndefined();
+    await expect(deps.dispatchClipResult({ markdown: '# hi' })).resolves.toBeUndefined();
     expect(messaging.send).toHaveBeenCalledWith({
       type: 'CLIP_RESULT',
       payload: { markdown: '# hi' }
     });
   });
 
+  it.each([undefined, { success: false }, { success: 'true' }])(
+    'rejects an unconfirmed background save: %s',
+    async (reply) => {
+      resolveRepository.mockReturnValue({});
+      const deps = createReaderSessionDependencies({
+        optionsRepository: new MockOptionsRepository(),
+        storage: createMemoryStorageService(),
+        messaging: { send: vi.fn().mockResolvedValue(reply) },
+        runtime: { getURL: (path) => path }
+      });
+      await expect(deps.dispatchClipResult({ markdown: '# keep me' })).rejects.toThrow();
+    }
+  );
+
   it('honors dependency overrides', async () => {
     resolveRepository.mockReturnValue({ type: 'readerRepository' });
-    const viewFactory = { type: 'viewFactory' } as never;
+    const viewFactory = createReaderPanelViewFactory({ resolveAssetUrl: (path) => path });
     const createHighlightManager = vi.fn();
     const createSelectionController = vi.fn();
     const createPanelCoordinator = vi.fn();
     const createEnvironmentController = vi.fn();
     const createLifecycle = vi.fn();
-    const exporter = { type: 'exporter' } as never;
+    const exporter = new ReaderSessionExporter({});
     const dispatchClipResult = vi.fn().mockResolvedValue(undefined);
 
     const deps = createReaderSessionDependencies(
       {
-        optionsRepository: { type: 'optionsRepository' } as never,
-        storage: { local: {} } as never,
+        optionsRepository: new MockOptionsRepository(),
+        storage: createMemoryStorageService(),
         messaging: { send: vi.fn() },
-        runtime: { getURL: vi.fn((path: string) => path) } as never
+        runtime: { getURL: vi.fn((path: string) => path) }
       },
       {
         viewFactory,
@@ -83,7 +101,7 @@ describe('createReaderSessionDependencies', () => {
     expect(deps.createLifecycle).toBe(createLifecycle);
     expect(deps.exporter).toBe(exporter);
 
-    await deps.dispatchClipResult({ markdown: '# override' } as never);
+    await deps.dispatchClipResult({ markdown: '# override' });
     expect(dispatchClipResult).toHaveBeenCalledWith({ markdown: '# override' });
   });
 });

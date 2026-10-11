@@ -32,7 +32,7 @@ export const MAX_LINE_BUDGETS = new Map([
   // Compact review and first-run navigation add three catalog labels.
   // Options topics add 18 labels/descriptions; existing shell/navigation owners
   // below forward explicit section navigation to the guide.
-  ['src/i18n/generated/messages.generated.ts', 1343],
+  ['src/i18n/generated/messages.generated.ts', 1344],
   ['src/i18n/generated/locales/fr.generated.ts', 785],
   ['src/i18n/generated/locales/es-419.generated.ts', 777],
   ['src/i18n/generated/locales/es-ES.generated.ts', 777],
@@ -175,7 +175,9 @@ export const MAX_LINE_BUDGETS = new Map([
   // Learning records the actual write receipt and download IDs at both existing commit points.
   ['src/background/application/clipProcessor.ts', 500],
   // Guided practice owns one observer/receipt lifecycle; keep its exact source budget.
-  ['src/onboarding/practiceCoach.ts', 291],
+  ['src/onboarding/practiceCoach.ts', 315],
+  // Vault practice adds browser-specific setup and actual-destination completion UI.
+  ['src/onboarding/practiceView.ts', 258],
   ['src/infrastructure/restClient.ts', 266],
   ['src/shared/services/yamlConfigSanitize.ts', 277],
   // 2026-08-11 U02A owner transfer/current truth: keep the legacy Options
@@ -211,7 +213,7 @@ export const MAX_LINE_BUDGETS = new Map([
   ['src/content/reader/services/exporter.ts', 255],
   ['src/content/video/fragmentHighlighter.ts', 254],
   ['src/options/app/productionStitchShellMount.ts', 277],
-  ['src/options/app/productionStitchRenderLifecycle.ts', 256],
+  ['src/options/app/productionStitchRenderLifecycle.ts', 257],
   // 2026-06-19 Options YAML editor stabilization: row aggregation, editable
   // domain override cells, and scroll-target ownership stay in this row model.
   ['src/options/yaml-config-editor/rowModel.ts', 269],
@@ -237,7 +239,8 @@ export const MAX_LINE_BUDGETS = new Map([
   // 2026-06-23 P05 Options/Stitch decomposition: runtime surface content moved
   // out of the monolithic Stitch content seed behind the stable facade.
   ['src/options/stitch/content/runtimeSurfaceContent.ts', 283],
-  ['src/background/pipelines/clipPipeline.ts', 253],
+  // Explicit write success/failure acknowledgement keeps the existing pipeline owner.
+  ['src/background/pipelines/clipPipeline.ts', 254],
   // 2026-06-19 Options shortcut copy stabilization: platform-aware modifier
   // labels and keyboard mappings are centralized for Options rendering.
   ['src/options/app/fragmentModifierOptions.ts', 277],

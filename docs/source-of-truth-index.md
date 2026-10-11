@@ -1,6 +1,8 @@
 # Source of Truth 索引
 
-最后更新：2026-09-05
+最后更新：2026-10-11
+
+- 当前活动运行时：`.nvmrc` 为 Node `24.21.0`，npm `11.19.0` 与精确身份来自 `scripts/config/runtimePolicy.mjs`；bounded command、Firefox release manifest 与 reviewer source archive 复用该来源。CI 使用 `.nvmrc`。历史 R02 transition 和既有 Node 20 验证记录不变，不能当作当前运行时验收结果。
 
 ## 正式入口
 

@@ -470,6 +470,7 @@
     "practiceStart": "Iniciar prática guiada",
     "practiceTitle": "Salve sua primeira nota passo a passo",
     "practiceVault": "O cofre selecionado é “{name}”. A nota será salva nele.",
+    "practiceVaultDownload": "O arquivo Markdown foi baixado. Para concluir este exercício, selecione seu cofre no painel de captura e salve novamente.",
     "practiceVideoFinish": "Você experimentou os saltos e a seleção de imagens. Deixe o primeiro ponto preenchido e exporte. Confira os dois horários e a imagem escolhida na nota.",
     "practiceVideoFrames": "Escolha um momento de prática",
     "practiceVideoIntro": "Este vídeo curto muda de cor conforme o relógio avança. Inicie o modo de vídeo, registre dois momentos e experimente os saltos de tempo e a escolha das capturas.",

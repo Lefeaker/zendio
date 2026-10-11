@@ -2,6 +2,7 @@ import { spawnSync } from 'node:child_process';
 import { existsSync, mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
+import { pathToFileURL } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { loadNpmAuditRegression } from '../../utils/npmAuditTypedLoader.mjs';
 
@@ -85,32 +86,63 @@ describe('portable npm audit regression owner', () => {
     expect(result.stderr).toContain('[npm-audit-regression]');
   });
 
-  it('rejects the wrong corrected-R01 authority before repository or network work', () => {
-    const root = mkdtempSync(join(tmpdir(), 'zendio-r02-cli-preflight-'));
-    const output = join(root, 'baseline');
+  it('keeps the historical CLI runtime guard ahead of evidence work', () => {
     const result = spawnSync(
       process.execPath,
-      [
-        toolPath,
-        '--capture-baseline-pair',
-        '--milestone',
-        'R02-origin',
-        '--accepted-parent-head',
-        '0'.repeat(40),
-        '--audit-level',
-        'low',
-        '--output-dir',
-        output,
-        '--evidence-manifest',
-        join(output, 'manifest.json')
-      ],
+      [toolPath, '--verify-baseline-context', '--baseline-manifest', '/missing'],
       { cwd: resolve('.'), encoding: 'utf8', env: closedEnvironment }
     );
     expect(result.status).toBe(1);
     expect(result.stdout).toBe('');
-    expect(result.stderr).toContain('sealed accepted R01 commit');
-    expect(existsSync(output)).toBe(false);
-    rmSync(root, { recursive: true, force: true });
+    expect(result.stderr).toBe(
+      `[npm-audit-regression] Expected Node v20.20.2, got ${process.version}\n`
+    );
+  });
+
+  it('rejects the wrong corrected-R01 authority before repository or network work', () => {
+    const root = mkdtempSync(join(tmpdir(), 'zendio-r02-cli-preflight-'));
+    const output = join(root, 'baseline');
+    const ownerUrl = pathToFileURL(resolve('tools/npm-audit-regression/cli.mjs')).href;
+    const configuration = {
+      milestone: 'R02-origin',
+      acceptedParentHead: '0'.repeat(40),
+      auditLevel: 'low',
+      outputDir: output,
+      evidenceManifest: join(output, 'manifest.json')
+    };
+    const script = [
+      `import { captureBaseline } from ${JSON.stringify(ownerUrl)};`,
+      "if (process.permission.has('child') || process.permission.has('fs.write')) throw new Error('Unexpected evidence or subprocess authority');",
+      'try {',
+      `  await captureBaseline(${JSON.stringify(configuration)});`,
+      '} catch (error) {',
+      '  process.stderr.write(`${error.message}\\n`);',
+      '  process.exitCode = 1;',
+      '}'
+    ].join('\n');
+    try {
+      // Exercise the exported production owner independently of its historical Node gate.
+      // This cwd has no repository, and the child cannot spawn Git/npm or write evidence.
+      const result = spawnSync(
+        process.execPath,
+        [
+          '--permission',
+          `--allow-fs-read=${resolve('.')}`,
+          '--input-type=module',
+          '--eval',
+          script
+        ],
+        { cwd: root, encoding: 'utf8', env: closedEnvironment }
+      );
+      expect(result.status).toBe(1);
+      expect(result.stdout).toBe('');
+      expect(result.stderr).toBe(
+        'Accepted parent HEAD must equal the sealed accepted R01 commit.\n'
+      );
+      expect(existsSync(output)).toBe(false);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
   });
 
   it.each([

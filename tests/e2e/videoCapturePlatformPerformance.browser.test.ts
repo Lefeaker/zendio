@@ -1,6 +1,10 @@
 import { chromium, expect, test, type BrowserContext, type Page } from '@playwright/test';
 import path from 'node:path';
+import { createHash } from 'node:crypto';
+import { readFile, readdir, writeFile } from 'node:fs/promises';
+import { platform, arch } from 'node:os';
 import { fileURLToPath } from 'node:url';
+import { z } from 'zod';
 import {
   BILIBILI_MAIN_COMMENT_TEXT,
   BILIBILI_REPLY_COMMENT_TEXT,
@@ -544,5 +548,106 @@ testWithExtension(
       BILIBILI_REPLY_COMMENT_TEXT
     );
     await expect.poll(() => countShadowHighlights(page, 'reply-rich-text')).toBe(1);
+  }
+);
+
+testWithExtension(
+  'records foreground panel readiness and repeated comment capture latency',
+  async ({ context, extensionPage }, testInfo) => {
+    const samples = [];
+    for (let sample = 0; sample < 5; sample += 1) {
+      const { page, tabId } = await openFixtureWithRuntime(
+        context,
+        extensionPage,
+        `${BILIBILI_URL}?latency-sample=${sample}`,
+        bilibiliFixtureHtml()
+      );
+      try {
+        await page.bringToFront();
+        const foreground = await page.evaluate(() => ({
+          visibility: document.visibilityState,
+          focused: document.hasFocus()
+        }));
+        expect(foreground).toEqual({ visibility: 'visible', focused: true });
+        const panelStarted = performance.now();
+        await startVideoMode(extensionPage, tabId);
+        await expandVideoPanel(page);
+        await expect(page.locator('[data-role="add-btn"]')).toBeEnabled();
+        const panelReadyMs = performance.now() - panelStarted;
+        const captures = [];
+        for (const [index, fixtureId] of ['main-rich-text', 'reply-rich-text'].entries()) {
+          const captureStarted = performance.now();
+          await dragSelectBilibiliRichText(page, fixtureId);
+          const items = page.locator('[data-role="capture-item"]');
+          await expect(items).toHaveCount(index + 1);
+          await expect(items.last()).toContainText(
+            index === 0 ? BILIBILI_MAIN_COMMENT_TEXT : BILIBILI_REPLY_COMMENT_TEXT
+          );
+          const note = items.last().locator('[data-capture-input]');
+          await expect(note).toBeEditable();
+          const captureReadyMs = performance.now() - captureStarted;
+          captures.push({ fixtureId, captureReadyMs });
+        }
+        const notes = page.locator('[data-capture-input]');
+        for (let index = 0; index < 2; index += 1) {
+          await notes.nth(index).fill(`latency sample ${sample}, capture ${index}`);
+          await expect(notes.nth(index)).toHaveValue(`latency sample ${sample}, capture ${index}`);
+        }
+        const after = await page.evaluate(() => ({
+          visibility: document.visibilityState,
+          focused: document.hasFocus()
+        }));
+        expect(after).toEqual(foreground);
+        samples.push({ sample, foreground, panelReadyMs, captures });
+      } finally {
+        await page.close();
+      }
+    }
+    const runtime = await readFile(path.join(EXTENSION_PATH, 'content/runtime.js'));
+    const manifest = z
+      .object({ version: z.string() })
+      .parse(JSON.parse(await readFile(path.join(EXTENSION_PATH, 'manifest.json'), 'utf8')));
+    const buildFiles = [
+      'manifest.json',
+      'content/runtime.js',
+      'background/index.js',
+      ...(await readdir(path.join(EXTENSION_PATH, 'chunks')))
+        .filter((file) => file.endsWith('.js'))
+        .map((file) => `chunks/${file}`)
+    ].sort();
+    const buildHash = createHash('sha256');
+    for (const file of buildFiles) {
+      buildHash.update(file).update(await readFile(path.join(EXTENSION_PATH, file)));
+    }
+    const latencyPath = testInfo.outputPath('video-interaction-latency.json');
+    await writeFile(
+      latencyPath,
+      JSON.stringify(
+        {
+          browser: context.browser()?.version(),
+          platform: platform(),
+          arch: arch(),
+          node: process.version,
+          extensionPath: EXTENSION_PATH,
+          extensionVersion: manifest.version,
+          runtimeSha256: createHash('sha256').update(runtime).digest('hex'),
+          buildSha256: buildHash.digest('hex'),
+          buildFiles,
+          profile: 'isolated persistent Chromium, headless',
+          fixture: 'locally fulfilled Bilibili-shaped page; no network content or video decode',
+          cache: 'fresh content page/session per sample; shared browser/extension process',
+          panelBoundary: 'startVideoMode dispatch to expanded panel with enabled add button',
+          captureBoundary: 'Shift+drag gesture to matching capture with editable note input',
+          clock: 'Node performance.now; includes automation and assertion observation overhead',
+          samples
+        },
+        null,
+        2
+      )
+    );
+    await testInfo.attach('video-interaction-latency.json', {
+      contentType: 'application/json',
+      path: latencyPath
+    });
   }
 );

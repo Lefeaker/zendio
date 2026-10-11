@@ -470,6 +470,7 @@
     "practiceStart": "안내에 따라 연습 시작",
     "practiceTitle": "함께 따라 하며 첫 노트 저장하기",
     "practiceVault": "선택한 보관함은 ‘{name}’입니다. 이 보관함에 노트가 저장됩니다.",
+    "practiceVaultDownload": "Markdown 파일을 다운로드했습니다. 이 연습을 완료하려면 캡처 패널에서 보관함을 선택하고 다시 저장하세요.",
     "practiceVideoFinish": "시간 이동과 스크린샷 선택을 연습했습니다. 첫 동그라미를 채운 상태로 내보낸 뒤 노트의 두 시간과 선택한 이미지를 확인하세요.",
     "practiceVideoFrames": "연습할 시점 선택",
     "practiceVideoIntro": "이 짧은 영상은 시계에 따라 색이 바뀝니다. 영상 모드에서 두 시점을 기록한 뒤 시간 이동과 스크린샷 선택을 연습하세요.",

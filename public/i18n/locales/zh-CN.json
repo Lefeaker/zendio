@@ -470,6 +470,7 @@
     "practiceStart": "开始上手练习",
     "practiceTitle": "跟着提示，亲手保存第一条笔记",
     "practiceVault": "当前选择的是仓库“{name}”，这次会真实写入这个仓库。",
+    "practiceVaultDownload": "Markdown 已下载。要完成入库练习，请在剪藏面板中选择你的仓库，再次保存。",
     "practiceVideoFinish": "你已经试过时间戳跳转和截图开关。让第一个圆点保持实心，再完成导出，查看笔记中的两个时间戳和选中的截图。",
     "practiceVideoFrames": "选择示例时刻",
     "practiceVideoIntro": "这段短视频会随时钟变化切换颜色。先开始视频模式，记录两个时刻，再练习时间戳跳转和选择保留截图。",

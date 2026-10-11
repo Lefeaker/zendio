@@ -881,5 +881,6 @@
   "learningUpdateDismiss": "Cerrar",
   "learningUpdateSaveError": "No se pudo guardar tu preferencia. Inténtalo de nuevo.",
   "learningUpdateDismissed": "Puedes volver a los tutoriales desde la configuración inicial de la página Opciones.",
-  "aiConfigLoadFailed": "No se pudo cargar la configuración de IA. Vuelve a abrir esta sección o actualiza la página."
+  "aiConfigLoadFailed": "No se pudo cargar la configuración de IA. Vuelve a abrir esta sección o actualiza la página.",
+  "practiceVaultDownload": "Se descargó el archivo Markdown. Para completar esta práctica, selecciona tu bóveda en el panel de captura y vuelve a guardar."
 }

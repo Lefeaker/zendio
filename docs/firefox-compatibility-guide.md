@@ -200,6 +200,8 @@ node scripts/run-bounded-command.mjs \
   --result-json "$ATTEMPT_ROOT/firefox-smoke-result.json"
 ```
 
+专项保存回归可在 `firefox-smoke-v1` 的三个现有参数后显式追加 `--scenario save-retry-v1`。该固定场景验证真实 Options 配置、Reader 写入失败后的内容保留、重试成功与重开保存；省略时仍执行原有安装/身份 smoke，不改变默认发布门禁。其他场景名和重复参数会被拒绝，仍要求相同的 verified XPI、private attempt、browser 和 geckodriver 绑定。
+
 portable manifest 将 exact XPI、AMO source archive、dist inventory、Git tree、工具链和公开 GA 配置指纹绑定在一起。`local-private-v1` 仅接受 0700 目录和 0600 文件；工作流下载后的验证必须显式选择 `github-artifact-v1`，且不得由路径或文件 mode 自动推断 transport。
 
 exact-XPI smoke 使用固定版本和 SHA-256 的官方 geckodriver `0.37.1` 启动锁匹配的

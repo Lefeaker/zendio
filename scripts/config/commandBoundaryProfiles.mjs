@@ -13,6 +13,7 @@ import { userInfo } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { deepFreeze, sha256Buffer } from '../../tools/npm-audit-regression/canonical-json.mjs';
 import { detectNpmCommand } from '../../tools/npm-audit-regression/runtime-discovery.mjs';
+import { RUNTIME_POLICY } from './runtimePolicy.mjs';
 
 export const COMMAND_BOUNDARY_VERSION = 'command-boundary-v1';
 export const COMMAND_REQUEST_FILE = 'command-request.json';
@@ -644,7 +645,9 @@ function validateReleaseProfileArguments(profileId, args) {
     return args;
   }
   if (profileId === 'firefox-smoke-v1') {
-    if (args.length !== 6) invalid('FIREFOX_SMOKE_ARGUMENTS_INVALID');
+    if (args.length !== 6 && args.length !== 8) invalid('FIREFOX_SMOKE_ARGUMENTS_INVALID');
+    if (args.length === 8 && requireFlagValue(args, 6, '--scenario') !== 'save-retry-v1')
+      invalid('FIREFOX_SMOKE_ARGUMENTS_INVALID');
     requireFlagValue(args, 0, '--manifest', absolutePathToken);
     if (requireFlagValue(args, 2, '--transport-mode') !== 'local-private-v1')
       invalid('RELEASE_TRANSPORT_MODE_INVALID');
@@ -1017,7 +1020,11 @@ const PASS_ENV = new Set([
 
 function isVerifiedNpmLifecycle(environment) {
   try {
-    const npm = detectNpmCommand({ repositoryRoot: REPOSITORY_ROOT, environment: {} });
+    const npm = detectNpmCommand({
+      repositoryRoot: REPOSITORY_ROOT,
+      environment: {},
+      policy: RUNTIME_POLICY
+    });
     const { packageJson } = packageProjection();
     const event = environment.npm_lifecycle_event;
     const script = typeof event === 'string' ? packageJson.scripts?.[event] : undefined;
@@ -1088,9 +1095,9 @@ function lockedNpmCiProviders(npm, environment) {
   const vendors = readLockedNpmJson(npm, 'node_modules/ci-info/vendors.json');
   if (
     configPackage?.name !== '@npmcli/config' ||
-    configPackage.version !== '8.3.4' ||
+    configPackage.version !== RUNTIME_POLICY.npmConfigVersion ||
     ciInfoPackage?.name !== 'ci-info' ||
-    ciInfoPackage.version !== '4.0.0' ||
+    ciInfoPackage.version !== RUNTIME_POLICY.ciInfoVersion ||
     !Array.isArray(vendors)
   )
     invalid('NPM_CONFIG_AUTHORITY_INVALID');
@@ -1145,7 +1152,11 @@ function normalizeVerifiedNpmLifecycleConfig(environment) {
   )
     return environment;
   if (!isVerifiedNpmLifecycle(environment)) return environment;
-  const npm = detectNpmCommand({ repositoryRoot: REPOSITORY_ROOT, environment: {} });
+  const npm = detectNpmCommand({
+    repositoryRoot: REPOSITORY_ROOT,
+    environment: {},
+    policy: RUNTIME_POLICY
+  });
   const home = environment.HOME;
   const userconfig = environment.NPM_CONFIG_USERCONFIG;
   const globalconfig = environment.NPM_CONFIG_GLOBALCONFIG;
@@ -2207,7 +2218,11 @@ function firefoxReleaseConsumerEnvironment(
 }
 
 function npmInvocation(args, limits) {
-  const npm = detectNpmCommand({ repositoryRoot: REPOSITORY_ROOT, environment: {} });
+  const npm = detectNpmCommand({
+    repositoryRoot: REPOSITORY_ROOT,
+    environment: {},
+    policy: RUNTIME_POLICY
+  });
   return { executable: npm.nodePath, argv: [npm.cliPath, ...args], limits };
 }
 
@@ -2316,7 +2331,11 @@ export function resolveCommandProfile(
     );
   else if (profileId === 'github-ci-install-v1') {
     const prepared = prepareGithubCiInstall(environment, operations);
-    const npm = detectNpmCommand({ repositoryRoot: REPOSITORY_ROOT, environment: {} });
+    const npm = detectNpmCommand({
+      repositoryRoot: REPOSITORY_ROOT,
+      environment: {},
+      policy: RUNTIME_POLICY
+    });
     command = {
       executable: npm.nodePath,
       argv: [
@@ -2372,7 +2391,11 @@ export function resolveCommandProfile(
     };
   } else if (profileId === 'local-install-v1') {
     const prepared = prepareLocalInstall(environment, operations);
-    const npm = detectNpmCommand({ repositoryRoot: REPOSITORY_ROOT, environment: {} });
+    const npm = detectNpmCommand({
+      repositoryRoot: REPOSITORY_ROOT,
+      environment: {},
+      policy: RUNTIME_POLICY
+    });
     command = {
       executable: npm.nodePath,
       argv: [

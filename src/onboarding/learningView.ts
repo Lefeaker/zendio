@@ -117,11 +117,9 @@ export function createLearningView(
   const configure = learningButton(tr('settingsConnectVault'), () => actions.configure('vault'));
   configure.id = 'learningConfigure';
   const pageActions = element('div', 'learning-actions');
-  pageActions.append(
-    open,
-    learningButton(tr('learningRefreshPages'), actions.refreshTabs),
-    configure
-  );
+  pageActions.append(open, learningButton(tr('learningRefreshPages'), actions.refreshTabs));
+  const vaultActions = element('div', 'learning-actions');
+  vaultActions.append(configure);
   const error = element('p', 'learning-error');
   error.setAttribute('role', 'alert');
   const hint = element('p', 'learning-description', tr('learningContinueHint'));
@@ -130,7 +128,7 @@ export function createLearningView(
     actions.later();
   });
   custom.append(pageLabel, pages, urlLabel, url, pageActions);
-  lesson.append(title, start, steps, custom, error, hint, later);
+  lesson.append(title, vaultActions, start, steps, custom, error, hint, later);
   const result = element('section', 'learning-result');
   result.id = 'learningResult';
   result.setAttribute('aria-live', 'polite');
@@ -194,11 +192,12 @@ export function createLearningView(
         card.status.textContent = tr(learningCourseStatus(id, course, state, deferred));
       }
       configure.hidden = course !== 'vault';
+      vaultActions.hidden = course !== 'vault';
       later.hidden = course === 'fragment';
-      start.hidden = !['fragment', 'reader', 'video'].includes(course);
+      start.hidden = !['fragment', 'reader', 'video', 'vault'].includes(course);
       if (renderedCourse !== course) custom.open = start.hidden;
       renderedCourse = course;
-      steps.hidden = !start.hidden;
+      steps.hidden = !start.hidden && course !== 'vault';
       hint.hidden = !start.hidden;
       const pending = state.pending[state.pending.length - 1];
       if (pending && (!receipt || pending.receipt.savedAt > receipt.savedAt)) receipt = undefined;

@@ -241,7 +241,11 @@ describe('production options navigation e2e', () => {
     trigger().click();
     const onboarding = queryRequired<HTMLButtonElement>('[data-footer-panel="onboarding"]');
     onboarding.click();
-    expect(open).toHaveBeenCalledWith('../onboarding/index.html', '_blank', 'noopener,noreferrer');
+    expect(open).toHaveBeenCalledWith(
+      '../onboarding/index.html?source=options',
+      '_blank',
+      'noopener,noreferrer'
+    );
     expect(onboarding.hasAttribute('aria-current')).toBe(false);
     expect(document.querySelectorAll('[data-footer-panel][aria-current="page"]')).toHaveLength(0);
     expect(document.querySelectorAll('.sidebar')).toHaveLength(1);

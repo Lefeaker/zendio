@@ -3,7 +3,7 @@ import type { LearningReceipt } from '../shared/learningProgress';
 import { createPracticeVideo } from './practiceVideo';
 import type { PracticeLesson } from './practiceLessonTypes';
 import { element, learningButton } from './learningView';
-import { practiceFollowUp, selectionSettingsHint } from './practiceFollowUp';
+import { practiceFollowUp, selectionSettingsHint, settingsGuideLink } from './practiceFollowUp';
 import { learningResultPath } from './learningResult';
 
 export interface PracticeStep {
@@ -52,6 +52,7 @@ export function createPracticeView(
   const second = element('p', 'practice-passage', messages.practiceSecond);
   second.id = 'practiceSecond';
   const readerLesson = lesson === 'reader';
+  const vaultLesson = lesson === 'vault';
   const media = lesson === 'video' ? createPracticeVideo(messages) : undefined;
   const middle = element('section', 'practice-reading-middle');
   if (lesson !== 'video')
@@ -66,7 +67,9 @@ export function createPracticeView(
         ? messages.practiceStart
         : readerLesson
           ? messages.learningReaderTitle
-          : messages.learningFragmentTitle
+          : vaultLesson
+            ? messages.learningVaultTitle
+            : messages.learningFragmentTitle
     ),
     element(
       'h1',
@@ -88,7 +91,9 @@ export function createPracticeView(
         ? messages.learningVideoTitle
         : readerLesson
           ? messages.learningReaderTitle
-          : messages.learningFirstSave
+          : vaultLesson
+            ? messages.learningVaultTitle
+            : messages.learningFirstSave
     ),
     exit
   );
@@ -149,7 +154,16 @@ export function createPracticeView(
   const error = element('p', 'learning-error');
   error.id = 'practiceError';
   error.setAttribute('role', 'alert');
-  content.append(progress, counter, status, result, error);
+  const vaultSetup = element('p', 'practice-settings-link');
+  if (vaultLesson) {
+    vaultSetup.append(
+      firefox ? messages.settingsVaultFirefox : messages.settingsVaultLocal,
+      ' ',
+      settingsGuideLink(messages.settingsConnectVault, 'vault')
+    );
+  }
+  vaultSetup.hidden = !vaultLesson;
+  content.append(progress, counter, vaultSetup, status, result, error);
   lessonPane.append(navigation, content);
   root.append(reading, lessonPane);
   let lastInstruction = '';
@@ -215,6 +229,7 @@ export function createPracticeView(
       setHidden(enable, !disabled);
       setHidden(selectionSettings, phase !== 'select' || lesson === 'video');
       setHidden(badge, !completed);
+      setHidden(vaultSetup, !vaultLesson || completed);
       setHidden(result, !receipt);
       first.classList.toggle('is-current', phase === 'select');
       second.classList.toggle('is-current', phase === 'reading');
@@ -236,7 +251,7 @@ export function createPracticeView(
           next,
           receipt.course === 'reader' ? messages.learningVideoTitle : messages.practiceNext
         );
-        setHidden(next, lesson === 'video');
+        setHidden(next, lesson === 'video' || vaultLesson);
       }
     }
   };

@@ -2,6 +2,26 @@
 
 日期：2026-08-28
 
+## 用户操作耗时采样
+
+`tests/e2e/videoCapturePlatformPerformance.browser.test.ts` 在已加载扩展的隔离 Chromium
+profile 中保留监听器/高亮恢复检查，并采集 5 个新页面上的面板准备与 10 次评论捕捉耗时。
+面板终点是展开后可用的添加按钮；捕捉终点是正确的评论出现在列表中且备注输入框可编辑，
+随后实际输入并回读备注。每个样本检查页面可见及焦点，页面内容由本地 fixture 提供。
+
+```bash
+node scripts/run-bounded-command.mjs --profile playwright-v1 -- test tests/e2e/videoCapturePlatformPerformance.browser.test.ts --project=chromium-desktop
+```
+
+测试输出目录中的 `video-interaction-latency.json` 同时作为 Playwright 附件保存，包含浏览器、
+运行时、扩展版本、已编译 JS 文件列表及 hash、计时边界和全部原始样本。基线与候选应使用
+相同测试、浏览器和页面条件分别运行，并在下一次运行清理输出前保留该 JSON。
+
+这是含自动化操作与断言观察开销的交互采样，没有新增耗时硬门禁。它不覆盖真实网站网络、
+视频解码、截图或导出完成；新页面也不等于冷浏览器启动。少量样本只能比较量级，不能证明
+稳定的尾延迟或把共同主机上的偶发慢样本归因于扩展。源码行数、包体和 listener 计数仍不能
+代替这些用户操作耗时。
+
 ## 1. 构建真值
 
 2026-09-11 会话恢复修复：与手测基线 `ac905303` 的正常生产包相比，产物仍为 181 个文件、108 个 JavaScript 文件；JS 总计从 1,921,926 增至 1,934,990 bytes，整个目录增加 15,864 bytes（约 0.4%）。`content/runtime.js` 从 52,536 增至 53,492 bytes；gzip 参考值从 16,117 增至 16,382 bytes。压缩大小只用于体积对照，不能代替本地扩展的交互耗时实测。

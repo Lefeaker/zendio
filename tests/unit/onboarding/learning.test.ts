@@ -106,6 +106,25 @@ describe('learning center', () => {
     dispose();
   });
 
+  it('offers a vault connection and a real bundled save without requiring an external page', async () => {
+    const r = rig();
+    r.dependencies.runtime = {
+      getURL: (value) => 'chrome-extension://test/' + value,
+      getBrowserTarget: () => 'chrome'
+    };
+    const dispose = await mountLearningCenter(r.root, r.dependencies, r.navigation, {});
+    required<HTMLButtonElement>(r.root, '[data-learning-course="vault"]').click();
+    expect(required<HTMLButtonElement>(r.root, '#learningStartPractice').hidden).toBe(false);
+    expect(required<HTMLButtonElement>(r.root, '#learningConfigure').closest('details')).toBeNull();
+    required<HTMLButtonElement>(r.root, '#learningStartPractice').click();
+    await vi.waitFor(() => expect(r.createMock).toHaveBeenCalledTimes(1));
+    const request = r.createMock.mock.calls[0]?.[0];
+    expect(request).toMatchObject({ active: true });
+    expect(request?.url).toMatch(/practice\.html\?lesson=vault&run=/);
+    expect(await r.dependencies.storage.local.get(LEARNING_PROGRESS_KEY)).toBeUndefined();
+    dispose();
+  });
+
   it('explains AI chat saving without a practice or completion requirement', async () => {
     const r = rig();
     await r.dependencies.storage.local.set('learningPreference.v1', {

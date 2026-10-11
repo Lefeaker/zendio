@@ -470,6 +470,7 @@
     "practiceStart": "Commencer la pratique guidée",
     "practiceTitle": "Enregistrez votre première note pas à pas",
     "practiceVault": "Le coffre sélectionné est « {name} ». La note y sera enregistrée.",
+    "practiceVaultDownload": "Le fichier Markdown a été téléchargé. Pour terminer cet exercice, choisissez votre coffre dans le panneau de capture et enregistrez à nouveau.",
     "practiceVideoFinish": "Vous avez essayé les sauts et la sélection des images. Gardez le premier point rempli, puis exportez. Vérifiez les deux horodatages et l’image choisie dans la note.",
     "practiceVideoFrames": "Choisir un instant pour l’exercice",
     "practiceVideoIntro": "Cette courte vidéo change de couleur avec l’horloge. Démarrez le mode vidéo, notez deux instants, puis essayez les sauts temporels et le choix des captures d’écran.",

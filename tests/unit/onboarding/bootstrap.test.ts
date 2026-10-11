@@ -2,6 +2,7 @@
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Messages } from '../../../src/i18n/messages';
+import { createMemoryStorageArea } from '../../../src/platform/preview/memoryStorage';
 
 type OnboardingRuntimeMessagesMock = Partial<Messages>;
 type OnboardingControllerCtor =
@@ -772,11 +773,56 @@ describe('onboarding bootstrap', () => {
 
     await waitForSentMessage(messagingRepository.send, {
       type: 'ANALYTICS_EVENT',
-      event: 'onboarding_completed',
+      event: 'onboarding_skipped',
       params: {
-        duration_bucket: '3s_to_9s'
+        step: 'finish'
       }
     });
+    expect(messagingRepository.send).not.toHaveBeenCalledWith(
+      expect.objectContaining({ event: 'onboarding_completed' })
+    );
+  });
+
+  it('distinguishes reopening from installation and completes only after all real courses', async () => {
+    const { OnboardingController } = await import('../../../src/onboarding/bootstrap');
+    history.replaceState(null, '', '/onboarding/index.html?source=options');
+    const receipt = { operationId: 'saved', filePath: 'note.md', destination: 'vault', savedAt: 1 };
+    const messagingRepository = { send: vi.fn().mockResolvedValue(undefined) };
+    const memory = createMemoryStorageArea();
+    await memory.set('learningProgress.v1', {
+      version: 1,
+      completed: Object.fromEntries(
+        ['fragment', 'article', 'reader', 'video', 'vault'].map((key) => [key, receipt])
+      ),
+      pending: []
+    });
+    const controller = new OnboardingController(
+      createNavigationRepoMock(),
+      createOnboardingDependencies({
+        storage: { local: memory, sync: memory },
+        optionsRepository: {
+          get: () => Promise.resolve({ privacyPreferences: { analytics: true } }),
+          patch: vi.fn()
+        },
+        messagingRepository
+      })
+    );
+    controller.initialize();
+    await waitForSentMessage(messagingRepository.send, {
+      type: 'ANALYTICS_EVENT',
+      event: 'onboarding_started',
+      params: { source: 'options' }
+    });
+    document.getElementById('skipOnboardingBtn')?.click();
+    await vi.waitFor(() =>
+      expect(messagingRepository.send).toHaveBeenCalledWith(
+        expect.objectContaining({ event: 'onboarding_completed' })
+      )
+    );
+    expect(messagingRepository.send).not.toHaveBeenCalledWith(
+      expect.objectContaining({ event: 'onboarding_skipped' })
+    );
+    history.replaceState(null, '', '/');
   });
 
   it('emits feedback/contact support actions without changing base contact completion semantics', async () => {

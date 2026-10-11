@@ -1,6 +1,6 @@
 import { getOptions } from '../store';
 import { notifyClipFailure, notifyClipSuccess, notifyClipWarning } from '../services/notifications';
-import type { ClipResultMessage } from '../../shared/types';
+import type { ClipResultMessage, ClipResultResponse } from '../../shared/types';
 import { processClipPayload } from '../application/clipProcessor';
 import type { TabsService } from '../../platform/interfaces/tabs';
 import { createAnalyticsOperationId } from '../../shared/analytics';
@@ -137,13 +137,13 @@ export async function handleClipResult(
   message: ClipResultMessage,
   tabId: number | undefined,
   dependencies: ClipPipelineDependencies
-): Promise<void> {
+): Promise<ClipResultResponse> {
   const payload = ensureBackgroundOperationId(normalizeClipPayload(message.payload));
 
   if (!payload?.markdown) {
     const error = extractionErrors.noMarkdown(buildFailureContext(payload));
     await handleClipFailure(dependencies, error, tabId, payload);
-    return;
+    return { success: false };
   }
 
   try {
@@ -213,6 +213,7 @@ export async function handleClipResult(
         variant: supportStatus
       }
     });
+    return { success: true, filePath: result.filePath };
   } catch (error) {
     const appError = normalizeToAppError(error, {
       code: 'CLIP_PIPELINE_FAILURE',
@@ -221,6 +222,7 @@ export async function handleClipResult(
       context: buildPipelineErrorContext(payload)
     });
     await handleClipFailure(dependencies, appError, tabId, payload);
+    return { success: false };
   }
 }
 

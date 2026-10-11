@@ -7,7 +7,7 @@ export interface SettingsTourStep {
   title: string;
   selector: string;
   text: string[];
-  practice: 'fragment' | 'reader' | 'video' | 'library';
+  practice: 'fragment' | 'reader' | 'video' | 'vault' | 'library';
   link?: readonly [string, string];
 }
 export const SETTINGS_TOUR_GROUPS = {
@@ -41,15 +41,19 @@ export function settingsTourSteps(m: Messages, firefox: boolean): SettingsTourSt
     step('privacy', m.schemaOverviewPrivacyGroupTitle, '.card:has(.consent-inline-grid)', [
       m.settingsTourPrivacy
     ]),
-    step('vault', m.settingsConnectVault, '.card:has(.storage-vault-table-scroll)', [
-      firefox ? m.settingsVaultFirefox : m.settingsVaultLocal
-    ]),
+    step(
+      'vault',
+      m.settingsConnectVault,
+      '.card:has(.storage-vault-table-scroll)',
+      [firefox ? m.settingsVaultFirefox : m.settingsVaultLocal],
+      'vault'
+    ),
     step(
       'rest',
       m.settingsTourRestTitle,
       '.storage-vault-table-scroll tbody tr:first-child td:has(input[type="password"])',
       [m.settingsVaultRest],
-      'fragment',
+      'vault',
       ['Local REST API with MCP', 'https://github.com/coddingtonbear/obsidian-local-rest-api']
     ),
     step('routing', m.routingRulesTitle, '.card:has(.routing-rules-table-scroll)', [

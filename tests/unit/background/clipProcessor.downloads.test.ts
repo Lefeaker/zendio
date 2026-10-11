@@ -1,9 +1,13 @@
+import { LEARNING_PROGRESS_KEY, readLearningProgress } from '../../../src/shared/learningProgress';
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import {
   classifyClipMock,
   createPayload,
   createWriteSessionMock,
   downloadMock,
+  inspectDownloadMock,
+  learningStorage,
+  trackUsageEventMock,
   expectDownloadedBlob,
   getOptionsMock,
   recordUsageMock,
@@ -24,6 +28,135 @@ describe('clipProcessor downloads', () => {
 
   afterEach(() => {
     restoreClipProcessorHarnessMocks();
+  });
+
+  it('uses completed unique attachment names and the final note path', async () => {
+    getOptionsMock.mockResolvedValue({ templates: templateOptions, domainMappings: {}, rest: {} });
+    classifyClipMock.mockResolvedValue({ type: 'video', topics: [], tags: [], status: 'success' });
+    resolvePathMock.mockReturnValue('Video/note.md');
+    downloadMock.mockResolvedValueOnce(1).mockResolvedValueOnce(2);
+    inspectDownloadMock.mockImplementation((id) =>
+      Promise.resolve({
+        state: 'complete',
+        filename:
+          id === 1
+            ? '/Users/fixture/Downloads/shot (1).jpg'
+            : '/Users/fixture/Downloads/note (1).md'
+      })
+    );
+    const { processClipPayload } =
+      await import('../../../src/background/application/clipProcessor');
+    const result = await processClipPayload(
+      createPayload({
+        markdown: '# video\n![Screenshot](aiob-attachment:shot)',
+        type: 'video',
+        meta: {
+          exportDestination: { kind: 'downloads' },
+          attachments: [
+            {
+              id: 'shot',
+              fileName: 'shot.jpg',
+              mimeType: 'image/jpeg',
+              content: { encoding: 'base64', data: 'YWFh', byteLength: 3 }
+            }
+          ]
+        }
+      })
+    );
+    expect(downloadMock).toHaveBeenLastCalledWith({
+      filename: 'note.md',
+      content: '# video\n![Screenshot](shot%20%281%29.jpg)',
+      mimeType: 'text/markdown;charset=utf-8'
+    });
+    expect(result.filePath).toBe('/Users/fixture/Downloads/note (1).md');
+    expect(
+      readLearningProgress(await learningStorage.get(LEARNING_PROGRESS_KEY)).latest?.filePath
+    ).toBe(result.filePath);
+    expect(JSON.stringify(trackUsageEventMock.mock.calls)).not.toContain('/Users/fixture');
+  });
+
+  it('keeps a same-named parent folder while updating a generated custom download URL', async () => {
+    getOptionsMock.mockResolvedValue({
+      templates: templateOptions,
+      domainMappings: {},
+      rest: {},
+      video: {
+        screenshotAttachment: {
+          locationTemplate: 'shot.jpg',
+          fileNameTemplate: '${originalAttachmentFileName}',
+          markdownUrlFormat:
+            'obsidian://vault/${generatedAttachmentFilePath}?file=${generatedAttachmentFileName}'
+        }
+      }
+    });
+    classifyClipMock.mockResolvedValue({ type: 'video', topics: [], tags: [], status: 'success' });
+    resolvePathMock.mockReturnValue('Video/note.md');
+    downloadMock.mockResolvedValueOnce(1).mockResolvedValueOnce(2);
+    inspectDownloadMock.mockImplementation((id) =>
+      Promise.resolve({
+        state: 'complete',
+        filename: id === 1 ? '/downloads/shot.jpg/shot (1).jpg' : '/downloads/note.md'
+      })
+    );
+    const { processClipPayload } =
+      await import('../../../src/background/application/clipProcessor');
+    await processClipPayload(
+      createPayload({
+        type: 'video',
+        markdown: '![Screenshot](aiob-attachment:shot)',
+        meta: {
+          exportDestination: { kind: 'downloads' },
+          attachments: [
+            {
+              id: 'shot',
+              fileName: 'shot.jpg',
+              mimeType: 'image/jpeg',
+              content: { encoding: 'base64', data: 'YWFh', byteLength: 3 }
+            }
+          ]
+        }
+      })
+    );
+    expect(downloadMock.mock.lastCall?.[0]?.content).toBe(
+      '![Screenshot](obsidian://vault/shot.jpg/shot%20%281%29.jpg?file=shot%20%281%29.jpg)'
+    );
+  });
+
+  it('does not save markdown or publish successful usage after an interrupted attachment', async () => {
+    getOptionsMock.mockResolvedValue({ templates: templateOptions, domainMappings: {}, rest: {} });
+    classifyClipMock.mockResolvedValue({ type: 'video', topics: [], tags: [], status: 'success' });
+    resolvePathMock.mockReturnValue('Video/note.md');
+    downloadMock.mockResolvedValue(1);
+    inspectDownloadMock.mockResolvedValue({ state: 'interrupted', filename: 'shot.jpg' });
+    const { processClipPayload } =
+      await import('../../../src/background/application/clipProcessor');
+    await expect(
+      processClipPayload(
+        createPayload({
+          markdown: '# video\n![Screenshot](aiob-attachment:shot)',
+          type: 'video',
+          meta: {
+            exportDestination: { kind: 'downloads' },
+            attachments: [
+              {
+                id: 'shot',
+                fileName: 'shot.jpg',
+                mimeType: 'image/jpeg',
+                content: { encoding: 'base64', data: 'YWFh', byteLength: 3 }
+              }
+            ]
+          }
+        })
+      )
+    ).rejects.toThrow('interrupted');
+    expect(downloadMock).toHaveBeenCalledTimes(1);
+    expect(recordUsageMock).not.toHaveBeenCalled();
+    expect(
+      readLearningProgress(await learningStorage.get(LEARNING_PROGRESS_KEY)).latest
+    ).toBeUndefined();
+    expect(trackUsageEventMock.mock.calls.some(([event]) => event === 'clip_save_completed')).toBe(
+      false
+    );
   });
 
   it('sources downloads progress descriptor fallbacks from default runtime messages', async () => {
