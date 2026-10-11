@@ -39,7 +39,7 @@ export function waitForDownloadCompletion(
     let inspecting = false;
     let inspectAgain = false;
     let stop = () => {};
-    const finish = (item?: DownloadStatus, error?: unknown) => {
+    const finish = (item?: DownloadStatus, error?: Error) => {
       if (settled) return;
       settled = true;
       clearTimeout(deadline);
@@ -66,7 +66,7 @@ export function waitForDownloadCompletion(
           else if (result.state === 'interrupted') finish();
         }
       } catch (error) {
-        finish(undefined, error);
+        finish(undefined, error instanceof Error ? error : new Error(String(error)));
       } finally {
         inspecting = false;
       }
@@ -77,7 +77,7 @@ export function waitForDownloadCompletion(
       });
       void inspect();
     } catch (error) {
-      finish(undefined, error);
+      finish(undefined, error instanceof Error ? error : new Error(String(error)));
     }
   });
 }

@@ -1,3 +1,4 @@
+import type { ClipResultResponse } from '../../../src/shared/types';
 /* @vitest-environment jsdom */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createReaderSessionDependencies } from '@content/reader/sessionDependencies';
@@ -23,7 +24,9 @@ import {
   writeMarkdownMock
 } from './clipTestHarness';
 import { handleClipResult } from '../../../src/background/pipelines/clipPipeline';
-import type { ClipResultMessage } from '@shared/types';
+import type { MessagingService } from '../../../src/platform/interfaces/messaging';
+import { createMemoryStorageService } from '../../../src/platform/preview/memoryStorage';
+import { MockOptionsRepository } from '../../utils/repositories/MockOptionsRepository';
 
 vi.mock('@shared/di/serviceRegistry', () => ({ resolveRepository: () => ({}) }));
 
@@ -57,22 +60,33 @@ describe('Reader save through the production background pipeline', () => {
 
   it('keeps highlights and the stored draft after writer failure, then closes only after a successful retry', async () => {
     const context = createSessionContext();
+    const acknowledgementReply = vi.fn<() => Promise<ClipResultResponse>>();
+    const messaging: Pick<MessagingService, 'send'> = {
+      // MessagingService lets the caller choose TResult; this fixture supplies only the
+      // actual production pipeline response and leaves runtime validation to Reader.
+      send: async <TResult>() => (await acknowledgementReply()) as TResult
+    };
     const runtime = createReaderSessionDependencies({
-      optionsRepository: {} as never,
-      storage: {} as never,
+      optionsRepository: new MockOptionsRepository(),
+      storage: createMemoryStorageService(),
       runtime: { getURL: (path) => path },
-      messaging: {
-        send: async <TResult>(message: unknown) =>
-          (await handleClipResult(message as ClipResultMessage, 1, {
-            sendSupportPrompt: vi.fn().mockResolvedValue(undefined)
-          })) as TResult
-      }
+      messaging
     });
-    context.dispatchClipResult.mockImplementation(runtime.dispatchClipResult);
+    context.dispatchClipResult.mockImplementation(async (payload) => {
+      const acknowledgement = await handleClipResult({ type: 'CLIP_RESULT', payload }, 1, {
+        sendSupportPrompt: vi.fn().mockResolvedValue(undefined)
+      });
+      acknowledgementReply.mockResolvedValueOnce(acknowledgement);
+      await runtime.dispatchClipResult(payload);
+    });
+    const content = document.getElementById('content');
+    if (!content) throw new Error('Missing Reader source fixture');
     await context.session.initialize({
-      ...createSelectionPayload(document.getElementById('content')!),
+      ...createSelectionPayload(content),
       comment: 'Keep my comment'
     });
+    const callbacks = context.getCallbacks();
+    if (!callbacks) throw new Error('Reader panel was not mounted');
     await flushDraftPersistence();
     const key = getDraftIdentity(context.session).draftStorageKey;
     if (!key) throw new Error('Reader draft was not persisted');
@@ -80,7 +94,7 @@ describe('Reader save through the production background pipeline', () => {
       expect(await readStoredReaderDraft(context, key)).toMatchObject({ status: 'active' })
     );
     writeMarkdownMock.mockRejectedValueOnce(new Error('disk full')).mockResolvedValue(undefined);
-    await context.getCallbacks()!.onFinish();
+    await callbacks.onFinish();
     await vi.waitFor(() => expect(writeMarkdownMock).toHaveBeenCalledTimes(1));
     await vi.advanceTimersByTimeAsync(0);
     expect(context.view.destroy).not.toHaveBeenCalled();
@@ -90,10 +104,10 @@ describe('Reader save through the production background pipeline', () => {
     expect(draft?.status).toBe('active');
     expect(JSON.stringify(draft)).toContain('Keep my comment');
     context.draftMessages.loseNextResponse('removeExact', new Error('cleanup ACK lost'));
-    await context.getCallbacks()!.onFinish();
+    await callbacks.onFinish();
     expect(context.view.destroy).not.toHaveBeenCalled();
     expect(writeMarkdownMock).toHaveBeenCalledTimes(2);
-    await context.getCallbacks()!.onFinish();
+    await callbacks.onFinish();
     await vi.waitFor(() => expect(context.view.destroy).toHaveBeenCalledTimes(1));
     expect(writeMarkdownMock).toHaveBeenCalledTimes(2);
     expect(writeMarkdownMock.mock.lastCall?.[1]).toContain('Keep my comment');
