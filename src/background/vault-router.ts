@@ -5,6 +5,11 @@ import type { VaultRouterIdentityIssue } from '../shared/config/vaultRouterIdent
 import { configProvider } from '../shared/config';
 import { allocateVaultId, validateVaultRouterIdentity } from '../shared/config/vaultRouterIdentity';
 import { mapVaultRouterIdentityIssue } from './vaultRouterIdentityValidationMessages';
+import {
+  getActiveRoutingRules,
+  getDefaultRoutingVault,
+  selectMatchingVault
+} from '../shared/vaultRouting';
 
 const DEFAULT_VAULT_NAME = 'New Vault';
 
@@ -60,22 +65,12 @@ export class VaultRouter {
    * 根据上下文选择合适的仓库
    */
   selectVault(context: ClipContext): VaultConfig | null {
-    // 1. 按优先级排序规则
-    const sortedRules = this.getActiveRules()
-      .filter((rule) => rule.enabled)
-      .sort((a, b) => b.priority - a.priority);
-
-    // 2. 依次匹配规则
-    for (const rule of sortedRules) {
-      if (this.matchRule(rule, context)) {
-        const vault = this.config.vaults.find((v) => v.id === rule.vaultId);
-        if (vault) {
-          console.log(
-            `[VaultRouter] Matched rule: ${rule.description || rule.pattern} -> ${vault.name}`
-          );
-          return vault;
-        }
-      }
+    const match = selectMatchingVault(this.config, context);
+    if (match) {
+      console.log(
+        `[VaultRouter] Matched rule: ${match.rule.description || match.rule.pattern} -> ${match.vault.name}`
+      );
+      return match.vault;
     }
 
     console.log('[VaultRouter] No routing rule matched; falling back to primary REST settings');
@@ -83,139 +78,10 @@ export class VaultRouter {
   }
 
   /**
-   * 匹配规则
-   */
-  private matchRule(rule: RoutingRule, context: ClipContext): boolean {
-    switch (rule.type) {
-      case 'domain':
-        return this.matchDomain(rule.pattern, context.domain);
-
-      case 'keyword':
-        return this.matchKeyword(rule.pattern, context);
-
-      case 'url-pattern':
-        return this.matchUrlPattern(rule.pattern, context.url);
-
-      default:
-        return false;
-    }
-  }
-
-  /**
-   * 匹配域名
-   * 支持精确匹配和通配符
-   */
-  private matchDomain(pattern: string, domain: string): boolean {
-    const normalizedDomain = domain.trim().toLowerCase();
-
-    if (!normalizedDomain) {
-      return false;
-    }
-
-    const candidates = pattern
-      .split(';')
-      .map((part) => part.trim().toLowerCase())
-      .filter((part) => part.length > 0);
-
-    if (candidates.length === 0) {
-      return false;
-    }
-
-    return candidates.some((candidate) =>
-      this.matchSingleDomainPattern(candidate, normalizedDomain)
-    );
-  }
-
-  /**
-   * 匹配关键词
-   * 在标题和内容中搜索关键词
-   */
-  private matchKeyword(pattern: string, context: ClipContext): boolean {
-    const keywords = pattern
-      .split(',')
-      .map((k) => k.trim().toLowerCase())
-      .filter((keyword) => keyword.length > 0);
-
-    if (keywords.length === 0) {
-      return false;
-    }
-
-    const searchText = `${context.title} ${context.content}`.toLowerCase();
-
-    // 任意关键词匹配即可
-    return keywords.some((keyword) => searchText.includes(keyword));
-  }
-
-  private matchSingleDomainPattern(pattern: string, normalizedDomain: string): boolean {
-    if (pattern.includes('*')) {
-      try {
-        const escaped = pattern.replace(/[.+?^${}()|[\]\\]/g, '\\$&').replace(/\*/g, '.*');
-        const regex = new RegExp(`^${escaped}$`, 'i');
-        return regex.test(normalizedDomain);
-      } catch (error) {
-        console.error('[VaultRouter] Invalid wildcard pattern:', pattern, error);
-        return false;
-      }
-    }
-
-    if (normalizedDomain === pattern) {
-      return true;
-    }
-
-    if (normalizedDomain.endsWith(`.${pattern}`)) {
-      return true;
-    }
-
-    const index = normalizedDomain.indexOf(pattern);
-    if (index !== -1) {
-      const before = index === 0 || normalizedDomain[index - 1] === '.';
-      const afterIndex = index + pattern.length;
-      const after = afterIndex === normalizedDomain.length || normalizedDomain[afterIndex] === '.';
-      if (before && after) {
-        return true;
-      }
-    }
-
-    return false;
-  }
-
-  /**
-   * 匹配 URL 模式
-   * 支持正则表达式
-   */
-  private matchUrlPattern(pattern: string, url: string): boolean {
-    const trimmedPattern = pattern.trim();
-    if (trimmedPattern.length === 0) {
-      return false;
-    }
-
-    try {
-      const regex = new RegExp(trimmedPattern, 'i');
-      return regex.test(url);
-    } catch (error) {
-      console.error(`[VaultRouter] Invalid regex pattern: ${pattern}`, error);
-      return false;
-    }
-  }
-
-  /**
    * 获取默认仓库
    */
   getDefaultVault(): VaultConfig | null {
-    // 1. 使用配置的默认仓库
-    if (this.config.defaultVaultId) {
-      const vault = this.config.vaults.find(
-        (v) => v.id === this.config.defaultVaultId && v.enabled !== false
-      );
-      if (vault) return vault;
-    }
-
-    // 2. 使用标记为默认的仓库
-    const defaultVault = this.config.vaults.find((v) => v.isDefault && v.enabled !== false);
-    if (defaultVault) return defaultVault;
-
-    // 3. 返回第一个仓库
-    return this.config.vaults.find((v) => v.enabled !== false) || null;
+    return getDefaultRoutingVault(this.config);
   }
 
   /**
@@ -240,7 +106,7 @@ export class VaultRouter {
    * 获取所有规则
    */
   getAllRules(): RoutingRule[] {
-    return this.getActiveRules().map((rule) => ({ ...rule }));
+    return getActiveRoutingRules(this.config).map((rule) => ({ ...rule }));
   }
 
   /**
@@ -277,43 +143,6 @@ export class VaultRouter {
       issues
     };
   }
-  /**
-   * 获取合并后的规则列表，兼容旧版配置结构
-   */
-  private getActiveRules(): RoutingRule[] {
-    const legacyRules = Array.isArray(this.config.rules) ? this.config.rules : [];
-
-    const rulesFromEnabledVaults = this.config.vaults
-      .filter((vault) => vault.enabled !== false)
-      .flatMap((vault) =>
-        (vault.rules ?? []).map((rule) => ({
-          ...rule,
-          vaultId: rule.vaultId ?? vault.id
-        }))
-      );
-
-    const merged = [...legacyRules, ...rulesFromEnabledVaults];
-    const seen = new Set<string>();
-
-    return merged.filter((rule) => {
-      if (!rule.id) {
-        return true;
-      }
-      if (seen.has(rule.id)) {
-        return false;
-      }
-      seen.add(rule.id);
-      if (rule.enabled === false) {
-        return false;
-      }
-      const targetVault = this.config.vaults.find((v) => v.id === rule.vaultId);
-      if (!targetVault || targetVault.enabled === false) {
-        return false;
-      }
-      return true;
-    });
-  }
-
   private getConfiguredRules(): RoutingRule[] {
     const legacyRules = Array.isArray(this.config.rules) ? this.config.rules : [];
 
