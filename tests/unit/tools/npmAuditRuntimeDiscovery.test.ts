@@ -2,6 +2,7 @@ import { EventEmitter } from 'node:events';
 import {
   linkSync,
   lstatSync,
+  mkdirSync,
   mkdtempSync,
   readFileSync,
   realpathSync,
@@ -15,6 +16,22 @@ import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { createPortableRuntimeFixture } from '../../utils/npmAuditRegressionFixtures';
 import { loadRuntimeDiscovery } from '../../utils/npmAuditTypedLoader.mjs';
+
+function historicalProject(
+  root: string,
+  policy: { nodeVersion: string; nodeEngine: string; npmEngine: string }
+) {
+  const repositoryRoot = join(root, 'project');
+  mkdirSync(repositoryRoot, { mode: 0o700 });
+  writeFileSync(join(repositoryRoot, '.nvmrc'), `${policy.nodeVersion.slice(1)}\n`);
+  writeFileSync(
+    join(repositoryRoot, 'package.json'),
+    JSON.stringify({
+      engines: { node: policy.nodeEngine, npm: policy.npmEngine }
+    })
+  );
+  return repositoryRoot;
+}
 
 describe('portable runtime discovery', () => {
   it('contains no developer-home or implicit command lookup authority', () => {
@@ -33,6 +50,7 @@ describe('portable runtime discovery', () => {
           execPath: fixture.nodePath,
           nodeVersion: fixture.policy.nodeVersion,
           policy: fixture.policy,
+          repositoryRoot: historicalProject(root, fixture.policy),
           environment: {},
           spawnSyncOperation: () => ({
             status: 0,
@@ -58,6 +76,7 @@ describe('portable runtime discovery', () => {
         execPath: fixture.nodePath,
         nodeVersion: fixture.policy.nodeVersion,
         policy: fixture.policy,
+        repositoryRoot: historicalProject(root, fixture.policy),
         environment: {},
         spawnSyncOperation: () => ({
           status: 0,
@@ -98,6 +117,7 @@ describe('portable runtime discovery', () => {
           execPath: fixture.nodePath,
           nodeVersion: fixture.policy.nodeVersion,
           policy: fixture.policy,
+          repositoryRoot: historicalProject(root, fixture.policy),
           environment: {},
           spawnSyncOperation: () => {
             writeFileSync(targetPath, 'replacement bytes\n');
@@ -131,6 +151,7 @@ describe('portable runtime discovery', () => {
         execPath: fixture.nodePath,
         nodeVersion: fixture.policy.nodeVersion,
         policy: fixture.policy,
+        repositoryRoot: historicalProject(root, fixture.policy),
         environment: {},
         spawnSyncOperation: () => ({
           status: 0,
@@ -212,6 +233,7 @@ describe('portable runtime discovery', () => {
         execPath: fixture.nodePath,
         nodeVersion: fixture.policy.nodeVersion,
         policy: fixture.policy,
+        repositoryRoot: historicalProject(root, fixture.policy),
         environment: {},
         spawnSyncOperation: () => ({
           status: 0,
