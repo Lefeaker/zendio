@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto';
+import { RUNTIME_POLICY } from '../config/runtimePolicy.mjs';
 import {
   closeSync,
   constants as fsConstants,
@@ -450,8 +451,8 @@ function validateManifestShape(manifest) {
     'FIREFOX_RELEASE_TOOLCHAIN_IDENTITY'
   );
   if (
-    manifest.toolchain.node !== 'v20.20.2' ||
-    manifest.toolchain.npm !== '10.8.2' ||
+    manifest.toolchain.node !== RUNTIME_POLICY.nodeVersion ||
+    manifest.toolchain.npm !== RUNTIME_POLICY.npmVersion ||
     manifest.toolchain.amoClient !== 'direct-v5' ||
     manifest.toolchain.bidiAdapter !== 'webdriver-bidi-v1' ||
     manifest.toolchain.geckodriver !== '0.37.1' ||

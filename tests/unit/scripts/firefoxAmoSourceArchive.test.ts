@@ -108,7 +108,7 @@ async function createSourceFixture(
   options: { localNoise?: boolean } = {}
 ): Promise<void> {
   const { localNoise = true } = options;
-  await writeFixtureFile(root, '.nvmrc', '20.20.2\n');
+  await writeFixtureFile(root, '.nvmrc', '24.21.0\n');
   await writeFixtureFile(
     root,
     'package.json',
@@ -322,7 +322,7 @@ describe('Firefox AMO source archive', () => {
       join(fakeBin, 'npm'),
       `#!/bin/sh
 if test "$#" -eq 1 && test "$1" = --version; then
-  printf '10.8.2\\n'
+  printf '11.19.0\\n'
   exit 0
 fi
 if test "$#" -eq 9 && test "$1" = ci && test "$2" = --ignore-scripts && test "$3" = --no-audit && test "$4" = --no-fund && test "$5" = --include=optional && test "$6" = --registry=https://registry.npmjs.org/ && test "\${7#--userconfig=}" != "$7" && test "\${8#--globalconfig=}" != "$8" && test "$9" = --node-options=; then

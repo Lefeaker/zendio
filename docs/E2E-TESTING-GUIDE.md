@@ -2,7 +2,7 @@
 
 ## Canonical commands
 
-All executable test tools run through the Node 20.20.2 command boundary. The
+All executable test tools run through the Node 24.21.0 command boundary. The
 boundary resolves the tracked profile, absolute executable, argv, canonical
 repository cwd, closed environment, descriptor policy, output limits and
 cancellation behavior. Do not replace these routes with `npx`, a bare binary,

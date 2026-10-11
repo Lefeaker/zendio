@@ -4,8 +4,8 @@
   "private": true,
   "type": "module",
   "engines": {
-    "node": ">=20.19 <21",
-    "npm": ">=10 <11"
+    "node": ">=24.21 <25",
+    "npm": ">=11.19 <12"
   },
   "scripts": {
     "clean": "rimraf build/dist build/releases",
