@@ -1,12 +1,13 @@
 # 工程命令与入口
 
-最后更新：2026-09-05
+最后更新：2026-10-11
 
 ## 推荐运行环境
 
-- Node.js：`.nvmrc` pins `20.20.2`；package engines allow `>=20.19 <21`
-- npm：validated `10.8.2`；package engines allow `>=10 <11`
+- Node.js：`.nvmrc` pins `24.21.0`；package engines allow `>=24.21 <25`
+- npm：validated `11.19.0`；package engines allow `>=11.19 <12`
 - Playwright 本地安装：`node scripts/run-bounded-command.mjs --profile playwright-install-v1 -- chromium-with-deps`；CI 使用分离的 `playwright-host-deps-platform-v1` 与 `playwright-browser-install-v1`
+  当前活动命令与发布 provenance 的精确运行时来自 `scripts/config/runtimePolicy.mjs`，并校验官方 Node 24.21.0 所附 npm 11.19.0 的 CLI/package SHA-256。CI 通过 `.nvmrc` 安装相同发行版；R02 历史审计 manifest 与证据继续保留原 Node 20 / npm 10 合同，不作为当前安装 profile 的来源。升级运行时先独立验证接受目标版本、拒绝旧版本与配置注入，再执行项目验证。
 
 Linux 的 `playwright-v1` 与 `npm-script-browser-v1` child 统一固定使用 `LANG=C.UTF-8` / `LC_ALL=C.UTF-8`，以便 Chromium 的原生 Downloads 与 File System Access 正确处理中文等非 ASCII 文件名。该策略同时覆盖直接 Playwright 命令和 CI 的浏览器 npm scripts，`run-playwright.mjs` 会将它传递给实际 CLI/browser 子进程。其他工具及平台保留固定 `C` locale；调用方的 locale 值不能覆盖该策略。不要通过改写中文文件名来绕过测试进程的字符编码问题。
 
@@ -72,7 +73,7 @@ node scripts/run-bounded-command.mjs --profile node-script-standard-v1 -- tools/
   - 串行继续执行 `lint -- --quiet`、`build:dev`、`audit:ga:client-secret`、`audit:ga:release-surface` 与其他 `audit:*` 报告
 - `npm run test*` 与 `npm run visual*`
   - `test`、`test:unit`、`test:e2e` 与 `test:coverage` 直接进入 `vitest-v1`；该 profile 在启动 locked Vitest leaf 前拥有 runtime guard，其余现有 browser/visual aliases 仍保留显式 runtime guard
-  - literal npm aliases 只接受已绑定 exact package script、repo cwd、Node `v20.20.2` 与 npm `10.8.2` 的完整 npm-owned lifecycle projection；user-agent 仅允许无 provider 的 local form（包括 controller 使用的 exact `CI=1` notifier suppression）或由 exact `CI=true` / `GITHUB_ACTIONS=true` 唯一导出的 `ci/github-actions` form。projection 必须精确匹配 closed HOME、locked runtime、repo prefix 与 canonical mode-0600 `NPM_CONFIG_USERCONFIG` / `NPM_CONFIG_GLOBALCONFIG` pair。进入 managed child 前只移除这组已验证 lowercase projection，child spec 仍只传播 canonical uppercase pair；额外或伪造的 CI provider/suffix、registry、proxy、certificate、script-shell、loader、credential 与 npm config authority 一律 fail closed
+  - literal npm aliases 只接受已绑定 exact package script、repo cwd、Node `v24.21.0` 与 npm `11.19.0` 的完整 npm-owned lifecycle projection；user-agent 仅允许无 provider 的 local form（包括 controller 使用的 exact `CI=1` notifier suppression）或由 exact `CI=true` / `GITHUB_ACTIONS=true` 唯一导出的 `ci/github-actions` form。projection 必须精确匹配 closed HOME、locked runtime、repo prefix 与 canonical mode-0600 `NPM_CONFIG_USERCONFIG` / `NPM_CONFIG_GLOBALCONFIG` pair。进入 managed child 前只移除这组已验证 lowercase projection，child spec 仍只传播 canonical uppercase pair；额外或伪造的 CI provider/suffix、registry、proxy、certificate、script-shell、loader、credential 与 npm config authority 一律 fail closed
   - 本地 PATH 指向不受支持 Node 版本时，先在 runtime guard 失败，不启动 Vitest / Playwright
   - canonical shard roots 为 `node scripts/run-test-shards.mjs <unit|e2e> [registered-shard]`；全组固定最多 `3` 个 Vitest leaf，显式单 shard 固定为 `1`，不读取 CPU 或环境并发
   - 生成式视觉预览由各 fixture 分别持有唯一临时目录；runtime alignment、task-success layout 与 Stitch parity fallback 在自身 teardown 中只清理自己的产物。`build-preview.mjs --outdir` 会重置目标目录，因此并发项目或工作进程不能共享生成目录；外部冻结参考预览保持只读。

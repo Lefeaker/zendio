@@ -8,22 +8,20 @@
 
 [Website](https://zendio.sxnian.com/en/) · [GitHub Releases](https://github.com/Lefeaker/zendio/releases) · [Report an issue](https://github.com/Lefeaker/zendio/issues)
 
-| Browser         | Store                                                                                                                              | Availability      |
-| --------------- | ---------------------------------------------------------------------------------------------------------------------------------- | ----------------- |
-| Google Chrome   | [Install from Chrome Web Store](https://chromewebstore.google.com/detail/eoohmbhdepgknfemajanfaejmonckgmo)                         | v0.3.1 available. |
-| Mozilla Firefox | [Install from Firefox Add-ons](https://addons.mozilla.org/firefox/addon/zendio/)                                                   | v0.3.1 available. |
-| Microsoft Edge  | [Microsoft Edge Add-ons](https://microsoftedge.microsoft.com/addons/detail/zendioall-in-obsidian/oogaldhpamhgeeloehndhcgjkijkbocm) | v0.3.1 available. |
+| Browser         | Store                                                                                                                              | Availability       |
+| --------------- | ---------------------------------------------------------------------------------------------------------------------------------- | ------------------ |
+| Google Chrome   | [Install from Chrome Web Store](https://chromewebstore.google.com/detail/eoohmbhdepgknfemajanfaejmonckgmo)                         | v0.3.3 available.  |
+| Mozilla Firefox | [Install from Firefox Add-ons](https://addons.mozilla.org/firefox/addon/zendio/)                                                   | v0.3.3 available.  |
+| Microsoft Edge  | [Microsoft Edge Add-ons](https://microsoftedge.microsoft.com/addons/detail/zendioall-in-obsidian/oogaldhpamhgeeloehndhcgjkijkbocm) | See store listing. |
 
-Store status checked on **September 13, 2026**. Each store reviews releases independently; the version offered by the store may differ from the current source version, **v0.3.2**.
+Store status checked on **October 11, 2026**. Chrome and Firefox offer **v0.3.3**. Check the Edge listing for its current version; each store reviews independently. The source version is **v0.3.3**.
 
-## What's New in v0.3.2
+## What's New in v0.3.3
 
-- Show selected text, the count and page highlights promptly when entering reading mode.
-- Fix highlights remaining or reappearing after cancelling reading mode during startup.
-- Fix Configure vault links in clipping, reading and video panels to open the vault settings directly.
-- Add first-use tips for resizing reading and video panels and opening settings from the icon.
-- Keep save targets on one line; truncate long paths or names and show the full text on hover.
-- Fix missing reports when anonymous usage statistics are enabled, while preserving privacy choices.
+- Practice selecting text, saving Markdown, navigating reading excerpts and video timestamps with hands-on tutorials.
+- Explore four basic settings steps and 20 optional topics, with links back to practice.
+- Follow guidance for local folder access, Obsidian Local REST API and browser-specific vault limitations.
+- Generate settings in your own AI chat, preview the changes before applying them, and undo if needed. Folder access, secrets and connection tests remain manual.
 
 ## Introduction
 
@@ -106,15 +104,15 @@ Store status checked on **September 13, 2026**. Each store reviews releases inde
    - **Download:** save Markdown without connecting Obsidian or a vault.
 3. **Make it yours**: choose your language and theme, then configure vault routing, note paths, YAML fields, screenshot attachments and optional providers. Review the optional usage-statistics and error-diagnostics switches.
 
-For manual installation, use the browser-specific package attached to a published [GitHub Release](https://github.com/Lefeaker/zendio/releases). Extract a Chrome or Edge ZIP and load its folder from `chrome://extensions` or `edge://extensions` with Developer mode enabled. Firefox requires a signed XPI; its store page is the recommended installation route. GitHub's automatically generated **Source code** archives are not installable extension packages.
+No browser-specific v0.3.3 package is currently attached to a public GitHub Release. Install from the stores above. If a verified package is published later, extract a Chrome or Edge ZIP and load its folder from `chrome://extensions` or `edge://extensions` with Developer mode enabled. Firefox requires a signed XPI. GitHub's automatically generated **Source code** archives are not installable extension packages.
 
 To build from source, follow the pinned environment and bounded commands in [the engineering guide](docs/engineering-entrypoints.md), including its [Edge instructions](docs/engineering-entrypoints.md#microsoft-edge-distribution).
 
 ## Development Baseline
 
 - Current documentation status and maintenance rules live in [docs/document-status-governance.md](docs/document-status-governance.md).
-- Node.js: `.nvmrc` pins `20.20.2`; package engines allow `>=20.19 <21`.
-- npm: validated with `10.8.2`; package engines allow `>=10 <11`.
+- Node.js: `.nvmrc` pins `24.21.0`; package engines allow `>=24.21 <25`.
+- npm: validated with `11.19.0`; package engines allow `>=11.19 <12`.
 - `npm run test*` and `npm run visual*` entrypoints run `verify:runtime` first.
 - Local bundled-Chromium acceptance uses the fixed two-leaf `node scripts/run-browser-test-shards.mjs bundled` route, `playwright.bundled-chromium.config.ts`, the repository-local Playwright CLI and an already-provisioned cache. The coordinator owns a fresh fixed-dist build and keeps the shared Playwright build lease through both leaves; it does not replace CI visual routes or use a system-browser fallback.
 - Common local gates:

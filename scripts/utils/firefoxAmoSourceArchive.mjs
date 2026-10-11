@@ -1,3 +1,4 @@
+import { RUNTIME_POLICY } from '../config/runtimePolicy.mjs';
 import { access, cp, mkdir, mkdtemp, readdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { basename, dirname, extname, join, normalize, resolve, sep } from 'node:path';
@@ -75,8 +76,8 @@ const FORBIDDEN_ARCHIVE_EXTENSIONS = new Set([
 ]);
 
 const utf8Decoder = new TextDecoder('utf-8', { fatal: true });
-const REVIEW_NODE_VERSION = '20.20.2';
-const REVIEW_NPM_VERSION = '10.8.2';
+const REVIEW_NODE_VERSION = RUNTIME_POLICY.nodeVersion.slice(1);
+const REVIEW_NPM_VERSION = RUNTIME_POLICY.npmVersion;
 const REVIEW_BUILD_POLICY = 'release-build-env-v1';
 const REVIEW_REPLAY_RUNNER = String.raw`import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
