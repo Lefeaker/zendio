@@ -1,3 +1,6 @@
+import type { ClipResultResponse } from '../../src/shared/types';
+import { promises as fs } from 'node:fs';
+import path from 'node:path';
 import { test, configureSink, type Destination } from './utils/exportTitleSinks';
 import { expect } from '@playwright/test';
 import {
@@ -179,4 +182,115 @@ platforms.forEach((platform) => {
       await sink.close();
     }
   });
+});
+
+test('Reader keeps its real draft after REST failure and saves it on retry', async ({
+  context,
+  extensionPage
+}, testInfo) => {
+  const title = 'Reader Retry Boundary';
+  const paragraph = 'This highlighted evidence and its comment must survive a failed REST write.';
+  const { page, tabId } = await openFixtureWithRuntime(
+    context,
+    extensionPage,
+    'https://example.com/reader-save-retry',
+    `<html><head><title>${title}</title></head><body><article><h1>${title}</h1><p id="selected">${paragraph}</p><p>${'Further source evidence. '.repeat(40)}</p></article></body></html>`,
+    createOptionsFixture({ selectionTriggerMode: 'disabled' }, { exportMode: 'highlights' })
+  );
+  const sink = await configureSink(extensionPage, 'rest', testInfo.outputPath('downloads'));
+  try {
+    await page.reload();
+    await injectContentRuntime(extensionPage, tabId);
+    await page.locator('#selected').evaluate((element) => {
+      const range = document.createRange();
+      range.selectNodeContents(element);
+      window.getSelection()?.removeAllRanges();
+      window.getSelection()?.addRange(range);
+    });
+    await extensionPage.evaluate(
+      (id) => chrome.tabs.sendMessage(id, { action: 'clipSelection' }),
+      tabId
+    );
+    await page.locator('[data-stitch-surface="clipper"] [data-action-id="reader"]').click();
+    const highlight = page.locator('[data-role="highlight-item"]');
+    await expect(highlight).toHaveCount(1);
+    sink.setWriteStatus(500);
+    await page.locator('[data-role="export-btn"]').click();
+    await expect.poll(() => sink.writeAttempts).toBeGreaterThan(0);
+    await expect(page.locator('[data-role="export-btn"]')).toBeEnabled();
+    await expect(highlight).toContainText(paragraph);
+    const drafts = await extensionPage.evaluate(async () =>
+      Object.entries(await chrome.storage.local.get(null)).filter(
+        ([key]) => key.startsWith('aiob.sessionDraft.') && !key.includes('.index.')
+      )
+    );
+    expect(JSON.stringify(drafts)).toContain(paragraph);
+    expect(sink.files.size).toBe(0);
+    await expect(page.locator('#aiob-support-prompt .task-progress-track')).toHaveClass(
+      /is-failure/
+    );
+    await page
+      .locator('#aiob-support-prompt .resource-modal-overlay')
+      .click({ position: { x: 8, y: 8 } });
+    await expect(page.locator('#aiob-support-prompt')).toHaveCount(0);
+    sink.setWriteStatus(200);
+    await page.locator('[data-role="export-btn"]').click();
+    const markdown = await sink.read('Reading/reader-retry-boundary.md', true);
+    expect(markdown).toContain(paragraph);
+    await expect(highlight).toHaveCount(0);
+    expect(sink.files.size).toBe(1);
+  } finally {
+    await sink.close();
+  }
+});
+
+test('Downloads completes the real files and references uniquified screenshots on repeated export', async ({
+  extensionPage
+}, testInfo) => {
+  const sink = await configureSink(extensionPage, 'downloads', testInfo.outputPath('downloads'));
+  try {
+    const payload = {
+      markdown: '# Download collision\n![Screenshot](aiob-attachment:collision)',
+      title: 'Download Collision',
+      type: 'video',
+      meta: {
+        url: 'https://example.com/video',
+        exportDestination: { kind: 'downloads' },
+        attachments: [
+          {
+            id: 'collision',
+            fileName: 'same-shot.jpg',
+            mimeType: 'image/jpeg',
+            content: { encoding: 'base64', data: 'YWFh', byteLength: 3 }
+          }
+        ]
+      }
+    };
+    const first = await extensionPage.evaluate(
+      (payload) =>
+        chrome.runtime.sendMessage<unknown, ClipResultResponse>({ type: 'CLIP_RESULT', payload }),
+      payload
+    );
+    const second = await extensionPage.evaluate(
+      (payload) =>
+        chrome.runtime.sendMessage<unknown, ClipResultResponse>({ type: 'CLIP_RESULT', payload }),
+      payload
+    );
+    expect(first.success).toBe(true);
+    expect(second.success).toBe(true);
+    if (!first.success || !second.success) throw new Error('Download save was not acknowledged');
+    expect(second.filePath).not.toBe(first.filePath);
+    const markdown = await fs.readFile(second.filePath, 'utf8');
+    const reference = markdown.match(/!\[Screenshot\]\(([^)]+)\)/)?.[1];
+    expect(reference).toBe('same-shot%20%281%29.jpg');
+    expect(
+      await fs.readFile(
+        path.join(path.dirname(second.filePath), decodeURIComponent(reference!)),
+        'utf8'
+      )
+    ).toBe('aaa');
+    expect(await fs.readdir(testInfo.outputPath('downloads'))).toHaveLength(4);
+  } finally {
+    await sink.close();
+  }
 });

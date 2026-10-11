@@ -20,7 +20,7 @@ describe('createReaderSessionDependencies', () => {
       return readerRepository;
     });
 
-    const messaging = { send: vi.fn().mockResolvedValue(undefined) };
+    const messaging = { send: vi.fn().mockResolvedValue({ success: true, filePath: 'note.md' }) };
     const deps = createReaderSessionDependencies({
       optionsRepository: { type: 'optionsRepository' } as never,
       storage: { local: {} } as never,
@@ -44,6 +44,20 @@ describe('createReaderSessionDependencies', () => {
       payload: { markdown: '# hi' }
     });
   });
+
+  it.each([undefined, { success: false }, { success: 'true' }])(
+    'rejects an unconfirmed background save: %s',
+    async (reply) => {
+      resolveRepository.mockReturnValue({});
+      const deps = createReaderSessionDependencies({
+        optionsRepository: {} as never,
+        storage: {} as never,
+        messaging: { send: vi.fn().mockResolvedValue(reply) },
+        runtime: { getURL: (path) => path }
+      });
+      await expect(deps.dispatchClipResult({ markdown: '# keep me' })).rejects.toThrow();
+    }
+  );
 
   it('honors dependency overrides', async () => {
     resolveRepository.mockReturnValue({ type: 'readerRepository' });

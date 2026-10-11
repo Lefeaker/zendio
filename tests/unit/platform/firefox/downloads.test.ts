@@ -38,14 +38,51 @@ describe('firefox downloads adapter', () => {
     await expect(firefoxDownloadsService.show?.(9)).rejects.toThrow('is not available');
   });
 
-  it('downloads blob attachments through an object URL and revokes it after the delay', async () => {
+  it('waits for a completed download and keeps its object URL alive beyond 30 seconds', async () => {
+    let state = 'in_progress';
+    const listeners = new Set<() => void>();
+    const revoke = vi.fn();
+    vi.stubGlobal('browser', {
+      downloads: {
+        download: vi.fn().mockResolvedValue(41),
+        search: vi.fn(() => Promise.resolve([{ state, filename: '/downloads/note (1).md' }])),
+        cancel: vi.fn(),
+        onChanged: {
+          addListener: (listener: () => void) => listeners.add(listener),
+          removeListener: (listener: () => void) => listeners.delete(listener)
+        }
+      }
+    });
+    vi.stubGlobal(
+      'URL',
+      createUrlConstructor({ createObjectURL: () => 'blob:pending', revokeObjectURL: revoke })
+    );
+    const { firefoxDownloadsService } = await import('../../../../src/platform/firefox/downloads');
+    let settled = false;
+    const pending = firefoxDownloadsService.download({ filename: 'note.md', content: '# saved' });
+    void pending.then(() => {
+      settled = true;
+    });
+    await vi.advanceTimersByTimeAsync(30_001);
+    expect(settled).toBe(false);
+    expect(revoke).not.toHaveBeenCalled();
+    state = 'complete';
+    for (const listener of listeners) listener();
+    await expect(pending).resolves.toBe(41);
+    expect(revoke).toHaveBeenCalledWith('blob:pending');
+    expect(listeners.size).toBe(0);
+  });
+
+  it('downloads blob attachments through an object URL and revokes it after completion', async () => {
     const downloadApiMock = vi.fn().mockResolvedValue('download-id');
     const createObjectURLMock = vi.fn(() => 'blob:firefox-shot');
     const revokeObjectURLMock = vi.fn();
 
     vi.stubGlobal('browser', {
       downloads: {
-        download: downloadApiMock
+        download: downloadApiMock,
+        search: vi.fn().mockResolvedValue([{ state: 'complete', filename: 'note.md' }]),
+        onChanged: { addListener: vi.fn(), removeListener: vi.fn() }
       }
     });
     vi.stubGlobal(
@@ -74,10 +111,6 @@ describe('firefox downloads adapter', () => {
       saveAs: false,
       conflictAction: 'uniquify'
     });
-    expect(revokeObjectURLMock).not.toHaveBeenCalled();
-
-    await vi.advanceTimersByTimeAsync(30_000);
-
     expect(revokeObjectURLMock).toHaveBeenCalledWith('blob:firefox-shot');
   });
 
@@ -86,7 +119,9 @@ describe('firefox downloads adapter', () => {
 
     vi.stubGlobal('browser', {
       downloads: {
-        download: downloadApiMock
+        download: downloadApiMock,
+        search: vi.fn().mockResolvedValue([{ state: 'complete', filename: 'note.md' }]),
+        onChanged: { addListener: vi.fn(), removeListener: vi.fn() }
       }
     });
     vi.stubGlobal('URL', createUrlConstructor());

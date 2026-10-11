@@ -1,3 +1,4 @@
+import { inspectDownloads } from '../../platform/downloadCompletion';
 import type { DownloadsService } from '../../platform/interfaces/downloads';
 import type { StorageAreaService } from '../../platform/interfaces/storage';
 import type { PlatformServices } from '../../platform/types';
@@ -64,11 +65,14 @@ export function createLearningProgressStore(
       let changed = false;
       for (const pending of [...state.pending]) {
         if (pending.failed) continue;
-        const items = await Promise.all(pending.downloadIds.map((id) => inspect(id)));
-        if (items.some((item) => !item || item.state === 'interrupted')) {
+        const { state: downloadState, items } = await inspectDownloads(
+          downloads,
+          pending.downloadIds
+        );
+        if (downloadState === 'interrupted') {
           pending.failed = true;
           changed = true;
-        } else if (items.every((item) => item?.state === 'complete')) {
+        } else if (downloadState === 'complete') {
           const markdown = items[items.length - 1];
           complete(
             state,

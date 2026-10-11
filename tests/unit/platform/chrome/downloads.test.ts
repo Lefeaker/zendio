@@ -43,14 +43,51 @@ describe('chrome downloads adapter', () => {
     await expect(chromeDownloadsService.show?.(9)).rejects.toThrow('is not available');
   });
 
-  it('downloads blob attachments through an object URL and revokes it after the delay', async () => {
+  it('waits for a completed download and keeps its object URL alive beyond 30 seconds', async () => {
+    let state = 'in_progress';
+    const listeners = new Set<() => void>();
+    const revoke = vi.fn();
+    vi.stubGlobal('chrome', {
+      downloads: {
+        download: vi.fn().mockResolvedValue(41),
+        search: vi.fn(() => Promise.resolve([{ state, filename: '/downloads/note (1).md' }])),
+        cancel: vi.fn(),
+        onChanged: {
+          addListener: (listener: () => void) => listeners.add(listener),
+          removeListener: (listener: () => void) => listeners.delete(listener)
+        }
+      }
+    });
+    vi.stubGlobal(
+      'URL',
+      createUrlConstructor({ createObjectURL: () => 'blob:pending', revokeObjectURL: revoke })
+    );
+    const { chromeDownloadsService } = await import('../../../../src/platform/chrome/downloads');
+    let settled = false;
+    const pending = chromeDownloadsService.download({ filename: 'note.md', content: '# saved' });
+    void pending.then(() => {
+      settled = true;
+    });
+    await vi.advanceTimersByTimeAsync(30_001);
+    expect(settled).toBe(false);
+    expect(revoke).not.toHaveBeenCalled();
+    state = 'complete';
+    for (const listener of listeners) listener();
+    await expect(pending).resolves.toBe(41);
+    expect(revoke).toHaveBeenCalledWith('blob:pending');
+    expect(listeners.size).toBe(0);
+  });
+
+  it('downloads blob attachments through an object URL and revokes it after completion', async () => {
     const downloadApiMock = vi.fn().mockResolvedValue(17);
     const createObjectURLMock = vi.fn(() => 'blob:chrome-shot');
     const revokeObjectURLMock = vi.fn();
 
     vi.stubGlobal('chrome', {
       downloads: {
-        download: downloadApiMock
+        download: downloadApiMock,
+        search: vi.fn().mockResolvedValue([{ state: 'complete', filename: 'note.md' }]),
+        onChanged: { addListener: vi.fn(), removeListener: vi.fn() }
       }
     });
     vi.stubGlobal(
@@ -79,10 +116,6 @@ describe('chrome downloads adapter', () => {
       saveAs: false,
       conflictAction: 'uniquify'
     });
-    expect(revokeObjectURLMock).not.toHaveBeenCalled();
-
-    await vi.advanceTimersByTimeAsync(30_000);
-
     expect(revokeObjectURLMock).toHaveBeenCalledWith('blob:chrome-shot');
   });
 
@@ -91,7 +124,9 @@ describe('chrome downloads adapter', () => {
 
     vi.stubGlobal('chrome', {
       downloads: {
-        download: downloadApiMock
+        download: downloadApiMock,
+        search: vi.fn().mockResolvedValue([{ state: 'complete', filename: 'note.md' }]),
+        onChanged: { addListener: vi.fn(), removeListener: vi.fn() }
       }
     });
     vi.stubGlobal('URL', createUrlConstructor());

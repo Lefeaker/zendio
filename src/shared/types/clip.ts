@@ -60,6 +60,9 @@ export interface ClipResultMessage {
   payload: ClipPayload;
 }
 
+/** Explicit acknowledgement of the external write, separate from message delivery. */
+export type ClipResultResponse = { success: true; filePath: string } | { success: false };
+
 export interface SupportPromptMessage {
   type: typeof SHOW_SUPPORT_PROMPT;
   source?: string;
