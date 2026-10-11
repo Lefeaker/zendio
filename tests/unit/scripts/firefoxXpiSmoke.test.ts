@@ -138,65 +138,91 @@ afterEach(async () => {
 });
 
 describe('Firefox exact-XPI smoke command wrapper', () => {
-  it('uses only the current attempt browser and geckodriver, then publishes a private result', async () => {
-    const attempt = await createAttempt();
-    setAttemptEnvironment(attempt.root, attempt.browserRoot);
-    process.env.WEB_EXT_API_SECRET = 'must-not-cross-smoke-boundary';
-    const result = {
-      schema: 'firefox-exact-xpi-smoke-v2',
-      adapter: 'webdriver-bidi-v1',
-      geckoId: 'fixture@example.test',
-      installed: true,
-      bootstrapped: true,
-      uninstalled: true,
-      reinstalled: true,
-      rebootstrapped: true
-    };
-    const runVerifiedFirefoxXpiSmoke = vi.fn().mockResolvedValue(result);
+  it.each([undefined, 'save-retry-v1'])(
+    'uses the verified browser and publishes a private result (scenario=%s)',
+    async (scenario) => {
+      const attempt = await createAttempt();
+      setAttemptEnvironment(attempt.root, attempt.browserRoot);
+      process.env.WEB_EXT_API_SECRET = 'must-not-cross-smoke-boundary';
+      const result = {
+        schema: 'firefox-exact-xpi-smoke-v2',
+        adapter: 'webdriver-bidi-v1',
+        geckoId: 'fixture@example.test',
+        installed: true,
+        bootstrapped: true,
+        uninstalled: true,
+        reinstalled: true,
+        rebootstrapped: true
+      };
+      const runVerifiedFirefoxXpiSmoke = vi.fn().mockResolvedValue(result);
 
+      await expect(
+        runFirefoxXpiSmoke(
+          [
+            '--manifest',
+            attempt.manifestPath,
+            '--transport-mode',
+            'local-private-v1',
+            '--result-json',
+            attempt.resultPath,
+            ...(scenario ? ['--scenario', scenario] : [])
+          ],
+          {
+            importPlaywrightImpl: () =>
+              Promise.resolve({ firefox: { executablePath: () => attempt.firefoxExecutable } }),
+            importAdapterImpl: () => Promise.resolve({ runVerifiedFirefoxXpiSmoke })
+          }
+        )
+      ).resolves.toEqual(result);
+      expect(runVerifiedFirefoxXpiSmoke).toHaveBeenCalledWith(
+        expect.objectContaining({
+          firefoxExecutable: attempt.firefoxExecutable,
+          geckodriverExecutable: attempt.geckodriverExecutable,
+          profileRoot: join(attempt.root, 'firefox-xpi-smoke-profile-root'),
+          transportMode: 'local-private-v1'
+        })
+      );
+      expect(runVerifiedFirefoxXpiSmoke.mock.calls[0]?.[0]?.driverEnvironment).toEqual({
+        CI: '1',
+        HOME: join(attempt.root, 'home'),
+        LANG: 'C',
+        LC_ALL: 'C',
+        PATH: `${dirname(process.execPath)}:/usr/bin:/bin`,
+        PLAYWRIGHT_BROWSERS_PATH: attempt.browserRoot,
+        TEMP: join(attempt.root, 'tmp'),
+        TMP: join(attempt.root, 'tmp'),
+        TMPDIR: join(attempt.root, 'tmp'),
+        TZ: 'UTC'
+      });
+      expect(runVerifiedFirefoxXpiSmoke.mock.calls[0]?.[0]?.driverEnvironment).not.toHaveProperty(
+        'WEB_EXT_API_SECRET'
+      );
+      expect(process.env.WEB_EXT_API_SECRET).toBe('must-not-cross-smoke-boundary');
+      if (scenario)
+        expect(runVerifiedFirefoxXpiSmoke).toHaveBeenCalledWith(
+          expect.objectContaining({ scenario })
+        );
+      else expect(runVerifiedFirefoxXpiSmoke.mock.calls[0]?.[0]).not.toHaveProperty('scenario');
+      expect(JSON.parse(await readFile(attempt.resultPath, 'utf8'))).toEqual(result);
+      expect((await lstat(attempt.resultPath)).mode & 0o777).toBe(0o600);
+    }
+  );
+
+  it.each([
+    ['--scenario', 'unknown'],
+    ['--scenario', 'save-retry-v1', '--scenario', 'save-retry-v1']
+  ])('rejects unsupported or repeated scenarios: %j', async (...extra) => {
     await expect(
-      runFirefoxXpiSmoke(
-        [
-          '--manifest',
-          attempt.manifestPath,
-          '--transport-mode',
-          'local-private-v1',
-          '--result-json',
-          attempt.resultPath
-        ],
-        {
-          importPlaywrightImpl: () =>
-            Promise.resolve({ firefox: { executablePath: () => attempt.firefoxExecutable } }),
-          importAdapterImpl: () => Promise.resolve({ runVerifiedFirefoxXpiSmoke })
-        }
-      )
-    ).resolves.toEqual(result);
-    expect(runVerifiedFirefoxXpiSmoke).toHaveBeenCalledWith(
-      expect.objectContaining({
-        firefoxExecutable: attempt.firefoxExecutable,
-        geckodriverExecutable: attempt.geckodriverExecutable,
-        profileRoot: join(attempt.root, 'firefox-xpi-smoke-profile-root'),
-        transportMode: 'local-private-v1'
-      })
-    );
-    expect(runVerifiedFirefoxXpiSmoke.mock.calls[0]?.[0]?.driverEnvironment).toEqual({
-      CI: '1',
-      HOME: join(attempt.root, 'home'),
-      LANG: 'C',
-      LC_ALL: 'C',
-      PATH: `${dirname(process.execPath)}:/usr/bin:/bin`,
-      PLAYWRIGHT_BROWSERS_PATH: attempt.browserRoot,
-      TEMP: join(attempt.root, 'tmp'),
-      TMP: join(attempt.root, 'tmp'),
-      TMPDIR: join(attempt.root, 'tmp'),
-      TZ: 'UTC'
-    });
-    expect(runVerifiedFirefoxXpiSmoke.mock.calls[0]?.[0]?.driverEnvironment).not.toHaveProperty(
-      'WEB_EXT_API_SECRET'
-    );
-    expect(process.env.WEB_EXT_API_SECRET).toBe('must-not-cross-smoke-boundary');
-    expect(JSON.parse(await readFile(attempt.resultPath, 'utf8'))).toEqual(result);
-    expect((await lstat(attempt.resultPath)).mode & 0o777).toBe(0o600);
+      runFirefoxXpiSmoke([
+        '--manifest',
+        '/tmp/manifest.json',
+        '--transport-mode',
+        'local-private-v1',
+        '--result-json',
+        '/tmp/result.json',
+        ...extra
+      ])
+    ).rejects.toThrow('FIREFOX_SMOKE_ARGUMENT_CONTRACT');
   });
 
   it('rejects a geckodriver that is not private and executable', async () => {

@@ -645,7 +645,9 @@ function validateReleaseProfileArguments(profileId, args) {
     return args;
   }
   if (profileId === 'firefox-smoke-v1') {
-    if (args.length !== 6) invalid('FIREFOX_SMOKE_ARGUMENTS_INVALID');
+    if (args.length !== 6 && args.length !== 8) invalid('FIREFOX_SMOKE_ARGUMENTS_INVALID');
+    if (args.length === 8 && requireFlagValue(args, 6, '--scenario') !== 'save-retry-v1')
+      invalid('FIREFOX_SMOKE_ARGUMENTS_INVALID');
     requireFlagValue(args, 0, '--manifest', absolutePathToken);
     if (requireFlagValue(args, 2, '--transport-mode') !== 'local-private-v1')
       invalid('RELEASE_TRANSPORT_MODE_INVALID');

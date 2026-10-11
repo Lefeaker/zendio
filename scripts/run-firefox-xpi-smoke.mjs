@@ -14,7 +14,8 @@ function fail(code) {
 }
 
 function parseArgs(argv) {
-  const allowed = new Set(['--manifest', '--transport-mode', '--result-json']);
+  const required = ['--manifest', '--transport-mode', '--result-json'];
+  const allowed = new Set([...required, '--scenario']);
   const values = new Map();
   for (let index = 0; index < argv.length; index += 2) {
     const key = argv[index];
@@ -22,7 +23,9 @@ function parseArgs(argv) {
     if (!allowed.has(key) || !value || values.has(key)) fail('FIREFOX_SMOKE_ARGUMENT_CONTRACT');
     values.set(key, value);
   }
-  if (values.size !== allowed.size) fail('FIREFOX_SMOKE_ARGUMENT_CONTRACT');
+  if (required.some((key) => !values.has(key))) fail('FIREFOX_SMOKE_ARGUMENT_CONTRACT');
+  if (values.has('--scenario') && values.get('--scenario') !== 'save-retry-v1')
+    fail('FIREFOX_SMOKE_ARGUMENT_CONTRACT');
   return values;
 }
 
@@ -127,7 +130,8 @@ export async function runFirefoxXpiSmoke(argv = process.argv.slice(2), dependenc
     profileRoot,
     transportMode,
     driverEnvironment,
-    browserInput
+    browserInput,
+    ...(args.has('--scenario') ? { scenario: args.get('--scenario') } : {})
   });
   const bytes = Buffer.from(canonicalArtifactJson(result), 'utf8');
   if (bytes.length > 64 * 1024) fail('FIREFOX_SMOKE_RESULT_LIMIT');

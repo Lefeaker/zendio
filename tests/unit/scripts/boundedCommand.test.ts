@@ -5236,3 +5236,36 @@ describe('shared readonly Firefox release toolchain', () => {
     ).toThrow('NPM_CONFIG_AUTHORITY_INVALID');
   });
 });
+
+describe('Firefox opt-in save scenario grammar', () => {
+  const base = [
+    'node',
+    'scripts/run-bounded-command.mjs',
+    '--profile',
+    'firefox-smoke-v1',
+    '--',
+    '--manifest',
+    '/tmp/attempt/manifest.json',
+    '--transport-mode',
+    'local-private-v1',
+    '--result-json',
+    '/tmp/attempt/result.json'
+  ];
+
+  it('accepts the default smoke and the sole explicit save scenario', () => {
+    expect(parseManagedCommandInvocationArgv(base)).toMatchObject({
+      profileId: 'firefox-smoke-v1'
+    });
+    expect(
+      parseManagedCommandInvocationArgv([...base, '--scenario', 'save-retry-v1'])?.arguments
+    ).toEqual([...base.slice(5), '--scenario', 'save-retry-v1']);
+  });
+
+  it.each([
+    ['--scenario', 'arbitrary'],
+    ['--scenario', 'save-retry-v1', '--scenario', 'save-retry-v1'],
+    ['--scenario']
+  ])('rejects unsupported, duplicate or incomplete scenarios: %j', (...extra) => {
+    expect(() => parseManagedCommandInvocationArgv([...base, ...extra])).toThrow();
+  });
+});
