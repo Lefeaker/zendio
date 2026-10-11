@@ -76,7 +76,8 @@ const CONTENT_LOADER_SOURCE = `
   const scope = globalThis;
   const key = '__AIIINOB_CONTENT_RUNTIME_PROMISE__';
   if (!scope[key]) {
-    scope[key] = import('./runtime.js').catch((error) => {
+    const runtime = scope.browser?.runtime ?? scope.chrome?.runtime;
+    scope[key] = import(runtime.getURL('content/runtime.js')).catch((error) => {
       delete scope[key];
       throw error;
     });
