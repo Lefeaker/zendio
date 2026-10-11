@@ -73,7 +73,8 @@ export async function runFirefoxSaveRetryScenario({ request, extensionUrl, run, 
   const hasHighlight = () =>
     execute(
       `${deepQuery}; return query('[data-role="highlight-item"]')?.textContent.includes(arguments[0]) ?? false;`,
-      [PARAGRAPH]
+      // The row renders an 80-character excerpt; storage and Markdown checks retain the full text.
+      [PARAGRAPH.slice(0, 60)]
     );
   const readStored = (key) =>
     executeAsync(
