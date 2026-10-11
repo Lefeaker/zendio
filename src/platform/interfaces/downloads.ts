@@ -12,6 +12,7 @@ export interface DownloadStatus {
 }
 
 export interface DownloadsService {
+  cancel?(id: number | string): Promise<void>;
   inspect?(id: number | string): Promise<DownloadStatus | undefined>;
   onChanged?(listener: () => void): () => void;
   show?(id: number | string): Promise<void>;

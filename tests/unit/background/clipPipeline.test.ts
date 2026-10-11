@@ -61,7 +61,8 @@ describe('background clipPipeline', () => {
     });
 
     const { handleClipResult, dependencies } = await loadPipeline();
-    await handleClipResult(createMessage(), undefined, dependencies);
+    const reply = await handleClipResult(createMessage(), undefined, dependencies);
+    expect(reply).toEqual({ success: true, filePath: 'Articles/foo.md' });
 
     expect(notifySuccessMock).toHaveBeenCalledWith('Articles/foo.md', {
       vaultName: 'Secondary Vault',
@@ -72,6 +73,16 @@ describe('background clipPipeline', () => {
     expect(notifyFailureMock).not.toHaveBeenCalled();
     expect(notifyWarningMock).not.toHaveBeenCalled();
     expect(processClipPayloadMock).toHaveBeenCalled();
+  });
+
+  it('returns a confirmed failure when the writer rejects instead of acknowledging success', async () => {
+    processClipPayloadMock.mockRejectedValue(new Error('write refused'));
+    const { handleClipResult, dependencies } = await loadPipeline();
+    await expect(handleClipResult(createMessage(), 11, dependencies)).resolves.toMatchObject({
+      success: false
+    });
+    expect(notifyFailureMock).toHaveBeenCalledTimes(1);
+    expect(notifySuccessMock).not.toHaveBeenCalled();
   });
 
   it('emits progress updates while processing clip results', async () => {
@@ -367,7 +378,9 @@ describe('background clipPipeline', () => {
     notifySuccessMock.mockRejectedValueOnce(new Error('notifications unavailable'));
 
     const { handleClipResult, dependencies } = await loadPipeline();
-    await expect(handleClipResult(createMessage(), 99, dependencies)).resolves.toBeUndefined();
+    await expect(handleClipResult(createMessage(), 99, dependencies)).resolves.toMatchObject({
+      success: true
+    });
 
     expect(processClipPayloadMock).toHaveBeenCalled();
     expect(sendMessageMock).toHaveBeenCalledWith(
@@ -555,7 +568,9 @@ describe('background clipPipeline', () => {
     sendMessageMock.mockRejectedValueOnce(new Error('Receiving end does not exist.'));
 
     const { handleClipResult, dependencies } = await loadPipeline();
-    await expect(handleClipResult(createMessage(), 5, dependencies)).resolves.toBeUndefined();
+    await expect(handleClipResult(createMessage(), 5, dependencies)).resolves.toMatchObject({
+      success: true
+    });
 
     expect(notifySuccessMock).toHaveBeenCalledWith('Articles/foo.md', {
       vaultName: 'Secondary Vault',

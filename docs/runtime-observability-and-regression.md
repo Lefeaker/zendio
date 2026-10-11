@@ -49,6 +49,12 @@ node scripts/run-bounded-command.mjs --profile npm-script-browser-v1 -- test:e2e
 
 Reader / Video 共用 `sessionEndingCoordinator` 关闭新编辑入口、等待已接收的编辑落盘，并串行执行完成或取消。终止过程由 `sessionDraftTerminalState` 保留原始 finalize/remove 请求身份；响应丢失后重试延续同一操作。导出成功与草稿清理是两个阶段，同一挂载会话的收尾重试不会再次导出。不能把这种保证扩展为浏览器崩溃跨进程的导出 exactly-once 保证。
 
+Reader 的 `CLIP_RESULT` 回复只在后台实际写入成功时返回 `success: true`；失败或缺少确认都保留高亮、批注与草稿，允许用户重试。消息已送达并不表示文件已保存。确认成功后的草稿 finalize/remove 仍沿用原 receipt，重试只完成清理；后台完成写入但 ACK 丢失、浏览器在两者之间崩溃时，结果仍可能未知，不能承诺跨进程不重复导出。
+
+Chrome / Firefox Downloads 由同一完成检查读取 `downloads.search` 并监听 `onChanged`：附件逐个完成后才生成 Markdown，主文件完成后才发送成功、记录首次保存与课程进度。浏览器对附件自动改名时，Markdown 使用最终相对文件名；本机绝对路径只用于本地结果与定位，不进入遥测。Blob URL 保留至终态，单次等待上限为 120 秒；超时只取消本次创建的 ID，并保留内容。取消失败或恰好完成的竞争仍视为结果未知，用户重试前可以检查 Downloads。既存学习 pending 收据在后台重启后继续按相同完成判定恢复。
+
+`readerSaveBoundary.test.ts` 覆盖 Reader → 生产后台 pipeline → writer 失败 → 草稿保留 → 重试；`exportTitleRoutes.browser.test.ts` 的保存失败场景通过真实 loopback REST 500/200 与原生 Downloads 检查实际 Markdown、附件和同名文件引用。
+
 Reader 初始化与编辑共用现有 mutation runner：本次划选先更新列表、计数和页面标记，再等待草稿认领与保存目标。恢复期间锁定编辑但保留取消入口；恢复的高亮合并到本次划选，不能覆盖新选中的文字。取消先关闭操作入口并等待正在进行的初始化，迟到的草稿只用于完成终态清理，不再恢复页面标记。面板和页面高亮在同一次同步清理中移除，不能在草稿仍可能恢复时先关闭面板。浏览器回归通过延迟真实 `selectAndClaim` 回复验证首条高亮已显示、取消无残留且刷新不复活；GA 事件回执不参与会话等待。
 
 后台仍是唯一持久写入者。客户端只保存单调递增的版本观察，并在构造用户保存请求前等待已发出的租约操作。租约续期和释放的迟到响应不得覆盖新状态；终态和失效扩展上下文都停止续期。

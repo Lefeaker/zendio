@@ -1,8 +1,10 @@
+import { waitForDownloadCompletion } from '../downloadCompletion';
 import type { DownloadTextFileOptions, DownloadsService } from '../interfaces/downloads';
 import { serializeBlobAttachmentContent } from '../../shared/attachments/clipAttachmentBinary';
 
 declare const browser: {
   downloads?: {
+    cancel(id: number): Promise<void>;
     search(query: { id: number }): Promise<chrome.downloads.DownloadItem[]>;
     show(id: number): Promise<void>;
     onChanged: typeof chrome.downloads.onChanged;
@@ -65,6 +67,9 @@ async function createDownloadResource(
 }
 
 export const firefoxDownloadsService: DownloadsService = {
+  async cancel(id) {
+    await browser.downloads?.cancel(Number(id));
+  },
   async inspect(id) {
     const items = await browser.downloads?.search({ id: Number(id) });
     const item = items?.[0];
@@ -85,14 +90,16 @@ export const firefoxDownloadsService: DownloadsService = {
 
     const resource = await createDownloadResource(options);
     try {
-      return await browser.downloads.download({
+      const id = await browser.downloads.download({
         url: resource.url,
         filename: options.filename,
         saveAs: false,
         conflictAction: 'uniquify'
       });
+      await waitForDownloadCompletion(firefoxDownloadsService, id);
+      return id;
     } finally {
-      setTimeout(() => resource.revoke(), 30_000);
+      resource.revoke();
     }
   }
 };
