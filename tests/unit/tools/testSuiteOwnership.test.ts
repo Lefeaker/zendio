@@ -295,7 +295,7 @@ describe('canonical test suite descriptors', () => {
       process.execPath,
       [
         '--no-warnings',
-        '--experimental-permission',
+        '--permission',
         `--allow-fs-read=${process.cwd()}`,
         '--input-type=module',
         '--eval',
