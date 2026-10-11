@@ -1389,6 +1389,8 @@ describe('structured ownership analysis', () => {
     ]);
   });
 
+  // This full-repository AST audit took 6.22 s in Linux Node 24 coverage CI.
+  // Keep its real inventory/assertions; allow runner variance without changing suite defaults.
   it('derives the live registrar set and keeps every retained shard pattern non-empty', () => {
     const report = auditRepositoryTestSuiteOwnership();
     const registrars = report.classifications
@@ -1405,7 +1407,7 @@ describe('structured ownership analysis', () => {
     expect(report.unclassifiedModules).toEqual([]);
     expect(report.zeroOwner).toEqual([]);
     expect(report.ok).toBe(true);
-  });
+  }, 15_000);
 });
 
 describe('R01 cross-milestone case migration ledger', () => {
