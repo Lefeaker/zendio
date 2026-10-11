@@ -1,3 +1,4 @@
+import type { ClipResultResponse } from '../../../src/shared/types';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ConnectionTestResult } from '../../../src/shared/types/connection';
 import type { CaptureVisibleTabScreenshotResponse } from '../../../src/shared/types/videoScreenshotMessages';
@@ -11,7 +12,7 @@ import { asType } from '../../utils/typeHelpers';
 
 const addListenerMock = vi.hoisted(() => vi.fn());
 const handleClipResultMock = vi.hoisted(() =>
-  vi.fn<() => Promise<unknown>>(() => Promise.resolve(undefined))
+  vi.fn<() => Promise<ClipResultResponse | undefined>>(() => Promise.resolve(undefined))
 );
 const createClipPipelineDependenciesMock = vi.hoisted(() =>
   vi.fn(() => ({ sendSupportPrompt: vi.fn(() => Promise.resolve(undefined)) }))
@@ -523,7 +524,11 @@ describe('runtime message listener', () => {
     expect(dispatchOptions?.cause).toBeInstanceOf(Error);
   });
 
-  it.each([{ success: false }, { success: true, filePath: 'Reading/note.md' }])(
+  const clipAcknowledgements: ClipResultResponse[] = [
+    { success: false },
+    { success: true, filePath: 'Reading/note.md' }
+  ];
+  it.each(clipAcknowledgements)(
     'returns the actual clip write acknowledgement to its sender: %s',
     async (response) => {
       handleClipResultMock.mockResolvedValueOnce(response);

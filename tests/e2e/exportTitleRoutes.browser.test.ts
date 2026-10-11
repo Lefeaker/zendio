@@ -268,12 +268,18 @@ test('Downloads completes the real files and references uniquified screenshots o
     };
     const first = await extensionPage.evaluate(
       (payload) =>
-        chrome.runtime.sendMessage<unknown, ClipResultResponse>({ type: 'CLIP_RESULT', payload }),
+        chrome.runtime.sendMessage<
+          { type: 'CLIP_RESULT'; payload: typeof payload },
+          ClipResultResponse
+        >({ type: 'CLIP_RESULT', payload }),
       payload
     );
     const second = await extensionPage.evaluate(
       (payload) =>
-        chrome.runtime.sendMessage<unknown, ClipResultResponse>({ type: 'CLIP_RESULT', payload }),
+        chrome.runtime.sendMessage<
+          { type: 'CLIP_RESULT'; payload: typeof payload },
+          ClipResultResponse
+        >({ type: 'CLIP_RESULT', payload }),
       payload
     );
     expect(first.success).toBe(true);
@@ -283,9 +289,10 @@ test('Downloads completes the real files and references uniquified screenshots o
     const markdown = await fs.readFile(second.filePath, 'utf8');
     const reference = markdown.match(/!\[Screenshot\]\(([^)]+)\)/)?.[1];
     expect(reference).toBe('same-shot%20%281%29.jpg');
+    if (!reference) throw new Error('Saved Markdown has no screenshot reference');
     expect(
       await fs.readFile(
-        path.join(path.dirname(second.filePath), decodeURIComponent(reference!)),
+        path.join(path.dirname(second.filePath), decodeURIComponent(reference)),
         'utf8'
       )
     ).toBe('aaa');

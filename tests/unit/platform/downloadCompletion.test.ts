@@ -88,13 +88,11 @@ describe('download completion boundary', () => {
     expect(r.cancel).not.toHaveBeenCalled();
   });
 
-  it.each([undefined, 'interrupted'] as const)(
-    'rejects a missing or interrupted download: %s',
-    async (state) => {
-      const r = rig();
-      r.inspect.mockResolvedValue(state ? { state, filename: 'note.md' } : undefined);
-      await expect(waitForDownloadCompletion(r.downloads, 3)).rejects.toThrow('interrupted');
-      expect(r.stop).toHaveBeenCalledTimes(1);
-    }
-  );
+  const interruptedStates: Array<DownloadStatus['state'] | undefined> = [undefined, 'interrupted'];
+  it.each(interruptedStates)('rejects a missing or interrupted download: %s', async (state) => {
+    const r = rig();
+    r.inspect.mockResolvedValue(state ? { state, filename: 'note.md' } : undefined);
+    await expect(waitForDownloadCompletion(r.downloads, 3)).rejects.toThrow('interrupted');
+    expect(r.stop).toHaveBeenCalledTimes(1);
+  });
 });
