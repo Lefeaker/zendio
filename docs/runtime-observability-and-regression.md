@@ -47,6 +47,8 @@ node scripts/run-bounded-command.mjs --profile npm-script-browser-v1 -- test:e2e
 
 启用自动划选（direct 或带有效按键的 modifier）时，后台通过平台 scripting service 注册现有 `content/index.js`，由浏览器在 HTTP/HTTPS 文档的 `document_end` 执行。注册保留到后续浏览器会话，避免每次重启重新等待后台唤醒；禁用划选时仅撤销本功能的注册。注册更新与配置读取均防止旧结果覆盖新设置，相同配置不会重复卸载/注册。已有页面的显式注入和平台兼容回退保留，慢图片或其他未完成资源不能阻塞正文上的划选和阅读操作。`sessionLifecycleRecovery.browser.test.ts` 的 held-image 场景同时验证真实鼠标划选、阅读面板和取消操作在 `window.load` 之前完成。
 
+内容入口 loader 必须使用扩展的 `runtime.getURL('content/runtime.js')` 构造绝对模块 URL。Firefox 会将经典 content script 中的 `import('./runtime.js')` 解析到当前网页 origin，导致后台已注册脚本、权限也已授予，页面 runtime 仍无法启动。保留同一初始化 Promise 和失败时的清理，不能用测试页手工注入绕过此生产入口；`contentRuntimeLoader.test.ts` 同时检查两种浏览器 API、重复初始化与失败重试。
+
 Reader / Video 共用 `sessionEndingCoordinator` 关闭新编辑入口、等待已接收的编辑落盘，并串行执行完成或取消。终止过程由 `sessionDraftTerminalState` 保留原始 finalize/remove 请求身份；响应丢失后重试延续同一操作。导出成功与草稿清理是两个阶段，同一挂载会话的收尾重试不会再次导出。不能把这种保证扩展为浏览器崩溃跨进程的导出 exactly-once 保证。
 
 Reader 的 `CLIP_RESULT` 回复只在后台实际写入成功时返回 `success: true`；失败或缺少确认都保留高亮、批注与草稿，允许用户重试。消息已送达并不表示文件已保存。确认成功后的草稿 finalize/remove 仍沿用原 receipt，重试只完成清理；后台完成写入但 ACK 丢失、浏览器在两者之间崩溃时，结果仍可能未知，不能承诺跨进程不重复导出。
