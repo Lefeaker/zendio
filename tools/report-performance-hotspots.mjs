@@ -239,7 +239,8 @@ export const MAX_LINE_BUDGETS = new Map([
   // 2026-06-23 P05 Options/Stitch decomposition: runtime surface content moved
   // out of the monolithic Stitch content seed behind the stable facade.
   ['src/options/stitch/content/runtimeSurfaceContent.ts', 283],
-  ['src/background/pipelines/clipPipeline.ts', 253],
+  // Explicit write success/failure acknowledgement keeps the existing pipeline owner.
+  ['src/background/pipelines/clipPipeline.ts', 254],
   // 2026-06-19 Options shortcut copy stabilization: platform-aware modifier
   // labels and keyboard mappings are centralized for Options rendering.
   ['src/options/app/fragmentModifierOptions.ts', 277],

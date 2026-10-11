@@ -88,6 +88,8 @@ describe('report-performance-hotspots', () => {
 
   it('keeps the exact normalized budget transitions and every other budget unchanged', () => {
     const registeredBudgets = readRegisteredBudgets();
+    expect(registeredBudgets.get('src/background/pipelines/clipPipeline.ts')).toBe(254);
+    registeredBudgets.set('src/background/pipelines/clipPipeline.ts', 253);
     const firstVaultChanges: Array<[string, number | null, number]> = [
       ['src/i18n/generated/messages.generated.ts', 1343, 1344],
       ['src/onboarding/practiceCoach.ts', 291, 315],
