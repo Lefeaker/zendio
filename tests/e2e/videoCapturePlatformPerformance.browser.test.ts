@@ -4,6 +4,7 @@ import { createHash } from 'node:crypto';
 import { readFile, readdir, writeFile } from 'node:fs/promises';
 import { platform, arch } from 'node:os';
 import { fileURLToPath } from 'node:url';
+import { z } from 'zod';
 import {
   BILIBILI_MAIN_COMMENT_TEXT,
   BILIBILI_REPLY_COMMENT_TEXT,
@@ -603,7 +604,9 @@ testWithExtension(
       }
     }
     const runtime = await readFile(path.join(EXTENSION_PATH, 'content/runtime.js'));
-    const manifest = JSON.parse(await readFile(path.join(EXTENSION_PATH, 'manifest.json'), 'utf8'));
+    const manifest = z
+      .object({ version: z.string() })
+      .parse(JSON.parse(await readFile(path.join(EXTENSION_PATH, 'manifest.json'), 'utf8')));
     const buildFiles = [
       'manifest.json',
       'content/runtime.js',

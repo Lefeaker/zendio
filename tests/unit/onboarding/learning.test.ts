@@ -117,12 +117,10 @@ describe('learning center', () => {
     expect(required<HTMLButtonElement>(r.root, '#learningStartPractice').hidden).toBe(false);
     expect(required<HTMLButtonElement>(r.root, '#learningConfigure').closest('details')).toBeNull();
     required<HTMLButtonElement>(r.root, '#learningStartPractice').click();
-    await vi.waitFor(() =>
-      expect(r.createMock).toHaveBeenCalledWith({
-        url: expect.stringMatching(/practice\.html\?lesson=vault&run=/),
-        active: true
-      })
-    );
+    await vi.waitFor(() => expect(r.createMock).toHaveBeenCalledTimes(1));
+    const request = r.createMock.mock.calls[0]?.[0];
+    expect(request).toMatchObject({ active: true });
+    expect(request?.url).toMatch(/practice\.html\?lesson=vault&run=/);
     expect(await r.dependencies.storage.local.get(LEARNING_PROGRESS_KEY)).toBeUndefined();
     dispose();
   });

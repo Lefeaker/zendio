@@ -72,13 +72,15 @@ describe('Reader save through the production background pipeline', () => {
       runtime: { getURL: (path) => path },
       messaging
     });
-    context.dispatchClipResult.mockImplementation(async (payload) => {
-      const acknowledgement = await handleClipResult({ type: 'CLIP_RESULT', payload }, 1, {
-        sendSupportPrompt: vi.fn().mockResolvedValue(undefined)
-      });
-      acknowledgementReply.mockResolvedValueOnce(acknowledgement);
-      await runtime.dispatchClipResult(payload);
-    });
+    context.dispatchClipResult.mockImplementation(
+      async (payload: Parameters<typeof runtime.dispatchClipResult>[0]) => {
+        const acknowledgement = await handleClipResult({ type: 'CLIP_RESULT', payload }, 1, {
+          sendSupportPrompt: vi.fn().mockResolvedValue(undefined)
+        });
+        acknowledgementReply.mockResolvedValueOnce(acknowledgement);
+        await runtime.dispatchClipResult(payload);
+      }
+    );
     const content = document.getElementById('content');
     if (!content) throw new Error('Missing Reader source fixture');
     await context.session.initialize({

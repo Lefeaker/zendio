@@ -801,7 +801,7 @@ describe('onboarding bootstrap', () => {
       createOnboardingDependencies({
         storage: { local: memory, sync: memory },
         optionsRepository: {
-          get: async () => ({ privacyPreferences: { analytics: true } }),
+          get: () => Promise.resolve({ privacyPreferences: { analytics: true } }),
           patch: vi.fn()
         },
         messagingRepository
