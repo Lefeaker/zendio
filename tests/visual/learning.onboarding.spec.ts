@@ -136,7 +136,10 @@ test('vault practice connects through Options, writes a real note and survives r
       if (note === 'After reopening') await practice.reload();
       await selectPassage(practice, '#practiceFirst');
       await practice.locator('.clipper-comment-textarea').fill(note);
-      await practice.locator('[data-action-id="clip"]').click();
+      if (note === 'After reopening') {
+        const mac = await practice.evaluate(() => navigator.platform.toLowerCase().includes('mac'));
+        await practice.locator('.clipper-comment-textarea').press(mac ? 'Meta+Enter' : 'Alt+Enter');
+      } else await practice.locator('[data-action-id="clip"]').click();
       await expect(practice.locator('#practiceRoot')).toHaveAttribute(
         'data-practice-phase',
         'saved'

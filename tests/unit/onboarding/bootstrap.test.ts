@@ -2,6 +2,7 @@
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Messages } from '../../../src/i18n/messages';
+import { createMemoryStorageArea } from '../../../src/platform/preview/memoryStorage';
 
 type OnboardingRuntimeMessagesMock = Partial<Messages>;
 type OnboardingControllerCtor =
@@ -787,30 +788,24 @@ describe('onboarding bootstrap', () => {
     history.replaceState(null, '', '/onboarding/index.html?source=options');
     const receipt = { operationId: 'saved', filePath: 'note.md', destination: 'vault', savedAt: 1 };
     const messagingRepository = { send: vi.fn().mockResolvedValue(undefined) };
+    const memory = createMemoryStorageArea();
+    await memory.set('learningProgress.v1', {
+      version: 1,
+      completed: Object.fromEntries(
+        ['fragment', 'article', 'reader', 'video', 'vault'].map((key) => [key, receipt])
+      ),
+      pending: []
+    });
     const controller = new OnboardingController(
-      { openVault: vi.fn(), openOptions: vi.fn(), openExternalLink: vi.fn() },
-      {
-        storage: {
-          local: {
-            set: vi.fn().mockResolvedValue(undefined),
-            get: vi.fn().mockResolvedValue({
-              version: 1,
-              completed: Object.fromEntries(
-                ['fragment', 'article', 'reader', 'video', 'vault'].map((key) => [key, receipt])
-              ),
-              pending: []
-            })
-          }
-        },
-        tabs: {
-          getCurrent: vi.fn().mockResolvedValue({ id: 42 }),
-          remove: vi.fn().mockResolvedValue(undefined)
-        },
+      createNavigationRepoMock(),
+      createOnboardingDependencies({
+        storage: { local: memory, sync: memory },
         optionsRepository: {
-          get: vi.fn().mockResolvedValue({ privacyPreferences: { analytics: true } })
+          get: async () => ({ privacyPreferences: { analytics: true } }),
+          patch: vi.fn()
         },
         messagingRepository
-      } as never
+      })
     );
     controller.initialize();
     await waitForSentMessage(messagingRepository.send, {

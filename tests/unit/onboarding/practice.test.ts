@@ -140,9 +140,14 @@ describe('guided practice', () => {
     coach.dispose();
   });
 
-  it.each(['downloads', 'vault'] as const)(
-    'does not let an old %s receipt hide a new failed save',
-    async (destination) => {
+  it.each([
+    ['downloads', 'click'],
+    ['vault', 'click'],
+    ['downloads', 'keyboard'],
+    ['vault', 'keyboard']
+  ])(
+    'does not let an old %s receipt hide a new failed save via %s',
+    async (destination, submission) => {
       const r = rig('vault');
       const coach = await mountPracticeCoach({ ...r, messages, exit: vi.fn() });
       try {
@@ -164,13 +169,25 @@ describe('guided practice', () => {
         const popup = document.createElement('div');
         popup.id = 'obsidian-clipper-dialog';
         const shadow = popup.attachShadow({ mode: 'open' });
-        shadow.innerHTML = '<button data-action-id="clip">Clip</button>';
+        shadow.innerHTML =
+          '<textarea class="clipper-comment-textarea"></textarea><button data-action-id="clip">Clip</button>';
         document.body.append(popup);
         await vi.waitFor(() => expect(shadow.querySelector('.practice-coach-hint')).not.toBeNull());
-        shadow.querySelector<HTMLButtonElement>('button')?.click();
+        if (submission === 'keyboard')
+          shadow.querySelector('textarea')?.dispatchEvent(
+            new KeyboardEvent('keydown', {
+              key: 'Enter',
+              metaKey: true,
+              altKey: true,
+              bubbles: true
+            })
+          );
+        else shadow.querySelector<HTMLButtonElement>('button')?.click();
         popup.remove();
         r.changed();
-        await vi.waitFor(() => expect(r.root.dataset.practicePhase).toBe('saving'));
+        if (submission === 'click')
+          await vi.waitFor(() => expect(r.root.dataset.practicePhase).toBe('saving'));
+        else expect(coach.getReceipt()).toBeUndefined();
         const failure = document.createElement('div');
         failure.id = 'aiob-support-prompt';
         failure.attachShadow({ mode: 'open' }).innerHTML =
