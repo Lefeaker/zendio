@@ -12,7 +12,9 @@ export async function runFirefoxSaveRetryScenario({ request, extensionUrl, run, 
   let writeStatus = 500;
   let rejectedWrites = 0;
   const files = new Map();
+  const requests = [];
   const server = createServer((req, res) => {
+    requests.push({ method: req.method, path: req.url });
     if (req.url?.startsWith('/article')) {
       const title = req.url.includes('second') ? 'Firefox Second Save' : 'Firefox First Save';
       res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
@@ -119,14 +121,30 @@ export async function runFirefoxSaveRetryScenario({ request, extensionUrl, run, 
         ),
       'SAVED_CAPTURE_OPTIONS'
     );
+    const runtimeDiagnostics = await executeAsync(`const done = arguments[arguments.length - 1];
+      Promise.all([browser.permissions.getAll(), browser.scripting.getRegisteredContentScripts(), browser.runtime.getManifest()])
+      .then(([permissions, scripts, manifest]) => done({ permissions, scripts, contentScripts: manifest.content_scripts }),
+        (error) => done({ error: String(error) }));`);
+    console.log('[firefox-save] injection inputs', JSON.stringify(runtimeDiagnostics));
     const article = await request('POST', 'window/new', { type: 'tab' });
     await request('POST', 'window', { handle: article.handle });
     const startReader = async (suffix) => {
       await request('POST', 'url', { url: `${endpoint}/article-${suffix}` });
-      await until(
-        () => execute(`return document.documentElement.dataset.aiobContentRuntime === 'true';`),
-        'CONTENT_RUNTIME'
-      );
+      let runtimeObservation;
+      try {
+        await until(async () => {
+          runtimeObservation =
+            await execute(`return { url: location.href, readyState: document.readyState,
+            runtime: document.documentElement.getAttribute('data-aiob-content-runtime') };`);
+          return runtimeObservation.runtime === 'true';
+        }, 'CONTENT_RUNTIME');
+      } catch (error) {
+        console.log(
+          '[firefox-save] content observation',
+          JSON.stringify({ runtimeObservation, requests })
+        );
+        throw error;
+      }
       await execute(`const node = document.querySelector('#selected'); const range = document.createRange(); range.selectNodeContents(node);
         const selection = window.getSelection(); selection.removeAllRanges(); selection.addRange(range);
         node.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, button: 0, clientX: 200, clientY: 130 }));`);
