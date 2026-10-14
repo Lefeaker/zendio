@@ -349,6 +349,7 @@ export const BROWSER_NPM_SCRIPTS = deepFreeze([
   'test:e2e:browser:architecture',
   'test:e2e:browser:firefox',
   'test:e2e:browser:local-vault',
+  'test:e2e:browser:performance',
   'test:e2e:browser:reader-panel',
   'test:e2e:browser:smoke',
   'test:e2e:browser:state',

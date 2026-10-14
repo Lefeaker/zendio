@@ -10,7 +10,8 @@ export const VITEST_CONFIG_PATHS = {
 export const PLAYWRIGHT_CONFIG_PATHS = [
   'playwright.config.ts',
   'playwright.reader.config.ts',
-  'playwright.bundled-chromium.config.ts'
+  'playwright.bundled-chromium.config.ts',
+  'tests/e2e/performance/playwright.config.ts'
 ];
 
 export function parseVitestConfig(source, file = 'vitest.config.ts') {
@@ -36,7 +37,9 @@ export function parsePlaywrightConfig(source, file = 'playwright.config.ts') {
     throw new Error(`${file} testDir is not statically derivable`);
   }
   return {
-    testDir,
+    testDir: normalizeRepositoryPath(
+      path.posix.isAbsolute(testDir) ? testDir : path.posix.join(path.posix.dirname(file), testDir)
+    ),
     testMatch: readStringArrayProperty(config, 'testMatch', { required: false, file }),
     testIgnore: readStringArrayProperty(config, 'testIgnore', { required: false, file })
   };
@@ -111,7 +114,7 @@ function readStringArrayProperty(object, name, { required, file }) {
 
 function readRepositoryPathExpression(expression) {
   if (ts.isStringLiteralLike(expression)) {
-    return normalizeRepositoryPath(expression.text);
+    return expression.text;
   }
   if (
     ts.isCallExpression(expression) &&
@@ -125,7 +128,7 @@ function readRepositoryPathExpression(expression) {
     expression.arguments.slice(1).every((argument) => ts.isStringLiteralLike(argument))
   ) {
     const parts = expression.arguments.slice(1).map((argument) => argument.text);
-    return normalizeRepositoryPath(path.posix.join(...parts));
+    return path.posix.join(...parts);
   }
   return undefined;
 }

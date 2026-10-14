@@ -1,6 +1,6 @@
 # 工程命令与入口
 
-最后更新：2026-10-11
+最后更新：2026-10-15
 
 ## 推荐运行环境
 
@@ -469,6 +469,11 @@ warning `108` / hard stop `118`；2026-06-20 Options/onboarding closeout 将
 - Fresh build/performance truth 已由 2026-06-18 GA telemetry acceptance gap fix 重新同步到 [`performance-baseline.md`](./performance-baseline.md)：production `content/runtime.js` raw `50,027` bytes、`onboarding/index.js` raw `10,023` bytes、chunks `104`；dev `content/runtime.js` raw `58,508` bytes、`onboarding/index.js` raw `17,566` bytes、chunks `118`；release-surface `Files=173`；performance `sourceFiles=814`、`hotspotsOver250=108`、`registeredLineBudgets=136`。
 
 ## 核心命令
+
+真实负载性能测量使用独立手动入口：先经 `npm-script-build-v1` 运行 `build:fast`，
+再执行 `node scripts/run-bounded-command.mjs --profile npm-script-browser-v1 -- test:e2e:browser:performance`。
+该入口以单 worker 测量生产产物，不自行重建或重试，不加入常规 CI 耗时门槛；采样边界、
+原始输出和环境限制见 [`performance-baseline.md`](./performance-baseline.md)。
 
 - `npm run build:dev`
 - `npm run build`
