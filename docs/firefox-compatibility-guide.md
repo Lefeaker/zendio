@@ -210,9 +210,9 @@ node scripts/run-bounded-command.mjs \
 
 `firefox-smoke-v1` 默认执行固定 `save-retry-v1` 保存回归；保留显式 `--scenario save-retry-v1` 参数与旧调用兼容，省略参数也不能跳过保存验证。其他场景名和重复参数会被拒绝，仍要求相同的 verified XPI、private attempt、browser 和 geckodriver 绑定。
 
-该场景从已安装扩展的真实 Options 控件设置测试目的地，再由普通网页的 content loader 自动启动 Reader。首篇保存收到一次 HTTP 500 后，UI 高亮及持久化草稿必须保留；重试成功后，第二篇含不同正文的文章也必须正常保存。接收端先把请求正文写入当前 attempt 的 `firefox-save-output/save-1.md` 和 `save-2.md`，再返回 HTTP 200。门槛读取这两个文件的完整内容，检查没有复用另一篇正文、拒绝/成功写入次数分别为 1/2，并在 smoke result 中保留文件字节数及 SHA-256。任一内容启动、保存、草稿或文件校验失败都会让命令失败，不能发布成功的 smoke result。
+该场景从已安装扩展的真实 Options 控件设置测试目的地，再由普通网页的 content loader 自动启动 Reader。首篇保存收到一次 HTTP 500 后，UI 高亮、同一持久化草稿和 `unknown` 保存记录必须保留，并显示面板内的恢复操作。再次点击普通“完成”不得发起写入；明确点击“已核对，重新保存”后才重试，第二篇含不同正文的文章也必须正常保存。接收端先把请求正文写入当前 attempt 的 `firefox-save-output/save-1.md` 和 `save-2.md`，再返回 HTTP 200。门槛读取这两个文件的完整内容，检查没有复用另一篇正文、拒绝/成功写入次数分别为 1/2，并在 smoke result 中保留文件字节数及 SHA-256。任一内容启动、保存、草稿或文件校验失败都会让命令失败，不能发布成功的 smoke result。
 
-失败保留检查以保存前已确认持久化的初始草稿为前提。条件轮询和轮询睡眠均受原有 smoke deadline 的取消边界约束；即使文件数量条件短路、没有发出 WebDriver 请求，超时后也必须停止轮询并完成原有浏览器/profile 清理。
+失败保留检查以保存前已确认持久化的初始草稿为前提：直接匹配当前页面的 active Reader 记录、完整高亮正文、同一 key/draftId 和不倒退的 revision，不能靠 index、receipt 或其他页面中出现的相同文本通过。支持提示弹窗仅在出现时关闭，恢复验收不依赖附属通知。条件轮询和轮询睡眠均受原有 smoke deadline 的取消边界约束；即使文件数量条件短路、没有发出 WebDriver 请求，超时后也必须停止轮询并完成原有浏览器/profile 清理。
 
 保存目的地是隔离的 loopback REST fixture（result 中明确标为 `loopback-rest-fixture`），使用固定合成 key，无需真实 Obsidian 凭据。它证明 Firefox XPI 的内容入口、配置、Reader、后台保存链路和实际 Markdown 请求内容，不证明用户的 Obsidian 插件、HTTPS 证书或原生目录授权；后者仍需在明确的用户环境中单独验收。`test:e2e:browser:firefox` 的 YAML 页面检查也不能代替 exact-XPI 保存验收。
 
