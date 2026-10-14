@@ -1,4 +1,5 @@
 import type { FirefoxBrowserInput } from '../config/commandBoundaryProfiles.mjs';
+import type { FirefoxSaveScenarioResult } from './firefoxWebDriverBidiSaveScenario.mjs';
 import type {
   FirefoxReleaseArtifactBinding,
   FirefoxReleaseTransportMode
@@ -41,5 +42,6 @@ export function runVerifiedFirefoxXpiSmoke(
     uninstalled: true;
     reinstalled: true;
     rebootstrapped: true;
+    saveScenario?: FirefoxSaveScenarioResult;
   }>
 >;

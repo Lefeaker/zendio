@@ -759,6 +759,7 @@ export async function runVerifiedFirefoxXpiSmoke(options, dependencies = {}) {
       saveScenario = await runFirefoxSaveRetryScenario({
         request,
         extensionUrl,
+        outputDirectory: join(binding.attemptRoot, 'firefox-save-output'),
         run: deadline.run,
         sleep: sleepImpl
       });
