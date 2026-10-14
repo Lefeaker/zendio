@@ -1,6 +1,19 @@
 import type { Messages } from '../messages';
 
 type RuntimeFallbackMessageKey =
+  | 'saveFailurePermission'
+  | 'saveFailureConnection'
+  | 'saveFailureValidation'
+  | 'saveFailureClassification'
+  | 'saveFailureExtraction'
+  | 'saveFailureWrite'
+  | 'saveFailureTimeout'
+  | 'saveFailureUnsupported'
+  | 'saveFailureGeneric'
+  | 'saveResultUnknown'
+  | 'saveRecoveryChanged'
+  | 'saveRecoverySaveAgain'
+  | 'saveRecoveryConfirmSaved'
   | 'reloadButton'
   | 'runtimeReloadRequired'
   | 'sessionFinishRetry'
@@ -86,6 +99,23 @@ type RuntimeFallbackMessageKey =
   | 'videoTimestampSectionTitle';
 
 export const RUNTIME_FALLBACK_MESSAGES = {
+  saveFailurePermission: 'Access was denied. Check folder permissions and try again.',
+  saveFailureConnection: 'Cannot connect. Check the connection and try again.',
+  saveFailureValidation: 'Check the content and save destination, then try again.',
+  saveFailureClassification:
+    'Content classification failed. Check classification settings and try again.',
+  saveFailureExtraction: 'Content could not be prepared. Keep your edits and try again.',
+  saveFailureWrite: 'The file could not be written. Check the destination and try again.',
+  saveFailureTimeout: 'The request timed out. Keep your edits and check the destination.',
+  saveFailureUnsupported: 'This save method is unavailable. Choose another destination.',
+  saveFailureGeneric: 'Saving failed. Your draft is kept; you can edit it and try again.',
+  saveResultUnknown:
+    'The save result is unknown. Your draft is kept. Check the destination before saving again to avoid duplicates. You can continue editing.',
+  saveRecoveryChanged:
+    'This draft changed after that save. The newer content is kept; save it as a new version.',
+  saveRecoverySaveAgain: 'Checked, save again',
+  saveRecoveryConfirmSaved: 'I checked: file is saved',
+
   reloadButton: '🔄 Reload',
   runtimeReloadRequired: 'Zendio was reloaded. Copy any unsaved notes, then reload this page.',
   sessionFinishRetry: 'Please retry Finish or Cancel to finish closing this session.',

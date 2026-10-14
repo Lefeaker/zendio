@@ -51,11 +51,15 @@ node scripts/run-bounded-command.mjs --profile npm-script-browser-v1 -- test:e2e
 
 Reader / Video 共用 `sessionEndingCoordinator` 关闭新编辑入口、等待已接收的编辑落盘，并串行执行完成或取消。终止过程由 `sessionDraftTerminalState` 保留原始 finalize/remove 请求身份；响应丢失后重试延续同一操作。导出成功与草稿清理是两个阶段，同一挂载会话的收尾重试不会再次导出。不能把这种保证扩展为浏览器崩溃跨进程的导出 exactly-once 保证。
 
-Reader 的 `CLIP_RESULT` 回复只在后台实际写入成功时返回 `success: true`；失败或缺少确认都保留高亮、批注与草稿，允许用户重试。消息已送达并不表示文件已保存。确认成功后的草稿 finalize/remove 仍沿用原 receipt，重试只完成清理；后台完成写入但 ACK 丢失、浏览器在两者之间崩溃时，结果仍可能未知，不能承诺跨进程不重复导出。
+Reader 的 `CLIP_RESULT` 与 Video repository 出口共同使用保存结果契约：保留兼容字段 `success`，并区分 `outcome=saved|failed|unknown`。只有写入前已确定失败才返回 `failed`；附件或正文写入过程中出现 HTTP 500、消息断开、无法确认的异常均为 `unknown`，不能据此认定文件不存在。失败字段只有受限的 category、code、stage 与本地化 descriptor；不传原始异常、响应正文、堆栈或错误上下文。旧成功 ACK 仍可识别，旧的单独 `success:false` 和无效/缺失回复按未知处理。新内容端等待回复最多 150 秒，超时不取消外部写入，也不自动重试；迟到的结果不能修改当前会话。
+
+Reader / Video 在发送前通过现有 draft controller 持久化 `exportAttempt`。保存记录包含操作身份、完整 live 内容与保存选择的摘要，以及当时的目标预览；摘要不应用草稿的条目保留上限，真实草稿仍遵守原保留策略。这一步失败时不发送写入。确认保存后先持久化 saved 标记，再进入原 finalize/remove；标记保存失败不会清理草稿。未知结果保留编辑能力，普通“完成”不会再次写入。用户先核对目标，再明确选择重新保存（当前内容、新操作身份）或确认原文件已保存（仅完成清理）。原保存之后有新编辑或目标变化时，确认旧文件不会清除新内容。重载恢复未知标记，继续采用相同规则；旧版本已打开的 content context 需刷新后才有新恢复界面。
+
+文件提交后的学习记录、使用统计、通知与错误上报都不参与保存 ACK。原 learning/usage FIFO owner 与 consent 检查保持不变；使用统计只服务概览、历史与重置，不是授权或配额提交。每项附带任务最多等待 2 秒并观察迟到的 rejection，通知不排在 reporter 后面。GA 与 Sentry 的原 fetch owner 同时用 AbortController 结束超时请求；对其他不可取消 API，等待上限不表示底层操作已取消。浏览器可能在 ACK 后结束 best-effort 工作，不承诺附带记录的崩溃后交付。上述机制不提供第三方存储的 exactly-once 或多文件原子性。
 
 Chrome / Firefox Downloads 由同一完成检查读取 `downloads.search` 并监听 `onChanged`：附件逐个完成后才生成 Markdown，主文件完成后才发送成功、记录首次保存与课程进度。浏览器对附件自动改名时，Markdown 使用最终相对文件名；本机绝对路径只用于本地结果与定位，不进入遥测。Blob URL 保留至终态，单次等待上限为 120 秒；超时只取消本次创建的 ID，并保留内容。取消失败或恰好完成的竞争仍视为结果未知，用户重试前可以检查 Downloads。既存学习 pending 收据在后台重启后继续按相同完成判定恢复。
 
-`readerSaveBoundary.test.ts` 覆盖 Reader → 生产后台 pipeline → writer 失败 → 草稿保留 → 重试；`exportTitleRoutes.browser.test.ts` 的保存失败场景通过真实 loopback REST 500/200 与原生 Downloads 检查实际 Markdown、附件和同名文件引用。
+`clipSaveAcknowledgement.test.ts` 覆盖 processor/pipeline 写入结果已确定但 notification、usage 或 reporter 挂起时仍返回 ACK；`readerSaveBoundary.test.ts` 覆盖 Reader → 生产后台 pipeline → writer 不确定结果 → 草稿保留 → 明确重新保存及 cleanup-only 重试；`exportTitleRoutes.browser.test.ts` 的保存失败场景通过真实 loopback REST 500/200 与原生 Downloads 检查实际 Markdown、附件和同名文件引用。
 
 Reader 初始化与编辑共用现有 mutation runner：本次划选先更新列表、计数和页面标记，再等待草稿认领与保存目标。恢复期间锁定编辑但保留取消入口；恢复的高亮合并到本次划选，不能覆盖新选中的文字。取消先关闭操作入口并等待正在进行的初始化，迟到的草稿只用于完成终态清理，不再恢复页面标记。面板和页面高亮在同一次同步清理中移除，不能在草稿仍可能恢复时先关闭面板。浏览器回归通过延迟真实 `selectAndClaim` 回复验证首条高亮已显示、取消无残留且刷新不复活；GA 事件回执不参与会话等待。
 

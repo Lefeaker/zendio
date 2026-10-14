@@ -1,3 +1,4 @@
+import { createClipSaveFailure } from '@shared/types/clipResult';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ChromeVideoRepository } from '../../../src/infrastructure/repositories/ChromeVideoRepository';
 import type { IMessagingRepository, Message, MessageHandler } from '@shared/repositories';
@@ -66,10 +67,7 @@ describe('ChromeVideoRepository', () => {
 
     const result = await repo.sendVideoClip(clip);
 
-    expect(result).toEqual({
-      success: false,
-      error: 'VIDEO_REPOSITORY_UNKNOWN_ERROR',
-      failureCategory: 'connection'
-    });
+    expect(result).toEqual(createClipSaveFailure('unknown', 'connection'));
+    expect(JSON.stringify(result)).not.toContain('string failure');
   });
 });

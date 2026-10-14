@@ -1,3 +1,4 @@
+import { createClipSaveFailure, isClipFailureCategory } from '../../../src/shared/types/clipResult';
 import type { ClipResultResponse } from '../../../src/shared/types';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ConnectionTestResult } from '../../../src/shared/types/connection';
@@ -92,7 +93,11 @@ vi.mock('../../../src/background/services/analyticsEvents', () => ({
 }));
 vi.mock('../../../src/background/application/clipProcessor', () => ({
   processClipPayload: processClipPayloadMock,
-  readClipProcessingFailureCategory: readClipProcessingFailureCategoryMock
+  readClipProcessingFailureCategory: readClipProcessingFailureCategoryMock,
+  clipProcessingFailureResult: (error: UntrustedValue) => {
+    const category = readMockFailureCategory(error);
+    return createClipSaveFailure('unknown', isClipFailureCategory(category) ? category : 'unknown');
+  }
 }));
 vi.mock('../../../src/shared/errors', () => ({
   errorHandler: { handle: handleErrorMock },
@@ -999,6 +1004,7 @@ describe('runtime message listener', () => {
         type: 'videoClip',
         data: {
           content: '# video',
+          operationId: 'op_saved12345',
           title: 'Video title',
           url: 'https://youtube.com/watch?v=1',
           videoUrl: 'https://youtube.com/watch?v=1',
@@ -1019,12 +1025,13 @@ describe('runtime message listener', () => {
       { tabId: 12 }
     );
 
-    expect(result).toEqual({ success: true, filePath: 'Video/example.md' });
+    expect(result).toEqual({ success: true, outcome: 'saved', filePath: 'Video/example.md' });
     expect(processClipPayloadMock).toHaveBeenCalledWith({
       markdown: '# video',
       title: 'Video title',
       type: 'video',
       meta: {
+        operationId: 'op_saved12345',
         url: 'https://youtube.com/watch?v=1',
         sourceUrl: 'https://youtube.com/watch?v=1',
         platform: 'youtube',
@@ -1074,7 +1081,7 @@ describe('runtime message listener', () => {
       { tabId: 12 }
     );
 
-    expect(result).toEqual({ success: true, filePath: 'Video/example.md' });
+    expect(result).toEqual({ success: true, outcome: 'saved', filePath: 'Video/example.md' });
     expect(processClipPayloadMock).toHaveBeenCalledWith({
       markdown: '# video',
       title: 'Video title',
@@ -1126,11 +1133,8 @@ describe('runtime message listener', () => {
       { tabId: 12 }
     );
 
-    expect(result).toEqual({
-      success: false,
-      error: 'vault write failed',
-      failureCategory: 'write'
-    });
+    expect(result).toEqual(createClipSaveFailure('unknown', 'write'));
+    expect(JSON.stringify(result)).not.toContain('vault write failed');
   });
 
   it('validates legacy repository clip and reading clip payloads before processing', async () => {
@@ -1164,8 +1168,12 @@ describe('runtime message listener', () => {
       { tabId: 12 }
     );
 
-    expect(clipResult).toEqual({ success: true, filePath: 'Video/example.md' });
-    expect(readingResult).toEqual({ success: true, filePath: 'Video/example.md' });
+    expect(clipResult).toEqual({ success: true, outcome: 'saved', filePath: 'Video/example.md' });
+    expect(readingResult).toEqual({
+      success: true,
+      outcome: 'saved',
+      filePath: 'Video/example.md'
+    });
     expect(processClipPayloadMock).toHaveBeenNthCalledWith(1, {
       markdown: '# clip',
       title: 'Clip title',
@@ -1188,7 +1196,7 @@ describe('runtime message listener', () => {
       await import('../../../src/background/listeners/runtimeMessages');
     registerRuntimeMessageListener(createDependencies());
 
-    await listener?.(
+    const contentResult = await listener?.(
       {
         type: 'CLIP_RESULT',
         payload: {
@@ -1209,13 +1217,22 @@ describe('runtime message listener', () => {
       { tabId: 12 }
     );
 
+    expect(contentResult).toEqual(createClipSaveFailure('failed', 'validation', 'prepare'));
     expect(handleClipResultMock).not.toHaveBeenCalled();
     expect(processClipPayloadMock).not.toHaveBeenCalled();
     expect(notifyExtractionErrorMock).toHaveBeenCalledWith('Invalid clip payload received.');
-    expect(repositoryResult).toEqual({
-      success: false,
-      error: 'Invalid clip payload received.'
-    });
+    expect(repositoryResult).toEqual(createClipSaveFailure('failed', 'validation', 'prepare'));
+  });
+
+  it('returns validation failure without awaiting extraction notification', async () => {
+    notifyExtractionErrorMock.mockImplementationOnce(() => new Promise<undefined>(() => {}));
+    const { registerRuntimeMessageListener } =
+      await import('../../../src/background/listeners/runtimeMessages');
+    registerRuntimeMessageListener(createDependencies());
+    const result = await listener?.({ type: 'CLIP_RESULT', payload: {} }, { tabId: 12 });
+    expect(result).toEqual(createClipSaveFailure('failed', 'validation', 'prepare'));
+    expect(notifyExtractionErrorMock).toHaveBeenCalledTimes(1);
+    expect(processClipPayloadMock).not.toHaveBeenCalled();
   });
 
   it('opens the options page and reports failures or unknown messages safely', async () => {

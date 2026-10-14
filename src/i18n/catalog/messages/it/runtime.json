@@ -882,5 +882,18 @@
   "learningUpdateSaveError": "Impossibile salvare la preferenza. Riprova.",
   "learningUpdateDismissed": "Puoi riaprire i tutorial dalla configurazione iniziale nella pagina Opzioni.",
   "aiConfigLoadFailed": "Impossibile caricare la configurazione IA. Riapri la sezione o aggiorna la pagina.",
-  "practiceVaultDownload": "Il file Markdown è stato scaricato. Per completare questa esercitazione, scegli il tuo vault nel pannello di acquisizione e salva di nuovo."
+  "practiceVaultDownload": "Il file Markdown è stato scaricato. Per completare questa esercitazione, scegli il tuo vault nel pannello di acquisizione e salva di nuovo.",
+  "saveFailurePermission": "Accesso negato. Controlla i permessi della cartella e riprova.",
+  "saveFailureConnection": "Connessione non disponibile. Controllala e riprova.",
+  "saveFailureValidation": "Controlla il contenuto e la destinazione, poi riprova.",
+  "saveFailureClassification": "Classificazione non riuscita. Controlla le impostazioni e riprova.",
+  "saveFailureExtraction": "Impossibile preparare il contenuto. Le modifiche sono conservate.",
+  "saveFailureWrite": "Impossibile scrivere il file. Controlla la destinazione e riprova.",
+  "saveFailureTimeout": "Tempo scaduto. Conserva le modifiche e controlla la destinazione.",
+  "saveFailureUnsupported": "Metodo non disponibile. Scegli un’altra destinazione.",
+  "saveFailureGeneric": "Salvataggio non riuscito. La bozza è conservata e modificabile.",
+  "saveResultUnknown": "Esito sconosciuto. La bozza è conservata. Controlla la destinazione prima di salvare di nuovo per evitare duplicati. Puoi continuare a modificare.",
+  "saveRecoveryChanged": "La bozza è cambiata dopo quel salvataggio. Il nuovo contenuto è conservato. Salvalo come nuova versione.",
+  "saveRecoverySaveAgain": "Controllato, salva di nuovo",
+  "saveRecoveryConfirmSaved": "Controllato: file salvato"
 }

@@ -1,4 +1,6 @@
 import { downloadPreparedClip } from './downloadClip';
+import { runBestEffortEffect } from '../../shared/errors/bestEffortEffect';
+import { createClipSaveFailure, type ClipSaveFailure } from '../../shared/types/clipResult';
 import { learningCoursesForExport, recordLearningExport } from '../services/learningProgress';
 import { getOptions } from '../store';
 import { RUNTIME_FALLBACK_MESSAGES } from '../../i18n/catalog/runtimeFallbackMessages';
@@ -76,6 +78,7 @@ interface AiChatTelemetryMetadata {
 const BACKGROUND_OPERATION_ID_PATTERN = /^op_[a-z0-9]{6,24}$/u;
 export interface ClipProcessingFailure extends Error {
   readonly failureCategory?: FailureCategory;
+  readonly saveFailure?: ClipSaveFailure;
 }
 
 const CLIP_PROGRESS_FALLBACKS = {
@@ -138,16 +141,24 @@ export function readClipProcessingFailureCategory(
 
 function withClipProcessingFailureCategory(
   error: UntrustedValue,
-  failureCategory: FailureCategory
+  failureCategory: FailureCategory,
+  outcome: 'failed' | 'unknown',
+  stage: 'prepare' | 'attachments' | 'note'
 ): ClipProcessingFailure {
   const failure =
     error instanceof Error ? error : new Error(typeof error === 'string' ? error : String(error));
   try {
     defineClipProcessingFailureCategory(failure, failureCategory);
+    Object.defineProperty(failure, 'saveFailure', {
+      value: createClipSaveFailure(outcome, failureCategory, stage)
+    });
     return failure;
   } catch {
     const fallback = new Error(failure.message);
     defineClipProcessingFailureCategory(fallback, failureCategory);
+    Object.defineProperty(fallback, 'saveFailure', {
+      value: createClipSaveFailure(outcome, failureCategory, stage)
+    });
     return fallback;
   }
 }
@@ -223,30 +234,38 @@ export async function processClipPayload(
         prepared: routed.prepared,
         completeStage
       });
-      await recordLearningExport({
-        receipt: {
-          operationId,
-          ...(payload.meta?.url ? { sourceUrl: payload.meta.url } : {}),
-          filePath: downloaded.filePath,
-          destination: 'downloads',
-          savedAt: Date.now(),
-          downloadId: downloaded.downloadId
-        },
-        courses: learningCoursesForExport(payload, routed.prepared.attachments.length),
-        downloadIds: downloaded.downloadIds
-      });
+      void runBestEffortEffect(
+        () =>
+          recordLearningExport({
+            receipt: {
+              operationId,
+              ...(payload.meta?.url ? { sourceUrl: payload.meta.url } : {}),
+              filePath: downloaded.filePath,
+              destination: 'downloads',
+              savedAt: Date.now(),
+              downloadId: downloaded.downloadId
+            },
+            courses: learningCoursesForExport(payload, routed.prepared.attachments.length),
+            downloadIds: downloaded.downloadIds
+          }),
+        'clip.learning'
+      );
 
       hooks.onProgress?.({
         value: 94,
         message: createClipProgressMessage('supportProgressRecordingResult')
       });
-      await completeStage('record_usage', async () => {
-        try {
-          await recordClipUsage(payload);
-        } catch (usageError) {
-          console.warn('[clipProcessor] Failed to record usage stats:', usageError);
-        }
-      });
+      void runBestEffortEffect(
+        () =>
+          completeStage('record_usage', async () => {
+            try {
+              await recordClipUsage(payload);
+            } catch (usageError) {
+              console.warn('[clipProcessor] Failed to record usage stats:', usageError);
+            }
+          }),
+        'clip.usage'
+      );
 
       const result: ClipProcessingResult = {
         filePath: downloaded.filePath,
@@ -262,7 +281,10 @@ export async function processClipPayload(
         duration_bucket: bucketDurationMs(Date.now() - startedAt),
         attachment_count_bucket: bucketCount(routed.prepared.attachments.length)
       });
-      void trackActivationMilestoneIfNeeded('first_clip_saved');
+      void runBestEffortEffect(
+        () => trackActivationMilestoneIfNeeded('first_clip_saved'),
+        'clip.activation'
+      );
       if (aiChatTelemetry) {
         trackClipTelemetryEvent('ai_chat_exported', {
           platform: aiChatTelemetry.platform,
@@ -299,30 +321,38 @@ export async function processClipPayload(
       routed.writeSession.writeMarkdown(routed.filePath, routed.prepared.markdown)
     );
 
-    await recordLearningExport({
-      receipt: {
-        operationId,
-        ...(payload.meta?.url ? { sourceUrl: payload.meta.url } : {}),
-        filePath: routed.filePath,
-        destination: 'vault',
-        vaultName: routed.restConfig.vault,
-        savedAt: Date.now()
-      },
-      courses: learningCoursesForExport(payload, routed.prepared.attachments.length),
-      downloadIds: []
-    });
+    void runBestEffortEffect(
+      () =>
+        recordLearningExport({
+          receipt: {
+            operationId,
+            ...(payload.meta?.url ? { sourceUrl: payload.meta.url } : {}),
+            filePath: routed.filePath,
+            destination: 'vault',
+            vaultName: routed.restConfig.vault,
+            savedAt: Date.now()
+          },
+          courses: learningCoursesForExport(payload, routed.prepared.attachments.length),
+          downloadIds: []
+        }),
+      'clip.learning'
+    );
 
     hooks.onProgress?.({
       value: 94,
       message: createClipProgressMessage('supportProgressRecordingResult')
     });
-    await completeStage('record_usage', async () => {
-      try {
-        await recordClipUsage(payload);
-      } catch (usageError) {
-        console.warn('[clipProcessor] Failed to record usage stats:', usageError);
-      }
-    });
+    void runBestEffortEffect(
+      () =>
+        completeStage('record_usage', async () => {
+          try {
+            await recordClipUsage(payload);
+          } catch (usageError) {
+            console.warn('[clipProcessor] Failed to record usage stats:', usageError);
+          }
+        }),
+      'clip.usage'
+    );
 
     const classificationWarning =
       classification.status === 'fallback' && classification.fallbackReason === 'error'
@@ -363,7 +393,10 @@ export async function processClipPayload(
       duration_bucket: bucketDurationMs(Date.now() - startedAt),
       attachment_count_bucket: bucketCount(routed.prepared.attachments.length)
     });
-    void trackActivationMilestoneIfNeeded('first_clip_saved');
+    void runBestEffortEffect(
+      () => trackActivationMilestoneIfNeeded('first_clip_saved'),
+      'clip.activation'
+    );
     if (aiChatTelemetry) {
       trackClipTelemetryEvent('ai_chat_exported', {
         platform: aiChatTelemetry.platform,
@@ -380,7 +413,18 @@ export async function processClipPayload(
       storage_target: storageTarget,
       failure_category: failureCategory
     });
-    throw withClipProcessingFailureCategory(error, failureCategory);
+    const stage =
+      currentStage === 'write_attachments'
+        ? 'attachments'
+        : currentStage === 'write_markdown'
+          ? 'note'
+          : 'prepare';
+    throw withClipProcessingFailureCategory(
+      error,
+      failureCategory,
+      stage === 'prepare' ? 'failed' : 'unknown',
+      stage
+    );
   }
 }
 
@@ -446,10 +490,23 @@ function resolveFailureCategory(
   stage: BackgroundStage | null,
   storageTarget: StorageTarget
 ): FailureCategory {
+  const declared = readClipProcessingFailureCategory(error);
+  if (declared) return declared;
+  if (error instanceof DOMException && ['NotAllowedError', 'SecurityError'].includes(error.name))
+    return 'permission';
   if (isAppError(error)) {
+    if (error.code.includes('TIMEOUT')) return 'timeout';
+    if (error.domain === 'extraction') return 'extraction';
     if (error.domain === 'classifier') {
       return 'classification';
     }
+    if (
+      error.context?.statusCode === 401 ||
+      error.context?.statusCode === 403 ||
+      (error.cause instanceof DOMException &&
+        ['NotAllowedError', 'SecurityError'].includes(error.cause.name))
+    )
+      return 'permission';
     if (error.domain === 'rest') {
       return 'connection';
     }
@@ -481,4 +538,13 @@ function trackClipTelemetryEvent<EventName extends ClipTelemetryEventName>(
   void Promise.resolve()
     .then(() => trackUsageEvent(eventName, params))
     .catch(() => undefined);
+}
+
+/** Only processor-owned stage metadata can claim a definite pre-write failure. */
+export function clipProcessingFailureResult(error: unknown): ClipSaveFailure {
+  if (error instanceof Error && 'saveFailure' in error) {
+    const result = (error as ClipProcessingFailure).saveFailure;
+    if (result) return result;
+  }
+  return createClipSaveFailure('unknown', readClipProcessingFailureCategory(error) ?? 'unknown');
 }

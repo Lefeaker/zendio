@@ -1,5 +1,6 @@
 import { AppError, ErrorReporter, ErrorSeverity, HandleErrorOptions } from './types';
 import { toSerializableUserVisibleMessageDescriptor } from '../i18n/userVisibleMessageDescriptor';
+import { runBestEffortEffect } from './bestEffortEffect';
 
 type ErrorNotificationBridge = (error: AppError) => Promise<void> | void;
 
@@ -80,13 +81,10 @@ export class ErrorHandler {
       this.log(normalized);
     }
 
-    if (!options.suppressReporters) {
-      await this.dispatchToReporters(normalized);
-    }
-
-    if (!options.suppressNotifications) {
-      await this.dispatchToNotificationBridge(normalized);
-    }
+    await Promise.all([
+      options.suppressReporters ? undefined : this.dispatchToReporters(normalized),
+      options.suppressNotifications ? undefined : this.dispatchToNotificationBridge(normalized)
+    ]);
 
     if (options.rethrow) {
       this.rethrow(normalized);
@@ -118,14 +116,15 @@ export class ErrorHandler {
       return;
     }
     await Promise.all(
-      Array.from(this.reporters).map(async (reporter) => {
-        try {
-          await reporter.report(error);
-        } catch (reporterError) {
-          // eslint-disable-next-line no-console
-          console.warn('[ErrorHandler] Reporter failed', reporterError);
-        }
-      })
+      Array.from(this.reporters).map((reporter) =>
+        runBestEffortEffect(async () => {
+          try {
+            await reporter.report(error);
+          } catch (reporterError) {
+            console.warn('[ErrorHandler] Reporter failed', reporterError);
+          }
+        }, 'error.reporter')
+      )
     );
   }
 
@@ -133,12 +132,13 @@ export class ErrorHandler {
     if (!this.notificationBridge) {
       return;
     }
-    try {
-      await this.notificationBridge(error);
-    } catch (bridgeError) {
-      // eslint-disable-next-line no-console
-      console.warn('[ErrorHandler] Notification bridge failed', bridgeError);
-    }
+    await runBestEffortEffect(async () => {
+      try {
+        await this.notificationBridge?.(error);
+      } catch (bridgeError) {
+        console.warn('[ErrorHandler] Notification bridge failed', bridgeError);
+      }
+    }, 'error.notification');
   }
 
   private rethrow(error: AppError): never {

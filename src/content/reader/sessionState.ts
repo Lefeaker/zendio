@@ -5,6 +5,10 @@ import type { ReaderHighlightTheme, ReadingSessionOptions } from '../../shared/t
 import { DEFAULT_READING_CONFIG } from './sessionTypes';
 import type { FeatureTimer } from '../../shared/analytics/featureTimer';
 import type { AnalyticsSource } from '../../shared/analytics/eventCatalog';
+import type {
+  SessionExportAttempt,
+  SessionExportRecoveryAction
+} from '../../shared/sessionDrafts/exportAttempt';
 
 const AVAILABLE_HIGHLIGHT_THEMES: ReadonlyArray<ReaderHighlightTheme> = [
   'gradient',
@@ -20,6 +24,8 @@ export class ReaderSessionState {
   ending = false;
   disconnected = false;
   exportDispatched = false;
+  exportAttempt: SessionExportAttempt | undefined;
+  exportRecoveryAction: SessionExportRecoveryAction | undefined;
   saving = false;
   handlingSelection = false;
   readingConfig: ReadingSessionOptions = { ...DEFAULT_READING_CONFIG };

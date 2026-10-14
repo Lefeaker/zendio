@@ -1,4 +1,8 @@
 import {
+  readSessionExportAttempt,
+  type SessionExportAttempt
+} from '../../shared/sessionDrafts/exportAttempt';
+import {
   createSessionDraftPageKey,
   createSessionDraftStorageKey,
   filterSessionCommentDraftsForRetainedIds,
@@ -53,6 +57,7 @@ export interface VideoSessionDraftPayloadShape extends VideoSessionDraftPayload 
   canonicalUrl: string;
   videoTitle: string;
   destination?: ExportDestinationMetadata;
+  exportAttempt?: SessionExportAttempt;
   captures: VideoSessionDraftCaptureDraft[];
 }
 
@@ -60,6 +65,7 @@ export interface BuildVideoSessionDraftPayloadArgs {
   captures: VideoCapture[];
   commentDrafts: SessionCommentDraftSnapshot;
   destination?: ExportDestinationMetadata;
+  exportAttempt?: SessionExportAttempt;
   platform: VideoPlatform;
   videoId: string | null;
   videoUrl: string;
@@ -72,6 +78,7 @@ export interface HydratedVideoSessionDraft {
   captures: VideoCapture[];
   commentDrafts: SessionCommentDraftSnapshot;
   destination?: ExportDestinationMetadata;
+  exportAttempt?: SessionExportAttempt;
   platform: VideoPlatform;
   videoId: string | null;
   videoUrl: string;
@@ -115,6 +122,7 @@ export function buildVideoSessionDraftPayload(
 
   return {
     mode: 'video',
+    ...(args.exportAttempt ? { exportAttempt: args.exportAttempt } : {}),
     platform: args.platform,
     videoId: args.videoId,
     videoUrl: args.videoUrl,
@@ -140,6 +148,9 @@ export function hydrateVideoSessionDraft(
   return {
     captures: deserializeVideoDraftCaptures(payload.captures, { fallbackUrl }),
     commentDrafts: { ...(payload.commentDrafts ?? {}) },
+    ...(readSessionExportAttempt(payload.exportAttempt)
+      ? { exportAttempt: readSessionExportAttempt(payload.exportAttempt)! }
+      : {}),
     ...(payload.destination ? { destination: payload.destination } : {}),
     platform: payload.platform,
     videoId: payload.videoId,

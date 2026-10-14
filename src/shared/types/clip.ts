@@ -2,6 +2,7 @@ import type { VaultConfig } from './vault';
 import type { RestOptions } from './options';
 import type { AppError } from '../errors/types';
 import type { SerializedClipAttachmentBinaryContent } from '../attachments/clipAttachmentBinary';
+import type { ClipSaveFailure } from './clipResult';
 import { isNonEmptyString, isObjectRecord, isOptionalString } from '../guards';
 import {
   isUserVisibleMessageDescriptor,
@@ -27,6 +28,7 @@ export interface BinaryClipAttachment {
 export type ClipAttachment = LegacyDataUrlClipAttachment | BinaryClipAttachment;
 
 export interface ClipMeta {
+  operationId?: string;
   url?: string;
   domain?: string;
   platform?: string;
@@ -61,7 +63,10 @@ export interface ClipResultMessage {
 }
 
 /** Explicit acknowledgement of the external write, separate from message delivery. */
-export type ClipResultResponse = { success: true; filePath: string } | { success: false };
+export type ClipResultResponse =
+  | ClipSaveFailure
+  | { success: true; outcome?: 'saved'; filePath: string }
+  | { success: false };
 
 export interface SupportPromptMessage {
   type: typeof SHOW_SUPPORT_PROMPT;

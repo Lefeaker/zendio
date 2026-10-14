@@ -882,5 +882,18 @@
   "learningUpdateSaveError": "Impossible d’enregistrer votre choix. Veuillez réessayer.",
   "learningUpdateDismissed": "Vous pouvez retrouver les tutoriels via la configuration initiale dans Options.",
   "aiConfigLoadFailed": "Impossible de charger la configuration IA. Rouvrez cette section ou actualisez la page.",
-  "practiceVaultDownload": "Le fichier Markdown a été téléchargé. Pour terminer cet exercice, choisissez votre coffre dans le panneau de capture et enregistrez à nouveau."
+  "practiceVaultDownload": "Le fichier Markdown a été téléchargé. Pour terminer cet exercice, choisissez votre coffre dans le panneau de capture et enregistrez à nouveau.",
+  "saveFailurePermission": "Accès refusé. Vérifiez les autorisations du dossier puis réessayez.",
+  "saveFailureConnection": "Connexion impossible. Vérifiez la connexion puis réessayez.",
+  "saveFailureValidation": "Vérifiez le contenu et la destination puis réessayez.",
+  "saveFailureClassification": "Échec du classement. Vérifiez ses paramètres puis réessayez.",
+  "saveFailureExtraction": "Impossible de préparer le contenu. Vos modifications sont conservées.",
+  "saveFailureWrite": "Impossible d’écrire le fichier. Vérifiez la destination puis réessayez.",
+  "saveFailureTimeout": "Délai dépassé. Conservez vos modifications et vérifiez la destination.",
+  "saveFailureUnsupported": "Cette méthode est indisponible. Choisissez une autre destination.",
+  "saveFailureGeneric": "Échec de l’enregistrement. Le brouillon est conservé et reste modifiable.",
+  "saveResultUnknown": "Résultat inconnu. Le brouillon est conservé. Vérifiez la destination avant de réenregistrer pour éviter les doublons. Vous pouvez continuer à modifier le contenu.",
+  "saveRecoveryChanged": "Le brouillon a changé depuis cet enregistrement. Le nouveau contenu est conservé. Enregistrez une nouvelle version.",
+  "saveRecoverySaveAgain": "Vérifié, réenregistrer",
+  "saveRecoveryConfirmSaved": "Vérifié : fichier enregistré"
 }

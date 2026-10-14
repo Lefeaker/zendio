@@ -882,5 +882,18 @@
   "learningUpdateSaveError": "Die Auswahl konnte nicht gespeichert werden. Bitte erneut versuchen.",
   "learningUpdateDismissed": "Die Anleitungen sind über die Ersteinrichtung auf der Options-Seite erreichbar.",
   "aiConfigLoadFailed": "Die KI-Konfiguration konnte nicht geladen werden. Öffnen Sie den Abschnitt erneut oder laden Sie die Seite neu.",
-  "practiceVaultDownload": "Die Markdown-Datei wurde heruntergeladen. Wähle im Ausschneidefenster deinen Vault und speichere erneut, um diese Übung abzuschließen."
+  "practiceVaultDownload": "Die Markdown-Datei wurde heruntergeladen. Wähle im Ausschneidefenster deinen Vault und speichere erneut, um diese Übung abzuschließen.",
+  "saveFailurePermission": "Zugriff verweigert. Ordnerberechtigungen prüfen und erneut versuchen.",
+  "saveFailureConnection": "Keine Verbindung. Verbindung prüfen und erneut versuchen.",
+  "saveFailureValidation": "Inhalt und Speicherziel prüfen und erneut versuchen.",
+  "saveFailureClassification": "Klassifizierung fehlgeschlagen. Einstellungen prüfen und erneut versuchen.",
+  "saveFailureExtraction": "Inhalt konnte nicht vorbereitet werden. Änderungen bleiben erhalten.",
+  "saveFailureWrite": "Datei konnte nicht geschrieben werden. Speicherziel prüfen und erneut versuchen.",
+  "saveFailureTimeout": "Zeitüberschreitung. Änderungen behalten und Speicherziel prüfen.",
+  "saveFailureUnsupported": "Diese Speichermethode ist nicht verfügbar. Anderes Ziel wählen.",
+  "saveFailureGeneric": "Speichern fehlgeschlagen. Der Entwurf bleibt erhalten und kann bearbeitet werden.",
+  "saveResultUnknown": "Speicherergebnis unbekannt. Der Entwurf bleibt erhalten. Vor erneutem Speichern das Ziel prüfen, um Duplikate zu vermeiden. Bearbeiten ist weiterhin möglich.",
+  "saveRecoveryChanged": "Der Entwurf wurde seit diesem Speichern geändert. Der neue Inhalt bleibt erhalten. Als neue Version speichern.",
+  "saveRecoverySaveAgain": "Geprüft, erneut speichern",
+  "saveRecoveryConfirmSaved": "Geprüft: Datei gespeichert"
 }

@@ -1,3 +1,4 @@
+import type { SessionExportRecoveryAction } from '../../shared/sessionDrafts/exportAttempt';
 import type { VideoFragmentCapture } from './types';
 import type { VideoSessionDependencies } from './sessionTypes';
 import type { VideoSessionState } from './sessionState';
@@ -47,6 +48,7 @@ interface VideoSessionRuntimeOperationContextOptions {
   screenshotPreparation: VideoScreenshotPreparationCoordinator;
   applyHint: (state: VideoHintState) => void;
   syncPanel: () => void;
+  resumeExport?: (action: SessionExportRecoveryAction) => void;
   runCaptureMutation: <Result>(
     transaction: VideoCaptureMutationTransaction<Result>
   ) => Promise<boolean>;
@@ -76,6 +78,7 @@ export function createVideoSessionRuntimeOperationContext({
   screenshotPreparation,
   applyHint,
   syncPanel,
+  resumeExport,
   runCaptureMutation,
   ensureCaptureHighlight,
   drafts
@@ -113,11 +116,13 @@ export function createVideoSessionRuntimeOperationContext({
     buildTimestampUrl: (timeSec: number) => platformController.buildTimestampUrl(timeSec),
     applyHint,
     syncPanel,
+    ...(resumeExport ? { resumeExport } : {}),
     runCaptureMutation,
     ensureCaptureHighlight,
     getSelectionForNode: (node: Node | null) => getSelectionForVideoNode(doc, node),
     highlightFragmentText: (text: string) => highlightVideoFragmentText({ doc, state, text }),
     getExportDestinationMetadata: () => destinationState.metadata,
+    getExportTargetPreview: () => destinationState.currentPreview,
     drafts,
     playbackEditLease,
     screenshots

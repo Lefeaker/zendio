@@ -1,3 +1,4 @@
+import { awaitClipSaveResult } from '../../shared/types/clipResult';
 import type { IVideoRepository, VideoClipData } from '../../shared/repositories/IVideoRepository';
 import type { IOptionsRepository, IMessagingRepository } from '../../shared/repositories';
 import type { VideoOptions } from '../../shared/types/options';
@@ -56,18 +57,7 @@ export class ChromeVideoRepository implements IVideoRepository {
   }
 
   async sendVideoClip(clip: VideoClipData): Promise<ClipResult> {
-    try {
-      return await this.messagingRepo.send<ClipResult>({
-        type: 'videoClip',
-        data: clip
-      });
-    } catch (error) {
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : 'VIDEO_REPOSITORY_UNKNOWN_ERROR',
-        failureCategory: 'connection'
-      };
-    }
+    return awaitClipSaveResult(() => this.messagingRepo.send({ type: 'videoClip', data: clip }));
   }
 
   onConfigChange(callback: (config: VideoOptions) => void): () => void {

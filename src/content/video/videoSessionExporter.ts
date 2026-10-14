@@ -30,6 +30,7 @@ export interface ExportPayload {
 }
 
 export interface BuildPayloadContext {
+  operationId?: string;
   captures: VideoCapture[];
   videoTitle: string;
   canonicalUrl: string;
@@ -40,11 +41,25 @@ export interface BuildPayloadContext {
   exportDestination?: ExportDestinationMetadata;
 }
 
+/** Freeze mutable capture metadata; Blob bytes are immutable and need not be duplicated. */
+export function snapshotVideoExportCaptures(captures: VideoCapture[]): VideoCapture[] {
+  return captures.map(
+    (capture): VideoCapture =>
+      capture.kind === 'timestamp'
+        ? {
+            ...capture,
+            ...(capture.screenshot ? { screenshot: { ...capture.screenshot } } : {}),
+            ...(capture.screenshotRef ? { screenshotRef: { ...capture.screenshotRef } } : {})
+          }
+        : { ...capture }
+  );
+}
+
 export class VideoSessionExporter {
   constructor(private readonly videoRepository: IVideoRepository) {}
 
   async buildPayload(ctx: BuildPayloadContext): Promise<ExportPayload> {
-    const sorted = [...ctx.captures].sort((a, b) => {
+    const sorted = snapshotVideoExportCaptures(ctx.captures).sort((a, b) => {
       const aTime = typeof a.timeSec === 'number' ? a.timeSec : Number.MAX_SAFE_INTEGER;
       const bTime = typeof b.timeSec === 'number' ? b.timeSec : Number.MAX_SAFE_INTEGER;
       if (aTime === bTime) {
@@ -158,6 +173,7 @@ export class VideoSessionExporter {
       url: payload.meta.url || ctx.canonicalUrl || ctx.videoUrl || '',
       videoUrl: ctx.videoUrl ?? '',
       timestamp: Date.now(),
+      ...(ctx.operationId ? { operationId: ctx.operationId } : {}),
       timestampCount: payload.meta.timestampCount,
       platform: this.mapPlatform(ctx.platform),
       ...(payload.meta.attachments ? { attachments: payload.meta.attachments } : {}),

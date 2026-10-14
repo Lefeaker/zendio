@@ -64,6 +64,40 @@ function readExportedClip(repository: ReturnType<typeof createRepository>): Vide
 }
 
 describe('VideoSessionExporter', () => {
+  it('freezes capture text while screenshot serialization is awaiting bytes', async () => {
+    const repository = createRepository();
+    const exporter = new VideoSessionExporter(repository);
+    const screenshot = createScreenshot('frozen', 'image');
+    if (!screenshot.content) throw new Error('Screenshot content missing');
+    let release!: (bytes: ArrayBuffer) => void;
+    vi.spyOn(screenshot.content.blob, 'arrayBuffer').mockImplementation(
+      () =>
+        new Promise<ArrayBuffer>((resolve) => {
+          release = resolve;
+        })
+    );
+    const capture = createTimestampCapture('frozen', 42, {
+      comment: 'Original note',
+      screenshotRequested: true,
+      screenshot
+    });
+    const pending = exporter.export({
+      captures: [capture],
+      videoTitle: 'Frozen title',
+      canonicalUrl: 'https://video.example/watch',
+      videoUrl: 'https://video.example/watch',
+      platform: 'youtube',
+      messages: DEFAULT_SESSION_MESSAGES,
+      storageKey: null
+    });
+    await vi.waitFor(() => expect(release).toBeTypeOf('function'));
+    capture.comment = 'Newer live note';
+    release(new TextEncoder().encode('image').buffer);
+    await pending;
+    expect(readExportedClip(repository).content).toContain('Original note');
+    expect(readExportedClip(repository).content).not.toContain('Newer live note');
+  });
+
   it('exports live screenshot captures through the binary attachment flow', async () => {
     const repository = createRepository();
     const exporter = new VideoSessionExporter(repository);
