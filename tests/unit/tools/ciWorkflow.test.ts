@@ -133,6 +133,44 @@ describe('bounded CI workflow contract', () => {
     ).toEqual(expected.map(([id, timeout]) => [id, 'ubuntu-24.04', timeout]));
   });
 
+  it('requires the actual Firefox XPI save path alongside YAML with no release authority or masked step', async () => {
+    const contract = await loadContract();
+    const workflow = read('.github/workflows/ci.yml');
+    const block = jobBlock(workflow, 'browser-firefox');
+    const job = contract.parseCiWorkflowJobs(workflow).jobs.get('browser-firefox');
+    const runs = job?.steps.slice(1).flatMap((step) => (step.run ? [step.run] : [])) ?? [];
+    expect(runs).toHaveLength(8);
+    expect(runs[2]).toContain('test:e2e:browser:firefox');
+    expect(runs[3]).toContain(
+      'isolated-build-v1 -- --run-isolated-build --config-mode standalone-synthetic'
+    );
+    expect(runs[4]).toContain('firefox-geckodriver-provision-v1');
+    expect(runs[5]).toContain('firefox-prepare-v1 -- --config-mode standalone-synthetic');
+    expect(runs[6]).toContain('firefox-verify-v1');
+    expect(runs[7]).toContain('firefox-smoke-v1');
+    expect(block).not.toMatch(/WEB_EXT_API_|owner-public-vars|firefox-submit-v1|secrets\./u);
+    for (const mutation of [
+      block.replace(
+        '      - name: Save and reinstall exact Firefox XPI',
+        '      - if: false\n        name: Save and reinstall exact Firefox XPI'
+      ),
+      block.replace(
+        '      - name: Save and reinstall exact Firefox XPI',
+        '      - continue-on-error: true\n        name: Save and reinstall exact Firefox XPI'
+      ),
+      block.replace(
+        'PLAYWRIGHT_BROWSERS_PATH: ${{ steps.node.outputs.attempt-root }}/playwright-browsers',
+        'PLAYWRIGHT_BROWSERS_PATH: /tmp/shared-firefox'
+      ),
+      block.replace('if: always()', 'if: failure()'),
+      block.replace('--config-mode standalone-synthetic', '--config-mode owner-public-vars')
+    ]) {
+      expect(
+        contract.checkCiWorkflowContract({ workflow: workflow.replace(block, mutation) }).ok
+      ).toBe(false);
+    }
+  });
+
   it('uses one identical builtin-only bootstrap before checkout in every job', async () => {
     const contract = await loadContract();
     const parsed = contract.parseCiWorkflowJobs(read('.github/workflows/ci.yml'));

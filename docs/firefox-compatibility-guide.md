@@ -206,6 +206,8 @@ node scripts/run-bounded-command.mjs \
 
 保存目的地是隔离的 loopback REST fixture（result 中明确标为 `loopback-rest-fixture`），使用固定合成 key，无需真实 Obsidian 凭据。它证明 Firefox XPI 的内容入口、配置、Reader、后台保存链路和实际 Markdown 请求内容，不证明用户的 Obsidian 插件、HTTPS 证书或原生目录授权；后者仍需在明确的用户环境中单独验收。`test:e2e:browser:firefox` 的 YAML 页面检查也不能代替 exact-XPI 保存验收。
 
+CI 的 `browser-firefox` job 同时运行 YAML 页面检查与 exact-XPI 保存验收：复用现有 host dependencies、锁定 Firefox 安装、isolated build、pinned geckodriver、prepare、verify 和 smoke owners。`acceptance-ci` 只接受已 bootstrap 的 `browser-firefox` / `browser-v1` 上下文、同一个私有 attempt、`standalone-synthetic` 配置与 `local-private-v1` 传输。它保留 host/install receipts 和 browser lease；不接受商店凭据、owner public variables、发布授权或 submit。生成工件的 `releaseEligible` 始终为 `false`。成功和失败的 job 都上传 `browser-firefox-reports`，其中包含可获得的 smoke result、Markdown 输出及工件 manifest。正式 AMO prepare 继续使用独立的发布授权边界，也默认执行同一保存场景。
+
 portable manifest 将 exact XPI、AMO source archive、dist inventory、Git tree、工具链和公开 GA 配置指纹绑定在一起。`local-private-v1` 仅接受 0700 目录和 0600 文件；工作流下载后的验证必须显式选择 `github-artifact-v1`，且不得由路径或文件 mode 自动推断 transport。
 
 exact-XPI smoke 使用固定版本和 SHA-256 的官方 geckodriver `0.37.1` 启动锁匹配的
