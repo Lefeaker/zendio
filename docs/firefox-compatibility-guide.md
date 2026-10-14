@@ -174,30 +174,38 @@ addBrowserClassToHtml(); // 添加 .is-firefox 类
 
 ### 本地发布工件验证
 
-正式 Firefox 发布候选不再把普通 `package:firefox:isolated` 输出直接当作发布证据。控制器会在私有 attempt 根内完成构建，然后依次运行：
+普通 `package:firefox:isolated` 输出不能直接当作发布证据。以下本地合成配置验收始终是
+`standalone-unproven`，不具备发布资格。`FIREFOX_ATTEMPT_ROOT` 指向既有 owner 已初始化的
+私有 attempt；调用环境必须绑定该 attempt 的空 npm configs 与已验证 Firefox 输入，详见下文。
+各步骤复用固定 command profiles，构建和临时输出都留在该 attempt 内：
 
 ```bash
-node scripts/prepare-firefox-release.mjs \
-  --attempt-root "$ATTEMPT_ROOT" \
+node scripts/run-bounded-command.mjs --profile isolated-build-v1 -- \
+  --run-isolated-build --config-mode standalone-synthetic --browser firefox \
+  --dist-dir "$FIREFOX_ATTEMPT_ROOT/build/dist-firefox" \
+  --temp-dir "$FIREFOX_ATTEMPT_ROOT/build/tmp-firefox"
+
+node scripts/run-bounded-command.mjs --profile firefox-prepare-v1 -- \
   --config-mode standalone-synthetic \
   --transport-mode local-private-v1 \
-  --dist-dir "$ATTEMPT_ROOT/dist-firefox" \
-  --release-dir "$ATTEMPT_ROOT/release-root/release" \
-  --result-json "$ATTEMPT_ROOT/prepare-result.json"
+  --attempt-root "$FIREFOX_ATTEMPT_ROOT" \
+  --dist-dir "$FIREFOX_ATTEMPT_ROOT/build/dist-firefox" \
+  --release-dir "$FIREFOX_ATTEMPT_ROOT/release" \
+  --result-json "$FIREFOX_ATTEMPT_ROOT/prepare-result.json"
 
-node scripts/verify-firefox-release.mjs \
-  --manifest "$ATTEMPT_ROOT/release-root/release/manifest.json" \
+node scripts/run-bounded-command.mjs --profile firefox-verify-v1 -- \
+  --manifest "$FIREFOX_ATTEMPT_ROOT/release/manifest.json" \
   --transport-mode local-private-v1
 
 node scripts/run-bounded-command.mjs \
   --profile firefox-geckodriver-provision-v1 -- \
-  --output-dir "$ATTEMPT_ROOT/geckodriver"
+  --output-dir "$FIREFOX_ATTEMPT_ROOT/geckodriver"
 
 node scripts/run-bounded-command.mjs \
   --profile firefox-smoke-v1 -- \
-  --manifest "$ATTEMPT_ROOT/release-root/release/manifest.json" \
+  --manifest "$FIREFOX_ATTEMPT_ROOT/release/manifest.json" \
   --transport-mode local-private-v1 \
-  --result-json "$ATTEMPT_ROOT/firefox-smoke-result.json"
+  --result-json "$FIREFOX_ATTEMPT_ROOT/firefox-smoke-result.json"
 ```
 
 `firefox-smoke-v1` 默认执行固定 `save-retry-v1` 保存回归；保留显式 `--scenario save-retry-v1` 参数与旧调用兼容，省略参数也不能跳过保存验证。其他场景名和重复参数会被拒绝，仍要求相同的 verified XPI、private attempt、browser 和 geckodriver 绑定。
@@ -208,7 +216,7 @@ node scripts/run-bounded-command.mjs \
 
 保存目的地是隔离的 loopback REST fixture（result 中明确标为 `loopback-rest-fixture`），使用固定合成 key，无需真实 Obsidian 凭据。它证明 Firefox XPI 的内容入口、配置、Reader、后台保存链路和实际 Markdown 请求内容，不证明用户的 Obsidian 插件、HTTPS 证书或原生目录授权；后者仍需在明确的用户环境中单独验收。`test:e2e:browser:firefox` 的 YAML 页面检查也不能代替 exact-XPI 保存验收。
 
-CI 的 `browser-firefox` job 同时运行 YAML 页面检查与 exact-XPI 保存验收：复用现有 host dependencies、锁定 Firefox 安装、isolated build、pinned geckodriver、prepare、verify 和 smoke owners。`acceptance-ci` 只接受已 bootstrap 的 `browser-firefox` / `browser-v1` 上下文、同一个私有 attempt、`standalone-synthetic` 配置与 `local-private-v1` 传输。它保留 host/install receipts 和 browser lease；不接受商店凭据、owner public variables、发布授权或 submit。生成工件的 `releaseEligible` 始终为 `false`。成功和失败的 job 都上传 `browser-firefox-reports`，其中包含可获得的 smoke result、Markdown 输出及工件 manifest。正式 AMO prepare 继续使用独立的发布授权边界，也默认执行同一保存场景。
+CI 的 `browser-firefox` job 同时运行 YAML 页面检查与 exact-XPI 保存验收：复用现有 host dependencies、锁定 Firefox 安装、isolated build、pinned geckodriver、prepare、verify 和 smoke owners。`acceptance-ci` 只接受已 bootstrap 的 `browser-firefox` / `browser-v1` 上下文、同一个私有 attempt、`standalone-synthetic` 配置与 `local-private-v1` 传输。它保留 host/install receipts 和 YAML 检查原有的 preview build lease；exact-XPI 使用独立私有 attempt、dist 与 profile。不接受商店凭据、owner public variables、发布授权或 submit。生成工件的 `releaseEligible` 始终为 `false`。成功和失败的 job 都上传 `browser-firefox-reports`，其中包含可获得的 smoke result、Markdown 输出及工件 manifest。正式 AMO prepare 继续使用独立的发布授权边界，也默认执行同一保存场景。
 
 portable manifest 将 exact XPI、AMO source archive、dist inventory、Git tree、工具链和公开 GA 配置指纹绑定在一起。`local-private-v1` 仅接受 0700 目录和 0600 文件；工作流下载后的验证必须显式选择 `github-artifact-v1`，且不得由路径或文件 mode 自动推断 transport。
 
