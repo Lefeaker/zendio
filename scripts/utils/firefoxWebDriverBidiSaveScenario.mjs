@@ -19,6 +19,43 @@ function fail(detail) {
   throw new Error(`FIREFOX_SAVE_SCENARIO:${detail}`);
 }
 
+/** Observe the actual active draft, never an index, receipt, or unrelated page. */
+export function findFirefoxReaderDraft(storage, pageUrl, paragraph, previous) {
+  const matches = Object.entries(storage ?? {}).filter(([key, record]) => {
+    if (!record || typeof record !== 'object') return false;
+    return (
+      record.schemaVersion === 2 &&
+      record.mode === 'reader' &&
+      record.status === 'active' &&
+      record.pageUrl === pageUrl &&
+      typeof record.pageKey === 'string' &&
+      typeof record.draftId === 'string' &&
+      record.draftId.length > 0 &&
+      key ===
+        `aiob.sessionDraft.v1.reader.${record.pageKey}.${encodeURIComponent(record.draftId)}` &&
+      Number.isInteger(record.revision) &&
+      record.revision >= 1 &&
+      Array.isArray(record.payload?.highlights) &&
+      record.payload.highlights.some((highlight) => highlight?.selectedText === paragraph)
+    );
+  });
+  if (matches.length !== 1) return undefined;
+  const [key, record] = matches[0];
+  if (
+    previous &&
+    (key !== previous.key ||
+      record.draftId !== previous.draftId ||
+      record.revision < previous.revision)
+  )
+    return undefined;
+  return {
+    key,
+    draftId: record.draftId,
+    revision: record.revision,
+    exportAttempt: record.payload.exportAttempt
+  };
+}
+
 export function waitForFirefoxSaveScenario(probe, label, { run, sleep }) {
   const code = `FIREFOX_SAVE_SCENARIO_TIMEOUT:${label}`;
   return run(
@@ -191,10 +228,16 @@ export async function runFirefoxSaveRetryScenario({
     };
     await startReader('first');
     await request('POST', 'window', { handle: optionsHandle });
-    await until(
-      async () => JSON.stringify(await readStored(null)).includes(ARTICLES.first.paragraph),
-      'INITIAL_DURABLE_DRAFT'
-    );
+    const firstPageUrl = `${endpoint}/article-first`;
+    let initialDraft;
+    await until(async () => {
+      initialDraft = findFirefoxReaderDraft(
+        await readStored(null),
+        firstPageUrl,
+        ARTICLES.first.paragraph
+      );
+      return Boolean(initialDraft);
+    }, 'INITIAL_DURABLE_DRAFT');
     await request('POST', 'window', { handle: article.handle });
     await click('[data-role="export-btn"]');
     await until(
@@ -206,21 +249,64 @@ export async function runFirefoxSaveRetryScenario({
     if (!(await hasHighlight(ARTICLES.first.paragraph)) || files.size !== 0)
       fail('FAILURE_DROPPED_CONTENT');
     await request('POST', 'window', { handle: optionsHandle });
-    const storage = await readStored(null);
-    if (!JSON.stringify(storage).includes(ARTICLES.first.paragraph)) fail('FAILURE_DROPPED_DRAFT');
+    const retainedDraft = findFirefoxReaderDraft(
+      await readStored(initialDraft.key),
+      firstPageUrl,
+      ARTICLES.first.paragraph,
+      initialDraft
+    );
+    if (!retainedDraft) fail('FAILURE_DROPPED_DRAFT');
+    const attempt = retainedDraft.exportAttempt;
+    if (
+      attempt?.outcome !== 'unknown' ||
+      !/^op_[a-z0-9]{6,24}$/u.test(attempt.operationId ?? '') ||
+      !/^[a-f0-9]{64}$/u.test(attempt.snapshotId ?? '') ||
+      !Number.isFinite(attempt.startedAt) ||
+      attempt.startedAt < 0
+    )
+      fail('FAILURE_DROPPED_UNKNOWN_ATTEMPT');
     await request('POST', 'window', { handle: article.handle });
     await until(
       () =>
         execute(
-          `${deepQuery}; return Boolean(query('#aiob-support-prompt')?.shadowRoot?.querySelector('.task-progress-track.is-failure'));`
+          `${deepQuery}; return Boolean(query('aside[data-session-export-notice="reader"]') && query('button[data-export-recovery="save-again"]'));`
         ),
-      'FAILURE_PROMPT'
+      'UNKNOWN_RECOVERY_NOTICE'
     );
+    // The support prompt is ancillary; business recovery must not depend on its delivery.
     await execute(
       `${deepQuery}; query('#aiob-support-prompt')?.shadowRoot?.querySelector('.resource-modal-overlay')?.click();`
     );
-    writeStatus = 200;
     await click('[data-role="export-btn"]');
+    if (rejectedWrites !== 1 || acceptedWrites !== 0 || files.size !== 0)
+      fail('UNKNOWN_FINISH_RETRIED');
+    await request('POST', 'window', { handle: optionsHandle });
+    const afterFinish = findFirefoxReaderDraft(
+      await readStored(initialDraft.key),
+      firstPageUrl,
+      ARTICLES.first.paragraph,
+      retainedDraft
+    );
+    if (
+      afterFinish?.exportAttempt?.operationId !== attempt.operationId ||
+      afterFinish.exportAttempt.outcome !== 'unknown'
+    )
+      fail('UNKNOWN_FINISH_CHANGED_ATTEMPT');
+    console.log(
+      '[firefox-save] retained unknown draft',
+      JSON.stringify({
+        key: retainedDraft.key,
+        draftId: retainedDraft.draftId,
+        initialRevision: initialDraft.revision,
+        unknownRevision: retainedDraft.revision,
+        operationId: attempt.operationId,
+        snapshotId: attempt.snapshotId,
+        ordinaryFinishWrites: 0
+      })
+    );
+    await request('POST', 'window', { handle: article.handle });
+    writeStatus = 200;
+    await click('button[data-export-recovery="save-again"]');
     await until(
       async () => files.size === 1 && !(await hasHighlight(ARTICLES.first.paragraph)),
       'RETRY_COMPLETE'

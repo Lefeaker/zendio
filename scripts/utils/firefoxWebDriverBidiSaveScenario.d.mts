@@ -10,6 +10,13 @@ export type FirefoxSaveScenarioResult = Readonly<{
   outputs: Array<{ file: string; bytes: number; sha256: string }>;
 }>;
 
+export function findFirefoxReaderDraft(
+  storage: unknown,
+  pageUrl: string,
+  paragraph: string,
+  previous?: { key: string; draftId: string; revision: number }
+): { key: string; draftId: string; revision: number; exportAttempt: unknown } | undefined;
+
 export function waitForFirefoxSaveScenario(
   probe: () => Promise<boolean>,
   label: string,
