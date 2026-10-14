@@ -1784,6 +1784,12 @@ function isFirefoxAcceptanceContext(environment) {
 
 function requireFirefoxAcceptanceJob(environment) {
   if (
+    Object.keys(environment).some((key) =>
+      ALL_STORE_KEYS.some((credential) => credential.toLowerCase() === key.toLowerCase())
+    )
+  )
+    invalid('STORE_CREDENTIAL_FORBIDDEN');
+  if (
     !isFirefoxAcceptanceContext(environment) ||
     environment.CI !== 'true' ||
     environment.GITHUB_ACTIONS !== 'true' ||

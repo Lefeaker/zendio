@@ -4423,6 +4423,18 @@ describe('bounded command ownership', () => {
 
   it('rejects foreign jobs, cleared CI, altered stamps, credentials and cross-attempt Firefox CI consumers', () => {
     const fixture = firefoxAcceptanceFixture();
+    for (const key of ['WEB_EXT_API_KEY', 'web_ext_api_secret', 'CWS_CLIENT_SECRET']) {
+      expect(() =>
+        resolveCommandProfile('playwright-host-deps-platform-v1', ['firefox-with-host-deps'], {
+          environment: { ...fixture.environment, [key]: 'must-be-rejected' }
+        })
+      ).toThrow('STORE_CREDENTIAL_FORBIDDEN');
+      expect(() =>
+        resolveCommandProfile('playwright-browser-install-v1', ['firefox-with-host-deps'], {
+          environment: { ...fixture.environment, [key]: 'must-be-rejected' }
+        })
+      ).toThrow('STORE_CREDENTIAL_FORBIDDEN');
+    }
     mkdirSync(fixture.browsersPath, { mode: 0o700 });
     const mutations: NodeJS.ProcessEnv[] = [
       { ...fixture.environment, GITHUB_JOB: 'browser-yaml' },
