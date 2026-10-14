@@ -19,6 +19,19 @@ function fail(detail) {
   throw new Error(`FIREFOX_SAVE_SCENARIO:${detail}`);
 }
 
+export function waitForFirefoxSaveScenario(probe, label, { run, sleep }) {
+  const code = `FIREFOX_SAVE_SCENARIO_TIMEOUT:${label}`;
+  return run(
+    async () => {
+      // A short-circuiting probe may never make a WebDriver request. Keep its
+      // polling sleep under the same fence so a deadline cannot leave a live loop.
+      while (!(await probe())) await run(() => sleep(100), 30_000, code);
+    },
+    30_000,
+    code
+  );
+}
+
 /** Fixed DOM scenario, using the verified smoke owner's existing browser and deadline. */
 export async function runFirefoxSaveRetryScenario({
   request,
@@ -79,14 +92,7 @@ export async function runFirefoxSaveRetryScenario({
   const endpoint = `http://127.0.0.1:${address.port}`;
   const execute = (script, args = []) => request('POST', 'execute/sync', { script, args });
   const executeAsync = (script, args = []) => request('POST', 'execute/async', { script, args });
-  const until = (probe, label) =>
-    run(
-      async () => {
-        while (!(await probe())) await sleep(100);
-      },
-      30_000,
-      `FIREFOX_SAVE_SCENARIO_TIMEOUT:${label}`
-    );
+  const until = (probe, label) => waitForFirefoxSaveScenario(probe, label, { run, sleep });
   const deepQuery = `function query(selector, root = document) {
     const direct = root.querySelector(selector); if (direct) return direct;
     for (const element of root.querySelectorAll('*')) {

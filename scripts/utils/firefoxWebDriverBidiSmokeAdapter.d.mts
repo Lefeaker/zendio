@@ -6,6 +6,12 @@ import type {
 } from './firefoxReleaseArtifactManifest.mjs';
 
 export const FIREFOX_WEBDRIVER_BIDI_SMOKE_SCHEMA: 'webdriver-bidi-v1';
+export function createDeadline(): {
+  readonly fenced: boolean;
+  fence(): void;
+  remaining(): number;
+  run<T>(operation: () => Promise<T>, timeoutMs: number, code: string): Promise<T>;
+};
 export const FIREFOX_XPI_SMOKE_TIMEOUTS: Readonly<{
   driverStartMs: 30000;
   sessionMs: 120000;

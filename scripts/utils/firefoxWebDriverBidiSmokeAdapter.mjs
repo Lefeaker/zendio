@@ -50,7 +50,7 @@ function sleep(milliseconds) {
   return new Promise((resolvePromise) => setTimeout(resolvePromise, milliseconds));
 }
 
-function createDeadline(dependencies = {}) {
+export function createDeadline(dependencies = {}) {
   const now = dependencies.now ?? Date.now;
   const setTimer = dependencies.setTimeoutOperation ?? setTimeout;
   const clearTimer = dependencies.clearTimeoutOperation ?? clearTimeout;

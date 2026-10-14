@@ -10,6 +10,15 @@ export type FirefoxSaveScenarioResult = Readonly<{
   outputs: Array<{ file: string; bytes: number; sha256: string }>;
 }>;
 
+export function waitForFirefoxSaveScenario(
+  probe: () => Promise<boolean>,
+  label: string,
+  owner: {
+    run: (operation: () => Promise<void>, timeoutMs: number, code: string) => Promise<void>;
+    sleep: (milliseconds: number) => Promise<void>;
+  }
+): Promise<void>;
+
 export function runFirefoxSaveRetryScenario(options: {
   request: (
     method: string,
