@@ -1,6 +1,6 @@
 # Source of Truth 索引
 
-最后更新：2026-10-11
+最后更新：2026-10-15
 
 - 当前活动运行时：`.nvmrc` 为 Node `24.21.0`，npm `11.19.0` 与精确身份来自 `scripts/config/runtimePolicy.mjs`；bounded command、Firefox release manifest 与 reviewer source archive 复用该来源。CI 使用 `.nvmrc`。历史 R02 transition 和既有 Node 20 验证记录不变，不能当作当前运行时验收结果。
 
@@ -16,7 +16,7 @@
 - 商业能力边界：[`commercial-capability-boundary.md`](./commercial-capability-boundary.md)
 - 使用协议：[`terms-of-use.md`](./terms-of-use.md)
 - 隐私政策：[`privacy-policy.md`](./privacy-policy.md)
-- 性能与热点真值：[`performance-baseline.md`](./performance-baseline.md)
+- 性能与热点真值、手动真实负载入口 `test:e2e:browser:performance`：[`performance-baseline.md`](./performance-baseline.md)
 - 架构边界：[`architecture-boundaries.md`](./architecture-boundaries.md)
 - 设计系统治理：[`design-system-governance.md`](./design-system-governance.md)
 - Options 主链说明：[`../src/options/README.md`](../src/options/README.md)
