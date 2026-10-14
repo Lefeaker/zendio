@@ -895,5 +895,10 @@
   "saveResultUnknown": "Esito sconosciuto. La bozza è conservata. Controlla la destinazione prima di salvare di nuovo per evitare duplicati. Puoi continuare a modificare.",
   "saveRecoveryChanged": "La bozza è cambiata dopo quel salvataggio. Il nuovo contenuto è conservato. Salvalo come nuova versione.",
   "saveRecoverySaveAgain": "Controllato, salva di nuovo",
-  "saveRecoveryConfirmSaved": "Controllato: file salvato"
+  "saveRecoveryConfirmSaved": "Controllato: file salvato",
+  "savePartialProgress": "Allegati confermati: {confirmed}/{total}. Fase incerta: {stage}. Controlla la destinazione prima di continuare; il file potrebbe già esistere.",
+  "savePhaseNote": "nota",
+  "savePhaseAttachments": "allegato",
+  "saveContinue": "Verificato, continua il salvataggio",
+  "saveContinuationUnavailable": "Il contenuto originale o la destinazione non è disponibile o è cambiato. Il contenuto è conservato. Controlla i file esistenti prima di una nuova esportazione."
 }

@@ -1,7 +1,9 @@
 import { readSessionExportAttempt } from '../../src/shared/sessionDrafts/exportAttempt';
 import { LEARNING_PROGRESS_KEY } from '../../src/shared/learningProgress';
-import { expect } from '@playwright/test';
+import { expect, type BrowserContext, type Page } from '@playwright/test';
 import { readFile, mkdir } from 'node:fs/promises';
+import path from 'node:path';
+import { createHash } from 'node:crypto';
 import {
   testWithExtension as test,
   createOptionsFixture,
@@ -13,6 +15,12 @@ import {
   findCurrentTabId,
   youtubeFixtureHtml,
   YOUTUBE_URL
+} from './utils/videoListenerScopeHarness';
+import {
+  installVideoScreenshotProbe,
+  readVideoScreenshotProbe,
+  releasePendingVideoScreenshotBlobs,
+  submitControlBarNote
 } from './utils/videoListenerScopeHarness';
 import {
   durableNote,
@@ -597,5 +605,286 @@ for (const [language, label] of [
     await notice.locator('[data-export-recovery="confirm-saved"]').click();
     await expect(page.locator('#aiob-reader-panel')).toHaveCount(0);
     expect(await extensionPage.evaluate(() => chrome.downloads.search({}))).toHaveLength(1);
+  });
+}
+
+async function openTwoAttachmentRecoveryVideo(
+  context: BrowserContext,
+  extensionPage: Page,
+  faultAt: number
+) {
+  const url = `${YOUTUBE_URL}&recovery=two-attachments`;
+  const { page, tabId } = await openFixtureWithRuntime(
+    context,
+    extensionPage,
+    url,
+    youtubeFixtureHtml()
+  );
+  await installVideoScreenshotProbe(extensionPage, tabId);
+  await openVideoPanelFromControlBar(page, 'First attachment note', {
+    captureScreenshotEnabled: true
+  });
+  await expect
+    .poll(async () => (await readVideoScreenshotProbe(extensionPage, tabId)).pendingBlobCallbacks)
+    .toBe(1);
+  await releasePendingVideoScreenshotBlobs(extensionPage, tabId, 'success');
+  await expandVideoPanel(page);
+  await expect(page.locator('[data-action-id="video:toggle-screenshot"]').first()).toHaveAttribute(
+    'data-screenshot-state',
+    'on'
+  );
+  await extensionPage.evaluate(async (id) => {
+    await chrome.scripting.executeScript({
+      target: { tabId: id },
+      func: () => {
+        const video = document.querySelector('video');
+        if (video) video.currentTime = 84;
+      }
+    });
+  }, tabId);
+  await submitControlBarNote(page, 'Second attachment note', { captureScreenshotEnabled: true });
+  await expect
+    .poll(async () => (await readVideoScreenshotProbe(extensionPage, tabId)).pendingBlobCallbacks)
+    .toBe(1);
+  await releasePendingVideoScreenshotBlobs(extensionPage, tabId, 'success');
+  await expandVideoPanel(page);
+  await expect(page.locator('[data-role="capture-item"]')).toHaveCount(2);
+  await expect(page.locator('[data-action-id="video:toggle-screenshot"]').last()).toHaveAttribute(
+    'data-screenshot-state',
+    'on'
+  );
+  const destination = page.locator('#aiob-video-panel .export-destination-row');
+  await destination.locator('summary').click();
+  await destination.locator('[data-destination-id="downloads"]').click();
+  const worker = context.serviceWorkers()[0];
+  if (!worker) throw new Error('Background worker missing');
+  await worker.evaluate((failAt) => {
+    const original = chrome.downloads.download.bind(chrome.downloads);
+    const attempts: string[] = [];
+    Object.defineProperty(chrome.downloads, 'download', {
+      configurable: true,
+      value: async (options: chrome.downloads.DownloadOptions) => {
+        attempts.push(options.filename ?? '');
+        await chrome.storage.local.set({ testAttachmentWriteAttempts: attempts });
+        if (attempts.length === failAt) {
+          await chrome.storage.local.set({ testAttachmentFaultFired: true });
+          throw new Error('Fixture lost an attachment/note write reply');
+        }
+        return original(options);
+      }
+    });
+  }, faultAt);
+  return { page, tabId, url };
+}
+
+async function attachmentWriteAttempts(extensionPage: Page): Promise<string[]> {
+  return extensionPage.evaluate(async () => {
+    const value: unknown = (await chrome.storage.local.get('testAttachmentWriteAttempts'))
+      .testAttachmentWriteAttempts;
+    if (!Array.isArray(value) || !value.every((item): item is string => typeof item === 'string'))
+      throw new Error('Write attempt instrumentation missing');
+    return value;
+  });
+}
+
+for (const scenario of [
+  'second-attachment',
+  'note',
+  'edit',
+  'destination-plan',
+  'missing-file',
+  'reload',
+  'lost-continuation-ack'
+] as const) {
+  test(`attachment recovery: ${scenario} preserves real files and requires explicit continuation`, async ({
+    context,
+    extensionPage
+  }, testInfo) => {
+    const language = scenario === 'second-attachment' ? 'de' : scenario === 'note' ? 'zh-CN' : 'en';
+    await extensionPage.evaluate(
+      (locale) => chrome.storage.sync.set({ language: locale }),
+      language
+    );
+    const faultAt = scenario === 'note' ? 3 : 2;
+    const { page, tabId, url } = await openTwoAttachmentRecoveryVideo(
+      context,
+      extensionPage,
+      faultAt
+    );
+    await page.locator('[data-action-id="video:finish"]').click();
+    const notice = page.locator('[data-session-export-notice="video"]');
+    try {
+      await expect(notice.locator('[data-attachment-progress]')).toContainText(
+        scenario === 'note' ? '2/2' : '1/2'
+      );
+    } catch (error) {
+      console.log(
+        'attachment-recovery-initial-diagnostic',
+        JSON.stringify({
+          scenario,
+          native: await extensionPage.evaluate(async () => ({
+            fault: await chrome.storage.local.get([
+              'testAttachmentWriteAttempts',
+              'testAttachmentFaultFired'
+            ]),
+            downloads: (await chrome.downloads.search({})).map(
+              ({ id, state, filename, exists }) => ({ id, state, filename, exists })
+            )
+          })),
+          drafts: await recoveryDrafts(extensionPage, url)
+        })
+      );
+      throw error;
+    }
+    expect(
+      await extensionPage.evaluate(
+        async () =>
+          (await chrome.storage.local.get('testAttachmentFaultFired')).testAttachmentFaultFired
+      )
+    ).toBe(true);
+    if (language !== 'en') {
+      await expect(notice.locator('[data-export-recovery="continue"]')).toHaveText(
+        language === 'de' ? 'Geprüft, restliches Speichern fortsetzen' : '已核对，继续剩余保存'
+      );
+      expect(
+        await notice.evaluate((element) => {
+          const bounds = element.getBoundingClientRect();
+          return (
+            element.scrollWidth <= element.clientWidth &&
+            [...element.querySelectorAll('button')].every((button) => {
+              const rect = button.getBoundingClientRect();
+              return rect.left >= bounds.left && rect.right <= bounds.right && rect.height >= 28;
+            })
+          );
+        })
+      ).toBe(true);
+      await testInfo.attach(`attachment-recovery-${language}`, {
+        body: await page.screenshot(),
+        contentType: 'image/png'
+      });
+    }
+    const payload = (await recoveryDrafts(extensionPage, url))[0]?.record.payload;
+    const attempt =
+      payload && 'exportAttempt' in payload
+        ? readSessionExportAttempt(payload.exportAttempt)
+        : undefined;
+    if (!attempt?.attachmentProgress) throw new Error('Durable attachment progress missing');
+    expect(attempt.attachmentProgress.confirmed).toHaveLength(faultAt - 1);
+    const firstDownloads = await extensionPage.evaluate(() => chrome.downloads.search({}));
+    expect(firstDownloads).toHaveLength(faultAt - 1);
+    const firstFile = firstDownloads[0];
+    if (!firstFile) throw new Error('First confirmed file missing');
+    expect(await readFile(firstFile.filename)).toEqual(Buffer.from([255, 216, 255, 217]));
+    if (await page.locator('#aiob-support-prompt').count())
+      await page.locator('#aiob-support-prompt').click({ position: { x: 3, y: 3 } });
+    await page.locator('[data-action-id="video:finish"]').click();
+    expect(await attachmentWriteAttempts(extensionPage)).toHaveLength(faultAt);
+
+    if (scenario === 'edit') {
+      await page.locator('[data-capture-input]').first().fill('Newer content must remain');
+      await expect
+        .poll(async () => JSON.stringify(await recoveryDrafts(extensionPage, url)))
+        .toContain('Newer content must remain');
+    } else if (scenario === 'destination-plan') {
+      await extensionPage.evaluate((options) => chrome.storage.sync.set({ options }), {
+        ...createOptionsFixture(),
+        templates: { video: 'Changed/changed.md' }
+      });
+      await expect(page.locator('#aiob-video-panel .export-destination-row')).toContainText(
+        'changed.md'
+      );
+    } else if (scenario === 'missing-file') {
+      await extensionPage.evaluate((id) => chrome.downloads.removeFile(id), firstFile.id);
+      await expect
+        .poll(() =>
+          extensionPage.evaluate(
+            async (id) => (await chrome.downloads.search({ id }))[0]?.exists,
+            firstFile.id
+          )
+        )
+        .toBe(false);
+    } else if (scenario === 'reload') {
+      await page.reload();
+      await injectContentRuntime(extensionPage, tabId);
+      await expect(notice.locator('[data-attachment-progress]')).toContainText('1/2', {
+        timeout: 15_000
+      });
+      await expandVideoPanel(page);
+      await expect(notice.locator('[data-export-recovery="continue"]')).toHaveCount(0);
+      await page.locator('[data-action-id="video:finish"]').click();
+      expect(await attachmentWriteAttempts(extensionPage)).toHaveLength(2);
+      expect(await extensionPage.evaluate(() => chrome.downloads.search({}))).toHaveLength(1);
+      console.log(
+        'attachment-recovery-evidence',
+        JSON.stringify({ scenario, confirmed: 1, writes: 2, files: 1, reloadDidNotDispatch: true })
+      );
+      return;
+    } else if (scenario === 'lost-continuation-ack')
+      await interceptRecoveryReply(extensionPage, tabId, 'videoClip', 'lose');
+
+    await notice.locator('[data-export-recovery="continue"]').click();
+    if (scenario === 'edit' || scenario === 'destination-plan' || scenario === 'missing-file') {
+      await expect(notice).toContainText('unavailable or changed');
+      expect(await attachmentWriteAttempts(extensionPage)).toHaveLength(2);
+      expect(await extensionPage.evaluate(() => chrome.downloads.search({}))).toHaveLength(1);
+      if (scenario === 'edit')
+        await expect(page.locator('[data-capture-input]').first()).toHaveValue(
+          'Newer content must remain'
+        );
+      else if (scenario === 'missing-file')
+        await expect(readFile(firstFile.filename)).rejects.toThrow();
+      else expect(await readFile(firstFile.filename)).toEqual(Buffer.from([255, 216, 255, 217]));
+      console.log(
+        'attachment-recovery-evidence',
+        JSON.stringify({ scenario, writes: 2, confirmedMetadataRetained: true })
+      );
+      return;
+    }
+    if (scenario === 'lost-continuation-ack') {
+      await expect(notice).toContainText('unknown');
+      await page.reload();
+      await injectContentRuntime(extensionPage, tabId);
+      await expect(notice).toContainText('unknown', { timeout: 15_000 });
+      await expandVideoPanel(page);
+      await page.locator('[data-action-id="video:finish"]').click();
+      expect(await attachmentWriteAttempts(extensionPage)).toHaveLength(4);
+      await expect(notice.locator('[data-export-recovery="continue"]')).toHaveCount(0);
+    } else await expect(page.locator('#aiob-video-panel')).toHaveCount(0);
+    const files = await extensionPage.evaluate(() => chrome.downloads.search({}));
+    expect(files).toHaveLength(3);
+    const note = files.find((file) => file.filename.endsWith('.md'));
+    if (!note) throw new Error('Final Markdown missing');
+    const markdown = await readFile(note.filename, 'utf8');
+    const references = [...markdown.matchAll(/!\[Screenshot\]\(([^)]+)\)/gu)].map(
+      (match) => match[1]
+    );
+    expect(references).toHaveLength(2);
+    for (const reference of references)
+      expect(
+        await readFile(path.join(path.dirname(note.filename), decodeURIComponent(reference)))
+      ).toEqual(Buffer.from([255, 216, 255, 217]));
+    expect(markdown).toContain('First attachment note');
+    expect(markdown).toContain('Second attachment note');
+    expect(await attachmentWriteAttempts(extensionPage)).toHaveLength(4);
+    await expect
+      .poll(() =>
+        extensionPage.evaluate(
+          async (key) => JSON.stringify((await chrome.storage.local.get(key))[key]),
+          LEARNING_PROGRESS_KEY
+        )
+      )
+      .toContain(attempt.operationId);
+    console.log(
+      'attachment-recovery-evidence',
+      JSON.stringify({
+        scenario,
+        operationId: attempt.operationId,
+        files: files.length,
+        writes: 4,
+        references,
+        markdownSha256: createHash('sha256').update(markdown).digest('hex'),
+        screenshotHex: 'ffd8ffd9'
+      })
+    );
   });
 }

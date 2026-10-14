@@ -9,6 +9,7 @@ import type { ClipResult } from '../../shared/repositories/IClipRepository';
 import type { ExportDestinationMetadata } from '../../shared/exportDestination';
 import type { ClipAttachment } from '../../shared/types';
 import { serializeVideoScreenshotAttachments } from './videoScreenshotExportAttachments';
+import type { ClipAttachmentProgress } from '../../shared/types/clipResult';
 
 export interface ExportPayloadMeta {
   url: string;
@@ -30,6 +31,7 @@ export interface ExportPayload {
 }
 
 export interface BuildPayloadContext {
+  onPrepared?: (payload: VideoClipData) => void;
   operationId?: string;
   captures: VideoCapture[];
   videoTitle: string;
@@ -179,7 +181,18 @@ export class VideoSessionExporter {
       ...(payload.meta.attachments ? { attachments: payload.meta.attachments } : {}),
       ...(ctx.exportDestination ? { exportDestination: ctx.exportDestination } : {})
     };
-    return this.videoRepository.sendVideoClip(clipData);
+    ctx.onPrepared?.(clipData);
+    return this.sendPrepared(clipData);
+  }
+
+  sendPrepared(
+    payload: VideoClipData,
+    attachmentProgress?: ClipAttachmentProgress
+  ): Promise<ClipResult> {
+    return this.videoRepository.sendVideoClip({
+      ...payload,
+      ...(attachmentProgress ? { attachmentProgress } : {})
+    });
   }
 
   private buildFragmentsMarkdown(

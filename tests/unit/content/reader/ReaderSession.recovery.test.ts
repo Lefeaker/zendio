@@ -49,6 +49,64 @@ async function createPersistedSession() {
 }
 
 describe('ReaderSession terminal recovery through the background store', () => {
+  it.each(['continue', 'edit', 'missing-snapshot', 'persist-failure'] as const)(
+    'retains confirmed progress and respects %s before another dispatch',
+    async (scenario) => {
+      const { context, key, callbacks } = await createPersistedSession();
+      context.dispatchClipResult.mockImplementationOnce((payload) => {
+        const operationId = payload.meta?.operationId;
+        if (!operationId) throw new Error('Missing attempt ID');
+        return Promise.reject(
+          new ClipSaveError(
+            createClipSaveFailure('unknown', 'write', 'attachments', {
+              operationId,
+              planId: 'a'.repeat(64),
+              total: 2,
+              phase: 'attachments',
+              storageTarget: 'downloads',
+              confirmed: [
+                {
+                  id: 'shot-1',
+                  outputPath: 'note/one.jpg',
+                  download: { id: 1, filename: '/downloads/note/one.jpg' }
+                }
+              ]
+            })
+          )
+        );
+      });
+      await callbacks.onFinish();
+      await callbacks.onFinish();
+      expect(context.dispatchClipResult).toHaveBeenCalledTimes(1);
+      await expect(readStoredReaderDraft(context, key)).resolves.toMatchObject({
+        payload: { exportAttempt: { attachmentProgress: { total: 2 } } }
+      });
+      const api = getSessionHarness(context.session);
+      if (scenario === 'edit') {
+        const edit = callbacks.onSubmitHighlightEdit('recovery-highlight', 'Newer content');
+        await flushDraftPersistence();
+        await edit;
+      }
+      if (scenario === 'missing-snapshot') api.state.frozenExportPayload = undefined;
+      if (scenario === 'persist-failure')
+        context.draftMessages.rejectNext('save', new Error('Cannot persist attempt'));
+      api.state.exportRecoveryAction = 'continue';
+      await callbacks.onFinish();
+      if (scenario === 'continue') {
+        expect(context.dispatchClipResult).toHaveBeenCalledTimes(2);
+        const first = context.dispatchClipResult.mock.calls[0]?.[0];
+        const second = context.dispatchClipResult.mock.calls[1]?.[0];
+        expect(second?.markdown).toBe(first?.markdown);
+        expect(second?.meta?.operationId).toBe(first?.meta?.operationId);
+        expect(second?.meta?.attachmentProgress?.confirmed).toHaveLength(1);
+        await expect(readStoredReaderDraft(context, key)).resolves.toBeUndefined();
+      } else {
+        expect(context.dispatchClipResult).toHaveBeenCalledTimes(1);
+        expect(api.state.exportAttempt?.attachmentProgress?.confirmed).toHaveLength(1);
+        expect(isReaderSessionActive(document)).toBe(true);
+      }
+    }
+  );
   beforeEach(() => {
     document.body.innerHTML = '';
     __resetContentSessionRegistryForTests(document);

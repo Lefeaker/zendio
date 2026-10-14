@@ -895,5 +895,10 @@
   "saveResultUnknown": "The save result is unknown. Your draft is kept. Check the destination before saving again to avoid duplicates. You can continue editing.",
   "saveRecoveryChanged": "This draft changed after that save. The newer content is kept; save it as a new version.",
   "saveRecoverySaveAgain": "Checked, save again",
-  "saveRecoveryConfirmSaved": "I checked: file is saved"
+  "saveRecoveryConfirmSaved": "I checked: file is saved",
+  "savePartialProgress": "Confirmed {confirmed}/{total} attachments. Uncertain stage: {stage}. Check the destination before continuing; the uncertain file may already exist.",
+  "savePhaseNote": "note",
+  "savePhaseAttachments": "attachment",
+  "saveContinue": "Checked, continue remaining save",
+  "saveContinuationUnavailable": "The original export snapshot or destination is unavailable or changed. Your content is kept. Check previous files before starting a new export."
 }

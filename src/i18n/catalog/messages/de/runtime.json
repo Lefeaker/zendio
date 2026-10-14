@@ -895,5 +895,10 @@
   "saveResultUnknown": "Speicherergebnis unbekannt. Der Entwurf bleibt erhalten. Vor erneutem Speichern das Ziel prüfen, um Duplikate zu vermeiden. Bearbeiten ist weiterhin möglich.",
   "saveRecoveryChanged": "Der Entwurf wurde seit diesem Speichern geändert. Der neue Inhalt bleibt erhalten. Als neue Version speichern.",
   "saveRecoverySaveAgain": "Geprüft, erneut speichern",
-  "saveRecoveryConfirmSaved": "Geprüft: Datei gespeichert"
+  "saveRecoveryConfirmSaved": "Geprüft: Datei gespeichert",
+  "savePartialProgress": "Anhänge bestätigt: {confirmed}/{total}. Unklarer Schritt: {stage}. Prüfe vor dem Fortsetzen das Ziel; die betreffende Datei kann bereits vorhanden sein.",
+  "savePhaseNote": "Notiz",
+  "savePhaseAttachments": "Anhang",
+  "saveContinue": "Geprüft, restliches Speichern fortsetzen",
+  "saveContinuationUnavailable": "Der ursprüngliche Export oder das Ziel ist nicht verfügbar oder wurde geändert. Dein Inhalt bleibt erhalten. Prüfe vorhandene Dateien vor einem neuen Export."
 }

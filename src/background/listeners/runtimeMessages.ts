@@ -69,6 +69,7 @@ function toVideoClipPayload(data: Record<string, unknown>): unknown {
       platform: data.platform,
       ...(data.timestampCount !== undefined ? { timestampCount: data.timestampCount } : {}),
       ...(data.attachments ? { attachments: data.attachments } : {}),
+      ...(data.attachmentProgress ? { attachmentProgress: data.attachmentProgress } : {}),
       ...(data.exportDestination ? { exportDestination: data.exportDestination } : {}),
       ...(typeof data.operationId === 'string' ? { operationId: data.operationId } : {})
     }

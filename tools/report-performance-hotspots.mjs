@@ -32,7 +32,7 @@ export const MAX_LINE_BUDGETS = new Map([
   // Compact review and first-run navigation add three catalog labels.
   // Options topics add 18 labels/descriptions; existing shell/navigation owners
   // below forward explicit section navigation to the guide.
-  ['src/i18n/generated/messages.generated.ts', 1357],
+  ['src/i18n/generated/messages.generated.ts', 1362],
   ['src/i18n/generated/locales/fr.generated.ts', 785],
   ['src/i18n/generated/locales/es-419.generated.ts', 777],
   ['src/i18n/generated/locales/es-ES.generated.ts', 777],
@@ -81,7 +81,7 @@ export const MAX_LINE_BUDGETS = new Map([
   // 2026-06-13 GA P01: schema-owned contract replaces duplicated catalog and
   // sanitizer tables; current exact schema hotspot budget is the new source of truth.
   ['src/shared/analytics/schema/analyticsSchema.ts', 527],
-  ['src/content/video/sessionOperations.ts', 547],
+  ['src/content/video/sessionOperations.ts', 602],
   ['src/content/video/platforms/bilibiliRichText.ts', 302],
   ['src/content/video/platforms/bilibiliPlatformObserver.ts', 286],
   // 2026-06-20 Options/onboarding closeout: keep current video prompt lifecycle
@@ -137,7 +137,7 @@ export const MAX_LINE_BUDGETS = new Map([
   ['src/background/services/obsidianWriter.ts', 423],
   ['src/background/vault-router.ts', 422],
   ['src/shared/state/globalStateManager.ts', 345],
-  ['src/content/reader/sessionOperations.ts', 759],
+  ['src/content/reader/sessionOperations.ts', 815],
   ['src/i18n/config.ts', 343],
   ['src/content/ui/supportPrompt.ts', 345],
   ['src/options/services/connectionTester.ts', 368],
@@ -173,7 +173,7 @@ export const MAX_LINE_BUDGETS = new Map([
   ['src/platform/chrome/contextMenus.ts', 285],
   ['src/content/shared/panels/sessionPanelResize.ts', 284],
   // Learning records the actual write receipt and download IDs at both existing commit points.
-  ['src/background/application/clipProcessor.ts', 550],
+  ['src/background/application/clipProcessor.ts', 626],
   // Guided practice owns one observer/receipt lifecycle; keep its exact source budget.
   ['src/onboarding/practiceCoach.ts', 315],
   // Vault practice adds browser-specific setup and actual-destination completion UI.
@@ -258,7 +258,7 @@ export const MAX_LINE_BUDGETS = new Map([
   ['src/shared/analytics/analyticsTransport.ts', 269],
   // Save recovery keeps frozen capture inputs and optional attempt metadata in
   // the existing exporter/draft owners; these are exact reviewed line counts.
-  ['src/content/video/videoSessionExporter.ts', 259],
+  ['src/content/video/videoSessionExporter.ts', 272],
   ['src/content/video/sessionDrafts.ts', 253],
   // 2026-06-18 GA telemetry acceptance: reader/video export shape telemetry
   // adds small guarded hotspots around existing mutation and completion flows.

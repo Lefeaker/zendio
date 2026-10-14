@@ -895,5 +895,10 @@
   "saveResultUnknown": "保存結果を確認できません。下書きは保持されています。重複を避けるため、保存先を確認してから再保存してください。編集は続けられます。",
   "saveRecoveryChanged": "保存後に下書きが変更されました。新しい内容は保持されています。新しい版として保存してください。",
   "saveRecoverySaveAgain": "確認済み、再保存",
-  "saveRecoveryConfirmSaved": "ファイルの保存を確認済み"
+  "saveRecoveryConfirmSaved": "ファイルの保存を確認済み",
+  "savePartialProgress": "添付ファイル {confirmed}/{total} 件を確認済み。結果が不明な段階：{stage}。続行前に保存先を確認してください。ファイルが既に存在する可能性があります。",
+  "savePhaseNote": "本文",
+  "savePhaseAttachments": "添付ファイル",
+  "saveContinue": "確認済み、残りの保存を続行",
+  "saveContinuationUnavailable": "元の書き出し内容または保存先が利用できないか変更されています。内容は保持されています。既存ファイルを確認してから新たに書き出してください。"
 }

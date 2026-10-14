@@ -1,6 +1,11 @@
 import { downloadPreparedClip } from './downloadClip';
 import { runBestEffortEffect } from '../../shared/errors/bestEffortEffect';
-import { createClipSaveFailure, type ClipSaveFailure } from '../../shared/types/clipResult';
+import {
+  createClipSaveFailure,
+  type ClipSaveFailure,
+  type ClipAttachmentProgress
+} from '../../shared/types/clipResult';
+import { sha256Hex } from '../../shared/sessionDrafts/pageIdentity';
 import { learningCoursesForExport, recordLearningExport } from '../services/learningProgress';
 import { getOptions } from '../store';
 import { RUNTIME_FALLBACK_MESSAGES } from '../../i18n/catalog/runtimeFallbackMessages';
@@ -143,21 +148,22 @@ function withClipProcessingFailureCategory(
   error: UntrustedValue,
   failureCategory: FailureCategory,
   outcome: 'failed' | 'unknown',
-  stage: 'prepare' | 'attachments' | 'note'
+  stage: 'prepare' | 'attachments' | 'note',
+  attachmentProgress?: ClipAttachmentProgress
 ): ClipProcessingFailure {
   const failure =
     error instanceof Error ? error : new Error(typeof error === 'string' ? error : String(error));
   try {
     defineClipProcessingFailureCategory(failure, failureCategory);
     Object.defineProperty(failure, 'saveFailure', {
-      value: createClipSaveFailure(outcome, failureCategory, stage)
+      value: createClipSaveFailure(outcome, failureCategory, stage, attachmentProgress)
     });
     return failure;
   } catch {
     const fallback = new Error(failure.message);
     defineClipProcessingFailureCategory(fallback, failureCategory);
     Object.defineProperty(fallback, 'saveFailure', {
-      value: createClipSaveFailure(outcome, failureCategory, stage)
+      value: createClipSaveFailure(outcome, failureCategory, stage, attachmentProgress)
     });
     return fallback;
   }
@@ -176,9 +182,15 @@ export async function processClipPayload(
   const aiChatTelemetry = resolveAiChatTelemetry(payload);
   let storageTarget: StorageTarget = 'unknown';
   let currentStage: BackgroundStage | null = null;
+  const previousProgress = payload.meta?.attachmentProgress;
+  let attachmentProgress: ClipAttachmentProgress | undefined = previousProgress
+    ? { ...previousProgress, confirmed: [...previousProgress.confirmed] }
+    : undefined;
 
   const completeStage = <T>(stage: BackgroundStage, action: () => Promise<T>): Promise<T> => {
     currentStage = stage;
+    if (attachmentProgress && (stage === 'write_attachments' || stage === 'write_markdown'))
+      attachmentProgress.phase = stage === 'write_markdown' ? 'note' : 'attachments';
     const stageStartedAt = Date.now();
     return Promise.resolve(action()).then((value) => {
       trackClipTelemetryEvent('background_stage_completed', {
@@ -220,6 +232,36 @@ export async function processClipPayload(
       });
     });
     storageTarget = toRouteStorageTarget(routed);
+    if (routed.prepared.attachments.length || attachmentProgress) {
+      // One digest per explicit dispatch, never per attachment progress callback.
+      const planId = clipAttachmentPlanId(payload, routed);
+      const target =
+        routed.destination === 'downloads' ? 'downloads' : routed.writeSession.target.storageTarget;
+      if (
+        attachmentProgress &&
+        (attachmentProgress.blocked ||
+          attachmentProgress.operationId !== operationId ||
+          attachmentProgress.planId !== planId ||
+          attachmentProgress.storageTarget !== target ||
+          attachmentProgress.total !== routed.prepared.attachments.length ||
+          attachmentProgress.confirmed.some(
+            (item, index) =>
+              item.id !== routed.prepared.attachments[index]?.id ||
+              item.outputPath !== routed.prepared.attachments[index]?.outputPath
+          ))
+      ) {
+        attachmentProgress.blocked = true;
+        throw new Error('CLIP_ATTACHMENT_PLAN_CHANGED');
+      }
+      attachmentProgress ??= {
+        operationId,
+        planId,
+        storageTarget: target,
+        total: routed.prepared.attachments.length,
+        phase: 'attachments',
+        confirmed: []
+      };
+    }
 
     if (routed.destination === 'downloads') {
       hooks.onProgress?.({
@@ -232,6 +274,7 @@ export async function processClipPayload(
         filePath: routed.filePath,
         sourceMarkdown: payload.markdown,
         prepared: routed.prepared,
+        ...(attachmentProgress ? { attachmentProgress } : {}),
         completeStage
       });
       void runBestEffortEffect(
@@ -302,13 +345,19 @@ export async function processClipPayload(
         message: createClipProgressMessage('supportProgressWritingAttachments')
       });
       await completeStage('write_attachments', async () => {
-        for (const attachment of routed.prepared.attachments) {
+        for (const attachment of routed.prepared.attachments.slice(
+          attachmentProgress?.confirmed.length ?? 0
+        )) {
           const blob = serializedAttachmentContentToBlob(attachment.content, attachment.mimeType);
           await routed.writeSession.writeAttachment(
             attachment.outputPath,
             blob,
             attachment.mimeType
           );
+          attachmentProgress?.confirmed.push({
+            id: attachment.id,
+            outputPath: attachment.outputPath
+          });
         }
       });
     }
@@ -422,10 +471,37 @@ export async function processClipPayload(
     throw withClipProcessingFailureCategory(
       error,
       failureCategory,
-      stage === 'prepare' ? 'failed' : 'unknown',
-      stage
+      stage === 'prepare' && !attachmentProgress ? 'failed' : 'unknown',
+      stage,
+      attachmentProgress
     );
   }
+}
+
+function clipAttachmentPlanId(payload: ClipPayload, route: ResolvedClipRoute): string {
+  const target =
+    route.destination === 'downloads'
+      ? { storageTarget: 'downloads' }
+      : {
+          ...route.writeSession.target,
+          vault: route.restConfig.vault,
+          folderId: route.restConfig.localFolderId,
+          baseUrl: route.restConfig.baseUrl,
+          httpsUrl: route.restConfig.httpsUrl,
+          httpUrl: route.restConfig.httpUrl
+        };
+  return sha256Hex(
+    JSON.stringify({
+      markdown: payload.markdown,
+      title: payload.title,
+      type: payload.type,
+      sourceUrl: payload.meta?.url,
+      operationId: payload.meta?.operationId,
+      target,
+      filePath: route.filePath,
+      prepared: route.prepared
+    })
+  );
 }
 
 function resolveBackgroundOperationId(payload: ClipPayload): string {

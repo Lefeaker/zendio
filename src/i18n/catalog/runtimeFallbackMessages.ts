@@ -1,6 +1,11 @@
 import type { Messages } from '../messages';
 
 type RuntimeFallbackMessageKey =
+  | 'savePartialProgress'
+  | 'savePhaseNote'
+  | 'savePhaseAttachments'
+  | 'saveContinue'
+  | 'saveContinuationUnavailable'
   | 'saveFailurePermission'
   | 'saveFailureConnection'
   | 'saveFailureValidation'
@@ -99,6 +104,14 @@ type RuntimeFallbackMessageKey =
   | 'videoTimestampSectionTitle';
 
 export const RUNTIME_FALLBACK_MESSAGES = {
+  savePartialProgress:
+    'Confirmed {confirmed}/{total} attachments. Uncertain stage: {stage}. Check the destination before continuing; the uncertain file may already exist.',
+  savePhaseNote: 'note',
+  savePhaseAttachments: 'attachment',
+  saveContinue: 'Checked, continue remaining save',
+  saveContinuationUnavailable:
+    'The original export snapshot or destination is unavailable or changed. Your content is kept. Check previous files before starting a new export.',
+
   saveFailurePermission: 'Access was denied. Check folder permissions and try again.',
   saveFailureConnection: 'Cannot connect. Check the connection and try again.',
   saveFailureValidation: 'Check the content and save destination, then try again.',
