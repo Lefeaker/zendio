@@ -446,6 +446,10 @@ const FIREFOX_EXECUTION_CLASSES = deepFreeze({
     browserRootBasename: 'playwright-browsers',
     requireAttemptEnvironment: true
   },
+  'acceptance-ci': {
+    browserRootBasename: 'playwright-browsers',
+    requireAttemptEnvironment: true
+  },
   'ordinary-ci': {
     browserRootBasename: 'browsers',
     requireAttemptEnvironment: false
@@ -1772,6 +1776,60 @@ function requireReleaseJob(environment, acceptedJobClasses) {
   return releaseAttemptRoot(environment);
 }
 
+function isFirefoxAcceptanceContext(environment) {
+  return (
+    environment.ZENDIO_JOB_CLASS === 'browser-v1' && environment.GITHUB_JOB === 'browser-firefox'
+  );
+}
+
+function requireFirefoxAcceptanceJob(environment) {
+  if (
+    Object.keys(environment).some((key) =>
+      ALL_STORE_KEYS.some((credential) => credential.toLowerCase() === key.toLowerCase())
+    )
+  )
+    invalid('STORE_CREDENTIAL_FORBIDDEN');
+  if (
+    !isFirefoxAcceptanceContext(environment) ||
+    environment.CI !== 'true' ||
+    environment.GITHUB_ACTIONS !== 'true' ||
+    environment.ZENDIO_JOB_TIMEOUT_MINUTES !== '60' ||
+    environment.RUNNER_OS !== 'Linux' ||
+    environment.RUNNER_ARCH !== 'X64' ||
+    environment.ImageOS !== 'ubuntu24'
+  )
+    invalid('FIREFOX_ACCEPTANCE_CONTEXT_INVALID');
+  const root = releaseAttemptRoot(environment);
+  const stampPath = join(
+    dirname(root),
+    `zendio-command-start-${environment.GITHUB_RUN_ID}-${environment.GITHUB_RUN_ATTEMPT}-${environment.GITHUB_JOB}.receipt`
+  );
+  const stamp = requireOwnedRegular(stampPath, dirname(root), {
+    currentUid: process.getuid(),
+    lstatOperation: lstatSync,
+    realpathOperation: realpathSync
+  });
+  if ((stamp.stats.mode & 0o777) !== 0o600 || stamp.stats.size > 4096) invalid('CI_STAMP_INVALID');
+  const values = readFileSync(stampPath, 'utf8').split('\n');
+  const expected = [
+    'zendio-ci-command-start-v1',
+    environment.GITHUB_RUN_ID,
+    environment.GITHUB_RUN_ATTEMPT,
+    environment.GITHUB_JOB,
+    environment.ZENDIO_JOB_CLASS,
+    environment.ZENDIO_JOB_TIMEOUT_MINUTES,
+    environment.RUNNER_OS,
+    environment.RUNNER_ARCH,
+    environment.ImageOS,
+    environment.ImageVersion,
+    values[10],
+    ''
+  ];
+  if (!/^\d{1,14}$/u.test(values[10] ?? '') || JSON.stringify(values) !== JSON.stringify(expected))
+    invalid('CI_STAMP_INVALID');
+  return root;
+}
+
 function validatedGithubOutput(environment) {
   if (typeof environment.GITHUB_OUTPUT !== 'string' || typeof environment.RUNNER_TEMP !== 'string')
     invalid('CI_OUTPUT_INVALID');
@@ -1932,6 +1990,9 @@ function firefoxPlaywrightPhaseEnvironment(environment, hostDependencies) {
   if (environment.ZENDIO_JOB_CLASS === 'firefox-prepare-v1') {
     root = requireReleaseJob(environment, ['firefox-prepare-v1']);
     executionClass = 'release';
+  } else if (isFirefoxAcceptanceContext(environment)) {
+    root = requireFirefoxAcceptanceJob(environment);
+    executionClass = 'acceptance-ci';
   } else {
     if (environment.ZENDIO_JOB_CLASS !== undefined && environment.ZENDIO_JOB_CLASS !== 'browser-v1')
       invalid('PLAYWRIGHT_PHASE_CONTEXT_INVALID');
@@ -1983,7 +2044,7 @@ function firefoxPlaywrightPhaseEnvironment(environment, hostDependencies) {
       hostDependencies ? 'host-deps' : 'browser-install'
     ),
     requiredPhaseReceiptPath:
-      !hostDependencies && executionClass === 'release'
+      !hostDependencies && ['release', 'acceptance-ci'].includes(executionClass)
         ? firefoxPhaseReceiptPath(root, 'host-deps')
         : undefined,
     sequenceOwner:
@@ -2166,8 +2227,11 @@ function firefoxReleaseConsumerEnvironment(
   const executionClass =
     profileId === 'firefox-verify-v1' && transport === 'github-artifact-v1'
       ? 'protected-verifier'
-      : 'release';
-  const ciReleaseConsumer = executionClass === 'release' && environment.CI === 'true';
+      : isFirefoxAcceptanceContext(environment)
+        ? 'acceptance-ci'
+        : 'release';
+  const ciReleaseConsumer =
+    ['release', 'acceptance-ci'].includes(executionClass) && environment.CI === 'true';
   const configs = exactAttemptConfigEnvironment(attemptRoot, environment);
   if (executionClass === 'protected-verifier') {
     if (
@@ -2207,7 +2271,7 @@ function firefoxReleaseConsumerEnvironment(
     requiredPhaseReceiptPath: ciReleaseConsumer
       ? firefoxPhaseReceiptPath(attemptRoot, 'browser-install')
       : undefined,
-    sequenceOwner: ciReleaseConsumer ? profileId : undefined,
+    sequenceOwner: ciReleaseConsumer && executionClass === 'release' ? profileId : undefined,
     environment: {
       NPM_CONFIG_USERCONFIG: configs.NPM_CONFIG_USERCONFIG,
       NPM_CONFIG_GLOBALCONFIG: configs.NPM_CONFIG_GLOBALCONFIG,
@@ -2442,8 +2506,9 @@ export function resolveCommandProfile(
       commandContext: { attemptRoot: root }
     };
   } else if (profileId === 'firefox-geckodriver-provision-v1') {
-    const attemptRoot =
-      environment.CI === 'true' || environment.GITHUB_ACTIONS === 'true'
+    const attemptRoot = isFirefoxAcceptanceContext(environment)
+      ? requireFirefoxAcceptanceJob(environment)
+      : environment.CI === 'true' || environment.GITHUB_ACTIONS === 'true'
         ? requireReleaseJob(environment, ['firefox-prepare-v1'])
         : requireLocalRelease(environment);
     const outputDir = requireContainedArgument(
@@ -2502,7 +2567,14 @@ export function resolveCommandProfile(
     const configMode = profileArgumentValue(args, '--config-mode');
     const browser = profileArgumentValue(args, '--browser');
     let attemptRoot;
-    if (configMode === 'owner-public-vars') {
+    if (
+      profileId === 'isolated-build-v1' &&
+      browser === 'firefox' &&
+      configMode === 'standalone-synthetic' &&
+      isFirefoxAcceptanceContext(environment)
+    ) {
+      attemptRoot = requireFirefoxAcceptanceJob(environment);
+    } else if (configMode === 'owner-public-vars') {
       attemptRoot = requireReleaseJob(
         environment,
         browser ? [`${browser}-prepare-v1`] : ['chrome-prepare-v1', 'firefox-prepare-v1']
@@ -2599,14 +2671,23 @@ export function resolveCommandProfile(
     ].includes(profileId);
     const firefoxProtectedVerifier =
       profileId === 'firefox-verify-v1' && transport === 'github-artifact-v1';
+    const firefoxAcceptanceConsumer =
+      firefoxReleaseConsumer &&
+      transport === 'local-private-v1' &&
+      isFirefoxAcceptanceContext(environment);
     if (
       profileId === 'firefox-prepare-v1' &&
       (environment.CI === 'true' || environment.GITHUB_ACTIONS === 'true') &&
-      configMode !== 'owner-public-vars'
+      configMode !== 'owner-public-vars' &&
+      !(firefoxAcceptanceConsumer && configMode === 'standalone-synthetic')
     )
       invalid('RELEASE_CONFIG_MODE_INVALID');
     let attemptRoot;
-    if (profileId === 'chrome-publish-v1' || profileId === 'firefox-submit-v1') {
+    if (firefoxAcceptanceConsumer) {
+      if (profileId === 'firefox-prepare-v1' && configMode !== 'standalone-synthetic')
+        invalid('RELEASE_CONFIG_MODE_INVALID');
+      attemptRoot = requireFirefoxAcceptanceJob(environment);
+    } else if (profileId === 'chrome-publish-v1' || profileId === 'firefox-submit-v1') {
       attemptRoot = requireReleaseJob(environment, [
         browser === 'chrome' ? 'chrome-publish-v1' : 'firefox-submit-v1'
       ]);

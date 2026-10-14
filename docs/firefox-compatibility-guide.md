@@ -200,14 +200,22 @@ node scripts/run-bounded-command.mjs \
   --result-json "$ATTEMPT_ROOT/firefox-smoke-result.json"
 ```
 
-专项保存回归可在 `firefox-smoke-v1` 的三个现有参数后显式追加 `--scenario save-retry-v1`。该固定场景验证真实 Options 配置、Reader 写入失败后的内容保留、重试成功与重开保存；省略时仍执行原有安装/身份 smoke，不改变默认发布门禁。其他场景名和重复参数会被拒绝，仍要求相同的 verified XPI、private attempt、browser 和 geckodriver 绑定。
+`firefox-smoke-v1` 默认执行固定 `save-retry-v1` 保存回归；保留显式 `--scenario save-retry-v1` 参数与旧调用兼容，省略参数也不能跳过保存验证。其他场景名和重复参数会被拒绝，仍要求相同的 verified XPI、private attempt、browser 和 geckodriver 绑定。
+
+该场景从已安装扩展的真实 Options 控件设置测试目的地，再由普通网页的 content loader 自动启动 Reader。首篇保存收到一次 HTTP 500 后，UI 高亮及持久化草稿必须保留；重试成功后，第二篇含不同正文的文章也必须正常保存。接收端先把请求正文写入当前 attempt 的 `firefox-save-output/save-1.md` 和 `save-2.md`，再返回 HTTP 200。门槛读取这两个文件的完整内容，检查没有复用另一篇正文、拒绝/成功写入次数分别为 1/2，并在 smoke result 中保留文件字节数及 SHA-256。任一内容启动、保存、草稿或文件校验失败都会让命令失败，不能发布成功的 smoke result。
+
+失败保留检查以保存前已确认持久化的初始草稿为前提。条件轮询和轮询睡眠均受原有 smoke deadline 的取消边界约束；即使文件数量条件短路、没有发出 WebDriver 请求，超时后也必须停止轮询并完成原有浏览器/profile 清理。
+
+保存目的地是隔离的 loopback REST fixture（result 中明确标为 `loopback-rest-fixture`），使用固定合成 key，无需真实 Obsidian 凭据。它证明 Firefox XPI 的内容入口、配置、Reader、后台保存链路和实际 Markdown 请求内容，不证明用户的 Obsidian 插件、HTTPS 证书或原生目录授权；后者仍需在明确的用户环境中单独验收。`test:e2e:browser:firefox` 的 YAML 页面检查也不能代替 exact-XPI 保存验收。
+
+CI 的 `browser-firefox` job 同时运行 YAML 页面检查与 exact-XPI 保存验收：复用现有 host dependencies、锁定 Firefox 安装、isolated build、pinned geckodriver、prepare、verify 和 smoke owners。`acceptance-ci` 只接受已 bootstrap 的 `browser-firefox` / `browser-v1` 上下文、同一个私有 attempt、`standalone-synthetic` 配置与 `local-private-v1` 传输。它保留 host/install receipts 和 browser lease；不接受商店凭据、owner public variables、发布授权或 submit。生成工件的 `releaseEligible` 始终为 `false`。成功和失败的 job 都上传 `browser-firefox-reports`，其中包含可获得的 smoke result、Markdown 输出及工件 manifest。正式 AMO prepare 继续使用独立的发布授权边界，也默认执行同一保存场景。
 
 portable manifest 将 exact XPI、AMO source archive、dist inventory、Git tree、工具链和公开 GA 配置指纹绑定在一起。`local-private-v1` 仅接受 0700 目录和 0600 文件；工作流下载后的验证必须显式选择 `github-artifact-v1`，且不得由路径或文件 mode 自动推断 transport。
 
 exact-XPI smoke 使用固定版本和 SHA-256 的官方 geckodriver `0.37.1` 启动锁匹配的
 Playwright Firefox，并通过 WebDriver BiDi 安装同一 XPI。门禁依次验证 install 返回的 Gecko
 ID、geckodriver system-access context 中 AddonManager 的相同 ID / manifest version / active state、
-uninstall、reinstall、再次 identity/state 验证，以及有界关闭和私有 profile 清理。system-access
+上述保存回归、uninstall、reinstall、再次 identity/state 验证，以及有界关闭和私有 profile 清理。system-access
 只对当前私有 smoke session 开启，子进程环境不含 AMO 凭据。它不会把 unpacked source
 directory 冒充 XPI 安装证据，也不会读取用户 Firefox profile、系统 Firefox 或默认浏览器缓存。
 该阶段只做本地、无凭据验证；AMO submit、push 和 publish 不属于这个阶段。

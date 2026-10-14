@@ -1149,31 +1149,77 @@ jobs:
         env:
           NPM_CONFIG_USERCONFIG: ${{ steps.node.outputs.npm-userconfig }}
           NPM_CONFIG_GLOBALCONFIG: ${{ steps.node.outputs.npm-globalconfig }}
-          PLAYWRIGHT_BROWSERS_PATH: ${{ steps.node.outputs.attempt-root }}/browsers
+          ZENDIO_PLAYWRIGHT_ATTEMPT_ROOT: ${{ steps.node.outputs.attempt-root }}
+          PLAYWRIGHT_BROWSERS_PATH: ${{ steps.node.outputs.attempt-root }}/playwright-browsers
         run: node scripts/run-bounded-command.mjs --profile playwright-host-deps-platform-v1 -- firefox-with-host-deps
 
       - name: Install bundled Firefox browser
         env:
           NPM_CONFIG_USERCONFIG: ${{ steps.node.outputs.npm-userconfig }}
           NPM_CONFIG_GLOBALCONFIG: ${{ steps.node.outputs.npm-globalconfig }}
-          PLAYWRIGHT_BROWSERS_PATH: ${{ steps.node.outputs.attempt-root }}/browsers
+          ZENDIO_PLAYWRIGHT_ATTEMPT_ROOT: ${{ steps.node.outputs.attempt-root }}
+          PLAYWRIGHT_BROWSERS_PATH: ${{ steps.node.outputs.attempt-root }}/playwright-browsers
         run: node scripts/run-bounded-command.mjs --profile playwright-browser-install-v1 -- firefox-with-host-deps
 
       - name: Run browser Firefox tests
         env:
           NPM_CONFIG_USERCONFIG: ${{ steps.node.outputs.npm-userconfig }}
           NPM_CONFIG_GLOBALCONFIG: ${{ steps.node.outputs.npm-globalconfig }}
-          PLAYWRIGHT_BROWSERS_PATH: ${{ steps.node.outputs.attempt-root }}/browsers
+          ZENDIO_PLAYWRIGHT_ATTEMPT_ROOT: ${{ steps.node.outputs.attempt-root }}
+          PLAYWRIGHT_BROWSERS_PATH: ${{ steps.node.outputs.attempt-root }}/playwright-browsers
         run: node scripts/run-bounded-command.mjs --profile npm-script-browser-v1 -- test:e2e:browser:firefox
 
+      - name: Build synthetic Firefox acceptance package
+        env:
+          NPM_CONFIG_USERCONFIG: ${{ steps.node.outputs.npm-userconfig }}
+          NPM_CONFIG_GLOBALCONFIG: ${{ steps.node.outputs.npm-globalconfig }}
+          ZENDIO_PLAYWRIGHT_ATTEMPT_ROOT: ${{ steps.node.outputs.attempt-root }}
+          PLAYWRIGHT_BROWSERS_PATH: ${{ steps.node.outputs.attempt-root }}/playwright-browsers
+        run: node scripts/run-bounded-command.mjs --profile isolated-build-v1 -- --run-isolated-build --config-mode standalone-synthetic --browser firefox --dist-dir "${{ steps.node.outputs.attempt-root }}/build/dist-firefox" --temp-dir "${{ steps.node.outputs.attempt-root }}/build/tmp-firefox"
+
+      - name: Provision pinned Firefox driver
+        env:
+          NPM_CONFIG_USERCONFIG: ${{ steps.node.outputs.npm-userconfig }}
+          NPM_CONFIG_GLOBALCONFIG: ${{ steps.node.outputs.npm-globalconfig }}
+          ZENDIO_PLAYWRIGHT_ATTEMPT_ROOT: ${{ steps.node.outputs.attempt-root }}
+          PLAYWRIGHT_BROWSERS_PATH: ${{ steps.node.outputs.attempt-root }}/playwright-browsers
+        run: node scripts/run-bounded-command.mjs --profile firefox-geckodriver-provision-v1 -- --output-dir "${{ steps.node.outputs.attempt-root }}/geckodriver"
+
+      - name: Prepare non-release Firefox acceptance artifact
+        env:
+          NPM_CONFIG_USERCONFIG: ${{ steps.node.outputs.npm-userconfig }}
+          NPM_CONFIG_GLOBALCONFIG: ${{ steps.node.outputs.npm-globalconfig }}
+          ZENDIO_PLAYWRIGHT_ATTEMPT_ROOT: ${{ steps.node.outputs.attempt-root }}
+          PLAYWRIGHT_BROWSERS_PATH: ${{ steps.node.outputs.attempt-root }}/playwright-browsers
+        run: node scripts/run-bounded-command.mjs --profile firefox-prepare-v1 -- --config-mode standalone-synthetic --transport-mode local-private-v1 --attempt-root "${{ steps.node.outputs.attempt-root }}" --dist-dir "${{ steps.node.outputs.attempt-root }}/build/dist-firefox" --release-dir "${{ steps.node.outputs.attempt-root }}/release" --result-json "${{ steps.node.outputs.attempt-root }}/firefox-result.json"
+
+      - name: Verify Firefox acceptance artifact
+        env:
+          NPM_CONFIG_USERCONFIG: ${{ steps.node.outputs.npm-userconfig }}
+          NPM_CONFIG_GLOBALCONFIG: ${{ steps.node.outputs.npm-globalconfig }}
+          ZENDIO_PLAYWRIGHT_ATTEMPT_ROOT: ${{ steps.node.outputs.attempt-root }}
+          PLAYWRIGHT_BROWSERS_PATH: ${{ steps.node.outputs.attempt-root }}/playwright-browsers
+        run: node scripts/run-bounded-command.mjs --profile firefox-verify-v1 -- --manifest "${{ steps.node.outputs.attempt-root }}/release/manifest.json" --transport-mode local-private-v1
+
+      - name: Save and reinstall exact Firefox XPI
+        env:
+          NPM_CONFIG_USERCONFIG: ${{ steps.node.outputs.npm-userconfig }}
+          NPM_CONFIG_GLOBALCONFIG: ${{ steps.node.outputs.npm-globalconfig }}
+          ZENDIO_PLAYWRIGHT_ATTEMPT_ROOT: ${{ steps.node.outputs.attempt-root }}
+          PLAYWRIGHT_BROWSERS_PATH: ${{ steps.node.outputs.attempt-root }}/playwright-browsers
+        run: node scripts/run-bounded-command.mjs --profile firefox-smoke-v1 -- --manifest "${{ steps.node.outputs.attempt-root }}/release/manifest.json" --transport-mode local-private-v1 --result-json "${{ steps.node.outputs.attempt-root }}/firefox-smoke-result.json"
+
       - name: Upload browser Firefox reports
-        if: failure()
+        if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: browser-firefox-reports
           path: |
             tests/visual/__output__/
             build/reports/playwright/
+            ${{ steps.node.outputs.attempt-root }}/firefox-smoke-result.json
+            ${{ steps.node.outputs.attempt-root }}/firefox-save-output/
+            ${{ steps.node.outputs.attempt-root }}/release/manifest.json
           if-no-files-found: ignore
 
   browser-state:

@@ -243,14 +243,14 @@ function temporaryRoot(): string {
   return root;
 }
 
-function ciInstallFixture(jobClass = 'generic-v1', timeout = '30') {
+function ciInstallFixture(jobClass = 'generic-v1', timeout = '30', job = 'unit-contract') {
   const runnerTemp = realpathSync(temporaryRoot());
   const output = join(runnerTemp, 'github-output');
   const startCentiseconds = '100000';
   const environment = cleanEnvironment({
     CI: 'true',
     GITHUB_ACTIONS: 'true',
-    GITHUB_JOB: 'unit-contract',
+    GITHUB_JOB: job,
     GITHUB_OUTPUT: output,
     GITHUB_RUN_ATTEMPT: '2',
     GITHUB_RUN_ID: '123456',
@@ -265,12 +265,12 @@ function ciInstallFixture(jobClass = 'generic-v1', timeout = '30') {
   writeFileSync(output, '', { mode: 0o600 });
   chmodSync(output, 0o600);
   writeFileSync(
-    join(runnerTemp, 'zendio-command-start-123456-2-unit-contract.receipt'),
+    join(runnerTemp, `zendio-command-start-123456-2-${job}.receipt`),
     [
       'zendio-ci-command-start-v1',
       '123456',
       '2',
-      'unit-contract',
+      job,
       jobClass,
       timeout,
       'Linux',
@@ -484,6 +484,47 @@ function firefoxPlaywrightPhaseFixture() {
       ZENDIO_PLAYWRIGHT_ATTEMPT_ROOT: fixture.attemptRoot
     }
   };
+}
+
+function firefoxAcceptanceFixture() {
+  const fixture = ciInstallFixture('browser-v1', '60', 'browser-firefox');
+  const install = resolveCommandProfile('github-ci-install-v1', [], {
+    environment: fixture.environment,
+    operations: fixture.operations
+  });
+  const attemptRoot = install.commandContext?.attemptRoot;
+  if (typeof attemptRoot !== 'string') throw new Error('TEST_ATTEMPT_ROOT_INVALID');
+  const browsersPath = join(attemptRoot, 'playwright-browsers');
+  const environment = {
+    ...fixture.environment,
+    NPM_CONFIG_USERCONFIG: join(attemptRoot, 'install/npm-userconfig'),
+    NPM_CONFIG_GLOBALCONFIG: join(attemptRoot, 'install/npm-globalconfig'),
+    ZENDIO_PLAYWRIGHT_ATTEMPT_ROOT: attemptRoot,
+    PLAYWRIGHT_BROWSERS_PATH: browsersPath
+  };
+  const smokeArgs = [
+    '--manifest',
+    join(attemptRoot, 'release/manifest.json'),
+    '--transport-mode',
+    'local-private-v1',
+    '--result-json',
+    join(attemptRoot, 'smoke.json')
+  ];
+  const prepareArgs = [
+    '--config-mode',
+    'standalone-synthetic',
+    '--transport-mode',
+    'local-private-v1',
+    '--attempt-root',
+    attemptRoot,
+    '--dist-dir',
+    join(attemptRoot, 'build/dist-firefox'),
+    '--release-dir',
+    join(attemptRoot, 'release'),
+    '--result-json',
+    join(attemptRoot, 'prepare.json')
+  ];
+  return { ...fixture, attemptRoot, browsersPath, environment, smokeArgs, prepareArgs };
 }
 
 function rewriteCanonicalOwnedJson(
@@ -4307,6 +4348,181 @@ describe('bounded command ownership', () => {
         { resolveProfile: () => late }
       )
     ).toThrow();
+  });
+
+  it('admits synthetic Firefox acceptance only through the bootstrapped CI attempt and existing owners', () => {
+    const fixture = firefoxAcceptanceFixture();
+    const host = resolveCommandProfile(
+      'playwright-host-deps-platform-v1',
+      ['firefox-with-host-deps'],
+      {
+        environment: fixture.environment
+      }
+    );
+    expect(host.commandContext).toMatchObject({
+      firefoxExecutionClass: 'acceptance-ci',
+      attemptRoot: fixture.attemptRoot,
+      browsersPath: fixture.browsersPath,
+      browserRootState: 'absent'
+    });
+    const install = resolveCommandProfile(
+      'playwright-browser-install-v1',
+      ['firefox-with-host-deps'],
+      {
+        environment: fixture.environment
+      }
+    );
+    expect(install.commandContext?.requiredPhaseReceiptPath).toBe(
+      join(fixture.attemptRoot, 'receipts/firefox-playwright-host-deps.json')
+    );
+    const cases: Array<[CommandBoundaryProfileId, string[]]> = [
+      [
+        'isolated-build-v1',
+        [
+          '--run-isolated-build',
+          '--config-mode',
+          'standalone-synthetic',
+          '--browser',
+          'firefox',
+          '--dist-dir',
+          join(fixture.attemptRoot, 'build/dist-firefox'),
+          '--temp-dir',
+          join(fixture.attemptRoot, 'build/tmp-firefox')
+        ]
+      ],
+      [
+        'firefox-geckodriver-provision-v1',
+        ['--output-dir', join(fixture.attemptRoot, 'geckodriver')]
+      ],
+      ['firefox-prepare-v1', fixture.prepareArgs],
+      ['firefox-verify-v1', fixture.smokeArgs.slice(0, 4)],
+      ['firefox-smoke-v1', fixture.smokeArgs]
+    ];
+    for (const [profileId, args] of cases) {
+      const spec = resolveCommandProfile(profileId, args, { environment: fixture.environment });
+      expect(spec.commandContext?.attemptRoot).toBe(fixture.attemptRoot);
+      expect(spec.env).not.toHaveProperty('WEB_EXT_API_KEY');
+      if (['firefox-prepare-v1', 'firefox-verify-v1', 'firefox-smoke-v1'].includes(profileId)) {
+        expect(spec.commandContext).toMatchObject({
+          firefoxExecutionClass: 'acceptance-ci',
+          requiredPhaseReceiptPath: join(
+            fixture.attemptRoot,
+            'receipts/firefox-playwright-browser-install.json'
+          ),
+          sequenceOwner: undefined
+        });
+        // The real boundary still requires the install receipt before invoking any consumer.
+        expect(() =>
+          startBoundedCommand({ profileId, arguments: args }, { resolveProfile: () => spec })
+        ).toThrow();
+      }
+    }
+  });
+
+  it('rejects foreign jobs, cleared CI, altered stamps, credentials and cross-attempt Firefox CI consumers', () => {
+    const fixture = firefoxAcceptanceFixture();
+    for (const key of ['WEB_EXT_API_KEY', 'web_ext_api_secret', 'CWS_CLIENT_SECRET']) {
+      expect(() =>
+        resolveCommandProfile('playwright-host-deps-platform-v1', ['firefox-with-host-deps'], {
+          environment: { ...fixture.environment, [key]: 'must-be-rejected' }
+        })
+      ).toThrow('STORE_CREDENTIAL_FORBIDDEN');
+      expect(() =>
+        resolveCommandProfile('playwright-browser-install-v1', ['firefox-with-host-deps'], {
+          environment: { ...fixture.environment, [key]: 'must-be-rejected' }
+        })
+      ).toThrow('STORE_CREDENTIAL_FORBIDDEN');
+    }
+    mkdirSync(fixture.browsersPath, { mode: 0o700 });
+    const mutations: NodeJS.ProcessEnv[] = [
+      { ...fixture.environment, GITHUB_JOB: 'browser-yaml' },
+      { ...fixture.environment, ZENDIO_JOB_CLASS: 'generic-v1' },
+      { ...fixture.environment, CI: undefined, GITHUB_ACTIONS: undefined },
+      { ...fixture.environment, WEB_EXT_API_KEY: 'must-be-rejected' },
+      { ...fixture.environment, WEB_EXT_API_SECRET: 'must-be-rejected' },
+      { ...fixture.environment, PLAYWRIGHT_BROWSERS_PATH: join(fixture.runnerTemp, 'shared') },
+      { ...fixture.environment, ZENDIO_PLAYWRIGHT_ATTEMPT_ROOT: fixture.runnerTemp }
+    ];
+    for (const environment of mutations) {
+      expect(() =>
+        resolveCommandProfile('firefox-smoke-v1', fixture.smokeArgs, { environment })
+      ).toThrow();
+    }
+    expect(() =>
+      resolveCommandProfile(
+        'firefox-smoke-v1',
+        [
+          '--manifest',
+          join(fixture.runnerTemp, 'foreign/manifest.json'),
+          ...fixture.smokeArgs.slice(2)
+        ],
+        { environment: fixture.environment }
+      )
+    ).toThrow('RELEASE_PATH_OUTSIDE_ATTEMPT');
+    const stamp = join(fixture.runnerTemp, 'zendio-command-start-123456-2-browser-firefox.receipt');
+    writeFileSync(stamp, readFileSync(stamp, 'utf8').replace('browser-firefox', 'browser-yaml'));
+    expect(() =>
+      resolveCommandProfile('firefox-smoke-v1', fixture.smokeArgs, {
+        environment: fixture.environment
+      })
+    ).toThrow('CI_STAMP_INVALID');
+  });
+
+  it('keeps CI synthetic acceptance outside owner configuration and protected store authorization', () => {
+    const fixture = firefoxAcceptanceFixture();
+    mkdirSync(fixture.browsersPath, { mode: 0o700 });
+    const ownerArgs = [...fixture.prepareArgs];
+    ownerArgs[1] = 'owner-public-vars';
+    ownerArgs.splice(
+      -2,
+      0,
+      '--authorization-record',
+      join(fixture.attemptRoot, 'authorization.json')
+    );
+    expect(() =>
+      resolveCommandProfile('firefox-prepare-v1', ownerArgs, { environment: fixture.environment })
+    ).toThrow('RELEASE_CONFIG_MODE_INVALID');
+    expect(() =>
+      resolveCommandProfile(
+        'firefox-verify-v1',
+        ['--manifest', fixture.smokeArgs[1], '--transport-mode', 'github-artifact-v1'],
+        { environment: fixture.environment }
+      )
+    ).toThrow('RELEASE_JOB_CONTEXT_INVALID');
+    expect(() =>
+      resolveCommandProfile(
+        'release-provenance-v1',
+        [
+          'scripts/utils/releaseCiProvenance.mjs',
+          '--prepare-authorization',
+          '--expected-sha',
+          'a'.repeat(40),
+          '--required-jobs-source',
+          'scripts/config/releaseRequiredCiJobs.mjs',
+          '--authorization-record',
+          join(fixture.attemptRoot, 'authorization.json')
+        ],
+        { environment: fixture.environment }
+      )
+    ).toThrow('RELEASE_JOB_CONTEXT_INVALID');
+    expect(() =>
+      resolveCommandProfile(
+        'firefox-submit-v1',
+        [
+          '--artifact-manifest',
+          fixture.smokeArgs[1],
+          '--transport-mode',
+          'github-artifact-v1',
+          '--submission-state-file',
+          join(fixture.attemptRoot, 'store-state/firefox/submission-state.json'),
+          '--saved-upload-uuid-path',
+          join(fixture.attemptRoot, 'store-state/firefox/web-ext-upload/upload-uuid.json'),
+          '--channel',
+          'listed'
+        ],
+        { environment: fixture.environment }
+      )
+    ).toThrow('RELEASE_JOB_CONTEXT_INVALID');
   });
 
   it('publishes immutable same-attempt Firefox phase receipts and requires them before consumers', async () => {
